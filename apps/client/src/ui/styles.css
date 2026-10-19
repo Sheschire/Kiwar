@@ -2040,3 +2040,60 @@ button.chip:focus-visible {
     text-overflow: ellipsis;
   }
 }
+
+.crew-list {
+  max-height: 260px;
+  overflow-y: auto;
+  gap: 4px !important;
+  padding-right: 2px;
+}
+
+.crew-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  min-height: var(--tap);
+  border: 1px solid rgba(138, 95, 56, 0.2);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.crew-row.is-on {
+  background: rgba(111, 154, 44, 0.14);
+  border-color: rgba(79, 116, 25, 0.45);
+}
+
+.crew-row input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--leaf);
+}
+
+.crew-numbers {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  white-space: nowrap;
+}
+
+.report-roster {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 6px !important;
+}
+
+.report-roster li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.report-roster li.is-lost {
+  filter: grayscale(0.8);
+  opacity: 0.8;
+}

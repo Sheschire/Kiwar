@@ -133,7 +133,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
           victory: e.result!.victory,
         });
       } else {
-        resolveReturn(s, e);
+        resolveReturn(s, e, events);
         for (const v of s.villagers)
           if (v.job.kind === 'idle' && e.crew.includes(v.id)) autoAssign(s, v);
         events.push({ type: 'expeditionReturned', at: e.returnAt, expeditionId: e.id });

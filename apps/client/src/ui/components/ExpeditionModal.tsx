@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'preact/hooks';
 import {
+  availableCrew,
+  crewWeight,
   EXPEDITIONS,
   forecastExpedition,
+  kiwiStrength,
   launchpadOf,
   maxCrew,
   targetDefense,
@@ -10,22 +13,106 @@ import {
   type BuildingId,
   type ExpeditionTarget,
   type GameState,
+  type VillagerId,
 } from '@kiwar/shared';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { KiwiIcon, ResourceIcon, ShipIcon } from '../icons';
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
+import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
+import { useJobLabel } from './VillageModal';
 
 /** Exact round-trip rations for a crew, with a 10 % safety margin, rounded up to 5. */
-function suggestedProvisions(crew: number, travelMs: number): { pulp: number; juice: number } {
-  const hours = (2 * travelMs) / 3_600_000;
-  const up5 = (v: number) => Math.ceil((v * 1.1) / 5) * 5;
-  return {
-    pulp: up5(crew * EXPEDITIONS.hourlyRations.pulp * hours),
-    juice: up5(crew * EXPEDITIONS.hourlyRations.juice * hours),
-  };
+function suggestedProvisions(
+  game: GameState,
+  plan: { launchpadId: BuildingId; targetId: string; crew: VillagerId[] },
+): { pulp: number; juice: number } {
+  const f = forecastExpedition(game, { ...plan, provisions: { pulp: 0, juice: 0 } });
+  if (!f) return { pulp: 0, juice: 0 };
+  const up5 = (v: number) => Math.ceil((v * 2 * 1.1) / 5) * 5;
+  return { pulp: up5(f.needOneWay.pulp), juice: up5(f.needOneWay.juice) };
+}
+
+/** Available kiwis, strongest first. */
+function candidates(game: GameState) {
+  return availableCrew(game)
+    .map((v) => ({ v, strength: kiwiStrength(v) }))
+    .sort((a, b) => b.strength - a.strength || a.v.name.localeCompare(b.v.name));
+}
+
+function CrewPicker(props: {
+  game: GameState;
+  crew: VillagerId[];
+  max: number;
+  risk: Record<string, number>;
+  onChange(crew: VillagerId[]): void;
+}) {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const jobLabel = useJobLabel();
+  const list = candidates(props.game);
+  const chosen = new Set(props.crew);
+  const full = props.crew.length >= props.max;
+  return (
+    <>
+      <p class="small muted">{t('expedition.crewHint')}</p>
+      <div class="row">
+        <button
+          class="btn btn-small"
+          onClick={() => props.onChange(list.slice(0, props.max).map((c) => c.v.id))}
+        >
+          {t('expedition.strongest')}
+        </button>
+        <button class="btn btn-small" onClick={() => props.onChange([])}>
+          {t('expedition.clearCrew')}
+        </button>
+      </div>
+      <ul class="crew-list">
+        {list.map(({ v, strength }) => {
+          const on = chosen.has(v.id);
+          const risk = props.risk[v.id];
+          return (
+            <li key={v.id}>
+              <label class={`crew-row ${on ? 'is-on' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={on}
+                  disabled={!on && full}
+                  onChange={() =>
+                    props.onChange(
+                      on ? props.crew.filter((id) => id !== v.id) : [...props.crew, v.id],
+                    )
+                  }
+                />
+                <KiwiPortrait shiny={v.shiny} seed={v.id} size={34} />
+                <span class="kiwi-row-main">
+                  <span class="kiwi-row-name">
+                    {v.name}{' '}
+                    <span class="small muted">{t('common.levelShort', { level: v.level })}</span>
+                  </span>
+                  <span class="small muted">{jobLabel(props.game, v)}</span>
+                </span>
+                <span class="crew-numbers small">
+                  <span>
+                    {t('expedition.kiwiStrength', {
+                      value: formatNumber(lang, Math.round(strength * 10) / 10),
+                    })}
+                  </span>
+                  {on && risk !== undefined && (
+                    <span class={risk > 0.5 ? 'warn' : 'muted'}>
+                      {t('expedition.risk', { pct: Math.round(risk * 100) })}
+                    </span>
+                  )}
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
 }
 
 export function targetLabel(t: Translate, target: ExpeditionTarget): string {
@@ -66,11 +153,15 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
   const [targetId, setTargetId] = useState(game.targets[0]?.id ?? '');
   const max = pad ? maxCrew(game, pad) : 0;
   const target = game.targets.find((x) => x.id === targetId);
-  const [crew, setCrew] = useState(
-    Math.min(Math.max(EXPEDITIONS.minCrew, 6), Math.max(max, EXPEDITIONS.minCrew)),
+  const [crew, setCrew] = useState<VillagerId[]>(() =>
+    candidates(game)
+      .slice(0, Math.min(6, max))
+      .map((c) => c.v.id),
   );
   const [food, setFood] = useState(() =>
-    pad && target ? suggestedProvisions(crew, travelTime(target, pad)) : { pulp: 0, juice: 0 },
+    target
+      ? suggestedProvisions(game, { launchpadId: padId, targetId, crew })
+      : { pulp: 0, juice: 0 },
   );
   if (!pad || !target || !map) return null;
 
@@ -79,16 +170,16 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
   const error = validateCommand(game, { type: 'launchExpedition', ...plan }, { now, map });
   const fmt = (v: number) => formatNumber(lang, Math.round(v));
   const pct = (v: number) => `${Math.max(0, Math.min(100, (v / f.cargo) * 100))}%`;
-  const crewWeight = crew * EXPEDITIONS.kiwiWeight;
+  const kiwisWeight = crewWeight(f.crew);
   const foodWeight = (food.pulp + food.juice) * EXPEDITIONS.resourceWeight;
   const outShort = {
     pulp: Math.max(0, f.needOneWay.pulp - food.pulp),
     juice: Math.max(0, f.needOneWay.juice - food.juice),
   };
   const backOk = f.returnSurplus.pulp >= -1e-6 && f.returnSurplus.juice >= -1e-6;
-  const setCrewAndFood = (c: number) => {
+  const setCrewAndFood = (c: VillagerId[]) => {
     setCrew(c);
-    setFood(suggestedProvisions(c, f.travelMs));
+    setFood(suggestedProvisions(game, { launchpadId: padId, targetId, crew: c }));
   };
 
   return (
@@ -103,7 +194,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
               aria-pressed={x.id === targetId}
               onClick={() => {
                 setTargetId(x.id);
-                setFood(suggestedProvisions(crew, travelTime(x, pad)));
+                setFood(suggestedProvisions(game, { launchpadId: padId, targetId: x.id, crew }));
               }}
             >
               <strong>{targetLabel(t, x)}</strong>
@@ -126,17 +217,10 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
         <div class="title-row">
           <h3>{t('expedition.crew')}</h3>
           <span class="stepper-value">
-            <KiwiIcon size={18} /> {crew} / {max}
+            <KiwiIcon size={18} /> {crew.length} / {max}
           </span>
         </div>
-        <Slider
-          label={t('expedition.crew')}
-          value={crew}
-          min={EXPEDITIONS.minCrew}
-          max={max}
-          step={1}
-          onChange={setCrewAndFood}
-        />
+        <CrewPicker game={game} crew={crew} max={max} risk={f.risk} onChange={setCrewAndFood} />
       </section>
 
       <section class="field">
@@ -144,7 +228,9 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
           <h3>{t('expedition.provisions')}</h3>
           <button
             class="btn btn-small"
-            onClick={() => setFood(suggestedProvisions(crew, f.travelMs))}
+            onClick={() =>
+              setFood(suggestedProvisions(game, { launchpadId: padId, targetId, crew }))
+            }
           >
             {t('expedition.suggest')}
           </button>
@@ -171,12 +257,12 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
           <span class={`odds odds-${f.odds}`}>{t(`expedition.odds.${f.odds}`)}</span>
         </div>
         <div class={`cargo-bar ${f.weight > f.cargo ? 'overloaded' : ''}`} aria-hidden="true">
-          <span class="seg-crew" style={{ width: pct(crewWeight) }} />
+          <span class="seg-crew" style={{ width: pct(kiwisWeight) }} />
           <span class="seg-food" style={{ width: pct(foodWeight) }} />
         </div>
         <div class="legend small muted">
           <span>
-            <i class="dot seg-crew" /> {t('expedition.cargoCrew')} {fmt(crewWeight)}
+            <i class="dot seg-crew" /> {t('expedition.cargoCrew')} {fmt(kiwisWeight)}
           </span>
           <span>
             <i class="dot seg-food" /> {t('expedition.cargoFood')} {fmt(foodWeight)}
@@ -210,6 +296,11 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             defense: f.defense,
           })}
         </p>
+        {f.crew.length > 0 && (
+          <p class="small">
+            {t('expedition.expectedLosses', { count: Math.round(f.expectedLosses * 10) / 10 })}
+          </p>
+        )}
         {f.fed < 1 && <p class="small muted">{t('expedition.hungry')}</p>}
       </section>
 

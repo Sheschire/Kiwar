@@ -150,7 +150,7 @@ export interface Expedition {
   /** Kiwis still aboard (alive). */
   crew: VillagerId[];
   /** Everyone who boarded, kept for the report even if some kiwis are lost. */
-  roster: { id: VillagerId; name: string }[];
+  roster: { id: VillagerId; name: string; level?: number; shiny?: ShinyColor | null }[];
   /** Provisions still on board. */
   provisions: Resources;
   cargo: number;

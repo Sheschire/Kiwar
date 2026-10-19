@@ -759,6 +759,11 @@ var KIWI = {
   dexterityBonus: 0.03,
   /** Construction speed bonus per point of Strength above average (+2 %). */
   strengthBuild: 0.02,
+  /** Expedition strength of a kiwi: +6 % per Strength point and +3 % per Endurance point above
+   * average, ×(1 + 4 % per level above 1), × trait (and later class). */
+  fight: { strength: 0.06, endurance: 0.03, perLevel: 0.04 },
+  /** How exposed a kiwi is in expeditions (who falls first): weaker, slower, frailer kiwis more. */
+  exposure: { agility: 0.05, endurance: 0.05 },
   /** Never below this share of an average kiwi's work. */
   minPower: 0.5,
   /** Odd levels give a stat point drawn from the activity; even levels one to place. */
@@ -1411,6 +1416,19 @@ function builderSpeed(v) {
   const rank = 1 + KIWI.rankBonus * rankOf(v.mastery.build);
   return Math.max(KIWI.minPower, str * rank * m.build);
 }
+function kiwiStrength(v) {
+  const f = KIWI.fight;
+  const avg = KIWI.stat.average;
+  const stats2 = 1 + f.strength * (v.stats.strength - avg) + f.endurance * (v.stats.endurance - avg);
+  return Math.max(KIWI.minPower, stats2 * (1 + f.perLevel * (v.level - 1)) * modifiers(v).fight);
+}
+function kiwiExposure(v) {
+  const e = KIWI.exposure;
+  const avg = KIWI.stat.average;
+  const dodge = Math.max(0.5, 1 + e.agility * (v.stats.agility - avg));
+  const tough = Math.max(0.5, 1 + e.endurance * (v.stats.endurance - avg));
+  return modifiers(v).exposure / (kiwiStrength(v) * dodge * tough);
+}
 function workforce(state, b, workers) {
   const resource = buildingResource(state, b);
   if (!resource) return workers.length;
@@ -1840,10 +1858,58 @@ function travelTime(target, launchpad) {
   const factor = levelDef("launchpad", launchpad.level)?.travelTime ?? 1;
   return Math.round(target.travelMs * factor / 1e3) * 1e3;
 }
-var rations = (crew, ms2) => ({
-  pulp: crew * EXPEDITIONS.hourlyRations.pulp * ms2 / HOUR_MS2,
-  juice: crew * EXPEDITIONS.hourlyRations.juice * ms2 / HOUR_MS2
-});
+function rations(crew, ms2) {
+  const eaters = crew.reduce((sum, v) => sum + modifiers(v).rations, 0);
+  return {
+    pulp: eaters * EXPEDITIONS.hourlyRations.pulp * ms2 / HOUR_MS2,
+    juice: eaters * EXPEDITIONS.hourlyRations.juice * ms2 / HOUR_MS2
+  };
+}
+function crewWeight(crew) {
+  return crew.length * EXPEDITIONS.kiwiWeight;
+}
+function crewOf(state, crew) {
+  const available = availableCrew(state);
+  if (typeof crew === "number") return available.slice(0, Math.max(0, crew));
+  const free = new Map(available.map((v) => [v.id, v]));
+  const out = [];
+  for (const id3 of crew) {
+    const v = free.get(id3);
+    if (!v) return null;
+    free.delete(id3);
+    out.push(v);
+  }
+  return out;
+}
+function lossShare(strength, defense) {
+  const ratio = defense / Math.max(strength, 1e-6);
+  return strength >= defense ? Math.min(EXPEDITIONS.victoryLosses.max, EXPEDITIONS.victoryLosses.factor * ratio) : Math.min(
+    EXPEDITIONS.defeatLosses.max,
+    Math.max(EXPEDITIONS.defeatLosses.min, 0.5 + 0.3 * (ratio - 1))
+  );
+}
+function drawLosses(state, crew, count) {
+  if (count <= 0) return [];
+  return withRng(state, (rng) => {
+    const pool = crew.map((v) => ({ id: v.id, w: kiwiExposure(v) }));
+    const out = [];
+    while (out.length < count && pool.length > 0) {
+      const total = pool.reduce((sum, p) => sum + p.w, 0);
+      let roll = rng.next() * total;
+      let i = 0;
+      for (; i < pool.length - 1; i++) {
+        roll -= pool[i].w;
+        if (roll < 0) break;
+      }
+      out.push(pool[i].id);
+      pool.splice(i, 1);
+    }
+    return out;
+  });
+}
+function crewMembers(state, ids) {
+  return ids.map((id3) => state.villagers.find((v) => v.id === id3)).filter((v) => !!v);
+}
 function coverage(have, need) {
   const p = need.pulp > 0 ? have.pulp / need.pulp : 1;
   const j = need.juice > 0 ? have.juice / need.juice : 1;
@@ -1851,21 +1917,31 @@ function coverage(have, need) {
 }
 function strengthOf(crew, fed) {
   const hunger = EXPEDITIONS.starvingStrength + (1 - EXPEDITIONS.starvingStrength) * fed;
-  return crew * EXPEDITIONS.strengthPerKiwi * hunger;
+  const total = crew.reduce((sum, v) => sum + kiwiStrength(v), 0);
+  return total * EXPEDITIONS.strengthPerKiwi * hunger;
 }
 function forecastExpedition(state, plan) {
   const pad = launchpadOf(state, plan.launchpadId);
   const target = state.targets.find((t) => t.id === plan.targetId);
   if (!pad || !target) return null;
+  const crew = crewOf(state, plan.crew) ?? [];
   const cargo = shipCargo(pad);
   const travelMs = travelTime(target, pad);
-  const need = rations(plan.crew, travelMs);
+  const need = rations(crew, travelMs);
   const fed = coverage(plan.provisions, need);
-  const base = strengthOf(plan.crew, fed);
+  const base = strengthOf(crew, fed);
   const defense = targetDefense(state, target);
   const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
   const odds = strength.min >= defense ? "likely" : strength.max >= defense ? "uncertain" : "unlikely";
-  const weight = plan.crew * EXPEDITIONS.kiwiWeight + (plan.provisions.pulp + plan.provisions.juice) * EXPEDITIONS.resourceWeight;
+  const kiwisWeight = crewWeight(crew);
+  const weight = kiwisWeight + (plan.provisions.pulp + plan.provisions.juice) * EXPEDITIONS.resourceWeight;
+  const expectedLosses = Math.min(crew.length, crew.length * lossShare(base, defense));
+  const exposure = crew.map((v) => kiwiExposure(v));
+  const totalExposure = exposure.reduce((a, b) => a + b, 0) || 1;
+  const risk = {};
+  crew.forEach((v, i) => {
+    risk[v.id] = Math.min(1, expectedLosses * exposure[i] / totalExposure);
+  });
   const left = {
     pulp: plan.provisions.pulp - Math.min(plan.provisions.pulp, need.pulp),
     juice: plan.provisions.juice - Math.min(plan.provisions.juice, need.juice)
@@ -1873,7 +1949,7 @@ function forecastExpedition(state, plan) {
   const returnSurplus = { pulp: left.pulp - need.pulp, juice: left.juice - need.juice };
   const lootRoom = Math.max(
     0,
-    cargo - plan.crew * EXPEDITIONS.kiwiWeight - (left.pulp + left.juice) * EXPEDITIONS.resourceWeight
+    cargo - kiwisWeight - (left.pulp + left.juice) * EXPEDITIONS.resourceWeight
   );
   return {
     cargo,
@@ -1885,7 +1961,10 @@ function forecastExpedition(state, plan) {
     strength,
     defense,
     odds,
-    lootRoom
+    lootRoom,
+    crew,
+    expectedLosses,
+    risk
   };
 }
 function availableCrew(state) {
@@ -1904,7 +1983,7 @@ function isLaunchpadBusy(state, id3) {
 function launch(state, plan, now, id3) {
   const pad = launchpadOf(state, plan.launchpadId);
   const target = state.targets.find((t) => t.id === plan.targetId);
-  const crew = availableCrew(state).slice(0, plan.crew);
+  const crew = crewOf(state, plan.crew);
   for (const v of crew) v.job = { kind: "expedition", expeditionId: id3 };
   state.resources.pulp -= plan.provisions.pulp;
   state.resources.juice -= plan.provisions.juice;
@@ -1914,7 +1993,7 @@ function launch(state, plan, now, id3) {
     targetId: target.id,
     launchpadId: pad.id,
     crew: crew.map((v) => v.id),
-    roster: crew.map((v) => ({ id: v.id, name: v.name })),
+    roster: crew.map((v) => ({ id: v.id, name: v.name, level: v.level, shiny: v.shiny })),
     provisions: { ...emptyResources(), pulp: plan.provisions.pulp, juice: plan.provisions.juice },
     cargo: shipCargo(pad),
     departedAt: now,
@@ -1929,7 +2008,8 @@ function launch(state, plan, now, id3) {
 function resolveArrival(state, e) {
   const target = state.targets.find((t) => t.id === e.targetId);
   const travelMs = e.arriveAt - e.departedAt;
-  const need = rations(e.crew.length, travelMs);
+  const members = crewMembers(state, e.crew);
+  const need = rations(members, travelMs);
   const fed = coverage(e.provisions, need);
   e.provisions.pulp -= Math.min(e.provisions.pulp, need.pulp);
   e.provisions.juice -= Math.min(e.provisions.juice, need.juice);
@@ -1949,23 +2029,18 @@ function resolveArrival(state, e) {
   }
   const defense = targetDefense(state, target);
   const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
-  const strength = strengthOf(e.crew.length, fed) * luck;
+  const strength = strengthOf(members, fed) * luck;
   const victory = strength >= defense;
-  const ratio = defense / Math.max(strength, 1e-6);
-  const lossShare = victory ? Math.min(EXPEDITIONS.victoryLosses.max, EXPEDITIONS.victoryLosses.factor * ratio) : Math.min(
-    EXPEDITIONS.defeatLosses.max,
-    Math.max(EXPEDITIONS.defeatLosses.min, 0.5 + 0.3 * (ratio - 1))
-  );
-  const losses = Math.min(e.crew.length, Math.round(e.crew.length * lossShare));
-  const lost = withRng(state, (rng) => rng.shuffle(e.crew)).slice(0, losses);
-  removeVillagers(state, lost);
+  const losses = Math.min(e.crew.length, Math.round(e.crew.length * lossShare(strength, defense)));
+  const lost = drawLosses(state, members, losses);
+  removeVillagers(state, lost, "battle", e.arriveAt);
   e.crew = e.crew.filter((id3) => !lost.includes(id3));
   const loot = emptyResources();
   if (victory && target) {
     state.victories[target.id] = (state.victories[target.id] ?? 0) + 1;
     const bonus = Math.min(2, 1 + 0.25 * (strength / Math.max(defense, 1) - 1));
     const w = EXPEDITIONS.resourceWeight;
-    let room = e.cargo - e.crew.length * EXPEDITIONS.kiwiWeight - RESOURCE_IDS.reduce((sum, id3) => sum + e.provisions[id3], 0) * w;
+    let room = e.cargo - crewWeight(crewMembers(state, e.crew)) - RESOURCE_IDS.reduce((sum, id3) => sum + e.provisions[id3], 0) * w;
     for (const id3 of ["seeds", "juice", "fiber", "pulp"]) {
       const wanted = Math.floor(target.loot[id3] * bonus);
       const take = Math.max(0, Math.min(wanted, Math.floor(room / w + 1e-9)));
@@ -1984,19 +2059,28 @@ function resolveArrival(state, e) {
     loot
   };
 }
-function resolveReturn(state, e) {
+function resolveReturn(state, e, events = []) {
   const result = e.result;
-  const need = rations(e.crew.length, e.returnAt - e.arriveAt);
+  const members = crewMembers(state, e.crew);
+  const need = rations(members, e.returnAt - e.arriveAt);
   const pantry = {
     pulp: e.provisions.pulp + result.loot.pulp,
     juice: e.provisions.juice + result.loot.juice
   };
   const fed = coverage(pantry, need);
   const starving = Math.floor(e.crew.length * (1 - fed) * EXPEDITIONS.starvationLossRate);
-  const lost = e.crew.slice(0, starving);
-  removeVillagers(state, lost);
+  const lost = drawLosses(state, members, starving);
+  removeVillagers(state, lost, "starvation", e.returnAt);
   e.crew = e.crew.filter((id3) => !lost.includes(id3));
   result.lostOnReturn = lost.map((id3) => nameOf(e, id3));
+  const xp = KIWI.expeditionXp.base + (result.victory ? KIWI.expeditionXp.victory : 0);
+  for (const v of crewMembers(state, e.crew)) {
+    if (!result.aborted) {
+      v.history.expeditions++;
+      if (result.victory) v.history.victories++;
+    }
+    grantXp(state, v, result.aborted ? xp / 2 : xp, e.returnAt, events);
+  }
   const unloaded = {
     pulp: Math.max(0, pantry.pulp - need.pulp),
     juice: Math.max(0, pantry.juice - need.juice),
@@ -2012,7 +2096,21 @@ function resolveReturn(state, e) {
   const done = state.expeditions.filter((x) => x.status === "done");
   if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
 }
-function removeVillagers(state, ids) {
+function removeVillagers(state, ids, cause, at) {
+  for (const v of state.villagers) {
+    if (!ids.includes(v.id)) continue;
+    state.memorial.push({
+      id: v.id,
+      name: v.name,
+      level: v.level,
+      shiny: v.shiny,
+      bornAt: v.bornAt,
+      diedAt: at,
+      cause
+    });
+  }
+  if (state.memorial.length > MEMORIAL_MAX)
+    state.memorial.splice(0, state.memorial.length - MEMORIAL_MAX);
   state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
 }
 function nameOf(e, id3) {
@@ -2069,7 +2167,7 @@ function advanceInPlace(s, now, events) {
           victory: e.result.victory
         });
       } else {
-        resolveReturn(s, e);
+        resolveReturn(s, e, events);
         for (const v of s.villagers)
           if (v.job.kind === "idle" && e.crew.includes(v.id)) autoAssign(s, v);
         events.push({ type: "expeditionReturned", at: e.returnAt, expeditionId: e.id });
@@ -2284,7 +2382,8 @@ var COMMAND_ERRORS = [
   "unknownVillager",
   "invalidName",
   "noStatPoint",
-  "statMaxed"
+  "statMaxed",
+  "invalidCrew"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -2456,11 +2555,14 @@ function execute(s, cmd, ctx, events) {
       if (isLaunchpadBusy(s, pad.id)) fail("launchpadBusy");
       if (!s.targets.some((t) => t.id === cmd.targetId)) fail("unknownTarget");
       const { pulp, juice } = cmd.provisions;
-      if (!Number.isInteger(cmd.crew) || ![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) {
+      if (typeof cmd.crew === "number" && !Number.isInteger(cmd.crew) || ![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) {
         fail("invalidCount");
       }
-      if (cmd.crew < EXPEDITIONS.minCrew) fail("crewTooSmall");
-      if (cmd.crew > maxCrew(s, pad)) fail("crewTooLarge");
+      const crew = crewOf(s, cmd.crew);
+      if (!crew) return fail("invalidCrew");
+      const size = typeof cmd.crew === "number" ? cmd.crew : crew.length;
+      if (size < EXPEDITIONS.minCrew) fail("crewTooSmall");
+      if (size > maxCrew(s, pad)) fail("crewTooLarge");
       const forecast = forecastExpedition(s, cmd);
       if (forecast.weight > forecast.cargo + 1e-9) fail("overloaded");
       if (!canAfford(s.resources, { pulp, juice })) fail("notEnoughResources");
@@ -6729,7 +6831,14 @@ var gameStateSchema = external_exports.object({
       targetId: id,
       launchpadId: id,
       crew: external_exports.array(id),
-      roster: external_exports.array(external_exports.object({ id, name: external_exports.string() })),
+      roster: external_exports.array(
+        external_exports.object({
+          id,
+          name: external_exports.string(),
+          level: external_exports.number().int().min(1).optional(),
+          shiny: external_exports.enum(SHINY_COLORS).nullable().optional()
+        })
+      ),
       provisions: resources,
       cargo: external_exports.number(),
       departedAt: external_exports.number(),
@@ -6828,7 +6937,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     type: external_exports.literal("launchExpedition"),
     launchpadId: id2,
     targetId: id2,
-    crew: int.min(0).max(1e3),
+    crew: external_exports.union([int.min(0).max(1e3), external_exports.array(id2).max(200)]),
     provisions: external_exports.object({ pulp: external_exports.number().min(0).max(1e7), juice: external_exports.number().min(0).max(1e7) })
   }),
   external_exports.object({
@@ -7347,6 +7456,8 @@ export {
   countTiles,
   createMemoryRepository,
   createRng,
+  crewOf,
+  crewWeight,
   currentObjective,
   demolitionPreview,
   demolitionRefund,
@@ -7398,7 +7509,9 @@ export {
   isPristine,
   isProducer,
   kiwiCount,
+  kiwiExposure,
   kiwiSeed,
+  kiwiStrength,
   launch,
   launchpadOf,
   levelDef,

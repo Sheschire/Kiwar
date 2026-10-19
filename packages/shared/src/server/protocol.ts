@@ -27,7 +27,7 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     type: z.literal('launchExpedition'),
     launchpadId: id,
     targetId: id,
-    crew: int.min(0).max(1000),
+    crew: z.union([int.min(0).max(1000), z.array(id).max(200)]),
     provisions: z.object({ pulp: z.number().min(0).max(1e7), juice: z.number().min(0).max(1e7) }),
   }),
   z.object({

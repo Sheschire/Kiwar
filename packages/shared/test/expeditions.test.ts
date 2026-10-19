@@ -5,6 +5,7 @@ import {
   deserializeSave,
   EXPEDITIONS,
   forecastExpedition,
+  hashSeed,
   HOUR_MS,
   migrateState,
   population,
@@ -203,5 +204,123 @@ describe('expeditions', () => {
     expect(r.aborted).toBe(true);
     expect(r.lostInBattle).toEqual([]);
     expect(population(back)).toBe(population(s));
+  });
+
+  it('boards the chosen kiwis only, and refuses unknown or busy ones', () => {
+    const { s, t, map, padId, targetId } = readyColony();
+    const chosen = s.villagers.slice(-3).map((v) => v.id);
+    const cmd: Command = {
+      type: 'launchExpedition',
+      launchpadId: padId as never,
+      targetId,
+      crew: chosen,
+      provisions: { pulp: 60, juice: 30 },
+    };
+    const launched = run(s, cmd, t, map);
+    const aboard = launched.villagers.filter((v) => v.job.kind === 'expedition').map((v) => v.id);
+    expect(aboard.sort()).toEqual([...chosen].sort());
+    expect(launched.expeditions[0]!.roster[0]).toMatchObject({ level: 1 });
+    const ctx = { now: t, map };
+    expect(validateCommand(s, { ...cmd, crew: [...chosen, 'ghost' as never] }, ctx)).toBe(
+      'invalidCrew',
+    );
+    expect(validateCommand(s, { ...cmd, crew: [chosen[0]!, chosen[0]!] }, ctx)).toBe('invalidCrew');
+    expect(validateCommand(s, { ...cmd, crew: [chosen[0]!] }, ctx)).toBe('crewTooSmall');
+  });
+
+  it('makes invested kiwis measurably stronger before launch', () => {
+    const { s, padId, targetId } = readyColony();
+    const ids = s.villagers.slice(-4).map((v) => v.id);
+    const veteran: GameState = {
+      ...s,
+      villagers: s.villagers.map((v) =>
+        ids.includes(v.id)
+          ? { ...v, level: 15, stats: { ...v.stats, strength: v.stats.strength + 5 } }
+          : v,
+      ),
+    };
+    const p = {
+      launchpadId: padId as never,
+      targetId,
+      crew: ids,
+      provisions: { pulp: 60, juice: 30 },
+    };
+    const rookies = forecastExpedition(s, p)!;
+    const veterans = forecastExpedition(veteran, p)!;
+    expect(veterans.strength.min).toBeGreaterThan(rookies.strength.min * 1.8);
+    expect(veterans.expectedLosses).toBeLessThan(rookies.expectedLosses);
+    // Each kiwi's risk is shown, and adds up to the expected losses.
+    const sum = ids.reduce((a, id) => a + rookies.risk[id]!, 0);
+    expect(sum).toBeCloseTo(rookies.expectedLosses, 6);
+  });
+
+  it('loses the weakest kiwis more often, and remembers the fallen', () => {
+    const { s, t, map, padId, targetId } = readyColony();
+    const ids = s.villagers.slice(-6).map((v) => v.id);
+    const strong = new Set(ids.slice(0, 3));
+    const base: GameState = {
+      ...s,
+      villagers: s.villagers.map((v) =>
+        strong.has(v.id)
+          ? {
+              ...v,
+              level: 12,
+              stats: { ...v.stats, strength: 12, agility: 10, endurance: 12 },
+            }
+          : v,
+      ),
+    };
+    let strongLost = 0;
+    let weakLost = 0;
+    for (let i = 0; i < 60; i++) {
+      const seeded: GameState = { ...base, rng: hashSeed(`losses-${i}`) };
+      // A close fight: about half the crew falls.
+      const cmd: Command = {
+        type: 'launchExpedition',
+        launchpadId: padId as never,
+        targetId,
+        crew: ids,
+        provisions: { pulp: 80, juice: 40 },
+      };
+      const launched = run(
+        { ...seeded, targets: seeded.targets.map((x) => ({ ...x, defense: 11 })) },
+        cmd,
+        t,
+        map,
+      );
+      const back = advance(launched, t + 4 * HOUR_MS).state;
+      for (const id of ids) {
+        if (back.villagers.some((v) => v.id === id)) continue;
+        if (strong.has(id)) strongLost++;
+        else weakLost++;
+      }
+      if (i === 0) {
+        const lost = ids.filter((id) => !back.villagers.some((v) => v.id === id));
+        expect(back.memorial.map((m) => m.id).sort()).toEqual([...lost].sort());
+        expect(back.memorial.every((m) => m.diedAt > t)).toBe(true);
+      }
+    }
+    expect(weakLost).toBeGreaterThan(strongLost * 1.5);
+    expect(strongLost).toBeGreaterThan(0);
+  });
+
+  it('gives survivors experience and a story', () => {
+    const { s, t, map, padId, targetId } = readyColony();
+    const launched = run(s, plan(padId, targetId, 10, 120, 60), t, map);
+    const { state: back, events } = advance(launched, t + 4 * HOUR_MS);
+    const e = back.expeditions[0]!;
+    expect(e.result!.victory).toBe(true);
+    for (const id of e.crew) {
+      const v = back.villagers.find((x) => x.id === id)!;
+      expect(v.history).toMatchObject({ expeditions: 1, victories: 1 });
+      expect(v.level).toBeGreaterThan(1);
+    }
+    expect(events.some((x) => x.type === 'levelUp')).toBe(true);
+    // Exact offline: the same in one step or many.
+    let small = launched;
+    for (let now = t; now < t + 4 * HOUR_MS; now += 333_331) small = advance(small, now).state;
+    small = advance(small, t + 4 * HOUR_MS).state;
+    expect(small.villagers).toEqual(back.villagers);
+    expect(small.memorial).toEqual(back.memorial);
   });
 });

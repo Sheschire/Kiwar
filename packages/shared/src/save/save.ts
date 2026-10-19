@@ -142,7 +142,14 @@ export const gameStateSchema = z.object({
       targetId: id,
       launchpadId: id,
       crew: z.array(id),
-      roster: z.array(z.object({ id, name: z.string() })),
+      roster: z.array(
+        z.object({
+          id,
+          name: z.string(),
+          level: z.number().int().min(1).optional(),
+          shiny: z.enum(SHINY_COLORS).nullable().optional(),
+        }),
+      ),
       provisions: resources,
       cargo: z.number(),
       departedAt: z.number(),

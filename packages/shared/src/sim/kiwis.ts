@@ -148,6 +148,26 @@ export function builderSpeed(v: Villager): number {
   return Math.max(KIWI.minPower, str * rank * m.build);
 }
 
+/** Fighting strength of one kiwi in an expedition (1 for an average newborn). */
+export function kiwiStrength(v: Villager): number {
+  const f = KIWI.fight;
+  const avg = KIWI.stat.average;
+  const stats = 1 + f.strength * (v.stats.strength - avg) + f.endurance * (v.stats.endurance - avg);
+  return Math.max(KIWI.minPower, stats * (1 + f.perLevel * (v.level - 1)) * modifiers(v).fight);
+}
+
+/**
+ * Relative chance to be among the losses of an expedition: inversely proportional to strength,
+ * agility and endurance (an invested kiwi survives more often, never always).
+ */
+export function kiwiExposure(v: Villager): number {
+  const e = KIWI.exposure;
+  const avg = KIWI.stat.average;
+  const dodge = Math.max(0.5, 1 + e.agility * (v.stats.agility - avg));
+  const tough = Math.max(0.5, 1 + e.endurance * (v.stats.endurance - avg));
+  return modifiers(v).exposure / (kiwiStrength(v) * dodge * tough);
+}
+
 /** Summed power of the workers of a building (replaces the head count in harvest maths). */
 export function workforce(state: GameState, b: Building, workers: Villager[]): number {
   const resource = buildingResource(state, b);

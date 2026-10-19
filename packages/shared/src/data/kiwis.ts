@@ -85,6 +85,11 @@ export const KIWI = {
   dexterityBonus: 0.03,
   /** Construction speed bonus per point of Strength above average (+2 %). */
   strengthBuild: 0.02,
+  /** Expedition strength of a kiwi: +6 % per Strength point and +3 % per Endurance point above
+   * average, ×(1 + 4 % per level above 1), × trait (and later class). */
+  fight: { strength: 0.06, endurance: 0.03, perLevel: 0.04 },
+  /** How exposed a kiwi is in expeditions (who falls first): weaker, slower, frailer kiwis more. */
+  exposure: { agility: 0.05, endurance: 0.05 },
   /** Never below this share of an average kiwi's work. */
   minPower: 0.5,
   /** Odd levels give a stat point drawn from the activity; even levels one to place. */

@@ -1,6 +1,7 @@
 import { RESOURCE_IDS } from '@kiwar/shared';
 import { uiStore, useT, useUi } from '../store';
 import { Cost } from './Cost';
+import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
 import { targetLabel } from './ExpeditionModal';
 
@@ -45,6 +46,27 @@ export function ReportModal() {
           {t('expedition.lostOnReturn', { names: r.lostOnReturn.join(', ') })}
         </p>
       )}
+      <section class="field">
+        <h3>{t('expedition.roster')}</h3>
+        <ul class="report-roster">
+          {e.roster.map((m) => {
+            const back = e.crew.includes(m.id);
+            const lost = !back;
+            return (
+              <li key={m.id} class={lost ? 'is-lost' : ''}>
+                <KiwiPortrait shiny={m.shiny ?? null} seed={m.id} size={36} />
+                <span class="small">
+                  <strong>{m.name}</strong>
+                  {m.level !== undefined && ` · ${t('common.levelShort', { level: m.level })}`}
+                </span>
+                <span class={`small ${lost ? 'warn' : 'bonus'}`}>
+                  {lost ? t('expedition.lost') : t('expedition.survived')}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
       <p>
         <strong>{t('expedition.loot')}</strong>
         {looted ? <Cost cost={r.loot} /> : t('expedition.nothing')}

@@ -9,13 +9,18 @@ import {
   type Expedition,
   type ExpeditionTarget,
   type GameState,
+  type Memorial,
   type Villager,
 } from './state';
+import { KIWI, MEMORIAL_MAX } from '../data/kiwis';
+import type { GameEvent } from './advance';
+import { grantXp, kiwiExposure, kiwiStrength, modifiers } from './kiwis';
 
 export interface ExpeditionPlan {
   launchpadId: BuildingId;
   targetId: string;
-  crew: number;
+  /** The kiwis chosen to board, or a head count (picked like `availableCrew`). */
+  crew: number | readonly VillagerId[];
   /** Food and drink loaded on the ship. */
   provisions: { pulp: number; juice: number };
 }
@@ -38,6 +43,12 @@ export interface ExpeditionForecast {
   odds: Odds;
   /** Cargo room free on the way back, for loot (if everyone survives). */
   lootRoom: number;
+  /** Kiwis boarding (empty if the choice is invalid). */
+  crew: Villager[];
+  /** Losses to expect in battle at average luck. */
+  expectedLosses: number;
+  /** Chance of each kiwi to be lost in battle at average luck (0–1). */
+  risk: Record<string, number>;
 }
 
 export function launchpadOf(state: GameState, id: BuildingId): Building | undefined {
@@ -58,10 +69,73 @@ export function travelTime(target: ExpeditionTarget, launchpad: Building): numbe
   return Math.round((target.travelMs * factor) / 1000) * 1000;
 }
 
-const rations = (crew: number, ms: number) => ({
-  pulp: (crew * EXPEDITIONS.hourlyRations.pulp * ms) / HOUR_MS,
-  juice: (crew * EXPEDITIONS.hourlyRations.juice * ms) / HOUR_MS,
-});
+/** What a crew eats over `ms` (gluttons eat more). */
+function rations(crew: readonly Villager[], ms: number): { pulp: number; juice: number } {
+  const eaters = crew.reduce((sum, v) => sum + modifiers(v).rations, 0);
+  return {
+    pulp: (eaters * EXPEDITIONS.hourlyRations.pulp * ms) / HOUR_MS,
+    juice: (eaters * EXPEDITIONS.hourlyRations.juice * ms) / HOUR_MS,
+  };
+}
+
+/** Cargo units taken by a crew. */
+export function crewWeight(crew: readonly Villager[]): number {
+  return crew.length * EXPEDITIONS.kiwiWeight;
+}
+
+/**
+ * The kiwis a plan boards: a head count picks like `availableCrew`; a list must name distinct
+ * kiwis who can board (null otherwise).
+ */
+export function crewOf(state: GameState, crew: number | readonly VillagerId[]): Villager[] | null {
+  const available = availableCrew(state);
+  if (typeof crew === 'number') return available.slice(0, Math.max(0, crew));
+  const free = new Map(available.map((v) => [v.id, v]));
+  const out: Villager[] = [];
+  for (const id of crew) {
+    const v = free.get(id);
+    if (!v) return null;
+    free.delete(id);
+    out.push(v);
+  }
+  return out;
+}
+
+/** Share of the crew lost in battle for a given strength. */
+function lossShare(strength: number, defense: number): number {
+  const ratio = defense / Math.max(strength, 1e-6);
+  return strength >= defense
+    ? Math.min(EXPEDITIONS.victoryLosses.max, EXPEDITIONS.victoryLosses.factor * ratio)
+    : Math.min(
+        EXPEDITIONS.defeatLosses.max,
+        Math.max(EXPEDITIONS.defeatLosses.min, 0.5 + 0.3 * (ratio - 1)),
+      );
+}
+
+/** Weighted draw without replacement: exposed kiwis fall first, more often. */
+function drawLosses(state: GameState, crew: readonly Villager[], count: number): VillagerId[] {
+  if (count <= 0) return [];
+  return withRng(state, (rng) => {
+    const pool = crew.map((v) => ({ id: v.id, w: kiwiExposure(v) }));
+    const out: VillagerId[] = [];
+    while (out.length < count && pool.length > 0) {
+      const total = pool.reduce((sum, p) => sum + p.w, 0);
+      let roll = rng.next() * total;
+      let i = 0;
+      for (; i < pool.length - 1; i++) {
+        roll -= pool[i]!.w;
+        if (roll < 0) break;
+      }
+      out.push(pool[i]!.id);
+      pool.splice(i, 1);
+    }
+    return out;
+  });
+}
+
+function crewMembers(state: GameState, ids: readonly VillagerId[]): Villager[] {
+  return ids.map((id) => state.villagers.find((v) => v.id === id)).filter((v) => !!v);
+}
 
 /** Share of `need` covered by `have`, per resource, keeping the worst. */
 function coverage(
@@ -73,9 +147,10 @@ function coverage(
   return Math.max(0, Math.min(1, p, j));
 }
 
-function strengthOf(crew: number, fed: number): number {
+function strengthOf(crew: readonly Villager[], fed: number): number {
   const hunger = EXPEDITIONS.starvingStrength + (1 - EXPEDITIONS.starvingStrength) * fed;
-  return crew * EXPEDITIONS.strengthPerKiwi * hunger;
+  const total = crew.reduce((sum, v) => sum + kiwiStrength(v), 0);
+  return total * EXPEDITIONS.strengthPerKiwi * hunger;
 }
 
 /** Everything the preparation screen shows; the same maths drive the simulation. */
@@ -86,18 +161,26 @@ export function forecastExpedition(
   const pad = launchpadOf(state, plan.launchpadId);
   const target = state.targets.find((t) => t.id === plan.targetId);
   if (!pad || !target) return null;
+  const crew = crewOf(state, plan.crew) ?? [];
   const cargo = shipCargo(pad);
   const travelMs = travelTime(target, pad);
-  const need = rations(plan.crew, travelMs);
+  const need = rations(crew, travelMs);
   const fed = coverage(plan.provisions, need);
-  const base = strengthOf(plan.crew, fed);
+  const base = strengthOf(crew, fed);
   const defense = targetDefense(state, target);
   const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
   const odds: Odds =
     strength.min >= defense ? 'likely' : strength.max >= defense ? 'uncertain' : 'unlikely';
+  const kiwisWeight = crewWeight(crew);
   const weight =
-    plan.crew * EXPEDITIONS.kiwiWeight +
-    (plan.provisions.pulp + plan.provisions.juice) * EXPEDITIONS.resourceWeight;
+    kiwisWeight + (plan.provisions.pulp + plan.provisions.juice) * EXPEDITIONS.resourceWeight;
+  const expectedLosses = Math.min(crew.length, crew.length * lossShare(base, defense));
+  const exposure = crew.map((v) => kiwiExposure(v));
+  const totalExposure = exposure.reduce((a, b) => a + b, 0) || 1;
+  const risk: Record<string, number> = {};
+  crew.forEach((v, i) => {
+    risk[v.id] = Math.min(1, (expectedLosses * exposure[i]!) / totalExposure);
+  });
   const left = {
     pulp: plan.provisions.pulp - Math.min(plan.provisions.pulp, need.pulp),
     juice: plan.provisions.juice - Math.min(plan.provisions.juice, need.juice),
@@ -105,9 +188,7 @@ export function forecastExpedition(
   const returnSurplus = { pulp: left.pulp - need.pulp, juice: left.juice - need.juice };
   const lootRoom = Math.max(
     0,
-    cargo -
-      plan.crew * EXPEDITIONS.kiwiWeight -
-      (left.pulp + left.juice) * EXPEDITIONS.resourceWeight,
+    cargo - kiwisWeight - (left.pulp + left.juice) * EXPEDITIONS.resourceWeight,
   );
   return {
     cargo,
@@ -120,6 +201,9 @@ export function forecastExpedition(
     defense,
     odds,
     lootRoom,
+    crew,
+    expectedLosses,
+    risk,
   };
 }
 
@@ -152,7 +236,7 @@ export function launch(
 ): Expedition {
   const pad = launchpadOf(state, plan.launchpadId)!;
   const target = state.targets.find((t) => t.id === plan.targetId)!;
-  const crew = availableCrew(state).slice(0, plan.crew);
+  const crew = crewOf(state, plan.crew)!;
   for (const v of crew) v.job = { kind: 'expedition', expeditionId: id };
   state.resources.pulp -= plan.provisions.pulp;
   state.resources.juice -= plan.provisions.juice;
@@ -162,7 +246,7 @@ export function launch(
     targetId: target.id,
     launchpadId: pad.id,
     crew: crew.map((v) => v.id),
-    roster: crew.map((v) => ({ id: v.id, name: v.name })),
+    roster: crew.map((v) => ({ id: v.id, name: v.name, level: v.level, shiny: v.shiny })),
     provisions: { ...emptyResources(), pulp: plan.provisions.pulp, juice: plan.provisions.juice },
     cargo: shipCargo(pad),
     departedAt: now,
@@ -179,7 +263,8 @@ export function launch(
 export function resolveArrival(state: GameState, e: Expedition): void {
   const target = state.targets.find((t) => t.id === e.targetId);
   const travelMs = e.arriveAt - e.departedAt;
-  const need = rations(e.crew.length, travelMs);
+  const members = crewMembers(state, e.crew);
+  const need = rations(members, travelMs);
   const fed = coverage(e.provisions, need);
   e.provisions.pulp -= Math.min(e.provisions.pulp, need.pulp);
   e.provisions.juice -= Math.min(e.provisions.juice, need.juice);
@@ -201,18 +286,11 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   }
   const defense = targetDefense(state, target);
   const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
-  const strength = strengthOf(e.crew.length, fed) * luck;
+  const strength = strengthOf(members, fed) * luck;
   const victory = strength >= defense;
-  const ratio = defense / Math.max(strength, 1e-6);
-  const lossShare = victory
-    ? Math.min(EXPEDITIONS.victoryLosses.max, EXPEDITIONS.victoryLosses.factor * ratio)
-    : Math.min(
-        EXPEDITIONS.defeatLosses.max,
-        Math.max(EXPEDITIONS.defeatLosses.min, 0.5 + 0.3 * (ratio - 1)),
-      );
-  const losses = Math.min(e.crew.length, Math.round(e.crew.length * lossShare));
-  const lost = withRng(state, (rng) => rng.shuffle(e.crew)).slice(0, losses);
-  removeVillagers(state, lost);
+  const losses = Math.min(e.crew.length, Math.round(e.crew.length * lossShare(strength, defense)));
+  const lost = drawLosses(state, members, losses);
+  removeVillagers(state, lost, 'battle', e.arriveAt);
   e.crew = e.crew.filter((id) => !lost.includes(id));
 
   const loot = emptyResources();
@@ -223,7 +301,7 @@ export function resolveArrival(state: GameState, e: Expedition): void {
     const w = EXPEDITIONS.resourceWeight;
     let room =
       e.cargo -
-      e.crew.length * EXPEDITIONS.kiwiWeight -
+      crewWeight(crewMembers(state, e.crew)) -
       RESOURCE_IDS.reduce((sum, id) => sum + e.provisions[id], 0) * w;
     // Most precious first: seeds, juice, fibre, pulp.
     for (const id of ['seeds', 'juice', 'fiber', 'pulp'] as const) {
@@ -246,19 +324,30 @@ export function resolveArrival(state: GameState, e: Expedition): void {
 }
 
 /** The ship comes home: the crew eats on the way (provisions first, then edible loot). */
-export function resolveReturn(state: GameState, e: Expedition): void {
+export function resolveReturn(state: GameState, e: Expedition, events: GameEvent[] = []): void {
   const result = e.result!;
-  const need = rations(e.crew.length, e.returnAt - e.arriveAt);
+  const members = crewMembers(state, e.crew);
+  const need = rations(members, e.returnAt - e.arriveAt);
   const pantry = {
     pulp: e.provisions.pulp + result.loot.pulp,
     juice: e.provisions.juice + result.loot.juice,
   };
   const fed = coverage(pantry, need);
   const starving = Math.floor(e.crew.length * (1 - fed) * EXPEDITIONS.starvationLossRate);
-  const lost = e.crew.slice(0, starving);
-  removeVillagers(state, lost);
+  const lost = drawLosses(state, members, starving);
+  removeVillagers(state, lost, 'starvation', e.returnAt);
   e.crew = e.crew.filter((id) => !lost.includes(id));
   result.lostOnReturn = lost.map((id) => nameOf(e, id));
+
+  // Survivors come home wiser: a lump of experience, more after a victory.
+  const xp = KIWI.expeditionXp.base + (result.victory ? KIWI.expeditionXp.victory : 0);
+  for (const v of crewMembers(state, e.crew)) {
+    if (!result.aborted) {
+      v.history.expeditions++;
+      if (result.victory) v.history.victories++;
+    }
+    grantXp(state, v, result.aborted ? xp / 2 : xp, e.returnAt, events);
+  }
 
   // Everything left in the hold is unloaded (storage limits are not applied to a homecoming).
   const unloaded: Resources = {
@@ -278,7 +367,26 @@ export function resolveReturn(state: GameState, e: Expedition): void {
   if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
 }
 
-function removeVillagers(state: GameState, ids: VillagerId[]): void {
+function removeVillagers(
+  state: GameState,
+  ids: VillagerId[],
+  cause: Memorial['cause'],
+  at: TimeMs,
+): void {
+  for (const v of state.villagers) {
+    if (!ids.includes(v.id)) continue;
+    state.memorial.push({
+      id: v.id,
+      name: v.name,
+      level: v.level,
+      shiny: v.shiny,
+      bornAt: v.bornAt,
+      diedAt: at,
+      cause,
+    });
+  }
+  if (state.memorial.length > MEMORIAL_MAX)
+    state.memorial.splice(0, state.memorial.length - MEMORIAL_MAX);
   state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
 }
 

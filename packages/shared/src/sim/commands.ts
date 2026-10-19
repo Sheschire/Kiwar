@@ -43,7 +43,14 @@ import {
 } from './selectors';
 import { cloneState, nextId, type GameState } from './state';
 import { EXPEDITIONS } from '../data/expeditions';
-import { forecastExpedition, isLaunchpadBusy, launch, launchpadOf, maxCrew } from './expeditions';
+import {
+  crewOf,
+  forecastExpedition,
+  isLaunchpadBusy,
+  launch,
+  launchpadOf,
+  maxCrew,
+} from './expeditions';
 
 export type Command =
   | { type: 'build'; buildingType: BuildingType; q: number; r: number }
@@ -56,7 +63,8 @@ export type Command =
       type: 'launchExpedition';
       launchpadId: BuildingId;
       targetId: string;
-      crew: number;
+      /** The kiwis to board (or a head count, picked automatically). */
+      crew: number | VillagerId[];
       provisions: { pulp: number; juice: number };
     }
   /** Paint paths on walkable tiles (one gesture); tiles that already have one are skipped. */
@@ -114,6 +122,7 @@ export const COMMAND_ERRORS = [
   'invalidName',
   'noStatPoint',
   'statMaxed',
+  'invalidCrew',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -326,13 +335,16 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (!s.targets.some((t) => t.id === cmd.targetId)) fail('unknownTarget');
       const { pulp, juice } = cmd.provisions;
       if (
-        !Number.isInteger(cmd.crew) ||
+        (typeof cmd.crew === 'number' && !Number.isInteger(cmd.crew)) ||
         ![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)
       ) {
         fail('invalidCount');
       }
-      if (cmd.crew < EXPEDITIONS.minCrew) fail('crewTooSmall');
-      if (cmd.crew > maxCrew(s, pad)) fail('crewTooLarge');
+      const crew = crewOf(s, cmd.crew);
+      if (!crew) return fail('invalidCrew');
+      const size = typeof cmd.crew === 'number' ? cmd.crew : crew.length;
+      if (size < EXPEDITIONS.minCrew) fail('crewTooSmall');
+      if (size > maxCrew(s, pad)) fail('crewTooLarge');
       const forecast = forecastExpedition(s, cmd)!;
       if (forecast.weight > forecast.cargo + 1e-9) fail('overloaded');
       if (!canAfford(s.resources, { pulp, juice })) fail('notEnoughResources');
