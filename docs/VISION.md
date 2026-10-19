@@ -120,3 +120,21 @@ joueurs) rendent la question concrète : _ce que j'ai construit peut être abîm
 3. **Jalon 6, unités** : écoles et casernes, rôles, volants, étages.
 4. **Jalon 7, âges** : passage à l'âge suivant, foreuses, terraformation, sources de jus.
 5. **Jalon 8, saisons** : saisons, classement, joueur contre joueur optionnel, héros.
+
+---
+
+## Réponses du porteur de projet (après le Jalon 3)
+
+1. **Menaces et cadeaux du ciel** : il y aura à la fois de petits incidents fréquents et de grandes vagues annoncées. Le ciel peut aussi apporter du **bon** (ressources, technologies). L'ampleur des gains et des menaces dépend de **l'âge de la civilisation × le temps de jeu**.
+2. **Dégâts** : jamais de colonie rasée, mais de **gros dégâts** selon la menace.
+3. **Rôles polyvalents** : un kiwi spécialisé aide aux tâches qui lui ressemblent. Le mage aide à la récolte, le guerrier aux constructions et aux travaux manuels, le maire organise la productivité.
+4. **Mages** : avant tout des **combattants à distance** ; ils peuvent aussi accélérer le renouvellement des ressources ou déclencher la pluie (à équilibrer).
+5. **Maire** : un seul. Il pourra utiliser une **estrade pour des discours** qui remontent le moral (à équilibrer).
+6. **Terraformation limitée** à des **tuiles éligibles** : on ne peut pas détruire le paysage.
+7. **Ressources finies et renouvelables** :
+   - un kiwi peut récolter **sans bâtiment** (plus lentement) ;
+   - un bâtiment (une carrière près des graines, un atelier près des bosquets…) accélère la récolte ;
+   - **dans tous les cas, la ressource s'épuise** et il faut attendre qu'elle se renouvelle.
+8. **Âges** : progression **individuelle**.
+9. **Saisons** : à définir plus tard.
+10. **Coloniser** une autre face sera possible, mais difficile : un **combat de boss** exigeant de grosses unités.
