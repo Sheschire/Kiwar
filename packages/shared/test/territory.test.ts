@@ -189,7 +189,7 @@ describe('paths and logistics', () => {
 });
 
 describe('camps', () => {
-  it('are free, outside the building cap, limited in number, and only camps can be dismantled', () => {
+  it('are free, outside the building cap, limited in number, and the Nest cannot be dismantled', () => {
     const { map, state } = setup();
     let s = state;
     const sites = [0, 1, 2, 3].map((i) => findTile(map, 'flesh', i * 3));
@@ -202,7 +202,7 @@ describe('camps', () => {
     expect(r.ok ? null : r.error).toBe('campLimit');
     const nest = s.buildings.find((b) => b.type === 'nest')!;
     const d = applyCommand(s, { type: 'dismantle', buildingId: nest.id }, { now: T0, map });
-    expect(d.ok ? null : d.error).toBe('notDismantlable');
+    expect(d.ok ? null : d.error).toBe('notDemolishable');
     const camp = s.buildings.find((b) => b.type === 'camp')!;
     const up = applyCommand(s, { type: 'upgrade', buildingId: camp.id }, { now: T0, map });
     expect(up.ok ? null : up.error).toBe('maxLevel');

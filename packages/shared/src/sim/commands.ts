@@ -15,6 +15,7 @@ import {
   canHatch,
   constructionDuration,
   currentObjective,
+  demolitionRefund,
   eggCost,
   eggDuration,
   getBuilding,
@@ -55,7 +56,11 @@ export type Command =
   | { type: 'removePath'; tiles: { q: number; r: number }[] }
   /** Set up a gathering camp on a resource tile (instant, free, outside the building cap). */
   | { type: 'gather'; q: number; r: number }
-  /** Remove a camp (its kiwis go back to work elsewhere). */
+  /**
+   * Tear down any building but the Nest, instantly, for a partial refund (see DEMOLITION). Its
+   * kiwis go back to work elsewhere. `dismantle` is the former camp-only name, kept as an alias.
+   */
+  | { type: 'demolish'; buildingId: BuildingId }
   | { type: 'dismantle'; buildingId: BuildingId }
   /** Debug panel only. Will be rejected by the server in milestone 2. */
   | { type: 'debugGrant'; resources: Partial<Resources> };
@@ -90,7 +95,9 @@ export const COMMAND_ERRORS = [
   'pathNotAllowed',
   'pathLimit',
   'campLimit',
-  'notDismantlable',
+  'notDemolishable',
+  'upgradeInProgress',
+  'housingNeeded',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -355,13 +362,22 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (idle) idle.job = { kind: 'work', buildingId: id };
       return;
     }
+    case 'demolish':
     case 'dismantle': {
       const b = getBuilding(s, cmd.buildingId);
       if (!b) return fail('unknownBuilding');
-      if (b.type !== 'camp') fail('notDismantlable');
+      if (b.type === 'nest') fail('notDemolishable');
+      if (pendingUpgrade(s, b.id)) fail('upgradeInProgress');
+      if (b.type === 'launchpad' && isLaunchpadBusy(s, b.id)) fail('launchpadBusy');
+      const housingLeft = housing(s) - (levelDef(b.type, b.level)?.housing ?? 0);
+      if (housingLeft < population(s)) fail('housingNeeded');
+      refund(s, demolitionRefund(s, b));
       releasePool(s, ctx.map, b, now);
       s.buildings = s.buildings.filter((x) => x.id !== b.id);
       syncPools(s, ctx.map, now);
+      for (const v of s.villagers) {
+        if (v.job.kind === 'build' && v.job.returnTo === b.id) v.job.returnTo = null;
+      }
       for (const v of s.villagers) {
         if (v.job.kind === 'work' && v.job.buildingId === b.id) {
           v.job = { kind: 'idle' };

@@ -1643,3 +1643,44 @@ button.chip:focus-visible {
     display: none;
   }
 }
+
+/* ---------- Demolition ---------- */
+
+.demolish-btn {
+  align-self: flex-end;
+  color: var(--berry);
+  margin-top: 4px;
+}
+
+.btn-danger {
+  color: #fffbea;
+  border-color: #8a3530;
+  background: linear-gradient(180deg, #d66a62, var(--berry));
+  box-shadow: 0 2px 0 #8a3530;
+}
+
+@media (max-width: 760px) {
+  /* The confirmation is a bottom sheet on phones, buttons within thumb reach. */
+  .modal-backdrop:has(.modal-confirm) {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-confirm {
+    width: 100%;
+    border-radius: 18px 18px 0 0;
+    padding-bottom: var(--safe-bottom);
+    animation: sheet-up 0.22s ease-out;
+  }
+
+  .modal-confirm .modal-footer .btn {
+    flex: 1;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(40%);
+    opacity: 0;
+  }
+}

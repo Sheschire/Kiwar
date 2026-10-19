@@ -309,3 +309,8 @@ export function isProducer(type: BuildingType): boolean {
 
 /** Construction time multiplier for sites next to (or on) a ray: rays speed up the builders. */
 export const RAY_BUILD_SPEEDUP = 0.85;
+
+/** Demolition: instant, refunds a share of what was invested (build + upgrades), rounded to 5. */
+export const DEMOLITION = {
+  refund: 0.25,
+};

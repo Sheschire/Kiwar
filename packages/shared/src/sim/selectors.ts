@@ -1,5 +1,6 @@
 import {
   BUILDINGS,
+  DEMOLITION,
   levelDef,
   MAX_LEVEL,
   maxLevelOf,
@@ -168,6 +169,43 @@ export function buildCost(state: GameState, type: BuildingType): ResourceCost {
 
 export function upgradeCost(type: BuildingType, targetLevel: number): ResourceCost {
   return levelDef(type, targetLevel)?.cost ?? {};
+}
+
+/**
+ * What demolishing a building gives back: a share of its build cost (as paid for this copy, i.e.
+ * with the copies that came before it) plus its upgrades. Camps are free, so they refund nothing.
+ */
+export function demolitionRefund(state: GameState, b: Building): ResourceCost {
+  const def = BUILDINGS[b.type];
+  const copies = state.buildings.filter((x) => x.type === b.type).length;
+  const invested = emptyResources();
+  const build = scaleCost(def.levels[0]!.cost, def.copyGrowth ** Math.max(0, copies - 1));
+  const parts = [build, ...def.levels.slice(1, b.level).map((l) => l.cost)];
+  for (const cost of parts) for (const id of RESOURCE_IDS) invested[id] += cost[id] ?? 0;
+  const out: ResourceCost = {};
+  for (const id of RESOURCE_IDS) {
+    const v = Math.round((invested[id] * DEMOLITION.refund) / 5) * 5;
+    if (v > 0) out[id] = v;
+  }
+  return out;
+}
+
+export interface DemolitionPreview {
+  refund: ResourceCost;
+  /** Kiwis working there (they go back to work elsewhere, or idle). */
+  workers: number;
+  storageLost: number;
+  housingLost: number;
+}
+
+export function demolitionPreview(state: GameState, b: Building): DemolitionPreview {
+  const def = levelDef(b.type, b.level);
+  return {
+    refund: demolitionRefund(state, b),
+    workers: workersOf(state, b.id).length,
+    storageLost: def?.storage ?? 0,
+    housingLost: def?.housing ?? 0,
+  };
 }
 
 /** True when the tile touches (or is) a ray. */

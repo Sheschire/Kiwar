@@ -3,6 +3,7 @@ import {
   AdditiveBlending,
   Color,
   Group,
+  DodecahedronGeometry,
   IcosahedronGeometry,
   InstancedMesh,
   Matrix4,
@@ -23,6 +24,10 @@ import { worldPosition } from './terrain';
 import { WATER_LEVEL } from './water';
 
 const SPARKS = 18;
+const DUST = 26;
+const DEBRIS = 14;
+const DUST_COLOR = new Color('#c9b48a');
+const DEBRIS_COLOR = new Color('#6e5638');
 
 interface Pop {
   object: Object3D;
@@ -34,6 +39,17 @@ interface Burst {
   velocities: Vector3[];
   t: number;
 }
+
+/** A demolished building sinking into a cloud of dust and falling debris. */
+interface Collapse {
+  object: Object3D;
+  origin: Vector3;
+  dust: Vector3[];
+  debris: Vector3[];
+  t: number;
+}
+
+const COLLAPSE_S = 1.6;
 
 /**
  * Renders buildings, construction sites (scaffolding + rising ghost), planned sites (stakes),
@@ -58,7 +74,9 @@ export class BuildingsView {
   private signature = '';
   private pops: Pop[] = [];
   private bursts: Burst[] = [];
+  private collapses: Collapse[] = [];
   private readonly sparks: InstancedMesh;
+  private readonly dust: InstancedMesh;
   private state: GameState | null = null;
 
   constructor(
@@ -80,6 +98,18 @@ export class BuildingsView {
     this.sparks.count = 0;
     this.sparks.frustumCulled = false;
     this.group.add(this.sparks);
+
+    this.dust = new InstancedMesh(
+      new DodecahedronGeometry(0.11, 0),
+      new MeshStandardMaterial({ roughness: 1, flatShading: true }),
+      (DUST + DEBRIS) * 3,
+    );
+    this.dust.count = 0;
+    this.dust.frustumCulled = false;
+    for (let i = 0; i < this.dust.instanceMatrix.count; i++) {
+      this.dust.setColorAt(i, i % (DUST + DEBRIS) < DUST ? DUST_COLOR : DEBRIS_COLOR);
+    }
+    this.group.add(this.dust);
   }
 
   /** Ground height for a building on this tile (wells stand in the juice). */
@@ -125,8 +155,8 @@ export class BuildingsView {
     }
     for (const [id, mesh] of this.meshes) {
       if (!seen.has(id)) {
-        this.group.remove(mesh);
         this.meshes.delete(id);
+        this.collapse(mesh);
       }
     }
 
@@ -204,6 +234,29 @@ export class BuildingsView {
     if (this.bursts.length > 4) this.bursts.shift();
   }
 
+  /** Demolition: the building sinks and crumbles in a puff of dust, then disappears. */
+  private collapse(object: Object3D): void {
+    object.userData.buildingId = null; // no longer pickable
+    object.castShadow = false;
+    const origin = object.position.clone();
+    const dust = Array.from({ length: DUST }, (_, i) => {
+      const a = (i / DUST) * Math.PI * 2 + (i % 2) * 0.3;
+      const speed = 0.5 + (i % 4) * 0.18;
+      return new Vector3(Math.cos(a) * speed, 0.25 + (i % 3) * 0.2, Math.sin(a) * speed);
+    });
+    const debris = Array.from({ length: DEBRIS }, (_, i) => {
+      const a = (i / DEBRIS) * Math.PI * 2 + 0.2;
+      return new Vector3(Math.cos(a) * 1.1, 2 + (i % 3) * 0.5, Math.sin(a) * 1.1);
+    });
+    this.collapses.push({ object, origin, dust, debris, t: 0 });
+    if (this.collapses.length > 3) this.endCollapse(this.collapses.shift()!);
+  }
+
+  private endCollapse(c: Collapse): void {
+    this.group.remove(c.object);
+    this.onChanged();
+  }
+
   /** World position of a building or site (for villagers walking to it). */
   anchor(q: number, r: number, out = new Vector3()): Vector3 {
     const p = worldPosition({ q, r });
@@ -251,12 +304,53 @@ export class BuildingsView {
     });
     this.sparks.count = n;
     if (n > 0) this.sparks.instanceMatrix.needsUpdate = true;
+
+    // Demolitions: sink + dust cloud + debris.
+    let d = 0;
+    this.collapses = this.collapses.filter((c) => {
+      c.t += dt;
+      const k = Math.min(1, c.t / COLLAPSE_S);
+      if (k >= 1) {
+        this.endCollapse(c);
+        return false;
+      }
+      const sink = Math.min(1, c.t / 0.6);
+      c.object.scale.set(1 + sink * 0.12, Math.max(0.02, 1 - sink), 1 + sink * 0.12);
+      c.object.position.y = c.origin.y - sink * 0.15;
+      c.object.rotation.z = Math.sin(c.t * 30) * 0.03 * (1 - sink);
+      for (const v of c.dust) {
+        const grow = 0.6 + k * 2.2;
+        const s = grow * (1 - k);
+        tmp
+          .makeScale(s, s * 0.8, s)
+          .setPosition(
+            c.origin.x + v.x * (1 - Math.exp(-c.t * 2.5)) * 1.1,
+            c.origin.y + 0.15 + v.y * c.t,
+            c.origin.z + v.z * (1 - Math.exp(-c.t * 2.5)) * 1.1,
+          );
+        this.dust.setMatrixAt(d++, tmp);
+      }
+      for (const v of c.debris) {
+        const t = Math.min(c.t, 0.9);
+        const y = Math.max(0, 0.3 + v.y * t - 6 * t * t);
+        const s = 0.55 * (1 - k * 0.6);
+        tmp
+          .makeScale(s, s, s)
+          .setPosition(c.origin.x + v.x * t, c.origin.y + y, c.origin.z + v.z * t);
+        this.dust.setMatrixAt(d++, tmp);
+      }
+      return true;
+    });
+    this.dust.count = d;
+    if (this.dust.count > 0) this.dust.instanceMatrix.needsUpdate = true;
   }
 
   dispose(): void {
     this.material.dispose();
     this.ghostMaterial.dispose();
     this.sparks.geometry.dispose();
+    this.dust.geometry.dispose();
+    (this.dust.material as MeshStandardMaterial).dispose();
     (this.sparks.material as MeshBasicMaterial).dispose();
   }
 }

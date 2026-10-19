@@ -233,16 +233,7 @@ function BuildingSection({
         </p>
       )}
 
-      {b.type === 'camp' ? (
-        <button
-          class="btn"
-          onClick={() => {
-            if (actions.dispatch({ type: 'dismantle', buildingId: b.id })) actions.selectTile(null);
-          }}
-        >
-          {t('building.dismantle')}
-        </button>
-      ) : upgrading ? (
+      {b.type === 'camp' ? null : upgrading ? (
         <div class="upgrade-box">
           <span>
             <HammerIcon size={18} /> {t('building.upgrading', { level: upgrading.targetLevel })}
@@ -277,6 +268,14 @@ function BuildingSection({
               <span class="small warn">{t(`errors.${upgradeError}`)}</span>
             )}
         </div>
+      )}
+      {b.type !== 'nest' && (
+        <button
+          class={`btn ${b.type === 'camp' ? '' : 'btn-ghost btn-small demolish-btn'}`}
+          onClick={() => uiStore.setState({ modal: 'demolish', demolishId: b.id })}
+        >
+          {b.type === 'camp' ? t('building.dismantle') : t('building.demolish')}
+        </button>
       )}
     </div>
   );

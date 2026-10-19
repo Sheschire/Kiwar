@@ -22,7 +22,7 @@ export interface Toast {
   params?: TParams;
 }
 
-export type Modal = 'none' | 'settings' | 'expedition' | 'report' | 'universe';
+export type Modal = 'none' | 'settings' | 'expedition' | 'report' | 'universe' | 'demolish';
 
 export interface UiState {
   lang: Lang;
@@ -47,6 +47,8 @@ export interface UiState {
   expeditionPad: string | null;
   /** Expedition whose report is shown. */
   reportId: string | null;
+  /** Building waiting for demolition confirmation. */
+  demolishId: string | null;
   /** Reports not opened yet. */
   unreadReports: string[];
   /** Shared universe being played (null = solo colony). */
@@ -83,6 +85,7 @@ export const uiStore = createStore<UiState>(() => ({
   account: null,
   expeditionPad: null,
   reportId: null,
+  demolishId: null,
   unreadReports: [],
   universe: null,
   pendingJoin: null,

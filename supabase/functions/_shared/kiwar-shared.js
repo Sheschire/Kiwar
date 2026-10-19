@@ -581,6 +581,9 @@ function isProducer(type) {
   return BUILDINGS[type].levels.some((l) => (l.workerSlots ?? 0) > 0);
 }
 var RAY_BUILD_SPEEDUP = 0.85;
+var DEMOLITION = {
+  refund: 0.25
+};
 
 // packages/shared/src/data/hatching.ts
 var BASE_POPULATION = 3;
@@ -1467,6 +1470,29 @@ function buildCost(state, type) {
 function upgradeCost(type, targetLevel) {
   return levelDef(type, targetLevel)?.cost ?? {};
 }
+function demolitionRefund(state, b) {
+  const def = BUILDINGS[b.type];
+  const copies = state.buildings.filter((x) => x.type === b.type).length;
+  const invested = emptyResources();
+  const build = scaleCost(def.levels[0].cost, def.copyGrowth ** Math.max(0, copies - 1));
+  const parts = [build, ...def.levels.slice(1, b.level).map((l) => l.cost)];
+  for (const cost of parts) for (const id3 of RESOURCE_IDS) invested[id3] += cost[id3] ?? 0;
+  const out = {};
+  for (const id3 of RESOURCE_IDS) {
+    const v = Math.round(invested[id3] * DEMOLITION.refund / 5) * 5;
+    if (v > 0) out[id3] = v;
+  }
+  return out;
+}
+function demolitionPreview(state, b) {
+  const def = levelDef(b.type, b.level);
+  return {
+    refund: demolitionRefund(state, b),
+    workers: workersOf(state, b.id).length,
+    storageLost: def?.storage ?? 0,
+    housingLost: def?.housing ?? 0
+  };
+}
 function nearRay(map, q, r) {
   const tiles = [{ q, r }, ...hexNeighbors({ q, r })];
   return tiles.some((h) => getTile(map, h)?.type === "ray");
@@ -1951,7 +1977,9 @@ var COMMAND_ERRORS = [
   "pathNotAllowed",
   "pathLimit",
   "campLimit",
-  "notDismantlable"
+  "notDemolishable",
+  "upgradeInProgress",
+  "housingNeeded"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -2179,13 +2207,22 @@ function execute(s, cmd, ctx, events) {
       if (idle) idle.job = { kind: "work", buildingId: id3 };
       return;
     }
+    case "demolish":
     case "dismantle": {
       const b = getBuilding(s, cmd.buildingId);
       if (!b) return fail("unknownBuilding");
-      if (b.type !== "camp") fail("notDismantlable");
+      if (b.type === "nest") fail("notDemolishable");
+      if (pendingUpgrade(s, b.id)) fail("upgradeInProgress");
+      if (b.type === "launchpad" && isLaunchpadBusy(s, b.id)) fail("launchpadBusy");
+      const housingLeft = housing(s) - (levelDef(b.type, b.level)?.housing ?? 0);
+      if (housingLeft < population(s)) fail("housingNeeded");
+      refund(s, demolitionRefund(s, b));
       releasePool(s, ctx.map, b, now);
       s.buildings = s.buildings.filter((x) => x.id !== b.id);
       syncPools(s, ctx.map, now);
+      for (const v of s.villagers) {
+        if (v.job.kind === "build" && v.job.returnTo === b.id) v.job.returnTo = null;
+      }
       for (const v of s.villagers) {
         if (v.job.kind === "work" && v.job.buildingId === b.id) {
           v.job = { kind: "idle" };
@@ -6426,6 +6463,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     tiles: external_exports.array(external_exports.object({ q: int, r: int })).min(1).max(40)
   }),
   external_exports.object({ type: external_exports.literal("gather"), q: int, r: int }),
+  external_exports.object({ type: external_exports.literal("demolish"), buildingId: id2 }),
   external_exports.object({ type: external_exports.literal("dismantle"), buildingId: id2 }),
   external_exports.object({
     type: external_exports.literal("debugGrant"),
@@ -6838,6 +6876,7 @@ export {
   CATCHMENT_RADIUS,
   COMMAND_ERRORS,
   DEFAULT_FACE_PARAMS,
+  DEMOLITION,
   DEPOSITS,
   EXPEDITIONS,
   FACES,
@@ -6893,6 +6932,8 @@ export {
   createMemoryRepository,
   createRng,
   currentObjective,
+  demolitionPreview,
+  demolitionRefund,
   depletedTiles,
   depotDistance,
   depotDistances,

@@ -1,6 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { DebugPanel } from './components/DebugPanel';
 import { EggButton } from './components/EggButton';
+import { DemolishModal } from './components/DemolishModal';
 import { ExpeditionModal } from './components/ExpeditionModal';
 import { ExpeditionsPanel } from './components/ExpeditionsPanel';
 import { ReportModal } from './components/ReportModal';
@@ -57,6 +58,7 @@ export function App() {
       {modal === 'expedition' && <ExpeditionModal />}
       {modal === 'report' && <ReportModal />}
       {modal === 'universe' && <UniverseModal />}
+      {modal === 'demolish' && <DemolishModal />}
       <JoinModal />
       <ChatPanel />
       <OfflineModal />
