@@ -353,3 +353,36 @@ export function ResourceIcon({ id, size }: { id: ResourceId; size?: number }) {
       return <JuiceIcon size={size} />;
   }
 }
+
+export function SpeakerIcon({ size = 22, class: cls, muted }: IconProps & { muted?: boolean }) {
+  return svg(
+    size,
+    cls,
+    <>
+      <path
+        d="M5 12h5l7-6v20l-7-6H5z"
+        fill="#d8c29a"
+        stroke="#7a5a40"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
+      {muted ? (
+        <path
+          d="M21 12l7 8m0-8l-7 8"
+          stroke="#b5475b"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          fill="none"
+        />
+      ) : (
+        <path
+          d="M21 11.5a6 6 0 0 1 0 9M24 8a11 11 0 0 1 0 16"
+          stroke="#7a5a40"
+          stroke-width="2"
+          stroke-linecap="round"
+          fill="none"
+        />
+      )}
+    </>,
+  );
+}

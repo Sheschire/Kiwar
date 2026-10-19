@@ -5,6 +5,7 @@ import { actions } from '../actions';
 import { setLang, uiStore, useT, useUi } from '../store';
 import { AccountSection } from './AccountSection';
 import { Modal } from './Modal';
+import { SoundSection } from './SoundSection';
 
 export function SettingsModal() {
   const t = useT();
@@ -56,6 +57,7 @@ export function SettingsModal() {
           ))}
         </div>
       </div>
+      <SoundSection />
       <div class="field">
         <h3>{t('settings.controls')}</h3>
         <p class="muted small">

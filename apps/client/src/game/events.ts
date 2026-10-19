@@ -1,10 +1,12 @@
 import type { GameEvent } from '@kiwar/shared';
 import type { GameRenderer } from '../render/GameRenderer';
 import { pushToast, uiStore } from '../ui/store';
+import { playGameEventSounds } from '../audio/sounds';
 
 /** Turns simulation events into toasts and visual effects. */
 export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): void {
   renderer.onGameEvents(events);
+  playGameEventSounds(events);
   for (const e of events) {
     switch (e.type) {
       case 'constructionComplete':

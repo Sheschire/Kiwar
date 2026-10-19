@@ -28,6 +28,17 @@ export const en = {
     controlsDesktop:
       'Click: select · Left drag: move · Right drag (or Alt + drag): rotate · Wheel / pinch: zoom · WASD: move · Q/E: rotate by steps',
     controlsTouch: 'Pinch: zoom · One finger: pan · Two fingers: rotate · Tap: select',
+    sound: 'Sound',
+    mute: 'Mute all sounds',
+  },
+  audio: {
+    master: 'Master',
+    music: 'Music',
+    ambience: 'Ambience',
+    sfx: 'Effects',
+    ui: 'Interface',
+    mute: 'Mute',
+    unmute: 'Sound on',
   },
   quality: { low: 'Low', medium: 'Medium', high: 'High' },
   tips: {

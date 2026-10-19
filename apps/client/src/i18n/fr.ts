@@ -30,6 +30,17 @@ export const fr: Dict = {
       'Clic : sélectionner · Clic gauche glissé : déplacer · Clic droit glissé (ou Alt + glisser) : tourner · Molette / pincer : zoom · WASD : se déplacer · Q/E : tourner par paliers',
     controlsTouch:
       'Pincer : zoom · Un doigt : déplacer · Deux doigts : tourner · Toucher : sélectionner',
+    sound: 'Son',
+    mute: 'Couper tous les sons',
+  },
+  audio: {
+    master: 'Général',
+    music: 'Musique',
+    ambience: 'Ambiance',
+    sfx: 'Effets',
+    ui: 'Interface',
+    mute: 'Couper le son',
+    unmute: 'Activer le son',
   },
   quality: { low: 'Bas', medium: 'Moyen', high: 'Haut' },
   tips: {

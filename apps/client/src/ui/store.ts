@@ -14,6 +14,7 @@ import type { Account } from '../game/onlineBackend';
 import type { ChatMessage } from '../game/chat';
 import type { UniverseInfo } from '@kiwar/shared';
 import type { QualityChoice, QualityPreset } from '../render/quality';
+import { DEFAULT_SETTINGS, type AudioSettings } from '../audio/settings';
 
 export interface Toast {
   id: number;
@@ -60,6 +61,8 @@ export interface UiState {
   chatUnread: number;
   /** Path painting mode. */
   pathMode: boolean;
+  /** Volume settings (mirrors the audio engine). */
+  audio: AudioSettings;
 }
 
 const wideScreen =
@@ -93,6 +96,7 @@ export const uiStore = createStore<UiState>(() => ({
   chat: [],
   chatUnread: 0,
   pathMode: false,
+  audio: DEFAULT_SETTINGS,
 }));
 
 export function setLang(lang: Lang): void {

@@ -18,6 +18,8 @@ import { loadQualityChoice } from './render/quality';
 import { handleGameEvents } from './game/events';
 import { ChatChannel, mutedUsers } from './game/chat';
 import { setChannel } from './ui/chatActions';
+import { audio } from './audio/engine';
+import { installGameAudio } from './audio/gameAudio';
 
 persistLang(uiStore.getState().lang);
 
@@ -50,13 +52,17 @@ controller = new GameController({
     uiStore.setState({ game: state, now });
   },
   onEvents: (events) => handleGameEvents(events, renderer),
-  onError: (error) => pushToast('error', `errors.${error}`),
+  onError: (error) => {
+    pushToast('error', `errors.${error}`);
+    audio.play('ui.error');
+  },
   onOfflineSummary: (summary) => uiStore.setState({ offlineSummary: summary }),
   onSync: (sync) => uiStore.setState({ sync }),
   onAccount: (account) => uiStore.setState({ account }),
   onUniverse: (universe) => uiStore.setState({ universe }),
 });
 bindActions(controller, renderer);
+installGameAudio();
 
 // Keep the 3D selection marker in sync with the UI selection.
 uiStore.subscribe((s, prev) => {
@@ -134,5 +140,11 @@ if (import.meta.hot) {
 
 // Dev-only handle for debugging and automated browser checks.
 if (import.meta.env.DEV) {
-  (window as unknown as { __kiwar: unknown }).__kiwar = { controller, renderer, uiStore, actions };
+  (window as unknown as { __kiwar: unknown }).__kiwar = {
+    controller,
+    renderer,
+    uiStore,
+    actions,
+    audio,
+  };
 }

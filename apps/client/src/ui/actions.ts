@@ -13,6 +13,9 @@ import type { GameController } from '../game/GameController';
 import type { GameRenderer } from '../render/GameRenderer';
 import { saveQualityChoice, type QualityChoice } from '../render/quality';
 import { uiStore } from './store';
+import { audio } from '../audio/engine';
+import { playCommandSound } from '../audio/sounds';
+import type { AudioSettings } from '../audio/settings';
 
 const NAME_KEY = 'kiwar.displayName';
 
@@ -43,7 +46,12 @@ export function bindActions(c: GameController, r: GameRenderer): void {
 
 export const actions = {
   dispatch(cmd: Command): boolean {
-    return controller?.dispatch(cmd) ?? false;
+    const ok = controller?.dispatch(cmd) ?? false;
+    if (ok) playCommandSound(cmd);
+    return ok;
+  },
+  setAudio(patch: Partial<AudioSettings>): void {
+    audio.setSettings(patch);
   },
   selectTile(tile: Tile | null): void {
     uiStore.setState({ selectedTile: tile });
@@ -69,8 +77,10 @@ export const actions = {
     if (!erase) todo = todo.slice(0, Math.max(0, pathLimit(game) - game.paths.length) || 1);
     for (let i = 0; i < todo.length; i += PATHS.maxPerCommand) {
       const batch = todo.slice(i, i + PATHS.maxPerCommand).map((t) => ({ q: t.q, r: t.r }));
-      const ok = controller?.dispatch({ type: erase ? 'removePath' : 'buildPath', tiles: batch });
+      const cmd: Command = { type: erase ? 'removePath' : 'buildPath', tiles: batch };
+      const ok = controller?.dispatch(cmd);
       if (!ok) break;
+      if (i === 0) playCommandSound(cmd);
     }
   },
   focusTile(tile: Tile): void {

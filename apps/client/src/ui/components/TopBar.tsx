@@ -9,7 +9,16 @@ import {
   type ResourceId,
 } from '@kiwar/shared';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
-import { ChatIcon, GearIcon, GlobeIcon, KiwiIcon, ResourceIcon, ScrollIcon } from '../icons';
+import {
+  ChatIcon,
+  GearIcon,
+  GlobeIcon,
+  KiwiIcon,
+  ResourceIcon,
+  ScrollIcon,
+  SpeakerIcon,
+} from '../icons';
+import { actions } from '../actions';
 import { chatActions } from '../chatActions';
 import { uiStore, useT, useUi } from '../store';
 import { SyncBadge } from './SyncBadge';
@@ -112,6 +121,7 @@ export function TopBar() {
   const inUniverse = useUi((s) => s.universe !== null);
   const chatOpen = useUi((s) => s.chatOpen);
   const chatUnread = useUi((s) => s.chatUnread);
+  const muted = useUi((s) => s.audio.muted);
   const [tip, setTip] = useState<TipId | null>(null);
   const [tipLeft, setTipLeft] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
@@ -227,6 +237,16 @@ export function TopBar() {
           onClick={() => uiStore.setState((s) => ({ objectivesOpen: !s.objectivesOpen }))}
         >
           <ScrollIcon />
+        </button>
+        <button
+          class={`btn btn-icon parchment-btn sound-btn ${muted ? 'is-muted' : ''}`}
+          aria-label={muted ? t('audio.unmute') : t('audio.mute')}
+          aria-pressed={muted}
+          title={muted ? t('audio.unmute') : t('audio.mute')}
+          data-silent
+          onClick={() => actions.setAudio({ muted: !muted })}
+        >
+          <SpeakerIcon muted={muted} />
         </button>
         <button
           class="btn btn-icon parchment-btn"
