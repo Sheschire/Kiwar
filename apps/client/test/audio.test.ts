@@ -1,4 +1,7 @@
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { BUILTIN_FILES } from '../src/audio/builtin';
 import { bindingSchema, DEFAULT_CONTEXT, makeBinding, resolvePlay } from '../src/audio/binding';
 import { defaultBindings, SOUND_EVENT_IDS, SOUND_EVENTS } from '../src/audio/catalog';
 import { DEFAULT_SETTINGS, parseSettings } from '../src/audio/settings';
@@ -47,20 +50,34 @@ describe('resolvePlay', () => {
 });
 
 describe('catalogue', () => {
-  it('every active event has a working default sound', () => {
+  it('every active event has a working default sound and a synth fallback', () => {
     const bindings = defaultBindings();
     for (const id of SOUND_EVENT_IDS) {
-      const meta = SOUND_EVENTS[id] as { reserved?: boolean; bus: string };
-      if (meta.reserved || meta.bus === 'music') continue;
+      const meta = SOUND_EVENTS[id] as { reserved?: boolean; synth?: string; bus: string };
+      if (meta.reserved) continue;
       expect(bindings[id].sources.length, id).toBeGreaterThan(0);
       for (const src of bindings[id].sources) {
-        expect(src.startsWith('synth:') || src.startsWith('builtin:'), src).toBe(true);
         if (src.startsWith('synth:'))
           expect(SYNTH_PRESET_IDS, src).toContain(
             src.slice(6) as (typeof SYNTH_PRESET_IDS)[number],
           );
+        else {
+          expect(src.startsWith('builtin:'), src).toBe(true);
+          expect(BUILTIN_FILES, src).toContain(src.slice(8));
+          if (meta.bus !== 'music')
+            expect(meta.synth, `${id} needs a synth fallback`).toBeDefined();
+        }
       }
     }
+  });
+
+  it('ships every built-in file as ogg and mp3', () => {
+    for (const f of BUILTIN_FILES)
+      for (const ext of ['ogg', 'mp3'])
+        expect(
+          existsSync(fileURLToPath(new URL(`../public/audio/${f}.${ext}`, import.meta.url))),
+          `${f}.${ext}`,
+        ).toBe(true);
   });
 });
 

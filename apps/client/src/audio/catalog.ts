@@ -1,4 +1,5 @@
 import { makeBinding, type BindingInput, type SoundBinding } from './binding';
+import type { SynthPresetId } from './synth';
 
 /** Mixer buses; each has its own volume in the settings. */
 export const BUSES = ['music', 'ambience', 'sfx', 'ui'] as const;
@@ -11,6 +12,8 @@ interface EventMeta {
   group: EventGroup;
   /** Declared for a later chantier: never fired by the game yet. */
   reserved?: boolean;
+  /** Synthesized fallback when a file cannot be loaded or decoded. */
+  synth?: SynthPresetId;
   default: BindingInput;
 }
 
@@ -19,51 +22,100 @@ interface EventMeta {
  * events, and the binding (default here, overridable from the admin space) decides the sound.
  */
 export const SOUND_EVENTS = {
-  'ui.click': { bus: 'ui', group: 'ui', default: { sources: ['synth:click'], pitchVariation: 1 } },
+  'ui.click': {
+    bus: 'ui',
+    group: 'ui',
+    synth: 'click',
+    default: {
+      sources: ['builtin:ui/click1', 'builtin:ui/click2'],
+      volume: 0.6,
+      pitchVariation: 1,
+    },
+  },
   'ui.select': {
     bus: 'ui',
     group: 'ui',
-    default: { sources: ['synth:tick'], pitchVariation: 1.5, volume: 0.8 },
+    synth: 'tick',
+    default: { sources: ['builtin:ui/tick'], volume: 0.6, pitchVariation: 1.5 },
   },
-  'ui.open': { bus: 'ui', group: 'ui', default: { sources: ['synth:open'] } },
-  'ui.close': { bus: 'ui', group: 'ui', default: { sources: ['synth:close'] } },
-  'ui.error': { bus: 'ui', group: 'ui', default: { sources: ['synth:error'], cooldownMs: 300 } },
-  'ui.notify': { bus: 'ui', group: 'ui', default: { sources: ['synth:notify'], cooldownMs: 1500 } },
+  'ui.open': { bus: 'ui', group: 'ui', synth: 'open', default: { sources: ['builtin:ui/open'] } },
+  'ui.close': {
+    bus: 'ui',
+    group: 'ui',
+    synth: 'close',
+    default: { sources: ['builtin:ui/close'], volume: 0.8 },
+  },
+  'ui.error': {
+    bus: 'ui',
+    group: 'ui',
+    synth: 'error',
+    default: { sources: ['builtin:ui/error'], cooldownMs: 300, volume: 0.7 },
+  },
+  'ui.notify': {
+    bus: 'ui',
+    group: 'ui',
+    synth: 'notify',
+    default: { sources: ['builtin:ui/notify'], cooldownMs: 1500, volume: 0.7 },
+  },
   'build.start': {
     bus: 'sfx',
     group: 'build',
-    default: { sources: ['synth:place'], pitchVariation: 1, spatial: true },
+    synth: 'place',
+    default: {
+      sources: ['builtin:build/wood1', 'builtin:build/wood2', 'builtin:build/wood3'],
+      pitchVariation: 1,
+      spatial: true,
+    },
   },
   'build.complete': {
     bus: 'sfx',
     group: 'build',
-    default: { sources: ['synth:complete'], cooldownMs: 400, spatial: true },
+    synth: 'complete',
+    default: { sources: ['builtin:build/complete'], cooldownMs: 400, volume: 0.8, spatial: true },
   },
   'build.upgrade': {
     bus: 'sfx',
     group: 'build',
-    default: { sources: ['synth:upgrade'], cooldownMs: 400, spatial: true },
+    synth: 'upgrade',
+    default: { sources: ['builtin:build/upgrade'], cooldownMs: 400, volume: 0.8, spatial: true },
   },
   'build.remove': {
     bus: 'sfx',
     group: 'build',
-    default: { sources: ['synth:remove'], pitchVariation: 1, spatial: true },
+    synth: 'remove',
+    default: { sources: ['builtin:build/remove'], pitchVariation: 1, spatial: true },
   },
   'path.paint': {
     bus: 'sfx',
     group: 'build',
-    default: { sources: ['synth:paint'], pitchVariation: 3, cooldownMs: 60 },
+    synth: 'paint',
+    default: {
+      sources: ['builtin:paths/step1', 'builtin:paths/step2'],
+      pitchVariation: 2,
+      cooldownMs: 60,
+    },
   },
   'harvest.gather': {
     bus: 'sfx',
     group: 'colony',
-    default: { sources: ['synth:gather'], pitchVariation: 1, spatial: true },
+    synth: 'gather',
+    default: {
+      sources: ['builtin:colony/gather', 'synth:gather'],
+      pitchVariation: 1,
+      spatial: true,
+    },
   },
-  'egg.lay': { bus: 'sfx', group: 'colony', default: { sources: ['synth:egg'] } },
-  'egg.hatch': { bus: 'sfx', group: 'colony', default: { sources: ['synth:hatch'] } },
+  'egg.lay': { bus: 'sfx', group: 'colony', synth: 'egg', default: { sources: ['synth:egg'] } },
+  'egg.hatch': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'hatch',
+    default: { sources: ['synth:hatch'] },
+  },
   'kiwi.voice': {
     bus: 'sfx',
     group: 'colony',
+    synth: 'voice1',
     default: {
       sources: ['synth:voice1', 'synth:voice2', 'synth:voice3'],
       pitchVariation: 0.7,
@@ -75,6 +127,7 @@ export const SOUND_EVENTS = {
   'kiwi.chirp': {
     bus: 'sfx',
     group: 'colony',
+    synth: 'chirp',
     default: {
       sources: ['synth:chirp'],
       pitchVariation: 2,
@@ -89,34 +142,50 @@ export const SOUND_EVENTS = {
   'storage.full': {
     bus: 'sfx',
     group: 'colony',
-    default: { sources: ['synth:full'], cooldownMs: 5000 },
+    synth: 'full',
+    default: { sources: ['builtin:colony/full'], cooldownMs: 5000, volume: 0.7 },
   },
-  'ship.launch': { bus: 'sfx', group: 'expedition', default: { sources: ['synth:launch'] } },
+  'ship.launch': {
+    bus: 'sfx',
+    group: 'expedition',
+    synth: 'launch',
+    default: { sources: ['synth:launch'] },
+  },
   'ship.arrive': {
     bus: 'sfx',
     group: 'expedition',
-    default: { sources: ['synth:arrive'], cooldownMs: 1000 },
+    synth: 'arrive',
+    default: { sources: ['builtin:ship/arrive'], cooldownMs: 1000, volume: 0.8 },
   },
   'ship.return': {
     bus: 'sfx',
     group: 'expedition',
-    default: { sources: ['synth:return'], cooldownMs: 1000 },
+    synth: 'return',
+    default: { sources: ['builtin:ship/return'], cooldownMs: 1000, volume: 0.8 },
   },
   'threat.warning': {
     bus: 'sfx',
     group: 'colony',
+    synth: 'warning',
     reserved: true,
     default: { sources: ['synth:warning'], cooldownMs: 3000 },
   },
   'ambience.nature': {
     bus: 'ambience',
     group: 'ambience',
-    default: { sources: ['synth:nature'], loop: true, fadeInMs: 2000, fadeOutMs: 2000 },
+    synth: 'nature',
+    default: {
+      sources: ['builtin:ambience/birds'],
+      loop: true,
+      fadeInMs: 3000,
+      fadeOutMs: 2000,
+    },
   },
   'ambience.wind': {
     bus: 'ambience',
     group: 'ambience',
-    default: { sources: ['synth:wind'], loop: true, fadeInMs: 2000, fadeOutMs: 2000 },
+    synth: 'wind',
+    default: { sources: ['builtin:ambience/wind'], loop: true, fadeInMs: 3000, fadeOutMs: 2000 },
   },
   'ambience.day': {
     bus: 'ambience',
@@ -133,7 +202,13 @@ export const SOUND_EVENTS = {
   'music.main': {
     bus: 'music',
     group: 'music',
-    default: { loop: true, fadeInMs: 4000, fadeOutMs: 3000, volume: 0.7 },
+    default: {
+      sources: ['builtin:music/small-fire'],
+      loop: true,
+      fadeInMs: 6000,
+      fadeOutMs: 3000,
+      volume: 0.7,
+    },
   },
 } satisfies Record<string, EventMeta>;
 

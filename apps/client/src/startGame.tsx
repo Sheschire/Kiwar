@@ -13,6 +13,7 @@ import { ChatChannel, mutedUsers } from './game/chat';
 import { setChannel } from './ui/chatActions';
 import { audio } from './audio/engine';
 import { installGameAudio } from './audio/gameAudio';
+import { kiwiSpeaks } from './audio/sounds';
 
 persistLang(uiStore.getState().lang);
 
@@ -30,6 +31,7 @@ const renderer = new GameRenderer(
     onPaint: (tiles, erase) => actions.paintPaths(tiles, erase),
     onFps: (fps) => uiStore.setState({ fps }),
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
+    onKiwiTap: (id, pos) => kiwiSpeaks(id, pos),
   },
   qualityChoice,
 );
@@ -55,7 +57,7 @@ controller = new GameController({
   onUniverse: (universe) => uiStore.setState({ universe }),
 });
 bindActions(controller, renderer);
-installGameAudio();
+installGameAudio(renderer);
 
 // Keep the 3D selection marker in sync with the UI selection.
 uiStore.subscribe((s, prev) => {

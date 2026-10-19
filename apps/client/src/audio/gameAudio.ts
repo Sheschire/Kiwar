@@ -1,11 +1,13 @@
+import type { GameRenderer } from '../render/GameRenderer';
 import { uiStore } from '../ui/store';
+import { kiwiVoicePitch } from './sounds';
 import { onlineConfig } from '../game/onlineConfig';
 import { audio } from './engine';
 import { loadAudioManifest } from './manifest';
 import { sandboxOverride } from './sandbox';
 
 /** Hooks the audio engine to the page and the UI (called once at startup). */
-export function installGameAudio(): void {
+export function installGameAudio(renderer: GameRenderer): void {
   audio.installUnlock();
   // Custom sounds from the admin space (never blocks: defaults play meanwhile).
   void loadAudioManifest(onlineConfig(), sandboxOverride);
@@ -29,8 +31,22 @@ export function installGameAudio(): void {
     if (s.chatUnread > prev.chatUnread) audio.play('ui.notify');
   });
 
-  // Ambience beds (levels follow the camera zoom once the renderer reports it).
-  audio.setLoop('ambience.nature', 0.7);
-  audio.setLoop('ambience.wind', 0.25);
   audio.setLoop('music.main', 1);
+  audio.spatializer = (pos) => renderer.spatialize(pos);
+
+  // Ambience follows the camera: more nature close up, more wind from afar; kiwis chirp
+  // around when zoomed in (the binding's zoom condition, probability and cooldown decide).
+  let lastChirp = 0;
+  window.setInterval(() => {
+    const zoom = renderer.audioZoom();
+    audio.context.zoom = zoom;
+    audio.setLoop('ambience.nature', 0.25 + 0.75 * (1 - zoom));
+    audio.setLoop('ambience.wind', 0.1 + 0.9 * zoom);
+    const now = performance.now();
+    if (now - lastChirp > 2500) {
+      lastChirp = now;
+      const kiwi = renderer.randomVisibleKiwi();
+      if (kiwi) audio.play('kiwi.chirp', { pos: kiwi.pos, pitchOffset: kiwiVoicePitch(kiwi.id) });
+    }
+  }, 250);
 }

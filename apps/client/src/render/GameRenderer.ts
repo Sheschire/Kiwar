@@ -52,7 +52,12 @@ export interface RendererCallbacks {
   onPaint?(tiles: Tile[], erase: boolean): void;
   onFps?(fps: number): void;
   onQualityChange?(preset: QualityPreset): void;
+  /** A kiwi was tapped (it speaks instead of selecting its tile). */
+  onKiwiTap?(id: string, pos: { x: number; z: number }): void;
 }
+
+const tmpV = new Vector3();
+const tmpTarget = new Vector3();
 
 /** Owns the WebGL renderer, the scene graph and the frame loop. */
 export class GameRenderer {
@@ -111,7 +116,10 @@ export class GameRenderer {
 
     this.tap = new TapDetector(canvas, {
       onTap: (x, y) => {
-        if (!this.painter.enabled) this.callbacks.onTileTap(this.pickTile(x, y));
+        if (this.painter.enabled) return;
+        const kiwi = this.callbacks.onKiwiTap ? this.kiwiAt(x, y) : null;
+        if (kiwi) this.callbacks.onKiwiTap!(kiwi.id, kiwi.pos);
+        else this.callbacks.onTileTap(this.pickTile(x, y));
       },
       onHover: (x, y) => (this.hoverPoint = { x, y }),
       onHoverEnd: () => {
@@ -290,6 +298,64 @@ export class GameRenderer {
   focusTile(tile: Tile): void {
     const p = this.terrain?.tileTop(tile, new Vector3());
     if (p) this.rig.focus(p.x, p.y, p.z);
+  }
+
+  // ---- Audio helpers ----
+
+  /** Camera zoom for sounds: 0 = closest, 1 = farthest. */
+  audioZoom(): number {
+    const c = this.rig.controls;
+    return Math.min(
+      1,
+      Math.max(0, (c.distance - c.minDistance) / (c.maxDistance - c.minDistance || 1)),
+    );
+  }
+
+  /** Gain and stereo pan of a sound at a world position, heard from the camera. */
+  spatialize(pos: { x: number; z: number }): { gain: number; pan: number } {
+    const c = this.rig.controls;
+    c.getTarget(tmpTarget);
+    const d = Math.hypot(pos.x - tmpTarget.x, pos.z - tmpTarget.z);
+    const radius = c.distance * 0.6;
+    tmpV.set(pos.x, tmpTarget.y, pos.z).project(this.camera);
+    const offscreen = Math.abs(tmpV.x) > 1.1 || Math.abs(tmpV.y) > 1.1;
+    const far = Math.min(1, Math.max(0.45, 30 / c.distance));
+    return {
+      gain: (far * (offscreen ? 0.5 : 1)) / (1 + (d / radius) ** 2),
+      pan: Math.max(-1, Math.min(1, tmpV.x)) * 0.7,
+    };
+  }
+
+  /** The kiwi drawn closest to a screen point (generous radius: kiwis are small). */
+  kiwiAt(clientX: number, clientY: number): { id: string; pos: { x: number; z: number } } | null {
+    const kiwis = this.kiwis?.visible();
+    if (!kiwis?.length) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    const reach = window.matchMedia?.('(pointer: coarse)').matches ? 30 : 22;
+    let best: (typeof kiwis)[number] | null = null;
+    let bestD = reach * reach;
+    for (const k of kiwis) {
+      tmpV.copy(k.pos).project(this.camera);
+      if (tmpV.z > 1) continue;
+      const dx = rect.left + ((tmpV.x + 1) / 2) * rect.width - clientX;
+      const dy = rect.top + ((1 - tmpV.y) / 2) * rect.height - clientY;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD) {
+        bestD = d2;
+        best = k;
+      }
+    }
+    return best ? { id: best.id, pos: { x: best.pos.x, z: best.pos.z } } : null;
+  }
+
+  /** A random kiwi on screen (ambient chirps), or null. */
+  randomVisibleKiwi(): { id: string; pos: { x: number; z: number } } | null {
+    const onScreen = (this.kiwis?.visible() ?? []).filter((k) => {
+      tmpV.copy(k.pos).project(this.camera);
+      return Math.abs(tmpV.x) < 1 && Math.abs(tmpV.y) < 1 && tmpV.z < 1;
+    });
+    const k = onScreen[Math.floor(Math.random() * onScreen.length)];
+    return k ? { id: k.id, pos: { x: k.pos.x, z: k.pos.z } } : null;
   }
 
   private pickTile(x: number, y: number): Tile | null {

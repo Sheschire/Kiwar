@@ -126,6 +126,8 @@ export class KiwisView {
   private readonly shadows: InstancedMesh;
   private readonly loads: InstancedMesh;
   private readonly agents = new Map<VillagerId, Agent>();
+  /** Kiwis drawn at the last update (for taps and sounds). */
+  private drawn: Agent[] = [];
   private state: GameState | null = null;
   private paths = new Set<string>();
   private readonly m = new Matrix4();
@@ -370,14 +372,21 @@ export class KiwisView {
     return { q: t.q, r: t.r };
   }
 
+  /** Kiwis currently on the map, with their world position. */
+  visible(): readonly { id: VillagerId; pos: Vector3 }[] {
+    return this.drawn;
+  }
+
   update(dt: number, time: number): void {
     if (!this.state) return;
     const villagers = new Map(this.state.villagers.map((v) => [v.id, v]));
     let i = 0;
+    this.drawn.length = 0;
     for (const agent of this.agents.values()) {
       const villager = villagers.get(agent.id);
       // Kiwis away on an expedition are not on the map.
       if (!villager || villager.job.kind === 'expedition') continue;
+      this.drawn.push(agent);
       agent.timer -= dt;
       agent.spawn = Math.min(1, agent.spawn + dt * 2);
       this.think(agent, villager);

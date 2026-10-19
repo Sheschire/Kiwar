@@ -5,16 +5,10 @@ import {
   type PlayState,
   type SoundBinding,
 } from './binding';
-import {
-  BUSES,
-  defaultBinding,
-  defaultBindings,
-  eventMeta,
-  type Bus,
-  type SoundEventId,
-} from './catalog';
+import { BUSES, defaultBindings, eventMeta, type Bus, type SoundEventId } from './catalog';
 import { loadSettings, saveSettings, sliderGain, type AudioSettings } from './settings';
 import { renderPreset, SYNTH_PRESETS, type SynthPresetId } from './synth';
+import { builtinExtension } from './builtin';
 
 export interface SoundPosition {
   x: number;
@@ -268,9 +262,9 @@ export class AudioEngine {
   private async withBuffer(ref: string, id: SoundEventId, requested: number) {
     const buffer = await this.load(ref);
     if (buffer) return performance.now() - requested > MAX_LOAD_DELAY_MS ? null : buffer;
-    // A broken file falls back to the default sound of the event.
-    const fallback = defaultBinding(id).sources.find((s) => s.startsWith('synth:'));
-    return fallback && fallback !== ref ? this.load(fallback) : null;
+    // A broken or unsupported file falls back to the synthesized sound of the event.
+    const fallback = eventMeta(id).synth;
+    return fallback && `synth:${fallback}` !== ref ? this.load(`synth:${fallback}`) : null;
   }
 
   /** Decodes (or renders) a source once and caches it; null if it cannot be loaded. */
@@ -380,10 +374,10 @@ export class AudioEngine {
   }
 }
 
-/** `builtin:ui/click.ogg` → URL of the file shipped in `public/audio/`. */
+/** `builtin:ui/click1` → URL of the file shipped in `public/audio/`. */
 export function builtinUrl(ref: string): string | null {
   if (!ref.startsWith('builtin:')) return null;
-  return `${import.meta.env.BASE_URL}audio/${ref.slice(8)}`;
+  return `${import.meta.env.BASE_URL}audio/${ref.slice(8)}.${builtinExtension()}`;
 }
 
 export const audio = new AudioEngine();

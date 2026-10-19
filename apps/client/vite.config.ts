@@ -32,6 +32,20 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        // Sounds are fetched on demand (never precached) and kept once heard.
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) =>
+              /\/audio\/.+\.(ogg|mp3)$/.test(url.pathname) ||
+              url.pathname.includes('/storage/v1/object/public/audio/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'kiwar-audio',
+              expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],
