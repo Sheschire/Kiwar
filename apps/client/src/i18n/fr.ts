@@ -27,11 +27,26 @@ export const fr: Dict = {
     newWorld: 'Nouveau monde',
     controls: 'Commandes',
     controlsDesktop:
-      'Molette : zoom · Clic droit glissé : orbite · Clic milieu ou Maj + clic droit : déplacer · WASD : se déplacer · Q/E : tourner · Clic : sélectionner',
+      'Clic : sélectionner · Clic gauche glissé : déplacer · Clic droit glissé (ou Alt + glisser) : tourner · Molette / pincer : zoom · WASD : se déplacer · Q/E : tourner par paliers',
     controlsTouch:
       'Pincer : zoom · Un doigt : déplacer · Deux doigts : tourner · Toucher : sélectionner',
   },
   quality: { low: 'Bas', medium: 'Moyen', high: 'Haut' },
+  tips: {
+    pulp: 'Nourriture des kiwis. Récoltée sur la chair verte par les Cueilleries. Sert à presque tout construire et à faire éclore les œufs.',
+    fiber: 'Matériau de construction filé dans les bosquets de duvet par les Ateliers à fibre.',
+    seeds:
+      'Trésor rare extrait de l’anneau de graines par les Carrières. Indispensable aux améliorations.',
+    juice:
+      'Énergie puisée dans les poches de jus par les Puits. Nécessaire aux œufs et aux grands chantiers.',
+    population:
+      'Kiwis / logement. Faites éclore des œufs pour agrandir la colonie ; construisez des Huttes pour loger plus de kiwis.',
+    stock: 'Stock : {amount} / {cap}',
+    rate: 'Production : +{rate}/h',
+    fullIn: 'Plein dans {duration}',
+    full: 'Stock plein : construisez ou améliorez un Entrepôt.',
+    idle: 'Kiwis au repos : {count}. Mettez-les au travail !',
+  },
   langs: { fr: 'Français', en: 'English' },
   faces: { kiwisu: 'Kiwisu', kiwino: 'Kiwino' },
   tiles: {

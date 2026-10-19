@@ -26,10 +26,22 @@ export const en = {
     newWorld: 'New world',
     controls: 'Controls',
     controlsDesktop:
-      'Wheel: zoom · Right drag: orbit · Middle drag or Shift + right drag: pan · WASD: move · Q/E: rotate · Click: select',
+      'Click: select · Left drag: move · Right drag (or Alt + drag): rotate · Wheel / pinch: zoom · WASD: move · Q/E: rotate by steps',
     controlsTouch: 'Pinch: zoom · One finger: pan · Two fingers: rotate · Tap: select',
   },
   quality: { low: 'Low', medium: 'Medium', high: 'High' },
+  tips: {
+    pulp: 'Kiwi food. Gathered on the green flesh by Pulperies. Used for almost every building and to hatch eggs.',
+    fiber: 'Building material spun from the down groves by Fibre workshops.',
+    seeds: 'Rare treasure dug from the seed ring by Seed quarries. Needed for upgrades.',
+    juice: 'Energy drawn from juice pools by Juice wells. Needed for eggs and big projects.',
+    population: 'Kiwis / housing. Hatch eggs to grow your colony; build Huts to house more kiwis.',
+    stock: 'Stock: {amount} / {cap}',
+    rate: 'Production: +{rate}/h',
+    fullIn: 'Full in {duration}',
+    full: 'Storage full: build or upgrade a Warehouse.',
+    idle: 'Idle kiwis: {count}. Put them to work!',
+  },
   langs: { fr: 'Français', en: 'English' },
   faces: { kiwisu: 'Kiwisu', kiwino: 'Kiwino' },
   tiles: {

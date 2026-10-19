@@ -23,7 +23,8 @@ const FOCUS_DISTANCE = 26;
 
 /**
  * Isometric-ish camera: bounded orbit, pan and zoom with damping.
- * Desktop: wheel zoom, right-drag orbit, middle-drag or Shift+right-drag pan, WASD move, Q/E rotate.
+ * Desktop: left-drag pan (a simple click still selects), right-drag or Alt/Ctrl+left-drag orbit,
+ * wheel / trackpad pinch zoom, middle-drag or Shift+right-drag pan, WASD move, Q/E rotate.
  * Touch: pinch zoom, one-finger pan, two-finger drag/twist rotate.
  */
 export class CameraRig {
@@ -37,7 +38,7 @@ export class CameraRig {
     this.element = element;
     const c = new CameraControls(camera, element);
     this.controls = c;
-    c.mouseButtons.left = A.NONE;
+    c.mouseButtons.left = A.TRUCK;
     c.mouseButtons.right = A.ROTATE;
     c.mouseButtons.middle = A.TRUCK;
     c.mouseButtons.wheel = A.DOLLY;
@@ -58,6 +59,7 @@ export class CameraRig {
     c.boundaryFriction = 0.15;
 
     element.addEventListener('contextmenu', this.onContextMenu);
+    element.addEventListener('pointerdown', this.onMouseDownCapture, { capture: true });
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     window.addEventListener('blur', this.onBlur);
@@ -162,6 +164,23 @@ export class CameraRig {
 
   private onContextMenu = (e: Event) => e.preventDefault();
 
+  /**
+   * Runs before camera-controls (capture phase): Alt/Option or Ctrl + left drag orbits, for
+   * trackpads without a right button (Ctrl+click is the macOS right click). Also shows a
+   * "grabbing" cursor while dragging.
+   */
+  private onMouseDownCapture = (e: PointerEvent) => {
+    if (e.pointerType !== 'mouse') return;
+    this.controls.mouseButtons.left = e.altKey || e.ctrlKey ? A.ROTATE : A.TRUCK;
+    this.element.classList.add('dragging');
+    window.addEventListener('pointerup', this.onMouseUpAnywhere);
+  };
+
+  private onMouseUpAnywhere = () => {
+    this.element.classList.remove('dragging');
+    window.removeEventListener('pointerup', this.onMouseUpAnywhere);
+  };
+
   // Two-finger twist → azimuth rotation (camera-controls only handles drag for rotation).
   private onPointerDown = (e: PointerEvent) => {
     if (e.pointerType !== 'touch') return;
@@ -198,6 +217,8 @@ export class CameraRig {
 
   dispose(): void {
     this.element.removeEventListener('contextmenu', this.onContextMenu);
+    this.element.removeEventListener('pointerdown', this.onMouseDownCapture, { capture: true });
+    window.removeEventListener('pointerup', this.onMouseUpAnywhere);
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('blur', this.onBlur);

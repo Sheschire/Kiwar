@@ -51,12 +51,17 @@ body {
 }
 
 #scene {
+  cursor: grab;
   position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
   display: block;
   outline: none;
+}
+
+#scene.dragging {
+  cursor: grabbing;
 }
 
 #ui {
@@ -333,6 +338,66 @@ p {
 
 .chip-pop .chip-rate {
   color: var(--ink-soft);
+}
+
+/* Chips are buttons (they open a tooltip). */
+button.chip {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  cursor: help;
+  touch-action: manipulation;
+  transition: background 0.15s ease;
+}
+
+button.chip:not(.chip + .chip) {
+  border-left: none;
+}
+
+button.chip:hover,
+button.chip.is-open {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+button.chip:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: -2px;
+}
+
+.resources {
+  position: relative;
+}
+
+.tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  width: min(290px, calc(100vw - 16px));
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.92rem;
+  line-height: 1.3;
+  z-index: 35;
+  pointer-events: none;
+  animation: pop-in 0.16s ease;
+  user-select: none;
+}
+
+.tip-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1rem;
+}
+
+.tip-line {
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Modals ---------- */

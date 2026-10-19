@@ -106,3 +106,7 @@ Larger choices were validated with the project owner (marked ✅).
 - Selection ring is opaque gold (additive blending disappeared on pale tiles); fixed its triangle winding (it was back-face culled).
 - French copy avoids gendered agreements (“Construction terminée : {name} !”, “{name} a éclos !”, “Votre absence a duré…”).
 - i18n test: same keys, no empty strings and identical placeholders in FR and EN.
+
+### Feedback round 1
+- **Mouse controls reworked**: left-drag now pans the map (a click without movement still selects — 6 px / 450 ms threshold), right-drag orbits, Alt/Option or Ctrl + left-drag also orbits (Mac trackpads without a right button; Ctrl+click is the macOS right click), wheel / trackpad pinch zooms. Grab / grabbing cursor on the canvas.
+- **Resource tooltips**: hovering a resource chip (mouse) or tapping it (touch, stays open until tapping elsewhere) shows a short explanation (what it is for, which building produces it, where), the stock / capacity, production per hour, and either the time until storage is full or a hint to build a Warehouse. The population chip explains housing and reports idle kiwis.
