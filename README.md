@@ -7,7 +7,11 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Journal des décisions : [`docs/DECISIONS.md`](docs/DECISIONS.md)
 - Dernier rapport d'équilibrage : [`docs/BALANCE_REPORT.md`](docs/BALANCE_REPORT.md)
 
-> **État : Jalon 1** (solo, local, sans serveur). Une face procédurale en 3D, une caméra
+> **État : Jalon 2** — en ligne avec Supabase (invité immédiat, comptes Google / lien magique,
+> serveur qui fait autorité), voir [`docs/SUPABASE_SETUP.md`](docs/SUPABASE_SETUP.md). Sans
+> configuration, le jeu reste jouable en mode local.
+>
+> **Jalon 1** (solo, local, sans serveur). Une face procédurale en 3D, une caméra
 > desktop/tactile, 7 bâtiments sur 3 niveaux, villageois autonomes, éclosion, objectifs guidés,
 > progression hors ligne, FR/EN et PWA.
 
@@ -36,8 +40,9 @@ Ouvrez ensuite http://localhost:5173. Le serveur de dev écoute aussi sur le ré
 Le fichier `vercel.json` configure tout : importez le dépôt dans Vercel **sans changer le Root
 Directory** (racine du dépôt), Vercel lit `vercel.json` (install pnpm, `pnpm build`, sortie
 `apps/client/dist`, cache long sur les assets, pas de cache sur le service worker).
-Aucune variable d'environnement ni base de données n'est nécessaire au Jalon 1 : chaque joueur
-a sa sauvegarde dans le `localStorage` de son navigateur.
+Sans variable d'environnement, le jeu tourne en mode local (sauvegarde dans le navigateur).
+Pour le mode en ligne, ajoutez `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY` : voir
+[`docs/SUPABASE_SETUP.md`](docs/SUPABASE_SETUP.md).
 
 ## Scripts
 
@@ -75,6 +80,7 @@ packages/shared   Règles, données, simulation, génération procédurale — T
                   (aucune dépendance DOM ou Three.js, déterministe)
 apps/client       Rendu Three.js + HUD Preact ; lit l'état et envoie des commandes
 tools/balance     Simulations headless d'équilibrage (CLI)
+supabase/         Migrations SQL (RLS) et fonction serveur `game` (Deno)
 docs/             Brief, décisions, rapport d'équilibrage
 ```
 
@@ -107,8 +113,19 @@ docs/             Brief, décisions, rapport d'équilibrage
 - `i18n/` : dictionnaires FR/EN typés ; une clé manquante est une erreur de compilation.
 
 Le client ne modifie jamais l'état : il émet des commandes (`build`, `upgrade`, `cancel`,
-`assignWorkers`, `hatchEgg`, `claimObjective`…) validées par `shared`. Au Jalon 2, ces mêmes
-commandes partiront vers le serveur, qui fera autorité.
+`assignWorkers`, `hatchEgg`, `claimObjective`…) validées par `shared`.
+
+### Mode en ligne (Jalon 2)
+
+- `shared/server/gameService` : service de jeu qui fait autorité (horloge et hasard côté serveur,
+  validation des commandes avec les mêmes règles, limitation de débit, commandes debug réservées
+  aux admins, contrôle de cohérence à l'import d'une sauvegarde locale).
+- `supabase/functions/game` : fonction Deno qui authentifie le joueur et appelle ce service ;
+  `supabase/migrations` : tables `games`, `command_log`, `admins` avec RLS (lecture seule pour
+  le joueur).
+- Côté client, les commandes sont appliquées immédiatement (optimiste), envoyées dans l'ordre,
+  puis l'état local est recalé sur la réponse du serveur. Hors connexion, elles attendent et
+  repartent automatiquement.
 
 ## Tests
 

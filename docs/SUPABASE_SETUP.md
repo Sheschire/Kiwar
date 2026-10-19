@@ -1,0 +1,102 @@
+# Mise en ligne avec Supabase (Jalon 2)
+
+Sans configuration, Kiwar fonctionne en **mode local** : la partie est sauvegardée dans le navigateur.
+Ce guide active le **mode en ligne** : jeu immédiat en invité, comptes Google ou lien magique,
+état stocké et validé par le serveur. Compter environ 20 minutes.
+
+## 1. Créer le projet Supabase
+
+1. Sur https://supabase.com/dashboard, cliquez sur **New project** et choisissez une région proche de vos
+   joueurs (par exemple _West EU_).
+2. Notez deux valeurs dans **Project Settings → API** (ou **Connect**) :
+   - **Project URL**, de la forme `https://xxxx.supabase.co` ;
+   - la clé publique : **anon public**, ou **publishable key** (`sb_publishable_…`) sur les projets récents.
+
+## 2. Authentification
+
+Dans **Authentication** :
+
+1. **Sign In / Providers**, section **Allow anonymous sign-ins** : activez-la. Elle permet de jouer
+   en invité.
+2. **Sign In / Providers → Email** : activé. Il sert au lien magique.
+3. **Sign In / Providers**, section **Allow manual linking** : activez-la. Elle permet de convertir
+   un invité en compte Google sans perdre sa colonie.
+4. **Sign In / Providers → Google** :
+   - dans [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials),
+     créez un **OAuth client ID** de type _Web application_ ;
+   - dans _Authorized redirect URIs_, collez l'URL de callback affichée par Supabase
+     (`https://xxxx.supabase.co/auth/v1/callback`) ;
+   - recopiez le _Client ID_ et le _Client secret_ dans Supabase, puis activez le fournisseur.
+5. **URL Configuration** :
+   - _Site URL_ : `https://kiwars.vercel.app`, ou votre domaine ;
+   - _Redirect URLs_ : ajoutez `https://kiwars.vercel.app/**`, `https://kiwars-*-sheschires-projects.vercel.app/**`
+     (prévisualisations : adaptez au format des URLs affichées par Vercel) et `http://localhost:5173/**`.
+
+> Conseil anti-abus : dans **Authentication → Attack Protection**, activez le CAPTCHA
+> (Turnstile) pour les connexions anonymes si le jeu devient public.
+
+## 3. Base de données
+
+Deux options.
+
+**Option A, avec la CLI (recommandée)**
+
+```bash
+npx supabase login
+npx supabase link --project-ref xxxx        # xxxx = l'identifiant du projet
+npx supabase db push                         # applique supabase/migrations
+```
+
+**Option B, à la main** : ouvrez **SQL Editor**, collez le contenu de
+`supabase/migrations/20261020000000_init.sql`, puis cliquez sur **Run**.
+
+Ces tables sont créées : `games` (états de jeu), `command_log` (journal anti-triche) et `admins`.
+Les joueurs peuvent seulement **lire** leur partie. Toute écriture passe par la fonction serveur.
+
+## 4. Fonction serveur `game`
+
+```bash
+pnpm build:functions                          # régénère le bundle des règles partagées
+npx supabase functions deploy game --project-ref xxxx
+```
+
+La fonction utilise automatiquement `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY`, fournis par
+Supabase. Aucun secret n'est à configurer.
+
+## 5. Vercel
+
+Dans le projet Vercel, ouvrez **Settings → Environment Variables** et ajoutez, pour _Production_
+et _Preview_ :
+
+| Nom                      | Valeur                                |
+| ------------------------ | ------------------------------------- |
+| `VITE_SUPABASE_URL`      | la Project URL                        |
+| `VITE_SUPABASE_ANON_KEY` | la clé publique (anon ou publishable) |
+
+Puis lancez **Deployments → … → Redeploy**. Les variables `VITE_*` sont intégrées au moment du build.
+
+## 6. Vérifier
+
+- Ouvrez le site : le nuage en haut à droite devient **vert** (« Sauvegardé en ligne »). Une
+  pastille dorée indique que vous jouez en invité.
+- Réglages → **Compte** → _Continuer avec Google_ : la colonie est conservée.
+- Une colonie du Jalon 1 sauvegardée dans le navigateur est importée **une fois**, si le compte
+  est encore vierge et si elle passe les contrôles de cohérence.
+
+## Administration
+
+- Pour autoriser les commandes debug (`+500 de tout`) sur un compte, lancez dans le SQL Editor :
+  `insert into public.admins (user_id) values ('<uuid du joueur>');`
+  L'uuid se trouve dans _Authentication → Users_. L'accélération du temps n'existe pas en ligne :
+  c'est le serveur qui maîtrise l'horloge.
+- Pour purger régulièrement le journal (plus de 30 jours), planifiez avec pg_cron :
+  `select cron.schedule('purge-kiwar-log', '0 4 * * *', 'select public.purge_command_log()');`
+
+## Développer en ligne sans Supabase
+
+```bash
+pnpm mock:supabase     # faux Supabase en mémoire sur :54321 (auth invité + fonction game)
+pnpm dev:online        # client connecté au mock, sur http://localhost:5174
+```
+
+Ajoutez `?offline=1` à l'URL pour forcer le mode local même si les variables sont définies.
