@@ -8,11 +8,14 @@ import { GameRenderer } from './render/GameRenderer';
 import { persistLang } from './i18n/i18n';
 import { uiStore } from './ui/store';
 import { randomSeed, readUrlParams } from './game/urlParams';
+import { loadQualityChoice } from './render/quality';
 
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
-const renderer = new GameRenderer(canvas, {
-  onTileTap: (tile) => uiStore.setState({ selectedTile: tile }),
-});
+const renderer = new GameRenderer(
+  canvas,
+  { onTileTap: (tile) => uiStore.setState({ selectedTile: tile }) },
+  loadQualityChoice(),
+);
 uiStore.subscribe((s, prev) => {
   if (s.selectedTile !== prev.selectedTile) renderer.setSelectedTile(s.selectedTile);
 });

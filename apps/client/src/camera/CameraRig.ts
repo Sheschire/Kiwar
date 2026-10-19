@@ -50,7 +50,7 @@ export class CameraRig {
     c.polarRotateSpeed = 0.5;
     c.dollySpeed = 0.6;
     c.truckSpeed = 1.6;
-    c.minDistance = 9;
+    c.minDistance = 11;
     c.maxDistance = 75;
     c.minPolarAngle = 0.32;
     c.maxPolarAngle = 1.12;
@@ -89,7 +89,7 @@ export class CameraRig {
     const cam = this.controls.camera as PerspectiveCamera;
     const vHalf = ((cam.fov * Math.PI) / 180) / 2;
     const hHalf = Math.atan(Math.tan(vHalf) * cam.aspect);
-    return Math.max((r * 0.8) / Math.tan(vHalf), (r * 1.08) / Math.tan(hHalf));
+    return Math.max((r * 0.8) / Math.tan(vHalf), (r * 0.98) / Math.tan(hHalf));
   }
 
   focus(x: number, y: number, z: number): void {
