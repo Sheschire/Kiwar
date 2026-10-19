@@ -17,6 +17,7 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
   - `kiwar-client` — rendering, UI, i18n, mobile, visual checks with screenshots.
   - `kiwar-online` — Supabase backend, edge function bundle, mock server, RLS tests.
   - `kiwar-balance` — balance bot, reports, diagnosing pacing.
+  - `kiwar-audio` — sound events, audio engine, CC0/synth sounds, `/admin` sound space.
 
 ## Owner's rules
 

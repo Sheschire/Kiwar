@@ -215,3 +215,42 @@ the Juice well gets a **windmill**.
   golden egg). Bursts are synced to the rig phase.
 - Quality: `buildingAnimations` and `particles` flags, both off in "low" (still poses). Rigs do
   not cast shadows (shadows are static).
+
+## Chantier 02 — audio, sounds, admin space
+
+Owner's answers: **soft acoustic** music, kiwis **speak now** (per-kiwi voice), **no** admin
+management UI (admins are added with SQL), CC0 files **shipped in the repo as defaults**.
+
+- The game never plays a file: it emits a typed **sound event** (`audio/catalog.ts`); a
+  **binding** (sources + volume, pitch, random pitch, probability, cooldown, max voices, loop,
+  fades, spatial flag, zoom / time-of-day / season conditions) decides what plays. Bindings are
+  validated with zod everywhere (admin, manifest, import); invalid data falls back to defaults.
+- Sources are references: `synth:<preset>` (generated in code, no licence), `builtin:<file>`
+  (repo, ogg + mp3, the browser picks ogg when it can — Vorbis loops seamlessly — else mp3),
+  `asset:<uuid>` (uploaded). Each event has a synth fallback used when a file fails to decode.
+- Audio context created on the first gesture (iOS: silent buffer in the gesture), **suspended**
+  while the page is hidden or muted (battery). Volumes: perceptual curve (slider²), stored in
+  `kiwar.audio.settings`. Default levels: master 80, music 50, ambience 60, effects 80, UI 60.
+- Anti-spam: per-event cooldown and max simultaneous voices; one-shots whose file takes more
+  than 400 ms to load are skipped (no late sounds).
+- Spatial sounds: no PannerNode/HRTF (cost on phones); gain from the XZ distance to the camera
+  target relative to the zoom, softer off screen, stereo pan from the screen x.
+- Ambience: two loops crossfaded every 250 ms from the zoom (birds 0.25–1, wind 0.1–1).
+  Music: a single CC0 loop, 6 s fade-in. Kiwi voice: three babble variants, pitch offset
+  ±4 semitones from a hash of the villager id (chantier 03 can plug real traits). Tapping a kiwi
+  (generous screen radius) makes it speak instead of selecting the tile.
+- Database: `audio_assets` (file metadata, bytes in the public `audio` bucket, 2 MB, audio
+  MIME types only) and `audio_bindings` (event id → binding jsonb with size / shape checks).
+  Everyone reads (even anonymous), only `is_admin()` writes (security definer helper, since
+  `admins` has no read policy). The client reads the manifest with plain `fetch` on PostgREST so
+  local players never download supabase-js; cached in `kiwar.audio.manifest`.
+- Admin space at `/admin` (or `?admin`): `main.tsx` became a tiny router that lazy-loads either
+  the game (`startGame.tsx`) or the admin chunk (no Three.js). Admin texts live in
+  `admin/strings.ts` (FR + EN) to keep them out of the game bundle. Not admin / offline → a
+  **local sandbox** (localStorage + IndexedDB) that the game of the same browser uses instead
+  of the shared sounds, with a switch to go back. Changes autosave after 500 ms; visible in the
+  game on reload (Realtime left for later). Uploads send raw bytes (supabase-js would send a
+  Blob as multipart form data).
+- CC0 picks made without listening (no audio output in the build environment): steadiest 24 s
+  windows chosen by loudness analysis for the ambiences; the owner validates by ear.
+- Sounds are cached by the service worker on first play (CacheFirst), never precached.

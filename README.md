@@ -9,6 +9,12 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 02** — le jeu a du son : clics, chantiers, éclosions, expéditions, kiwis qui
+> parlent (chacun sa voix) quand on les touche, ambiance nature/vent qui suit le zoom et musique
+> acoustique douce ; volumes par canal et bouton muet. Un **espace admin** (`/admin`) permet
+> d'envoyer ses propres sons et de régler chaque événement sonore sans toucher au code (sons
+> partagés via Supabase, ou bac à sable local). Crédits : [`docs/AUDIO_CREDITS.md`](docs/AUDIO_CREDITS.md).
+>
 > **Chantier 01** — on peut démolir tout bâtiment sauf le Nid (25 % remboursés, confirmation),
 > et le village vit : pressoir, rouet, marteau-pilon, moulin du puits, grue, drapeaux, fumées,
 > particules ; l'animation s'arrête quand un bâtiment ne produit pas (badge pause ou épuisé).
@@ -124,6 +130,9 @@ docs/             Brief, décisions, rapport d'équilibrage
   mobile, file de construction, œuf, objectifs, réglages, debug). Store `zustand` (vanilla)
   partagé avec le renderer.
 - `i18n/` : dictionnaires FR/EN typés ; une clé manquante est une erreur de compilation.
+- `audio/` : moteur Web Audio (canaux musique / ambiance / effets / interface), catalogue
+  d'événements sonores, liaisons réglables, synthé de secours, manifeste lu depuis Supabase.
+- `admin/` : espace admin des sons (`/admin`, chunk séparé, sans la 3D).
 
 Le client ne modifie jamais l'état : il émet des commandes (`build`, `upgrade`, `cancel`,
 `assignWorkers`, `hatchEgg`, `claimObjective`…) validées par `shared`.
@@ -151,7 +160,9 @@ Le client ne modifie jamais l'état : il émet des commandes (`build`, `upgrade`
   et équivalence entre un grand pas et de nombreux petits pas ;
 - la validation de chaque commande et le déterminisme d'un journal de commandes ;
 - la sauvegarde (aller-retour, fichiers corrompus, versions futures) ;
-- le pathfinding des kiwis, la cohérence FR/EN des traductions et le bot d'équilibrage.
+- le pathfinding des kiwis, la cohérence FR/EN des traductions et le bot d'équilibrage ;
+- l'audio : résolution des liaisons (anti-spam, probabilité, conditions), rendu du synthé,
+  manifeste, présence des fichiers intégrés.
 
 ## Performances
 
@@ -165,4 +176,6 @@ Le client ne modifie jamais l'état : il émet des commandes (`build`, `upgrade`
   SIL Open Font License 1.1 (via [Fontsource](https://fontsource.org)).
 - Bibliothèques : three.js (MIT), postprocessing (Zlib), n8ao (ISC), camera-controls (MIT),
   Preact (MIT), zustand (MIT), zod (MIT), simplex-noise (MIT), Vite / Vitest (MIT).
-- **Aucun asset externe** : modèles 3D, textures, icônes et effets sont générés par le code.
+- Modèles 3D, textures, icônes et effets visuels sont générés par le code.
+- Sons : fichiers CC0 de Kenney, Thimras et Trex0n, détaillés dans
+  [`docs/AUDIO_CREDITS.md`](docs/AUDIO_CREDITS.md) ; sons de secours synthétisés par le code.

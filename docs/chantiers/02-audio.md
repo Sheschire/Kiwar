@@ -81,3 +81,34 @@ paramètres qui en auraient besoin, pour que je puisse expérimenter sans te dem
 2. Les kiwis doivent-ils « parler » (petits gazouillis avec variations selon le kiwi, à la
    Animal Crossing) ? Cela se marierait bien avec le chantier 03 (kiwis individuels).
 3. L'espace admin doit-il aussi permettre d'inviter d'autres admins ?
+
+## Réalisé (octobre 2026)
+
+Réponses du porteur : musique **douce et acoustique** ; les kiwis **parlent** dès maintenant
+(voix propre à chaque kiwi) ; **pas** de gestion des admins dans l'interface (SQL) ; sons CC0
+**dans le dépôt, utilisés par défaut**.
+
+1. **Moteur** (`apps/client/src/audio/`) : Web Audio lancé au premier geste, suspendu quand la
+   page est cachée ou muette ; canaux musique / ambiance / effets / interface + général ; réglages
+   dans Paramètres et bouton muet dans la barre du haut. Catalogue typé de 26 événements
+   (`catalog.ts`), liaisons validées par zod (`binding.ts`), synthé en code (`synth.ts`) qui sert
+   de secours à chaque événement.
+2. **Base** : migration `20261022000000_audio.sql` (`is_admin()`, `audio_assets`,
+   `audio_bindings`, bucket `audio` public 2 Mo, policies admin) + tests RLS. Le client lit le
+   manifeste par PostgREST (sans supabase-js), le met en cache, retombe sur les défauts.
+3. **Espace admin** `/admin` : connexion Google / lien magique, mode partagé (admins) ou bac à
+   sable local (localStorage + IndexedDB, utilisé par le jeu du même navigateur) ; onglets Sons
+   (envoi, écoute, renommage, suppression) et Événements (tous les paramètres, enregistrement
+   automatique, test) ; export / import JSON ; onglets Équilibrage et Ciel réservés.
+4. **Sons** : 22 fichiers CC0 (Kenney, Thimras, Trex0n) en ogg + mp3, ambiance oiseaux / vent
+   qui suit le zoom, musique en boucle, sons spatialisés, kiwi qui parle quand on le touche,
+   pépiements près de la caméra, cache du service worker.
+
+Reste à faire / idées :
+
+- Changements de l'admin en direct (Realtime) : aujourd'hui au rechargement.
+- Ambiances jour / nuit / saisons (`ambience.day`, `ambience.night`, conditions) : avec le
+  chantier 04 ; `threat.warning` : avec le chantier 06.
+- Voix des kiwis tirée de leurs traits (chantier 03) au lieu d'un hachage de l'identifiant.
+- Sons choisis sans écoute : au porteur de valider à l'oreille et de remplacer via `/admin`.
+- Gestion des admins depuis l'interface (écartée pour l'instant).

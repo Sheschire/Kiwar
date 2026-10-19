@@ -7,8 +7,11 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
 
 ## Wiring
 
-- `main.tsx` creates `GameRenderer` (canvas) and `GameController` (game state, local save or
-  online backend), binds them to the UI with `bindActions`, renders `<App />`.
+- `main.tsx` only routes: `/admin` (or `?admin`) lazy-loads the admin space
+  (`admin/startAdmin.tsx`), anything else `startGame.tsx`, which creates `GameRenderer` (canvas)
+  and `GameController` (game state, local save or online backend), binds them to the UI with
+  `bindActions`, installs audio (`installGameAudio`) and renders `<App />`.
+- Audio: see the `kiwar-audio` skill (sound events, engine, admin space).
 - `game/GameController.ts` — owns the `GameState`; `dispatch(cmd)` applies the command
   optimistically with `applyCommand` (shared), shows errors as toasts, saves locally or queues
   the command for the server (pending queue + rebase on server state); `tick()` advances time.

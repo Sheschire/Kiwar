@@ -32,17 +32,17 @@ en ligne n'a été testé qu'avec le mock (`pnpm mock:supabase`).
 Détail, propositions et questions ouvertes dans [`docs/chantiers/`](chantiers/README.md). Ils
 remplacent les anciens jalons 5 à 8 de `VISION.md`.
 
-| #   | Chantier                                                               | État                           |
-| --- | ---------------------------------------------------------------------- | ------------------------------ |
-| 01  | Démolition et bâtiments vivants                                        | ✅                             |
-| 02  | Audio : socle, sons de base, espace admin                              | ⏭ (parallèle possible avec 01) |
-| 03  | Kiwis individuels : niveaux, métiers, classes, shiny                   | à faire                        |
-| 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | à faire                        |
-| 05  | Intro, choix de la face, biomes, brouillard                            | à faire                        |
-| 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | à faire                        |
-| 07  | Vaisseau kiwi géant et exploration                                     | à faire                        |
-| 08  | Âges, recherche contre nature, Kikiwiwis                               | à faire                        |
-| —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées                          |
+| #   | Chantier                                                               | État       |
+| --- | ---------------------------------------------------------------------- | ---------- |
+| 01  | Démolition et bâtiments vivants                                        | ✅         |
+| 02  | Audio : socle, sons de base, espace admin                              | ✅         |
+| 03  | Kiwis individuels : niveaux, métiers, classes, shiny                   | ⏭ prochain |
+| 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | à faire    |
+| 05  | Intro, choix de la face, biomes, brouillard                            | à faire    |
+| 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | à faire    |
+| 07  | Vaisseau kiwi géant et exploration                                     | à faire    |
+| 08  | Âges, recherche contre nature, Kikiwiwis                               | à faire    |
+| —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées      |
 
 ## Dette et idées en attente
 
@@ -53,5 +53,8 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 - Remboursement de démolition approximatif quand plusieurs copies ont été construites (prix de la
   dernière copie).
 - Fenêtres éclairées des huttes la nuit : avec le jour/nuit du chantier 04.
+- Audio : changements de l'admin visibles au rechargement seulement (pas de Realtime) ; pas
+  d'onglet pour gérer les admins (SQL) ; ambiances jour/nuit et saisons réservées au chantier 04 ;
+  sons CC0 choisis sans écoute (à valider à l'oreille, remplaçables depuis `/admin`).
 - Performance des animations non mesurée sur un vrai téléphone (un mesh par partie animée, ~1 à
   10 par bâtiment) : à vérifier, sinon passer les drapeaux en instancing.

@@ -17,13 +17,15 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
 - Stored games are migrated on read (`migrating(repo)` → `migrateState`).
 - Rate limit: 40 commands / 10 s (`command_log`).
 - **SQL**: `supabase/migrations/` — `games`, `command_log`, `admins`, `universes`,
-  `universe_members`, `chat_messages` (+ trigger setting the author name from the membership,
-  flood limit 5 msgs / 10 s), `chat_reports`, realtime publication. RLS everywhere; game rows are
+  `universe_members`, `audio_assets` / `audio_bindings` + Storage bucket `audio` (see
+  `kiwar-audio`; `public.is_admin()` helper for admin-only policies), `chat_messages`
+  (+ trigger setting the author name from the membership, flood limit 5 msgs / 10 s), `chat_reports`, realtime publication. RLS everywhere; game rows are
   written by the function only (service role).
 - **Tests**: `pnpm test:db` (local Postgres + `supabase/tests/supabase_stub.sql` auth stub +
   `rls_test.sql`). Start Postgres first: `pg_ctlcluster 16 main start`.
 - **Mock**: `pnpm mock:supabase` (port 54321: anonymous auth, `game` function through the real
-  shared service, minimal PostgREST for chat, no realtime) + `pnpm dev:online` (client on 5174).
+  shared service, minimal PostgREST for chat and audio tables, Storage for the `audio` bucket,
+  `rpc/is_admin` always true, no realtime) + `pnpm dev:online` (client on 5174).
   `/__mock/delay?ms=` changes the latency.
 - Universes: kiwis = ⌊players/2⌋ + 1 (always an alien face), twin faces filled first, invite code
   8 chars, ≤ 8 players, ≤ 5 universes per player; expedition targets are alien faces.
