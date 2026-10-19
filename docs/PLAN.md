@@ -34,7 +34,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 
 | #   | Chantier                                                               | État                           |
 | --- | ---------------------------------------------------------------------- | ------------------------------ |
-| 01  | Démolition et bâtiments vivants                                        | ⏭ prochain                     |
+| 01  | Démolition et bâtiments vivants                                        | ✅                             |
 | 02  | Audio : socle, sons de base, espace admin                              | ⏭ (parallèle possible avec 01) |
 | 03  | Kiwis individuels : niveaux, métiers, classes, shiny                   | à faire                        |
 | 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | à faire                        |
@@ -49,3 +49,9 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 - Le bot d'équilibrage n'utilise ni camps, ni chemins, ni expéditions.
 - Les camps posés sur le jus flottent un peu.
 - Pas de modération automatique du chat (signalements seulement).
+- Déménager un bâtiment (garder son niveau contre un coût) : écarté du chantier 01, à revoir.
+- Remboursement de démolition approximatif quand plusieurs copies ont été construites (prix de la
+  dernière copie).
+- Fenêtres éclairées des huttes la nuit : avec le jour/nuit du chantier 04.
+- Performance des animations non mesurée sur un vrai téléphone (un mesh par partie animée, ~1 à
+  10 par bâtiment) : à vérifier, sinon passer les drapeaux en instancing.

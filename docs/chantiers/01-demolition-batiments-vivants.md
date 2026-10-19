@@ -1,5 +1,7 @@
 # Chantier 01 — Démolition et bâtiments vivants
 
+> **État : terminé** (3 commits sur `main`). Voir « Bilan » en fin de document.
+
 Deux sujets courts et indépendants, pour corriger un manque de gameplay et donner de la vie au
 village avant les gros chantiers.
 
@@ -94,3 +96,34 @@ sur les grains, que la pompe à jus tourne (avec un petit moulin par exemple). �
 2. Remboursement de 25 % : trop, pas assez ? Faut-il un « déménagement » (déplacer un bâtiment
    en gardant son niveau, contre un coût) ?
 3. Puits à jus : moulin à vent ou roue à eau (noria) ?
+
+## Bilan
+
+Réponses du porteur : démolition **immédiate**, remboursement **25 %**, **pas de déménagement**
+pour l'instant, Puits à jus avec un **moulin à vent**.
+
+Fait :
+
+1. **Démolition** — commande `demolish` (alias `dismantle`) pour tout bâtiment sauf le Nid ;
+   refus pendant une amélioration, vaisseau parti, ou logement encore nécessaire ; 25 % de la
+   construction + améliorations rendus (rien pour les camps) ; ouvriers réassignés, gisements
+   rendus avec leur épuisement, surplus de stock conservé. Lien « Démolir… » en bas de la fiche,
+   confirmation (bottom sheet sur téléphone) avec remboursement et conséquences ; effondrement
+   dans un nuage de poussière et de débris. Test « pas d'impasse » sur 12 colonies aléatoires.
+2. **Producteurs vivants** — modèles séparés en partie statique + parties animées ; pressoir
+   de la Pulperie, rouet de l'Atelier, marteau-pilon de la Carrière, moulin et seau du Puits.
+   Vitesse ∝ ouvriers ; arrêt si personne ou stockage plein (badge pause), très lent si
+   gisement épuisé (badge « ! »).
+3. **Particules et ambiance** — gouttes de pulpe, éclats de pépins, gouttes de jus, fumée des
+   huttes et du camp, étincelles, scintillement de l'œuf doré ; œufs qui oscillent, brindilles,
+   grue de l'Entrepôt, vaisseau qui respire, drapeaux au vent, feu de camp. Tout est coupé en
+   qualité « basse ».
+
+Reste / idées :
+
+- Déménagement d'un bâtiment (coût, garder le niveau).
+- Fenêtre éclairée des huttes la nuit (chantier 04).
+- Mesurer les 60 fps sur un vrai téléphone moyen (preset medium) ; si besoin, instancier les
+  drapeaux et parties animées.
+- Le remboursement prend le prix de la dernière copie du type (approximation sans changement de
+  schéma).

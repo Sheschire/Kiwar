@@ -68,3 +68,10 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 - `buildingCount` excludes the Nest and camps (building cap).
 - Building richness no longer multiplies the harvest rate (it sizes deposits).
 - Prefer constants from `data/` in tests over hard-coded numbers (balance changes often).
+- **Removing a building** (`demolish`, alias `dismantle`): refund (`demolitionRefund`, 25 % via
+  `DEMOLITION`), `releasePool` then `syncPools`, clear `returnTo` of builders, set its workers
+  idle + `autoAssign`. Any new building-removal path must do the same. `demolitionPreview`
+  feeds the confirmation UI.
+- **No dead end**: `test/demolition.test.ts` plays random colonies, demolishes everything and
+  checks seeds and juice come back. Keep it passing when changing costs, the Nest's passive
+  income, tile rules or demolition refusals.

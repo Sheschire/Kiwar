@@ -30,6 +30,18 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   everywhere (terrain, props, kiwis, paths); building models are procedural merged geometries
   with vertex colours (`buildingModels.ts`, one `BUILDERS` entry per building type, MODEL_SCALE
   1.3).
+- **Living buildings.** A builder pushes parts `[geometry, colour, matrix, rigName?]` and
+  declares rigs with `rig(p, name, pivot, motion)` (spin, swing, pump, pound, bob, breathe,
+  flicker; `ambient` = moves even when idle) and particle emitters with `emitter(p, …)` (steady
+  `rate`, or a burst each time a rig passes `phase`). `buildingModel(type, level)` returns the
+  merged static geometry + one geometry per rig centred on its pivot + emitters (cached);
+  `buildingGeometry` is the whole model in rest pose (construction ghosts). Rig parts are
+  authored in the same coordinates as static parts. A building on screen is a `Group`
+  (`userData.q/r` for picking) with the static mesh (casts the static shadow) and rig meshes
+  (no shadow). `buildingLife.ts` animates rigs at the pace from `activityOf` (shared
+  `buildingHarvest`: staff, idle, depleted, storageFull) and shows status badges (canvas
+  sprites); `particles.ts` is the instanced pool. Quality flags `buildingAnimations` /
+  `particles` (off in low). Removed buildings collapse in dust (`collapse` in `buildings.ts`).
 - Shadows are static: after changing meshes set `renderer.shadowMap.needsUpdate = true`.
 - `terrain.ts` (tile prisms, `setDepletion` tint), `water.ts`, `props.ts` (cleared under
   buildings/paths), `kiwis.ts` (cosmetic agents, A* in `pathfinding.ts` with the same walk
@@ -60,3 +72,10 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
    and a phone shot `… 390 844 3000 1`. Use `ACTIONS=./file.mjs` to script the page (grant
    resources, dispatch commands, select a tile, click buttons), then look at the PNG with Read.
 3. Check both desktop and phone, and the console output printed by the script.
+4. Headless Chromium auto-detects the **low** preset (no building animations): call
+   `renderer.setQuality('medium')` in the actions. Frames are slow there: CSS animations (modal
+   fade-in) need ~3 s before the shot, and `controller.setTimeScale(300)` finishes buildings
+   quickly (queue length is limited: build two at a time). Zoom with
+   `renderer.rig.focus(x, y, z)` + `renderer.rig.controls.dollyTo(d, false)`.
+5. Confirmations: `uiStore.setState({ modal: 'demolish', demolishId })`; the `.modal-confirm`
+   class turns a modal into a bottom sheet on phones.

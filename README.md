@@ -9,7 +9,11 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
-> **État : Jalon 4** — le territoire compte : gisements qui s'épuisent et repoussent, zones de
+> **Chantier 01** — on peut démolir tout bâtiment sauf le Nid (25 % remboursés, confirmation),
+> et le village vit : pressoir, rouet, marteau-pilon, moulin du puits, grue, drapeaux, fumées,
+> particules ; l'animation s'arrête quand un bâtiment ne produit pas (badge pause ou épuisé).
+>
+> **Jalon 4** — le territoire compte : gisements qui s'épuisent et repoussent, zones de
 > récolte, camps de cueillette sans bâtiment, logistique (distance au dépôt) et chemins à tracer.
 > Vision long terme : [`docs/VISION.md`](docs/VISION.md).
 >

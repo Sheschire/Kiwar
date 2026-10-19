@@ -177,3 +177,41 @@ Larger choices were validated with the project owner (marked ✅).
 - Schema v3 (paths, free deposits, per-building pools), v2 → v3 migration; pools are set up on the next `advance`.
 - Client: deposit bar, regrowth, time to depletion, logistics in the building card; deposits in reach when choosing a site; catchment highlighted on the selected producer; depleted tiles tinted towards dry straw; path mode (button above the egg; tap or drag to paint, start on a path to erase; on touch, two fingers pan/zoom while painting); stepping-stone paths; camp model.
 - Balance: Nest level 1 passive income raised to 270 pulp / 230 fibre per hour to keep onboarding short. The bot now picks sites by deposits in reach × logistics, opens new sites when a producer is exhausted, and saves up for the bottleneck resource. It does not use camps or paths, so its times are an upper bound for a careful player.
+
+## Chantier 01 — demolition and living buildings
+
+Owner's answers: demolition is **instant**, refunds **25 %**, no "move a building" for now,
+the Juice well gets a **windmill**.
+
+- **`demolish { buildingId }`** works on every building but the Nest; `dismantle` (camps) is
+  kept as an alias so queued/old commands still apply. Instant: it does not use the
+  construction queue (a stuck player must be able to act right away).
+- **Refund** = 25 % of what was invested, rounded to 5: the build cost of that copy (base cost
+  × copyGrowth^(copies − 1), the copy being demolished counted among the copies) plus every
+  upgrade level reached. Camps are free and refund nothing. Approximation accepted: with several
+  copies built in a different order the refund is the price of the latest copy, not the exact
+  one paid — no schema change needed.
+- **Refused** for the Nest (`notDemolishable`), while an upgrade of that building is queued
+  (`upgradeInProgress`, cancel first), while the launchpad's ship is away (`launchpadBusy`), or
+  when housing would fall below the population (`housingNeeded`: "build another home first").
+- **Effects**: workers go idle then are reassigned automatically, builders that were to return
+  there stay free, deposit tiles go back to the land with their depletion (`releasePool`, then
+  `syncPools` so neighbours may claim them), stock above the new capacity is kept (harvesting
+  just pauses).
+- A **"no dead end" test** builds 12 random colonies with a clumsy bot, demolishes everything
+  allowed, and checks that the Nest alone pays for a Juice well then a Seed quarry that harvest.
+- UI: discreet "Demolish…" link at the bottom of the building sheet → confirmation (modal on
+  desktop, bottom sheet on phones) with refund, freed kiwis, storage / housing lost, deposit
+  note. Two taps. The building sinks into a cloud of dust and debris.
+- **Living buildings**: each model = merged static part + animated **rigs** (pivot + motion:
+  spin, swing, pump, pound, bob, breathe, flicker). Pulpery press, Fibre workshop spinning
+  wheel, Seed quarry drop hammer, Juice well windmill and bucket, Warehouse crane, breathing
+  ship, rocking eggs and quivering twigs on the Nest, campfire, waving flags (level 2+).
+- **The animation tells the state**, from the shared `buildingHarvest`: pace = 0.45 + 0.55 ×
+  staff / slots; stopped when nobody works or storage is full (pause badge), very slow when the
+  deposit is exhausted (exclamation badge). Ambient rigs (flags, eggs, fire, smoke) never stop.
+- **Particles**: one instanced pool of 240 (pulp drops when the press hits, seed chips when the
+  hammer falls, juice drops, chimney and campfire smoke, sparks, golden twinkles on the level-3
+  golden egg). Bursts are synced to the rig phase.
+- Quality: `buildingAnimations` and `particles` flags, both off in "low" (still poses). Rigs do
+  not cast shadows (shadows are static).
