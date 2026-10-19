@@ -63,6 +63,6 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 - Chantier 04 : l'hiver reste doux pour une colonie saturée (stocks et gisements pleins) ; à
   durcir quand l'économie aura plus de débouchés (chantiers 05+). Les chantiers et l'expérience
   ne ralentissent pas la nuit. Une partie du bot coûte ~2× plus de calcul (lits, moral) : le
-  rapport 200 graines prend plus d'une heure.
+  rapport 200 graines prend ~40 min.
 - Performance des animations non mesurée sur un vrai téléphone (un mesh par partie animée, ~1 à
   10 par bâtiment) : à vérifier, sinon passer les drapeaux en instancing.

@@ -377,3 +377,7 @@ near the work sites).
   (attentive for a day, then two visits a day). Performance: harvests are computed once per
   building per event and the bed plan is memoized on a cheap key (a bot run is ~2× slower than
   before the chantier).
+- **Balance report** (200 seeds × 72 h, ~38 min): tutorial 1.5 / 1.6 h, Nest 3 ≈ 7 h, first
+  level-5 kiwi ≈ 10 h, mayor ≈ 12.3 h, first level-10 kiwi ≈ 2.6 days; Kiwisu / Kiwino within
+  6 % on every milestone (Kiwino a little slower early). No famine death for the bot, and the
+  twice-a-day player crosses the first winter without loss.

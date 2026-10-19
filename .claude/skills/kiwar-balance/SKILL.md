@@ -12,7 +12,9 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   Writes `tools/balance/reports/latest.md`.
 - Official report: `pnpm balance --seeds 200 --out ../../docs/BALANCE_REPORT.md` — **`--out` is
   resolved from `tools/balance`** (pnpm runs the script there). ~2 min: run it in the background.
-- Reference (end of chantier 03, 200 seeds × 72 h): tutorial 1.5 h, Nest 2 1.5 h, Nest 3 ≈ 6.2 h,
+- Reference (end of chantier 04, 200 seeds × 72 h, ~38 min): tutorial 1.5–1.6 h, Nest 3 ≈ 7 h,
+  level 5 ≈ 10 h, mayor ≈ 12.3 h, level 10 ≈ 2.6 days, faces within 6 %.
+- Previous reference (end of chantier 03, 200 seeds × 72 h): tutorial 1.5 h, Nest 2 1.5 h, Nest 3 ≈ 6.2 h,
   first kiwi level 5 ≈ 10 h, mayor ≈ 12 h, first kiwi level 10 ≈ 2.6 days,
   faces within 3 %.
 - Bot (`tools/balance/src/bot.ts`): follows the tutorial, keeps kiwis busy, hatches eggs, builds
