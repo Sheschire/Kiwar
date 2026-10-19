@@ -184,6 +184,11 @@ export class BuildingsView {
   celebrate(buildingId: string, q: number, r: number): void {
     const mesh = this.meshes.get(buildingId);
     if (mesh) this.pops.push({ object: mesh, t: 0 });
+    this.burst(q, r);
+  }
+
+  /** Sparkle burst above a tile (constructions, hatching). */
+  burst(q: number, r: number): void {
     const p = worldPosition({ q, r });
     const origin = new Vector3(p.x, this.baseY(q, r) + 0.4, p.z);
     const velocities = Array.from({ length: SPARKS }, (_, i) => {

@@ -19,6 +19,7 @@ import {
   type Tile,
 } from '@kiwar/shared';
 import { BuildingsView } from './buildings';
+import { KiwisView } from './kiwis';
 import { CameraRig } from '../camera/CameraRig';
 import { Environment } from './environment';
 import { FpsMeter } from './fpsMeter';
@@ -61,6 +62,7 @@ export class GameRenderer {
   private water: WaterView | null = null;
   private props: PropsView | null = null;
   private buildings: BuildingsView | null = null;
+  private kiwis: KiwisView | null = null;
   private clearedTiles = new Set<string>();
   private lastState: GameState | null = null;
   private postfx: PostFx | null = null;
@@ -149,7 +151,7 @@ export class GameRenderer {
 
   setFace(map: FaceMap): void {
     this.map = map;
-    for (const view of [this.terrain, this.water, this.buildings]) {
+    for (const view of [this.terrain, this.water, this.buildings, this.kiwis]) {
       if (!view) continue;
       this.scene.remove('group' in view ? view.group : view.mesh);
       view.dispose();
@@ -158,6 +160,8 @@ export class GameRenderer {
     this.lastState = null;
     this.buildings = new BuildingsView(map, () => (this.renderer.shadowMap.needsUpdate = true));
     this.scene.add(this.buildings.group);
+    this.kiwis = new KiwisView(map);
+    this.scene.add(this.kiwis.group);
     this.terrain = new TerrainView(map);
     this.scene.add(this.terrain.group);
     this.water = new WaterView(map, this.lighting.sun.position);
@@ -190,6 +194,7 @@ export class GameRenderer {
     if (state === this.lastState) return;
     this.lastState = state;
     this.buildings?.sync(state);
+    this.kiwis?.sync(state);
     // Clear decorative props under buildings and construction sites.
     const occupied = new Set<string>();
     for (const b of state.buildings) occupied.add(hexKey(b));
@@ -213,6 +218,7 @@ export class GameRenderer {
   onGameEvents(events: GameEvent[]): void {
     for (const e of events) {
       if (e.type === 'constructionComplete') this.buildings?.celebrate(e.buildingId, e.q, e.r);
+      if (e.type === 'hatched') this.buildings?.burst(0, 0);
     }
   }
 
@@ -263,6 +269,7 @@ export class GameRenderer {
     this.environment.update(this.elapsed);
     this.water?.update(this.elapsed);
     this.buildings?.update(dt, this.callbacks.now());
+    this.kiwis?.update(dt, this.elapsed);
     this.selection.update(this.elapsed);
     if (this.postfx) this.postfx.render(dt);
     else this.renderer.render(this.scene, this.camera);
@@ -296,6 +303,7 @@ export class GameRenderer {
     this.water?.dispose();
     this.props?.dispose();
     this.buildings?.dispose();
+    this.kiwis?.dispose();
     this.postfx?.dispose();
     this.renderer.dispose();
   }

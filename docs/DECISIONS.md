@@ -84,3 +84,10 @@ Larger choices were validated with the project owner (marked ✅).
 - **Buildings**: procedural low-poly models (one merged, vertex-coloured geometry per type × level, cached), flags for levels 2 (blue) and 3 (gold). Construction sites show scaffolding with a translucent ghost rising with progress; queued sites show a stake. Completion = bouncy pop + sparkle burst. Decorative props are removed under buildings and sites; static shadows refresh on change.
 - Tapping a building selects its tile (raycast against buildings first, then tiles).
 - Dev builds expose `window.__kiwar` (controller, renderer, store, actions) for debugging.
+
+### Villagers (step 6)
+- Kiwis are **cosmetic agents** mirroring `state.villagers` and their `job`; positions are never saved.
+- Behaviour per job: *idle* → potter around the heart ring; *work* → loop Nest ↔ workplace (walk, peck for 3.5–7 s, carry a resource-coloured load back, drop it); *build* → walk to the site and do a hopping hammer dance until it completes.
+- Paths: A* over hex tiles (`walkCost` from tile data; rays cost 0.5 so kiwis prefer them, and walk 1.6× faster on them). Juice pools and skin are not walkable, except as a destination (wells).
+- Rendering: 4 instanced meshes for all kiwis (merged body+head+beak+eyes, legs, blob shadows, carried loads) → constant draw calls whatever the population. Waddle = roll + bob + alternating legs; spawn with an ease-out-back pop and a sparkle burst at the Nest.
+- Moving kiwis use blob shadows instead of the (static) shadow map.
