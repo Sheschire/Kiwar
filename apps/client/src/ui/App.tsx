@@ -4,6 +4,8 @@ import { EggButton } from './components/EggButton';
 import { ExpeditionModal } from './components/ExpeditionModal';
 import { ExpeditionsPanel } from './components/ExpeditionsPanel';
 import { ReportModal } from './components/ReportModal';
+import { ChatPanel } from './components/ChatPanel';
+import { JoinModal, UniverseModal } from './components/UniverseModal';
 import { ObjectivesPanel } from './components/ObjectivesPanel';
 import { QueuePanel } from './components/QueuePanel';
 import { SaveNudge } from './components/SaveNudge';
@@ -48,6 +50,9 @@ export function App() {
       {modal === 'settings' && <SettingsModal />}
       {modal === 'expedition' && <ExpeditionModal />}
       {modal === 'report' && <ReportModal />}
+      {modal === 'universe' && <UniverseModal />}
+      <JoinModal />
+      <ChatPanel />
       <OfflineModal />
       <WorldModal />
     </div>

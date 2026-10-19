@@ -14,9 +14,10 @@ priorités** :
 
 Le joueur ne peut pas tout maximiser. Chaque session devrait poser la question « qu'est-ce que je
 sacrifie aujourd'hui ? ». Les menaces extérieures (météorites, raids extraterrestres, autres
-joueurs) rendent la question concrète : *ce que j'ai construit peut être abîmé*.
+joueurs) rendent la question concrète : _ce que j'ai construit peut être abîmé_.
 
 **Garde-fous fun et équilibre** (proposés) :
+
 - Une menace est **toujours annoncée** à l'avance (compte à rebours visible), pour que le joueur
   ait le temps de se préparer, même s'il ne se connecte que quelques fois par jour.
 - Les pertes sont **partielles et réparables** : bâtiments endommagés plutôt que rasés, pillage

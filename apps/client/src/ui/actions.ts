@@ -4,6 +4,24 @@ import type { GameRenderer } from '../render/GameRenderer';
 import { saveQualityChoice, type QualityChoice } from '../render/quality';
 import { uiStore } from './store';
 
+const NAME_KEY = 'kiwar.displayName';
+
+export function savedDisplayName(): string {
+  try {
+    return localStorage.getItem(NAME_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function saveDisplayName(name: string): void {
+  try {
+    localStorage.setItem(NAME_KEY, name.trim());
+  } catch {
+    // ignore
+  }
+}
+
 let controller: GameController | null = null;
 let renderer: GameRenderer | null = null;
 
@@ -55,6 +73,23 @@ export const actions = {
     } catch (e) {
       return e instanceof Error ? e.message : String(e);
     }
+  },
+  async listUniverses() {
+    return (await controller?.listUniverses()) ?? [];
+  },
+  async enterUniverse(how: { create: string } | { code: string }, displayName: string) {
+    saveDisplayName(displayName);
+    const error = controller ? await controller.enterUniverse(how, displayName) : 'forbidden';
+    if (!error) uiStore.setState({ modal: 'none', pendingJoin: null, selectedTile: null });
+    return error;
+  },
+  refreshUniverse(): void {
+    void controller?.refreshUniverse();
+  },
+  async switchUniverse(id: string): Promise<boolean> {
+    const ok = (await controller?.switchUniverse(id)) ?? false;
+    if (ok) uiStore.setState({ modal: 'none', selectedTile: null });
+    return ok;
   },
   newWorld(seed: string, face: Face): void {
     controller?.newWorld(seed, face);

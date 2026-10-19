@@ -16,6 +16,8 @@ import { actions, bindActions } from './ui/actions';
 import { clearUrlParams, randomSeed, readUrlParams } from './game/urlParams';
 import { loadQualityChoice } from './render/quality';
 import { handleGameEvents } from './game/events';
+import { ChatChannel, mutedUsers } from './game/chat';
+import { setChannel } from './ui/chatActions';
 
 persistLang(uiStore.getState().lang);
 
@@ -51,6 +53,7 @@ controller = new GameController({
   onOfflineSummary: (summary) => uiStore.setState({ offlineSummary: summary }),
   onSync: (sync) => uiStore.setState({ sync }),
   onAccount: (account) => uiStore.setState({ account }),
+  onUniverse: (universe) => uiStore.setState({ universe }),
 });
 bindActions(controller, renderer);
 
@@ -77,13 +80,39 @@ async function boot(): Promise<void> {
   const hadLocalColony = !controller.isOnline && controller.hasProgress();
   await controller.start(hadLocalColony ? null : linkWorld, randomSeed);
   const s = controller.state;
-  if (linkWorld && (s.seed !== linkWorld.seed || s.face !== linkWorld.face)) {
+  if (url.join) {
+    // Invite link: ask for confirmation (and a name) before joining.
+    if (controller.isOnline) uiStore.setState({ pendingJoin: url.join });
+    else pushToast('info', 'universe.onlineOnly');
+  } else if (linkWorld && (s.seed !== linkWorld.seed || s.face !== linkWorld.face)) {
     // Never silently overwrite a colony: ask first.
     if (controller.hasProgress()) uiStore.setState({ pendingWorld: linkWorld });
     else controller.newWorld(linkWorld.seed, linkWorld.face);
   }
 }
 void boot();
+
+// Team chat follows the universe being played.
+let chat: ChatChannel | null = null;
+uiStore.subscribe((s, prev) => {
+  if (s.universe?.id === prev.universe?.id) return;
+  chat?.stop();
+  chat = null;
+  uiStore.setState({ chat: [], chatUnread: 0, chatOpen: false });
+  const client = controller.online?.client;
+  if (!s.universe || !client) return;
+  const me = s.account?.userId;
+  chat = new ChatChannel(client, s.universe.id, (messages, fresh) => {
+    const muted = mutedUsers();
+    const unseen = fresh.filter((m) => m.user_id !== me && !muted.includes(m.user_id)).length;
+    uiStore.setState((st) => ({
+      chat: messages,
+      chatUnread: st.chatOpen ? 0 : st.chatUnread + unseen,
+    }));
+  });
+  setChannel(chat);
+  void chat.start();
+});
 
 render(<App />, document.getElementById('ui')!);
 // Fade out the loading screen once the first frames are on screen.

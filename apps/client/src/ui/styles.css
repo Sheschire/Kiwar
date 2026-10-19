@@ -958,7 +958,7 @@ button.chip:focus-visible {
 .input {
   font: inherit;
   color: var(--ink);
-  flex: 1 1 180px;
+  flex: none;
   min-height: var(--tap);
   padding: 6px 12px;
   border-radius: 12px;
@@ -966,6 +966,10 @@ button.chip:focus-visible {
   background: var(--paper-light);
   user-select: text;
   -webkit-user-select: text;
+}
+
+.row .input {
+  flex: 1 1 180px;
 }
 
 .input:focus-visible {
@@ -1207,6 +1211,143 @@ button.chip:focus-visible {
   gap: 3px;
 }
 
+/* ---------- Universes ---------- */
+
+.universes,
+.members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.universes li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(184, 138, 90, 0.45);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.universes li.is-current {
+  border-color: var(--leaf-dark);
+  background: rgba(201, 223, 140, 0.3);
+}
+
+.members li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.members li.aliens strong {
+  color: #6a4d8c;
+}
+
+.code-input {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  flex: 0 1 150px;
+}
+
+/* ---------- Chat ---------- */
+
+.chat-btn {
+  position: relative;
+}
+
+.chat-btn .count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--berry);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px var(--paper-light);
+}
+
+.chat {
+  position: absolute;
+  right: calc(var(--gap) + var(--safe-right));
+  top: calc(84px + var(--safe-top));
+  bottom: calc(var(--gap) + var(--safe-bottom) + 84px);
+  width: 330px;
+  display: flex;
+  flex-direction: column;
+  z-index: 15;
+  animation: slide-in-right 0.22s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+
+.chat-list {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  user-select: text;
+  -webkit-user-select: text;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
+.chat-msg {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.chat-msg.mine {
+  background: rgba(201, 223, 140, 0.4);
+}
+
+.chat-msg p {
+  flex-basis: 100%;
+  overflow-wrap: anywhere;
+}
+
+.chat-author {
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.chat-author:disabled {
+  cursor: default;
+}
+
+.chat-form {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px 10px;
+  border-top: 1px dashed rgba(138, 95, 56, 0.35);
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 760px) {
@@ -1322,6 +1463,19 @@ button.chip:focus-visible {
     width: auto;
     right: calc(var(--gap) + 96px);
     bottom: calc(var(--gap) + var(--safe-bottom) + 140px);
+  }
+
+  .chat {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    height: 70%;
+    border-radius: 20px 20px 0 0;
+    padding-bottom: var(--safe-bottom);
+    z-index: 25;
+    animation: slide-in-up 0.25s cubic-bezier(0.2, 1.2, 0.4, 1);
   }
 
   .nudge {

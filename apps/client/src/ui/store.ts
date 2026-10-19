@@ -11,6 +11,8 @@ import {
 } from '../i18n/i18n';
 import type { OfflineSummary, SyncStatus } from '../game/GameController';
 import type { Account } from '../game/onlineBackend';
+import type { ChatMessage } from '../game/chat';
+import type { UniverseInfo } from '@kiwar/shared';
 import type { QualityChoice, QualityPreset } from '../render/quality';
 
 export interface Toast {
@@ -20,7 +22,7 @@ export interface Toast {
   params?: TParams;
 }
 
-export type Modal = 'none' | 'settings' | 'expedition' | 'report';
+export type Modal = 'none' | 'settings' | 'expedition' | 'report' | 'universe';
 
 export interface UiState {
   lang: Lang;
@@ -47,6 +49,13 @@ export interface UiState {
   reportId: string | null;
   /** Reports not opened yet. */
   unreadReports: string[];
+  /** Shared universe being played (null = solo colony). */
+  universe: UniverseInfo | null;
+  /** Invite code from a `?join=` link, waiting for confirmation. */
+  pendingJoin: string | null;
+  chatOpen: boolean;
+  chat: ChatMessage[];
+  chatUnread: number;
 }
 
 const wideScreen =
@@ -73,6 +82,11 @@ export const uiStore = createStore<UiState>(() => ({
   expeditionPad: null,
   reportId: null,
   unreadReports: [],
+  universe: null,
+  pendingJoin: null,
+  chatOpen: false,
+  chat: [],
+  chatUnread: 0,
 }));
 
 export function setLang(lang: Lang): void {

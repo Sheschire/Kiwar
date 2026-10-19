@@ -50,7 +50,9 @@ npx supabase db push                         # applique supabase/migrations
 **Option B, à la main** : ouvrez **SQL Editor**, collez le contenu de
 `supabase/migrations/20261020000000_init.sql`, puis cliquez sur **Run**.
 
-Ces tables sont créées : `games` (états de jeu), `command_log` (journal anti-triche) et `admins`.
+Ces tables sont créées : `games` (états de jeu), `command_log` (journal anti-triche), `admins`,
+puis, au Jalon 3, `universes`, `universe_members`, `chat_messages` et `chat_reports`.
+Avec l'option B, exécutez **les deux fichiers** de `supabase/migrations/`, dans l'ordre.
 Les joueurs peuvent seulement **lire** leur partie. Toute écriture passe par la fonction serveur.
 
 ## 4. Fonction serveur `game`
@@ -75,6 +77,9 @@ et _Preview_ :
 
 Puis lancez **Deployments → … → Redeploy**. Les variables `VITE_*` sont intégrées au moment du build.
 
+Le chat en direct utilise **Realtime** : la migration ajoute `chat_messages` à la publication
+`supabase_realtime`. Vous pouvez le vérifier dans _Database → Publications_.
+
 ## 6. Vérifier
 
 - Ouvrez le site : le nuage en haut à droite devient **vert** (« Sauvegardé en ligne »). Une
@@ -89,6 +94,7 @@ Puis lancez **Deployments → … → Redeploy**. Les variables `VITE_*` sont in
   `insert into public.admins (user_id) values ('<uuid du joueur>');`
   L'uuid se trouve dans _Authentication → Users_. L'accélération du temps n'existe pas en ligne :
   c'est le serveur qui maîtrise l'horloge.
+- Les messages signalés se lisent dans _Table editor → chat_reports_.
 - Pour purger régulièrement le journal (plus de 30 jours), planifiez avec pg_cron :
   `select cron.schedule('purge-kiwar-log', '0 4 * * *', 'select public.purge_command_log()');`
 

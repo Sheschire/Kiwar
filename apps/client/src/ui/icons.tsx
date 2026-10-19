@@ -280,6 +280,39 @@ export function ShipIcon({ size = 22, class: cls }: IconProps) {
   );
 }
 
+export function GlobeIcon({ size = 22, class: cls }: IconProps) {
+  return svg(
+    size,
+    cls,
+    <>
+      <circle cx="12" cy="18" r="8" fill="#8cc43c" stroke="#4f7419" stroke-width="1.8" />
+      <circle cx="12" cy="18" r="3" fill="#fbf3d0" />
+      <circle cx="23" cy="10" r="6" fill="#b2d95f" stroke="#4f7419" stroke-width="1.6" />
+      <circle cx="23" cy="10" r="2" fill="#fbf3d0" />
+      <path d="M18 14l1.5-1.2" stroke="#7a5a40" stroke-width="1.6" stroke-dasharray="2 2" />
+    </>,
+  );
+}
+
+export function ChatIcon({ size = 22, class: cls }: IconProps) {
+  return svg(
+    size,
+    cls,
+    <>
+      <path
+        d="M5 7h22v14H14l-6 5v-5H5z"
+        fill="#fff8e6"
+        stroke="#7a5a40"
+        stroke-width="2"
+        stroke-linejoin="round"
+      />
+      <circle cx="11" cy="14" r="1.6" fill="#7a5a40" />
+      <circle cx="16" cy="14" r="1.6" fill="#7a5a40" />
+      <circle cx="21" cy="14" r="1.6" fill="#7a5a40" />
+    </>,
+  );
+}
+
 export function ResourceIcon({ id, size }: { id: ResourceId; size?: number }) {
   switch (id) {
     case 'pulp':

@@ -9,7 +9,8 @@ import {
   type ResourceId,
 } from '@kiwar/shared';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
-import { GearIcon, KiwiIcon, ResourceIcon, ScrollIcon } from '../icons';
+import { ChatIcon, GearIcon, GlobeIcon, KiwiIcon, ResourceIcon, ScrollIcon } from '../icons';
+import { chatActions } from '../chatActions';
 import { uiStore, useT, useUi } from '../store';
 import { SyncBadge } from './SyncBadge';
 
@@ -108,6 +109,9 @@ export function TopBar() {
   const pop = useUi((s) => (s.game ? population(s.game) : 0));
   const house = useUi((s) => (s.game ? housing(s.game) : 0));
   const objectivesOpen = useUi((s) => s.objectivesOpen);
+  const inUniverse = useUi((s) => s.universe !== null);
+  const chatOpen = useUi((s) => s.chatOpen);
+  const chatUnread = useUi((s) => s.chatUnread);
   const [tip, setTip] = useState<TipId | null>(null);
   const [tipLeft, setTipLeft] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
@@ -196,6 +200,25 @@ export function TopBar() {
       </div>
       <div class="topbar-buttons">
         <SyncBadge />
+        <button
+          class="btn btn-icon parchment-btn"
+          aria-label={t('universe.button')}
+          title={t('universe.button')}
+          onClick={() => uiStore.setState({ modal: 'universe' })}
+        >
+          <GlobeIcon />
+        </button>
+        {inUniverse && (
+          <button
+            class={`btn btn-icon parchment-btn chat-btn ${chatOpen ? 'btn-active' : ''}`}
+            aria-label={t('chat.button')}
+            title={t('chat.button')}
+            onClick={() => chatActions.open(!chatOpen)}
+          >
+            <ChatIcon />
+            {chatUnread > 0 && <span class="count">{chatUnread > 9 ? '9+' : chatUnread}</span>}
+          </button>
+        )}
         <button
           class={`btn btn-icon parchment-btn ${objectivesOpen ? 'btn-active' : ''}`}
           aria-label={t('hud.objectives')}

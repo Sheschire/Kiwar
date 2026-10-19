@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import {
   EXPEDITIONS,
   forecastExpedition,
@@ -230,6 +230,8 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
 
 export function ExpeditionModal() {
   const t = useT();
+  // Friends may have claimed alien faces since the colony was loaded.
+  useEffect(() => actions.refreshUniverse(), []);
   const game = useUi((s) => s.game);
   const padId = useUi((s) => s.expeditionPad);
   if (!game || !padId) return null;

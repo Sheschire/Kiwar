@@ -16,6 +16,9 @@ import {
   type GameState,
   type Resources,
   type ServerError,
+  type UniverseInfo,
+  type UniverseSummary,
+  universeTargets,
 } from '@kiwar/shared';
 import type { Account, OnlineBackend } from './onlineBackend';
 import { NetworkError, onlineConfig, type OnlineConfig } from './onlineConfig';
@@ -24,6 +27,7 @@ const SAVE_KEY = 'kiwar.save.v1';
 const IMPORTED_KEY = 'kiwar.save.v1.imported';
 const CACHE_KEY = 'kiwar.online.cache';
 const CLOCK_KEY = 'kiwar.clockOffset';
+const UNIVERSE_KEY = 'kiwar.universe';
 const AUTOSAVE_MS = 5000;
 const TICK_MS = 200;
 /** Absences shorter than this do not show the "while you were away" summary. */
@@ -52,6 +56,8 @@ export interface ControllerListener {
   onOfflineSummary(summary: OfflineSummary): void;
   onSync(status: SyncStatus): void;
   onAccount(account: Account | null): void;
+  /** Shared universe currently played (null = solo). */
+  onUniverse(info: UniverseInfo | null): void;
 }
 
 function safeStorage<T>(fn: () => T, fallback: T): T {
@@ -85,11 +91,14 @@ export class GameController {
   private serverOffset = 0;
   private serverState: GameState | null = null;
   private pending: Command[] = [];
-  private flushing = false;
+  /** The send loop in progress, if any (awaitable). */
+  private flushing: Promise<void> | null = null;
   private retryTimer: number | undefined;
   private retryDelay = 2000;
   private hiddenAt = 0;
   private userId: string | null = null;
+  /** 'solo' or the id of the shared universe being played. */
+  universe = safeStorage(() => localStorage.getItem(UNIVERSE_KEY), null) ?? 'solo';
   private tickTimer: number | undefined;
   private saveTimer: number | undefined;
 
@@ -300,12 +309,102 @@ export class GameController {
   }
 
   private async loadFromServer(world: { seed: string; face: Face } | null): Promise<void> {
-    const res = await this.online!.call({ action: 'load', ...(world ? { create: world } : {}) });
+    const res = await this.online!.call({
+      action: 'load',
+      universe: this.universe,
+      ...(world && this.universe === 'solo' ? { create: world } : {}),
+    });
     this.acceptServer(res);
+    if (!res.ok && res.error === 'forbidden' && this.universe !== 'solo') {
+      // No longer a member (or unknown universe): back to the solo colony.
+      this.setUniverse('solo', null);
+      return this.loadFromServer(world);
+    }
     if (!res.ok || !res.state) throw new NetworkError(res.ok ? 'no state' : res.error);
     this.pending = [];
     this.loadState(res.state);
+    this.listener.onUniverse(res.universe ?? null);
     this.listener.onSync('online');
+  }
+
+  private setUniverse(id: string, info: UniverseInfo | null): void {
+    this.universe = id;
+    safeStorage(() => localStorage.setItem(UNIVERSE_KEY, id), undefined);
+    this.listener.onUniverse(info);
+  }
+
+  // ---------------------------------------------------------------- shared universes
+
+  async listUniverses(): Promise<UniverseSummary[]> {
+    if (!this.online) return [];
+    const res = await this.online.call({ action: 'listUniverses' });
+    return res.ok ? (res.universes ?? []) : [];
+  }
+
+  /** Creates or joins a universe and switches to it. Returns an error code on failure. */
+  async enterUniverse(
+    how: { create: string } | { code: string },
+    displayName: string,
+  ): Promise<ServerError | 'network' | null> {
+    if (!this.online) return 'forbidden';
+    if (!(await this.drainPending())) return 'network';
+    try {
+      const res = await this.online.call(
+        'create' in how
+          ? { action: 'createUniverse', name: how.create, displayName }
+          : { action: 'joinUniverse', code: how.code, displayName },
+      );
+      this.acceptServer(res);
+      if (!res.ok || !res.state || !res.universe) return res.ok ? 'internal' : res.error;
+      this.setUniverse(res.universe.id, res.universe);
+      this.pending = [];
+      this.loadState(res.state);
+      return null;
+    } catch {
+      return 'network';
+    }
+  }
+
+  /** Switches to the solo colony or to another universe the player belongs to. */
+  async switchUniverse(id: string): Promise<boolean> {
+    if (!this.online || id === this.universe) return false;
+    if (!(await this.drainPending())) return false;
+    const previous = this.universe;
+    this.setUniverse(id, null);
+    try {
+      await this.loadFromServer(null);
+      return true;
+    } catch {
+      this.setUniverse(previous, null);
+      return false;
+    }
+  }
+
+  /**
+   * Refreshes the member list of the current universe and the expedition targets that depend on
+   * it (friends may have joined). Light: does not reload the colony.
+   */
+  async refreshUniverse(): Promise<void> {
+    if (!this.online || this.universe === 'solo') return;
+    try {
+      const res = await this.online.call({ action: 'universeInfo', universe: this.universe });
+      if (!res.ok || !res.universe) return;
+      const me = res.universe.members.find((m) => m.userId === this.userId);
+      if (me && this.state) {
+        // Same pure helper as the server, so the planner shows exactly the server's targets.
+        this.state = { ...this.state, targets: universeTargets(res.universe.members, me) };
+        this.listener.onState(this.state, this.now());
+      }
+      this.listener.onUniverse(res.universe);
+    } catch {
+      // Offline: keep what we have.
+    }
+  }
+
+  /** Waits for queued commands to reach the server (they belong to the current universe). */
+  private async drainPending(): Promise<boolean> {
+    await this.flush();
+    return this.pending.length === 0;
   }
 
   /** Brings a milestone-1 local colony into the account, once, if the account is still empty. */
@@ -334,6 +433,7 @@ export class GameController {
   private async newOnlineWorld(seed: string, face: Face): Promise<void> {
     this.listener.onSync('syncing');
     try {
+      if (this.universe !== 'solo') this.setUniverse('solo', null);
       const res = await this.online!.call({ action: 'newWorld', seed, face });
       this.acceptServer(res);
       if (!res.ok || !res.state) {
@@ -351,16 +451,21 @@ export class GameController {
   }
 
   /** Sends pending commands one by one; rebases the local state on each authoritative answer. */
-  private async flush(): Promise<void> {
-    if (this.flushing || !this.online) return;
-    this.flushing = true;
+  private flush(): Promise<void> {
+    if (!this.online) return Promise.resolve();
+    this.flushing ??= this.sendPending().finally(() => (this.flushing = null));
+    return this.flushing;
+  }
+
+  private async sendPending(): Promise<void> {
+    if (!this.online) return;
     this.listener.onSync('syncing');
     try {
       while (this.pending.length > 0) {
         const command = this.pending[0]!;
         let res: GameResponse;
         try {
-          res = await this.online.call({ action: 'command', command });
+          res = await this.online.call({ action: 'command', universe: this.universe, command });
         } catch {
           this.listener.onSync('offline');
           this.scheduleRetry(() => void this.flush());
@@ -381,8 +486,8 @@ export class GameController {
       }
       this.retryDelay = 2000;
       this.listener.onSync('online');
-    } finally {
-      this.flushing = false;
+    } catch (e) {
+      console.error(e);
     }
   }
 
