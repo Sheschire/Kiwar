@@ -144,7 +144,7 @@ export const en = {
     depletesIn: 'Runs dry in {duration} at this pace',
     sustainable: 'Sustainable at this pace',
     depleted: 'Exhausted: only the regrowth is harvested. Fewer workers, or move on.',
-    storagePaused: 'Storage full: harvesting paused, the deposit grows back.',
+    storagePaused: 'Storage full: the kiwis only gather what the colony eats.',
     logistics: 'Logistics',
     logisticsValue: '{distance} steps to a depot · ×{efficiency}',
     logisticsHint: 'Build paths or a Warehouse nearby to shorten the trips.',

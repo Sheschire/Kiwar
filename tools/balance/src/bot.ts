@@ -16,7 +16,9 @@ import {
   KIWI,
   type ClassId,
   catchmentPreview,
+  consumption,
   currentObjective,
+  HUNGER_SCALE,
   depotDistance,
   eggCost,
   emptyResources,
@@ -65,7 +67,14 @@ export interface RunResult {
   face: Face;
   /** Milliseconds from the start to reach each milestone (null = not reached within the horizon). */
   times: Record<Milestone, number | null>;
-  final: { population: number; buildings: number; produced: number };
+  final: {
+    population: number;
+    buildings: number;
+    produced: number;
+    /** Kiwis lost to famine, and the longest hunger gauge reached (hours of privation). */
+    starved?: number;
+    maxHungerH?: number;
+  };
 }
 
 const PRODUCERS: Record<ResourceId, BuildingType> = {
@@ -95,6 +104,9 @@ function bestTile(state: GameState, map: FaceMap, type: BuildingType): Tile | nu
   let best: Tile | null = null;
   let bestScore = -Infinity;
   const producers = state.buildings.filter((b) => HARVESTS[b.type]);
+  // Huts: each producer's walk to its nearest home today.
+  const homes = state.buildings.filter((b) => b.type === 'hut' || b.type === 'nest');
+  const homeWalk = producers.map((p) => Math.min(...homes.map((h) => hexDistance(p, h))));
   for (const t of map.tiles) {
     if (!BUILDINGS[type].allowedTiles.includes(t.type)) continue;
     if (buildingAt(state, t.q, t.r) || queuedBuildAt(state, t.q, t.r)) continue;
@@ -104,6 +116,12 @@ function bestTile(state: GameState, map: FaceMap, type: BuildingType): Tile | nu
       const now = catchmentPreview(state, map, type, t, 1).regen;
       const later = catchmentPreview(state, map, type, t, 3).regen;
       score = (now + 0.5 * later) * logisticsEfficiency(depotDistance(state, map, t));
+    } else if (type === 'hut' && producers.length > 0) {
+      // Huts go where kiwis work far from any bed (chantier 04: the walk to bed costs work).
+      let walk = 0;
+      for (let i = 0; i < producers.length; i++)
+        walk += Math.min(hexDistance(producers[i]!, t), homeWalk[i]!);
+      score = (t.type === 'flesh' ? -1 : 0) - walk * 0.3;
     } else {
       const spare = t.type === 'flesh' ? -1 : 0;
       const near =
@@ -163,7 +181,8 @@ function decide(state: GameState, map: FaceMap): Command[] {
     }
   }
 
-  if (canHatch(state) && canAfford(state.resources, eggCost(state)))
+  // Hatch only kiwis the colony can feed (chantier 04).
+  if (canHatch(state) && canAfford(state.resources, eggCost(state)) && canFeedOneMore(state))
     cmds.push({ type: 'hatchEgg' });
 
   const queueRoom = state.queue.length < (nestDef(state).queueSize ?? 1);
@@ -231,11 +250,14 @@ function decide(state: GameState, map: FaceMap): Command[] {
 
   // 5. Upgrade the producer of the bottleneck resource (lowest production, full storage
   // ignored: a full resource is not a bottleneck).
+  // What is left after the meals: food comes first when the kiwis eat it all.
   const rates = emptyResources();
   for (const b of state.buildings) {
     const r = buildingRates(state, b, () => false);
     for (const id of RESOURCE_IDS) rates[id] += r[id];
   }
+  const eaten = consumption(state);
+  for (const id of RESOURCE_IDS) rates[id] = Math.max(0, rates[id] - eaten[id] * 1.3);
   for (const id of RESOURCE_IDS)
     if (state.resources[id] >= capacity(state)[id] * 0.95) rates[id] = Infinity;
   const order = [...RESOURCE_IDS].sort((a, b) => rates[a] / NEED[a] - rates[b] / NEED[b]);
@@ -268,6 +290,20 @@ function decide(state: GameState, map: FaceMap): Command[] {
       cmds.push({ type: 'upgrade', buildingId: b.id });
   }
   return cmds;
+}
+
+/** Whether production (gross, by day) covers the meals of one more kiwi, with a margin. */
+function canFeedOneMore(state: GameState): boolean {
+  const rates = emptyResources();
+  for (const b of state.buildings) {
+    const r = buildingRates(state, b, () => false);
+    for (const id of RESOURCE_IDS) rates[id] += r[id];
+  }
+  const eaten = consumption(state);
+  const n = Math.max(1, state.villagers.length);
+  return (['pulp', 'juice'] as const).every(
+    (id) => rates[id] >= (eaten[id] * (n + 1) * 1.2) / n || eaten[id] === 0,
+  );
 }
 
 /**
@@ -349,6 +385,14 @@ export interface RunOptions {
   stepMs?: number;
   /** Diagnostics: called after each decision round. */
   onStep?(state: GameState, map: FaceMap): void;
+  /** Keep playing until the horizon even once every milestone is reached. */
+  fullHorizon?: boolean;
+  /**
+   * An occasional player: after `activeMs` of attentive play, the bot only comes back every
+   * `sessionEveryMs` (e.g. twice a day) and the colony runs on its own in between.
+   */
+  activeMs?: number;
+  sessionEveryMs?: number;
 }
 
 export function runBot(opts: RunOptions): RunResult {
@@ -361,8 +405,10 @@ export function runBot(opts: RunOptions): RunResult {
   >;
   const step = opts.stepMs ?? 30_000;
   let now = start;
+  let maxHunger = 0;
   while (now - start < opts.horizonMs) {
     state = advance(state, now).state;
+    maxHunger = Math.max(maxHunger, state.hunger);
     // Apply every possible decision at this instant (first one wins per category).
     for (let guard = 0; guard < 12; guard++) {
       const cmds = decide(state, map);
@@ -379,7 +425,12 @@ export function runBot(opts: RunOptions): RunResult {
     }
     checkMilestones(state, start, times);
     opts.onStep?.(state, map);
-    if (MILESTONES.every((m) => times[m] !== null)) break;
+    if (!opts.fullHorizon && MILESTONES.every((m) => times[m] !== null)) break;
+    if (opts.sessionEveryMs && now - start >= (opts.activeMs ?? 0)) {
+      // Away until the next session: the simulation runs offline in one big step.
+      now += opts.sessionEveryMs;
+      continue;
+    }
     // Next decision: the next event, or a fixed step (whichever comes first).
     const active = activeItem(state);
     const nextEvent = Math.min(
@@ -396,6 +447,8 @@ export function runBot(opts: RunOptions): RunResult {
       population: population(state),
       buildings: state.buildings.length,
       produced: Math.round(RESOURCE_IDS.reduce((s, id) => s + state.stats.produced[id], 0)),
+      starved: state.memorial.filter((m) => m.cause === 'famine').length,
+      maxHungerH: Math.round((maxHunger / HUNGER_SCALE / 3_600_000) * 10) / 10,
     },
   };
 }

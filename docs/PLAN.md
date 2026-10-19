@@ -37,8 +37,8 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 01  | Démolition et bâtiments vivants                                        | ✅         |
 | 02  | Audio : socle, sons de base, espace admin                              | ✅         |
 | 03  | Kiwis individuels : niveaux, métiers, classes, shiny                   | ✅         |
-| 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | ⏭ prochain |
-| 05  | Intro, choix de la face, biomes, brouillard                            | à faire    |
+| 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | ✅         |
+| 05  | Intro, choix de la face, biomes, brouillard                            | ⏭ prochain |
 | 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | à faire    |
 | 07  | Vaisseau kiwi géant et exploration                                     | à faire    |
 | 08  | Âges, recherche contre nature, Kikiwiwis                               | à faire    |
@@ -52,13 +52,17 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 - Déménager un bâtiment (garder son niveau contre un coût) : écarté du chantier 01, à revoir.
 - Remboursement de démolition approximatif quand plusieurs copies ont été construites (prix de la
   dernière copie).
-- Fenêtres éclairées des huttes la nuit : avec le jour/nuit du chantier 04.
 - Audio : changements de l'admin visibles au rechargement seulement (pas de Realtime) ; pas
-  d'onglet pour gérer les admins (SQL) ; ambiances jour/nuit et saisons réservées au chantier 04 ;
-  sons CC0 choisis sans écoute (à valider à l'oreille, remplaçables depuis `/admin`).
-- Chantier 03 : l'Endurance n'agit pas encore sur la fatigue (chantier 04) ni le Charisme sur
-  le moral (le maire donne un bonus de récolte en attendant) ; compétences de combat contre
+  d'onglet pour gérer les admins (SQL) ; ambiance de nuit synthétisée (grillons), pas encore de
+  son dédié à l'aube ni aux saisons ; sons CC0 choisis sans écoute (à valider à l'oreille,
+  remplaçables depuis `/admin`).
+- Chantier 03 : le Charisme n'agit pas encore sur le moral (le maire donne un bonus de récolte) ;
+  compétences de combat contre
   furets et chauves-souris au chantier 06 ; la voix d'un kiwi dépend encore d'un hash de son id ;
   le bot d'équilibrage n'utilise que maire et bâtisseur (pas d'expéditions ni de mage).
+- Chantier 04 : l'hiver reste doux pour une colonie saturée (stocks et gisements pleins) ; à
+  durcir quand l'économie aura plus de débouchés (chantiers 05+). Les chantiers et l'expérience
+  ne ralentissent pas la nuit. Une partie du bot coûte ~2× plus de calcul (lits, moral) : le
+  rapport 200 graines prend plus d'une heure.
 - Performance des animations non mesurée sur un vrai téléphone (un mesh par partie animée, ~1 à
   10 par bâtiment) : à vérifier, sinon passer les drapeaux en instancing.

@@ -4,7 +4,7 @@ import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
 import {
   activeItem,
   buildingHarvest,
-  buildingRates,
+  passiveRates,
   capacity,
   getBuilding,
   HOUR_MS,
@@ -17,7 +17,7 @@ import { resolveArrival, resolveReturn } from './expeditions';
 import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
 import type { ClassId } from '../data/classes';
 import { accrueKiwis, builderSpeed, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
-import { faceMapOf, rebaseFreeDeposits, syncPools, timeToDepletion } from './territory';
+import { faceMapOf, rebaseFreeDeposits, syncPools, type Harvest } from './territory';
 import type { Season } from '../data/cycles';
 import { calendarAt, nextCalendarChange } from './calendar';
 import { HUNGER_SCALE, NEEDS, type HungerStage } from '../data/needs';
@@ -219,24 +219,45 @@ interface Flows {
 
 /** Every rate of the colony, constant until `nextChange` or the next game event. */
 function computeFlows(s: GameState): Flows {
-  const full = storageFullCheck(s);
+  const never = () => false;
+  // Gross production (as if no storage were full) and the harvested part of it.
   const production = emptyResources();
+  const harvested = emptyResources();
+  const harvests: { b: Building; h: Harvest }[] = [];
+  for (const b of s.buildings) {
+    const p = passiveRates(s, b);
+    for (const id of RESOURCE_IDS) production[id] += p[id];
+    const h = buildingHarvest(s, b, never);
+    if (!h) continue;
+    production[h.resource] += h.output;
+    harvested[h.resource] += h.output;
+    if (b.pool) harvests.push({ b, h });
+  }
+  const full = storageFullCheck(s, production);
+  const eaten = consumption(s);
+  // A full storage only takes what the kiwis eat: harvesting slows down to the meals (the
+  // deposits still drain for them), the stock stays full.
+  const share = emptyResources();
+  for (const id of RESOURCE_IDS) {
+    if (!full(id)) share[id] = 1;
+    else if (harvested[id] > 0) {
+      const passive = production[id] - harvested[id];
+      share[id] = Math.min(1, Math.max(0, (eaten[id] - passive) / harvested[id]));
+    }
+  }
   const pools: Flows['pools'] = [];
   let next = Infinity;
-  for (const b of s.buildings) {
-    const r = buildingRates(s, b, full);
-    for (const id of RESOURCE_IDS) production[id] += r[id];
-    const h = b.pool ? buildingHarvest(s, b, full) : null;
-    if (!h || !b.pool) continue;
-    pools.push({ b, delta: h.regen - h.harvest, cap: h.cap });
-    const dry = timeToDepletion(h);
-    if (dry < Infinity) next = Math.min(next, s.now + Math.max(1, Math.ceil(dry)));
+  for (const { b, h } of harvests) {
+    const harvest = h.harvest * share[h.resource];
+    pools.push({ b, delta: h.regen - harvest, cap: h.cap });
+    if (h.status === 'ok' && harvest > h.regen) {
+      const dry = (h.stock / (harvest - h.regen)) * HOUR_MS;
+      next = Math.min(next, s.now + Math.max(1, Math.ceil(dry)));
+    }
   }
-  const eaten = consumption(s);
   const rates = emptyResources();
   const deficit = { pulp: 0, juice: 0 };
   for (const id of RESOURCE_IDS) {
-    // A full storage feeds the kiwis from the overflow: the stock stays full.
     if (full(id)) continue;
     let net = production[id] - eaten[id];
     if (net < 0 && s.resources[id] <= 0) {

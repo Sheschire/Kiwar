@@ -41,6 +41,8 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
   harvest (`harvestOf`, statuses ok/depleted/storageFull/idle), UI views.
 - `sim/expeditions.ts` — launch, forecast, arrival/return resolution (chosen crew, weighted
   losses, memorial).
+- `data/cycles.ts`, `data/needs.ts`, `sim/calendar.ts`, `sim/needs.ts`, `sim/rest.ts` —
+  chantier 04 (calendar, seasons, hunger, rest, morale): see the `kiwar-cycles` skill.
 - `sim/kiwis.ts` — individual kiwis (stats, XP, masteries, powers, classes, skills): see the
   `kiwar-rpg` skill. Production uses `workforce` (summed worker power), not the head count.
 - `save/save.ts` — zod schema of the state, `MIGRATIONS[n]` (n → n+1), `migrateState`.
@@ -65,6 +67,12 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 8. Balance (`kiwar-balance`) and `docs/DECISIONS.md`.
 
 ## Gotchas
+
+- **Flows can be negative** (meals): `computeFlows` returns net rates; a stock reaching zero or
+  its cap is an event; a full stock harvests only what is eaten. Anything that changes a rate
+  (calendar, hunger stage, beds, morale, mourning) must be an event — see `kiwar-cycles`.
+- Tests that expect exact production must include `presence`, `moraleWork`, the hour and the
+  season (`at(state, season, hour)` in `test/cycles.test.ts`) and the meals (`consumption`).
 
 - **Integer progress**: anything that accumulates per kiwi over time (XP, practice) uses
   integer raw units and integer rates so small steps equal one big step exactly; the offline

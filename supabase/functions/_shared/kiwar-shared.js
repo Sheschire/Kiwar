@@ -315,7 +315,7 @@ var PATHS = {
 var CAMPS = {
   /** Harvest per hour with both slots filled. */
   // Per kiwi, three times slower than a building; still faster than one tile regrows.
-  rates: { pulp: 360, fiber: 300, seeds: 100, juice: 360 },
+  rates: { pulp: 450, fiber: 380, seeds: 130, juice: 450 },
   workerSlots: 2,
   max: 3,
   tiles: ["flesh", "grove", "seedRing", "juice"]
@@ -462,7 +462,7 @@ var BUILDINGS = {
         durationMs: 0,
         requiresNestLevel: 0,
         // A little spring by the Nest: the first kiwis can drink before the first Juice well.
-        passiveProduction: { pulp: 270, fiber: 230, juice: 40 },
+        passiveProduction: { pulp: 340, fiber: 290, juice: 40 },
         housing: 4,
         storage: 400,
         maxBuildings: 6,
@@ -472,7 +472,7 @@ var BUILDINGS = {
         cost: { pulp: 300, fiber: 300, seeds: 40, juice: 80 },
         durationMs: ms.min(5),
         requiresNestLevel: 1,
-        passiveProduction: { pulp: 360, fiber: 240, juice: 60 },
+        passiveProduction: { pulp: 450, fiber: 300, juice: 60 },
         housing: 6,
         storage: 1e3,
         maxBuildings: 11,
@@ -482,7 +482,7 @@ var BUILDINGS = {
         cost: { pulp: 1400, fiber: 1400, seeds: 250, juice: 450 },
         durationMs: ms.min(30),
         requiresNestLevel: 2,
-        passiveProduction: { pulp: 480, fiber: 300, juice: 80 },
+        passiveProduction: { pulp: 600, fiber: 380, juice: 80 },
         housing: 8,
         storage: 2500,
         maxBuildings: 18,
@@ -500,21 +500,21 @@ var BUILDINGS = {
         cost: { pulp: 20, fiber: 10 },
         durationMs: ms.s(15),
         requiresNestLevel: 1,
-        production: { pulp: 600 },
+        production: { pulp: 750 },
         workerSlots: 1
       },
       {
         cost: { pulp: 120, fiber: 80, seeds: 10 },
         durationMs: ms.min(2),
         requiresNestLevel: 1,
-        production: { pulp: 1500 },
+        production: { pulp: 1880 },
         workerSlots: 2
       },
       {
         cost: { pulp: 550, fiber: 400, seeds: 70, juice: 90 },
         durationMs: ms.min(10),
         requiresNestLevel: 2,
-        production: { pulp: 3e3 },
+        production: { pulp: 3750 },
         workerSlots: 3
       }
     ]
@@ -529,21 +529,21 @@ var BUILDINGS = {
         cost: { pulp: 30 },
         durationMs: ms.s(20),
         requiresNestLevel: 1,
-        production: { fiber: 480 },
+        production: { fiber: 600 },
         workerSlots: 1
       },
       {
         cost: { pulp: 110, fiber: 100, seeds: 10 },
         durationMs: ms.min(2.5),
         requiresNestLevel: 1,
-        production: { fiber: 1200 },
+        production: { fiber: 1500 },
         workerSlots: 2
       },
       {
         cost: { pulp: 500, fiber: 450, seeds: 70, juice: 90 },
         durationMs: ms.min(12),
         requiresNestLevel: 2,
-        production: { fiber: 2400 },
+        production: { fiber: 3e3 },
         workerSlots: 3
       }
     ]
@@ -558,21 +558,21 @@ var BUILDINGS = {
         cost: { pulp: 40, fiber: 30 },
         durationMs: ms.s(30),
         requiresNestLevel: 1,
-        production: { juice: 360 },
+        production: { juice: 450 },
         workerSlots: 1
       },
       {
         cost: { pulp: 150, fiber: 120, seeds: 15 },
         durationMs: ms.min(3),
         requiresNestLevel: 1,
-        production: { juice: 900 },
+        production: { juice: 1120 },
         workerSlots: 2
       },
       {
         cost: { pulp: 600, fiber: 500, seeds: 80 },
         durationMs: ms.min(15),
         requiresNestLevel: 2,
-        production: { juice: 1800 },
+        production: { juice: 2250 },
         workerSlots: 3
       }
     ]
@@ -587,21 +587,21 @@ var BUILDINGS = {
         cost: { pulp: 60, fiber: 60, juice: 20 },
         durationMs: ms.s(45),
         requiresNestLevel: 1,
-        production: { seeds: 150 },
+        production: { seeds: 190 },
         workerSlots: 1
       },
       {
         cost: { pulp: 200, fiber: 200, juice: 80 },
         durationMs: ms.min(4),
         requiresNestLevel: 1,
-        production: { seeds: 380 },
+        production: { seeds: 480 },
         workerSlots: 2
       },
       {
         cost: { pulp: 800, fiber: 700, seeds: 60, juice: 300 },
         durationMs: ms.min(20),
         requiresNestLevel: 2,
-        production: { seeds: 800 },
+        production: { seeds: 1e3 },
         workerSlots: 3
       }
     ]
@@ -1751,6 +1751,19 @@ function homes(state) {
 }
 var bedCache = /* @__PURE__ */ new Map();
 function bedsOf(state, map = faceMapOf(state)) {
+  let key = `${state.seed}|${state.face}|${seasonOf(state)}|`;
+  for (const b of state.buildings) {
+    const beds = levelDef(b.type, b.level)?.housing ?? 0;
+    if (beds > 0) key += `${b.id}:${beds};`;
+  }
+  key += "|";
+  for (const v of state.villagers) {
+    const j = v.job;
+    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : "";
+  }
+  key += `|${state.paths.join(";")}`;
+  const cached = bedCache.get(key);
+  if (cached) return cached;
   const houses = homes(state);
   const kiwis = state.villagers.filter((v) => v.job.kind !== "expedition");
   const workers = [
@@ -1758,16 +1771,6 @@ function bedsOf(state, map = faceMapOf(state)) {
     ...kiwis.filter((v) => v.job.kind === "idle")
   ];
   const sites = workers.map((v) => workSite(state, v));
-  const key = [
-    state.seed,
-    state.face,
-    seasonOf(state),
-    houses.map((h) => `${h.b.id}:${h.b.q},${h.b.r}:${h.beds}`).join(";"),
-    workers.map((v, i) => `${v.id}@${sites[i] ? hexKey(sites[i]) : "-"}`).join(";"),
-    [...state.paths].sort().join(";")
-  ].join("|");
-  const cached = bedCache.get(key);
-  if (cached) return cached;
   const dists = houses.map((h) => walkDistances(state, map, [hexKey(h.b)]));
   const free = houses.map((h) => h.beds);
   const out = /* @__PURE__ */ new Map();
@@ -1803,12 +1806,9 @@ function presence(state, v, bed = bedsOf(state).get(v.id)) {
   const walk = 1 + REST.commute * (bed?.distance ?? 0);
   return Math.max(REST.minPresence, 1 - restNeed(state, v, bed) * walk);
 }
-function moraleOf(state) {
+function moraleOf(state, beds = bedsOf(state)) {
   const food = hungerStage(state) === "fed" ? MORALE.fed : MORALE.hungry;
-  const beds = bedsOf(state);
-  const workers = state.villagers.filter((v) => v.job.kind === "work");
-  const near = workers.filter((v) => (beds.get(v.id)?.distance ?? Infinity) <= MORALE.near);
-  const comfort = workers.length > 0 ? MORALE.comfort * (2 * near.length / workers.length - 1) : 0;
+  const comfort = comfortOf(state, beds);
   const speech = state.speechUntil > state.now ? MORALE.speech : 0;
   const mourning = state.mourningUntil > state.now ? MORALE.mourning : 0;
   const season = MORALE.season[seasonOf(state)];
@@ -1816,8 +1816,23 @@ function moraleOf(state) {
   const total = Math.max(-MORALE.max, Math.min(MORALE.max, sum));
   return { total, food, comfort, speech, mourning, season };
 }
-function moraleWork(state) {
-  return 1 + moraleOf(state).total;
+var comfortCache = /* @__PURE__ */ new WeakMap();
+function comfortOf(state, beds) {
+  const cached = comfortCache.get(beds);
+  if (cached !== void 0) return cached;
+  let workers = 0;
+  let near = 0;
+  for (const v of state.villagers) {
+    if (v.job.kind !== "work") continue;
+    workers++;
+    if ((beds.get(v.id)?.distance ?? Infinity) <= MORALE.near) near++;
+  }
+  const comfort = workers > 0 ? MORALE.comfort * (2 * near / workers - 1) : 0;
+  comfortCache.set(beds, comfort);
+  return comfort;
+}
+function moraleWork(state, beds = bedsOf(state)) {
+  return 1 + moraleOf(state, beds).total;
 }
 function phaseOf(id3) {
   let h = 2166136261;
@@ -1967,7 +1982,7 @@ function workforce(state, b, workers) {
     (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)),
     0
   );
-  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state);
+  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds);
 }
 function mayorOf(state) {
   return state.villagers.find((v) => v.classId === "mayor" && v.job.kind !== "expedition");
@@ -2286,16 +2301,24 @@ function capacity(state) {
   );
   return { pulp: storage, fiber: storage, seeds: storage, juice: storage };
 }
-function storageFullCheck(state) {
+function storageFullCheck(state, known) {
   const cap = capacity(state);
   const eaten = consumption(state);
-  let gross = null;
+  let gross = known ?? null;
   return (id3) => {
     if (state.resources[id3] < cap[id3] - 1e-6) return false;
     if (eaten[id3] <= 0) return true;
     gross ??= grossRates(state);
     return gross[id3] >= eaten[id3];
   };
+}
+function passiveRates(state, b) {
+  const def = levelDef(b.type, b.level);
+  const out = emptyResources();
+  if (!def?.passiveProduction) return out;
+  const climate = FACE_PROFILES[state.face].yieldMultiplier;
+  for (const id3 of RESOURCE_IDS) out[id3] = (def.passiveProduction[id3] ?? 0) * climate[id3];
+  return out;
 }
 function grossRates(state) {
   const total = emptyResources();
@@ -2827,20 +2850,39 @@ function starve(s, at, events) {
   events.push({ type: "starved", at, villagerId: v.id, name: v.name });
 }
 function computeFlows(s) {
-  const full = storageFullCheck(s);
+  const never = () => false;
   const production = emptyResources();
+  const harvested = emptyResources();
+  const harvests = [];
+  for (const b of s.buildings) {
+    const p = passiveRates(s, b);
+    for (const id3 of RESOURCE_IDS) production[id3] += p[id3];
+    const h = buildingHarvest(s, b, never);
+    if (!h) continue;
+    production[h.resource] += h.output;
+    harvested[h.resource] += h.output;
+    if (b.pool) harvests.push({ b, h });
+  }
+  const full = storageFullCheck(s, production);
+  const eaten = consumption(s);
+  const share = emptyResources();
+  for (const id3 of RESOURCE_IDS) {
+    if (!full(id3)) share[id3] = 1;
+    else if (harvested[id3] > 0) {
+      const passive = production[id3] - harvested[id3];
+      share[id3] = Math.min(1, Math.max(0, (eaten[id3] - passive) / harvested[id3]));
+    }
+  }
   const pools = [];
   let next = Infinity;
-  for (const b of s.buildings) {
-    const r = buildingRates(s, b, full);
-    for (const id3 of RESOURCE_IDS) production[id3] += r[id3];
-    const h = b.pool ? buildingHarvest(s, b, full) : null;
-    if (!h || !b.pool) continue;
-    pools.push({ b, delta: h.regen - h.harvest, cap: h.cap });
-    const dry = timeToDepletion(h);
-    if (dry < Infinity) next = Math.min(next, s.now + Math.max(1, Math.ceil(dry)));
+  for (const { b, h } of harvests) {
+    const harvest = h.harvest * share[h.resource];
+    pools.push({ b, delta: h.regen - harvest, cap: h.cap });
+    if (h.status === "ok" && harvest > h.regen) {
+      const dry = h.stock / (harvest - h.regen) * HOUR_MS2;
+      next = Math.min(next, s.now + Math.max(1, Math.ceil(dry)));
+    }
   }
-  const eaten = consumption(s);
   const rates = emptyResources();
   const deficit = { pulp: 0, juice: 0 };
   for (const id3 of RESOURCE_IDS) {
@@ -8386,6 +8428,7 @@ export {
   objectiveProgress,
   otherFace,
   parseHexKey,
+  passiveRates,
   pathLimit,
   pathSet,
   pendingUpgrade,

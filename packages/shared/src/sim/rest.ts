@@ -43,6 +43,31 @@ const bedCache = new Map<string, Map<VillagerId, Bed>>();
  * to its work; kiwis left without a bed sleep outside. Memoized on the layout and the jobs.
  */
 export function bedsOf(state: GameState, map: FaceMap = faceMapOf(state)): Map<VillagerId, Bed> {
+  // Cheap key (called for every producer at every event): homes, jobs, paths and season.
+  // Building and queue item positions never change, so ids stand for the work sites.
+  let key = `${state.seed}|${state.face}|${seasonOf(state)}|`;
+  for (const b of state.buildings) {
+    const beds = levelDef(b.type, b.level)?.housing ?? 0;
+    if (beds > 0) key += `${b.id}:${beds};`;
+  }
+  key += '|';
+  for (const v of state.villagers) {
+    const j = v.job;
+    key +=
+      j.kind === 'work'
+        ? `${v.id}w${j.buildingId};`
+        : j.kind === 'build'
+          ? `${v.id}b${j.queueItemId};`
+          : j.kind === 'train'
+            ? `${v.id}t${j.schoolId};`
+            : j.kind === 'idle'
+              ? `${v.id}i;`
+              : '';
+  }
+  key += `|${state.paths.join(';')}`;
+  const cached = bedCache.get(key);
+  if (cached) return cached;
+
   const houses = homes(state);
   const kiwis = state.villagers.filter((v) => v.job.kind !== 'expedition');
   const workers = [
@@ -50,17 +75,6 @@ export function bedsOf(state: GameState, map: FaceMap = faceMapOf(state)): Map<V
     ...kiwis.filter((v) => v.job.kind === 'idle'),
   ];
   const sites = workers.map((v) => workSite(state, v));
-  const key = [
-    state.seed,
-    state.face,
-    seasonOf(state),
-    houses.map((h) => `${h.b.id}:${h.b.q},${h.b.r}:${h.beds}`).join(';'),
-    workers.map((v, i) => `${v.id}@${sites[i] ? hexKey(sites[i]) : '-'}`).join(';'),
-    [...state.paths].sort().join(';'),
-  ].join('|');
-  const cached = bedCache.get(key);
-  if (cached) return cached;
-
   const dists = houses.map((h) => walkDistances(state, map, [hexKey(h.b)]));
   const free = houses.map((h) => h.beds);
   const out = new Map<VillagerId, Bed>();
@@ -112,13 +126,9 @@ export interface Morale {
 }
 
 /** Colony morale and what makes it. */
-export function moraleOf(state: GameState): Morale {
+export function moraleOf(state: GameState, beds = bedsOf(state)): Morale {
   const food = hungerStage(state) === 'fed' ? MORALE.fed : MORALE.hungry;
-  const beds = bedsOf(state);
-  const workers = state.villagers.filter((v) => v.job.kind === 'work');
-  const near = workers.filter((v) => (beds.get(v.id)?.distance ?? Infinity) <= MORALE.near);
-  const comfort =
-    workers.length > 0 ? MORALE.comfort * ((2 * near.length) / workers.length - 1) : 0;
+  const comfort = comfortOf(state, beds);
   const speech = state.speechUntil > state.now ? MORALE.speech : 0;
   const mourning = state.mourningUntil > state.now ? MORALE.mourning : 0;
   const season = MORALE.season[seasonOf(state)];
@@ -127,8 +137,26 @@ export function moraleOf(state: GameState): Morale {
   return { total, food, comfort, speech, mourning, season };
 }
 
-export function moraleWork(state: GameState): number {
-  return 1 + moraleOf(state).total;
+const comfortCache = new WeakMap<Map<VillagerId, Bed>, number>();
+
+/** Beds near the work (memoized per bed plan, which already depends on the jobs). */
+function comfortOf(state: GameState, beds: Map<VillagerId, Bed>): number {
+  const cached = comfortCache.get(beds);
+  if (cached !== undefined) return cached;
+  let workers = 0;
+  let near = 0;
+  for (const v of state.villagers) {
+    if (v.job.kind !== 'work') continue;
+    workers++;
+    if ((beds.get(v.id)?.distance ?? Infinity) <= MORALE.near) near++;
+  }
+  const comfort = workers > 0 ? MORALE.comfort * ((2 * near) / workers - 1) : 0;
+  comfortCache.set(beds, comfort);
+  return comfort;
+}
+
+export function moraleWork(state: GameState, beds = bedsOf(state)): number {
+  return 1 + moraleOf(state, beds).total;
 }
 
 // ---------------------------------------------------------------------------------------------

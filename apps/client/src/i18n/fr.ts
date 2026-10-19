@@ -161,7 +161,7 @@ export const fr: Dict = {
     depletesIn: 'Épuisé dans {duration} à ce rythme',
     sustainable: 'Durable à ce rythme',
     depleted: 'Épuisé : seule la repousse est récoltée. Moins d’ouvriers, ou changez de coin.',
-    storagePaused: 'Entrepôts pleins : récolte en pause, le gisement repousse.',
+    storagePaused: 'Entrepôts pleins : les kiwis ne récoltent que ce que la colonie mange.',
     logistics: 'Logistique',
     logisticsValue: '{distance} pas jusqu’à un dépôt · ×{efficiency}',
     logisticsHint: 'Tracez des chemins ou bâtissez un Entrepôt à côté pour raccourcir les trajets.',

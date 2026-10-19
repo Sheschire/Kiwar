@@ -29,6 +29,9 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   `/__mock/delay?ms=` changes the latency.
 - Universes: kiwis = ⌊players/2⌋ + 1 (always an alien face), twin faces filled first, invite code
   8 chars, ≤ 8 players, ≤ 5 universes per player; expedition targets are alien faces.
+  Every colony of a universe shares its calendar: the repository reads `created_at`
+  (`UniverseRow.createdAt`), `universeGame` / `withScopeTargets` set `calendarStart`
+  (`calendarStartFor`). The memory repository takes `createdAt` from the service.
 - Client side: `game/onlineBackend.ts` (auth: anonymous guest, link Google / magic link),
   `game/onlineConfig.ts` (env `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`), `game/chat.ts`.
 - Owner setup guide: `docs/SUPABASE_SETUP.md` (keep it in sync with new migrations/env vars).

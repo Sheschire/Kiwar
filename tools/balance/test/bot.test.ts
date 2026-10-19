@@ -11,6 +11,20 @@ describe('balance bot', () => {
     expect(a.times.nest2).not.toBeNull();
   });
 
+  it('a player who comes twice a day crosses the first winter without losing a kiwi', () => {
+    // Attentive for the first day, then two visits a day until the spring after the winter.
+    const r = runBot({
+      seed: 'bot-winter',
+      face: 'kiwino',
+      horizonMs: 100 * 3_600_000,
+      fullHorizon: true,
+      activeMs: 24 * 3_600_000,
+      sessionEveryMs: 12 * 3_600_000,
+    });
+    expect(r.final.starved).toBe(0);
+    expect(r.final.population).toBeGreaterThanOrEqual(10);
+  }, 180_000);
+
   it('flags gaps above the threshold', () => {
     const fake = (face: 'kiwisu' | 'kiwino', t: number) => ({
       seed: 's',

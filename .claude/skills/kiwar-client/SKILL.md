@@ -46,6 +46,9 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   sprites); `particles.ts` is the instanced pool. Quality flags `buildingAnimations` /
   `particles` (off in low). Removed buildings collapse in dust (`collapse` in `buildings.ts`).
 - Shadows are static: after changing meshes set `renderer.shadowMap.needsUpdate = true`.
+- Day/night, seasons, weather, HUD clock, hunger badge, rest and morale widgets: see the
+  `kiwar-cycles` skill (`dayCycle.ts`, `seasonLook.ts`, `weather.ts`, `ClockChip.tsx`,
+  `NeedsWidgets.tsx`). Shadows also refresh when the sun moves.
 - `terrain.ts` (tile prisms, `setDepletion` tint), `water.ts`, `props.ts` (cleared under
   buildings/paths), `kiwis.ts` (cosmetic agents, A* in `pathfinding.ts` with the same walk
   costs as the sim), `selection.ts` (hover/selected/catchment markers), `paths.ts`.

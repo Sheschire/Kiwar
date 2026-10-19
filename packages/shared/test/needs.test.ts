@@ -124,13 +124,13 @@ describe('hunger', () => {
   });
 
   it('a long famine kills at most one kiwi every six hours, frailest first', () => {
-    const s = crowd(20, 2);
-    const { state: later, events } = advance(s, T0 + 2 * 24 * HOUR_MS);
+    const s = crowd(24, 2);
+    const { state: later, events } = advance(s, T0 + 3 * 24 * HOUR_MS);
     const deaths = events.filter((e) => e.type === 'starved');
     expect(deaths.length).toBeGreaterThan(0);
     for (let i = 1; i < deaths.length; i++)
       expect(deaths[i]!.at - deaths[i - 1]!.at).toBeGreaterThanOrEqual(NEEDS.deathRelief);
-    expect(later.villagers.length).toBe(20 - deaths.length);
+    expect(later.villagers.length).toBe(24 - deaths.length);
     expect(later.villagers.length).toBeGreaterThanOrEqual(NEEDS.minSurvivors);
     expect(later.memorial.filter((m) => m.cause === 'famine')).toHaveLength(deaths.length);
     // The first death needs 18 hours of full privation, so it comes later than that.
@@ -147,6 +147,39 @@ describe('hunger', () => {
     const s = { ...crowd(20), resources: { pulp: cap, fiber: 0, seeds: 0, juice: cap } };
     const after = advance(s, T0 + HOUR_MS / 4).state;
     expect(after.resources.pulp).toBeLessThan(cap);
+  });
+
+  it('a full storage only harvests what the kiwis eat: the deposits drain for the meals', () => {
+    const { map, state } = setup();
+    const flesh = findTile(map, 'flesh');
+    let s = run(
+      rich(state),
+      { type: 'build', buildingType: 'pulpery', q: flesh.q, r: flesh.r },
+      T0,
+      map,
+    );
+    s = advance(s, T0 + 60_000).state;
+    const many: GameState = {
+      ...s,
+      villagers: [...s.villagers],
+      // A half-drained deposit (so its regrowth does not hide the meals).
+      buildings: s.buildings.map((b) =>
+        b.pool ? { ...b, pool: { ...b.pool, stock: b.pool.stock / 2 } } : b,
+      ),
+    };
+    while (many.villagers.length < 12) addVillager(many, many.now);
+    const cap = capacity(many).pulp;
+    const full: GameState = { ...many, resources: { ...many.resources, pulp: cap } };
+    const pulpery = full.buildings.find((b) => b.type === 'pulpery')!;
+    const eaten = consumption(full).pulp;
+    const passive = nestRate('pulp');
+    expect(eaten).toBeGreaterThan(passive);
+    const later = advance(full, full.now + 10 * 60_000).state;
+    expect(later.resources.pulp).toBeCloseTo(cap, 6);
+    const after = later.buildings.find((b) => b.id === pulpery.id)!.pool!.stock;
+    const regen = buildingHarvest(full, pulpery)!.regen;
+    const climate = FACE_PROFILES.kiwisu.yieldMultiplier.pulp;
+    expect(pulpery.pool!.stock - after).toBeCloseTo(((eaten - passive) / climate - regen) / 6, 3);
   });
 
   it('gives the same result in one big step or many small ones through a famine', () => {

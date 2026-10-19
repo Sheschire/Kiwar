@@ -24,6 +24,10 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   Nest 2, trains the most charismatic level-5 kiwi as mayor then a builder, and gives speeches.
   It does not use camps, paths, expeditions, mages or scouts — update it when a new mechanic
   matters for progression.
+- Chantier 04: the bot feeds its colony (`canFeedOneMore`, meals in the bottleneck), places huts
+  where producers walk the most to a bed; `fullHorizon`, `activeMs` + `sessionEveryMs`
+  (occasional player) and `final.starved` / `maxHungerH` let you check winters. A bot run costs
+  ~2× more than before (beds, morale): run long reports in the background.
 - Diagnose with `runBot({ …, onStep(state, map) })`: log every 30 min of game time the
   resources, rates and `buildingHarvest(state, b)` (status, stock/cap, efficiency). Typical
   culprits: tiny catchments, a bottleneck whose upgrade the bot cannot afford, storage caps.

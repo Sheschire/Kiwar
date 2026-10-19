@@ -105,3 +105,35 @@ dorment. Je te laisse imaginer le reste ou me poser des questions. »
 3. Les kiwis mangent-ils de la pulpe seule, ou un régime pulpe + jus (+ pépins en hiver) ?
 4. Fatigue : modèle agrégé (taux de présence) ou vrais cycles individuels ?
 5. Dans un univers partagé, toutes les faces vivent-elles la même saison au même moment ?
+
+## Réalisé (chantier terminé)
+
+Réponses du porteur : jour de **2 h**, saison de **24 h** ; mort par famine **avec garde-fous** ;
+régime **pulpe + jus** ; fatigue en **modèle agrégé** ; **même calendrier** pour tout un univers ;
+**moral simple** ; hiver **comme proposé** ; **lits = logement**, et comme la population ne peut
+jamais dépasser le logement, c'est la **distance du travail au lit** qui compte (huttes près des
+sites).
+
+1. Calendrier déterministe (début au printemps, en milieu de matinée ; univers partagé : date
+   de création de l'univers), soleil et lune, ciel d'aube, de crépuscule et de nuit, matériaux
+   au clair de lune, teintes de saison, neige sur les toits et les tuiles, bassins gelés,
+   averses, feuilles, neige, lucioles, maisons éclairées la nuit, horloge dans le HUD.
+2. Effets : nuit (travail ×0,4), printemps (repousse ×1,4, éclosion −20 %), été (jus ×0,7),
+   automne (pulpe ×1,2, fibre ×1,3), hiver (pas de repousse, puits ×0,5, marche ×1,5, bosquets
+   enneigés, chemins dégagés). Simulation exacte sur plusieurs jours (tests grand pas = petits
+   pas à travers un changement de saison).
+3. Faim : 30 pulpe + 10 jus par kiwi et par heure, jauge de faim de la colonie, paliers (affamés
+   ×0,7, affaiblis ×0,4, famine), morts avec garde-fous (pas avant le Nid 2, jamais les 2
+   derniers, au plus une toutes les 6 h), alertes, son, résumé d'absence ; un entrepôt plein ne
+   récolte que ce qui est mangé.
+4. Fatigue et repos (présence au travail selon l'Endurance, la saison et la marche jusqu'au lit),
+   moral (repas, lits proches, discours, deuil, saison), kiwis qui rentrent dormir en 3D,
+   section Repos dans la fiche, carte Moral dans l'écran Village.
+5. Équilibrage (production ×1,25, bot qui nourrit sa colonie et place ses huttes), test « un
+   joueur qui passe deux fois par jour traverse l'hiver sans perte », docs et skill
+   `kiwar-cycles`.
+
+Reste pour plus tard : un hiver plus mordant quand l'économie sera moins saturée (chantiers 05
+et suivants) ; ralentir les chantiers la nuit ; jauges de fatigue individuelles réelles si le
+modèle agrégé ne suffit plus ; fêtes (moral) ; trait « Noctambule » ; sons d'aube et de saison
+dédiés (événements réservés dans `/admin`).

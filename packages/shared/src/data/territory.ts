@@ -64,7 +64,7 @@ export const PATHS = {
 export const CAMPS = {
   /** Harvest per hour with both slots filled. */
   // Per kiwi, three times slower than a building; still faster than one tile regrows.
-  rates: { pulp: 360, fiber: 300, seeds: 100, juice: 360 } satisfies Resources,
+  rates: { pulp: 450, fiber: 380, seeds: 130, juice: 450 } satisfies Resources,
   workerSlots: 2,
   max: 3,
   tiles: ['flesh', 'grove', 'seedRing', 'juice'] as readonly TileType[],

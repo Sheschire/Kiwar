@@ -316,3 +316,64 @@ bonuses; **reconversion** possible at double price.
   speeches. Kiwisu / Kiwino stay within 1 % on every milestone. Nest 3 moves from 5.6 h to
   6.2 h (the School is an investment the bot makes early); the first level-10 kiwi comes after
   ≈ 2.6 days, as intended. New report milestones: kiwi5, kiwi10, mayor; default horizon 72 h.
+
+## Chantier 04 — needs and cycles: hunger, fatigue, rest, day/night, seasons
+
+Owner's answers: **2 h days and 24 h seasons**; famine deaths **allowed with guard rails**; kiwis
+eat **pulp and drink juice**; **aggregated** fatigue model; one **shared calendar** per universe;
+a **simple morale** in this chantier; winter **as proposed**; **beds = housing**, and since the
+population can never exceed housing, the walk from the work to the bed is what matters (beds
+near the work sites).
+
+- **Calendar** (`data/cycles.ts`, `sim/calendar.ts`): a pure function of time and
+  `GameState.calendarStart` (save v6). Day = 2 h ending with a 30 min night (20 min in summer);
+  season = 12 days = 24 h; year = 4 days. Seasons change at dawn. A new colony starts 20 min
+  after a spring dawn (no pink first frame); every colony of a shared universe follows the
+  universe's `created_at` (already in the database, now read by the edge function: no SQL
+  change). Imported solo saves must keep `calendarStart = createdAt − 20 min`.
+- Nightfall and dawn are `advance` events (rates change); `seasonChanged` is reported. Visuals
+  read the same calendar: sun and moon, dawn/dusk/night sky and fog, moonlit materials (night
+  desaturation), static shadows refreshed when the sun moves ~1°, season looks shared by terrain,
+  props, paths and buildings (vegetation tint, snow on upward faces, crossfaded over ~2 h around
+  each change), frozen pools, weather particles animated in the vertex shader (spring showers,
+  autumn leaves, winter snow, fireflies; the weather of a day is a hash of the date, the same for
+  everyone), glowing homes at night. HUD clock: day dial, season, countdown, effects tooltip.
+- **Effects** (`CYCLES`): night work ×0.4; spring regrowth ×1.4 and eggs −20 %; summer juice
+  regrowth ×0.7; autumn pulp harvest ×1.2 and fibre regrowth ×1.3; winter no regrowth, juice
+  wells ×0.5, walking ×1.5 off paths and **snowed-in groves** (paths stay clear, so paths matter
+  in winter). Free deposits are rebased at every season change (they regrow at the pace of the
+  season they were last seen in); depot distances are memoized per season; the 3D kiwis use the
+  same walking costs (`tileWalkCost`). Constructions and experience are not slowed at night
+  (no rebalance of chantier 03).
+- **Hunger** (`data/needs.ts`, `sim/needs.ts`): 30 pulp + 10 juice per kiwi at home and per hour
+  (×0.8 summer, ×1.3 winter); kiwis on an expedition eat their provisions. Stocks may now shrink:
+  `foodRanOut` at the exact time, then the colony eats what is harvested. A colony **hunger
+  gauge** (integer units, exact offline) fills as fast as food is missing (pulp weighs 2/3, juice
+  1/3) and recovers 3× faster once fed. Stages: hungry from 2 h of full privation (work ×0.7),
+  weakened from 8 h (×0.4), famine at 18 h: a kiwi starves (frailest first, state RNG), then the
+  gauge drops by 6 h. **Guard rails**: never before Nest level 2, never the last two kiwis, at
+  most one death per 6 h; warnings when a stock lasts under 6 h (pulsing chip, badge), toasts,
+  sound, "while you were away" lines. Memorial cause `famine`. The Nest gets a little spring
+  (juice 40 / 60 / 80 per hour) so the first kiwis can drink before the first Juice well.
+- **Full storage**: a full stock the meals do not outpace stays full and its producers harvest
+  **only what the kiwis eat** (their deposits drain for the meals); first draft let the overflow
+  feed the kiwis for free, which made winter harmless.
+- **Fatigue and rest** (`REST`, `sim/rest.ts`): each kiwi rests 12 % of the day (−4 % per
+  Endurance point above 5, ×1.3 in summer, ×1.1 in winter), in the free bed nearest to its work
+  (greedy, workers first, season-aware walking distances); each step to bed lengthens its breaks
+  by 8 %; no bed doubles them; presence ≥ 50 %. A worker's power × presence, constant between
+  events. Cosmetic rhythm (`kiwiRhythm`): 60 % of kiwis sleep at night (the night work cut),
+  others alternate work and rest; the fatigue gauge and the 3D kiwis going inside their hut
+  follow it.
+- **Morale** (`MORALE`, ±10 % on all work): meals +3 % / hungry −5 %, beds near work ±3 %,
+  mayor's speech +3 %, mourning −6 % for 24 h after any loss (`mourningUntil`, save v8, event),
+  season (spring +2 %, winter −2 %). Every factor changes only at an event. Charisma still feeds
+  the mayor's harvest bonus (chantier 03).
+- Audio: `colony.hunger` (synth), night crickets ambience (`ambience.night`, synth loop), birds
+  quieter at night, the calendar fills the binding conditions (time of day, season).
+- **Retune**: production of every producer, camp and the Nest's pulp/fibre ×1.25 to keep the
+  pace of chantier 03 despite nights and rest. Bot: huts where the walk to bed is longest, meals
+  subtracted before picking the bottleneck, no egg it cannot feed, occasional-player mode
+  (attentive for a day, then two visits a day). Performance: harvests are computed once per
+  building per event and the bed plan is memoized on a cheap key (a bot run is ~2× slower than
+  before the chantier).

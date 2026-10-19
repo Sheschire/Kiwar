@@ -41,6 +41,11 @@ space (owner) through a **manifest**.
 - Renderer helpers (`render/GameRenderer.ts`): `audioZoom()` (0 close → 1 far),
   `spatialize(pos)`, `kiwiAt(x, y)` (tap → `onKiwiTap`), `randomVisibleKiwi()`.
 
+Chantier 04: `colony.hunger` (food ran out, hunger worsens, a kiwi starved) and
+`ambience.night` (synth crickets, loop at night); `ambience.day` stays reserved (the birds of
+`ambience.nature` are the day ambience, quieter at night). `gameAudio.ts` fills
+`audio.context.timeOfDay` / `season` from the calendar every 250 ms (binding conditions).
+
 ## Add a sound event
 
 1. Add the id to `SOUND_EVENTS` (bus, group, `synth` fallback, default binding).

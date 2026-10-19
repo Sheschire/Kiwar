@@ -94,16 +94,30 @@ export function capacity(state: GameState): Resources {
  * Whether the colony storage of a resource is full (harvesting then pauses). A full stock the
  * kiwis eat faster than it is produced is not full: harvesting goes on and the stock shrinks.
  */
-export function storageFullCheck(state: GameState): (id: ResourceId) => boolean {
+export function storageFullCheck(
+  state: GameState,
+  /** Production if no storage were full, when the caller already has it. */
+  known?: Resources,
+): (id: ResourceId) => boolean {
   const cap = capacity(state);
   const eaten = consumption(state);
-  let gross: Resources | null = null;
+  let gross: Resources | null = known ?? null;
   return (id) => {
     if (state.resources[id] < cap[id] - 1e-6) return false;
     if (eaten[id] <= 0) return true;
     gross ??= grossRates(state);
     return gross[id] >= eaten[id];
   };
+}
+
+/** Output per hour that needs no workers (the Nest), climate included. */
+export function passiveRates(state: GameState, b: Building): Resources {
+  const def = levelDef(b.type, b.level);
+  const out = emptyResources();
+  if (!def?.passiveProduction) return out;
+  const climate = FACE_PROFILES[state.face].yieldMultiplier;
+  for (const id of RESOURCE_IDS) out[id] = (def.passiveProduction[id] ?? 0) * climate[id];
+  return out;
 }
 
 /** Production per hour if no storage were full. */

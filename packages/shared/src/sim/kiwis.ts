@@ -205,7 +205,7 @@ export function workforce(state: GameState, b: Building, workers: Villager[]): n
     (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)),
     0,
   );
-  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state);
+  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds);
 }
 
 /** The mayor at home, if any. */

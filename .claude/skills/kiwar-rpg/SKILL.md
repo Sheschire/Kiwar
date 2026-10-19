@@ -29,6 +29,9 @@ Load `kiwar-sim` too: everything here lives in the deterministic shared simulati
 - Powers: `workerPower(v, resource)`, `builderSpeed(v)`, `kiwiStrength(v)`, `kiwiExposure(v)`;
   `workforce(state, b, workers)` (× `colonyBonus` = mayor + speech) feeds `harvestOf` instead of
   the head count; `regenBonus(workers)` (mages' Green thumb) multiplies the pool regrowth.
+- Chantier 04: Endurance shortens rest (`presence` in `sim/rest.ts`) and protects from famine
+  (frailest starve first); `workforce` also multiplies by presence, hunger and morale; any loss
+  starts a day of mourning (`removeVillagers` sets `mourningUntil`).
 - **Exactness**: `ratesOf` gives integer raw units per ms (XP, practice). `nextKiwiEvent` is the
   next level-up / rank-up time (ceil); `accrueKiwis` runs inside `accrue` and processes level-ups
   at the interval end (`levelUps`: odd level → RNG stat weighted by the job, even → a point).

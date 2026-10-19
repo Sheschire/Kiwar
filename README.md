@@ -9,6 +9,15 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 04** — le monde vit au rythme des jours (2 h, dont une courte nuit où les kiwis
+> dorment) et des saisons (24 h chacune) : soleil qui tourne, nuits bleutées, maisons éclairées,
+> averses de printemps, feuilles d'automne, neige et bassins gelés en hiver. Chaque cycle compte :
+> repousse, récolte, marche dans la neige. Les kiwis **mangent** de la pulpe et boivent du jus :
+> stocks qui baissent, alertes, faim qui ralentit le travail, et des morts possibles en cas de
+> famine (jamais avant le Nid 2, jamais les 2 derniers kiwis). Ils se **reposent** dans le lit le
+> plus proche de leur travail (des huttes bien placées font gagner du temps) et le **moral** de la
+> colonie varie de ±10 %.
+>
 > **Chantier 03** — chaque kiwi est unique : statistiques tirées à l'éclosion, trait, rarissime
 > **shiny** (1/512 : rouge, jaune, vert ou bleu), niveaux (jusqu'à 30) et maîtrises de métier qui
 > augmentent sa production. Écran **Village** : fiches avec portrait, radar de stats, points à
