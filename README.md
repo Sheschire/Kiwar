@@ -54,15 +54,16 @@ a sa sauvegarde dans le `localStorage` de son navigateur.
 
 ## Commandes de jeu
 
-|                                       | Desktop                                       | Mobile                                 |
-| ------------------------------------- | --------------------------------------------- | -------------------------------------- |
-| Sélectionner une tuile ou un bâtiment | Clic gauche                                   | Toucher                                |
-| Zoom                                  | Molette                                       | Pincer                                 |
-| Orbite                                | Clic droit glissé                             | Glisser à deux doigts (ou les tourner) |
-| Déplacement                           | Clic milieu, Maj + clic droit, WASD / flèches | Glisser à un doigt                     |
-| Rotation par paliers de 45°           | Q / E                                         | —                                      |
-| Fermer la sélection                   | Échap                                         | ✕                                      |
-| Panneau debug                         | `` ` `` (ou `²` en AZERTY)                    | Réglages → Panneau debug               |
+|                                       | Desktop                                                         | Mobile                                 |
+| ------------------------------------- | --------------------------------------------------------------- | -------------------------------------- |
+| Sélectionner une tuile ou un bâtiment | Clic gauche                                                     | Toucher                                |
+| Déplacer la carte                     | Clic gauche glissé (aussi clic milieu, WASD / flèches)          | Glisser à un doigt                     |
+| Tourner autour                        | Clic droit glissé, ou Alt/Option (ou Ctrl) + clic gauche glissé | Glisser à deux doigts (ou les tourner) |
+| Zoom                                  | Molette ou pincement du trackpad                                | Pincer                                 |
+| Rotation par paliers de 45°           | Q / E                                                           | —                                      |
+| Infos d'une ressource                 | Survol de la ressource                                          | Toucher la ressource                   |
+| Fermer la sélection                   | Échap                                                           | ✕                                      |
+| Panneau debug                         | `` ` `` (ou `²` en AZERTY)                                      | Réglages → Panneau debug               |
 
 Le panneau debug propose le multiplicateur de temps (×1, ×10, ×100), +500 de chaque ressource,
 la régénération avec une nouvelle graine, la bascule Kiwisu/Kiwino et un compteur de fps.
