@@ -381,7 +381,8 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
   if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
 }
 
-function removeVillagers(
+/** Kiwis lost for good: they go to the memorial. */
+export function removeVillagers(
   state: GameState,
   ids: VillagerId[],
   cause: Memorial['cause'],

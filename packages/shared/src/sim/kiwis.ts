@@ -27,6 +27,7 @@ import type { Rng } from '../rng/rng';
 import type { BuildingId, TimeMs } from '../types/ids';
 import type { GameEvent } from './advance';
 import { faceMapOf, harvestedTileType } from './territory';
+import { hungerWork } from './needs';
 import { withRng, type Building, type GameState, type Villager } from './state';
 
 // ---------------------------------------------------------------------------------------------
@@ -198,7 +199,7 @@ export function workforce(state: GameState, b: Building, workers: Villager[]): n
   const resource = buildingResource(state, b);
   if (!resource) return workers.length;
   const sum = workers.reduce((total, v) => total + workerPower(v, resource), 0);
-  return sum * colonyBonus(state);
+  return sum * colonyBonus(state) * hungerWork(state);
 }
 
 /** The mayor at home, if any. */

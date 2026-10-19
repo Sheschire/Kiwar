@@ -2215,3 +2215,63 @@ button.chip:focus-visible {
   gap: 4px;
   color: #4b5a9a;
 }
+
+/* Chantier 04: hunger. */
+.chip.is-low .chip-amount {
+  color: var(--berry);
+}
+
+.chip.is-low .icon {
+  animation: low-food 1.4s ease-in-out infinite;
+}
+
+@keyframes low-food {
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+.chip-rate.is-negative {
+  color: var(--berry);
+}
+
+.hunger-badge {
+  position: absolute;
+  top: calc(var(--safe-top) + 78px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 14px;
+  border-radius: 14px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  z-index: 15;
+  border: 2px solid var(--berry);
+}
+
+.hunger-badge .row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hunger-badge strong {
+  color: var(--berry);
+}
+
+.buff-badge + .hunger-badge {
+  top: calc(var(--safe-top) + 112px);
+}
+
+@media (max-width: 760px) {
+  .hunger-badge {
+    top: calc(var(--safe-top) + 118px);
+  }
+
+  .buff-badge + .hunger-badge {
+    top: calc(var(--safe-top) + 150px);
+  }
+}

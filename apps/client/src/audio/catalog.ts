@@ -163,6 +163,12 @@ export const SOUND_EVENTS = {
     synth: 'full',
     default: { sources: ['builtin:colony/full'], cooldownMs: 5000, volume: 0.7 },
   },
+  'colony.hunger': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'hunger',
+    default: { sources: ['synth:hunger'], cooldownMs: 4000 },
+  },
   'ship.launch': {
     bus: 'sfx',
     group: 'expedition',
@@ -205,6 +211,7 @@ export const SOUND_EVENTS = {
     synth: 'wind',
     default: { sources: ['builtin:ambience/wind'], loop: true, fadeInMs: 3000, fadeOutMs: 2000 },
   },
+  // The birds of ambience.nature are the day ambience; this one stays free for the admin.
   'ambience.day': {
     bus: 'ambience',
     group: 'ambience',
@@ -214,8 +221,15 @@ export const SOUND_EVENTS = {
   'ambience.night': {
     bus: 'ambience',
     group: 'ambience',
-    reserved: true,
-    default: { loop: true, fadeInMs: 3000, fadeOutMs: 3000, conditions: { timeOfDay: 'night' } },
+    synth: 'night',
+    default: {
+      sources: ['synth:night'],
+      loop: true,
+      fadeInMs: 3000,
+      fadeOutMs: 3000,
+      volume: 0.6,
+      conditions: { timeOfDay: 'night' },
+    },
   },
   'music.main': {
     bus: 'music',

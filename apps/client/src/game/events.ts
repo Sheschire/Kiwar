@@ -51,6 +51,15 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
       case 'storageFull':
         pushToast('info', 'events.storageFull', { resource: `@resources.${e.resource}` });
         break;
+      case 'foodRanOut':
+        pushToast('error', 'events.foodRanOut', { resource: `@resources.${e.resource}` });
+        break;
+      case 'hungerChanged':
+        pushToast(e.stage === 'fed' ? 'success' : 'error', `needs.hungerChanged.${e.stage}`);
+        break;
+      case 'starved':
+        pushToast('error', 'events.starved', { name: e.name });
+        break;
       case 'seasonChanged':
         pushToast('info', 'cycles.changed', { season: `@cycles.seasons.${e.season}` });
         break;

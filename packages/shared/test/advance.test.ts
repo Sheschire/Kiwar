@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  consumption,
   advance,
   BUILDINGS,
   builderSpeed,
@@ -38,9 +39,11 @@ describe('advance', () => {
   it('produces passively from the nest, proportionally to time', () => {
     const { state } = setup('kiwisu');
     const tenMin = advance(state, T0 + HOUR_MS / 6).state;
+    // Production minus what the three kiwis eat.
     const expected =
       (BUILDINGS.nest.levels[0]!.passiveProduction!.pulp! / 6) *
-      FACE_PROFILES.kiwisu.yieldMultiplier.pulp;
+        FACE_PROFILES.kiwisu.yieldMultiplier.pulp -
+      consumption(state).pulp / 6;
     expect(tenMin.resources.pulp - state.resources.pulp).toBeCloseTo(expected, 6);
   });
 

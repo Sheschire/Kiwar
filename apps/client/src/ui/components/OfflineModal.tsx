@@ -12,7 +12,11 @@ export function OfflineModal() {
   const close = () => uiStore.setState({ offlineSummary: null });
   const gained = RESOURCE_IDS.filter((id) => summary.gained[id] >= 1);
   const nothing =
-    gained.length === 0 && summary.completed.length === 0 && summary.hatched.length === 0;
+    gained.length === 0 &&
+    summary.completed.length === 0 &&
+    summary.hatched.length === 0 &&
+    summary.starved.length === 0 &&
+    summary.foodRanOut.length === 0;
   return (
     <Modal
       title={t('offline.title')}
@@ -56,6 +60,18 @@ export function OfflineModal() {
         <p class="row">
           <EggIcon size={20} /> {t('offline.hatched', { names: summary.hatched.join(', ') })}
         </p>
+      )}
+      {summary.foodRanOut.length > 0 && (
+        <p class="warn">
+          {t('offline.foodRanOut', {
+            list: summary.foodRanOut
+              .map((r) => t(`resources.${r as (typeof RESOURCE_IDS)[number]}`))
+              .join(', '),
+          })}
+        </p>
+      )}
+      {summary.starved.length > 0 && (
+        <p class="warn">{t('offline.starved', { names: summary.starved.join(', ') })}</p>
       )}
       {summary.storageFull.length > 0 && (
         <p class="warn">

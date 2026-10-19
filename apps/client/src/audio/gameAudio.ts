@@ -1,5 +1,6 @@
 import type { GameRenderer } from '../render/GameRenderer';
 import { uiStore } from '../ui/store';
+import { calendarAt } from '@kiwar/shared';
 import { kiwiVoicePitch } from './sounds';
 import { onlineConfig } from '../game/onlineConfig';
 import { audio } from './engine';
@@ -40,7 +41,14 @@ export function installGameAudio(renderer: GameRenderer): void {
   window.setInterval(() => {
     const zoom = renderer.audioZoom();
     audio.context.zoom = zoom;
-    audio.setLoop('ambience.nature', 0.25 + 0.75 * (1 - zoom));
+    // Day and night ambiences follow the calendar (birds rest at night).
+    const { game, now: simNow } = uiStore.getState();
+    const c = game ? calendarAt(game.calendarStart, simNow) : null;
+    audio.context.timeOfDay = c?.night ? 'night' : 'day';
+    audio.context.season = c?.season ?? 'spring';
+    const birds = c?.night ? 0.3 : 1;
+    audio.setLoop('ambience.night', c?.night ? 1 : 0);
+    audio.setLoop('ambience.nature', (0.25 + 0.75 * (1 - zoom)) * birds);
     audio.setLoop('ambience.wind', 0.1 + 0.9 * zoom);
     const now = performance.now();
     if (now - lastChirp > 2500) {

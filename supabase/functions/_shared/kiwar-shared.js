@@ -461,7 +461,8 @@ var BUILDINGS = {
         cost: {},
         durationMs: 0,
         requiresNestLevel: 0,
-        passiveProduction: { pulp: 270, fiber: 230 },
+        // A little spring by the Nest: the first kiwis can drink before the first Juice well.
+        passiveProduction: { pulp: 270, fiber: 230, juice: 40 },
         housing: 4,
         storage: 400,
         maxBuildings: 6,
@@ -471,7 +472,7 @@ var BUILDINGS = {
         cost: { pulp: 300, fiber: 300, seeds: 40, juice: 80 },
         durationMs: ms.min(5),
         requiresNestLevel: 1,
-        passiveProduction: { pulp: 360, fiber: 240 },
+        passiveProduction: { pulp: 360, fiber: 240, juice: 60 },
         housing: 6,
         storage: 1e3,
         maxBuildings: 11,
@@ -481,7 +482,7 @@ var BUILDINGS = {
         cost: { pulp: 1400, fiber: 1400, seeds: 250, juice: 450 },
         durationMs: ms.min(30),
         requiresNestLevel: 2,
-        passiveProduction: { pulp: 480, fiber: 300 },
+        passiveProduction: { pulp: 480, fiber: 300, juice: 80 },
         housing: 8,
         storage: 2500,
         maxBuildings: 18,
@@ -981,6 +982,31 @@ function seasonHarvest(season, resource) {
   const h = CYCLES.seasons[season].harvest;
   return h[resource] ?? 1;
 }
+
+// packages/shared/src/data/needs.ts
+var NEEDS = {
+  /** Eaten per kiwi at home and per hour. */
+  eat: { pulp: 30, fiber: 0, seeds: 0, juice: 10 },
+  /** Appetite by season (less in summer, more in winter). */
+  appetite: { spring: 1, summer: 0.8, autumn: 1, winter: 1.3 },
+  /** Weight of each food in the hunger gauge (missing pulp hurts more than missing juice). */
+  weight: { pulp: 2 / 3, juice: 1 / 3 },
+  /** Hunger gauge (hours of full privation) where each stage starts. */
+  stages: { hungry: ms.h(2), weak: ms.h(8), starving: ms.h(18) },
+  /** Work multiplier by stage. */
+  work: { fed: 1, hungry: 0.7, weak: 0.4, starving: 0.4 },
+  /** A fed colony recovers this many hours of hunger per hour. */
+  recovery: 3,
+  /** A death relieves the gauge by this much: never more than one death per 6 hours. */
+  deathRelief: ms.h(6),
+  /** The last kiwis never starve to death. */
+  minSurvivors: 2,
+  /** No death before this Nest level (beginners). */
+  protectedBelowNest: 2,
+  /** Warn when a food stock lasts less than this. */
+  warnMs: ms.h(6)
+};
+var HUNGER_SCALE = 100;
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
@@ -1587,6 +1613,88 @@ function depletedTiles(state, map) {
   return out;
 }
 
+// packages/shared/src/sim/needs.ts
+function homeKiwis(state) {
+  return state.villagers.filter((v) => v.job.kind !== "expedition");
+}
+function consumption(state) {
+  const out = emptyResources();
+  const n = homeKiwis(state).length;
+  if (n === 0) return out;
+  const appetite = NEEDS.appetite[seasonOf(state)];
+  out.pulp = NEEDS.eat.pulp * n * appetite;
+  out.juice = NEEDS.eat.juice * n * appetite;
+  return out;
+}
+var STAGE_ORDER = ["fed", "hungry", "weak", "starving"];
+function threshold(stage) {
+  return NEEDS.stages[stage] * HUNGER_SCALE;
+}
+function stageOf(hunger) {
+  if (hunger >= threshold("starving")) return "starving";
+  if (hunger >= threshold("weak")) return "weak";
+  if (hunger >= threshold("hungry")) return "hungry";
+  return "fed";
+}
+function hungerStage(state) {
+  return stageOf(state.hunger);
+}
+function hungerHours(state) {
+  return state.hunger / HUNGER_SCALE / 36e5;
+}
+function hungerWork(state) {
+  return NEEDS.work[hungerStage(state)];
+}
+function canStarve(state) {
+  const nest2 = state.buildings.find((b) => b.type === "nest");
+  return state.villagers.length > NEEDS.minSurvivors && (nest2?.level ?? 0) >= NEEDS.protectedBelowNest && homeKiwis(state).length > 0;
+}
+function hungerRate(state, deficit) {
+  const share = NEEDS.weight.pulp * deficit.pulp + NEEDS.weight.juice * deficit.juice;
+  if (share > 0) return Math.max(1, Math.round(HUNGER_SCALE * share));
+  return state.hunger > 0 ? -HUNGER_SCALE * NEEDS.recovery : 0;
+}
+function hungerCap(state) {
+  return canStarve(state) ? Infinity : threshold("starving");
+}
+function nextHungerEvent(state, rate) {
+  const h = state.hunger;
+  if (rate > 0) {
+    for (const stage of STAGE_ORDER.slice(1)) {
+      const t = threshold(stage);
+      if (h >= t) continue;
+      return state.now + Math.max(1, Math.ceil((t - h) / rate));
+    }
+    return canStarve(state) ? state.now : Infinity;
+  }
+  if (rate < 0) {
+    for (const stage of ["starving", "weak", "hungry"]) {
+      const t = threshold(stage);
+      if (h < t) continue;
+      return state.now + Math.floor((h - t) / -rate) + 1;
+    }
+  }
+  return Infinity;
+}
+function pickStarving(state) {
+  const home = homeKiwis(state);
+  if (home.length === 0) return void 0;
+  const weights = home.map((v) => 1 / Math.max(1, v.stats.endurance));
+  const total = weights.reduce((a, b) => a + b, 0);
+  return withRng(state, (rng) => {
+    let roll = rng.next() * total;
+    for (let i = 0; i < home.length; i++) {
+      roll -= weights[i];
+      if (roll < 0) return home[i];
+    }
+    return home[home.length - 1];
+  });
+}
+function foodLeftMs(stock, netPerHour) {
+  if (netPerHour >= 0) return null;
+  return stock / -netPerHour * 36e5;
+}
+
 // packages/shared/src/sim/kiwis.ts
 function rollKiwi(rng) {
   const { min, max } = KIWI.stat;
@@ -1707,7 +1815,7 @@ function workforce(state, b, workers) {
   const resource = buildingResource(state, b);
   if (!resource) return workers.length;
   const sum = workers.reduce((total, v) => total + workerPower(v, resource), 0);
-  return sum * colonyBonus(state);
+  return sum * colonyBonus(state) * hungerWork(state);
 }
 function mayorOf(state) {
   return state.villagers.find((v) => v.classId === "mayor" && v.job.kind !== "expedition");
@@ -1837,7 +1945,7 @@ function trainingDuration(school, classId) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 6;
+var SCHEMA_VERSION = 7;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -1870,6 +1978,7 @@ function newGame(opts) {
     villagers: [],
     memorial: [],
     speechUntil: 0,
+    hunger: 0,
     queue: [],
     egg: null,
     objectiveIndex: 0,
@@ -2026,7 +2135,35 @@ function capacity(state) {
 }
 function storageFullCheck(state) {
   const cap = capacity(state);
-  return (id3) => state.resources[id3] >= cap[id3] - 1e-6;
+  const eaten = consumption(state);
+  let gross = null;
+  return (id3) => {
+    if (state.resources[id3] < cap[id3] - 1e-6) return false;
+    if (eaten[id3] <= 0) return true;
+    gross ??= grossRates(state);
+    return gross[id3] >= eaten[id3];
+  };
+}
+function grossRates(state) {
+  const total = emptyResources();
+  const never = () => false;
+  for (const b of state.buildings) {
+    const r = buildingRates(state, b, never);
+    for (const id3 of RESOURCE_IDS) total[id3] += r[id3];
+  }
+  return total;
+}
+function netRates(state) {
+  const full = storageFullCheck(state);
+  const prod = productionRates(state);
+  const eaten = consumption(state);
+  const out = emptyResources();
+  for (const id3 of RESOURCE_IDS) {
+    if (full(id3)) continue;
+    const net = prod[id3] - eaten[id3];
+    out[id3] = net < 0 && state.resources[id3] <= 0 ? 0 : net;
+  }
+  return out;
 }
 function buildingHarvest(state, b, full = storageFullCheck(state)) {
   const workers = workersOf(state, b.id);
@@ -2453,6 +2590,7 @@ function advanceInPlace(s, now, events) {
   const map = faceMapOf(s);
   syncPools(s, map, s.now);
   startNextConstruction(s, s.now, events);
+  let stage = hungerStage(s);
   for (let guard = 0; guard < 1e5; guard++) {
     const active = activeItem(s);
     const constructionEnd = active ? active.startedAt + active.durationMs : Infinity;
@@ -2464,6 +2602,7 @@ function advanceInPlace(s, now, events) {
     const calendarChange = nextCalendarChange(s.calendarStart, s.now);
     const nextEvent = Math.min(
       calendarChange,
+      flows.hungerAt,
       constructionEnd,
       eggEnd,
       expedition?.at ?? Infinity,
@@ -2489,6 +2628,12 @@ function advanceInPlace(s, now, events) {
     if (trainingEnd === nextEvent) finishTrainings(s, trainingEnd, events);
     if (speechEnd === nextEvent) events.push({ type: "speechOver", at: speechEnd });
     if (calendarChange === nextEvent) calendarTick(s, calendarChange, events);
+    if (flows.hungerAt === nextEvent) starve(s, nextEvent, events);
+    const st = hungerStage(s);
+    if (st !== stage) {
+      events.push({ type: "hungerChanged", at: s.now, stage: st });
+      stage = st;
+    }
     if (expedition && expedition.at === nextEvent) {
       const e = expedition.expedition;
       if (e.status === "outbound") {
@@ -2516,27 +2661,52 @@ function calendarTick(s, at, events) {
     events.push({ type: "seasonChanged", at, season: c.season });
   }
 }
+function starve(s, at, events) {
+  if (s.hunger < NEEDS.stages.starving * HUNGER_SCALE || !canStarve(s)) return;
+  const v = pickStarving(s);
+  if (!v) return;
+  removeVillagers(s, [v.id], "famine", at);
+  s.hunger -= NEEDS.deathRelief * HUNGER_SCALE;
+  events.push({ type: "starved", at, villagerId: v.id, name: v.name });
+}
 function computeFlows(s) {
   const full = storageFullCheck(s);
-  const rates = emptyResources();
+  const production = emptyResources();
   const pools = [];
   let next = Infinity;
   for (const b of s.buildings) {
     const r = buildingRates(s, b, full);
-    for (const id3 of RESOURCE_IDS) rates[id3] += r[id3];
+    for (const id3 of RESOURCE_IDS) production[id3] += r[id3];
     const h = b.pool ? buildingHarvest(s, b, full) : null;
     if (!h || !b.pool) continue;
     pools.push({ b, delta: h.regen - h.harvest, cap: h.cap });
     const dry = timeToDepletion(h);
     if (dry < Infinity) next = Math.min(next, s.now + Math.max(1, Math.ceil(dry)));
   }
+  const eaten = consumption(s);
+  const rates = emptyResources();
+  const deficit = { pulp: 0, juice: 0 };
+  for (const id3 of RESOURCE_IDS) {
+    if (full(id3)) continue;
+    let net = production[id3] - eaten[id3];
+    if (net < 0 && s.resources[id3] <= 0) {
+      if (id3 === "pulp" || id3 === "juice") deficit[id3] = -net / eaten[id3];
+      net = 0;
+    }
+    rates[id3] = net;
+  }
   const cap = capacity(s);
   for (const id3 of RESOURCE_IDS) {
-    if (rates[id3] <= 0 || full(id3)) continue;
-    const fill = (cap[id3] - s.resources[id3]) / rates[id3] * HOUR_MS2;
-    next = Math.min(next, s.now + Math.max(1, Math.ceil(fill)));
+    if (rates[id3] > 0 && s.resources[id3] < cap[id3]) {
+      const fill = (cap[id3] - s.resources[id3]) / rates[id3] * HOUR_MS2;
+      next = Math.min(next, s.now + Math.max(1, Math.ceil(fill)));
+    } else if (rates[id3] < 0) {
+      const empty = s.resources[id3] / -rates[id3] * HOUR_MS2;
+      next = Math.min(next, s.now + Math.max(1, Math.ceil(empty)));
+    }
   }
-  return { rates, pools, nextChange: next };
+  const hunger = hungerRate(s, deficit);
+  return { rates, pools, hunger, nextChange: next, hungerAt: nextHungerEvent(s, hunger) };
 }
 function accrue(s, flows, dtMs, at, events) {
   const { rates } = flows;
@@ -2544,7 +2714,16 @@ function accrue(s, flows, dtMs, at, events) {
   for (const id3 of RESOURCE_IDS) {
     const before = s.resources[id3];
     const gain = rates[id3] * dtMs / HOUR_MS2;
-    if (gain <= 0) continue;
+    if (gain < 0) {
+      const after2 = before + gain > 1e-9 ? before + gain : 0;
+      s.resources[id3] = after2;
+      if (after2 === 0 && before > 0 && (id3 === "pulp" || id3 === "juice")) {
+        const emptyMs = before / -rates[id3] * HOUR_MS2;
+        events.push({ type: "foodRanOut", at: Math.round(at - dtMs + emptyMs), resource: id3 });
+      }
+      continue;
+    }
+    if (gain === 0) continue;
     let after = before >= cap[id3] ? before : Math.min(cap[id3], before + gain);
     if (after < cap[id3] && cap[id3] - after < 1e-6) after = cap[id3];
     s.resources[id3] = after;
@@ -2558,6 +2737,8 @@ function accrue(s, flows, dtMs, at, events) {
     const stock = p.b.pool.stock + p.delta * dtMs / HOUR_MS2;
     p.b.pool.stock = stock < 1e-6 ? 0 : Math.min(p.cap, stock);
   }
+  if (flows.hunger !== 0)
+    s.hunger = Math.min(hungerCap(s), Math.max(0, s.hunger + flows.hunger * dtMs));
   accrueKiwis(s, dtMs, at, events);
 }
 function startNextConstruction(s, at, events) {
@@ -7217,10 +7398,11 @@ var gameStateSchema = external_exports.object({
       classId: external_exports.enum(CLASS_IDS).nullable().optional(),
       bornAt: external_exports.number(),
       diedAt: external_exports.number(),
-      cause: external_exports.enum(["battle", "starvation"])
+      cause: external_exports.enum(["battle", "starvation", "famine"])
     })
   ).max(MEMORIAL_MAX),
   speechUntil: external_exports.number().min(0),
+  hunger: external_exports.number().int().min(0),
   queue: external_exports.array(
     external_exports.object({
       id,
@@ -7327,7 +7509,9 @@ var MIGRATIONS = {
     speechUntil: 0
   }),
   // v5 → v6: day/night and seasons (chantier 04). The calendar starts with the game.
-  5: (raw) => ({ ...raw, calendarStart: calendarStartFor(Number(raw.createdAt)) })
+  5: (raw) => ({ ...raw, calendarStart: calendarStartFor(Number(raw.createdAt)) }),
+  // v6 → v7: hunger (chantier 04, part 3). Colonies start fed.
+  6: (raw) => ({ ...raw, hunger: 0 })
 };
 function migrateState(input) {
   if (!input || typeof input !== "object") return { ok: false, reason: "corrupt" };
@@ -7866,6 +8050,7 @@ export {
   HEART,
   HEX_DIRECTIONS,
   HOUR_MS2 as HOUR_MS,
+  HUNGER_SCALE,
   KIWI,
   KIWI_NAME_MAX,
   LOGISTICS,
@@ -7875,6 +8060,7 @@ export {
   MAX_UNIVERSES_PER_PLAYER,
   MEMORIAL_MAX,
   NAME_SYLLABLES,
+  NEEDS,
   OBJECTIVES,
   PATHS,
   PRACTICE_SCALE,
@@ -7923,6 +8109,7 @@ export {
   calendarStartFor,
   canAfford,
   canHatch,
+  canStarve,
   capacity,
   catchmentPreview,
   catchmentRadius,
@@ -7934,6 +8121,7 @@ export {
   computeClaims,
   constructionDuration,
   constructionRemaining,
+  consumption,
   copiesOf,
   countTiles,
   createMemoryRepository,
@@ -7953,6 +8141,7 @@ export {
   emptyMasteries,
   emptyResources,
   faceMapOf,
+  foodLeftMs,
   forecastExpedition,
   freeDepositStock,
   gameStateSchema,
@@ -7979,7 +8168,13 @@ export {
   hexRound,
   hexScale,
   hexToPixel,
+  homeKiwis,
   housing,
+  hungerCap,
+  hungerHours,
+  hungerRate,
+  hungerStage,
+  hungerWork,
   idleByPower,
   idleVillagers,
   inviteCode,
@@ -8014,9 +8209,11 @@ export {
   nearRay,
   nest,
   nestDef,
+  netRates,
   newGame,
   newKiwi,
   nextCalendarChange,
+  nextHungerEvent,
   nextId,
   nextKiwiEvent,
   objectiveProgress,
@@ -8025,6 +8222,7 @@ export {
   pathLimit,
   pathSet,
   pendingUpgrade,
+  pickStarving,
   pixelToHex,
   poolCapacity,
   population,
@@ -8034,6 +8232,7 @@ export {
   rebaseFreeDeposits,
   regenBonus,
   releasePool,
+  removeVillagers,
   requestSchema,
   resolveArrival,
   resolveReturn,
@@ -8047,6 +8246,7 @@ export {
   serializeSave,
   shipCargo,
   soloTargets,
+  stageOf,
   startNextConstruction,
   storageFullCheck,
   syncPools,

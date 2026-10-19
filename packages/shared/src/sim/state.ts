@@ -20,7 +20,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export type Job =
   | { kind: 'idle' }
@@ -78,7 +78,8 @@ export interface Memorial {
   classId?: ClassId | null;
   bornAt: TimeMs;
   diedAt: TimeMs;
-  cause: 'battle' | 'starvation';
+  /** `starvation`: on the way home from an expedition; `famine`: in the colony. */
+  cause: 'battle' | 'starvation' | 'famine';
 }
 
 export interface Building {
@@ -210,6 +211,8 @@ export interface GameState {
   memorial: Memorial[];
   /** The mayor's speech boosts the harvest until then (0: no speech). */
   speechUntil: TimeMs;
+  /** Colony hunger gauge in raw units (HUNGER_SCALE per ms of full privation). */
+  hunger: number;
   queue: QueueItem[];
   egg: Egg | null;
   /** Index of the current tutorial objective in OBJECTIVES. */
@@ -277,6 +280,7 @@ export function newGame(opts: NewGameOptions): GameState {
     villagers: [],
     memorial: [],
     speechUntil: 0,
+    hunger: 0,
     queue: [],
     egg: null,
     objectiveIndex: 0,

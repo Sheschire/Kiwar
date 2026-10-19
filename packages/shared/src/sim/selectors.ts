@@ -26,6 +26,7 @@ import type { Building, GameState, QueueItem, Villager } from './state';
 import { faceMapOf, harvestOf, type Harvest } from './territory';
 import { regenBonus, workforce } from './kiwis';
 import { seasonEffects } from '../data/cycles';
+import { consumption } from './needs';
 import { seasonOf } from './calendar';
 
 export const HOUR_MS = 3_600_000;
@@ -89,10 +90,45 @@ export function capacity(state: GameState): Resources {
   return { pulp: storage, fiber: storage, seeds: storage, juice: storage };
 }
 
-/** Whether the colony storage of a resource is full (harvesting then pauses). */
+/**
+ * Whether the colony storage of a resource is full (harvesting then pauses). A full stock the
+ * kiwis eat faster than it is produced is not full: harvesting goes on and the stock shrinks.
+ */
 export function storageFullCheck(state: GameState): (id: ResourceId) => boolean {
   const cap = capacity(state);
-  return (id) => state.resources[id] >= cap[id] - 1e-6;
+  const eaten = consumption(state);
+  let gross: Resources | null = null;
+  return (id) => {
+    if (state.resources[id] < cap[id] - 1e-6) return false;
+    if (eaten[id] <= 0) return true;
+    gross ??= grossRates(state);
+    return gross[id] >= eaten[id];
+  };
+}
+
+/** Production per hour if no storage were full. */
+function grossRates(state: GameState): Resources {
+  const total = emptyResources();
+  const never = () => false;
+  for (const b of state.buildings) {
+    const r = buildingRates(state, b, never);
+    for (const id of RESOURCE_IDS) total[id] += r[id];
+  }
+  return total;
+}
+
+/** Net change of every stock per hour: production minus what the kiwis eat. */
+export function netRates(state: GameState): Resources {
+  const full = storageFullCheck(state);
+  const prod = productionRates(state);
+  const eaten = consumption(state);
+  const out = emptyResources();
+  for (const id of RESOURCE_IDS) {
+    if (full(id)) continue;
+    const net = prod[id] - eaten[id];
+    out[id] = net < 0 && state.resources[id] <= 0 ? 0 : net;
+  }
+  return out;
 }
 
 /** Harvest details of a producer (deposit, logistics, status), or null for other buildings. */

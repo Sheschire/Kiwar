@@ -20,6 +20,17 @@ import { accrueKiwis, builderSpeed, buildingResource, nextKiwiEvent, workerPower
 import { faceMapOf, rebaseFreeDeposits, syncPools, timeToDepletion } from './territory';
 import type { Season } from '../data/cycles';
 import { calendarAt, nextCalendarChange } from './calendar';
+import { HUNGER_SCALE, NEEDS, type HungerStage } from '../data/needs';
+import {
+  canStarve,
+  consumption,
+  hungerCap,
+  hungerRate,
+  hungerStage,
+  nextHungerEvent,
+  pickStarving,
+} from './needs';
+import { removeVillagers } from './expeditions';
 import {
   addVillager,
   cloneState,
@@ -74,6 +85,10 @@ export type GameEvent =
     }
   | { type: 'storageFull'; at: TimeMs; resource: ResourceId }
   | { type: 'seasonChanged'; at: TimeMs; season: Season }
+  /** A food stock ran dry: the colony eats what is harvested and goes hungry. */
+  | { type: 'foodRanOut'; at: TimeMs; resource: 'pulp' | 'juice' }
+  | { type: 'hungerChanged'; at: TimeMs; stage: HungerStage }
+  | { type: 'starved'; at: TimeMs; villagerId: VillagerId; name: string }
   | { type: 'expeditionArrived'; at: TimeMs; expeditionId: string; victory: boolean }
   | { type: 'expeditionReturned'; at: TimeMs; expeditionId: string };
 
@@ -100,6 +115,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
   const map = faceMapOf(s);
   syncPools(s, map, s.now);
   startNextConstruction(s, s.now, events);
+  let stage = hungerStage(s);
   // Guard against pathological loops; each iteration consumes at least one event.
   for (let guard = 0; guard < 100_000; guard++) {
     const active = activeItem(s);
@@ -113,6 +129,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const calendarChange = nextCalendarChange(s.calendarStart, s.now);
     const nextEvent = Math.min(
       calendarChange,
+      flows.hungerAt,
       constructionEnd,
       eggEnd,
       expedition?.at ?? Infinity,
@@ -138,6 +155,12 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     if (trainingEnd === nextEvent) finishTrainings(s, trainingEnd, events);
     if (speechEnd === nextEvent) events.push({ type: 'speechOver', at: speechEnd });
     if (calendarChange === nextEvent) calendarTick(s, calendarChange, events);
+    if (flows.hungerAt === nextEvent) starve(s, nextEvent, events);
+    const st = hungerStage(s);
+    if (st !== stage) {
+      events.push({ type: 'hungerChanged', at: s.now, stage: st });
+      stage = st;
+    }
     if (expedition && expedition.at === nextEvent) {
       const e = expedition.expedition;
       if (e.status === 'outbound') {
@@ -168,35 +191,69 @@ function calendarTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
   }
 }
 
+/** At the last hunger stage a kiwi starves (guard rails permitting), then the gauge eases. */
+function starve(s: GameState, at: TimeMs, events: GameEvent[]): void {
+  if (s.hunger < NEEDS.stages.starving * HUNGER_SCALE || !canStarve(s)) return;
+  const v = pickStarving(s);
+  if (!v) return;
+  removeVillagers(s, [v.id], 'famine', at);
+  s.hunger -= NEEDS.deathRelief * HUNGER_SCALE;
+  events.push({ type: 'starved', at, villagerId: v.id, name: v.name });
+}
+
 interface Flows {
+  /** Net change of every stock per hour (production minus what the kiwis eat). */
   rates: Resources;
   pools: { b: Building; delta: number; cap: number }[];
-  /** Next time a rate changes on its own (a deposit runs dry, a storage fills up). */
+  /** Hunger gauge change in raw units per ms. */
+  hunger: number;
+  /** Next time a rate changes on its own (a deposit runs dry, a storage fills or empties). */
   nextChange: TimeMs;
+  /** Next hunger stage change or death. */
+  hungerAt: TimeMs;
 }
 
 /** Every rate of the colony, constant until `nextChange` or the next game event. */
 function computeFlows(s: GameState): Flows {
   const full = storageFullCheck(s);
-  const rates = emptyResources();
+  const production = emptyResources();
   const pools: Flows['pools'] = [];
   let next = Infinity;
   for (const b of s.buildings) {
     const r = buildingRates(s, b, full);
-    for (const id of RESOURCE_IDS) rates[id] += r[id];
+    for (const id of RESOURCE_IDS) production[id] += r[id];
     const h = b.pool ? buildingHarvest(s, b, full) : null;
     if (!h || !b.pool) continue;
     pools.push({ b, delta: h.regen - h.harvest, cap: h.cap });
     const dry = timeToDepletion(h);
     if (dry < Infinity) next = Math.min(next, s.now + Math.max(1, Math.ceil(dry)));
   }
+  const eaten = consumption(s);
+  const rates = emptyResources();
+  const deficit = { pulp: 0, juice: 0 };
+  for (const id of RESOURCE_IDS) {
+    // A full storage feeds the kiwis from the overflow: the stock stays full.
+    if (full(id)) continue;
+    let net = production[id] - eaten[id];
+    if (net < 0 && s.resources[id] <= 0) {
+      // Nothing left in stock: the kiwis eat what is harvested, the rest is missing.
+      if (id === 'pulp' || id === 'juice') deficit[id] = -net / eaten[id];
+      net = 0;
+    }
+    rates[id] = net;
+  }
   const cap = capacity(s);
   for (const id of RESOURCE_IDS) {
-    if (rates[id] <= 0 || full(id)) continue;
-    const fill = ((cap[id] - s.resources[id]) / rates[id]) * HOUR_MS;
-    next = Math.min(next, s.now + Math.max(1, Math.ceil(fill)));
+    if (rates[id] > 0 && s.resources[id] < cap[id]) {
+      const fill = ((cap[id] - s.resources[id]) / rates[id]) * HOUR_MS;
+      next = Math.min(next, s.now + Math.max(1, Math.ceil(fill)));
+    } else if (rates[id] < 0) {
+      const empty = (s.resources[id] / -rates[id]) * HOUR_MS;
+      next = Math.min(next, s.now + Math.max(1, Math.ceil(empty)));
+    }
   }
-  return { rates, pools, nextChange: next };
+  const hunger = hungerRate(s, deficit);
+  return { rates, pools, hunger, nextChange: next, hungerAt: nextHungerEvent(s, hunger) };
 }
 
 function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: GameEvent[]): void {
@@ -205,7 +262,17 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
   for (const id of RESOURCE_IDS) {
     const before = s.resources[id];
     const gain = (rates[id] * dtMs) / HOUR_MS;
-    if (gain <= 0) continue;
+    if (gain < 0) {
+      // Eaten: the stock never goes below zero (the next round starts the shortage).
+      const after = before + gain > 1e-9 ? before + gain : 0;
+      s.resources[id] = after;
+      if (after === 0 && before > 0 && (id === 'pulp' || id === 'juice')) {
+        const emptyMs = (before / -rates[id]) * HOUR_MS;
+        events.push({ type: 'foodRanOut', at: Math.round(at - dtMs + emptyMs), resource: id });
+      }
+      continue;
+    }
+    if (gain === 0) continue;
     // Never destroy stock above capacity (e.g. rewards), just stop producing.
     let after = before >= cap[id] ? before : Math.min(cap[id], before + gain);
     if (after < cap[id] && cap[id] - after < 1e-6) after = cap[id];
@@ -221,6 +288,8 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
     const stock = p.b.pool!.stock + (p.delta * dtMs) / HOUR_MS;
     p.b.pool!.stock = stock < 1e-6 ? 0 : Math.min(p.cap, stock);
   }
+  if (flows.hunger !== 0)
+    s.hunger = Math.min(hungerCap(s), Math.max(0, s.hunger + flows.hunger * dtMs));
   accrueKiwis(s, dtMs, at, events);
 }
 

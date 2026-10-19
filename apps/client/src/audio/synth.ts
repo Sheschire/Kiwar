@@ -48,6 +48,33 @@ const A5 = note(12);
 const C6 = note(15);
 const E6 = note(19);
 
+/** Night crickets: short trills of a high tone, a few voices at different pitches. */
+function crickets(seed: number, length: number): Tone[] {
+  let s = seed;
+  const rand = () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 2 ** 32;
+  };
+  const out: Tone[] = [];
+  for (const f of [4300, 4700, 5100]) {
+    let t = rand() * 0.6;
+    while (t < length - 0.5) {
+      out.push({
+        wave: 'sine',
+        freq: f * (0.98 + rand() * 0.04),
+        start: t,
+        attack: 0.01,
+        hold: 0.18 + rand() * 0.2,
+        decay: 0.05,
+        gain: 0.25 + rand() * 0.2,
+        tremolo: [32, 0.9],
+      });
+      t += 0.55 + rand() * 0.9;
+    }
+  }
+  return out;
+}
+
 function chirps(seed: number, count: number, length: number, gain: number): Tone[] {
   let s = seed;
   const rand = () => {
@@ -355,6 +382,15 @@ export const SYNTH_PRESETS = {
     tones: [{ wave: 'noise', freq: 0, attack: 0.01, decay: 0.06, lowpass: 2500 }],
     peak: 0.25,
   },
+  // A soft falling call: the colony is hungry.
+  hunger: {
+    tones: [
+      { wave: 'triangle', freq: 392, attack: 0.02, hold: 0.1, decay: 0.3 },
+      { wave: 'triangle', freq: 311, start: 0.3, attack: 0.02, hold: 0.15, decay: 0.5 },
+      { wave: 'triangle', freq: 262, start: 0.65, attack: 0.02, decay: 0.7, gain: 0.7 },
+    ],
+    peak: 0.4,
+  },
   warning: {
     tones: [0, 0.22, 0.44].flatMap((start) => [
       { wave: 'square' as const, freq: 660, start, attack: 0.005, decay: 0.09, lowpass: 2000 },
@@ -406,6 +442,24 @@ export const SYNTH_PRESETS = {
     length: 8,
     loop: true,
     peak: 0.4,
+  },
+  night: {
+    tones: [
+      {
+        wave: 'noise',
+        freq: 0,
+        attack: 0.01,
+        hold: 8,
+        decay: 0.01,
+        gain: 0.15,
+        lowpass: 500,
+        tremolo: [0.2, 0.5],
+      },
+      ...crickets(7, 8),
+    ],
+    length: 8,
+    loop: true,
+    peak: 0.25,
   },
 } satisfies Record<string, Preset>;
 

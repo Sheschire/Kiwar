@@ -3,8 +3,14 @@ import {
   capacity,
   housing,
   idleVillagers,
+  consumption,
+  foodLeftMs,
+  homeKiwis,
+  hungerStage,
+  nest,
+  NEEDS,
+  netRates,
   population,
-  productionRates,
   RESOURCE_IDS,
   type ResourceId,
 } from '@kiwar/shared';
@@ -38,14 +44,21 @@ function ResourceChip({ id, h }: { id: ResourceId; h: ChipHandlers }) {
   const lang = useUi((s) => s.lang);
   const amount = useUi((s) => Math.floor(s.game?.resources[id] ?? 0));
   const cap = useUi((s) => (s.game ? capacity(s.game)[id] : 0));
-  const rate = useUi((s) => (s.game ? Math.round(productionRates(s.game)[id]) : 0));
+  const rate = useUi((s) => (s.game ? Math.round(netRates(s.game)[id]) : 0));
+  // Food lasting less than a few hours (or gone) is shown in alarm colours.
+  const low = useUi((s) => {
+    if (!s.game || (id !== 'pulp' && id !== 'juice')) return false;
+    const left = foodLeftMs(s.game.resources[id], netRates(s.game)[id]);
+    const eaten = consumption(s.game)[id] > 0;
+    return eaten && (s.game.resources[id] <= 0 || (left !== null && left < NEEDS.warnMs));
+  });
   const fill = cap > 0 ? Math.min(1, amount / cap) : 0;
   const full = fill >= 0.999;
   return (
     <button
       type="button"
       data-tip={id}
-      class={`chip res-${id} ${full ? 'is-full' : ''} ${h.open ? 'is-open' : ''}`}
+      class={`chip res-${id} ${full ? 'is-full' : ''} ${low ? 'is-low' : ''} ${h.open ? 'is-open' : ''}`}
       aria-label={`${t(`resources.${id}`)} ${formatNumber(lang, amount)} / ${formatNumber(lang, cap)}`}
       aria-expanded={h.open}
       onPointerEnter={h.onEnter}
@@ -61,7 +74,10 @@ function ResourceChip({ id, h }: { id: ResourceId; h: ChipHandlers }) {
         <div class="chip-bar">
           <span style={{ width: `${fill * 100}%` }} />
         </div>
-        <div class="chip-rate">+{formatNumber(lang, rate)}/h</div>
+        <div class={`chip-rate ${rate < 0 ? 'is-negative' : ''}`}>
+          {rate < 0 ? '−' : '+'}
+          {formatNumber(lang, Math.abs(rate))}/h
+        </div>
       </div>
     </button>
   );
@@ -83,13 +99,29 @@ function TipContent({ id }: { id: TipId }) {
         </strong>
         <p>{t('tips.population')}</p>
         {idle > 0 && <p class="tip-line bonus">{t('tips.idle', { count: idle })}</p>}
+        <p class="tip-line muted">
+          {t('needs.tip', { pulp: NEEDS.eat.pulp, juice: NEEDS.eat.juice })}
+        </p>
+        {hungerStage(game) !== 'fed' && (
+          <p class="tip-line warn">
+            {t('needs.stageWork', {
+              stage: t(`needs.stages.${hungerStage(game)}`),
+              value: NEEDS.work[hungerStage(game)],
+            })}
+          </p>
+        )}
+        {nest(game).level < NEEDS.protectedBelowNest && (
+          <p class="tip-line bonus">{t('needs.protected', { level: NEEDS.protectedBelowNest })}</p>
+        )}
       </>
     );
   }
   const amount = game.resources[id];
   const cap = capacity(game)[id];
-  const rate = productionRates(game)[id];
+  const rate = netRates(game)[id];
+  const eaten = consumption(game)[id];
   const full = amount >= cap - 1e-6;
+  const left = foodLeftMs(amount, rate);
   return (
     <>
       <strong class="tip-title">
@@ -98,8 +130,21 @@ function TipContent({ id }: { id: TipId }) {
       <p>{t(`tips.${id}`)}</p>
       <p class="tip-line">
         {t('tips.stock', { amount: Math.floor(amount), cap })} ·{' '}
-        {t('tips.rate', { rate: Math.round(rate) })}
+        {t('tips.rate', {
+          rate: `${rate >= 0 ? '+' : '−'}${formatNumber(lang, Math.abs(Math.round(rate)))}`,
+        })}
       </p>
+      {eaten > 0 && (
+        <p class="tip-line muted">
+          {t('needs.eaten', { rate: Math.round(eaten), count: homeKiwis(game).length })}
+        </p>
+      )}
+      {eaten > 0 && amount <= 0 && rate <= 0 && <p class="tip-line warn">{t('needs.empty')}</p>}
+      {left !== null && amount > 0 && (
+        <p class={`tip-line ${left < NEEDS.warnMs ? 'warn' : 'muted'}`}>
+          {t('needs.emptyIn', { duration: formatDuration(lang, left) })}
+        </p>
+      )}
       {full ? (
         <p class="tip-line warn">{t('tips.full')}</p>
       ) : (

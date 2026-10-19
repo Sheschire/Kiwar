@@ -20,7 +20,8 @@ import { WorldModal } from './components/WorldModal';
 import { FollowBadge, VillageModal } from './components/VillageModal';
 import { actions } from './actions';
 import { uiStore, useT, useUi } from './store';
-import { SKILLS } from '@kiwar/shared';
+import { consumption, foodLeftMs, hungerStage, NEEDS, netRates, SKILLS } from '@kiwar/shared';
+import { ResourceIcon } from './icons';
 import { formatDuration } from '../i18n/i18n';
 
 /** The mayor's speech is running: a small badge under the top bar. */
@@ -33,6 +34,42 @@ function SpeechBadge() {
     <div class="buff-badge parchment pe">
       {t('skills.speech.name')} · +{Math.round(SKILLS.speechBonus * 100)} % ·{' '}
       {formatDuration(lang, left)}
+    </div>
+  );
+}
+
+/** Hunger alert: a stage worse than fed, or a food stock about to run out. */
+function HungerBadge() {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const game = useUi((s) => s.game);
+  if (!game) return null;
+  const stage = hungerStage(game);
+  const net = netRates(game);
+  const eaten = consumption(game);
+  const low = (['pulp', 'juice'] as const)
+    .map((id) => ({ id, left: foodLeftMs(game.resources[id], net[id]) }))
+    .filter((x) => eaten[x.id] > 0 && x.left !== null && x.left < NEEDS.warnMs);
+  if (stage === 'fed' && low.length === 0) return null;
+  return (
+    <div class={`hunger-badge parchment pe stage-${stage}`} role="status">
+      {stage !== 'fed' && (
+        <strong>
+          {t('needs.stageWork', {
+            stage: t(`needs.stages.${stage}`),
+            value: NEEDS.work[stage],
+          })}
+        </strong>
+      )}
+      {low.map((x) => (
+        <span key={x.id} class="row">
+          <ResourceIcon id={x.id} size={14} />
+          {t('needs.lowFood', {
+            resource: `@resources.${x.id}`,
+            duration: formatDuration(lang, x.left!),
+          })}
+        </span>
+      ))}
     </div>
   );
 }
@@ -71,6 +108,7 @@ export function App() {
       <TilePanel />
       <FollowBadge />
       <SpeechBadge />
+      <HungerBadge />
       <Toasts />
       {debugOpen && <DebugPanel />}
       {modal === 'settings' && <SettingsModal />}

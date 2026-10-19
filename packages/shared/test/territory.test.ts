@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   seasonRegen,
+  consumption,
   advance,
   applyCommand,
   BUILDINGS,
@@ -72,7 +73,8 @@ describe('deposits', () => {
       FACE_PROFILES.kiwisu.yieldMultiplier.pulp;
     const climate = FACE_PROFILES.kiwisu.yieldMultiplier.pulp;
     const big = advance(s, s.now + HOUR_MS / 3).state;
-    const expected = nestPulp / 3 + (h0.demand / 6 + h0.regen / 6) * climate;
+    const eaten = consumption(s).pulp / 3;
+    const expected = nestPulp / 3 + (h0.demand / 6 + h0.regen / 6) * climate - eaten;
     expect(big.resources.pulp).toBeCloseTo(expected, 3);
     const b = big.buildings.find((x) => x.id === camp.id)!;
     expect(b.pool!.stock).toBe(0);

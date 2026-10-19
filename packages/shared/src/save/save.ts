@@ -108,11 +108,12 @@ export const gameStateSchema = z.object({
         classId: z.enum(CLASS_IDS).nullable().optional(),
         bornAt: z.number(),
         diedAt: z.number(),
-        cause: z.enum(['battle', 'starvation']),
+        cause: z.enum(['battle', 'starvation', 'famine']),
       }),
     )
     .max(MEMORIAL_MAX),
   speechUntil: z.number().min(0),
+  hunger: z.number().int().min(0),
   queue: z.array(
     z.object({
       id,
@@ -234,6 +235,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   }),
   // v5 → v6: day/night and seasons (chantier 04). The calendar starts with the game.
   5: (raw) => ({ ...raw, calendarStart: calendarStartFor(Number(raw.createdAt)) }),
+  // v6 → v7: hunger (chantier 04, part 3). Colonies start fed.
+  6: (raw) => ({ ...raw, hunger: 0 }),
 };
 
 export type MigrateResult =

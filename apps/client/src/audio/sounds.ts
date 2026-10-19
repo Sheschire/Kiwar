@@ -44,6 +44,13 @@ export function playGameEventSounds(events: GameEvent[]): void {
       case 'storageFull':
         audio.play('storage.full');
         break;
+      case 'foodRanOut':
+      case 'starved':
+        audio.play('colony.hunger');
+        break;
+      case 'hungerChanged':
+        if (e.stage !== 'fed') audio.play('colony.hunger');
+        break;
       case 'expeditionArrived':
         audio.play('ship.arrive');
         break;

@@ -46,6 +46,9 @@ export interface OfflineSummary {
   completed: { buildingType: string; level: number }[];
   hatched: string[];
   storageFull: string[];
+  /** Food stocks that ran dry, and kiwis who starved. */
+  foodRanOut: string[];
+  starved: string[];
 }
 
 export interface ControllerListener {
@@ -561,5 +564,7 @@ function summarize(
     storageFull: [
       ...new Set(events.flatMap((e) => (e.type === 'storageFull' ? [e.resource] : []))),
     ],
+    foodRanOut: [...new Set(events.flatMap((e) => (e.type === 'foodRanOut' ? [e.resource] : [])))],
+    starved: events.flatMap((e) => (e.type === 'starved' ? [e.name] : [])),
   };
 }
