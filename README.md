@@ -6,6 +6,8 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Brief de game design : [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md)
 - Journal des décisions : [`docs/DECISIONS.md`](docs/DECISIONS.md)
 - Dernier rapport d'équilibrage : [`docs/BALANCE_REPORT.md`](docs/BALANCE_REPORT.md)
+- Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
+- Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
 > **État : Jalon 4** — le territoire compte : gisements qui s'épuisent et repoussent, zones de
 > récolte, camps de cueillette sans bâtiment, logistique (distance au dépôt) et chemins à tracer.
