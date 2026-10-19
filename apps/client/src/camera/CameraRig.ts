@@ -19,6 +19,7 @@ CameraControls.install({
 const A = CameraControls.ACTION;
 const ROTATE_STEP = Math.PI / 4;
 const KEY_SPEED = 0.9; // fraction of the camera distance per second
+const FOCUS_DISTANCE = 26;
 
 /**
  * Isometric-ish camera: bounded orbit, pan and zoom with damping.
@@ -91,12 +92,27 @@ export class CameraRig {
     const cam = this.controls.camera as PerspectiveCamera;
     const vHalf = (cam.fov * Math.PI) / 180 / 2;
     const hHalf = Math.atan(Math.tan(vHalf) * cam.aspect);
-    return Math.max((r * 0.8) / Math.tan(vHalf), (r * 0.98) / Math.tan(hHalf));
+    // In portrait, crop the rim a little so the colony is not tiny.
+    const horizontal = cam.aspect < 0.8 ? 0.82 : 0.98;
+    return Math.max((r * 0.8) / Math.tan(vHalf), (r * horizontal) / Math.tan(hHalf));
+  }
+
+  /**
+   * Shifts the view so the target appears higher on screen, e.g. above a bottom sheet covering
+   * `fraction` of the screen height (0 = centred).
+   */
+  setBottomInset(fraction: number): void {
+    const cam = this.controls.camera as PerspectiveCamera;
+    // Use the distance the camera is heading to (focus() may be zooming in).
+    const distance = Math.min(this.controls.distance, FOCUS_DISTANCE);
+    const halfHeight = distance * Math.tan((cam.fov * Math.PI) / 180 / 2);
+    void this.controls.setFocalOffset(0, halfHeight * fraction, 0, true);
   }
 
   focus(x: number, y: number, z: number): void {
     void this.controls.moveTo(x, y, z, true);
-    if (this.controls.distance > 30) void this.controls.dollyTo(26, true);
+    if (this.controls.distance > FOCUS_DISTANCE + 4)
+      void this.controls.dollyTo(FOCUS_DISTANCE, true);
   }
 
   rotateStep(direction: 1 | -1): void {

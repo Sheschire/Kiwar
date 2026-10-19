@@ -1,6 +1,10 @@
-import '@fontsource/alegreya/400.css';
-import '@fontsource/alegreya/500.css';
-import '@fontsource/alegreya/700.css';
+// Latin subsets only (latin-ext is needed for French "œ").
+import '@fontsource/alegreya/latin-400.css';
+import '@fontsource/alegreya/latin-ext-400.css';
+import '@fontsource/alegreya/latin-500.css';
+import '@fontsource/alegreya/latin-ext-500.css';
+import '@fontsource/alegreya/latin-700.css';
+import '@fontsource/alegreya/latin-ext-700.css';
 import './ui/styles.css';
 import { render } from 'preact';
 import { App } from './ui/App';
@@ -50,7 +54,14 @@ bindActions(controller, renderer);
 
 // Keep the 3D selection marker in sync with the UI selection.
 uiStore.subscribe((s, prev) => {
-  if (s.selectedTile !== prev.selectedTile) renderer.setSelectedTile(s.selectedTile);
+  if (s.selectedTile === prev.selectedTile) return;
+  renderer.setSelectedTile(s.selectedTile);
+  // On phones in portrait the tile sheet covers the bottom half: bring the tile into view above it.
+  const portraitPhone = window.innerWidth < 760 && window.innerHeight > window.innerWidth;
+  if (portraitPhone) {
+    if (s.selectedTile) renderer.focusTile(s.selectedTile);
+    renderer.setBottomInset(s.selectedTile ? 0.5 : 0);
+  }
 });
 
 const url = readUrlParams();
@@ -66,6 +77,14 @@ if (linkWorld && controller.hasSave()) {
 clearUrlParams();
 
 render(<App />, document.getElementById('ui')!);
+// Fade out the loading screen once the first frames are on screen.
+requestAnimationFrame(() =>
+  requestAnimationFrame(() => {
+    const loader = document.getElementById('loader');
+    loader?.classList.add('done');
+    window.setTimeout(() => loader?.remove(), 700);
+  }),
+);
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {

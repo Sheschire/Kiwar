@@ -124,7 +124,7 @@ export const fr: Dict = {
     ready: 'Éclore',
     housingFull: 'Construisez des huttes pour loger plus de kiwis',
     cost: 'Coût',
-    hatched: '{name} est né !',
+    hatched: '{name} a éclos !',
   },
   objectives: {
     title: 'Objectifs',
@@ -173,7 +173,7 @@ export const fr: Dict = {
     },
   },
   events: {
-    built: '{name} est prêt !',
+    built: 'Construction terminée : {name} !',
     upgraded: '{name} passe au niveau {level} !',
     storageFull: 'Stock de {resource} plein',
     claimed: 'Objectif rempli !',
@@ -202,7 +202,7 @@ export const fr: Dict = {
   },
   offline: {
     title: 'Pendant votre absence…',
-    away: 'Vous étiez absent pendant {duration}.',
+    away: 'Votre absence a duré {duration}.',
     gathered: 'Vos kiwis ont récolté :',
     completed: 'Chantiers terminés :',
     hatched: 'Nouveaux kiwis : {names}',

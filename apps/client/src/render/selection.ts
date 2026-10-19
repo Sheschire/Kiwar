@@ -1,5 +1,6 @@
 import {
   AdditiveBlending,
+  NormalBlending,
   BufferGeometry,
   Float32BufferAttribute,
   Group,
@@ -22,7 +23,8 @@ function createHexRingGeometry(inner: number, outer: number): BufferGeometry {
     const aj = c(j, inner);
     const bi = c(i, outer);
     const bj = c(j, outer);
-    positions.push(...ai, ...bj, ...aj, ...ai, ...bi, ...bj);
+    // Counter-clockwise seen from above (same winding as the tile tops).
+    positions.push(...ai, ...aj, ...bj, ...ai, ...bj, ...bi);
   }
   const g = new BufferGeometry();
   g.setAttribute('position', new Float32BufferAttribute(positions, 3));
@@ -35,17 +37,19 @@ class HexMarker {
   constructor(
     color: ColorRepresentation,
     private readonly baseOpacity: number,
+    additive: boolean,
+    inner: number,
   ) {
     this.material = new MeshBasicMaterial({
       color,
       transparent: true,
       opacity: baseOpacity,
       depthWrite: false,
-      blending: AdditiveBlending,
+      blending: additive ? AdditiveBlending : NormalBlending,
       toneMapped: false,
     });
     this.mesh = new Mesh(
-      createHexRingGeometry(HEX_VISUAL_RADIUS * 0.74, HEX_VISUAL_RADIUS * 0.9),
+      createHexRingGeometry(HEX_VISUAL_RADIUS * inner, HEX_VISUAL_RADIUS * 0.92),
       this.material,
     );
     this.mesh.visible = false;
@@ -67,8 +71,8 @@ class HexMarker {
 /** Hover and selection outlines on top of tiles. */
 export class SelectionView {
   readonly group = new Group();
-  private readonly hover = new HexMarker('#fff6d8', 0.35);
-  private readonly selected = new HexMarker('#ffe08a', 0.95);
+  private readonly hover = new HexMarker('#fff6d8', 0.35, true, 0.76);
+  private readonly selected = new HexMarker('#ffd24a', 1, false, 0.7);
 
   constructor() {
     this.group.add(this.hover.mesh, this.selected.mesh);

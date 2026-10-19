@@ -1003,6 +1003,30 @@ p {
     flex-direction: row;
   }
 
+  .sheet {
+    top: calc(64px + var(--safe-top));
+    bottom: auto;
+    left: auto;
+    right: calc(var(--gap) + var(--safe-right));
+    width: min(340px, 48vw);
+    max-height: calc(100% - 74px - var(--safe-top) - var(--safe-bottom));
+    border-radius: var(--radius);
+    border-bottom: 2px solid var(--edge);
+  }
+
+  .sheet-header::before {
+    display: none;
+  }
+
+  .objectives {
+    top: calc(64px + var(--safe-top));
+  }
+
+  .has-sheet .queue,
+  .has-sheet .egg-wrap {
+    display: none;
+  }
+
   .resources {
     width: auto;
     flex: 1;

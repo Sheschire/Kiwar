@@ -97,3 +97,12 @@ Larger choices were validated with the project owner (marked ✅).
 - The first run flagged Kiwino ~14 % slower: its malus was on pulp/fibre, the bottleneck resources, while its bonus (seeds/juice) was not. Climate multipliers were rebalanced (Kiwisu pulp ×1.05, seeds/juice ×0.95; Kiwino seeds/juice ×1.05) → all milestones within ±1 %.
 - Economy pass: production roughly ×1.6, Nest passive income doubled, storage +25 %, cheaper eggs. Bot pacing (median): 7 tutorial objectives in ~3 min, a building action every few minutes for the first ~8 min, then 10–20 min waits; tutorial (incl. Nest 2) ~1 h 10, Nest 3 / everything level 3 ~6 h 20 of game time.
 - 200 seeds × 2 faces run in ~50 s.
+
+### Mobile, PWA & polish (step 8)
+- **PWA** via `vite-plugin-pwa` (auto-update service worker, precached assets, manifest with regular + maskable icons, Apple meta tags). Icons are rendered from `public/icon.svg`. `base: './'` so the build can be hosted in any sub-folder.
+- Production bundle split into `index` (game + UI, ~59 kB gzip), `three` (~122 kB) and `postfx` (~104 kB). Only the Latin + Latin-ext font subsets are loaded (`œ` is in Latin-ext).
+- Loading screen in plain HTML/CSS, faded out after the first frames.
+- **Phones in portrait**: the default framing crops the rim slightly; selecting a tile zooms on it and shifts the view (camera focal offset) so it stays visible above the bottom sheet. In landscape phones the tile card becomes a side card.
+- Selection ring is opaque gold (additive blending disappeared on pale tiles); fixed its triangle winding (it was back-face culled).
+- French copy avoids gendered agreements (“Construction terminée : {name} !”, “{name} a éclos !”, “Votre absence a duré…”).
+- i18n test: same keys, no empty strings and identical placeholders in FR and EN.

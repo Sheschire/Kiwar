@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -8,10 +8,48 @@
     />
     <meta name="theme-color" content="#c7a6dc" />
     <meta name="description" content="Kiwar — a cozy kiwi civilization builder." />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Kiwar" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <title>Kiwar</title>
+    <style>
+      #loader {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: radial-gradient(circle at 50% 35%, #ffd6b5, #c7a6dc 70%);
+        font-family: Georgia, serif;
+        color: #4a3324;
+        transition: opacity 0.6s ease;
+      }
+      #loader.done {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #loader img {
+        width: 96px;
+        height: 96px;
+        border-radius: 24px;
+        box-shadow: 0 8px 24px rgba(74, 40, 20, 0.25);
+        animation: kiwar-bob 1.2s ease-in-out infinite;
+      }
+      @keyframes kiwar-bob {
+        50% {
+          transform: translateY(-8px) rotate(-3deg);
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="loader"><img src="./icon-192.png" alt="" /><span>Kiwar</span></div>
     <canvas id="scene" aria-hidden="true"></canvas>
     <div id="ui"></div>
     <script type="module" src="/src/main.tsx"></script>

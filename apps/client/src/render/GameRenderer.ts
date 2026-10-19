@@ -226,6 +226,10 @@ export class GameRenderer {
     this.selection.setSelected(tile);
   }
 
+  setBottomInset(fraction: number): void {
+    this.rig.setBottomInset(fraction);
+  }
+
   recenter(): void {
     if (!this.terrain) return;
     const e = this.terrain.extent();
