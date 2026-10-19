@@ -31,7 +31,14 @@ const renderer = new GameRenderer(
     onPaint: (tiles, erase) => actions.paintPaths(tiles, erase),
     onFps: (fps) => uiStore.setState({ fps }),
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
-    onKiwiTap: (id, pos) => kiwiSpeaks(id, pos),
+    onKiwiTap: (id, pos) => {
+      kiwiSpeaks(id, pos);
+      actions.openVillage(id);
+    },
+    onFollowEnd: () => {
+      uiStore.setState({ followId: null });
+      renderer.highlightKiwi(null);
+    },
   },
   qualityChoice,
 );

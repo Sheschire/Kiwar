@@ -163,6 +163,46 @@ export const SYNTH_PRESETS = {
     ],
     peak: 0.5,
   },
+  levelUp: {
+    tones: [
+      { wave: 'triangle', freq: C5, attack: 0.005, decay: 0.25, gain: 0.7 },
+      { wave: 'triangle', freq: E5, start: 0.09, attack: 0.005, decay: 0.25, gain: 0.7 },
+      { wave: 'triangle', freq: G5, start: 0.18, attack: 0.005, decay: 0.3, gain: 0.7 },
+      { wave: 'pluck', freq: C6, start: 0.27, attack: 0.001, decay: 0.9 },
+      {
+        wave: 'sine',
+        freq: E6,
+        start: 0.3,
+        attack: 0.02,
+        decay: 0.9,
+        gain: 0.25,
+        vibrato: [6, 0.3],
+      },
+    ],
+    peak: 0.5,
+  },
+  mastery: {
+    tones: [
+      { wave: 'pluck', freq: G5, attack: 0.001, decay: 0.4 },
+      { wave: 'pluck', freq: C6, start: 0.1, attack: 0.001, decay: 0.6 },
+    ],
+    peak: 0.4,
+  },
+  shiny: {
+    tones: [
+      ...[0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({
+        wave: 'sine' as const,
+        freq: [C6, E6, G5 * 2, C6 * 2][i % 4]!,
+        start: i * 0.07,
+        attack: 0.003,
+        decay: 0.5,
+        gain: 0.5 - i * 0.03,
+        vibrato: [9, 0.2] as [number, number],
+      })),
+      { wave: 'noise', freq: 0, start: 0.05, attack: 0.2, decay: 0.8, gain: 0.12, lowpass: 9000 },
+    ],
+    peak: 0.5,
+  },
   chirp: {
     tones: [
       {

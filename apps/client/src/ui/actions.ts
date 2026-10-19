@@ -83,6 +83,25 @@ export const actions = {
       if (i === 0) playCommandSound(cmd);
     }
   },
+  /** Opens the village screen, on a kiwi's sheet if given. */
+  openVillage(kiwiId: string | null = null): void {
+    uiStore.setState({ modal: 'village', kiwiId, villageTab: 'kiwis', selectedTile: null });
+    renderer?.highlightKiwi(kiwiId);
+  },
+  showKiwi(kiwiId: string | null): void {
+    uiStore.setState({ kiwiId });
+    renderer?.highlightKiwi(kiwiId);
+  },
+  closeVillage(): void {
+    uiStore.setState({ modal: 'none', kiwiId: null });
+    renderer?.highlightKiwi(uiStore.getState().followId);
+  },
+  /** The camera follows a kiwi until the player moves it (or stops following). */
+  followKiwi(id: string | null): void {
+    uiStore.setState(id ? { followId: id, modal: 'none', selectedTile: null } : { followId: null });
+    renderer?.followKiwi(id);
+    renderer?.highlightKiwi(id);
+  },
   focusTile(tile: Tile): void {
     renderer?.focusTile(tile);
   },

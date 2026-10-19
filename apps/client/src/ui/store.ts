@@ -23,7 +23,8 @@ export interface Toast {
   params?: TParams;
 }
 
-export type Modal = 'none' | 'settings' | 'expedition' | 'report' | 'universe' | 'demolish';
+export type Modal =
+  'none' | 'settings' | 'expedition' | 'report' | 'universe' | 'demolish' | 'village';
 
 export interface UiState {
   lang: Lang;
@@ -63,6 +64,11 @@ export interface UiState {
   pathMode: boolean;
   /** Volume settings (mirrors the audio engine). */
   audio: AudioSettings;
+  /** Kiwi whose sheet is open in the village screen (null = the list). */
+  kiwiId: string | null;
+  villageTab: 'kiwis' | 'memorial';
+  /** Kiwi followed by the camera. */
+  followId: string | null;
 }
 
 const wideScreen =
@@ -97,6 +103,9 @@ export const uiStore = createStore<UiState>(() => ({
   chatUnread: 0,
   pathMode: false,
   audio: DEFAULT_SETTINGS,
+  kiwiId: null,
+  villageTab: 'kiwis',
+  followId: null,
 }));
 
 export function setLang(lang: Lang): void {

@@ -112,6 +112,24 @@ export const SOUND_EVENTS = {
     synth: 'hatch',
     default: { sources: ['synth:hatch'] },
   },
+  'kiwi.levelUp': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'levelUp',
+    default: { sources: ['synth:levelUp'], cooldownMs: 800, volume: 0.8 },
+  },
+  'kiwi.mastery': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'mastery',
+    default: { sources: ['synth:mastery'], cooldownMs: 800, volume: 0.7 },
+  },
+  'kiwi.shiny': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'shiny',
+    default: { sources: ['synth:shiny'] },
+  },
   'kiwi.voice': {
     bus: 'sfx',
     group: 'colony',

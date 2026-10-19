@@ -122,6 +122,8 @@ export function TopBar() {
   const chatOpen = useUi((s) => s.chatOpen);
   const chatUnread = useUi((s) => s.chatUnread);
   const muted = useUi((s) => s.audio.muted);
+  const villageOpen = useUi((s) => s.modal === 'village');
+  const points = useUi((s) => s.game?.villagers.reduce((n, v) => n + v.statPoints, 0) ?? 0);
   const [tip, setTip] = useState<TipId | null>(null);
   const [tipLeft, setTipLeft] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
@@ -210,6 +212,15 @@ export function TopBar() {
       </div>
       <div class="topbar-buttons">
         <SyncBadge />
+        <button
+          class={`btn btn-icon parchment-btn village-btn ${villageOpen ? 'btn-active' : ''}`}
+          aria-label={t('village.button')}
+          title={t('village.button')}
+          onClick={() => (villageOpen ? actions.closeVillage() : actions.openVillage())}
+        >
+          <KiwiIcon />
+          {points > 0 && <span class="count">{points > 9 ? '9+' : points}</span>}
+        </button>
         <button
           class="btn btn-icon parchment-btn"
           aria-label={t('universe.button')}

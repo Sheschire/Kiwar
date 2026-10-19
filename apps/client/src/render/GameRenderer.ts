@@ -54,6 +54,8 @@ export interface RendererCallbacks {
   onQualityChange?(preset: QualityPreset): void;
   /** A kiwi was tapped (it speaks instead of selecting its tile). */
   onKiwiTap?(id: string, pos: { x: number; z: number }): void;
+  /** The player moved the camera while it was following a kiwi (or the kiwi left the map). */
+  onFollowEnd?(): void;
 }
 
 const tmpV = new Vector3();
@@ -75,6 +77,10 @@ export class GameRenderer {
   private props: PropsView | null = null;
   private buildings: BuildingsView | null = null;
   private kiwis: KiwisView | null = null;
+  private followId: string | null = null;
+  private followLost = 0;
+  /** True while the renderer itself moves the camera (not a player gesture). */
+  private following = false;
   private paths: PathsView | null = null;
   private readonly painter: PathPainter;
   private selectedTile: Tile | null = null;
@@ -113,6 +119,14 @@ export class GameRenderer {
     this.environment = new Environment(this.scene);
     this.scene.fog = new Fog(PALETTE.skyHorizon, 90, 260);
     this.scene.add(this.lighting.group, this.selection.group);
+
+    // Any camera gesture by the player ends the follow mode.
+    this.rig.controls.addEventListener('controlstart', () => {
+      if (this.followId && !this.following) {
+        this.followId = null;
+        this.callbacks.onFollowEnd?.();
+      }
+    });
 
     this.tap = new TapDetector(canvas, {
       onTap: (x, y) => {
@@ -255,7 +269,11 @@ export class GameRenderer {
   onGameEvents(events: GameEvent[]): void {
     for (const e of events) {
       if (e.type === 'constructionComplete') this.buildings?.celebrate(e.buildingId, e.q, e.r);
-      if (e.type === 'hatched') this.buildings?.burst(0, 0);
+      if (e.type === 'hatched') {
+        this.buildings?.burst(0, 0);
+        // A shiny hatches with a second, longer burst of sparkles.
+        if (e.shiny) window.setTimeout(() => this.buildings?.burst(0, 0), 400);
+      }
     }
   }
 
@@ -326,6 +344,44 @@ export class GameRenderer {
     };
   }
 
+  /** Follows a kiwi with the camera (null stops). */
+  followKiwi(id: string | null): void {
+    this.followId = id;
+    this.followLost = 0;
+    if (id) void this.rig.controls.dollyTo(Math.min(this.rig.controls.distance, 16), true);
+  }
+
+  /** A ring under a kiwi (its sheet is open or it is followed). */
+  highlightKiwi(id: string | null): void {
+    this.kiwis?.setHighlight(id);
+  }
+
+  private updateFollow(dt: number): void {
+    if (!this.followId) return;
+    const k = this.kiwis?.visible().find((x) => x.id === this.followId);
+    if (!k) {
+      // Away (expedition) or gone: give up after a short while.
+      this.followLost += dt;
+      if (this.followLost > 1.5) {
+        this.followId = null;
+        this.callbacks.onFollowEnd?.();
+      }
+      return;
+    }
+    this.followLost = 0;
+    const c = this.rig.controls;
+    c.getTarget(tmpTarget);
+    const t = Math.min(1, dt * 4);
+    this.following = true;
+    void c.moveTo(
+      tmpTarget.x + (k.pos.x - tmpTarget.x) * t,
+      tmpTarget.y + (k.pos.y - tmpTarget.y) * t,
+      tmpTarget.z + (k.pos.z - tmpTarget.z) * t,
+      false,
+    );
+    this.following = false;
+  }
+
   /** The kiwi drawn closest to a screen point (generous radius: kiwis are small). */
   kiwiAt(clientX: number, clientY: number): { id: string; pos: { x: number; z: number } } | null {
     const kiwis = this.kiwis?.visible();
@@ -391,6 +447,7 @@ export class GameRenderer {
     this.water?.update(this.elapsed);
     this.buildings?.update(dt, this.callbacks.now());
     this.kiwis?.update(dt, this.elapsed);
+    this.updateFollow(dt);
     this.selection.update(this.elapsed);
     if (this.postfx) this.postfx.render(dt);
     else this.renderer.render(this.scene, this.camera);

@@ -29,7 +29,14 @@ export function playGameEventSounds(events: GameEvent[]): void {
         break;
       case 'hatched':
         audio.play('egg.hatch');
+        if (e.shiny) window.setTimeout(() => audio.play('kiwi.shiny'), 350);
         window.setTimeout(() => kiwiSpeaks(e.villagerId), 650);
+        break;
+      case 'levelUp':
+        audio.play('kiwi.levelUp');
+        break;
+      case 'masteryUp':
+        audio.play('kiwi.mastery');
         break;
       case 'storageFull':
         audio.play('storage.full');

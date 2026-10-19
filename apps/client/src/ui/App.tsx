@@ -17,6 +17,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { Toasts } from './components/Toasts';
 import { TopBar } from './components/TopBar';
 import { WorldModal } from './components/WorldModal';
+import { FollowBadge, VillageModal } from './components/VillageModal';
 import { actions } from './actions';
 import { uiStore, useUi } from './store';
 
@@ -52,6 +53,7 @@ export function App() {
       <PathButton />
       <PathToolbar />
       <TilePanel />
+      <FollowBadge />
       <Toasts />
       {debugOpen && <DebugPanel />}
       {modal === 'settings' && <SettingsModal />}
@@ -59,6 +61,7 @@ export function App() {
       {modal === 'report' && <ReportModal />}
       {modal === 'universe' && <UniverseModal />}
       {modal === 'demolish' && <DemolishModal />}
+      {modal === 'village' && <VillageModal />}
       <JoinModal />
       <ChatPanel />
       <OfflineModal />

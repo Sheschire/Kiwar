@@ -19,7 +19,25 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
           });
         break;
       case 'hatched':
-        pushToast('success', 'egg.hatched', { name: e.name });
+        if (e.shiny)
+          pushToast('success', 'events.shinyHatched', { name: e.name, color: `@shiny.${e.shiny}` });
+        else pushToast('success', 'egg.hatched', { name: e.name });
+        break;
+      case 'levelUp':
+        if (e.stat)
+          pushToast('success', 'events.levelUpStat', {
+            name: e.name,
+            level: e.level,
+            stat: `@stats.${e.stat}`,
+          });
+        else pushToast('success', 'events.levelUp', { name: e.name, level: e.level });
+        break;
+      case 'masteryUp':
+        pushToast('info', 'events.masteryUp', {
+          name: e.name,
+          mastery: `@masteries.${e.mastery}`,
+          rank: e.rank,
+        });
         break;
       case 'storageFull':
         pushToast('info', 'events.storageFull', { resource: `@resources.${e.resource}` });

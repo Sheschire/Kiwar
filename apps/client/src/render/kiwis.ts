@@ -10,6 +10,8 @@ import {
   IcosahedronGeometry,
   InstancedMesh,
   Matrix4,
+  Mesh,
+  RingGeometry,
   MeshBasicMaterial,
   MeshStandardMaterial,
   Quaternion,
@@ -37,6 +39,7 @@ import {
   type Hex,
   type ResourceId,
   type Rng,
+  type ShinyColor,
   type Villager,
   type VillagerId,
 } from '@kiwar/shared';
@@ -67,8 +70,29 @@ interface Agent {
   carrying: ResourceId | null;
   tint: Color;
   scale: number;
+  /** Random part of the size (the rest comes from the stats). */
+  jitter: number;
   spawn: number;
   rng: Rng;
+}
+
+/** Shiny kiwis: the body colour is multiplied towards these (vertex colours stay in shape). */
+export const SHINY_HEX: Record<ShinyColor, string> = {
+  red: '#e0503c',
+  yellow: '#f4c430',
+  green: '#4cb04a',
+  blue: '#3f7fe0',
+};
+const BODY_BROWN = new Color('#8a6440');
+
+function shinyTint(color: ShinyColor): Color {
+  const c = new Color(SHINY_HEX[color]);
+  return new Color(c.r / BODY_BROWN.r, c.g / BODY_BROWN.g, c.b / BODY_BROWN.b);
+}
+
+/** Sturdier kiwis look a little bigger. */
+function sizeOf(v: Villager, jitter: number): number {
+  return (0.9 + (v.stats.strength + v.stats.endurance) * 0.008) * jitter;
 }
 
 const RESOURCE_COLORS: Record<ResourceId, Color> = {
@@ -126,6 +150,8 @@ export class KiwisView {
   private readonly shadows: InstancedMesh;
   private readonly loads: InstancedMesh;
   private readonly agents = new Map<VillagerId, Agent>();
+  private readonly ring: Mesh;
+  private highlightId: string | null = null;
   /** Kiwis drawn at the last update (for taps and sounds). */
   private drawn: Agent[] = [];
   private state: GameState | null = null;
@@ -169,6 +195,19 @@ export class KiwisView {
       this.group.add(mesh);
     }
     this.shadows.renderOrder = 1;
+    this.ring = new Mesh(
+      new RingGeometry(0.3, 0.4, 32).rotateX(-Math.PI / 2),
+      new MeshBasicMaterial({
+        color: '#ffcf3a',
+        transparent: true,
+        opacity: 0.95,
+        depthWrite: false,
+        depthTest: false,
+      }),
+    );
+    this.ring.renderOrder = 2;
+    this.ring.visible = false;
+    this.group.add(this.ring);
   }
 
   sync(state: GameState): void {
@@ -178,15 +217,25 @@ export class KiwisView {
     const ids = new Set(state.villagers.map((v) => v.id));
     for (const id of this.agents.keys()) if (!ids.has(id)) this.agents.delete(id);
     for (const v of state.villagers) {
-      if (!this.agents.has(v.id) && this.agents.size < MAX_KIWIS)
-        this.agents.set(v.id, this.spawn(v));
+      const agent = this.agents.get(v.id);
+      if (agent) {
+        agent.scale = sizeOf(v, agent.jitter);
+        if (v.shiny) agent.tint.copy(shinyTint(v.shiny));
+      } else if (this.agents.size < MAX_KIWIS) this.agents.set(v.id, this.spawn(v));
     }
+  }
+
+  /** Shows a pulsing ring under one kiwi (null hides it). */
+  setHighlight(id: string | null): void {
+    this.highlightId = id;
   }
 
   private spawn(v: Villager): Agent {
     const rng = createRng(`kiwi/${v.id}`);
     // Brightness-only variation so beaks and eyes keep their colours.
-    const tint = new Color(1, 1, 1).multiplyScalar(rng.range(0.82, 1.15));
+    const brightness = rng.range(0.82, 1.15);
+    const tint = v.shiny ? shinyTint(v.shiny) : new Color(1, 1, 1).multiplyScalar(brightness);
+    const jitter = rng.range(0.96, 1.04);
     return {
       id: v.id,
       pos: this.nestPoint(rng),
@@ -200,7 +249,8 @@ export class KiwisView {
       leg: 'none',
       carrying: null,
       tint,
-      scale: rng.range(0.92, 1.08),
+      jitter,
+      scale: sizeOf(v, jitter),
       spawn: 0,
       rng,
     };
@@ -489,6 +539,14 @@ export class KiwisView {
       this.loads.setMatrixAt(i, this.m);
       i++;
     }
+    const lit = this.highlightId ? this.agents.get(this.highlightId as VillagerId) : undefined;
+    const shown = !!lit && this.drawn.includes(lit);
+    this.ring.visible = shown;
+    if (lit && shown) {
+      const pulse = 1 + Math.sin(time * 4) * 0.08;
+      this.ring.position.set(lit.pos.x, lit.pos.y + 0.02, lit.pos.z);
+      this.ring.scale.setScalar(lit.scale * pulse);
+    }
     for (const mesh of [this.bodies, this.shadows, this.loads]) {
       mesh.count = i;
       mesh.instanceMatrix.needsUpdate = true;
@@ -500,7 +558,7 @@ export class KiwisView {
   }
 
   dispose(): void {
-    for (const mesh of [this.bodies, this.legs, this.shadows, this.loads]) {
+    for (const mesh of [this.bodies, this.legs, this.shadows, this.loads, this.ring]) {
       mesh.geometry.dispose();
       (mesh.material as MeshStandardMaterial).dispose();
     }
