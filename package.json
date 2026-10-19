@@ -17,6 +17,7 @@
     "format": "prettier --write .",
     "balance": "pnpm --filter @kiwar/balance balance",
     "build:functions": "node scripts/build-functions.mjs",
+    "build:sql": "node scripts/build-sql.mjs",
     "test:db": "supabase/tests/run.sh",
     "mock:supabase": "pnpm --filter @kiwar/balance exec tsx ../../scripts/mock-supabase.ts",
     "dev:online": "VITE_SUPABASE_URL=http://localhost:54321 VITE_SUPABASE_ANON_KEY=mock pnpm --filter @kiwar/client dev --port 5174"

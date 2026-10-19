@@ -5,7 +5,10 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
 
 ## Read first
 
-- `docs/PLAN.md` — **roadmap, current milestone, next tasks** (start every conversation here).
+- `docs/PLAN.md` — **roadmap and current state** (start every conversation here).
+- `docs/chantiers/` — one design document per upcoming workstream ("chantier"): owner's intent,
+  proposals, technical impact, breakdown, open questions. `docs/chantiers/README.md` lists the
+  rules shared by every chantier.
 - `docs/GAME_DESIGN.md` (original brief, never edit), `docs/VISION.md` (owner's long-term ideas
   and answers), `docs/DECISIONS.md` (every design/tech decision, per milestone).
 - Skills in `.claude/skills/` hold the codebase know-how — load the matching one before working:
@@ -25,5 +28,16 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
   design decisions the docs do not cover.
 - Mobile must be very fluid and responsive; desktop beautiful and intuitive.
 - "A management game, not just a cozy game": trade-offs between productivity, safety, expansion.
-- **Keep the skills and `docs/PLAN.md` up to date** at the end of each milestone (or whenever
-  you learn something about the codebase that the next conversation would need).
+- **Database changes**: always a new file in `supabase/migrations/`, then `pnpm build:sql`, and
+  **give the owner the complete SQL, ready to copy-paste** into the Supabase SQL Editor (in your
+  final answer, with the execution order). Never edit an applied migration.
+- **Keep the skills, `docs/PLAN.md` and the chantier document up to date** at the end of each
+  chantier (create a new skill when a chantier opens a new domain), and whenever you learn
+  something about the codebase that the next conversation would need.
+
+## Working in plan mode
+
+Conversations usually start in plan mode with a chantier document. First ask the owner the open
+questions (interactive questions, with a recommended option), then propose a plan split into
+playable parts (one commit each). After approval, implement part by part, verify (tests +
+desktop and phone screenshots), push to `main`, and finish with the docs/skills updates above.

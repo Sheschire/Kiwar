@@ -47,12 +47,16 @@ npx supabase link --project-ref xxxx        # xxxx = l'identifiant du projet
 npx supabase db push                         # applique supabase/migrations
 ```
 
-**Option B, à la main** : ouvrez **SQL Editor**, collez le contenu de
-`supabase/migrations/20261020000000_init.sql`, puis cliquez sur **Run**.
+**Option B, à la main (projet neuf)** : ouvrez **SQL Editor**, collez **tout** le fichier
+[`supabase/setup.sql`](../supabase/setup.sql) (il regroupe toutes les migrations dans l'ordre),
+puis cliquez sur **Run**.
+
+**Mises à jour ensuite** : chaque chantier qui touche la base ajoute un fichier dans
+`supabase/migrations/` et Claude vous donne son SQL prêt à coller. Exécutez seulement les
+nouvelles migrations, dans l'ordre (jamais `setup.sql` une seconde fois).
 
 Ces tables sont créées : `games` (états de jeu), `command_log` (journal anti-triche), `admins`,
-puis, au Jalon 3, `universes`, `universe_members`, `chat_messages` et `chat_reports`.
-Avec l'option B, exécutez **les deux fichiers** de `supabase/migrations/`, dans l'ordre.
+`universes`, `universe_members`, `chat_messages` et `chat_reports`.
 Les joueurs peuvent seulement **lire** leur partie. Toute écriture passe par la fonction serveur.
 
 ## 4. Fonction serveur `game`

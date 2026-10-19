@@ -30,3 +30,8 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
 - Client side: `game/onlineBackend.ts` (auth: anonymous guest, link Google / magic link),
   `game/onlineConfig.ts` (env `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`), `game/chat.ts`.
 - Owner setup guide: `docs/SUPABASE_SETUP.md` (keep it in sync with new migrations/env vars).
+- **SQL delivery**: `supabase/setup.sql` = all migrations concatenated (`pnpm build:sql`, guarded
+  by a test) for a fresh project. Every schema change = a new migration + its full SQL given to
+  the owner, ready to paste, with the run order (the owner has no CLI workflow yet). Storage
+  buckets and their policies are created in SQL too (`storage.buckets`, `storage.objects`
+  policies), so the owner never has to click through the dashboard.

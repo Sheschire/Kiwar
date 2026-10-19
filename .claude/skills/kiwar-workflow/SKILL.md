@@ -61,7 +61,16 @@ pnpm workspaces:
   pnpm config into `package.json`: `supabase/functions/deno.json` prevents it — keep it.
 - Playwright + Chromium are preinstalled (`/opt/pw-browsers`); never run `playwright install`.
 
-## End of a milestone
+## Database changes → SQL for the owner
 
-Update `docs/DECISIONS.md`, `README.md` (French status block), `docs/PLAN.md` (state, next
-milestone breakdown) and **the skills** with anything the next conversation must know.
+The owner applies SQL by hand in the Supabase SQL Editor. For any schema change: add a new
+migration file (`supabase/migrations/<timestamp>_<name>.sql`, never edit an applied one), run
+`pnpm build:sql` and `pnpm test:db`, update `docs/SUPABASE_SETUP.md`, and **paste the complete
+SQL of the new migration(s) in your final answer**, in a ```sql block, with the order to run
+them. A brand-new project only needs `supabase/setup.sql`.
+
+## End of a chantier
+
+Update `docs/DECISIONS.md`, `README.md` (French status block), `docs/PLAN.md` (state), the
+chantier document in `docs/chantiers/` (done / left), and **the skills** (create one for a new
+domain, e.g. `kiwar-audio`, `kiwar-rpg`) with anything the next conversation must know.

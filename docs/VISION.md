@@ -111,7 +111,9 @@ joueurs) rendent la question concrète : _ce que j'ai construit peut être abîm
   alliées pour se spécialiser (Kiwisu plutôt pulpe, Kiwino plutôt pépins) et commercer, ce qui
   donne un intérêt coopératif fort à l'équilibre asymétrique des faces.
 
-## Proposition d'ordre des jalons après le Jalon 3
+## Proposition d'ordre des jalons après le Jalon 3 (remplacée)
+
+> Remplacée par les chantiers de `docs/chantiers/` (voir plus bas, « Nouvelles orientations »).
 
 1. **Jalon 4, territoire** : chemins, production par allers-retours, gisements de pépins
    renouvelables.
@@ -144,3 +146,27 @@ joueurs) rendent la question concrète : _ce que j'ai construit peut être abîm
 - **Préavis long** : les grosses vagues sont annoncées 8 à 12 h à l'avance ; les petits incidents tombent sans prévenir mais restent mineurs.
 - **Échelle des menaces** (en attendant les âges) : taille de la colonie (niveau du Nid) × temps de jeu, avec une protection des débutants pendant les premières heures.
 - **Défenses** : à la fois des **tourelles à pépins** sur les tuiles au bord de la falaise de peau (munitions consommées) et une **garnison** de kiwis postés en défense (ils ne récoltent plus).
+
+## Nouvelles orientations (avant le Jalon 5)
+
+Le porteur a précisé sa vision ; chaque sujet a son document dans `docs/chantiers/` :
+
+- **Démolition** de tous les bâtiments (sauf le Nid) et **bâtiments vivants** (pompes, moulins,
+  marteaux qui travaillent) → chantier 01.
+- **Audio** avec un espace admin pour uploader et régler les sons sans développeur → chantier 02.
+- **Kiwis individuels, part RPG** : stats aléatoires, niveaux, maîtrises de métier, classes et
+  apparences, fiche de chaque kiwi (« à la Pokémon »), attachement et peur de les perdre,
+  **shiny** 1/512 (rouge, jaune, vert, bleu) → chantier 03.
+- **Besoins et cycles** : faim, fatigue, repos dans les huttes, jour/nuit, saisons climatiques
+  qui changent la productivité (hiver : neige, repousse gelée ; été : fatigue) → chantier 04.
+  Les anciennes « saisons » compétitives deviennent des **ligues**.
+- **Intro et choix de la face** : le kiwi tranché en deux dans l'espace, choix de la face,
+  **biomes** propres à chaque face, la face adverse en lévitation sous **brouillard de guerre**
+  → chantier 05.
+- **Ennemis = prédateurs des kiwis** : **furets** (terrestres, battus par les guerriers) et
+  **chauves-souris** (volantes, seulement mages, volants ou armes à feu) → chantier 06.
+- **Vaisseau en kiwi mécanique géant** qui bat des ailes, du bois au futuriste selon l'âge ;
+  **reconnaissance** possible dès le premier âge → chantier 07.
+- **Kikiwiwis** : kiwis modifiés au jus de kiwi dans des laboratoires « contre nature », géants
+  aux veines vertes lumineuses, un seul par vaisseau, capables de travaux de titan
+  (terraformer, détruire des obstacles) → chantier 08.
