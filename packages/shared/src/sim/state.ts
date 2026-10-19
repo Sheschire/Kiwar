@@ -5,6 +5,7 @@ import type { Resources } from '../data/resources';
 import { HEART, type FaceParams, DEFAULT_FACE_PARAMS } from '../worldgen/generateFace';
 import { createRng, type Rng, type RngState } from '../rng/rng';
 import type { Masteries, ShinyColor, Stats, TraitId } from '../data/kiwis';
+import type { ClassId, SkillId } from '../data/classes';
 import { newKiwi, rollKiwi } from './kiwis';
 import type {
   BuildingId,
@@ -18,7 +19,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export type Job =
   | { kind: 'idle' }
@@ -26,7 +27,15 @@ export type Job =
   /** Building a queued construction; returns to `returnTo` afterwards if it still has room. */
   | { kind: 'build'; queueItemId: QueueItemId; returnTo: BuildingId | null }
   /** Away on an expedition. */
-  | { kind: 'expedition'; expeditionId: string };
+  | { kind: 'expedition'; expeditionId: string }
+  /** Learning a class at the School until `until` (`paid` is refunded if the School goes). */
+  | {
+      kind: 'train';
+      schoolId: BuildingId;
+      classId: ClassId;
+      until: TimeMs;
+      paid: Partial<Resources>;
+    };
 
 export interface KiwiHistory {
   expeditions: number;
@@ -53,6 +62,10 @@ export interface Villager {
   /** Practice per mastery in raw units (PRACTICE_SCALE per hour). */
   mastery: Masteries;
   history: KiwiHistory;
+  /** Class taught at the School (null: none yet). */
+  classId: ClassId | null;
+  /** When each active skill can be used again. */
+  skillReadyAt: Partial<Record<SkillId, TimeMs>>;
 }
 
 /** A kiwi lost for good (expeditions), remembered in the village screen. */
@@ -61,6 +74,7 @@ export interface Memorial {
   name: string;
   level: number;
   shiny: ShinyColor | null;
+  classId?: ClassId | null;
   bornAt: TimeMs;
   diedAt: TimeMs;
   cause: 'battle' | 'starvation';
@@ -150,7 +164,13 @@ export interface Expedition {
   /** Kiwis still aboard (alive). */
   crew: VillagerId[];
   /** Everyone who boarded, kept for the report even if some kiwis are lost. */
-  roster: { id: VillagerId; name: string; level?: number; shiny?: ShinyColor | null }[];
+  roster: {
+    id: VillagerId;
+    name: string;
+    level?: number;
+    shiny?: ShinyColor | null;
+    classId?: ClassId | null;
+  }[];
   /** Provisions still on board. */
   provisions: Resources;
   cargo: number;
@@ -185,6 +205,8 @@ export interface GameState {
   villagers: Villager[];
   /** Kiwis lost in expeditions, newest last (capped). */
   memorial: Memorial[];
+  /** The mayor's speech boosts the harvest until then (0: no speech). */
+  speechUntil: TimeMs;
   queue: QueueItem[];
   egg: Egg | null;
   /** Index of the current tutorial objective in OBJECTIVES. */
@@ -248,6 +270,7 @@ export function newGame(opts: NewGameOptions): GameState {
     buildings: [],
     villagers: [],
     memorial: [],
+    speechUntil: 0,
     queue: [],
     egg: null,
     objectiveIndex: 0,
@@ -357,8 +380,9 @@ export function cloneState(state: GameState): GameState {
 export function cloneVillager(v: Villager): Villager {
   return {
     ...v,
-    job: { ...v.job },
+    job: v.job.kind === 'train' ? { ...v.job, paid: { ...v.job.paid } } : { ...v.job },
     stats: { ...v.stats },
+    skillReadyAt: { ...v.skillReadyAt },
     mastery: { ...v.mastery },
     history: { ...v.history },
   };

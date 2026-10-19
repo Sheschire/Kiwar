@@ -9,12 +9,20 @@ import {
   masteryHours,
   masteryProgress,
   workerPower,
+  CLASS_IDS,
+  CLASSES,
+  trainingCost,
+  trainingDuration,
+  validateCommand,
+  type ClassId,
+  type Command,
   type GameState,
   type Villager,
 } from '@kiwar/shared';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
-import { useT, useUi, uiStore } from '../store';
+import { pushToast, useT, useUi, uiStore } from '../store';
+import { Cost } from './Cost';
 import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
 import { StatRadar } from './StatRadar';
@@ -23,7 +31,7 @@ type Sort = 'level' | 'name' | 'job' | 'born';
 const SORTS: Sort[] = ['level', 'name', 'job', 'born'];
 
 function jobRank(v: Villager): number {
-  return { work: 0, build: 1, expedition: 2, idle: 3 }[v.job.kind];
+  return { work: 0, build: 1, train: 2, expedition: 3, idle: 4 }[v.job.kind];
 }
 
 /** What a kiwi is doing, in words. */
@@ -79,7 +87,7 @@ function KiwiList() {
         {kiwis.map((v) => (
           <li key={v.id}>
             <button class="kiwi-row" onClick={() => actions.showKiwi(v.id)}>
-              <KiwiPortrait shiny={v.shiny} seed={v.id} size={44} />
+              <KiwiPortrait shiny={v.shiny} classId={v.classId} seed={v.id} size={44} />
               <span class="kiwi-row-main">
                 <span class="kiwi-row-name">
                   {v.name}
@@ -116,7 +124,7 @@ function Memorial() {
       <ul class="kiwi-list memorial">
         {[...game.memorial].reverse().map((m) => (
           <li key={m.id} class="kiwi-row is-static">
-            <KiwiPortrait shiny={m.shiny} seed={m.id} size={40} />
+            <KiwiPortrait shiny={m.shiny} classId={m.classId} seed={m.id} size={40} />
             <span class="kiwi-row-main">
               <span class="kiwi-row-name">{m.name}</span>
               <span class="small muted">
@@ -161,6 +169,147 @@ function RenameForm({ v, onDone }: { v: Villager; onDone: () => void }) {
   );
 }
 
+/** Current class, skills (active ones can be used) and the School's courses. */
+function ClassSection({ v }: { v: Villager }) {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const game = useUi((s) => s.game)!;
+  const map = useUi((s) => s.map);
+  const now = useUi((s) => s.now);
+  const [showCourses, setShowCourses] = useState(false);
+  const schools = game.buildings.filter((b) => b.type === 'school');
+  const job = v.job;
+  const ctx = map ? { now, map } : null;
+  const trainCmd = (classId: ClassId): Command | null => {
+    // The School that can take this kiwi (the highest level first).
+    const sorted = [...schools].sort((a, b) => b.level - a.level);
+    let fallback: Command | null = null;
+    for (const school of sorted) {
+      const cmd: Command = { type: 'train', villagerId: v.id, schoolId: school.id, classId };
+      fallback ??= cmd;
+      if (ctx && validateCommand(game, cmd, ctx) === null) return cmd;
+    }
+    return fallback;
+  };
+  return (
+    <section class="field">
+      <h3>{t('kiwi.class')}</h3>
+      {job.kind === 'train' && (
+        <p class="small bonus">
+          {t('kiwi.training', {
+            class: t(`classes.${job.classId}.name`),
+            duration: formatDuration(lang, Math.max(0, job.until - now)),
+          })}
+        </p>
+      )}
+      {v.classId ? (
+        <>
+          <p class="small">
+            <strong>{t(`classes.${v.classId}.name`)}</strong> — {t(`classes.${v.classId}.desc`)}
+          </p>
+          <h4 class="small-title">{t('kiwi.skills')}</h4>
+          <ul class="skill-list">
+            {CLASSES[v.classId].skills.map((sk) => {
+              const unlocked = v.level >= sk.level;
+              const ready = v.skillReadyAt[sk.id] ?? 0;
+              return (
+                <li key={sk.id} class={unlocked ? '' : 'is-locked'}>
+                  <span class="skill-main">
+                    <strong>{t(`skills.${sk.id}.name`)}</strong>
+                    <span class="small muted">{t(`skills.${sk.id}.desc`)}</span>
+                  </span>
+                  {!unlocked ? (
+                    <span class="badge">{t('kiwi.skillAt', { level: sk.level })}</span>
+                  ) : sk.cooldownMs ? (
+                    ready > now ? (
+                      <span class="small muted">
+                        {t('kiwi.readyIn', { duration: formatDuration(lang, ready - now) })}
+                      </span>
+                    ) : (
+                      <button
+                        class="btn btn-small btn-primary"
+                        onClick={() => {
+                          if (
+                            actions.dispatch({ type: 'useSkill', villagerId: v.id, skill: sk.id })
+                          )
+                            pushToast('success', 'kiwi.skillUsed', {
+                              skill: `@skills.${sk.id}.name`,
+                            });
+                        }}
+                      >
+                        {t('kiwi.use')}
+                      </button>
+                    )
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      ) : (
+        job.kind !== 'train' && <p class="small muted">{t('kiwi.noClass')}</p>
+      )}
+      {job.kind !== 'train' &&
+        (schools.length === 0 ? (
+          <p class="small muted">{t('kiwi.needsSchool')}</p>
+        ) : (
+          <>
+            {v.classId && !showCourses ? (
+              <button class="btn btn-small" onClick={() => setShowCourses(true)}>
+                {t('kiwi.retrain')}
+              </button>
+            ) : (
+              <ul class="course-list">
+                {CLASS_IDS.filter((c) => c !== v.classId).map((c) => {
+                  const def = CLASSES[c];
+                  const cmd = trainCmd(c);
+                  const error = cmd && ctx ? validateCommand(game, cmd, ctx) : 'notASchool';
+                  const maxSchool = Math.max(...schools.map((b) => b.level));
+                  const lock =
+                    maxSchool < def.schoolLevel
+                      ? t('kiwi.needsSchoolLevel', { level: def.schoolLevel })
+                      : v.level < def.minLevel
+                        ? t('kiwi.needsKiwiLevel', { level: def.minLevel })
+                        : null;
+                  return (
+                    <li key={c} class={`course ${lock ? 'is-locked' : ''}`}>
+                      <KiwiPortrait shiny={v.shiny} classId={c} seed={v.id} size={40} />
+                      <span class="course-main">
+                        <strong>{t(`classes.${c}.name`)}</strong>
+                        <span class="small muted">{t(`classes.${c}.desc`)}</span>
+                        {lock ? (
+                          <span class="small warn">{lock}</span>
+                        ) : (
+                          <Cost
+                            cost={trainingCost(v, c)}
+                            have={game.resources}
+                            durationMs={
+                              schools[0] ? trainingDuration(schools[0], c) : def.trainingMs
+                            }
+                          />
+                        )}
+                        {!lock && error && error !== 'notEnoughResources' && (
+                          <span class="small warn">{t(`errors.${error}`)}</span>
+                        )}
+                      </span>
+                      <button
+                        class="btn btn-small btn-primary"
+                        disabled={error !== null}
+                        onClick={() => cmd && actions.dispatch(cmd)}
+                      >
+                        {t('kiwi.trainAs')}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </>
+        ))}
+    </section>
+  );
+}
+
 function KiwiSheet({ v }: { v: Villager }) {
   const t = useT();
   const lang = useUi((s) => s.lang);
@@ -175,7 +324,7 @@ function KiwiSheet({ v }: { v: Villager }) {
   return (
     <div class="kiwi-sheet">
       <header class="kiwi-head">
-        <KiwiPortrait shiny={v.shiny} seed={v.id} size={88} />
+        <KiwiPortrait shiny={v.shiny} classId={v.classId} seed={v.id} size={88} />
         <div class="kiwi-head-main">
           {renaming ? (
             <RenameForm v={v} onDone={() => setRenaming(false)} />
@@ -244,6 +393,8 @@ function KiwiSheet({ v }: { v: Villager }) {
           {t('kiwi.building', { value: fmt(builderSpeed(v)) })}
         </p>
       </section>
+
+      <ClassSection v={v} />
 
       <section class="field">
         <h3>{t('kiwi.trait')}</h3>
@@ -351,7 +502,7 @@ export function FollowBadge() {
   if (!id || !v) return null;
   return (
     <div class="follow-badge parchment pe">
-      <KiwiPortrait shiny={v.shiny} seed={v.id} size={28} />
+      <KiwiPortrait shiny={v.shiny} classId={v.classId} seed={v.id} size={28} />
       <span>{t('kiwi.following', { name: v.name })}</span>
       <button class="btn btn-small" onClick={() => actions.openVillage(v.id)}>
         {t('kiwi.sheet')}

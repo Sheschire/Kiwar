@@ -4,6 +4,7 @@ import { START } from '../data/start';
 import { CAMPS } from '../data/territory';
 import { RESOURCE_IDS } from '../data/resources';
 import { KIWI, MASTERY_IDS, STAT_IDS } from '../data/kiwis';
+import { CLASSES, SKILLS } from '../data/classes';
 import { levelForXp } from '../sim/kiwis';
 import { deserializeSave, migrateState } from '../save/save';
 import { advance, type GameEvent } from '../sim/advance';
@@ -214,6 +215,10 @@ export function isPlausible(state: GameState, now: number): boolean {
   // Shinies are 1 in 512: a save full of them was edited.
   const shinies = state.villagers.filter((v) => v.shiny).length;
   if (shinies > 2 + Math.floor(state.villagers.length / 128)) return false;
+  const mayors = state.villagers.filter(
+    (v) => v.classId === 'mayor' || (v.job.kind === 'train' && v.job.classId === 'mayor'),
+  );
+  if (mayors.length > 1 || state.speechUntil > state.now + SKILLS.speechMs * 2) return false;
   return state.villagers.every((v) => plausibleKiwi(v, state.now));
 }
 
@@ -231,6 +236,8 @@ function plausibleKiwi(v: Villager, now: number): boolean {
   if (levelForXp(v.xp) !== v.level || v.xp > MAX_XP_PER_MS * age) return false;
   const practice = MASTERY_IDS.reduce((s, id) => s + v.mastery[id], 0);
   if (practice > MAX_PRACTICE_PER_MS * age) return false;
+  // A class needs the level it is taught at.
+  if (v.classId && v.level < CLASSES[v.classId].minLevel) return false;
   return v.history.expeditions === 0 && v.history.victories === 0;
 }
 

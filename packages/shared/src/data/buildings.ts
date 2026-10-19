@@ -1,6 +1,7 @@
 import { ms } from './curves';
 import type { ResourceCost, Resources } from './resources';
 import { CAMPS } from './territory';
+import { SCHOOL } from './classes';
 import type { TileType } from './tiles';
 
 export const BUILDING_TYPES = [
@@ -12,6 +13,7 @@ export const BUILDING_TYPES = [
   'hut',
   'warehouse',
   'launchpad',
+  'school',
   'camp',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
@@ -33,6 +35,9 @@ export interface BuildingLevelDef {
   /** Launchpad only: ship cargo (cargo units) and travel time multiplier. */
   cargo?: number;
   travelTime?: number;
+  /** School only: kiwis trained at once and training time multiplier. */
+  trainingSlots?: number;
+  trainingTime?: number;
   /** Nest only: building cap (Nest excluded) and construction queue length. */
   maxBuildings?: number;
   queueSize?: number;
@@ -275,6 +280,36 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
         requiresNestLevel: 3,
         cargo: 500,
         travelTime: 0.7,
+      },
+    ],
+  },
+  // Chantier 03: the School teaches classes (builder, warrior, mayor; mage and scout at level 2).
+  school: {
+    id: 'school',
+    allowedTiles: ['flesh', 'ray', 'heart'],
+    buildable: true,
+    copyGrowth: 2,
+    levels: [
+      {
+        cost: { pulp: 250, fiber: 250, seeds: 30 },
+        durationMs: ms.min(5),
+        requiresNestLevel: 2,
+        trainingSlots: SCHOOL.slots[0],
+        trainingTime: SCHOOL.trainingTime[0],
+      },
+      {
+        cost: { pulp: 600, fiber: 600, seeds: 120, juice: 150 },
+        durationMs: ms.min(15),
+        requiresNestLevel: 2,
+        trainingSlots: SCHOOL.slots[1],
+        trainingTime: SCHOOL.trainingTime[1],
+      },
+      {
+        cost: { pulp: 1500, fiber: 1500, seeds: 300, juice: 400 },
+        durationMs: ms.min(30),
+        requiresNestLevel: 3,
+        trainingSlots: SCHOOL.slots[2],
+        trainingTime: SCHOOL.trainingTime[2],
       },
     ],
   },

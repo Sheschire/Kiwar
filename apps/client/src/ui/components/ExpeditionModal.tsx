@@ -86,7 +86,7 @@ function CrewPicker(props: {
                     )
                   }
                 />
-                <KiwiPortrait shiny={v.shiny} seed={v.id} size={34} />
+                <KiwiPortrait shiny={v.shiny} classId={v.classId} seed={v.id} size={34} />
                 <span class="kiwi-row-main">
                   <span class="kiwi-row-name">
                     {v.name}{' '}

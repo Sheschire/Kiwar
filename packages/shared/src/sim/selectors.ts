@@ -24,7 +24,7 @@ import { getTile, type FaceMap } from '../worldgen/generateFace';
 import type { BuildingId } from '../types/ids';
 import type { Building, GameState, QueueItem, Villager } from './state';
 import { faceMapOf, harvestOf, type Harvest } from './territory';
-import { workforce } from './kiwis';
+import { regenBonus, workforce } from './kiwis';
 
 export const HOUR_MS = 3_600_000;
 
@@ -99,7 +99,15 @@ export function buildingHarvest(
   b: Building,
   full = storageFullCheck(state),
 ): Harvest | null {
-  return harvestOf(state, faceMapOf(state), b, workforce(state, b, workersOf(state, b.id)), full);
+  const workers = workersOf(state, b.id);
+  return harvestOf(
+    state,
+    faceMapOf(state),
+    b,
+    workforce(state, b, workers),
+    full,
+    regenBonus(workers),
+  );
 }
 
 /** Production of one building per hour, with its current staff, deposits and logistics. */

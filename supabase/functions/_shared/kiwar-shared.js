@@ -321,6 +321,122 @@ var CAMPS = {
   tiles: ["flesh", "grove", "seedRing", "juice"]
 };
 
+// packages/shared/src/data/classes.ts
+var CLASS_IDS = ["builder", "warrior", "mage", "scout", "mayor"];
+var SKILL_IDS = [
+  "scaffold",
+  "quickHands",
+  "architect",
+  "charge",
+  "shield",
+  "champion",
+  "greenThumb",
+  "rain",
+  "lightning",
+  "glide",
+  "scouting",
+  "tailwind",
+  "organisation",
+  "speech",
+  "festival"
+];
+var CLASSES = {
+  // Builds much faster (and learns construction faster).
+  builder: {
+    id: "builder",
+    schoolLevel: 1,
+    minLevel: 3,
+    cost: { pulp: 150, fiber: 150 },
+    trainingMs: ms.h(1),
+    modifiers: { build: 1.3 },
+    skills: [
+      { id: "scaffold", level: 5, modifiers: { build: 1.15 } },
+      { id: "quickHands", level: 10, modifiers: { practice: 1.5 } },
+      { id: "architect", level: 20, modifiers: { build: 1.25 } }
+    ]
+  },
+  // Sword fighter: strong in expeditions, helps with manual work.
+  warrior: {
+    id: "warrior",
+    schoolLevel: 1,
+    minLevel: 3,
+    cost: { pulp: 200, fiber: 100, seeds: 30 },
+    trainingMs: ms.h(2),
+    modifiers: { fight: 1.5, build: 1.1, harvest: 0.95 },
+    skills: [
+      { id: "charge", level: 5, modifiers: { fight: 1.2 } },
+      { id: "shield", level: 10, modifiers: { exposure: 0.6 } },
+      { id: "champion", level: 20, modifiers: { fight: 1.3 } }
+    ]
+  },
+  // Ranged fighter who helps the harvest and the regrowth, and can make it rain.
+  mage: {
+    id: "mage",
+    schoolLevel: 2,
+    minLevel: 3,
+    cost: { fiber: 150, seeds: 60, juice: 120 },
+    trainingMs: ms.h(3),
+    modifiers: { fight: 1.3, harvest: 1.15, build: 0.9 },
+    skills: [
+      { id: "greenThumb", level: 5 },
+      { id: "rain", level: 10, cooldownMs: ms.h(12) },
+      { id: "lightning", level: 20, modifiers: { fight: 1.3 } }
+    ]
+  },
+  // Flying scout: light on board, hard to hit; speeds up the whole expedition.
+  scout: {
+    id: "scout",
+    schoolLevel: 2,
+    minLevel: 3,
+    cost: { fiber: 200, seeds: 40, juice: 80 },
+    trainingMs: ms.h(2),
+    modifiers: { fight: 1.1, weight: 0.5, harvest: 1.05 },
+    skills: [
+      { id: "glide", level: 5, modifiers: { exposure: 0.7 } },
+      { id: "scouting", level: 10 },
+      { id: "tailwind", level: 20 }
+    ]
+  },
+  // The one mayor organises the colony (production bonus from Charisma) and gives speeches.
+  mayor: {
+    id: "mayor",
+    schoolLevel: 1,
+    minLevel: 5,
+    cost: { pulp: 300, fiber: 300, seeds: 80, juice: 150 },
+    trainingMs: ms.h(3),
+    unique: true,
+    modifiers: {},
+    skills: [
+      { id: "organisation", level: 5 },
+      { id: "speech", level: 10, cooldownMs: ms.h(12) },
+      { id: "festival", level: 20 }
+    ]
+  }
+};
+var SKILLS = {
+  /** Mage: regrowth bonus of the deposits harvested by the building the mage works in. */
+  greenThumbRegen: 0.15,
+  /** Mage: refills this share of its workplace's deposits. */
+  rainRefill: 0.3,
+  /** Scout: crew strength bonus (once per crew). */
+  scoutingStrength: 0.1,
+  /** Scout: travel time multiplier (once per crew). */
+  tailwindTravel: 0.8,
+  /** Mayor: colony harvest bonus per Charisma point, plus a flat bonus with Organisation. */
+  mayorPerCharisma: 0.01,
+  organisationBonus: 0.05,
+  /** Mayor: speech bonus and duration (Festival doubles the duration). */
+  speechBonus: 0.15,
+  speechMs: ms.h(1),
+  festivalMultiplier: 2,
+  /** Changing class costs this many times the price. */
+  retrainCost: 2
+};
+var SCHOOL = {
+  slots: [1, 1, 2],
+  trainingTime: [1, 1, 0.7]
+};
+
 // packages/shared/src/data/buildings.ts
 var BUILDING_TYPES = [
   "nest",
@@ -331,6 +447,7 @@ var BUILDING_TYPES = [
   "hut",
   "warehouse",
   "launchpad",
+  "school",
   "camp"
 ];
 var BUILDINGS = {
@@ -559,6 +676,36 @@ var BUILDINGS = {
       }
     ]
   },
+  // Chantier 03: the School teaches classes (builder, warrior, mayor; mage and scout at level 2).
+  school: {
+    id: "school",
+    allowedTiles: ["flesh", "ray", "heart"],
+    buildable: true,
+    copyGrowth: 2,
+    levels: [
+      {
+        cost: { pulp: 250, fiber: 250, seeds: 30 },
+        durationMs: ms.min(5),
+        requiresNestLevel: 2,
+        trainingSlots: SCHOOL.slots[0],
+        trainingTime: SCHOOL.trainingTime[0]
+      },
+      {
+        cost: { pulp: 600, fiber: 600, seeds: 120, juice: 150 },
+        durationMs: ms.min(15),
+        requiresNestLevel: 2,
+        trainingSlots: SCHOOL.slots[1],
+        trainingTime: SCHOOL.trainingTime[1]
+      },
+      {
+        cost: { pulp: 1500, fiber: 1500, seeds: 300, juice: 400 },
+        durationMs: ms.min(30),
+        requiresNestLevel: 3,
+        trainingSlots: SCHOOL.slots[2],
+        trainingTime: SCHOOL.trainingTime[2]
+      }
+    ]
+  },
   // Gathering camp (milestone 4): set up instantly and for free with the `gather` command,
   // outside the building cap. Its harvest depends on the tile (see CAMPS).
   camp: {
@@ -746,7 +893,7 @@ var KIWI = {
   traitChance: 0.3,
   maxLevel: 30,
   /** Experience per hour by activity (idle and travelling kiwis do not learn; see expeditionXp). */
-  xpPerHour: { work: 10, build: 12 },
+  xpPerHour: { work: 10, build: 12, train: 10 },
   /** Experience bonus per point of Spirit above average (+4 %). */
   spiritXp: 0.04,
   /** Lump of experience for every crew member coming home (part 3). */
@@ -1250,7 +1397,7 @@ function baseHarvest(b, resource) {
   if (b.type === "camp") return CAMPS.rates[resource];
   return levelDef(b.type, b.level)?.production?.[resource] ?? 0;
 }
-function harvestOf(state, map, b, workers, storageFull) {
+function harvestOf(state, map, b, workers, storageFull, regenMultiplier = 1) {
   const type = harvestedTileType(map, b);
   const dep = type ? DEPOSITS[type] : void 0;
   if (!dep) return null;
@@ -1259,7 +1406,9 @@ function harvestOf(state, map, b, workers, storageFull) {
   const distance = depotDistance(state, map, b);
   const efficiency = logisticsEfficiency(distance);
   const demand = slots > 0 ? baseHarvest(b, resource) * workers * efficiency / slots : 0;
-  const { cap, regen } = poolCapacity(map, b.pool?.tiles ?? []);
+  const pool = poolCapacity(map, b.pool?.tiles ?? []);
+  const cap = pool.cap;
+  const regen = pool.regen * regenMultiplier;
   const stock = Math.min(cap, b.pool?.stock ?? cap);
   let harvest = demand;
   let status = "ok";
@@ -1360,20 +1509,38 @@ function newKiwi(roll) {
     xp: 0,
     statPoints: 0,
     mastery: emptyMasteries(),
-    history: { expeditions: 0, victories: 0, built: 0 }
+    history: { expeditions: 0, victories: 0, built: 0 },
+    classId: null,
+    skillReadyAt: {}
   };
 }
+var MODIFIER_KEYS = [
+  "xp",
+  "practice",
+  "harvest",
+  "build",
+  "fight",
+  "exposure",
+  "rations",
+  "weight"
+];
 function modifiers(v) {
-  const t = v.trait ? TRAITS[v.trait] : {};
-  return {
-    xp: t.xp ?? 1,
-    practice: t.practice ?? 1,
-    harvest: t.harvest ?? 1,
-    build: t.build ?? 1,
-    fight: t.fight ?? 1,
-    exposure: t.exposure ?? 1,
-    rations: t.rations ?? 1
+  const out = Object.fromEntries(MODIFIER_KEYS.map((k) => [k, 1]));
+  const apply = (m) => {
+    if (m) for (const k of MODIFIER_KEYS) out[k] *= m[k] ?? 1;
   };
+  apply(v.trait ? TRAITS[v.trait] : void 0);
+  if (v.classId) {
+    const c = CLASSES[v.classId];
+    apply(c.modifiers);
+    for (const skill of c.skills) if (v.level >= skill.level) apply(skill.modifiers);
+  }
+  return out;
+}
+function hasSkill(v, skill) {
+  if (!v.classId) return false;
+  const def = CLASSES[v.classId].skills.find((x) => x.id === skill);
+  return !!def && v.level >= def.level;
 }
 function levelForXp(xp) {
   let level = 1;
@@ -1432,7 +1599,23 @@ function kiwiExposure(v) {
 function workforce(state, b, workers) {
   const resource = buildingResource(state, b);
   if (!resource) return workers.length;
-  return workers.reduce((sum, v) => sum + workerPower(v, resource), 0);
+  const sum = workers.reduce((total, v) => total + workerPower(v, resource), 0);
+  return sum * colonyBonus(state);
+}
+function mayorOf(state) {
+  return state.villagers.find((v) => v.classId === "mayor" && v.job.kind !== "expedition");
+}
+function colonyBonus(state) {
+  const mayor = mayorOf(state);
+  if (!mayor) return 1;
+  let bonus = SKILLS.mayorPerCharisma * mayor.stats.charisma;
+  if (hasSkill(mayor, "organisation")) bonus += SKILLS.organisationBonus;
+  if (state.speechUntil > state.now) bonus += SKILLS.speechBonus;
+  return 1 + bonus;
+}
+function regenBonus(workers) {
+  const mages = workers.filter((v) => hasSkill(v, "greenThumb")).length;
+  return 1 + SKILLS.greenThumbRegen * mages;
 }
 function ratesOf(state, v, resources2) {
   const job2 = v.job;
@@ -1450,6 +1633,8 @@ function ratesOf(state, v, resources2) {
   } else if (job2.kind === "build") {
     perHour = KIWI.xpPerHour.build;
     mastery = "build";
+  } else if (job2.kind === "train") {
+    perHour = KIWI.xpPerHour.train;
   }
   if (perHour === 0) return { xp: 0, practice: 0, mastery: null };
   const m = modifiers(v);
@@ -1532,9 +1717,20 @@ function pickStat(rng, v) {
   }
   return open[open.length - 1];
 }
+function trainingCost(v, classId) {
+  const k = v.classId ? SKILLS.retrainCost : 1;
+  const out = {};
+  const cost = CLASSES[classId].cost;
+  for (const id3 of RESOURCE_IDS) if (cost[id3]) out[id3] = cost[id3] * k;
+  return out;
+}
+function trainingDuration(school, classId) {
+  const speed = levelDef("school", school.level)?.trainingTime ?? 1;
+  return Math.round(CLASSES[classId].trainingMs * speed);
+}
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 4;
+var SCHEMA_VERSION = 5;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -1565,6 +1761,7 @@ function newGame(opts) {
     buildings: [],
     villagers: [],
     memorial: [],
+    speechUntil: 0,
     queue: [],
     egg: null,
     objectiveIndex: 0,
@@ -1663,8 +1860,9 @@ function cloneState(state) {
 function cloneVillager(v) {
   return {
     ...v,
-    job: { ...v.job },
+    job: v.job.kind === "train" ? { ...v.job, paid: { ...v.job.paid } } : { ...v.job },
     stats: { ...v.stats },
+    skillReadyAt: { ...v.skillReadyAt },
     mastery: { ...v.mastery },
     history: { ...v.history }
   };
@@ -1723,7 +1921,15 @@ function storageFullCheck(state) {
   return (id3) => state.resources[id3] >= cap[id3] - 1e-6;
 }
 function buildingHarvest(state, b, full = storageFullCheck(state)) {
-  return harvestOf(state, faceMapOf(state), b, workforce(state, b, workersOf(state, b.id)), full);
+  const workers = workersOf(state, b.id);
+  return harvestOf(
+    state,
+    faceMapOf(state),
+    b,
+    workforce(state, b, workers),
+    full,
+    regenBonus(workers)
+  );
 }
 function buildingRates(state, b, full = storageFullCheck(state)) {
   const def = levelDef(b.type, b.level);
@@ -1854,9 +2060,10 @@ function shipCargo(launchpad) {
 function targetDefense(state, target) {
   return target.defense + target.reinforce * (state.victories[target.id] ?? 0);
 }
-function travelTime(target, launchpad) {
-  const factor = levelDef("launchpad", launchpad.level)?.travelTime ?? 1;
-  return Math.round(target.travelMs * factor / 1e3) * 1e3;
+function travelTime(target, launchpad, crew = []) {
+  const pad = levelDef("launchpad", launchpad.level)?.travelTime ?? 1;
+  const wind = crew.some((v) => hasSkill(v, "tailwind")) ? SKILLS.tailwindTravel : 1;
+  return Math.round(target.travelMs * pad * wind / 1e3) * 1e3;
 }
 function rations(crew, ms2) {
   const eaters = crew.reduce((sum, v) => sum + modifiers(v).rations, 0);
@@ -1866,7 +2073,7 @@ function rations(crew, ms2) {
   };
 }
 function crewWeight(crew) {
-  return crew.length * EXPEDITIONS.kiwiWeight;
+  return crew.reduce((sum, v) => sum + EXPEDITIONS.kiwiWeight * modifiers(v).weight, 0);
 }
 function crewOf(state, crew) {
   const available = availableCrew(state);
@@ -1918,7 +2125,8 @@ function coverage(have, need) {
 function strengthOf(crew, fed) {
   const hunger = EXPEDITIONS.starvingStrength + (1 - EXPEDITIONS.starvingStrength) * fed;
   const total = crew.reduce((sum, v) => sum + kiwiStrength(v), 0);
-  return total * EXPEDITIONS.strengthPerKiwi * hunger;
+  const scouting = crew.some((v) => hasSkill(v, "scouting")) ? 1 + SKILLS.scoutingStrength : 1;
+  return total * EXPEDITIONS.strengthPerKiwi * hunger * scouting;
 }
 function forecastExpedition(state, plan) {
   const pad = launchpadOf(state, plan.launchpadId);
@@ -1926,7 +2134,7 @@ function forecastExpedition(state, plan) {
   if (!pad || !target) return null;
   const crew = crewOf(state, plan.crew) ?? [];
   const cargo = shipCargo(pad);
-  const travelMs = travelTime(target, pad);
+  const travelMs = travelTime(target, pad, crew);
   const need = rations(crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(crew, fed);
@@ -1987,13 +2195,19 @@ function launch(state, plan, now, id3) {
   for (const v of crew) v.job = { kind: "expedition", expeditionId: id3 };
   state.resources.pulp -= plan.provisions.pulp;
   state.resources.juice -= plan.provisions.juice;
-  const travelMs = travelTime(target, pad);
+  const travelMs = travelTime(target, pad, crew);
   const expedition = {
     id: id3,
     targetId: target.id,
     launchpadId: pad.id,
     crew: crew.map((v) => v.id),
-    roster: crew.map((v) => ({ id: v.id, name: v.name, level: v.level, shiny: v.shiny })),
+    roster: crew.map((v) => ({
+      id: v.id,
+      name: v.name,
+      level: v.level,
+      shiny: v.shiny,
+      classId: v.classId
+    })),
     provisions: { ...emptyResources(), pulp: plan.provisions.pulp, juice: plan.provisions.juice },
     cargo: shipCargo(pad),
     departedAt: now,
@@ -2104,6 +2318,7 @@ function removeVillagers(state, ids, cause, at) {
       name: v.name,
       level: v.level,
       shiny: v.shiny,
+      classId: v.classId,
       bornAt: v.bornAt,
       diedAt: at,
       cause
@@ -2135,12 +2350,16 @@ function advanceInPlace(s, now, events) {
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
     const flows = computeFlows(s);
+    const trainingEnd = nextTrainingEnd(s);
+    const speechEnd = s.speechUntil > s.now ? s.speechUntil : Infinity;
     const nextEvent = Math.min(
       constructionEnd,
       eggEnd,
       expedition?.at ?? Infinity,
       flows.nextChange,
-      nextKiwiEvent(s)
+      nextKiwiEvent(s),
+      trainingEnd,
+      speechEnd
     );
     const target = Math.min(nextEvent, now);
     if (target > s.now) {
@@ -2156,6 +2375,8 @@ function advanceInPlace(s, now, events) {
     if (s.egg && s.egg.readyAt <= now && s.egg.readyAt === nextEvent) {
       hatch(s, s.egg.readyAt, events);
     }
+    if (trainingEnd === nextEvent) finishTrainings(s, trainingEnd, events);
+    if (speechEnd === nextEvent) events.push({ type: "speechOver", at: speechEnd });
     if (expedition && expedition.at === nextEvent) {
       const e = expedition.expedition;
       if (e.status === "outbound") {
@@ -2331,6 +2552,21 @@ function idleByPower(s, b) {
   if (!resource) return idle;
   return idle.map((v, i) => ({ v, i, p: workerPower(v, resource) })).sort((a, c) => c.p - a.p || a.i - c.i).map((x) => x.v);
 }
+function nextTrainingEnd(s) {
+  let next = Infinity;
+  for (const v of s.villagers) if (v.job.kind === "train") next = Math.min(next, v.job.until);
+  return next;
+}
+function finishTrainings(s, at, events) {
+  for (const v of s.villagers) {
+    if (v.job.kind !== "train" || v.job.until !== at) continue;
+    v.classId = v.job.classId;
+    v.skillReadyAt = {};
+    v.job = { kind: "idle" };
+    events.push({ type: "trained", at, villagerId: v.id, name: v.name, classId: v.classId });
+    autoAssign(s, v);
+  }
+}
 function nextExpeditionEvent(s) {
   let best = null;
   for (const e of s.expeditions) {
@@ -2383,7 +2619,17 @@ var COMMAND_ERRORS = [
   "invalidName",
   "noStatPoint",
   "statMaxed",
-  "invalidCrew"
+  "invalidCrew",
+  "notASchool",
+  "classLocked",
+  "levelTooLow",
+  "alreadyThisClass",
+  "kiwiBusy",
+  "mayorExists",
+  "schoolFull",
+  "skillLocked",
+  "skillCooling",
+  "notHere"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -2637,6 +2883,11 @@ function execute(s, cmd, ctx, events) {
           v.job = { kind: "idle" };
           autoAssign(s, v);
         }
+        if (v.job.kind === "train" && v.job.schoolId === b.id) {
+          refund(s, v.job.paid);
+          v.job = { kind: "idle" };
+          autoAssign(s, v);
+        }
       }
       return;
     }
@@ -2656,6 +2907,57 @@ function execute(s, cmd, ctx, events) {
       if (v.stats[cmd.stat] >= KIWI.stat.cap) fail("statMaxed");
       v.stats[cmd.stat]++;
       v.statPoints--;
+      return;
+    }
+    case "train": {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail("unknownVillager");
+      const school = getBuilding(s, cmd.schoolId);
+      if (!school || school.type !== "school") return fail("notASchool");
+      const def = CLASSES[cmd.classId];
+      if (!def) return fail("classLocked");
+      if (school.level < def.schoolLevel) fail("classLocked");
+      if (v.level < def.minLevel) fail("levelTooLow");
+      if (v.classId === cmd.classId) fail("alreadyThisClass");
+      if (v.job.kind !== "idle" && v.job.kind !== "work") fail("kiwiBusy");
+      if (def.unique && s.villagers.some(
+        (x) => x.id !== v.id && (x.classId === cmd.classId || x.job.kind === "train" && x.job.classId === cmd.classId)
+      )) {
+        fail("mayorExists");
+      }
+      const lvl = levelDef("school", school.level);
+      const trainees = s.villagers.filter(
+        (x) => x.job.kind === "train" && x.job.schoolId === school.id
+      ).length;
+      if (trainees >= (lvl.trainingSlots ?? 0)) fail("schoolFull");
+      const cost = trainingCost(v, cmd.classId);
+      pay(s, cost);
+      v.job = {
+        kind: "train",
+        schoolId: school.id,
+        classId: cmd.classId,
+        until: now + trainingDuration(school, cmd.classId),
+        paid: cost
+      };
+      return;
+    }
+    case "useSkill": {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail("unknownVillager");
+      const def = v.classId ? CLASSES[v.classId].skills.find((x) => x.id === cmd.skill) : void 0;
+      if (!def?.cooldownMs || !hasSkill(v, cmd.skill)) return fail("skillLocked");
+      if ((v.skillReadyAt[cmd.skill] ?? 0) > now) fail("skillCooling");
+      if (v.job.kind === "expedition" || v.job.kind === "train") fail("kiwiBusy");
+      if (cmd.skill === "rain") {
+        const b = v.job.kind === "work" ? getBuilding(s, v.job.buildingId) : void 0;
+        const h = b?.pool ? buildingHarvest(s, b) : null;
+        if (!b?.pool || !h) return fail("notHere");
+        b.pool.stock = Math.min(h.cap, h.stock + SKILLS.rainRefill * h.cap);
+      } else if (cmd.skill === "speech") {
+        const k = hasSkill(v, "festival") ? SKILLS.festivalMultiplier : 1;
+        s.speechUntil = now + SKILLS.speechMs * k;
+      }
+      v.skillReadyAt[cmd.skill] = now + def.cooldownMs;
       return;
     }
     case "debugGrant": {
@@ -6729,7 +7031,14 @@ var job = external_exports.discriminatedUnion("kind", [
   external_exports.object({ kind: external_exports.literal("idle") }),
   external_exports.object({ kind: external_exports.literal("work"), buildingId: id }),
   external_exports.object({ kind: external_exports.literal("build"), queueItemId: id, returnTo: id.nullable() }),
-  external_exports.object({ kind: external_exports.literal("expedition"), expeditionId: id })
+  external_exports.object({ kind: external_exports.literal("expedition"), expeditionId: id }),
+  external_exports.object({
+    kind: external_exports.literal("train"),
+    schoolId: id,
+    classId: external_exports.enum(CLASS_IDS),
+    until: external_exports.number(),
+    paid: partialResources
+  })
 ]);
 var gameStateSchema = external_exports.object({
   schemaVersion: external_exports.number().int(),
@@ -6774,7 +7083,9 @@ var gameStateSchema = external_exports.object({
         expeditions: external_exports.number().int().min(0),
         victories: external_exports.number().int().min(0),
         built: external_exports.number().int().min(0)
-      })
+      }),
+      classId: external_exports.enum(CLASS_IDS).nullable(),
+      skillReadyAt: external_exports.record(external_exports.enum(SKILL_IDS), external_exports.number())
     })
   ),
   memorial: external_exports.array(
@@ -6783,11 +7094,13 @@ var gameStateSchema = external_exports.object({
       name: external_exports.string().max(4 * KIWI_NAME_MAX),
       level: external_exports.number().int().min(1).max(KIWI.maxLevel),
       shiny: external_exports.enum(SHINY_COLORS).nullable(),
+      classId: external_exports.enum(CLASS_IDS).nullable().optional(),
       bornAt: external_exports.number(),
       diedAt: external_exports.number(),
       cause: external_exports.enum(["battle", "starvation"])
     })
   ).max(MEMORIAL_MAX),
+  speechUntil: external_exports.number().min(0),
   queue: external_exports.array(
     external_exports.object({
       id,
@@ -6836,7 +7149,8 @@ var gameStateSchema = external_exports.object({
           id,
           name: external_exports.string(),
           level: external_exports.number().int().min(1).optional(),
-          shiny: external_exports.enum(SHINY_COLORS).nullable().optional()
+          shiny: external_exports.enum(SHINY_COLORS).nullable().optional(),
+          classId: external_exports.enum(CLASS_IDS).nullable().optional()
         })
       ),
       provisions: resources,
@@ -6881,6 +7195,16 @@ var MIGRATIONS = {
       ...newKiwi(rollKiwi(createRng(`${String(raw.seed)}/${String(v.id)}/kiwi`)))
     })) : raw.villagers,
     memorial: []
+  }),
+  // v4 → v5: classes and skills (chantier 03, part 4).
+  4: (raw) => ({
+    ...raw,
+    villagers: Array.isArray(raw.villagers) ? raw.villagers.map((v) => ({
+      ...v,
+      classId: null,
+      skillReadyAt: {}
+    })) : raw.villagers,
+    speechUntil: 0
   })
 };
 function migrateState(input) {
@@ -6957,6 +7281,13 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     name: external_exports.string().min(1).max(4 * KIWI_NAME_MAX)
   }),
   external_exports.object({ type: external_exports.literal("spendStatPoint"), villagerId: id2, stat: external_exports.enum(STAT_IDS) }),
+  external_exports.object({
+    type: external_exports.literal("train"),
+    villagerId: id2,
+    schoolId: id2,
+    classId: external_exports.enum(CLASS_IDS)
+  }),
+  external_exports.object({ type: external_exports.literal("useSkill"), villagerId: id2, skill: external_exports.enum(SKILL_IDS) }),
   external_exports.object({
     type: external_exports.literal("debugGrant"),
     resources: external_exports.object({
@@ -7146,6 +7477,10 @@ function isPlausible(state, now) {
   if (state.memorial.length > 0) return false;
   const shinies = state.villagers.filter((v) => v.shiny).length;
   if (shinies > 2 + Math.floor(state.villagers.length / 128)) return false;
+  const mayors = state.villagers.filter(
+    (v) => v.classId === "mayor" || v.job.kind === "train" && v.job.classId === "mayor"
+  );
+  if (mayors.length > 1 || state.speechUntil > state.now + SKILLS.speechMs * 2) return false;
   return state.villagers.every((v) => plausibleKiwi(v, state.now));
 }
 var MAX_XP_PER_MS = 100 * KIWI.xpPerHour.build * (1 + KIWI.spiritXp * KIWI.stat.cap) * 1.25;
@@ -7159,6 +7494,7 @@ function plausibleKiwi(v, now) {
   if (levelForXp(v.xp) !== v.level || v.xp > MAX_XP_PER_MS * age) return false;
   const practice = MASTERY_IDS.reduce((s, id3) => s + v.mastery[id3], 0);
   if (practice > MAX_PRACTICE_PER_MS * age) return false;
+  if (v.classId && v.level < CLASSES[v.classId].minLevel) return false;
   return v.history.expeditions === 0 && v.history.victories === 0;
 }
 function reply(ctx, state, events = []) {
@@ -7382,6 +7718,8 @@ export {
   BUILDING_TYPES,
   CAMPS,
   CATCHMENT_RADIUS,
+  CLASSES,
+  CLASS_IDS,
   COMMAND_ERRORS,
   DEFAULT_FACE_PARAMS,
   DEMOLITION,
@@ -7412,8 +7750,11 @@ export {
   RESOURCE_IDS,
   RESOURCE_MASTERY,
   SCHEMA_VERSION,
+  SCHOOL,
   SERVER_ERRORS,
   SHINY_COLORS,
+  SKILLS,
+  SKILL_IDS,
   START,
   STAT_IDS,
   TILES,
@@ -7448,6 +7789,7 @@ export {
   cleanKiwiName,
   cloneState,
   cloneVillager,
+  colonyBonus,
   commandSchema,
   computeClaims,
   constructionDuration,
@@ -7481,6 +7823,7 @@ export {
   handleGameRequest,
   harvestOf,
   harvestedTileType,
+  hasSkill,
   hashSeed,
   hex,
   hexAdd,
@@ -7522,6 +7865,7 @@ export {
   masteryProgress,
   maxCrew,
   maxLevelOf,
+  mayorOf,
   migrateState,
   modifiers,
   ms,
@@ -7544,6 +7888,7 @@ export {
   productionRates,
   queuedBuildAt,
   rankOf,
+  regenBonus,
   releasePool,
   requestSchema,
   resolveArrival,
@@ -7563,6 +7908,8 @@ export {
   tileDepositState,
   timeToDepletion,
   totalWorkers,
+  trainingCost,
+  trainingDuration,
   travelTime,
   universeTargets,
   upgradeCost,

@@ -40,6 +40,8 @@ import {
   type ResourceId,
   type Rng,
   type ShinyColor,
+  type ClassId,
+  CLASS_IDS,
   type Villager,
   type VillagerId,
 } from '@kiwar/shared';
@@ -138,6 +140,101 @@ function createBodyGeometry(): BufferGeometry {
   return g;
 }
 
+/** Class outfits, in the body's frame (merged with vertex colours, one instanced mesh each). */
+function createOutfitGeometry(cls: ClassId): BufferGeometry {
+  const halfSphere = () => new SphereGeometry(1, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2);
+  const parts: BufferGeometry[] = [];
+  switch (cls) {
+    case 'builder':
+      parts.push(colored(halfSphere(), '#f2c14e', mat(0, 0.33, 0.17, 0.105, 0.08, 0.105)));
+      parts.push(
+        colored(new CylinderGeometry(1, 1, 1, 12), '#d9a82e', mat(0, 0.335, 0.2, 0.12, 0.01, 0.13)),
+      );
+      break;
+    case 'warrior':
+      parts.push(colored(halfSphere(), '#a8a296', mat(0, 0.32, 0.17, 0.108, 0.09, 0.108)));
+      parts.push(
+        colored(new ConeGeometry(1, 1, 4), '#c0504a', mat(0, 0.43, 0.16, 0.02, 0.06, 0.02)),
+      );
+      parts.push(
+        colored(
+          new CylinderGeometry(1, 1, 1, 4),
+          '#e6e6e6',
+          mat(0.2, 0.2, 0.02, 0.012, 0.3, 0.012, 0.5, 0, 0),
+        ),
+      );
+      parts.push(
+        colored(
+          new CylinderGeometry(1, 1, 1, 4),
+          '#7a5233',
+          mat(0.2, 0.08, -0.05, 0.01, 0.08, 0.04, 0.5, 0, 0),
+        ),
+      );
+      break;
+    case 'mage':
+      parts.push(
+        colored(
+          new ConeGeometry(1, 1, 8),
+          '#6a4fb3',
+          mat(0, 0.45, 0.15, 0.075, 0.24, 0.075, -0.2, 0, 0),
+        ),
+      );
+      parts.push(
+        colored(
+          new CylinderGeometry(1, 1, 1, 12),
+          '#4a3590',
+          mat(0, 0.34, 0.17, 0.13, 0.012, 0.13),
+        ),
+      );
+      parts.push(
+        colored(new IcosahedronGeometry(1, 0), '#f2c14e', mat(0, 0.45, 0.205, 0.016, 0.016, 0.016)),
+      );
+      break;
+    case 'scout':
+      for (const side of [-1, 1]) {
+        parts.push(
+          colored(
+            new CylinderGeometry(1, 1, 1, 3),
+            '#c9c0ae',
+            mat(side * 0.2, 0.27, -0.05, 0.1, 0.012, 0.16, 0, 0, side * 0.5),
+          ),
+        );
+      }
+      parts.push(
+        colored(new SphereGeometry(1, 6, 5), '#bfe3ff', mat(0.05, 0.31, 0.24, 0.03, 0.03, 0.02)),
+      );
+      parts.push(
+        colored(new SphereGeometry(1, 6, 5), '#bfe3ff', mat(-0.05, 0.31, 0.24, 0.03, 0.03, 0.02)),
+      );
+      break;
+    case 'mayor':
+      parts.push(
+        colored(new CylinderGeometry(1, 1, 1, 12), '#2b2522', mat(0, 0.42, 0.16, 0.06, 0.13, 0.06)),
+      );
+      parts.push(
+        colored(new CylinderGeometry(1, 1, 1, 12), '#2b2522', mat(0, 0.36, 0.16, 0.1, 0.012, 0.1)),
+      );
+      parts.push(
+        colored(
+          new CylinderGeometry(1, 1, 1, 12),
+          '#c0504a',
+          mat(0, 0.38, 0.16, 0.062, 0.02, 0.062),
+        ),
+      );
+      parts.push(
+        colored(
+          new CylinderGeometry(1, 1, 1, 6),
+          '#c0504a',
+          mat(0, 0.2, 0.02, 0.2, 0.025, 0.035, 0, 0.7, 0.9),
+        ),
+      );
+      break;
+  }
+  const g = mergeGeometries(parts, false)!;
+  g.computeVertexNormals();
+  return g;
+}
+
 /**
  * The villagers: round kiwi birds that waddle between the Nest and their workplace.
  * Their positions are cosmetic (not part of the game state). All kiwis are drawn with four
@@ -150,6 +247,8 @@ export class KiwisView {
   private readonly shadows: InstancedMesh;
   private readonly loads: InstancedMesh;
   private readonly agents = new Map<VillagerId, Agent>();
+  private readonly outfits = new Map<ClassId, InstancedMesh>();
+  private readonly classOf = new Map<VillagerId, ClassId | null>();
   private readonly ring: Mesh;
   private highlightId: string | null = null;
   /** Kiwis drawn at the last update (for taps and sounds). */
@@ -195,6 +294,19 @@ export class KiwisView {
       this.group.add(mesh);
     }
     this.shadows.renderOrder = 1;
+    const outfitMaterial = new MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.8,
+      flatShading: true,
+    });
+    for (const cls of CLASS_IDS) {
+      const mesh = new InstancedMesh(createOutfitGeometry(cls), outfitMaterial, MAX_KIWIS);
+      mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+      mesh.frustumCulled = false;
+      mesh.count = 0;
+      this.outfits.set(cls, mesh);
+      this.group.add(mesh);
+    }
     this.ring = new Mesh(
       new RingGeometry(0.3, 0.4, 32).rotateX(-Math.PI / 2),
       new MeshBasicMaterial({
@@ -216,7 +328,9 @@ export class KiwisView {
     this.state = state;
     const ids = new Set(state.villagers.map((v) => v.id));
     for (const id of this.agents.keys()) if (!ids.has(id)) this.agents.delete(id);
+    this.classOf.clear();
     for (const v of state.villagers) {
+      this.classOf.set(v.id, v.classId);
       const agent = this.agents.get(v.id);
       if (agent) {
         agent.scale = sizeOf(v, agent.jitter);
@@ -315,6 +429,10 @@ export class KiwisView {
       const resource = (type && DEPOSITS[type]?.resource) ?? null;
       return { hex: { q: b.q, r: b.r }, resource };
     }
+    if (villager.job.kind === 'train') {
+      const school = getBuilding(this.state, villager.job.schoolId);
+      return school ? { hex: { q: school.q, r: school.r }, resource: null } : null;
+    }
     if (villager.job.kind === 'build') {
       const jobId = villager.job.queueItemId;
       const item = this.state.queue.find((i) => i.id === jobId);
@@ -345,12 +463,14 @@ export class KiwisView {
         ? `w:${job.buildingId}`
         : job.kind === 'build'
           ? `b:${job.queueItemId}`
-          : 'idle';
+          : job.kind === 'train'
+            ? `t:${job.schoolId}`
+            : 'idle';
     const changed = sig !== agent.plan;
     agent.plan = sig;
     const work = this.workTile(villager);
 
-    if (job.kind === 'build' && work) {
+    if ((job.kind === 'build' || job.kind === 'train') && work) {
       if (changed || (agent.activity !== 'walk' && agent.activity !== 'build')) {
         agent.carrying = null;
         this.walkTo(agent, work.hex, 0.55);
@@ -430,6 +550,7 @@ export class KiwisView {
   update(dt: number, time: number): void {
     if (!this.state) return;
     const villagers = new Map(this.state.villagers.map((v) => [v.id, v]));
+    const outfitCounts = new Map([...this.outfits.values()].map((mesh) => [mesh, { n: 0 }]));
     let i = 0;
     this.drawn.length = 0;
     for (const agent of this.agents.values()) {
@@ -500,6 +621,9 @@ export class KiwisView {
       this.m.compose(this.v, this.q, this.s);
       this.bodies.setMatrixAt(i, this.m);
       this.bodies.setColorAt(i, agent.tint);
+      const cls = this.classOf.get(agent.id);
+      const outfit = cls ? this.outfits.get(cls) : undefined;
+      if (outfit) outfit.setMatrixAt(outfitCounts.get(outfit)!.n++, this.m);
 
       // Legs swing alternately.
       for (let l = 0; l < 2; l++) {
@@ -539,6 +663,10 @@ export class KiwisView {
       this.loads.setMatrixAt(i, this.m);
       i++;
     }
+    for (const [mesh, c] of outfitCounts) {
+      mesh.count = c.n;
+      mesh.instanceMatrix.needsUpdate = true;
+    }
     const lit = this.highlightId ? this.agents.get(this.highlightId as VillagerId) : undefined;
     const shown = !!lit && this.drawn.includes(lit);
     this.ring.visible = shown;
@@ -562,6 +690,8 @@ export class KiwisView {
       mesh.geometry.dispose();
       (mesh.material as MeshStandardMaterial).dispose();
     }
+    for (const mesh of this.outfits.values()) mesh.geometry.dispose();
+    (this.outfits.get('builder')?.material as MeshStandardMaterial | undefined)?.dispose();
   }
 }
 

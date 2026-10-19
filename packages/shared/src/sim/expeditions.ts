@@ -14,7 +14,8 @@ import {
 } from './state';
 import { KIWI, MEMORIAL_MAX } from '../data/kiwis';
 import type { GameEvent } from './advance';
-import { grantXp, kiwiExposure, kiwiStrength, modifiers } from './kiwis';
+import { grantXp, hasSkill, kiwiExposure, kiwiStrength, modifiers } from './kiwis';
+import { SKILLS } from '../data/classes';
 
 export interface ExpeditionPlan {
   launchpadId: BuildingId;
@@ -64,9 +65,15 @@ export function targetDefense(state: GameState, target: ExpeditionTarget): numbe
   return target.defense + target.reinforce * (state.victories[target.id] ?? 0);
 }
 
-export function travelTime(target: ExpeditionTarget, launchpad: Building): number {
-  const factor = levelDef('launchpad', launchpad.level)?.travelTime ?? 1;
-  return Math.round((target.travelMs * factor) / 1000) * 1000;
+/** One-way travel time; a scout with Tailwind aboard shortens it. */
+export function travelTime(
+  target: ExpeditionTarget,
+  launchpad: Building,
+  crew: readonly Villager[] = [],
+): number {
+  const pad = levelDef('launchpad', launchpad.level)?.travelTime ?? 1;
+  const wind = crew.some((v) => hasSkill(v, 'tailwind')) ? SKILLS.tailwindTravel : 1;
+  return Math.round((target.travelMs * pad * wind) / 1000) * 1000;
 }
 
 /** What a crew eats over `ms` (gluttons eat more). */
@@ -80,7 +87,7 @@ function rations(crew: readonly Villager[], ms: number): { pulp: number; juice: 
 
 /** Cargo units taken by a crew. */
 export function crewWeight(crew: readonly Villager[]): number {
-  return crew.length * EXPEDITIONS.kiwiWeight;
+  return crew.reduce((sum, v) => sum + EXPEDITIONS.kiwiWeight * modifiers(v).weight, 0);
 }
 
 /**
@@ -150,7 +157,8 @@ function coverage(
 function strengthOf(crew: readonly Villager[], fed: number): number {
   const hunger = EXPEDITIONS.starvingStrength + (1 - EXPEDITIONS.starvingStrength) * fed;
   const total = crew.reduce((sum, v) => sum + kiwiStrength(v), 0);
-  return total * EXPEDITIONS.strengthPerKiwi * hunger;
+  const scouting = crew.some((v) => hasSkill(v, 'scouting')) ? 1 + SKILLS.scoutingStrength : 1;
+  return total * EXPEDITIONS.strengthPerKiwi * hunger * scouting;
 }
 
 /** Everything the preparation screen shows; the same maths drive the simulation. */
@@ -163,7 +171,7 @@ export function forecastExpedition(
   if (!pad || !target) return null;
   const crew = crewOf(state, plan.crew) ?? [];
   const cargo = shipCargo(pad);
-  const travelMs = travelTime(target, pad);
+  const travelMs = travelTime(target, pad, crew);
   const need = rations(crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(crew, fed);
@@ -240,13 +248,19 @@ export function launch(
   for (const v of crew) v.job = { kind: 'expedition', expeditionId: id };
   state.resources.pulp -= plan.provisions.pulp;
   state.resources.juice -= plan.provisions.juice;
-  const travelMs = travelTime(target, pad);
+  const travelMs = travelTime(target, pad, crew);
   const expedition: Expedition = {
     id,
     targetId: target.id,
     launchpadId: pad.id,
     crew: crew.map((v) => v.id),
-    roster: crew.map((v) => ({ id: v.id, name: v.name, level: v.level, shiny: v.shiny })),
+    roster: crew.map((v) => ({
+      id: v.id,
+      name: v.name,
+      level: v.level,
+      shiny: v.shiny,
+      classId: v.classId,
+    })),
     provisions: { ...emptyResources(), pulp: plan.provisions.pulp, juice: plan.provisions.juice },
     cargo: shipCargo(pad),
     departedAt: now,
@@ -380,6 +394,7 @@ function removeVillagers(
       name: v.name,
       level: v.level,
       shiny: v.shiny,
+      classId: v.classId,
       bornAt: v.bornAt,
       diedAt: at,
       cause,

@@ -2097,3 +2097,50 @@ button.chip:focus-visible {
   filter: grayscale(0.8);
   opacity: 0.8;
 }
+
+.small-title {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+}
+
+.skill-list li,
+.course-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.skill-list li.is-locked,
+.course-list li.is-locked {
+  opacity: 0.6;
+}
+
+.skill-main,
+.course-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.buff-badge {
+  position: absolute;
+  top: calc(var(--safe-top) + 78px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  z-index: 15;
+}
+
+@media (max-width: 760px) {
+  .buff-badge {
+    top: calc(var(--safe-top) + 118px);
+  }
+}

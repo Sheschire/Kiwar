@@ -51,6 +51,8 @@ export interface KiwiModifiers {
   exposure?: number;
   /** Rations eaten on an expedition. */
   rations?: number;
+  /** Cargo taken aboard a ship. */
+  weight?: number;
 }
 
 /** A small advantage and a small drawback each. */
@@ -72,7 +74,7 @@ export const KIWI = {
   traitChance: 0.3,
   maxLevel: 30,
   /** Experience per hour by activity (idle and travelling kiwis do not learn; see expeditionXp). */
-  xpPerHour: { work: 10, build: 12 },
+  xpPerHour: { work: 10, build: 12, train: 10 },
   /** Experience bonus per point of Spirit above average (+4 %). */
   spiritXp: 0.04,
   /** Lump of experience for every crew member coming home (part 3). */

@@ -19,7 +19,23 @@ import { TopBar } from './components/TopBar';
 import { WorldModal } from './components/WorldModal';
 import { FollowBadge, VillageModal } from './components/VillageModal';
 import { actions } from './actions';
-import { uiStore, useUi } from './store';
+import { uiStore, useT, useUi } from './store';
+import { SKILLS } from '@kiwar/shared';
+import { formatDuration } from '../i18n/i18n';
+
+/** The mayor's speech is running: a small badge under the top bar. */
+function SpeechBadge() {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const left = useUi((s) => (s.game ? s.game.speechUntil - s.now : 0));
+  if (left <= 0) return null;
+  return (
+    <div class="buff-badge parchment pe">
+      {t('skills.speech.name')} · +{Math.round(SKILLS.speechBonus * 100)} % ·{' '}
+      {formatDuration(lang, left)}
+    </div>
+  );
+}
 
 export function App() {
   const modal = useUi((s) => s.modal);
@@ -54,6 +70,7 @@ export function App() {
       <PathToolbar />
       <TilePanel />
       <FollowBadge />
+      <SpeechBadge />
       <Toasts />
       {debugOpen && <DebugPanel />}
       {modal === 'settings' && <SettingsModal />}

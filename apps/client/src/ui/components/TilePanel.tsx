@@ -217,6 +217,7 @@ function BuildingSection({
           </button>
         </>
       )}
+      {b.type === 'school' && <SchoolInfo game={game} b={b} now={now} t={t} />}
       {def.storage !== undefined && (
         <div class="stat-row">
           <span class="stat-label">{t('building.storage')}</span>
@@ -278,6 +279,41 @@ function BuildingSection({
         </button>
       )}
     </div>
+  );
+}
+
+/** School: who is in class, and a shortcut to pick a kiwi to train. */
+function SchoolInfo(props: { game: GameState; b: Building; now: number; t: Translate }) {
+  const { game, b, now, t } = props;
+  const lang = useUi((s) => s.lang);
+  const trainees = game.villagers.filter((v) => v.job.kind === 'train' && v.job.schoolId === b.id);
+  const slots = levelDef('school', b.level)?.trainingSlots ?? 0;
+  return (
+    <>
+      <div class="stat-row">
+        <span class="stat-label">{t('building.trainees')}</span>
+        <span>
+          <KiwiIcon size={16} /> {trainees.length}/{slots}
+        </span>
+      </div>
+      {trainees.length === 0 ? (
+        <p class="small muted">{t('building.noTrainee')}</p>
+      ) : (
+        trainees.map((v) =>
+          v.job.kind === 'train' ? (
+            <p class="small" key={v.id}>
+              {t('kiwi.training', {
+                class: `${v.name} → ${t(`classes.${v.job.classId}.name`)}`,
+                duration: formatDuration(lang, Math.max(0, v.job.until - now)),
+              })}
+            </p>
+          ) : null,
+        )
+      )}
+      <button class="btn" onClick={() => actions.openVillage()}>
+        {t('building.chooseKiwi')}
+      </button>
+    </>
   );
 }
 

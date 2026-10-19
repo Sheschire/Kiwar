@@ -36,6 +36,11 @@ export function activityOf(
   b: Building,
   full = storageFullCheck(state),
 ): Activity {
+  if (b.type === 'school') {
+    // The bell rings while a class is in session.
+    const busy = state.villagers.some((v) => v.job.kind === 'train' && v.job.schoolId === b.id);
+    return { speed: busy ? 1 : 0, icon: null };
+  }
   if (!isProducer(b.type)) return { speed: 1, icon: null };
   const h = buildingHarvest(state, b, full);
   if (!h) return { speed: 0, icon: null };

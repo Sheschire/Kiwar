@@ -32,6 +32,15 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
           });
         else pushToast('success', 'events.levelUp', { name: e.name, level: e.level });
         break;
+      case 'trained':
+        pushToast('success', 'events.trained', {
+          name: e.name,
+          class: `@classes.${e.classId}.name`,
+        });
+        break;
+      case 'speechOver':
+        pushToast('info', 'events.speechOver');
+        break;
       case 'masteryUp':
         pushToast('info', 'events.masteryUp', {
           name: e.name,

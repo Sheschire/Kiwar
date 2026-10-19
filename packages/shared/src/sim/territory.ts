@@ -301,6 +301,8 @@ export function harvestOf(
   /** Summed power of the staff (one average kiwi = 1). */
   workers: number,
   storageFull: (id: ResourceId) => boolean,
+  /** Regrowth multiplier (mages working there). */
+  regenMultiplier = 1,
 ): Harvest | null {
   const type = harvestedTileType(map, b);
   const dep = type ? DEPOSITS[type] : undefined;
@@ -310,7 +312,9 @@ export function harvestOf(
   const distance = depotDistance(state, map, b);
   const efficiency = logisticsEfficiency(distance);
   const demand = slots > 0 ? (baseHarvest(b, resource) * workers * efficiency) / slots : 0;
-  const { cap, regen } = poolCapacity(map, b.pool?.tiles ?? []);
+  const pool = poolCapacity(map, b.pool?.tiles ?? []);
+  const cap = pool.cap;
+  const regen = pool.regen * regenMultiplier;
   const stock = Math.min(cap, b.pool?.stock ?? cap);
   let harvest = demand;
   let status: HarvestStatus = 'ok';

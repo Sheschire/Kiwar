@@ -19,6 +19,9 @@ import {
   type TraitId,
 } from '../data/kiwis';
 import type { ResourceId } from '../data/resources';
+import { CLASSES, SKILLS, type ClassId, type SkillId } from '../data/classes';
+import { levelDef } from '../data/buildings';
+import { RESOURCE_IDS, type ResourceCost } from '../data/resources';
 import { DEPOSITS } from '../data/territory';
 import type { Rng } from '../rng/rng';
 import type { BuildingId, TimeMs } from '../types/ids';
@@ -70,23 +73,45 @@ export function newKiwi(roll: KiwiRoll): Omit<Villager, 'id' | 'name' | 'bornAt'
     statPoints: 0,
     mastery: emptyMasteries(),
     history: { expeditions: 0, victories: 0, built: 0 },
+    classId: null,
+    skillReadyAt: {},
   };
 }
 
 // ---------------------------------------------------------------------------------------------
 // Modifiers and powers
 
+const MODIFIER_KEYS = [
+  'xp',
+  'practice',
+  'harvest',
+  'build',
+  'fight',
+  'exposure',
+  'rations',
+  'weight',
+] as const satisfies readonly (keyof KiwiModifiers)[];
+
+/** Trait × class × unlocked passive skills. */
 export function modifiers(v: Villager): Required<KiwiModifiers> {
-  const t = v.trait ? TRAITS[v.trait] : {};
-  return {
-    xp: t.xp ?? 1,
-    practice: t.practice ?? 1,
-    harvest: t.harvest ?? 1,
-    build: t.build ?? 1,
-    fight: t.fight ?? 1,
-    exposure: t.exposure ?? 1,
-    rations: t.rations ?? 1,
+  const out = Object.fromEntries(MODIFIER_KEYS.map((k) => [k, 1])) as Required<KiwiModifiers>;
+  const apply = (m: KiwiModifiers | undefined) => {
+    if (m) for (const k of MODIFIER_KEYS) out[k] *= m[k] ?? 1;
   };
+  apply(v.trait ? TRAITS[v.trait] : undefined);
+  if (v.classId) {
+    const c = CLASSES[v.classId];
+    apply(c.modifiers);
+    for (const skill of c.skills) if (v.level >= skill.level) apply(skill.modifiers);
+  }
+  return out;
+}
+
+/** Whether a kiwi has unlocked a skill (its class and level). */
+export function hasSkill(v: Villager, skill: SkillId): boolean {
+  if (!v.classId) return false;
+  const def = CLASSES[v.classId].skills.find((x) => x.id === skill);
+  return !!def && v.level >= def.level;
 }
 
 export function levelForXp(xp: number): number {
@@ -172,7 +197,29 @@ export function kiwiExposure(v: Villager): number {
 export function workforce(state: GameState, b: Building, workers: Villager[]): number {
   const resource = buildingResource(state, b);
   if (!resource) return workers.length;
-  return workers.reduce((sum, v) => sum + workerPower(v, resource), 0);
+  const sum = workers.reduce((total, v) => total + workerPower(v, resource), 0);
+  return sum * colonyBonus(state);
+}
+
+/** The mayor at home, if any. */
+export function mayorOf(state: GameState): Villager | undefined {
+  return state.villagers.find((v) => v.classId === 'mayor' && v.job.kind !== 'expedition');
+}
+
+/** Harvest multiplier of the whole colony: the mayor's organisation and speeches. */
+export function colonyBonus(state: GameState): number {
+  const mayor = mayorOf(state);
+  if (!mayor) return 1;
+  let bonus = SKILLS.mayorPerCharisma * mayor.stats.charisma;
+  if (hasSkill(mayor, 'organisation')) bonus += SKILLS.organisationBonus;
+  if (state.speechUntil > state.now) bonus += SKILLS.speechBonus;
+  return 1 + bonus;
+}
+
+/** Regrowth multiplier of a building's deposits (mages with Green thumb working there). */
+export function regenBonus(workers: Villager[]): number {
+  const mages = workers.filter((v) => hasSkill(v, 'greenThumb')).length;
+  return 1 + SKILLS.greenThumbRegen * mages;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -204,6 +251,8 @@ function ratesOf(
   } else if (job.kind === 'build') {
     perHour = KIWI.xpPerHour.build;
     mastery = 'build';
+  } else if (job.kind === 'train') {
+    perHour = KIWI.xpPerHour.train;
   }
   if (perHour === 0) return { xp: 0, practice: 0, mastery: null };
   const m = modifiers(v);
@@ -307,4 +356,19 @@ function pickStat(rng: Rng, v: Villager): StatId | null {
     if (roll < 0) return id;
   }
   return open[open.length - 1]!;
+}
+
+/** Price of a class for this kiwi (changing class costs more). */
+export function trainingCost(v: Villager, classId: ClassId): ResourceCost {
+  const k = v.classId ? SKILLS.retrainCost : 1;
+  const out: ResourceCost = {};
+  const cost = CLASSES[classId].cost;
+  for (const id of RESOURCE_IDS) if (cost[id]) out[id] = cost[id]! * k;
+  return out;
+}
+
+/** Training time of a class at a School (faster at level 3). */
+export function trainingDuration(school: Building, classId: ClassId): number {
+  const speed = levelDef('school', school.level)?.trainingTime ?? 1;
+  return Math.round(CLASSES[classId].trainingMs * speed);
 }

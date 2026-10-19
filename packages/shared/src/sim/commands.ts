@@ -14,11 +14,13 @@ import {
   startNextConstruction,
   type GameEvent,
 } from './advance';
-import { buildingResource, workerPower } from './kiwis';
+import { buildingResource, hasSkill, trainingCost, trainingDuration, workerPower } from './kiwis';
+import { CLASSES, SKILLS, type ClassId, type SkillId } from '../data/classes';
 import { releasePool, syncPools } from './territory';
 import {
   buildCost,
   buildingAt,
+  buildingHarvest,
   buildingCount,
   canAfford,
   canHatch,
@@ -82,6 +84,10 @@ export type Command =
   | { type: 'renameVillager'; villagerId: VillagerId; name: string }
   /** Place a stat point earned on an even level. */
   | { type: 'spendStatPoint'; villagerId: VillagerId; stat: StatId }
+  /** Send a kiwi to the School to learn a class (or change class, for a higher price). */
+  | { type: 'train'; villagerId: VillagerId; schoolId: BuildingId; classId: ClassId }
+  /** Use an active skill (mage's Rain, mayor's Speech). */
+  | { type: 'useSkill'; villagerId: VillagerId; skill: SkillId }
   /** Debug panel only. Will be rejected by the server in milestone 2. */
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
@@ -123,6 +129,16 @@ export const COMMAND_ERRORS = [
   'noStatPoint',
   'statMaxed',
   'invalidCrew',
+  'notASchool',
+  'classLocked',
+  'levelTooLow',
+  'alreadyThisClass',
+  'kiwiBusy',
+  'mayorExists',
+  'schoolFull',
+  'skillLocked',
+  'skillCooling',
+  'notHere',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -419,6 +435,12 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
           v.job = { kind: 'idle' };
           autoAssign(s, v);
         }
+        // Trainees of a demolished School get their fee back.
+        if (v.job.kind === 'train' && v.job.schoolId === b.id) {
+          refund(s, v.job.paid);
+          v.job = { kind: 'idle' };
+          autoAssign(s, v);
+        }
       }
       return;
     }
@@ -438,6 +460,63 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (v.stats[cmd.stat] >= KIWI.stat.cap) fail('statMaxed');
       v.stats[cmd.stat]++;
       v.statPoints--;
+      return;
+    }
+    case 'train': {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail('unknownVillager');
+      const school = getBuilding(s, cmd.schoolId);
+      if (!school || school.type !== 'school') return fail('notASchool');
+      const def = CLASSES[cmd.classId];
+      if (!def) return fail('classLocked');
+      if (school.level < def.schoolLevel) fail('classLocked');
+      if (v.level < def.minLevel) fail('levelTooLow');
+      if (v.classId === cmd.classId) fail('alreadyThisClass');
+      if (v.job.kind !== 'idle' && v.job.kind !== 'work') fail('kiwiBusy');
+      if (
+        def.unique &&
+        s.villagers.some(
+          (x) =>
+            x.id !== v.id &&
+            (x.classId === cmd.classId ||
+              (x.job.kind === 'train' && x.job.classId === cmd.classId)),
+        )
+      ) {
+        fail('mayorExists');
+      }
+      const lvl = levelDef('school', school.level)!;
+      const trainees = s.villagers.filter(
+        (x) => x.job.kind === 'train' && x.job.schoolId === school.id,
+      ).length;
+      if (trainees >= (lvl.trainingSlots ?? 0)) fail('schoolFull');
+      const cost = trainingCost(v, cmd.classId);
+      pay(s, cost);
+      v.job = {
+        kind: 'train',
+        schoolId: school.id,
+        classId: cmd.classId,
+        until: now + trainingDuration(school, cmd.classId),
+        paid: cost,
+      };
+      return;
+    }
+    case 'useSkill': {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail('unknownVillager');
+      const def = v.classId ? CLASSES[v.classId].skills.find((x) => x.id === cmd.skill) : undefined;
+      if (!def?.cooldownMs || !hasSkill(v, cmd.skill)) return fail('skillLocked');
+      if ((v.skillReadyAt[cmd.skill] ?? 0) > now) fail('skillCooling');
+      if (v.job.kind === 'expedition' || v.job.kind === 'train') fail('kiwiBusy');
+      if (cmd.skill === 'rain') {
+        const b = v.job.kind === 'work' ? getBuilding(s, v.job.buildingId) : undefined;
+        const h = b?.pool ? buildingHarvest(s, b) : null;
+        if (!b?.pool || !h) return fail('notHere');
+        b.pool.stock = Math.min(h.cap, h.stock + SKILLS.rainRefill * h.cap);
+      } else if (cmd.skill === 'speech') {
+        const k = hasSkill(v, 'festival') ? SKILLS.festivalMultiplier : 1;
+        s.speechUntil = now + SKILLS.speechMs * k;
+      }
+      v.skillReadyAt[cmd.skill] = now + def.cooldownMs;
       return;
     }
     case 'debugGrant': {

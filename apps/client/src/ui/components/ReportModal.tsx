@@ -54,7 +54,7 @@ export function ReportModal() {
             const lost = !back;
             return (
               <li key={m.id} class={lost ? 'is-lost' : ''}>
-                <KiwiPortrait shiny={m.shiny ?? null} seed={m.id} size={36} />
+                <KiwiPortrait shiny={m.shiny ?? null} classId={m.classId} seed={m.id} size={36} />
                 <span class="small">
                   <strong>{m.name}</strong>
                   {m.level !== undefined && ` · ${t('common.levelShort', { level: m.level })}`}

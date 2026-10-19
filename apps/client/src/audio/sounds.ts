@@ -38,6 +38,9 @@ export function playGameEventSounds(events: GameEvent[]): void {
       case 'masteryUp':
         audio.play('kiwi.mastery');
         break;
+      case 'trained':
+        audio.play('kiwi.levelUp');
+        break;
       case 'storageFull':
         audio.play('storage.full');
         break;
@@ -79,6 +82,9 @@ export function playCommandSound(cmd: Command): void {
       break;
     case 'buildPath':
       audio.play('path.paint');
+      break;
+    case 'useSkill':
+      audio.play('kiwi.levelUp');
       break;
     default:
       break;

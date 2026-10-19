@@ -12,6 +12,7 @@ export * from './data/start';
 export * from './data/expeditions';
 export * from './data/territory';
 export * from './data/kiwis';
+export * from './data/classes';
 export * from './worldgen/generateFace';
 export * from './sim/state';
 export * from './sim/selectors';

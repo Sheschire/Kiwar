@@ -15,6 +15,7 @@ import {
 } from './selectors';
 import { resolveArrival, resolveReturn } from './expeditions';
 import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
+import type { ClassId } from '../data/classes';
 import { accrueKiwis, builderSpeed, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
 import { faceMapOf, syncPools, timeToDepletion } from './territory';
 import {
@@ -59,6 +60,8 @@ export type GameEvent =
       level: number;
       stat: StatId | null;
     }
+  | { type: 'trained'; at: TimeMs; villagerId: VillagerId; name: string; classId: ClassId }
+  | { type: 'speechOver'; at: TimeMs }
   | {
       type: 'masteryUp';
       at: TimeMs;
@@ -101,12 +104,16 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
     const flows = computeFlows(s);
+    const trainingEnd = nextTrainingEnd(s);
+    const speechEnd = s.speechUntil > s.now ? s.speechUntil : Infinity;
     const nextEvent = Math.min(
       constructionEnd,
       eggEnd,
       expedition?.at ?? Infinity,
       flows.nextChange,
       nextKiwiEvent(s),
+      trainingEnd,
+      speechEnd,
     );
     const target = Math.min(nextEvent, now);
     if (target > s.now) {
@@ -122,6 +129,8 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     if (s.egg && s.egg.readyAt <= now && s.egg.readyAt === nextEvent) {
       hatch(s, s.egg.readyAt, events);
     }
+    if (trainingEnd === nextEvent) finishTrainings(s, trainingEnd, events);
+    if (speechEnd === nextEvent) events.push({ type: 'speechOver', at: speechEnd });
     if (expedition && expedition.at === nextEvent) {
       const e = expedition.expedition;
       if (e.status === 'outbound') {
@@ -333,6 +342,24 @@ export function idleByPower(s: GameState, b: Building): Villager[] {
     .map((v, i) => ({ v, i, p: workerPower(v, resource) }))
     .sort((a, c) => c.p - a.p || a.i - c.i)
     .map((x) => x.v);
+}
+
+function nextTrainingEnd(s: GameState): TimeMs {
+  let next = Infinity;
+  for (const v of s.villagers) if (v.job.kind === 'train') next = Math.min(next, v.job.until);
+  return next;
+}
+
+/** Trainees whose course ends at `at` get their class and go back to work. */
+function finishTrainings(s: GameState, at: TimeMs, events: GameEvent[]): void {
+  for (const v of s.villagers) {
+    if (v.job.kind !== 'train' || v.job.until !== at) continue;
+    v.classId = v.job.classId;
+    v.skillReadyAt = {};
+    v.job = { kind: 'idle' };
+    events.push({ type: 'trained', at, villagerId: v.id, name: v.name, classId: v.classId });
+    autoAssign(s, v);
+  }
 }
 
 function nextExpeditionEvent(s: GameState): { at: TimeMs; expedition: Expedition } | null {

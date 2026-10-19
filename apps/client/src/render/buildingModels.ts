@@ -523,6 +523,55 @@ function launchpad(level: number, docked = true): Parts {
   return p;
 }
 
+/**
+ * School: a cream schoolhouse with a red roof and a bell tower whose bell swings. Level 2 adds
+ * a training yard (a straw dummy), level 3 a mage's tower with a twinkling crystal.
+ */
+function school(level: number): Parts {
+  const p: Parts = [];
+  const s = 0.85 + level * 0.08;
+  p.push([box(), C.stone, m(0, 0.03, 0, 0.78 * s, 0.06, 0.56 * s)]);
+  p.push([box(), C.cream, m(0, 0.24 * s, 0, 0.64 * s, 0.4 * s, 0.44 * s)]);
+  p.push([roofPrism(), C.roof, m(0, 0.54 * s, 0, 0.28 * s, 0.72 * s, 0.3 * s, 0, 0, Math.PI / 2)]);
+  p.push([box(), C.door, m(0, 0.14 * s, 0.225 * s, 0.13, 0.22 * s, 0.02)]);
+  for (const x of [-0.2, 0.2]) {
+    p.push([box(), C.flagBlue, m(x * s, 0.27 * s, 0.225 * s, 0.1, 0.1, 0.015)]);
+    p.push([box(), C.white, m(x * s, 0.27 * s, 0.23 * s, 0.11, 0.015, 0.015)]);
+  }
+  // Bell tower on the ridge; the bell rings when the classes are in session.
+  const tx = 0.18 * s;
+  const ty = 0.72 * s;
+  p.push([box(), C.wood, m(tx, ty, 0, 0.16, 0.2, 0.16)]);
+  p.push([cone(4), C.roofDark, m(tx, ty + 0.18, 0, 0.15, 0.16, 0.15, 0, Math.PI / 4, 0)]);
+  rig(p, 'bell', [tx, ty + 0.07, 0], { kind: 'swing', axis: 'z', amount: 0.45, speed: 2.4 });
+  p.push([cone(8), C.flagGold, m(tx, ty + 0.01, 0, 0.055, 0.09, 0.055), 'bell']);
+  // Chalkboard by the door.
+  p.push([box(), C.leafDark, m(-0.42 * s, 0.2, 0.2, 0.2, 0.16, 0.02, 0, 0.5, 0)]);
+  p.push([box(), C.woodDark, m(-0.42 * s, 0.08, 0.2, 0.02, 0.16, 0.02, 0, 0.5, 0)]);
+  if (level >= 2) {
+    // Training dummy for the warriors.
+    p.push([cyl(5), C.woodDark, m(0.48 * s, 0.18, 0.28, 0.02, 0.36, 0.02)]);
+    p.push([cyl(8), C.straw, m(0.48 * s, 0.26, 0.28, 0.07, 0.16, 0.07)]);
+    p.push([sphere(6, 4), C.strawDark, m(0.48 * s, 0.39, 0.28, 0.06, 0.06, 0.06)]);
+    p.push([cyl(5), C.woodDark, m(0.48 * s, 0.28, 0.28, 0.015, 0.22, 0.015, 0, 0, Math.PI / 2)]);
+  }
+  if (level >= 3) {
+    // Mage's tower with a floating crystal.
+    p.push([cyl(8), C.stoneDark, m(-0.38 * s, 0.4, -0.22, 0.11, 0.8, 0.11)]);
+    p.push([cone(8), C.flagBlue, m(-0.38 * s, 0.9, -0.22, 0.15, 0.24, 0.15)]);
+    rig(p, 'crystal', [-0.38 * s, 1.1, -0.22], {
+      kind: 'bob',
+      amount: 0.03,
+      speed: 2,
+      ambient: true,
+    });
+    p.push([ico(), C.juice, m(-0.38 * s, 1.1, -0.22, 0.05, 0.08, 0.05), 'crystal']);
+    emitter(p, { kind: 'gold', at: [-0.38 * s, 1.12, -0.22], rate: 1.2, ambient: true });
+  }
+  flag(p, level, 0.42, 0.06, -0.3);
+  return p;
+}
+
 /** Gathering camp: a leaf lean-to, a woven basket and a little stone ring. No foundations. */
 function camp(): Parts {
   const p: Parts = [];
@@ -572,6 +621,7 @@ const BUILDERS: Record<BuildingType, (level: number) => Parts> = {
   juiceWell,
   hut,
   warehouse,
+  school,
 };
 
 const cache = new Map<string, BufferGeometry>();

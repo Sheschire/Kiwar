@@ -14,6 +14,7 @@ import {
   type StatId,
 } from '../data/kiwis';
 import { createRng } from '../rng/rng';
+import { CLASS_IDS, SKILL_IDS } from '../data/classes';
 import { newKiwi, rollKiwi } from '../sim/kiwis';
 
 const resources = z.object({
@@ -35,6 +36,13 @@ const job = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('work'), buildingId: id }),
   z.object({ kind: z.literal('build'), queueItemId: id, returnTo: id.nullable() }),
   z.object({ kind: z.literal('expedition'), expeditionId: id }),
+  z.object({
+    kind: z.literal('train'),
+    schoolId: id,
+    classId: z.enum(CLASS_IDS),
+    until: z.number(),
+    paid: partialResources,
+  }),
 ]);
 
 export const gameStateSchema = z.object({
@@ -84,6 +92,8 @@ export const gameStateSchema = z.object({
         victories: z.number().int().min(0),
         built: z.number().int().min(0),
       }),
+      classId: z.enum(CLASS_IDS).nullable(),
+      skillReadyAt: z.record(z.enum(SKILL_IDS), z.number()),
     }),
   ),
   memorial: z
@@ -93,12 +103,14 @@ export const gameStateSchema = z.object({
         name: z.string().max(4 * KIWI_NAME_MAX),
         level: z.number().int().min(1).max(KIWI.maxLevel),
         shiny: z.enum(SHINY_COLORS).nullable(),
+        classId: z.enum(CLASS_IDS).nullable().optional(),
         bornAt: z.number(),
         diedAt: z.number(),
         cause: z.enum(['battle', 'starvation']),
       }),
     )
     .max(MEMORIAL_MAX),
+  speechUntil: z.number().min(0),
   queue: z.array(
     z.object({
       id,
@@ -148,6 +160,7 @@ export const gameStateSchema = z.object({
           name: z.string(),
           level: z.number().int().min(1).optional(),
           shiny: z.enum(SHINY_COLORS).nullable().optional(),
+          classId: z.enum(CLASS_IDS).nullable().optional(),
         }),
       ),
       provisions: resources,
@@ -204,6 +217,18 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
         }))
       : raw.villagers,
     memorial: [],
+  }),
+  // v4 → v5: classes and skills (chantier 03, part 4).
+  4: (raw) => ({
+    ...raw,
+    villagers: Array.isArray(raw.villagers)
+      ? raw.villagers.map((v: Record<string, unknown>) => ({
+          ...v,
+          classId: null,
+          skillReadyAt: {},
+        }))
+      : raw.villagers,
+    speechUntil: 0,
   }),
 };
 
