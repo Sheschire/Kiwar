@@ -483,6 +483,411 @@ p {
   }
 }
 
+/* ---------- Shared panel bits ---------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: rgba(111, 154, 44, 0.16);
+  color: var(--leaf-dark);
+  border: 1px solid rgba(79, 116, 25, 0.35);
+  white-space: nowrap;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cost,
+.rates {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.cost-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.cost-item.missing {
+  color: var(--berry);
+}
+
+.cost-time {
+  color: var(--ink-soft);
+}
+
+.progress-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress {
+  flex: 1;
+  display: block;
+  height: 8px;
+  border-radius: 6px;
+  background: rgba(122, 90, 64, 0.18);
+  overflow: hidden;
+  box-shadow: 0 1px 1px rgba(74, 40, 20, 0.15) inset;
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: repeating-linear-gradient(-45deg, #9ccc4a 0 8px, #8bbd3c 8px 16px);
+  transition: width 0.25s linear;
+}
+
+.bonus {
+  color: var(--leaf-dark);
+  font-weight: 500;
+}
+
+.glow {
+  animation: glow 1.6s ease-in-out infinite;
+}
+
+@keyframes glow {
+  50% {
+    box-shadow:
+      0 2px 0 var(--leaf-dark),
+      0 0 0 5px rgba(160, 210, 80, 0.35),
+      0 3px 12px rgba(40, 60, 10, 0.3);
+  }
+}
+
+/* ---------- Tile panel (side card on desktop, bottom sheet on mobile) ---------- */
+
+.sheet {
+  position: absolute;
+  right: calc(var(--gap) + var(--safe-right));
+  top: calc(84px + var(--safe-top));
+  width: 350px;
+  max-height: calc(100% - 84px - 120px - var(--safe-top) - var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  animation: slide-in-right 0.22s cubic-bezier(0.2, 1.2, 0.4, 1);
+  z-index: 10;
+}
+
+.sheet-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 8px 6px 16px;
+  border-bottom: 1px dashed rgba(138, 95, 56, 0.35);
+}
+
+.tile-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.sheet-body {
+  padding: 10px 16px 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stat-label {
+  min-width: 90px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stepper .btn {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.stepper-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 56px;
+  justify-content: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.upgrade-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(184, 138, 90, 0.4);
+}
+
+.build-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.build-option {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(184, 138, 90, 0.45);
+}
+
+.build-option-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.build-option-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+}
+
+/* ---------- Objectives ---------- */
+
+.objectives {
+  position: absolute;
+  left: calc(var(--gap) + var(--safe-left));
+  top: calc(84px + var(--safe-top));
+  width: 290px;
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: slide-in-left 0.22s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+
+.objectives h3,
+.queue h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.objectives h3 .badge {
+  margin-left: auto;
+}
+
+.objective {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.objective.done strong {
+  color: var(--leaf-dark);
+}
+
+.objective-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.objective-foot .btn {
+  margin-left: auto;
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
+/* ---------- Queue ---------- */
+
+.queue {
+  position: absolute;
+  left: calc(var(--gap) + var(--safe-left));
+  bottom: calc(var(--gap) + var(--safe-bottom));
+  width: 300px;
+  padding: 10px 10px 8px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.queue ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.queue-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.queue-main {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  cursor: pointer;
+}
+
+.queue-label {
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.queue-row:not(.active) .queue-label {
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+/* ---------- Egg ---------- */
+
+.egg-wrap {
+  position: absolute;
+  right: calc(var(--gap) + var(--safe-right));
+  bottom: calc(var(--gap) + var(--safe-bottom));
+  display: flex;
+  align-items: center;
+  flex-direction: row-reverse;
+  gap: 8px;
+}
+
+.egg-btn {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 3px solid var(--edge);
+  background: radial-gradient(circle at 35% 30%, #fffaf0, var(--paper-dark));
+  box-shadow:
+    0 3px 0 var(--edge-dark),
+    0 6px 16px rgba(74, 40, 20, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.egg-btn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+  opacity: 0.75;
+}
+
+.egg-btn.ready {
+  border-color: var(--leaf-dark);
+  animation: glow 1.8s ease-in-out infinite;
+}
+
+.egg-btn.ready:active {
+  transform: scale(0.94);
+}
+
+.egg-btn.hatching {
+  background:
+    radial-gradient(circle, #fffaf0 58%, transparent 60%),
+    conic-gradient(var(--leaf) var(--p), rgba(122, 90, 64, 0.2) 0);
+}
+
+.wobble {
+  animation: wobble 1.2s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+
+@keyframes wobble {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-9deg);
+  }
+  75% {
+    transform: rotate(9deg);
+  }
+}
+
+.egg-label {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  max-width: 230px;
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 760px) {
@@ -533,6 +938,63 @@ p {
     bottom: calc(var(--gap) + var(--safe-bottom));
     right: 50%;
     transform: translateX(50%);
+    z-index: 30;
+  }
+
+  .sheet {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: auto;
+    max-height: 52%;
+    border-radius: 20px 20px 0 0;
+    border-bottom: none;
+    padding-bottom: var(--safe-bottom);
+    animation: slide-in-up 0.25s cubic-bezier(0.2, 1.2, 0.4, 1);
+  }
+
+  .sheet-header::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 5px;
+    width: 40px;
+    height: 4px;
+    margin-left: -20px;
+    border-radius: 2px;
+    background: rgba(138, 95, 56, 0.35);
+  }
+
+  .objectives {
+    top: calc(64px + var(--safe-top));
+    width: calc(100% - 2 * var(--gap) - 60px - var(--safe-left) - var(--safe-right));
+    max-width: 320px;
+    padding: 8px 12px 10px;
+  }
+
+  .objectives .objective p {
+    display: none;
+  }
+
+  .queue {
+    width: auto;
+    right: calc(var(--gap) + 96px);
+  }
+
+  .egg-label {
+    display: none;
+  }
+
+  .egg-btn {
+    width: 60px;
+    height: 60px;
+  }
+
+  .has-sheet .queue,
+  .has-sheet .egg-wrap,
+  .has-sheet .objectives {
+    display: none;
   }
 }
 

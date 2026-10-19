@@ -73,3 +73,14 @@ Larger choices were validated with the project owner (marked ✅).
 - "While you were away" appears for absences ≥ 1 min: duration, resources gathered, constructions finished, kiwis hatched, storages that filled up.
 - Opening a `?seed=` link while a colony exists asks for confirmation instead of overwriting it.
 - Debug panel: `` ` `` key (also `²` on AZERTY) or Settings → Debug panel (mobile).
+
+### Gameplay UI (step 5)
+- **Tile panel**: side card on desktop, bottom sheet on mobile (max 52 % of the height, scrollable). It shows the tile (resource, richness), then either the building (workers −/+, production, housing/storage, upgrade with cost/duration and the exact reason when impossible), the construction progress, or the build menu filtered by tile type with a production preview (richness × climate).
+- Buttons are disabled using the shared `validateCommand` (the UI never duplicates rules).
+- **Queue panel** (bottom-left): progress, remaining time, builder name, cancel (full refund); tapping an entry selects and focuses the site.
+- **Egg button** (bottom-right) with a progress ring while hatching; cost and incubation time shown next to it on desktop.
+- **Objectives panel** (top-left, toggled by the scroll button; open by default on wide screens). Rewards are collected with a glowing button.
+- On mobile, opening the tile sheet hides the queue, egg and objectives to keep the view clear.
+- **Buildings**: procedural low-poly models (one merged, vertex-coloured geometry per type × level, cached), flags for levels 2 (blue) and 3 (gold). Construction sites show scaffolding with a translucent ghost rising with progress; queued sites show a stake. Completion = bouncy pop + sparkle burst. Decorative props are removed under buildings and sites; static shadows refresh on change.
+- Tapping a building selects its tile (raycast against buildings first, then tiles).
+- Dev builds expose `window.__kiwar` (controller, renderer, store, actions) for debugging.

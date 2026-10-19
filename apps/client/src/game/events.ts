@@ -3,7 +3,8 @@ import type { GameRenderer } from '../render/GameRenderer';
 import { pushToast } from '../ui/store';
 
 /** Turns simulation events into toasts and visual effects. */
-export function handleGameEvents(events: GameEvent[], _renderer: GameRenderer): void {
+export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): void {
+  renderer.onGameEvents(events);
   for (const e of events) {
     switch (e.type) {
       case 'constructionComplete':

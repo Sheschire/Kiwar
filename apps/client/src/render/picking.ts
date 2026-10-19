@@ -1,4 +1,4 @@
-import { Raycaster, Vector2, type Camera, type InstancedMesh } from 'three';
+import { Raycaster, Vector2, type Camera, type InstancedMesh, type Object3D } from 'three';
 
 const TAP_MAX_MOVE_MOUSE = 6;
 const TAP_MAX_MOVE_TOUCH = 14;
@@ -83,21 +83,38 @@ export class TapDetector {
 const raycaster = new Raycaster();
 const ndc = new Vector2();
 
-/** Returns the instance id of the instanced mesh under the given client coordinates. */
-export function pickInstance(
+export type PickResult =
+  { kind: 'tile'; instanceId: number } | { kind: 'object'; q: number; r: number };
+
+/**
+ * Finds what is under the given client coordinates: a terrain tile (instance id) or an object
+ * carrying `userData.q/r` (building, construction site) — whichever is closest.
+ */
+export function pick(
   element: HTMLElement,
   camera: Camera,
-  mesh: InstancedMesh,
+  terrain: InstancedMesh,
+  objects: Object3D[],
   clientX: number,
   clientY: number,
-): number | null {
+): PickResult | null {
   const rect = element.getBoundingClientRect();
   ndc.set(
     ((clientX - rect.left) / rect.width) * 2 - 1,
     -((clientY - rect.top) / rect.height) * 2 + 1,
   );
   raycaster.setFromCamera(ndc, camera);
-  const hits = raycaster.intersectObject(mesh, false);
-  const hit = hits[0];
-  return hit?.instanceId ?? null;
+  const hits = raycaster.intersectObjects([terrain, ...objects], true);
+  for (const hit of hits) {
+    if (hit.object === terrain && hit.instanceId !== undefined) {
+      return { kind: 'tile', instanceId: hit.instanceId };
+    }
+    let o: Object3D | null = hit.object;
+    while (o) {
+      if (typeof o.userData.q === 'number')
+        return { kind: 'object', q: o.userData.q, r: o.userData.r };
+      o = o.parent;
+    }
+  }
+  return null;
 }

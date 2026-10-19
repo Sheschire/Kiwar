@@ -1,5 +1,9 @@
 import { useEffect } from 'preact/hooks';
 import { DebugPanel } from './components/DebugPanel';
+import { EggButton } from './components/EggButton';
+import { ObjectivesPanel } from './components/ObjectivesPanel';
+import { QueuePanel } from './components/QueuePanel';
+import { TilePanel } from './components/TilePanel';
 import { OfflineModal } from './components/OfflineModal';
 import { SettingsModal } from './components/SettingsModal';
 import { Toasts } from './components/Toasts';
@@ -11,6 +15,7 @@ export function App() {
   const modal = useUi((s) => s.modal);
   const debugOpen = useUi((s) => s.debugOpen);
   const ready = useUi((s) => s.game !== null);
+  const hasSheet = useUi((s) => s.selectedTile !== null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -26,8 +31,12 @@ export function App() {
 
   if (!ready) return null;
   return (
-    <div class="hud">
+    <div class={`hud ${hasSheet ? 'has-sheet' : ''}`}>
       <TopBar />
+      <ObjectivesPanel />
+      <QueuePanel />
+      <EggButton />
+      <TilePanel />
       <Toasts />
       {debugOpen && <DebugPanel />}
       {modal === 'settings' && <SettingsModal />}

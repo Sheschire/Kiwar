@@ -10,13 +10,21 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import type { FaceMap, Tile } from '@kiwar/shared';
+import {
+  getTile,
+  hexKey,
+  type FaceMap,
+  type GameEvent,
+  type GameState,
+  type Tile,
+} from '@kiwar/shared';
+import { BuildingsView } from './buildings';
 import { CameraRig } from '../camera/CameraRig';
 import { Environment } from './environment';
 import { FpsMeter } from './fpsMeter';
 import { Lighting } from './lighting';
 import { PALETTE } from './palette';
-import { pickInstance, TapDetector } from './picking';
+import { pick, TapDetector } from './picking';
 import { PostFx } from './postfx';
 import { PropsView } from './props';
 import {
@@ -31,6 +39,8 @@ import { TerrainView } from './terrain';
 import { WaterView } from './water';
 
 export interface RendererCallbacks {
+  /** Current simulation time (for smooth progress animations between ticks). */
+  now(): number;
   onTileTap(tile: Tile | null): void;
   onFps?(fps: number): void;
   onQualityChange?(preset: QualityPreset): void;
@@ -50,6 +60,9 @@ export class GameRenderer {
   private terrain: TerrainView | null = null;
   private water: WaterView | null = null;
   private props: PropsView | null = null;
+  private buildings: BuildingsView | null = null;
+  private clearedTiles = new Set<string>();
+  private lastState: GameState | null = null;
   private postfx: PostFx | null = null;
   private map: FaceMap | null = null;
   private readonly clock = new Clock();
@@ -136,11 +149,15 @@ export class GameRenderer {
 
   setFace(map: FaceMap): void {
     this.map = map;
-    for (const view of [this.terrain, this.water]) {
+    for (const view of [this.terrain, this.water, this.buildings]) {
       if (!view) continue;
       this.scene.remove('group' in view ? view.group : view.mesh);
       view.dispose();
     }
+    this.clearedTiles.clear();
+    this.lastState = null;
+    this.buildings = new BuildingsView(map, () => (this.renderer.shadowMap.needsUpdate = true));
+    this.scene.add(this.buildings.group);
     this.terrain = new TerrainView(map);
     this.scene.add(this.terrain.group);
     this.water = new WaterView(map, this.lighting.sun.position);
@@ -161,7 +178,42 @@ export class GameRenderer {
     }
     this.props = new PropsView(this.map, QUALITY[this.preset].propDensity);
     this.scene.add(this.props.group);
+    for (const key of this.clearedTiles) {
+      const [q, r] = key.split(',').map(Number) as [number, number];
+      this.props.setTileCleared({ q, r }, true);
+    }
     this.renderer.shadowMap.needsUpdate = true;
+  }
+
+  /** Mirrors the game state (buildings, construction sites). Cheap when nothing changed. */
+  setGameState(state: GameState): void {
+    if (state === this.lastState) return;
+    this.lastState = state;
+    this.buildings?.sync(state);
+    // Clear decorative props under buildings and construction sites.
+    const occupied = new Set<string>();
+    for (const b of state.buildings) occupied.add(hexKey(b));
+    for (const i of state.queue) occupied.add(hexKey(i));
+    for (const key of occupied) {
+      if (this.clearedTiles.has(key)) continue;
+      this.clearedTiles.add(key);
+      const [q, r] = key.split(',').map(Number) as [number, number];
+      this.props?.setTileCleared({ q, r }, true);
+      this.renderer.shadowMap.needsUpdate = true;
+    }
+    for (const key of [...this.clearedTiles]) {
+      if (occupied.has(key)) continue;
+      this.clearedTiles.delete(key);
+      const [q, r] = key.split(',').map(Number) as [number, number];
+      this.props?.setTileCleared({ q, r }, false);
+      this.renderer.shadowMap.needsUpdate = true;
+    }
+  }
+
+  onGameEvents(events: GameEvent[]): void {
+    for (const e of events) {
+      if (e.type === 'constructionComplete') this.buildings?.celebrate(e.buildingId, e.q, e.r);
+    }
   }
 
   setSelectedTile(tile: Tile | null): void {
@@ -180,9 +232,12 @@ export class GameRenderer {
   }
 
   private pickTile(x: number, y: number): Tile | null {
-    if (!this.terrain) return null;
-    const id = pickInstance(this.canvas, this.camera, this.terrain.tiles, x, y);
-    return id === null ? null : (this.terrain.tileOfInstance(id) ?? null);
+    if (!this.terrain || !this.map) return null;
+    const objects = this.buildings ? [this.buildings.group] : [];
+    const hit = pick(this.canvas, this.camera, this.terrain.tiles, objects, x, y);
+    if (!hit) return null;
+    if (hit.kind === 'tile') return this.terrain.tileOfInstance(hit.instanceId) ?? null;
+    return getTile(this.map, hit) ?? null;
   }
 
   private resize(): void {
@@ -207,6 +262,7 @@ export class GameRenderer {
     }
     this.environment.update(this.elapsed);
     this.water?.update(this.elapsed);
+    this.buildings?.update(dt, this.callbacks.now());
     this.selection.update(this.elapsed);
     if (this.postfx) this.postfx.render(dt);
     else this.renderer.render(this.scene, this.camera);
@@ -239,6 +295,7 @@ export class GameRenderer {
     this.terrain?.dispose();
     this.water?.dispose();
     this.props?.dispose();
+    this.buildings?.dispose();
     this.postfx?.dispose();
     this.renderer.dispose();
   }

@@ -19,9 +19,12 @@ const canvas = document.getElementById('scene') as HTMLCanvasElement;
 const qualityChoice = loadQualityChoice();
 uiStore.setState({ qualityChoice });
 
+// eslint-disable-next-line prefer-const -- assigned right after the renderer (circular wiring)
+let controller: GameController;
 const renderer = new GameRenderer(
   canvas,
   {
+    now: () => controller?.now() ?? 0,
     onTileTap: (tile) => actions.selectTile(tile),
     onFps: (fps) => uiStore.setState({ fps }),
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
@@ -29,12 +32,16 @@ const renderer = new GameRenderer(
   qualityChoice,
 );
 
-const controller = new GameController({
+controller = new GameController({
   onWorld: (map, state) => {
     renderer.setFace(map);
+    renderer.setGameState(state);
     uiStore.setState({ map, game: state, selectedTile: null });
   },
-  onState: (state, now) => uiStore.setState({ game: state, now }),
+  onState: (state, now) => {
+    renderer.setGameState(state);
+    uiStore.setState({ game: state, now });
+  },
   onEvents: (events) => handleGameEvents(events, renderer),
   onError: (error) => pushToast('error', `errors.${error}`),
   onOfflineSummary: (summary) => uiStore.setState({ offlineSummary: summary }),
@@ -65,4 +72,9 @@ if (import.meta.hot) {
     controller.dispose();
     renderer.dispose();
   });
+}
+
+// Dev-only handle for debugging and automated browser checks.
+if (import.meta.env.DEV) {
+  (window as unknown as { __kiwar: unknown }).__kiwar = { controller, renderer, uiStore, actions };
 }
