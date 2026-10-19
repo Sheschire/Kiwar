@@ -1,0 +1,210 @@
+import {
+  BUILDINGS,
+  levelDef,
+  MAX_LEVEL,
+  RAY_BUILD_SPEEDUP,
+  type BuildingLevelDef,
+  type BuildingType,
+} from '../data/buildings';
+import { FACE_PROFILES } from '../data/faceProfiles';
+import { HATCHING } from '../data/hatching';
+import { OBJECTIVES, type ObjectiveDef } from '../data/objectives';
+import { RESOURCE_IDS, emptyResources, type ResourceCost, type Resources } from '../data/resources';
+import { hexNeighbors } from '../hex/hex';
+import { getTile, type FaceMap } from '../worldgen/generateFace';
+import type { BuildingId } from '../types/ids';
+import type { Building, GameState, QueueItem, Villager } from './state';
+
+export const HOUR_MS = 3_600_000;
+
+export function getBuilding(state: GameState, id: BuildingId | string): Building | undefined {
+  return state.buildings.find((b) => b.id === id);
+}
+
+export function buildingAt(state: GameState, q: number, r: number): Building | undefined {
+  return state.buildings.find((b) => b.q === q && b.r === r);
+}
+
+export function queuedBuildAt(state: GameState, q: number, r: number): QueueItem | undefined {
+  return state.queue.find((i) => i.kind === 'build' && i.q === q && i.r === r);
+}
+
+export function nest(state: GameState): Building {
+  const n = state.buildings.find((b) => b.type === 'nest');
+  if (!n) throw new Error('State has no nest');
+  return n;
+}
+
+export function nestDef(state: GameState): BuildingLevelDef {
+  return levelDef('nest', nest(state).level)!;
+}
+
+export function activeItem(state: GameState): QueueItem | undefined {
+  const first = state.queue[0];
+  return first && first.startedAt !== null ? first : undefined;
+}
+
+export function workersOf(state: GameState, buildingId: BuildingId): Villager[] {
+  return state.villagers.filter((v) => v.job.kind === 'work' && v.job.buildingId === buildingId);
+}
+
+export function idleVillagers(state: GameState): Villager[] {
+  return state.villagers.filter((v) => v.job.kind === 'idle');
+}
+
+export function workerSlots(b: Building): number {
+  return levelDef(b.type, b.level)?.workerSlots ?? 0;
+}
+
+export function totalWorkers(state: GameState): number {
+  return state.villagers.filter((v) => v.job.kind === 'work').length;
+}
+
+export function population(state: GameState): number {
+  return state.villagers.length;
+}
+
+export function housing(state: GameState): number {
+  return state.buildings.reduce((sum, b) => sum + (levelDef(b.type, b.level)?.housing ?? 0), 0);
+}
+
+export function capacity(state: GameState): Resources {
+  const storage = state.buildings.reduce(
+    (sum, b) => sum + (levelDef(b.type, b.level)?.storage ?? 0),
+    0,
+  );
+  return { pulp: storage, fiber: storage, seeds: storage, juice: storage };
+}
+
+/** Production of one building per hour, with its current staff. */
+export function buildingRates(state: GameState, b: Building): Resources {
+  const def = levelDef(b.type, b.level);
+  const out = emptyResources();
+  if (!def) return out;
+  const climate = FACE_PROFILES[state.face].yieldMultiplier;
+  for (const id of RESOURCE_IDS) {
+    const passive = def.passiveProduction?.[id] ?? 0;
+    const active = def.production?.[id] ?? 0;
+    let staffed = 0;
+    if (active > 0 && def.workerSlots) {
+      staffed = (active * workersOf(state, b.id).length) / def.workerSlots;
+    }
+    out[id] = (passive + staffed * b.richness) * climate[id];
+  }
+  return out;
+}
+
+/** Total production per hour. */
+export function productionRates(state: GameState): Resources {
+  const total = emptyResources();
+  for (const b of state.buildings) {
+    const r = buildingRates(state, b);
+    for (const id of RESOURCE_IDS) total[id] += r[id];
+  }
+  return total;
+}
+
+export function canAfford(resources: Resources, cost: ResourceCost): boolean {
+  return RESOURCE_IDS.every((id) => resources[id] + 1e-9 >= (cost[id] ?? 0));
+}
+
+export function scaleCost(cost: ResourceCost, k: number): ResourceCost {
+  const out: ResourceCost = {};
+  for (const id of RESOURCE_IDS) {
+    const v = cost[id];
+    if (v) out[id] = Math.round((v * k) / 5) * 5 || 5;
+  }
+  return out;
+}
+
+/** Number of copies of a type that exist or are ordered (Nest excluded from the cap). */
+export function copiesOf(state: GameState, type: BuildingType): number {
+  return (
+    state.buildings.filter((b) => b.type === type).length +
+    state.queue.filter((i) => i.kind === 'build' && i.buildingType === type).length
+  );
+}
+
+export function buildingCount(state: GameState): number {
+  return (
+    state.buildings.filter((b) => b.type !== 'nest').length +
+    state.queue.filter((i) => i.kind === 'build').length
+  );
+}
+
+export function buildCost(state: GameState, type: BuildingType): ResourceCost {
+  const def = BUILDINGS[type];
+  return scaleCost(def.levels[0]!.cost, def.copyGrowth ** copiesOf(state, type));
+}
+
+export function upgradeCost(type: BuildingType, targetLevel: number): ResourceCost {
+  return levelDef(type, targetLevel)?.cost ?? {};
+}
+
+/** True when the tile touches (or is) a ray. */
+export function nearRay(map: FaceMap, q: number, r: number): boolean {
+  const tiles = [{ q, r }, ...hexNeighbors({ q, r })];
+  return tiles.some((h) => getTile(map, h)?.type === 'ray');
+}
+
+export function constructionDuration(
+  state: GameState,
+  type: BuildingType,
+  level: number,
+  isNewCopy: boolean,
+  rayBonus: boolean,
+): number {
+  const def = BUILDINGS[type];
+  const base = levelDef(type, level)?.durationMs ?? 0;
+  const copies = isNewCopy ? def.copyGrowth ** copiesOf(state, type) : 1;
+  const speed = rayBonus ? RAY_BUILD_SPEEDUP : 1;
+  return Math.max(1000, Math.round((base * Math.sqrt(copies) * speed) / 1000) * 1000);
+}
+
+export function pendingUpgrade(state: GameState, buildingId: BuildingId): QueueItem | undefined {
+  return state.queue.find((i) => i.kind === 'upgrade' && i.buildingId === buildingId);
+}
+
+export function isMaxLevel(b: Building): boolean {
+  return b.level >= MAX_LEVEL;
+}
+
+export function eggCost(state: GameState): ResourceCost {
+  return HATCHING.cost(population(state));
+}
+
+export function eggDuration(state: GameState): number {
+  return HATCHING.durationMs(population(state));
+}
+
+export function canHatch(state: GameState): boolean {
+  return state.egg === null && population(state) < housing(state);
+}
+
+export function currentObjective(state: GameState): ObjectiveDef | undefined {
+  return OBJECTIVES[state.objectiveIndex];
+}
+
+export function objectiveProgress(
+  state: GameState,
+  def: ObjectiveDef,
+): { current: number; target: number } {
+  const c = def.condition;
+  switch (c.kind) {
+    case 'building': {
+      const n = state.buildings.filter(
+        (b) => b.type === c.building && b.level >= c.minLevel,
+      ).length;
+      return { current: Math.min(n, c.count), target: c.count };
+    }
+    case 'population':
+      return { current: Math.min(population(state), c.count), target: c.count };
+    case 'workers':
+      return { current: Math.min(totalWorkers(state), c.count), target: c.count };
+  }
+}
+
+export function isObjectiveComplete(state: GameState, def: ObjectiveDef): boolean {
+  const p = objectiveProgress(state, def);
+  return p.current >= p.target;
+}

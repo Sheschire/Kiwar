@@ -36,7 +36,13 @@ export class TapDetector {
       return;
     }
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    this.down = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), touch: e.pointerType !== 'mouse' };
+    this.down = {
+      id: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      t: performance.now(),
+      touch: e.pointerType !== 'mouse',
+    };
   };
 
   private onMove = (e: PointerEvent) => {
@@ -86,7 +92,10 @@ export function pickInstance(
   clientY: number,
 ): number | null {
   const rect = element.getBoundingClientRect();
-  ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+  ndc.set(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1,
+  );
   raycaster.setFromCamera(ndc, camera);
   const hits = raycaster.intersectObject(mesh, false);
   const hit = hits[0];

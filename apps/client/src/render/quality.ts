@@ -63,7 +63,8 @@ export function loadQualityChoice(): QualityChoice {
   }
   try {
     const v = localStorage.getItem(STORAGE_KEY);
-    if (v === 'auto' || (QUALITY_PRESETS as readonly string[]).includes(v ?? '')) return v as QualityChoice;
+    if (v === 'auto' || (QUALITY_PRESETS as readonly string[]).includes(v ?? ''))
+      return v as QualityChoice;
   } catch {
     // ignore
   }
@@ -104,7 +105,8 @@ export function detectQuality(): QualityPreset {
 
   if (/swiftshader|llvmpipe|software|basic render/.test(gpu)) return 'low';
   if (memory <= 3 || cores <= 3) return 'low';
-  if (/mali-[gt]?[0-7]\d\b|adreno \(tm\) [3-5]\d\d|powervr|intel\(r\) hd graphics [2-5]/.test(gpu)) return 'low';
+  if (/mali-[gt]?[0-7]\d\b|adreno \(tm\) [3-5]\d\d|powervr|intel\(r\) hd graphics [2-5]/.test(gpu))
+    return 'low';
   if (mobile) return 'medium';
   if (/apple m\d|apple gpu|nvidia|geforce|rtx|radeon|amd|iris xe|arc/.test(gpu)) return 'high';
   return 'medium';

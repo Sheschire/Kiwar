@@ -69,7 +69,9 @@ export class CameraRig {
   /** Frames the whole disc of the given half extents. */
   frame(extentX: number, extentZ: number, enableTransition = false): void {
     const r = Math.max(extentX, extentZ);
-    this.controls.setBoundary(new Box3(new Vector3(-extentX, -1, -extentZ), new Vector3(extentX, 3, extentZ)));
+    this.controls.setBoundary(
+      new Box3(new Vector3(-extentX, -1, -extentZ), new Vector3(extentX, 3, extentZ)),
+    );
     const distance = this.fitDistance(r);
     this.controls.maxDistance = distance * 1.35;
     const polar = 0.78;
@@ -87,7 +89,7 @@ export class CameraRig {
   /** Distance at which a disc of radius `r` fits on screen for the current aspect ratio. */
   fitDistance(r: number): number {
     const cam = this.controls.camera as PerspectiveCamera;
-    const vHalf = ((cam.fov * Math.PI) / 180) / 2;
+    const vHalf = (cam.fov * Math.PI) / 180 / 2;
     const hHalf = Math.atan(Math.tan(vHalf) * cam.aspect);
     return Math.max((r * 0.8) / Math.tan(vHalf), (r * 0.98) / Math.tan(hHalf));
   }
@@ -105,9 +107,11 @@ export class CameraRig {
   }
 
   update(dt: number): boolean {
-    const forward = (this.keys.has('KeyW') || this.keys.has('ArrowUp') ? 1 : 0) -
+    const forward =
+      (this.keys.has('KeyW') || this.keys.has('ArrowUp') ? 1 : 0) -
       (this.keys.has('KeyS') || this.keys.has('ArrowDown') ? 1 : 0);
-    const strafe = (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0) -
+    const strafe =
+      (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0) -
       (this.keys.has('KeyA') || this.keys.has('ArrowLeft') ? 1 : 0);
     if (forward !== 0 || strafe !== 0) {
       const step = this.controls.distance * KEY_SPEED * dt;
@@ -169,7 +173,10 @@ export class CameraRig {
 
   private currentTwist(): number | null {
     if (this.touches.size !== 2) return null;
-    const [a, b] = [...this.touches.values()] as [{ x: number; y: number }, { x: number; y: number }];
+    const [a, b] = [...this.touches.values()] as [
+      { x: number; y: number },
+      { x: number; y: number },
+    ];
     return Math.atan2(b.y - a.y, b.x - a.x);
   }
 

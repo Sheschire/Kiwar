@@ -1,0 +1,71 @@
+import { RESOURCE_IDS, type BuildingType } from '@kiwar/shared';
+import { formatDuration, formatNumber } from '../../i18n/i18n';
+import { EggIcon, ResourceIcon } from '../icons';
+import { uiStore, useT, useUi } from '../store';
+import { Modal } from './Modal';
+
+export function OfflineModal() {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const summary = useUi((s) => s.offlineSummary);
+  if (!summary) return null;
+  const close = () => uiStore.setState({ offlineSummary: null });
+  const gained = RESOURCE_IDS.filter((id) => summary.gained[id] >= 1);
+  const nothing =
+    gained.length === 0 && summary.completed.length === 0 && summary.hatched.length === 0;
+  return (
+    <Modal
+      title={t('offline.title')}
+      onClose={close}
+      class="modal-offline"
+      footer={
+        <button class="btn btn-primary" onClick={close}>
+          {t('common.ok')}
+        </button>
+      }
+    >
+      <p>{t('offline.away', { duration: formatDuration(lang, summary.awayMs) })}</p>
+      {nothing && <p class="muted">{t('offline.nothing')}</p>}
+      {gained.length > 0 && (
+        <>
+          <h3>{t('offline.gathered')}</h3>
+          <ul class="gains">
+            {gained.map((id) => (
+              <li key={id}>
+                <ResourceIcon id={id} size={22} /> +
+                {formatNumber(lang, Math.floor(summary.gained[id]))} {t(`resources.${id}`)}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {summary.completed.length > 0 && (
+        <>
+          <h3>{t('offline.completed')}</h3>
+          <ul>
+            {summary.completed.map((c, i) => (
+              <li key={i}>
+                {t(`buildings.${c.buildingType as BuildingType}.name`)} —{' '}
+                {t('common.levelShort', { level: c.level })}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {summary.hatched.length > 0 && (
+        <p class="row">
+          <EggIcon size={20} /> {t('offline.hatched', { names: summary.hatched.join(', ') })}
+        </p>
+      )}
+      {summary.storageFull.length > 0 && (
+        <p class="warn">
+          {t('offline.storageFull', {
+            list: summary.storageFull
+              .map((r) => t(`resources.${r as (typeof RESOURCE_IDS)[number]}`))
+              .join(', '),
+          })}
+        </p>
+      )}
+    </Modal>
+  );
+}

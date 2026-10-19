@@ -13,7 +13,13 @@ import {
   type Effect,
 } from 'postprocessing';
 import { N8AOPostPass } from 'n8ao';
-import { Color, HalfFloatType, type PerspectiveCamera, type Scene, type WebGLRenderer } from 'three';
+import {
+  Color,
+  HalfFloatType,
+  type PerspectiveCamera,
+  type Scene,
+  type WebGLRenderer,
+} from 'three';
 import type { QualitySettings } from './quality';
 
 /**
@@ -23,7 +29,12 @@ import type { QualitySettings } from './quality';
 export class PostFx {
   readonly composer: EffectComposer;
 
-  constructor(renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera, quality: QualitySettings) {
+  constructor(
+    renderer: WebGLRenderer,
+    scene: Scene,
+    camera: PerspectiveCamera,
+    quality: QualitySettings,
+  ) {
     this.composer = new EffectComposer(renderer, {
       frameBufferType: HalfFloatType,
       multisampling: quality.msaa,
@@ -56,7 +67,12 @@ export class PostFx {
     }
     if (quality.tiltShift) {
       effects.push(
-        new TiltShiftEffect({ focusArea: 0.5, feather: 0.32, offset: 0.04, kernelSize: KernelSize.SMALL }),
+        new TiltShiftEffect({
+          focusArea: 0.5,
+          feather: 0.32,
+          offset: 0.04,
+          kernelSize: KernelSize.SMALL,
+        }),
       );
     }
     effects.push(

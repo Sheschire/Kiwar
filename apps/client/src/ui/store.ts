@@ -1,26 +1,79 @@
 import { createStore } from 'zustand/vanilla';
 import { useEffect, useReducer, useRef } from 'preact/hooks';
-import { detectLang, persistLang, translate, type Lang, type TKey, type TParams } from '../i18n/i18n';
+import type { Face, FaceMap, GameState, Tile } from '@kiwar/shared';
+import {
+  detectLang,
+  persistLang,
+  translate,
+  type Lang,
+  type TKey,
+  type TParams,
+} from '../i18n/i18n';
+import type { OfflineSummary } from '../game/GameController';
+import type { QualityChoice, QualityPreset } from '../render/quality';
 
-import type { FaceMap, Tile } from '@kiwar/shared';
+export interface Toast {
+  id: number;
+  kind: 'info' | 'success' | 'error';
+  key: TKey;
+  params?: TParams;
+}
+
+export type Modal = 'none' | 'settings';
 
 export interface UiState {
   lang: Lang;
-  settingsOpen: boolean;
+  modal: Modal;
+  debugOpen: boolean;
+  objectivesOpen: boolean;
+  game: GameState | null;
   map: FaceMap | null;
+  /** Simulation time of the last update. */
+  now: number;
   selectedTile: Tile | null;
+  qualityChoice: QualityChoice;
+  qualityPreset: QualityPreset;
+  fps: number;
+  timeScale: number;
+  offlineSummary: OfflineSummary | null;
+  pendingWorld: { seed: string; face: Face } | null;
+  toasts: Toast[];
 }
+
+const wideScreen =
+  typeof window !== 'undefined' && window.matchMedia?.('(min-width: 900px)').matches;
 
 export const uiStore = createStore<UiState>(() => ({
   lang: detectLang(),
-  settingsOpen: false,
+  modal: 'none',
+  debugOpen: false,
+  objectivesOpen: wideScreen,
+  game: null,
   map: null,
+  now: 0,
   selectedTile: null,
+  qualityChoice: 'auto',
+  qualityPreset: 'medium',
+  fps: 0,
+  timeScale: 1,
+  offlineSummary: null,
+  pendingWorld: null,
+  toasts: [],
 }));
 
 export function setLang(lang: Lang): void {
   persistLang(lang);
   uiStore.setState({ lang });
+}
+
+let toastId = 0;
+export function pushToast(kind: Toast['kind'], key: TKey, params?: TParams): void {
+  const id = ++toastId;
+  uiStore.setState((s) => ({ toasts: [...s.toasts.slice(-3), { id, kind, key, params }] }));
+  window.setTimeout(
+    () => uiStore.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+    kind === 'error' ? 3200 : 2600,
+  );
 }
 
 /** Subscribe a Preact component to a slice of a zustand vanilla store. */
@@ -46,9 +99,11 @@ export function useStoreSlice<S, T>(
   return value;
 }
 
-export const useUi = <T,>(selector: (s: UiState) => T): T => useStoreSlice(uiStore, selector);
+export const useUi = <T>(selector: (s: UiState) => T): T => useStoreSlice(uiStore, selector);
 
-export function useT(): (key: TKey, params?: TParams) => string {
+export type Translate = (key: TKey, params?: TParams) => string;
+
+export function useT(): Translate {
   const lang = useUi((s) => s.lang);
   return (key, params) => translate(lang, key, params);
 }

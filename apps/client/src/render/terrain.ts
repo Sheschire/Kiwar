@@ -59,7 +59,10 @@ export function tileTopColor(tile: Tile, out = new Color()): Color {
  * -TILE_DEPTH. Attribute `aTop` is 1 on the top cap, ~0.7 on the bevel and 0 on the sides,
  * so the shader can paint earth strata on the sides.
  */
-export function createHexPrismGeometry(radius = HEX_VISUAL_RADIUS, depth = TILE_DEPTH): BufferGeometry {
+export function createHexPrismGeometry(
+  radius = HEX_VISUAL_RADIUS,
+  depth = TILE_DEPTH,
+): BufferGeometry {
   const inner = radius * 0.86;
   const bevelDrop = 0.07;
   const corner = (i: number, r: number, y: number) => {
@@ -68,7 +71,12 @@ export function createHexPrismGeometry(radius = HEX_VISUAL_RADIUS, depth = TILE_
   };
   const positions: number[] = [];
   const tops: number[] = [];
-  const pushTri = (a: readonly number[], b: readonly number[], c: readonly number[], top: number) => {
+  const pushTri = (
+    a: readonly number[],
+    b: readonly number[],
+    c: readonly number[],
+    top: number,
+  ) => {
     positions.push(...a, ...b, ...c);
     tops.push(top, top, top);
   };

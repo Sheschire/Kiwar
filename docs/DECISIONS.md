@@ -51,3 +51,25 @@ Larger choices were validated with the project owner (marked ✅).
   | MSAA | browser AA | 2× | 4× |
   | Props density | 45 % | 75 % | 100 % |
 - **Auto preset**: GPU name (WEBGL_debug_renderer_info), device memory, cores, coarse pointer + small screen. Desktop discrete / Apple Silicon → High, phones → Medium, weak GPUs / software rendering → Low. In Auto, if the average fps stays under 40 for ~4 s the preset steps down. `?quality=low|medium|high` forces a preset (handy for testing).
+
+### Simulation (step 4)
+- `advance(state, now)` is **event-driven**: it jumps to the next event (end of the active construction, egg hatching), integrating production linearly in between (rates are constant between events), clamped at storage capacity. A test checks that one big step equals many small steps.
+- **Costs are paid when ordered**; cancelling refunds 100 % (cozy, no punishment).
+- **One active construction**; the next queued item starts at the exact millisecond the previous one ends (even offline). The builder is an idle kiwi if any, otherwise one borrowed from the most-staffed workplace; it goes back afterwards if there is still room.
+- **Autonomous kiwis**: a new production building grabs an idle kiwi; newborns and freed builders go to the producing building with the lowest staffing ratio. Kiwis the player deliberately idles stay idle.
+- **Tile richness is copied into the building** at placement so `advance` does not need the face map; `applyCommand(state, cmd, { now, map })` needs it to validate placement (the server will regenerate the map from the seed).
+- **Rays**: building next to (or on) a ray is 15 % faster.
+- **Additional copies** of a building cost ×1.3–1.4 per existing copy (and take √ of that longer): upgrading is often better than spreading.
+- **Level 3 requires Nest level 2.** Nest: buildings cap 6/11/18, queue 2/3/4, storage 300/800/2000, housing 4/6/8, small passive pulp/fibre income so the game can never soft-lock.
+- **Eggs**: cost and incubation grow geometrically with population (20 s for the 4th kiwi, ~6 min for the 10th, capped at 2 h). One egg at a time, capped by housing.
+- Kiwi names come from seeded syllables stored in the state RNG.
+- Objectives are claimed with a button (gives the reward) — more satisfying than an automatic reward.
+- `debugGrant` is a regular command (so even debug goes through the rules); the server will refuse it.
+
+### Persistence & clock (step 4)
+- Save = `{ format, savedAt, state }` JSON in `localStorage` (`kiwar.save.v1`), validated with **zod** and migrated by `schemaVersion`. The face map is regenerated from the seed.
+- Autosave every 5 s, after each command/event, and on `visibilitychange`/`pagehide`.
+- The client clock is `virtual = real + offset`; the debug time multiplier (×10/×100) grows the offset, which is persisted so a reload never goes back in time. A new world resets it.
+- "While you were away" appears for absences ≥ 1 min: duration, resources gathered, constructions finished, kiwis hatched, storages that filled up.
+- Opening a `?seed=` link while a colony exists asks for confirmation instead of overwriting it.
+- Debug panel: `` ` `` key (also `²` on AZERTY) or Settings → Debug panel (mobile).

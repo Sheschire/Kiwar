@@ -1,5 +1,4 @@
-import type {
-  BufferGeometry} from 'three';
+import type { BufferGeometry } from 'three';
 import {
   Color,
   ConeGeometry,
@@ -83,7 +82,11 @@ function scatter(rng: Rng, tile: Tile, spread = 0.62): Vector3 {
 
 function tint(base: string, rng: Rng, amount: number): Color {
   const c = new Color(base);
-  c.offsetHSL(rng.range(-amount, amount) * 0.25, rng.range(-amount, amount) * 0.5, rng.range(-amount, amount));
+  c.offsetHSL(
+    rng.range(-amount, amount) * 0.25,
+    rng.range(-amount, amount) * 0.5,
+    rng.range(-amount, amount),
+  );
   return c;
 }
 
@@ -102,17 +105,34 @@ export class PropsView {
       new MeshStandardMaterial({ flatShading: true, ...o });
 
     // Geometries are created once and shared by every instance.
-    const tuftStem = new PropBatch(new ConeGeometry(0.09, 1, 5, 1).translate(0, 0.5, 0), mat({ roughness: 0.9 }));
+    const tuftStem = new PropBatch(
+      new ConeGeometry(0.09, 1, 5, 1).translate(0, 0.5, 0),
+      mat({ roughness: 0.9 }),
+    );
     const tuftPuff = new PropBatch(new IcosahedronGeometry(0.3, 0), mat({ roughness: 1 }));
     const seed = new PropBatch(
       new SphereGeometry(0.5, 7, 5),
       mat({ roughness: 0.18, metalness: 0.25, flatShading: false }),
     );
-    const pulp = new PropBatch(new SphereGeometry(0.5, 6, 4), mat({ roughness: 0.55, flatShading: false }));
-    const blade = new PropBatch(new ConeGeometry(0.05, 1, 3, 1).translate(0, 0.5, 0), mat({ roughness: 0.8 }), false);
+    const pulp = new PropBatch(
+      new SphereGeometry(0.5, 6, 4),
+      mat({ roughness: 0.55, flatShading: false }),
+    );
+    const blade = new PropBatch(
+      new ConeGeometry(0.05, 1, 3, 1).translate(0, 0.5, 0),
+      mat({ roughness: 0.8 }),
+      false,
+    );
     const pebble = new PropBatch(new IcosahedronGeometry(0.5, 0), mat({ roughness: 0.7 }));
-    const fur = new PropBatch(new ConeGeometry(0.07, 1, 4, 1).translate(0, 0.5, 0), mat({ roughness: 1 }));
-    const domeFur = new PropBatch(new ConeGeometry(0.16, 1, 4, 1).translate(0, 0.5, 0), mat({ roughness: 1 }), false);
+    const fur = new PropBatch(
+      new ConeGeometry(0.07, 1, 4, 1).translate(0, 0.5, 0),
+      mat({ roughness: 1 }),
+    );
+    const domeFur = new PropBatch(
+      new ConeGeometry(0.16, 1, 4, 1).translate(0, 0.5, 0),
+      mat({ roughness: 1 }),
+      false,
+    );
     this.batches.push(tuftStem, tuftPuff, seed, pulp, blade, pebble, fur, domeFur);
 
     const count = (n: number) => {
@@ -129,13 +149,21 @@ export class PropsView {
           for (let i = 0; i < n; i++) {
             const pos = scatter(rng, tile, 0.55);
             const h = rng.range(0.7, 1.35);
-            const lean = new Euler(rng.range(-0.18, 0.18), rng.range(0, Math.PI * 2), rng.range(-0.18, 0.18));
+            const lean = new Euler(
+              rng.range(-0.18, 0.18),
+              rng.range(0, Math.PI * 2),
+              rng.range(-0.18, 0.18),
+            );
             tuftStem.add(key, compose(pos, lean, new Vector3(1, h, 1)), tint('#8b6a45', rng, 0.08));
             const top = new Vector3(0, h, 0).applyEuler(lean).add(pos);
             const s = rng.range(0.85, 1.35);
             tuftPuff.add(
               key,
-              compose(top, new Euler(rng.next() * 3, rng.next() * 3, 0), new Vector3(s, s * 1.15, s)),
+              compose(
+                top,
+                new Euler(rng.next() * 3, rng.next() * 3, 0),
+                new Vector3(s, s * 1.15, s),
+              ),
               tint(rng.chance(0.5) ? '#d9c08f' : '#c6a774', rng, 0.08),
             );
           }
@@ -150,7 +178,11 @@ export class PropsView {
             const angle = Math.atan2(pos.z, pos.x);
             const rot = new Euler(0, -angle, rng.range(-0.25, 0.25), 'YXZ');
             const s = rng.range(0.85, 1.15);
-            seed.add(key, compose(pos, rot, new Vector3(0.36 * s, 0.16 * s, 0.2 * s)), tint('#1f1612', rng, 0.03));
+            seed.add(
+              key,
+              compose(pos, rot, new Vector3(0.36 * s, 0.16 * s, 0.2 * s)),
+              tint('#1f1612', rng, 0.03),
+            );
           }
           break;
         }
@@ -170,7 +202,11 @@ export class PropsView {
           for (let i = 0; i < blades; i++) {
             const pos = scatter(rng, tile, 0.7);
             tmpE.set(rng.range(-0.3, 0.3), rng.next() * 6, rng.range(-0.3, 0.3));
-            blade.add(key, compose(pos, tmpE.clone(), new Vector3(1, rng.range(0.18, 0.34), 1)), tint('#78b42c', rng, 0.08));
+            blade.add(
+              key,
+              compose(pos, tmpE.clone(), new Vector3(1, rng.range(0.18, 0.34), 1)),
+              tint('#78b42c', rng, 0.08),
+            );
           }
           break;
         }
@@ -178,7 +214,11 @@ export class PropsView {
           if (rng.chance(0.55 * density)) {
             const pos = scatter(rng, tile, 0.55);
             const s = rng.range(0.1, 0.18);
-            pebble.add(key, compose(pos, new Euler(rng.next(), rng.next(), 0), new Vector3(s, s * 0.6, s)), tint('#f8f4e2', rng, 0.04));
+            pebble.add(
+              key,
+              compose(pos, new Euler(rng.next(), rng.next(), 0), new Vector3(s, s * 0.6, s)),
+              tint('#f8f4e2', rng, 0.04),
+            );
           }
           break;
         }
@@ -189,7 +229,10 @@ export class PropsView {
             // Fur leans outwards, away from the heart.
             const out = Math.atan2(pos.z, pos.x);
             const lean = rng.range(0.25, 0.7);
-            const q = new Quaternion().setFromAxisAngle(new Vector3(-Math.sin(out), 0, Math.cos(out)), -lean);
+            const q = new Quaternion().setFromAxisAngle(
+              new Vector3(-Math.sin(out), 0, Math.cos(out)),
+              -lean,
+            );
             const m = new Matrix4().compose(pos, q, new Vector3(1, rng.range(0.4, 0.9), 1));
             fur.add(key, m, tint('#6b4630', rng, 0.1));
           }
@@ -216,7 +259,11 @@ export class PropsView {
       );
       const normal = new Vector3(nx, ny * 1.4, nz).normalize();
       const q = new Quaternion().setFromUnitVectors(up, normal);
-      domeFur.add(null, new Matrix4().compose(pos, q, new Vector3(1, rng.range(0.6, 1.3), 1)), tint('#5e3d27', rng, 0.1));
+      domeFur.add(
+        null,
+        new Matrix4().compose(pos, q, new Vector3(1, rng.range(0.6, 1.3), 1)),
+        tint('#5e3d27', rng, 0.1),
+      );
     }
 
     for (const b of this.batches) if (b.items.length > 0) this.group.add(b.build());

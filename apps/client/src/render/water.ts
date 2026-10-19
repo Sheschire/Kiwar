@@ -1,5 +1,4 @@
-import type {
-  Vector3} from 'three';
+import type { Vector3 } from 'three';
 import {
   BufferGeometry,
   Color,
@@ -7,7 +6,7 @@ import {
   InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
-  ShaderMaterial
+  ShaderMaterial,
 } from 'three';
 import { getTile, HEX_DIRECTIONS, type FaceMap, type Tile } from '@kiwar/shared';
 import { GLSL_NOISE } from './shaderChunks';

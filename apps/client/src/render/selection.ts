@@ -32,7 +32,10 @@ function createHexRingGeometry(inner: number, outer: number): BufferGeometry {
 class HexMarker {
   readonly mesh: Mesh;
   private readonly material: MeshBasicMaterial;
-  constructor(color: ColorRepresentation, private readonly baseOpacity: number) {
+  constructor(
+    color: ColorRepresentation,
+    private readonly baseOpacity: number,
+  ) {
     this.material = new MeshBasicMaterial({
       color,
       transparent: true,
@@ -41,7 +44,10 @@ class HexMarker {
       blending: AdditiveBlending,
       toneMapped: false,
     });
-    this.mesh = new Mesh(createHexRingGeometry(HEX_VISUAL_RADIUS * 0.74, HEX_VISUAL_RADIUS * 0.9), this.material);
+    this.mesh = new Mesh(
+      createHexRingGeometry(HEX_VISUAL_RADIUS * 0.74, HEX_VISUAL_RADIUS * 0.9),
+      this.material,
+    );
     this.mesh.visible = false;
     this.mesh.renderOrder = 5;
   }

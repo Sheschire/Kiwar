@@ -5,7 +5,9 @@ export const LANGS = ['fr', 'en'] as const;
 export type Lang = (typeof LANGS)[number];
 
 /** Same shape as the English dictionary, but every leaf is just a string. */
-export type DictShape<T> = { readonly [K in keyof T]: T[K] extends string ? string : DictShape<T[K]> };
+export type DictShape<T> = {
+  readonly [K in keyof T]: T[K] extends string ? string : DictShape<T[K]>;
+};
 export type Dict = DictShape<typeof en>;
 
 type Leaves<T, P extends string = ''> = {
@@ -30,7 +32,8 @@ export function detectLang(): Lang {
   } catch {
     // storage unavailable (private mode…): fall through to the browser language
   }
-  const candidates = typeof navigator !== 'undefined' ? navigator.languages ?? [navigator.language] : [];
+  const candidates =
+    typeof navigator !== 'undefined' ? (navigator.languages ?? [navigator.language]) : [];
   for (const c of candidates) {
     const base = c.toLowerCase().split('-')[0];
     if (isLang(base)) return base;
@@ -56,13 +59,20 @@ function lookup(dict: Dict, key: string): string | undefined {
   return typeof node === 'string' ? node : undefined;
 }
 
+/**
+ * Translates a key. Parameter values starting with `@` are themselves translation keys
+ * (e.g. `{ name: '@buildings.hut.name' }`), so stored messages follow language changes.
+ */
 export function translate(lang: Lang, key: TKey, params?: TParams): string {
   const raw = lookup(DICTS[lang], key) ?? lookup(DICTS.en, key) ?? key;
   if (!params) return raw;
   return raw.replace(/\{(\w+)\}/g, (match, name: string) => {
     const v = params[name];
     if (v === undefined) return match;
-    return typeof v === 'number' ? formatNumber(lang, v) : v;
+    if (typeof v === 'number') return formatNumber(lang, v);
+    if (v.startsWith('@'))
+      return lookup(DICTS[lang], v.slice(1)) ?? lookup(DICTS.en, v.slice(1)) ?? v;
+    return v;
   });
 }
 

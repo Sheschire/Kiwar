@@ -19,7 +19,13 @@ import { PALETTE } from './palette';
 import { pickInstance, TapDetector } from './picking';
 import { PostFx } from './postfx';
 import { PropsView } from './props';
-import { detectQuality, lowerPreset, QUALITY, type QualityChoice, type QualityPreset } from './quality';
+import {
+  detectQuality,
+  lowerPreset,
+  QUALITY,
+  type QualityChoice,
+  type QualityPreset,
+} from './quality';
 import { SelectionView } from './selection';
 import { TerrainView } from './terrain';
 import { WaterView } from './water';
@@ -60,7 +66,12 @@ export class GameRenderer {
     private readonly callbacks: RendererCallbacks,
     qualityChoice: QualityChoice,
   ) {
-    this.renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', stencil: false });
+    this.renderer = new WebGLRenderer({
+      canvas,
+      antialias: true,
+      powerPreference: 'high-performance',
+      stencil: false,
+    });
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFSoftShadowMap;
@@ -110,7 +121,8 @@ export class GameRenderer {
     this.renderer.toneMappingExposure = 1.05;
     // Materials must recompile when tone mapping changes.
     this.scene.traverse((o) => {
-      const m = (o as { material?: { needsUpdate: boolean } | { needsUpdate: boolean }[] }).material;
+      const m = (o as { material?: { needsUpdate: boolean } | { needsUpdate: boolean }[] })
+        .material;
       if (Array.isArray(m)) m.forEach((x) => (x.needsUpdate = true));
       else if (m) m.needsUpdate = true;
     });
@@ -154,6 +166,12 @@ export class GameRenderer {
 
   setSelectedTile(tile: Tile | null): void {
     this.selection.setSelected(tile);
+  }
+
+  recenter(): void {
+    if (!this.terrain) return;
+    const e = this.terrain.extent();
+    this.rig.frame(e.x, e.z, true);
   }
 
   focusTile(tile: Tile): void {
