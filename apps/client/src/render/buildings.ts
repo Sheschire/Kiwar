@@ -14,12 +14,14 @@ import {
 } from 'three';
 import {
   getTile,
+  storageFullCheck,
   type Building,
   type FaceMap,
   type GameState,
   type QueueItem,
 } from '@kiwar/shared';
-import { buildingGeometry, scaffoldGeometry, stakeGeometry } from './buildingModels';
+import { buildingGeometry, buildingModel, scaffoldGeometry, stakeGeometry } from './buildingModels';
+import { activityOf, BuildingLife } from './buildingLife';
 import { worldPosition } from './terrain';
 import { WATER_LEVEL } from './water';
 
@@ -69,7 +71,9 @@ export class BuildingsView {
     transparent: true,
     opacity: 0.55,
   });
-  private readonly meshes = new Map<string, Mesh>();
+  /** One group per building: static mesh + animated rigs (+ status badge). */
+  private readonly meshes = new Map<string, Group>();
+  private readonly life = new BuildingLife();
   private readonly sites = new Map<string, Group>();
   private signature = '';
   private pops: Pop[] = [];
@@ -129,6 +133,8 @@ export class BuildingsView {
   /** Synchronises meshes with the game state (cheap when nothing changed). */
   sync(state: GameState): void {
     this.state = state;
+    const full = storageFullCheck(state);
+    for (const b of state.buildings) this.life.setActivity(b.id, activityOf(state, b, full));
     const away = (id: string) =>
       state.expeditions.some((e) => e.launchpadId === id && e.status !== 'done');
     const sig =
@@ -146,16 +152,16 @@ export class BuildingsView {
       if (existing && existing.userData.level === b.level && existing.userData.away === shipAway)
         continue;
       if (existing) {
-        existing.geometry = buildingGeometry(b.type, b.level, shipAway);
-        existing.userData.level = b.level;
-        existing.userData.away = shipAway;
-      } else {
-        this.addBuildingMesh(b, shipAway);
+        this.group.remove(existing);
+        this.life.detach(b.id);
       }
+      this.addBuildingMesh(b, shipAway);
+      this.life.setActivity(b.id, activityOf(state, b, full));
     }
     for (const [id, mesh] of this.meshes) {
       if (!seen.has(id)) {
         this.meshes.delete(id);
+        this.life.detach(id);
         this.collapse(mesh);
       }
     }
@@ -178,16 +184,26 @@ export class BuildingsView {
     this.onChanged();
   }
 
-  private addBuildingMesh(b: Building, shipAway: boolean): Mesh {
-    const mesh = new Mesh(buildingGeometry(b.type, b.level, shipAway), this.material);
+  private addBuildingMesh(b: Building, shipAway: boolean): Group {
+    const model = buildingModel(b.type, b.level, shipAway);
+    const g = new Group();
+    g.userData = { level: b.level, away: shipAway, buildingId: b.id, q: b.q, r: b.r };
+    const mesh = new Mesh(model.geometry, this.material);
+    // Shadows are static: only the static part casts one.
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    mesh.userData = { level: b.level, away: shipAway, buildingId: b.id, q: b.q, r: b.r };
+    g.add(mesh);
+    this.life.attach(b.id, g, model, this.material);
     const tile = getTile(this.map, b);
-    this.placeAt(mesh, b.q, b.r, tile?.variant ?? 0.5);
-    this.meshes.set(b.id, mesh);
-    this.group.add(mesh);
-    return mesh;
+    this.placeAt(g, b.q, b.r, tile?.variant ?? 0.5);
+    this.meshes.set(b.id, g);
+    this.group.add(g);
+    return g;
+  }
+
+  /** Low quality presets keep the buildings still. */
+  setAnimated(on: boolean): void {
+    this.life.setAnimated(on);
   }
 
   private createSite(item: QueueItem, started: boolean): Group {
@@ -236,8 +252,8 @@ export class BuildingsView {
 
   /** Demolition: the building sinks and crumbles in a puff of dust, then disappears. */
   private collapse(object: Object3D): void {
-    object.userData.buildingId = null; // no longer pickable
-    object.castShadow = false;
+    object.userData.buildingId = null;
+    object.traverse((o) => (o.castShadow = false));
     const origin = object.position.clone();
     const dust = Array.from({ length: DUST }, (_, i) => {
       const a = (i / DUST) * Math.PI * 2 + (i % 2) * 0.3;
@@ -264,6 +280,7 @@ export class BuildingsView {
   }
 
   update(dt: number, now: number): void {
+    this.life.update(dt);
     // Rising ghost on active construction sites.
     if (this.state) {
       for (const site of this.sites.values()) {
@@ -348,6 +365,7 @@ export class BuildingsView {
   dispose(): void {
     this.material.dispose();
     this.ghostMaterial.dispose();
+    this.life.dispose();
     this.sparks.geometry.dispose();
     this.dust.geometry.dispose();
     (this.dust.material as MeshStandardMaterial).dispose();

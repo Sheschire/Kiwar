@@ -18,7 +18,9 @@ import type { BuildingType } from '@kiwar/shared';
 
 /**
  * Procedural low-poly building models. Each model is assembled from primitives with vertex
- * colours and merged into a single geometry (one draw call per building), cached per level.
+ * colours. Static parts are merged into one geometry (one draw call per building); moving parts
+ * ("rigs": a press, a wheel, windmill sails…) are merged per rig around their pivot so the view
+ * can animate them. Everything is cached per type and level.
  */
 
 const C = {
@@ -47,7 +49,55 @@ const C = {
   white: '#fbf6ea',
 } as const;
 
-type Part = [BufferGeometry, string, Matrix4];
+/** Geometry, colour, transform, and the rig it belongs to (none = static). */
+type Part = [BufferGeometry, string, Matrix4, string?];
+
+/**
+ * How a rig moves; `phase` advances with the building's activity.
+ * - spin: rotates around `axis` (`amount` = radians per phase unit).
+ * - swing: oscillates around `axis` by ±`amount` radians.
+ * - pump: moves up and down by `amount` (smooth).
+ * - pound: lifted slowly by `amount`, then drops fast (hammers).
+ * - bob: small vertical float of ±`amount`.
+ */
+export interface RigMotion {
+  kind: 'spin' | 'swing' | 'pump' | 'pound' | 'bob';
+  axis?: 'x' | 'y' | 'z';
+  amount: number;
+  /** Phase units per second at full activity. */
+  speed: number;
+  /** Keeps moving when the building is idle (ambient life: flags, smoke, eggs). */
+  ambient?: boolean;
+}
+
+interface RigDef {
+  name: string;
+  pivot: Vector3;
+  motion: RigMotion;
+}
+
+/** Parts plus the rigs they declare. */
+type Parts = Part[] & { rigs?: RigDef[] };
+
+function rig(p: Parts, name: string, pivot: [number, number, number], motion: RigMotion): void {
+  (p.rigs ??= []).push({ name, pivot: new Vector3(...pivot), motion });
+}
+
+export interface BuildingRig {
+  /** Rig geometry, centred on its pivot. */
+  geometry: BufferGeometry;
+  /** Pivot position in the building's local space (scaled). */
+  pivot: Vector3;
+  motion: RigMotion;
+}
+
+export interface BuildingModel {
+  /** Static parts, merged. */
+  geometry: BufferGeometry;
+  rigs: BuildingRig[];
+  /** Top of the model (for status icons). */
+  height: number;
+}
 
 /** Models are authored for a unit tile; this makes them read better from the default zoom. */
 const MODEL_SCALE = 1.3;
@@ -60,10 +110,11 @@ function m(x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0):
   );
 }
 
-function bake(parts: Part[]): BufferGeometry {
+function bake(parts: Part[], offset?: Vector3): BufferGeometry {
   const prepared = parts.map(([geo, color, matrix]) => {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     g.applyMatrix4(matrix);
+    if (offset) g.translate(-offset.x, -offset.y, -offset.z);
     g.deleteAttribute('uv');
     if (!g.getAttribute('normal')) g.computeVertexNormals();
     const c = new Color(color);
@@ -88,7 +139,7 @@ const sphere = (w = 10, h = 7) => new SphereGeometry(1, w, h);
 const ico = () => new IcosahedronGeometry(1, 0);
 const roofPrism = () => new CylinderGeometry(1, 1, 1, 3); // triangular prism lying down
 
-function flag(parts: Part[], level: number, x: number, y: number, z: number): void {
+function flag(parts: Parts, level: number, x: number, y: number, z: number): void {
   if (level < 2) return;
   parts.push([cyl(5), C.woodDark, m(x, y + 0.3, z, 0.02, 0.6, 0.02)]);
   parts.push([
@@ -98,8 +149,8 @@ function flag(parts: Part[], level: number, x: number, y: number, z: number): vo
   ]);
 }
 
-function nest(level: number): Part[] {
-  const p: Part[] = [];
+function nest(level: number): Parts {
+  const p: Parts = [];
   const s = 1 + (level - 1) * 0.12;
   p.push([
     new TorusGeometry(0.5 * s, 0.17 * s, 6, 14),
@@ -143,15 +194,20 @@ function nest(level: number): Part[] {
   return p;
 }
 
-function pulpery(level: number): Part[] {
-  const p: Part[] = [];
+function pulpery(level: number): Parts {
+  const p: Parts = [];
   const s = 0.85 + level * 0.1;
   p.push([cyl(10), C.cream, m(0, 0.2 * s, 0, 0.36 * s, 0.4 * s, 0.36 * s)]);
   p.push([cone(10), C.leaf, m(0, 0.6 * s, 0, 0.5 * s, 0.42 * s, 0.5 * s)]);
   p.push([sphere(6, 4), C.leafDark, m(0, 0.84 * s, 0, 0.07, 0.07, 0.07)]);
   p.push([box(), C.door, m(0, 0.13 * s, 0.35 * s, 0.14, 0.24 * s, 0.03)]);
-  // Basket of pulp.
+  // Basket of pulp under a little press whose plate pumps on the fruit.
   p.push([cyl(8), C.wood, m(0.42, 0.07, 0.22, 0.14, 0.14, 0.14)]);
+  for (const x of [0.25, 0.59]) p.push([box(), C.woodDark, m(x, 0.24, 0.22, 0.035, 0.48, 0.035)]);
+  p.push([box(), C.woodDark, m(0.42, 0.47, 0.22, 0.38, 0.04, 0.05)]);
+  rig(p, 'press', [0.42, 0.3, 0.22], { kind: 'pump', amount: 0.08, speed: 5 });
+  p.push([cyl(6), C.stoneDark, m(0.42, 0.38, 0.22, 0.02, 0.18, 0.02), 'press']);
+  p.push([cyl(10), C.wood, m(0.42, 0.29, 0.22, 0.12, 0.03, 0.12), 'press']);
   for (let i = 0; i < 4; i++)
     p.push([
       sphere(6, 4),
@@ -170,8 +226,8 @@ function pulpery(level: number): Part[] {
   return p;
 }
 
-function fiberWorkshop(level: number): Part[] {
-  const p: Part[] = [];
+function fiberWorkshop(level: number): Parts {
+  const p: Parts = [];
   const s = 0.85 + level * 0.1;
   p.push([box(), C.wood, m(0, 0.2 * s, 0, 0.62 * s, 0.4 * s, 0.46 * s)]);
   p.push([roofPrism(), C.roof, m(0, 0.52 * s, 0, 0.28 * s, 0.7 * s, 0.32 * s, 0, 0, Math.PI / 2)]);
@@ -182,20 +238,43 @@ function fiberWorkshop(level: number): Part[] {
     p.push([cyl(10), C.woodDark, m(x, 0.32, z, 0.17, 0.04, 0.17)]);
   };
   spool(0.45, 0.3);
-  if (level >= 2) spool(-0.45, 0.32);
+  if (level >= 2) spool(-0.2, 0.44);
+  // Spinning wheel on its stand, facing the street.
+  const wx = -0.46;
+  const wz = 0.1;
+  const wy = 0.3;
+  for (const dx of [-0.05, 0.05]) {
+    p.push([box(), C.woodDark, m(wx + dx, wy / 2, wz - 0.03, 0.03, wy, 0.03)]);
+  }
+  rig(p, 'wheel', [wx, wy, wz], { kind: 'spin', axis: 'z', amount: 1, speed: 4 });
+  p.push([new TorusGeometry(0.17, 0.022, 4, 14), C.wood, m(wx, wy, wz), 'wheel']);
+  for (let i = 0; i < 3; i++) {
+    p.push([
+      box(),
+      C.woodDark,
+      m(wx, wy, wz, 0.015, 0.34, 0.015, 0, 0, (i * Math.PI) / 3),
+      'wheel',
+    ]);
+  }
+  p.push([cyl(6), C.cream, m(wx, wy, wz, 0.04, 0.1, 0.04, Math.PI / 2), 'wheel']);
   if (level >= 3) p.push([box(), C.stoneDark, m(0.2, 0.75 * s, -0.1, 0.1, 0.35, 0.1)]);
   flag(p, level, -0.4, 0.4, -0.25);
   return p;
 }
 
-function seedQuarry(level: number): Part[] {
-  const p: Part[] = [];
+function seedQuarry(level: number): Parts {
+  const p: Parts = [];
   const s = 0.9 + level * 0.08;
   // Wooden A-frame with a pulley.
   p.push([box(), C.wood, m(-0.25, 0.4 * s, 0, 0.06, 0.85 * s, 0.06, 0, 0, 0.3)]);
   p.push([box(), C.wood, m(0.25, 0.4 * s, 0, 0.06, 0.85 * s, 0.06, 0, 0, -0.3)]);
   p.push([box(), C.woodDark, m(0, 0.78 * s, 0, 0.5, 0.06, 0.06)]);
   p.push([cyl(10), C.stoneDark, m(0, 0.62 * s, 0, 0.08, 0.06, 0.08, Math.PI / 2)]);
+  // Drop hammer: hauled up to the pulley, then it falls on the seeds.
+  rig(p, 'hammer', [0, 0.14, 0], { kind: 'pound', amount: 0.24 * s, speed: 3.2 });
+  p.push([cyl(6), C.woodDark, m(0, 0.3, 0, 0.018, 0.34, 0.018), 'hammer']);
+  p.push([cyl(10), C.stone, m(0, 0.14, 0, 0.12, 0.12, 0.12), 'hammer']);
+  p.push([cyl(10), C.stoneDark, m(0, 0.2, 0, 0.13, 0.025, 0.13), 'hammer']);
   // Pit and a pile of seeds.
   p.push([cyl(10), C.stoneDark, m(0, 0.03, 0, 0.32, 0.06, 0.32)]);
   const seeds = 3 + level * 2;
@@ -224,8 +303,8 @@ function seedQuarry(level: number): Part[] {
   return p;
 }
 
-function juiceWell(level: number): Part[] {
-  const p: Part[] = [];
+function juiceWell(level: number): Parts {
+  const p: Parts = [];
   const s = 0.9 + level * 0.08;
   p.push([cyl(12), C.stone, m(0, 0.15, 0, 0.36 * s, 0.32, 0.36 * s)]);
   p.push([cyl(12), C.juice, m(0, 0.31, 0, 0.29 * s, 0.02, 0.29 * s)]);
@@ -233,15 +312,50 @@ function juiceWell(level: number): Part[] {
   p.push([box(), C.wood, m(0.3 * s, 0.5, 0, 0.05, 0.7, 0.05)]);
   p.push([cone(4), C.roof, m(0, 0.95, 0, 0.5 * s, 0.3, 0.42 * s, 0, Math.PI / 4)]);
   p.push([cyl(8), C.woodDark, m(0, 0.72, 0, 0.04, 0.6 * s, 0.04, 0, 0, Math.PI / 2)]);
-  p.push([cyl(8), C.wood, m(0.05, 0.5, 0, 0.07, 0.1, 0.07)]);
+  // Bucket going up and down on its rope.
+  rig(p, 'bucket', [0.05, 0.5, 0], { kind: 'pump', amount: 0.14, speed: 2.2 });
+  p.push([cyl(8), C.wood, m(0.05, 0.5, 0, 0.07, 0.1, 0.07), 'bucket']);
+  p.push([cyl(4), C.straw, m(0.05, 0.62, 0, 0.008, 0.16, 0.008), 'bucket']);
+  // Little windmill on the roof that drives the winch.
+  const hub: [number, number, number] = [0, 1.16, 0.16];
+  p.push([cyl(6), C.woodDark, m(0, 1.08, 0.05, 0.025, 0.24, 0.025)]);
+  p.push([cyl(6), C.woodDark, m(0, 1.16, 0.08, 0.02, 0.16, 0.02, Math.PI / 2)]);
+  rig(p, 'sails', hub, { kind: 'spin', axis: 'z', amount: 1, speed: 2.4 });
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2;
+    const r = 0.17;
+    p.push([
+      box(),
+      C.woodDark,
+      m(hub[0] + Math.sin(a) * r, hub[1] + Math.cos(a) * r, hub[2], 0.02, 0.34, 0.015, 0, 0, -a),
+      'sails',
+    ]);
+    p.push([
+      box(),
+      C.cream,
+      m(
+        hub[0] + Math.sin(a) * r + Math.cos(a) * 0.045,
+        hub[1] + Math.cos(a) * r - Math.sin(a) * 0.045,
+        hub[2] + 0.01,
+        0.08,
+        0.26,
+        0.01,
+        0,
+        0,
+        -a,
+      ),
+      'sails',
+    ]);
+  }
+  p.push([sphere(6, 4), C.roof, m(...hub, 0.04, 0.04, 0.04), 'sails']);
   if (level >= 2) p.push([cyl(10), C.stoneDark, m(0, 0.32, 0, 0.38 * s, 0.04, 0.38 * s)]);
   if (level >= 3) p.push([sphere(8, 6), C.juice, m(0.45, 0.12, 0.2, 0.12, 0.12, 0.12)]);
   flag(p, level, 0.42, 0.3, -0.3);
   return p;
 }
 
-function hut(level: number): Part[] {
-  const p: Part[] = [];
+function hut(level: number): Parts {
+  const p: Parts = [];
   const s = 0.85 + level * 0.1;
   const dome = (x: number, z: number, k: number) => {
     p.push([
@@ -261,8 +375,8 @@ function hut(level: number): Part[] {
   return p;
 }
 
-function warehouse(level: number): Part[] {
-  const p: Part[] = [];
+function warehouse(level: number): Parts {
+  const p: Parts = [];
   const s = 0.85 + level * 0.1;
   p.push([box(), C.roof, m(0, 0.22 * s, 0, 0.66 * s, 0.44 * s, 0.5 * s)]);
   p.push([
@@ -299,8 +413,8 @@ function warehouse(level: number): Part[] {
 }
 
 /** Launch platform; the kiwi-shaped ship is drawn only while it is docked. */
-function launchpad(level: number, docked = true): Part[] {
-  const p: Part[] = [];
+function launchpad(level: number, docked = true): Parts {
+  const p: Parts = [];
   const s = 0.9 + level * 0.08;
   p.push([cyl(14), C.wood, m(0, 0.06, 0, 0.62 * s, 0.12, 0.62 * s)]);
   p.push([cyl(14), C.straw, m(0, 0.13, 0, 0.5 * s, 0.02, 0.5 * s)]);
@@ -330,8 +444,8 @@ function launchpad(level: number, docked = true): Part[] {
 }
 
 /** Gathering camp: a leaf lean-to, a woven basket and a little stone ring. No foundations. */
-function camp(): Part[] {
-  const p: Part[] = [];
+function camp(): Parts {
+  const p: Parts = [];
   // Lean-to: two forked poles, a ridge and a leaf roof.
   for (const x of [-0.28, 0.28]) {
     p.push([cyl(5), C.woodDark, m(x, 0.24, -0.12, 0.025, 0.5, 0.025, -0.35, 0, 0)]);
@@ -361,7 +475,7 @@ function camp(): Part[] {
   return p;
 }
 
-const BUILDERS: Record<BuildingType, (level: number) => Part[]> = {
+const BUILDERS: Record<BuildingType, (level: number) => Parts> = {
   camp,
   launchpad,
   nest,
@@ -374,7 +488,14 @@ const BUILDERS: Record<BuildingType, (level: number) => Part[]> = {
 };
 
 const cache = new Map<string, BufferGeometry>();
+const models = new Map<string, BuildingModel>();
 
+function partsOf(type: BuildingType, level: number, shipAway: boolean): Parts {
+  const lvl = Math.max(1, Math.min(3, level));
+  return type === 'launchpad' && shipAway ? launchpad(lvl, false) : BUILDERS[type](lvl);
+}
+
+/** The whole model merged in its rest pose (construction ghosts). */
 export function buildingGeometry(
   type: BuildingType,
   level: number,
@@ -383,18 +504,41 @@ export function buildingGeometry(
   const key = `${type}:${level}${shipAway ? ':away' : ''}`;
   let g = cache.get(key);
   if (!g) {
-    const lvl = Math.max(1, Math.min(3, level));
-    g = bake(type === 'launchpad' && shipAway ? launchpad(lvl, false) : BUILDERS[type](lvl));
+    g = bake(partsOf(type, level, shipAway));
     cache.set(key, g);
   }
   return g;
+}
+
+/** Static geometry plus the animated rigs of a building. */
+export function buildingModel(type: BuildingType, level: number, shipAway = false): BuildingModel {
+  const key = `${type}:${level}${shipAway ? ':away' : ''}`;
+  let model = models.get(key);
+  if (!model) {
+    const parts = partsOf(type, level, shipAway);
+    const geometry = bake(parts.filter((part) => !part[3]));
+    const rigs = (parts.rigs ?? [])
+      .filter((r) => parts.some((part) => part[3] === r.name))
+      .map((r) => ({
+        geometry: bake(
+          parts.filter((part) => part[3] === r.name),
+          r.pivot,
+        ),
+        pivot: r.pivot.clone().multiplyScalar(MODEL_SCALE),
+        motion: r.motion,
+      }));
+    const height = buildingGeometry(type, level, shipAway).boundingBox!.max.y;
+    model = { geometry, rigs, height };
+    models.set(key, model);
+  }
+  return model;
 }
 
 /** Wooden scaffolding around a construction site. */
 export function scaffoldGeometry(): BufferGeometry {
   let g = cache.get('scaffold');
   if (!g) {
-    const p: Part[] = [];
+    const p: Parts = [];
     const r = 0.5;
     for (let i = 0; i < 4; i++) {
       const a = Math.PI / 4 + (i * Math.PI) / 2;

@@ -16,6 +16,10 @@ export interface QualitySettings {
   msaa: number;
   /** Multiplier on the number of decorative props. */
   propDensity: number;
+  /** Moving parts of the buildings (presses, wheels, windmills…). */
+  buildingAnimations: boolean;
+  /** Small particles of the working buildings (drops, chips, smoke). */
+  particles: boolean;
 }
 
 export const QUALITY: Record<QualityPreset, QualitySettings> = {
@@ -29,6 +33,8 @@ export const QUALITY: Record<QualityPreset, QualitySettings> = {
     tiltShift: false,
     msaa: 0,
     propDensity: 0.45,
+    buildingAnimations: false,
+    particles: false,
   },
   medium: {
     preset: 'medium',
@@ -40,6 +46,8 @@ export const QUALITY: Record<QualityPreset, QualitySettings> = {
     tiltShift: false,
     msaa: 2,
     propDensity: 0.75,
+    buildingAnimations: true,
+    particles: true,
   },
   high: {
     preset: 'high',
@@ -51,6 +59,8 @@ export const QUALITY: Record<QualityPreset, QualitySettings> = {
     tiltShift: true,
     msaa: 4,
     propDensity: 1,
+    buildingAnimations: true,
+    particles: true,
   },
 };
 
