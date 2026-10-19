@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   advance,
   BUILDINGS,
+  builderSpeed,
+  workerPower,
   capacity,
   FACE_PROFILES,
   HOUR_MS,
@@ -80,9 +82,16 @@ describe('advance', () => {
     expect(types).toEqual(['pulpery', 'fiberWorkshop']);
     const pulpery = after.buildings.find((b) => b.type === 'pulpery')!;
     expect(pulpery.builtAt).toBe(T0 + s.queue[0]!.durationMs);
-    // The second construction started exactly when the first finished.
+    // The second construction started exactly when the first finished, at its builder's pace.
     const workshop = after.buildings.find((b) => b.type === 'fiberWorkshop')!;
-    expect(workshop.builtAt).toBe(pulpery.builtAt + s.queue[1]!.durationMs);
+    const started = events.find((e) => e.type === 'constructionStarted' && e.at > T0);
+    expect(started?.at).toBe(pulpery.builtAt);
+    const builder = after.villagers.find(
+      (v) => started?.type === 'constructionStarted' && v.id === started.builderId,
+    )!;
+    expect(workshop.builtAt).toBe(
+      pulpery.builtAt + Math.round(s.queue[1]!.durationMs / builderSpeed(builder)),
+    );
     // New workplaces were staffed automatically.
     expect(workersOf(after, pulpery.id)).toHaveLength(1);
     expect(workersOf(after, workshop.id)).toHaveLength(1);
@@ -140,12 +149,14 @@ describe('advance', () => {
     s = { ...s, resources: { pulp: 0, fiber: 0, seeds: 0, juice: 0 } };
     const withWorker = productionRates(s).pulp;
     const pulpery = s.buildings.find((b) => b.type === 'pulpery')!;
+    const worker = workersOf(s, pulpery.id)[0]!;
     s = run(s, { type: 'assignWorkers', buildingId: pulpery.id, count: 0 }, s.now, map);
     const without = productionRates(s).pulp;
     const efficiency = logisticsEfficiency(depotDistance(s, map, pulpery));
     const expected =
       BUILDINGS.pulpery.levels[0]!.production!.pulp! *
       efficiency *
+      workerPower(worker, 'pulp') *
       FACE_PROFILES.kiwisu.yieldMultiplier.pulp;
     expect(withWorker - without).toBeCloseTo(expected, 6);
   });

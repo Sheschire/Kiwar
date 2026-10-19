@@ -709,6 +709,84 @@ function alienFaceOnKiwi(distance) {
   };
 }
 
+// packages/shared/src/data/kiwis.ts
+var STAT_IDS = [
+  "strength",
+  "agility",
+  "endurance",
+  "spirit",
+  "dexterity",
+  "charisma"
+];
+var SHINY_COLORS = ["red", "yellow", "green", "blue"];
+var MASTERY_IDS = ["pulp", "fiber", "seeds", "juice", "build"];
+var TRAIT_IDS = [
+  "earlyBird",
+  "glutton",
+  "brave",
+  "dreamer",
+  "sturdy",
+  "lucky",
+  "curious"
+];
+var TRAITS = {
+  earlyBird: { harvest: 1.06, build: 0.94 },
+  glutton: { fight: 1.12, rations: 1.5 },
+  brave: { fight: 1.15, exposure: 1.3 },
+  dreamer: { xp: 1.15, harvest: 0.95 },
+  sturdy: { build: 1.12, xp: 0.9 },
+  lucky: { exposure: 0.7, practice: 0.9 },
+  curious: { practice: 1.25, harvest: 0.97 }
+};
+var KIWI = {
+  stat: { min: 1, max: 10, cap: 20, average: 5 },
+  /** Sum of the six base stats (drawn in this range): no perfect kiwi. */
+  statTotal: { min: 27, max: 33 },
+  shinyChance: 1 / 512,
+  traitChance: 0.3,
+  maxLevel: 30,
+  /** Experience per hour by activity (idle and travelling kiwis do not learn; see expeditionXp). */
+  xpPerHour: { work: 10, build: 12 },
+  /** Experience bonus per point of Spirit above average (+4 %). */
+  spiritXp: 0.04,
+  /** Lump of experience for every crew member coming home (part 3). */
+  expeditionXp: { base: 40, victory: 40 },
+  /** Mastery ranks (cumulative hours of practice: see masteryHours). */
+  maxRank: 10,
+  /** Bonus per mastery rank on the kiwi's work (+3 %). */
+  rankBonus: 0.03,
+  /** Harvesting bonus per point of Dexterity above average (+3 %). */
+  dexterityBonus: 0.03,
+  /** Construction speed bonus per point of Strength above average (+2 %). */
+  strengthBuild: 0.02,
+  /** Never below this share of an average kiwi's work. */
+  minPower: 0.5,
+  /** Odd levels give a stat point drawn from the activity; even levels one to place. */
+  autoStatWeights: {
+    work: { strength: 1, agility: 2, endurance: 1, spirit: 1, dexterity: 3, charisma: 1 },
+    build: { strength: 3, agility: 1, endurance: 2, spirit: 1, dexterity: 1, charisma: 1 },
+    expedition: { strength: 2, agility: 2, endurance: 2, spirit: 1, dexterity: 1, charisma: 1 },
+    other: { strength: 1, agility: 1, endurance: 1, spirit: 1, dexterity: 1, charisma: 1 }
+  }
+};
+var MEMORIAL_MAX = 50;
+var KIWI_NAME_MAX = 20;
+var XP_SCALE = 100 * 36e5;
+var PRACTICE_SCALE = 100 * 36e5;
+function xpForLevel(level) {
+  const n = Math.max(0, level - 1);
+  return Math.floor((518 * n * n + 41 * n * n * n) / 100);
+}
+function masteryHours(rank) {
+  return 2 * rank * rank;
+}
+var RESOURCE_MASTERY = {
+  pulp: "pulp",
+  fiber: "fiber",
+  seeds: "seeds",
+  juice: "juice"
+};
+
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
 var SQRT5 = /* @__PURE__ */ Math.sqrt(5);
@@ -971,127 +1049,6 @@ function countTiles(map) {
 }
 function tileAt(map, q, r) {
   return getTile(map, hex(q, r));
-}
-
-// packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 3;
-function soloTargets(face) {
-  const other = face === "kiwisu" ? "kiwino" : "kiwisu";
-  return [
-    {
-      id: `aliens:0:${other}`,
-      owner: "aliens",
-      kiwiIndex: 0,
-      face: other,
-      distance: 0,
-      ...ALIEN_TWIN_FACE
-    }
-  ];
-}
-function newGame(opts) {
-  const rng = createRng(`${opts.seed}/${opts.face}/game`);
-  const state = {
-    schemaVersion: SCHEMA_VERSION,
-    universeId: opts.universeId ?? "local",
-    kiwiId: opts.kiwiId ?? "local-kiwi",
-    playerId: opts.playerId ?? "local-player",
-    seasonId: "preseason",
-    face: opts.face,
-    seed: opts.seed,
-    params: opts.params ?? DEFAULT_FACE_PARAMS,
-    createdAt: opts.now,
-    now: opts.now,
-    resources: { ...START.resources },
-    buildings: [],
-    villagers: [],
-    queue: [],
-    egg: null,
-    objectiveIndex: 0,
-    stats: {
-      produced: { pulp: 0, fiber: 0, seeds: 0, juice: 0 },
-      constructionsCompleted: 0,
-      eggsHatched: 0
-    },
-    targets: opts.targets ?? soloTargets(opts.face),
-    victories: {},
-    expeditions: [],
-    paths: [],
-    deposits: {},
-    nextId: 1,
-    rng: rng.state()
-  };
-  state.buildings.push({
-    id: nextId(state, "b"),
-    type: "nest",
-    q: HEART.q,
-    r: HEART.r,
-    level: 1,
-    richness: 1,
-    builtAt: opts.now
-  });
-  for (let i = 0; i < START.villagers; i++) addVillager(state, opts.now);
-  return state;
-}
-function nextId(state, prefix) {
-  return `${prefix}${state.nextId++}`;
-}
-function withRng(state, fn) {
-  const rng = createRng(state.rng);
-  const out = fn(rng);
-  state.rng = rng.state();
-  return out;
-}
-function addVillager(state, at) {
-  const taken = new Set(state.villagers.map((v2) => v2.name));
-  const name = withRng(state, (rng) => {
-    for (let attempt = 0; attempt < 12; attempt++) {
-      const parts = 2 + (attempt >= 6 || rng.chance(0.3) ? 1 : 0);
-      let n = "";
-      for (let i = 0; i < parts; i++) n += rng.pick(NAME_SYLLABLES);
-      n = n.charAt(0).toUpperCase() + n.slice(1);
-      if (!taken.has(n)) return n;
-    }
-    return `Kiwi ${state.villagers.length + 1}`;
-  });
-  const v = {
-    id: nextId(state, "v"),
-    name,
-    bornAt: at,
-    job: { kind: "idle" }
-  };
-  state.villagers.push(v);
-  return v;
-}
-function cloneState(state) {
-  return {
-    ...state,
-    params: { ...state.params },
-    resources: { ...state.resources },
-    buildings: state.buildings.map(
-      (b) => b.pool ? { ...b, pool: { stock: b.pool.stock, tiles: [...b.pool.tiles] } } : { ...b }
-    ),
-    villagers: state.villagers.map((v) => ({ ...v, job: { ...v.job } })),
-    queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
-    egg: state.egg ? { ...state.egg } : null,
-    stats: { ...state.stats, produced: { ...state.stats.produced } },
-    targets: state.targets.map((t) => ({ ...t, loot: { ...t.loot } })),
-    victories: { ...state.victories },
-    paths: [...state.paths],
-    deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
-    expeditions: state.expeditions.map((e) => ({
-      ...e,
-      crew: [...e.crew],
-      roster: e.roster.map((r) => ({ ...r })),
-      provisions: { ...e.provisions },
-      result: e.result ? {
-        ...e.result,
-        lostInBattle: [...e.result.lostInBattle],
-        lostOnReturn: [...e.result.lostOnReturn],
-        loot: { ...e.result.loot }
-      } : null
-    })),
-    rng: [...state.rng]
-  };
 }
 
 // packages/shared/src/sim/territory.ts
@@ -1369,6 +1326,332 @@ function depletedTiles(state, map) {
   return out;
 }
 
+// packages/shared/src/sim/kiwis.ts
+function rollKiwi(rng) {
+  const { min, max } = KIWI.stat;
+  const stats2 = Object.fromEntries(STAT_IDS.map((id3) => [id3, min]));
+  let points = rng.int(KIWI.statTotal.min, KIWI.statTotal.max) - min * STAT_IDS.length;
+  while (points > 0) {
+    const id3 = rng.pick(STAT_IDS);
+    if (stats2[id3] >= max) continue;
+    stats2[id3]++;
+    points--;
+  }
+  const trait = rng.chance(KIWI.traitChance) ? rng.pick(TRAIT_IDS) : null;
+  const shiny = rollShiny(rng);
+  return { stats: stats2, trait, shiny };
+}
+function rollShiny(rng) {
+  return rng.next() < KIWI.shinyChance ? rng.pick(SHINY_COLORS) : null;
+}
+function emptyMasteries() {
+  return Object.fromEntries(MASTERY_IDS.map((id3) => [id3, 0]));
+}
+function newKiwi(roll) {
+  return {
+    ...roll,
+    stats: { ...roll.stats },
+    level: 1,
+    xp: 0,
+    statPoints: 0,
+    mastery: emptyMasteries(),
+    history: { expeditions: 0, victories: 0, built: 0 }
+  };
+}
+function modifiers(v) {
+  const t = v.trait ? TRAITS[v.trait] : {};
+  return {
+    xp: t.xp ?? 1,
+    practice: t.practice ?? 1,
+    harvest: t.harvest ?? 1,
+    build: t.build ?? 1,
+    fight: t.fight ?? 1,
+    exposure: t.exposure ?? 1,
+    rations: t.rations ?? 1
+  };
+}
+function levelForXp(xp) {
+  let level = 1;
+  while (level < KIWI.maxLevel && xp >= xpForLevel(level + 1) * XP_SCALE) level++;
+  return level;
+}
+function rankOf(practice) {
+  let rank = 0;
+  while (rank < KIWI.maxRank && practice >= masteryHours(rank + 1) * PRACTICE_SCALE) rank++;
+  return rank;
+}
+function levelProgress(v) {
+  return {
+    xp: v.xp / XP_SCALE,
+    current: xpForLevel(v.level),
+    next: v.level < KIWI.maxLevel ? xpForLevel(v.level + 1) : null
+  };
+}
+function masteryProgress(v, id3) {
+  const rank = rankOf(v.mastery[id3]);
+  return {
+    rank,
+    hours: v.mastery[id3] / PRACTICE_SCALE,
+    next: rank < KIWI.maxRank ? masteryHours(rank + 1) : null
+  };
+}
+function buildingResource(state, b) {
+  const type = harvestedTileType(faceMapOf(state), b);
+  return type ? DEPOSITS[type]?.resource ?? null : null;
+}
+function workerPower(v, resource) {
+  const m = modifiers(v);
+  const dex = 1 + KIWI.dexterityBonus * (v.stats.dexterity - KIWI.stat.average);
+  const rank = 1 + KIWI.rankBonus * rankOf(v.mastery[RESOURCE_MASTERY[resource]]);
+  return Math.max(KIWI.minPower, dex * rank * m.harvest);
+}
+function builderSpeed(v) {
+  const m = modifiers(v);
+  const str = 1 + KIWI.strengthBuild * (v.stats.strength - KIWI.stat.average);
+  const rank = 1 + KIWI.rankBonus * rankOf(v.mastery.build);
+  return Math.max(KIWI.minPower, str * rank * m.build);
+}
+function workforce(state, b, workers) {
+  const resource = buildingResource(state, b);
+  if (!resource) return workers.length;
+  return workers.reduce((sum, v) => sum + workerPower(v, resource), 0);
+}
+function ratesOf(state, v, resources2) {
+  const job2 = v.job;
+  let perHour = 0;
+  let mastery = null;
+  if (job2.kind === "work") {
+    perHour = KIWI.xpPerHour.work;
+    let resource = resources2.get(job2.buildingId);
+    if (resource === void 0) {
+      const b = state.buildings.find((x) => x.id === job2.buildingId);
+      resource = b ? buildingResource(state, b) : null;
+      resources2.set(job2.buildingId, resource);
+    }
+    mastery = resource ? RESOURCE_MASTERY[resource] : null;
+  } else if (job2.kind === "build") {
+    perHour = KIWI.xpPerHour.build;
+    mastery = "build";
+  }
+  if (perHour === 0) return { xp: 0, practice: 0, mastery: null };
+  const m = modifiers(v);
+  const spirit = 1 + KIWI.spiritXp * (v.stats.spirit - KIWI.stat.average);
+  const xp = v.level >= KIWI.maxLevel ? 0 : Math.max(1, Math.round(perHour * 100 * spirit * m.xp));
+  const practice = mastery && rankOf(v.mastery[mastery]) < KIWI.maxRank ? Math.max(1, Math.round(100 * m.practice)) : 0;
+  return { xp, practice, mastery: practice > 0 ? mastery : null };
+}
+function nextKiwiEvent(state) {
+  let next = Infinity;
+  const resources2 = /* @__PURE__ */ new Map();
+  for (const v of state.villagers) {
+    const r = ratesOf(state, v, resources2);
+    if (r.xp > 0) {
+      const need = xpForLevel(v.level + 1) * XP_SCALE - v.xp;
+      next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.xp)));
+    }
+    if (r.mastery) {
+      const rank = rankOf(v.mastery[r.mastery]);
+      const need = masteryHours(rank + 1) * PRACTICE_SCALE - v.mastery[r.mastery];
+      next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.practice)));
+    }
+  }
+  return next;
+}
+function accrueKiwis(state, dtMs, at, events) {
+  const resources2 = /* @__PURE__ */ new Map();
+  for (const v of state.villagers) {
+    const r = ratesOf(state, v, resources2);
+    if (r.mastery) {
+      const before = rankOf(v.mastery[r.mastery]);
+      v.mastery[r.mastery] += r.practice * dtMs;
+      const after = rankOf(v.mastery[r.mastery]);
+      if (after > before) {
+        events.push({
+          type: "masteryUp",
+          at,
+          villagerId: v.id,
+          name: v.name,
+          mastery: r.mastery,
+          rank: after
+        });
+      }
+    }
+    if (r.xp > 0) {
+      v.xp += r.xp * dtMs;
+      levelUps(state, v, at, events);
+    }
+  }
+}
+function grantXp(state, v, points, at, events) {
+  if (v.level >= KIWI.maxLevel) return;
+  v.xp += Math.round(points * modifiers(v).xp) * XP_SCALE;
+  levelUps(state, v, at, events);
+}
+function levelUps(state, v, at, events) {
+  const target = levelForXp(v.xp);
+  while (v.level < target) {
+    v.level++;
+    let stat = null;
+    if (v.level % 2 === 1) {
+      stat = withRng(state, (rng) => pickStat(rng, v));
+      if (stat) v.stats[stat]++;
+    } else {
+      v.statPoints++;
+    }
+    events.push({ type: "levelUp", at, villagerId: v.id, name: v.name, level: v.level, stat });
+  }
+}
+function pickStat(rng, v) {
+  const kind = v.job.kind === "work" || v.job.kind === "build" || v.job.kind === "expedition" ? v.job.kind : "other";
+  const weights = KIWI.autoStatWeights[kind];
+  const open = STAT_IDS.filter((id3) => v.stats[id3] < KIWI.stat.cap);
+  const total = open.reduce((sum, id3) => sum + weights[id3], 0);
+  if (total <= 0) return null;
+  let roll = rng.next() * total;
+  for (const id3 of open) {
+    roll -= weights[id3];
+    if (roll < 0) return id3;
+  }
+  return open[open.length - 1];
+}
+
+// packages/shared/src/sim/state.ts
+var SCHEMA_VERSION = 4;
+function soloTargets(face) {
+  const other = face === "kiwisu" ? "kiwino" : "kiwisu";
+  return [
+    {
+      id: `aliens:0:${other}`,
+      owner: "aliens",
+      kiwiIndex: 0,
+      face: other,
+      distance: 0,
+      ...ALIEN_TWIN_FACE
+    }
+  ];
+}
+function newGame(opts) {
+  const rng = createRng(`${opts.seed}/${opts.face}/game`);
+  const state = {
+    schemaVersion: SCHEMA_VERSION,
+    universeId: opts.universeId ?? "local",
+    kiwiId: opts.kiwiId ?? "local-kiwi",
+    playerId: opts.playerId ?? "local-player",
+    seasonId: "preseason",
+    face: opts.face,
+    seed: opts.seed,
+    params: opts.params ?? DEFAULT_FACE_PARAMS,
+    createdAt: opts.now,
+    now: opts.now,
+    resources: { ...START.resources },
+    buildings: [],
+    villagers: [],
+    memorial: [],
+    queue: [],
+    egg: null,
+    objectiveIndex: 0,
+    stats: {
+      produced: { pulp: 0, fiber: 0, seeds: 0, juice: 0 },
+      constructionsCompleted: 0,
+      eggsHatched: 0
+    },
+    targets: opts.targets ?? soloTargets(opts.face),
+    victories: {},
+    expeditions: [],
+    paths: [],
+    deposits: {},
+    nextId: 1,
+    rng: rng.state()
+  };
+  state.buildings.push({
+    id: nextId(state, "b"),
+    type: "nest",
+    q: HEART.q,
+    r: HEART.r,
+    level: 1,
+    richness: 1,
+    builtAt: opts.now
+  });
+  for (let i = 0; i < START.villagers; i++) addVillager(state, opts.now);
+  return state;
+}
+function nextId(state, prefix) {
+  return `${prefix}${state.nextId++}`;
+}
+function withRng(state, fn) {
+  const rng = createRng(state.rng);
+  const out = fn(rng);
+  state.rng = rng.state();
+  return out;
+}
+function addVillager(state, at) {
+  const taken = new Set(state.villagers.map((v2) => v2.name));
+  const { name, roll } = withRng(state, (rng) => ({
+    name: drawName(rng, taken, state),
+    roll: rollKiwi(rng)
+  }));
+  const v = {
+    id: nextId(state, "v"),
+    name,
+    bornAt: at,
+    job: { kind: "idle" },
+    ...newKiwi(roll)
+  };
+  state.villagers.push(v);
+  return v;
+}
+function drawName(rng, taken, state) {
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const parts = 2 + (attempt >= 6 || rng.chance(0.3) ? 1 : 0);
+    let n = "";
+    for (let i = 0; i < parts; i++) n += rng.pick(NAME_SYLLABLES);
+    n = n.charAt(0).toUpperCase() + n.slice(1);
+    if (!taken.has(n)) return n;
+  }
+  return `Kiwi ${state.villagers.length + 1}`;
+}
+function cloneState(state) {
+  return {
+    ...state,
+    params: { ...state.params },
+    resources: { ...state.resources },
+    buildings: state.buildings.map(
+      (b) => b.pool ? { ...b, pool: { stock: b.pool.stock, tiles: [...b.pool.tiles] } } : { ...b }
+    ),
+    villagers: state.villagers.map(cloneVillager),
+    memorial: state.memorial.map((m) => ({ ...m })),
+    queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
+    egg: state.egg ? { ...state.egg } : null,
+    stats: { ...state.stats, produced: { ...state.stats.produced } },
+    targets: state.targets.map((t) => ({ ...t, loot: { ...t.loot } })),
+    victories: { ...state.victories },
+    paths: [...state.paths],
+    deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
+    expeditions: state.expeditions.map((e) => ({
+      ...e,
+      crew: [...e.crew],
+      roster: e.roster.map((r) => ({ ...r })),
+      provisions: { ...e.provisions },
+      result: e.result ? {
+        ...e.result,
+        lostInBattle: [...e.result.lostInBattle],
+        lostOnReturn: [...e.result.lostOnReturn],
+        loot: { ...e.result.loot }
+      } : null
+    })),
+    rng: [...state.rng]
+  };
+}
+function cloneVillager(v) {
+  return {
+    ...v,
+    job: { ...v.job },
+    stats: { ...v.stats },
+    mastery: { ...v.mastery },
+    history: { ...v.history }
+  };
+}
+
 // packages/shared/src/sim/selectors.ts
 var HOUR_MS2 = 36e5;
 function getBuilding(state, id3) {
@@ -1422,7 +1705,7 @@ function storageFullCheck(state) {
   return (id3) => state.resources[id3] >= cap[id3] - 1e-6;
 }
 function buildingHarvest(state, b, full = storageFullCheck(state)) {
-  return harvestOf(state, faceMapOf(state), b, workersOf(state, b.id).length, full);
+  return harvestOf(state, faceMapOf(state), b, workforce(state, b, workersOf(state, b.id)), full);
 }
 function buildingRates(state, b, full = storageFullCheck(state)) {
   const def = levelDef(b.type, b.level);
@@ -1758,7 +2041,8 @@ function advanceInPlace(s, now, events) {
       constructionEnd,
       eggEnd,
       expedition?.at ?? Infinity,
-      flows.nextChange
+      flows.nextChange,
+      nextKiwiEvent(s)
     );
     const target = Math.min(nextEvent, now);
     if (target > s.now) {
@@ -1836,6 +2120,7 @@ function accrue(s, flows, dtMs, at, events) {
     const stock = p.b.pool.stock + p.delta * dtMs / HOUR_MS2;
     p.b.pool.stock = stock < 1e-6 ? 0 : Math.min(p.cap, stock);
   }
+  accrueKiwis(s, dtMs, at, events);
 }
 function startNextConstruction(s, at, events) {
   const head = s.queue[0];
@@ -1845,6 +2130,7 @@ function startNextConstruction(s, at, events) {
   if (builder) {
     const returnTo = builder.job.kind === "work" ? builder.job.buildingId : null;
     builder.job = { kind: "build", queueItemId: head.id, returnTo };
+    head.durationMs = Math.max(1e3, Math.round(head.durationMs / builderSpeed(builder)));
   }
   events.push({
     type: "constructionStarted",
@@ -1854,7 +2140,8 @@ function startNextConstruction(s, at, events) {
   });
 }
 function pickBuilder(s) {
-  const idle = idleVillagers(s)[0];
+  let idle;
+  for (const v of idleVillagers(s)) if (!idle || builderSpeed(v) > builderSpeed(idle)) idle = v;
   if (idle) return idle;
   let best;
   let bestCount = 0;
@@ -1899,11 +2186,12 @@ function completeConstruction(s, at, events) {
     r: item.r
   });
   if (item.kind === "build" && isProducer(item.buildingType)) {
-    const idle = idleVillagers(s)[0];
+    const idle = bestIdleFor(s, getBuilding(s, buildingId));
     if (idle) idle.job = { kind: "work", buildingId };
   }
   for (const v of s.villagers) {
     if (v.job.kind !== "build" || v.job.queueItemId !== item.id) continue;
+    v.history.built++;
     const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : void 0;
     if (back && workersOf(s, back.id).length < workerSlots(back)) {
       v.job = { kind: "work", buildingId: back.id };
@@ -1917,7 +2205,7 @@ function hatch(s, at, events) {
   s.egg = null;
   const v = addVillager(s, at);
   s.stats.eggsHatched++;
-  events.push({ type: "hatched", at, villagerId: v.id, name: v.name });
+  events.push({ type: "hatched", at, villagerId: v.id, name: v.name, shiny: v.shiny });
   autoAssign(s, v);
 }
 function autoAssign(s, v) {
@@ -1928,9 +2216,22 @@ function autoAssign(s, v) {
     const count = workersOf(s, b.id).length;
     if (count >= slots) continue;
     const ratio = count / slots;
-    if (!best || ratio < best.ratio) best = { id: b.id, ratio };
+    const resource = buildingResource(s, b);
+    const power = resource ? workerPower(v, resource) : 1;
+    if (!best || ratio < best.ratio || ratio === best.ratio && power > best.power) {
+      best = { id: b.id, ratio, power };
+    }
   }
   if (best) v.job = { kind: "work", buildingId: best.id };
+}
+function bestIdleFor(s, b) {
+  return idleByPower(s, b)[0];
+}
+function idleByPower(s, b) {
+  const resource = buildingResource(s, b);
+  const idle = idleVillagers(s);
+  if (!resource) return idle;
+  return idle.map((v, i) => ({ v, i, p: workerPower(v, resource) })).sort((a, c) => c.p - a.p || a.i - c.i).map((x) => x.v);
 }
 function nextExpeditionEvent(s) {
   let best = null;
@@ -1979,7 +2280,11 @@ var COMMAND_ERRORS = [
   "campLimit",
   "notDemolishable",
   "upgradeInProgress",
-  "housingNeeded"
+  "housingNeeded",
+  "unknownVillager",
+  "invalidName",
+  "noStatPoint",
+  "statMaxed"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -2119,12 +2424,14 @@ function execute(s, cmd, ctx, events) {
       if (cmd.count > slots) fail("tooManyWorkers");
       const current = workersOf(s, b.id);
       if (cmd.count > current.length) {
-        const idle = idleVillagers(s);
+        const idle = idleByPower(s, b);
         const needed = cmd.count - current.length;
         if (idle.length < needed) fail("noIdleKiwi");
         for (const v of idle.slice(0, needed)) v.job = { kind: "work", buildingId: b.id };
       } else {
-        for (const v of current.slice(cmd.count)) v.job = { kind: "idle" };
+        const resource = buildingResource(s, b);
+        const ranked = resource ? current.map((v, i) => ({ v, i, p: workerPower(v, resource) })).sort((a, c) => c.p - a.p || a.i - c.i).map((x) => x.v) : current;
+        for (const v of ranked.slice(cmd.count)) v.job = { kind: "idle" };
       }
       return;
     }
@@ -2203,7 +2510,7 @@ function execute(s, cmd, ctx, events) {
       });
       s.paths = s.paths.filter((k) => k !== hexKey(cmd));
       syncPools(s, ctx.map, now);
-      const idle = idleVillagers(s)[0];
+      const idle = bestIdleFor(s, getBuilding(s, id3));
       if (idle) idle.job = { kind: "work", buildingId: id3 };
       return;
     }
@@ -2231,11 +2538,34 @@ function execute(s, cmd, ctx, events) {
       }
       return;
     }
+    case "renameVillager": {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail("unknownVillager");
+      const name = cleanKiwiName(cmd.name);
+      if (!name) return fail("invalidName");
+      v.name = name;
+      return;
+    }
+    case "spendStatPoint": {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail("unknownVillager");
+      if (!STAT_IDS.includes(cmd.stat)) fail("invalidCount");
+      if (v.statPoints <= 0) fail("noStatPoint");
+      if (v.stats[cmd.stat] >= KIWI.stat.cap) fail("statMaxed");
+      v.stats[cmd.stat]++;
+      v.statPoints--;
+      return;
+    }
     case "debugGrant": {
       refund(s, cmd.resources);
       return;
     }
   }
+}
+function cleanKiwiName(raw) {
+  const name = raw.replace(/\p{Cc}/gu, "").replace(/\s+/g, " ").trim();
+  if (name.length === 0 || [...name].length > KIWI_NAME_MAX) return null;
+  return name;
 }
 
 // node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
@@ -6288,6 +6618,11 @@ var resources = external_exports.object({
 });
 var partialResources = resources.partial();
 var id = external_exports.string().min(1);
+var stats = external_exports.object(
+  Object.fromEntries(
+    STAT_IDS.map((s) => [s, external_exports.number().int().min(1).max(KIWI.stat.cap)])
+  )
+);
 var job = external_exports.discriminatedUnion("kind", [
   external_exports.object({ kind: external_exports.literal("idle") }),
   external_exports.object({ kind: external_exports.literal("work"), buildingId: id }),
@@ -6318,7 +6653,39 @@ var gameStateSchema = external_exports.object({
       pool: external_exports.object({ stock: external_exports.number().min(0), tiles: external_exports.array(external_exports.string()).max(64) }).optional()
     })
   ),
-  villagers: external_exports.array(external_exports.object({ id, name: external_exports.string(), bornAt: external_exports.number(), job })),
+  villagers: external_exports.array(
+    external_exports.object({
+      id,
+      name: external_exports.string().max(4 * KIWI_NAME_MAX),
+      bornAt: external_exports.number(),
+      job,
+      stats,
+      trait: external_exports.enum(TRAIT_IDS).nullable(),
+      shiny: external_exports.enum(SHINY_COLORS).nullable(),
+      level: external_exports.number().int().min(1).max(KIWI.maxLevel),
+      xp: external_exports.number().int().min(0),
+      statPoints: external_exports.number().int().min(0),
+      mastery: external_exports.object(
+        Object.fromEntries(MASTERY_IDS.map((m) => [m, external_exports.number().int().min(0)]))
+      ),
+      history: external_exports.object({
+        expeditions: external_exports.number().int().min(0),
+        victories: external_exports.number().int().min(0),
+        built: external_exports.number().int().min(0)
+      })
+    })
+  ),
+  memorial: external_exports.array(
+    external_exports.object({
+      id,
+      name: external_exports.string().max(4 * KIWI_NAME_MAX),
+      level: external_exports.number().int().min(1).max(KIWI.maxLevel),
+      shiny: external_exports.enum(SHINY_COLORS).nullable(),
+      bornAt: external_exports.number(),
+      diedAt: external_exports.number(),
+      cause: external_exports.enum(["battle", "starvation"])
+    })
+  ).max(MEMORIAL_MAX),
   queue: external_exports.array(
     external_exports.object({
       id,
@@ -6395,7 +6762,17 @@ var MIGRATIONS = {
     expeditions: []
   }),
   // v2 → v3: territory (milestone 4). Deposits start full; pools are set up by the next advance.
-  2: (raw) => ({ ...raw, paths: [], deposits: {} })
+  2: (raw) => ({ ...raw, paths: [], deposits: {} }),
+  // v3 → v4: individual kiwis (chantier 03). Existing kiwis get stats drawn from the seed and
+  // their id (deterministic, the game RNG is left untouched); they start at level 1.
+  3: (raw) => ({
+    ...raw,
+    villagers: Array.isArray(raw.villagers) ? raw.villagers.map((v) => ({
+      ...v,
+      ...newKiwi(rollKiwi(createRng(`${String(raw.seed)}/${String(v.id)}/kiwi`)))
+    })) : raw.villagers,
+    memorial: []
+  })
 };
 function migrateState(input) {
   if (!input || typeof input !== "object") return { ok: false, reason: "corrupt" };
@@ -6465,6 +6842,12 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("gather"), q: int, r: int }),
   external_exports.object({ type: external_exports.literal("demolish"), buildingId: id2 }),
   external_exports.object({ type: external_exports.literal("dismantle"), buildingId: id2 }),
+  external_exports.object({
+    type: external_exports.literal("renameVillager"),
+    villagerId: id2,
+    name: external_exports.string().min(1).max(4 * KIWI_NAME_MAX)
+  }),
+  external_exports.object({ type: external_exports.literal("spendStatPoint"), villagerId: id2, stat: external_exports.enum(STAT_IDS) }),
   external_exports.object({
     type: external_exports.literal("debugGrant"),
     resources: external_exports.object({
@@ -6651,7 +7034,23 @@ function isPlausible(state, now) {
   if (state.objectiveIndex > OBJECTIVES.length) return false;
   if (state.queue.length > (nestDef(state).queueSize ?? 0)) return false;
   if (state.expeditions.length > 0 || Object.keys(state.victories).length > 0) return false;
-  return true;
+  if (state.memorial.length > 0) return false;
+  const shinies = state.villagers.filter((v) => v.shiny).length;
+  if (shinies > 2 + Math.floor(state.villagers.length / 128)) return false;
+  return state.villagers.every((v) => plausibleKiwi(v, state.now));
+}
+var MAX_XP_PER_MS = 100 * KIWI.xpPerHour.build * (1 + KIWI.spiritXp * KIWI.stat.cap) * 1.25;
+var MAX_PRACTICE_PER_MS = 100 * 1.25;
+function plausibleKiwi(v, now) {
+  if (v.bornAt > now) return false;
+  const age = now - v.bornAt;
+  const sum = STAT_IDS.reduce((s, id3) => s + v.stats[id3], 0);
+  if (sum + v.statPoints > KIWI.statTotal.max + v.level - 1) return false;
+  if (v.statPoints > Math.floor(v.level / 2)) return false;
+  if (levelForXp(v.xp) !== v.level || v.xp > MAX_XP_PER_MS * age) return false;
+  const practice = MASTERY_IDS.reduce((s, id3) => s + v.mastery[id3], 0);
+  if (practice > MAX_PRACTICE_PER_MS * age) return false;
+  return v.history.expeditions === 0 && v.history.victories === 0;
 }
 function reply(ctx, state, events = []) {
   return { ok: true, state, events, serverTime: ctx.now() };
@@ -6886,22 +7285,34 @@ export {
   HEART,
   HEX_DIRECTIONS,
   HOUR_MS2 as HOUR_MS,
+  KIWI,
+  KIWI_NAME_MAX,
   LOGISTICS,
+  MASTERY_IDS,
   MAX_LEVEL,
   MAX_PLAYERS,
   MAX_UNIVERSES_PER_PLAYER,
+  MEMORIAL_MAX,
   NAME_SYLLABLES,
   OBJECTIVES,
   PATHS,
+  PRACTICE_SCALE,
   RATE_LIMIT,
   RAY_BUILD_SPEEDUP,
   RESOURCES,
   RESOURCE_IDS,
+  RESOURCE_MASTERY,
   SCHEMA_VERSION,
   SERVER_ERRORS,
+  SHINY_COLORS,
   START,
+  STAT_IDS,
   TILES,
   TILE_TYPES,
+  TRAITS,
+  TRAIT_IDS,
+  XP_SCALE,
+  accrueKiwis,
   activeItem,
   addVillager,
   advance,
@@ -6912,17 +7323,22 @@ export {
   autoAssign,
   availableCrew,
   baseHarvest,
+  bestIdleFor,
   buildCost,
+  builderSpeed,
   buildingAt,
   buildingCount,
   buildingHarvest,
   buildingRates,
+  buildingResource,
   canAfford,
   canHatch,
   capacity,
   catchmentPreview,
   catchmentRadius,
+  cleanKiwiName,
   cloneState,
+  cloneVillager,
   commandSchema,
   computeClaims,
   constructionDuration,
@@ -6940,6 +7356,7 @@ export {
   deserializeSave,
   eggCost,
   eggDuration,
+  emptyMasteries,
   emptyResources,
   faceMapOf,
   forecastExpedition,
@@ -6949,6 +7366,7 @@ export {
   geometric,
   getBuilding,
   getTile,
+  grantXp,
   handleGameRequest,
   harvestOf,
   harvestedTileType,
@@ -6967,6 +7385,7 @@ export {
   hexScale,
   hexToPixel,
   housing,
+  idleByPower,
   idleVillagers,
   inviteCode,
   isDepot,
@@ -6983,16 +7402,23 @@ export {
   launch,
   launchpadOf,
   levelDef,
+  levelForXp,
+  levelProgress,
   logisticsEfficiency,
+  masteryHours,
+  masteryProgress,
   maxCrew,
   maxLevelOf,
   migrateState,
+  modifiers,
   ms,
   nearRay,
   nest,
   nestDef,
   newGame,
+  newKiwi,
   nextId,
+  nextKiwiEvent,
   objectiveProgress,
   otherFace,
   parseHexKey,
@@ -7004,10 +7430,13 @@ export {
   population,
   productionRates,
   queuedBuildAt,
+  rankOf,
   releasePool,
   requestSchema,
   resolveArrival,
   resolveReturn,
+  rollKiwi,
+  rollShiny,
   scaleCost,
   serializeSave,
   shipCargo,
@@ -7027,6 +7456,9 @@ export {
   validateCommand,
   walkCost,
   withRng,
+  workerPower,
   workerSlots,
-  workersOf
+  workersOf,
+  workforce,
+  xpForLevel
 };

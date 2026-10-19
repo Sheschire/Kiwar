@@ -14,6 +14,8 @@ import {
   workersOf,
 } from './selectors';
 import { resolveArrival, resolveReturn } from './expeditions';
+import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
+import { accrueKiwis, builderSpeed, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
 import { faceMapOf, syncPools, timeToDepletion } from './territory';
 import {
   addVillager,
@@ -41,7 +43,30 @@ export type GameEvent =
       queueItemId: QueueItemId;
       builderId: VillagerId | null;
     }
-  | { type: 'hatched'; at: TimeMs; villagerId: VillagerId; name: string }
+  | {
+      type: 'hatched';
+      at: TimeMs;
+      villagerId: VillagerId;
+      name: string;
+      shiny: ShinyColor | null;
+    }
+  /** `stat`: the point drawn on odd levels (null on even levels: a point to place). */
+  | {
+      type: 'levelUp';
+      at: TimeMs;
+      villagerId: VillagerId;
+      name: string;
+      level: number;
+      stat: StatId | null;
+    }
+  | {
+      type: 'masteryUp';
+      at: TimeMs;
+      villagerId: VillagerId;
+      name: string;
+      mastery: MasteryId;
+      rank: number;
+    }
   | { type: 'storageFull'; at: TimeMs; resource: ResourceId }
   | { type: 'expeditionArrived'; at: TimeMs; expeditionId: string; victory: boolean }
   | { type: 'expeditionReturned'; at: TimeMs; expeditionId: string };
@@ -81,6 +106,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
       eggEnd,
       expedition?.at ?? Infinity,
       flows.nextChange,
+      nextKiwiEvent(s),
     );
     const target = Math.min(nextEvent, now);
     if (target > s.now) {
@@ -170,6 +196,7 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
     const stock = p.b.pool!.stock + (p.delta * dtMs) / HOUR_MS;
     p.b.pool!.stock = stock < 1e-6 ? 0 : Math.min(p.cap, stock);
   }
+  accrueKiwis(s, dtMs, at, events);
 }
 
 /** Starts the head of the queue if nothing is under construction, assigning a builder. */
@@ -181,6 +208,8 @@ export function startNextConstruction(s: GameState, at: TimeMs, events: GameEven
   if (builder) {
     const returnTo = builder.job.kind === 'work' ? builder.job.buildingId : null;
     builder.job = { kind: 'build', queueItemId: head.id, returnTo };
+    // The builder's strength and mastery set the pace, once and for all.
+    head.durationMs = Math.max(1000, Math.round(head.durationMs / builderSpeed(builder)));
   }
   events.push({
     type: 'constructionStarted',
@@ -190,9 +219,10 @@ export function startNextConstruction(s: GameState, at: TimeMs, events: GameEven
   });
 }
 
-/** Prefers an idle kiwi; otherwise borrows one from the most staffed workplace. */
+/** Prefers the best idle builder; otherwise borrows one from the most staffed workplace. */
 function pickBuilder(s: GameState): Villager | undefined {
-  const idle = idleVillagers(s)[0];
+  let idle: Villager | undefined;
+  for (const v of idleVillagers(s)) if (!idle || builderSpeed(v) > builderSpeed(idle)) idle = v;
   if (idle) return idle;
   let best: Villager | undefined;
   let bestCount = 0;
@@ -240,7 +270,7 @@ function completeConstruction(s: GameState, at: TimeMs, events: GameEvent[]): vo
 
   // A brand-new workplace gets an idle kiwi automatically (autonomous villagers).
   if (item.kind === 'build' && isProducer(item.buildingType)) {
-    const idle = idleVillagers(s)[0];
+    const idle = bestIdleFor(s, getBuilding(s, buildingId)!);
     if (idle) idle.job = { kind: 'work', buildingId };
   }
 
@@ -248,6 +278,7 @@ function completeConstruction(s: GameState, at: TimeMs, events: GameEvent[]): vo
   // otherwise it looks for work by itself.
   for (const v of s.villagers) {
     if (v.job.kind !== 'build' || v.job.queueItemId !== item.id) continue;
+    v.history.built++;
     const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : undefined;
     if (back && workersOf(s, back.id).length < workerSlots(back)) {
       v.job = { kind: 'work', buildingId: back.id };
@@ -262,25 +293,46 @@ function hatch(s: GameState, at: TimeMs, events: GameEvent[]): void {
   s.egg = null;
   const v = addVillager(s, at);
   s.stats.eggsHatched++;
-  events.push({ type: 'hatched', at, villagerId: v.id, name: v.name });
+  events.push({ type: 'hatched', at, villagerId: v.id, name: v.name, shiny: v.shiny });
   autoAssign(s, v);
 }
 
 /**
  * Newborn and freed kiwis look for work on their own: they go to the producing building with
- * a free slot and the lowest staffing ratio. Kiwis idled by the player stay idle.
+ * a free slot and the lowest staffing ratio, where they are the most skilled on ties. Kiwis
+ * idled by the player stay idle.
  */
 export function autoAssign(s: GameState, v: Villager): void {
-  let best: { id: BuildingId; ratio: number } | null = null;
+  let best: { id: BuildingId; ratio: number; power: number } | null = null;
   for (const b of s.buildings) {
     const slots = workerSlots(b);
     if (slots === 0) continue;
     const count = workersOf(s, b.id).length;
     if (count >= slots) continue;
     const ratio = count / slots;
-    if (!best || ratio < best.ratio) best = { id: b.id, ratio };
+    const resource = buildingResource(s, b);
+    const power = resource ? workerPower(v, resource) : 1;
+    if (!best || ratio < best.ratio || (ratio === best.ratio && power > best.power)) {
+      best = { id: b.id, ratio, power };
+    }
   }
   if (best) v.job = { kind: 'work', buildingId: best.id };
+}
+
+/** The idle kiwi that would work best in a building (masters first). */
+export function bestIdleFor(s: GameState, b: Building): Villager | undefined {
+  return idleByPower(s, b)[0];
+}
+
+/** Idle kiwis, best workers for this building first (stable on ties). */
+export function idleByPower(s: GameState, b: Building): Villager[] {
+  const resource = buildingResource(s, b);
+  const idle = idleVillagers(s);
+  if (!resource) return idle;
+  return idle
+    .map((v, i) => ({ v, i, p: workerPower(v, resource) }))
+    .sort((a, c) => c.p - a.p || a.i - c.i)
+    .map((x) => x.v);
 }
 
 function nextExpeditionEvent(s: GameState): { at: TimeMs; expedition: Expedition } | null {

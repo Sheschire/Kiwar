@@ -4,6 +4,8 @@ import { ALIEN_TWIN_FACE } from '../data/expeditions';
 import type { Resources } from '../data/resources';
 import { HEART, type FaceParams, DEFAULT_FACE_PARAMS } from '../worldgen/generateFace';
 import { createRng, type Rng, type RngState } from '../rng/rng';
+import type { Masteries, ShinyColor, Stats, TraitId } from '../data/kiwis';
+import { newKiwi, rollKiwi } from './kiwis';
 import type {
   BuildingId,
   Face,
@@ -16,7 +18,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export type Job =
   | { kind: 'idle' }
@@ -26,11 +28,42 @@ export type Job =
   /** Away on an expedition. */
   | { kind: 'expedition'; expeditionId: string };
 
+export interface KiwiHistory {
+  expeditions: number;
+  victories: number;
+  /** Constructions this kiwi completed as the builder. */
+  built: number;
+}
+
 export interface Villager {
   id: VillagerId;
   name: string;
   bornAt: TimeMs;
   job: Job;
+  /** Innate stats (drawn at hatching) plus the points earned by levelling up. */
+  stats: Stats;
+  trait: TraitId | null;
+  /** Very rare colour variant (cosmetic). */
+  shiny: ShinyColor | null;
+  level: number;
+  /** Experience in raw units (XP_SCALE per point); integers keep offline progress exact. */
+  xp: number;
+  /** Stat points earned on even levels, to be placed by the player. */
+  statPoints: number;
+  /** Practice per mastery in raw units (PRACTICE_SCALE per hour). */
+  mastery: Masteries;
+  history: KiwiHistory;
+}
+
+/** A kiwi lost for good (expeditions), remembered in the village screen. */
+export interface Memorial {
+  id: VillagerId;
+  name: string;
+  level: number;
+  shiny: ShinyColor | null;
+  bornAt: TimeMs;
+  diedAt: TimeMs;
+  cause: 'battle' | 'starvation';
 }
 
 export interface Building {
@@ -150,6 +183,8 @@ export interface GameState {
   resources: Resources;
   buildings: Building[];
   villagers: Villager[];
+  /** Kiwis lost in expeditions, newest last (capped). */
+  memorial: Memorial[];
   queue: QueueItem[];
   egg: Egg | null;
   /** Index of the current tutorial objective in OBJECTIVES. */
@@ -212,6 +247,7 @@ export function newGame(opts: NewGameOptions): GameState {
     resources: { ...START.resources },
     buildings: [],
     villagers: [],
+    memorial: [],
     queue: [],
     egg: null,
     objectiveIndex: 0,
@@ -255,25 +291,31 @@ export function withRng<T>(state: GameState, fn: (rng: Rng) => T): T {
 
 export function addVillager(state: GameState, at: TimeMs): Villager {
   const taken = new Set(state.villagers.map((v) => v.name));
-  const name = withRng(state, (rng) => {
-    // A few tries for a name nobody in the colony has (then longer names).
-    for (let attempt = 0; attempt < 12; attempt++) {
-      const parts = 2 + (attempt >= 6 || rng.chance(0.3) ? 1 : 0);
-      let n = '';
-      for (let i = 0; i < parts; i++) n += rng.pick(NAME_SYLLABLES);
-      n = n.charAt(0).toUpperCase() + n.slice(1);
-      if (!taken.has(n)) return n;
-    }
-    return `Kiwi ${state.villagers.length + 1}`;
-  });
+  const { name, roll } = withRng(state, (rng) => ({
+    name: drawName(rng, taken, state),
+    roll: rollKiwi(rng),
+  }));
   const v: Villager = {
     id: nextId(state, 'v') as VillagerId,
     name,
     bornAt: at,
     job: { kind: 'idle' },
+    ...newKiwi(roll),
   };
   state.villagers.push(v);
   return v;
+}
+
+function drawName(rng: Rng, taken: Set<string>, state: GameState): string {
+  // A few tries for a name nobody in the colony has (then longer names).
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const parts = 2 + (attempt >= 6 || rng.chance(0.3) ? 1 : 0);
+    let n = '';
+    for (let i = 0; i < parts; i++) n += rng.pick(NAME_SYLLABLES);
+    n = n.charAt(0).toUpperCase() + n.slice(1);
+    if (!taken.has(n)) return n;
+  }
+  return `Kiwi ${state.villagers.length + 1}`;
 }
 
 /** Deep copy of a state (plain data only). */
@@ -285,7 +327,8 @@ export function cloneState(state: GameState): GameState {
     buildings: state.buildings.map((b) =>
       b.pool ? { ...b, pool: { stock: b.pool.stock, tiles: [...b.pool.tiles] } } : { ...b },
     ),
-    villagers: state.villagers.map((v) => ({ ...v, job: { ...v.job } })),
+    villagers: state.villagers.map(cloneVillager),
+    memorial: state.memorial.map((m) => ({ ...m })),
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
     egg: state.egg ? { ...state.egg } : null,
     stats: { ...state.stats, produced: { ...state.stats.produced } },
@@ -308,5 +351,15 @@ export function cloneState(state: GameState): GameState {
         : null,
     })),
     rng: [...state.rng] as RngState,
+  };
+}
+
+export function cloneVillager(v: Villager): Villager {
+  return {
+    ...v,
+    job: { ...v.job },
+    stats: { ...v.stats },
+    mastery: { ...v.mastery },
+    history: { ...v.history },
   };
 }

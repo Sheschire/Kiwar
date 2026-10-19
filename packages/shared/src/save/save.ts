@@ -2,6 +2,19 @@ import { z } from 'zod';
 import { BUILDING_TYPES } from '../data/buildings';
 import { FACES } from '../types/ids';
 import { SCHEMA_VERSION, soloTargets, type GameState } from '../sim/state';
+import {
+  KIWI,
+  KIWI_NAME_MAX,
+  MASTERY_IDS,
+  MEMORIAL_MAX,
+  SHINY_COLORS,
+  STAT_IDS,
+  TRAIT_IDS,
+  type MasteryId,
+  type StatId,
+} from '../data/kiwis';
+import { createRng } from '../rng/rng';
+import { newKiwi, rollKiwi } from '../sim/kiwis';
 
 const resources = z.object({
   pulp: z.number(),
@@ -11,6 +24,11 @@ const resources = z.object({
 });
 const partialResources = resources.partial();
 const id = z.string().min(1);
+const stats = z.object(
+  Object.fromEntries(
+    STAT_IDS.map((s) => [s, z.number().int().min(1).max(KIWI.stat.cap)]),
+  ) as Record<StatId, z.ZodNumber>,
+);
 
 const job = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('idle') }),
@@ -43,7 +61,44 @@ export const gameStateSchema = z.object({
       pool: z.object({ stock: z.number().min(0), tiles: z.array(z.string()).max(64) }).optional(),
     }),
   ),
-  villagers: z.array(z.object({ id, name: z.string(), bornAt: z.number(), job })),
+  villagers: z.array(
+    z.object({
+      id,
+      name: z.string().max(4 * KIWI_NAME_MAX),
+      bornAt: z.number(),
+      job,
+      stats,
+      trait: z.enum(TRAIT_IDS).nullable(),
+      shiny: z.enum(SHINY_COLORS).nullable(),
+      level: z.number().int().min(1).max(KIWI.maxLevel),
+      xp: z.number().int().min(0),
+      statPoints: z.number().int().min(0),
+      mastery: z.object(
+        Object.fromEntries(MASTERY_IDS.map((m) => [m, z.number().int().min(0)])) as Record<
+          MasteryId,
+          z.ZodNumber
+        >,
+      ),
+      history: z.object({
+        expeditions: z.number().int().min(0),
+        victories: z.number().int().min(0),
+        built: z.number().int().min(0),
+      }),
+    }),
+  ),
+  memorial: z
+    .array(
+      z.object({
+        id,
+        name: z.string().max(4 * KIWI_NAME_MAX),
+        level: z.number().int().min(1).max(KIWI.maxLevel),
+        shiny: z.enum(SHINY_COLORS).nullable(),
+        bornAt: z.number(),
+        diedAt: z.number(),
+        cause: z.enum(['battle', 'starvation']),
+      }),
+    )
+    .max(MEMORIAL_MAX),
   queue: z.array(
     z.object({
       id,
@@ -131,6 +186,18 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   }),
   // v2 → v3: territory (milestone 4). Deposits start full; pools are set up by the next advance.
   2: (raw) => ({ ...raw, paths: [], deposits: {} }),
+  // v3 → v4: individual kiwis (chantier 03). Existing kiwis get stats drawn from the seed and
+  // their id (deterministic, the game RNG is left untouched); they start at level 1.
+  3: (raw) => ({
+    ...raw,
+    villagers: Array.isArray(raw.villagers)
+      ? raw.villagers.map((v: Record<string, unknown>) => ({
+          ...v,
+          ...newKiwi(rollKiwi(createRng(`${String(raw.seed)}/${String(v.id)}/kiwi`))),
+        }))
+      : raw.villagers,
+    memorial: [],
+  }),
 };
 
 export type MigrateResult =

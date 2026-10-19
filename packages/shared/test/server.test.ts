@@ -174,6 +174,19 @@ describe('game service (server authority)', () => {
     ).toMatchObject({
       error: 'importRejected',
     });
+    // Kiwis pumped up by hand (stats, levels, experience) are refused too.
+    const tampered = [
+      (v: GameState['villagers'][number]) => ({ ...v, stats: { ...v.stats, strength: 20 } }),
+      (v: GameState['villagers'][number]) => ({ ...v, level: 12 }),
+      (v: GameState['villagers'][number]) => ({ ...v, xp: 1e15, level: 30 }),
+      (v: GameState['villagers'][number]) => ({ ...v, statPoints: 3 }),
+    ];
+    for (const edit of tampered) {
+      const forged = { ...s0.state, villagers: s0.state.villagers.map(edit) };
+      expect(
+        await handleGameRequest(ctx, { action: 'import', save: serializeSave(forged, local.at()) }),
+      ).toMatchObject({ error: 'importRejected' });
+    }
   });
 
   it('can start a new world', async () => {

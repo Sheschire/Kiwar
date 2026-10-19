@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { BUILDING_TYPES } from '../data/buildings';
 import type { COMMAND_ERRORS } from '../sim/commands';
+import { KIWI_NAME_MAX, STAT_IDS } from '../data/kiwis';
 import { type Command } from '../sim/commands';
 import type { GameEvent } from '../sim/advance';
 import type { GameState } from '../sim/state';
@@ -46,6 +47,15 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('gather'), q: int, r: int }),
   z.object({ type: z.literal('demolish'), buildingId: id }),
   z.object({ type: z.literal('dismantle'), buildingId: id }),
+  z.object({
+    type: z.literal('renameVillager'),
+    villagerId: id,
+    name: z
+      .string()
+      .min(1)
+      .max(4 * KIWI_NAME_MAX),
+  }),
+  z.object({ type: z.literal('spendStatPoint'), villagerId: id, stat: z.enum(STAT_IDS) }),
   z.object({
     type: z.literal('debugGrant'),
     resources: z.object({

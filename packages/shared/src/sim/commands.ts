@@ -4,8 +4,17 @@ import { TILES } from '../data/tiles';
 import { hexKey } from '../hex/hex';
 import { RESOURCE_IDS, type ResourceCost, type Resources } from '../data/resources';
 import { getTile, type FaceMap } from '../worldgen/generateFace';
-import type { BuildingId, QueueItemId, TimeMs } from '../types/ids';
-import { advanceInPlace, autoAssign, startNextConstruction, type GameEvent } from './advance';
+import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
+import { KIWI, KIWI_NAME_MAX, STAT_IDS, type StatId } from '../data/kiwis';
+import {
+  advanceInPlace,
+  autoAssign,
+  bestIdleFor,
+  idleByPower,
+  startNextConstruction,
+  type GameEvent,
+} from './advance';
+import { buildingResource, workerPower } from './kiwis';
 import { releasePool, syncPools } from './territory';
 import {
   buildCost,
@@ -19,7 +28,6 @@ import {
   eggCost,
   eggDuration,
   getBuilding,
-  idleVillagers,
   isObjectiveComplete,
   nearRay,
   nest,
@@ -62,6 +70,10 @@ export type Command =
    */
   | { type: 'demolish'; buildingId: BuildingId }
   | { type: 'dismantle'; buildingId: BuildingId }
+  /** Give a kiwi a new name (trimmed, 1–KIWI_NAME_MAX characters). */
+  | { type: 'renameVillager'; villagerId: VillagerId; name: string }
+  /** Place a stat point earned on an even level. */
+  | { type: 'spendStatPoint'; villagerId: VillagerId; stat: StatId }
   /** Debug panel only. Will be rejected by the server in milestone 2. */
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
@@ -98,6 +110,10 @@ export const COMMAND_ERRORS = [
   'notDemolishable',
   'upgradeInProgress',
   'housingNeeded',
+  'unknownVillager',
+  'invalidName',
+  'noStatPoint',
+  'statMaxed',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -271,12 +287,20 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (cmd.count > slots) fail('tooManyWorkers');
       const current = workersOf(s, b.id);
       if (cmd.count > current.length) {
-        const idle = idleVillagers(s);
+        const idle = idleByPower(s, b);
         const needed = cmd.count - current.length;
         if (idle.length < needed) fail('noIdleKiwi');
         for (const v of idle.slice(0, needed)) v.job = { kind: 'work', buildingId: b.id };
       } else {
-        for (const v of current.slice(cmd.count)) v.job = { kind: 'idle' };
+        // The least skilled ones step back.
+        const resource = buildingResource(s, b);
+        const ranked = resource
+          ? current
+              .map((v, i) => ({ v, i, p: workerPower(v, resource) }))
+              .sort((a, c) => c.p - a.p || a.i - c.i)
+              .map((x) => x.v)
+          : current;
+        for (const v of ranked.slice(cmd.count)) v.job = { kind: 'idle' };
       }
       return;
     }
@@ -358,7 +382,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       });
       s.paths = s.paths.filter((k) => k !== hexKey(cmd));
       syncPools(s, ctx.map, now);
-      const idle = idleVillagers(s)[0];
+      const idle = bestIdleFor(s, getBuilding(s, id)!);
       if (idle) idle.job = { kind: 'work', buildingId: id };
       return;
     }
@@ -386,9 +410,37 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       }
       return;
     }
+    case 'renameVillager': {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail('unknownVillager');
+      const name = cleanKiwiName(cmd.name);
+      if (!name) return fail('invalidName');
+      v.name = name;
+      return;
+    }
+    case 'spendStatPoint': {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail('unknownVillager');
+      if (!STAT_IDS.includes(cmd.stat)) fail('invalidCount');
+      if (v.statPoints <= 0) fail('noStatPoint');
+      if (v.stats[cmd.stat] >= KIWI.stat.cap) fail('statMaxed');
+      v.stats[cmd.stat]++;
+      v.statPoints--;
+      return;
+    }
     case 'debugGrant': {
       refund(s, cmd.resources);
       return;
     }
   }
+}
+
+/** A valid kiwi name (spaces collapsed, no control characters), or null. */
+export function cleanKiwiName(raw: string): string | null {
+  const name = raw
+    .replace(/\p{Cc}/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (name.length === 0 || [...name].length > KIWI_NAME_MAX) return null;
+  return name;
 }

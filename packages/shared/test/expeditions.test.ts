@@ -13,7 +13,7 @@ import {
   type Command,
   type GameState,
 } from '../src';
-import { findTile, rich, run, setup, T0 } from './helpers';
+import { findTile, kiwi, rich, run, setup, T0 } from './helpers';
 
 /** A colony with a Nest 2, a launchpad and plenty of kiwis, ready to launch. */
 function readyColony(extraKiwis = 8) {
@@ -31,10 +31,7 @@ function readyColony(extraKiwis = 8) {
   for (let i = 0; i < extraKiwis; i++) {
     s = {
       ...s,
-      villagers: [
-        ...s.villagers,
-        { id: `vx${i}` as never, name: `Kiwi${i}`, bornAt: t, job: { kind: 'idle' } },
-      ],
+      villagers: [...s.villagers, kiwi(`vx${i}`, `Kiwi${i}`, t)],
     };
   }
   s = { ...s, resources: { pulp: 3000, fiber: 3000, seeds: 3000, juice: 3000 } };

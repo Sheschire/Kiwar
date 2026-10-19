@@ -3,11 +3,13 @@ import { OBJECTIVES } from '../data/objectives';
 import { START } from '../data/start';
 import { CAMPS } from '../data/territory';
 import { RESOURCE_IDS } from '../data/resources';
+import { KIWI, MASTERY_IDS, STAT_IDS } from '../data/kiwis';
+import { levelForXp } from '../sim/kiwis';
 import { deserializeSave, migrateState } from '../save/save';
 import { advance, type GameEvent } from '../sim/advance';
 import { applyCommand } from '../sim/commands';
 import { buildingCount, capacity, housing, nest, nestDef, pathLimit } from '../sim/selectors';
-import { newGame, type GameState } from '../sim/state';
+import { newGame, type GameState, type Villager } from '../sim/state';
 import { generateFace, type FaceMap } from '../worldgen/generateFace';
 import type { Face, PlayerId, UniverseId } from '../types/ids';
 import { requestSchema, type GameResponse, type ServerError } from './protocol';
@@ -208,7 +210,28 @@ export function isPlausible(state: GameState, now: number): boolean {
   if (state.queue.length > (nestDef(state).queueSize ?? 0)) return false;
   // Local saves cannot bring expeditions or victories along (milestone-1 saves have none).
   if (state.expeditions.length > 0 || Object.keys(state.victories).length > 0) return false;
-  return true;
+  if (state.memorial.length > 0) return false;
+  // Shinies are 1 in 512: a save full of them was edited.
+  const shinies = state.villagers.filter((v) => v.shiny).length;
+  if (shinies > 2 + Math.floor(state.villagers.length / 128)) return false;
+  return state.villagers.every((v) => plausibleKiwi(v, state.now));
+}
+
+/** Upper bound of experience / practice gained per ms (best stats, best trait, building). */
+const MAX_XP_PER_MS = 100 * KIWI.xpPerHour.build * (1 + KIWI.spiritXp * KIWI.stat.cap) * 1.25;
+const MAX_PRACTICE_PER_MS = 100 * 1.25;
+
+/** Stats, levels and masteries a local save can honestly have reached. */
+function plausibleKiwi(v: Villager, now: number): boolean {
+  if (v.bornAt > now) return false;
+  const age = now - v.bornAt;
+  const sum = STAT_IDS.reduce((s, id) => s + v.stats[id], 0);
+  if (sum + v.statPoints > KIWI.statTotal.max + v.level - 1) return false;
+  if (v.statPoints > Math.floor(v.level / 2)) return false;
+  if (levelForXp(v.xp) !== v.level || v.xp > MAX_XP_PER_MS * age) return false;
+  const practice = MASTERY_IDS.reduce((s, id) => s + v.mastery[id], 0);
+  if (practice > MAX_PRACTICE_PER_MS * age) return false;
+  return v.history.expeditions === 0 && v.history.victories === 0;
 }
 
 type OkResponse = Extract<GameResponse, { ok: true }>;

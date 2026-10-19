@@ -298,6 +298,7 @@ export function harvestOf(
   state: GameState,
   map: FaceMap,
   b: Building,
+  /** Summed power of the staff (one average kiwi = 1). */
   workers: number,
   storageFull: (id: ResourceId) => boolean,
 ): Harvest | null {

@@ -1,5 +1,10 @@
 import {
   applyCommand,
+  createRng,
+  newKiwi,
+  rollKiwi,
+  type Villager,
+  type VillagerId,
   generateFace,
   newGame,
   type Command,
@@ -35,4 +40,15 @@ export function run(state: GameState, cmd: Command, now: number, map: FaceMap): 
 
 export function rich(state: GameState): GameState {
   return { ...state, resources: { pulp: 1e5, fiber: 1e5, seeds: 1e5, juice: 1e5 } };
+}
+
+/** A test kiwi with stats drawn from its id (idle). */
+export function kiwi(id: string, name = id, bornAt = T0): Villager {
+  return {
+    id: id as VillagerId,
+    name,
+    bornAt,
+    job: { kind: 'idle' },
+    ...newKiwi(rollKiwi(createRng(`test/${id}`))),
+  };
 }
