@@ -1,5 +1,12 @@
-import { CALENDAR, calendarAt } from '@kiwar/shared';
-import { formatDuration } from '../../i18n/i18n';
+import {
+  CALENDAR,
+  calendarAt,
+  CYCLES,
+  RESOURCE_IDS,
+  seasonEffects,
+  type Season,
+} from '@kiwar/shared';
+import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { DayDial, SeasonIcon } from '../icons';
 import { useT, useUi } from '../store';
 import type { ChipHandlers } from './TopBar';
@@ -53,10 +60,39 @@ export function ClockChip({ h }: { h: ChipHandlers }) {
   );
 }
 
+/** Lines describing what a season changes (numbers from the shared tables). */
+function useSeasonEffects(season: Season): string[] {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const fx = seasonEffects(season);
+  const v = (x: number) => formatNumber(lang, x);
+  const lines: string[] = [];
+  for (const id of RESOURCE_IDS) {
+    const h = fx.harvest[id];
+    if (h !== undefined && h !== 1)
+      lines.push(t('cycles.effects.harvest', { resource: `@resources.${id}`, value: v(h) }));
+  }
+  if (fx.regen.all === 0) lines.push(t('cycles.effects.frozen'));
+  else {
+    if (fx.regen.all !== undefined && fx.regen.all !== 1)
+      lines.push(t('cycles.effects.regen', { value: v(fx.regen.all) }));
+    for (const id of RESOURCE_IDS) {
+      const r = fx.regen[id];
+      if (r !== undefined && r !== 1)
+        lines.push(t('cycles.effects.regenOne', { resource: `@resources.${id}`, value: v(r) }));
+    }
+  }
+  if (fx.walk !== 1) lines.push(t('cycles.effects.walk', { value: v(fx.walk) }));
+  if (fx.hatching !== 1)
+    lines.push(t('cycles.effects.hatching', { percent: Math.round((1 - fx.hatching) * 100) }));
+  return lines;
+}
+
 export function ClockTip() {
   const t = useT();
   const lang = useUi((s) => s.lang);
   const cal = useCalendar();
+  const effects = useSeasonEffects(cal?.c.season ?? 'spring');
   if (!cal) return null;
   const { c, now } = cal;
   return (
@@ -66,6 +102,12 @@ export function ClockTip() {
         {t('cycles.day', { day: c.day + 1, days: CALENDAR.seasonDays })}
       </strong>
       <p>{t(`cycles.desc.${c.season}`)}</p>
+      <ul class="tip-list">
+        {effects.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+        <li>{t('cycles.effects.night', { value: formatNumber(lang, CYCLES.nightWork) })}</li>
+      </ul>
       <p class="tip-line">
         {c.night
           ? t('cycles.isNight', { duration: formatDuration(lang, c.dawnAt - now) })

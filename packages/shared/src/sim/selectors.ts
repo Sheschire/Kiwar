@@ -25,6 +25,8 @@ import type { BuildingId } from '../types/ids';
 import type { Building, GameState, QueueItem, Villager } from './state';
 import { faceMapOf, harvestOf, type Harvest } from './territory';
 import { regenBonus, workforce } from './kiwis';
+import { seasonEffects } from '../data/cycles';
+import { seasonOf } from './calendar';
 
 export const HOUR_MS = 3_600_000;
 
@@ -249,8 +251,10 @@ export function eggCost(state: GameState): ResourceCost {
   return HATCHING.cost(population(state));
 }
 
+/** Hatching time (shorter in spring). */
 export function eggDuration(state: GameState): number {
-  return HATCHING.durationMs(population(state));
+  const k = seasonEffects(seasonOf(state)).hatching;
+  return Math.round(HATCHING.durationMs(population(state)) * k);
 }
 
 export function canHatch(state: GameState): boolean {

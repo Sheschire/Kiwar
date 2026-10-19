@@ -954,6 +954,33 @@ function calendarStartFor(createdAt) {
 }
 var SEASON_MS = CALENDAR.dayMs * CALENDAR.seasonDays;
 var YEAR_MS = SEASON_MS * SEASONS.length;
+var CYCLES = {
+  /** Work done at night: most kiwis sleep. */
+  nightWork: 0.4,
+  seasons: {
+    spring: { harvest: {}, regen: { all: 1.4 }, walk: 1, blocked: [], hatching: 0.8 },
+    summer: { harvest: {}, regen: { juice: 0.7 }, walk: 1, blocked: [], hatching: 1 },
+    autumn: { harvest: { pulp: 1.2 }, regen: { fiber: 1.3 }, walk: 1, blocked: [], hatching: 1 },
+    winter: {
+      harvest: { juice: 0.5 },
+      regen: { all: 0 },
+      walk: 1.5,
+      blocked: ["grove"],
+      hatching: 1
+    }
+  }
+};
+function seasonEffects(season) {
+  return CYCLES.seasons[season];
+}
+function seasonRegen(season, resource) {
+  const r = CYCLES.seasons[season].regen;
+  return (r.all ?? 1) * (r[resource] ?? 1);
+}
+function seasonHarvest(season, resource) {
+  const h = CYCLES.seasons[season].harvest;
+  return h[resource] ?? 1;
+}
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
@@ -1219,6 +1246,45 @@ function tileAt(map, q, r) {
   return getTile(map, hex(q, r));
 }
 
+// packages/shared/src/sim/calendar.ts
+var mod = (a, n) => (a % n + n) % n;
+function calendarAt(start, t) {
+  const elapsed = t - start;
+  const inYear = mod(elapsed, YEAR_MS);
+  const seasonIndex = Math.floor(inYear / SEASON_MS);
+  const season = SEASONS[seasonIndex];
+  const inSeason = inYear - seasonIndex * SEASON_MS;
+  const day = Math.floor(inSeason / CALENDAR.dayMs);
+  const sinceDawn = inSeason - day * CALENDAR.dayMs;
+  const dawn = t - sinceDawn;
+  const nightStart = CALENDAR.dayMs - CALENDAR.nightMs[season];
+  return {
+    season,
+    year: Math.floor((elapsed - inYear) / YEAR_MS),
+    day,
+    sinceDawn,
+    dayProgress: sinceDawn / CALENDAR.dayMs,
+    night: sinceDawn >= nightStart,
+    nightAt: dawn + nightStart,
+    dawnAt: dawn + CALENDAR.dayMs,
+    seasonEndsAt: t - inSeason + SEASON_MS,
+    next: SEASONS[(seasonIndex + 1) % SEASONS.length]
+  };
+}
+function calendarOf(state, t = state.now) {
+  return calendarAt(state.calendarStart, t);
+}
+function nextCalendarChange(start, t) {
+  const c = calendarAt(start, t);
+  return c.night ? c.dawnAt : c.nightAt;
+}
+function seasonOf(state) {
+  return calendarAt(state.calendarStart, state.now).season;
+}
+function isNight(state) {
+  return calendarAt(state.calendarStart, state.now).night;
+}
+
 // packages/shared/src/sim/territory.ts
 var HOUR_MS = 36e5;
 var EPS = 1e-6;
@@ -1250,7 +1316,17 @@ function freeDepositStock(state, map, key, at) {
   if (!dep) return 0;
   const d = state.deposits[key];
   if (!d) return dep.cap;
-  return Math.min(dep.cap, d.stock + dep.regen * Math.max(0, at - d.at) / HOUR_MS);
+  const season = calendarAt(state.calendarStart, d.at).season;
+  const regen = dep.regen * seasonRegen(season, dep.resource);
+  return Math.min(dep.cap, d.stock + regen * Math.max(0, at - d.at) / HOUR_MS);
+}
+function rebaseFreeDeposits(state, map, at) {
+  for (const k of Object.keys(state.deposits)) {
+    const dep = depositAtKey(map, k);
+    const stock = freeDepositStock(state, map, k, at);
+    if (!dep || stock >= dep.cap - EPS) delete state.deposits[k];
+    else state.deposits[k] = { stock, at };
+  }
 }
 function harvestedTileType(map, b) {
   if (b.type === "camp") return getTile(map, b)?.type ?? null;
@@ -1349,10 +1425,18 @@ function syncPools(state, map, at) {
 function pathSet(state) {
   return new Set(state.paths);
 }
-function walkCost(map, paths, h) {
+function tileWalkCost(type, path, season) {
+  const def = TILES[type];
+  if (!def.walkable) return Infinity;
+  if (path) return Math.min(PATHS.walkCost, def.walkCost);
+  const fx = seasonEffects(season);
+  if (fx.blocked.includes(type)) return Infinity;
+  return def.walkCost * fx.walk;
+}
+function walkCost(map, paths, h, season = "spring") {
   const tile = getTile(map, h);
-  if (!tile || !TILES[tile.type].walkable) return Infinity;
-  return paths.has(hexKey(h)) ? Math.min(PATHS.walkCost, TILES[tile.type].walkCost) : TILES[tile.type].walkCost;
+  if (!tile) return Infinity;
+  return tileWalkCost(tile.type, paths.has(hexKey(h)), season);
 }
 function isDepot(b) {
   return b.type === "nest" || b.type === "warehouse";
@@ -1360,7 +1444,8 @@ function isDepot(b) {
 var distanceCache = /* @__PURE__ */ new Map();
 function depotDistances(state, map) {
   const depots = state.buildings.filter(isDepot).map((b) => hexKey(b));
-  const key = `${state.seed}|${state.face}|${state.params.radius}|${depots.join(";")}|${[...state.paths].sort().join(";")}`;
+  const season = seasonOf(state);
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${season}|${depots.join(";")}|${[...state.paths].sort().join(";")}`;
   const cached = distanceCache.get(key);
   if (cached) return cached;
   const paths = pathSet(state);
@@ -1379,11 +1464,11 @@ function depotDistances(state, map) {
     open.delete(bestKey);
     dist.set(bestKey, best);
     const h = parseHexKey(bestKey);
-    const here = walkCost(map, paths, h);
+    const here = walkCost(map, paths, h, season);
     for (const n of hexNeighbors(h)) {
       const nk = hexKey(n);
       if (dist.has(nk)) continue;
-      const c = walkCost(map, paths, n);
+      const c = walkCost(map, paths, n, season);
       if (c === Infinity) continue;
       const nd = best + (here + c) / 2;
       if (nd < (open.get(nk) ?? Infinity)) open.set(nk, nd);
@@ -1409,6 +1494,10 @@ function depotDistance(state, map, h) {
   }
   return best;
 }
+function cycleHarvest(state, resource) {
+  const work = isNight(state) ? CYCLES.nightWork : 1;
+  return work * seasonHarvest(seasonOf(state), resource);
+}
 function baseHarvest(b, resource) {
   if (b.type === "camp") return CAMPS.rates[resource];
   return levelDef(b.type, b.level)?.production?.[resource] ?? 0;
@@ -1421,10 +1510,11 @@ function harvestOf(state, map, b, workers, storageFull, regenMultiplier = 1) {
   const resource = dep.resource;
   const distance = depotDistance(state, map, b);
   const efficiency = logisticsEfficiency(distance);
-  const demand = slots > 0 ? baseHarvest(b, resource) * workers * efficiency / slots : 0;
+  const cycle = cycleHarvest(state, resource);
+  const demand = slots > 0 ? baseHarvest(b, resource) * workers * efficiency * cycle / slots : 0;
   const pool = poolCapacity(map, b.pool?.tiles ?? []);
   const cap = pool.cap;
-  const regen = pool.regen * regenMultiplier;
+  const regen = pool.regen * regenMultiplier * seasonRegen(seasonOf(state), resource);
   const stock = Math.min(cap, b.pool?.stock ?? cap);
   let harvest = demand;
   let status = "ok";
@@ -1449,6 +1539,7 @@ function harvestOf(state, map, b, workers, storageFull, regenMultiplier = 1) {
     regen,
     distance,
     efficiency,
+    cycle,
     status
   };
 }
@@ -2038,7 +2129,8 @@ function eggCost(state) {
   return HATCHING.cost(population(state));
 }
 function eggDuration(state) {
-  return HATCHING.durationMs(population(state));
+  const k = seasonEffects(seasonOf(state)).hatching;
+  return Math.round(HATCHING.durationMs(population(state)) * k);
 }
 function canHatch(state) {
   return state.egg === null && population(state) < housing(state);
@@ -2350,45 +2442,6 @@ function nameOf(e, id3) {
 }
 var round22 = (v) => Math.round(v * 100) / 100;
 
-// packages/shared/src/sim/calendar.ts
-var mod = (a, n) => (a % n + n) % n;
-function calendarAt(start, t) {
-  const elapsed = t - start;
-  const inYear = mod(elapsed, YEAR_MS);
-  const seasonIndex = Math.floor(inYear / SEASON_MS);
-  const season = SEASONS[seasonIndex];
-  const inSeason = inYear - seasonIndex * SEASON_MS;
-  const day = Math.floor(inSeason / CALENDAR.dayMs);
-  const sinceDawn = inSeason - day * CALENDAR.dayMs;
-  const dawn = t - sinceDawn;
-  const nightStart = CALENDAR.dayMs - CALENDAR.nightMs[season];
-  return {
-    season,
-    year: Math.floor((elapsed - inYear) / YEAR_MS),
-    day,
-    sinceDawn,
-    dayProgress: sinceDawn / CALENDAR.dayMs,
-    night: sinceDawn >= nightStart,
-    nightAt: dawn + nightStart,
-    dawnAt: dawn + CALENDAR.dayMs,
-    seasonEndsAt: t - inSeason + SEASON_MS,
-    next: SEASONS[(seasonIndex + 1) % SEASONS.length]
-  };
-}
-function calendarOf(state, t = state.now) {
-  return calendarAt(state.calendarStart, t);
-}
-function nextCalendarChange(start, t) {
-  const c = calendarAt(start, t);
-  return c.night ? c.dawnAt : c.nightAt;
-}
-function seasonOf(state) {
-  return calendarAt(state.calendarStart, state.now).season;
-}
-function isNight(state) {
-  return calendarAt(state.calendarStart, state.now).night;
-}
-
 // packages/shared/src/sim/advance.ts
 function advance(state, now) {
   const s = cloneState(state);
@@ -2458,8 +2511,10 @@ function advanceInPlace(s, now, events) {
 }
 function calendarTick(s, at, events) {
   const c = calendarAt(s.calendarStart, at);
-  if (!c.night && c.day === 0 && c.sinceDawn === 0)
+  if (!c.night && c.day === 0 && c.sinceDawn === 0) {
+    rebaseFreeDeposits(s, faceMapOf(s), at);
     events.push({ type: "seasonChanged", at, season: c.season });
+  }
 }
 function computeFlows(s) {
   const full = storageFullCheck(s);
@@ -7799,6 +7854,7 @@ export {
   CLASSES,
   CLASS_IDS,
   COMMAND_ERRORS,
+  CYCLES,
   DEFAULT_FACE_PARAMS,
   DEMOLITION,
   DEPOSITS,
@@ -7885,6 +7941,7 @@ export {
   crewOf,
   crewWeight,
   currentObjective,
+  cycleHarvest,
   demolitionPreview,
   demolitionRefund,
   depletedTiles,
@@ -7974,6 +8031,7 @@ export {
   productionRates,
   queuedBuildAt,
   rankOf,
+  rebaseFreeDeposits,
   regenBonus,
   releasePool,
   requestSchema,
@@ -7982,7 +8040,10 @@ export {
   rollKiwi,
   rollShiny,
   scaleCost,
+  seasonEffects,
+  seasonHarvest,
   seasonOf,
+  seasonRegen,
   serializeSave,
   shipCargo,
   soloTargets,
@@ -7993,6 +8054,7 @@ export {
   tileAt,
   tileDeposit,
   tileDepositState,
+  tileWalkCost,
   timeToDepletion,
   totalWorkers,
   trainingCost,

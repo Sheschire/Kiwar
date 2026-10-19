@@ -17,7 +17,7 @@ import { resolveArrival, resolveReturn } from './expeditions';
 import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
 import type { ClassId } from '../data/classes';
 import { accrueKiwis, builderSpeed, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
-import { faceMapOf, syncPools, timeToDepletion } from './territory';
+import { faceMapOf, rebaseFreeDeposits, syncPools, timeToDepletion } from './territory';
 import type { Season } from '../data/cycles';
 import { calendarAt, nextCalendarChange } from './calendar';
 import {
@@ -162,8 +162,10 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
 /** Dawn or nightfall: a new season starts at the first dawn of its first day. */
 function calendarTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
   const c = calendarAt(s.calendarStart, at);
-  if (!c.night && c.day === 0 && c.sinceDawn === 0)
+  if (!c.night && c.day === 0 && c.sinceDawn === 0) {
+    rebaseFreeDeposits(s, faceMapOf(s), at);
     events.push({ type: 'seasonChanged', at, season: c.season });
+  }
 }
 
 interface Flows {

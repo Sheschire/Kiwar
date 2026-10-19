@@ -203,6 +203,23 @@ export const fr: Dict = {
       winter: 'Neige et bassins gelés.',
     },
     changed: 'Nouvelle saison : {season}.',
+    effects: {
+      title: 'Effets',
+      night: 'La nuit, les kiwis dorment : travail ×{value}.',
+      harvest: '{resource} : récolte ×{value}.',
+      regen: 'Les gisements repoussent ×{value}.',
+      regenOne: '{resource} : repousse ×{value}.',
+      frozen: 'Terre gelée : les gisements ne repoussent plus.',
+      walk: 'Neige : marche ×{value} hors des chemins, bosquets impraticables (les chemins restent dégagés).',
+      hatching: 'Les œufs éclosent {percent} % plus vite.',
+      none: 'Pas d’effet particulier.',
+    },
+    building: {
+      night: 'Nuit : les kiwis dorment (travail ×{value})',
+      harvest: '{season} : récolte ×{value}',
+      regen: '{season} : repousse ×{value}',
+      frozen: '{season} : pas de repousse',
+    },
   },
   hud: {
     population: 'Kiwis',

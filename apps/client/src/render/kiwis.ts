@@ -44,6 +44,7 @@ import {
   CLASS_IDS,
   type Villager,
   type VillagerId,
+  seasonOf,
 } from '@kiwar/shared';
 import { findPath } from './pathfinding';
 import { WATER_LEVEL } from './water';
@@ -405,7 +406,8 @@ export class KiwisView {
   /** Plans a walk from the agent position to a target tile. */
   private walkTo(agent: Agent, target: Hex, spread = 0.35): void {
     const from = this.hexAt(agent.pos);
-    const hexes = findPath(this.map, from, target, this.paths) ?? [from, target];
+    const season = this.state ? seasonOf(this.state) : 'spring';
+    const hexes = findPath(this.map, from, target, this.paths, season) ?? [from, target];
     const pts: Vector3[] = [];
     const fast: boolean[] = [];
     for (let i = 1; i < hexes.length; i++) {

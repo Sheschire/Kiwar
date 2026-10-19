@@ -46,8 +46,8 @@ const NIGHT = key({
   cloudShade: '#5f5c9c',
   sun: '#a9bcff',
   sunIntensity: 0.75,
-  hemiSky: '#8a90d8',
-  hemiGround: '#3e3a66',
+  hemiSky: '#9da2d4',
+  hemiGround: '#46425e',
   hemiIntensity: 0.85,
 });
 

@@ -185,6 +185,23 @@ export const en = {
       winter: 'Snow and frozen pools.',
     },
     changed: 'New season: {season}.',
+    effects: {
+      title: 'Effects',
+      night: 'At night the kiwis sleep: work ×{value}.',
+      harvest: '{resource}: harvest ×{value}.',
+      regen: 'Deposits regrow ×{value}.',
+      regenOne: '{resource}: regrowth ×{value}.',
+      frozen: 'Frozen land: deposits do not regrow.',
+      walk: 'Snow: walking ×{value} off paths, groves impassable (paths stay clear).',
+      hatching: 'Eggs hatch {percent} % faster.',
+      none: 'No particular effect.',
+    },
+    building: {
+      night: 'Night: the kiwis sleep (work ×{value})',
+      harvest: '{season}: harvest ×{value}',
+      regen: '{season}: regrowth ×{value}',
+      frozen: '{season}: no regrowth',
+    },
   },
   hud: {
     population: 'Kiwis',

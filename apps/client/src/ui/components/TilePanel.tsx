@@ -36,10 +36,15 @@ import {
   type GameState,
   type QueueItem,
   type Tile,
+  calendarOf,
+  CYCLES,
+  seasonHarvest,
+  seasonRegen,
+  type ResourceId,
 } from '@kiwar/shared';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
-import { CloseIcon, HammerIcon, KiwiIcon, ResourceIcon, ShipIcon } from '../icons';
+import { CloseIcon, HammerIcon, KiwiIcon, ResourceIcon, SeasonIcon, ShipIcon } from '../icons';
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
 
@@ -79,6 +84,39 @@ function pct(v: number): string {
   return `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`;
 }
 
+/** What the hour and the season change for this producer right now. */
+function CycleNotes({
+  game,
+  resource,
+  t,
+}: {
+  game: GameState;
+  resource: ResourceId;
+  t: Translate;
+}) {
+  const lang = useUi((s) => s.lang);
+  const c = calendarOf(game);
+  const season = t(`cycles.seasons.${c.season}`);
+  const harvest = seasonHarvest(c.season, resource);
+  const regen = seasonRegen(c.season, resource);
+  const value = (v: number) => formatNumber(lang, v);
+  const notes: string[] = [];
+  if (c.night) notes.push(t('cycles.building.night', { value: value(CYCLES.nightWork) }));
+  if (harvest !== 1) notes.push(t('cycles.building.harvest', { season, value: value(harvest) }));
+  if (regen === 0) notes.push(t('cycles.building.frozen', { season }));
+  else if (regen !== 1) notes.push(t('cycles.building.regen', { season, value: value(regen) }));
+  if (notes.length === 0) return null;
+  return (
+    <div class="cycle-notes">
+      {notes.map((n) => (
+        <p key={n} class="small cycle-note">
+          <SeasonIcon season={c.season} size={13} /> {n}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 /** Deposit, regrowth and logistics of a producer. */
 function HarvestInfo({ game, b, t }: { game: GameState; b: Building; t: Translate }) {
   const lang = useUi((s) => s.lang);
@@ -101,6 +139,7 @@ function HarvestInfo({ game, b, t }: { game: GameState; b: Building; t: Translat
         {t('building.depositTiles', { count: b.pool?.tiles.length ?? 0 })} ·{' '}
         {t('building.regen', { rate: fmt(h.regen) })}
       </p>
+      <CycleNotes game={game} resource={h.resource} t={t} />
       {h.status === 'depleted' && <p class="small warn">⚠ {t('building.depleted')}</p>}
       {h.status === 'storageFull' && <p class="small muted">{t('building.storagePaused')}</p>}
       {h.status === 'ok' &&

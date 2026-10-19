@@ -7,6 +7,8 @@ import { hexDisk, hexKey, hexNeighbors, parseHexKey, type Hex } from '../hex/hex
 import { generateFace, getTile, type FaceMap, type Tile } from '../worldgen/generateFace';
 import type { BuildingId, TimeMs } from '../types/ids';
 import type { Building, GameState } from './state';
+import { CYCLES, seasonEffects, seasonHarvest, seasonRegen, type Season } from '../data/cycles';
+import { calendarAt, isNight, seasonOf } from './calendar';
 
 const HOUR_MS = 3_600_000;
 const EPS = 1e-6;
@@ -52,13 +54,28 @@ function depositAtKey(map: FaceMap, key: string): TileDeposit | null {
   return tileDeposit(getTile(map, parseHexKey(key)));
 }
 
-/** Current stock of a deposit nobody harvests (it regrows on its own up to full). */
+/**
+ * Current stock of a deposit nobody harvests (it regrows on its own up to full, at the pace of
+ * the season it was last seen in: `rebaseFreeDeposits` runs at every season change).
+ */
 export function freeDepositStock(state: GameState, map: FaceMap, key: string, at: TimeMs): number {
   const dep = depositAtKey(map, key);
   if (!dep) return 0;
   const d = state.deposits[key];
   if (!d) return dep.cap;
-  return Math.min(dep.cap, d.stock + (dep.regen * Math.max(0, at - d.at)) / HOUR_MS);
+  const season = calendarAt(state.calendarStart, d.at).season;
+  const regen = dep.regen * seasonRegen(season, dep.resource);
+  return Math.min(dep.cap, d.stock + (regen * Math.max(0, at - d.at)) / HOUR_MS);
+}
+
+/** Season change: free deposits record their stock, then regrow at the new season's pace. */
+export function rebaseFreeDeposits(state: GameState, map: FaceMap, at: TimeMs): void {
+  for (const k of Object.keys(state.deposits)) {
+    const dep = depositAtKey(map, k);
+    const stock = freeDepositStock(state, map, k, at);
+    if (!dep || stock >= dep.cap - EPS) delete state.deposits[k];
+    else state.deposits[k] = { stock, at };
+  }
 }
 
 /** Tile type a building harvests, if any. */
@@ -192,13 +209,29 @@ export function pathSet(state: GameState): Set<string> {
   return new Set(state.paths);
 }
 
+/**
+ * Walking cost of a tile type (Infinity if kiwis cannot walk there). Paths are kept clear of
+ * snow; elsewhere winter slows kiwis down and buries the groves.
+ */
+export function tileWalkCost(type: TileType, path: boolean, season: Season): number {
+  const def = TILES[type];
+  if (!def.walkable) return Infinity;
+  if (path) return Math.min(PATHS.walkCost, def.walkCost);
+  const fx = seasonEffects(season);
+  if (fx.blocked.includes(type)) return Infinity;
+  return def.walkCost * fx.walk;
+}
+
 /** Walking cost of a tile (Infinity if kiwis cannot walk there). */
-export function walkCost(map: FaceMap, paths: ReadonlySet<string>, h: Hex): number {
+export function walkCost(
+  map: FaceMap,
+  paths: ReadonlySet<string>,
+  h: Hex,
+  season: Season = 'spring',
+): number {
   const tile = getTile(map, h);
-  if (!tile || !TILES[tile.type].walkable) return Infinity;
-  return paths.has(hexKey(h))
-    ? Math.min(PATHS.walkCost, TILES[tile.type].walkCost)
-    : TILES[tile.type].walkCost;
+  if (!tile) return Infinity;
+  return tileWalkCost(tile.type, paths.has(hexKey(h)), season);
 }
 
 export function isDepot(b: Building): boolean {
@@ -213,7 +246,8 @@ const distanceCache = new Map<string, Map<string, number>>();
  */
 export function depotDistances(state: GameState, map: FaceMap): Map<string, number> {
   const depots = state.buildings.filter(isDepot).map((b) => hexKey(b));
-  const key = `${state.seed}|${state.face}|${state.params.radius}|${depots.join(';')}|${[...state.paths].sort().join(';')}`;
+  const season = seasonOf(state);
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${season}|${depots.join(';')}|${[...state.paths].sort().join(';')}`;
   const cached = distanceCache.get(key);
   if (cached) return cached;
   const paths = pathSet(state);
@@ -232,11 +266,11 @@ export function depotDistances(state: GameState, map: FaceMap): Map<string, numb
     open.delete(bestKey);
     dist.set(bestKey, best);
     const h = parseHexKey(bestKey);
-    const here = walkCost(map, paths, h);
+    const here = walkCost(map, paths, h, season);
     for (const n of hexNeighbors(h)) {
       const nk = hexKey(n);
       if (dist.has(nk)) continue;
-      const c = walkCost(map, paths, n);
+      const c = walkCost(map, paths, n, season);
       if (c === Infinity) continue;
       const nd = best + (here + c) / 2;
       if (nd < (open.get(nk) ?? Infinity)) open.set(nk, nd);
@@ -285,7 +319,15 @@ export interface Harvest {
   regen: number;
   distance: number;
   efficiency: number;
+  /** Time of day × season multiplier on the work (night, autumn pulp, frozen wells). */
+  cycle: number;
   status: HarvestStatus;
+}
+
+/** Work multiplier of the hour and the season for a resource (night, season harvest). */
+export function cycleHarvest(state: GameState, resource: ResourceId): number {
+  const work = isNight(state) ? CYCLES.nightWork : 1;
+  return work * seasonHarvest(seasonOf(state), resource);
 }
 
 /** Harvest per hour at full staffing, before logistics and climate. */
@@ -311,10 +353,11 @@ export function harvestOf(
   const resource = dep.resource;
   const distance = depotDistance(state, map, b);
   const efficiency = logisticsEfficiency(distance);
-  const demand = slots > 0 ? (baseHarvest(b, resource) * workers * efficiency) / slots : 0;
+  const cycle = cycleHarvest(state, resource);
+  const demand = slots > 0 ? (baseHarvest(b, resource) * workers * efficiency * cycle) / slots : 0;
   const pool = poolCapacity(map, b.pool?.tiles ?? []);
   const cap = pool.cap;
-  const regen = pool.regen * regenMultiplier;
+  const regen = pool.regen * regenMultiplier * seasonRegen(seasonOf(state), resource);
   const stock = Math.min(cap, b.pool?.stock ?? cap);
   let harvest = demand;
   let status: HarvestStatus = 'ok';
@@ -339,6 +382,7 @@ export function harvestOf(
     regen,
     distance,
     efficiency,
+    cycle,
     status,
   };
 }

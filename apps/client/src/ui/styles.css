@@ -2193,3 +2193,25 @@ button.chip:focus-visible {
     display: none;
   }
 }
+
+.tip-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cycle-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cycle-note {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #4b5a9a;
+}

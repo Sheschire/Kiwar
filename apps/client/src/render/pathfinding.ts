@@ -4,8 +4,9 @@ import {
   hexKey,
   hexNeighbors,
   PATHS,
-  TILES,
+  tileWalkCost,
   type FaceMap,
+  type Season,
   type Hex,
   type HexKey,
 } from '@kiwar/shared';
@@ -59,6 +60,7 @@ export function findPath(
   from: Hex,
   to: Hex,
   paths: ReadonlySet<string> = new Set(),
+  season: Season = 'spring',
 ): Hex[] | null {
   const goal = hexKey(to);
   const start = hexKey(from);
@@ -86,14 +88,10 @@ export function findPath(
       const tile = getTile(map, n);
       if (!tile) continue;
       const nk = hexKey(n);
-      const def = TILES[tile.type];
-      if (!def.walkable && nk !== goal) continue;
-      const step =
-        nk === goal && !def.walkable
-          ? 1
-          : paths.has(nk)
-            ? Math.min(PATHS.walkCost, def.walkCost)
-            : def.walkCost;
+      // Same costs as the simulation (snow, buried groves); an unwalkable goal is reached anyway.
+      const walk = tileWalkCost(tile.type, paths.has(nk), season);
+      if (walk === Infinity && nk !== goal) continue;
+      const step = walk === Infinity ? 1 : walk;
       const g = cost.get(ck)! + step;
       if (g < (cost.get(nk) ?? Infinity)) {
         cost.set(nk, g);

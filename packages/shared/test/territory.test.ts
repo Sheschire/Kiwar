@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  seasonRegen,
   advance,
   applyCommand,
   BUILDINGS,
@@ -110,7 +111,9 @@ describe('deposits', () => {
     expect(t.deposits[hexKey(site)]).toEqual({ stock: 0, at: s.now });
     t = run(t, { type: 'gather', q: site.q, r: site.r }, s.now + HOUR_MS / 2, map);
     const again = t.buildings.find((b) => b.type === 'camp')!;
-    expect(again.pool!.stock).toBeCloseTo((DEPOSITS.flesh!.regen * site.richness) / 2, 6);
+    // Free land regrows at the season's pace (spring here).
+    const spring = seasonRegen('spring', 'pulp');
+    expect(again.pool!.stock).toBeCloseTo((DEPOSITS.flesh!.regen * site.richness * spring) / 2, 6);
     expect(t.deposits[hexKey(site)]).toBeUndefined();
   });
 

@@ -95,7 +95,7 @@ export function withSeasonLook(material: Material, opts: { tint: number; snow: n
           float snowK = uSnow * ${opts.snow.toFixed(2)} * smoothstep(0.55, 0.85, vSeasonUp);
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.95, 0.97, 1.0), snowK);
           float lum = dot(diffuseColor.rgb, vec3(0.3, 0.55, 0.15));
-          diffuseColor.rgb = mix(diffuseColor.rgb, lum * vec3(0.78, 0.84, 1.05), uNight * 0.55);
+          diffuseColor.rgb = mix(diffuseColor.rgb, lum * vec3(0.86, 0.9, 1.0), uNight * 0.5);
         }`,
       );
   };
