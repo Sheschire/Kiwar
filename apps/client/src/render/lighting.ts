@@ -1,4 +1,5 @@
 import { DirectionalLight, Group, HemisphereLight, Object3D } from 'three';
+import type { SkyState } from './dayCycle';
 import { PALETTE } from './palette';
 
 /** Warm late-afternoon sun with soft coloured ambient light. */
@@ -18,6 +19,16 @@ export class Lighting {
     this.sun.shadow.normalBias = 0.03;
     this.sun.shadow.radius = 4;
     this.group.add(this.hemi, this.sun, this.target);
+  }
+
+  /** Colours, intensities and direction of the day/night cycle. */
+  applySky(sky: SkyState): void {
+    this.sun.color.copy(sky.sun);
+    this.sun.intensity = sky.sunIntensity;
+    this.sun.position.copy(sky.lightDir).multiplyScalar(45);
+    this.hemi.color.copy(sky.hemiSky);
+    this.hemi.groundColor.copy(sky.hemiGround);
+    this.hemi.intensity = sky.hemiIntensity;
   }
 
   /** Fits the shadow camera to a disc of the given radius. */

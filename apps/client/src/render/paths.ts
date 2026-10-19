@@ -11,6 +11,7 @@ import {
   Quaternion,
   Vector3,
 } from 'three';
+import { withSeasonLook } from './seasonLook';
 import { createRng, getTile, parseHexKey, type FaceMap, type Tile } from '@kiwar/shared';
 import { HEX_VISUAL_RADIUS, worldPosition } from './terrain';
 
@@ -37,6 +38,7 @@ export class PathsView {
       new MeshStandardMaterial({ color: '#e3cf9c', roughness: 1, flatShading: true }),
       MAX_PATHS,
     );
+    withSeasonLook(this.slabs.material as MeshStandardMaterial, { tint: 0, snow: 0.5 });
     this.pebbles = new InstancedMesh(
       new IcosahedronGeometry(1, 0),
       new MeshStandardMaterial({ color: '#c8bba0', roughness: 0.9, flatShading: true }),

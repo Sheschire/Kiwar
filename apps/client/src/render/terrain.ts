@@ -15,6 +15,7 @@ import {
 } from 'three';
 import { hexToPixel, type FaceMap, type HexKey, type Tile, type TileType } from '@kiwar/shared';
 import { GLSL_NOISE } from './shaderChunks';
+import { withSeasonLook } from './seasonLook';
 
 /** Visual radius of a hex top (the logical circumradius is 1; the gap shows the thick edges). */
 export const HEX_VISUAL_RADIUS = 0.955;
@@ -165,6 +166,7 @@ function createTileMaterial(): MeshStandardMaterial {
       );
   };
   material.customProgramCacheKey = () => 'kiwar-tile';
+  withSeasonLook(material, { tint: 1, snow: 1 });
   return material;
 }
 

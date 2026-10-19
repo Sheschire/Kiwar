@@ -2144,3 +2144,52 @@ button.chip:focus-visible {
     top: calc(var(--safe-top) + 118px);
   }
 }
+
+/* Chantier 04: day/night and season clock at the end of the resource bar. */
+.chip-clock .clock-icons {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.chip-clock .clock-season {
+  position: absolute;
+  right: -5px;
+  bottom: -4px;
+}
+
+.chip-season {
+  font-weight: 700;
+  font-size: 0.92rem;
+  white-space: nowrap;
+}
+
+.chip-clock .chip-rate {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .chip.chip-clock {
+    flex: 0 0 auto;
+    padding: 2px 5px 2px 2px;
+  }
+
+  .chip-clock .day-dial {
+    width: 22px;
+    height: 22px;
+  }
+
+  .chip-clock .clock-season {
+    right: -3px;
+    bottom: -3px;
+    width: 12px;
+    height: 12px;
+  }
+
+  .chip-clock .chip-body {
+    display: none;
+  }
+}

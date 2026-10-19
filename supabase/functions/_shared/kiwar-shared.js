@@ -939,6 +939,22 @@ var RESOURCE_MASTERY = {
   juice: "juice"
 };
 
+// packages/shared/src/data/cycles.ts
+var SEASONS = ["spring", "summer", "autumn", "winter"];
+var CALENDAR = {
+  dayMs: ms.h(2),
+  seasonDays: 12,
+  /** Night at the end of each day (longer days in summer). */
+  nightMs: { spring: ms.min(30), summer: ms.min(20), autumn: ms.min(30), winter: ms.min(30) },
+  /** A new calendar starts this long after dawn: a colony wakes up mid-morning in spring. */
+  startOffsetMs: ms.min(20)
+};
+function calendarStartFor(createdAt) {
+  return createdAt - CALENDAR.startOffsetMs;
+}
+var SEASON_MS = CALENDAR.dayMs * CALENDAR.seasonDays;
+var YEAR_MS = SEASON_MS * SEASONS.length;
+
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
 var SQRT5 = /* @__PURE__ */ Math.sqrt(5);
@@ -1730,7 +1746,7 @@ function trainingDuration(school, classId) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 5;
+var SCHEMA_VERSION = 6;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -1756,6 +1772,7 @@ function newGame(opts) {
     seed: opts.seed,
     params: opts.params ?? DEFAULT_FACE_PARAMS,
     createdAt: opts.now,
+    calendarStart: opts.calendarStart ?? calendarStartFor(opts.now),
     now: opts.now,
     resources: { ...START.resources },
     buildings: [],
@@ -2333,6 +2350,45 @@ function nameOf(e, id3) {
 }
 var round22 = (v) => Math.round(v * 100) / 100;
 
+// packages/shared/src/sim/calendar.ts
+var mod = (a, n) => (a % n + n) % n;
+function calendarAt(start, t) {
+  const elapsed = t - start;
+  const inYear = mod(elapsed, YEAR_MS);
+  const seasonIndex = Math.floor(inYear / SEASON_MS);
+  const season = SEASONS[seasonIndex];
+  const inSeason = inYear - seasonIndex * SEASON_MS;
+  const day = Math.floor(inSeason / CALENDAR.dayMs);
+  const sinceDawn = inSeason - day * CALENDAR.dayMs;
+  const dawn = t - sinceDawn;
+  const nightStart = CALENDAR.dayMs - CALENDAR.nightMs[season];
+  return {
+    season,
+    year: Math.floor((elapsed - inYear) / YEAR_MS),
+    day,
+    sinceDawn,
+    dayProgress: sinceDawn / CALENDAR.dayMs,
+    night: sinceDawn >= nightStart,
+    nightAt: dawn + nightStart,
+    dawnAt: dawn + CALENDAR.dayMs,
+    seasonEndsAt: t - inSeason + SEASON_MS,
+    next: SEASONS[(seasonIndex + 1) % SEASONS.length]
+  };
+}
+function calendarOf(state, t = state.now) {
+  return calendarAt(state.calendarStart, t);
+}
+function nextCalendarChange(start, t) {
+  const c = calendarAt(start, t);
+  return c.night ? c.dawnAt : c.nightAt;
+}
+function seasonOf(state) {
+  return calendarAt(state.calendarStart, state.now).season;
+}
+function isNight(state) {
+  return calendarAt(state.calendarStart, state.now).night;
+}
+
 // packages/shared/src/sim/advance.ts
 function advance(state, now) {
   const s = cloneState(state);
@@ -2352,7 +2408,9 @@ function advanceInPlace(s, now, events) {
     const flows = computeFlows(s);
     const trainingEnd = nextTrainingEnd(s);
     const speechEnd = s.speechUntil > s.now ? s.speechUntil : Infinity;
+    const calendarChange = nextCalendarChange(s.calendarStart, s.now);
     const nextEvent = Math.min(
+      calendarChange,
       constructionEnd,
       eggEnd,
       expedition?.at ?? Infinity,
@@ -2377,6 +2435,7 @@ function advanceInPlace(s, now, events) {
     }
     if (trainingEnd === nextEvent) finishTrainings(s, trainingEnd, events);
     if (speechEnd === nextEvent) events.push({ type: "speechOver", at: speechEnd });
+    if (calendarChange === nextEvent) calendarTick(s, calendarChange, events);
     if (expedition && expedition.at === nextEvent) {
       const e = expedition.expedition;
       if (e.status === "outbound") {
@@ -2396,6 +2455,11 @@ function advanceInPlace(s, now, events) {
     }
   }
   s.now = Math.max(s.now, now);
+}
+function calendarTick(s, at, events) {
+  const c = calendarAt(s.calendarStart, at);
+  if (!c.night && c.day === 0 && c.sinceDawn === 0)
+    events.push({ type: "seasonChanged", at, season: c.season });
 }
 function computeFlows(s) {
   const full = storageFullCheck(s);
@@ -7050,6 +7114,7 @@ var gameStateSchema = external_exports.object({
   seed: external_exports.string().min(1).max(64),
   params: external_exports.object({ radius: external_exports.number().int().min(4).max(30) }),
   createdAt: external_exports.number(),
+  calendarStart: external_exports.number(),
   now: external_exports.number(),
   resources,
   buildings: external_exports.array(
@@ -7205,7 +7270,9 @@ var MIGRATIONS = {
       skillReadyAt: {}
     })) : raw.villagers,
     speechUntil: 0
-  })
+  }),
+  // v5 → v6: day/night and seasons (chantier 04). The calendar starts with the game.
+  5: (raw) => ({ ...raw, calendarStart: calendarStartFor(Number(raw.createdAt)) })
 };
 function migrateState(input) {
   if (!input || typeof input !== "object") return { ok: false, reason: "corrupt" };
@@ -7413,7 +7480,8 @@ function toInfo(row, members) {
     ...toSummary(row, members.length),
     seed: row.seed,
     members,
-    kiwiCount: kiwiCount(members.length)
+    kiwiCount: kiwiCount(members.length),
+    createdAt: row.createdAt
   };
 }
 function toSummary(row, players) {
@@ -7421,7 +7489,11 @@ function toSummary(row, players) {
 }
 function withScopeTargets(state, scope) {
   if (!scope.shared) return state;
-  return { ...state, targets: universeTargets(scope.shared.info.members, scope.shared.me) };
+  return {
+    ...state,
+    targets: universeTargets(scope.shared.info.members, scope.shared.me),
+    calendarStart: scope.shared.info.createdAt === void 0 ? state.calendarStart : calendarStartFor(scope.shared.info.createdAt)
+  };
 }
 function universeGame(ctx, info, me) {
   return newGame({
@@ -7431,6 +7503,8 @@ function universeGame(ctx, info, me) {
     playerId: ctx.userId,
     universeId: info.id,
     kiwiId: `k${me.kiwiIndex}`,
+    // Everyone in a universe lives the same days and seasons.
+    calendarStart: calendarStartFor(info.createdAt ?? ctx.now()),
     targets: universeTargets(info.members, me)
   });
 }
@@ -7439,6 +7513,7 @@ function isPristine(state) {
 }
 function isPlausible(state, now) {
   if (state.now > now + 6e4 || state.createdAt > state.now) return false;
+  if (state.calendarStart !== calendarStartFor(state.createdAt)) return false;
   const cap = capacity(state);
   for (const id3 of RESOURCE_IDS) {
     const rewards = OBJECTIVES.reduce((sum, o) => sum + (o.reward[id3] ?? 0), 0);
@@ -7522,6 +7597,7 @@ async function handleGameRequest(ctx, body) {
         code: inviteCode(ctx.randomBytes(8)),
         seed: ctx.randomSeed(),
         maxPlayers: MAX_PLAYERS,
+        createdAt: ctx.now(),
         createdBy: ctx.userId
       });
       return joinAndPlay(ctx, repo, row, req.displayName);
@@ -7678,7 +7754,8 @@ function createMemoryRepository() {
         name: row.name,
         code: row.code,
         seed: row.seed,
-        maxPlayers: row.maxPlayers
+        maxPlayers: row.maxPlayers,
+        createdAt: row.createdAt
       };
       universes.set(u.id, u);
       members.set(u.id, []);
@@ -7716,6 +7793,7 @@ export {
   BUILDABLE_TYPES,
   BUILDINGS,
   BUILDING_TYPES,
+  CALENDAR,
   CAMPS,
   CATCHMENT_RADIUS,
   CLASSES,
@@ -7751,6 +7829,8 @@ export {
   RESOURCE_MASTERY,
   SCHEMA_VERSION,
   SCHOOL,
+  SEASONS,
+  SEASON_MS,
   SERVER_ERRORS,
   SHINY_COLORS,
   SKILLS,
@@ -7762,6 +7842,7 @@ export {
   TRAITS,
   TRAIT_IDS,
   XP_SCALE,
+  YEAR_MS,
   accrueKiwis,
   activeItem,
   addVillager,
@@ -7781,6 +7862,9 @@ export {
   buildingHarvest,
   buildingRates,
   buildingResource,
+  calendarAt,
+  calendarOf,
+  calendarStartFor,
   canAfford,
   canHatch,
   capacity,
@@ -7847,6 +7931,7 @@ export {
   isInviteCode,
   isLaunchpadBusy,
   isMaxLevel,
+  isNight,
   isObjectiveComplete,
   isPlausible,
   isPristine,
@@ -7874,6 +7959,7 @@ export {
   nestDef,
   newGame,
   newKiwi,
+  nextCalendarChange,
   nextId,
   nextKiwiEvent,
   objectiveProgress,
@@ -7896,6 +7982,7 @@ export {
   rollKiwi,
   rollShiny,
   scaleCost,
+  seasonOf,
   serializeSave,
   shipCargo,
   soloTargets,

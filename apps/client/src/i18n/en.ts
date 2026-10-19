@@ -171,6 +171,21 @@ export const en = {
     build: '{name}',
     upgrade: '{name} → Lv {level}',
   },
+  cycles: {
+    seasons: { spring: 'Spring', summer: 'Summer', autumn: 'Autumn', winter: 'Winter' },
+    day: 'Day {day}/{days}',
+    year: 'Year {year}',
+    isDay: 'Daytime: night falls in {duration}.',
+    isNight: 'Night: the kiwis sleep, dawn in {duration}.',
+    nextSeason: '{season} in {duration}',
+    desc: {
+      spring: 'Showers and fresh shoots.',
+      summer: 'Long sunny days.',
+      autumn: 'Wind and falling leaves. Winter is coming: build up reserves.',
+      winter: 'Snow and frozen pools.',
+    },
+    changed: 'New season: {season}.',
+  },
   hud: {
     population: 'Kiwis',
     populationTip: 'Population / housing',

@@ -1,3 +1,4 @@
+import { calendarStartFor } from '../data/cycles';
 import { BUILDINGS, levelDef, MAX_LEVEL } from '../data/buildings';
 import { OBJECTIVES } from '../data/objectives';
 import { START } from '../data/start';
@@ -41,6 +42,8 @@ export interface UniverseRow {
   code: string;
   seed: string;
   maxPlayers: number;
+  /** Creation time (the universe's shared calendar starts then). */
+  createdAt?: number;
 }
 
 /** Persistence port, implemented with Postgres in the edge function and in memory in tests. */
@@ -127,6 +130,7 @@ function toInfo(row: UniverseRow, members: UniverseMember[]): UniverseInfo {
     seed: row.seed,
     members,
     kiwiCount: kiwiCount(members.length),
+    createdAt: row.createdAt,
   };
 }
 
@@ -134,10 +138,20 @@ function toSummary(row: UniverseRow, players: number): UniverseSummary {
   return { id: row.id, name: row.name, code: row.code, players, maxPlayers: row.maxPlayers };
 }
 
-/** In a shared universe, the reachable alien faces change as friends join. */
+/**
+ * In a shared universe, the reachable alien faces change as friends join, and every colony
+ * follows the universe's calendar (games created before chantier 04 are aligned here).
+ */
 function withScopeTargets(state: GameState, scope: Scope): GameState {
   if (!scope.shared) return state;
-  return { ...state, targets: universeTargets(scope.shared.info.members, scope.shared.me) };
+  return {
+    ...state,
+    targets: universeTargets(scope.shared.info.members, scope.shared.me),
+    calendarStart:
+      scope.shared.info.createdAt === undefined
+        ? state.calendarStart
+        : calendarStartFor(scope.shared.info.createdAt),
+  };
 }
 
 function universeGame(ctx: ServiceContext, info: UniverseInfo, me: UniverseMember): GameState {
@@ -148,6 +162,8 @@ function universeGame(ctx: ServiceContext, info: UniverseInfo, me: UniverseMembe
     playerId: ctx.userId,
     universeId: info.id,
     kiwiId: `k${me.kiwiIndex}`,
+    // Everyone in a universe lives the same days and seasons.
+    calendarStart: calendarStartFor(info.createdAt ?? ctx.now()),
     targets: universeTargets(info.members, me),
   });
 }
@@ -167,6 +183,8 @@ export function isPristine(state: GameState): boolean {
  */
 export function isPlausible(state: GameState, now: number): boolean {
   if (state.now > now + 60_000 || state.createdAt > state.now) return false;
+  // Solo games follow their own calendar (no skipping winter).
+  if (state.calendarStart !== calendarStartFor(state.createdAt)) return false;
   const cap = capacity(state);
   for (const id of RESOURCE_IDS) {
     // Stock may exceed storage only by what objective rewards can add on top of it.
@@ -278,6 +296,7 @@ export async function handleGameRequest(ctx: ServiceContext, body: unknown): Pro
         code: inviteCode(ctx.randomBytes(8)),
         seed: ctx.randomSeed(),
         maxPlayers: MAX_PLAYERS,
+        createdAt: ctx.now(),
         createdBy: ctx.userId,
       });
       return joinAndPlay(ctx, repo, row, req.displayName);
@@ -465,6 +484,7 @@ export function createMemoryRepository(): GameRepository & {
         code: row.code,
         seed: row.seed,
         maxPlayers: row.maxPlayers,
+        createdAt: row.createdAt,
       };
       universes.set(u.id, u);
       members.set(u.id, []);

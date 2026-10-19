@@ -12,6 +12,7 @@ import {
 } from 'three';
 import {
   buildingAt,
+  calendarAt,
   depletedTiles,
   getTile,
   hexKey,
@@ -43,6 +44,9 @@ import {
 import { SelectionView } from './selection';
 import { TerrainView } from './terrain';
 import { WaterView } from './water';
+import { DayCycle } from './dayCycle';
+import { updateSeasonLook, seasonUniforms } from './seasonLook';
+import { WeatherView } from './weather';
 
 export interface RendererCallbacks {
   /** Current simulation time (for smooth progress animations between ticks). */
@@ -82,6 +86,9 @@ export class GameRenderer {
   /** True while the renderer itself moves the camera (not a player gesture). */
   private following = false;
   private paths: PathsView | null = null;
+  private weather: WeatherView | null = null;
+  private readonly dayCycle = new DayCycle();
+  private readonly lastLightDir = new Vector3();
   private readonly painter: PathPainter;
   private selectedTile: Tile | null = null;
   private clearedTiles = new Set<string>();
@@ -184,6 +191,7 @@ export class GameRenderer {
     });
     if (this.map) this.rebuildProps();
     this.buildings?.setAnimated(q.buildingAnimations, q.particles);
+    this.weather?.setDensity(q.particles ? 1 : 0.35);
     this.resize();
     this.renderer.shadowMap.needsUpdate = true;
     this.fpsMeter.reset();
@@ -193,7 +201,14 @@ export class GameRenderer {
 
   setFace(map: FaceMap): void {
     this.map = map;
-    for (const view of [this.terrain, this.water, this.buildings, this.kiwis, this.paths]) {
+    for (const view of [
+      this.terrain,
+      this.water,
+      this.buildings,
+      this.kiwis,
+      this.paths,
+      this.weather,
+    ]) {
       if (!view) continue;
       this.scene.remove('group' in view ? view.group : view.mesh);
       view.dispose();
@@ -216,6 +231,10 @@ export class GameRenderer {
     this.scene.add(this.water.mesh);
     this.rebuildProps();
     const e = this.terrain.extent();
+    this.weather = new WeatherView(map, Math.max(e.x, e.z));
+    this.weather.setDensity(QUALITY[this.preset].particles ? 1 : 0.35);
+    this.scene.add(this.weather.group);
+    this.resize();
     this.lighting.fit(Math.max(e.x, e.z) + 3);
     this.rig.frame(e.x, e.z);
     this.selection.setSelected(null);
@@ -244,6 +263,7 @@ export class GameRenderer {
     this.buildings?.sync(state);
     this.kiwis?.sync(state);
     this.paths?.sync(state.paths);
+    this.weather?.sync(state);
     if (this.map) this.terrain?.setDepletion(depletedTiles(state, this.map));
     this.refreshCatchment();
     // Clear decorative props under buildings, construction sites and paths.
@@ -432,6 +452,9 @@ export class GameRenderer {
     // Keep the disc comfortably framed in portrait.
     this.camera.fov = this.camera.aspect < 0.8 ? 40 : 30;
     this.camera.updateProjectionMatrix();
+    this.weather?.setViewScale(
+      (h * this.renderer.getPixelRatio()) / (2 * Math.tan((this.camera.fov * Math.PI) / 360)),
+    );
   }
 
   private frame(): void {
@@ -443,6 +466,7 @@ export class GameRenderer {
       this.selection.setHover(this.pickTile(this.hoverPoint.x, this.hoverPoint.y));
       this.hoverPoint = null;
     }
+    this.updateCycles();
     this.environment.update(this.elapsed);
     this.water?.update(this.elapsed);
     this.buildings?.update(dt, this.callbacks.now());
@@ -458,6 +482,28 @@ export class GameRenderer {
       this.callbacks.onFps?.(this.fpsMeter.fps);
     }
     this.adaptQuality(dt);
+  }
+
+  /** Day/night light and sky, season look and weather, from the simulation clock. */
+  private updateCycles(): void {
+    const state = this.lastState;
+    if (!state) return;
+    const now = this.callbacks.now();
+    const c = calendarAt(state.calendarStart, now);
+    const sky = this.dayCycle.update(c);
+    this.lighting.applySky(sky);
+    this.environment.setSky(sky);
+    (this.scene.fog as Fog).color.copy(sky.horizon);
+    updateSeasonLook(c, now);
+    seasonUniforms.uNight.value = 1 - sky.daylight;
+    this.water?.setIce(seasonUniforms.uSnow.value);
+    this.weather?.update(this.elapsed, c, sky.night);
+    // Shadows are static: refresh them when the sun has moved a little.
+    if (sky.lightDir.dot(this.lastLightDir) < 0.99985) {
+      this.lastLightDir.copy(sky.lightDir);
+      this.water?.setSunDirection(sky.lightDir);
+      this.renderer.shadowMap.needsUpdate = true;
+    }
   }
 
   /** In auto mode, step the preset down when the device cannot keep up. */
@@ -478,6 +524,7 @@ export class GameRenderer {
     this.tap.dispose();
     this.painter.dispose();
     this.paths?.dispose();
+    this.weather?.dispose();
     this.rig.dispose();
     this.terrain?.dispose();
     this.water?.dispose();

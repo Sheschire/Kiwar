@@ -189,6 +189,21 @@ export const fr: Dict = {
     build: '{name}',
     upgrade: '{name} → Niv. {level}',
   },
+  cycles: {
+    seasons: { spring: 'Printemps', summer: 'Été', autumn: 'Automne', winter: 'Hiver' },
+    day: 'Jour {day}/{days}',
+    year: 'Année {year}',
+    isDay: 'Il fait jour : la nuit tombe dans {duration}.',
+    isNight: 'Il fait nuit : les kiwis dorment, l’aube dans {duration}.',
+    nextSeason: '{season} dans {duration}',
+    desc: {
+      spring: 'Averses et jeunes pousses.',
+      summer: 'Longues journées ensoleillées.',
+      autumn: 'Vent et feuilles mortes. L’hiver approche : faites des réserves.',
+      winter: 'Neige et bassins gelés.',
+    },
+    changed: 'Nouvelle saison : {season}.',
+  },
   hud: {
     population: 'Kiwis',
     populationTip: 'Population / logement',

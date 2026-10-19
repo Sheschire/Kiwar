@@ -15,6 +15,7 @@ interface UniverseRowDb {
   code: string;
   seed: string;
   max_players: number;
+  created_at: string;
 }
 
 interface MemberRowDb {
@@ -28,7 +29,7 @@ interface MemberRowDb {
 type State = any;
 
 const GAME_COLUMNS = 'id, user_id, universe_id, state, version';
-const UNIVERSE_COLUMNS = 'id, name, code, seed, max_players';
+const UNIVERSE_COLUMNS = 'id, name, code, seed, max_players, created_at';
 
 export function createSupabaseRepository(db: SupabaseClient) {
   const toGame = (r: GameRow) => ({
@@ -44,6 +45,7 @@ export function createSupabaseRepository(db: SupabaseClient) {
     code: r.code,
     seed: r.seed,
     maxPlayers: r.max_players,
+    createdAt: Date.parse(r.created_at),
   });
   const toMember = (r: MemberRowDb) => ({
     userId: r.user_id,

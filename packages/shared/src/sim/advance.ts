@@ -18,6 +18,8 @@ import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
 import type { ClassId } from '../data/classes';
 import { accrueKiwis, builderSpeed, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
 import { faceMapOf, syncPools, timeToDepletion } from './territory';
+import type { Season } from '../data/cycles';
+import { calendarAt, nextCalendarChange } from './calendar';
 import {
   addVillager,
   cloneState,
@@ -71,6 +73,7 @@ export type GameEvent =
       rank: number;
     }
   | { type: 'storageFull'; at: TimeMs; resource: ResourceId }
+  | { type: 'seasonChanged'; at: TimeMs; season: Season }
   | { type: 'expeditionArrived'; at: TimeMs; expeditionId: string; victory: boolean }
   | { type: 'expeditionReturned'; at: TimeMs; expeditionId: string };
 
@@ -106,7 +109,10 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const flows = computeFlows(s);
     const trainingEnd = nextTrainingEnd(s);
     const speechEnd = s.speechUntil > s.now ? s.speechUntil : Infinity;
+    // Nightfall and dawn change work rates (seasons change at dawn).
+    const calendarChange = nextCalendarChange(s.calendarStart, s.now);
     const nextEvent = Math.min(
+      calendarChange,
       constructionEnd,
       eggEnd,
       expedition?.at ?? Infinity,
@@ -131,6 +137,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     }
     if (trainingEnd === nextEvent) finishTrainings(s, trainingEnd, events);
     if (speechEnd === nextEvent) events.push({ type: 'speechOver', at: speechEnd });
+    if (calendarChange === nextEvent) calendarTick(s, calendarChange, events);
     if (expedition && expedition.at === nextEvent) {
       const e = expedition.expedition;
       if (e.status === 'outbound') {
@@ -150,6 +157,13 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     }
   }
   s.now = Math.max(s.now, now);
+}
+
+/** Dawn or nightfall: a new season starts at the first dawn of its first day. */
+function calendarTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
+  const c = calendarAt(s.calendarStart, at);
+  if (!c.night && c.day === 0 && c.sinceDawn === 0)
+    events.push({ type: 'seasonChanged', at, season: c.season });
 }
 
 interface Flows {

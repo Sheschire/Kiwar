@@ -68,7 +68,7 @@ describe('universe helpers', () => {
 
 describe('shared universes (server)', () => {
   it('creates a universe, invites friends by code and gives each a face', async () => {
-    const { as } = world();
+    const { as, tick } = world();
     const created = ok(
       await handleGameRequest(as('alice'), {
         action: 'createUniverse',
@@ -81,6 +81,7 @@ describe('shared universes (server)', () => {
     expect(created.state).toMatchObject({ face: 'kiwisu', kiwiId: 'k0', universeId: u.id });
     expect(created.state.targets.map((t) => t.id)).toEqual(['aliens:0:kiwino']);
 
+    tick(5 * 3_600_000);
     const bob = ok(
       await handleGameRequest(as('bob'), {
         action: 'joinUniverse',
@@ -91,6 +92,9 @@ describe('shared universes (server)', () => {
     expect(bob.state).toMatchObject({ face: 'kiwino', kiwiId: 'k0' });
     // Two halves of the same fruit.
     expect(bob.state.seed).toBe(created.state.seed);
+    // One shared calendar: Bob joins five hours later but lives the same days and seasons.
+    expect(bob.state.calendarStart).toBe(created.state.calendarStart);
+    expect(bob.state.createdAt).toBe(created.state.createdAt + 5 * 3_600_000);
     expect(bob.universe!.members.map((m) => m.displayName)).toEqual(['Alice', 'Bob']);
 
     // Alice's twin face is now Bob's: her targets move to the new alien kiwi.

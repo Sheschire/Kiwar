@@ -60,6 +60,7 @@ export class WaterView {
         uDeep: { value: new Color('#6f9a10') },
         uSky: { value: new Color('#f3d9f0') },
         uFoam: { value: new Color('#fffbe8') },
+        uIce: { value: 0 },
       },
       vertexShader: /* glsl */ `
         attribute vec3 aShoreA;
@@ -78,7 +79,7 @@ export class WaterView {
         }
       `,
       fragmentShader: /* glsl */ `
-        uniform float uTime;
+        uniform float uTime, uIce;
         uniform vec3 uSunDir, uShallow, uDeep, uSky, uFoam;
         varying vec3 vWorld;
         varying vec2 vLocal;
@@ -141,6 +142,12 @@ export class WaterView {
           float foam = clamp(foamBand * (0.75 + 0.5 * foamNoise) + foamRipple * foamNoise, 0.0, 1.0);
           col = mix(col, uFoam, foam);
 
+          // Winter: the pools freeze over (pale, still, a few cracks).
+          float crack = smoothstep(0.03, 0.0, abs(kNoise(p * 1.3) - 0.5));
+          vec3 ice = mix(vec3(0.86, 0.93, 0.97), vec3(0.70, 0.82, 0.90), smoothstep(0.05, 0.6, shore));
+          ice = mix(ice, vec3(1.0), crack * 0.5 + spec * 0.6);
+          col = mix(col, ice, uIce * 0.85);
+
           gl_FragColor = vec4(col, 1.0);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
@@ -163,6 +170,14 @@ export class WaterView {
 
   update(time: number): void {
     this.material.uniforms.uTime!.value = time;
+  }
+
+  setSunDirection(dir: Vector3): void {
+    (this.material.uniforms.uSunDir!.value as Vector3).copy(dir).normalize();
+  }
+
+  setIce(amount: number): void {
+    this.material.uniforms.uIce!.value = amount;
   }
 
   dispose(): void {

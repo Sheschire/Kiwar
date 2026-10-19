@@ -22,10 +22,11 @@ import { actions } from '../actions';
 import { chatActions } from '../chatActions';
 import { uiStore, useT, useUi } from '../store';
 import { SyncBadge } from './SyncBadge';
+import { ClockChip, ClockTip } from './ClockChip';
 
-type TipId = ResourceId | 'population';
+type TipId = ResourceId | 'population' | 'clock';
 
-interface ChipHandlers {
+export interface ChipHandlers {
   open: boolean;
   onEnter(e: PointerEvent): void;
   onLeave(e: PointerEvent): void;
@@ -72,6 +73,7 @@ function TipContent({ id }: { id: TipId }) {
   const lang = useUi((s) => s.lang);
   const game = useUi((s) => s.game);
   if (!game) return null;
+  if (id === 'clock') return <ClockTip />;
   if (id === 'population') {
     const idle = idleVillagers(game).length;
     return (
@@ -204,6 +206,7 @@ export function TopBar() {
             <div class="chip-rate">{t('hud.population')}</div>
           </div>
         </button>
+        <ClockChip h={handlers('clock')} />
         {tip && (
           <div class="tip parchment" role="tooltip" ref={tipRef} style={{ left: `${tipLeft}px` }}>
             <TipContent id={tip} />

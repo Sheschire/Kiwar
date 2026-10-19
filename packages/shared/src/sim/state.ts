@@ -1,5 +1,6 @@
 import type { BuildingType } from '../data/buildings';
 import { NAME_SYLLABLES, START } from '../data/start';
+import { calendarStartFor } from '../data/cycles';
 import { ALIEN_TWIN_FACE } from '../data/expeditions';
 import type { Resources } from '../data/resources';
 import { HEART, type FaceParams, DEFAULT_FACE_PARAMS } from '../worldgen/generateFace';
@@ -19,7 +20,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export type Job =
   | { kind: 'idle' }
@@ -198,6 +199,8 @@ export interface GameState {
   seed: string;
   params: FaceParams;
   createdAt: TimeMs;
+  /** Dawn of the first spring day (game creation, or universe creation when shared). */
+  calendarStart: TimeMs;
   /** Simulation time reached by the last `advance`. */
   now: TimeMs;
   resources: Resources;
@@ -234,6 +237,8 @@ export interface NewGameOptions {
   playerId?: string;
   universeId?: string;
   kiwiId?: string;
+  /** Calendar start (defaults to a spring morning: see `calendarStartFor`). */
+  calendarStart?: TimeMs;
   /** Expedition targets; defaults to the alien-held other face of our kiwi. */
   targets?: ExpeditionTarget[];
 }
@@ -265,6 +270,7 @@ export function newGame(opts: NewGameOptions): GameState {
     seed: opts.seed,
     params: opts.params ?? DEFAULT_FACE_PARAMS,
     createdAt: opts.now,
+    calendarStart: opts.calendarStart ?? calendarStartFor(opts.now),
     now: opts.now,
     resources: { ...START.resources },
     buildings: [],

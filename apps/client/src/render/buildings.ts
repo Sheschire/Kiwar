@@ -1,4 +1,5 @@
 import type { Object3D } from 'three';
+import { withSeasonLook } from './seasonLook';
 import {
   AdditiveBlending,
   Color,
@@ -88,6 +89,8 @@ export class BuildingsView {
     /** Called when the set of meshes changes (static shadows must be refreshed). */
     private readonly onChanged: () => void,
   ) {
+    // Snow settles on roofs in winter.
+    withSeasonLook(this.material, { tint: 0, snow: 0.75 });
     this.sparks = new InstancedMesh(
       new IcosahedronGeometry(0.06, 0),
       new MeshBasicMaterial({

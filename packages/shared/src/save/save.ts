@@ -14,6 +14,7 @@ import {
   type StatId,
 } from '../data/kiwis';
 import { createRng } from '../rng/rng';
+import { calendarStartFor } from '../data/cycles';
 import { CLASS_IDS, SKILL_IDS } from '../data/classes';
 import { newKiwi, rollKiwi } from '../sim/kiwis';
 
@@ -55,6 +56,7 @@ export const gameStateSchema = z.object({
   seed: z.string().min(1).max(64),
   params: z.object({ radius: z.number().int().min(4).max(30) }),
   createdAt: z.number(),
+  calendarStart: z.number(),
   now: z.number(),
   resources,
   buildings: z.array(
@@ -230,6 +232,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
       : raw.villagers,
     speechUntil: 0,
   }),
+  // v5 → v6: day/night and seasons (chantier 04). The calendar starts with the game.
+  5: (raw) => ({ ...raw, calendarStart: calendarStartFor(Number(raw.createdAt)) }),
 };
 
 export type MigrateResult =

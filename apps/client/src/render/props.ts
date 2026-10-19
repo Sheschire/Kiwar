@@ -12,6 +12,7 @@ import {
   SphereGeometry,
   Vector3,
 } from 'three';
+import { withSeasonLook } from './seasonLook';
 import { createRng, hexKey, type FaceMap, type HexKey, type Rng, type Tile } from '@kiwar/shared';
 import { DOME_TOP, worldPosition } from './terrain';
 
@@ -134,6 +135,11 @@ export class PropsView {
       false,
     );
     this.batches.push(tuftStem, tuftPuff, seed, pulp, blade, pebble, fur, domeFur);
+    // Down puffs and grass turn with the seasons; everything gets snow in winter.
+    withSeasonLook(tuftPuff.material, { tint: 0.8, snow: 1 });
+    withSeasonLook(blade.material, { tint: 1, snow: 0.6 });
+    for (const b of [tuftStem, seed, pulp, pebble, fur])
+      withSeasonLook(b.material, { tint: 0.3, snow: 0.8 });
 
     const count = (n: number) => {
       const scaled = n * density;

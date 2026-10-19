@@ -1,5 +1,6 @@
 import {
   BackSide,
+  type Color,
   CircleGeometry,
   DoubleSide,
   Group,
@@ -11,6 +12,7 @@ import {
   SphereGeometry,
   type Scene,
 } from 'three';
+import type { SkyState } from './dayCycle';
 import { PALETTE } from './palette';
 import { GLSL_NOISE } from './shaderChunks';
 
@@ -32,10 +34,11 @@ export class Environment {
       fog: false,
       uniforms: {
         uTime: { value: 0 },
-        uZenith: { value: PALETTE.skyZenith },
-        uMid: { value: PALETTE.skyMid },
-        uHorizon: { value: PALETTE.skyHorizon },
-        uBelow: { value: PALETTE.skyBelow },
+        uZenith: { value: PALETTE.skyZenith.clone() },
+        uMid: { value: PALETTE.skyMid.clone() },
+        uHorizon: { value: PALETTE.skyHorizon.clone() },
+        uBelow: { value: PALETTE.skyBelow.clone() },
+        uStars: { value: 1 },
       },
       vertexShader: /* glsl */ `
         varying vec3 vDir;
@@ -46,7 +49,7 @@ export class Environment {
         }
       `,
       fragmentShader: /* glsl */ `
-        uniform float uTime;
+        uniform float uTime, uStars;
         uniform vec3 uZenith, uMid, uHorizon, uBelow;
         varying vec3 vDir;
         ${GLSL_NOISE}
@@ -68,7 +71,7 @@ export class Environment {
             float dist = length(d - normalize(center)) * 140.0;
             float tw = 0.6 + 0.4 * sin(uTime * (1.0 + rnd * 3.0) + rnd * 60.0);
             float star = smoothstep(0.5, 0.0, dist) * tw * smoothstep(0.05, 0.5, h);
-            col += vec3(1.0, 0.95, 0.85) * star * 0.9;
+            col += vec3(1.0, 0.95, 0.85) * star * 0.9 * uStars;
           }
           gl_FragColor = vec4(col, 1.0);
           #include <colorspace_fragment>
@@ -87,9 +90,9 @@ export class Environment {
       fog: false,
       uniforms: {
         uTime: { value: 0 },
-        uCloud: { value: PALETTE.cloud },
-        uShade: { value: PALETTE.cloudShade },
-        uFade: { value: PALETTE.skyBelow },
+        uCloud: { value: PALETTE.cloud.clone() },
+        uShade: { value: PALETTE.cloudShade.clone() },
+        uFade: { value: PALETTE.skyBelow.clone() },
       },
       vertexShader: /* glsl */ `
         varying vec2 vUv;
@@ -142,6 +145,20 @@ export class Environment {
     }
 
     scene.add(this.group);
+  }
+
+  /** Day/night colours of the sky and the cloud sea (`night` 0–1 brightens the stars). */
+  setSky(sky: SkyState): void {
+    const u = this.skyMaterial.uniforms;
+    (u.uZenith!.value as Color).copy(sky.zenith);
+    (u.uMid!.value as Color).copy(sky.mid);
+    (u.uHorizon!.value as Color).copy(sky.horizon);
+    (u.uBelow!.value as Color).copy(sky.below);
+    u.uStars!.value = 1 + sky.night * 0.8;
+    const c = this.cloudMaterial.uniforms;
+    (c.uCloud!.value as Color).copy(sky.cloud);
+    (c.uShade!.value as Color).copy(sky.cloudShade);
+    (c.uFade!.value as Color).copy(sky.below);
   }
 
   update(time: number): void {

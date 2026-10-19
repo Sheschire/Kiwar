@@ -51,6 +51,9 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
       case 'storageFull':
         pushToast('info', 'events.storageFull', { resource: `@resources.${e.resource}` });
         break;
+      case 'seasonChanged':
+        pushToast('info', 'cycles.changed', { season: `@cycles.seasons.${e.season}` });
+        break;
       case 'expeditionArrived':
         pushToast(
           e.victory ? 'success' : 'error',

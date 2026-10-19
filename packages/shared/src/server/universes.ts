@@ -29,6 +29,8 @@ export interface UniverseInfo extends UniverseSummary {
   seed: string;
   members: UniverseMember[];
   kiwiCount: number;
+  /** Creation time: start of the shared calendar. */
+  createdAt?: number;
 }
 
 /** Number of kiwis: enough for every player plus at least one alien face. */

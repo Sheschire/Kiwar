@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import type { ResourceId } from '@kiwar/shared';
+import type { ResourceId, Season } from '@kiwar/shared';
 
 interface IconProps {
   size?: number;
@@ -383,6 +383,120 @@ export function SpeakerIcon({ size = 22, class: cls, muted }: IconProps & { mute
           fill="none"
         />
       )}
+    </>,
+  );
+}
+
+const SEASON_GLYPHS: Record<Season, ComponentChildren> = {
+  spring: (
+    <>
+      {[0, 72, 144, 216, 288].map((a) => (
+        <ellipse
+          key={a}
+          cx="16"
+          cy="9.5"
+          rx="4"
+          ry="6"
+          fill="#ffc6dc"
+          stroke="#c76b93"
+          stroke-width="1.4"
+          transform={`rotate(${a} 16 16)`}
+        />
+      ))}
+      <circle cx="16" cy="16" r="3.4" fill="#ffd95a" stroke="#c99a1e" stroke-width="1.4" />
+    </>
+  ),
+  summer: (
+    <>
+      {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
+        <path
+          key={a}
+          d="M16 2.5v5"
+          stroke="#e8a21c"
+          stroke-width="2.6"
+          stroke-linecap="round"
+          transform={`rotate(${a} 16 16)`}
+        />
+      ))}
+      <circle cx="16" cy="16" r="7" fill="#ffd95a" stroke="#d08a12" stroke-width="2" />
+    </>
+  ),
+  autumn: (
+    <>
+      <path
+        d="M16 3c6 4 10 9 9 15-1 5-5 8-9 9-4-1-8-4-9-9-1-6 3-11 9-15z"
+        fill="#e58a3a"
+        stroke="#9a4f17"
+        stroke-width="2"
+      />
+      <path d="M16 8v21M16 15l-4-3M16 19l5-4" stroke="#9a4f17" stroke-width="1.6" fill="none" />
+    </>
+  ),
+  winter: (
+    <>
+      {[0, 60, 120].map((a) => (
+        <g
+          key={a}
+          transform={`rotate(${a} 16 16)`}
+          stroke="#5a8fc0"
+          stroke-width="2.4"
+          stroke-linecap="round"
+        >
+          <path d="M16 3v26" />
+          <path d="M12 6l4 4 4-4M12 26l4-4 4 4" fill="none" />
+        </g>
+      ))}
+    </>
+  ),
+};
+
+export function SeasonIcon({ season, size = 18, class: cls }: IconProps & { season: Season }) {
+  return svg(size, cls, SEASON_GLYPHS[season]);
+}
+
+/**
+ * Day dial: the pale arc is the day, the blue one the night; the hand shows the hour
+ * (`progress` 0–1 since dawn, `nightShare` of the day).
+ */
+export function DayDial({
+  progress,
+  nightShare,
+  size = 26,
+}: {
+  progress: number;
+  nightShare: number;
+  size?: number;
+}) {
+  const arc = (from: number, to: number) => {
+    const p = (x: number) => {
+      const a = x * Math.PI * 2 - Math.PI / 2;
+      return `${16 + Math.cos(a) * 11} ${16 + Math.sin(a) * 11}`;
+    };
+    return `M16 16L${p(from)}A11 11 0 ${to - from > 0.5 ? 1 : 0} 1 ${p(to)}Z`;
+  };
+  const a = progress * Math.PI * 2 - Math.PI / 2;
+  const night = progress >= 1 - nightShare;
+  return svg(
+    size,
+    'day-dial',
+    <>
+      <circle cx="16" cy="16" r="13" fill="#fff8e6" stroke="#7a5a40" stroke-width="2.2" />
+      <path d={arc(0, 1 - nightShare)} fill="#ffe7a6" />
+      <path d={arc(1 - nightShare, 1)} fill="#6c72c4" />
+      <path
+        d={`M16 16L${16 + Math.cos(a) * 9.5} ${16 + Math.sin(a) * 9.5}`}
+        stroke="#7a5a40"
+        stroke-width="2.4"
+        stroke-linecap="round"
+      />
+      <circle
+        cx={16 + Math.cos(a) * 9.5}
+        cy={16 + Math.sin(a) * 9.5}
+        r="3.2"
+        fill={night ? '#f2f4ff' : '#ffc53d'}
+        stroke="#7a5a40"
+        stroke-width="1.4"
+      />
     </>,
   );
 }
