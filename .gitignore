@@ -1,0 +1,9 @@
+node_modules
+dist
+dev-dist
+coverage
+*.log
+.DS_Store
+.vite
+tools/balance/reports/*.md
+!tools/balance/reports/.gitkeep
