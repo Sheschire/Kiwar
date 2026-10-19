@@ -18,6 +18,15 @@ const chat: {
   body: string;
   created_at: string;
 }[] = [];
+const audioBindings: { event_id: string; binding: unknown }[] = [];
+const audioAssets: {
+  id: string;
+  name: string;
+  path: string;
+  mime: string;
+  duration_ms: number;
+  size_bytes: number;
+}[] = [];
 let delayMs = Number(process.env.MOCK_DELAY_MS ?? 150);
 
 const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -143,6 +152,11 @@ createServer(async (req, res) => {
     }
   }
   if (url.pathname === '/rest/v1/chat_reports' && req.method === 'POST') return send(res, 201, {});
+  // Audio manifest (public read).
+  if (url.pathname === '/rest/v1/audio_bindings' && req.method === 'GET')
+    return send(res, 200, audioBindings);
+  if (url.pathname === '/rest/v1/audio_assets' && req.method === 'GET')
+    return send(res, 200, audioAssets);
 
   // Test hook: change the artificial latency.
   if (url.pathname === '/__mock/delay') {

@@ -1,9 +1,13 @@
 import { uiStore } from '../ui/store';
+import { onlineConfig } from '../game/onlineConfig';
 import { audio } from './engine';
+import { loadAudioManifest } from './manifest';
 
 /** Hooks the audio engine to the page and the UI (called once at startup). */
 export function installGameAudio(): void {
   audio.installUnlock();
+  // Custom sounds from the admin space (never blocks: defaults play meanwhile).
+  void loadAudioManifest(onlineConfig());
   uiStore.setState({ audio: audio.getSettings() });
   audio.onSettings((s) => uiStore.setState({ audio: s }));
 

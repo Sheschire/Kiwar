@@ -56,8 +56,19 @@ puis cliquez sur **Run**.
 nouvelles migrations, dans l'ordre (jamais `setup.sql` une seconde fois).
 
 Ces tables sont créées : `games` (états de jeu), `command_log` (journal anti-triche), `admins`,
-`universes`, `universe_members`, `chat_messages` et `chat_reports`.
+`universes`, `universe_members`, `chat_messages`, `chat_reports`, `audio_assets` et
+`audio_bindings`, ainsi que le bucket Storage **`audio`** (lecture publique, 2 Mo par fichier).
 Les joueurs peuvent seulement **lire** leur partie. Toute écriture passe par la fonction serveur.
+Les sons (tables `audio_*` et bucket `audio`) sont lisibles par tout le monde et modifiables
+uniquement par les comptes de la table `admins`.
+
+Migrations, dans l'ordre :
+
+| Fichier                             | Contenu                                       |
+| ----------------------------------- | --------------------------------------------- |
+| `20261020000000_init.sql`           | parties, journal, admins                      |
+| `20261021000000_universes_chat.sql` | univers partagés, chat d'équipe               |
+| `20261022000000_audio.sql`          | sons : `is_admin()`, tables `audio_*`, bucket |
 
 ## 4. Fonction serveur `game`
 
@@ -110,6 +121,8 @@ Le chat en direct utilise **Realtime** : la migration ajoute `chat_messages` à 
   `insert into public.admins (user_id) values ('<uuid du joueur>');`
   L'uuid se trouve dans _Authentication → Users_. L'accélération du temps n'existe pas en ligne :
   c'est le serveur qui maîtrise l'horloge.
+- Le même compte admin ouvre l'**espace admin des sons** sur `/admin` (connexion Google ou lien
+  magique, avec le compte ajouté ci-dessus).
 - Les messages signalés se lisent dans _Table editor → chat_reports_.
 - Pour purger régulièrement le journal (plus de 30 jours), planifiez avec pg_cron :
   `select cron.schedule('purge-kiwar-log', '0 4 * * *', 'select public.purge_command_log()');`

@@ -56,6 +56,71 @@ do $$ begin
 exception when unique_violation then null;
 end $$;
 
+-- Audio (chantier 02): everyone reads, only admins write (tables and Storage bucket).
+insert into auth.users (id) values ('33333333-3333-3333-3333-333333333333');
+insert into public.admins (user_id) values ('33333333-3333-3333-3333-333333333333');
+
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$ begin
+  if not public.is_admin() then raise exception 'admin not recognised'; end if;
+  insert into public.audio_assets (name, path, mime, size_bytes)
+    values ('Click', 'ui/click.ogg', 'audio/ogg', 1200);
+  insert into public.audio_bindings (event_id, binding)
+    values ('ui.click', '{"sources":["synth:click"],"volume":0.8}');
+  update public.audio_bindings set binding = '{"sources":["synth:tick"]}' where event_id = 'ui.click';
+  insert into storage.objects (bucket_id, name) values ('audio', 'ui/click.ogg');
+  begin
+    insert into public.audio_bindings (event_id, binding) values ('Bad Id', '{}');
+    raise exception 'invalid event id accepted';
+  exception when check_violation then null;
+  end;
+end $$;
+reset role;
+
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare n int;
+begin
+  if public.is_admin() then raise exception 'player seen as admin'; end if;
+  select count(*) into n from public.audio_bindings;
+  if n <> 1 then raise exception 'player should read 1 binding, saw %', n; end if;
+  update public.audio_bindings set binding = '{}';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'player could edit bindings'; end if;
+  delete from public.audio_assets;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'player could delete assets'; end if;
+  begin
+    insert into public.audio_bindings (event_id, binding) values ('ui.open', '{}');
+    raise exception 'player could add a binding';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into storage.objects (bucket_id, name) values ('audio', 'evil.ogg');
+    raise exception 'player could upload audio';
+  exception when insufficient_privilege then null;
+  end;
+  delete from storage.objects;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'player could delete audio files'; end if;
+end $$;
+reset role;
+
+set role anon;
+do $$
+declare n int;
+begin
+  select count(*) into n from public.audio_bindings;
+  if n <> 1 then raise exception 'anon should read bindings, saw %', n; end if;
+  select count(*) into n from public.audio_assets;
+  if n <> 1 then raise exception 'anon should read assets, saw %', n; end if;
+  select count(*) into n from storage.objects where bucket_id = 'audio';
+  if n <> 1 then raise exception 'anon should list audio files, saw %', n; end if;
+end $$;
+reset role;
+
 select 'RLS tests passed' as result;
 
 -- ---------------------------------------------------------------- universes and chat

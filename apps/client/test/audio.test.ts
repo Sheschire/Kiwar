@@ -4,6 +4,7 @@ import { defaultBindings, SOUND_EVENT_IDS, SOUND_EVENTS } from '../src/audio/cat
 import { DEFAULT_SETTINGS, parseSettings } from '../src/audio/settings';
 import { renderPreset, SYNTH_PRESET_IDS, SYNTH_PRESETS } from '../src/audio/synth';
 import { kiwiVoicePitch } from '../src/audio/sounds';
+import { assetUrls, EMPTY_MANIFEST, parseManifest } from '../src/audio/manifest';
 
 const fixed = (v: number) => () => v;
 
@@ -104,5 +105,27 @@ describe('kiwi voices', () => {
     expect(kiwiVoicePitch('v1')).not.toBe(kiwiVoicePitch('v2'));
     for (const id of ['a', 'b', 'v12', 'villager-99'])
       expect(Math.abs(kiwiVoicePitch(id))).toBeLessThanOrEqual(4);
+  });
+});
+
+describe('manifest', () => {
+  it('keeps valid bindings and assets, drops the rest', () => {
+    const m = parseManifest({
+      bindings: {
+        'ui.click': { sources: ['asset:abc'], volume: 0.5 },
+        'ui.open': { volume: 99 },
+        'not.an.event': { sources: [] },
+      },
+      assets: [
+        { id: 'abc', name: 'Click', path: 'ui/click.ogg', mime: 'audio/ogg', durationMs: 120 },
+        { id: '../bad', name: 'x', path: 'x', mime: 'audio/ogg' },
+      ],
+    });
+    expect(Object.keys(m.bindings)).toEqual(['ui.click']);
+    expect(m.bindings['ui.click']?.volume).toBe(0.5);
+    expect(m.assets.map((a) => a.id)).toEqual(['abc']);
+    const urls = assetUrls(m, (a) => `https://x/${a.path}`);
+    expect(urls.get('asset:abc')).toBe('https://x/ui/click.ogg');
+    expect(parseManifest('garbage')).toEqual(EMPTY_MANIFEST);
   });
 });
