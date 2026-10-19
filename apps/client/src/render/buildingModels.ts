@@ -15,6 +15,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { BuildingType } from '@kiwar/shared';
+import type { ParticleKind } from './particles';
 
 /**
  * Procedural low-poly building models. Each model is assembled from primitives with vertex
@@ -59,9 +60,11 @@ type Part = [BufferGeometry, string, Matrix4, string?];
  * - pump: moves up and down by `amount` (smooth).
  * - pound: lifted slowly by `amount`, then drops fast (hammers).
  * - bob: small vertical float of ±`amount`.
+ * - breathe: slow squash and stretch of ±`amount` (the docked ship).
+ * - flicker: irregular height changes of ±`amount` (flames).
  */
 export interface RigMotion {
-  kind: 'spin' | 'swing' | 'pump' | 'pound' | 'bob';
+  kind: 'spin' | 'swing' | 'pump' | 'pound' | 'bob' | 'breathe' | 'flicker';
   axis?: 'x' | 'y' | 'z';
   amount: number;
   /** Phase units per second at full activity. */
@@ -76,11 +79,41 @@ interface RigDef {
   motion: RigMotion;
 }
 
-/** Parts plus the rigs they declare. */
-type Parts = Part[] & { rigs?: RigDef[] };
+/**
+ * Particles of a building: either a steady `rate` (per second at full activity), or a burst of
+ * `count` each time the rig `rig` passes `phase` (the press hits the pulp, the hammer falls…).
+ */
+interface EmitterDef {
+  kind: ParticleKind;
+  at: [number, number, number];
+  rate?: number;
+  rig?: string;
+  count?: number;
+  phase?: number;
+  ambient?: boolean;
+}
+
+/** Parts plus the rigs and particle emitters they declare. */
+type Parts = Part[] & { rigs?: RigDef[]; emitters?: EmitterDef[] };
 
 function rig(p: Parts, name: string, pivot: [number, number, number], motion: RigMotion): void {
   (p.rigs ??= []).push({ name, pivot: new Vector3(...pivot), motion });
+}
+
+function emitter(p: Parts, def: EmitterDef): void {
+  (p.emitters ??= []).push(def);
+}
+
+export interface BuildingEmitter {
+  kind: ParticleKind;
+  /** Position in the building's local space (scaled). */
+  at: Vector3;
+  rate: number;
+  /** Index of the rig that triggers bursts, or -1. */
+  rig: number;
+  count: number;
+  phase: number;
+  ambient: boolean;
 }
 
 export interface BuildingRig {
@@ -95,6 +128,7 @@ export interface BuildingModel {
   /** Static parts, merged. */
   geometry: BufferGeometry;
   rigs: BuildingRig[];
+  emitters: BuildingEmitter[];
   /** Top of the model (for status icons). */
   height: number;
 }
@@ -142,10 +176,18 @@ const roofPrism = () => new CylinderGeometry(1, 1, 1, 3); // triangular prism ly
 function flag(parts: Parts, level: number, x: number, y: number, z: number): void {
   if (level < 2) return;
   parts.push([cyl(5), C.woodDark, m(x, y + 0.3, z, 0.02, 0.6, 0.02)]);
+  rig(parts, 'flag', [x, y + 0.52, z], {
+    kind: 'swing',
+    axis: 'y',
+    amount: 0.35,
+    speed: 3,
+    ambient: true,
+  });
   parts.push([
     box(),
     level >= 3 ? C.flagGold : C.flagBlue,
     m(x + 0.1, y + 0.52, z, 0.2, 0.12, 0.015),
+    'flag',
   ]);
 }
 
@@ -171,20 +213,33 @@ function nest(level: number): Parts {
   for (let i = 0; i < eggs; i++) {
     const a = (i / eggs) * Math.PI * 2 + 0.4;
     const gold = level >= 3 && i === 0;
-    p.push([
-      sphere(),
-      gold ? C.goldEgg : C.egg,
-      m(Math.cos(a) * 0.2, 0.25, Math.sin(a) * 0.2, 0.13, 0.17, 0.13),
-    ]);
+    const ex = Math.cos(a) * 0.2;
+    const ez = Math.sin(a) * 0.2;
+    // Eggs rock gently on their base; the golden one twinkles.
+    rig(p, `egg${i}`, [ex, 0.09, ez], {
+      kind: 'swing',
+      axis: i % 2 ? 'x' : 'z',
+      amount: 0.1,
+      speed: 1.6 + i * 0.35,
+      ambient: true,
+    });
+    p.push([sphere(), gold ? C.goldEgg : C.egg, m(ex, 0.25, ez, 0.13, 0.17, 0.13), `egg${i}`]);
+    if (gold) emitter(p, { kind: 'gold', at: [ex, 0.36, ez], rate: 1.6, ambient: true });
   }
   if (level >= 2) {
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
-      p.push([
-        cone(4),
-        C.twig,
-        m(Math.cos(a) * 0.62 * s, 0.38, Math.sin(a) * 0.62 * s, 0.05, 0.35, 0.05, 0, 0, 0),
-      ]);
+      const tx = Math.cos(a) * 0.62 * s;
+      const tz = Math.sin(a) * 0.62 * s;
+      // Twigs quivering in the breeze.
+      rig(p, `twig${i}`, [tx, 0.22, tz], {
+        kind: 'swing',
+        axis: i % 2 ? 'x' : 'z',
+        amount: 0.07,
+        speed: 5 + i,
+        ambient: true,
+      });
+      p.push([cone(4), C.twig, m(tx, 0.38, tz, 0.05, 0.35, 0.05), `twig${i}`]);
     }
   }
   if (level >= 3) {
@@ -208,6 +263,7 @@ function pulpery(level: number): Parts {
   rig(p, 'press', [0.42, 0.3, 0.22], { kind: 'pump', amount: 0.08, speed: 5 });
   p.push([cyl(6), C.stoneDark, m(0.42, 0.38, 0.22, 0.02, 0.18, 0.02), 'press']);
   p.push([cyl(10), C.wood, m(0.42, 0.29, 0.22, 0.12, 0.03, 0.12), 'press']);
+  emitter(p, { kind: 'pulp', at: [0.42, 0.2, 0.22], rig: 'press', count: 3, phase: Math.PI });
   for (let i = 0; i < 4; i++)
     p.push([
       sphere(6, 4),
@@ -275,6 +331,7 @@ function seedQuarry(level: number): Parts {
   p.push([cyl(6), C.woodDark, m(0, 0.3, 0, 0.018, 0.34, 0.018), 'hammer']);
   p.push([cyl(10), C.stone, m(0, 0.14, 0, 0.12, 0.12, 0.12), 'hammer']);
   p.push([cyl(10), C.stoneDark, m(0, 0.2, 0, 0.13, 0.025, 0.13), 'hammer']);
+  emitter(p, { kind: 'chip', at: [0, 0.08, 0], rig: 'hammer', count: 5, phase: 0 });
   // Pit and a pile of seeds.
   p.push([cyl(10), C.stoneDark, m(0, 0.03, 0, 0.32, 0.06, 0.32)]);
   const seeds = 3 + level * 2;
@@ -316,6 +373,7 @@ function juiceWell(level: number): Parts {
   rig(p, 'bucket', [0.05, 0.5, 0], { kind: 'pump', amount: 0.14, speed: 2.2 });
   p.push([cyl(8), C.wood, m(0.05, 0.5, 0, 0.07, 0.1, 0.07), 'bucket']);
   p.push([cyl(4), C.straw, m(0.05, 0.62, 0, 0.008, 0.16, 0.008), 'bucket']);
+  emitter(p, { kind: 'juice', at: [0.05, 0.44, 0], rig: 'bucket', count: 2, phase: 0 });
   // Little windmill on the roof that drives the winch.
   const hub: [number, number, number] = [0, 1.16, 0.16];
   p.push([cyl(6), C.woodDark, m(0, 1.08, 0.05, 0.025, 0.24, 0.025)]);
@@ -369,6 +427,12 @@ function hut(level: number): Parts {
   };
   dome(0, 0, s);
   if (level >= 2) p.push([cyl(6), C.stoneDark, m(0.18, 0.42 * s, -0.1, 0.06, 0.25, 0.06)]);
+  emitter(p, {
+    kind: 'smoke',
+    at: level >= 2 ? [0.18, 0.42 * s + 0.14, -0.1] : [0, 0.5 * s, 0],
+    rate: 0.8,
+    ambient: true,
+  });
   if (level >= 3) dome(-0.42, -0.3, 0.6);
   p.push([sphere(6, 4), C.furDark, m(0, 0.45 * s, 0, 0.06, 0.06, 0.06)]);
   flag(p, level, 0.42, 0.05, 0.2);
@@ -404,6 +468,14 @@ function warehouse(level: number): Parts {
       ),
     ]);
   }
+  // Little crane swinging crates around.
+  const cx = 0.5;
+  const cz = -0.22;
+  p.push([cyl(6), C.woodDark, m(cx, 0.36, cz, 0.03, 0.72, 0.03)]);
+  rig(p, 'crane', [cx, 0.72, cz], { kind: 'swing', axis: 'y', amount: 0.9, speed: 0.9 });
+  p.push([box(), C.wood, m(cx, 0.72, cz + 0.17, 0.035, 0.035, 0.42), 'crane']);
+  p.push([cyl(4), C.straw, m(cx, 0.6, cz + 0.34, 0.008, 0.24, 0.008), 'crane']);
+  p.push([box(), C.wood, m(cx, 0.45, cz + 0.34, 0.1, 0.1, 0.1, 0, 0.3, 0), 'crane']);
   if (level >= 3) {
     p.push([cyl(10), C.stone, m(-0.45, 0.35, -0.25, 0.16, 0.7, 0.16)]);
     p.push([cone(10), C.roofDark, m(-0.45, 0.8, -0.25, 0.2, 0.2, 0.2)]);
@@ -424,20 +496,28 @@ function launchpad(level: number, docked = true): Parts {
   for (const y of [0.35, 0.7]) p.push([box(), C.wood, m(-0.42 * s, y, 0.01, 0.2, 0.04, 0.26)]);
   if (docked) {
     // Hull: half a kiwi (furry skin below, green slice deck on top), fins and a leaf sail.
+    // The docked ship slowly "breathes".
+    rig(p, 'ship', [0, 0.16, 0], { kind: 'breathe', amount: 0.035, speed: 1.4, ambient: true });
     p.push([
       new SphereGeometry(1, 12, 7, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
       C.fur,
       m(0, 0.42, 0, 0.32, 0.26, 0.42),
+      'ship',
     ]);
-    p.push([cyl(14), C.leaf, m(0, 0.42, 0, 0.31, 0.02, 0.41)]);
-    p.push([cyl(10), C.cream, m(0, 0.43, 0, 0.1, 0.02, 0.14)]);
+    p.push([cyl(14), C.leaf, m(0, 0.42, 0, 0.31, 0.02, 0.41), 'ship']);
+    p.push([cyl(10), C.cream, m(0, 0.43, 0, 0.1, 0.02, 0.14), 'ship']);
     for (const side of [-1, 1]) {
-      p.push([box(), C.roof, m(side * 0.3, 0.3, -0.25, 0.04, 0.16, 0.18, 0, 0, side * 0.5)]);
+      p.push([
+        box(),
+        C.roof,
+        m(side * 0.3, 0.3, -0.25, 0.04, 0.16, 0.18, 0, 0, side * 0.5),
+        'ship',
+      ]);
     }
-    p.push([cyl(6), C.woodDark, m(0, 0.75, 0.05, 0.025, 0.65, 0.025)]);
-    p.push([sphere(8, 5), C.leafDark, m(0, 0.8, 0.12, 0.03, 0.26, 0.16)]);
+    p.push([cyl(6), C.woodDark, m(0, 0.75, 0.05, 0.025, 0.65, 0.025), 'ship']);
+    p.push([sphere(8, 5), C.leafDark, m(0, 0.8, 0.12, 0.03, 0.26, 0.16), 'ship']);
     if (level >= 2)
-      p.push([cone(8), C.flagGold, m(0, 0.33, -0.45, 0.08, 0.12, 0.08, -Math.PI / 2)]);
+      p.push([cone(8), C.flagGold, m(0, 0.33, -0.45, 0.08, 0.12, 0.08, -Math.PI / 2), 'ship']);
   }
   flag(p, level, 0.5, 0.12, 0.35);
   return p;
@@ -460,8 +540,10 @@ function camp(): Parts {
     C.strawDark,
     m(0.3, 0.18, 0.26, 1, 1, 1, Math.PI / 2),
   ]);
-  p.push([sphere(6, 4), C.pulp, m(0.27, 0.2, 0.25, 0.06, 0.05, 0.06)]);
-  p.push([sphere(6, 4), C.pulp, m(0.34, 0.21, 0.28, 0.05, 0.05, 0.05)]);
+  // The pickings shuffle in the basket while the kiwis work.
+  rig(p, 'pick', [0.3, 0.2, 0.26], { kind: 'bob', amount: 0.015, speed: 4 });
+  p.push([sphere(6, 4), C.pulp, m(0.27, 0.2, 0.25, 0.06, 0.05, 0.06), 'pick']);
+  p.push([sphere(6, 4), C.pulp, m(0.34, 0.21, 0.28, 0.05, 0.05, 0.05), 'pick']);
   // Stone ring.
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;
@@ -471,7 +553,12 @@ function camp(): Parts {
       m(-0.25 + Math.cos(a) * 0.12, 0.03, 0.28 + Math.sin(a) * 0.12, 0.05, 0.04, 0.05),
     ]);
   }
-  p.push([cone(5), C.roof, m(-0.25, 0.08, 0.28, 0.05, 0.12, 0.05)]);
+  // Crackling campfire.
+  rig(p, 'fire', [-0.25, 0.02, 0.28], { kind: 'flicker', amount: 0.25, speed: 9, ambient: true });
+  p.push([cone(5), C.roof, m(-0.25, 0.1, 0.28, 0.07, 0.17, 0.07), 'fire']);
+  p.push([cone(5), C.flagGold, m(-0.25, 0.08, 0.28, 0.045, 0.12, 0.045), 'fire']);
+  emitter(p, { kind: 'spark', at: [-0.25, 0.14, 0.28], rate: 2.5, ambient: true });
+  emitter(p, { kind: 'smoke', at: [-0.25, 0.2, 0.28], rate: 0.5, ambient: true });
   return p;
 }
 
@@ -528,7 +615,19 @@ export function buildingModel(type: BuildingType, level: number, shipAway = fals
         motion: r.motion,
       }));
     const height = buildingGeometry(type, level, shipAway).boundingBox!.max.y;
-    model = { geometry, rigs, height };
+    const rigNames = (parts.rigs ?? [])
+      .filter((r) => parts.some((part) => part[3] === r.name))
+      .map((r) => r.name);
+    const emitters = (parts.emitters ?? []).map((e) => ({
+      kind: e.kind,
+      at: new Vector3(...e.at).multiplyScalar(MODEL_SCALE),
+      rate: e.rate ?? 0,
+      rig: e.rig ? rigNames.indexOf(e.rig) : -1,
+      count: e.count ?? 1,
+      phase: e.phase ?? 0,
+      ambient: e.ambient ?? false,
+    }));
+    model = { geometry, rigs, emitters, height };
     models.set(key, model);
   }
   return model;

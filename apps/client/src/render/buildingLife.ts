@@ -5,6 +5,7 @@ import {
   Sprite,
   SpriteMaterial,
   SRGBColorSpace,
+  Vector3,
   type Material,
   type Object3D,
 } from 'three';
@@ -17,7 +18,8 @@ import {
   type Building,
   type GameState,
 } from '@kiwar/shared';
-import type { BuildingModel, RigMotion } from './buildingModels';
+import type { BuildingEmitter, BuildingModel, RigMotion } from './buildingModels';
+import { Particles } from './particles';
 
 /** What a building shows: how fast it works and why it stopped. */
 export interface Activity {
@@ -58,8 +60,15 @@ interface RigState {
   phase: number;
 }
 
+interface EmitterState {
+  def: BuildingEmitter;
+  /** Fractional particles waiting (steady emitters) or last burst cycle (rig emitters). */
+  acc: number;
+}
+
 interface Living {
   rigs: RigState[];
+  emitters: EmitterState[];
   /** Smoothed speed (animations ease in and out). */
   speed: number;
   target: number;
@@ -70,6 +79,11 @@ interface Living {
 }
 
 const TAU = Math.PI * 2;
+
+/** Number of times a phase has passed `offset` (mod 2π). */
+function cycle(phase: number, offset: number): number {
+  return Math.floor((phase - offset) / TAU);
+}
 
 function applyMotion(r: RigState): void {
   const { motion: m, object: o } = r;
@@ -93,6 +107,16 @@ function applyMotion(r: RigState): void {
     case 'bob':
       o.position.y = r.baseY + Math.sin(r.phase) * m.amount;
       break;
+    case 'breathe': {
+      const k = Math.sin(r.phase) * m.amount;
+      o.scale.set(1 - k * 0.5, 1 + k, 1 - k * 0.5);
+      break;
+    }
+    case 'flicker': {
+      const k = (Math.sin(r.phase) + Math.sin(r.phase * 2.7 + 1) * 0.6) * 0.6 * m.amount;
+      o.scale.set(1 - k * 0.3, 1 + k, 1 - k * 0.3);
+      break;
+    }
   }
 }
 
@@ -131,7 +155,9 @@ function iconTexture(kind: StatusIcon): CanvasTexture {
  * status badge when a producer is stopped (deposit exhausted, storage full).
  */
 export class BuildingLife {
+  readonly particles = new Particles();
   private readonly living = new Map<string, Living>();
+  private readonly at = new Vector3();
   private readonly iconMaterials = new Map<StatusIcon, SpriteMaterial>();
   private animated = true;
   private time = 0;
@@ -139,6 +165,10 @@ export class BuildingLife {
   /** Low quality: rigs stay in their rest pose. */
   setAnimated(on: boolean): void {
     this.animated = on;
+  }
+
+  setParticles(on: boolean): void {
+    this.particles.setEnabled(on);
   }
 
   /** Creates the rig meshes of a building inside its group. */
@@ -152,8 +182,13 @@ export class BuildingLife {
       const phase = (id.length * 1.7 + i * 2.3) % TAU;
       return { object: mesh, motion: r.motion, baseY: r.pivot.y, phase };
     });
+    const emitters = model.emitters.map((def) => ({
+      def,
+      acc: def.rig >= 0 ? cycle(rigs[def.rig]!.phase, def.phase) : 0,
+    }));
     this.living.set(id, {
       rigs,
+      emitters,
       speed: 0,
       target: 0,
       icon: null,
@@ -210,10 +245,30 @@ export class BuildingLife {
         if (r.phase > 1e4) r.phase %= TAU * 1000;
         applyMotion(r);
       }
+      for (const e of l.emitters) this.emit(l, e, dt);
     }
+    this.particles.update(dt);
+  }
+
+  private emit(l: Living, e: EmitterState, dt: number): void {
+    const d = e.def;
+    let n = 0;
+    if (d.rig >= 0) {
+      // A burst each time the rig passes its trigger phase.
+      const c = cycle(l.rigs[d.rig]!.phase, d.phase);
+      if (c !== e.acc) n = d.count;
+      e.acc = c;
+    } else {
+      const pace = d.ambient ? Math.max(l.speed, 0.6) : l.speed;
+      e.acc += dt * d.rate * pace;
+      n = Math.floor(e.acc);
+      e.acc -= n;
+    }
+    if (n > 0) this.particles.emit(d.kind, l.group.localToWorld(this.at.copy(d.at)), n);
   }
 
   dispose(): void {
+    this.particles.dispose();
     for (const m of this.iconMaterials.values()) {
       m.map?.dispose();
       m.dispose();

@@ -161,7 +161,7 @@ export class GameRenderer {
       else if (m) m.needsUpdate = true;
     });
     if (this.map) this.rebuildProps();
-    this.buildings?.setAnimated(q.buildingAnimations);
+    this.buildings?.setAnimated(q.buildingAnimations, q.particles);
     this.resize();
     this.renderer.shadowMap.needsUpdate = true;
     this.fpsMeter.reset();
@@ -179,7 +179,10 @@ export class GameRenderer {
     this.clearedTiles.clear();
     this.lastState = null;
     this.buildings = new BuildingsView(map, () => (this.renderer.shadowMap.needsUpdate = true));
-    this.buildings.setAnimated(QUALITY[this.preset].buildingAnimations);
+    this.buildings.setAnimated(
+      QUALITY[this.preset].buildingAnimations,
+      QUALITY[this.preset].particles,
+    );
     this.scene.add(this.buildings.group);
     this.kiwis = new KiwisView(map);
     this.scene.add(this.kiwis.group);

@@ -56,6 +56,7 @@ export function playCommandSound(cmd: Command): void {
       audio.play('build.start');
       break;
     case 'cancel':
+    case 'demolish':
     case 'dismantle':
     case 'removePath':
       audio.play('build.remove');

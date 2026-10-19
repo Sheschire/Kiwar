@@ -114,6 +114,7 @@ export class BuildingsView {
       this.dust.setColorAt(i, i % (DUST + DEBRIS) < DUST ? DUST_COLOR : DEBRIS_COLOR);
     }
     this.group.add(this.dust);
+    this.group.add(this.life.particles.mesh);
   }
 
   /** Ground height for a building on this tile (wells stand in the juice). */
@@ -202,8 +203,9 @@ export class BuildingsView {
   }
 
   /** Low quality presets keep the buildings still. */
-  setAnimated(on: boolean): void {
+  setAnimated(on: boolean, particles: boolean): void {
     this.life.setAnimated(on);
+    this.life.setParticles(particles);
   }
 
   private createSite(item: QueueItem, started: boolean): Group {
