@@ -1,0 +1,5 @@
+{
+  "compilerOptions": { "strict": true },
+  "lint": { "exclude": ["_shared/kiwar-shared.js"] },
+  "fmt": { "exclude": ["_shared/kiwar-shared.js"] }
+}

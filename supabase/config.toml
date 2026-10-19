@@ -1,0 +1,17 @@
+# Minimal Supabase CLI configuration for Kiwar (see docs/SUPABASE_SETUP.md).
+project_id = "kiwar"
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173", "http://localhost:4173"]
+# Guests play immediately with an anonymous account, converted later (Google / magic link).
+enable_anonymous_sign_ins = true
+enable_manual_linking = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[functions.game]
+verify_jwt = true

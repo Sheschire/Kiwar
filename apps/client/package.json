@@ -12,6 +12,7 @@
   "dependencies": {
     "@fontsource/alegreya": "^5.2.8",
     "@kiwar/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.118.0",
     "camera-controls": "^3.1.2",
     "n8ao": "^1.10.1",
     "postprocessing": "6.37.8",

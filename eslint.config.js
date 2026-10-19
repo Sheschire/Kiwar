@@ -3,7 +3,10 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/dev-dist/**', '**/node_modules/**', 'coverage/**'] },
+  {
+    // supabase/functions runs on Deno (checked with `deno check`).
+    ignores: ['**/dist/**', '**/dev-dist/**', '**/node_modules/**', 'coverage/**', 'supabase/**'],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

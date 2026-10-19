@@ -15,3 +15,5 @@ export * from './sim/selectors';
 export * from './sim/advance';
 export * from './sim/commands';
 export * from './save/save';
+export * from './server/protocol';
+export * from './server/gameService';
