@@ -36,8 +36,8 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | --- | ---------------------------------------------------------------------- | ---------- |
 | 01  | Démolition et bâtiments vivants                                        | ✅         |
 | 02  | Audio : socle, sons de base, espace admin                              | ✅         |
-| 03  | Kiwis individuels : niveaux, métiers, classes, shiny                   | ⏭ prochain |
-| 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | à faire    |
+| 03  | Kiwis individuels : niveaux, métiers, classes, shiny                   | ✅         |
+| 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | ⏭ prochain |
 | 05  | Intro, choix de la face, biomes, brouillard                            | à faire    |
 | 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | à faire    |
 | 07  | Vaisseau kiwi géant et exploration                                     | à faire    |
@@ -56,5 +56,9 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 - Audio : changements de l'admin visibles au rechargement seulement (pas de Realtime) ; pas
   d'onglet pour gérer les admins (SQL) ; ambiances jour/nuit et saisons réservées au chantier 04 ;
   sons CC0 choisis sans écoute (à valider à l'oreille, remplaçables depuis `/admin`).
+- Chantier 03 : l'Endurance n'agit pas encore sur la fatigue (chantier 04) ni le Charisme sur
+  le moral (le maire donne un bonus de récolte en attendant) ; compétences de combat contre
+  furets et chauves-souris au chantier 06 ; la voix d'un kiwi dépend encore d'un hash de son id ;
+  le bot d'équilibrage n'utilise que maire et bâtisseur (pas d'expéditions ni de mage).
 - Performance des animations non mesurée sur un vrai téléphone (un mesh par partie animée, ~1 à
   10 par bâtiment) : à vérifier, sinon passer les drapeaux en instancing.

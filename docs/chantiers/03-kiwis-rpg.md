@@ -108,3 +108,30 @@ un seul maire, avec une estrade pour des discours qui remontent le moral.
    (choix tactique du joueur) ?
 5. Faut-il un kiwi « héros » unique par joueur (idée de `VISION.md`), ou chaque kiwi peut-il
    le devenir ?
+
+## Réalisé (chantier terminé)
+
+Réponses du porteur : points de stat **mixtes** (niveaux impairs tirés selon l'activité, niveaux
+pairs à placer), niveau max **30** (niveau 10 en ~3 jours de travail), **une École** dans ce
+chantier, pertes **pondérées** (les faibles plus exposés), **pas de héros** (seul le ou la
+maire est unique), un kiwi formé **continue de travailler**, **reconversion** à prix double.
+
+1. Données individuelles : stats (total 27–33), trait (30 %), shiny 1/512 vérifié par un test
+   statistique, niveau/XP et maîtrises en unités entières (progression hors ligne exacte, test
+   grand pas = petits pas, RNG compris), production selon la puissance réelle des ouvriers,
+   affectation par maîtrise, renommer, placer un point, migrations v4 puis v5.
+2. Écran Village : liste triable, fiche (portrait SVG, radar, trait, maîtrises, histoire),
+   suivre un kiwi, toucher un kiwi en 3D, shiny colorés en 3D, toasts et sons (niveau, maîtrise,
+   shiny), mémorial.
+3. Expéditions individuelles : choix de l'équipage (force et risque de chaque kiwi), force =
+   somme des forces, pertes tirées au sort pondérées par l'exposition, XP et histoire au retour.
+4. École, classes (bâtisseur, guerrier, mage, éclaireur, maire), compétences aux niveaux
+   5 / 10 / 20 (Pluie et Discours actives), tenues en 3D et en portrait.
+5. Équilibrage : le bot place ses points, forme un·e maire et un·e bâtisseur·euse, fait des
+   discours ; nouveaux jalons du rapport (premier kiwi niveau 5 / 10, maire). Docs et skill
+   `kiwar-rpg`.
+
+Reste pour plus tard : fatigue (Endurance) et moral (Charisme) au chantier 04 ; compétences
+contre furets et chauves-souris (guerrier, mage, éclaireur volant qui accède aux falaises) au
+chantier 06 ; apparence variée selon les stats au-delà de la taille ; voix des kiwis selon leurs
+traits.

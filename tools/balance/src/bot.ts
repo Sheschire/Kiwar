@@ -11,6 +11,10 @@ import {
   canAfford,
   canHatch,
   capacity,
+  CLASSES,
+  hasSkill,
+  KIWI,
+  type ClassId,
   catchmentPreview,
   currentObjective,
   depotDistance,
@@ -44,7 +48,16 @@ import {
   type Tile,
 } from '@kiwar/shared';
 
-export const MILESTONES = ['tutorial', 'pop10', 'nest2', 'nest3', 'allLevel3'] as const;
+export const MILESTONES = [
+  'tutorial',
+  'pop10',
+  'nest2',
+  'nest3',
+  'allLevel3',
+  'kiwi5',
+  'kiwi10',
+  'mayor',
+] as const;
 export type Milestone = (typeof MILESTONES)[number];
 
 export interface RunResult {
@@ -122,6 +135,19 @@ function decide(state: GameState, map: FaceMap): Command[] {
   const obj = currentObjective(state);
   if (obj && isObjectiveComplete(state, obj)) cmds.push({ type: 'claimObjective' });
 
+  // Place earned stat points: Dexterity for everyone (harvest), Charisma for the mayor.
+  for (const v of state.villagers) {
+    if (v.statPoints <= 0) continue;
+    const stat =
+      v.classId === 'mayor' ? 'charisma' : v.classId === 'builder' ? 'strength' : 'dexterity';
+    if (v.stats[stat] < KIWI.stat.cap)
+      cmds.push({ type: 'spendStatPoint', villagerId: v.id, stat });
+  }
+  // The mayor speaks whenever it can.
+  const mayor = state.villagers.find((v) => v.classId === 'mayor');
+  if (mayor && hasSkill(mayor, 'speech') && (mayor.skillReadyAt.speech ?? 0) <= state.now)
+    cmds.push({ type: 'useSkill', villagerId: mayor.id, skill: 'speech' });
+
   // Keep everyone busy.
   let idle = idleVillagers(state).length;
   for (const b of state.buildings) {
@@ -177,6 +203,10 @@ function decide(state: GameState, map: FaceMap): Command[] {
     const c = build('hut');
     if (c && buildingCount(state) < (nestDef(state).maxBuildings ?? 0)) return [...cmds, c];
   }
+
+  // 2b. RPG (chantier 03): a School once the Nest is level 2, then a mayor and a builder.
+  const rpg = rpgDecision(state, map, build, has);
+  if (rpg) return [...cmds, rpg];
 
   // 3. Nest upgrade whenever affordable.
   const n = nest(state);
@@ -240,6 +270,43 @@ function decide(state: GameState, map: FaceMap): Command[] {
   return cmds;
 }
 
+/**
+ * The School comes after the Nest 2 (never before the bottleneck economy is in place); the
+ * most charismatic experienced kiwi becomes mayor, the strongest one a builder.
+ */
+function rpgDecision(
+  state: GameState,
+  map: FaceMap,
+  build: (type: BuildingType) => Command | null,
+  has: (type: BuildingType) => boolean,
+): Command | null {
+  if (nest(state).level < 2) return null;
+  if (!has('school')) {
+    if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return null;
+    if (!canAfford(state.resources, buildCost(state, 'school'))) return null;
+    return build('school');
+  }
+  const school = state.buildings.find((b) => b.type === 'school');
+  if (!school) return null;
+  const free = state.villagers.filter((v) => v.job.kind === 'idle' || v.job.kind === 'work');
+  const pick = (classId: ClassId, score: (v: (typeof free)[number]) => number) => {
+    if (
+      state.villagers.some(
+        (v) => v.classId === classId || (v.job.kind === 'train' && v.job.classId === classId),
+      )
+    )
+      return null;
+    const candidates = free
+      .filter((v) => !v.classId && v.level >= CLASSES[classId].minLevel)
+      .sort((a, b) => score(b) - score(a));
+    const v = candidates[0];
+    if (!v) return null;
+    const cmd: Command = { type: 'train', villagerId: v.id, schoolId: school.id, classId };
+    return applyCommand(state, cmd, { now: state.now, map }).ok ? cmd : null;
+  };
+  return pick('mayor', (v) => v.stats.charisma) ?? pick('builder', (v) => v.stats.strength) ?? null;
+}
+
 function checkMilestones(
   state: GameState,
   start: number,
@@ -253,6 +320,18 @@ function checkMilestones(
   set('pop10', population(state) >= 10);
   set('nest2', nest(state).level >= 2);
   set('nest3', nest(state).level >= 3);
+  set(
+    'kiwi5',
+    state.villagers.some((v) => v.level >= 5),
+  );
+  set(
+    'kiwi10',
+    state.villagers.some((v) => v.level >= 10),
+  );
+  set(
+    'mayor',
+    state.villagers.some((v) => v.classId === 'mayor'),
+  );
   set(
     'allLevel3',
     // Economy buildings (the bot does not play expeditions yet).

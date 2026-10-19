@@ -254,3 +254,65 @@ management UI (admins are added with SQL), CC0 files **shipped in the repo as de
 - CC0 picks made without listening (no audio output in the build environment): steadiest 24 s
   windows chosen by loudness analysis for the ambiences; the owner validates by ear.
 - Sounds are cached by the service worker on first play (CacheFirst), never precached.
+
+## Chantier 03 — individual kiwis: levels, masteries, classes, shiny
+
+Owner's answers: stat points **mixed** (odd levels drawn from the activity, even levels placed
+by the player); level cap **30**, level 10 in about **3 days** of work; classes and **one
+School** in this chantier (combat skills against ferrets / bats come with chantier 06);
+expedition losses **weighted** (the weak fall first, nobody is immortal); **no hero** (every
+kiwi can become one; the mayor is the only unique role); trained kiwis **keep working** with
+bonuses; **reconversion** possible at double price.
+
+- **Stats** (Strength, Agility, Endurance, Spirit, Dexterity, Charisma): 1–10 each at hatching,
+  total drawn in 27–33 (no perfect kiwi), cap 20 with levels. **Trait** for 30 % of kiwis
+  (Early bird, Glutton, Brave, Dreamer, Sturdy, Lucky, Curious), each a small bonus and a small
+  drawback. **Shiny** 1/512 (red, yellow, green, blue), from the state's RNG at hatching;
+  existing kiwis got stats from `hash(seed, id)` in the v4 migration (game RNG untouched).
+- **Exact offline progress**: experience and mastery practice accrue in **integer** units
+  (`XP_SCALE` = 100 × 1 h per point, rates are integers per ms), so a big step and many small
+  steps give identical kiwis. Level-ups and mastery ranks are `advance` events (their time is
+  computed with a ceiling); the automatic stat point uses the RNG at that event, in time order.
+- Curve: cumulative XP to level L = ⌊(518 n² + 41 n³) / 100⌋ with n = L − 1 (level 5 ≈ 11 h,
+  10 ≈ 3 days, 20 ≈ 3 weeks, 30 ≈ 2 months at 10 XP/h). Work 10 XP/h, building 12, School 10,
+  expedition +40 (+40 on a victory, half if the ship turned back); Spirit +4 % per point.
+- **Masteries** pulp / fibre / seeds / juice / construction, rank 0–10 at 2·r² hours of practice,
+  +3 % per rank. A worker's power = (1 + 3 % per Dexterity point above 5) × (1 + 3 % per rank) ×
+  trait × class; a building's harvest uses the summed power instead of the head count (an
+  average newborn = 1, so early balance is unchanged). Builders: Strength (+2 %/pt) and
+  construction mastery set the duration once, when the construction starts.
+- Auto-assignment prefers the most skilled kiwi (best idle worker for a new building, the least
+  skilled step back when the player removes workers, builders by speed).
+- **Expeditions**: the player picks the crew (head counts are still accepted by the command).
+  Strength of a kiwi = (1 + 6 % per Strength point + 3 % per Endurance point above 5) ×
+  (1 + 4 % per level) × trait × class (+ skills). Losses: same count as before, victims drawn
+  **without replacement, weighted by exposure** = trait / (strength × dodge (Agility) × toughness
+  (Endurance)). The planner shows each kiwi's strength and risk (expected losses spread by
+  exposure). The fallen go to the **memorial** (50 kept).
+- **School** (Nest 2, outside the economy loop): level 1 teaches builder, warrior and mayor,
+  level 2 mage and scout, level 3 trains two kiwis at once 30 % faster. Courses cost resources
+  and 1–3 h; kiwi level ≥ 3 (mayor ≥ 5). Demolishing a School refunds its trainees.
+- **Classes** (versatile roles): builder build ×1.3; warrior fight ×1.5, build ×1.1, harvest
+  ×0.95; mage fight ×1.3, harvest ×1.15, build ×0.9; scout weight aboard ×0.5, fight ×1.1;
+  mayor (unique): +1 % colony harvest per Charisma point. **Skills** at levels 5 / 10 / 20,
+  mostly passive multipliers; active **Rain** (mage, refills 30 % of the workplace deposits,
+  12 h) and **Speech** (mayor, +15 % harvest for 1 h — 2 h with Village feast —, 12 h, the end
+  is an `advance` event). Scouting (+10 % crew strength) and Tailwind (−20 % travel) apply once
+  per crew.
+- Outfits: one instanced mesh per class in 3D (hard hat, helmet and sword, wizard hat, wings
+  and goggles, top hat and sash) and the same outfits in the SVG portraits. Shiny kiwis are
+  tinted in 3D (instance colour) and portraits; kiwis grow slightly with Strength + Endurance.
+- Village screen (top-bar button, badge for points to place): list sorted by level / name /
+  job / age, sheet with radar, rename, follow (camera follows until the player moves it, ring
+  under the kiwi), workplace shortcut, class and skills, story; memorial tab. Tapping a kiwi in
+  3D opens its sheet. Full-screen sheet on phones.
+- Anti-cheat for imported local saves: stats + unplaced points ≤ 33 + level − 1, level matches
+  the XP, XP and practice bounded by the kiwi's age, ≤ 2 shinies (+1 per 128 kiwis), one mayor,
+  no expedition history.
+- No database change: the state is stored as jsonb (schema v4 then v5 migrations in the shared
+  code).
+- **Balance** (30 seeds × 72 h): the bot now places its points, builds a School after the
+  Nest 2, trains a mayor (first level-5 kiwi ≈ 10 h, mayor ≈ 12 h) and a builder, and gives
+  speeches. Kiwisu / Kiwino stay within 1 % on every milestone. Nest 3 moves from 5.6 h to
+  6.2 h (the School is an investment the bot makes early); the first level-10 kiwi comes after
+  ≈ 2.6 days, as intended. New report milestones: kiwi5, kiwi10, mayor; default horizon 72 h.

@@ -15,7 +15,16 @@ describe('balance bot', () => {
     const fake = (face: 'kiwisu' | 'kiwino', t: number) => ({
       seed: 's',
       face,
-      times: { tutorial: t, pop10: t, nest2: t, nest3: t, allLevel3: t },
+      times: {
+        tutorial: t,
+        pop10: t,
+        nest2: t,
+        nest3: t,
+        allLevel3: t,
+        kiwi5: t,
+        kiwi10: t,
+        mayor: t,
+      },
       final: { population: 0, buildings: 0, produced: 0 },
     });
     const [first] = compare([fake('kiwisu', 100), fake('kiwino', 130)], 10);

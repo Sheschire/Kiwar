@@ -9,6 +9,14 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 03** — chaque kiwi est unique : statistiques tirées à l'éclosion, trait, rarissime
+> **shiny** (1/512 : rouge, jaune, vert ou bleu), niveaux (jusqu'à 30) et maîtrises de métier qui
+> augmentent sa production. Écran **Village** : fiches avec portrait, radar de stats, points à
+> placer, renommer, suivre un kiwi avec la caméra, mémorial des disparus. En expédition, on
+> choisit l'équipage : un kiwi investi frappe plus fort et tombe moins souvent. L'**École**
+> forme des bâtisseur·euses, guerrier·ères, mages, éclaireur·euses et un·e maire, avec leurs
+> compétences (Pluie, Discours…) et leurs tenues.
+>
 > **Chantier 02** — le jeu a du son : clics, chantiers, éclosions, expéditions, kiwis qui
 > parlent (chacun sa voix) quand on les touche, ambiance nature/vent qui suit le zoom et musique
 > acoustique douce ; volumes par canal et bouton muet. Un **espace admin** (`/admin`) permet
@@ -87,6 +95,7 @@ Pour le mode en ligne, ajoutez `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY` :
 | Rotation par paliers de 45°           | Q / E                                                           | —                                      |
 | Infos d'une ressource                 | Survol de la ressource                                          | Toucher la ressource                   |
 | Fermer la sélection                   | Échap                                                           | ✕                                      |
+| Fiche d'un kiwi                       | Clic sur le kiwi (ou bouton Village en haut)                    | Toucher le kiwi                        |
 | Panneau debug                         | `` ` `` (ou `²` en AZERTY)                                      | Réglages → Panneau debug               |
 
 Le panneau debug propose le multiplicateur de temps (×1, ×10, ×100), +500 de chaque ressource,

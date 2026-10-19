@@ -23,7 +23,7 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 
 ## Map of the code
 
-- `data/` — tunable tables: `buildings.ts` (levels, costs, production, `maxLevelOf`),
+- `data/` — tunable tables: `kiwis.ts` and `classes.ts` (chantier 03), `buildings.ts` (levels, costs, production, `maxLevelOf`),
   `territory.ts` (DEPOSITS, HARVESTS, CATCHMENT_RADIUS, LOGISTICS, PATHS, CAMPS),
   `expeditions.ts`, `hatching.ts`, `objectives.ts` (tutorial), `faceProfiles.ts` (face biases,
   climate multipliers), `start.ts`, `tiles.ts`.
@@ -39,7 +39,10 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 - `sim/territory.ts` — deposits, catchment claims (`computeClaims`, oldest building first),
   pools (`syncPools`, `releasePool`), logistics (`depotDistances`, Dijkstra, memoized),
   harvest (`harvestOf`, statuses ok/depleted/storageFull/idle), UI views.
-- `sim/expeditions.ts` — launch, forecast, arrival/return resolution.
+- `sim/expeditions.ts` — launch, forecast, arrival/return resolution (chosen crew, weighted
+  losses, memorial).
+- `sim/kiwis.ts` — individual kiwis (stats, XP, masteries, powers, classes, skills): see the
+  `kiwar-rpg` skill. Production uses `workforce` (summed worker power), not the head count.
 - `save/save.ts` — zod schema of the state, `MIGRATIONS[n]` (n → n+1), `migrateState`.
 - `server/` — `protocol.ts` (zod request + **command schemas**), `gameService.ts` (actions,
   rate limit, `isPlausible` anti-cheat for imports), `universes.ts`.
@@ -62,6 +65,12 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 8. Balance (`kiwar-balance`) and `docs/DECISIONS.md`.
 
 ## Gotchas
+
+- **Integer progress**: anything that accumulates per kiwi over time (XP, practice) uses
+  integer raw units and integer rates so small steps equal one big step exactly; the offline
+  tests compare villagers with `toEqual` (and the RNG state).
+- A new `Job` kind must be handled in `ratesOf` (kiwis.ts), `availableCrew`, the renderer's
+  `think`/`workTile`, `jobRank`/`useJobLabel` in the village screen, and building removal.
 
 - Rich test states (`rich()`) exceed storage: harvesting pauses when storage is full, so reset
   resources when testing rates.

@@ -69,6 +69,9 @@ const LABELS: Record<Milestone, string> = {
   nest2: 'Nest level 2',
   nest3: 'Nest level 3',
   allLevel3: 'Every economy building at level 3',
+  kiwi5: 'First kiwi at level 5',
+  kiwi10: 'First kiwi at level 10',
+  mayor: 'A mayor elected (School)',
 };
 
 export function toMarkdown(
