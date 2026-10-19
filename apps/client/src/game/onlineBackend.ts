@@ -1,5 +1,6 @@
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 import type { GameRequest, GameResponse } from '@kiwar/shared';
+import { NetworkError, type OnlineConfig } from './onlineConfig';
 
 export interface Account {
   userId: string;
@@ -7,22 +8,6 @@ export interface Account {
   isAnonymous: boolean;
   email: string | null;
   providers: string[];
-}
-
-export class NetworkError extends Error {}
-
-export interface OnlineConfig {
-  url: string;
-  anonKey: string;
-}
-
-/** Online mode is enabled when the Supabase env vars are set (and not forced off by `?offline=1`). */
-export function onlineConfig(): OnlineConfig | null {
-  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-  if (!url || !anonKey) return null;
-  if (new URLSearchParams(window.location.search).has('offline')) return null;
-  return { url, anonKey };
 }
 
 function toAccount(session: Session | null): Account | null {

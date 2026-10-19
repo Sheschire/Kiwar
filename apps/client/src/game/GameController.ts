@@ -17,7 +17,8 @@ import {
   type Resources,
   type ServerError,
 } from '@kiwar/shared';
-import { NetworkError, OnlineBackend, onlineConfig, type Account } from './onlineBackend';
+import type { Account, OnlineBackend } from './onlineBackend';
+import { NetworkError, onlineConfig, type OnlineConfig } from './onlineConfig';
 
 const SAVE_KEY = 'kiwar.save.v1';
 const IMPORTED_KEY = 'kiwar.save.v1.imported';
@@ -73,7 +74,9 @@ function safeStorage<T>(fn: () => T, fallback: T): T {
 export class GameController {
   state!: GameState;
   map!: FaceMap;
-  readonly online: OnlineBackend | null;
+  /** Created lazily in `start()` (supabase-js is loaded on demand). */
+  online: OnlineBackend | null = null;
+  private readonly config: OnlineConfig | null;
   private timeScale = 1;
   /** Local mode: virtual = real + offset (offset grows while the debug multiplier is > 1). */
   private clockOffset: number;
@@ -91,21 +94,20 @@ export class GameController {
   private saveTimer: number | undefined;
 
   constructor(private readonly listener: ControllerListener) {
-    const config = onlineConfig();
-    this.online = config ? new OnlineBackend(config, (a) => this.onAccountChange(a)) : null;
-    this.clockOffset = this.online
+    this.config = onlineConfig();
+    this.clockOffset = this.config
       ? 0
       : safeStorage(() => Number(localStorage.getItem(CLOCK_KEY)) || 0, 0);
     this.scaleAnchor = { real: Date.now(), virtual: Date.now() + this.clockOffset };
   }
 
   get isOnline(): boolean {
-    return this.online !== null;
+    return this.config !== null;
   }
 
   /** Current simulation time. */
   now(): number {
-    if (this.online) return Date.now() + this.serverOffset;
+    if (this.config) return Date.now() + this.serverOffset;
     const real = Date.now();
     return Math.round(this.scaleAnchor.virtual + (real - this.scaleAnchor.real) * this.timeScale);
   }
@@ -116,7 +118,7 @@ export class GameController {
 
   /** Debug time multiplier (local mode only: the server owns the clock online). */
   setTimeScale(scale: number): void {
-    if (this.online) return;
+    if (this.config) return;
     const now = this.now();
     this.timeScale = scale;
     this.scaleAnchor = { real: Date.now(), virtual: now };
@@ -124,7 +126,7 @@ export class GameController {
   }
 
   private persistClock(): void {
-    if (this.online) return;
+    if (this.config) return;
     this.clockOffset = this.now() - Date.now();
     safeStorage(() => localStorage.setItem(CLOCK_KEY, String(this.clockOffset)), undefined);
   }
@@ -134,7 +136,9 @@ export class GameController {
     world: { seed: string; face: Face } | null,
     fallbackSeed: () => string,
   ): Promise<void> {
-    if (this.online) {
+    if (this.config) {
+      const { OnlineBackend } = await import('./onlineBackend');
+      this.online = new OnlineBackend(this.config, (a) => this.onAccountChange(a));
       await this.startOnline(world, fallbackSeed);
     } else {
       this.listener.onSync('local');
@@ -169,7 +173,7 @@ export class GameController {
   }
 
   newWorld(seed: string, face: Face): void {
-    if (this.online) void this.newOnlineWorld(seed, face);
+    if (this.config) void this.newOnlineWorld(seed, face);
     else this.newLocalWorld(seed, face);
   }
 
@@ -201,7 +205,7 @@ export class GameController {
       this.listener.onError(result.error);
       return false;
     }
-    if (this.online) {
+    if (this.config) {
       this.pending.push(cmd);
       void this.flush();
     } else {
@@ -223,7 +227,7 @@ export class GameController {
   }
 
   save(): void {
-    if (!this.state || this.online) return;
+    if (!this.state || this.config) return;
     safeStorage(
       () => localStorage.setItem(SAVE_KEY, serializeSave(this.state, this.now())),
       undefined,
