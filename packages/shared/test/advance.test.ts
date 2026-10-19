@@ -145,3 +145,13 @@ describe('advance', () => {
     expect(withWorker - without).toBeCloseTo(expected, 6);
   });
 });
+
+describe('villager names', () => {
+  it('are unique within a colony', async () => {
+    const { addVillager } = await import('../src');
+    const { state } = setup('kiwino', 'names');
+    for (let i = 0; i < 60; i++) addVillager(state, T0);
+    const names = state.villagers.map((v) => v.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
+});

@@ -11,7 +11,15 @@ import {
   workerSlots,
   workersOf,
 } from './selectors';
-import { addVillager, cloneState, nextId, type GameState, type Villager } from './state';
+import { resolveArrival, resolveReturn } from './expeditions';
+import {
+  addVillager,
+  cloneState,
+  nextId,
+  type Expedition,
+  type GameState,
+  type Villager,
+} from './state';
 
 export type GameEvent =
   | {
@@ -30,7 +38,9 @@ export type GameEvent =
       builderId: VillagerId | null;
     }
   | { type: 'hatched'; at: TimeMs; villagerId: VillagerId; name: string }
-  | { type: 'storageFull'; at: TimeMs; resource: ResourceId };
+  | { type: 'storageFull'; at: TimeMs; resource: ResourceId }
+  | { type: 'expeditionArrived'; at: TimeMs; expeditionId: string; victory: boolean }
+  | { type: 'expeditionReturned'; at: TimeMs; expeditionId: string };
 
 export interface AdvanceResult {
   state: GameState;
@@ -58,7 +68,8 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const active = activeItem(s);
     const constructionEnd = active ? active.startedAt! + active.durationMs : Infinity;
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
-    const nextEvent = Math.min(constructionEnd, eggEnd);
+    const expedition = nextExpeditionEvent(s);
+    const nextEvent = Math.min(constructionEnd, eggEnd, expedition?.at ?? Infinity);
     const target = Math.min(nextEvent, now);
     if (target > s.now) {
       accrue(s, target - s.now, target, events);
@@ -71,6 +82,23 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     }
     if (s.egg && s.egg.readyAt <= now && s.egg.readyAt === nextEvent) {
       hatch(s, s.egg.readyAt, events);
+    }
+    if (expedition && expedition.at === nextEvent) {
+      const e = expedition.expedition;
+      if (e.status === 'outbound') {
+        resolveArrival(s, e);
+        events.push({
+          type: 'expeditionArrived',
+          at: e.arriveAt,
+          expeditionId: e.id,
+          victory: e.result!.victory,
+        });
+      } else {
+        resolveReturn(s, e);
+        for (const v of s.villagers)
+          if (v.job.kind === 'idle' && e.crew.includes(v.id)) autoAssign(s, v);
+        events.push({ type: 'expeditionReturned', at: e.returnAt, expeditionId: e.id });
+      }
     }
   }
   s.now = Math.max(s.now, now);
@@ -204,6 +232,16 @@ export function autoAssign(s: GameState, v: Villager): void {
     if (!best || ratio < best.ratio) best = { id: b.id, ratio };
   }
   if (best) v.job = { kind: 'work', buildingId: best.id };
+}
+
+function nextExpeditionEvent(s: GameState): { at: TimeMs; expedition: Expedition } | null {
+  let best: { at: TimeMs; expedition: Expedition } | null = null;
+  for (const e of s.expeditions) {
+    const at =
+      e.status === 'outbound' ? e.arriveAt : e.status === 'returning' ? e.returnAt : Infinity;
+    if (at !== Infinity && (!best || at < best.at)) best = { at, expedition: e };
+  }
+  return best;
 }
 
 /** Utility for UIs: remaining time of the active construction. */

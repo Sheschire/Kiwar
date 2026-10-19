@@ -122,3 +122,22 @@ Larger choices were validated with the project owner (marked ✅).
 - **One solo universe per player** for now (`universe_id = 'solo-<uid>'`, unique per user and universe) so milestone 3 can add shared universes without a schema rewrite.
 - Supabase-js is loaded on demand (separate chunk) so local mode stays light.
 - Tooling: `pnpm test:db` applies migrations to a real Postgres with a small `auth` stub and asserts the RLS rules; `pnpm mock:supabase` + `pnpm dev:online` run the online mode locally; GitHub Actions CI runs typecheck, lint, tests, DB tests, build and a quick balance report.
+
+## Milestone 3 — expeditions (base)
+
+- **Launchpad** (Aire d'envol, Nest 2): one ship per launchpad; cargo 150 / 300 / 500 and travel time ×1 / ×0.85 / ×0.7 by level.
+- **The ship is a logistics puzzle** (no combat rounds; everything is decided before departure):
+  - a kiwi takes 10 cargo units, a resource unit 0.1;
+  - each crew member eats 4 pulp + drinks 2 juice per hour of travel, on both legs;
+  - provisions still on board after the outbound leg take the room the loot needs on the way back;
+  - one kiwi always stays home; crew of 2 minimum.
+- **Battle** resolved once on landing: strength = crew × (0.5 + 0.5 × share of outbound rations covered) × luck (±10 %, seeded RNG). Victory if strength ≥ defense.
+  - Losses: victory 25 % × defense/strength (max 60 %); defeat 50–90 %.
+  - Lost kiwis are **gone for good** (the brief: "aliens decimate the first colonists").
+  - Loot is picked most precious first (seeds → juice → fibre → pulp), up to the free hold, ×(1 + 25 % of the strength surplus), max ×2.
+- **Return leg**: the crew eats the remaining provisions, then edible loot (pulp, juice); missing rations starve half of the shortfall share. Everything left in the hold is unloaded (storage limits do not apply to a homecoming).
+- **Aliens reinforce**: each victory against a garrison adds its `reinforce` to its defense (twin face: defense 6 + 3 per victory) — repeated raids need bigger, better-fed crews.
+- The **same forecast function** drives the preparation screen and the simulation, so what the player sees is exactly what will be simulated (except the ±10 % luck, shown as a range).
+- Targets live in the game state (`targets`), set by the universe; a solo game targets the alien-held other face of its own kiwi. Schema v2 with a v1→v2 migration (also applied server-side when reading stored games).
+- Villager names are now unique within a colony.
+- The balance bot does not play expeditions yet; its "all level 3" milestone covers economy buildings only.

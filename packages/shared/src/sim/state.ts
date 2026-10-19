@@ -1,5 +1,6 @@
 import type { BuildingType } from '../data/buildings';
 import { NAME_SYLLABLES, START } from '../data/start';
+import { ALIEN_TWIN_FACE } from '../data/expeditions';
 import type { Resources } from '../data/resources';
 import { HEART, type FaceParams, DEFAULT_FACE_PARAMS } from '../worldgen/generateFace';
 import { createRng, type Rng, type RngState } from '../rng/rng';
@@ -15,13 +16,15 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export type Job =
   | { kind: 'idle' }
   | { kind: 'work'; buildingId: BuildingId }
   /** Building a queued construction; returns to `returnTo` afterwards if it still has room. */
-  | { kind: 'build'; queueItemId: QueueItemId; returnTo: BuildingId | null };
+  | { kind: 'build'; queueItemId: QueueItemId; returnTo: BuildingId | null }
+  /** Away on an expedition. */
+  | { kind: 'expedition'; expeditionId: string };
 
 export interface Villager {
   id: VillagerId;
@@ -64,6 +67,49 @@ export interface Egg {
   readyAt: TimeMs;
 }
 
+/** A face that expeditions can target (aliens for now; other players later). */
+export interface ExpeditionTarget {
+  id: string;
+  owner: 'aliens';
+  kiwiIndex: number;
+  face: Face;
+  /** Kiwi distance from home (0 = the other face of our own kiwi). */
+  distance: number;
+  defense: number;
+  reinforce: number;
+  loot: Resources;
+  travelMs: number;
+}
+
+export interface ExpeditionResult {
+  victory: boolean;
+  strength: number;
+  defense: number;
+  /** Share of the outbound rations the crew actually had (0–1). */
+  fed: number;
+  lostInBattle: string[];
+  lostOnReturn: string[];
+  loot: Resources;
+}
+
+export interface Expedition {
+  id: string;
+  targetId: string;
+  launchpadId: BuildingId;
+  /** Kiwis still aboard (alive). */
+  crew: VillagerId[];
+  /** Everyone who boarded, kept for the report even if some kiwis are lost. */
+  roster: { id: VillagerId; name: string }[];
+  /** Provisions still on board. */
+  provisions: Resources;
+  cargo: number;
+  departedAt: TimeMs;
+  arriveAt: TimeMs;
+  returnAt: TimeMs;
+  status: 'outbound' | 'returning' | 'done';
+  result: ExpeditionResult | null;
+}
+
 export interface GameStats {
   produced: Resources;
   constructionsCompleted: number;
@@ -91,6 +137,12 @@ export interface GameState {
   /** Index of the current tutorial objective in OBJECTIVES. */
   objectiveIndex: number;
   stats: GameStats;
+  /** Faces reachable by expeditions (set by the universe the game belongs to). */
+  targets: ExpeditionTarget[];
+  /** Victories per target (aliens reinforce after each). */
+  victories: Record<string, number>;
+  /** In flight and recent expeditions (the last few finished ones are kept for reports). */
+  expeditions: Expedition[];
   nextId: number;
   rng: RngState;
 }
@@ -102,6 +154,24 @@ export interface NewGameOptions {
   params?: FaceParams;
   playerId?: string;
   universeId?: string;
+  kiwiId?: string;
+  /** Expedition targets; defaults to the alien-held other face of our kiwi. */
+  targets?: ExpeditionTarget[];
+}
+
+/** Default targets of a solo game: the aliens on the other face of our own kiwi. */
+export function soloTargets(face: Face): ExpeditionTarget[] {
+  const other: Face = face === 'kiwisu' ? 'kiwino' : 'kiwisu';
+  return [
+    {
+      id: `aliens:0:${other}`,
+      owner: 'aliens',
+      kiwiIndex: 0,
+      face: other,
+      distance: 0,
+      ...ALIEN_TWIN_FACE,
+    },
+  ];
 }
 
 export function newGame(opts: NewGameOptions): GameState {
@@ -109,7 +179,7 @@ export function newGame(opts: NewGameOptions): GameState {
   const state: GameState = {
     schemaVersion: SCHEMA_VERSION,
     universeId: (opts.universeId ?? 'local') as UniverseId,
-    kiwiId: 'local-kiwi' as KiwiId,
+    kiwiId: (opts.kiwiId ?? 'local-kiwi') as KiwiId,
     playerId: (opts.playerId ?? 'local-player') as PlayerId,
     seasonId: 'preseason' as SeasonId,
     face: opts.face,
@@ -128,6 +198,9 @@ export function newGame(opts: NewGameOptions): GameState {
       constructionsCompleted: 0,
       eggsHatched: 0,
     },
+    targets: opts.targets ?? soloTargets(opts.face),
+    victories: {},
+    expeditions: [],
     nextId: 1,
     rng: rng.state(),
   };
@@ -157,11 +230,17 @@ export function withRng<T>(state: GameState, fn: (rng: Rng) => T): T {
 }
 
 export function addVillager(state: GameState, at: TimeMs): Villager {
+  const taken = new Set(state.villagers.map((v) => v.name));
   const name = withRng(state, (rng) => {
-    const a = rng.pick(NAME_SYLLABLES);
-    const b = rng.pick(NAME_SYLLABLES);
-    const n = a + b + (rng.chance(0.3) ? rng.pick(NAME_SYLLABLES) : '');
-    return n.charAt(0).toUpperCase() + n.slice(1);
+    // A few tries for a name nobody in the colony has (then longer names).
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const parts = 2 + (attempt >= 6 || rng.chance(0.3) ? 1 : 0);
+      let n = '';
+      for (let i = 0; i < parts; i++) n += rng.pick(NAME_SYLLABLES);
+      n = n.charAt(0).toUpperCase() + n.slice(1);
+      if (!taken.has(n)) return n;
+    }
+    return `Kiwi ${state.villagers.length + 1}`;
   });
   const v: Villager = {
     id: nextId(state, 'v') as VillagerId,
@@ -184,6 +263,22 @@ export function cloneState(state: GameState): GameState {
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
     egg: state.egg ? { ...state.egg } : null,
     stats: { ...state.stats, produced: { ...state.stats.produced } },
+    targets: state.targets.map((t) => ({ ...t, loot: { ...t.loot } })),
+    victories: { ...state.victories },
+    expeditions: state.expeditions.map((e) => ({
+      ...e,
+      crew: [...e.crew],
+      roster: e.roster.map((r) => ({ ...r })),
+      provisions: { ...e.provisions },
+      result: e.result
+        ? {
+            ...e.result,
+            lostInBattle: [...e.result.lostInBattle],
+            lostOnReturn: [...e.result.lostOnReturn],
+            loot: { ...e.result.loot },
+          }
+        : null,
+    })),
     rng: [...state.rng] as RngState,
   };
 }

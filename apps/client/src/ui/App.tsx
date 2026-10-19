@@ -1,6 +1,9 @@
 import { useEffect } from 'preact/hooks';
 import { DebugPanel } from './components/DebugPanel';
 import { EggButton } from './components/EggButton';
+import { ExpeditionModal } from './components/ExpeditionModal';
+import { ExpeditionsPanel } from './components/ExpeditionsPanel';
+import { ReportModal } from './components/ReportModal';
 import { ObjectivesPanel } from './components/ObjectivesPanel';
 import { QueuePanel } from './components/QueuePanel';
 import { SaveNudge } from './components/SaveNudge';
@@ -36,12 +39,15 @@ export function App() {
       <TopBar />
       <ObjectivesPanel />
       <QueuePanel />
+      <ExpeditionsPanel />
       <SaveNudge />
       <EggButton />
       <TilePanel />
       <Toasts />
       {debugOpen && <DebugPanel />}
       {modal === 'settings' && <SettingsModal />}
+      {modal === 'expedition' && <ExpeditionModal />}
+      {modal === 'report' && <ReportModal />}
       <OfflineModal />
       <WorldModal />
     </div>

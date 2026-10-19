@@ -285,7 +285,8 @@ var BUILDING_TYPES = [
   "seedQuarry",
   "juiceWell",
   "hut",
-  "warehouse"
+  "warehouse",
+  "launchpad"
 ];
 var BUILDINGS = {
   nest: {
@@ -483,6 +484,35 @@ var BUILDINGS = {
         storage: 3e3
       }
     ]
+  },
+  launchpad: {
+    id: "launchpad",
+    allowedTiles: ["flesh", "ray"],
+    buildable: true,
+    copyGrowth: 1.6,
+    levels: [
+      {
+        cost: { pulp: 350, fiber: 450, seeds: 60, juice: 120 },
+        durationMs: ms.min(8),
+        requiresNestLevel: 2,
+        cargo: 150,
+        travelTime: 1
+      },
+      {
+        cost: { pulp: 800, fiber: 1e3, seeds: 150, juice: 300 },
+        durationMs: ms.min(25),
+        requiresNestLevel: 2,
+        cargo: 300,
+        travelTime: 0.85
+      },
+      {
+        cost: { pulp: 1600, fiber: 2e3, seeds: 300, juice: 600 },
+        durationMs: ms.min(60),
+        requiresNestLevel: 3,
+        cargo: 500,
+        travelTime: 0.7
+      }
+    ]
   }
 };
 var MAX_LEVEL = 3;
@@ -580,6 +610,44 @@ var NAME_SYLLABLES = [
   "no",
   "sa"
 ];
+
+// packages/shared/src/data/expeditions.ts
+var EXPEDITIONS = {
+  /** Cargo units taken by one kiwi. */
+  kiwiWeight: 10,
+  /** Cargo units taken by one unit of any resource (provisions or loot). */
+  resourceWeight: 0.1,
+  /** What one crew member eats and drinks per hour of travel. */
+  hourlyRations: { pulp: 4, juice: 2 },
+  minCrew: 2,
+  /** At least this many kiwis must stay home. */
+  keepHome: 1,
+  /** Fighting strength of a basic kiwi (specialised units will come later). */
+  strengthPerKiwi: 1,
+  /** Strength multiplier of a completely starving crew (fed crews fight at 1). */
+  starvingStrength: 0.5,
+  /** ± random swing on the crew strength, drawn from the seeded game RNG. */
+  luck: 0.1,
+  /** Losses: share of the crew lost in a victory (scaled by defense/strength) / in a defeat. */
+  victoryLosses: { factor: 0.25, max: 0.6 },
+  defeatLosses: { min: 0.5, max: 0.9 },
+  /** Share of survivors lost per missing share of rations on the way back. */
+  starvationLossRate: 0.5
+};
+var ALIEN_TWIN_FACE = {
+  defense: 6,
+  reinforce: 3,
+  loot: { pulp: 240, fiber: 120, seeds: 120, juice: 180 },
+  travelMs: ms.min(90)
+};
+function alienFaceOnKiwi(distance) {
+  return {
+    defense: 10 + 4 * distance,
+    reinforce: 3 + distance,
+    loot: { pulp: 300, fiber: 160, seeds: 150 + 60 * distance, juice: 220 + 80 * distance },
+    travelMs: ms.min(90 + 60 * distance)
+  };
+}
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
@@ -846,13 +914,26 @@ function tileAt(map, q, r) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 1;
+var SCHEMA_VERSION = 2;
+function soloTargets(face) {
+  const other = face === "kiwisu" ? "kiwino" : "kiwisu";
+  return [
+    {
+      id: `aliens:0:${other}`,
+      owner: "aliens",
+      kiwiIndex: 0,
+      face: other,
+      distance: 0,
+      ...ALIEN_TWIN_FACE
+    }
+  ];
+}
 function newGame(opts) {
   const rng = createRng(`${opts.seed}/${opts.face}/game`);
   const state = {
     schemaVersion: SCHEMA_VERSION,
     universeId: opts.universeId ?? "local",
-    kiwiId: "local-kiwi",
+    kiwiId: opts.kiwiId ?? "local-kiwi",
     playerId: opts.playerId ?? "local-player",
     seasonId: "preseason",
     face: opts.face,
@@ -871,6 +952,9 @@ function newGame(opts) {
       constructionsCompleted: 0,
       eggsHatched: 0
     },
+    targets: opts.targets ?? soloTargets(opts.face),
+    victories: {},
+    expeditions: [],
     nextId: 1,
     rng: rng.state()
   };
@@ -896,11 +980,16 @@ function withRng(state, fn) {
   return out;
 }
 function addVillager(state, at) {
+  const taken = new Set(state.villagers.map((v2) => v2.name));
   const name = withRng(state, (rng) => {
-    const a = rng.pick(NAME_SYLLABLES);
-    const b = rng.pick(NAME_SYLLABLES);
-    const n = a + b + (rng.chance(0.3) ? rng.pick(NAME_SYLLABLES) : "");
-    return n.charAt(0).toUpperCase() + n.slice(1);
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const parts = 2 + (attempt >= 6 || rng.chance(0.3) ? 1 : 0);
+      let n = "";
+      for (let i = 0; i < parts; i++) n += rng.pick(NAME_SYLLABLES);
+      n = n.charAt(0).toUpperCase() + n.slice(1);
+      if (!taken.has(n)) return n;
+    }
+    return `Kiwi ${state.villagers.length + 1}`;
   });
   const v = {
     id: nextId(state, "v"),
@@ -921,6 +1010,20 @@ function cloneState(state) {
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
     egg: state.egg ? { ...state.egg } : null,
     stats: { ...state.stats, produced: { ...state.stats.produced } },
+    targets: state.targets.map((t) => ({ ...t, loot: { ...t.loot } })),
+    victories: { ...state.victories },
+    expeditions: state.expeditions.map((e) => ({
+      ...e,
+      crew: [...e.crew],
+      roster: e.roster.map((r) => ({ ...r })),
+      provisions: { ...e.provisions },
+      result: e.result ? {
+        ...e.result,
+        lostInBattle: [...e.result.lostInBattle],
+        lostOnReturn: [...e.result.lostOnReturn],
+        loot: { ...e.result.loot }
+      } : null
+    })),
     rng: [...state.rng]
   };
 }
@@ -1070,6 +1173,187 @@ function isObjectiveComplete(state, def) {
   return p.current >= p.target;
 }
 
+// packages/shared/src/sim/expeditions.ts
+function launchpadOf(state, id3) {
+  const b = getBuilding(state, id3);
+  return b?.type === "launchpad" ? b : void 0;
+}
+function shipCargo(launchpad) {
+  return levelDef("launchpad", launchpad.level)?.cargo ?? 0;
+}
+function targetDefense(state, target) {
+  return target.defense + target.reinforce * (state.victories[target.id] ?? 0);
+}
+function travelTime(target, launchpad) {
+  const factor = levelDef("launchpad", launchpad.level)?.travelTime ?? 1;
+  return Math.round(target.travelMs * factor / 1e3) * 1e3;
+}
+var rations = (crew, ms2) => ({
+  pulp: crew * EXPEDITIONS.hourlyRations.pulp * ms2 / HOUR_MS,
+  juice: crew * EXPEDITIONS.hourlyRations.juice * ms2 / HOUR_MS
+});
+function coverage(have, need) {
+  const p = need.pulp > 0 ? have.pulp / need.pulp : 1;
+  const j = need.juice > 0 ? have.juice / need.juice : 1;
+  return Math.max(0, Math.min(1, p, j));
+}
+function strengthOf(crew, fed) {
+  const hunger = EXPEDITIONS.starvingStrength + (1 - EXPEDITIONS.starvingStrength) * fed;
+  return crew * EXPEDITIONS.strengthPerKiwi * hunger;
+}
+function forecastExpedition(state, plan) {
+  const pad = launchpadOf(state, plan.launchpadId);
+  const target = state.targets.find((t) => t.id === plan.targetId);
+  if (!pad || !target) return null;
+  const cargo = shipCargo(pad);
+  const travelMs = travelTime(target, pad);
+  const need = rations(plan.crew, travelMs);
+  const fed = coverage(plan.provisions, need);
+  const base = strengthOf(plan.crew, fed);
+  const defense = targetDefense(state, target);
+  const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
+  const odds = strength.min >= defense ? "likely" : strength.max >= defense ? "uncertain" : "unlikely";
+  const weight = plan.crew * EXPEDITIONS.kiwiWeight + (plan.provisions.pulp + plan.provisions.juice) * EXPEDITIONS.resourceWeight;
+  const left = {
+    pulp: plan.provisions.pulp - Math.min(plan.provisions.pulp, need.pulp),
+    juice: plan.provisions.juice - Math.min(plan.provisions.juice, need.juice)
+  };
+  const returnSurplus = { pulp: left.pulp - need.pulp, juice: left.juice - need.juice };
+  const lootRoom = Math.max(
+    0,
+    cargo - plan.crew * EXPEDITIONS.kiwiWeight - (left.pulp + left.juice) * EXPEDITIONS.resourceWeight
+  );
+  return {
+    cargo,
+    weight,
+    travelMs,
+    needOneWay: need,
+    fed,
+    returnSurplus,
+    strength,
+    defense,
+    odds,
+    lootRoom
+  };
+}
+function availableCrew(state) {
+  const idle = idleVillagers(state);
+  const workers = state.buildings.map((b) => workersOf(state, b.id)).sort((a, b) => b.length - a.length).flat();
+  return [...idle, ...workers];
+}
+function maxCrew(state, launchpad) {
+  const byCargo = Math.floor(shipCargo(launchpad) / EXPEDITIONS.kiwiWeight);
+  const byPeople = availableCrew(state).length - EXPEDITIONS.keepHome;
+  return Math.max(0, Math.min(byCargo, byPeople));
+}
+function isLaunchpadBusy(state, id3) {
+  return state.expeditions.some((e) => e.launchpadId === id3 && e.status !== "done");
+}
+function launch(state, plan, now, id3) {
+  const pad = launchpadOf(state, plan.launchpadId);
+  const target = state.targets.find((t) => t.id === plan.targetId);
+  const crew = availableCrew(state).slice(0, plan.crew);
+  for (const v of crew) v.job = { kind: "expedition", expeditionId: id3 };
+  state.resources.pulp -= plan.provisions.pulp;
+  state.resources.juice -= plan.provisions.juice;
+  const travelMs = travelTime(target, pad);
+  const expedition = {
+    id: id3,
+    targetId: target.id,
+    launchpadId: pad.id,
+    crew: crew.map((v) => v.id),
+    roster: crew.map((v) => ({ id: v.id, name: v.name })),
+    provisions: { ...emptyResources(), pulp: plan.provisions.pulp, juice: plan.provisions.juice },
+    cargo: shipCargo(pad),
+    departedAt: now,
+    arriveAt: now + travelMs,
+    returnAt: now + 2 * travelMs,
+    status: "outbound",
+    result: null
+  };
+  state.expeditions.push(expedition);
+  return expedition;
+}
+function resolveArrival(state, e) {
+  const target = state.targets.find((t) => t.id === e.targetId);
+  const travelMs = e.arriveAt - e.departedAt;
+  const need = rations(e.crew.length, travelMs);
+  const fed = coverage(e.provisions, need);
+  e.provisions.pulp -= Math.min(e.provisions.pulp, need.pulp);
+  e.provisions.juice -= Math.min(e.provisions.juice, need.juice);
+  const defense = target ? targetDefense(state, target) : 0;
+  const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
+  const strength = strengthOf(e.crew.length, fed) * luck;
+  const victory = strength >= defense;
+  const ratio = defense / Math.max(strength, 1e-6);
+  const lossShare = victory ? Math.min(EXPEDITIONS.victoryLosses.max, EXPEDITIONS.victoryLosses.factor * ratio) : Math.min(
+    EXPEDITIONS.defeatLosses.max,
+    Math.max(EXPEDITIONS.defeatLosses.min, 0.5 + 0.3 * (ratio - 1))
+  );
+  const losses = Math.min(e.crew.length, Math.round(e.crew.length * lossShare));
+  const lost = withRng(state, (rng) => rng.shuffle(e.crew)).slice(0, losses);
+  removeVillagers(state, lost);
+  e.crew = e.crew.filter((id3) => !lost.includes(id3));
+  const loot = emptyResources();
+  if (victory && target) {
+    state.victories[target.id] = (state.victories[target.id] ?? 0) + 1;
+    const bonus = Math.min(2, 1 + 0.25 * (strength / Math.max(defense, 1) - 1));
+    const w = EXPEDITIONS.resourceWeight;
+    let room = e.cargo - e.crew.length * EXPEDITIONS.kiwiWeight - RESOURCE_IDS.reduce((sum, id3) => sum + e.provisions[id3], 0) * w;
+    for (const id3 of ["seeds", "juice", "fiber", "pulp"]) {
+      const wanted = Math.floor(target.loot[id3] * bonus);
+      const take = Math.max(0, Math.min(wanted, Math.floor(room / w + 1e-9)));
+      loot[id3] = take;
+      room -= take * w;
+    }
+  }
+  e.status = "returning";
+  e.result = {
+    victory,
+    strength: round22(strength),
+    defense,
+    fed: round22(fed),
+    lostInBattle: lost.map((id3) => nameOf(e, id3)),
+    lostOnReturn: [],
+    loot
+  };
+}
+function resolveReturn(state, e) {
+  const result = e.result;
+  const need = rations(e.crew.length, e.returnAt - e.arriveAt);
+  const pantry = {
+    pulp: e.provisions.pulp + result.loot.pulp,
+    juice: e.provisions.juice + result.loot.juice
+  };
+  const fed = coverage(pantry, need);
+  const starving = Math.floor(e.crew.length * (1 - fed) * EXPEDITIONS.starvationLossRate);
+  const lost = e.crew.slice(0, starving);
+  removeVillagers(state, lost);
+  e.crew = e.crew.filter((id3) => !lost.includes(id3));
+  result.lostOnReturn = lost.map((id3) => nameOf(e, id3));
+  const unloaded = {
+    pulp: Math.max(0, pantry.pulp - need.pulp),
+    juice: Math.max(0, pantry.juice - need.juice),
+    fiber: e.provisions.fiber + result.loot.fiber,
+    seeds: e.provisions.seeds + result.loot.seeds
+  };
+  for (const id3 of RESOURCE_IDS) state.resources[id3] += unloaded[id3];
+  for (const v of state.villagers) {
+    if (v.job.kind === "expedition" && v.job.expeditionId === e.id) v.job = { kind: "idle" };
+  }
+  e.provisions = emptyResources();
+  e.status = "done";
+  const done = state.expeditions.filter((x) => x.status === "done");
+  if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
+}
+function removeVillagers(state, ids) {
+  state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
+}
+function nameOf(e, id3) {
+  return e.roster.find((r) => r.id === id3)?.name ?? id3;
+}
+var round22 = (v) => Math.round(v * 100) / 100;
+
 // packages/shared/src/sim/advance.ts
 function advance(state, now) {
   const s = cloneState(state);
@@ -1083,7 +1367,8 @@ function advanceInPlace(s, now, events) {
     const active = activeItem(s);
     const constructionEnd = active ? active.startedAt + active.durationMs : Infinity;
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
-    const nextEvent = Math.min(constructionEnd, eggEnd);
+    const expedition = nextExpeditionEvent(s);
+    const nextEvent = Math.min(constructionEnd, eggEnd, expedition?.at ?? Infinity);
     const target = Math.min(nextEvent, now);
     if (target > s.now) {
       accrue(s, target - s.now, target, events);
@@ -1096,6 +1381,23 @@ function advanceInPlace(s, now, events) {
     }
     if (s.egg && s.egg.readyAt <= now && s.egg.readyAt === nextEvent) {
       hatch(s, s.egg.readyAt, events);
+    }
+    if (expedition && expedition.at === nextEvent) {
+      const e = expedition.expedition;
+      if (e.status === "outbound") {
+        resolveArrival(s, e);
+        events.push({
+          type: "expeditionArrived",
+          at: e.arriveAt,
+          expeditionId: e.id,
+          victory: e.result.victory
+        });
+      } else {
+        resolveReturn(s, e);
+        for (const v of s.villagers)
+          if (v.job.kind === "idle" && e.crew.includes(v.id)) autoAssign(s, v);
+        events.push({ type: "expeditionReturned", at: e.returnAt, expeditionId: e.id });
+      }
     }
   }
   s.now = Math.max(s.now, now);
@@ -1211,6 +1513,14 @@ function autoAssign(s, v) {
   }
   if (best) v.job = { kind: "work", buildingId: best.id };
 }
+function nextExpeditionEvent(s) {
+  let best = null;
+  for (const e of s.expeditions) {
+    const at = e.status === "outbound" ? e.arriveAt : e.status === "returning" ? e.returnAt : Infinity;
+    if (at !== Infinity && (!best || at < best.at)) best = { at, expedition: e };
+  }
+  return best;
+}
 function constructionRemaining(s, now) {
   const a = activeItem(s);
   if (!a) return 0;
@@ -1238,7 +1548,13 @@ var COMMAND_ERRORS = [
   "eggInProgress",
   "housingFull",
   "objectiveIncomplete",
-  "noObjective"
+  "noObjective",
+  "notALaunchpad",
+  "launchpadBusy",
+  "unknownTarget",
+  "crewTooSmall",
+  "crewTooLarge",
+  "overloaded"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -1389,6 +1705,23 @@ function execute(s, cmd, ctx, events) {
       if (!isObjectiveComplete(s, obj)) fail("objectiveIncomplete");
       refund(s, obj.reward);
       s.objectiveIndex++;
+      return;
+    }
+    case "launchExpedition": {
+      const pad = launchpadOf(s, cmd.launchpadId);
+      if (!pad) return fail("notALaunchpad");
+      if (isLaunchpadBusy(s, pad.id)) fail("launchpadBusy");
+      if (!s.targets.some((t) => t.id === cmd.targetId)) fail("unknownTarget");
+      const { pulp, juice } = cmd.provisions;
+      if (!Number.isInteger(cmd.crew) || ![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) {
+        fail("invalidCount");
+      }
+      if (cmd.crew < EXPEDITIONS.minCrew) fail("crewTooSmall");
+      if (cmd.crew > maxCrew(s, pad)) fail("crewTooLarge");
+      const forecast = forecastExpedition(s, cmd);
+      if (forecast.weight > forecast.cargo + 1e-9) fail("overloaded");
+      if (!canAfford(s.resources, { pulp, juice })) fail("notEnoughResources");
+      launch(s, cmd, now, nextId(s, "x"));
       return;
     }
     case "debugGrant": {
@@ -5451,7 +5784,8 @@ var id = external_exports.string().min(1);
 var job = external_exports.discriminatedUnion("kind", [
   external_exports.object({ kind: external_exports.literal("idle") }),
   external_exports.object({ kind: external_exports.literal("work"), buildingId: id }),
-  external_exports.object({ kind: external_exports.literal("build"), queueItemId: id, returnTo: id.nullable() })
+  external_exports.object({ kind: external_exports.literal("build"), queueItemId: id, returnTo: id.nullable() }),
+  external_exports.object({ kind: external_exports.literal("expedition"), expeditionId: id })
 ]);
 var gameStateSchema = external_exports.object({
   schemaVersion: external_exports.number().int(),
@@ -5500,10 +5834,71 @@ var gameStateSchema = external_exports.object({
     constructionsCompleted: external_exports.number().int(),
     eggsHatched: external_exports.number().int()
   }),
+  targets: external_exports.array(
+    external_exports.object({
+      id,
+      owner: external_exports.literal("aliens"),
+      kiwiIndex: external_exports.number().int().min(0),
+      face: external_exports.enum(FACES),
+      distance: external_exports.number().min(0),
+      defense: external_exports.number().min(0),
+      reinforce: external_exports.number().min(0),
+      loot: resources,
+      travelMs: external_exports.number().min(0)
+    })
+  ),
+  victories: external_exports.record(external_exports.string(), external_exports.number().int().min(0)),
+  expeditions: external_exports.array(
+    external_exports.object({
+      id,
+      targetId: id,
+      launchpadId: id,
+      crew: external_exports.array(id),
+      roster: external_exports.array(external_exports.object({ id, name: external_exports.string() })),
+      provisions: resources,
+      cargo: external_exports.number(),
+      departedAt: external_exports.number(),
+      arriveAt: external_exports.number(),
+      returnAt: external_exports.number(),
+      status: external_exports.enum(["outbound", "returning", "done"]),
+      result: external_exports.object({
+        victory: external_exports.boolean(),
+        strength: external_exports.number(),
+        defense: external_exports.number(),
+        fed: external_exports.number(),
+        lostInBattle: external_exports.array(external_exports.string()),
+        lostOnReturn: external_exports.array(external_exports.string()),
+        loot: resources
+      }).nullable()
+    })
+  ),
   nextId: external_exports.number().int(),
   rng: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number(), external_exports.number()])
 });
-var MIGRATIONS = {};
+var MIGRATIONS = {
+  // v1 → v2: expeditions (milestone 3).
+  1: (raw) => ({
+    ...raw,
+    targets: soloTargets(raw.face === "kiwino" ? "kiwino" : "kiwisu"),
+    victories: {},
+    expeditions: []
+  })
+};
+function migrateState(input) {
+  if (!input || typeof input !== "object") return { ok: false, reason: "corrupt" };
+  let raw = input;
+  let version = typeof raw.schemaVersion === "number" ? raw.schemaVersion : 0;
+  if (version > SCHEMA_VERSION) return { ok: false, reason: "tooNew" };
+  while (version < SCHEMA_VERSION) {
+    const migrate = MIGRATIONS[version];
+    if (!migrate) return { ok: false, reason: "corrupt" };
+    raw = migrate(raw);
+    version++;
+    raw.schemaVersion = version;
+  }
+  const result = gameStateSchema.safeParse(raw);
+  return result.success ? { ok: true, state: result.data } : { ok: false, reason: "corrupt" };
+}
 function serializeSave(state, savedAt) {
   const file = { format: "kiwar-save", savedAt, state };
   return JSON.stringify(file);
@@ -5521,21 +5916,11 @@ function deserializeSave(text) {
   if (file.format !== "kiwar-save" || typeof file.savedAt !== "number" || !file.state) {
     return { ok: false, reason: "corrupt" };
   }
-  let raw = file.state;
-  let version = typeof raw.schemaVersion === "number" ? raw.schemaVersion : 0;
-  if (version > SCHEMA_VERSION) return { ok: false, reason: "tooNew" };
-  while (version < SCHEMA_VERSION) {
-    const migrate = MIGRATIONS[version];
-    if (!migrate) return { ok: false, reason: "corrupt" };
-    raw = migrate(raw);
-    version++;
-    raw.schemaVersion = version;
-  }
-  const result = gameStateSchema.safeParse(raw);
-  if (!result.success) return { ok: false, reason: "corrupt" };
+  const migrated = migrateState(file.state);
+  if (!migrated.ok) return { ok: false, reason: migrated.reason };
   return {
     ok: true,
-    save: { format: "kiwar-save", savedAt: file.savedAt, state: result.data }
+    save: { format: "kiwar-save", savedAt: file.savedAt, state: migrated.state }
   };
 }
 
@@ -5549,6 +5934,13 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("assignWorkers"), buildingId: id2, count: int.min(0).max(100) }),
   external_exports.object({ type: external_exports.literal("hatchEgg") }),
   external_exports.object({ type: external_exports.literal("claimObjective") }),
+  external_exports.object({
+    type: external_exports.literal("launchExpedition"),
+    launchpadId: id2,
+    targetId: id2,
+    crew: int.min(0).max(1e3),
+    provisions: external_exports.object({ pulp: external_exports.number().min(0).max(1e7), juice: external_exports.number().min(0).max(1e7) })
+  }),
   external_exports.object({
     type: external_exports.literal("debugGrant"),
     resources: external_exports.object({
@@ -5643,6 +6035,7 @@ function isPlausible(state, now) {
   if (state.villagers.length > START.villagers + state.stats.eggsHatched) return false;
   if (state.objectiveIndex > OBJECTIVES.length) return false;
   if (state.queue.length > (nestDef(state).queueSize ?? 0)) return false;
+  if (state.expeditions.length > 0 || Object.keys(state.victories).length > 0) return false;
   return true;
 }
 function reply(ctx, state, events = []) {
@@ -5652,7 +6045,7 @@ async function handleGameRequest(ctx, body) {
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) return { ok: false, error: "invalidRequest", serverTime: ctx.now() };
   const req = parsed.data;
-  const { repo } = ctx;
+  const repo = migrating(ctx.repo);
   switch (req.action) {
     case "load": {
       const existing = await repo.findByUser(ctx.userId);
@@ -5722,6 +6115,19 @@ async function handleGameRequest(ctx, body) {
     }
   }
 }
+function migrating(repo) {
+  return {
+    ...repo,
+    async findByUser(userId) {
+      const game = await repo.findByUser(userId);
+      if (!game) return null;
+      const migrated = migrateState(game.state);
+      if (!migrated.ok)
+        throw new Error(`Stored game ${game.id} is unreadable (${migrated.reason})`);
+      return { ...game, state: migrated.state };
+    }
+  };
+}
 function createMemoryRepository() {
   const games = /* @__PURE__ */ new Map();
   const log = [];
@@ -5755,11 +6161,13 @@ function createMemoryRepository() {
   };
 }
 export {
+  ALIEN_TWIN_FACE,
   BUILDABLE_TYPES,
   BUILDINGS,
   BUILDING_TYPES,
   COMMAND_ERRORS,
   DEFAULT_FACE_PARAMS,
+  EXPEDITIONS,
   FACES,
   FACE_PROFILES,
   HATCHING,
@@ -5782,8 +6190,10 @@ export {
   addVillager,
   advance,
   advanceInPlace,
+  alienFaceOnKiwi,
   applyCommand,
   autoAssign,
+  availableCrew,
   buildCost,
   buildingAt,
   buildingCount,
@@ -5804,6 +6214,7 @@ export {
   eggCost,
   eggDuration,
   emptyResources,
+  forecastExpedition,
   gameStateSchema,
   generateFace,
   geometric,
@@ -5827,12 +6238,17 @@ export {
   housing,
   idleVillagers,
   isFace,
+  isLaunchpadBusy,
   isMaxLevel,
   isObjectiveComplete,
   isPlausible,
   isPristine,
   isProducer,
+  launch,
+  launchpadOf,
   levelDef,
+  maxCrew,
+  migrateState,
   ms,
   nearRay,
   nest,
@@ -5848,11 +6264,17 @@ export {
   productionRates,
   queuedBuildAt,
   requestSchema,
+  resolveArrival,
+  resolveReturn,
   scaleCost,
   serializeSave,
+  shipCargo,
+  soloTargets,
   startNextConstruction,
+  targetDefense,
   tileAt,
   totalWorkers,
+  travelTime,
   upgradeCost,
   validateCommand,
   withRng,

@@ -258,6 +258,28 @@ export function ClockIcon({ size = 16, class: cls }: IconProps) {
   );
 }
 
+export function ShipIcon({ size = 22, class: cls }: IconProps) {
+  return svg(
+    size,
+    cls,
+    <>
+      <path d="M5 17h22a11 8 0 0 1-22 0z" fill="#8a6440" stroke="#5a3e26" stroke-width="1.8" />
+      <ellipse
+        cx="16"
+        cy="17"
+        rx="11"
+        ry="2.4"
+        fill="#8cc43c"
+        stroke="#4f7419"
+        stroke-width="1.4"
+      />
+      <path d="M16 15V4" stroke="#7a5233" stroke-width="2" stroke-linecap="round" />
+      <path d="M16 5c6 1 8 5 7 9-3-1-5-1-7 0z" fill="#6fae2c" stroke="#4f7f1c" stroke-width="1.4" />
+      <circle cx="16" cy="17" r="1.6" fill="#fbf3d0" />
+    </>,
+  );
+}
+
 export function ResourceIcon({ id, size }: { id: ResourceId; size?: number }) {
   switch (id) {
     case 'pulp':

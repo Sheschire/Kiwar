@@ -211,7 +211,8 @@ function checkMilestones(
   set('nest3', nest(state).level >= 3);
   set(
     'allLevel3',
-    (Object.keys(BUILDINGS) as BuildingType[]).every((type) =>
+    // Economy buildings (the bot does not play expeditions yet).
+    (['nest', ...BUILD_ORDER] as BuildingType[]).every((type) =>
       state.buildings.some((b) => b.type === type && b.level >= MAX_LEVEL),
     ),
   );

@@ -356,7 +356,8 @@ export class KiwisView {
     let i = 0;
     for (const agent of this.agents.values()) {
       const villager = villagers.get(agent.id);
-      if (!villager) continue;
+      // Kiwis away on an expedition are not on the map.
+      if (!villager || villager.job.kind === 'expedition') continue;
       agent.timer -= dt;
       agent.spawn = Math.min(1, agent.spawn + dt * 2);
       this.think(agent, villager);

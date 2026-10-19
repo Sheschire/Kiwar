@@ -99,8 +99,10 @@ export class BuildingsView {
   /** Synchronises meshes with the game state (cheap when nothing changed). */
   sync(state: GameState): void {
     this.state = state;
+    const away = (id: string) =>
+      state.expeditions.some((e) => e.launchpadId === id && e.status !== 'done');
     const sig =
-      state.buildings.map((b) => `${b.id}:${b.level}`).join(',') +
+      state.buildings.map((b) => `${b.id}:${b.level}:${away(b.id) ? 1 : 0}`).join(',') +
       '|' +
       state.queue.map((i) => `${i.id}:${i.startedAt ?? '-'}`).join(',');
     if (sig === this.signature) return;
@@ -110,12 +112,15 @@ export class BuildingsView {
     for (const b of state.buildings) {
       seen.add(b.id);
       const existing = this.meshes.get(b.id);
-      if (existing && existing.userData.level === b.level) continue;
+      const shipAway = away(b.id);
+      if (existing && existing.userData.level === b.level && existing.userData.away === shipAway)
+        continue;
       if (existing) {
-        existing.geometry = buildingGeometry(b.type, b.level);
+        existing.geometry = buildingGeometry(b.type, b.level, shipAway);
         existing.userData.level = b.level;
+        existing.userData.away = shipAway;
       } else {
-        this.addBuildingMesh(b);
+        this.addBuildingMesh(b, shipAway);
       }
     }
     for (const [id, mesh] of this.meshes) {
@@ -143,11 +148,11 @@ export class BuildingsView {
     this.onChanged();
   }
 
-  private addBuildingMesh(b: Building): Mesh {
-    const mesh = new Mesh(buildingGeometry(b.type, b.level), this.material);
+  private addBuildingMesh(b: Building, shipAway: boolean): Mesh {
+    const mesh = new Mesh(buildingGeometry(b.type, b.level, shipAway), this.material);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    mesh.userData = { level: b.level, buildingId: b.id, q: b.q, r: b.r };
+    mesh.userData = { level: b.level, away: shipAway, buildingId: b.id, q: b.q, r: b.r };
     const tile = getTile(this.map, b);
     this.placeAt(mesh, b.q, b.r, tile?.variant ?? 0.5);
     this.meshes.set(b.id, mesh);

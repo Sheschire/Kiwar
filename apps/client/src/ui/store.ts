@@ -20,7 +20,7 @@ export interface Toast {
   params?: TParams;
 }
 
-export type Modal = 'none' | 'settings';
+export type Modal = 'none' | 'settings' | 'expedition' | 'report';
 
 export interface UiState {
   lang: Lang;
@@ -41,6 +41,12 @@ export interface UiState {
   toasts: Toast[];
   sync: SyncStatus;
   account: Account | null;
+  /** Launchpad being prepared (expedition modal). */
+  expeditionPad: string | null;
+  /** Expedition whose report is shown. */
+  reportId: string | null;
+  /** Reports not opened yet. */
+  unreadReports: string[];
 }
 
 const wideScreen =
@@ -64,6 +70,9 @@ export const uiStore = createStore<UiState>(() => ({
   toasts: [],
   sync: 'local',
   account: null,
+  expeditionPad: null,
+  reportId: null,
+  unreadReports: [],
 }));
 
 export function setLang(lang: Lang): void {

@@ -2,7 +2,7 @@ import { BUILDINGS, levelDef, MAX_LEVEL } from '../data/buildings';
 import { OBJECTIVES } from '../data/objectives';
 import { START } from '../data/start';
 import { RESOURCE_IDS } from '../data/resources';
-import { deserializeSave } from '../save/save';
+import { deserializeSave, migrateState } from '../save/save';
 import { advance, type GameEvent } from '../sim/advance';
 import { applyCommand } from '../sim/commands';
 import { capacity, housing, nest, nestDef } from '../sim/selectors';
@@ -127,6 +127,8 @@ export function isPlausible(state: GameState, now: number): boolean {
   if (state.villagers.length > START.villagers + state.stats.eggsHatched) return false;
   if (state.objectiveIndex > OBJECTIVES.length) return false;
   if (state.queue.length > (nestDef(state).queueSize ?? 0)) return false;
+  // Local saves cannot bring expeditions or victories along (milestone-1 saves have none).
+  if (state.expeditions.length > 0 || Object.keys(state.victories).length > 0) return false;
   return true;
 }
 
@@ -142,7 +144,7 @@ export async function handleGameRequest(ctx: ServiceContext, body: unknown): Pro
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) return { ok: false, error: 'invalidRequest', serverTime: ctx.now() };
   const req = parsed.data;
-  const { repo } = ctx;
+  const repo = migrating(ctx.repo);
 
   switch (req.action) {
     case 'load': {
@@ -222,6 +224,21 @@ export async function handleGameRequest(ctx: ServiceContext, body: unknown): Pro
       return { ok: false, error: 'conflict', serverTime: ctx.now() };
     }
   }
+}
+
+/** Stored states may predate the current schema: upgrade them when read. */
+function migrating(repo: GameRepository): GameRepository {
+  return {
+    ...repo,
+    async findByUser(userId) {
+      const game = await repo.findByUser(userId);
+      if (!game) return null;
+      const migrated = migrateState(game.state);
+      if (!migrated.ok)
+        throw new Error(`Stored game ${game.id} is unreadable (${migrated.reason})`);
+      return { ...game, state: migrated.state };
+    },
+  };
 }
 
 /** In-memory repository (tests, local tooling). */

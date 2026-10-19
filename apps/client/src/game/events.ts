@@ -1,6 +1,6 @@
 import type { GameEvent } from '@kiwar/shared';
 import type { GameRenderer } from '../render/GameRenderer';
-import { pushToast } from '../ui/store';
+import { pushToast, uiStore } from '../ui/store';
 
 /** Turns simulation events into toasts and visual effects. */
 export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): void {
@@ -21,6 +21,18 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         break;
       case 'storageFull':
         pushToast('info', 'events.storageFull', { resource: `@resources.${e.resource}` });
+        break;
+      case 'expeditionArrived':
+        pushToast(
+          e.victory ? 'success' : 'error',
+          e.victory ? 'expedition.victory' : 'expedition.defeat',
+        );
+        break;
+      case 'expeditionReturned':
+        pushToast('success', 'expedition.returned');
+        uiStore.setState((s) => ({
+          unreadReports: [...new Set([...s.unreadReports, e.expeditionId])],
+        }));
         break;
       default:
         break;

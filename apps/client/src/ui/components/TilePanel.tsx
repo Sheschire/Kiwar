@@ -8,6 +8,7 @@ import {
   constructionDuration,
   FACE_PROFILES,
   idleVillagers,
+  isLaunchpadBusy,
   levelDef,
   MAX_LEVEL,
   nearRay,
@@ -29,8 +30,8 @@ import {
 } from '@kiwar/shared';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
-import { CloseIcon, HammerIcon, KiwiIcon, ResourceIcon } from '../icons';
-import { useT, useUi, type Translate } from '../store';
+import { CloseIcon, HammerIcon, KiwiIcon, ResourceIcon, ShipIcon } from '../icons';
+import { uiStore, useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
 
 function Progress({ item, now }: { item: QueueItem; now: number }) {
@@ -140,6 +141,22 @@ function BuildingSection({
             <KiwiIcon size={16} /> {def.housing}
           </span>
         </div>
+      )}
+      {def.cargo !== undefined && (
+        <>
+          <div class="stat-row">
+            <span class="stat-label">{t('building.cargo')}</span>
+            <span>{def.cargo}</span>
+          </div>
+          <button
+            class="btn btn-primary"
+            disabled={isLaunchpadBusy(game, b.id)}
+            onClick={() => uiStore.setState({ modal: 'expedition', expeditionPad: b.id })}
+          >
+            <ShipIcon size={18} />{' '}
+            {isLaunchpadBusy(game, b.id) ? t('building.shipAway') : t('building.prepare')}
+          </button>
+        </>
       )}
       {def.storage !== undefined && (
         <div class="stat-row">

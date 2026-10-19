@@ -28,6 +28,8 @@ import {
   workersOf,
 } from './selectors';
 import { cloneState, nextId, type GameState } from './state';
+import { EXPEDITIONS } from '../data/expeditions';
+import { forecastExpedition, isLaunchpadBusy, launch, launchpadOf, maxCrew } from './expeditions';
 
 export type Command =
   | { type: 'build'; buildingType: BuildingType; q: number; r: number }
@@ -36,6 +38,13 @@ export type Command =
   | { type: 'assignWorkers'; buildingId: BuildingId; count: number }
   | { type: 'hatchEgg' }
   | { type: 'claimObjective' }
+  | {
+      type: 'launchExpedition';
+      launchpadId: BuildingId;
+      targetId: string;
+      crew: number;
+      provisions: { pulp: number; juice: number };
+    }
   /** Debug panel only. Will be rejected by the server in milestone 2. */
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
@@ -60,6 +69,12 @@ export const COMMAND_ERRORS = [
   'housingFull',
   'objectiveIncomplete',
   'noObjective',
+  'notALaunchpad',
+  'launchpadBusy',
+  'unknownTarget',
+  'crewTooSmall',
+  'crewTooLarge',
+  'overloaded',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -241,6 +256,26 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (!isObjectiveComplete(s, obj)) fail('objectiveIncomplete');
       refund(s, obj.reward);
       s.objectiveIndex++;
+      return;
+    }
+    case 'launchExpedition': {
+      const pad = launchpadOf(s, cmd.launchpadId);
+      if (!pad) return fail('notALaunchpad');
+      if (isLaunchpadBusy(s, pad.id)) fail('launchpadBusy');
+      if (!s.targets.some((t) => t.id === cmd.targetId)) fail('unknownTarget');
+      const { pulp, juice } = cmd.provisions;
+      if (
+        !Number.isInteger(cmd.crew) ||
+        ![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)
+      ) {
+        fail('invalidCount');
+      }
+      if (cmd.crew < EXPEDITIONS.minCrew) fail('crewTooSmall');
+      if (cmd.crew > maxCrew(s, pad)) fail('crewTooLarge');
+      const forecast = forecastExpedition(s, cmd)!;
+      if (forecast.weight > forecast.cargo + 1e-9) fail('overloaded');
+      if (!canAfford(s.resources, { pulp, juice })) fail('notEnoughResources');
+      launch(s, cmd, now, nextId(s, 'x'));
       return;
     }
     case 'debugGrant': {

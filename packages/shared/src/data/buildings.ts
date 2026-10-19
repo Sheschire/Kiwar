@@ -10,6 +10,7 @@ export const BUILDING_TYPES = [
   'juiceWell',
   'hut',
   'warehouse',
+  'launchpad',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
@@ -27,6 +28,9 @@ export interface BuildingLevelDef {
   housing?: number;
   /** Storage capacity added for every resource. */
   storage?: number;
+  /** Launchpad only: ship cargo (cargo units) and travel time multiplier. */
+  cargo?: number;
+  travelTime?: number;
   /** Nest only: building cap (Nest excluded) and construction queue length. */
   maxBuildings?: number;
   queueSize?: number;
@@ -240,6 +244,35 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
         durationMs: ms.min(20),
         requiresNestLevel: 2,
         storage: 3000,
+      },
+    ],
+  },
+  launchpad: {
+    id: 'launchpad',
+    allowedTiles: ['flesh', 'ray'],
+    buildable: true,
+    copyGrowth: 1.6,
+    levels: [
+      {
+        cost: { pulp: 350, fiber: 450, seeds: 60, juice: 120 },
+        durationMs: ms.min(8),
+        requiresNestLevel: 2,
+        cargo: 150,
+        travelTime: 1,
+      },
+      {
+        cost: { pulp: 800, fiber: 1000, seeds: 150, juice: 300 },
+        durationMs: ms.min(25),
+        requiresNestLevel: 2,
+        cargo: 300,
+        travelTime: 0.85,
+      },
+      {
+        cost: { pulp: 1600, fiber: 2000, seeds: 300, juice: 600 },
+        durationMs: ms.min(60),
+        requiresNestLevel: 3,
+        cargo: 500,
+        travelTime: 0.7,
       },
     ],
   },

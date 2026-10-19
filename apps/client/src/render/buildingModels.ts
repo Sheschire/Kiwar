@@ -298,7 +298,39 @@ function warehouse(level: number): Part[] {
   return p;
 }
 
+/** Launch platform; the kiwi-shaped ship is drawn only while it is docked. */
+function launchpad(level: number, docked = true): Part[] {
+  const p: Part[] = [];
+  const s = 0.9 + level * 0.08;
+  p.push([cyl(14), C.wood, m(0, 0.06, 0, 0.62 * s, 0.12, 0.62 * s)]);
+  p.push([cyl(14), C.straw, m(0, 0.13, 0, 0.5 * s, 0.02, 0.5 * s)]);
+  // Launch tower.
+  p.push([box(), C.woodDark, m(-0.5 * s, 0.55, -0.1, 0.06, 1.0, 0.06)]);
+  p.push([box(), C.woodDark, m(-0.5 * s, 0.55, 0.12, 0.06, 1.0, 0.06)]);
+  for (const y of [0.35, 0.7]) p.push([box(), C.wood, m(-0.42 * s, y, 0.01, 0.2, 0.04, 0.26)]);
+  if (docked) {
+    // Hull: half a kiwi (furry skin below, green slice deck on top), fins and a leaf sail.
+    p.push([
+      new SphereGeometry(1, 12, 7, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+      C.fur,
+      m(0, 0.42, 0, 0.32, 0.26, 0.42),
+    ]);
+    p.push([cyl(14), C.leaf, m(0, 0.42, 0, 0.31, 0.02, 0.41)]);
+    p.push([cyl(10), C.cream, m(0, 0.43, 0, 0.1, 0.02, 0.14)]);
+    for (const side of [-1, 1]) {
+      p.push([box(), C.roof, m(side * 0.3, 0.3, -0.25, 0.04, 0.16, 0.18, 0, 0, side * 0.5)]);
+    }
+    p.push([cyl(6), C.woodDark, m(0, 0.75, 0.05, 0.025, 0.65, 0.025)]);
+    p.push([sphere(8, 5), C.leafDark, m(0, 0.8, 0.12, 0.03, 0.26, 0.16)]);
+    if (level >= 2)
+      p.push([cone(8), C.flagGold, m(0, 0.33, -0.45, 0.08, 0.12, 0.08, -Math.PI / 2)]);
+  }
+  flag(p, level, 0.5, 0.12, 0.35);
+  return p;
+}
+
 const BUILDERS: Record<BuildingType, (level: number) => Part[]> = {
+  launchpad,
   nest,
   pulpery,
   fiberWorkshop,
@@ -310,11 +342,16 @@ const BUILDERS: Record<BuildingType, (level: number) => Part[]> = {
 
 const cache = new Map<string, BufferGeometry>();
 
-export function buildingGeometry(type: BuildingType, level: number): BufferGeometry {
-  const key = `${type}:${level}`;
+export function buildingGeometry(
+  type: BuildingType,
+  level: number,
+  shipAway = false,
+): BufferGeometry {
+  const key = `${type}:${level}${shipAway ? ':away' : ''}`;
   let g = cache.get(key);
   if (!g) {
-    g = bake(BUILDERS[type](Math.max(1, Math.min(3, level))));
+    const lvl = Math.max(1, Math.min(3, level));
+    g = bake(type === 'launchpad' && shipAway ? launchpad(lvl, false) : BUILDERS[type](lvl));
     cache.set(key, g);
   }
   return g;

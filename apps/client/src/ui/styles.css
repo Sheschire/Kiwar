@@ -1036,6 +1036,177 @@ button.chip:focus-visible {
   animation: toast-in 0.3s cubic-bezier(0.2, 1.4, 0.4, 1);
 }
 
+/* ---------- Expeditions ---------- */
+
+.modal-wide {
+  width: min(560px, 100%);
+}
+
+.btn-small {
+  min-height: 36px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
+
+.expedition {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.targets {
+  display: grid;
+  gap: 8px;
+}
+
+.target-card {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 2px solid rgba(184, 138, 90, 0.45);
+  background: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+}
+
+.target-card.is-selected {
+  border-color: var(--leaf-dark);
+  background: rgba(201, 223, 140, 0.35);
+}
+
+.slider {
+  flex: 1;
+  width: 100%;
+  min-height: var(--tap);
+  accent-color: var(--leaf);
+  touch-action: pan-y;
+}
+
+.provision-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.provision-value {
+  min-width: 48px;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.forecast {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(184, 138, 90, 0.45);
+}
+
+.cargo-bar {
+  display: flex;
+  height: 14px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: repeating-linear-gradient(-45deg, #f2e6c6 0 6px, #e9d9b0 6px 12px);
+  box-shadow: 0 1px 1px rgba(74, 40, 20, 0.15) inset;
+}
+
+.cargo-bar.overloaded {
+  outline: 2px solid var(--berry);
+}
+
+.seg-crew {
+  background: #8a6440;
+}
+
+.seg-food {
+  background: #a8d65a;
+}
+
+.seg-loot {
+  background: #f2e6c6;
+  border: 1px solid #c8b48a;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  vertical-align: -1px;
+}
+
+.odds {
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+.odds-likely {
+  background: rgba(111, 154, 44, 0.2);
+  color: var(--leaf-dark);
+}
+
+.odds-uncertain {
+  background: rgba(216, 160, 58, 0.25);
+  color: #8a5f10;
+}
+
+.odds-unlikely {
+  background: rgba(192, 80, 74, 0.2);
+  color: #8a2f2a;
+}
+
+.launch {
+  align-self: stretch;
+}
+
+.expeditions {
+  position: absolute;
+  left: calc(var(--gap) + var(--safe-left));
+  bottom: calc(var(--gap) + var(--safe-bottom) + 150px);
+  width: 300px;
+  padding: 8px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.expeditions h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.expeditions ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.expeditions li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 760px) {
@@ -1142,8 +1313,15 @@ button.chip:focus-visible {
   .has-sheet .queue,
   .has-sheet .egg-wrap,
   .has-sheet .objectives,
-  .has-sheet .nudge {
+  .has-sheet .nudge,
+  .has-sheet .expeditions {
     display: none;
+  }
+
+  .expeditions {
+    width: auto;
+    right: calc(var(--gap) + 96px);
+    bottom: calc(var(--gap) + var(--safe-bottom) + 140px);
   }
 
   .nudge {

@@ -68,7 +68,7 @@ const LABELS: Record<Milestone, string> = {
   pop10: 'Population 10',
   nest2: 'Nest level 2',
   nest3: 'Nest level 3',
-  allLevel3: 'Every building type at level 3',
+  allLevel3: 'Every economy building at level 3',
 };
 
 export function toMarkdown(
