@@ -2,14 +2,20 @@ import { createStore } from 'zustand/vanilla';
 import { useEffect, useReducer, useRef } from 'preact/hooks';
 import { detectLang, persistLang, translate, type Lang, type TKey, type TParams } from '../i18n/i18n';
 
+import type { FaceMap, Tile } from '@kiwar/shared';
+
 export interface UiState {
   lang: Lang;
   settingsOpen: boolean;
+  map: FaceMap | null;
+  selectedTile: Tile | null;
 }
 
 export const uiStore = createStore<UiState>(() => ({
   lang: detectLang(),
   settingsOpen: false,
+  map: null,
+  selectedTile: null,
 }));
 
 export function setLang(lang: Lang): void {

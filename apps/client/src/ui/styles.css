@@ -211,3 +211,23 @@ p {
   gap: 8px;
   justify-content: center;
 }
+
+/* ---------- Temporary step 2 layout ---------- */
+
+.topbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 6px 4px 14px;
+}
+
+.tile-card {
+  position: absolute;
+  right: calc(var(--gap) + var(--safe-right));
+  bottom: calc(var(--gap) + var(--safe-bottom));
+  width: min(320px, calc(100vw - 2 * var(--gap)));
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

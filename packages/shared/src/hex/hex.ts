@@ -101,3 +101,20 @@ export function pixelToHex(x: number, y: number, size = 1): Hex {
   const r = ((2 / 3) * y) / size;
   return hexRound(q, r);
 }
+
+/** Hexes on the straight line from `a` to `b` (inclusive), without gaps. */
+export function hexLine(a: Hex, b: Hex): Hex[] {
+  const n = hexDistance(a, b);
+  if (n === 0) return [a];
+  const out: Hex[] = [];
+  // Nudge to avoid ambiguous rounding exactly on hex edges.
+  const aq = a.q + 1e-6;
+  const ar = a.r + 1e-6;
+  const bq = b.q + 1e-6;
+  const br = b.r + 1e-6;
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    out.push(hexRound(aq + (bq - aq) * t, ar + (br - ar) * t));
+  }
+  return out;
+}
