@@ -236,6 +236,8 @@ export const fr: Dict = {
     crewTooSmall: 'Il faut au moins 2 kiwis dans l’équipage.',
     crewTooLarge: 'Pas assez de place ou de kiwis pour cet équipage (un kiwi reste au nid).',
     overloaded: 'Le vaisseau est surchargé.',
+    universeNotFound: 'Aucun univers ne correspond à ce code d’invitation.',
+    universeFull: 'Cet univers est complet.',
   },
   offline: {
     title: 'Pendant votre absence…',

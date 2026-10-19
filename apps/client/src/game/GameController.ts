@@ -328,7 +328,7 @@ export class GameController {
       () => localStorage.setItem(IMPORTED_KEY, res.ok ? 'imported' : 'rejected'),
       undefined,
     );
-    if (res.ok) this.loadState(res.state);
+    if (res.ok && res.state) this.loadState(res.state);
   }
 
   private async newOnlineWorld(seed: string, face: Face): Promise<void> {
@@ -336,8 +336,8 @@ export class GameController {
     try {
       const res = await this.online!.call({ action: 'newWorld', seed, face });
       this.acceptServer(res);
-      if (!res.ok) {
-        this.listener.onError(res.error);
+      if (!res.ok || !res.state) {
+        if (!res.ok) this.listener.onError(res.error);
         this.listener.onSync('online');
         return;
       }

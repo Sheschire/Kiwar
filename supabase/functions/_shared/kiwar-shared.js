@@ -1281,7 +1281,21 @@ function resolveArrival(state, e) {
   const fed = coverage(e.provisions, need);
   e.provisions.pulp -= Math.min(e.provisions.pulp, need.pulp);
   e.provisions.juice -= Math.min(e.provisions.juice, need.juice);
-  const defense = target ? targetDefense(state, target) : 0;
+  if (!target) {
+    e.status = "returning";
+    e.result = {
+      victory: false,
+      aborted: true,
+      strength: 0,
+      defense: 0,
+      fed: round22(fed),
+      lostInBattle: [],
+      lostOnReturn: [],
+      loot: emptyResources()
+    };
+    return;
+  }
+  const defense = targetDefense(state, target);
   const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
   const strength = strengthOf(e.crew.length, fed) * luck;
   const victory = strength >= defense;
@@ -5863,6 +5877,7 @@ var gameStateSchema = external_exports.object({
       status: external_exports.enum(["outbound", "returning", "done"]),
       result: external_exports.object({
         victory: external_exports.boolean(),
+        aborted: external_exports.boolean().optional(),
         strength: external_exports.number(),
         defense: external_exports.number(),
         fed: external_exports.number(),
@@ -5951,13 +5966,28 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     })
   })
 ]);
+var universe = external_exports.string().min(1).max(64).optional();
+var displayName = external_exports.string().trim().min(1).max(24);
 var requestSchema = external_exports.discriminatedUnion("action", [
+  external_exports.object({ action: external_exports.literal("listUniverses") }),
+  external_exports.object({
+    action: external_exports.literal("createUniverse"),
+    name: external_exports.string().trim().min(1).max(40),
+    displayName
+  }),
+  external_exports.object({
+    action: external_exports.literal("joinUniverse"),
+    code: external_exports.string().trim().min(8).max(8),
+    displayName
+  }),
+  external_exports.object({ action: external_exports.literal("universeInfo"), universe: external_exports.string().min(1).max(64) }),
   external_exports.object({
     action: external_exports.literal("load"),
+    universe,
     /** World to create if the player has none yet (e.g. from a shared link). */
     create: external_exports.object({ seed: external_exports.string().min(1).max(64).optional(), face: external_exports.enum(FACES) }).optional()
   }),
-  external_exports.object({ action: external_exports.literal("command"), command: commandSchema }),
+  external_exports.object({ action: external_exports.literal("command"), universe, command: commandSchema }),
   external_exports.object({
     action: external_exports.literal("newWorld"),
     seed: external_exports.string().min(1).max(64).optional(),
@@ -5972,8 +6002,53 @@ var SERVER_ERRORS = [
   "rateLimited",
   "conflict",
   "importRejected",
-  "internal"
+  "internal",
+  "universeNotFound",
+  "universeFull"
 ];
+
+// packages/shared/src/server/universes.ts
+var MAX_PLAYERS = 8;
+function kiwiCount(members) {
+  return Math.floor(members / 2) + 1;
+}
+function assignFace(members) {
+  const taken = new Set(members.map((m) => `${m.kiwiIndex}:${m.face}`));
+  for (let k = 0; ; k++) {
+    for (const face of FACES) if (!taken.has(`${k}:${face}`)) return { kiwiIndex: k, face };
+  }
+}
+function kiwiSeed(universeSeed, kiwiIndex) {
+  return `${universeSeed}-k${kiwiIndex}`;
+}
+function universeTargets(members, me) {
+  const taken = new Set(members.map((m) => `${m.kiwiIndex}:${m.face}`));
+  const targets = [];
+  for (let k = 0; k < kiwiCount(members.length); k++) {
+    for (const face of FACES) {
+      if (taken.has(`${k}:${face}`)) continue;
+      const distance = Math.abs(k - me.kiwiIndex);
+      const def = distance === 0 ? ALIEN_TWIN_FACE : alienFaceOnKiwi(distance);
+      targets.push({
+        id: `aliens:${k}:${face}`,
+        owner: "aliens",
+        kiwiIndex: k,
+        face,
+        distance,
+        ...def,
+        loot: { ...def.loot }
+      });
+    }
+  }
+  return targets.sort((a, b) => a.distance - b.distance);
+}
+var CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+function inviteCode(bytes) {
+  return Array.from(bytes.slice(0, 8), (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
+}
+function isInviteCode(code) {
+  return /^[A-HJ-NP-Z2-9]{8}$/.test(code);
+}
 
 // packages/shared/src/server/gameService.ts
 var RATE_LIMIT = { windowMs: 1e4, maxCommands: 40 };
@@ -5988,13 +6063,43 @@ function mapFor(state) {
   }
   return map;
 }
+var soloId = (ctx) => `solo-${ctx.userId}`;
 function freshGame(ctx, seed, face) {
+  return newGame({ seed, face, now: ctx.now(), playerId: ctx.userId, universeId: soloId(ctx) });
+}
+async function resolveScope(ctx, repo, universe2) {
+  if (!universe2 || universe2 === "solo") return { universeId: soloId(ctx), shared: null };
+  const row = await repo.getUniverse(universe2);
+  if (!row) return null;
+  const members = await repo.listMembers(row.id);
+  const me = members.find((m) => m.userId === ctx.userId);
+  if (!me) return null;
+  return { universeId: row.id, shared: { info: toInfo(row, members), me } };
+}
+function toInfo(row, members) {
+  return {
+    ...toSummary(row, members.length),
+    seed: row.seed,
+    members,
+    kiwiCount: kiwiCount(members.length)
+  };
+}
+function toSummary(row, players) {
+  return { id: row.id, name: row.name, code: row.code, players, maxPlayers: row.maxPlayers };
+}
+function withScopeTargets(state, scope) {
+  if (!scope.shared) return state;
+  return { ...state, targets: universeTargets(scope.shared.info.members, scope.shared.me) };
+}
+function universeGame(ctx, info, me) {
   return newGame({
-    seed,
-    face,
+    seed: kiwiSeed(info.seed, me.kiwiIndex),
+    face: me.face,
     now: ctx.now(),
     playerId: ctx.userId,
-    universeId: `solo-${ctx.userId}`
+    universeId: info.id,
+    kiwiId: `k${me.kiwiIndex}`,
+    targets: universeTargets(info.members, me)
   });
 }
 function isPristine(state) {
@@ -6046,57 +6151,84 @@ async function handleGameRequest(ctx, body) {
   if (!parsed.success) return { ok: false, error: "invalidRequest", serverTime: ctx.now() };
   const req = parsed.data;
   const repo = migrating(ctx.repo);
+  const fail2 = (error, state) => state ? { ok: false, error, state, serverTime: ctx.now() } : { ok: false, error, serverTime: ctx.now() };
   switch (req.action) {
-    case "load": {
-      const existing = await repo.findByUser(ctx.userId);
-      if (existing) return reply(ctx, existing.state);
-      const created = await repo.create(
-        ctx.userId,
-        freshGame(ctx, req.create?.seed ?? ctx.randomSeed(), req.create?.face ?? "kiwisu")
+    case "listUniverses": {
+      const rows = await repo.listUserUniverses(ctx.userId);
+      const universes = await Promise.all(
+        rows.map(async (r) => toSummary(r, (await repo.listMembers(r.id)).length))
       );
-      return reply(ctx, created.state);
+      return { ok: true, events: [], universes, serverTime: ctx.now() };
+    }
+    case "createUniverse": {
+      const mine = await repo.listUserUniverses(ctx.userId);
+      if (mine.length >= MAX_UNIVERSES_PER_PLAYER) return fail2("forbidden");
+      const row = await repo.createUniverse({
+        name: req.name.trim(),
+        code: inviteCode(ctx.randomBytes(8)),
+        seed: ctx.randomSeed(),
+        maxPlayers: MAX_PLAYERS,
+        createdBy: ctx.userId
+      });
+      return joinAndPlay(ctx, repo, row, req.displayName);
+    }
+    case "joinUniverse": {
+      const row = await repo.findUniverseByCode(req.code.toUpperCase());
+      if (!row) return fail2("universeNotFound");
+      return joinAndPlay(ctx, repo, row, req.displayName);
+    }
+    case "universeInfo": {
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope?.shared) return fail2("forbidden");
+      return { ok: true, events: [], universe: scope.shared.info, serverTime: ctx.now() };
+    }
+    case "load": {
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope) return fail2("forbidden");
+      const existing = await repo.findGame(ctx.userId, scope.universeId);
+      if (existing)
+        return {
+          ...reply(ctx, withScopeTargets(existing.state, scope)),
+          universe: scope.shared?.info
+        };
+      const state = scope.shared ? universeGame(ctx, scope.shared.info, scope.shared.me) : freshGame(ctx, req.create?.seed ?? ctx.randomSeed(), req.create?.face ?? "kiwisu");
+      const created = await repo.create(ctx.userId, scope.universeId, state);
+      return { ...reply(ctx, created.state), universe: scope.shared?.info };
     }
     case "newWorld": {
       const state = freshGame(ctx, req.seed ?? ctx.randomSeed(), req.face);
-      const existing = await repo.findByUser(ctx.userId);
-      if (!existing) return reply(ctx, (await repo.create(ctx.userId, state)).state);
+      const existing = await repo.findGame(ctx.userId, soloId(ctx));
+      if (!existing) return reply(ctx, (await repo.create(ctx.userId, soloId(ctx), state)).state);
       const saved = await repo.update(existing.id, state, existing.version);
-      return saved ? reply(ctx, saved.state) : { ok: false, error: "conflict", serverTime: ctx.now() };
+      return saved ? reply(ctx, saved.state) : fail2("conflict");
     }
     case "import": {
       const loaded = deserializeSave(req.save);
       const now = ctx.now();
-      if (!loaded.ok || !isPlausible(loaded.save.state, now)) {
-        return { ok: false, error: "importRejected", serverTime: now };
-      }
-      const existing = await repo.findByUser(ctx.userId);
-      if (existing && !isPristine(existing.state)) {
-        return { ok: false, error: "importRejected", state: existing.state, serverTime: now };
-      }
+      if (!loaded.ok || !isPlausible(loaded.save.state, now)) return fail2("importRejected");
+      const existing = await repo.findGame(ctx.userId, soloId(ctx));
+      if (existing && !isPristine(existing.state)) return fail2("importRejected", existing.state);
       const imported = {
         ...loaded.save.state,
         playerId: ctx.userId,
-        universeId: `solo-${ctx.userId}`
+        universeId: soloId(ctx)
       };
       const state = advance(imported, now).state;
-      const saved = existing ? await repo.update(existing.id, state, existing.version) : await repo.create(ctx.userId, state);
-      return saved ? reply(ctx, saved.state) : { ok: false, error: "conflict", serverTime: now };
+      const saved = existing ? await repo.update(existing.id, state, existing.version) : await repo.create(ctx.userId, soloId(ctx), state);
+      return saved ? reply(ctx, saved.state) : fail2("conflict");
     }
     case "command": {
       const now = ctx.now();
       const recent = await repo.countRecentCommands(ctx.userId, now - RATE_LIMIT.windowMs);
-      if (recent >= RATE_LIMIT.maxCommands)
-        return { ok: false, error: "rateLimited", serverTime: now };
-      if (req.command.type === "debugGrant" && !ctx.isAdmin) {
-        return { ok: false, error: "forbidden", serverTime: now };
-      }
+      if (recent >= RATE_LIMIT.maxCommands) return fail2("rateLimited");
+      if (req.command.type === "debugGrant" && !ctx.isAdmin) return fail2("forbidden");
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope) return fail2("forbidden");
       for (let attempt = 0; attempt < 2; attempt++) {
-        const game = await repo.findByUser(ctx.userId);
-        if (!game) return { ok: false, error: "invalidRequest", serverTime: now };
-        const result = applyCommand(game.state, req.command, {
-          now: ctx.now(),
-          map: mapFor(game.state)
-        });
+        const game = await repo.findGame(ctx.userId, scope.universeId);
+        if (!game) return fail2("invalidRequest");
+        const current = withScopeTargets(game.state, scope);
+        const result = applyCommand(current, req.command, { now: ctx.now(), map: mapFor(current) });
         await repo.logCommand({
           userId: ctx.userId,
           gameId: game.id,
@@ -6105,21 +6237,46 @@ async function handleGameRequest(ctx, body) {
           error: result.ok ? void 0 : result.error,
           at: now
         });
-        if (!result.ok)
-          return { ok: false, error: result.error, state: game.state, serverTime: ctx.now() };
+        if (!result.ok) return fail2(result.error, current);
         const saved = await repo.update(game.id, result.state, game.version);
         if (saved)
           return { ok: true, state: saved.state, events: result.events, serverTime: ctx.now() };
       }
-      return { ok: false, error: "conflict", serverTime: ctx.now() };
+      return fail2("conflict");
     }
   }
+}
+var MAX_UNIVERSES_PER_PLAYER = 5;
+async function joinAndPlay(ctx, repo, row, displayName2) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const members = await repo.listMembers(row.id);
+    let me = members.find((m) => m.userId === ctx.userId);
+    if (!me) {
+      if (members.length >= row.maxPlayers)
+        return { ok: false, error: "universeFull", serverTime: ctx.now() };
+      me = { userId: ctx.userId, displayName: displayName2.trim(), ...assignFace(members) };
+      if (!await repo.addMember(row.id, me)) continue;
+      members.push(me);
+    }
+    const info = toInfo(row, members);
+    const existing = await repo.findGame(ctx.userId, row.id);
+    const game = existing ?? await repo.create(ctx.userId, row.id, universeGame(ctx, info, me));
+    const scope = { universeId: row.id, shared: { info, me } };
+    return {
+      ok: true,
+      state: withScopeTargets(game.state, scope),
+      events: [],
+      universe: info,
+      serverTime: ctx.now()
+    };
+  }
+  return { ok: false, error: "conflict", serverTime: ctx.now() };
 }
 function migrating(repo) {
   return {
     ...repo,
-    async findByUser(userId) {
-      const game = await repo.findByUser(userId);
+    async findGame(userId, universeId) {
+      const game = await repo.findGame(userId, universeId);
       if (!game) return null;
       const migrated = migrateState(game.state);
       if (!migrated.ok)
@@ -6130,18 +6287,21 @@ function migrating(repo) {
 }
 function createMemoryRepository() {
   const games = /* @__PURE__ */ new Map();
+  const universes = /* @__PURE__ */ new Map();
+  const members = /* @__PURE__ */ new Map();
   const log = [];
   let next = 1;
   const clone = (g) => JSON.parse(JSON.stringify(g));
   return {
     games,
     log,
-    async findByUser(userId) {
-      for (const g of games.values()) if (g.userId === userId) return clone(g);
+    async findGame(userId, universeId) {
+      for (const g of games.values())
+        if (g.userId === userId && g.universeId === universeId) return clone(g);
       return null;
     },
-    async create(userId, state) {
-      const g = { id: `g${next++}`, userId, state, version: 1 };
+    async create(userId, universeId, state) {
+      const g = { id: `g${next++}`, userId, universeId, state, version: 1 };
       games.set(g.id, clone(g));
       return clone(g);
     },
@@ -6157,6 +6317,43 @@ function createMemoryRepository() {
     },
     async logCommand(entry) {
       log.push(entry);
+    },
+    async createUniverse(row) {
+      const u = {
+        id: `u${next++}`,
+        name: row.name,
+        code: row.code,
+        seed: row.seed,
+        maxPlayers: row.maxPlayers
+      };
+      universes.set(u.id, u);
+      members.set(u.id, []);
+      return clone(u);
+    },
+    async getUniverse(id3) {
+      const u = universes.get(id3);
+      return u ? clone(u) : null;
+    },
+    async findUniverseByCode(code) {
+      for (const u of universes.values()) if (u.code === code) return clone(u);
+      return null;
+    },
+    async listMembers(universeId) {
+      return clone(members.get(universeId) ?? []);
+    },
+    async addMember(universeId, member) {
+      const list = members.get(universeId) ?? [];
+      if (list.some(
+        (m) => m.userId === member.userId || m.kiwiIndex === member.kiwiIndex && m.face === member.face
+      )) {
+        return false;
+      }
+      list.push(clone(member));
+      members.set(universeId, list);
+      return true;
+    },
+    async listUserUniverses(userId) {
+      return [...universes.values()].filter((u) => (members.get(u.id) ?? []).some((m) => m.userId === userId)).map(clone);
     }
   };
 }
@@ -6175,6 +6372,8 @@ export {
   HEX_DIRECTIONS,
   HOUR_MS,
   MAX_LEVEL,
+  MAX_PLAYERS,
+  MAX_UNIVERSES_PER_PLAYER,
   NAME_SYLLABLES,
   OBJECTIVES,
   RATE_LIMIT,
@@ -6192,6 +6391,7 @@ export {
   advanceInPlace,
   alienFaceOnKiwi,
   applyCommand,
+  assignFace,
   autoAssign,
   availableCrew,
   buildCost,
@@ -6237,13 +6437,17 @@ export {
   hexToPixel,
   housing,
   idleVillagers,
+  inviteCode,
   isFace,
+  isInviteCode,
   isLaunchpadBusy,
   isMaxLevel,
   isObjectiveComplete,
   isPlausible,
   isPristine,
   isProducer,
+  kiwiCount,
+  kiwiSeed,
   launch,
   launchpadOf,
   levelDef,
@@ -6275,6 +6479,7 @@ export {
   tileAt,
   totalWorkers,
   travelTime,
+  universeTargets,
   upgradeCost,
   validateCommand,
   withRng,

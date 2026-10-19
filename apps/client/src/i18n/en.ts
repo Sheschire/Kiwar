@@ -207,6 +207,8 @@ export const en = {
     crewTooSmall: 'A crew needs at least 2 kiwis.',
     crewTooLarge: 'Not enough room or kiwis for this crew (one kiwi stays home).',
     overloaded: 'The ship is overloaded.',
+    universeNotFound: 'No universe with this invite code.',
+    universeFull: 'This universe is full.',
   },
   offline: {
     title: 'While you were away…',

@@ -5,6 +5,7 @@ import { type Command } from '../sim/commands';
 import type { GameEvent } from '../sim/advance';
 import type { GameState } from '../sim/state';
 import { FACES, type Face } from '../types/ids';
+import type { UniverseInfo, UniverseSummary } from './universes';
 
 /**
  * Client ↔ server protocol (milestone 2). The server is authoritative: the client only sends
@@ -39,15 +40,32 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   }),
 ]) as unknown as z.ZodType<Command>;
 
+/** 'solo' (default) or the id of a shared universe the player belongs to. */
+const universe = z.string().min(1).max(64).optional();
+const displayName = z.string().trim().min(1).max(24);
+
 export const requestSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('listUniverses') }),
+  z.object({
+    action: z.literal('createUniverse'),
+    name: z.string().trim().min(1).max(40),
+    displayName,
+  }),
+  z.object({
+    action: z.literal('joinUniverse'),
+    code: z.string().trim().min(8).max(8),
+    displayName,
+  }),
+  z.object({ action: z.literal('universeInfo'), universe: z.string().min(1).max(64) }),
   z.object({
     action: z.literal('load'),
+    universe,
     /** World to create if the player has none yet (e.g. from a shared link). */
     create: z
       .object({ seed: z.string().min(1).max(64).optional(), face: z.enum(FACES) })
       .optional(),
   }),
-  z.object({ action: z.literal('command'), command: commandSchema }),
+  z.object({ action: z.literal('command'), universe, command: commandSchema }),
   z.object({
     action: z.literal('newWorld'),
     seed: z.string().min(1).max(64).optional(),
@@ -66,11 +84,21 @@ export const SERVER_ERRORS = [
   'conflict',
   'importRejected',
   'internal',
+  'universeNotFound',
+  'universeFull',
 ] as const;
 export type ServerError = (typeof SERVER_ERRORS)[number] | (typeof COMMAND_ERRORS)[number];
 
 export type GameResponse =
-  | { ok: true; state: GameState; events: GameEvent[]; serverTime: number }
+  | {
+      ok: true;
+      /** Present for game actions (load, command, join…), absent for listings. */
+      state?: GameState;
+      events: GameEvent[];
+      serverTime: number;
+      universe?: UniverseInfo;
+      universes?: UniverseSummary[];
+    }
   | { ok: false; error: ServerError; state?: GameState; serverTime: number };
 
 export type { Face };

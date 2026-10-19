@@ -184,7 +184,22 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   e.provisions.pulp -= Math.min(e.provisions.pulp, need.pulp);
   e.provisions.juice -= Math.min(e.provisions.juice, need.juice);
 
-  const defense = target ? targetDefense(state, target) : 0;
+  if (!target) {
+    // The face was claimed by a friend while the ship was flying: no battle, the ship turns back.
+    e.status = 'returning';
+    e.result = {
+      victory: false,
+      aborted: true,
+      strength: 0,
+      defense: 0,
+      fed: round2(fed),
+      lostInBattle: [],
+      lostOnReturn: [],
+      loot: emptyResources(),
+    };
+    return;
+  }
+  const defense = targetDefense(state, target);
   const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
   const strength = strengthOf(e.crew.length, fed) * luck;
   const victory = strength >= defense;

@@ -58,10 +58,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const response = await handleGameRequest(
       {
-        repo: createSupabaseRepository(admin, userId),
+        repo: createSupabaseRepository(admin),
         userId,
         now: () => Date.now(),
         randomSeed,
+        randomBytes: (n: number) => crypto.getRandomValues(new Uint8Array(n)),
         isAdmin: !!adminRow,
       },
       body,

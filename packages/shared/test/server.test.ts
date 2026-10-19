@@ -6,6 +6,7 @@ import {
   RATE_LIMIT,
   serializeSave,
   type GameResponse,
+  type GameState,
   type ServiceContext,
 } from './serverHelpers';
 
@@ -13,13 +14,21 @@ function ctxFor(userId = 'user-1', start = 1_700_000_000_000) {
   const repo = createMemoryRepository();
   let now = start;
   let seeds = 0;
-  const ctx: ServiceContext = { repo, userId, now: () => now, randomSeed: () => `srv-${++seeds}` };
+  let bytes = 0;
+  const ctx: ServiceContext = {
+    repo,
+    userId,
+    now: () => now,
+    randomSeed: () => `srv-${++seeds}`,
+    randomBytes: (n) => Uint8Array.from({ length: n }, (_, i) => (bytes++ * 7 + i * 13) % 256),
+  };
   return { ctx, repo, tick: (ms: number) => (now += ms), at: () => now };
 }
 
 const ok = (r: GameResponse) => {
   if (!r.ok) throw new Error(`expected ok, got ${r.error}`);
-  return r;
+  if (!r.state) throw new Error('expected a state');
+  return r as typeof r & { state: GameState };
 };
 
 describe('game service (server authority)', () => {
@@ -118,7 +127,7 @@ describe('game service (server authority)', () => {
       if (first) {
         first = false;
         // Simulate another device writing in between.
-        const g = await repo.findByUser('user-1');
+        const g = await repo.findGame('user-1', 'solo-user-1');
         await realUpdate(id, g!.state, g!.version);
       }
       return realUpdate(id, state, version);

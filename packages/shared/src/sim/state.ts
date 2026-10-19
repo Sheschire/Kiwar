@@ -83,6 +83,8 @@ export interface ExpeditionTarget {
 
 export interface ExpeditionResult {
   victory: boolean;
+  /** The target was gone on arrival (claimed by a player): the ship came back without fighting. */
+  aborted?: boolean;
   strength: number;
   defense: number;
   /** Share of the outbound rations the crew actually had (0–1). */

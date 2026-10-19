@@ -9,20 +9,40 @@ import { capacity, housing, nest, nestDef } from '../sim/selectors';
 import { newGame, type GameState } from '../sim/state';
 import { generateFace, type FaceMap } from '../worldgen/generateFace';
 import type { Face, PlayerId, UniverseId } from '../types/ids';
-import { requestSchema, type GameResponse } from './protocol';
+import { requestSchema, type GameResponse, type ServerError } from './protocol';
+import {
+  assignFace,
+  inviteCode,
+  kiwiCount,
+  kiwiSeed,
+  MAX_PLAYERS,
+  universeTargets,
+  type UniverseInfo,
+  type UniverseMember,
+  type UniverseSummary,
+} from './universes';
 
 export interface StoredGame {
   id: string;
   userId: string;
+  universeId: string;
   state: GameState;
   /** Optimistic concurrency token, incremented on every write. */
   version: number;
 }
 
+export interface UniverseRow {
+  id: string;
+  name: string;
+  code: string;
+  seed: string;
+  maxPlayers: number;
+}
+
 /** Persistence port, implemented with Postgres in the edge function and in memory in tests. */
 export interface GameRepository {
-  findByUser(userId: string): Promise<StoredGame | null>;
-  create(userId: string, state: GameState): Promise<StoredGame>;
+  findGame(userId: string, universeId: string): Promise<StoredGame | null>;
+  create(userId: string, universeId: string, state: GameState): Promise<StoredGame>;
   /** Writes if the stored version still equals `expectedVersion`; returns null on conflict. */
   update(gameId: string, state: GameState, expectedVersion: number): Promise<StoredGame | null>;
   /** Number of commands this user sent since `sinceMs` (rate limiting). */
@@ -35,6 +55,14 @@ export interface GameRepository {
     error?: string;
     at: number;
   }): Promise<void>;
+  // Shared universes.
+  createUniverse(row: Omit<UniverseRow, 'id'> & { createdBy: string }): Promise<UniverseRow>;
+  getUniverse(id: string): Promise<UniverseRow | null>;
+  findUniverseByCode(code: string): Promise<UniverseRow | null>;
+  listMembers(universeId: string): Promise<UniverseMember[]>;
+  /** Adds a member; returns false if the face (or the user) is already taken (race). */
+  addMember(universeId: string, member: UniverseMember): Promise<boolean>;
+  listUserUniverses(userId: string): Promise<UniverseRow[]>;
 }
 
 export interface ServiceContext {
@@ -43,6 +71,8 @@ export interface ServiceContext {
   now: () => number;
   /** Server-side random seed generator (the server owns randomness, not the client). */
   randomSeed: () => string;
+  /** Random bytes for invite codes. */
+  randomBytes: (n: number) => Uint8Array;
   /** Admins may use debug commands (time is never accelerable server-side). */
   isAdmin?: boolean;
 }
@@ -61,13 +91,60 @@ function mapFor(state: GameState): FaceMap {
   return map;
 }
 
+const soloId = (ctx: ServiceContext) => `solo-${ctx.userId}`;
+
 function freshGame(ctx: ServiceContext, seed: string, face: Face): GameState {
+  return newGame({ seed, face, now: ctx.now(), playerId: ctx.userId, universeId: soloId(ctx) });
+}
+
+/** Where a request plays: the player's solo universe or a shared one they belong to. */
+interface Scope {
+  universeId: string;
+  shared: { info: UniverseInfo; me: UniverseMember } | null;
+}
+
+async function resolveScope(
+  ctx: ServiceContext,
+  repo: GameRepository,
+  universe: string | undefined,
+): Promise<Scope | null> {
+  if (!universe || universe === 'solo') return { universeId: soloId(ctx), shared: null };
+  const row = await repo.getUniverse(universe);
+  if (!row) return null;
+  const members = await repo.listMembers(row.id);
+  const me = members.find((m) => m.userId === ctx.userId);
+  if (!me) return null;
+  return { universeId: row.id, shared: { info: toInfo(row, members), me } };
+}
+
+function toInfo(row: UniverseRow, members: UniverseMember[]): UniverseInfo {
+  return {
+    ...toSummary(row, members.length),
+    seed: row.seed,
+    members,
+    kiwiCount: kiwiCount(members.length),
+  };
+}
+
+function toSummary(row: UniverseRow, players: number): UniverseSummary {
+  return { id: row.id, name: row.name, code: row.code, players, maxPlayers: row.maxPlayers };
+}
+
+/** In a shared universe, the reachable alien faces change as friends join. */
+function withScopeTargets(state: GameState, scope: Scope): GameState {
+  if (!scope.shared) return state;
+  return { ...state, targets: universeTargets(scope.shared.info.members, scope.shared.me) };
+}
+
+function universeGame(ctx: ServiceContext, info: UniverseInfo, me: UniverseMember): GameState {
   return newGame({
-    seed,
-    face,
+    seed: kiwiSeed(info.seed, me.kiwiIndex),
+    face: me.face,
     now: ctx.now(),
     playerId: ctx.userId,
-    universeId: `solo-${ctx.userId}`,
+    universeId: info.id,
+    kiwiId: `k${me.kiwiIndex}`,
+    targets: universeTargets(info.members, me),
   });
 }
 
@@ -132,7 +209,9 @@ export function isPlausible(state: GameState, now: number): boolean {
   return true;
 }
 
-function reply(ctx: ServiceContext, state: GameState, events: GameEvent[] = []): GameResponse {
+type OkResponse = Extract<GameResponse, { ok: true }>;
+
+function reply(ctx: ServiceContext, state: GameState, events: GameEvent[] = []): OkResponse {
   return { ok: true, state, events, serverTime: ctx.now() };
 }
 
@@ -145,68 +224,102 @@ export async function handleGameRequest(ctx: ServiceContext, body: unknown): Pro
   if (!parsed.success) return { ok: false, error: 'invalidRequest', serverTime: ctx.now() };
   const req = parsed.data;
   const repo = migrating(ctx.repo);
+  const fail = (error: ServerError, state?: GameState): GameResponse =>
+    state
+      ? { ok: false, error, state, serverTime: ctx.now() }
+      : { ok: false, error, serverTime: ctx.now() };
 
   switch (req.action) {
+    case 'listUniverses': {
+      const rows = await repo.listUserUniverses(ctx.userId);
+      const universes = await Promise.all(
+        rows.map(async (r) => toSummary(r, (await repo.listMembers(r.id)).length)),
+      );
+      return { ok: true, events: [], universes, serverTime: ctx.now() };
+    }
+
+    case 'createUniverse': {
+      const mine = await repo.listUserUniverses(ctx.userId);
+      if (mine.length >= MAX_UNIVERSES_PER_PLAYER) return fail('forbidden');
+      const row = await repo.createUniverse({
+        name: req.name.trim(),
+        code: inviteCode(ctx.randomBytes(8)),
+        seed: ctx.randomSeed(),
+        maxPlayers: MAX_PLAYERS,
+        createdBy: ctx.userId,
+      });
+      return joinAndPlay(ctx, repo, row, req.displayName);
+    }
+
+    case 'joinUniverse': {
+      const row = await repo.findUniverseByCode(req.code.toUpperCase());
+      if (!row) return fail('universeNotFound');
+      return joinAndPlay(ctx, repo, row, req.displayName);
+    }
+
+    case 'universeInfo': {
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope?.shared) return fail('forbidden');
+      return { ok: true, events: [], universe: scope.shared.info, serverTime: ctx.now() };
+    }
+
     case 'load': {
-      const existing = await repo.findByUser(ctx.userId);
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope) return fail('forbidden');
+      const existing = await repo.findGame(ctx.userId, scope.universeId);
       // The stored state is returned as is: the client advances it to the server time,
       // which lets it show the "while you were away" summary.
-      if (existing) return reply(ctx, existing.state);
-      const created = await repo.create(
-        ctx.userId,
-        freshGame(ctx, req.create?.seed ?? ctx.randomSeed(), req.create?.face ?? 'kiwisu'),
-      );
-      return reply(ctx, created.state);
+      if (existing)
+        return {
+          ...reply(ctx, withScopeTargets(existing.state, scope)),
+          universe: scope.shared?.info,
+        };
+      const state = scope.shared
+        ? universeGame(ctx, scope.shared.info, scope.shared.me)
+        : freshGame(ctx, req.create?.seed ?? ctx.randomSeed(), req.create?.face ?? 'kiwisu');
+      const created = await repo.create(ctx.userId, scope.universeId, state);
+      return { ...reply(ctx, created.state), universe: scope.shared?.info };
     }
 
     case 'newWorld': {
       const state = freshGame(ctx, req.seed ?? ctx.randomSeed(), req.face);
-      const existing = await repo.findByUser(ctx.userId);
-      if (!existing) return reply(ctx, (await repo.create(ctx.userId, state)).state);
+      const existing = await repo.findGame(ctx.userId, soloId(ctx));
+      if (!existing) return reply(ctx, (await repo.create(ctx.userId, soloId(ctx), state)).state);
       const saved = await repo.update(existing.id, state, existing.version);
-      return saved
-        ? reply(ctx, saved.state)
-        : { ok: false, error: 'conflict', serverTime: ctx.now() };
+      return saved ? reply(ctx, saved.state) : fail('conflict');
     }
 
     case 'import': {
       const loaded = deserializeSave(req.save);
       const now = ctx.now();
-      if (!loaded.ok || !isPlausible(loaded.save.state, now)) {
-        return { ok: false, error: 'importRejected', serverTime: now };
-      }
-      const existing = await repo.findByUser(ctx.userId);
-      if (existing && !isPristine(existing.state)) {
-        return { ok: false, error: 'importRejected', state: existing.state, serverTime: now };
-      }
+      if (!loaded.ok || !isPlausible(loaded.save.state, now)) return fail('importRejected');
+      const existing = await repo.findGame(ctx.userId, soloId(ctx));
+      if (existing && !isPristine(existing.state)) return fail('importRejected', existing.state);
       const imported: GameState = {
         ...loaded.save.state,
         playerId: ctx.userId as PlayerId,
-        universeId: `solo-${ctx.userId}` as UniverseId,
+        universeId: soloId(ctx) as UniverseId,
       };
       const state = advance(imported, now).state;
       const saved = existing
         ? await repo.update(existing.id, state, existing.version)
-        : await repo.create(ctx.userId, state);
-      return saved ? reply(ctx, saved.state) : { ok: false, error: 'conflict', serverTime: now };
+        : await repo.create(ctx.userId, soloId(ctx), state);
+      return saved ? reply(ctx, saved.state) : fail('conflict');
     }
 
     case 'command': {
       const now = ctx.now();
       const recent = await repo.countRecentCommands(ctx.userId, now - RATE_LIMIT.windowMs);
-      if (recent >= RATE_LIMIT.maxCommands)
-        return { ok: false, error: 'rateLimited', serverTime: now };
-      if (req.command.type === 'debugGrant' && !ctx.isAdmin) {
-        return { ok: false, error: 'forbidden', serverTime: now };
-      }
+      if (recent >= RATE_LIMIT.maxCommands) return fail('rateLimited');
+      if (req.command.type === 'debugGrant' && !ctx.isAdmin) return fail('forbidden');
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope) return fail('forbidden');
       // Optimistic concurrency: retry once if another request wrote in between.
       for (let attempt = 0; attempt < 2; attempt++) {
-        const game = await repo.findByUser(ctx.userId);
-        if (!game) return { ok: false, error: 'invalidRequest', serverTime: now };
-        const result = applyCommand(game.state, req.command, {
-          now: ctx.now(),
-          map: mapFor(game.state),
-        });
+        const game = await repo.findGame(ctx.userId, scope.universeId);
+        if (!game) return fail('invalidRequest');
+        const current = withScopeTargets(game.state, scope);
+        const result = applyCommand(current, req.command, { now: ctx.now(), map: mapFor(current) });
         await repo.logCommand({
           userId: ctx.userId,
           gameId: game.id,
@@ -215,23 +328,58 @@ export async function handleGameRequest(ctx: ServiceContext, body: unknown): Pro
           error: result.ok ? undefined : result.error,
           at: now,
         });
-        if (!result.ok)
-          return { ok: false, error: result.error, state: game.state, serverTime: ctx.now() };
+        if (!result.ok) return fail(result.error, current);
         const saved = await repo.update(game.id, result.state, game.version);
         if (saved)
           return { ok: true, state: saved.state, events: result.events, serverTime: ctx.now() };
       }
-      return { ok: false, error: 'conflict', serverTime: ctx.now() };
+      return fail('conflict');
     }
   }
+}
+
+/** A player may create (and own) a handful of universes. */
+export const MAX_UNIVERSES_PER_PLAYER = 5;
+
+/** Joins (if needed) and returns the player's game in that universe. */
+async function joinAndPlay(
+  ctx: ServiceContext,
+  repo: GameRepository,
+  row: UniverseRow,
+  displayName: string,
+): Promise<GameResponse> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const members = await repo.listMembers(row.id);
+    let me = members.find((m) => m.userId === ctx.userId);
+    if (!me) {
+      if (members.length >= row.maxPlayers)
+        return { ok: false, error: 'universeFull', serverTime: ctx.now() };
+      me = { userId: ctx.userId, displayName: displayName.trim(), ...assignFace(members) };
+      // Two friends joining at the same instant may get the same face: retry.
+      if (!(await repo.addMember(row.id, me))) continue;
+      members.push(me);
+    }
+    const info = toInfo(row, members);
+    const existing = await repo.findGame(ctx.userId, row.id);
+    const game = existing ?? (await repo.create(ctx.userId, row.id, universeGame(ctx, info, me)));
+    const scope: Scope = { universeId: row.id, shared: { info, me } };
+    return {
+      ok: true,
+      state: withScopeTargets(game.state, scope),
+      events: [],
+      universe: info,
+      serverTime: ctx.now(),
+    };
+  }
+  return { ok: false, error: 'conflict', serverTime: ctx.now() };
 }
 
 /** Stored states may predate the current schema: upgrade them when read. */
 function migrating(repo: GameRepository): GameRepository {
   return {
     ...repo,
-    async findByUser(userId) {
-      const game = await repo.findByUser(userId);
+    async findGame(userId, universeId) {
+      const game = await repo.findGame(userId, universeId);
       if (!game) return null;
       const migrated = migrateState(game.state);
       if (!migrated.ok)
@@ -247,18 +395,21 @@ export function createMemoryRepository(): GameRepository & {
   log: unknown[];
 } {
   const games = new Map<string, StoredGame>();
+  const universes = new Map<string, UniverseRow>();
+  const members = new Map<string, UniverseMember[]>();
   const log: { userId: string; at: number }[] = [];
   let next = 1;
-  const clone = (g: StoredGame): StoredGame => JSON.parse(JSON.stringify(g)) as StoredGame;
+  const clone = <T>(g: T): T => JSON.parse(JSON.stringify(g)) as T;
   return {
     games,
     log,
-    async findByUser(userId) {
-      for (const g of games.values()) if (g.userId === userId) return clone(g);
+    async findGame(userId, universeId) {
+      for (const g of games.values())
+        if (g.userId === userId && g.universeId === universeId) return clone(g);
       return null;
     },
-    async create(userId, state) {
-      const g: StoredGame = { id: `g${next++}`, userId, state, version: 1 };
+    async create(userId, universeId, state) {
+      const g: StoredGame = { id: `g${next++}`, userId, universeId, state, version: 1 };
       games.set(g.id, clone(g));
       return clone(g);
     },
@@ -274,6 +425,49 @@ export function createMemoryRepository(): GameRepository & {
     },
     async logCommand(entry) {
       log.push(entry);
+    },
+    async createUniverse(row) {
+      const u: UniverseRow = {
+        id: `u${next++}`,
+        name: row.name,
+        code: row.code,
+        seed: row.seed,
+        maxPlayers: row.maxPlayers,
+      };
+      universes.set(u.id, u);
+      members.set(u.id, []);
+      return clone(u);
+    },
+    async getUniverse(id) {
+      const u = universes.get(id);
+      return u ? clone(u) : null;
+    },
+    async findUniverseByCode(code) {
+      for (const u of universes.values()) if (u.code === code) return clone(u);
+      return null;
+    },
+    async listMembers(universeId) {
+      return clone(members.get(universeId) ?? []);
+    },
+    async addMember(universeId, member) {
+      const list = members.get(universeId) ?? [];
+      if (
+        list.some(
+          (m) =>
+            m.userId === member.userId ||
+            (m.kiwiIndex === member.kiwiIndex && m.face === member.face),
+        )
+      ) {
+        return false;
+      }
+      list.push(clone(member));
+      members.set(universeId, list);
+      return true;
+    },
+    async listUserUniverses(userId) {
+      return [...universes.values()]
+        .filter((u) => (members.get(u.id) ?? []).some((m) => m.userId === userId))
+        .map(clone);
     },
   };
 }

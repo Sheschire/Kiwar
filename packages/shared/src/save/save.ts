@@ -96,6 +96,7 @@ export const gameStateSchema = z.object({
       result: z
         .object({
           victory: z.boolean(),
+          aborted: z.boolean().optional(),
           strength: z.number(),
           defense: z.number(),
           fed: z.number(),

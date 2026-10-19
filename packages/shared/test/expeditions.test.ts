@@ -196,4 +196,15 @@ describe('expeditions', () => {
     const r = applyCommand(launched, { type: 'hatchEgg' }, { now: t + 1000, map });
     expect(r.ok || r.error === 'housingFull').toBe(true);
   });
+
+  it('turns back without fighting if a friend claimed the target meanwhile', () => {
+    const { s, t, map, padId, targetId } = readyColony();
+    const launched = run(s, plan(padId, targetId, 6, 80, 40), t, map);
+    const claimed = { ...launched, targets: [] };
+    const back = advance(claimed, t + 4 * HOUR_MS).state;
+    const r = back.expeditions[0]!.result!;
+    expect(r.aborted).toBe(true);
+    expect(r.lostInBattle).toEqual([]);
+    expect(population(back)).toBe(population(s));
+  });
 });

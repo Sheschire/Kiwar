@@ -4,7 +4,7 @@
 //   VITE_SUPABASE_URL=http://localhost:54321 VITE_SUPABASE_ANON_KEY=mock pnpm dev
 // Games are kept in memory and run through the real shared game service.
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { createMemoryRepository, handleGameRequest } from '../packages/shared/src/index';
 
 const PORT = Number(process.env.PORT ?? 54321);
@@ -92,6 +92,7 @@ createServer(async (req, res) => {
         userId: user.id,
         now: () => Date.now(),
         randomSeed: () => randomUUID().slice(0, 8),
+        randomBytes: (n) => randomBytes(n),
         isAdmin: true,
       },
       body,

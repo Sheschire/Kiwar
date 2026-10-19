@@ -19,3 +19,4 @@ export * from './sim/expeditions';
 export * from './save/save';
 export * from './server/protocol';
 export * from './server/gameService';
+export * from './server/universes';
