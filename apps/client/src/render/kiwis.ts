@@ -19,16 +19,18 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
-  BUILDINGS,
   createRng,
+  DEPOSITS,
   getBuilding,
   getTile,
+  hexKey,
   hexRing,
   hexToPixel,
   HEART,
-  levelDef,
+  harvestedTileType,
+  hexDistance,
+  isDepot,
   pixelToHex,
-  RESOURCE_IDS,
   TILES,
   type FaceMap,
   type GameState,
@@ -125,6 +127,7 @@ export class KiwisView {
   private readonly loads: InstancedMesh;
   private readonly agents = new Map<VillagerId, Agent>();
   private state: GameState | null = null;
+  private paths = new Set<string>();
   private readonly m = new Matrix4();
   private readonly q = new Quaternion();
   private readonly e = new Euler();
@@ -167,6 +170,8 @@ export class KiwisView {
   }
 
   sync(state: GameState): void {
+    if (state.paths.length !== this.paths.size || state.paths.some((k) => !this.paths.has(k)))
+      this.paths = new Set(state.paths);
     this.state = state;
     const ids = new Set(state.villagers.map((v) => v.id));
     for (const id of this.agents.keys()) if (!ids.has(id)) this.agents.delete(id);
@@ -234,14 +239,14 @@ export class KiwisView {
   /** Plans a walk from the agent position to a target tile. */
   private walkTo(agent: Agent, target: Hex, spread = 0.35): void {
     const from = this.hexAt(agent.pos);
-    const hexes = findPath(this.map, from, target) ?? [from, target];
+    const hexes = findPath(this.map, from, target, this.paths) ?? [from, target];
     const pts: Vector3[] = [];
     const fast: boolean[] = [];
     for (let i = 1; i < hexes.length; i++) {
       const h = hexes[i]!;
       const last = i === hexes.length - 1;
       pts.push(last ? this.worldOf(h, agent.rng, spread) : this.worldOf(h, agent.rng, 0.22));
-      fast.push(getTile(this.map, h)?.type === 'ray');
+      fast.push(getTile(this.map, h)?.type === 'ray' || this.paths.has(hexKey(h)));
     }
     if (pts.length === 0) pts.push(this.worldOf(target, agent.rng, spread));
     agent.path = pts;
@@ -254,9 +259,8 @@ export class KiwisView {
     if (villager.job.kind === 'work') {
       const b = getBuilding(this.state, villager.job.buildingId);
       if (!b) return null;
-      const prod =
-        levelDef(b.type, b.level)?.production ?? BUILDINGS[b.type].levels[0]!.production ?? {};
-      const resource = RESOURCE_IDS.find((r) => (prod[r] ?? 0) > 0) ?? null;
+      const type = harvestedTileType(this.map, b);
+      const resource = (type && DEPOSITS[type]?.resource) ?? null;
       return { hex: { q: b.q, r: b.r }, resource };
     }
     if (villager.job.kind === 'build') {
@@ -265,6 +269,20 @@ export class KiwisView {
       return item ? { hex: { q: item.q, r: item.r }, resource: null } : null;
     }
     return null;
+  }
+
+  private nearestDepot(from: Hex): Hex | null {
+    let best: Hex | null = null;
+    let bestD = Infinity;
+    for (const b of this.state?.buildings ?? []) {
+      if (!isDepot(b)) continue;
+      const d = hexDistance(from, b);
+      if (d < bestD) {
+        bestD = d;
+        best = b.type === 'nest' ? null : { q: b.q, r: b.r };
+      }
+    }
+    return best;
   }
 
   /** Decides what an agent does next, according to its villager's job. */
@@ -313,7 +331,9 @@ export class KiwisView {
       if (agent.timer <= 0) {
         if (agent.activity === 'work') {
           agent.carrying = work.resource;
-          this.walkTo(agent, this.nestRing(agent), 0.4);
+          // Harvests go to the nearest depot (the Nest or a Warehouse).
+          const depot = this.nearestDepot(work.hex);
+          this.walkTo(agent, depot ?? this.nestRing(agent), 0.4);
           agent.leg = 'toNest';
         } else if (agent.activity === 'drop' || agent.activity === 'idle') {
           this.walkTo(agent, work.hex);

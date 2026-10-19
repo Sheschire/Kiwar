@@ -329,7 +329,40 @@ function launchpad(level: number, docked = true): Part[] {
   return p;
 }
 
+/** Gathering camp: a leaf lean-to, a woven basket and a little stone ring. No foundations. */
+function camp(): Part[] {
+  const p: Part[] = [];
+  // Lean-to: two forked poles, a ridge and a leaf roof.
+  for (const x of [-0.28, 0.28]) {
+    p.push([cyl(5), C.woodDark, m(x, 0.24, -0.12, 0.025, 0.5, 0.025, -0.35, 0, 0)]);
+  }
+  p.push([cyl(5), C.wood, m(0, 0.46, -0.04, 0.025, 0.64, 0.025, 0, 0, Math.PI / 2)]);
+  p.push([box(), C.leaf, m(0, 0.27, -0.2, 0.7, 0.03, 0.46, -0.85, 0, 0)]);
+  p.push([box(), C.leafDark, m(0, 0.29, -0.19, 0.6, 0.02, 0.36, -0.85, 0, 0)]);
+  // Woven basket with a few pickings.
+  p.push([cyl(9), C.straw, m(0.3, 0.09, 0.26, 0.13, 0.18, 0.13)]);
+  p.push([
+    new TorusGeometry(0.13, 0.025, 4, 10),
+    C.strawDark,
+    m(0.3, 0.18, 0.26, 1, 1, 1, Math.PI / 2),
+  ]);
+  p.push([sphere(6, 4), C.pulp, m(0.27, 0.2, 0.25, 0.06, 0.05, 0.06)]);
+  p.push([sphere(6, 4), C.pulp, m(0.34, 0.21, 0.28, 0.05, 0.05, 0.05)]);
+  // Stone ring.
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    p.push([
+      ico(),
+      C.stoneDark,
+      m(-0.25 + Math.cos(a) * 0.12, 0.03, 0.28 + Math.sin(a) * 0.12, 0.05, 0.04, 0.05),
+    ]);
+  }
+  p.push([cone(5), C.roof, m(-0.25, 0.08, 0.28, 0.05, 0.12, 0.05)]);
+  return p;
+}
+
 const BUILDERS: Record<BuildingType, (level: number) => Part[]> = {
+  camp,
   launchpad,
   nest,
   pulpery,

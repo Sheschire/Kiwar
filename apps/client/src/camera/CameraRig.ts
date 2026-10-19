@@ -33,6 +33,7 @@ export class CameraRig {
   private readonly element: HTMLElement;
   private twistAngle: number | null = null;
   private readonly touches = new Map<number, { x: number; y: number }>();
+  private paintMode = false;
 
   constructor(camera: PerspectiveCamera, element: HTMLElement) {
     this.element = element;
@@ -117,6 +118,14 @@ export class CameraRig {
       void this.controls.dollyTo(FOCUS_DISTANCE, true);
   }
 
+  /** While painting, left-drag and one-finger drags belong to the painter. */
+  setPaintMode(on: boolean): void {
+    this.paintMode = on;
+    this.controls.mouseButtons.left = on ? A.NONE : A.TRUCK;
+    this.controls.touches.one = on ? A.NONE : A.TOUCH_TRUCK;
+    this.controls.touches.two = on ? A.TOUCH_DOLLY_TRUCK : A.TOUCH_DOLLY_ROTATE;
+  }
+
   rotateStep(direction: 1 | -1): void {
     // Snap to the next multiple of 45° for a satisfying stepped rotation.
     const current = this.controls.azimuthAngle;
@@ -171,7 +180,8 @@ export class CameraRig {
    */
   private onMouseDownCapture = (e: PointerEvent) => {
     if (e.pointerType !== 'mouse') return;
-    this.controls.mouseButtons.left = e.altKey || e.ctrlKey ? A.ROTATE : A.TRUCK;
+    this.controls.mouseButtons.left =
+      e.altKey || e.ctrlKey ? A.ROTATE : this.paintMode ? A.NONE : A.TRUCK;
     this.element.classList.add('dragging');
     window.addEventListener('pointerup', this.onMouseUpAnywhere);
   };

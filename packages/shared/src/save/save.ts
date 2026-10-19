@@ -40,6 +40,7 @@ export const gameStateSchema = z.object({
       level: z.number().int().min(1).max(3),
       richness: z.number(),
       builtAt: z.number(),
+      pool: z.object({ stock: z.number().min(0), tiles: z.array(z.string()).max(64) }).optional(),
     }),
   ),
   villagers: z.array(z.object({ id, name: z.string(), bornAt: z.number(), job })),
@@ -107,6 +108,8 @@ export const gameStateSchema = z.object({
         .nullable(),
     }),
   ),
+  paths: z.array(z.string().max(16)).max(500),
+  deposits: z.record(z.string(), z.object({ stock: z.number().min(0), at: z.number() })),
   nextId: z.number().int(),
   rng: z.tuple([z.number(), z.number(), z.number(), z.number()]),
 });
@@ -126,6 +129,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
     victories: {},
     expeditions: [],
   }),
+  // v2 → v3: territory (milestone 4). Deposits start full; pools are set up by the next advance.
+  2: (raw) => ({ ...raw, paths: [], deposits: {} }),
 };
 
 export type MigrateResult =

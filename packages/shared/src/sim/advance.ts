@@ -1,21 +1,25 @@
 import { isProducer, type BuildingType } from '../data/buildings';
-import { RESOURCE_IDS, type ResourceId } from '../data/resources';
+import { RESOURCE_IDS, emptyResources, type ResourceId, type Resources } from '../data/resources';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
 import {
   activeItem,
+  buildingHarvest,
+  buildingRates,
   capacity,
   getBuilding,
   HOUR_MS,
   idleVillagers,
-  productionRates,
+  storageFullCheck,
   workerSlots,
   workersOf,
 } from './selectors';
 import { resolveArrival, resolveReturn } from './expeditions';
+import { faceMapOf, syncPools, timeToDepletion } from './territory';
 import {
   addVillager,
   cloneState,
   nextId,
+  type Building,
   type Expedition,
   type GameState,
   type Villager,
@@ -62,6 +66,8 @@ export function advance(state: GameState, now: TimeMs): AdvanceResult {
 
 /** Mutating version used internally (and by command handlers working on a fresh copy). */
 export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): void {
+  const map = faceMapOf(s);
+  syncPools(s, map, s.now);
   startNextConstruction(s, s.now, events);
   // Guard against pathological loops; each iteration consumes at least one event.
   for (let guard = 0; guard < 100_000; guard++) {
@@ -69,15 +75,22 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const constructionEnd = active ? active.startedAt! + active.durationMs : Infinity;
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
-    const nextEvent = Math.min(constructionEnd, eggEnd, expedition?.at ?? Infinity);
+    const flows = computeFlows(s);
+    const nextEvent = Math.min(
+      constructionEnd,
+      eggEnd,
+      expedition?.at ?? Infinity,
+      flows.nextChange,
+    );
     const target = Math.min(nextEvent, now);
     if (target > s.now) {
-      accrue(s, target - s.now, target, events);
+      accrue(s, flows, target - s.now, target, events);
       s.now = target;
     }
     if (nextEvent > now) break;
     if (constructionEnd <= now && constructionEnd === nextEvent) {
       completeConstruction(s, constructionEnd, events);
+      syncPools(s, map, constructionEnd);
       startNextConstruction(s, constructionEnd, events);
     }
     if (s.egg && s.egg.readyAt <= now && s.egg.readyAt === nextEvent) {
@@ -104,15 +117,47 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
   s.now = Math.max(s.now, now);
 }
 
-function accrue(s: GameState, dtMs: number, at: TimeMs, events: GameEvent[]): void {
-  const rates = productionRates(s);
+interface Flows {
+  rates: Resources;
+  pools: { b: Building; delta: number; cap: number }[];
+  /** Next time a rate changes on its own (a deposit runs dry, a storage fills up). */
+  nextChange: TimeMs;
+}
+
+/** Every rate of the colony, constant until `nextChange` or the next game event. */
+function computeFlows(s: GameState): Flows {
+  const full = storageFullCheck(s);
+  const rates = emptyResources();
+  const pools: Flows['pools'] = [];
+  let next = Infinity;
+  for (const b of s.buildings) {
+    const r = buildingRates(s, b, full);
+    for (const id of RESOURCE_IDS) rates[id] += r[id];
+    const h = b.pool ? buildingHarvest(s, b, full) : null;
+    if (!h || !b.pool) continue;
+    pools.push({ b, delta: h.regen - h.harvest, cap: h.cap });
+    const dry = timeToDepletion(h);
+    if (dry < Infinity) next = Math.min(next, s.now + Math.max(1, Math.ceil(dry)));
+  }
+  const cap = capacity(s);
+  for (const id of RESOURCE_IDS) {
+    if (rates[id] <= 0 || full(id)) continue;
+    const fill = ((cap[id] - s.resources[id]) / rates[id]) * HOUR_MS;
+    next = Math.min(next, s.now + Math.max(1, Math.ceil(fill)));
+  }
+  return { rates, pools, nextChange: next };
+}
+
+function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: GameEvent[]): void {
+  const { rates } = flows;
   const cap = capacity(s);
   for (const id of RESOURCE_IDS) {
     const before = s.resources[id];
     const gain = (rates[id] * dtMs) / HOUR_MS;
     if (gain <= 0) continue;
     // Never destroy stock above capacity (e.g. rewards), just stop producing.
-    const after = before >= cap[id] ? before : Math.min(cap[id], before + gain);
+    let after = before >= cap[id] ? before : Math.min(cap[id], before + gain);
+    if (after < cap[id] && cap[id] - after < 1e-6) after = cap[id];
     s.resources[id] = after;
     s.stats.produced[id] += after - before;
     if (before < cap[id] && after >= cap[id]) {
@@ -120,6 +165,10 @@ function accrue(s: GameState, dtMs: number, at: TimeMs, events: GameEvent[]): vo
       const fillMs = ((cap[id] - before) / rates[id]) * HOUR_MS;
       events.push({ type: 'storageFull', at: Math.round(at - dtMs + fillMs), resource: id });
     }
+  }
+  for (const p of flows.pools) {
+    const stock = p.b.pool!.stock + (p.delta * dtMs) / HOUR_MS;
+    p.b.pool!.stock = stock < 1e-6 ? 0 : Math.min(p.cap, stock);
   }
 }
 

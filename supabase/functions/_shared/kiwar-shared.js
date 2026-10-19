@@ -277,6 +277,47 @@ var FACE_PROFILES = {
   }
 };
 
+// packages/shared/src/data/territory.ts
+var DEPOSITS = {
+  flesh: { resource: "pulp", stock: 300, regen: 150 },
+  grove: { resource: "fiber", stock: 260, regen: 120 },
+  seedRing: { resource: "seeds", stock: 90, regen: 30 },
+  juice: { resource: "juice", stock: 400, regen: 160 }
+};
+var HARVESTS = {
+  pulpery: "flesh",
+  fiberWorkshop: "grove",
+  seedQuarry: "seedRing",
+  juiceWell: "juice"
+};
+var CATCHMENT_RADIUS = [1, 1, 2];
+var LOGISTICS = {
+  cycleS: 30,
+  stepS: 4,
+  refDistance: 3,
+  min: 0.35,
+  max: 1.25,
+  /** Extra cost to reach a building standing on an unwalkable tile (a well in the juice). */
+  shoreCost: 0.5
+};
+var PATHS = {
+  /** Walking cost of a tile with a path (rays cost 0.5, flesh 1, groves 1.5). */
+  walkCost: 0.35,
+  cost: { fiber: 4 },
+  /** Max path tiles: base + perNestLevel × Nest level. */
+  base: 20,
+  perNestLevel: 15,
+  /** Max tiles per command (one painting gesture). */
+  maxPerCommand: 40
+};
+var CAMPS = {
+  /** Harvest per hour with both slots filled. */
+  rates: { pulp: 180, fiber: 150, seeds: 50, juice: 150 },
+  workerSlots: 2,
+  max: 3,
+  tiles: ["flesh", "grove", "seedRing", "juice"]
+};
+
 // packages/shared/src/data/buildings.ts
 var BUILDING_TYPES = [
   "nest",
@@ -286,7 +327,8 @@ var BUILDING_TYPES = [
   "juiceWell",
   "hut",
   "warehouse",
-  "launchpad"
+  "launchpad",
+  "camp"
 ];
 var BUILDINGS = {
   nest: {
@@ -513,9 +555,21 @@ var BUILDINGS = {
         travelTime: 0.7
       }
     ]
+  },
+  // Gathering camp (milestone 4): set up instantly and for free with the `gather` command,
+  // outside the building cap. Its harvest depends on the tile (see CAMPS).
+  camp: {
+    id: "camp",
+    allowedTiles: CAMPS.tiles,
+    buildable: false,
+    copyGrowth: 1,
+    levels: [{ cost: {}, durationMs: 0, requiresNestLevel: 1, workerSlots: CAMPS.workerSlots }]
   }
 };
 var MAX_LEVEL = 3;
+function maxLevelOf(type) {
+  return BUILDINGS[type].levels.length;
+}
 var BUILDABLE_TYPES = BUILDING_TYPES.filter((t) => BUILDINGS[t].buildable);
 function levelDef(type, level) {
   return BUILDINGS[type].levels[level - 1];
@@ -914,7 +968,7 @@ function tileAt(map, q, r) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 2;
+var SCHEMA_VERSION = 3;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -955,6 +1009,8 @@ function newGame(opts) {
     targets: opts.targets ?? soloTargets(opts.face),
     victories: {},
     expeditions: [],
+    paths: [],
+    deposits: {},
     nextId: 1,
     rng: rng.state()
   };
@@ -1005,13 +1061,17 @@ function cloneState(state) {
     ...state,
     params: { ...state.params },
     resources: { ...state.resources },
-    buildings: state.buildings.map((b) => ({ ...b })),
+    buildings: state.buildings.map(
+      (b) => b.pool ? { ...b, pool: { stock: b.pool.stock, tiles: [...b.pool.tiles] } } : { ...b }
+    ),
     villagers: state.villagers.map((v) => ({ ...v, job: { ...v.job } })),
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
     egg: state.egg ? { ...state.egg } : null,
     stats: { ...state.stats, produced: { ...state.stats.produced } },
     targets: state.targets.map((t) => ({ ...t, loot: { ...t.loot } })),
     victories: { ...state.victories },
+    paths: [...state.paths],
+    deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
     expeditions: state.expeditions.map((e) => ({
       ...e,
       crew: [...e.crew],
@@ -1028,8 +1088,269 @@ function cloneState(state) {
   };
 }
 
-// packages/shared/src/sim/selectors.ts
+// packages/shared/src/sim/territory.ts
 var HOUR_MS = 36e5;
+var EPS = 1e-6;
+var mapCache = /* @__PURE__ */ new Map();
+function faceMapOf(state) {
+  const key = `${state.seed}|${state.face}|${state.params.radius}`;
+  let map = mapCache.get(key);
+  if (!map) {
+    map = generateFace(state.seed, state.face, state.params);
+    if (mapCache.size >= 8) mapCache.delete(mapCache.keys().next().value);
+    mapCache.set(key, map);
+  }
+  return map;
+}
+function tileDeposit(tile) {
+  const def = tile ? DEPOSITS[tile.type] : void 0;
+  if (!tile || !def) return null;
+  return {
+    resource: def.resource,
+    cap: def.stock * tile.richness,
+    regen: def.regen * tile.richness
+  };
+}
+function depositAtKey(map, key) {
+  return tileDeposit(getTile(map, parseHexKey(key)));
+}
+function freeDepositStock(state, map, key, at) {
+  const dep = depositAtKey(map, key);
+  if (!dep) return 0;
+  const d = state.deposits[key];
+  if (!d) return dep.cap;
+  return Math.min(dep.cap, d.stock + dep.regen * Math.max(0, at - d.at) / HOUR_MS);
+}
+function harvestedTileType(map, b) {
+  if (b.type === "camp") return getTile(map, b)?.type ?? null;
+  return HARVESTS[b.type] ?? null;
+}
+function catchmentRadius(b) {
+  return b.type === "camp" ? 0 : CATCHMENT_RADIUS[b.level - 1] ?? 1;
+}
+function computeClaims(state, map) {
+  const occupied = new Set(state.buildings.map((b) => hexKey(b)));
+  const claimed = /* @__PURE__ */ new Set();
+  const out = /* @__PURE__ */ new Map();
+  for (const b of state.buildings) {
+    const type = harvestedTileType(map, b);
+    if (!type) continue;
+    const own = hexKey(b);
+    const tiles = [];
+    for (const h of hexDisk(b, catchmentRadius(b))) {
+      const key = hexKey(h);
+      if (claimed.has(key) || key !== own && occupied.has(key)) continue;
+      if (getTile(map, h)?.type !== type) continue;
+      claimed.add(key);
+      tiles.push(key);
+    }
+    out.set(b.id, tiles);
+  }
+  return out;
+}
+function poolCapacity(map, tiles) {
+  let cap = 0;
+  let regen = 0;
+  for (const k of tiles) {
+    const d = depositAtKey(map, k);
+    if (d) {
+      cap += d.cap;
+      regen += d.regen;
+    }
+  }
+  return { cap, regen };
+}
+function releaseTiles(state, map, tiles, ratio, at) {
+  for (const k of tiles) {
+    const dep = depositAtKey(map, k);
+    if (!dep) continue;
+    const stock = dep.cap * ratio;
+    if (stock < dep.cap - EPS) state.deposits[k] = { stock, at };
+    else delete state.deposits[k];
+  }
+}
+function fillRatio(map, b) {
+  if (!b.pool) return 1;
+  const { cap } = poolCapacity(map, b.pool.tiles);
+  return cap > 0 ? Math.min(1, Math.max(0, b.pool.stock / cap)) : 1;
+}
+function releasePool(state, map, b, at) {
+  if (!b.pool) return;
+  releaseTiles(state, map, b.pool.tiles, fillRatio(map, b), at);
+  delete b.pool;
+}
+function syncPools(state, map, at) {
+  const claims = computeClaims(state, map);
+  const changed = [];
+  for (const b of state.buildings) {
+    const next = claims.get(b.id);
+    if (!next) {
+      if (b.pool) releasePool(state, map, b, at);
+      continue;
+    }
+    const prev = b.pool?.tiles;
+    if (prev && prev.length === next.length && prev.every((k, i) => k === next[i])) continue;
+    const ratio = fillRatio(map, b);
+    const nextSet = new Set(next);
+    const prevSet = new Set(prev ?? []);
+    const removed = (prev ?? []).filter((k) => !nextSet.has(k));
+    releaseTiles(state, map, removed, ratio, at);
+    changed.push({
+      b,
+      kept: next.filter((k) => prevSet.has(k)),
+      added: next.filter((k) => !prevSet.has(k)),
+      ratio
+    });
+  }
+  for (const { b, kept, added, ratio } of changed) {
+    let stock = poolCapacity(map, kept).cap * ratio;
+    for (const k of added) {
+      stock += freeDepositStock(state, map, k, at);
+      delete state.deposits[k];
+    }
+    b.pool = { stock, tiles: claims.get(b.id) };
+  }
+  for (const k of Object.keys(state.deposits)) {
+    const dep = depositAtKey(map, k);
+    if (!dep || freeDepositStock(state, map, k, at) >= dep.cap - EPS) delete state.deposits[k];
+  }
+}
+function pathSet(state) {
+  return new Set(state.paths);
+}
+function walkCost(map, paths, h) {
+  const tile = getTile(map, h);
+  if (!tile || !TILES[tile.type].walkable) return Infinity;
+  return paths.has(hexKey(h)) ? Math.min(PATHS.walkCost, TILES[tile.type].walkCost) : TILES[tile.type].walkCost;
+}
+function isDepot(b) {
+  return b.type === "nest" || b.type === "warehouse";
+}
+var distanceCache = /* @__PURE__ */ new Map();
+function depotDistances(state, map) {
+  const depots = state.buildings.filter(isDepot).map((b) => hexKey(b));
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${depots.join(";")}|${[...state.paths].sort().join(";")}`;
+  const cached = distanceCache.get(key);
+  if (cached) return cached;
+  const paths = pathSet(state);
+  const dist = /* @__PURE__ */ new Map();
+  const open = /* @__PURE__ */ new Map();
+  for (const d of depots) open.set(d, 0);
+  while (open.size > 0) {
+    let bestKey = "";
+    let best = Infinity;
+    for (const [k, v] of open) {
+      if (v < best) {
+        best = v;
+        bestKey = k;
+      }
+    }
+    open.delete(bestKey);
+    dist.set(bestKey, best);
+    const h = parseHexKey(bestKey);
+    const here = walkCost(map, paths, h);
+    for (const n of hexNeighbors(h)) {
+      const nk = hexKey(n);
+      if (dist.has(nk)) continue;
+      const c = walkCost(map, paths, n);
+      if (c === Infinity) continue;
+      const nd = best + (here + c) / 2;
+      if (nd < (open.get(nk) ?? Infinity)) open.set(nk, nd);
+    }
+  }
+  if (distanceCache.size >= 16) distanceCache.delete(distanceCache.keys().next().value);
+  distanceCache.set(key, dist);
+  return dist;
+}
+function logisticsEfficiency(distance) {
+  const { cycleS, stepS, refDistance, min, max } = LOGISTICS;
+  if (!Number.isFinite(distance)) return min;
+  return Math.min(max, Math.max(min, (cycleS + stepS * refDistance) / (cycleS + stepS * distance)));
+}
+function depotDistance(state, map, h) {
+  const dist = depotDistances(state, map);
+  const own = dist.get(hexKey(h));
+  if (own !== void 0) return own;
+  let best = Infinity;
+  for (const n of hexNeighbors(h)) {
+    const d = dist.get(hexKey(n));
+    if (d !== void 0) best = Math.min(best, d + LOGISTICS.shoreCost);
+  }
+  return best;
+}
+function baseHarvest(b, resource) {
+  if (b.type === "camp") return CAMPS.rates[resource];
+  return levelDef(b.type, b.level)?.production?.[resource] ?? 0;
+}
+function harvestOf(state, map, b, workers, storageFull) {
+  const type = harvestedTileType(map, b);
+  const dep = type ? DEPOSITS[type] : void 0;
+  if (!dep) return null;
+  const slots = levelDef(b.type, b.level)?.workerSlots ?? 0;
+  const resource = dep.resource;
+  const distance = depotDistance(state, map, b);
+  const efficiency = logisticsEfficiency(distance);
+  const demand = slots > 0 ? baseHarvest(b, resource) * workers * efficiency / slots : 0;
+  const { cap, regen } = poolCapacity(map, b.pool?.tiles ?? []);
+  const stock = Math.min(cap, b.pool?.stock ?? cap);
+  let harvest = demand;
+  let status = "ok";
+  if (demand <= 0) {
+    harvest = 0;
+    status = "idle";
+  } else if (storageFull(resource)) {
+    harvest = 0;
+    status = "storageFull";
+  } else if (stock <= EPS && demand > regen) {
+    harvest = regen;
+    status = "depleted";
+  }
+  const climate = FACE_PROFILES[state.face].yieldMultiplier[resource];
+  return {
+    resource,
+    demand,
+    harvest,
+    output: harvest * climate,
+    stock,
+    cap,
+    regen,
+    distance,
+    efficiency,
+    status
+  };
+}
+function timeToDepletion(h) {
+  if (h.status !== "ok" || h.harvest <= h.regen) return Infinity;
+  return h.stock / (h.harvest - h.regen) * HOUR_MS;
+}
+function tileDepositState(state, map, h, at = state.now) {
+  const dep = tileDeposit(getTile(map, h));
+  if (!dep) return null;
+  const key = hexKey(h);
+  for (const b of state.buildings) {
+    if (b.pool?.tiles.includes(key))
+      return { ...dep, stock: dep.cap * fillRatio(map, b), owner: b.id };
+  }
+  return { ...dep, stock: freeDepositStock(state, map, key, at), owner: null };
+}
+function depletedTiles(state, map) {
+  const out = /* @__PURE__ */ new Map();
+  for (const b of state.buildings) {
+    if (!b.pool) continue;
+    const ratio = fillRatio(map, b);
+    if (ratio < 1 - EPS) for (const k of b.pool.tiles) out.set(k, ratio);
+  }
+  for (const k of Object.keys(state.deposits)) {
+    const dep = depositAtKey(map, k);
+    if (!dep) continue;
+    const ratio = freeDepositStock(state, map, k, state.now) / dep.cap;
+    if (ratio < 1 - EPS) out.set(k, ratio);
+  }
+  return out;
+}
+
+// packages/shared/src/sim/selectors.ts
+var HOUR_MS2 = 36e5;
 function getBuilding(state, id3) {
   return state.buildings.find((b) => b.id === id3);
 }
@@ -1076,26 +1397,28 @@ function capacity(state) {
   );
   return { pulp: storage, fiber: storage, seeds: storage, juice: storage };
 }
-function buildingRates(state, b) {
+function storageFullCheck(state) {
+  const cap = capacity(state);
+  return (id3) => state.resources[id3] >= cap[id3] - 1e-6;
+}
+function buildingHarvest(state, b, full = storageFullCheck(state)) {
+  return harvestOf(state, faceMapOf(state), b, workersOf(state, b.id).length, full);
+}
+function buildingRates(state, b, full = storageFullCheck(state)) {
   const def = levelDef(b.type, b.level);
   const out = emptyResources();
   if (!def) return out;
   const climate = FACE_PROFILES[state.face].yieldMultiplier;
-  for (const id3 of RESOURCE_IDS) {
-    const passive = def.passiveProduction?.[id3] ?? 0;
-    const active = def.production?.[id3] ?? 0;
-    let staffed = 0;
-    if (active > 0 && def.workerSlots) {
-      staffed = active * workersOf(state, b.id).length / def.workerSlots;
-    }
-    out[id3] = (passive + staffed * b.richness) * climate[id3];
-  }
+  for (const id3 of RESOURCE_IDS) out[id3] = (def.passiveProduction?.[id3] ?? 0) * climate[id3];
+  const h = buildingHarvest(state, b, full);
+  if (h) out[h.resource] += h.output;
   return out;
 }
 function productionRates(state) {
   const total = emptyResources();
+  const full = storageFullCheck(state);
   for (const b of state.buildings) {
-    const r = buildingRates(state, b);
+    const r = buildingRates(state, b, full);
     for (const id3 of RESOURCE_IDS) total[id3] += r[id3];
   }
   return total;
@@ -1114,8 +1437,11 @@ function scaleCost(cost, k) {
 function copiesOf(state, type) {
   return state.buildings.filter((b) => b.type === type).length + state.queue.filter((i) => i.kind === "build" && i.buildingType === type).length;
 }
+function pathLimit(state) {
+  return PATHS.base + PATHS.perNestLevel * nest(state).level;
+}
 function buildingCount(state) {
-  return state.buildings.filter((b) => b.type !== "nest").length + state.queue.filter((i) => i.kind === "build").length;
+  return state.buildings.filter((b) => b.type !== "nest" && b.type !== "camp").length + state.queue.filter((i) => i.kind === "build").length;
 }
 function buildCost(state, type) {
   const def = BUILDINGS[type];
@@ -1139,7 +1465,7 @@ function pendingUpgrade(state, buildingId) {
   return state.queue.find((i) => i.kind === "upgrade" && i.buildingId === buildingId);
 }
 function isMaxLevel(b) {
-  return b.level >= MAX_LEVEL;
+  return b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type));
 }
 function eggCost(state) {
   return HATCHING.cost(population(state));
@@ -1189,8 +1515,8 @@ function travelTime(target, launchpad) {
   return Math.round(target.travelMs * factor / 1e3) * 1e3;
 }
 var rations = (crew, ms2) => ({
-  pulp: crew * EXPEDITIONS.hourlyRations.pulp * ms2 / HOUR_MS,
-  juice: crew * EXPEDITIONS.hourlyRations.juice * ms2 / HOUR_MS
+  pulp: crew * EXPEDITIONS.hourlyRations.pulp * ms2 / HOUR_MS2,
+  juice: crew * EXPEDITIONS.hourlyRations.juice * ms2 / HOUR_MS2
 });
 function coverage(have, need) {
   const p = need.pulp > 0 ? have.pulp / need.pulp : 1;
@@ -1376,21 +1702,30 @@ function advance(state, now) {
   return { state: s, events };
 }
 function advanceInPlace(s, now, events) {
+  const map = faceMapOf(s);
+  syncPools(s, map, s.now);
   startNextConstruction(s, s.now, events);
   for (let guard = 0; guard < 1e5; guard++) {
     const active = activeItem(s);
     const constructionEnd = active ? active.startedAt + active.durationMs : Infinity;
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
-    const nextEvent = Math.min(constructionEnd, eggEnd, expedition?.at ?? Infinity);
+    const flows = computeFlows(s);
+    const nextEvent = Math.min(
+      constructionEnd,
+      eggEnd,
+      expedition?.at ?? Infinity,
+      flows.nextChange
+    );
     const target = Math.min(nextEvent, now);
     if (target > s.now) {
-      accrue(s, target - s.now, target, events);
+      accrue(s, flows, target - s.now, target, events);
       s.now = target;
     }
     if (nextEvent > now) break;
     if (constructionEnd <= now && constructionEnd === nextEvent) {
       completeConstruction(s, constructionEnd, events);
+      syncPools(s, map, constructionEnd);
       startNextConstruction(s, constructionEnd, events);
     }
     if (s.egg && s.egg.readyAt <= now && s.egg.readyAt === nextEvent) {
@@ -1416,20 +1751,47 @@ function advanceInPlace(s, now, events) {
   }
   s.now = Math.max(s.now, now);
 }
-function accrue(s, dtMs, at, events) {
-  const rates = productionRates(s);
+function computeFlows(s) {
+  const full = storageFullCheck(s);
+  const rates = emptyResources();
+  const pools = [];
+  let next = Infinity;
+  for (const b of s.buildings) {
+    const r = buildingRates(s, b, full);
+    for (const id3 of RESOURCE_IDS) rates[id3] += r[id3];
+    const h = b.pool ? buildingHarvest(s, b, full) : null;
+    if (!h || !b.pool) continue;
+    pools.push({ b, delta: h.regen - h.harvest, cap: h.cap });
+    const dry = timeToDepletion(h);
+    if (dry < Infinity) next = Math.min(next, s.now + Math.max(1, Math.ceil(dry)));
+  }
+  const cap = capacity(s);
+  for (const id3 of RESOURCE_IDS) {
+    if (rates[id3] <= 0 || full(id3)) continue;
+    const fill = (cap[id3] - s.resources[id3]) / rates[id3] * HOUR_MS2;
+    next = Math.min(next, s.now + Math.max(1, Math.ceil(fill)));
+  }
+  return { rates, pools, nextChange: next };
+}
+function accrue(s, flows, dtMs, at, events) {
+  const { rates } = flows;
   const cap = capacity(s);
   for (const id3 of RESOURCE_IDS) {
     const before = s.resources[id3];
-    const gain = rates[id3] * dtMs / HOUR_MS;
+    const gain = rates[id3] * dtMs / HOUR_MS2;
     if (gain <= 0) continue;
-    const after = before >= cap[id3] ? before : Math.min(cap[id3], before + gain);
+    let after = before >= cap[id3] ? before : Math.min(cap[id3], before + gain);
+    if (after < cap[id3] && cap[id3] - after < 1e-6) after = cap[id3];
     s.resources[id3] = after;
     s.stats.produced[id3] += after - before;
     if (before < cap[id3] && after >= cap[id3]) {
-      const fillMs = (cap[id3] - before) / rates[id3] * HOUR_MS;
+      const fillMs = (cap[id3] - before) / rates[id3] * HOUR_MS2;
       events.push({ type: "storageFull", at: Math.round(at - dtMs + fillMs), resource: id3 });
     }
+  }
+  for (const p of flows.pools) {
+    const stock = p.b.pool.stock + p.delta * dtMs / HOUR_MS2;
+    p.b.pool.stock = stock < 1e-6 ? 0 : Math.min(p.cap, stock);
   }
 }
 function startNextConstruction(s, at, events) {
@@ -1568,7 +1930,11 @@ var COMMAND_ERRORS = [
   "unknownTarget",
   "crewTooSmall",
   "crewTooLarge",
-  "overloaded"
+  "overloaded",
+  "pathNotAllowed",
+  "pathLimit",
+  "campLimit",
+  "notDismantlable"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -1585,6 +1951,16 @@ function pay(s, cost) {
 }
 function refund(s, cost) {
   for (const id3 of RESOURCE_IDS) s.resources[id3] += cost[id3] ?? 0;
+}
+function uniqueTiles(tiles) {
+  const seen = /* @__PURE__ */ new Map();
+  for (const t of tiles) seen.set(hexKey(t), { q: t.q, r: t.r });
+  return [...seen.values()];
+}
+function scaleRaw(cost, k) {
+  const out = {};
+  for (const id3 of RESOURCE_IDS) if (cost[id3]) out[id3] = cost[id3] * k;
+  return out;
 }
 function queueHasRoom(s) {
   if (s.queue.length >= (nestDef(s).queueSize ?? 1)) fail("queueFull");
@@ -1642,13 +2018,14 @@ function execute(s, cmd, ctx, events) {
         paid: cost,
         orderedAt: now
       });
+      s.paths = s.paths.filter((k) => k !== hexKey(cmd));
       startNextConstruction(s, now, events);
       return;
     }
     case "upgrade": {
       const b = getBuilding(s, cmd.buildingId);
       if (!b) return fail("unknownBuilding");
-      if (b.level >= MAX_LEVEL) fail("maxLevel");
+      if (b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type))) fail("maxLevel");
       if (pendingUpgrade(s, b.id)) fail("alreadyUpgrading");
       const target = b.level + 1;
       const def = levelDef(b.type, target);
@@ -1736,6 +2113,68 @@ function execute(s, cmd, ctx, events) {
       if (forecast.weight > forecast.cargo + 1e-9) fail("overloaded");
       if (!canAfford(s.resources, { pulp, juice })) fail("notEnoughResources");
       launch(s, cmd, now, nextId(s, "x"));
+      return;
+    }
+    case "buildPath": {
+      const tiles = uniqueTiles(cmd.tiles);
+      if (tiles.length === 0 || tiles.length > PATHS.maxPerCommand) fail("invalidCount");
+      const existing = new Set(s.paths);
+      const added = [];
+      for (const h of tiles) {
+        const key = hexKey(h);
+        if (existing.has(key)) continue;
+        const tile = getTile(ctx.map, h);
+        if (!tile) return fail("unknownTile");
+        if (!TILES[tile.type].walkable) fail("pathNotAllowed");
+        if (buildingAt(s, h.q, h.r) || queuedBuildAt(s, h.q, h.r)) fail("tileOccupied");
+        added.push(key);
+      }
+      if (s.paths.length + added.length > pathLimit(s)) fail("pathLimit");
+      pay(s, scaleRaw(PATHS.cost, added.length));
+      s.paths.push(...added);
+      return;
+    }
+    case "removePath": {
+      const remove = new Set(uniqueTiles(cmd.tiles).map((h) => hexKey(h)));
+      if (remove.size === 0 || remove.size > PATHS.maxPerCommand) fail("invalidCount");
+      s.paths = s.paths.filter((k) => !remove.has(k));
+      return;
+    }
+    case "gather": {
+      const tile = getTile(ctx.map, { q: cmd.q, r: cmd.r });
+      if (!tile) return fail("unknownTile");
+      if (!CAMPS.tiles.includes(tile.type)) fail("tileNotAllowed");
+      if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail("tileOccupied");
+      if (s.buildings.filter((b) => b.type === "camp").length >= CAMPS.max) fail("campLimit");
+      const id3 = nextId(s, "b");
+      s.buildings.push({
+        id: id3,
+        type: "camp",
+        q: cmd.q,
+        r: cmd.r,
+        level: 1,
+        richness: tile.richness,
+        builtAt: now
+      });
+      s.paths = s.paths.filter((k) => k !== hexKey(cmd));
+      syncPools(s, ctx.map, now);
+      const idle = idleVillagers(s)[0];
+      if (idle) idle.job = { kind: "work", buildingId: id3 };
+      return;
+    }
+    case "dismantle": {
+      const b = getBuilding(s, cmd.buildingId);
+      if (!b) return fail("unknownBuilding");
+      if (b.type !== "camp") fail("notDismantlable");
+      releasePool(s, ctx.map, b, now);
+      s.buildings = s.buildings.filter((x) => x.id !== b.id);
+      syncPools(s, ctx.map, now);
+      for (const v of s.villagers) {
+        if (v.job.kind === "work" && v.job.buildingId === b.id) {
+          v.job = { kind: "idle" };
+          autoAssign(s, v);
+        }
+      }
       return;
     }
     case "debugGrant": {
@@ -5821,7 +6260,8 @@ var gameStateSchema = external_exports.object({
       r: external_exports.number().int(),
       level: external_exports.number().int().min(1).max(3),
       richness: external_exports.number(),
-      builtAt: external_exports.number()
+      builtAt: external_exports.number(),
+      pool: external_exports.object({ stock: external_exports.number().min(0), tiles: external_exports.array(external_exports.string()).max(64) }).optional()
     })
   ),
   villagers: external_exports.array(external_exports.object({ id, name: external_exports.string(), bornAt: external_exports.number(), job })),
@@ -5887,6 +6327,8 @@ var gameStateSchema = external_exports.object({
       }).nullable()
     })
   ),
+  paths: external_exports.array(external_exports.string().max(16)).max(500),
+  deposits: external_exports.record(external_exports.string(), external_exports.object({ stock: external_exports.number().min(0), at: external_exports.number() })),
   nextId: external_exports.number().int(),
   rng: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number(), external_exports.number()])
 });
@@ -5897,7 +6339,9 @@ var MIGRATIONS = {
     targets: soloTargets(raw.face === "kiwino" ? "kiwino" : "kiwisu"),
     victories: {},
     expeditions: []
-  })
+  }),
+  // v2 → v3: territory (milestone 4). Deposits start full; pools are set up by the next advance.
+  2: (raw) => ({ ...raw, paths: [], deposits: {} })
 };
 function migrateState(input) {
   if (!input || typeof input !== "object") return { ok: false, reason: "corrupt" };
@@ -5956,6 +6400,16 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     crew: int.min(0).max(1e3),
     provisions: external_exports.object({ pulp: external_exports.number().min(0).max(1e7), juice: external_exports.number().min(0).max(1e7) })
   }),
+  external_exports.object({
+    type: external_exports.literal("buildPath"),
+    tiles: external_exports.array(external_exports.object({ q: int, r: int })).min(1).max(40)
+  }),
+  external_exports.object({
+    type: external_exports.literal("removePath"),
+    tiles: external_exports.array(external_exports.object({ q: int, r: int })).min(1).max(40)
+  }),
+  external_exports.object({ type: external_exports.literal("gather"), q: int, r: int }),
+  external_exports.object({ type: external_exports.literal("dismantle"), buildingId: id2 }),
   external_exports.object({
     type: external_exports.literal("debugGrant"),
     resources: external_exports.object({
@@ -6052,14 +6506,14 @@ function isInviteCode(code) {
 
 // packages/shared/src/server/gameService.ts
 var RATE_LIMIT = { windowMs: 1e4, maxCommands: 40 };
-var mapCache = /* @__PURE__ */ new Map();
+var mapCache2 = /* @__PURE__ */ new Map();
 function mapFor(state) {
   const key = `${state.seed}/${state.face}/${state.params.radius}`;
-  let map = mapCache.get(key);
+  let map = mapCache2.get(key);
   if (!map) {
     map = generateFace(state.seed, state.face, state.params);
-    if (mapCache.size > 64) mapCache.clear();
-    mapCache.set(key, map);
+    if (mapCache2.size > 64) mapCache2.clear();
+    mapCache2.set(key, map);
   }
   return map;
 }
@@ -6116,8 +6570,9 @@ function isPlausible(state, now) {
   if (state.buildings.filter((b) => b.type === "nest").length !== 1) return false;
   const n = nest(state);
   if (n.q !== 0 || n.r !== 0) return false;
-  if (state.buildings.filter((b) => b.type !== "nest").length > (nestDef(state).maxBuildings ?? 0))
-    return false;
+  if (buildingCount(state) > (nestDef(state).maxBuildings ?? 0)) return false;
+  if (state.buildings.filter((b) => b.type === "camp").length > CAMPS.max) return false;
+  if (state.paths.length > pathLimit(state)) return false;
   for (const b of state.buildings) {
     if (b.level < 1 || b.level > MAX_LEVEL || !levelDef(b.type, b.level)) return false;
     if (b.type !== "nest" && b.level >= 3 && n.level < (BUILDINGS[b.type].levels[2]?.requiresNestLevel ?? 1))
@@ -6133,7 +6588,7 @@ function isPlausible(state, now) {
   }
   if (state.villagers.length > housing(state)) return false;
   const levelsEarned = state.buildings.reduce(
-    (sum, b) => sum + (b.type === "nest" ? b.level - 1 : b.level),
+    (sum, b) => sum + (b.type === "nest" ? b.level - 1 : b.type === "camp" ? 0 : b.level),
     0
   );
   if (state.stats.constructionsCompleted < levelsEarned) return false;
@@ -6362,20 +6817,26 @@ export {
   BUILDABLE_TYPES,
   BUILDINGS,
   BUILDING_TYPES,
+  CAMPS,
+  CATCHMENT_RADIUS,
   COMMAND_ERRORS,
   DEFAULT_FACE_PARAMS,
+  DEPOSITS,
   EXPEDITIONS,
   FACES,
   FACE_PROFILES,
+  HARVESTS,
   HATCHING,
   HEART,
   HEX_DIRECTIONS,
-  HOUR_MS,
+  HOUR_MS2 as HOUR_MS,
+  LOGISTICS,
   MAX_LEVEL,
   MAX_PLAYERS,
   MAX_UNIVERSES_PER_PLAYER,
   NAME_SYLLABLES,
   OBJECTIVES,
+  PATHS,
   RATE_LIMIT,
   RAY_BUILD_SPEEDUP,
   RESOURCES,
@@ -6394,15 +6855,19 @@ export {
   assignFace,
   autoAssign,
   availableCrew,
+  baseHarvest,
   buildCost,
   buildingAt,
   buildingCount,
+  buildingHarvest,
   buildingRates,
   canAfford,
   canHatch,
   capacity,
+  catchmentRadius,
   cloneState,
   commandSchema,
+  computeClaims,
   constructionDuration,
   constructionRemaining,
   copiesOf,
@@ -6410,17 +6875,24 @@ export {
   createMemoryRepository,
   createRng,
   currentObjective,
+  depletedTiles,
+  depotDistance,
+  depotDistances,
   deserializeSave,
   eggCost,
   eggDuration,
   emptyResources,
+  faceMapOf,
   forecastExpedition,
+  freeDepositStock,
   gameStateSchema,
   generateFace,
   geometric,
   getBuilding,
   getTile,
   handleGameRequest,
+  harvestOf,
+  harvestedTileType,
   hashSeed,
   hex,
   hexAdd,
@@ -6438,6 +6910,7 @@ export {
   housing,
   idleVillagers,
   inviteCode,
+  isDepot,
   isFace,
   isInviteCode,
   isLaunchpadBusy,
@@ -6451,7 +6924,9 @@ export {
   launch,
   launchpadOf,
   levelDef,
+  logisticsEfficiency,
   maxCrew,
+  maxLevelOf,
   migrateState,
   ms,
   nearRay,
@@ -6462,11 +6937,15 @@ export {
   objectiveProgress,
   otherFace,
   parseHexKey,
+  pathLimit,
+  pathSet,
   pendingUpgrade,
   pixelToHex,
+  poolCapacity,
   population,
   productionRates,
   queuedBuildAt,
+  releasePool,
   requestSchema,
   resolveArrival,
   resolveReturn,
@@ -6475,13 +6954,19 @@ export {
   shipCargo,
   soloTargets,
   startNextConstruction,
+  storageFullCheck,
+  syncPools,
   targetDefense,
   tileAt,
+  tileDeposit,
+  tileDepositState,
+  timeToDepletion,
   totalWorkers,
   travelTime,
   universeTargets,
   upgradeCost,
   validateCommand,
+  walkCost,
   withRng,
   workerSlots,
   workersOf

@@ -1,8 +1,12 @@
-import { BUILDINGS, levelDef, MAX_LEVEL, type BuildingType } from '../data/buildings';
+import { BUILDINGS, levelDef, MAX_LEVEL, maxLevelOf, type BuildingType } from '../data/buildings';
+import { CAMPS, PATHS } from '../data/territory';
+import { TILES } from '../data/tiles';
+import { hexKey } from '../hex/hex';
 import { RESOURCE_IDS, type ResourceCost, type Resources } from '../data/resources';
 import { getTile, type FaceMap } from '../worldgen/generateFace';
 import type { BuildingId, QueueItemId, TimeMs } from '../types/ids';
-import { advanceInPlace, startNextConstruction, type GameEvent } from './advance';
+import { advanceInPlace, autoAssign, startNextConstruction, type GameEvent } from './advance';
+import { releasePool, syncPools } from './territory';
 import {
   buildCost,
   buildingAt,
@@ -19,6 +23,7 @@ import {
   nearRay,
   nest,
   nestDef,
+  pathLimit,
   pendingUpgrade,
   population,
   housing,
@@ -45,6 +50,13 @@ export type Command =
       crew: number;
       provisions: { pulp: number; juice: number };
     }
+  /** Paint paths on walkable tiles (one gesture); tiles that already have one are skipped. */
+  | { type: 'buildPath'; tiles: { q: number; r: number }[] }
+  | { type: 'removePath'; tiles: { q: number; r: number }[] }
+  /** Set up a gathering camp on a resource tile (instant, free, outside the building cap). */
+  | { type: 'gather'; q: number; r: number }
+  /** Remove a camp (its kiwis go back to work elsewhere). */
+  | { type: 'dismantle'; buildingId: BuildingId }
   /** Debug panel only. Will be rejected by the server in milestone 2. */
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
@@ -75,6 +87,10 @@ export const COMMAND_ERRORS = [
   'crewTooSmall',
   'crewTooLarge',
   'overloaded',
+  'pathNotAllowed',
+  'pathLimit',
+  'campLimit',
+  'notDismantlable',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -105,6 +121,18 @@ function pay(s: GameState, cost: ResourceCost): void {
 
 function refund(s: GameState, cost: ResourceCost): void {
   for (const id of RESOURCE_IDS) s.resources[id] += cost[id] ?? 0;
+}
+
+function uniqueTiles(tiles: readonly { q: number; r: number }[]): { q: number; r: number }[] {
+  const seen = new Map<string, { q: number; r: number }>();
+  for (const t of tiles) seen.set(hexKey(t), { q: t.q, r: t.r });
+  return [...seen.values()];
+}
+
+function scaleRaw(cost: ResourceCost, k: number): ResourceCost {
+  const out: ResourceCost = {};
+  for (const id of RESOURCE_IDS) if (cost[id]) out[id] = cost[id]! * k;
+  return out;
 }
 
 function queueHasRoom(s: GameState): void {
@@ -175,13 +203,15 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         paid: cost,
         orderedAt: now,
       });
+      // The site replaces any path on the tile.
+      s.paths = s.paths.filter((k) => k !== hexKey(cmd));
       startNextConstruction(s, now, events);
       return;
     }
     case 'upgrade': {
       const b = getBuilding(s, cmd.buildingId);
       if (!b) return fail('unknownBuilding');
-      if (b.level >= MAX_LEVEL) fail('maxLevel');
+      if (b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type))) fail('maxLevel');
       if (pendingUpgrade(s, b.id)) fail('alreadyUpgrading');
       const target = b.level + 1;
       const def = levelDef(b.type, target)!;
@@ -276,6 +306,68 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (forecast.weight > forecast.cargo + 1e-9) fail('overloaded');
       if (!canAfford(s.resources, { pulp, juice })) fail('notEnoughResources');
       launch(s, cmd, now, nextId(s, 'x'));
+      return;
+    }
+    case 'buildPath': {
+      const tiles = uniqueTiles(cmd.tiles);
+      if (tiles.length === 0 || tiles.length > PATHS.maxPerCommand) fail('invalidCount');
+      const existing = new Set(s.paths);
+      const added: string[] = [];
+      for (const h of tiles) {
+        const key = hexKey(h);
+        if (existing.has(key)) continue;
+        const tile = getTile(ctx.map, h);
+        if (!tile) return fail('unknownTile');
+        if (!TILES[tile.type].walkable) fail('pathNotAllowed');
+        if (buildingAt(s, h.q, h.r) || queuedBuildAt(s, h.q, h.r)) fail('tileOccupied');
+        added.push(key);
+      }
+      if (s.paths.length + added.length > pathLimit(s)) fail('pathLimit');
+      pay(s, scaleRaw(PATHS.cost, added.length));
+      s.paths.push(...added);
+      return;
+    }
+    case 'removePath': {
+      const remove = new Set<string>(uniqueTiles(cmd.tiles).map((h) => hexKey(h)));
+      if (remove.size === 0 || remove.size > PATHS.maxPerCommand) fail('invalidCount');
+      s.paths = s.paths.filter((k) => !remove.has(k));
+      return;
+    }
+    case 'gather': {
+      const tile = getTile(ctx.map, { q: cmd.q, r: cmd.r });
+      if (!tile) return fail('unknownTile');
+      if (!CAMPS.tiles.includes(tile.type)) fail('tileNotAllowed');
+      if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail('tileOccupied');
+      if (s.buildings.filter((b) => b.type === 'camp').length >= CAMPS.max) fail('campLimit');
+      const id = nextId(s, 'b') as BuildingId;
+      s.buildings.push({
+        id,
+        type: 'camp',
+        q: cmd.q,
+        r: cmd.r,
+        level: 1,
+        richness: tile.richness,
+        builtAt: now,
+      });
+      s.paths = s.paths.filter((k) => k !== hexKey(cmd));
+      syncPools(s, ctx.map, now);
+      const idle = idleVillagers(s)[0];
+      if (idle) idle.job = { kind: 'work', buildingId: id };
+      return;
+    }
+    case 'dismantle': {
+      const b = getBuilding(s, cmd.buildingId);
+      if (!b) return fail('unknownBuilding');
+      if (b.type !== 'camp') fail('notDismantlable');
+      releasePool(s, ctx.map, b, now);
+      s.buildings = s.buildings.filter((x) => x.id !== b.id);
+      syncPools(s, ctx.map, now);
+      for (const v of s.villagers) {
+        if (v.job.kind === 'work' && v.job.buildingId === b.id) {
+          v.job = { kind: 'idle' };
+          autoAssign(s, v);
+        }
+      }
       return;
     }
     case 'debugGrant': {

@@ -1,11 +1,12 @@
 import { BUILDINGS, levelDef, MAX_LEVEL } from '../data/buildings';
 import { OBJECTIVES } from '../data/objectives';
 import { START } from '../data/start';
+import { CAMPS } from '../data/territory';
 import { RESOURCE_IDS } from '../data/resources';
 import { deserializeSave, migrateState } from '../save/save';
 import { advance, type GameEvent } from '../sim/advance';
 import { applyCommand } from '../sim/commands';
-import { capacity, housing, nest, nestDef } from '../sim/selectors';
+import { buildingCount, capacity, housing, nest, nestDef, pathLimit } from '../sim/selectors';
 import { newGame, type GameState } from '../sim/state';
 import { generateFace, type FaceMap } from '../worldgen/generateFace';
 import type { Face, PlayerId, UniverseId } from '../types/ids';
@@ -173,8 +174,9 @@ export function isPlausible(state: GameState, now: number): boolean {
   if (state.buildings.filter((b) => b.type === 'nest').length !== 1) return false;
   const n = nest(state);
   if (n.q !== 0 || n.r !== 0) return false;
-  if (state.buildings.filter((b) => b.type !== 'nest').length > (nestDef(state).maxBuildings ?? 0))
-    return false;
+  if (buildingCount(state) > (nestDef(state).maxBuildings ?? 0)) return false;
+  if (state.buildings.filter((b) => b.type === 'camp').length > CAMPS.max) return false;
+  if (state.paths.length > pathLimit(state)) return false;
   for (const b of state.buildings) {
     if (b.level < 1 || b.level > MAX_LEVEL || !levelDef(b.type, b.level)) return false;
     if (
@@ -196,7 +198,7 @@ export function isPlausible(state: GameState, now: number): boolean {
   if (state.villagers.length > housing(state)) return false;
   // Every level must have been earned through a completed construction…
   const levelsEarned = state.buildings.reduce(
-    (sum, b) => sum + (b.type === 'nest' ? b.level - 1 : b.level),
+    (sum, b) => sum + (b.type === 'nest' ? b.level - 1 : b.type === 'camp' ? 0 : b.level),
     0,
   );
   if (state.stats.constructionsCompleted < levelsEarned) return false;

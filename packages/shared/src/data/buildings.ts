@@ -1,5 +1,6 @@
 import { ms } from './curves';
 import type { ResourceCost, Resources } from './resources';
+import { CAMPS } from './territory';
 import type { TileType } from './tiles';
 
 export const BUILDING_TYPES = [
@@ -11,6 +12,7 @@ export const BUILDING_TYPES = [
   'hut',
   'warehouse',
   'launchpad',
+  'camp',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
@@ -276,9 +278,23 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
       },
     ],
   },
+  // Gathering camp (milestone 4): set up instantly and for free with the `gather` command,
+  // outside the building cap. Its harvest depends on the tile (see CAMPS).
+  camp: {
+    id: 'camp',
+    allowedTiles: CAMPS.tiles,
+    buildable: false,
+    copyGrowth: 1,
+    levels: [{ cost: {}, durationMs: 0, requiresNestLevel: 1, workerSlots: CAMPS.workerSlots }],
+  },
 };
 
 export const MAX_LEVEL = 3;
+
+/** Highest level a building type can reach (camps have a single level). */
+export function maxLevelOf(type: BuildingType): number {
+  return BUILDINGS[type].levels.length;
+}
 
 /** Building ordered by the player in the build menu. */
 export const BUILDABLE_TYPES = BUILDING_TYPES.filter((t) => BUILDINGS[t].buildable);

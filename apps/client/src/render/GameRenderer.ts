@@ -11,8 +11,11 @@ import {
   WebGLRenderer,
 } from 'three';
 import {
+  buildingAt,
+  depletedTiles,
   getTile,
   hexKey,
+  parseHexKey,
   type FaceMap,
   type GameEvent,
   type GameState,
@@ -26,6 +29,8 @@ import { FpsMeter } from './fpsMeter';
 import { Lighting } from './lighting';
 import { PALETTE } from './palette';
 import { pick, TapDetector } from './picking';
+import { PathPainter } from './pathPainter';
+import { PathsView } from './paths';
 import { PostFx } from './postfx';
 import { PropsView } from './props';
 import {
@@ -43,6 +48,8 @@ export interface RendererCallbacks {
   /** Current simulation time (for smooth progress animations between ticks). */
   now(): number;
   onTileTap(tile: Tile | null): void;
+  /** A path stroke painted in path mode. */
+  onPaint?(tiles: Tile[], erase: boolean): void;
   onFps?(fps: number): void;
   onQualityChange?(preset: QualityPreset): void;
 }
@@ -63,6 +70,9 @@ export class GameRenderer {
   private props: PropsView | null = null;
   private buildings: BuildingsView | null = null;
   private kiwis: KiwisView | null = null;
+  private paths: PathsView | null = null;
+  private readonly painter: PathPainter;
+  private selectedTile: Tile | null = null;
   private clearedTiles = new Set<string>();
   private lastState: GameState | null = null;
   private postfx: PostFx | null = null;
@@ -100,12 +110,21 @@ export class GameRenderer {
     this.scene.add(this.lighting.group, this.selection.group);
 
     this.tap = new TapDetector(canvas, {
-      onTap: (x, y) => this.callbacks.onTileTap(this.pickTile(x, y)),
+      onTap: (x, y) => {
+        if (!this.painter.enabled) this.callbacks.onTileTap(this.pickTile(x, y));
+      },
       onHover: (x, y) => (this.hoverPoint = { x, y }),
       onHoverEnd: () => {
         this.hoverPoint = null;
         this.selection.setHover(null);
       },
+    });
+
+    this.painter = new PathPainter(canvas, () => this.map, {
+      pickTile: (x, y) => this.pickTile(x, y),
+      isPath: (tile) => this.lastState?.paths.includes(hexKey(tile)) ?? false,
+      onPreview: (tiles, erase) => this.paths?.setPreview(tiles, erase),
+      onStroke: (tiles, erase) => this.callbacks.onPaint?.(tiles, erase),
     });
 
     this.setQuality(qualityChoice);
@@ -151,7 +170,7 @@ export class GameRenderer {
 
   setFace(map: FaceMap): void {
     this.map = map;
-    for (const view of [this.terrain, this.water, this.buildings, this.kiwis]) {
+    for (const view of [this.terrain, this.water, this.buildings, this.kiwis, this.paths]) {
       if (!view) continue;
       this.scene.remove('group' in view ? view.group : view.mesh);
       view.dispose();
@@ -164,6 +183,8 @@ export class GameRenderer {
     this.scene.add(this.kiwis.group);
     this.terrain = new TerrainView(map);
     this.scene.add(this.terrain.group);
+    this.paths = new PathsView(map);
+    this.scene.add(this.paths.group);
     this.water = new WaterView(map, this.lighting.sun.position);
     this.scene.add(this.water.mesh);
     this.rebuildProps();
@@ -195,8 +216,11 @@ export class GameRenderer {
     this.lastState = state;
     this.buildings?.sync(state);
     this.kiwis?.sync(state);
-    // Clear decorative props under buildings and construction sites.
-    const occupied = new Set<string>();
+    this.paths?.sync(state.paths);
+    if (this.map) this.terrain?.setDepletion(depletedTiles(state, this.map));
+    this.refreshCatchment();
+    // Clear decorative props under buildings, construction sites and paths.
+    const occupied = new Set<string>(state.paths);
     for (const b of state.buildings) occupied.add(hexKey(b));
     for (const i of state.queue) occupied.add(hexKey(i));
     for (const key of occupied) {
@@ -223,7 +247,29 @@ export class GameRenderer {
   }
 
   setSelectedTile(tile: Tile | null): void {
+    this.selectedTile = tile;
     this.selection.setSelected(tile);
+    this.refreshCatchment();
+  }
+
+  /** Path mode: one-finger / left drags paint paths instead of moving the camera. */
+  setPaintMode(on: boolean): void {
+    this.painter.enabled = on;
+    if (!on) this.painter.cancel();
+    this.rig.setPaintMode(on);
+  }
+
+  private refreshCatchment(): void {
+    const t = this.selectedTile;
+    const b = t && this.lastState ? buildingAt(this.lastState, t.q, t.r) : undefined;
+    const tiles: Tile[] = [];
+    if (b?.pool && this.map) {
+      for (const k of b.pool.tiles) {
+        const tile = getTile(this.map, parseHexKey(k));
+        if (tile) tiles.push(tile);
+      }
+    }
+    this.selection.setCatchment(tiles);
   }
 
   setBottomInset(fraction: number): void {
@@ -302,6 +348,8 @@ export class GameRenderer {
     this.renderer.setAnimationLoop(null);
     this.resizeObserver.disconnect();
     this.tap.dispose();
+    this.painter.dispose();
+    this.paths?.dispose();
     this.rig.dispose();
     this.terrain?.dispose();
     this.water?.dispose();

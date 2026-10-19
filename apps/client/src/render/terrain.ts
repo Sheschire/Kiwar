@@ -13,7 +13,7 @@ import {
   SphereGeometry,
   Vector3,
 } from 'three';
-import { hexToPixel, type FaceMap, type Tile, type TileType } from '@kiwar/shared';
+import { hexToPixel, type FaceMap, type HexKey, type Tile, type TileType } from '@kiwar/shared';
 import { GLSL_NOISE } from './shaderChunks';
 
 /** Visual radius of a hex top (the logical circumradius is 1; the gap shows the thick edges). */
@@ -168,11 +168,15 @@ function createTileMaterial(): MeshStandardMaterial {
   return material;
 }
 
+const DRY = new Color('#b89a5e');
+
 export class TerrainView {
   readonly group = new Group();
   readonly tiles: InstancedMesh;
   private readonly map: FaceMap;
   private readonly dome: Mesh;
+  private tinted = new Set<string>();
+  private depletionSig = '';
 
   constructor(map: FaceMap) {
     this.map = map;
@@ -201,6 +205,33 @@ export class TerrainView {
 
     this.dome = createKiwiDome(map);
     this.group.add(this.dome);
+  }
+
+  /**
+   * Tints harvested deposits towards a dry straw colour according to how depleted they are
+   * (`ratios`: fill ratio by hex key; tiles absent from it are full).
+   */
+  setDepletion(ratios: ReadonlyMap<string, number>): void {
+    const quantized = new Map<string, number>();
+    for (const [k, v] of ratios) {
+      const step = Math.round(v * 8) / 8;
+      if (step < 1) quantized.set(k, step);
+    }
+    const sig = [...quantized].map(([k, v]) => `${k}=${v}`).join(';');
+    if (sig === this.depletionSig) return;
+    this.depletionSig = sig;
+    const c = new Color();
+    for (const key of new Set([...this.tinted, ...quantized.keys()])) {
+      const i = this.map.index.get(key as HexKey);
+      const tile = i === undefined ? undefined : this.map.tiles[i];
+      if (!tile || i === undefined) continue;
+      tileTopColor(tile, c);
+      const ratio = quantized.get(key);
+      if (ratio !== undefined) c.lerp(DRY, (1 - ratio) * 0.7);
+      this.tiles.setColorAt(i, c);
+    }
+    this.tinted = new Set(quantized.keys());
+    if (this.tiles.instanceColor) this.tiles.instanceColor.needsUpdate = true;
   }
 
   /** Index in `map.tiles` of the tile under a ray hit (instance id). */

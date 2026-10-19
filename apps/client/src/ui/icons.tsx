@@ -313,6 +313,34 @@ export function ChatIcon({ size = 22, class: cls }: IconProps) {
   );
 }
 
+export function PathIcon({ size = 22, class: cls }: IconProps) {
+  return svg(
+    size,
+    cls,
+    <>
+      <path
+        d="M9 29c2-6 9-6 10-11s-6-7-4-13"
+        fill="none"
+        stroke="#d9b36c"
+        stroke-width="6"
+        stroke-linecap="round"
+      />
+      <ellipse cx="10" cy="26" rx="3" ry="2" fill="#f4e6c4" stroke="#7a5233" stroke-width="1.5" />
+      <ellipse cx="17" cy="19" rx="3" ry="2" fill="#f4e6c4" stroke="#7a5233" stroke-width="1.5" />
+      <ellipse cx="15" cy="11" rx="3" ry="2" fill="#f4e6c4" stroke="#7a5233" stroke-width="1.5" />
+      <ellipse
+        cx="17"
+        cy="4.5"
+        rx="2.5"
+        ry="1.7"
+        fill="#f4e6c4"
+        stroke="#7a5233"
+        stroke-width="1.5"
+      />
+    </>,
+  );
+}
+
 export function ResourceIcon({ id, size }: { id: ResourceId; size?: number }) {
   switch (id) {
     case 'pulp':

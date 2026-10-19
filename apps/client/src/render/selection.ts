@@ -4,6 +4,8 @@ import {
   BufferGeometry,
   Float32BufferAttribute,
   Group,
+  InstancedMesh,
+  Matrix4,
   Mesh,
   MeshBasicMaterial,
   type ColorRepresentation,
@@ -68,14 +70,43 @@ class HexMarker {
   }
 }
 
-/** Hover and selection outlines on top of tiles. */
+const MAX_CATCHMENT = 64;
+
+/** Hover and selection outlines on top of tiles, and the catchment of a selected producer. */
 export class SelectionView {
   readonly group = new Group();
   private readonly hover = new HexMarker('#fff6d8', 0.35, true, 0.76);
   private readonly selected = new HexMarker('#ffd24a', 1, false, 0.7);
+  private readonly catchment = new InstancedMesh(
+    createHexRingGeometry(HEX_VISUAL_RADIUS * 0.8, HEX_VISUAL_RADIUS * 0.9),
+    new MeshBasicMaterial({
+      color: '#c6f27a',
+      transparent: true,
+      opacity: 0.7,
+      depthWrite: false,
+      toneMapped: false,
+    }),
+    MAX_CATCHMENT,
+  );
 
   constructor() {
-    this.group.add(this.hover.mesh, this.selected.mesh);
+    this.catchment.count = 0;
+    this.catchment.frustumCulled = false;
+    this.catchment.renderOrder = 4;
+    this.group.add(this.hover.mesh, this.selected.mesh, this.catchment);
+  }
+
+  /** Highlights the deposit tiles harvested by the selected building. */
+  setCatchment(tiles: readonly Tile[]): void {
+    const m = new Matrix4();
+    let n = 0;
+    for (const t of tiles.slice(0, MAX_CATCHMENT)) {
+      const p = worldPosition(t);
+      m.makeTranslation(p.x, t.height + 0.02, p.z);
+      this.catchment.setMatrixAt(n++, m);
+    }
+    this.catchment.count = n;
+    this.catchment.instanceMatrix.needsUpdate = true;
   }
 
   setHover(tile: Tile | null): void {

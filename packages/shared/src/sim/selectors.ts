@@ -2,18 +2,27 @@ import {
   BUILDINGS,
   levelDef,
   MAX_LEVEL,
+  maxLevelOf,
   RAY_BUILD_SPEEDUP,
   type BuildingLevelDef,
   type BuildingType,
 } from '../data/buildings';
 import { FACE_PROFILES } from '../data/faceProfiles';
+import { PATHS } from '../data/territory';
 import { HATCHING } from '../data/hatching';
 import { OBJECTIVES, type ObjectiveDef } from '../data/objectives';
-import { RESOURCE_IDS, emptyResources, type ResourceCost, type Resources } from '../data/resources';
+import {
+  RESOURCE_IDS,
+  emptyResources,
+  type ResourceCost,
+  type ResourceId,
+  type Resources,
+} from '../data/resources';
 import { hexNeighbors } from '../hex/hex';
 import { getTile, type FaceMap } from '../worldgen/generateFace';
 import type { BuildingId } from '../types/ids';
 import type { Building, GameState, QueueItem, Villager } from './state';
+import { faceMapOf, harvestOf, type Harvest } from './territory';
 
 export const HOUR_MS = 3_600_000;
 
@@ -76,29 +85,43 @@ export function capacity(state: GameState): Resources {
   return { pulp: storage, fiber: storage, seeds: storage, juice: storage };
 }
 
-/** Production of one building per hour, with its current staff. */
-export function buildingRates(state: GameState, b: Building): Resources {
+/** Whether the colony storage of a resource is full (harvesting then pauses). */
+export function storageFullCheck(state: GameState): (id: ResourceId) => boolean {
+  const cap = capacity(state);
+  return (id) => state.resources[id] >= cap[id] - 1e-6;
+}
+
+/** Harvest details of a producer (deposit, logistics, status), or null for other buildings. */
+export function buildingHarvest(
+  state: GameState,
+  b: Building,
+  full = storageFullCheck(state),
+): Harvest | null {
+  return harvestOf(state, faceMapOf(state), b, workersOf(state, b.id).length, full);
+}
+
+/** Production of one building per hour, with its current staff, deposits and logistics. */
+export function buildingRates(
+  state: GameState,
+  b: Building,
+  full = storageFullCheck(state),
+): Resources {
   const def = levelDef(b.type, b.level);
   const out = emptyResources();
   if (!def) return out;
   const climate = FACE_PROFILES[state.face].yieldMultiplier;
-  for (const id of RESOURCE_IDS) {
-    const passive = def.passiveProduction?.[id] ?? 0;
-    const active = def.production?.[id] ?? 0;
-    let staffed = 0;
-    if (active > 0 && def.workerSlots) {
-      staffed = (active * workersOf(state, b.id).length) / def.workerSlots;
-    }
-    out[id] = (passive + staffed * b.richness) * climate[id];
-  }
+  for (const id of RESOURCE_IDS) out[id] = (def.passiveProduction?.[id] ?? 0) * climate[id];
+  const h = buildingHarvest(state, b, full);
+  if (h) out[h.resource] += h.output;
   return out;
 }
 
 /** Total production per hour. */
 export function productionRates(state: GameState): Resources {
   const total = emptyResources();
+  const full = storageFullCheck(state);
   for (const b of state.buildings) {
-    const r = buildingRates(state, b);
+    const r = buildingRates(state, b, full);
     for (const id of RESOURCE_IDS) total[id] += r[id];
   }
   return total;
@@ -125,9 +148,15 @@ export function copiesOf(state: GameState, type: BuildingType): number {
   );
 }
 
+/** Max number of path tiles (grows with the Nest). */
+export function pathLimit(state: GameState): number {
+  return PATHS.base + PATHS.perNestLevel * nest(state).level;
+}
+
+/** Buildings counted against the Nest cap (camps are outside it). */
 export function buildingCount(state: GameState): number {
   return (
-    state.buildings.filter((b) => b.type !== 'nest').length +
+    state.buildings.filter((b) => b.type !== 'nest' && b.type !== 'camp').length +
     state.queue.filter((i) => i.kind === 'build').length
   );
 }
@@ -166,7 +195,7 @@ export function pendingUpgrade(state: GameState, buildingId: BuildingId): QueueI
 }
 
 export function isMaxLevel(b: Building): boolean {
-  return b.level >= MAX_LEVEL;
+  return b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type));
 }
 
 export function eggCost(state: GameState): ResourceCost {

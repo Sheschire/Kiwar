@@ -16,7 +16,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export type Job =
   | { kind: 'idle' }
@@ -42,6 +42,22 @@ export interface Building {
   /** Tile richness copied at placement, so the simulation does not need the map. */
   richness: number;
   builtAt: TimeMs;
+  /**
+   * Producers only: the deposit tiles this building harvests (its catchment, as hex keys) and
+   * their pooled stock. Kept in sync by `syncPools` whenever the layout changes.
+   */
+  pool?: Pool;
+}
+
+export interface Pool {
+  stock: number;
+  tiles: string[];
+}
+
+/** A deposit nobody harvests, last seen below full at `at` (it regrows on its own). */
+export interface FreeDeposit {
+  stock: number;
+  at: TimeMs;
 }
 
 export interface QueueItem {
@@ -145,6 +161,10 @@ export interface GameState {
   victories: Record<string, number>;
   /** In flight and recent expeditions (the last few finished ones are kept for reports). */
   expeditions: Expedition[];
+  /** Tiles with a path (hex keys). */
+  paths: string[];
+  /** Unharvested deposits that are not full yet (hex key → stock); absent means full. */
+  deposits: Record<string, FreeDeposit>;
   nextId: number;
   rng: RngState;
 }
@@ -203,6 +223,8 @@ export function newGame(opts: NewGameOptions): GameState {
     targets: opts.targets ?? soloTargets(opts.face),
     victories: {},
     expeditions: [],
+    paths: [],
+    deposits: {},
     nextId: 1,
     rng: rng.state(),
   };
@@ -260,13 +282,17 @@ export function cloneState(state: GameState): GameState {
     ...state,
     params: { ...state.params },
     resources: { ...state.resources },
-    buildings: state.buildings.map((b) => ({ ...b })),
+    buildings: state.buildings.map((b) =>
+      b.pool ? { ...b, pool: { stock: b.pool.stock, tiles: [...b.pool.tiles] } } : { ...b },
+    ),
     villagers: state.villagers.map((v) => ({ ...v, job: { ...v.job } })),
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
     egg: state.egg ? { ...state.egg } : null,
     stats: { ...state.stats, produced: { ...state.stats.produced } },
     targets: state.targets.map((t) => ({ ...t, loot: { ...t.loot } })),
     victories: { ...state.victories },
+    paths: [...state.paths],
+    deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
     expeditions: state.expeditions.map((e) => ({
       ...e,
       crew: [...e.crew],

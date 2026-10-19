@@ -1539,3 +1539,107 @@ button.chip:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Territory: deposits, paths ---------- */
+
+.deposit-bar {
+  flex: 1;
+  min-width: 70px;
+  height: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(122, 90, 64, 0.18);
+  box-shadow: 0 1px 1px rgba(74, 40, 20, 0.15) inset;
+}
+
+.deposit-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--leaf-dark), var(--leaf));
+  transition: width 0.4s ease;
+}
+
+.deposit-bar.low > span {
+  background: linear-gradient(90deg, #b3742f, #d9b36c);
+}
+
+.harvest {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.harvest p,
+.deposit-line p {
+  margin: 0;
+}
+
+.round-fab {
+  position: absolute;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 3px solid var(--edge);
+  background: radial-gradient(circle at 35% 30%, #fffaf0, var(--paper-dark));
+  box-shadow:
+    0 3px 0 var(--edge-dark),
+    0 6px 16px rgba(74, 40, 20, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.round-fab:active {
+  transform: scale(0.94);
+}
+
+.paths-fab {
+  right: calc(var(--gap) + var(--safe-right) + 7px);
+  bottom: calc(var(--gap) + var(--safe-bottom) + 84px);
+}
+
+.path-toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--gap) + var(--safe-bottom));
+  transform: translateX(-50%);
+  width: min(520px, calc(100vw - 2 * var(--gap)));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 14px;
+  border-radius: 18px;
+  z-index: 12;
+}
+
+.path-toolbar-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.path-mode .queue,
+.path-mode .egg-wrap,
+.path-mode .expeditions,
+.path-mode .nudge,
+.path-mode .sheet {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .paths-fab {
+    width: 48px;
+    height: 48px;
+    right: calc(var(--gap) + var(--safe-right) + 6px);
+    bottom: calc(var(--gap) + var(--safe-bottom) + 72px);
+  }
+
+  .has-sheet .paths-fab {
+    display: none;
+  }
+}

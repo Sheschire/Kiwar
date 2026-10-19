@@ -3,6 +3,7 @@ import {
   hexDistance,
   hexKey,
   hexNeighbors,
+  PATHS,
   TILES,
   type FaceMap,
   type Hex,
@@ -50,10 +51,15 @@ class MinHeap<T> {
 }
 
 /**
- * A* over the hex tiles for the (purely cosmetic) villager movement. Rays are cheaper so kiwis
- * naturally use them as paths. The goal tile is always enterable (wells stand in juice pools).
+ * A* over the hex tiles for the (purely cosmetic) villager movement. Rays and player paths are
+ * cheaper so kiwis naturally use them. The goal tile is always enterable (wells stand in juice pools).
  */
-export function findPath(map: FaceMap, from: Hex, to: Hex): Hex[] | null {
+export function findPath(
+  map: FaceMap,
+  from: Hex,
+  to: Hex,
+  paths: ReadonlySet<string> = new Set(),
+): Hex[] | null {
   const goal = hexKey(to);
   const start = hexKey(from);
   if (!getTile(map, from) || !getTile(map, to)) return null;
@@ -62,7 +68,7 @@ export function findPath(map: FaceMap, from: Hex, to: Hex): Hex[] | null {
   const came = new Map<HexKey, HexKey>();
   const cost = new Map<HexKey, number>([[start, 0]]);
   open.push(from, 0);
-  const minCost = 0.5;
+  const minCost = PATHS.walkCost;
   while (open.size > 0) {
     const current = open.pop()!;
     const ck = hexKey(current);
@@ -82,7 +88,12 @@ export function findPath(map: FaceMap, from: Hex, to: Hex): Hex[] | null {
       const nk = hexKey(n);
       const def = TILES[tile.type];
       if (!def.walkable && nk !== goal) continue;
-      const step = nk === goal && !def.walkable ? 1 : def.walkCost;
+      const step =
+        nk === goal && !def.walkable
+          ? 1
+          : paths.has(nk)
+            ? Math.min(PATHS.walkCost, def.walkCost)
+            : def.walkCost;
       const g = cost.get(ck)! + step;
       if (g < (cost.get(nk) ?? Infinity)) {
         cost.set(nk, g);

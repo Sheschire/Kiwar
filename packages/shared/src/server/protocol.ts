@@ -30,6 +30,22 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     provisions: z.object({ pulp: z.number().min(0).max(1e7), juice: z.number().min(0).max(1e7) }),
   }),
   z.object({
+    type: z.literal('buildPath'),
+    tiles: z
+      .array(z.object({ q: int, r: int }))
+      .min(1)
+      .max(40),
+  }),
+  z.object({
+    type: z.literal('removePath'),
+    tiles: z
+      .array(z.object({ q: int, r: int }))
+      .min(1)
+      .max(40),
+  }),
+  z.object({ type: z.literal('gather'), q: int, r: int }),
+  z.object({ type: z.literal('dismantle'), buildingId: id }),
+  z.object({
     type: z.literal('debugGrant'),
     resources: z.object({
       pulp: z.number().min(0).max(1e6).optional(),

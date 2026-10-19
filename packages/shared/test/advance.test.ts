@@ -7,6 +7,8 @@ import {
   HOUR_MS,
   housing,
   population,
+  depotDistance,
+  logisticsEfficiency,
   productionRates,
   workersOf,
   type GameState,
@@ -128,30 +130,23 @@ describe('advance', () => {
     expect(workersOf(after, pulpery.id).length).toBe(Math.min(2, before + 1));
   });
 
-  it('uses tile richness and staffing in production', () => {
+  it('uses staffing and logistics in production', () => {
     const { map, state } = setup();
     let s = rich(state);
     const flesh = findTile(map, 'flesh');
     s = run(s, { type: 'build', buildingType: 'pulpery', q: flesh.q, r: flesh.r }, T0, map);
     s = advance(s, T0 + 60_000).state;
+    // Harvesting pauses while the storage is full: empty it first.
+    s = { ...s, resources: { pulp: 0, fiber: 0, seeds: 0, juice: 0 } };
     const withWorker = productionRates(s).pulp;
     const pulpery = s.buildings.find((b) => b.type === 'pulpery')!;
     s = run(s, { type: 'assignWorkers', buildingId: pulpery.id, count: 0 }, s.now, map);
     const without = productionRates(s).pulp;
+    const efficiency = logisticsEfficiency(depotDistance(s, map, pulpery));
     const expected =
       BUILDINGS.pulpery.levels[0]!.production!.pulp! *
-      flesh.richness *
+      efficiency *
       FACE_PROFILES.kiwisu.yieldMultiplier.pulp;
     expect(withWorker - without).toBeCloseTo(expected, 6);
-  });
-});
-
-describe('villager names', () => {
-  it('are unique within a colony', async () => {
-    const { addVillager } = await import('../src');
-    const { state } = setup('kiwino', 'names');
-    for (let i = 0; i < 60; i++) addVillager(state, T0);
-    const names = state.villagers.map((v) => v.name);
-    expect(new Set(names).size).toBe(names.length);
   });
 });

@@ -32,6 +32,7 @@ const renderer = new GameRenderer(
   {
     now: () => controller?.now() ?? 0,
     onTileTap: (tile) => actions.selectTile(tile),
+    onPaint: (tiles, erase) => actions.paintPaths(tiles, erase),
     onFps: (fps) => uiStore.setState({ fps }),
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
   },

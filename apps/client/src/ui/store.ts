@@ -56,6 +56,8 @@ export interface UiState {
   chatOpen: boolean;
   chat: ChatMessage[];
   chatUnread: number;
+  /** Path painting mode. */
+  pathMode: boolean;
 }
 
 const wideScreen =
@@ -87,6 +89,7 @@ export const uiStore = createStore<UiState>(() => ({
   chatOpen: false,
   chat: [],
   chatUnread: 0,
+  pathMode: false,
 }));
 
 export function setLang(lang: Lang): void {

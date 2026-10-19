@@ -4,19 +4,26 @@ import {
   buildCost,
   buildingAt,
   buildingCount,
+  buildingHarvest,
   buildingRates,
+  CAMPS,
   constructionDuration,
+  depotDistance,
   FACE_PROFILES,
   idleVillagers,
   isLaunchpadBusy,
+  hexKey,
+  isMaxLevel,
   levelDef,
-  MAX_LEVEL,
+  logisticsEfficiency,
   nearRay,
   nestDef,
   pendingUpgrade,
   queuedBuildAt,
   RESOURCE_IDS,
+  tileDepositState,
   TILES,
+  timeToDepletion,
   upgradeCost,
   validateCommand,
   workersOf,
@@ -66,6 +73,54 @@ function Rates({ rates }: { rates: Record<string, number> }) {
   );
 }
 
+function pct(v: number): string {
+  return `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`;
+}
+
+/** Deposit, regrowth and logistics of a producer. */
+function HarvestInfo({ game, b, t }: { game: GameState; b: Building; t: Translate }) {
+  const lang = useUi((s) => s.lang);
+  const h = buildingHarvest(game, b);
+  if (!h) return null;
+  const fmt = (v: number) => formatNumber(lang, Math.round(v));
+  const dry = timeToDepletion(h);
+  return (
+    <div class="harvest">
+      <div class="stat-row">
+        <span class="stat-label">{t('building.deposit')}</span>
+        <div class={`deposit-bar ${h.stock < h.cap * 0.25 ? 'low' : ''}`} aria-hidden="true">
+          <span style={{ width: pct(h.cap > 0 ? h.stock / h.cap : 0) }} />
+        </div>
+        <span class="small">
+          <ResourceIcon id={h.resource} size={14} /> {fmt(h.stock)}/{fmt(h.cap)}
+        </span>
+      </div>
+      <p class="small muted">
+        {t('building.depositTiles', { count: b.pool?.tiles.length ?? 0 })} ·{' '}
+        {t('building.regen', { rate: fmt(h.regen) })}
+      </p>
+      {h.status === 'depleted' && <p class="small warn">⚠ {t('building.depleted')}</p>}
+      {h.status === 'storageFull' && <p class="small muted">{t('building.storagePaused')}</p>}
+      {h.status === 'ok' &&
+        (dry < Infinity ? (
+          <p class="small">{t('building.depletesIn', { duration: formatDuration(lang, dry) })}</p>
+        ) : (
+          <p class="small bonus">✔ {t('building.sustainable')}</p>
+        ))}
+      <div class="stat-row">
+        <span class="stat-label">{t('building.logistics')}</span>
+        <span class={`small ${h.efficiency < 0.8 ? 'warn' : ''}`}>
+          {t('building.logisticsValue', {
+            distance: formatNumber(lang, Math.round(h.distance * 10) / 10),
+            efficiency: formatNumber(lang, Math.round(h.efficiency * 100) / 100),
+          })}
+        </span>
+      </div>
+      {h.efficiency < 0.8 && <p class="small muted">{t('building.logisticsHint')}</p>}
+    </div>
+  );
+}
+
 function BuildingSection({
   game,
   map,
@@ -86,8 +141,9 @@ function BuildingSection({
   const upgrading = pendingUpgrade(game, b.id);
   const target = b.level + 1;
   const ctx = { now, map };
-  const upgradeError =
-    b.level < MAX_LEVEL ? validateCommand(game, { type: 'upgrade', buildingId: b.id }, ctx) : null;
+  const upgradeError = !isMaxLevel(b)
+    ? validateCommand(game, { type: 'upgrade', buildingId: b.id }, ctx)
+    : null;
   const nextDef = levelDef(b.type, target);
   return (
     <div class="section">
@@ -128,12 +184,13 @@ function BuildingSection({
           <span class="small muted">{t('building.idleKiwis', { count: idle })}</span>
         </div>
       )}
-      {(def.production || def.passiveProduction) && (
+      {(def.production || def.passiveProduction || b.type === 'camp') && (
         <div class="stat-row">
           <span class="stat-label">{t('building.production')}</span>
           <Rates rates={buildingRates(game, b)} />
         </div>
       )}
+      <HarvestInfo game={game} b={b} t={t} />
       {def.housing !== undefined && (
         <div class="stat-row">
           <span class="stat-label">{t('building.housing')}</span>
@@ -174,14 +231,23 @@ function BuildingSection({
         </p>
       )}
 
-      {upgrading ? (
+      {b.type === 'camp' ? (
+        <button
+          class="btn"
+          onClick={() => {
+            if (actions.dispatch({ type: 'dismantle', buildingId: b.id })) actions.selectTile(null);
+          }}
+        >
+          {t('building.dismantle')}
+        </button>
+      ) : upgrading ? (
         <div class="upgrade-box">
           <span>
             <HammerIcon size={18} /> {t('building.upgrading', { level: upgrading.targetLevel })}
           </span>
           <Progress item={upgrading} now={now} />
         </div>
-      ) : b.level >= MAX_LEVEL ? (
+      ) : isMaxLevel(b) ? (
         <p class="small muted">{t('building.maxLevel')}</p>
       ) : (
         <div class="upgrade-box">
@@ -231,9 +297,10 @@ function BuildOption({
 }) {
   const lvl1 = BUILDINGS[type].levels[0]!;
   const climate = FACE_PROFILES[game.face].yieldMultiplier;
+  const efficiency = logisticsEfficiency(depotDistance(game, map, tile));
   const preview: Record<string, number> = {};
   for (const id of RESOURCE_IDS)
-    preview[id] = (lvl1.production?.[id] ?? 0) * tile.richness * climate[id];
+    preview[id] = (lvl1.production?.[id] ?? 0) * efficiency * climate[id];
   const error = validateCommand(
     game,
     { type: 'build', buildingType: type, q: tile.q, r: tile.r },
@@ -272,6 +339,85 @@ function BuildOption({
       {error && error !== 'notEnoughResources' && (
         <span class="small warn">{t(`errors.${error}`)}</span>
       )}
+    </div>
+  );
+}
+
+function GatherOption({
+  game,
+  map,
+  tile,
+  now,
+  t,
+}: {
+  game: GameState;
+  map: FaceMap;
+  tile: Tile;
+  now: number;
+  t: Translate;
+}) {
+  const resource = TILES[tile.type].resource;
+  if (!resource || !CAMPS.tiles.includes(tile.type)) return null;
+  const efficiency = logisticsEfficiency(depotDistance(game, map, tile));
+  const rate =
+    CAMPS.rates[resource] * efficiency * FACE_PROFILES[game.face].yieldMultiplier[resource];
+  const error = validateCommand(game, { type: 'gather', q: tile.q, r: tile.r }, { now, map });
+  const camps = game.buildings.filter((b) => b.type === 'camp').length;
+  return (
+    <div class="build-option">
+      <div class="build-option-head">
+        <strong>{t('tile.gather')}</strong>
+        <Rates rates={{ [resource]: rate }} />
+        <span class="cost-item">
+          <KiwiIcon size={16} />×{CAMPS.workerSlots}
+        </span>
+      </div>
+      <p class="small muted">{t('tile.gatherDesc')}</p>
+      <div class="build-option-foot">
+        <span class="small muted">
+          {t('tile.free')} · {t('tile.camps', { count: camps, max: CAMPS.max })}
+        </span>
+        <button
+          class="btn btn-primary"
+          disabled={error !== null}
+          title={error ? t(`errors.${error}`) : undefined}
+          onClick={() => actions.dispatch({ type: 'gather', q: tile.q, r: tile.r })}
+        >
+          {t('tile.gatherButton')}
+        </button>
+      </div>
+      {error && <span class="small warn">{t(`errors.${error}`)}</span>}
+    </div>
+  );
+}
+
+function DepositLine({
+  game,
+  map,
+  tile,
+  t,
+}: {
+  game: GameState;
+  map: FaceMap;
+  tile: Tile;
+  t: Translate;
+}) {
+  const lang = useUi((s) => s.lang);
+  const d = tileDepositState(game, map, tile);
+  if (!d) return null;
+  const fmt = (v: number) => formatNumber(lang, Math.round(v));
+  return (
+    <div class="section deposit-line">
+      <div class="stat-row">
+        <span class="stat-label">{t('tile.deposit')}</span>
+        <div class={`deposit-bar ${d.stock < d.cap * 0.25 ? 'low' : ''}`} aria-hidden="true">
+          <span style={{ width: pct(d.stock / d.cap) }} />
+        </div>
+      </div>
+      <p class="small muted">
+        {t('tile.depositValue', { stock: fmt(d.stock), cap: fmt(d.cap), regen: fmt(d.regen) })}
+        {d.owner && ` · ${t('tile.harvestedBy')}`}
+      </p>
     </div>
   );
 }
@@ -317,6 +463,10 @@ export function TilePanel() {
       </header>
       <div class="sheet-body">
         {!building && !site && <p class="small muted">{t(`tiles.${tile.type}.desc`)}</p>}
+        {!building && !site && game.paths.includes(hexKey(tile)) && (
+          <p class="small bonus">{t('tile.path')}</p>
+        )}
+        {!building && !site && <DepositLine game={game} map={map} tile={tile} t={t} />}
         {building && <BuildingSection game={game} map={map} b={building} now={now} t={t} />}
         {site && (
           <div class="section">
@@ -343,6 +493,7 @@ export function TilePanel() {
             ))}
           </div>
         )}
+        {!building && !site && <GatherOption game={game} map={map} tile={tile} now={now} t={t} />}
         {!building && !site && options.length === 0 && <p class="small">{t('tile.nothing')}</p>}
       </div>
     </aside>
