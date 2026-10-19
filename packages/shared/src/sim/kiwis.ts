@@ -28,6 +28,7 @@ import type { BuildingId, TimeMs } from '../types/ids';
 import type { GameEvent } from './advance';
 import { faceMapOf, harvestedTileType } from './territory';
 import { hungerWork } from './needs';
+import { bedsOf, moraleWork, presence } from './rest';
 import { withRng, type Building, type GameState, type Villager } from './state';
 
 // ---------------------------------------------------------------------------------------------
@@ -198,8 +199,13 @@ export function kiwiExposure(v: Villager): number {
 export function workforce(state: GameState, b: Building, workers: Villager[]): number {
   const resource = buildingResource(state, b);
   if (!resource) return workers.length;
-  const sum = workers.reduce((total, v) => total + workerPower(v, resource), 0);
-  return sum * colonyBonus(state) * hungerWork(state);
+  // Each kiwi works its share of the day (rest and the walk to its bed aside).
+  const beds = bedsOf(state);
+  const sum = workers.reduce(
+    (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)),
+    0,
+  );
+  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state);
 }
 
 /** The mayor at home, if any. */

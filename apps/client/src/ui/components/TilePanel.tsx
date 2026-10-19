@@ -36,6 +36,7 @@ import {
   type GameState,
   type QueueItem,
   type Tile,
+  bedsOf,
   calendarOf,
   CYCLES,
   seasonHarvest,
@@ -239,6 +240,14 @@ function BuildingSection({
             <KiwiIcon size={16} /> {def.housing}
           </span>
         </div>
+      )}
+      {def.housing !== undefined && (
+        <p class="small muted">
+          {t('needs.beds', {
+            used: [...bedsOf(game).values()].filter((x) => x.buildingId === b.id).length,
+            total: def.housing,
+          })}
+        </p>
       )}
       {def.cargo !== undefined && (
         <>

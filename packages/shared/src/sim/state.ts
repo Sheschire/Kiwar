@@ -20,7 +20,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export type Job =
   | { kind: 'idle' }
@@ -213,6 +213,8 @@ export interface GameState {
   speechUntil: TimeMs;
   /** Colony hunger gauge in raw units (HUNGER_SCALE per ms of full privation). */
   hunger: number;
+  /** The colony mourns a lost kiwi until then (morale malus; 0: no mourning). */
+  mourningUntil: TimeMs;
   queue: QueueItem[];
   egg: Egg | null;
   /** Index of the current tutorial objective in OBJECTIVES. */
@@ -281,6 +283,7 @@ export function newGame(opts: NewGameOptions): GameState {
     memorial: [],
     speechUntil: 0,
     hunger: 0,
+    mourningUntil: 0,
     queue: [],
     egg: null,
     objectiveIndex: 0,

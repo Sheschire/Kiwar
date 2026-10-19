@@ -245,15 +245,30 @@ const distanceCache = new Map<string, Map<string, number>>();
  * two tiles' walking costs). Memoized on the layout.
  */
 export function depotDistances(state: GameState, map: FaceMap): Map<string, number> {
-  const depots = state.buildings.filter(isDepot).map((b) => hexKey(b));
+  return walkDistances(
+    state,
+    map,
+    state.buildings.filter(isDepot).map((b) => hexKey(b)),
+  );
+}
+
+/**
+ * Walking distance from every tile to the nearest of `sources` (hex keys), with the current
+ * season's walking costs. Memoized on the sources, the paths and the season.
+ */
+export function walkDistances(
+  state: GameState,
+  map: FaceMap,
+  sources: readonly string[],
+): Map<string, number> {
   const season = seasonOf(state);
-  const key = `${state.seed}|${state.face}|${state.params.radius}|${season}|${depots.join(';')}|${[...state.paths].sort().join(';')}`;
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${season}|${sources.join(';')}|${[...state.paths].sort().join(';')}`;
   const cached = distanceCache.get(key);
   if (cached) return cached;
   const paths = pathSet(state);
   const dist = new Map<string, number>();
   const open = new Map<string, number>();
-  for (const d of depots) open.set(d, 0);
+  for (const d of sources) open.set(d, 0);
   while (open.size > 0) {
     let bestKey = '';
     let best = Infinity;
@@ -276,7 +291,7 @@ export function depotDistances(state: GameState, map: FaceMap): Map<string, numb
       if (nd < (open.get(nk) ?? Infinity)) open.set(nk, nd);
     }
   }
-  if (distanceCache.size >= 16) distanceCache.delete(distanceCache.keys().next().value!);
+  if (distanceCache.size >= 64) distanceCache.delete(distanceCache.keys().next().value!);
   distanceCache.set(key, dist);
   return dist;
 }
@@ -289,7 +304,11 @@ export function logisticsEfficiency(distance: number): number {
 
 /** Walking distance from a building to the nearest depot. */
 export function depotDistance(state: GameState, map: FaceMap, h: Hex): number {
-  const dist = depotDistances(state, map);
+  return distanceIn(depotDistances(state, map), h);
+}
+
+/** Distance of a building's tile in a distance map (unwalkable sites are reached from shore). */
+export function distanceIn(dist: Map<string, number>, h: Hex): number {
   const own = dist.get(hexKey(h));
   if (own !== undefined) return own;
   // Unwalkable site (a well in the juice): reached from the shore.

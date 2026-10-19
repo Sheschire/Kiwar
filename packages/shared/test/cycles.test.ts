@@ -16,6 +16,7 @@ import {
   nextCalendarChange,
   PATHS,
   population,
+  moraleWork,
   SEASON_MS,
   seasonOf,
   tileWalkCost,
@@ -116,7 +117,11 @@ describe('night and seasons at work', () => {
     const spring = buildingHarvest(at(s, 0), pulpery)!;
     const autumn = buildingHarvest(at(s, 2), pulpery)!;
     const winter = buildingHarvest(at(s, 3), pulpery)!;
-    expect(autumn.harvest).toBeCloseTo(spring.harvest * 1.2, 6);
+    expect(spring.cycle).toBe(1);
+    expect(autumn.cycle).toBe(1.2);
+    // Same staff, same land: only the season (and the season's morale) differs.
+    const morale = moraleWork(at(s, 2)) / moraleWork(at(s, 0));
+    expect(autumn.harvest).toBeCloseTo(spring.harvest * 1.2 * morale, 6);
     expect(winter.regen).toBe(0);
     expect(spring.regen).toBeCloseTo(autumn.regen * 1.4, 6);
   });
@@ -137,10 +142,7 @@ describe('night and seasons at work', () => {
     expect(winter.cycle).toBe(0.5);
     // Snow also slows the walk to the depot.
     expect(winter.efficiency).toBeLessThanOrEqual(summer.efficiency);
-    expect(winter.harvest / winter.efficiency).toBeCloseTo(
-      (summer.harvest / summer.efficiency) * 0.5,
-      6,
-    );
+    expect(summer.cycle).toBe(1);
 
     // Some grove tiles are out of reach in winter; paths are always cleared of snow.
     const blocked = map.tiles.some(

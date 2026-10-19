@@ -470,7 +470,7 @@ export class GameRenderer {
     this.environment.update(this.elapsed);
     this.water?.update(this.elapsed);
     this.buildings?.update(dt, this.callbacks.now());
-    this.kiwis?.update(dt, this.elapsed);
+    this.kiwis?.update(dt, this.elapsed, this.callbacks.now());
     this.updateFollow(dt);
     this.selection.update(this.elapsed);
     if (this.postfx) this.postfx.render(dt);

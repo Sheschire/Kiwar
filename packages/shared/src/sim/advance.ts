@@ -75,6 +75,7 @@ export type GameEvent =
     }
   | { type: 'trained'; at: TimeMs; villagerId: VillagerId; name: string; classId: ClassId }
   | { type: 'speechOver'; at: TimeMs }
+  | { type: 'mourningOver'; at: TimeMs }
   | {
       type: 'masteryUp';
       at: TimeMs;
@@ -125,11 +126,13 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const flows = computeFlows(s);
     const trainingEnd = nextTrainingEnd(s);
     const speechEnd = s.speechUntil > s.now ? s.speechUntil : Infinity;
+    const mourningEnd = s.mourningUntil > s.now ? s.mourningUntil : Infinity;
     // Nightfall and dawn change work rates (seasons change at dawn).
     const calendarChange = nextCalendarChange(s.calendarStart, s.now);
     const nextEvent = Math.min(
       calendarChange,
       flows.hungerAt,
+      mourningEnd,
       constructionEnd,
       eggEnd,
       expedition?.at ?? Infinity,
@@ -154,6 +157,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     }
     if (trainingEnd === nextEvent) finishTrainings(s, trainingEnd, events);
     if (speechEnd === nextEvent) events.push({ type: 'speechOver', at: speechEnd });
+    if (mourningEnd === nextEvent) events.push({ type: 'mourningOver', at: mourningEnd });
     if (calendarChange === nextEvent) calendarTick(s, calendarChange, events);
     if (flows.hungerAt === nextEvent) starve(s, nextEvent, events);
     const st = hungerStage(s);

@@ -35,3 +35,47 @@ export type HungerStage = 'fed' | 'hungry' | 'weak' | 'starving';
 
 /** Raw hunger units per millisecond of full privation (integers keep offline progress exact). */
 export const HUNGER_SCALE = 100;
+
+/**
+ * Fatigue and rest (aggregated model): every kiwi needs a share of the day to rest besides the
+ * night. It rests in its bed — the nearest free bed (housing of the Nest and the huts) to its
+ * workplace — so the walk to bed costs work time: huts near the work sites pay off. The share
+ * of time a kiwi spends at work is constant between two events.
+ */
+export const REST = {
+  /** Share of the day an average kiwi spends resting (sleep at night is the night work cut). */
+  base: 0.12,
+  /** Each point of Endurance above average shortens rest by 4 %. */
+  endurance: 0.04,
+  /** Fatigue by season (the summer heat tires kiwis faster). */
+  season: { spring: 1, summer: 1.3, autumn: 1, winter: 1.1 } satisfies Record<Season, number>,
+  /** Every step between the work and the bed lengthens each break by this share. */
+  commute: 0.08,
+  /** A kiwi without a bed sleeps outside and recovers twice slower. */
+  noBed: 2,
+  /** Never less than this share of the time at work (night aside). */
+  minPresence: 0.5,
+  /** Cosmetic work/rest cycle length (fatigue gauge, kiwis going to bed in 3D). */
+  cycleMs: ms.min(45),
+} as const;
+
+/**
+ * Colony morale: small bonus or malus on all work (±10 %), from things the player controls.
+ * Every factor only changes at an event (stage change, season, layout, speech, mourning).
+ */
+export const MORALE = {
+  max: 0.1,
+  /** Fed colony vs hungry colony. */
+  fed: 0.03,
+  hungry: -0.05,
+  /** Beds close to the work: +comfort when every kiwi sleeps within `near` steps of its work,
+   * −comfort when none does (linear in between). */
+  comfort: 0.03,
+  near: 4,
+  /** The mayor's speech lifts spirits. */
+  speech: 0.03,
+  /** After a death, the colony mourns for a day. */
+  mourning: -0.06,
+  mourningMs: ms.h(24),
+  season: { spring: 0.02, summer: 0, autumn: 0, winter: -0.02 } satisfies Record<Season, number>,
+} as const;

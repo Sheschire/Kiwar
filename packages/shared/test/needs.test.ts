@@ -11,6 +11,9 @@ import {
   HUNGER_SCALE,
   hungerStage,
   migrateState,
+  MORALE,
+  moraleOf,
+  moraleWork,
   NEEDS,
   netRates,
   type GameState,
@@ -85,9 +88,16 @@ describe('hunger', () => {
     const fed = buildingHarvest(s, pulpery)!.demand;
     const hungry = { ...s, hunger: NEEDS.stages.hungry * HUNGER_SCALE };
     expect(hungerStage(hungry)).toBe('hungry');
-    expect(buildingHarvest(hungry, pulpery)!.demand).toBeCloseTo(fed * NEEDS.work.hungry, 6);
+    // Hunger also weighs on morale.
+    const morale = moraleWork(hungry) / moraleWork(s);
+    expect(moraleOf(hungry).food).toBe(MORALE.hungry);
+    expect(moraleOf(s).food).toBe(MORALE.fed);
+    expect(buildingHarvest(hungry, pulpery)!.demand).toBeCloseTo(
+      fed * NEEDS.work.hungry * morale,
+      6,
+    );
     const weak = { ...s, hunger: NEEDS.stages.weak * HUNGER_SCALE };
-    expect(buildingHarvest(weak, pulpery)!.demand).toBeCloseTo(fed * NEEDS.work.weak, 6);
+    expect(buildingHarvest(weak, pulpery)!.demand).toBeCloseTo(fed * NEEDS.work.weak * morale, 6);
 
     // Fed again: the gauge drops three times as fast as it rose.
     const { state: later, events } = advance(weak, weak.now + HOUR_MS);

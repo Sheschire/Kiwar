@@ -114,6 +114,7 @@ export const gameStateSchema = z.object({
     .max(MEMORIAL_MAX),
   speechUntil: z.number().min(0),
   hunger: z.number().int().min(0),
+  mourningUntil: z.number().min(0),
   queue: z.array(
     z.object({
       id,
@@ -237,6 +238,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   5: (raw) => ({ ...raw, calendarStart: calendarStartFor(Number(raw.createdAt)) }),
   // v6 → v7: hunger (chantier 04, part 3). Colonies start fed.
   6: (raw) => ({ ...raw, hunger: 0 }),
+  // v7 → v8: morale (chantier 04, part 4). No mourning yet.
+  7: (raw) => ({ ...raw, mourningUntil: 0 }),
 };
 
 export type MigrateResult =

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   consumption,
+  moraleWork,
+  presence,
   advance,
   BUILDINGS,
   builderSpeed,
@@ -153,6 +155,8 @@ describe('advance', () => {
     const withWorker = productionRates(s).pulp;
     const pulpery = s.buildings.find((b) => b.type === 'pulpery')!;
     const worker = workersOf(s, pulpery.id)[0]!;
+    // Its share of the day at work (rest, walk to bed) and the colony morale.
+    const share = presence(s, worker) * moraleWork(s);
     s = run(s, { type: 'assignWorkers', buildingId: pulpery.id, count: 0 }, s.now, map);
     const without = productionRates(s).pulp;
     const efficiency = logisticsEfficiency(depotDistance(s, map, pulpery));
@@ -160,6 +164,7 @@ describe('advance', () => {
       BUILDINGS.pulpery.levels[0]!.production!.pulp! *
       efficiency *
       workerPower(worker, 'pulp') *
+      share *
       FACE_PROFILES.kiwisu.yieldMultiplier.pulp;
     expect(withWorker - without).toBeCloseTo(expected, 6);
   });

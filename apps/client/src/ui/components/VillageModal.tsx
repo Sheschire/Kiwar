@@ -26,6 +26,7 @@ import { Cost } from './Cost';
 import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
 import { StatRadar } from './StatRadar';
+import { MoraleCard, RestSection } from './NeedsWidgets';
 
 type Sort = 'level' | 'name' | 'job' | 'born';
 const SORTS: Sort[] = ['level', 'name', 'job', 'born'];
@@ -70,6 +71,7 @@ function KiwiList() {
   if (kiwis.length === 0) return <p class="muted">{t('village.empty')}</p>;
   return (
     <>
+      <MoraleCard />
       <div class="segmented village-sort" role="group" aria-label={t('village.sort')}>
         <span class="small muted">{t('village.sort')}</span>
         {SORTS.map((s) => (
@@ -375,6 +377,8 @@ function KiwiSheet({ v }: { v: Villager }) {
           </button>
         )}
       </div>
+
+      <RestSection v={v} />
 
       <section class="field">
         <h3>{t('kiwi.stats')}</h3>

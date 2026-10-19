@@ -45,6 +45,9 @@ import {
   type Villager,
   type VillagerId,
   seasonOf,
+  bedsOf,
+  kiwiRhythm,
+  type KiwiRhythm,
 } from '@kiwar/shared';
 import { findPath } from './pathfinding';
 import { WATER_LEVEL } from './water';
@@ -53,7 +56,7 @@ const MAX_KIWIS = 64;
 const WALK_SPEED = 1.15; // world units per second
 const RAY_SPEEDUP = 1.6;
 
-type Activity = 'walk' | 'work' | 'idle' | 'build' | 'drop';
+type Activity = 'walk' | 'work' | 'idle' | 'build' | 'drop' | 'sleep';
 
 interface Agent {
   id: VillagerId;
@@ -77,6 +80,11 @@ interface Agent {
   jitter: number;
   spawn: number;
   rng: Rng;
+  /** Rest rhythm (shared `kiwiRhythm`), refreshed every second. */
+  rhythm: KiwiRhythm;
+  rhythmTimer: number;
+  /** Asleep inside its home (not drawn). */
+  inside: boolean;
 }
 
 /** Shiny kiwis: the body colour is multiplied towards these (vertex colours stay in shape). */
@@ -368,6 +376,9 @@ export class KiwisView {
       scale: sizeOf(v, jitter),
       spawn: 0,
       rng,
+      rhythm: 'work',
+      rhythmTimer: 0,
+      inside: false,
     };
   }
 
@@ -457,8 +468,39 @@ export class KiwisView {
     return best;
   }
 
+  /** Tired or sleepy kiwis go to their bed (inside their hut or the Nest). */
+  private thinkRest(agent: Agent, villager: Villager): boolean {
+    const job = villager.job;
+    if (agent.rhythm === 'work' || job.kind === 'build' || job.kind === 'train') {
+      agent.inside = false;
+      return false;
+    }
+    const bedId = this.state ? bedsOf(this.state).get(villager.id)?.buildingId : null;
+    const home = bedId ? this.state?.buildings.find((b) => b.id === bedId) : undefined;
+    const sig = `rest:${bedId ?? '-'}`;
+    if (sig !== agent.plan) {
+      agent.plan = sig;
+      agent.carrying = null;
+      agent.leg = 'none';
+      agent.inside = false;
+      if (home) this.walkTo(agent, home, 0.2);
+      else {
+        agent.activity = 'sleep';
+        agent.timer = 1e9;
+      }
+      return true;
+    }
+    if (agent.activity === 'walk' && agent.path.length === 0) {
+      agent.activity = 'sleep';
+      agent.timer = 1e9;
+      agent.inside = !!home;
+    }
+    return true;
+  }
+
   /** Decides what an agent does next, according to its villager's job. */
   private think(agent: Agent, villager: Villager): void {
+    if (this.thinkRest(agent, villager)) return;
     const job = villager.job;
     const sig =
       job.kind === 'work'
@@ -549,7 +591,7 @@ export class KiwisView {
     return this.drawn;
   }
 
-  update(dt: number, time: number): void {
+  update(dt: number, time: number, now: number): void {
     if (!this.state) return;
     const villagers = new Map(this.state.villagers.map((v) => [v.id, v]));
     const outfitCounts = new Map([...this.outfits.values()].map((mesh) => [mesh, { n: 0 }]));
@@ -559,10 +601,17 @@ export class KiwisView {
       const villager = villagers.get(agent.id);
       // Kiwis away on an expedition are not on the map.
       if (!villager || villager.job.kind === 'expedition') continue;
-      this.drawn.push(agent);
       agent.timer -= dt;
+      agent.rhythmTimer -= dt;
+      if (agent.rhythmTimer <= 0) {
+        agent.rhythmTimer = 1;
+        agent.rhythm = kiwiRhythm(this.state, villager, now).rhythm;
+      }
       agent.spawn = Math.min(1, agent.spawn + dt * 2);
       this.think(agent, villager);
+      // Asleep inside its hut: not drawn.
+      if (agent.inside) continue;
+      this.drawn.push(agent);
 
       // Movement.
       let speed = 0;
@@ -609,6 +658,10 @@ export class KiwisView {
       } else if (agent.activity === 'build') {
         bob = Math.abs(Math.sin(ph)) * 0.07; // hopping hammer dance
         pitch = Math.max(0, Math.sin(ph)) * 0.35;
+      } else if (agent.activity === 'sleep') {
+        // Asleep outside: curled up, breathing.
+        roll = 1.2;
+        bob = -0.05 + Math.sin(time * 1.5 + agent.phase) * 0.008;
       } else {
         yawWobble = Math.sin(time * 0.8 + agent.scale * 20) * 0.5;
         bob = Math.max(0, Math.sin(ph * 0.5)) * 0.01;

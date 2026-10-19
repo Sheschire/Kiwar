@@ -13,6 +13,7 @@ import {
   type Villager,
 } from './state';
 import { KIWI, MEMORIAL_MAX } from '../data/kiwis';
+import { MORALE } from '../data/needs';
 import type { GameEvent } from './advance';
 import { grantXp, hasSkill, kiwiExposure, kiwiStrength, modifiers } from './kiwis';
 import { SKILLS } from '../data/classes';
@@ -404,6 +405,8 @@ export function removeVillagers(
   if (state.memorial.length > MEMORIAL_MAX)
     state.memorial.splice(0, state.memorial.length - MEMORIAL_MAX);
   state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
+  // The colony mourns its lost kiwis (morale).
+  if (ids.length > 0) state.mourningUntil = Math.max(state.mourningUntil, at + MORALE.mourningMs);
 }
 
 function nameOf(e: Expedition, id: VillagerId): string {

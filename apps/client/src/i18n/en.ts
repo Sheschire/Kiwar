@@ -291,6 +291,28 @@ export const en = {
       'Your young colony will not lose kiwis to hunger before the Nest reaches level {level}.',
     lastKiwis: 'The last {count} kiwis always hold on.',
     tip: 'Each kiwi eats {pulp} pulp and drinks {juice} juice per hour (more in winter). With an empty stock the colony goes hungry: work slows down, then kiwis may starve.',
+    rest: {
+      title: 'Rest',
+      fatigue: 'Fatigue',
+      rhythm: { work: 'Working', rest: 'Resting in bed', sleep: 'Asleep' },
+      bed: 'Sleeps in: {building} ({steps} steps from work)',
+      outside: 'No bed: sleeps outside and rests twice slower.',
+      presence: 'At work {percent} % of the day (night aside).',
+      hint: 'Kiwis rest in the free bed nearest to their work: Huts close to busy sites save walking.',
+    },
+    morale: {
+      title: 'Morale',
+      value: 'Morale {value} %',
+      parts: {
+        food: 'Meals',
+        comfort: 'Beds near work',
+        speech: 'Mayor’s speech',
+        mourning: 'Mourning',
+        season: 'Season',
+      },
+      hint: 'Morale speeds up or slows down all work (up to ±{max} %).',
+    },
+    beds: 'Beds: {used}/{total}',
   },
   errors: {
     unknownTile: 'There is no tile here.',

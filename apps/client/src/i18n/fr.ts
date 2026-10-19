@@ -320,6 +320,28 @@ export const fr: Dict = {
     protected: 'Votre jeune colonie ne perdra aucun kiwi de faim avant le Nid niveau {level}.',
     lastKiwis: 'Les {count} derniers kiwis tiennent toujours bon.',
     tip: 'Chaque kiwi mange {pulp} pulpe et boit {juice} jus par heure (davantage en hiver). Quand un stock est vide, la colonie a faim : le travail ralentit, puis des kiwis peuvent mourir.',
+    rest: {
+      title: 'Repos',
+      fatigue: 'Fatigue',
+      rhythm: { work: 'Au travail', rest: 'Se repose au lit', sleep: 'Dort' },
+      bed: 'Dort à : {building} ({steps} pas du travail)',
+      outside: 'Pas de lit : dort dehors et récupère deux fois moins vite.',
+      presence: 'Au travail {percent} % de la journée (hors nuit).',
+      hint: 'Les kiwis se reposent dans le lit libre le plus proche de leur travail : des Huttes près des sites actifs évitent de longues marches.',
+    },
+    morale: {
+      title: 'Moral',
+      value: 'Moral {value} %',
+      parts: {
+        food: 'Repas',
+        comfort: 'Lits proches du travail',
+        speech: 'Discours du maire',
+        mourning: 'Deuil',
+        season: 'Saison',
+      },
+      hint: 'Le moral accélère ou ralentit tout le travail (jusqu’à ±{max} %).',
+    },
+    beds: 'Lits : {used}/{total}',
   },
   errors: {
     unknownTile: 'Il n’y a pas de tuile ici.',

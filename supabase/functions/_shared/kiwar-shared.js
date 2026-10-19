@@ -1007,6 +1007,38 @@ var NEEDS = {
   warnMs: ms.h(6)
 };
 var HUNGER_SCALE = 100;
+var REST = {
+  /** Share of the day an average kiwi spends resting (sleep at night is the night work cut). */
+  base: 0.12,
+  /** Each point of Endurance above average shortens rest by 4 %. */
+  endurance: 0.04,
+  /** Fatigue by season (the summer heat tires kiwis faster). */
+  season: { spring: 1, summer: 1.3, autumn: 1, winter: 1.1 },
+  /** Every step between the work and the bed lengthens each break by this share. */
+  commute: 0.08,
+  /** A kiwi without a bed sleeps outside and recovers twice slower. */
+  noBed: 2,
+  /** Never less than this share of the time at work (night aside). */
+  minPresence: 0.5,
+  /** Cosmetic work/rest cycle length (fatigue gauge, kiwis going to bed in 3D). */
+  cycleMs: ms.min(45)
+};
+var MORALE = {
+  max: 0.1,
+  /** Fed colony vs hungry colony. */
+  fed: 0.03,
+  hungry: -0.05,
+  /** Beds close to the work: +comfort when every kiwi sleeps within `near` steps of its work,
+   * −comfort when none does (linear in between). */
+  comfort: 0.03,
+  near: 4,
+  /** The mayor's speech lifts spirits. */
+  speech: 0.03,
+  /** After a death, the colony mourns for a day. */
+  mourning: -0.06,
+  mourningMs: ms.h(24),
+  season: { spring: 0.02, summer: 0, autumn: 0, winter: -0.02 }
+};
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
@@ -1469,15 +1501,21 @@ function isDepot(b) {
 }
 var distanceCache = /* @__PURE__ */ new Map();
 function depotDistances(state, map) {
-  const depots = state.buildings.filter(isDepot).map((b) => hexKey(b));
+  return walkDistances(
+    state,
+    map,
+    state.buildings.filter(isDepot).map((b) => hexKey(b))
+  );
+}
+function walkDistances(state, map, sources) {
   const season = seasonOf(state);
-  const key = `${state.seed}|${state.face}|${state.params.radius}|${season}|${depots.join(";")}|${[...state.paths].sort().join(";")}`;
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${season}|${sources.join(";")}|${[...state.paths].sort().join(";")}`;
   const cached = distanceCache.get(key);
   if (cached) return cached;
   const paths = pathSet(state);
   const dist = /* @__PURE__ */ new Map();
   const open = /* @__PURE__ */ new Map();
-  for (const d of depots) open.set(d, 0);
+  for (const d of sources) open.set(d, 0);
   while (open.size > 0) {
     let bestKey = "";
     let best = Infinity;
@@ -1500,7 +1538,7 @@ function depotDistances(state, map) {
       if (nd < (open.get(nk) ?? Infinity)) open.set(nk, nd);
     }
   }
-  if (distanceCache.size >= 16) distanceCache.delete(distanceCache.keys().next().value);
+  if (distanceCache.size >= 64) distanceCache.delete(distanceCache.keys().next().value);
   distanceCache.set(key, dist);
   return dist;
 }
@@ -1510,7 +1548,9 @@ function logisticsEfficiency(distance) {
   return Math.min(max, Math.max(min, (cycleS + stepS * refDistance) / (cycleS + stepS * distance)));
 }
 function depotDistance(state, map, h) {
-  const dist = depotDistances(state, map);
+  return distanceIn(depotDistances(state, map), h);
+}
+function distanceIn(dist, h) {
   const own = dist.get(hexKey(h));
   if (own !== void 0) return own;
   let best = Infinity;
@@ -1695,6 +1735,114 @@ function foodLeftMs(stock, netPerHour) {
   return stock / -netPerHour * 36e5;
 }
 
+// packages/shared/src/sim/rest.ts
+var UNREACHABLE = 12;
+function workSite(state, v) {
+  const job2 = v.job;
+  const at = (id3) => state.buildings.find((b) => b.id === id3) ?? null;
+  if (job2.kind === "work") return at(job2.buildingId);
+  if (job2.kind === "train") return at(job2.schoolId);
+  if (job2.kind === "build") return state.queue.find((i) => i.id === job2.queueItemId) ?? null;
+  if (job2.kind === "expedition") return null;
+  return state.buildings.find((b) => b.type === "nest") ?? null;
+}
+function homes(state) {
+  return state.buildings.map((b) => ({ b, beds: levelDef(b.type, b.level)?.housing ?? 0 })).filter((h) => h.beds > 0);
+}
+var bedCache = /* @__PURE__ */ new Map();
+function bedsOf(state, map = faceMapOf(state)) {
+  const houses = homes(state);
+  const kiwis = state.villagers.filter((v) => v.job.kind !== "expedition");
+  const workers = [
+    ...kiwis.filter((v) => v.job.kind !== "idle"),
+    ...kiwis.filter((v) => v.job.kind === "idle")
+  ];
+  const sites = workers.map((v) => workSite(state, v));
+  const key = [
+    state.seed,
+    state.face,
+    seasonOf(state),
+    houses.map((h) => `${h.b.id}:${h.b.q},${h.b.r}:${h.beds}`).join(";"),
+    workers.map((v, i) => `${v.id}@${sites[i] ? hexKey(sites[i]) : "-"}`).join(";"),
+    [...state.paths].sort().join(";")
+  ].join("|");
+  const cached = bedCache.get(key);
+  if (cached) return cached;
+  const dists = houses.map((h) => walkDistances(state, map, [hexKey(h.b)]));
+  const free = houses.map((h) => h.beds);
+  const out = /* @__PURE__ */ new Map();
+  workers.forEach((v, i) => {
+    const site = sites[i];
+    let best = -1;
+    let bestD = Infinity;
+    for (let h = 0; h < houses.length; h++) {
+      if (free[h] <= 0) continue;
+      const d = site ? distanceIn(dists[h], site) : 0;
+      const dd = Number.isFinite(d) ? d : UNREACHABLE;
+      if (best < 0 || dd < bestD) {
+        best = h;
+        bestD = dd;
+      }
+    }
+    if (best < 0) out.set(v.id, { buildingId: null, distance: 0 });
+    else {
+      free[best]--;
+      out.set(v.id, { buildingId: houses[best].b.id, distance: bestD });
+    }
+  });
+  if (bedCache.size >= 32) bedCache.delete(bedCache.keys().next().value);
+  bedCache.set(key, out);
+  return out;
+}
+function restNeed(state, v, bed) {
+  const endurance = Math.max(0.4, 1 - REST.endurance * (v.stats.endurance - KIWI.stat.average));
+  const outside = !bed || bed.buildingId === null ? REST.noBed : 1;
+  return REST.base * REST.season[seasonOf(state)] * endurance * outside;
+}
+function presence(state, v, bed = bedsOf(state).get(v.id)) {
+  const walk = 1 + REST.commute * (bed?.distance ?? 0);
+  return Math.max(REST.minPresence, 1 - restNeed(state, v, bed) * walk);
+}
+function moraleOf(state) {
+  const food = hungerStage(state) === "fed" ? MORALE.fed : MORALE.hungry;
+  const beds = bedsOf(state);
+  const workers = state.villagers.filter((v) => v.job.kind === "work");
+  const near = workers.filter((v) => (beds.get(v.id)?.distance ?? Infinity) <= MORALE.near);
+  const comfort = workers.length > 0 ? MORALE.comfort * (2 * near.length / workers.length - 1) : 0;
+  const speech = state.speechUntil > state.now ? MORALE.speech : 0;
+  const mourning = state.mourningUntil > state.now ? MORALE.mourning : 0;
+  const season = MORALE.season[seasonOf(state)];
+  const sum = food + comfort + speech + mourning + season;
+  const total = Math.max(-MORALE.max, Math.min(MORALE.max, sum));
+  return { total, food, comfort, speech, mourning, season };
+}
+function moraleWork(state) {
+  return 1 + moraleOf(state).total;
+}
+function phaseOf(id3) {
+  let h = 2166136261;
+  for (let i = 0; i < id3.length; i++) h = Math.imul(h ^ id3.charCodeAt(i), 16777619);
+  h ^= h >>> 16;
+  h = Math.imul(h, 2246822507);
+  h ^= h >>> 13;
+  h = Math.imul(h, 3266489909);
+  h ^= h >>> 16;
+  return (h >>> 0) / 2 ** 32;
+}
+function kiwiRhythm(state, v, t) {
+  const seed = phaseOf(v.id);
+  const c = calendarAt(state.calendarStart, t);
+  if (c.night && seed < 1 - CYCLES.nightWork) {
+    const slept = (t - c.nightAt) / Math.max(1, c.dawnAt - c.nightAt);
+    return { rhythm: "sleep", fatigue: Math.max(0.05, 0.6 - 0.55 * slept) };
+  }
+  const p = presence(state, v);
+  const x = ((t + seed * REST.cycleMs) % REST.cycleMs + REST.cycleMs) % REST.cycleMs;
+  const k = x / REST.cycleMs;
+  if (k < p) return { rhythm: "work", fatigue: 0.15 + 0.75 * (k / p) };
+  return { rhythm: "rest", fatigue: 0.9 - 0.75 * ((k - p) / (1 - p)) };
+}
+
 // packages/shared/src/sim/kiwis.ts
 function rollKiwi(rng) {
   const { min, max } = KIWI.stat;
@@ -1814,8 +1962,12 @@ function kiwiExposure(v) {
 function workforce(state, b, workers) {
   const resource = buildingResource(state, b);
   if (!resource) return workers.length;
-  const sum = workers.reduce((total, v) => total + workerPower(v, resource), 0);
-  return sum * colonyBonus(state) * hungerWork(state);
+  const beds = bedsOf(state);
+  const sum = workers.reduce(
+    (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)),
+    0
+  );
+  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state);
 }
 function mayorOf(state) {
   return state.villagers.find((v) => v.classId === "mayor" && v.job.kind !== "expedition");
@@ -1945,7 +2097,7 @@ function trainingDuration(school, classId) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 7;
+var SCHEMA_VERSION = 8;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -1979,6 +2131,7 @@ function newGame(opts) {
     memorial: [],
     speechUntil: 0,
     hunger: 0,
+    mourningUntil: 0,
     queue: [],
     egg: null,
     objectiveIndex: 0,
@@ -2573,6 +2726,7 @@ function removeVillagers(state, ids, cause, at) {
   if (state.memorial.length > MEMORIAL_MAX)
     state.memorial.splice(0, state.memorial.length - MEMORIAL_MAX);
   state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
+  if (ids.length > 0) state.mourningUntil = Math.max(state.mourningUntil, at + MORALE.mourningMs);
 }
 function nameOf(e, id3) {
   return e.roster.find((r) => r.id === id3)?.name ?? id3;
@@ -2599,10 +2753,12 @@ function advanceInPlace(s, now, events) {
     const flows = computeFlows(s);
     const trainingEnd = nextTrainingEnd(s);
     const speechEnd = s.speechUntil > s.now ? s.speechUntil : Infinity;
+    const mourningEnd = s.mourningUntil > s.now ? s.mourningUntil : Infinity;
     const calendarChange = nextCalendarChange(s.calendarStart, s.now);
     const nextEvent = Math.min(
       calendarChange,
       flows.hungerAt,
+      mourningEnd,
       constructionEnd,
       eggEnd,
       expedition?.at ?? Infinity,
@@ -2627,6 +2783,7 @@ function advanceInPlace(s, now, events) {
     }
     if (trainingEnd === nextEvent) finishTrainings(s, trainingEnd, events);
     if (speechEnd === nextEvent) events.push({ type: "speechOver", at: speechEnd });
+    if (mourningEnd === nextEvent) events.push({ type: "mourningOver", at: mourningEnd });
     if (calendarChange === nextEvent) calendarTick(s, calendarChange, events);
     if (flows.hungerAt === nextEvent) starve(s, nextEvent, events);
     const st = hungerStage(s);
@@ -7403,6 +7560,7 @@ var gameStateSchema = external_exports.object({
   ).max(MEMORIAL_MAX),
   speechUntil: external_exports.number().min(0),
   hunger: external_exports.number().int().min(0),
+  mourningUntil: external_exports.number().min(0),
   queue: external_exports.array(
     external_exports.object({
       id,
@@ -7511,7 +7669,9 @@ var MIGRATIONS = {
   // v5 → v6: day/night and seasons (chantier 04). The calendar starts with the game.
   5: (raw) => ({ ...raw, calendarStart: calendarStartFor(Number(raw.createdAt)) }),
   // v6 → v7: hunger (chantier 04, part 3). Colonies start fed.
-  6: (raw) => ({ ...raw, hunger: 0 })
+  6: (raw) => ({ ...raw, hunger: 0 }),
+  // v7 → v8: morale (chantier 04, part 4). No mourning yet.
+  7: (raw) => ({ ...raw, mourningUntil: 0 })
 };
 function migrateState(input) {
   if (!input || typeof input !== "object") return { ok: false, reason: "corrupt" };
@@ -8059,6 +8219,7 @@ export {
   MAX_PLAYERS,
   MAX_UNIVERSES_PER_PLAYER,
   MEMORIAL_MAX,
+  MORALE,
   NAME_SYLLABLES,
   NEEDS,
   OBJECTIVES,
@@ -8069,6 +8230,7 @@ export {
   RESOURCES,
   RESOURCE_IDS,
   RESOURCE_MASTERY,
+  REST,
   SCHEMA_VERSION,
   SCHOOL,
   SEASONS,
@@ -8096,6 +8258,7 @@ export {
   autoAssign,
   availableCrew,
   baseHarvest,
+  bedsOf,
   bestIdleFor,
   buildCost,
   builderSpeed,
@@ -8136,6 +8299,7 @@ export {
   depotDistance,
   depotDistances,
   deserializeSave,
+  distanceIn,
   eggCost,
   eggDuration,
   emptyMasteries,
@@ -8190,6 +8354,7 @@ export {
   isProducer,
   kiwiCount,
   kiwiExposure,
+  kiwiRhythm,
   kiwiSeed,
   kiwiStrength,
   launch,
@@ -8205,6 +8370,8 @@ export {
   mayorOf,
   migrateState,
   modifiers,
+  moraleOf,
+  moraleWork,
   ms,
   nearRay,
   nest,
@@ -8226,6 +8393,7 @@ export {
   pixelToHex,
   poolCapacity,
   population,
+  presence,
   productionRates,
   queuedBuildAt,
   rankOf,
@@ -8236,6 +8404,7 @@ export {
   requestSchema,
   resolveArrival,
   resolveReturn,
+  restNeed,
   rollKiwi,
   rollShiny,
   scaleCost,
@@ -8264,7 +8433,9 @@ export {
   upgradeCost,
   validateCommand,
   walkCost,
+  walkDistances,
   withRng,
+  workSite,
   workerPower,
   workerSlots,
   workersOf,

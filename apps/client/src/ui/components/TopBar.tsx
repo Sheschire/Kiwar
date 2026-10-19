@@ -29,6 +29,7 @@ import { chatActions } from '../chatActions';
 import { uiStore, useT, useUi } from '../store';
 import { SyncBadge } from './SyncBadge';
 import { ClockChip, ClockTip } from './ClockChip';
+import { MoraleLine } from './NeedsWidgets';
 
 type TipId = ResourceId | 'population' | 'clock';
 
@@ -99,6 +100,7 @@ function TipContent({ id }: { id: TipId }) {
         </strong>
         <p>{t('tips.population')}</p>
         {idle > 0 && <p class="tip-line bonus">{t('tips.idle', { count: idle })}</p>}
+        <MoraleLine />
         <p class="tip-line muted">
           {t('needs.tip', { pulp: NEEDS.eat.pulp, juice: NEEDS.eat.juice })}
         </p>

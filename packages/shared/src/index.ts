@@ -25,6 +25,7 @@ export * from './sim/territory';
 export * from './sim/kiwis';
 export * from './sim/calendar';
 export * from './sim/needs';
+export * from './sim/rest';
 export * from './save/save';
 export * from './server/protocol';
 export * from './server/gameService';
