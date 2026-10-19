@@ -18,6 +18,8 @@ const chat: {
   body: string;
   created_at: string;
 }[] = [];
+type Row = Record<string, unknown>;
+const audioFiles = new Map<string, { type: string; data: Buffer }>();
 const audioBindings: { event_id: string; binding: unknown }[] = [];
 const audioAssets: {
   id: string;
@@ -68,15 +70,19 @@ function send(res: ServerResponse, status: number, body: unknown) {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
   });
   res.end(JSON.stringify(body));
 }
 
-async function readBody(req: IncomingMessage): Promise<unknown> {
+async function readRaw(req: IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const c of req) chunks.push(c as Buffer);
-  const text = Buffer.concat(chunks).toString();
+  return Buffer.concat(chunks);
+}
+
+async function readBody(req: IncomingMessage): Promise<unknown> {
+  const text = (await readRaw(req)).toString();
   return text ? JSON.parse(text) : {};
 }
 
@@ -152,11 +158,62 @@ createServer(async (req, res) => {
     }
   }
   if (url.pathname === '/rest/v1/chat_reports' && req.method === 'POST') return send(res, 201, {});
-  // Audio manifest (public read).
-  if (url.pathname === '/rest/v1/audio_bindings' && req.method === 'GET')
-    return send(res, 200, audioBindings);
-  if (url.pathname === '/rest/v1/audio_assets' && req.method === 'GET')
-    return send(res, 200, audioAssets);
+  // Sounds (chantier 02): public read, writes for signed-in users (every mock user is admin).
+  if (url.pathname === '/rest/v1/rpc/is_admin') return send(res, 200, true);
+  const audioTable =
+    url.pathname === '/rest/v1/audio_bindings'
+      ? { rows: audioBindings as Row[], key: 'event_id' }
+      : url.pathname === '/rest/v1/audio_assets'
+        ? { rows: audioAssets as Row[], key: 'id' }
+        : null;
+  if (audioTable) {
+    const { rows, key } = audioTable;
+    if (req.method === 'GET') return send(res, 200, rows);
+    if (!userFromToken(req.headers.authorization))
+      return send(res, 401, { message: 'unauthorized' });
+    const match = (row: Row) =>
+      [...url.searchParams].every(
+        ([k, v]) => !v.startsWith('eq.') || String(row[k]) === v.slice(3),
+      );
+    if (req.method === 'POST') {
+      const body = (await readBody(req)) as Row | Row[];
+      for (const item of Array.isArray(body) ? body : [body]) {
+        const row = { created_at: new Date().toISOString(), ...item };
+        const i = rows.findIndex((r) => r[key] === row[key]);
+        if (i >= 0) rows[i] = { ...rows[i], ...row };
+        else rows.push(row);
+      }
+      return send(res, 201, body);
+    }
+    if (req.method === 'PATCH') {
+      const patch = (await readBody(req)) as Row;
+      for (const r of rows) if (match(r)) Object.assign(r, patch);
+      return send(res, 200, []);
+    }
+    if (req.method === 'DELETE') {
+      for (let i = rows.length - 1; i >= 0; i--) if (match(rows[i]!)) rows.splice(i, 1);
+      return send(res, 200, []);
+    }
+  }
+  if (url.pathname.startsWith('/storage/v1/object/public/audio/') && req.method === 'GET') {
+    const file = audioFiles.get(decodeURIComponent(url.pathname.slice(32)));
+    if (!file) return send(res, 404, { error: 'not found' });
+    res.writeHead(200, { 'Content-Type': file.type, 'Access-Control-Allow-Origin': '*' });
+    return res.end(file.data);
+  }
+  if (url.pathname.startsWith('/storage/v1/object/audio/') && req.method === 'POST') {
+    if (!userFromToken(req.headers.authorization))
+      return send(res, 401, { message: 'unauthorized' });
+    const path = decodeURIComponent(url.pathname.slice(25));
+    const type = String(req.headers['content-type'] ?? 'application/octet-stream');
+    audioFiles.set(path, { type, data: await readRaw(req) });
+    return send(res, 200, { Key: `audio/${path}` });
+  }
+  if (url.pathname === '/storage/v1/object/audio' && req.method === 'DELETE') {
+    const body = (await readBody(req)) as { prefixes?: string[] };
+    for (const p of body.prefixes ?? []) audioFiles.delete(p);
+    return send(res, 200, []);
+  }
 
   // Test hook: change the artificial latency.
   if (url.pathname === '/__mock/delay') {

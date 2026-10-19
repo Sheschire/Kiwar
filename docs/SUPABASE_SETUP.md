@@ -122,7 +122,10 @@ Le chat en direct utilise **Realtime** : la migration ajoute `chat_messages` à 
   L'uuid se trouve dans _Authentication → Users_. L'accélération du temps n'existe pas en ligne :
   c'est le serveur qui maîtrise l'horloge.
 - Le même compte admin ouvre l'**espace admin des sons** sur `/admin` (connexion Google ou lien
-  magique, avec le compte ajouté ci-dessus).
+  magique, avec le compte ajouté ci-dessus). Ajoutez `https://<votre-site>/admin` dans
+  _Authentication → URL Configuration → Redirect URLs_ pour que la connexion y revienne.
+  L'espace admin affiche l'uuid du compte connecté et la requête `insert` à lancer s'il n'est
+  pas encore admin.
 - Les messages signalés se lisent dans _Table editor → chat_reports_.
 - Pour purger régulièrement le journal (plus de 30 jours), planifiez avec pg_cron :
   `select cron.schedule('purge-kiwar-log', '0 4 * * *', 'select public.purge_command_log()');`

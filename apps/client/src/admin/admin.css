@@ -1,0 +1,368 @@
+/* Admin space: a scrollable page reusing the parchment look of the game. */
+
+html.admin-page,
+html.admin-page body {
+  overflow: auto;
+  height: auto;
+  min-height: 100%;
+  background: radial-gradient(circle at 50% 0%, #ffd6b5, #c7a6dc 60%) fixed;
+}
+
+html.admin-page #ui {
+  position: static;
+  pointer-events: auto;
+}
+
+.admin {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: calc(12px + var(--safe-top)) calc(12px + var(--safe-right))
+    calc(24px + var(--safe-bottom)) calc(12px + var(--safe-left));
+  display: grid;
+  gap: 12px;
+}
+
+.admin-loading {
+  padding: 40px;
+  text-align: center;
+}
+
+.admin .parchment {
+  padding: 14px 16px;
+  border-radius: 16px;
+}
+
+.admin h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.admin h2 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+}
+
+.admin h3 {
+  margin: 8px 0 4px;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+
+.admin p {
+  margin: 4px 0;
+}
+
+.admin-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-header-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin a.btn {
+  text-decoration: none;
+}
+
+.admin-access {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-signin {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-sql {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--paper-dark);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.admin .input {
+  min-height: 40px;
+}
+
+.file-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.file-btn input[type='file'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.admin-tabs .btn {
+  flex: 0 0 auto;
+}
+
+.admin-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+/* Sounds tab */
+
+.admin-sounds {
+  display: grid;
+  gap: 12px;
+}
+
+.asset-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.asset {
+  display: grid;
+  grid-template-columns: auto minmax(8em, 1fr) auto;
+  grid-template-areas:
+    'play name remove'
+    'play meta remove';
+  align-items: center;
+  gap: 2px 10px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.asset > button:first-child {
+  grid-area: play;
+}
+
+.asset-name {
+  grid-area: name;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.asset-meta {
+  grid-area: meta;
+}
+
+.asset > .btn-danger-soft {
+  grid-area: remove;
+}
+
+.btn-danger-soft {
+  color: var(--berry);
+}
+
+.builtin-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Events tab */
+
+.admin-bindings {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.event-list {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  position: sticky;
+  top: 12px;
+}
+
+.event-group {
+  display: grid;
+  gap: 2px;
+}
+
+.event-item {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  display: grid;
+  gap: 1px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.event-item:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.event-item.is-selected {
+  background: var(--paper-dark);
+  box-shadow: inset 3px 0 0 var(--leaf);
+}
+
+.event-id {
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.badge {
+  font-style: normal;
+  font-size: 0.72rem;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--leaf);
+  color: #fffbea;
+}
+
+.badge-muted {
+  background: var(--ink-faint);
+}
+
+.binding-editor .back-btn {
+  display: none;
+  justify-self: start;
+}
+
+.editor-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.save-status.saved {
+  color: var(--leaf-dark);
+}
+
+.source-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.source-chip {
+  display: inline-flex;
+  border: 2px solid var(--edge);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--paper-light);
+}
+
+.source-chip button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: transparent;
+  min-height: 36px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.source-chip .chip-remove {
+  border-left: 1px solid var(--edge);
+  color: var(--berry);
+  font-size: 1.1rem;
+}
+
+.param-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px 16px;
+}
+
+.param {
+  display: grid;
+  gap: 2px;
+}
+
+.param > span {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.param-inputs {
+  display: grid;
+  grid-template-columns: 1fr 5.5em;
+  gap: 8px;
+  align-items: center;
+}
+
+.param-inputs input[type='range'] {
+  width: 100%;
+  accent-color: var(--leaf);
+  height: 28px;
+}
+
+.param .num {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + var(--safe-bottom));
+  transform: translateX(-50%);
+  max-width: min(90vw, 520px);
+  z-index: 10;
+}
+
+.admin-toast.is-error {
+  color: var(--berry);
+}
+
+@media (max-width: 799px) {
+  .admin-bindings {
+    grid-template-columns: 1fr;
+  }
+
+  .event-list {
+    position: static;
+    max-height: none;
+  }
+
+  .admin-bindings.has-selection .event-list {
+    display: none;
+  }
+
+  .binding-editor .back-btn {
+    display: inline-flex;
+  }
+
+  .asset {
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      'play name'
+      'meta meta'
+      'remove remove';
+  }
+
+  .asset > .btn-danger-soft {
+    justify-self: end;
+  }
+}

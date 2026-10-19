@@ -4,6 +4,7 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm build",
   "outputDirectory": "apps/client/dist",
+  "rewrites": [{ "source": "/admin", "destination": "/index.html" }],
   "headers": [
     {
       "source": "/assets/(.*)",
@@ -18,7 +19,7 @@
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
     },
     {
-      "source": "/",
+      "source": "/(admin)?",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
     }
   ]
