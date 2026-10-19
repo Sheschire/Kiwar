@@ -11,6 +11,7 @@ import {
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { GearIcon, KiwiIcon, ResourceIcon, ScrollIcon } from '../icons';
 import { uiStore, useT, useUi } from '../store';
+import { SyncBadge } from './SyncBadge';
 
 type TipId = ResourceId | 'population';
 
@@ -194,6 +195,7 @@ export function TopBar() {
         )}
       </div>
       <div class="topbar-buttons">
+        <SyncBadge />
         <button
           class={`btn btn-icon parchment-btn ${objectivesOpen ? 'btn-active' : ''}`}
           aria-label={t('hud.objectives')}

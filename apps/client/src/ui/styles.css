@@ -953,6 +953,89 @@ button.chip:focus-visible {
   max-width: 230px;
 }
 
+/* ---------- Account, sync ---------- */
+
+.input {
+  font: inherit;
+  color: var(--ink);
+  flex: 1 1 180px;
+  min-height: var(--tap);
+  padding: 6px 12px;
+  border-radius: 12px;
+  border: 2px solid var(--edge);
+  background: var(--paper-light);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.input:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.account details summary {
+  cursor: pointer;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+.account details[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sync {
+  --sync-fill: #c8b48a;
+}
+
+.sync-online {
+  --sync-fill: var(--leaf);
+}
+
+.sync-local {
+  --sync-fill: #b9a07a;
+}
+
+.sync-offline {
+  --sync-fill: var(--berry);
+}
+
+.sync-syncing svg,
+.sync-connecting svg {
+  animation: wobble 1.2s ease-in-out infinite;
+}
+
+.sync.is-guest::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 2px var(--paper-light);
+}
+
+.btn.sync {
+  position: relative;
+}
+
+.nudge {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--gap) + var(--safe-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 14px;
+  max-width: min(520px, calc(100vw - 2 * var(--gap) - 180px));
+  animation: toast-in 0.3s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 760px) {
@@ -1058,8 +1141,17 @@ button.chip:focus-visible {
 
   .has-sheet .queue,
   .has-sheet .egg-wrap,
-  .has-sheet .objectives {
+  .has-sheet .objectives,
+  .has-sheet .nudge {
     display: none;
+  }
+
+  .nudge {
+    left: var(--gap);
+    right: calc(var(--gap) + 76px);
+    transform: none;
+    max-width: none;
+    bottom: calc(var(--gap) + var(--safe-bottom) + 70px);
   }
 }
 

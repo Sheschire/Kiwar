@@ -49,6 +49,8 @@ controller = new GameController({
   onEvents: (events) => handleGameEvents(events, renderer),
   onError: (error) => pushToast('error', `errors.${error}`),
   onOfflineSummary: (summary) => uiStore.setState({ offlineSummary: summary }),
+  onSync: (sync) => uiStore.setState({ sync }),
+  onAccount: (account) => uiStore.setState({ account }),
 });
 bindActions(controller, renderer);
 
@@ -67,14 +69,21 @@ uiStore.subscribe((s, prev) => {
 const url = readUrlParams();
 const linkWorld =
   url.seed || url.face ? { seed: url.seed ?? randomSeed(), face: url.face ?? 'kiwisu' } : null;
-if (linkWorld && controller.hasSave()) {
-  // Never silently overwrite a colony: ask first.
-  controller.start(null, randomSeed);
-  uiStore.setState({ pendingWorld: linkWorld });
-} else {
-  controller.start(linkWorld, randomSeed);
-}
 clearUrlParams();
+
+async function boot(): Promise<void> {
+  // Local mode: an existing colony is loaded first, the link is offered afterwards.
+  // Online mode: the link world is only used if the player has no colony yet.
+  const hadLocalColony = !controller.isOnline && controller.hasProgress();
+  await controller.start(hadLocalColony ? null : linkWorld, randomSeed);
+  const s = controller.state;
+  if (linkWorld && (s.seed !== linkWorld.seed || s.face !== linkWorld.face)) {
+    // Never silently overwrite a colony: ask first.
+    if (controller.hasProgress()) uiStore.setState({ pendingWorld: linkWorld });
+    else controller.newWorld(linkWorld.seed, linkWorld.face);
+  }
+}
+void boot();
 
 render(<App />, document.getElementById('ui')!);
 // Fade out the loading screen once the first frames are on screen.

@@ -3,6 +3,7 @@ import { QUALITY_PRESETS } from '../../render/quality';
 import { randomSeed } from '../../game/urlParams';
 import { actions } from '../actions';
 import { setLang, uiStore, useT, useUi } from '../store';
+import { AccountSection } from './AccountSection';
 import { Modal } from './Modal';
 
 export function SettingsModal() {
@@ -15,6 +16,7 @@ export function SettingsModal() {
   const touch = window.matchMedia?.('(pointer: coarse)').matches;
   return (
     <Modal title={t('settings.title')} onClose={close}>
+      <AccountSection />
       <div class="field">
         <h3>{t('settings.language')}</h3>
         <div class="segmented" role="group" aria-label={t('settings.language')}>

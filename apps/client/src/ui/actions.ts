@@ -35,6 +35,27 @@ export const actions = {
     controller?.setTimeScale(scale);
     uiStore.setState({ timeScale: scale });
   },
+  /** Account actions (online mode only). Errors are returned for display. */
+  async account(
+    op: 'linkGoogle' | 'linkEmail' | 'signInGoogle' | 'signInEmail' | 'signOut',
+    email?: string,
+  ): Promise<string | null> {
+    const backend = controller?.online;
+    if (!backend) return null;
+    try {
+      if (op === 'linkGoogle') await backend.linkGoogle();
+      else if (op === 'linkEmail') await backend.linkEmail(email ?? '');
+      else if (op === 'signInGoogle') await backend.signInWithGoogle();
+      else if (op === 'signInEmail') await backend.signInWithEmail(email ?? '');
+      else {
+        await backend.signOut();
+        window.location.reload();
+      }
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e);
+    }
+  },
   newWorld(seed: string, face: Face): void {
     controller?.newWorld(seed, face);
     uiStore.setState({ selectedTile: null, timeScale: 1, offlineSummary: null });

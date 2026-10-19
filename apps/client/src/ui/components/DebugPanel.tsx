@@ -10,6 +10,7 @@ export function DebugPanel() {
   const t = useT();
   const fps = useUi((s) => Math.round(s.fps));
   const scale = useUi((s) => s.timeScale);
+  const online = useUi((s) => s.sync !== 'local');
   const seed = useUi((s) => s.game?.seed ?? '');
   const face = useUi((s) => s.game?.face ?? 'kiwisu');
   const preset = useUi((s) => s.qualityPreset);
@@ -30,18 +31,22 @@ export function DebugPanel() {
       </header>
       <div class="field">
         <span class="small muted">{t('debug.timeScale')}</span>
-        <div class="segmented">
-          {SCALES.map((s) => (
-            <button
-              key={s}
-              class={`btn ${scale === s ? 'btn-active' : ''}`}
-              aria-pressed={scale === s}
-              onClick={() => actions.setTimeScale(s)}
-            >
-              ×{s}
-            </button>
-          ))}
-        </div>
+        {online ? (
+          <span class="small muted">{t('debug.serverClock')}</span>
+        ) : (
+          <div class="segmented">
+            {SCALES.map((s) => (
+              <button
+                key={s}
+                class={`btn ${scale === s ? 'btn-active' : ''}`}
+                aria-pressed={scale === s}
+                onClick={() => actions.setTimeScale(s)}
+              >
+                ×{s}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <button
         class="btn"

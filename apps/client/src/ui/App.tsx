@@ -3,6 +3,7 @@ import { DebugPanel } from './components/DebugPanel';
 import { EggButton } from './components/EggButton';
 import { ObjectivesPanel } from './components/ObjectivesPanel';
 import { QueuePanel } from './components/QueuePanel';
+import { SaveNudge } from './components/SaveNudge';
 import { TilePanel } from './components/TilePanel';
 import { OfflineModal } from './components/OfflineModal';
 import { SettingsModal } from './components/SettingsModal';
@@ -35,6 +36,7 @@ export function App() {
       <TopBar />
       <ObjectivesPanel />
       <QueuePanel />
+      <SaveNudge />
       <EggButton />
       <TilePanel />
       <Toasts />

@@ -9,7 +9,8 @@ import {
   type TKey,
   type TParams,
 } from '../i18n/i18n';
-import type { OfflineSummary } from '../game/GameController';
+import type { OfflineSummary, SyncStatus } from '../game/GameController';
+import type { Account } from '../game/onlineBackend';
 import type { QualityChoice, QualityPreset } from '../render/quality';
 
 export interface Toast {
@@ -38,6 +39,8 @@ export interface UiState {
   offlineSummary: OfflineSummary | null;
   pendingWorld: { seed: string; face: Face } | null;
   toasts: Toast[];
+  sync: SyncStatus;
+  account: Account | null;
 }
 
 const wideScreen =
@@ -59,6 +62,8 @@ export const uiStore = createStore<UiState>(() => ({
   offlineSummary: null,
   pendingWorld: null,
   toasts: [],
+  sync: 'local',
+  account: null,
 }));
 
 export function setLang(lang: Lang): void {
