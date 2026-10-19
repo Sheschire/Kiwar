@@ -8,7 +8,7 @@ export const HATCHING = {
   basePopulation: BASE_POPULATION,
   cost(population: number): ResourceCost {
     const n = Math.max(0, population - BASE_POPULATION);
-    return { pulp: geometric(30, 1.38, n, 5), juice: geometric(12, 1.4, n) };
+    return { pulp: geometric(25, 1.3, n, 5), juice: geometric(10, 1.35, n) };
   },
   durationMs(population: number): number {
     const n = Math.max(0, population - BASE_POPULATION);

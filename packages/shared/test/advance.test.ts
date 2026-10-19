@@ -138,7 +138,10 @@ describe('advance', () => {
     const pulpery = s.buildings.find((b) => b.type === 'pulpery')!;
     s = run(s, { type: 'assignWorkers', buildingId: pulpery.id, count: 0 }, s.now, map);
     const without = productionRates(s).pulp;
-    const expected = 360 * flesh.richness * FACE_PROFILES.kiwisu.yieldMultiplier.pulp;
+    const expected =
+      BUILDINGS.pulpery.levels[0]!.production!.pulp! *
+      flesh.richness *
+      FACE_PROFILES.kiwisu.yieldMultiplier.pulp;
     expect(withWorker - without).toBeCloseTo(expected, 6);
   });
 });

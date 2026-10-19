@@ -91,3 +91,9 @@ Larger choices were validated with the project owner (marked ✅).
 - Paths: A* over hex tiles (`walkCost` from tile data; rays cost 0.5 so kiwis prefer them, and walk 1.6× faster on them). Juice pools and skin are not walkable, except as a destination (wells).
 - Rendering: 4 instanced meshes for all kiwis (merged body+head+beak+eyes, legs, blob shadows, carried loads) → constant draw calls whatever the population. Waddle = roll + bob + alternating legs; spawn with an ease-out-back pop and a sparkle burst at the Nest.
 - Moving kiwis use blob shadows instead of the (static) shadow map.
+
+### Balance tool & pacing (step 7)
+- `pnpm balance [--seeds 200] [--threshold 10] [--hours 72] [--out path]` plays a deterministic greedy bot on N seeds per face through `applyCommand`/`advance` (the real rules), measures milestones (tutorial done, population 10, Nest 2, Nest 3, every building type at level 3) and writes a Markdown report (`tools/balance/reports/latest.md`, snapshot in `docs/BALANCE_REPORT.md`). Gaps between the Kiwisu/Kiwino medians (or in the share of runs reaching a milestone) above the threshold are flagged.
+- The first run flagged Kiwino ~14 % slower: its malus was on pulp/fibre, the bottleneck resources, while its bonus (seeds/juice) was not. Climate multipliers were rebalanced (Kiwisu pulp ×1.05, seeds/juice ×0.95; Kiwino seeds/juice ×1.05) → all milestones within ±1 %.
+- Economy pass: production roughly ×1.6, Nest passive income doubled, storage +25 %, cheaper eggs. Bot pacing (median): 7 tutorial objectives in ~3 min, a building action every few minutes for the first ~8 min, then 10–20 min waits; tutorial (incl. Nest 2) ~1 h 10, Nest 3 / everything level 3 ~6 h 20 of game time.
+- 200 seeds × 2 faces run in ~50 s.

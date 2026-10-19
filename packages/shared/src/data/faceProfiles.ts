@@ -28,7 +28,7 @@ export const FACE_PROFILES: Record<Face, FaceProfile> = {
     seedRing: { inner: 0.2, outer: 0.4, density: 0.5 },
     groves: { inner: 0.64, density: 0.36, scattered: 0.05 },
     juicePools: { count: [3, 4], size: [2, 4] },
-    yieldMultiplier: { pulp: 1.1, fiber: 1.05, seeds: 0.92, juice: 0.95 },
+    yieldMultiplier: { pulp: 1.05, fiber: 1.0, seeds: 0.95, juice: 0.95 },
   },
   kiwino: {
     face: 'kiwino',
@@ -37,6 +37,6 @@ export const FACE_PROFILES: Record<Face, FaceProfile> = {
     seedRing: { inner: 0.2, outer: 0.42, density: 0.62 },
     groves: { inner: 0.68, density: 0.28, scattered: 0.03 },
     juicePools: { count: [4, 5], size: [2, 4] },
-    yieldMultiplier: { pulp: 0.95, fiber: 0.95, seeds: 1.1, juice: 1.05 },
+    yieldMultiplier: { pulp: 1.0, fiber: 1.0, seeds: 1.05, juice: 1.05 },
   },
 };
