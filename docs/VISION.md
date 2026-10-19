@@ -138,3 +138,9 @@ joueurs) rendent la question concrète : _ce que j'ai construit peut être abîm
 8. **Âges** : progression **individuelle**.
 9. **Saisons** : à définir plus tard.
 10. **Coloniser** une autre face sera possible, mais difficile : un **combat de boss** exigeant de grosses unités.
+
+## Décisions pour le Jalon 5 (menaces)
+
+- **Préavis long** : les grosses vagues sont annoncées 8 à 12 h à l'avance ; les petits incidents tombent sans prévenir mais restent mineurs.
+- **Échelle des menaces** (en attendant les âges) : taille de la colonie (niveau du Nid) × temps de jeu, avec une protection des débutants pendant les premières heures.
+- **Défenses** : à la fois des **tourelles à pépins** sur les tuiles au bord de la falaise de peau (munitions consommées) et une **garnison** de kiwis postés en défense (ils ne récoltent plus).
