@@ -35,3 +35,7 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   the owner, ready to paste, with the run order (the owner has no CLI workflow yet). Storage
   buckets and their policies are created in SQL too (`storage.buckets`, `storage.objects`
   policies), so the owner never has to click through the dashboard.
+- **Deployment**: `.github/workflows/deploy-functions.yml` deploys the `game` function on every
+  push to main touching `supabase/functions/**` (secrets `SUPABASE_ACCESS_TOKEN`,
+  `SUPABASE_PROJECT_REF`; skipped when missing). The owner has no local clone: never ask them to
+  run CLI commands; SQL goes through the SQL Editor, functions through this workflow.

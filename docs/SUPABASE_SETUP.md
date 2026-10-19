@@ -61,13 +61,25 @@ Les joueurs peuvent seulement **lire** leur partie. Toute écriture passe par la
 
 ## 4. Fonction serveur `game`
 
+**Sans rien installer (recommandé)** : GitHub la déploie automatiquement (workflow
+`.github/workflows/deploy-functions.yml`, à chaque modification de `supabase/functions/`).
+
+1. Créez un jeton sur https://supabase.com/dashboard/account/tokens (_Generate new token_).
+2. Sur GitHub : dépôt → **Settings → Secrets and variables → Actions → New repository secret** :
+   - `SUPABASE_ACCESS_TOKEN` = le jeton ;
+   - `SUPABASE_PROJECT_REF` = l'identifiant du projet (le `xxxx` de `https://xxxx.supabase.co`).
+3. Onglet **Actions** → _Deploy Supabase functions_ → **Run workflow** (premier déploiement).
+   Vérifiez ensuite dans Supabase → **Edge Functions** que `game` apparaît.
+
+**Depuis un ordinateur** (alternative) :
+
 ```bash
 pnpm build:functions                          # régénère le bundle des règles partagées
-npx supabase functions deploy game --project-ref xxxx
+npx supabase functions deploy game --project-ref xxxx --use-api
 ```
 
 La fonction utilise automatiquement `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY`, fournis par
-Supabase. Aucun secret n'est à configurer.
+Supabase. Aucun secret n'est à configurer côté Supabase.
 
 ## 5. Vercel
 
