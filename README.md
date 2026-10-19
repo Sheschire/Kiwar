@@ -7,8 +7,12 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Journal des décisions : [`docs/DECISIONS.md`](docs/DECISIONS.md)
 - Dernier rapport d'équilibrage : [`docs/BALANCE_REPORT.md`](docs/BALANCE_REPORT.md)
 
-> **État : Jalon 3** — expéditions (vaisseau, provisions, combat contre les extraterrestres),
-> univers partagés sur invitation et chat d'équipe. Vision long terme : [`docs/VISION.md`](docs/VISION.md).
+> **État : Jalon 4** — le territoire compte : gisements qui s'épuisent et repoussent, zones de
+> récolte, camps de cueillette sans bâtiment, logistique (distance au dépôt) et chemins à tracer.
+> Vision long terme : [`docs/VISION.md`](docs/VISION.md).
+>
+> **Jalon 3** — expéditions (vaisseau, provisions, combat contre les extraterrestres),
+> univers partagés sur invitation et chat d'équipe.
 >
 > **Jalon 2** — en ligne avec Supabase (invité immédiat, comptes Google / lien magique,
 > serveur qui fait autorité), voir [`docs/SUPABASE_SETUP.md`](docs/SUPABASE_SETUP.md). Sans

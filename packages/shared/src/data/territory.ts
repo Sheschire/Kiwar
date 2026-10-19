@@ -15,10 +15,12 @@ export interface DepositDef {
 }
 
 export const DEPOSITS: Partial<Record<TileType, DepositDef>> = {
-  flesh: { resource: 'pulp', stock: 300, regen: 150 },
-  grove: { resource: 'fiber', stock: 260, regen: 120 },
-  seedRing: { resource: 'seeds', stock: 90, regen: 30 },
-  juice: { resource: 'juice', stock: 400, regen: 160 },
+  // Regrowth is sized so that a well-placed producer is sustainable at level 1 (2 tiles),
+  // drains slowly at level 2 (needs ~5 tiles) and needs its wider level-3 catchment (~10).
+  flesh: { resource: 'pulp', stock: 600, regen: 300 },
+  grove: { resource: 'fiber', stock: 500, regen: 250 },
+  seedRing: { resource: 'seeds', stock: 200, regen: 80 },
+  juice: { resource: 'juice', stock: 800, regen: 300 },
 };
 
 /** Tile type harvested by each producer (camps harvest the tile they stand on). */
@@ -61,7 +63,8 @@ export const PATHS = {
 /** Gathering camps: no building, a couple of kiwis picking by hand. Slower, but free. */
 export const CAMPS = {
   /** Harvest per hour with both slots filled. */
-  rates: { pulp: 180, fiber: 150, seeds: 50, juice: 150 } satisfies Resources,
+  // Per kiwi, three times slower than a building; still faster than one tile regrows.
+  rates: { pulp: 360, fiber: 300, seeds: 100, juice: 360 } satisfies Resources,
   workerSlots: 2,
   max: 3,
   tiles: ['flesh', 'grove', 'seedRing', 'juice'] as readonly TileType[],

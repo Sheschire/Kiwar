@@ -369,6 +369,31 @@ export function tileDepositState(
   return { ...dep, stock: freeDepositStock(state, map, key, at), owner: null };
 }
 
+/**
+ * What a new producer of `type` placed on `h` would harvest (tiles still free for it at the
+ * given level), to compare sites before building.
+ */
+export function catchmentPreview(
+  state: GameState,
+  map: FaceMap,
+  type: Building['type'],
+  h: Hex,
+  level = 1,
+): { tiles: number; cap: number; regen: number } {
+  const probe: Building = {
+    id: '__probe' as BuildingId,
+    type,
+    q: h.q,
+    r: h.r,
+    level,
+    richness: 1,
+    builtAt: state.now,
+  };
+  const claims = computeClaims({ ...state, buildings: [...state.buildings, probe] }, map);
+  const tiles = claims.get(probe.id) ?? [];
+  return { tiles: tiles.length, ...poolCapacity(map, tiles) };
+}
+
 /** Fill ratio (0–1) of every deposit that is not full, by hex key (for the terrain tint). */
 export function depletedTiles(state: GameState, map: FaceMap): Map<string, number> {
   const out = new Map<string, number>();

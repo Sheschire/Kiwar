@@ -7,9 +7,11 @@ import {
   buildingHarvest,
   buildingRates,
   CAMPS,
+  catchmentPreview,
   constructionDuration,
   depotDistance,
   FACE_PROFILES,
+  HARVESTS,
   idleVillagers,
   isLaunchpadBusy,
   hexKey,
@@ -297,7 +299,11 @@ function BuildOption({
 }) {
   const lvl1 = BUILDINGS[type].levels[0]!;
   const climate = FACE_PROFILES[game.face].yieldMultiplier;
+  const lang = useUi((s) => s.lang);
   const efficiency = logisticsEfficiency(depotDistance(game, map, tile));
+  const reach = HARVESTS[type] ? catchmentPreview(game, map, type, tile) : null;
+  // A site whose regrowth cannot even feed the level-1 building is flagged.
+  const sustainableNeed = Object.values(lvl1.production ?? {})[0] ?? 0;
   const preview: Record<string, number> = {};
   for (const id of RESOURCE_IDS)
     preview[id] = (lvl1.production?.[id] ?? 0) * efficiency * climate[id];
@@ -319,6 +325,14 @@ function BuildOption({
         {lvl1.storage && <span class="cost-item">+{lvl1.storage}</span>}
       </div>
       <p class="small muted">{t(`buildings.${type}.desc`)}</p>
+      {reach && (
+        <p class={`small ${reach.regen < sustainableNeed ? 'warn' : 'muted'}`}>
+          {t('tile.reach', {
+            count: reach.tiles,
+            regen: formatNumber(lang, Math.round(reach.regen)),
+          })}
+        </p>
+      )}
       <div class="build-option-foot">
         <Cost
           cost={buildCost(game, type)}

@@ -5,25 +5,31 @@ import {
   BUILDINGS,
   buildCost,
   buildingAt,
+  buildingHarvest,
+  buildingRates,
   buildingCount,
   canAfford,
   canHatch,
   capacity,
+  catchmentPreview,
   currentObjective,
+  depotDistance,
   eggCost,
+  emptyResources,
   generateFace,
+  HARVESTS,
+  hexDistance,
   housing,
   idleVillagers,
   isObjectiveComplete,
+  logisticsEfficiency,
   MAX_LEVEL,
-  nearRay,
   nest,
   nestDef,
   newGame,
   OBJECTIVES,
   pendingUpgrade,
   population,
-  productionRates,
   queuedBuildAt,
   RESOURCE_IDS,
   upgradeCost,
@@ -55,6 +61,9 @@ const PRODUCERS: Record<ResourceId, BuildingType> = {
   seeds: 'seedQuarry',
   juice: 'juiceWell',
 };
+/** Relative needs of the economy (roughly the mix of upgrade costs). */
+const NEED: Record<ResourceId, number> = { pulp: 1, fiber: 1, seeds: 0.18, juice: 0.32 };
+
 const BUILD_ORDER: BuildingType[] = [
   'pulpery',
   'fiberWorkshop',
@@ -64,15 +73,32 @@ const BUILD_ORDER: BuildingType[] = [
   'warehouse',
 ];
 
-/** Best free tile for a building: rich, near a ray, close to the heart. */
+/**
+ * Best free tile for a building. Producers: the most deposit regrowth in reach (now and at
+ * level 3), weighted by logistics. Others: rays and the heart first (no deposit lost), close
+ * to the producers for warehouses, close to the heart otherwise.
+ */
 function bestTile(state: GameState, map: FaceMap, type: BuildingType): Tile | null {
   let best: Tile | null = null;
   let bestScore = -Infinity;
+  const producers = state.buildings.filter((b) => HARVESTS[b.type]);
   for (const t of map.tiles) {
     if (!BUILDINGS[type].allowedTiles.includes(t.type)) continue;
     if (buildingAt(state, t.q, t.r) || queuedBuildAt(state, t.q, t.r)) continue;
     if (t.q === 0 && t.r === 0) continue;
-    const score = t.richness + (nearRay(map, t.q, t.r) ? 0.05 : 0) - t.rho * 0.15;
+    let score: number;
+    if (HARVESTS[type]) {
+      const now = catchmentPreview(state, map, type, t, 1).regen;
+      const later = catchmentPreview(state, map, type, t, 3).regen;
+      score = (now + 0.5 * later) * logisticsEfficiency(depotDistance(state, map, t));
+    } else {
+      const spare = t.type === 'flesh' ? -1 : 0;
+      const near =
+        type === 'warehouse' && producers.length > 0
+          ? -producers.reduce((sum, b) => sum + hexDistance(b, t), 0) / producers.length
+          : -t.rho * 5;
+      score = spare + near * 0.3;
+    }
     if (score > bestScore) {
       bestScore = score;
       best = t;
@@ -173,20 +199,38 @@ function decide(state: GameState, map: FaceMap): Command[] {
       return [...cmds, { type: 'upgrade', buildingId: wh.id }];
   }
 
-  // 5. Upgrade the producer of the bottleneck resource (lowest production).
-  const rates = productionRates(state);
-  const order = [...RESOURCE_IDS].sort((a, b) => rates[a] - rates[b]);
+  // 5. Upgrade the producer of the bottleneck resource (lowest production, full storage
+  // ignored: a full resource is not a bottleneck).
+  const rates = emptyResources();
+  for (const b of state.buildings) {
+    const r = buildingRates(state, b, () => false);
+    for (const id of RESOURCE_IDS) rates[id] += r[id];
+  }
+  for (const id of RESOURCE_IDS)
+    if (state.resources[id] >= capacity(state)[id] * 0.95) rates[id] = Infinity;
+  const order = [...RESOURCE_IDS].sort((a, b) => rates[a] / NEED[a] - rates[b] / NEED[b]);
   for (const res of order) {
+    if (rates[res] === Infinity) continue;
     const type = PRODUCERS[res];
+    // Upgrading a producer whose deposits are exhausted does not help: open a new site.
     const candidates = state.buildings
-      .filter((b) => b.type === type && b.level < MAX_LEVEL && !pendingUpgrade(state, b.id))
+      .filter(
+        (b) =>
+          b.type === type &&
+          b.level < MAX_LEVEL &&
+          !pendingUpgrade(state, b.id) &&
+          buildingHarvest(state, b, () => false)?.status !== 'depleted',
+      )
       .sort((a, b) => a.level - b.level);
     const target = candidates[0];
-    if (target) cmds.push({ type: 'upgrade', buildingId: target.id });
-    else if (buildingCount(state) < (nestDef(state).maxBuildings ?? 0)) {
-      const c = build(type);
-      if (c) cmds.push(c);
-    }
+    let cmd: Command | null = null;
+    if (target) cmd = { type: 'upgrade', buildingId: target.id };
+    else if (buildingCount(state) < (nestDef(state).maxBuildings ?? 0)) cmd = build(type);
+    if (!cmd) continue;
+    const r = applyCommand(state, cmd, { now: state.now, map });
+    if (r.ok) return [...cmds, cmd];
+    // Save up for the bottleneck rather than spending on something else.
+    if (r.error === 'notEnoughResources' || r.error === 'queueFull') return cmds;
   }
   // 6. Then anything else that is not maxed (huts, warehouses).
   for (const b of state.buildings) {
@@ -224,6 +268,8 @@ export interface RunOptions {
   horizonMs: number;
   /** Decision interval when nothing else happens. */
   stepMs?: number;
+  /** Diagnostics: called after each decision round. */
+  onStep?(state: GameState, map: FaceMap): void;
 }
 
 export function runBot(opts: RunOptions): RunResult {
@@ -253,6 +299,7 @@ export function runBot(opts: RunOptions): RunResult {
       if (!applied) break;
     }
     checkMilestones(state, start, times);
+    opts.onStep?.(state, map);
     if (MILESTONES.every((m) => times[m] !== null)) break;
     // Next decision: the next event, or a fixed step (whichever comes first).
     const active = activeItem(state);

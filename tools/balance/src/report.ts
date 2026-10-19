@@ -103,7 +103,7 @@ export function toMarkdown(
   );
   lines.push(
     '',
-    'Bot: follows the tutorial, keeps kiwis busy, hatches eggs, builds one of each building, then upgrades the bottleneck producer, adds housing/storage when needed and upgrades the Nest as soon as possible.',
+    'Bot: follows the tutorial, keeps kiwis busy, hatches eggs, builds one of each building on the site with the most deposits in reach (weighted by logistics), then upgrades the bottleneck producer (or opens a new site when its deposits are exhausted), adds housing/storage when needed and upgrades the Nest as soon as possible. It uses neither camps nor paths.',
   );
   return lines.join('\n') + '\n';
 }

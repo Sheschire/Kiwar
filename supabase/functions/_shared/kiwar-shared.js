@@ -279,10 +279,12 @@ var FACE_PROFILES = {
 
 // packages/shared/src/data/territory.ts
 var DEPOSITS = {
-  flesh: { resource: "pulp", stock: 300, regen: 150 },
-  grove: { resource: "fiber", stock: 260, regen: 120 },
-  seedRing: { resource: "seeds", stock: 90, regen: 30 },
-  juice: { resource: "juice", stock: 400, regen: 160 }
+  // Regrowth is sized so that a well-placed producer is sustainable at level 1 (2 tiles),
+  // drains slowly at level 2 (needs ~5 tiles) and needs its wider level-3 catchment (~10).
+  flesh: { resource: "pulp", stock: 600, regen: 300 },
+  grove: { resource: "fiber", stock: 500, regen: 250 },
+  seedRing: { resource: "seeds", stock: 200, regen: 80 },
+  juice: { resource: "juice", stock: 800, regen: 300 }
 };
 var HARVESTS = {
   pulpery: "flesh",
@@ -312,7 +314,8 @@ var PATHS = {
 };
 var CAMPS = {
   /** Harvest per hour with both slots filled. */
-  rates: { pulp: 180, fiber: 150, seeds: 50, juice: 150 },
+  // Per kiwi, three times slower than a building; still faster than one tile regrows.
+  rates: { pulp: 360, fiber: 300, seeds: 100, juice: 360 },
   workerSlots: 2,
   max: 3,
   tiles: ["flesh", "grove", "seedRing", "juice"]
@@ -341,7 +344,7 @@ var BUILDINGS = {
         cost: {},
         durationMs: 0,
         requiresNestLevel: 0,
-        passiveProduction: { pulp: 240, fiber: 180 },
+        passiveProduction: { pulp: 270, fiber: 230 },
         housing: 4,
         storage: 400,
         maxBuildings: 6,
@@ -1332,6 +1335,20 @@ function tileDepositState(state, map, h, at = state.now) {
       return { ...dep, stock: dep.cap * fillRatio(map, b), owner: b.id };
   }
   return { ...dep, stock: freeDepositStock(state, map, key, at), owner: null };
+}
+function catchmentPreview(state, map, type, h, level = 1) {
+  const probe = {
+    id: "__probe",
+    type,
+    q: h.q,
+    r: h.r,
+    level,
+    richness: 1,
+    builtAt: state.now
+  };
+  const claims = computeClaims({ ...state, buildings: [...state.buildings, probe] }, map);
+  const tiles = claims.get(probe.id) ?? [];
+  return { tiles: tiles.length, ...poolCapacity(map, tiles) };
 }
 function depletedTiles(state, map) {
   const out = /* @__PURE__ */ new Map();
@@ -6864,6 +6881,7 @@ export {
   canAfford,
   canHatch,
   capacity,
+  catchmentPreview,
   catchmentRadius,
   cloneState,
   commandSchema,

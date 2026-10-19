@@ -63,7 +63,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
         cost: {},
         durationMs: 0,
         requiresNestLevel: 0,
-        passiveProduction: { pulp: 240, fiber: 180 },
+        passiveProduction: { pulp: 270, fiber: 230 },
         housing: 4,
         storage: 400,
         maxBuildings: 6,

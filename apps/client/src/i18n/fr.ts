@@ -80,6 +80,7 @@ export const fr: Dict = {
     queued: 'En attente dans la file',
     deposit: 'Gisement',
     depositValue: '{stock} / {cap} · repousse +{regen}/h',
+    reach: 'Gisements à portée : {count} tuile(s) · repousse +{regen}/h',
     harvestedBy: 'Récolté par un bâtiment voisin.',
     logistics: 'Logistique ici : ×{efficiency}',
     gather: 'Camp de cueillette',

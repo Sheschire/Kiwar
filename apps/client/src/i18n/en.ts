@@ -66,6 +66,7 @@ export const en = {
     queued: 'Waiting in the queue',
     deposit: 'Deposit',
     depositValue: '{stock} / {cap} · regrows +{regen}/h',
+    reach: 'Deposits in reach: {count} tile(s) · regrowth +{regen}/h',
     harvestedBy: 'Harvested by a nearby building.',
     logistics: 'Logistics here: ×{efficiency}',
     gather: 'Gathering camp',

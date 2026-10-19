@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   advance,
   applyCommand,
+  BUILDINGS,
   buildingHarvest,
   CAMPS,
+  DEPOSITS,
   depotDistance,
   FACE_PROFILES,
   hexKey,
@@ -48,7 +50,7 @@ describe('deposits', () => {
     expect(b.pool?.tiles).toEqual([hexKey(site)]);
     const h = buildingHarvest(s, b)!;
     expect(h.resource).toBe('pulp');
-    expect(h.stock).toBeCloseTo(300 * site.richness, 6);
+    expect(h.stock).toBeCloseTo(DEPOSITS.flesh!.stock * site.richness, 6);
     expect(h.status).toBe('ok');
   });
 
@@ -64,7 +66,9 @@ describe('deposits', () => {
         b.id === camp.id ? { ...b, pool: { ...b.pool!, stock: (h0.demand - h0.regen) / 6 } } : b,
       ),
     };
-    const nestPulp = 240 * FACE_PROFILES.kiwisu.yieldMultiplier.pulp;
+    const nestPulp =
+      BUILDINGS.nest.levels[0]!.passiveProduction!.pulp! *
+      FACE_PROFILES.kiwisu.yieldMultiplier.pulp;
     const climate = FACE_PROFILES.kiwisu.yieldMultiplier.pulp;
     const big = advance(s, s.now + HOUR_MS / 3).state;
     const expected = nestPulp / 3 + (h0.demand / 6 + h0.regen / 6) * climate;
@@ -106,7 +110,7 @@ describe('deposits', () => {
     expect(t.deposits[hexKey(site)]).toEqual({ stock: 0, at: s.now });
     t = run(t, { type: 'gather', q: site.q, r: site.r }, s.now + HOUR_MS / 2, map);
     const again = t.buildings.find((b) => b.type === 'camp')!;
-    expect(again.pool!.stock).toBeCloseTo((150 * site.richness) / 2, 6);
+    expect(again.pool!.stock).toBeCloseTo((DEPOSITS.flesh!.regen * site.richness) / 2, 6);
     expect(t.deposits[hexKey(site)]).toBeUndefined();
   });
 
