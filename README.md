@@ -31,6 +31,14 @@ Ouvrez ensuite http://localhost:5173. Le serveur de dev écoute aussi sur le ré
 | `?face=kiwino`                     | Choisit la face (`kiwisu` par défaut)                                                |
 | `?quality=low\|medium\|high\|auto` | Force un preset graphique                                                            |
 
+## Déploiement (Vercel)
+
+Le fichier `vercel.json` configure tout : importez le dépôt dans Vercel **sans changer le Root
+Directory** (racine du dépôt), Vercel lit `vercel.json` (install pnpm, `pnpm build`, sortie
+`apps/client/dist`, cache long sur les assets, pas de cache sur le service worker).
+Aucune variable d'environnement ni base de données n'est nécessaire au Jalon 1 : chaque joueur
+a sa sauvegarde dans le `localStorage` de son navigateur.
+
 ## Scripts
 
 | Script           | Rôle                                                                                              |
