@@ -56,7 +56,14 @@ silhouette signature par famille, plus une enseigne-icône.
 
 ### Planète alien visible
 
-- Visible **dès le zoom par défaut** : petite et haute dans le ciel, puis plus grande au dézoom.
+- Demande du porteur : « qu'on la distingue en ne dézoomant qu'**un peu** ; là, il faut vraiment
+  dézoomer très loin pour comprendre qu'il y a une planète à coloniser ».
+- Visible **dès le zoom par défaut** (petite, haute dans le ciel du côté du front) et **bien
+  lisible dès un léger dézoom** : proposition, apparition complète vers le zoom 1,15 au lieu de
+  1,55, avec une taille apparente plus grande. On la reconnaît comme une planète (la moitié de
+  kiwi tranchée, avec sa pulpe et son brouillard), pas comme une lune décorative.
+- C'est la cible de la colonisation (chantier 19) : un léger halo ou un repère au survol
+  (« Face alien — à coloniser ») aide à le comprendre.
 - Repère d'orientation : la boussole (chantier 10) indique le front. Option : un premier
   cadrage de la caméra légèrement tourné pour que le front et la planète soient dans le champ.
 - Pas de surcoût : elle est déjà rendue au dézoom.
@@ -96,6 +103,6 @@ silhouette signature par famille, plus une enseigne-icône.
 
 1. Les couleurs par famille proposées : d'accord, ou une autre logique (par ressource
    seulement) ?
-2. La planète alien au zoom par défaut : visible dans le coin du ciel en permanence, ou seulement
-   quand on regarde vers le front ?
+2. Au zoom par défaut, la planète alien doit-elle rester visible dans un coin du ciel même quand
+   la caméra regarde à l'opposé du front (au prix d'une position moins « fixe ») ?
 3. Seconde couche de nuages au-dessus : oui si le coût est nul, ou seulement la mer du dessous ?

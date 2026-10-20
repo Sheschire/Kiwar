@@ -51,6 +51,8 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 15  | Colonie autonome : constructions, recherche, météorites, automatismes  | à faire |
 | 16  | Pose et terrain lisibles (modèle fantôme, zones, gains au dépôt)       | à faire |
 | 17  | Identité visuelle : bâtiments distincts, planète alien, ciel vivant    | à faire |
+| 18  | Bot d'équilibrage complet : chemins, camps, expéditions                | à faire |
+| 19  | Colonisation de la face alien jumelle (siège, seconde colonie)         | à faire |
 | —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées   |
 
 **Prochaine conversation** : le chantier 13 (comètes et poussière d'étoiles), voir
