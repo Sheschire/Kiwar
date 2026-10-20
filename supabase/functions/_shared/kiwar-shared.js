@@ -1729,6 +1729,34 @@ var RESEARCH = {
 };
 var RESEARCH_SCALE = 100 * 36e5;
 
+// packages/shared/src/data/obstacles.ts
+var OBSTACLE_KINDS = ["stump", "rock", "wreck"];
+var OBSTACLES = {
+  stump: { tiles: ["grove", "flesh"], count: 6, loot: { fiber: 80 }, clearedBy: "kiwis" },
+  rock: {
+    tiles: ["flesh", "ray"],
+    count: 5,
+    loot: { seeds: 120, fiber: 40 },
+    clearedBy: "titan"
+  },
+  wreck: {
+    tiles: ["flesh", "grove", "seedRing"],
+    count: 0,
+    loot: { seeds: 150, juice: 150 },
+    clearedBy: "titan"
+  }
+};
+var OBSTACLE_RULES = {
+  /** Placed between these normalised distances from the heart (never next to the Nest). */
+  rho: [0.38, 0.9],
+  /** Clearing a stump: base time for an average builder (technologies shorten it). */
+  clearMs: ms.h(1.5),
+  /** What the builders eat while clearing a stump. */
+  clearCost: { pulp: 40 },
+  /** Wrecks kept at once (a crater fading away leaves none beyond). */
+  maxWrecks: 4
+};
+
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
 var SQRT5 = /* @__PURE__ */ Math.sqrt(5);
@@ -2477,6 +2505,277 @@ function kiwiRhythm(state, v, t) {
   return { rhythm: "rest", fatigue: 0.9 - 0.75 * ((k - p) / (1 - p)) };
 }
 
+// packages/shared/src/sim/kiwis.ts
+function rollKiwi(rng) {
+  const { min, max } = KIWI.stat;
+  const stats2 = Object.fromEntries(STAT_IDS.map((id3) => [id3, min]));
+  let points = rng.int(KIWI.statTotal.min, KIWI.statTotal.max) - min * STAT_IDS.length;
+  while (points > 0) {
+    const id3 = rng.pick(STAT_IDS);
+    if (stats2[id3] >= max) continue;
+    stats2[id3]++;
+    points--;
+  }
+  const trait = rng.chance(KIWI.traitChance) ? rng.pick(TRAIT_IDS) : null;
+  const shiny = rollShiny(rng);
+  return { stats: stats2, trait, shiny };
+}
+function rollShiny(rng) {
+  return rng.next() < KIWI.shinyChance ? rng.pick(SHINY_COLORS) : null;
+}
+function emptyMasteries() {
+  return Object.fromEntries(MASTERY_IDS.map((id3) => [id3, 0]));
+}
+function newKiwi(roll) {
+  return {
+    ...roll,
+    stats: { ...roll.stats },
+    level: 1,
+    xp: 0,
+    statPoints: 0,
+    mastery: emptyMasteries(),
+    history: { expeditions: 0, victories: 0, built: 0 },
+    classId: null,
+    skillReadyAt: {}
+  };
+}
+var MODIFIER_KEYS = [
+  "xp",
+  "practice",
+  "harvest",
+  "build",
+  "fight",
+  "exposure",
+  "rations",
+  "weight",
+  "rest",
+  "appetite",
+  "research"
+];
+function modifiers(v) {
+  const out = Object.fromEntries(MODIFIER_KEYS.map((k) => [k, 1]));
+  const apply = (m) => {
+    if (m) for (const k of MODIFIER_KEYS) out[k] *= m[k] ?? 1;
+  };
+  apply(v.trait ? TRAITS[v.trait] : void 0);
+  if (v.classId) {
+    const c = CLASSES[v.classId];
+    apply(c.modifiers);
+    for (const skill of c.skills) if (v.level >= skill.level) apply(skill.modifiers);
+  }
+  return out;
+}
+function hasSkill(v, skill) {
+  if (!v.classId) return false;
+  const def = CLASSES[v.classId].skills.find((x) => x.id === skill);
+  return !!def && v.level >= def.level;
+}
+function levelForXp(xp) {
+  let level = 1;
+  while (level < KIWI.maxLevel && xp >= xpForLevel(level + 1) * XP_SCALE) level++;
+  return level;
+}
+function rankOf(practice) {
+  let rank = 0;
+  while (rank < KIWI.maxRank && practice >= masteryHours(rank + 1) * PRACTICE_SCALE) rank++;
+  return rank;
+}
+function levelProgress(v) {
+  return {
+    xp: v.xp / XP_SCALE,
+    current: xpForLevel(v.level),
+    next: v.level < KIWI.maxLevel ? xpForLevel(v.level + 1) : null
+  };
+}
+function masteryProgress(v, id3) {
+  const rank = rankOf(v.mastery[id3]);
+  return {
+    rank,
+    hours: v.mastery[id3] / PRACTICE_SCALE,
+    next: rank < KIWI.maxRank ? masteryHours(rank + 1) : null
+  };
+}
+function buildingResource(state, b) {
+  const type = harvestedTileType(faceMapOf(state), b);
+  return type ? DEPOSITS[type]?.resource ?? null : null;
+}
+function workerPower(v, resource) {
+  const m = modifiers(v);
+  const dex = 1 + KIWI.dexterityBonus * (v.stats.dexterity - KIWI.stat.average);
+  const rank = 1 + KIWI.rankBonus * rankOf(v.mastery[RESOURCE_MASTERY[resource]]);
+  return Math.max(KIWI.minPower, dex * rank * m.harvest);
+}
+function builderSpeed(v) {
+  const m = modifiers(v);
+  const str = 1 + KIWI.strengthBuild * (v.stats.strength - KIWI.stat.average);
+  const rank = 1 + KIWI.rankBonus * rankOf(v.mastery.build);
+  return Math.max(KIWI.minPower, str * rank * m.build);
+}
+function kiwiStrength(v) {
+  const f = KIWI.fight;
+  const avg = KIWI.stat.average;
+  const stats2 = 1 + f.strength * (v.stats.strength - avg) + f.endurance * (v.stats.endurance - avg);
+  return Math.max(KIWI.minPower, stats2 * (1 + f.perLevel * (v.level - 1)) * modifiers(v).fight);
+}
+function kiwiExposure(v) {
+  const e = KIWI.exposure;
+  const avg = KIWI.stat.average;
+  const dodge = Math.max(0.5, 1 + e.agility * (v.stats.agility - avg));
+  const tough = Math.max(0.5, 1 + e.endurance * (v.stats.endurance - avg));
+  return modifiers(v).exposure / (kiwiStrength(v) * dodge * tough);
+}
+function workforce(state, b, workers) {
+  if (state.threats.shelterUntil > state.now) return 0;
+  const damaged = b.damaged ? THREATS.damagedWork : 1;
+  const resource = buildingResource(state, b);
+  if (!resource) return workers.length * damaged;
+  const beds = bedsOf(state);
+  const sum = workers.reduce(
+    (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)),
+    0
+  );
+  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds) * damaged;
+}
+function mayorOf(state) {
+  return state.villagers.find((v) => v.classId === "mayor" && v.job.kind !== "expedition");
+}
+function colonyBonus(state) {
+  if (!mayorOf(state) || state.speechUntil <= state.now) return 1;
+  return 1 + SKILLS.speechBonus;
+}
+function mayorMorale(state) {
+  const mayor = mayorOf(state);
+  if (!mayor) return 0;
+  let bonus = SKILLS.mayorPerCharisma * mayor.stats.charisma;
+  if (hasSkill(mayor, "organisation")) bonus += SKILLS.organisationBonus;
+  return bonus;
+}
+function regenBonus(workers) {
+  const mages = workers.filter((v) => hasSkill(v, "greenThumb")).length;
+  return 1 + SKILLS.greenThumbRegen * mages;
+}
+function workMastery(state, b) {
+  if (!b) return null;
+  if (b.type === "library") return "research";
+  const resource = buildingResource(state, b);
+  return resource ? RESOURCE_MASTERY[resource] : null;
+}
+function ratesOf(state, v, masteries) {
+  const job2 = v.job;
+  let perHour = 0;
+  let mastery = null;
+  if (job2.kind === "work") {
+    perHour = KIWI.xpPerHour.work;
+    let m2 = masteries.get(job2.buildingId);
+    if (m2 === void 0) {
+      m2 = workMastery(
+        state,
+        state.buildings.find((x) => x.id === job2.buildingId)
+      );
+      masteries.set(job2.buildingId, m2);
+    }
+    mastery = m2;
+  } else if (job2.kind === "build") {
+    perHour = KIWI.xpPerHour.build;
+    mastery = "build";
+  } else if (job2.kind === "train") {
+    perHour = KIWI.xpPerHour.train;
+  } else if (job2.kind === "guard") {
+    perHour = KIWI.xpPerHour.guard;
+  }
+  if (perHour === 0) return { xp: 0, practice: 0, mastery: null };
+  const m = modifiers(v);
+  const spirit = 1 + KIWI.spiritXp * (v.stats.spirit - KIWI.stat.average);
+  const xp = v.level >= KIWI.maxLevel ? 0 : Math.max(1, Math.round(perHour * 100 * spirit * m.xp));
+  const practice = mastery && rankOf(v.mastery[mastery]) < KIWI.maxRank ? Math.max(1, Math.round(100 * m.practice)) : 0;
+  return { xp, practice, mastery: practice > 0 ? mastery : null };
+}
+function nextKiwiEvent(state) {
+  let next = Infinity;
+  const resources2 = /* @__PURE__ */ new Map();
+  for (const v of state.villagers) {
+    const r = ratesOf(state, v, resources2);
+    if (r.xp > 0) {
+      const need = xpForLevel(v.level + 1) * XP_SCALE - v.xp;
+      next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.xp)));
+    }
+    if (r.mastery) {
+      const rank = rankOf(v.mastery[r.mastery]);
+      const need = masteryHours(rank + 1) * PRACTICE_SCALE - v.mastery[r.mastery];
+      next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.practice)));
+    }
+  }
+  return next;
+}
+function accrueKiwis(state, dtMs, at, events) {
+  const resources2 = /* @__PURE__ */ new Map();
+  for (const v of state.villagers) {
+    const r = ratesOf(state, v, resources2);
+    if (r.mastery) {
+      const before = rankOf(v.mastery[r.mastery]);
+      v.mastery[r.mastery] += r.practice * dtMs;
+      const after = rankOf(v.mastery[r.mastery]);
+      if (after > before) {
+        events.push({
+          type: "masteryUp",
+          at,
+          villagerId: v.id,
+          name: v.name,
+          mastery: r.mastery,
+          rank: after
+        });
+      }
+    }
+    if (r.xp > 0) {
+      v.xp += r.xp * dtMs;
+      levelUps(state, v, at, events);
+    }
+  }
+}
+function grantXp(state, v, points, at, events) {
+  if (v.level >= KIWI.maxLevel) return;
+  v.xp += Math.round(points * modifiers(v).xp) * XP_SCALE;
+  levelUps(state, v, at, events);
+}
+function levelUps(state, v, at, events) {
+  const target = levelForXp(v.xp);
+  while (v.level < target) {
+    v.level++;
+    let stat = null;
+    if (v.level % 2 === 1) {
+      stat = withRng(state, (rng) => pickStat(rng, v));
+      if (stat) v.stats[stat]++;
+    } else {
+      v.statPoints++;
+    }
+    events.push({ type: "levelUp", at, villagerId: v.id, name: v.name, level: v.level, stat });
+  }
+}
+function pickStat(rng, v) {
+  const kind = v.job.kind === "work" || v.job.kind === "build" || v.job.kind === "expedition" ? v.job.kind : "other";
+  const weights = KIWI.autoStatWeights[kind];
+  const open = STAT_IDS.filter((id3) => v.stats[id3] < KIWI.stat.cap);
+  const total = open.reduce((sum, id3) => sum + weights[id3], 0);
+  if (total <= 0) return null;
+  let roll = rng.next() * total;
+  for (const id3 of open) {
+    roll -= weights[id3];
+    if (roll < 0) return id3;
+  }
+  return open[open.length - 1];
+}
+function trainingCost(v, classId) {
+  const k = v.classId ? SKILLS.retrainCost : 1;
+  const out = {};
+  const cost = CLASSES[classId].cost;
+  for (const id3 of RESOURCE_IDS) if (cost[id3]) out[id3] = cost[id3] * k;
+  return out;
+}
+function trainingDuration(school, classId) {
+  const speed = levelDef("school", school.level)?.trainingTime ?? 1;
+  return Math.round(CLASSES[classId].trainingMs * speed);
+}
+
 // packages/shared/src/sim/research.ts
 function ageOf(state) {
   return state.buildings.find((b) => b.type === "monument")?.level ?? 0;
@@ -2935,523 +3234,6 @@ function depletedTiles(state, map) {
   return out;
 }
 
-// packages/shared/src/sim/kiwis.ts
-function rollKiwi(rng) {
-  const { min, max } = KIWI.stat;
-  const stats2 = Object.fromEntries(STAT_IDS.map((id3) => [id3, min]));
-  let points = rng.int(KIWI.statTotal.min, KIWI.statTotal.max) - min * STAT_IDS.length;
-  while (points > 0) {
-    const id3 = rng.pick(STAT_IDS);
-    if (stats2[id3] >= max) continue;
-    stats2[id3]++;
-    points--;
-  }
-  const trait = rng.chance(KIWI.traitChance) ? rng.pick(TRAIT_IDS) : null;
-  const shiny = rollShiny(rng);
-  return { stats: stats2, trait, shiny };
-}
-function rollShiny(rng) {
-  return rng.next() < KIWI.shinyChance ? rng.pick(SHINY_COLORS) : null;
-}
-function emptyMasteries() {
-  return Object.fromEntries(MASTERY_IDS.map((id3) => [id3, 0]));
-}
-function newKiwi(roll) {
-  return {
-    ...roll,
-    stats: { ...roll.stats },
-    level: 1,
-    xp: 0,
-    statPoints: 0,
-    mastery: emptyMasteries(),
-    history: { expeditions: 0, victories: 0, built: 0 },
-    classId: null,
-    skillReadyAt: {}
-  };
-}
-var MODIFIER_KEYS = [
-  "xp",
-  "practice",
-  "harvest",
-  "build",
-  "fight",
-  "exposure",
-  "rations",
-  "weight",
-  "rest",
-  "appetite",
-  "research"
-];
-function modifiers(v) {
-  const out = Object.fromEntries(MODIFIER_KEYS.map((k) => [k, 1]));
-  const apply = (m) => {
-    if (m) for (const k of MODIFIER_KEYS) out[k] *= m[k] ?? 1;
-  };
-  apply(v.trait ? TRAITS[v.trait] : void 0);
-  if (v.classId) {
-    const c = CLASSES[v.classId];
-    apply(c.modifiers);
-    for (const skill of c.skills) if (v.level >= skill.level) apply(skill.modifiers);
-  }
-  return out;
-}
-function hasSkill(v, skill) {
-  if (!v.classId) return false;
-  const def = CLASSES[v.classId].skills.find((x) => x.id === skill);
-  return !!def && v.level >= def.level;
-}
-function levelForXp(xp) {
-  let level = 1;
-  while (level < KIWI.maxLevel && xp >= xpForLevel(level + 1) * XP_SCALE) level++;
-  return level;
-}
-function rankOf(practice) {
-  let rank = 0;
-  while (rank < KIWI.maxRank && practice >= masteryHours(rank + 1) * PRACTICE_SCALE) rank++;
-  return rank;
-}
-function levelProgress(v) {
-  return {
-    xp: v.xp / XP_SCALE,
-    current: xpForLevel(v.level),
-    next: v.level < KIWI.maxLevel ? xpForLevel(v.level + 1) : null
-  };
-}
-function masteryProgress(v, id3) {
-  const rank = rankOf(v.mastery[id3]);
-  return {
-    rank,
-    hours: v.mastery[id3] / PRACTICE_SCALE,
-    next: rank < KIWI.maxRank ? masteryHours(rank + 1) : null
-  };
-}
-function buildingResource(state, b) {
-  const type = harvestedTileType(faceMapOf(state), b);
-  return type ? DEPOSITS[type]?.resource ?? null : null;
-}
-function workerPower(v, resource) {
-  const m = modifiers(v);
-  const dex = 1 + KIWI.dexterityBonus * (v.stats.dexterity - KIWI.stat.average);
-  const rank = 1 + KIWI.rankBonus * rankOf(v.mastery[RESOURCE_MASTERY[resource]]);
-  return Math.max(KIWI.minPower, dex * rank * m.harvest);
-}
-function builderSpeed(v) {
-  const m = modifiers(v);
-  const str = 1 + KIWI.strengthBuild * (v.stats.strength - KIWI.stat.average);
-  const rank = 1 + KIWI.rankBonus * rankOf(v.mastery.build);
-  return Math.max(KIWI.minPower, str * rank * m.build);
-}
-function kiwiStrength(v) {
-  const f = KIWI.fight;
-  const avg = KIWI.stat.average;
-  const stats2 = 1 + f.strength * (v.stats.strength - avg) + f.endurance * (v.stats.endurance - avg);
-  return Math.max(KIWI.minPower, stats2 * (1 + f.perLevel * (v.level - 1)) * modifiers(v).fight);
-}
-function kiwiExposure(v) {
-  const e = KIWI.exposure;
-  const avg = KIWI.stat.average;
-  const dodge = Math.max(0.5, 1 + e.agility * (v.stats.agility - avg));
-  const tough = Math.max(0.5, 1 + e.endurance * (v.stats.endurance - avg));
-  return modifiers(v).exposure / (kiwiStrength(v) * dodge * tough);
-}
-function workforce(state, b, workers) {
-  if (state.threats.shelterUntil > state.now) return 0;
-  const damaged = b.damaged ? THREATS.damagedWork : 1;
-  const resource = buildingResource(state, b);
-  if (!resource) return workers.length * damaged;
-  const beds = bedsOf(state);
-  const sum = workers.reduce(
-    (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)),
-    0
-  );
-  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds) * damaged;
-}
-function mayorOf(state) {
-  return state.villagers.find((v) => v.classId === "mayor" && v.job.kind !== "expedition");
-}
-function colonyBonus(state) {
-  if (!mayorOf(state) || state.speechUntil <= state.now) return 1;
-  return 1 + SKILLS.speechBonus;
-}
-function mayorMorale(state) {
-  const mayor = mayorOf(state);
-  if (!mayor) return 0;
-  let bonus = SKILLS.mayorPerCharisma * mayor.stats.charisma;
-  if (hasSkill(mayor, "organisation")) bonus += SKILLS.organisationBonus;
-  return bonus;
-}
-function regenBonus(workers) {
-  const mages = workers.filter((v) => hasSkill(v, "greenThumb")).length;
-  return 1 + SKILLS.greenThumbRegen * mages;
-}
-function workMastery(state, b) {
-  if (!b) return null;
-  if (b.type === "library") return "research";
-  const resource = buildingResource(state, b);
-  return resource ? RESOURCE_MASTERY[resource] : null;
-}
-function ratesOf(state, v, masteries) {
-  const job2 = v.job;
-  let perHour = 0;
-  let mastery = null;
-  if (job2.kind === "work") {
-    perHour = KIWI.xpPerHour.work;
-    let m2 = masteries.get(job2.buildingId);
-    if (m2 === void 0) {
-      m2 = workMastery(
-        state,
-        state.buildings.find((x) => x.id === job2.buildingId)
-      );
-      masteries.set(job2.buildingId, m2);
-    }
-    mastery = m2;
-  } else if (job2.kind === "build") {
-    perHour = KIWI.xpPerHour.build;
-    mastery = "build";
-  } else if (job2.kind === "train") {
-    perHour = KIWI.xpPerHour.train;
-  } else if (job2.kind === "guard") {
-    perHour = KIWI.xpPerHour.guard;
-  }
-  if (perHour === 0) return { xp: 0, practice: 0, mastery: null };
-  const m = modifiers(v);
-  const spirit = 1 + KIWI.spiritXp * (v.stats.spirit - KIWI.stat.average);
-  const xp = v.level >= KIWI.maxLevel ? 0 : Math.max(1, Math.round(perHour * 100 * spirit * m.xp));
-  const practice = mastery && rankOf(v.mastery[mastery]) < KIWI.maxRank ? Math.max(1, Math.round(100 * m.practice)) : 0;
-  return { xp, practice, mastery: practice > 0 ? mastery : null };
-}
-function nextKiwiEvent(state) {
-  let next = Infinity;
-  const resources2 = /* @__PURE__ */ new Map();
-  for (const v of state.villagers) {
-    const r = ratesOf(state, v, resources2);
-    if (r.xp > 0) {
-      const need = xpForLevel(v.level + 1) * XP_SCALE - v.xp;
-      next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.xp)));
-    }
-    if (r.mastery) {
-      const rank = rankOf(v.mastery[r.mastery]);
-      const need = masteryHours(rank + 1) * PRACTICE_SCALE - v.mastery[r.mastery];
-      next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.practice)));
-    }
-  }
-  return next;
-}
-function accrueKiwis(state, dtMs, at, events) {
-  const resources2 = /* @__PURE__ */ new Map();
-  for (const v of state.villagers) {
-    const r = ratesOf(state, v, resources2);
-    if (r.mastery) {
-      const before = rankOf(v.mastery[r.mastery]);
-      v.mastery[r.mastery] += r.practice * dtMs;
-      const after = rankOf(v.mastery[r.mastery]);
-      if (after > before) {
-        events.push({
-          type: "masteryUp",
-          at,
-          villagerId: v.id,
-          name: v.name,
-          mastery: r.mastery,
-          rank: after
-        });
-      }
-    }
-    if (r.xp > 0) {
-      v.xp += r.xp * dtMs;
-      levelUps(state, v, at, events);
-    }
-  }
-}
-function grantXp(state, v, points, at, events) {
-  if (v.level >= KIWI.maxLevel) return;
-  v.xp += Math.round(points * modifiers(v).xp) * XP_SCALE;
-  levelUps(state, v, at, events);
-}
-function levelUps(state, v, at, events) {
-  const target = levelForXp(v.xp);
-  while (v.level < target) {
-    v.level++;
-    let stat = null;
-    if (v.level % 2 === 1) {
-      stat = withRng(state, (rng) => pickStat(rng, v));
-      if (stat) v.stats[stat]++;
-    } else {
-      v.statPoints++;
-    }
-    events.push({ type: "levelUp", at, villagerId: v.id, name: v.name, level: v.level, stat });
-  }
-}
-function pickStat(rng, v) {
-  const kind = v.job.kind === "work" || v.job.kind === "build" || v.job.kind === "expedition" ? v.job.kind : "other";
-  const weights = KIWI.autoStatWeights[kind];
-  const open = STAT_IDS.filter((id3) => v.stats[id3] < KIWI.stat.cap);
-  const total = open.reduce((sum, id3) => sum + weights[id3], 0);
-  if (total <= 0) return null;
-  let roll = rng.next() * total;
-  for (const id3 of open) {
-    roll -= weights[id3];
-    if (roll < 0) return id3;
-  }
-  return open[open.length - 1];
-}
-function trainingCost(v, classId) {
-  const k = v.classId ? SKILLS.retrainCost : 1;
-  const out = {};
-  const cost = CLASSES[classId].cost;
-  for (const id3 of RESOURCE_IDS) if (cost[id3]) out[id3] = cost[id3] * k;
-  return out;
-}
-function trainingDuration(school, classId) {
-  const speed = levelDef("school", school.level)?.trainingTime ?? 1;
-  return Math.round(CLASSES[classId].trainingMs * speed);
-}
-
-// packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 14;
-function soloTargets(face) {
-  const other = face === "kiwisu" ? "kiwino" : "kiwisu";
-  return [
-    {
-      id: `aliens:0:${other}`,
-      owner: "aliens",
-      kiwiIndex: 0,
-      face: other,
-      distance: 0,
-      travelMs: alienDefOf(0).travelMs
-    }
-  ];
-}
-function localAlienSeed(state) {
-  return `${state.seed}/${state.face}/aliens`;
-}
-function newGame(opts) {
-  const rng = createRng(`${opts.seed}/${opts.face}/game`);
-  const state = {
-    schemaVersion: SCHEMA_VERSION,
-    universeId: opts.universeId ?? "local",
-    kiwiId: opts.kiwiId ?? "local-kiwi",
-    playerId: opts.playerId ?? "local-player",
-    seasonId: "preseason",
-    face: opts.face,
-    seed: opts.seed,
-    // Each face of a planet has the biome drawn from the planet seed (chantier 05).
-    params: opts.params ?? {
-      ...DEFAULT_FACE_PARAMS,
-      biome: opts.biome ?? drawBiomes(opts.seed)[opts.face]
-    },
-    createdAt: opts.now,
-    calendarStart: opts.calendarStart ?? calendarStartFor(opts.now),
-    now: opts.now,
-    resources: { ...START.resources },
-    buildings: [],
-    villagers: [],
-    memorial: [],
-    speechUntil: 0,
-    hunger: 0,
-    mourningUntil: 0,
-    queue: [],
-    egg: null,
-    objectiveIndex: 0,
-    stats: {
-      produced: { pulp: 0, fiber: 0, seeds: 0, juice: 0 },
-      constructionsCompleted: 0,
-      eggsHatched: 0
-    },
-    targets: opts.targets ?? soloTargets(opts.face),
-    victories: {},
-    intel: {},
-    expeditions: [],
-    friends: [],
-    shipments: [],
-    incoming: [],
-    paths: [],
-    deposits: {},
-    threats: newThreats(opts.seed, opts.face, opts.now),
-    sky: newSky(opts.now),
-    research: { points: 0, current: null, done: [] },
-    nextId: 1,
-    rng: rng.state()
-  };
-  state.buildings.push({
-    id: nextId(state, "b"),
-    type: "nest",
-    q: HEART.q,
-    r: HEART.r,
-    level: 1,
-    richness: 1,
-    builtAt: opts.now
-  });
-  for (let i = 0; i < START.villagers; i++) addVillager(state, opts.now);
-  const alienSeed = opts.alienSeed ?? localAlienSeed(state);
-  state.aliens = Object.fromEntries(
-    state.targets.map((t) => [t.id, drawGarrison(t, `${alienSeed}/${t.id}`, opts.now)])
-  );
-  return state;
-}
-function newThreats(seed, face, now) {
-  return {
-    rng: createRng(`${seed}/${face}/threats`).state(),
-    next: null,
-    lastWaveAt: 0,
-    shieldUntil: 0,
-    shelterUntil: 0,
-    nextIncidentAt: now + INCIDENTS.firstMs,
-    waves: 0,
-    reports: [],
-    incidents: []
-  };
-}
-function newSky(now) {
-  const at = now + METEORS.firstMs;
-  return {
-    next: {
-      id: "m1",
-      announceAt: at - METEORS.noticeMs,
-      at,
-      announced: false,
-      q: 0,
-      r: 0,
-      resource: "seeds",
-      stock: 0
-    },
-    lastFallAt: 0,
-    falls: 0,
-    meteors: []
-  };
-}
-function withThreatRng(state, fn) {
-  const rng = createRng(state.threats.rng);
-  const out = fn(rng);
-  state.threats.rng = rng.state();
-  return out;
-}
-function nextId(state, prefix) {
-  return `${prefix}${state.nextId++}`;
-}
-function withRng(state, fn) {
-  const rng = createRng(state.rng);
-  const out = fn(rng);
-  state.rng = rng.state();
-  return out;
-}
-function addVillager(state, at) {
-  const taken = new Set(state.villagers.map((v2) => v2.name));
-  const { name, roll } = withRng(state, (rng) => ({
-    name: drawName(rng, taken, state),
-    roll: rollKiwi(rng)
-  }));
-  const v = {
-    id: nextId(state, "v"),
-    name,
-    bornAt: at,
-    job: { kind: "idle" },
-    ...newKiwi(roll)
-  };
-  state.villagers.push(v);
-  return v;
-}
-function drawName(rng, taken, state) {
-  for (let attempt = 0; attempt < 12; attempt++) {
-    const parts = 2 + (attempt >= 6 || rng.chance(0.3) ? 1 : 0);
-    let n = "";
-    for (let i = 0; i < parts; i++) n += rng.pick(NAME_SYLLABLES);
-    n = n.charAt(0).toUpperCase() + n.slice(1);
-    if (!taken.has(n)) return n;
-  }
-  return `Kiwi ${state.villagers.length + 1}`;
-}
-function cloneState(state) {
-  return {
-    ...state,
-    params: { ...state.params },
-    resources: { ...state.resources },
-    buildings: state.buildings.map(
-      (b) => b.pool ? { ...b, pool: { stock: b.pool.stock, tiles: [...b.pool.tiles] } } : { ...b }
-    ),
-    villagers: state.villagers.map(cloneVillager),
-    memorial: state.memorial.map((m) => ({ ...m })),
-    queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
-    egg: state.egg ? { ...state.egg } : null,
-    stats: { ...state.stats, produced: { ...state.stats.produced } },
-    targets: state.targets.map((t) => ({ ...t })),
-    victories: { ...state.victories },
-    ...state.aliens ? { aliens: cloneAliens(state.aliens) } : {},
-    intel: Object.fromEntries(Object.entries(state.intel).map(([k, i]) => [k, cloneIntel(i)])),
-    paths: [...state.paths],
-    deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
-    threats: cloneThreats(state.threats),
-    sky: {
-      ...state.sky,
-      next: state.sky.next ? { ...state.sky.next } : null,
-      meteors: state.sky.meteors.map((m) => ({ ...m }))
-    },
-    research: { ...state.research, done: [...state.research.done] },
-    friends: state.friends.map((f) => ({ ...f })),
-    shipments: state.shipments.map((x) => ({ ...x, resources: { ...x.resources } })),
-    incoming: state.incoming.map((d) => ({ ...d, resources: { ...d.resources } })),
-    expeditions: state.expeditions.map((e) => ({
-      ...e,
-      crew: [...e.crew],
-      roster: e.roster.map((r) => ({ ...r })),
-      provisions: { ...e.provisions },
-      result: e.result ? {
-        ...e.result,
-        lostInBattle: [...e.result.lostInBattle],
-        lostOnReturn: [...e.result.lostOnReturn],
-        loot: { ...e.result.loot },
-        ...e.result.sectors ? { sectors: [...e.result.sectors] } : {},
-        ...e.result.injured ? { injured: [...e.result.injured] } : {}
-      } : null
-    })),
-    rng: [...state.rng]
-  };
-}
-function cloneAliens(a) {
-  return Object.fromEntries(
-    Object.entries(a).map(([k, g]) => [
-      k,
-      { ...g, loot: { ...g.loot }, structures: g.structures.map((x) => ({ ...x })) }
-    ])
-  );
-}
-function cloneIntel(i) {
-  return {
-    ...i,
-    defense: { ...i.defense },
-    ferrets: { ...i.ferrets },
-    bats: { ...i.bats },
-    sectors: [...i.sectors],
-    structures: i.structures.map((x) => ({ ...x }))
-  };
-}
-function cloneThreats(t) {
-  return {
-    ...t,
-    rng: [...t.rng],
-    next: t.next ? { ...t.next } : null,
-    reports: t.reports.map((r) => ({
-      ...r,
-      threat: { ...r.threat },
-      defense: { ...r.defense },
-      damaged: r.damaged.map((d) => ({ ...d })),
-      loot: { ...r.loot },
-      injured: r.injured.map((k) => ({ ...k })),
-      dead: r.dead.map((k) => ({ ...k }))
-    })),
-    incidents: t.incidents.map((i) => ({ ...i }))
-  };
-}
-function cloneVillager(v) {
-  return {
-    ...v,
-    job: v.job.kind === "train" ? { ...v.job, paid: { ...v.job.paid } } : { ...v.job },
-    stats: { ...v.stats },
-    skillReadyAt: { ...v.skillReadyAt },
-    mastery: { ...v.mastery },
-    history: { ...v.history }
-  };
-}
-
 // packages/shared/src/sim/selectors.ts
 var HOUR_MS2 = 36e5;
 function getBuilding(state, id3) {
@@ -3698,6 +3480,320 @@ function objectiveProgress(state, def) {
 function isObjectiveComplete(state, def) {
   const p = objectiveProgress(state, def);
   return p.current >= p.target;
+}
+
+// packages/shared/src/sim/obstacles.ts
+function obstacleId(kind, q, r) {
+  return `${kind}:${q},${r}`;
+}
+function generateObstacles(map, taken = /* @__PURE__ */ new Set()) {
+  if (map.params.biome === "classic") return [];
+  const rng = createRng(`${map.seed}/${map.face}/obstacles`);
+  const [lo, hi] = OBSTACLE_RULES.rho;
+  const used = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const kind of OBSTACLE_KINDS) {
+    const def = OBSTACLES[kind];
+    if (def.count === 0) continue;
+    const spots = rng.shuffle(
+      map.tiles.filter((t) => def.tiles.includes(t.type) && !t.flood && t.rho >= lo && t.rho <= hi)
+    );
+    let placed = 0;
+    for (const t of spots) {
+      if (placed >= def.count) break;
+      const key = hexKey(t);
+      if (used.has(key)) continue;
+      used.add(key);
+      placed++;
+      if (taken.has(key)) continue;
+      out.push({ id: obstacleId(kind, t.q, t.r), kind, q: t.q, r: t.r, loot: { ...def.loot } });
+    }
+  }
+  return out;
+}
+function obstacleAt(state, q, r) {
+  return state.obstacles.find((o) => o.q === q && o.r === r);
+}
+function clearDuration(s) {
+  return Math.round(OBSTACLE_RULES.clearMs * techEffects(s).build);
+}
+function leaveWreck(s, m, at, events) {
+  if (s.obstacles.filter((o) => o.kind === "wreck").length >= OBSTACLE_RULES.maxWrecks) return;
+  if (obstacleAt(s, m.q, m.r)) return;
+  if (s.buildings.some((b) => b.q === m.q && b.r === m.r)) return;
+  if (s.queue.some((i) => i.q === m.q && i.r === m.r)) return;
+  const k = METEORS.ageFactor[ageOf(s)] ?? 1;
+  const loot = {};
+  for (const id3 of RESOURCE_IDS) {
+    const v = OBSTACLES.wreck.loot[id3];
+    if (v) loot[id3] = Math.round(v * k);
+  }
+  s.obstacles.push({ id: obstacleId("wreck", m.q, m.r), kind: "wreck", q: m.q, r: m.r, loot });
+  s.paths = s.paths.filter((p) => p !== hexKey(m));
+  events.push({ type: "wreckLeft", at, q: m.q, r: m.r });
+}
+function removeObstacle(s, o, at, events, by) {
+  s.obstacles = s.obstacles.filter((x) => x.id !== o.id);
+  const cap = capacity(s);
+  const loot = {};
+  for (const id3 of RESOURCE_IDS) {
+    const v = o.loot[id3] ?? 0;
+    if (v <= 0) continue;
+    const room = Math.max(0, cap[id3] - s.resources[id3]);
+    const got = Math.min(v, room);
+    s.resources[id3] += got;
+    if (got > 0) loot[id3] = got;
+  }
+  events.push({ type: "obstacleCleared", at, q: o.q, r: o.r, kind: o.kind, loot, by });
+}
+
+// packages/shared/src/sim/state.ts
+var SCHEMA_VERSION = 15;
+function soloTargets(face) {
+  const other = face === "kiwisu" ? "kiwino" : "kiwisu";
+  return [
+    {
+      id: `aliens:0:${other}`,
+      owner: "aliens",
+      kiwiIndex: 0,
+      face: other,
+      distance: 0,
+      travelMs: alienDefOf(0).travelMs
+    }
+  ];
+}
+function localAlienSeed(state) {
+  return `${state.seed}/${state.face}/aliens`;
+}
+function newGame(opts) {
+  const rng = createRng(`${opts.seed}/${opts.face}/game`);
+  const state = {
+    schemaVersion: SCHEMA_VERSION,
+    universeId: opts.universeId ?? "local",
+    kiwiId: opts.kiwiId ?? "local-kiwi",
+    playerId: opts.playerId ?? "local-player",
+    seasonId: "preseason",
+    face: opts.face,
+    seed: opts.seed,
+    // Each face of a planet has the biome drawn from the planet seed (chantier 05).
+    params: opts.params ?? {
+      ...DEFAULT_FACE_PARAMS,
+      biome: opts.biome ?? drawBiomes(opts.seed)[opts.face]
+    },
+    createdAt: opts.now,
+    calendarStart: opts.calendarStart ?? calendarStartFor(opts.now),
+    now: opts.now,
+    resources: { ...START.resources },
+    buildings: [],
+    villagers: [],
+    memorial: [],
+    speechUntil: 0,
+    hunger: 0,
+    mourningUntil: 0,
+    queue: [],
+    egg: null,
+    objectiveIndex: 0,
+    stats: {
+      produced: { pulp: 0, fiber: 0, seeds: 0, juice: 0 },
+      constructionsCompleted: 0,
+      eggsHatched: 0
+    },
+    targets: opts.targets ?? soloTargets(opts.face),
+    victories: {},
+    intel: {},
+    expeditions: [],
+    friends: [],
+    shipments: [],
+    incoming: [],
+    paths: [],
+    deposits: {},
+    obstacles: [],
+    threats: newThreats(opts.seed, opts.face, opts.now),
+    sky: newSky(opts.now),
+    research: { points: 0, current: null, done: [] },
+    nextId: 1,
+    rng: rng.state()
+  };
+  state.buildings.push({
+    id: nextId(state, "b"),
+    type: "nest",
+    q: HEART.q,
+    r: HEART.r,
+    level: 1,
+    richness: 1,
+    builtAt: opts.now
+  });
+  for (let i = 0; i < START.villagers; i++) addVillager(state, opts.now);
+  state.obstacles = generateObstacles(faceMapOf(state), /* @__PURE__ */ new Set([hexKey(HEART)]));
+  const alienSeed = opts.alienSeed ?? localAlienSeed(state);
+  state.aliens = Object.fromEntries(
+    state.targets.map((t) => [t.id, drawGarrison(t, `${alienSeed}/${t.id}`, opts.now)])
+  );
+  return state;
+}
+function newThreats(seed, face, now) {
+  return {
+    rng: createRng(`${seed}/${face}/threats`).state(),
+    next: null,
+    lastWaveAt: 0,
+    shieldUntil: 0,
+    shelterUntil: 0,
+    nextIncidentAt: now + INCIDENTS.firstMs,
+    waves: 0,
+    reports: [],
+    incidents: []
+  };
+}
+function newSky(now) {
+  const at = now + METEORS.firstMs;
+  return {
+    next: {
+      id: "m1",
+      announceAt: at - METEORS.noticeMs,
+      at,
+      announced: false,
+      q: 0,
+      r: 0,
+      resource: "seeds",
+      stock: 0
+    },
+    lastFallAt: 0,
+    falls: 0,
+    meteors: []
+  };
+}
+function withThreatRng(state, fn) {
+  const rng = createRng(state.threats.rng);
+  const out = fn(rng);
+  state.threats.rng = rng.state();
+  return out;
+}
+function nextId(state, prefix) {
+  return `${prefix}${state.nextId++}`;
+}
+function withRng(state, fn) {
+  const rng = createRng(state.rng);
+  const out = fn(rng);
+  state.rng = rng.state();
+  return out;
+}
+function addVillager(state, at) {
+  const taken = new Set(state.villagers.map((v2) => v2.name));
+  const { name, roll } = withRng(state, (rng) => ({
+    name: drawName(rng, taken, state),
+    roll: rollKiwi(rng)
+  }));
+  const v = {
+    id: nextId(state, "v"),
+    name,
+    bornAt: at,
+    job: { kind: "idle" },
+    ...newKiwi(roll)
+  };
+  state.villagers.push(v);
+  return v;
+}
+function drawName(rng, taken, state) {
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const parts = 2 + (attempt >= 6 || rng.chance(0.3) ? 1 : 0);
+    let n = "";
+    for (let i = 0; i < parts; i++) n += rng.pick(NAME_SYLLABLES);
+    n = n.charAt(0).toUpperCase() + n.slice(1);
+    if (!taken.has(n)) return n;
+  }
+  return `Kiwi ${state.villagers.length + 1}`;
+}
+function cloneState(state) {
+  return {
+    ...state,
+    params: { ...state.params },
+    resources: { ...state.resources },
+    buildings: state.buildings.map(
+      (b) => b.pool ? { ...b, pool: { stock: b.pool.stock, tiles: [...b.pool.tiles] } } : { ...b }
+    ),
+    villagers: state.villagers.map(cloneVillager),
+    memorial: state.memorial.map((m) => ({ ...m })),
+    queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
+    egg: state.egg ? { ...state.egg } : null,
+    stats: { ...state.stats, produced: { ...state.stats.produced } },
+    targets: state.targets.map((t) => ({ ...t })),
+    victories: { ...state.victories },
+    ...state.aliens ? { aliens: cloneAliens(state.aliens) } : {},
+    intel: Object.fromEntries(Object.entries(state.intel).map(([k, i]) => [k, cloneIntel(i)])),
+    paths: [...state.paths],
+    deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
+    obstacles: state.obstacles.map((o) => ({ ...o, loot: { ...o.loot } })),
+    threats: cloneThreats(state.threats),
+    sky: {
+      ...state.sky,
+      next: state.sky.next ? { ...state.sky.next } : null,
+      meteors: state.sky.meteors.map((m) => ({ ...m }))
+    },
+    research: { ...state.research, done: [...state.research.done] },
+    friends: state.friends.map((f) => ({ ...f })),
+    shipments: state.shipments.map((x) => ({ ...x, resources: { ...x.resources } })),
+    incoming: state.incoming.map((d) => ({ ...d, resources: { ...d.resources } })),
+    expeditions: state.expeditions.map((e) => ({
+      ...e,
+      crew: [...e.crew],
+      roster: e.roster.map((r) => ({ ...r })),
+      provisions: { ...e.provisions },
+      result: e.result ? {
+        ...e.result,
+        lostInBattle: [...e.result.lostInBattle],
+        lostOnReturn: [...e.result.lostOnReturn],
+        loot: { ...e.result.loot },
+        ...e.result.sectors ? { sectors: [...e.result.sectors] } : {},
+        ...e.result.injured ? { injured: [...e.result.injured] } : {}
+      } : null
+    })),
+    rng: [...state.rng]
+  };
+}
+function cloneAliens(a) {
+  return Object.fromEntries(
+    Object.entries(a).map(([k, g]) => [
+      k,
+      { ...g, loot: { ...g.loot }, structures: g.structures.map((x) => ({ ...x })) }
+    ])
+  );
+}
+function cloneIntel(i) {
+  return {
+    ...i,
+    defense: { ...i.defense },
+    ferrets: { ...i.ferrets },
+    bats: { ...i.bats },
+    sectors: [...i.sectors],
+    structures: i.structures.map((x) => ({ ...x }))
+  };
+}
+function cloneThreats(t) {
+  return {
+    ...t,
+    rng: [...t.rng],
+    next: t.next ? { ...t.next } : null,
+    reports: t.reports.map((r) => ({
+      ...r,
+      threat: { ...r.threat },
+      defense: { ...r.defense },
+      damaged: r.damaged.map((d) => ({ ...d })),
+      loot: { ...r.loot },
+      injured: r.injured.map((k) => ({ ...k })),
+      dead: r.dead.map((k) => ({ ...k }))
+    })),
+    incidents: t.incidents.map((i) => ({ ...i }))
+  };
+}
+function cloneVillager(v) {
+  return {
+    ...v,
+    job: v.job.kind === "train" ? { ...v.job, paid: { ...v.job.paid } } : { ...v.job },
+    stats: { ...v.stats },
+    skillReadyAt: { ...v.skillReadyAt },
+    mastery: { ...v.mastery },
+    history: { ...v.history }
+  };
 }
 
 // packages/shared/src/sim/expeditions.ts
@@ -4597,7 +4693,8 @@ function skyTick(s, at, events) {
       const taken = /* @__PURE__ */ new Set([
         ...s.buildings.map((b) => hexKey(b)),
         ...s.queue.filter((i) => i.kind === "build").map((i) => hexKey(i)),
-        ...sky.meteors.map((m) => hexKey(m))
+        ...sky.meteors.map((m) => hexKey(m)),
+        ...s.obstacles.map((o) => hexKey(o))
       ]);
       const free = map.tiles.filter(
         (t) => METEORS.tiles.includes(t.type) && t.rho >= 0.25 && t.rho <= 0.92 && !taken.has(hexKey(t)) && !isFlooded(t, s.params.biome, season)
@@ -4634,7 +4731,10 @@ function skyTick(s, at, events) {
     });
   }
   if (next && next.announced && next.at === at) {
-    if (sky.meteors.length >= METEORS.max) sky.meteors.shift();
+    if (sky.meteors.length >= METEORS.max) {
+      const old = sky.meteors.shift();
+      leaveWreck(s, old, at, events);
+    }
     sky.meteors.push({
       id: next.id,
       q: next.q,
@@ -4658,8 +4758,9 @@ function skyTick(s, at, events) {
     });
   }
   for (const m of sky.meteors) {
-    if (m.expiresAt === at)
-      events.push({ type: "meteorFaded", at, q: m.q, r: m.r, resource: m.resource });
+    if (m.expiresAt !== at) continue;
+    events.push({ type: "meteorFaded", at, q: m.q, r: m.r, resource: m.resource });
+    leaveWreck(s, m, at, events);
   }
   sky.meteors = sky.meteors.filter((m) => m.expiresAt > at);
 }
@@ -4951,6 +5052,12 @@ function completeConstruction(s, at, events) {
     releaseBuilder(s, item.id, false);
     return;
   }
+  if (item.kind === "clear") {
+    const o = obstacleAt(s, item.q, item.r);
+    if (o) removeObstacle(s, o, at, events, "kiwis");
+    releaseBuilder(s, item.id, false);
+    return;
+  }
   if (item.kind === "build") {
     buildingId = nextId(s, "b");
     s.buildings.push({
@@ -5139,7 +5246,11 @@ var COMMAND_ERRORS = [
   "passageMissing",
   "monumentExists",
   "unknownFriend",
-  "emptyCargo"
+  "emptyCargo",
+  "obstacle",
+  "noObstacle",
+  "needsKikiwiwi",
+  "alreadyClearing"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -5197,6 +5308,7 @@ function execute(s, cmd, ctx, events) {
       if (!tile) return fail("unknownTile");
       if (!def.allowedTiles.includes(tile.type)) fail("tileNotAllowed");
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail("tileOccupied");
+      if (obstacleAt(s, cmd.q, cmd.r)) fail("obstacle");
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail("flooded");
       if (nest(s).level < def.levels[0].requiresNestLevel) fail("nestLevelTooLow");
       if (cmd.buildingType === "monument") {
@@ -5277,6 +5389,32 @@ function execute(s, cmd, ctx, events) {
           v.job = back && workersOf(s, back.id).length < workerSlots(back) ? { kind: "work", buildingId: back.id } : { kind: "idle" };
         }
       }
+      startNextConstruction(s, now, events);
+      return;
+    }
+    case "clearObstacle": {
+      const o = obstacleAt(s, cmd.q, cmd.r);
+      if (!o) return fail("noObstacle");
+      if (OBSTACLES[o.kind].clearedBy !== "kiwis") fail("needsKikiwiwi");
+      if (s.queue.some((i) => i.kind === "clear" && i.q === o.q && i.r === o.r))
+        fail("alreadyClearing");
+      queueHasRoom(s);
+      const cost = { ...OBSTACLE_RULES.clearCost };
+      pay(s, cost);
+      s.queue.push({
+        id: nextId(s, "q"),
+        kind: "clear",
+        buildingType: "camp",
+        q: o.q,
+        r: o.r,
+        buildingId: null,
+        targetLevel: 0,
+        richness: 1,
+        durationMs: clearDuration(s),
+        startedAt: null,
+        paid: cost,
+        orderedAt: now
+      });
       startNextConstruction(s, now, events);
       return;
     }
@@ -5367,6 +5505,7 @@ function execute(s, cmd, ctx, events) {
         if (!tile) return fail("unknownTile");
         if (!TILES[tile.type].walkable) fail("pathNotAllowed");
         if (buildingAt(s, h.q, h.r) || queuedBuildAt(s, h.q, h.r)) fail("tileOccupied");
+        if (obstacleAt(s, h.q, h.r)) fail("obstacle");
         added.push(key);
       }
       if (s.paths.length + added.length > pathLimit(s)) fail("pathLimit");
@@ -5385,6 +5524,7 @@ function execute(s, cmd, ctx, events) {
       if (!tile) return fail("unknownTile");
       if (!CAMPS.tiles.includes(tile.type)) fail("tileNotAllowed");
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail("tileOccupied");
+      if (obstacleAt(s, cmd.q, cmd.r)) fail("obstacle");
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail("flooded");
       if (s.buildings.filter((b) => b.type === "camp").length >= CAMPS.max) fail("campLimit");
       const id3 = nextId(s, "b");
@@ -9766,7 +9906,7 @@ var gameStateSchema = external_exports.object({
   queue: external_exports.array(
     external_exports.object({
       id,
-      kind: external_exports.enum(["build", "upgrade", "repair"]),
+      kind: external_exports.enum(["build", "upgrade", "repair", "clear"]),
       buildingType: external_exports.enum(BUILDING_TYPES),
       q: external_exports.number().int(),
       r: external_exports.number().int(),
@@ -9899,6 +10039,15 @@ var gameStateSchema = external_exports.object({
   ).max(64),
   paths: external_exports.array(external_exports.string().max(16)).max(500),
   deposits: external_exports.record(external_exports.string(), external_exports.object({ stock: external_exports.number().min(0), at: external_exports.number() })),
+  obstacles: external_exports.array(
+    external_exports.object({
+      id,
+      kind: external_exports.enum(OBSTACLE_KINDS),
+      q: external_exports.number().int(),
+      r: external_exports.number().int(),
+      loot: partialResources
+    })
+  ).max(64),
   threats,
   sky: external_exports.object({
     next: external_exports.object({
@@ -9996,8 +10145,24 @@ var MIGRATIONS = {
     })) : raw.villagers
   }),
   // v13 → v14: deliveries between allies (multiplayer).
-  13: (raw) => ({ ...raw, friends: [], shipments: [], incoming: [] })
+  13: (raw) => ({ ...raw, friends: [], shipments: [], incoming: [] }),
+  // v14 → v15: obstacles (chantier 08, second half), only on tiles nothing stands on.
+  14: (raw) => ({ ...raw, obstacles: obstaclesForOldGame(raw) })
 };
+function obstaclesForOldGame(raw) {
+  const face = raw.face === "kiwino" ? "kiwino" : "kiwisu";
+  const params = raw.params;
+  if (!params || typeof raw.seed !== "string") return [];
+  const taken = /* @__PURE__ */ new Set([hexKey(HEART)]);
+  const at = (list) => Array.isArray(list) ? list.map((x) => `${Number(x.q)},${Number(x.r)}`) : [];
+  for (const k of at(raw.buildings)) taken.add(k);
+  for (const k of at(raw.queue)) taken.add(k);
+  const sky = raw.sky;
+  for (const k of at(sky?.meteors)) taken.add(k);
+  if (sky?.next) taken.add(hexKey(sky.next));
+  if (Array.isArray(raw.paths)) for (const k of raw.paths) taken.add(String(k));
+  return generateObstacles(faceMapOf({ seed: raw.seed, face, params }), taken);
+}
 function migrateState(input) {
   if (!input || typeof input !== "object") return { ok: false, reason: "corrupt" };
   let raw = input;
@@ -10095,6 +10260,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("repair"), buildingId: id2 }),
   external_exports.object({ type: external_exports.literal("setGarrison"), villagerIds: external_exports.array(id2).max(200) }),
   external_exports.object({ type: external_exports.literal("setResearch"), tech: external_exports.enum(TECH_IDS).nullable() }),
+  external_exports.object({ type: external_exports.literal("clearObstacle"), q: external_exports.number().int(), r: external_exports.number().int() }),
   external_exports.object({
     type: external_exports.literal("debugGrant"),
     resources: external_exports.object({
@@ -10248,6 +10414,7 @@ async function neighboursOf(repo, info, me, now) {
         params: s.params,
         buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
         paths: s.paths,
+        obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
         at: now
       };
     })
@@ -10319,7 +10486,28 @@ function isPlausible(state, now) {
   );
   if (mayors.length > 1 || state.speechUntil > state.now + SKILLS.speechMs * 2) return false;
   if (!plausibleResearch(state) || !plausibleAge(state)) return false;
+  if (!plausibleObstacles(state)) return false;
   return state.villagers.every((v) => plausibleKiwi(v, state.now));
+}
+function plausibleObstacles(state) {
+  const generated = new Map(generateObstacles(mapFor(state)).map((o) => [o.id, o]));
+  const map = mapFor(state);
+  const wrecks = state.obstacles.filter((o) => o.kind === "wreck");
+  if (wrecks.length > OBSTACLE_RULES.maxWrecks) return false;
+  const maxAge = METEORS.ageFactor[METEORS.ageFactor.length - 1] ?? 1;
+  for (const o of state.obstacles) {
+    if (o.id !== obstacleId(o.kind, o.q, o.r)) return false;
+    if (o.kind === "wreck") {
+      const tile = map.tiles[map.index.get(`${o.q},${o.r}`) ?? -1];
+      if (!tile || !OBSTACLES.wreck.tiles.includes(tile.type)) return false;
+      for (const r of RESOURCE_IDS)
+        if ((o.loot[r] ?? 0) > Math.round((OBSTACLES.wreck.loot[r] ?? 0) * maxAge)) return false;
+    } else {
+      const g = generated.get(o.id);
+      if (!g || RESOURCE_IDS.some((r) => (o.loot[r] ?? 0) > (g.loot[r] ?? 0))) return false;
+    }
+  }
+  return true;
 }
 function plausibleResearch(state) {
   const r = state.research;
@@ -10734,6 +10922,9 @@ export {
   NAME_SYLLABLES,
   NEEDS,
   OBJECTIVES,
+  OBSTACLES,
+  OBSTACLE_KINDS,
+  OBSTACLE_RULES,
   PASSAGE_TECHS,
   PATHS,
   PRACTICE_SCALE,
@@ -10814,6 +11005,7 @@ export {
   catchmentPreview,
   catchmentRadius,
   cleanKiwiName,
+  clearDuration,
   climateOf,
   cloneAliens,
   cloneIntel,
@@ -10862,6 +11054,7 @@ export {
   gameStateSchema,
   garrisonOf,
   generateFace,
+  generateObstacles,
   geometric,
   getBuilding,
   getTile,
@@ -10919,6 +11112,7 @@ export {
   landTileNear,
   launch,
   launchpadOf,
+  leaveWreck,
   levelDef,
   levelForXp,
   levelProgress,
@@ -10959,6 +11153,8 @@ export {
   nextSkyEvent,
   nextThreatEvent,
   objectiveProgress,
+  obstacleAt,
+  obstacleId,
   otherFace,
   parseHexKey,
   passiveRates,
@@ -10983,6 +11179,7 @@ export {
   recordIntel,
   regenBonus,
   releasePool,
+  removeObstacle,
   removeVillagers,
   repairCost,
   repairDuration,

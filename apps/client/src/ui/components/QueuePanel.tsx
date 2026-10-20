@@ -1,4 +1,4 @@
-import { getTile, type QueueItem } from '@kiwar/shared';
+import { getTile, obstacleAt, type QueueItem } from '@kiwar/shared';
 import { formatDuration } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { CloseIcon, HammerIcon } from '../icons';
@@ -16,13 +16,17 @@ function QueueRow({
   const t = useT();
   const lang = useUi((s) => s.lang);
   const map = useUi((s) => s.map);
+  const game = useUi((s) => s.game);
+  const obstacle = item.kind === 'clear' && game ? obstacleAt(game, item.q, item.r) : undefined;
   const name = t(`buildings.${item.buildingType}.name`);
   const label =
-    item.kind === 'build'
-      ? t('queue.build', { name })
-      : item.kind === 'repair'
-        ? t('queue.repair', { name })
-        : t('queue.upgrade', { name, level: item.targetLevel });
+    item.kind === 'clear'
+      ? t('queue.clear', { name: t(`obstacles.${obstacle?.kind ?? 'stump'}.name`) })
+      : item.kind === 'build'
+        ? t('queue.build', { name })
+        : item.kind === 'repair'
+          ? t('queue.repair', { name })
+          : t('queue.upgrade', { name, level: item.targetLevel });
   const progress =
     item.startedAt !== null ? Math.min(1, (now - item.startedAt) / item.durationMs) : 0;
   const focus = () => {

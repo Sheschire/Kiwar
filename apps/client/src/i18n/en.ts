@@ -292,6 +292,7 @@ export const en = {
     build: '{name}',
     upgrade: '{name} → Lv {level}',
     repair: '{name}: repairs',
+    clear: 'Clearing: {name}',
   },
   cycles: {
     seasons: { spring: 'Spring', summer: 'Summer', autumn: 'Autumn', winter: 'Winter' },
@@ -519,6 +520,10 @@ export const en = {
     monumentExists: 'The colony already has its monument.',
     unknownFriend: 'This ally is no longer in the universe.',
     emptyCargo: 'Load at least one resource.',
+    obstacle: 'Something is in the way: clear the tile first.',
+    noObstacle: 'Nothing to clear here.',
+    needsKikiwiwi: 'Too big for ordinary kiwis: it takes a Kikiwiwi.',
+    alreadyClearing: 'Already being cleared.',
   },
   offline: {
     title: 'While you were away…',
@@ -827,6 +832,28 @@ export const en = {
     reportPaths: '{count} path tile(s) trampled',
     reportAmmo: '{count} seeds fired',
     incidentLine: '{ago} ago · {text}',
+  },
+  obstacles: {
+    blocks: 'Blocks the tile',
+    loot: 'Removing it yields',
+    clear: 'Clear it',
+    clearing: 'Being cleared…',
+    needsTitan: 'Only a Kikiwiwi can move it (laboratory against nature, from the Iron age).',
+    cleared: 'Tile cleared ({name}): +{amount} {resource}.',
+    clearedEmpty: 'Tile cleared ({name}), but the storage was full.',
+    wreckLeft: 'A crater faded away and left its wreck behind.',
+    stump: {
+      name: 'Old stump',
+      desc: 'The roots of a giant down tuft. A builder can pull it out in a little while.',
+    },
+    rock: {
+      name: 'Boulders',
+      desc: 'Heavy stones from the kiwi skin, far too big for a kiwi.',
+    },
+    wreck: {
+      name: 'Meteorite wreck',
+      desc: 'The cracked core of a fallen meteorite, still faintly glowing. Rich, but very heavy.',
+    },
   },
   sky: {
     meteor: 'Meteorite: {stock}/{max} {resource} · fades in {duration}',

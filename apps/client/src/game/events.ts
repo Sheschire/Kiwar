@@ -1,4 +1,4 @@
-import { AGE_IDS, RESOURCE_IDS, type GameEvent } from '@kiwar/shared';
+import { AGE_IDS, RESOURCE_IDS, type GameEvent, type ResourceId } from '@kiwar/shared';
 import type { GameRenderer } from '../render/GameRenderer';
 import { pushToast, uiStore } from '../ui/store';
 import { playGameEventSounds } from '../audio/sounds';
@@ -139,6 +139,24 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         break;
       case 'meteorFaded':
         pushToast('info', 'sky.faded');
+        break;
+      case 'obstacleCleared': {
+        // The main part of the loot (what did not fit in the storage is lost).
+        const best = RESOURCE_IDS.reduce<ResourceId | null>(
+          (a, r) => ((e.loot[r] ?? 0) > (a ? (e.loot[a] ?? 0) : 0) ? r : a),
+          null,
+        );
+        if (best)
+          pushToast('success', 'obstacles.cleared', {
+            name: `@obstacles.${e.kind}.name`,
+            amount: e.loot[best]!,
+            resource: `@resources.${best}`,
+          });
+        else pushToast('info', 'obstacles.clearedEmpty', { name: `@obstacles.${e.kind}.name` });
+        break;
+      }
+      case 'wreckLeft':
+        pushToast('info', 'obstacles.wreckLeft');
         break;
       case 'incident':
         if (e.kind === 'storm') pushToast('info', 'threats.incident.storm', { amount: e.amount });

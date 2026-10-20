@@ -6,7 +6,11 @@ import { drawGarrison } from './aliens';
 import { alienDefOf } from '../data/expeditions';
 import type { ResourceId, Resources } from '../data/resources';
 import { INCIDENTS, METEORS, type IncidentKind } from '../data/threats';
-import { HEART, type FaceParams, DEFAULT_FACE_PARAMS } from '../worldgen/generateFace';
+import { DEFAULT_FACE_PARAMS, HEART, type FaceParams } from '../worldgen/generateFace';
+import { hexKey } from '../hex/hex';
+import type { ObstacleKind } from '../data/obstacles';
+import { generateObstacles } from './obstacles';
+import { faceMapOf } from './territory';
 import { createRng, type Rng, type RngState } from '../rng/rng';
 import type { Masteries, ShinyColor, Stats, TraitId } from '../data/kiwis';
 import type { ClassId, SkillId } from '../data/classes';
@@ -24,7 +28,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 15;
 
 export type Job =
   | { kind: 'idle' }
@@ -124,8 +128,11 @@ export interface FreeDeposit {
 
 export interface QueueItem {
   id: QueueItemId;
-  /** `repair`: mends a damaged building (same level). */
-  kind: 'build' | 'upgrade' | 'repair';
+  /**
+   * `repair`: mends a damaged building (same level). `clear`: a builder clears the stump at
+   * q, r (chantier 08; `buildingType` is unused, `camp`).
+   */
+  kind: 'build' | 'upgrade' | 'repair' | 'clear';
   buildingType: BuildingType;
   q: number;
   r: number;
@@ -383,6 +390,17 @@ export interface SkyState {
   meteors: Meteor[];
 }
 
+/** A rock, a stump or a meteorite wreck blocking a land tile (chantier 08). */
+export interface Obstacle {
+  /** `<kind>:<q>,<r>`. */
+  id: string;
+  kind: ObstacleKind;
+  q: number;
+  r: number;
+  /** What removing it yields. */
+  loot: Partial<Resources>;
+}
+
 /** Research (chantier 08): points in raw units (`RESEARCH_SCALE` per point). */
 export interface ResearchState {
   /** Points towards the current technology, or banked when none is chosen. */
@@ -452,6 +470,8 @@ export interface GameState {
   paths: string[];
   /** Unharvested deposits that are not full yet (hex key → stock); absent means full. */
   deposits: Record<string, FreeDeposit>;
+  /** Rocks, stumps and wrecks blocking tiles. */
+  obstacles: Obstacle[];
   threats: ThreatState;
   sky: SkyState;
   research: ResearchState;
@@ -539,6 +559,7 @@ export function newGame(opts: NewGameOptions): GameState {
     incoming: [],
     paths: [],
     deposits: {},
+    obstacles: [],
     threats: newThreats(opts.seed, opts.face, opts.now),
     sky: newSky(opts.now),
     research: { points: 0, current: null, done: [] },
@@ -555,6 +576,7 @@ export function newGame(opts: NewGameOptions): GameState {
     builtAt: opts.now,
   });
   for (let i = 0; i < START.villagers; i++) addVillager(state, opts.now);
+  state.obstacles = generateObstacles(faceMapOf(state), new Set([hexKey(HEART)]));
   const alienSeed = opts.alienSeed ?? localAlienSeed(state);
   state.aliens = Object.fromEntries(
     state.targets.map((t) => [t.id, drawGarrison(t, `${alienSeed}/${t.id}`, opts.now)]),
@@ -666,6 +688,7 @@ export function cloneState(state: GameState): GameState {
     intel: Object.fromEntries(Object.entries(state.intel).map(([k, i]) => [k, cloneIntel(i)])),
     paths: [...state.paths],
     deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
+    obstacles: state.obstacles.map((o) => ({ ...o, loot: { ...o.loot } })),
     threats: cloneThreats(state.threats),
     sky: {
       ...state.sky,

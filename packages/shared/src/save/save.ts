@@ -23,6 +23,12 @@ import { calendarStartFor } from '../data/cycles';
 import { CLASS_IDS, SKILL_IDS } from '../data/classes';
 import { TECH_IDS } from '../data/research';
 import { newKiwi, rollKiwi } from '../sim/kiwis';
+import { OBSTACLE_KINDS } from '../data/obstacles';
+import { generateObstacles } from '../sim/obstacles';
+import { faceMapOf } from '../sim/territory';
+import { hexKey } from '../hex/hex';
+import { HEART, type FaceParams } from '../worldgen/generateFace';
+import type { Obstacle } from '../sim/state';
 
 const resources = z.object({
   pulp: z.number(),
@@ -185,7 +191,7 @@ export const gameStateSchema = z.object({
   queue: z.array(
     z.object({
       id,
-      kind: z.enum(['build', 'upgrade', 'repair']),
+      kind: z.enum(['build', 'upgrade', 'repair', 'clear']),
       buildingType: z.enum(BUILDING_TYPES),
       q: z.number().int(),
       r: z.number().int(),
@@ -334,6 +340,17 @@ export const gameStateSchema = z.object({
     .max(64),
   paths: z.array(z.string().max(16)).max(500),
   deposits: z.record(z.string(), z.object({ stock: z.number().min(0), at: z.number() })),
+  obstacles: z
+    .array(
+      z.object({
+        id,
+        kind: z.enum(OBSTACLE_KINDS),
+        q: z.number().int(),
+        r: z.number().int(),
+        loot: partialResources,
+      }),
+    )
+    .max(64),
   threats,
   sky: z.object({
     next: z
@@ -452,7 +469,27 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   }),
   // v13 → v14: deliveries between allies (multiplayer).
   13: (raw) => ({ ...raw, friends: [], shipments: [], incoming: [] }),
+  // v14 → v15: obstacles (chantier 08, second half), only on tiles nothing stands on.
+  14: (raw) => ({ ...raw, obstacles: obstaclesForOldGame(raw) }),
 };
+
+function obstaclesForOldGame(raw: Record<string, unknown>): Obstacle[] {
+  const face: Face = raw.face === 'kiwino' ? 'kiwino' : 'kiwisu';
+  const params = raw.params as FaceParams | undefined;
+  if (!params || typeof raw.seed !== 'string') return [];
+  const taken = new Set<string>([hexKey(HEART)]);
+  const at = (list: unknown) =>
+    Array.isArray(list)
+      ? (list as { q?: unknown; r?: unknown }[]).map((x) => `${Number(x.q)},${Number(x.r)}`)
+      : [];
+  for (const k of at(raw.buildings)) taken.add(k);
+  for (const k of at(raw.queue)) taken.add(k);
+  const sky = raw.sky as { meteors?: unknown; next?: { q: number; r: number } | null } | undefined;
+  for (const k of at(sky?.meteors)) taken.add(k);
+  if (sky?.next) taken.add(hexKey(sky.next));
+  if (Array.isArray(raw.paths)) for (const k of raw.paths) taken.add(String(k));
+  return generateObstacles(faceMapOf({ seed: raw.seed, face, params }), taken);
+}
 
 export type MigrateResult =
   { ok: true; state: GameState } | { ok: false; reason: 'corrupt' | 'tooNew' };

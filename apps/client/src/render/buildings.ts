@@ -223,7 +223,8 @@ export class BuildingsView {
     g.userData = { started, item, q: item.q, r: item.r };
     const tile = getTile(this.map, item);
     this.placeAt(g, item.q, item.r, tile?.variant ?? 0.5);
-    if (!started) {
+    // Clearing a stump: only the stake, the stump itself is the site.
+    if (!started || item.kind === 'clear') {
       const stake = new Mesh(stakeGeometry(), this.material);
       stake.position.set(0.25, 0, 0.25);
       stake.castShadow = true;

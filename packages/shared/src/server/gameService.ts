@@ -1,3 +1,6 @@
+import { OBSTACLES, OBSTACLE_RULES } from '../data/obstacles';
+import { METEORS } from '../data/threats';
+import { generateObstacles, obstacleId } from '../sim/obstacles';
 import { drawBiomes } from '../data/biomes';
 import { CALENDAR, calendarStartFor } from '../data/cycles';
 import { BUILDINGS, levelDef, MAX_LEVEL } from '../data/buildings';
@@ -241,6 +244,7 @@ async function neighboursOf(
         params: s.params,
         buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
         paths: s.paths,
+        obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
         at: now,
       };
     }),
@@ -342,7 +346,33 @@ export function isPlausible(state: GameState, now: number): boolean {
   );
   if (mayors.length > 1 || state.speechUntil > state.now + SKILLS.speechMs * 2) return false;
   if (!plausibleResearch(state) || !plausibleAge(state)) return false;
+  if (!plausibleObstacles(state)) return false;
   return state.villagers.every((v) => plausibleKiwi(v, state.now));
+}
+
+/**
+ * Obstacles (chantier 08): rocks and stumps come from the seed (a save may only have fewer),
+ * wrecks are capped and stand on land, loot is never above its table.
+ */
+function plausibleObstacles(state: GameState): boolean {
+  const generated = new Map(generateObstacles(mapFor(state)).map((o) => [o.id, o]));
+  const map = mapFor(state);
+  const wrecks = state.obstacles.filter((o) => o.kind === 'wreck');
+  if (wrecks.length > OBSTACLE_RULES.maxWrecks) return false;
+  const maxAge = METEORS.ageFactor[METEORS.ageFactor.length - 1] ?? 1;
+  for (const o of state.obstacles) {
+    if (o.id !== obstacleId(o.kind, o.q, o.r)) return false;
+    if (o.kind === 'wreck') {
+      const tile = map.tiles[map.index.get(`${o.q},${o.r}`) ?? -1];
+      if (!tile || !OBSTACLES.wreck.tiles.includes(tile.type)) return false;
+      for (const r of RESOURCE_IDS)
+        if ((o.loot[r] ?? 0) > Math.round((OBSTACLES.wreck.loot[r] ?? 0) * maxAge)) return false;
+    } else {
+      const g = generated.get(o.id);
+      if (!g || RESOURCE_IDS.some((r) => (o.loot[r] ?? 0) > (g.loot[r] ?? 0))) return false;
+    }
+  }
+  return true;
 }
 
 /**

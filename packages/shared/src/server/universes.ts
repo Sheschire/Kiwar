@@ -1,3 +1,4 @@
+import type { ObstacleKind } from '../data/obstacles';
 import { alienDefOf } from '../data/expeditions';
 import type { ExpeditionTarget, Friend } from '../sim/state';
 import type { Resources } from '../data/resources';
@@ -49,6 +50,8 @@ export interface TwinSnapshot {
   params: FaceParams;
   buildings: { type: BuildingType; level: number; q: number; r: number }[];
   paths: string[];
+  /** Rocks, stumps and wrecks (chantier 08; absent in older snapshots). */
+  obstacles?: { kind: ObstacleKind; q: number; r: number }[];
   /** Server time of the snapshot. */
   at: number;
 }

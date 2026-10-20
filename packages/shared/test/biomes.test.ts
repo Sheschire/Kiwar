@@ -131,7 +131,10 @@ describe('biomes', () => {
     const m = migrateState(JSON.parse(JSON.stringify(raw)));
     expect(m.ok && m.state.params).toEqual({ radius: 12, biome: 'classic' });
     expect(isPlausible(fresh, T0)).toBe(true);
-    expect(isPlausible({ ...fresh, params: { radius: 12, biome: 'classic' } }, T0)).toBe(true);
+    // Classic worlds have no obstacles (chantier 08).
+    expect(
+      isPlausible({ ...fresh, params: { radius: 12, biome: 'classic' }, obstacles: [] }, T0),
+    ).toBe(true);
     const other = biomesOf('kiwisu').find((b) => b !== fresh.params.biome)!;
     expect(isPlausible({ ...fresh, params: { radius: 12, biome: other } }, T0)).toBe(false);
   });

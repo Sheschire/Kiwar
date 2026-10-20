@@ -38,6 +38,7 @@ import { pick, screenRay, TapDetector } from './picking';
 import { PathPainter } from './pathPainter';
 import { PathsView } from './paths';
 import { MeteorsView } from './meteors';
+import { ObstaclesView } from './obstacles';
 import { ShipsView } from './ship';
 import { PredatorShow } from './predators';
 import { PostFx } from './postfx';
@@ -107,6 +108,7 @@ export class GameRenderer {
   private following = false;
   private paths: PathsView | null = null;
   private meteors: MeteorsView | null = null;
+  private obstacles: ObstaclesView | null = null;
   private ships: ShipsView | null = null;
   private predators: PredatorShow | null = null;
   /** Turret shots of the wave show (wired to the audio by `installGameAudio`). */
@@ -252,6 +254,7 @@ export class GameRenderer {
       this.paths,
       this.weather,
       this.meteors,
+      this.obstacles,
       this.predators,
       this.ships,
     ]) {
@@ -276,6 +279,8 @@ export class GameRenderer {
     this.scene.add(this.paths.group);
     this.meteors = new MeteorsView(map);
     this.scene.add(this.meteors.group);
+    this.obstacles = new ObstaclesView(map, () => (this.renderer.shadowMap.needsUpdate = true));
+    this.scene.add(this.obstacles.group);
     this.ships = new ShipsView(map);
     this.ships.setParticles(QUALITY[this.preset].particles);
     this.scene.add(this.ships.group);
@@ -419,6 +424,7 @@ export class GameRenderer {
     this.kiwis?.sync(state);
     this.paths?.sync(state.paths, ageOf(state));
     this.meteors?.sync(state);
+    this.obstacles?.sync(state);
     this.ships?.sync(state);
     this.weather?.sync(state);
     if (this.map) this.terrain?.setDepletion(depletedTiles(state, this.map));
@@ -428,6 +434,7 @@ export class GameRenderer {
     const occupied = new Set<string>(state.paths);
     for (const b of state.buildings) occupied.add(hexKey(b));
     for (const i of state.queue) occupied.add(hexKey(i));
+    for (const o of state.obstacles) occupied.add(hexKey(o));
     for (const key of occupied) {
       if (this.clearedTiles.has(key)) continue;
       this.clearedTiles.add(key);
@@ -448,6 +455,7 @@ export class GameRenderer {
     for (const e of events) {
       if (e.type === 'constructionComplete') this.buildings?.celebrate(e.buildingId, e.q, e.r);
       if (e.type === 'repaired') this.buildings?.burst(e.q, e.r);
+      if (e.type === 'obstacleCleared') this.buildings?.burst(e.q, e.r);
       // A new age: fireworks over the monument (chantier 08).
       if (e.type === 'ageReached') {
         for (let i = 0; i < 5; i++)
@@ -700,6 +708,7 @@ export class GameRenderer {
     fog.far = fog.near + 170;
     this.buildings?.update(dt, this.callbacks.now());
     this.meteors?.update(dt, this.callbacks.now());
+    this.obstacles?.update(dt);
     this.ships?.update(
       dt,
       this.elapsed,

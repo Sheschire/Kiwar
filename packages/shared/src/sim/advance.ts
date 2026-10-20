@@ -38,6 +38,8 @@ import { removeVillagers } from './expeditions';
 import type { IncidentKind } from '../data/threats';
 import { nextThreatEvent, planWave, threatTick } from './threats';
 import { meteorRate, nextSkyEvent, planMeteor, skyTick } from './sky';
+import { obstacleAt, removeObstacle } from './obstacles';
+import type { ObstacleKind } from '../data/obstacles';
 import { accrueResearch, nextResearchEvent, researchTick } from './research';
 import {
   addVillager,
@@ -95,6 +97,17 @@ export type GameEvent =
       rank: number;
     }
   | { type: 'storageFull'; at: TimeMs; resource: ResourceId }
+  /** Chantier 08: an obstacle was removed (loot credited), a crater left a wreck. */
+  | {
+      type: 'obstacleCleared';
+      at: TimeMs;
+      q: number;
+      r: number;
+      kind: ObstacleKind;
+      loot: Partial<Resources>;
+      by: 'kiwis' | 'titan';
+    }
+  | { type: 'wreckLeft'; at: TimeMs; q: number; r: number }
   | { type: 'seasonChanged'; at: TimeMs; season: Season }
   /** A food stock ran dry: the colony eats what is harvested and goes hungry. */
   | { type: 'foodRanOut'; at: TimeMs; resource: 'pulp' | 'juice' }
@@ -500,6 +513,12 @@ function completeConstruction(s: GameState, at: TimeMs, events: GameEvent[]): vo
         r: b.r,
       });
     }
+    releaseBuilder(s, item.id, false);
+    return;
+  }
+  if (item.kind === 'clear') {
+    const o = obstacleAt(s, item.q, item.r);
+    if (o) removeObstacle(s, o, at, events, 'kiwis');
     releaseBuilder(s, item.id, false);
     return;
   }

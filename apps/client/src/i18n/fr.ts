@@ -310,6 +310,7 @@ export const fr: Dict = {
     build: '{name}',
     upgrade: '{name} → Niv. {level}',
     repair: '{name} : réparations',
+    clear: 'Dégagement : {name}',
   },
   cycles: {
     seasons: { spring: 'Printemps', summer: 'Été', autumn: 'Automne', winter: 'Hiver' },
@@ -548,6 +549,10 @@ export const fr: Dict = {
     monumentExists: 'La colonie a déjà son monument.',
     unknownFriend: 'Cet·te allié·e n’est plus dans l’univers.',
     emptyCargo: 'Chargez au moins une ressource.',
+    obstacle: 'Quelque chose gêne : dégagez d’abord la tuile.',
+    noObstacle: 'Rien à dégager ici.',
+    needsKikiwiwi: 'Trop gros pour des kiwis ordinaires : il faut un Kikiwiwi.',
+    alreadyClearing: 'Dégagement déjà en cours.',
   },
   offline: {
     title: 'Pendant votre absence…',
@@ -857,6 +862,28 @@ export const fr: Dict = {
     reportPaths: '{count} tuile(s) de chemin piétinée(s)',
     reportAmmo: '{count} pépins tirés',
     incidentLine: 'il y a {ago} · {text}',
+  },
+  obstacles: {
+    blocks: 'Bloque la tuile',
+    loot: 'En l’enlevant',
+    clear: 'Dégager',
+    clearing: 'Dégagement en cours…',
+    needsTitan: 'Seul un Kikiwiwi peut le déplacer (laboratoire contre nature, dès l’âge du Fer).',
+    cleared: 'Tuile dégagée ({name}) : +{amount} {resource}.',
+    clearedEmpty: 'Tuile dégagée ({name}), mais le stockage était plein.',
+    wreckLeft: 'Un cratère s’est effacé en laissant son épave.',
+    stump: {
+      name: 'Vieille souche',
+      desc: 'Les racines d’une touffe de duvet géante. Un·e bâtisseur·euse peut l’arracher en un moment.',
+    },
+    rock: {
+      name: 'Rochers',
+      desc: 'De lourdes pierres venues de la peau du kiwi, bien trop grosses pour un kiwi.',
+    },
+    wreck: {
+      name: 'Épave de météorite',
+      desc: 'Le cœur fendu d’une météorite tombée, qui luit encore un peu. Riche, mais très lourd.',
+    },
   },
   sky: {
     meteor: 'Météorite : {stock}/{max} {resource} · s’éteint dans {duration}',

@@ -32,6 +32,11 @@ import {
   repairDuration,
   queuedBuildAt,
   RESOURCE_IDS,
+  OBSTACLES,
+  OBSTACLE_RULES,
+  clearDuration,
+  obstacleAt,
+  type Obstacle,
   tileDepositState,
   TILES,
   timeToDepletion,
@@ -583,6 +588,8 @@ export function TilePanel() {
 
   const building = buildingAt(game, tile.q, tile.r);
   const site = queuedBuildAt(game, tile.q, tile.r);
+  const obstacle = obstacleAt(game, tile.q, tile.r);
+  const free = !building && !site && !obstacle;
   const options = BUILDABLE_TYPES.filter(
     (type) =>
       BUILDINGS[type].allowedTiles.includes(tile.type) &&
@@ -613,7 +620,8 @@ export function TilePanel() {
         </button>
       </header>
       <div class="sheet-body">
-        {!building && !site && <p class="small muted">{t(`tiles.${tile.type}.desc`)}</p>}
+        {free && <p class="small muted">{t(`tiles.${tile.type}.desc`)}</p>}
+        {obstacle && <ObstacleSection game={game} map={map} o={obstacle} now={now} t={t} />}
         {!building && !site && game.paths.includes(hexKey(tile)) && (
           <p class="small bonus">{t('tile.path')}</p>
         )}
@@ -637,7 +645,7 @@ export function TilePanel() {
             <Progress item={site} now={now} />
           </div>
         )}
-        {!building && !site && options.length > 0 && (
+        {free && options.length > 0 && (
           <div class="build-list">
             {ray && <p class="small bonus">{t('tile.rayBonus')}</p>}
             {options.map((type) => (
@@ -653,10 +661,70 @@ export function TilePanel() {
             ))}
           </div>
         )}
-        {!building && !site && <GatherOption game={game} map={map} tile={tile} now={now} t={t} />}
-        {!building && !site && options.length === 0 && <p class="small">{t('tile.nothing')}</p>}
+        {free && <GatherOption game={game} map={map} tile={tile} now={now} t={t} />}
+        {free && options.length === 0 && <p class="small">{t('tile.nothing')}</p>}
       </div>
     </aside>
+  );
+}
+
+/** A rock, a stump or a wreck on the tile (chantier 08): its loot and how to remove it. */
+function ObstacleSection({
+  game,
+  map,
+  o,
+  now,
+  t,
+}: {
+  game: GameState;
+  map: FaceMap;
+  o: Obstacle;
+  now: number;
+  t: Translate;
+}) {
+  const clearing = game.queue.find((i) => i.kind === 'clear' && i.q === o.q && i.r === o.r);
+  const byKiwis = OBSTACLES[o.kind].clearedBy === 'kiwis';
+  const cmd = { type: 'clearObstacle', q: o.q, r: o.r } as const;
+  const error = byKiwis && !clearing ? validateCommand(game, cmd, { now, map }) : null;
+  return (
+    <div class="section obstacle-section">
+      <div class="title-row">
+        <h3>{t(`obstacles.${o.kind}.name`)}</h3>
+        <span class="badge">{t('obstacles.blocks')}</span>
+      </div>
+      <p class="small muted">{t(`obstacles.${o.kind}.desc`)}</p>
+      <div class="stat-row">
+        <span class="stat-label">{t('obstacles.loot')}</span>
+        <Cost cost={o.loot} />
+      </div>
+      {clearing ? (
+        <div class="upgrade-box">
+          <span>
+            <HammerIcon size={18} /> {t('obstacles.clearing')}
+          </span>
+          <Progress item={clearing} now={now} />
+        </div>
+      ) : byKiwis ? (
+        <div class="upgrade-box">
+          <Cost
+            cost={OBSTACLE_RULES.clearCost}
+            have={game.resources}
+            durationMs={clearDuration(game)}
+          />
+          <button
+            class="btn btn-primary"
+            disabled={error !== null}
+            title={error ? t(`errors.${error}`) : undefined}
+            onClick={() => actions.dispatch(cmd)}
+          >
+            <HammerIcon size={18} /> {t('obstacles.clear')}
+          </button>
+          {error && <span class="small warn">{t(`errors.${error}`)}</span>}
+        </div>
+      ) : (
+        <p class="small warn">{t('obstacles.needsTitan')}</p>
+      )}
+    </div>
   );
 }
 

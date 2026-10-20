@@ -1,3 +1,4 @@
+import { ObstaclesView } from './obstacles';
 import type { Color } from 'three';
 import {
   CanvasTexture,
@@ -190,6 +191,8 @@ export class TwinView {
   }
 
   /** A friend's colony: pools, buildings (static models) and their name above. */
+  private obstacles: ObstaclesView | null = null;
+
   private showFriend(map: FaceMap, friend: TwinSnapshot): void {
     this.water = new WaterView(map, new Vector3(0.4, 1, 0.3));
     this.terrain.group.add(this.water.mesh);
@@ -209,6 +212,13 @@ export class TwinView {
       mesh.position.set(p.x, y, p.z);
       mesh.rotation.y = Math.atan2(p.x, p.z) + Math.PI;
       this.terrain.group.add(mesh);
+    }
+    if (friend.obstacles?.length) {
+      this.obstacles = new ObstaclesView(map);
+      this.obstacles.sync({
+        obstacles: friend.obstacles.map((o) => ({ ...o, id: `${o.kind}:${o.q},${o.r}`, loot: {} })),
+      });
+      this.terrain.group.add(this.obstacles.group);
     }
     this.label = nameLabel(friend.owner);
     const e = this.terrain.extent();
@@ -254,6 +264,7 @@ export class TwinView {
   dispose(): void {
     this.terrain.dispose();
     this.water?.dispose();
+    this.obstacles?.dispose();
     // Building geometries are cached and shared with the colony: only the material goes.
     this.buildingMaterial?.dispose();
     if (this.label) {

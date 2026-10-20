@@ -1,5 +1,6 @@
 import {
   buildingAt,
+  obstacleAt,
   hexKey,
   isLaunchpadBusy,
   pathLimit,
@@ -99,7 +100,8 @@ export const actions = {
             !existing.has(hexKey(t)) &&
             TILES[t.type].walkable &&
             !buildingAt(game, t.q, t.r) &&
-            !queuedBuildAt(game, t.q, t.r),
+            !queuedBuildAt(game, t.q, t.r) &&
+            !obstacleAt(game, t.q, t.r),
         );
     if (!erase) todo = todo.slice(0, Math.max(0, pathLimit(game) - game.paths.length) || 1);
     for (let i = 0; i < todo.length; i += PATHS.maxPerCommand) {

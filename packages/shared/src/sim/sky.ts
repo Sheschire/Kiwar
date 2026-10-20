@@ -7,6 +7,7 @@ import type { GameEvent } from './advance';
 import { seasonOf } from './calendar';
 import { nest } from './selectors';
 import { ageOf } from './research';
+import { leaveWreck } from './obstacles';
 import { withThreatRng, type Building, type GameState, type Meteor } from './state';
 import { baseHarvest, catchmentRadius, faceMapOf, isFlooded, type Harvest } from './territory';
 
@@ -92,6 +93,7 @@ export function skyTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
         ...s.buildings.map((b) => hexKey(b)),
         ...s.queue.filter((i) => i.kind === 'build').map((i) => hexKey(i)),
         ...sky.meteors.map((m) => hexKey(m)),
+        ...s.obstacles.map((o) => hexKey(o)),
       ]);
       const free = map.tiles.filter(
         (t) =>
@@ -134,7 +136,10 @@ export function skyTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
     });
   }
   if (next && next.announced && next.at === at) {
-    if (sky.meteors.length >= METEORS.max) sky.meteors.shift();
+    if (sky.meteors.length >= METEORS.max) {
+      const old = sky.meteors.shift()!;
+      leaveWreck(s, old, at, events);
+    }
     sky.meteors.push({
       id: next.id,
       q: next.q,
@@ -158,8 +163,9 @@ export function skyTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
     });
   }
   for (const m of sky.meteors) {
-    if (m.expiresAt === at)
-      events.push({ type: 'meteorFaded', at, q: m.q, r: m.r, resource: m.resource });
+    if (m.expiresAt !== at) continue;
+    events.push({ type: 'meteorFaded', at, q: m.q, r: m.r, resource: m.resource });
+    leaveWreck(s, m, at, events);
   }
   sky.meteors = sky.meteors.filter((m) => m.expiresAt > at);
 }

@@ -73,6 +73,8 @@ import {
   shipCargo,
 } from './expeditions';
 import { cargoWeight, sendShipment } from './deliveries';
+import { OBSTACLES, OBSTACLE_RULES } from '../data/obstacles';
+import { clearDuration, obstacleAt } from './obstacles';
 
 export type Command =
   | { type: 'build'; buildingType: BuildingType; q: number; r: number }
@@ -124,6 +126,8 @@ export type Command =
   | { type: 'repair'; buildingId: BuildingId }
   /** Posts exactly these kiwis on the rampart (the others go back to work). */
   | { type: 'setGarrison'; villagerIds: VillagerId[] }
+  /** Chantier 08: a builder clears the stump on this tile (queued like a construction). */
+  | { type: 'clearObstacle'; q: number; r: number }
   /** Chantier 08: the technology the researchers work on (null: bank the points). */
   | { type: 'setResearch'; tech: TechId | null }
   | { type: 'debugGrant'; resources: Partial<Resources> };
@@ -193,6 +197,10 @@ export const COMMAND_ERRORS = [
   'monumentExists',
   'unknownFriend',
   'emptyCargo',
+  'obstacle',
+  'noObstacle',
+  'needsKikiwiwi',
+  'alreadyClearing',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -279,6 +287,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (!tile) return fail('unknownTile');
       if (!def.allowedTiles.includes(tile.type)) fail('tileNotAllowed');
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail('tileOccupied');
+      if (obstacleAt(s, cmd.q, cmd.r)) fail('obstacle');
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail('flooded');
       if (nest(s).level < def.levels[0]!.requiresNestLevel) fail('nestLevelTooLow');
       if (cmd.buildingType === 'monument') {
@@ -365,6 +374,32 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
               : { kind: 'idle' };
         }
       }
+      startNextConstruction(s, now, events);
+      return;
+    }
+    case 'clearObstacle': {
+      const o = obstacleAt(s, cmd.q, cmd.r);
+      if (!o) return fail('noObstacle');
+      if (OBSTACLES[o.kind].clearedBy !== 'kiwis') fail('needsKikiwiwi');
+      if (s.queue.some((i) => i.kind === 'clear' && i.q === o.q && i.r === o.r))
+        fail('alreadyClearing');
+      queueHasRoom(s);
+      const cost = { ...OBSTACLE_RULES.clearCost };
+      pay(s, cost);
+      s.queue.push({
+        id: nextId(s, 'q') as QueueItemId,
+        kind: 'clear',
+        buildingType: 'camp',
+        q: o.q,
+        r: o.r,
+        buildingId: null,
+        targetLevel: 0,
+        richness: 1,
+        durationMs: clearDuration(s),
+        startedAt: null,
+        paid: cost,
+        orderedAt: now,
+      });
       startNextConstruction(s, now, events);
       return;
     }
@@ -464,6 +499,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         if (!tile) return fail('unknownTile');
         if (!TILES[tile.type].walkable) fail('pathNotAllowed');
         if (buildingAt(s, h.q, h.r) || queuedBuildAt(s, h.q, h.r)) fail('tileOccupied');
+        if (obstacleAt(s, h.q, h.r)) fail('obstacle');
         added.push(key);
       }
       if (s.paths.length + added.length > pathLimit(s)) fail('pathLimit');
@@ -482,6 +518,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (!tile) return fail('unknownTile');
       if (!CAMPS.tiles.includes(tile.type)) fail('tileNotAllowed');
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail('tileOccupied');
+      if (obstacleAt(s, cmd.q, cmd.r)) fail('obstacle');
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail('flooded');
       if (s.buildings.filter((b) => b.type === 'camp').length >= CAMPS.max) fail('campLimit');
       const id = nextId(s, 'b') as BuildingId;
