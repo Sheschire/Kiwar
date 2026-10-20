@@ -1,6 +1,7 @@
 import {
   CALENDAR,
   calendarAt,
+  BIOMES,
   CYCLES,
   RESOURCE_IDS,
   seasonEffects,
@@ -64,7 +65,8 @@ export function ClockChip({ h }: { h: ChipHandlers }) {
 function useSeasonEffects(season: Season): string[] {
   const t = useT();
   const lang = useUi((s) => s.lang);
-  const fx = seasonEffects(season);
+  const biome = useUi((s) => s.game?.params.biome ?? 'classic');
+  const fx = seasonEffects(season, biome);
   const v = (x: number) => formatNumber(lang, x);
   const lines: string[] = [];
   for (const id of RESOURCE_IDS) {
@@ -82,7 +84,13 @@ function useSeasonEffects(season: Season): string[] {
         lines.push(t('cycles.effects.regenOne', { resource: `@resources.${id}`, value: v(r) }));
     }
   }
-  if (fx.walk !== 1) lines.push(t('cycles.effects.walk', { value: v(fx.walk) }));
+  if (fx.walk !== 1)
+    lines.push(
+      t(season === 'winter' ? 'cycles.effects.walk' : 'cycles.effects.rugged', {
+        value: v(fx.walk),
+      }),
+    );
+  if (BIOMES[biome].floods === season) lines.push(t('cycles.effects.floods'));
   if (fx.hatching !== 1)
     lines.push(t('cycles.effects.hatching', { percent: Math.round((1 - fx.hatching) * 100) }));
   return lines;

@@ -1,3 +1,4 @@
+import { drawBiomes } from '../data/biomes';
 import { calendarStartFor } from '../data/cycles';
 import { BUILDINGS, levelDef, MAX_LEVEL } from '../data/buildings';
 import { OBJECTIVES } from '../data/objectives';
@@ -88,7 +89,7 @@ export const RATE_LIMIT = { windowMs: 10_000, maxCommands: 40 };
 
 const mapCache = new Map<string, FaceMap>();
 function mapFor(state: GameState): FaceMap {
-  const key = `${state.seed}/${state.face}/${state.params.radius}`;
+  const key = `${state.seed}/${state.face}/${state.params.radius}/${state.params.biome}`;
   let map = mapCache.get(key);
   if (!map) {
     map = generateFace(state.seed, state.face, state.params);
@@ -185,6 +186,9 @@ export function isPlausible(state: GameState, now: number): boolean {
   if (state.now > now + 60_000 || state.createdAt > state.now) return false;
   // Solo games follow their own calendar (no skipping winter).
   if (state.calendarStart !== calendarStartFor(state.createdAt)) return false;
+  // The biome comes from the seed (older worlds keep the classic one): no picking it by hand.
+  const biome = state.params.biome;
+  if (biome !== 'classic' && biome !== drawBiomes(state.seed)[state.face]) return false;
   const cap = capacity(state);
   for (const id of RESOURCE_IDS) {
     // Stock may exceed storage only by what objective rewards can add on top of it.

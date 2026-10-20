@@ -13,7 +13,14 @@ import {
   SphereGeometry,
   Vector3,
 } from 'three';
-import { hexToPixel, type FaceMap, type HexKey, type Tile, type TileType } from '@kiwar/shared';
+import {
+  hexToPixel,
+  type BiomeId,
+  type FaceMap,
+  type HexKey,
+  type Tile,
+  type TileType,
+} from '@kiwar/shared';
 import { GLSL_NOISE } from './shaderChunks';
 import { withSeasonLook } from './seasonLook';
 
@@ -38,16 +45,61 @@ export const TILE_COLORS: Record<TileType, Color> = {
 const FLESH_INNER = new Color('#b9dc62');
 const FLESH_OUTER = new Color('#6aa82a');
 
+interface BiomeLook {
+  flesh?: readonly [string, string];
+  tiles?: Partial<Record<TileType, string>>;
+}
+
+/** Palette of each biome (chantier 05): the flesh gradient and a few tile colours. */
+const BIOME_LOOKS: Record<BiomeId, BiomeLook> = {
+  classic: {},
+  orchard: { flesh: ['#c8f060', '#3f9a1c'], tiles: { grove: '#86a83c' } },
+  highlands: {
+    flesh: ['#c8d98c', '#78a24a'],
+    tiles: { grove: '#aaa97c', skin: '#6a4a36', seedRing: '#bcd47a' },
+  },
+  delta: { flesh: ['#e2d866', '#93a224'], tiles: { grove: '#b39c45', ray: '#f7ecb8' } },
+  seedCrown: { flesh: ['#9cc44c', '#4f7f22'], tiles: { seedRing: '#a8c447', ray: '#e6eab4' } },
+  lagoons: { flesh: ['#a8e090', '#4aa25a'], tiles: { grove: '#86b064' } },
+  tundra: {
+    flesh: ['#dbe6c4', '#86a284'],
+    tiles: { grove: '#c2c4b6', skin: '#7d6152', seedRing: '#cfdcb0', heart: '#f6f6ee' },
+  },
+};
+
+const lookCache = new Map<
+  BiomeId,
+  { inner: Color; outer: Color; tiles: Record<TileType, Color> }
+>();
+
+function biomeLook(biome: BiomeId) {
+  let look = lookCache.get(biome);
+  if (!look) {
+    const def = BIOME_LOOKS[biome];
+    const tiles = { ...TILE_COLORS };
+    for (const [type, hex] of Object.entries(def.tiles ?? {}))
+      tiles[type as TileType] = new Color(hex);
+    look = {
+      inner: def.flesh ? new Color(def.flesh[0]) : FLESH_INNER,
+      outer: def.flesh ? new Color(def.flesh[1]) : FLESH_OUTER,
+      tiles,
+    };
+    lookCache.set(biome, look);
+  }
+  return look;
+}
+
 export function worldPosition(tile: { q: number; r: number }): { x: number; z: number } {
   const p = hexToPixel(tile);
   return { x: p.x, z: p.y };
 }
 
-export function tileTopColor(tile: Tile, out = new Color()): Color {
+export function tileTopColor(tile: Tile, out = new Color(), biome: BiomeId = 'classic'): Color {
+  const look = biomeLook(biome);
   if (tile.type === 'flesh') {
-    out.copy(FLESH_INNER).lerp(FLESH_OUTER, Math.min(1, Math.max(0, (tile.rho - 0.15) / 0.75)));
+    out.copy(look.inner).lerp(look.outer, Math.min(1, Math.max(0, (tile.rho - 0.15) / 0.75)));
   } else {
-    out.copy(TILE_COLORS[tile.type]);
+    out.copy(look.tiles[tile.type]);
   }
   // Small per-tile variation so the ground is not a flat colour.
   const v = (tile.variant - 0.5) * 0.09;
@@ -197,7 +249,7 @@ export class TerrainView {
       const p = worldPosition(tile);
       m.makeTranslation(p.x, tile.height, p.z);
       this.tiles.setMatrixAt(i, m);
-      this.tiles.setColorAt(i, tileTopColor(tile, c));
+      this.tiles.setColorAt(i, tileTopColor(tile, c, map.params.biome));
     });
     this.tiles.instanceMatrix.needsUpdate = true;
     if (this.tiles.instanceColor) this.tiles.instanceColor.needsUpdate = true;
@@ -227,7 +279,7 @@ export class TerrainView {
       const i = this.map.index.get(key as HexKey);
       const tile = i === undefined ? undefined : this.map.tiles[i];
       if (!tile || i === undefined) continue;
-      tileTopColor(tile, c);
+      tileTopColor(tile, c, this.map.params.biome);
       const ratio = quantized.get(key);
       if (ratio !== undefined) c.lerp(DRY, (1 - ratio) * 0.7);
       this.tiles.setColorAt(i, c);

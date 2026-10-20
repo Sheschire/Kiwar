@@ -11,11 +11,13 @@ describe('balance bot', () => {
     expect(a.times.nest2).not.toBeNull();
   });
 
-  it('a player who comes twice a day crosses the first winter without losing a kiwi', () => {
+  it('a player who comes twice a day crosses the first (harsh) winter without losing a kiwi', () => {
     // Attentive for the first day, then two visits a day until the spring after the winter.
+    // The tundra has the harshest winter and the slowest regrowth.
     const r = runBot({
       seed: 'bot-winter',
       face: 'kiwino',
+      biome: 'tundra',
       horizonMs: 100 * 3_600_000,
       fullHorizon: true,
       activeMs: 24 * 3_600_000,
@@ -29,6 +31,7 @@ describe('balance bot', () => {
     const fake = (face: 'kiwisu' | 'kiwino', t: number) => ({
       seed: 's',
       face,
+      biome: 'classic' as const,
       times: {
         tutorial: t,
         pop10: t,
@@ -41,9 +44,11 @@ describe('balance bot', () => {
       },
       final: { population: 0, buildings: 0, produced: 0 },
     });
-    const [first] = compare([fake('kiwisu', 100), fake('kiwino', 130)], 10);
+    const group = (id: string, t: number) => ({ id, label: id, runs: [fake('kiwisu', t)] });
+    const [first] = compare([group('a', 100), group('b', 100), group('c', 130)], 10);
     expect(first!.flagged).toBe(true);
-    const [second] = compare([fake('kiwisu', 100), fake('kiwino', 105)], 10);
+    expect(first!.gaps.c).toBeCloseTo(30, 6);
+    const [second] = compare([group('a', 100), group('b', 95), group('c', 105)], 10);
     expect(second!.flagged).toBe(false);
   });
 });

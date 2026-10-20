@@ -28,7 +28,7 @@ export interface Activity {
   icon: StatusIcon | null;
 }
 
-export type StatusIcon = 'depleted' | 'storageFull';
+export type StatusIcon = 'depleted' | 'storageFull' | 'flooded';
 
 /** Pace of the animations, read from the very same harvest rules as the simulation. */
 export function activityOf(
@@ -53,6 +53,8 @@ export function activityOf(
       return { speed: 0.15, icon: 'depleted' };
     case 'storageFull':
       return { speed: 0, icon: 'storageFull' };
+    case 'flooded':
+      return { speed: 0, icon: 'flooded' };
     default:
       return { speed: 0, icon: null };
   }
@@ -136,10 +138,21 @@ function iconTexture(kind: StatusIcon): CanvasTexture {
   g.fillStyle = '#fbf3df';
   g.fill();
   g.lineWidth = 5;
-  g.strokeStyle = kind === 'depleted' ? '#d9822b' : '#7a5233';
+  g.strokeStyle = kind === 'depleted' ? '#d9822b' : kind === 'flooded' ? '#3f86b8' : '#7a5233';
   g.stroke();
   g.fillStyle = g.strokeStyle;
-  if (kind === 'storageFull') {
+  if (kind === 'flooded') {
+    // Two waves: the spring floods cover the building's tile.
+    g.lineWidth = 6;
+    g.lineCap = 'round';
+    for (const y of [26, 40]) {
+      g.beginPath();
+      g.moveTo(16, y);
+      g.quadraticCurveTo(24, y - 7, 32, y);
+      g.quadraticCurveTo(40, y + 7, 48, y);
+      g.stroke();
+    }
+  } else if (kind === 'storageFull') {
     // Pause bars: storage is full, the harvest waits.
     g.fillRect(21, 18, 8, 28);
     g.fillRect(35, 18, 8, 28);

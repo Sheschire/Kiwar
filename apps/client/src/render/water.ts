@@ -35,23 +35,12 @@ export class WaterView {
   readonly mesh: InstancedMesh;
   private readonly material: ShaderMaterial;
 
+  /** Spring floods (lagoons): water sheets over the floodable flesh, shown in flood season. */
+  readonly flood: InstancedMesh;
+
   constructor(map: FaceMap, sunDirection: Vector3) {
     const pools = map.tiles.filter((t) => t.type === 'juice');
-    const geometry = createFlatHexGeometry(1.0);
-    // For each of the 6 edges: 1 if the neighbour in that direction is land.
-    const shoreA = new Float32Array(pools.length * 3);
-    const shoreB = new Float32Array(pools.length * 3);
-    pools.forEach((tile, i) => {
-      const shore = HEX_DIRECTIONS.map((d) => {
-        const n = getTile(map, { q: tile.q + d.q, r: tile.r + d.r });
-        return n && n.type === 'juice' ? 0 : 1;
-      });
-      shoreA.set(shore.slice(0, 3), i * 3);
-      shoreB.set(shore.slice(3, 6), i * 3);
-    });
-    geometry.setAttribute('aShoreA', new InstancedBufferAttribute(shoreA, 3));
-    geometry.setAttribute('aShoreB', new InstancedBufferAttribute(shoreB, 3));
-
+    const floods = map.tiles.filter((t) => t.flood);
     this.material = new ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
@@ -155,17 +144,21 @@ export class WaterView {
       `,
     });
 
-    this.mesh = new InstancedMesh(geometry, this.material, Math.max(pools.length, 1));
-    this.mesh.count = pools.length;
-    const m = new Matrix4();
-    pools.forEach((tile: Tile, i) => {
-      const p = worldPosition(tile);
-      m.makeTranslation(p.x, tile.height + WATER_LEVEL, p.z);
-      this.mesh.setMatrixAt(i, m);
-    });
-    this.mesh.instanceMatrix.needsUpdate = true;
-    this.mesh.computeBoundingSphere();
-    this.mesh.receiveShadow = false;
+    this.mesh = waterMesh(map, pools, (t) => t.type === 'juice', WATER_LEVEL, this.material);
+    // Flood water laps over the tile tops; it meets the pools without foam.
+    this.flood = waterMesh(
+      map,
+      floods,
+      (t) => t.type === 'juice' || !!t.flood,
+      0.05,
+      this.material,
+    );
+    this.flood.visible = false;
+    this.mesh.add(this.flood);
+  }
+
+  setFlooded(on: boolean): void {
+    this.flood.visible = on && this.flood.count > 0;
   }
 
   update(time: number): void {
@@ -182,6 +175,43 @@ export class WaterView {
 
   dispose(): void {
     this.mesh.geometry.dispose();
+    this.flood.geometry.dispose();
     this.material.dispose();
   }
+}
+
+/** One instanced flat hex per tile, with the shore edges (neighbours that are not water). */
+function waterMesh(
+  map: FaceMap,
+  tiles: readonly Tile[],
+  isWater: (t: Tile) => boolean,
+  level: number,
+  material: ShaderMaterial,
+): InstancedMesh {
+  const geometry = createFlatHexGeometry(1.0);
+  // For each of the 6 edges: 1 if the neighbour in that direction is land.
+  const shoreA = new Float32Array(Math.max(1, tiles.length) * 3);
+  const shoreB = new Float32Array(Math.max(1, tiles.length) * 3);
+  tiles.forEach((tile, i) => {
+    const shore = HEX_DIRECTIONS.map((d) => {
+      const n = getTile(map, { q: tile.q + d.q, r: tile.r + d.r });
+      return n && isWater(n) ? 0 : 1;
+    });
+    shoreA.set(shore.slice(0, 3), i * 3);
+    shoreB.set(shore.slice(3, 6), i * 3);
+  });
+  geometry.setAttribute('aShoreA', new InstancedBufferAttribute(shoreA, 3));
+  geometry.setAttribute('aShoreB', new InstancedBufferAttribute(shoreB, 3));
+  const mesh = new InstancedMesh(geometry, material, Math.max(tiles.length, 1));
+  mesh.count = tiles.length;
+  const m = new Matrix4();
+  tiles.forEach((tile, i) => {
+    const p = worldPosition(tile);
+    m.makeTranslation(p.x, tile.height + level, p.z);
+    mesh.setMatrixAt(i, m);
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.computeBoundingSphere();
+  mesh.receiveShadow = false;
+  return mesh;
 }

@@ -25,6 +25,8 @@ export const fr: Dict = {
     autoCurrent: 'Auto ({preset})',
     debug: 'Panneau debug',
     newWorld: 'Nouveau monde',
+    world: 'Ce monde',
+    worldLine: '{face} · {biome} · graine {seed}',
     controls: 'Commandes',
     controlsDesktop:
       'Clic : sélectionner · Clic gauche glissé : déplacer · Clic droit glissé (ou Alt + glisser) : tourner · Molette / pincer : zoom · WASD : se déplacer · Q/E : tourner par paliers',
@@ -60,6 +62,57 @@ export const fr: Dict = {
   },
   langs: { fr: 'Français', en: 'English' },
   faces: { kiwisu: 'Kiwisu', kiwino: 'Kiwino' },
+  biomes: {
+    classic: {
+      name: 'Classique',
+      tagline: 'Les terres des premières colonies.',
+      pros: 'Terres équilibrées, un peu de tout.',
+      cons: 'Pas de point fort particulier.',
+      style: 'Un peu de tout.',
+    },
+    orchard: {
+      name: 'Verger luxuriant',
+      tagline: 'De grandes prairies de chair où la pulpe repousse vite.',
+      pros: 'Grandes prairies de chair, la pulpe repousse plus vite.',
+      cons: 'Peu de bosquets : la fibre est rare. Furets plus fréquents (bientôt).',
+      style: 'Nourrir une grande colonie, compter chaque fibre.',
+    },
+    highlands: {
+      name: 'Hauts plateaux duveteux',
+      tagline: 'Des plateaux accidentés couverts de bosquets de duvet.',
+      pros: 'Bosquets denses, gisements de fibre riches, falaises pour de futures tourelles.',
+      cons: 'Terrain accidenté qui ralentit la marche ; hivers rudes, automne peu fertile.',
+      style: 'Faire des réserves avant l’hiver.',
+    },
+    delta: {
+      name: 'Delta sucré',
+      tagline: 'Des rivières de jus traversent des sols riches.',
+      pros: 'Sols riches (gisements de pulpe plus gros), du jus partout.',
+      cons: 'Terres morcelées par les rivières (passer aux gués, les chemins aident) ; étés chauds qui freinent la repousse.',
+      style: 'Penser ses trajets autour des rivières.',
+    },
+    seedCrown: {
+      name: 'Couronne de pépins',
+      tagline: 'Un large anneau de pépins autour du cœur.',
+      pros: 'Un anneau de pépins large et dense.',
+      cons: 'Chair pauvre : la nourriture est plus rare. Chauves-souris plus fréquentes (bientôt).',
+      style: 'Foncer sur les améliorations, surveiller la nourriture.',
+    },
+    lagoons: {
+      name: 'Lagunes de jus',
+      tagline: 'D’innombrables bassins qui débordent à chaque printemps.',
+      pros: 'Nombreux bassins de jus, printemps très fertile.',
+      cons: 'Les crues de printemps noient la chair autour des bassins.',
+      style: 'Construire en retrait des rives.',
+    },
+    tundra: {
+      name: 'Toundra veloutée',
+      tagline: 'Des plaines froides et calmes aux gisements immenses.',
+      pros: 'Gisements immenses, peu de prédateurs (bientôt).',
+      cons: 'Repousse lente, hivers rudes.',
+      style: 'S’étendre sur beaucoup de sites.',
+    },
+  },
   tiles: {
     heart: { name: 'Cœur', desc: 'La columelle blanche du kiwi. Le Nid y est installé.' },
     ray: {
@@ -101,6 +154,7 @@ export const fr: Dict = {
     camps: 'Camps {count}/{max}',
     free: 'Gratuit',
     path: 'Un chemin passe ici : les kiwis marchent plus vite.',
+    floodable: 'Zone inondable : sous l’eau au {season} (ni marche, ni construction, ni récolte).',
   },
   resources: {
     pulp: 'Pulpe',
@@ -162,6 +216,7 @@ export const fr: Dict = {
     sustainable: 'Durable à ce rythme',
     depleted: 'Épuisé : seule la repousse est récoltée. Moins d’ouvriers, ou changez de coin.',
     storagePaused: 'Entrepôts pleins : les kiwis ne récoltent que ce que la colonie mange.',
+    flooded: 'Inondé : le travail s’arrête jusqu’à la décrue.',
     logistics: 'Logistique',
     logisticsValue: '{distance} pas jusqu’à un dépôt · ×{efficiency}',
     logisticsHint: 'Tracez des chemins ou bâtissez un Entrepôt à côté pour raccourcir les trajets.',
@@ -212,6 +267,9 @@ export const fr: Dict = {
       frozen: 'Terre gelée : les gisements ne repoussent plus.',
       walk: 'Neige : marche ×{value} hors des chemins, bosquets impraticables (les chemins restent dégagés).',
       hatching: 'Les œufs éclosent {percent} % plus vite.',
+      rugged: 'Terrain accidenté : marche ×{value} hors des chemins.',
+      floods:
+        'Crues : la chair autour des bassins est sous l’eau (ni marche, ni construction, ni récolte).',
       none: 'Pas d’effet particulier.',
     },
     building: {
@@ -400,6 +458,7 @@ export const fr: Dict = {
     skillLocked: 'Cette compétence n’est pas encore débloquée.',
     skillCooling: 'Cette compétence doit se reposer avant de resservir.',
     notHere: 'Ce kiwi doit travailler dans un bâtiment de récolte.',
+    flooded: 'Cette tuile est sous l’eau jusqu’à la décrue.',
     universeNotFound: 'Aucun univers ne correspond à ce code d’invitation.',
     universeFull: 'Cet univers est complet.',
   },

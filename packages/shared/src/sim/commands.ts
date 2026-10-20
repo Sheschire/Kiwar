@@ -16,7 +16,8 @@ import {
 } from './advance';
 import { buildingResource, hasSkill, trainingCost, trainingDuration, workerPower } from './kiwis';
 import { CLASSES, SKILLS, type ClassId, type SkillId } from '../data/classes';
-import { releasePool, syncPools } from './territory';
+import { isFlooded, releasePool, syncPools } from './territory';
+import { seasonOf } from './calendar';
 import {
   buildCost,
   buildingAt,
@@ -139,6 +140,7 @@ export const COMMAND_ERRORS = [
   'skillLocked',
   'skillCooling',
   'notHere',
+  'flooded',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -225,6 +227,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (!tile) return fail('unknownTile');
       if (!def.allowedTiles.includes(tile.type)) fail('tileNotAllowed');
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail('tileOccupied');
+      if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail('flooded');
       if (nest(s).level < def.levels[0]!.requiresNestLevel) fail('nestLevelTooLow');
       if (buildingCount(s) >= (nestDef(s).maxBuildings ?? 0)) fail('buildingLimit');
       queueHasRoom(s);
@@ -397,6 +400,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (!tile) return fail('unknownTile');
       if (!CAMPS.tiles.includes(tile.type)) fail('tileNotAllowed');
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail('tileOccupied');
+      if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail('flooded');
       if (s.buildings.filter((b) => b.type === 'camp').length >= CAMPS.max) fail('campLimit');
       const id = nextId(s, 'b') as BuildingId;
       s.buildings.push({

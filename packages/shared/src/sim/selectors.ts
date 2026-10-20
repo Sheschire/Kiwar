@@ -8,7 +8,7 @@ import {
   type BuildingLevelDef,
   type BuildingType,
 } from '../data/buildings';
-import { FACE_PROFILES } from '../data/faceProfiles';
+import { climateOf } from '../data/biomes';
 import { PATHS } from '../data/territory';
 import { HATCHING } from '../data/hatching';
 import { OBJECTIVES, type ObjectiveDef } from '../data/objectives';
@@ -115,7 +115,7 @@ export function passiveRates(state: GameState, b: Building): Resources {
   const def = levelDef(b.type, b.level);
   const out = emptyResources();
   if (!def?.passiveProduction) return out;
-  const climate = FACE_PROFILES[state.face].yieldMultiplier;
+  const climate = climateOf(state.face, state.params.biome);
   for (const id of RESOURCE_IDS) out[id] = (def.passiveProduction[id] ?? 0) * climate[id];
   return out;
 }
@@ -171,7 +171,7 @@ export function buildingRates(
   const def = levelDef(b.type, b.level);
   const out = emptyResources();
   if (!def) return out;
-  const climate = FACE_PROFILES[state.face].yieldMultiplier;
+  const climate = climateOf(state.face, state.params.biome);
   for (const id of RESOURCE_IDS) out[id] = (def.passiveProduction?.[id] ?? 0) * climate[id];
   const h = buildingHarvest(state, b, full);
   if (h) out[h.resource] += h.output;
@@ -303,7 +303,7 @@ export function eggCost(state: GameState): ResourceCost {
 
 /** Hatching time (shorter in spring). */
 export function eggDuration(state: GameState): number {
-  const k = seasonEffects(seasonOf(state)).hatching;
+  const k = seasonEffects(seasonOf(state), state.params.biome).hatching;
   return Math.round(HATCHING.durationMs(population(state)) * k);
 }
 

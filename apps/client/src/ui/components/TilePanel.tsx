@@ -10,7 +10,8 @@ import {
   catchmentPreview,
   constructionDuration,
   depotDistance,
-  FACE_PROFILES,
+  BIOMES,
+  climateOf,
   HARVESTS,
   idleVillagers,
   isLaunchpadBusy,
@@ -98,8 +99,8 @@ function CycleNotes({
   const lang = useUi((s) => s.lang);
   const c = calendarOf(game);
   const season = t(`cycles.seasons.${c.season}`);
-  const harvest = seasonHarvest(c.season, resource);
-  const regen = seasonRegen(c.season, resource);
+  const harvest = seasonHarvest(c.season, resource, game.params.biome);
+  const regen = seasonRegen(c.season, resource, game.params.biome);
   const value = (v: number) => formatNumber(lang, v);
   const notes: string[] = [];
   if (c.night) notes.push(t('cycles.building.night', { value: value(CYCLES.nightWork) }));
@@ -143,6 +144,7 @@ function HarvestInfo({ game, b, t }: { game: GameState; b: Building; t: Translat
       <CycleNotes game={game} resource={h.resource} t={t} />
       {h.status === 'depleted' && <p class="small warn">⚠ {t('building.depleted')}</p>}
       {h.status === 'storageFull' && <p class="small muted">{t('building.storagePaused')}</p>}
+      {h.status === 'flooded' && <p class="small warn">≈ {t('building.flooded')}</p>}
       {h.status === 'ok' &&
         (dry < Infinity ? (
           <p class="small">{t('building.depletesIn', { duration: formatDuration(lang, dry) })}</p>
@@ -381,7 +383,7 @@ function BuildOption({
   t: Translate;
 }) {
   const lvl1 = BUILDINGS[type].levels[0]!;
-  const climate = FACE_PROFILES[game.face].yieldMultiplier;
+  const climate = climateOf(game.face, game.params.biome);
   const lang = useUi((s) => s.lang);
   const efficiency = logisticsEfficiency(depotDistance(game, map, tile));
   const reach = HARVESTS[type] ? catchmentPreview(game, map, type, tile) : null;
@@ -457,7 +459,7 @@ function GatherOption({
   if (!resource || !CAMPS.tiles.includes(tile.type)) return null;
   const efficiency = logisticsEfficiency(depotDistance(game, map, tile));
   const rate =
-    CAMPS.rates[resource] * efficiency * FACE_PROFILES[game.face].yieldMultiplier[resource];
+    CAMPS.rates[resource] * efficiency * climateOf(game.face, game.params.biome)[resource];
   const error = validateCommand(game, { type: 'gather', q: tile.q, r: tile.r }, { now, map });
   const camps = game.buildings.filter((b) => b.type === 'camp').length;
   return (
@@ -562,6 +564,14 @@ export function TilePanel() {
         {!building && !site && <p class="small muted">{t(`tiles.${tile.type}.desc`)}</p>}
         {!building && !site && game.paths.includes(hexKey(tile)) && (
           <p class="small bonus">{t('tile.path')}</p>
+        )}
+        {tile.flood && BIOMES[game.params.biome].floods && (
+          <p class="small warn">
+            ≈{' '}
+            {t('tile.floodable', {
+              season: t(`cycles.seasons.${BIOMES[game.params.biome].floods!}`).toLowerCase(),
+            })}
+          </p>
         )}
         {!building && !site && <DepositLine game={game} map={map} tile={tile} t={t} />}
         {building && <BuildingSection game={game} map={map} b={building} now={now} t={t} />}

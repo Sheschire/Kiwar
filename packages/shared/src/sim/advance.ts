@@ -17,6 +17,7 @@ import { resolveArrival, resolveReturn } from './expeditions';
 import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
 import type { ClassId } from '../data/classes';
 import { accrueKiwis, builderSpeed, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
+import { BIOMES } from '../data/biomes';
 import { faceMapOf, rebaseFreeDeposits, syncPools, type Harvest } from './territory';
 import type { Season } from '../data/cycles';
 import { calendarAt, nextCalendarChange } from './calendar';
@@ -190,7 +191,10 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
 function calendarTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
   const c = calendarAt(s.calendarStart, at);
   if (!c.night && c.day === 0 && c.sinceDawn === 0) {
-    rebaseFreeDeposits(s, faceMapOf(s), at);
+    const map = faceMapOf(s);
+    rebaseFreeDeposits(s, map, at);
+    // Floods (lagoons) take tiles out of the catchments for the season, and give them back.
+    if (BIOMES[s.params.biome].floods) syncPools(s, map, at);
     events.push({ type: 'seasonChanged', at, season: c.season });
   }
 }

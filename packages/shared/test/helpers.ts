@@ -18,7 +18,7 @@ export const T0 = 1_700_000_000_000;
 
 export function setup(face: 'kiwisu' | 'kiwino' = 'kiwisu', seed = 'test-seed') {
   const map = generateFace(seed, face);
-  const state = newGame({ seed, face, now: T0 });
+  const state = newGame({ seed, face, now: T0, biome: 'classic' });
   return { map, state };
 }
 

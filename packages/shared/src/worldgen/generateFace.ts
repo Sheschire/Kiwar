@@ -1,5 +1,4 @@
 import { createNoise2D } from 'simplex-noise';
-import { FACE_PROFILES } from '../data/faceProfiles';
 import { TILES, type TileType } from '../data/tiles';
 import {
   hex,
@@ -14,14 +13,17 @@ import {
   type HexKey,
 } from '../hex/hex';
 import { createRng } from '../rng/rng';
+import { BIOMES, biomeProfile, type BiomeId } from '../data/biomes';
 import type { Face } from '../types/ids';
 
 export interface FaceParams {
   /** Radius of the disc, in hexes. */
   radius: number;
+  /** Biome of the face (chantier 05); `classic` is the generation of the first milestones. */
+  biome: BiomeId;
 }
 
-export const DEFAULT_FACE_PARAMS: FaceParams = { radius: 12 };
+export const DEFAULT_FACE_PARAMS: FaceParams = { radius: 12, biome: 'classic' };
 
 export interface Tile {
   readonly q: number;
@@ -35,6 +37,8 @@ export interface Tile {
   readonly variant: number;
   /** Normalised distance from the centre (0 = heart, 1 = skin). */
   readonly rho: number;
+  /** Floods in the biome's flood season (lagoons): no walking, building or harvest then. */
+  readonly flood?: true;
 }
 
 export interface FaceMap {
@@ -66,7 +70,9 @@ export function generateFace(
   face: Face,
   params: FaceParams = DEFAULT_FACE_PARAMS,
 ): FaceMap {
-  const profile = FACE_PROFILES[face];
+  const biome = BIOMES[params.biome];
+  const profile = biomeProfile(face, params.biome);
+  const relief = biome.generation.relief ?? 1;
   const rng = createRng(`${seed}/${face}/r${params.radius}`);
   const noiseRng = rng.fork('noise');
   const noise = createNoise2D(() => noiseRng.next());
@@ -189,6 +195,34 @@ export function generateFace(
     centers.push(c);
   }
 
+  // 5b. Juice rivers (delta): from the rim towards the centre, with a ford every few tiles.
+  const rivers = biome.generation.rivers;
+  if (rivers) {
+    const riverRng = rng.fork('rivers');
+    const count = riverRng.int(rivers.count[0], rivers.count[1]);
+    const offset = riverRng.range(0, Math.PI * 2);
+    for (let i = 0; i < count; i++) {
+      const base = offset + (i / count) * Math.PI * 2 + riverRng.range(-0.3, 0.3);
+      const bend = riverRng.range(-0.6, 0.6);
+      const phase = riverRng.range(0, Math.PI * 2);
+      const course: Hex[] = [];
+      let prev: Hex | null = null;
+      const steps = 16;
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        const rho = 0.97 - 0.6 * t;
+        const angle = base + bend * t + 0.12 * Math.sin(phase + t * 6);
+        const next = pixelToHex(Math.cos(angle) * ax * rho, Math.sin(angle) * az * rho);
+        for (const h of prev ? hexLine(prev, next).slice(1) : [next]) course.push(h);
+        prev = next;
+      }
+      course.forEach((h, n) => {
+        if (n % rivers.fordEvery === rivers.fordEvery - 1) return;
+        setIf(h, 'juice', (cur) => cur === 'flesh' || cur === 'grove');
+      });
+    }
+  }
+
   // 6. Heart (columella) last, so it always wins.
   for (const h of hexDisk(HEART, 1)) types.set(hexKey(h), 'heart');
 
@@ -204,11 +238,21 @@ export function generateFace(
     const p = hexToPixel(h);
     const rho = rhoOf(h);
     const n = 0.5 + 0.5 * fbm(p.x * 0.11, p.y * 0.11);
-    let height = def.baseHeight + def.heightNoise * n;
+    let height = def.baseHeight + def.heightNoise * relief * n;
+    // Highlands: broad plateaus separated by small cliffs.
+    if (relief > 1 && (type === 'flesh' || type === 'grove' || type === 'seedRing')) {
+      const plateau = 0.5 + 0.5 * noise2(p.x * 0.09 - 31, p.y * 0.09 + 17);
+      height += (relief - 1) * 0.42 * Math.round(plateau * 3);
+    }
     if (type === 'flesh' || type === 'grove' || type === 'seedRing') height += (1 - rho) * 0.18;
     if (type === 'skin') height += 0.25 * Math.sin(Math.atan2(p.y, p.x) * 5 + n * 4);
     // Gentle terracing gives the low-poly diorama look.
     height = Math.round(height / 0.06) * 0.06;
+    const flood =
+      biome.floods !== null &&
+      type === 'flesh' &&
+      rho < 0.92 &&
+      hexNeighbors(h).some((nb) => types.get(hexKey(nb)) === 'juice');
     const richness = round2(0.8 + 0.45 * (0.5 + 0.5 * noise2(p.x * 0.3 + 5, p.y * 0.3 + 9)));
     index.set(k, tiles.length);
     tiles.push({
@@ -219,6 +263,7 @@ export function generateFace(
       richness: Math.min(1.25, Math.max(0.8, richness)),
       variant: detailRng.next(),
       rho: round2(rho),
+      ...(flood ? { flood: true as const } : {}),
     });
   }
 

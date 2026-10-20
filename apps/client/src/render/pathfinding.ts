@@ -4,6 +4,7 @@ import {
   hexKey,
   hexNeighbors,
   PATHS,
+  isFlooded,
   tileWalkCost,
   type FaceMap,
   type Season,
@@ -89,7 +90,14 @@ export function findPath(
       if (!tile) continue;
       const nk = hexKey(n);
       // Same costs as the simulation (snow, buried groves); an unwalkable goal is reached anyway.
-      const walk = tileWalkCost(tile.type, paths.has(nk), season);
+      const biome = map.params.biome;
+      const walk = tileWalkCost(
+        tile.type,
+        paths.has(nk),
+        season,
+        biome,
+        isFlooded(tile, biome, season),
+      );
       if (walk === Infinity && nk !== goal) continue;
       const step = walk === Infinity ? 1 : walk;
       const g = cost.get(ck)! + step;

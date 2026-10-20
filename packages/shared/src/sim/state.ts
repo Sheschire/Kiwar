@@ -1,6 +1,7 @@
 import type { BuildingType } from '../data/buildings';
 import { NAME_SYLLABLES, START } from '../data/start';
 import { calendarStartFor } from '../data/cycles';
+import { drawBiomes, type BiomeId } from '../data/biomes';
 import { ALIEN_TWIN_FACE } from '../data/expeditions';
 import type { Resources } from '../data/resources';
 import { HEART, type FaceParams, DEFAULT_FACE_PARAMS } from '../worldgen/generateFace';
@@ -20,7 +21,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 export type Job =
   | { kind: 'idle' }
@@ -239,6 +240,8 @@ export interface NewGameOptions {
   face: Face;
   now: TimeMs;
   params?: FaceParams;
+  /** Biome of the face when `params` is absent (default: drawn from the seed). */
+  biome?: BiomeId;
   playerId?: string;
   universeId?: string;
   kiwiId?: string;
@@ -273,7 +276,11 @@ export function newGame(opts: NewGameOptions): GameState {
     seasonId: 'preseason' as SeasonId,
     face: opts.face,
     seed: opts.seed,
-    params: opts.params ?? DEFAULT_FACE_PARAMS,
+    // Each face of a planet has the biome drawn from the planet seed (chantier 05).
+    params: opts.params ?? {
+      ...DEFAULT_FACE_PARAMS,
+      biome: opts.biome ?? drawBiomes(opts.seed)[opts.face],
+    },
     createdAt: opts.now,
     calendarStart: opts.calendarStart ?? calendarStartFor(opts.now),
     now: opts.now,

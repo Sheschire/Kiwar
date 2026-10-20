@@ -13,6 +13,8 @@ export function SettingsModal() {
   const choice = useUi((s) => s.qualityChoice);
   const preset = useUi((s) => s.qualityPreset);
   const face = useUi((s) => s.game?.face ?? 'kiwisu');
+  const biome = useUi((s) => s.game?.params.biome ?? 'classic');
+  const seed = useUi((s) => s.game?.seed ?? '');
   const close = () => uiStore.setState({ modal: 'none' });
   const touch = window.matchMedia?.('(pointer: coarse)').matches;
   return (
@@ -62,6 +64,16 @@ export function SettingsModal() {
         <h3>{t('settings.controls')}</h3>
         <p class="muted small">
           {touch ? t('settings.controlsTouch') : t('settings.controlsDesktop')}
+        </p>
+      </div>
+      <div class="field">
+        <h3>{t('settings.world')}</h3>
+        <p class="muted small">
+          {t('settings.worldLine', {
+            face: t(`faces.${face}`),
+            biome: t(`biomes.${biome}.name`),
+            seed,
+          })}
         </p>
       </div>
       <div class="field row">

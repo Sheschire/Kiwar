@@ -1,5 +1,5 @@
 import { levelDef } from '../data/buildings';
-import { FACE_PROFILES } from '../data/faceProfiles';
+import { BIOMES, climateOf, type BiomeId } from '../data/biomes';
 import type { ResourceId } from '../data/resources';
 import { CAMPS, CATCHMENT_RADIUS, DEPOSITS, HARVESTS, LOGISTICS, PATHS } from '../data/territory';
 import { TILES, type TileType } from '../data/tiles';
@@ -20,7 +20,7 @@ const EPS = 1e-6;
 const mapCache = new Map<string, FaceMap>();
 
 export function faceMapOf(state: Pick<GameState, 'seed' | 'face' | 'params'>): FaceMap {
-  const key = `${state.seed}|${state.face}|${state.params.radius}`;
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}`;
   let map = mapCache.get(key);
   if (!map) {
     map = generateFace(state.seed, state.face, state.params);
@@ -40,18 +40,27 @@ export interface TileDeposit {
   regen: number;
 }
 
-export function tileDeposit(tile: Tile | undefined): TileDeposit | null {
+export function tileDeposit(
+  tile: Tile | undefined,
+  biome: BiomeId = 'classic',
+): TileDeposit | null {
   const def = tile ? DEPOSITS[tile.type] : undefined;
   if (!tile || !def) return null;
+  const { stock, regen } = BIOMES[biome].deposits;
   return {
     resource: def.resource,
-    cap: def.stock * tile.richness,
-    regen: def.regen * tile.richness,
+    cap: def.stock * tile.richness * (stock[def.resource] ?? 1),
+    regen: def.regen * tile.richness * (regen[def.resource] ?? 1),
   };
 }
 
 function depositAtKey(map: FaceMap, key: string): TileDeposit | null {
-  return tileDeposit(getTile(map, parseHexKey(key)));
+  return tileDeposit(getTile(map, parseHexKey(key)), map.params.biome);
+}
+
+/** A floodable tile is under water during its biome's flood season (lagoons in spring). */
+export function isFlooded(tile: Tile | undefined, biome: BiomeId, season: Season): boolean {
+  return !!tile?.flood && BIOMES[biome].floods === season;
 }
 
 /**
@@ -64,7 +73,7 @@ export function freeDepositStock(state: GameState, map: FaceMap, key: string, at
   const d = state.deposits[key];
   if (!d) return dep.cap;
   const season = calendarAt(state.calendarStart, d.at).season;
-  const regen = dep.regen * seasonRegen(season, dep.resource);
+  const regen = dep.regen * seasonRegen(season, dep.resource, map.params.biome);
   return Math.min(dep.cap, d.stock + (regen * Math.max(0, at - d.at)) / HOUR_MS);
 }
 
@@ -93,6 +102,7 @@ export function catchmentRadius(b: Building): number {
  * covered by another building are built over and cannot be harvested.
  */
 export function computeClaims(state: GameState, map: FaceMap): Map<BuildingId, string[]> {
+  const season = seasonOf(state);
   const occupied = new Set(state.buildings.map((b) => hexKey(b)));
   const claimed = new Set<string>();
   const out = new Map<BuildingId, string[]>();
@@ -104,7 +114,8 @@ export function computeClaims(state: GameState, map: FaceMap): Map<BuildingId, s
     for (const h of hexDisk(b, catchmentRadius(b))) {
       const key = hexKey(h);
       if (claimed.has(key) || (key !== own && occupied.has(key))) continue;
-      if (getTile(map, h)?.type !== type) continue;
+      const tile = getTile(map, h);
+      if (tile?.type !== type || isFlooded(tile, map.params.biome, season)) continue;
       claimed.add(key);
       tiles.push(key);
     }
@@ -213,11 +224,17 @@ export function pathSet(state: GameState): Set<string> {
  * Walking cost of a tile type (Infinity if kiwis cannot walk there). Paths are kept clear of
  * snow; elsewhere winter slows kiwis down and buries the groves.
  */
-export function tileWalkCost(type: TileType, path: boolean, season: Season): number {
+export function tileWalkCost(
+  type: TileType,
+  path: boolean,
+  season: Season,
+  biome: BiomeId = 'classic',
+  flooded = false,
+): number {
   const def = TILES[type];
-  if (!def.walkable) return Infinity;
+  if (!def.walkable || flooded) return Infinity;
   if (path) return Math.min(PATHS.walkCost, def.walkCost);
-  const fx = seasonEffects(season);
+  const fx = seasonEffects(season, biome);
   if (fx.blocked.includes(type)) return Infinity;
   return def.walkCost * fx.walk;
 }
@@ -231,7 +248,14 @@ export function walkCost(
 ): number {
   const tile = getTile(map, h);
   if (!tile) return Infinity;
-  return tileWalkCost(tile.type, paths.has(hexKey(h)), season);
+  const biome = map.params.biome;
+  return tileWalkCost(
+    tile.type,
+    paths.has(hexKey(h)),
+    season,
+    biome,
+    isFlooded(tile, biome, season),
+  );
 }
 
 export function isDepot(b: Building): boolean {
@@ -262,7 +286,7 @@ export function walkDistances(
   sources: readonly string[],
 ): Map<string, number> {
   const season = seasonOf(state);
-  const key = `${state.seed}|${state.face}|${state.params.radius}|${season}|${sources.join(';')}|${[...state.paths].sort().join(';')}`;
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}|${season}|${sources.join(';')}|${[...state.paths].sort().join(';')}`;
   const cached = distanceCache.get(key);
   if (cached) return cached;
   const paths = pathSet(state);
@@ -323,7 +347,7 @@ export function distanceIn(dist: Map<string, number>, h: Hex): number {
 // ---------------------------------------------------------------------------------------------
 // Harvest flows
 
-export type HarvestStatus = 'ok' | 'depleted' | 'storageFull' | 'idle';
+export type HarvestStatus = 'ok' | 'depleted' | 'storageFull' | 'idle' | 'flooded';
 
 export interface Harvest {
   resource: ResourceId;
@@ -346,7 +370,7 @@ export interface Harvest {
 /** Work multiplier of the hour and the season for a resource (night, season harvest). */
 export function cycleHarvest(state: GameState, resource: ResourceId): number {
   const work = isNight(state) ? CYCLES.nightWork : 1;
-  return work * seasonHarvest(seasonOf(state), resource);
+  return work * seasonHarvest(seasonOf(state), resource, state.params.biome);
 }
 
 /** Harvest per hour at full staffing, before logistics and climate. */
@@ -376,11 +400,15 @@ export function harvestOf(
   const demand = slots > 0 ? (baseHarvest(b, resource) * workers * efficiency * cycle) / slots : 0;
   const pool = poolCapacity(map, b.pool?.tiles ?? []);
   const cap = pool.cap;
-  const regen = pool.regen * regenMultiplier * seasonRegen(seasonOf(state), resource);
+  const season = seasonOf(state);
+  const regen = pool.regen * regenMultiplier * seasonRegen(season, resource, map.params.biome);
   const stock = Math.min(cap, b.pool?.stock ?? cap);
   let harvest = demand;
   let status: HarvestStatus = 'ok';
-  if (demand <= 0) {
+  if (isFlooded(getTile(map, b), map.params.biome, season)) {
+    harvest = 0;
+    status = 'flooded';
+  } else if (demand <= 0) {
     harvest = 0;
     status = 'idle';
   } else if (storageFull(resource)) {
@@ -390,7 +418,7 @@ export function harvestOf(
     harvest = regen;
     status = 'depleted';
   }
-  const climate = FACE_PROFILES[state.face].yieldMultiplier[resource];
+  const climate = climateOf(state.face, state.params.biome)[resource];
   return {
     resource,
     demand,
@@ -427,7 +455,7 @@ export function tileDepositState(
   h: Hex,
   at: TimeMs = state.now,
 ): TileDepositState | null {
-  const dep = tileDeposit(getTile(map, h));
+  const dep = tileDeposit(getTile(map, h), map.params.biome);
   if (!dep) return null;
   const key = hexKey(h);
   for (const b of state.buildings) {

@@ -187,8 +187,9 @@ describe('demolition', () => {
 
 /** A clumsy random player: builds, upgrades, hatches and camps anywhere, at random. */
 function randomColony(seed: string, face: 'kiwisu' | 'kiwino') {
-  const map = generateFace(seed, face);
+  // Every biome must stay free of dead ends: the seed draws it.
   let s = newGame({ seed, face, now: T0 });
+  const map = generateFace(seed, face, s.params);
   const rng = createRng(`bot:${seed}`);
   let now = T0;
   for (let step = 0; step < 300; step++) {

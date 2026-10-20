@@ -1,3 +1,4 @@
+import { BIOMES, type BiomeId } from './biomes';
 import { ms } from './curves';
 import type { ResourceId } from './resources';
 import type { TileType } from './tiles';
@@ -66,16 +67,51 @@ export const CYCLES = {
   } satisfies Record<Season, SeasonEffects>,
 } as const;
 
-export function seasonEffects(season: Season): SeasonEffects {
-  return CYCLES.seasons[season];
+/** Season effects, made harsher or milder by the biome (multipliers on the base effects). */
+export function seasonEffects(season: Season, biome: BiomeId = 'classic'): SeasonEffects {
+  const key = `${season}|${biome}`;
+  let fx = effectsCache.get(key);
+  if (!fx) effectsCache.set(key, (fx = biomeSeason(season, biome)));
+  return fx;
 }
 
-export function seasonRegen(season: Season, resource: ResourceId): number {
-  const r: SeasonEffects['regen'] = CYCLES.seasons[season].regen;
+const effectsCache = new Map<string, SeasonEffects>();
+
+function biomeSeason(season: Season, biome: BiomeId): SeasonEffects {
+  const base: SeasonEffects = CYCLES.seasons[season];
+  const b = BIOMES[biome];
+  const extra = b.seasons[season];
+  if (!extra && b.walk === 1) return base;
+  const harvest: PerResource = { ...base.harvest };
+  for (const [k, v] of Object.entries(extra?.harvest ?? {}))
+    harvest[k as ResourceId] = (harvest[k as ResourceId] ?? 1) * v;
+  const regen: SeasonEffects['regen'] = { ...base.regen };
+  for (const [k, v] of Object.entries(extra?.regen ?? {})) {
+    const key = k as ResourceId | 'all';
+    regen[key] = (regen[key] ?? 1) * v;
+  }
+  return {
+    harvest,
+    regen,
+    walk: base.walk * (extra?.walk ?? 1) * b.walk,
+    blocked: [...base.blocked, ...(extra?.blocked ?? [])],
+    hatching: base.hatching,
+  };
+}
+
+export function seasonRegen(
+  season: Season,
+  resource: ResourceId,
+  biome: BiomeId = 'classic',
+): number {
+  const r = seasonEffects(season, biome).regen;
   return (r.all ?? 1) * (r[resource] ?? 1);
 }
 
-export function seasonHarvest(season: Season, resource: ResourceId): number {
-  const h: PerResource = CYCLES.seasons[season].harvest;
-  return h[resource] ?? 1;
+export function seasonHarvest(
+  season: Season,
+  resource: ResourceId,
+  biome: BiomeId = 'classic',
+): number {
+  return seasonEffects(season, biome).harvest[resource] ?? 1;
 }

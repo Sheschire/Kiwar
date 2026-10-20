@@ -277,6 +277,141 @@ var FACE_PROFILES = {
   }
 };
 
+// packages/shared/src/data/biomes.ts
+var BIOME_IDS = [
+  "classic",
+  "orchard",
+  "highlands",
+  "delta",
+  "seedCrown",
+  "lagoons",
+  "tundra"
+];
+var NONE = { stock: {}, regen: {} };
+var BIOMES = {
+  classic: {
+    id: "classic",
+    face: null,
+    generation: {},
+    yield: {},
+    deposits: NONE,
+    walk: 1,
+    seasons: {},
+    floods: null,
+    threats: { ferrets: 1, bats: 1 }
+  },
+  // Kiwisu, the generous face.
+  orchard: {
+    id: "orchard",
+    face: "kiwisu",
+    generation: {
+      groves: { inner: 0.74, density: 0.24, scattered: 0.02 },
+      juicePools: { count: [3, 4], size: [2, 4] }
+    },
+    yield: {},
+    deposits: { stock: {}, regen: { pulp: 1.25 } },
+    walk: 1,
+    seasons: {},
+    floods: null,
+    threats: { ferrets: 1.5, bats: 1 }
+  },
+  highlands: {
+    id: "highlands",
+    face: "kiwisu",
+    generation: {
+      groves: { inner: 0.5, density: 0.5, scattered: 0.1 },
+      juicePools: { count: [2, 3], size: [2, 3] },
+      relief: 2
+    },
+    yield: {},
+    deposits: { stock: { fiber: 1.2 }, regen: {} },
+    walk: 1.15,
+    seasons: {
+      autumn: { regen: { all: 0.8 } },
+      winter: { walk: 1.3, harvest: { juice: 0.6, fiber: 0.8 } }
+    },
+    floods: null,
+    threats: { ferrets: 1, bats: 0.8 }
+  },
+  delta: {
+    id: "delta",
+    face: "kiwisu",
+    generation: {
+      juicePools: { count: [1, 2], size: [2, 3] },
+      rivers: { count: [2, 3], fordEvery: 5 }
+    },
+    yield: {},
+    deposits: { stock: { pulp: 1.15 }, regen: { pulp: 1.15 } },
+    walk: 1,
+    seasons: { summer: { regen: { all: 0.7 } } },
+    floods: null,
+    threats: { ferrets: 1.2, bats: 1 }
+  },
+  // Kiwino, the precious face.
+  seedCrown: {
+    id: "seedCrown",
+    face: "kiwino",
+    generation: { seedRing: { inner: 0.18, outer: 0.52, density: 0.72 } },
+    yield: {},
+    deposits: { stock: { pulp: 0.8 }, regen: { pulp: 0.85 } },
+    walk: 1,
+    seasons: {},
+    floods: null,
+    threats: { ferrets: 1, bats: 1.5 }
+  },
+  lagoons: {
+    id: "lagoons",
+    face: "kiwino",
+    generation: { juicePools: { count: [7, 9], size: [2, 5] } },
+    yield: {},
+    deposits: NONE,
+    walk: 1,
+    seasons: { spring: { regen: { all: 1.4 } } },
+    floods: "spring",
+    threats: { ferrets: 1, bats: 1.2 }
+  },
+  tundra: {
+    id: "tundra",
+    face: "kiwino",
+    generation: {},
+    yield: {},
+    deposits: {
+      stock: { pulp: 1.6, fiber: 1.6, seeds: 1.6, juice: 1.6 },
+      regen: { pulp: 0.7, fiber: 0.7, seeds: 0.7, juice: 0.7 }
+    },
+    walk: 1,
+    seasons: { winter: { walk: 1.3, harvest: { juice: 0.6 } } },
+    floods: null,
+    threats: { ferrets: 0.5, bats: 0.5 }
+  }
+};
+function biomesOf(face) {
+  return BIOME_IDS.filter((id3) => BIOMES[id3].face === face);
+}
+function biomeFits(face, biome) {
+  const f = BIOMES[biome].face;
+  return f === null || f === face;
+}
+function drawBiomes(seed) {
+  const rng = createRng(`${seed}/biomes`);
+  const pick = (face) => rng.pick(biomesOf(face));
+  return { kiwisu: pick("kiwisu"), kiwino: pick("kiwino") };
+}
+function biomeProfile(face, biome) {
+  const { rivers: _r, relief: _h, ...overrides } = BIOMES[biome].generation;
+  return { ...FACE_PROFILES[face], ...overrides };
+}
+function climateOf(face, biome) {
+  const base = FACE_PROFILES[face].yieldMultiplier;
+  const y = BIOMES[biome].yield;
+  return {
+    pulp: base.pulp * (y.pulp ?? 1),
+    fiber: base.fiber * (y.fiber ?? 1),
+    seeds: base.seeds * (y.seeds ?? 1),
+    juice: base.juice * (y.juice ?? 1)
+  };
+}
+
 // packages/shared/src/data/territory.ts
 var DEPOSITS = {
   // Regrowth is sized so that a well-placed producer is sustainable at level 1 (2 tiles),
@@ -971,16 +1106,40 @@ var CYCLES = {
     }
   }
 };
-function seasonEffects(season) {
-  return CYCLES.seasons[season];
+function seasonEffects(season, biome = "classic") {
+  const key = `${season}|${biome}`;
+  let fx = effectsCache.get(key);
+  if (!fx) effectsCache.set(key, fx = biomeSeason(season, biome));
+  return fx;
 }
-function seasonRegen(season, resource) {
-  const r = CYCLES.seasons[season].regen;
+var effectsCache = /* @__PURE__ */ new Map();
+function biomeSeason(season, biome) {
+  const base = CYCLES.seasons[season];
+  const b = BIOMES[biome];
+  const extra = b.seasons[season];
+  if (!extra && b.walk === 1) return base;
+  const harvest = { ...base.harvest };
+  for (const [k, v] of Object.entries(extra?.harvest ?? {}))
+    harvest[k] = (harvest[k] ?? 1) * v;
+  const regen = { ...base.regen };
+  for (const [k, v] of Object.entries(extra?.regen ?? {})) {
+    const key = k;
+    regen[key] = (regen[key] ?? 1) * v;
+  }
+  return {
+    harvest,
+    regen,
+    walk: base.walk * (extra?.walk ?? 1) * b.walk,
+    blocked: [...base.blocked, ...extra?.blocked ?? []],
+    hatching: base.hatching
+  };
+}
+function seasonRegen(season, resource, biome = "classic") {
+  const r = seasonEffects(season, biome).regen;
   return (r.all ?? 1) * (r[resource] ?? 1);
 }
-function seasonHarvest(season, resource) {
-  const h = CYCLES.seasons[season].harvest;
-  return h[resource] ?? 1;
+function seasonHarvest(season, resource, biome = "classic") {
+  return seasonEffects(season, biome).harvest[resource] ?? 1;
 }
 
 // packages/shared/src/data/needs.ts
@@ -1153,7 +1312,7 @@ function buildPermutationTable(random) {
 }
 
 // packages/shared/src/worldgen/generateFace.ts
-var DEFAULT_FACE_PARAMS = { radius: 12 };
+var DEFAULT_FACE_PARAMS = { radius: 12, biome: "classic" };
 var HEART = { q: 0, r: 0 };
 function getTile(map, h) {
   const i = map.index.get(hexKey(h));
@@ -1161,7 +1320,9 @@ function getTile(map, h) {
 }
 var round2 = (v) => Math.round(v * 100) / 100;
 function generateFace(seed, face, params = DEFAULT_FACE_PARAMS) {
-  const profile = FACE_PROFILES[face];
+  const biome = BIOMES[params.biome];
+  const profile = biomeProfile(face, params.biome);
+  const relief = biome.generation.relief ?? 1;
   const rng = createRng(`${seed}/${face}/r${params.radius}`);
   const noiseRng = rng.fork("noise");
   const noise = createNoise2D(() => noiseRng.next());
@@ -1266,6 +1427,32 @@ function generateFace(seed, face, params = DEFAULT_FACE_PARAMS) {
     }
     centers.push(c);
   }
+  const rivers = biome.generation.rivers;
+  if (rivers) {
+    const riverRng = rng.fork("rivers");
+    const count = riverRng.int(rivers.count[0], rivers.count[1]);
+    const offset = riverRng.range(0, Math.PI * 2);
+    for (let i = 0; i < count; i++) {
+      const base = offset + i / count * Math.PI * 2 + riverRng.range(-0.3, 0.3);
+      const bend = riverRng.range(-0.6, 0.6);
+      const phase = riverRng.range(0, Math.PI * 2);
+      const course = [];
+      let prev = null;
+      const steps = 16;
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        const rho = 0.97 - 0.6 * t;
+        const angle = base + bend * t + 0.12 * Math.sin(phase + t * 6);
+        const next = pixelToHex(Math.cos(angle) * ax * rho, Math.sin(angle) * az * rho);
+        for (const h of prev ? hexLine(prev, next).slice(1) : [next]) course.push(h);
+        prev = next;
+      }
+      course.forEach((h, n) => {
+        if (n % rivers.fordEvery === rivers.fordEvery - 1) return;
+        setIf(h, "juice", (cur) => cur === "flesh" || cur === "grove");
+      });
+    }
+  }
   for (const h of hexDisk(HEART, 1)) types.set(hexKey(h), "heart");
   const detailRng = rng.fork("detail");
   const tiles = [];
@@ -1278,10 +1465,15 @@ function generateFace(seed, face, params = DEFAULT_FACE_PARAMS) {
     const p = hexToPixel(h);
     const rho = rhoOf(h);
     const n = 0.5 + 0.5 * fbm(p.x * 0.11, p.y * 0.11);
-    let height = def.baseHeight + def.heightNoise * n;
+    let height = def.baseHeight + def.heightNoise * relief * n;
+    if (relief > 1 && (type === "flesh" || type === "grove" || type === "seedRing")) {
+      const plateau = 0.5 + 0.5 * noise2(p.x * 0.09 - 31, p.y * 0.09 + 17);
+      height += (relief - 1) * 0.42 * Math.round(plateau * 3);
+    }
     if (type === "flesh" || type === "grove" || type === "seedRing") height += (1 - rho) * 0.18;
     if (type === "skin") height += 0.25 * Math.sin(Math.atan2(p.y, p.x) * 5 + n * 4);
     height = Math.round(height / 0.06) * 0.06;
+    const flood = biome.floods !== null && type === "flesh" && rho < 0.92 && hexNeighbors(h).some((nb) => types.get(hexKey(nb)) === "juice");
     const richness = round2(0.8 + 0.45 * (0.5 + 0.5 * noise2(p.x * 0.3 + 5, p.y * 0.3 + 9)));
     index.set(k, tiles.length);
     tiles.push({
@@ -1291,7 +1483,8 @@ function generateFace(seed, face, params = DEFAULT_FACE_PARAMS) {
       height: round2(height),
       richness: Math.min(1.25, Math.max(0.8, richness)),
       variant: detailRng.next(),
-      rho: round2(rho)
+      rho: round2(rho),
+      ...flood ? { flood: true } : {}
     });
   }
   return { seed, face, params, ellipse, tiles, index };
@@ -1349,7 +1542,7 @@ var HOUR_MS = 36e5;
 var EPS = 1e-6;
 var mapCache = /* @__PURE__ */ new Map();
 function faceMapOf(state) {
-  const key = `${state.seed}|${state.face}|${state.params.radius}`;
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}`;
   let map = mapCache.get(key);
   if (!map) {
     map = generateFace(state.seed, state.face, state.params);
@@ -1358,17 +1551,21 @@ function faceMapOf(state) {
   }
   return map;
 }
-function tileDeposit(tile) {
+function tileDeposit(tile, biome = "classic") {
   const def = tile ? DEPOSITS[tile.type] : void 0;
   if (!tile || !def) return null;
+  const { stock, regen } = BIOMES[biome].deposits;
   return {
     resource: def.resource,
-    cap: def.stock * tile.richness,
-    regen: def.regen * tile.richness
+    cap: def.stock * tile.richness * (stock[def.resource] ?? 1),
+    regen: def.regen * tile.richness * (regen[def.resource] ?? 1)
   };
 }
 function depositAtKey(map, key) {
-  return tileDeposit(getTile(map, parseHexKey(key)));
+  return tileDeposit(getTile(map, parseHexKey(key)), map.params.biome);
+}
+function isFlooded(tile, biome, season) {
+  return !!tile?.flood && BIOMES[biome].floods === season;
 }
 function freeDepositStock(state, map, key, at) {
   const dep = depositAtKey(map, key);
@@ -1376,7 +1573,7 @@ function freeDepositStock(state, map, key, at) {
   const d = state.deposits[key];
   if (!d) return dep.cap;
   const season = calendarAt(state.calendarStart, d.at).season;
-  const regen = dep.regen * seasonRegen(season, dep.resource);
+  const regen = dep.regen * seasonRegen(season, dep.resource, map.params.biome);
   return Math.min(dep.cap, d.stock + regen * Math.max(0, at - d.at) / HOUR_MS);
 }
 function rebaseFreeDeposits(state, map, at) {
@@ -1395,6 +1592,7 @@ function catchmentRadius(b) {
   return b.type === "camp" ? 0 : CATCHMENT_RADIUS[b.level - 1] ?? 1;
 }
 function computeClaims(state, map) {
+  const season = seasonOf(state);
   const occupied = new Set(state.buildings.map((b) => hexKey(b)));
   const claimed = /* @__PURE__ */ new Set();
   const out = /* @__PURE__ */ new Map();
@@ -1406,7 +1604,8 @@ function computeClaims(state, map) {
     for (const h of hexDisk(b, catchmentRadius(b))) {
       const key = hexKey(h);
       if (claimed.has(key) || key !== own && occupied.has(key)) continue;
-      if (getTile(map, h)?.type !== type) continue;
+      const tile = getTile(map, h);
+      if (tile?.type !== type || isFlooded(tile, map.params.biome, season)) continue;
       claimed.add(key);
       tiles.push(key);
     }
@@ -1484,18 +1683,25 @@ function syncPools(state, map, at) {
 function pathSet(state) {
   return new Set(state.paths);
 }
-function tileWalkCost(type, path, season) {
+function tileWalkCost(type, path, season, biome = "classic", flooded = false) {
   const def = TILES[type];
-  if (!def.walkable) return Infinity;
+  if (!def.walkable || flooded) return Infinity;
   if (path) return Math.min(PATHS.walkCost, def.walkCost);
-  const fx = seasonEffects(season);
+  const fx = seasonEffects(season, biome);
   if (fx.blocked.includes(type)) return Infinity;
   return def.walkCost * fx.walk;
 }
 function walkCost(map, paths, h, season = "spring") {
   const tile = getTile(map, h);
   if (!tile) return Infinity;
-  return tileWalkCost(tile.type, paths.has(hexKey(h)), season);
+  const biome = map.params.biome;
+  return tileWalkCost(
+    tile.type,
+    paths.has(hexKey(h)),
+    season,
+    biome,
+    isFlooded(tile, biome, season)
+  );
 }
 function isDepot(b) {
   return b.type === "nest" || b.type === "warehouse";
@@ -1510,7 +1716,7 @@ function depotDistances(state, map) {
 }
 function walkDistances(state, map, sources) {
   const season = seasonOf(state);
-  const key = `${state.seed}|${state.face}|${state.params.radius}|${season}|${sources.join(";")}|${[...state.paths].sort().join(";")}`;
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}|${season}|${sources.join(";")}|${[...state.paths].sort().join(";")}`;
   const cached = distanceCache.get(key);
   if (cached) return cached;
   const paths = pathSet(state);
@@ -1563,7 +1769,7 @@ function distanceIn(dist, h) {
 }
 function cycleHarvest(state, resource) {
   const work = isNight(state) ? CYCLES.nightWork : 1;
-  return work * seasonHarvest(seasonOf(state), resource);
+  return work * seasonHarvest(seasonOf(state), resource, state.params.biome);
 }
 function baseHarvest(b, resource) {
   if (b.type === "camp") return CAMPS.rates[resource];
@@ -1581,11 +1787,15 @@ function harvestOf(state, map, b, workers, storageFull, regenMultiplier = 1) {
   const demand = slots > 0 ? baseHarvest(b, resource) * workers * efficiency * cycle / slots : 0;
   const pool = poolCapacity(map, b.pool?.tiles ?? []);
   const cap = pool.cap;
-  const regen = pool.regen * regenMultiplier * seasonRegen(seasonOf(state), resource);
+  const season = seasonOf(state);
+  const regen = pool.regen * regenMultiplier * seasonRegen(season, resource, map.params.biome);
   const stock = Math.min(cap, b.pool?.stock ?? cap);
   let harvest = demand;
   let status = "ok";
-  if (demand <= 0) {
+  if (isFlooded(getTile(map, b), map.params.biome, season)) {
+    harvest = 0;
+    status = "flooded";
+  } else if (demand <= 0) {
     harvest = 0;
     status = "idle";
   } else if (storageFull(resource)) {
@@ -1595,7 +1805,7 @@ function harvestOf(state, map, b, workers, storageFull, regenMultiplier = 1) {
     harvest = regen;
     status = "depleted";
   }
-  const climate = FACE_PROFILES[state.face].yieldMultiplier[resource];
+  const climate = climateOf(state.face, state.params.biome)[resource];
   return {
     resource,
     demand,
@@ -1615,7 +1825,7 @@ function timeToDepletion(h) {
   return h.stock / (h.harvest - h.regen) * HOUR_MS;
 }
 function tileDepositState(state, map, h, at = state.now) {
-  const dep = tileDeposit(getTile(map, h));
+  const dep = tileDeposit(getTile(map, h), map.params.biome);
   if (!dep) return null;
   const key = hexKey(h);
   for (const b of state.buildings) {
@@ -2122,7 +2332,7 @@ function trainingDuration(school, classId) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 8;
+var SCHEMA_VERSION = 9;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -2146,7 +2356,11 @@ function newGame(opts) {
     seasonId: "preseason",
     face: opts.face,
     seed: opts.seed,
-    params: opts.params ?? DEFAULT_FACE_PARAMS,
+    // Each face of a planet has the biome drawn from the planet seed (chantier 05).
+    params: opts.params ?? {
+      ...DEFAULT_FACE_PARAMS,
+      biome: opts.biome ?? drawBiomes(opts.seed)[opts.face]
+    },
     createdAt: opts.now,
     calendarStart: opts.calendarStart ?? calendarStartFor(opts.now),
     now: opts.now,
@@ -2326,7 +2540,7 @@ function passiveRates(state, b) {
   const def = levelDef(b.type, b.level);
   const out = emptyResources();
   if (!def?.passiveProduction) return out;
-  const climate = FACE_PROFILES[state.face].yieldMultiplier;
+  const climate = climateOf(state.face, state.params.biome);
   for (const id3 of RESOURCE_IDS) out[id3] = (def.passiveProduction[id3] ?? 0) * climate[id3];
   return out;
 }
@@ -2366,7 +2580,7 @@ function buildingRates(state, b, full = storageFullCheck(state)) {
   const def = levelDef(b.type, b.level);
   const out = emptyResources();
   if (!def) return out;
-  const climate = FACE_PROFILES[state.face].yieldMultiplier;
+  const climate = climateOf(state.face, state.params.biome);
   for (const id3 of RESOURCE_IDS) out[id3] = (def.passiveProduction?.[id3] ?? 0) * climate[id3];
   const h = buildingHarvest(state, b, full);
   if (h) out[h.resource] += h.output;
@@ -2452,7 +2666,7 @@ function eggCost(state) {
   return HATCHING.cost(population(state));
 }
 function eggDuration(state) {
-  const k = seasonEffects(seasonOf(state)).hatching;
+  const k = seasonEffects(seasonOf(state), state.params.biome).hatching;
   return Math.round(HATCHING.durationMs(population(state)) * k);
 }
 function canHatch(state) {
@@ -2847,7 +3061,9 @@ function advanceInPlace(s, now, events) {
 function calendarTick(s, at, events) {
   const c = calendarAt(s.calendarStart, at);
   if (!c.night && c.day === 0 && c.sinceDawn === 0) {
-    rebaseFreeDeposits(s, faceMapOf(s), at);
+    const map = faceMapOf(s);
+    rebaseFreeDeposits(s, map, at);
+    if (BIOMES[s.params.biome].floods) syncPools(s, map, at);
     events.push({ type: "seasonChanged", at, season: c.season });
   }
 }
@@ -3138,7 +3354,8 @@ var COMMAND_ERRORS = [
   "schoolFull",
   "skillLocked",
   "skillCooling",
-  "notHere"
+  "notHere",
+  "flooded"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -3196,6 +3413,7 @@ function execute(s, cmd, ctx, events) {
       if (!tile) return fail("unknownTile");
       if (!def.allowedTiles.includes(tile.type)) fail("tileNotAllowed");
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail("tileOccupied");
+      if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail("flooded");
       if (nest(s).level < def.levels[0].requiresNestLevel) fail("nestLevelTooLow");
       if (buildingCount(s) >= (nestDef(s).maxBuildings ?? 0)) fail("buildingLimit");
       queueHasRoom(s);
@@ -3354,6 +3572,7 @@ function execute(s, cmd, ctx, events) {
       if (!tile) return fail("unknownTile");
       if (!CAMPS.tiles.includes(tile.type)) fail("tileNotAllowed");
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail("tileOccupied");
+      if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail("flooded");
       if (s.buildings.filter((b) => b.type === "camp").length >= CAMPS.max) fail("campLimit");
       const id3 = nextId(s, "b");
       s.buildings.push({
@@ -7557,7 +7776,7 @@ var gameStateSchema = external_exports.object({
   seasonId: id,
   face: external_exports.enum(FACES),
   seed: external_exports.string().min(1).max(64),
-  params: external_exports.object({ radius: external_exports.number().int().min(4).max(30) }),
+  params: external_exports.object({ radius: external_exports.number().int().min(4).max(30), biome: external_exports.enum(BIOME_IDS) }),
   createdAt: external_exports.number(),
   calendarStart: external_exports.number(),
   now: external_exports.number(),
@@ -7723,7 +7942,9 @@ var MIGRATIONS = {
   // v6 → v7: hunger (chantier 04, part 3). Colonies start fed.
   6: (raw) => ({ ...raw, hunger: 0 }),
   // v7 → v8: morale (chantier 04, part 4). No mourning yet.
-  7: (raw) => ({ ...raw, mourningUntil: 0 })
+  7: (raw) => ({ ...raw, mourningUntil: 0 }),
+  // v8 → v9: biomes (chantier 05). Existing worlds keep their map: the classic biome.
+  8: (raw) => ({ ...raw, params: { ...raw.params, biome: "classic" } })
 };
 function migrateState(input) {
   if (!input || typeof input !== "object") return { ok: false, reason: "corrupt" };
@@ -7904,7 +8125,7 @@ function isInviteCode(code) {
 var RATE_LIMIT = { windowMs: 1e4, maxCommands: 40 };
 var mapCache2 = /* @__PURE__ */ new Map();
 function mapFor(state) {
-  const key = `${state.seed}/${state.face}/${state.params.radius}`;
+  const key = `${state.seed}/${state.face}/${state.params.radius}/${state.params.biome}`;
   let map = mapCache2.get(key);
   if (!map) {
     map = generateFace(state.seed, state.face, state.params);
@@ -7965,6 +8186,8 @@ function isPristine(state) {
 function isPlausible(state, now) {
   if (state.now > now + 6e4 || state.createdAt > state.now) return false;
   if (state.calendarStart !== calendarStartFor(state.createdAt)) return false;
+  const biome = state.params.biome;
+  if (biome !== "classic" && biome !== drawBiomes(state.seed)[state.face]) return false;
   const cap = capacity(state);
   for (const id3 of RESOURCE_IDS) {
     const rewards = OBJECTIVES.reduce((sum, o) => sum + (o.reward[id3] ?? 0), 0);
@@ -8241,6 +8464,8 @@ function createMemoryRepository() {
 }
 export {
   ALIEN_TWIN_FACE,
+  BIOMES,
+  BIOME_IDS,
   BUILDABLE_TYPES,
   BUILDINGS,
   BUILDING_TYPES,
@@ -8312,6 +8537,9 @@ export {
   baseHarvest,
   bedsOf,
   bestIdleFor,
+  biomeFits,
+  biomeProfile,
+  biomesOf,
   buildCost,
   builderSpeed,
   buildingAt,
@@ -8329,6 +8557,7 @@ export {
   catchmentPreview,
   catchmentRadius,
   cleanKiwiName,
+  climateOf,
   cloneState,
   cloneVillager,
   colonyBonus,
@@ -8352,6 +8581,7 @@ export {
   depotDistances,
   deserializeSave,
   distanceIn,
+  drawBiomes,
   eggCost,
   eggDuration,
   emptyMasteries,
@@ -8396,6 +8626,7 @@ export {
   inviteCode,
   isDepot,
   isFace,
+  isFlooded,
   isInviteCode,
   isLaunchpadBusy,
   isMaxLevel,

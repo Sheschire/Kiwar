@@ -41,6 +41,7 @@ import {
   upgradeCost,
   workersOf,
   workerSlots,
+  type BiomeId,
   type BuildingType,
   type Command,
   type Face,
@@ -65,6 +66,7 @@ export type Milestone = (typeof MILESTONES)[number];
 export interface RunResult {
   seed: string;
   face: Face;
+  biome: BiomeId;
   /** Milliseconds from the start to reach each milestone (null = not reached within the horizon). */
   times: Record<Milestone, number | null>;
   final: {
@@ -111,6 +113,8 @@ function bestTile(state: GameState, map: FaceMap, type: BuildingType): Tile | nu
     if (!BUILDINGS[type].allowedTiles.includes(t.type)) continue;
     if (buildingAt(state, t.q, t.r) || queuedBuildAt(state, t.q, t.r)) continue;
     if (t.q === 0 && t.r === 0) continue;
+    // A sensible player keeps clear of the floodable shores (lagoons).
+    if (t.flood) continue;
     let score: number;
     if (HARVESTS[type]) {
       const now = catchmentPreview(state, map, type, t, 1).regen;
@@ -380,6 +384,8 @@ function checkMilestones(
 export interface RunOptions {
   seed: string;
   face: Face;
+  /** Biome of the face (default: drawn from the seed). */
+  biome?: BiomeId;
   horizonMs: number;
   /** Decision interval when nothing else happens. */
   stepMs?: number;
@@ -397,8 +403,8 @@ export interface RunOptions {
 
 export function runBot(opts: RunOptions): RunResult {
   const start = 1_700_000_000_000;
-  const map = generateFace(opts.seed, opts.face);
-  let state = newGame({ seed: opts.seed, face: opts.face, now: start });
+  let state = newGame({ seed: opts.seed, face: opts.face, now: start, biome: opts.biome });
+  const map = generateFace(opts.seed, opts.face, state.params);
   const times = Object.fromEntries(MILESTONES.map((m) => [m, null])) as Record<
     Milestone,
     number | null
@@ -442,6 +448,7 @@ export function runBot(opts: RunOptions): RunResult {
   return {
     seed: opts.seed,
     face: opts.face,
+    biome: state.params.biome,
     times,
     final: {
       population: population(state),

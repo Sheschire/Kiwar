@@ -11,12 +11,14 @@ import {
   WebGLRenderer,
 } from 'three';
 import {
+  BIOMES,
   buildingAt,
   calendarAt,
   depletedTiles,
   getTile,
   hexKey,
   parseHexKey,
+  seasonOf,
   type FaceMap,
   type GameEvent,
   type GameState,
@@ -265,6 +267,7 @@ export class GameRenderer {
     this.paths?.sync(state.paths);
     this.weather?.sync(state);
     if (this.map) this.terrain?.setDepletion(depletedTiles(state, this.map));
+    this.water?.setFlooded(BIOMES[state.params.biome].floods === seasonOf(state));
     this.refreshCatchment();
     // Clear decorative props under buildings, construction sites and paths.
     const occupied = new Set<string>(state.paths);

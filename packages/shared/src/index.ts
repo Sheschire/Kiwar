@@ -5,6 +5,7 @@ export * from './data/curves';
 export * from './data/resources';
 export * from './data/tiles';
 export * from './data/faceProfiles';
+export * from './data/biomes';
 export * from './data/buildings';
 export * from './data/hatching';
 export * from './data/objectives';

@@ -1,3 +1,4 @@
+import { BIOME_IDS } from '../data/biomes';
 import { z } from 'zod';
 import { BUILDING_TYPES } from '../data/buildings';
 import { FACES } from '../types/ids';
@@ -54,7 +55,7 @@ export const gameStateSchema = z.object({
   seasonId: id,
   face: z.enum(FACES),
   seed: z.string().min(1).max(64),
-  params: z.object({ radius: z.number().int().min(4).max(30) }),
+  params: z.object({ radius: z.number().int().min(4).max(30), biome: z.enum(BIOME_IDS) }),
   createdAt: z.number(),
   calendarStart: z.number(),
   now: z.number(),
@@ -240,6 +241,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   6: (raw) => ({ ...raw, hunger: 0 }),
   // v7 → v8: morale (chantier 04, part 4). No mourning yet.
   7: (raw) => ({ ...raw, mourningUntil: 0 }),
+  // v8 → v9: biomes (chantier 05). Existing worlds keep their map: the classic biome.
+  8: (raw) => ({ ...raw, params: { ...(raw.params as object), biome: 'classic' } }),
 };
 
 export type MigrateResult =
