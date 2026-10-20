@@ -102,7 +102,8 @@ function chirps(seed: number, count: number, length: number, gain: number): Tone
 }
 
 export const SYNTH_PRESETS = {
-  // Intro: a blade whooshes through the fruit, a bright ring, then the halves part softly.
+  // Intro: a blade whooshes through the fruit, a short ring, a wet splash of juice with a few
+  // drops, then the halves part softly.
   slice: {
     tones: [
       {
@@ -120,11 +121,30 @@ export const SYNTH_PRESETS = {
         freqEnd: 2350,
         start: 0.18,
         attack: 0.002,
-        decay: 0.9,
-        gain: 0.35,
+        decay: 0.5,
+        gain: 0.2,
       },
-      { wave: 'sine', freq: 3900, start: 0.18, attack: 0.002, decay: 0.6, gain: 0.15 },
-      { wave: 'noise', freq: 0, start: 0.3, attack: 0.05, decay: 0.5, gain: 0.35, lowpass: 600 },
+      // Splash: a wet burst sliding down, then drops.
+      {
+        wave: 'noise',
+        freq: 0,
+        start: 0.17,
+        attack: 0.004,
+        decay: 0.28,
+        gain: 0.65,
+        lowpass: 2400,
+        lowpassEnd: 500,
+      },
+      ...[0.26, 0.33, 0.41, 0.52, 0.6].map((start, i) => ({
+        wave: 'sine' as const,
+        freq: 520 + i * 90,
+        freqEnd: 1100 + i * 140,
+        start,
+        attack: 0.003,
+        decay: 0.06,
+        gain: 0.28 - i * 0.03,
+      })),
+      { wave: 'noise', freq: 0, start: 0.3, attack: 0.05, decay: 0.5, gain: 0.3, lowpass: 600 },
       { wave: 'sine', freq: 140, freqEnd: 60, start: 0.3, attack: 0.01, decay: 0.5, gain: 0.5 },
     ],
     peak: 0.6,

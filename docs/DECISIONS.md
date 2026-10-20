@@ -870,3 +870,10 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
   flesh mixed 55 % with a skin brown, olive in the classic biome), never the inside of the
   skin. The twin, allies and intro share it through `TerrainView`. Near plane 0.5 → 1 (the
   camera never comes closer than 11; polar angle still 0.32–1.12).
+- **Intro** (part 6, `render/introFx.ts`): the whole fruit is a smooth round kiwi (sphere
+  64 × 48, fur streaks along its axis, 1.04 × longer across the cut) instead of the two flat
+  domes stretched ×1.18; at the cut the halves start as deep as it and settle into the game's
+  dome while they part. The additive white flash is replaced by a thin streak with a fading
+  tail sweeping down the seam. Juice splashes from the cut (150 green drops, 22 dark seeds,
+  instanced, gravity, 1.5 s, shrinking). The `slice` synth gained a wet splash and five drop
+  "plips" (the ring is softer); still played by `onSlice`.

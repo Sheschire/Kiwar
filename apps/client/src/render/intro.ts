@@ -1,15 +1,14 @@
+import type {
+  Mesh,
+  MeshStandardMaterial} from 'three';
 import {
-  AdditiveBlending,
   BufferGeometry,
   Color,
   DirectionalLight,
   Float32BufferAttribute,
   Group,
   HemisphereLight,
-  Mesh,
-  MeshBasicMaterial,
   PerspectiveCamera,
-  PlaneGeometry,
   Points,
   PointsMaterial,
   Quaternion,
@@ -21,6 +20,7 @@ import { FACES, type Face, type FaceMap } from '@kiwar/shared';
 import { seasonUniforms } from './seasonLook';
 import { DOME_TOP, TerrainView } from './terrain';
 import { WaterView } from './water';
+import { BladeTrail, createWholeKiwi, JuiceBurst } from './introFx';
 
 /** Intro timeline (seconds): the whole fruit turns, the blade, the halves part. */
 const T_SLICE = 1.6;
@@ -52,8 +52,10 @@ interface Half {
   face: Face;
   pivot: Group;
   terrain: TerrainView;
-  /** The skin dome under the face (moved up against the seam while the fruit is whole). */
+  /** The skin dome under the face (hidden while the fruit is whole, deeper just after the cut). */
   dome: Object3D;
+  /** Depth of the dome in the game (its Y scale). */
+  domeDepth: number;
   water: WaterView;
   /** Side of the screen: -1 left (Kiwisu), +1 right (Kiwino). */
   side: number;
@@ -78,8 +80,13 @@ export class IntroScene {
   readonly camera = new PerspectiveCamera(35, 1, 1, 2000);
   private readonly fruit = new Group();
   private readonly halves: Half[] = [];
-  private readonly blade: Mesh;
+  private readonly blade = new BladeTrail();
+  private readonly juice = new JuiceBurst();
+  /** The whole round fruit, until the cut. */
+  private readonly whole: Mesh;
   private readonly radius: number;
+  /** Radius of the skin (the whole fruit's size). */
+  private readonly skinRadius: number;
   private time = 0;
   private phase: IntroPhase = 'playing';
   private focus: Face | null = null;
@@ -132,29 +139,30 @@ export class IntroScene {
         side,
         scale: 1,
         dome: terrain.group.children.find((c) => c !== terrain.tiles && c !== water.mesh)!,
+        domeDepth: 0,
         water,
       });
       const e = terrain.extent();
       radius = Math.max(radius, e.x, e.z);
     }
     this.radius = radius;
-    // Dome tops on the seam (the terrain group sits 2.1 below the pivot).
-    for (const h of this.halves) h.dome.position.y = 2.1;
+    let skin = 0;
+    for (const h of this.halves) {
+      h.domeDepth = h.dome.scale.y;
+      skin = Math.max(skin, h.dome.scale.x, h.dome.scale.z);
+      // Dome tops on the seam (the terrain group sits 2.1 below the pivot), hidden while whole.
+      h.dome.position.y = 2.1;
+      h.dome.visible = false;
+    }
+    this.skinRadius = skin;
+    // A round kiwi, barely longer along its axis (X, across the cut).
+    this.whole = createWholeKiwi();
+    this.whole.scale.set(skin * 1.04, skin, skin);
+    this.fruit.add(this.whole);
     this.scene.add(this.fruit);
 
-    this.blade = new Mesh(
-      new PlaneGeometry(1, 1),
-      new MeshBasicMaterial({
-        color: '#fffbe8',
-        transparent: true,
-        opacity: 0,
-        blending: AdditiveBlending,
-        depthTest: false,
-      }),
-    );
-    this.blade.rotation.z = 0.12;
-    this.blade.renderOrder = 10;
-    this.scene.add(this.blade);
+    this.blade.mesh.rotation.z = 0.12;
+    this.scene.add(this.blade.mesh, this.juice.drops, this.juice.seeds);
 
     canvas.addEventListener('pointermove', this.onPointerMove);
     canvas.addEventListener('pointerup', this.onPointerUp);
@@ -185,13 +193,13 @@ export class IntroScene {
     this.time = T_CHOICE;
     this.sliced = true;
     this.fruit.quaternion.identity();
-    this.fruit.scale.set(1, 1, 1);
     for (const h of this.halves) {
       this.reveal(h);
+      h.dome.scale.y = h.domeDepth;
       h.pivot.position.copy(this.partPosition(h, 1));
       h.pivot.quaternion.copy(this.facing(h, 0.3));
     }
-    this.blade.visible = false;
+    this.blade.mesh.visible = false;
     this.setPhase('choice');
     this.placeCamera(1);
   }
@@ -212,6 +220,7 @@ export class IntroScene {
     this.time += dt;
     const t = this.time;
     for (const h of this.halves) h.water.update(t);
+    this.juice.update(dt);
     if (this.phase === 'playing') this.play(t, dt);
     else if (this.phase === 'choice') this.idle(dt);
     else this.leave(dt);
@@ -221,8 +230,6 @@ export class IntroScene {
     if (t < T_SLICE) {
       // The whole fruit rolls around its axis (the cut stays edge-on to the camera).
       this.fruit.rotation.set(t * 0.9, 0.25 * Math.sin(t * 0.8), 0);
-      // A real kiwi is a little longer than wide.
-      this.fruit.scale.set(1.18, 1, 1);
     } else if (!this.sliced) {
       this.sliced = true;
       // Bake the fruit's turn into the halves, then part them from there.
@@ -233,23 +240,27 @@ export class IntroScene {
         h.pivot.userData.from = this.tmpQ.clone();
       }
       this.fruit.quaternion.identity();
-      this.fruit.scale.set(1, 1, 1);
-      for (const h of this.halves) this.reveal(h);
+      for (const h of this.halves) {
+        this.reveal(h);
+        // Cut from the round fruit: as deep as it, settling into the game's dome as it parts.
+        h.dome.scale.y = this.skinRadius * 1.04;
+      }
+      this.whole.visible = false;
+      this.juice.burst(this.skinRadius);
       this.handlers.onSlice();
     }
-    // Blade: a bright slash sweeping down the seam.
+    // Blade: a thin streak sweeping down the seam, its tail fading behind it.
     const b = (t - T_SLICE) / (T_PART - T_SLICE);
-    const mat = this.blade.material as MeshBasicMaterial;
-    if (b > -0.4 && b < 1.6) {
-      this.blade.visible = true;
-      const reach = ease(b * 1.4);
-      this.blade.scale.set(0.7, this.radius * 2.8 * reach + 0.01, 1);
-      this.blade.position.set(0, this.radius * 1.4 * (1 - reach), this.radius + 4);
-      mat.opacity = b < 0 ? 0 : Math.max(0, 1 - Math.max(0, b - 0.6));
-    } else this.blade.visible = false;
+    if (b > 0 && b < 2) {
+      this.blade.mesh.visible = true;
+      this.blade.mesh.scale.set(this.skinRadius * 0.12, this.skinRadius * 2.9, 1);
+      this.blade.mesh.position.set(0, 0, this.skinRadius + 4);
+      this.blade.set(ease(b * 0.9) * 1.45, 1 - ease((b - 1) * 1.2));
+    } else this.blade.mesh.visible = false;
     if (t >= T_PART) {
       const k = ease((t - T_PART) / (T_CHOICE - T_PART));
       for (const h of this.halves) {
+        h.dome.scale.y = this.skinRadius * 1.04 + (h.domeDepth - this.skinRadius * 1.04) * k;
         const from = h.pivot.userData.from as Quaternion;
         h.pivot.position.copy(this.partPosition(h, k));
         h.pivot.quaternion.slerpQuaternions(from, this.facing(h, 0.3), k);
@@ -304,6 +315,7 @@ export class IntroScene {
 
   /** The face of a half shows, its dome back under it. */
   private reveal(h: Half): void {
+    h.dome.visible = true;
     h.terrain.tiles.visible = true;
     h.water.mesh.visible = true;
     h.dome.position.y = DOME_TOP;
@@ -411,8 +423,10 @@ export class IntroScene {
       h.terrain.dispose();
       h.water.dispose();
     }
-    this.blade.geometry.dispose();
-    (this.blade.material as MeshBasicMaterial).dispose();
+    this.blade.dispose();
+    this.juice.dispose();
+    this.whole.geometry.dispose();
+    (this.whole.material as MeshStandardMaterial).dispose();
     this.scene.traverse((o) => {
       if (o instanceof Points) {
         o.geometry.dispose();
