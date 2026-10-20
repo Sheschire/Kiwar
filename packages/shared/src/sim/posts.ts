@@ -264,8 +264,9 @@ export function returnHome(state: GameState, at: TimeMs, events: GameEvent[]): v
   const returned = new Map<ResourceId, number>();
   for (const v of state.villagers) {
     if (!v.homeJob) continue;
-    // Builders keep the memory until they are back at work; anything else forgets it.
-    if (v.job.kind === 'build') continue;
+    // Builders and kiwis lent to a task (chantier 15) keep the memory until they are back at
+    // work; anything else forgets it.
+    if (v.job.kind === 'build' || v.lent !== undefined) continue;
     const home = state.buildings.find((b) => b.id === v.homeJob);
     const id = home ? buildingResource(state, home) : null;
     if (v.job.kind !== 'work' || !home || !id || v.job.buildingId === home.id) {

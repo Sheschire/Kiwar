@@ -2673,8 +2673,61 @@ function startConstructions(state, at, events) {
     startItem(state, item, builder, at, events);
   }
 }
+function sendBack(state, v, home) {
+  delete v.lent;
+  const back = home ? getBuilding(state, home) : void 0;
+  if (back && workersOf(state, back.id).length < workerSlots(back)) {
+    v.job = { kind: "work", buildingId: back.id };
+  } else {
+    v.job = { kind: "idle" };
+    autoAssign(state, v);
+  }
+}
+function bestFor(state, to, power, except) {
+  let best;
+  for (const v of state.villagers) {
+    if (except?.has(v.id) || !canBorrow(state, v, to)) continue;
+    const p = power(v);
+    const idle = v.job.kind === "idle";
+    if (!best || p > best.p + 1e-9 || Math.abs(p - best.p) <= 1e-9 && idle && !best.idle)
+      best = { v, p, idle };
+  }
+  return best?.v;
+}
+function fillResearch(state) {
+  if (!state.automation.research) return;
+  const libraries2 = state.buildings.filter((b) => b.type === "library");
+  if (!state.research.current) {
+    for (const v of state.villagers) {
+      if (v.lent === void 0 || v.job.kind !== "work") continue;
+      if (!libraries2.some((b) => b.id === v.job.buildingId))
+        continue;
+      sendBack(state, v, v.lent);
+    }
+    return;
+  }
+  for (const b of libraries2) {
+    let free = workerSlots(b) - workersOf(state, b.id).length;
+    while (free-- > 0) {
+      const v = bestFor(state, "research", researchPower);
+      if (!v) return;
+      const home = borrow(v);
+      v.job = { kind: "work", buildingId: b.id };
+      v.lent = home;
+    }
+  }
+}
+function forgetLent(state) {
+  for (const v of state.villagers) {
+    if (v.lent === void 0) continue;
+    const atLibrary = v.job.kind === "work" && getBuilding(state, v.job.buildingId)?.type === "library";
+    if (!atLibrary && v.job.kind !== "guard") delete v.lent;
+  }
+}
 function dispatchTasks(state, at, events) {
+  forgetLent(state);
   startConstructions(state, at, events);
+  fillResearch(state);
 }
 
 // packages/shared/src/sim/expeditions.ts
@@ -4045,7 +4098,7 @@ function returnHome(state, at, events) {
   const returned = /* @__PURE__ */ new Map();
   for (const v of state.villagers) {
     if (!v.homeJob) continue;
-    if (v.job.kind === "build") continue;
+    if (v.job.kind === "build" || v.lent !== void 0) continue;
     const home = state.buildings.find((b) => b.id === v.homeJob);
     const id3 = home ? buildingResource(state, home) : null;
     if (v.job.kind !== "work" || !home || !id3 || v.job.buildingId === home.id) {
@@ -4464,8 +4517,9 @@ function bestIdleFor(s, b) {
 function idleByPower(s, b) {
   const resource = buildingResource(s, b);
   const idle = idleVillagers(s).filter((v) => !v.kikiwiwi);
-  if (!resource) return idle;
-  return idle.map((v, i) => ({ v, i, p: workerPower(v, resource) })).sort((a, c) => c.p - a.p || a.i - c.i).map((x) => x.v);
+  const power = b.type === "library" ? researchPower : resource ? (v) => workerPower(v, resource) : null;
+  if (!power) return idle;
+  return idle.map((v, i) => ({ v, i, p: power(v) })).sort((a, c) => c.p - a.p || a.i - c.i).map((x) => x.v);
 }
 function nextInjuryEnd(s) {
   let next = Infinity;
@@ -6889,6 +6943,7 @@ function execute(s, cmd, ctx, events) {
       const previous = v.job;
       v.job = { kind: "work", buildingId: b.id };
       delete v.homeJob;
+      delete v.lent;
       if (other) delete other.homeJob;
       if (other) {
         if (previous.kind === "work") other.job = { kind: "work", buildingId: previous.buildingId };
@@ -12858,6 +12913,7 @@ export {
   ensureAliens,
   exposedKiwis,
   faceMapOf,
+  fillResearch,
   finishInfusions,
   finishTitanWorks,
   foodLeftMs,
@@ -13051,6 +13107,7 @@ export {
   sectorClash,
   sectorOf,
   sectorThreat,
+  sendBack,
   sendShipment,
   serializeSave,
   shieldArrival,

@@ -530,6 +530,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       v.job = { kind: 'work', buildingId: b.id };
       // Placed by the player: no former workplace to go back to.
       delete v.homeJob;
+      delete v.lent;
       if (other) delete other.homeJob;
       if (other) {
         // The swapped kiwi takes the newcomer's former workplace, or looks for work.

@@ -1181,7 +1181,10 @@ export const en = {
       age: 'Later age',
     },
     researchers: 'Researchers',
-    researcherHint: 'Kiwis never come here on their own: high Spirit makes the best researchers.',
+    researcherHint:
+      'While a technology is chosen, the kiwis with the most Spirit come here on their own, and go back to their post when nothing is left to research.',
+    researcherManual:
+      'Research is manual (Automation panel): place the researchers yourself. High Spirit makes the best ones.',
     openTree: 'Technology tree',
   },
   ages: {

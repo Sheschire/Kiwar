@@ -380,7 +380,11 @@ function BuildingSection({
       {b.type === 'monument' && <AgeInfo game={game} t={t} />}
       {b.type === 'library' && (
         <>
-          <p class="small muted">{t('research.researcherHint')}</p>
+          <p class="small muted">
+            {game.automation.research
+              ? t('research.researcherHint')
+              : t('research.researcherManual')}
+          </p>
           <ResearchSummary game={game} t={t} />
           <button
             class="btn"

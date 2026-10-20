@@ -1,8 +1,9 @@
 import { TASKS } from '../data/jobs';
 import type { BuildingId, TimeMs } from '../types/ids';
-import type { GameEvent } from './advance';
+import { autoAssign, type GameEvent } from './advance';
 import { builderSpeed } from './kiwis';
-import { getBuilding, nest } from './selectors';
+import { researchPower } from './research';
+import { getBuilding, nest, workerSlots, workersOf } from './selectors';
 import type { GameState, QueueItem, Villager } from './state';
 
 /**
@@ -148,7 +149,84 @@ export function startConstructions(state: GameState, at: TimeMs, events: GameEve
   }
 }
 
+/**
+ * A borrowed kiwi goes back to its workplace if it still has room, otherwise it looks for work
+ * on its own.
+ */
+export function sendBack(state: GameState, v: Villager, home: BuildingId | null): void {
+  delete v.lent;
+  const back = home ? getBuilding(state, home) : undefined;
+  if (back && workersOf(state, back.id).length < workerSlots(back)) {
+    v.job = { kind: 'work', buildingId: back.id };
+  } else {
+    v.job = { kind: 'idle' };
+    autoAssign(state, v);
+  }
+}
+
+/** The best kiwi the automation may borrow for a task, by a power (idle ones first on ties). */
+function bestFor(
+  state: GameState,
+  to: TaskLevel,
+  power: (v: Villager) => number,
+  except?: ReadonlySet<string>,
+): Villager | undefined {
+  let best: { v: Villager; p: number; idle: boolean } | undefined;
+  for (const v of state.villagers) {
+    if (except?.has(v.id) || !canBorrow(state, v, to)) continue;
+    const p = power(v);
+    const idle = v.job.kind === 'idle';
+    if (!best || p > best.p + 1e-9 || (Math.abs(p - best.p) <= 1e-9 && idle && !best.idle))
+      best = { v, p, idle };
+  }
+  return best?.v;
+}
+
+/**
+ * Chantier 15: while a technology is chosen, the Library's free places take the kiwis with the
+ * most Spirit (borrowed); when nothing is being researched they go back to their workplace.
+ * Kiwis placed there by the player stay (they bank points).
+ */
+export function fillResearch(state: GameState): void {
+  if (!state.automation.research) return;
+  const libraries = state.buildings.filter((b) => b.type === 'library');
+  if (!state.research.current) {
+    for (const v of state.villagers) {
+      if (v.lent === undefined || v.job.kind !== 'work') continue;
+      if (!libraries.some((b) => b.id === (v.job as { buildingId: BuildingId }).buildingId))
+        continue;
+      sendBack(state, v, v.lent);
+    }
+    return;
+  }
+  for (const b of libraries) {
+    let free = workerSlots(b) - workersOf(state, b.id).length;
+    while (free-- > 0) {
+      const v = bestFor(state, 'research', researchPower);
+      if (!v) return;
+      const home = borrow(v);
+      v.job = { kind: 'work', buildingId: b.id };
+      v.lent = home;
+    }
+  }
+}
+
+/**
+ * A kiwi keeps `lent` only while it does the task it was borrowed for (research at the Library,
+ * the garrison): moved by the player or by anything else, it forgets it.
+ */
+function forgetLent(state: GameState): void {
+  for (const v of state.villagers) {
+    if (v.lent === undefined) continue;
+    const atLibrary =
+      v.job.kind === 'work' && getBuilding(state, v.job.buildingId)?.type === 'library';
+    if (!atLibrary && v.job.kind !== 'guard') delete v.lent;
+  }
+}
+
 /** Fills every automatic task, highest priority first. */
 export function dispatchTasks(state: GameState, at: TimeMs, events: GameEvent[]): void {
+  forgetLent(state);
   startConstructions(state, at, events);
+  fillResearch(state);
 }

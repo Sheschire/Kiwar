@@ -1220,7 +1220,9 @@ export const fr: Dict = {
     },
     researchers: 'Chercheur·euses',
     researcherHint:
-      'Les kiwis n’y viennent jamais d’eux-mêmes : un Esprit élevé fait les meilleures recherches.',
+      'Quand une technologie est choisie, les kiwis qui ont le plus d’Esprit viennent d’eux-mêmes, et retournent à leur poste quand il n’y a plus rien à chercher.',
+    researcherManual:
+      'La recherche est en manuel (panneau Automatisation) : place toi-même les chercheur·euses. Plus d’Esprit fait de meilleur·es chercheur·euses.',
     openTree: 'Arbre des technologies',
   },
   ages: {

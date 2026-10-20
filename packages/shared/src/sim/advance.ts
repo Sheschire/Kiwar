@@ -44,7 +44,7 @@ import { finishInfusions, nextInfusionEnd } from './kikiwiwi';
 import { finishTitanWorks, nextTitanEnd } from './titan';
 import type { TerraformKind, TitanWork } from '../data/titan';
 import type { ObstacleKind } from '../data/obstacles';
-import { accrueResearch, nextResearchEvent, researchTick } from './research';
+import { accrueResearch, nextResearchEvent, researchPower, researchTick } from './research';
 import { autoPlace, awaitedResources, belowReturn, redirectFull, returnHome } from './posts';
 import { JOBS } from '../data/jobs';
 import {
@@ -653,9 +653,16 @@ export function bestIdleFor(s: GameState, b: Building): Villager | undefined {
 export function idleByPower(s: GameState, b: Building): Villager[] {
   const resource = buildingResource(s, b);
   const idle = idleVillagers(s).filter((v) => !v.kikiwiwi);
-  if (!resource) return idle;
+  // Chantier 15: the Library takes the kiwis with the most Spirit first.
+  const power =
+    b.type === 'library'
+      ? researchPower
+      : resource
+        ? (v: Villager) => workerPower(v, resource)
+        : null;
+  if (!power) return idle;
   return idle
-    .map((v, i) => ({ v, i, p: workerPower(v, resource) }))
+    .map((v, i) => ({ v, i, p: power(v) }))
     .sort((a, c) => c.p - a.p || a.i - c.i)
     .map((x) => x.v);
 }
