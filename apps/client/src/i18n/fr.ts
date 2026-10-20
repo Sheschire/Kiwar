@@ -241,6 +241,10 @@ export const fr: Dict = {
       name: 'Monument',
       desc: 'La fierté de la colonie : chaque niveau ouvre un nouvel âge, une fois son passage recherché.',
     },
+    lab: {
+      name: 'Laboratoire contre nature',
+      desc: 'Des cuves de jus luminescent où un kiwi aguerri devient un Kikiwiwi. Long, coûteux, et ça peut rater.',
+    },
     library: {
       name: 'Bibliothèque',
       desc: 'Les kiwis à l’Esprit vif y recherchent de nouvelles techniques. Choisissez qui étudie.',
@@ -426,6 +430,9 @@ export const fr: Dict = {
     repaired: '{name} est réparé.',
     researchDone: 'Recherche terminée : {tech} !',
     ageReached: 'Un nouvel âge commence : {age} !',
+    kikiwiwiBorn: '{name} sort de la cuve : un Kikiwiwi est né !',
+    infusionFailed:
+      'L’infusion a raté : {name} a survécu, blessé·e et affaibli·e. Le jus est perdu.',
   },
   needs: {
     stages: {
@@ -553,6 +560,12 @@ export const fr: Dict = {
     noObstacle: 'Rien à dégager ici.',
     needsKikiwiwi: 'Trop gros pour des kiwis ordinaires : il faut un Kikiwiwi.',
     alreadyClearing: 'Dégagement déjà en cours.',
+    techMissing: 'Recherchez d’abord la technologie.',
+    labExists: 'La colonie a déjà un laboratoire contre nature.',
+    notALab: 'Ce n’est pas un laboratoire contre nature.',
+    labBusy: 'La cuve est occupée : une infusion à la fois.',
+    kikiwiwiLimit: 'Plus de Kikiwiwi possible à cet âge (un par âge dès le Fer).',
+    alreadyKikiwiwi: 'C’est déjà un Kikiwiwi.',
   },
   offline: {
     title: 'Pendant votre absence…',
@@ -863,6 +876,17 @@ export const fr: Dict = {
     reportAmmo: '{count} pépins tirés',
     incidentLine: 'il y a {ago} · {text}',
   },
+  lab: {
+    title: 'Infusion',
+    pick: 'Kiwi à transformer',
+    none: 'Aucun kiwi de niveau {level} ou plus n’est libre.',
+    riskValue: 'Risque d’échec : {pct} %',
+    riskHint:
+      'L’Endurance, le niveau et le niveau du laboratoire le réduisent. En cas d’échec, le kiwi survit, blessé un jour et affaibli (−1 Force, −1 Endurance).',
+    start: 'Lancer l’infusion',
+    inVat: '{name} est dans la cuve',
+    cap: 'Kikiwiwis : {count}/{cap} (un par âge dès le Fer)',
+  },
   obstacles: {
     blocks: 'Bloque la tuile',
     loot: 'En l’enlevant',
@@ -984,6 +1008,7 @@ export const fr: Dict = {
       expedition: 'En expédition',
       injured: 'En convalescence',
       guard: 'De garde',
+      transform: 'Dans la cuve',
     },
   },
   research: {
@@ -1013,8 +1038,6 @@ export const fr: Dict = {
     researcherHint:
       'Les kiwis n’y viennent jamais d’eux-mêmes : un Esprit élevé fait les meilleures recherches.',
     openTree: 'Arbre des technologies',
-    soon: 'Contre nature — bientôt',
-    soonDesc: 'Des infusions de jus pour créer des créatures puissantes, dès l’âge du Fer.',
   },
   ages: {
     eden: 'Éden',
@@ -1035,6 +1058,7 @@ export const fr: Dict = {
     defense: 'Défense',
     exploration: 'Exploration',
     passage: 'Âge suivant',
+    unnatural: 'Contre nature',
   },
   techs: {
     foraging: { name: 'Cueillette', desc: 'Récolte de pulpe et de fibre +10 %.' },
@@ -1058,6 +1082,18 @@ export const fr: Dict = {
       desc: 'Les guerrier·ères peuvent tirer sur les chauves-souris.',
     },
     steamEngines: { name: 'Machines à vapeur', desc: 'Voyages des expéditions −15 %.' },
+    juiceInfusion: {
+      name: 'Infusion de jus',
+      desc: 'Ouvre le laboratoire contre nature : des kiwis deviennent des Kikiwiwis.',
+    },
+    titanWorks: {
+      name: 'Travaux de titan',
+      desc: 'Les Kikiwiwis remodèlent le terrain : creuser une source de jus, élever une terrasse, aplanir une tuile.',
+    },
+    greenBlood: {
+      name: 'Sang vert',
+      desc: 'Kikiwiwis +25 % de puissance, −25 % d’entretien en jus ; infusions 10 points plus sûres.',
+    },
   },
   stats: {
     strength: 'Force',

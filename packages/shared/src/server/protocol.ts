@@ -82,6 +82,7 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('setGarrison'), villagerIds: z.array(id).max(200) }),
   z.object({ type: z.literal('setResearch'), tech: z.enum(TECH_IDS).nullable() }),
   z.object({ type: z.literal('clearObstacle'), q: z.number().int(), r: z.number().int() }),
+  z.object({ type: z.literal('transform'), villagerId: id, labId: id }),
   z.object({
     type: z.literal('debugGrant'),
     resources: z.object({

@@ -223,6 +223,10 @@ export const en = {
       name: 'Monument',
       desc: 'The pride of the colony: each level opens a new age, once its passage is researched.',
     },
+    lab: {
+      name: 'Laboratory against nature',
+      desc: 'Vats of glowing juice where a seasoned kiwi becomes a Kikiwiwi. Long, costly, and it can fail.',
+    },
     library: {
       name: 'Library',
       desc: 'Kiwis with a keen Spirit research new techniques here. Choose who studies.',
@@ -396,6 +400,8 @@ export const en = {
     repaired: '{name} is repaired.',
     researchDone: 'Research complete: {tech}!',
     ageReached: 'A new age begins: {age}!',
+    kikiwiwiBorn: '{name} came out of the vat: a Kikiwiwi is born!',
+    infusionFailed: 'The infusion failed: {name} survived, hurt and weakened. The juice is lost.',
   },
   needs: {
     stages: {
@@ -524,6 +530,12 @@ export const en = {
     noObstacle: 'Nothing to clear here.',
     needsKikiwiwi: 'Too big for ordinary kiwis: it takes a Kikiwiwi.',
     alreadyClearing: 'Already being cleared.',
+    techMissing: 'Research the technology first.',
+    labExists: 'The colony already has a laboratory against nature.',
+    notALab: 'This is not a laboratory against nature.',
+    labBusy: 'The vat is taken: one infusion at a time.',
+    kikiwiwiLimit: 'No more Kikiwiwis at this age (one per age from the Iron age).',
+    alreadyKikiwiwi: 'Already a Kikiwiwi.',
   },
   offline: {
     title: 'While you were away…',
@@ -833,6 +845,17 @@ export const en = {
     reportAmmo: '{count} seeds fired',
     incidentLine: '{ago} ago · {text}',
   },
+  lab: {
+    title: 'Infusion',
+    pick: 'Kiwi to transform',
+    none: 'No kiwi of level {level} or more is free.',
+    riskValue: 'Risk of failure: {pct} %',
+    riskHint:
+      'Endurance, level and the laboratory level lower it. On a failure the kiwi survives, hurt for a day and weakened (−1 Strength, −1 Endurance).',
+    start: 'Start the infusion',
+    inVat: '{name} is in the vat',
+    cap: 'Kikiwiwis: {count}/{cap} (one per age from the Iron age)',
+  },
   obstacles: {
     blocks: 'Blocks the tile',
     loot: 'Removing it yields',
@@ -954,6 +977,7 @@ export const en = {
       expedition: 'On an expedition',
       injured: 'Recovering',
       guard: 'On guard',
+      transform: 'In the vat',
     },
   },
   research: {
@@ -982,8 +1006,6 @@ export const en = {
     researchers: 'Researchers',
     researcherHint: 'Kiwis never come here on their own: high Spirit makes the best researchers.',
     openTree: 'Technology tree',
-    soon: 'Against nature — coming soon',
-    soonDesc: 'Juice infusions to create powerful creatures, from the Iron age.',
   },
   ages: {
     eden: 'Eden',
@@ -1003,6 +1025,7 @@ export const en = {
     defense: 'Defense',
     exploration: 'Exploration',
     passage: 'Next age',
+    unnatural: 'Against nature',
   },
   techs: {
     foraging: { name: 'Foraging', desc: 'Pulp and fibre harvest +10 %.' },
@@ -1020,6 +1043,18 @@ export const en = {
     machines: { name: 'Machines', desc: 'Every harvest +15 %.' },
     firearms: { name: 'Firearms', desc: 'Warriors can shoot the bats.' },
     steamEngines: { name: 'Steam engines', desc: 'Expedition travel −15 %.' },
+    juiceInfusion: {
+      name: 'Juice infusion',
+      desc: 'Opens the laboratory against nature: kiwis become Kikiwiwis.',
+    },
+    titanWorks: {
+      name: 'Titan works',
+      desc: 'Kikiwiwis reshape the land: dig a juice spring, raise a terrace, flatten a tile.',
+    },
+    greenBlood: {
+      name: 'Green blood',
+      desc: 'Kikiwiwis +25 % power, −25 % juice upkeep; infusions 10 points safer.',
+    },
   },
   stats: {
     strength: 'Strength',

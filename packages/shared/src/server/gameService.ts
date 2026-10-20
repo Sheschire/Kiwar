@@ -1,3 +1,4 @@
+import { kikiwiwiCap, kikiwiwiCount } from '../sim/kikiwiwi';
 import { OBSTACLES, OBSTACLE_RULES } from '../data/obstacles';
 import { METEORS } from '../data/threats';
 import { generateObstacles, obstacleId } from '../sim/obstacles';
@@ -12,7 +13,7 @@ import { KIWI, MASTERY_IDS, STAT_IDS } from '../data/kiwis';
 import { CLASSES, SKILLS } from '../data/classes';
 import { levelForXp } from '../sim/kiwis';
 import { PASSAGE_TECHS, RESEARCH_SCALE, TECHS } from '../data/research';
-import { ageOf, libraries } from '../sim/research';
+import { ageOf, libraries, techEffects } from '../sim/research';
 import { deserializeSave, migrateState } from '../save/save';
 import { advance, type GameEvent } from '../sim/advance';
 import { applyCommand } from '../sim/commands';
@@ -347,6 +348,10 @@ export function isPlausible(state: GameState, now: number): boolean {
   if (mayors.length > 1 || state.speechUntil > state.now + SKILLS.speechMs * 2) return false;
   if (!plausibleResearch(state) || !plausibleAge(state)) return false;
   if (!plausibleObstacles(state)) return false;
+  // Chantier 08: one laboratory (after its technology), Kikiwiwis within the cap of the age.
+  const labs = state.buildings.filter((b) => b.type === 'lab').length;
+  if (labs > 1 || (labs > 0 && !techEffects(state).laboratory)) return false;
+  if (kikiwiwiCount(state) > kikiwiwiCap(state)) return false;
   return state.villagers.every((v) => plausibleKiwi(v, state.now));
 }
 

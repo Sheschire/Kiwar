@@ -6,7 +6,7 @@ import type { ResourceId } from './resources';
  * technology; with nothing chosen they wait in a bank (capped by the Library level). Points are
  * integers in raw units (`RESEARCH_SCALE` per point), so offline progress stays exact.
  */
-export const TECH_BRANCHES = ['economy', 'defense', 'exploration', 'passage'] as const;
+export const TECH_BRANCHES = ['economy', 'defense', 'exploration', 'passage', 'unnatural'] as const;
 export type TechBranch = (typeof TECH_BRANCHES)[number];
 
 export const TECH_IDS = [
@@ -29,6 +29,10 @@ export const TECH_IDS = [
   'machines',
   'firearms',
   'steamEngines',
+  // Against nature (second half of chantier 08)
+  'juiceInfusion',
+  'titanWorks',
+  'greenBlood',
 ] as const;
 export type TechId = (typeof TECH_IDS)[number];
 
@@ -56,6 +60,14 @@ export interface TechEffects {
   recon?: number;
   /** Warriors shoot the bats (garrison and raids). */
   firearms?: boolean;
+  /** Opens the laboratory against nature (Kikiwiwis). */
+  laboratory?: boolean;
+  /** Kikiwiwis may terraform tiles. */
+  terraform?: boolean;
+  /** Kikiwiwi power and juice upkeep multipliers, points of infusion risk removed. */
+  kikiwiwiPower?: number;
+  kikiwiwiUpkeep?: number;
+  infusionRisk?: number;
 }
 
 export interface TechDef {
@@ -176,6 +188,30 @@ export const TECHS: Record<TechId, TechDef> = {
     cost: 2000,
     libraryLevel: 5,
     effects: { travel: 0.85 },
+  },
+  juiceInfusion: {
+    id: 'juiceInfusion',
+    age: 2,
+    branch: 'unnatural',
+    cost: 1200,
+    libraryLevel: 4,
+    effects: { laboratory: true },
+  },
+  titanWorks: {
+    id: 'titanWorks',
+    age: 2,
+    branch: 'unnatural',
+    cost: 1500,
+    libraryLevel: 5,
+    effects: { terraform: true },
+  },
+  greenBlood: {
+    id: 'greenBlood',
+    age: 3,
+    branch: 'unnatural',
+    cost: 2500,
+    libraryLevel: 6,
+    effects: { kikiwiwiPower: 1.25, kikiwiwiUpkeep: 0.75, infusionRisk: 0.1 },
   },
 };
 

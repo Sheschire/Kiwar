@@ -164,14 +164,6 @@ export function ResearchModal() {
             {techsOfAge(i).map((tech) => (
               <TechCard key={tech} game={game} id={tech} t={t} />
             ))}
-            {i === 2 && (
-              <li class="tech-card tech-soon">
-                <div class="tech-head">
-                  <strong>{t('research.soon')}</strong>
-                </div>
-                <p class="small muted">{t('research.soonDesc')}</p>
-              </li>
-            )}
           </ul>
         </section>
       ))}

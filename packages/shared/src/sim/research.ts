@@ -40,6 +40,11 @@ export interface Effects {
   armor: number;
   recon: number;
   firearms: boolean;
+  laboratory: boolean;
+  terraform: boolean;
+  kikiwiwiPower: number;
+  kikiwiwiUpkeep: number;
+  infusionRisk: number;
 }
 
 const effectsCache = new Map<string, Effects>();
@@ -61,6 +66,11 @@ export function techEffects(state: GameState): Effects {
     armor: 0,
     recon: 0,
     firearms: false,
+    laboratory: false,
+    terraform: false,
+    kikiwiwiPower: 1,
+    kikiwiwiUpkeep: 1,
+    infusionRisk: 0,
   };
   for (const id of state.research.done) {
     const e: TechEffects = TECHS[id].effects;
@@ -75,6 +85,11 @@ export function techEffects(state: GameState): Effects {
     out.armor += e.armor ?? 0;
     out.recon += e.recon ?? 0;
     out.firearms ||= e.firearms ?? false;
+    out.laboratory ||= e.laboratory ?? false;
+    out.terraform ||= e.terraform ?? false;
+    out.kikiwiwiPower *= e.kikiwiwiPower ?? 1;
+    out.kikiwiwiUpkeep *= e.kikiwiwiUpkeep ?? 1;
+    out.infusionRisk += e.infusionRisk ?? 0;
   }
   if (effectsCache.size > 64) effectsCache.clear();
   effectsCache.set(key, out);

@@ -34,7 +34,16 @@ type Sort = 'level' | 'name' | 'job' | 'born';
 const SORTS: Sort[] = ['level', 'name', 'job', 'born'];
 
 function jobRank(v: Villager): number {
-  return { work: 0, guard: 1, build: 2, train: 3, expedition: 4, injured: 5, idle: 6 }[v.job.kind];
+  return {
+    work: 0,
+    guard: 1,
+    build: 2,
+    train: 3,
+    transform: 3,
+    expedition: 4,
+    injured: 5,
+    idle: 6,
+  }[v.job.kind];
 }
 
 /** What a kiwi is doing, in words. */

@@ -1,0 +1,196 @@
+import { describe, expect, it } from 'vitest';
+import {
+  advance,
+  applyCommand,
+  HOUR_MS,
+  infusionRisk,
+  isPlausible,
+  kikiwiwiCap,
+  KIKIWIWI,
+  migrateState,
+  xpForLevel,
+  XP_SCALE,
+  type BuildingId,
+  type Command,
+  type GameState,
+  type TechId,
+} from '../src';
+import { findTile, rich, run, setup, T0 } from './helpers';
+
+/** An Iron-age colony (Nest 4, monument 2) knowing juice infusion, with a level-6 kiwi. */
+export function ironColony(techs: TechId[] = ['stoneAge', 'ironAge', 'juiceInfusion']) {
+  const { map, state } = setup('kiwisu', 'kikiwiwi');
+  const s: GameState = rich(state);
+  s.buildings[0]!.level = 4;
+  const mon = findTile(map, 'flesh', 6);
+  s.buildings.push({
+    id: 'bmon' as BuildingId,
+    type: 'monument',
+    q: mon.q,
+    r: mon.r,
+    level: 2,
+    richness: mon.richness,
+    builtAt: T0,
+  });
+  s.research.done = [...techs];
+  const v = s.villagers[0]!;
+  v.level = 6;
+  v.xp = xpForLevel(6) * XP_SCALE;
+  return { map, s, v };
+}
+
+function withLab(s: GameState, map: ReturnType<typeof setup>['map'], level = 1): GameState {
+  const site = findTile(map, 'flesh', 8);
+  const out = structuredClone(s);
+  out.buildings.push({
+    id: 'blab' as BuildingId,
+    type: 'lab',
+    q: site.q,
+    r: site.r,
+    level,
+    richness: site.richness,
+    builtAt: T0,
+  });
+  return out;
+}
+
+const errorOf = (s: GameState, cmd: Command, map: ReturnType<typeof setup>['map']) => {
+  const r = applyCommand(s, cmd, { now: s.now, map });
+  return r.ok ? null : r.error;
+};
+
+describe('laboratory against nature', () => {
+  it('needs the Iron age, its technology, and is unique', () => {
+    const { map, s } = ironColony(['stoneAge', 'ironAge']);
+    const site = findTile(map, 'flesh', 8);
+    const build: Command = { type: 'build', buildingType: 'lab', q: site.q, r: site.r };
+    expect(errorOf(s, build, map)).toBe('techMissing');
+    const young = structuredClone(s);
+    young.buildings = young.buildings.filter((b) => b.type !== 'monument');
+    expect(errorOf(young, build, map)).toBe('ageTooLow');
+    const knows = {
+      ...s,
+      research: { ...s.research, done: [...s.research.done, 'juiceInfusion' as TechId] },
+    };
+    const ordered = run(knows, build, s.now, map);
+    const other = findTile(map, 'flesh', 9);
+    expect(errorOf(ordered, { ...build, q: other.q, r: other.r }, map)).toBe('labExists');
+  });
+
+  it('caps the Kikiwiwis by age: none before Iron, one at Iron, two at Industry', () => {
+    const { s } = ironColony();
+    expect(kikiwiwiCap(s)).toBe(1);
+    const stone = structuredClone(s);
+    stone.buildings.find((b) => b.type === 'monument')!.level = 1;
+    expect(kikiwiwiCap(stone)).toBe(0);
+    const industry = structuredClone(s);
+    industry.buildings.find((b) => b.type === 'monument')!.level = 3;
+    expect(kikiwiwiCap(industry)).toBe(2);
+  });
+
+  it('transforms a kiwi after a long infusion, exactly in one big step or many small ones', () => {
+    const { map, s: base, v } = ironColony();
+    const s0 = withLab(base, map);
+    const lab = s0.buildings.find((b) => b.type === 'lab')!;
+    const cmd: Command = { type: 'transform', villagerId: v.id, labId: lab.id };
+    const young = structuredClone(s0);
+    young.villagers[0]!.level = 2;
+    expect(errorOf(young, cmd, map)).toBe('levelTooLow');
+    const s = run(s0, cmd, s0.now, map);
+    const job = s.villagers[0]!.job;
+    expect(job).toMatchObject({ kind: 'transform', labId: lab.id });
+    if (job.kind !== 'transform') return;
+    expect(job.until - s.now).toBe(KIKIWIWI.durationMs[0]);
+    expect(job.risk).toBe(infusionRisk(s0, v, lab));
+    expect(s.resources.juice).toBe(s0.resources.juice - KIKIWIWI.cost.juice!);
+    // One vat, one Kikiwiwi at the Iron age.
+    const second = structuredClone(s);
+    second.villagers[1]!.level = 6;
+    expect(
+      errorOf(
+        second,
+        { type: 'transform', villagerId: second.villagers[1]!.id, labId: lab.id },
+        map,
+      ),
+    ).toBe('labBusy');
+    const end = job.until + HOUR_MS;
+    const big = advance(s, end);
+    let small = s;
+    for (let t = s.now; t < end; t += HOUR_MS / 3) small = advance(small, t).state;
+    small = advance(small, end).state;
+    expect(small.villagers).toEqual(big.state.villagers);
+    expect(small.rng).toEqual(big.state.rng);
+    const after = big.state.villagers[0]!;
+    const born = big.events.some((e) => e.type === 'kikiwiwiBorn');
+    const failed = big.events.some((e) => e.type === 'infusionFailed');
+    expect(born !== failed).toBe(true);
+    if (born) {
+      expect(after.kikiwiwi).toEqual({ since: job.until });
+      // A Kikiwiwi never takes a workplace by itself.
+      expect(after.job.kind).toBe('idle');
+    } else {
+      expect(after.job.kind).toBe('injured');
+      expect(after.stats.strength).toBe(Math.max(1, v.stats.strength - 1));
+    }
+  });
+
+  it('a sure failure leaves the kiwi alive, hurt and weakened; a sure success makes a Kikiwiwi', () => {
+    const { map, s: base, v } = ironColony();
+    const s0 = withLab(base, map);
+    const lab = s0.buildings.find((b) => b.type === 'lab')!;
+    const s = run(s0, { type: 'transform', villagerId: v.id, labId: lab.id }, s0.now, map);
+    const job = s.villagers[0]!.job;
+    if (job.kind !== 'transform') throw new Error('no infusion');
+    const doomed = structuredClone(s);
+    (doomed.villagers[0]!.job as { risk: number }).risk = 1;
+    const lost = advance(doomed, job.until).state.villagers[0]!;
+    expect(lost.kikiwiwi).toBeUndefined();
+    expect(lost.job).toEqual({ kind: 'injured', until: job.until + KIKIWIWI.failure.injuredMs });
+    expect(lost.stats.endurance).toBe(Math.max(1, v.stats.endurance - 1));
+    const blessed = structuredClone(s);
+    (blessed.villagers[0]!.job as { risk: number }).risk = 0;
+    const r = advance(blessed, job.until);
+    expect(r.state.villagers[0]!.kikiwiwi).toBeDefined();
+    // The cap is reached: no second one at the Iron age.
+    const other = r.state.villagers[1]!;
+    other.level = 6;
+    expect(errorOf(r.state, { type: 'transform', villagerId: other.id, labId: lab.id }, map)).toBe(
+      'kikiwiwiLimit',
+    );
+    // An imported save cannot bring more than the cap.
+    const two = structuredClone(r.state);
+    two.villagers[1]!.kikiwiwi = { since: T0 };
+    expect(isPlausible(two, two.now)).toBe(false);
+  });
+
+  it('lowers the risk with Endurance, level, a better laboratory and green blood', () => {
+    const { map, s, v } = ironColony();
+    const l1 = withLab(s, map, 1).buildings.find((b) => b.type === 'lab')!;
+    const l3 = { ...l1, level: 3 };
+    const base = infusionRisk(s, v, l1);
+    expect(infusionRisk(s, v, l3)).toBeLessThan(base);
+    const tough = { ...v, stats: { ...v.stats, endurance: v.stats.endurance + 3 } };
+    expect(infusionRisk(s, tough, l1)).toBeCloseTo(base - 0.06, 6);
+    const green = {
+      ...s,
+      research: { ...s.research, done: [...s.research.done, 'greenBlood' as TechId] },
+    };
+    expect(infusionRisk(green, v, l1)).toBeLessThan(base);
+    expect(
+      infusionRisk(s, { ...v, level: 1, stats: { ...v.stats, endurance: 1 } }, l1),
+    ).toBeLessThanOrEqual(KIKIWIWI.risk.max);
+  });
+
+  it('refunds an infusion when the laboratory is demolished, and migrates v15 saves', () => {
+    const { map, s: base, v } = ironColony();
+    const s0 = withLab(base, map);
+    const lab = s0.buildings.find((b) => b.type === 'lab')!;
+    const s = run(s0, { type: 'transform', villagerId: v.id, labId: lab.id }, s0.now, map);
+    const d = run(s, { type: 'demolish', buildingId: lab.id }, s.now, map);
+    expect(d.villagers[0]!.job.kind).not.toBe('transform');
+    expect(d.resources.juice).toBeGreaterThanOrEqual(s.resources.juice + KIKIWIWI.cost.juice!);
+    const old = { ...s0, schemaVersion: 15 } as Record<string, unknown>;
+    const m = migrateState(old);
+    expect(m.ok).toBe(true);
+  });
+});

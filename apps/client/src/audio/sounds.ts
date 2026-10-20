@@ -47,7 +47,14 @@ export function playGameEventSounds(events: GameEvent[]): void {
         audio.play('research.done');
         break;
       case 'ageReached':
+      case 'kikiwiwiBorn':
         audio.play('age.reached');
+        break;
+      case 'infusionFailed':
+        audio.play('threat.defeat');
+        break;
+      case 'obstacleCleared':
+        audio.play('build.complete', { pos: at(e.q, e.r) });
         break;
       case 'trained':
         audio.play('kiwi.levelUp');

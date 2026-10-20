@@ -70,6 +70,7 @@ import {
 } from '../icons';
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
+import { LabInfo } from './LabInfo';
 import { AgeInfo, ResearchSummary } from './ResearchModal';
 
 function Progress({ item, now }: { item: QueueItem; now: number }) {
@@ -291,6 +292,7 @@ function BuildingSection({
         </>
       )}
       {b.type === 'school' && <SchoolInfo game={game} b={b} now={now} t={t} />}
+      {b.type === 'lab' && <LabInfo game={game} map={map} b={b} now={now} />}
       {b.type === 'monument' && <AgeInfo game={game} t={t} />}
       {b.type === 'library' && (
         <>

@@ -58,6 +58,13 @@ const job = z.discriminatedUnion('kind', [
   }),
   z.object({ kind: z.literal('guard') }),
   z.object({ kind: z.literal('injured'), until: z.number() }),
+  z.object({
+    kind: z.literal('transform'),
+    labId: id,
+    until: z.number(),
+    risk: z.number().min(0).max(1),
+    paid: partialResources,
+  }),
 ]);
 
 const sides = z.object({ ground: z.number().min(0), air: z.number().min(0) });
@@ -169,6 +176,7 @@ export const gameStateSchema = z.object({
       }),
       classId: z.enum(CLASS_IDS).nullable(),
       skillReadyAt: z.record(z.enum(SKILL_IDS), z.number()),
+      kikiwiwi: z.object({ since: z.number() }).optional(),
     }),
   ),
   memorial: z
@@ -471,6 +479,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   13: (raw) => ({ ...raw, friends: [], shipments: [], incoming: [] }),
   // v14 → v15: obstacles (chantier 08, second half), only on tiles nothing stands on.
   14: (raw) => ({ ...raw, obstacles: obstaclesForOldGame(raw) }),
+  // v15 → v16: laboratory against nature and Kikiwiwis (nothing to fill: optional field).
+  15: (raw) => raw,
 };
 
 function obstaclesForOldGame(raw: Record<string, unknown>): Obstacle[] {

@@ -447,6 +447,10 @@ export class KiwisView {
       const school = getBuilding(this.state, villager.job.schoolId);
       return school ? { hex: { q: school.q, r: school.r }, resource: null } : null;
     }
+    if (villager.job.kind === 'transform') {
+      const lab = getBuilding(this.state, villager.job.labId);
+      return lab ? { hex: { q: lab.q, r: lab.r }, resource: null } : null;
+    }
     if (villager.job.kind === 'build') {
       const jobId = villager.job.queueItemId;
       const item = this.state.queue.find((i) => i.id === jobId);
@@ -477,7 +481,10 @@ export class KiwisView {
     if (
       !shelter &&
       job.kind !== 'injured' &&
-      (agent.rhythm === 'work' || job.kind === 'build' || job.kind === 'train')
+      (agent.rhythm === 'work' ||
+        job.kind === 'build' ||
+        job.kind === 'train' ||
+        job.kind === 'transform')
     ) {
       agent.inside = false;
       return false;
@@ -522,10 +529,26 @@ export class KiwisView {
             ? `t:${job.schoolId}`
             : job.kind === 'guard'
               ? 'g'
-              : 'idle';
+              : job.kind === 'transform'
+                ? `x:${job.labId}`
+                : 'idle';
     const changed = sig !== agent.plan;
     agent.plan = sig;
     const work = this.workTile(villager);
+
+    // In the vat: walks to the laboratory and floats inside until the infusion ends.
+    if (job.kind === 'transform' && work) {
+      if (changed) {
+        agent.carrying = null;
+        agent.inside = false;
+        this.walkTo(agent, work.hex, 0.2);
+      } else if (agent.activity === 'walk' && agent.path.length === 0) {
+        agent.activity = 'sleep';
+        agent.timer = 1e9;
+        agent.inside = true;
+      }
+      return;
+    }
 
     if ((job.kind === 'build' || job.kind === 'train') && work) {
       if (changed || (agent.activity !== 'walk' && agent.activity !== 'build')) {

@@ -26,6 +26,7 @@ export function workSite(state: GameState, v: Villager): Hex | null {
   const at = (id: BuildingId) => state.buildings.find((b) => b.id === id) ?? null;
   if (job.kind === 'work') return at(job.buildingId);
   if (job.kind === 'train') return at(job.schoolId);
+  if (job.kind === 'transform') return at(job.labId);
   if (job.kind === 'build') return state.queue.find((i) => i.id === job.queueItemId) ?? null;
   if (job.kind === 'expedition') return null;
   return state.buildings.find((b) => b.type === 'nest') ?? null;
@@ -67,7 +68,9 @@ export function bedsOf(state: GameState, map: FaceMap = faceMapOf(state)): Map<V
                 ? `${v.id}g;`
                 : j.kind === 'injured'
                   ? `${v.id}h;`
-                  : '';
+                  : j.kind === 'transform'
+                    ? `${v.id}x${j.labId};`
+                    : '';
   }
   key += `|${state.paths.join(';')}`;
   const cached = bedCache.get(key);

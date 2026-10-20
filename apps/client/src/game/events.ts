@@ -27,6 +27,12 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
       case 'ageReached':
         pushToast('success', 'events.ageReached', { age: `@ages.${AGE_IDS[e.age]!}` });
         break;
+      case 'kikiwiwiBorn':
+        pushToast('success', 'events.kikiwiwiBorn', { name: e.name });
+        break;
+      case 'infusionFailed':
+        pushToast('error', 'events.infusionFailed', { name: e.name });
+        break;
       case 'researchDone':
         pushToast('success', 'events.researchDone', { tech: `@techs.${e.tech}.name` });
         break;

@@ -283,7 +283,7 @@ function ratesOf(
   } else if (job.kind === 'build') {
     perHour = KIWI.xpPerHour.build;
     mastery = 'build';
-  } else if (job.kind === 'train') {
+  } else if (job.kind === 'train' || job.kind === 'transform') {
     perHour = KIWI.xpPerHour.train;
   } else if (job.kind === 'guard') {
     perHour = KIWI.xpPerHour.guard;

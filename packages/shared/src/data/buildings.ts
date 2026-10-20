@@ -16,6 +16,7 @@ export const BUILDING_TYPES = [
   'school',
   'library',
   'monument',
+  'lab',
   'camp',
   'seedTurret',
   'skyTurret',
@@ -388,6 +389,34 @@ const BASE: Record<BuildingType, BuildingDef> = {
   },
   // Chantier 06: turrets stand on the skin rampart and fire seeds at the predators, on their
   // own (offline too). Outside the building cap, limited by the Nest level (TURRETS).
+  // Chantier 08: one laboratory against nature per colony (Iron age, after juice infusion).
+  // Outside the building cap; its level shortens the infusion and lowers the risk.
+  lab: {
+    id: 'lab',
+    allowedTiles: ['flesh', 'ray', 'heart'],
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 4000, fiber: 4000, seeds: 800, juice: 1500 },
+        durationMs: ms.h(2),
+        requiresNestLevel: 4,
+        requiresAge: 2,
+      },
+      {
+        cost: { pulp: 8000, fiber: 8000, seeds: 1600, juice: 3000 },
+        durationMs: ms.h(4),
+        requiresNestLevel: 4,
+        requiresAge: 2,
+      },
+      {
+        cost: { pulp: 16000, fiber: 16000, seeds: 3200, juice: 6000 },
+        durationMs: ms.h(8),
+        requiresNestLevel: 5,
+        requiresAge: 3,
+      },
+    ],
+  },
   seedTurret: {
     id: 'seedTurret',
     allowedTiles: ['skin'],

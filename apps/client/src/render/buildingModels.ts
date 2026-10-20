@@ -815,6 +815,69 @@ function library(fullLevel: number): Parts {
 }
 
 /**
+ * Laboratory against nature (chantier 08): glass vats of glowing juice on an iron platform,
+ * copper pipes, a crackling lightning rod; a dark shape floats in the main vat. More vats and a
+ * taller coil with each level.
+ */
+function lab(level: number): Parts {
+  const p: Parts = [];
+  p.push([cyl(8), C.ironDark, m(0, 0.04, 0, 0.6, 0.08, 0.6)]);
+  p.push([box(), C.brick, m(-0.18, 0.28, -0.22, 0.42, 0.42, 0.3)]);
+  p.push([cone(4), C.ironDark, m(-0.18, 0.58, -0.22, 0.36, 0.2, 0.28, 0, Math.PI / 4, 0)]);
+  p.push([box(), C.door, m(-0.18, 0.16, -0.06, 0.12, 0.2, 0.03)]);
+  // The main vat: a glass column of juice with iron hoops and a floating silhouette.
+  const vx = 0.22;
+  const vz = 0.12;
+  p.push([cyl(10), C.ironDark, m(vx, 0.12, vz, 0.2, 0.08, 0.2)]);
+  p.push([cyl(10), C.juice, m(vx, 0.4, vz, 0.16, 0.5, 0.16)]);
+  for (const y of [0.2, 0.62])
+    p.push([
+      new TorusGeometry(1, 0.12, 4, 12),
+      C.iron,
+      m(vx, y, vz, 0.165, 0.165, 0.165, Math.PI / 2),
+    ]);
+  p.push([cyl(10), C.ironDark, m(vx, 0.68, vz, 0.18, 0.05, 0.18)]);
+  rig(p, 'floater', [vx, 0.42, vz], { kind: 'bob', amount: 0.03, speed: 1.4, ambient: true });
+  p.push([sphere(8, 6), C.leafDark, m(vx, 0.42, vz, 0.07, 0.09, 0.07), 'floater']);
+  emitter(p, { kind: 'juice', at: [vx, 0.68, vz], rate: 1.6, ambient: true });
+  // Smaller vats around it.
+  const extra = Math.min(3, level) - 1;
+  for (let i = 0; i < extra; i++) {
+    const a = -0.4 + i * 1.1;
+    const x = vx + Math.cos(a) * 0.32;
+    const z = vz + Math.sin(a) * 0.32 + 0.05;
+    p.push([cyl(8), C.ironDark, m(x, 0.1, z, 0.1, 0.06, 0.1)]);
+    p.push([cyl(8), C.juice, m(x, 0.26, z, 0.08, 0.28, 0.08)]);
+  }
+  // Copper pipes from the house to the vat.
+  p.push([cyl(6), C.fire, m(0.02, 0.5, -0.04, 0.025, 0.36, 0.025, 0, 0, 1.2)]);
+  p.push([cyl(6), C.fire, m(0.05, 0.3, -0.02, 0.025, 0.3, 0.025, 0, 0, 1.4)]);
+  // The lightning rod and its coil.
+  const rodH = 0.55 + level * 0.12;
+  p.push([cyl(6), C.iron, m(-0.38, 0.1 + rodH / 2, 0.22, 0.02, rodH, 0.02)]);
+  rig(p, 'coil', [-0.38, 0.2 + rodH * 0.6, 0.22], {
+    kind: 'spin',
+    axis: 'y',
+    amount: 1,
+    speed: 2,
+    ambient: true,
+  });
+  p.push([
+    new TorusGeometry(1, 0.2, 4, 10),
+    C.flagGold,
+    m(-0.38, 0.2 + rodH * 0.6, 0.22, 0.08, 0.08, 0.08, Math.PI / 2),
+    'coil',
+  ]);
+  emitter(p, {
+    kind: 'spark',
+    at: [-0.38, 0.12 + rodH, 0.22],
+    rate: 1 + level * 0.5,
+    ambient: true,
+  });
+  return p;
+}
+
+/**
  * Monument (chantier 08), one level per age: a ring of standing stones (Stone age), a forge
  * and iron bands (Iron age), then a clock tower with turning gears and steam (Industry).
  */
@@ -885,6 +948,7 @@ const BUILDERS: Record<BuildingType, (level: number, age: number) => Parts> = {
   school,
   library,
   monument,
+  lab,
   seedTurret,
   skyTurret,
 };

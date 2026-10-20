@@ -47,7 +47,7 @@ const errorOf = (s: GameState, cmd: Command, map: ReturnType<typeof setup>['map'
 describe('ages', () => {
   it('extends every building but camps and the monument to six levels, one per age', () => {
     for (const type of BUILDING_TYPES) {
-      if (type === 'camp' || type === 'monument') continue;
+      if (type === 'camp' || type === 'monument' || type === 'lab') continue;
       expect(maxLevelOf(type)).toBe(6);
       for (let level = 4; level <= 6; level++) {
         const def = levelDef(type, level)!;
@@ -59,6 +59,7 @@ describe('ages', () => {
       }
     }
     expect(maxLevelOf('monument')).toBe(3);
+    expect(maxLevelOf('lab')).toBe(3);
   });
 
   it('builds the monument once its passage is researched, and the Stone age begins', () => {

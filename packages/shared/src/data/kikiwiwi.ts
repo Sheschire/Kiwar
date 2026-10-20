@@ -1,0 +1,33 @@
+import { ms } from './curves';
+import type { Resources } from './resources';
+
+/**
+ * Chantier 08 (second half): the laboratory against nature turns a kiwi into a Kikiwiwi with
+ * juice from the planet. Long and costly; it can fail (the kiwi survives, hurt and weakened).
+ * At most one per age reached from the Iron age (Iron 1, Industry 2).
+ */
+export const KIKIWIWI = {
+  /** Kiwi level needed (an invested kiwi). */
+  minLevel: 5,
+  /** Paid when the infusion starts (lost on a failure). */
+  cost: { pulp: 1000, seeds: 400, juice: 2500 } as Partial<Resources>,
+  /** Infusion time by laboratory level. */
+  durationMs: [ms.h(16), ms.h(12), ms.h(8)] as readonly number[],
+  risk: {
+    base: 0.4,
+    /** Less risk per point of Endurance above average, per kiwi level above the first. */
+    endurance: 0.02,
+    level: 0.01,
+    /** Less risk by laboratory level (index = level − 1). */
+    lab: [0, 0.08, 0.16] as readonly number[],
+    min: 0.05,
+    max: 0.6,
+  },
+  failure: {
+    /** The kiwi rests this long, and loses a point of these stats. */
+    injuredMs: ms.h(24),
+    stats: ['strength', 'endurance'] as const,
+  },
+  /** Kikiwiwis allowed by age (index = age): from the Iron age, one per age reached. */
+  capByAge: [0, 0, 1, 2] as readonly number[],
+} as const;

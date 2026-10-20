@@ -59,7 +59,9 @@ import {
 } from './selectors';
 import { cloneState, nextId, type GameState, type MissionKind } from './state';
 import { PASSAGE_TECHS, TECHS, type TechId } from '../data/research';
-import { ageOf, hasTech, researchTick, techStatus } from './research';
+import { ageOf, hasTech, researchTick, techEffects, techStatus } from './research';
+import { KIKIWIWI } from '../data/kikiwiwi';
+import { infusionDuration, infusionRisk, kikiwiwiCap, kikiwiwiCount } from './kikiwiwi';
 import { SHELTER } from '../data/threats';
 import { forecastWave } from './threats';
 import {
@@ -126,6 +128,8 @@ export type Command =
   | { type: 'repair'; buildingId: BuildingId }
   /** Posts exactly these kiwis on the rampart (the others go back to work). */
   | { type: 'setGarrison'; villagerIds: VillagerId[] }
+  /** Chantier 08: a kiwi goes into the vat of the laboratory against nature. */
+  | { type: 'transform'; villagerId: VillagerId; labId: BuildingId }
   /** Chantier 08: a builder clears the stump on this tile (queued like a construction). */
   | { type: 'clearObstacle'; q: number; r: number }
   /** Chantier 08: the technology the researchers work on (null: bank the points). */
@@ -201,6 +205,12 @@ export const COMMAND_ERRORS = [
   'noObstacle',
   'needsKikiwiwi',
   'alreadyClearing',
+  'techMissing',
+  'labExists',
+  'notALab',
+  'labBusy',
+  'kikiwiwiLimit',
+  'alreadyKikiwiwi',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -290,7 +300,11 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (obstacleAt(s, cmd.q, cmd.r)) fail('obstacle');
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail('flooded');
       if (nest(s).level < def.levels[0]!.requiresNestLevel) fail('nestLevelTooLow');
-      if (cmd.buildingType === 'monument') {
+      if ((def.levels[0]!.requiresAge ?? 0) > ageOf(s)) fail('ageTooLow');
+      if (cmd.buildingType === 'lab') {
+        if (copiesOf(s, 'lab') > 0) fail('labExists');
+        if (!techEffects(s).laboratory) fail('techMissing');
+      } else if (cmd.buildingType === 'monument') {
         if (copiesOf(s, 'monument') > 0) fail('monumentExists');
         if (!hasTech(s, PASSAGE_TECHS[1]!)) fail('passageMissing');
       } else if (isTurret(cmd.buildingType)) {
@@ -558,8 +572,11 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
           v.job = { kind: 'idle' };
           autoAssign(s, v);
         }
-        // Trainees of a demolished School get their fee back.
-        if (v.job.kind === 'train' && v.job.schoolId === b.id) {
+        // Trainees of a demolished School (or kiwis in its vat) get their fee back.
+        if (
+          (v.job.kind === 'train' && v.job.schoolId === b.id) ||
+          (v.job.kind === 'transform' && v.job.labId === b.id)
+        ) {
           refund(s, v.job.paid);
           v.job = { kind: 'idle' };
           autoAssign(s, v);
@@ -623,13 +640,36 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       };
       return;
     }
+    case 'transform': {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail('unknownVillager');
+      const lab = getBuilding(s, cmd.labId);
+      if (!lab || lab.type !== 'lab') return fail('notALab');
+      if (v.kikiwiwi) fail('alreadyKikiwiwi');
+      if (v.level < KIKIWIWI.minLevel) fail('levelTooLow');
+      if (v.job.kind !== 'idle' && v.job.kind !== 'work') fail('kiwiBusy');
+      if (s.villagers.some((x) => x.job.kind === 'transform' && x.job.labId === lab.id))
+        fail('labBusy');
+      if (kikiwiwiCount(s) >= kikiwiwiCap(s)) fail('kikiwiwiLimit');
+      const cost = { ...KIKIWIWI.cost };
+      pay(s, cost);
+      v.job = {
+        kind: 'transform',
+        labId: lab.id,
+        until: now + infusionDuration(lab),
+        risk: infusionRisk(s, v, lab),
+        paid: cost,
+      };
+      return;
+    }
     case 'useSkill': {
       const v = s.villagers.find((x) => x.id === cmd.villagerId);
       if (!v) return fail('unknownVillager');
       const def = v.classId ? CLASSES[v.classId].skills.find((x) => x.id === cmd.skill) : undefined;
       if (!def?.cooldownMs || !hasSkill(v, cmd.skill)) return fail('skillLocked');
       if ((v.skillReadyAt[cmd.skill] ?? 0) > now) fail('skillCooling');
-      if (v.job.kind === 'expedition' || v.job.kind === 'train') fail('kiwiBusy');
+      if (v.job.kind === 'expedition' || v.job.kind === 'train' || v.job.kind === 'transform')
+        fail('kiwiBusy');
       if (cmd.skill === 'rain') {
         const b = v.job.kind === 'work' ? getBuilding(s, v.job.buildingId) : undefined;
         const h = b?.pool ? buildingHarvest(s, b) : null;

@@ -28,7 +28,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;
 
 export type Job =
   | { kind: 'idle' }
@@ -48,7 +48,12 @@ export type Job =
   /** Posted on the rampart against predators (no harvest). */
   | { kind: 'guard' }
   /** Hurt by predators: rests at home until `until`, then looks for work. */
-  | { kind: 'injured'; until: TimeMs };
+  | { kind: 'injured'; until: TimeMs }
+  /**
+   * Chantier 08: in a vat of the laboratory against nature until `until` (`risk` of failure,
+   * set when it starts; `paid` is refunded if the laboratory goes).
+   */
+  | { kind: 'transform'; labId: BuildingId; until: TimeMs; risk: number; paid: Partial<Resources> };
 
 export interface KiwiHistory {
   expeditions: number;
@@ -79,6 +84,8 @@ export interface Villager {
   classId: ClassId | null;
   /** When each active skill can be used again. */
   skillReadyAt: Partial<Record<SkillId, TimeMs>>;
+  /** Chantier 08: transformed by juice into a Kikiwiwi (absent for ordinary kiwis). */
+  kikiwiwi?: { since: TimeMs };
 }
 
 /** A kiwi lost for good (expeditions), remembered in the village screen. */
@@ -760,7 +767,11 @@ export function cloneThreats(t: ThreatState): ThreatState {
 export function cloneVillager(v: Villager): Villager {
   return {
     ...v,
-    job: v.job.kind === 'train' ? { ...v.job, paid: { ...v.job.paid } } : { ...v.job },
+    job:
+      v.job.kind === 'train' || v.job.kind === 'transform'
+        ? { ...v.job, paid: { ...v.job.paid } }
+        : { ...v.job },
+    ...(v.kikiwiwi ? { kikiwiwi: { ...v.kikiwiwi } } : {}),
     stats: { ...v.stats },
     skillReadyAt: { ...v.skillReadyAt },
     mastery: { ...v.mastery },

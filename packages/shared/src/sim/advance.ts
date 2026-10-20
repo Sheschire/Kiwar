@@ -39,6 +39,7 @@ import type { IncidentKind } from '../data/threats';
 import { nextThreatEvent, planWave, threatTick } from './threats';
 import { meteorRate, nextSkyEvent, planMeteor, skyTick } from './sky';
 import { obstacleAt, removeObstacle } from './obstacles';
+import { finishInfusions, nextInfusionEnd } from './kikiwiwi';
 import type { ObstacleKind } from '../data/obstacles';
 import { accrueResearch, nextResearchEvent, researchTick } from './research';
 import {
@@ -108,6 +109,9 @@ export type GameEvent =
       by: 'kiwis' | 'titan';
     }
   | { type: 'wreckLeft'; at: TimeMs; q: number; r: number }
+  /** Chantier 08: an infusion ended (a Kikiwiwi, or a failure: hurt and weakened). */
+  | { type: 'kikiwiwiBorn'; at: TimeMs; villagerId: VillagerId; name: string }
+  | { type: 'infusionFailed'; at: TimeMs; villagerId: VillagerId; name: string }
   | { type: 'seasonChanged'; at: TimeMs; season: Season }
   /** A food stock ran dry: the colony eats what is harvested and goes hungry. */
   | { type: 'foodRanOut'; at: TimeMs; resource: 'pulp' | 'juice' }
@@ -221,7 +225,9 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const injuryEnd = nextInjuryEnd(s);
     const researchAt = nextResearchEvent(s);
     const deliveryAt = nextDeliveryEvent(s);
+    const infusionEnd = nextInfusionEnd(s);
     const nextEvent = Math.min(
+      infusionEnd,
       researchAt,
       deliveryAt,
       threatAt,
@@ -253,6 +259,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
       hatch(s, s.egg.readyAt, events);
     }
     if (trainingEnd === nextEvent) finishTrainings(s, trainingEnd, events);
+    if (infusionEnd === nextEvent) finishInfusions(s, infusionEnd, events);
     if (speechEnd === nextEvent) events.push({ type: 'speechOver', at: speechEnd });
     if (mourningEnd === nextEvent) events.push({ type: 'mourningOver', at: mourningEnd });
     if (calendarChange === nextEvent) calendarTick(s, calendarChange, events);
@@ -482,7 +489,10 @@ export function startNextConstruction(s: GameState, at: TimeMs, events: GameEven
 /** Prefers the best idle builder; otherwise borrows one from the most staffed workplace. */
 function pickBuilder(s: GameState): Villager | undefined {
   let idle: Villager | undefined;
-  for (const v of idleVillagers(s)) if (!idle || builderSpeed(v) > builderSpeed(idle)) idle = v;
+  for (const v of idleVillagers(s)) {
+    if (v.kikiwiwi) continue;
+    if (!idle || builderSpeed(v) > builderSpeed(idle)) idle = v;
+  }
   if (idle) return idle;
   let best: Villager | undefined;
   let bestCount = 0;
@@ -599,6 +609,8 @@ function hatch(s: GameState, at: TimeMs, events: GameEvent[]): void {
  * idled by the player stay idle.
  */
 export function autoAssign(s: GameState, v: Villager): void {
+  // Kikiwiwis never take a workplace (garrison, expeditions and titan works only).
+  if (v.kikiwiwi) return;
   let best: { id: BuildingId; ratio: number; power: number } | null = null;
   for (const b of s.buildings) {
     const slots = workerSlots(b);
@@ -623,7 +635,7 @@ export function bestIdleFor(s: GameState, b: Building): Villager | undefined {
 /** Idle kiwis, best workers for this building first (stable on ties). */
 export function idleByPower(s: GameState, b: Building): Villager[] {
   const resource = buildingResource(s, b);
-  const idle = idleVillagers(s);
+  const idle = idleVillagers(s).filter((v) => !v.kikiwiwi);
   if (!resource) return idle;
   return idle
     .map((v, i) => ({ v, i, p: workerPower(v, resource) }))

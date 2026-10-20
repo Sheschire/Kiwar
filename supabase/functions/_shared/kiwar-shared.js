@@ -585,6 +585,7 @@ var BUILDING_TYPES = [
   "school",
   "library",
   "monument",
+  "lab",
   "camp",
   "seedTurret",
   "skyTurret"
@@ -912,6 +913,34 @@ var BASE = {
   },
   // Chantier 06: turrets stand on the skin rampart and fire seeds at the predators, on their
   // own (offline too). Outside the building cap, limited by the Nest level (TURRETS).
+  // Chantier 08: one laboratory against nature per colony (Iron age, after juice infusion).
+  // Outside the building cap; its level shortens the infusion and lowers the risk.
+  lab: {
+    id: "lab",
+    allowedTiles: ["flesh", "ray", "heart"],
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 4e3, fiber: 4e3, seeds: 800, juice: 1500 },
+        durationMs: ms.h(2),
+        requiresNestLevel: 4,
+        requiresAge: 2
+      },
+      {
+        cost: { pulp: 8e3, fiber: 8e3, seeds: 1600, juice: 3e3 },
+        durationMs: ms.h(4),
+        requiresNestLevel: 4,
+        requiresAge: 2
+      },
+      {
+        cost: { pulp: 16e3, fiber: 16e3, seeds: 3200, juice: 6e3 },
+        durationMs: ms.h(8),
+        requiresNestLevel: 5,
+        requiresAge: 3
+      }
+    ]
+  },
   seedTurret: {
     id: "seedTurret",
     allowedTiles: ["skin"],
@@ -1585,7 +1614,7 @@ var AGE_IDS = ["eden", "stone", "iron", "industry"];
 var MAX_AGE = AGE_IDS.length - 1;
 
 // packages/shared/src/data/research.ts
-var TECH_BRANCHES = ["economy", "defense", "exploration", "passage"];
+var TECH_BRANCHES = ["economy", "defense", "exploration", "passage", "unnatural"];
 var TECH_IDS = [
   // Eden
   "foraging",
@@ -1605,7 +1634,11 @@ var TECH_IDS = [
   // Industry
   "machines",
   "firearms",
-  "steamEngines"
+  "steamEngines",
+  // Against nature (second half of chantier 08)
+  "juiceInfusion",
+  "titanWorks",
+  "greenBlood"
 ];
 var TECHS = {
   foraging: {
@@ -1713,6 +1746,30 @@ var TECHS = {
     cost: 2e3,
     libraryLevel: 5,
     effects: { travel: 0.85 }
+  },
+  juiceInfusion: {
+    id: "juiceInfusion",
+    age: 2,
+    branch: "unnatural",
+    cost: 1200,
+    libraryLevel: 4,
+    effects: { laboratory: true }
+  },
+  titanWorks: {
+    id: "titanWorks",
+    age: 2,
+    branch: "unnatural",
+    cost: 1500,
+    libraryLevel: 5,
+    effects: { terraform: true }
+  },
+  greenBlood: {
+    id: "greenBlood",
+    age: 3,
+    branch: "unnatural",
+    cost: 2500,
+    libraryLevel: 6,
+    effects: { kikiwiwiPower: 1.25, kikiwiwiUpkeep: 0.75, infusionRisk: 0.1 }
   }
 };
 var PASSAGE_TECHS = [
@@ -1755,6 +1812,33 @@ var OBSTACLE_RULES = {
   clearCost: { pulp: 40 },
   /** Wrecks kept at once (a crater fading away leaves none beyond). */
   maxWrecks: 4
+};
+
+// packages/shared/src/data/kikiwiwi.ts
+var KIKIWIWI = {
+  /** Kiwi level needed (an invested kiwi). */
+  minLevel: 5,
+  /** Paid when the infusion starts (lost on a failure). */
+  cost: { pulp: 1e3, seeds: 400, juice: 2500 },
+  /** Infusion time by laboratory level. */
+  durationMs: [ms.h(16), ms.h(12), ms.h(8)],
+  risk: {
+    base: 0.4,
+    /** Less risk per point of Endurance above average, per kiwi level above the first. */
+    endurance: 0.02,
+    level: 0.01,
+    /** Less risk by laboratory level (index = level − 1). */
+    lab: [0, 0.08, 0.16],
+    min: 0.05,
+    max: 0.6
+  },
+  failure: {
+    /** The kiwi rests this long, and loses a point of these stats. */
+    injuredMs: ms.h(24),
+    stats: ["strength", "endurance"]
+  },
+  /** Kikiwiwis allowed by age (index = age): from the Iron age, one per age reached. */
+  capByAge: [0, 0, 1, 2]
 };
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
@@ -2388,6 +2472,7 @@ function workSite(state, v) {
   const at = (id3) => state.buildings.find((b) => b.id === id3) ?? null;
   if (job2.kind === "work") return at(job2.buildingId);
   if (job2.kind === "train") return at(job2.schoolId);
+  if (job2.kind === "transform") return at(job2.labId);
   if (job2.kind === "build") return state.queue.find((i) => i.id === job2.queueItemId) ?? null;
   if (job2.kind === "expedition") return null;
   return state.buildings.find((b) => b.type === "nest") ?? null;
@@ -2405,7 +2490,7 @@ function bedsOf(state, map = faceMapOf(state)) {
   key += "|";
   for (const v of state.villagers) {
     const j = v.job;
-    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : "";
+    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : j.kind === "transform" ? `${v.id}x${j.labId};` : "";
   }
   key += `|${state.paths.join(";")}`;
   const cached = bedCache.get(key);
@@ -2678,7 +2763,7 @@ function ratesOf(state, v, masteries) {
   } else if (job2.kind === "build") {
     perHour = KIWI.xpPerHour.build;
     mastery = "build";
-  } else if (job2.kind === "train") {
+  } else if (job2.kind === "train" || job2.kind === "transform") {
     perHour = KIWI.xpPerHour.train;
   } else if (job2.kind === "guard") {
     perHour = KIWI.xpPerHour.guard;
@@ -2799,7 +2884,12 @@ function techEffects(state) {
     injuries: 1,
     armor: 0,
     recon: 0,
-    firearms: false
+    firearms: false,
+    laboratory: false,
+    terraform: false,
+    kikiwiwiPower: 1,
+    kikiwiwiUpkeep: 1,
+    infusionRisk: 0
   };
   for (const id3 of state.research.done) {
     const e = TECHS[id3].effects;
@@ -2814,6 +2904,11 @@ function techEffects(state) {
     out.armor += e.armor ?? 0;
     out.recon += e.recon ?? 0;
     out.firearms ||= e.firearms ?? false;
+    out.laboratory ||= e.laboratory ?? false;
+    out.terraform ||= e.terraform ?? false;
+    out.kikiwiwiPower *= e.kikiwiwiPower ?? 1;
+    out.kikiwiwiUpkeep *= e.kikiwiwiUpkeep ?? 1;
+    out.infusionRisk += e.infusionRisk ?? 0;
   }
   if (effectsCache2.size > 64) effectsCache2.clear();
   effectsCache2.set(key, out);
@@ -3371,7 +3466,7 @@ function pathLimit(state) {
   return PATHS.base + PATHS.perNestLevel * nest(state).level;
 }
 function buildingCount(state) {
-  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && !isTurret(t);
+  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && !isTurret(t);
   return state.buildings.filter((b) => counted(b.type)).length + state.queue.filter((i) => i.kind === "build" && counted(i.buildingType)).length;
 }
 function turretCount(state) {
@@ -3548,7 +3643,7 @@ function removeObstacle(s, o, at, events, by) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 15;
+var SCHEMA_VERSION = 16;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -3788,7 +3883,8 @@ function cloneThreats(t) {
 function cloneVillager(v) {
   return {
     ...v,
-    job: v.job.kind === "train" ? { ...v.job, paid: { ...v.job.paid } } : { ...v.job },
+    job: v.job.kind === "train" || v.job.kind === "transform" ? { ...v.job, paid: { ...v.job.paid } } : { ...v.job },
+    ...v.kikiwiwi ? { kikiwiwi: { ...v.kikiwiwi } } : {},
     stats: { ...v.stats },
     skillReadyAt: { ...v.skillReadyAt },
     mastery: { ...v.mastery },
@@ -4765,6 +4861,53 @@ function skyTick(s, at, events) {
   sky.meteors = sky.meteors.filter((m) => m.expiresAt > at);
 }
 
+// packages/shared/src/sim/kikiwiwi.ts
+function isKikiwiwi(v) {
+  return v.kikiwiwi !== void 0;
+}
+function laboratoryOf(state) {
+  return state.buildings.find((b) => b.type === "lab");
+}
+function kikiwiwiCap(state) {
+  const caps = KIKIWIWI.capByAge;
+  return caps[Math.min(ageOf(state), caps.length - 1)] ?? 0;
+}
+function kikiwiwiCount(state) {
+  return state.villagers.filter((v) => isKikiwiwi(v) || v.job.kind === "transform").length;
+}
+function infusionRisk(state, v, lab) {
+  const r = KIKIWIWI.risk;
+  const risk = r.base - r.endurance * (v.stats.endurance - KIWI.stat.average) - r.level * (v.level - 1) - (r.lab[lab.level - 1] ?? 0) - techEffects(state).infusionRisk;
+  return Math.round(Math.min(r.max, Math.max(r.min, risk)) * 1e3) / 1e3;
+}
+function infusionDuration(lab) {
+  const d = KIKIWIWI.durationMs;
+  return d[Math.min(lab.level, d.length) - 1] ?? d[0];
+}
+function nextInfusionEnd(state) {
+  let next = Infinity;
+  for (const v of state.villagers)
+    if (v.job.kind === "transform") next = Math.min(next, v.job.until);
+  return next;
+}
+function finishInfusions(s, at, events) {
+  for (const v of s.villagers) {
+    if (v.job.kind !== "transform" || v.job.until !== at) continue;
+    const risk = v.job.risk;
+    const failed = withRng(s, (rng) => rng.next() < risk);
+    if (failed) {
+      for (const stat of KIKIWIWI.failure.stats)
+        v.stats[stat] = Math.max(KIWI.stat.min, v.stats[stat] - 1);
+      v.job = { kind: "injured", until: at + KIKIWIWI.failure.injuredMs };
+      events.push({ type: "infusionFailed", at, villagerId: v.id, name: v.name });
+    } else {
+      v.kikiwiwi = { since: at };
+      v.job = { kind: "idle" };
+      events.push({ type: "kikiwiwiBorn", at, villagerId: v.id, name: v.name });
+    }
+  }
+}
+
 // packages/shared/src/sim/advance.ts
 function advance(state, now) {
   const s = cloneState(state);
@@ -4794,7 +4937,9 @@ function advanceInPlace(s, now, events) {
     const injuryEnd = nextInjuryEnd(s);
     const researchAt = nextResearchEvent(s);
     const deliveryAt = nextDeliveryEvent(s);
+    const infusionEnd = nextInfusionEnd(s);
     const nextEvent = Math.min(
+      infusionEnd,
       researchAt,
       deliveryAt,
       threatAt,
@@ -4826,6 +4971,7 @@ function advanceInPlace(s, now, events) {
       hatch(s, s.egg.readyAt, events);
     }
     if (trainingEnd === nextEvent) finishTrainings(s, trainingEnd, events);
+    if (infusionEnd === nextEvent) finishInfusions(s, infusionEnd, events);
     if (speechEnd === nextEvent) events.push({ type: "speechOver", at: speechEnd });
     if (mourningEnd === nextEvent) events.push({ type: "mourningOver", at: mourningEnd });
     if (calendarChange === nextEvent) calendarTick(s, calendarChange, events);
@@ -5019,7 +5165,10 @@ function startNextConstruction(s, at, events) {
 }
 function pickBuilder(s) {
   let idle;
-  for (const v of idleVillagers(s)) if (!idle || builderSpeed(v) > builderSpeed(idle)) idle = v;
+  for (const v of idleVillagers(s)) {
+    if (v.kikiwiwi) continue;
+    if (!idle || builderSpeed(v) > builderSpeed(idle)) idle = v;
+  }
   if (idle) return idle;
   let best;
   let bestCount = 0;
@@ -5115,6 +5264,7 @@ function hatch(s, at, events) {
   autoAssign(s, v);
 }
 function autoAssign(s, v) {
+  if (v.kikiwiwi) return;
   let best = null;
   for (const b of s.buildings) {
     const slots = workerSlots(b);
@@ -5135,7 +5285,7 @@ function bestIdleFor(s, b) {
 }
 function idleByPower(s, b) {
   const resource = buildingResource(s, b);
-  const idle = idleVillagers(s);
+  const idle = idleVillagers(s).filter((v) => !v.kikiwiwi);
   if (!resource) return idle;
   return idle.map((v, i) => ({ v, i, p: workerPower(v, resource) })).sort((a, c) => c.p - a.p || a.i - c.i).map((x) => x.v);
 }
@@ -5250,7 +5400,13 @@ var COMMAND_ERRORS = [
   "obstacle",
   "noObstacle",
   "needsKikiwiwi",
-  "alreadyClearing"
+  "alreadyClearing",
+  "techMissing",
+  "labExists",
+  "notALab",
+  "labBusy",
+  "kikiwiwiLimit",
+  "alreadyKikiwiwi"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -5311,7 +5467,11 @@ function execute(s, cmd, ctx, events) {
       if (obstacleAt(s, cmd.q, cmd.r)) fail("obstacle");
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail("flooded");
       if (nest(s).level < def.levels[0].requiresNestLevel) fail("nestLevelTooLow");
-      if (cmd.buildingType === "monument") {
+      if ((def.levels[0].requiresAge ?? 0) > ageOf(s)) fail("ageTooLow");
+      if (cmd.buildingType === "lab") {
+        if (copiesOf(s, "lab") > 0) fail("labExists");
+        if (!techEffects(s).laboratory) fail("techMissing");
+      } else if (cmd.buildingType === "monument") {
         if (copiesOf(s, "monument") > 0) fail("monumentExists");
         if (!hasTech(s, PASSAGE_TECHS[1])) fail("passageMissing");
       } else if (isTurret(cmd.buildingType)) {
@@ -5564,7 +5724,7 @@ function execute(s, cmd, ctx, events) {
           v.job = { kind: "idle" };
           autoAssign(s, v);
         }
-        if (v.job.kind === "train" && v.job.schoolId === b.id) {
+        if (v.job.kind === "train" && v.job.schoolId === b.id || v.job.kind === "transform" && v.job.labId === b.id) {
           refund(s, v.job.paid);
           v.job = { kind: "idle" };
           autoAssign(s, v);
@@ -5622,13 +5782,36 @@ function execute(s, cmd, ctx, events) {
       };
       return;
     }
+    case "transform": {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail("unknownVillager");
+      const lab = getBuilding(s, cmd.labId);
+      if (!lab || lab.type !== "lab") return fail("notALab");
+      if (v.kikiwiwi) fail("alreadyKikiwiwi");
+      if (v.level < KIKIWIWI.minLevel) fail("levelTooLow");
+      if (v.job.kind !== "idle" && v.job.kind !== "work") fail("kiwiBusy");
+      if (s.villagers.some((x) => x.job.kind === "transform" && x.job.labId === lab.id))
+        fail("labBusy");
+      if (kikiwiwiCount(s) >= kikiwiwiCap(s)) fail("kikiwiwiLimit");
+      const cost = { ...KIKIWIWI.cost };
+      pay(s, cost);
+      v.job = {
+        kind: "transform",
+        labId: lab.id,
+        until: now + infusionDuration(lab),
+        risk: infusionRisk(s, v, lab),
+        paid: cost
+      };
+      return;
+    }
     case "useSkill": {
       const v = s.villagers.find((x) => x.id === cmd.villagerId);
       if (!v) return fail("unknownVillager");
       const def = v.classId ? CLASSES[v.classId].skills.find((x) => x.id === cmd.skill) : void 0;
       if (!def?.cooldownMs || !hasSkill(v, cmd.skill)) return fail("skillLocked");
       if ((v.skillReadyAt[cmd.skill] ?? 0) > now) fail("skillCooling");
-      if (v.job.kind === "expedition" || v.job.kind === "train") fail("kiwiBusy");
+      if (v.job.kind === "expedition" || v.job.kind === "train" || v.job.kind === "transform")
+        fail("kiwiBusy");
       if (cmd.skill === "rain") {
         const b = v.job.kind === "work" ? getBuilding(s, v.job.buildingId) : void 0;
         const h = b?.pool ? buildingHarvest(s, b) : null;
@@ -9786,7 +9969,14 @@ var job = external_exports.discriminatedUnion("kind", [
     paid: partialResources
   }),
   external_exports.object({ kind: external_exports.literal("guard") }),
-  external_exports.object({ kind: external_exports.literal("injured"), until: external_exports.number() })
+  external_exports.object({ kind: external_exports.literal("injured"), until: external_exports.number() }),
+  external_exports.object({
+    kind: external_exports.literal("transform"),
+    labId: id,
+    until: external_exports.number(),
+    risk: external_exports.number().min(0).max(1),
+    paid: partialResources
+  })
 ]);
 var sides = external_exports.object({ ground: external_exports.number().min(0), air: external_exports.number().min(0) });
 var named = external_exports.array(external_exports.object({ id, name: external_exports.string().max(4 * KIWI_NAME_MAX) }));
@@ -9885,7 +10075,8 @@ var gameStateSchema = external_exports.object({
         built: external_exports.number().int().min(0)
       }),
       classId: external_exports.enum(CLASS_IDS).nullable(),
-      skillReadyAt: external_exports.record(external_exports.enum(SKILL_IDS), external_exports.number())
+      skillReadyAt: external_exports.record(external_exports.enum(SKILL_IDS), external_exports.number()),
+      kikiwiwi: external_exports.object({ since: external_exports.number() }).optional()
     })
   ),
   memorial: external_exports.array(
@@ -10147,7 +10338,9 @@ var MIGRATIONS = {
   // v13 → v14: deliveries between allies (multiplayer).
   13: (raw) => ({ ...raw, friends: [], shipments: [], incoming: [] }),
   // v14 → v15: obstacles (chantier 08, second half), only on tiles nothing stands on.
-  14: (raw) => ({ ...raw, obstacles: obstaclesForOldGame(raw) })
+  14: (raw) => ({ ...raw, obstacles: obstaclesForOldGame(raw) }),
+  // v15 → v16: laboratory against nature and Kikiwiwis (nothing to fill: optional field).
+  15: (raw) => raw
 };
 function obstaclesForOldGame(raw) {
   const face = raw.face === "kiwino" ? "kiwino" : "kiwisu";
@@ -10261,6 +10454,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("setGarrison"), villagerIds: external_exports.array(id2).max(200) }),
   external_exports.object({ type: external_exports.literal("setResearch"), tech: external_exports.enum(TECH_IDS).nullable() }),
   external_exports.object({ type: external_exports.literal("clearObstacle"), q: external_exports.number().int(), r: external_exports.number().int() }),
+  external_exports.object({ type: external_exports.literal("transform"), villagerId: id2, labId: id2 }),
   external_exports.object({
     type: external_exports.literal("debugGrant"),
     resources: external_exports.object({
@@ -10487,6 +10681,9 @@ function isPlausible(state, now) {
   if (mayors.length > 1 || state.speechUntil > state.now + SKILLS.speechMs * 2) return false;
   if (!plausibleResearch(state) || !plausibleAge(state)) return false;
   if (!plausibleObstacles(state)) return false;
+  const labs = state.buildings.filter((b) => b.type === "lab").length;
+  if (labs > 1 || labs > 0 && !techEffects(state).laboratory) return false;
+  if (kikiwiwiCount(state) > kikiwiwiCap(state)) return false;
   return state.villagers.every((v) => plausibleKiwi(v, state.now));
 }
 function plausibleObstacles(state) {
@@ -10908,6 +11105,7 @@ export {
   INCIDENTS,
   INCIDENT_KINDS,
   INTEL,
+  KIKIWIWI,
   KIWI,
   KIWI_NAME_MAX,
   LOGISTICS,
@@ -11046,6 +11244,7 @@ export {
   ensureAliens,
   exposedKiwis,
   faceMapOf,
+  finishInfusions,
   foodLeftMs,
   forecastExpedition,
   forecastWave,
@@ -11088,12 +11287,15 @@ export {
   hungerWork,
   idleByPower,
   idleVillagers,
+  infusionDuration,
+  infusionRisk,
   intelView,
   inviteCode,
   isDepot,
   isFace,
   isFlooded,
   isInviteCode,
+  isKikiwiwi,
   isLaunchpadBusy,
   isManualWorkplace,
   isMaxLevel,
@@ -11104,11 +11306,14 @@ export {
   isProducer,
   isRampart,
   isTurret,
+  kikiwiwiCap,
+  kikiwiwiCount,
   kiwiCount,
   kiwiExposure,
   kiwiRhythm,
   kiwiSeed,
   kiwiStrength,
+  laboratoryOf,
   landTileNear,
   launch,
   launchpadOf,
@@ -11148,6 +11353,7 @@ export {
   nextDeliveryEvent,
   nextHungerEvent,
   nextId,
+  nextInfusionEnd,
   nextKiwiEvent,
   nextResearchEvent,
   nextSkyEvent,

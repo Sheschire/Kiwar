@@ -3010,3 +3010,17 @@ button.chip:focus-visible {
 .modal .mission-switch + .expedition {
   margin-top: 10px;
 }
+
+/* Chantier 08: laboratory against nature. */
+.lab-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 220px;
+}
+
+.lab-section .xp-bar {
+  margin: 4px 0;
+}
