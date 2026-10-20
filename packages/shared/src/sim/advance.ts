@@ -1,4 +1,5 @@
-import { isProducer, type BuildingType } from '../data/buildings';
+import { isManualWorkplace, isProducer, type BuildingType } from '../data/buildings';
+import type { TechId } from '../data/research';
 import { RESOURCE_IDS, emptyResources, type ResourceId, type Resources } from '../data/resources';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
 import {
@@ -36,6 +37,7 @@ import { removeVillagers } from './expeditions';
 import type { IncidentKind } from '../data/threats';
 import { nextThreatEvent, planWave, threatTick } from './threats';
 import { meteorRate, nextSkyEvent, planMeteor, skyTick } from './sky';
+import { accrueResearch, nextResearchEvent, researchTick } from './research';
 import {
   addVillager,
   cloneState,
@@ -137,6 +139,8 @@ export type GameEvent =
     }
   | { type: 'meteorLanded'; at: TimeMs; q: number; r: number; resource: ResourceId; stock: number }
   | { type: 'meteorFaded'; at: TimeMs; q: number; r: number; resource: ResourceId }
+  /** Chantier 08: a technology is researched. */
+  | { type: 'researchDone'; at: TimeMs; tech: TechId }
   | {
       type: 'repaired';
       at: TimeMs;
@@ -188,7 +192,9 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const threatAt = nextThreatEvent(s);
     const skyAt = nextSkyEvent(s);
     const injuryEnd = nextInjuryEnd(s);
+    const researchAt = nextResearchEvent(s);
     const nextEvent = Math.min(
+      researchAt,
       threatAt,
       skyAt,
       injuryEnd,
@@ -225,6 +231,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     if (injuryEnd === nextEvent) healInjuries(s, injuryEnd, events);
     if (threatAt === nextEvent) threatTick(s, threatAt, events);
     if (skyAt === nextEvent) skyTick(s, skyAt, events);
+    if (researchAt === nextEvent) researchTick(s, researchAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: 'hungerChanged', at: s.now, stage: st });
@@ -417,6 +424,8 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
   }
   if (flows.hunger !== 0)
     s.hunger = Math.min(hungerCap(s), Math.max(0, s.hunger + flows.hunger * dtMs));
+  // Research first: its rate depends on the kiwis as they were during the interval.
+  accrueResearch(s, dtMs);
   accrueKiwis(s, dtMs, at, events);
 }
 
@@ -508,7 +517,11 @@ function completeConstruction(s: GameState, at: TimeMs, events: GameEvent[]): vo
   });
 
   // A brand-new workplace gets an idle kiwi automatically (autonomous villagers).
-  if (item.kind === 'build' && isProducer(item.buildingType)) {
+  if (
+    item.kind === 'build' &&
+    isProducer(item.buildingType) &&
+    !isManualWorkplace(item.buildingType)
+  ) {
     const idle = bestIdleFor(s, getBuilding(s, buildingId)!);
     if (idle) idle.job = { kind: 'work', buildingId };
   }
@@ -551,7 +564,7 @@ export function autoAssign(s: GameState, v: Villager): void {
   let best: { id: BuildingId; ratio: number; power: number } | null = null;
   for (const b of s.buildings) {
     const slots = workerSlots(b);
-    if (slots === 0) continue;
+    if (slots === 0 || isManualWorkplace(b.type)) continue;
     const count = workersOf(s, b.id).length;
     if (count >= slots) continue;
     const ratio = count / slots;

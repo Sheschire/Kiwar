@@ -519,3 +519,27 @@ export function ShieldIcon({ size = 22, class: cls }: IconProps) {
     </>,
   );
 }
+
+/** Chantier 08: research (an open book with a sprout of an idea). */
+export function BookIcon({ size = 22, class: cls }: IconProps) {
+  return svg(
+    size,
+    cls,
+    <>
+      <path
+        d="M4 9c4-1.5 8-1 12 1.5 4-2.5 8-3 12-1.5v15c-4-1.5-8-1-12 1.5-4-2.5-8-3-12-1.5z"
+        fill="#f4e6c4"
+        stroke="#5a3e26"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
+      <path d="M16 10.5v15" stroke="#5a3e26" stroke-width="1.6" />
+      <path
+        d="M7 13c2.5-.6 4.5-.3 6.5.6M7 17c2.5-.6 4.5-.3 6.5.6"
+        stroke="#b08a48"
+        stroke-width="1.3"
+      />
+      <circle cx="22.5" cy="6.5" r="3" fill="#c9dc2e" stroke="#4f7f1c" stroke-width="1.3" />
+    </>,
+  );
+}

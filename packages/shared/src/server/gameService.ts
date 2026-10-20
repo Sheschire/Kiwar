@@ -8,6 +8,8 @@ import { RESOURCE_IDS } from '../data/resources';
 import { KIWI, MASTERY_IDS, STAT_IDS } from '../data/kiwis';
 import { CLASSES, SKILLS } from '../data/classes';
 import { levelForXp } from '../sim/kiwis';
+import { RESEARCH_SCALE, TECHS } from '../data/research';
+import { ageOf, libraries } from '../sim/research';
 import { deserializeSave, migrateState } from '../save/save';
 import { advance, type GameEvent } from '../sim/advance';
 import { applyCommand } from '../sim/commands';
@@ -294,8 +296,31 @@ export function isPlausible(state: GameState, now: number): boolean {
     (v) => v.classId === 'mayor' || (v.job.kind === 'train' && v.job.classId === 'mayor'),
   );
   if (mayors.length > 1 || state.speechUntil > state.now + SKILLS.speechMs * 2) return false;
+  if (!plausibleResearch(state)) return false;
   return state.villagers.every((v) => plausibleKiwi(v, state.now));
 }
+
+/**
+ * Research (chantier 08): known techs belong to the ages reached, and no more points were
+ * earned than the Libraries could produce since the start (best researchers, all day long).
+ */
+function plausibleResearch(state: GameState): boolean {
+  const r = state.research;
+  if (new Set(r.done).size !== r.done.length) return false;
+  if (r.current && r.done.includes(r.current)) return false;
+  const age = ageOf(state);
+  if (r.done.some((id) => TECHS[id].age > age)) return false;
+  const perHour = libraries(state).reduce((sum, b) => {
+    const def = levelDef(b.type, b.level);
+    return sum + (def?.research ?? 0) * (def?.workerSlots ?? 0);
+  }, 0);
+  const earned = r.done.reduce((sum, id) => sum + TECHS[id].cost, 0) + r.points / RESEARCH_SCALE;
+  const hours = Math.max(0, state.now - state.createdAt) / 3_600_000;
+  return earned <= perHour * MAX_RESEARCH_POWER * hours + 1;
+}
+
+/** Best research power of a kiwi (Spirit cap, mastery rank 10, mage, dreamer), rounded up. */
+const MAX_RESEARCH_POWER = 4;
 
 /** Upper bound of experience / practice gained per ms (best stats, best trait, building). */
 const MAX_XP_PER_MS = 100 * KIWI.xpPerHour.build * (1 + KIWI.spiritXp * KIWI.stat.cap) * 1.25;

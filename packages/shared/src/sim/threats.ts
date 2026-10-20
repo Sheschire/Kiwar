@@ -9,6 +9,7 @@ import type { Odds } from './expeditions';
 import { removeVillagers } from './expeditions';
 import { kiwiExposure, kiwiStrength } from './kiwis';
 import { nest } from './selectors';
+import { techEffects } from './research';
 import {
   withThreatRng,
   type GameState,
@@ -100,8 +101,9 @@ export function defenseOf(state: GameState, threat?: Sides): Defense {
   }
   const have = state.resources.seeds;
   const share = need > 0 ? Math.min(1, have / need) : 1;
-  turrets.ground *= share;
-  turrets.air *= share;
+  const tech = techEffects(state).turretDefense;
+  turrets.ground *= share * tech;
+  turrets.air *= share * tech;
   const garrison = { ground: 0, air: 0 };
   for (const v of garrisonOf(state)) {
     const p = guardPower(v);

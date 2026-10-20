@@ -242,6 +242,16 @@ export const SYNTH_PRESETS = {
     ],
     peak: 0.4,
   },
+  // Chantier 08: a technology is researched — a bright rising idea with a soft shimmer.
+  discovery: {
+    tones: [
+      { wave: 'pluck', freq: C5, attack: 0.001, decay: 0.35 },
+      { wave: 'pluck', freq: G5, start: 0.09, attack: 0.001, decay: 0.4 },
+      { wave: 'sine', freq: C6, start: 0.18, attack: 0.004, decay: 0.8, vibrato: [6, 0.15] },
+      { wave: 'noise', freq: 0, start: 0.18, attack: 0.1, decay: 0.5, gain: 0.08, lowpass: 8000 },
+    ],
+    peak: 0.4,
+  },
   shiny: {
     tones: [
       ...[0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({

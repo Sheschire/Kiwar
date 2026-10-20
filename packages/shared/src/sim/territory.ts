@@ -1,3 +1,4 @@
+import { techEffects } from './research';
 import { levelDef } from '../data/buildings';
 import { BIOMES, climateOf, type BiomeId } from '../data/biomes';
 import type { ResourceId } from '../data/resources';
@@ -397,7 +398,9 @@ export function harvestOf(
   const distance = depotDistance(state, map, b);
   const efficiency = logisticsEfficiency(distance);
   const cycle = cycleHarvest(state, resource);
-  const demand = slots > 0 ? (baseHarvest(b, resource) * workers * efficiency * cycle) / slots : 0;
+  const tech = techEffects(state).harvest[resource];
+  const demand =
+    slots > 0 ? (baseHarvest(b, resource) * workers * efficiency * cycle * tech) / slots : 0;
   const pool = poolCapacity(map, b.pool?.tiles ?? []);
   const cap = pool.cap;
   const season = seasonOf(state);

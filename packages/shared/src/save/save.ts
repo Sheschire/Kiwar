@@ -21,6 +21,7 @@ import {
 import { createRng } from '../rng/rng';
 import { calendarStartFor } from '../data/cycles';
 import { CLASS_IDS, SKILL_IDS } from '../data/classes';
+import { TECH_IDS } from '../data/research';
 import { newKiwi, rollKiwi } from '../sim/kiwis';
 
 const resources = z.object({
@@ -326,6 +327,11 @@ export const gameStateSchema = z.object({
       )
       .max(METEORS.max + 1),
   }),
+  research: z.object({
+    points: z.number().int().min(0),
+    current: z.enum(TECH_IDS).nullable(),
+    done: z.array(z.enum(TECH_IDS)).max(TECH_IDS.length),
+  }),
   nextId: z.number().int(),
   rng: z.tuple([z.number(), z.number(), z.number(), z.number()]),
 });
@@ -394,6 +400,17 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
     expeditions: Array.isArray(raw.expeditions)
       ? raw.expeditions.map((e: Record<string, unknown>) => ({ ...e, mission: 'raid' }))
       : raw.expeditions,
+  }),
+  // v12 → v13: research (chantier 08). Kiwis start with no research practice.
+  12: (raw) => ({
+    ...raw,
+    research: { points: 0, current: null, done: [] },
+    villagers: Array.isArray(raw.villagers)
+      ? raw.villagers.map((v: Record<string, unknown>) => ({
+          ...v,
+          mastery: { ...(v.mastery as object), research: 0 },
+        }))
+      : raw.villagers,
   }),
 };
 

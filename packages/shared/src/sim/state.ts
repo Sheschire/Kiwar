@@ -10,6 +10,7 @@ import { HEART, type FaceParams, DEFAULT_FACE_PARAMS } from '../worldgen/generat
 import { createRng, type Rng, type RngState } from '../rng/rng';
 import type { Masteries, ShinyColor, Stats, TraitId } from '../data/kiwis';
 import type { ClassId, SkillId } from '../data/classes';
+import type { TechId } from '../data/research';
 import { newKiwi, rollKiwi } from './kiwis';
 import type {
   BuildingId,
@@ -23,7 +24,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 13;
 
 export type Job =
   | { kind: 'idle' }
@@ -347,6 +348,15 @@ export interface SkyState {
   meteors: Meteor[];
 }
 
+/** Research (chantier 08): points in raw units (`RESEARCH_SCALE` per point). */
+export interface ResearchState {
+  /** Points towards the current technology, or banked when none is chosen. */
+  points: number;
+  current: TechId | null;
+  /** Researched technologies, in order. */
+  done: TechId[];
+}
+
 export interface GameStats {
   produced: Resources;
   constructionsCompleted: number;
@@ -403,6 +413,7 @@ export interface GameState {
   deposits: Record<string, FreeDeposit>;
   threats: ThreatState;
   sky: SkyState;
+  research: ResearchState;
   nextId: number;
   rng: RngState;
 }
@@ -486,6 +497,7 @@ export function newGame(opts: NewGameOptions): GameState {
     deposits: {},
     threats: newThreats(opts.seed, opts.face, opts.now),
     sky: newSky(opts.now),
+    research: { points: 0, current: null, done: [] },
     nextId: 1,
     rng: rng.state(),
   };
@@ -616,6 +628,7 @@ export function cloneState(state: GameState): GameState {
       next: state.sky.next ? { ...state.sky.next } : null,
       meteors: state.sky.meteors.map((m) => ({ ...m })),
     },
+    research: { ...state.research, done: [...state.research.done] },
     expeditions: state.expeditions.map((e) => ({
       ...e,
       crew: [...e.crew],

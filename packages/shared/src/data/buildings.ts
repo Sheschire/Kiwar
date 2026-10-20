@@ -14,6 +14,7 @@ export const BUILDING_TYPES = [
   'warehouse',
   'launchpad',
   'school',
+  'library',
   'camp',
   'seedTurret',
   'skyTurret',
@@ -40,6 +41,8 @@ export interface BuildingLevelDef {
   /** School only: kiwis trained at once and training time multiplier. */
   trainingSlots?: number;
   trainingTime?: number;
+  /** Library only: research points per hour of an average researcher (chantier 08). */
+  research?: number;
   /** Turrets only: defense against ferrets (ground) and bats (air), and seeds fired per wave. */
   defense?: { ground?: number; air?: number };
   ammo?: number;
@@ -319,6 +322,36 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
       },
     ],
   },
+  // Chantier 08: researchers (Spirit) produce research points; a laboratory in later ages.
+  library: {
+    id: 'library',
+    allowedTiles: ['flesh', 'ray', 'heart'],
+    buildable: true,
+    copyGrowth: 2,
+    levels: [
+      {
+        cost: { pulp: 300, fiber: 350, seeds: 40, juice: 60 },
+        durationMs: ms.min(6),
+        requiresNestLevel: 2,
+        workerSlots: 1,
+        research: 8,
+      },
+      {
+        cost: { pulp: 800, fiber: 900, seeds: 120, juice: 200 },
+        durationMs: ms.min(20),
+        requiresNestLevel: 2,
+        workerSlots: 2,
+        research: 10,
+      },
+      {
+        cost: { pulp: 1800, fiber: 2000, seeds: 300, juice: 500 },
+        durationMs: ms.min(45),
+        requiresNestLevel: 3,
+        workerSlots: 3,
+        research: 12,
+      },
+    ],
+  },
   // Gathering camp (milestone 4): set up instantly and for free with the `gather` command,
   // outside the building cap. Its harvest depends on the tile (see CAMPS).
   camp: {
@@ -413,6 +446,11 @@ export function levelDef(type: BuildingType, level: number): BuildingLevelDef | 
 
 export function isProducer(type: BuildingType): boolean {
   return BUILDINGS[type].levels.some((l) => (l.workerSlots ?? 0) > 0);
+}
+
+/** Workplaces the kiwis never join on their own: the player picks who goes (researchers). */
+export function isManualWorkplace(type: BuildingType): boolean {
+  return type === 'library';
 }
 
 /** Construction time multiplier for sites next to (or on) a ray: rays speed up the builders. */

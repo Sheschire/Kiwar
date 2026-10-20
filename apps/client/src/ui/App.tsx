@@ -20,6 +20,7 @@ import { WorldModal } from './components/WorldModal';
 import { IntroOverlay } from './components/IntroOverlay';
 import { FollowBadge, VillageModal } from './components/VillageModal';
 import { DefenseModal, ThreatBadge } from './components/DefenseModal';
+import { ResearchModal } from './components/ResearchModal';
 import { actions } from './actions';
 import { uiStore, useT, useUi } from './store';
 import { consumption, foodLeftMs, hungerStage, NEEDS, netRates, SKILLS } from '@kiwar/shared';
@@ -132,6 +133,7 @@ export function App() {
       {modal === 'demolish' && <DemolishModal />}
       {modal === 'village' && <VillageModal />}
       {modal === 'defense' && <DefenseModal />}
+      {modal === 'research' && <ResearchModal />}
       <JoinModal />
       <ChatPanel />
       <OfflineModal />

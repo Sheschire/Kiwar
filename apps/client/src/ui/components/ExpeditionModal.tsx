@@ -11,6 +11,7 @@ import {
   launchpadOf,
   maxCrew,
   travelTime,
+  techEffects,
   validateCommand,
   type BuildingId,
   type ExpeditionTarget,
@@ -299,7 +300,10 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
               </span>
               <span class="small muted">
                 {t('expedition.travel', {
-                  duration: formatDuration(lang, travelTime(x, pad, [], mission)),
+                  duration: formatDuration(
+                    lang,
+                    travelTime(x, pad, [], mission, techEffects(game).travel),
+                  ),
                 })}{' '}
                 · {t('recon.mapLabel', { seen: game.intel[x.id]?.sectors.length ?? 0, total: 12 })}
               </span>

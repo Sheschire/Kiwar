@@ -124,6 +124,12 @@ export const SOUND_EVENTS = {
     synth: 'mastery',
     default: { sources: ['synth:mastery'], cooldownMs: 800, volume: 0.7 },
   },
+  'research.done': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'discovery',
+    default: { sources: ['synth:discovery'], cooldownMs: 1500, volume: 0.7 },
+  },
   'kiwi.shiny': {
     bus: 'sfx',
     group: 'colony',

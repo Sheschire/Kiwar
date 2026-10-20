@@ -88,7 +88,7 @@ export const CLASSES: Record<ClassId, ClassDef> = {
     minLevel: 3,
     cost: { fiber: 150, seeds: 60, juice: 120 },
     trainingMs: ms.h(3),
-    modifiers: { fight: 1.3, harvest: 1.15, build: 0.9 },
+    modifiers: { fight: 1.3, harvest: 1.15, build: 0.9, research: 1.2 },
     skills: [
       { id: 'greenThumb', level: 5 },
       { id: 'rain', level: 10, cooldownMs: ms.h(12) },

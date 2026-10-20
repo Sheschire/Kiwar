@@ -95,6 +95,7 @@ const MODIFIER_KEYS = [
   'weight',
   'rest',
   'appetite',
+  'research',
 ] as const satisfies readonly (keyof KiwiModifiers)[];
 
 /** Trait × class × unlocked passive skills. */
@@ -252,23 +253,33 @@ interface KiwiRates {
   mastery: MasteryId | null;
 }
 
+/** Mastery practised at a workplace: its resource, or research at the Library. */
+function workMastery(state: GameState, b: Building | undefined): MasteryId | null {
+  if (!b) return null;
+  if (b.type === 'library') return 'research';
+  const resource = buildingResource(state, b);
+  return resource ? RESOURCE_MASTERY[resource] : null;
+}
+
 function ratesOf(
   state: GameState,
   v: Villager,
-  resources: Map<BuildingId, ResourceId | null>,
+  masteries: Map<BuildingId, MasteryId | null>,
 ): KiwiRates {
   const job = v.job;
   let perHour = 0;
   let mastery: MasteryId | null = null;
   if (job.kind === 'work') {
     perHour = KIWI.xpPerHour.work;
-    let resource = resources.get(job.buildingId);
-    if (resource === undefined) {
-      const b = state.buildings.find((x) => x.id === job.buildingId);
-      resource = b ? buildingResource(state, b) : null;
-      resources.set(job.buildingId, resource);
+    let m = masteries.get(job.buildingId);
+    if (m === undefined) {
+      m = workMastery(
+        state,
+        state.buildings.find((x) => x.id === job.buildingId),
+      );
+      masteries.set(job.buildingId, m);
     }
-    mastery = resource ? RESOURCE_MASTERY[resource] : null;
+    mastery = m;
   } else if (job.kind === 'build') {
     perHour = KIWI.xpPerHour.build;
     mastery = 'build';
@@ -292,7 +303,7 @@ function ratesOf(
 /** Next time a kiwi levels up or gains a mastery rank (a rate change for the colony). */
 export function nextKiwiEvent(state: GameState): TimeMs {
   let next = Infinity;
-  const resources = new Map<BuildingId, ResourceId | null>();
+  const resources = new Map<BuildingId, MasteryId | null>();
   for (const v of state.villagers) {
     const r = ratesOf(state, v, resources);
     if (r.xp > 0) {
@@ -310,7 +321,7 @@ export function nextKiwiEvent(state: GameState): TimeMs {
 
 /** Adds `dtMs` of experience and practice to every kiwi; level-ups happen at `at`. */
 export function accrueKiwis(state: GameState, dtMs: number, at: TimeMs, events: GameEvent[]): void {
-  const resources = new Map<BuildingId, ResourceId | null>();
+  const resources = new Map<BuildingId, MasteryId | null>();
   for (const v of state.villagers) {
     const r = ratesOf(state, v, resources);
     if (r.mastery) {

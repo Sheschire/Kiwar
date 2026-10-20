@@ -23,6 +23,7 @@ import {
   ResourceIcon,
   ScrollIcon,
   ShieldIcon,
+  BookIcon,
   SpeakerIcon,
 } from '../icons';
 import { actions } from '../actions';
@@ -282,6 +283,14 @@ export function TopBar() {
           }
         >
           <ShieldIcon />
+        </button>
+        <button
+          class={`btn btn-icon parchment-btn ${modal === 'research' ? 'btn-active' : ''}`}
+          aria-label={t('research.button')}
+          title={t('research.button')}
+          onClick={() => uiStore.setState({ modal: modal === 'research' ? 'none' : 'research' })}
+        >
+          <BookIcon />
         </button>
         <button
           class="btn btn-icon parchment-btn"

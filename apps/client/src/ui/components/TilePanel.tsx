@@ -53,9 +53,18 @@ import {
 } from '@kiwar/shared';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
-import { CloseIcon, HammerIcon, KiwiIcon, ResourceIcon, SeasonIcon, ShipIcon } from '../icons';
+import {
+  BookIcon,
+  CloseIcon,
+  HammerIcon,
+  KiwiIcon,
+  ResourceIcon,
+  SeasonIcon,
+  ShipIcon,
+} from '../icons';
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
+import { ResearchSummary } from './ResearchModal';
 
 function Progress({ item, now }: { item: QueueItem; now: number }) {
   const t = useT();
@@ -276,6 +285,15 @@ function BuildingSection({
         </>
       )}
       {b.type === 'school' && <SchoolInfo game={game} b={b} now={now} t={t} />}
+      {b.type === 'library' && (
+        <>
+          <p class="small muted">{t('research.researcherHint')}</p>
+          <ResearchSummary game={game} t={t} />
+          <button class="btn" onClick={() => uiStore.setState({ modal: 'research' })}>
+            <BookIcon size={18} /> {t('research.openTree')}
+          </button>
+        </>
+      )}
       {def.defense && (
         <>
           <div class="stat-row">

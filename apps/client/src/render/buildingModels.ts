@@ -734,6 +734,60 @@ function skyTurret(level: number): Parts {
   return p;
 }
 
+/**
+ * Library (chantier 08): a round stone tower full of books. A star globe turns on its lectern
+ * while the researchers work; level 2 adds a floor, level 3 an observatory dome and a telescope.
+ */
+function library(level: number): Parts {
+  const p: Parts = [];
+  const s = 0.85 + level * 0.08;
+  const h = level >= 2 ? 0.62 : 0.42;
+  p.push([cyl(12), C.stoneDark, m(0, 0.03, 0, 0.42 * s, 0.06, 0.42 * s)]);
+  p.push([cyl(12), C.stone, m(0, h / 2 + 0.05, 0, 0.32 * s, h, 0.32 * s)]);
+  if (level >= 2) p.push([cyl(12), C.stoneDark, m(0, 0.34, 0, 0.335 * s, 0.035, 0.335 * s)]);
+  p.push([box(), C.door, m(0, 0.13, 0.3 * s, 0.12, 0.2, 0.03)]);
+  // Arched windows with warm lamplight.
+  for (const a of [0.9, -0.9, Math.PI]) {
+    const wx = Math.sin(a) * 0.31 * s;
+    const wz = Math.cos(a) * 0.31 * s;
+    p.push([box(), C.goldEgg, m(wx, h * 0.62 + 0.05, wz, 0.07, 0.11, 0.02, 0, a, 0)]);
+  }
+  const top = h + 0.05;
+  if (level >= 3) {
+    p.push([sphere(12, 6), C.flagBlue, m(0, top, 0, 0.3 * s, 0.22 * s, 0.3 * s)]);
+    // Telescope sweeping the sky.
+    rig(p, 'scope', [0, top + 0.12, 0], { kind: 'swing', axis: 'y', amount: 0.8, speed: 0.6 });
+    p.push([cyl(8), C.woodDark, m(0.1, top + 0.2, 0, 0.035, 0.32, 0.035, 0, 0, -0.9), 'scope']);
+    p.push([cyl(8), C.flagGold, m(0.22, top + 0.29, 0, 0.045, 0.05, 0.045, 0, 0, -0.9), 'scope']);
+  } else {
+    p.push([cone(12), C.roof, m(0, top + 0.16, 0, 0.38 * s, 0.32, 0.38 * s)]);
+  }
+  // Book stacks by the door.
+  const books = [C.roof, C.flagBlue, C.leafDark, C.flagGold];
+  for (let i = 0; i < level + 1; i++) {
+    p.push([
+      box(),
+      books[i % books.length]!,
+      m(0.36 * s, 0.03 + i * 0.05, 0.22, 0.14, 0.045, 0.1, 0, i * 0.35, 0),
+    ]);
+  }
+  // Star globe on a lectern: turns while the kiwis study.
+  const gx = -0.4 * s;
+  const gz = 0.2;
+  p.push([cyl(6), C.woodDark, m(gx, 0.12, gz, 0.025, 0.24, 0.025)]);
+  rig(p, 'globe', [gx, 0.3, gz], { kind: 'spin', axis: 'y', amount: 1, speed: 1.2 });
+  p.push([sphere(8, 6), C.flagBlue, m(gx, 0.3, gz, 0.08, 0.08, 0.08), 'globe']);
+  p.push([
+    new TorusGeometry(1, 0.08, 4, 14),
+    C.flagGold,
+    m(gx, 0.3, gz, 0.095, 0.095, 0.095, 1.1),
+    'globe',
+  ]);
+  emitter(p, { kind: 'gold', at: [gx, 0.4, gz], rate: 0.8 });
+  flag(p, level, 0.3, top - 0.05, -0.25);
+  return p;
+}
+
 const BUILDERS: Record<BuildingType, (level: number) => Parts> = {
   camp,
   launchpad,
@@ -745,6 +799,7 @@ const BUILDERS: Record<BuildingType, (level: number) => Parts> = {
   hut,
   warehouse,
   school,
+  library,
   seedTurret,
   skyTurret,
 };

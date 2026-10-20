@@ -57,6 +57,8 @@ import {
   workersOf,
 } from './selectors';
 import { cloneState, nextId, type GameState, type MissionKind } from './state';
+import { TECHS, type TechId } from '../data/research';
+import { researchTick, techStatus } from './research';
 import { SHELTER } from '../data/threats';
 import { forecastWave } from './threats';
 import {
@@ -112,6 +114,8 @@ export type Command =
   | { type: 'repair'; buildingId: BuildingId }
   /** Posts exactly these kiwis on the rampart (the others go back to work). */
   | { type: 'setGarrison'; villagerIds: VillagerId[] }
+  /** Chantier 08: the technology the researchers work on (null: bank the points). */
+  | { type: 'setResearch'; tech: TechId | null }
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
 export const COMMAND_ERRORS = [
@@ -170,6 +174,10 @@ export const COMMAND_ERRORS = [
   'alreadyRepairing',
   'notOnRampart',
   'turretLimit',
+  'unknownTech',
+  'techDone',
+  'techAgeLocked',
+  'libraryTooLow',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -606,6 +614,21 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
           autoAssign(s, v);
         }
       }
+      return;
+    }
+    case 'setResearch': {
+      if (cmd.tech === null) {
+        s.research.current = null;
+        return;
+      }
+      if (!TECHS[cmd.tech]) return fail('unknownTech');
+      const status = techStatus(s, cmd.tech);
+      if (status === 'done') fail('techDone');
+      if (status === 'age') fail('techAgeLocked');
+      if (status === 'library') fail('libraryTooLow');
+      s.research.current = cmd.tech;
+      // Banked points may already pay for it.
+      researchTick(s, now, events);
       return;
     }
     case 'debugGrant': {

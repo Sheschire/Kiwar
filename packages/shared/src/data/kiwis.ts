@@ -19,8 +19,8 @@ export type Stats = Record<StatId, number>;
 export const SHINY_COLORS = ['red', 'yellow', 'green', 'blue'] as const;
 export type ShinyColor = (typeof SHINY_COLORS)[number];
 
-/** Masteries: one per harvested resource, plus construction. */
-export const MASTERY_IDS = ['pulp', 'fiber', 'seeds', 'juice', 'build'] as const;
+/** Masteries: one per harvested resource, plus construction and research (chantier 08). */
+export const MASTERY_IDS = ['pulp', 'fiber', 'seeds', 'juice', 'build', 'research'] as const;
 export type MasteryId = (typeof MASTERY_IDS)[number];
 export type Masteries = Record<MasteryId, number>;
 
@@ -57,6 +57,8 @@ export interface KiwiModifiers {
   rest?: number;
   /** Meals eaten at the colony (chantier 04). */
   appetite?: number;
+  /** Research points produced at the Library (chantier 08). */
+  research?: number;
 }
 
 /** A small advantage and a small drawback each. */
@@ -64,7 +66,7 @@ export const TRAITS: Record<TraitId, KiwiModifiers> = {
   earlyBird: { harvest: 1.06, build: 0.94, rest: 0.75 },
   glutton: { fight: 1.12, rations: 1.5, appetite: 1.5 },
   brave: { fight: 1.15, exposure: 1.3 },
-  dreamer: { xp: 1.15, harvest: 0.95 },
+  dreamer: { xp: 1.15, harvest: 0.95, research: 1.15 },
   sturdy: { build: 1.12, xp: 0.9 },
   lucky: { exposure: 0.7, practice: 0.9 },
   curious: { practice: 1.25, harvest: 0.97 },

@@ -11,6 +11,7 @@ import {
 import { emptyResources, RESOURCE_IDS, type Resources } from '../data/resources';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
 import { getBuilding, HOUR_MS, idleVillagers, workersOf } from './selectors';
+import { techEffects } from './research';
 import {
   withRng,
   type Building,
@@ -114,11 +115,13 @@ export function travelTime(
   launchpad: Building,
   crew: readonly Villager[] = [],
   mission: MissionKind = 'raid',
+  /** Technologies (`techEffects(state).travel`). */
+  tech = 1,
 ): number {
   const pad = levelDef('launchpad', launchpad.level)?.travelTime ?? 1;
   const wind = crew.some((v) => hasSkill(v, 'tailwind')) ? SKILLS.tailwindTravel : 1;
   const light = mission === 'recon' ? RECON.travel : 1;
-  return Math.round((target.travelMs * pad * wind * light) / 1000) * 1000;
+  return Math.round((target.travelMs * pad * wind * light * tech) / 1000) * 1000;
 }
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
@@ -255,7 +258,7 @@ export function forecastExpedition(
   const crew = crewOf(state, plan.crew) ?? [];
   const mission = plan.mission ?? 'raid';
   const cargo = shipCargo(pad);
-  const travelMs = travelTime(target, pad, crew, mission);
+  const travelMs = travelTime(target, pad, crew, mission, techEffects(state).travel);
   const need = rations(crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(crew, fed);
@@ -357,7 +360,7 @@ export function launch(
   for (const v of crew) v.job = { kind: 'expedition', expeditionId: id };
   state.resources.pulp -= plan.provisions.pulp;
   state.resources.juice -= plan.provisions.juice;
-  const travelMs = travelTime(target, pad, crew, mission);
+  const travelMs = travelTime(target, pad, crew, mission, techEffects(state).travel);
   // A breakdown is drawn at take-off: the ship turns back half-way.
   const broken = withRng(state, (rng) => !rng.chance(shipReliability(shipOf(pad), crew)));
   const outMs = broken ? Math.round(travelMs / 2000) * 1000 : travelMs;

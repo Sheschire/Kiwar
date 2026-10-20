@@ -25,7 +25,15 @@ export interface Toast {
 }
 
 export type Modal =
-  'none' | 'settings' | 'expedition' | 'report' | 'universe' | 'demolish' | 'village' | 'defense';
+  | 'none'
+  | 'settings'
+  | 'expedition'
+  | 'report'
+  | 'universe'
+  | 'demolish'
+  | 'village'
+  | 'defense'
+  | 'research';
 
 export interface UiState {
   lang: Lang;

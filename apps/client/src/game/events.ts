@@ -24,6 +24,9 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
           pushToast('success', 'events.shinyHatched', { name: e.name, color: `@shiny.${e.shiny}` });
         else pushToast('success', 'egg.hatched', { name: e.name });
         break;
+      case 'researchDone':
+        pushToast('success', 'events.researchDone', { tech: `@techs.${e.tech}.name` });
+        break;
       case 'levelUp':
         if (e.stat)
           pushToast('success', 'events.levelUpStat', {

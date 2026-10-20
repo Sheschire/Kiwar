@@ -511,7 +511,7 @@ var CLASSES = {
     minLevel: 3,
     cost: { fiber: 150, seeds: 60, juice: 120 },
     trainingMs: ms.h(3),
-    modifiers: { fight: 1.3, harvest: 1.15, build: 0.9 },
+    modifiers: { fight: 1.3, harvest: 1.15, build: 0.9, research: 1.2 },
     skills: [
       { id: "greenThumb", level: 5 },
       { id: "rain", level: 10, cooldownMs: ms.h(12) },
@@ -583,6 +583,7 @@ var BUILDING_TYPES = [
   "warehouse",
   "launchpad",
   "school",
+  "library",
   "camp",
   "seedTurret",
   "skyTurret"
@@ -844,6 +845,36 @@ var BUILDINGS = {
       }
     ]
   },
+  // Chantier 08: researchers (Spirit) produce research points; a laboratory in later ages.
+  library: {
+    id: "library",
+    allowedTiles: ["flesh", "ray", "heart"],
+    buildable: true,
+    copyGrowth: 2,
+    levels: [
+      {
+        cost: { pulp: 300, fiber: 350, seeds: 40, juice: 60 },
+        durationMs: ms.min(6),
+        requiresNestLevel: 2,
+        workerSlots: 1,
+        research: 8
+      },
+      {
+        cost: { pulp: 800, fiber: 900, seeds: 120, juice: 200 },
+        durationMs: ms.min(20),
+        requiresNestLevel: 2,
+        workerSlots: 2,
+        research: 10
+      },
+      {
+        cost: { pulp: 1800, fiber: 2e3, seeds: 300, juice: 500 },
+        durationMs: ms.min(45),
+        requiresNestLevel: 3,
+        workerSlots: 3,
+        research: 12
+      }
+    ]
+  },
   // Gathering camp (milestone 4): set up instantly and for free with the `gather` command,
   // outside the building cap. Its harvest depends on the tile (see CAMPS).
   camp: {
@@ -929,6 +960,9 @@ function levelDef(type, level) {
 }
 function isProducer(type) {
   return BUILDINGS[type].levels.some((l) => (l.workerSlots ?? 0) > 0);
+}
+function isManualWorkplace(type) {
+  return type === "library";
 }
 var RAY_BUILD_SPEEDUP = 0.85;
 var DEMOLITION = {
@@ -1134,7 +1168,7 @@ var STAT_IDS = [
   "charisma"
 ];
 var SHINY_COLORS = ["red", "yellow", "green", "blue"];
-var MASTERY_IDS = ["pulp", "fiber", "seeds", "juice", "build"];
+var MASTERY_IDS = ["pulp", "fiber", "seeds", "juice", "build", "research"];
 var TRAIT_IDS = [
   "earlyBird",
   "glutton",
@@ -1148,7 +1182,7 @@ var TRAITS = {
   earlyBird: { harvest: 1.06, build: 0.94, rest: 0.75 },
   glutton: { fight: 1.12, rations: 1.5, appetite: 1.5 },
   brave: { fight: 1.15, exposure: 1.3 },
-  dreamer: { xp: 1.15, harvest: 0.95 },
+  dreamer: { xp: 1.15, harvest: 0.95, research: 1.15 },
   sturdy: { build: 1.12, xp: 0.9 },
   lucky: { exposure: 0.7, practice: 0.9 },
   curious: { practice: 1.25, harvest: 0.97 }
@@ -1451,6 +1485,155 @@ var METEORS = {
   /** Craters kept at once. */
   max: 3
 };
+
+// packages/shared/src/data/ages.ts
+var AGE_IDS = ["eden", "stone", "iron", "industry"];
+var MAX_AGE = AGE_IDS.length - 1;
+
+// packages/shared/src/data/research.ts
+var TECH_BRANCHES = ["economy", "defense", "exploration", "passage"];
+var TECH_IDS = [
+  // Eden
+  "foraging",
+  "palisade",
+  "starCharts",
+  "stoneAge",
+  // Stone
+  "masonry",
+  "slingshots",
+  "preserves",
+  "ironAge",
+  // Iron
+  "smelting",
+  "armor",
+  "compass",
+  "industryAge",
+  // Industry
+  "machines",
+  "firearms",
+  "steamEngines"
+];
+var TECHS = {
+  foraging: {
+    id: "foraging",
+    age: 0,
+    branch: "economy",
+    cost: 60,
+    libraryLevel: 1,
+    effects: { harvest: { pulp: 1.1, fiber: 1.1 } }
+  },
+  palisade: {
+    id: "palisade",
+    age: 0,
+    branch: "defense",
+    cost: 80,
+    libraryLevel: 1,
+    effects: { turretDefense: 1.15 }
+  },
+  starCharts: {
+    id: "starCharts",
+    age: 0,
+    branch: "exploration",
+    cost: 80,
+    libraryLevel: 1,
+    effects: { travel: 0.9 }
+  },
+  stoneAge: { id: "stoneAge", age: 0, branch: "passage", cost: 250, libraryLevel: 2, effects: {} },
+  masonry: {
+    id: "masonry",
+    age: 1,
+    branch: "economy",
+    cost: 300,
+    libraryLevel: 2,
+    effects: { storage: 1.2 }
+  },
+  slingshots: {
+    id: "slingshots",
+    age: 1,
+    branch: "defense",
+    cost: 350,
+    libraryLevel: 2,
+    effects: { guard: 1.25 }
+  },
+  preserves: {
+    id: "preserves",
+    age: 1,
+    branch: "exploration",
+    cost: 300,
+    libraryLevel: 2,
+    effects: { rations: 0.8 }
+  },
+  ironAge: { id: "ironAge", age: 1, branch: "passage", cost: 900, libraryLevel: 4, effects: {} },
+  smelting: {
+    id: "smelting",
+    age: 2,
+    branch: "economy",
+    cost: 800,
+    libraryLevel: 4,
+    effects: { harvest: { seeds: 1.15 }, build: 0.85 }
+  },
+  armor: {
+    id: "armor",
+    age: 2,
+    branch: "defense",
+    cost: 900,
+    libraryLevel: 4,
+    effects: { injuries: 0.7, armor: 0.1 }
+  },
+  compass: {
+    id: "compass",
+    age: 2,
+    branch: "exploration",
+    cost: 800,
+    libraryLevel: 4,
+    effects: { travel: 0.9, recon: 0.1 }
+  },
+  industryAge: {
+    id: "industryAge",
+    age: 2,
+    branch: "passage",
+    cost: 2200,
+    libraryLevel: 5,
+    effects: {}
+  },
+  machines: {
+    id: "machines",
+    age: 3,
+    branch: "economy",
+    cost: 2e3,
+    libraryLevel: 5,
+    effects: { harvest: { pulp: 1.15, fiber: 1.15, seeds: 1.15, juice: 1.15 } }
+  },
+  firearms: {
+    id: "firearms",
+    age: 3,
+    branch: "defense",
+    cost: 2400,
+    libraryLevel: 6,
+    effects: { firearms: true }
+  },
+  steamEngines: {
+    id: "steamEngines",
+    age: 3,
+    branch: "exploration",
+    cost: 2e3,
+    libraryLevel: 5,
+    effects: { travel: 0.85 }
+  }
+};
+var PASSAGE_TECHS = [
+  null,
+  "stoneAge",
+  "ironAge",
+  "industryAge"
+];
+var RESEARCH = {
+  /** Research bonus per point of Spirit above average (+6 %). */
+  spirit: 0.06,
+  /** Bank when no technology is chosen: points kept by Library level (index = level − 1). */
+  bank: [100, 200, 400, 800, 1500, 2500]
+};
+var RESEARCH_SCALE = 100 * 36e5;
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
@@ -1972,6 +2155,345 @@ function isNight(state) {
   return calendarAt(state.calendarStart, state.now).night;
 }
 
+// packages/shared/src/sim/needs.ts
+function homeKiwis(state) {
+  return state.villagers.filter((v) => v.job.kind !== "expedition");
+}
+function consumption(state) {
+  const out = emptyResources();
+  let mouths = 0;
+  for (const v of homeKiwis(state)) mouths += modifiers(v).appetite;
+  if (mouths === 0) return out;
+  const appetite = NEEDS.appetite[seasonOf(state)];
+  out.pulp = NEEDS.eat.pulp * mouths * appetite;
+  out.juice = NEEDS.eat.juice * mouths * appetite;
+  return out;
+}
+var STAGE_ORDER = ["fed", "hungry", "weak", "starving"];
+function threshold(stage) {
+  return NEEDS.stages[stage] * HUNGER_SCALE;
+}
+function stageOf(hunger) {
+  if (hunger >= threshold("starving")) return "starving";
+  if (hunger >= threshold("weak")) return "weak";
+  if (hunger >= threshold("hungry")) return "hungry";
+  return "fed";
+}
+function hungerStage(state) {
+  return stageOf(state.hunger);
+}
+function hungerHours(state) {
+  return state.hunger / HUNGER_SCALE / 36e5;
+}
+function hungerWork(state) {
+  return NEEDS.work[hungerStage(state)];
+}
+function canStarve(state) {
+  const nest2 = state.buildings.find((b) => b.type === "nest");
+  return state.villagers.length > NEEDS.minSurvivors && (nest2?.level ?? 0) >= NEEDS.protectedBelowNest && homeKiwis(state).length > 0;
+}
+function hungerRate(state, deficit) {
+  const share = NEEDS.weight.pulp * deficit.pulp + NEEDS.weight.juice * deficit.juice;
+  if (share > 0) return Math.max(1, Math.round(HUNGER_SCALE * share));
+  return state.hunger > 0 ? -HUNGER_SCALE * NEEDS.recovery : 0;
+}
+function hungerCap(state) {
+  return canStarve(state) ? Infinity : threshold("starving");
+}
+function nextHungerEvent(state, rate) {
+  const h = state.hunger;
+  if (rate > 0) {
+    for (const stage of STAGE_ORDER.slice(1)) {
+      const t = threshold(stage);
+      if (h >= t) continue;
+      return state.now + Math.max(1, Math.ceil((t - h) / rate));
+    }
+    return canStarve(state) ? state.now : Infinity;
+  }
+  if (rate < 0) {
+    for (const stage of ["starving", "weak", "hungry"]) {
+      const t = threshold(stage);
+      if (h < t) continue;
+      return state.now + Math.floor((h - t) / -rate) + 1;
+    }
+  }
+  return Infinity;
+}
+function pickStarving(state) {
+  const all = homeKiwis(state);
+  const lean = all.filter((v) => v.trait !== "glutton");
+  const home = lean.length > 0 ? lean : all;
+  if (home.length === 0) return void 0;
+  const weights = home.map((v) => 1 / Math.max(1, v.stats.endurance));
+  const total = weights.reduce((a, b) => a + b, 0);
+  return withRng(state, (rng) => {
+    let roll = rng.next() * total;
+    for (let i = 0; i < home.length; i++) {
+      roll -= weights[i];
+      if (roll < 0) return home[i];
+    }
+    return home[home.length - 1];
+  });
+}
+function foodLeftMs(stock, netPerHour) {
+  if (netPerHour >= 0) return null;
+  return stock / -netPerHour * 36e5;
+}
+
+// packages/shared/src/sim/rest.ts
+var UNREACHABLE = 12;
+function workSite(state, v) {
+  const job2 = v.job;
+  const at = (id3) => state.buildings.find((b) => b.id === id3) ?? null;
+  if (job2.kind === "work") return at(job2.buildingId);
+  if (job2.kind === "train") return at(job2.schoolId);
+  if (job2.kind === "build") return state.queue.find((i) => i.id === job2.queueItemId) ?? null;
+  if (job2.kind === "expedition") return null;
+  return state.buildings.find((b) => b.type === "nest") ?? null;
+}
+function homes(state) {
+  return state.buildings.map((b) => ({ b, beds: levelDef(b.type, b.level)?.housing ?? 0 })).filter((h) => h.beds > 0);
+}
+var bedCache = /* @__PURE__ */ new Map();
+function bedsOf(state, map = faceMapOf(state)) {
+  let key = `${state.seed}|${state.face}|${seasonOf(state)}|`;
+  for (const b of state.buildings) {
+    const beds = levelDef(b.type, b.level)?.housing ?? 0;
+    if (beds > 0) key += `${b.id}:${beds};`;
+  }
+  key += "|";
+  for (const v of state.villagers) {
+    const j = v.job;
+    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : "";
+  }
+  key += `|${state.paths.join(";")}`;
+  const cached = bedCache.get(key);
+  if (cached) return cached;
+  const houses = homes(state);
+  const kiwis = state.villagers.filter((v) => v.job.kind !== "expedition");
+  const workers = [
+    ...kiwis.filter((v) => v.job.kind !== "idle"),
+    ...kiwis.filter((v) => v.job.kind === "idle")
+  ];
+  const sites = workers.map((v) => workSite(state, v));
+  const dists = houses.map((h) => walkDistances(state, map, [hexKey(h.b)]));
+  const free = houses.map((h) => h.beds);
+  const out = /* @__PURE__ */ new Map();
+  workers.forEach((v, i) => {
+    const site = sites[i];
+    let best = -1;
+    let bestD = Infinity;
+    for (let h = 0; h < houses.length; h++) {
+      if (free[h] <= 0) continue;
+      const d = site ? distanceIn(dists[h], site) : 0;
+      const dd = Number.isFinite(d) ? d : UNREACHABLE;
+      if (best < 0 || dd < bestD) {
+        best = h;
+        bestD = dd;
+      }
+    }
+    if (best < 0) out.set(v.id, { buildingId: null, distance: 0 });
+    else {
+      free[best]--;
+      out.set(v.id, { buildingId: houses[best].b.id, distance: bestD });
+    }
+  });
+  if (bedCache.size >= 32) bedCache.delete(bedCache.keys().next().value);
+  bedCache.set(key, out);
+  return out;
+}
+function restNeed(state, v, bed) {
+  const endurance = Math.max(0.4, 1 - REST.endurance * (v.stats.endurance - KIWI.stat.average));
+  const outside = !bed || bed.buildingId === null ? REST.noBed : 1;
+  return REST.base * REST.season[seasonOf(state)] * endurance * outside * modifiers(v).rest;
+}
+function presence(state, v, bed = bedsOf(state).get(v.id)) {
+  const walk = 1 + REST.commute * (bed?.distance ?? 0);
+  return Math.max(REST.minPresence, 1 - restNeed(state, v, bed) * walk);
+}
+function moraleOf(state, beds = bedsOf(state)) {
+  const food = hungerStage(state) === "fed" ? MORALE.fed : MORALE.hungry;
+  const comfort = comfortOf(state, beds);
+  const speech = state.speechUntil > state.now ? MORALE.speech : 0;
+  const mourning = state.mourningUntil > state.now ? MORALE.mourning : 0;
+  const season = MORALE.season[seasonOf(state)];
+  const mayor = mayorMorale(state);
+  const sum = food + comfort + mayor + speech + mourning + season;
+  const total = Math.max(-MORALE.max, Math.min(MORALE.max, sum));
+  return { total, food, comfort, mayor, speech, mourning, season };
+}
+var comfortCache = /* @__PURE__ */ new WeakMap();
+function comfortOf(state, beds) {
+  const cached = comfortCache.get(beds);
+  if (cached !== void 0) return cached;
+  let workers = 0;
+  let near = 0;
+  for (const v of state.villagers) {
+    if (v.job.kind !== "work") continue;
+    workers++;
+    if ((beds.get(v.id)?.distance ?? Infinity) <= MORALE.near) near++;
+  }
+  const comfort = workers > 0 ? MORALE.comfort * (2 * near / workers - 1) : 0;
+  comfortCache.set(beds, comfort);
+  return comfort;
+}
+function moraleWork(state, beds = bedsOf(state)) {
+  return 1 + moraleOf(state, beds).total;
+}
+function phaseOf(id3) {
+  let h = 2166136261;
+  for (let i = 0; i < id3.length; i++) h = Math.imul(h ^ id3.charCodeAt(i), 16777619);
+  h ^= h >>> 16;
+  h = Math.imul(h, 2246822507);
+  h ^= h >>> 13;
+  h = Math.imul(h, 3266489909);
+  h ^= h >>> 16;
+  return (h >>> 0) / 2 ** 32;
+}
+function kiwiRhythm(state, v, t) {
+  const seed = phaseOf(v.id);
+  const c = calendarAt(state.calendarStart, t);
+  if (c.night && (seed < 1 - CYCLES.nightWork || v.trait === "earlyBird")) {
+    const slept = (t - c.nightAt) / Math.max(1, c.dawnAt - c.nightAt);
+    return { rhythm: "sleep", fatigue: Math.max(0.05, 0.6 - 0.55 * slept) };
+  }
+  const p = presence(state, v);
+  const x = ((t + seed * REST.cycleMs) % REST.cycleMs + REST.cycleMs) % REST.cycleMs;
+  const k = x / REST.cycleMs;
+  if (k < p) return { rhythm: "work", fatigue: 0.15 + 0.75 * (k / p) };
+  return { rhythm: "rest", fatigue: 0.9 - 0.75 * ((k - p) / (1 - p)) };
+}
+
+// packages/shared/src/sim/research.ts
+function ageOf(_state) {
+  return 0;
+}
+function hasTech(state, id3) {
+  return state.research.done.includes(id3);
+}
+var effectsCache2 = /* @__PURE__ */ new Map();
+function techEffects(state) {
+  const key = state.research.done.join(",");
+  let out = effectsCache2.get(key);
+  if (out) return out;
+  out = {
+    harvest: { pulp: 1, fiber: 1, seeds: 1, juice: 1 },
+    storage: 1,
+    turretDefense: 1,
+    guard: 1,
+    travel: 1,
+    rations: 1,
+    build: 1,
+    injuries: 1,
+    armor: 0,
+    recon: 0,
+    firearms: false
+  };
+  for (const id3 of state.research.done) {
+    const e = TECHS[id3].effects;
+    for (const r of RESOURCE_IDS) out.harvest[r] *= e.harvest?.[r] ?? 1;
+    out.storage *= e.storage ?? 1;
+    out.turretDefense *= e.turretDefense ?? 1;
+    out.guard *= e.guard ?? 1;
+    out.travel *= e.travel ?? 1;
+    out.rations *= e.rations ?? 1;
+    out.build *= e.build ?? 1;
+    out.injuries *= e.injuries ?? 1;
+    out.armor += e.armor ?? 0;
+    out.recon += e.recon ?? 0;
+    out.firearms ||= e.firearms ?? false;
+  }
+  if (effectsCache2.size > 64) effectsCache2.clear();
+  effectsCache2.set(key, out);
+  return out;
+}
+function libraries(state) {
+  return state.buildings.filter((b) => b.type === "library");
+}
+function libraryLevel(state) {
+  return libraries(state).reduce((max, b) => Math.max(max, b.level), 0);
+}
+function researchPower(v) {
+  const spirit = 1 + RESEARCH.spirit * (v.stats.spirit - KIWI.stat.average);
+  const rank = 1 + KIWI.rankBonus * rankOf(v.mastery.research);
+  return Math.max(KIWI.minPower, spirit * rank * modifiers(v).research);
+}
+function researchPerHour(state) {
+  if (state.threats.shelterUntil > state.now) return 0;
+  const libs = libraries(state);
+  if (libs.length === 0) return 0;
+  const beds = bedsOf(state);
+  let total = 0;
+  for (const b of libs) {
+    const base = levelDef(b.type, b.level)?.research ?? 0;
+    const damaged = b.damaged ? THREATS.damagedWork : 1;
+    for (const v of state.villagers) {
+      if (v.job.kind !== "work" || v.job.buildingId !== b.id) continue;
+      total += base * researchPower(v) * presence(state, v, beds.get(v.id)) * damaged;
+    }
+  }
+  if (total <= 0) return 0;
+  const night = isNight(state) ? CYCLES.nightWork : 1;
+  return total * night * hungerWork(state) * moraleWork(state, beds);
+}
+function researchRate(state) {
+  const perHour = researchPerHour(state);
+  return perHour > 0 ? Math.max(1, Math.round(perHour * 100)) : 0;
+}
+function researchBank(state) {
+  const level = libraryLevel(state);
+  return level > 0 ? (RESEARCH.bank[level - 1] ?? 0) * RESEARCH_SCALE : 0;
+}
+function researchPoints(state) {
+  return state.research.points / RESEARCH_SCALE;
+}
+function techStatus(state, id3) {
+  if (hasTech(state, id3)) return "done";
+  if (state.research.current === id3) return "current";
+  const def = TECHS[id3];
+  if (def.age > ageOf(state)) return "age";
+  if (libraryLevel(state) < def.libraryLevel) return "library";
+  return "available";
+}
+function techsOfAge(age) {
+  return TECH_IDS.filter((id3) => TECHS[id3].age === age);
+}
+function nextResearchEvent(state) {
+  const current = state.research.current;
+  if (!current) return Infinity;
+  const need = TECHS[current].cost * RESEARCH_SCALE - state.research.points;
+  if (need <= 0) return state.now;
+  const rate = researchRate(state);
+  if (rate <= 0) return Infinity;
+  return state.now + Math.max(1, Math.ceil(need / rate));
+}
+function researchEta(state) {
+  const at = nextResearchEvent(state);
+  return Number.isFinite(at) ? at - state.now : null;
+}
+function accrueResearch(state, dtMs) {
+  const rate = researchRate(state);
+  if (rate <= 0) return;
+  const r = state.research;
+  const gain = rate * dtMs;
+  if (r.current) r.points += gain;
+  else {
+    const cap = researchBank(state);
+    if (r.points < cap) r.points = Math.min(cap, r.points + gain);
+  }
+}
+function researchTick(state, at, events) {
+  const r = state.research;
+  const current = r.current;
+  if (!current) return;
+  const cost = TECHS[current].cost * RESEARCH_SCALE;
+  if (r.points < cost) return;
+  r.points -= cost;
+  r.done.push(current);
+  r.current = null;
+  events.push({ type: "researchDone", at, tech: current });
+}
+
 // packages/shared/src/sim/territory.ts
 var HOUR_MS = 36e5;
 var EPS = 1e-6;
@@ -2219,7 +2741,8 @@ function harvestOf(state, map, b, workers, storageFull, regenMultiplier = 1) {
   const distance = depotDistance(state, map, b);
   const efficiency = logisticsEfficiency(distance);
   const cycle = cycleHarvest(state, resource);
-  const demand = slots > 0 ? baseHarvest(b, resource) * workers * efficiency * cycle / slots : 0;
+  const tech = techEffects(state).harvest[resource];
+  const demand = slots > 0 ? baseHarvest(b, resource) * workers * efficiency * cycle * tech / slots : 0;
   const pool = poolCapacity(map, b.pool?.tiles ?? []);
   const cap = pool.cap;
   const season = seasonOf(state);
@@ -2299,215 +2822,6 @@ function depletedTiles(state, map) {
   return out;
 }
 
-// packages/shared/src/sim/needs.ts
-function homeKiwis(state) {
-  return state.villagers.filter((v) => v.job.kind !== "expedition");
-}
-function consumption(state) {
-  const out = emptyResources();
-  let mouths = 0;
-  for (const v of homeKiwis(state)) mouths += modifiers(v).appetite;
-  if (mouths === 0) return out;
-  const appetite = NEEDS.appetite[seasonOf(state)];
-  out.pulp = NEEDS.eat.pulp * mouths * appetite;
-  out.juice = NEEDS.eat.juice * mouths * appetite;
-  return out;
-}
-var STAGE_ORDER = ["fed", "hungry", "weak", "starving"];
-function threshold(stage) {
-  return NEEDS.stages[stage] * HUNGER_SCALE;
-}
-function stageOf(hunger) {
-  if (hunger >= threshold("starving")) return "starving";
-  if (hunger >= threshold("weak")) return "weak";
-  if (hunger >= threshold("hungry")) return "hungry";
-  return "fed";
-}
-function hungerStage(state) {
-  return stageOf(state.hunger);
-}
-function hungerHours(state) {
-  return state.hunger / HUNGER_SCALE / 36e5;
-}
-function hungerWork(state) {
-  return NEEDS.work[hungerStage(state)];
-}
-function canStarve(state) {
-  const nest2 = state.buildings.find((b) => b.type === "nest");
-  return state.villagers.length > NEEDS.minSurvivors && (nest2?.level ?? 0) >= NEEDS.protectedBelowNest && homeKiwis(state).length > 0;
-}
-function hungerRate(state, deficit) {
-  const share = NEEDS.weight.pulp * deficit.pulp + NEEDS.weight.juice * deficit.juice;
-  if (share > 0) return Math.max(1, Math.round(HUNGER_SCALE * share));
-  return state.hunger > 0 ? -HUNGER_SCALE * NEEDS.recovery : 0;
-}
-function hungerCap(state) {
-  return canStarve(state) ? Infinity : threshold("starving");
-}
-function nextHungerEvent(state, rate) {
-  const h = state.hunger;
-  if (rate > 0) {
-    for (const stage of STAGE_ORDER.slice(1)) {
-      const t = threshold(stage);
-      if (h >= t) continue;
-      return state.now + Math.max(1, Math.ceil((t - h) / rate));
-    }
-    return canStarve(state) ? state.now : Infinity;
-  }
-  if (rate < 0) {
-    for (const stage of ["starving", "weak", "hungry"]) {
-      const t = threshold(stage);
-      if (h < t) continue;
-      return state.now + Math.floor((h - t) / -rate) + 1;
-    }
-  }
-  return Infinity;
-}
-function pickStarving(state) {
-  const all = homeKiwis(state);
-  const lean = all.filter((v) => v.trait !== "glutton");
-  const home = lean.length > 0 ? lean : all;
-  if (home.length === 0) return void 0;
-  const weights = home.map((v) => 1 / Math.max(1, v.stats.endurance));
-  const total = weights.reduce((a, b) => a + b, 0);
-  return withRng(state, (rng) => {
-    let roll = rng.next() * total;
-    for (let i = 0; i < home.length; i++) {
-      roll -= weights[i];
-      if (roll < 0) return home[i];
-    }
-    return home[home.length - 1];
-  });
-}
-function foodLeftMs(stock, netPerHour) {
-  if (netPerHour >= 0) return null;
-  return stock / -netPerHour * 36e5;
-}
-
-// packages/shared/src/sim/rest.ts
-var UNREACHABLE = 12;
-function workSite(state, v) {
-  const job2 = v.job;
-  const at = (id3) => state.buildings.find((b) => b.id === id3) ?? null;
-  if (job2.kind === "work") return at(job2.buildingId);
-  if (job2.kind === "train") return at(job2.schoolId);
-  if (job2.kind === "build") return state.queue.find((i) => i.id === job2.queueItemId) ?? null;
-  if (job2.kind === "expedition") return null;
-  return state.buildings.find((b) => b.type === "nest") ?? null;
-}
-function homes(state) {
-  return state.buildings.map((b) => ({ b, beds: levelDef(b.type, b.level)?.housing ?? 0 })).filter((h) => h.beds > 0);
-}
-var bedCache = /* @__PURE__ */ new Map();
-function bedsOf(state, map = faceMapOf(state)) {
-  let key = `${state.seed}|${state.face}|${seasonOf(state)}|`;
-  for (const b of state.buildings) {
-    const beds = levelDef(b.type, b.level)?.housing ?? 0;
-    if (beds > 0) key += `${b.id}:${beds};`;
-  }
-  key += "|";
-  for (const v of state.villagers) {
-    const j = v.job;
-    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : "";
-  }
-  key += `|${state.paths.join(";")}`;
-  const cached = bedCache.get(key);
-  if (cached) return cached;
-  const houses = homes(state);
-  const kiwis = state.villagers.filter((v) => v.job.kind !== "expedition");
-  const workers = [
-    ...kiwis.filter((v) => v.job.kind !== "idle"),
-    ...kiwis.filter((v) => v.job.kind === "idle")
-  ];
-  const sites = workers.map((v) => workSite(state, v));
-  const dists = houses.map((h) => walkDistances(state, map, [hexKey(h.b)]));
-  const free = houses.map((h) => h.beds);
-  const out = /* @__PURE__ */ new Map();
-  workers.forEach((v, i) => {
-    const site = sites[i];
-    let best = -1;
-    let bestD = Infinity;
-    for (let h = 0; h < houses.length; h++) {
-      if (free[h] <= 0) continue;
-      const d = site ? distanceIn(dists[h], site) : 0;
-      const dd = Number.isFinite(d) ? d : UNREACHABLE;
-      if (best < 0 || dd < bestD) {
-        best = h;
-        bestD = dd;
-      }
-    }
-    if (best < 0) out.set(v.id, { buildingId: null, distance: 0 });
-    else {
-      free[best]--;
-      out.set(v.id, { buildingId: houses[best].b.id, distance: bestD });
-    }
-  });
-  if (bedCache.size >= 32) bedCache.delete(bedCache.keys().next().value);
-  bedCache.set(key, out);
-  return out;
-}
-function restNeed(state, v, bed) {
-  const endurance = Math.max(0.4, 1 - REST.endurance * (v.stats.endurance - KIWI.stat.average));
-  const outside = !bed || bed.buildingId === null ? REST.noBed : 1;
-  return REST.base * REST.season[seasonOf(state)] * endurance * outside * modifiers(v).rest;
-}
-function presence(state, v, bed = bedsOf(state).get(v.id)) {
-  const walk = 1 + REST.commute * (bed?.distance ?? 0);
-  return Math.max(REST.minPresence, 1 - restNeed(state, v, bed) * walk);
-}
-function moraleOf(state, beds = bedsOf(state)) {
-  const food = hungerStage(state) === "fed" ? MORALE.fed : MORALE.hungry;
-  const comfort = comfortOf(state, beds);
-  const speech = state.speechUntil > state.now ? MORALE.speech : 0;
-  const mourning = state.mourningUntil > state.now ? MORALE.mourning : 0;
-  const season = MORALE.season[seasonOf(state)];
-  const mayor = mayorMorale(state);
-  const sum = food + comfort + mayor + speech + mourning + season;
-  const total = Math.max(-MORALE.max, Math.min(MORALE.max, sum));
-  return { total, food, comfort, mayor, speech, mourning, season };
-}
-var comfortCache = /* @__PURE__ */ new WeakMap();
-function comfortOf(state, beds) {
-  const cached = comfortCache.get(beds);
-  if (cached !== void 0) return cached;
-  let workers = 0;
-  let near = 0;
-  for (const v of state.villagers) {
-    if (v.job.kind !== "work") continue;
-    workers++;
-    if ((beds.get(v.id)?.distance ?? Infinity) <= MORALE.near) near++;
-  }
-  const comfort = workers > 0 ? MORALE.comfort * (2 * near / workers - 1) : 0;
-  comfortCache.set(beds, comfort);
-  return comfort;
-}
-function moraleWork(state, beds = bedsOf(state)) {
-  return 1 + moraleOf(state, beds).total;
-}
-function phaseOf(id3) {
-  let h = 2166136261;
-  for (let i = 0; i < id3.length; i++) h = Math.imul(h ^ id3.charCodeAt(i), 16777619);
-  h ^= h >>> 16;
-  h = Math.imul(h, 2246822507);
-  h ^= h >>> 13;
-  h = Math.imul(h, 3266489909);
-  h ^= h >>> 16;
-  return (h >>> 0) / 2 ** 32;
-}
-function kiwiRhythm(state, v, t) {
-  const seed = phaseOf(v.id);
-  const c = calendarAt(state.calendarStart, t);
-  if (c.night && (seed < 1 - CYCLES.nightWork || v.trait === "earlyBird")) {
-    const slept = (t - c.nightAt) / Math.max(1, c.dawnAt - c.nightAt);
-    return { rhythm: "sleep", fatigue: Math.max(0.05, 0.6 - 0.55 * slept) };
-  }
-  const p = presence(state, v);
-  const x = ((t + seed * REST.cycleMs) % REST.cycleMs + REST.cycleMs) % REST.cycleMs;
-  const k = x / REST.cycleMs;
-  if (k < p) return { rhythm: "work", fatigue: 0.15 + 0.75 * (k / p) };
-  return { rhythm: "rest", fatigue: 0.9 - 0.75 * ((k - p) / (1 - p)) };
-}
-
 // packages/shared/src/sim/kiwis.ts
 function rollKiwi(rng) {
   const { min, max } = KIWI.stat;
@@ -2552,7 +2866,8 @@ var MODIFIER_KEYS = [
   "rations",
   "weight",
   "rest",
-  "appetite"
+  "appetite",
+  "research"
 ];
 function modifiers(v) {
   const out = Object.fromEntries(MODIFIER_KEYS.map((k) => [k, 1]));
@@ -2656,19 +2971,27 @@ function regenBonus(workers) {
   const mages = workers.filter((v) => hasSkill(v, "greenThumb")).length;
   return 1 + SKILLS.greenThumbRegen * mages;
 }
-function ratesOf(state, v, resources2) {
+function workMastery(state, b) {
+  if (!b) return null;
+  if (b.type === "library") return "research";
+  const resource = buildingResource(state, b);
+  return resource ? RESOURCE_MASTERY[resource] : null;
+}
+function ratesOf(state, v, masteries) {
   const job2 = v.job;
   let perHour = 0;
   let mastery = null;
   if (job2.kind === "work") {
     perHour = KIWI.xpPerHour.work;
-    let resource = resources2.get(job2.buildingId);
-    if (resource === void 0) {
-      const b = state.buildings.find((x) => x.id === job2.buildingId);
-      resource = b ? buildingResource(state, b) : null;
-      resources2.set(job2.buildingId, resource);
+    let m2 = masteries.get(job2.buildingId);
+    if (m2 === void 0) {
+      m2 = workMastery(
+        state,
+        state.buildings.find((x) => x.id === job2.buildingId)
+      );
+      masteries.set(job2.buildingId, m2);
     }
-    mastery = resource ? RESOURCE_MASTERY[resource] : null;
+    mastery = m2;
   } else if (job2.kind === "build") {
     perHour = KIWI.xpPerHour.build;
     mastery = "build";
@@ -2771,7 +3094,7 @@ function trainingDuration(school, classId) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 12;
+var SCHEMA_VERSION = 13;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -2829,6 +3152,7 @@ function newGame(opts) {
     deposits: {},
     threats: newThreats(opts.seed, opts.face, opts.now),
     sky: newSky(opts.now),
+    research: { points: 0, current: null, done: [] },
     nextId: 1,
     rng: rng.state()
   };
@@ -2945,6 +3269,7 @@ function cloneState(state) {
       next: state.sky.next ? { ...state.sky.next } : null,
       meteors: state.sky.meteors.map((m) => ({ ...m }))
     },
+    research: { ...state.research, done: [...state.research.done] },
     expeditions: state.expeditions.map((e) => ({
       ...e,
       crew: [...e.crew],
@@ -3264,11 +3589,11 @@ function shipReliability(ship, crew) {
 function shipCargo(launchpad) {
   return levelDef("launchpad", launchpad.level)?.cargo ?? 0;
 }
-function travelTime(target, launchpad, crew = [], mission = "raid") {
+function travelTime(target, launchpad, crew = [], mission = "raid", tech = 1) {
   const pad = levelDef("launchpad", launchpad.level)?.travelTime ?? 1;
   const wind = crew.some((v) => hasSkill(v, "tailwind")) ? SKILLS.tailwindTravel : 1;
   const light = mission === "recon" ? RECON.travel : 1;
-  return Math.round(target.travelMs * pad * wind * light / 1e3) * 1e3;
+  return Math.round(target.travelMs * pad * wind * light * tech / 1e3) * 1e3;
 }
 var clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 var mean = (crew, f) => crew.length ? crew.reduce((sum, v) => sum + f(v), 0) / crew.length : 0;
@@ -3367,7 +3692,7 @@ function forecastExpedition(state, plan) {
   const crew = crewOf(state, plan.crew) ?? [];
   const mission = plan.mission ?? "raid";
   const cargo = shipCargo(pad);
-  const travelMs = travelTime(target, pad, crew, mission);
+  const travelMs = travelTime(target, pad, crew, mission, techEffects(state).travel);
   const need = rations(crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(crew, fed);
@@ -3439,7 +3764,7 @@ function launch(state, plan, now, id3) {
   for (const v of crew) v.job = { kind: "expedition", expeditionId: id3 };
   state.resources.pulp -= plan.provisions.pulp;
   state.resources.juice -= plan.provisions.juice;
-  const travelMs = travelTime(target, pad, crew, mission);
+  const travelMs = travelTime(target, pad, crew, mission, techEffects(state).travel);
   const broken = withRng(state, (rng) => !rng.chance(shipReliability(shipOf(pad), crew)));
   const outMs = broken ? Math.round(travelMs / 2e3) * 1e3 : travelMs;
   const expedition = {
@@ -3738,8 +4063,9 @@ function defenseOf(state, threat) {
   }
   const have = state.resources.seeds;
   const share = need > 0 ? Math.min(1, have / need) : 1;
-  turrets.ground *= share;
-  turrets.air *= share;
+  const tech = techEffects(state).turretDefense;
+  turrets.ground *= share * tech;
+  turrets.air *= share * tech;
   const garrison = { ground: 0, air: 0 };
   for (const v of garrisonOf(state)) {
     const p = guardPower(v);
@@ -4149,7 +4475,9 @@ function advanceInPlace(s, now, events) {
     const threatAt = nextThreatEvent(s);
     const skyAt = nextSkyEvent(s);
     const injuryEnd = nextInjuryEnd(s);
+    const researchAt = nextResearchEvent(s);
     const nextEvent = Math.min(
+      researchAt,
       threatAt,
       skyAt,
       injuryEnd,
@@ -4186,6 +4514,7 @@ function advanceInPlace(s, now, events) {
     if (injuryEnd === nextEvent) healInjuries(s, injuryEnd, events);
     if (threatAt === nextEvent) threatTick(s, threatAt, events);
     if (skyAt === nextEvent) skyTick(s, skyAt, events);
+    if (researchAt === nextEvent) researchTick(s, researchAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: "hungerChanged", at: s.now, stage: st });
@@ -4348,6 +4677,7 @@ function accrue(s, flows, dtMs, at, events) {
   }
   if (flows.hunger !== 0)
     s.hunger = Math.min(hungerCap(s), Math.max(0, s.hunger + flows.hunger * dtMs));
+  accrueResearch(s, dtMs);
   accrueKiwis(s, dtMs, at, events);
 }
 function startNextConstruction(s, at, events) {
@@ -4430,7 +4760,7 @@ function completeConstruction(s, at, events) {
     q: item.q,
     r: item.r
   });
-  if (item.kind === "build" && isProducer(item.buildingType)) {
+  if (item.kind === "build" && isProducer(item.buildingType) && !isManualWorkplace(item.buildingType)) {
     const idle = bestIdleFor(s, getBuilding(s, buildingId));
     if (idle) idle.job = { kind: "work", buildingId };
   }
@@ -4460,7 +4790,7 @@ function autoAssign(s, v) {
   let best = null;
   for (const b of s.buildings) {
     const slots = workerSlots(b);
-    if (slots === 0) continue;
+    if (slots === 0 || isManualWorkplace(b.type)) continue;
     const count = workersOf(s, b.id).length;
     if (count >= slots) continue;
     const ratio = count / slots;
@@ -4579,7 +4909,11 @@ var COMMAND_ERRORS = [
   "notDamaged",
   "alreadyRepairing",
   "notOnRampart",
-  "turretLimit"
+  "turretLimit",
+  "unknownTech",
+  "techDone",
+  "techAgeLocked",
+  "libraryTooLow"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -4966,6 +5300,20 @@ function execute(s, cmd, ctx, events) {
           autoAssign(s, v);
         }
       }
+      return;
+    }
+    case "setResearch": {
+      if (cmd.tech === null) {
+        s.research.current = null;
+        return;
+      }
+      if (!TECHS[cmd.tech]) return fail("unknownTech");
+      const status = techStatus(s, cmd.tech);
+      if (status === "done") fail("techDone");
+      if (status === "age") fail("techAgeLocked");
+      if (status === "library") fail("libraryTooLow");
+      s.research.current = cmd.tech;
+      researchTick(s, now, events);
       return;
     }
     case "debugGrant": {
@@ -9296,6 +9644,11 @@ var gameStateSchema = external_exports.object({
       })
     ).max(METEORS.max + 1)
   }),
+  research: external_exports.object({
+    points: external_exports.number().int().min(0),
+    current: external_exports.enum(TECH_IDS).nullable(),
+    done: external_exports.array(external_exports.enum(TECH_IDS)).max(TECH_IDS.length)
+  }),
   nextId: external_exports.number().int(),
   rng: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number(), external_exports.number()])
 });
@@ -9350,6 +9703,15 @@ var MIGRATIONS = {
     ...raw,
     intel: {},
     expeditions: Array.isArray(raw.expeditions) ? raw.expeditions.map((e) => ({ ...e, mission: "raid" })) : raw.expeditions
+  }),
+  // v12 → v13: research (chantier 08). Kiwis start with no research practice.
+  12: (raw) => ({
+    ...raw,
+    research: { points: 0, current: null, done: [] },
+    villagers: Array.isArray(raw.villagers) ? raw.villagers.map((v) => ({
+      ...v,
+      mastery: { ...v.mastery, research: 0 }
+    })) : raw.villagers
   })
 };
 function migrateState(input) {
@@ -9437,6 +9799,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("shelter") }),
   external_exports.object({ type: external_exports.literal("repair"), buildingId: id2 }),
   external_exports.object({ type: external_exports.literal("setGarrison"), villagerIds: external_exports.array(id2).max(200) }),
+  external_exports.object({ type: external_exports.literal("setResearch"), tech: external_exports.enum(TECH_IDS).nullable() }),
   external_exports.object({
     type: external_exports.literal("debugGrant"),
     resources: external_exports.object({
@@ -9630,8 +9993,24 @@ function isPlausible(state, now) {
     (v) => v.classId === "mayor" || v.job.kind === "train" && v.job.classId === "mayor"
   );
   if (mayors.length > 1 || state.speechUntil > state.now + SKILLS.speechMs * 2) return false;
+  if (!plausibleResearch(state)) return false;
   return state.villagers.every((v) => plausibleKiwi(v, state.now));
 }
+function plausibleResearch(state) {
+  const r = state.research;
+  if (new Set(r.done).size !== r.done.length) return false;
+  if (r.current && r.done.includes(r.current)) return false;
+  const age = ageOf(state);
+  if (r.done.some((id3) => TECHS[id3].age > age)) return false;
+  const perHour = libraries(state).reduce((sum, b) => {
+    const def = levelDef(b.type, b.level);
+    return sum + (def?.research ?? 0) * (def?.workerSlots ?? 0);
+  }, 0);
+  const earned = r.done.reduce((sum, id3) => sum + TECHS[id3].cost, 0) + r.points / RESEARCH_SCALE;
+  const hours = Math.max(0, state.now - state.createdAt) / 36e5;
+  return earned <= perHour * MAX_RESEARCH_POWER * hours + 1;
+}
+var MAX_RESEARCH_POWER = 4;
 var MAX_XP_PER_MS = 100 * KIWI.xpPerHour.build * (1 + KIWI.spiritXp * KIWI.stat.cap) * 1.25;
 var MAX_PRACTICE_PER_MS = 100 * 1.25;
 function plausibleKiwi(v, now) {
@@ -9932,6 +10311,7 @@ function createMemoryRepository() {
   };
 }
 export {
+  AGE_IDS,
   ALIENS,
   ALIEN_TWIN_FACE,
   BIOMES,
@@ -9966,6 +10346,7 @@ export {
   KIWI_NAME_MAX,
   LOGISTICS,
   MASTERY_IDS,
+  MAX_AGE,
   MAX_LEVEL,
   MAX_PLAYERS,
   MAX_UNIVERSES_PER_PLAYER,
@@ -9975,11 +10356,14 @@ export {
   NAME_SYLLABLES,
   NEEDS,
   OBJECTIVES,
+  PASSAGE_TECHS,
   PATHS,
   PRACTICE_SCALE,
   RATE_LIMIT,
   RAY_BUILD_SPEEDUP,
   RECON,
+  RESEARCH,
+  RESEARCH_SCALE,
   RESOURCES,
   RESOURCE_IDS,
   RESOURCE_MASTERY,
@@ -9998,6 +10382,9 @@ export {
   SKILL_IDS,
   START,
   STAT_IDS,
+  TECHS,
+  TECH_BRANCHES,
+  TECH_IDS,
   THREATS,
   TILES,
   TILE_TYPES,
@@ -10008,10 +10395,12 @@ export {
   XP_SCALE,
   YEAR_MS,
   accrueKiwis,
+  accrueResearch,
   activeItem,
   addVillager,
   advance,
   advanceInPlace,
+  ageOf,
   alienDefOf,
   alienDefense,
   alienEnemies,
@@ -10098,6 +10487,7 @@ export {
   harvestOf,
   harvestedTileType,
   hasSkill,
+  hasTech,
   hashSeed,
   hex,
   hexAdd,
@@ -10128,6 +10518,7 @@ export {
   isFlooded,
   isInviteCode,
   isLaunchpadBusy,
+  isManualWorkplace,
   isMaxLevel,
   isNight,
   isObjectiveComplete,
@@ -10147,6 +10538,8 @@ export {
   levelDef,
   levelForXp,
   levelProgress,
+  libraries,
+  libraryLevel,
   localAlienSeed,
   logisticsEfficiency,
   masteryHours,
@@ -10176,6 +10569,7 @@ export {
   nextHungerEvent,
   nextId,
   nextKiwiEvent,
+  nextResearchEvent,
   nextSkyEvent,
   nextThreatEvent,
   objectiveProgress,
@@ -10206,6 +10600,13 @@ export {
   repairCost,
   repairDuration,
   requestSchema,
+  researchBank,
+  researchEta,
+  researchPerHour,
+  researchPoints,
+  researchPower,
+  researchRate,
+  researchTick,
   resolveArrival,
   resolveReturn,
   restNeed,
@@ -10229,6 +10630,9 @@ export {
   storageFullCheck,
   syncPools,
   targetFaceParams,
+  techEffects,
+  techStatus,
+  techsOfAge,
   threatTick,
   tileAt,
   tileDeposit,

@@ -2742,3 +2742,112 @@ button.chip:focus-visible {
   align-items: center;
   gap: 6px;
 }
+
+/* ---------- Research (chantier 08) ---------- */
+
+.modal-research {
+  width: min(680px, 100%);
+}
+
+.research-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.research-current p {
+  margin: 0;
+}
+
+.age-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.age-row.is-later {
+  opacity: 0.6;
+}
+
+.age-title {
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.age-title .badge {
+  color: var(--leaf);
+}
+
+.modal-body ul.tech-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap);
+}
+
+.tech-card {
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.tech-card p {
+  margin: 0;
+}
+
+.tech-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.tech-foot {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+}
+
+.tech-card.branch-passage {
+  border-width: 2px;
+  border-color: var(--berry);
+}
+
+.tech-card.tech-done {
+  background: rgba(111, 174, 44, 0.16);
+  border-color: var(--leaf);
+}
+
+.tech-card.tech-current {
+  box-shadow: 0 0 0 2px var(--leaf);
+}
+
+.tech-card.tech-age,
+.tech-card.tech-soon {
+  border-style: dashed;
+}
+
+.tech-card.tech-soon {
+  opacity: 0.7;
+}
+
+@media (max-width: 760px) {
+  .modal-body ul.tech-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.research-pts {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
