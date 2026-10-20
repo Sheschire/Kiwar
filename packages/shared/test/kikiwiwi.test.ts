@@ -154,7 +154,10 @@ describe('laboratory against nature', () => {
     if (job.kind !== 'transform') throw new Error('no infusion');
     const doomed = structuredClone(s);
     (doomed.villagers[0]!.job as { risk: number }).risk = 1;
-    const lost = advance(doomed, job.until).state.villagers[0]!;
+    const failed = advance(doomed, job.until).state;
+    const lost = failed.villagers[0]!;
+    // Chantier 13: the stardust comes back on a failure (the resources are lost).
+    expect(failed.stardust).toBe(s0.stardust);
     expect(lost.kikiwiwi).toBeUndefined();
     expect(lost.job).toEqual({ kind: 'injured', until: job.until + KIKIWIWI.failure.injuredMs });
     expect(lost.stats.endurance).toBe(Math.max(1, v.stats.endurance - 1));

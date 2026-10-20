@@ -10,6 +10,12 @@ import {
   stardustOf,
 } from '@kiwar/shared';
 
+/** Stardust the next monument level needs (the age comes before a Kikiwiwi). */
+export function nextMonumentDust(state: GameState): number {
+  const monument = state.buildings.find((b) => b.type === 'monument');
+  return levelDef('monument', (monument?.level ?? 0) + 1)?.stardust ?? 0;
+}
+
 /** Stardust kept for what the colony still needs: the next monuments and a Kikiwiwi. */
 export function dustReserve(state: GameState): number {
   let need = 0;

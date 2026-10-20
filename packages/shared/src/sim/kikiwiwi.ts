@@ -1,3 +1,5 @@
+import { STARDUST_SCALE } from '../data/comets';
+import { STARDUST_CAP } from './comets';
 import { KIKIWIWI } from '../data/kikiwiwi';
 import { KIWI } from '../data/kiwis';
 import type { TimeMs } from '../types/ids';
@@ -73,8 +75,8 @@ export function nextInfusionEnd(state: GameState): TimeMs {
 
 /**
  * Infusions ending at `at`: the colony RNG decides (in villager order). Success: a Kikiwiwi
- * (idle, never joins a workplace by itself). Failure: the juice is lost, the kiwi rests a day
- * and loses a point of Strength and Endurance.
+ * (idle, never joins a workplace by itself). Failure: the juice is lost (the stardust comes back,
+ * chantier 13), the kiwi rests a day and loses a point of Strength and Endurance.
  */
 export function finishInfusions(s: GameState, at: TimeMs, events: GameEvent[]): void {
   for (const v of s.villagers) {
@@ -82,6 +84,8 @@ export function finishInfusions(s: GameState, at: TimeMs, events: GameEvent[]): 
     const risk = v.job.risk;
     const failed = withRng(s, (rng) => rng.next() < risk);
     if (failed) {
+      const dust = (v.job.paidDust ?? 0) * STARDUST_SCALE;
+      s.stardust = Math.min(STARDUST_CAP, s.stardust + dust);
       for (const stat of KIKIWIWI.failure.stats)
         v.stats[stat] = Math.max(KIWI.stat.min, v.stats[stat] - 1);
       v.job = { kind: 'injured', until: at + KIKIWIWI.failure.injuredMs };

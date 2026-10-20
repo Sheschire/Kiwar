@@ -1,3 +1,4 @@
+import { nextMonumentDust } from './sky';
 import {
   applyCommand,
   buildCost,
@@ -35,7 +36,7 @@ export function titanOrders(state: GameState, map: FaceMap): Command | null {
     kikiwiwiCount(state) < kikiwiwiCap(state) &&
     !state.villagers.some((v) => v.job.kind === 'transform') &&
     state.resources.juice >= (KIKIWIWI.cost.juice ?? 0) + JUICE_RESERVE &&
-    stardustOf(state) >= KIKIWIWI.stardust &&
+    stardustOf(state) >= KIKIWIWI.stardust + nextMonumentDust(state) &&
     canAfford(state.resources, KIKIWIWI.cost)
   ) {
     const best = state.villagers
