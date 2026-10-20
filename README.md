@@ -9,6 +9,18 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 07** — le vaisseau devient un **oiseau kiwi mécanique** qui bat des ailes : il
+> respire sur son aire d'envol, prend son élan, décolle et file vers la face adverse (dézoomer
+> pour le suivre), puis revient se poser. Son modèle change avec l'aire : oiseau de bois et de
+> toile à pédales (fiable à 70 %), de rondins et de cordes (85 %), de fer riveté à vapeur (95 %,
+> blindé). Un vaisseau qui casse fait demi-tour à mi-chemin et l'aire est à réparer. Nouvelle
+> mission de **reconnaissance** : 1 ou 2 éclaireurs discrets (l'Agilité et l'Esprit comptent)
+> cartographient une partie de la face adverse et estiment sa garnison en fourchette (furets,
+> chauves-souris, défense) ; s'ils sont repérés, escarmouche et rapport bâclé. Les rapports
+> vieillissent (la garnison grossit un peu chaque jour) et les nuages de la face jumelle
+> s'ouvrent sur les secteurs vus. **Anti-triche** : en ligne, le serveur ne renvoie jamais la
+> garnison réelle, seulement ce que les missions rapportent.
+>
 > **Chantier 06** — les **prédateurs** des kiwis attaquent : des meutes de **furets** au sol et
 > des nuées de **chauves-souris** dans les airs (surtout la nuit), en grosses vagues annoncées 8 à
 > 12 h à l'avance (environ une par jour, jamais avant le Nid 2 et 24 h de jeu), plus quelques
@@ -101,16 +113,17 @@ Pour le mode en ligne, ajoutez `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY` :
 
 ## Scripts
 
-| Script           | Rôle                                                                                              |
-| ---------------- | ------------------------------------------------------------------------------------------------- |
-| `pnpm dev`       | Serveur de développement Vite (client)                                                            |
-| `pnpm build`     | Build de production + service worker PWA (`apps/client/dist`)                                     |
-| `pnpm preview`   | Sert le build de production                                                                       |
-| `pnpm test`      | Vitest sur tous les workspaces                                                                    |
-| `pnpm typecheck` | `tsc --noEmit` sur chaque workspace                                                               |
-| `pnpm lint`      | ESLint (zéro warning toléré)                                                                      |
-| `pnpm format`    | Prettier                                                                                          |
-| `pnpm balance`   | Rapport d'équilibrage Kiwisu vs Kiwino (`--seeds 200 --threshold 10 --hours 72 --out fichier.md`) |
+| Script                     | Rôle                                                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                 | Serveur de développement Vite (client)                                                                        |
+| `pnpm build`               | Build de production + service worker PWA (`apps/client/dist`)                                                 |
+| `pnpm preview`             | Sert le build de production                                                                                   |
+| `pnpm test`                | Vitest sur tous les workspaces                                                                                |
+| `pnpm typecheck`           | `tsc --noEmit` sur chaque workspace                                                                           |
+| `pnpm lint`                | ESLint (zéro warning toléré)                                                                                  |
+| `pnpm format`              | Prettier                                                                                                      |
+| `pnpm balance`             | Rapport d'équilibrage Kiwisu vs Kiwino (`--seeds 200 --threshold 10 --hours 72 --out fichier.md`)             |
+| `pnpm balance:expeditions` | Sonde des expéditions : pannes, éclaireurs repérés, secteurs, raids à l'aveugle ou renseignés (`--seeds 300`) |
 
 ## Commandes de jeu
 

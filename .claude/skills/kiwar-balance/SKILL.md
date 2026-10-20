@@ -32,7 +32,8 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   (Dexterity, Charisma for the mayor, Strength for the builder), builds a School after the
   Nest 2, trains the most charismatic level-5 kiwi as mayor then a builder, and gives speeches.
   It does not use camps, paths, expeditions, mages or scouts — update it when a new mechanic
-  matters for progression.
+  matters for progression. Expeditions have their own probe: `pnpm balance:expeditions`
+  (`kiwar-expeditions`).
 - Chantier 04: the bot feeds its colony (`canFeedOneMore`, meals in the bottleneck), places huts
   where producers walk the most to a bed; `fullHorizon`, `activeMs` + `sessionEveryMs`
   (occasional player) and `final.starved` / `maxHungerH` let you check winters. A bot run costs

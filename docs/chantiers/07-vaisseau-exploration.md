@@ -64,3 +64,38 @@ récupérer des infos sur l'ennemi. »
 2. Que rapporte exactement une reconnaissance réussie : carte complète ou partielle ? nombre
    d'ennemis exact ou fourchette ?
 3. Un vaisseau cassé : retour à vide, ou perte du vaisseau (à reconstruire) ?
+
+## Réponses du porteur
+
+1. L'aire d'envol reste au **Nid 2**.
+2. Une reconnaissance rapporte une **carte partielle** (secteurs cumulés d'une mission à
+   l'autre) et des **fourchettes** (défense, furets, chauves-souris), plus précises avec
+   l'Agilité/Esprit des éclaireurs et le vaisseau, plus larges en vieillissant.
+3. Un vaisseau cassé **revient à vide** et l'aire d'envol est **à réparer**.
+4. Éclaireurs repérés : **escarmouche légère** (au plus une perte, surtout des blessés,
+   rapport bâclé). Raid à l'aveugle permis (chances « inconnues »). La garnison **grossit
+   lentement** chaque jour. Anti-triche **en ligne** (en solo la vérité reste dans la sauvegarde
+   locale, jamais affichée).
+
+## Ce qui a été fait
+
+1. **Vérité cachée** : garnisons extraterrestres tirées d'une graine secrète (serveur), jamais
+   renvoyées au client ; le serveur résout les atterrissages ; les joueurs ne lisent plus la
+   table `games` (migration). Rapports (`intel`) qui vieillissent ; un raid rapporte la défense
+   affrontée.
+2. **Reconnaissance** : 1–2 éclaireurs, vaisseau léger, 12 secteurs, fourchettes qui contiennent
+   toujours la vérité, repérage et escarmouche ; planificateur (choix de mission, prévision),
+   carte SVG de la face cible, rapport, nuages de la face jumelle qui s'ouvrent.
+3. **Vaisseaux** : bois 70 %, rondins 85 %, fer 95 % (blindé), propulseurs 99 % (âge
+   Industrie) ; casse tirée au décollage, demi-tour à mi-chemin, aire à réparer.
+4. **Oiseau mécanique** : modèle par génération, respiration et lissage des ailes sur l'aire,
+   décollage, vol vers la face jumelle, atterrissage, fumée en cas de panne.
+5. **Équilibrage** : sonde `pnpm balance:expeditions` (voir `docs/DECISIONS.md`), docs et skill
+   `kiwar-expeditions`.
+
+## Ce qui reste
+
+- Générations de vaisseau liées aux **âges** (chantier 08) : `shipOf` est le point d'entrée.
+- Colonisation (combat de boss, Kikiwiwis), caravanes entre faces alliées.
+- Le bot de colonie n'utilise pas les expéditions.
+- Les autres kiwis d'un univers ne sont pas dessinés en 3D.

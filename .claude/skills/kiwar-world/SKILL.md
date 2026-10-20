@@ -61,6 +61,10 @@ focus?, onChoose })`, store `intro` / `introFade`, gauges (sustainable regrowth 
 - `pickFace { universe, face }`: only if the player's game is pristine and nobody holds that face
   of their kiwi (`faceTaken`); `repo.moveMember` updates `universe_members.face` in place (unique
   constraint → false), the game is recreated with `universeGame`.
+- Chantier 07: the alien twin's clouds open over the sectors our scouts saw
+  (`TwinOptions.intel`, shader mask `uSeen`), with the dens/roosts they reported — see
+  `kiwar-expeditions`. Other kiwis of a universe are still not drawn in 3D (only on the
+  target's SVG map).
 - `twin` in responses (`TwinSnapshot`: owner, face, params, buildings, paths, at) when a friend
   lives on the other half of our kiwi; never stocks, never an alien face's state.
 - Visual check of a universe: `pnpm mock:supabase` + `pnpm dev:online`, two Playwright contexts

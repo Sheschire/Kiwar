@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "balance": "tsx src/cli.ts",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "expeditions": "tsx src/expeditions.ts"
   },
   "dependencies": {
     "@kiwar/shared": "workspace:*"

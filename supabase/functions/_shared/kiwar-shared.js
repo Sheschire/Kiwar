@@ -1063,11 +1063,11 @@ function alienDefOf(distance) {
 }
 var ALIENS = {
   /** Spread of the real base defense around the public number (×). */
-  defenseSpread: [0.8, 1.3],
+  defenseSpread: [0.75, 1.2],
   /** Spread of the real loot around the public number (×). */
   lootSpread: [0.8, 1.2],
   /** Defense gained per game day, as a share of the base defense (drawn in this range). */
-  growthPerDay: [0.02, 0.05],
+  growthPerDay: [0.015, 0.04],
   /** The garrison stops growing at this multiple of its base defense (victories aside). */
   maxGrowth: 2,
   /** Defense brought by one ferret or one bat. */

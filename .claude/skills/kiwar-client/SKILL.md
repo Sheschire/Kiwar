@@ -68,6 +68,8 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
 - Village screen, kiwi sheets, portraits, crew picker: see the `kiwar-rpg` skill.
 - `App.tsx` lays out the HUD; components in `ui/components/` (TopBar, TilePanel = contextual
   sheet for the selected tile, QueuePanel, EggButton, PathTools, ExpeditionModal, ChatPanel…).
+  Expedition planner, reports, the target map (`IntelMap`) and the flying bird (`render/ship.ts`):
+  see `kiwar-expeditions`.
 - Styles in `ui/styles.css`: parchment look, CSS variables (`--paper`, `--edge`, `--leaf`,
   `--berry`, `--gap`, `--safe-*`). Phone breakpoint `max-width: 760px`; when a tile sheet is
   open the HUD has `.has-sheet` (bottom sheet covers half the screen; other floating panels hide).

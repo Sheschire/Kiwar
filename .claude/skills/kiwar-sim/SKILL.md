@@ -42,6 +42,9 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
   harvest (`harvestOf`, statuses ok/depleted/storageFull/idle), UI views.
 - `sim/expeditions.ts` — launch, forecast, arrival/return resolution (chosen crew, weighted
   losses, memorial).
+- `sim/aliens.ts`, missions, intel, ships — chantier 07: see the `kiwar-expeditions` skill.
+  **Never put the real state of an alien face anywhere but `state.aliens`** (stripped by the
+  server); arrivals without it are not events.
 - `data/cycles.ts`, `data/needs.ts`, `sim/calendar.ts`, `sim/needs.ts`, `sim/rest.ts` —
   chantier 04 (calendar, seasons, hunger, rest, morale): see the `kiwar-cycles` skill.
 - `data/threats.ts`, `sim/threats.ts`, `sim/sky.ts` — chantier 06 (predator waves, incidents,

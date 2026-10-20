@@ -16,6 +16,7 @@
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
     "balance": "pnpm --filter @kiwar/balance balance",
+    "balance:expeditions": "pnpm --filter @kiwar/balance expeditions",
     "build:functions": "node scripts/build-functions.mjs",
     "build:sql": "node scripts/build-sql.mjs",
     "test:db": "supabase/tests/run.sh",

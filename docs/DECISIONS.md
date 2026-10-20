@@ -491,7 +491,7 @@ paths but never deposits; at most one death on a wave more than twice the defens
 - **Defenses**: Seed crossbow (ground 4/8/14) and Sky sling (air 4/8/14), 15/25/40 seeds per
   wave each, firing only at the side they face; without enough seeds they fire in proportion;
   damaged ones at half power. 2/4/6 turrets by Nest level. Garrison: `kiwiStrength × 1.5 ×
-  affinity` (warrior ground 1 / air 0, mage 0.8 / 1, scout 0.5 / 0.8, builder 0.5 / 0, others
+affinity` (warrior ground 1 / air 0, mage 0.8 / 1, scout 0.5 / 0.8, builder 0.5 / 0, others
   0.4 / 0); guards stop harvesting, earn 8 XP/h and are 1.5× more exposed. Kiwis at home add
   15 % of their strength on the ground (militia), never in the air.
 - **Shelter**: possible from 45 min before the strike, everybody stays in the Nest until 15 min
@@ -516,3 +516,55 @@ paths but never deposits; at most one death on a wave more than twice the defens
   personal use only; the bat (CC BY) has 132k triangles and the kiwi (CC BY) 502k without
   animation — far too heavy for instanced crowds on phones. Procedural low-poly models are kept;
   a decimated (~1–2k triangles) glTF could replace them later.
+
+## Chantier 07 — Mechanical kiwi ship and reconnaissance
+
+Owner's answers: the launchpad stays at Nest 2; a report is a partial, cumulative map plus
+ranges (tighter with the scouts' Agility/Spirit and the ship, wider with age); a broken ship
+comes back empty and its launchpad must be repaired; spotted scouts fight a light skirmish
+(0–1 loss, mostly wounds, worse report); blind raids stay allowed ("unknown" odds); the alien
+garrison grows slowly every day; the truth is hidden online only (solo games keep it in the
+local save, the UI never shows it).
+
+- **Hidden truth**: `ExpeditionTarget` is public (face, distance, travel time); the garrison is
+  `state.aliens[targetId]` (base defense × 0.75–1.2 of the public number, reinforce, growth
+  1.5–4 % of the base per game day up to ×2, loot × 0.8–1.2, ferret share 35–80 %, 6 + 2 ×
+  distance dens/roosts), drawn from a secret seed. The server draws that seed itself
+  (`ctx.randomSeed()`) for new games, migrated games and imports (an imported save never brings
+  its own garrison), strips `aliens` from every response (`publicState` wraps
+  `handleGameRequest`) and resolves landed ships on `load`. Migration
+  `20261024000000_hide_game_state.sql` drops the "players read their own games" policy, since
+  `games.state` holds the truth.
+- **Client without truth**: an arrival is not an `advance` event when the garrison is missing
+  (`canResolveArrival`); the expedition shows "waiting for news" and `GameController` polls
+  `load` every 5 s (`awaitingReport`) and rebases. The way back (rations, starvation, unloading)
+  is simulated by the client as before. Breakdowns need no truth.
+- **Intel** (`state.intel`): ranges for defense, ferrets, bats, sectors seen (12: 6 slices × 2
+  rings, inner ring up to 6 hexes) and dens/roosts seen there, `victoriesAt`. Aged view
+  (`intelView`): max × (1 + 4 % per game day, up to ×2) + public reinforcement per victory since;
+  fresh < 1 day, stale < 3, then old. A raid records the defense it faced exactly.
+- **Reconnaissance**: 1–2 kiwis, travel × 0.75, no loot, no provocation, half XP. Quality =
+  0.25 + 0.05 × (mean (Agility + Spirit) / 2 − 5) + 0.015 × (level − 1) + 0.15 Scouting + ship
+  bonus (0 / 0.05 / 0.1 / 0.15). Sectors = 2 + round(4 × quality), unseen first; range
+  half-width 40 % → 8 %, always containing the truth. Spot chance 20 % + 15 % per extra kiwi −
+  3 % per Agility point above 5 − 5 % Scouting, 5–60 %. Spotted: quality halved, skirmish against
+  12 % of the garrison: outmatched → one scout falls, else one comes home wounded (3 h).
+- **Ships** (`SHIPS`, `shipOf(pad)`): wood 70 %, logs 85 %, iron 95 % (armour −15 % raid
+  losses), jet 99 % (−25 %, kept for the Industry age of chantier 08). Until ages exist the
+  launchpad level picks the generation (1/2/3). Best crew Dexterity adds 1 % per point above 5
+  (max +5 %). Speed and hold stay on the launchpad levels. A breakdown is drawn at take-off: the
+  ship turns back half-way, rations are eaten, nothing is found, the launchpad comes home
+  `damaged` (repair queue of chantier 06) and cannot launch until mended (`launchpadDamaged`).
+- **Probe** (`pnpm balance:expeditions`, 300 seeds, fresh level-1 kiwis): breakdowns 28 / 14 /
+  3 %; a lone average scout is spotted 17 % of the time, falls 1 %, is wounded 16 %, maps
+  2.9 sectors with ±26 % ranges; a blind raid of 6 wins 37 % of the time against the twin face,
+  an informed raid (crew sized on the top of the estimate) wins every time with 13–18 % losses.
+  The colony bot still does not use expeditions (milestones unchanged).
+- **Rendering**: procedural mechanical kiwi bird per generation (wings on rigs, preening on the
+  pad); `ShipsView` animates take-off (12 s of game time), cruise towards the twin half (or far
+  in the sky for another kiwi) and landing; a broken ship trails smoke. The twin's fog shader
+  takes a 12-sector mask and opens over seen sectors; seen dens and roosts stand there.
+- **UI**: mission switch (reconnaissance suggested while nothing is known), recon forecast
+  (quality, sectors, spot chance), crew sorted by discretion, ship and reliability line, aged
+  intel on target cards, SVG map of the target face (public seed only) in the planner and the
+  report, enemy ranges.

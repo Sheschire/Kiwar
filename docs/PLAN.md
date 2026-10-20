@@ -40,8 +40,8 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | ✅         |
 | 05  | Intro, choix de la face, biomes, brouillard                            | ✅         |
 | 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | ✅         |
-| 07  | Vaisseau kiwi géant et exploration                                     | ⏭ prochain |
-| 08  | Âges, recherche contre nature, Kikiwiwis                               | à faire    |
+| 07  | Vaisseau kiwi géant et exploration                                     | ✅         |
+| 08  | Âges, recherche contre nature, Kikiwiwis                               | ⏭ prochain |
 | —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées      |
 
 ## Dette et idées en attente
@@ -73,5 +73,12 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
   si le porteur en fournit) ; pas de variantes d'ennemis ni de raids ciblés venus des faces
   provoquées (la provocation augmente seulement la puissance) ; le bot ne pose pas de camp sur
   les météorites ; la mise en scène ne joue que si le joueur est là à l'impact.
+- Chantier 07 : le bot de colonie n'envoie pas d'expéditions (sonde dédiée
+  `pnpm balance:expeditions`) ; la génération du vaisseau suit le niveau de l'aire en attendant
+  les âges (`shipOf`, à brancher au chantier 08, avec l'oiseau à propulseurs) ; les autres kiwis
+  d'un univers ne sont pas dessinés en 3D (seulement la carte SVG de la cible) ; le client en
+  ligne interroge le serveur toutes les 5 s quand un vaisseau a atterri (pas de Realtime) ; pas
+  encore de colonisation ni de caravanes entre faces alliées ; le porteur doit exécuter la
+  migration `20261024000000_hide_game_state.sql`.
 - Performance des animations non mesurée sur un vrai téléphone (un mesh par partie animée, ~1 à
   10 par bâtiment) : à vérifier, sinon passer les drapeaux en instancing.

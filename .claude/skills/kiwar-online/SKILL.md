@@ -18,6 +18,10 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   `faceTaken`, `repo.moveMember`) and `twin` snapshots of a friend on the other half (layout
   only) in load / join / universeInfo / pickFace responses — see `kiwar-world`.
 - Stored games are migrated on read (`migrating(repo)` → `migrateState`).
+- **Anti-cheat (chantier 07)**: every response goes through `publicState` (no `aliens`: the real
+  alien garrisons); the server draws garrison seeds itself (`ensureAliens` in
+  `withScopeTargets`, imports re-drawn) and resolves landed ships on `load`. Players cannot
+  read `games` at all (no select policy). See `kiwar-expeditions`.
 - Rate limit: 40 commands / 10 s (`command_log`).
 - **SQL**: `supabase/migrations/` — `games`, `command_log`, `admins`, `universes`,
   `universe_members`, `audio_assets` / `audio_bindings` + Storage bucket `audio` (see
