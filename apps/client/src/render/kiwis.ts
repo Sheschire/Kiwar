@@ -471,13 +471,23 @@ export class KiwisView {
   /** Tired or sleepy kiwis go to their bed (inside their hut or the Nest). */
   private thinkRest(agent: Agent, villager: Villager): boolean {
     const job = villager.job;
-    if (agent.rhythm === 'work' || job.kind === 'build' || job.kind === 'train') {
+    // Taking shelter from a wave: everybody runs into the Nest.
+    const shelter = !!this.state && this.state.threats.shelterUntil > this.state.now;
+    if (
+      !shelter &&
+      job.kind !== 'injured' &&
+      (agent.rhythm === 'work' || job.kind === 'build' || job.kind === 'train')
+    ) {
       agent.inside = false;
       return false;
     }
-    const bedId = this.state ? bedsOf(this.state).get(villager.id)?.buildingId : null;
+    const bedId = shelter
+      ? this.state?.buildings.find((b) => b.type === 'nest')?.id
+      : this.state
+        ? bedsOf(this.state).get(villager.id)?.buildingId
+        : null;
     const home = bedId ? this.state?.buildings.find((b) => b.id === bedId) : undefined;
-    const sig = `rest:${bedId ?? '-'}`;
+    const sig = `${shelter ? 'shelter' : 'rest'}:${bedId ?? '-'}`;
     if (sig !== agent.plan) {
       agent.plan = sig;
       agent.carrying = null;

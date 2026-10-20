@@ -233,6 +233,9 @@ export const en = {
     depleted: 'Exhausted: only the regrowth is harvested. Fewer workers, or move on.',
     storagePaused: 'Storage full: the kiwis only gather what the colony eats.',
     flooded: 'Flooded: the work stops until the waters recede.',
+    damaged: 'Damaged by predators: works at half pace until repaired.',
+    repair: 'Repair',
+    repairing: 'Repairing…',
     logistics: 'Logistics',
     logisticsValue: '{distance} steps to a depot · ×{efficiency}',
     logisticsHint: 'Build paths or a Warehouse nearby to shorten the trips.',
@@ -258,6 +261,7 @@ export const en = {
     cancel: 'Cancel and refund',
     build: '{name}',
     upgrade: '{name} → Lv {level}',
+    repair: '{name}: repairs',
   },
   cycles: {
     seasons: { spring: 'Spring', summer: 'Summer', autumn: 'Autumn', winter: 'Winter' },
@@ -358,6 +362,7 @@ export const en = {
     shinyHatched: 'A shiny kiwi is born: {name}, with {color} feathers!',
     foodRanOut: 'No {resource} left: the kiwis go hungry!',
     starved: '{name} starved to death…',
+    repaired: '{name} is repaired.',
   },
   needs: {
     stages: {
@@ -466,6 +471,10 @@ export const en = {
     universeNotFound: 'No universe with this invite code.',
     universeFull: 'This universe is full.',
     faceTaken: 'Someone already lives on this face.',
+    noWaveSoon: 'No wave is close enough to take shelter yet.',
+    alreadySheltered: 'Everybody is already in the Nest.',
+    notDamaged: 'This building is not damaged.',
+    alreadyRepairing: 'Repairs are already planned.',
   },
   offline: {
     title: 'While you were away…',
@@ -627,6 +636,20 @@ export const en = {
     cost: '{cost} fibre per tile',
     done: 'Done',
   },
+  threats: {
+    announced: 'Predators spotted! A wave strikes in {duration}.',
+    won: 'The predators were driven off!',
+    lost: 'The predators ravaged the colony…',
+    shelterOver: 'All clear: the kiwis leave the Nest.',
+    healed: '{name} is back on their feet.',
+    incident: {
+      thief: 'A ferret stole {amount} {resource}!',
+      thiefBlocked: 'A thieving ferret was chased away.',
+      bat: 'A bat drank {amount} juice.',
+      batBlocked: 'A bat was chased away from the juice.',
+      storm: 'A storm blew away {amount} path tile(s).',
+    },
+  },
   village: {
     button: 'Village',
     title: 'Village',
@@ -639,6 +662,7 @@ export const en = {
       battle: 'in battle',
       starvation: 'of hunger on the way home',
       famine: 'of hunger in the colony',
+      predator: 'to the predators',
     },
     sort: 'Sort by',
     sorts: { level: 'Level', name: 'Name', job: 'Job', born: 'Age' },
@@ -693,6 +717,7 @@ export const en = {
       train: 'At school',
       build: 'Building',
       expedition: 'On an expedition',
+      injured: 'Recovering',
     },
   },
   stats: {

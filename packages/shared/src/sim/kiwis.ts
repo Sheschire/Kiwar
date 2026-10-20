@@ -23,6 +23,7 @@ import { CLASSES, SKILLS, type ClassId, type SkillId } from '../data/classes';
 import { levelDef } from '../data/buildings';
 import { RESOURCE_IDS, type ResourceCost } from '../data/resources';
 import { DEPOSITS } from '../data/territory';
+import { THREATS } from '../data/threats';
 import type { Rng } from '../rng/rng';
 import type { BuildingId, TimeMs } from '../types/ids';
 import type { GameEvent } from './advance';
@@ -199,15 +200,18 @@ export function kiwiExposure(v: Villager): number {
 
 /** Summed power of the workers of a building (replaces the head count in harvest maths). */
 export function workforce(state: GameState, b: Building, workers: Villager[]): number {
+  // Everybody is hiding in the Nest from a wave.
+  if (state.threats.shelterUntil > state.now) return 0;
+  const damaged = b.damaged ? THREATS.damagedWork : 1;
   const resource = buildingResource(state, b);
-  if (!resource) return workers.length;
+  if (!resource) return workers.length * damaged;
   // Each kiwi works its share of the day (rest and the walk to its bed aside).
   const beds = bedsOf(state);
   const sum = workers.reduce(
     (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)),
     0,
   );
-  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds);
+  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds) * damaged;
 }
 
 /** The mayor at home, if any. */

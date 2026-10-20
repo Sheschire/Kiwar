@@ -3,7 +3,8 @@ import { NAME_SYLLABLES, START } from '../data/start';
 import { calendarStartFor } from '../data/cycles';
 import { drawBiomes, type BiomeId } from '../data/biomes';
 import { ALIEN_TWIN_FACE } from '../data/expeditions';
-import type { Resources } from '../data/resources';
+import type { ResourceId, Resources } from '../data/resources';
+import { INCIDENTS, type IncidentKind } from '../data/threats';
 import { HEART, type FaceParams, DEFAULT_FACE_PARAMS } from '../worldgen/generateFace';
 import { createRng, type Rng, type RngState } from '../rng/rng';
 import type { Masteries, ShinyColor, Stats, TraitId } from '../data/kiwis';
@@ -21,7 +22,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 export type Job =
   | { kind: 'idle' }
@@ -37,7 +38,9 @@ export type Job =
       classId: ClassId;
       until: TimeMs;
       paid: Partial<Resources>;
-    };
+    }
+  /** Hurt by predators: rests at home until `until`, then looks for work. */
+  | { kind: 'injured'; until: TimeMs };
 
 export interface KiwiHistory {
   expeditions: number;
@@ -79,8 +82,11 @@ export interface Memorial {
   classId?: ClassId | null;
   bornAt: TimeMs;
   diedAt: TimeMs;
-  /** `starvation`: on the way home from an expedition; `famine`: in the colony. */
-  cause: 'battle' | 'starvation' | 'famine';
+  /**
+   * `starvation`: on the way home from an expedition; `famine`: in the colony; `predator`: a
+   * wave of ferrets or bats.
+   */
+  cause: 'battle' | 'starvation' | 'famine' | 'predator';
 }
 
 export interface Building {
@@ -97,6 +103,8 @@ export interface Building {
    * their pooled stock. Kept in sync by `syncPools` whenever the layout changes.
    */
   pool?: Pool;
+  /** Hit by predators: works at `THREATS.damagedWork` until repaired. */
+  damaged?: boolean;
 }
 
 export interface Pool {
@@ -112,11 +120,12 @@ export interface FreeDeposit {
 
 export interface QueueItem {
   id: QueueItemId;
-  kind: 'build' | 'upgrade';
+  /** `repair`: mends a damaged building (same level). */
+  kind: 'build' | 'upgrade' | 'repair';
   buildingType: BuildingType;
   q: number;
   r: number;
-  /** For upgrades: the building being upgraded. */
+  /** For upgrades and repairs: the building concerned. */
   buildingId: BuildingId | null;
   targetLevel: number;
   richness: number;
@@ -184,6 +193,62 @@ export interface Expedition {
   result: ExpeditionResult | null;
 }
 
+/** A big wave on its way: planned (time only), then announced (composition). */
+export interface PlannedWave {
+  id: string;
+  announceAt: TimeMs;
+  at: TimeMs;
+  announced: boolean;
+  /** Ferret (ground) and bat (air) power, drawn at the announcement (0 before). */
+  ground: number;
+  air: number;
+}
+
+export interface WaveReport {
+  id: string;
+  at: TimeMs;
+  victory: boolean;
+  sheltered: boolean;
+  /** Threat on the day (luck included) and the defense it met. */
+  threat: { ground: number; air: number };
+  defense: { ground: number; air: number };
+  /** 0 (repelled) to 1 (nothing stood in the way). */
+  severity: number;
+  /** Seeds fired by the turrets. */
+  ammoUsed: number;
+  damaged: { id: BuildingId; type: BuildingType }[];
+  loot: Resources;
+  injured: { id: VillagerId; name: string }[];
+  dead: { id: VillagerId; name: string }[];
+  pathsLost: number;
+}
+
+export interface IncidentReport {
+  at: TimeMs;
+  kind: IncidentKind;
+  /** Stopped by the defenders (nothing lost). */
+  blocked: boolean;
+  resource: ResourceId | null;
+  /** Resources lost, or path tiles blown away. */
+  amount: number;
+}
+
+/** Predators (chantier 06). Draws use their own RNG stream, apart from the colony's. */
+export interface ThreatState {
+  rng: RngState;
+  next: PlannedWave | null;
+  /** Last wave strike (0: none yet). */
+  lastWaveAt: TimeMs;
+  /** No wave strikes before then (after a defeat). */
+  shieldUntil: TimeMs;
+  /** Everybody stays in the Nest until then (no harvest). */
+  shelterUntil: TimeMs;
+  nextIncidentAt: TimeMs;
+  waves: number;
+  reports: WaveReport[];
+  incidents: IncidentReport[];
+}
+
 export interface GameStats {
   produced: Resources;
   constructionsCompleted: number;
@@ -231,6 +296,7 @@ export interface GameState {
   paths: string[];
   /** Unharvested deposits that are not full yet (hex key → stock); absent means full. */
   deposits: Record<string, FreeDeposit>;
+  threats: ThreatState;
   nextId: number;
   rng: RngState;
 }
@@ -304,6 +370,7 @@ export function newGame(opts: NewGameOptions): GameState {
     expeditions: [],
     paths: [],
     deposits: {},
+    threats: newThreats(opts.seed, opts.face, opts.now),
     nextId: 1,
     rng: rng.state(),
   };
@@ -318,6 +385,29 @@ export function newGame(opts: NewGameOptions): GameState {
   });
   for (let i = 0; i < START.villagers; i++) addVillager(state, opts.now);
   return state;
+}
+
+/** Predators of a new colony: nothing planned, the first incident at a fixed time. */
+export function newThreats(seed: string, face: Face, now: TimeMs): ThreatState {
+  return {
+    rng: createRng(`${seed}/${face}/threats`).state(),
+    next: null,
+    lastWaveAt: 0,
+    shieldUntil: 0,
+    shelterUntil: 0,
+    nextIncidentAt: now + INCIDENTS.firstMs,
+    waves: 0,
+    reports: [],
+    incidents: [],
+  };
+}
+
+/** Runs `fn` with the predators' RNG stream. */
+export function withThreatRng<T>(state: GameState, fn: (rng: Rng) => T): T {
+  const rng = createRng(state.threats.rng);
+  const out = fn(rng);
+  state.threats.rng = rng.state();
+  return out;
 }
 
 export function nextId(state: GameState, prefix: string): string {
@@ -379,6 +469,7 @@ export function cloneState(state: GameState): GameState {
     victories: { ...state.victories },
     paths: [...state.paths],
     deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
+    threats: cloneThreats(state.threats),
     expeditions: state.expeditions.map((e) => ({
       ...e,
       crew: [...e.crew],
@@ -394,6 +485,24 @@ export function cloneState(state: GameState): GameState {
         : null,
     })),
     rng: [...state.rng] as RngState,
+  };
+}
+
+export function cloneThreats(t: ThreatState): ThreatState {
+  return {
+    ...t,
+    rng: [...t.rng] as RngState,
+    next: t.next ? { ...t.next } : null,
+    reports: t.reports.map((r) => ({
+      ...r,
+      threat: { ...r.threat },
+      defense: { ...r.defense },
+      damaged: r.damaged.map((d) => ({ ...d })),
+      loot: { ...r.loot },
+      injured: r.injured.map((k) => ({ ...k })),
+      dead: r.dead.map((k) => ({ ...k })),
+    })),
+    incidents: t.incidents.map((i) => ({ ...i })),
   };
 }
 

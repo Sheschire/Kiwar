@@ -2,6 +2,7 @@ import type { GameEvent } from '@kiwar/shared';
 import type { GameRenderer } from '../render/GameRenderer';
 import { pushToast, uiStore } from '../ui/store';
 import { playGameEventSounds } from '../audio/sounds';
+import { formatDuration } from '../i18n/i18n';
 
 /** Turns simulation events into toasts and visual effects. */
 export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): void {
@@ -74,6 +75,32 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         uiStore.setState((s) => ({
           unreadReports: [...new Set([...s.unreadReports, e.expeditionId])],
         }));
+        break;
+      case 'repaired':
+        pushToast('success', 'events.repaired', { name: `@buildings.${e.buildingType}.name` });
+        break;
+      case 'waveAnnounced':
+        pushToast('error', 'threats.announced', {
+          duration: formatDuration(uiStore.getState().lang, e.strikeAt - e.at),
+        });
+        break;
+      case 'waveStruck':
+        pushToast(e.victory ? 'success' : 'error', e.victory ? 'threats.won' : 'threats.lost');
+        break;
+      case 'shelterOver':
+        pushToast('info', 'threats.shelterOver');
+        break;
+      case 'injuryHealed':
+        pushToast('info', 'threats.healed', { name: e.name });
+        break;
+      case 'incident':
+        if (e.kind === 'storm') pushToast('info', 'threats.incident.storm', { amount: e.amount });
+        else if (e.blocked) pushToast('success', `threats.incident.${e.kind}Blocked`);
+        else
+          pushToast('error', `threats.incident.${e.kind}`, {
+            amount: e.amount,
+            resource: `@resources.${e.resource ?? 'pulp'}`,
+          });
         break;
       default:
         break;

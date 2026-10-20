@@ -40,11 +40,15 @@ import {
   population,
   housing,
   queuedBuildAt,
+  repairCost,
+  repairDuration,
   upgradeCost,
   workerSlots,
   workersOf,
 } from './selectors';
 import { cloneState, nextId, type GameState } from './state';
+import { SHELTER } from '../data/threats';
+import { forecastWave } from './threats';
 import { EXPEDITIONS } from '../data/expeditions';
 import {
   crewOf,
@@ -90,6 +94,10 @@ export type Command =
   /** Use an active skill (mage's Rain, mayor's Speech). */
   | { type: 'useSkill'; villagerId: VillagerId; skill: SkillId }
   /** Debug panel only. Will be rejected by the server in milestone 2. */
+  /** Chantier 06: everybody into the Nest for the coming wave (no one hurt, no harvest). */
+  | { type: 'shelter' }
+  /** Mends a building damaged by predators (queued like a construction). */
+  | { type: 'repair'; buildingId: BuildingId }
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
 export const COMMAND_ERRORS = [
@@ -141,6 +149,10 @@ export const COMMAND_ERRORS = [
   'skillCooling',
   'notHere',
   'flooded',
+  'noWaveSoon',
+  'alreadySheltered',
+  'notDamaged',
+  'alreadyRepairing',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -263,7 +275,8 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const b = getBuilding(s, cmd.buildingId);
       if (!b) return fail('unknownBuilding');
       if (b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type))) fail('maxLevel');
-      if (pendingUpgrade(s, b.id)) fail('alreadyUpgrading');
+      const pending = pendingUpgrade(s, b.id);
+      if (pending) fail(pending.kind === 'repair' ? 'alreadyRepairing' : 'alreadyUpgrading');
       const target = b.level + 1;
       const def = levelDef(b.type, target)!;
       // The Nest gates the others; the Nest itself only needs its current level.
@@ -521,6 +534,39 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         s.speechUntil = now + SKILLS.speechMs * k;
       }
       v.skillReadyAt[cmd.skill] = now + def.cooldownMs;
+      return;
+    }
+    case 'shelter': {
+      const f = forecastWave(s);
+      if (!f) return fail('noWaveSoon');
+      if (f.sheltered) fail('alreadySheltered');
+      if (!f.canShelter) fail('noWaveSoon');
+      s.threats.shelterUntil = f.wave.at + SHELTER.afterMs;
+      return;
+    }
+    case 'repair': {
+      const b = getBuilding(s, cmd.buildingId);
+      if (!b) return fail('unknownBuilding');
+      if (!b.damaged) fail('notDamaged');
+      if (pendingUpgrade(s, b.id)) fail('alreadyRepairing');
+      queueHasRoom(s);
+      const cost = repairCost(b);
+      pay(s, cost);
+      s.queue.push({
+        id: nextId(s, 'q') as QueueItemId,
+        kind: 'repair',
+        buildingType: b.type,
+        q: b.q,
+        r: b.r,
+        buildingId: b.id,
+        targetLevel: b.level,
+        richness: b.richness,
+        durationMs: repairDuration(b),
+        startedAt: null,
+        paid: cost,
+        orderedAt: now,
+      });
+      startNextConstruction(s, now, events);
       return;
     }
     case 'debugGrant': {

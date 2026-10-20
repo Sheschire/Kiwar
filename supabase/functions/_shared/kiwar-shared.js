@@ -1200,6 +1200,88 @@ var MORALE = {
   season: { spring: 0.02, summer: 0, autumn: 0, winter: -0.02 }
 };
 
+// packages/shared/src/data/threats.ts
+var THREATS = {
+  /** No big wave before this much play time… */
+  protectionMs: ms.h(24),
+  /** …nor before the Nest reaches this level. */
+  protectionNestLevel: 2,
+  /** Time between two waves (drawn in this range). */
+  intervalMs: [ms.h(20), ms.h(28)],
+  /** How long before the strike a wave is announced (drawn in this range). */
+  noticeMs: [ms.h(8), ms.h(12)],
+  /** No wave strikes until this long after a defeat. */
+  shieldMs: ms.h(24),
+  /** Total wave power: base × Nest level factor × play time × provocation. */
+  basePower: 5,
+  nestFactor: [0, 0.6, 1, 1.6],
+  /** Power gained per day of play, up to `maxDays`. */
+  perDay: 0.2,
+  maxDays: 14,
+  /** Power gained per expedition victory (the aliens strike back), up to `maxProvocation`. */
+  perVictory: 0.08,
+  maxProvocation: 0.8,
+  /** Share of the power that flies (bats) at night and by day. */
+  airShare: { night: 0.7, day: 0.25 },
+  /** Hungry ferrets in winter, thirsty bats in summer. */
+  season: {
+    spring: { ferrets: 1, bats: 1 },
+    summer: { ferrets: 1, bats: 1.3 },
+    autumn: { ferrets: 1, bats: 1 },
+    winter: { ferrets: 1.3, bats: 1 }
+  },
+  /** ± swing of the announced composition, then ± luck on the day (like expeditions). */
+  spread: 0.15,
+  luck: 0.15,
+  /** Kiwis at home defend the ground a little, even unposted (no one reaches the bats). */
+  militia: 0.15,
+  /** A kiwi may die only when the threat exceeds this many times the defense. */
+  deathRatio: 2,
+  /** …and never when it would leave fewer kiwis than this. */
+  minKiwis: 4,
+  maxDeaths: 1,
+  /** Share of the kiwis at home hurt at full severity, and how long they rest. */
+  injuryShare: 0.4,
+  injuryMs: [ms.h(2), ms.h(6)],
+  /** Share of the unprotected stock carried away at full severity. */
+  lootShare: 0.35,
+  /** Share of their storage that the Nest and the Warehouses keep safe from looting. */
+  protectedShare: { nest: 0.3, warehouse: 0.6 },
+  /** Buildings damaged at full severity (at least one on any defeat; never the Nest). */
+  maxDamaged: 4,
+  /** Path tiles trampled by ferrets at full ground severity. */
+  maxPathsLost: 4,
+  /** Damaged buildings work at this rate until repaired. */
+  damagedWork: 0.5,
+  /** Repairs cost this share of the building's current level, and this share of its time. */
+  repairCost: 0.3,
+  repairTime: 0.4,
+  /** Wave reports kept for the UI. */
+  history: 5
+};
+var SHELTER = {
+  /** Possible this long before the strike… */
+  beforeMs: ms.min(45),
+  /** …and kiwis stay inside this long after it. */
+  afterMs: ms.min(15)
+};
+var INCIDENT_KINDS = ["thief", "bat", "storm"];
+var INCIDENTS = {
+  /** The first one comes this long after the start (no draw at game creation). */
+  firstMs: ms.h(4),
+  intervalMs: [ms.h(5), ms.h(11)],
+  /** A lone ferret steals this share of the pulp (or fiber) stock. */
+  thiefShare: [0.02, 0.05],
+  /** A bat drinks this share of the juice stock. */
+  batShare: [0.03, 0.06],
+  /** A storm blows away this many path tiles. */
+  stormPaths: [1, 3],
+  /** Chance that defenders stop a thief or a bat: defense / (defense + this), capped. */
+  blockHalf: 4,
+  maxBlock: 0.8,
+  history: 8
+};
+
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
 var SQRT5 = /* @__PURE__ */ Math.sqrt(5);
@@ -2196,14 +2278,16 @@ function kiwiExposure(v) {
   return modifiers(v).exposure / (kiwiStrength(v) * dodge * tough);
 }
 function workforce(state, b, workers) {
+  if (state.threats.shelterUntil > state.now) return 0;
+  const damaged = b.damaged ? THREATS.damagedWork : 1;
   const resource = buildingResource(state, b);
-  if (!resource) return workers.length;
+  if (!resource) return workers.length * damaged;
   const beds = bedsOf(state);
   const sum = workers.reduce(
     (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)),
     0
   );
-  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds);
+  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds) * damaged;
 }
 function mayorOf(state) {
   return state.villagers.find((v) => v.classId === "mayor" && v.job.kind !== "expedition");
@@ -2336,7 +2420,7 @@ function trainingDuration(school, classId) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 9;
+var SCHEMA_VERSION = 10;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -2388,6 +2472,7 @@ function newGame(opts) {
     expeditions: [],
     paths: [],
     deposits: {},
+    threats: newThreats(opts.seed, opts.face, opts.now),
     nextId: 1,
     rng: rng.state()
   };
@@ -2402,6 +2487,25 @@ function newGame(opts) {
   });
   for (let i = 0; i < START.villagers; i++) addVillager(state, opts.now);
   return state;
+}
+function newThreats(seed, face, now) {
+  return {
+    rng: createRng(`${seed}/${face}/threats`).state(),
+    next: null,
+    lastWaveAt: 0,
+    shieldUntil: 0,
+    shelterUntil: 0,
+    nextIncidentAt: now + INCIDENTS.firstMs,
+    waves: 0,
+    reports: [],
+    incidents: []
+  };
+}
+function withThreatRng(state, fn) {
+  const rng = createRng(state.threats.rng);
+  const out = fn(rng);
+  state.threats.rng = rng.state();
+  return out;
 }
 function nextId(state, prefix) {
   return `${prefix}${state.nextId++}`;
@@ -2455,6 +2559,7 @@ function cloneState(state) {
     victories: { ...state.victories },
     paths: [...state.paths],
     deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
+    threats: cloneThreats(state.threats),
     expeditions: state.expeditions.map((e) => ({
       ...e,
       crew: [...e.crew],
@@ -2468,6 +2573,23 @@ function cloneState(state) {
       } : null
     })),
     rng: [...state.rng]
+  };
+}
+function cloneThreats(t) {
+  return {
+    ...t,
+    rng: [...t.rng],
+    next: t.next ? { ...t.next } : null,
+    reports: t.reports.map((r) => ({
+      ...r,
+      threat: { ...r.threat },
+      defense: { ...r.defense },
+      damaged: r.damaged.map((d) => ({ ...d })),
+      loot: { ...r.loot },
+      injured: r.injured.map((k) => ({ ...k })),
+      dead: r.dead.map((k) => ({ ...k }))
+    })),
+    incidents: t.incidents.map((i) => ({ ...i }))
   };
 }
 function cloneVillager(v) {
@@ -2661,7 +2783,14 @@ function constructionDuration(state, type, level, isNewCopy, rayBonus) {
   return Math.max(1e3, Math.round(base * Math.sqrt(copies) * speed / 1e3) * 1e3);
 }
 function pendingUpgrade(state, buildingId) {
-  return state.queue.find((i) => i.kind === "upgrade" && i.buildingId === buildingId);
+  return state.queue.find((i) => i.kind !== "build" && i.buildingId === buildingId);
+}
+function repairCost(b) {
+  return scaleCost(levelDef(b.type, b.level)?.cost ?? {}, THREATS.repairCost);
+}
+function repairDuration(b) {
+  const base = levelDef(b.type, b.level)?.durationMs ?? 0;
+  return Math.max(5e3, Math.round(base * THREATS.repairTime / 1e3) * 1e3);
 }
 function isMaxLevel(b) {
   return b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type));
@@ -2984,6 +3113,262 @@ function nameOf(e, id3) {
 }
 var round22 = (v) => Math.round(v * 100) / 100;
 
+// packages/shared/src/sim/threats.ts
+var HOUR2 = 36e5;
+var DAY = 24 * HOUR2;
+function wavePower(state, at) {
+  const level = nest(state).level;
+  const factor = THREATS.nestFactor[level] ?? THREATS.nestFactor[THREATS.nestFactor.length - 1];
+  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY));
+  const victories = Object.values(state.victories).reduce((a, b) => a + b, 0);
+  const provocation = Math.min(THREATS.maxProvocation, THREATS.perVictory * victories);
+  return THREATS.basePower * factor * (1 + THREATS.perDay * days) * (1 + provocation);
+}
+function waveMix(state, power, at) {
+  const c = calendarAt(state.calendarStart, at);
+  const air = c.night ? THREATS.airShare.night : THREATS.airShare.day;
+  const biome = BIOMES[state.params.biome].threats;
+  const season = THREATS.season[c.season];
+  return {
+    ground: power * (1 - air) * biome.ferrets * season.ferrets,
+    air: power * air * biome.bats * season.bats
+  };
+}
+function exposedKiwis(state) {
+  return state.villagers.filter((v) => v.job.kind === "work" || v.job.kind === "idle");
+}
+function defenseOf(state) {
+  let ground = 0;
+  for (const v of exposedKiwis(state)) ground += THREATS.militia * kiwiStrength(v);
+  return { ground, air: 0 };
+}
+function protectedStock(state) {
+  let safe = 0;
+  for (const b of state.buildings) {
+    const share = THREATS.protectedShare[b.type];
+    if (share) safe += (levelDef(b.type, b.level)?.storage ?? 0) * share;
+  }
+  return { pulp: safe, fiber: safe, seeds: safe, juice: safe };
+}
+function waveOutcome(state, threat, defense, sheltered) {
+  const total = threat.ground + threat.air;
+  const groundExcess = Math.max(0, threat.ground - defense.ground);
+  const excess = groundExcess + Math.max(0, threat.air - defense.air);
+  const severity = total > 0 ? Math.min(1, excess / total) : 0;
+  const groundSeverity = total > 0 ? Math.min(1, groundExcess / total) : 0;
+  const loot = emptyResources();
+  if (excess <= 1e-9) {
+    return {
+      victory: true,
+      severity: 0,
+      groundSeverity: 0,
+      damaged: 0,
+      loot,
+      injured: 0,
+      deaths: 0,
+      pathsLost: 0
+    };
+  }
+  const safe = protectedStock(state);
+  for (const id3 of RESOURCE_IDS) {
+    const exposed2 = Math.max(0, state.resources[id3] - safe[id3]);
+    loot[id3] = Math.floor(exposed2 * THREATS.lootShare * severity);
+  }
+  const candidates = damageable(state).length;
+  const damaged = Math.min(candidates, Math.max(1, Math.round(severity * THREATS.maxDamaged)));
+  const exposed = exposedKiwis(state).length;
+  const lethal = total > THREATS.deathRatio * (defense.ground + defense.air);
+  const deaths = !sheltered && lethal && state.villagers.length > THREATS.minKiwis && exposed > 0 ? THREATS.maxDeaths : 0;
+  const injured = sheltered ? 0 : Math.min(exposed - deaths, Math.round(severity * THREATS.injuryShare * exposed));
+  const pathsLost = Math.min(state.paths.length, Math.round(groundSeverity * THREATS.maxPathsLost));
+  return { victory: false, severity, groundSeverity, damaged, loot, injured, deaths, pathsLost };
+}
+function damageable(state) {
+  return state.buildings.filter((b) => b.type !== "nest" && b.type !== "camp" && !b.damaged);
+}
+function forecastWave(state) {
+  const wave = state.threats.next;
+  if (!wave || !wave.announced) return null;
+  const threat = { ground: wave.ground, air: wave.air };
+  const defense = defenseOf(state);
+  const L = THREATS.luck;
+  const holds = (k) => threat.ground * k <= defense.ground + 1e-9 && threat.air * k <= defense.air + 1e-9;
+  const odds = holds(1 + L) ? "likely" : holds(1 - L) ? "uncertain" : "unlikely";
+  const sheltered = state.threats.shelterUntil >= wave.at;
+  const shelterFrom = wave.at - SHELTER.beforeMs;
+  return {
+    wave,
+    threat,
+    defense,
+    odds,
+    expected: waveOutcome(state, threat, defense, sheltered),
+    sheltered,
+    canShelter: !sheltered && state.now >= shelterFrom && state.now < wave.at,
+    shelterFrom
+  };
+}
+function nextThreatEvent(state) {
+  const t = state.threats;
+  let next = t.nextIncidentAt;
+  if (t.next) next = Math.min(next, t.next.announced ? t.next.at : t.next.announceAt);
+  if (t.shelterUntil > state.now) next = Math.min(next, t.shelterUntil);
+  return next;
+}
+function planWave(s) {
+  const t = s.threats;
+  if (t.next || nest(s).level < THREATS.protectionNestLevel) return;
+  withThreatRng(s, (rng) => {
+    const gap = Math.round(rng.range(THREATS.intervalMs[0], THREATS.intervalMs[1]));
+    const notice = Math.round(rng.range(THREATS.noticeMs[0], THREATS.noticeMs[1]));
+    const earliest = Math.max(
+      s.createdAt + THREATS.protectionMs,
+      t.lastWaveAt > 0 ? t.lastWaveAt + gap : 0,
+      t.shieldUntil
+    );
+    const at = Math.max(earliest, s.now + notice);
+    t.next = {
+      id: `w${t.waves + 1}`,
+      announceAt: at - notice,
+      at,
+      announced: false,
+      ground: 0,
+      air: 0
+    };
+  });
+}
+function threatTick(s, at, events) {
+  const t = s.threats;
+  if (t.next && !t.next.announced && t.next.announceAt === at) announce(s, t.next, events);
+  if (t.next && t.next.announced && t.next.at === at) strike(s, t.next, events);
+  if (t.nextIncidentAt === at) incident(s, at, events);
+  if (t.shelterUntil === at) events.push({ type: "shelterOver", at });
+}
+var tenth = (x) => Math.round(x * 10) / 10;
+function announce(s, wave, events) {
+  const mix = waveMix(s, wavePower(s, wave.announceAt), wave.at);
+  withThreatRng(s, (rng) => {
+    const S = THREATS.spread;
+    wave.ground = tenth(mix.ground * (1 + rng.range(-S, S)));
+    wave.air = tenth(mix.air * (1 + rng.range(-S, S)));
+  });
+  wave.announced = true;
+  events.push({
+    type: "waveAnnounced",
+    at: wave.announceAt,
+    waveId: wave.id,
+    strikeAt: wave.at,
+    ground: wave.ground,
+    air: wave.air
+  });
+}
+function drawWeighted(s, items, weight, count) {
+  if (count <= 0) return [];
+  return withThreatRng(s, (rng) => {
+    const pool = items.map((x) => ({ x, w: Math.max(1e-6, weight(x)) }));
+    const out = [];
+    while (out.length < count && pool.length > 0) {
+      let roll = rng.next() * pool.reduce((sum, p) => sum + p.w, 0);
+      let i = 0;
+      for (; i < pool.length - 1; i++) {
+        roll -= pool[i].w;
+        if (roll < 0) break;
+      }
+      out.push(pool[i].x);
+      pool.splice(i, 1);
+    }
+    return out;
+  });
+}
+function strike(s, wave, events) {
+  const t = s.threats;
+  const at = wave.at;
+  const luck = withThreatRng(s, (rng) => 1 + rng.range(-THREATS.luck, THREATS.luck));
+  const threat = { ground: wave.ground * luck, air: wave.air * luck };
+  const defense = defenseOf(s);
+  const sheltered = t.shelterUntil >= at;
+  const out = waveOutcome(s, threat, defense, sheltered);
+  const report = {
+    id: wave.id,
+    at,
+    victory: out.victory,
+    sheltered,
+    threat,
+    defense,
+    severity: out.severity,
+    ammoUsed: 0,
+    damaged: [],
+    loot: out.loot,
+    injured: [],
+    dead: [],
+    pathsLost: 0
+  };
+  for (const id3 of RESOURCE_IDS) s.resources[id3] = Math.max(0, s.resources[id3] - out.loot[id3]);
+  for (const b of drawWeighted(s, damageable(s), (b2) => b2.level, out.damaged)) {
+    b.damaged = true;
+    report.damaged.push({ id: b.id, type: b.type });
+  }
+  if (out.pathsLost > 0) {
+    const lost = new Set(drawWeighted(s, s.paths, () => 1, out.pathsLost));
+    s.paths = s.paths.filter((k) => !lost.has(k));
+    report.pathsLost = lost.size;
+  }
+  const hurt = drawWeighted(s, exposedKiwis(s), kiwiExposure, out.deaths + out.injured);
+  const dead = hurt.slice(0, out.deaths);
+  for (const v of hurt.slice(out.deaths)) {
+    const until = withThreatRng(
+      s,
+      (rng) => Math.round(at + rng.range(THREATS.injuryMs[0], THREATS.injuryMs[1]))
+    );
+    v.job = { kind: "injured", until };
+    report.injured.push({ id: v.id, name: v.name });
+  }
+  report.dead = dead.map((v) => ({ id: v.id, name: v.name }));
+  if (dead.length > 0)
+    removeVillagers(
+      s,
+      dead.map((v) => v.id),
+      "predator",
+      at
+    );
+  if (!out.victory) t.shieldUntil = at + THREATS.shieldMs;
+  t.lastWaveAt = at;
+  t.waves++;
+  t.next = null;
+  t.reports.push(report);
+  if (t.reports.length > THREATS.history) t.reports.splice(0, t.reports.length - THREATS.history);
+  events.push({ type: "waveStruck", at, waveId: wave.id, victory: out.victory });
+}
+function incident(s, at, events) {
+  const t = s.threats;
+  const defense = defenseOf(s);
+  const block = (d) => Math.min(INCIDENTS.maxBlock, d / (d + INCIDENTS.blockHalf));
+  const report = withThreatRng(s, (rng) => {
+    const kinds = s.paths.length > 0 ? ["thief", "bat", "storm"] : ["thief", "bat"];
+    const kind = rng.pick(kinds);
+    if (kind === "storm") {
+      const n = Math.min(s.paths.length, rng.int(INCIDENTS.stormPaths[0], INCIDENTS.stormPaths[1]));
+      const lost = new Set(rng.shuffle(s.paths).slice(0, n));
+      s.paths = s.paths.filter((k) => !lost.has(k));
+      return { at, kind, blocked: false, resource: null, amount: n };
+    }
+    const resource = kind === "bat" ? "juice" : rng.pick(["pulp", "fiber"]);
+    const [lo, hi] = kind === "bat" ? INCIDENTS.batShare : INCIDENTS.thiefShare;
+    const share = rng.range(lo, hi);
+    const blocked = rng.chance(block(kind === "bat" ? defense.air : defense.ground));
+    const amount = blocked ? 0 : Math.floor(s.resources[resource] * share);
+    s.resources[resource] -= amount;
+    return { at, kind, blocked, resource, amount };
+  });
+  t.incidents.push(report);
+  if (t.incidents.length > INCIDENTS.history)
+    t.incidents.splice(0, t.incidents.length - INCIDENTS.history);
+  t.nextIncidentAt = at + withThreatRng(
+    s,
+    (rng) => Math.round(rng.range(INCIDENTS.intervalMs[0], INCIDENTS.intervalMs[1]))
+  );
+  events.push({ type: "incident", ...report });
+}
+
 // packages/shared/src/sim/advance.ts
 function advance(state, now) {
   const s = cloneState(state);
@@ -2997,6 +3382,7 @@ function advanceInPlace(s, now, events) {
   startNextConstruction(s, s.now, events);
   let stage = hungerStage(s);
   for (let guard = 0; guard < 1e5; guard++) {
+    planWave(s);
     const active = activeItem(s);
     const constructionEnd = active ? active.startedAt + active.durationMs : Infinity;
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
@@ -3006,7 +3392,11 @@ function advanceInPlace(s, now, events) {
     const speechEnd = s.speechUntil > s.now ? s.speechUntil : Infinity;
     const mourningEnd = s.mourningUntil > s.now ? s.mourningUntil : Infinity;
     const calendarChange = nextCalendarChange(s.calendarStart, s.now);
+    const threatAt = nextThreatEvent(s);
+    const injuryEnd = nextInjuryEnd(s);
     const nextEvent = Math.min(
+      threatAt,
+      injuryEnd,
       calendarChange,
       flows.hungerAt,
       mourningEnd,
@@ -3037,6 +3427,8 @@ function advanceInPlace(s, now, events) {
     if (mourningEnd === nextEvent) events.push({ type: "mourningOver", at: mourningEnd });
     if (calendarChange === nextEvent) calendarTick(s, calendarChange, events);
     if (flows.hungerAt === nextEvent) starve(s, nextEvent, events);
+    if (injuryEnd === nextEvent) healInjuries(s, injuryEnd, events);
+    if (threatAt === nextEvent) threatTick(s, threatAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: "hungerChanged", at: s.now, stage: st });
@@ -3206,6 +3598,22 @@ function completeConstruction(s, at, events) {
   const item = s.queue.shift();
   if (!item) return;
   let buildingId;
+  if (item.kind === "repair") {
+    const b = getBuilding(s, item.buildingId);
+    if (b) {
+      delete b.damaged;
+      events.push({
+        type: "repaired",
+        at,
+        buildingId: b.id,
+        buildingType: b.type,
+        q: b.q,
+        r: b.r
+      });
+    }
+    releaseBuilder(s, item.id, false);
+    return;
+  }
   if (item.kind === "build") {
     buildingId = nextId(s, "b");
     s.buildings.push({
@@ -3221,6 +3629,7 @@ function completeConstruction(s, at, events) {
     const b = getBuilding(s, item.buildingId);
     if (!b) return;
     b.level = item.targetLevel;
+    delete b.damaged;
     buildingId = b.id;
   }
   s.stats.constructionsCompleted++;
@@ -3237,9 +3646,12 @@ function completeConstruction(s, at, events) {
     const idle = bestIdleFor(s, getBuilding(s, buildingId));
     if (idle) idle.job = { kind: "work", buildingId };
   }
+  releaseBuilder(s, item.id, true);
+}
+function releaseBuilder(s, itemId, built) {
   for (const v of s.villagers) {
-    if (v.job.kind !== "build" || v.job.queueItemId !== item.id) continue;
-    v.history.built++;
+    if (v.job.kind !== "build" || v.job.queueItemId !== itemId) continue;
+    if (built) v.history.built++;
     const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : void 0;
     if (back && workersOf(s, back.id).length < workerSlots(back)) {
       v.job = { kind: "work", buildingId: back.id };
@@ -3280,6 +3692,19 @@ function idleByPower(s, b) {
   const idle = idleVillagers(s);
   if (!resource) return idle;
   return idle.map((v, i) => ({ v, i, p: workerPower(v, resource) })).sort((a, c) => c.p - a.p || a.i - c.i).map((x) => x.v);
+}
+function nextInjuryEnd(s) {
+  let next = Infinity;
+  for (const v of s.villagers) if (v.job.kind === "injured") next = Math.min(next, v.job.until);
+  return next;
+}
+function healInjuries(s, at, events) {
+  for (const v of s.villagers) {
+    if (v.job.kind !== "injured" || v.job.until !== at) continue;
+    v.job = { kind: "idle" };
+    events.push({ type: "injuryHealed", at, villagerId: v.id, name: v.name });
+    autoAssign(s, v);
+  }
 }
 function nextTrainingEnd(s) {
   let next = Infinity;
@@ -3359,7 +3784,11 @@ var COMMAND_ERRORS = [
   "skillLocked",
   "skillCooling",
   "notHere",
-  "flooded"
+  "flooded",
+  "noWaveSoon",
+  "alreadySheltered",
+  "notDamaged",
+  "alreadyRepairing"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -3452,7 +3881,8 @@ function execute(s, cmd, ctx, events) {
       const b = getBuilding(s, cmd.buildingId);
       if (!b) return fail("unknownBuilding");
       if (b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type))) fail("maxLevel");
-      if (pendingUpgrade(s, b.id)) fail("alreadyUpgrading");
+      const pending = pendingUpgrade(s, b.id);
+      if (pending) fail(pending.kind === "repair" ? "alreadyRepairing" : "alreadyUpgrading");
       const target = b.level + 1;
       const def = levelDef(b.type, target);
       if (b.type !== "nest" && nest(s).level < def.requiresNestLevel) fail("nestLevelTooLow");
@@ -3690,6 +4120,39 @@ function execute(s, cmd, ctx, events) {
         s.speechUntil = now + SKILLS.speechMs * k;
       }
       v.skillReadyAt[cmd.skill] = now + def.cooldownMs;
+      return;
+    }
+    case "shelter": {
+      const f = forecastWave(s);
+      if (!f) return fail("noWaveSoon");
+      if (f.sheltered) fail("alreadySheltered");
+      if (!f.canShelter) fail("noWaveSoon");
+      s.threats.shelterUntil = f.wave.at + SHELTER.afterMs;
+      return;
+    }
+    case "repair": {
+      const b = getBuilding(s, cmd.buildingId);
+      if (!b) return fail("unknownBuilding");
+      if (!b.damaged) fail("notDamaged");
+      if (pendingUpgrade(s, b.id)) fail("alreadyRepairing");
+      queueHasRoom(s);
+      const cost = repairCost(b);
+      pay(s, cost);
+      s.queue.push({
+        id: nextId(s, "q"),
+        kind: "repair",
+        buildingType: b.type,
+        q: b.q,
+        r: b.r,
+        buildingId: b.id,
+        targetLevel: b.level,
+        richness: b.richness,
+        durationMs: repairDuration(b),
+        startedAt: null,
+        paid: cost,
+        orderedAt: now
+      });
+      startNextConstruction(s, now, events);
       return;
     }
     case "debugGrant": {
@@ -7770,8 +8233,53 @@ var job = external_exports.discriminatedUnion("kind", [
     classId: external_exports.enum(CLASS_IDS),
     until: external_exports.number(),
     paid: partialResources
-  })
+  }),
+  external_exports.object({ kind: external_exports.literal("injured"), until: external_exports.number() })
 ]);
+var sides = external_exports.object({ ground: external_exports.number().min(0), air: external_exports.number().min(0) });
+var named = external_exports.array(external_exports.object({ id, name: external_exports.string().max(4 * KIWI_NAME_MAX) }));
+var threats = external_exports.object({
+  rng: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number(), external_exports.number()]),
+  next: external_exports.object({
+    id,
+    announceAt: external_exports.number(),
+    at: external_exports.number(),
+    announced: external_exports.boolean(),
+    ground: external_exports.number().min(0),
+    air: external_exports.number().min(0)
+  }).nullable(),
+  lastWaveAt: external_exports.number().min(0),
+  shieldUntil: external_exports.number().min(0),
+  shelterUntil: external_exports.number().min(0),
+  nextIncidentAt: external_exports.number(),
+  waves: external_exports.number().int().min(0),
+  reports: external_exports.array(
+    external_exports.object({
+      id,
+      at: external_exports.number(),
+      victory: external_exports.boolean(),
+      sheltered: external_exports.boolean(),
+      threat: sides,
+      defense: sides,
+      severity: external_exports.number().min(0).max(1),
+      ammoUsed: external_exports.number().min(0),
+      damaged: external_exports.array(external_exports.object({ id, type: external_exports.enum(BUILDING_TYPES) })),
+      loot: resources,
+      injured: named,
+      dead: named,
+      pathsLost: external_exports.number().int().min(0)
+    })
+  ).max(THREATS.history),
+  incidents: external_exports.array(
+    external_exports.object({
+      at: external_exports.number(),
+      kind: external_exports.enum(INCIDENT_KINDS),
+      blocked: external_exports.boolean(),
+      resource: external_exports.enum(RESOURCE_IDS).nullable(),
+      amount: external_exports.number().min(0)
+    })
+  ).max(INCIDENTS.history)
+});
 var gameStateSchema = external_exports.object({
   schemaVersion: external_exports.number().int(),
   universeId: id,
@@ -7794,7 +8302,8 @@ var gameStateSchema = external_exports.object({
       level: external_exports.number().int().min(1).max(3),
       richness: external_exports.number(),
       builtAt: external_exports.number(),
-      pool: external_exports.object({ stock: external_exports.number().min(0), tiles: external_exports.array(external_exports.string()).max(64) }).optional()
+      pool: external_exports.object({ stock: external_exports.number().min(0), tiles: external_exports.array(external_exports.string()).max(64) }).optional(),
+      damaged: external_exports.boolean().optional()
     })
   ),
   villagers: external_exports.array(
@@ -7830,7 +8339,7 @@ var gameStateSchema = external_exports.object({
       classId: external_exports.enum(CLASS_IDS).nullable().optional(),
       bornAt: external_exports.number(),
       diedAt: external_exports.number(),
-      cause: external_exports.enum(["battle", "starvation", "famine"])
+      cause: external_exports.enum(["battle", "starvation", "famine", "predator"])
     })
   ).max(MEMORIAL_MAX),
   speechUntil: external_exports.number().min(0),
@@ -7839,7 +8348,7 @@ var gameStateSchema = external_exports.object({
   queue: external_exports.array(
     external_exports.object({
       id,
-      kind: external_exports.enum(["build", "upgrade"]),
+      kind: external_exports.enum(["build", "upgrade", "repair"]),
       buildingType: external_exports.enum(BUILDING_TYPES),
       q: external_exports.number().int(),
       r: external_exports.number().int(),
@@ -7908,6 +8417,7 @@ var gameStateSchema = external_exports.object({
   ),
   paths: external_exports.array(external_exports.string().max(16)).max(500),
   deposits: external_exports.record(external_exports.string(), external_exports.object({ stock: external_exports.number().min(0), at: external_exports.number() })),
+  threats,
   nextId: external_exports.number().int(),
   rng: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number(), external_exports.number()])
 });
@@ -7948,7 +8458,12 @@ var MIGRATIONS = {
   // v7 → v8: morale (chantier 04, part 4). No mourning yet.
   7: (raw) => ({ ...raw, mourningUntil: 0 }),
   // v8 → v9: biomes (chantier 05). Existing worlds keep their map: the classic biome.
-  8: (raw) => ({ ...raw, params: { ...raw.params, biome: "classic" } })
+  8: (raw) => ({ ...raw, params: { ...raw.params, biome: "classic" } }),
+  // v9 → v10: predators (chantier 06). The first wave is planned on the next advance.
+  9: (raw) => ({
+    ...raw,
+    threats: newThreats(String(raw.seed), raw.face, Number(raw.now))
+  })
 };
 function migrateState(input) {
   if (!input || typeof input !== "object") return { ok: false, reason: "corrupt" };
@@ -8031,6 +8546,8 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     classId: external_exports.enum(CLASS_IDS)
   }),
   external_exports.object({ type: external_exports.literal("useSkill"), villagerId: id2, skill: external_exports.enum(SKILL_IDS) }),
+  external_exports.object({ type: external_exports.literal("shelter") }),
+  external_exports.object({ type: external_exports.literal("repair"), buildingId: id2 }),
   external_exports.object({
     type: external_exports.literal("debugGrant"),
     resources: external_exports.object({
@@ -8567,6 +9084,8 @@ export {
   HEX_DIRECTIONS,
   HOUR_MS2 as HOUR_MS,
   HUNGER_SCALE,
+  INCIDENTS,
+  INCIDENT_KINDS,
   KIWI,
   KIWI_NAME_MAX,
   LOGISTICS,
@@ -8592,11 +9111,13 @@ export {
   SEASONS,
   SEASON_MS,
   SERVER_ERRORS,
+  SHELTER,
   SHINY_COLORS,
   SKILLS,
   SKILL_IDS,
   START,
   STAT_IDS,
+  THREATS,
   TILES,
   TILE_TYPES,
   TRAITS,
@@ -8638,6 +9159,7 @@ export {
   cleanKiwiName,
   climateOf,
   cloneState,
+  cloneThreats,
   cloneVillager,
   colonyBonus,
   commandSchema,
@@ -8653,6 +9175,7 @@ export {
   crewWeight,
   currentObjective,
   cycleHarvest,
+  defenseOf,
   demolitionPreview,
   demolitionRefund,
   depletedTiles,
@@ -8665,9 +9188,11 @@ export {
   eggDuration,
   emptyMasteries,
   emptyResources,
+  exposedKiwis,
   faceMapOf,
   foodLeftMs,
   forecastExpedition,
+  forecastWave,
   freeDepositStock,
   gameStateSchema,
   generateFace,
@@ -8742,10 +9267,12 @@ export {
   netRates,
   newGame,
   newKiwi,
+  newThreats,
   nextCalendarChange,
   nextHungerEvent,
   nextId,
   nextKiwiEvent,
+  nextThreatEvent,
   objectiveProgress,
   otherFace,
   parseHexKey,
@@ -8755,16 +9282,20 @@ export {
   pendingUpgrade,
   pickStarving,
   pixelToHex,
+  planWave,
   poolCapacity,
   population,
   presence,
   productionRates,
+  protectedStock,
   queuedBuildAt,
   rankOf,
   rebaseFreeDeposits,
   regenBonus,
   releasePool,
   removeVillagers,
+  repairCost,
+  repairDuration,
   requestSchema,
   resolveArrival,
   resolveReturn,
@@ -8784,6 +9315,7 @@ export {
   storageFullCheck,
   syncPools,
   targetDefense,
+  threatTick,
   tileAt,
   tileDeposit,
   tileDepositState,
@@ -8799,7 +9331,11 @@ export {
   validateCommand,
   walkCost,
   walkDistances,
+  waveMix,
+  waveOutcome,
+  wavePower,
   withRng,
+  withThreatRng,
   workSite,
   workerPower,
   workerSlots,

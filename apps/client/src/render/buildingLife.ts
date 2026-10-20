@@ -26,15 +26,27 @@ export interface Activity {
   /** 0 (stopped) … 1 (fully staffed). */
   speed: number;
   icon: StatusIcon | null;
+  /** Hit by predators: smokes until repaired. */
+  damaged?: boolean;
 }
 
-export type StatusIcon = 'depleted' | 'storageFull' | 'flooded';
+export type StatusIcon = 'depleted' | 'storageFull' | 'flooded' | 'damaged';
 
 /** Pace of the animations, read from the very same harvest rules as the simulation. */
 export function activityOf(
   state: GameState,
   b: Building,
   full = storageFullCheck(state),
+): Activity {
+  const a = baseActivity(state, b, full);
+  if (!b.damaged) return a;
+  return { speed: a.speed * 0.5, icon: a.icon ?? 'damaged', damaged: true };
+}
+
+function baseActivity(
+  state: GameState,
+  b: Building,
+  full: ReturnType<typeof storageFullCheck>,
 ): Activity {
   if (b.type === 'school') {
     // The bell rings while a class is in session.
@@ -81,6 +93,8 @@ interface Living {
   target: number;
   icon: Sprite | null;
   iconKind: StatusIcon | null;
+  damaged: boolean;
+  smoke: number;
   height: number;
   group: Group;
 }
@@ -138,10 +152,27 @@ function iconTexture(kind: StatusIcon): CanvasTexture {
   g.fillStyle = '#fbf3df';
   g.fill();
   g.lineWidth = 5;
-  g.strokeStyle = kind === 'depleted' ? '#d9822b' : kind === 'flooded' ? '#3f86b8' : '#7a5233';
+  g.strokeStyle =
+    kind === 'depleted'
+      ? '#d9822b'
+      : kind === 'flooded'
+        ? '#3f86b8'
+        : kind === 'damaged'
+          ? '#b8432f'
+          : '#7a5233';
   g.stroke();
   g.fillStyle = g.strokeStyle;
-  if (kind === 'flooded') {
+  if (kind === 'damaged') {
+    // A crack: predators broke something, repairs needed.
+    g.lineWidth = 6;
+    g.lineJoin = 'round';
+    g.beginPath();
+    g.moveTo(36, 12);
+    g.lineTo(26, 30);
+    g.lineTo(38, 34);
+    g.lineTo(28, 52);
+    g.stroke();
+  } else if (kind === 'flooded') {
     // Two waves: the spring floods cover the building's tile.
     g.lineWidth = 6;
     g.lineCap = 'round';
@@ -211,6 +242,8 @@ export class BuildingLife {
       target: 0,
       icon: null,
       iconKind: null,
+      damaged: false,
+      smoke: 0,
       height: model.height,
       group,
     });
@@ -227,6 +260,7 @@ export class BuildingLife {
     const l = this.living.get(id);
     if (!l) return;
     l.target = activity.speed;
+    l.damaged = !!activity.damaged;
     if (l.iconKind === activity.icon) return;
     if (l.icon) l.group.remove(l.icon);
     l.icon = null;
@@ -253,6 +287,18 @@ export class BuildingLife {
     this.time += dt;
     for (const l of this.living.values()) {
       if (l.icon) l.icon.position.y = l.height + 0.28 + Math.sin(this.time * 2.4) * 0.03;
+      if (l.damaged) {
+        // A thin plume of smoke over a damaged building (even in low quality: it matters).
+        l.smoke += dt * 2.5;
+        const n = Math.floor(l.smoke);
+        l.smoke -= n;
+        if (n > 0)
+          this.particles.emit(
+            'smoke',
+            l.group.localToWorld(this.at.set(0.1, l.height * 0.8, 0)),
+            n,
+          );
+      }
       if (!this.animated) continue;
       // Ease towards the target pace (about half a second).
       l.speed += (l.target - l.speed) * Math.min(1, dt * 3);

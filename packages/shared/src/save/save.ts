@@ -2,7 +2,10 @@ import { BIOME_IDS } from '../data/biomes';
 import { z } from 'zod';
 import { BUILDING_TYPES } from '../data/buildings';
 import { FACES } from '../types/ids';
-import { SCHEMA_VERSION, soloTargets, type GameState } from '../sim/state';
+import { newThreats, SCHEMA_VERSION, soloTargets, type GameState } from '../sim/state';
+import { INCIDENT_KINDS, INCIDENTS, THREATS } from '../data/threats';
+import { RESOURCE_IDS } from '../data/resources';
+import type { Face } from '../types/ids';
 import {
   KIWI,
   KIWI_NAME_MAX,
@@ -45,7 +48,59 @@ const job = z.discriminatedUnion('kind', [
     until: z.number(),
     paid: partialResources,
   }),
+  z.object({ kind: z.literal('injured'), until: z.number() }),
 ]);
+
+const sides = z.object({ ground: z.number().min(0), air: z.number().min(0) });
+const named = z.array(z.object({ id, name: z.string().max(4 * KIWI_NAME_MAX) }));
+const threats = z.object({
+  rng: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+  next: z
+    .object({
+      id,
+      announceAt: z.number(),
+      at: z.number(),
+      announced: z.boolean(),
+      ground: z.number().min(0),
+      air: z.number().min(0),
+    })
+    .nullable(),
+  lastWaveAt: z.number().min(0),
+  shieldUntil: z.number().min(0),
+  shelterUntil: z.number().min(0),
+  nextIncidentAt: z.number(),
+  waves: z.number().int().min(0),
+  reports: z
+    .array(
+      z.object({
+        id,
+        at: z.number(),
+        victory: z.boolean(),
+        sheltered: z.boolean(),
+        threat: sides,
+        defense: sides,
+        severity: z.number().min(0).max(1),
+        ammoUsed: z.number().min(0),
+        damaged: z.array(z.object({ id, type: z.enum(BUILDING_TYPES) })),
+        loot: resources,
+        injured: named,
+        dead: named,
+        pathsLost: z.number().int().min(0),
+      }),
+    )
+    .max(THREATS.history),
+  incidents: z
+    .array(
+      z.object({
+        at: z.number(),
+        kind: z.enum(INCIDENT_KINDS),
+        blocked: z.boolean(),
+        resource: z.enum(RESOURCE_IDS).nullable(),
+        amount: z.number().min(0),
+      }),
+    )
+    .max(INCIDENTS.history),
+});
 
 export const gameStateSchema = z.object({
   schemaVersion: z.number().int(),
@@ -70,6 +125,7 @@ export const gameStateSchema = z.object({
       richness: z.number(),
       builtAt: z.number(),
       pool: z.object({ stock: z.number().min(0), tiles: z.array(z.string()).max(64) }).optional(),
+      damaged: z.boolean().optional(),
     }),
   ),
   villagers: z.array(
@@ -109,7 +165,7 @@ export const gameStateSchema = z.object({
         classId: z.enum(CLASS_IDS).nullable().optional(),
         bornAt: z.number(),
         diedAt: z.number(),
-        cause: z.enum(['battle', 'starvation', 'famine']),
+        cause: z.enum(['battle', 'starvation', 'famine', 'predator']),
       }),
     )
     .max(MEMORIAL_MAX),
@@ -119,7 +175,7 @@ export const gameStateSchema = z.object({
   queue: z.array(
     z.object({
       id,
-      kind: z.enum(['build', 'upgrade']),
+      kind: z.enum(['build', 'upgrade', 'repair']),
       buildingType: z.enum(BUILDING_TYPES),
       q: z.number().int(),
       r: z.number().int(),
@@ -190,6 +246,7 @@ export const gameStateSchema = z.object({
   ),
   paths: z.array(z.string().max(16)).max(500),
   deposits: z.record(z.string(), z.object({ stock: z.number().min(0), at: z.number() })),
+  threats,
   nextId: z.number().int(),
   rng: z.tuple([z.number(), z.number(), z.number(), z.number()]),
 });
@@ -243,6 +300,11 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   7: (raw) => ({ ...raw, mourningUntil: 0 }),
   // v8 → v9: biomes (chantier 05). Existing worlds keep their map: the classic biome.
   8: (raw) => ({ ...raw, params: { ...(raw.params as object), biome: 'classic' } }),
+  // v9 → v10: predators (chantier 06). The first wave is planned on the next advance.
+  9: (raw) => ({
+    ...raw,
+    threats: newThreats(String(raw.seed), raw.face as Face, Number(raw.now)),
+  }),
 };
 
 export type MigrateResult =

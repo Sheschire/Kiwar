@@ -10,6 +10,7 @@ import {
 } from '../data/buildings';
 import { climateOf } from '../data/biomes';
 import { PATHS } from '../data/territory';
+import { THREATS } from '../data/threats';
 import { HATCHING } from '../data/hatching';
 import { OBJECTIVES, type ObjectiveDef } from '../data/objectives';
 import {
@@ -289,8 +290,19 @@ export function constructionDuration(
   return Math.max(1000, Math.round((base * Math.sqrt(copies) * speed) / 1000) * 1000);
 }
 
+/** The upgrade or repair queued for a building, if any. */
 export function pendingUpgrade(state: GameState, buildingId: BuildingId): QueueItem | undefined {
-  return state.queue.find((i) => i.kind === 'upgrade' && i.buildingId === buildingId);
+  return state.queue.find((i) => i.kind !== 'build' && i.buildingId === buildingId);
+}
+
+/** Price of mending a damaged building: a share of its current level. */
+export function repairCost(b: Building): ResourceCost {
+  return scaleCost(levelDef(b.type, b.level)?.cost ?? {}, THREATS.repairCost);
+}
+
+export function repairDuration(b: Building): number {
+  const base = levelDef(b.type, b.level)?.durationMs ?? 0;
+  return Math.max(5000, Math.round((base * THREATS.repairTime) / 1000) * 1000);
 }
 
 export function isMaxLevel(b: Building): boolean {

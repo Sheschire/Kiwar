@@ -20,7 +20,9 @@ function QueueRow({
   const label =
     item.kind === 'build'
       ? t('queue.build', { name })
-      : t('queue.upgrade', { name, level: item.targetLevel });
+      : item.kind === 'repair'
+        ? t('queue.repair', { name })
+        : t('queue.upgrade', { name, level: item.targetLevel });
   const progress =
     item.startedAt !== null ? Math.min(1, (now - item.startedAt) / item.durationMs) : 0;
   const focus = () => {

@@ -250,6 +250,9 @@ export const fr: Dict = {
     depleted: 'Épuisé : seule la repousse est récoltée. Moins d’ouvriers, ou changez de coin.',
     storagePaused: 'Entrepôts pleins : les kiwis ne récoltent que ce que la colonie mange.',
     flooded: 'Inondé : le travail s’arrête jusqu’à la décrue.',
+    damaged: 'Abîmé par les prédateurs : travaille à moitié jusqu’à réparation.',
+    repair: 'Réparer',
+    repairing: 'Réparation…',
     logistics: 'Logistique',
     logisticsValue: '{distance} pas jusqu’à un dépôt · ×{efficiency}',
     logisticsHint: 'Tracez des chemins ou bâtissez un Entrepôt à côté pour raccourcir les trajets.',
@@ -276,6 +279,7 @@ export const fr: Dict = {
     cancel: 'Annuler et rembourser',
     build: '{name}',
     upgrade: '{name} → Niv. {level}',
+    repair: '{name} : réparations',
   },
   cycles: {
     seasons: { spring: 'Printemps', summer: 'Été', autumn: 'Automne', winter: 'Hiver' },
@@ -388,6 +392,7 @@ export const fr: Dict = {
     shinyHatched: 'Un kiwi shiny est né : {name}, plumage {color} !',
     foodRanOut: 'Plus de {resource} : les kiwis ont faim !',
     starved: '{name} n’a pas survécu à la faim…',
+    repaired: '{name} est réparé.',
   },
   needs: {
     stages: {
@@ -495,6 +500,10 @@ export const fr: Dict = {
     universeNotFound: 'Aucun univers ne correspond à ce code d’invitation.',
     universeFull: 'Cet univers est complet.',
     faceTaken: 'Quelqu’un vit déjà sur cette face.',
+    noWaveSoon: 'Aucune vague n’est assez proche pour se mettre à l’abri.',
+    alreadySheltered: 'Tout le monde est déjà au Nid.',
+    notDamaged: 'Ce bâtiment n’est pas abîmé.',
+    alreadyRepairing: 'Les réparations sont déjà prévues.',
   },
   offline: {
     title: 'Pendant votre absence…',
@@ -660,6 +669,20 @@ export const fr: Dict = {
     cost: '{cost} fibre par tuile',
     done: 'Terminé',
   },
+  threats: {
+    announced: 'Des prédateurs en vue ! Une vague frappe dans {duration}.',
+    won: 'Les prédateurs ont été repoussés !',
+    lost: 'Les prédateurs ont ravagé la colonie…',
+    shelterOver: 'Fin de l’alerte : les kiwis sortent du Nid.',
+    healed: '{name} est de nouveau sur pattes.',
+    incident: {
+      thief: 'Un furet a volé {amount} {resource} !',
+      thiefBlocked: 'Un furet voleur a été chassé.',
+      bat: 'Une chauve-souris a bu {amount} de jus.',
+      batBlocked: 'Une chauve-souris a été chassée du jus.',
+      storm: 'Une tempête a emporté {amount} tuile(s) de chemin.',
+    },
+  },
   village: {
     button: 'Village',
     title: 'Village',
@@ -672,6 +695,7 @@ export const fr: Dict = {
       battle: 'au combat',
       starvation: 'de faim au retour',
       famine: 'de faim à la colonie',
+      predator: 'face aux prédateurs',
     },
     sort: 'Trier par',
     sorts: { level: 'Niveau', name: 'Nom', job: 'Métier', born: 'Âge' },
@@ -726,6 +750,7 @@ export const fr: Dict = {
       train: 'À l’École',
       build: 'En chantier',
       expedition: 'En expédition',
+      injured: 'En convalescence',
     },
   },
   stats: {

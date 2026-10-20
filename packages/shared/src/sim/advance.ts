@@ -32,6 +32,8 @@ import {
   pickStarving,
 } from './needs';
 import { removeVillagers } from './expeditions';
+import type { IncidentKind } from '../data/threats';
+import { nextThreatEvent, planWave, threatTick } from './threats';
 import {
   addVillager,
   cloneState,
@@ -92,7 +94,35 @@ export type GameEvent =
   | { type: 'hungerChanged'; at: TimeMs; stage: HungerStage }
   | { type: 'starved'; at: TimeMs; villagerId: VillagerId; name: string }
   | { type: 'expeditionArrived'; at: TimeMs; expeditionId: string; victory: boolean }
-  | { type: 'expeditionReturned'; at: TimeMs; expeditionId: string };
+  | { type: 'expeditionReturned'; at: TimeMs; expeditionId: string }
+  /** Chantier 06: predators. */
+  | {
+      type: 'waveAnnounced';
+      at: TimeMs;
+      waveId: string;
+      strikeAt: TimeMs;
+      ground: number;
+      air: number;
+    }
+  | { type: 'waveStruck'; at: TimeMs; waveId: string; victory: boolean }
+  | {
+      type: 'incident';
+      at: TimeMs;
+      kind: IncidentKind;
+      blocked: boolean;
+      resource: ResourceId | null;
+      amount: number;
+    }
+  | { type: 'shelterOver'; at: TimeMs }
+  | { type: 'injuryHealed'; at: TimeMs; villagerId: VillagerId; name: string }
+  | {
+      type: 'repaired';
+      at: TimeMs;
+      buildingId: BuildingId;
+      buildingType: BuildingType;
+      q: number;
+      r: number;
+    };
 
 export interface AdvanceResult {
   state: GameState;
@@ -120,6 +150,8 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
   let stage = hungerStage(s);
   // Guard against pathological loops; each iteration consumes at least one event.
   for (let guard = 0; guard < 100_000; guard++) {
+    // The next wave is planned as soon as the beginners' protection is over (or after a wave).
+    planWave(s);
     const active = activeItem(s);
     const constructionEnd = active ? active.startedAt! + active.durationMs : Infinity;
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
@@ -130,7 +162,11 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const mourningEnd = s.mourningUntil > s.now ? s.mourningUntil : Infinity;
     // Nightfall and dawn change work rates (seasons change at dawn).
     const calendarChange = nextCalendarChange(s.calendarStart, s.now);
+    const threatAt = nextThreatEvent(s);
+    const injuryEnd = nextInjuryEnd(s);
     const nextEvent = Math.min(
+      threatAt,
+      injuryEnd,
       calendarChange,
       flows.hungerAt,
       mourningEnd,
@@ -161,6 +197,8 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     if (mourningEnd === nextEvent) events.push({ type: 'mourningOver', at: mourningEnd });
     if (calendarChange === nextEvent) calendarTick(s, calendarChange, events);
     if (flows.hungerAt === nextEvent) starve(s, nextEvent, events);
+    if (injuryEnd === nextEvent) healInjuries(s, injuryEnd, events);
+    if (threatAt === nextEvent) threatTick(s, threatAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: 'hungerChanged', at: s.now, stage: st });
@@ -363,6 +401,22 @@ function completeConstruction(s: GameState, at: TimeMs, events: GameEvent[]): vo
   const item = s.queue.shift();
   if (!item) return;
   let buildingId: BuildingId;
+  if (item.kind === 'repair') {
+    const b = getBuilding(s, item.buildingId!);
+    if (b) {
+      delete b.damaged;
+      events.push({
+        type: 'repaired',
+        at,
+        buildingId: b.id,
+        buildingType: b.type,
+        q: b.q,
+        r: b.r,
+      });
+    }
+    releaseBuilder(s, item.id, false);
+    return;
+  }
   if (item.kind === 'build') {
     buildingId = nextId(s, 'b') as BuildingId;
     s.buildings.push({
@@ -378,6 +432,8 @@ function completeConstruction(s: GameState, at: TimeMs, events: GameEvent[]): vo
     const b = getBuilding(s, item.buildingId!);
     if (!b) return;
     b.level = item.targetLevel;
+    // A new level comes out as good as new.
+    delete b.damaged;
     buildingId = b.id;
   }
   s.stats.constructionsCompleted++;
@@ -397,11 +453,17 @@ function completeConstruction(s: GameState, at: TimeMs, events: GameEvent[]): vo
     if (idle) idle.job = { kind: 'work', buildingId };
   }
 
-  // Release the builder: back to its previous workplace if there is still room,
-  // otherwise it looks for work by itself.
+  releaseBuilder(s, item.id, true);
+}
+
+/**
+ * Releases the builder of a finished item: back to its previous workplace if there is still
+ * room, otherwise it looks for work by itself.
+ */
+function releaseBuilder(s: GameState, itemId: QueueItemId, built: boolean): void {
   for (const v of s.villagers) {
-    if (v.job.kind !== 'build' || v.job.queueItemId !== item.id) continue;
-    v.history.built++;
+    if (v.job.kind !== 'build' || v.job.queueItemId !== itemId) continue;
+    if (built) v.history.built++;
     const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : undefined;
     if (back && workersOf(s, back.id).length < workerSlots(back)) {
       v.job = { kind: 'work', buildingId: back.id };
@@ -456,6 +518,22 @@ export function idleByPower(s: GameState, b: Building): Villager[] {
     .map((v, i) => ({ v, i, p: workerPower(v, resource) }))
     .sort((a, c) => c.p - a.p || a.i - c.i)
     .map((x) => x.v);
+}
+
+function nextInjuryEnd(s: GameState): TimeMs {
+  let next = Infinity;
+  for (const v of s.villagers) if (v.job.kind === 'injured') next = Math.min(next, v.job.until);
+  return next;
+}
+
+/** Injured kiwis whose rest ends at `at` go back to work. */
+function healInjuries(s: GameState, at: TimeMs, events: GameEvent[]): void {
+  for (const v of s.villagers) {
+    if (v.job.kind !== 'injured' || v.job.until !== at) continue;
+    v.job = { kind: 'idle' };
+    events.push({ type: 'injuryHealed', at, villagerId: v.id, name: v.name });
+    autoAssign(s, v);
+  }
 }
 
 function nextTrainingEnd(s: GameState): TimeMs {

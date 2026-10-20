@@ -22,6 +22,8 @@ import {
   nearRay,
   nestDef,
   pendingUpgrade,
+  repairCost,
+  repairDuration,
   queuedBuildAt,
   RESOURCE_IDS,
   tileDepositState,
@@ -196,6 +198,7 @@ function BuildingSection({
         <span class="badge">{t('common.levelShort', { level: b.level })}</span>
       </div>
       <p class="muted small">{t(`buildings.${b.type}.desc`)}</p>
+      {b.damaged && <RepairBox game={game} map={map} b={b} now={now} t={t} />}
 
       {slots > 0 && (
         <div class="stat-row">
@@ -284,7 +287,7 @@ function BuildingSection({
         </p>
       )}
 
-      {b.type === 'camp' ? null : upgrading ? (
+      {b.type === 'camp' || upgrading?.kind === 'repair' ? null : upgrading ? (
         <div class="upgrade-box">
           <span>
             <HammerIcon size={18} /> {t('building.upgrading', { level: upgrading.targetLevel })}
@@ -604,5 +607,46 @@ export function TilePanel() {
         {!building && !site && options.length === 0 && <p class="small">{t('tile.nothing')}</p>}
       </div>
     </aside>
+  );
+}
+
+/** A building hit by predators: half pace until repaired. */
+function RepairBox({
+  game,
+  map,
+  b,
+  now,
+  t,
+}: {
+  game: GameState;
+  map: FaceMap;
+  b: Building;
+  now: number;
+  t: Translate;
+}) {
+  const pending = pendingUpgrade(game, b.id);
+  if (pending?.kind === 'repair')
+    return (
+      <div class="upgrade-box damaged-box">
+        <span>
+          <HammerIcon size={18} /> {t('building.repairing')}
+        </span>
+        <Progress item={pending} now={now} />
+      </div>
+    );
+  const error = validateCommand(game, { type: 'repair', buildingId: b.id }, { now, map });
+  return (
+    <div class="upgrade-box damaged-box">
+      <span class="small warn">{t('building.damaged')}</span>
+      <Cost cost={repairCost(b)} have={game.resources} durationMs={repairDuration(b)} />
+      <button
+        class="btn btn-primary"
+        disabled={error !== null}
+        title={error ? t(`errors.${error}`) : undefined}
+        onClick={() => actions.dispatch({ type: 'repair', buildingId: b.id })}
+      >
+        <HammerIcon size={18} /> {t('building.repair')}
+      </button>
+    </div>
   );
 }
