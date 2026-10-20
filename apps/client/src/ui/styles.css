@@ -1250,6 +1250,18 @@ button.chip:focus-visible {
   color: #6a4d8c;
 }
 
+/* Chantier 14: colony power under the name, imported and shield badges. */
+.members .member-power {
+  flex-basis: 100%;
+  color: var(--ink-soft);
+}
+
+.badge-soft {
+  background: rgba(184, 138, 90, 0.16);
+  color: #7a5a3a;
+  border-color: rgba(184, 138, 90, 0.45);
+}
+
 .code-input {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   letter-spacing: 0.12em;

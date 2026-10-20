@@ -171,7 +171,7 @@ export const actions = {
     return (await controller?.listUniverses()) ?? [];
   },
   async enterUniverse(
-    how: { create: string; fromSolo?: boolean } | { code: string },
+    how: { create: string; fromSolo?: boolean } | { code: string; fromSolo?: boolean },
     displayName: string,
   ) {
     saveDisplayName(displayName);
@@ -198,6 +198,9 @@ export const actions = {
     if (!renderer?.visitAlly(kiwiIndex)) return;
     uiStore.setState({ visit: kiwiIndex, modal: 'none', selectedTile: null });
     audio.play('ui.click');
+  },
+  async setAllowImports(allow: boolean) {
+    return controller ? await controller.setAllowImports(allow) : 'forbidden';
   },
   refreshUniverse(): void {
     void controller?.refreshUniverse();

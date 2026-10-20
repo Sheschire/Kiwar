@@ -512,6 +512,9 @@ export const en = {
     universeNotFound: 'No universe with this invite code.',
     universeFull: 'This universe is full.',
     faceTaken: 'Someone already lives on this face.',
+    importsClosed: 'The host of this universe does not accept solo colonies.',
+    alreadyMember: 'You already have a colony in this universe.',
+    shipAway: 'Wait for your ship to come home before moving the colony.',
     noWaveSoon: 'No wave is close enough to take shelter yet.',
     alreadySheltered: 'Everybody is already in the Nest.',
     notDamaged: 'This building is not damaged.',
@@ -738,6 +741,16 @@ export const en = {
     bringSoloHint:
       'Your colony moves into the universe (buildings, kiwis, seasons). Solo will start over on a new world.',
     freshHint: 'A new colony starts; your solo colony stays as it is.',
+    soloPreview: 'Your solo colony: {age} · Nest level {nest} · {kiwis} kiwis',
+    bringJoinHint:
+      'Your colony moves onto a kiwi of its own (buildings, kiwis, what you know of your twin) and follows the seasons of the universe. A 48 h shield keeps predators away on arrival. Solo will start over on a new world.',
+    joinFreshHint:
+      'A new colony starts on a kiwi of your own; your current colonies stay as they are.',
+    allowImports: 'Newcomers may bring their solo colony',
+    importsClosed: 'The host does not accept solo colonies here.',
+    power: '{age} · Nest {nest} · {kiwis} kiwis · defense {defense}',
+    imported: 'from solo',
+    shielded: 'shield {duration}',
     name: 'Universe name',
     namePlaceholder: 'The Kiwi Club',
     yourName: 'Your kiwi name',
@@ -746,8 +759,7 @@ export const en = {
     join: 'Join with a code',
     joinAction: 'Join',
     joinTitle: 'Join a universe?',
-    joinBody:
-      'You were invited to a shared universe (code {code}). You will start a new colony on a kiwi of your own; your current colonies stay as they are.',
+    joinBody: 'You were invited to a shared universe (code {code}).',
     onlineOnly: 'Universes need the online mode.',
     error: 'Could not do that: {message}',
   },

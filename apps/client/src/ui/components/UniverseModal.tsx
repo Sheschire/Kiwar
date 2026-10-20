@@ -1,16 +1,85 @@
 import { useEffect, useState } from 'preact/hooks';
-import { FACES, isPristine, kiwiCount, type UniverseSummary } from '@kiwar/shared';
+import {
+  AGE_IDS,
+  colonyPower,
+  FACES,
+  isPristine,
+  kiwiCount,
+  type ColonyPower,
+  type GameState,
+  type UniverseSummary,
+} from '@kiwar/shared';
+import { formatDuration } from '../../i18n/i18n';
 import { inviteLink } from '../../game/urlParams';
 import { actions, savedDisplayName } from '../actions';
-import { pushToast, uiStore, useT, useUi } from '../store';
+import { pushToast, uiStore, useT, useUi, type Translate } from '../store';
 import { Modal } from './Modal';
+
+/** Chantier 14: age, Nest, kiwis and defense of a colony, as one compact line. */
+function powerLine(t: Translate, p: ColonyPower): string {
+  return t('universe.power', {
+    age: `@ages.${AGE_IDS[p.age] ?? AGE_IDS[0]}`,
+    nest: p.nest,
+    kiwis: p.kiwis,
+    defense: p.defense,
+  });
+}
+
+/** The solo colony that could come along (null: none, or nothing played yet). */
+function useSoloColony(): GameState | null {
+  return useUi((s) => (!s.universe && s.game && !isPristine(s.game) ? s.game : null));
+}
+
+/** "Bring my solo colony" with a preview of what moves. */
+function BringSolo({
+  solo,
+  bring,
+  setBring,
+}: {
+  solo: GameState;
+  bring: boolean;
+  setBring: (v: boolean) => void;
+}) {
+  const t = useT();
+  const p = colonyPower(solo);
+  return (
+    <>
+      <label class="check">
+        <input
+          type="checkbox"
+          checked={bring}
+          onChange={(e) => setBring(e.currentTarget.checked)}
+        />
+        {t('universe.bringSolo')}
+      </label>
+      <p class="small muted">
+        {t('universe.soloPreview', {
+          age: `@ages.${AGE_IDS[p.age] ?? AGE_IDS[0]}`,
+          nest: p.nest,
+          kiwis: p.kiwis,
+        })}
+      </p>
+    </>
+  );
+}
 
 function InvitePanel() {
   const t = useT();
   const universe = useUi((s) => s.universe);
   const me = useUi((s) => s.account?.userId);
   const allies = useUi((s) => s.allies);
+  const game = useUi((s) => s.game);
+  const now = useUi((s) => s.now);
+  const lang = useUi((s) => s.lang);
+  const [saving, setSaving] = useState(false);
   if (!universe) return null;
+  const isHost = !!me && universe.hostId === me;
+  const toggleImports = async (allow: boolean) => {
+    setSaving(true);
+    const err = await actions.setAllowImports(allow);
+    setSaving(false);
+    if (err) pushToast('error', `errors.${err}` as never);
+  };
   const link = inviteLink(universe.code);
   const taken = new Set(universe.members.map((m) => `${m.kiwiIndex}:${m.face}`));
   const alienFaces: string[] = [];
@@ -59,22 +128,49 @@ function InvitePanel() {
         )}
       </div>
       <p class="small muted">{t('universe.code', { code: universe.code })}</p>
+      {isHost ? (
+        <label class="check">
+          <input
+            type="checkbox"
+            disabled={saving}
+            checked={universe.allowImports !== false}
+            onChange={(e) => void toggleImports(e.currentTarget.checked)}
+          />
+          {t('universe.allowImports')}
+        </label>
+      ) : (
+        universe.allowImports === false && <p class="small muted">{t('universe.importsClosed')}</p>
+      )}
       <h3>{t('universe.members')}</h3>
       <ul class="members">
-        {universe.members.map((m) => (
-          <li key={m.userId}>
-            <strong>{m.displayName}</strong>
-            {m.userId === me && <span class="badge">{t('universe.you')}</span>}
-            <span class="small muted">
-              {t('universe.memberFace', { face: t(`faces.${m.face}`), index: m.kiwiIndex + 1 })}
-            </span>
-            {m.userId !== me && allies.some((a) => a.kiwiIndex === m.kiwiIndex) && (
-              <button class="btn btn-small" onClick={() => actions.visitAlly(m.kiwiIndex)}>
-                {t('allies.visit')}
-              </button>
-            )}
-          </li>
-        ))}
+        {universe.members.map((m) => {
+          const mine = m.userId === me;
+          const ally = allies.find((a) => a.kiwiIndex === m.kiwiIndex);
+          const power = mine && game ? colonyPower(game) : ally?.power;
+          return (
+            <li key={m.userId}>
+              <strong>{m.displayName}</strong>
+              {mine && <span class="badge">{t('universe.you')}</span>}
+              {m.imported && <span class="badge badge-soft">{t('universe.imported')}</span>}
+              {power && power.shieldUntil > now && (
+                <span class="badge badge-soft">
+                  {t('universe.shielded', {
+                    duration: formatDuration(lang, power.shieldUntil - now),
+                  })}
+                </span>
+              )}
+              <span class="small muted">
+                {t('universe.memberFace', { face: t(`faces.${m.face}`), index: m.kiwiIndex + 1 })}
+              </span>
+              {!mine && ally && (
+                <button class="btn btn-small" onClick={() => actions.visitAlly(m.kiwiIndex)}>
+                  {t('allies.visit')}
+                </button>
+              )}
+              {power && <span class="member-power small">{powerLine(t, power)}</span>}
+            </li>
+          );
+        })}
         {alienFaces.map((f) => (
           <li key={f} class="aliens">
             <strong>{t('universe.aliensHold')}</strong>
@@ -92,7 +188,8 @@ export function UniverseModal() {
   const current = useUi((s) => s.universe?.id ?? 'solo');
   const [list, setList] = useState<UniverseSummary[] | null>(null);
   const [name, setName] = useState('');
-  const soloProgress = useUi((s) => !s.universe && !!s.game && !isPristine(s.game));
+  const solo = useSoloColony();
+  const soloProgress = !!solo;
   const [bring, setBring] = useState(true);
   const [displayName, setDisplayName] = useState(savedDisplayName());
   const [code, setCode] = useState('');
@@ -181,19 +278,14 @@ export function UniverseModal() {
           onInput={(e) => setDisplayName((e.target as HTMLInputElement).value)}
         />
       </section>
+      {solo && (
+        <section class="field">
+          <BringSolo solo={solo} bring={bring} setBring={setBring} />
+        </section>
+      )}
       <section class="field">
         <h3>{t('universe.create')}</h3>
         <p class="small muted">{t('universe.createHint')}</p>
-        {soloProgress && (
-          <label class="check">
-            <input
-              type="checkbox"
-              checked={bring}
-              onChange={(e) => setBring(e.currentTarget.checked)}
-            />
-            {t('universe.bringSolo')}
-          </label>
-        )}
         <p class="small muted">
           {t(soloProgress && bring ? 'universe.bringSoloHint' : 'universe.freshHint')}
         </p>
@@ -224,6 +316,9 @@ export function UniverseModal() {
       </section>
       <section class="field">
         <h3>{t('universe.join')}</h3>
+        <p class="small muted">
+          {t(soloProgress && bring ? 'universe.bringJoinHint' : 'universe.joinFreshHint')}
+        </p>
         <div class="row">
           <input
             class="input code-input"
@@ -236,7 +331,14 @@ export function UniverseModal() {
           <button
             class="btn"
             disabled={busy || !nameOk || code.trim().length !== 8}
-            onClick={() => run(() => actions.enterUniverse({ code: code.trim() }, displayName))}
+            onClick={() =>
+              run(() =>
+                actions.enterUniverse(
+                  { code: code.trim(), fromSolo: soloProgress && bring },
+                  displayName,
+                ),
+              )
+            }
           >
             {t('universe.joinAction')}
           </button>
@@ -251,6 +353,8 @@ export function UniverseModal() {
 export function JoinModal() {
   const t = useT();
   const code = useUi((s) => s.pendingJoin);
+  const solo = useSoloColony();
+  const [bring, setBring] = useState(true);
   const [displayName, setDisplayName] = useState(savedDisplayName());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -258,7 +362,7 @@ export function JoinModal() {
   const close = () => uiStore.setState({ pendingJoin: null });
   const join = async () => {
     setBusy(true);
-    const err = await actions.enterUniverse({ code }, displayName);
+    const err = await actions.enterUniverse({ code, fromSolo: !!solo && bring }, displayName);
     setBusy(false);
     if (err) setError(t(`errors.${err}` as never));
   };
@@ -278,6 +382,10 @@ export function JoinModal() {
       }
     >
       <p>{t('universe.joinBody', { code })}</p>
+      {solo && <BringSolo solo={solo} bring={bring} setBring={setBring} />}
+      <p class="small muted">
+        {t(solo && bring ? 'universe.bringJoinHint' : 'universe.joinFreshHint')}
+      </p>
       <label class="small muted" for="kiwar-join-name">
         {t('universe.yourName')}
       </label>

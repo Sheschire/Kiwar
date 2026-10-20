@@ -542,6 +542,9 @@ export const fr: Dict = {
     universeNotFound: 'Aucun univers ne correspond à ce code d’invitation.',
     universeFull: 'Cet univers est complet.',
     faceTaken: 'Quelqu’un vit déjà sur cette face.',
+    importsClosed: 'L’hôte de cet univers n’accepte pas les colonies solo.',
+    alreadyMember: 'Vous avez déjà une colonie dans cet univers.',
+    shipAway: 'Attendez le retour de votre vaisseau avant de déménager la colonie.',
     noWaveSoon: 'Aucune vague n’est assez proche pour se mettre à l’abri.',
     alreadySheltered: 'Tout le monde est déjà au Nid.',
     notDamaged: 'Ce bâtiment n’est pas abîmé.',
@@ -768,6 +771,16 @@ export const fr: Dict = {
     bringSoloHint:
       'Votre colonie déménage dans l’univers (bâtiments, kiwis, saisons). Le solo repartira d’un nouveau monde.',
     freshHint: 'Une nouvelle colonie démarre ; votre colonie solo reste intacte.',
+    soloPreview: 'Votre colonie solo : {age} · Nid niveau {nest} · {kiwis} kiwis',
+    bringJoinHint:
+      'Votre colonie déménage sur un kiwi à elle (bâtiments, kiwis, ce que vous savez de votre jumelle) et suit les saisons de l’univers. Un bouclier de 48 h tient les prédateurs à distance à l’arrivée. Le solo repartira d’un nouveau monde.',
+    joinFreshHint:
+      'Une nouvelle colonie démarre sur un kiwi à vous ; vos colonies actuelles restent intactes.',
+    allowImports: 'Les nouvelles personnes peuvent emporter leur colonie solo',
+    importsClosed: 'L’hôte n’accepte pas les colonies solo ici.',
+    power: '{age} · Nid {nest} · {kiwis} kiwis · défense {defense}',
+    imported: 'venue du solo',
+    shielded: 'bouclier {duration}',
     name: 'Nom de l’univers',
     namePlaceholder: 'Le Club des Kiwis',
     yourName: 'Votre nom de kiwi',
@@ -776,8 +789,7 @@ export const fr: Dict = {
     join: 'Rejoindre avec un code',
     joinAction: 'Rejoindre',
     joinTitle: 'Rejoindre un univers ?',
-    joinBody:
-      'Une invitation vous attend dans un univers partagé (code {code}). Vous y démarrerez une nouvelle colonie sur un kiwi à vous ; vos colonies actuelles restent intactes.',
+    joinBody: 'Une invitation vous attend dans un univers partagé (code {code}).',
     onlineOnly: 'Les univers nécessitent le mode en ligne.',
     error: 'Impossible : {message}',
   },
