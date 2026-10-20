@@ -214,6 +214,27 @@ export const SYNTH_PRESETS = {
     ],
     peak: 0.55,
   },
+  // Chantier 16: the land wakes up — a soft rising chime that spreads like the wave, over a
+  // light breath of leaves.
+  awaken: {
+    tones: [
+      { wave: 'sine', freq: C5, start: 0, attack: 0.03, decay: 0.9, gain: 0.22 },
+      { wave: 'sine', freq: E5, start: 0.16, attack: 0.03, decay: 0.9, gain: 0.2 },
+      { wave: 'sine', freq: G5, start: 0.32, attack: 0.03, decay: 1, gain: 0.18 },
+      { wave: 'sine', freq: C6, start: 0.48, attack: 0.03, decay: 1.2, gain: 0.16 },
+      { wave: 'triangle', freq: E6, start: 0.6, attack: 0.05, decay: 1.2, gain: 0.06 },
+      {
+        wave: 'noise',
+        freq: 0,
+        attack: 0.35,
+        decay: 0.9,
+        gain: 0.06,
+        lowpass: 2500,
+        lowpassEnd: 700,
+      },
+    ],
+    peak: 0.35,
+  },
   remove: {
     tones: [
       { wave: 'sine', freq: 320, freqEnd: 110, attack: 0.003, decay: 0.18 },

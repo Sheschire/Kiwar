@@ -1258,7 +1258,7 @@ export const fr: Dict = {
   },
   plans: {
     showLevels: 'Afficher les niveaux des bâtiments',
-    showLogistics: 'Logistique : efficacité de chaque producteur',
+    showLogistics: 'Logistique et zones : efficacité et zone de récolte de chaque producteur',
     placingTurret:
       'Orange : le front, face à la planète alien (la plupart des prédateurs) · jaune : les flancs.',
     placingLogistics:

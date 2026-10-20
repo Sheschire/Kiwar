@@ -1,6 +1,9 @@
-import { hexToPixel, type Command, type GameEvent } from '@kiwar/shared';
+import { HARVESTS, hexToPixel, isTurret, type Command, type GameEvent } from '@kiwar/shared';
 import { audio, type SoundPosition } from './engine';
 import { uiStore } from '../ui/store';
+
+/** Same as the renderer's wave: constructions of an offline catch-up stay silent. */
+const AWAKEN_RECENT_MS = 15_000;
 
 const at = (q: number, r: number): SoundPosition => {
   const p = hexToPixel({ q, r });
@@ -31,6 +34,14 @@ export function playGameEventSounds(events: GameEvent[]): void {
     switch (e.type) {
       case 'constructionComplete':
         audio.play(e.level === 1 ? 'build.complete' : 'build.upgrade', { pos: at(e.q, e.r) });
+        // Chantier 16: the wave over its catchment or range (only when it ends now).
+        if (
+          (HARVESTS[e.buildingType] || isTurret(e.buildingType)) &&
+          uiStore.getState().now - e.at < AWAKEN_RECENT_MS
+        ) {
+          const pos = at(e.q, e.r);
+          window.setTimeout(() => audio.play('build.awaken', { pos }), 250);
+        }
         break;
       case 'hatched':
         audio.play('egg.hatch');

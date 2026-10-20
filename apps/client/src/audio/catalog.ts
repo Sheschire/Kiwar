@@ -79,6 +79,13 @@ export const SOUND_EVENTS = {
     synth: 'upgrade',
     default: { sources: ['builtin:build/upgrade'], cooldownMs: 400, volume: 0.8, spatial: true },
   },
+  // Chantier 16: the land wakes up around a finished building (the wave over its tiles).
+  'build.awaken': {
+    bus: 'sfx',
+    group: 'build',
+    synth: 'awaken',
+    default: { sources: ['synth:awaken'], cooldownMs: 600, volume: 0.7, spatial: true },
+  },
   'build.remove': {
     bus: 'sfx',
     group: 'build',

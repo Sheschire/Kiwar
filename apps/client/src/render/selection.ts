@@ -80,10 +80,17 @@ const CATCHMENT_COLOR = '#c6f27a';
 const MAX_PLACEMENT = 600;
 /** Chantier 16: tiles of the catchment planned around the placement ghost (radius 3 max). */
 const MAX_PLANNED = 37;
+/** Chantier 16: tiles of the zones overlay (every producer's catchment). */
+const MAX_ZONES = 400;
 
-function plannedMesh(color: ColorRepresentation, opacity: number): InstancedMesh {
+function plannedMesh(
+  color: ColorRepresentation,
+  opacity: number,
+  max = MAX_PLANNED,
+  inner = 0,
+): InstancedMesh {
   const mesh = new InstancedMesh(
-    createHexRingGeometry(0, HEX_VISUAL_RADIUS * 0.84),
+    createHexRingGeometry(HEX_VISUAL_RADIUS * inner, HEX_VISUAL_RADIUS * 0.84),
     new MeshBasicMaterial({
       color,
       transparent: true,
@@ -91,7 +98,7 @@ function plannedMesh(color: ColorRepresentation, opacity: number): InstancedMesh
       depthWrite: false,
       toneMapped: false,
     }),
-    MAX_PLANNED,
+    max,
   );
   mesh.count = 0;
   mesh.frustumCulled = false;
@@ -146,7 +153,28 @@ export class SelectionView {
   private readonly plannedFree = plannedMesh('#8df06e', 0.5);
   private readonly plannedTaken = plannedMesh('#4a4440', 0.65);
 
+  /** Chantier 16: every producer's catchment (logistics overlay) and the contested tiles. */
+  private readonly zones = new InstancedMesh(
+    createHexRingGeometry(0, HEX_VISUAL_RADIUS * 0.84),
+    new MeshBasicMaterial({
+      color: '#ffffff',
+      transparent: true,
+      opacity: 0.38,
+      depthWrite: false,
+      toneMapped: false,
+    }),
+    MAX_ZONES,
+  );
+  private readonly contested = plannedMesh('#3b3632', 0.8, MAX_ZONES, 0.62);
+
   constructor() {
+    this.zones.count = 0;
+    this.zones.instanceColor = new InstancedBufferAttribute(
+      new Float32Array(MAX_ZONES * 3).fill(1),
+      3,
+    );
+    this.zones.frustumCulled = false;
+    this.zones.renderOrder = 3;
     this.catchment.count = 0;
     this.catchment.instanceColor = new InstancedBufferAttribute(
       new Float32Array(MAX_CATCHMENT * 3).fill(1),
@@ -169,6 +197,8 @@ export class SelectionView {
       this.placement,
       this.plannedFree,
       this.plannedTaken,
+      this.zones,
+      this.contested,
     );
   }
 
@@ -212,6 +242,15 @@ export class SelectionView {
   setPlanned(free: readonly Tile[], taken: readonly Tile[]): void {
     placeTiles(this.plannedFree, free, 0.04);
     placeTiles(this.plannedTaken, taken, 0.04);
+  }
+
+  /** Chantier 16: catchments by producer colour, and contested tiles ringed (empty: off). */
+  setZones(tiles: readonly Tile[], colors: readonly string[], contested: readonly Tile[]): void {
+    placeTiles(this.zones, tiles, 0.035);
+    const c = new Color();
+    for (let i = 0; i < this.zones.count; i++) this.zones.setColorAt(i, c.set(colors[i]!));
+    if (this.zones.instanceColor) this.zones.instanceColor.needsUpdate = true;
+    placeTiles(this.contested, contested, 0.045);
   }
 
   setHover(tile: Tile | null): void {

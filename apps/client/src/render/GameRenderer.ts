@@ -21,6 +21,8 @@ import {
   depotDistance,
   getTile,
   harvestedTileType,
+  hexDisk,
+  catchmentRadius,
   coveredRampart,
   isTurret,
   rampartSectorOf,
@@ -78,6 +80,7 @@ import { DayCycle } from './dayCycle';
 import { updateSeasonLook, seasonUniforms } from './seasonLook';
 import { WeatherView } from './weather';
 import { PlacementGhost } from './placementGhost';
+import { TileWaves } from './tileWave';
 
 export interface RendererCallbacks {
   /** Current simulation time (for smooth progress animations between ticks). */
@@ -113,6 +116,10 @@ const tmpTarget = new Vector3();
 const tmpSize = new Vector2();
 /** Level badges show up below this share of the framing distance (chantier 11: medium zoom). */
 const BADGE_ZOOM = 0.6;
+/** Chantier 16: constructions that ended longer ago than this get no wave (offline). */
+const WAVE_RECENT_MS = 15_000;
+/** Chantier 16: one colour per producer in the zones overlay. */
+const ZONE_COLORS = ['#8df06e', '#6ec8f0', '#f0c36e', '#d58ff0', '#f08f8f', '#6ef0c8'];
 
 /** Owns the WebGL renderer, the scene graph and the frame loop. */
 export class GameRenderer {
@@ -146,6 +153,9 @@ export class GameRenderer {
   private following = false;
   private paths: PathsView | null = null;
   private meteors: MeteorsView | null = null;
+  /** Chantier 16: the land waking up around a finished building. */
+  private waves: TileWaves | null = null;
+  private pendingWaves: string[] = [];
   private comets: CometsView | null = null;
   private readonly cometTarget = new Vector3();
   private obstacles: ObstaclesView | null = null;
@@ -343,6 +353,7 @@ export class GameRenderer {
       this.obstacles,
       this.predators,
       this.ships,
+      this.waves,
     ]) {
       if (!view) continue;
       this.scene.remove('group' in view ? view.group : view.mesh);
@@ -357,6 +368,9 @@ export class GameRenderer {
       QUALITY[this.preset].particles,
     );
     this.scene.add(this.buildings.group);
+    this.waves = new TileWaves(this.buildings.particles);
+    this.pendingWaves = [];
+    this.scene.add(this.waves.group);
     this.kiwis = new KiwisView(map);
     this.scene.add(this.kiwis.group);
     this.terrain = new TerrainView(map);
@@ -506,11 +520,38 @@ export class GameRenderer {
     this.renderer.shadowMap.needsUpdate = true;
   }
 
+  /** Chantier 16: a wave over the catchment (or the rampart) of each building just finished. */
+  private startWaves(state: GameState): void {
+    const map = this.map;
+    const ids = this.pendingWaves;
+    this.pendingWaves = [];
+    if (!map || !this.waves || this.visiting) return;
+    for (const id of ids) {
+      const b = state.buildings.find((x) => x.id === id);
+      const origin = b && getTile(map, b);
+      if (!b || !origin) continue;
+      if (isTurret(b.type)) {
+        const covered = coveredRampart(map, b.type, b.level, b);
+        this.waves.start(
+          origin,
+          covered.map((x) => x.tile),
+          covered.map((x) => SECTOR_COLORS[x.sector]),
+        );
+      } else if (b.pool && b.type !== 'camp') {
+        const tiles = b.pool.tiles
+          .map((k) => getTile(map, parseHexKey(k)))
+          .filter((t): t is Tile => !!t);
+        this.waves.start(origin, tiles, []);
+      }
+    }
+  }
+
   /** Mirrors the game state (buildings, construction sites). Cheap when nothing changed. */
   setGameState(state: GameState): void {
     if (state === this.lastState) return;
     this.lastState = state;
     this.buildings?.sync(state);
+    if (this.pendingWaves.length > 0) this.startWaves(state);
     this.kiwis?.sync(state);
     this.paths?.sync(state.paths, ageOf(state));
     this.meteors?.sync(state);
@@ -545,7 +586,12 @@ export class GameRenderer {
 
   onGameEvents(events: GameEvent[]): void {
     for (const e of events) {
-      if (e.type === 'constructionComplete') this.buildings?.celebrate(e.buildingId, e.q, e.r);
+      if (e.type === 'constructionComplete') {
+        this.buildings?.celebrate(e.buildingId, e.q, e.r);
+        // Chantier 16: only for constructions ending now (not those of an offline catch-up);
+        // the building's catchment is known with the next state.
+        if (this.callbacks.now() - e.at < WAVE_RECENT_MS) this.pendingWaves.push(e.buildingId);
+      }
       if (e.type === 'repaired') this.buildings?.burst(e.q, e.r);
       if (e.type === 'obstacleCleared') this.buildings?.burst(e.q, e.r);
       // A new age: fireworks over the monument (chantier 08).
@@ -623,7 +669,51 @@ export class GameRenderer {
     this.refreshLogistics();
   }
 
+  private zonesKey = '';
+
+  /**
+   * Chantier 16: with the logistics overlay, every producer's catchment in its own colour and
+   * the tiles within reach of several producers ringed in grey (they go to the oldest).
+   */
+  private refreshZones(): void {
+    const state = this.lastState;
+    const map = this.map;
+    const on =
+      this.logisticsOverlay && this.placementLabels.length === 0 && !this.placingGhost && !!map;
+    const producers = on && state ? state.buildings.filter((b) => harvestedTileType(map!, b)) : [];
+    const key = producers
+      .map((b) => `${b.id}:${b.level}:${b.pool?.tiles.join(';') ?? ''}`)
+      .join('|');
+    if (key === this.zonesKey) return;
+    this.zonesKey = key;
+    const tiles: Tile[] = [];
+    const colors: string[] = [];
+    const reach = new Map<string, number>();
+    producers.forEach((b, i) => {
+      for (const k of b.pool?.tiles ?? []) {
+        const t = getTile(map!, parseHexKey(k));
+        if (!t) continue;
+        tiles.push(t);
+        colors.push(ZONE_COLORS[i % ZONE_COLORS.length]!);
+      }
+      const type = harvestedTileType(map!, b);
+      for (const h of hexDisk(b, catchmentRadius(b))) {
+        if (getTile(map!, h)?.type !== type) continue;
+        const k = `${type}:${hexKey(h)}`;
+        reach.set(k, (reach.get(k) ?? 0) + 1);
+      }
+    });
+    const contested: Tile[] = [];
+    for (const [k, n] of reach) {
+      if (n < 2) continue;
+      const t = getTile(map!, parseHexKey(k.slice(k.indexOf(':') + 1)));
+      if (t) contested.push(t);
+    }
+    this.selection.setZones(tiles, colors, contested);
+  }
+
   private refreshLogistics(): void {
+    this.refreshZones();
     const state = this.lastState;
     // While placing, only the hovered tile shows its number (the others are tinted).
     let rows = this.placementLabels.filter((b) => b.key === this.placementHover);
@@ -1026,6 +1116,7 @@ export class GameRenderer {
     fog.near = Math.max(90, this.rig.controls.distance + 25);
     fog.far = fog.near + 170;
     this.buildings?.update(dt, this.callbacks.now());
+    this.waves?.update(dt);
     this.logistics.group.visible = !this.visiting;
     this.buildings?.badges.setVisible(
       !this.visiting &&

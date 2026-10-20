@@ -21,6 +21,7 @@ import {
   type GameState,
   type QueueItem,
 } from '@kiwar/shared';
+import type { Particles } from './particles';
 import { buildingGeometry, buildingModel, scaffoldGeometry, stakeGeometry } from './buildingModels';
 import { activityOf, BuildingLife } from './buildingLife';
 import { worldPosition } from './terrain';
@@ -269,6 +270,11 @@ export class BuildingsView {
     }
     this.group.add(g);
     return g;
+  }
+
+  /** The particle pool of the living buildings (chantier 16: the waking land uses it too). */
+  get particles(): Particles {
+    return this.life.particles;
   }
 
   /** Celebration when a construction completes. */

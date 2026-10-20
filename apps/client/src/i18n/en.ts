@@ -1219,7 +1219,7 @@ export const en = {
   },
   plans: {
     showLevels: 'Show building levels',
-    showLogistics: 'Logistics: efficiency of every producer',
+    showLogistics: 'Logistics and zones: efficiency and catchment of every producer',
     placingTurret:
       'Orange: the front, facing the alien planet (most predators) · yellow: the flanks.',
     placingLogistics: 'Green: short trips to a depot (fast harvest) · orange: long trips.',
