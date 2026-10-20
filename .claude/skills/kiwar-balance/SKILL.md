@@ -65,3 +65,10 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   culprits: tiny catchments, a bottleneck whose upgrade the bot cannot afford, storage caps.
 - Change numbers in `packages/shared/src/data/*`, rerun, then record the retune in
   `docs/DECISIONS.md` and regenerate the report. CI runs 30 seeds × 24 h.
+
+- **Reference (end of chantier 15, 12 seeds per biome × 72 h)**: biomes within ±5.5 %, faces
+  within 2.9 %; tutorial 1.3 h, Nest 3 ≈ 3.7 h, Library ≈ 3.8 h, mayor ≈ 12.6 h, level 10 ≈ 2.1
+  days, Stone age ≈ 28.8 h, Iron ≈ 2.9 days (about half the runs within 72 h). Ages probe
+  (2 seeds × 12 days): Stone ≈ 29 h, Iron ≈ 74 h, Industry ≈ 159 h (−9 to −14 % from the
+  automation). The bot relies on the automation (`kiwar-tasks`) and **saves up for the Nest**
+  after the tutorial (no stump meanwhile): without it the Nest 3 was a chaotic race (±30 %).

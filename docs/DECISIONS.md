@@ -1269,6 +1269,19 @@ PC), while phones are very smooth. Measured with Playwright/CDP on the `perfSave
   research, meteorites, stardust, repairs, garrison, full stocks) and a "N waiting" badge for a
   manual task with nobody; in manual mode the construction queue offers "Choose…" (the
   strongest kiwis; `assignBuilder`).
+- **Bot**: relies on the automation (no research staffing, garrison, stardust pickers or repairs
+  of its own). After the tutorial it **saves up for the Nest** and clears no stump meanwhile:
+  with faster, parallel constructions, the Nest 3 "whenever affordable" had become a race
+  against the producers' upgrades, and a one-hour stump on the Nest 2's single place decided it
+  by chance (Nest 3 and Library +27 % in the seed crown and the lagoons, −11 % elsewhere).
+- **Balance** (12 seeds per biome × 72 h, before = the commit before the chantier): every line
+  within ±5.5 % between biomes (before ±9 %), Kiwisu / Kiwino within 2.9 %; tutorial 1.3 h
+  unchanged, Nest 3 3.8 → 3.7 h, Library 4.1 → 3.8 h, mayor 13.3 → 12.6 h, level 10 2.1 days
+  unchanged, Stone age 32.4 → 28.8 h; the Iron age now shows up within 72 h (2.9 days, reached
+  by about half the runs: the report's ⚠️ only says that). Ages probe (`pnpm balance:ages --
+  --seeds 2 --days 12`, median of the biomes): Stone 33.8 → 29.1 h (−14 %), Iron 84 → 74 h
+  (−12 %), Industry 175 → 159 h (−9 %), all within the ±15 % the owner asked for; the gain is
+  the automation itself (sites in parallel, never without a builder, researchers always there).
 
 ## Chantier 17 — Visual identity: distinct buildings, alien planet, living sky
 
