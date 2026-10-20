@@ -24,6 +24,8 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
   - `kiwar-threats` — predator waves, incidents, turrets, garrison, shelter, repairs, meteorites.
   - `kiwar-expeditions` — raids and reconnaissance, hidden alien garrisons (anti-cheat), intel,
     ship generations and breakdowns, the mechanical kiwi bird.
+  - `kiwar-ages` — research (Library, points, technologies), ages and the monument, building
+    levels 4–6, ships and threats by age, the village look by age.
 
 ## Owner's rules
 

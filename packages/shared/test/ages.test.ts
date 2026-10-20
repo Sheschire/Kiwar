@@ -101,7 +101,7 @@ describe('ages', () => {
     const site = findTile(map, 'flesh', 4);
     t = knowing(rich(t), 'stoneAge');
     t = run(t, { type: 'build', buildingType: 'monument', q: site.q, r: site.r }, t.now, map);
-    t = advance(t, t.now + 3 * HOUR_MS).state;
+    t = advance(t, t.now + 8 * HOUR_MS).state;
     expect(maxLevelNow(t, 'pulpery')).toBe(4);
     expect(errorOf(rich(t), { type: 'upgrade', buildingId: pulpery.id }, map)).toBe(
       'nestLevelTooLow',

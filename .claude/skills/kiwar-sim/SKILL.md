@@ -50,6 +50,10 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 - `data/threats.ts`, `sim/threats.ts`, `sim/sky.ts` — chantier 06 (predator waves, incidents,
   turrets, garrison, shelter, repairs, meteorites): see the `kiwar-threats` skill. Threat and
   sky draws use `withThreatRng` (their own stream), never the colony RNG.
+- `data/ages.ts`, `data/research.ts`, `sim/research.ts` — chantier 08 (Library, research
+  points, technologies, `ageOf` = monument level, levels 4–6 via `withAgeLevels`): see the
+  `kiwar-ages` skill. Anything that grows with the age reads `ageOf(state)`; technology bonuses
+  come from `techEffects(state)`.
 - `sim/kiwis.ts` — individual kiwis (stats, XP, masteries, powers, classes, skills): see the
   `kiwar-rpg` skill. Production uses `workforce` (summed worker power), not the head count.
 - `save/save.ts` — zod schema of the state, `MIGRATIONS[n]` (n → n+1), `migrateState`.

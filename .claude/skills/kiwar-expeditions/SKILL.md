@@ -63,8 +63,10 @@ Crew strength, exposure and weighted losses come from `kiwar-rpg`.
 ## Ships
 
 - `SHIPS` / `SHIP_IDS` (wood, logs, iron, jet) in `data/expeditions.ts`: reliability, armour
-  (raid losses), recon bonus. `shipOf(pad)` → `shipIdForPad(level)` for now: **chantier 08
-  switches it to the age** (keep it the single entry point; the renderer uses `shipIdForPad`).
+  (raid losses), recon bonus. `shipOf(state)` = `SHIPS[shipIdForAge(ageOf(state))]` plus the
+  technologies' armour and recon (chantier 08; keep it the single entry point; the renderer
+  uses `shipIdForAge`). Reconnaissance resolution uses the ship bonus too. Travel time takes
+  `techEffects(state).travel`, rations `techEffects(state).rations`.
 - `shipReliability(ship, crew)`: + best Dexterity (`SHIP_REPAIR`). Breakdown drawn in `launch`:
   `broken`, arrival at half the travel time, empty return, launchpad `damaged` at `returnAt`;
   `launchpadDamaged` refuses launches until the repair queue item ends. The UI hides the

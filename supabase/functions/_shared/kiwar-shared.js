@@ -885,18 +885,18 @@ var BASE = {
     copyGrowth: 1,
     levels: [
       {
-        cost: { pulp: 2e3, fiber: 2e3, seeds: 400, juice: 600 },
-        durationMs: ms.h(2),
+        cost: { pulp: 3e3, fiber: 3e3, seeds: 600, juice: 900 },
+        durationMs: ms.h(3),
         requiresNestLevel: 3
       },
       {
-        cost: { pulp: 6e3, fiber: 6e3, seeds: 1500, juice: 2e3 },
-        durationMs: ms.h(5),
+        cost: { pulp: 9e3, fiber: 9e3, seeds: 2e3, juice: 3e3 },
+        durationMs: ms.h(6),
         requiresNestLevel: 4
       },
       {
-        cost: { pulp: 15e3, fiber: 15e3, seeds: 4e3, juice: 5e3 },
-        durationMs: ms.h(10),
+        cost: { pulp: 2e4, fiber: 2e4, seeds: 5e3, juice: 7e3 },
+        durationMs: ms.h(12),
         requiresNestLevel: 5
       }
     ]
@@ -1632,7 +1632,7 @@ var TECHS = {
     libraryLevel: 1,
     effects: { travel: 0.9 }
   },
-  stoneAge: { id: "stoneAge", age: 0, branch: "passage", cost: 250, libraryLevel: 2, effects: {} },
+  stoneAge: { id: "stoneAge", age: 0, branch: "passage", cost: 700, libraryLevel: 2, effects: {} },
   masonry: {
     id: "masonry",
     age: 1,
@@ -1657,7 +1657,7 @@ var TECHS = {
     libraryLevel: 2,
     effects: { rations: 0.8 }
   },
-  ironAge: { id: "ironAge", age: 1, branch: "passage", cost: 900, libraryLevel: 4, effects: {} },
+  ironAge: { id: "ironAge", age: 1, branch: "passage", cost: 1800, libraryLevel: 4, effects: {} },
   smelting: {
     id: "smelting",
     age: 2,
@@ -1686,7 +1686,7 @@ var TECHS = {
     id: "industryAge",
     age: 2,
     branch: "passage",
-    cost: 2200,
+    cost: 4e3,
     libraryLevel: 5,
     effects: {}
   },

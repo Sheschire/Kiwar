@@ -9,6 +9,17 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 08 (1re moitié)** — la civilisation traverse les **âges** : Éden, Pierre, Fer puis
+> Industrie. Les kiwis à l'Esprit vif étudient à la **Bibliothèque** (on choisit qui y va) et
+> accumulent des points de recherche ; l'**arbre des technologies** offre, à chaque âge, des
+> bonus d'économie, de défense et d'exploration, plus la recherche de passage. Une fois le
+> passage trouvé, on élève le **monument** (cercle de pierres, forge, tour d'horloge) : le nouvel
+> âge ouvre un niveau de bâtiment de plus (jusqu'au niveau 6), un vaisseau plus solide (rondins,
+> fer, réaction), des cadeaux du ciel plus riches… et des prédateurs plus forts. À l'âge
+> industriel, les armes à feu permettent aux guerrier·ères de tirer sur les chauves-souris. Le
+> village change d'allure : toits d'ardoise puis de tôle, lanternes, cheminées qui fument, chemins
+> pavés ; la Bibliothèque devient laboratoire. Les **Kikiwiwis** arrivent dans la seconde moitié.
+>
 > **Chantier 07** — le vaisseau devient un **oiseau kiwi mécanique** qui bat des ailes : il
 > respire sur son aire d'envol, prend son élan, décolle et file vers la face adverse (dézoomer
 > pour le suivre), puis revient se poser. Son modèle change avec l'aire : oiseau de bois et de

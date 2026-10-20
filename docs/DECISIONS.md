@@ -574,3 +574,74 @@ local save, the UI never shows it).
   (quality, sectors, spot chance), crew sorted by discretion, ship and reliability line, aged
   intel on target cards, SVG map of the target face (public seed only) in the planner and the
   report, enemy ranges.
+
+## Chantier 08 — Ages, research (first half; the Kikiwiwis come next)
+
+Owner's answers (start of the chantier): **4 ages** at launch (Eden → Stone → Iron → Industry);
+an age is passed by **research then a monument**; a Kikiwiwi transformation **can fail but the
+kiwi survives** (hurt, juice lost); at most **one Kikiwiwi per ship, and one per age reached
+from the Iron age** (Iron 1, Industry 2); Kikiwiwis hit **ground and air**; **obstacles**
+(rocks, stumps, meteorite wrecks) are added to the world generation in this chantier (second
+conversation). An age brings one more building level, the next ship generation, stronger
+predators and richer gifts, and firearms at the Industrial age. Split in two conversations:
+ages and research first, Kikiwiwis second. Target pace for an active player: Stone ≈ 1.5 day,
+Iron ≈ 4 days, Industry ≈ 8 days.
+
+- **Library** (`library`, Nest 2, flesh / ray / heart, copy ×2): 1 / 2 / 3 researchers at
+  levels 1–3, then 4–6 with the ages (a laboratory). **Kiwis never join it on their own**
+  (`isManualWorkplace`: no `autoAssign`, no auto-staffing at completion): the player picks the
+  researchers. Research power = (1 + 6 % per Spirit point above 5) × (1 + 3 % per rank of the
+  new **research mastery**) × modifiers (mage × 1.2, dreamer × 1.15); × the Library's points per
+  hour (8 / 10 / 12, then × 1.2 per age level) × presence × night × hunger × morale × damaged;
+  0 during a shelter.
+- **Research points** are integers in raw units (`RESEARCH_SCALE` = 100 × 1 h per point) like
+  XP, so offline progress is exact. They flow into the chosen technology; with nothing chosen
+  they wait in a bank capped by the Library level (100 / 200 / 400 / 800 / 1 500 / 2 500).
+  Completion is an `advance` event (`researchDone`); switching technology is free (the points
+  stay). The research rate is accrued before the kiwis level up in `accrue`.
+- **Technologies** (`data/research.ts`, 3 per age + 1 passage): Eden — foraging (pulp and fibre
+  +10 %), palisade (turrets +15 %), star charts (travel −10 %), stone cutting (passage, 700 pts,
+  Library 2). Stone — masonry (storage +20 %), slingshots (guards +25 %), preserves (rations
+  −20 %), smelting furnace (passage, 1 800 pts, Library 4). Iron — metal tools (seeds +15 %,
+  constructions −15 % time), armour (wave injuries −30 %, ship armour +0.1), compass (travel
+  −10 %, recon +0.1), steam power (passage, 4 000 pts, Library 5). Industry — machines (every
+  harvest +15 %), firearms (warriors reach the bats at 0.8 in the garrison, Library 6), steam
+  engines (travel −15 %). `techEffects(state)` combines them (memoised on the list). The
+  "against nature" branch is shown greyed ("coming soon") for the second conversation.
+- **Age = monument level** (`ageOf`): one `monument` per colony (outside the building cap,
+  never demolished, never damaged by waves), level 1 / 2 / 3 = Stone / Iron / Industry, each
+  needing its passage technology and a Nest 3 / 4 / 5; costs 3 000–20 000 pulp and fibre, 3 h /
+  6 h / 12 h. Errors `ageTooLow`, `passageMissing`, `monumentExists`; event `ageReached`.
+- **Levels 4–6** for every building but camps and the monument, grown from level 3 by
+  `withAgeLevels` (`AGE_GROWTH`: cost × 2.4, time × 1.6, output × 1.5 per level, one more worker
+  slot for producers and the Library, +2 housing, storage × 1.9, cargo +200, travel × 0.9,
+  ammo × 1.4; the Nest: passive × 1.3, +4 buildings, queue +1 at levels 4 and 6). Each needs the
+  matching age and a Nest of the same level (the Nest: its previous level). Catchment radius
+  1 / 1 / 2 / 2 / 2 / 3; turrets 7 / 8 / 9; Nest factors of waves and meteorites extended.
+  `maxLevelNow(state, type)` gives the cap of the current age; saves allow level 6.
+- **Threats × age**: waves × 1 / 1.15 / 1.3 / 1.5, meteorite stocks × 1 / 1.3 / 1.7 / 2.2.
+- **Ships by age**: `shipOf(state)` = wood / logs / iron / jet by age (the launchpad level keeps
+  the hold and the speed), with the technologies' armour and recon added; reconnaissance now
+  uses the ship bonus when resolving too (it only did in the forecast). An existing colony with
+  a level-3 launchpad goes back from the iron ship to the wooden one (accepted by the owner).
+- **Save v13**: `research` (points, current, done) and the research mastery (0 for old kiwis).
+  Import plausibility: techs of reached ages only, points earned ≤ Libraries × 4 × play time,
+  one monument whose levels match the passages, no level above the age.
+- **Rendering**: Library (round tower, star globe, telescope; laboratory vat, flasks and
+  lightning rod at 4–6), monument (stone ring, forge, clock tower), levels 4–6 = level 3 scaled
+  up with gold studs, age dressing of every building (stone plinth; slate roofs and an iron
+  lantern; metal roofs and a smoking brick chimney), paths from sand to dark slabs, fireworks
+  over the monument on `ageReached`. Models are cached per type, level and age.
+- **UI**: Research button in the top bar and research screen (age, points, rate, progress,
+  tree by age with statuses), Library and monument sheets, "requires age" hints, toasts and
+  sounds `research.done` (synth `discovery`) and `age.reached` (synth `fanfare`).
+- **Balance**: the bot builds a Library after the Nest 3 and the School, keeps one researcher
+  per five kiwis, researches the economy then each passage first, upgrades the Library when a
+  technology needs it and saves up for the monument. New milestones `library`, `stone`, `iron`,
+  `industry`; probe `pnpm balance:ages` (long horizon). Measured on 2 seeds × 4 biomes × 14
+  days before the last tweak: Stone ≈ 32 h, Iron ≈ 90 h, Industry ≈ 173 h; passages were then
+  raised a little (stone cutting 600 → 700, steam power 3 500 → 4 000) and the bot waits for
+  the Nest 3 before its Library (earlier, it slowed the Nest 3 by ~20 %). Final probe (2 seeds ×
+  6 biomes × 12 days): Stone 34–41 h, Iron 88–104 h, Industry 175–194 h (biomes within ±6 %).
+  The 30-seed × 72 h report keeps the older milestones at their reference (Nest 3 ≈ 7.3 h,
+  mayor ≈ 12.6 h, level 10 ≈ 2.6 days) and reaches the Stone age in ≈ 35 h in every biome.

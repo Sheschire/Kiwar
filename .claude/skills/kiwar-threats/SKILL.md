@@ -25,6 +25,10 @@ colony × play time (× expedition victories: the aliens strike back), beginners
     guards are 1.5× more exposed), `SHELTER` (45 min before → 15 min after), `INCIDENTS`
     (first at 4 h, then every 5–11 h: thief, bat, storm), `METEORS`.
 - Biomes multiply ferrets/bats (`BIOMES[b].threats`, chantier 05).
+- Chantier 08: `THREATS.ageFactor` and `METEORS.ageFactor` (by `ageOf`), Nest factors and
+  `TURRETS.max` extended to Nest 6; technologies scale turrets (`turretDefense`), guards
+  (`guardPower(v, state)`: slingshots, firearms → warriors reach the bats) and injuries
+  (armour). The monument is never damaged. See `kiwar-ages`.
 - Turrets are buildings (`buildings.ts`): `seedTurret` (ground) and `skyTurret` (air), skin
   tiles only, `defense` + `ammo` per level; `isTurret`, `TURRET_TYPES`.
 

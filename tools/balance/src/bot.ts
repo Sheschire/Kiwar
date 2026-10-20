@@ -29,7 +29,13 @@ import {
   idleVillagers,
   isObjectiveComplete,
   logisticsEfficiency,
-  maxLevelNow,
+  levelDef,
+  type Building,
+  ageOf,
+  hasTech,
+  PASSAGE_TECHS,
+  techStatus,
+  type TechId,
   nest,
   nestDef,
   newGame,
@@ -69,6 +75,10 @@ export const MILESTONES = [
   'kiwi5',
   'kiwi10',
   'mayor',
+  'library',
+  'stone',
+  'iron',
+  'industry',
 ] as const;
 export type Milestone = (typeof MILESTONES)[number];
 
@@ -157,6 +167,13 @@ function bestTile(state: GameState, map: FaceMap, type: BuildingType): Tile | nu
   return best;
 }
 
+/** The next level exists in this age and the Nest allows it. */
+function upgradeOk(state: GameState, b: Building): boolean {
+  const def = levelDef(b.type, b.level + 1);
+  if (!def || (def.requiresAge ?? 0) > ageOf(state)) return false;
+  return b.type === 'nest' || nest(state).level >= def.requiresNestLevel;
+}
+
 function try_(state: GameState, map: FaceMap, now: number, cmd: Command): GameState | null {
   const r = applyCommand(state, cmd, { now, map });
   return r.ok ? r.state : null;
@@ -184,6 +201,10 @@ function decide(state: GameState, map: FaceMap): Command[] {
   const mayor = state.villagers.find((v) => v.classId === 'mayor');
   if (mayor && hasSkill(mayor, 'speech') && (mayor.skillReadyAt.speech ?? 0) <= state.now)
     cmds.push({ type: 'useSkill', villagerId: mayor.id, skill: 'speech' });
+
+  // Researchers (chantier 08): kiwis never join the Library on their own.
+  const staffing = researchStaffing(state);
+  if (staffing) return [...cmds, staffing];
 
   // Keep everyone busy.
   let idle = idleVillagers(state).length;
@@ -241,7 +262,7 @@ function decide(state: GameState, map: FaceMap): Command[] {
       .sort((a, b) => a.level - b.level)[0];
     if (
       hut &&
-      hut.level < maxLevelNow(state, hut.type) &&
+      upgradeOk(state, hut) &&
       !pendingUpgrade(state, hut.id) &&
       hut.level < nest(state).level + 1
     ) {
@@ -259,10 +280,15 @@ function decide(state: GameState, map: FaceMap): Command[] {
   const rpg = rpgDecision(state, map, build, has);
   if (rpg) return [...cmds, rpg];
 
+  // 2c. Research and ages (chantier 08): Library, researchers, technologies, the monument.
+  const ages = ageDecision(state, map, build, has);
+  if (ages === 'save') return cmds;
+  if (ages) return [...cmds, ages];
+
   // 3. Nest upgrade whenever affordable.
   const n = nest(state);
   if (
-    n.level < maxLevelNow(state, n.type) &&
+    upgradeOk(state, n) &&
     !pendingUpgrade(state, n.id) &&
     canAfford(state.resources, upgradeCost('nest', n.level + 1))
   ) {
@@ -276,7 +302,7 @@ function decide(state: GameState, map: FaceMap): Command[] {
     const wh = state.buildings
       .filter((b) => b.type === 'warehouse')
       .sort((a, b) => a.level - b.level)[0];
-    if (wh && wh.level < maxLevelNow(state, wh.type) && !pendingUpgrade(state, wh.id))
+    if (wh && upgradeOk(state, wh) && !pendingUpgrade(state, wh.id))
       return [...cmds, { type: 'upgrade', buildingId: wh.id }];
   }
 
@@ -301,7 +327,7 @@ function decide(state: GameState, map: FaceMap): Command[] {
       .filter(
         (b) =>
           b.type === type &&
-          b.level < maxLevelNow(state, b.type) &&
+          upgradeOk(state, b) &&
           !pendingUpgrade(state, b.id) &&
           buildingHarvest(state, b, () => false)?.status !== 'depleted',
       )
@@ -318,7 +344,7 @@ function decide(state: GameState, map: FaceMap): Command[] {
   }
   // 6. Then anything else that is not maxed (huts, warehouses).
   for (const b of state.buildings) {
-    if (b.level < maxLevelNow(state, b.type) && !pendingUpgrade(state, b.id))
+    if (upgradeOk(state, b) && !pendingUpgrade(state, b.id))
       cmds.push({ type: 'upgrade', buildingId: b.id });
   }
   return cmds;
@@ -395,10 +421,7 @@ function turretDecision(
       ? 'skyTurret'
       : 'seedTurret';
   const weakest = turrets
-    .filter(
-      (b) =>
-        b.type === type && b.level < maxLevelNow(state, b.type) && !pendingUpgrade(state, b.id),
-    )
+    .filter((b) => b.type === type && upgradeOk(state, b) && !pendingUpgrade(state, b.id))
     .sort((a, b) => a.level - b.level)[0];
   if (weakest && weakest.level < nest(state).level)
     return affordable({ type: 'upgrade', buildingId: weakest.id });
@@ -457,6 +480,99 @@ function rpgDecision(
   return pick('mayor', (v) => v.stats.charisma) ?? pick('builder', (v) => v.stats.strength) ?? null;
 }
 
+/** The economy first, then each passage as soon as possible, then the rest. */
+const TECH_ORDER: TechId[] = [
+  'foraging',
+  'stoneAge',
+  'masonry',
+  'ironAge',
+  'smelting',
+  'industryAge',
+  'machines',
+  'palisade',
+  'slingshots',
+  'armor',
+  'firearms',
+  'starCharts',
+  'preserves',
+  'compass',
+  'steamEngines',
+];
+
+/** Researchers wanted: one per five kiwis, within the Library's slots. */
+function researchStaffing(state: GameState): Command | null {
+  const library = state.buildings.find((b) => b.type === 'library');
+  if (!library) return null;
+  const staff = workersOf(state, library.id).length;
+  const want = Math.min(workerSlots(library), Math.max(1, Math.floor(population(state) / 5)));
+  if (staff >= want) return null;
+  if (idleVillagers(state).length > 0)
+    return { type: 'assignWorkers', buildingId: library.id, count: staff + 1 };
+  // Free the least useful worker of the most staffed producer.
+  const busiest = state.buildings
+    .filter((b) => b.id !== library.id && workerSlots(b) > 0)
+    .map((b) => ({ b, n: workersOf(state, b.id).length }))
+    .sort((a, b) => b.n - a.n)[0];
+  if (!busiest || busiest.n < 2) return null;
+  return { type: 'assignWorkers', buildingId: busiest.b.id, count: busiest.n - 1 };
+}
+
+/**
+ * A Library after the School and the Nest 3, the next technology of TECH_ORDER, Library upgrades when a
+ * technology needs them, and the monument as soon as its passage is known ('save': keep the
+ * resources for it).
+ */
+function ageDecision(
+  state: GameState,
+  map: FaceMap,
+  build: (type: BuildingType) => Command | null,
+  has: (type: BuildingType) => boolean,
+): Command | 'save' | null {
+  if (nest(state).level < 2 || !has('school')) return null;
+  if (!has('library')) {
+    // After the Nest 3: the early economy comes first.
+    if (nest(state).level < 3) return null;
+    if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return null;
+    if (!canAfford(state.resources, buildCost(state, 'library'))) return null;
+    return build('library');
+  }
+  const library = state.buildings.find((b) => b.type === 'library');
+  if (!library) return null;
+  const ok = (cmd: Command) => applyCommand(state, cmd, { now: state.now, map }).ok;
+  if (!state.research.current) {
+    const next = TECH_ORDER.find((id) => techStatus(state, id) === 'available');
+    if (next) return { type: 'setResearch', tech: next };
+  }
+  // The Library level the next wanted technology needs.
+  const wanted = TECH_ORDER.find((id) => !hasTech(state, id) && techStatus(state, id) !== 'age');
+  if (
+    wanted &&
+    techStatus(state, wanted) === 'library' &&
+    !pendingUpgrade(state, library.id) &&
+    ok({ type: 'upgrade', buildingId: library.id })
+  )
+    return { type: 'upgrade', buildingId: library.id };
+  // The monument once the passage is known.
+  const age = ageOf(state);
+  const passage = PASSAGE_TECHS[age + 1];
+  if (!passage || !hasTech(state, passage)) return null;
+  const monument = state.buildings.find((b) => b.type === 'monument');
+  if (monument && pendingUpgrade(state, monument.id)) return null;
+  if (!monument && state.queue.some((i) => i.buildingType === 'monument')) return null;
+  const cmd: Command | null = monument
+    ? { type: 'upgrade', buildingId: monument.id }
+    : build('monument');
+  if (!cmd) return null;
+  const r = applyCommand(state, cmd, { now: state.now, map });
+  if (r.ok) return cmd;
+  if (r.error !== 'notEnoughResources') return null;
+  // Too big for the storage: grow a warehouse first.
+  const cost = upgradeCost('monument', (monument?.level ?? 0) + 1);
+  const cap = capacity(state);
+  if (RESOURCE_IDS.some((id) => (cost[id] ?? 0) > cap[id])) return null;
+  return 'save';
+}
+
 function checkMilestones(
   state: GameState,
   start: number,
@@ -482,6 +598,13 @@ function checkMilestones(
     'mayor',
     state.villagers.some((v) => v.classId === 'mayor'),
   );
+  set(
+    'library',
+    state.buildings.some((b) => b.type === 'library'),
+  );
+  set('stone', ageOf(state) >= 1);
+  set('iron', ageOf(state) >= 2);
+  set('industry', ageOf(state) >= 3);
   set(
     'allLevel3',
     // Economy buildings (the bot does not play expeditions yet).

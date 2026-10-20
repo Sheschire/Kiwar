@@ -44,6 +44,9 @@ Load `kiwar-sim` too: everything here lives in the deterministic shared simulati
 - Chantier 06: job `guard` (XP `KIWI.xpPerHour.guard`, defends by `kiwiStrength` × class
   affinity, see `kiwar-threats`) and `injured` (hurt by a wave, back to work at `until`);
   memorial cause `predator`. The kiwi sheet has a Garrison section.
+- Chantier 08: mastery `research` (practised at the Library), modifier `research` (mage × 1.2,
+  dreamer × 1.15), `researchPower(v)` in `sim/research.ts` (Spirit); `ratesOf` maps a workplace
+  to its mastery with `workMastery`. See `kiwar-ages`.
 - `grantXp` (expedition lumps, in points) — called in `resolveReturn` with the events array.
 - Expeditions (`sim/expeditions.ts`): `crewOf(state, number | ids)`, `crewWeight`, `rations`
   (per kiwi), `strengthOf` (sum + Scouting), `travelTime(target, pad, crew)` (Tailwind),

@@ -17,6 +17,7 @@
     "format": "prettier --write .",
     "balance": "pnpm --filter @kiwar/balance balance",
     "balance:expeditions": "pnpm --filter @kiwar/balance expeditions",
+    "balance:ages": "pnpm --filter @kiwar/balance ages",
     "build:functions": "node scripts/build-functions.mjs",
     "build:sql": "node scripts/build-sql.mjs",
     "test:db": "supabase/tests/run.sh",

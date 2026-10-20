@@ -32,17 +32,21 @@ en ligne n'a été testé qu'avec le mock (`pnpm mock:supabase`).
 Détail, propositions et questions ouvertes dans [`docs/chantiers/`](chantiers/README.md). Ils
 remplacent les anciens jalons 5 à 8 de `VISION.md`.
 
-| #   | Chantier                                                               | État       |
-| --- | ---------------------------------------------------------------------- | ---------- |
-| 01  | Démolition et bâtiments vivants                                        | ✅         |
-| 02  | Audio : socle, sons de base, espace admin                              | ✅         |
-| 03  | Kiwis individuels : niveaux, métiers, classes, shiny                   | ✅         |
-| 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | ✅         |
-| 05  | Intro, choix de la face, biomes, brouillard                            | ✅         |
-| 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | ✅         |
-| 07  | Vaisseau kiwi géant et exploration                                     | ✅         |
-| 08  | Âges, recherche contre nature, Kikiwiwis                               | ⏭ prochain |
-| —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées      |
+| #   | Chantier                                                               | État   |
+| --- | ---------------------------------------------------------------------- | ------ |
+| 01  | Démolition et bâtiments vivants                                        | ✅     |
+| 02  | Audio : socle, sons de base, espace admin                              | ✅     |
+| 03  | Kiwis individuels : niveaux, métiers, classes, shiny                   | ✅     |
+| 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | ✅     |
+| 05  | Intro, choix de la face, biomes, brouillard                            | ✅     |
+| 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | ✅     |
+| 07  | Vaisseau kiwi géant et exploration                                     | ✅     |
+| 08  | Âges, recherche contre nature, Kikiwiwis                               | 🟡 1/2 |
+| —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées  |
+
+**Prochaine conversation** : seconde moitié du chantier 08 (Kikiwiwis, laboratoire contre
+nature, obstacles et travaux de titan). Les réponses du porteur et le découpage sont dans
+[`docs/chantiers/08-ages-recherche-kikiwiwi.md`](chantiers/08-ages-recherche-kikiwiwi.md).
 
 ## Dette et idées en attente
 
@@ -74,11 +78,14 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
   provoquées (la provocation augmente seulement la puissance) ; le bot ne pose pas de camp sur
   les météorites ; la mise en scène ne joue que si le joueur est là à l'impact.
 - Chantier 07 : le bot de colonie n'envoie pas d'expéditions (sonde dédiée
-  `pnpm balance:expeditions`) ; la génération du vaisseau suit le niveau de l'aire en attendant
-  les âges (`shipOf`, à brancher au chantier 08, avec l'oiseau à propulseurs) ; les autres kiwis
+  `pnpm balance:expeditions`) ; les autres kiwis
   d'un univers ne sont pas dessinés en 3D (seulement la carte SVG de la cible) ; le client en
   ligne interroge le serveur toutes les 5 s quand un vaisseau a atterri (pas de Realtime) ; pas
   encore de colonisation ni de caravanes entre faces alliées ; le porteur doit exécuter la
   migration `20261024000000_hide_game_state.sql`.
+- Chantier 08 (1re moitié) : les niveaux 4 à 6 réutilisent le modèle du niveau 3 agrandi (avec
+  l'habillage de l'âge) ; pas encore de nouvelles unités ni d'arme à feu visible sur les
+  guerrier·ères ; l'âge d'un·e ami·e n'est pas montré sur la face jumelle ; le rapport
+  d'équilibrage sur 72 h n'atteint que l'âge de pierre (sonde longue `pnpm balance:ages`).
 - Performance des animations non mesurée sur un vrai téléphone (un mesh par partie animée, ~1 à
   10 par bâtiment) : à vérifier, sinon passer les drapeaux en instancing.

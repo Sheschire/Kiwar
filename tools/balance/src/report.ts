@@ -98,6 +98,10 @@ export const LABELS: Record<Milestone, string> = {
   kiwi5: 'First kiwi at level 5',
   kiwi10: 'First kiwi at level 10',
   mayor: 'A mayor elected (School)',
+  library: 'A Library (research)',
+  stone: 'Stone age',
+  iron: 'Iron age',
+  industry: 'Industrial age',
 };
 
 export function biomeGroups(results: RunResult[], labels: Record<BiomeId, string>): Group[] {
@@ -177,7 +181,7 @@ export function toMarkdown(
   );
   lines.push(
     '',
-    'Bot: follows the tutorial, keeps kiwis busy, hatches eggs, builds one of each building on the site with the most deposits in reach (weighted by logistics), then upgrades the bottleneck producer (or opens a new site when its deposits are exhausted), adds housing/storage when needed and upgrades the Nest as soon as possible. It keeps clear of floodable tiles and uses neither camps nor paths. Chantier 06: one turret of each model after the Nest 2 (more, or upgraded, after a lost wave), guards posted 40 min before a strike to close the forecast gap, shelter when deaths or several injuries are still expected, repairs first.',
+    'Bot: follows the tutorial, keeps kiwis busy, hatches eggs, builds one of each building on the site with the most deposits in reach (weighted by logistics), then upgrades the bottleneck producer (or opens a new site when its deposits are exhausted), adds housing/storage when needed and upgrades the Nest as soon as possible. It keeps clear of floodable tiles and uses neither camps nor paths. Chantier 06: one turret of each model after the Nest 2 (more, or upgraded, after a lost wave), guards posted 40 min before a strike to close the forecast gap, shelter when deaths or several injuries are still expected, repairs first. Chantier 08: a Library after the Nest 3 and the School, one researcher per five kiwis, the economy then each passage first, the monument as soon as its passage is known (it saves up for it).',
   );
   return lines.join('\n') + '\n';
 }

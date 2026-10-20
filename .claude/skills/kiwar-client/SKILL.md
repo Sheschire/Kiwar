@@ -49,6 +49,9 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
 - Biome palettes, flood water, the twin half in the sky (`twin.ts`) and the intro scene
   (`intro.ts`, drawn instead of the game while `renderer.playIntro` runs): see `kiwar-world`.
   The scene haze follows the camera distance; max zoom is 1.9 × `rig.frameDistance`.
+- Chantier 08 (`kiwar-ages`): models take the age (`buildingModel(type, level, shipAway, age)`;
+  levels 4–6 grown from level 3, age dressing), `ResearchModal.tsx` (research screen, `AgeInfo`),
+  Library and monument sheets, paths by age.
 - Chantier 06 (`kiwar-threats`): `meteors.ts` (shooting star, craters), `predators.ts` (wave
   show), turret models, damaged smoke/badge; UI `DefenseModal.tsx` (`ThreatBadge` in
   `.badge-stack`), shield button in the top bar (on 761–1500 px screens the resource bar centres

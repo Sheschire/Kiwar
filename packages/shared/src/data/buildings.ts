@@ -361,18 +361,18 @@ const BASE: Record<BuildingType, BuildingDef> = {
     copyGrowth: 1,
     levels: [
       {
-        cost: { pulp: 2000, fiber: 2000, seeds: 400, juice: 600 },
-        durationMs: ms.h(2),
+        cost: { pulp: 3000, fiber: 3000, seeds: 600, juice: 900 },
+        durationMs: ms.h(3),
         requiresNestLevel: 3,
       },
       {
-        cost: { pulp: 6000, fiber: 6000, seeds: 1500, juice: 2000 },
-        durationMs: ms.h(5),
+        cost: { pulp: 9000, fiber: 9000, seeds: 2000, juice: 3000 },
+        durationMs: ms.h(6),
         requiresNestLevel: 4,
       },
       {
-        cost: { pulp: 15000, fiber: 15000, seeds: 4000, juice: 5000 },
-        durationMs: ms.h(10),
+        cost: { pulp: 20000, fiber: 20000, seeds: 5000, juice: 7000 },
+        durationMs: ms.h(12),
         requiresNestLevel: 5,
       },
     ],

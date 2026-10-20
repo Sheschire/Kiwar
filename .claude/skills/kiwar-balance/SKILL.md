@@ -8,7 +8,7 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
 - `pnpm balance --seeds 30` runs the bot on N seeds **per biome** (chantier 05: six biomes,
   each run in its own child process, `--jobs` = CPU count by default, `--biomes a,b` to pick)
   and prints medians of milestones (tutorial, pop10, nest2, nest3, allLevel3, kiwi5, kiwi10,
-  mayor). Each biome is compared to the **median of all biomes**, plus a Kiwisu vs Kiwino table
+  mayor, library, stone, iron, industry). Each biome is compared to the **median of all biomes**, plus a Kiwisu vs Kiwino table
   over their biomes (threshold ±10 %). `runBot({ biome })` forces a biome; the bot keeps clear
   of floodable tiles. CPU-heavy: stop dev servers and browsers while it runs. The default horizon is 72 h (kiwi10 needs ~2.5 days): a 30-seed run takes
   ~10 min — run it in the background; CI uses 24 h (kiwi10 unreached there, that is expected).
@@ -19,6 +19,10 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   within ±5.6 % of the median (delta and highlands fastest early, seed crown and lagoons
   slowest), Kiwisu / Kiwino within 3.2 %; tutorial 1.5–1.6 h, Nest 3 ≈ 7 h, level 5 ≈ 10.1 h,
   mayor ≈ 12.4 h, level 10 ≈ 2.6 days. Unchanged from chantier 04 on average.
+- Reference (end of the first half of chantier 08, 30 seeds per biome × 72 h, ~14 min): older
+  milestones unchanged (Nest 3 ≈ 7.3 h, mayor ≈ 12.6 h, level 10 ≈ 2.6 days), Library ≈ 7.4 h,
+  Stone age ≈ 35 h in every biome; Iron and Industry need `pnpm balance:ages` (see
+  `kiwar-ages`). Runs no longer stop early (the Industry milestone is never reached in 72 h).
 - Reference (end of chantier 06, 200 seeds per biome × 72 h, ~63 min): biomes within ±5.6 %,
   faces within 3.2 %, same milestones as chantier 05; 2 waves per run, almost all won by the
   attentive bot (seed crown 9 % lost). See `kiwar-threats` for the bot's defense.

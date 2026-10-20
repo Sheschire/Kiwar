@@ -6,7 +6,8 @@
   "scripts": {
     "balance": "tsx src/cli.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "expeditions": "tsx src/expeditions.ts"
+    "expeditions": "tsx src/expeditions.ts",
+    "ages": "tsx src/ages.ts"
   },
   "dependencies": {
     "@kiwar/shared": "workspace:*"
