@@ -5887,6 +5887,19 @@ function buildableTiles(state, map, type) {
   if (buildLock(state, type)) return [];
   return map.tiles.filter((t) => siteError(state, map, type, t) === null);
 }
+function upgradeLock(state, b) {
+  if (b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type))) return "maxLevel";
+  if ((levelDef(b.type, b.level + 1).requiresAge ?? 0) > ageOf(state)) return "ageTooLow";
+  if (b.type === "monument" && !hasTech(state, PASSAGE_TECHS[b.level + 1]))
+    return "passageMissing";
+  const pending = pendingUpgrade(state, b.id);
+  if (pending) return pending.kind === "repair" ? "alreadyRepairing" : "alreadyUpgrading";
+  const def = levelDef(b.type, b.level + 1);
+  if (b.type !== "nest" && nest(state).level < def.requiresNestLevel) return "nestLevelTooLow";
+  if (state.queue.length >= (nestDef(state).queueSize ?? 1)) return "queueFull";
+  if (!canAfford(state.resources, upgradeCost(b.type, b.level + 1))) return "notEnoughResources";
+  return null;
+}
 
 // packages/shared/src/sim/commands.ts
 var COMMAND_ERRORS = [
@@ -6063,15 +6076,9 @@ function execute(s, cmd, ctx, events) {
     case "upgrade": {
       const b = getBuilding(s, cmd.buildingId);
       if (!b) return fail("unknownBuilding");
-      if (b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type))) fail("maxLevel");
-      if ((levelDef(b.type, b.level + 1).requiresAge ?? 0) > ageOf(s)) fail("ageTooLow");
-      if (b.type === "monument" && !hasTech(s, PASSAGE_TECHS[b.level + 1])) fail("passageMissing");
-      const pending = pendingUpgrade(s, b.id);
-      if (pending) fail(pending.kind === "repair" ? "alreadyRepairing" : "alreadyUpgrading");
+      const lock = upgradeLock(s, b);
+      if (lock) fail(lock);
       const target = b.level + 1;
-      const def = levelDef(b.type, target);
-      if (b.type !== "nest" && nest(s).level < def.requiresNestLevel) fail("nestLevelTooLow");
-      queueHasRoom(s);
       const cost = upgradeCost(b.type, target);
       const durationMs = constructionDuration(s, b.type, target, false, nearRay(ctx.map, b.q, b.r));
       pay(s, cost);
@@ -12233,6 +12240,7 @@ export {
   universeFriends,
   universeTargets,
   upgradeCost,
+  upgradeLock,
   userOfFriend,
   validateCommand,
   walkCost,

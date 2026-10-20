@@ -1,5 +1,12 @@
 import { climateOf } from '../data/biomes';
-import { BUILDINGS, isTurret, levelDef, type BuildingType } from '../data/buildings';
+import {
+  BUILDINGS,
+  isTurret,
+  levelDef,
+  MAX_LEVEL,
+  maxLevelOf,
+  type BuildingType,
+} from '../data/buildings';
 import { PASSAGE_TECHS, type TechId } from '../data/research';
 import { RESOURCE_IDS, type ResourceId } from '../data/resources';
 import type { CommandError } from './commands';
@@ -7,15 +14,18 @@ import { ageOf, hasTech, techEffects } from './research';
 import {
   buildingAt,
   buildingCount,
+  canAfford,
   copiesOf,
   isRampart,
   nest,
   nestDef,
+  pendingUpgrade,
   queuedBuildAt,
   turretCount,
   turretLimit,
+  upgradeCost,
 } from './selectors';
-import type { GameState } from './state';
+import type { Building, GameState } from './state';
 import type { FaceMap, Tile } from '../worldgen/generateFace';
 import { isFlooded } from './territory';
 import { seasonOf } from './calendar';
@@ -232,4 +242,24 @@ export function siteError(
 export function buildableTiles(state: GameState, map: FaceMap, type: BuildingType): Tile[] {
   if (buildLock(state, type)) return [];
   return map.tiles.filter((t) => siteError(state, map, type, t) === null);
+}
+
+/**
+ * Why this building cannot be upgraded right now, or null (the `upgrade` command and the
+ * "upgradable" arrow of the level badges).
+ */
+export function upgradeLock(state: GameState, b: Building): CommandError | null {
+  if (b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type))) return 'maxLevel';
+  // Levels 4–6 wait for the ages; each monument level for its passage technology.
+  if ((levelDef(b.type, b.level + 1)!.requiresAge ?? 0) > ageOf(state)) return 'ageTooLow';
+  if (b.type === 'monument' && !hasTech(state, PASSAGE_TECHS[b.level + 1]!))
+    return 'passageMissing';
+  const pending = pendingUpgrade(state, b.id);
+  if (pending) return pending.kind === 'repair' ? 'alreadyRepairing' : 'alreadyUpgrading';
+  const def = levelDef(b.type, b.level + 1)!;
+  // The Nest gates the others; the Nest itself only needs its current level.
+  if (b.type !== 'nest' && nest(state).level < def.requiresNestLevel) return 'nestLevelTooLow';
+  if (state.queue.length >= (nestDef(state).queueSize ?? 1)) return 'queueFull';
+  if (!canAfford(state.resources, upgradeCost(b.type, b.level + 1))) return 'notEnoughResources';
+  return null;
 }

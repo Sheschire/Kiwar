@@ -26,6 +26,7 @@ import { buildingGeometry, buildingModel, scaffoldGeometry, stakeGeometry } from
 import { activityOf, BuildingLife } from './buildingLife';
 import { worldPosition } from './terrain';
 import { WATER_LEVEL } from './water';
+import { LevelBadges } from './levelBadges';
 
 const SPARKS = 18;
 const DUST = 26;
@@ -76,6 +77,8 @@ export class BuildingsView {
   /** One group per building: static mesh + animated rigs (+ status badge). */
   private readonly meshes = new Map<string, Group>();
   private readonly life = new BuildingLife();
+  /** Chantier 11: level badges (and the "upgradable" arrow) above the buildings. */
+  readonly badges = new LevelBadges();
   private readonly sites = new Map<string, Group>();
   private signature = '';
   private pops: Pop[] = [];
@@ -119,6 +122,7 @@ export class BuildingsView {
     }
     this.group.add(this.dust);
     this.group.add(this.life.particles.mesh);
+    this.group.add(this.badges.group);
   }
 
   /** Ground height for a building on this tile (wells stand in the juice). */
@@ -146,8 +150,26 @@ export class BuildingsView {
       state.buildings.map((b) => `${b.id}:${b.level}:${away(b.id) ? 1 : 0}`).join(',') +
       '|' +
       state.queue.map((i) => `${i.id}:${i.startedAt ?? '-'}`).join(',');
-    if (sig === this.signature) return;
-    this.signature = sig;
+    if (sig !== this.signature) {
+      this.signature = sig;
+      this.syncMeshes(state, full, away);
+    }
+    this.badges.sync(state, (id) => {
+      const g = this.meshes.get(id);
+      if (!g) return null;
+      return {
+        x: g.position.x,
+        y: g.position.y + (g.userData.height as number) + 0.62,
+        z: g.position.z,
+      };
+    });
+  }
+
+  private syncMeshes(
+    state: GameState,
+    full: ReturnType<typeof storageFullCheck>,
+    away: (id: string) => boolean,
+  ): void {
     const age = ageOf(state);
 
     const seen = new Set<string>();
@@ -198,7 +220,15 @@ export class BuildingsView {
   private addBuildingMesh(b: Building, shipAway: boolean, age: number): Group {
     const model = buildingModel(b.type, b.level, shipAway, age);
     const g = new Group();
-    g.userData = { level: b.level, away: shipAway, age, buildingId: b.id, q: b.q, r: b.r };
+    g.userData = {
+      level: b.level,
+      away: shipAway,
+      age,
+      buildingId: b.id,
+      q: b.q,
+      r: b.r,
+      height: model.height,
+    };
     const mesh = new Mesh(model.geometry, this.material);
     // Shadows are static: only the static part casts one.
     mesh.castShadow = true;
@@ -379,6 +409,7 @@ export class BuildingsView {
     this.material.dispose();
     this.ghostMaterial.dispose();
     this.life.dispose();
+    this.badges.dispose();
     this.sparks.geometry.dispose();
     this.dust.geometry.dispose();
     (this.dust.material as MeshStandardMaterial).dispose();

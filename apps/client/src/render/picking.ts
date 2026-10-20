@@ -122,6 +122,11 @@ export type PickResult =
  * Finds what is under the given client coordinates: a terrain tile (instance id) or an object
  * carrying `userData.q/r` (building, construction site) — whichever is closest.
  */
+function shown(o: Object3D | null): boolean {
+  for (; o; o = o.parent) if (!o.visible) return false;
+  return true;
+}
+
 export function pick(
   element: HTMLElement,
   camera: Camera,
@@ -141,6 +146,8 @@ export function pick(
     if (hit.object === terrain && hit.instanceId !== undefined) {
       return { kind: 'tile', instanceId: hit.instanceId };
     }
+    // Hidden objects (level badges out of zoom) are not tappable.
+    if (!shown(hit.object)) continue;
     let o: Object3D | null = hit.object;
     while (o) {
       if (typeof o.userData.q === 'number')

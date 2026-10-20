@@ -3607,3 +3607,30 @@ button.chip:focus-visible {
 .path-mode .paths-fab {
   display: none;
 }
+
+.levels-fab {
+  right: calc(var(--gap) + var(--safe-right) + 11px);
+  bottom: calc(var(--gap) + var(--safe-bottom) + 206px);
+  width: 46px;
+  height: 46px;
+}
+
+.levels-fab.is-on {
+  border-color: var(--leaf);
+  box-shadow:
+    0 3px 0 var(--leaf-dark, #4f7f1c),
+    0 0 0 3px rgba(111, 174, 44, 0.35);
+}
+
+@media (max-width: 760px) {
+  .levels-fab {
+    width: 42px;
+    height: 42px;
+    right: calc(var(--gap) + var(--safe-right) + 9px);
+    bottom: calc(var(--gap) + var(--safe-bottom) + 182px);
+  }
+
+  .has-sheet .levels-fab {
+    display: none;
+  }
+}

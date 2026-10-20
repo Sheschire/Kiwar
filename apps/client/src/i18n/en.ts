@@ -1131,6 +1131,7 @@ export const en = {
     ships: { wood: 'wooden', logs: 'log', iron: 'iron', jet: 'jet' },
   },
   plans: {
+    showLevels: 'Show building levels',
     button: 'Plans: buildings and research',
     title: 'Plans',
     buildings: 'Buildings',

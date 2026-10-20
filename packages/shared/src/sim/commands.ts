@@ -1,4 +1,4 @@
-import { BUILDINGS, levelDef, MAX_LEVEL, maxLevelOf, type BuildingType } from '../data/buildings';
+import { BUILDINGS, levelDef, type BuildingType } from '../data/buildings';
 import { CAMPS, PATHS } from '../data/territory';
 import { TILES } from '../data/tiles';
 import { hexKey } from '../hex/hex';
@@ -18,7 +18,7 @@ import { buildingResource, hasSkill, trainingCost, trainingDuration, workerPower
 import { CLASSES, SKILLS, type ClassId, type SkillId } from '../data/classes';
 import { faceMapOf, isFlooded, releasePool, syncPools, terraformKey } from './territory';
 import { seasonOf } from './calendar';
-import { buildLock, siteError } from './describe';
+import { buildLock, siteError, upgradeLock } from './describe';
 import {
   buildCost,
   buildingAt,
@@ -33,7 +33,6 @@ import {
   getBuilding,
   isObjectiveComplete,
   nearRay,
-  nest,
   nestDef,
   pathLimit,
   pendingUpgrade,
@@ -48,8 +47,8 @@ import {
 } from './selectors';
 import { cloneState, nextId, type GameState, type MissionKind } from './state';
 import { returnHome, weakestWorker } from './posts';
-import { PASSAGE_TECHS, TECHS, type TechId } from '../data/research';
-import { ageOf, hasTech, researchTick, techEffects, techStatus } from './research';
+import { TECHS, type TechId } from '../data/research';
+import { researchTick, techEffects, techStatus } from './research';
 import { KIKIWIWI } from '../data/kikiwiwi';
 import {
   infusionDuration,
@@ -355,17 +354,10 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
     case 'upgrade': {
       const b = getBuilding(s, cmd.buildingId);
       if (!b) return fail('unknownBuilding');
-      if (b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type))) fail('maxLevel');
-      // Levels 4–6 wait for the ages; each monument level for its passage technology.
-      if ((levelDef(b.type, b.level + 1)!.requiresAge ?? 0) > ageOf(s)) fail('ageTooLow');
-      if (b.type === 'monument' && !hasTech(s, PASSAGE_TECHS[b.level + 1]!)) fail('passageMissing');
-      const pending = pendingUpgrade(s, b.id);
-      if (pending) fail(pending.kind === 'repair' ? 'alreadyRepairing' : 'alreadyUpgrading');
+      // Shared with the level badges (chantier 11).
+      const lock = upgradeLock(s, b);
+      if (lock) fail(lock);
       const target = b.level + 1;
-      const def = levelDef(b.type, target)!;
-      // The Nest gates the others; the Nest itself only needs its current level.
-      if (b.type !== 'nest' && nest(s).level < def.requiresNestLevel) fail('nestLevelTooLow');
-      queueHasRoom(s);
       const cost = upgradeCost(b.type, target);
       const durationMs = constructionDuration(s, b.type, target, false, nearRay(ctx.map, b.q, b.r));
       pay(s, cost);

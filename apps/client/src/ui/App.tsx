@@ -22,7 +22,7 @@ import { IntroOverlay } from './components/IntroOverlay';
 import { FollowBadge, VillageModal } from './components/VillageModal';
 import { DefenseModal, ThreatBadge } from './components/DefenseModal';
 import { PlansModal } from './components/ResearchModal';
-import { PlacingBanner } from './components/BuildingTree';
+import { LevelsButton, PlacingBanner } from './components/BuildingTree';
 import { BootScreen, Guard } from './components/Guard';
 import { VisitBanner } from './components/VisitBanner';
 import { RecapBubble } from './components/RecapBubble';
@@ -83,6 +83,12 @@ function HungerBadge() {
   );
 }
 
+/** Keys typed in a text field are not shortcuts. */
+function isTyping(e: KeyboardEvent): boolean {
+  const el = e.target as HTMLElement | null;
+  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+}
+
 export function App() {
   const modal = useUi((s) => s.modal);
   const debugOpen = useUi((s) => s.debugOpen);
@@ -97,6 +103,8 @@ export function App() {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'Backquote' || e.key === '`' || e.key === '²') {
         uiStore.setState((s) => ({ debugOpen: !s.debugOpen }));
+      } else if ((e.key === 'l' || e.key === 'L') && !isTyping(e)) {
+        actions.toggleLevels();
       } else if (e.key === 'Escape') {
         if (uiStore.getState().visit !== null) actions.visitAlly(null);
         else if (uiStore.getState().pathMode) actions.setPathMode(false);
@@ -144,6 +152,7 @@ export function App() {
       <Compass />
       <PathToolbar />
       <PlacingBanner />
+      <LevelsButton />
       <Guard>
         <TilePanel />
       </Guard>

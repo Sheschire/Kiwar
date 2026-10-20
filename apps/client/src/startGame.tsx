@@ -188,6 +188,12 @@ uiStore.subscribe((s, prev) => {
   if (s.modal !== prev.modal) renderer.setBackground(s.modal !== 'none');
 });
 
+// Chantier 11: level badges everywhere, or only at medium zoom.
+renderer.setLevelBadges(uiStore.getState().showLevels);
+uiStore.subscribe((s, prev) => {
+  if (s.showLevels !== prev.showLevels) renderer.setLevelBadges(s.showLevels);
+});
+
 // Chantier 11: placing a building from the tree lights the valid tiles (kept up to date).
 let placementKey = '';
 uiStore.subscribe((s, prev) => {

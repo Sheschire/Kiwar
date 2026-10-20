@@ -89,6 +89,8 @@ const tmpTarget = new Vector3();
 const tmpSize = new Vector2();
 /** Frame interval while a menu covers the scene (~20 fps). */
 const BACKGROUND_FRAME_MS = 48;
+/** Level badges show up below this share of the framing distance (chantier 11: medium zoom). */
+const BADGE_ZOOM = 0.6;
 
 /** Owns the WebGL renderer, the scene graph and the frame loop. */
 export class GameRenderer {
@@ -524,6 +526,13 @@ export class GameRenderer {
     this.refreshCatchment();
   }
 
+  /** Chantier 11: level badges everywhere (otherwise only at medium zoom). */
+  setLevelBadges(always: boolean): void {
+    this.levelBadges = always;
+  }
+
+  private levelBadges = false;
+
   /** Chantier 11: lights the tiles where the building chosen in the tree can go. */
   setPlacement(tiles: readonly Tile[]): void {
     this.selection.setPlacement(tiles);
@@ -808,6 +817,10 @@ export class GameRenderer {
     fog.near = Math.max(90, this.rig.controls.distance + 25);
     fog.far = fog.near + 170;
     this.buildings?.update(dt, this.callbacks.now());
+    this.buildings?.badges.setVisible(
+      !this.visiting &&
+        (this.levelBadges || this.rig.controls.distance < this.rig.frameDistance * BADGE_ZOOM),
+    );
     this.meteors?.update(dt, this.callbacks.now());
     this.obstacles?.update(dt);
     this.ships?.update(

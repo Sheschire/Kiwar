@@ -180,3 +180,22 @@ export function PlacingBanner() {
     </div>
   );
 }
+
+/** Round button: level badges above every building, whatever the zoom (key L). */
+export function LevelsButton() {
+  const t = useT();
+  const on = useUi((s) => s.showLevels);
+  const hidden = useUi((s) => s.pathMode || s.placing !== null);
+  if (hidden) return null;
+  return (
+    <button
+      class={`round-fab levels-fab pe ${on ? 'is-on' : ''}`}
+      aria-pressed={on}
+      aria-label={t('plans.showLevels')}
+      title={`${t('plans.showLevels')} (L)`}
+      onClick={() => actions.toggleLevels()}
+    >
+      <Icon name="levels" size={28} />
+    </button>
+  );
+}

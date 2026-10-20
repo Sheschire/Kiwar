@@ -78,6 +78,8 @@ export interface UiState {
   /** Chantier 11: the plans screen tab, and the building being placed from the tree. */
   plansTab: 'buildings' | 'research';
   placing: BuildingType | null;
+  /** Level badges above every building, whatever the zoom. */
+  showLevels: boolean;
   /** Volume settings (mirrors the audio engine). */
   audio: AudioSettings;
   /** Kiwi whose sheet is open in the village screen (null = the list). */
@@ -99,6 +101,24 @@ export interface UiState {
   allies: AllySnapshot[];
   /** Kiwi of the ally being visited by the camera (null: at home). */
   visit: number | null;
+}
+
+const LEVELS_KEY = 'kiwar.levels';
+
+function loadShowLevels(): boolean {
+  try {
+    return localStorage.getItem(LEVELS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function saveShowLevels(on: boolean): void {
+  try {
+    localStorage.setItem(LEVELS_KEY, on ? '1' : '0');
+  } catch {
+    // ignore
+  }
 }
 
 const wideScreen =
@@ -135,6 +155,7 @@ export const uiStore = createStore<UiState>(() => ({
   pathMode: false,
   plansTab: 'buildings',
   placing: null,
+  showLevels: loadShowLevels(),
   audio: DEFAULT_SETTINGS,
   kiwiId: null,
   villageTab: 'kiwis',

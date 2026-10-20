@@ -4,6 +4,7 @@ import {
   BUILDINGS,
   buildableTiles,
   buildLock,
+  upgradeLock,
   climateOf,
   describeLevel,
   describeTech,
@@ -14,7 +15,7 @@ import {
   type GameState,
   type Tile,
 } from '../src';
-import { findTile, rich, setup, T0 } from './helpers';
+import { findTile, rich, run, setup, T0 } from './helpers';
 
 describe('describeLevel (chantier 11)', () => {
   it('gives every level of every building at least one number (except plain monument/lab levels)', () => {
@@ -123,5 +124,31 @@ describe('buildableTiles (chantier 11)', () => {
         expect(ok.has(`${t.q},${t.r}`), `${type} ${t.q},${t.r}`).toBe(error === null);
       }
     }
+  });
+});
+
+describe('upgradeLock (chantier 11)', () => {
+  it('matches the upgrade command', () => {
+    const { map, state } = setup();
+    const tile = findTile(map, 'flesh', 3);
+    let s = run(rich(state), { type: 'build', buildingType: 'hut', q: tile.q, r: tile.r }, T0, map);
+    s = run(s, { type: 'debugGrant', resources: {} }, T0 + 3_600_000, map);
+    const check = (g: GameState) => {
+      for (const b of g.buildings) {
+        const cmd = { type: 'upgrade', buildingId: b.id } as const;
+        expect(upgradeLock(g, b), b.type).toBe(validateCommand(g, cmd, { now: g.now, map }));
+      }
+    };
+    check(s);
+    check({ ...s, resources: { pulp: 0, fiber: 0, seeds: 0, juice: 0 } });
+    const hut = s.buildings.find((b) => b.type === 'hut')!;
+    expect(upgradeLock(s, hut)).toBeNull();
+    s = run(s, { type: 'upgrade', buildingId: hut.id }, s.now, map);
+    expect(
+      upgradeLock(
+        s,
+        s.buildings.find((b) => b.type === 'hut')!,
+      ),
+    ).toBe('alreadyUpgrading');
   });
 });

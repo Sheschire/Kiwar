@@ -1167,6 +1167,7 @@ export const fr: Dict = {
     ships: { wood: 'en bois', logs: 'en rondins', iron: 'en fer', jet: 'à réaction' },
   },
   plans: {
+    showLevels: 'Afficher les niveaux des bâtiments',
     button: 'Plans : bâtiments et recherche',
     title: 'Plans',
     buildings: 'Bâtiments',

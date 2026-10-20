@@ -17,7 +17,7 @@ import {
 import type { GameController } from '../game/GameController';
 import type { GameRenderer } from '../render/GameRenderer';
 import { saveQualityChoice, type QualityChoice } from '../render/quality';
-import { pushToast, uiStore } from './store';
+import { pushToast, saveShowLevels, uiStore } from './store';
 import { startIntro } from './intro';
 import { audio } from '../audio/engine';
 import { playCommandSound } from '../audio/sounds';
@@ -96,6 +96,11 @@ export const actions = {
     }
     if (uiStore.getState().pathMode) actions.setPathMode(false);
     uiStore.setState({ placing: type, modal: 'none', selectedTile: null });
+  },
+  toggleLevels(): void {
+    const on = !uiStore.getState().showLevels;
+    saveShowLevels(on);
+    uiStore.setState({ showLevels: on });
   },
   stopPlacing(): void {
     uiStore.setState({ placing: null });
