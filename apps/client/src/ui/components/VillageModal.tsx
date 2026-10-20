@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import {
   builderSpeed,
   buildingResource,
@@ -22,11 +22,14 @@ import {
   type ClassId,
   type Command,
   type GameState,
+  kiwiPosts,
+  type ResourceId,
   type Villager,
 } from '@kiwar/shared';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { pushToast, useT, useUi, uiStore } from '../store';
+import { BookIcon, ResourceIcon } from '../icons';
 import { Cost } from './Cost';
 import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
@@ -35,6 +38,16 @@ import { KiwiNeedsLine, MoraleCard, RestSection } from './NeedsWidgets';
 
 type Sort = 'level' | 'name' | 'job' | 'born';
 const SORTS: Sort[] = ['level', 'name', 'job', 'born'];
+
+/** The kiwis in the order of the village list (the sheet arrows follow it). */
+function sortedKiwis(game: GameState, sort: Sort): Villager[] {
+  return [...game.villagers].sort((a, b) => {
+    if (sort === 'name') return a.name.localeCompare(b.name);
+    if (sort === 'job') return jobRank(a) - jobRank(b) || b.level - a.level;
+    if (sort === 'born') return a.bornAt - b.bornAt;
+    return b.level - a.level || b.xp - a.xp;
+  });
+}
 
 function jobRank(v: Villager): number {
   return {
@@ -75,14 +88,9 @@ function XpBar({ v }: { v: Villager }) {
 function KiwiList() {
   const t = useT();
   const game = useUi((s) => s.game)!;
-  const [sort, setSort] = useState<Sort>('level');
+  const sort = useUi((s) => s.villageSort);
   const jobLabel = useJobLabel();
-  const kiwis = [...game.villagers].sort((a, b) => {
-    if (sort === 'name') return a.name.localeCompare(b.name);
-    if (sort === 'job') return jobRank(a) - jobRank(b) || b.level - a.level;
-    if (sort === 'born') return a.bornAt - b.bornAt;
-    return b.level - a.level || b.xp - a.xp;
-  });
+  const kiwis = sortedKiwis(game, sort);
   if (kiwis.length === 0) return <p class="muted">{t('village.empty')}</p>;
   return (
     <>
@@ -94,7 +102,7 @@ function KiwiList() {
             key={s}
             class={`btn btn-small ${s === sort ? 'btn-active' : ''}`}
             aria-pressed={s === sort}
-            onClick={() => setSort(s)}
+            onClick={() => uiStore.setState({ villageSort: s })}
           >
             {t(`village.sorts.${s}`)}
           </button>
@@ -341,7 +349,9 @@ function KiwiSheet({ v }: { v: Villager }) {
   const game = useUi((s) => s.game)!;
   const now = useUi((s) => s.now);
   const [renaming, setRenaming] = useState(false);
+  const [assigning, setAssigning] = useState(false);
   const jobLabel = useJobLabel();
+  const canAssign = !v.kikiwiwi && ['idle', 'work', 'guard'].includes(v.job.kind);
   const p = levelProgress(v);
   const work = v.job.kind === 'work' ? getBuilding(game, v.job.buildingId) : undefined;
   const resource = work ? buildingResource(game, work) : null;
@@ -386,7 +396,16 @@ function KiwiSheet({ v }: { v: Villager }) {
       </header>
 
       <div class="row kiwi-actions">
-        <button class="btn btn-primary" onClick={() => actions.followKiwi(v.id)}>
+        {canAssign && (
+          <button
+            class={`btn ${assigning ? 'btn-active' : 'btn-primary'}`}
+            aria-expanded={assigning}
+            onClick={() => setAssigning(!assigning)}
+          >
+            {t('posts.assign')}
+          </button>
+        )}
+        <button class="btn" onClick={() => actions.followKiwi(v.id)}>
           {t('kiwi.follow')}
         </button>
         {work && (
@@ -407,6 +426,9 @@ function KiwiSheet({ v }: { v: Villager }) {
           </button>
         )}
       </div>
+      {assigning && canAssign && (
+        <PostPicker game={game} v={v} onDone={() => setAssigning(false)} />
+      )}
 
       {v.kikiwiwi && <TitanSection game={game} />}
       <GuardSection game={game} v={v} />
@@ -501,12 +523,7 @@ export function VillageModal() {
   return (
     <Modal title={t('village.title')} onClose={() => actions.closeVillage()} class="modal-village">
       {v ? (
-        <>
-          <button class="btn btn-small btn-ghost back" onClick={() => actions.showKiwi(null)}>
-            ← {t('kiwi.back')}
-          </button>
-          <KiwiSheet v={v} />
-        </>
+        <SheetNavigator game={game} v={v} />
       ) : (
         <>
           <div class="segmented" role="tablist">
@@ -605,5 +622,134 @@ function GuardSection({ game, v }: { game: GameState; v: Villager }) {
         {guard ? t(v.kikiwiwi ? 'garrison.standDown' : 'garrison.relieve') : t('garrison.post')}
       </button>
     </section>
+  );
+}
+
+/** A kiwi's sheet with the arrows (and a swipe on phones) to the previous or next kiwi. */
+function SheetNavigator({ game, v }: { game: GameState; v: Villager }) {
+  const t = useT();
+  const sort = useUi((s) => s.villageSort);
+  const kiwis = sortedKiwis(game, sort);
+  const index = kiwis.findIndex((x) => x.id === v.id);
+  const go = (step: number) => {
+    const next = kiwis[(index + step + kiwis.length) % kiwis.length];
+    if (next && next.id !== v.id) actions.showKiwi(next.id);
+  };
+  const start = useRef<{ x: number; y: number } | null>(null);
+  return (
+    <div
+      class="kiwi-nav-wrap"
+      onPointerDown={(e) => {
+        start.current = e.pointerType === 'touch' ? { x: e.clientX, y: e.clientY } : null;
+      }}
+      onPointerUp={(e) => {
+        const s = start.current;
+        start.current = null;
+        if (!s) return;
+        const dx = e.clientX - s.x;
+        // A clear horizontal swipe, not a scroll.
+        if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(e.clientY - s.y)) go(dx < 0 ? 1 : -1);
+      }}
+    >
+      <div class="kiwi-nav">
+        <button class="btn btn-small btn-ghost back" onClick={() => actions.showKiwi(null)}>
+          ← {t('kiwi.back')}
+        </button>
+        {kiwis.length > 1 && (
+          <span class="kiwi-nav-arrows">
+            <button
+              class="btn btn-icon btn-small"
+              aria-label={t('kiwi.prev')}
+              onClick={() => go(-1)}
+            >
+              ◀
+            </button>
+            <span class="small muted">
+              {t('kiwi.position', { index: index + 1, count: kiwis.length })}
+            </span>
+            <button
+              class="btn btn-icon btn-small"
+              aria-label={t('kiwi.next')}
+              onClick={() => go(1)}
+            >
+              ▶
+            </button>
+          </span>
+        )}
+      </div>
+      <KiwiSheet key={v.id} v={v} />
+    </div>
+  );
+}
+
+/** "Assign to…": every workplace with this kiwi's yield there, one tap to move it. */
+function PostPicker({ game, v, onDone }: { game: GameState; v: Villager; onDone: () => void }) {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const posts = kiwiPosts(game, v);
+  const fmt = (x: number) => formatNumber(lang, Math.round(x * 100) / 100);
+  const assign = (buildingId: string | null) => {
+    if (
+      actions.dispatch({
+        type: 'assignKiwi',
+        villagerId: v.id,
+        buildingId: buildingId as never,
+      })
+    )
+      onDone();
+  };
+  return (
+    <section class="field post-picker">
+      {posts.length === 0 && <p class="small muted">{t('posts.none')}</p>}
+      <ul class="post-list">
+        {posts.map((p) => (
+          <li key={p.buildingId}>
+            <button
+              class={`post-row ${p.current ? 'is-current' : ''} ${p.ideal ? 'is-ideal' : ''}`}
+              disabled={p.current}
+              title={t('posts.power', { value: fmt(p.power), average: fmt(p.power / p.affinity) })}
+              onClick={() => assign(p.buildingId)}
+            >
+              <ResourceKind kind={p.kind} />
+              <span class="post-main">
+                <strong>
+                  {t(`buildings.${p.type}.name`)}{' '}
+                  <span class="small muted">{t('common.levelShort', { level: p.level })}</span>
+                </strong>
+                <span class="small muted">
+                  {t(`posts.kinds.${p.kind}`)} · {p.workers}/{p.slots}
+                  {p.swapWith && ` · ${t('posts.swap', { name: p.swapWith.name })}`}
+                  {p.current && ` · ${t('posts.here')}`}
+                </span>
+                {p.ideal && <span class="badge badge-ideal">{t('posts.ideal')}</span>}
+              </span>
+              <span
+                class={`post-power ${p.affinity >= 1.005 ? 'bonus' : p.affinity < 0.995 ? 'muted' : ''}`}
+              >
+                ×{fmt(p.power)}
+              </span>
+            </button>
+          </li>
+        ))}
+        {v.job.kind !== 'idle' && (
+          <li>
+            <button class="post-row" onClick={() => assign(null)}>
+              <span class="post-main">
+                <strong>{t('posts.rest')}</strong>
+              </span>
+            </button>
+          </li>
+        )}
+      </ul>
+    </section>
+  );
+}
+
+/** Icon of what a workplace produces. */
+export function ResourceKind({ kind, size = 20 }: { kind: string; size?: number }) {
+  return kind === 'research' ? (
+    <BookIcon size={size} />
+  ) : (
+    <ResourceIcon id={kind as ResourceId} size={size} />
   );
 }

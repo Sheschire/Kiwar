@@ -55,6 +55,7 @@ import {
   workersOf,
 } from './selectors';
 import { cloneState, nextId, type GameState, type MissionKind } from './state';
+import { weakestWorker } from './posts';
 import { PASSAGE_TECHS, TECHS, type TechId } from '../data/research';
 import { ageOf, hasTech, researchTick, techEffects, techStatus } from './research';
 import { KIKIWIWI } from '../data/kikiwiwi';
@@ -88,6 +89,16 @@ export type Command =
   | { type: 'upgrade'; buildingId: BuildingId }
   | { type: 'cancel'; queueItemId: QueueItemId }
   | { type: 'assignWorkers'; buildingId: BuildingId; count: number }
+  /**
+   * Chantier 09: moves this very kiwi to a workplace (null: it rests). In a full building it
+   * swaps places with `replace`, or with the least skilled worker there.
+   */
+  | {
+      type: 'assignKiwi';
+      villagerId: VillagerId;
+      buildingId: BuildingId | null;
+      replace?: VillagerId;
+    }
   | { type: 'hatchEgg' }
   | { type: 'claimObjective' }
   | {
@@ -224,6 +235,7 @@ export const COMMAND_ERRORS = [
   'notReshapable',
   'terraformLimit',
   'titanAtWork',
+  'kikiwiwiNoWork',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -475,6 +487,40 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
               .map((x) => x.v)
           : current;
         for (const v of ranked.slice(cmd.count)) v.job = { kind: 'idle' };
+      }
+      return;
+    }
+    case 'assignKiwi': {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail('unknownVillager');
+      if (v.job.kind !== 'idle' && v.job.kind !== 'work' && v.job.kind !== 'guard')
+        fail('kiwiBusy');
+      if (cmd.buildingId === null) {
+        v.job = { kind: 'idle' };
+        return;
+      }
+      if (v.kikiwiwi) fail('kikiwiwiNoWork');
+      const b = getBuilding(s, cmd.buildingId);
+      if (!b) return fail('unknownBuilding');
+      const slots = workerSlots(b);
+      if (slots === 0) fail('notAProducer');
+      if (v.job.kind === 'work' && v.job.buildingId === b.id) return;
+      let other: (typeof s.villagers)[number] | undefined;
+      if (cmd.replace !== undefined) {
+        other = workersOf(s, b.id).find((x) => x.id === cmd.replace);
+        if (!other) fail('unknownVillager');
+      } else if (workersOf(s, b.id).length >= slots) {
+        other = weakestWorker(s, b);
+      }
+      const previous = v.job;
+      v.job = { kind: 'work', buildingId: b.id };
+      if (other) {
+        // The swapped kiwi takes the newcomer's former workplace, or looks for work.
+        if (previous.kind === 'work') other.job = { kind: 'work', buildingId: previous.buildingId };
+        else {
+          other.job = { kind: 'idle' };
+          autoAssign(s, other);
+        }
       }
       return;
     }

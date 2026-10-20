@@ -58,6 +58,9 @@ import {
   seasonHarvest,
   seasonRegen,
   type ResourceId,
+  kindPower,
+  postKind,
+  type Villager,
 } from '@kiwar/shared';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
@@ -77,6 +80,9 @@ import { buildingIcon, Icon, type IconName } from '../iconSet';
 import { LabInfo } from './LabInfo';
 import { TitanWorks } from './TitanWorks';
 import { AgeInfo, ResearchSummary } from './ResearchModal';
+import { KiwiPortrait } from './KiwiPortrait';
+import { useJobLabel } from './VillageModal';
+import { useState } from 'preact/hooks';
 
 function Progress({ item, now }: { item: QueueItem; now: number }) {
   const t = useT();
@@ -268,6 +274,7 @@ function BuildingSection({
           <span class="small muted">{t('building.idleKiwis', { count: idle })}</span>
         </div>
       )}
+      {slots > 0 && workers > 0 && <WorkerList game={game} b={b} t={t} />}
       {(def.production || def.passiveProduction || b.type === 'camp') && (
         <div class="stat-row">
           <StatLabel icon="harvest" label={t('building.production')} />
@@ -842,6 +849,84 @@ function MeteorLine({
       <p class="small muted">
         {t('sky.hint', { building: `@buildings.${METEOR_PICKERS[m.resource]}.name` })}
       </p>
+    </div>
+  );
+}
+
+/** Chantier 09: the workers of a building, each one replaceable by a chosen kiwi. */
+function WorkerList({ game, b, t }: { game: GameState; b: Building; t: Translate }) {
+  const lang = useUi((s) => s.lang);
+  const [replacing, setReplacing] = useState<string | null>(null);
+  const jobLabel = useJobLabel();
+  const kind = postKind(game, b);
+  const power = (v: Villager) => (kind ? kindPower(v, kind) : 1);
+  const fmt = (x: number) => formatNumber(lang, Math.round(x * 100) / 100);
+  const workers = workersOf(game, b.id);
+  const target = workers.find((v) => v.id === replacing);
+  // Free kiwis first, then the others, the best here first.
+  const candidates = target
+    ? game.villagers
+        .filter(
+          (v) =>
+            !v.kikiwiwi &&
+            ['idle', 'work', 'guard'].includes(v.job.kind) &&
+            !(v.job.kind === 'work' && v.job.buildingId === b.id),
+        )
+        .sort((x, y) => +(y.job.kind === 'idle') - +(x.job.kind === 'idle') || power(y) - power(x))
+    : [];
+  return (
+    <div class="worker-list">
+      <ul>
+        {workers.map((v) => (
+          <li key={v.id} class="worker-row">
+            <button class="worker-main" onClick={() => actions.openVillage(v.id)}>
+              <KiwiPortrait shiny={v.shiny} classId={v.classId} seed={v.id} size={30} />
+              <span class="small">{v.name}</span>
+              <span class="small muted">×{fmt(power(v))}</span>
+            </button>
+            <button
+              class={`btn btn-small ${replacing === v.id ? 'btn-active' : ''}`}
+              aria-expanded={replacing === v.id}
+              onClick={() => setReplacing(replacing === v.id ? null : v.id)}
+            >
+              {t('posts.replace')}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {target && (
+        <div class="replace-box">
+          <p class="small">{t('posts.replaceWith', { name: target.name })}</p>
+          {candidates.length === 0 && <p class="small muted">{t('posts.noReplacement')}</p>}
+          <ul>
+            {candidates.map((v) => (
+              <li key={v.id}>
+                <button
+                  class="worker-main"
+                  onClick={() => {
+                    if (
+                      actions.dispatch({
+                        type: 'assignKiwi',
+                        villagerId: v.id,
+                        buildingId: b.id,
+                        replace: target.id,
+                      })
+                    )
+                      setReplacing(null);
+                  }}
+                >
+                  <KiwiPortrait shiny={v.shiny} classId={v.classId} seed={v.id} size={30} />
+                  <span class="small">{v.name}</span>
+                  <span class="small muted">{jobLabel(game, v)}</span>
+                  <span class={`small ${power(v) > power(target) ? 'bonus' : 'muted'}`}>
+                    ×{fmt(power(v))}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

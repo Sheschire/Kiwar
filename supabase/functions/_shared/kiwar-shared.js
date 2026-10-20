@@ -5646,6 +5646,65 @@ function buildLock(state, type) {
   return null;
 }
 
+// packages/shared/src/sim/posts.ts
+function postKind(state, b) {
+  if (workerSlots(b) === 0) return null;
+  if (b.type === "library") return "research";
+  return buildingResource(state, b);
+}
+function kindPower(v, kind) {
+  return kind === "research" ? researchPower(v) : workerPower(v, kind);
+}
+function averagePower(state, kind) {
+  const kiwis = state.villagers.filter((v) => !v.kikiwiwi);
+  if (kiwis.length === 0) return 1;
+  return kiwis.reduce((sum, v) => sum + kindPower(v, kind), 0) / kiwis.length;
+}
+function affinity(state, v, kind) {
+  return kindPower(v, kind) / averagePower(state, kind);
+}
+function weakestWorker(state, b, except) {
+  const kind = postKind(state, b);
+  const workers = workersOf(state, b.id).filter((v) => v.id !== except);
+  if (!kind) return workers[workers.length - 1];
+  let weakest;
+  for (const v of workers) {
+    const p = kindPower(v, kind);
+    if (!weakest || p < weakest.p) weakest = { v, p };
+  }
+  return weakest?.v;
+}
+function kiwiPosts(state, v) {
+  const posts = [];
+  const average = /* @__PURE__ */ new Map();
+  for (const b of state.buildings) {
+    const kind = postKind(state, b);
+    if (!kind) continue;
+    if (!average.has(kind)) average.set(kind, averagePower(state, kind));
+    const workers = workersOf(state, b.id);
+    const slots = workerSlots(b);
+    const current = workers.some((x) => x.id === v.id);
+    const swap = !current && workers.length >= slots ? weakestWorker(state, b) : void 0;
+    const power = kindPower(v, kind);
+    posts.push({
+      buildingId: b.id,
+      type: b.type,
+      level: b.level,
+      kind,
+      workers: workers.length,
+      slots,
+      power,
+      affinity: power / average.get(kind),
+      current,
+      swapWith: swap ? { id: swap.id, name: swap.name } : null,
+      ideal: false
+    });
+  }
+  posts.sort((a, b) => b.affinity - a.affinity);
+  if (posts[0]) posts[0].ideal = true;
+  return posts;
+}
+
 // packages/shared/src/sim/commands.ts
 var COMMAND_ERRORS = [
   "unknownTile",
@@ -5727,7 +5786,8 @@ var COMMAND_ERRORS = [
   "kikiwiwiWeak",
   "notReshapable",
   "terraformLimit",
-  "titanAtWork"
+  "titanAtWork",
+  "kikiwiwiNoWork"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -5933,6 +5993,39 @@ function execute(s, cmd, ctx, events) {
         const resource = buildingResource(s, b);
         const ranked = resource ? current.map((v, i) => ({ v, i, p: workerPower(v, resource) })).sort((a, c) => c.p - a.p || a.i - c.i).map((x) => x.v) : current;
         for (const v of ranked.slice(cmd.count)) v.job = { kind: "idle" };
+      }
+      return;
+    }
+    case "assignKiwi": {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail("unknownVillager");
+      if (v.job.kind !== "idle" && v.job.kind !== "work" && v.job.kind !== "guard")
+        fail("kiwiBusy");
+      if (cmd.buildingId === null) {
+        v.job = { kind: "idle" };
+        return;
+      }
+      if (v.kikiwiwi) fail("kikiwiwiNoWork");
+      const b = getBuilding(s, cmd.buildingId);
+      if (!b) return fail("unknownBuilding");
+      const slots = workerSlots(b);
+      if (slots === 0) fail("notAProducer");
+      if (v.job.kind === "work" && v.job.buildingId === b.id) return;
+      let other;
+      if (cmd.replace !== void 0) {
+        other = workersOf(s, b.id).find((x) => x.id === cmd.replace);
+        if (!other) fail("unknownVillager");
+      } else if (workersOf(s, b.id).length >= slots) {
+        other = weakestWorker(s, b);
+      }
+      const previous = v.job;
+      v.job = { kind: "work", buildingId: b.id };
+      if (other) {
+        if (previous.kind === "work") other.job = { kind: "work", buildingId: previous.buildingId };
+        else {
+          other.job = { kind: "idle" };
+          autoAssign(s, other);
+        }
       }
       return;
     }
@@ -10755,6 +10848,12 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("upgrade"), buildingId: id2 }),
   external_exports.object({ type: external_exports.literal("cancel"), queueItemId: id2 }),
   external_exports.object({ type: external_exports.literal("assignWorkers"), buildingId: id2, count: int.min(0).max(100) }),
+  external_exports.object({
+    type: external_exports.literal("assignKiwi"),
+    villagerId: id2,
+    buildingId: id2.nullable(),
+    replace: id2.optional()
+  }),
   external_exports.object({ type: external_exports.literal("hatchEgg") }),
   external_exports.object({ type: external_exports.literal("claimObjective") }),
   external_exports.object({
@@ -11625,6 +11724,7 @@ export {
   addVillager,
   advance,
   advanceInPlace,
+  affinity,
   ageOf,
   alienDefOf,
   alienDefense,
@@ -11635,6 +11735,7 @@ export {
   assignFace,
   autoAssign,
   availableCrew,
+  averagePower,
   awaitingReport,
   baseHarvest,
   bedsOf,
@@ -11776,8 +11877,10 @@ export {
   kikiwiwiCount,
   kikiwiwiUpkeep,
   kikiwiwiWeak,
+  kindPower,
   kiwiCount,
   kiwiExposure,
+  kiwiPosts,
   kiwiRhythm,
   kiwiSeed,
   kiwiStrength,
@@ -11843,6 +11946,7 @@ export {
   planetSeedOf,
   poolCapacity,
   population,
+  postKind,
   presence,
   productionRates,
   protectedStock,
@@ -11923,6 +12027,7 @@ export {
   waveMix,
   waveOutcome,
   wavePower,
+  weakestWorker,
   withRng,
   withThreatRng,
   workSite,

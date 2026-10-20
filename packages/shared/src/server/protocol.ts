@@ -24,6 +24,12 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('upgrade'), buildingId: id }),
   z.object({ type: z.literal('cancel'), queueItemId: id }),
   z.object({ type: z.literal('assignWorkers'), buildingId: id, count: int.min(0).max(100) }),
+  z.object({
+    type: z.literal('assignKiwi'),
+    villagerId: id,
+    buildingId: id.nullable(),
+    replace: id.optional(),
+  }),
   z.object({ type: z.literal('hatchEgg') }),
   z.object({ type: z.literal('claimObjective') }),
   z.object({

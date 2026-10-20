@@ -81,6 +81,8 @@ export interface UiState {
   /** Kiwi whose sheet is open in the village screen (null = the list). */
   kiwiId: string | null;
   villageTab: 'kiwis' | 'memorial';
+  /** Order of the kiwi list, also used by the ◀ ▶ arrows of a sheet. */
+  villageSort: 'level' | 'name' | 'job' | 'born';
   /** Kiwi followed by the camera. */
   followId: string | null;
   /** Intro and choice of a face (chantier 05). */
@@ -133,6 +135,7 @@ export const uiStore = createStore<UiState>(() => ({
   audio: DEFAULT_SETTINGS,
   kiwiId: null,
   villageTab: 'kiwis',
+  villageSort: 'level',
   followId: null,
   intro: null,
   introFade: false,
