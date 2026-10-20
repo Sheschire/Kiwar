@@ -5,9 +5,12 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
 
 # Kiwar balance
 
-- `pnpm balance --seeds 30` runs the bot on N seeds per face and prints medians of milestones
-  (tutorial, pop10, nest2, nest3, allLevel3, kiwi5, kiwi10, mayor) with the Kiwisu/Kiwino gap
-  (threshold ±10 %). The default horizon is 72 h (kiwi10 needs ~2.5 days): a 30-seed run takes
+- `pnpm balance --seeds 30` runs the bot on N seeds **per biome** (chantier 05: six biomes,
+  each run in its own child process, `--jobs` = CPU count by default, `--biomes a,b` to pick)
+  and prints medians of milestones (tutorial, pop10, nest2, nest3, allLevel3, kiwi5, kiwi10,
+  mayor). Each biome is compared to the **median of all biomes**, plus a Kiwisu vs Kiwino table
+  over their biomes (threshold ±10 %). `runBot({ biome })` forces a biome; the bot keeps clear
+  of floodable tiles. CPU-heavy: stop dev servers and browsers while it runs. The default horizon is 72 h (kiwi10 needs ~2.5 days): a 30-seed run takes
   ~10 min — run it in the background; CI uses 24 h (kiwi10 unreached there, that is expected).
   Writes `tools/balance/reports/latest.md`.
 - Official report: `pnpm balance --seeds 200 --out ../../docs/BALANCE_REPORT.md` — **`--out` is

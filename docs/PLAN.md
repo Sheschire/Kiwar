@@ -38,8 +38,8 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 02  | Audio : socle, sons de base, espace admin                              | ✅         |
 | 03  | Kiwis individuels : niveaux, métiers, classes, shiny                   | ✅         |
 | 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | ✅         |
-| 05  | Intro, choix de la face, biomes, brouillard                            | ⏭ prochain |
-| 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | à faire    |
+| 05  | Intro, choix de la face, biomes, brouillard                            | ✅         |
+| 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | ⏭ prochain |
 | 07  | Vaisseau kiwi géant et exploration                                     | à faire    |
 | 08  | Âges, recherche contre nature, Kikiwiwis                               | à faire    |
 | —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées      |
@@ -63,5 +63,10 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
   durcir quand l'économie aura plus de débouchés (chantiers 05+). Les chantiers et l'expérience
   ne ralentissent pas la nuit. Une partie du bot coûte ~2× plus de calcul (lits, moral) : le
   rapport 200 graines prend ~40 min.
+- Chantier 05 : les multiplicateurs de menaces des biomes (furets, chauves-souris) attendent le
+  chantier 06 ; seules la face jumelle et son occupant·e sont dessinés (les autres kiwis d'un
+  univers : chantier 07, avec la reconnaissance qui révélera une image figée sous le
+  brouillard) ; le bot n'utilise pas les chemins, alors qu'ils aident beaucoup dans le Delta ;
+  l'intro n'a pas été chronométrée sur un vrai téléphone.
 - Performance des animations non mesurée sur un vrai téléphone (un mesh par partie animée, ~1 à
   10 par bâtiment) : à vérifier, sinon passer les drapeaux en instancing.

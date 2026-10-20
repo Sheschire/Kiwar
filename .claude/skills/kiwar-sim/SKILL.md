@@ -18,15 +18,16 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 - **Same rules everywhere.** Client (optimistic), server (`server/gameService.ts`), balance bot
   and mock all call `applyCommand(state, cmd, { now, map })`. UI previews reuse the very same
   functions as the simulation (e.g. `forecastExpedition`, `catchmentPreview`, `buildingHarvest`).
-- The face map is regenerated from the seed: `generateFace(seed, face, params)`; inside the sim
-  use the memoized `faceMapOf(state)` (`sim/territory.ts`).
+- The face map is regenerated from the seed: `generateFace(seed, face, params)` (`params.biome`
+  matters: always pass `state.params`); inside the sim use the memoized `faceMapOf(state)`
+  (`sim/territory.ts`). Climate is `climateOf(face, biome)`, season effects take the biome.
 
 ## Map of the code
 
 - `data/` — tunable tables: `kiwis.ts` and `classes.ts` (chantier 03), `buildings.ts` (levels, costs, production, `maxLevelOf`),
   `territory.ts` (DEPOSITS, HARVESTS, CATCHMENT_RADIUS, LOGISTICS, PATHS, CAMPS),
   `expeditions.ts`, `hatching.ts`, `objectives.ts` (tutorial), `faceProfiles.ts` (face biases,
-  climate multipliers), `start.ts`, `tiles.ts`.
+  climate multipliers), `biomes.ts` (chantier 05, see `kiwar-world`), `start.ts`, `tiles.ts`.
 - `worldgen/generateFace.ts` — hex disc (axial, pointy-top, radius 12), tile types heart / ray /
   seedRing / flesh / grove / juice / skin, richness 0.8–1.25.
 - `sim/state.ts` — `GameState`, `newGame`, `cloneState` (**must deep-copy every new field**),

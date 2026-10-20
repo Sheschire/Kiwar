@@ -98,3 +98,31 @@ Kiwino, la face « précieuse » (pépins, jus) :
    le tirage des biomes, avec un coût ?
 3. Les faces des **amis** dans un univers partagé sont-elles visibles, ou aussi sous brouillard ?
 4. L'intro doit-elle se jouer aussi à l'arrivée dans un univers partagé (nouvelle colonie) ?
+
+## Réalisé (chantier terminé)
+
+Réponses du porteur : 3 biomes par face (ceux proposés) ; on choisit seulement la face, le biome
+est tiré par la graine (pas de relance) ; les faces des ami·es sont visibles (aperçu rafraîchi),
+les faces extraterrestres sous brouillard ; l'intro se joue aussi en rejoignant un univers
+(faces libres seulement) ; « hiver plus long » = plus rude, pas plus long (calendrier commun) ;
+crues réelles dès maintenant, menaces en données ; les mondes existants gardent leur carte
+(biome « classique » caché).
+
+1. **Biomes** (`data/biomes.ts`, sauvegarde v9) : génération (rivières de jus à gués du Delta,
+   plateaux et falaises des Hauts plateaux, anneau de pépins large, lagunes), gisements, climat,
+   rigueur des saisons, **crues** de printemps des Lagunes (ni marche, ni construction, ni
+   récolte sur la chair inondable ; bâtiment arrêté), palettes. Rapport d'équilibrage par biome
+   (chaque biome contre la médiane de tous), biomes calculés en parallèle.
+2. **Face jumelle en lévitation** : même graine de planète, cachée juste au-dessus du cadre au
+   zoom normal, elle glisse dans le ciel quand on dézoome ; brouillard de nuages animés.
+3. **Intro** : kiwi entier dans les étoiles, tranche (éclair, flash, son), séparation, choix
+   (panneau latéral / bottom sheet, jauges de ressources, forces, faiblesses, style, chiffres du
+   biome), plongée de la caméra. Premier lancement, chaque « Nouveau monde », « Revoir
+   l'intro » dans les réglages ; « Passer » ou un toucher sautent au choix.
+4. **Univers partagés** : intro à l'arrivée, changement de face tant que la colonie est vierge
+   et que l'autre face est libre (`pickFace`) ; la face d'un·e ami·e se voit sans brouillard
+   (bâtiments, bassins, nom). Aucun changement de base de données.
+
+Reste pour plus tard : menaces des biomes (chantier 06) ; reconnaissance et image figée qui
+vieillit sous le brouillard, autres kiwis de l'univers dans le ciel (chantier 07) ; le bot
+n'utilise pas les chemins (le Delta est donc jugé sans eux).

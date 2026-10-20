@@ -401,3 +401,61 @@ mayor's **Charisma joins morale**; both need-related traits; voices from the sta
   Strength and Endurance), clamped to ±5: sturdy kiwis sound lower, agile ones higher.
 - Balance (30 seeds × 72 h) unchanged: tutorial 1.5 h, Nest 3 ≈ 7 h, mayor ≈ 12.3 h, faces
   within 6 %.
+
+## Chantier 05 — Intro, choice of the face, biomes, fog of war
+
+Owner's answers: **3 biomes per face** (the proposed ones); the player picks **the face only**,
+the biome is drawn from the seed (no paid reroll, no delay: balance is the answer); a friend's
+face is **visible** (layout snapshot refreshed now and then), alien faces stay under fog; the
+intro also plays when **arriving in a shared universe** (free faces only); "longer winters"
+mean **harsher**, not longer (one calendar per universe); **floods are real now**, predators
+are data for chantier 06; existing worlds keep their map with a hidden **classic** biome.
+
+- **Biomes** (`data/biomes.ts`): orchard, highlands, delta (Kiwisu); seed crown, lagoons,
+  tundra (Kiwino); `classic` (both faces, never drawn). `drawBiomes(planetSeed)` gives both
+  halves of a kiwi their biome (so both are known before choosing, and both halves of a shared
+  kiwi agree). The biome lives in `state.params.biome` (`FaceParams`, save **v9**: older states
+  get `classic`); imports must carry the drawn biome or `classic` (`isPlausible`).
+- A biome changes: generation (`biomeProfile` overrides the face profile; delta **juice rivers**
+  from the rim inwards with a ford every 5 tiles; highlands `relief` = height noise ×2 plus
+  plateaus with small cliffs), deposits (stock / regrowth per resource), climate (`climateOf`
+  = face × biome yields), a walking multiplier (rugged highlands ×1.15), season extras
+  multiplied onto `CYCLES.seasons` (`seasonEffects(season, biome)`, memoized), floods, and
+  predator multipliers (stored, used from chantier 06).
+- Numbers: orchard pulp regrowth ×1.25, few groves; highlands groves +, fibre deposits ×1.2,
+  autumn regrowth ×0.8, winter walking ×1.3, juice ×0.6, fibre ×0.8; delta pulp deposits and
+  regrowth ×1.15, summer regrowth ×0.7; seed crown wide dense ring, pulp deposits ×0.8 and
+  regrowth ×0.85; lagoons 7–9 pools, spring regrowth ×1.4, spring floods; tundra deposits ×1.6,
+  regrowth ×0.7, winter like highlands, predators ×0.5. No yield retune was needed.
+- **Floods** (lagoons, spring): flesh next to a pool (`Tile.flood`) is unwalkable (paths too),
+  cannot get a building or camp (`flooded` error) and leaves every catchment for the season;
+  a building standing on it stops (`flooded` harvest status, blue badge). The season change
+  (already an event) resyncs pools when the biome floods: offline equivalence tested. The bot
+  keeps clear of floodable tiles. A new lagoon colony starts in spring, so flooded.
+- **Twin half in the sky**: generated from the same planet seed (`twinParams`); placed relative
+  to the view — just above the frame at the normal zoom, sliding into the upper sky as the
+  player zooms out (1.08 → 1.75 × the framing distance; max zoom now 1.9×) — leaning towards
+  the camera and turning slowly. Terrain only (no props, shadows; water only for a friend),
+  0.55 scale, not drawn while hidden; three animated cloud layers are the fog of war. The haze
+  of the scene follows the zoom. The client never receives an alien face's state.
+- **Friend on the twin face**: the server adds `twin` (owner, face, params, buildings, paths, no
+  stocks) to `load`, `joinUniverse`/`createUniverse`, `universeInfo` and `pickFace`; the client
+  draws their pools, static building models and a name ribbon, without fog; universe info is
+  refreshed every 5 minutes. Other kiwis of the universe are not drawn (chantier 07).
+- **Intro** (`render/intro.ts`, `ui/intro.ts`, `IntroOverlay`): its own scene and camera drawn
+  instead of the game. The two halves are the real faces (two `TerrainView`s); while whole only
+  their furry domes show, touching, stretched ×1.18 (a kiwi is longer than wide), rolling around
+  the cut axis so the cut stays edge-on; at 1.6 s a blade slash + flash + `intro.slice` (synth);
+  the halves part and turn to the player (1.4 s). Choice: hover (desktop) or tap / tabs turn
+  the focused half to the player and grow it, the other steps back; side panel (desktop) or
+  bottom sheet (phone, 48 % high) with face, biome, strengths, weaknesses, style, resource
+  gauges (sustainable regrowth × climate against 1.5 × the classic faces of the seed) and the
+  biome's numbers read from its data. Choosing dives the camera, then a 0.7 s fade into the
+  game. Tap or "Skip" jumps to the choice; reduced motion starts there.
+- When: first visit with no colony (`kiwar.introSeen`), every "New world" from the settings
+  (the face is chosen there; shared links keep their face), "Replay the intro" in the settings
+  (no change), and a new colony in a shared universe (`pickFace`: allowed while the colony is
+  pristine and the other face of the same kiwi is free; `faceTaken` otherwise). No SQL change:
+  the member's face is updated in place (`moveMember`).
+- **Balance**: the report compares each biome to the median of all biomes (plus Kiwisu vs
+  Kiwino over their biomes); biomes run in parallel processes (`--jobs`, default = CPU count).

@@ -46,6 +46,9 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   sprites); `particles.ts` is the instanced pool. Quality flags `buildingAnimations` /
   `particles` (off in low). Removed buildings collapse in dust (`collapse` in `buildings.ts`).
 - Shadows are static: after changing meshes set `renderer.shadowMap.needsUpdate = true`.
+- Biome palettes, flood water, the twin half in the sky (`twin.ts`) and the intro scene
+  (`intro.ts`, drawn instead of the game while `renderer.playIntro` runs): see `kiwar-world`.
+  The scene haze follows the camera distance; max zoom is 1.9 × `rig.frameDistance`.
 - Day/night, seasons, weather, HUD clock, hunger badge, rest and morale widgets: see the
   `kiwar-cycles` skill (`dayCycle.ts`, `seasonLook.ts`, `weather.ts`, `ClockChip.tsx`,
   `NeedsWidgets.tsx`). Shadows also refresh when the sun moves.

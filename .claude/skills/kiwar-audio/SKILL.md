@@ -16,6 +16,8 @@ space (owner) through a **manifest**.
 - `audio/catalog.ts` — `SOUND_EVENTS`: every `SoundEventId` with its bus (`music`, `ambience`,
   `sfx`, `ui`), admin group, `synth` fallback preset, `reserved` flag (declared for a later
   chantier, not fired yet) and default binding.
+  Chantier 05 added `intro.slice` (synth `slice`, fired by the intro when the blade cuts). Admin
+  labels live in `admin/strings.ts` (TypeScript asks for one per event, FR + EN).
 - `audio/binding.ts` — zod `bindingSchema` (sources, volume 0–2, pitch ±24, pitchVariation,
   probability, cooldownMs, maxVoices, loop, fadeInMs/fadeOutMs, spatial, conditions
   {zoomMin, zoomMax, timeOfDay, seasons}) and the pure `resolvePlay` (unit-tested).

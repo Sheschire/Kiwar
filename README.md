@@ -9,6 +9,13 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 05** — chaque nouveau monde commence par un kiwi entier qui tourne dans l'espace et
+> se fait **trancher en deux** : on choisit sa face (Kiwisu ou Kiwino), chacune avec son
+> **biome** tiré au hasard (Verger luxuriant, Hauts plateaux duveteux, Delta sucré, Couronne de
+> pépins, Lagunes de jus et leurs crues de printemps, Toundra veloutée), tous équilibrés à
+> ±10 %. L'autre moitié flotte au-dessus de la colonie (dézoomer pour la voir), sous un
+> **brouillard de guerre**, sauf si un·e ami·e y vit : on voit alors sa colonie et son nom.
+>
 > **Chantier 04** — le monde vit au rythme des jours (2 h, dont une courte nuit où les kiwis
 > dorment) et des saisons (24 h chacune) : soleil qui tourne, nuits bleutées, maisons éclairées,
 > averses de printemps, feuilles d'automne, neige et bassins gelés en hiver. Chaque cycle compte :

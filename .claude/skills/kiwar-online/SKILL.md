@@ -14,6 +14,9 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   shared package: **run `pnpm build:functions` after any shared change** (a test guards
   freshness). `supabase/functions/game/repository.ts` implements `GameRepository` with
   supabase-js; `createMemoryRepository()` is the in-memory version for tests and the mock.
+- Chantier 05: `pickFace` (a newcomer moves to the free face of their kiwi while pristine,
+  `faceTaken`, `repo.moveMember`) and `twin` snapshots of a friend on the other half (layout
+  only) in load / join / universeInfo / pickFace responses — see `kiwar-world`.
 - Stored games are migrated on read (`migrating(repo)` → `migrateState`).
 - Rate limit: 40 commands / 10 s (`command_log`).
 - **SQL**: `supabase/migrations/` — `games`, `command_log`, `admins`, `universes`,

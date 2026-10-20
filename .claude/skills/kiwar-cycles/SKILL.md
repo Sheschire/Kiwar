@@ -12,7 +12,8 @@ Load `kiwar-sim` too: everything here is deterministic and must stay exact offli
 - `data/cycles.ts` — `SEASONS`, `CALENDAR` (day 2 h, night 30 min / 20 min in summer, 12 days a
   season, `startOffsetMs` 20 min), `calendarStartFor(createdAt)`, `SEASON_MS`, `YEAR_MS`,
   `CYCLES` (night work ×0.4, per-season harvest / regen / walk / blocked tiles / hatching),
-  `seasonHarvest`, `seasonRegen`, `seasonEffects`.
+  `seasonHarvest`, `seasonRegen`, `seasonEffects` (all take the biome since chantier 05: a
+  biome makes a season harsher or milder, never longer; see `kiwar-world`).
 - `data/needs.ts` — `NEEDS` (meals per kiwi, appetite by season, gauge weights, stages, work by
   stage, recovery, death relief, guard rails, warn time), `HUNGER_SCALE`; `REST` (base rest
   share, Endurance, season, commute per step, no bed, min presence, cosmetic cycle); `MORALE`.
