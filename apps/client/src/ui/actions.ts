@@ -1,6 +1,7 @@
 import {
   buildingAt,
   hexKey,
+  isLaunchpadBusy,
   pathLimit,
   PATHS,
   queuedBuildAt,
@@ -178,6 +179,17 @@ export const actions = {
       if (controller && !controller.hasProgress()) joinIntro(controller);
     }
     return error;
+  },
+  /** Back home, then the launchpad's delivery screen pointed at this ally. */
+  prepareDelivery(friendId: string): boolean {
+    const game = uiStore.getState().game;
+    const pad = game?.buildings.find(
+      (b) => b.type === 'launchpad' && !b.damaged && !isLaunchpadBusy(game, b.id),
+    );
+    if (!pad) return false;
+    actions.visitAlly(null);
+    uiStore.setState({ modal: 'expedition', expeditionPad: pad.id, deliverTo: friendId });
+    return true;
   },
   /** Flies the camera to an ally's planet (read-only), or back home with null. */
   visitAlly(kiwiIndex: number | null): void {

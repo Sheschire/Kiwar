@@ -1,4 +1,6 @@
+import { isLaunchpadBusy } from '@kiwar/shared';
 import { actions } from '../actions';
+import { ShipIcon } from '../icons';
 import { useT, useUi } from '../store';
 
 /** Visiting an ally's planet: whose it is, and the way back home (the rest of the HUD hides). */
@@ -6,6 +8,7 @@ export function VisitBanner() {
   const t = useT();
   const visit = useUi((s) => s.visit);
   const allies = useUi((s) => s.allies);
+  const game = useUi((s) => s.game);
   const ally = allies.find((a) => a.kiwiIndex === visit);
   if (visit === null || !ally) return null;
   const others = allies.filter((a) => a.kiwiIndex !== visit);
@@ -21,6 +24,19 @@ export function VisitBanner() {
         </span>
       </div>
       <div class="row visit-actions">
+        {ally.friendId && game?.buildings.some((b) => b.type === 'launchpad') && (
+          <button
+            class="btn"
+            disabled={
+              !game.buildings.some(
+                (b) => b.type === 'launchpad' && !b.damaged && !isLaunchpadBusy(game, b.id),
+              )
+            }
+            onClick={() => actions.prepareDelivery(ally.friendId!)}
+          >
+            <ShipIcon size={16} /> {t('delivery.give')}
+          </button>
+        )}
         {next && (
           <button class="btn" onClick={() => actions.visitAlly(next.kiwiIndex)}>
             {t('allies.next', { name: next.owner })}

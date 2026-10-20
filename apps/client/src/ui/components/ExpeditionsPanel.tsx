@@ -12,7 +12,16 @@ export function ExpeditionsPanel() {
   const unread = useUi((s) => s.unreadReports);
   if (!game) return null;
   const active = game.expeditions.filter((e) => e.status !== 'done' || unread.includes(e.id));
-  if (active.length === 0) return null;
+  const shipments = game.shipments;
+  const incoming = game.incoming.filter((d) => d.arriveAt > now);
+  if (active.length === 0 && shipments.length === 0 && incoming.length === 0) return null;
+  const bar = (from: number, to: number) => (
+    <span class="progress">
+      <span
+        style={{ width: `${Math.min(1, Math.max(0, (now - from) / (to - from || 1))) * 100}%` }}
+      />
+    </span>
+  );
   return (
     <section class="expeditions parchment pe" aria-label={t('expedition.inFlight')}>
       <h3>
@@ -69,6 +78,29 @@ export function ExpeditionsPanel() {
             </li>
           );
         })}
+        {shipments.map((x) => (
+          <li key={x.id}>
+            <span class="small">
+              {x.status === 'outbound'
+                ? t('delivery.outbound', {
+                    name: x.owner,
+                    duration: formatDuration(lang, Math.max(0, x.arriveAt - now)),
+                  })
+                : t('expedition.returning', {
+                    duration: formatDuration(lang, Math.max(0, x.returnAt - now)),
+                  })}
+            </span>
+            {bar(x.departedAt, x.returnAt)}
+          </li>
+        ))}
+        {incoming.map((d) => (
+          <li key={d.id}>
+            <span class="small">
+              {t('delivery.incoming', { name: d.from })} · {formatDuration(lang, d.arriveAt - now)}
+            </span>
+            {bar(d.departedAt, d.arriveAt)}
+          </li>
+        ))}
       </ul>
     </section>
   );

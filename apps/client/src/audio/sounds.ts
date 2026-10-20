@@ -63,9 +63,12 @@ export function playGameEventSounds(events: GameEvent[]): void {
         if (e.stage !== 'fed') audio.play('colony.hunger');
         break;
       case 'expeditionArrived':
+      case 'cargoDelivered':
+      case 'cargoReceived':
         audio.play('ship.arrive');
         break;
       case 'expeditionReturned':
+      case 'shipmentReturned':
         audio.play('ship.return');
         break;
       case 'waveAnnounced':
@@ -106,6 +109,7 @@ export function playCommandSound(cmd: Command): void {
       audio.play('egg.lay');
       break;
     case 'launchExpedition':
+    case 'sendCargo':
       audio.play('ship.launch');
       break;
     case 'buildPath':

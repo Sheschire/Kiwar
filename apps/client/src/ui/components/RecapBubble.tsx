@@ -63,6 +63,11 @@ export function RecapBubble() {
           {t('offline.waves', summary.waves)}
         </p>
       )}
+      {summary.gifts.length > 0 && (
+        <p class="small bonus">
+          {t('offline.gifts', { names: [...new Set(summary.gifts)].join(', ') })}
+        </p>
+      )}
       {(summary.starved.length > 0 || summary.foodRanOut.length > 0) && (
         <p class="small warn">{t('offline.shortHunger')}</p>
       )}

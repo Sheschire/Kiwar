@@ -1,8 +1,8 @@
-import { AGE_IDS, type GameEvent } from '@kiwar/shared';
+import { AGE_IDS, RESOURCE_IDS, type GameEvent } from '@kiwar/shared';
 import type { GameRenderer } from '../render/GameRenderer';
 import { pushToast, uiStore } from '../ui/store';
 import { playGameEventSounds } from '../audio/sounds';
-import { formatDuration } from '../i18n/i18n';
+import { formatDuration, formatNumber, translate } from '../i18n/i18n';
 
 /** Turns simulation events into toasts and visual effects. */
 export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): void {
@@ -89,6 +89,24 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
           unreadReports: [...new Set([...s.unreadReports, e.expeditionId])],
         }));
         break;
+      case 'cargoDelivered':
+        pushToast('success', 'delivery.delivered', { name: e.to });
+        break;
+      case 'shipmentReturned':
+        pushToast('info', 'delivery.back');
+        break;
+      case 'cargoReceived': {
+        const lang = uiStore.getState().lang;
+        const list = RESOURCE_IDS.filter((r) => e.received[r] >= 1)
+          .map(
+            (r) =>
+              `${formatNumber(lang, Math.floor(e.received[r]))} ${translate(lang, `resources.${r}`)}`,
+          )
+          .join(', ');
+        pushToast('success', 'delivery.received', { name: e.from, list });
+        if (RESOURCE_IDS.some((r) => e.lost[r] >= 1)) pushToast('info', 'delivery.lostSome');
+        break;
+      }
       case 'repaired':
         pushToast('success', 'events.repaired', { name: `@buildings.${e.buildingType}.name` });
         break;

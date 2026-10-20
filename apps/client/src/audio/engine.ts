@@ -334,7 +334,8 @@ export class AudioEngine {
     }
     const target = binding.volume * level;
     if (voice) {
-      voice.gain.gain.setTargetAtTime(target, this.ctx.currentTime, 0.4);
+      // Still loading (placeholder without a gain node): it starts at the latest level.
+      voice.gain?.gain.setTargetAtTime(target, this.ctx.currentTime, 0.4);
       return;
     }
     const source = binding.sources[Math.floor(Math.random() * binding.sources.length)]!;

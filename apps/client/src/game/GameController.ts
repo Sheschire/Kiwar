@@ -65,6 +65,8 @@ export interface OfflineSummary {
   waves: { won: number; lost: number };
   meteors: number;
   incidents: number;
+  /** Allies whose gifts landed meanwhile (one entry per delivery). */
+  gifts: string[];
 }
 
 export interface ControllerListener {
@@ -497,6 +499,9 @@ export class GameController {
       }
       this.listener.onUniverse(res.universe);
       this.listener.onTwin(res.twin ?? null);
+      // Allies' gifts are added to our game by the server when their ship leaves (at least an
+      // hour and a half before it lands): pick them up with the same light refresh.
+      if (!this.flushing && this.pending.length === 0) void this.fetchReports();
       this.listener.onAllies(res.allies ?? []);
     } catch {
       // Offline: keep what we have.
@@ -707,5 +712,6 @@ function summarize(
     },
     meteors: events.filter((e) => e.type === 'meteorLanded').length,
     incidents: events.filter((e) => e.type === 'incident').length,
+    gifts: events.flatMap((e) => (e.type === 'cargoReceived' ? [e.from] : [])),
   };
 }

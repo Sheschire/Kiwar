@@ -20,6 +20,9 @@ const FLAP: Record<ShipId, { speed: number; amount: number }> = {
   iron: { speed: 11, amount: 0.55 },
   jet: { speed: 4, amount: 0.08 },
 };
+/** An ally's bird bringing a gift: seen on its final approach, then resting at the Nest. */
+const VISIT_APPROACH_MS = 90_000;
+const VISIT_STAY_MS = 45_000;
 /** Body centre above the bird's local origin (see `bird` in buildingModels). */
 const BODY_Y = 0.46 * 1.3;
 
@@ -35,8 +38,15 @@ interface Flight {
   broken: boolean;
   /** Our twin half (true) or another kiwi far away. */
   twin: boolean;
+  /** A delivery: the ally's planet it flies to (ours) or comes from (a visitor). */
+  ally: { kiwiIndex: number | null; owner: string } | null;
+  /** An ally's bird landing at our Nest, then flying away. */
+  visitor: boolean;
   smokeTimer: number;
 }
+
+/** Where an ally's planet floats (null when it is not drawn). */
+export type AllyLocator = (ally: { kiwiIndex: number | null; owner: string }) => Vector3 | null;
 
 /**
  * The mechanical kiwi birds in flight (chantier 07): they run up and take off from their
@@ -90,19 +100,101 @@ export class ShipsView {
       f.broken = !!e.broken;
       f.twin = (target?.distance ?? 0) === 0;
     }
-    for (const id of [...this.flights.keys()]) if (!live.has(id)) this.remove(id);
+    for (const x of state.shipments) {
+      const pad = state.buildings.find((b) => b.id === x.launchpadId);
+      if (!pad) continue;
+      const id = `ship:${x.id}`;
+      live.add(id);
+      const f = this.flightFor(id, shipIdForAge(ageOf(state)));
+      this.setPad(f, pad);
+      f.departedAt = x.departedAt;
+      f.arriveAt = x.arriveAt;
+      f.returnAt = x.returnAt;
+      f.status = x.status;
+      f.broken = false;
+      f.twin = false;
+      f.ally = { kiwiIndex: x.kiwiIndex, owner: x.owner };
+    }
+    const nest = state.buildings.find((b) => b.type === 'nest');
+    for (const d of state.incoming) {
+      if (!nest) break;
+      const id = `gift:${d.id}`;
+      live.add(id);
+      // The ally's ship generation is unknown: a wooden bird for everyone.
+      const f = this.flightFor(id, 'wood');
+      this.setPad(f, nest);
+      // It lands beside the Nest, not on it.
+      f.pad.x += 1.9;
+      f.pad.z += 0.6;
+      // Its final approach: from the ally's side of the sky (`arriveAt`) to our Nest (`returnAt`).
+      f.departedAt = Math.max(d.departedAt, d.arriveAt - VISIT_APPROACH_MS);
+      f.arriveAt = f.departedAt;
+      f.returnAt = d.arriveAt;
+      f.status = 'returning';
+      f.twin = false;
+      f.visitor = true;
+      f.ally = { kiwiIndex: null, owner: d.from };
+    }
+    for (const [id, f] of [...this.flights]) {
+      // A visitor stays a little after its gift was credited, then flies away by itself.
+      if (!live.has(id) && !f.visitor) this.remove(id);
+    }
+  }
+
+  private flightFor(id: string, gen: ShipId): Flight {
+    let f = this.flights.get(id);
+    if (!f || f.gen !== gen) {
+      if (f) this.remove(id);
+      f = this.create(gen);
+      this.flights.set(id, f);
+    }
+    return f;
+  }
+
+  private setPad(f: Flight, b: { q: number; r: number }): void {
+    const tile = getTile(this.map, b);
+    const p = worldPosition(b);
+    f.pad.set(p.x, (tile?.height ?? 0) + 0.2, p.z);
   }
 
   /** `twin`: where our twin half floats right now (null when it is not drawn). */
-  update(dt: number, elapsed: number, now: number, twin: Vector3 | null): void {
-    for (const f of this.flights.values()) this.place(f, elapsed, now, twin, dt);
+  update(
+    dt: number,
+    elapsed: number,
+    now: number,
+    twin: Vector3 | null,
+    allyAt: AllyLocator = () => null,
+  ): void {
+    for (const [id, f] of this.flights) {
+      if (f.visitor && now > f.returnAt + VISIT_STAY_MS + TAKEOFF_MS) {
+        this.remove(id);
+        continue;
+      }
+      this.place(f, elapsed, now, twin, dt, allyAt);
+    }
     this.particles.update(dt);
   }
 
-  private place(f: Flight, elapsed: number, now: number, twin: Vector3 | null, dt: number): void {
-    // Far point: the twin half for our own kiwi, high in the sky for the others.
-    if (f.twin && twin) this.dest.copy(twin);
+  private place(
+    f: Flight,
+    elapsed: number,
+    now: number,
+    twin: Vector3 | null,
+    dt: number,
+    allyAt: AllyLocator,
+  ): void {
+    // Far point: the twin half for our own kiwi, an ally's planet, high in the sky otherwise.
+    const ally = f.ally ? allyAt(f.ally) : null;
+    if (ally) this.dest.copy(ally).setY(ally.y + 4);
+    else if (f.twin && twin) this.dest.copy(twin);
     else this.dest.set(f.pad.x * 0.3 + 30, 120, f.pad.z * 0.3 - 90);
+    if (f.visitor && now >= f.returnAt) {
+      // Resting at the Nest, then off again.
+      const t = now - f.returnAt - VISIT_STAY_MS;
+      f.status = t < 0 ? 'returning' : 'outbound';
+      f.departedAt = f.returnAt + VISIT_STAY_MS;
+      f.arriveAt = f.departedAt + TAKEOFF_MS * 2;
+    }
     // End of the take-off, out of the launchpad towards the destination.
     const start = this.b.copy(this.dest).sub(f.pad).setY(0).normalize();
     const climb = this.a
@@ -128,6 +220,7 @@ export class ShipsView {
         flapping = left > TAKEOFF_MS * 0.25;
       } else pos.lerpVectors(this.dest, climb, 1 - (left - TAKEOFF_MS) / (T - TAKEOFF_MS));
     }
+    if (f.visitor && now < f.arriveAt && now < f.returnAt) visible = false;
     f.group.visible = visible;
     if (!visible) return;
     // Face the way it flies (towards the destination on the way out, home on the way back).
@@ -190,6 +283,8 @@ export class ShipsView {
       status: 'outbound',
       broken: false,
       twin: true,
+      ally: null,
+      visitor: false,
       smokeTimer: 0,
     };
   }

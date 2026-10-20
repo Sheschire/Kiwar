@@ -700,7 +700,16 @@ export class GameRenderer {
     fog.far = fog.near + 170;
     this.buildings?.update(dt, this.callbacks.now());
     this.meteors?.update(dt, this.callbacks.now());
-    this.ships?.update(dt, this.elapsed, this.callbacks.now(), this.twin?.group.position ?? null);
+    this.ships?.update(
+      dt,
+      this.elapsed,
+      this.callbacks.now(),
+      this.twin?.group.position ?? null,
+      (a) =>
+        this.allies.planets.find((p) =>
+          a.kiwiIndex === null ? p.owner === a.owner : p.kiwiIndex === a.kiwiIndex,
+        )?.view.group.position ?? null,
+    );
     if (this.pendingShow && this.lastState && this.predators) {
       const report = this.lastState.threats.reports.find((r) => r.id === this.pendingShow);
       if (report) {

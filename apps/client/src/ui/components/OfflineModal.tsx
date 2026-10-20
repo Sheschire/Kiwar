@@ -21,7 +21,8 @@ export function OfflineModal() {
     summary.starved.length === 0 &&
     summary.foodRanOut.length === 0 &&
     summary.waves.won + summary.waves.lost === 0 &&
-    summary.meteors === 0;
+    summary.meteors === 0 &&
+    summary.gifts.length === 0;
   return (
     <Modal
       title={t('offline.title')}
@@ -95,6 +96,9 @@ export function OfflineModal() {
             {t('offline.openDefense')}
           </button>
         </p>
+      )}
+      {summary.gifts.length > 0 && (
+        <p class="bonus">{t('offline.gifts', { names: [...new Set(summary.gifts)].join(', ') })}</p>
       )}
       {summary.meteors > 0 && (
         <p class="bonus">{t('offline.meteors', { count: summary.meteors })}</p>

@@ -59,6 +59,8 @@ export interface UiState {
   account: Account | null;
   /** Launchpad being prepared (expedition modal). */
   expeditionPad: string | null;
+  /** The expedition modal opens on a delivery to this ally (`Friend.id`). */
+  deliverTo: string | null;
   /** Expedition whose report is shown. */
   reportId: string | null;
   /** Building waiting for demolition confirmation. */
@@ -118,6 +120,7 @@ export const uiStore = createStore<UiState>(() => ({
   sync: 'local',
   account: null,
   expeditionPad: null,
+  deliverTo: null,
   reportId: null,
   demolishId: null,
   unreadReports: [],

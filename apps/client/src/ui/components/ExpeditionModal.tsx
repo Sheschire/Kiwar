@@ -28,6 +28,7 @@ import { Cost } from './Cost';
 import { IntelMap } from './IntelMap';
 import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
+import { DeliveryPlanner } from './DeliveryPlanner';
 import { useJobLabel } from './VillageModal';
 
 const range = (lang: Parameters<typeof formatNumber>[0], r: { min: number; max: number }) =>
@@ -468,11 +469,36 @@ export function ExpeditionModal() {
   useEffect(() => actions.refreshUniverse(), []);
   const game = useUi((s) => s.game);
   const padId = useUi((s) => s.expeditionPad);
+  const deliverTo = useUi((s) => s.deliverTo);
+  const [deliver, setDeliver] = useState(() => deliverTo !== null);
   if (!game || !padId) return null;
-  const close = () => uiStore.setState({ modal: 'none', expeditionPad: null });
+  const close = () => uiStore.setState({ modal: 'none', expeditionPad: null, deliverTo: null });
+  const friends = game.friends.length > 0;
   return (
-    <Modal title={t('expedition.title')} onClose={close} class="modal-wide">
-      <Planner game={game} padId={padId as BuildingId} />
+    <Modal
+      title={t(deliver && friends ? 'delivery.title' : 'expedition.title')}
+      onClose={close}
+      class="modal-wide"
+    >
+      {friends && (
+        <div class="segmented mission-switch" role="group" aria-label={t('delivery.kind')}>
+          {[false, true].map((d) => (
+            <button
+              key={String(d)}
+              class={`btn ${d === deliver ? 'btn-active' : ''}`}
+              aria-pressed={d === deliver}
+              onClick={() => setDeliver(d)}
+            >
+              {t(d ? 'delivery.tab' : 'delivery.expeditionTab')}
+            </button>
+          ))}
+        </div>
+      )}
+      {deliver && friends ? (
+        <DeliveryPlanner game={game} padId={padId as BuildingId} initialFriend={deliverTo} />
+      ) : (
+        <Planner game={game} padId={padId as BuildingId} />
+      )}
     </Modal>
   );
 }

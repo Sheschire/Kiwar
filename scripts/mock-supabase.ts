@@ -30,6 +30,8 @@ const audioAssets: {
   size_bytes: number;
 }[] = [];
 let delayMs = Number(process.env.MOCK_DELAY_MS ?? 150);
+/** Test hook: how far the server clock runs ahead of the real one. */
+let clockSkew = 0;
 
 const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
 function tokenFor(userId: string): string {
@@ -107,13 +109,18 @@ createServer(async (req, res) => {
   }
   if (url.pathname === '/functions/v1/game' && req.method === 'POST') {
     const user = userFromToken(req.headers.authorization);
-    if (!user) return send(res, 401, { ok: false, error: 'unauthorized', serverTime: Date.now() });
+    if (!user)
+      return send(res, 401, {
+        ok: false,
+        error: 'unauthorized',
+        serverTime: Date.now() + clockSkew,
+      });
     const body = await readBody(req);
     const response = await handleGameRequest(
       {
         repo,
         userId: user.id,
-        now: () => Date.now(),
+        now: () => Date.now() + clockSkew,
         randomSeed: () => randomUUID().slice(0, 8),
         randomBytes: (n) => randomBytes(n),
         isAdmin: true,
@@ -215,6 +222,11 @@ createServer(async (req, res) => {
     return send(res, 200, []);
   }
 
+  // Test hook: move the server clock forward (`?ms=`), e.g. to land a ship right away.
+  if (url.pathname === '/__mock/clock') {
+    clockSkew += Number(url.searchParams.get('ms') ?? 0);
+    return send(res, 200, { clockSkew });
+  }
   // Test hook: change the artificial latency.
   if (url.pathname === '/__mock/delay') {
     delayMs = Number(url.searchParams.get('ms') ?? delayMs);
