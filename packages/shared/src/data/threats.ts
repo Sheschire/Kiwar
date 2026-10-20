@@ -117,3 +117,30 @@ export const INCIDENTS = {
   maxBlock: 0.8,
   history: 8,
 } as const;
+
+/**
+ * Gifts from the sky: a shooting star announces a meteorite, which lands on a free tile as a
+ * short-lived deposit (no regrowth). A camp on it, or a producer of the same resource that
+ * reaches it, harvests it on top of its usual work.
+ */
+export const METEORS = {
+  /** The first one falls this long after the start; then about one a day. */
+  firstMs: ms.h(6),
+  intervalMs: [ms.h(18), ms.h(30)],
+  /** The shooting star is seen this long before the impact. */
+  noticeMs: ms.h(1),
+  /** The crater fades away this long after the impact. */
+  lifeMs: ms.h(48),
+  /** Stock: base × Nest level factor × (1 + perDay × days played, capped like the threats). */
+  stock: 300,
+  nestFactor: [0, 1, 1.5, 2.2] as readonly number[],
+  perDay: 0.15,
+  /** What falls (weights). */
+  resources: { seeds: 2, juice: 1, fiber: 1 } as const,
+  /** Land types it can land on (a camp can be set up there). */
+  tiles: ['flesh', 'grove', 'seedRing'] as const,
+  /** A producer of the same resource reaching the crater takes this share of its base rate. */
+  producerShare: 0.5,
+  /** Craters kept at once. */
+  max: 3,
+} as const;

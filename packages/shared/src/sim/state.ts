@@ -4,7 +4,7 @@ import { calendarStartFor } from '../data/cycles';
 import { drawBiomes, type BiomeId } from '../data/biomes';
 import { ALIEN_TWIN_FACE } from '../data/expeditions';
 import type { ResourceId, Resources } from '../data/resources';
-import { INCIDENTS, type IncidentKind } from '../data/threats';
+import { INCIDENTS, METEORS, type IncidentKind } from '../data/threats';
 import { HEART, type FaceParams, DEFAULT_FACE_PARAMS } from '../worldgen/generateFace';
 import { createRng, type Rng, type RngState } from '../rng/rng';
 import type { Masteries, ShinyColor, Stats, TraitId } from '../data/kiwis';
@@ -22,7 +22,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 export type Job =
   | { kind: 'idle' }
@@ -251,6 +251,36 @@ export interface ThreatState {
   incidents: IncidentReport[];
 }
 
+/** A meteorite: a short-lived deposit on a land tile (chantier 06). */
+export interface Meteor {
+  id: string;
+  q: number;
+  r: number;
+  resource: ResourceId;
+  stock: number;
+  max: number;
+  landedAt: TimeMs;
+  expiresAt: TimeMs;
+}
+
+/** Gifts from the sky: the next shooting star and the craters on the ground. */
+export interface SkyState {
+  /** Planned fall; the tile and the stock are drawn when the shooting star is seen. */
+  next: {
+    id: string;
+    announceAt: TimeMs;
+    at: TimeMs;
+    announced: boolean;
+    q: number;
+    r: number;
+    resource: ResourceId;
+    stock: number;
+  } | null;
+  lastFallAt: TimeMs;
+  falls: number;
+  meteors: Meteor[];
+}
+
 export interface GameStats {
   produced: Resources;
   constructionsCompleted: number;
@@ -299,6 +329,7 @@ export interface GameState {
   /** Unharvested deposits that are not full yet (hex key → stock); absent means full. */
   deposits: Record<string, FreeDeposit>;
   threats: ThreatState;
+  sky: SkyState;
   nextId: number;
   rng: RngState;
 }
@@ -373,6 +404,7 @@ export function newGame(opts: NewGameOptions): GameState {
     paths: [],
     deposits: {},
     threats: newThreats(opts.seed, opts.face, opts.now),
+    sky: newSky(opts.now),
     nextId: 1,
     rng: rng.state(),
   };
@@ -404,7 +436,27 @@ export function newThreats(seed: string, face: Face, now: TimeMs): ThreatState {
   };
 }
 
-/** Runs `fn` with the predators' RNG stream. */
+/** The first fall is planned at a fixed time (no draw at game creation). */
+export function newSky(now: TimeMs): SkyState {
+  const at = now + METEORS.firstMs;
+  return {
+    next: {
+      id: 'm1',
+      announceAt: at - METEORS.noticeMs,
+      at,
+      announced: false,
+      q: 0,
+      r: 0,
+      resource: 'seeds',
+      stock: 0,
+    },
+    lastFallAt: 0,
+    falls: 0,
+    meteors: [],
+  };
+}
+
+/** Runs `fn` with the predators' RNG stream (also used by the gifts from the sky). */
 export function withThreatRng<T>(state: GameState, fn: (rng: Rng) => T): T {
   const rng = createRng(state.threats.rng);
   const out = fn(rng);
@@ -472,6 +524,11 @@ export function cloneState(state: GameState): GameState {
     paths: [...state.paths],
     deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
     threats: cloneThreats(state.threats),
+    sky: {
+      ...state.sky,
+      next: state.sky.next ? { ...state.sky.next } : null,
+      meteors: state.sky.meteors.map((m) => ({ ...m })),
+    },
     expeditions: state.expeditions.map((e) => ({
       ...e,
       crew: [...e.crew],

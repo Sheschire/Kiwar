@@ -684,6 +684,15 @@ export const fr: Dict = {
     cost: '{cost} fibre par tuile',
     done: 'Terminé',
   },
+  sky: {
+    meteor: 'Météorite : {stock}/{max} {resource} · s’éteint dans {duration}',
+    hint: 'Un camp posé dessus la récolte, tout comme un {building} qui l’atteint.',
+    empty: 'Un cratère vide : tout a été récolté.',
+    incoming: 'Une étoile filante tombe ici dans {duration} : {resource} !',
+    announced: 'Une étoile filante ! Une météorite de {resource} tombe dans {duration}.',
+    landed: 'Une météorite est tombée : {stock} {resource} à récolter.',
+    faded: 'Un cratère de météorite s’est éteint.',
+  },
   garrison: {
     title: 'Garnison',
     post: 'Poster de garde',

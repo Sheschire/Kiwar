@@ -36,6 +36,7 @@ import { PALETTE } from './palette';
 import { pick, TapDetector } from './picking';
 import { PathPainter } from './pathPainter';
 import { PathsView } from './paths';
+import { MeteorsView } from './meteors';
 import { PostFx } from './postfx';
 import { PropsView } from './props';
 import {
@@ -95,6 +96,7 @@ export class GameRenderer {
   /** True while the renderer itself moves the camera (not a player gesture). */
   private following = false;
   private paths: PathsView | null = null;
+  private meteors: MeteorsView | null = null;
   private weather: WeatherView | null = null;
   private readonly dayCycle = new DayCycle();
   private readonly lastLightDir = new Vector3();
@@ -217,6 +219,7 @@ export class GameRenderer {
       this.kiwis,
       this.paths,
       this.weather,
+      this.meteors,
     ]) {
       if (!view) continue;
       this.scene.remove('group' in view ? view.group : view.mesh);
@@ -237,6 +240,8 @@ export class GameRenderer {
     this.scene.add(this.terrain.group);
     this.paths = new PathsView(map);
     this.scene.add(this.paths.group);
+    this.meteors = new MeteorsView(map);
+    this.scene.add(this.meteors.group);
     this.water = new WaterView(map, this.lighting.sun.position);
     this.scene.add(this.water.mesh);
     this.rebuildProps();
@@ -313,6 +318,7 @@ export class GameRenderer {
     this.buildings?.sync(state);
     this.kiwis?.sync(state);
     this.paths?.sync(state.paths);
+    this.meteors?.sync(state);
     this.weather?.sync(state);
     if (this.map) this.terrain?.setDepletion(depletedTiles(state, this.map));
     this.water?.setFlooded(BIOMES[state.params.biome].floods === seasonOf(state));
@@ -340,6 +346,9 @@ export class GameRenderer {
   onGameEvents(events: GameEvent[]): void {
     for (const e of events) {
       if (e.type === 'constructionComplete') this.buildings?.celebrate(e.buildingId, e.q, e.r);
+      if (e.type === 'repaired') this.buildings?.burst(e.q, e.r);
+      // The rock reaches the ground at the end of its fall animation.
+      if (e.type === 'meteorLanded') window.setTimeout(() => this.buildings?.burst(e.q, e.r), 1300);
       if (e.type === 'hatched') {
         this.buildings?.burst(0, 0);
         // A shiny hatches with a second, longer burst of sparkles.
@@ -544,6 +553,7 @@ export class GameRenderer {
     fog.near = Math.max(90, this.rig.controls.distance + 25);
     fog.far = fog.near + 170;
     this.buildings?.update(dt, this.callbacks.now());
+    this.meteors?.update(dt, this.callbacks.now());
     this.kiwis?.update(dt, this.elapsed, this.callbacks.now());
     this.updateFollow(dt);
     this.selection.update(this.elapsed);

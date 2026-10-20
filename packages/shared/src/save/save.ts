@@ -2,8 +2,8 @@ import { BIOME_IDS } from '../data/biomes';
 import { z } from 'zod';
 import { BUILDING_TYPES } from '../data/buildings';
 import { FACES } from '../types/ids';
-import { newThreats, SCHEMA_VERSION, soloTargets, type GameState } from '../sim/state';
-import { INCIDENT_KINDS, INCIDENTS, THREATS } from '../data/threats';
+import { newSky, newThreats, SCHEMA_VERSION, soloTargets, type GameState } from '../sim/state';
+import { INCIDENT_KINDS, INCIDENTS, METEORS, THREATS } from '../data/threats';
 import { RESOURCE_IDS } from '../data/resources';
 import type { Face } from '../types/ids';
 import {
@@ -248,6 +248,36 @@ export const gameStateSchema = z.object({
   paths: z.array(z.string().max(16)).max(500),
   deposits: z.record(z.string(), z.object({ stock: z.number().min(0), at: z.number() })),
   threats,
+  sky: z.object({
+    next: z
+      .object({
+        id,
+        announceAt: z.number(),
+        at: z.number(),
+        announced: z.boolean(),
+        q: z.number().int(),
+        r: z.number().int(),
+        resource: z.enum(RESOURCE_IDS),
+        stock: z.number().min(0),
+      })
+      .nullable(),
+    lastFallAt: z.number().min(0),
+    falls: z.number().int().min(0),
+    meteors: z
+      .array(
+        z.object({
+          id,
+          q: z.number().int(),
+          r: z.number().int(),
+          resource: z.enum(RESOURCE_IDS),
+          stock: z.number().min(0),
+          max: z.number().min(0),
+          landedAt: z.number(),
+          expiresAt: z.number(),
+        }),
+      )
+      .max(METEORS.max + 1),
+  }),
   nextId: z.number().int(),
   rng: z.tuple([z.number(), z.number(), z.number(), z.number()]),
 });
@@ -306,6 +336,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
     ...raw,
     threats: newThreats(String(raw.seed), raw.face as Face, Number(raw.now)),
   }),
+  // v10 → v11: gifts from the sky (chantier 06, part 3).
+  10: (raw) => ({ ...raw, sky: newSky(Number(raw.now)) }),
 };
 
 export type MigrateResult =

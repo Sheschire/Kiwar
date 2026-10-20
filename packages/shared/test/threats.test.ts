@@ -12,6 +12,7 @@ import {
   forecastWave,
   HOUR_MS,
   INCIDENTS,
+  METEORS,
   migrateState,
   SHELTER,
   THREATS,
@@ -98,7 +99,13 @@ describe('predator waves', () => {
     stepped = advance(stepped, end).state;
     expect(stepped.threats).toEqual(oneStep.threats);
     expect(stepped.villagers).toEqual(oneStep.villagers);
-    expect(stepped.buildings).toEqual(oneStep.buildings);
+    // Pool stocks are floats: compare them within rounding.
+    const strip = (st: GameState) =>
+      st.buildings.map((b) => ({ ...b, pool: b.pool && { ...b.pool, stock: 0 } }));
+    expect(strip(stepped)).toEqual(strip(oneStep));
+    stepped.buildings.forEach((b, i) =>
+      expect(b.pool?.stock ?? 0).toBeCloseTo(oneStep.buildings[i]!.pool?.stock ?? 0, 6),
+    );
     expect(stepped.paths).toEqual(oneStep.paths);
     for (const id of ['pulp', 'fiber', 'seeds', 'juice'] as const) {
       expect(stepped.resources[id]).toBeCloseTo(oneStep.resources[id], 4);
@@ -308,5 +315,51 @@ describe('defenses', () => {
     expect(report.ammoUsed).toBeLessThanOrEqual(f.defense.ammo.need);
     expect(after.resources.seeds).toBeLessThan(seeds);
     expect(after.threats.shieldUntil).toBe(0);
+  });
+});
+
+describe('gifts from the sky', () => {
+  it('a shooting star announces a meteorite that lands on free land, then fades', () => {
+    const { state } = setup();
+    const { state: after, events } = advance(state, T0 + 3 * DAY);
+    const announced = events.filter((e) => e.type === 'meteorAnnounced');
+    const landed = events.filter((e) => e.type === 'meteorLanded');
+    expect(landed.length).toBeGreaterThanOrEqual(2);
+    expect(landed[0]!.at).toBe(T0 + METEORS.firstMs);
+    expect(announced[0]!.at).toBe(T0 + METEORS.firstMs - METEORS.noticeMs);
+    for (const e of landed) {
+      if (e.type !== 'meteorLanded') continue;
+      expect(e.stock).toBeGreaterThan(0);
+    }
+    expect(events.some((e) => e.type === 'meteorFaded')).toBe(true);
+    for (const m of after.sky.meteors) expect(m.expiresAt).toBeGreaterThan(after.now);
+  });
+
+  it('a camp on the crater picks it, exact offline', () => {
+    const { map, state } = setup();
+    let s = advance(state, T0 + METEORS.firstMs + 1).state;
+    const m = s.sky.meteors[0]!;
+    expect(m).toBeDefined();
+    s = { ...s, resources: { pulp: 300, fiber: 300, seeds: 0, juice: 300 } };
+    s = run(s, { type: 'gather', q: m.q, r: m.r }, s.now, map);
+    const end = s.now + 6 * HOUR_MS;
+    const one = advance(s, end).state;
+    let stepped = s;
+    for (let t = s.now; t <= end; t += 11 * 60_000 + 7) stepped = advance(stepped, t).state;
+    stepped = advance(stepped, end).state;
+    const m1 = one.sky.meteors.find((x) => x.id === m.id)!;
+    expect(m1.stock).toBeLessThan(m.stock);
+    expect(stepped.sky).toEqual(one.sky);
+    expect(stepped.resources[m.resource]).toBeCloseTo(one.resources[m.resource], 4);
+    expect(one.resources[m.resource]).toBeGreaterThan(0);
+  });
+
+  it('migrates v10 saves', () => {
+    const { state } = setup();
+    const raw = structuredClone(state) as unknown as Record<string, unknown>;
+    delete raw.sky;
+    raw.schemaVersion = 10;
+    const r = migrateState(raw);
+    expect(r.ok && r.state.sky.meteors).toEqual([]);
   });
 });

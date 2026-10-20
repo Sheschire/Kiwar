@@ -1365,6 +1365,27 @@ var INCIDENTS = {
   maxBlock: 0.8,
   history: 8
 };
+var METEORS = {
+  /** The first one falls this long after the start; then about one a day. */
+  firstMs: ms.h(6),
+  intervalMs: [ms.h(18), ms.h(30)],
+  /** The shooting star is seen this long before the impact. */
+  noticeMs: ms.h(1),
+  /** The crater fades away this long after the impact. */
+  lifeMs: ms.h(48),
+  /** Stock: base × Nest level factor × (1 + perDay × days played, capped like the threats). */
+  stock: 300,
+  nestFactor: [0, 1, 1.5, 2.2],
+  perDay: 0.15,
+  /** What falls (weights). */
+  resources: { seeds: 2, juice: 1, fiber: 1 },
+  /** Land types it can land on (a camp can be set up there). */
+  tiles: ["flesh", "grove", "seedRing"],
+  /** A producer of the same resource reaching the crater takes this share of its base rate. */
+  producerShare: 0.5,
+  /** Craters kept at once. */
+  max: 3
+};
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
@@ -2506,7 +2527,7 @@ function trainingDuration(school, classId) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 10;
+var SCHEMA_VERSION = 11;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -2559,6 +2580,7 @@ function newGame(opts) {
     paths: [],
     deposits: {},
     threats: newThreats(opts.seed, opts.face, opts.now),
+    sky: newSky(opts.now),
     nextId: 1,
     rng: rng.state()
   };
@@ -2585,6 +2607,24 @@ function newThreats(seed, face, now) {
     waves: 0,
     reports: [],
     incidents: []
+  };
+}
+function newSky(now) {
+  const at = now + METEORS.firstMs;
+  return {
+    next: {
+      id: "m1",
+      announceAt: at - METEORS.noticeMs,
+      at,
+      announced: false,
+      q: 0,
+      r: 0,
+      resource: "seeds",
+      stock: 0
+    },
+    lastFallAt: 0,
+    falls: 0,
+    meteors: []
   };
 }
 function withThreatRng(state, fn) {
@@ -2646,6 +2686,11 @@ function cloneState(state) {
     paths: [...state.paths],
     deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
     threats: cloneThreats(state.threats),
+    sky: {
+      ...state.sky,
+      next: state.sky.next ? { ...state.sky.next } : null,
+      meteors: state.sky.meteors.map((m) => ({ ...m }))
+    },
     expeditions: state.expeditions.map((e) => ({
       ...e,
       crew: [...e.crew],
@@ -3517,6 +3562,137 @@ function incident(s, at, events) {
   events.push({ type: "incident", ...report });
 }
 
+// packages/shared/src/sim/sky.ts
+var DAY2 = 24 * 36e5;
+var EPS2 = 1e-6;
+function meteorStock(state, at) {
+  const f = METEORS.nestFactor;
+  const factor = f[Math.min(nest(state).level, f.length - 1)] ?? 1;
+  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY2));
+  return Math.round(METEORS.stock * factor * (1 + METEORS.perDay * days));
+}
+function meteorRate(m, harvests) {
+  if (m.stock <= EPS2) return 0;
+  let rate = 0;
+  for (const { b, h } of harvests) {
+    if (h.status === "flooded" || h.status === "idle" || h.demand <= 0) continue;
+    const base = baseHarvest(b, h.resource);
+    if (base <= 0) continue;
+    const work = h.demand / base;
+    if (b.type === "camp") {
+      if (b.q === m.q && b.r === m.r) rate += CAMPS.rates[m.resource] * work;
+    } else if (h.resource === m.resource && hexDistance(b, m) <= catchmentRadius(b)) {
+      rate += base * METEORS.producerShare * work;
+    }
+  }
+  return rate;
+}
+function meteorAt(state, q, r) {
+  return state.sky.meteors.find((m) => m.q === q && m.r === r);
+}
+function nextSkyEvent(state) {
+  const sky = state.sky;
+  let next = Infinity;
+  if (sky.next) next = sky.next.announced ? sky.next.at : sky.next.announceAt;
+  for (const m of sky.meteors) next = Math.min(next, m.expiresAt);
+  return next;
+}
+function planMeteor(s) {
+  const sky = s.sky;
+  if (sky.next) return;
+  withThreatRng(s, (rng) => {
+    const gap = Math.round(rng.range(METEORS.intervalMs[0], METEORS.intervalMs[1]));
+    const earliest = sky.falls === 0 ? s.createdAt + METEORS.firstMs : sky.lastFallAt + gap;
+    const at = Math.max(earliest, s.now + METEORS.noticeMs);
+    sky.next = {
+      id: `m${sky.falls + 1}`,
+      announceAt: at - METEORS.noticeMs,
+      at,
+      announced: false,
+      q: 0,
+      r: 0,
+      resource: "seeds",
+      stock: 0
+    };
+  });
+}
+function skyTick(s, at, events) {
+  const sky = s.sky;
+  const next = sky.next;
+  if (next && !next.announced && next.announceAt === at) {
+    const spot = withThreatRng(s, (rng) => {
+      const map = faceMapOf(s);
+      const season = seasonOf(s);
+      const taken = /* @__PURE__ */ new Set([
+        ...s.buildings.map((b) => hexKey(b)),
+        ...s.queue.filter((i) => i.kind === "build").map((i) => hexKey(i)),
+        ...sky.meteors.map((m) => hexKey(m))
+      ]);
+      const free = map.tiles.filter(
+        (t) => METEORS.tiles.includes(t.type) && t.rho >= 0.25 && t.rho <= 0.92 && !taken.has(hexKey(t)) && !isFlooded(t, s.params.biome, season)
+      );
+      const weights = Object.entries(METEORS.resources);
+      let roll = rng.next() * weights.reduce((sum, [, w]) => sum + w, 0);
+      let resource = weights[0][0];
+      for (const [id3, w] of weights) {
+        roll -= w;
+        if (roll < 0) {
+          resource = id3;
+          break;
+        }
+      }
+      return { tile: free.length > 0 ? rng.pick(free) : null, resource };
+    });
+    if (!spot.tile) {
+      sky.next = null;
+      sky.lastFallAt = next.at;
+      return;
+    }
+    next.announced = true;
+    next.q = spot.tile.q;
+    next.r = spot.tile.r;
+    next.resource = spot.resource;
+    next.stock = meteorStock(s, next.at);
+    events.push({
+      type: "meteorAnnounced",
+      at,
+      strikeAt: next.at,
+      q: next.q,
+      r: next.r,
+      resource: next.resource
+    });
+  }
+  if (next && next.announced && next.at === at) {
+    if (sky.meteors.length >= METEORS.max) sky.meteors.shift();
+    sky.meteors.push({
+      id: next.id,
+      q: next.q,
+      r: next.r,
+      resource: next.resource,
+      stock: next.stock,
+      max: next.stock,
+      landedAt: at,
+      expiresAt: at + METEORS.lifeMs
+    });
+    sky.falls++;
+    sky.lastFallAt = at;
+    sky.next = null;
+    events.push({
+      type: "meteorLanded",
+      at,
+      q: next.q,
+      r: next.r,
+      resource: next.resource,
+      stock: next.stock
+    });
+  }
+  for (const m of sky.meteors) {
+    if (m.expiresAt === at)
+      events.push({ type: "meteorFaded", at, q: m.q, r: m.r, resource: m.resource });
+  }
+  sky.meteors = sky.meteors.filter((m) => m.expiresAt > at);
+}
+
 // packages/shared/src/sim/advance.ts
 function advance(state, now) {
   const s = cloneState(state);
@@ -3531,6 +3707,7 @@ function advanceInPlace(s, now, events) {
   let stage = hungerStage(s);
   for (let guard = 0; guard < 1e5; guard++) {
     planWave(s);
+    planMeteor(s);
     const active = activeItem(s);
     const constructionEnd = active ? active.startedAt + active.durationMs : Infinity;
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
@@ -3541,9 +3718,11 @@ function advanceInPlace(s, now, events) {
     const mourningEnd = s.mourningUntil > s.now ? s.mourningUntil : Infinity;
     const calendarChange = nextCalendarChange(s.calendarStart, s.now);
     const threatAt = nextThreatEvent(s);
+    const skyAt = nextSkyEvent(s);
     const injuryEnd = nextInjuryEnd(s);
     const nextEvent = Math.min(
       threatAt,
+      skyAt,
       injuryEnd,
       calendarChange,
       flows.hungerAt,
@@ -3577,6 +3756,7 @@ function advanceInPlace(s, now, events) {
     if (flows.hungerAt === nextEvent) starve(s, nextEvent, events);
     if (injuryEnd === nextEvent) healInjuries(s, injuryEnd, events);
     if (threatAt === nextEvent) threatTick(s, threatAt, events);
+    if (skyAt === nextEvent) skyTick(s, skyAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: "hungerChanged", at: s.now, stage: st });
@@ -3624,6 +3804,7 @@ function computeFlows(s) {
   const production = emptyResources();
   const harvested = emptyResources();
   const harvests = [];
+  const all = [];
   for (const b of s.buildings) {
     const p = passiveRates(s, b);
     for (const id3 of RESOURCE_IDS) production[id3] += p[id3];
@@ -3631,7 +3812,16 @@ function computeFlows(s) {
     if (!h) continue;
     production[h.resource] += h.output;
     harvested[h.resource] += h.output;
+    all.push({ b, h });
     if (b.pool) harvests.push({ b, h });
+  }
+  const picked = [];
+  for (const m of s.sky.meteors) {
+    const rate = meteorRate(m, all);
+    if (rate <= 0) continue;
+    production[m.resource] += rate;
+    harvested[m.resource] += rate;
+    picked.push({ m, rate });
   }
   const full = storageFullCheck(s, production);
   const eaten = consumption(s);
@@ -3652,6 +3842,13 @@ function computeFlows(s) {
       const dry = h.stock / (harvest - h.regen) * HOUR_MS2;
       next = Math.min(next, s.now + Math.max(1, Math.ceil(dry)));
     }
+  }
+  const meteors = [];
+  for (const { m, rate } of picked) {
+    const take = rate * share[m.resource];
+    if (take <= 0) continue;
+    meteors.push({ m, delta: -take });
+    next = Math.min(next, s.now + Math.max(1, Math.ceil(m.stock / take * HOUR_MS2)));
   }
   const rates = emptyResources();
   const deficit = { pulp: 0, juice: 0 };
@@ -3675,7 +3872,14 @@ function computeFlows(s) {
     }
   }
   const hunger = hungerRate(s, deficit);
-  return { rates, pools, hunger, nextChange: next, hungerAt: nextHungerEvent(s, hunger) };
+  return {
+    rates,
+    pools,
+    meteors,
+    hunger,
+    nextChange: next,
+    hungerAt: nextHungerEvent(s, hunger)
+  };
 }
 function accrue(s, flows, dtMs, at, events) {
   const { rates } = flows;
@@ -3705,6 +3909,10 @@ function accrue(s, flows, dtMs, at, events) {
   for (const p of flows.pools) {
     const stock = p.b.pool.stock + p.delta * dtMs / HOUR_MS2;
     p.b.pool.stock = stock < 1e-6 ? 0 : Math.min(p.cap, stock);
+  }
+  for (const { m, delta } of flows.meteors) {
+    const stock = m.stock + delta * dtMs / HOUR_MS2;
+    m.stock = stock < 1e-6 ? 0 : stock;
   }
   if (flows.hunger !== 0)
     s.hunger = Math.min(hungerCap(s), Math.max(0, s.hunger + flows.hunger * dtMs));
@@ -8590,6 +8798,32 @@ var gameStateSchema = external_exports.object({
   paths: external_exports.array(external_exports.string().max(16)).max(500),
   deposits: external_exports.record(external_exports.string(), external_exports.object({ stock: external_exports.number().min(0), at: external_exports.number() })),
   threats,
+  sky: external_exports.object({
+    next: external_exports.object({
+      id,
+      announceAt: external_exports.number(),
+      at: external_exports.number(),
+      announced: external_exports.boolean(),
+      q: external_exports.number().int(),
+      r: external_exports.number().int(),
+      resource: external_exports.enum(RESOURCE_IDS),
+      stock: external_exports.number().min(0)
+    }).nullable(),
+    lastFallAt: external_exports.number().min(0),
+    falls: external_exports.number().int().min(0),
+    meteors: external_exports.array(
+      external_exports.object({
+        id,
+        q: external_exports.number().int(),
+        r: external_exports.number().int(),
+        resource: external_exports.enum(RESOURCE_IDS),
+        stock: external_exports.number().min(0),
+        max: external_exports.number().min(0),
+        landedAt: external_exports.number(),
+        expiresAt: external_exports.number()
+      })
+    ).max(METEORS.max + 1)
+  }),
   nextId: external_exports.number().int(),
   rng: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number(), external_exports.number()])
 });
@@ -8635,7 +8869,9 @@ var MIGRATIONS = {
   9: (raw) => ({
     ...raw,
     threats: newThreats(String(raw.seed), raw.face, Number(raw.now))
-  })
+  }),
+  // v10 → v11: gifts from the sky (chantier 06, part 3).
+  10: (raw) => ({ ...raw, sky: newSky(Number(raw.now)) })
 };
 function migrateState(input) {
   if (!input || typeof input !== "object") return { ok: false, reason: "corrupt" };
@@ -9269,6 +9505,7 @@ export {
   MAX_PLAYERS,
   MAX_UNIVERSES_PER_PLAYER,
   MEMORIAL_MAX,
+  METEORS,
   MORALE,
   NAME_SYLLABLES,
   NEEDS,
@@ -9437,6 +9674,9 @@ export {
   maxLevelOf,
   mayorMorale,
   mayorOf,
+  meteorAt,
+  meteorRate,
+  meteorStock,
   migrateState,
   modifiers,
   moraleOf,
@@ -9448,11 +9688,13 @@ export {
   netRates,
   newGame,
   newKiwi,
+  newSky,
   newThreats,
   nextCalendarChange,
   nextHungerEvent,
   nextId,
   nextKiwiEvent,
+  nextSkyEvent,
   nextThreatEvent,
   objectiveProgress,
   otherFace,
@@ -9463,6 +9705,7 @@ export {
   pendingUpgrade,
   pickStarving,
   pixelToHex,
+  planMeteor,
   planWave,
   poolCapacity,
   population,
@@ -9490,6 +9733,7 @@ export {
   seasonRegen,
   serializeSave,
   shipCargo,
+  skyTick,
   soloTargets,
   stageOf,
   startNextConstruction,

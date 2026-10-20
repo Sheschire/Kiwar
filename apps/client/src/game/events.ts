@@ -93,6 +93,21 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
       case 'injuryHealed':
         pushToast('info', 'threats.healed', { name: e.name });
         break;
+      case 'meteorAnnounced':
+        pushToast('info', 'sky.announced', {
+          resource: `@resources.${e.resource}`,
+          duration: formatDuration(uiStore.getState().lang, e.strikeAt - e.at),
+        });
+        break;
+      case 'meteorLanded':
+        pushToast('success', 'sky.landed', {
+          stock: e.stock,
+          resource: `@resources.${e.resource}`,
+        });
+        break;
+      case 'meteorFaded':
+        pushToast('info', 'sky.faded');
+        break;
       case 'incident':
         if (e.kind === 'storm') pushToast('info', 'threats.incident.storm', { amount: e.amount });
         else if (e.blocked) pushToast('success', `threats.incident.${e.kind}Blocked`);

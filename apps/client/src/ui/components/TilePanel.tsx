@@ -22,6 +22,7 @@ import {
   nearRay,
   nestDef,
   pendingUpgrade,
+  meteorAt,
   isRampart,
   isTurret,
   turretCount,
@@ -599,6 +600,7 @@ export function TilePanel() {
           </p>
         )}
         {!building && !site && <DepositLine game={game} map={map} tile={tile} t={t} />}
+        <MeteorLine game={game} tile={tile} now={now} t={t} />
         {building && <BuildingSection game={game} map={map} b={building} now={now} t={t} />}
         {site && (
           <div class="section">
@@ -669,6 +671,59 @@ function RepairBox({
       >
         <HammerIcon size={18} /> {t('building.repair')}
       </button>
+    </div>
+  );
+}
+
+const METEOR_PICKERS: Record<ResourceId, BuildingType> = {
+  pulp: 'pulpery',
+  fiber: 'fiberWorkshop',
+  seeds: 'seedQuarry',
+  juice: 'juiceWell',
+};
+
+/** Chantier 06: a meteorite crater on this tile, or a shooting star about to land here. */
+function MeteorLine({
+  game,
+  tile,
+  now,
+  t,
+}: {
+  game: GameState;
+  tile: Tile;
+  now: number;
+  t: Translate;
+}) {
+  const lang = useUi((s) => s.lang);
+  const m = meteorAt(game, tile.q, tile.r);
+  const next = game.sky.next;
+  if (!m) {
+    if (!next?.announced || next.q !== tile.q || next.r !== tile.r) return null;
+    return (
+      <p class="small bonus meteor-line">
+        ✦{' '}
+        {t('sky.incoming', {
+          duration: formatDuration(lang, next.at - now),
+          resource: `@resources.${next.resource}`,
+        })}
+      </p>
+    );
+  }
+  if (m.stock <= 0) return <p class="small muted meteor-line">{t('sky.empty')}</p>;
+  return (
+    <div class="meteor-line">
+      <p class="small bonus">
+        ✦{' '}
+        {t('sky.meteor', {
+          stock: Math.floor(m.stock),
+          max: m.max,
+          resource: `@resources.${m.resource}`,
+          duration: formatDuration(lang, m.expiresAt - now),
+        })}
+      </p>
+      <p class="small muted">
+        {t('sky.hint', { building: `@buildings.${METEOR_PICKERS[m.resource]}.name` })}
+      </p>
     </div>
   );
 }

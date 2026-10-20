@@ -34,6 +34,7 @@ import {
 import { removeVillagers } from './expeditions';
 import type { IncidentKind } from '../data/threats';
 import { nextThreatEvent, planWave, threatTick } from './threats';
+import { meteorRate, nextSkyEvent, planMeteor, skyTick } from './sky';
 import {
   addVillager,
   cloneState,
@@ -41,6 +42,7 @@ import {
   type Building,
   type Expedition,
   type GameState,
+  type Meteor,
   type Villager,
 } from './state';
 
@@ -116,6 +118,16 @@ export type GameEvent =
   | { type: 'shelterOver'; at: TimeMs }
   | { type: 'injuryHealed'; at: TimeMs; villagerId: VillagerId; name: string }
   | {
+      type: 'meteorAnnounced';
+      at: TimeMs;
+      strikeAt: TimeMs;
+      q: number;
+      r: number;
+      resource: ResourceId;
+    }
+  | { type: 'meteorLanded'; at: TimeMs; q: number; r: number; resource: ResourceId; stock: number }
+  | { type: 'meteorFaded'; at: TimeMs; q: number; r: number; resource: ResourceId }
+  | {
       type: 'repaired';
       at: TimeMs;
       buildingId: BuildingId;
@@ -152,6 +164,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
   for (let guard = 0; guard < 100_000; guard++) {
     // The next wave is planned as soon as the beginners' protection is over (or after a wave).
     planWave(s);
+    planMeteor(s);
     const active = activeItem(s);
     const constructionEnd = active ? active.startedAt! + active.durationMs : Infinity;
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
@@ -163,9 +176,11 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     // Nightfall and dawn change work rates (seasons change at dawn).
     const calendarChange = nextCalendarChange(s.calendarStart, s.now);
     const threatAt = nextThreatEvent(s);
+    const skyAt = nextSkyEvent(s);
     const injuryEnd = nextInjuryEnd(s);
     const nextEvent = Math.min(
       threatAt,
+      skyAt,
       injuryEnd,
       calendarChange,
       flows.hungerAt,
@@ -199,6 +214,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     if (flows.hungerAt === nextEvent) starve(s, nextEvent, events);
     if (injuryEnd === nextEvent) healInjuries(s, injuryEnd, events);
     if (threatAt === nextEvent) threatTick(s, threatAt, events);
+    if (skyAt === nextEvent) skyTick(s, skyAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: 'hungerChanged', at: s.now, stage: st });
@@ -251,6 +267,8 @@ interface Flows {
   /** Net change of every stock per hour (production minus what the kiwis eat). */
   rates: Resources;
   pools: { b: Building; delta: number; cap: number }[];
+  /** Meteorite craters being picked (stock change per hour, negative). */
+  meteors: { m: Meteor; delta: number }[];
   /** Hunger gauge change in raw units per ms. */
   hunger: number;
   /** Next time a rate changes on its own (a deposit runs dry, a storage fills or empties). */
@@ -266,6 +284,7 @@ function computeFlows(s: GameState): Flows {
   const production = emptyResources();
   const harvested = emptyResources();
   const harvests: { b: Building; h: Harvest }[] = [];
+  const all: { b: Building; h: Harvest }[] = [];
   for (const b of s.buildings) {
     const p = passiveRates(s, b);
     for (const id of RESOURCE_IDS) production[id] += p[id];
@@ -273,7 +292,17 @@ function computeFlows(s: GameState): Flows {
     if (!h) continue;
     production[h.resource] += h.output;
     harvested[h.resource] += h.output;
+    all.push({ b, h });
     if (b.pool) harvests.push({ b, h });
+  }
+  // Meteorite craters: picked on top of the usual harvest (no climate: a gift from the sky).
+  const picked: { m: Meteor; rate: number }[] = [];
+  for (const m of s.sky.meteors) {
+    const rate = meteorRate(m, all);
+    if (rate <= 0) continue;
+    production[m.resource] += rate;
+    harvested[m.resource] += rate;
+    picked.push({ m, rate });
   }
   const full = storageFullCheck(s, production);
   const eaten = consumption(s);
@@ -296,6 +325,13 @@ function computeFlows(s: GameState): Flows {
       const dry = (h.stock / (harvest - h.regen)) * HOUR_MS;
       next = Math.min(next, s.now + Math.max(1, Math.ceil(dry)));
     }
+  }
+  const meteors: Flows['meteors'] = [];
+  for (const { m, rate } of picked) {
+    const take = rate * share[m.resource];
+    if (take <= 0) continue;
+    meteors.push({ m, delta: -take });
+    next = Math.min(next, s.now + Math.max(1, Math.ceil((m.stock / take) * HOUR_MS)));
   }
   const rates = emptyResources();
   const deficit = { pulp: 0, juice: 0 };
@@ -320,7 +356,14 @@ function computeFlows(s: GameState): Flows {
     }
   }
   const hunger = hungerRate(s, deficit);
-  return { rates, pools, hunger, nextChange: next, hungerAt: nextHungerEvent(s, hunger) };
+  return {
+    rates,
+    pools,
+    meteors,
+    hunger,
+    nextChange: next,
+    hungerAt: nextHungerEvent(s, hunger),
+  };
 }
 
 function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: GameEvent[]): void {
@@ -354,6 +397,10 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
   for (const p of flows.pools) {
     const stock = p.b.pool!.stock + (p.delta * dtMs) / HOUR_MS;
     p.b.pool!.stock = stock < 1e-6 ? 0 : Math.min(p.cap, stock);
+  }
+  for (const { m, delta } of flows.meteors) {
+    const stock = m.stock + (delta * dtMs) / HOUR_MS;
+    m.stock = stock < 1e-6 ? 0 : stock;
   }
   if (flows.hunger !== 0)
     s.hunger = Math.min(hungerCap(s), Math.max(0, s.hunger + flows.hunger * dtMs));

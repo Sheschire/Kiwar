@@ -651,6 +651,15 @@ export const en = {
     cost: '{cost} fibre per tile',
     done: 'Done',
   },
+  sky: {
+    meteor: 'Meteorite: {stock}/{max} {resource} · fades in {duration}',
+    hint: 'A camp on it picks it, and so does a {building} that reaches it.',
+    empty: 'An empty crater: everything was picked.',
+    incoming: 'A shooting star lands here in {duration}: {resource}!',
+    announced: 'A shooting star! A meteorite of {resource} lands in {duration}.',
+    landed: 'A meteorite fell: {stock} {resource} to pick.',
+    faded: 'A meteorite crater faded away.',
+  },
   garrison: {
     title: 'Garrison',
     post: 'Post on guard',

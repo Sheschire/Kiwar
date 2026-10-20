@@ -29,6 +29,7 @@ export * from './sim/calendar';
 export * from './sim/needs';
 export * from './sim/rest';
 export * from './sim/threats';
+export * from './sim/sky';
 export * from './save/save';
 export * from './server/protocol';
 export * from './server/gameService';
