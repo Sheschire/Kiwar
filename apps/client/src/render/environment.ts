@@ -18,8 +18,9 @@ import { GLSL_NOISE } from './shaderChunks';
 
 /**
  * Soft pastel cosmic environment around the floating kiwi disc:
- * gradient sky with twinkling procedural stars, a drifting sea of cream clouds
- * below the disc and a few distant kiwi moons.
+ * gradient sky with twinkling procedural stars, a living sea of cream clouds below the disc
+ * (rolling billows, a swell, gaps over a starry deep; plain drift in low quality) and a few
+ * distant kiwi moons.
  */
 export class Environment {
   readonly group = new Group();
@@ -120,17 +121,36 @@ export class Environment {
         ${GLSL_NOISE}
         void main() {
           vec2 p = vWorld.xz * 0.035;
-          float n = kFbm(p + vec2(uTime * 0.012, uTime * 0.006));
           #ifdef KIWAR_LITE
-            // Low quality: one noise for the fine puffs instead of a second fbm.
+            // Low quality: the plain drifting sea, one noise for the fine puffs.
+            float n = kFbm(p + vec2(uTime * 0.012, uTime * 0.006));
             float n2 = kNoise(p * 2.1 - vec2(uTime * 0.02, 0.0)) * 0.94;
+            float puff = smoothstep(0.35, 0.75, n * 0.7 + n2 * 0.45);
+            vec3 col = mix(uShade, uCloud, puff);
+            float hole = 0.0;
           #else
-            float n2 = kFbm(p * 2.1 - vec2(uTime * 0.02, 0.0));
+            // Chantier 17: a living sea, same two noises: the fine puffs are warped by the
+            // big billows (they roll and boil), a slow swell runs across, and gaps open
+            // over a starry deep.
+            float n = kFbm(p + vec2(uTime * 0.02, uTime * 0.009));
+            float n2 = kFbm(p * 2.1 + vec2(n * 1.6) - vec2(uTime * 0.035, -uTime * 0.012));
+            float d = n * 0.7 + n2 * 0.45;
+            float puff = smoothstep(0.35, 0.75, d);
+            float swell = sin(dot(vWorld.xz, vec2(0.05, 0.032)) - uTime * 0.45 + n * 4.0);
+            vec3 col = mix(uShade, uCloud, clamp(puff + swell * 0.1, 0.0, 1.0));
+            float hole = 1.0 - smoothstep(0.3, 0.44, d);
+            vec2 cell = floor(vWorld.xz * 0.6);
+            float rnd = kHash(cell);
+            float star = 0.0;
+            if (rnd > 0.93) {
+              vec2 f = fract(vWorld.xz * 0.6) - 0.5;
+              float tw = 0.55 + 0.45 * sin(uTime * (1.5 + rnd * 3.0) + rnd * 40.0);
+              star = smoothstep(0.22, 0.0, length(f)) * tw;
+            }
+            col = mix(col, mix(uFade, uShade, 0.5) * 0.72 + vec3(1.0, 0.95, 0.85) * star, hole);
           #endif
-          float puff = smoothstep(0.35, 0.75, n * 0.7 + n2 * 0.45);
-          vec3 col = mix(uShade, uCloud, puff);
           float r = length(vWorld.xz);
-          float alpha = (0.55 + 0.45 * puff) * (1.0 - smoothstep(120.0, 260.0, r));
+          float alpha = max(0.55 + 0.45 * puff, hole * 0.9) * (1.0 - smoothstep(120.0, 260.0, r));
           // Blend into the sky colour towards the horizon.
           col = mix(col, uFade, smoothstep(160.0, 260.0, r));
           gl_FragColor = vec4(col, alpha);

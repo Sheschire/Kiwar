@@ -166,6 +166,8 @@ export class TwinView {
       // Chantier 17: says what the half is, so it reads as a target, not a far moon.
       this.caption = nameLabel(opts.caption, 'rgba(232, 240, 214, 0.9)', '#7d9a4a');
       this.caption.material.transparent = true;
+      // After the fog layers, which would veil it.
+      this.caption.renderOrder = 10;
       this.caption.scale.set(radius * 1.1, radius * 0.1375, 1);
       this.group.add(this.caption);
     }
