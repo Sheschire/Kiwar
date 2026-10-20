@@ -944,8 +944,12 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
           fail('kiwiBusy');
       }
       for (const v of s.villagers) {
-        if (ids.has(v.id)) v.job = { kind: 'guard' };
-        else if (v.job.kind === 'guard') {
+        if (ids.has(v.id)) {
+          // Posted by the player (chantier 15): stays after the wave, unless the automation
+          // had already posted it.
+          if (v.job.kind !== 'guard') delete v.lent;
+          v.job = { kind: 'guard' };
+        } else if (v.job.kind === 'guard') {
           v.job = { kind: 'idle' };
           autoAssign(s, v);
         }

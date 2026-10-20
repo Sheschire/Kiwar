@@ -1,15 +1,28 @@
 import { STARDUST } from '../data/comets';
 import { TASKS } from '../data/jobs';
-import { METEORS } from '../data/threats';
+import { GARRISON, METEORS, THREATS } from '../data/threats';
+import { RESOURCE_IDS } from '../data/resources';
+import { defenseOf, guardPower, sectorClash } from './threats';
 import { dustPickers, pickRate, STARDUST_CAP } from './comets';
 import { minersOf } from './sky';
-import type { BuildingId, TimeMs } from '../types/ids';
+import type { BuildingId, QueueItemId, TimeMs } from '../types/ids';
 import { autoAssign, type GameEvent } from './advance';
 import { builderSpeed, workerPower } from './kiwis';
 import { researchPower } from './research';
-import { capacity, getBuilding, nest, workerSlots, workersOf } from './selectors';
+import {
+  canAfford,
+  capacity,
+  getBuilding,
+  nest,
+  nestDef,
+  pendingUpgrade,
+  repairCost,
+  repairDuration,
+  workerSlots,
+  workersOf,
+} from './selectors';
 import type { ResourceId } from '../data/resources';
-import type { GameState, QueueItem, Villager } from './state';
+import { nextId, type GameState, type QueueItem, type Villager } from './state';
 
 /**
  * Chantier 15: the automation. A task is a one-off need with a number of places and a key stat
@@ -303,6 +316,117 @@ export function fillStardust(state: GameState): void {
 }
 
 /**
+ * Chantier 15: a damaged building orders its own repairs (paid as soon as they are affordable
+ * and the queue has room); repairs go before the constructions that have not started.
+ */
+export function orderRepairs(state: GameState, at: TimeMs): void {
+  if (!state.automation.repair) return;
+  for (const b of state.buildings) {
+    if (!b.damaged || pendingUpgrade(state, b.id)) continue;
+    if (state.queue.length >= (nestDef(state).queueSize ?? 1)) return;
+    const cost = repairCost(b);
+    if (!canAfford(state.resources, cost)) continue;
+    for (const id of RESOURCE_IDS) state.resources[id] -= cost[id] ?? 0;
+    const item: QueueItem = {
+      id: nextId(state, 'q') as QueueItemId,
+      kind: 'repair',
+      buildingType: b.type,
+      q: b.q,
+      r: b.r,
+      buildingId: b.id,
+      targetLevel: b.level,
+      richness: b.richness,
+      durationMs: repairDuration(b),
+      startedAt: null,
+      paid: cost,
+      orderedAt: at,
+    };
+    const waiting = state.queue.findIndex((i) => i.startedAt === null && i.kind !== 'repair');
+    if (waiting < 0) state.queue.push(item);
+    else state.queue.splice(waiting, 0, item);
+  }
+}
+
+/** When the automatic garrison posts its guards before the announced wave (Infinity: none). */
+export function autoGarrisonAt(state: GameState): TimeMs {
+  const wave = state.threats.next;
+  if (!state.automation.garrison || !wave?.announced) return Infinity;
+  const at = wave.at - GARRISON.autoLeadMs;
+  return at > state.now ? at : Infinity;
+}
+
+/**
+ * Chantier 15: from `GARRISON.autoLeadMs` before an announced strike, the kiwis that stop the
+ * most of what still breaks through (at bad luck) are posted one by one, borrowed from their
+ * work; after the strike they go back. Builders stay on their sites; nobody is posted during
+ * a shelter (everybody hides).
+ */
+export function fillGarrison(state: GameState): void {
+  const wave = state.threats.next;
+  const window =
+    !!wave?.announced &&
+    state.now >= wave.at - GARRISON.autoLeadMs &&
+    state.now < wave.at &&
+    state.threats.shelterUntil <= state.now;
+  if (!window) {
+    // The strike is over (or no wave): the guards the automation posted go back.
+    sendBackAll(
+      state,
+      state.villagers
+        .filter((v) => v.job.kind === 'guard' && v.lent !== undefined)
+        .map((v) => [v, v.lent ?? null]),
+    );
+    return;
+  }
+  if (!state.automation.garrison) return;
+  const threat = {
+    ground: wave.ground * (1 + THREATS.luck),
+    air: wave.air * (1 + THREATS.luck),
+  };
+  const through = (extra: readonly Villager[]) => {
+    const ids = new Set<string>(extra.map((v) => v.id));
+    const s: GameState = {
+      ...state,
+      villagers: state.villagers.map((v) =>
+        ids.has(v.id) ? { ...v, job: { kind: 'guard' as const } } : v,
+      ),
+    };
+    const t = sectorClash(threat, defenseOf(s, threat).sectors).through;
+    return t.ground + t.air;
+  };
+  const pool = state.villagers.filter((v) => {
+    if (v.job.kind === 'build' || !canBorrow(state, v, 'garrison')) return false;
+    const p = guardPower(v, state);
+    return p.ground + p.air > 0;
+  });
+  const max = Math.floor(state.villagers.filter((v) => !v.kikiwiwi).length * GARRISON.autoShare);
+  const posted: Villager[] = [];
+  let guards = state.villagers.filter((v) => v.job.kind === 'guard').length;
+  let left = through(posted);
+  while (left > 1e-9 && guards < max) {
+    let best: Villager | null = null;
+    let bestLeft = left;
+    for (const v of pool) {
+      if (posted.includes(v)) continue;
+      const l = through([...posted, v]);
+      if (l < bestLeft - 1e-9) {
+        bestLeft = l;
+        best = v;
+      }
+    }
+    if (!best) break;
+    posted.push(best);
+    guards++;
+    left = bestLeft;
+  }
+  for (const v of posted) {
+    const home = borrow(v);
+    v.job = { kind: 'guard' };
+    v.lent = home;
+  }
+}
+
+/**
  * Fills every automatic task, highest priority first. It runs only after events and commands
  * (never at the start of an `advance` call, whose times differ between one big step and many
  * small ones), so what it reads must only change at events: the stocks reaching their cap
@@ -310,6 +434,8 @@ export function fillStardust(state: GameState): void {
  */
 export function dispatchTasks(state: GameState, at: TimeMs, events: GameEvent[]): void {
   forgetLent(state);
+  fillGarrison(state);
+  orderRepairs(state, at);
   startConstructions(state, at, events);
   fillResearch(state);
   fillCraters(state);

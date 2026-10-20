@@ -483,10 +483,9 @@ describe('ship generations and breakdowns', () => {
         provisions: { pulp: 60, juice: 30 },
       };
       expect(validateCommand(back, again, { now: back.now, map })).toBe('launchpadDamaged');
-      const mended = advance(
-        run(back, { type: 'repair', buildingId: padId }, back.now, map),
-        back.now + 3 * HOUR_MS,
-      ).state;
+      // Chantier 15: the repairs were ordered on their own.
+      expect(back.queue.some((i) => i.kind === 'repair' && i.buildingId === padId)).toBe(true);
+      const mended = advance(back, back.now + 3 * HOUR_MS).state;
       expect(mended.buildings.find((b) => b.id === padId)!.damaged).toBeFalsy();
       expect(validateCommand(mended, again, { now: mended.now, map })).toBeNull();
     }

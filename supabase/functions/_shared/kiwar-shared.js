@@ -1595,7 +1595,13 @@ var GARRISON = {
   /** Chantier 08: with firearms, warriors shoot the bats too. */
   firearmsAir: 0.8,
   /** Posted kiwis stand in the front line: more often hurt. */
-  exposure: 1.5
+  exposure: 1.5,
+  /**
+   * Chantier 15: the automatic garrison posts its guards this long before a strike, at most
+   * this share of the colony, until nothing breaks through at bad luck.
+   */
+  autoLeadMs: ms.min(40),
+  autoShare: 0.5
 };
 var SHELTER = {
   /** Possible this long before the strike… */
@@ -2602,161 +2608,6 @@ function isNight(state) {
   return calendarAt(state.calendarStart, state.now).night;
 }
 
-// packages/shared/src/sim/sky.ts
-var DAY = 24 * 36e5;
-var EPS = 1e-6;
-function meteorStock(state, at) {
-  const f = METEORS.nestFactor;
-  const factor = f[Math.min(nest(state).level, f.length - 1)] ?? 1;
-  const age = METEORS.ageFactor[ageOf(state)] ?? 1;
-  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY));
-  const tech = techEffects(state).meteorStock;
-  return Math.round(METEORS.stock * factor * age * tech * (1 + METEORS.perDay * days));
-}
-function minersOf(state, meteorId) {
-  return state.villagers.filter((v) => v.job.kind === "meteor" && v.job.meteorId === meteorId);
-}
-function drillFactor(state) {
-  if (!techEffects(state).meteorDrill) return 1;
-  const d = METEORS.drill;
-  return d[Math.min(ageOf(state), d.length - 1)] ?? 1;
-}
-function meteorRate(state, m) {
-  if (m.stock <= EPS) return 0;
-  const miners = minersOf(state, m.id);
-  if (miners.length === 0) return 0;
-  const work = crewWork(state, miners, m.resource);
-  if (work <= 0) return 0;
-  const map = faceMapOf(state);
-  const efficiency = logisticsEfficiency(depotDistance(state, map, m));
-  return METEORS.rates[m.resource] * work * efficiency * cycleHarvest(state, m.resource) * drillFactor(state);
-}
-function bestMeteorCrew(state, meteorId) {
-  const m = state.sky.meteors.find((x) => x.id === meteorId);
-  if (!m) return [];
-  const here = minersOf(state, meteorId).map((v) => v.id);
-  const others = state.villagers.map((v, i) => ({ v, i })).filter(
-    ({ v }) => canMine(v) && v.job.kind !== "meteor" && (v.job.kind === "idle" || !v.locked)
-  ).sort(
-    (a, b) => workerPower(b.v, m.resource) - workerPower(a.v, m.resource) || Number(b.v.job.kind === "idle") - Number(a.v.job.kind === "idle") || a.i - b.i
-  ).map(({ v }) => v.id);
-  return [...here, ...others].slice(0, METEORS.slots);
-}
-function canMine(v) {
-  if (v.kikiwiwi) return false;
-  return v.job.kind === "idle" || v.job.kind === "work" || v.job.kind === "stardust" || v.job.kind === "meteor";
-}
-function meteorAt(state, q, r) {
-  return state.sky.meteors.find((m) => m.q === q && m.r === r);
-}
-function nextSkyEvent(state) {
-  const sky = state.sky;
-  let next = Infinity;
-  if (sky.next) next = sky.next.announced ? sky.next.at : sky.next.announceAt;
-  for (const m of sky.meteors) next = Math.min(next, m.expiresAt);
-  return next;
-}
-function planMeteor(s) {
-  const sky = s.sky;
-  if (sky.next) return;
-  withThreatRng(s, (rng) => {
-    const gap = Math.round(rng.range(METEORS.intervalMs[0], METEORS.intervalMs[1]));
-    const earliest = sky.falls === 0 ? s.createdAt + METEORS.firstMs : sky.lastFallAt + gap;
-    const at = Math.max(earliest, s.now + METEORS.noticeMs);
-    sky.next = {
-      id: `m${sky.falls + 1}`,
-      announceAt: at - METEORS.noticeMs,
-      at,
-      announced: false,
-      q: 0,
-      r: 0,
-      resource: "seeds",
-      stock: 0
-    };
-  });
-}
-function skyTick(s, at, events) {
-  const sky = s.sky;
-  const next = sky.next;
-  if (next && !next.announced && next.announceAt === at) {
-    const spot = withThreatRng(s, (rng) => {
-      const map = faceMapOf(s);
-      const season = seasonOf(s);
-      const taken = /* @__PURE__ */ new Set([
-        ...s.buildings.map((b) => hexKey(b)),
-        ...s.queue.filter((i) => i.kind === "build").map((i) => hexKey(i)),
-        ...sky.meteors.map((m) => hexKey(m)),
-        ...s.obstacles.map((o) => hexKey(o))
-      ]);
-      const free = map.tiles.filter(
-        (t) => METEORS.tiles.includes(t.type) && t.rho >= 0.25 && t.rho <= 0.92 && !taken.has(hexKey(t)) && !isFlooded(t, s.params.biome, season)
-      );
-      const weights = Object.entries(METEORS.resources);
-      let roll = rng.next() * weights.reduce((sum, [, w]) => sum + w, 0);
-      let resource = weights[0][0];
-      for (const [id3, w] of weights) {
-        roll -= w;
-        if (roll < 0) {
-          resource = id3;
-          break;
-        }
-      }
-      return { tile: free.length > 0 ? rng.pick(free) : null, resource };
-    });
-    if (!spot.tile) {
-      sky.next = null;
-      sky.lastFallAt = next.at;
-      return;
-    }
-    next.announced = true;
-    next.q = spot.tile.q;
-    next.r = spot.tile.r;
-    next.resource = spot.resource;
-    next.stock = meteorStock(s, next.at);
-    events.push({
-      type: "meteorAnnounced",
-      at,
-      strikeAt: next.at,
-      q: next.q,
-      r: next.r,
-      resource: next.resource
-    });
-  }
-  if (next && next.announced && next.at === at) {
-    if (sky.meteors.length >= METEORS.max) {
-      const old = sky.meteors.shift();
-      leaveWreck(s, old, at, events);
-    }
-    sky.meteors.push({
-      id: next.id,
-      q: next.q,
-      r: next.r,
-      resource: next.resource,
-      stock: next.stock,
-      max: next.stock,
-      landedAt: at,
-      expiresAt: at + METEORS.lifeMs
-    });
-    sky.falls++;
-    sky.lastFallAt = at;
-    sky.next = null;
-    events.push({
-      type: "meteorLanded",
-      at,
-      q: next.q,
-      r: next.r,
-      resource: next.resource,
-      stock: next.stock
-    });
-  }
-  for (const m of sky.meteors) {
-    if (m.expiresAt !== at) continue;
-    events.push({ type: "meteorFaded", at, q: m.q, r: m.r, resource: m.resource });
-    leaveWreck(s, m, at, events);
-  }
-  sky.meteors = sky.meteors.filter((m) => m.expiresAt > at);
-}
-
 // packages/shared/src/sim/expeditions.ts
 function launchpadOf(state, id3) {
   const b = getBuilding(state, id3);
@@ -3225,91 +3076,13 @@ function nameOf(e, id3) {
 }
 var round22 = (v) => Math.round(v * 100) / 100;
 
-// packages/shared/src/sim/deliveries.ts
-function cargoWeight(resources2) {
-  return RESOURCE_IDS.reduce((sum, id3) => sum + (resources2[id3] ?? 0), 0) * EXPEDITIONS.resourceWeight;
-}
-function cargoLimit(launchpad) {
-  return Math.floor(shipCargo(launchpad) / EXPEDITIONS.resourceWeight);
-}
-function deliveryTime(state, friend, launchpad) {
-  return travelTime(friend, launchpad, [], "raid", techEffects(state).travel);
-}
-function sendShipment(state, launchpadId, friend, launchpad, resources2, now, id3) {
-  const travelMs = deliveryTime(state, friend, launchpad);
-  for (const r of RESOURCE_IDS) state.resources[r] -= resources2[r];
-  const shipment = {
-    id: id3,
-    launchpadId,
-    friendId: friend.id,
-    owner: friend.owner,
-    kiwiIndex: friend.kiwiIndex,
-    resources: { ...resources2 },
-    departedAt: now,
-    arriveAt: now + travelMs,
-    returnAt: now + 2 * travelMs,
-    status: "outbound"
-  };
-  state.shipments.push(shipment);
-  return shipment;
-}
-function nextDeliveryEvent(s) {
-  let at = Infinity;
-  for (const x of s.shipments) at = Math.min(at, x.status === "outbound" ? x.arriveAt : x.returnAt);
-  for (const d of s.incoming) at = Math.min(at, d.arriveAt);
-  return at;
-}
-function deliveryTick(s, at, events) {
-  for (const x of s.shipments) {
-    if (x.status === "outbound" && x.arriveAt === at) {
-      x.status = "returning";
-      events.push({
-        type: "cargoDelivered",
-        at,
-        shipmentId: x.id,
-        to: x.owner,
-        resources: { ...x.resources }
-      });
-    }
-  }
-  const back = s.shipments.filter((x) => x.status === "returning" && x.returnAt === at);
-  if (back.length) {
-    s.shipments = s.shipments.filter((x) => !back.includes(x));
-    for (const x of back) events.push({ type: "shipmentReturned", at, shipmentId: x.id });
-  }
-  const landed = s.incoming.filter((d) => d.arriveAt === at);
-  if (!landed.length) return;
-  s.incoming = s.incoming.filter((d) => !landed.includes(d));
-  const cap = capacity(s);
-  for (const d of landed) {
-    const received = emptyResources();
-    const lost = emptyResources();
-    for (const r of RESOURCE_IDS) {
-      const room = Math.max(0, cap[r] - s.resources[r]);
-      received[r] = Math.min(room, d.resources[r]);
-      lost[r] = d.resources[r] - received[r];
-      s.resources[r] += received[r];
-    }
-    events.push({ type: "cargoReceived", at, deliveryId: d.id, from: d.from, received, lost });
-  }
-}
-function deliveryOf(shipment, from, senderId) {
-  return {
-    id: `${senderId}:${shipment.id}`,
-    from,
-    resources: { ...shipment.resources },
-    departedAt: shipment.departedAt,
-    arriveAt: shipment.arriveAt
-  };
-}
-
 // packages/shared/src/sim/threats.ts
 var HOUR2 = 36e5;
-var DAY2 = 24 * HOUR2;
+var DAY = 24 * HOUR2;
 function wavePower(state, at) {
   const level = nest(state).level;
   const factor = THREATS.nestFactor[level] ?? THREATS.nestFactor[THREATS.nestFactor.length - 1];
-  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY2));
+  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY));
   const victories = Object.values(state.victories).reduce((a, b) => a + b, 0);
   const provocation = Math.min(THREATS.maxProvocation, THREATS.perVictory * victories);
   const age = THREATS.ageFactor[ageOf(state)] ?? 1;
@@ -3752,6 +3525,239 @@ function incident(s, at, events) {
   events.push({ type: "incident", ...report });
 }
 
+// packages/shared/src/sim/sky.ts
+var DAY2 = 24 * 36e5;
+var EPS = 1e-6;
+function meteorStock(state, at) {
+  const f = METEORS.nestFactor;
+  const factor = f[Math.min(nest(state).level, f.length - 1)] ?? 1;
+  const age = METEORS.ageFactor[ageOf(state)] ?? 1;
+  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY2));
+  const tech = techEffects(state).meteorStock;
+  return Math.round(METEORS.stock * factor * age * tech * (1 + METEORS.perDay * days));
+}
+function minersOf(state, meteorId) {
+  return state.villagers.filter((v) => v.job.kind === "meteor" && v.job.meteorId === meteorId);
+}
+function drillFactor(state) {
+  if (!techEffects(state).meteorDrill) return 1;
+  const d = METEORS.drill;
+  return d[Math.min(ageOf(state), d.length - 1)] ?? 1;
+}
+function meteorRate(state, m) {
+  if (m.stock <= EPS) return 0;
+  const miners = minersOf(state, m.id);
+  if (miners.length === 0) return 0;
+  const work = crewWork(state, miners, m.resource);
+  if (work <= 0) return 0;
+  const map = faceMapOf(state);
+  const efficiency = logisticsEfficiency(depotDistance(state, map, m));
+  return METEORS.rates[m.resource] * work * efficiency * cycleHarvest(state, m.resource) * drillFactor(state);
+}
+function bestMeteorCrew(state, meteorId) {
+  const m = state.sky.meteors.find((x) => x.id === meteorId);
+  if (!m) return [];
+  const here = minersOf(state, meteorId).map((v) => v.id);
+  const others = state.villagers.map((v, i) => ({ v, i })).filter(
+    ({ v }) => canMine(v) && v.job.kind !== "meteor" && (v.job.kind === "idle" || !v.locked)
+  ).sort(
+    (a, b) => workerPower(b.v, m.resource) - workerPower(a.v, m.resource) || Number(b.v.job.kind === "idle") - Number(a.v.job.kind === "idle") || a.i - b.i
+  ).map(({ v }) => v.id);
+  return [...here, ...others].slice(0, METEORS.slots);
+}
+function canMine(v) {
+  if (v.kikiwiwi) return false;
+  return v.job.kind === "idle" || v.job.kind === "work" || v.job.kind === "stardust" || v.job.kind === "meteor";
+}
+function meteorAt(state, q, r) {
+  return state.sky.meteors.find((m) => m.q === q && m.r === r);
+}
+function nextSkyEvent(state) {
+  const sky = state.sky;
+  let next = Infinity;
+  if (sky.next) next = sky.next.announced ? sky.next.at : sky.next.announceAt;
+  for (const m of sky.meteors) next = Math.min(next, m.expiresAt);
+  return next;
+}
+function planMeteor(s) {
+  const sky = s.sky;
+  if (sky.next) return;
+  withThreatRng(s, (rng) => {
+    const gap = Math.round(rng.range(METEORS.intervalMs[0], METEORS.intervalMs[1]));
+    const earliest = sky.falls === 0 ? s.createdAt + METEORS.firstMs : sky.lastFallAt + gap;
+    const at = Math.max(earliest, s.now + METEORS.noticeMs);
+    sky.next = {
+      id: `m${sky.falls + 1}`,
+      announceAt: at - METEORS.noticeMs,
+      at,
+      announced: false,
+      q: 0,
+      r: 0,
+      resource: "seeds",
+      stock: 0
+    };
+  });
+}
+function skyTick(s, at, events) {
+  const sky = s.sky;
+  const next = sky.next;
+  if (next && !next.announced && next.announceAt === at) {
+    const spot = withThreatRng(s, (rng) => {
+      const map = faceMapOf(s);
+      const season = seasonOf(s);
+      const taken = /* @__PURE__ */ new Set([
+        ...s.buildings.map((b) => hexKey(b)),
+        ...s.queue.filter((i) => i.kind === "build").map((i) => hexKey(i)),
+        ...sky.meteors.map((m) => hexKey(m)),
+        ...s.obstacles.map((o) => hexKey(o))
+      ]);
+      const free = map.tiles.filter(
+        (t) => METEORS.tiles.includes(t.type) && t.rho >= 0.25 && t.rho <= 0.92 && !taken.has(hexKey(t)) && !isFlooded(t, s.params.biome, season)
+      );
+      const weights = Object.entries(METEORS.resources);
+      let roll = rng.next() * weights.reduce((sum, [, w]) => sum + w, 0);
+      let resource = weights[0][0];
+      for (const [id3, w] of weights) {
+        roll -= w;
+        if (roll < 0) {
+          resource = id3;
+          break;
+        }
+      }
+      return { tile: free.length > 0 ? rng.pick(free) : null, resource };
+    });
+    if (!spot.tile) {
+      sky.next = null;
+      sky.lastFallAt = next.at;
+      return;
+    }
+    next.announced = true;
+    next.q = spot.tile.q;
+    next.r = spot.tile.r;
+    next.resource = spot.resource;
+    next.stock = meteorStock(s, next.at);
+    events.push({
+      type: "meteorAnnounced",
+      at,
+      strikeAt: next.at,
+      q: next.q,
+      r: next.r,
+      resource: next.resource
+    });
+  }
+  if (next && next.announced && next.at === at) {
+    if (sky.meteors.length >= METEORS.max) {
+      const old = sky.meteors.shift();
+      leaveWreck(s, old, at, events);
+    }
+    sky.meteors.push({
+      id: next.id,
+      q: next.q,
+      r: next.r,
+      resource: next.resource,
+      stock: next.stock,
+      max: next.stock,
+      landedAt: at,
+      expiresAt: at + METEORS.lifeMs
+    });
+    sky.falls++;
+    sky.lastFallAt = at;
+    sky.next = null;
+    events.push({
+      type: "meteorLanded",
+      at,
+      q: next.q,
+      r: next.r,
+      resource: next.resource,
+      stock: next.stock
+    });
+  }
+  for (const m of sky.meteors) {
+    if (m.expiresAt !== at) continue;
+    events.push({ type: "meteorFaded", at, q: m.q, r: m.r, resource: m.resource });
+    leaveWreck(s, m, at, events);
+  }
+  sky.meteors = sky.meteors.filter((m) => m.expiresAt > at);
+}
+
+// packages/shared/src/sim/deliveries.ts
+function cargoWeight(resources2) {
+  return RESOURCE_IDS.reduce((sum, id3) => sum + (resources2[id3] ?? 0), 0) * EXPEDITIONS.resourceWeight;
+}
+function cargoLimit(launchpad) {
+  return Math.floor(shipCargo(launchpad) / EXPEDITIONS.resourceWeight);
+}
+function deliveryTime(state, friend, launchpad) {
+  return travelTime(friend, launchpad, [], "raid", techEffects(state).travel);
+}
+function sendShipment(state, launchpadId, friend, launchpad, resources2, now, id3) {
+  const travelMs = deliveryTime(state, friend, launchpad);
+  for (const r of RESOURCE_IDS) state.resources[r] -= resources2[r];
+  const shipment = {
+    id: id3,
+    launchpadId,
+    friendId: friend.id,
+    owner: friend.owner,
+    kiwiIndex: friend.kiwiIndex,
+    resources: { ...resources2 },
+    departedAt: now,
+    arriveAt: now + travelMs,
+    returnAt: now + 2 * travelMs,
+    status: "outbound"
+  };
+  state.shipments.push(shipment);
+  return shipment;
+}
+function nextDeliveryEvent(s) {
+  let at = Infinity;
+  for (const x of s.shipments) at = Math.min(at, x.status === "outbound" ? x.arriveAt : x.returnAt);
+  for (const d of s.incoming) at = Math.min(at, d.arriveAt);
+  return at;
+}
+function deliveryTick(s, at, events) {
+  for (const x of s.shipments) {
+    if (x.status === "outbound" && x.arriveAt === at) {
+      x.status = "returning";
+      events.push({
+        type: "cargoDelivered",
+        at,
+        shipmentId: x.id,
+        to: x.owner,
+        resources: { ...x.resources }
+      });
+    }
+  }
+  const back = s.shipments.filter((x) => x.status === "returning" && x.returnAt === at);
+  if (back.length) {
+    s.shipments = s.shipments.filter((x) => !back.includes(x));
+    for (const x of back) events.push({ type: "shipmentReturned", at, shipmentId: x.id });
+  }
+  const landed = s.incoming.filter((d) => d.arriveAt === at);
+  if (!landed.length) return;
+  s.incoming = s.incoming.filter((d) => !landed.includes(d));
+  const cap = capacity(s);
+  for (const d of landed) {
+    const received = emptyResources();
+    const lost = emptyResources();
+    for (const r of RESOURCE_IDS) {
+      const room = Math.max(0, cap[r] - s.resources[r]);
+      received[r] = Math.min(room, d.resources[r]);
+      lost[r] = d.resources[r] - received[r];
+      s.resources[r] += received[r];
+    }
+    events.push({ type: "cargoReceived", at, deliveryId: d.id, from: d.from, received, lost });
+  }
+}
+function deliveryOf(shipment, from, senderId) {
+  return {
+    id: `${senderId}:${shipment.id}`,
+    from,
+    resources: { ...shipment.resources },
+    departedAt: shipment.departedAt,
+    arriveAt: shipment.arriveAt
+  };
+}
+
 // packages/shared/src/sim/titan.ts
 function terraformLeft(state) {
   const caps = TITAN.maxTerraform;
@@ -4082,7 +4088,9 @@ function advanceInPlace(s, now, events) {
     const deliveryAt = nextDeliveryEvent(s);
     const infusionEnd = nextInfusionEnd(s);
     const titanEnd = nextTitanEnd(s);
+    const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
+      garrisonAt,
       infusionEnd,
       titanEnd,
       researchAt,
@@ -4644,8 +4652,100 @@ function fillStardust(state) {
     }
   }
 }
+function orderRepairs(state, at) {
+  if (!state.automation.repair) return;
+  for (const b of state.buildings) {
+    if (!b.damaged || pendingUpgrade(state, b.id)) continue;
+    if (state.queue.length >= (nestDef(state).queueSize ?? 1)) return;
+    const cost = repairCost(b);
+    if (!canAfford(state.resources, cost)) continue;
+    for (const id3 of RESOURCE_IDS) state.resources[id3] -= cost[id3] ?? 0;
+    const item = {
+      id: nextId(state, "q"),
+      kind: "repair",
+      buildingType: b.type,
+      q: b.q,
+      r: b.r,
+      buildingId: b.id,
+      targetLevel: b.level,
+      richness: b.richness,
+      durationMs: repairDuration(b),
+      startedAt: null,
+      paid: cost,
+      orderedAt: at
+    };
+    const waiting = state.queue.findIndex((i) => i.startedAt === null && i.kind !== "repair");
+    if (waiting < 0) state.queue.push(item);
+    else state.queue.splice(waiting, 0, item);
+  }
+}
+function autoGarrisonAt(state) {
+  const wave = state.threats.next;
+  if (!state.automation.garrison || !wave?.announced) return Infinity;
+  const at = wave.at - GARRISON.autoLeadMs;
+  return at > state.now ? at : Infinity;
+}
+function fillGarrison(state) {
+  const wave = state.threats.next;
+  const window = !!wave?.announced && state.now >= wave.at - GARRISON.autoLeadMs && state.now < wave.at && state.threats.shelterUntil <= state.now;
+  if (!window) {
+    sendBackAll(
+      state,
+      state.villagers.filter((v) => v.job.kind === "guard" && v.lent !== void 0).map((v) => [v, v.lent ?? null])
+    );
+    return;
+  }
+  if (!state.automation.garrison) return;
+  const threat = {
+    ground: wave.ground * (1 + THREATS.luck),
+    air: wave.air * (1 + THREATS.luck)
+  };
+  const through = (extra) => {
+    const ids = new Set(extra.map((v) => v.id));
+    const s = {
+      ...state,
+      villagers: state.villagers.map(
+        (v) => ids.has(v.id) ? { ...v, job: { kind: "guard" } } : v
+      )
+    };
+    const t = sectorClash(threat, defenseOf(s, threat).sectors).through;
+    return t.ground + t.air;
+  };
+  const pool = state.villagers.filter((v) => {
+    if (v.job.kind === "build" || !canBorrow(state, v, "garrison")) return false;
+    const p = guardPower(v, state);
+    return p.ground + p.air > 0;
+  });
+  const max = Math.floor(state.villagers.filter((v) => !v.kikiwiwi).length * GARRISON.autoShare);
+  const posted = [];
+  let guards = state.villagers.filter((v) => v.job.kind === "guard").length;
+  let left = through(posted);
+  while (left > 1e-9 && guards < max) {
+    let best = null;
+    let bestLeft = left;
+    for (const v of pool) {
+      if (posted.includes(v)) continue;
+      const l = through([...posted, v]);
+      if (l < bestLeft - 1e-9) {
+        bestLeft = l;
+        best = v;
+      }
+    }
+    if (!best) break;
+    posted.push(best);
+    guards++;
+    left = bestLeft;
+  }
+  for (const v of posted) {
+    const home = borrow(v);
+    v.job = { kind: "guard" };
+    v.lent = home;
+  }
+}
 function dispatchTasks(state, at, events) {
   forgetLent(state);
+  fillGarrison(state);
+  orderRepairs(state, at);
   startConstructions(state, at, events);
   fillResearch(state);
   fillCraters(state);
@@ -7457,8 +7557,10 @@ function execute(s, cmd, ctx, events) {
           fail("kiwiBusy");
       }
       for (const v of s.villagers) {
-        if (ids.has(v.id)) v.job = { kind: "guard" };
-        else if (v.job.kind === "guard") {
+        if (ids.has(v.id)) {
+          if (v.job.kind !== "guard") delete v.lent;
+          v.job = { kind: "guard" };
+        } else if (v.job.kind === "guard") {
           v.job = { kind: "idle" };
           autoAssign(s, v);
         }
@@ -12983,6 +13085,7 @@ export {
   applyTerraform,
   assignFace,
   autoAssign,
+  autoGarrisonAt,
   autoPlace,
   availableCrew,
   averagePower,
@@ -13082,6 +13185,7 @@ export {
   exposedKiwis,
   faceMapOf,
   fillCraters,
+  fillGarrison,
   fillResearch,
   fillStardust,
   finishInfusions,
@@ -13216,6 +13320,7 @@ export {
   objectiveProgress,
   obstacleAt,
   obstacleId,
+  orderRepairs,
   otherFace,
   parseHexKey,
   passiveRates,

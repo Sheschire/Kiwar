@@ -3,7 +3,7 @@ import { isManualWorkplace, isProducer, type BuildingType } from '../data/buildi
 import type { TechId } from '../data/research';
 import { RESOURCE_IDS, emptyResources, type ResourceId, type Resources } from '../data/resources';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
-import { dispatchTasks, nextConstructionEnd, releaseFullCraters } from './tasks';
+import { autoGarrisonAt, dispatchTasks, nextConstructionEnd, releaseFullCraters } from './tasks';
 import {
   buildingHarvest,
   passiveRates,
@@ -257,7 +257,10 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const deliveryAt = nextDeliveryEvent(s);
     const infusionEnd = nextInfusionEnd(s);
     const titanEnd = nextTitanEnd(s);
+    // Chantier 15: the automatic garrison posts its guards a little before a strike.
+    const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
+      garrisonAt,
       infusionEnd,
       titanEnd,
       researchAt,

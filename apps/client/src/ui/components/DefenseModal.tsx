@@ -199,6 +199,9 @@ function GarrisonPicker({ game }: { game: GameState }) {
     <section class="field">
       <h3>{t('defense.garrisonTitle')}</h3>
       <p class="small muted">{t('defense.garrisonHint')}</p>
+      <p class="small muted">
+        {game.automation.garrison ? t('defense.garrisonAuto') : t('defense.garrisonManual')}
+      </p>
       {list.length === 0 && <p class="small">{t('defense.noGuards')}</p>}
       <ul class="crew-list">
         {list.map(({ v, power }) => {

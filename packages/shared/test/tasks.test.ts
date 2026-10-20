@@ -12,6 +12,7 @@ import {
   validateCommand,
   applyCommand,
   bestMeteorCrew,
+  GARRISON,
   capacity,
   COMETS,
   crewWork,
@@ -385,5 +386,57 @@ describe('stardust as a task (chantier 15)', () => {
     const later = advance(s, s.now + 30 * HOUR).state;
     expect(later.stardust).toBeGreaterThan(0);
     expect(later.villagers.some((v) => v.job.kind === 'stardust')).toBe(false);
+  });
+});
+
+describe('automatic repairs and garrison (chantier 15)', () => {
+  it('a damaged building orders and pays its repairs, before the waiting sites', () => {
+    const { map, s: start, pulpery } = colony();
+    const s0 = orderHuts(withNest(rich(start), 2), map, 2);
+    expect(s0.queue[1]!.startedAt).toBeNull();
+    s0.buildings.find((b) => b.id === pulpery.id)!.damaged = true;
+    const before = s0.resources.fiber;
+    const s = run(s0, { type: 'debugGrant', resources: {} }, s0.now, map);
+    const index = s.queue.findIndex((i) => i.kind === 'repair' && i.buildingId === pulpery.id);
+    expect(index).toBe(1);
+    expect(s.resources.fiber).toBeLessThan(before);
+    const later = advance(s, s.now + 6 * HOUR).state;
+    expect(later.buildings.find((b) => b.id === pulpery.id)!.damaged).toBeFalsy();
+    // Manual: nothing is ordered.
+    const manual = cloneState(s0);
+    manual.automation.repair = false;
+    const m = run(manual, { type: 'debugGrant', resources: {} }, manual.now, map);
+    expect(m.queue.some((i) => i.kind === 'repair')).toBe(false);
+  });
+
+  it('posts guards a little before a strike, then sends them back to work', () => {
+    const { s: start, pulpery } = colony();
+    const s0 = cloneState(start);
+    s0.automation.meteor = false;
+    s0.automation.stardust = false;
+    s0.threats.next = {
+      id: 'wx',
+      announceAt: s0.now - 1,
+      at: s0.now + 2 * HOUR,
+      announced: true,
+      ground: 30,
+      air: 0,
+    };
+    const worker = workersOf(s0, pulpery.id)[0]!;
+    const early = advance(s0, s0.now + HOUR).state;
+    expect(early.villagers.some((v) => v.job.kind === 'guard')).toBe(false);
+    const posted = advance(early, s0.now + 2 * HOUR - GARRISON.autoLeadMs).state;
+    const guards = posted.villagers.filter((v) => v.job.kind === 'guard');
+    expect(guards.length).toBeGreaterThan(0);
+    expect(guards.length).toBeLessThanOrEqual(Math.floor(posted.villagers.length / 2));
+    expect(guards.every((v) => v.lent !== undefined)).toBe(true);
+    const after = advance(posted, s0.now + 3 * HOUR).state;
+    expect(after.threats.reports.at(-1)?.id).toBe('wx');
+    expect(after.villagers.some((v) => v.job.kind === 'guard')).toBe(false);
+    const w = after.villagers.find((v) => v.id === worker.id)!;
+    if (w.job.kind !== 'injured') expect(w.job.kind).toBe('work');
+    // Same result in one big step.
+    const big = advance(s0, s0.now + 3 * HOUR).state;
+    expect(big.villagers).toEqual(after.villagers);
   });
 });

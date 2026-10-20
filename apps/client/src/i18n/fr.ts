@@ -287,6 +287,8 @@ export const fr: Dict = {
     turrets: 'Tourelles {count}/{max}',
     turretRange: 'Portée {range} tuiles · défend {sectors}',
     repair: 'Réparer',
+    autoRepair:
+      'Automatique : la réparation est commandée dès qu’elle est payable et que la file a de la place.',
     repairing: 'Réparation…',
     logistics: 'Logistique',
     logisticsValue: '{percent} % · {distance} pas jusqu’au dépôt ({depot})',
@@ -925,6 +927,9 @@ export const fr: Dict = {
     deaths: 'un kiwi risque de mourir',
     sheltered: 'tout le monde est à l’abri au Nid',
     garrisonTitle: 'Garnison',
+    garrisonAuto:
+      'Automatique : 40 min avant une attaque, les kiwis qui arrêtent le plus sont postés, puis retournent à leur poste. Ceux que tu postes toi-même restent.',
+    garrisonManual: 'Manuel (panneau Automatisation) : poste toi-même la garnison.',
     garrisonHint:
       'Les kiwis postés ne récoltent plus. Épées : furets seulement. Mages et éclaireurs atteignent les chauves-souris.',
     noGuards: 'Aucun kiwi ne peut être posté pour l’instant.',

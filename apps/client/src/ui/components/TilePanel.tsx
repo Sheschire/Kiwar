@@ -864,6 +864,7 @@ function RepairBox({
   return (
     <div class="upgrade-box damaged-box">
       <span class="small warn">{t('building.damaged')}</span>
+      {game.automation.repair && <span class="small muted">{t('building.autoRepair')}</span>}
       <Cost cost={repairCost(b)} have={game.resources} durationMs={repairDuration(b)} />
       <button
         class="btn btn-primary"

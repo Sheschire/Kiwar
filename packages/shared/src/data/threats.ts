@@ -124,6 +124,12 @@ export const GARRISON = {
   firearmsAir: 0.8,
   /** Posted kiwis stand in the front line: more often hurt. */
   exposure: 1.5,
+  /**
+   * Chantier 15: the automatic garrison posts its guards this long before a strike, at most
+   * this share of the colony, until nothing breaks through at bad luck.
+   */
+  autoLeadMs: ms.min(40),
+  autoShare: 0.5,
 } as const;
 
 /** Taking shelter in the Nest: no one is hurt, the harvest stops for the strike. */

@@ -270,6 +270,8 @@ export const en = {
     turrets: 'Turrets {count}/{max}',
     turretRange: 'Range {range} tiles · defends {sectors}',
     repair: 'Repair',
+    autoRepair:
+      'Automatic: the repairs are ordered as soon as they are affordable and the queue has room.',
     repairing: 'Repairing…',
     logistics: 'Logistics',
     logisticsValue: '{percent} % · {distance} steps to the depot ({depot})',
@@ -892,6 +894,9 @@ export const en = {
     deaths: 'a kiwi may die',
     sheltered: 'everyone is safe in the Nest',
     garrisonTitle: 'Garrison',
+    garrisonAuto:
+      'Automatic: 40 min before a strike, the kiwis that stop the most are posted, then go back to their post. Those you post yourself stay.',
+    garrisonManual: 'Manual (Automation panel): post the guards yourself.',
     garrisonHint:
       'Posted kiwis stop harvesting. Swords: ferrets only. Mages and scouts reach the bats.',
     noGuards: 'No kiwi can be posted right now.',
