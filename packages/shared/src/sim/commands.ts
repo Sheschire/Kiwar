@@ -1,5 +1,6 @@
 import { BLESSINGS, FUEL, STARDUST, STARDUST_SCALE } from '../data/comets';
 import { canPickDust, STARDUST_CAP, stardustOf } from './comets';
+import { dispatchTasks } from './tasks';
 import { BUILDINGS, levelDef, type BuildingType } from '../data/buildings';
 import { CAMPS, PATHS } from '../data/territory';
 import { TILES } from '../data/tiles';
@@ -8,14 +9,7 @@ import { emptyResources, RESOURCE_IDS, type ResourceCost, type Resources } from 
 import { getTile, type FaceMap } from '../worldgen/generateFace';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
 import { KIWI, KIWI_NAME_MAX, STAT_IDS, type StatId } from '../data/kiwis';
-import {
-  advanceInPlace,
-  autoAssign,
-  bestIdleFor,
-  idleByPower,
-  startNextConstruction,
-  type GameEvent,
-} from './advance';
+import { advanceInPlace, autoAssign, bestIdleFor, idleByPower, type GameEvent } from './advance';
 import { buildingResource, hasSkill, trainingCost, trainingDuration, workerPower } from './kiwis';
 import { CLASSES, SKILLS, type ClassId, type SkillId } from '../data/classes';
 import { faceMapOf, isFlooded, releasePool, syncPools, terraformKey } from './territory';
@@ -326,6 +320,8 @@ export function applyCommand(state: GameState, cmd: Command, ctx: CommandContext
     execute(s, cmd, ctx, events);
     // Spending can bring a full stock back down: redirected kiwis go home (chantier 09).
     returnHome(s, ctx.now, events);
+    // A new site, a freed kiwi, a chosen technology: the automation fills its tasks.
+    dispatchTasks(s, ctx.now, events);
     return { ok: true, state: s, events };
   } catch (e) {
     if (e instanceof CommandFailure) return { ok: false, error: e.code, state: advanced, events };
@@ -382,7 +378,6 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       });
       // The site replaces any path on the tile.
       s.paths = s.paths.filter((k) => k !== hexKey(cmd));
-      startNextConstruction(s, now, events);
       return;
     }
     case 'upgrade': {
@@ -412,7 +407,6 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         ...(dust > 0 ? { paidDust: dust } : {}),
         orderedAt: now,
       });
-      startNextConstruction(s, now, events);
       return;
     }
     case 'cancel': {
@@ -430,7 +424,6 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
               : { kind: 'idle' };
         }
       }
-      startNextConstruction(s, now, events);
       return;
     }
     case 'titanWork': {
@@ -483,7 +476,6 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         paid: cost,
         orderedAt: now,
       });
-      startNextConstruction(s, now, events);
       return;
     }
     case 'assignWorkers': {
@@ -840,7 +832,6 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         paid: cost,
         orderedAt: now,
       });
-      startNextConstruction(s, now, events);
       return;
     }
     case 'bless': {

@@ -1,3 +1,4 @@
+import { TASKS } from '../data/jobs';
 import { stardustOf } from './comets';
 import { climateOf } from '../data/biomes';
 import {
@@ -54,6 +55,7 @@ export const LEVEL_STATS = [
   'research',
   'maxBuildings',
   'queueSize',
+  'buildSlots',
 ] as const;
 export type LevelStatId = (typeof LEVEL_STATS)[number];
 
@@ -107,6 +109,9 @@ export function describeLevel(type: BuildingType, level: number, state?: GameSta
   push('research', def.research);
   push('maxBuildings', def.maxBuildings);
   push('queueSize', def.queueSize);
+  // Chantier 15: constructions under way at once.
+  if (type === 'nest')
+    push('buildSlots', TASKS.buildSlots[Math.min(level, TASKS.buildSlots.length - 1)]);
   return out;
 }
 

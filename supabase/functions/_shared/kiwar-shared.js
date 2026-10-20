@@ -2032,6 +2032,19 @@ var JOBS = {
    */
   ratioWeight: 0.5
 };
+var AUTO_TASKS = [
+  "build",
+  "research",
+  "meteor",
+  "stardust",
+  "repair",
+  "garrison",
+  "redirect"
+];
+var TASKS = {
+  /** Constructions under way at once, by Nest level (index = level). */
+  buildSlots: [0, 1, 1, 2, 2, 3, 3]
+};
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
@@ -2570,6 +2583,98 @@ function seasonOf(state) {
 }
 function isNight(state) {
   return calendarAt(state.calendarStart, state.now).night;
+}
+
+// packages/shared/src/sim/tasks.ts
+var RANK = {
+  garrison: 0,
+  build: 1,
+  research: 2,
+  pick: 3,
+  harvest: 4,
+  idle: 5
+};
+function taskLevel(state, v) {
+  switch (v.job.kind) {
+    case "idle":
+      return "idle";
+    case "work":
+      return getBuilding(state, v.job.buildingId)?.type === "library" ? "research" : "harvest";
+    case "stardust":
+      return "pick";
+    case "build":
+      return "build";
+    case "guard":
+      return "garrison";
+    default:
+      return null;
+  }
+}
+function canBorrow(state, v, to) {
+  if (v.kikiwiwi) return false;
+  const level = taskLevel(state, v);
+  if (level === null || RANK[level] <= RANK[to]) return false;
+  return level === "idle" || !v.locked;
+}
+function borrow(v) {
+  let home = null;
+  if (v.lent !== void 0) home = v.lent;
+  else if (v.job.kind === "work") home = v.job.buildingId;
+  else if (v.job.kind === "stardust" || v.job.kind === "build") home = v.job.returnTo;
+  delete v.lent;
+  return home;
+}
+function buildSlots(state) {
+  const slots = TASKS.buildSlots;
+  return slots[Math.min(nest(state).level, slots.length - 1)] ?? 1;
+}
+function startedItems(state) {
+  return state.queue.filter((i) => i.startedAt !== null);
+}
+function nextConstructionEnd(state) {
+  let next = Infinity;
+  for (const i of state.queue)
+    if (i.startedAt !== null) next = Math.min(next, i.startedAt + i.durationMs);
+  return next;
+}
+function waitingForBuilder(state) {
+  const free = buildSlots(state) - startedItems(state).length;
+  if (free <= 0) return [];
+  return state.queue.filter((i) => i.startedAt === null).slice(0, free);
+}
+function pickBuilder(state) {
+  let priority;
+  let best;
+  for (const v of state.villagers) {
+    if (v.kikiwiwi) continue;
+    const speed = builderSpeed(v);
+    if (v.builderPriority && (v.job.kind === "idle" || v.job.kind === "work")) {
+      if (!priority || speed > builderSpeed(priority)) priority = v;
+    }
+    if (!canBorrow(state, v, "build")) continue;
+    const idle = v.job.kind === "idle";
+    if (!best || speed > best.speed + 1e-9 || Math.abs(speed - best.speed) <= 1e-9 && idle && !best.idle)
+      best = { v, speed, idle };
+  }
+  return priority ?? best?.v;
+}
+function startItem(state, item, builder, at, events) {
+  const returnTo = borrow(builder);
+  builder.job = { kind: "build", queueItemId: item.id, returnTo };
+  item.startedAt = at;
+  item.durationMs = Math.max(1e3, Math.round(item.durationMs / builderSpeed(builder)));
+  events.push({ type: "constructionStarted", at, queueItemId: item.id, builderId: builder.id });
+}
+function startConstructions(state, at, events) {
+  if (!state.automation.build) return;
+  for (const item of waitingForBuilder(state)) {
+    const builder = pickBuilder(state);
+    if (!builder) return;
+    startItem(state, item, builder, at, events);
+  }
+}
+function dispatchTasks(state, at, events) {
+  startConstructions(state, at, events);
 }
 
 // packages/shared/src/sim/expeditions.ts
@@ -4006,15 +4111,14 @@ function advance(state, now) {
 function advanceInPlace(s, now, events) {
   let map = faceMapOf(s);
   syncPools(s, map, s.now);
-  startNextConstruction(s, s.now, events);
   returnHome(s, s.now, events);
+  dispatchTasks(s, s.now, events);
   let stage = hungerStage(s);
   for (let guard = 0; guard < 1e5; guard++) {
     planWave(s);
     planMeteor(s);
     planComet(s);
-    const active = activeItem(s);
-    const constructionEnd = active ? active.startedAt + active.durationMs : Infinity;
+    const constructionEnd = nextConstructionEnd(s);
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
     const flows = computeFlows(s);
@@ -4057,10 +4161,12 @@ function advanceInPlace(s, now, events) {
       s.now = target;
     }
     if (nextEvent > now) break;
-    if (constructionEnd <= now && constructionEnd === nextEvent) {
-      completeConstruction(s, constructionEnd, events);
+    if (constructionEnd === nextEvent) {
+      for (const item of s.queue.filter(
+        (i) => i.startedAt !== null && i.startedAt + i.durationMs === constructionEnd
+      ))
+        completeConstruction(s, item, constructionEnd, events);
       syncPools(s, map, constructionEnd);
-      startNextConstruction(s, constructionEnd, events);
     }
     if (s.egg && s.egg.readyAt <= now && s.egg.readyAt === nextEvent) {
       hatch(s, s.egg.readyAt, events);
@@ -4112,8 +4218,11 @@ function advanceInPlace(s, now, events) {
       const e = events[i];
       if (e.type === "storageFull") filled.add(e.resource);
     }
-    if (constructionEnd === nextEvent) redirectFull(s, nextEvent, events);
-    else if (filled.size > 0) redirectFull(s, nextEvent, events, filled);
+    if (s.automation.redirect) {
+      if (constructionEnd === nextEvent) redirectFull(s, nextEvent, events);
+      else if (filled.size > 0) redirectFull(s, nextEvent, events, filled);
+    }
+    dispatchTasks(s, nextEvent, events);
   }
   s.now = Math.max(s.now, now);
 }
@@ -4262,51 +4371,8 @@ function accrue(s, flows, dtMs, at, events) {
   accrueStardust(s, dtMs);
   accrueKiwis(s, dtMs, at, events);
 }
-function startNextConstruction(s, at, events) {
-  const head = s.queue[0];
-  if (!head || head.startedAt !== null) return;
-  head.startedAt = at;
-  const builder = pickBuilder(s);
-  if (builder) {
-    const returnTo = builder.job.kind === "work" ? builder.job.buildingId : null;
-    builder.job = { kind: "build", queueItemId: head.id, returnTo };
-    head.durationMs = Math.max(1e3, Math.round(head.durationMs / builderSpeed(builder)));
-  }
-  events.push({
-    type: "constructionStarted",
-    at,
-    queueItemId: head.id,
-    builderId: builder?.id ?? null
-  });
-}
-function pickBuilder(s) {
-  let priority;
-  for (const v of s.villagers) {
-    if (!v.builderPriority || v.kikiwiwi || v.job.kind !== "idle" && v.job.kind !== "work")
-      continue;
-    if (!priority || builderSpeed(v) > builderSpeed(priority)) priority = v;
-  }
-  if (priority) return priority;
-  let idle;
-  for (const v of idleVillagers(s)) {
-    if (v.kikiwiwi) continue;
-    if (!idle || builderSpeed(v) > builderSpeed(idle)) idle = v;
-  }
-  if (idle) return idle;
-  let best;
-  let bestCount = 0;
-  for (const b of s.buildings) {
-    const workers = workersOf(s, b.id).filter((v) => !v.locked);
-    if (workers.length > bestCount) {
-      bestCount = workers.length;
-      best = workers[workers.length - 1];
-    }
-  }
-  return best;
-}
-function completeConstruction(s, at, events) {
-  const item = s.queue.shift();
-  if (!item) return;
+function completeConstruction(s, item, at, events) {
+  s.queue = s.queue.filter((i) => i.id !== item.id);
   let buildingId;
   if (item.kind === "repair") {
     const b = getBuilding(s, item.buildingId);
@@ -4343,7 +4409,7 @@ function completeConstruction(s, at, events) {
     });
   } else {
     const b = getBuilding(s, item.buildingId);
-    if (!b) return;
+    if (!b) return releaseBuilder(s, item.id, false);
     b.level = item.targetLevel;
     delete b.damaged;
     buildingId = b.id;
@@ -4438,9 +4504,8 @@ function nextExpeditionEvent(s) {
   return best;
 }
 function constructionRemaining(s, now) {
-  const a = activeItem(s);
-  if (!a) return 0;
-  return Math.max(0, a.startedAt + a.durationMs - now);
+  const end = nextConstructionEnd(s);
+  return end === Infinity ? 0 : Math.max(0, end - now);
 }
 
 // packages/shared/src/sim/comets.ts
@@ -6053,7 +6118,7 @@ function removeObstacle(s, o, at, events, by) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 20;
+var SCHEMA_VERSION = 21;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -6119,6 +6184,7 @@ function newGame(opts) {
     comets: newComets(opts.now),
     stardust: 0,
     research: { points: 0, current: null, done: [] },
+    automation: defaultAutomation(),
     nextId: 1,
     rng: rng.state()
   };
@@ -6138,6 +6204,9 @@ function newGame(opts) {
     state.targets.map((t) => [t.id, drawGarrison(t, `${alienSeed}/${t.id}`, opts.now)])
   );
   return state;
+}
+function defaultAutomation() {
+  return Object.fromEntries(AUTO_TASKS.map((t) => [t, true]));
 }
 function newThreats(seed, face, now) {
   return {
@@ -6254,6 +6323,7 @@ function cloneState(state) {
       patches: state.comets.patches.map((p) => ({ ...p }))
     },
     research: { ...state.research, done: [...state.research.done] },
+    automation: { ...state.automation },
     friends: state.friends.map((f) => ({ ...f })),
     shipments: state.shipments.map((x) => ({ ...x, resources: { ...x.resources } })),
     incoming: state.incoming.map((d) => ({ ...d, resources: { ...d.resources } })),
@@ -6337,7 +6407,8 @@ var LEVEL_STATS = [
   "trainingTime",
   "research",
   "maxBuildings",
-  "queueSize"
+  "queueSize",
+  "buildSlots"
 ];
 function describeLevel(type, level, state) {
   const def = levelDef(type, level);
@@ -6371,6 +6442,8 @@ function describeLevel(type, level, state) {
   push("research", def.research);
   push("maxBuildings", def.maxBuildings);
   push("queueSize", def.queueSize);
+  if (type === "nest")
+    push("buildSlots", TASKS.buildSlots[Math.min(level, TASKS.buildSlots.length - 1)]);
   return out;
 }
 var statKey = (s) => `${s.stat}:${s.resource ?? ""}`;
@@ -6630,6 +6703,7 @@ function applyCommand(state, cmd, ctx) {
   try {
     execute(s, cmd, ctx, events);
     returnHome(s, ctx.now, events);
+    dispatchTasks(s, ctx.now, events);
     return { ok: true, state: s, events };
   } catch (e) {
     if (e instanceof CommandFailure) return { ok: false, error: e.code, state: advanced, events };
@@ -6677,7 +6751,6 @@ function execute(s, cmd, ctx, events) {
         orderedAt: now
       });
       s.paths = s.paths.filter((k) => k !== hexKey(cmd));
-      startNextConstruction(s, now, events);
       return;
     }
     case "upgrade": {
@@ -6706,7 +6779,6 @@ function execute(s, cmd, ctx, events) {
         ...dust > 0 ? { paidDust: dust } : {},
         orderedAt: now
       });
-      startNextConstruction(s, now, events);
       return;
     }
     case "cancel": {
@@ -6721,7 +6793,6 @@ function execute(s, cmd, ctx, events) {
           v.job = back && workersOf(s, back.id).length < workerSlots(back) ? { kind: "work", buildingId: back.id } : { kind: "idle" };
         }
       }
-      startNextConstruction(s, now, events);
       return;
     }
     case "titanWork": {
@@ -6771,7 +6842,6 @@ function execute(s, cmd, ctx, events) {
         paid: cost,
         orderedAt: now
       });
-      startNextConstruction(s, now, events);
       return;
     }
     case "assignWorkers": {
@@ -7107,7 +7177,6 @@ function execute(s, cmd, ctx, events) {
         paid: cost,
         orderedAt: now
       });
-      startNextConstruction(s, now, events);
       return;
     }
     case "bless": {
@@ -11404,7 +11473,8 @@ var gameStateSchema = external_exports.object({
       kikiwiwi: external_exports.object({ since: external_exports.number() }).optional(),
       locked: external_exports.literal(true).optional(),
       builderPriority: external_exports.literal(true).optional(),
-      homeJob: id.optional()
+      homeJob: id.optional(),
+      lent: id.nullable().optional()
     })
   ),
   memorial: external_exports.array(
@@ -11618,6 +11688,9 @@ var gameStateSchema = external_exports.object({
     current: external_exports.enum(TECH_IDS).nullable(),
     done: external_exports.array(external_exports.enum(TECH_IDS)).max(TECH_IDS.length)
   }),
+  automation: external_exports.object(
+    Object.fromEntries(AUTO_TASKS.map((t) => [t, external_exports.boolean()]))
+  ),
   nextId: external_exports.number().int(),
   rng: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number(), external_exports.number()])
 });
@@ -11695,7 +11768,9 @@ var MIGRATIONS = {
   // v18 → v19: comets and stardust (chantier 13). The first comet comes 36 h after loading.
   18: (raw) => ({ ...raw, comets: newComets(Number(raw.now)), stardust: 0 }),
   // v19 → v20: blessings and star eggs (optional fields, chantier 13).
-  19: (raw) => raw
+  19: (raw) => raw,
+  // v20 → v21 (chantier 15): every task in automatic mode (the optional `lent` needs nothing).
+  20: (raw) => ({ ...raw, automation: defaultAutomation() })
 };
 function obstaclesForOldGame(raw) {
   const face = raw.face === "kiwino" ? "kiwino" : "kiwisu";
@@ -12569,6 +12644,7 @@ export {
   AGE_IDS,
   ALIENS,
   ALIEN_TWIN_FACE,
+  AUTO_TASKS,
   BIOMES,
   BIOME_IDS,
   BLESSINGS,
@@ -12654,6 +12730,7 @@ export {
   STARDUST_SCALE,
   START,
   STAT_IDS,
+  TASKS,
   TECHS,
   TECH_BRANCHES,
   TECH_IDS,
@@ -12701,8 +12778,10 @@ export {
   biomeFits,
   biomeProfile,
   biomesOf,
+  borrow,
   buildCost,
   buildLock,
+  buildSlots,
   buildableTiles,
   builderSpeed,
   buildingAt,
@@ -12714,6 +12793,7 @@ export {
   calendarOf,
   calendarStartFor,
   canAfford,
+  canBorrow,
   canHatch,
   canPickDust,
   canReshape,
@@ -12750,6 +12830,7 @@ export {
   crewWeight,
   currentObjective,
   cycleHarvest,
+  defaultAutomation,
   defenseOf,
   deliveryOf,
   deliveryTick,
@@ -12763,6 +12844,7 @@ export {
   describeTech,
   describeUpgrade,
   deserializeSave,
+  dispatchTasks,
   distanceIn,
   drawBiomes,
   drawGarrison,
@@ -12893,6 +12975,7 @@ export {
   newThreats,
   nextCalendarChange,
   nextCometEvent,
+  nextConstructionEnd,
   nextDeliveryEvent,
   nextHungerEvent,
   nextId,
@@ -12916,6 +12999,7 @@ export {
   pathsKey,
   payStardust,
   pendingUpgrade,
+  pickBuilder,
   pickRate,
   pickStarving,
   pixelToHex,
@@ -12982,10 +13066,13 @@ export {
   stageOf,
   stardustOf,
   stardustPerHour,
-  startNextConstruction,
+  startConstructions,
+  startItem,
+  startedItems,
   storageFullCheck,
   syncPools,
   targetFaceParams,
+  taskLevel,
   techEffects,
   techStatus,
   techsOfAge,
@@ -13016,6 +13103,7 @@ export {
   upgradeLock,
   userOfFriend,
   validateCommand,
+  waitingForBuilder,
   walkCost,
   walkDistances,
   waveMix,

@@ -22,6 +22,7 @@ const LEVEL_ICONS: Record<LevelStatId, IconName> = {
   research: 'research',
   maxBuildings: 'limit',
   queueSize: 'queue',
+  buildSlots: 'queue',
 };
 
 const TECH_ICONS: Record<TechStatId, IconName> = {

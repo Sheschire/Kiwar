@@ -984,6 +984,17 @@ button.chip:focus-visible {
   color: var(--ink-soft);
 }
 
+.queue-slots {
+  margin-left: auto;
+  font-weight: 500;
+}
+
+/* Chantier 15: a site with a place but nobody to build it. */
+.queue-nobuilder {
+  color: var(--berry);
+  font-weight: 600;
+}
+
 /* ---------- Egg ---------- */
 
 .egg-wrap {

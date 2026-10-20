@@ -64,6 +64,7 @@ import {
   postKind,
   type Villager,
   stardustOf,
+  waitingForBuilder,
 } from '@kiwar/shared';
 import { bedsOf, harvestOf, idleVillagers } from '../derived';
 import { MissingBedsLine } from './NeedsWidgets';
@@ -93,7 +94,17 @@ import { useState } from 'preact/hooks';
 function Progress({ item, now }: { item: QueueItem; now: number }) {
   const t = useT();
   const lang = useUi((s) => s.lang);
-  if (item.startedAt === null) return <p class="muted small">{t('tile.queued')}</p>;
+  const game = useUi((s) => s.game);
+  if (item.startedAt === null) {
+    const waiting = game && waitingForBuilder(game).some((i) => i.id === item.id);
+    if (waiting)
+      return (
+        <p class="small queue-nobuilder">
+          {game.automation.build ? t('queue.noBuilder') : t('queue.manualBuilder')}
+        </p>
+      );
+    return <p class="muted small">{t('tile.queued')}</p>;
+  }
   const done = Math.min(1, (now - item.startedAt) / item.durationMs);
   return (
     <div class="progress-block">

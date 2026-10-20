@@ -3,8 +3,8 @@ import { isManualWorkplace, isProducer, type BuildingType } from '../data/buildi
 import type { TechId } from '../data/research';
 import { RESOURCE_IDS, emptyResources, type ResourceId, type Resources } from '../data/resources';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
+import { dispatchTasks, nextConstructionEnd } from './tasks';
 import {
-  activeItem,
   buildingHarvest,
   passiveRates,
   capacity,
@@ -20,7 +20,7 @@ import { deliveryTick, nextDeliveryEvent } from './deliveries';
 import { canResolveArrival } from './aliens';
 import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
 import type { ClassId } from '../data/classes';
-import { accrueKiwis, builderSpeed, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
+import { accrueKiwis, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
 import { BIOMES } from '../data/biomes';
 import { faceMapOf, rebaseFreeDeposits, syncPools, type Harvest } from './territory';
 import type { Season } from '../data/cycles';
@@ -56,6 +56,7 @@ import {
   type MissionKind,
   type GameState,
   type Meteor,
+  type QueueItem,
   type Villager,
 } from './state';
 
@@ -231,8 +232,8 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
   // Reshaped tiles change the map (titan works): it is read again after each of them.
   let map = faceMapOf(s);
   syncPools(s, map, s.now);
-  startNextConstruction(s, s.now, events);
   returnHome(s, s.now, events);
+  dispatchTasks(s, s.now, events);
   let stage = hungerStage(s);
   // Guard against pathological loops; each iteration consumes at least one event.
   for (let guard = 0; guard < 100_000; guard++) {
@@ -240,8 +241,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     planWave(s);
     planMeteor(s);
     planComet(s);
-    const active = activeItem(s);
-    const constructionEnd = active ? active.startedAt! + active.durationMs : Infinity;
+    const constructionEnd = nextConstructionEnd(s);
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
     const flows = computeFlows(s);
@@ -285,10 +285,13 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
       s.now = target;
     }
     if (nextEvent > now) break;
-    if (constructionEnd <= now && constructionEnd === nextEvent) {
-      completeConstruction(s, constructionEnd, events);
+    if (constructionEnd === nextEvent) {
+      // Several sites can end at the same time (chantier 15: constructions in parallel).
+      for (const item of s.queue.filter(
+        (i) => i.startedAt !== null && i.startedAt + i.durationMs === constructionEnd,
+      ))
+        completeConstruction(s, item, constructionEnd, events);
       syncPools(s, map, constructionEnd);
-      startNextConstruction(s, constructionEnd, events);
     }
     if (s.egg && s.egg.readyAt <= now && s.egg.readyAt === nextEvent) {
       hatch(s, s.egg.readyAt, events);
@@ -341,8 +344,11 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
       const e = events[i]!;
       if (e.type === 'storageFull') filled.add(e.resource);
     }
-    if (constructionEnd === nextEvent) redirectFull(s, nextEvent, events);
-    else if (filled.size > 0) redirectFull(s, nextEvent, events, filled);
+    if (s.automation.redirect) {
+      if (constructionEnd === nextEvent) redirectFull(s, nextEvent, events);
+      else if (filled.size > 0) redirectFull(s, nextEvent, events, filled);
+    }
+    dispatchTasks(s, nextEvent, events);
   }
   s.now = Math.max(s.now, now);
 }
@@ -524,59 +530,13 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
   accrueKiwis(s, dtMs, at, events);
 }
 
-/** Starts the head of the queue if nothing is under construction, assigning a builder. */
-export function startNextConstruction(s: GameState, at: TimeMs, events: GameEvent[]): void {
-  const head = s.queue[0];
-  if (!head || head.startedAt !== null) return;
-  head.startedAt = at;
-  const builder = pickBuilder(s);
-  if (builder) {
-    const returnTo = builder.job.kind === 'work' ? builder.job.buildingId : null;
-    builder.job = { kind: 'build', queueItemId: head.id, returnTo };
-    // The builder's strength and mastery set the pace, once and for all.
-    head.durationMs = Math.max(1000, Math.round(head.durationMs / builderSpeed(builder)));
-  }
-  events.push({
-    type: 'constructionStarted',
-    at,
-    queueItemId: head.id,
-    builderId: builder?.id ?? null,
-  });
-}
-
-/**
- * Prefers the fastest priority builder at home (idle or at work), then the best idle builder;
- * otherwise borrows one from the most staffed workplace (locked kiwis are never borrowed).
- */
-function pickBuilder(s: GameState): Villager | undefined {
-  let priority: Villager | undefined;
-  for (const v of s.villagers) {
-    if (!v.builderPriority || v.kikiwiwi || (v.job.kind !== 'idle' && v.job.kind !== 'work'))
-      continue;
-    if (!priority || builderSpeed(v) > builderSpeed(priority)) priority = v;
-  }
-  if (priority) return priority;
-  let idle: Villager | undefined;
-  for (const v of idleVillagers(s)) {
-    if (v.kikiwiwi) continue;
-    if (!idle || builderSpeed(v) > builderSpeed(idle)) idle = v;
-  }
-  if (idle) return idle;
-  let best: Villager | undefined;
-  let bestCount = 0;
-  for (const b of s.buildings) {
-    const workers = workersOf(s, b.id).filter((v) => !v.locked);
-    if (workers.length > bestCount) {
-      bestCount = workers.length;
-      best = workers[workers.length - 1];
-    }
-  }
-  return best;
-}
-
-function completeConstruction(s: GameState, at: TimeMs, events: GameEvent[]): void {
-  const item = s.queue.shift();
-  if (!item) return;
+function completeConstruction(
+  s: GameState,
+  item: QueueItem,
+  at: TimeMs,
+  events: GameEvent[],
+): void {
+  s.queue = s.queue.filter((i) => i.id !== item.id);
   let buildingId: BuildingId;
   if (item.kind === 'repair') {
     const b = getBuilding(s, item.buildingId!);
@@ -613,7 +573,7 @@ function completeConstruction(s: GameState, at: TimeMs, events: GameEvent[]): vo
     });
   } else {
     const b = getBuilding(s, item.buildingId!);
-    if (!b) return;
+    if (!b) return releaseBuilder(s, item.id, false);
     b.level = item.targetLevel;
     // A new level comes out as good as new.
     delete b.damaged;
@@ -751,9 +711,8 @@ function nextExpeditionEvent(s: GameState): { at: TimeMs; expedition: Expedition
   return best;
 }
 
-/** Utility for UIs: remaining time of the active construction. */
+/** Utility for UIs: remaining time of the first construction to end. */
 export function constructionRemaining(s: GameState, now: TimeMs): number {
-  const a = activeItem(s);
-  if (!a) return 0;
-  return Math.max(0, a.startedAt! + a.durationMs - now);
+  const end = nextConstructionEnd(s);
+  return end === Infinity ? 0 : Math.max(0, end - now);
 }

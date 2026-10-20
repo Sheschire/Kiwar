@@ -1,5 +1,5 @@
 import {
-  activeItem,
+  nextConstructionEnd,
   HOUR_MS,
   advance,
   applyCommand,
@@ -482,9 +482,8 @@ export function runBot(opts: RunOptions): RunResult {
       continue;
     }
     // Next decision: the next event, or a fixed step (whichever comes first).
-    const active = activeItem(state);
     const nextEvent = Math.min(
-      active ? active.startedAt! + active.durationMs : Infinity,
+      nextConstructionEnd(state),
       state.egg ? state.egg.readyAt : Infinity,
     );
     now = Math.min(now + step, Math.max(now + 1000, nextEvent));

@@ -17,6 +17,7 @@ import { createRng, type Rng, type RngState } from '../rng/rng';
 import type { Masteries, ShinyColor, Stats, TraitId } from '../data/kiwis';
 import type { ClassId, SkillId } from '../data/classes';
 import type { TechId } from '../data/research';
+import { AUTO_TASKS, type AutoTask } from '../data/jobs';
 import { newKiwi, rollKiwi } from './kiwis';
 import type {
   BuildingId,
@@ -30,7 +31,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 20;
+export const SCHEMA_VERSION = 21;
 
 export type Job =
   | { kind: 'idle' }
@@ -108,6 +109,11 @@ export interface Villager {
   builderPriority?: true;
   /** Chantier 09: workplace left when its stock was full, to go back to later. */
   homeJob?: BuildingId;
+  /**
+   * Chantier 15: borrowed by the automation for a task without its own memory (research at the
+   * Library, the garrison): the workplace to go back to when it ends (null: none).
+   */
+  lent?: BuildingId | null;
 }
 
 /** A kiwi lost for good (expeditions), remembered in the village screen. */
@@ -534,6 +540,8 @@ export interface GameState {
   /** Stardust in raw units (`STARDUST_SCALE` per point), apart from the shared storage. */
   stardust: number;
   research: ResearchState;
+  /** Chantier 15: which tasks the automation fills on its own (all on by default). */
+  automation: Record<AutoTask, boolean>;
   nextId: number;
   rng: RngState;
 }
@@ -625,6 +633,7 @@ export function newGame(opts: NewGameOptions): GameState {
     comets: newComets(opts.now),
     stardust: 0,
     research: { points: 0, current: null, done: [] },
+    automation: defaultAutomation(),
     nextId: 1,
     rng: rng.state(),
   };
@@ -644,6 +653,11 @@ export function newGame(opts: NewGameOptions): GameState {
     state.targets.map((t) => [t.id, drawGarrison(t, `${alienSeed}/${t.id}`, opts.now)]),
   );
   return state;
+}
+
+/** Every task in automatic mode. */
+export function defaultAutomation(): Record<AutoTask, boolean> {
+  return Object.fromEntries(AUTO_TASKS.map((t) => [t, true])) as Record<AutoTask, boolean>;
 }
 
 /** Predators of a new colony: nothing planned, the first incident at a fixed time. */
@@ -777,6 +791,7 @@ export function cloneState(state: GameState): GameState {
       patches: state.comets.patches.map((p) => ({ ...p })),
     },
     research: { ...state.research, done: [...state.research.done] },
+    automation: { ...state.automation },
     friends: state.friends.map((f) => ({ ...f })),
     shipments: state.shipments.map((x) => ({ ...x, resources: { ...x.resources } })),
     incoming: state.incoming.map((d) => ({ ...d, resources: { ...d.resources } })),

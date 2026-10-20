@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { BUILDING_TYPES, MAX_LEVEL } from '../data/buildings';
 import { FACES } from '../types/ids';
 import {
+  defaultAutomation,
   newComets,
   newSky,
   newThreats,
@@ -37,6 +38,7 @@ import { generateObstacles } from '../sim/obstacles';
 import { faceMapOf } from '../sim/territory';
 import { hexKey } from '../hex/hex';
 import { HEART, type FaceParams } from '../worldgen/generateFace';
+import { AUTO_TASKS, type AutoTask } from '../data/jobs';
 import type { Obstacle } from '../sim/state';
 
 const resources = z.object({
@@ -199,6 +201,7 @@ export const gameStateSchema = z.object({
       locked: z.literal(true).optional(),
       builderPriority: z.literal(true).optional(),
       homeJob: id.optional(),
+      lent: id.nullable().optional(),
     }),
   ),
   memorial: z
@@ -446,6 +449,9 @@ export const gameStateSchema = z.object({
     current: z.enum(TECH_IDS).nullable(),
     done: z.array(z.enum(TECH_IDS)).max(TECH_IDS.length),
   }),
+  automation: z.object(
+    Object.fromEntries(AUTO_TASKS.map((t) => [t, z.boolean()])) as Record<AutoTask, z.ZodBoolean>,
+  ),
   nextId: z.number().int(),
   rng: z.tuple([z.number(), z.number(), z.number(), z.number()]),
 });
@@ -540,6 +546,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   18: (raw) => ({ ...raw, comets: newComets(Number(raw.now)), stardust: 0 }),
   // v19 → v20: blessings and star eggs (optional fields, chantier 13).
   19: (raw) => raw,
+  // v20 → v21 (chantier 15): every task in automatic mode (the optional `lent` needs nothing).
+  20: (raw) => ({ ...raw, automation: defaultAutomation() }),
 };
 
 function obstaclesForOldGame(raw: Record<string, unknown>): Obstacle[] {
