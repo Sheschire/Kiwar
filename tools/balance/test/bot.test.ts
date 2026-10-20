@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runBot } from '../src/bot';
+import { MILESTONES, runBot, type Milestone } from '../src/bot';
 import { compare } from '../src/report';
 
 describe('balance bot', () => {
@@ -32,22 +32,7 @@ describe('balance bot', () => {
       seed: 's',
       face,
       biome: 'classic' as const,
-      times: {
-        tutorial: t,
-        pop10: t,
-        nest2: t,
-        nest3: t,
-        allLevel3: t,
-        kiwi5: t,
-        kiwi10: t,
-        mayor: t,
-        library: t,
-        stone: t,
-        iron: t,
-        industry: t,
-        lab: t,
-        kikiwiwi: t,
-      },
+      times: Object.fromEntries(MILESTONES.map((m) => [m, t])) as Record<Milestone, number>,
       final: { population: 0, buildings: 0, produced: 0 },
     });
     const group = (id: string, t: number) => ({ id, label: id, runs: [fake('kiwisu', t)] });

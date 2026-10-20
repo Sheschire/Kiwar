@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import {
-  alienDefOf,
+  potentialLoot,
   availableCrew,
   intelView,
   reconForecast,
@@ -328,7 +328,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
               </span>
               {mission === 'raid' && (
                 <span class="small">
-                  {t('expedition.potentialLoot')} <Cost cost={alienDefOf(x.distance).loot} />
+                  {t('expedition.potentialLoot')} <Cost cost={potentialLoot(game, x.distance)} />
                 </span>
               )}
             </button>
@@ -448,7 +448,9 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
         )}
         {!f.recon && f.crew.length > 0 && (
           <p class="small">
-            {t('expedition.expectedLosses', { count: Math.round(f.expectedLosses * 10) / 10 })}
+            {t(f.woundsOnly ? 'expedition.expectedWounds' : 'expedition.expectedLosses', {
+              count: Math.round(f.expectedLosses * 10) / 10,
+            })}
           </p>
         )}
         {f.fed < 1 && <p class="small muted">{t('expedition.hungry')}</p>}

@@ -285,13 +285,13 @@ describe('expeditions', () => {
     let weakLost = 0;
     for (let i = 0; i < 60; i++) {
       const seeded: GameState = { ...base, rng: hashSeed(`losses-${i}`) };
-      // A close fight: about half the crew falls.
+      // A lost fight (chantier 18: victories only wound): about half the crew falls.
       const cmd: Command = {
         type: 'launchExpedition',
         launchpadId: padId as never,
         targetId,
         crew: ids,
-        provisions: { pulp: 80, juice: 40 },
+        provisions: { pulp: 0, juice: 0 },
       };
       const launched = run(
         { ...seeded, targets: seeded.targets.map((x) => ({ ...x, defense: 11 })) },
@@ -313,6 +313,28 @@ describe('expeditions', () => {
     }
     expect(weakLost).toBeGreaterThan(strongLost * 1.5);
     expect(strongLost).toBeGreaterThan(0);
+  });
+
+  it('a victory wounds the kiwis hit instead of killing them (chantier 18)', () => {
+    const { s, t, map, padId, targetId } = readyColony();
+    let wounded = 0;
+    for (let i = 0; i < 20; i++) {
+      const seeded: GameState = { ...s, rng: hashSeed(`wounds-${i}`) };
+      const launched = run(seeded, plan(padId, targetId, 8, 120, 60), t, map);
+      const back = advance(launched, t + 4 * HOUR_MS).state;
+      const e = back.expeditions[0]!;
+      if (!e.result!.victory) continue;
+      expect(e.result!.lostInBattle).toEqual([]);
+      for (const id of e.result!.injured ?? []) {
+        const v = back.villagers.find((x) => x.id === id)!;
+        expect(v.job).toEqual({
+          kind: 'injured',
+          until: e.returnAt + EXPEDITIONS.victoryInjuryMs,
+        });
+        wounded++;
+      }
+    }
+    expect(wounded).toBeGreaterThan(0);
   });
 
   it('gives survivors experience and a story', () => {

@@ -1191,23 +1191,36 @@ var EXPEDITIONS = {
   starvingStrength: 0.5,
   /** ± random swing on the crew strength, drawn from the seeded game RNG. */
   luck: 0.1,
-  /** Losses: share of the crew lost in a victory (scaled by defense/strength) / in a defeat. */
+  /**
+   * Share of the crew hit in a victory (scaled by defense/strength) / lost in a defeat.
+   * Chantier 18: in a victory the kiwis hit come back wounded for `victoryInjuryMs`, they do
+   * not die (raids were never worth a kiwi).
+   */
   victoryLosses: { factor: 0.25, max: 0.6 },
+  victoryInjuryMs: ms.h(6),
   defeatLosses: { min: 0.5, max: 0.9 },
   /** Share of survivors lost per missing share of rations on the way back. */
-  starvationLossRate: 0.5
+  starvationLossRate: 0.5,
+  /** Chantier 18: loot multiplier by age (index = age): later ages raid richer stores. */
+  lootByAge: [1, 1.5, 2, 3]
 };
 var ALIEN_TWIN_FACE = {
   defense: 6,
   reinforce: 3,
-  loot: { pulp: 240, fiber: 120, seeds: 120, juice: 180 },
+  // Chantier 18: ×8 so that a well-prepared raid pays for the crew's absence.
+  loot: { pulp: 1920, fiber: 960, seeds: 960, juice: 1440 },
   travelMs: ms.min(90)
 };
 function alienFaceOnKiwi(distance) {
   return {
     defense: 10 + 4 * distance,
     reinforce: 3 + distance,
-    loot: { pulp: 300, fiber: 160, seeds: 150 + 60 * distance, juice: 220 + 80 * distance },
+    loot: {
+      pulp: 2400,
+      fiber: 1280,
+      seeds: 1200 + 480 * distance,
+      juice: 1760 + 640 * distance
+    },
     travelMs: ms.min(90 + 60 * distance)
   };
 }
@@ -4551,6 +4564,17 @@ function strengthOf(state, crew, fed) {
   const scouting = crew.some((v) => hasSkill(v, "scouting")) ? 1 + SKILLS.scoutingStrength : 1;
   return total * EXPEDITIONS.strengthPerKiwi * hunger * scouting;
 }
+function lootByAge(state) {
+  const f = EXPEDITIONS.lootByAge;
+  return f[Math.min(ageOf(state), f.length - 1)] ?? 1;
+}
+function potentialLoot(state, distance) {
+  const base = alienDefOf(distance).loot;
+  const k = lootByAge(state);
+  const out = emptyResources();
+  for (const id3 of RESOURCE_IDS) out[id3] = Math.round(base[id3] * k);
+  return out;
+}
 function forecastExpedition(state, plan) {
   const pad = launchpadOf(state, plan.launchpadId);
   const target = state.targets.find((t) => t.id === plan.targetId);
@@ -4598,6 +4622,7 @@ function forecastExpedition(state, plan) {
     lootRoom,
     crew,
     expectedLosses,
+    woundsOnly: guess !== null && base >= guess,
     risk,
     mission,
     recon: mission === "recon" ? reconForecast(crew, ship) : null,
@@ -4711,7 +4736,8 @@ function resolveArrival(state, e) {
     e.crew.length,
     Math.round(e.crew.length * lossShare(strength, defense) * (1 - armor))
   );
-  const lost = drawLosses(state, members, losses);
+  const hit = drawLosses(state, members, losses);
+  const lost = victory ? [] : hit;
   removeVillagers(state, lost, "battle", e.arriveAt);
   e.crew = e.crew.filter((id3) => !lost.includes(id3));
   const seen = alienEnemies(garrison, defense);
@@ -4730,7 +4756,7 @@ function resolveArrival(state, e) {
     const w = EXPEDITIONS.resourceWeight;
     let room = e.cargo - crewWeight(crewMembers(state, e.crew)) - RESOURCE_IDS.reduce((sum, id3) => sum + e.provisions[id3], 0) * w;
     for (const id3 of ["seeds", "juice", "fiber", "pulp"]) {
-      const wanted = Math.floor(garrison.loot[id3] * bonus);
+      const wanted = Math.floor(garrison.loot[id3] * bonus * lootByAge(state));
       const take = Math.max(0, Math.min(wanted, Math.floor(room / w + 1e-9)));
       loot[id3] = take;
       room -= take * w;
@@ -4744,7 +4770,8 @@ function resolveArrival(state, e) {
     fed: round22(fed),
     lostInBattle: lost.map((id3) => nameOf(e, id3)),
     lostOnReturn: [],
-    loot
+    loot,
+    ...victory && hit.length > 0 ? { injured: hit } : {}
   };
 }
 function resolveRecon(state, e, garrison, defense, members, fed) {
@@ -4847,7 +4874,10 @@ function resolveReturn(state, e, events = []) {
   const hurt = new Set(result.injured ?? []);
   for (const v of state.villagers) {
     if (v.job.kind !== "expedition" || v.job.expeditionId !== e.id) continue;
-    v.job = hurt.has(v.id) ? { kind: "injured", until: e.returnAt + RECON.injuryMs } : { kind: "idle" };
+    v.job = hurt.has(v.id) ? {
+      kind: "injured",
+      until: e.returnAt + (e.mission === "recon" ? RECON.injuryMs : EXPEDITIONS.victoryInjuryMs)
+    } : { kind: "idle" };
   }
   e.provisions = emptyResources();
   e.status = "done";
@@ -12827,6 +12857,7 @@ export {
   libraryLevel,
   localAlienSeed,
   logisticsEfficiency,
+  lootByAge,
   masteryHours,
   masteryProgress,
   maxCrew,
@@ -12889,6 +12920,7 @@ export {
   poolCapacity,
   population,
   postKind,
+  potentialLoot,
   presence,
   productionRates,
   protectedStock,

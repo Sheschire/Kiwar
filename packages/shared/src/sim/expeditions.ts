@@ -1,6 +1,7 @@
 import { FUEL } from '../data/comets';
 import { levelDef } from '../data/buildings';
 import {
+  alienDefOf,
   EXPEDITIONS,
   INTEL,
   RECON,
@@ -79,9 +80,11 @@ export interface ExpeditionForecast {
   lootRoom: number;
   /** Kiwis boarding (empty if the choice is invalid). */
   crew: Villager[];
-  /** Losses to expect in battle at average luck. */
+  /** Kiwis hit in battle at average luck (lost, or only wounded when `woundsOnly`). */
   expectedLosses: number;
-  /** Chance of each kiwi to be lost in battle at average luck (0–1). */
+  /** Chantier 18: a victory is expected, so the kiwis hit come back wounded, not dead. */
+  woundsOnly: boolean;
+  /** Chance of each kiwi to be hit in battle at average luck (0–1). */
   risk: Record<string, number>;
   mission: MissionKind;
   /** Reconnaissance only. */
@@ -270,6 +273,21 @@ function strengthOf(state: GameState, crew: readonly Villager[], fed: number): n
   return total * EXPEDITIONS.strengthPerKiwi * hunger * scouting;
 }
 
+/** Chantier 18: loot multiplier of the colony's age. */
+export function lootByAge(state: GameState): number {
+  const f = EXPEDITIONS.lootByAge;
+  return f[Math.min(ageOf(state), f.length - 1)] ?? 1;
+}
+
+/** Usual loot of a target for this colony (public numbers × age). */
+export function potentialLoot(state: GameState, distance: number): Resources {
+  const base = alienDefOf(distance).loot;
+  const k = lootByAge(state);
+  const out = emptyResources();
+  for (const id of RESOURCE_IDS) out[id] = Math.round(base[id] * k);
+  return out;
+}
+
 /** Everything the preparation screen shows; the same maths drive the simulation. */
 export function forecastExpedition(
   state: GameState,
@@ -332,6 +350,7 @@ export function forecastExpedition(
     lootRoom,
     crew,
     expectedLosses,
+    woundsOnly: guess !== null && base >= guess,
     risk,
     mission,
     recon: mission === 'recon' ? reconForecast(crew, ship) : null,
@@ -473,7 +492,9 @@ export function resolveArrival(state: GameState, e: Expedition): void {
     e.crew.length,
     Math.round(e.crew.length * lossShare(strength, defense) * (1 - armor)),
   );
-  const lost = drawLosses(state, members, losses);
+  // Chantier 18: a victory only wounds the kiwis hit; a defeat kills them.
+  const hit = drawLosses(state, members, losses);
+  const lost = victory ? [] : hit;
   removeVillagers(state, lost, 'battle', e.arriveAt);
   e.crew = e.crew.filter((id) => !lost.includes(id));
 
@@ -499,7 +520,7 @@ export function resolveArrival(state: GameState, e: Expedition): void {
       RESOURCE_IDS.reduce((sum, id) => sum + e.provisions[id], 0) * w;
     // Most precious first: seeds, juice, fibre, pulp.
     for (const id of ['seeds', 'juice', 'fiber', 'pulp'] as const) {
-      const wanted = Math.floor(garrison.loot[id] * bonus);
+      const wanted = Math.floor(garrison.loot[id] * bonus * lootByAge(state));
       const take = Math.max(0, Math.min(wanted, Math.floor(room / w + 1e-9)));
       loot[id] = take;
       room -= take * w;
@@ -514,6 +535,7 @@ export function resolveArrival(state: GameState, e: Expedition): void {
     lostInBattle: lost.map((id) => nameOf(e, id)),
     lostOnReturn: [],
     loot,
+    ...(victory && hit.length > 0 ? { injured: hit } : {}),
   };
 }
 
@@ -638,7 +660,11 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
   for (const v of state.villagers) {
     if (v.job.kind !== 'expedition' || v.job.expeditionId !== e.id) continue;
     v.job = hurt.has(v.id)
-      ? { kind: 'injured', until: e.returnAt + RECON.injuryMs }
+      ? {
+          kind: 'injured',
+          until:
+            e.returnAt + (e.mission === 'recon' ? RECON.injuryMs : EXPEDITIONS.victoryInjuryMs),
+        }
       : { kind: 'idle' };
   }
   e.provisions = emptyResources();

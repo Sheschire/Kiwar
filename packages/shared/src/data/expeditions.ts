@@ -21,11 +21,18 @@ export const EXPEDITIONS = {
   starvingStrength: 0.5,
   /** ± random swing on the crew strength, drawn from the seeded game RNG. */
   luck: 0.1,
-  /** Losses: share of the crew lost in a victory (scaled by defense/strength) / in a defeat. */
+  /**
+   * Share of the crew hit in a victory (scaled by defense/strength) / lost in a defeat.
+   * Chantier 18: in a victory the kiwis hit come back wounded for `victoryInjuryMs`, they do
+   * not die (raids were never worth a kiwi).
+   */
   victoryLosses: { factor: 0.25, max: 0.6 },
+  victoryInjuryMs: ms.h(6),
   defeatLosses: { min: 0.5, max: 0.9 },
   /** Share of survivors lost per missing share of rations on the way back. */
   starvationLossRate: 0.5,
+  /** Chantier 18: loot multiplier by age (index = age): later ages raid richer stores. */
+  lootByAge: [1, 1.5, 2, 3] as readonly number[],
 } as const;
 
 export interface ExpeditionTargetDef {
@@ -43,7 +50,8 @@ export interface ExpeditionTargetDef {
 export const ALIEN_TWIN_FACE: ExpeditionTargetDef = {
   defense: 6,
   reinforce: 3,
-  loot: { pulp: 240, fiber: 120, seeds: 120, juice: 180 },
+  // Chantier 18: ×8 so that a well-prepared raid pays for the crew's absence.
+  loot: { pulp: 1920, fiber: 960, seeds: 960, juice: 1440 },
   travelMs: ms.min(90),
 };
 
@@ -52,7 +60,12 @@ export function alienFaceOnKiwi(distance: number): ExpeditionTargetDef {
   return {
     defense: 10 + 4 * distance,
     reinforce: 3 + distance,
-    loot: { pulp: 300, fiber: 160, seeds: 150 + 60 * distance, juice: 220 + 80 * distance },
+    loot: {
+      pulp: 2400,
+      fiber: 1280,
+      seeds: 1200 + 480 * distance,
+      juice: 1760 + 640 * distance,
+    },
     travelMs: ms.min(90 + 60 * distance),
   };
 }

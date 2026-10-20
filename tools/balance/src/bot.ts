@@ -41,6 +41,7 @@ import {
 } from '@kiwar/shared';
 import { researchStaffing, ageDecision } from './bot/ages';
 import { campOrder } from './bot/camps';
+import { expeditionOrder, launchpadOrder } from './bot/expeditions';
 import { pathOrder } from './bot/paths';
 import { defenseOrders, turretDecision } from './bot/defense';
 import {
@@ -70,6 +71,8 @@ export const MILESTONES = [
   'industry',
   'lab',
   'kikiwiwi',
+  'recon',
+  'raidWon',
 ] as const;
 export type Milestone = (typeof MILESTONES)[number];
 
@@ -98,6 +101,13 @@ export interface RunResult {
     /** Chantier 18: path tiles at the end, camps set up during the run. */
     paths?: number;
     camps?: number;
+    /** Chantier 18: reconnaissance missions and raids back home, raids won, kiwis lost on
+     *  expeditions, loot brought back (all resources, raw units). */
+    recons?: number;
+    raids?: number;
+    raidsWon?: number;
+    expeditionDeaths?: number;
+    loot?: number;
   };
 }
 
@@ -120,7 +130,13 @@ function decide(state: GameState, map: FaceMap, play: Play): Command[] {
   for (const v of state.villagers) {
     if (v.statPoints <= 0) continue;
     const stat =
-      v.classId === 'mayor' ? 'charisma' : v.classId === 'builder' ? 'strength' : 'dexterity';
+      v.classId === 'mayor'
+        ? 'charisma'
+        : v.classId === 'builder' || v.classId === 'warrior'
+          ? 'strength'
+          : v.classId === 'scout'
+            ? 'agility'
+            : 'dexterity';
     if (v.stats[stat] < KIWI.stat.cap)
       cmds.push({ type: 'spendStatPoint', villagerId: v.id, stat });
   }
@@ -135,6 +151,14 @@ function decide(state: GameState, map: FaceMap, play: Play): Command[] {
   // Researchers (chantier 08): kiwis never join the Library on their own.
   const staffing = researchStaffing(state);
   if (staffing) return [...cmds, staffing];
+
+  // Chantier 18: reconnaissance and raids (before the Kikiwiwi goes back to the rampart).
+  // Looked at every half hour of game time (the plans are costly to weigh).
+  if (play.expeditions && state.now >= play.expeditionsAt) {
+    const expedition = expeditionOrder(state, map);
+    if (expedition) cmds.push(expedition);
+    else play.expeditionsAt = state.now + HOUR_MS / 2;
+  }
 
   // Kikiwiwis (chantier 08): an infusion, the garrison, titan works.
   const titan = titanOrders(state, map);
@@ -225,13 +249,19 @@ function decide(state: GameState, map: FaceMap, play: Play): Command[] {
   if (turret) return [...cmds, turret];
 
   // 2b. RPG (chantier 03): a School once the Nest is level 2, then a mayor and a builder.
-  const rpg = rpgDecision(state, map, build, has);
+  const rpg = rpgDecision(state, map, build, has, play.expeditions);
   if (rpg) return [...cmds, rpg];
 
   // 2c. Research and ages (chantier 08): Library, researchers, technologies, the monument.
   const ages = ageDecision(state, map, build, has);
   if (ages === 'save') return cmds;
   if (ages) return [...cmds, ages];
+
+  // 2c'. Chantier 18: a launchpad once the Library stands.
+  if (play.expeditions) {
+    const pad = launchpadOrder(state, build);
+    if (pad) return [...cmds, pad];
+  }
 
   // 2d. The laboratory against nature once its technology is known; stumps in the way.
   const lab = labDecision(state, build, has);
@@ -345,8 +375,9 @@ function checkMilestones(
 export const MECHANICS = ['paths', 'camps', 'expeditions'] as const;
 export type Mechanic = (typeof MECHANICS)[number];
 interface Play extends Record<Mechanic, boolean> {
-  /** Next look at the paths. */
+  /** Next look at the paths and at the expeditions. */
   pathsAt: number;
+  expeditionsAt: number;
 }
 
 export interface RunOptions {
@@ -382,6 +413,7 @@ export function runBot(opts: RunOptions): RunResult {
       boolean
     >),
     pathsAt: 0,
+    expeditionsAt: 0,
   };
   const times = Object.fromEntries(MILESTONES.map((m) => [m, null])) as Record<
     Milestone,
@@ -394,12 +426,30 @@ export function runBot(opts: RunOptions): RunResult {
   let wavesSeen = 0;
   let dustPicked = 0;
   let campsSet = 0;
+  const trips = { recons: 0, raids: 0, raidsWon: 0, loot: 0 };
+  const counted = new Set<string>();
   while (now - start < opts.horizonMs) {
     const dustBefore = state.stardust;
     state = advance(state, now).state;
     dustPicked += Math.max(0, state.stardust - dustBefore);
     map = faceMapOf(state);
     maxHunger = Math.max(maxHunger, state.hunger);
+    for (const e of state.expeditions) {
+      if (e.status !== 'done' || counted.has(e.id) || !e.result) continue;
+      counted.add(e.id);
+      if (e.result.aborted) continue;
+      if (e.mission === 'recon') {
+        trips.recons++;
+        if (times.recon === null) times.recon = e.returnAt - start;
+        continue;
+      }
+      trips.raids++;
+      if (e.result.victory) {
+        trips.raidsWon++;
+        if (times.raidWon === null) times.raidWon = e.returnAt - start;
+      }
+      trips.loot += RESOURCE_IDS.reduce((sum, id) => sum + e.result!.loot[id], 0);
+    }
     // Count the waves lost since the last look (reports keep the last few).
     if (state.threats.waves > wavesSeen) {
       const fresh = state.threats.reports.slice(-(state.threats.waves - wavesSeen));
@@ -457,6 +507,10 @@ export function runBot(opts: RunOptions): RunResult {
       stardust: stardustOf(state),
       paths: state.paths.length,
       camps: campsSet,
+      ...trips,
+      expeditionDeaths: state.memorial.filter(
+        (m) => m.cause === 'battle' || m.cause === 'starvation',
+      ).length,
     },
   };
 }

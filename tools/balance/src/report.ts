@@ -52,6 +52,9 @@ function statsOf(runs: RunResult[], milestone: Milestone): MilestoneStats {
  * Every group against the reference (median of the groups' medians): a milestone is flagged
  * when one group is more than `thresholdPercent` away, or reaches it much less often.
  */
+/** Milestones shown for information only: they depend on choices more than on the land. */
+export const INFORMATIVE: ReadonlySet<Milestone> = new Set(['recon', 'raidWon']);
+
 export function compare(groups: Group[], thresholdPercent: number): Comparison[] {
   return MILESTONES.map((milestone) => {
     const stats: Record<string, MilestoneStats> = {};
@@ -73,7 +76,7 @@ export function compare(groups: Group[], thresholdPercent: number): Comparison[]
       if (gap !== null && (worst === null || Math.abs(gap) > Math.abs(worst))) worst = gap;
       if (gap !== null && Math.abs(gap) > thresholdPercent) flagged = true;
     }
-    return { milestone, stats, gaps, worst, flagged };
+    return { milestone, stats, gaps, worst, flagged: flagged && !INFORMATIVE.has(milestone) };
   });
 }
 
@@ -104,6 +107,8 @@ export const LABELS: Record<Milestone, string> = {
   industry: 'Industrial age',
   lab: 'Laboratory against nature',
   kikiwiwi: 'First Kikiwiwi',
+  recon: 'First reconnaissance back',
+  raidWon: 'First raid won',
 };
 
 export const BIOME_LABELS: Record<BiomeId, string> = {
@@ -167,6 +172,26 @@ function threatTable(groups: Group[], lines: string[]): void {
   lines.push('');
 }
 
+/** Chantier 18: paths, camps and expeditions played by the bot (averages per run). */
+function mechanicsTable(groups: Group[], horizonHours: number, lines: string[]): void {
+  const avg = (runs: RunResult[], f: (r: RunResult) => number) =>
+    runs.length ? runs.reduce((s, r) => s + f(r), 0) / runs.length : 0;
+  const days = horizonHours / 24;
+  lines.push('## Paths, camps and expeditions (average per run)', '');
+  lines.push(
+    '| Biome | Path tiles | Camps set up | Reconnaissances | Raids | Won | Loot per day | Kiwis lost on expeditions |',
+  );
+  lines.push('|---|---|---|---|---|---|---|---|');
+  for (const g of groups) {
+    const raids = avg(g.runs, (r) => r.final.raids ?? 0);
+    const won = avg(g.runs, (r) => r.final.raidsWon ?? 0);
+    lines.push(
+      `| ${g.label} | ${avg(g.runs, (r) => r.final.paths ?? 0).toFixed(0)} | ${avg(g.runs, (r) => r.final.camps ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.recons ?? 0).toFixed(1)} | ${raids.toFixed(1)} | ${raids > 0 ? Math.round((won / raids) * 100) : 0} % | ${(avg(g.runs, (r) => r.final.loot ?? 0) / days).toFixed(0)} | ${avg(g.runs, (r) => r.final.expeditionDeaths ?? 0).toFixed(2)} |`,
+    );
+  }
+  lines.push('');
+}
+
 export function toMarkdown(
   biomes: { groups: Group[]; comparisons: Comparison[] },
   faces: { groups: Group[]; comparisons: Comparison[] },
@@ -185,6 +210,7 @@ export function toMarkdown(
   lines.push('## Kiwisu vs Kiwino (all biomes of each face)', '');
   table(faces.groups, faces.comparisons, lines);
   threatTable(biomes.groups, lines);
+  mechanicsTable(biomes.groups, meta.horizonHours, lines);
   const flagged = [...biomes.comparisons, ...faces.comparisons].filter((c) => c.flagged);
   lines.push(
     flagged.length === 0
@@ -193,7 +219,7 @@ export function toMarkdown(
   );
   lines.push(
     '',
-    'Bot: follows the tutorial, keeps kiwis busy, hatches eggs, builds one of each building on the site with the most deposits in reach (weighted by logistics), then upgrades the bottleneck producer (or opens a new site when its deposits are exhausted), adds housing/storage when needed and upgrades the Nest as soon as possible. It keeps clear of floodable tiles. Chantier 18: it paves the walk from a producer to its depot when the extra harvest pays the fiber back within 6 h (checked once per game hour), which also retraces trampled paths; it sets up a camp on every meteorite crater (pulling a worker from the most plentiful resource) and, when kiwis are left idle, on the richest free deposit of the bottleneck resource. Chantier 06: one turret of each model after the Nest 2 (more, or upgraded, after a lost wave), guards posted 40 min before a strike to close the forecast gap, shelter when deaths or several injuries are still expected, repairs first. Chantier 08: a Library after the Nest 3 and the School, one researcher per five kiwis, the economy then each passage first, the monument as soon as its passage is known (it saves up for it).',
+    'Bot: follows the tutorial, keeps kiwis busy, hatches eggs, builds one of each building on the site with the most deposits in reach (weighted by logistics), then upgrades the bottleneck producer (or opens a new site when its deposits are exhausted), adds housing/storage when needed and upgrades the Nest as soon as possible. It keeps clear of floodable tiles. Chantier 18: it paves the walk from a producer to its depot when the extra harvest pays the fiber back within 6 h (checked once per game hour), which also retraces trampled paths; it sets up a camp on every meteorite crater (pulling a worker from the most plentiful resource) and, when kiwis are left idle, on the richest free deposit of the bottleneck resource. Chantier 06: one turret of each model after the Nest 2 (more, or upgraded, after a lost wave), guards posted 40 min before a strike to close the forecast gap, shelter when deaths or several injuries are still expected, repairs first. Chantier 08: a Library after the Nest 3 and the School, one researcher per five kiwis, the economy then each passage first, the monument as soon as its passage is known (it saves up for it). Chantier 18: a launchpad once the Library stands, two warriors and a scout, a reconnaissance of the twin face whenever the report is no longer fresh, and a raid when the forecast gives a likely victory and the loot (limited by the hold) beats the provisions, the wounds and the absence of the crew (less the experience brought back); the mayor, the builders and the best researcher stay home; the Kikiwiwi stands down from the rampart for a raid when no wave is due.',
   );
   return lines.join('\n') + '\n';
 }

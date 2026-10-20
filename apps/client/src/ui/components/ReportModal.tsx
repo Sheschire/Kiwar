@@ -76,8 +76,12 @@ export function ReportModal() {
           </p>
         </>
       )}
-      {r.lostInBattle.length === 0 && r.lostOnReturn.length === 0 && e.status === 'done' && (
-        <p class="bonus">{t('expedition.noLosses')}</p>
+      {r.lostInBattle.length === 0 &&
+        r.lostOnReturn.length === 0 &&
+        injured.length === 0 &&
+        e.status === 'done' && <p class="bonus">{t('expedition.noLosses')}</p>}
+      {!recon && injured.length > 0 && (
+        <p class="small warn">{t('expedition.injured', { names: injured.join(', ') })}</p>
       )}
       {r.lostInBattle.length > 0 && (
         <p class="small">{t('expedition.lostInBattle', { names: r.lostInBattle.join(', ') })}</p>

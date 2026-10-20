@@ -1092,3 +1092,42 @@ PC), while phones are very smooth. Measured with Playwright/CDP on the `perfSave
   `BasicShadowMap` branch (`render/shadowChunk.ts`; slightly crisper shadows). Lambert instead
   of PBR was measured: no gain, not done. MSAA and the 1.25 ratio kept (owner's earlier
   choice).
+
+## Chantier 18 — Complete balance bot: paths, camps, expeditions
+
+- **Owner's answers**: an occasional player (three visits a day after the first hours) should
+  progress at about 2/3 of the attentive pace (ages ~1.5× later); no deliveries between allies
+  in the bot (solo only, revisit with chantier 19); the official report stays 200 seeds × 72 h
+  plus a long "ages" section; the age targets (Stone ≈ 1.5 d, Iron ≈ 4 d, Industry ≈ 8 d) are
+  for the complete bot, which uses every mechanic.
+- **Bot layout**: `tools/balance/src/bot.ts` keeps the run loop and the decision order; one
+  module per domain in `bot/` (economy, defense, rpg, ages, titans, sky, paths, camps,
+  expeditions). `runBot({ without })` leaves mechanics aside for the impact report.
+- **Paths**: once per game hour, the route from each producer to its nearest depot (Dijkstra on
+  the walking cost once paved, existing paths shared) is paved when the extra harvest pays the
+  fiber back within 6 h (all resources counted alike), keeping twice the cost in fiber.
+  Trampled or storm-swept tiles come back the same way. Big effect: Nest 3 and Library ~3.6 h
+  instead of 3.5–6.5 h.
+- **Camps**: one on every meteorite crater holding something, fully staffed (a worker pulled
+  from the most plentiful resource); with idle kiwis and no producer on its way, one on the
+  richest free deposit of the bottleneck resource; dismantled once spent or as soon as a
+  workplace wants the kiwis back (a 3 h minimum stay slowed the Nest 3 by 75 %).
+- **Raids were never worth it** (measured): a won raid on the twin face cost 1.5–2 dead kiwis
+  whatever the crew (losses = crew × 0.25 × defense/strength), while an egg costs 3 000 to
+  20 000 resources, and the loot (≤ 660) was a quarter of an hour of production. Owner's
+  choice (rule change): **in a victory the kiwis hit come back wounded for 6 h**
+  (`EXPEDITIONS.victoryInjuryMs`, `result.injured`), only a defeat or starvation on the way
+  back kills; the forecast says "victory expected: about n wounded, no deaths"
+  (`ExpeditionForecast.woundsOnly`). **Loot ×8** (twin face 1 920 / 960 / 960 / 1 440, other
+  faces likewise) and **× the age** (`EXPEDITIONS.lootByAge` 1 / 1.5 / 2 / 3, `lootByAge`,
+  `potentialLoot` for the target cards): with ×2 a raid still brought ~1 500 for ~5 000–9 000
+  of cost (mostly ten kiwis away for three hours). Garrisons drawn before the change keep
+  their old loot (× the age).
+- **Expedition bot**: a launchpad once the Library stands; two warriors and a scout; a
+  reconnaissance of the twin face whenever the report is not fresh (a fresh report narrows
+  the range, hence the crew); a raid when the shared forecast says `likely` and the loot
+  (limited by the hold) beats the provisions, the wounds (6 h of work each), and the crew's
+  absence less the experience brought back (an hour of XP counted as a quarter of an hour of
+  work); never the mayor, the builders or the best researcher; the Kikiwiwi stands down from
+  the rampart for a raid when no wave is announced; a day of rest after a raid that lost two
+  kiwis. The aliens' reinforcements after each victory end the raids on their own.
