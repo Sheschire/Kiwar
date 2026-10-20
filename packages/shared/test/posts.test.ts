@@ -4,6 +4,8 @@ import {
   cloneState,
   idleVillagers,
   jobBoard,
+  migrateState,
+  SCHEMA_VERSION,
   kiwiPosts,
   validateCommand,
   workerPower,
@@ -170,5 +172,89 @@ describe('assigning a given kiwi (chantier 09)', () => {
     expect(board.unassigned).toHaveLength(s.villagers.length - 1);
     expect(board.freeSlots).toBe(1);
     expect(workshop.id).toBe(board.rows[1]!.buildings[0]!.building.id);
+  });
+});
+
+describe('kiwi flags (chantier 09)', () => {
+  it('sends the priority builder first, then back to its workplace', () => {
+    const { map, s: start, pulpery } = colony();
+    const [a, b] = idleVillagers(start);
+    let s = run(start, { type: 'assignKiwi', villagerId: a!.id, buildingId: pulpery.id }, T0, map);
+    s = run(s, { type: 'setKiwiFlags', villagerId: a!.id, builderPriority: true }, s.now, map);
+    expect(s.villagers.find((v) => v.id === a!.id)!.builderPriority).toBe(true);
+    const flesh = findTile(map, 'flesh', 3);
+    s = run(s, { type: 'build', buildingType: 'hut', q: flesh.q, r: flesh.r }, s.now, map);
+    // Idle kiwis (b among them) were there, but the priority builder goes.
+    const job = s.villagers.find((v) => v.id === a!.id)!.job;
+    expect(job).toMatchObject({ kind: 'build', returnTo: pulpery.id });
+    expect(s.villagers.find((v) => v.id === b!.id)!.job.kind).not.toBe('build');
+    s = advance(s, s.now + 4 * 60 * 60_000).state;
+    expect(s.queue).toHaveLength(0);
+    expect(ids(s, pulpery.id)).toEqual([a!.id]);
+    s = run(s, { type: 'setKiwiFlags', villagerId: a!.id, builderPriority: false }, s.now, map);
+    expect(s.villagers.find((v) => v.id === a!.id)).not.toHaveProperty('builderPriority');
+  });
+
+  it('never borrows a locked worker for a construction', () => {
+    const { map, s: start, pulpery, workshop } = colony();
+    let s = start;
+    for (const b of [pulpery, workshop])
+      s = run(s, { type: 'assignWorkers', buildingId: b.id, count: 1 }, s.now, map);
+    // Nobody idle: the builder must be borrowed.
+    s = cloneState(s);
+    s.villagers = s.villagers.filter((v) => v.job.kind === 'work');
+    const [p] = workersOf(s, pulpery.id);
+    const [w] = workersOf(s, workshop.id);
+    const lockedP = run(s, { type: 'setKiwiFlags', villagerId: p!.id, locked: true }, s.now, map);
+    const flesh = findTile(map, 'flesh', 3);
+    const build = { type: 'build', buildingType: 'hut', q: flesh.q, r: flesh.r } as const;
+    // Both locked: the site goes on without a builder.
+    let both = run(lockedP, { type: 'setKiwiFlags', villagerId: w!.id, locked: true }, s.now, map);
+    both = run(both, build, s.now, map);
+    expect(both.villagers.some((v) => v.job.kind === 'build')).toBe(false);
+    // Only one locked: the other one is borrowed.
+    const one = run(lockedP, build, s.now, map);
+    expect(one.villagers.find((v) => v.id === w!.id)!.job.kind).toBe('build');
+    expect(one.villagers.find((v) => v.id === p!.id)!.job.kind).toBe('work');
+  });
+
+  it('refuses the builder flag on a Kikiwiwi and unknown kiwis', () => {
+    const { map, s: start } = colony();
+    const s = cloneState(start);
+    s.villagers[0]!.kikiwiwi = { since: s.now };
+    const ctx = { now: s.now, map };
+    expect(
+      validateCommand(
+        s,
+        { type: 'setKiwiFlags', villagerId: s.villagers[0]!.id, builderPriority: true },
+        ctx,
+      ),
+    ).toBe('kikiwiwiNoWork');
+    expect(
+      validateCommand(
+        s,
+        { type: 'setKiwiFlags', villagerId: 'x' as VillagerId, locked: true },
+        ctx,
+      ),
+    ).toBe('unknownVillager');
+  });
+
+  it('migrates a v17 save and keeps the flags through a save', () => {
+    const { state } = setup();
+    const old = JSON.parse(JSON.stringify({ ...state, schemaVersion: 17 }));
+    const m = migrateState(old);
+    expect(m.ok).toBe(true);
+    if (!m.ok) return;
+    expect(m.state.schemaVersion).toBe(SCHEMA_VERSION);
+    const flagged = cloneState(m.state);
+    flagged.villagers[0]!.locked = true;
+    flagged.villagers[0]!.builderPriority = true;
+    flagged.villagers[0]!.homeJob = 'b1' as never;
+    const back = migrateState(JSON.parse(JSON.stringify(flagged)));
+    expect(back.ok && back.state.villagers[0]).toMatchObject({
+      locked: true,
+      builderPriority: true,
+      homeJob: 'b1',
+    });
   });
 });

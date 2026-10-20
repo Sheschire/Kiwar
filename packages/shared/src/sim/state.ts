@@ -29,7 +29,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 18;
 
 export type Job =
   | { kind: 'idle' }
@@ -89,6 +89,12 @@ export interface Villager {
   skillReadyAt: Partial<Record<SkillId, TimeMs>>;
   /** Chantier 08: transformed by juice into a Kikiwiwi (absent for ordinary kiwis). */
   kikiwiwi?: { since: TimeMs };
+  /** Chantier 09: never moved automatically (no borrowing, no redirection). */
+  locked?: true;
+  /** Chantier 09: goes to every new construction site first. */
+  builderPriority?: true;
+  /** Chantier 09: workplace left when its stock was full, to go back to later. */
+  homeJob?: BuildingId;
 }
 
 /** A kiwi lost for good (expeditions), remembered in the village screen. */

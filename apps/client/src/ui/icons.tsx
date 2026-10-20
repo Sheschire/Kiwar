@@ -543,3 +543,31 @@ export function BookIcon({ size = 22, class: cls }: IconProps) {
     </>,
   );
 }
+
+/** Chantier 09: a kiwi kept at its post (never moved automatically). */
+export function LockIcon({ size = 22, class: cls }: IconProps) {
+  return svg(
+    size,
+    cls,
+    <>
+      <path
+        d="M10 14v-4a6 6 0 0 1 12 0v4"
+        fill="none"
+        stroke="#6a4a2e"
+        stroke-width="2.4"
+        stroke-linecap="round"
+      />
+      <rect
+        x="7"
+        y="14"
+        width="18"
+        height="13"
+        rx="3"
+        fill="#d8a03a"
+        stroke="#6a4a2e"
+        stroke-width="1.6"
+      />
+      <circle cx="16" cy="20" r="2" fill="#6a4a2e" />
+    </>,
+  );
+}

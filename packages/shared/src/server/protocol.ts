@@ -30,6 +30,12 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     buildingId: id.nullable(),
     replace: id.optional(),
   }),
+  z.object({
+    type: z.literal('setKiwiFlags'),
+    villagerId: id,
+    locked: z.boolean().optional(),
+    builderPriority: z.boolean().optional(),
+  }),
   z.object({ type: z.literal('hatchEgg') }),
   z.object({ type: z.literal('claimObjective') }),
   z.object({

@@ -91,6 +91,8 @@ export type Command =
       buildingId: BuildingId | null;
       replace?: VillagerId;
     }
+  /** Chantier 09: the lock (never moved automatically) and the builder priority of a kiwi. */
+  | { type: 'setKiwiFlags'; villagerId: VillagerId; locked?: boolean; builderPriority?: boolean }
   | { type: 'hatchEgg' }
   | { type: 'claimObjective' }
   | {
@@ -510,6 +512,16 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
           autoAssign(s, other);
         }
       }
+      return;
+    }
+    case 'setKiwiFlags': {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail('unknownVillager');
+      if (cmd.builderPriority && v.kikiwiwi) fail('kikiwiwiNoWork');
+      if (cmd.locked === true) v.locked = true;
+      else if (cmd.locked === false) delete v.locked;
+      if (cmd.builderPriority === true) v.builderPriority = true;
+      else if (cmd.builderPriority === false) delete v.builderPriority;
       return;
     }
     case 'hatchEgg': {

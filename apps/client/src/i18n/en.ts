@@ -1073,6 +1073,13 @@ export const en = {
       night: 'Night',
       empty: 'Nobody',
     },
+    locked: 'Keep at post',
+    lockedHint:
+      'This kiwi is never moved automatically: no borrowing for a construction, no redirection when a stock is full.',
+    builderPriority: 'Priority builder',
+    builderPriorityHint:
+      'This kiwi goes to every new construction site first, then back to its post.',
+    flagsHint: 'Moved freely: builder when needed, redirected when its stock is full.',
     workersOn: '{count} kiwi(s) harvesting',
     unassigned: '{count} without a post',
     unassignedHint: 'Kiwis without a post while workplaces have room: open the job board.',

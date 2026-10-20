@@ -2202,6 +2202,35 @@ button.chip:focus-visible {
   gap: 8px;
 }
 
+.kiwi-flags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.kiwi-flags .small {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.flag-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.flag-toggle:not(.btn-active) .icon {
+  opacity: 0.55;
+  filter: grayscale(0.6);
+}
+
+.flag-icons {
+  display: inline-flex;
+  gap: 2px;
+  vertical-align: -2px;
+}
+
 .stepper-small {
   display: inline-flex;
   align-items: center;

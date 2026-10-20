@@ -32,7 +32,7 @@ import {
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { pushToast, useT, useUi, uiStore } from '../store';
-import { BookIcon, ResourceIcon } from '../icons';
+import { BookIcon, HammerIcon, LockIcon, ResourceIcon } from '../icons';
 import { Cost } from './Cost';
 import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
@@ -126,6 +126,7 @@ function KiwiList() {
                 <span class="kiwi-row-name">
                   {v.name}
                   {v.kikiwiwi && <span class="badge badge-titan">{t('kikiwiwi.badge')}</span>}
+                  <FlagIcons v={v} />
                   {v.statPoints > 0 && (
                     <span
                       class="badge badge-points"
@@ -432,6 +433,7 @@ function KiwiSheet({ v }: { v: Villager }) {
       {assigning && canAssign && (
         <PostPicker game={game} v={v} onDone={() => setAssigning(false)} />
       )}
+      <KiwiFlags v={v} />
 
       {v.kikiwiwi && <TitanSection game={game} />}
       <GuardSection game={game} v={v} />
@@ -767,6 +769,7 @@ function KiwiChips({ kiwis }: { kiwis: Villager[] }) {
         <button key={v.id} class="kiwi-chip" title={v.name} onClick={() => actions.showKiwi(v.id)}>
           <KiwiPortrait shiny={v.shiny} classId={v.classId} seed={v.id} size={26} />
           <span class="small">{v.name}</span>
+          <FlagIcons v={v} />
         </button>
       ))}
     </span>
@@ -925,5 +928,61 @@ function BoardLine({
         </ul>
       )}
     </li>
+  );
+}
+
+/** Small icons of a kiwi's flags (locked, priority builder). */
+export function FlagIcons({ v }: { v: Villager }) {
+  const t = useT();
+  if (!v.locked && !v.builderPriority) return null;
+  return (
+    <span class="flag-icons">
+      {v.locked && (
+        <span title={t('posts.locked')}>
+          <LockIcon size={14} />
+        </span>
+      )}
+      {v.builderPriority && (
+        <span title={t('posts.builderPriority')}>
+          <HammerIcon size={14} />
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Chantier 09: keep a kiwi at its post, or send it to every construction site first. */
+function KiwiFlags({ v }: { v: Villager }) {
+  const t = useT();
+  const toggle = (flags: { locked?: boolean; builderPriority?: boolean }) =>
+    actions.dispatch({ type: 'setKiwiFlags', villagerId: v.id, ...flags });
+  return (
+    <div class="kiwi-flags">
+      <button
+        class={`btn btn-small flag-toggle ${v.locked ? 'btn-active' : ''}`}
+        aria-pressed={!!v.locked}
+        title={t('posts.lockedHint')}
+        onClick={() => toggle({ locked: !v.locked })}
+      >
+        <LockIcon size={16} /> {t('posts.locked')}
+      </button>
+      {!v.kikiwiwi && (
+        <button
+          class={`btn btn-small flag-toggle ${v.builderPriority ? 'btn-active' : ''}`}
+          aria-pressed={!!v.builderPriority}
+          title={t('posts.builderPriorityHint')}
+          onClick={() => toggle({ builderPriority: !v.builderPriority })}
+        >
+          <HammerIcon size={16} /> {t('posts.builderPriority')}
+        </button>
+      )}
+      <p class="small muted">
+        {v.locked
+          ? t('posts.lockedHint')
+          : v.builderPriority
+            ? t('posts.builderPriorityHint')
+            : t('posts.flagsHint')}
+      </p>
+    </div>
   );
 }

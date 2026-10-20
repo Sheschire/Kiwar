@@ -185,6 +185,9 @@ export const gameStateSchema = z.object({
       classId: z.enum(CLASS_IDS).nullable(),
       skillReadyAt: z.record(z.enum(SKILL_IDS), z.number()),
       kikiwiwi: z.object({ since: z.number() }).optional(),
+      locked: z.literal(true).optional(),
+      builderPriority: z.literal(true).optional(),
+      homeJob: id.optional(),
     }),
   ),
   memorial: z
@@ -492,6 +495,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   15: (raw) => raw,
   // v16 → v17: titan works (no tile reshaped yet).
   16: (raw) => ({ ...raw, terraform: {} }),
+  // v17 → v18 (chantier 09): optional kiwi flags (locked, builder priority, home workplace).
+  17: (raw) => raw,
 };
 
 function obstaclesForOldGame(raw: Record<string, unknown>): Obstacle[] {

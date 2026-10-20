@@ -3771,7 +3771,7 @@ function removeObstacle(s, o, at, events, by) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 17;
+var SCHEMA_VERSION = 18;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -5344,6 +5344,13 @@ function startNextConstruction(s, at, events) {
   });
 }
 function pickBuilder(s) {
+  let priority;
+  for (const v of s.villagers) {
+    if (!v.builderPriority || v.kikiwiwi || v.job.kind !== "idle" && v.job.kind !== "work")
+      continue;
+    if (!priority || builderSpeed(v) > builderSpeed(priority)) priority = v;
+  }
+  if (priority) return priority;
   let idle;
   for (const v of idleVillagers(s)) {
     if (v.kikiwiwi) continue;
@@ -5353,7 +5360,7 @@ function pickBuilder(s) {
   let best;
   let bestCount = 0;
   for (const b of s.buildings) {
-    const workers = workersOf(s, b.id);
+    const workers = workersOf(s, b.id).filter((v) => !v.locked);
     if (workers.length > bestCount) {
       bestCount = workers.length;
       best = workers[workers.length - 1];
@@ -6092,6 +6099,16 @@ function execute(s, cmd, ctx, events) {
           autoAssign(s, other);
         }
       }
+      return;
+    }
+    case "setKiwiFlags": {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail("unknownVillager");
+      if (cmd.builderPriority && v.kikiwiwi) fail("kikiwiwiNoWork");
+      if (cmd.locked === true) v.locked = true;
+      else if (cmd.locked === false) delete v.locked;
+      if (cmd.builderPriority === true) v.builderPriority = true;
+      else if (cmd.builderPriority === false) delete v.builderPriority;
       return;
     }
     case "hatchEgg": {
@@ -10582,7 +10599,10 @@ var gameStateSchema = external_exports.object({
       }),
       classId: external_exports.enum(CLASS_IDS).nullable(),
       skillReadyAt: external_exports.record(external_exports.enum(SKILL_IDS), external_exports.number()),
-      kikiwiwi: external_exports.object({ since: external_exports.number() }).optional()
+      kikiwiwi: external_exports.object({ since: external_exports.number() }).optional(),
+      locked: external_exports.literal(true).optional(),
+      builderPriority: external_exports.literal(true).optional(),
+      homeJob: id.optional()
     })
   ),
   memorial: external_exports.array(
@@ -10849,7 +10869,9 @@ var MIGRATIONS = {
   // v15 → v16: laboratory against nature and Kikiwiwis (nothing to fill: optional field).
   15: (raw) => raw,
   // v16 → v17: titan works (no tile reshaped yet).
-  16: (raw) => ({ ...raw, terraform: {} })
+  16: (raw) => ({ ...raw, terraform: {} }),
+  // v17 → v18 (chantier 09): optional kiwi flags (locked, builder priority, home workplace).
+  17: (raw) => raw
 };
 function obstaclesForOldGame(raw) {
   const face = raw.face === "kiwino" ? "kiwino" : "kiwisu";
@@ -10918,6 +10940,12 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     villagerId: id2,
     buildingId: id2.nullable(),
     replace: id2.optional()
+  }),
+  external_exports.object({
+    type: external_exports.literal("setKiwiFlags"),
+    villagerId: id2,
+    locked: external_exports.boolean().optional(),
+    builderPriority: external_exports.boolean().optional()
   }),
   external_exports.object({ type: external_exports.literal("hatchEgg") }),
   external_exports.object({ type: external_exports.literal("claimObjective") }),

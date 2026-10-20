@@ -505,8 +505,18 @@ export function startNextConstruction(s: GameState, at: TimeMs, events: GameEven
   });
 }
 
-/** Prefers the best idle builder; otherwise borrows one from the most staffed workplace. */
+/**
+ * Prefers the fastest priority builder at home (idle or at work), then the best idle builder;
+ * otherwise borrows one from the most staffed workplace (locked kiwis are never borrowed).
+ */
 function pickBuilder(s: GameState): Villager | undefined {
+  let priority: Villager | undefined;
+  for (const v of s.villagers) {
+    if (!v.builderPriority || v.kikiwiwi || (v.job.kind !== 'idle' && v.job.kind !== 'work'))
+      continue;
+    if (!priority || builderSpeed(v) > builderSpeed(priority)) priority = v;
+  }
+  if (priority) return priority;
   let idle: Villager | undefined;
   for (const v of idleVillagers(s)) {
     if (v.kikiwiwi) continue;
@@ -516,7 +526,7 @@ function pickBuilder(s: GameState): Villager | undefined {
   let best: Villager | undefined;
   let bestCount = 0;
   for (const b of s.buildings) {
-    const workers = workersOf(s, b.id);
+    const workers = workersOf(s, b.id).filter((v) => !v.locked);
     if (workers.length > bestCount) {
       bestCount = workers.length;
       best = workers[workers.length - 1];

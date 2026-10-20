@@ -1105,6 +1105,13 @@ export const fr: Dict = {
       night: 'Nuit',
       empty: 'Personne',
     },
+    locked: 'Garder à son poste',
+    lockedHint:
+      'Ce kiwi n’est jamais déplacé automatiquement : ni emprunté pour un chantier, ni redirigé quand un stock est plein.',
+    builderPriority: 'Bâtisseur·euse prioritaire',
+    builderPriorityHint:
+      'Ce kiwi part d’abord sur chaque nouveau chantier, puis revient à son poste.',
+    flagsHint: 'Déplacé librement : bâtisseur·euse au besoin, redirigé quand son stock est plein.',
     workersOn: '{count} kiwi(s) à la récolte',
     unassigned: '{count} sans poste',
     unassignedHint:
