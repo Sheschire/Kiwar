@@ -48,6 +48,9 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 12  | Logistique visible, vagues orientées, nuit plus courte                 | ✅      |
 | 13  | Comètes et poussière d'étoiles                                         | à faire |
 | 14  | Emporter sa colonie solo dans un univers existant                      | ✅      |
+| 15  | Colonie autonome : constructions, recherche, météorites, automatismes  | à faire |
+| 16  | Pose et terrain lisibles (modèle fantôme, zones, gains au dépôt)       | à faire |
+| 17  | Identité visuelle : bâtiments distincts, planète alien, ciel vivant    | à faire |
 | —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées   |
 
 **Prochaine conversation** : le chantier 13 (comètes et poussière d'étoiles), voir
