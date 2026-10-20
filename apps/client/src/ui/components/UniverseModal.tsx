@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { FACES, kiwiCount, type UniverseSummary } from '@kiwar/shared';
+import { FACES, isPristine, kiwiCount, type UniverseSummary } from '@kiwar/shared';
 import { inviteLink } from '../../game/urlParams';
 import { actions, savedDisplayName } from '../actions';
 import { pushToast, uiStore, useT, useUi } from '../store';
@@ -86,6 +86,8 @@ export function UniverseModal() {
   const current = useUi((s) => s.universe?.id ?? 'solo');
   const [list, setList] = useState<UniverseSummary[] | null>(null);
   const [name, setName] = useState('');
+  const soloProgress = useUi((s) => !s.universe && !!s.game && !isPristine(s.game));
+  const [bring, setBring] = useState(true);
   const [displayName, setDisplayName] = useState(savedDisplayName());
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -176,6 +178,19 @@ export function UniverseModal() {
       <section class="field">
         <h3>{t('universe.create')}</h3>
         <p class="small muted">{t('universe.createHint')}</p>
+        {soloProgress && (
+          <label class="check">
+            <input
+              type="checkbox"
+              checked={bring}
+              onChange={(e) => setBring(e.currentTarget.checked)}
+            />
+            {t('universe.bringSolo')}
+          </label>
+        )}
+        <p class="small muted">
+          {t(soloProgress && bring ? 'universe.bringSoloHint' : 'universe.freshHint')}
+        </p>
         <div class="row">
           <input
             class="input"
@@ -188,7 +203,14 @@ export function UniverseModal() {
           <button
             class="btn btn-primary"
             disabled={busy || !nameOk || !name.trim()}
-            onClick={() => run(() => actions.enterUniverse({ create: name.trim() }, displayName))}
+            onClick={() =>
+              run(() =>
+                actions.enterUniverse(
+                  { create: name.trim(), fromSolo: soloProgress && bring },
+                  displayName,
+                ),
+              )
+            }
           >
             {t('universe.createAction')}
           </button>

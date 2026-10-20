@@ -26,6 +26,8 @@ export interface UniverseMember {
   displayName: string;
   kiwiIndex: number;
   face: Face;
+  /** Seed of their kiwi when it is not the universe's own (a solo colony brought along). */
+  planetSeed?: string;
 }
 
 export interface UniverseInfo extends UniverseSummary {
@@ -73,6 +75,15 @@ export function assignFace(members: Pick<UniverseMember, 'kiwiIndex' | 'face'>[]
 /** Seed of a kiwi planet: both faces of a kiwi share it, so they are two halves of one fruit. */
 export function kiwiSeed(universeSeed: string, kiwiIndex: number): string {
   return `${universeSeed}-k${kiwiIndex}`;
+}
+
+/** Seed of a kiwi of a universe, including a planet brought along from a solo colony. */
+export function planetSeedOf(
+  universe: { seed: string; members: Pick<UniverseMember, 'kiwiIndex' | 'planetSeed'>[] },
+  kiwiIndex: number,
+): string {
+  const brought = universe.members.find((m) => m.kiwiIndex === kiwiIndex && m.planetSeed);
+  return brought?.planetSeed ?? kiwiSeed(universe.seed, kiwiIndex);
 }
 
 /** Alien-held faces a member can send expeditions to (co-op: players never target players). */

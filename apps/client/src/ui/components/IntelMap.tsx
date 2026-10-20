@@ -10,6 +10,7 @@ import {
   type FaceMap,
   type GameState,
   type IntelReport,
+  type UniverseInfo,
 } from '@kiwar/shared';
 import { tileTopColor } from '../../render/terrain';
 import { useT, useUi } from '../store';
@@ -17,8 +18,8 @@ import { useT, useUi } from '../store';
 const maps = new Map<string, FaceMap>();
 
 /** The map of a target face, from public seeds only (memoized). */
-function faceMapOf(game: GameState, target: ExpeditionTarget, universeSeed: string | null) {
-  const where = targetFaceParams(game, target, universeSeed);
+function faceMapOf(game: GameState, target: ExpeditionTarget, universe: UniverseInfo | null) {
+  const where = targetFaceParams(game, target, universe);
   if (!where) return null;
   const key = `${where.seed}/${target.face}/${where.params.biome}/${where.params.radius}`;
   let map = maps.get(key);
@@ -47,7 +48,7 @@ export function IntelMap(props: {
 }) {
   const t = useT();
   const universe = useUi((s) => s.universe);
-  const map = faceMapOf(props.game, props.target, universe?.seed ?? null);
+  const map = faceMapOf(props.game, props.target, universe);
   const seen = new Set(props.intel?.sectors ?? []);
   const fresh = new Set(props.fresh ?? []);
   const tiles = useMemo(() => {

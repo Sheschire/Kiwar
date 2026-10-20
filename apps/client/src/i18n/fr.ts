@@ -719,7 +719,7 @@ export const fr: Dict = {
     play: 'Jouer',
     players: '{count}/{max} joueurs',
     invite: 'Inviter des amis',
-    inviteHint: 'Les amis qui ouvrent ce lien reçoivent une face de cet univers.',
+    inviteHint: 'Les amis qui ouvrent ce lien reçoivent leur propre kiwi dans cet univers.',
     copy: 'Copier le lien',
     copied: 'Lien d’invitation copié !',
     share: 'Partager',
@@ -729,7 +729,12 @@ export const fr: Dict = {
     you: 'vous',
     aliensHold: 'Aux mains des extraterrestres',
     create: 'Créer un univers',
-    createHint: 'Une nouvelle colonie dans un nouvel univers ; votre colonie solo reste intacte.',
+    createHint:
+      'Un univers à partager : chaque ami·e y vit sur son propre kiwi, face à ses extraterrestres.',
+    bringSolo: 'Emporter ma colonie solo',
+    bringSoloHint:
+      'Votre colonie déménage dans l’univers (bâtiments, kiwis, saisons). Le solo repartira d’un nouveau monde.',
+    freshHint: 'Une nouvelle colonie démarre ; votre colonie solo reste intacte.',
     name: 'Nom de l’univers',
     namePlaceholder: 'Le Club des Kiwis',
     yourName: 'Votre nom de kiwi',
@@ -739,7 +744,7 @@ export const fr: Dict = {
     joinAction: 'Rejoindre',
     joinTitle: 'Rejoindre un univers ?',
     joinBody:
-      'Une invitation vous attend dans un univers partagé (code {code}). Vous y démarrerez une nouvelle colonie sur une face de ses kiwis ; vos colonies actuelles restent intactes.',
+      'Une invitation vous attend dans un univers partagé (code {code}). Vous y démarrerez une nouvelle colonie sur un kiwi à vous ; vos colonies actuelles restent intactes.',
     onlineOnly: 'Les univers nécessitent le mode en ligne.',
     error: 'Impossible : {message}',
   },

@@ -662,3 +662,10 @@ Feedback from a real game with friends (owner, 2026-10-20).
   (travel and trade later). `kiwiCount(members)` = one per player, + 1 when every face is taken
   (universes created before this rule keep their pairs, and their friend on the twin face).
   Targets: every alien face, distance = kiwi gap (own twin at 0).
+- **A universe from the solo colony** (owner: move, not copy): `createUniverse { fromSolo }`
+  moves the online solo colony (refused while pristine) into the new universe as kiwi 0 — same
+  planet, buildings, kiwis, alien twin, intel and seasons (the universe's `created_at` is set
+  so that its calendar is the colony's). The member row keeps the planet seed
+  (`universe_members.planet_seed`, `planetSeedOf`), used for its colony and by the others' maps
+  of its alien twin. The solo slot then starts over on a new world. Option shown (checked) in
+  the universe screen when the solo colony has progress.

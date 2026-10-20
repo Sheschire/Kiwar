@@ -2046,6 +2046,10 @@ function assignFace(members) {
 function kiwiSeed(universeSeed, kiwiIndex) {
   return `${universeSeed}-k${kiwiIndex}`;
 }
+function planetSeedOf(universe2, kiwiIndex) {
+  const brought = universe2.members.find((m) => m.kiwiIndex === kiwiIndex && m.planetSeed);
+  return brought?.planetSeed ?? kiwiSeed(universe2.seed, kiwiIndex);
+}
 function universeTargets(members, me) {
   const taken = new Set(members.map((m) => `${m.kiwiIndex}:${m.face}`));
   const targets = [];
@@ -2202,12 +2206,12 @@ function landTileNear(map, q, r) {
   }
   return void 0;
 }
-function targetFaceParams(state, target, universeSeed) {
+function targetFaceParams(state, target, universe2) {
   const mine = Number(state.kiwiId.replace(/^k/, ""));
   if (target.distance === 0 || Number.isFinite(mine) && mine === target.kiwiIndex)
     return { seed: state.seed, params: twinParams(state.seed, state.face, state.params) };
-  if (!universeSeed) return null;
-  const seed = kiwiSeed(universeSeed, target.kiwiIndex);
+  if (!universe2) return null;
+  const seed = planetSeedOf(universe2, target.kiwiIndex);
   return { seed, params: { ...DEFAULT_FACE_PARAMS, biome: drawBiomes(seed)[target.face] } };
 }
 
@@ -9941,7 +9945,9 @@ var requestSchema = external_exports.discriminatedUnion("action", [
   external_exports.object({
     action: external_exports.literal("createUniverse"),
     name: external_exports.string().trim().min(1).max(40),
-    displayName
+    displayName,
+    /** Bring the solo colony along (it moves into the new universe). */
+    fromSolo: external_exports.boolean().optional()
   }),
   external_exports.object({
     action: external_exports.literal("joinUniverse"),
@@ -10039,7 +10045,7 @@ function withScopeTargets(ctx, state, scope) {
 }
 function universeGame(ctx, info, me) {
   return newGame({
-    seed: kiwiSeed(info.seed, me.kiwiIndex),
+    seed: planetSeedOf(info, me.kiwiIndex),
     face: me.face,
     now: ctx.now(),
     playerId: ctx.userId,
@@ -10180,15 +10186,19 @@ async function handle(ctx, body) {
     case "createUniverse": {
       const mine = await repo.listUserUniverses(ctx.userId);
       if (mine.length >= MAX_UNIVERSES_PER_PLAYER) return fail2("forbidden");
+      const solo = req.fromSolo ? await repo.findGame(ctx.userId, soloId(ctx)) : null;
+      if (req.fromSolo && (!solo || isPristine(solo.state))) return fail2("invalidRequest");
       const row = await repo.createUniverse({
         name: req.name.trim(),
         code: inviteCode(ctx.randomBytes(8)),
         seed: ctx.randomSeed(),
         maxPlayers: MAX_PLAYERS,
-        createdAt: ctx.now(),
+        // A colony brought along keeps its days and seasons: the universe calendar is its own.
+        createdAt: solo ? Math.min(ctx.now(), solo.state.calendarStart + CALENDAR.startOffsetMs) : ctx.now(),
         createdBy: ctx.userId
       });
-      return joinAndPlay(ctx, repo, row, req.displayName);
+      if (!solo) return joinAndPlay(ctx, repo, row, req.displayName);
+      return moveSoloInto(ctx, repo, row, solo, req.displayName);
     }
     case "joinUniverse": {
       const row = await repo.findUniverseByCode(req.code.toUpperCase());
@@ -10347,6 +10357,37 @@ async function joinAndPlay(ctx, repo, row, displayName2) {
     };
   }
   return { ok: false, error: "conflict", serverTime: ctx.now() };
+}
+async function moveSoloInto(ctx, repo, row, solo, displayName2) {
+  const me = {
+    userId: ctx.userId,
+    displayName: displayName2.trim(),
+    kiwiIndex: 0,
+    face: solo.state.face,
+    planetSeed: solo.state.seed
+  };
+  if (!await repo.addMember(row.id, me))
+    return { ok: false, error: "conflict", serverTime: ctx.now() };
+  const info = toInfo(row, [me]);
+  const now = ctx.now();
+  const moved = {
+    ...advance(solo.state, now).state,
+    universeId: row.id,
+    kiwiId: "k0",
+    targets: universeTargets(info.members, me)
+  };
+  ensureAliens(moved, ctx.randomSeed());
+  const game = await repo.create(ctx.userId, row.id, moved);
+  await repo.update(solo.id, freshGame(ctx, ctx.randomSeed(), "kiwisu"), solo.version);
+  const scope = { universeId: row.id, shared: { info, me } };
+  return {
+    ok: true,
+    state: withScopeTargets(ctx, game.state, scope).state,
+    events: [],
+    universe: info,
+    twin: null,
+    serverTime: now
+  };
 }
 function migrating(repo) {
   return {
@@ -10715,6 +10756,7 @@ export {
   pixelToHex,
   planMeteor,
   planWave,
+  planetSeedOf,
   poolCapacity,
   population,
   presence,

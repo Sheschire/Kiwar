@@ -91,6 +91,8 @@ export const requestSchema = z.discriminatedUnion('action', [
     action: z.literal('createUniverse'),
     name: z.string().trim().min(1).max(40),
     displayName,
+    /** Bring the solo colony along (it moves into the new universe). */
+    fromSolo: z.boolean().optional(),
   }),
   z.object({
     action: z.literal('joinUniverse'),

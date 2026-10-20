@@ -4,7 +4,7 @@ import { RESOURCE_IDS, emptyResources } from '../data/resources';
 import { createRng } from '../rng/rng';
 import { hexDistance, hexRing } from '../hex/hex';
 import { drawBiomes } from '../data/biomes';
-import { kiwiSeed } from '../server/universes';
+import { planetSeedOf, type UniverseMember } from '../server/universes';
 import {
   DEFAULT_FACE_PARAMS,
   getTile,
@@ -211,12 +211,12 @@ export function landTileNear(map: FaceMap, q: number, r: number): Tile | undefin
 export function targetFaceParams(
   state: Pick<GameState, 'seed' | 'face' | 'params' | 'kiwiId'>,
   target: ExpeditionTarget,
-  universeSeed: string | null,
+  universe: { seed: string; members: Pick<UniverseMember, 'kiwiIndex' | 'planetSeed'>[] } | null,
 ): { seed: string; params: FaceParams } | null {
   const mine = Number(state.kiwiId.replace(/^k/, ''));
   if (target.distance === 0 || (Number.isFinite(mine) && mine === target.kiwiIndex))
     return { seed: state.seed, params: twinParams(state.seed, state.face, state.params) };
-  if (!universeSeed) return null;
-  const seed = kiwiSeed(universeSeed, target.kiwiIndex);
+  if (!universe) return null;
+  const seed = planetSeedOf(universe, target.kiwiIndex);
   return { seed, params: { ...DEFAULT_FACE_PARAMS, biome: drawBiomes(seed)[target.face] } };
 }

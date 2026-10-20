@@ -167,7 +167,10 @@ export const actions = {
   async listUniverses() {
     return (await controller?.listUniverses()) ?? [];
   },
-  async enterUniverse(how: { create: string } | { code: string }, displayName: string) {
+  async enterUniverse(
+    how: { create: string; fromSolo?: boolean } | { code: string },
+    displayName: string,
+  ) {
     saveDisplayName(displayName);
     const error = controller ? await controller.enterUniverse(how, displayName) : 'forbidden';
     if (!error) {

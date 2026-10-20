@@ -128,8 +128,8 @@ select 'RLS tests passed' as result;
 set role service_role;
 insert into public.universes (id, name, code, seed, created_by)
   values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Les Kiwis', 'ABCDEFGH', 's', '11111111-1111-1111-1111-111111111111');
-insert into public.universe_members (universe_id, user_id, display_name, kiwi_index, face)
-  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'Alice', 0, 'kiwisu');
+insert into public.universe_members (universe_id, user_id, display_name, kiwi_index, face, planet_seed)
+  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'Alice', 0, 'kiwisu', 'solo-seed');
 reset role;
 
 -- A member sees the universe, posts with her own name; a non-member sees and posts nothing.
@@ -140,6 +140,8 @@ declare n int; who text;
 begin
   select count(*) into n from public.universes;
   if n <> 1 then raise exception 'member should see her universe'; end if;
+  select count(*) into n from public.universe_members where planet_seed = 'solo-seed';
+  if n <> 1 then raise exception 'member should see the planet seed of her kiwi'; end if;
   insert into public.chat_messages (universe_id, body, display_name)
     values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Coucou !', 'Fake Name');
   select display_name into who from public.chat_messages limit 1;

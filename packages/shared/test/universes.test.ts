@@ -5,6 +5,7 @@ import {
   createMemoryRepository,
   handleGameRequest,
   kiwiCount,
+  planetSeedOf,
   universeTargets,
   type GameResponse,
   type GameState,
@@ -242,6 +243,69 @@ describe('shared universes (server)', () => {
     expect(built.state.queue).toHaveLength(1);
     const loaded = ok(await handleGameRequest(as('bob'), { action: 'load', universe: u.id }));
     expect(loaded.state.queue).toHaveLength(1);
+  });
+});
+
+describe('founding a universe with the solo colony', () => {
+  it('moves the colony into the new universe and starts the solo slot over', async () => {
+    const { as, tick } = world();
+    const solo = ok(await handleGameRequest(as('alice'), { action: 'load' }));
+    const tile = findTileForTest(solo.state, 'flesh');
+    ok(
+      await handleGameRequest(as('alice'), {
+        action: 'command',
+        command: { type: 'build', buildingType: 'pulpery', q: tile.q, r: tile.r },
+      }),
+    );
+    tick(3 * 3_600_000);
+    const created = ok(
+      await handleGameRequest(as('alice'), {
+        action: 'createUniverse',
+        name: 'Home',
+        displayName: 'Alice',
+        fromSolo: true,
+      }),
+    );
+    const u = created.universe!;
+    // Same planet, same buildings, same seasons, now in the universe.
+    expect(created.state).toMatchObject({
+      seed: solo.state.seed,
+      face: solo.state.face,
+      kiwiId: 'k0',
+      universeId: u.id,
+      calendarStart: solo.state.calendarStart,
+    });
+    expect(created.state.buildings.map((b) => b.type)).toContain('pulpery');
+    expect(created.state.targets.map((t) => t.id)).toEqual(['aliens:0:kiwino']);
+    expect(u.members[0]).toMatchObject({ kiwiIndex: 0, planetSeed: solo.state.seed });
+    // It stays there on reload; the solo slot is a new world.
+    const back = ok(await handleGameRequest(as('alice'), { action: 'load', universe: u.id }));
+    expect(back.state.buildings).toHaveLength(created.state.buildings.length);
+    const fresh = ok(await handleGameRequest(as('alice'), { action: 'load' }));
+    expect(fresh.state.seed).not.toBe(solo.state.seed);
+    expect(fresh.state.buildings).toHaveLength(1);
+    // A friend gets the next kiwi and shares the calendar.
+    const bob = ok(
+      await handleGameRequest(as('bob'), {
+        action: 'joinUniverse',
+        code: u.code,
+        displayName: 'B',
+      }),
+    );
+    expect(bob.state).toMatchObject({ kiwiId: 'k1', calendarStart: solo.state.calendarStart });
+    expect(planetSeedOf(bob.universe!, 0)).toBe(solo.state.seed);
+  });
+
+  it('refuses to bring along an untouched solo colony', async () => {
+    const { as } = world();
+    ok(await handleGameRequest(as('alice'), { action: 'load' }));
+    const r = await handleGameRequest(as('alice'), {
+      action: 'createUniverse',
+      name: 'Home',
+      displayName: 'Alice',
+      fromSolo: true,
+    });
+    expect(!r.ok && r.error).toBe('invalidRequest');
   });
 });
 

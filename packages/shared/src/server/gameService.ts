@@ -1,5 +1,5 @@
 import { drawBiomes } from '../data/biomes';
-import { calendarStartFor } from '../data/cycles';
+import { CALENDAR, calendarStartFor } from '../data/cycles';
 import { BUILDINGS, levelDef, MAX_LEVEL } from '../data/buildings';
 import { OBJECTIVES } from '../data/objectives';
 import { START } from '../data/start';
@@ -26,13 +26,13 @@ import {
 import { cloneAliens, newGame, type GameState, type Villager } from '../sim/state';
 import { ensureAliens, publicState } from '../sim/aliens';
 import { generateFace, type FaceMap } from '../worldgen/generateFace';
-import type { Face, PlayerId, UniverseId } from '../types/ids';
+import type { Face, KiwiId, PlayerId, UniverseId } from '../types/ids';
 import { requestSchema, type GameResponse, type ServerError } from './protocol';
 import {
   assignFace,
   inviteCode,
   kiwiCount,
-  kiwiSeed,
+  planetSeedOf,
   MAX_PLAYERS,
   universeTargets,
   type UniverseInfo,
@@ -188,7 +188,7 @@ function withScopeTargets(
 
 function universeGame(ctx: ServiceContext, info: UniverseInfo, me: UniverseMember): GameState {
   return newGame({
-    seed: kiwiSeed(info.seed, me.kiwiIndex),
+    seed: planetSeedOf(info, me.kiwiIndex),
     face: me.face,
     now: ctx.now(),
     playerId: ctx.userId,
@@ -388,15 +388,21 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
     case 'createUniverse': {
       const mine = await repo.listUserUniverses(ctx.userId);
       if (mine.length >= MAX_UNIVERSES_PER_PLAYER) return fail('forbidden');
+      const solo = req.fromSolo ? await repo.findGame(ctx.userId, soloId(ctx)) : null;
+      if (req.fromSolo && (!solo || isPristine(solo.state))) return fail('invalidRequest');
       const row = await repo.createUniverse({
         name: req.name.trim(),
         code: inviteCode(ctx.randomBytes(8)),
         seed: ctx.randomSeed(),
         maxPlayers: MAX_PLAYERS,
-        createdAt: ctx.now(),
+        // A colony brought along keeps its days and seasons: the universe calendar is its own.
+        createdAt: solo
+          ? Math.min(ctx.now(), solo.state.calendarStart + CALENDAR.startOffsetMs)
+          : ctx.now(),
         createdBy: ctx.userId,
       });
-      return joinAndPlay(ctx, repo, row, req.displayName);
+      if (!solo) return joinAndPlay(ctx, repo, row, req.displayName);
+      return moveSoloInto(ctx, repo, row, solo, req.displayName);
     }
 
     case 'joinUniverse': {
@@ -587,6 +593,49 @@ async function joinAndPlay(
     };
   }
   return { ok: false, error: 'conflict', serverTime: ctx.now() };
+}
+
+/**
+ * The solo colony becomes the founder's kiwi in a new universe (moved, not copied: the solo
+ * slot starts over). Its planet keeps its seed, its alien twin and what we know of it.
+ */
+async function moveSoloInto(
+  ctx: ServiceContext,
+  repo: GameRepository,
+  row: UniverseRow,
+  solo: StoredGame,
+  displayName: string,
+): Promise<GameResponse> {
+  const me: UniverseMember = {
+    userId: ctx.userId,
+    displayName: displayName.trim(),
+    kiwiIndex: 0,
+    face: solo.state.face,
+    planetSeed: solo.state.seed,
+  };
+  if (!(await repo.addMember(row.id, me)))
+    return { ok: false, error: 'conflict', serverTime: ctx.now() };
+  const info = toInfo(row, [me]);
+  const now = ctx.now();
+  const moved: GameState = {
+    ...advance(solo.state, now).state,
+    universeId: row.id as UniverseId,
+    kiwiId: 'k0' as KiwiId,
+    targets: universeTargets(info.members, me),
+  };
+  ensureAliens(moved, ctx.randomSeed());
+  const game = await repo.create(ctx.userId, row.id, moved);
+  // The solo slot starts over (a new world, drawn by the server).
+  await repo.update(solo.id, freshGame(ctx, ctx.randomSeed(), 'kiwisu'), solo.version);
+  const scope: Scope = { universeId: row.id, shared: { info, me } };
+  return {
+    ok: true,
+    state: withScopeTargets(ctx, game.state, scope).state,
+    events: [],
+    universe: info,
+    twin: null,
+    serverTime: now,
+  };
 }
 
 /** Stored states may predate the current schema: upgrade them when read. */

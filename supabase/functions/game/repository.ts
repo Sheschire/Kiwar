@@ -23,6 +23,7 @@ interface MemberRowDb {
   display_name: string;
   kiwi_index: number;
   face: 'kiwisu' | 'kiwino';
+  planet_seed: string | null;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -52,6 +53,7 @@ export function createSupabaseRepository(db: SupabaseClient) {
     displayName: r.display_name,
     kiwiIndex: r.kiwi_index,
     face: r.face,
+    ...(r.planet_seed ? { planetSeed: r.planet_seed } : {}),
   });
   const fail = (what: string, error: unknown): never => {
     throw new Error(`${what}: ${JSON.stringify(error)}`);
@@ -123,6 +125,7 @@ export function createSupabaseRepository(db: SupabaseClient) {
       code: string;
       seed: string;
       maxPlayers: number;
+      createdAt?: number;
       createdBy: string;
     }) {
       const { data, error } = await db
@@ -133,6 +136,7 @@ export function createSupabaseRepository(db: SupabaseClient) {
           seed: row.seed,
           max_players: row.maxPlayers,
           created_by: row.createdBy,
+          ...(row.createdAt ? { created_at: new Date(row.createdAt).toISOString() } : {}),
         })
         .select(UNIVERSE_COLUMNS)
         .single();
@@ -162,7 +166,7 @@ export function createSupabaseRepository(db: SupabaseClient) {
     async listMembers(universeId: string) {
       const { data, error } = await db
         .from('universe_members')
-        .select('user_id, display_name, kiwi_index, face')
+        .select('user_id, display_name, kiwi_index, face, planet_seed')
         .eq('universe_id', universeId)
         .order('joined_at');
       if (error) fail('listMembers', error);
@@ -170,7 +174,13 @@ export function createSupabaseRepository(db: SupabaseClient) {
     },
     async addMember(
       universeId: string,
-      m: { userId: string; displayName: string; kiwiIndex: number; face: string },
+      m: {
+        userId: string;
+        displayName: string;
+        kiwiIndex: number;
+        face: string;
+        planetSeed?: string;
+      },
     ) {
       const { error } = await db.from('universe_members').insert({
         universe_id: universeId,
@@ -178,6 +188,7 @@ export function createSupabaseRepository(db: SupabaseClient) {
         display_name: m.displayName,
         kiwi_index: m.kiwiIndex,
         face: m.face,
+        planet_seed: m.planetSeed ?? null,
       });
       if (error?.code === '23505') return false; // unique violation: face taken meanwhile
       if (error) fail('addMember', error);

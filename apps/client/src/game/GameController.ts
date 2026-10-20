@@ -412,7 +412,7 @@ export class GameController {
 
   /** Creates or joins a universe and switches to it. Returns an error code on failure. */
   async enterUniverse(
-    how: { create: string } | { code: string },
+    how: { create: string; fromSolo?: boolean } | { code: string },
     displayName: string,
   ): Promise<ServerError | 'network' | null> {
     if (!this.online) return 'forbidden';
@@ -420,7 +420,7 @@ export class GameController {
     try {
       const res = await this.online.call(
         'create' in how
-          ? { action: 'createUniverse', name: how.create, displayName }
+          ? { action: 'createUniverse', name: how.create, displayName, fromSolo: how.fromSolo }
           : { action: 'joinUniverse', code: how.code, displayName },
       );
       this.acceptServer(res);

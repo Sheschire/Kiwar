@@ -690,7 +690,7 @@ export const en = {
     play: 'Play',
     players: '{count}/{max} players',
     invite: 'Invite friends',
-    inviteHint: 'Friends who open this link get a face of this universe.',
+    inviteHint: 'Friends who open this link get a kiwi of their own in this universe.',
     copy: 'Copy the link',
     copied: 'Invite link copied!',
     share: 'Share',
@@ -700,7 +700,12 @@ export const en = {
     you: 'you',
     aliensHold: 'Held by aliens',
     create: 'Create a universe',
-    createHint: 'A new colony in a new universe; your solo colony stays as it is.',
+    createHint:
+      'A universe to share: every friend lives on their own kiwi, facing their own aliens.',
+    bringSolo: 'Bring my solo colony',
+    bringSoloHint:
+      'Your colony moves into the universe (buildings, kiwis, seasons). Solo will start over on a new world.',
+    freshHint: 'A new colony starts; your solo colony stays as it is.',
     name: 'Universe name',
     namePlaceholder: 'The Kiwi Club',
     yourName: 'Your kiwi name',
@@ -710,7 +715,7 @@ export const en = {
     joinAction: 'Join',
     joinTitle: 'Join a universe?',
     joinBody:
-      'You were invited to a shared universe (code {code}). You will start a new colony on a face of its kiwis; your current colonies stay as they are.',
+      'You were invited to a shared universe (code {code}). You will start a new colony on a kiwi of your own; your current colonies stay as they are.',
     onlineOnly: 'Universes need the online mode.',
     error: 'Could not do that: {message}',
   },
