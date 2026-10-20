@@ -1,5 +1,5 @@
 import { techEffects } from './research';
-import { levelDef } from '../data/buildings';
+import { levelDef, type BuildingType } from '../data/buildings';
 import { BIOMES, climateOf, type BiomeId } from '../data/biomes';
 import type { ResourceId } from '../data/resources';
 import { CAMPS, CATCHMENT_RADIUS, DEPOSITS, HARVESTS, LOGISTICS, PATHS } from '../data/territory';
@@ -395,6 +395,55 @@ export function distanceIn(dist: Map<string, number>, h: Hex): number {
     if (d !== undefined) best = Math.min(best, d + LOGISTICS.shoreCost);
   }
   return best;
+}
+
+/** The depot a building's kiwis carry to (the nearest by walk), and the walk. */
+export function nearestDepotOf(
+  state: GameState,
+  map: FaceMap,
+  h: Hex,
+): { building: Building; distance: number } | null {
+  let best: { building: Building; distance: number } | null = null;
+  for (const b of state.buildings) {
+    if (!isDepot(b)) continue;
+    const distance = distanceIn(walkDistances(state, map, [hexKey(b)]), h);
+    if (!best || distance < best.distance) best = { building: b, distance };
+  }
+  return best;
+}
+
+export interface LogisticsChange {
+  buildingId: BuildingId;
+  type: BuildingType;
+  before: number;
+  after: number;
+}
+
+/**
+ * Chantier 12: how a path stroke (tiles added, or erased) changes the logistics efficiency of
+ * every producer, biggest changes first. Same distances as the harvest.
+ */
+export function pathLogisticsChanges(
+  state: GameState,
+  map: FaceMap,
+  keys: readonly string[],
+  erase: boolean,
+): LogisticsChange[] {
+  const paths = new Set(state.paths);
+  for (const k of keys) {
+    if (erase) paths.delete(k);
+    else paths.add(k);
+  }
+  const after: GameState = { ...state, paths: [...paths] };
+  const out: LogisticsChange[] = [];
+  for (const b of state.buildings) {
+    if (!harvestedTileType(map, b)) continue;
+    const before = logisticsEfficiency(depotDistance(state, map, b));
+    const next = logisticsEfficiency(depotDistance(after, map, b));
+    if (Math.abs(next - before) >= 0.005)
+      out.push({ buildingId: b.id, type: b.type, before, after: next });
+  }
+  return out.sort((a, b) => Math.abs(b.after - b.before) - Math.abs(a.after - a.before));
 }
 
 // ---------------------------------------------------------------------------------------------

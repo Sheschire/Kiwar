@@ -154,15 +154,18 @@ export class BuildingsView {
       this.signature = sig;
       this.syncMeshes(state, full, away);
     }
-    this.badges.sync(state, (id) => {
-      const g = this.meshes.get(id);
-      if (!g) return null;
-      return {
-        x: g.position.x,
-        y: g.position.y + (g.userData.height as number) + 0.62,
-        z: g.position.z,
-      };
-    });
+    this.badges.sync(state, (id) => this.anchorOf(id));
+  }
+
+  /** Where a badge floats above a building (level, logistics). */
+  anchorOf(id: string): { x: number; y: number; z: number } | null {
+    const g = this.meshes.get(id);
+    if (!g) return null;
+    return {
+      x: g.position.x,
+      y: g.position.y + (g.userData.height as number) + 0.62,
+      z: g.position.z,
+    };
   }
 
   private syncMeshes(

@@ -187,7 +187,7 @@ export const fr: Dict = {
     depositValue: '{stock} / {cap} · repousse +{regen}/h',
     reach: 'Gisements à portée : {count} tuile(s) · repousse +{regen}/h',
     harvestedBy: 'Récolté par un bâtiment voisin.',
-    logistics: 'Logistique ici : ×{efficiency}',
+    logistics: 'Logistique ici : {percent} % · {distance} pas jusqu’au dépôt ({depot})',
     gather: 'Camp de cueillette',
     gatherDesc:
       'Deux kiwis cueillent à la main, sans bâtiment. Plus lent, mais gratuit et immédiat.',
@@ -288,7 +288,7 @@ export const fr: Dict = {
     repair: 'Réparer',
     repairing: 'Réparation…',
     logistics: 'Logistique',
-    logisticsValue: '{distance} pas jusqu’à un dépôt · ×{efficiency}',
+    logisticsValue: '{percent} % · {distance} pas jusqu’au dépôt ({depot})',
     logisticsHint: 'Tracez des chemins ou bâtissez un Entrepôt à côté pour raccourcir les trajets.',
     dismantle: 'Démonter le camp',
     demolish: 'Démolir…',
@@ -852,6 +852,8 @@ export const fr: Dict = {
     count: '{count} / {max} tuiles',
     cost: '{cost} fibre par tuile',
     done: 'Terminé',
+    gain: '{name} {before} % → {after} %',
+    noGain: 'Ce tracé n’accélère aucun producteur.',
   },
   defense: {
     button: 'Défense',
@@ -1169,6 +1171,9 @@ export const fr: Dict = {
   },
   plans: {
     showLevels: 'Afficher les niveaux des bâtiments',
+    showLogistics: 'Logistique : efficacité de chaque producteur',
+    placingLogistics:
+      'Vert : trajets courts jusqu’à un dépôt (récolte rapide) · orange : trajets longs.',
     button: 'Plans : bâtiments et recherche',
     title: 'Plans',
     buildings: 'Bâtiments',

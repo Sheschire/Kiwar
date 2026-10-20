@@ -14,6 +14,9 @@ import {
   hexLine,
   HOUR_MS,
   migrateState,
+  logisticsEfficiency,
+  nearestDepotOf,
+  pathLogisticsChanges,
   PATHS,
   TILES,
   type FaceMap,
@@ -159,6 +162,17 @@ describe('paths and logistics', () => {
       s.buildings.find((b) => b.type === 'camp')!,
     )!;
     expect(h.efficiency).toBeGreaterThan(0);
+    // The preview of the stroke announced exactly this gain (chantier 12).
+    const plain = { ...s, paths: [] };
+    const [change] = pathLogisticsChanges(plain, map, line.map(hexKey), false);
+    expect(change?.buildingId).toBe(camp.id);
+    expect(change?.before).toBeCloseTo(logisticsEfficiency(before), 9);
+    expect(change?.after).toBeCloseTo(h.efficiency, 9);
+    expect(pathLogisticsChanges(s, map, line.map(hexKey), true)[0]?.after).toBeCloseTo(
+      logisticsEfficiency(before),
+      9,
+    );
+    expect(nearestDepotOf(s, map, camp)).toEqual({ building: s.buildings[0], distance: after });
     // Painting the same tiles again costs nothing.
     const again = run(s, { type: 'buildPath', tiles: line }, T0, map);
     expect(again.resources.fiber).toBe(s.resources.fiber);

@@ -1736,6 +1736,21 @@ button.chip:focus-visible {
   min-width: 0;
 }
 
+.path-gains {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+}
+
+.path-gains li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .path-mode .queue,
 .path-mode .egg-wrap,
 .path-mode .expeditions,
@@ -3615,7 +3630,15 @@ button.chip:focus-visible {
   height: 46px;
 }
 
-.levels-fab.is-on {
+.logistics-fab {
+  right: calc(var(--gap) + var(--safe-right) + 11px);
+  bottom: calc(var(--gap) + var(--safe-bottom) + 260px);
+  width: 46px;
+  height: 46px;
+}
+
+.levels-fab.is-on,
+.logistics-fab.is-on {
   border-color: var(--leaf);
   box-shadow:
     0 3px 0 var(--leaf-dark, #4f7f1c),
@@ -3630,7 +3653,15 @@ button.chip:focus-visible {
     bottom: calc(var(--gap) + var(--safe-bottom) + 182px);
   }
 
-  .has-sheet .levels-fab {
+  .logistics-fab {
+    width: 42px;
+    height: 42px;
+    right: calc(var(--gap) + var(--safe-right) + 9px);
+    bottom: calc(var(--gap) + var(--safe-bottom) + 232px);
+  }
+
+  .has-sheet .levels-fab,
+  .has-sheet .logistics-fab {
     display: none;
   }
 }

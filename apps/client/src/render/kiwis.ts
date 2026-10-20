@@ -30,8 +30,6 @@ import {
   hexToPixel,
   HEART,
   harvestedTileType,
-  hexDistance,
-  isDepot,
   isTurret,
   pixelToHex,
   TILES,
@@ -49,16 +47,32 @@ import {
   bedsOf,
   kiwiRhythm,
   type KiwiRhythm,
+  buildingHarvest,
+  nearestDepotOf,
+  tileWalkCost,
+  workersOf,
 } from '@kiwar/shared';
 import { findPath } from './pathfinding';
 import { TitansView } from './kikiwiwi';
+import { DropLabels } from './dropLabels';
 import { WATER_LEVEL } from './water';
 
 const MAX_KIWIS = 64;
 /** A Kikiwiwi stands this much taller than its kiwi self. */
 const TITAN_SIZE = 1.6;
 const WALK_SPEED = 1.15; // world units per second
-const RAY_SPEEDUP = 1.6;
+/** Chantier 12: kiwis walk at a pace that follows the walking cost (paths are fastest). */
+function stepSpeed(cost: number): number {
+  return Number.isFinite(cost) ? Math.min(1.8, Math.max(0.6, 1 / Math.sqrt(cost))) : 1;
+}
+
+/** "+N/h" colours (readable on the parchment-dark outline). */
+const LABEL_COLORS: Record<ResourceId, string> = {
+  pulp: '#c6ef7a',
+  fiber: '#f3e2b8',
+  seeds: '#f2d7a6',
+  juice: '#eef56a',
+};
 
 type Activity = 'walk' | 'work' | 'idle' | 'build' | 'drop' | 'sleep';
 
@@ -68,8 +82,8 @@ interface Agent {
   heading: number;
   /** World waypoints still to visit. */
   path: Vector3[];
-  /** Ray flags for the segments (faster walking). */
-  fastPath: boolean[];
+  /** Pace of each segment (walking cost of its tile, chantier 12). */
+  stepSpeed: number[];
   activity: Activity;
   timer: number;
   phase: number;
@@ -265,6 +279,7 @@ export class KiwisView {
   private readonly ring: Mesh;
   /** Kikiwiwis have their own animated models (chantier 08). */
   private readonly titans = new TitansView();
+  private readonly drops = new DropLabels();
   private highlightId: string | null = null;
   /** Kiwis drawn at the last update (for taps and sounds). */
   private drawn: Agent[] = [];
@@ -336,6 +351,7 @@ export class KiwisView {
     this.ring.visible = false;
     this.group.add(this.ring);
     this.group.add(this.titans.group);
+    this.group.add(this.drops.group);
   }
 
   sync(state: GameState): void {
@@ -371,7 +387,7 @@ export class KiwisView {
       pos: this.nestPoint(rng),
       heading: rng.range(0, Math.PI * 2),
       path: [],
-      fastPath: [],
+      stepSpeed: [],
       activity: 'idle',
       timer: rng.range(0.2, 1.5),
       phase: rng.range(0, 6),
@@ -427,16 +443,20 @@ export class KiwisView {
     const season = this.state ? seasonOf(this.state) : 'spring';
     const hexes = findPath(this.map, from, target, this.paths, season) ?? [from, target];
     const pts: Vector3[] = [];
-    const fast: boolean[] = [];
+    const speeds: number[] = [];
+    const biome = this.map.params.biome;
     for (let i = 1; i < hexes.length; i++) {
       const h = hexes[i]!;
       const last = i === hexes.length - 1;
       pts.push(last ? this.worldOf(h, agent.rng, spread) : this.worldOf(h, agent.rng, 0.22));
-      fast.push(getTile(this.map, h)?.type === 'ray' || this.paths.has(hexKey(h)));
+      const tile = getTile(this.map, h);
+      speeds.push(
+        tile ? stepSpeed(tileWalkCost(tile.type, this.paths.has(hexKey(h)), season, biome)) : 1,
+      );
     }
     if (pts.length === 0) pts.push(this.worldOf(target, agent.rng, spread));
     agent.path = pts;
-    agent.fastPath = fast;
+    agent.stepSpeed = speeds;
     agent.activity = 'walk';
   }
 
@@ -467,18 +487,29 @@ export class KiwisView {
     return null;
   }
 
+  /** Chantier 12: "+N/h" over the depot, this kiwi's share of its workplace's output. */
+  private showDrop(agent: Agent, villager: Villager): void {
+    if (!this.state || villager.job.kind !== 'work' || !agent.carrying) return;
+    const b = getBuilding(this.state, villager.job.buildingId);
+    const h = b ? buildingHarvest(this.state, b) : null;
+    const crew = b ? workersOf(this.state, b.id).length : 0;
+    if (!h || crew === 0 || h.output <= 0) return;
+    const perKiwi = h.output / crew;
+    const text = `+${perKiwi >= 10 ? Math.round(perKiwi) : Math.round(perKiwi * 10) / 10}/h`;
+    this.drops.spawn(
+      agent.pos.x,
+      agent.pos.y + 0.5,
+      agent.pos.z,
+      text,
+      LABEL_COLORS[agent.carrying],
+    );
+  }
+
+  /** The depot the harvest goes to: the nearest by walk, as in the simulation (null: Nest). */
   private nearestDepot(from: Hex): Hex | null {
-    let best: Hex | null = null;
-    let bestD = Infinity;
-    for (const b of this.state?.buildings ?? []) {
-      if (!isDepot(b)) continue;
-      const d = hexDistance(from, b);
-      if (d < bestD) {
-        bestD = d;
-        best = b.type === 'nest' ? null : { q: b.q, r: b.r };
-      }
-    }
-    return best;
+    if (!this.state) return null;
+    const depot = nearestDepotOf(this.state, this.map, from)?.building;
+    return !depot || depot.type === 'nest' ? null : { q: depot.q, r: depot.r };
   }
 
   /** Tired or sleepy kiwis go to their bed (inside their hut or the Nest). */
@@ -587,6 +618,7 @@ export class KiwisView {
         } else {
           agent.activity = 'drop';
           agent.timer = agent.rng.range(0.6, 1.4);
+          if (agent.carrying) this.showDrop(agent, villager);
           agent.carrying = null;
         }
         return;
@@ -670,6 +702,7 @@ export class KiwisView {
     const weak = this.state.resources.juice <= 1e-6;
     this.titans.keep(new Set(this.state.villagers.filter((v) => v.kikiwiwi).map((v) => v.id)));
     this.titans.update(dt, weak);
+    this.drops.update(dt);
     let i = 0;
     this.drawn.length = 0;
     for (const agent of this.agents.values()) {
@@ -698,7 +731,7 @@ export class KiwisView {
       let speed = 0;
       if (agent.activity === 'walk' && agent.path.length > 0) {
         const target = agent.path[0]!;
-        const fast = agent.fastPath[0] ? RAY_SPEEDUP : 1;
+        const fast = agent.stepSpeed[0] ?? 1;
         // Kikiwiwis stride slower, but further.
         speed = WALK_SPEED * fast * (villager.kikiwiwi ? 0.8 : 1);
         const dx = target.x - agent.pos.x;
@@ -713,7 +746,7 @@ export class KiwisView {
           agent.pos.x = target.x;
           agent.pos.z = target.z;
           agent.path.shift();
-          agent.fastPath.shift();
+          agent.stepSpeed.shift();
         } else {
           agent.pos.x += (dx / dist) * step;
           agent.pos.z += (dz / dist) * step;
@@ -847,6 +880,7 @@ export class KiwisView {
     }
     for (const mesh of this.outfits.values()) mesh.geometry.dispose();
     this.titans.dispose();
+    this.drops.dispose();
     (this.outfits.get('builder')?.material as MeshStandardMaterial | undefined)?.dispose();
   }
 }

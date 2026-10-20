@@ -3391,6 +3391,32 @@ function distanceIn(dist, h) {
   }
   return best;
 }
+function nearestDepotOf(state, map, h) {
+  let best = null;
+  for (const b of state.buildings) {
+    if (!isDepot(b)) continue;
+    const distance = distanceIn(walkDistances(state, map, [hexKey(b)]), h);
+    if (!best || distance < best.distance) best = { building: b, distance };
+  }
+  return best;
+}
+function pathLogisticsChanges(state, map, keys, erase) {
+  const paths = new Set(state.paths);
+  for (const k of keys) {
+    if (erase) paths.delete(k);
+    else paths.add(k);
+  }
+  const after = { ...state, paths: [...paths] };
+  const out = [];
+  for (const b of state.buildings) {
+    if (!harvestedTileType(map, b)) continue;
+    const before = logisticsEfficiency(depotDistance(state, map, b));
+    const next = logisticsEfficiency(depotDistance(after, map, b));
+    if (Math.abs(next - before) >= 5e-3)
+      out.push({ buildingId: b.id, type: b.type, before, after: next });
+  }
+  return out.sort((a, b) => Math.abs(b.after - b.before) - Math.abs(a.after - a.before));
+}
 function cycleHarvest(state, resource) {
   const work = isNight(state) ? CYCLES.nightWork : 1;
   return work * seasonHarvest(seasonOf(state), resource, state.params.biome);
@@ -12148,6 +12174,7 @@ export {
   moraleWork,
   ms,
   nearRay,
+  nearestDepotOf,
   nest,
   nestDef,
   netRates,
@@ -12172,6 +12199,7 @@ export {
   parseHexKey,
   passiveRates,
   pathLimit,
+  pathLogisticsChanges,
   pathSet,
   pendingUpgrade,
   pickStarving,

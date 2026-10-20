@@ -394,6 +394,36 @@ const GLYPHS = {
       <path d="M12 22h8" stroke="#7a5233" stroke-width="2.4" stroke-linecap="round" />
     </>
   ),
+  logistics: (
+    <>
+      <path
+        d="M7 24c4-1 4-8 9-8s5-7 9-8"
+        stroke="#c9a46a"
+        stroke-width="4"
+        fill="none"
+        stroke-linecap="round"
+      />
+      <path
+        d="M7 24c4-1 4-8 9-8s5-7 9-8"
+        stroke="#7a5233"
+        stroke-width="1.6"
+        stroke-dasharray="2 3"
+        fill="none"
+        stroke-linecap="round"
+      />
+      <circle cx="7" cy="24" r="3.4" fill="#a8d65a" stroke="#4a3324" stroke-width="1.6" />
+      <rect
+        x="21.5"
+        y="4.5"
+        width="7"
+        height="6"
+        rx="1.4"
+        fill="#e5cf9c"
+        stroke="#4a3324"
+        stroke-width="1.6"
+      />
+    </>
+  ),
 } satisfies Record<string, ComponentChildren>;
 
 export type IconName = keyof typeof GLYPHS;

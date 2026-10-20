@@ -1,4 +1,5 @@
 import {
+  HARVESTS,
   AGE_IDS,
   ageOf,
   buildCost,
@@ -173,11 +174,31 @@ export function PlacingBanner() {
       <div class="path-toolbar-text">
         <strong>{t('plans.placing', { name: `@buildings.${placing}.name` })}</strong>
         <span class="small muted">{t('plans.placingHint')}</span>
+        {HARVESTS[placing] && <span class="small muted">{t('plans.placingLogistics')}</span>}
       </div>
       <button class="btn" onClick={() => actions.stopPlacing()}>
         {t('plans.cancel')}
       </button>
     </div>
+  );
+}
+
+/** Round button: the logistics overlay, efficiency above every producer (key O). */
+export function LogisticsButton() {
+  const t = useT();
+  const on = useUi((s) => s.showLogistics);
+  const hidden = useUi((s) => s.pathMode || s.placing !== null);
+  if (hidden) return null;
+  return (
+    <button
+      class={`round-fab logistics-fab pe ${on ? 'is-on' : ''}`}
+      aria-pressed={on}
+      aria-label={t('plans.showLogistics')}
+      title={`${t('plans.showLogistics')} (O)`}
+      onClick={() => actions.toggleLogistics()}
+    >
+      <Icon name="logistics" size={28} />
+    </button>
   );
 }
 

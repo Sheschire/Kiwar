@@ -12,7 +12,7 @@ import {
 import type { OfflineSummary, SyncStatus } from '../game/GameController';
 import type { Account } from '../game/onlineBackend';
 import type { ChatMessage } from '../game/chat';
-import type { AllySnapshot, UniverseInfo } from '@kiwar/shared';
+import type { AllySnapshot, LogisticsChange, UniverseInfo } from '@kiwar/shared';
 import type { QualityChoice, QualityPreset } from '../render/quality';
 import { DEFAULT_SETTINGS, type AudioSettings } from '../audio/settings';
 import type { IntroUi } from './intro';
@@ -75,11 +75,15 @@ export interface UiState {
   chatUnread: number;
   /** Path painting mode. */
   pathMode: boolean;
+  /** Chantier 12: logistics changes of the last painted stroke. */
+  pathGains: LogisticsChange[] | null;
   /** Chantier 11: the plans screen tab, and the building being placed from the tree. */
   plansTab: 'buildings' | 'research';
   placing: BuildingType | null;
   /** Level badges above every building, whatever the zoom. */
   showLevels: boolean;
+  /** Chantier 12: logistics overlay (efficiency above every producer). */
+  showLogistics: boolean;
   /** Volume settings (mirrors the audio engine). */
   audio: AudioSettings;
   /** Kiwi whose sheet is open in the village screen (null = the list). */
@@ -153,9 +157,11 @@ export const uiStore = createStore<UiState>(() => ({
   chat: [],
   chatUnread: 0,
   pathMode: false,
+  pathGains: null,
   plansTab: 'buildings',
   placing: null,
   showLevels: loadShowLevels(),
+  showLogistics: false,
   audio: DEFAULT_SETTINGS,
   kiwiId: null,
   villageTab: 'kiwis',

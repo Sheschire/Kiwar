@@ -21,7 +21,9 @@ import {
   isMaxLevel,
   levelDef,
   logisticsEfficiency,
+  nearestDepotOf,
   nearRay,
+  type Hex,
   nestDef,
   pendingUpgrade,
   meteorAt,
@@ -62,7 +64,7 @@ import {
 } from '@kiwar/shared';
 import { bedsOf, idleVillagers } from '../derived';
 import { MissingBedsLine } from './NeedsWidgets';
-import { formatDuration, formatNumber } from '../../i18n/i18n';
+import { formatDuration, formatNumber, type Lang } from '../../i18n/i18n';
 import { actions } from '../actions';
 import {
   BookIcon,
@@ -162,6 +164,27 @@ function CycleNotes({
   );
 }
 
+/** Efficiency, walk and depot of a site, for the logistics lines (chantier 12). */
+function logisticsParams(game: GameState, h: Hex, lang: Lang) {
+  const map = uiStore.getState().map!;
+  const depot = nearestDepotOf(game, map, h);
+  const distance = depot?.distance ?? Infinity;
+  return {
+    percent: Math.round(logisticsEfficiency(distance) * 100),
+    distance: Number.isFinite(distance) ? formatNumber(lang, Math.round(distance * 10) / 10) : '∞',
+    depot: depot ? `@buildings.${depot.building.type}.name` : '—',
+  };
+}
+
+/** "Logistics here: 92 % · 4 steps to the depot (Nest)" for a build option. */
+function LogisticsLine({ game, tile, t }: { game: GameState; tile: Tile; t: Translate }) {
+  const lang = useUi((s) => s.lang);
+  const params = logisticsParams(game, tile, lang);
+  return (
+    <p class={`small ${params.percent < 80 ? 'warn' : 'muted'}`}>{t('tile.logistics', params)}</p>
+  );
+}
+
 /** Deposit, regrowth and logistics of a producer. */
 function HarvestInfo({ game, b, t }: { game: GameState; b: Building; t: Translate }) {
   const lang = useUi((s) => s.lang);
@@ -197,10 +220,7 @@ function HarvestInfo({ game, b, t }: { game: GameState; b: Building; t: Translat
       <div class="stat-row">
         <span class="stat-label">{t('building.logistics')}</span>
         <span class={`small ${h.efficiency < 0.8 ? 'warn' : ''}`}>
-          {t('building.logisticsValue', {
-            distance: formatNumber(lang, Math.round(h.distance * 10) / 10),
-            efficiency: formatNumber(lang, Math.round(h.efficiency * 100) / 100),
-          })}
+          {t('building.logisticsValue', logisticsParams(game, b, lang))}
         </span>
       </div>
       {h.efficiency < 0.8 && <p class="small muted">{t('building.logisticsHint')}</p>}
@@ -507,6 +527,7 @@ function BuildOption({
           })}
         </p>
       )}
+      {reach && <LogisticsLine game={game} tile={tile} t={t} />}
       <div class="build-option-foot">
         <Cost
           cost={buildCost(game, type)}
@@ -561,6 +582,7 @@ function GatherOption({
         </span>
       </div>
       <p class="small muted">{t('tile.gatherDesc')}</p>
+      <LogisticsLine game={game} tile={tile} t={t} />
       <div class="build-option-foot">
         <span class="small muted">
           {t('tile.free')} · {t('tile.camps', { count: camps, max: CAMPS.max })}

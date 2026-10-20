@@ -22,7 +22,7 @@ import { IntroOverlay } from './components/IntroOverlay';
 import { FollowBadge, VillageModal } from './components/VillageModal';
 import { DefenseModal, ThreatBadge } from './components/DefenseModal';
 import { PlansModal } from './components/ResearchModal';
-import { LevelsButton, PlacingBanner } from './components/BuildingTree';
+import { LevelsButton, LogisticsButton, PlacingBanner } from './components/BuildingTree';
 import { BootScreen, Guard } from './components/Guard';
 import { VisitBanner } from './components/VisitBanner';
 import { RecapBubble } from './components/RecapBubble';
@@ -105,6 +105,8 @@ export function App() {
         uiStore.setState((s) => ({ debugOpen: !s.debugOpen }));
       } else if ((e.key === 'l' || e.key === 'L') && !isTyping(e)) {
         actions.toggleLevels();
+      } else if ((e.key === 'o' || e.key === 'O') && !isTyping(e)) {
+        actions.toggleLogistics();
       } else if (e.key === 'Escape') {
         if (uiStore.getState().visit !== null) actions.visitAlly(null);
         else if (uiStore.getState().pathMode) actions.setPathMode(false);
@@ -153,6 +155,7 @@ export function App() {
       <PathToolbar />
       <PlacingBanner />
       <LevelsButton />
+      <LogisticsButton />
       <Guard>
         <TilePanel />
       </Guard>

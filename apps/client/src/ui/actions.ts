@@ -5,6 +5,7 @@ import {
   hexKey,
   isLaunchpadBusy,
   pathLimit,
+  pathLogisticsChanges,
   PATHS,
   queuedBuildAt,
   TILES,
@@ -12,6 +13,7 @@ import {
   type Command,
   otherFace,
   type Face,
+  type GameState,
   type Tile,
 } from '@kiwar/shared';
 import type { GameController } from '../game/GameController';
@@ -39,6 +41,21 @@ function saveDisplayName(name: string): void {
   } catch {
     // ignore
   }
+}
+
+/** Tiles of a painted stroke that would change (paths to add, or to erase). */
+function strokeTiles(game: GameState, tiles: Tile[], erase: boolean): Tile[] {
+  const existing = new Set(game.paths);
+  if (erase) return tiles.filter((t) => existing.has(hexKey(t)));
+  const todo = tiles.filter(
+    (t) =>
+      !existing.has(hexKey(t)) &&
+      TILES[t.type].walkable &&
+      !buildingAt(game, t.q, t.r) &&
+      !queuedBuildAt(game, t.q, t.r) &&
+      !obstacleAt(game, t.q, t.r),
+  );
+  return todo.slice(0, Math.max(0, pathLimit(game) - game.paths.length) || 1);
 }
 
 let controller: GameController | null = null;
@@ -102,6 +119,9 @@ export const actions = {
     saveShowLevels(on);
     uiStore.setState({ showLevels: on });
   },
+  toggleLogistics(): void {
+    uiStore.setState((s) => ({ showLogistics: !s.showLogistics }));
+  },
   stopPlacing(): void {
     uiStore.setState({ placing: null });
   },
@@ -116,25 +136,16 @@ export const actions = {
   setPathMode(on: boolean): void {
     renderer?.setPaintMode(on);
     uiStore.setState(
-      on ? { pathMode: true, selectedTile: null, placing: null } : { pathMode: false },
+      on
+        ? { pathMode: true, selectedTile: null, placing: null, pathGains: null }
+        : { pathMode: false, pathGains: null },
     );
   },
   /** Sends a painted stroke as path commands (only the tiles that would change). */
   paintPaths(tiles: Tile[], erase: boolean): void {
     const game = uiStore.getState().game;
     if (!game) return;
-    const existing = new Set(game.paths);
-    let todo = erase
-      ? tiles.filter((t) => existing.has(hexKey(t)))
-      : tiles.filter(
-          (t) =>
-            !existing.has(hexKey(t)) &&
-            TILES[t.type].walkable &&
-            !buildingAt(game, t.q, t.r) &&
-            !queuedBuildAt(game, t.q, t.r) &&
-            !obstacleAt(game, t.q, t.r),
-        );
-    if (!erase) todo = todo.slice(0, Math.max(0, pathLimit(game) - game.paths.length) || 1);
+    const todo = strokeTiles(game, tiles, erase);
     for (let i = 0; i < todo.length; i += PATHS.maxPerCommand) {
       const batch = todo.slice(i, i + PATHS.maxPerCommand).map((t) => ({ q: t.q, r: t.r }));
       const cmd: Command = { type: erase ? 'removePath' : 'buildPath', tiles: batch };
@@ -142,6 +153,16 @@ export const actions = {
       if (!ok) break;
       if (i === 0) playCommandSound(cmd);
     }
+  },
+  /**
+   * Chantier 12: what the stroke being painted does to the producers' logistics (kept after
+   * the stroke ends, until the next one or the end of path mode).
+   */
+  previewPaths(tiles: Tile[], erase: boolean): void {
+    const { game, map } = uiStore.getState();
+    if (!game || !map || tiles.length === 0) return;
+    const keys = strokeTiles(game, tiles, erase).map((t) => hexKey(t));
+    uiStore.setState({ pathGains: pathLogisticsChanges(game, map, keys, erase) });
   },
   /** Opens the village screen, on a kiwi's sheet if given. */
   openVillage(kiwiId: string | null = null): void {

@@ -4,15 +4,19 @@ import {
   BufferGeometry,
   Float32BufferAttribute,
   Group,
+  InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
+  Color,
   type ColorRepresentation,
 } from 'three';
 import type { Tile } from '@kiwar/shared';
 import { HEX_VISUAL_RADIUS, worldPosition } from './terrain';
 import { WATER_LEVEL } from './water';
+
+const PLACEMENT_COLOR = '#ffe27a';
 
 function createHexRingGeometry(inner: number, outer: number): BufferGeometry {
   const positions: number[] = [];
@@ -95,7 +99,7 @@ export class SelectionView {
   private readonly placement = new InstancedMesh(
     createHexRingGeometry(HEX_VISUAL_RADIUS * 0.12, HEX_VISUAL_RADIUS * 0.86),
     new MeshBasicMaterial({
-      color: '#ffe27a',
+      color: '#ffffff',
       transparent: true,
       opacity: 0.45,
       depthWrite: false,
@@ -109,22 +113,31 @@ export class SelectionView {
     this.catchment.frustumCulled = false;
     this.catchment.renderOrder = 4;
     this.placement.count = 0;
+    // Per-tile colours from the start (the shader is compiled with them).
+    this.placement.instanceColor = new InstancedBufferAttribute(
+      new Float32Array(MAX_PLACEMENT * 3).fill(1),
+      3,
+    );
     this.placement.frustumCulled = false;
     this.placement.renderOrder = 4;
     this.group.add(this.hover.mesh, this.selected.mesh, this.catchment, this.placement);
   }
 
-  setPlacement(tiles: readonly Tile[]): void {
+  /** Chantier 12: each tile may carry its own colour (logistics of a producer placed there). */
+  setPlacement(tiles: readonly Tile[], colors?: readonly string[]): void {
     const m = new Matrix4();
+    const c = new Color();
     let n = 0;
     for (const t of tiles.slice(0, MAX_PLACEMENT)) {
       const p = worldPosition(t);
       // Above the water of the juice pools.
       m.makeTranslation(p.x, t.height + (t.type === 'juice' ? WATER_LEVEL : 0) + 0.03, p.z);
+      this.placement.setColorAt(n, c.set(colors?.[n] ?? PLACEMENT_COLOR));
       this.placement.setMatrixAt(n++, m);
     }
     this.placement.count = n;
     this.placement.instanceMatrix.needsUpdate = true;
+    if (this.placement.instanceColor) this.placement.instanceColor.needsUpdate = true;
   }
 
   /** Highlights the deposit tiles harvested by the selected building. */

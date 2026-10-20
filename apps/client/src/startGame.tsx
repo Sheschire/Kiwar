@@ -3,6 +3,9 @@ import { render } from 'preact';
 import {
   generateFace,
   buildableTiles,
+  depotDistance,
+  HARVESTS,
+  logisticsEfficiency,
   getTile,
   terraformKey,
   otherFace,
@@ -47,6 +50,7 @@ const renderer = new GameRenderer(
     onTileTap: (tile) =>
       uiStore.getState().placing && tile ? actions.placeAt(tile) : actions.selectTile(tile),
     onPaint: (tiles, erase) => actions.paintPaths(tiles, erase),
+    onPaintPreview: (tiles, erase) => actions.previewPaths(tiles, erase),
     onStats: (frame) => perfStore.setState({ frame }),
     onAzimuth: (azimuth) => viewStore.setState({ azimuth }),
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
@@ -194,6 +198,12 @@ uiStore.subscribe((s, prev) => {
   if (s.showLevels !== prev.showLevels) renderer.setLevelBadges(s.showLevels);
 });
 
+// Chantier 12: the logistics overlay, on demand and always while painting paths.
+uiStore.subscribe((s, prev) => {
+  const on = s.showLogistics || s.pathMode;
+  if (on !== (prev.showLogistics || prev.pathMode)) renderer.setLogisticsOverlay(on);
+});
+
 // Chantier 11: placing a building from the tree lights the valid tiles (kept up to date).
 let placementKey = '';
 uiStore.subscribe((s, prev) => {
@@ -202,7 +212,12 @@ uiStore.subscribe((s, prev) => {
   const key = `${s.placing}:${tiles.map((t) => `${t.q},${t.r}`).join(';')}`;
   if (key === placementKey) return;
   placementKey = key;
-  renderer.setPlacement(tiles);
+  // Chantier 12: a producer shows the logistics it would have on each tile.
+  const producer = s.placing && s.game && s.map && HARVESTS[s.placing];
+  renderer.setPlacement(
+    tiles,
+    producer ? tiles.map((t) => logisticsEfficiency(depotDistance(s.game!, s.map!, t))) : undefined,
+  );
 });
 
 const url = readUrlParams();

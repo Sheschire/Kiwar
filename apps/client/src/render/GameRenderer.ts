@@ -18,7 +18,10 @@ import {
   buildingAt,
   calendarAt,
   depletedTiles,
+  depotDistance,
   getTile,
+  harvestedTileType,
+  logisticsEfficiency,
   hexKey,
   parseHexKey,
   seasonOf,
@@ -57,7 +60,8 @@ import {
   type QualityPreset,
 } from './quality';
 import { SelectionView } from './selection';
-import { TerrainView } from './terrain';
+import { TerrainView, worldPosition } from './terrain';
+import { efficiencyGlow, LogisticsBadges, type PercentBadge } from './logisticsBadges';
 import { WaterView } from './water';
 import { TwinView, type TwinOptions } from './twin';
 import { AlliesView, type AllyPlanet } from './allies';
@@ -72,6 +76,8 @@ export interface RendererCallbacks {
   onTileTap(tile: Tile | null): void;
   /** A path stroke painted in path mode. */
   onPaint?(tiles: Tile[], erase: boolean): void;
+  /** The stroke being painted changed (empty when it ends or is cancelled). */
+  onPaintPreview?(tiles: Tile[], erase: boolean): void;
   /** The camera turned (compass). */
   onAzimuth?(azimuth: number): void;
   /** Detailed frame timing, twice a second (debug panel). */
@@ -172,7 +178,12 @@ export class GameRenderer {
     this.rig = new CameraRig(this.camera, canvas);
     this.environment = new Environment(this.scene);
     this.scene.fog = new Fog(PALETTE.skyHorizon, 90, 260);
-    this.scene.add(this.lighting.group, this.selection.group, this.allies.group);
+    this.scene.add(
+      this.lighting.group,
+      this.selection.group,
+      this.allies.group,
+      this.logistics.group,
+    );
 
     // Any camera gesture by the player ends the follow mode.
     this.rig.controls.addEventListener('controlstart', () => {
@@ -218,7 +229,10 @@ export class GameRenderer {
     this.painter = new PathPainter(canvas, () => this.map, {
       pickTile: (x, y) => this.pickTile(x, y),
       isPath: (tile) => this.lastState?.paths.includes(hexKey(tile)) ?? false,
-      onPreview: (tiles, erase) => this.paths?.setPreview(tiles, erase),
+      onPreview: (tiles, erase) => {
+        this.paths?.setPreview(tiles, erase);
+        this.callbacks.onPaintPreview?.(tiles, erase);
+      },
       onStroke: (tiles, erase) => this.callbacks.onPaint?.(tiles, erase),
     });
 
@@ -470,6 +484,7 @@ export class GameRenderer {
     if (this.map) this.terrain?.setDepletion(depletedTiles(state, this.map));
     this.water?.setFlooded(BIOMES[state.params.biome].floods === seasonOf(state));
     this.refreshCatchment();
+    this.refreshLogistics();
     // Clear decorative props under buildings, construction sites and paths.
     const occupied = new Set<string>(state.paths);
     for (const b of state.buildings) occupied.add(hexKey(b));
@@ -533,9 +548,63 @@ export class GameRenderer {
 
   private levelBadges = false;
 
-  /** Chantier 11: lights the tiles where the building chosen in the tree can go. */
-  setPlacement(tiles: readonly Tile[]): void {
-    this.selection.setPlacement(tiles);
+  /** Chantier 12: logistics labels (overlay above the producers, or placement tiles). */
+  private readonly logistics = new LogisticsBadges();
+  private logisticsOverlay = false;
+  private placementLabels: PercentBadge[] = [];
+  private placementHover = '';
+
+  /** Chantier 12: the logistics overlay (efficiency of every producer). */
+  setLogisticsOverlay(on: boolean): void {
+    this.logisticsOverlay = on;
+    this.refreshLogistics();
+  }
+
+  private refreshLogistics(): void {
+    const state = this.lastState;
+    // While placing, only the hovered tile shows its number (the others are tinted).
+    let rows = this.placementLabels.filter((b) => b.key === this.placementHover);
+    if (
+      this.placementLabels.length === 0 &&
+      this.logisticsOverlay &&
+      state &&
+      this.map &&
+      this.buildings
+    ) {
+      const map = this.map;
+      rows = [];
+      for (const b of state.buildings) {
+        if (!harvestedTileType(map, b)) continue;
+        const a = this.buildings.anchorOf(b.id);
+        if (!a) continue;
+        const value = logisticsEfficiency(depotDistance(state, map, b));
+        rows.push({ key: b.id, ...a, value, q: b.q, r: b.r });
+      }
+    }
+    this.logistics.show(rows);
+  }
+
+  /**
+   * Chantier 11: lights the tiles where the building chosen in the tree can go; chantier 12:
+   * with the logistics efficiency a producer would have on each.
+   */
+  setPlacement(tiles: readonly Tile[], efficiencies?: readonly number[]): void {
+    this.selection.setPlacement(tiles, efficiencies?.map(efficiencyGlow));
+    this.placementLabels = efficiencies
+      ? tiles.map((t, i) => {
+          const p = worldPosition(t);
+          return {
+            key: `t${t.q},${t.r}`,
+            x: p.x,
+            y: t.height + 0.55,
+            z: p.z,
+            value: efficiencies[i]!,
+            q: t.q,
+            r: t.r,
+          };
+        })
+      : [];
+    this.refreshLogistics();
   }
 
   /** Path mode: one-finger / left drags paint paths instead of moving the camera. */
@@ -764,8 +833,14 @@ export class GameRenderer {
       this.callbacks.onAzimuth?.(azimuth);
     }
     if (this.hoverPoint) {
-      this.selection.setHover(this.pickTile(this.hoverPoint.x, this.hoverPoint.y));
+      const tile = this.pickTile(this.hoverPoint.x, this.hoverPoint.y);
+      this.selection.setHover(tile);
       this.hoverPoint = null;
+      const key = tile ? `t${tile.q},${tile.r}` : '';
+      if (this.placementLabels.length > 0 && key !== this.placementHover) {
+        this.placementHover = key;
+        this.refreshLogistics();
+      }
     }
     try {
       this.updateScene(dt);
@@ -828,8 +903,11 @@ export class GameRenderer {
     fog.near = Math.max(90, this.rig.controls.distance + 25);
     fog.far = fog.near + 170;
     this.buildings?.update(dt, this.callbacks.now());
+    this.logistics.group.visible = !this.visiting;
     this.buildings?.badges.setVisible(
       !this.visiting &&
+        !this.logisticsOverlay &&
+        this.placementLabels.length === 0 &&
         (this.levelBadges || this.rig.controls.distance < this.rig.frameDistance * BADGE_ZOOM),
     );
     this.meteors?.update(dt, this.callbacks.now());
@@ -894,6 +972,7 @@ export class GameRenderer {
   }
 
   dispose(): void {
+    this.logistics.dispose();
     this.renderer.setAnimationLoop(null);
     this.resizeObserver.disconnect();
     this.tap.dispose();
