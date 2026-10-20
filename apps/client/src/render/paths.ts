@@ -23,6 +23,14 @@ const MAX_PREVIEW = 400;
  * Player paths: a sandy slab with a few flat stepping stones on each path tile, plus the live
  * preview of the tiles being painted (green to add, red to erase).
  */
+/** Slab and pebble colours of the paths by age. */
+const PATH_LOOKS: readonly [string, string][] = [
+  ['#e3cf9c', '#c8bba0'],
+  ['#cfc4ac', '#a39a88'],
+  ['#b4ada0', '#878075'],
+  ['#9d9893', '#6c6763'],
+];
+
 export class PathsView {
   readonly group = new Group();
   private readonly slabs: InstancedMesh;
@@ -67,10 +75,14 @@ export class PathsView {
     this.pebbles.receiveShadow = true;
   }
 
-  sync(paths: readonly string[]): void {
-    const sig = paths.join(';');
+  sync(paths: readonly string[], age = 0): void {
+    const sig = `${age}|${paths.join(';')}`;
     if (sig === this.signature) return;
     this.signature = sig;
+    // Chantier 08: sand paths, then cobbles, then pavers and dark asphalt-like slabs.
+    const look = PATH_LOOKS[Math.min(age, PATH_LOOKS.length - 1)]!;
+    (this.slabs.material as MeshStandardMaterial).color.set(look[0]);
+    (this.pebbles.material as MeshStandardMaterial).color.set(look[1]);
     let n = 0;
     let p = 0;
     const q = new Quaternion();

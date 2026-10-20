@@ -742,8 +742,9 @@ function skyTurret(level: number): Parts {
  * Library (chantier 08): a round stone tower full of books. A star globe turns on its lectern
  * while the researchers work; level 2 adds a floor, level 3 an observatory dome and a telescope.
  */
-function library(level: number): Parts {
+function library(fullLevel: number): Parts {
   const p: Parts = [];
+  const level = Math.min(3, fullLevel);
   const s = 0.85 + level * 0.08;
   const h = level >= 2 ? 0.62 : 0.42;
   p.push([cyl(12), C.stoneDark, m(0, 0.03, 0, 0.42 * s, 0.06, 0.42 * s)]);
@@ -789,6 +790,27 @@ function library(level: number): Parts {
   ]);
   emitter(p, { kind: 'gold', at: [gx, 0.4, gz], rate: 0.8 });
   flag(p, level, 0.3, top - 0.05, -0.25);
+  if (fullLevel >= 4) {
+    // The laboratory: a vat of glowing juice bubbling away, fed by copper pipes.
+    const vx = 0.05;
+    const vz = -0.42;
+    p.push([cyl(10), C.ironDark, m(vx, 0.12, vz, 0.17, 0.24, 0.17)]);
+    p.push([cyl(10), C.juice, m(vx, 0.25, vz, 0.15, 0.03, 0.15)]);
+    p.push([cyl(6), C.fire, m(vx + 0.18, 0.35, vz + 0.1, 0.02, 0.5, 0.02, 0, 0, 0.5)]);
+    rig(p, 'brew', [vx, 0.3, vz], { kind: 'bob', amount: 0.02, speed: 3 });
+    p.push([sphere(6, 4), C.juice, m(vx + 0.04, 0.3, vz, 0.04, 0.04, 0.04), 'brew']);
+    emitter(p, { kind: 'juice', at: [vx, 0.32, vz], rate: 2 });
+    if (fullLevel >= 5) {
+      // Glass flasks on a shelf.
+      for (let i = 0; i < 3; i++)
+        p.push([sphere(6, 5), C.juice, m(-0.2 + i * 0.09, 0.08, -0.4, 0.04, 0.05, 0.04)]);
+    }
+    if (fullLevel >= 6) {
+      // A lightning rod: the juice crackles.
+      p.push([cyl(6), C.iron, m(0, top + 0.35, 0, 0.015, 0.5, 0.015)]);
+      emitter(p, { kind: 'spark', at: [0, top + 0.6, 0], rate: 1.5, ambient: true });
+    }
+  }
   return p;
 }
 
@@ -872,7 +894,65 @@ const models = new Map<string, BuildingModel>();
 
 function partsOf(type: BuildingType, level: number, shipAway: boolean, age: number): Parts {
   const lvl = Math.max(1, Math.min(3, level));
-  return type === 'launchpad' && shipAway ? launchpad(lvl, age, false) : BUILDERS[type](lvl, age);
+  const p =
+    type === 'launchpad' && shipAway
+      ? launchpad(lvl, age, false)
+      : BUILDERS[type](type === 'library' ? level : lvl, age);
+  if (level > 3) grow(p, level);
+  if (type !== 'camp' && type !== 'monument') dress(p, type, age);
+  return p;
+}
+
+/** Levels 4–6 (chantier 08): the level-3 model, a little bigger, with gold studs. */
+function grow(p: Parts, level: number): void {
+  const k = 1 + 0.08 * (level - 3);
+  const scale = new Matrix4().makeScale(k, k, k);
+  for (const part of p) part[2] = part[2].clone().premultiply(scale);
+  for (const r of p.rigs ?? []) r.pivot.multiplyScalar(k);
+  for (const e of p.emitters ?? []) e.at = [e.at[0] * k, e.at[1] * k, e.at[2] * k];
+  for (let i = 0; i < level - 3; i++) {
+    const a = Math.PI * 0.75 + i * 0.35;
+    p.push([
+      sphere(6, 4),
+      C.flagGold,
+      m(Math.sin(a) * 0.52, 0.06, Math.cos(a) * 0.52, 0.04, 0.04, 0.04),
+    ]);
+  }
+}
+
+/** Colours that change with the age: red tiles turn to slate (Iron), then to sheet metal. */
+const AGE_COLORS: readonly Partial<Record<string, string>>[] = [
+  {},
+  {},
+  { [C.roof]: '#6f7c86', [C.roofDark]: '#55616a', [C.wood]: '#93704f' },
+  { [C.roof]: '#8a949b', [C.roofDark]: '#6a747b', [C.wood]: '#8a6a50', [C.cream]: '#e6d6bf' },
+];
+
+/**
+ * The village changes with the age (chantier 08): a stone plinth (Stone age), an iron lantern
+ * and slate roofs (Iron age), a smoking brick chimney and metal roofs (Industrial age).
+ */
+function dress(p: Parts, type: BuildingType, age: number): void {
+  if (age <= 0) return;
+  const colors = AGE_COLORS[Math.min(age, AGE_COLORS.length - 1)]!;
+  for (const part of p) part[1] = colors[part[1]] ?? part[1];
+  const turret = type === 'seedTurret' || type === 'skyTurret';
+  p.push([cyl(6), C.stoneDark, m(0, 0.012, 0, 0.6, 0.024, 0.6)]);
+  if (age >= 2 && !turret) {
+    const x = -0.5;
+    const z = 0.38;
+    p.push([cyl(5), C.ironDark, m(x, 0.2, z, 0.018, 0.4, 0.018)]);
+    p.push([box(), C.iron, m(x, 0.42, z, 0.07, 0.07, 0.07)]);
+    rig(p, `lamp${age}`, [x, 0.42, z], { kind: 'flicker', amount: 0.15, speed: 3, ambient: true });
+    p.push([sphere(5, 4), C.fire, m(x, 0.42, z, 0.035, 0.035, 0.035), `lamp${age}`]);
+  }
+  if (age >= 3 && !turret && type !== 'nest') {
+    const x = -0.38;
+    const z = -0.42;
+    p.push([box(), C.brick, m(x, 0.3, z, 0.1, 0.6, 0.1)]);
+    p.push([box(), C.ironDark, m(x, 0.61, z, 0.12, 0.03, 0.12)]);
+    emitter(p, { kind: 'smoke', at: [x, 0.66, z], rate: 0.7, ambient: true });
+  }
 }
 
 /** The whole model merged in its rest pose (construction ghosts). */

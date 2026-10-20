@@ -11,6 +11,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import {
+  ageOf,
   BIOMES,
   buildingAt,
   calendarAt,
@@ -330,7 +331,7 @@ export class GameRenderer {
     this.lastState = state;
     this.buildings?.sync(state);
     this.kiwis?.sync(state);
-    this.paths?.sync(state.paths);
+    this.paths?.sync(state.paths, ageOf(state));
     this.meteors?.sync(state);
     this.ships?.sync(state);
     this.weather?.sync(state);
@@ -361,6 +362,17 @@ export class GameRenderer {
     for (const e of events) {
       if (e.type === 'constructionComplete') this.buildings?.celebrate(e.buildingId, e.q, e.r);
       if (e.type === 'repaired') this.buildings?.burst(e.q, e.r);
+      // A new age: fireworks over the monument (chantier 08).
+      if (e.type === 'ageReached') {
+        for (let i = 0; i < 5; i++)
+          window.setTimeout(
+            () => {
+              const monument = this.lastState?.buildings.find((x) => x.type === 'monument');
+              if (monument) this.buildings?.burst(monument.q, monument.r);
+            },
+            300 + i * 350,
+          );
+      }
       // A wave that strikes while the player watches gets its show (not offline catch-ups).
       if (e.type === 'waveStruck' && Math.abs(this.callbacks.now() - e.at) < 20_000)
         this.pendingShow = e.waveId;
