@@ -30,14 +30,15 @@ import { WaterView, WATER_LEVEL } from './water';
 import { PALETTE } from './palette';
 import { GLSL_NOISE } from './shaderChunks';
 import { TerrainView, worldPosition } from './terrain';
+import { FRONT_AZIMUTH } from './front';
 
 /**
- * Where the twin floats, relative to the view: just above the top of the frame at the normal
+ * Where the twin floats: towards the front, just above the top of the frame at the normal
  * zoom, sliding into the upper sky as the player zooms out (`ZOOM_IN` → `ZOOM_OUT`, ratios of
  * the framing distance). `BEHIND`: extra distance beyond the target, so it hangs past our rim.
  */
-const ZOOM_IN = 1.08;
-const ZOOM_OUT = 1.75;
+const ZOOM_IN = 1.0;
+const ZOOM_OUT = 1.55;
 const BEHIND = 34;
 const LEAN = 0.45;
 /** Seen from afar: a little smaller than our own half. */
@@ -162,29 +163,37 @@ export class TwinView {
   }
 
   /**
-   * Places the twin in the sky of the current view (`zoom`: camera distance / framing
-   * distance), leaning towards the camera so its surface shows, turning slowly.
+   * Places the twin in the sky, always towards the colony's front (`FRONT_AZIMUTH`): like the
+   * moon, it keeps its place in the sky while the camera turns (it slides off screen when the
+   * player looks the other way) and keeps the same orientation; it rises into the upper sky as
+   * the player zooms out (`zoom`: camera distance / framing distance) and turns slowly.
    */
   update(time: number, camera: PerspectiveCamera, target: Vector3, zoom: number): void {
     const forward = this.tmp.subVectors(target, camera.position);
     const distance = forward.length();
-    forward.normalize();
+    // The view's pitch, but facing the front whatever the camera azimuth.
+    const pitch = Math.asin(Math.min(1, Math.max(-1, -forward.y / distance)));
+    forward.set(
+      Math.sin(FRONT_AZIMUTH) * Math.cos(pitch),
+      -Math.sin(pitch),
+      Math.cos(FRONT_AZIMUTH) * Math.cos(pitch),
+    );
     const right = this.right.crossVectors(forward, camera.up).normalize();
     const vHalf = (camera.fov * Math.PI) / 360;
     const along = distance + BEHIND;
     const angularRadius = Math.atan(this.radius / along);
     const k = smoothstep((zoom - ZOOM_IN) / (ZOOM_OUT - ZOOM_IN));
     const hidden = vHalf + angularRadius * 1.15;
-    const shown = vHalf * 0.62;
+    const shown = vHalf * 0.7;
     const angle = hidden + (shown - hidden) * k;
-    // Tilt the view direction up by `angle` around the camera's right axis.
+    // Tilt the front direction up by `angle` around its right axis.
     const dir = this.lean.copy(forward).applyAxisAngle(right, angle);
     this.group.position.copy(camera.position).addScaledVector(dir, along);
     this.group.position.y += Math.sin(time * 0.3) * 0.6;
     this.group.visible = k > 0.001;
-    const azimuth = Math.atan2(camera.position.x - target.x, camera.position.z - target.z);
+    // Fixed orientation: as seen from the side opposite the front.
     this.group.rotation.set(0, 0, 0);
-    this.group.rotateY(azimuth);
+    this.group.rotateY(FRONT_AZIMUTH - Math.PI);
     this.group.rotateX(LEAN);
     this.spin.rotation.y = time * 0.02;
     this.fogMaterial.uniforms.uTime!.value = time;

@@ -855,3 +855,12 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
     mode): its needle points to the alien planet, i.e. the colony's front (`render/front.ts`,
     `FRONT_AZIMUTH = π`: the far side of the default view, reused by chantier 12); a tap flies
     to the Nest. The camera azimuth goes through a small `viewStore`, not the main store.
+- **Alien planet** (part 4): a truly fixed position cannot work with this camera (it looks
+  45–64° down: a fixed object in the sky would only show at a few zooms and angles). The twin
+  now behaves like the moon: always in the direction of the front (`FRONT_AZIMUTH`), at the
+  same height in the sky for a given zoom and pitch, with a fixed orientation and its slow
+  spin. Turning the camera slides it across the screen and out of view (the compass shows
+  where it is); zooming out raises it (ramp 1.0 → 1.55 × the framing distance, was
+  1.08 → 1.75, so it shows sooner) a little higher above the rim than before.
+- **Lighter blur** (owner: lighter, no setting): high preset tilt-shift focus area 0.5 → 0.75,
+  feather 0.32 → 0.2.

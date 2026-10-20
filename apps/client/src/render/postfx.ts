@@ -68,8 +68,8 @@ export class PostFx {
     if (quality.tiltShift) {
       effects.push(
         new TiltShiftEffect({
-          focusArea: 0.5,
-          feather: 0.32,
+          focusArea: 0.75,
+          feather: 0.2,
           offset: 0.04,
           kernelSize: KernelSize.SMALL,
         }),
