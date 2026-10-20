@@ -630,6 +630,58 @@ export function catchmentPreview(
   return { tiles: tiles.length, ...poolCapacity(map, tiles) };
 }
 
+/** Chantier 16: a deposit tile in reach of a planned producer that another building keeps. */
+export interface TakenTile {
+  key: string;
+  owner: BuildingId;
+  /** `claimed`: harvested by an older producer; `built`: a building stands on it. */
+  reason: 'claimed' | 'built';
+}
+
+/**
+ * Chantier 16: the catchment a producer of `type` placed on `h` would have — the deposit tiles
+ * it would harvest (same rules as `computeClaims`), the ones in reach that other buildings
+ * keep, and the deposit it would start with.
+ */
+export function catchmentPlan(
+  state: GameState,
+  map: FaceMap,
+  type: Building['type'],
+  h: Hex,
+  level = 1,
+): { tiles: string[]; taken: TakenTile[]; cap: number; regen: number } {
+  const probe: Building = {
+    id: '__probe' as BuildingId,
+    type,
+    q: h.q,
+    r: h.r,
+    level,
+    richness: 1,
+    builtAt: state.now,
+  };
+  const tileType = harvestedTileType(map, probe);
+  if (!tileType) return { tiles: [], taken: [], cap: 0, regen: 0 };
+  const claims = computeClaims({ ...state, buildings: [...state.buildings, probe] }, map);
+  const tiles = claims.get(probe.id) ?? [];
+  const own = new Set(tiles);
+  const claimedBy = new Map<string, BuildingId>();
+  for (const [id, keys] of claims) if (id !== probe.id) for (const k of keys) claimedBy.set(k, id);
+  const standing = new Map(state.buildings.map((b) => [hexKey(b), b.id]));
+  const season = seasonOf(state);
+  const taken: TakenTile[] = [];
+  for (const x of hexDisk(h, catchmentRadius(probe))) {
+    const key = hexKey(x);
+    if (own.has(key)) continue;
+    const tile = getTile(map, x);
+    if (tile?.type !== tileType || isFlooded(tile, map.params.biome, season)) continue;
+    const claimer = claimedBy.get(key);
+    const builder = standing.get(key);
+    if (claimer) taken.push({ key, owner: claimer, reason: 'claimed' });
+    else if (builder) taken.push({ key, owner: builder, reason: 'built' });
+  }
+  return { tiles, taken, ...poolCapacity(map, tiles) };
+}
+
 /** Fill ratio (0–1) of every deposit that is not full, by hex key (for the terrain tint). */
 export function depletedTiles(state: GameState, map: FaceMap): Map<string, number> {
   const out = new Map<string, number>();

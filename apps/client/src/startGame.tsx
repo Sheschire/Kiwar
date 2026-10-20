@@ -16,7 +16,7 @@ import {
   type GameState,
   type TwinSnapshot,
 } from '@kiwar/shared';
-import { placementError } from './game/placement';
+import { placementError, placementPlan } from './game/placement';
 import { App } from './ui/App';
 import { Guard } from './ui/components/Guard';
 import { GameRenderer } from './render/GameRenderer';
@@ -273,17 +273,30 @@ uiStore.subscribe((s, prev) => {
 let ghostKey = '';
 uiStore.subscribe((s, prev) => {
   if (!s.placing && !prev.placing) return;
-  const game = s.game;
+  // The slow state (once a second) is enough: the ground changes slowly.
+  if (
+    s.placing === prev.placing &&
+    s.placingTile === prev.placingTile &&
+    s.slowGame === prev.slowGame &&
+    s.map === prev.map &&
+    ghostKey !== ''
+  )
+    return;
+  const game = s.slowGame ?? s.game;
   const map = s.map;
   const age = game ? ageOf(game) : 0;
   const tile = s.placing ? s.placingTile : null;
   const valid =
     !!tile && !!game && !!map && !!s.placing && placementError(game, map, s.placing, tile) === null;
   const key = `${s.placing}:${age}:${tile ? hexKey(tile) : ''}:${valid}`;
-  if (key === ghostKey) return;
-  ghostKey = key;
+  const fresh = s.slowGame !== prev.slowGame;
+  if (key === ghostKey && !fresh) return;
+  ghostKey = s.placing ? key : '';
   renderer.setGhostModel(s.placing, age);
   renderer.setGhostTile(tile, valid);
+  // Chantier 16: the tiles a producer would harvest there, and the ones already taken.
+  const plan = valid ? placementPlan(game!, map!, s.placing!, tile!) : null;
+  renderer.setPlannedCatchment(plan?.free ?? [], plan?.taken.map((x) => x.tile) ?? []);
 });
 
 const url = readUrlParams();

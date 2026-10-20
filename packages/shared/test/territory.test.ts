@@ -11,6 +11,14 @@ import {
   depotDistance,
   FACE_PROFILES,
   hexKey,
+  hexDisk,
+  hexDistance,
+  getTile,
+  catchmentPlan,
+  catchmentPreview,
+  computeClaims,
+  type Building,
+  type BuildingId,
   hexLine,
   HOUR_MS,
   migrateState,
@@ -238,5 +246,53 @@ describe('migration', () => {
       expect(migrated.state.paths).toEqual([]);
       expect(migrated.state.deposits).toEqual({});
     }
+  });
+});
+
+describe('catchment plan (chantier 16)', () => {
+  const at = (s: GameState, type: Building['type'], t: Tile, id: string): GameState => ({
+    ...s,
+    buildings: [
+      ...s.buildings,
+      { id: id as BuildingId, type, q: t.q, r: t.r, level: 1, richness: 1, builtAt: T0 },
+    ],
+  });
+
+  it('agrees with the catchment preview on free ground', () => {
+    const { map, state } = setup();
+    const t = findTile(map, 'flesh', 3);
+    const plan = catchmentPlan(state, map, 'pulpery', t);
+    const preview = catchmentPreview(state, map, 'pulpery', t);
+    expect(plan.tiles.length).toBe(preview.tiles);
+    expect(plan.cap).toBeCloseTo(preview.cap, 6);
+    expect(plan.regen).toBeCloseTo(preview.regen, 6);
+    expect(plan.taken).toEqual([]);
+  });
+
+  it('names the producer that already harvests a tile, and buildings standing on others', () => {
+    const { map, state } = setup();
+    // A flesh tile with two flesh neighbours: one for a second site, one under a hut.
+    const fleshNear = (t: Tile) =>
+      hexDisk(t, 1)
+        .map((h) => getTile(map, h))
+        .filter((x): x is Tile => x?.type === 'flesh' && hexKey(x) !== hexKey(t));
+    const a = map.tiles.find((t) => t.type === 'flesh' && fleshNear(t).length >= 2)!;
+    const [site, hutTile] = fleshNear(a) as [Tile, Tile];
+    let s = at(state, 'pulpery', a, 'p1');
+    const claimed = computeClaims(s, map).get('p1' as BuildingId)!;
+    s = at(s, 'hut', hutTile, 'h1');
+    const plan = catchmentPlan(s, map, 'pulpery', site);
+    const takenKeys = new Set(plan.taken.map((x) => x.key));
+    for (const x of plan.taken) {
+      if (x.reason === 'claimed') {
+        expect(x.owner).toBe('p1');
+        expect(claimed).toContain(x.key);
+      } else expect(x.owner).toBe('h1');
+    }
+    expect(takenKeys.has(hexKey(a))).toBe(true);
+    // A building stands on the hut tile: nobody harvests it any more.
+    expect(plan.taken.some((x) => x.reason === 'built')).toBe(hexDistance(site, hutTile) <= 1);
+    // Never both harvested by the new site and taken.
+    for (const k of plan.tiles) expect(takenKeys.has(k)).toBe(false);
   });
 });

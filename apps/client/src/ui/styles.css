@@ -1762,6 +1762,26 @@ button.chip:focus-visible {
   z-index: 12;
 }
 
+.placing-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Chantier 16: on a phone the placing banner keeps the text wide, the buttons below. */
+@media (max-width: 760px) {
+  .placing-banner {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .placing-banner .path-toolbar-text {
+    flex-basis: calc(100% - 48px);
+  }
+  .placing-actions {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+}
+
 .path-toolbar-text {
   flex: 1;
   display: flex;

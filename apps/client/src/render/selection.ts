@@ -78,6 +78,38 @@ class HexMarker {
 const MAX_CATCHMENT = 64;
 const CATCHMENT_COLOR = '#c6f27a';
 const MAX_PLACEMENT = 600;
+/** Chantier 16: tiles of the catchment planned around the placement ghost (radius 3 max). */
+const MAX_PLANNED = 37;
+
+function plannedMesh(color: ColorRepresentation, opacity: number): InstancedMesh {
+  const mesh = new InstancedMesh(
+    createHexRingGeometry(0, HEX_VISUAL_RADIUS * 0.84),
+    new MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+      toneMapped: false,
+    }),
+    MAX_PLANNED,
+  );
+  mesh.count = 0;
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 4;
+  return mesh;
+}
+
+function placeTiles(mesh: InstancedMesh, tiles: readonly Tile[], lift: number): void {
+  const m = new Matrix4();
+  let n = 0;
+  for (const t of tiles.slice(0, mesh.instanceMatrix.count)) {
+    const p = worldPosition(t);
+    m.makeTranslation(p.x, t.height + (t.type === 'juice' ? WATER_LEVEL : 0) + lift, p.z);
+    mesh.setMatrixAt(n++, m);
+  }
+  mesh.count = n;
+  mesh.instanceMatrix.needsUpdate = true;
+}
 
 /** Hover and selection outlines on top of tiles, and the catchment of a selected producer. */
 export class SelectionView {
@@ -109,6 +141,11 @@ export class SelectionView {
     MAX_PLACEMENT,
   );
 
+  /** Chantier 16: deposit tiles a producer placed under the ghost would harvest, and the
+   * ones in its reach that other buildings keep (grey). */
+  private readonly plannedFree = plannedMesh('#8df06e', 0.5);
+  private readonly plannedTaken = plannedMesh('#4a4440', 0.65);
+
   constructor() {
     this.catchment.count = 0;
     this.catchment.instanceColor = new InstancedBufferAttribute(
@@ -125,7 +162,14 @@ export class SelectionView {
     );
     this.placement.frustumCulled = false;
     this.placement.renderOrder = 4;
-    this.group.add(this.hover.mesh, this.selected.mesh, this.catchment, this.placement);
+    this.group.add(
+      this.hover.mesh,
+      this.selected.mesh,
+      this.catchment,
+      this.placement,
+      this.plannedFree,
+      this.plannedTaken,
+    );
   }
 
   /** Chantier 12: each tile may carry its own colour (logistics of a producer placed there). */
@@ -164,6 +208,12 @@ export class SelectionView {
     if (this.catchment.instanceColor) this.catchment.instanceColor.needsUpdate = true;
   }
 
+  /** Chantier 16: the catchment planned around the placement ghost (empty lists hide it). */
+  setPlanned(free: readonly Tile[], taken: readonly Tile[]): void {
+    placeTiles(this.plannedFree, free, 0.04);
+    placeTiles(this.plannedTaken, taken, 0.04);
+  }
+
   setHover(tile: Tile | null): void {
     this.hover.show(tile);
   }
@@ -175,6 +225,8 @@ export class SelectionView {
   update(time: number): void {
     if (this.placement.count > 0)
       (this.placement.material as MeshBasicMaterial).opacity = 0.35 + 0.2 * Math.sin(time * 3.5);
+    if (this.plannedFree.count > 0)
+      (this.plannedFree.material as MeshBasicMaterial).opacity = 0.42 + 0.2 * Math.sin(time * 5);
     this.selected.pulse(time, 4);
     this.hover.pulse(time, 2);
   }

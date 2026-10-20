@@ -612,6 +612,11 @@ export class GameRenderer {
     this.ghost.setTile(tile, valid);
   }
 
+  /** Chantier 16: the catchment a producer would have under the ghost (empty: none). */
+  setPlannedCatchment(free: readonly Tile[], taken: readonly Tile[]): void {
+    this.selection.setPlanned(free, taken);
+  }
+
   /** Chantier 12: the logistics overlay (efficiency of every producer). */
   setLogisticsOverlay(on: boolean): void {
     this.logisticsOverlay = on;

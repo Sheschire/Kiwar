@@ -1,4 +1,6 @@
 import {
+  climateOf,
+  DEPOSITS,
   HARVESTS,
   isTurret,
   AGE_IDS,
@@ -20,7 +22,8 @@ import { buildingIcon, Icon } from '../iconSet';
 import { useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
 import { LevelStats } from './StatChanges';
-import { placementError } from '../../game/placement';
+import { placementError, placementPlan, type PlacementPlan } from '../../game/placement';
+import { formatNumber } from '../../i18n/i18n';
 
 /** Chantier 11: every building by family, its levels, what unlocks it, and "Place". */
 
@@ -176,9 +179,14 @@ export function PlacingBanner() {
   if (!placing) return null;
   // Chantier 16: what the ghost's tile would give, or why it cannot go there.
   const error = tile && game && map ? placementError(game, map, placing, tile) : null;
+  const plan = tile && game && map && !error ? placementPlan(game, map, placing, tile) : null;
   const touch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
   return (
-    <div class="path-toolbar parchment pe" role="dialog" aria-label={t('plans.placingHint')}>
+    <div
+      class="path-toolbar placing-banner parchment pe"
+      role="dialog"
+      aria-label={t('plans.placingHint')}
+    >
       <Icon name={buildingIcon(placing)} size={30} />
       <div class="path-toolbar-text">
         <strong>{t('plans.placing', { name: `@buildings.${placing}.name` })}</strong>
@@ -192,6 +200,8 @@ export function PlacingBanner() {
           </span>
         ) : error ? (
           <span class="small warn">{t(`errors.${error}`)}</span>
+        ) : plan ? (
+          <PlanSummary plan={plan} type={placing} game={game!} />
         ) : (
           <>
             <span class="small muted">
@@ -202,15 +212,64 @@ export function PlacingBanner() {
           </>
         )}
       </div>
-      {pinned && tile && !error && (
-        <button class="btn btn-primary" onClick={() => actions.confirmPlacement()}>
-          {t('plans.buildHere')}
+      <div class="placing-actions">
+        {pinned && tile && !error && (
+          <button class="btn btn-primary" onClick={() => actions.confirmPlacement()}>
+            {t('plans.buildHere')}
+          </button>
+        )}
+        <button class="btn" onClick={() => actions.stopPlacing()}>
+          {t('plans.cancel')}
         </button>
-      )}
-      <button class="btn" onClick={() => actions.stopPlacing()}>
-        {t('plans.cancel')}
-      </button>
+      </div>
     </div>
+  );
+}
+
+/** Chantier 16: what a producer under the ghost would harvest, and what others keep. */
+function PlanSummary({
+  plan,
+  type,
+  game,
+}: {
+  plan: PlacementPlan;
+  type: BuildingType;
+  game: GameState;
+}) {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const ground = HARVESTS[type]!;
+  const tileName = t(`tiles.${ground}.name`).toLowerCase();
+  const resource = DEPOSITS[ground]!.resource;
+  const climate = climateOf(game.face, game.params.biome);
+  const owners = [...new Set(plan.taken.map((x) => x.owner))].flatMap((id) => {
+    const owner = game.buildings.find((b) => b.id === id);
+    return owner ? [t(`buildings.${owner.type}.name`)] : [];
+  });
+  return (
+    <>
+      {plan.free.length > 0 ? (
+        <span class="small">
+          {t('plans.plannedReach', {
+            count: plan.free.length,
+            tile: tileName,
+            cap: formatNumber(lang, Math.round(plan.cap * climate[resource])),
+            resource: t(`resources.${resource}`).toLowerCase(),
+          })}
+        </span>
+      ) : (
+        <span class="small warn">{t('plans.plannedNone', { tile: tileName })}</span>
+      )}
+      {plan.taken.length > 0 && (
+        <span class="small warn">
+          {t('plans.plannedTaken', {
+            count: plan.taken.length,
+            names: [...new Set(owners)].join(', '),
+          })}
+        </span>
+      )}
+      <span class="small muted">{t('plans.placingZone')}</span>
+    </>
   );
 }
 

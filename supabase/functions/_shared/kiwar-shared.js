@@ -5938,6 +5938,38 @@ function catchmentPreview(state, map, type, h, level = 1) {
   const tiles = claims.get(probe.id) ?? [];
   return { tiles: tiles.length, ...poolCapacity(map, tiles) };
 }
+function catchmentPlan(state, map, type, h, level = 1) {
+  const probe = {
+    id: "__probe",
+    type,
+    q: h.q,
+    r: h.r,
+    level,
+    richness: 1,
+    builtAt: state.now
+  };
+  const tileType = harvestedTileType(map, probe);
+  if (!tileType) return { tiles: [], taken: [], cap: 0, regen: 0 };
+  const claims = computeClaims({ ...state, buildings: [...state.buildings, probe] }, map);
+  const tiles = claims.get(probe.id) ?? [];
+  const own = new Set(tiles);
+  const claimedBy = /* @__PURE__ */ new Map();
+  for (const [id3, keys] of claims) if (id3 !== probe.id) for (const k of keys) claimedBy.set(k, id3);
+  const standing = new Map(state.buildings.map((b) => [hexKey(b), b.id]));
+  const season = seasonOf(state);
+  const taken = [];
+  for (const x of hexDisk(h, catchmentRadius(probe))) {
+    const key = hexKey(x);
+    if (own.has(key)) continue;
+    const tile = getTile(map, x);
+    if (tile?.type !== tileType || isFlooded(tile, map.params.biome, season)) continue;
+    const claimer = claimedBy.get(key);
+    const builder = standing.get(key);
+    if (claimer) taken.push({ key, owner: claimer, reason: "claimed" });
+    else if (builder) taken.push({ key, owner: builder, reason: "built" });
+  }
+  return { tiles, taken, ...poolCapacity(map, tiles) };
+}
 function depletedTiles(state, map) {
   const out = /* @__PURE__ */ new Map();
   for (const b of state.buildings) {
@@ -12990,6 +13022,7 @@ export {
   capacity,
   cargoLimit,
   cargoWeight,
+  catchmentPlan,
   catchmentPreview,
   catchmentRadius,
   cleanKiwiName,
