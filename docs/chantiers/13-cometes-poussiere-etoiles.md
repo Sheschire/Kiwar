@@ -72,12 +72,37 @@ poussière, phare) ne sont pas retenues.
 - Aucune partie ne peut être bloquée faute de poussière : un âge reste atteignable en
   quelques comètes.
 
-## Questions ouvertes
+## Questions ouvertes (réponses d'octobre 2026)
 
-1. Fréquence (3 à 5 jours ?) et plafond du stock (50 ?).
-2. En univers partagé : une comète commune à tout l'univers (course à la poussière entre alliés,
-   ou partage) ou une comète propre à chaque face ?
-3. Exiger de la poussière pour passer un âge rallonge le rythme du chantier 08 (Pierre ≈ 1,5
-   jour) : seulement à partir du Fer ?
-4. Les shiny « étoilés » : une couleur de plus (dorée), ou seulement plus de chances sur les
-   couleurs existantes ?
+1. Fréquence et plafond : **3 à 5 jours, plafond 50**.
+2. Univers partagé : **une comète par face** (calendrier propre à chaque colonie).
+3. Poussière pour les âges : **seulement le Fer et l'Industrie** (la Pierre reste libre).
+4. Shiny étoilés : **une nouvelle couleur dorée**, seulement par l'œuf étoilé.
+5. Ramassage : **poste temporaire** (3 places par tuile), envoi à la main avec un bouton
+   « Envoyer les plus adroit·es » ; pas d'automatisme (le chantier 15 pourra le faire).
+6. Joueur·euse qui passe une fois par jour : la fenêtre (annonce 6–12 h + 24 h au sol) suffit.
+
+## Réalisé (octobre 2026)
+
+1. **Comète et ramassage** : première comète à 36 h (annoncée 9 h avant), puis tous les 3 à 5
+   jours, annoncée 6 à 12 h avant ; elle traverse le haut du ciel (plus brillante la nuit) et
+   laisse 20 × facteur d'âge (20, 26, 34, 44) poussières sur 1 à 3 tuiles libres pendant 24 h.
+   Jusqu'à 3 kiwis par tuile (≈ 2 poussières/h chacun, +5 % par point d'Adresse au-dessus de
+   5) ; stock à part plafonné à 50. Puce dans la barre du haut, badge, fiche de tuile, toasts,
+   résumé hors ligne, sons.
+2. **Bénédictions** (fiche du kiwi) : guérison immédiate (3), redistribution des stats (6),
+   +1 pour toujours (10, trois fois par kiwi) ; **œuf étoilé** (+15) avec 1 chance sur 8 d'un
+   shiny **doré** à paillettes.
+3. **Branche « Étoiles »** : Nuits claires (Pierre, travail de nuit +15 %, 8), Guet des étoiles
+   (Pierre, vagues annoncées 4 h plus tôt, 8), Appel des comètes (Fer, comètes 20 % plus tôt,
+   15), Fer d'étoile (Fer, météorites +30 %, 12). Poussière payée au choix, rendue si on
+   abandonne.
+4. **Carburant** (5 : trajet −25 %, fiabilité +15 pts), **monument** du Fer (15) et de
+   l'Industrie (30), **Kikiwiwi** (10). Le bot ramasse, garde sa réserve et soigne avec le
+   surplus.
+
+## Reste à faire / idées
+
+- Pas d'automatisme de ramassage (chantier 15 : postes temporaires automatiques).
+- La comète n'est pas montrée sur les planètes alliées ; pas de comète commune à l'univers.
+- Pas de son dédié aux bénédictions ni à l'éclosion d'un œuf étoilé (son de shiny habituel).
