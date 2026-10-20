@@ -132,7 +132,9 @@ que le client : il peut tourner en parallèle d'un chantier de simulation.
 ## Reste
 
 - Mesure réelle du MacBook Pro 2015 (Iris Pro, préréglage Bas) : 58 ips, pire image 27 ms,
-  aucun à-coup, interface 16 ms/s. Reste à mesurer en Moyen (si ≥ ~50 ips, rendre la descente
-  automatique plus patiente) et sur les PC desktop qui ramaient.
+  aucun à-coup, interface 16 ms/s ; Moyen 37 ips, Haut 22 ips : la carte graphique limite.
+  Allégé à l'aveugle (choix du porteur) : Bas d'office et un pixel par pixel CSS pour les GPU
+  Intel intégrés, sans MSAA du canvas, ombres simples en Bas/Moyen, 3D figée derrière les
+  menus. Reste : nouvelle mesure du porteur, et les PC desktop qui ramaient.
 - Instancing des parties animées si un vrai GPU les montre coûteuses.
 - Lueurs CSS animées en `box-shadow` (petites, gardées).

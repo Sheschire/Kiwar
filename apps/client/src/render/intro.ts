@@ -1,6 +1,4 @@
-import type {
-  Mesh,
-  MeshStandardMaterial} from 'three';
+import type { Mesh, MeshStandardMaterial } from 'three';
 import {
   BufferGeometry,
   Color,

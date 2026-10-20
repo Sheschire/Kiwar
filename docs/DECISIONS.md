@@ -883,6 +883,16 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
   in 107 ms. Smooth. Auto detection gives medium for an Iris Pro, so low came either from the
   owner or from the adaptive step-down (< 40 fps over 4 s, from 6 s after launch); a medium
   measure is asked to decide whether the step-down should wait longer.
+- **Second measure, same Mac** (camera moving): medium 37 fps (p95 33 ms, 5 hitches), high
+  22 fps (p95 54.5 ms, 67 hitches), JS 4.7–5.5 ms per frame, interface 16–20 ms/s: GPU-bound.
+  The owner still feels the camera and the menus as choppy in low (58 fps, p95 21.6 ms: about
+  one missed frame in twenty). Owner: optimise directly, no test bench. So:
+  - Intel integrated GPUs (not Iris Xe / Arc): auto preset **low**, one device pixel per CSS
+    pixel (`INTEGRATED_MAX_PIXEL_RATIO` 1.25 → 1, about 30 % fewer pixels on a Retina screen),
+    no hardware MSAA on the canvas (`antialias` off at context creation).
+  - Plain PCF shadows in low and medium (`softShadows`, PCF soft only in high).
+  - With a menu open the 3D draws two more frames then stops (was ~20 fps), so the GPU and the
+    main thread belong to the menu; it resumes when the menu closes.
 
 ## Chantier 11 — Construction readability (icons, before/after, building tree)
 

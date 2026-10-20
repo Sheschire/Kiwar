@@ -3,6 +3,7 @@ import {
   Fog,
   NeutralToneMapping,
   NoToneMapping,
+  PCFShadowMap,
   PCFSoftShadowMap,
   PerspectiveCamera,
   Scene,
@@ -87,8 +88,6 @@ export interface RendererCallbacks {
 const tmpV = new Vector3();
 const tmpTarget = new Vector3();
 const tmpSize = new Vector2();
-/** Frame interval while a menu covers the scene (~20 fps). */
-const BACKGROUND_FRAME_MS = 48;
 /** Level badges show up below this share of the framing distance (chantier 11: medium zoom). */
 const BADGE_ZOOM = 0.6;
 
@@ -156,7 +155,8 @@ export class GameRenderer {
   ) {
     this.renderer = new WebGLRenderer({
       canvas,
-      antialias: true,
+      // Integrated GPUs: hardware MSAA of the whole canvas costs too much fill rate.
+      antialias: !this.integrated,
       powerPreference: 'high-performance',
       stencil: false,
     });
@@ -244,6 +244,7 @@ export class GameRenderer {
     const q = QUALITY[preset];
     this.lighting.setShadowMapSize(q.shadowMapSize);
     this.renderer.shadowMap.enabled = q.shadowMapSize > 0;
+    this.renderer.shadowMap.type = q.softShadows ? PCFSoftShadowMap : PCFShadowMap;
     this.postfx?.dispose();
     this.postfx = q.postprocessing ? new PostFx(this.renderer, this.scene, this.camera, q) : null;
     this.renderer.toneMapping = q.postprocessing ? NoToneMapping : NeutralToneMapping;
@@ -709,16 +710,27 @@ export class GameRenderer {
     );
   }
 
-  /** A menu covers the scene: draw it at a calm pace (the loop keeps running). */
+  /**
+   * A menu covers the scene: after a couple of frames the 3D stops drawing, so the GPU and the
+   * main thread belong to the menu (the scene is dimmed behind it anyway).
+   */
   setBackground(background: boolean): void {
+    if (background === this.background) return;
     this.background = background;
+    this.backgroundFrames = 2;
+    // The paused time is not a slow frame.
+    if (!background) this.lastFrameAt = 0;
   }
 
   private background = false;
+  private backgroundFrames = 0;
 
   private frame(): void {
     const start = performance.now();
-    if (this.background && !this.intro && start - this.lastFrameAt < BACKGROUND_FRAME_MS) return;
+    if (this.background && !this.intro) {
+      if (this.backgroundFrames <= 0) return;
+      this.backgroundFrames--;
+    }
     if (this.lastFrameAt > 0) {
       // Recorded at the start of the next frame: the cost of the previous one is known.
       this.perf.record(start - this.lastFrameAt, this.lastCpu);

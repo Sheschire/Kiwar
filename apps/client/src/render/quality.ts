@@ -15,6 +15,8 @@ export interface QualitySettings {
   shadowMapSize: number;
   /** Use the post-processing chain (otherwise render directly with ACES tone mapping). */
   postprocessing: boolean;
+  /** PCF soft shadows (many taps per pixel); otherwise plain PCF. */
+  softShadows: boolean;
   ao: boolean;
   bloom: boolean;
   tiltShift: boolean;
@@ -34,6 +36,7 @@ export const QUALITY: Record<QualityPreset, QualitySettings> = {
     pixelBudget: 1_600_000,
     shadowMapSize: 1024,
     postprocessing: false,
+    softShadows: false,
     ao: false,
     bloom: false,
     tiltShift: false,
@@ -48,6 +51,7 @@ export const QUALITY: Record<QualityPreset, QualitySettings> = {
     pixelBudget: 2_600_000,
     shadowMapSize: 2048,
     postprocessing: true,
+    softShadows: false,
     ao: false,
     bloom: true,
     tiltShift: false,
@@ -62,6 +66,7 @@ export const QUALITY: Record<QualityPreset, QualitySettings> = {
     pixelBudget: 4_200_000,
     shadowMapSize: 2048,
     postprocessing: true,
+    softShadows: true,
     ao: true,
     bloom: true,
     tiltShift: true,
@@ -134,13 +139,18 @@ export function detectQuality(): QualityPreset {
   if (/mali-[gt]?[0-7]\d\b|adreno \(tm\) [3-5]\d\d|powervr|intel\(r\) hd graphics [2-5]/.test(gpu))
     return 'low';
   if (mobile) return 'medium';
+  // Older Intel integrated GPUs (not Iris Xe / Arc) cannot hold medium at 60 fps.
+  if (isIntegratedGpu(gpu)) return 'low';
   if (/apple m\d|apple gpu|nvidia|geforce|rtx|radeon|amd|iris(\(r\))? xe|\barc\b/.test(gpu))
     return 'high';
   return 'medium';
 }
 
-/** Integrated GPUs of older laptops (e.g. a 2015 MacBook Pro): a lower pixel ratio. */
-export const INTEGRATED_MAX_PIXEL_RATIO = 1.25;
+/**
+ * Integrated GPUs of older laptops (e.g. a 2015 MacBook Pro, Iris Pro: 58 fps in low at a
+ * ratio of 1.2, 37 in medium): one device pixel per CSS pixel.
+ */
+export const INTEGRATED_MAX_PIXEL_RATIO = 1;
 
 export function isIntegratedGpu(gpu: string): boolean {
   const g = gpu.toLowerCase();
