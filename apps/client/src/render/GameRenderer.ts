@@ -2,6 +2,7 @@ import {
   Fog,
   NeutralToneMapping,
   NoToneMapping,
+  BasicShadowMap,
   PCFShadowMap,
   PCFSoftShadowMap,
   PerspectiveCamera,
@@ -41,6 +42,7 @@ import { CameraRig } from '../camera/CameraRig';
 import { Environment } from './environment';
 import { FpsMeter } from './fpsMeter';
 import { GpuTimer } from './gpuTimer';
+import { liteShadows } from './shadowChunk';
 import { PerfStats, type FrameStats } from './perfStats';
 import { Lighting } from './lighting';
 import { PALETTE } from './palette';
@@ -272,7 +274,11 @@ export class GameRenderer {
     const q = QUALITY[preset];
     this.lighting.setShadowMapSize(q.shadowMapSize);
     this.renderer.shadowMap.enabled = q.shadowMapSize > 0;
-    this.renderer.shadowMap.type = q.softShadows ? PCFSoftShadowMap : PCFShadowMap;
+    this.renderer.shadowMap.type = q.softShadows
+      ? PCFSoftShadowMap
+      : q.liteShadows && liteShadows
+        ? BasicShadowMap
+        : PCFShadowMap;
     this.postfx?.dispose();
     this.postfx = q.postprocessing ? new PostFx(this.renderer, this.scene, this.camera, q) : null;
     const toneMapping = q.postprocessing ? NoToneMapping : NeutralToneMapping;
@@ -289,6 +295,7 @@ export class GameRenderer {
       });
     if (this.map) this.rebuildProps();
     this.buildings?.setAnimated(q.buildingAnimations, q.particles);
+    this.environment.setLite(preset === 'low');
     this.weather?.setDensity(q.particles ? 1 : 0.35);
     this.ships?.setParticles(q.particles);
     this.resize();

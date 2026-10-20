@@ -17,6 +17,8 @@ export interface QualitySettings {
   postprocessing: boolean;
   /** PCF soft shadows (many taps per pixel); otherwise plain PCF. */
   softShadows: boolean;
+  /** A light 4-read PCF instead of three's 17 reads (`shadowChunk.ts`). */
+  liteShadows: boolean;
   ao: boolean;
   bloom: boolean;
   tiltShift: boolean;
@@ -37,6 +39,7 @@ export const QUALITY: Record<QualityPreset, QualitySettings> = {
     shadowMapSize: 1024,
     postprocessing: false,
     softShadows: false,
+    liteShadows: true,
     ao: false,
     bloom: false,
     tiltShift: false,
@@ -52,6 +55,7 @@ export const QUALITY: Record<QualityPreset, QualitySettings> = {
     shadowMapSize: 2048,
     postprocessing: true,
     softShadows: false,
+    liteShadows: false,
     ao: false,
     bloom: true,
     tiltShift: false,
@@ -67,6 +71,7 @@ export const QUALITY: Record<QualityPreset, QualitySettings> = {
     shadowMapSize: 2048,
     postprocessing: true,
     softShadows: true,
+    liteShadows: false,
     ao: true,
     bloom: true,
     tiltShift: true,

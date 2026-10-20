@@ -61,7 +61,13 @@ export class Environment {
           col = mix(col, uBelow, smoothstep(0.0, -0.4, h));
           // Soft nebula swirls.
           vec2 uv = vec2(atan(d.z, d.x), h * 2.0);
-          float neb = kFbm(uv * vec2(2.2, 2.6) + vec2(uTime * 0.004, 0.0));
+          vec2 nebUv = uv * vec2(2.2, 2.6) + vec2(uTime * 0.004, 0.0);
+          #ifdef KIWAR_LITE
+            // Low quality: two octaves (+ the mean of the two left out).
+            float neb = 0.5 * kNoise(nebUv) + 0.25 * kNoise(nebUv * 2.03 + vec2(17.1, 9.2)) + 0.094;
+          #else
+            float neb = kFbm(nebUv);
+          #endif
           col += vec3(0.10, 0.04, 0.10) * smoothstep(0.45, 0.8, neb) * smoothstep(0.05, 0.6, h);
           // Procedural stars: one candidate per cell, brighter higher in the sky.
           vec3 cell = floor(d * 140.0);
@@ -80,7 +86,9 @@ export class Environment {
     });
     const sky = new Mesh(new SphereGeometry(500, 32, 16), this.skyMaterial);
     sky.frustumCulled = false;
-    sky.renderOrder = -10;
+    // Drawn after the opaque scene (it sits on the far plane): the depth test then skips the
+    // pixels the colony covers before the noise runs, instead of shading the whole screen.
+    sky.renderOrder = 50;
     this.group.add(sky);
 
     this.cloudMaterial = new ShaderMaterial({
@@ -113,7 +121,12 @@ export class Environment {
         void main() {
           vec2 p = vWorld.xz * 0.035;
           float n = kFbm(p + vec2(uTime * 0.012, uTime * 0.006));
-          float n2 = kFbm(p * 2.1 - vec2(uTime * 0.02, 0.0));
+          #ifdef KIWAR_LITE
+            // Low quality: one noise for the fine puffs instead of a second fbm.
+            float n2 = kNoise(p * 2.1 - vec2(uTime * 0.02, 0.0)) * 0.94;
+          #else
+            float n2 = kFbm(p * 2.1 - vec2(uTime * 0.02, 0.0));
+          #endif
           float puff = smoothstep(0.35, 0.75, n * 0.7 + n2 * 0.45);
           vec3 col = mix(uShade, uCloud, puff);
           float r = length(vWorld.xz);
@@ -159,6 +172,16 @@ export class Environment {
     (c.uCloud!.value as Color).copy(sky.cloud);
     (c.uShade!.value as Color).copy(sky.cloudShade);
     (c.uFade!.value as Color).copy(sky.below);
+  }
+
+  /** Low quality: lighter sky and cloud noise (integrated GPUs pay for every pixel). */
+  setLite(lite: boolean): void {
+    for (const m of [this.skyMaterial, this.cloudMaterial]) {
+      if ('KIWAR_LITE' in m.defines === lite) continue;
+      if (lite) m.defines.KIWAR_LITE = '';
+      else delete m.defines.KIWAR_LITE;
+      m.needsUpdate = true;
+    }
   }
 
   update(time: number): void {

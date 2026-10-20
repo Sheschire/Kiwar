@@ -195,7 +195,8 @@ function createTileMaterial(): MeshStandardMaterial {
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
-        {
+        // Tops (most of the screen) keep their colour: the strata only run on the sides.
+        if (vTop < 0.5) {
           vec3 topColor = diffuseColor.rgb;
           float depth = -vLocalY;
           float wobble = (kNoise(vWorldPos.xz * 1.7 + vWorldPos.y) - 0.5) * 0.22;
@@ -215,7 +216,9 @@ function createTileMaterial(): MeshStandardMaterial {
           vec3 side = mix(lip, strata, smoothstep(0.1, 0.32, depth));
           // Soft fake occlusion towards the bottom of each visible side.
           side *= 0.82 + 0.18 * smoothstep(-2.0, 0.0, wy);
-          diffuseColor.rgb = mix(side, topColor * (0.92 + 0.08 * vTop), step(0.5, vTop));
+          diffuseColor.rgb = side;
+        } else {
+          diffuseColor.rgb *= 0.92 + 0.08 * vTop;
         }`,
       );
   };
