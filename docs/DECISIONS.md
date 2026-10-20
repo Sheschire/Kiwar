@@ -1180,3 +1180,6 @@ PC), while phones are very smooth. Measured with Playwright/CDP on the `perfSave
   the chantier 18 bot): Stone 35–37 h unchanged, Iron 90–94 h (90–95 h before), first Kikiwiwi
   138–157 h (140–156 h), Industry 173–209 h (182–194 h). With comets of 16 stardust and an
   Industry level at 30, Industry was 210–270 h.
+- **Main report** (30 seeds per biome × 72 h, with the chantier 18 bot, comets on their own
+  stream): every line green, biomes within ±9.2 % (population 10 in the lagoons), level 10 at
+  2.1–2.2 days, Stone age 34–35 h, one comet and ~25 stardust picked per run.
