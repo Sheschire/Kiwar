@@ -1,6 +1,7 @@
 import { STARDUST } from '../data/comets';
 import { TITAN_WORK_IDS } from '../data/titan';
 import { METEORS } from '../data/threats';
+import { AUTO_TASKS } from '../data/jobs';
 import { z } from 'zod';
 import { BUILDING_TYPES } from '../data/buildings';
 import type { COMMAND_ERRORS } from '../sim/commands';
@@ -107,6 +108,8 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     patchId: id,
     villagerIds: z.array(id).max(STARDUST.slots),
   }),
+  z.object({ type: z.literal('setAutomation'), task: z.enum(AUTO_TASKS), on: z.boolean() }),
+  z.object({ type: z.literal('assignBuilder'), queueItemId: id, villagerId: id }),
   z.object({
     type: z.literal('collectMeteor'),
     meteorId: id,

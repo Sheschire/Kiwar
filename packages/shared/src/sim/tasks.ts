@@ -1,5 +1,5 @@
 import { STARDUST } from '../data/comets';
-import { TASKS } from '../data/jobs';
+import { TASKS, type AutoTask } from '../data/jobs';
 import { GARRISON, METEORS, THREATS } from '../data/threats';
 import { RESOURCE_IDS } from '../data/resources';
 import { defenseOf, guardPower, sectorClash } from './threats';
@@ -440,4 +440,38 @@ export function dispatchTasks(state: GameState, at: TimeMs, events: GameEvent[])
   fillResearch(state);
   fillCraters(state);
   fillStardust(state);
+}
+
+/**
+ * Chantier 15: what each task waits for right now (the Automation panel's badges): sites with
+ * a place and no builder, a chosen technology with nobody at the Library, craters and stardust
+ * with nobody on them, damaged buildings without repairs, an imminent strike without guards.
+ */
+export function taskNeeds(state: GameState): Record<AutoTask, number> {
+  const libraries = state.buildings.filter((b) => b.type === 'library');
+  const wave = state.threats.next;
+  const soon =
+    !!wave?.announced &&
+    state.now >= wave.at - GARRISON.autoLeadMs &&
+    state.now < wave.at &&
+    state.threats.shelterUntil <= state.now;
+  return {
+    build: waitingForBuilder(state).length,
+    research:
+      state.research.current &&
+      libraries.length > 0 &&
+      libraries.every((b) => workersOf(state, b.id).length === 0)
+        ? 1
+        : 0,
+    meteor: state.sky.meteors.filter((m) => m.stock > 0 && minersOf(state, m.id).length === 0)
+      .length,
+    stardust:
+      state.stardust >= STARDUST_CAP
+        ? 0
+        : state.comets.patches.filter((p) => p.stock > 0 && dustPickers(state, p.id).length === 0)
+            .length,
+    repair: state.buildings.filter((b) => b.damaged && !pendingUpgrade(state, b.id)).length,
+    garrison: soon && !state.villagers.some((v) => v.job.kind === 'guard') ? 1 : 0,
+    redirect: 0,
+  };
 }

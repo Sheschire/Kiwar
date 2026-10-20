@@ -4751,6 +4751,20 @@ function dispatchTasks(state, at, events) {
   fillCraters(state);
   fillStardust(state);
 }
+function taskNeeds(state) {
+  const libraries2 = state.buildings.filter((b) => b.type === "library");
+  const wave = state.threats.next;
+  const soon = !!wave?.announced && state.now >= wave.at - GARRISON.autoLeadMs && state.now < wave.at && state.threats.shelterUntil <= state.now;
+  return {
+    build: waitingForBuilder(state).length,
+    research: state.research.current && libraries2.length > 0 && libraries2.every((b) => workersOf(state, b.id).length === 0) ? 1 : 0,
+    meteor: state.sky.meteors.filter((m) => m.stock > 0 && minersOf(state, m.id).length === 0).length,
+    stardust: state.stardust >= STARDUST_CAP ? 0 : state.comets.patches.filter((p) => p.stock > 0 && dustPickers(state, p.id).length === 0).length,
+    repair: state.buildings.filter((b) => b.damaged && !pendingUpgrade(state, b.id)).length,
+    garrison: soon && !state.villagers.some((v) => v.job.kind === "guard") ? 1 : 0,
+    redirect: 0
+  };
+}
 
 // packages/shared/src/sim/comets.ts
 var STARDUST_CAP = STARDUST.cap * STARDUST_SCALE;
@@ -6942,7 +6956,9 @@ var COMMAND_ERRORS = [
   // Chantier 15
   "onCrater",
   "unknownCrater",
-  "craterFull"
+  "craterFull",
+  "alreadyStarted",
+  "noBuildSlot"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -7525,6 +7541,24 @@ function execute(s, cmd, ctx, events) {
           autoAssign(s, v);
         }
       }
+      return;
+    }
+    case "setAutomation": {
+      if (!AUTO_TASKS.includes(cmd.task)) return fail("invalidCount");
+      s.automation = { ...s.automation, [cmd.task]: cmd.on };
+      return;
+    }
+    case "assignBuilder": {
+      const item = s.queue.find((i) => i.id === cmd.queueItemId);
+      if (!item) return fail("unknownQueueItem");
+      if (item.startedAt !== null) fail("alreadyStarted");
+      if (!waitingForBuilder(s).includes(item)) fail("noBuildSlot");
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail("unknownVillager");
+      if (v.kikiwiwi) fail("kikiwiwiNoWork");
+      if (v.job.kind !== "idle" && !canBorrow(s, { ...v, locked: void 0 }, "build"))
+        fail("kiwiBusy");
+      startItem(s, item, v, now, events);
       return;
     }
     case "collectMeteor": {
@@ -12221,6 +12255,8 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     patchId: id2,
     villagerIds: external_exports.array(id2).max(STARDUST.slots)
   }),
+  external_exports.object({ type: external_exports.literal("setAutomation"), task: external_exports.enum(AUTO_TASKS), on: external_exports.boolean() }),
+  external_exports.object({ type: external_exports.literal("assignBuilder"), queueItemId: id2, villagerId: id2 }),
   external_exports.object({
     type: external_exports.literal("collectMeteor"),
     meteorId: id2,
@@ -13408,6 +13444,7 @@ export {
   syncPools,
   targetFaceParams,
   taskLevel,
+  taskNeeds,
   techEffects,
   techStatus,
   techsOfAge,

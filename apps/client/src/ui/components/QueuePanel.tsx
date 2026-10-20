@@ -1,4 +1,14 @@
-import { buildSlots, getTile, obstacleAt, waitingForBuilder, type QueueItem } from '@kiwar/shared';
+import {
+  buildSlots,
+  builderSpeed,
+  canBorrow,
+  getTile,
+  obstacleAt,
+  waitingForBuilder,
+  type GameState,
+  type QueueItem,
+} from '@kiwar/shared';
+import { useState } from 'preact/hooks';
 import { formatDuration } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { CloseIcon, HammerIcon } from '../icons';
@@ -67,6 +77,7 @@ function QueueRow({
           </span>
         )}
       </button>
+      {waiting === 'manual' && game && <BuilderPick game={game} item={item} />}
       <button
         class="btn btn-icon btn-ghost"
         aria-label={t('queue.cancel')}
@@ -76,6 +87,51 @@ function QueueRow({
         <CloseIcon size={14} />
       </button>
     </li>
+  );
+}
+
+/**
+ * Chantier 15, manual constructions: the strongest kiwis that may build, one tap starts the
+ * site with that kiwi.
+ */
+function BuilderPick({ game, item }: { game: GameState; item: QueueItem }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const candidates = game.villagers
+    .filter(
+      (v) =>
+        !v.kikiwiwi &&
+        (v.job.kind === 'idle' || canBorrow(game, { ...v, locked: undefined }, 'build')),
+    )
+    .sort((a, b) => builderSpeed(b) - builderSpeed(a))
+    .slice(0, 4);
+  return (
+    <span class="builder-pick">
+      <button
+        class="btn btn-small"
+        aria-expanded={open}
+        disabled={candidates.length === 0}
+        onClick={() => setOpen(!open)}
+      >
+        {t('queue.choose')}
+      </button>
+      {open && (
+        <span class="builder-pick-list parchment">
+          {candidates.map((v) => (
+            <button
+              key={v.id}
+              class="btn btn-small"
+              onClick={() => {
+                setOpen(false);
+                actions.dispatch({ type: 'assignBuilder', queueItemId: item.id, villagerId: v.id });
+              }}
+            >
+              {v.name} · {t('queue.speed', { speed: Math.round(builderSpeed(v) * 100) })}
+            </button>
+          ))}
+        </span>
+      )}
+    </span>
   );
 }
 

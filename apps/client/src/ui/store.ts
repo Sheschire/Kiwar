@@ -100,7 +100,7 @@ export interface UiState {
   audio: AudioSettings;
   /** Kiwi whose sheet is open in the village screen (null = the list). */
   kiwiId: string | null;
-  villageTab: 'kiwis' | 'posts' | 'memorial';
+  villageTab: 'kiwis' | 'posts' | 'auto' | 'memorial';
   /** Order of the kiwi list, also used by the ◀ ▶ arrows of a sheet. */
   villageSort: 'level' | 'name' | 'job' | 'born';
   /** Kiwi followed by the camera. */

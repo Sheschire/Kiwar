@@ -299,6 +299,8 @@ export const en = {
     manualBuilder: 'Manual: choose a builder',
     builder: 'Builder: {name}',
     slots: '{count}/{max} at once',
+    choose: 'Choose…',
+    speed: 'speed {speed} %',
     cancel: 'Cancel and refund',
     build: '{name}',
     upgrade: '{name} → Lv {level}',
@@ -569,6 +571,8 @@ export const en = {
     onCrater: 'A meteorite crater is a post of its own: nothing can be built on it.',
     unknownCrater: 'This crater is gone or empty.',
     craterFull: 'A crater takes at most three miners.',
+    alreadyStarted: 'This site already has its builder.',
+    noBuildSlot: 'No free place: wait for a site to end (the Nest sets how many at once).',
   },
   offline: {
     title: 'While you were away…',
@@ -1053,6 +1057,52 @@ export const en = {
       bat: 'A bat drank {amount} juice.',
       batBlocked: 'A bat was chased away from the juice.',
       storm: 'A storm blew away {amount} path tile(s).',
+    },
+  },
+  automation: {
+    tab: 'Automation',
+    needsHint: 'A manual task is waiting for you',
+    intro:
+      'In automatic mode, each task takes the kiwis best suited to it (borrowed from the harvest if needed) and sends them back to their post afterwards. Switch a task to manual to handle it yourself.',
+    on: 'Auto',
+    off: 'Manual',
+    waiting: '{count} waiting',
+    tasks: {
+      build: {
+        name: 'Constructions',
+        auto: 'The strongest kiwi (or the priority builder) starts each site.',
+        manual: 'Sites wait until you choose who builds them (construction queue).',
+      },
+      research: {
+        name: 'Research',
+        auto: 'While a technology is chosen, the kiwis with the most Spirit go to the Library.',
+        manual: 'Place the researchers yourself at the Library.',
+      },
+      meteor: {
+        name: 'Meteorites',
+        auto: 'The most dexterous kiwis harvest every crater.',
+        manual: 'Send the miners yourself from the crater’s sheet.',
+      },
+      stardust: {
+        name: 'Stardust',
+        auto: 'The most dexterous kiwis pick up the comet’s dust.',
+        manual: 'Send the pickers yourself from the dust tile.',
+      },
+      repair: {
+        name: 'Repairs',
+        auto: 'A damaged building orders its repairs as soon as they are affordable.',
+        manual: 'Order the repairs yourself from the building’s sheet.',
+      },
+      garrison: {
+        name: 'Garrison',
+        auto: '40 min before a strike, the kiwis that stop the most are posted, then go back.',
+        manual: 'Post the guards yourself (shield button).',
+      },
+      redirect: {
+        name: 'Full stocks',
+        auto: 'When a stock is full, its harvesters go and work elsewhere, then come back.',
+        manual: 'Harvesters stay at their post when its stock is full.',
+      },
     },
   },
   village: {

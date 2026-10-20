@@ -12,6 +12,7 @@ import {
   validateCommand,
   applyCommand,
   bestMeteorCrew,
+  taskNeeds,
   GARRISON,
   capacity,
   COMETS,
@@ -438,5 +439,36 @@ describe('automatic repairs and garrison (chantier 15)', () => {
     // Same result in one big step.
     const big = advance(s0, s0.now + 3 * HOUR).state;
     expect(big.villagers).toEqual(after.villagers);
+  });
+});
+
+describe('the Automation panel (chantier 15)', () => {
+  it('switches a task to manual, where the player picks the builder', () => {
+    const { map, s: start, workshop } = colony();
+    let s = run(start, { type: 'setAutomation', task: 'build', on: false }, start.now, map);
+    expect(s.automation.build).toBe(false);
+    s = orderHuts(s, map, 2);
+    expect(taskNeeds(s).build).toBe(1);
+    const item = s.queue[0]!;
+    const kiwi = workersOf(s, workshop.id)[0]!;
+    const err = (cmd: Command) => {
+      const r = applyCommand(s, cmd, { now: s.now, map });
+      return r.ok ? null : r.error;
+    };
+    expect(err({ type: 'assignBuilder', queueItemId: s.queue[1]!.id, villagerId: kiwi.id })).toBe(
+      'noBuildSlot',
+    );
+    s = run(s, { type: 'assignBuilder', queueItemId: item.id, villagerId: kiwi.id }, s.now, map);
+    expect(s.queue[0]!.startedAt).toBe(s.now);
+    expect(s.villagers.find((v) => v.id === kiwi.id)!.job).toMatchObject({
+      kind: 'build',
+      returnTo: workshop.id,
+    });
+    expect(taskNeeds(s).build).toBe(0);
+    expect(err({ type: 'assignBuilder', queueItemId: item.id, villagerId: kiwi.id })).toBe(
+      'alreadyStarted',
+    );
+    s = run(s, { type: 'setAutomation', task: 'build', on: true }, s.now, map);
+    expect(s.automation.build).toBe(true);
   });
 });

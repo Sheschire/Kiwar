@@ -38,6 +38,7 @@ import { Cost } from './Cost';
 import { KiwiPortrait } from './KiwiPortrait';
 import { BlessingSection } from './BlessingSection';
 import { Modal } from './Modal';
+import { AutomationPanel, manualNeeds } from './AutomationPanel';
 import { StatRadar } from './StatRadar';
 import { KiwiNeedsLine, MoraleCard, RestSection } from './NeedsWidgets';
 
@@ -539,7 +540,7 @@ export function VillageModal() {
       ) : (
         <>
           <div class="segmented" role="tablist">
-            {(['kiwis', 'posts', 'memorial'] as const).map((k) => (
+            {(['kiwis', 'posts', 'auto', 'memorial'] as const).map((k) => (
               <button
                 key={k}
                 role="tab"
@@ -551,11 +552,24 @@ export function VillageModal() {
                   ? t('village.kiwis', { count: game.villagers.length })
                   : k === 'posts'
                     ? t('posts.tab')
-                    : t('village.memorial')}
+                    : k === 'auto'
+                      ? t('automation.tab')
+                      : t('village.memorial')}
+                {k === 'auto' && manualNeeds(game) > 0 && (
+                  <span class="tab-dot" aria-label={t('automation.needsHint')} />
+                )}
               </button>
             ))}
           </div>
-          {tab === 'kiwis' ? <KiwiList /> : tab === 'posts' ? <JobBoardView /> : <Memorial />}
+          {tab === 'kiwis' ? (
+            <KiwiList />
+          ) : tab === 'posts' ? (
+            <JobBoardView />
+          ) : tab === 'auto' ? (
+            <AutomationPanel />
+          ) : (
+            <Memorial />
+          )}
         </>
       )}
     </Modal>

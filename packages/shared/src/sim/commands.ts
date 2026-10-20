@@ -1,6 +1,14 @@
 import { BLESSINGS, FUEL, STARDUST, STARDUST_SCALE } from '../data/comets';
 import { canPickDust, STARDUST_CAP, stardustOf } from './comets';
-import { borrow, dispatchTasks, sendBackAll } from './tasks';
+import {
+  borrow,
+  canBorrow,
+  dispatchTasks,
+  sendBackAll,
+  startItem,
+  waitingForBuilder,
+} from './tasks';
+import { AUTO_TASKS, type AutoTask } from '../data/jobs';
 import { canMine, meteorAt, minersOf } from './sky';
 import { BUILDINGS, levelDef, type BuildingType } from '../data/buildings';
 import { CAMPS, PATHS } from '../data/territory';
@@ -149,6 +157,10 @@ export type Command =
   | { type: 'collectStardust'; patchId: string; villagerIds: VillagerId[] }
   /** Chantier 13: a blessing bought with stardust (heal, redistribute the stats, +1 in a stat). */
   | { type: 'bless'; villagerId: VillagerId; kind: BlessingKind; stat?: StatId }
+  /** Chantier 15: switches a task of the automation on or off. */
+  | { type: 'setAutomation'; task: AutoTask; on: boolean }
+  /** Chantier 15: this kiwi starts a waiting construction (the manual mode's builder). */
+  | { type: 'assignBuilder'; queueItemId: QueueItemId; villagerId: VillagerId }
   /** Chantier 15: exactly these kiwis harvest a meteorite crater (others there go back). */
   | { type: 'collectMeteor'; meteorId: string; villagerIds: VillagerId[] }
   | { type: 'debugGrant'; resources: Partial<Resources> };
@@ -245,6 +257,8 @@ export const COMMAND_ERRORS = [
   'onCrater',
   'unknownCrater',
   'craterFull',
+  'alreadyStarted',
+  'noBuildSlot',
 ] as const;
 export type BlessingKind = 'heal' | 'respec' | 'stat';
 
@@ -910,6 +924,25 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
           autoAssign(s, v);
         }
       }
+      return;
+    }
+    case 'setAutomation': {
+      if (!AUTO_TASKS.includes(cmd.task)) return fail('invalidCount');
+      s.automation = { ...s.automation, [cmd.task]: cmd.on };
+      return;
+    }
+    case 'assignBuilder': {
+      const item = s.queue.find((i) => i.id === cmd.queueItemId);
+      if (!item) return fail('unknownQueueItem');
+      if (item.startedAt !== null) fail('alreadyStarted');
+      if (!waitingForBuilder(s).includes(item)) fail('noBuildSlot');
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail('unknownVillager');
+      if (v.kikiwiwi) fail('kikiwiwiNoWork');
+      // The player may take a locked kiwi; anything but a task of higher priority.
+      if (v.job.kind !== 'idle' && !canBorrow(s, { ...v, locked: undefined }, 'build'))
+        fail('kiwiBusy');
+      startItem(s, item, v, now, events);
       return;
     }
     case 'collectMeteor': {

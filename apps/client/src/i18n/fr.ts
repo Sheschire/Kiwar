@@ -318,6 +318,8 @@ export const fr: Dict = {
     manualBuilder: 'Manuel : choisis qui construit',
     builder: 'Bâtisseur·euse : {name}',
     slots: '{count}/{max} en même temps',
+    choose: 'Choisir…',
+    speed: 'vitesse {speed} %',
     cancel: 'Annuler et rembourser',
     build: '{name}',
     upgrade: '{name} → Niv. {level}',
@@ -601,6 +603,8 @@ export const fr: Dict = {
     onCrater: 'Un cratère de météorite est un poste à part entière : rien ne se construit dessus.',
     unknownCrater: 'Ce cratère a disparu ou il est vide.',
     craterFull: 'Un cratère prend au plus trois mineur·euses.',
+    alreadyStarted: 'Ce chantier a déjà son·sa bâtisseur·euse.',
+    noBuildSlot: 'Pas de place libre : attends la fin d’un chantier (le Nid fixe combien en même temps).',
   },
   offline: {
     title: 'Pendant votre absence…',
@@ -1088,6 +1092,52 @@ export const fr: Dict = {
       bat: 'Une chauve-souris a bu {amount} de jus.',
       batBlocked: 'Une chauve-souris a été chassée du jus.',
       storm: 'Une tempête a emporté {amount} tuile(s) de chemin.',
+    },
+  },
+  automation: {
+    tab: 'Automatisation',
+    needsHint: 'Une tâche manuelle t’attend',
+    intro:
+      'En automatique, chaque tâche prend les kiwis les mieux taillés pour elle (empruntés à la récolte si besoin) et les renvoie ensuite à leur poste. Passe une tâche en manuel pour la gérer toi-même.',
+    on: 'Auto',
+    off: 'Manuel',
+    waiting: '{count} en attente',
+    tasks: {
+      build: {
+        name: 'Constructions',
+        auto: 'Le kiwi le plus fort (ou le·la bâtisseur·euse prioritaire) lance chaque chantier.',
+        manual: 'Les chantiers attendent que tu choisisses qui les construit (file des chantiers).',
+      },
+      research: {
+        name: 'Recherche',
+        auto: 'Quand une technologie est choisie, les kiwis qui ont le plus d’Esprit vont à la Bibliothèque.',
+        manual: 'Place toi-même les chercheur·euses à la Bibliothèque.',
+      },
+      meteor: {
+        name: 'Météorites',
+        auto: 'Les kiwis les plus adroits récoltent chaque cratère.',
+        manual: 'Envoie toi-même les mineur·euses depuis la fiche du cratère.',
+      },
+      stardust: {
+        name: 'Poussière d’étoiles',
+        auto: 'Les kiwis les plus adroits ramassent la poussière des comètes.',
+        manual: 'Envoie toi-même les ramasseur·euses depuis la tuile de poussière.',
+      },
+      repair: {
+        name: 'Réparations',
+        auto: 'Un bâtiment abîmé commande sa réparation dès qu’elle est payable.',
+        manual: 'Commande toi-même les réparations depuis la fiche du bâtiment.',
+      },
+      garrison: {
+        name: 'Garnison',
+        auto: '40 min avant une attaque, les kiwis qui arrêtent le plus sont postés, puis retournent à leur poste.',
+        manual: 'Poste toi-même la garnison (bouton bouclier).',
+      },
+      redirect: {
+        name: 'Stocks pleins',
+        auto: 'Quand un stock est plein, ses récolteur·euses vont travailler ailleurs, puis reviennent.',
+        manual: 'Les récolteur·euses restent à leur poste quand son stock est plein.',
+      },
     },
   },
   village: {
