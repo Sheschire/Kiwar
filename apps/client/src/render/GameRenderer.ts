@@ -46,6 +46,7 @@ import {
 import { SelectionView } from './selection';
 import { TerrainView } from './terrain';
 import { WaterView } from './water';
+import { TwinView } from './twin';
 import { DayCycle } from './dayCycle';
 import { updateSeasonLook, seasonUniforms } from './seasonLook';
 import { WeatherView } from './weather';
@@ -80,6 +81,8 @@ export class GameRenderer {
   private readonly fpsMeter = new FpsMeter();
   private terrain: TerrainView | null = null;
   private water: WaterView | null = null;
+  private twin: TwinView | null = null;
+  private readonly twinTarget = new Vector3();
   private props: PropsView | null = null;
   private buildings: BuildingsView | null = null;
   private kiwis: KiwisView | null = null;
@@ -215,6 +218,7 @@ export class GameRenderer {
       this.scene.remove('group' in view ? view.group : view.mesh);
       view.dispose();
     }
+    this.setTwin(null);
     this.clearedTiles.clear();
     this.lastState = null;
     this.buildings = new BuildingsView(map, () => (this.renderer.shadowMap.needsUpdate = true));
@@ -241,6 +245,18 @@ export class GameRenderer {
     this.rig.frame(e.x, e.z);
     this.selection.setSelected(null);
     this.renderer.shadowMap.needsUpdate = true;
+  }
+
+  /** The other half of our kiwi, floating above (fogged unless a friend lives there). */
+  setTwin(map: FaceMap | null, opts: { fog: boolean } = { fog: true }): void {
+    if (this.twin) {
+      this.scene.remove(this.twin.group);
+      this.twin.dispose();
+      this.twin = null;
+    }
+    if (!map) return;
+    this.twin = new TwinView(map, opts);
+    this.scene.add(this.twin.group);
   }
 
   private rebuildProps(): void {
@@ -472,6 +488,19 @@ export class GameRenderer {
     this.updateCycles();
     this.environment.update(this.elapsed);
     this.water?.update(this.elapsed);
+    if (this.twin) {
+      const c = this.rig.controls;
+      this.twin.update(
+        this.elapsed,
+        this.camera,
+        c.getTarget(this.twinTarget),
+        c.distance / this.rig.frameDistance,
+      );
+    }
+    // The haze follows the zoom, so zooming out does not drown the colony in it.
+    const fog = this.scene.fog as Fog;
+    fog.near = Math.max(90, this.rig.controls.distance + 25);
+    fog.far = fog.near + 170;
     this.buildings?.update(dt, this.callbacks.now());
     this.kiwis?.update(dt, this.elapsed, this.callbacks.now());
     this.updateFollow(dt);
@@ -496,6 +525,7 @@ export class GameRenderer {
     const sky = this.dayCycle.update(c);
     this.lighting.applySky(sky);
     this.environment.setSky(sky);
+    this.twin?.setSky(sky.cloud, sky.cloudShade);
     (this.scene.fog as Fog).color.copy(sky.horizon);
     updateSeasonLook(c, now);
     seasonUniforms.uNight.value = 1 - sky.daylight;
@@ -531,6 +561,7 @@ export class GameRenderer {
     this.rig.dispose();
     this.terrain?.dispose();
     this.water?.dispose();
+    this.twin?.dispose();
     this.props?.dispose();
     this.buildings?.dispose();
     this.kiwis?.dispose();

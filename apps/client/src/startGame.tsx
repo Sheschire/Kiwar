@@ -1,5 +1,6 @@
 // Game entry (loaded by main.tsx unless the admin space is requested).
 import { render } from 'preact';
+import { generateFace, otherFace, twinParams } from '@kiwar/shared';
 import { App } from './ui/App';
 import { GameRenderer } from './render/GameRenderer';
 import { GameController } from './game/GameController';
@@ -46,6 +47,13 @@ const renderer = new GameRenderer(
 controller = new GameController({
   onWorld: (map, state) => {
     renderer.setFace(map);
+    renderer.setTwin(
+      generateFace(
+        state.seed,
+        otherFace(state.face),
+        twinParams(state.seed, state.face, state.params),
+      ),
+    );
     renderer.setGameState(state);
     uiStore.setState({ map, game: state, selectedTile: null });
   },

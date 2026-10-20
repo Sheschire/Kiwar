@@ -13,8 +13,8 @@ import {
   type HexKey,
 } from '../hex/hex';
 import { createRng } from '../rng/rng';
-import { BIOMES, biomeProfile, type BiomeId } from '../data/biomes';
-import type { Face } from '../types/ids';
+import { BIOMES, biomeProfile, drawBiomes, type BiomeId } from '../data/biomes';
+import { otherFace, type Face } from '../types/ids';
 
 export interface FaceParams {
   /** Radius of the disc, in hexes. */
@@ -268,6 +268,15 @@ export function generateFace(
   }
 
   return { seed, face, params, ellipse, tiles, index };
+}
+
+/**
+ * Generation parameters of the other half of our kiwi (same planet seed): its biome is drawn
+ * with ours; worlds older than the biomes keep a classic twin.
+ */
+export function twinParams(seed: string, face: Face, params: FaceParams): FaceParams {
+  const biome = params.biome === 'classic' ? 'classic' : drawBiomes(seed)[otherFace(face)];
+  return { ...params, biome };
 }
 
 /** Counts tiles per type (used by tests and the balance tool). */

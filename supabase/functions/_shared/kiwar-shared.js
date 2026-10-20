@@ -1489,6 +1489,10 @@ function generateFace(seed, face, params = DEFAULT_FACE_PARAMS) {
   }
   return { seed, face, params, ellipse, tiles, index };
 }
+function twinParams(seed, face, params) {
+  const biome = params.biome === "classic" ? "classic" : drawBiomes(seed)[otherFace(face)];
+  return { ...params, biome };
+}
 function countTiles(map) {
   const counts = { heart: 0, ray: 0, seedRing: 0, flesh: 0, grove: 0, juice: 0, skin: 0 };
   for (const t of map.tiles) counts[t.type]++;
@@ -8714,6 +8718,7 @@ export {
   trainingCost,
   trainingDuration,
   travelTime,
+  twinParams,
   universeTargets,
   upgradeCost,
   validateCommand,

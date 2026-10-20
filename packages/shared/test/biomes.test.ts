@@ -20,6 +20,7 @@ import {
   newGame,
   SEASON_MS,
   tileDeposit,
+  twinParams,
   walkCost,
   type BiomeId,
   type Face,
@@ -70,6 +71,16 @@ describe('biomes', () => {
     expect(biomesOf('kiwisu')).not.toContain('classic');
     const s = newGame({ seed: 'banana', face: 'kiwino', now: T0 });
     expect(s.params.biome).toBe(drawBiomes('banana').kiwino);
+  });
+
+  it('gives the twin half the biome drawn with ours (classic worlds keep a classic twin)', () => {
+    const s = newGame({ seed: 'twins', face: 'kiwisu', now: T0 });
+    expect(twinParams(s.seed, s.face, s.params)).toEqual({
+      radius: 12,
+      biome: drawBiomes('twins').kiwino,
+    });
+    const old = { radius: 12, biome: 'classic' as const };
+    expect(twinParams('twins', 'kiwino', old)).toEqual(old);
   });
 
   it('keeps the classic map identical to the one before biomes', () => {

@@ -34,6 +34,8 @@ export class CameraRig {
   private twistAngle: number | null = null;
   private readonly touches = new Map<number, { x: number; y: number }>();
   private paintMode = false;
+  /** Distance that frames the whole disc (zoom 1). */
+  frameDistance = 60;
 
   constructor(camera: PerspectiveCamera, element: HTMLElement) {
     this.element = element;
@@ -77,7 +79,9 @@ export class CameraRig {
       new Box3(new Vector3(-extentX, -1, -extentZ), new Vector3(extentX, 3, extentZ)),
     );
     const distance = this.fitDistance(r);
-    this.controls.maxDistance = distance * 1.35;
+    this.frameDistance = distance;
+    // Zooming out far enough shows the other half of the kiwi floating above (chantier 05).
+    this.controls.maxDistance = distance * 1.9;
     const polar = 0.78;
     void this.controls.setLookAt(
       0,
