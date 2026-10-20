@@ -759,3 +759,9 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
 - **UI**: obstacle sheet (loot, clear button or "needs a Kikiwiwi"), laboratory sheet (kiwi
   picker sorted by risk, cost, countdown, cap), Kikiwiwi section in the kiwi sheet, titan works
   in the tile sheet, toasts and existing sounds.
+- **Balance** (`pnpm balance:ages -- --seeds 2 --days 12`, one process per biome, bot playing
+  the Kikiwiwis): Stone 36–38 h, Iron 89–97 h, laboratory 123–134 h, first Kikiwiwi 144–166 h
+  (≈ 2 days after the Iron age, waiting for 2 500 juice on top of a 1 500 reserve), Industry
+  182–208 h (before this half: 175–194 h; the infusion research, the laboratory and the juice
+  cost a few hours; every biome within ±10 % of the median). The 4-seed × 48 h report is
+  unchanged by the obstacles once boulders stay off the seed rings.

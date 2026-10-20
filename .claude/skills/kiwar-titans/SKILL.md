@@ -102,3 +102,6 @@ taken)` draws them from `<seed>/<face>/obstacles` (never the colony RNG), always
   the Kikiwiwi guards and smashes rocks and wrecks), `labDecision` (lab when known, a stump when
   the queue is idle), `bestTile` skips obstacles. Milestones `lab`, `kikiwiwi`;
   `pnpm balance:ages` prints them.
+- Reference (end of chantier 08): laboratory 123–134 h, first Kikiwiwi 144–166 h, Industry
+  182–208 h for the active bot (2 seeds × 6 biomes × 12 days). Tune `KIKIWIWI.cost`, the bot's
+  `JUICE_RESERVE`, lab costs and the `unnatural` tech costs.
