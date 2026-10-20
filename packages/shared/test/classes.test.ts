@@ -6,6 +6,8 @@ import {
   buildingHarvest,
   CLASSES,
   colonyBonus,
+  mayorMorale,
+  moraleOf,
   crewWeight,
   HOUR_MS,
   migrateState,
@@ -127,9 +129,11 @@ describe('school and classes', () => {
       s.now + 4 * HOUR_MS,
     ).state;
     const mayor = base.villagers[0]!;
-    expect(colonyBonus(base)).toBeCloseTo(
-      1 + SKILLS.mayorPerCharisma * mayor.stats.charisma + SKILLS.organisationBonus,
-    );
+    // Chantier 04: Charisma and Organisation lift morale; the speech is the harvest boost.
+    const lift = SKILLS.mayorPerCharisma * mayor.stats.charisma + SKILLS.organisationBonus;
+    expect(mayorMorale(base)).toBeCloseTo(lift);
+    expect(moraleOf(base).mayor).toBeCloseTo(lift);
+    expect(colonyBonus(base)).toBe(1);
     const before = productionRates(empty(base)).pulp;
     const speaking = run(
       base,
@@ -143,7 +147,8 @@ describe('school and classes', () => {
     ).toBe('skillCooling');
     const { state: later, events } = advance(speaking, speaking.now + 2 * HOUR_MS);
     expect(events.some((e) => e.type === 'speechOver')).toBe(true);
-    expect(colonyBonus(later)).toBeCloseTo(colonyBonus(base));
+    expect(colonyBonus(later)).toBe(1);
+    expect(colonyBonus(speaking)).toBeCloseTo(1 + SKILLS.speechBonus);
     // A young mayor has no speech yet.
     const young = { ...base, villagers: base.villagers.map((v, i) => (i === 0 ? at(v, 6) : v)) };
     expect(errorOf(young, { type: 'useSkill', villagerId: mayor.id, skill: 'speech' }, map)).toBe(

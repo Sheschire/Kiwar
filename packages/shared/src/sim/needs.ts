@@ -3,6 +3,7 @@ import { emptyResources, type Resources } from '../data/resources';
 import type { TimeMs } from '../types/ids';
 import { seasonOf } from './calendar';
 import { withRng, type GameState, type Villager } from './state';
+import { modifiers } from './kiwis';
 
 /** Kiwis eating from the colony stock (not away on an expedition). */
 export function homeKiwis(state: GameState): Villager[] {
@@ -12,11 +13,13 @@ export function homeKiwis(state: GameState): Villager[] {
 /** Food eaten by the colony per hour (season appetite included). */
 export function consumption(state: GameState): Resources {
   const out = emptyResources();
-  const n = homeKiwis(state).length;
-  if (n === 0) return out;
+  // Gluttons count for more mouths.
+  let mouths = 0;
+  for (const v of homeKiwis(state)) mouths += modifiers(v).appetite;
+  if (mouths === 0) return out;
   const appetite = NEEDS.appetite[seasonOf(state)];
-  out.pulp = NEEDS.eat.pulp * n * appetite;
-  out.juice = NEEDS.eat.juice * n * appetite;
+  out.pulp = NEEDS.eat.pulp * mouths * appetite;
+  out.juice = NEEDS.eat.juice * mouths * appetite;
   return out;
 }
 
@@ -95,9 +98,14 @@ export function nextHungerEvent(state: GameState, rate: number): TimeMs {
   return Infinity;
 }
 
-/** Picks the kiwi that starves: frailer kiwis (low Endurance) first, drawn with the state RNG. */
+/**
+ * Picks the kiwi that starves: frailer kiwis (low Endurance) first, drawn with the state RNG;
+ * gluttons hold on longest (only when nobody else is left).
+ */
 export function pickStarving(state: GameState): Villager | undefined {
-  const home = homeKiwis(state);
+  const all = homeKiwis(state);
+  const lean = all.filter((v) => v.trait !== 'glutton');
+  const home = lean.length > 0 ? lean : all;
   if (home.length === 0) return undefined;
   const weights = home.map((v) => 1 / Math.max(1, v.stats.endurance));
   const total = weights.reduce((a, b) => a + b, 0);

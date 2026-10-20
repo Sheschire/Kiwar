@@ -92,6 +92,8 @@ const MODIFIER_KEYS = [
   'exposure',
   'rations',
   'weight',
+  'rest',
+  'appetite',
 ] as const satisfies readonly (keyof KiwiModifiers)[];
 
 /** Trait × class × unlocked passive skills. */
@@ -213,14 +215,22 @@ export function mayorOf(state: GameState): Villager | undefined {
   return state.villagers.find((v) => v.classId === 'mayor' && v.job.kind !== 'expedition');
 }
 
-/** Harvest multiplier of the whole colony: the mayor's organisation and speeches. */
+/** Harvest multiplier of the whole colony: the mayor's speech (a short boost). */
 export function colonyBonus(state: GameState): number {
+  if (!mayorOf(state) || state.speechUntil <= state.now) return 1;
+  return 1 + SKILLS.speechBonus;
+}
+
+/**
+ * The mayor's lasting effect, on morale (chantier 04): Charisma and Organisation lift the
+ * whole colony (0 without a mayor at home).
+ */
+export function mayorMorale(state: GameState): number {
   const mayor = mayorOf(state);
-  if (!mayor) return 1;
+  if (!mayor) return 0;
   let bonus = SKILLS.mayorPerCharisma * mayor.stats.charisma;
   if (hasSkill(mayor, 'organisation')) bonus += SKILLS.organisationBonus;
-  if (state.speechUntil > state.now) bonus += SKILLS.speechBonus;
-  return 1 + bonus;
+  return bonus;
 }
 
 /** Regrowth multiplier of a building's deposits (mages with Green thumb working there). */

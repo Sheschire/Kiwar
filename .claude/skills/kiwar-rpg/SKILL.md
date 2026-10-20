@@ -29,6 +29,10 @@ Load `kiwar-sim` too: everything here lives in the deterministic shared simulati
 - Powers: `workerPower(v, resource)`, `builderSpeed(v)`, `kiwiStrength(v)`, `kiwiExposure(v)`;
   `workforce(state, b, workers)` (× `colonyBonus` = mayor + speech) feeds `harvestOf` instead of
   the head count; `regenBonus(workers)` (mages' Green thumb) multiplies the pool regrowth.
+- Chantier 04: the mayor's Charisma and Organisation are morale (`mayorMorale`, cap ±20 %);
+  `colonyBonus` is only the Speech now. Traits: `modifiers.rest` (Early bird 0.75, always
+  sleeps at night) and `modifiers.appetite` (Glutton 1.5 at home, starves last). The client
+  voice pitch comes from the stats (`kiwiVoicePitch`).
 - Chantier 04: Endurance shortens rest (`presence` in `sim/rest.ts`) and protects from famine
   (frailest starve first); `workforce` also multiplies by presence, hunger and morale; any loss
   starts a day of mourning (`removeVillagers` sets `mourningUntil`).

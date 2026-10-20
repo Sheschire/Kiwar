@@ -1,5 +1,6 @@
 import { hexToPixel, type Command, type GameEvent } from '@kiwar/shared';
 import { audio, type SoundPosition } from './engine';
+import { uiStore } from '../ui/store';
 
 const at = (q: number, r: number): SoundPosition => {
   const p = hexToPixel({ q, r });
@@ -7,13 +8,17 @@ const at = (q: number, r: number): SoundPosition => {
 };
 
 /**
- * A kiwi's own voice pitch (semitones), stable for a given id. Chantier 03 (individual kiwis)
- * can derive it from real traits instead.
+ * A kiwi's own voice pitch (semitones): sturdy kiwis (Strength, Endurance) sound lower, agile
+ * ones higher, plus a small offset of its own (from its id) so voices stay varied.
  */
 export function kiwiVoicePitch(id: string): number {
   let h = 2166136261;
   for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
-  return (((h >>> 0) % 1000) / 1000) * 8 - 4;
+  const own = (((h >>> 0) % 1000) / 1000) * 3 - 1.5;
+  const v = uiStore.getState().game?.villagers.find((x) => x.id === id);
+  if (!v) return own * 2;
+  const build = v.stats.agility - (v.stats.strength + v.stats.endurance) / 2;
+  return Math.max(-5, Math.min(5, own + build * 0.6));
 }
 
 export function kiwiSpeaks(id: string, pos?: SoundPosition): void {

@@ -133,6 +133,12 @@ sites).
    joueur qui passe deux fois par jour traverse l'hiver sans perte », docs et skill
    `kiwar-cycles`.
 
+Complément (points laissés par le chantier 03) : le Charisme et l'Organisation du ou de la maire
+passent dans le moral (plafond ±20 %, le Discours reste un boost de récolte) ; Lève-tôt se
+repose 25 % de moins et dort toujours la nuit ; Gourmand mange 1,5× à la colonie mais résiste
+le plus longtemps à la famine ; fatigue et faim visibles dans la liste du Village ; voix selon
+les stats.
+
 Reste pour plus tard : un hiver plus mordant quand l'économie sera moins saturée (chantiers 05
 et suivants) ; ralentir les chantiers la nuit ; jauges de fatigue individuelles réelles si le
 modèle agrégé ne suffit plus ; fêtes (moral) ; trait « Noctambule » ; sons d'aube et de saison

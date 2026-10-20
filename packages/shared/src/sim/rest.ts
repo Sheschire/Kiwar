@@ -7,6 +7,7 @@ import type { FaceMap } from '../worldgen/generateFace';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
 import { calendarAt, seasonOf } from './calendar';
 import { hungerStage } from './needs';
+import { mayorMorale, modifiers } from './kiwis';
 import type { Building, GameState, Villager } from './state';
 import { distanceIn, faceMapOf, walkDistances } from './territory';
 
@@ -106,7 +107,7 @@ export function bedsOf(state: GameState, map: FaceMap = faceMapOf(state)): Map<V
 export function restNeed(state: GameState, v: Villager, bed: Bed | undefined): number {
   const endurance = Math.max(0.4, 1 - REST.endurance * (v.stats.endurance - KIWI.stat.average));
   const outside = !bed || bed.buildingId === null ? REST.noBed : 1;
-  return REST.base * REST.season[seasonOf(state)] * endurance * outside;
+  return REST.base * REST.season[seasonOf(state)] * endurance * outside * modifiers(v).rest;
 }
 
 /** Share of the day (night aside) a kiwi spends at work: its rest and the walk to bed. */
@@ -120,6 +121,8 @@ export interface Morale {
   total: number;
   food: number;
   comfort: number;
+  /** The mayor's Charisma and Organisation. */
+  mayor: number;
   speech: number;
   mourning: number;
   season: number;
@@ -132,9 +135,10 @@ export function moraleOf(state: GameState, beds = bedsOf(state)): Morale {
   const speech = state.speechUntil > state.now ? MORALE.speech : 0;
   const mourning = state.mourningUntil > state.now ? MORALE.mourning : 0;
   const season = MORALE.season[seasonOf(state)];
-  const sum = food + comfort + speech + mourning + season;
+  const mayor = mayorMorale(state);
+  const sum = food + comfort + mayor + speech + mourning + season;
   const total = Math.max(-MORALE.max, Math.min(MORALE.max, sum));
-  return { total, food, comfort, speech, mourning, season };
+  return { total, food, comfort, mayor, speech, mourning, season };
 }
 
 const comfortCache = new WeakMap<Map<VillagerId, Bed>, number>();
@@ -188,7 +192,8 @@ export function kiwiRhythm(
 ): { rhythm: KiwiRhythm; fatigue: number } {
   const seed = phaseOf(v.id);
   const c = calendarAt(state.calendarStart, t);
-  if (c.night && seed < 1 - CYCLES.nightWork) {
+  // Early birds always sleep at night (they rest less by day).
+  if (c.night && (seed < 1 - CYCLES.nightWork || v.trait === 'earlyBird')) {
     const slept = (t - c.nightAt) / Math.max(1, c.dawnAt - c.nightAt);
     return { rhythm: 'sleep', fatigue: Math.max(0.05, 0.6 - 0.55 * slept) };
   }

@@ -198,6 +198,21 @@ describe('hunger', () => {
       expect(small.resources[id]).toBeCloseTo(big.resources[id], 4);
   });
 
+  it('gluttons eat half as much again at home, and starve last', () => {
+    const { state } = setup();
+    const lean = state.villagers.map((v) => ({ ...v, trait: null }));
+    const base = consumption({ ...state, villagers: lean }).pulp;
+    const one = lean.map((v, i) => (i === 0 ? { ...v, trait: 'glutton' as const } : v));
+    expect(consumption({ ...state, villagers: one }).pulp).toBeCloseTo((base * (2 + 1.5)) / 3, 9);
+    // A long famine never takes the glutton while others are left.
+    const s = crowd(24, 2);
+    s.villagers = s.villagers.map((v, i) => ({ ...v, trait: i === 5 ? 'glutton' : null }));
+    const glutton = s.villagers[5]!.id;
+    const { state: later, events } = advance(s, T0 + 3 * 24 * HOUR_MS);
+    expect(events.some((e) => e.type === 'starved')).toBe(true);
+    expect(later.villagers.some((v) => v.id === glutton)).toBe(true);
+  });
+
   it('migrates v6 saves: colonies start fed', () => {
     const { state } = setup();
     const v6 = JSON.parse(JSON.stringify({ ...state, schemaVersion: 6 })) as Record<

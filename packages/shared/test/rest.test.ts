@@ -69,6 +69,17 @@ describe('beds and rest', () => {
     expect(presence(s, frail, { buildingId: null, distance: 50 })).toBe(REST.minPresence);
   });
 
+  it('early birds rest a quarter less by day and always sleep at night', () => {
+    const { s } = farPulpery();
+    const v = { ...s.villagers[0]!, trait: null };
+    const bird = { ...v, trait: 'earlyBird' as const };
+    const bed = { buildingId: s.buildings[0]!.id, distance: 2 };
+    expect(1 - presence(s, bird, bed)).toBeCloseTo((1 - presence(s, v, bed)) * 0.75, 9);
+    const night = s.calendarStart + CALENDAR.dayMs - CALENDAR.nightMs.spring / 2;
+    for (let i = 0; i < 20; i++)
+      expect(kiwiRhythm(s, { ...bird, id: `b${i}` as never }, night).rhythm).toBe('sleep');
+  });
+
   it('every kiwi gets a bed of its own while there are enough', () => {
     const { map, s } = farPulpery();
     const beds = bedsOf(s, map);

@@ -878,8 +878,8 @@ var TRAIT_IDS = [
   "curious"
 ];
 var TRAITS = {
-  earlyBird: { harvest: 1.06, build: 0.94 },
-  glutton: { fight: 1.12, rations: 1.5 },
+  earlyBird: { harvest: 1.06, build: 0.94, rest: 0.75 },
+  glutton: { fight: 1.12, rations: 1.5, appetite: 1.5 },
   brave: { fight: 1.15, exposure: 1.3 },
   dreamer: { xp: 1.15, harvest: 0.95 },
   sturdy: { build: 1.12, xp: 0.9 },
@@ -1024,7 +1024,8 @@ var REST = {
   cycleMs: ms.min(45)
 };
 var MORALE = {
-  max: 0.1,
+  /** The mayor's Charisma and Organisation count here too (chantier 03 → 04). */
+  max: 0.2,
   /** Fed colony vs hungry colony. */
   fed: 0.03,
   hungry: -0.05,
@@ -1659,11 +1660,12 @@ function homeKiwis(state) {
 }
 function consumption(state) {
   const out = emptyResources();
-  const n = homeKiwis(state).length;
-  if (n === 0) return out;
+  let mouths = 0;
+  for (const v of homeKiwis(state)) mouths += modifiers(v).appetite;
+  if (mouths === 0) return out;
   const appetite = NEEDS.appetite[seasonOf(state)];
-  out.pulp = NEEDS.eat.pulp * n * appetite;
-  out.juice = NEEDS.eat.juice * n * appetite;
+  out.pulp = NEEDS.eat.pulp * mouths * appetite;
+  out.juice = NEEDS.eat.juice * mouths * appetite;
   return out;
 }
 var STAGE_ORDER = ["fed", "hungry", "weak", "starving"];
@@ -1717,7 +1719,9 @@ function nextHungerEvent(state, rate) {
   return Infinity;
 }
 function pickStarving(state) {
-  const home = homeKiwis(state);
+  const all = homeKiwis(state);
+  const lean = all.filter((v) => v.trait !== "glutton");
+  const home = lean.length > 0 ? lean : all;
   if (home.length === 0) return void 0;
   const weights = home.map((v) => 1 / Math.max(1, v.stats.endurance));
   const total = weights.reduce((a, b) => a + b, 0);
@@ -1800,7 +1804,7 @@ function bedsOf(state, map = faceMapOf(state)) {
 function restNeed(state, v, bed) {
   const endurance = Math.max(0.4, 1 - REST.endurance * (v.stats.endurance - KIWI.stat.average));
   const outside = !bed || bed.buildingId === null ? REST.noBed : 1;
-  return REST.base * REST.season[seasonOf(state)] * endurance * outside;
+  return REST.base * REST.season[seasonOf(state)] * endurance * outside * modifiers(v).rest;
 }
 function presence(state, v, bed = bedsOf(state).get(v.id)) {
   const walk = 1 + REST.commute * (bed?.distance ?? 0);
@@ -1812,9 +1816,10 @@ function moraleOf(state, beds = bedsOf(state)) {
   const speech = state.speechUntil > state.now ? MORALE.speech : 0;
   const mourning = state.mourningUntil > state.now ? MORALE.mourning : 0;
   const season = MORALE.season[seasonOf(state)];
-  const sum = food + comfort + speech + mourning + season;
+  const mayor = mayorMorale(state);
+  const sum = food + comfort + mayor + speech + mourning + season;
   const total = Math.max(-MORALE.max, Math.min(MORALE.max, sum));
-  return { total, food, comfort, speech, mourning, season };
+  return { total, food, comfort, mayor, speech, mourning, season };
 }
 var comfortCache = /* @__PURE__ */ new WeakMap();
 function comfortOf(state, beds) {
@@ -1847,7 +1852,7 @@ function phaseOf(id3) {
 function kiwiRhythm(state, v, t) {
   const seed = phaseOf(v.id);
   const c = calendarAt(state.calendarStart, t);
-  if (c.night && seed < 1 - CYCLES.nightWork) {
+  if (c.night && (seed < 1 - CYCLES.nightWork || v.trait === "earlyBird")) {
     const slept = (t - c.nightAt) / Math.max(1, c.dawnAt - c.nightAt);
     return { rhythm: "sleep", fatigue: Math.max(0.05, 0.6 - 0.55 * slept) };
   }
@@ -1900,7 +1905,9 @@ var MODIFIER_KEYS = [
   "fight",
   "exposure",
   "rations",
-  "weight"
+  "weight",
+  "rest",
+  "appetite"
 ];
 function modifiers(v) {
   const out = Object.fromEntries(MODIFIER_KEYS.map((k) => [k, 1]));
@@ -1988,12 +1995,15 @@ function mayorOf(state) {
   return state.villagers.find((v) => v.classId === "mayor" && v.job.kind !== "expedition");
 }
 function colonyBonus(state) {
+  if (!mayorOf(state) || state.speechUntil <= state.now) return 1;
+  return 1 + SKILLS.speechBonus;
+}
+function mayorMorale(state) {
   const mayor = mayorOf(state);
-  if (!mayor) return 1;
+  if (!mayor) return 0;
   let bonus = SKILLS.mayorPerCharisma * mayor.stats.charisma;
   if (hasSkill(mayor, "organisation")) bonus += SKILLS.organisationBonus;
-  if (state.speechUntil > state.now) bonus += SKILLS.speechBonus;
-  return 1 + bonus;
+  return bonus;
 }
 function regenBonus(workers) {
   const mages = workers.filter((v) => hasSkill(v, "greenThumb")).length;
@@ -8409,6 +8419,7 @@ export {
   masteryProgress,
   maxCrew,
   maxLevelOf,
+  mayorMorale,
   mayorOf,
   migrateState,
   modifiers,

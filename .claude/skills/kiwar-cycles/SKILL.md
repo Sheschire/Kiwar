@@ -29,7 +29,7 @@ Load `kiwar-sim` too: everything here is deterministic and must stay exact offli
   regen by `seasonRegen`; `Harvest.cycle` is shown in the tile sheet. `tileWalkCost(type, path,
 season)` (paths always clear) is shared with the client A*; `walkDistances(state, map,
 sources)` is the memoized season-aware Dijkstra (`depotDistances` uses it), `distanceIn`.
-- `sim/needs.ts` — `consumption` (kiwis at home), hunger gauge (`state.hunger`, integer,
+- `sim/needs.ts` — `consumption` (kiwis at home, × `modifiers.appetite`), hunger gauge (`state.hunger`, integer,
   `hungerRate`, `nextHungerEvent`, `hungerCap` when nobody may die), `canStarve`,
   `pickStarving` (RNG, low Endurance first), `foodLeftMs`.
 - `advance.ts` `computeFlows`: gross production (one `buildingHarvest` per building, never-full)
@@ -40,7 +40,7 @@ sources)` is the memoized season-aware Dijkstra (`depotDistances` uses it), `dis
   `storageFullCheck(state, gross?)` is consumption-aware; `netRates` for the UI.
 - `sim/rest.ts` — `bedsOf` (greedy nearest free bed to `workSite`, memoized on a cheap key:
   homes, jobs, paths, season), `presence` (rest share × walk), `moraleOf` / `moraleWork`
-  (food stage, comfort, speech, mourning, season), `kiwiRhythm` (cosmetic: sleep at night for
+  (food stage, comfort, mayor's Charisma/Organisation, speech, mourning, season; cap ±20 %), `kiwiRhythm` (cosmetic: sleep at night for
   60 % of kiwis, work/rest by day, fatigue 0–1). `workforce` = Σ power × presence × colony bonus
   × hunger work × morale.
 - Any new factor of work must change only at an event (or a command); if it depends on a stock

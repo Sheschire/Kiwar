@@ -60,11 +60,13 @@ export const REST = {
 } as const;
 
 /**
- * Colony morale: small bonus or malus on all work (±10 %), from things the player controls.
- * Every factor only changes at an event (stage change, season, layout, speech, mourning).
+ * Colony morale: bonus or malus on all work (±20 %), from things the player controls: meals,
+ * beds, the mayor (Charisma, Organisation, speech), mourning and the season. Every factor only
+ * changes at an event (stage change, season, layout, mayor, speech, mourning).
  */
 export const MORALE = {
-  max: 0.1,
+  /** The mayor's Charisma and Organisation count here too (chantier 03 → 04). */
+  max: 0.2,
   /** Fed colony vs hungry colony. */
   fed: 0.03,
   hungry: -0.05,

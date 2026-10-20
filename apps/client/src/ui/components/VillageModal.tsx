@@ -26,7 +26,7 @@ import { Cost } from './Cost';
 import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
 import { StatRadar } from './StatRadar';
-import { MoraleCard, RestSection } from './NeedsWidgets';
+import { KiwiNeedsLine, MoraleCard, RestSection } from './NeedsWidgets';
 
 type Sort = 'level' | 'name' | 'job' | 'born';
 const SORTS: Sort[] = ['level', 'name', 'job', 'born'];
@@ -104,6 +104,7 @@ function KiwiList() {
                 </span>
                 <span class="small muted">{jobLabel(game, v)}</span>
                 <XpBar v={v} />
+                <KiwiNeedsLine v={v} />
               </span>
               <span class="kiwi-row-level">{t('common.levelShort', { level: v.level })}</span>
             </button>

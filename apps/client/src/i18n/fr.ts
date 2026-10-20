@@ -335,6 +335,7 @@ export const fr: Dict = {
       parts: {
         food: 'Repas',
         comfort: 'Lits proches du travail',
+        mayor: 'Maire',
         speech: 'Discours du maire',
         mourning: 'Deuil',
         season: 'Saison',
@@ -654,11 +655,17 @@ export const fr: Dict = {
     endurance: 'Survit plus souvent en expédition.',
     spirit: 'Apprend plus vite (+4 % d’XP par point).',
     dexterity: 'Récolte davantage (+3 % par point).',
-    charisma: 'Entraîne les autres (discours du maire).',
+    charisma: 'Entraîne les autres : le Charisme du ou de la maire relève le moral de la colonie.',
   },
   traits: {
-    earlyBird: { name: 'Lève-tôt', desc: 'Récolte 6 % de plus, construit 6 % moins vite.' },
-    glutton: { name: 'Gourmand', desc: 'Combat 12 % plus fort, mange 50 % de plus en expédition.' },
+    earlyBird: {
+      name: 'Lève-tôt',
+      desc: 'Récolte 6 % de plus, se repose 25 % de moins le jour, construit 6 % moins vite et dort toujours la nuit.',
+    },
+    glutton: {
+      name: 'Gourmand',
+      desc: 'Combat 12 % plus fort et résiste le plus longtemps à la famine, mais mange 50 % de plus (à la colonie et en expédition).',
+    },
     brave: { name: 'Courageux', desc: 'Combat 15 % plus fort, mais s’expose davantage.' },
     dreamer: { name: 'Rêveur', desc: 'Apprend 15 % plus vite, récolte 5 % de moins.' },
     sturdy: { name: 'Costaud', desc: 'Construit 12 % plus vite, apprend 10 % moins vite.' },
@@ -689,7 +696,7 @@ export const fr: Dict = {
     },
     mayor: {
       name: 'Maire',
-      desc: 'Unique : +1 % de récolte pour toute la colonie par point de Charisme, et des discours.',
+      desc: 'Unique : +1 % de moral pour toute la colonie par point de Charisme, et des discours.',
     },
   },
   skills: {
@@ -711,7 +718,7 @@ export const fr: Dict = {
     glide: { name: 'Vol plané', desc: 'Difficile à toucher : moins exposé en expédition.' },
     scouting: { name: 'Repérage', desc: 'Tout l’équipage combat 10 % plus fort.' },
     tailwind: { name: 'Vent arrière', desc: 'Le vaisseau voyage 20 % plus vite.' },
-    organisation: { name: 'Organisation', desc: '+5 % de récolte pour toute la colonie.' },
+    organisation: { name: 'Organisation', desc: '+5 % de moral pour toute la colonie.' },
     speech: { name: 'Discours', desc: '+15 % de récolte pendant une heure. Toutes les 12 h.' },
     festival: { name: 'Fête du village', desc: 'Les discours durent deux fois plus longtemps.' },
   },

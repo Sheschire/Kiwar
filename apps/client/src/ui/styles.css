@@ -2317,3 +2317,15 @@ button.chip:focus-visible {
   list-style: none;
   font-size: 0.85rem;
 }
+
+.kiwi-needs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.fatigue-bar.mini {
+  flex: 0 0 60px;
+  height: 5px;
+}

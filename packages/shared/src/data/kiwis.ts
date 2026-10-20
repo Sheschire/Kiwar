@@ -53,12 +53,16 @@ export interface KiwiModifiers {
   rations?: number;
   /** Cargo taken aboard a ship. */
   weight?: number;
+  /** Rest needed by day (chantier 04). */
+  rest?: number;
+  /** Meals eaten at the colony (chantier 04). */
+  appetite?: number;
 }
 
 /** A small advantage and a small drawback each. */
 export const TRAITS: Record<TraitId, KiwiModifiers> = {
-  earlyBird: { harvest: 1.06, build: 0.94 },
-  glutton: { fight: 1.12, rations: 1.5 },
+  earlyBird: { harvest: 1.06, build: 0.94, rest: 0.75 },
+  glutton: { fight: 1.12, rations: 1.5, appetite: 1.5 },
   brave: { fight: 1.15, exposure: 1.3 },
   dreamer: { xp: 1.15, harvest: 0.95 },
   sturdy: { build: 1.12, xp: 0.9 },

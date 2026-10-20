@@ -1,6 +1,7 @@
 import {
   bedsOf,
   getBuilding,
+  hungerStage,
   kiwiRhythm,
   MORALE,
   moraleOf,
@@ -34,7 +35,9 @@ export function RestSection({ v }: { v: Villager }) {
         <div class={`fatigue-bar ${fatigue > 0.75 ? 'high' : ''}`} aria-hidden="true">
           <span style={{ width: `${Math.round(fatigue * 100)}%` }} />
         </div>
-        <span class="small">{t(`needs.rest.rhythm.${rhythm}`)}</span>
+        {(rhythm !== 'work' || v.job.kind !== 'idle') && (
+          <span class="small">{t(`needs.rest.rhythm.${rhythm}`)}</span>
+        )}
       </div>
       {home ? (
         <p class="small">
@@ -55,6 +58,7 @@ export function RestSection({ v }: { v: Villager }) {
 const PARTS = [
   'food',
   'comfort',
+  'mayor',
   'speech',
   'mourning',
   'season',
@@ -78,6 +82,31 @@ export function MoraleCard() {
       </ul>
       <p class="small muted">{t('needs.morale.hint', { max: Math.round(MORALE.max * 100) })}</p>
     </div>
+  );
+}
+
+/** Compact needs of a kiwi for the village list: fatigue gauge, what it does, colony hunger. */
+export function KiwiNeedsLine({ v }: { v: Villager }) {
+  const t = useT();
+  const game = useUi((s) => s.game)!;
+  const now = useUi((s) => s.now);
+  if (v.job.kind === 'expedition') return null;
+  const { rhythm, fatigue } = kiwiRhythm(game, v, now);
+  const stage = hungerStage(game);
+  return (
+    <span class="kiwi-needs small">
+      <span
+        class={`fatigue-bar mini ${fatigue > 0.75 ? 'high' : ''}`}
+        title={t('needs.rest.fatigue')}
+        aria-label={`${t('needs.rest.fatigue')} ${Math.round(fatigue * 100)} %`}
+      >
+        <span style={{ width: `${Math.round(fatigue * 100)}%` }} />
+      </span>
+      {(rhythm !== 'work' || v.job.kind !== 'idle') && (
+        <span class="muted">{t(`needs.rest.rhythm.${rhythm}`)}</span>
+      )}
+      {stage !== 'fed' && <span class="warn">{t(`needs.stages.${stage}`)}</span>}
+    </span>
   );
 }
 

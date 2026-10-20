@@ -56,9 +56,8 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
   d'onglet pour gérer les admins (SQL) ; ambiance de nuit synthétisée (grillons), pas encore de
   son dédié à l'aube ni aux saisons ; sons CC0 choisis sans écoute (à valider à l'oreille,
   remplaçables depuis `/admin`).
-- Chantier 03 : le Charisme n'agit pas encore sur le moral (le maire donne un bonus de récolte) ;
-  compétences de combat contre
-  furets et chauves-souris au chantier 06 ; la voix d'un kiwi dépend encore d'un hash de son id ;
+- Chantier 03 : compétences de combat contre
+  furets et chauves-souris au chantier 06 ;
   le bot d'équilibrage n'utilise que maire et bâtisseur (pas d'expéditions ni de mage).
 - Chantier 04 : l'hiver reste doux pour une colonie saturée (stocks et gisements pleins) ; à
   durcir quand l'économie aura plus de débouchés (chantiers 05+). Les chantiers et l'expérience

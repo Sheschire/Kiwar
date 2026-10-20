@@ -381,3 +381,21 @@ near the work sites).
   level-5 kiwi ≈ 10 h, mayor ≈ 12.3 h, first level-10 kiwi ≈ 2.6 days; Kiwisu / Kiwino within
   6 % on every milestone (Kiwino a little slower early). No famine death for the bot, and the
   twice-a-day player crosses the first winter without loss.
+
+### Chantier 04 follow-up — chantier 03 hooks (traits, mayor, voices)
+
+Owner's answers: keep the **aggregated** model (no per-kiwi gauges or sleep/eat jobs); the
+mayor's **Charisma joins morale**; both need-related traits; voices from the stats.
+
+- **Mayor → morale**: +1 % per Charisma point and Organisation +5 % are now a "Mayor" line of
+  morale (`mayorMorale`), whose cap goes from ±10 % to **±20 %**; mourning and hunger weigh
+  against it. The **Speech** stays the harvest boost (+15 % for 1 h, `colonyBonus`) plus its
+  +3 % morale. The mayor away on an expedition lifts nothing (launch and return are events).
+- **Traits**: Early bird rests 25 % less by day (`modifiers.rest`) and always sleeps at night
+  (cosmetic rhythm); Glutton eats 1.5× at home too (`modifiers.appetite`, counted in
+  `consumption`) but starves last (picked only when nobody else is left). Constant rates: no new
+  event, no save change (still v8).
+- Village list: each row shows a mini fatigue gauge, what the kiwi does (work / rest / sleep)
+  and the colony's hunger stage when it is not fed.
+- **Voices**: pitch = own offset (hash of the id, ±1.5 semitones) + 0.6 × (Agility − mean of
+  Strength and Endurance), clamped to ±5: sturdy kiwis sound lower, agile ones higher.

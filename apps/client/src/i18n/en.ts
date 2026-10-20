@@ -306,6 +306,7 @@ export const en = {
       parts: {
         food: 'Meals',
         comfort: 'Beds near work',
+        mayor: 'Mayor',
         speech: 'Mayor’s speech',
         mourning: 'Mourning',
         season: 'Season',
@@ -621,11 +622,17 @@ export const en = {
     endurance: 'Survives expeditions more often.',
     spirit: 'Learns faster (+4 % XP per point).',
     dexterity: 'Harvests more (+3 % per point).',
-    charisma: 'Lifts the others (mayor’s speeches).',
+    charisma: 'Lifts the others: the mayor’s Charisma raises the colony’s morale.',
   },
   traits: {
-    earlyBird: { name: 'Early bird', desc: 'Harvests 6 % more, builds 6 % slower.' },
-    glutton: { name: 'Glutton', desc: 'Fights 12 % harder, eats 50 % more on expeditions.' },
+    earlyBird: {
+      name: 'Early bird',
+      desc: 'Harvests 6 % more, rests 25 % less by day, builds 6 % slower and always sleeps at night.',
+    },
+    glutton: {
+      name: 'Glutton',
+      desc: 'Fights 12 % harder and starves last, but eats 50 % more (at home and on expeditions).',
+    },
     brave: { name: 'Brave', desc: 'Fights 15 % harder, but stands in harm’s way.' },
     dreamer: { name: 'Dreamer', desc: 'Learns 15 % faster, harvests 5 % less.' },
     sturdy: { name: 'Sturdy', desc: 'Builds 12 % faster, learns 10 % slower.' },
@@ -656,7 +663,7 @@ export const en = {
     },
     mayor: {
       name: 'Mayor',
-      desc: 'The only one: +1 % harvest for the whole colony per Charisma point, and speeches.',
+      desc: 'The only one: +1 % colony morale per Charisma point, and speeches.',
     },
   },
   skills: {
@@ -672,7 +679,7 @@ export const en = {
     glide: { name: 'Glide', desc: 'Hard to hit: less exposed in expeditions.' },
     scouting: { name: 'Scouting', desc: 'The whole crew fights 10 % harder.' },
     tailwind: { name: 'Tailwind', desc: 'The ship travels 20 % faster.' },
-    organisation: { name: 'Organisation', desc: '+5 % harvest for the whole colony.' },
+    organisation: { name: 'Organisation', desc: '+5 % morale for the whole colony.' },
     speech: { name: 'Speech', desc: '+15 % harvest for an hour. Every 12 h.' },
     festival: { name: 'Village feast', desc: 'Speeches last twice as long.' },
   },
