@@ -168,6 +168,9 @@ export const actions = {
   recenter(): void {
     renderer?.recenter();
   },
+  focusNest(): void {
+    renderer?.focusNest();
+  },
   setQuality(choice: QualityChoice): void {
     saveQualityChoice(choice);
     renderer?.setQuality(choice);

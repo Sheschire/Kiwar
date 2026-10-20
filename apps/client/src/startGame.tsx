@@ -21,6 +21,7 @@ import { bindIntro, introSeen, startIntro } from './ui/intro';
 import { clearUrlParams, randomSeed, readUrlParams } from './game/urlParams';
 import { gpuRendererName, loadQualityChoice } from './render/quality';
 import { installPerfProbe, perfStore } from './ui/perfProbe';
+import { viewStore } from './ui/viewStore';
 import { handleGameEvents } from './game/events';
 import { ChatChannel, mutedUsers } from './game/chat';
 import { setChannel } from './ui/chatActions';
@@ -47,6 +48,7 @@ const renderer = new GameRenderer(
       uiStore.getState().placing && tile ? actions.placeAt(tile) : actions.selectTile(tile),
     onPaint: (tiles, erase) => actions.paintPaths(tiles, erase),
     onStats: (frame) => perfStore.setState({ frame }),
+    onAzimuth: (azimuth) => viewStore.setState({ azimuth }),
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
     onAllyTap: (kiwiIndex) => actions.visitAlly(kiwiIndex),
     onKiwiTap: (id, pos) => {

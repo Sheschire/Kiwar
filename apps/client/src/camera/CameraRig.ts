@@ -11,6 +11,7 @@ import {
   Vector4,
   type PerspectiveCamera,
 } from 'three';
+import { Glide } from './inertia';
 
 CameraControls.install({
   THREE: { Vector2, Vector3, Vector4, Quaternion, Matrix4, Spherical, Box3, Sphere, Raycaster },
@@ -21,6 +22,10 @@ const ROTATE_STEP = Math.PI / 4;
 const KEY_SPEED = 0.9; // fraction of the camera distance per second
 const FOCUS_DISTANCE = 26;
 const AZIMUTH_KEY = 'kiwar.camera.azimuth';
+/** Fastest glide after a flick, in camera distances per second. */
+const GLIDE_MAX_SPEED = 3;
+const tmpTarget = new Vector3();
+const tmpEnd = new Vector3();
 
 function loadAzimuth(): number {
   try {
@@ -50,6 +55,10 @@ export class CameraRig {
   private azimuth = loadAzimuth();
   /** Away on an ally's planet: the camera there is not the player's home view. */
   private away = false;
+  /** Glide after a one-finger pan on touch screens. */
+  private readonly glide = new Glide();
+  /** A one-finger pan is under way (no second finger since it started). */
+  private panning = false;
 
   constructor(camera: PerspectiveCamera, element: HTMLElement) {
     this.element = element;
@@ -86,10 +95,14 @@ export class CameraRig {
     element.addEventListener('pointermove', this.onPointerMove);
     element.addEventListener('pointerup', this.onPointerUp);
     element.addEventListener('pointercancel', this.onPointerUp);
+    element.addEventListener('wheel', this.stopGlide, { passive: true });
   }
+
+  private stopGlide = () => this.glide.reset();
 
   /** Frames the whole disc of the given half extents. */
   frame(extentX: number, extentZ: number, enableTransition = false): void {
+    this.glide.reset();
     const r = Math.max(extentX, extentZ);
     this.controls.setBoundary(
       new Box3(new Vector3(-extentX, -1, -extentZ), new Vector3(extentX, 3, extentZ)),
@@ -131,6 +144,7 @@ export class CameraRig {
    */
   visit(center: Vector3, radius: number): void {
     this.away = true;
+    this.glide.reset();
     const c = this.controls;
     c.setBoundary(
       new Box3(
@@ -211,6 +225,7 @@ export class CameraRig {
   }
 
   focus(x: number, y: number, z: number): void {
+    this.glide.reset();
     void this.controls.moveTo(x, y, z, true);
     if (this.controls.distance > FOCUS_DISTANCE + 4)
       void this.controls.dollyTo(FOCUS_DISTANCE, true);
@@ -219,6 +234,7 @@ export class CameraRig {
   /** While painting, left-drag and one-finger drags belong to the painter. */
   setPaintMode(on: boolean): void {
     this.paintMode = on;
+    this.glide.reset();
     this.controls.mouseButtons.left = on ? A.NONE : A.TRUCK;
     this.controls.touches.one = on ? A.NONE : A.TOUCH_TRUCK;
     this.controls.touches.two = on ? A.TOUCH_DOLLY_TRUCK : A.TOUCH_DOLLY_ROTATE;
@@ -243,7 +259,21 @@ export class CameraRig {
       if (forward) void this.controls.forward(forward * step, true);
       if (strafe) void this.controls.truck(strafe * step, 0, true);
     }
+    this.updateGlide(dt);
     return this.controls.update(dt);
+  }
+
+  private updateGlide(dt: number): void {
+    const d = this.glide.step(dt);
+    if (!d) return;
+    const c = this.controls;
+    c.getTarget(tmpTarget, true);
+    const wantX = tmpTarget.x + d.dx;
+    const wantZ = tmpTarget.z + d.dz;
+    void c.moveTo(wantX, tmpTarget.y, wantZ, true);
+    // Against the edge of the colony the bounds hold the target back: stop gliding softly.
+    c.getTarget(tmpEnd, true);
+    if (Math.hypot(tmpEnd.x - wantX, tmpEnd.z - wantZ) > 1e-3) this.glide.brake(0.6);
   }
 
   private isTyping(e: KeyboardEvent): boolean {
@@ -277,6 +307,7 @@ export class CameraRig {
    * "grabbing" cursor while dragging.
    */
   private onMouseDownCapture = (e: PointerEvent) => {
+    this.glide.reset();
     if (e.pointerType !== 'mouse') return;
     this.controls.mouseButtons.left =
       e.altKey || e.ctrlKey ? A.ROTATE : this.paintMode ? A.NONE : A.TRUCK;
@@ -294,24 +325,43 @@ export class CameraRig {
     if (e.pointerType !== 'touch') return;
     this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this.twistAngle = this.currentTwist();
+    this.panning = this.touches.size === 1 && !this.paintMode;
   };
+
+  /**
+   * Where the pan has brought the target. Listeners on the canvas run before camera-controls
+   * applies a move, so each sample is one move behind: the speed is the same.
+   */
+  private samplePan(): void {
+    if (!this.panning) return;
+    this.controls.getTarget(tmpTarget, true);
+    this.glide.sample(performance.now(), tmpTarget.x, tmpTarget.z);
+  }
 
   private onPointerMove = (e: PointerEvent) => {
     if (e.pointerType !== 'touch' || !this.touches.has(e.pointerId)) return;
+    this.samplePan();
     this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const angle = this.currentTwist();
     if (angle !== null && this.twistAngle !== null) {
       let delta = angle - this.twistAngle;
       if (delta > Math.PI) delta -= Math.PI * 2;
       if (delta < -Math.PI) delta += Math.PI * 2;
-      if (Math.abs(delta) < 0.5) void this.controls.rotate(delta, 0, false);
+      // Smoothed like the other gestures (camera-controls eases towards the end angle).
+      if (Math.abs(delta) < 0.5) void this.controls.rotate(delta, 0, true);
     }
     this.twistAngle = angle;
   };
 
   private onPointerUp = (e: PointerEvent) => {
+    if (!this.touches.has(e.pointerId)) return;
+    this.samplePan();
     this.touches.delete(e.pointerId);
     this.twistAngle = this.currentTwist();
+    if (this.touches.size === 0 && this.panning && e.type === 'pointerup') {
+      this.glide.release(performance.now(), this.controls.distance * GLIDE_MAX_SPEED);
+    }
+    this.panning = false;
   };
 
   private currentTwist(): number | null {
@@ -335,6 +385,7 @@ export class CameraRig {
     this.element.removeEventListener('pointermove', this.onPointerMove);
     this.element.removeEventListener('pointerup', this.onPointerUp);
     this.element.removeEventListener('pointercancel', this.onPointerUp);
+    this.element.removeEventListener('wheel', this.stopGlide);
     this.controls.dispose();
   }
 }

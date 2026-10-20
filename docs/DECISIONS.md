@@ -841,3 +841,17 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
   research 18–38 (55–75), tile sheet 27–77 (65–75), settings 12–38 (35–50). Without slowdown
   this is ~4× less, under the 100 ms target on an old laptop. The owner can check real frame
   rates with `?debug` (GPU, pixels, fps, p95, menu times).
+- **Camera** (part 3):
+  - Glide after a one-finger pan on touch screens (`camera/inertia.ts`): the release velocity
+    of the camera target over the last 100 ms (sampled on pointer moves; a finger resting
+    > 60 ms before lifting does not throw the camera), fading with a 0.28 s time constant
+    (≈ 12 % left after 0.6 s), capped at 3 camera distances per second, braked against the
+    edge of the colony, stopped by any new touch, click, wheel, focus or framing. Mouse drags
+    keep camera-controls' own smoothing.
+  - Double tap (or double click) on a tile: the first tap selects as before, the second one
+    flies the camera there (`TapDetector.onDoubleTap`, < 320 ms and < 30 px apart).
+  - Two-finger twist goes through camera-controls' easing like the other gestures.
+  - Compass (`Compass.tsx`, above the paths button, hidden behind a phone sheet and in path
+    mode): its needle points to the alien planet, i.e. the colony's front (`render/front.ts`,
+    `FRONT_AZIMUTH = π`: the far side of the default view, reused by chantier 12); a tap flies
+    to the Nest. The camera azimuth goes through a small `viewStore`, not the main store.

@@ -3,9 +3,14 @@ import { Raycaster, Vector2, type Camera, type InstancedMesh, type Object3D } fr
 const TAP_MAX_MOVE_MOUSE = 6;
 const TAP_MAX_MOVE_TOUCH = 14;
 const TAP_MAX_MS = 450;
+/** Two taps this close in time and space make a double tap (the first one still selects). */
+export const DOUBLE_TAP_MS = 320;
+export const DOUBLE_TAP_MAX_MOVE = 30;
 
 export interface TapHandlers {
   onTap(x: number, y: number): void;
+  /** Second tap of a double tap (after its own `onTap`). */
+  onDoubleTap?(x: number, y: number): void;
   onHover(x: number, y: number): void;
   onHoverEnd(): void;
 }
@@ -17,6 +22,7 @@ export interface TapHandlers {
 export class TapDetector {
   private down: { id: number; x: number; y: number; t: number; touch: boolean } | null = null;
   private activePointers = 0;
+  private lastTap: { x: number; y: number; t: number } | null = null;
 
   constructor(
     private readonly element: HTMLElement,
@@ -58,8 +64,18 @@ export class TapDetector {
     const d = this.down;
     this.down = null;
     if (!d || d.id !== e.pointerId) return;
-    if (performance.now() - d.t > TAP_MAX_MS) return;
+    const now = performance.now();
+    if (now - d.t > TAP_MAX_MS) return;
     this.handlers.onTap(e.clientX, e.clientY);
+    const last = this.lastTap;
+    if (
+      last &&
+      now - last.t < DOUBLE_TAP_MS &&
+      Math.hypot(e.clientX - last.x, e.clientY - last.y) < DOUBLE_TAP_MAX_MOVE
+    ) {
+      this.lastTap = null;
+      this.handlers.onDoubleTap?.(e.clientX, e.clientY);
+    } else this.lastTap = { x: e.clientX, y: e.clientY, t: now };
   };
 
   private onCancel = () => {

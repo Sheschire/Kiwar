@@ -1703,6 +1703,17 @@ button.chip:focus-visible {
   bottom: calc(var(--gap) + var(--safe-bottom) + 84px);
 }
 
+.compass-fab {
+  right: calc(var(--gap) + var(--safe-right) + 11px);
+  bottom: calc(var(--gap) + var(--safe-bottom) + 150px);
+  width: 46px;
+  height: 46px;
+}
+
+.path-mode .compass-fab {
+  display: none;
+}
+
 .path-toolbar {
   position: absolute;
   left: 50%;
@@ -1741,8 +1752,16 @@ button.chip:focus-visible {
     bottom: calc(var(--gap) + var(--safe-bottom) + 72px);
   }
 
-  .has-sheet .paths-fab {
+  .has-sheet .paths-fab,
+  .has-sheet .compass-fab {
     display: none;
+  }
+
+  .compass-fab {
+    width: 42px;
+    height: 42px;
+    right: calc(var(--gap) + var(--safe-right) + 9px);
+    bottom: calc(var(--gap) + var(--safe-bottom) + 130px);
   }
 }
 

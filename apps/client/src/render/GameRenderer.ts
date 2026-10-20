@@ -71,6 +71,8 @@ export interface RendererCallbacks {
   onTileTap(tile: Tile | null): void;
   /** A path stroke painted in path mode. */
   onPaint?(tiles: Tile[], erase: boolean): void;
+  /** The camera turned (compass). */
+  onAzimuth?(azimuth: number): void;
   /** Detailed frame timing, twice a second (debug panel). */
   onStats?(stats: FrameStats): void;
   onQualityChange?(preset: QualityPreset): void;
@@ -197,6 +199,12 @@ export class GameRenderer {
           this.callbacks.onKiwiTap && !(tile && this.hasStructure(tile)) ? this.kiwiAt(x, y) : null;
         if (kiwi) this.callbacks.onKiwiTap!(kiwi.id, kiwi.pos);
         else this.callbacks.onTileTap(tile);
+      },
+      // Double tap: fly to the tile (the first tap already selected it).
+      onDoubleTap: (x, y) => {
+        if (this.painter.enabled || this.intro || this.visiting) return;
+        const tile = this.pickTile(x, y);
+        if (tile) this.focusTile(tile);
       },
       onHover: (x, y) => (this.hoverPoint = this.intro || this.visiting ? null : { x, y }),
       onHoverEnd: () => {
@@ -550,6 +558,14 @@ export class GameRenderer {
     this.rig.frame(e.x, e.z, true);
   }
 
+  /** Flies to the Nest (compass). */
+  focusNest(): void {
+    const nest = this.lastState?.buildings.find((b) => b.type === 'nest');
+    const tile = nest && this.map ? getTile(this.map, nest) : undefined;
+    if (tile) this.focusTile(tile);
+    else this.recenter();
+  }
+
   focusTile(tile: Tile): void {
     const p = this.terrain?.tileTop(tile, new Vector3());
     if (p) this.rig.focus(p.x, p.y, p.z);
@@ -706,6 +722,7 @@ export class GameRenderer {
   }
 
   private lastCpu = 0;
+  private lastAzimuth = NaN;
 
   private drawFrame(): void {
     const dt = Math.min(this.clock.getDelta(), 0.1);
@@ -720,6 +737,11 @@ export class GameRenderer {
       }
     }
     this.rig.update(dt);
+    const azimuth = this.rig.controls.azimuthAngle;
+    if (!(Math.abs(azimuth - this.lastAzimuth) <= 0.004)) {
+      this.lastAzimuth = azimuth;
+      this.callbacks.onAzimuth?.(azimuth);
+    }
     if (this.hoverPoint) {
       this.selection.setHover(this.pickTile(this.hoverPoint.x, this.hoverPoint.y));
       this.hoverPoint = null;

@@ -1,3 +1,4 @@
+import { Compass } from './components/Compass';
 import { useEffect } from 'preact/hooks';
 import { DebugPanel } from './components/DebugPanel';
 import { EggButton } from './components/EggButton';
@@ -140,6 +141,7 @@ export function App() {
       <RecapBubble />
       <EggButton />
       <PathButton />
+      <Compass />
       <PathToolbar />
       <PlacingBanner />
       <Guard>

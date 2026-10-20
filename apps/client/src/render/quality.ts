@@ -134,7 +134,8 @@ export function detectQuality(): QualityPreset {
   if (/mali-[gt]?[0-7]\d\b|adreno \(tm\) [3-5]\d\d|powervr|intel\(r\) hd graphics [2-5]/.test(gpu))
     return 'low';
   if (mobile) return 'medium';
-  if (/apple m\d|apple gpu|nvidia|geforce|rtx|radeon|amd|iris(\(r\))? xe|\barc\b/.test(gpu)) return 'high';
+  if (/apple m\d|apple gpu|nvidia|geforce|rtx|radeon|amd|iris(\(r\))? xe|\barc\b/.test(gpu))
+    return 'high';
   return 'medium';
 }
 

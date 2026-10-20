@@ -577,6 +577,9 @@ export const en = {
     keep: 'Keep my colony',
     replace: 'Start the new world',
   },
+  compass: {
+    label: 'Towards the alien planet — tap to fly back to the Nest',
+  },
   debug: {
     title: 'Debug',
     timeScale: 'Time speed',

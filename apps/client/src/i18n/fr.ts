@@ -607,6 +607,9 @@ export const fr: Dict = {
     keep: 'Garder ma colonie',
     replace: 'Lancer le nouveau monde',
   },
+  compass: {
+    label: 'Vers la planète alien — touchez pour revenir au Nid',
+  },
   debug: {
     title: 'Debug',
     timeScale: 'Vitesse du temps',
