@@ -7,6 +7,7 @@ import {
   PerspectiveCamera,
   Scene,
   SRGBColorSpace,
+  Vector2,
   Vector3,
   WebGLRenderer,
 } from 'three';
@@ -32,6 +33,7 @@ import { KiwisView } from './kiwis';
 import { CameraRig } from '../camera/CameraRig';
 import { Environment } from './environment';
 import { FpsMeter } from './fpsMeter';
+import { PerfStats, type FrameStats } from './perfStats';
 import { Lighting } from './lighting';
 import { PALETTE } from './palette';
 import { pick, screenRay, TapDetector } from './picking';
@@ -67,6 +69,8 @@ export interface RendererCallbacks {
   /** A path stroke painted in path mode. */
   onPaint?(tiles: Tile[], erase: boolean): void;
   onFps?(fps: number): void;
+  /** Detailed frame timing, twice a second (debug panel). */
+  onStats?(stats: FrameStats): void;
   onQualityChange?(preset: QualityPreset): void;
   /** A kiwi was tapped (it speaks instead of selecting its tile). */
   onKiwiTap?(id: string, pos: { x: number; z: number }): void;
@@ -78,6 +82,7 @@ export interface RendererCallbacks {
 
 const tmpV = new Vector3();
 const tmpTarget = new Vector3();
+const tmpSize = new Vector2();
 
 /** Owns the WebGL renderer, the scene graph and the frame loop. */
 export class GameRenderer {
@@ -90,6 +95,8 @@ export class GameRenderer {
   private readonly selection = new SelectionView();
   private readonly tap: TapDetector;
   private readonly fpsMeter = new FpsMeter();
+  private readonly perf = new PerfStats();
+  private lastFrameAt = 0;
   private terrain: TerrainView | null = null;
   private water: WaterView | null = null;
   private twin: TwinView | null = null;
@@ -145,6 +152,8 @@ export class GameRenderer {
       stencil: false,
     });
     this.renderer.outputColorSpace = SRGBColorSpace;
+    // Post-processing renders several passes: count the whole frame.
+    this.renderer.info.autoReset = false;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFSoftShadowMap;
     // Shadows only change when buildings change: render them on demand.
@@ -658,9 +667,24 @@ export class GameRenderer {
   }
 
   private frame(): void {
+    const start = performance.now();
+    if (this.lastFrameAt > 0) {
+      // Recorded at the start of the next frame: the cost of the previous one is known.
+      this.perf.record(start - this.lastFrameAt, this.lastCpu);
+      // Real interval (the animation step below is clamped, the measure must not be).
+      this.fpsMeter.tick((start - this.lastFrameAt) / 1000);
+    }
+    this.lastFrameAt = start;
+    this.renderer.info.reset();
+    this.drawFrame();
+    this.lastCpu = performance.now() - start;
+  }
+
+  private lastCpu = 0;
+
+  private drawFrame(): void {
     const dt = Math.min(this.clock.getDelta(), 0.1);
     this.elapsed += dt;
-    this.fpsMeter.tick(dt);
     const intro = this.intro;
     if (intro) {
       intro.update(dt);
@@ -688,8 +712,22 @@ export class GameRenderer {
     if (this.fpsReportTimer > 0.5) {
       this.fpsReportTimer = 0;
       this.callbacks.onFps?.(this.fpsMeter.fps);
+      this.reportStats();
     }
     this.adaptQuality(dt);
+  }
+
+  private reportStats(): void {
+    if (!this.callbacks.onStats) return;
+    const size = this.renderer.getDrawingBufferSize(tmpSize);
+    this.callbacks.onStats({
+      ...this.perf.summary(),
+      drawCalls: this.renderer.info.render.calls,
+      triangles: this.renderer.info.render.triangles,
+      width: size.x,
+      height: size.y,
+      dpr: this.renderer.getPixelRatio(),
+    });
   }
 
   private frameErrors = new Set<string>();

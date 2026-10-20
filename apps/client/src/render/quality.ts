@@ -89,7 +89,15 @@ export function saveQualityChoice(choice: QualityChoice): void {
   }
 }
 
-function gpuRendererName(): string {
+let gpuName: string | null = null;
+
+/** The GPU name reported by WebGL (cached; empty when hidden by the browser). */
+export function gpuRendererName(): string {
+  gpuName ??= readGpuName();
+  return gpuName;
+}
+
+function readGpuName(): string {
   try {
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');

@@ -18,7 +18,8 @@ import { pushToast, uiStore } from './ui/store';
 import { actions, bindActions } from './ui/actions';
 import { bindIntro, introSeen, startIntro } from './ui/intro';
 import { clearUrlParams, randomSeed, readUrlParams } from './game/urlParams';
-import { loadQualityChoice } from './render/quality';
+import { gpuRendererName, loadQualityChoice } from './render/quality';
+import { installPerfProbe, perfStore } from './ui/perfProbe';
 import { handleGameEvents } from './game/events';
 import { ChatChannel, mutedUsers } from './game/chat';
 import { setChannel } from './ui/chatActions';
@@ -31,6 +32,9 @@ persistLang(uiStore.getState().lang);
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
 const qualityChoice = loadQualityChoice();
 uiStore.setState({ qualityChoice });
+installPerfProbe(gpuRendererName());
+// `?debug` opens the debug panel (frame timing to share when the game feels slow).
+if (new URLSearchParams(window.location.search).has('debug')) uiStore.setState({ debugOpen: true });
 
 // eslint-disable-next-line prefer-const -- assigned right after the renderer (circular wiring)
 let controller: GameController;
@@ -41,6 +45,7 @@ const renderer = new GameRenderer(
     onTileTap: (tile) => actions.selectTile(tile),
     onPaint: (tiles, erase) => actions.paintPaths(tiles, erase),
     onFps: (fps) => uiStore.setState({ fps }),
+    onStats: (frame) => perfStore.setState({ frame }),
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
     onAllyTap: (kiwiIndex) => actions.visitAlly(kiwiIndex),
     onKiwiTap: (id, pos) => {
@@ -268,5 +273,6 @@ if (import.meta.env.DEV) {
     uiStore,
     actions,
     audio,
+    perfStore,
   };
 }

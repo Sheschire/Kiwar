@@ -792,3 +792,29 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
   unknown-column error (`42703` / `PGRST204`), so pushing the function before the owner runs the
   SQL keeps universes working (imports allowed, no imported flag, host toggle fails).
 - File export/import: left out (owner: cheating risk).
+
+## Chantier 10 — Visual comfort and performance
+
+- **Measure first** (part 1). `?debug` opens the debug panel with frame timing (fps, p95 and
+  worst frame, hitches > 33 ms, JS ms per frame, draw calls, drawing-buffer pixels, DPR, GPU)
+  and interface timing (`ui/perfProbe.ts`: main-thread ms per second spent in store listeners
+  and Preact re-renders, worst update, time from opening a menu to the next painted frame).
+  `scripts/perf.mjs` replays a lived-in colony (`tools/balance/src/perfSave.ts`: the bot after
+  72 h, 26 kiwis, 26 buildings) on desktop and phone screens, medium and low presets, CPU
+  slowed ×4. Headless Chromium draws WebGL in software (≈ 1 fps whatever the preset), so frame
+  rates are meaningless here; the JS and interface columns are the reliable ones.
+- **Baseline** (before any optimisation, CPU ×4, ranges over screens and presets):
+  - JS per frame of the 3D loop: 6–20 ms; draw calls 136 (low) – 155 (medium). The 3D loop's
+    own CPU cost is small; the GPU cost cannot be measured here.
+  - Interface: 135–210 ms of main-thread work per second with nothing open, 240–490 ms/s with
+    the village or defense screen open; the worst single store update + re-render takes
+    45–147 ms, i.e. a visible hitch at every simulation tick (5 per second).
+  - Opening a menu: Preact work 35–50 ms (settings), 55–75 ms (research), 65–75 ms (tile sheet),
+    90–135 ms (defense), 110–170 ms (village).
+  - CPU profile (no slowdown, 8 s idle): 445 ms in `netRates`, called ~9 times per update by
+    the resource chips of the top bar and the hunger badge, each recomputing every building's
+    harvest; then the Preact re-renders of the whole HUD (`game` and `now` change 5 times a
+    second). Hover picking costs 0.6 ms (not a lead).
+  - Reading: the stutter felt on desktop, even on fast PCs, is the interface work at each
+    tick (larger HUD on desktop: objectives, queue, expeditions panels), on top of a GPU bill
+    that grows with the screen (high preset: DPR 2, MSAA 4, N8AO).
