@@ -7,6 +7,7 @@ import { GameController } from './game/GameController';
 import { persistLang } from './i18n/i18n';
 import { pushToast, uiStore } from './ui/store';
 import { actions, bindActions } from './ui/actions';
+import { bindIntro, introSeen, startIntro } from './ui/intro';
 import { clearUrlParams, randomSeed, readUrlParams } from './game/urlParams';
 import { loadQualityChoice } from './render/quality';
 import { handleGameEvents } from './game/events';
@@ -72,6 +73,7 @@ controller = new GameController({
   onUniverse: (universe) => uiStore.setState({ universe }),
 });
 bindActions(controller, renderer);
+bindIntro(renderer);
 installGameAudio(renderer);
 
 // Keep the 3D selection marker in sync with the UI selection.
@@ -105,6 +107,15 @@ async function boot(): Promise<void> {
     // Never silently overwrite a colony: ask first.
     if (controller.hasProgress()) uiStore.setState({ pendingWorld: linkWorld });
     else controller.newWorld(linkWorld.seed, linkWorld.face);
+  } else if (!linkWorld && !introSeen() && !controller.hasProgress()) {
+    // First visit: the kiwi of the fresh world is sliced, and the player picks a face.
+    startIntro({
+      mode: 'new',
+      seed: s.seed,
+      onChoose: (face) => {
+        if (face !== controller.state.face) controller.newWorld(s.seed, face);
+      },
+    });
   }
 }
 void boot();

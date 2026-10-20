@@ -1,6 +1,7 @@
 import { actions } from '../actions';
 import { uiStore, useT, useUi } from '../store';
 import { Modal } from './Modal';
+import { startIntro } from '../intro';
 
 /** Confirmation before a shared link (or "New world") replaces the current colony. */
 export function WorldModal() {
@@ -9,8 +10,15 @@ export function WorldModal() {
   if (!pending) return null;
   const keep = () => uiStore.setState({ pendingWorld: null });
   const replace = () => {
-    actions.newWorld(pending.seed, pending.face);
     uiStore.setState({ pendingWorld: null });
+    // A new world from the settings: the intro shows its kiwi and the player picks a face.
+    if (pending.pick)
+      startIntro({
+        mode: 'new',
+        seed: pending.seed,
+        onChoose: (face) => actions.newWorld(pending.seed, face),
+      });
+    else actions.newWorld(pending.seed, pending.face);
   };
   return (
     <Modal
@@ -27,7 +35,11 @@ export function WorldModal() {
         </>
       }
     >
-      <p>{t('world.body', { seed: pending.seed, face: t(`faces.${pending.face}`) })}</p>
+      <p>
+        {pending.pick
+          ? t('world.bodyPick')
+          : t('world.body', { seed: pending.seed, face: t(`faces.${pending.face}`) })}
+      </p>
     </Modal>
   );
 }

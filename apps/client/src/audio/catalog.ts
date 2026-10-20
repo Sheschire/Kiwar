@@ -187,6 +187,12 @@ export const SOUND_EVENTS = {
     synth: 'return',
     default: { sources: ['builtin:ship/return'], cooldownMs: 1000, volume: 0.8 },
   },
+  'intro.slice': {
+    bus: 'sfx',
+    group: 'ui',
+    synth: 'slice',
+    default: { sources: ['synth:slice'], volume: 0.9 },
+  },
   'threat.warning': {
     bus: 'sfx',
     group: 'colony',

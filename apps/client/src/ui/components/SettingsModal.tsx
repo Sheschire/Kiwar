@@ -1,3 +1,4 @@
+import { otherFace, twinParams, type Face, type FaceParams } from '@kiwar/shared';
 import { LANGS } from '../../i18n/i18n';
 import { QUALITY_PRESETS } from '../../render/quality';
 import { randomSeed } from '../../game/urlParams';
@@ -5,7 +6,24 @@ import { actions } from '../actions';
 import { setLang, uiStore, useT, useUi } from '../store';
 import { AccountSection } from './AccountSection';
 import { Modal } from './Modal';
+import { startIntro } from '../intro';
 import { SoundSection } from './SoundSection';
+
+/** Watch the intro again on the current kiwi (the colony does not change). */
+function replayIntro(): void {
+  const game = uiStore.getState().game;
+  if (!game) return;
+  const twin = otherFace(game.face);
+  startIntro({
+    mode: 'replay',
+    seed: game.seed,
+    current: game.face,
+    params: {
+      [game.face]: game.params,
+      [twin]: twinParams(game.seed, game.face, game.params),
+    } as Record<Face, FaceParams>,
+  });
+}
 
 export function SettingsModal() {
   const t = useT();
@@ -77,13 +95,19 @@ export function SettingsModal() {
         </p>
       </div>
       <div class="field row">
+        <button class="btn" onClick={replayIntro}>
+          {t('settings.replayIntro')}
+        </button>
         <button class="btn" onClick={() => uiStore.setState({ debugOpen: true, modal: 'none' })}>
           {t('settings.debug')}
         </button>
         <button
           class="btn"
           onClick={() =>
-            uiStore.setState({ modal: 'none', pendingWorld: { seed: randomSeed(), face } })
+            uiStore.setState({
+              modal: 'none',
+              pendingWorld: { seed: randomSeed(), face, pick: true },
+            })
           }
         >
           {t('settings.newWorld')}

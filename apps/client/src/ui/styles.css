@@ -2329,3 +2329,187 @@ button.chip:focus-visible {
   flex: 0 0 60px;
   height: 5px;
 }
+
+/* ---------- Intro: the sliced kiwi and the choice of a face (chantier 05) ---------- */
+
+.intro {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+}
+
+.intro-skip {
+  position: absolute;
+  right: calc(var(--gap) + var(--safe-right));
+  bottom: calc(var(--gap) + 8px + var(--safe-bottom));
+  opacity: 0.85;
+}
+
+/* The blade's flash, timed with the slice of the 3D scene. */
+.intro-flash {
+  position: absolute;
+  inset: 0;
+  background: #fffbe8;
+  opacity: 0;
+  animation: intro-flash 2.2s ease-out forwards;
+}
+
+@keyframes intro-flash {
+  0%,
+  70% {
+    opacity: 0;
+  }
+  75% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.intro-panel {
+  position: absolute;
+  right: calc(var(--gap) + var(--safe-right));
+  top: calc(var(--gap) + var(--safe-top));
+  bottom: calc(var(--gap) + var(--safe-bottom));
+  width: 370px;
+  display: flex;
+  flex-direction: column;
+  animation: slide-in-right 0.35s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+
+.intro-head {
+  padding: 14px 16px 10px;
+  border-bottom: 1px dashed rgba(138, 95, 56, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.intro-head h2 {
+  margin: 0;
+}
+
+.intro-tabs .btn {
+  flex: 1;
+  flex-direction: column;
+  gap: 0;
+  line-height: 1.15;
+  min-height: 52px;
+}
+
+.intro-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.intro-body h3,
+.intro-body p {
+  margin: 0;
+}
+
+.intro-tagline {
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.intro-gauges {
+  list-style: none;
+  margin: 2px 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.intro-gauges li {
+  display: grid;
+  grid-template-columns: 18px 64px 1fr;
+  align-items: center;
+  gap: 6px;
+}
+
+.intro-traits {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.intro-actions {
+  padding: 10px 16px 14px;
+  border-top: 1px dashed rgba(138, 95, 56, 0.35);
+  display: flex;
+}
+
+.intro-actions .btn {
+  flex: 1;
+  min-height: var(--tap);
+}
+
+.intro-leaving .intro-panel {
+  opacity: 0;
+  transform: translateX(30px);
+  transition:
+    opacity 0.3s,
+    transform 0.3s;
+}
+
+/* From the intro into the game: a soft fade out of the sky colour. */
+.intro-fade {
+  position: absolute;
+  inset: 0;
+  background: #fbe3d6;
+  pointer-events: none;
+  z-index: 40;
+  animation: intro-fade 0.7s ease-out forwards;
+}
+
+@keyframes intro-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .intro-panel {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    height: 48%;
+    border-radius: var(--radius) var(--radius) 0 0;
+    border-bottom: none;
+    padding-bottom: var(--safe-bottom);
+    animation: sheet-up 0.3s ease-out;
+  }
+
+  .intro-head {
+    padding: 10px 14px 8px;
+    gap: 8px;
+  }
+
+  .intro-head h2 {
+    font-size: 1.1rem;
+  }
+
+  .intro-leaving .intro-panel {
+    transform: translateY(30px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-flash,
+  .intro-fade {
+    animation: none;
+    opacity: 0;
+  }
+}

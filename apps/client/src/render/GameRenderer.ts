@@ -19,6 +19,7 @@ import {
   hexKey,
   parseHexKey,
   seasonOf,
+  type Face,
   type FaceMap,
   type GameEvent,
   type GameState,
@@ -47,6 +48,7 @@ import { SelectionView } from './selection';
 import { TerrainView } from './terrain';
 import { WaterView } from './water';
 import { TwinView } from './twin';
+import { IntroScene, type IntroHandlers, type IntroLayout } from './intro';
 import { DayCycle } from './dayCycle';
 import { updateSeasonLook, seasonUniforms } from './seasonLook';
 import { WeatherView } from './weather';
@@ -82,6 +84,7 @@ export class GameRenderer {
   private terrain: TerrainView | null = null;
   private water: WaterView | null = null;
   private twin: TwinView | null = null;
+  private intro: IntroScene | null = null;
   private readonly twinTarget = new Vector3();
   private props: PropsView | null = null;
   private buildings: BuildingsView | null = null;
@@ -142,12 +145,12 @@ export class GameRenderer {
 
     this.tap = new TapDetector(canvas, {
       onTap: (x, y) => {
-        if (this.painter.enabled) return;
+        if (this.painter.enabled || this.intro) return;
         const kiwi = this.callbacks.onKiwiTap ? this.kiwiAt(x, y) : null;
         if (kiwi) this.callbacks.onKiwiTap!(kiwi.id, kiwi.pos);
         else this.callbacks.onTileTap(this.pickTile(x, y));
       },
-      onHover: (x, y) => (this.hoverPoint = { x, y }),
+      onHover: (x, y) => (this.hoverPoint = this.intro ? null : { x, y }),
       onHoverEnd: () => {
         this.hoverPoint = null;
         this.selection.setHover(null);
@@ -257,6 +260,31 @@ export class GameRenderer {
     if (!map) return;
     this.twin = new TwinView(map, opts);
     this.scene.add(this.twin.group);
+  }
+
+  /**
+   * Plays the intro (chantier 05) instead of the game view until `endIntro`: the whole kiwi
+   * sliced in two, then the choice between its two faces.
+   */
+  playIntro(maps: Record<Face, FaceMap>, handlers: IntroHandlers, skip: boolean): IntroScene {
+    this.endIntro();
+    this.intro = new IntroScene(this.canvas, maps, handlers, { skip });
+    this.intro.resize(this.canvas.clientWidth || 1, this.canvas.clientHeight || 1);
+    this.rig.controls.enabled = false;
+    this.selection.setHover(null);
+    return this.intro;
+  }
+
+  setIntroLayout(layout: IntroLayout): void {
+    this.intro?.setLayout(layout);
+  }
+
+  endIntro(): void {
+    if (!this.intro) return;
+    this.intro.dispose();
+    this.intro = null;
+    this.rig.controls.enabled = true;
+    this.renderer.shadowMap.needsUpdate = true;
   }
 
   private rebuildProps(): void {
@@ -471,6 +499,7 @@ export class GameRenderer {
     // Keep the disc comfortably framed in portrait.
     this.camera.fov = this.camera.aspect < 0.8 ? 40 : 30;
     this.camera.updateProjectionMatrix();
+    this.intro?.resize(w, h);
     this.weather?.setViewScale(
       (h * this.renderer.getPixelRatio()) / (2 * Math.tan((this.camera.fov * Math.PI) / 360)),
     );
@@ -480,6 +509,15 @@ export class GameRenderer {
     const dt = Math.min(this.clock.getDelta(), 0.1);
     this.elapsed += dt;
     this.fpsMeter.tick(dt);
+    const intro = this.intro;
+    if (intro) {
+      intro.update(dt);
+      // The intro may end during its update (the camera reached the chosen face).
+      if (this.intro === intro) {
+        this.renderer.render(intro.scene, intro.camera);
+        return;
+      }
+    }
     this.rig.update(dt);
     if (this.hoverPoint) {
       this.selection.setHover(this.pickTile(this.hoverPoint.x, this.hoverPoint.y));
@@ -562,6 +600,7 @@ export class GameRenderer {
     this.terrain?.dispose();
     this.water?.dispose();
     this.twin?.dispose();
+    this.intro?.dispose();
     this.props?.dispose();
     this.buildings?.dispose();
     this.kiwis?.dispose();

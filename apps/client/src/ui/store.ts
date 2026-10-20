@@ -15,6 +15,7 @@ import type { ChatMessage } from '../game/chat';
 import type { UniverseInfo } from '@kiwar/shared';
 import type { QualityChoice, QualityPreset } from '../render/quality';
 import { DEFAULT_SETTINGS, type AudioSettings } from '../audio/settings';
+import type { IntroUi } from './intro';
 
 export interface Toast {
   id: number;
@@ -41,7 +42,8 @@ export interface UiState {
   fps: number;
   timeScale: number;
   offlineSummary: OfflineSummary | null;
-  pendingWorld: { seed: string; face: Face } | null;
+  /** World waiting for confirmation; `pick`: the face will be chosen in the intro. */
+  pendingWorld: { seed: string; face: Face; pick?: boolean } | null;
   toasts: Toast[];
   sync: SyncStatus;
   account: Account | null;
@@ -69,6 +71,10 @@ export interface UiState {
   villageTab: 'kiwis' | 'memorial';
   /** Kiwi followed by the camera. */
   followId: string | null;
+  /** Intro and choice of a face (chantier 05). */
+  intro: IntroUi | null;
+  /** Short fade from the intro into the game. */
+  introFade: boolean;
 }
 
 const wideScreen =
@@ -106,6 +112,8 @@ export const uiStore = createStore<UiState>(() => ({
   kiwiId: null,
   villageTab: 'kiwis',
   followId: null,
+  intro: null,
+  introFade: false,
 }));
 
 export function setLang(lang: Lang): void {

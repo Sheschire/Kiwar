@@ -1,5 +1,4 @@
-import type {
-  Color} from 'three';
+import type { Color } from 'three';
 import {
   CircleGeometry,
   DoubleSide,

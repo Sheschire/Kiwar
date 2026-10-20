@@ -17,6 +17,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { Toasts } from './components/Toasts';
 import { TopBar } from './components/TopBar';
 import { WorldModal } from './components/WorldModal';
+import { IntroOverlay } from './components/IntroOverlay';
 import { FollowBadge, VillageModal } from './components/VillageModal';
 import { actions } from './actions';
 import { uiStore, useT, useUi } from './store';
@@ -80,6 +81,7 @@ export function App() {
   const ready = useUi((s) => s.game !== null);
   const hasSheet = useUi((s) => s.selectedTile !== null);
   const pathMode = useUi((s) => s.pathMode);
+  const intro = useUi((s) => s.intro !== null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -95,6 +97,14 @@ export function App() {
   }, []);
 
   if (!ready) return null;
+  // The intro takes the whole screen: no HUD while the kiwi is sliced and a face chosen.
+  if (intro)
+    return (
+      <div class="hud">
+        <IntroOverlay />
+        <Toasts />
+      </div>
+    );
   return (
     <div class={`hud ${hasSheet ? 'has-sheet' : ''} ${pathMode ? 'path-mode' : ''}`}>
       <TopBar />
@@ -121,6 +131,7 @@ export function App() {
       <ChatPanel />
       <OfflineModal />
       <WorldModal />
+      <IntroOverlay />
     </div>
   );
 }

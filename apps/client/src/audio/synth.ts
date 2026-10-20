@@ -102,6 +102,33 @@ function chirps(seed: number, count: number, length: number, gain: number): Tone
 }
 
 export const SYNTH_PRESETS = {
+  // Intro: a blade whooshes through the fruit, a bright ring, then the halves part softly.
+  slice: {
+    tones: [
+      {
+        wave: 'noise',
+        freq: 0,
+        attack: 0.08,
+        decay: 0.22,
+        gain: 0.7,
+        lowpass: 900,
+        lowpassEnd: 7000,
+      },
+      {
+        wave: 'sine',
+        freq: 2600,
+        freqEnd: 2350,
+        start: 0.18,
+        attack: 0.002,
+        decay: 0.9,
+        gain: 0.35,
+      },
+      { wave: 'sine', freq: 3900, start: 0.18, attack: 0.002, decay: 0.6, gain: 0.15 },
+      { wave: 'noise', freq: 0, start: 0.3, attack: 0.05, decay: 0.5, gain: 0.35, lowpass: 600 },
+      { wave: 'sine', freq: 140, freqEnd: 60, start: 0.3, attack: 0.01, decay: 0.5, gain: 0.5 },
+    ],
+    peak: 0.6,
+  },
   click: {
     tones: [{ wave: 'triangle', freq: 1400, freqEnd: 900, attack: 0.002, decay: 0.035 }],
     peak: 0.45,

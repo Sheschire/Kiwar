@@ -26,6 +26,7 @@ export const fr: Dict = {
     debug: 'Panneau debug',
     newWorld: 'Nouveau monde',
     world: 'Ce monde',
+    replayIntro: 'Revoir l’intro',
     worldLine: '{face} · {biome} · graine {seed}',
     controls: 'Commandes',
     controlsDesktop:
@@ -62,6 +63,38 @@ export const fr: Dict = {
   },
   langs: { fr: 'Français', en: 'English' },
   faces: { kiwisu: 'Kiwisu', kiwino: 'Kiwino' },
+  intro: {
+    skip: 'Passer',
+    title: 'Choisissez votre face',
+    replayTitle: 'Votre kiwi',
+    faces: {
+      kiwisu: 'Kiwisu, la face généreuse : pulpe et fibre viennent facilement.',
+      kiwino: 'Kiwino, la face précieuse : pépins et jus abondent.',
+    },
+    taken: 'Occupée par {name}.',
+    yours: 'Votre colonie vit ici.',
+    pros: 'Forces :',
+    cons: 'Faiblesses :',
+    style: 'Style de jeu :',
+    fair: 'Chaque face et chaque biome sont équilibrés : choisissez selon votre façon de jouer.',
+    choose: 'S’installer sur {face}',
+    back: 'Revenir à ma colonie',
+    traits: {
+      stock: 'Gisements de {resource} ×{value}',
+      stockAll: 'Gisements ×{value}',
+      regen: 'Repousse de {resource} ×{value}',
+      regenAll: 'Repousse ×{value}',
+      walk: 'Terrain accidenté : marche ×{value}',
+      season: '{season} : {effects}',
+      harvestPart: 'récolte de {resource} ×{value}',
+      regenPart: 'repousse ×{value}',
+      regenOnePart: 'repousse de {resource} ×{value}',
+      walkPart: 'marche ×{value}',
+      floods: 'Crues au {season} autour des bassins',
+      ferrets: 'Furets ×{value} (bientôt)',
+      bats: 'Chauves-souris ×{value} (bientôt)',
+    },
+  },
   biomes: {
     classic: {
       name: 'Classique',
@@ -476,6 +509,8 @@ export const fr: Dict = {
   world: {
     title: 'Commencer un nouveau monde ?',
     body: 'Ce lien ouvre le monde « {seed} » sur {face}. Votre colonie actuelle sera remplacée.',
+    bodyPick:
+      'Un nouveau kiwi sera tranché en deux et vous choisirez votre face. Votre colonie actuelle sera remplacée.',
     keep: 'Garder ma colonie',
     replace: 'Lancer le nouveau monde',
   },

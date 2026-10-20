@@ -25,6 +25,7 @@ export const en = {
     debug: 'Debug panel',
     newWorld: 'New world',
     world: 'This world',
+    replayIntro: 'Replay the intro',
     worldLine: '{face} · {biome} · seed {seed}',
     controls: 'Controls',
     controlsDesktop:
@@ -57,6 +58,38 @@ export const en = {
   },
   langs: { fr: 'Français', en: 'English' },
   faces: { kiwisu: 'Kiwisu', kiwino: 'Kiwino' },
+  intro: {
+    skip: 'Skip',
+    title: 'Choose your face',
+    replayTitle: 'Your kiwi',
+    faces: {
+      kiwisu: 'Kiwisu, the generous face: pulp and fibre come easily.',
+      kiwino: 'Kiwino, the precious face: seeds and juice abound.',
+    },
+    taken: 'Taken by {name}.',
+    yours: 'Your colony lives here.',
+    pros: 'Strengths:',
+    cons: 'Weaknesses:',
+    style: 'Play style:',
+    fair: 'Every face and biome is balanced: choose the one that suits how you like to play.',
+    choose: 'Settle on {face}',
+    back: 'Back to my colony',
+    traits: {
+      stock: '{resource} deposits ×{value}',
+      stockAll: 'Deposits ×{value}',
+      regen: '{resource} regrowth ×{value}',
+      regenAll: 'Regrowth ×{value}',
+      walk: 'Rugged land: walking ×{value}',
+      season: '{season}: {effects}',
+      harvestPart: '{resource} harvest ×{value}',
+      regenPart: 'regrowth ×{value}',
+      regenOnePart: '{resource} regrowth ×{value}',
+      walkPart: 'walking ×{value}',
+      floods: 'Floods in {season} around the pools',
+      ferrets: 'Ferrets ×{value} (coming soon)',
+      bats: 'Bats ×{value} (coming soon)',
+    },
+  },
   biomes: {
     classic: {
       name: 'Classic',
@@ -447,6 +480,8 @@ export const en = {
   world: {
     title: 'Start a new world?',
     body: 'This link opens the world “{seed}” on {face}. Your current colony will be replaced.',
+    bodyPick:
+      'A new kiwi will be sliced in two and you will choose your face. Your current colony will be replaced.',
     keep: 'Keep my colony',
     replace: 'Start the new world',
   },
