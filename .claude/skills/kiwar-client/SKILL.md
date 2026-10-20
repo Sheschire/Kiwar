@@ -77,6 +77,16 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   `--berry`, `--gap`, `--safe-*`). Phone breakpoint `max-width: 760px`; when a tile sheet is
   open the HUD has `.has-sheet` (bottom sheet covers half the screen; other floating panels hide).
 - Icons are inline SVG components in `ui/icons.tsx`.
+- Safety nets: `Guard` (error boundary) wraps the tile sheet, the modals and the whole app;
+  `BootScreen` shows while `game` is null (loading line, or `bootError` with retry / play solo).
+  Never return an empty HUD.
+- Back from a break: `RecapBubble` (corner, < 8 h, auto-closes after 12 s unless alarming;
+  "details" sets `recapOpen`) or `OfflineModal` (≥ 8 h or on demand).
+- Taps: an ally planet (no tile hit) → visit; a building or construction site wins over a
+  kiwi standing on it (`GameRenderer.hasStructure`); otherwise a kiwi near the pointer wins.
+- Camera: `onWorld` rebuilds the scene only when seed/face/params change (`startGame.worldKey`),
+  so a resync keeps camera and selection; `CameraRig` saves the azimuth on `rest`
+  (`kiwar.camera.azimuth`, not while visiting) and `frame()` uses it.
 
 ## i18n
 

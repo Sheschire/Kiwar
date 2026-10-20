@@ -14,7 +14,7 @@ Load `kiwar-sim` (rules stay deterministic and exact offline) and `kiwar-client`
   `yield` (× face climate), `deposits.stock/regen` per resource, `walk`, `seasons` (extra
   multipliers per season, multiplied onto `CYCLES.seasons`), `floods` (season or null),
   `threats` (ferrets/bats multipliers, data for chantier 06).
-- Helpers: `drawBiomes(planetSeed)` (both faces; universes use `kiwiSeed`), `biomesOf(face)`,
+- Helpers: `drawBiomes(planetSeed)` (both faces; universes use `planetSeedOf`), `biomesOf(face)`,
   `biomeFits`, `biomeProfile(face, biome)`, `climateOf(face, biome)` (use it instead of
   `FACE_PROFILES[face].yieldMultiplier`), `seasonEffects/seasonRegen/seasonHarvest(season, …,
 biome)` (memoized), `tileDeposit(tile, biome)`, `twinParams(seed, face, params)`.
@@ -63,10 +63,21 @@ focus?, onChoose })`, store `intro` / `introFade`, gauges (sustainable regrowth 
   constraint → false), the game is recreated with `universeGame`.
 - Chantier 07: the alien twin's clouds open over the sectors our scouts saw
   (`TwinOptions.intel`, shader mask `uSeen`), with the dens/roosts they reported — see
-  `kiwar-expeditions`. Other kiwis of a universe are still not drawn in 3D (only on the
-  target's SVG map).
+  `kiwar-expeditions`.
+- **Allied planets** (`render/allies.ts` `AlliesView`, `GameRenderer.setAllies(allies, myKiwi)`):
+  each ally's face is an anchored `TwinView` (`anchored: true`, no fog, name ribbon above) at a
+  fixed place: slots around the far side, ring 95 + 14 per extra kiwi of distance, y ≈ −14
+  (above the sea of clouds at −26), leaning towards us. Tapping one (when no tile is hit) or
+  `actions.visitAlly(k)` → `GameRenderer.visitAlly` → `CameraRig.visit(center, radius)` (bounds
+  and zoom of that planet, `away` flag); `visitAlly(null)` → `returnHome` (restores the saved
+  view). Store `allies`, `visit`; the HUD shrinks to `VisitBanner`, taps and hover are off,
+  the alien twin hides. `startGame.showAllies` re-syncs after `onAllies` / `onWorld`.
 - `twin` in responses (`TwinSnapshot`: owner, face, params, buildings, paths, at) when a friend
-  lives on the other half of our kiwi; never stocks, never an alien face's state.
+  lives on the other half of our kiwi (older universes only: each newcomer now gets their own
+  kiwi), and `allies` (`AllySnapshot` = twin snapshot + `kiwiIndex`, `seed`) for everyone else;
+  never stocks, never an alien face's state.
+- Intro choice: a click (or a tab, `focusIntro(face, true)`) locks the face (`IntroScene.lock`);
+  hovering only moves the focus until then.
 - Visual check of a universe: `pnpm mock:supabase` + `pnpm dev:online`, two Playwright contexts
   (`actions.enterUniverse({ create }, 'Alice')`, then join with the code). Headless phones play
   the intro slowly: click `.intro-skip`.

@@ -68,9 +68,7 @@ nature, obstacles et travaux de titan). Les réponses du porteur et le découpag
   ne ralentissent pas la nuit. Une partie du bot coûte ~2× plus de calcul (lits, moral) : le
   rapport 200 graines prend ~40 min.
 - Chantier 05 : les multiplicateurs de menaces des biomes (furets, chauves-souris) attendent le
-  chantier 06 ; seules la face jumelle et son occupant·e sont dessinés (les autres kiwis d'un
-  univers : chantier 07, avec la reconnaissance qui révélera une image figée sous le
-  brouillard) ; le bot n'utilise pas les chemins, alors qu'ils aident beaucoup dans le Delta ;
+  chantier 06 ; le bot n'utilise pas les chemins, alors qu'ils aident beaucoup dans le Delta ;
   l'intro n'a pas été chronométrée sur un vrai téléphone.
 - Chantier 06 : modèles procéduraux pour furets, chauves-souris et tourelles (les modèles
   Sketchfab proposés sont trop lourds ou non téléchargeables : à remplacer par des glTF décimés
@@ -78,8 +76,8 @@ nature, obstacles et travaux de titan). Les réponses du porteur et le découpag
   provoquées (la provocation augmente seulement la puissance) ; le bot ne pose pas de camp sur
   les météorites ; la mise en scène ne joue que si le joueur est là à l'impact.
 - Chantier 07 : le bot de colonie n'envoie pas d'expéditions (sonde dédiée
-  `pnpm balance:expeditions`) ; les autres kiwis
-  d'un univers ne sont pas dessinés en 3D (seulement la carte SVG de la cible) ; le client en
+  `pnpm balance:expeditions`) ; les faces aliens des autres kiwis ne sont pas dessinées en 3D
+  (seulement la carte SVG de la cible) ; le client en
   ligne interroge le serveur toutes les 5 s quand un vaisseau a atterri (pas de Realtime) ; pas
   encore de colonisation ni de caravanes entre faces alliées ; le porteur doit exécuter la
   migration `20261024000000_hide_game_state.sql`.
@@ -89,3 +87,10 @@ nature, obstacles et travaux de titan). Les réponses du porteur et le découpag
   d'équilibrage sur 72 h n'atteint que l'âge de pierre (sonde longue `pnpm balance:ages`).
 - Performance des animations non mesurée sur un vrai téléphone (un mesh par partie animée, ~1 à
   10 par bâtiment) : à vérifier, sinon passer les drapeaux en instancing.
+- Retours de partie à plusieurs (octobre 2026, corrigés hors chantier) : un kiwi par joueur
+  (jumelle alien), univers créé depuis la colonie solo, planètes alliées visibles et visitables
+  en lecture, écran d'erreur au lieu d'un fond vide, récap discret, caméra conservée. Reste :
+  la cause exacte de « certains ne peuvent pas construire » n'a pas été reproduite avec le mock
+  (l'écran d'erreur affiche désormais le message à transmettre) ; pas encore de voyage ni
+  d'échanges entre alliés ; le porteur doit exécuter la migration
+  `20261025000000_member_planet_seed.sql`.

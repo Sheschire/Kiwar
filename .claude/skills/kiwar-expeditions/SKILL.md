@@ -78,7 +78,7 @@ Crew strength, exposure and weighted losses come from `kiwar-rpg`.
   cards (`IntelLine`: range + age, map n/12), `IntelMap` + `EnemyLine`, crew sorted by
   `reconForecast` quality for recon, recon forecast, ship line. `ReportModal.tsx`: recon /
   broken branches. `IntelMap.tsx`: SVG of the target face from public seeds
-  (`targetFaceParams(state, target, universeSeed)`), seen sectors coloured with
+  (`targetFaceParams(state, target, universe)`: the universe info, for `planetSeedOf`), seen sectors coloured with
   `tileTopColor`, structures snapped with `landTileNear`.
 - Twin half (`render/twin.ts`): `TwinOptions.intel` → fog shader `uSeen[12]` mask + `uInner`;
   seen dens/roosts drawn. `startGame.showTwin` keys on the seen sectors.

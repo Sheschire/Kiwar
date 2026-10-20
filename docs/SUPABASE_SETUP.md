@@ -67,12 +67,13 @@ uniquement par les comptes de la table `admins`.
 
 Migrations, dans l'ordre :
 
-| Fichier                              | Contenu                                                |
-| ------------------------------------ | ------------------------------------------------------ |
-| `20261020000000_init.sql`            | parties, journal, admins                               |
-| `20261021000000_universes_chat.sql`  | univers partagés, chat d'équipe                        |
-| `20261022000000_audio.sql`           | sons : `is_admin()`, tables `audio_*`, bucket          |
-| `20261024000000_hide_game_state.sql` | parties illisibles par les joueurs (garnisons cachées) |
+| Fichier                                 | Contenu                                                    |
+| --------------------------------------- | ---------------------------------------------------------- |
+| `20261020000000_init.sql`               | parties, journal, admins                                   |
+| `20261021000000_universes_chat.sql`     | univers partagés, chat d'équipe                            |
+| `20261022000000_audio.sql`              | sons : `is_admin()`, tables `audio_*`, bucket              |
+| `20261024000000_hide_game_state.sql`    | parties illisibles par les joueurs (garnisons cachées)     |
+| `20261025000000_member_planet_seed.sql` | graine du kiwi d'une colonie solo emportée dans un univers |
 
 ## 4. Fonction serveur `game`
 

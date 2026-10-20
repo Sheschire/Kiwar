@@ -34,11 +34,23 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   shared service, minimal PostgREST for chat and audio tables, Storage for the `audio` bucket,
   `rpc/is_admin` always true, no realtime) + `pnpm dev:online` (client on 5174).
   `/__mock/delay?ms=` changes the latency.
-- Universes: kiwis = ⌊players/2⌋ + 1 (always an alien face), twin faces filled first, invite code
-  8 chars, ≤ 8 players, ≤ 5 universes per player; expedition targets are alien faces.
+- Universes (playtest fixes): **one kiwi per player** — `assignFace` gives the first kiwi nobody
+  lives on (Kiwisu), the twin half stays alien; `kiwiCount(members)` = one per player (+1 when
+  every face is taken: older universes keep their pairs). Invite code 8 chars, ≤ 8 players,
+  ≤ 5 universes per player; expedition targets are every alien face (own twin at distance 0).
+- `createUniverse { fromSolo: true }` moves the online solo colony into the new universe as
+  kiwi 0 (`moveSoloInto`; refused while pristine): same state re-keyed, `created_at` set so the
+  calendar is unchanged, member `planet_seed` = the colony seed (`planetSeedOf(info, k)` gives
+  the seed of any kiwi: use it, never `kiwiSeed` directly), then the solo slot starts over.
+- Responses with a universe carry `allies: AllySnapshot[]` (every other player's layout, seed
+  and kiwi; never stocks) next to `twin` (`neighboursOf`). Client: see `kiwar-world`.
   Every colony of a universe shares its calendar: the repository reads `created_at`
   (`UniverseRow.createdAt`), `universeGame` / `withScopeTargets` set `calendarStart`
   (`calendarStartFor`). The memory repository takes `createdAt` from the service.
+- Client robustness: sign-in 15 s / calls 20 s timeouts (`onlineBackend.withTimeout`), server
+  states go through `migrateState` in `acceptServer`, the cache fallback never re-throws (it is
+  dropped), `boot()` errors and an empty game show `BootScreen` (retry / play solo), panels sit
+  in `Guard` error boundaries. The local save import and the first-visit intro are solo only.
 - Client side: `game/onlineBackend.ts` (auth: anonymous guest, link Google / magic link),
   `game/onlineConfig.ts` (env `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`), `game/chat.ts`.
 - Owner setup guide: `docs/SUPABASE_SETUP.md` (keep it in sync with new migrations/env vars).
