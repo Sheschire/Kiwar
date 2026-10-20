@@ -91,3 +91,10 @@ announced: true }` (the comet fades in over 15 min of game time after `announceA
   `dustPicked`, `stardust`; the report's predators table shows them.
 - To retune: `COMETS.stock`/`intervalMs`/`firstMs`, the monument and Kikiwiwi dust costs. Check
   `pnpm balance:ages` (Iron and Industry must stay reachable within a few comets).
+
+## Chantier 15
+
+Stardust tiles are filled on their own (`fillStardust` in `sim/tasks.ts`, `kiwar-tasks`): the
+most dexterous kiwis borrowed from the harvest, until the stock is full; in manual mode
+(`automation.stardust` off) the tile sheet keeps the "send" / "call back" buttons.
+`releasePickers` uses `sendBackAll`.

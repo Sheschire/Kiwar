@@ -28,6 +28,9 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
     levels 4–6, ships and threats by age, the village look by age.
   - `kiwar-titans` — obstacles (rocks, stumps, wrecks), the laboratory against nature and the
     Kikiwiwis, titan works and reshaped tiles (`state.terraform`, `faceMapOf`).
+  - `kiwar-tasks` — the automation: tasks filled with the best kiwis (constructions in
+    parallel, research, meteorite posts and the drill, stardust, repairs, garrison), borrowing
+    and sending back, the dispatcher's exactness rules, the Automation panel.
   - `kiwar-sky` — comets and stardust: pickers, blessings, the star egg, the Stars research
     branch, ship fuel, stardust costs of the ages and the Kikiwiwis.
 

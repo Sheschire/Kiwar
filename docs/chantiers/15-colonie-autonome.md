@@ -130,3 +130,45 @@ productivité. »
 2. Pour un gros chantier, un seul kiwi, ou plusieurs (plus rapide) ?
 3. Ordre de priorité des tâches proposé ci-dessus : d'accord ?
 4. Faut-il garder le camp sur cratère, ou le retirer puisque le poste dédié le remplace ?
+
+## Réponses aux questions ouvertes (octobre 2026)
+
+1. Chantiers simultanés par niveau du Nid : **1/1/2/2/3/3**.
+2. Un gros chantier : **un seul kiwi** (le parallélisme vient du nombre de chantiers).
+3. Ordre de priorité : **garnison > réparation > construction > recherche > cratère et
+   poussière > récolte**.
+4. Camp sur cratère : **retiré**. Au début on récolte une météorite « à la main » (poste dédié) ;
+   une recherche, la **foreuse à météorite**, fait creuser plus vite, et elle s'améliore avec
+   les âges. Les producteurs voisins ne grignotent plus le cratère.
+5. La **poussière d'étoiles** est automatisée comme les cratères.
+
+## Ce qui a été fait
+
+1. **Tâches et emprunt** (`sim/tasks.ts`) : un chantier ne démarre jamais sans kiwi (le·la
+   bâtisseur·euse prioritaire, sinon le kiwi le plus fort, emprunté à son poste et renvoyé
+   ensuite) ; 1/1/2/2/3/3 chantiers en même temps selon le Nid ; statut « en attente d'un·e
+   bâtisseur·euse » dans la file ; ligne « Chantiers simultanés » du Nid. Sauvegarde v21
+   (`state.automation`, `Villager.lent`).
+2. **Recherche automatique** : choisir une technologie remplit la Bibliothèque avec les kiwis
+   qui ont le plus d'Esprit ; ils rentrent quand plus rien n'est en recherche ; ceux placés à la
+   main restent ; le « + » trie par Esprit.
+3. **Poste Météorite** : 3 places, les plus adroits, débit = taux de la ressource × travail des
+   kiwis × logistique × heure et saison × foreuse ; rien ne se construit sur un cratère ; ligne
+   « Météorite » dans le tableau des postes ; fiche du cratère. Recherche **Foreuse à
+   météorite** (âge de pierre) : ×1,5 / ×2 / ×2,5 selon l'âge, une foreuse tourne en 3D sur les
+   cratères exploités. Poussière d'étoiles remplie automatiquement.
+4. **Réparation et garnison automatiques** : un bâtiment abîmé commande et paie sa réparation
+   dès que possible (avant les chantiers en attente) ; 40 min avant une attaque, les kiwis qui
+   arrêtent le plus sont postés un à un (au plus la moitié de la colonie), puis rentrent.
+5. **Panneau Automatisation** (onglet de l'écran du village) : un interrupteur auto/manuel par
+   tâche, une pastille « N en attente » pour une tâche manuelle sans kiwi ; en manuel, la file
+   propose « Choisir… » les kiwis les plus forts pour lancer un chantier.
+6. **Équilibrage** : le bot s'appuie sur les automatismes (voir `docs/DECISIONS.md`).
+
+## Ce qui reste
+
+- Pas de poste temporaire pour les obstacles (dégagement des souches) : il passe par la file
+  comme une construction.
+- Le bot ne coupe jamais un automatisme et n'utilise pas « Choisir… ».
+- En automatique, retirer un kiwi d'une tâche à la main le fait remplacer aussitôt (il faut
+  passer la tâche en manuel pour garder la main).

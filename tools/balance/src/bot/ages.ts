@@ -4,7 +4,6 @@ import {
   buildingCount,
   canAfford,
   capacity,
-  idleVillagers,
   ageOf,
   hasTech,
   PASSAGE_TECHS,
@@ -13,11 +12,8 @@ import {
   nest,
   nestDef,
   pendingUpgrade,
-  population,
   RESOURCE_IDS,
   upgradeCost,
-  workersOf,
-  workerSlots,
   type BuildingType,
   type Command,
   type FaceMap,
@@ -46,25 +42,6 @@ export const TECH_ORDER: TechId[] = [
   'steamEngines',
   'titanWorks',
 ];
-
-/** Researchers wanted: one per five kiwis, within the Library's slots. */
-export function researchStaffing(state: GameState): Command | null {
-  const library = state.buildings.find((b) => b.type === 'library');
-  if (!library) return null;
-  const staff = workersOf(state, library.id).length;
-  const want = Math.min(workerSlots(library), Math.max(1, Math.floor(population(state) / 5)));
-  if (staff >= want) return null;
-  // Kikiwiwis never work: an idle one must not block the staffing.
-  if (idleVillagers(state).some((v) => !v.kikiwiwi))
-    return { type: 'assignWorkers', buildingId: library.id, count: staff + 1 };
-  // Free the least useful worker of the most staffed producer.
-  const busiest = state.buildings
-    .filter((b) => b.id !== library.id && workerSlots(b) > 0)
-    .map((b) => ({ b, n: workersOf(state, b.id).length }))
-    .sort((a, b) => b.n - a.n)[0];
-  if (!busiest || busiest.n < 2) return null;
-  return { type: 'assignWorkers', buildingId: busiest.b.id, count: busiest.n - 1 };
-}
 
 /**
  * A Library after the School and the Nest 3, the next technology of TECH_ORDER, Library upgrades when a

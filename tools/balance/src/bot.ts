@@ -26,7 +26,6 @@ import {
   pendingUpgrade,
   population,
   RESOURCE_IDS,
-  repairCost,
   upgradeCost,
   workersOf,
   workerSlots,
@@ -39,7 +38,7 @@ import {
   STARDUST_SCALE,
   stardustOf,
 } from '@kiwar/shared';
-import { researchStaffing, ageDecision } from './bot/ages';
+import { ageDecision } from './bot/ages';
 import { campOrder } from './bot/camps';
 import { expeditionOrder, launchpadOrder } from './bot/expeditions';
 import { pathOrder } from './bot/paths';
@@ -145,12 +144,9 @@ function decide(state: GameState, map: FaceMap, play: Play): Command[] {
   if (mayor && hasSkill(mayor, 'speech') && (mayor.skillReadyAt.speech ?? 0) <= state.now)
     cmds.push({ type: 'useSkill', villagerId: mayor.id, skill: 'speech' });
 
-  // Chantier 13: the most dexterous kiwis pick the stardust as soon as it falls.
+  // Chantier 13: blessings. Since chantier 15 the automation sends the pickers of the
+  // stardust, the researchers, the miners of the craters, the garrison and the repairs.
   cmds.push(...cometOrders(state));
-
-  // Researchers (chantier 08): kiwis never join the Library on their own.
-  const staffing = researchStaffing(state);
-  if (staffing) return [...cmds, staffing];
 
   // Chantier 18: reconnaissance and raids (before the Kikiwiwi goes back to the rampart).
   // Looked at every half hour of game time (the plans are costly to weigh).
@@ -210,12 +206,6 @@ function decide(state: GameState, map: FaceMap, play: Play): Command[] {
     const tile = bestTile(state, map, type);
     return tile ? { type: 'build', buildingType: type, q: tile.q, r: tile.r } : null;
   };
-
-  // 0. Repairs first: a damaged building works at half pace.
-  for (const b of state.buildings) {
-    if (b.damaged && !pendingUpgrade(state, b.id) && canAfford(state.resources, repairCost(b)))
-      return [...cmds, { type: 'repair', buildingId: b.id }];
-  }
 
   // 1. One of each building, in order.
   for (const type of BUILD_ORDER) {

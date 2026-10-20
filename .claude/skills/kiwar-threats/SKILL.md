@@ -83,10 +83,13 @@ colony × play time (× expedition victories: the aliens strike back), beginners
   more), kills at most one kiwi on a lethal wave, sets the shield on a defeat. A solo colony
   joining a universe gets a 48 h shield too (`shieldArrival`, chantier 14, see `kiwar-online`).
 - `workforce` returns 0 during a shelter and × `damagedWork` for a damaged building.
-- Meteorites (`sim/sky.ts`): `meteorRate(m, harvests)` — a camp on the crater picks it at the
-  camp rate of its resource, a producer of the same resource reaching it takes
-  `producerShare` of its base rate, on top of their usual harvest; `computeFlows` drains it like
-  a pool (dry-out time in `nextChange`), `accrue` integrates it. No climate, no regrowth.
+- Meteorites (`sim/sky.ts`): since chantier 15 a crater is a **temporary post** (job `meteor`,
+  `METEORS.slots` places; see `kiwar-tasks`): `meteorRate(state, m)` = rate × miners' work ×
+  logistics × hour/season × drill; no camp on a crater and no producer share any more;
+  `computeFlows` drains it like a pool (dry-out time in `nextChange`), `accrue` integrates it.
+  No climate, no regrowth.
+- Chantier 15: automatic repairs (`orderRepairs`) and garrison (`fillGarrison`, 40 min before a
+  strike, an `advance` event `autoGarrisonAt`; lent guards go back after it) in `sim/tasks.ts`.
 - Commands: `shelter` (`noWaveSoon`, `alreadySheltered`), `repair` (`notDamaged`,
   `alreadyRepairing`), `setGarrison { villagerIds }` (exact list; relieved guards go back via
   `autoAssign`), turret placement (`notOnRampart`, `turretLimit`; `isRampart`, `turretCount`,

@@ -4,9 +4,6 @@ import {
   type Command,
   type GameState,
   BLESSINGS,
-  bestDustCrew,
-  dustPickers,
-  STARDUST_CAP,
   stardustOf,
 } from '@kiwar/shared';
 
@@ -29,12 +26,6 @@ export function dustReserve(state: GameState): number {
 /** Pickers on every stardust tile; the surplus heals wounded kiwis. */
 export function cometOrders(state: GameState): Command[] {
   const cmds: Command[] = [];
-  if (state.stardust < STARDUST_CAP)
-    for (const p of state.comets.patches) {
-      const crew = bestDustCrew(state, p.id);
-      if (crew.length > dustPickers(state, p.id).length)
-        cmds.push({ type: 'collectStardust', patchId: p.id, villagerIds: crew });
-    }
   const hurt = state.villagers.find((v) => v.job.kind === 'injured');
   if (hurt && stardustOf(state) >= dustReserve(state) + BLESSINGS.heal)
     cmds.push({ type: 'bless', villagerId: hurt.id, kind: 'heal' });

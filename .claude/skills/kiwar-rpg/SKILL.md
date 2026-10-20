@@ -96,7 +96,12 @@ builderPriority?}`. `assignWorkers` (−/+) still exists (bot, building sheet, j
   is an advance event (`awaitedResources` in `computeFlows`). Player commands never trigger a
   redirection (a kiwi placed on a full stock stays).
 - `autoAssign` → `autoPlace`: best `affinity − JOBS.ratioWeight × staffing ratio`, a full
-  stock only as a last resort; the Library stays manual.
+  stock only as a last resort; idle kiwis never take the Library on their own.
+- Chantier 15 (`kiwar-tasks`): the automation borrows kiwis for tasks (builders by Strength,
+  researchers by Spirit while a tech is chosen, crater miners and stardust pickers by
+  Dexterity, the garrison) and sends them back (`Villager.lent`, the jobs' `returnTo`);
+  `pickBuilder` moved to `sim/tasks.ts`; `builderPriority` still wins; `locked` kiwis at work are
+  never borrowed. `assignKiwi` also moves miners and pickers and drops `lent`.
 - Events `kiwisRedirected` / `kiwisReturned {resource, count}` (toasts).
 
 ## Client

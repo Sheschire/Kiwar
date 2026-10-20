@@ -9,6 +9,14 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 15** — la colonie **s'organise toute seule** : chaque chantier part avec le kiwi
+> le plus fort (emprunté à son poste, il y retourne ensuite), et le Nid permet jusqu'à **trois
+> chantiers en même temps** ; choisir une recherche envoie les kiwis qui ont le plus d'**Esprit**
+> à la Bibliothèque ; une **météorite** devient un **poste à part** (3 places pour les plus
+> adroits, une **foreuse** à rechercher qui creuse plus vite à chaque âge) ; la poussière
+> d'étoiles, les **réparations** et la **garnison** avant une attaque se font aussi seules. Un
+> **panneau Automatisation** (écran du village) permet de passer chaque tâche en manuel.
+>
 > **Chantier 16** — on **voit ce qu'un bâtiment fait au terrain** : pendant la pose, le
 > bâtiment **lévite, translucide**, au-dessus de la tuile visée (vert si on peut construire,
 > rouge sinon, avec la raison). Autour de lui, les tuiles qu'il récoltera **pulsent en vert**

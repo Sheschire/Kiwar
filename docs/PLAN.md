@@ -48,17 +48,17 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 12  | Logistique visible, vagues orientées, nuit plus courte                 | ✅      |
 | 13  | Comètes et poussière d'étoiles                                         | ✅      |
 | 14  | Emporter sa colonie solo dans un univers existant                      | ✅      |
-| 15  | Colonie autonome : constructions, recherche, météorites, automatismes  | à faire |
+| 15  | Colonie autonome : constructions, recherche, météorites, automatismes  | ✅      |
 | 16  | Pose et terrain lisibles (modèle fantôme, zones, gains au dépôt)       | ✅      |
 | 17  | Identité visuelle : bâtiments distincts, planète alien, ciel vivant    | à faire |
 | 18  | Bot d'équilibrage complet : chemins, camps, expéditions                | à faire |
 | 19  | Colonisation de la face alien jumelle (siège, seconde colonie)         | à faire |
 | —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées   |
 
-**Prochaine conversation** : le chantier 15 (colonie autonome : constructions, recherche,
-météorites, automatismes), voir
-[`docs/chantiers/15-colonie-autonome.md`](chantiers/15-colonie-autonome.md). Ses postes
-temporaires pourront aussi remplir les tuiles de poussière d'étoiles (chantier 13).
+**Prochaine conversation** : un chantier encore « à faire » du tableau (17 et 18 avancent dans
+d'autres conversations ; le 19, la colonisation, attend la fin du 18). Le chantier 15 a
+ouvert le skill `kiwar-tasks` : toute tâche qui déplace des kiwis d'elle-même passe par
+`sim/tasks.ts`.
 
 ## Dette et idées en attente
 
@@ -147,7 +147,9 @@ temporaires pourront aussi remplir les tuiles de poussière d'étoiles (chantier
   n'atteint l'Industrie que pour la moitié des graines, même sans aucun coût en poussière : le
   monument de l'Industrie est commandable mais une autre décision de `decide` passe toujours
   avant (graine `ages-0`, couronne de pépins).
-- Chantier 13 : ramassage de la poussière d'étoiles à la main seulement (le chantier 15 pourra
-  l'automatiser comme les cratères) ; comète propre à chaque face, non montrée sur les planètes
-  alliées ; pas de son dédié aux bénédictions ; la sonde `pnpm balance:ages` vérifie que les
+- Chantier 15 : en automatique, retirer un kiwi d'une tâche le fait remplacer aussitôt (passer
+  la tâche en manuel pour garder la main) ; le bot ne coupe jamais un automatisme ; le
+  dégagement des souches passe toujours par la file (pas de poste temporaire).
+- Chantier 13 : ramassage automatisé depuis le chantier 15 ; comète propre à chaque face, non
+  montrée sur les planètes alliées ; pas de son dédié aux bénédictions ; la sonde `pnpm balance:ages` vérifie que les
   âges n'attendent pas une comète de trop.

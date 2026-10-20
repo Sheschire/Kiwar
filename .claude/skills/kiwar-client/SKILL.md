@@ -89,6 +89,9 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   (alien twin, compass, chantier 12 wave sectors); `Compass.tsx` reads the azimuth from `ui/viewStore.ts` (renderer
   `onAzimuth`), a tap calls `renderer.focusNest()`.
 
+- Chantier 15 (`kiwar-tasks`): `AutomationPanel.tsx` (village tab `auto`), `QueuePanel`
+  (sites at once, "waiting for a builder", `BuilderPick` in manual mode), `MeteorSection.tsx`
+  (crater sheet), the drill in `render/meteors.ts`, miners in `render/kiwis.ts`.
 - Chantier 12 (visible logistics): `render/logisticsBadges.ts` ("92 %" sprites: overlay above
   producers via `BuildingsView.anchorOf`, or the hovered placement tile) driven by
   `renderer.setLogisticsOverlay` (store `showLogistics`, `LogisticsButton`, key O, also on in

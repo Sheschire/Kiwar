@@ -9,8 +9,6 @@ import {
   sectorClash,
   SECTOR_IDS,
   turretCoverage,
-  garrisonOf,
-  guardPower,
   isTurret,
   turretCount,
   turretLimit,
@@ -18,7 +16,6 @@ import {
   type BuildingType,
   type Command,
   type GameState,
-  type VillagerId,
 } from '@kiwar/shared';
 import { upgradeOk } from './economy';
 
@@ -26,61 +23,13 @@ import { upgradeOk } from './economy';
 export const GUARD_LEAD_MS = 40 * 60_000;
 
 /**
- * Garrison and shelter: just before a wave, post the kiwis that close the gap on each side
- * (bats first: only mages and scouts reach them), relieve them afterwards; take shelter when
- * the forecast still expects deaths or several kiwis hurt.
+ * Shelter: take it when the forecast still expects deaths or several kiwis hurt. Since
+ * chantier 15 the automation posts the garrison (the kiwis that stop the most of what breaks
+ * through) shortly before the strike and relieves it afterwards.
  */
 export function defenseOrders(state: GameState): Command[] {
   const f = forecastWave(state);
-  const posted = garrisonOf(state).map((v) => v.id);
-  const want: VillagerId[] = [];
-  if (f && f.wave.at - state.now <= GUARD_LEAD_MS) {
-    // Chantier 12: post kiwis one by one, each time the one that stops the most of what still
-    // breaks through somewhere (the garrison goes to the sector that needs it).
-    const threat = { ground: f.threat.ground * 1.15, air: f.threat.air * 1.15 };
-    const through = (ids: readonly VillagerId[]) => {
-      const set = new Set<string>(ids);
-      const s: GameState = {
-        ...state,
-        villagers: state.villagers.map((v) =>
-          set.has(v.id)
-            ? { ...v, job: { kind: 'guard' as const } }
-            : v.job.kind === 'guard'
-              ? { ...v, job: { kind: 'idle' as const } }
-              : v,
-        ),
-      };
-      const t = sectorClash(threat, defenseOf(s, f.threat).sectors).through;
-      return t.ground + t.air;
-    };
-    const pool = state.villagers
-      .filter((v) => v.job.kind === 'work' || v.job.kind === 'idle' || v.job.kind === 'guard')
-      .filter((v) => {
-        const p = guardPower(v, state);
-        return p.ground + p.air > 0;
-      })
-      .map((v) => v.id as VillagerId);
-    const max = Math.floor(state.villagers.length / 2);
-    let left = through(want);
-    while (left > 1e-9 && want.length < max) {
-      let best: VillagerId | null = null;
-      let bestLeft = left;
-      for (const id of pool) {
-        if (want.includes(id)) continue;
-        const l = through([...want, id]);
-        if (l < bestLeft - 1e-9) {
-          bestLeft = l;
-          best = id;
-        }
-      }
-      if (!best) break;
-      want.push(best);
-      left = bestLeft;
-    }
-  }
   const out: Command[] = [];
-  const same = want.length === posted.length && want.every((id) => posted.includes(id));
-  if (!same) out.push({ type: 'setGarrison', villagerIds: want });
   if (f?.canShelter && !f.expected.victory && (f.expected.deaths > 0 || f.expected.injured >= 2))
     out.push({ type: 'shelter' });
   return out;

@@ -64,6 +64,10 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
   points, technologies, `ageOf` = monument level, levels 4–6 via `withAgeLevels`): see the
   `kiwar-ages` skill. Anything that grows with the age reads `ageOf(state)`; technology bonuses
   come from `techEffects(state)`.
+- `sim/tasks.ts` — chantier 15, the automation (`dispatchTasks` after every event and
+  command, never at the start of `advance`; constructions in parallel, research, craters,
+  stardust, repairs, garrison): see the `kiwar-tasks` skill. **Anything that moves kiwis on its
+  own goes there**, and must only read what changes at events.
 - `sim/kiwis.ts` — individual kiwis (stats, XP, masteries, powers, classes, skills): see the
   `kiwar-rpg` skill. Production uses `workforce` (summed worker power), not the head count.
 - `save/save.ts` — zod schema of the state, `MIGRATIONS[n]` (n → n+1), `migrateState`.
@@ -119,7 +123,11 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
   nothing is planned, a condition that changes at events; anything planned at game creation
   must not draw from an RNG (advancing by 0 ms must leave the state unchanged).
 - A new `Job` kind must be handled in `ratesOf` (kiwis.ts), `availableCrew`, the renderer's
-  `think`/`workTile`, `jobRank`/`useJobLabel` in the village screen, and building removal.
+  `think`/`workTile`, `jobRank`/`useJobLabel` in the village screen, building removal,
+  `workSite` and the bed key (`rest.ts`), `taskLevel` / `borrow` (`tasks.ts`) and
+  `returnHome` (chantier 15: `meteor` is the latest).
+- Chantier 15: the queue runs several sites at once (`startedItems`, `nextConstructionEnd`);
+  `activeItem` is only the first started one. Never assume `queue[0]` is the one under way.
 
 - Chantier 09 (`kiwar-rpg`, `sim/posts.ts`): `returnHome` also runs after every successful
   command (inside `applyCommand`) and at each loop iteration; `redirectFull` only at a
