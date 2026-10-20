@@ -1968,7 +1968,7 @@ var COMETS = {
   /** Land types it can fall on. */
   landTypes: ["flesh", "grove", "seedRing"],
   /** Stardust per comet (whole points), × the age factor (index = age). */
-  stock: 16,
+  stock: 20,
   ageFactor: [1, 1.3, 1.7, 2.2]
 };
 var STARDUST = {

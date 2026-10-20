@@ -15,7 +15,7 @@ chantier 15 may automate temporary posts).
 
 - `COMETS`: first comet at 36 h (`firstMs`, announced `firstNoticeMs` = 9 h before, no draw at
   creation), then `intervalMs` 72–120 h, notice 6–12 h, `passMs` (cosmetic tail after the
-  passage), `lifeMs` 24 h on the ground, 1–3 tiles of `landTypes`, `stock` 16 × `ageFactor`.
+  passage), `lifeMs` 24 h on the ground, 1–3 tiles of `landTypes`, `stock` 20 × `ageFactor`.
 - `STARDUST`: cap 50, 3 slots per tile, an average kiwi picks one point per 30 min, +5 % per
   Dexterity point above 5. `STARDUST_SCALE` raw units per point; `dustPoints(raw)`.
 - `BLESSINGS` (heal 3, respec 6, +1 stat 10 at most 3 per kiwi, star egg 15, golden shiny 1/8),
