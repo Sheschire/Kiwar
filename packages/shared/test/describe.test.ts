@@ -11,6 +11,7 @@ import {
   maxLevelOf,
   validateCommand,
   type GameState,
+  type Tile,
 } from '../src';
 import { findTile, rich, setup, T0 } from './helpers';
 
@@ -85,8 +86,12 @@ describe('buildLock (chantier 11)', () => {
   it('matches the build command on a valid tile', () => {
     const { map, state } = setup();
     const s = rich(state);
-    const tiles = { pulpery: findTile(map, 'flesh', 3), school: findTile(map, 'flesh', 4) };
-    for (const [type, tile] of Object.entries(tiles) as [keyof typeof tiles, typeof tile][]) {
+    const tiles: Record<'pulpery' | 'school', Tile> = {
+      pulpery: findTile(map, 'flesh', 3),
+      school: findTile(map, 'flesh', 4),
+    };
+    for (const type of ['pulpery', 'school'] as const) {
+      const tile = tiles[type];
       const lock = buildLock(s, type);
       const error = validateCommand(
         s,
