@@ -31,6 +31,8 @@ export interface UniverseMember {
   face: Face;
   /** Seed of their kiwi when it is not the universe's own (a solo colony brought along). */
   planetSeed?: string;
+  /** Chantier 14: their solo colony came along when they joined. */
+  imported?: boolean;
 }
 
 export interface UniverseInfo extends UniverseSummary {
@@ -39,6 +41,21 @@ export interface UniverseInfo extends UniverseSummary {
   kiwiCount: number;
   /** Creation time: start of the shared calendar. */
   createdAt?: number;
+  /** Chantier 14: newcomers may bring their solo colony (host setting, default true). */
+  allowImports?: boolean;
+  /** The player who created the universe (may change its settings). */
+  hostId?: string;
+}
+
+/** Chantier 14: how strong a colony looks to the rest of the universe. */
+export interface ColonyPower {
+  age: number;
+  nest: number;
+  kiwis: number;
+  /** Defense against an average wave (ground + air), rounded. */
+  defense: number;
+  /** No predator wave before this time (arrival shield or after a defeat). */
+  shieldUntil: number;
 }
 
 /**
@@ -68,6 +85,8 @@ export interface AllySnapshot extends TwinSnapshot {
   friendId?: string;
   /** Free storage per resource when the snapshot was taken (to size a delivery). */
   room?: Resources;
+  /** Age, Nest, kiwis and defense (chantier 14; absent in older snapshots). */
+  power?: ColonyPower;
 }
 
 /**

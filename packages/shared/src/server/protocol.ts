@@ -119,6 +119,14 @@ export const requestSchema = z.discriminatedUnion('action', [
     action: z.literal('joinUniverse'),
     code: z.string().trim().min(8).max(8),
     displayName,
+    /** Chantier 14: bring the solo colony along (it moves into the universe). */
+    fromSolo: z.boolean().optional(),
+  }),
+  /** Chantier 14: the host opens or closes the universe to solo colonies. */
+  z.object({
+    action: z.literal('universeSettings'),
+    universe: z.string().min(1).max(64),
+    allowImports: z.boolean(),
   }),
   z.object({ action: z.literal('universeInfo'), universe: z.string().min(1).max(64) }),
   z.object({
@@ -157,6 +165,9 @@ export const SERVER_ERRORS = [
   'universeNotFound',
   'universeFull',
   'faceTaken',
+  'importsClosed',
+  'alreadyMember',
+  'shipAway',
 ] as const;
 export type ServerError = (typeof SERVER_ERRORS)[number] | (typeof COMMAND_ERRORS)[number];
 

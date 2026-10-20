@@ -18,6 +18,8 @@ export const THREATS = {
   noticeMs: [ms.h(8), ms.h(12)],
   /** No wave strikes until this long after a defeat. */
   shieldMs: ms.h(24),
+  /** Chantier 14: no wave for a solo colony that just joined a universe. */
+  importShieldMs: ms.h(48),
   /** Total wave power: base × Nest level factor × play time × provocation. */
   basePower: 6,
   nestFactor: [0, 0.6, 1, 1.6, 2.2, 2.9, 3.6] as readonly number[],

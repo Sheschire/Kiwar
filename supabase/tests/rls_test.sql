@@ -191,4 +191,27 @@ begin
 end $$;
 reset role;
 
+-- Chantier 14: members read the import setting and the imported flag, but cannot change them.
+set role service_role;
+update public.universe_members set imported_at = now()
+  where user_id = '11111111-1111-1111-1111-111111111111';
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare n int; allowed boolean;
+begin
+  select allow_imports into allowed from public.universes;
+  if allowed is distinct from true then raise exception 'universes should accept imports by default'; end if;
+  select count(*) into n from public.universe_members where imported_at is not null;
+  if n <> 1 then raise exception 'member should see the imported flag'; end if;
+  update public.universes set allow_imports = false;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'member could close the universe'; end if;
+  update public.universe_members set imported_at = null;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'member could clear the imported flag'; end if;
+end $$;
+reset role;
+
 select 'Universe and chat RLS tests passed' as result;

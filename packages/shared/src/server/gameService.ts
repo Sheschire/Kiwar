@@ -3,7 +3,8 @@ import { faceMapOf } from '../sim/territory';
 import { TITAN } from '../data/titan';
 import { kikiwiwiCap, kikiwiwiCount } from '../sim/kikiwiwi';
 import { OBSTACLES, OBSTACLE_RULES } from '../data/obstacles';
-import { METEORS } from '../data/threats';
+import { METEORS, THREATS } from '../data/threats';
+import { defenseOf } from '../sim/threats';
 import { generateObstacles, obstacleId } from '../sim/obstacles';
 import { drawBiomes } from '../data/biomes';
 import { CALENDAR, calendarStartFor } from '../data/cycles';
@@ -49,6 +50,7 @@ import {
   type UniverseInfo,
   type UniverseMember,
   type AllySnapshot,
+  type ColonyPower,
   type TwinSnapshot,
   type UniverseSummary,
 } from './universes';
@@ -70,6 +72,10 @@ export interface UniverseRow {
   maxPlayers: number;
   /** Creation time (the universe's shared calendar starts then). */
   createdAt?: number;
+  /** Chantier 14: newcomers may bring their solo colony (absent: allowed). */
+  allowImports?: boolean;
+  /** Creator of the universe (the host). */
+  createdBy?: string;
 }
 
 /** Persistence port, implemented with Postgres in the edge function and in memory in tests. */
@@ -98,6 +104,8 @@ export interface GameRepository {
   listUserUniverses(userId: string): Promise<UniverseRow[]>;
   /** Moves a member to another face of their kiwi; false if that face is taken (race). */
   moveMember(universeId: string, userId: string, face: Face): Promise<boolean>;
+  /** Chantier 14: the host opens or closes the universe to solo colonies. */
+  setAllowImports(universeId: string, allow: boolean): Promise<boolean>;
 }
 
 export interface ServiceContext {
@@ -172,6 +180,20 @@ function toInfo(row: UniverseRow, members: UniverseMember[]): UniverseInfo {
     members,
     kiwiCount: kiwiCount(members),
     createdAt: row.createdAt,
+    allowImports: row.allowImports !== false,
+    ...(row.createdBy ? { hostId: row.createdBy } : {}),
+  };
+}
+
+/** Chantier 14: what the other players see of a colony's strength. */
+export function colonyPower(s: GameState): ColonyPower {
+  const d = defenseOf(s);
+  return {
+    age: ageOf(s),
+    nest: nest(s).level,
+    kiwis: s.villagers.length,
+    defense: Math.round(d.ground + d.air),
+    shieldUntil: s.threats.shieldUntil,
   };
 }
 
@@ -256,6 +278,7 @@ async function neighboursOf(
         paths: s.paths,
         obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
         terraform: s.terraform,
+        power: colonyPower(s),
         at: now,
       };
     }),
@@ -520,7 +543,32 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
     case 'joinUniverse': {
       const row = await repo.findUniverseByCode(req.code.toUpperCase());
       if (!row) return fail('universeNotFound');
-      return joinAndPlay(ctx, repo, row, req.displayName);
+      if (!req.fromSolo) return joinAndPlay(ctx, repo, row, req.displayName);
+      // Chantier 14: the solo colony comes along (once: a member already has a colony there).
+      if (row.allowImports === false) return fail('importsClosed');
+      const members = await repo.listMembers(row.id);
+      if (members.some((m) => m.userId === ctx.userId)) return fail('alreadyMember');
+      if (members.length >= row.maxPlayers) return fail('universeFull');
+      const solo = await repo.findGame(ctx.userId, soloId(ctx));
+      if (!solo || isPristine(solo.state)) return fail('invalidRequest');
+      // Targets are renamed on the way: no ship may be out meanwhile.
+      if (solo.state.expeditions.some((e) => e.status !== 'done') || solo.state.shipments.length)
+        return fail('shipAway');
+      return moveSoloInto(ctx, repo, row, solo, req.displayName, members);
+    }
+
+    case 'universeSettings': {
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope?.shared) return fail('forbidden');
+      const { info } = scope.shared;
+      if (info.hostId !== ctx.userId) return fail('forbidden');
+      if (!(await repo.setAllowImports(info.id, req.allowImports))) return fail('internal');
+      return {
+        ok: true,
+        events: [],
+        universe: { ...info, allowImports: req.allowImports },
+        serverTime: ctx.now(),
+      };
     }
 
     case 'universeInfo': {
@@ -718,8 +766,9 @@ async function joinAndPlay(
 }
 
 /**
- * The solo colony becomes the founder's kiwi in a new universe (moved, not copied: the solo
- * slot starts over). Its planet keeps its seed, its alien twin and what we know of it.
+ * The solo colony becomes a kiwi of a universe: the founder's (kiwi 0) or, when joining
+ * (chantier 14), the first free kiwi, with an arrival shield. Moved, not copied: the solo slot
+ * starts over. Its planet keeps its seed, its alien twin and what we know of it.
  */
 async function moveSoloInto(
   ctx: ServiceContext,
@@ -727,38 +776,65 @@ async function moveSoloInto(
   row: UniverseRow,
   solo: StoredGame,
   displayName: string,
+  members: UniverseMember[] = [],
 ): Promise<GameResponse> {
+  const joining = members.length > 0;
   const me: UniverseMember = {
     userId: ctx.userId,
     displayName: displayName.trim(),
-    kiwiIndex: 0,
+    kiwiIndex: assignFace(members).kiwiIndex,
     face: solo.state.face,
     planetSeed: solo.state.seed,
+    ...(joining ? { imported: true } : {}),
   };
+  // Another player took that kiwi at the same instant: they may retry.
   if (!(await repo.addMember(row.id, me)))
     return { ok: false, error: 'conflict', serverTime: ctx.now() };
-  const info = toInfo(row, [me]);
+  const info = toInfo(row, [...members, me]);
   const now = ctx.now();
   const moved: GameState = {
-    ...advance(solo.state, now).state,
+    ...rekeyTwin(advance(solo.state, now).state, me.kiwiIndex),
     universeId: row.id as UniverseId,
-    kiwiId: 'k0' as KiwiId,
-    targets: universeTargets(info.members, me),
+    kiwiId: `k${me.kiwiIndex}` as KiwiId,
+    friends: [],
+    shipments: [],
+    incoming: [],
   };
-  ensureAliens(moved, ctx.randomSeed());
-  const game = await repo.create(ctx.userId, row.id, moved);
+  if (joining) shieldArrival(moved, now);
+  const scope: Scope = { universeId: row.id, shared: { info, me } };
+  const game = await repo.create(ctx.userId, row.id, withScopeTargets(ctx, moved, scope).state);
   // The solo slot starts over (a new world, drawn by the server).
   await repo.update(solo.id, freshGame(ctx, ctx.randomSeed(), 'kiwisu'), solo.version);
-  const scope: Scope = { universeId: row.id, shared: { info, me } };
   return {
     ok: true,
-    state: withScopeTargets(ctx, game.state, scope).state,
+    state: game.state,
     events: [],
     universe: info,
-    twin: null,
-    allies: [],
+    ...(await neighboursOf(repo, info, me, now)),
     serverTime: now,
   };
+}
+
+/** Solo targets live on kiwi 0: what we know of our twin moves with us to kiwi `k`. */
+function rekeyTwin(state: GameState, k: number): GameState {
+  if (k === 0) return state;
+  const key = (id: string) => id.replace(/^aliens:0:/, `aliens:${k}:`);
+  const rekey = <T>(rec: Record<string, T>) =>
+    Object.fromEntries(Object.entries(rec).map(([id, v]) => [key(id), v]));
+  return {
+    ...state,
+    victories: rekey(state.victories),
+    intel: rekey(state.intel),
+    ...(state.aliens ? { aliens: rekey(state.aliens) } : {}),
+    expeditions: state.expeditions.map((e) => ({ ...e, targetId: key(e.targetId) })),
+  };
+}
+
+/** Chantier 14: an arriving colony gets a few quiet days (a wave already planned is dropped). */
+export function shieldArrival(state: GameState, now: number): void {
+  const t = state.threats;
+  t.shieldUntil = Math.max(t.shieldUntil, now + THREATS.importShieldMs);
+  if (t.next && t.next.at < t.shieldUntil) t.next = null;
 }
 
 /** Stored states may predate the current schema: upgrade them when read. */
@@ -821,6 +897,8 @@ export function createMemoryRepository(): GameRepository & {
         seed: row.seed,
         maxPlayers: row.maxPlayers,
         createdAt: row.createdAt,
+        allowImports: true,
+        createdBy: row.createdBy,
       };
       universes.set(u.id, u);
       members.set(u.id, []);
@@ -850,6 +928,12 @@ export function createMemoryRepository(): GameRepository & {
       }
       list.push(clone(member));
       members.set(universeId, list);
+      return true;
+    },
+    async setAllowImports(universeId, allow) {
+      const u = universes.get(universeId);
+      if (!u) return false;
+      u.allowImports = allow;
       return true;
     },
     async moveMember(universeId, userId, face) {

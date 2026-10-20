@@ -1495,6 +1495,8 @@ var THREATS = {
   noticeMs: [ms.h(8), ms.h(12)],
   /** No wave strikes until this long after a defeat. */
   shieldMs: ms.h(24),
+  /** Chantier 14: no wave for a solo colony that just joined a universe. */
+  importShieldMs: ms.h(48),
   /** Total wave power: base × Nest level factor × play time × provocation. */
   basePower: 6,
   nestFactor: [0, 0.6, 1, 1.6, 2.2, 2.9, 3.6],
@@ -10709,7 +10711,15 @@ var requestSchema = external_exports.discriminatedUnion("action", [
   external_exports.object({
     action: external_exports.literal("joinUniverse"),
     code: external_exports.string().trim().min(8).max(8),
-    displayName
+    displayName,
+    /** Chantier 14: bring the solo colony along (it moves into the universe). */
+    fromSolo: external_exports.boolean().optional()
+  }),
+  /** Chantier 14: the host opens or closes the universe to solo colonies. */
+  external_exports.object({
+    action: external_exports.literal("universeSettings"),
+    universe: external_exports.string().min(1).max(64),
+    allowImports: external_exports.boolean()
   }),
   external_exports.object({ action: external_exports.literal("universeInfo"), universe: external_exports.string().min(1).max(64) }),
   external_exports.object({
@@ -10742,7 +10752,10 @@ var SERVER_ERRORS = [
   "internal",
   "universeNotFound",
   "universeFull",
-  "faceTaken"
+  "faceTaken",
+  "importsClosed",
+  "alreadyMember",
+  "shipAway"
 ];
 
 // packages/shared/src/server/gameService.ts
@@ -10787,7 +10800,19 @@ function toInfo(row, members) {
     seed: row.seed,
     members,
     kiwiCount: kiwiCount(members),
-    createdAt: row.createdAt
+    createdAt: row.createdAt,
+    allowImports: row.allowImports !== false,
+    ...row.createdBy ? { hostId: row.createdBy } : {}
+  };
+}
+function colonyPower(s) {
+  const d = defenseOf(s);
+  return {
+    age: ageOf(s),
+    nest: nest(s).level,
+    kiwis: s.villagers.length,
+    defense: Math.round(d.ground + d.air),
+    shieldUntil: s.threats.shieldUntil
   };
 }
 function toSummary(row, players) {
@@ -10843,6 +10868,7 @@ async function neighboursOf(repo, info, me, now) {
         paths: s.paths,
         obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
         terraform: s.terraform,
+        power: colonyPower(s),
         at: now
       };
     })
@@ -11032,7 +11058,29 @@ async function handle(ctx, body) {
     case "joinUniverse": {
       const row = await repo.findUniverseByCode(req.code.toUpperCase());
       if (!row) return fail2("universeNotFound");
-      return joinAndPlay(ctx, repo, row, req.displayName);
+      if (!req.fromSolo) return joinAndPlay(ctx, repo, row, req.displayName);
+      if (row.allowImports === false) return fail2("importsClosed");
+      const members = await repo.listMembers(row.id);
+      if (members.some((m) => m.userId === ctx.userId)) return fail2("alreadyMember");
+      if (members.length >= row.maxPlayers) return fail2("universeFull");
+      const solo = await repo.findGame(ctx.userId, soloId(ctx));
+      if (!solo || isPristine(solo.state)) return fail2("invalidRequest");
+      if (solo.state.expeditions.some((e) => e.status !== "done") || solo.state.shipments.length)
+        return fail2("shipAway");
+      return moveSoloInto(ctx, repo, row, solo, req.displayName, members);
+    }
+    case "universeSettings": {
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope?.shared) return fail2("forbidden");
+      const { info } = scope.shared;
+      if (info.hostId !== ctx.userId) return fail2("forbidden");
+      if (!await repo.setAllowImports(info.id, req.allowImports)) return fail2("internal");
+      return {
+        ok: true,
+        events: [],
+        universe: { ...info, allowImports: req.allowImports },
+        serverTime: ctx.now()
+      };
     }
     case "universeInfo": {
       const scope = await resolveScope(ctx, repo, req.universe);
@@ -11197,37 +11245,57 @@ async function joinAndPlay(ctx, repo, row, displayName2) {
   }
   return { ok: false, error: "conflict", serverTime: ctx.now() };
 }
-async function moveSoloInto(ctx, repo, row, solo, displayName2) {
+async function moveSoloInto(ctx, repo, row, solo, displayName2, members = []) {
+  const joining = members.length > 0;
   const me = {
     userId: ctx.userId,
     displayName: displayName2.trim(),
-    kiwiIndex: 0,
+    kiwiIndex: assignFace(members).kiwiIndex,
     face: solo.state.face,
-    planetSeed: solo.state.seed
+    planetSeed: solo.state.seed,
+    ...joining ? { imported: true } : {}
   };
   if (!await repo.addMember(row.id, me))
     return { ok: false, error: "conflict", serverTime: ctx.now() };
-  const info = toInfo(row, [me]);
+  const info = toInfo(row, [...members, me]);
   const now = ctx.now();
   const moved = {
-    ...advance(solo.state, now).state,
+    ...rekeyTwin(advance(solo.state, now).state, me.kiwiIndex),
     universeId: row.id,
-    kiwiId: "k0",
-    targets: universeTargets(info.members, me)
+    kiwiId: `k${me.kiwiIndex}`,
+    friends: [],
+    shipments: [],
+    incoming: []
   };
-  ensureAliens(moved, ctx.randomSeed());
-  const game = await repo.create(ctx.userId, row.id, moved);
-  await repo.update(solo.id, freshGame(ctx, ctx.randomSeed(), "kiwisu"), solo.version);
+  if (joining) shieldArrival(moved, now);
   const scope = { universeId: row.id, shared: { info, me } };
+  const game = await repo.create(ctx.userId, row.id, withScopeTargets(ctx, moved, scope).state);
+  await repo.update(solo.id, freshGame(ctx, ctx.randomSeed(), "kiwisu"), solo.version);
   return {
     ok: true,
-    state: withScopeTargets(ctx, game.state, scope).state,
+    state: game.state,
     events: [],
     universe: info,
-    twin: null,
-    allies: [],
+    ...await neighboursOf(repo, info, me, now),
     serverTime: now
   };
+}
+function rekeyTwin(state, k) {
+  if (k === 0) return state;
+  const key = (id3) => id3.replace(/^aliens:0:/, `aliens:${k}:`);
+  const rekey = (rec) => Object.fromEntries(Object.entries(rec).map(([id3, v]) => [key(id3), v]));
+  return {
+    ...state,
+    victories: rekey(state.victories),
+    intel: rekey(state.intel),
+    ...state.aliens ? { aliens: rekey(state.aliens) } : {},
+    expeditions: state.expeditions.map((e) => ({ ...e, targetId: key(e.targetId) }))
+  };
+}
+function shieldArrival(state, now) {
+  const t = state.threats;
+  t.shieldUntil = Math.max(t.shieldUntil, now + THREATS.importShieldMs);
+  if (t.next && t.next.at < t.shieldUntil) t.next = null;
 }
 function migrating(repo) {
   return {
@@ -11282,7 +11350,9 @@ function createMemoryRepository() {
         code: row.code,
         seed: row.seed,
         maxPlayers: row.maxPlayers,
-        createdAt: row.createdAt
+        createdAt: row.createdAt,
+        allowImports: true,
+        createdBy: row.createdBy
       };
       universes.set(u.id, u);
       members.set(u.id, []);
@@ -11308,6 +11378,12 @@ function createMemoryRepository() {
       }
       list.push(clone(member));
       members.set(universeId, list);
+      return true;
+    },
+    async setAllowImports(universeId, allow) {
+      const u = universes.get(universeId);
+      if (!u) return false;
+      u.allowImports = allow;
       return true;
     },
     async moveMember(universeId, userId, face) {
@@ -11467,6 +11543,7 @@ export {
   cloneThreats,
   cloneVillager,
   colonyBonus,
+  colonyPower,
   commandSchema,
   computeClaims,
   constructionDuration,
@@ -11670,6 +11747,7 @@ export {
   sectorOf,
   sendShipment,
   serializeSave,
+  shieldArrival,
   shipCargo,
   shipIdForAge,
   shipOf,

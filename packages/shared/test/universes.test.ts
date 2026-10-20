@@ -384,6 +384,145 @@ describe('founding a universe with the solo colony', () => {
   });
 });
 
+describe('joining a universe with the solo colony (chantier 14)', () => {
+  /** Alice hosts a universe; Bob has played his solo colony for a while. */
+  async function setup() {
+    const w = world();
+    const created = ok(
+      await handleGameRequest(w.as('alice'), {
+        action: 'createUniverse',
+        name: 'Orchard',
+        displayName: 'Alice',
+      }),
+    );
+    const solo = ok(await handleGameRequest(w.as('bob'), { action: 'load' }));
+    const tile = findTileForTest(solo.state, 'flesh');
+    ok(
+      await handleGameRequest(w.as('bob'), {
+        action: 'command',
+        command: { type: 'build', buildingType: 'pulpery', q: tile.q, r: tile.r },
+      }),
+    );
+    w.tick(3 * 3_600_000);
+    return { ...w, universe: created.universe!, solo: solo.state };
+  }
+  const join = (as: ServiceContext, code: string) =>
+    handleGameRequest(as, { action: 'joinUniverse', code, displayName: 'Bob', fromSolo: true });
+
+  it('moves the colony onto a kiwi of its own, shielded for 48 h', async () => {
+    const { as, repo, universe, solo, tick } = await setup();
+    // What Bob learnt about his alien twin moves along with him.
+    const stored = await repo.findGame('bob', `solo-bob`);
+    const twinId = solo.targets[0]!.id;
+    expect(twinId).toBe(`aliens:0:${solo.face === 'kiwisu' ? 'kiwino' : 'kiwisu'}`);
+    stored!.state.victories = { [twinId]: 2 };
+    await repo.update(stored!.id, stored!.state, stored!.version);
+
+    const joined = ok(await join(as('bob'), universe.code));
+    const now = joined.serverTime;
+    expect(joined.state).toMatchObject({
+      seed: solo.seed,
+      face: solo.face,
+      kiwiId: 'k1',
+      universeId: universe.id,
+    });
+    expect(joined.state.buildings.map((b) => b.type)).toContain('pulpery');
+    expect(joined.state.victories).toEqual({ [twinId.replace(':0:', ':1:')]: 2 });
+    expect(joined.state.targets.map((t) => t.id)).toContain(twinId.replace(':0:', ':1:'));
+    expect(joined.state.friends.map((f) => f.owner)).toEqual(['Alice']);
+    // The universe calendar, an arrival shield and no wave planned before it ends.
+    expect(joined.state.calendarStart).toBe(
+      ok(await handleGameRequest(as('alice'), { action: 'load', universe: universe.id })).state
+        .calendarStart,
+    );
+    expect(joined.state.threats.shieldUntil).toBe(now + 48 * 3_600_000);
+    expect(joined.state.threats.next?.at ?? Infinity).toBeGreaterThanOrEqual(now + 48 * 3_600_000);
+    const bob = joined.universe!.members.find((m) => m.userId === 'bob')!;
+    expect(bob).toMatchObject({ kiwiIndex: 1, imported: true, planetSeed: solo.seed });
+    expect(planetSeedOf(joined.universe!, 1)).toBe(solo.seed);
+    // Alice sees how strong the newcomer is.
+    tick(1000);
+    const info = ok(
+      await handleGameRequest(as('alice'), { action: 'universeInfo', universe: universe.id }),
+    );
+    expect(info.allies![0]!.power).toMatchObject({
+      age: 0,
+      nest: 1,
+      kiwis: joined.state.villagers.length,
+      shieldUntil: now + 48 * 3_600_000,
+    });
+    // The solo slot starts over.
+    const fresh = ok(await handleGameRequest(as('bob'), { action: 'load' }));
+    expect(fresh.state.seed).not.toBe(solo.seed);
+    expect(fresh.state.buildings).toHaveLength(1);
+  });
+
+  it('refuses a second colony, an untouched one, a ship in flight and a closed universe', async () => {
+    const { as, repo, universe } = await setup();
+    // Only the host may close the universe.
+    const notHost = await handleGameRequest(as('bob'), {
+      action: 'universeSettings',
+      universe: universe.id,
+      allowImports: false,
+    });
+    expect(!notHost.ok && notHost.error).toBe('forbidden');
+    const closed = ok(
+      await handleGameRequest(as('alice'), {
+        action: 'universeSettings',
+        universe: universe.id,
+        allowImports: false,
+      }),
+    );
+    expect(closed.universe!.allowImports).toBe(false);
+    const refused = await join(as('bob'), universe.code);
+    expect(!refused.ok && refused.error).toBe('importsClosed');
+    // A plain join (a new colony) is still welcome.
+    expect(
+      ok(
+        await handleGameRequest(as('carol'), {
+          action: 'joinUniverse',
+          code: universe.code,
+          displayName: 'Carol',
+        }),
+      ).universe!.allowImports,
+    ).toBe(false);
+    ok(
+      await handleGameRequest(as('alice'), {
+        action: 'universeSettings',
+        universe: universe.id,
+        allowImports: true,
+      }),
+    );
+    // Carol already has a colony there; Dave has not played solo yet.
+    const again = await join(as('carol'), universe.code);
+    expect(!again.ok && again.error).toBe('alreadyMember');
+    ok(await handleGameRequest(as('dave'), { action: 'load' }));
+    const pristine = await join(as('dave'), universe.code);
+    expect(!pristine.ok && pristine.error).toBe('invalidRequest');
+    // Bob's ship is out: the colony waits for it.
+    const stored = (await repo.findGame('bob', 'solo-bob'))!;
+    const t = stored.state.now;
+    stored.state.shipments = [
+      {
+        id: 's1',
+        launchpadId: stored.state.buildings[0]!.id,
+        friendId: 'ally:eve',
+        owner: 'Eve',
+        kiwiIndex: 0,
+        resources: { ...stored.state.resources },
+        departedAt: t,
+        arriveAt: t + 1e9,
+        returnAt: t + 2e9,
+        status: 'outbound',
+      },
+    ];
+    await repo.update(stored.id, stored.state, stored.version);
+    const away = await join(as('bob'), universe.code);
+    expect(!away.ok && away.error).toBe('shipAway');
+    expect((await repo.listMembers(universe.id)).map((m) => m.userId)).toEqual(['alice', 'carol']);
+  });
+});
+
 describe('choosing a face and seeing a friend (chantier 05)', () => {
   it('lets a newcomer move to the other face of their own kiwi', async () => {
     const { as } = world();
