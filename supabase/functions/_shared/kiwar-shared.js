@@ -2069,6 +2069,20 @@ function universeTargets(members, me) {
   }
   return targets.sort((a, b) => a.distance - b.distance);
 }
+function universeFriends(members, me) {
+  return members.filter((m) => m.userId !== me.userId).map((m) => {
+    const distance = Math.abs(m.kiwiIndex - me.kiwiIndex);
+    return {
+      id: friendId(m.userId),
+      owner: m.displayName,
+      kiwiIndex: m.kiwiIndex,
+      distance,
+      travelMs: alienDefOf(distance).travelMs
+    };
+  }).sort((a, b) => a.distance - b.distance || a.kiwiIndex - b.kiwiIndex);
+}
+var friendId = (userId) => `ally:${userId}`;
+var userOfFriend = (id3) => id3.replace(/^ally:/, "");
 var CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 function inviteCode(bytes) {
   return Array.from(bytes.slice(0, 8), (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
@@ -10190,8 +10204,9 @@ function withScopeTargets(ctx, state, scope) {
   const next = scope.shared ? {
     ...state,
     targets: universeTargets(scope.shared.info.members, scope.shared.me),
+    friends: universeFriends(scope.shared.info.members, scope.shared.me),
     calendarStart: scope.shared.info.createdAt === void 0 ? state.calendarStart : calendarStartFor(scope.shared.info.createdAt)
-  } : { ...state };
+  } : { ...state, friends: [] };
   if (state.aliens) next.aliens = cloneAliens(state.aliens);
   const changed = ensureAliens(next, ctx.randomSeed());
   return { state: next, changed };
@@ -10217,9 +10232,17 @@ async function neighboursOf(repo, info, me, now) {
       const game = await repo.findGame(m.userId, info.id);
       if (!game) return null;
       const s = game.state;
+      const cap = capacity(s);
       return {
         owner: m.displayName,
         kiwiIndex: m.kiwiIndex,
+        friendId: friendId(m.userId),
+        room: Object.fromEntries(
+          RESOURCE_IDS.map((r) => {
+            const coming = s.incoming.reduce((sum, d) => sum + d.resources[r], 0);
+            return [r, Math.max(0, Math.floor(cap[r] - s.resources[r] - coming))];
+          })
+        ),
         seed: s.seed,
         face: s.face,
         params: s.params,
@@ -10232,6 +10255,17 @@ async function neighboursOf(repo, info, me, now) {
   const all = snapshots.filter((x) => x !== null);
   const twin = all.find((a) => a.kiwiIndex === me.kiwiIndex && a.face !== me.face) ?? null;
   return { twin, allies: all.filter((a) => a !== twin) };
+}
+async function deliver(repo, universeId, me, shipment) {
+  const delivery = deliveryOf(shipment, me.displayName, me.userId);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const game = await repo.findGame(userOfFriend(shipment.friendId), universeId);
+    if (!game) return;
+    const s = game.state;
+    if (s.incoming.some((d) => d.id === delivery.id)) return;
+    const next = { ...s, incoming: [...s.incoming, delivery] };
+    if (await repo.update(game.id, next, game.version)) return;
+  }
 }
 function isPristine(state) {
   return state.stats.constructionsCompleted === 0 && state.queue.length === 0 && state.objectiveIndex === 0;
@@ -10455,7 +10489,10 @@ async function handle(ctx, body) {
       const imported = {
         ...loaded.save.state,
         playerId: ctx.userId,
-        universeId: soloId(ctx)
+        universeId: soloId(ctx),
+        friends: [],
+        shipments: [],
+        incoming: []
       };
       delete imported.aliens;
       ensureAliens(imported, ctx.randomSeed());
@@ -10485,8 +10522,15 @@ async function handle(ctx, body) {
         });
         if (!result.ok) return fail2(result.error, current);
         const saved = await repo.update(game.id, result.state, game.version);
-        if (saved)
+        if (saved) {
+          if (req.command.type === "sendCargo" && scope.shared) {
+            const sent = saved.state.shipments.find(
+              (x) => !current.shipments.some((y) => y.id === x.id)
+            );
+            if (sent) await deliver(repo, scope.shared.info.id, scope.shared.me, sent);
+          }
           return { ok: true, state: saved.state, events: result.events, serverTime: ctx.now() };
+        }
       }
       return fail2("conflict");
     }
@@ -10814,6 +10858,7 @@ export {
   forecastExpedition,
   forecastWave,
   freeDepositStock,
+  friendId,
   gameStateSchema,
   garrisonOf,
   generateFace,
@@ -10989,8 +11034,10 @@ export {
   turretCount,
   turretLimit,
   twinParams,
+  universeFriends,
   universeTargets,
   upgradeCost,
+  userOfFriend,
   validateCommand,
   walkCost,
   walkDistances,

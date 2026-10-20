@@ -25,6 +25,7 @@ import {
   type TwinSnapshot,
   type UniverseInfo,
   type UniverseSummary,
+  universeFriends,
   universeTargets,
 } from '@kiwar/shared';
 import type { Account, OnlineBackend } from './onlineBackend';
@@ -487,7 +488,11 @@ export class GameController {
       const me = res.universe.members.find((m) => m.userId === this.userId);
       if (me && this.state) {
         // Same pure helper as the server, so the planner shows exactly the server's targets.
-        this.state = { ...this.state, targets: universeTargets(res.universe.members, me) };
+        this.state = {
+          ...this.state,
+          targets: universeTargets(res.universe.members, me),
+          friends: universeFriends(res.universe.members, me),
+        };
         this.listener.onState(this.state, this.now());
       }
       this.listener.onUniverse(res.universe);

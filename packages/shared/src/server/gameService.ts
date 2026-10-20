@@ -4,7 +4,7 @@ import { BUILDINGS, levelDef, MAX_LEVEL } from '../data/buildings';
 import { OBJECTIVES } from '../data/objectives';
 import { START } from '../data/start';
 import { CAMPS } from '../data/territory';
-import { RESOURCE_IDS } from '../data/resources';
+import { RESOURCE_IDS, type Resources } from '../data/resources';
 import { KIWI, MASTERY_IDS, STAT_IDS } from '../data/kiwis';
 import { CLASSES, SKILLS } from '../data/classes';
 import { levelForXp } from '../sim/kiwis';
@@ -23,7 +23,8 @@ import {
   turretCount,
   turretLimit,
 } from '../sim/selectors';
-import { cloneAliens, newGame, type GameState, type Villager } from '../sim/state';
+import { cloneAliens, newGame, type GameState, type Shipment, type Villager } from '../sim/state';
+import { deliveryOf } from '../sim/deliveries';
 import { ensureAliens, publicState } from '../sim/aliens';
 import { generateFace, type FaceMap } from '../worldgen/generateFace';
 import type { Face, KiwiId, PlayerId, UniverseId } from '../types/ids';
@@ -34,7 +35,10 @@ import {
   kiwiCount,
   planetSeedOf,
   MAX_PLAYERS,
+  universeFriends,
   universeTargets,
+  friendId,
+  userOfFriend,
   type UniverseInfo,
   type UniverseMember,
   type AllySnapshot,
@@ -176,12 +180,13 @@ function withScopeTargets(
     ? {
         ...state,
         targets: universeTargets(scope.shared.info.members, scope.shared.me),
+        friends: universeFriends(scope.shared.info.members, scope.shared.me),
         calendarStart:
           scope.shared.info.createdAt === undefined
             ? state.calendarStart
             : calendarStartFor(scope.shared.info.createdAt),
       }
-    : { ...state };
+    : { ...state, friends: [] };
   if (state.aliens) next.aliens = cloneAliens(state.aliens);
   const changed = ensureAliens(next, ctx.randomSeed());
   return { state: next, changed };
@@ -219,9 +224,18 @@ async function neighboursOf(
       const game = await repo.findGame(m.userId, info.id);
       if (!game) return null;
       const s = game.state;
+      const cap = capacity(s);
       return {
         owner: m.displayName,
         kiwiIndex: m.kiwiIndex,
+        friendId: friendId(m.userId),
+        room: Object.fromEntries(
+          RESOURCE_IDS.map((r) => {
+            // Gifts already on their way take their room too.
+            const coming = s.incoming.reduce((sum, d) => sum + d.resources[r], 0);
+            return [r, Math.max(0, Math.floor(cap[r] - s.resources[r] - coming))];
+          }),
+        ) as Resources,
         seed: s.seed,
         face: s.face,
         params: s.params,
@@ -234,6 +248,24 @@ async function neighboursOf(
   const all = snapshots.filter((x): x is AllySnapshot => x !== null);
   const twin = all.find((a) => a.kiwiIndex === me.kiwiIndex && a.face !== me.face) ?? null;
   return { twin, allies: all.filter((a) => a !== twin) };
+}
+
+/** Writes a gift into the ally's game: it lands there at the same time as our ship. */
+async function deliver(
+  repo: GameRepository,
+  universeId: string,
+  me: UniverseMember,
+  shipment: Shipment,
+): Promise<void> {
+  const delivery = deliveryOf(shipment, me.displayName, me.userId);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const game = await repo.findGame(userOfFriend(shipment.friendId), universeId);
+    if (!game) return;
+    const s = game.state;
+    if (s.incoming.some((d) => d.id === delivery.id)) return;
+    const next = { ...s, incoming: [...s.incoming, delivery] };
+    if (await repo.update(game.id, next, game.version)) return;
+  }
 }
 
 /** A game with no player progress can be replaced by an import without loss. */
@@ -529,6 +561,9 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
         ...loaded.save.state,
         playerId: ctx.userId as PlayerId,
         universeId: soloId(ctx) as UniverseId,
+        friends: [],
+        shipments: [],
+        incoming: [],
       };
       // A local save carries its own garrisons: never trust them, draw secret ones.
       delete imported.aliens;
@@ -563,8 +598,15 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
         });
         if (!result.ok) return fail(result.error, current);
         const saved = await repo.update(game.id, result.state, game.version);
-        if (saved)
+        if (saved) {
+          if (req.command.type === 'sendCargo' && scope.shared) {
+            const sent = saved.state.shipments.find(
+              (x) => !current.shipments.some((y) => y.id === x.id),
+            );
+            if (sent) await deliver(repo, scope.shared.info.id, scope.shared.me, sent);
+          }
           return { ok: true, state: saved.state, events: result.events, serverTime: ctx.now() };
+        }
       }
       return fail('conflict');
     }

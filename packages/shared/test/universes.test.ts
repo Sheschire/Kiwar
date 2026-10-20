@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  advance,
   assignFace,
   alienDefOf,
   createMemoryRepository,
@@ -247,6 +248,76 @@ describe('shared universes (server)', () => {
     expect(built.state.queue).toHaveLength(1);
     const loaded = ok(await handleGameRequest(as('bob'), { action: 'load', universe: u.id }));
     expect(loaded.state.queue).toHaveLength(1);
+  });
+});
+
+describe('deliveries between allies (server)', () => {
+  it('flies a gift to an ally, who gets it when the ship lands', async () => {
+    const { as, tick, repo } = world();
+    const u = ok(
+      await handleGameRequest(as('alice'), {
+        action: 'createUniverse',
+        name: 'Gifts',
+        displayName: 'Alice',
+      }),
+    ).universe!;
+    ok(
+      await handleGameRequest(as('bob'), {
+        action: 'joinUniverse',
+        code: u.code,
+        displayName: 'Bob',
+      }),
+    );
+    const alice = ok(await handleGameRequest(as('alice'), { action: 'load', universe: u.id }));
+    expect(alice.state.friends).toMatchObject([{ id: 'ally:bob', owner: 'Bob', distance: 1 }]);
+    expect(alice.allies![0]).toMatchObject({ friendId: 'ally:bob' });
+    expect(alice.allies![0]!.room!.pulp).toBeGreaterThan(0);
+    // Give Alice a launchpad straight away (building it is tested elsewhere).
+    const stored = (await repo.findGame('alice', u.id))!;
+    const flesh = findTileForTest(stored.state, 'flesh');
+    await repo.update(
+      stored.id,
+      {
+        ...stored.state,
+        resources: { pulp: 900, fiber: 900, seeds: 900, juice: 900 },
+        buildings: [
+          ...stored.state.buildings,
+          {
+            id: 'b-pad' as never,
+            type: 'launchpad',
+            q: flesh.q,
+            r: flesh.r,
+            level: 1,
+            richness: 1,
+            builtAt: stored.state.now,
+          },
+        ],
+      },
+      stored.version,
+    );
+    const sent = ok(
+      await handleGameRequest(as('alice'), {
+        action: 'command',
+        universe: u.id,
+        command: {
+          type: 'sendCargo',
+          launchpadId: 'b-pad',
+          friendId: 'ally:bob',
+          resources: { seeds: 40 },
+        },
+      }),
+    );
+    const shipment = sent.state.shipments[0]!;
+    // Bob sees it coming, and gets it when it lands.
+    const coming = ok(await handleGameRequest(as('bob'), { action: 'load', universe: u.id }));
+    expect(coming.state.incoming).toMatchObject([{ from: 'Alice', resources: { seeds: 40 } }]);
+    const seedsBefore = coming.state.resources.seeds;
+    tick(shipment.arriveAt - sent.serverTime + 1);
+    const landed = ok(await handleGameRequest(as('bob'), { action: 'load', universe: u.id }));
+    const after = advance(landed.state, landed.serverTime);
+    expect(after.state.incoming).toHaveLength(0);
+    expect(after.state.resources.seeds).toBeGreaterThanOrEqual(seedsBefore + 40);
+    expect(after.events.some((e) => e.type === 'cargoReceived')).toBe(true);
   });
 });
 

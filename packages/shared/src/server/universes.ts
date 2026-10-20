@@ -1,5 +1,6 @@
 import { alienDefOf } from '../data/expeditions';
-import type { ExpeditionTarget } from '../sim/state';
+import type { ExpeditionTarget, Friend } from '../sim/state';
+import type { Resources } from '../data/resources';
 import type { BuildingType } from '../data/buildings';
 import type { FaceParams } from '../worldgen/generateFace';
 import { FACES, type Face } from '../types/ids';
@@ -57,6 +58,10 @@ export interface AllySnapshot extends TwinSnapshot {
   kiwiIndex: number;
   /** Seed of their kiwi (to draw the face). */
   seed: string;
+  /** `Friend.id`: where our ship can deliver. */
+  friendId?: string;
+  /** Free storage per resource when the snapshot was taken (to size a delivery). */
+  room?: Resources;
 }
 
 /**
@@ -117,6 +122,29 @@ export function universeTargets(
   }
   return targets.sort((a, b) => a.distance - b.distance);
 }
+
+/** The other players our ship can deliver to (same flight times as the alien faces). */
+export function universeFriends(
+  members: Pick<UniverseMember, 'userId' | 'displayName' | 'kiwiIndex'>[],
+  me: Pick<UniverseMember, 'userId' | 'kiwiIndex'>,
+): Friend[] {
+  return members
+    .filter((m) => m.userId !== me.userId)
+    .map((m) => {
+      const distance = Math.abs(m.kiwiIndex - me.kiwiIndex);
+      return {
+        id: friendId(m.userId),
+        owner: m.displayName,
+        kiwiIndex: m.kiwiIndex,
+        distance,
+        travelMs: alienDefOf(distance).travelMs,
+      };
+    })
+    .sort((a, b) => a.distance - b.distance || a.kiwiIndex - b.kiwiIndex);
+}
+
+export const friendId = (userId: string) => `ally:${userId}`;
+export const userOfFriend = (id: string) => id.replace(/^ally:/, '');
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
