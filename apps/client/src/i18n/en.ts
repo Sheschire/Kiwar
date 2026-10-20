@@ -5,6 +5,14 @@ export const en = {
     tagline: 'A cozy kiwi civilization',
     loading: 'Peeling the kiwi…',
   },
+  boot: {
+    title: 'The colony cannot be shown',
+    body: 'Something prevents your colony from loading. Your data is safe on the server.',
+    broken: 'This panel failed to display.',
+    retry: 'Try again',
+    reload: 'Reload the page',
+    solo: 'Play solo',
+  },
   units: { second: 's', minute: 'min', hour: 'h', day: 'd' },
   common: {
     close: 'Close',

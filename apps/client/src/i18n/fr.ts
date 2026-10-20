@@ -6,6 +6,14 @@ export const fr: Dict = {
     tagline: 'Une civilisation kiwi toute douce',
     loading: 'On épluche le kiwi…',
   },
+  boot: {
+    title: 'La colonie ne s’affiche pas',
+    body: 'Un souci empêche de charger votre colonie. Vos données sont en sécurité sur le serveur.',
+    broken: 'Ce panneau a eu un souci d’affichage.',
+    retry: 'Réessayer',
+    reload: 'Recharger la page',
+    solo: 'Jouer en solo',
+  },
   units: { second: 's', minute: 'min', hour: 'h', day: 'j' },
   common: {
     close: 'Fermer',

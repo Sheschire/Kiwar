@@ -85,6 +85,8 @@ export interface UiState {
   introFade: boolean;
   /** Last wave report not opened yet (chantier 06). */
   unreadWave: string | null;
+  /** The colony could not be shown at startup (message for the boot screen). */
+  bootError: string | null;
 }
 
 const wideScreen =
@@ -125,6 +127,7 @@ export const uiStore = createStore<UiState>(() => ({
   intro: null,
   introFade: false,
   unreadWave: null,
+  bootError: null,
 }));
 
 export function setLang(lang: Lang): void {

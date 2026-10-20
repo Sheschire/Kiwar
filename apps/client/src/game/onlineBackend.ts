@@ -21,6 +21,18 @@ function toAccount(session: Session | null): Account | null {
   };
 }
 
+/** Auth and game calls give up after this long (a hung request must not freeze the boot). */
+const INIT_TIMEOUT_MS = 15_000;
+const CALL_TIMEOUT_MS = 20_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new NetworkError(`${what} timed out`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 /** Thin wrapper over Supabase: guest auth, account linking and the `game` edge function. */
 export class OnlineBackend {
   readonly client: SupabaseClient;
@@ -37,7 +49,11 @@ export class OnlineBackend {
   }
 
   /** Restores the session, or starts playing immediately as a guest. */
-  async init(): Promise<Account> {
+  init(): Promise<Account> {
+    return withTimeout(this.restore(), INIT_TIMEOUT_MS, 'sign-in');
+  }
+
+  private async restore(): Promise<Account> {
     const { data } = await this.client.auth.getSession();
     let session = data.session;
     if (!session) {
@@ -54,7 +70,11 @@ export class OnlineBackend {
     return this.account;
   }
 
-  async call(request: GameRequest): Promise<GameResponse> {
+  call(request: GameRequest): Promise<GameResponse> {
+    return withTimeout(this.invoke(request), CALL_TIMEOUT_MS, request.action);
+  }
+
+  private async invoke(request: GameRequest): Promise<GameResponse> {
     const { data, error } = await this.client.functions.invoke<GameResponse>('game', {
       body: request,
     });

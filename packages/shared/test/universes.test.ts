@@ -201,6 +201,35 @@ describe('shared universes (server)', () => {
     );
     expect(r.state.egg).not.toBeNull();
   });
+
+  it('lets a player who joined build, and keeps the building after a reload', async () => {
+    const { as } = world();
+    const u = ok(
+      await handleGameRequest(as('alice'), {
+        action: 'createUniverse',
+        name: 'U',
+        displayName: 'A',
+      }),
+    ).universe!;
+    const joined = ok(
+      await handleGameRequest(as('bob'), {
+        action: 'joinUniverse',
+        code: u.code,
+        displayName: 'B',
+      }),
+    );
+    const flesh = findTileForTest(joined.state, 'flesh');
+    const built = ok(
+      await handleGameRequest(as('bob'), {
+        action: 'command',
+        universe: u.id,
+        command: { type: 'build', buildingType: 'pulpery', q: flesh.q, r: flesh.r },
+      }),
+    );
+    expect(built.state.queue).toHaveLength(1);
+    const loaded = ok(await handleGameRequest(as('bob'), { action: 'load', universe: u.id }));
+    expect(loaded.state.queue).toHaveLength(1);
+  });
 });
 
 describe('choosing a face and seeing a friend (chantier 05)', () => {

@@ -8,6 +8,7 @@ import {
   type TwinSnapshot,
 } from '@kiwar/shared';
 import { App } from './ui/App';
+import { Guard } from './ui/components/Guard';
 import { GameRenderer } from './render/GameRenderer';
 import { GameController } from './game/GameController';
 import { persistLang } from './i18n/i18n';
@@ -67,7 +68,13 @@ function showTwin(state: GameState): void {
   const key = `${state.seed}|${twinFace}|${params.biome}|${f ? `${f.owner}@${f.at}` : 'fog'}|${seen}`;
   if (key === twinKey) return;
   twinKey = key;
-  renderer.setTwin(generateFace(state.seed, twinFace, params), { fog: !f, friend: f, intel });
+  try {
+    renderer.setTwin(generateFace(state.seed, twinFace, params), { fog: !f, friend: f, intel });
+  } catch (e) {
+    // The twin is scenery: a broken snapshot must never block the colony.
+    console.error(e);
+    renderer.setTwin(null);
+  }
 }
 
 controller = new GameController({
@@ -139,7 +146,13 @@ async function boot(): Promise<void> {
     // Never silently overwrite a colony: ask first.
     if (controller.hasProgress()) uiStore.setState({ pendingWorld: linkWorld });
     else controller.newWorld(linkWorld.seed, linkWorld.face);
-  } else if (!linkWorld && !introSeen() && !controller.hasProgress()) {
+  } else if (
+    !linkWorld &&
+    !introSeen() &&
+    !controller.hasProgress() &&
+    // A pristine colony in a shared universe keeps its kiwi: never swap it for a solo world.
+    controller.universe === 'solo'
+  ) {
     // First visit: the kiwi of the fresh world is sliced, and the player picks a face.
     startIntro({
       mode: 'new',
@@ -150,7 +163,10 @@ async function boot(): Promise<void> {
     });
   }
 }
-void boot();
+boot().catch((e: unknown) => {
+  console.error(e);
+  uiStore.setState({ bootError: e instanceof Error ? e.message : String(e) });
+});
 
 // Team chat follows the universe being played.
 let chat: ChatChannel | null = null;
@@ -174,7 +190,12 @@ uiStore.subscribe((s, prev) => {
   void chat.start();
 });
 
-render(<App />, document.getElementById('ui')!);
+render(
+  <Guard>
+    <App />
+  </Guard>,
+  document.getElementById('ui')!,
+);
 // Fade out the loading screen once the first frames are on screen.
 requestAnimationFrame(() =>
   requestAnimationFrame(() => {

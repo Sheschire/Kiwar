@@ -565,6 +565,34 @@ export class GameRenderer {
       this.selection.setHover(this.pickTile(this.hoverPoint.x, this.hoverPoint.y));
       this.hoverPoint = null;
     }
+    try {
+      this.updateScene(dt);
+    } catch (e) {
+      // One broken view must not leave the screen empty: keep drawing the rest.
+      this.reportFrameError(e);
+    }
+    if (this.postfx) this.postfx.render(dt);
+    else this.renderer.render(this.scene, this.camera);
+
+    this.fpsReportTimer += dt;
+    if (this.fpsReportTimer > 0.5) {
+      this.fpsReportTimer = 0;
+      this.callbacks.onFps?.(this.fpsMeter.fps);
+    }
+    this.adaptQuality(dt);
+  }
+
+  private frameErrors = new Set<string>();
+
+  private reportFrameError(e: unknown): void {
+    const key = e instanceof Error ? e.message : String(e);
+    if (this.frameErrors.has(key)) return;
+    this.frameErrors.add(key);
+    console.error(e);
+  }
+
+  /** Everything animated before the frame is drawn. */
+  private updateScene(dt: number): void {
     this.updateCycles();
     this.environment.update(this.elapsed);
     this.water?.update(this.elapsed);
@@ -595,15 +623,6 @@ export class GameRenderer {
     this.kiwis?.update(dt, this.elapsed, this.callbacks.now());
     this.updateFollow(dt);
     this.selection.update(this.elapsed);
-    if (this.postfx) this.postfx.render(dt);
-    else this.renderer.render(this.scene, this.camera);
-
-    this.fpsReportTimer += dt;
-    if (this.fpsReportTimer > 0.5) {
-      this.fpsReportTimer = 0;
-      this.callbacks.onFps?.(this.fpsMeter.fps);
-    }
-    this.adaptQuality(dt);
   }
 
   /** Day/night light and sky, season look and weather, from the simulation clock. */

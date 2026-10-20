@@ -2851,3 +2851,47 @@ button.chip:focus-visible {
   gap: 4px;
   white-space: nowrap;
 }
+
+/* ---------- Boot screen and broken panels ---------- */
+
+.boot-screen {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--gap);
+}
+
+.boot-card {
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 18px 20px;
+  text-align: center;
+}
+
+.boot-card h2 {
+  margin: 0 0 8px;
+}
+
+.boot-detail {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.boot-actions {
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.guard {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--gap) + var(--safe-bottom));
+  transform: translateX(-50%);
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 12px 16px;
+  text-align: center;
+  z-index: 30;
+}

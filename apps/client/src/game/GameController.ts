@@ -8,6 +8,7 @@ import {
   deserializeSave,
   generateFace,
   isPristine,
+  migrateState,
   newGame,
   serializeSave,
   RESOURCE_IDS,
@@ -225,7 +226,15 @@ export class GameController {
 
   dispatch(cmd: Command): boolean {
     const now = this.now();
-    const result = applyCommand(this.state, cmd, { now, map: this.map });
+    let result: ReturnType<typeof applyCommand>;
+    try {
+      result = applyCommand(this.state, cmd, { now, map: this.map });
+    } catch (e) {
+      // A bug in the rules must not swallow the click silently.
+      console.error(e);
+      this.listener.onError('internal');
+      return false;
+    }
     this.state = result.state;
     if (result.events.length) this.listener.onEvents(result.events);
     this.listener.onState(this.state, now);
@@ -304,8 +313,18 @@ export class GameController {
       if (!(e instanceof NetworkError)) console.error(e);
       // Show the last known colony (if any) and keep trying to reconnect.
       const cached = deserializeSave(safeStorage(() => localStorage.getItem(CACHE_KEY), null));
-      if (cached.ok) this.loadState(cached.save.state);
-      else
+      let shown = false;
+      if (cached.ok) {
+        try {
+          this.loadState(cached.save.state);
+          shown = true;
+        } catch (err) {
+          // The cache holds the state that just failed: never loop on it.
+          console.error(err);
+          safeStorage(() => localStorage.removeItem(CACHE_KEY), undefined);
+        }
+      }
+      if (!shown)
         this.setWorld(
           publicState(
             newGame({
@@ -345,6 +364,10 @@ export class GameController {
     const offset = res.serverTime - Date.now();
     this.serverOffset = this.serverState ? Math.round((this.serverOffset + offset) / 2) : offset;
     if (res.state) {
+      // Stored states may predate this client's schema (or come from a newer server).
+      const migrated = migrateState(res.state);
+      if (!migrated.ok) throw new Error(`server state ${migrated.reason}`);
+      res.state = migrated.state;
       this.serverState = res.state;
       safeStorage(
         () => localStorage.setItem(CACHE_KEY, serializeSave(res.state!, res.serverTime)),
@@ -479,6 +502,8 @@ export class GameController {
 
   /** Brings a milestone-1 local colony into the account, once, if the account is still empty. */
   private async importLocalSaveOnce(): Promise<void> {
+    // The import goes to the solo colony: never compare it with a shared one.
+    if (this.universe !== 'solo') return;
     if (safeStorage(() => localStorage.getItem(IMPORTED_KEY), null)) return;
     const local = safeStorage(() => localStorage.getItem(SAVE_KEY), null);
     const loaded = deserializeSave(local);

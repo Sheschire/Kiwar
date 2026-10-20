@@ -21,6 +21,7 @@ import { IntroOverlay } from './components/IntroOverlay';
 import { FollowBadge, VillageModal } from './components/VillageModal';
 import { DefenseModal, ThreatBadge } from './components/DefenseModal';
 import { ResearchModal } from './components/ResearchModal';
+import { BootScreen, Guard } from './components/Guard';
 import { actions } from './actions';
 import { uiStore, useT, useUi } from './store';
 import { consumption, foodLeftMs, hungerStage, NEEDS, netRates, SKILLS } from '@kiwar/shared';
@@ -98,7 +99,13 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  if (!ready) return null;
+  if (!ready)
+    return (
+      <div class="hud">
+        <BootScreen />
+        <Toasts />
+      </div>
+    );
   // The intro takes the whole screen: no HUD while the kiwi is sliced and a face chosen.
   if (intro)
     return (
@@ -117,7 +124,9 @@ export function App() {
       <EggButton />
       <PathButton />
       <PathToolbar />
-      <TilePanel />
+      <Guard>
+        <TilePanel />
+      </Guard>
       <FollowBadge />
       <div class="badge-stack">
         <ThreatBadge />
@@ -125,20 +134,22 @@ export function App() {
         <HungerBadge />
       </div>
       <Toasts />
-      {debugOpen && <DebugPanel />}
-      {modal === 'settings' && <SettingsModal />}
-      {modal === 'expedition' && <ExpeditionModal />}
-      {modal === 'report' && <ReportModal />}
-      {modal === 'universe' && <UniverseModal />}
-      {modal === 'demolish' && <DemolishModal />}
-      {modal === 'village' && <VillageModal />}
-      {modal === 'defense' && <DefenseModal />}
-      {modal === 'research' && <ResearchModal />}
-      <JoinModal />
-      <ChatPanel />
-      <OfflineModal />
-      <WorldModal />
-      <IntroOverlay />
+      <Guard>
+        {debugOpen && <DebugPanel />}
+        {modal === 'settings' && <SettingsModal />}
+        {modal === 'expedition' && <ExpeditionModal />}
+        {modal === 'report' && <ReportModal />}
+        {modal === 'universe' && <UniverseModal />}
+        {modal === 'demolish' && <DemolishModal />}
+        {modal === 'village' && <VillageModal />}
+        {modal === 'defense' && <DefenseModal />}
+        {modal === 'research' && <ResearchModal />}
+        <JoinModal />
+        <ChatPanel />
+        <OfflineModal />
+        <WorldModal />
+        <IntroOverlay />
+      </Guard>
     </div>
   );
 }
