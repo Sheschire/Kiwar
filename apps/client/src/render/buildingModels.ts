@@ -52,6 +52,27 @@ const C = {
   ironDark: '#50575d',
   brick: '#a2533b',
   fire: '#ff9a3c',
+  // Chantier 17: one signature colour per family, the same as its interface icon.
+  /** Production: the colour of the resource. */
+  fiberRoof: '#8fb07a',
+  fiberRoofDark: '#6c8d5a',
+  seedRoof: '#b8862f',
+  seedRoofDark: '#8a6222',
+  juiceRoof: '#a9cc2c',
+  juiceRoofDark: '#7f9c1d',
+  /** Storage: dark wood under slate. */
+  storeWood: '#6e4a2f',
+  slate: '#5f6e7c',
+  slateDark: '#46525d',
+  /** Knowledge: stone and blue. */
+  blueRoof: '#4f80c6',
+  blueRoofDark: '#3a619b',
+  /** Defense: grey stone and iron. */
+  guardStone: '#aeaba3',
+  guardStoneDark: '#85827b',
+  /** Ship: light wood and copper. */
+  lightWood: '#d2ab78',
+  copper: '#c47a43',
 } as const;
 
 /** Geometry, colour, transform, and the rig it belongs to (none = static). */
@@ -253,77 +274,103 @@ function nest(level: number): Parts {
   return p;
 }
 
+/**
+ * Pulpery: a cream hut under a big leaf roof, and its signature press shaped like a kiwi bird
+ * whose head and long beak peck the pulp in a basket (chantier 17).
+ */
 function pulpery(level: number): Parts {
   const p: Parts = [];
   const s = 0.85 + level * 0.1;
-  p.push([cyl(10), C.cream, m(0, 0.2 * s, 0, 0.36 * s, 0.4 * s, 0.36 * s)]);
-  p.push([cone(10), C.leaf, m(0, 0.6 * s, 0, 0.5 * s, 0.42 * s, 0.5 * s)]);
-  p.push([sphere(6, 4), C.leafDark, m(0, 0.84 * s, 0, 0.07, 0.07, 0.07)]);
-  p.push([box(), C.door, m(0, 0.13 * s, 0.35 * s, 0.14, 0.24 * s, 0.03)]);
-  // Basket of pulp under a little press whose plate pumps on the fruit.
-  p.push([cyl(8), C.wood, m(0.42, 0.07, 0.22, 0.14, 0.14, 0.14)]);
-  for (const x of [0.25, 0.59]) p.push([box(), C.woodDark, m(x, 0.24, 0.22, 0.035, 0.48, 0.035)]);
-  p.push([box(), C.woodDark, m(0.42, 0.47, 0.22, 0.38, 0.04, 0.05)]);
-  rig(p, 'press', [0.42, 0.3, 0.22], { kind: 'pump', amount: 0.08, speed: 5 });
-  p.push([cyl(6), C.stoneDark, m(0.42, 0.38, 0.22, 0.02, 0.18, 0.02), 'press']);
-  p.push([cyl(10), C.wood, m(0.42, 0.29, 0.22, 0.12, 0.03, 0.12), 'press']);
-  emitter(p, { kind: 'pulp', at: [0.42, 0.2, 0.22], rig: 'press', count: 3, phase: Math.PI });
+  p.push([cyl(10), C.cream, m(-0.1, 0.2 * s, -0.05, 0.34 * s, 0.4 * s, 0.34 * s)]);
+  p.push([cone(10), C.leaf, m(-0.1, 0.6 * s, -0.05, 0.5 * s, 0.42 * s, 0.5 * s)]);
+  p.push([sphere(6, 4), C.leafDark, m(-0.1, 0.84 * s, -0.05, 0.07, 0.07, 0.07)]);
+  p.push([box(), C.door, m(-0.1, 0.13 * s, 0.28 * s - 0.05, 0.14, 0.24 * s, 0.03)]);
+  // The kiwi press: a round furry body on two legs, facing the basket.
+  const kx = 0.36;
+  const kz = 0.18;
+  p.push([sphere(10, 7), C.fur, m(kx, 0.27, kz - 0.08, 0.17, 0.15, 0.2)]);
+  p.push([sphere(8, 5), C.furDark, m(kx, 0.33, kz - 0.25, 0.06, 0.05, 0.05)]);
+  for (const dx of [-0.06, 0.06])
+    p.push([cyl(5), C.goldEgg, m(kx + dx, 0.08, kz - 0.06, 0.018, 0.16, 0.018)]);
+  // Basket of pulp under the beak.
+  p.push([cyl(8), C.wood, m(kx, 0.06, kz + 0.24, 0.13, 0.12, 0.13)]);
   for (let i = 0; i < 4; i++)
     p.push([
       sphere(6, 4),
       C.pulp,
-      m(0.38 + (i % 2) * 0.08, 0.16, 0.18 + Math.floor(i / 2) * 0.08, 0.06, 0.05, 0.06),
+      m(kx - 0.04 + (i % 2) * 0.08, 0.13, kz + 0.2 + Math.floor(i / 2) * 0.08, 0.05, 0.04, 0.05),
     ]);
+  // Head and beak peck down into the basket.
+  rig(p, 'press', [kx, 0.36, kz + 0.08], { kind: 'pound', amount: 0.07, speed: 4 });
+  p.push([sphere(8, 6), C.fur, m(kx, 0.4, kz + 0.1, 0.09, 0.09, 0.09), 'press']);
+  for (const dx of [-0.05, 0.05])
+    p.push([sphere(4, 3), C.seed, m(kx + dx, 0.43, kz + 0.16, 0.018, 0.018, 0.018), 'press']);
+  p.push([cone(6), C.straw, m(kx, 0.3, kz + 0.22, 0.025, 0.24, 0.025, 2.3), 'press']);
+  emitter(p, { kind: 'pulp', at: [kx, 0.16, kz + 0.24], rig: 'press', count: 3, phase: 0 });
   if (level >= 2) {
     // Chantier 11: a storehouse annex under a leaf roof.
-    p.push([cyl(8), C.cream, m(-0.4, 0.18, -0.2, 0.24, 0.36, 0.24)]);
-    p.push([cone(8), C.leaf, m(-0.4, 0.5, -0.2, 0.34, 0.32, 0.34)]);
-    p.push([box(), C.door, m(-0.4, 0.1, 0.03, 0.1, 0.18, 0.02)]);
+    p.push([cyl(8), C.cream, m(-0.46, 0.18, 0.28, 0.2, 0.36, 0.2)]);
+    p.push([cone(8), C.leaf, m(-0.46, 0.48, 0.28, 0.29, 0.3, 0.29)]);
+    p.push([box(), C.door, m(-0.46, 0.1, 0.47, 0.09, 0.18, 0.02)]);
   }
   if (level >= 3) {
     // Big leaf sail on the roof and a tall drying tower.
-    p.push([sphere(8, 5), C.leafDark, m(0, 0.95 * s, 0, 0.32, 0.04, 0.12, 0, 0.6, 0.3)]);
-    p.push([cyl(8), C.wood, m(0.38, 0.4, -0.34, 0.11, 0.8, 0.11)]);
-    p.push([cone(8), C.leafDark, m(0.38, 0.92, -0.34, 0.2, 0.26, 0.2)]);
-    for (const y of [0.3, 0.55])
-      p.push([sphere(6, 4), C.pulp, m(0.38, y, -0.22, 0.07, 0.06, 0.04)]);
+    p.push([sphere(8, 5), C.leafDark, m(-0.1, 0.95 * s, -0.05, 0.32, 0.04, 0.12, 0, 0.6, 0.3)]);
+    p.push([cyl(8), C.wood, m(0.4, 0.4, -0.36, 0.11, 0.8, 0.11)]);
+    p.push([cone(8), C.leafDark, m(0.4, 0.92, -0.36, 0.2, 0.26, 0.2)]);
+    for (const y of [0.3, 0.55]) p.push([sphere(6, 4), C.pulp, m(0.4, y, -0.24, 0.07, 0.06, 0.04)]);
   }
-  flag(p, level, -0.45, 0.1, 0.35);
+  flag(p, level, -0.5, 0.1, -0.35);
   return p;
 }
 
+/**
+ * Fibre workshop: a wooden workshop under a sage-green roof, its signature a big spool of
+ * fibre turning on the ridge (chantier 17); a spinning wheel by the door, skeins drying.
+ */
 function fiberWorkshop(level: number): Parts {
   const p: Parts = [];
   const s = 0.85 + level * 0.1;
   p.push([box(), C.wood, m(0, 0.2 * s, 0, 0.62 * s, 0.4 * s, 0.46 * s)]);
-  p.push([roofPrism(), C.roof, m(0, 0.52 * s, 0, 0.28 * s, 0.7 * s, 0.32 * s, 0, 0, Math.PI / 2)]);
+  p.push([
+    roofPrism(),
+    C.fiberRoof,
+    m(0, 0.52 * s, 0, 0.28 * s, 0.7 * s, 0.32 * s, 0, 0, Math.PI / 2),
+  ]);
   p.push([box(), C.door, m(0, 0.13 * s, 0.24 * s, 0.14, 0.24 * s, 0.02)]);
-  const spool = (x: number, z: number) => {
-    p.push([cyl(10), C.cream, m(x, 0.18, z, 0.13, 0.26, 0.13)]);
-    p.push([cyl(10), C.woodDark, m(x, 0.04, z, 0.17, 0.04, 0.17)]);
-    p.push([cyl(10), C.woodDark, m(x, 0.32, z, 0.17, 0.04, 0.17)]);
-  };
-  spool(0.45, 0.3);
-  if (level >= 2) spool(-0.2, 0.44);
+  // The big spool on its two forks along the ridge, winding the fibre.
+  const sy = 0.82 * s;
+  for (const x of [-0.2, 0.2])
+    p.push([box(), C.woodDark, m(x * s, 0.7 * s, 0, 0.035, 0.26 * s, 0.035)]);
+  rig(p, 'spool', [0, sy, 0], { kind: 'spin', axis: 'x', amount: 1, speed: 2.2 });
+  p.push([cyl(12), C.cream, m(0, sy, 0, 0.12 * s, 0.34 * s, 0.12 * s, 0, 0, Math.PI / 2), 'spool']);
+  for (const x of [-0.17, 0.17])
+    p.push([
+      cyl(12),
+      C.fiberRoofDark,
+      m(x * s, sy, 0, 0.18 * s, 0.035, 0.18 * s, 0, 0, Math.PI / 2),
+      'spool',
+    ]);
+  p.push([box(), C.woodDark, m(0, sy, 0.13 * s, 0.3 * s, 0.03, 0.02), 'spool']);
+  // Thread running down from the spool to the door.
+  p.push([cyl(4), C.cream, m(0.05, 0.56 * s, 0.2 * s, 0.006, 0.42 * s, 0.006, 0.5)]);
   // Spinning wheel on its stand, facing the street.
   const wx = -0.46;
   const wz = 0.1;
   const wy = 0.3;
-  for (const dx of [-0.05, 0.05]) {
+  for (const dx of [-0.05, 0.05])
     p.push([box(), C.woodDark, m(wx + dx, wy / 2, wz - 0.03, 0.03, wy, 0.03)]);
-  }
-  rig(p, 'wheel', [wx, wy, wz], { kind: 'spin', axis: 'z', amount: 1, speed: 4 });
-  p.push([new TorusGeometry(0.17, 0.022, 4, 14), C.wood, m(wx, wy, wz), 'wheel']);
-  for (let i = 0; i < 3; i++) {
-    p.push([
-      box(),
-      C.woodDark,
-      m(wx, wy, wz, 0.015, 0.34, 0.015, 0, 0, (i * Math.PI) / 3),
-      'wheel',
-    ]);
-  }
-  p.push([cyl(6), C.cream, m(wx, wy, wz, 0.04, 0.1, 0.04, Math.PI / 2), 'wheel']);
+  p.push([new TorusGeometry(0.17, 0.022, 4, 14), C.wood, m(wx, wy, wz)]);
+  for (let i = 0; i < 3; i++)
+    p.push([box(), C.woodDark, m(wx, wy, wz, 0.015, 0.34, 0.015, 0, 0, (i * Math.PI) / 3)]);
+  // Bales of fibre.
+  const bale = (x: number, z: number) => {
+    p.push([cyl(10), C.fiberRoof, m(x, 0.12, z, 0.12, 0.24, 0.12)]);
+    p.push([cyl(10), C.woodDark, m(x, 0.12, z, 0.125, 0.03, 0.125)]);
+  };
+  bale(0.44, 0.3);
   if (level >= 2) {
+    bale(0.2, 0.42);
     // Chantier 11: a drying rack hung with skeins of fibre.
     for (const x of [0.12, 0.6]) p.push([box(), C.woodDark, m(x, 0.3, -0.42, 0.04, 0.6, 0.04)]);
     p.push([box(), C.woodDark, m(0.36, 0.6, -0.42, 0.56, 0.04, 0.04)]);
@@ -331,16 +378,16 @@ function fiberWorkshop(level: number): Parts {
       p.push([box(), C.cream, m(x, 0.44, -0.42, 0.08, 0.28, 0.05)]);
   }
   if (level >= 3) {
-    p.push([box(), C.stoneDark, m(0.2, 0.75 * s, -0.1, 0.1, 0.35, 0.1)]);
-    // A loft above the workshop.
-    p.push([box(), C.wood, m(-0.12, 0.7 * s, 0, 0.3 * s, 0.22 * s, 0.32 * s)]);
+    // A loft on the side, with its own sage roof.
+    p.push([box(), C.wood, m(-0.44, 0.34, -0.28, 0.28, 0.68, 0.28)]);
     p.push([
       roofPrism(),
-      C.roofDark,
-      m(-0.12, 0.88 * s, 0, 0.16 * s, 0.36 * s, 0.2 * s, 0, 0, Math.PI / 2),
+      C.fiberRoofDark,
+      m(-0.44, 0.78, -0.28, 0.16, 0.34, 0.18, 0, 0, Math.PI / 2),
     ]);
+    p.push([box(), C.goldEgg, m(-0.44, 0.48, -0.135, 0.08, 0.1, 0.02)]);
   }
-  flag(p, level, -0.4, 0.4, -0.25);
+  flag(p, level, 0.42, 0.4, -0.2);
   return p;
 }
 
@@ -359,7 +406,8 @@ function seedQuarry(level: number): Parts {
   p.push([cyl(10), C.stoneDark, m(0, 0.2, 0, 0.13, 0.025, 0.13), 'hammer']);
   emitter(p, { kind: 'chip', at: [0, 0.08, 0], rig: 'hammer', count: 5, phase: 0 });
   // Pit and a pile of seeds.
-  p.push([cyl(10), C.stoneDark, m(0, 0.03, 0, 0.32, 0.06, 0.32)]);
+  p.push([cyl(10), C.seedRoofDark, m(0, 0.03, 0, 0.34, 0.06, 0.34)]);
+  p.push([cyl(10), C.stoneDark, m(0, 0.035, 0, 0.27, 0.06, 0.27)]);
   const seeds = 3 + level * 2;
   for (let i = 0; i < seeds; i++) {
     const a = i * 2.4;
@@ -381,6 +429,10 @@ function seedQuarry(level: number): Parts {
     ]);
   }
   p.push([cyl(8), C.wood, m(-0.4, 0.08, 0.3, 0.1, 0.16, 0.1)]);
+  // Chantier 17: the sorting shed under a golden-brown roof, the colour of the seeds.
+  p.push([box(), C.wood, m(0.42, 0.14, -0.3, 0.3, 0.28, 0.26)]);
+  p.push([cone(4), C.seedRoof, m(0.42, 0.38, -0.3, 0.3, 0.22, 0.26, 0, Math.PI / 4, 0)]);
+  p.push([box(), C.door, m(0.42, 0.1, -0.165, 0.09, 0.16, 0.02)]);
   if (level >= 2) {
     // Chantier 11: a cart full of seeds.
     p.push([box(), C.wood, m(-0.36, 0.16, -0.3, 0.3, 0.12, 0.2)]);
@@ -392,8 +444,8 @@ function seedQuarry(level: number): Parts {
   if (level >= 3) {
     p.push([box(), C.woodDark, m(0.3, 0.86 * s, 0, 0.7, 0.05, 0.05, 0, 0, -0.25)]);
     // A stone silo.
-    p.push([cyl(10), C.stone, m(0.42, 0.32, -0.3, 0.15, 0.64, 0.15)]);
-    p.push([cone(10), C.roofDark, m(0.42, 0.74, -0.3, 0.19, 0.2, 0.19)]);
+    p.push([cyl(10), C.stone, m(0.06, 0.34, -0.46, 0.14, 0.68, 0.14)]);
+    p.push([cone(10), C.seedRoof, m(0.06, 0.78, -0.46, 0.18, 0.2, 0.18)]);
   }
   flag(p, level, -0.45, 0.1, -0.3);
   return p;
@@ -406,7 +458,7 @@ function juiceWell(level: number): Parts {
   p.push([cyl(12), C.juice, m(0, 0.31, 0, 0.29 * s, 0.02, 0.29 * s)]);
   p.push([box(), C.wood, m(-0.3 * s, 0.5, 0, 0.05, 0.7, 0.05)]);
   p.push([box(), C.wood, m(0.3 * s, 0.5, 0, 0.05, 0.7, 0.05)]);
-  p.push([cone(4), C.roof, m(0, 0.95, 0, 0.5 * s, 0.3, 0.42 * s, 0, Math.PI / 4)]);
+  p.push([cone(4), C.juiceRoof, m(0, 0.95, 0, 0.5 * s, 0.3, 0.42 * s, 0, Math.PI / 4)]);
   p.push([cyl(8), C.woodDark, m(0, 0.72, 0, 0.04, 0.6 * s, 0.04, 0, 0, Math.PI / 2)]);
   // Bucket going up and down on its rope.
   rig(p, 'bucket', [0.05, 0.5, 0], { kind: 'pump', amount: 0.14, speed: 2.2 });
@@ -444,7 +496,7 @@ function juiceWell(level: number): Parts {
       'sails',
     ]);
   }
-  p.push([sphere(6, 4), C.roof, m(...hub, 0.04, 0.04, 0.04), 'sails']);
+  p.push([sphere(6, 4), C.juiceRoofDark, m(...hub, 0.04, 0.04, 0.04), 'sails']);
   if (level >= 2) p.push([cyl(10), C.stoneDark, m(0, 0.32, 0, 0.38 * s, 0.04, 0.38 * s)]);
   // Chantier 11: juice pockets (big translucent-looking bags of juice) on wooden cradles.
   const pocket = (x: number, z: number) => {
@@ -503,53 +555,62 @@ function hut(level: number): Parts {
   return p;
 }
 
+/**
+ * Warehouse: wide and low in dark wood under a slate roof, a big double door and stacks of
+ * crates on both sides (chantier 17); a little crane swings crates around.
+ */
 function warehouse(level: number): Parts {
   const p: Parts = [];
   const s = 0.85 + level * 0.1;
-  p.push([box(), C.roof, m(0, 0.22 * s, 0, 0.66 * s, 0.44 * s, 0.5 * s)]);
-  p.push([
-    roofPrism(),
-    C.roofDark,
-    m(0, 0.56 * s, 0, 0.3 * s, 0.72 * s, 0.36 * s, 0, 0, Math.PI / 2),
-  ]);
-  p.push([box(), C.white, m(0, 0.17 * s, 0.26 * s, 0.26, 0.3 * s, 0.02)]);
-  p.push([box(), C.woodDark, m(0, 0.17 * s, 0.27 * s, 0.26, 0.03, 0.02, 0, 0, 0.75)]);
-  const crates = level + 1;
-  for (let i = 0; i < crates; i++) {
+  p.push([box(), C.stoneDark, m(0, 0.03, 0, 0.98 * s, 0.06, 0.62 * s)]);
+  p.push([box(), C.storeWood, m(0, 0.2 * s, 0, 0.9 * s, 0.34 * s, 0.52 * s)]);
+  // Low, wide slate roof with eaves.
+  p.push([roofPrism(), C.slate, m(0, 0.45 * s, 0, 0.3 * s, 0.98 * s, 0.34 * s, 0, 0, Math.PI / 2)]);
+  p.push([box(), C.slateDark, m(0, 0.6 * s, 0, 1.0 * s, 0.03, 0.05)]);
+  // Double door: two light leaves with cross braces, open a crack.
+  for (const side of [-1, 1]) {
+    const x = side * 0.075 * s;
+    p.push([box(), C.wood, m(x, 0.15 * s, 0.265 * s, 0.14 * s, 0.27 * s, 0.02, 0, side * 0.12, 0)]);
     p.push([
       box(),
-      C.wood,
-      m(
-        0.48 - (i % 2) * 0.16,
-        0.07 + Math.floor(i / 2) * 0.14,
-        0.32 - (i % 2) * 0.06,
-        0.13,
-        0.13,
-        0.13,
-        0,
-        i * 0.4,
-        0,
-      ),
+      C.woodDark,
+      m(x, 0.15 * s, 0.275 * s, 0.025, 0.3 * s, 0.015, 0, side * 0.12, side * 0.5),
     ]);
   }
+  p.push([box(), C.woodDark, m(0, 0.3 * s, 0.27 * s, 0.34 * s, 0.03, 0.02)]);
+  // Stacks of crates on both sides of the door.
+  const crate = (x: number, y: number, z: number, turn: number) =>
+    p.push([box(), C.wood, m(x, y, z, 0.13, 0.13, 0.13, 0, turn, 0)]);
+  const stack = (x: number, z: number, high: boolean) => {
+    crate(x - 0.07, 0.065, z, 0.1);
+    crate(x + 0.07, 0.065, z, -0.15);
+    crate(x, 0.195, z, 0.4);
+    if (high) crate(x + 0.02, 0.325, z, -0.2);
+  };
+  stack(0.5 * s, 0.38 * s, level >= 2);
+  stack(-0.5 * s, 0.38 * s, level >= 3);
   // Little crane swinging crates around.
-  const cx = 0.5;
-  const cz = -0.22;
-  p.push([cyl(6), C.woodDark, m(cx, 0.36, cz, 0.03, 0.72, 0.03)]);
-  rig(p, 'crane', [cx, 0.72, cz], { kind: 'swing', axis: 'y', amount: 0.9, speed: 0.9 });
-  p.push([box(), C.wood, m(cx, 0.72, cz + 0.17, 0.035, 0.035, 0.42), 'crane']);
-  p.push([cyl(4), C.straw, m(cx, 0.6, cz + 0.34, 0.008, 0.24, 0.008), 'crane']);
-  p.push([box(), C.wood, m(cx, 0.45, cz + 0.34, 0.1, 0.1, 0.1, 0, 0.3, 0), 'crane']);
+  const cx = 0.52 * s;
+  const cz = -0.3;
+  p.push([cyl(6), C.woodDark, m(cx, 0.4, cz, 0.03, 0.8, 0.03)]);
+  rig(p, 'crane', [cx, 0.78, cz], { kind: 'swing', axis: 'y', amount: 0.9, speed: 0.9 });
+  p.push([box(), C.wood, m(cx, 0.78, cz + 0.17, 0.035, 0.035, 0.42), 'crane']);
+  p.push([cyl(4), C.straw, m(cx, 0.66, cz + 0.34, 0.008, 0.24, 0.008), 'crane']);
+  p.push([box(), C.wood, m(cx, 0.51, cz + 0.34, 0.1, 0.1, 0.1, 0, 0.3, 0), 'crane']);
   if (level >= 2) {
-    // Chantier 11: a lean-to shed on the side.
-    p.push([box(), C.wood, m(-0.46 * s, 0.14, 0.12, 0.2, 0.28, 0.36)]);
-    p.push([box(), C.roofDark, m(-0.48 * s, 0.31, 0.12, 0.28, 0.03, 0.42, 0, 0, 0.35)]);
+    // Chantier 11: a lean-to shed on the side, with barrels.
+    p.push([box(), C.storeWood, m(-0.6 * s, 0.13, -0.08, 0.2, 0.26, 0.34)]);
+    p.push([box(), C.slateDark, m(-0.62 * s, 0.29, -0.08, 0.28, 0.03, 0.4, 0, 0, 0.35)]);
+    for (const z of [-0.36, -0.22])
+      p.push([cyl(8), C.wood, m(-0.4 * s, 0.08, z, 0.06, 0.16, 0.06)]);
   }
   if (level >= 3) {
-    p.push([cyl(10), C.stone, m(-0.45, 0.35, -0.25, 0.16, 0.7, 0.16)]);
-    p.push([cone(10), C.roofDark, m(-0.45, 0.8, -0.25, 0.2, 0.2, 0.2)]);
+    // A slate-capped loft over the middle.
+    p.push([box(), C.storeWood, m(0, 0.62 * s, -0.04, 0.3, 0.2, 0.24)]);
+    p.push([roofPrism(), C.slate, m(0, 0.77 * s, -0.04, 0.14, 0.36, 0.16, 0, 0, Math.PI / 2)]);
+    p.push([box(), C.goldEgg, m(0, 0.62 * s, 0.085, 0.08, 0.08, 0.02)]);
   }
-  flag(p, level, -0.42, 0.1, 0.3);
+  flag(p, level, -0.48, 0.14, -0.3);
   return p;
 }
 
@@ -650,12 +711,14 @@ export function bird(p: Parts, gen: ShipId, docked: boolean): void {
 function launchpad(level: number, age = 0, docked = true): Parts {
   const p: Parts = [];
   const s = 0.9 + level * 0.08;
-  p.push([cyl(14), C.wood, m(0, 0.06, 0, 0.62 * s, 0.12, 0.62 * s)]);
+  p.push([cyl(14), C.lightWood, m(0, 0.06, 0, 0.62 * s, 0.12, 0.62 * s)]);
+  p.push([cyl(14), C.copper, m(0, 0.115, 0, 0.6 * s, 0.03, 0.6 * s)]);
   p.push([cyl(14), C.straw, m(0, 0.13, 0, 0.5 * s, 0.02, 0.5 * s)]);
   // Launch tower.
   p.push([box(), C.woodDark, m(-0.5 * s, 0.55, -0.1, 0.06, 1.0, 0.06)]);
   p.push([box(), C.woodDark, m(-0.5 * s, 0.55, 0.12, 0.06, 1.0, 0.06)]);
-  for (const y of [0.35, 0.7]) p.push([box(), C.wood, m(-0.42 * s, y, 0.01, 0.2, 0.04, 0.26)]);
+  for (const y of [0.35, 0.7]) p.push([box(), C.copper, m(-0.42 * s, y, 0.01, 0.2, 0.04, 0.26)]);
+  p.push([cone(6), C.copper, m(-0.5 * s, 1.1, 0.01, 0.07, 0.12, 0.17)]);
   if (docked) bird(p, shipIdForAge(age), true);
   if (level >= 2) {
     // Chantier 11: a striped windsock for the pilots.
@@ -667,71 +730,94 @@ function launchpad(level: number, age = 0, docked = true): Parts {
       speed: 1.4,
       ambient: true,
     });
-    p.push([cone(8), C.roof, m(0.62, 0.86, -0.38, 0.06, 0.2, 0.06, 0, 0, Math.PI / 2), 'sock']);
+    p.push([cone(8), C.copper, m(0.62, 0.86, -0.38, 0.06, 0.2, 0.06, 0, 0, Math.PI / 2), 'sock']);
     p.push([cone(8), C.white, m(0.68, 0.86, -0.38, 0.045, 0.08, 0.045, 0, 0, Math.PI / 2), 'sock']);
   }
   if (level >= 3) {
-    p.push([box(), C.woodDark, m(-0.5 * s, 1.2, 0.01, 0.06, 0.3, 0.28)]);
-    p.push([sphere(8, 6), C.flagGold, m(-0.5 * s, 1.4, 0.01, 0.08, 0.08, 0.08)]);
-    emitter(p, { kind: 'gold', at: [-0.5 * s, 1.45, 0.01], rate: 0.8, ambient: true });
+    p.push([box(), C.copper, m(-0.5 * s, 1.24, 0.01, 0.06, 0.3, 0.28)]);
+    p.push([sphere(8, 6), C.flagGold, m(-0.5 * s, 1.44, 0.01, 0.08, 0.08, 0.08)]);
+    emitter(p, { kind: 'gold', at: [-0.5 * s, 1.49, 0.01], rate: 0.8, ambient: true });
     for (let i = 0; i < 3; i++)
-      p.push([cyl(8), i === 1 ? C.roof : C.wood, m(0.3 + i * 0.13, 0.2, 0.5, 0.06, 0.16, 0.06)]);
+      p.push([
+        cyl(8),
+        i === 1 ? C.copper : C.lightWood,
+        m(0.3 + i * 0.13, 0.2, 0.5, 0.06, 0.16, 0.06),
+      ]);
   }
   flag(p, level, 0.5, 0.12, 0.35);
   return p;
 }
 
 /**
- * School: a cream schoolhouse with a red roof and a bell tower whose bell swings. Level 2 adds
- * a training yard (a straw dummy), level 3 a mage's tower with a twinkling crystal.
+ * School: a cream schoolhouse under a blue roof with a tall blue bell tower whose bell swings,
+ * and its yard with a straw dummy (chantier 17). Level 2 adds an archery target, level 3 a
+ * mage's tower with a twinkling crystal.
  */
 function school(level: number): Parts {
   const p: Parts = [];
   const s = 0.85 + level * 0.08;
-  p.push([box(), C.stone, m(0, 0.03, 0, 0.78 * s, 0.06, 0.56 * s)]);
-  p.push([box(), C.cream, m(0, 0.24 * s, 0, 0.64 * s, 0.4 * s, 0.44 * s)]);
-  p.push([roofPrism(), C.roof, m(0, 0.54 * s, 0, 0.28 * s, 0.72 * s, 0.3 * s, 0, 0, Math.PI / 2)]);
-  p.push([box(), C.door, m(0, 0.14 * s, 0.225 * s, 0.13, 0.22 * s, 0.02)]);
-  for (const x of [-0.2, 0.2]) {
-    p.push([box(), C.flagBlue, m(x * s, 0.27 * s, 0.225 * s, 0.1, 0.1, 0.015)]);
-    p.push([box(), C.white, m(x * s, 0.27 * s, 0.23 * s, 0.11, 0.015, 0.015)]);
+  p.push([box(), C.stone, m(-0.08, 0.03, 0, 0.66 * s, 0.06, 0.52 * s)]);
+  p.push([box(), C.cream, m(-0.08, 0.22 * s, 0, 0.56 * s, 0.36 * s, 0.4 * s)]);
+  p.push([
+    roofPrism(),
+    C.blueRoof,
+    m(-0.08, 0.5 * s, 0, 0.26 * s, 0.64 * s, 0.28 * s, 0, 0, Math.PI / 2),
+  ]);
+  p.push([box(), C.door, m(-0.08, 0.13 * s, 0.205 * s, 0.13, 0.22 * s, 0.02)]);
+  for (const x of [-0.26, 0.1]) {
+    p.push([box(), C.flagBlue, m(x * s, 0.25 * s, 0.205 * s, 0.1, 0.1, 0.015)]);
+    p.push([box(), C.white, m(x * s, 0.25 * s, 0.21 * s, 0.11, 0.015, 0.015)]);
   }
-  // Bell tower on the ridge; the bell rings when the classes are in session.
-  const tx = 0.18 * s;
-  const ty = 0.72 * s;
-  p.push([box(), C.wood, m(tx, ty, 0, 0.16, 0.2, 0.16)]);
-  p.push([cone(4), C.roofDark, m(tx, ty + 0.18, 0, 0.15, 0.16, 0.15, 0, Math.PI / 4, 0)]);
-  rig(p, 'bell', [tx, ty + 0.07, 0], { kind: 'swing', axis: 'z', amount: 0.45, speed: 2.4 });
-  p.push([cone(8), C.flagGold, m(tx, ty + 0.01, 0, 0.055, 0.09, 0.055), 'bell']);
+  // The bell tower: a tall cream tower with an open belfry and a blue spire.
+  const tx = 0.2 * s;
+  p.push([box(), C.cream, m(tx, 0.4 * s, -0.04, 0.17, 0.8 * s, 0.17)]);
+  p.push([box(), C.blueRoofDark, m(tx, 0.81 * s, -0.04, 0.2, 0.03, 0.2)]);
+  for (const [dx, dz] of [
+    [-1, -1],
+    [1, -1],
+    [-1, 1],
+    [1, 1],
+  ] as const)
+    p.push([box(), C.wood, m(tx + dx * 0.07, 0.9 * s, -0.04 + dz * 0.07, 0.025, 0.16, 0.025)]);
+  p.push([cone(4), C.blueRoof, m(tx, 1.12 * s, -0.04, 0.15, 0.3, 0.15, 0, Math.PI / 4, 0)]);
+  p.push([sphere(5, 4), C.flagGold, m(tx, 1.28 * s, -0.04, 0.025, 0.025, 0.025)]);
+  rig(p, 'bell', [tx, 0.97 * s, -0.04], { kind: 'swing', axis: 'z', amount: 0.45, speed: 2.4 });
+  p.push([cone(8), C.flagGold, m(tx, 0.91 * s, -0.04, 0.055, 0.09, 0.055), 'bell']);
+  // The yard: a beaten-earth patch, a fence and the straw training dummy.
+  const yx = 0.5 * s;
+  const yz = 0.24;
+  p.push([cyl(10), C.strawDark, m(yx, 0.015, yz, 0.2, 0.03, 0.2)]);
+  p.push([cyl(5), C.woodDark, m(yx, 0.18, yz, 0.02, 0.36, 0.02)]);
+  p.push([cyl(8), C.straw, m(yx, 0.26, yz, 0.07, 0.16, 0.07)]);
+  p.push([sphere(6, 4), C.strawDark, m(yx, 0.39, yz, 0.06, 0.06, 0.06)]);
+  p.push([cyl(5), C.woodDark, m(yx, 0.28, yz, 0.015, 0.22, 0.015, 0, 0, Math.PI / 2)]);
+  for (let i = 0; i < 4; i++)
+    p.push([box(), C.wood, m(yx - 0.21 + i * 0.14, 0.07, yz + 0.24, 0.02, 0.14, 0.02)]);
+  p.push([box(), C.wood, m(yx, 0.11, yz + 0.24, 0.44, 0.02, 0.015)]);
   // Chalkboard by the door.
-  p.push([box(), C.leafDark, m(-0.42 * s, 0.2, 0.2, 0.2, 0.16, 0.02, 0, 0.5, 0)]);
-  p.push([box(), C.woodDark, m(-0.42 * s, 0.08, 0.2, 0.02, 0.16, 0.02, 0, 0.5, 0)]);
+  p.push([box(), C.leafDark, m(-0.5 * s, 0.2, 0.22, 0.2, 0.16, 0.02, 0, 0.5, 0)]);
+  p.push([box(), C.woodDark, m(-0.5 * s, 0.08, 0.22, 0.02, 0.16, 0.02, 0, 0.5, 0)]);
   if (level >= 2) {
-    // Training dummy for the warriors.
-    p.push([cyl(5), C.woodDark, m(0.48 * s, 0.18, 0.28, 0.02, 0.36, 0.02)]);
-    p.push([cyl(8), C.straw, m(0.48 * s, 0.26, 0.28, 0.07, 0.16, 0.07)]);
-    p.push([sphere(6, 4), C.strawDark, m(0.48 * s, 0.39, 0.28, 0.06, 0.06, 0.06)]);
-    p.push([cyl(5), C.woodDark, m(0.48 * s, 0.28, 0.28, 0.015, 0.22, 0.015, 0, 0, Math.PI / 2)]);
     // Chantier 11: a big archery target, readable from afar.
-    p.push([box(), C.woodDark, m(0.5 * s, 0.22, -0.3, 0.03, 0.44, 0.03, 0.2, 0, 0)]);
-    p.push([cyl(12), C.white, m(0.5 * s, 0.38, -0.27, 0.16, 0.03, 0.16, Math.PI / 2 + 0.2)]);
-    p.push([cyl(12), C.roof, m(0.5 * s, 0.38, -0.25, 0.1, 0.03, 0.1, Math.PI / 2 + 0.2)]);
-    p.push([cyl(12), C.flagGold, m(0.5 * s, 0.38, -0.24, 0.04, 0.03, 0.04, Math.PI / 2 + 0.2)]);
+    p.push([box(), C.woodDark, m(0.52 * s, 0.22, -0.3, 0.03, 0.44, 0.03, 0.2, 0, 0)]);
+    p.push([cyl(12), C.white, m(0.52 * s, 0.38, -0.27, 0.16, 0.03, 0.16, Math.PI / 2 + 0.2)]);
+    p.push([cyl(12), C.roof, m(0.52 * s, 0.38, -0.25, 0.1, 0.03, 0.1, Math.PI / 2 + 0.2)]);
+    p.push([cyl(12), C.flagGold, m(0.52 * s, 0.38, -0.24, 0.04, 0.03, 0.04, Math.PI / 2 + 0.2)]);
   }
   if (level >= 3) {
     // Mage's tower with a floating crystal.
-    p.push([cyl(8), C.stoneDark, m(-0.38 * s, 0.4, -0.22, 0.11, 0.8, 0.11)]);
-    p.push([cone(8), C.flagBlue, m(-0.38 * s, 0.9, -0.22, 0.15, 0.24, 0.15)]);
-    rig(p, 'crystal', [-0.38 * s, 1.1, -0.22], {
+    p.push([cyl(8), C.stoneDark, m(-0.46 * s, 0.4, -0.24, 0.11, 0.8, 0.11)]);
+    p.push([cone(8), C.blueRoof, m(-0.46 * s, 0.9, -0.24, 0.15, 0.24, 0.15)]);
+    rig(p, 'crystal', [-0.46 * s, 1.1, -0.24], {
       kind: 'bob',
       amount: 0.03,
       speed: 2,
       ambient: true,
     });
-    p.push([ico(), C.juice, m(-0.38 * s, 1.1, -0.22, 0.05, 0.08, 0.05), 'crystal']);
-    emitter(p, { kind: 'gold', at: [-0.38 * s, 1.12, -0.22], rate: 1.2, ambient: true });
+    p.push([ico(), C.juice, m(-0.46 * s, 1.1, -0.24, 0.05, 0.08, 0.05), 'crystal']);
+    emitter(p, { kind: 'gold', at: [-0.46 * s, 1.12, -0.24], rate: 1.2, ambient: true });
   }
-  flag(p, level, 0.42, 0.06, -0.3);
+  flag(p, level, -0.42, 0.06, 0.3);
   return p;
 }
 
@@ -779,14 +865,15 @@ function seedTurret(level: number): Parts {
   const p: Parts = [];
   const s = 0.85 + level * 0.1;
   const h = 0.34 + level * 0.1;
-  p.push([cyl(8), C.wood, m(0, h / 2, 0, 0.3 * s, h, 0.3 * s)]);
-  p.push([cyl(8), C.woodDark, m(0, h + 0.03, 0, 0.36 * s, 0.06, 0.36 * s)]);
+  p.push([cyl(8), C.guardStone, m(0, h / 2, 0, 0.3 * s, h, 0.3 * s)]);
+  p.push([cyl(8), C.iron, m(0, h * 0.35, 0, 0.31 * s, 0.04, 0.31 * s)]);
+  p.push([cyl(8), C.guardStoneDark, m(0, h + 0.03, 0, 0.36 * s, 0.06, 0.36 * s)]);
   // Crenels.
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;
     p.push([
       box(),
-      C.woodDark,
+      C.guardStoneDark,
       m(Math.cos(a) * 0.3 * s, h + 0.1, Math.sin(a) * 0.3 * s, 0.09, 0.09, 0.09, 0, -a, 0),
     ]);
   }
@@ -798,16 +885,16 @@ function seedTurret(level: number): Parts {
   p.push([cyl(4), C.straw, m(0, y + 0.02, 0.12, 0.006, 0.006, 0.18, Math.PI / 2, 0, 0), 'bow']);
   p.push([sphere(6, 5), C.seed, m(0, y + 0.06, 0.02, 0.05, 0.035, 0.07), 'bow']);
   if (level >= 2) {
-    // Chantier 11: big red shield plates bolted on the tower.
+    // Chantier 11: big iron shield plates bolted on the tower.
     for (const a of [0.7, -0.7, Math.PI])
       p.push([
         box(),
-        C.roof,
+        C.ironDark,
         m(Math.sin(a) * 0.32 * s, h * 0.55, Math.cos(a) * 0.32 * s, 0.24, 0.28, 0.04, 0, a, 0),
       ]);
   }
   if (level >= 3) {
-    p.push([cyl(8), C.stone, m(0, 0.07, 0, 0.42 * s, 0.14, 0.42 * s)]);
+    p.push([cyl(8), C.guardStoneDark, m(0, 0.07, 0, 0.42 * s, 0.14, 0.42 * s)]);
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2 + 0.5;
       p.push([
@@ -843,10 +930,10 @@ function skyTurret(level: number): Parts {
   const p: Parts = [];
   const s = 0.85 + level * 0.1;
   const h = 0.5 + level * 0.12;
-  p.push([cyl(8), C.stoneDark, m(0, 0.06, 0, 0.32 * s, 0.12, 0.32 * s)]);
-  p.push([cyl(8), C.stone, m(0, h / 2, 0, 0.18 * s, h, 0.18 * s)]);
-  p.push([cyl(8), C.juice, m(0, h * 0.7, 0, 0.2 * s, 0.05, 0.2 * s)]);
-  p.push([cyl(8), C.stoneDark, m(0, h + 0.02, 0, 0.26 * s, 0.05, 0.26 * s)]);
+  p.push([cyl(8), C.guardStoneDark, m(0, 0.06, 0, 0.32 * s, 0.12, 0.32 * s)]);
+  p.push([cyl(8), C.guardStone, m(0, h / 2, 0, 0.18 * s, h, 0.18 * s)]);
+  p.push([cyl(8), C.iron, m(0, h * 0.7, 0, 0.2 * s, 0.05, 0.2 * s)]);
+  p.push([cyl(8), C.ironDark, m(0, h + 0.02, 0, 0.26 * s, 0.05, 0.26 * s)]);
   // A sling basket pointed at the sky, turning round to follow the swarm.
   const y = h + 0.08;
   rig(p, 'sling', [0, y, 0], { kind: 'spin', axis: 'y', amount: 1, speed: 0.6, ambient: true });
@@ -873,7 +960,7 @@ function skyTurret(level: number): Parts {
       const a = (i / 3) * Math.PI * 2 + 0.8;
       p.push([
         box(),
-        C.stoneDark,
+        C.guardStoneDark,
         m(Math.cos(a) * 0.2 * s, h * 0.3, Math.sin(a) * 0.2 * s, 0.07, h * 0.6, 0.14, 0, -a, 0),
       ]);
     }
@@ -909,7 +996,7 @@ function library(fullLevel: number): Parts {
     p.push([cyl(8), C.woodDark, m(0.1, top + 0.2, 0, 0.035, 0.32, 0.035, 0, 0, -0.9), 'scope']);
     p.push([cyl(8), C.flagGold, m(0.22, top + 0.29, 0, 0.045, 0.05, 0.045, 0, 0, -0.9), 'scope']);
   } else {
-    p.push([cone(12), C.roof, m(0, top + 0.16, 0, 0.38 * s, 0.32, 0.38 * s)]);
+    p.push([cone(12), C.blueRoof, m(0, top + 0.16, 0, 0.38 * s, 0.32, 0.38 * s)]);
   }
   // Book stacks by the door.
   const books = [C.roof, C.flagBlue, C.leafDark, C.flagGold];
@@ -1139,22 +1226,64 @@ function grow(p: Parts, level: number): void {
     ]);
 }
 
-/** Colours that change with the age: red tiles turn to slate (Iron), then to sheet metal. */
-const AGE_COLORS: readonly Partial<Record<string, string>>[] = [
+/**
+ * Chantier 17: the family colours (roofs, signature parts) keep their hue in every age; only
+ * the material changes — glazed and a little darker at the Iron age, sheet metal at the
+ * Industrial age (a quarter of the way to grey). Wood darkens, walls get lighter.
+ */
+const FAMILY_COLORS: ReadonlySet<string> = new Set([
+  C.leaf,
+  C.leafDark,
+  C.fiberRoof,
+  C.fiberRoofDark,
+  C.seedRoof,
+  C.seedRoofDark,
+  C.juiceRoof,
+  C.juiceRoofDark,
+  C.slate,
+  C.slateDark,
+  C.blueRoof,
+  C.blueRoofDark,
+  C.copper,
+]);
+const AGE_MATERIALS: readonly Partial<Record<string, string>>[] = [
   {},
   {},
-  { [C.roof]: '#6f7c86', [C.roofDark]: '#55616a', [C.wood]: '#93704f' },
-  { [C.roof]: '#8a949b', [C.roofDark]: '#6a747b', [C.wood]: '#8a6a50', [C.cream]: '#e6d6bf' },
+  { [C.wood]: '#93704f', [C.lightWood]: '#c19a68', [C.storeWood]: '#5f402a' },
+  {
+    [C.wood]: '#8a6a50',
+    [C.lightWood]: '#b8956c',
+    [C.storeWood]: '#574032',
+    [C.cream]: '#ebdcc4',
+    [C.guardStone]: '#a3a6a6',
+  },
 ];
+const METAL = new Color('#8a949b');
+const ageColors = new Map<string, string>();
+
+function ageColor(hex: string, age: number): string {
+  if (age < 2) return hex;
+  const key = `${hex}:${age}`;
+  let out = ageColors.get(key);
+  if (!out) {
+    const swap = AGE_MATERIALS[Math.min(age, AGE_MATERIALS.length - 1)]![hex];
+    if (swap) out = swap;
+    else if (FAMILY_COLORS.has(hex)) {
+      const c = new Color(hex);
+      out = '#' + (age >= 3 ? c.lerp(METAL, 0.25) : c.multiplyScalar(0.88)).getHexString();
+    } else out = hex;
+    ageColors.set(key, out);
+  }
+  return out;
+}
 
 /**
  * The village changes with the age (chantier 08): a stone plinth (Stone age), an iron lantern
- * and slate roofs (Iron age), a smoking brick chimney and metal roofs (Industrial age).
+ * and glazed roofs (Iron age), a smoking brick chimney and metal roofs (Industrial age).
  */
 function dress(p: Parts, type: BuildingType, age: number): void {
   if (age <= 0) return;
-  const colors = AGE_COLORS[Math.min(age, AGE_COLORS.length - 1)]!;
-  for (const part of p) part[1] = colors[part[1]] ?? part[1];
+  for (const part of p) part[1] = ageColor(part[1], age);
   const turret = type === 'seedTurret' || type === 'skyTurret';
   p.push([cyl(6), C.stoneDark, m(0, 0.012, 0, 0.6, 0.024, 0.6)]);
   if (age >= 2 && !turret) {
