@@ -8,7 +8,7 @@ import { type Command } from '../sim/commands';
 import type { GameEvent } from '../sim/advance';
 import type { GameState } from '../sim/state';
 import { FACES, type Face } from '../types/ids';
-import type { TwinSnapshot, UniverseInfo, UniverseSummary } from './universes';
+import type { AllySnapshot, TwinSnapshot, UniverseInfo, UniverseSummary } from './universes';
 
 /**
  * Client ↔ server protocol (milestone 2). The server is authoritative: the client only sends
@@ -150,6 +150,8 @@ export type GameResponse =
       universes?: UniverseSummary[];
       /** Shared universe: the twin face when a friend lives there (null: aliens, fogged). */
       twin?: TwinSnapshot | null;
+      /** Shared universe: the other players' colonies, on kiwis far away (layout only). */
+      allies?: AllySnapshot[];
     }
   | { ok: false; error: ServerError; state?: GameState; serverTime: number };
 

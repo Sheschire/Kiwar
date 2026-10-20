@@ -12,7 +12,7 @@ import {
 import type { OfflineSummary, SyncStatus } from '../game/GameController';
 import type { Account } from '../game/onlineBackend';
 import type { ChatMessage } from '../game/chat';
-import type { UniverseInfo } from '@kiwar/shared';
+import type { AllySnapshot, UniverseInfo } from '@kiwar/shared';
 import type { QualityChoice, QualityPreset } from '../render/quality';
 import { DEFAULT_SETTINGS, type AudioSettings } from '../audio/settings';
 import type { IntroUi } from './intro';
@@ -87,6 +87,10 @@ export interface UiState {
   unreadWave: string | null;
   /** The colony could not be shown at startup (message for the boot screen). */
   bootError: string | null;
+  /** The other players' colonies (shared universes). */
+  allies: AllySnapshot[];
+  /** Kiwi of the ally being visited by the camera (null: at home). */
+  visit: number | null;
 }
 
 const wideScreen =
@@ -128,6 +132,8 @@ export const uiStore = createStore<UiState>(() => ({
   introFade: false,
   unreadWave: null,
   bootError: null,
+  allies: [],
+  visit: null,
 }));
 
 export function setLang(lang: Lang): void {

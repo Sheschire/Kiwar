@@ -22,6 +22,7 @@ import { FollowBadge, VillageModal } from './components/VillageModal';
 import { DefenseModal, ThreatBadge } from './components/DefenseModal';
 import { ResearchModal } from './components/ResearchModal';
 import { BootScreen, Guard } from './components/Guard';
+import { VisitBanner } from './components/VisitBanner';
 import { actions } from './actions';
 import { uiStore, useT, useUi } from './store';
 import { consumption, foodLeftMs, hungerStage, NEEDS, netRates, SKILLS } from '@kiwar/shared';
@@ -85,13 +86,15 @@ export function App() {
   const hasSheet = useUi((s) => s.selectedTile !== null);
   const pathMode = useUi((s) => s.pathMode);
   const intro = useUi((s) => s.intro !== null);
+  const visiting = useUi((s) => s.visit !== null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'Backquote' || e.key === '`' || e.key === '²') {
         uiStore.setState((s) => ({ debugOpen: !s.debugOpen }));
       } else if (e.key === 'Escape') {
-        if (uiStore.getState().pathMode) actions.setPathMode(false);
+        if (uiStore.getState().visit !== null) actions.visitAlly(null);
+        else if (uiStore.getState().pathMode) actions.setPathMode(false);
         else uiStore.setState({ selectedTile: null });
       }
     };
@@ -111,6 +114,14 @@ export function App() {
     return (
       <div class="hud">
         <IntroOverlay />
+        <Toasts />
+      </div>
+    );
+  // Visiting an ally's planet: look only, with the way back home.
+  if (visiting)
+    return (
+      <div class="hud">
+        <VisitBanner />
         <Toasts />
       </div>
     );

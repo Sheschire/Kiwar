@@ -37,6 +37,7 @@ import {
   universeTargets,
   type UniverseInfo,
   type UniverseMember,
+  type AllySnapshot,
   type TwinSnapshot,
   type UniverseSummary,
 } from './universes';
@@ -201,26 +202,38 @@ function universeGame(ctx: ServiceContext, info: UniverseInfo, me: UniverseMembe
   });
 }
 
-/** The friend on the other half of my kiwi, as they look now (null: aliens live there). */
-async function twinOf(
+/**
+ * What a player sees of the other players of their universe: the layout of each colony (no
+ * stocks), as it is now. `twin`: a friend on the other half of our own kiwi (older universes);
+ * `allies`: everyone else, on kiwis far away.
+ */
+async function neighboursOf(
   repo: GameRepository,
   info: UniverseInfo,
   me: UniverseMember,
   now: number,
-): Promise<TwinSnapshot | null> {
-  const friend = info.members.find((m) => m.kiwiIndex === me.kiwiIndex && m.face !== me.face);
-  if (!friend) return null;
-  const game = await repo.findGame(friend.userId, info.id);
-  if (!game) return null;
-  const s = game.state;
-  return {
-    owner: friend.displayName,
-    face: s.face,
-    params: s.params,
-    buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
-    paths: s.paths,
-    at: now,
-  };
+): Promise<{ twin: TwinSnapshot | null; allies: AllySnapshot[] }> {
+  const others = info.members.filter((m) => m.userId !== me.userId);
+  const snapshots = await Promise.all(
+    others.map(async (m): Promise<AllySnapshot | null> => {
+      const game = await repo.findGame(m.userId, info.id);
+      if (!game) return null;
+      const s = game.state;
+      return {
+        owner: m.displayName,
+        kiwiIndex: m.kiwiIndex,
+        seed: s.seed,
+        face: s.face,
+        params: s.params,
+        buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
+        paths: s.paths,
+        at: now,
+      };
+    }),
+  );
+  const all = snapshots.filter((x): x is AllySnapshot => x !== null);
+  const twin = all.find((a) => a.kiwiIndex === me.kiwiIndex && a.face !== me.face) ?? null;
+  return { twin, allies: all.filter((a) => a !== twin) };
 }
 
 /** A game with no player progress can be replaced by an import without loss. */
@@ -419,7 +432,7 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
         ok: true,
         events: [],
         universe: info,
-        twin: await twinOf(repo, info, me, ctx.now()),
+        ...(await neighboursOf(repo, info, me, ctx.now())),
         serverTime: ctx.now(),
       };
     }
@@ -451,14 +464,14 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
           }).state,
           events: [],
           universe: next,
-          twin: await twinOf(repo, next, moved, ctx.now()),
+          ...(await neighboursOf(repo, next, moved, ctx.now())),
           serverTime: ctx.now(),
         };
       }
       return {
         ...reply(ctx, withScopeTargets(ctx, game.state, scope).state),
         universe: info,
-        twin: await twinOf(repo, info, me, ctx.now()),
+        ...(await neighboursOf(repo, info, me, ctx.now())),
       };
     }
 
@@ -468,9 +481,9 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
       const existing = await repo.findGame(ctx.userId, scope.universeId);
       // The stored state is returned as is: the client advances it to the server time,
       // which lets it show the "while you were away" summary.
-      const twin = scope.shared
-        ? await twinOf(repo, scope.shared.info, scope.shared.me, ctx.now())
-        : undefined;
+      const near = scope.shared
+        ? await neighboursOf(repo, scope.shared.info, scope.shared.me, ctx.now())
+        : {};
       if (existing) {
         const scoped = withScopeTargets(ctx, existing.state, scope);
         let state = scoped.state;
@@ -489,13 +502,13 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
           // Another request wrote in between: it resolved everything as well.
           if (!saved) state = (await repo.findGame(ctx.userId, scope.universeId))?.state ?? state;
         }
-        return { ...reply(ctx, state, events), universe: scope.shared?.info, twin };
+        return { ...reply(ctx, state, events), universe: scope.shared?.info, ...near };
       }
       const state = scope.shared
         ? universeGame(ctx, scope.shared.info, scope.shared.me)
         : freshGame(ctx, req.create?.seed ?? ctx.randomSeed(), req.create?.face ?? 'kiwisu');
       const created = await repo.create(ctx.userId, scope.universeId, state);
-      return { ...reply(ctx, created.state), universe: scope.shared?.info, twin };
+      return { ...reply(ctx, created.state), universe: scope.shared?.info, ...near };
     }
 
     case 'newWorld': {
@@ -588,7 +601,7 @@ async function joinAndPlay(
       state: withScopeTargets(ctx, game.state, scope).state,
       events: [],
       universe: info,
-      twin: await twinOf(repo, info, me, ctx.now()),
+      ...(await neighboursOf(repo, info, me, ctx.now())),
       serverTime: ctx.now(),
     };
   }
@@ -634,6 +647,7 @@ async function moveSoloInto(
     events: [],
     universe: info,
     twin: null,
+    allies: [],
     serverTime: now,
   };
 }

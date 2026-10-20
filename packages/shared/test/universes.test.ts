@@ -116,6 +116,10 @@ describe('shared universes (server)', () => {
 
     // Alice keeps her own alien twin and may also raid Bob's, further away.
     const aliceLoad = ok(await handleGameRequest(as('alice'), { action: 'load', universe: u.id }));
+    // She sees Bob's colony far away (layout only), not on her twin face.
+    expect(aliceLoad.twin).toBeNull();
+    expect(aliceLoad.allies).toMatchObject([{ owner: 'Bob', kiwiIndex: 1, seed: bob.state.seed }]);
+    expect(aliceLoad.allies![0]).not.toHaveProperty('resources');
     expect(aliceLoad.state.targets.map((t) => t.id)).toEqual([
       'aliens:0:kiwino',
       'aliens:1:kiwino',

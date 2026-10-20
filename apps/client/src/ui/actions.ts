@@ -179,6 +179,12 @@ export const actions = {
     }
     return error;
   },
+  /** Flies the camera to an ally's planet (read-only), or back home with null. */
+  visitAlly(kiwiIndex: number | null): void {
+    if (!renderer?.visitAlly(kiwiIndex)) return;
+    uiStore.setState({ visit: kiwiIndex, modal: 'none', selectedTile: null });
+    audio.play('ui.click');
+  },
   refreshUniverse(): void {
     void controller?.refreshUniverse();
   },

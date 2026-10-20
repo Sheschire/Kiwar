@@ -669,3 +669,12 @@ Feedback from a real game with friends (owner, 2026-10-20).
   (`universe_members.planet_seed`, `planetSeedOf`), used for its colony and by the others' maps
   of its alien twin. The solo slot then starts over on a new world. Option shown (checked) in
   the universe screen when the solo colony has progress.
+- **Allied planets** (owner: read-only visit): `load` / `universeInfo` / join / `pickFace` send
+  `allies` — every other player's layout (owner, kiwi, seed, face, params, buildings, paths; no
+  stocks), next to `twin` (kept for older pairs). The client floats each ally's face at a fixed
+  place around ours (`render/allies.ts`: ring ≈ 95 + 14 per extra kiwi of distance, below our
+  rim and above the sea of clouds, leaning towards us, name ribbon), so they peek over the far
+  corners when zooming out. Tapping a planet (or "Visit" in the universe screen) flies the camera
+  there (`CameraRig.visit`, bounds and zoom of that planet); the HUD shrinks to a banner (whose
+  colony, next ally, back home; Escape too) and nothing can be built there. Back home restores
+  the view the player left.

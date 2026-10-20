@@ -21,6 +21,7 @@ import {
   parseHexKey,
   seasonOf,
   type Face,
+  type AllySnapshot,
   type FaceMap,
   type GameEvent,
   type GameState,
@@ -33,7 +34,7 @@ import { Environment } from './environment';
 import { FpsMeter } from './fpsMeter';
 import { Lighting } from './lighting';
 import { PALETTE } from './palette';
-import { pick, TapDetector } from './picking';
+import { pick, screenRay, TapDetector } from './picking';
 import { PathPainter } from './pathPainter';
 import { PathsView } from './paths';
 import { MeteorsView } from './meteors';
@@ -52,6 +53,7 @@ import { SelectionView } from './selection';
 import { TerrainView } from './terrain';
 import { WaterView } from './water';
 import { TwinView, type TwinOptions } from './twin';
+import { AlliesView, type AllyPlanet } from './allies';
 import { IntroScene, type IntroHandlers, type IntroLayout } from './intro';
 import { DayCycle } from './dayCycle';
 import { updateSeasonLook, seasonUniforms } from './seasonLook';
@@ -69,6 +71,8 @@ export interface RendererCallbacks {
   onKiwiTap?(id: string, pos: { x: number; z: number }): void;
   /** The player moved the camera while it was following a kiwi (or the kiwi left the map). */
   onFollowEnd?(): void;
+  /** An ally's planet was tapped (shared universes). */
+  onAllyTap?(kiwiIndex: number): void;
 }
 
 const tmpV = new Vector3();
@@ -88,6 +92,10 @@ export class GameRenderer {
   private terrain: TerrainView | null = null;
   private water: WaterView | null = null;
   private twin: TwinView | null = null;
+  private readonly allies = new AlliesView();
+  /** Ally planet the camera visits (null: at home). */
+  private visiting: AllyPlanet | null = null;
+  private homeView: { position: Vector3; target: Vector3 } | null = null;
   private intro: IntroScene | null = null;
   private readonly twinTarget = new Vector3();
   private props: PropsView | null = null;
@@ -144,7 +152,7 @@ export class GameRenderer {
     this.rig = new CameraRig(this.camera, canvas);
     this.environment = new Environment(this.scene);
     this.scene.fog = new Fog(PALETTE.skyHorizon, 90, 260);
-    this.scene.add(this.lighting.group, this.selection.group);
+    this.scene.add(this.lighting.group, this.selection.group, this.allies.group);
 
     // Any camera gesture by the player ends the follow mode.
     this.rig.controls.addEventListener('controlstart', () => {
@@ -157,11 +165,21 @@ export class GameRenderer {
     this.tap = new TapDetector(canvas, {
       onTap: (x, y) => {
         if (this.painter.enabled || this.intro) return;
+        const ally = this.allyAt(x, y);
+        if (this.visiting) {
+          // Visiting is read-only: only another planet can be tapped.
+          if (ally && ally !== this.visiting) this.callbacks.onAllyTap?.(ally.kiwiIndex);
+          return;
+        }
+        if (ally && !this.pickTile(x, y)) {
+          this.callbacks.onAllyTap?.(ally.kiwiIndex);
+          return;
+        }
         const kiwi = this.callbacks.onKiwiTap ? this.kiwiAt(x, y) : null;
         if (kiwi) this.callbacks.onKiwiTap!(kiwi.id, kiwi.pos);
         else this.callbacks.onTileTap(this.pickTile(x, y));
       },
-      onHover: (x, y) => (this.hoverPoint = this.intro ? null : { x, y }),
+      onHover: (x, y) => (this.hoverPoint = this.intro || this.visiting ? null : { x, y }),
       onHoverEnd: () => {
         this.hoverPoint = null;
         this.selection.setHover(null);
@@ -221,6 +239,8 @@ export class GameRenderer {
 
   setFace(map: FaceMap): void {
     this.map = map;
+    this.visiting = null;
+    this.homeView = null;
     for (const view of [
       this.terrain,
       this.water,
@@ -283,6 +303,60 @@ export class GameRenderer {
     if (!map) return;
     this.twin = new TwinView(map, opts);
     this.scene.add(this.twin.group);
+  }
+
+  /** The other players' colonies, far away (shared universes). */
+  setAllies(allies: AllySnapshot[], myKiwi: number): void {
+    this.allies.set(allies, myKiwi);
+    if (this.visiting && !this.allies.planets.includes(this.visiting)) {
+      // The planet was rebuilt (fresh snapshot): keep visiting the same kiwi.
+      this.visiting = this.allies.find(this.visiting.kiwiIndex);
+      if (this.visiting) this.allies.setVisited(this.visiting);
+      else this.visitAlly(null);
+    }
+  }
+
+  /**
+   * Flies the camera to an ally's planet (read-only visit), or back home (null). Returns false
+   * when that planet is not drawn.
+   */
+  visitAlly(kiwiIndex: number | null): boolean {
+    if (kiwiIndex === null) {
+      if (!this.visiting && !this.homeView) return true;
+      this.visiting = null;
+      this.allies.setVisited(null);
+      const e = this.terrain?.extent() ?? { x: 20, z: 20 };
+      this.rig.returnHome(e.x, e.z, this.homeView);
+      this.homeView = null;
+      return true;
+    }
+    const planet = this.allies.find(kiwiIndex);
+    if (!planet) return false;
+    if (!this.visiting) {
+      const c = this.rig.controls;
+      this.homeView = {
+        position: c.getPosition(new Vector3()),
+        target: c.getTarget(new Vector3()),
+      };
+    }
+    if (this.followId) {
+      this.followId = null;
+      this.callbacks.onFollowEnd?.();
+    }
+    this.visiting = planet;
+    this.allies.setVisited(planet);
+    this.selection.setHover(null);
+    this.rig.visit(planet.home, planet.view.radius);
+    return true;
+  }
+
+  get visitedAlly(): number | null {
+    return this.visiting?.kiwiIndex ?? null;
+  }
+
+  private allyAt(x: number, y: number): AllyPlanet | null {
+    if (this.allies.planets.length === 0) return null;
+    return this.allies.pick(screenRay(this.canvas, this.camera, x, y));
   }
 
   /**
@@ -596,7 +670,10 @@ export class GameRenderer {
     this.updateCycles();
     this.environment.update(this.elapsed);
     this.water?.update(this.elapsed);
-    if (this.twin) {
+    this.allies.update(this.elapsed);
+    // Away on an ally's planet, our own alien twin stays home.
+    if (this.twin && this.visiting) this.twin.group.visible = false;
+    else if (this.twin) {
       const c = this.rig.controls;
       this.twin.update(
         this.elapsed,
@@ -635,6 +712,7 @@ export class GameRenderer {
     this.lighting.applySky(sky);
     this.environment.setSky(sky);
     this.twin?.setSky(sky.cloud, sky.cloudShade);
+    this.allies.setSky(sky.cloud, sky.cloudShade);
     (this.scene.fog as Fog).color.copy(sky.horizon);
     updateSeasonLook(c, now);
     seasonUniforms.uNight.value = 1 - sky.daylight;
@@ -671,6 +749,7 @@ export class GameRenderer {
     this.terrain?.dispose();
     this.water?.dispose();
     this.twin?.dispose();
+    this.allies.dispose();
     this.intro?.dispose();
     this.props?.dispose();
     this.buildings?.dispose();

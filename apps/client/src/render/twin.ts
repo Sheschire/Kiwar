@@ -46,6 +46,8 @@ export interface TwinOptions {
   friend?: TwinSnapshot | null;
   /** Alien face: what our scouts saw (the clouds part over those sectors, chantier 07). */
   intel?: IntelReport | null;
+  /** Placed by its owner (an ally's planet far away) instead of following the camera. */
+  anchored?: boolean;
 }
 
 /** Fog layers over the twin surface (local heights). */
@@ -68,7 +70,8 @@ export class TwinView {
   private readonly tmp = new Vector3();
   private readonly right = new Vector3();
   /** World radius of the twin (for its apparent size). */
-  private readonly radius: number;
+  readonly radius: number;
+  private readonly anchored: boolean;
 
   private water: WaterView | null = null;
   private buildingMaterial: MeshStandardMaterial | null = null;
@@ -78,6 +81,7 @@ export class TwinView {
   private structureMaterials: MeshStandardMaterial[] = [];
 
   constructor(map: FaceMap, opts: TwinOptions) {
+    this.anchored = !!opts.anchored;
     this.terrain = new TerrainView(map);
     this.terrain.tiles.castShadow = false;
     this.terrain.tiles.receiveShadow = false;
@@ -207,10 +211,16 @@ export class TwinView {
       this.terrain.group.add(mesh);
     }
     this.label = nameLabel(friend.owner);
-    // Above the far rim (the group leans towards the camera, its -Z side is up on screen).
     const e = this.terrain.extent();
-    this.label.position.set(0, 6, -Math.max(e.x, e.z) - 2);
-    this.label.scale.set(16, 4, 1);
+    if (this.anchored) {
+      // An ally's planet: the name floats high above its middle, readable from afar.
+      this.label.position.set(0, 16, 0);
+      this.label.scale.set(28, 7, 1);
+    } else {
+      // Above the far rim (the group leans towards the camera, its -Z side is up on screen).
+      this.label.position.set(0, 6, -Math.max(e.x, e.z) - 2);
+      this.label.scale.set(16, 4, 1);
+    }
     this.group.add(this.label);
   }
 
@@ -230,6 +240,10 @@ export class TwinView {
       mesh.position.set(p.x, tile.height + (s.kind === 'den' ? 0 : 0.6), p.z);
       this.terrain.group.add(mesh);
     }
+  }
+
+  setLabelVisible(visible: boolean): void {
+    if (this.label) this.label.visible = visible;
   }
 
   setSky(cloud: Color, shade: Color): void {

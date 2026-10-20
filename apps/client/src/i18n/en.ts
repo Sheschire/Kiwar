@@ -719,6 +719,13 @@ export const en = {
     onlineOnly: 'Universes need the online mode.',
     error: 'Could not do that: {message}',
   },
+  allies: {
+    visit: 'Visit',
+    visiting: 'At {name}’s',
+    buildings: '{count} buildings',
+    next: 'See {name}',
+    home: 'Back home',
+  },
   chat: {
     title: 'Team chat',
     button: 'Team chat',

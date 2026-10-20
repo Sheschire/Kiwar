@@ -748,6 +748,13 @@ export const fr: Dict = {
     onlineOnly: 'Les univers nécessitent le mode en ligne.',
     error: 'Impossible : {message}',
   },
+  allies: {
+    visit: 'Visiter',
+    visiting: 'Chez {name}',
+    buildings: '{count} bâtiments',
+    next: 'Voir {name}',
+    home: 'Retour chez moi',
+  },
   chat: {
     title: 'Chat d’équipe',
     button: 'Chat d’équipe',

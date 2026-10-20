@@ -52,6 +52,13 @@ export interface TwinSnapshot {
   at: number;
 }
 
+/** An ally's colony on another kiwi of the universe (what we see of it from afar). */
+export interface AllySnapshot extends TwinSnapshot {
+  kiwiIndex: number;
+  /** Seed of their kiwi (to draw the face). */
+  seed: string;
+}
+
 /**
  * Number of kiwis: one per player, plus one when every face is taken (older universes, where
  * two players shared a kiwi), so there is always an alien face to explore.

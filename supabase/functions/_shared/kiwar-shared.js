@@ -10057,20 +10057,28 @@ function universeGame(ctx, info, me) {
     alienSeed: ctx.randomSeed()
   });
 }
-async function twinOf(repo, info, me, now) {
-  const friend = info.members.find((m) => m.kiwiIndex === me.kiwiIndex && m.face !== me.face);
-  if (!friend) return null;
-  const game = await repo.findGame(friend.userId, info.id);
-  if (!game) return null;
-  const s = game.state;
-  return {
-    owner: friend.displayName,
-    face: s.face,
-    params: s.params,
-    buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
-    paths: s.paths,
-    at: now
-  };
+async function neighboursOf(repo, info, me, now) {
+  const others = info.members.filter((m) => m.userId !== me.userId);
+  const snapshots = await Promise.all(
+    others.map(async (m) => {
+      const game = await repo.findGame(m.userId, info.id);
+      if (!game) return null;
+      const s = game.state;
+      return {
+        owner: m.displayName,
+        kiwiIndex: m.kiwiIndex,
+        seed: s.seed,
+        face: s.face,
+        params: s.params,
+        buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
+        paths: s.paths,
+        at: now
+      };
+    })
+  );
+  const all = snapshots.filter((x) => x !== null);
+  const twin = all.find((a) => a.kiwiIndex === me.kiwiIndex && a.face !== me.face) ?? null;
+  return { twin, allies: all.filter((a) => a !== twin) };
 }
 function isPristine(state) {
   return state.stats.constructionsCompleted === 0 && state.queue.length === 0 && state.objectiveIndex === 0;
@@ -10213,7 +10221,7 @@ async function handle(ctx, body) {
         ok: true,
         events: [],
         universe: info,
-        twin: await twinOf(repo, info, me, ctx.now()),
+        ...await neighboursOf(repo, info, me, ctx.now()),
         serverTime: ctx.now()
       };
     }
@@ -10243,21 +10251,21 @@ async function handle(ctx, body) {
           }).state,
           events: [],
           universe: next,
-          twin: await twinOf(repo, next, moved, ctx.now()),
+          ...await neighboursOf(repo, next, moved, ctx.now()),
           serverTime: ctx.now()
         };
       }
       return {
         ...reply(ctx, withScopeTargets(ctx, game.state, scope).state),
         universe: info,
-        twin: await twinOf(repo, info, me, ctx.now())
+        ...await neighboursOf(repo, info, me, ctx.now())
       };
     }
     case "load": {
       const scope = await resolveScope(ctx, repo, req.universe);
       if (!scope) return fail2("forbidden");
       const existing = await repo.findGame(ctx.userId, scope.universeId);
-      const twin = scope.shared ? await twinOf(repo, scope.shared.info, scope.shared.me, ctx.now()) : void 0;
+      const near = scope.shared ? await neighboursOf(repo, scope.shared.info, scope.shared.me, ctx.now()) : {};
       if (existing) {
         const scoped = withScopeTargets(ctx, existing.state, scope);
         let state2 = scoped.state;
@@ -10272,11 +10280,11 @@ async function handle(ctx, body) {
           const saved = await repo.update(existing.id, state2, existing.version);
           if (!saved) state2 = (await repo.findGame(ctx.userId, scope.universeId))?.state ?? state2;
         }
-        return { ...reply(ctx, state2, events), universe: scope.shared?.info, twin };
+        return { ...reply(ctx, state2, events), universe: scope.shared?.info, ...near };
       }
       const state = scope.shared ? universeGame(ctx, scope.shared.info, scope.shared.me) : freshGame(ctx, req.create?.seed ?? ctx.randomSeed(), req.create?.face ?? "kiwisu");
       const created = await repo.create(ctx.userId, scope.universeId, state);
-      return { ...reply(ctx, created.state), universe: scope.shared?.info, twin };
+      return { ...reply(ctx, created.state), universe: scope.shared?.info, ...near };
     }
     case "newWorld": {
       const state = freshGame(ctx, req.seed ?? ctx.randomSeed(), req.face);
@@ -10352,7 +10360,7 @@ async function joinAndPlay(ctx, repo, row, displayName2) {
       state: withScopeTargets(ctx, game.state, scope).state,
       events: [],
       universe: info,
-      twin: await twinOf(repo, info, me, ctx.now()),
+      ...await neighboursOf(repo, info, me, ctx.now()),
       serverTime: ctx.now()
     };
   }
@@ -10386,6 +10394,7 @@ async function moveSoloInto(ctx, repo, row, solo, displayName2) {
     events: [],
     universe: info,
     twin: null,
+    allies: [],
     serverTime: now
   };
 }

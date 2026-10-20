@@ -40,6 +40,7 @@ const renderer = new GameRenderer(
     onPaint: (tiles, erase) => actions.paintPaths(tiles, erase),
     onFps: (fps) => uiStore.setState({ fps }),
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
+    onAllyTap: (kiwiIndex) => actions.visitAlly(kiwiIndex),
     onKiwiTap: (id, pos) => {
       kiwiSpeaks(id, pos);
       actions.openVillage(id);
@@ -77,13 +78,26 @@ function showTwin(state: GameState): void {
   }
 }
 
+/** The other players' planets, far away around ours. */
+function showAllies(): void {
+  const { allies, visit } = uiStore.getState();
+  const mine = Number(controller.state?.kiwiId.replace(/^k/, ''));
+  try {
+    renderer.setAllies(allies, Number.isFinite(mine) ? mine : 0);
+  } catch (e) {
+    console.error(e);
+  }
+  if (visit !== null && renderer.visitedAlly === null) uiStore.setState({ visit: null });
+}
+
 controller = new GameController({
   onWorld: (map, state) => {
     renderer.setFace(map);
     twinKey = '';
     showTwin(state);
     renderer.setGameState(state);
-    uiStore.setState({ map, game: state, selectedTile: null });
+    uiStore.setState({ map, game: state, selectedTile: null, visit: null });
+    showAllies();
   },
   onState: (state, now) => {
     renderer.setGameState(state);
@@ -99,8 +113,16 @@ controller = new GameController({
   onSync: (sync) => uiStore.setState({ sync }),
   onAccount: (account) => uiStore.setState({ account }),
   onUniverse: (universe) => {
-    if (!universe) friend = null;
+    if (!universe) {
+      friend = null;
+      uiStore.setState({ allies: [] });
+      showAllies();
+    }
     uiStore.setState({ universe });
+  },
+  onAllies: (allies) => {
+    uiStore.setState({ allies });
+    showAllies();
   },
   onTwin: (twin) => {
     friend = twin;

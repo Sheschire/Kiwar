@@ -21,6 +21,7 @@ import {
   type GameState,
   type Resources,
   type ServerError,
+  type AllySnapshot,
   type TwinSnapshot,
   type UniverseInfo,
   type UniverseSummary,
@@ -75,6 +76,8 @@ export interface ControllerListener {
   onUniverse(info: UniverseInfo | null): void;
   /** A friend living on the twin face (shared universes; null = aliens under fog). */
   onTwin(twin: TwinSnapshot | null): void;
+  /** The other players of the universe, on kiwis far away (shared universes). */
+  onAllies(allies: AllySnapshot[]): void;
 }
 
 function safeStorage<T>(fn: () => T, fallback: T): T {
@@ -393,6 +396,7 @@ export class GameController {
     this.loadState(res.state);
     this.listener.onUniverse(res.universe ?? null);
     this.listener.onTwin(res.twin ?? null);
+    this.listener.onAllies(res.allies ?? []);
     this.listener.onSync('online');
   }
 
@@ -429,6 +433,7 @@ export class GameController {
       this.pending = [];
       this.loadState(res.state);
       this.listener.onTwin(res.twin ?? null);
+      this.listener.onAllies(res.allies ?? []);
       return null;
     } catch {
       return 'network';
@@ -467,6 +472,7 @@ export class GameController {
       }
       this.listener.onUniverse(res.universe);
       this.listener.onTwin(res.twin ?? null);
+      this.listener.onAllies(res.allies ?? []);
     } catch {
       // Offline: keep what we have.
     }
@@ -488,6 +494,7 @@ export class GameController {
       this.loadState(res.state);
       if (res.universe) this.listener.onUniverse(res.universe);
       this.listener.onTwin(res.twin ?? null);
+      this.listener.onAllies(res.allies ?? []);
       return null;
     } catch {
       return 'network';

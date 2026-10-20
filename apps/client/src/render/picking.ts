@@ -83,6 +83,22 @@ export class TapDetector {
 const raycaster = new Raycaster();
 const ndc = new Vector2();
 
+/** The camera ray through a screen point (shared raycaster: use it right away). */
+export function screenRay(
+  element: HTMLElement,
+  camera: Camera,
+  clientX: number,
+  clientY: number,
+): Raycaster {
+  const rect = element.getBoundingClientRect();
+  ndc.set(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1,
+  );
+  raycaster.setFromCamera(ndc, camera);
+  return raycaster;
+}
+
 export type PickResult =
   { kind: 'tile'; instanceId: number } | { kind: 'object'; q: number; r: number };
 

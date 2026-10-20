@@ -94,6 +94,67 @@ export class CameraRig {
     );
   }
 
+  /**
+   * Flies to a far planet (an ally's, seen from our side) and keeps the camera around it: its
+   * own bounds and zoom range until `returnHome`.
+   */
+  visit(center: Vector3, radius: number): void {
+    const c = this.controls;
+    c.setBoundary(
+      new Box3(
+        new Vector3(center.x - radius, center.y - 4, center.z - radius),
+        new Vector3(center.x + radius, center.y + 6, center.z + radius),
+      ),
+    );
+    const distance = this.fitDistance(radius) * 1.2;
+    c.minDistance = Math.min(8, distance * 0.4);
+    c.maxDistance = distance * 1.6;
+    // Seen from our side of the sky, the way the planet leans towards us.
+    const toward = new Vector3(-center.x, 0, -center.z).normalize();
+    const polar = 0.7;
+    void c.setLookAt(
+      center.x + toward.x * Math.sin(polar) * distance,
+      center.y + Math.cos(polar) * distance,
+      center.z + toward.z * Math.sin(polar) * distance,
+      center.x,
+      center.y,
+      center.z,
+      true,
+    );
+  }
+
+  /** Back from a visit: the colony's bounds, and the view the player left (or the framing). */
+  returnHome(
+    extentX: number,
+    extentZ: number,
+    view: { position: Vector3; target: Vector3 } | null,
+  ): void {
+    if (!view) {
+      this.frame(extentX, extentZ, true);
+      return;
+    }
+    const c = this.controls;
+    // Lift the bounds first: the flight back starts far outside them.
+    c.setBoundary(undefined);
+    c.minDistance = 11;
+    c.maxDistance = this.frameDistance * 1.9;
+    void c
+      .setLookAt(
+        view.position.x,
+        view.position.y,
+        view.position.z,
+        view.target.x,
+        view.target.y,
+        view.target.z,
+        true,
+      )
+      .then(() =>
+        c.setBoundary(
+          new Box3(new Vector3(-extentX, -1, -extentZ), new Vector3(extentX, 3, extentZ)),
+        ),
+      );
+  }
+
   /** Distance at which a disc of radius `r` fits on screen for the current aspect ratio. */
   fitDistance(r: number): number {
     const cam = this.controls.camera as PerspectiveCamera;

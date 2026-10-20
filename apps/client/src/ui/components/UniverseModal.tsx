@@ -9,6 +9,7 @@ function InvitePanel() {
   const t = useT();
   const universe = useUi((s) => s.universe);
   const me = useUi((s) => s.account?.userId);
+  const allies = useUi((s) => s.allies);
   if (!universe) return null;
   const link = inviteLink(universe.code);
   const taken = new Set(universe.members.map((m) => `${m.kiwiIndex}:${m.face}`));
@@ -67,6 +68,11 @@ function InvitePanel() {
             <span class="small muted">
               {t('universe.memberFace', { face: t(`faces.${m.face}`), index: m.kiwiIndex + 1 })}
             </span>
+            {m.userId !== me && allies.some((a) => a.kiwiIndex === m.kiwiIndex) && (
+              <button class="btn btn-small" onClick={() => actions.visitAlly(m.kiwiIndex)}>
+                {t('allies.visit')}
+              </button>
+            )}
           </li>
         ))}
         {alienFaces.map((f) => (
