@@ -6,6 +6,7 @@ import {
   capacity as sharedCapacity,
   consumption as sharedConsumption,
   forecastWave as sharedForecastWave,
+  defenseOf as sharedDefenseOf,
   homeKiwis as sharedHomeKiwis,
   housing as sharedHousing,
   hungerStage as sharedHungerStage,
@@ -41,6 +42,8 @@ export const hungerStage = perGame(sharedHungerStage);
 export const homeKiwis = perGame(sharedHomeKiwis);
 export const idleVillagers = perGame(sharedIdleVillagers);
 export const forecastWave = perGame(sharedForecastWave);
+/** Defense without a wave (chantier 12: by sector, for the defense screen). */
+export const defenseNow = perGame((state) => sharedDefenseOf(state));
 export const researchPerHour = perGame(sharedResearchPerHour);
 /** Workers by kind of post, kiwis without a post, free places (chantier 09). */
 export const staffing = perGame(sharedStaffing);

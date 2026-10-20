@@ -1,4 +1,7 @@
 import {
+  SECTOR_IDS,
+  type SectorClash,
+  type SectorId,
   garrisonOf,
   guardPower,
   nest,
@@ -12,7 +15,7 @@ import {
   type VillagerId,
   type WaveReport,
 } from '@kiwar/shared';
-import { forecastWave } from '../derived';
+import { defenseNow, forecastWave } from '../derived';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { uiStore, useT, useUi, type Translate } from '../store';
@@ -21,6 +24,20 @@ import { Modal } from './Modal';
 import { useJobLabel } from './VillageModal';
 
 const one = (x: number) => Math.round(x * 10) / 10;
+
+/** Chantier 12: the sector where the most breaks through (null when every sector holds). */
+function weakestSector(sectors: Record<SectorId, SectorClash>): SectorId | null {
+  let best: SectorId | null = null;
+  let most = 1e-9;
+  for (const s of SECTOR_IDS) {
+    const x = sectors[s].through.ground + sectors[s].through.air;
+    if (x > most) {
+      most = x;
+      best = s;
+    }
+  }
+  return best;
+}
 
 /** Chantier 06: the HUD pill — a wave on its way, the shelter, or an unread report. */
 export function ThreatBadge() {
@@ -35,6 +52,7 @@ export function ThreatBadge() {
   const shelter = game.threats.shelterUntil > now;
   if (!f && !shelter && !unread) return null;
   const odds = f?.odds ?? 'likely';
+  const weak = f ? weakestSector(f.expected.sectors) : null;
   return (
     <button class={`threat-badge parchment pe odds-${odds}`} onClick={open}>
       <span class="threat-paw" aria-hidden="true">
@@ -50,6 +68,12 @@ export function ThreatBadge() {
         <span>
           {t('defense.badge', { duration: formatDuration(lang, f.wave.at - now) })} ·{' '}
           <strong>{t(`defense.odds.${f.odds}`)}</strong>
+          {weak && (
+            <span class="small">
+              {' '}
+              · {t('defense.weakSector', { sector: `@defense.sectors.${weak}` })}
+            </span>
+          )}
         </span>
       ) : (
         <span>{t('defense.badgeReport')}</span>
@@ -70,16 +94,18 @@ function SideCard({
   threat,
   defense,
   parts,
+  holds,
 }: {
   side: 'ground' | 'air';
   threat: number;
   defense: number;
   parts: string[];
+  /** Nothing breaks through on this side, sector by sector. */
+  holds: boolean;
 }) {
   const t = useT();
   const lang = useUi((s) => s.lang);
   const max = Math.max(threat, defense, 1);
-  const holds = defense >= threat;
   return (
     <div class={`side-card side-${side} ${holds ? 'holds' : 'breaks'}`}>
       <h4>{t(side === 'ground' ? 'defense.ferrets' : 'defense.bats')}</h4>
@@ -99,6 +125,58 @@ function SideCard({
         </p>
       ))}
     </div>
+  );
+}
+
+/**
+ * Chantier 12: defense against threat in each sector (front facing the alien planet, two
+ * flanks), what breaks through and the guards sent there. Without a wave: the defense alone.
+ */
+function SectorTable({ game }: { game: GameState }) {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const f = forecastWave(game);
+  const n = (x: number) => formatNumber(lang, one(x));
+  const defense = f?.defense ?? defenseNow(game);
+  const clash = f?.expected.sectors;
+  return (
+    <section class="field">
+      <h3>{t('defense.sectorsTitle')}</h3>
+      <p class="small muted">{t('defense.sectorsHint')}</p>
+      <ul class="sector-list">
+        {SECTOR_IDS.map((s) => {
+          const c = clash?.[s];
+          const through = c ? c.through.ground + c.through.air : 0;
+          const guards = defense.guards.filter((g) => g.sector === s).length;
+          const cell = (side: 'ground' | 'air') => {
+            const d = defense.sectors[s][side];
+            const ok = !c || c.through[side] <= 1e-9;
+            return (
+              <span class={c ? (ok ? 'bonus' : 'warn') : ''}>
+                {t(side === 'ground' ? 'defense.ferrets' : 'defense.bats')}{' '}
+                {c ? t('defense.sectorThreat', { defense: n(d), threat: n(c.threat[side]) }) : n(d)}
+                {c && (ok ? ' ✓' : ' ✗')}
+              </span>
+            );
+          };
+          return (
+            <li key={s} class={`sector-row sector-${s} ${through > 1e-9 ? 'breaks' : ''}`}>
+              <strong>{t(`defense.sectors.${s}`)}</strong>
+              <span class="sector-cells small">
+                {cell('ground')}
+                {cell('air')}
+                {guards > 0 && (
+                  <span class="muted">{t('defense.sectorGuards', { count: guards })}</span>
+                )}
+                {through > 1e-9 && (
+                  <span class="warn">{t('defense.sectorThrough', { value: n(through) })}</span>
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -242,6 +320,7 @@ export function DefenseModal() {
               side="ground"
               threat={f.threat.ground}
               defense={f.defense.ground}
+              holds={SECTOR_IDS.every((s) => f.expected.sectors[s].through.ground <= 1e-9)}
               parts={[
                 t('defense.turrets', { value: n(f.defense.turrets.ground) }),
                 t('defense.garrison', { value: n(f.defense.garrison.ground) }),
@@ -252,6 +331,7 @@ export function DefenseModal() {
               side="air"
               threat={f.threat.air}
               defense={f.defense.air}
+              holds={SECTOR_IDS.every((s) => f.expected.sectors[s].through.air <= 1e-9)}
               parts={[
                 t('defense.turrets', { value: n(f.defense.turrets.air) }),
                 t('defense.garrison', { value: n(f.defense.garrison.air) }),
@@ -296,6 +376,7 @@ export function DefenseModal() {
               : t('defense.noWave')}
         </p>
       )}
+      <SectorTable game={game} />
       <GarrisonPicker game={game} />
       <section class="field">
         <h3>{t('defense.reports')}</h3>

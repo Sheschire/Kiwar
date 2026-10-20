@@ -1,5 +1,6 @@
 import {
   HARVESTS,
+  isTurret,
   AGE_IDS,
   ageOf,
   buildCost,
@@ -175,6 +176,7 @@ export function PlacingBanner() {
         <strong>{t('plans.placing', { name: `@buildings.${placing}.name` })}</strong>
         <span class="small muted">{t('plans.placingHint')}</span>
         {HARVESTS[placing] && <span class="small muted">{t('plans.placingLogistics')}</span>}
+        {isTurret(placing) && <span class="small muted">{t('plans.placingTurret')}</span>}
       </div>
       <button class="btn" onClick={() => actions.stopPlacing()}>
         {t('plans.cancel')}

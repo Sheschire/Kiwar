@@ -21,6 +21,10 @@ import {
   depotDistance,
   getTile,
   harvestedTileType,
+  coveredRampart,
+  isTurret,
+  rampartSectorOf,
+  type BuildingType,
   logisticsEfficiency,
   hexKey,
   parseHexKey,
@@ -61,6 +65,7 @@ import {
 } from './quality';
 import { SelectionView } from './selection';
 import { TerrainView, worldPosition } from './terrain';
+import { SECTOR_COLORS } from './sectors';
 import { efficiencyGlow, LogisticsBadges, type PercentBadge } from './logisticsBadges';
 import { WaterView } from './water';
 import { TwinView, type TwinOptions } from './twin';
@@ -553,6 +558,8 @@ export class GameRenderer {
   private logisticsOverlay = false;
   private placementLabels: PercentBadge[] = [];
   private placementHover = '';
+  private placementHoverTile: Tile | null = null;
+  private placingTurret: BuildingType | null = null;
 
   /** Chantier 12: the logistics overlay (efficiency of every producer). */
   setLogisticsOverlay(on: boolean): void {
@@ -588,8 +595,21 @@ export class GameRenderer {
    * Chantier 11: lights the tiles where the building chosen in the tree can go; chantier 12:
    * with the logistics efficiency a producer would have on each.
    */
-  setPlacement(tiles: readonly Tile[], efficiencies?: readonly number[]): void {
-    this.selection.setPlacement(tiles, efficiencies?.map(efficiencyGlow));
+  setPlacement(
+    tiles: readonly Tile[],
+    efficiencies?: readonly number[],
+    turret: BuildingType | null = null,
+  ): void {
+    this.placingTurret = turret;
+    if (tiles.length === 0) {
+      this.placementHover = '';
+      this.placementHoverTile = null;
+    }
+    // A turret: the rampart tiles take the colour of their sector (front or flank).
+    const colors = turret
+      ? tiles.map((t) => SECTOR_COLORS[rampartSectorOf(t)])
+      : efficiencies?.map(efficiencyGlow);
+    this.selection.setPlacement(tiles, colors);
     this.placementLabels = efficiencies
       ? tiles.map((t, i) => {
           const p = worldPosition(t);
@@ -605,6 +625,7 @@ export class GameRenderer {
         })
       : [];
     this.refreshLogistics();
+    this.refreshCatchment();
   }
 
   /** Path mode: one-finger / left drags paint paths instead of moving the camera. */
@@ -617,6 +638,18 @@ export class GameRenderer {
   private refreshCatchment(): void {
     const t = this.selectedTile;
     const b = t && this.lastState ? buildingAt(this.lastState, t.q, t.r) : undefined;
+    // Chantier 12: the rampart a turret defends (selected, or hovered while placing one).
+    const hovered = this.placingTurret && this.placementHover ? this.placementHoverTile : null;
+    if (this.map && (hovered || (b && isTurret(b.type)))) {
+      const covered = hovered
+        ? coveredRampart(this.map, this.placingTurret!, 1, hovered)
+        : coveredRampart(this.map, b!.type, b!.level, b!);
+      this.selection.setCatchment(
+        covered.map((x) => x.tile),
+        covered.map((x) => SECTOR_COLORS[x.sector]),
+      );
+      return;
+    }
     const tiles: Tile[] = [];
     if (b?.pool && this.map) {
       for (const k of b.pool.tiles) {
@@ -837,9 +870,11 @@ export class GameRenderer {
       this.selection.setHover(tile);
       this.hoverPoint = null;
       const key = tile ? `t${tile.q},${tile.r}` : '';
-      if (this.placementLabels.length > 0 && key !== this.placementHover) {
+      if ((this.placementLabels.length > 0 || this.placingTurret) && key !== this.placementHover) {
         this.placementHover = key;
+        this.placementHoverTile = tile;
         this.refreshLogistics();
+        this.refreshCatchment();
       }
     }
     try {

@@ -15,7 +15,11 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import {
   createRng,
   getTile,
-  isRampart,
+  FRONT_AZIMUTH,
+  rampartSectors,
+  SECTOR_IDS,
+  SECTORS,
+  type SectorId,
   isTurret,
   levelDef,
   pixelToHex,
@@ -78,6 +82,13 @@ function batGeometry(): BufferGeometry {
   right.translate(0.24, 0, 0);
   return mergeGeometries([body.toNonIndexed(), left.toNonIndexed(), right.toNonIndexed()])!;
 }
+
+/** Middle of each sector, as an azimuth from the front. */
+const SECTOR_AZIMUTH: Record<SectorId, number> = {
+  front: 0,
+  left: (2 * Math.PI) / 3,
+  right: (-2 * Math.PI) / 3,
+};
 
 /**
  * Chantier 06: when the player is there at the strike, a short show of the wave — ferrets
@@ -143,7 +154,22 @@ export class PredatorShow {
   play(state: GameState, report: WaveReport): void {
     this.rng = createRng(`show/${report.id}`);
     const rng = this.rng;
-    const ramparts = this.map.tiles.filter((t) => isRampart(this.map, t.q, t.r));
+    // Chantier 12: they come by sector, mostly from the alien planet (the front).
+    const ramparts = rampartSectors(this.map);
+    const bySector = (s: SectorId) => ramparts.tiles.filter((_, i) => ramparts.sectors[i] === s);
+    const sectorTiles = {
+      front: bySector('front'),
+      left: bySector('left'),
+      right: bySector('right'),
+    };
+    const pickSector = (side: 'ground' | 'air'): SectorId => {
+      let roll = rng.next();
+      for (const s of SECTOR_IDS) {
+        roll -= SECTORS.share[side][s];
+        if (roll < 0) return s;
+      }
+      return 'front';
+    };
     const targets = state.buildings.map((b) => worldPosition(b));
     if (targets.length === 0) targets.push({ x: 0, z: 0 });
     this.turrets = state.buildings
@@ -164,13 +190,16 @@ export class PredatorShow {
         const target = rng.pick(targets);
         const to = new Vector3(target.x + rng.range(-0.4, 0.4), 0, target.z + rng.range(-0.4, 0.4));
         let from: Vector3;
-        if (kind === 'ferret' && ramparts.length) {
-          const r = rng.pick(ramparts);
-          const p = worldPosition(r);
+        const sector = pickSector(kind === 'ferret' ? 'ground' : 'air');
+        const tiles = sectorTiles[sector];
+        if (kind === 'ferret' && tiles.length) {
+          const p = worldPosition(rng.pick(tiles));
           from = new Vector3(p.x, 0, p.z);
         } else {
-          const a = rng.range(0, Math.PI * 2);
-          from = new Vector3(Math.cos(a) * 14, 0, Math.sin(a) * 14);
+          // Bats fly in from the sky above their sector, more scattered.
+          const centre = FRONT_AZIMUTH + SECTOR_AZIMUTH[sector];
+          const a = centre + rng.range(-1, 1) * SECTORS.frontHalfAngle * 1.3;
+          from = new Vector3(Math.sin(a) * 14, 0, Math.cos(a) * 14);
         }
         const stopped = rng.next() >= through;
         this.actors.push({

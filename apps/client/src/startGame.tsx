@@ -5,6 +5,7 @@ import {
   buildableTiles,
   depotDistance,
   HARVESTS,
+  isTurret,
   logisticsEfficiency,
   getTile,
   terraformKey,
@@ -217,6 +218,7 @@ uiStore.subscribe((s, prev) => {
   renderer.setPlacement(
     tiles,
     producer ? tiles.map((t) => logisticsEfficiency(depotDistance(s.game!, s.map!, t))) : undefined,
+    s.placing && isTurret(s.placing) ? s.placing : null,
   );
 });
 

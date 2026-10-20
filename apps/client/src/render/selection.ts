@@ -76,6 +76,7 @@ class HexMarker {
 }
 
 const MAX_CATCHMENT = 64;
+const CATCHMENT_COLOR = '#c6f27a';
 const MAX_PLACEMENT = 600;
 
 /** Hover and selection outlines on top of tiles, and the catchment of a selected producer. */
@@ -86,7 +87,7 @@ export class SelectionView {
   private readonly catchment = new InstancedMesh(
     createHexRingGeometry(HEX_VISUAL_RADIUS * 0.8, HEX_VISUAL_RADIUS * 0.9),
     new MeshBasicMaterial({
-      color: '#c6f27a',
+      color: '#ffffff',
       transparent: true,
       opacity: 0.7,
       depthWrite: false,
@@ -110,6 +111,10 @@ export class SelectionView {
 
   constructor() {
     this.catchment.count = 0;
+    this.catchment.instanceColor = new InstancedBufferAttribute(
+      new Float32Array(MAX_CATCHMENT * 3).fill(1),
+      3,
+    );
     this.catchment.frustumCulled = false;
     this.catchment.renderOrder = 4;
     this.placement.count = 0;
@@ -140,17 +145,23 @@ export class SelectionView {
     if (this.placement.instanceColor) this.placement.instanceColor.needsUpdate = true;
   }
 
-  /** Highlights the deposit tiles harvested by the selected building. */
-  setCatchment(tiles: readonly Tile[]): void {
+  /**
+   * Highlights the deposit tiles harvested by the selected building, or (chantier 12) the
+   * rampart a turret defends, coloured by sector.
+   */
+  setCatchment(tiles: readonly Tile[], colors?: readonly string[]): void {
     const m = new Matrix4();
+    const c = new Color();
     let n = 0;
     for (const t of tiles.slice(0, MAX_CATCHMENT)) {
       const p = worldPosition(t);
       m.makeTranslation(p.x, t.height + 0.02, p.z);
+      this.catchment.setColorAt(n, c.set(colors?.[n] ?? CATCHMENT_COLOR));
       this.catchment.setMatrixAt(n++, m);
     }
     this.catchment.count = n;
     this.catchment.instanceMatrix.needsUpdate = true;
+    if (this.catchment.instanceColor) this.catchment.instanceColor.needsUpdate = true;
   }
 
   setHover(tile: Tile | null): void {

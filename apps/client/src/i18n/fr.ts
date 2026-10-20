@@ -285,6 +285,7 @@ export const fr: Dict = {
     defenseAir: 'Chauves-souris {value}',
     ammo: '{count} pépins par vague',
     turrets: 'Tourelles {count}/{max}',
+    turretRange: 'Portée {range} tuiles · défend {sectors}',
     repair: 'Réparer',
     repairing: 'Réparation…',
     logistics: 'Logistique',
@@ -868,6 +869,18 @@ export const fr: Dict = {
     shield: 'Bouclier après la dernière attaque : aucune vague avant {duration}.',
     ferrets: 'Furets',
     bats: 'Chauves-souris',
+    sectors: {
+      front: 'Front',
+      left: 'Flanc gauche',
+      right: 'Flanc droit',
+    },
+    sectorsTitle: 'Par secteur',
+    sectorsHint:
+      'La plupart des prédateurs viennent de la planète alien (front), les autres par les flancs. Une tourelle défend le rempart à sa portée ; la garnison et les kiwis à la maison courent là où la défense manque.',
+    sectorThreat: '{defense} / {threat}',
+    sectorThrough: '{value} passent',
+    sectorGuards: '{count} garde(s)',
+    weakSector: 'faible : {sector}',
     threat: 'Menace {value}',
     defenseValue: 'Défense {value}',
     turrets: 'Tourelles {value}',
@@ -1172,6 +1185,8 @@ export const fr: Dict = {
   plans: {
     showLevels: 'Afficher les niveaux des bâtiments',
     showLogistics: 'Logistique : efficacité de chaque producteur',
+    placingTurret:
+      'Orange : le front, face à la planète alien (la plupart des prédateurs) · jaune : les flancs.',
     placingLogistics:
       'Vert : trajets courts jusqu’à un dépôt (récolte rapide) · orange : trajets longs.',
     button: 'Plans : bâtiments et recherche',

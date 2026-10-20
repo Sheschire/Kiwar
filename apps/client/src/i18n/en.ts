@@ -268,6 +268,7 @@ export const en = {
     defenseAir: 'Bats {value}',
     ammo: '{count} seeds per wave',
     turrets: 'Turrets {count}/{max}',
+    turretRange: 'Range {range} tiles · defends {sectors}',
     repair: 'Repair',
     repairing: 'Repairing…',
     logistics: 'Logistics',
@@ -837,6 +838,18 @@ export const en = {
     shield: 'Shield after the last attack: no wave before {duration}.',
     ferrets: 'Ferrets',
     bats: 'Bats',
+    sectors: {
+      front: 'Front',
+      left: 'Left flank',
+      right: 'Right flank',
+    },
+    sectorsTitle: 'By sector',
+    sectorsHint:
+      'Most predators come from the alien planet (front), the rest by the flanks. A turret defends the rampart within its range; guards and kiwis at home run where defense is missing.',
+    sectorThreat: '{defense} / {threat}',
+    sectorThrough: '{value} break through',
+    sectorGuards: '{count} guard(s)',
+    weakSector: 'weak: {sector}',
     threat: 'Threat {value}',
     defenseValue: 'Defense {value}',
     turrets: 'Turrets {value}',
@@ -1136,6 +1149,8 @@ export const en = {
   plans: {
     showLevels: 'Show building levels',
     showLogistics: 'Logistics: efficiency of every producer',
+    placingTurret:
+      'Orange: the front, facing the alien planet (most predators) · yellow: the flanks.',
     placingLogistics: 'Green: short trips to a depot (fast harvest) · orange: long trips.',
     button: 'Plans: buildings and research',
     title: 'Plans',

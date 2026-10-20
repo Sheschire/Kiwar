@@ -3071,6 +3071,44 @@ button.chip:focus-visible {
   background: var(--leaf);
 }
 
+.sector-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.sector-row {
+  display: grid;
+  grid-template-columns: 7.5em 1fr;
+  gap: 4px 10px;
+  align-items: baseline;
+  border: 1px solid var(--edge);
+  border-left-width: 4px;
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+.sector-row.sector-front {
+  border-left-color: #c4542a;
+}
+
+.sector-row.sector-left,
+.sector-row.sector-right {
+  border-left-color: #c48a12;
+}
+
+.sector-row.breaks {
+  border-color: var(--berry);
+}
+
+.sector-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+}
+
 .shelter-box {
   display: flex;
   flex-direction: column;

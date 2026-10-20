@@ -4,7 +4,8 @@
  * camera-controls convention: the direction (sin a, 0, cos a) from the centre. π is the far
  * side of the default view (the camera starts at azimuth 0, on +Z).
  */
-export const FRONT_AZIMUTH = Math.PI;
+export { FRONT_AZIMUTH } from '@kiwar/shared';
+import { FRONT_AZIMUTH } from '@kiwar/shared';
 
 /** Screen angle of the front (clockwise from up) for a camera at `cameraAzimuth`. */
 export function frontScreenAngle(cameraAzimuth: number): number {

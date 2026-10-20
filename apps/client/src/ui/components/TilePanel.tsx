@@ -29,6 +29,9 @@ import {
   meteorAt,
   isRampart,
   isTurret,
+  SECTOR_IDS,
+  turretCoverage,
+  turretRange,
   turretCount,
   turretLimit,
   repairCost,
@@ -174,6 +177,31 @@ function logisticsParams(game: GameState, h: Hex, lang: Lang) {
     distance: Number.isFinite(distance) ? formatNumber(lang, Math.round(distance * 10) / 10) : '∞',
     depot: depot ? `@buildings.${depot.building.type}.name` : '—',
   };
+}
+
+/** Chantier 12: a turret's range and the sectors of the rampart it defends. */
+function TurretReach({
+  type,
+  level,
+  h,
+  t,
+}: {
+  type: BuildingType;
+  level: number;
+  h: Hex;
+  t: Translate;
+}) {
+  const map = useUi((s) => s.map);
+  if (!map) return null;
+  const cover = turretCoverage(map, type, level, h);
+  const sectors = SECTOR_IDS.filter((s) => cover[s] > 0.005)
+    .map((s) => `${t(`defense.sectors.${s}`)} ${Math.round(cover[s] * 100)} %`)
+    .join(', ');
+  return (
+    <p class={`small ${cover.front > 0.005 ? 'muted' : 'warn'}`}>
+      {t('building.turretRange', { range: turretRange(type, level), sectors })}
+    </p>
+  );
 }
 
 /** "Logistics here: 92 % · 4 steps to the depot (Nest)" for a build option. */
@@ -367,6 +395,7 @@ function BuildingSection({
             {t('building.ammo', { count: def.ammo ?? 0 })} ·{' '}
             {t('building.turrets', { count: turretCount(game), max: turretLimit(game) })}
           </p>
+          <TurretReach type={b.type} level={b.level} h={b} t={t} />
         </>
       )}
       {def.storage !== undefined && (
@@ -528,6 +557,7 @@ function BuildOption({
         </p>
       )}
       {reach && <LogisticsLine game={game} tile={tile} t={t} />}
+      {isTurret(type) && <TurretReach type={type} level={1} h={tile} t={t} />}
       <div class="build-option-foot">
         <Cost
           cost={buildCost(game, type)}
