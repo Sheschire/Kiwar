@@ -216,13 +216,26 @@ export function workforce(state: GameState, b: Building, workers: Villager[]): n
   const damaged = b.damaged ? THREATS.damagedWork : 1;
   const resource = buildingResource(state, b);
   if (!resource) return workers.length * damaged;
-  // Each kiwi works its share of the day (rest and the walk to its bed aside).
+  return crewWork(state, workers, resource) * damaged;
+}
+
+/**
+ * Summed power of kiwis harvesting a resource, as they work right now: each its share of the
+ * day (rest and the walk to its bed aside), hunger, morale and the mayor's speech; 0 in a
+ * shelter. Also used by the meteorite craters (chantier 15).
+ */
+export function crewWork(
+  state: GameState,
+  workers: readonly Villager[],
+  resource: ResourceId,
+): number {
+  if (state.threats.shelterUntil > state.now) return 0;
   const beds = bedsOf(state);
   const sum = workers.reduce(
     (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)),
     0,
   );
-  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds) * damaged;
+  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds);
 }
 
 /** The mayor at home, if any. */
@@ -293,6 +306,11 @@ function ratesOf(
   } else if (job.kind === 'build') {
     perHour = KIWI.xpPerHour.build;
     mastery = 'build';
+  } else if (job.kind === 'meteor') {
+    // A crater is harvested like a workplace of its resource.
+    const m = state.sky.meteors.find((x) => x.id === job.meteorId);
+    perHour = KIWI.xpPerHour.work;
+    mastery = m ? RESOURCE_MASTERY[m.resource] : null;
   } else if (job.kind === 'train' || job.kind === 'transform') {
     perHour = KIWI.xpPerHour.train;
   } else if (job.kind === 'guard' || job.kind === 'titan' || job.kind === 'stardust') {

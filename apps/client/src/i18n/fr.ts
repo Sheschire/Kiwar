@@ -596,6 +596,9 @@ export const fr: Dict = {
     notEnoughStardust: 'Pas assez de poussière d’étoiles.',
     notInjured: 'Ce kiwi n’est pas blessé.',
     blessingLimit: 'Ce kiwi a déjà reçu ses trois bénédictions.',
+    onCrater: 'Un cratère de météorite est un poste à part entière : rien ne se construit dessus.',
+    unknownCrater: 'Ce cratère a disparu ou il est vide.',
+    craterFull: 'Un cratère prend au plus trois mineur·euses.',
   },
   offline: {
     title: 'Pendant votre absence…',
@@ -1008,7 +1011,17 @@ export const fr: Dict = {
   },
   sky: {
     meteor: 'Météorite : {stock}/{max} {resource} · s’éteint dans {duration}',
-    hint: 'Un camp posé dessus la récolte, tout comme un {building} qui l’atteint.',
+    post: 'Poste Météorite',
+    rate: '+{rate}/h',
+    emptyIn: 'Vide dans {duration} à ce rythme.',
+    miners: 'Mineur·euses : {count}/{slots}',
+    full: 'Le stock de {resource} est plein : le cratère ne donne que ce que la colonie consomme.',
+    drill: 'Foreuse à météorite : ×{factor} (meilleure à chaque âge).',
+    noDrill: 'Recherche la foreuse à météorite (âge de pierre) pour creuser plus vite.',
+    auto: 'Automatique : les kiwis les plus adroits viennent d’eux-mêmes et retournent ensuite à leur poste. Rien ne se construit sur un cratère.',
+    manual:
+      'Manuel (panneau Automatisation) : envoie toi-même les mineur·euses. Rien ne se construit sur un cratère.',
+    board: 'Météorite',
     empty: 'Un cratère vide : tout a été récolté.',
     incoming: 'Une étoile filante tombe ici dans {duration} : {resource} !',
     announced: 'Une étoile filante ! Une météorite de {resource} tombe dans {duration}.',
@@ -1046,6 +1059,8 @@ export const fr: Dict = {
     callBack: 'Les rappeler',
     hint: 'Les kiwis adroits ramassent plus vite. Elle se disperse un jour après la comète.',
     stockFull: 'Ta réserve de poussière est pleine ({cap}).',
+    auto: 'Automatique : les kiwis les plus adroits viennent d’eux-mêmes.',
+    manual: 'Manuel (panneau Automatisation) : envoie toi-même les ramasseur·euses.',
     board: 'Poussière d’étoiles',
   },
   garrison: {
@@ -1145,9 +1160,11 @@ export const fr: Dict = {
       transform: 'Dans la cuve',
       titan: 'Travaux de titan',
       stardust: 'Ramasse la poussière',
+      meteor: 'Sur une météorite',
     },
   },
   posts: {
+    fades: 's’éteint dans {duration}',
     assign: 'Affecter à…',
     close: 'Fermer',
     rest: 'Au repos (sans poste)',
@@ -1320,6 +1337,7 @@ export const fr: Dict = {
     waveNotice: 'Vagues annoncées plus tôt',
     cometInterval: 'Temps entre deux comètes',
     meteorStock: 'Météorites',
+    meteorDrill: 'Foreuse à météorite',
     unlock: 'Ouvert',
     nothing: 'Ouvre l’âge suivant.',
   },
@@ -1364,6 +1382,10 @@ export const fr: Dict = {
     starWatch: { name: 'Guet des étoiles', desc: 'Les vagues sont annoncées 4 heures plus tôt.' },
     cometLure: { name: 'Appel des comètes', desc: 'Les comètes reviennent 20 % plus tôt.' },
     starIron: { name: 'Fer d’étoile', desc: 'Les météorites apportent 30 % de plus.' },
+    meteorDrill: {
+      name: 'Foreuse à météorite',
+      desc: 'Une foreuse sur chaque cratère exploité : ×1,5 à l’âge de pierre, ×2 à l’âge du fer, ×2,5 à l’âge industriel.',
+    },
     titanWorks: {
       name: 'Travaux de titan',
       desc: 'Les Kikiwiwis remodèlent le terrain : creuser une source de jus, élever une terrasse, aplanir une tuile.',

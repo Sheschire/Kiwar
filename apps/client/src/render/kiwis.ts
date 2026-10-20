@@ -51,6 +51,8 @@ import {
   workerPower,
   workersOf,
   HOUR_MS,
+  meteorRate,
+  minersOf,
 } from '@kiwar/shared';
 import { findPath } from './pathfinding';
 import { TitansView } from './kikiwiwi';
@@ -506,6 +508,12 @@ export class KiwisView {
       const p = this.state.comets.patches.find((x) => x.id === patchId);
       return p ? { hex: { q: p.q, r: p.r }, resource: null } : null;
     }
+    if (villager.job.kind === 'meteor') {
+      // Chantier 15: a crater is harvested like a workplace (loads carried to the depot).
+      const meteorId = villager.job.meteorId;
+      const m = this.state.sky.meteors.find((x) => x.id === meteorId);
+      return m ? { hex: { q: m.q, r: m.r }, resource: m.resource } : null;
+    }
     if (villager.job.kind === 'transform') {
       const lab = getBuilding(this.state, villager.job.labId);
       return lab ? { hex: { q: lab.q, r: lab.r }, resource: null } : null;
@@ -524,10 +532,31 @@ export class KiwisView {
    * so the drops of an hour add up to the real rate.
    */
   private showDrop(agent: Agent, villager: Villager): void {
-    if (!this.state || villager.job.kind !== 'work' || !agent.carrying) return;
+    if (!this.state || !agent.carrying) return;
     const now = this.state.now;
     const elapsed = Math.min(MAX_LOAD_MS, Math.max(0, now - agent.loadSince));
     agent.loadSince = now;
+    if (villager.job.kind === 'meteor') {
+      // Chantier 15: this miner's share of the crater's harvest.
+      const meteorId = villager.job.meteorId;
+      const m = this.state.sky.meteors.find((x) => x.id === meteorId);
+      if (!m || elapsed <= 0) return;
+      const crew = minersOf(this.state, m.id);
+      const total = crew.reduce((sum, v) => sum + workerPower(v, m.resource), 0);
+      const share = total > 0 ? workerPower(villager, m.resource) / total : 0;
+      const amount = (meteorRate(this.state, m) * share * elapsed) / HOUR_MS;
+      if (amount > 0)
+        this.drops.spawn(
+          agent.pos.x,
+          agent.pos.y + 0.5,
+          agent.pos.z,
+          formatDrop(amount),
+          m.resource,
+          LABEL_COLORS[m.resource],
+        );
+      return;
+    }
+    if (villager.job.kind !== 'work') return;
     const b = getBuilding(this.state, villager.job.buildingId);
     const h = b ? harvestOf(this.state, b.id) : null;
     if (!h || h.output <= 0 || elapsed <= 0) return;
@@ -618,7 +647,9 @@ export class KiwisView {
                   ? `T:${job.q},${job.r}`
                   : job.kind === 'stardust'
                     ? `d:${job.patchId}`
-                    : 'idle';
+                    : job.kind === 'meteor'
+                      ? `m:${job.meteorId}`
+                      : 'idle';
     const changed = sig !== agent.plan;
     agent.plan = sig;
     const work = this.workTile(villager);
@@ -655,7 +686,7 @@ export class KiwisView {
       return;
     }
 
-    if (job.kind === 'work' && work) {
+    if ((job.kind === 'work' || job.kind === 'meteor') && work) {
       if (changed) {
         agent.carrying = null;
         agent.loadSince = this.state?.now ?? 0;

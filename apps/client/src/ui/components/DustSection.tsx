@@ -36,6 +36,7 @@ export function DustSection({
   const pickers = dustPickers(game, p.id);
   const full = game.stardust >= STARDUST_CAP;
   const rate = (pickers.reduce((sum, v) => sum + pickRate(v), 0) * 3_600_000) / STARDUST_SCALE;
+  const auto = game.automation.stardust;
   const best = bestDustCrew(game, p.id);
   const better = best.some((id) => !pickers.some((v) => v.id === id));
   return (
@@ -64,28 +65,31 @@ export function DustSection({
       ) : (
         <p class="small muted">{t('comet.hint')}</p>
       )}
-      <div class="dust-actions">
-        {!full && better && (
-          <button
-            class="btn btn-primary"
-            onClick={() =>
-              actions.dispatch({ type: 'collectStardust', patchId: p.id, villagerIds: best })
-            }
-          >
-            <StardustIcon size={18} /> {t('comet.sendBest')}
-          </button>
-        )}
-        {pickers.length > 0 && (
-          <button
-            class="btn"
-            onClick={() =>
-              actions.dispatch({ type: 'collectStardust', patchId: p.id, villagerIds: [] })
-            }
-          >
-            {t('comet.callBack')}
-          </button>
-        )}
-      </div>
+      <p class="small muted">{auto ? t('comet.auto') : t('comet.manual')}</p>
+      {!auto && (
+        <div class="dust-actions">
+          {!full && better && (
+            <button
+              class="btn btn-primary"
+              onClick={() =>
+                actions.dispatch({ type: 'collectStardust', patchId: p.id, villagerIds: best })
+              }
+            >
+              <StardustIcon size={18} /> {t('comet.sendBest')}
+            </button>
+          )}
+          {pickers.length > 0 && (
+            <button
+              class="btn"
+              onClick={() =>
+                actions.dispatch({ type: 'collectStardust', patchId: p.id, villagerIds: [] })
+              }
+            >
+              {t('comet.callBack')}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

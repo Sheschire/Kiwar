@@ -3,7 +3,7 @@ import { isManualWorkplace, isProducer, type BuildingType } from '../data/buildi
 import type { TechId } from '../data/research';
 import { RESOURCE_IDS, emptyResources, type ResourceId, type Resources } from '../data/resources';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
-import { dispatchTasks, nextConstructionEnd } from './tasks';
+import { dispatchTasks, nextConstructionEnd, releaseFullCraters } from './tasks';
 import {
   buildingHarvest,
   passiveRates,
@@ -233,7 +233,6 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
   let map = faceMapOf(s);
   syncPools(s, map, s.now);
   returnHome(s, s.now, events);
-  dispatchTasks(s, s.now, events);
   let stage = hungerStage(s);
   // Guard against pathological loops; each iteration consumes at least one event.
   for (let guard = 0; guard < 100_000; guard++) {
@@ -344,6 +343,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
       const e = events[i]!;
       if (e.type === 'storageFull') filled.add(e.resource);
     }
+    if (filled.size > 0) releaseFullCraters(s, filled);
     if (s.automation.redirect) {
       if (constructionEnd === nextEvent) redirectFull(s, nextEvent, events);
       else if (filled.size > 0) redirectFull(s, nextEvent, events, filled);
@@ -396,7 +396,6 @@ function computeFlows(s: GameState): Flows {
   const production = emptyResources();
   const harvested = emptyResources();
   const harvests: { b: Building; h: Harvest }[] = [];
-  const all: { b: Building; h: Harvest }[] = [];
   for (const b of s.buildings) {
     const p = passiveRates(s, b);
     for (const id of RESOURCE_IDS) production[id] += p[id];
@@ -404,13 +403,12 @@ function computeFlows(s: GameState): Flows {
     if (!h) continue;
     production[h.resource] += h.output;
     harvested[h.resource] += h.output;
-    all.push({ b, h });
     if (b.pool) harvests.push({ b, h });
   }
-  // Meteorite craters: picked on top of the usual harvest (no climate: a gift from the sky).
+  // Meteorite craters: temporary posts (chantier 15; no climate: a gift from the sky).
   const picked: { m: Meteor; rate: number }[] = [];
   for (const m of s.sky.meteors) {
-    const rate = meteorRate(m, all);
+    const rate = meteorRate(s, m);
     if (rate <= 0) continue;
     production[m.resource] += rate;
     harvested[m.resource] += rate;

@@ -1,6 +1,7 @@
 import { BLESSINGS, FUEL, STARDUST, STARDUST_SCALE } from '../data/comets';
 import { canPickDust, STARDUST_CAP, stardustOf } from './comets';
-import { dispatchTasks } from './tasks';
+import { borrow, dispatchTasks, sendBackAll } from './tasks';
+import { canMine, meteorAt, minersOf } from './sky';
 import { BUILDINGS, levelDef, type BuildingType } from '../data/buildings';
 import { CAMPS, PATHS } from '../data/territory';
 import { TILES } from '../data/tiles';
@@ -53,7 +54,7 @@ import {
   kikiwiwiCount,
   kikiwiwiWeak,
 } from './kikiwiwi';
-import { SHELTER } from '../data/threats';
+import { METEORS, SHELTER } from '../data/threats';
 import { forecastWave } from './threats';
 import {
   crewOf,
@@ -148,6 +149,8 @@ export type Command =
   | { type: 'collectStardust'; patchId: string; villagerIds: VillagerId[] }
   /** Chantier 13: a blessing bought with stardust (heal, redistribute the stats, +1 in a stat). */
   | { type: 'bless'; villagerId: VillagerId; kind: BlessingKind; stat?: StatId }
+  /** Chantier 15: exactly these kiwis harvest a meteorite crater (others there go back). */
+  | { type: 'collectMeteor'; meteorId: string; villagerIds: VillagerId[] }
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
 export const COMMAND_ERRORS = [
@@ -238,6 +241,10 @@ export const COMMAND_ERRORS = [
   'notEnoughStardust',
   'notInjured',
   'blessingLimit',
+  // Chantier 15
+  'onCrater',
+  'unknownCrater',
+  'craterFull',
 ] as const;
 export type BlessingKind = 'heal' | 'respec' | 'stat';
 
@@ -507,7 +514,14 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
     case 'assignKiwi': {
       const v = s.villagers.find((x) => x.id === cmd.villagerId);
       if (!v) return fail('unknownVillager');
-      if (v.job.kind !== 'idle' && v.job.kind !== 'work' && v.job.kind !== 'guard')
+      // Chantier 15: a kiwi on a crater or on stardust can be moved too.
+      if (
+        v.job.kind !== 'idle' &&
+        v.job.kind !== 'work' &&
+        v.job.kind !== 'guard' &&
+        v.job.kind !== 'meteor' &&
+        v.job.kind !== 'stardust'
+      )
         fail('kiwiBusy');
       if (cmd.buildingId === null) {
         v.job = { kind: 'idle' };
@@ -651,6 +665,8 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail('tileOccupied');
       if (obstacleAt(s, cmd.q, cmd.r)) fail('obstacle');
       if (titanAt(s, cmd.q, cmd.r)) fail('titanAtWork');
+      // Chantier 15: a crater is a post of its own, no camp on it.
+      if (meteorAt(s, cmd.q, cmd.r)) fail('onCrater');
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail('flooded');
       if (s.buildings.filter((b) => b.type === 'camp').length >= CAMPS.max) fail('campLimit');
       const id = nextId(s, 'b') as BuildingId;
@@ -894,6 +910,28 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
           autoAssign(s, v);
         }
       }
+      return;
+    }
+    case 'collectMeteor': {
+      const m = s.sky.meteors.find((x) => x.id === cmd.meteorId);
+      if (!m || m.stock <= 0) return fail('unknownCrater');
+      const ids = new Set(cmd.villagerIds);
+      if (ids.size !== cmd.villagerIds.length) fail('invalidCrew');
+      if (ids.size > METEORS.slots) fail('craterFull');
+      for (const id of ids) {
+        const v = s.villagers.find((x) => x.id === id);
+        if (!v) return fail('unknownVillager');
+        if (v.kikiwiwi) fail('kikiwiwiNoWork');
+        if (!canMine(v)) fail('kiwiBusy');
+        if (v.job.kind === 'meteor' && v.job.meteorId === m.id) continue;
+        v.job = { kind: 'meteor', meteorId: m.id, returnTo: borrow(v) };
+      }
+      sendBackAll(
+        s,
+        minersOf(s, m.id)
+          .filter((v) => !ids.has(v.id))
+          .map((v) => [v, v.job.kind === 'meteor' ? v.job.returnTo : null]),
+      );
       return;
     }
     case 'setGarrison': {

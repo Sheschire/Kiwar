@@ -1635,10 +1635,17 @@ var METEORS = {
   perDay: 0.15,
   /** What falls (weights). */
   resources: { seeds: 2, juice: 1, fiber: 1 },
-  /** Land types it can land on (a camp can be set up there). */
+  /** Land types it can land on. */
   tiles: ["flesh", "grove", "seedRing"],
-  /** A producer of the same resource reaching the crater takes this share of its base rate. */
-  producerShare: 0.5,
+  /**
+   * Chantier 15: a crater is a temporary post (no camp, nothing built on it) with this many
+   * places, filled by the kiwis with the most Dexterity.
+   */
+  slots: 3,
+  /** Harvest per hour of one average kiwi at a crater (a level-1 workplace's rate). */
+  rates: { pulp: 750, fiber: 600, seeds: 190, juice: 450 },
+  /** Meteorite drill (technology `meteorDrill`): harvest multiplier by age (index = age). */
+  drill: [1, 1.5, 2, 2.5],
   /** Craters kept at once. */
   max: 3
 };
@@ -1684,7 +1691,9 @@ var TECH_IDS = [
   "clearNights",
   "starWatch",
   "cometLure",
-  "starIron"
+  "starIron",
+  // Chantier 15
+  "meteorDrill"
 ];
 var TECHS = {
   foraging: {
@@ -1852,6 +1861,14 @@ var TECHS = {
     libraryLevel: 4,
     stardust: 12,
     effects: { meteorStock: 1.3 }
+  },
+  meteorDrill: {
+    id: "meteorDrill",
+    age: 1,
+    branch: "economy",
+    cost: 300,
+    libraryLevel: 2,
+    effects: { meteorDrill: true }
   }
 };
 var PASSAGE_TECHS = [
@@ -2585,149 +2602,159 @@ function isNight(state) {
   return calendarAt(state.calendarStart, state.now).night;
 }
 
-// packages/shared/src/sim/tasks.ts
-var RANK = {
-  garrison: 0,
-  build: 1,
-  research: 2,
-  pick: 3,
-  harvest: 4,
-  idle: 5
-};
-function taskLevel(state, v) {
-  switch (v.job.kind) {
-    case "idle":
-      return "idle";
-    case "work":
-      return getBuilding(state, v.job.buildingId)?.type === "library" ? "research" : "harvest";
-    case "stardust":
-      return "pick";
-    case "build":
-      return "build";
-    case "guard":
-      return "garrison";
-    default:
-      return null;
-  }
+// packages/shared/src/sim/sky.ts
+var DAY = 24 * 36e5;
+var EPS = 1e-6;
+function meteorStock(state, at) {
+  const f = METEORS.nestFactor;
+  const factor = f[Math.min(nest(state).level, f.length - 1)] ?? 1;
+  const age = METEORS.ageFactor[ageOf(state)] ?? 1;
+  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY));
+  const tech = techEffects(state).meteorStock;
+  return Math.round(METEORS.stock * factor * age * tech * (1 + METEORS.perDay * days));
 }
-function canBorrow(state, v, to) {
+function minersOf(state, meteorId) {
+  return state.villagers.filter((v) => v.job.kind === "meteor" && v.job.meteorId === meteorId);
+}
+function drillFactor(state) {
+  if (!techEffects(state).meteorDrill) return 1;
+  const d = METEORS.drill;
+  return d[Math.min(ageOf(state), d.length - 1)] ?? 1;
+}
+function meteorRate(state, m) {
+  if (m.stock <= EPS) return 0;
+  const miners = minersOf(state, m.id);
+  if (miners.length === 0) return 0;
+  const work = crewWork(state, miners, m.resource);
+  if (work <= 0) return 0;
+  const map = faceMapOf(state);
+  const efficiency = logisticsEfficiency(depotDistance(state, map, m));
+  return METEORS.rates[m.resource] * work * efficiency * cycleHarvest(state, m.resource) * drillFactor(state);
+}
+function bestMeteorCrew(state, meteorId) {
+  const m = state.sky.meteors.find((x) => x.id === meteorId);
+  if (!m) return [];
+  const here = minersOf(state, meteorId).map((v) => v.id);
+  const others = state.villagers.map((v, i) => ({ v, i })).filter(
+    ({ v }) => canMine(v) && v.job.kind !== "meteor" && (v.job.kind === "idle" || !v.locked)
+  ).sort(
+    (a, b) => workerPower(b.v, m.resource) - workerPower(a.v, m.resource) || Number(b.v.job.kind === "idle") - Number(a.v.job.kind === "idle") || a.i - b.i
+  ).map(({ v }) => v.id);
+  return [...here, ...others].slice(0, METEORS.slots);
+}
+function canMine(v) {
   if (v.kikiwiwi) return false;
-  const level = taskLevel(state, v);
-  if (level === null || RANK[level] <= RANK[to]) return false;
-  return level === "idle" || !v.locked;
+  return v.job.kind === "idle" || v.job.kind === "work" || v.job.kind === "stardust" || v.job.kind === "meteor";
 }
-function borrow(v) {
-  let home = null;
-  if (v.lent !== void 0) home = v.lent;
-  else if (v.job.kind === "work") home = v.job.buildingId;
-  else if (v.job.kind === "stardust" || v.job.kind === "build") home = v.job.returnTo;
-  delete v.lent;
-  return home;
+function meteorAt(state, q, r) {
+  return state.sky.meteors.find((m) => m.q === q && m.r === r);
 }
-function buildSlots(state) {
-  const slots = TASKS.buildSlots;
-  return slots[Math.min(nest(state).level, slots.length - 1)] ?? 1;
-}
-function startedItems(state) {
-  return state.queue.filter((i) => i.startedAt !== null);
-}
-function nextConstructionEnd(state) {
+function nextSkyEvent(state) {
+  const sky = state.sky;
   let next = Infinity;
-  for (const i of state.queue)
-    if (i.startedAt !== null) next = Math.min(next, i.startedAt + i.durationMs);
+  if (sky.next) next = sky.next.announced ? sky.next.at : sky.next.announceAt;
+  for (const m of sky.meteors) next = Math.min(next, m.expiresAt);
   return next;
 }
-function waitingForBuilder(state) {
-  const free = buildSlots(state) - startedItems(state).length;
-  if (free <= 0) return [];
-  return state.queue.filter((i) => i.startedAt === null).slice(0, free);
+function planMeteor(s) {
+  const sky = s.sky;
+  if (sky.next) return;
+  withThreatRng(s, (rng) => {
+    const gap = Math.round(rng.range(METEORS.intervalMs[0], METEORS.intervalMs[1]));
+    const earliest = sky.falls === 0 ? s.createdAt + METEORS.firstMs : sky.lastFallAt + gap;
+    const at = Math.max(earliest, s.now + METEORS.noticeMs);
+    sky.next = {
+      id: `m${sky.falls + 1}`,
+      announceAt: at - METEORS.noticeMs,
+      at,
+      announced: false,
+      q: 0,
+      r: 0,
+      resource: "seeds",
+      stock: 0
+    };
+  });
 }
-function pickBuilder(state) {
-  let priority;
-  let best;
-  for (const v of state.villagers) {
-    if (v.kikiwiwi) continue;
-    const speed = builderSpeed(v);
-    if (v.builderPriority && (v.job.kind === "idle" || v.job.kind === "work")) {
-      if (!priority || speed > builderSpeed(priority)) priority = v;
+function skyTick(s, at, events) {
+  const sky = s.sky;
+  const next = sky.next;
+  if (next && !next.announced && next.announceAt === at) {
+    const spot = withThreatRng(s, (rng) => {
+      const map = faceMapOf(s);
+      const season = seasonOf(s);
+      const taken = /* @__PURE__ */ new Set([
+        ...s.buildings.map((b) => hexKey(b)),
+        ...s.queue.filter((i) => i.kind === "build").map((i) => hexKey(i)),
+        ...sky.meteors.map((m) => hexKey(m)),
+        ...s.obstacles.map((o) => hexKey(o))
+      ]);
+      const free = map.tiles.filter(
+        (t) => METEORS.tiles.includes(t.type) && t.rho >= 0.25 && t.rho <= 0.92 && !taken.has(hexKey(t)) && !isFlooded(t, s.params.biome, season)
+      );
+      const weights = Object.entries(METEORS.resources);
+      let roll = rng.next() * weights.reduce((sum, [, w]) => sum + w, 0);
+      let resource = weights[0][0];
+      for (const [id3, w] of weights) {
+        roll -= w;
+        if (roll < 0) {
+          resource = id3;
+          break;
+        }
+      }
+      return { tile: free.length > 0 ? rng.pick(free) : null, resource };
+    });
+    if (!spot.tile) {
+      sky.next = null;
+      sky.lastFallAt = next.at;
+      return;
     }
-    if (!canBorrow(state, v, "build")) continue;
-    const idle = v.job.kind === "idle";
-    if (!best || speed > best.speed + 1e-9 || Math.abs(speed - best.speed) <= 1e-9 && idle && !best.idle)
-      best = { v, speed, idle };
+    next.announced = true;
+    next.q = spot.tile.q;
+    next.r = spot.tile.r;
+    next.resource = spot.resource;
+    next.stock = meteorStock(s, next.at);
+    events.push({
+      type: "meteorAnnounced",
+      at,
+      strikeAt: next.at,
+      q: next.q,
+      r: next.r,
+      resource: next.resource
+    });
   }
-  return priority ?? best?.v;
-}
-function startItem(state, item, builder, at, events) {
-  const returnTo = borrow(builder);
-  builder.job = { kind: "build", queueItemId: item.id, returnTo };
-  item.startedAt = at;
-  item.durationMs = Math.max(1e3, Math.round(item.durationMs / builderSpeed(builder)));
-  events.push({ type: "constructionStarted", at, queueItemId: item.id, builderId: builder.id });
-}
-function startConstructions(state, at, events) {
-  if (!state.automation.build) return;
-  for (const item of waitingForBuilder(state)) {
-    const builder = pickBuilder(state);
-    if (!builder) return;
-    startItem(state, item, builder, at, events);
-  }
-}
-function sendBack(state, v, home) {
-  delete v.lent;
-  const back = home ? getBuilding(state, home) : void 0;
-  if (back && workersOf(state, back.id).length < workerSlots(back)) {
-    v.job = { kind: "work", buildingId: back.id };
-  } else {
-    v.job = { kind: "idle" };
-    autoAssign(state, v);
-  }
-}
-function bestFor(state, to, power, except) {
-  let best;
-  for (const v of state.villagers) {
-    if (except?.has(v.id) || !canBorrow(state, v, to)) continue;
-    const p = power(v);
-    const idle = v.job.kind === "idle";
-    if (!best || p > best.p + 1e-9 || Math.abs(p - best.p) <= 1e-9 && idle && !best.idle)
-      best = { v, p, idle };
-  }
-  return best?.v;
-}
-function fillResearch(state) {
-  if (!state.automation.research) return;
-  const libraries2 = state.buildings.filter((b) => b.type === "library");
-  if (!state.research.current) {
-    for (const v of state.villagers) {
-      if (v.lent === void 0 || v.job.kind !== "work") continue;
-      if (!libraries2.some((b) => b.id === v.job.buildingId))
-        continue;
-      sendBack(state, v, v.lent);
+  if (next && next.announced && next.at === at) {
+    if (sky.meteors.length >= METEORS.max) {
+      const old = sky.meteors.shift();
+      leaveWreck(s, old, at, events);
     }
-    return;
+    sky.meteors.push({
+      id: next.id,
+      q: next.q,
+      r: next.r,
+      resource: next.resource,
+      stock: next.stock,
+      max: next.stock,
+      landedAt: at,
+      expiresAt: at + METEORS.lifeMs
+    });
+    sky.falls++;
+    sky.lastFallAt = at;
+    sky.next = null;
+    events.push({
+      type: "meteorLanded",
+      at,
+      q: next.q,
+      r: next.r,
+      resource: next.resource,
+      stock: next.stock
+    });
   }
-  for (const b of libraries2) {
-    let free = workerSlots(b) - workersOf(state, b.id).length;
-    while (free-- > 0) {
-      const v = bestFor(state, "research", researchPower);
-      if (!v) return;
-      const home = borrow(v);
-      v.job = { kind: "work", buildingId: b.id };
-      v.lent = home;
-    }
+  for (const m of sky.meteors) {
+    if (m.expiresAt !== at) continue;
+    events.push({ type: "meteorFaded", at, q: m.q, r: m.r, resource: m.resource });
+    leaveWreck(s, m, at, events);
   }
-}
-function forgetLent(state) {
-  for (const v of state.villagers) {
-    if (v.lent === void 0) continue;
-    const atLibrary = v.job.kind === "work" && getBuilding(state, v.job.buildingId)?.type === "library";
-    if (!atLibrary && v.job.kind !== "guard") delete v.lent;
-  }
-}
-function dispatchTasks(state, at, events) {
-  forgetLent(state);
-  startConstructions(state, at, events);
-  fillResearch(state);
+  sky.meteors = sky.meteors.filter((m) => m.expiresAt > at);
 }
 
 // packages/shared/src/sim/expeditions.ts
@@ -3278,11 +3305,11 @@ function deliveryOf(shipment, from, senderId) {
 
 // packages/shared/src/sim/threats.ts
 var HOUR2 = 36e5;
-var DAY = 24 * HOUR2;
+var DAY2 = 24 * HOUR2;
 function wavePower(state, at) {
   const level = nest(state).level;
   const factor = THREATS.nestFactor[level] ?? THREATS.nestFactor[THREATS.nestFactor.length - 1];
-  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY));
+  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY2));
   const victories = Object.values(state.victories).reduce((a, b) => a + b, 0);
   const provocation = Math.min(THREATS.maxProvocation, THREATS.perVictory * victories);
   const age = THREATS.ageFactor[ageOf(state)] ?? 1;
@@ -3725,144 +3752,6 @@ function incident(s, at, events) {
   events.push({ type: "incident", ...report });
 }
 
-// packages/shared/src/sim/sky.ts
-var DAY2 = 24 * 36e5;
-var EPS = 1e-6;
-function meteorStock(state, at) {
-  const f = METEORS.nestFactor;
-  const factor = f[Math.min(nest(state).level, f.length - 1)] ?? 1;
-  const age = METEORS.ageFactor[ageOf(state)] ?? 1;
-  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY2));
-  const tech = techEffects(state).meteorStock;
-  return Math.round(METEORS.stock * factor * age * tech * (1 + METEORS.perDay * days));
-}
-function meteorRate(m, harvests) {
-  if (m.stock <= EPS) return 0;
-  let rate = 0;
-  for (const { b, h } of harvests) {
-    if (h.status === "flooded" || h.status === "idle" || h.demand <= 0) continue;
-    const base = baseHarvest(b, h.resource);
-    if (base <= 0) continue;
-    const work = h.demand / base;
-    if (b.type === "camp") {
-      if (b.q === m.q && b.r === m.r) rate += CAMPS.rates[m.resource] * work;
-    } else if (h.resource === m.resource && hexDistance(b, m) <= catchmentRadius(b)) {
-      rate += base * METEORS.producerShare * work;
-    }
-  }
-  return rate;
-}
-function meteorAt(state, q, r) {
-  return state.sky.meteors.find((m) => m.q === q && m.r === r);
-}
-function nextSkyEvent(state) {
-  const sky = state.sky;
-  let next = Infinity;
-  if (sky.next) next = sky.next.announced ? sky.next.at : sky.next.announceAt;
-  for (const m of sky.meteors) next = Math.min(next, m.expiresAt);
-  return next;
-}
-function planMeteor(s) {
-  const sky = s.sky;
-  if (sky.next) return;
-  withThreatRng(s, (rng) => {
-    const gap = Math.round(rng.range(METEORS.intervalMs[0], METEORS.intervalMs[1]));
-    const earliest = sky.falls === 0 ? s.createdAt + METEORS.firstMs : sky.lastFallAt + gap;
-    const at = Math.max(earliest, s.now + METEORS.noticeMs);
-    sky.next = {
-      id: `m${sky.falls + 1}`,
-      announceAt: at - METEORS.noticeMs,
-      at,
-      announced: false,
-      q: 0,
-      r: 0,
-      resource: "seeds",
-      stock: 0
-    };
-  });
-}
-function skyTick(s, at, events) {
-  const sky = s.sky;
-  const next = sky.next;
-  if (next && !next.announced && next.announceAt === at) {
-    const spot = withThreatRng(s, (rng) => {
-      const map = faceMapOf(s);
-      const season = seasonOf(s);
-      const taken = /* @__PURE__ */ new Set([
-        ...s.buildings.map((b) => hexKey(b)),
-        ...s.queue.filter((i) => i.kind === "build").map((i) => hexKey(i)),
-        ...sky.meteors.map((m) => hexKey(m)),
-        ...s.obstacles.map((o) => hexKey(o))
-      ]);
-      const free = map.tiles.filter(
-        (t) => METEORS.tiles.includes(t.type) && t.rho >= 0.25 && t.rho <= 0.92 && !taken.has(hexKey(t)) && !isFlooded(t, s.params.biome, season)
-      );
-      const weights = Object.entries(METEORS.resources);
-      let roll = rng.next() * weights.reduce((sum, [, w]) => sum + w, 0);
-      let resource = weights[0][0];
-      for (const [id3, w] of weights) {
-        roll -= w;
-        if (roll < 0) {
-          resource = id3;
-          break;
-        }
-      }
-      return { tile: free.length > 0 ? rng.pick(free) : null, resource };
-    });
-    if (!spot.tile) {
-      sky.next = null;
-      sky.lastFallAt = next.at;
-      return;
-    }
-    next.announced = true;
-    next.q = spot.tile.q;
-    next.r = spot.tile.r;
-    next.resource = spot.resource;
-    next.stock = meteorStock(s, next.at);
-    events.push({
-      type: "meteorAnnounced",
-      at,
-      strikeAt: next.at,
-      q: next.q,
-      r: next.r,
-      resource: next.resource
-    });
-  }
-  if (next && next.announced && next.at === at) {
-    if (sky.meteors.length >= METEORS.max) {
-      const old = sky.meteors.shift();
-      leaveWreck(s, old, at, events);
-    }
-    sky.meteors.push({
-      id: next.id,
-      q: next.q,
-      r: next.r,
-      resource: next.resource,
-      stock: next.stock,
-      max: next.stock,
-      landedAt: at,
-      expiresAt: at + METEORS.lifeMs
-    });
-    sky.falls++;
-    sky.lastFallAt = at;
-    sky.next = null;
-    events.push({
-      type: "meteorLanded",
-      at,
-      q: next.q,
-      r: next.r,
-      resource: next.resource,
-      stock: next.stock
-    });
-  }
-  for (const m of sky.meteors) {
-    if (m.expiresAt !== at) continue;
-    events.push({ type: "meteorFaded", at, q: m.q, r: m.r, resource: m.resource });
-    leaveWreck(s, m, at, events);
-  }
-  sky.meteors = sky.meteors.filter((m) => m.expiresAt > at);
-}
-
 // packages/shared/src/sim/titan.ts
 function terraformLeft(state) {
   const caps = TITAN.maxTerraform;
@@ -4062,7 +3951,13 @@ function jobBoard(state) {
     freeSlots,
     guards: state.villagers.filter((v) => v.job.kind === "guard"),
     builders: state.villagers.filter((v) => v.job.kind === "build"),
-    pickers: state.villagers.filter((v) => v.job.kind === "stardust")
+    pickers: state.villagers.filter((v) => v.job.kind === "stardust"),
+    meteors: state.sky.meteors.filter((m) => m.stock > 0).map((m) => ({
+      meteor: m,
+      miners: minersOf(state, m.id),
+      slots: METEORS.slots,
+      perHour: full(m.resource) ? 0 : meteorRate(state, m)
+    }))
   };
 }
 function belowReturn(state, id3) {
@@ -4098,7 +3993,8 @@ function returnHome(state, at, events) {
   const returned = /* @__PURE__ */ new Map();
   for (const v of state.villagers) {
     if (!v.homeJob) continue;
-    if (v.job.kind === "build" || v.lent !== void 0) continue;
+    if (v.job.kind === "build" || v.job.kind === "meteor" || v.job.kind === "stardust" || v.lent !== void 0)
+      continue;
     const home = state.buildings.find((b) => b.id === v.homeJob);
     const id3 = home ? buildingResource(state, home) : null;
     if (v.job.kind !== "work" || !home || !id3 || v.job.buildingId === home.id) {
@@ -4165,7 +4061,6 @@ function advanceInPlace(s, now, events) {
   let map = faceMapOf(s);
   syncPools(s, map, s.now);
   returnHome(s, s.now, events);
-  dispatchTasks(s, s.now, events);
   let stage = hungerStage(s);
   for (let guard = 0; guard < 1e5; guard++) {
     planWave(s);
@@ -4271,6 +4166,7 @@ function advanceInPlace(s, now, events) {
       const e = events[i];
       if (e.type === "storageFull") filled.add(e.resource);
     }
+    if (filled.size > 0) releaseFullCraters(s, filled);
     if (s.automation.redirect) {
       if (constructionEnd === nextEvent) redirectFull(s, nextEvent, events);
       else if (filled.size > 0) redirectFull(s, nextEvent, events, filled);
@@ -4301,7 +4197,6 @@ function computeFlows(s) {
   const production = emptyResources();
   const harvested = emptyResources();
   const harvests = [];
-  const all = [];
   for (const b of s.buildings) {
     const p = passiveRates(s, b);
     for (const id3 of RESOURCE_IDS) production[id3] += p[id3];
@@ -4309,12 +4204,11 @@ function computeFlows(s) {
     if (!h) continue;
     production[h.resource] += h.output;
     harvested[h.resource] += h.output;
-    all.push({ b, h });
     if (b.pool) harvests.push({ b, h });
   }
   const picked = [];
   for (const m of s.sky.meteors) {
-    const rate = meteorRate(m, all);
+    const rate = meteorRate(s, m);
     if (rate <= 0) continue;
     production[m.resource] += rate;
     harvested[m.resource] += rate;
@@ -4562,6 +4456,202 @@ function constructionRemaining(s, now) {
   return end === Infinity ? 0 : Math.max(0, end - now);
 }
 
+// packages/shared/src/sim/tasks.ts
+var RANK = {
+  garrison: 0,
+  build: 1,
+  research: 2,
+  pick: 3,
+  harvest: 4,
+  idle: 5
+};
+function taskLevel(state, v) {
+  switch (v.job.kind) {
+    case "idle":
+      return "idle";
+    case "work":
+      return getBuilding(state, v.job.buildingId)?.type === "library" ? "research" : "harvest";
+    case "stardust":
+    case "meteor":
+      return "pick";
+    case "build":
+      return "build";
+    case "guard":
+      return "garrison";
+    default:
+      return null;
+  }
+}
+function canBorrow(state, v, to) {
+  if (v.kikiwiwi) return false;
+  const level = taskLevel(state, v);
+  if (level === null || RANK[level] <= RANK[to]) return false;
+  return level === "idle" || !v.locked;
+}
+function borrow(v) {
+  let home = null;
+  if (v.lent !== void 0) home = v.lent;
+  else if (v.job.kind === "work") home = v.job.buildingId;
+  else if (v.job.kind === "stardust" || v.job.kind === "build" || v.job.kind === "meteor")
+    home = v.job.returnTo;
+  delete v.lent;
+  return home;
+}
+function buildSlots(state) {
+  const slots = TASKS.buildSlots;
+  return slots[Math.min(nest(state).level, slots.length - 1)] ?? 1;
+}
+function startedItems(state) {
+  return state.queue.filter((i) => i.startedAt !== null);
+}
+function nextConstructionEnd(state) {
+  let next = Infinity;
+  for (const i of state.queue)
+    if (i.startedAt !== null) next = Math.min(next, i.startedAt + i.durationMs);
+  return next;
+}
+function waitingForBuilder(state) {
+  const free = buildSlots(state) - startedItems(state).length;
+  if (free <= 0) return [];
+  return state.queue.filter((i) => i.startedAt === null).slice(0, free);
+}
+function pickBuilder(state) {
+  let priority;
+  let best;
+  for (const v of state.villagers) {
+    if (v.kikiwiwi) continue;
+    const speed = builderSpeed(v);
+    if (v.builderPriority && (v.job.kind === "idle" || v.job.kind === "work")) {
+      if (!priority || speed > builderSpeed(priority)) priority = v;
+    }
+    if (!canBorrow(state, v, "build")) continue;
+    const idle = v.job.kind === "idle";
+    if (!best || speed > best.speed + 1e-9 || Math.abs(speed - best.speed) <= 1e-9 && idle && !best.idle)
+      best = { v, speed, idle };
+  }
+  return priority ?? best?.v;
+}
+function startItem(state, item, builder, at, events) {
+  const returnTo = borrow(builder);
+  builder.job = { kind: "build", queueItemId: item.id, returnTo };
+  item.startedAt = at;
+  item.durationMs = Math.max(1e3, Math.round(item.durationMs / builderSpeed(builder)));
+  events.push({ type: "constructionStarted", at, queueItemId: item.id, builderId: builder.id });
+}
+function startConstructions(state, at, events) {
+  if (!state.automation.build) return;
+  for (const item of waitingForBuilder(state)) {
+    const builder = pickBuilder(state);
+    if (!builder) return;
+    startItem(state, item, builder, at, events);
+  }
+}
+function sendBack(state, v, home) {
+  delete v.lent;
+  const back = home ? getBuilding(state, home) : void 0;
+  if (back && workersOf(state, back.id).length < workerSlots(back)) {
+    v.job = { kind: "work", buildingId: back.id };
+  } else {
+    v.job = { kind: "idle" };
+    autoAssign(state, v);
+  }
+}
+function sendBackAll(state, list) {
+  const ordered = [...list.filter(([, h]) => h !== null), ...list.filter(([, h]) => h === null)];
+  for (const [v, home] of ordered) sendBack(state, v, home);
+}
+function bestFor(state, to, power, except) {
+  let best;
+  for (const v of state.villagers) {
+    if (except?.has(v.id) || !canBorrow(state, v, to)) continue;
+    const p = power(v);
+    const idle = v.job.kind === "idle";
+    if (!best || p > best.p + 1e-9 || Math.abs(p - best.p) <= 1e-9 && idle && !best.idle)
+      best = { v, p, idle };
+  }
+  return best?.v;
+}
+function fillResearch(state) {
+  if (!state.automation.research) return;
+  const libraries2 = state.buildings.filter((b) => b.type === "library");
+  if (!state.research.current) {
+    sendBackAll(
+      state,
+      state.villagers.filter(
+        (v) => v.lent !== void 0 && v.job.kind === "work" && libraries2.some((b) => b.id === v.job.buildingId)
+      ).map((v) => [v, v.lent ?? null])
+    );
+    return;
+  }
+  for (const b of libraries2) {
+    let free = workerSlots(b) - workersOf(state, b.id).length;
+    while (free-- > 0) {
+      const v = bestFor(state, "research", researchPower);
+      if (!v) return;
+      const home = borrow(v);
+      v.job = { kind: "work", buildingId: b.id };
+      v.lent = home;
+    }
+  }
+}
+function forgetLent(state) {
+  for (const v of state.villagers) {
+    if (v.lent === void 0) continue;
+    const atLibrary = v.job.kind === "work" && getBuilding(state, v.job.buildingId)?.type === "library";
+    if (!atLibrary && v.job.kind !== "guard") delete v.lent;
+  }
+}
+function fillCraters(state) {
+  const done = [];
+  for (const v of state.villagers) {
+    if (v.job.kind !== "meteor") continue;
+    const id3 = v.job.meteorId;
+    const m = state.sky.meteors.find((x) => x.id === id3);
+    if (!m || m.stock <= 0) done.push([v, v.job.returnTo]);
+  }
+  sendBackAll(state, done);
+  if (!state.automation.meteor) return;
+  const cap = capacity(state);
+  for (const m of state.sky.meteors) {
+    if (m.stock <= 0 || state.resources[m.resource] >= cap[m.resource] - 1e-6) continue;
+    let free = METEORS.slots - minersOf(state, m.id).length;
+    while (free-- > 0) {
+      const v = bestFor(state, "pick", (x) => workerPower(x, m.resource));
+      if (!v) return;
+      v.job = { kind: "meteor", meteorId: m.id, returnTo: borrow(v) };
+    }
+  }
+}
+function releaseFullCraters(state, filled) {
+  const done = [];
+  for (const v of state.villagers) {
+    if (v.job.kind !== "meteor") continue;
+    const id3 = v.job.meteorId;
+    const m = state.sky.meteors.find((x) => x.id === id3);
+    if (m && filled.has(m.resource)) done.push([v, v.job.returnTo]);
+  }
+  sendBackAll(state, done);
+}
+function fillStardust(state) {
+  if (!state.automation.stardust || state.stardust >= STARDUST_CAP) return;
+  for (const p of state.comets.patches) {
+    if (p.stock <= 0) continue;
+    let free = STARDUST.slots - dustPickers(state, p.id).length;
+    while (free-- > 0) {
+      const v = bestFor(state, "pick", pickRate);
+      if (!v) return;
+      v.job = { kind: "stardust", patchId: p.id, returnTo: borrow(v) };
+    }
+  }
+}
+function dispatchTasks(state, at, events) {
+  forgetLent(state);
+  startConstructions(state, at, events);
+  fillResearch(state);
+  fillCraters(state);
+  fillStardust(state);
+}
+
 // packages/shared/src/sim/comets.ts
 var STARDUST_CAP = STARDUST.cap * STARDUST_SCALE;
 function stardustOf(state) {
@@ -4653,16 +4743,10 @@ function freeTiles(s) {
   );
 }
 function releasePickers(s, patchId) {
-  for (const v of s.villagers) {
-    if (v.job.kind !== "stardust" || patchId !== null && v.job.patchId !== patchId) continue;
-    const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : void 0;
-    if (back && workersOf(s, back.id).length < workerSlots(back)) {
-      v.job = { kind: "work", buildingId: back.id };
-    } else {
-      v.job = { kind: "idle" };
-      autoAssign(s, v);
-    }
-  }
+  sendBackAll(
+    s,
+    s.villagers.filter((v) => v.job.kind === "stardust" && (patchId === null || v.job.patchId === patchId)).map((v) => [v, v.job.kind === "stardust" ? v.job.returnTo : null])
+  );
 }
 function cometTick(s, at, events) {
   const c = s.comets;
@@ -4889,6 +4973,7 @@ function workSite(state, v) {
   if (job2.kind === "titan") return { q: job2.q, r: job2.r };
   if (job2.kind === "stardust")
     return state.comets.patches.find((p) => p.id === job2.patchId) ?? null;
+  if (job2.kind === "meteor") return state.sky.meteors.find((m) => m.id === job2.meteorId) ?? null;
   if (job2.kind === "build") return state.queue.find((i) => i.id === job2.queueItemId) ?? null;
   if (job2.kind === "expedition") return null;
   return state.buildings.find((b) => b.type === "nest") ?? null;
@@ -4906,7 +4991,7 @@ function bedsOf(state, map = faceMapOf(state)) {
   key += "|";
   for (const v of state.villagers) {
     const j = v.job;
-    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : j.kind === "transform" ? `${v.id}x${j.labId};` : j.kind === "titan" ? `${v.id}T${j.q},${j.r};` : j.kind === "stardust" ? `${v.id}d${j.patchId};` : "";
+    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : j.kind === "transform" ? `${v.id}x${j.labId};` : j.kind === "titan" ? `${v.id}T${j.q},${j.r};` : j.kind === "stardust" ? `${v.id}d${j.patchId};` : j.kind === "meteor" ? `${v.id}m${j.meteorId};` : "";
   }
   key += `|${pathsKey(state.paths)}`;
   const cached = bedCache.get(key);
@@ -5154,12 +5239,16 @@ function workforce(state, b, workers) {
   const damaged = b.damaged ? THREATS.damagedWork : 1;
   const resource = buildingResource(state, b);
   if (!resource) return workers.length * damaged;
+  return crewWork(state, workers, resource) * damaged;
+}
+function crewWork(state, workers, resource) {
+  if (state.threats.shelterUntil > state.now) return 0;
   const beds = bedsOf(state);
   const sum = workers.reduce(
     (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)),
     0
   );
-  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds) * damaged;
+  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds);
 }
 function mayorOf(state) {
   return state.villagers.find((v) => v.classId === "mayor" && v.job.kind !== "expedition");
@@ -5203,6 +5292,10 @@ function ratesOf(state, v, masteries) {
   } else if (job2.kind === "build") {
     perHour = KIWI.xpPerHour.build;
     mastery = "build";
+  } else if (job2.kind === "meteor") {
+    const m2 = state.sky.meteors.find((x) => x.id === job2.meteorId);
+    perHour = KIWI.xpPerHour.work;
+    mastery = m2 ? RESOURCE_MASTERY[m2.resource] : null;
   } else if (job2.kind === "train" || job2.kind === "transform") {
     perHour = KIWI.xpPerHour.train;
   } else if (job2.kind === "guard" || job2.kind === "titan" || job2.kind === "stardust") {
@@ -5336,7 +5429,8 @@ function techEffects(state) {
     nightWork: 1,
     waveNotice: 0,
     cometInterval: 1,
-    meteorStock: 1
+    meteorStock: 1,
+    meteorDrill: false
   };
   for (const id3 of state.research.done) {
     const e = TECHS[id3].effects;
@@ -5360,6 +5454,7 @@ function techEffects(state) {
     out.waveNotice += e.waveNotice ?? 0;
     out.cometInterval *= e.cometInterval ?? 1;
     out.meteorStock *= e.meteorStock ?? 1;
+    out.meteorDrill ||= e.meteorDrill ?? false;
   }
   if (effectsCache2.size > 64) effectsCache2.clear();
   effectsCache2.set(key, out);
@@ -5934,6 +6029,7 @@ function grossRates(state) {
     const r = buildingRates(state, b, never);
     for (const id3 of RESOURCE_IDS) total[id3] += r[id3];
   }
+  for (const m of state.sky.meteors) total[m.resource] += meteorRate(state, m);
   return total;
 }
 function netRates(state) {
@@ -5975,6 +6071,8 @@ function productionRates(state, full = storageFullCheck(state)) {
     const r = buildingRates(state, b, full);
     for (const id3 of RESOURCE_IDS) total[id3] += r[id3];
   }
+  for (const m of state.sky.meteors)
+    if (!full(m.resource)) total[m.resource] += meteorRate(state, m);
   return total;
 }
 function canAfford(resources2, cost) {
@@ -6530,7 +6628,8 @@ var TECH_STATS = [
   "nightWork",
   "waveNotice",
   "cometInterval",
-  "meteorStock"
+  "meteorStock",
+  "meteorDrill"
 ];
 var MULTIPLIERS = [
   "storage",
@@ -6547,7 +6646,7 @@ var MULTIPLIERS = [
   "meteorStock"
 ];
 var BONUSES = ["armor", "recon", "infusionRisk", "waveNotice"];
-var UNLOCKS = ["firearms", "laboratory", "terraform"];
+var UNLOCKS = ["firearms", "laboratory", "terraform", "meteorDrill"];
 function describeTech(id3, state) {
   const now = techEffects(state);
   const done = state.research.done.includes(id3) ? state.research.done : [...state.research.done, id3];
@@ -6595,6 +6694,7 @@ function siteError(state, map, type, tile) {
     return "tileOccupied";
   if (obstacleAt(state, tile.q, tile.r)) return "obstacle";
   if (titanAt(state, tile.q, tile.r)) return "titanAtWork";
+  if (meteorAt(state, tile.q, tile.r)) return "onCrater";
   if (isFlooded(tile, map.params.biome, seasonOf(state))) return "flooded";
   if (isTurret(type) && !isRampart(map, tile.q, tile.r)) return "notOnRampart";
   return null;
@@ -6706,7 +6806,11 @@ var COMMAND_ERRORS = [
   "stardustFull",
   "notEnoughStardust",
   "notInjured",
-  "blessingLimit"
+  "blessingLimit",
+  // Chantier 15
+  "onCrater",
+  "unknownCrater",
+  "craterFull"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -6921,7 +7025,7 @@ function execute(s, cmd, ctx, events) {
     case "assignKiwi": {
       const v = s.villagers.find((x) => x.id === cmd.villagerId);
       if (!v) return fail("unknownVillager");
-      if (v.job.kind !== "idle" && v.job.kind !== "work" && v.job.kind !== "guard")
+      if (v.job.kind !== "idle" && v.job.kind !== "work" && v.job.kind !== "guard" && v.job.kind !== "meteor" && v.job.kind !== "stardust")
         fail("kiwiBusy");
       if (cmd.buildingId === null) {
         v.job = { kind: "idle" };
@@ -7060,6 +7164,7 @@ function execute(s, cmd, ctx, events) {
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail("tileOccupied");
       if (obstacleAt(s, cmd.q, cmd.r)) fail("obstacle");
       if (titanAt(s, cmd.q, cmd.r)) fail("titanAtWork");
+      if (meteorAt(s, cmd.q, cmd.r)) fail("onCrater");
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail("flooded");
       if (s.buildings.filter((b) => b.type === "camp").length >= CAMPS.max) fail("campLimit");
       const id3 = nextId(s, "b");
@@ -7288,6 +7393,26 @@ function execute(s, cmd, ctx, events) {
           autoAssign(s, v);
         }
       }
+      return;
+    }
+    case "collectMeteor": {
+      const m = s.sky.meteors.find((x) => x.id === cmd.meteorId);
+      if (!m || m.stock <= 0) return fail("unknownCrater");
+      const ids = new Set(cmd.villagerIds);
+      if (ids.size !== cmd.villagerIds.length) fail("invalidCrew");
+      if (ids.size > METEORS.slots) fail("craterFull");
+      for (const id3 of ids) {
+        const v = s.villagers.find((x) => x.id === id3);
+        if (!v) return fail("unknownVillager");
+        if (v.kikiwiwi) fail("kikiwiwiNoWork");
+        if (!canMine(v)) fail("kiwiBusy");
+        if (v.job.kind === "meteor" && v.job.meteorId === m.id) continue;
+        v.job = { kind: "meteor", meteorId: m.id, returnTo: borrow(v) };
+      }
+      sendBackAll(
+        s,
+        minersOf(s, m.id).filter((v) => !ids.has(v.id)).map((v) => [v, v.job.kind === "meteor" ? v.job.returnTo : null])
+      );
       return;
     }
     case "setGarrison": {
@@ -11410,6 +11535,7 @@ var job = external_exports.discriminatedUnion("kind", [
   external_exports.object({ kind: external_exports.literal("guard") }),
   external_exports.object({ kind: external_exports.literal("injured"), until: external_exports.number() }),
   external_exports.object({ kind: external_exports.literal("stardust"), patchId: id, returnTo: id.nullable() }),
+  external_exports.object({ kind: external_exports.literal("meteor"), meteorId: id, returnTo: id.nullable() }),
   external_exports.object({
     kind: external_exports.literal("titan"),
     work: external_exports.enum(TITAN_WORK_IDS),
@@ -11960,6 +12086,11 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     type: external_exports.literal("collectStardust"),
     patchId: id2,
     villagerIds: external_exports.array(id2).max(STARDUST.slots)
+  }),
+  external_exports.object({
+    type: external_exports.literal("collectMeteor"),
+    meteorId: id2,
+    villagerIds: external_exports.array(id2).max(METEORS.slots)
   }),
   external_exports.object({ type: external_exports.literal("setResearch"), tech: external_exports.enum(TECH_IDS).nullable() }),
   external_exports.object({ type: external_exports.literal("clearObstacle"), q: external_exports.number().int(), r: external_exports.number().int() }),
@@ -12830,6 +12961,7 @@ export {
   belowReturn,
   bestDustCrew,
   bestIdleFor,
+  bestMeteorCrew,
   biomeFits,
   biomeProfile,
   biomesOf,
@@ -12850,6 +12982,7 @@ export {
   canAfford,
   canBorrow,
   canHatch,
+  canMine,
   canPickDust,
   canReshape,
   canResolveArrival,
@@ -12883,6 +13016,7 @@ export {
   createRng,
   crewOf,
   crewWeight,
+  crewWork,
   currentObjective,
   cycleHarvest,
   defaultAutomation,
@@ -12903,6 +13037,7 @@ export {
   distanceIn,
   drawBiomes,
   drawGarrison,
+  drillFactor,
   dustAt,
   dustPickers,
   dustPoints,
@@ -12913,7 +13048,9 @@ export {
   ensureAliens,
   exposedKiwis,
   faceMapOf,
+  fillCraters,
   fillResearch,
+  fillStardust,
   finishInfusions,
   finishTitanWorks,
   foodLeftMs,
@@ -13014,6 +13151,7 @@ export {
   meteorStock,
   migrateState,
   minCrew,
+  minersOf,
   missingBeds,
   modifiers,
   moraleOf,
@@ -13080,6 +13218,7 @@ export {
   recordIntel,
   redirectFull,
   regenBonus,
+  releaseFullCraters,
   releasePool,
   removeObstacle,
   removeVillagers,
@@ -13108,6 +13247,7 @@ export {
   sectorOf,
   sectorThreat,
   sendBack,
+  sendBackAll,
   sendShipment,
   serializeSave,
   shieldArrival,

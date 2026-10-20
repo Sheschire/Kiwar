@@ -1,3 +1,4 @@
+import type { Resources } from './resources';
 import { ms } from './curves';
 import type { ClassId } from './classes';
 import type { Season } from './cycles';
@@ -174,10 +175,17 @@ export const METEORS = {
   perDay: 0.15,
   /** What falls (weights). */
   resources: { seeds: 2, juice: 1, fiber: 1 } as const,
-  /** Land types it can land on (a camp can be set up there). */
+  /** Land types it can land on. */
   tiles: ['flesh', 'grove', 'seedRing'] as const,
-  /** A producer of the same resource reaching the crater takes this share of its base rate. */
-  producerShare: 0.5,
+  /**
+   * Chantier 15: a crater is a temporary post (no camp, nothing built on it) with this many
+   * places, filled by the kiwis with the most Dexterity.
+   */
+  slots: 3,
+  /** Harvest per hour of one average kiwi at a crater (a level-1 workplace's rate). */
+  rates: { pulp: 750, fiber: 600, seeds: 190, juice: 450 } satisfies Resources,
+  /** Meteorite drill (technology `meteorDrill`): harvest multiplier by age (index = age). */
+  drill: [1, 1.5, 2, 2.5] as readonly number[],
   /** Craters kept at once. */
   max: 3,
 } as const;

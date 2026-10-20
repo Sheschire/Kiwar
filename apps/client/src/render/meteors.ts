@@ -2,6 +2,8 @@ import {
   AdditiveBlending,
   CanvasTexture,
   Color,
+  ConeGeometry,
+  CylinderGeometry,
   Group,
   IcosahedronGeometry,
   Mesh,
@@ -13,7 +15,16 @@ import {
   SpriteMaterial,
   TorusGeometry,
 } from 'three';
-import { getTile, type FaceMap, type GameState, type Meteor, type ResourceId } from '@kiwar/shared';
+import {
+  ageOf,
+  getTile,
+  minersOf,
+  techEffects,
+  type FaceMap,
+  type GameState,
+  type Meteor,
+  type ResourceId,
+} from '@kiwar/shared';
 import { worldPosition } from './terrain';
 
 const GLOW: Record<ResourceId, string> = {
@@ -42,10 +53,18 @@ function glowTexture(): CanvasTexture {
   return t;
 }
 
+/** Chantier 15: the meteorite drill's frame and bit by age (wood, wood, iron, brass). */
+const DRILL_FRAME = ['#8a6a44', '#8a6a44', '#5f646b', '#9a7a3a'];
+const DRILL_BIT = ['#b8b0a0', '#b8b0a0', '#c9ced6', '#d8b04a'];
+
 interface Crater {
   group: Group;
   rock: Mesh;
   glow: Sprite;
+  /** The drill over the crater (shown once researched, while kiwis work it). */
+  drill: Group;
+  bit: Mesh;
+  drilling: boolean;
   /** Seconds since the landing animation started (Infinity: landed long ago). */
   fall: number;
   y: number;
@@ -73,6 +92,15 @@ export class MeteorsView {
     null;
   private signature = '';
   private time = 0;
+  private readonly legGeometry = new CylinderGeometry(0.025, 0.035, 0.9, 5);
+  private readonly bitGeometry = new ConeGeometry(0.09, 0.32, 6);
+  private readonly frameMaterials = DRILL_FRAME.map(
+    (c) => new MeshStandardMaterial({ color: c, roughness: 0.85, flatShading: true }),
+  );
+  private readonly bitMaterials = DRILL_BIT.map(
+    (c) =>
+      new MeshStandardMaterial({ color: c, roughness: 0.4, metalness: 0.5, flatShading: true }),
+  );
 
   constructor(private readonly map: FaceMap) {
     this.star = new Sprite(
@@ -108,8 +136,11 @@ export class MeteorsView {
   sync(state: GameState): void {
     const sky = state.sky;
     const next = sky.next?.announced ? sky.next : null;
-    const sig = `${next ? `${next.id}@${next.q},${next.r}` : '-'}|${sky.meteors
-      .map((m) => `${m.id}:${Math.round((m.stock / Math.max(1, m.max)) * 20)}`)
+    const drill = techEffects(state).meteorDrill;
+    const age = Math.min(ageOf(state), DRILL_FRAME.length - 1);
+    const worked = (m: Meteor) => drill && m.stock > 0 && minersOf(state, m.id).length > 0;
+    const sig = `${next ? `${next.id}@${next.q},${next.r}` : '-'}|${age}|${sky.meteors
+      .map((m) => `${m.id}:${Math.round((m.stock / Math.max(1, m.max)) * 20)}:${worked(m) ? 1 : 0}`)
       .join(';')}`;
     if (sig === this.signature) return;
     this.signature = sig;
@@ -138,6 +169,11 @@ export class MeteorsView {
       c.rock.scale.setScalar(s);
       c.glow.visible = m.stock > 0;
       c.glow.scale.setScalar(1.1 + 1.2 * k);
+      c.drilling = worked(m);
+      c.drill.visible = c.drilling;
+      for (const leg of c.drill.children.filter((x) => x !== c.bit))
+        (leg as Mesh).material = this.frameMaterials[age]!;
+      c.bit.material = this.bitMaterials[age]!;
     }
   }
 
@@ -173,9 +209,32 @@ export class MeteorsView {
       }),
     );
     glow.position.y = 0.35;
-    group.add(ring, rock, glow);
+    // The drill: a tripod over the rock, its bit turning and pounding (chantier 15).
+    const drill = new Group();
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2;
+      const leg = new Mesh(this.legGeometry, this.frameMaterials[0]);
+      leg.position.set(Math.cos(a) * 0.22, 0.42, Math.sin(a) * 0.22);
+      leg.rotation.set(Math.sin(a) * 0.45, 0, -Math.cos(a) * 0.45);
+      drill.add(leg);
+    }
+    const bit = new Mesh(this.bitGeometry, this.bitMaterials[0]);
+    bit.rotation.x = Math.PI;
+    bit.position.y = 0.5;
+    drill.add(bit);
+    drill.visible = false;
+    group.add(ring, rock, glow, drill);
     this.group.add(group);
-    const c: Crater = { group, rock, glow, fall: landed ? Infinity : 0, y };
+    const c: Crater = {
+      group,
+      rock,
+      glow,
+      drill,
+      bit,
+      drilling: false,
+      fall: landed ? Infinity : 0,
+      y,
+    };
     this.craters.set(m.id, c);
     return c;
   }
@@ -204,6 +263,10 @@ export class MeteorsView {
         c.rock.position.y = 0.12 + (1 - u * u) * STAR_HEIGHT * 0.6;
       } else c.rock.position.y = 0.12;
       c.rock.rotation.y += dt * 0.4;
+      if (c.drilling) {
+        c.bit.rotation.y += dt * 9;
+        c.bit.position.y = 0.46 + 0.06 * Math.abs(Math.sin(this.time * 5 + c.y));
+      }
       (c.rock.material as MeshStandardMaterial).emissiveIntensity =
         0.45 + 0.2 * Math.sin(this.time * 2 + c.y);
     }
@@ -217,6 +280,9 @@ export class MeteorsView {
     this.craters.clear();
     this.rockGeometry.dispose();
     this.ringGeometry.dispose();
+    this.legGeometry.dispose();
+    this.bitGeometry.dispose();
+    for (const m of [...this.frameMaterials, ...this.bitMaterials]) m.dispose();
     this.ringMaterial.dispose();
     this.glowTexture.dispose();
     (this.star.material as SpriteMaterial).dispose();

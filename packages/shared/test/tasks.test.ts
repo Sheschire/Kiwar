@@ -10,6 +10,21 @@ import {
   workersOf,
   TECHS,
   validateCommand,
+  applyCommand,
+  bestMeteorCrew,
+  capacity,
+  COMETS,
+  crewWork,
+  cycleHarvest,
+  depotDistance,
+  faceMapOf,
+  logisticsEfficiency,
+  meteorRate,
+  METEORS,
+  minersOf,
+  productionRates,
+  STARDUST,
+  type Command,
   type GameState,
   type TechId,
 } from '../src';
@@ -219,5 +234,156 @@ describe('research as a task (chantier 15)', () => {
     small = advance(small, end).state;
     expect(small.research).toEqual(big.research);
     expect(small.villagers).toEqual(big.villagers);
+  });
+});
+
+/** The colony with a crater of seeds on a free flesh tile (nobody sent yet). */
+function withCrater(stock = 400) {
+  const { map, s: start, pulpery, workshop } = colony();
+  const s = cloneState(start);
+  const tile = map.tiles.find(
+    (t) =>
+      t.type === 'flesh' &&
+      t.rho > 0.3 &&
+      !s.buildings.some((b) => b.q === t.q && b.r === t.r) &&
+      !s.obstacles.some((o) => o.q === t.q && o.r === t.r),
+  )!;
+  s.sky.meteors.push({
+    id: 'mx',
+    q: tile.q,
+    r: tile.r,
+    resource: 'seeds',
+    stock,
+    max: stock,
+    landedAt: s.now,
+    expiresAt: s.now + METEORS.lifeMs,
+  });
+  s.resources = { pulp: 500, fiber: 500, seeds: 0, juice: 500 };
+  return { map, s, pulpery, workshop, tile };
+}
+
+describe('the meteorite post (chantier 15)', () => {
+  it('fills itself with the most dexterous kiwis, drains the crater, then sends them back', () => {
+    const { map, s: s0, pulpery } = withCrater();
+    const worker = workersOf(s0, pulpery.id)[0]!;
+    worker.stats.dexterity = 10;
+    // Any command (or the next event) runs the automation.
+    let s = run(s0, { type: 'debugGrant', resources: {} }, s0.now, map);
+    const miners = minersOf(s, 'mx');
+    expect(miners).toHaveLength(Math.min(METEORS.slots, s.villagers.length));
+    const best = miners.find((v) => v.id === worker.id)!;
+    expect(best.job).toMatchObject({ kind: 'meteor', returnTo: pulpery.id });
+    const m = s.sky.meteors[0]!;
+    const rate = meteorRate(s, m);
+    const map2 = faceMapOf(s);
+    expect(rate).toBeCloseTo(
+      METEORS.rates.seeds *
+        crewWork(s, miners, 'seeds') *
+        logisticsEfficiency(depotDistance(s, map2, m)) *
+        cycleHarvest(s, 'seeds'),
+      9,
+    );
+    expect(productionRates(s).seeds).toBeGreaterThanOrEqual(rate - 1e-9);
+    s = advance(s, s.now + 24 * HOUR).state;
+    expect(s.sky.meteors[0]!.stock).toBe(0);
+    expect(minersOf(s, 'mx')).toHaveLength(0);
+    expect(s.villagers.find((v) => v.id === worker.id)!.job).toEqual({
+      kind: 'work',
+      buildingId: pulpery.id,
+    });
+  });
+
+  it('sends its miners back when the stock fills up, and waits while it is full', () => {
+    const { map, s: s0 } = withCrater(2000);
+    s0.resources.seeds = capacity(s0).seeds - 20;
+    let s = run(s0, { type: 'debugGrant', resources: {} }, s0.now, map);
+    expect(minersOf(s, 'mx').length).toBeGreaterThan(0);
+    const { state: after, events } = advance(s, s.now + HOUR);
+    expect(events.some((e) => e.type === 'storageFull' && e.resource === 'seeds')).toBe(true);
+    expect(minersOf(after, 'mx')).toHaveLength(0);
+    s = run(after, { type: 'debugGrant', resources: {} }, after.now, map);
+    expect(minersOf(s, 'mx')).toHaveLength(0);
+  });
+
+  it('is not harvested by nearby producers, and nothing is built on it', () => {
+    const { map, s: s0, tile } = withCrater();
+    s0.automation.meteor = false;
+    const s = advance(s0, s0.now + 6 * HOUR).state;
+    expect(s.sky.meteors[0]!.stock).toBe(400);
+    const r = applyCommand(
+      rich(s),
+      { type: 'build', buildingType: 'hut', q: tile.q, r: tile.r },
+      { now: s.now, map },
+    );
+    expect(!r.ok && r.error).toBe('onCrater');
+  });
+
+  it('takes the crew the player chooses in manual mode', () => {
+    const { map, s: s0 } = withCrater();
+    s0.automation.meteor = false;
+    const crew = bestMeteorCrew(s0, 'mx');
+    expect(crew).toHaveLength(Math.min(METEORS.slots, s0.villagers.length));
+    let s = run(s0, { type: 'collectMeteor', meteorId: 'mx', villagerIds: crew }, s0.now, map);
+    expect(
+      minersOf(s, 'mx')
+        .map((v) => v.id)
+        .sort(),
+    ).toEqual([...crew].sort());
+    const err = (cmd: Command) => {
+      const r = applyCommand(s, cmd, { now: s.now, map });
+      return r.ok ? null : r.error;
+    };
+    expect(err({ type: 'collectMeteor', meteorId: 'nope', villagerIds: [] })).toBe('unknownCrater');
+    const ids = s.villagers.map((v) => v.id);
+    if (ids.length > METEORS.slots)
+      expect(err({ type: 'collectMeteor', meteorId: 'mx', villagerIds: ids })).toBe('craterFull');
+    s = run(s, { type: 'collectMeteor', meteorId: 'mx', villagerIds: [] }, s.now, map);
+    expect(minersOf(s, 'mx')).toHaveLength(0);
+  });
+
+  it('digs faster with the drill, more in later ages', () => {
+    const { map, s: s0 } = withCrater();
+    const s = run(s0, { type: 'debugGrant', resources: {} }, s0.now, map);
+    const base = meteorRate(s, s.sky.meteors[0]!);
+    const drilled = cloneState(s);
+    drilled.research.done = ['meteorDrill'];
+    expect(meteorRate(drilled, drilled.sky.meteors[0]!)).toBeCloseTo(base, 9);
+    drilled.buildings.push({
+      ...drilled.buildings[0]!,
+      id: 'bm' as never,
+      type: 'monument',
+      level: 2,
+      q: 99,
+      r: 99,
+    });
+    expect(meteorRate(drilled, drilled.sky.meteors[0]!)).toBeCloseTo(base * METEORS.drill[2]!, 9);
+  });
+
+  it('gives the same result in one big step or many small ones', () => {
+    const { s: s0 } = withCrater(2000);
+    const end = s0.now + 30 * HOUR;
+    const big = advance(s0, end).state;
+    let small = s0;
+    for (let t = s0.now; t < end; t += 11 * 60_000 + 3) small = advance(small, t).state;
+    small = advance(small, end).state;
+    expect(small.villagers).toEqual(big.villagers);
+    expect(small.sky.meteors[0]!.stock).toBeCloseTo(big.sky.meteors[0]!.stock, 6);
+    expect(small.resources.seeds).toBeCloseTo(big.resources.seeds, 6);
+  });
+});
+
+describe('stardust as a task (chantier 15)', () => {
+  it('sends the most dexterous kiwis to the dust as soon as the comet passes', () => {
+    const { state } = setup();
+    state.automation.meteor = false;
+    const s = advance(state, T0 + COMETS.firstMs).state;
+    expect(s.comets.patches.length).toBeGreaterThan(0);
+    const pickers = s.villagers.filter((v) => v.job.kind === 'stardust');
+    expect(pickers.length).toBe(
+      Math.min(s.villagers.length, STARDUST.slots * s.comets.patches.length),
+    );
+    const later = advance(s, s.now + 30 * HOUR).state;
+    expect(later.stardust).toBeGreaterThan(0);
+    expect(later.villagers.some((v) => v.job.kind === 'stardust')).toBe(false);
   });
 });

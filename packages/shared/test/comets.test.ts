@@ -18,9 +18,11 @@ import { run, setup, T0 } from './helpers';
 
 const HOUR = 3_600_000;
 
-/** A colony right after the first comet dropped its dust. */
+/** A colony right after the first comet dropped its dust (picked by hand: chantier 13). */
 function afterFirstComet() {
   const { map, state } = setup();
+  state.automation.stardust = false;
+  state.automation.meteor = false;
   const s = advance(state, T0 + COMETS.firstMs).state;
   return { map, s };
 }

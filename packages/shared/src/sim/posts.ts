@@ -17,7 +17,9 @@ import {
 import { calendarOf } from './calendar';
 import { consumption } from './needs';
 import { isManualWorkplace } from '../data/buildings';
-import type { Building, GameState, Villager } from './state';
+import type { Building, GameState, Meteor, Villager } from './state';
+import { meteorRate, minersOf } from './sky';
+import { METEORS } from '../data/threats';
 
 /** What a workplace produces: a resource, or research points (the Library). */
 export type PostKind = ResourceId | 'research';
@@ -142,6 +144,8 @@ export interface JobBoard {
   builders: Villager[];
   /** Chantier 13: kiwis picking stardust. */
   pickers: Villager[];
+  /** Chantier 15: meteorite craters (temporary posts), with their harvest per hour. */
+  meteors: { meteor: Meteor; miners: Villager[]; slots: number; perHour: number }[];
 }
 
 const KIND_ORDER: PostKind[] = ['pulp', 'fiber', 'seeds', 'juice', 'research'];
@@ -206,6 +210,14 @@ export function jobBoard(state: GameState): JobBoard {
     guards: state.villagers.filter((v) => v.job.kind === 'guard'),
     builders: state.villagers.filter((v) => v.job.kind === 'build'),
     pickers: state.villagers.filter((v) => v.job.kind === 'stardust'),
+    meteors: state.sky.meteors
+      .filter((m) => m.stock > 0)
+      .map((m) => ({
+        meteor: m,
+        miners: minersOf(state, m.id),
+        slots: METEORS.slots,
+        perHour: full(m.resource) ? 0 : meteorRate(state, m),
+      })),
   };
 }
 
@@ -266,7 +278,13 @@ export function returnHome(state: GameState, at: TimeMs, events: GameEvent[]): v
     if (!v.homeJob) continue;
     // Builders and kiwis lent to a task (chantier 15) keep the memory until they are back at
     // work; anything else forgets it.
-    if (v.job.kind === 'build' || v.lent !== undefined) continue;
+    if (
+      v.job.kind === 'build' ||
+      v.job.kind === 'meteor' ||
+      v.job.kind === 'stardust' ||
+      v.lent !== undefined
+    )
+      continue;
     const home = state.buildings.find((b) => b.id === v.homeJob);
     const id = home ? buildingResource(state, home) : null;
     if (v.job.kind !== 'work' || !home || !id || v.job.buildingId === home.id) {

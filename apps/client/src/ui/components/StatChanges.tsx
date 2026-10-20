@@ -46,6 +46,7 @@ const TECH_ICONS: Record<TechStatId, IconName> = {
   waveNotice: 'defenseAir',
   cometInterval: 'comet',
   meteorStock: 'stardust',
+  meteorDrill: 'harvest',
 };
 
 /** Smaller is better for these (durations, costs, harm). */

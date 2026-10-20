@@ -45,6 +45,8 @@ export const TECH_IDS = [
   'starWatch',
   'cometLure',
   'starIron',
+  // Chantier 15
+  'meteorDrill',
 ] as const;
 export type TechId = (typeof TECH_IDS)[number];
 
@@ -88,6 +90,8 @@ export interface TechEffects {
   cometInterval?: number;
   /** Meteorite stock. */
   meteorStock?: number;
+  /** Chantier 15: a drill on every worked crater (`METEORS.drill` by age). */
+  meteorDrill?: boolean;
 }
 
 export interface TechDef {
@@ -270,6 +274,14 @@ export const TECHS: Record<TechId, TechDef> = {
     libraryLevel: 4,
     stardust: 12,
     effects: { meteorStock: 1.3 },
+  },
+  meteorDrill: {
+    id: 'meteorDrill',
+    age: 1,
+    branch: 'economy',
+    cost: 300,
+    libraryLevel: 2,
+    effects: { meteorDrill: true },
   },
 };
 

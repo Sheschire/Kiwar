@@ -3,11 +3,11 @@ import { COMETS, STARDUST, STARDUST_SCALE, dustPoints } from '../data/comets';
 import { KIWI } from '../data/kiwis';
 import { hexKey, type Hex } from '../hex/hex';
 import type { TimeMs, VillagerId } from '../types/ids';
-import { autoAssign, type GameEvent } from './advance';
+import type { GameEvent } from './advance';
 import { seasonOf } from './calendar';
 import { ageOf, techEffects } from './research';
-import { getBuilding, workerSlots, workersOf } from './selectors';
 import { type DustPatch, type GameState, type Villager } from './state';
+import { sendBackAll } from './tasks';
 import { faceMapOf, isFlooded } from './territory';
 
 /** Stardust cap in raw units. */
@@ -134,16 +134,12 @@ function freeTiles(s: GameState): Hex[] {
 
 /** Sends the pickers of a patch back to their workplace (or to look for work). */
 function releasePickers(s: GameState, patchId: string | null): void {
-  for (const v of s.villagers) {
-    if (v.job.kind !== 'stardust' || (patchId !== null && v.job.patchId !== patchId)) continue;
-    const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : undefined;
-    if (back && workersOf(s, back.id).length < workerSlots(back)) {
-      v.job = { kind: 'work', buildingId: back.id };
-    } else {
-      v.job = { kind: 'idle' };
-      autoAssign(s, v);
-    }
-  }
+  sendBackAll(
+    s,
+    s.villagers
+      .filter((v) => v.job.kind === 'stardust' && (patchId === null || v.job.patchId === patchId))
+      .map((v) => [v, v.job.kind === 'stardust' ? v.job.returnTo : null]),
+  );
 }
 
 export function cometTick(s: GameState, at: TimeMs, events: GameEvent[]): void {

@@ -158,7 +158,11 @@ describe('predator waves', () => {
 
   it('shelters everyone in the Nest: nobody hurt, no harvest meanwhile', () => {
     const { map, state } = colony();
-    let s = state;
+    // The pulpery's worker stays there (no crater nor stardust task, chantier 15).
+    let s: GameState = {
+      ...state,
+      automation: { ...state.automation, meteor: false, stardust: false },
+    };
     while (!s.threats.next?.announced) s = advance(s, s.now + HOUR_MS).state;
     const wave = s.threats.next!;
     const early = applyCommand(s, { type: 'shelter' }, { now: s.now, map });
@@ -457,13 +461,16 @@ describe('gifts from the sky', () => {
     for (const m of after.sky.meteors) expect(m.expiresAt).toBeGreaterThan(after.now);
   });
 
-  it('a camp on the crater picks it, exact offline', () => {
+  it('kiwis sent to the crater pick it, exact offline (chantier 15: a post, no camp)', () => {
     const { map, state } = setup();
     let s = advance(state, T0 + METEORS.firstMs + 1).state;
     const m = s.sky.meteors[0]!;
     expect(m).toBeDefined();
     s = { ...s, resources: { pulp: 300, fiber: 300, seeds: 0, juice: 300 } };
-    s = run(s, { type: 'gather', q: m.q, r: m.r }, s.now, map);
+    const camp = applyCommand(s, { type: 'gather', q: m.q, r: m.r }, { now: s.now, map });
+    expect(!camp.ok && camp.error).toBe('onCrater');
+    s = run(s, { type: 'debugGrant', resources: {} }, s.now, map);
+    expect(s.villagers.some((v) => v.job.kind === 'meteor')).toBe(true);
     const end = s.now + 6 * HOUR_MS;
     const one = advance(s, end).state;
     let stepped = s;

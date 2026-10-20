@@ -30,6 +30,7 @@ export function workSite(state: GameState, v: Villager): Hex | null {
   if (job.kind === 'titan') return { q: job.q, r: job.r };
   if (job.kind === 'stardust')
     return state.comets.patches.find((p) => p.id === job.patchId) ?? null;
+  if (job.kind === 'meteor') return state.sky.meteors.find((m) => m.id === job.meteorId) ?? null;
   if (job.kind === 'build') return state.queue.find((i) => i.id === job.queueItemId) ?? null;
   if (job.kind === 'expedition') return null;
   return state.buildings.find((b) => b.type === 'nest') ?? null;
@@ -77,7 +78,9 @@ export function bedsOf(state: GameState, map: FaceMap = faceMapOf(state)): Map<V
                       ? `${v.id}T${j.q},${j.r};`
                       : j.kind === 'stardust'
                         ? `${v.id}d${j.patchId};`
-                        : '';
+                        : j.kind === 'meteor'
+                          ? `${v.id}m${j.meteorId};`
+                          : '';
   }
   key += `|${pathsKey(state.paths)}`;
   const cached = bedCache.get(key);

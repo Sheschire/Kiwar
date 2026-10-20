@@ -33,6 +33,7 @@ import { isFlooded } from './territory';
 import { seasonOf } from './calendar';
 import { obstacleAt } from './obstacles';
 import { titanAt } from './titan';
+import { meteorAt } from './sky';
 
 /**
  * Chantier 11: what a building level or a technology brings, in numbers. One source of truth for
@@ -155,6 +156,7 @@ export const TECH_STATS = [
   'waveNotice',
   'cometInterval',
   'meteorStock',
+  'meteorDrill',
 ] as const;
 export type TechStatId = (typeof TECH_STATS)[number];
 
@@ -182,7 +184,7 @@ const MULTIPLIERS = [
   'meteorStock',
 ] as const;
 const BONUSES = ['armor', 'recon', 'infusionRisk', 'waveNotice'] as const;
-const UNLOCKS = ['firearms', 'laboratory', 'terraform'] as const;
+const UNLOCKS = ['firearms', 'laboratory', 'terraform', 'meteorDrill'] as const;
 
 /** What researching `id` changes for this colony: its current effects, then with the tech. */
 export function describeTech(id: TechId, state: GameState): TechChange[] {
@@ -246,6 +248,8 @@ export function siteError(
     return 'tileOccupied';
   if (obstacleAt(state, tile.q, tile.r)) return 'obstacle';
   if (titanAt(state, tile.q, tile.r)) return 'titanAtWork';
+  // Chantier 15: a crater is a temporary post, nothing is built on it.
+  if (meteorAt(state, tile.q, tile.r)) return 'onCrater';
   if (isFlooded(tile, map.params.biome, seasonOf(state))) return 'flooded';
   if (isTurret(type) && !isRampart(map, tile.q, tile.r)) return 'notOnRampart';
   return null;

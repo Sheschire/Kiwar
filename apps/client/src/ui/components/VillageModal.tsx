@@ -63,6 +63,7 @@ function jobRank(v: Villager): number {
     transform: 3,
     titan: 2,
     stardust: 1,
+    meteor: 1,
     expedition: 4,
     injured: 5,
     idle: 6,
@@ -842,6 +843,27 @@ function JobBoardView() {
             <KiwiChips kiwis={board.builders} />
           </li>
         )}
+        {board.meteors.map((x) => (
+          <li
+            key={x.meteor.id}
+            class={`board-row ${x.miners.length ? 'is-static' : 'status-empty'}`}
+          >
+            <div class="board-head">
+              <ResourceKind kind={x.meteor.resource} size={22} />
+              <span class="board-main">
+                <strong>{t('sky.board')}</strong>
+                <span class="small muted">
+                  {x.miners.length}/{x.slots}
+                  {x.perHour > 0 ? ` · ${t('sky.rate', { rate: fmt(x.perHour) })}` : ''} ·{' '}
+                  {t('posts.fades', {
+                    duration: formatDuration(lang, x.meteor.expiresAt - game.now),
+                  })}
+                </span>
+              </span>
+            </div>
+            {x.miners.length > 0 && <KiwiChips kiwis={x.miners} />}
+          </li>
+        ))}
         {board.pickers.length > 0 && (
           <li class="board-row is-static">
             <div class="board-head">

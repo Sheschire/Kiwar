@@ -70,6 +70,7 @@ const job = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('guard') }),
   z.object({ kind: z.literal('injured'), until: z.number() }),
   z.object({ kind: z.literal('stardust'), patchId: id, returnTo: id.nullable() }),
+  z.object({ kind: z.literal('meteor'), meteorId: id, returnTo: id.nullable() }),
   z.object({
     kind: z.literal('titan'),
     work: z.enum(TITAN_WORK_IDS),

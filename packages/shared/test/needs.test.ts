@@ -27,6 +27,8 @@ function crowd(kiwis: number, nestLevel = 1): GameState {
     ...state,
     villagers: [...state.villagers],
     resources: { pulp: 0, fiber: 0, seeds: 0, juice: 0 },
+    // Nobody is sent to a crater (a juice meteorite would feed them).
+    automation: { ...state.automation, meteor: false },
     buildings: state.buildings.map((b) => (b.type === 'nest' ? { ...b, level: nestLevel } : b)),
   };
   while (s.villagers.length < kiwis) addVillager(s, T0);

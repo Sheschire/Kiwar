@@ -32,6 +32,7 @@ import { seasonEffects } from '../data/cycles';
 import { consumption } from './needs';
 import { ageOf, techEffects } from './research';
 import { seasonOf } from './calendar';
+import { meteorRate } from './sky';
 
 export const HOUR_MS = 3_600_000;
 
@@ -133,6 +134,8 @@ function grossRates(state: GameState): Resources {
     const r = buildingRates(state, b, never);
     for (const id of RESOURCE_IDS) total[id] += r[id];
   }
+  // Chantier 15: meteorite craters are posts too.
+  for (const m of state.sky.meteors) total[m.resource] += meteorRate(state, m);
   return total;
 }
 
@@ -190,6 +193,8 @@ export function productionRates(state: GameState, full = storageFullCheck(state)
     const r = buildingRates(state, b, full);
     for (const id of RESOURCE_IDS) total[id] += r[id];
   }
+  for (const m of state.sky.meteors)
+    if (!full(m.resource)) total[m.resource] += meteorRate(state, m);
   return total;
 }
 

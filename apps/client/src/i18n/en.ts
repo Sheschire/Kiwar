@@ -564,6 +564,9 @@ export const en = {
     notEnoughStardust: 'Not enough stardust.',
     notInjured: 'This kiwi is not wounded.',
     blessingLimit: 'This kiwi already got its three blessings.',
+    onCrater: 'A meteorite crater is a post of its own: nothing can be built on it.',
+    unknownCrater: 'This crater is gone or empty.',
+    craterFull: 'A crater takes at most three miners.',
   },
   offline: {
     title: 'While you were away…',
@@ -975,7 +978,17 @@ export const en = {
   },
   sky: {
     meteor: 'Meteorite: {stock}/{max} {resource} · fades in {duration}',
-    hint: 'A camp on it picks it, and so does a {building} that reaches it.',
+    post: 'Meteorite post',
+    rate: '+{rate}/h',
+    emptyIn: 'Empty in {duration} at this pace.',
+    miners: 'Miners: {count}/{slots}',
+    full: 'The {resource} storage is full: the crater only gives what the colony eats.',
+    drill: 'Meteorite drill: ×{factor} (better with each age).',
+    noDrill: 'Research the meteorite drill (Stone age) to dig faster.',
+    auto: 'Automatic: the most dexterous kiwis come on their own and go back to their post afterwards. Nothing can be built on a crater.',
+    manual:
+      'Manual (Automation panel): send the miners yourself. Nothing can be built on a crater.',
+    board: 'Meteorite',
     empty: 'An empty crater: everything was picked.',
     incoming: 'A shooting star lands here in {duration}: {resource}!',
     announced: 'A shooting star! A meteorite of {resource} lands in {duration}.',
@@ -1011,6 +1024,8 @@ export const en = {
     callBack: 'Call them back',
     hint: 'Dexterous kiwis pick faster. It scatters a day after the comet.',
     stockFull: 'Your stardust stock is full ({cap}).',
+    auto: 'Automatic: the most dexterous kiwis come on their own.',
+    manual: 'Manual (Automation panel): send the pickers yourself.',
     board: 'Stardust',
   },
   garrison: {
@@ -1110,9 +1125,11 @@ export const en = {
       transform: 'In the vat',
       titan: 'Titan works',
       stardust: 'Picking stardust',
+      meteor: 'At a meteorite',
     },
   },
   posts: {
+    fades: 'fades in {duration}',
     assign: 'Assign to…',
     close: 'Close',
     rest: 'Rest (no workplace)',
@@ -1280,6 +1297,7 @@ export const en = {
     waveNotice: 'Waves announced earlier',
     cometInterval: 'Time between comets',
     meteorStock: 'Meteorites',
+    meteorDrill: 'Meteorite drill',
     unlock: 'Opened',
     nothing: 'Opens the next age.',
   },
@@ -1315,6 +1333,10 @@ export const en = {
     starWatch: { name: 'Star watch', desc: 'Waves are announced 4 hours earlier.' },
     cometLure: { name: 'Comet lure', desc: 'Comets come back 20 % sooner.' },
     starIron: { name: 'Star iron', desc: 'Meteorites carry 30 % more.' },
+    meteorDrill: {
+      name: 'Meteorite drill',
+      desc: 'A drill on every crater being worked: ×1.5 in the Stone age, ×2 in the Iron age, ×2.5 in the Industry age.',
+    },
     titanWorks: {
       name: 'Titan works',
       desc: 'Kikiwiwis reshape the land: dig a juice spring, raise a terrace, flatten a tile.',

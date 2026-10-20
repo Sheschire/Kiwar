@@ -252,7 +252,9 @@ describe('no dead end', () => {
       s = advance(s, s.now + HOUR_MS).state;
       const b = s.buildings.find((x) => x.type === type && hexKey(x) === hexKey(tile))!;
       if (workersOf(s, b.id).length === 0) {
-        s = run(s, { type: 'assignWorkers', buildingId: b.id, count: 1 }, s.now, map);
+        // Chantier 15: the free kiwis may be on a crater or on stardust: send one here.
+        const v = s.villagers.find((x) => ['idle', 'meteor', 'stardust'].includes(x.job.kind))!;
+        s = run(s, { type: 'assignKiwi', villagerId: v.id, buildingId: b.id }, s.now, map);
       }
       expect(['ok', 'storageFull']).toContain(buildingHarvest(s, b)!.status);
     }

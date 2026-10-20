@@ -6,6 +6,7 @@ import {
   buildingHarvest,
   consumption as sharedConsumption,
   emptyResources,
+  meteorRate,
   passiveRates,
   RESOURCE_IDS,
   storageFullCheck,
@@ -57,6 +58,10 @@ export const productionRates = perGame((state): Resources => {
     const h = all.get(b.id);
     if (h) total[h.resource] += h.output;
   }
+  // Chantier 15: meteorite craters are posts too.
+  const full = storageFull(state);
+  for (const m of state.sky.meteors)
+    if (!full(m.resource)) total[m.resource] += meteorRate(state, m);
   return total;
 });
 

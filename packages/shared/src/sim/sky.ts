@@ -1,15 +1,21 @@
 import type { ResourceId } from '../data/resources';
-import { CAMPS } from '../data/territory';
 import { METEORS, THREATS } from '../data/threats';
-import { hexDistance, hexKey } from '../hex/hex';
-import type { TimeMs } from '../types/ids';
+import { hexKey } from '../hex/hex';
+import type { TimeMs, VillagerId } from '../types/ids';
 import type { GameEvent } from './advance';
 import { seasonOf } from './calendar';
 import { nest } from './selectors';
 import { ageOf, techEffects } from './research';
 import { leaveWreck } from './obstacles';
-import { withThreatRng, type Building, type GameState, type Meteor } from './state';
-import { baseHarvest, catchmentRadius, faceMapOf, isFlooded, type Harvest } from './territory';
+import { withThreatRng, type GameState, type Meteor, type Villager } from './state';
+import {
+  cycleHarvest,
+  depotDistance,
+  faceMapOf,
+  isFlooded,
+  logisticsEfficiency,
+} from './territory';
+import { crewWork, workerPower } from './kiwis';
 
 const DAY = 24 * 3_600_000;
 const EPS = 1e-6;
@@ -24,27 +30,73 @@ export function meteorStock(state: GameState, at: TimeMs): number {
   return Math.round(METEORS.stock * factor * age * tech * (1 + METEORS.perDay * days));
 }
 
+/** Kiwis harvesting a crater (chantier 15). */
+export function minersOf(state: GameState, meteorId: string): Villager[] {
+  return state.villagers.filter((v) => v.job.kind === 'meteor' && v.job.meteorId === meteorId);
+}
+
+/** Harvest multiplier of the meteorite drill (1 without the technology). */
+export function drillFactor(state: GameState): number {
+  if (!techEffects(state).meteorDrill) return 1;
+  const d = METEORS.drill;
+  return d[Math.min(ageOf(state), d.length - 1)] ?? 1;
+}
+
 /**
- * Harvest per hour taken from a crater: a camp standing on it picks it at the camp rate of its
- * resource; a producer of the same resource that reaches it takes a share of its base rate.
- * Both on top of their usual harvest, with the same staff, logistics and hour of the day.
+ * Harvest per hour taken from a crater (chantier 15: a temporary post): the rate of its
+ * resource × the miners' power × the walk to the nearest depot × the hour and season × the
+ * drill. No climate: a gift from the sky. 0 once empty.
  */
-export function meteorRate(m: Meteor, harvests: readonly { b: Building; h: Harvest }[]): number {
+export function meteorRate(state: GameState, m: Meteor): number {
   if (m.stock <= EPS) return 0;
-  let rate = 0;
-  for (const { b, h } of harvests) {
-    if (h.status === 'flooded' || h.status === 'idle' || h.demand <= 0) continue;
-    const base = baseHarvest(b, h.resource);
-    if (base <= 0) continue;
-    // Staff × logistics × cycle, per slot.
-    const work = h.demand / base;
-    if (b.type === 'camp') {
-      if (b.q === m.q && b.r === m.r) rate += CAMPS.rates[m.resource] * work;
-    } else if (h.resource === m.resource && hexDistance(b, m) <= catchmentRadius(b)) {
-      rate += base * METEORS.producerShare * work;
-    }
-  }
-  return rate;
+  const miners = minersOf(state, m.id);
+  if (miners.length === 0) return 0;
+  const work = crewWork(state, miners, m.resource);
+  if (work <= 0) return 0;
+  const map = faceMapOf(state);
+  const efficiency = logisticsEfficiency(depotDistance(state, map, m));
+  return (
+    METEORS.rates[m.resource] *
+    work *
+    efficiency *
+    cycleHarvest(state, m.resource) *
+    drillFactor(state)
+  );
+}
+
+/**
+ * The crew "send the best" picks for a crater: the miners already there, then the kiwis with
+ * the most power for its resource (Dexterity and mastery; idle ones first on ties; locked
+ * kiwis are never borrowed).
+ */
+export function bestMeteorCrew(state: GameState, meteorId: string): VillagerId[] {
+  const m = state.sky.meteors.find((x) => x.id === meteorId);
+  if (!m) return [];
+  const here = minersOf(state, meteorId).map((v) => v.id);
+  const others = state.villagers
+    .map((v, i) => ({ v, i }))
+    .filter(
+      ({ v }) => canMine(v) && v.job.kind !== 'meteor' && (v.job.kind === 'idle' || !v.locked),
+    )
+    .sort(
+      (a, b) =>
+        workerPower(b.v, m.resource) - workerPower(a.v, m.resource) ||
+        Number(b.v.job.kind === 'idle') - Number(a.v.job.kind === 'idle') ||
+        a.i - b.i,
+    )
+    .map(({ v }) => v.id);
+  return [...here, ...others].slice(0, METEORS.slots);
+}
+
+/** Who can be sent to a crater: kiwis at home, at work or picking (not the Kikiwiwis). */
+export function canMine(v: Villager): boolean {
+  if (v.kikiwiwi) return false;
+  return (
+    v.job.kind === 'idle' ||
+    v.job.kind === 'work' ||
+    v.job.kind === 'stardust' ||
+    v.job.kind === 'meteor'
+  );
 }
 
 /** The crater on a tile, if any. */

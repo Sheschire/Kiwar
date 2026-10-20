@@ -1,9 +1,14 @@
+import { STARDUST } from '../data/comets';
 import { TASKS } from '../data/jobs';
+import { METEORS } from '../data/threats';
+import { dustPickers, pickRate, STARDUST_CAP } from './comets';
+import { minersOf } from './sky';
 import type { BuildingId, TimeMs } from '../types/ids';
 import { autoAssign, type GameEvent } from './advance';
-import { builderSpeed } from './kiwis';
+import { builderSpeed, workerPower } from './kiwis';
 import { researchPower } from './research';
-import { getBuilding, nest, workerSlots, workersOf } from './selectors';
+import { capacity, getBuilding, nest, workerSlots, workersOf } from './selectors';
+import type { ResourceId } from '../data/resources';
 import type { GameState, QueueItem, Villager } from './state';
 
 /**
@@ -36,6 +41,7 @@ export function taskLevel(state: GameState, v: Villager): TaskLevel | null {
     case 'work':
       return getBuilding(state, v.job.buildingId)?.type === 'library' ? 'research' : 'harvest';
     case 'stardust':
+    case 'meteor':
       return 'pick';
     case 'build':
       return 'build';
@@ -65,7 +71,8 @@ export function borrow(v: Villager): BuildingId | null {
   let home: BuildingId | null = null;
   if (v.lent !== undefined) home = v.lent;
   else if (v.job.kind === 'work') home = v.job.buildingId;
-  else if (v.job.kind === 'stardust' || v.job.kind === 'build') home = v.job.returnTo;
+  else if (v.job.kind === 'stardust' || v.job.kind === 'build' || v.job.kind === 'meteor')
+    home = v.job.returnTo;
   delete v.lent;
   return home;
 }
@@ -164,6 +171,18 @@ export function sendBack(state: GameState, v: Villager, home: BuildingId | null)
   }
 }
 
+/**
+ * Sends several kiwis back at once: those whose workplace still has room first, so that a kiwi
+ * looking for work does not take the place of one coming home.
+ */
+export function sendBackAll(
+  state: GameState,
+  list: readonly (readonly [Villager, BuildingId | null])[],
+): void {
+  const ordered = [...list.filter(([, h]) => h !== null), ...list.filter(([, h]) => h === null)];
+  for (const [v, home] of ordered) sendBack(state, v, home);
+}
+
 /** The best kiwi the automation may borrow for a task, by a power (idle ones first on ties). */
 function bestFor(
   state: GameState,
@@ -191,12 +210,17 @@ export function fillResearch(state: GameState): void {
   if (!state.automation.research) return;
   const libraries = state.buildings.filter((b) => b.type === 'library');
   if (!state.research.current) {
-    for (const v of state.villagers) {
-      if (v.lent === undefined || v.job.kind !== 'work') continue;
-      if (!libraries.some((b) => b.id === (v.job as { buildingId: BuildingId }).buildingId))
-        continue;
-      sendBack(state, v, v.lent);
-    }
+    sendBackAll(
+      state,
+      state.villagers
+        .filter(
+          (v) =>
+            v.lent !== undefined &&
+            v.job.kind === 'work' &&
+            libraries.some((b) => b.id === (v.job as { buildingId: BuildingId }).buildingId),
+        )
+        .map((v) => [v, v.lent ?? null]),
+    );
     return;
   }
   for (const b of libraries) {
@@ -224,9 +248,70 @@ function forgetLent(state: GameState): void {
   }
 }
 
-/** Fills every automatic task, highest priority first. */
+/**
+ * Chantier 15: a meteorite crater is a temporary post. Its miners go back to their workplace
+ * when it is empty or gone (and when its resource's storage fills up: `releaseFullCraters`, at
+ * that event); in automatic mode the free places of a crater whose stock is below its cap take
+ * the kiwis with the most power for its resource (Dexterity, mastery).
+ */
+export function fillCraters(state: GameState): void {
+  const done: [Villager, BuildingId | null][] = [];
+  for (const v of state.villagers) {
+    if (v.job.kind !== 'meteor') continue;
+    const id = v.job.meteorId;
+    const m = state.sky.meteors.find((x) => x.id === id);
+    if (!m || m.stock <= 0) done.push([v, v.job.returnTo]);
+  }
+  sendBackAll(state, done);
+  if (!state.automation.meteor) return;
+  const cap = capacity(state);
+  for (const m of state.sky.meteors) {
+    if (m.stock <= 0 || state.resources[m.resource] >= cap[m.resource] - 1e-6) continue;
+    let free = METEORS.slots - minersOf(state, m.id).length;
+    while (free-- > 0) {
+      const v = bestFor(state, 'pick', (x) => workerPower(x, m.resource));
+      if (!v) return;
+      v.job = { kind: 'meteor', meteorId: m.id, returnTo: borrow(v) };
+    }
+  }
+}
+
+/** A storage just filled up: the miners of its craters go back to work (an `advance` event). */
+export function releaseFullCraters(state: GameState, filled: ReadonlySet<ResourceId>): void {
+  const done: [Villager, BuildingId | null][] = [];
+  for (const v of state.villagers) {
+    if (v.job.kind !== 'meteor') continue;
+    const id = v.job.meteorId;
+    const m = state.sky.meteors.find((x) => x.id === id);
+    if (m && filled.has(m.resource)) done.push([v, v.job.returnTo]);
+  }
+  sendBackAll(state, done);
+}
+
+/** Chantier 15: stardust tiles take the kiwis with the most Dexterity (until the stock is full). */
+export function fillStardust(state: GameState): void {
+  if (!state.automation.stardust || state.stardust >= STARDUST_CAP) return;
+  for (const p of state.comets.patches) {
+    if (p.stock <= 0) continue;
+    let free = STARDUST.slots - dustPickers(state, p.id).length;
+    while (free-- > 0) {
+      const v = bestFor(state, 'pick', pickRate);
+      if (!v) return;
+      v.job = { kind: 'stardust', patchId: p.id, returnTo: borrow(v) };
+    }
+  }
+}
+
+/**
+ * Fills every automatic task, highest priority first. It runs only after events and commands
+ * (never at the start of an `advance` call, whose times differ between one big step and many
+ * small ones), so what it reads must only change at events: the stocks reaching their cap
+ * are events, a stock leaving it is not (hence the cap test of the craters, not `storageFull`).
+ */
 export function dispatchTasks(state: GameState, at: TimeMs, events: GameEvent[]): void {
   forgetLent(state);
   startConstructions(state, at, events);
   fillResearch(state);
+  fillCraters(state);
+  fillStardust(state);
 }

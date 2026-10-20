@@ -68,7 +68,9 @@ export type Job =
   /** Chantier 08: a Kikiwiwi at work on a tile (smashing an obstacle, reshaping the land). */
   | { kind: 'titan'; work: TitanWork; q: number; r: number; until: TimeMs }
   /** Chantier 13: picking up stardust on a tile where a comet dropped some. */
-  | { kind: 'stardust'; patchId: string; returnTo: BuildingId | null };
+  | { kind: 'stardust'; patchId: string; returnTo: BuildingId | null }
+  /** Chantier 15: harvesting a meteorite crater (a temporary post). */
+  | { kind: 'meteor'; meteorId: string; returnTo: BuildingId | null };
 
 export interface KiwiHistory {
   expeditions: number;
