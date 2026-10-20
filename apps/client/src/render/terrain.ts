@@ -14,7 +14,9 @@ import {
   Vector3,
 } from 'three';
 import {
+  hexKey,
   hexToPixel,
+  pixelToHex,
   type BiomeId,
   type FaceMap,
   type HexKey,
@@ -316,12 +318,44 @@ export class TerrainView {
   }
 }
 
+const domeRadii = new WeakMap<FaceMap, number>();
+
+/**
+ * Radius of the skin dome (semi-axes `r·ellipse` and `r/√ellipse`, like the disc): the largest
+ * one whose rim stays under the tiles all around, so no ledge shows beyond the rim tiles.
+ */
+export function domeRadius(map: FaceMap): number {
+  const cached = domeRadii.get(map);
+  if (cached !== undefined) return cached;
+  const ax = map.ellipse;
+  const az = 1 / Math.sqrt(map.ellipse);
+  const fits = (r: number) => {
+    for (let i = 0; i < 720; i++) {
+      const a = (i / 720) * Math.PI * 2;
+      const h = pixelToHex(Math.cos(a) * r * ax, Math.sin(a) * r * az);
+      if (!map.index.has(hexKey(h))) return false;
+    }
+    return true;
+  };
+  let lo = 1;
+  let hi = map.params.radius * Math.sqrt(3) + 0.9;
+  for (let step = 0; step < 20; step++) {
+    const mid = (lo + hi) / 2;
+    if (fits(mid)) lo = mid;
+    else hi = mid;
+  }
+  // A little inside, so the rim never peeks between two samples.
+  const r = lo - 0.15;
+  domeRadii.set(map, r);
+  return r;
+}
+
 /** The other half of the kiwi: a furry brown dome hanging under the tiles. */
-/** Colour of the cut under the tiles: flesh darkened towards the skin. */
-const SKIN_CUT = new Color('#6b4a2c');
+/** The cut under the tiles: only seen through the gaps between them, like a shadow. */
+const SKIN_CUT = new Color('#3d2817');
 
 function createKiwiDome(map: FaceMap): Mesh {
-  const radius = map.params.radius * Math.sqrt(3) + 0.9;
+  const radius = domeRadius(map);
   const geometry = new SphereGeometry(1, 48, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
   const material = new MeshStandardMaterial({
     color: '#7a4e2e',
@@ -350,13 +384,12 @@ function createKiwiDome(map: FaceMap): Mesh {
   dome.scale.set(radius * map.ellipse, radius * 0.55, radius / Math.sqrt(map.ellipse));
   dome.position.y = DOME_TOP;
   dome.receiveShadow = true;
-  // The cut face of the fruit closes the bowl: between the rim tiles and the skin, and in the
-  // gaps between tiles, one sees pulp, never the inside of the skin.
+  // The cut closes the bowl: through the gaps between tiles one never sees inside the skin.
   const pulp = new Mesh(
     new CircleGeometry(1, 64).rotateX(-Math.PI / 2),
     new MeshStandardMaterial({
-      color: biomeLook(map.params.biome).outer.clone().lerp(SKIN_CUT, 0.55),
-      roughness: 0.9,
+      color: SKIN_CUT,
+      roughness: 1,
     }),
   );
   pulp.receiveShadow = true;

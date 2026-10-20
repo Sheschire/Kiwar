@@ -46,14 +46,15 @@ biome)` (memoized), `tileDeposit(tile, biome)`, `twinParams(seed, face, params)`
   three `CircleGeometry` cloud layers (fog of war). Friend: `WaterView`, static
   `buildingGeometry` meshes (shared cache, do not dispose), name sprite. `startGame.showTwin`
   rebuilds it only when the key (seed, face, biome, friend snapshot time) changes.
-- **Closed planet**: the skin dome (`createKiwiDome`, `FrontSide`) carries a cut disc child
-  (biome flesh mixed with skin brown): the gaps between tiles and the ring outside the rim show
-  the fruit's cut, never the inside of the skin. The intro finds the dome as the terrain
+- **Closed planet**: the skin dome (`createKiwiDome`, `FrontSide`, radius `domeRadius(map)`:
+  its rim stays under the rim tiles, no ledge) carries a dark cut disc child that closes the
+  gaps between tiles. Anything sized on the skin (dome fur props) uses `domeRadius`. The intro finds the dome as the terrain
   group's child that is neither tiles nor water: keep extra parts as children of the dome.
 - **Intro** (`render/intro.ts` `IntroScene`, effects in `render/introFx.ts`): own scene/camera;
   `GameRenderer.playIntro(maps, handlers, skip)` renders it instead of the game (camera
-  controls and taps off), `endIntro()`. Timeline: whole round kiwi (`createWholeKiwi`, domes
-  hidden, rolling around X) → blade streak at 1.6 s (`BladeTrail`) + juice (`JuiceBurst`) +
+  controls and taps off), `endIntro()`. Timeline: whole round kiwi (`createWholeKiwi`, shell
+  fur `addFurShells` also put on the halves' domes for the intro, `disposeFur`; domes hidden,
+  rolling around X) → blade streak at 1.6 s (`BladeTrail`) + juice (`JuiceBurst`) +
   `onSlice` (synth `slice`: whoosh, splash, drops); the halves start as deep as the whole fruit
   and settle into the game dome while parting 1.9–3.3 s → choice (focus: hover on desktop, taps, tabs) → `choose` →
   1.3 s dive → `onDone`. Layout: `setIntroLayout` frees the right panel (desktop) or the bottom

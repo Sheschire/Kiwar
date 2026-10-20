@@ -14,7 +14,7 @@ import {
 } from 'three';
 import { withSeasonLook } from './seasonLook';
 import { createRng, hexKey, type FaceMap, type HexKey, type Rng, type Tile } from '@kiwar/shared';
-import { DOME_TOP, worldPosition } from './terrain';
+import { DOME_TOP, domeRadius, worldPosition } from './terrain';
 
 interface PropInstance {
   matrix: Matrix4;
@@ -250,7 +250,7 @@ export class PropsView {
     }
 
     // Fur on the dome below the disc: strands pointing along the surface normal.
-    const domeRadius = map.params.radius * Math.sqrt(3) + 0.9;
+    const skinRadius = domeRadius(map);
     const domeCount = Math.round(380 * density);
     for (let i = 0; i < domeCount; i++) {
       const theta = rng.range(0, Math.PI * 2);
@@ -259,9 +259,9 @@ export class PropsView {
       const ny = -Math.sin(phi);
       const nz = Math.sin(theta) * Math.cos(phi);
       const pos = new Vector3(
-        nx * domeRadius * map.ellipse,
-        DOME_TOP + ny * domeRadius * 0.55,
-        (nz * domeRadius) / Math.sqrt(map.ellipse),
+        nx * skinRadius * map.ellipse,
+        DOME_TOP + ny * skinRadius * 0.55,
+        (nz * skinRadius) / Math.sqrt(map.ellipse),
       );
       const normal = new Vector3(nx, ny * 1.4, nz).normalize();
       const q = new Quaternion().setFromUnitVectors(up, normal);

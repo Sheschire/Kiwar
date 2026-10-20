@@ -18,7 +18,7 @@ import { FACES, type Face, type FaceMap } from '@kiwar/shared';
 import { seasonUniforms } from './seasonLook';
 import { DOME_TOP, TerrainView } from './terrain';
 import { WaterView } from './water';
-import { BladeTrail, createWholeKiwi, JuiceBurst } from './introFx';
+import { addFurShells, BladeTrail, createWholeKiwi, disposeFur, JuiceBurst } from './introFx';
 
 /** Intro timeline (seconds): the whole fruit turns, the blade, the halves part. */
 const T_SLICE = 1.6;
@@ -151,6 +151,8 @@ export class IntroScene {
       // Dome tops on the seam (the terrain group sits 2.1 below the pivot), hidden while whole.
       h.dome.position.y = 2.1;
       h.dome.visible = false;
+      // Real kiwi fur on the outside of each half (intro only; hairs towards the bottom).
+      addFurShells(h.dome as Mesh, new Vector3(0, -1, 0));
     }
     this.skinRadius = skin;
     // A round kiwi, barely longer along its axis (X, across the cut).
@@ -418,11 +420,13 @@ export class IntroScene {
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
     for (const h of this.halves) {
+      disposeFur(h.dome as Mesh);
       h.terrain.dispose();
       h.water.dispose();
     }
     this.blade.dispose();
     this.juice.dispose();
+    disposeFur(this.whole);
     this.whole.geometry.dispose();
     (this.whole.material as MeshStandardMaterial).dispose();
     this.scene.traverse((o) => {

@@ -38,7 +38,75 @@ export function createWholeKiwi(): Mesh {
       );
   };
   material.customProgramCacheKey = () => 'kiwar-whole-kiwi';
-  return new Mesh(new SphereGeometry(1, 64, 48), material);
+  const mesh = new Mesh(new SphereGeometry(1, 64, 48), material);
+  // Hairs lie along the fruit, towards its ends.
+  addFurShells(mesh, new Vector3(1, 0, 0));
+  return mesh;
+}
+
+const FUR_LAYERS = 14;
+/** Length of the hairs, as a share of the radius. */
+const FUR_LENGTH = 0.06;
+
+/**
+ * Shell fur: copies of the mesh, a little larger each, keeping only the pixels of hairs long
+ * enough to reach that layer (one hair per cell of a 3D grid on the unit surface). Roots dark,
+ * tips lighter. `lean`: object-space direction the hairs bend towards. Intro only (one draw per
+ * layer). The copies share the geometry: dispose only their materials (`disposeFur`).
+ */
+export function addFurShells(mesh: Mesh, lean: Vector3): void {
+  for (let i = 1; i <= FUR_LAYERS; i++) {
+    const layer = i / FUR_LAYERS;
+    const material = new MeshStandardMaterial({ color: '#6e4b2c', roughness: 1 });
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.uLayer = { value: layer };
+      shader.uniforms.uLean = { value: lean };
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vFur;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFur = position;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+          varying vec3 vFur;
+          uniform float uLayer;
+          uniform vec3 uLean;
+          float furHash(vec3 c) { return fract(sin(dot(c, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }`,
+        )
+        .replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
+          {
+            // Higher layers sample the grid shifted along the lean: the hairs bend.
+            vec3 p = normalize(vFur) * 95.0 + uLean * uLayer * 1.8;
+            // Warp the grid: without it the sphere slices the cells into visible rings.
+            p += 1.6 * sin(p.yzx * 0.11 + p.zxy * 0.07);
+            vec3 cell = floor(p);
+            float len = 0.35 + 0.65 * furHash(cell);
+            vec3 centre = cell + 0.5 + (vec3(furHash(cell + 1.7), furHash(cell + 4.1), furHash(cell + 9.3)) - 0.5) * 0.5;
+            float thick = 0.62 * (1.0 - uLayer / len);
+            if (uLayer > len || distance(p, centre) > thick) discard;
+            float tone = furHash(cell + 3.3);
+            diffuseColor.rgb *= (0.35 + 0.85 * uLayer) * (0.8 + 0.4 * tone);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.66, 0.53, 0.36), 0.45 * uLayer * uLayer);
+          }`,
+        );
+    };
+    material.customProgramCacheKey = () => `kiwar-fur-${i}`;
+    const shell = new Mesh(mesh.geometry, material);
+    shell.scale.setScalar(1 + FUR_LENGTH * layer);
+    shell.userData.fur = true;
+    mesh.add(shell);
+  }
+}
+
+/** Disposes the fur materials added by `addFurShells` (the geometry belongs to the mesh). */
+export function disposeFur(mesh: Mesh): void {
+  for (const child of [...mesh.children]) {
+    if (!(child instanceof Mesh) || !child.userData.fur) continue;
+    (child.material as MeshStandardMaterial).dispose();
+    mesh.remove(child);
+  }
 }
 
 /**

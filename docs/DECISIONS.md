@@ -893,6 +893,14 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
   - Plain PCF shadows in low and medium (`softShadows`, PCF soft only in high).
   - With a menu open the 3D draws two more frames then stops (was ~20 fps), so the GPU and the
     main thread belong to the menu; it resumes when the menu closes.
+- **No ledge beyond the rim** (owner: the cut disc showed as a flat green surface beyond the
+  rim tiles; "no overhang" chosen over a brown skin ledge): the skin radius is now computed
+  (`domeRadius(map)`: largest ellipse, same proportions, whose 720 samples all fall in a tile,
+  minus 0.15), about 2 units smaller than `radius·√3 + 0.9`; the dome fur props use it too.
+  The cut disc stays (it closes the gaps between tiles) in a dark brown, like a shadow.
+- **Furry intro kiwi** (owner: more realistic hairs): shell fur (`addFurShells`, 14 layers,
+  6 % of the radius, one hair per warped 3D grid cell, dark roots and tan tips, hairs leaning
+  along the fruit) on the whole kiwi and, during the intro only, on the two halves' domes.
 
 ## Chantier 11 — Construction readability (icons, before/after, building tree)
 
