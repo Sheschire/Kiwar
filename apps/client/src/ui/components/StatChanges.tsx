@@ -1,5 +1,5 @@
 import type { LevelStat, LevelStatId, StatChange, TechChange, TechStatId } from '@kiwar/shared';
-import { formatNumber, type Lang } from '../../i18n/i18n';
+import { formatDuration, formatNumber, type Lang } from '../../i18n/i18n';
 import { ResourceIcon } from '../icons';
 import { Icon, type IconName } from '../iconSet';
 import { useT, useUi, type Translate } from '../store';
@@ -41,6 +41,10 @@ const TECH_ICONS: Record<TechStatId, IconName> = {
   kikiwiwiPower: 'titan',
   kikiwiwiUpkeep: 'juice',
   infusionRisk: 'risk',
+  nightWork: 'night',
+  waveNotice: 'defenseAir',
+  cometInterval: 'comet',
+  meteorStock: 'stardust',
 };
 
 /** Smaller is better for these (durations, costs, harm). */
@@ -52,6 +56,7 @@ const LOWER_IS_BETTER = new Set<string>([
   'build',
   'injuries',
   'kikiwiwiUpkeep',
+  'cometInterval',
 ]);
 
 function StatIcon({ stat, resource }: Pick<LevelStat, 'stat' | 'resource'>) {
@@ -138,6 +143,8 @@ function techValue(lang: Lang, c: TechChange, v: number): string {
     return `${n > 0 ? '+' : n < 0 ? '−' : '±'}${formatNumber(lang, Math.abs(n))} %`;
   };
   if (c.kind === 'multiplier') return pct(v - 1);
+  // Waves announced earlier: a duration.
+  if (c.stat === 'waveNotice') return `+${formatDuration(lang, v)}`;
   // Infusion risk: points removed from the risk.
   return c.stat === 'infusionRisk' ? pct(-v) : pct(v);
 }

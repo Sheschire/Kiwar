@@ -1633,7 +1633,14 @@ var AGE_IDS = ["eden", "stone", "iron", "industry"];
 var MAX_AGE = AGE_IDS.length - 1;
 
 // packages/shared/src/data/research.ts
-var TECH_BRANCHES = ["economy", "defense", "exploration", "passage", "unnatural"];
+var TECH_BRANCHES = [
+  "economy",
+  "defense",
+  "exploration",
+  "passage",
+  "unnatural",
+  "stars"
+];
 var TECH_IDS = [
   // Eden
   "foraging",
@@ -1657,7 +1664,12 @@ var TECH_IDS = [
   // Against nature (second half of chantier 08)
   "juiceInfusion",
   "titanWorks",
-  "greenBlood"
+  "greenBlood",
+  // Stars (chantier 13: research points and stardust)
+  "clearNights",
+  "starWatch",
+  "cometLure",
+  "starIron"
 ];
 var TECHS = {
   foraging: {
@@ -1789,6 +1801,42 @@ var TECHS = {
     cost: 2500,
     libraryLevel: 6,
     effects: { kikiwiwiPower: 1.25, kikiwiwiUpkeep: 0.75, infusionRisk: 0.1 }
+  },
+  clearNights: {
+    id: "clearNights",
+    age: 1,
+    branch: "stars",
+    cost: 250,
+    libraryLevel: 2,
+    stardust: 8,
+    effects: { nightWork: 1.15 }
+  },
+  starWatch: {
+    id: "starWatch",
+    age: 1,
+    branch: "stars",
+    cost: 300,
+    libraryLevel: 2,
+    stardust: 8,
+    effects: { waveNotice: 4 * 36e5 }
+  },
+  cometLure: {
+    id: "cometLure",
+    age: 2,
+    branch: "stars",
+    cost: 700,
+    libraryLevel: 4,
+    stardust: 15,
+    effects: { cometInterval: 0.8 }
+  },
+  starIron: {
+    id: "starIron",
+    age: 2,
+    branch: "stars",
+    cost: 700,
+    libraryLevel: 4,
+    stardust: 12,
+    effects: { meteorStock: 1.3 }
   }
 };
 var PASSAGE_TECHS = [
@@ -3071,6 +3119,9 @@ function trainingDuration(school, classId) {
 function ageOf(state) {
   return state.buildings.find((b) => b.type === "monument")?.level ?? 0;
 }
+function nightWork(state) {
+  return Math.min(1, CYCLES.nightWork * techEffects(state).nightWork);
+}
 function hasTech(state, id3) {
   return state.research.done.includes(id3);
 }
@@ -3095,7 +3146,11 @@ function techEffects(state) {
     terraform: false,
     kikiwiwiPower: 1,
     kikiwiwiUpkeep: 1,
-    infusionRisk: 0
+    infusionRisk: 0,
+    nightWork: 1,
+    waveNotice: 0,
+    cometInterval: 1,
+    meteorStock: 1
   };
   for (const id3 of state.research.done) {
     const e = TECHS[id3].effects;
@@ -3115,6 +3170,10 @@ function techEffects(state) {
     out.kikiwiwiPower *= e.kikiwiwiPower ?? 1;
     out.kikiwiwiUpkeep *= e.kikiwiwiUpkeep ?? 1;
     out.infusionRisk += e.infusionRisk ?? 0;
+    out.nightWork *= e.nightWork ?? 1;
+    out.waveNotice += e.waveNotice ?? 0;
+    out.cometInterval *= e.cometInterval ?? 1;
+    out.meteorStock *= e.meteorStock ?? 1;
   }
   if (effectsCache2.size > 64) effectsCache2.clear();
   effectsCache2.set(key, out);
@@ -3146,7 +3205,7 @@ function researchPerHour(state) {
     }
   }
   if (total <= 0) return 0;
-  const night = isNight(state) ? CYCLES.nightWork : 1;
+  const night = isNight(state) ? nightWork(state) : 1;
   return total * night * hungerWork(state) * moraleWork(state, beds);
 }
 function researchRate(state) {
@@ -3517,7 +3576,7 @@ function pathLogisticsChanges(state, map, keys, erase) {
   return out.sort((a, b) => Math.abs(b.after - b.before) - Math.abs(a.after - a.before));
 }
 function cycleHarvest(state, resource) {
-  const work = isNight(state) ? CYCLES.nightWork : 1;
+  const work = isNight(state) ? nightWork(state) : 1;
   return work * seasonHarvest(seasonOf(state), resource, state.params.biome);
 }
 function baseHarvest(b, resource) {
@@ -4229,7 +4288,9 @@ function planComet(s) {
   const c = s.comets;
   if (c.next) return;
   withThreatRng(s, (rng) => {
-    const gap = Math.round(rng.range(COMETS.intervalMs[0], COMETS.intervalMs[1]));
+    const gap = Math.round(
+      rng.range(COMETS.intervalMs[0], COMETS.intervalMs[1]) * techEffects(s).cometInterval
+    );
     const notice = Math.round(rng.range(COMETS.noticeMs[0], COMETS.noticeMs[1]));
     const at = Math.max(c.lastAt + gap, s.now + notice);
     c.next = { id: `c${c.passes + 1}`, announceAt: at - notice, at, announced: false };
@@ -5178,7 +5239,7 @@ function planWave(s) {
   if (t.next || nest(s).level < THREATS.protectionNestLevel) return;
   withThreatRng(s, (rng) => {
     const gap = Math.round(rng.range(THREATS.intervalMs[0], THREATS.intervalMs[1]));
-    const notice = Math.round(rng.range(THREATS.noticeMs[0], THREATS.noticeMs[1]));
+    const notice = Math.round(rng.range(THREATS.noticeMs[0], THREATS.noticeMs[1])) + techEffects(s).waveNotice;
     const earliest = Math.max(
       s.createdAt + THREATS.protectionMs,
       t.lastWaveAt > 0 ? t.lastWaveAt + gap : 0,
@@ -5338,7 +5399,8 @@ function meteorStock(state, at) {
   const factor = f[Math.min(nest(state).level, f.length - 1)] ?? 1;
   const age = METEORS.ageFactor[ageOf(state)] ?? 1;
   const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY2));
-  return Math.round(METEORS.stock * factor * age * (1 + METEORS.perDay * days));
+  const tech = techEffects(state).meteorStock;
+  return Math.round(METEORS.stock * factor * age * tech * (1 + METEORS.perDay * days));
 }
 function meteorRate(m, harvests) {
   if (m.stock <= EPS2) return 0;
@@ -6283,7 +6345,11 @@ var TECH_STATS = [
   "terraform",
   "kikiwiwiPower",
   "kikiwiwiUpkeep",
-  "infusionRisk"
+  "infusionRisk",
+  "nightWork",
+  "waveNotice",
+  "cometInterval",
+  "meteorStock"
 ];
 var MULTIPLIERS = [
   "storage",
@@ -6294,9 +6360,12 @@ var MULTIPLIERS = [
   "build",
   "injuries",
   "kikiwiwiPower",
-  "kikiwiwiUpkeep"
+  "kikiwiwiUpkeep",
+  "nightWork",
+  "cometInterval",
+  "meteorStock"
 ];
-var BONUSES = ["armor", "recon", "infusionRisk"];
+var BONUSES = ["armor", "recon", "infusionRisk", "waveNotice"];
 var UNLOCKS = ["firearms", "laboratory", "terraform"];
 function describeTech(id3, state) {
   const now = techEffects(state);
@@ -6466,6 +6535,10 @@ var CommandFailure = class extends Error {
 var fail = (code) => {
   throw new CommandFailure(code);
 };
+function refundTechDust(s, tech) {
+  const dust = tech ? TECHS[tech].stardust ?? 0 : 0;
+  if (dust > 0) s.stardust = Math.min(STARDUST_CAP, s.stardust + dust * STARDUST_SCALE);
+}
 function payStardust(s, points) {
   if (points <= 0) return;
   if (stardustOf(s) < points) fail("notEnoughStardust");
@@ -7047,8 +7120,10 @@ function execute(s, cmd, ctx, events) {
       return;
     }
     case "setResearch": {
+      const before = s.research.current;
       if (cmd.tech === null) {
         s.research.current = null;
+        refundTechDust(s, before);
         return;
       }
       if (!TECHS[cmd.tech]) return fail("unknownTech");
@@ -7056,6 +7131,10 @@ function execute(s, cmd, ctx, events) {
       if (status === "done") fail("techDone");
       if (status === "age") fail("techAgeLocked");
       if (status === "library") fail("libraryTooLow");
+      if (before !== cmd.tech) {
+        refundTechDust(s, before);
+        payStardust(s, TECHS[cmd.tech].stardust ?? 0);
+      }
       s.research.current = cmd.tech;
       researchTick(s, now, events);
       return;
@@ -12753,6 +12832,7 @@ export {
   nextSkyEvent,
   nextThreatEvent,
   nextTitanEnd,
+  nightWork,
   objectiveProgress,
   obstacleAt,
   obstacleId,

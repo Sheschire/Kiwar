@@ -6,7 +6,14 @@ import type { ResourceId } from './resources';
  * technology; with nothing chosen they wait in a bank (capped by the Library level). Points are
  * integers in raw units (`RESEARCH_SCALE` per point), so offline progress stays exact.
  */
-export const TECH_BRANCHES = ['economy', 'defense', 'exploration', 'passage', 'unnatural'] as const;
+export const TECH_BRANCHES = [
+  'economy',
+  'defense',
+  'exploration',
+  'passage',
+  'unnatural',
+  'stars',
+] as const;
 export type TechBranch = (typeof TECH_BRANCHES)[number];
 
 export const TECH_IDS = [
@@ -33,6 +40,11 @@ export const TECH_IDS = [
   'juiceInfusion',
   'titanWorks',
   'greenBlood',
+  // Stars (chantier 13: research points and stardust)
+  'clearNights',
+  'starWatch',
+  'cometLure',
+  'starIron',
 ] as const;
 export type TechId = (typeof TECH_IDS)[number];
 
@@ -68,6 +80,14 @@ export interface TechEffects {
   kikiwiwiPower?: number;
   kikiwiwiUpkeep?: number;
   infusionRisk?: number;
+  /** Chantier 13: work at night (multiplier of the night rate, at most a day's work). */
+  nightWork?: number;
+  /** Waves announced this much earlier (ms). */
+  waveNotice?: number;
+  /** Time between two comets. */
+  cometInterval?: number;
+  /** Meteorite stock. */
+  meteorStock?: number;
 }
 
 export interface TechDef {
@@ -79,6 +99,8 @@ export interface TechDef {
   cost: number;
   /** Library level needed to research it. */
   libraryLevel: number;
+  /** Chantier 13: stardust paid when it is chosen (refunded if abandoned). */
+  stardust?: number;
   effects: TechEffects;
 }
 
@@ -212,6 +234,42 @@ export const TECHS: Record<TechId, TechDef> = {
     cost: 2500,
     libraryLevel: 6,
     effects: { kikiwiwiPower: 1.25, kikiwiwiUpkeep: 0.75, infusionRisk: 0.1 },
+  },
+  clearNights: {
+    id: 'clearNights',
+    age: 1,
+    branch: 'stars',
+    cost: 250,
+    libraryLevel: 2,
+    stardust: 8,
+    effects: { nightWork: 1.15 },
+  },
+  starWatch: {
+    id: 'starWatch',
+    age: 1,
+    branch: 'stars',
+    cost: 300,
+    libraryLevel: 2,
+    stardust: 8,
+    effects: { waveNotice: 4 * 3_600_000 },
+  },
+  cometLure: {
+    id: 'cometLure',
+    age: 2,
+    branch: 'stars',
+    cost: 700,
+    libraryLevel: 4,
+    stardust: 15,
+    effects: { cometInterval: 0.8 },
+  },
+  starIron: {
+    id: 'starIron',
+    age: 2,
+    branch: 'stars',
+    cost: 700,
+    libraryLevel: 4,
+    stardust: 12,
+    effects: { meteorStock: 1.3 },
   },
 };
 

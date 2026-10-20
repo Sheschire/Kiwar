@@ -491,7 +491,8 @@ export function planWave(s: GameState): void {
   if (t.next || nest(s).level < THREATS.protectionNestLevel) return;
   withThreatRng(s, (rng) => {
     const gap = Math.round(rng.range(THREATS.intervalMs[0], THREATS.intervalMs[1]));
-    const notice = Math.round(rng.range(THREATS.noticeMs[0], THREATS.noticeMs[1]));
+    const notice =
+      Math.round(rng.range(THREATS.noticeMs[0], THREATS.noticeMs[1])) + techEffects(s).waveNotice;
     const earliest = Math.max(
       s.createdAt + THREATS.protectionMs,
       t.lastWaveAt > 0 ? t.lastWaveAt + gap : 0,

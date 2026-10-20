@@ -267,6 +267,12 @@ const fail = (code: CommandError): never => {
   throw new CommandFailure(code);
 };
 
+/** Chantier 13: the stardust of an abandoned star technology comes back (up to the cap). */
+function refundTechDust(s: GameState, tech: TechId | null): void {
+  const dust = tech ? (TECHS[tech].stardust ?? 0) : 0;
+  if (dust > 0) s.stardust = Math.min(STARDUST_CAP, s.stardust + dust * STARDUST_SCALE);
+}
+
 /** Chantier 13: spends whole stardust points (`notEnoughStardust` otherwise). */
 export function payStardust(s: GameState, points: number): void {
   if (points <= 0) return;
@@ -903,8 +909,10 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       return;
     }
     case 'setResearch': {
+      const before = s.research.current;
       if (cmd.tech === null) {
         s.research.current = null;
+        refundTechDust(s, before);
         return;
       }
       if (!TECHS[cmd.tech]) return fail('unknownTech');
@@ -912,6 +920,10 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (status === 'done') fail('techDone');
       if (status === 'age') fail('techAgeLocked');
       if (status === 'library') fail('libraryTooLow');
+      if (before !== cmd.tech) {
+        refundTechDust(s, before);
+        payStardust(s, TECHS[cmd.tech].stardust ?? 0);
+      }
       s.research.current = cmd.tech;
       // Banked points may already pay for it.
       researchTick(s, now, events);

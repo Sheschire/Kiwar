@@ -4,7 +4,7 @@ import { hexKey, type Hex } from '../hex/hex';
 import type { TimeMs, VillagerId } from '../types/ids';
 import { autoAssign, type GameEvent } from './advance';
 import { seasonOf } from './calendar';
-import { ageOf } from './research';
+import { ageOf, techEffects } from './research';
 import { getBuilding, workerSlots, workersOf } from './selectors';
 import { withThreatRng, type DustPatch, type GameState, type Villager } from './state';
 import { faceMapOf, isFlooded } from './territory';
@@ -58,7 +58,9 @@ export function planComet(s: GameState): void {
   const c = s.comets;
   if (c.next) return;
   withThreatRng(s, (rng) => {
-    const gap = Math.round(rng.range(COMETS.intervalMs[0], COMETS.intervalMs[1]));
+    const gap = Math.round(
+      rng.range(COMETS.intervalMs[0], COMETS.intervalMs[1]) * techEffects(s).cometInterval,
+    );
     const notice = Math.round(rng.range(COMETS.noticeMs[0], COMETS.noticeMs[1]));
     const at = Math.max(c.lastAt + gap, s.now + notice);
     c.next = { id: `c${c.passes + 1}`, announceAt: at - notice, at, announced: false };

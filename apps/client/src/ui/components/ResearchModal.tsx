@@ -16,11 +16,12 @@ import {
   techsOfAge,
   type GameState,
   type TechId,
+  stardustOf,
 } from '@kiwar/shared';
 import { researchPerHour } from '../derived';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
-import { BookIcon } from '../icons';
+import { BookIcon, StardustIcon } from '../icons';
 import { BRANCH_ICONS, Icon } from '../iconSet';
 import { BuildingTree } from './BuildingTree';
 import { uiStore, useT, useUi, type Translate } from '../store';
@@ -97,10 +98,18 @@ function TechCard({ game, id, t }: { game: GameState; id: TechId; t: Translate }
             : status === 'available'
               ? t('research.cost', { cost: def.cost })
               : t(`research.status.${status}`)}
+          {def.stardust && status !== 'done' && status !== 'current' && (
+            <span class={`dust-price ${stardustOf(game) < def.stardust ? 'missing' : ''}`}>
+              {'\u00a0·\u00a0'}
+              <StardustIcon size={14} />
+              {def.stardust}
+            </span>
+          )}
         </span>
         {status === 'available' && (
           <button
             class="btn btn-small btn-primary"
+            disabled={(def.stardust ?? 0) > stardustOf(game)}
             onClick={() => actions.dispatch({ type: 'setResearch', tech: id })}
           >
             {current ? t('research.switch') : t('research.choose')}

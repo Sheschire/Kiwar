@@ -24,6 +24,11 @@ export function ageOf(state: GameState): number {
   return state.buildings.find((b) => b.type === 'monument')?.level ?? 0;
 }
 
+/** Chantier 13: work rate at night (clear nights make it better, never more than by day). */
+export function nightWork(state: GameState): number {
+  return Math.min(1, CYCLES.nightWork * techEffects(state).nightWork);
+}
+
 export function hasTech(state: GameState, id: TechId): boolean {
   return state.research.done.includes(id);
 }
@@ -45,6 +50,10 @@ export interface Effects {
   kikiwiwiPower: number;
   kikiwiwiUpkeep: number;
   infusionRisk: number;
+  nightWork: number;
+  waveNotice: number;
+  cometInterval: number;
+  meteorStock: number;
 }
 
 const effectsCache = new Map<string, Effects>();
@@ -71,6 +80,10 @@ export function techEffects(state: GameState): Effects {
     kikiwiwiPower: 1,
     kikiwiwiUpkeep: 1,
     infusionRisk: 0,
+    nightWork: 1,
+    waveNotice: 0,
+    cometInterval: 1,
+    meteorStock: 1,
   };
   for (const id of state.research.done) {
     const e: TechEffects = TECHS[id].effects;
@@ -90,6 +103,10 @@ export function techEffects(state: GameState): Effects {
     out.kikiwiwiPower *= e.kikiwiwiPower ?? 1;
     out.kikiwiwiUpkeep *= e.kikiwiwiUpkeep ?? 1;
     out.infusionRisk += e.infusionRisk ?? 0;
+    out.nightWork *= e.nightWork ?? 1;
+    out.waveNotice += e.waveNotice ?? 0;
+    out.cometInterval *= e.cometInterval ?? 1;
+    out.meteorStock *= e.meteorStock ?? 1;
   }
   if (effectsCache.size > 64) effectsCache.clear();
   effectsCache.set(key, out);
@@ -128,7 +145,7 @@ export function researchPerHour(state: GameState): number {
     }
   }
   if (total <= 0) return 0;
-  const night = isNight(state) ? CYCLES.nightWork : 1;
+  const night = isNight(state) ? nightWork(state) : 1;
   return total * night * hungerWork(state) * moraleWork(state, beds);
 }
 

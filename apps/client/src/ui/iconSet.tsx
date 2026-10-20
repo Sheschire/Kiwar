@@ -12,6 +12,7 @@ import {
   SeedsIcon,
   ShieldIcon,
   ShipIcon,
+  StardustIcon,
   TargetIcon,
 } from './icons';
 
@@ -368,6 +369,37 @@ const GLYPHS = {
     </>
   ),
   target: <TargetIcon size={32} />,
+  stardust: <StardustIcon size={32} />,
+  night: (
+    <>
+      <path
+        d="M20 5a11 11 0 1 0 7 19A12 12 0 0 1 20 5z"
+        fill="#f4e3a6"
+        stroke="#7a5233"
+        stroke-width="2"
+      />
+      <path d="M8 8l.8 2 2 .8-2 .8L8 13.6l-.8-2-2-.8 2-.8z" fill="#ffd45e" />
+    </>
+  ),
+  comet: (
+    <>
+      <path
+        d="M4 6c8 4 13 8 17 12"
+        stroke="#7fcaf5"
+        stroke-width="3"
+        stroke-linecap="round"
+        fill="none"
+      />
+      <path
+        d="M9 4c6 4 10 7 13 11"
+        stroke="#ffd45e"
+        stroke-width="2"
+        stroke-linecap="round"
+        fill="none"
+      />
+      <circle cx="23" cy="21" r="5" fill="#ffd45e" stroke="#a8741c" stroke-width="2" />
+    </>
+  ),
   egg: <EggIcon size={32} />,
   pulp: <PulpIcon size={32} />,
   fiber: <FiberIcon size={32} />,
@@ -435,6 +467,7 @@ export const BRANCH_ICONS: Record<TechBranch, IconName> = {
   exploration: 'recon',
   passage: 'age',
   unnatural: 'lab',
+  stars: 'stardust',
 };
 
 export function buildingIcon(type: BuildingType): IconName {

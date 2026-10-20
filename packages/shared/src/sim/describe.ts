@@ -145,6 +145,10 @@ export const TECH_STATS = [
   'kikiwiwiPower',
   'kikiwiwiUpkeep',
   'infusionRisk',
+  'nightWork',
+  'waveNotice',
+  'cometInterval',
+  'meteorStock',
 ] as const;
 export type TechStatId = (typeof TECH_STATS)[number];
 
@@ -167,8 +171,11 @@ const MULTIPLIERS = [
   'injuries',
   'kikiwiwiPower',
   'kikiwiwiUpkeep',
+  'nightWork',
+  'cometInterval',
+  'meteorStock',
 ] as const;
-const BONUSES = ['armor', 'recon', 'infusionRisk'] as const;
+const BONUSES = ['armor', 'recon', 'infusionRisk', 'waveNotice'] as const;
 const UNLOCKS = ['firearms', 'laboratory', 'terraform'] as const;
 
 /** What researching `id` changes for this colony: its current effects, then with the tech. */

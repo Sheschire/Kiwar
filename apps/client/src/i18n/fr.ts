@@ -1302,6 +1302,10 @@ export const fr: Dict = {
     kikiwiwiPower: 'Puissance des Kikiwiwis',
     kikiwiwiUpkeep: 'Jus des Kikiwiwis',
     infusionRisk: 'Risque de l’infusion',
+    nightWork: 'Travail de nuit',
+    waveNotice: 'Vagues annoncées plus tôt',
+    cometInterval: 'Temps entre deux comètes',
+    meteorStock: 'Météorites',
     unlock: 'Ouvert',
     nothing: 'Ouvre l’âge suivant.',
   },
@@ -1311,6 +1315,7 @@ export const fr: Dict = {
     exploration: 'Exploration',
     passage: 'Âge suivant',
     unnatural: 'Contre nature',
+    stars: 'Étoiles',
   },
   techs: {
     foraging: { name: 'Cueillette', desc: 'Récolte de pulpe et de fibre +10 %.' },
@@ -1338,6 +1343,13 @@ export const fr: Dict = {
       name: 'Infusion de jus',
       desc: 'Ouvre le laboratoire contre nature : des kiwis deviennent des Kikiwiwis.',
     },
+    clearNights: {
+      name: 'Nuits claires',
+      desc: 'La poussière d’étoiles éclaire les nuits : travail de nuit +15 %.',
+    },
+    starWatch: { name: 'Guet des étoiles', desc: 'Les vagues sont annoncées 4 heures plus tôt.' },
+    cometLure: { name: 'Appel des comètes', desc: 'Les comètes reviennent 20 % plus tôt.' },
+    starIron: { name: 'Fer d’étoile', desc: 'Les météorites apportent 30 % de plus.' },
     titanWorks: {
       name: 'Travaux de titan',
       desc: 'Les Kikiwiwis remodèlent le terrain : creuser une source de jus, élever une terrasse, aplanir une tuile.',

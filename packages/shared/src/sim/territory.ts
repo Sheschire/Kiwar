@@ -1,4 +1,4 @@
-import { techEffects } from './research';
+import { nightWork, techEffects } from './research';
 import { levelDef, type BuildingType } from '../data/buildings';
 import { BIOMES, climateOf, type BiomeId } from '../data/biomes';
 import type { ResourceId } from '../data/resources';
@@ -8,7 +8,7 @@ import { hexDisk, hexKey, hexNeighbors, parseHexKey, type Hex, type HexKey } fro
 import { generateFace, getTile, type FaceMap, type Tile } from '../worldgen/generateFace';
 import type { BuildingId, TimeMs } from '../types/ids';
 import type { Building, GameState } from './state';
-import { CYCLES, seasonEffects, seasonHarvest, seasonRegen, type Season } from '../data/cycles';
+import { seasonEffects, seasonHarvest, seasonRegen, type Season } from '../data/cycles';
 import { calendarAt, isNight, seasonOf } from './calendar';
 import { TITAN, type TerraformKind } from '../data/titan';
 
@@ -507,7 +507,7 @@ export interface Harvest {
 
 /** Work multiplier of the hour and the season for a resource (night, season harvest). */
 export function cycleHarvest(state: GameState, resource: ResourceId): number {
-  const work = isNight(state) ? CYCLES.nightWork : 1;
+  const work = isNight(state) ? nightWork(state) : 1;
   return work * seasonHarvest(seasonOf(state), resource, state.params.biome);
 }
 
