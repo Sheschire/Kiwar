@@ -6,8 +6,9 @@ import { FACES, type Face } from '../types/ids';
 
 /**
  * Shared universes (milestone 3). A universe holds several kiwis (pairs of faces). Each player
- * owns one face; every face without a player is held by aliens. There is always at least one
- * alien face: the universe grows by one kiwi whenever all faces are taken.
+ * gets a kiwi of their own and lives on one face; the other half is held by aliens, their own
+ * enemy to face. Allies are the other kiwis, far away. (Universes created before this rule may
+ * hold two players on one kiwi: they keep it.)
  */
 
 export const MAX_PLAYERS = 8;
@@ -49,20 +50,24 @@ export interface TwinSnapshot {
   at: number;
 }
 
-/** Number of kiwis: enough for every player plus at least one alien face. */
-export function kiwiCount(members: number): number {
-  return Math.floor(members / 2) + 1;
+/**
+ * Number of kiwis: one per player, plus one when every face is taken (older universes, where
+ * two players shared a kiwi), so there is always an alien face to explore.
+ */
+export function kiwiCount(members: Pick<UniverseMember, 'kiwiIndex'>[]): number {
+  const used = members.reduce((n, m) => Math.max(n, m.kiwiIndex + 1), 0);
+  return members.length >= used * FACES.length ? used + 1 : used;
 }
 
-/** First free face, filling kiwi after kiwi (so new friends land on a twin face first). */
+/** A newcomer gets the first kiwi nobody lives on (the twin half stays alien). */
 export function assignFace(members: Pick<UniverseMember, 'kiwiIndex' | 'face'>[]): {
   kiwiIndex: number;
   face: Face;
 } {
-  const taken = new Set(members.map((m) => `${m.kiwiIndex}:${m.face}`));
-  for (let k = 0; ; k++) {
-    for (const face of FACES) if (!taken.has(`${k}:${face}`)) return { kiwiIndex: k, face };
-  }
+  const used = new Set(members.map((m) => m.kiwiIndex));
+  let k = 0;
+  while (used.has(k)) k++;
+  return { kiwiIndex: k, face: FACES[0] };
 }
 
 /** Seed of a kiwi planet: both faces of a kiwi share it, so they are two halves of one fruit. */
@@ -77,7 +82,7 @@ export function universeTargets(
 ): ExpeditionTarget[] {
   const taken = new Set(members.map((m) => `${m.kiwiIndex}:${m.face}`));
   const targets: ExpeditionTarget[] = [];
-  for (let k = 0; k < kiwiCount(members.length); k++) {
+  for (let k = 0; k < kiwiCount(members); k++) {
     for (const face of FACES) {
       if (taken.has(`${k}:${face}`)) continue;
       const distance = Math.abs(k - me.kiwiIndex);

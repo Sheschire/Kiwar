@@ -645,3 +645,20 @@ Iron ≈ 4 days, Industry ≈ 8 days.
   6 biomes × 12 days): Stone 34–41 h, Iron 88–104 h, Industry 175–194 h (biomes within ±6 %).
   The 30-seed × 72 h report keeps the older milestones at their reference (Nest 3 ≈ 7.3 h,
   mayor ≈ 12.6 h, level 10 ≈ 2.6 days) and reaches the Stone age in ≈ 35 h in every biome.
+
+## Multiplayer playtest fixes (after chantier 08, first half)
+
+Feedback from a real game with friends (owner, 2026-10-20).
+
+- **Robustness**: never an empty screen — boot screen while loading, an error card (retry /
+  play solo) when the colony cannot be shown, error boundaries around the HUD, timeouts on
+  sign-in (15 s) and game calls (20 s), server states migrated and validated on the client, a
+  broken 3D view no longer stops the frame. The local save import and the first-visit intro only
+  touch the solo colony. The exact cause of "some players cannot build / blank on reload" was
+  not reproduced against the mock; the error card now shows the message to report.
+- **One kiwi per player** (owner): each newcomer gets the first kiwi nobody lives on, on its
+  Kiwisu face (they may switch to the other face while pristine). The twin half is always
+  aliens: everyone has their own alien face to fight; allies are the other kiwis, far away
+  (travel and trade later). `kiwiCount(members)` = one per player, + 1 when every face is taken
+  (universes created before this rule keep their pairs, and their friend on the twin face).
+  Targets: every alien face, distance = kiwi gap (own twin at 0).

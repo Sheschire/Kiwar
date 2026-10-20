@@ -32,21 +32,33 @@ const ok = (r: GameResponse) => {
 };
 
 describe('universe helpers', () => {
-  it('fills twin faces first and always leaves an alien face', () => {
+  it('gives every player a kiwi of their own, with an alien twin face', () => {
     const members: { kiwiIndex: number; face: 'kiwisu' | 'kiwino' }[] = [];
-    for (let i = 0; i < 5; i++) members.push(assignFace(members));
-    expect(members).toEqual([
+    for (let i = 0; i < 8; i++) members.push(assignFace(members));
+    expect(members.slice(0, 3)).toEqual([
       { kiwiIndex: 0, face: 'kiwisu' },
-      { kiwiIndex: 0, face: 'kiwino' },
       { kiwiIndex: 1, face: 'kiwisu' },
-      { kiwiIndex: 1, face: 'kiwino' },
       { kiwiIndex: 2, face: 'kiwisu' },
     ]);
     for (let p = 1; p <= 8; p++) {
-      expect(kiwiCount(p) * 2).toBeGreaterThan(p);
-      const ms = members.slice(0, Math.min(p, members.length));
-      expect(universeTargets(ms, ms[0]!).length).toBeGreaterThan(0);
+      const ms = members.slice(0, p);
+      expect(kiwiCount(ms)).toBe(p);
+      // Everyone's twin is an alien face at distance 0.
+      for (const me of ms)
+        expect(universeTargets(ms, me).filter((t) => t.distance === 0)).toHaveLength(1);
     }
+    // A kiwi freed by a player who left is given again.
+    expect(assignFace([{ kiwiIndex: 1, face: 'kiwino' }])).toEqual({
+      kiwiIndex: 0,
+      face: 'kiwisu',
+    });
+    // Older universes with two players on a kiwi still get an extra alien kiwi.
+    expect(
+      kiwiCount([
+        { kiwiIndex: 0, face: 'kiwisu' },
+        { kiwiIndex: 0, face: 'kiwino' },
+      ] as never),
+    ).toBe(2);
   });
 
   it('targets only alien faces, nearest first, harder and richer further away', () => {
@@ -92,18 +104,19 @@ describe('shared universes (server)', () => {
         displayName: 'Bob',
       }),
     );
-    expect(bob.state).toMatchObject({ face: 'kiwino', kiwiId: 'k0' });
-    // Two halves of the same fruit.
-    expect(bob.state.seed).toBe(created.state.seed);
+    expect(bob.state).toMatchObject({ face: 'kiwisu', kiwiId: 'k1' });
+    // A kiwi of their own, with its own alien half.
+    expect(bob.state.seed).not.toBe(created.state.seed);
+    expect(bob.state.targets.map((t) => t.id)).toEqual(['aliens:1:kiwino', 'aliens:0:kiwino']);
     // One shared calendar: Bob joins five hours later but lives the same days and seasons.
     expect(bob.state.calendarStart).toBe(created.state.calendarStart);
     expect(bob.state.createdAt).toBe(created.state.createdAt + 5 * 3_600_000);
     expect(bob.universe!.members.map((m) => m.displayName)).toEqual(['Alice', 'Bob']);
 
-    // Alice's twin face is now Bob's: her targets move to the new alien kiwi.
+    // Alice keeps her own alien twin and may also raid Bob's, further away.
     const aliceLoad = ok(await handleGameRequest(as('alice'), { action: 'load', universe: u.id }));
     expect(aliceLoad.state.targets.map((t) => t.id)).toEqual([
-      'aliens:1:kiwisu',
+      'aliens:0:kiwino',
       'aliens:1:kiwino',
     ]);
 
@@ -233,7 +246,7 @@ describe('shared universes (server)', () => {
 });
 
 describe('choosing a face and seeing a friend (chantier 05)', () => {
-  it('lets a newcomer move to the free face of their kiwi, never to a taken one', async () => {
+  it('lets a newcomer move to the other face of their own kiwi', async () => {
     const { as } = world();
     const created = ok(
       await handleGameRequest(as('alice'), {
@@ -252,7 +265,7 @@ describe('choosing a face and seeing a friend (chantier 05)', () => {
     expect(moved.state.face).toBe('kiwino');
     expect(moved.state.seed).toBe(created.state.seed);
     expect(moved.universe!.members[0]!.face).toBe('kiwino');
-    // Bob lands on the free face; Alice's face is taken.
+    // Bob gets a kiwi of his own: both of its faces are open to him.
     const bob = ok(
       await handleGameRequest(as('bob'), {
         action: 'joinUniverse',
@@ -260,18 +273,15 @@ describe('choosing a face and seeing a friend (chantier 05)', () => {
         displayName: 'Bob',
       }),
     );
-    expect(bob.state.face).toBe('kiwisu');
-    const refused = await handleGameRequest(as('bob'), {
-      action: 'pickFace',
-      universe,
-      face: 'kiwino',
-    });
-    expect(refused.ok).toBe(false);
-    expect(!refused.ok && refused.error).toBe('faceTaken');
+    expect(bob.state).toMatchObject({ face: 'kiwisu', kiwiId: 'k1' });
+    const bobMoved = ok(
+      await handleGameRequest(as('bob'), { action: 'pickFace', universe, face: 'kiwino' }),
+    );
+    expect(bobMoved.state).toMatchObject({ face: 'kiwino', kiwiId: 'k1' });
   });
 
   it('refuses to move a colony that has started, and shows the friend on the twin face', async () => {
-    const { as } = world();
+    const { as, repo } = world();
     const created = ok(
       await handleGameRequest(as('alice'), {
         action: 'createUniverse',
@@ -294,6 +304,13 @@ describe('choosing a face and seeing a friend (chantier 05)', () => {
       face: 'kiwino',
     });
     expect(!refused.ok && refused.error).toBe('forbidden');
+    // An older universe where Bob was seated on the other half of Alice's kiwi.
+    await repo.addMember(universe, {
+      userId: 'bob',
+      displayName: 'Bob',
+      kiwiIndex: 0,
+      face: 'kiwino',
+    });
     const bob = ok(
       await handleGameRequest(as('bob'), {
         action: 'joinUniverse',

@@ -13,7 +13,7 @@ function InvitePanel() {
   const link = inviteLink(universe.code);
   const taken = new Set(universe.members.map((m) => `${m.kiwiIndex}:${m.face}`));
   const alienFaces: string[] = [];
-  for (let k = 0; k < kiwiCount(universe.members.length); k++) {
+  for (let k = 0; k < kiwiCount(universe.members); k++) {
     for (const f of FACES)
       if (!taken.has(`${k}:${f}`))
         alienFaces.push(t('universe.memberFace', { face: t(`faces.${f}`), index: k + 1 }));

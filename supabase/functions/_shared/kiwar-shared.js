@@ -2034,13 +2034,14 @@ function tileAt(map, q, r) {
 // packages/shared/src/server/universes.ts
 var MAX_PLAYERS = 8;
 function kiwiCount(members) {
-  return Math.floor(members / 2) + 1;
+  const used = members.reduce((n, m) => Math.max(n, m.kiwiIndex + 1), 0);
+  return members.length >= used * FACES.length ? used + 1 : used;
 }
 function assignFace(members) {
-  const taken = new Set(members.map((m) => `${m.kiwiIndex}:${m.face}`));
-  for (let k = 0; ; k++) {
-    for (const face of FACES) if (!taken.has(`${k}:${face}`)) return { kiwiIndex: k, face };
-  }
+  const used = new Set(members.map((m) => m.kiwiIndex));
+  let k = 0;
+  while (used.has(k)) k++;
+  return { kiwiIndex: k, face: FACES[0] };
 }
 function kiwiSeed(universeSeed, kiwiIndex) {
   return `${universeSeed}-k${kiwiIndex}`;
@@ -2048,7 +2049,7 @@ function kiwiSeed(universeSeed, kiwiIndex) {
 function universeTargets(members, me) {
   const taken = new Set(members.map((m) => `${m.kiwiIndex}:${m.face}`));
   const targets = [];
-  for (let k = 0; k < kiwiCount(members.length); k++) {
+  for (let k = 0; k < kiwiCount(members); k++) {
     for (const face of FACES) {
       if (taken.has(`${k}:${face}`)) continue;
       const distance = Math.abs(k - me.kiwiIndex);
@@ -10019,7 +10020,7 @@ function toInfo(row, members) {
     ...toSummary(row, members.length),
     seed: row.seed,
     members,
-    kiwiCount: kiwiCount(members.length),
+    kiwiCount: kiwiCount(members),
     createdAt: row.createdAt
   };
 }

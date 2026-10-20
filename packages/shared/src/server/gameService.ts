@@ -152,7 +152,7 @@ function toInfo(row: UniverseRow, members: UniverseMember[]): UniverseInfo {
     ...toSummary(row, members.length),
     seed: row.seed,
     members,
-    kiwiCount: kiwiCount(members.length),
+    kiwiCount: kiwiCount(members),
     createdAt: row.createdAt,
   };
 }
