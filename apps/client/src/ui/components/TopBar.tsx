@@ -9,6 +9,7 @@ import {
   idleVillagers,
   netRates,
   population,
+  staffing,
 } from '../derived';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import {
@@ -51,6 +52,7 @@ function ResourceChip({ id, h }: { id: ResourceId; h: ChipHandlers }) {
     const eaten = consumption(s.game)[id] > 0;
     return eaten && (s.game.resources[id] <= 0 || (left !== null && left < NEEDS.warnMs));
   });
+  const staff = useUi((s) => (s.game ? (staffing(s.game).byKind[id]?.workers ?? 0) : 0));
   const fill = cap > 0 ? Math.min(1, amount / cap) : 0;
   const full = fill >= 0.999;
   return (
@@ -76,6 +78,11 @@ function ResourceChip({ id, h }: { id: ResourceId; h: ChipHandlers }) {
         <div class={`chip-rate ${rate < 0 ? 'is-negative' : ''}`}>
           {rate < 0 ? '−' : '+'}
           {formatNumber(lang, Math.abs(rate))}/h
+          <span class="chip-staff" title={t('posts.workersOn', { count: staff })}>
+            {' · '}
+            <KiwiIcon size={11} />
+            {staff}
+          </span>
         </div>
       </div>
     </button>
@@ -172,6 +179,9 @@ export function TopBar() {
   const villageOpen = useUi((s) => s.modal === 'village');
   const modal = useUi((s) => s.modal);
   const points = useUi((s) => s.game?.villagers.reduce((n, v) => n + v.statPoints, 0) ?? 0);
+  const unassigned = useUi((s) => (s.game ? staffing(s.game).unassigned : 0));
+  const freeSlots = useUi((s) => (s.game ? staffing(s.game).freeSlots : 0));
+  const idleAlert = unassigned > 0 && freeSlots > 0;
   const [tip, setTip] = useState<TipId | null>(null);
   const [tipLeft, setTipLeft] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
@@ -233,25 +243,44 @@ export function TopBar() {
         {RESOURCE_IDS.map((id) => (
           <ResourceChip key={id} id={id} h={handlers(id)} />
         ))}
-        <button
-          type="button"
-          data-tip="population"
-          class={`chip chip-pop ${popHandlers.open ? 'is-open' : ''}`}
-          aria-label={`${t('hud.population')} ${pop}/${house}`}
-          aria-expanded={popHandlers.open}
-          onPointerEnter={popHandlers.onEnter}
-          onPointerLeave={popHandlers.onLeave}
-          onClick={popHandlers.onToggle}
-        >
-          <KiwiIcon size={24} />
-          <div class="chip-body">
-            <div class="chip-line">
-              <span class="chip-amount">{pop}</span>
-              <span class="chip-cap">/{house}</span>
+        <span class="chip-pop-wrap">
+          <button
+            type="button"
+            data-tip="population"
+            class={`chip chip-pop ${popHandlers.open ? 'is-open' : ''}`}
+            aria-label={`${t('hud.population')} ${pop}/${house}`}
+            aria-expanded={popHandlers.open}
+            onPointerEnter={popHandlers.onEnter}
+            onPointerLeave={popHandlers.onLeave}
+            onClick={popHandlers.onToggle}
+          >
+            <KiwiIcon size={24} />
+            <div class="chip-body">
+              <div class="chip-line">
+                <span class="chip-amount">{pop}</span>
+                <span class="chip-cap">/{house}</span>
+              </div>
+              <div class={`chip-rate ${idleAlert ? 'warn' : ''}`}>
+                {unassigned > 0
+                  ? t('posts.unassigned', { count: unassigned })
+                  : t('hud.population')}
+              </div>
             </div>
-            <div class="chip-rate">{t('hud.population')}</div>
-          </div>
-        </button>
+          </button>
+          {unassigned > 0 && (
+            <button
+              type="button"
+              class={`chip-idle ${idleAlert ? 'is-alert' : ''}`}
+              aria-label={t('posts.unassigned', { count: unassigned })}
+              title={
+                idleAlert ? t('posts.unassignedHint') : t('posts.unassigned', { count: unassigned })
+              }
+              onClick={() => actions.openPosts()}
+            >
+              {unassigned}
+            </button>
+          )}
+        </span>
         <ClockChip h={handlers('clock')} />
         {tip && (
           <div class="tip parchment" role="tooltip" ref={tipRef} style={{ left: `${tipLeft}px` }}>

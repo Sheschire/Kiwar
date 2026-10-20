@@ -117,6 +117,11 @@ export const actions = {
     uiStore.setState({ modal: 'village', kiwiId, villageTab: 'kiwis', selectedTile: null });
     renderer?.highlightKiwi(kiwiId);
   },
+  /** Opens the village screen on the job board (who works where). */
+  openPosts(): void {
+    uiStore.setState({ modal: 'village', kiwiId: null, villageTab: 'posts', selectedTile: null });
+    renderer?.highlightKiwi(null);
+  },
   showKiwi(kiwiId: string | null): void {
     uiStore.setState({ kiwiId });
     renderer?.highlightKiwi(kiwiId);

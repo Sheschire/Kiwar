@@ -3,6 +3,7 @@ import {
   advance,
   cloneState,
   idleVillagers,
+  jobBoard,
   kiwiPosts,
   validateCommand,
   workerPower,
@@ -146,5 +147,28 @@ describe('assigning a given kiwi (chantier 09)', () => {
     expect(posts.filter((p) => p.ideal)).toHaveLength(1);
     expect(posts[0]!.ideal).toBe(true);
     expect(kiwiPosts(s, a!).find((p) => p.buildingId === pulpery.id)!.current).toBe(true);
+  });
+
+  it('sums the workers, places and output by resource on the job board', () => {
+    const { map, s: start, pulpery, workshop } = colony();
+    const [a] = idleVillagers(start);
+    const s = run(
+      start,
+      { type: 'assignKiwi', villagerId: a!.id, buildingId: pulpery.id },
+      T0,
+      map,
+    );
+    const board = jobBoard(s);
+    expect(board.rows.map((r) => r.kind)).toEqual(['pulp', 'fiber']);
+    const pulp = board.rows[0]!;
+    expect([pulp.workers, pulp.slots]).toEqual([1, 1]);
+    expect(pulp.buildings[0]!.workers.map((v) => v.id)).toEqual([a!.id]);
+    // Rich test colonies are over the storage cap: full wins over everything.
+    expect(board.rows[1]!.status).toBe('full');
+    const poor = { ...s, resources: { pulp: 0, fiber: 0, seeds: 0, juice: 0 } };
+    expect(jobBoard(poor).rows[1]!.status).toBe('empty');
+    expect(board.unassigned).toHaveLength(s.villagers.length - 1);
+    expect(board.freeSlots).toBe(1);
+    expect(workshop.id).toBe(board.rows[1]!.buildings[0]!.building.id);
   });
 });

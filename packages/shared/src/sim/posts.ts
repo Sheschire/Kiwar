@@ -2,8 +2,16 @@ import type { BuildingType } from '../data/buildings';
 import type { ResourceId } from '../data/resources';
 import type { BuildingId, VillagerId } from '../types/ids';
 import { buildingResource, workerPower } from './kiwis';
-import { researchPower } from './research';
-import { workerSlots, workersOf } from './selectors';
+import { researchPerHour, researchPower } from './research';
+import {
+  buildingHarvest,
+  buildingRates,
+  storageFullCheck,
+  workerSlots,
+  workersOf,
+} from './selectors';
+import { calendarOf } from './calendar';
+import { isManualWorkplace } from '../data/buildings';
 import type { Building, GameState, Villager } from './state';
 
 /** What a workplace produces: a resource, or research points (the Library). */
@@ -103,4 +111,92 @@ export function kiwiPosts(state: GameState, v: Villager): KiwiPost[] {
   posts.sort((a, b) => b.affinity - a.affinity);
   if (posts[0]) posts[0].ideal = true;
   return posts;
+}
+
+/** Status of a whole line of the job board. */
+export type BoardStatus = 'ok' | 'full' | 'depleted' | 'night' | 'empty';
+
+/** One line of the job board: every workplace producing the same thing. */
+export interface BoardRow {
+  kind: PostKind;
+  workers: number;
+  slots: number;
+  /** Output per hour of these workplaces (research points for the Library). */
+  perHour: number;
+  status: BoardStatus;
+  buildings: { building: Building; workers: Villager[]; slots: number }[];
+}
+
+export interface JobBoard {
+  rows: BoardRow[];
+  /** Kiwis without a post (idle, Kikiwiwis aside). */
+  unassigned: Villager[];
+  /** Free places in workplaces the kiwis join on their own (the Library aside). */
+  freeSlots: number;
+  guards: Villager[];
+  builders: Villager[];
+}
+
+const KIND_ORDER: PostKind[] = ['pulp', 'fiber', 'seeds', 'juice', 'research'];
+
+/** Head counts only (cheap, for the top bar): workers and places by kind, kiwis without a post. */
+export function staffing(state: GameState): {
+  byKind: Partial<Record<PostKind, { workers: number; slots: number }>>;
+  unassigned: number;
+  freeSlots: number;
+} {
+  const byKind: Partial<Record<PostKind, { workers: number; slots: number }>> = {};
+  let freeSlots = 0;
+  for (const b of state.buildings) {
+    const kind = postKind(state, b);
+    if (!kind) continue;
+    const workers = workersOf(state, b.id).length;
+    const slots = workerSlots(b);
+    if (!isManualWorkplace(b.type)) freeSlots += Math.max(0, slots - workers);
+    const row = (byKind[kind] ??= { workers: 0, slots: 0 });
+    row.workers += workers;
+    row.slots += slots;
+  }
+  const unassigned = state.villagers.filter((v) => v.job.kind === 'idle' && !v.kikiwiwi).length;
+  return { byKind, unassigned, freeSlots };
+}
+
+/** Who works where, by resource: the "Posts" tab and the top bar's "N without a post". */
+export function jobBoard(state: GameState): JobBoard {
+  const full = storageFullCheck(state);
+  const night = calendarOf(state).night;
+  const rows = new Map<PostKind, BoardRow>();
+  let freeSlots = 0;
+  for (const b of state.buildings) {
+    const kind = postKind(state, b);
+    if (!kind) continue;
+    const workers = workersOf(state, b.id);
+    const slots = workerSlots(b);
+    if (!isManualWorkplace(b.type)) freeSlots += Math.max(0, slots - workers.length);
+    let row = rows.get(kind);
+    if (!row) {
+      row = { kind, workers: 0, slots: 0, perHour: 0, status: 'ok', buildings: [] };
+      rows.set(kind, row);
+    }
+    row.workers += workers.length;
+    row.slots += slots;
+    row.buildings.push({ building: b, workers, slots });
+    if (kind !== 'research') row.perHour += buildingRates(state, b, full)[kind];
+  }
+  for (const row of rows.values()) {
+    if (row.kind === 'research') row.perHour = researchPerHour(state);
+    const harvests = row.buildings.map((x) => buildingHarvest(state, x.building, full));
+    if (row.kind !== 'research' && full(row.kind)) row.status = 'full';
+    else if (row.workers === 0) row.status = 'empty';
+    else if (harvests.length > 0 && harvests.every((h) => h?.status === 'depleted'))
+      row.status = 'depleted';
+    else if (night && row.kind !== 'research') row.status = 'night';
+  }
+  return {
+    rows: KIND_ORDER.filter((k) => rows.has(k)).map((k) => rows.get(k)!),
+    unassigned: state.villagers.filter((v) => v.job.kind === 'idle' && !v.kikiwiwi),
+    freeSlots,
+    guards: state.villagers.filter((v) => v.job.kind === 'guard'),
+    builders: state.villagers.filter((v) => v.job.kind === 'build'),
+  };
 }

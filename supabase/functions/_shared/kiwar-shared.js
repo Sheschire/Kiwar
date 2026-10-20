@@ -5704,6 +5704,61 @@ function kiwiPosts(state, v) {
   if (posts[0]) posts[0].ideal = true;
   return posts;
 }
+var KIND_ORDER = ["pulp", "fiber", "seeds", "juice", "research"];
+function staffing(state) {
+  const byKind = {};
+  let freeSlots = 0;
+  for (const b of state.buildings) {
+    const kind = postKind(state, b);
+    if (!kind) continue;
+    const workers = workersOf(state, b.id).length;
+    const slots = workerSlots(b);
+    if (!isManualWorkplace(b.type)) freeSlots += Math.max(0, slots - workers);
+    const row = byKind[kind] ??= { workers: 0, slots: 0 };
+    row.workers += workers;
+    row.slots += slots;
+  }
+  const unassigned = state.villagers.filter((v) => v.job.kind === "idle" && !v.kikiwiwi).length;
+  return { byKind, unassigned, freeSlots };
+}
+function jobBoard(state) {
+  const full = storageFullCheck(state);
+  const night = calendarOf(state).night;
+  const rows = /* @__PURE__ */ new Map();
+  let freeSlots = 0;
+  for (const b of state.buildings) {
+    const kind = postKind(state, b);
+    if (!kind) continue;
+    const workers = workersOf(state, b.id);
+    const slots = workerSlots(b);
+    if (!isManualWorkplace(b.type)) freeSlots += Math.max(0, slots - workers.length);
+    let row = rows.get(kind);
+    if (!row) {
+      row = { kind, workers: 0, slots: 0, perHour: 0, status: "ok", buildings: [] };
+      rows.set(kind, row);
+    }
+    row.workers += workers.length;
+    row.slots += slots;
+    row.buildings.push({ building: b, workers, slots });
+    if (kind !== "research") row.perHour += buildingRates(state, b, full)[kind];
+  }
+  for (const row of rows.values()) {
+    if (row.kind === "research") row.perHour = researchPerHour(state);
+    const harvests = row.buildings.map((x) => buildingHarvest(state, x.building, full));
+    if (row.kind !== "research" && full(row.kind)) row.status = "full";
+    else if (row.workers === 0) row.status = "empty";
+    else if (harvests.length > 0 && harvests.every((h) => h?.status === "depleted"))
+      row.status = "depleted";
+    else if (night && row.kind !== "research") row.status = "night";
+  }
+  return {
+    rows: KIND_ORDER.filter((k) => rows.has(k)).map((k) => rows.get(k)),
+    unassigned: state.villagers.filter((v) => v.job.kind === "idle" && !v.kikiwiwi),
+    freeSlots,
+    guards: state.villagers.filter((v) => v.job.kind === "guard"),
+    builders: state.villagers.filter((v) => v.job.kind === "build")
+  };
+}
 
 // packages/shared/src/sim/commands.ts
 var COMMAND_ERRORS = [
@@ -11873,6 +11928,7 @@ export {
   isProducer,
   isRampart,
   isTurret,
+  jobBoard,
   kikiwiwiCap,
   kikiwiwiCount,
   kikiwiwiUpkeep,
@@ -11991,6 +12047,7 @@ export {
   skyTick,
   soloTargets,
   splitsLand,
+  staffing,
   stageOf,
   startNextConstruction,
   storageFullCheck,

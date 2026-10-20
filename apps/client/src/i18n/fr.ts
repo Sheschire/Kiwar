@@ -1089,6 +1089,23 @@ export const fr: Dict = {
       research: 'Recherche',
     },
     workers: 'Ouvrier·ères',
+    tab: 'Postes',
+    construction: 'Construction',
+    freeSlots: '{count} place(s) libre(s) dans les postes : touchez un kiwi pour l’affecter.',
+    noFreeSlot:
+      'Tous les postes sont pleins : construisez ou améliorez pour leur donner du travail.',
+    everyoneBusy: 'Chaque kiwi a un poste.',
+    status: {
+      ok: 'OK',
+      full: 'Stock plein',
+      depleted: 'Épuisé',
+      night: 'Nuit',
+      empty: 'Personne',
+    },
+    workersOn: '{count} kiwi(s) à la récolte',
+    unassigned: '{count} sans poste',
+    unassignedHint:
+      'Des kiwis sans poste alors que des postes ont de la place : ouvrez le tableau des postes.',
     replace: 'Remplacer par…',
     replaceWith: 'Qui prend la place de {name} ?',
     noReplacement: 'Aucun autre kiwi ne peut venir.',

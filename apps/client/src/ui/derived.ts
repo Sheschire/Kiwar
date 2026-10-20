@@ -15,6 +15,7 @@ import {
   population as sharedPopulation,
   productionRates as sharedProductionRates,
   researchPerHour as sharedResearchPerHour,
+  staffing as sharedStaffing,
   type GameState,
 } from '@kiwar/shared';
 
@@ -40,6 +41,8 @@ export const homeKiwis = perGame(sharedHomeKiwis);
 export const idleVillagers = perGame(sharedIdleVillagers);
 export const forecastWave = perGame(sharedForecastWave);
 export const researchPerHour = perGame(sharedResearchPerHour);
+/** Workers by kind of post, kiwis without a post, free places (chantier 09). */
+export const staffing = perGame(sharedStaffing);
 /** Beds of the kiwis (default map of the state). */
 export const bedsOf = perGame((state) => sharedBedsOf(state));
 export const moraleOf = perGame((state) => sharedMoraleOf(state, bedsOf(state)));

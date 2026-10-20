@@ -23,6 +23,9 @@ import {
   type Command,
   type GameState,
   kiwiPosts,
+  jobBoard,
+  idleVillagers,
+  type BoardRow,
   type ResourceId,
   type Villager,
 } from '@kiwar/shared';
@@ -527,7 +530,7 @@ export function VillageModal() {
       ) : (
         <>
           <div class="segmented" role="tablist">
-            {(['kiwis', 'memorial'] as const).map((k) => (
+            {(['kiwis', 'posts', 'memorial'] as const).map((k) => (
               <button
                 key={k}
                 role="tab"
@@ -537,11 +540,13 @@ export function VillageModal() {
               >
                 {k === 'kiwis'
                   ? t('village.kiwis', { count: game.villagers.length })
-                  : t('village.memorial')}
+                  : k === 'posts'
+                    ? t('posts.tab')
+                    : t('village.memorial')}
               </button>
             ))}
           </div>
-          {tab === 'kiwis' ? <KiwiList /> : <Memorial />}
+          {tab === 'kiwis' ? <KiwiList /> : tab === 'posts' ? <JobBoardView /> : <Memorial />}
         </>
       )}
     </Modal>
@@ -751,5 +756,174 @@ export function ResourceKind({ kind, size = 20 }: { kind: string; size?: number 
     <BookIcon size={size} />
   ) : (
     <ResourceIcon id={kind as ResourceId} size={size} />
+  );
+}
+
+/** A row of small portraits; a tap opens the kiwi's sheet. */
+function KiwiChips({ kiwis }: { kiwis: Villager[] }) {
+  return (
+    <span class="kiwi-chips">
+      {kiwis.map((v) => (
+        <button key={v.id} class="kiwi-chip" title={v.name} onClick={() => actions.showKiwi(v.id)}>
+          <KiwiPortrait shiny={v.shiny} classId={v.classId} seed={v.id} size={26} />
+          <span class="small">{v.name}</span>
+        </button>
+      ))}
+    </span>
+  );
+}
+
+/** Chantier 09: who works where, by resource, with the kiwis without a post on top. */
+function JobBoardView() {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const game = useUi((s) => s.game)!;
+  const [open, setOpen] = useState<string | null>(null);
+  const board = jobBoard(game);
+  const fmt = (x: number) => formatNumber(lang, Math.round(x * 10) / 10);
+  return (
+    <div class="job-board">
+      <section
+        class={`field board-idle ${board.unassigned.length && board.freeSlots ? 'is-alert' : ''}`}
+      >
+        <h3>{t('posts.unassigned', { count: board.unassigned.length })}</h3>
+        {board.unassigned.length > 0 ? (
+          <>
+            <p class="small muted">
+              {board.freeSlots > 0
+                ? t('posts.freeSlots', { count: board.freeSlots })
+                : t('posts.noFreeSlot')}
+            </p>
+            <KiwiChips kiwis={board.unassigned} />
+          </>
+        ) : (
+          <p class="small muted">{t('posts.everyoneBusy')}</p>
+        )}
+      </section>
+      {board.rows.length === 0 && <p class="small muted">{t('posts.none')}</p>}
+      <ul class="board-rows">
+        {board.rows.map((row) => (
+          <BoardLine
+            key={row.kind}
+            row={row}
+            open={open === row.kind}
+            onToggle={() => setOpen(open === row.kind ? null : row.kind)}
+            fmt={fmt}
+          />
+        ))}
+        {board.guards.length > 0 && (
+          <li class="board-row is-static">
+            <div class="board-head">
+              <span class="board-main">
+                <strong>{t('garrison.title')}</strong>
+                <span class="small muted">{board.guards.length}</span>
+              </span>
+            </div>
+            <KiwiChips kiwis={board.guards} />
+          </li>
+        )}
+        {board.builders.length > 0 && (
+          <li class="board-row is-static">
+            <div class="board-head">
+              <span class="board-main">
+                <strong>{t('posts.construction')}</strong>
+                <span class="small muted">{board.builders.length}</span>
+              </span>
+            </div>
+            <KiwiChips kiwis={board.builders} />
+          </li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+function BoardLine({
+  row,
+  open,
+  onToggle,
+  fmt,
+}: {
+  row: BoardRow;
+  open: boolean;
+  onToggle: () => void;
+  fmt: (x: number) => string;
+}) {
+  const t = useT();
+  const game = useUi((s) => s.game)!;
+  const idle = idleVillagers(game).filter((v) => !v.kikiwiwi).length;
+  return (
+    <li class={`board-row status-${row.status}`}>
+      <button class="board-head" aria-expanded={open} onClick={onToggle}>
+        <ResourceKind kind={row.kind} size={22} />
+        <span class="board-main">
+          <strong>{t(`posts.kinds.${row.kind}`)}</strong>
+          <span class="small muted">
+            {row.kind === 'research'
+              ? t('research.rate', { rate: fmt(row.perHour) })
+              : `+${fmt(row.perHour)}/h`}
+          </span>
+        </span>
+        {row.status !== 'ok' && (
+          <span class={`badge board-status status-${row.status}`}>
+            {t(`posts.status.${row.status}`)}
+          </span>
+        )}
+        <span class="board-count">
+          {row.workers}/{row.slots}
+        </span>
+        <span class="board-caret" aria-hidden="true">
+          {open ? '▾' : '▸'}
+        </span>
+      </button>
+      {open && (
+        <ul class="board-buildings">
+          {row.buildings.map(({ building: b, workers, slots }) => (
+            <li key={b.id}>
+              <div class="board-building">
+                <span class="small">
+                  <strong>{t(`buildings.${b.type}.name`)}</strong>{' '}
+                  <span class="muted">{t('common.levelShort', { level: b.level })}</span>
+                </span>
+                <span class="stepper stepper-small">
+                  <button
+                    class="btn btn-icon btn-small"
+                    aria-label={t('building.removeWorker')}
+                    disabled={workers.length === 0}
+                    onClick={() =>
+                      actions.dispatch({
+                        type: 'assignWorkers',
+                        buildingId: b.id,
+                        count: workers.length - 1,
+                      })
+                    }
+                  >
+                    −
+                  </button>
+                  <span class="small">
+                    {workers.length}/{slots}
+                  </span>
+                  <button
+                    class="btn btn-icon btn-small"
+                    aria-label={t('building.addWorker')}
+                    disabled={workers.length >= slots || idle === 0}
+                    onClick={() =>
+                      actions.dispatch({
+                        type: 'assignWorkers',
+                        buildingId: b.id,
+                        count: workers.length + 1,
+                      })
+                    }
+                  >
+                    +
+                  </button>
+                </span>
+              </div>
+              {workers.length > 0 && <KiwiChips kiwis={workers} />}
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }
