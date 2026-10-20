@@ -516,6 +516,12 @@ affinity` (warrior ground 1 / air 0, mage 0.8 / 1, scout 0.5 / 0.8, builder 0.5 
   personal use only; the bat (CC BY) has 132k triangles and the kiwi (CC BY) 502k without
   animation — far too heavy for instanced crowds on phones. Procedural low-poly models are kept;
   a decimated (~1–2k triangles) glTF could replace them later.
+- **Balance report** (200 seeds per biome × 72 h, ~63 min): every biome within ±5.6 % of the
+  median on every milestone, Kiwisu / Kiwino within 3.2 %; milestones unchanged from chantier 05
+  (tutorial 1.5–1.6 h, Nest 3 ≈ 7.1–7.5 h, level 5 ≈ 10.1 h, mayor ≈ 12.6 h, level 10 ≈ 2.6 days).
+  The attentive bot meets 2 waves per run and loses almost none (seed crown 9 %, its seeds are
+  spent on turret ammo); ~3 meteorites per run. An occasional player (twice a day, 5 days)
+  loses about one wave in six, without deaths.
 
 ## Chantier 07 — Mechanical kiwi ship and reconnaissance
 

@@ -19,6 +19,9 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   within ±5.6 % of the median (delta and highlands fastest early, seed crown and lagoons
   slowest), Kiwisu / Kiwino within 3.2 %; tutorial 1.5–1.6 h, Nest 3 ≈ 7 h, level 5 ≈ 10.1 h,
   mayor ≈ 12.4 h, level 10 ≈ 2.6 days. Unchanged from chantier 04 on average.
+- Reference (end of chantier 06, 200 seeds per biome × 72 h, ~63 min): biomes within ±5.6 %,
+  faces within 3.2 %, same milestones as chantier 05; 2 waves per run, almost all won by the
+  attentive bot (seed crown 9 % lost). See `kiwar-threats` for the bot's defense.
 - Reference (end of chantier 04, 200 seeds × 72 h, ~38 min): tutorial 1.5–1.6 h, Nest 3 ≈ 7 h,
   level 5 ≈ 10 h, mayor ≈ 12.3 h, level 10 ≈ 2.6 days, faces within 6 %.
 - Previous reference (end of chantier 03, 200 seeds × 72 h): tutorial 1.5 h, Nest 2 1.5 h, Nest 3 ≈ 6.2 h,
