@@ -54,6 +54,15 @@ export const BLESSINGS = {
   starShiny: 1 / 8,
 } as const;
 
+/** Chantier 13: stardust as ship fuel (an option of the expedition planner). */
+export const FUEL = {
+  stardust: 5,
+  /** Travel time multiplier. */
+  travel: 0.75,
+  /** Added to the ship reliability (fewer breakdowns). */
+  reliability: 0.15,
+} as const;
+
 /** Raw stardust units per point. A kiwi picks `rate` raw units per ms (an integer). */
 export const STARDUST_SCALE = 100 * STARDUST.pickMs;
 

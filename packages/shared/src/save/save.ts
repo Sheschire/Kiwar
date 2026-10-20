@@ -81,6 +81,7 @@ const job = z.discriminatedUnion('kind', [
     until: z.number(),
     risk: z.number().min(0).max(1),
     paid: partialResources,
+    paidDust: z.number().int().min(0).optional(),
   }),
 ]);
 
@@ -230,6 +231,7 @@ export const gameStateSchema = z.object({
       durationMs: z.number(),
       startedAt: z.number().nullable(),
       paid: partialResources,
+      paidDust: z.number().int().min(0).optional(),
       orderedAt: z.number(),
     }),
   ),

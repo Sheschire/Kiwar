@@ -3845,3 +3845,19 @@ button.chip:focus-visible {
 .egg-btn.hatching.is-star {
   border-color: #d9a83a;
 }
+
+.fuel-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  cursor: pointer;
+}
+
+.fuel-toggle.is-short {
+  opacity: 0.6;
+}
+
+.cost-dust {
+  color: #9a6a12;
+}

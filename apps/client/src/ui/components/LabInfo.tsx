@@ -10,6 +10,7 @@ import {
   type FaceMap,
   type GameState,
   type VillagerId,
+  stardustOf,
 } from '@kiwar/shared';
 import { formatDuration } from '../../i18n/i18n';
 import { actions } from '../actions';
@@ -110,7 +111,13 @@ export function LabInfo(props: { game: GameState; map: FaceMap; b: Building; now
         </>
       )}
       <div class="upgrade-box">
-        <Cost cost={KIKIWIWI.cost} have={game.resources} durationMs={infusionDuration(b)} />
+        <Cost
+          cost={KIKIWIWI.cost}
+          have={game.resources}
+          durationMs={infusionDuration(b)}
+          stardust={KIKIWIWI.stardust}
+          haveDust={stardustOf(game)}
+        />
         <button
           class="btn btn-primary"
           disabled={!cmd || error !== null}

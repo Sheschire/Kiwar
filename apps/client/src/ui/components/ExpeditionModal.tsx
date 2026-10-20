@@ -19,10 +19,12 @@ import {
   type MissionKind,
   type Villager,
   type VillagerId,
+  FUEL,
+  stardustOf,
 } from '@kiwar/shared';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
-import { KiwiIcon, ResourceIcon, ShipIcon } from '../icons';
+import { KiwiIcon, ResourceIcon, ShipIcon, StardustIcon } from '../icons';
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
 import { IntelMap } from './IntelMap';
@@ -240,9 +242,19 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
       ? suggestedProvisions(game, { launchpadId: padId, targetId, crew, mission })
       : { pulp: 0, juice: 0 },
   );
+  // Chantier 13: stardust burnt as fuel, once the colony has seen some.
+  const [fuel, setFuel] = useState(false);
   if (!pad || !target || !map) return null;
 
-  const plan = { launchpadId: padId, targetId, crew, provisions: food, mission };
+  const showFuel = game.stardust > 0 || game.comets.passes > 0;
+  const plan = {
+    launchpadId: padId,
+    targetId,
+    crew,
+    provisions: food,
+    mission,
+    ...(fuel ? { fuel: true } : {}),
+  };
   const switchTo = (m: MissionKind) => {
     if (m === mission) return;
     const c = pick(m);
@@ -450,6 +462,22 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             !f.recon &&
             ` · ${t('ship.armor', { pct: Math.round(f.ship.armor * 100) })}`}
         </p>
+        {showFuel && (
+          <label class={`fuel-toggle small ${stardustOf(game) < FUEL.stardust ? 'is-short' : ''}`}>
+            <input
+              type="checkbox"
+              checked={fuel}
+              disabled={!fuel && stardustOf(game) < FUEL.stardust}
+              onChange={(e) => setFuel((e.target as HTMLInputElement).checked)}
+            />
+            <StardustIcon size={16} />
+            {t('ship.fuel', {
+              dust: FUEL.stardust,
+              travel: Math.round((1 - FUEL.travel) * 100),
+              reliability: Math.round(FUEL.reliability * 100),
+            })}
+          </label>
+        )}
         {pad.damaged && <p class="small warn">{t('ship.damaged')}</p>}
       </section>
 

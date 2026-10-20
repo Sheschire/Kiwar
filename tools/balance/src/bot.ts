@@ -80,6 +80,12 @@ import {
   type ResourceId,
   type Tile,
   type VillagerId,
+  BLESSINGS,
+  bestDustCrew,
+  dustPickers,
+  STARDUST_CAP,
+  STARDUST_SCALE,
+  stardustOf,
 } from '@kiwar/shared';
 
 export const MILESTONES = [
@@ -118,6 +124,10 @@ export interface RunResult {
     wavesLost?: number;
     predatorDeaths?: number;
     meteors?: number;
+    /** Chantier 13: comets passed, stardust picked in all and left at the end. */
+    comets?: number;
+    dustPicked?: number;
+    stardust?: number;
   };
 }
 
@@ -229,6 +239,9 @@ function decide(state: GameState, map: FaceMap): Command[] {
   const mayor = state.villagers.find((v) => v.classId === 'mayor');
   if (mayor && hasSkill(mayor, 'speech') && (mayor.skillReadyAt.speech ?? 0) <= state.now)
     cmds.push({ type: 'useSkill', villagerId: mayor.id, skill: 'speech' });
+
+  // Chantier 13: the most dexterous kiwis pick the stardust as soon as it falls.
+  cmds.push(...cometOrders(state));
 
   // Researchers (chantier 08): kiwis never join the Library on their own.
   const staffing = researchStaffing(state);
@@ -597,6 +610,7 @@ function titanOrders(state: GameState, map: FaceMap): Command | null {
     kikiwiwiCount(state) < kikiwiwiCap(state) &&
     !state.villagers.some((v) => v.job.kind === 'transform') &&
     state.resources.juice >= (KIKIWIWI.cost.juice ?? 0) + JUICE_RESERVE &&
+    stardustOf(state) >= KIKIWIWI.stardust &&
     canAfford(state.resources, KIKIWIWI.cost)
   ) {
     const best = state.villagers
@@ -732,6 +746,31 @@ function ageDecision(
   return 'save';
 }
 
+/** Stardust kept for what the colony still needs: the next monuments and a Kikiwiwi. */
+function dustReserve(state: GameState): number {
+  let need = 0;
+  const monument = state.buildings.find((b) => b.type === 'monument');
+  for (let level = (monument?.level ?? 0) + 1; level <= 3; level++)
+    need += levelDef('monument', level)?.stardust ?? 0;
+  if (!state.villagers.some((v) => v.kikiwiwi)) need += KIKIWIWI.stardust;
+  return need;
+}
+
+/** Pickers on every stardust tile; the surplus heals wounded kiwis. */
+function cometOrders(state: GameState): Command[] {
+  const cmds: Command[] = [];
+  if (state.stardust < STARDUST_CAP)
+    for (const p of state.comets.patches) {
+      const crew = bestDustCrew(state, p.id);
+      if (crew.length > dustPickers(state, p.id).length)
+        cmds.push({ type: 'collectStardust', patchId: p.id, villagerIds: crew });
+    }
+  const hurt = state.villagers.find((v) => v.job.kind === 'injured');
+  if (hurt && stardustOf(state) >= dustReserve(state) + BLESSINGS.heal)
+    cmds.push({ type: 'bless', villagerId: hurt.id, kind: 'heal' });
+  return cmds;
+}
+
 function checkMilestones(
   state: GameState,
   start: number,
@@ -815,8 +854,11 @@ export function runBot(opts: RunOptions): RunResult {
   let maxHunger = 0;
   let wavesLost = 0;
   let wavesSeen = 0;
+  let dustPicked = 0;
   while (now - start < opts.horizonMs) {
+    const dustBefore = state.stardust;
     state = advance(state, now).state;
+    dustPicked += Math.max(0, state.stardust - dustBefore);
     map = faceMapOf(state);
     maxHunger = Math.max(maxHunger, state.hunger);
     // Count the waves lost since the last look (reports keep the last few).
@@ -870,6 +912,9 @@ export function runBot(opts: RunOptions): RunResult {
       wavesLost,
       predatorDeaths: state.memorial.filter((m) => m.cause === 'predator').length,
       meteors: state.sky.falls,
+      comets: state.comets.passes,
+      dustPicked: Math.round(dustPicked / STARDUST_SCALE),
+      stardust: stardustOf(state),
     },
   };
 }

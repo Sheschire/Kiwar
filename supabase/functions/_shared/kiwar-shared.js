@@ -893,12 +893,14 @@ var BASE = {
       {
         cost: { pulp: 9e3, fiber: 9e3, seeds: 2e3, juice: 3e3 },
         durationMs: ms.h(6),
-        requiresNestLevel: 4
+        requiresNestLevel: 4,
+        stardust: 15
       },
       {
         cost: { pulp: 2e4, fiber: 2e4, seeds: 5e3, juice: 7e3 },
         durationMs: ms.h(12),
-        requiresNestLevel: 5
+        requiresNestLevel: 5,
+        stardust: 30
       }
     ]
   },
@@ -1887,6 +1889,8 @@ var KIKIWIWI = {
   minLevel: 5,
   /** Paid when the infusion starts (lost on a failure). */
   cost: { pulp: 1e3, seeds: 400, juice: 2500 },
+  /** Chantier 13: stardust paid on top of the cost. */
+  stardust: 10,
   /** Infusion time by laboratory level. */
   durationMs: [ms.h(16), ms.h(12), ms.h(8)],
   risk: {
@@ -1989,6 +1993,13 @@ var BLESSINGS = {
   starEgg: 15,
   /** …and hatches a golden shiny with this chance. */
   starShiny: 1 / 8
+};
+var FUEL = {
+  stardust: 5,
+  /** Travel time multiplier. */
+  travel: 0.75,
+  /** Added to the ship reliability (fewer breakdowns). */
+  reliability: 0.15
 };
 var STARDUST_SCALE = 100 * STARDUST.pickMs;
 function dustPoints(raw) {
@@ -4430,10 +4441,14 @@ function shipOf(state) {
   const tech = techEffects(state);
   return { ...ship, armor: ship.armor + tech.armor, recon: ship.recon + tech.recon };
 }
-function shipReliability(ship, crew) {
+function shipReliability(ship, crew, fuel = false) {
   const dex = Math.max(KIWI.stat.average, ...crew.map((v) => v.stats.dexterity));
   const mend = Math.min(SHIP_REPAIR.max, SHIP_REPAIR.perDexterity * (dex - KIWI.stat.average));
-  return round22(Math.min(1, ship.reliability + mend));
+  const dust = fuel ? FUEL.reliability : 0;
+  return round22(Math.min(1, ship.reliability + mend + dust));
+}
+function travelFactor(state, plan) {
+  return techEffects(state).travel * (plan.fuel ? FUEL.travel : 1);
 }
 function shipCargo(launchpad) {
   return levelDef("launchpad", launchpad.level)?.cargo ?? 0;
@@ -4543,7 +4558,7 @@ function forecastExpedition(state, plan) {
   const crew = crewOf(state, plan.crew) ?? [];
   const mission = plan.mission ?? "raid";
   const cargo = shipCargo(pad);
-  const travelMs = travelTime(target, pad, crew, mission, techEffects(state).travel);
+  const travelMs = travelTime(target, pad, crew, mission, travelFactor(state, plan));
   const need = rations(state, crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(state, crew, fed);
@@ -4587,7 +4602,7 @@ function forecastExpedition(state, plan) {
     mission,
     recon: mission === "recon" ? reconForecast(crew, ship) : null,
     ship,
-    reliability: shipReliability(ship, crew)
+    reliability: shipReliability(ship, crew, !!plan.fuel)
   };
 }
 function availableCrew(state) {
@@ -4615,8 +4630,11 @@ function launch(state, plan, now, id3) {
   for (const v of crew) v.job = { kind: "expedition", expeditionId: id3 };
   state.resources.pulp -= plan.provisions.pulp;
   state.resources.juice -= plan.provisions.juice;
-  const travelMs = travelTime(target, pad, crew, mission, techEffects(state).travel);
-  const broken = withRng(state, (rng) => !rng.chance(shipReliability(shipOf(state), crew)));
+  const travelMs = travelTime(target, pad, crew, mission, travelFactor(state, plan));
+  const broken = withRng(
+    state,
+    (rng) => !rng.chance(shipReliability(shipOf(state), crew, !!plan.fuel))
+  );
   const outMs = broken ? Math.round(travelMs / 2e3) * 1e3 : travelMs;
   const expedition = {
     id: id3,
@@ -6433,6 +6451,7 @@ function upgradeLock(state, b) {
   if (b.type !== "nest" && nest(state).level < def.requiresNestLevel) return "nestLevelTooLow";
   if (state.queue.length >= (nestDef(state).queueSize ?? 1)) return "queueFull";
   if (!canAfford(state.resources, upgradeCost(b.type, b.level + 1))) return "notEnoughResources";
+  if (stardustOf(state) < (def.stardust ?? 0)) return "notEnoughStardust";
   return null;
 }
 
@@ -6536,8 +6555,10 @@ var fail = (code) => {
   throw new CommandFailure(code);
 };
 function refundTechDust(s, tech) {
-  const dust = tech ? TECHS[tech].stardust ?? 0 : 0;
-  if (dust > 0) s.stardust = Math.min(STARDUST_CAP, s.stardust + dust * STARDUST_SCALE);
+  refundStardust(s, tech ? TECHS[tech].stardust ?? 0 : 0);
+}
+function refundStardust(s, points) {
+  if (points > 0) s.stardust = Math.min(STARDUST_CAP, s.stardust + points * STARDUST_SCALE);
 }
 function payStardust(s, points) {
   if (points <= 0) return;
@@ -6631,6 +6652,8 @@ function execute(s, cmd, ctx, events) {
       const target = b.level + 1;
       const cost = upgradeCost(b.type, target);
       const durationMs = constructionDuration(s, b.type, target, false, nearRay(ctx.map, b.q, b.r));
+      const dust = levelDef(b.type, target)?.stardust ?? 0;
+      payStardust(s, dust);
       pay(s, cost);
       s.queue.push({
         id: nextId(s, "q"),
@@ -6644,6 +6667,7 @@ function execute(s, cmd, ctx, events) {
         durationMs,
         startedAt: null,
         paid: cost,
+        ...dust > 0 ? { paidDust: dust } : {},
         orderedAt: now
       });
       startNextConstruction(s, now, events);
@@ -6654,6 +6678,7 @@ function execute(s, cmd, ctx, events) {
       if (index < 0) return fail("unknownQueueItem");
       const [item] = s.queue.splice(index, 1);
       refund(s, item.paid);
+      refundStardust(s, item.paidDust ?? 0);
       for (const v of s.villagers) {
         if (v.job.kind === "build" && v.job.queueItemId === item.id) {
           const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : void 0;
@@ -6817,6 +6842,7 @@ function execute(s, cmd, ctx, events) {
       const forecast = forecastExpedition(s, cmd);
       if (forecast.weight > forecast.cargo + 1e-9) fail("overloaded");
       if (!canAfford(s.resources, { pulp, juice })) fail("notEnoughResources");
+      if (cmd.fuel) payStardust(s, FUEL.stardust);
       launch(s, cmd, now, nextId(s, "x"));
       return;
     }
@@ -6914,6 +6940,7 @@ function execute(s, cmd, ctx, events) {
         }
         if (v.job.kind === "train" && v.job.schoolId === b.id || v.job.kind === "transform" && v.job.labId === b.id) {
           refund(s, v.job.paid);
+          if (v.job.kind === "transform") refundStardust(s, v.job.paidDust ?? 0);
           v.job = { kind: "idle" };
           autoAssign(s, v);
         }
@@ -6982,13 +7009,15 @@ function execute(s, cmd, ctx, events) {
         fail("labBusy");
       if (kikiwiwiCount(s) >= kikiwiwiCap(s)) fail("kikiwiwiLimit");
       const cost = { ...KIKIWIWI.cost };
+      payStardust(s, KIKIWIWI.stardust);
       pay(s, cost);
       v.job = {
         kind: "transform",
         labId: lab.id,
         until: now + infusionDuration(lab),
         risk: infusionRisk(s, v, lab),
-        paid: cost
+        paid: cost,
+        paidDust: KIKIWIWI.stardust
       };
       return;
     }
@@ -11233,7 +11262,8 @@ var job = external_exports.discriminatedUnion("kind", [
     labId: id,
     until: external_exports.number(),
     risk: external_exports.number().min(0).max(1),
-    paid: partialResources
+    paid: partialResources,
+    paidDust: external_exports.number().int().min(0).optional()
   })
 ]);
 var sides = external_exports.object({ ground: external_exports.number().min(0), air: external_exports.number().min(0) });
@@ -11369,6 +11399,7 @@ var gameStateSchema = external_exports.object({
       durationMs: external_exports.number(),
       startedAt: external_exports.number().nullable(),
       paid: partialResources,
+      paidDust: external_exports.number().int().min(0).optional(),
       orderedAt: external_exports.number()
     })
   ),
@@ -11712,7 +11743,8 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     targetId: id2,
     crew: external_exports.union([int.min(0).max(1e3), external_exports.array(id2).max(200)]),
     provisions: external_exports.object({ pulp: external_exports.number().min(0).max(1e7), juice: external_exports.number().min(0).max(1e7) }),
-    mission: external_exports.enum(["raid", "recon"]).optional()
+    mission: external_exports.enum(["raid", "recon"]).optional(),
+    fuel: external_exports.boolean().optional()
   }),
   external_exports.object({
     type: external_exports.literal("sendCargo"),
@@ -12522,6 +12554,7 @@ export {
   FACES,
   FACE_PROFILES,
   FRONT_AZIMUTH,
+  FUEL,
   GARRISON,
   HARVESTS,
   HATCHING,
@@ -12932,6 +12965,7 @@ export {
   totalWorkers,
   trainingCost,
   trainingDuration,
+  travelFactor,
   travelTime,
   turretCount,
   turretCoverage,

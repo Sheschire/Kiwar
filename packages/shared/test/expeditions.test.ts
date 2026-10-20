@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  FUEL,
+  STARDUST_SCALE,
   advance,
   ALIEN_TWIN_FACE,
   applyCommand,
@@ -331,5 +333,26 @@ describe('expeditions', () => {
     small = advance(small, t + 4 * HOUR_MS).state;
     expect(small.villagers).toEqual(back.villagers);
     expect(small.memorial).toEqual(back.memorial);
+  });
+});
+
+describe('stardust fuel (chantier 13)', () => {
+  it('shortens the trip, mends the ship and costs stardust', () => {
+    const { map, s: base, padId, targetId } = readyColony();
+    const s: GameState = { ...base, stardust: FUEL.stardust * STARDUST_SCALE };
+    const cmd = plan(padId, targetId, 3, 300, 300) as Extract<
+      Command,
+      { type: 'launchExpedition' }
+    >;
+    const plain = forecastExpedition(s, cmd)!;
+    const fueled = forecastExpedition(s, { ...cmd, fuel: true })!;
+    expect(fueled.travelMs).toBe(Math.round((plain.travelMs * FUEL.travel) / 1000) * 1000);
+    expect(fueled.reliability).toBeCloseTo(Math.min(1, plain.reliability + FUEL.reliability), 6);
+    const after = run(s, { ...cmd, fuel: true }, s.now, map);
+    expect(after.stardust).toBe(0);
+    const e = after.expeditions[after.expeditions.length - 1]!;
+    expect(e.arriveAt - after.now).toBeLessThanOrEqual(fueled.travelMs);
+    const r = applyCommand(after, { ...cmd, fuel: true }, { now: after.now, map });
+    expect(r.ok).toBe(false);
   });
 });

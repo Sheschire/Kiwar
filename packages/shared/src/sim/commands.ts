@@ -1,4 +1,4 @@
-import { BLESSINGS, STARDUST, STARDUST_SCALE } from '../data/comets';
+import { BLESSINGS, FUEL, STARDUST, STARDUST_SCALE } from '../data/comets';
 import { canPickDust, STARDUST_CAP, stardustOf } from './comets';
 import { BUILDINGS, levelDef, type BuildingType } from '../data/buildings';
 import { CAMPS, PATHS } from '../data/territory';
@@ -106,6 +106,8 @@ export type Command =
       provisions: { pulp: number; juice: number };
       /** Raid (default: fight and loot) or reconnaissance (chantier 07). */
       mission?: MissionKind;
+      /** Chantier 13: burn stardust for a faster, safer trip. */
+      fuel?: boolean;
     }
   /** Multiplayer: the launchpad's ship carries a free gift of resources to an ally. */
   | {
@@ -269,8 +271,12 @@ const fail = (code: CommandError): never => {
 
 /** Chantier 13: the stardust of an abandoned star technology comes back (up to the cap). */
 function refundTechDust(s: GameState, tech: TechId | null): void {
-  const dust = tech ? (TECHS[tech].stardust ?? 0) : 0;
-  if (dust > 0) s.stardust = Math.min(STARDUST_CAP, s.stardust + dust * STARDUST_SCALE);
+  refundStardust(s, tech ? (TECHS[tech].stardust ?? 0) : 0);
+}
+
+/** Stardust points given back (up to the cap). */
+function refundStardust(s: GameState, points: number): void {
+  if (points > 0) s.stardust = Math.min(STARDUST_CAP, s.stardust + points * STARDUST_SCALE);
 }
 
 /** Chantier 13: spends whole stardust points (`notEnoughStardust` otherwise). */
@@ -388,6 +394,8 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const target = b.level + 1;
       const cost = upgradeCost(b.type, target);
       const durationMs = constructionDuration(s, b.type, target, false, nearRay(ctx.map, b.q, b.r));
+      const dust = levelDef(b.type, target)?.stardust ?? 0;
+      payStardust(s, dust);
       pay(s, cost);
       s.queue.push({
         id: nextId(s, 'q') as QueueItemId,
@@ -401,6 +409,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         durationMs,
         startedAt: null,
         paid: cost,
+        ...(dust > 0 ? { paidDust: dust } : {}),
         orderedAt: now,
       });
       startNextConstruction(s, now, events);
@@ -411,6 +420,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (index < 0) return fail('unknownQueueItem');
       const [item] = s.queue.splice(index, 1);
       refund(s, item!.paid);
+      refundStardust(s, item!.paidDust ?? 0);
       for (const v of s.villagers) {
         if (v.job.kind === 'build' && v.job.queueItemId === item!.id) {
           const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : undefined;
@@ -591,6 +601,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const forecast = forecastExpedition(s, cmd)!;
       if (forecast.weight > forecast.cargo + 1e-9) fail('overloaded');
       if (!canAfford(s.resources, { pulp, juice })) fail('notEnoughResources');
+      if (cmd.fuel) payStardust(s, FUEL.stardust);
       launch(s, cmd, now, nextId(s, 'x'));
       return;
     }
@@ -692,6 +703,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
           (v.job.kind === 'transform' && v.job.labId === b.id)
         ) {
           refund(s, v.job.paid);
+          if (v.job.kind === 'transform') refundStardust(s, v.job.paidDust ?? 0);
           v.job = { kind: 'idle' };
           autoAssign(s, v);
         }
@@ -766,6 +778,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         fail('labBusy');
       if (kikiwiwiCount(s) >= kikiwiwiCap(s)) fail('kikiwiwiLimit');
       const cost = { ...KIKIWIWI.cost };
+      payStardust(s, KIKIWIWI.stardust);
       pay(s, cost);
       v.job = {
         kind: 'transform',
@@ -773,6 +786,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         until: now + infusionDuration(lab),
         risk: infusionRisk(s, v, lab),
         paid: cost,
+        paidDust: KIKIWIWI.stardust,
       };
       return;
     }

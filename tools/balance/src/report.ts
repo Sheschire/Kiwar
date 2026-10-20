@@ -145,13 +145,13 @@ function threatTable(groups: Group[], lines: string[]): void {
   const avg = (runs: RunResult[], f: (r: RunResult) => number) =>
     runs.length ? runs.reduce((s, r) => s + f(r), 0) / runs.length : 0;
   lines.push('## Predators and gifts from the sky (average per run)', '');
-  lines.push('| Biome | Waves | Lost | Kiwis killed | Meteorites |');
-  lines.push('|---|---|---|---|---|');
+  lines.push('| Biome | Waves | Lost | Kiwis killed | Meteorites | Comets | Stardust picked |');
+  lines.push('|---|---|---|---|---|---|---|');
   for (const g of groups) {
     const waves = avg(g.runs, (r) => r.final.waves ?? 0);
     const lost = avg(g.runs, (r) => r.final.wavesLost ?? 0);
     lines.push(
-      `| ${g.label} | ${waves.toFixed(1)} | ${lost.toFixed(1)} (${waves > 0 ? Math.round((lost / waves) * 100) : 0} %) | ${avg(g.runs, (r) => r.final.predatorDeaths ?? 0).toFixed(2)} | ${avg(g.runs, (r) => r.final.meteors ?? 0).toFixed(1)} |`,
+      `| ${g.label} | ${waves.toFixed(1)} | ${lost.toFixed(1)} (${waves > 0 ? Math.round((lost / waves) * 100) : 0} %) | ${avg(g.runs, (r) => r.final.predatorDeaths ?? 0).toFixed(2)} | ${avg(g.runs, (r) => r.final.meteors ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.comets ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.dustPicked ?? 0).toFixed(0)} |`,
     );
   }
   lines.push('');

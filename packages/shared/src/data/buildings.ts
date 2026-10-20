@@ -31,6 +31,8 @@ export interface BuildingLevelDef {
   requiresNestLevel: number;
   /** Required age (index in AGE_IDS) to start this level (chantier 08: levels 4–6). */
   requiresAge?: number;
+  /** Chantier 13: stardust paid on top of the resources (the monument of the Iron and Industry ages). */
+  stardust?: number;
   /** Output per hour at full staffing, before tile richness and face multipliers. */
   production?: Partial<Resources>;
   /** Output per hour that needs no workers (the Nest). */
@@ -370,11 +372,13 @@ const BASE: Record<BuildingType, BuildingDef> = {
         cost: { pulp: 9000, fiber: 9000, seeds: 2000, juice: 3000 },
         durationMs: ms.h(6),
         requiresNestLevel: 4,
+        stardust: 15,
       },
       {
         cost: { pulp: 20000, fiber: 20000, seeds: 5000, juice: 7000 },
         durationMs: ms.h(12),
         requiresNestLevel: 5,
+        stardust: 30,
       },
     ],
   },

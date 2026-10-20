@@ -46,7 +46,7 @@ colony × play time (× expedition victories: the aliens strike back), beginners
   `turretCoverage(map, type, level, h)` (share of covered rampart tiles per sector, memoized
   per map object), `coveredRampart` (3D rings), `turretRange`, `sectorThreat`,
   **`sectorClash(threat, defense.sectors)`** (excess per sector; half of it turns to the least
-  defended *other* flank where the spare defense can stop it).
+  defended _other_ flank where the spare defense can stop it).
 - `defenseOf` returns `sectors` and `guards` ({id, sector}): turrets split by coverage (ammo
   share and tech applied), militia fills the ground gaps first (rest by the ferret shares),
   then each guard goes to the sector with the biggest gap it can fill (else the thinnest
@@ -121,6 +121,13 @@ colony × play time (× expedition victories: the aliens strike back), beginners
 - Screenshots: force a wave with `controller.state.threats.next = { id, announceAt: now - 1,
 at: now + 3000, announced: true, ground, air }` then a `debugGrant` dispatch; the show plays
   when it strikes. A crater: push into `controller.state.sky.meteors`.
+
+## Comets (chantier 13)
+
+The other gift from the sky, comets and their stardust, is in the `kiwar-sky` skill (same
+threat RNG stream). Star techs: `starWatch` adds `techEffects.waveNotice` to the wave notice in
+`planWave`, `starIron` multiplies `meteorStock`. Dust tiles never land on a crater, and the
+pickers stop during a shelter.
 
 ## Balance
 

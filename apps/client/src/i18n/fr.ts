@@ -671,6 +671,7 @@ export const fr: Dict = {
     offline: 'Hors ligne — nouvel essai',
   },
   ship: {
+    fuel: 'Carburant d’étoiles ({dust}) : trajet −{travel} %, fiabilité +{reliability} pts',
     names: {
       wood: 'Oiseau de bois et de toile',
       logs: 'Oiseau de rondins et de cordes',

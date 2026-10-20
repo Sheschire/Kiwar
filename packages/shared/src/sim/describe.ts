@@ -1,3 +1,4 @@
+import { stardustOf } from './comets';
 import { climateOf } from '../data/biomes';
 import {
   BUILDINGS,
@@ -268,5 +269,6 @@ export function upgradeLock(state: GameState, b: Building): CommandError | null 
   if (b.type !== 'nest' && nest(state).level < def.requiresNestLevel) return 'nestLevelTooLow';
   if (state.queue.length >= (nestDef(state).queueSize ?? 1)) return 'queueFull';
   if (!canAfford(state.resources, upgradeCost(b.type, b.level + 1))) return 'notEnoughResources';
+  if (stardustOf(state) < (def.stardust ?? 0)) return 'notEnoughStardust';
   return null;
 }

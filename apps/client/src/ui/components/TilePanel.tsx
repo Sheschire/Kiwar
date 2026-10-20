@@ -63,6 +63,7 @@ import {
   kindPower,
   postKind,
   type Villager,
+  stardustOf,
 } from '@kiwar/shared';
 import { bedsOf, harvestOf, idleVillagers } from '../derived';
 import { MissingBedsLine } from './NeedsWidgets';
@@ -433,6 +434,8 @@ function BuildingSection({
           <Cost
             cost={upgradeCost(b.type, target)}
             have={game.resources}
+            stardust={levelDef(b.type, target)?.stardust}
+            haveDust={stardustOf(game)}
             durationMs={constructionDuration(game, b.type, target, false, nearRay(map, b.q, b.r))}
           />
           <button

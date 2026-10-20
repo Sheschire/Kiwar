@@ -96,6 +96,11 @@ taken)` draws them from `<seed>/<face>/obstacles` (never the colony RNG), always
   `v.kikiwiwi = { since }` on `controller.state`, then `debugGrant`; `setTimeScale(4000)` ends a
   titan work in seconds. Restart Vite if a new shared export is "missing" (stale module graph).
 
+## Stardust (chantier 13)
+
+An infusion also costs `KIKIWIWI.stardust` (10), stored as the transform job's `paidDust` and
+refunded with `paid` when the lab is demolished (lost on failure). The bot waits for it.
+
 ## Balance
 
 - Bot: `titanOrders` (infusion of the safest level-5+ non-mayor when the juice allows it, then

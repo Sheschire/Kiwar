@@ -10,6 +10,8 @@ import {
   stardustOf,
   TECHS,
   THREATS,
+  levelDef,
+  upgradeLock,
   type BuildingId,
   type GameState,
   type TechId,
@@ -98,5 +100,27 @@ describe('star technologies', () => {
     const lured = after(withTech(s, 'cometLure'));
     expect(lured).toBeGreaterThanOrEqual(COMETS.intervalMs[0] * 0.8 - 1);
     expect(lured).toBeLessThanOrEqual(COMETS.intervalMs[1] * 0.8 + 1);
+  });
+});
+
+describe('stardust for the ages', () => {
+  it('the Iron age monument needs stardust, given back on cancel', () => {
+    const { map, s: base } = starColony(0);
+    const s = structuredClone(base) as GameState;
+    s.buildings[0]!.level = 4;
+    s.research.done.push('stoneAge', 'ironAge');
+    s.queue = [];
+    const monument = s.buildings.find((b) => b.type === 'monument')!;
+    const dust = levelDef('monument', 2)!.stardust!;
+    expect(upgradeLock(rich(s), monument)).toBe('notEnoughStardust');
+    const rs: GameState = { ...rich(s), stardust: dust * STARDUST_SCALE };
+    expect(upgradeLock(rs, monument)).toBeNull();
+    const up = run(rs, { type: 'upgrade', buildingId: monument.id }, rs.now, map);
+    expect(up.stardust).toBe(0);
+    const item = up.queue.find((i) => i.buildingId === monument.id)!;
+    const back = run(up, { type: 'cancel', queueItemId: item.id }, up.now, map);
+    expect(stardustOf(back)).toBe(dust);
+    // The Stone age stays free of stardust.
+    expect(levelDef('monument', 1)!.stardust ?? 0).toBe(0);
   });
 });

@@ -63,6 +63,13 @@ Load `kiwar-sim` too: everything here lives in the deterministic shared simulati
 - Saves: v3 → v4 (stats from `hash(seed/id/kiwi)`, memorial), v4 → v5 (classes, speech).
   `isPlausible` checks kiwis of imported saves (`plausibleKiwi`).
 
+## Chantier 13 (`kiwar-sky`)
+
+- Job `stardust { patchId, returnTo }` (picking stardust; XP like a guard, Dexterity speeds it).
+- `bless`: heal an injured kiwi, redistribute every stat (all back to 1, points to place),
+  +1 for good (`Villager.blessings` ≤ 3). Star egg (`hatchEgg { star }`): golden shiny `star`
+  (`KIWI_COLORS`; `SHINY_COLORS` stays the four natural colours drawn at hatching).
+
 ## Assignment (chantier 09, `sim/posts.ts`, `data/jobs.ts`)
 
 - `postKind(state, b)` (a resource, `'research'` for the Library, null if no slots),

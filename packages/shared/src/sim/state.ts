@@ -55,7 +55,15 @@ export type Job =
    * Chantier 08: in a vat of the laboratory against nature until `until` (`risk` of failure,
    * set when it starts; `paid` is refunded if the laboratory goes).
    */
-  | { kind: 'transform'; labId: BuildingId; until: TimeMs; risk: number; paid: Partial<Resources> }
+  | {
+      kind: 'transform';
+      labId: BuildingId;
+      until: TimeMs;
+      risk: number;
+      paid: Partial<Resources>;
+      /** Chantier 13: stardust points paid (refunded with `paid`). */
+      paidDust?: number;
+    }
   /** Chantier 08: a Kikiwiwi at work on a tile (smashing an obstacle, reshaping the land). */
   | { kind: 'titan'; work: TitanWork; q: number; r: number; until: TimeMs }
   /** Chantier 13: picking up stardust on a tile where a comet dropped some. */
@@ -166,6 +174,8 @@ export interface QueueItem {
   startedAt: TimeMs | null;
   /** Resources paid when ordered (refunded on cancel). */
   paid: Partial<Resources>;
+  /** Chantier 13: stardust points paid when ordered (refunded on cancel). */
+  paidDust?: number;
   orderedAt: TimeMs;
 }
 

@@ -1,3 +1,4 @@
+import { FUEL } from '../data/comets';
 import { levelDef } from '../data/buildings';
 import {
   EXPEDITIONS,
@@ -40,6 +41,8 @@ export interface ExpeditionPlan {
   provisions: { pulp: number; juice: number };
   /** Raid (default) or reconnaissance. */
   mission?: MissionKind;
+  /** Chantier 13: stardust burnt as fuel (faster, fewer breakdowns). */
+  fuel?: boolean;
 }
 
 /** What a reconnaissance crew can expect (chantier 07). */
@@ -104,10 +107,16 @@ export function shipOf(state: GameState): ShipDef {
 }
 
 /** Ship reliability, mended on the way by the crew's best Dexterity. */
-export function shipReliability(ship: ShipDef, crew: readonly Villager[]): number {
+export function shipReliability(ship: ShipDef, crew: readonly Villager[], fuel = false): number {
   const dex = Math.max(KIWI.stat.average, ...crew.map((v) => v.stats.dexterity));
   const mend = Math.min(SHIP_REPAIR.max, SHIP_REPAIR.perDexterity * (dex - KIWI.stat.average));
-  return round2(Math.min(1, ship.reliability + mend));
+  const dust = fuel ? FUEL.reliability : 0;
+  return round2(Math.min(1, ship.reliability + mend + dust));
+}
+
+/** Technologies and stardust fuel (chantier 13) on the travel time. */
+export function travelFactor(state: GameState, plan: Pick<ExpeditionPlan, 'fuel'>): number {
+  return techEffects(state).travel * (plan.fuel ? FUEL.travel : 1);
 }
 
 export function shipCargo(launchpad: Building): number {
@@ -272,7 +281,7 @@ export function forecastExpedition(
   const crew = crewOf(state, plan.crew) ?? [];
   const mission = plan.mission ?? 'raid';
   const cargo = shipCargo(pad);
-  const travelMs = travelTime(target, pad, crew, mission, techEffects(state).travel);
+  const travelMs = travelTime(target, pad, crew, mission, travelFactor(state, plan));
   const need = rations(state, crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(state, crew, fed);
@@ -327,7 +336,7 @@ export function forecastExpedition(
     mission,
     recon: mission === 'recon' ? reconForecast(crew, ship) : null,
     ship,
-    reliability: shipReliability(ship, crew),
+    reliability: shipReliability(ship, crew, !!plan.fuel),
   };
 }
 
@@ -377,9 +386,12 @@ export function launch(
   for (const v of crew) v.job = { kind: 'expedition', expeditionId: id };
   state.resources.pulp -= plan.provisions.pulp;
   state.resources.juice -= plan.provisions.juice;
-  const travelMs = travelTime(target, pad, crew, mission, techEffects(state).travel);
+  const travelMs = travelTime(target, pad, crew, mission, travelFactor(state, plan));
   // A breakdown is drawn at take-off: the ship turns back half-way.
-  const broken = withRng(state, (rng) => !rng.chance(shipReliability(shipOf(state), crew)));
+  const broken = withRng(
+    state,
+    (rng) => !rng.chance(shipReliability(shipOf(state), crew, !!plan.fuel)),
+  );
   const outMs = broken ? Math.round(travelMs / 2000) * 1000 : travelMs;
   const expedition: Expedition = {
     id,

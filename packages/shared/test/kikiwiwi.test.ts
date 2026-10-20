@@ -22,6 +22,7 @@ import {
   type Command,
   type GameState,
   type TechId,
+  STARDUST_SCALE,
 } from '../src';
 import { findTile, rich, run, setup, T0 } from './helpers';
 
@@ -59,6 +60,8 @@ function withLab(s: GameState, map: ReturnType<typeof setup>['map'], level = 1):
     richness: site.richness,
     builtAt: T0,
   });
+  // Chantier 13: an infusion costs stardust too.
+  out.stardust = 2 * KIKIWIWI.stardust * STARDUST_SCALE;
   return out;
 }
 
@@ -197,6 +200,8 @@ describe('laboratory against nature', () => {
     const d = run(s, { type: 'demolish', buildingId: lab.id }, s.now, map);
     expect(d.villagers[0]!.job.kind).not.toBe('transform');
     expect(d.resources.juice).toBeGreaterThanOrEqual(s.resources.juice + KIKIWIWI.cost.juice!);
+    expect(s.stardust).toBe(s0.stardust - KIKIWIWI.stardust * STARDUST_SCALE);
+    expect(d.stardust).toBe(s0.stardust);
     const old = { ...s0, schemaVersion: 15 } as Record<string, unknown>;
     const m = migrateState(old);
     expect(m.ok).toBe(true);

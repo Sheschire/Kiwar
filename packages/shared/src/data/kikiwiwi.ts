@@ -11,6 +11,8 @@ export const KIKIWIWI = {
   minLevel: 5,
   /** Paid when the infusion starts (lost on a failure). */
   cost: { pulp: 1000, seeds: 400, juice: 2500 } as Partial<Resources>,
+  /** Chantier 13: stardust paid on top of the cost. */
+  stardust: 10,
   /** Infusion time by laboratory level. */
   durationMs: [ms.h(16), ms.h(12), ms.h(8)] as readonly number[],
   risk: {

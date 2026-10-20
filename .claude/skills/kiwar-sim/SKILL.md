@@ -55,6 +55,9 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 - `data/threats.ts`, `sim/threats.ts`, `sim/sky.ts` — chantier 06 (predator waves, incidents,
   turrets, garrison, shelter, repairs, meteorites): see the `kiwar-threats` skill. Threat and
   sky draws use `withThreatRng` (their own stream), never the colony RNG.
+- `data/comets.ts`, `sim/comets.ts` — chantier 13 (comets, stardust in `state.stardust` as raw
+  integer units apart from `resources`, job `stardust`, blessings, star techs, fuel): see the
+  `kiwar-sky` skill. Anything paid in stardust uses `payStardust` / `refundStardust`.
 - `data/ages.ts`, `data/research.ts`, `sim/research.ts` — chantier 08 (Library, research
   points, technologies, `ageOf` = monument level, levels 4–6 via `withAgeLevels`): see the
   `kiwar-ages` skill. Anything that grows with the age reads `ageOf(state)`; technology bonuses

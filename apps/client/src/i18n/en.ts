@@ -640,6 +640,7 @@ export const en = {
     offline: 'Offline — retrying',
   },
   ship: {
+    fuel: 'Stardust fuel ({dust}): travel −{travel} %, reliability +{reliability} pts',
     names: {
       wood: 'Wood-and-canvas bird',
       logs: 'Log-and-rope bird',

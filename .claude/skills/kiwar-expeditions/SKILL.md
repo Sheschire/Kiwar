@@ -77,6 +77,12 @@ Crew strength, exposure and weighted losses come from `kiwar-rpg`.
   `launchpadDamaged` refuses launches until the repair queue item ends. The UI hides the
   breakdown until the ship turns back (`ExpeditionsPanel`).
 
+## Stardust fuel (chantier 13, `kiwar-sky`)
+
+`launchExpedition { fuel }` pays `FUEL.stardust`: `travelFactor(state, plan)` (techs × 0.75) in
+`forecastExpedition` and `launch`, `shipReliability(ship, crew, fuel)` +15 pts. Checkbox under
+the ship line of the planner (shown once a comet passed).
+
 ## Client
 
 - `ExpeditionModal.tsx`: mission switch (recon pre-selected while a target is unknown), target
