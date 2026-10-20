@@ -6,8 +6,9 @@ description: Kiwar ages and research (chantier 08) — the Library and its resea
 # Kiwar ages and research (chantier 08)
 
 Load `kiwar-sim` too (deterministic, exact offline), `kiwar-client` for the UI and models.
-The Kikiwiwis (laboratory "against nature", transformations, titan works, obstacles) are the
-second half of chantier 08: see `docs/chantiers/08-ages-recherche-kikiwiwi.md`.
+The Kikiwiwis (laboratory "against nature", infusions, titan works, obstacles) are the second
+half of chantier 08: see the `kiwar-titans` skill. Their techs (`juiceInfusion`, `titanWorks`,
+`greenBlood`) are the `unnatural` branch of `TECHS`.
 
 ## Data
 

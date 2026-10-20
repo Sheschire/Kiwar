@@ -22,7 +22,17 @@ import {
   depotDistance,
   eggCost,
   emptyResources,
-  generateFace,
+  faceMapOf,
+  HEART,
+  infusionRisk,
+  KIKIWIWI,
+  kikiwiwiCap,
+  kikiwiwiCount,
+  kikiwiwiWeak,
+  laboratoryOf,
+  obstacleAt,
+  techEffects,
+  titanAt,
   HARVESTS,
   hexDistance,
   housing,
@@ -79,6 +89,8 @@ export const MILESTONES = [
   'stone',
   'iron',
   'industry',
+  'lab',
+  'kikiwiwi',
 ] as const;
 export type Milestone = (typeof MILESTONES)[number];
 
@@ -136,6 +148,7 @@ function bestTile(state: GameState, map: FaceMap, type: BuildingType): Tile | nu
   for (const t of map.tiles) {
     if (!BUILDINGS[type].allowedTiles.includes(t.type)) continue;
     if (buildingAt(state, t.q, t.r) || queuedBuildAt(state, t.q, t.r)) continue;
+    if (obstacleAt(state, t.q, t.r) || titanAt(state, t.q, t.r)) continue;
     if (t.q === 0 && t.r === 0) continue;
     if (isTurret(type) && !isRampart(map, t.q, t.r)) continue;
     // A sensible player keeps clear of the floodable shores (lagoons).
@@ -206,8 +219,12 @@ function decide(state: GameState, map: FaceMap): Command[] {
   const staffing = researchStaffing(state);
   if (staffing) return [...cmds, staffing];
 
-  // Keep everyone busy.
-  let idle = idleVillagers(state).length;
+  // Kikiwiwis (chantier 08): an infusion, the garrison, titan works.
+  const titan = titanOrders(state, map);
+  if (titan) cmds.push(titan);
+
+  // Keep everyone busy (Kikiwiwis never take a workplace).
+  let idle = idleVillagers(state).filter((v) => !v.kikiwiwi).length;
   for (const b of state.buildings) {
     const free = workerSlots(b) - workersOf(state, b.id).length;
     if (free > 0 && idle > 0) {
@@ -284,6 +301,10 @@ function decide(state: GameState, map: FaceMap): Command[] {
   const ages = ageDecision(state, map, build, has);
   if (ages === 'save') return cmds;
   if (ages) return [...cmds, ages];
+
+  // 2d. The laboratory against nature once its technology is known; stumps in the way.
+  const lab = labDecision(state, build, has);
+  if (lab) return [...cmds, lab];
 
   // 3. Nest upgrade whenever affordable.
   const n = nest(state);
@@ -487,8 +508,10 @@ const TECH_ORDER: TechId[] = [
   'masonry',
   'ironAge',
   'smelting',
+  'juiceInfusion',
   'industryAge',
   'machines',
+  'greenBlood',
   'palisade',
   'slingshots',
   'armor',
@@ -497,7 +520,80 @@ const TECH_ORDER: TechId[] = [
   'preserves',
   'compass',
   'steamEngines',
+  'titanWorks',
 ];
+
+/** Juice kept aside for the Kikiwiwis' upkeep before spending on infusions and works. */
+const JUICE_RESERVE = 1500;
+
+/**
+ * Kikiwiwis: transform the safest candidate when the cap allows it, then keep each one on the
+ * rampart, sent now and then to smash a rock or a wreck when the juice allows it.
+ */
+function titanOrders(state: GameState, map: FaceMap): Command | null {
+  const lab = laboratoryOf(state);
+  if (
+    lab &&
+    kikiwiwiCount(state) < kikiwiwiCap(state) &&
+    !state.villagers.some((v) => v.job.kind === 'transform') &&
+    state.resources.juice >= (KIKIWIWI.cost.juice ?? 0) + JUICE_RESERVE &&
+    canAfford(state.resources, KIKIWIWI.cost)
+  ) {
+    const best = state.villagers
+      .filter(
+        (v) =>
+          !v.kikiwiwi &&
+          v.level >= KIKIWIWI.minLevel &&
+          v.classId !== 'mayor' &&
+          (v.job.kind === 'idle' || v.job.kind === 'work'),
+      )
+      .sort((a, b) => infusionRisk(state, a, lab) - infusionRisk(state, b, lab))[0];
+    if (best) return { type: 'transform', villagerId: best.id, labId: lab.id };
+  }
+  for (const v of state.villagers) {
+    if (!v.kikiwiwi || (v.job.kind !== 'idle' && v.job.kind !== 'guard')) continue;
+    const target = state.obstacles
+      .filter((o) => o.kind !== 'stump' && !titanAt(state, o.q, o.r))
+      .sort((a, b) => hexDistance(a, HEART) - hexDistance(b, HEART))[0];
+    if (target && state.resources.juice >= JUICE_RESERVE * 1.5 && !kikiwiwiWeak(state)) {
+      const cmd: Command = {
+        type: 'titanWork',
+        villagerId: v.id,
+        q: target.q,
+        r: target.r,
+        work: 'smash',
+      };
+      if (applyCommand(state, cmd, { now: state.now, map }).ok) return cmd;
+    }
+    if (v.job.kind === 'idle')
+      return {
+        type: 'setGarrison',
+        villagerIds: [
+          ...state.villagers.filter((x) => x.job.kind === 'guard').map((x) => x.id),
+          v.id,
+        ],
+      };
+  }
+  return null;
+}
+
+/** The laboratory as soon as it is known and affordable; a stump cleared when the queue is idle. */
+function labDecision(
+  state: GameState,
+  build: (type: BuildingType) => Command | null,
+  has: (type: BuildingType) => boolean,
+): Command | null {
+  if (techEffects(state).laboratory && !has('lab')) {
+    if (canAfford(state.resources, buildCost(state, 'lab'))) return build('lab');
+  }
+  if (state.queue.length === 0 && nest(state).level >= 2 && state.resources.pulp >= 400) {
+    const stump = state.obstacles
+      .filter((o) => o.kind === 'stump')
+      .sort((a, b) => hexDistance(a, HEART) - hexDistance(b, HEART))[0];
+    if (stump) return { type: 'clearObstacle', q: stump.q, r: stump.r };
+  }
+  return null;
+}
 
 /** Researchers wanted: one per five kiwis, within the Library's slots. */
 function researchStaffing(state: GameState): Command | null {
@@ -606,6 +702,14 @@ function checkMilestones(
   set('iron', ageOf(state) >= 2);
   set('industry', ageOf(state) >= 3);
   set(
+    'lab',
+    state.buildings.some((b) => b.type === 'lab'),
+  );
+  set(
+    'kikiwiwi',
+    state.villagers.some((v) => v.kikiwiwi),
+  );
+  set(
     'allLevel3',
     // Economy buildings (the bot does not play expeditions yet).
     (['nest', ...BUILD_ORDER] as BuildingType[]).every((type) =>
@@ -637,7 +741,8 @@ export interface RunOptions {
 export function runBot(opts: RunOptions): RunResult {
   const start = 1_700_000_000_000;
   let state = newGame({ seed: opts.seed, face: opts.face, now: start, biome: opts.biome });
-  const map = generateFace(opts.seed, opts.face, state.params);
+  // The map follows the tiles the Kikiwiwis reshape (chantier 08).
+  let map = faceMapOf(state);
   const times = Object.fromEntries(MILESTONES.map((m) => [m, null])) as Record<
     Milestone,
     number | null
@@ -649,6 +754,7 @@ export function runBot(opts: RunOptions): RunResult {
   let wavesSeen = 0;
   while (now - start < opts.horizonMs) {
     state = advance(state, now).state;
+    map = faceMapOf(state);
     maxHunger = Math.max(maxHunger, state.hunger);
     // Count the waves lost since the last look (reports keep the last few).
     if (state.threats.waves > wavesSeen) {

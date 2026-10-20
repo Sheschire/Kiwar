@@ -49,6 +49,9 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
 - Biome palettes, flood water, the twin half in the sky (`twin.ts`) and the intro scene
   (`intro.ts`, drawn instead of the game while `renderer.playIntro` runs): see `kiwar-world`.
   The scene haze follows the camera distance; max zoom is 1.9 × `rig.frameDistance`.
+- Chantier 08, second half (`kiwar-titans`): `render/obstacles.ts`, `render/kikiwiwi.ts`
+  (Kikiwiwis posed from `KiwisView`), the `lab` model, `LabInfo.tsx`, `TitanWorks.tsx`;
+  `renderer.reshape(map)` redraws a reshaped face without moving the camera.
 - Chantier 08 (`kiwar-ages`): models take the age (`buildingModel(type, level, shipAway, age)`;
   levels 4–6 grown from level 3, age dressing), `ResearchModal.tsx` (research screen, `AgeInfo`),
   Library and monument sheets, paths by age.

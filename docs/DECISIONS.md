@@ -704,3 +704,58 @@ friendId, resources }`: weight = resources × 0.1 cargo units (level-1 launchpad
   flight towards the ally's planet, a visiting bird (wooden) resting 45 s beside the recipient's
   Nest, toasts, existing ship sounds, gifts in the away summary; the 5-minute universe refresh
   also reloads the state so new gifts show up long before they land (flights ≥ 1 h 30).
+
+## Chantier 08 — second half: obstacles, laboratory against nature, Kikiwiwis, titan works
+
+Owner's answers (start of the second conversation): **mixed obstacles** — stumps are cleared by
+ordinary kiwis (a builder, a short while, a little loot), rocks and meteorite wrecks need a
+Kikiwiwi, few obstacles near the Nest; the **laboratory against nature is a new building**; a
+Kikiwiwi's daily roles are the **garrison, expeditions and titan works** (never a super
+worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten**.
+
+- **Obstacles** live in the state (`state.obstacles`, save v15), not in the map generation:
+  maps stay bit-identical. 6 stumps (grove, flesh) and 5 boulders (flesh, ray — seed rings were
+  tried and slowed the Seed crown biome) per face, between 38 % and 90 % of the radius, drawn
+  from their own seed stream; none on the classic biome (tests and the first worlds). Older games
+  get the same layout minus the tiles already used. They block buildings, camps, paths and
+  meteorite landings; kiwis still walk past them. A fading crater leaves a **wreck** (seeds and
+  juice × the meteorites' age factor) when its tile is free, 4 at most. Clearing a stump is a
+  queue item (40 pulp, 1 h 30 for an average builder, 80 fibre). Loot is credited up to the
+  storage.
+- **Research "against nature"** (Iron age): juice infusion (1 200 pts, Library 4: the
+  laboratory), titan works (1 500 pts, Library 5: terraforming); Industry: green blood (2 500
+  pts, Library 6: Kikiwiwis × 1.25 power, × 0.75 upkeep, infusions 10 points safer).
+- **Laboratory against nature**: one per colony, outside the building cap, Nest 4/4/5, levels
+  1–2 at the Iron age and 3 at the Industrial age (costs 4 000–16 000 pulp and fibre); the build
+  command now checks the age required by level 1. One infusion at a time.
+- **Infusion**: a kiwi of level 5 or more, idle or at work; 1 000 pulp, 400 seeds, 2 500 juice;
+  16 / 12 / 8 h by laboratory level. Risk of failure 40 % − 2 points per Endurance above 5 − 1
+  per level above 1 − 8 per laboratory level above 1 (− green blood), between 5 and 60 %, fixed
+  when it starts and drawn when it ends (colony RNG, an `advance` event). Failure: the resources
+  are lost, the kiwi survives, rests a day and loses a point of Strength and Endurance. Cap: one
+  Kikiwiwi per age reached from the Iron age (Iron 1, Industry 2), kiwis in the vat included.
+- **The Kikiwiwi** keeps its class and skills; fight × 4, exposure × 0.3. On the rampart it
+  reaches ferrets and bats alike (affinity 1 / 1). It drinks **40 juice per hour** at home on top
+  of its meals; while the colony's juice is empty it fights at half power and cannot do titan
+  works (the colony also goes hungry). It never takes a workplace nor builds; it stands on guard
+  or idles at home. **One per ship**, boarded by name only, it weighs five kiwis and eats three
+  times the rations (it brings its own juice: no weakness on expeditions).
+- **Titan works** (a Kikiwiwi idle or on guard): smash any obstacle (stump 50 juice / 20 min,
+  rock 200 / 1 h, wreck 300 / 1 h 30) for its loot; with the technology, reshape a free tile —
+  spring (flesh → juice pool, 600 juice, 3 h; never on a tile that would cut the walkable land in
+  two), terrace (a floodable tile no longer floods, 400, 2 h), flatten (grove or seed ring →
+  flesh, 300, 2 h). 4 reshaped tiles at the Iron age, 8 at Industry. The reshaped tile's deposit
+  starts over full.
+- **Reshaped tiles** (`state.terraform`, save v17) are applied by `faceMapOf(state)`, now the
+  single source of the map for the simulation, the commands (whatever map the caller holds),
+  the server and the client; the generated map stays the reference for obstacles and import
+  checks. The client redraws the face in place when it changes (camera and selection kept);
+  ally planets show their obstacles and reshaped tiles.
+- **Rendering**: stumps with roots and moss, boulder heaps, cracked dark wrecks with a faint
+  green glow; the laboratory (glass vats of glowing juice with a floating silhouette, copper
+  pipes, a spinning lightning coil, bubbles and sparks); the Kikiwiwi as its own animated model
+  (1.6 × taller, dark feathers, pulsing green veins that dim without juice, glowing eyes, heavy
+  swaying steps, stomps during titan works, dripping juice), veins in its portrait, a badge.
+- **UI**: obstacle sheet (loot, clear button or "needs a Kikiwiwi"), laboratory sheet (kiwi
+  picker sorted by risk, cost, countdown, cap), Kikiwiwi section in the kiwi sheet, titan works
+  in the tile sheet, toasts and existing sounds.

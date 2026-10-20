@@ -47,6 +47,9 @@ Load `kiwar-sim` too: everything here lives in the deterministic shared simulati
 - Chantier 08: mastery `research` (practised at the Library), modifier `research` (mage × 1.2,
   dreamer × 1.15), `researchPower(v)` in `sim/research.ts` (Spirit); `ratesOf` maps a workplace
   to its mastery with `workMastery`. See `kiwar-ages`.
+- Chantier 08 (second half, `kiwar-titans`): `Villager.kikiwiwi`, jobs `transform` (in the
+  laboratory's vat) and `titan` (titan works); `KIKIWIWI.modifiers` in `modifiers(v)`;
+  Kikiwiwis never take a workplace (`autoAssign`, `idleByPower`, `pickBuilder`).
 - `grantXp` (expedition lumps, in points) — called in `resolveReturn` with the events array.
 - Expeditions (`sim/expeditions.ts`): `crewOf(state, number | ids)`, `crewWeight`, `rations`
   (per kiwi), `strengthOf` (sum + Scouting), `travelTime(target, pad, crew)` (Tailwind),

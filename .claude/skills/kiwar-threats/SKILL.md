@@ -29,6 +29,9 @@ colony × play time (× expedition victories: the aliens strike back), beginners
   `TURRETS.max` extended to Nest 6; technologies scale turrets (`turretDefense`), guards
   (`guardPower(v, state)`: slingshots, firearms → warriors reach the bats) and injuries
   (armour). The monument is never damaged. See `kiwar-ages`.
+- Chantier 08 (second half, `kiwar-titans`): a Kikiwiwi on guard reaches ferrets and bats
+  (affinity 1 / 1, × `titanPower`: half when the juice is empty); fading craters leave wrecks
+  (obstacles); meteorites never land on an obstacle.
 - Turrets are buildings (`buildings.ts`): `seedTurret` (ground) and `skyTurret` (air), skin
   tiles only, `defense` + `ammo` per level; `isTurret`, `TURRET_TYPES`.
 

@@ -41,7 +41,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 05  | Intro, choix de la face, biomes, brouillard                            | ✅      |
 | 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | ✅      |
 | 07  | Vaisseau kiwi géant et exploration                                     | ✅      |
-| 08  | Âges, recherche contre nature, Kikiwiwis                               | 🟡 1/2  |
+| 08  | Âges, recherche contre nature, Kikiwiwis                               | ✅      |
 | 09  | Gestion des kiwis : affectation, priorités, tableau des postes         | à faire |
 | 10  | Confort visuel et performance (caméra, planète alien fixe, lenteurs)   | à faire |
 | 11  | Lisibilité de la construction (icônes, avant/après, arbre)             | à faire |
@@ -50,9 +50,8 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 14  | Emporter sa colonie solo dans un univers existant                      | à faire |
 | —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées   |
 
-**Prochaine conversation** : seconde moitié du chantier 08 (Kikiwiwis, laboratoire contre
-nature, obstacles et travaux de titan). Les réponses du porteur et le découpage sont dans
-[`docs/chantiers/08-ages-recherche-kikiwiwi.md`](chantiers/08-ages-recherche-kikiwiwi.md).
+**Prochaine conversation** : chantier 09 (gestion des kiwis : affectation, priorités, tableau
+des postes), voir [`docs/chantiers/09-gestion-kiwis.md`](chantiers/09-gestion-kiwis.md).
 
 ## Dette et idées en attente
 
@@ -91,6 +90,9 @@ nature, obstacles et travaux de titan). Les réponses du porteur et le découpag
   l'habillage de l'âge) ; pas encore de nouvelles unités ni d'arme à feu visible sur les
   guerrier·ères ; l'âge d'un·e ami·e n'est pas montré sur la face jumelle ; le rapport
   d'équilibrage sur 72 h n'atteint que l'âge de pierre (sonde longue `pnpm balance:ages`).
+- Chantier 08 (2e moitié) : pas encore de colonisation (là où les Kikiwiwis serviront le plus) ;
+  le bot ne terraforme pas et n'emmène pas son Kikiwiwi en expédition ; les obstacles ne gênent
+  pas la marche ; pas de son dédié au Kikiwiwi.
 - Performance des animations non mesurée sur un vrai téléphone (un mesh par partie animée, ~1 à
   10 par bâtiment) : à vérifier, sinon passer les drapeaux en instancing.
 - Retours de partie à plusieurs (octobre 2026, corrigés hors chantier) : un kiwi par joueur

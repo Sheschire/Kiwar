@@ -80,20 +80,38 @@ Chantiers 03 (stats, classes), 04 (entretien, faim), 06 (combat sol/air), 07 (va
 5. **Équilibrage** : le bot fait de la recherche et passe les âges ; sonde `pnpm balance:ages`,
    docs et skill `kiwar-ages`.
 
-## Ce qui reste (2e conversation) — proposition de découpage
+## Réponses du porteur (2e conversation)
 
-1. **Obstacles** : rochers et souches générés sur quelques tuiles (cartes `classic` identiques
-   pour les tests ; anciennes parties : seulement sur tuiles libres), épaves laissées par les
-   cratères de météorite ; tuiles bloquées pour la construction.
-2. **Laboratoire contre nature** (âge du Fer, branche « contre nature » de l'arbre, déjà
-   annoncée en grisé) et **transformation** : coût énorme en jus, durée longue, risque affiché
-   (Endurance, niveau, niveau du labo) ; échec = jus perdu, kiwi blessé et affaibli.
-3. **Le Kikiwiwi** : stats et puissance (sol et air), soute réduite, une par vaisseau, plafond
-   1 par âge dès le Fer, entretien en jus (sinon il s'affaiblit), modèle animé (plus gros, veines
-   vertes, yeux brillants, gouttes de jus), fiche.
-4. **Travaux de titan** : détruire les obstacles (butin), terraformer des tuiles éligibles
-   (source de jus, aplanir, terrasse).
-5. **Équilibrage**, docs, skill.
+1. Obstacles **mixtes** : souches dégagées par des kiwis ordinaires (bâtisseur·euse, petit
+   butin) ; rochers et épaves de météorite réservés aux Kikiwiwis ; peu d'obstacles près du Nid.
+2. Le laboratoire contre nature est un **nouveau bâtiment**.
+3. Rôle d'un Kikiwiwi : **garnison, expéditions, travaux de titan** (pas de super-ouvrier).
+4. Terraformations : **creuser une source**, **élever une terrasse**, **aplanir**.
+
+## Ce qui a été fait (2e conversation)
+
+1. **Obstacles** (part 6) : 6 souches et 5 rochers par face (aucun sur le biome classique), loin
+   du Nid ; ils bloquent bâtiments, camps, chemins et météorites ; les cratères laissent des
+   épaves ; une souche se dégage par la file de chantiers.
+2. **Laboratoire contre nature et infusion** (part 7) : branche « contre nature » (infusion de
+   jus, travaux de titan, sang vert), bâtiment unique, transformation longue et risquée
+   (l'échec blesse et affaiblit, le kiwi survit), plafond 1 par âge dès le Fer.
+3. **Le Kikiwiwi** (part 8) : force × 4, touche sol et air, entretien de 40 jus/h (affaibli sans
+   jus), un par vaisseau (poids de cinq kiwis), jamais ouvrier ; modèle animé, portrait, fiche.
+4. **Travaux de titan** (part 9) : fracasser les obstacles, creuser une source, élever une
+   terrasse, aplanir (4 tuiles au Fer, 8 à l'Industrie) ; la carte suit `state.terraform`
+   partout (simulation, serveur, client, planètes alliées).
+5. **Équilibrage, docs, skill `kiwar-titans`** (part 10) : le bot dégage les souches, construit
+   le labo, transforme un kiwi, le poste en garnison et fracasse les rochers.
+
+## Ce qui reste (idées pour plus tard)
+
+- La **colonisation** d'une autre face (combat de boss exigeant de grosses unités) n'existe pas
+  encore : les Kikiwiwis y seront indispensables.
+- Pas d'autre unité spéciale ni d'arme à feu visible sur les guerrier·ères ; pas de son dédié au
+  Kikiwiwi (sons existants réutilisés).
+- Les obstacles ne gênent pas la marche des kiwis (cosmétique) ; le biome classique n'en a pas.
+- Le bot ne terraforme pas (il fracasse seulement) et ne part pas en expédition avec son Kikiwiwi.
 
 ## Questions ouvertes (d'origine)
 

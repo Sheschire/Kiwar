@@ -102,6 +102,8 @@ export const LABELS: Record<Milestone, string> = {
   stone: 'Stone age',
   iron: 'Iron age',
   industry: 'Industrial age',
+  lab: 'Laboratory against nature',
+  kikiwiwi: 'First Kikiwiwi',
 };
 
 export function biomeGroups(results: RunResult[], labels: Record<BiomeId, string>): Group[] {

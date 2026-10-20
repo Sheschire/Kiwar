@@ -45,6 +45,8 @@ describe('balance bot', () => {
         stone: t,
         iron: t,
         industry: t,
+        lab: t,
+        kikiwiwi: t,
       },
       final: { population: 0, buildings: 0, produced: 0 },
     });

@@ -9,6 +9,17 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 08 (2e moitié)** — des **obstacles** parsèment la carte : de vieilles souches
+> qu'un·e bâtisseur·euse arrache pour un peu de fibre, des rochers trop lourds pour un kiwi, et
+> les épaves luisantes que laissent les cratères de météorite. À l'âge du Fer, la recherche
+> « contre nature » ouvre le **laboratoire contre nature** : un kiwi aguerri plonge dans une cuve
+> de jus et en ressort **Kikiwiwi** — plus gros, veines vertes qui pulsent, yeux brillants,
+> gouttes de jus à chaque pas lourd. L'infusion peut rater (le kiwi survit, blessé et affaibli).
+> Un Kikiwiwi frappe furets et chauves-souris, prend la place de cinq kiwis dans le vaisseau (un
+> seul par vaisseau, un par âge dès le Fer) et boit du jus : sans jus, il s'affaiblit. Il mène
+> aussi des **travaux de titan** : fracasser rochers et épaves, creuser une source de jus,
+> élever une terrasse contre les crues, aplanir un bosquet.
+>
 > **Chantier 08 (1re moitié)** — la civilisation traverse les **âges** : Éden, Pierre, Fer puis
 > Industrie. Les kiwis à l'Esprit vif étudient à la **Bibliothèque** (on choisit qui y va) et
 > accumulent des points de recherche ; l'**arbre des technologies** offre, à chaque âge, des
@@ -18,7 +29,7 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 > fer, réaction), des cadeaux du ciel plus riches… et des prédateurs plus forts. À l'âge
 > industriel, les armes à feu permettent aux guerrier·ères de tirer sur les chauves-souris. Le
 > village change d'allure : toits d'ardoise puis de tôle, lanternes, cheminées qui fument, chemins
-> pavés ; la Bibliothèque devient laboratoire. Les **Kikiwiwis** arrivent dans la seconde moitié.
+> pavés ; la Bibliothèque devient laboratoire.
 >
 > **Chantier 07** — le vaisseau devient un **oiseau kiwi mécanique** qui bat des ailes : il
 > respire sur son aire d'envol, prend son élan, décolle et file vers la face adverse (dézoomer

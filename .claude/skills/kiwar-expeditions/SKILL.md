@@ -60,6 +60,11 @@ Crew strength, exposure and weighted losses come from `kiwar-rpg`.
 - `ExpeditionResult` extras: `broken`, `spotted`, `sectors` (new this time), `injured`.
 - `expeditionArrived` events carry `mission`, `spotted`, `broken` (toasts in `game/events.ts`).
 
+## Kikiwiwis aboard (chantier 08, `kiwar-titans`)
+
+- One per crew (`oneKikiwiwi`), boarded by name only (a head count skips them); weight ×5,
+  rations ×3, fight ×4 (× green blood in `strengthOf(state, …)`).
+
 ## Ships
 
 - `SHIPS` / `SHIP_IDS` (wood, logs, iron, jet) in `data/expeditions.ts`: reliability, armour

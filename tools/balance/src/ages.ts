@@ -14,7 +14,7 @@ const seeds = Number(arg('--seeds')) || 3;
 const days = Number(arg('--days')) || 14;
 const biomes = (arg('--biomes')?.split(',') ??
   BIOME_IDS.filter((id) => BIOMES[id].face !== null)) as BiomeId[];
-const STEPS: Milestone[] = ['nest3', 'library', 'stone', 'iron', 'industry'];
+const STEPS: Milestone[] = ['nest3', 'library', 'stone', 'iron', 'lab', 'kikiwiwi', 'industry'];
 
 const hours = (ms: number) => `${(ms / 3_600_000).toFixed(1)} h`;
 const all: Record<string, number[]> = {};

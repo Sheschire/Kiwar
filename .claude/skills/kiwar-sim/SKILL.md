@@ -21,6 +21,9 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 - The face map is regenerated from the seed: `generateFace(seed, face, params)` (`params.biome`
   matters: always pass `state.params`); inside the sim use the memoized `faceMapOf(state)`
   (`sim/territory.ts`). Climate is `climateOf(face, biome)`, season effects take the biome.
+  Since chantier 08 the map can change at run time: `faceMapOf(state)` applies the tiles the
+  Kikiwiwis reshaped (`state.terraform`); any cache keyed on the map must include
+  `terraformKey(state)` (see `kiwar-titans`). Obstacles are in `state.obstacles`.
 
 ## Map of the code
 
