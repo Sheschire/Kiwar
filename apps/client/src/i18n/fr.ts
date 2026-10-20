@@ -418,6 +418,8 @@ export const fr: Dict = {
     built: 'Construction terminée : {name} !',
     upgraded: '{name} passe au niveau {level} !',
     storageFull: 'Stock de {resource} plein',
+    kiwisRedirected: 'Stock de {resource} plein : {count} kiwi(s) partent travailler ailleurs',
+    kiwisReturned: '{count} kiwi(s) reviennent à la récolte : {resource}',
     claimed: 'Objectif rempli !',
     levelUp: '{name} passe au niveau {level} !',
     levelUpStat: '{name} passe au niveau {level} (+1 en {stat})',
@@ -1112,6 +1114,8 @@ export const fr: Dict = {
     builderPriorityHint:
       'Ce kiwi part d’abord sur chaque nouveau chantier, puis revient à son poste.',
     flagsHint: 'Déplacé librement : bâtisseur·euse au besoin, redirigé quand son stock est plein.',
+    redirected:
+      'Ce kiwi a quitté {building} (stock plein) : retour quand le stock passe sous {share} %.',
     workersOn: '{count} kiwi(s) à la récolte',
     unassigned: '{count} sans poste',
     unassignedHint:

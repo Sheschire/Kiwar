@@ -44,6 +44,8 @@ import { finishTitanWorks, nextTitanEnd } from './titan';
 import type { TerraformKind, TitanWork } from '../data/titan';
 import type { ObstacleKind } from '../data/obstacles';
 import { accrueResearch, nextResearchEvent, researchTick } from './research';
+import { autoPlace, awaitedResources, belowReturn, redirectFull, returnHome } from './posts';
+import { JOBS } from '../data/jobs';
 import {
   addVillager,
   cloneState,
@@ -100,6 +102,9 @@ export type GameEvent =
       rank: number;
     }
   | { type: 'storageFull'; at: TimeMs; resource: ResourceId }
+  /** Chantier 09: harvesters of a full stock went elsewhere, or came back to it. */
+  | { type: 'kiwisRedirected'; at: TimeMs; resource: ResourceId; count: number }
+  | { type: 'kiwisReturned'; at: TimeMs; resource: ResourceId; count: number }
   /** Chantier 08: an obstacle was removed (loot credited), a crater left a wreck. */
   | {
       type: 'obstacleCleared';
@@ -217,6 +222,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
   let map = faceMapOf(s);
   syncPools(s, map, s.now);
   startNextConstruction(s, s.now, events);
+  returnHome(s, s.now, events);
   let stage = hungerStage(s);
   // Guard against pathological loops; each iteration consumes at least one event.
   for (let guard = 0; guard < 100_000; guard++) {
@@ -260,6 +266,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
       speechEnd,
     );
     const target = Math.min(nextEvent, now);
+    const before = events.length;
     if (target > s.now) {
       accrue(s, flows, target - s.now, target, events);
       s.now = target;
@@ -313,6 +320,15 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
         events.push({ type: 'expeditionReturned', at: e.returnAt, expeditionId: e.id });
       }
     }
+    // A stock fell or filled up, a workplace opened: kiwis move on their own (chantier 09).
+    returnHome(s, nextEvent, events);
+    const filled = new Set<ResourceId>();
+    for (let i = before; i < events.length; i++) {
+      const e = events[i]!;
+      if (e.type === 'storageFull') filled.add(e.resource);
+    }
+    if (constructionEnd === nextEvent) redirectFull(s, nextEvent, events);
+    else if (filled.size > 0) redirectFull(s, nextEvent, events, filled);
   }
   s.now = Math.max(s.now, now);
 }
@@ -429,6 +445,14 @@ function computeFlows(s: GameState): Flows {
     } else if (rates[id] < 0) {
       const empty = (s.resources[id] / -rates[id]) * HOUR_MS;
       next = Math.min(next, s.now + Math.max(1, Math.ceil(empty)));
+    }
+  }
+  // Redirected kiwis go home when their stock falls below the return threshold.
+  for (const id of awaitedResources(s)) {
+    const threshold = cap[id] * JOBS.returnBelow;
+    if (rates[id] < 0 && !belowReturn(s, id)) {
+      const ms = ((s.resources[id] - threshold) / -rates[id]) * HOUR_MS;
+      next = Math.min(next, s.now + Math.max(1, Math.ceil(ms)));
     }
   }
   const hunger = hungerRate(s, deficit);
@@ -640,20 +664,8 @@ function hatch(s: GameState, at: TimeMs, events: GameEvent[]): void {
 export function autoAssign(s: GameState, v: Villager): void {
   // Kikiwiwis never take a workplace (garrison, expeditions and titan works only).
   if (v.kikiwiwi) return;
-  let best: { id: BuildingId; ratio: number; power: number } | null = null;
-  for (const b of s.buildings) {
-    const slots = workerSlots(b);
-    if (slots === 0 || isManualWorkplace(b.type)) continue;
-    const count = workersOf(s, b.id).length;
-    if (count >= slots) continue;
-    const ratio = count / slots;
-    const resource = buildingResource(s, b);
-    const power = resource ? workerPower(v, resource) : 1;
-    if (!best || ratio < best.ratio || (ratio === best.ratio && power > best.power)) {
-      best = { id: b.id, ratio, power };
-    }
-  }
-  if (best) v.job = { kind: 'work', buildingId: best.id };
+  const b = autoPlace(s, v);
+  if (b) v.job = { kind: 'work', buildingId: b.id };
 }
 
 /** The idle kiwi that would work best in a building (masters first). */

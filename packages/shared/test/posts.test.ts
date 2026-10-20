@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   advance,
+  applyCommand,
   cloneState,
   idleVillagers,
   jobBoard,
+  autoPlace,
+  capacity,
+  netRates,
+  HOUR_MS,
+  type GameEvent,
   migrateState,
   SCHEMA_VERSION,
   kiwiPosts,
@@ -13,7 +19,7 @@ import {
   type GameState,
   type VillagerId,
 } from '../src';
-import { findTile, rich, run, setup, T0 } from './helpers';
+import { findTile, kiwi as testKiwi, rich, run, setup, T0 } from './helpers';
 
 /** A colony with a pulpery (1 slot) and a fiber workshop (1 slot), every kiwi idle. */
 function colony() {
@@ -256,5 +262,124 @@ describe('kiwi flags (chantier 09)', () => {
       builderPriority: true,
       homeJob: 'b1',
     });
+  });
+});
+
+describe('redirection when a stock is full (chantier 09)', () => {
+  /** The fiber worker, the pulpery free, fiber close to the cap, the other stocks low. */
+  function nearlyFull() {
+    const { map, s: start, pulpery, workshop } = colony();
+    const [a] = idleVillagers(start);
+    let s = run(start, { type: 'assignKiwi', villagerId: a!.id, buildingId: workshop.id }, T0, map);
+    // Everybody else rests: nobody but `a` moves.
+    s = cloneState(s);
+    s.villagers = s.villagers.filter((v) => v.id === a!.id);
+    const cap = capacity(s).fiber;
+    s.resources = { pulp: 50, fiber: cap - 5, seeds: 50, juice: 50 };
+    return { map, s, a: a!, pulpery, workshop, cap };
+  }
+
+  it('sends the harvesters of a full stock to a free workplace, and back below 90 %', () => {
+    const { map, s: start, a, pulpery, workshop, cap } = nearlyFull();
+    const r = advance(start, start.now + HOUR_MS);
+    expect(r.events.some((e) => e.type === 'storageFull' && e.resource === 'fiber')).toBe(true);
+    expect(r.events).toContainEqual(
+      expect.objectContaining({ type: 'kiwisRedirected', resource: 'fiber', count: 1 }),
+    );
+    let s = r.state;
+    const moved = s.villagers.find((v) => v.id === a.id)!;
+    expect(moved.job).toEqual({ kind: 'work', buildingId: pulpery.id });
+    expect(moved.homeJob).toBe(workshop.id);
+    // Spending a little keeps it away (hysteresis), more brings it home.
+    s = run(s, { type: 'debugGrant', resources: { fiber: -0.05 * cap } }, s.now, map);
+    expect(s.villagers[0]!.job).toEqual({ kind: 'work', buildingId: pulpery.id });
+    const back = applyCommand(
+      s,
+      { type: 'debugGrant', resources: { fiber: -0.1 * cap } },
+      { now: s.now, map },
+    );
+    expect(back.ok).toBe(true);
+    s = back.state;
+    expect(s.villagers[0]!.job).toEqual({ kind: 'work', buildingId: workshop.id });
+    expect(s.villagers[0]).not.toHaveProperty('homeJob');
+    expect(back.events.map((e: GameEvent) => e.type)).toContain('kiwisReturned');
+  });
+
+  it('never moves a locked kiwi, nor one the player placed afterwards', () => {
+    const { map, s: start, a, workshop, pulpery } = nearlyFull();
+    const locked = run(start, { type: 'setKiwiFlags', villagerId: a.id, locked: true }, T0, map);
+    const s = advance(locked, locked.now + HOUR_MS).state;
+    expect(s.villagers[0]!.job).toEqual({ kind: 'work', buildingId: workshop.id });
+    // Redirected, then sent back by the player: it stays and forgets its former workplace.
+    let r = advance(start, start.now + HOUR_MS).state;
+    r = run(r, { type: 'assignKiwi', villagerId: a.id, buildingId: workshop.id }, r.now, map);
+    expect(r.villagers[0]).not.toHaveProperty('homeJob');
+    r = advance(r, r.now + HOUR_MS).state;
+    expect(r.villagers[0]!.job).toEqual({ kind: 'work', buildingId: workshop.id });
+    expect(pulpery.id).not.toBe(workshop.id);
+  });
+
+  it('brings kiwis home when the eating takes the stock below 90 %, exactly offline', () => {
+    const { map, s: built, workshop } = colony();
+    const juice = findTile(map, 'juice');
+    let start = run(
+      built,
+      { type: 'build', buildingType: 'juiceWell', q: juice.q, r: juice.r },
+      built.now,
+      map,
+    );
+    start = advance(start, start.now + 2 * HOUR_MS).state;
+    const well = start.buildings.find((b) => b.type === 'juiceWell')!;
+    start = run(start, { type: 'assignWorkers', buildingId: well.id, count: 0 }, start.now, map);
+    const [a] = idleVillagers(start);
+    // `a` was redirected from the well, nobody draws juice: the colony drinks the stock.
+    let s = cloneState(start);
+    const kiwi = s.villagers.find((v) => v.id === a!.id)!;
+    kiwi.job = { kind: 'work', buildingId: workshop.id };
+    kiwi.homeJob = well.id;
+    // A few more mouths to feed.
+    for (const id of ['k1', 'k2', 'k3', 'k4', 'k5', 'k6']) s.villagers.push(testKiwi(id));
+    const cap = capacity(s).juice;
+    s.resources = { pulp: cap, fiber: 0, seeds: 0, juice: cap * 0.92 };
+    s = advance(s, s.now).state;
+    expect(netRates(s).juice).toBeLessThan(0);
+    const end = s.now + 12 * HOUR_MS;
+    const big = advance(s, end);
+    const back = big.events.find((e) => e.type === 'kiwisReturned');
+    expect(back).toBeDefined();
+    expect(big.state.villagers.find((v) => v.id === a!.id)!.job).toEqual({
+      kind: 'work',
+      buildingId: well.id,
+    });
+    let stepped = s;
+    for (let t = s.now; t <= end; t += 7_919) stepped = advance(stepped, t).state;
+    stepped = advance(stepped, end).state;
+    expect(stepped.villagers).toEqual(big.state.villagers);
+    for (const id of ['pulp', 'fiber', 'seeds', 'juice'] as const)
+      expect(stepped.resources[id]).toBeCloseTo(big.state.resources[id], 6);
+  });
+
+  it('redirects the same way in one big step or many small ones', () => {
+    const { s } = nearlyFull();
+    const end = s.now + 3 * HOUR_MS;
+    const big = advance(s, end).state;
+    let stepped = s;
+    for (let t = s.now; t <= end; t += 7_919) stepped = advance(stepped, t).state;
+    stepped = advance(stepped, end).state;
+    expect(stepped.villagers).toEqual(big.villagers);
+    for (const id of ['pulp', 'fiber', 'seeds', 'juice'] as const)
+      expect(stepped.resources[id]).toBeCloseTo(big.resources[id], 6);
+  });
+});
+
+describe('idle kiwis find work by affinity (chantier 09)', () => {
+  it('skips a full stock while another workplace has room', () => {
+    const { s: start, pulpery, workshop } = colony();
+    const s = cloneState(start);
+    const v = idleVillagers(s)[0]!;
+    s.resources = { pulp: 0, fiber: capacity(s).fiber, seeds: 0, juice: 0 };
+    expect(autoPlace(s, v)?.id).toBe(pulpery.id);
+    s.resources = { pulp: capacity(s).pulp, fiber: 0, seeds: 0, juice: 0 };
+    expect(autoPlace(s, v)?.id).toBe(workshop.id);
   });
 });

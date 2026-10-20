@@ -388,6 +388,8 @@ export const en = {
     built: '{name} is ready!',
     upgraded: '{name} reached level {level}!',
     storageFull: '{resource} storage is full',
+    kiwisRedirected: '{resource} is full: {count} kiwi(s) went to work elsewhere',
+    kiwisReturned: '{count} kiwi(s) back to the {resource} harvest',
     claimed: 'Objective complete!',
     levelUp: '{name} reaches level {level}!',
     levelUpStat: '{name} reaches level {level} (+1 {stat})',
@@ -1080,6 +1082,7 @@ export const en = {
     builderPriorityHint:
       'This kiwi goes to every new construction site first, then back to its post.',
     flagsHint: 'Moved freely: builder when needed, redirected when its stock is full.',
+    redirected: 'Redirected from {building} (full stock): back when it falls below {share} %.',
     workersOn: '{count} kiwi(s) harvesting',
     unassigned: '{count} without a post',
     unassignedHint: 'Kiwis without a post while workplaces have room: open the job board.',

@@ -70,6 +70,18 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
       case 'storageFull':
         pushToast('info', 'events.storageFull', { resource: `@resources.${e.resource}` });
         break;
+      case 'kiwisRedirected':
+        pushToast('info', 'events.kiwisRedirected', {
+          count: e.count,
+          resource: `@resources.${e.resource}`,
+        });
+        break;
+      case 'kiwisReturned':
+        pushToast('info', 'events.kiwisReturned', {
+          count: e.count,
+          resource: `@resources.${e.resource}`,
+        });
+        break;
       case 'foodRanOut':
         pushToast('error', 'events.foodRanOut', { resource: `@resources.${e.resource}` });
         break;

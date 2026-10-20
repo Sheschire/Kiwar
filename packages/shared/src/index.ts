@@ -22,6 +22,7 @@ export * from './data/research';
 export * from './data/obstacles';
 export * from './data/kikiwiwi';
 export * from './data/titan';
+export * from './data/jobs';
 export * from './worldgen/generateFace';
 export * from './sim/state';
 export * from './sim/selectors';

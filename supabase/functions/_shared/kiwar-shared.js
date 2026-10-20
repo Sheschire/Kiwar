@@ -1880,6 +1880,20 @@ var TITAN = {
   terraceRise: 0.22
 };
 
+// packages/shared/src/data/jobs.ts
+var JOBS = {
+  /**
+   * Kiwis redirected from a full stock go back to their workplace once it falls below this
+   * share of the storage (a gap, so they do not shuttle back and forth).
+   */
+  returnBelow: 0.9,
+  /**
+   * Idle kiwis pick the workplace with the best affinity minus this weight × its staffing
+   * ratio: a kiwi gifted for pulp still spreads to an empty workshop rather than crowding.
+   */
+  ratioWeight: 0.5
+};
+
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
 var SQRT5 = /* @__PURE__ */ Math.sqrt(5);
@@ -5082,6 +5096,208 @@ function finishTitanWorks(s, at, events) {
   }
 }
 
+// packages/shared/src/sim/posts.ts
+function postKind(state, b) {
+  if (workerSlots(b) === 0) return null;
+  if (b.type === "library") return "research";
+  return buildingResource(state, b);
+}
+function kindPower(v, kind) {
+  return kind === "research" ? researchPower(v) : workerPower(v, kind);
+}
+function averagePower(state, kind) {
+  const kiwis = state.villagers.filter((v) => !v.kikiwiwi);
+  if (kiwis.length === 0) return 1;
+  return kiwis.reduce((sum, v) => sum + kindPower(v, kind), 0) / kiwis.length;
+}
+function affinity(state, v, kind) {
+  return kindPower(v, kind) / averagePower(state, kind);
+}
+function weakestWorker(state, b, except) {
+  const kind = postKind(state, b);
+  const workers = workersOf(state, b.id).filter((v) => v.id !== except);
+  if (!kind) return workers[workers.length - 1];
+  let weakest;
+  for (const v of workers) {
+    const p = kindPower(v, kind);
+    if (!weakest || p < weakest.p) weakest = { v, p };
+  }
+  return weakest?.v;
+}
+function kiwiPosts(state, v) {
+  const posts = [];
+  const average = /* @__PURE__ */ new Map();
+  for (const b of state.buildings) {
+    const kind = postKind(state, b);
+    if (!kind) continue;
+    if (!average.has(kind)) average.set(kind, averagePower(state, kind));
+    const workers = workersOf(state, b.id);
+    const slots = workerSlots(b);
+    const current = workers.some((x) => x.id === v.id);
+    const swap = !current && workers.length >= slots ? weakestWorker(state, b) : void 0;
+    const power = kindPower(v, kind);
+    posts.push({
+      buildingId: b.id,
+      type: b.type,
+      level: b.level,
+      kind,
+      workers: workers.length,
+      slots,
+      power,
+      affinity: power / average.get(kind),
+      current,
+      swapWith: swap ? { id: swap.id, name: swap.name } : null,
+      ideal: false
+    });
+  }
+  posts.sort((a, b) => b.affinity - a.affinity);
+  if (posts[0]) posts[0].ideal = true;
+  return posts;
+}
+var KIND_ORDER = ["pulp", "fiber", "seeds", "juice", "research"];
+function staffing(state) {
+  const byKind = {};
+  let freeSlots = 0;
+  for (const b of state.buildings) {
+    const kind = postKind(state, b);
+    if (!kind) continue;
+    const workers = workersOf(state, b.id).length;
+    const slots = workerSlots(b);
+    if (!isManualWorkplace(b.type)) freeSlots += Math.max(0, slots - workers);
+    const row = byKind[kind] ??= { workers: 0, slots: 0 };
+    row.workers += workers;
+    row.slots += slots;
+  }
+  const unassigned = state.villagers.filter((v) => v.job.kind === "idle" && !v.kikiwiwi).length;
+  return { byKind, unassigned, freeSlots };
+}
+function jobBoard(state) {
+  const full = storageFullCheck(state);
+  const night = calendarOf(state).night;
+  const rows = /* @__PURE__ */ new Map();
+  let freeSlots = 0;
+  for (const b of state.buildings) {
+    const kind = postKind(state, b);
+    if (!kind) continue;
+    const workers = workersOf(state, b.id);
+    const slots = workerSlots(b);
+    if (!isManualWorkplace(b.type)) freeSlots += Math.max(0, slots - workers.length);
+    let row = rows.get(kind);
+    if (!row) {
+      row = { kind, workers: 0, slots: 0, perHour: 0, status: "ok", buildings: [] };
+      rows.set(kind, row);
+    }
+    row.workers += workers.length;
+    row.slots += slots;
+    row.buildings.push({ building: b, workers, slots });
+    if (kind !== "research") row.perHour += buildingRates(state, b, full)[kind];
+  }
+  for (const row of rows.values()) {
+    if (row.kind === "research") row.perHour = researchPerHour(state);
+    const harvests = row.buildings.map((x) => buildingHarvest(state, x.building, full));
+    if (row.kind !== "research" && full(row.kind)) row.status = "full";
+    else if (row.workers === 0) row.status = "empty";
+    else if (harvests.length > 0 && harvests.every((h) => h?.status === "depleted"))
+      row.status = "depleted";
+    else if (night && row.kind !== "research") row.status = "night";
+  }
+  return {
+    rows: KIND_ORDER.filter((k) => rows.has(k)).map((k) => rows.get(k)),
+    unassigned: state.villagers.filter((v) => v.job.kind === "idle" && !v.kikiwiwi),
+    freeSlots,
+    guards: state.villagers.filter((v) => v.job.kind === "guard"),
+    builders: state.villagers.filter((v) => v.job.kind === "build")
+  };
+}
+function belowReturn(state, id3) {
+  return state.resources[id3] <= capacity(state)[id3] * JOBS.returnBelow + 1e-6;
+}
+function awaitedResources(state) {
+  const out = /* @__PURE__ */ new Set();
+  for (const v of state.villagers) {
+    if (!v.homeJob || v.job.kind !== "work") continue;
+    const home = state.buildings.find((b) => b.id === v.homeJob);
+    const id3 = home ? buildingResource(state, home) : null;
+    if (id3) out.add(id3);
+  }
+  return out;
+}
+function freePlaceFor(state, v, full, except) {
+  let best;
+  for (const b of state.buildings) {
+    if (b.id === except || isManualWorkplace(b.type)) continue;
+    const slots = workerSlots(b);
+    const count = workersOf(state, b.id).length;
+    if (count >= slots) continue;
+    const id3 = buildingResource(state, b);
+    if (!id3 || full(id3)) continue;
+    const score = affinity(state, v, id3);
+    const ratio = count / slots;
+    if (!best || score > best.score || score === best.score && ratio < best.ratio)
+      best = { b, score, ratio };
+  }
+  return best?.b;
+}
+function returnHome(state, at, events) {
+  const returned = /* @__PURE__ */ new Map();
+  for (const v of state.villagers) {
+    if (!v.homeJob) continue;
+    if (v.job.kind === "build") continue;
+    const home = state.buildings.find((b) => b.id === v.homeJob);
+    const id3 = home ? buildingResource(state, home) : null;
+    if (v.job.kind !== "work" || !home || !id3 || v.job.buildingId === home.id) {
+      delete v.homeJob;
+      continue;
+    }
+    if (!belowReturn(state, id3)) continue;
+    delete v.homeJob;
+    if (workersOf(state, home.id).length >= workerSlots(home)) continue;
+    v.job = { kind: "work", buildingId: home.id };
+    returned.set(id3, (returned.get(id3) ?? 0) + 1);
+  }
+  for (const [resource, count] of returned)
+    events.push({ type: "kiwisReturned", at, resource, count });
+}
+function redirectFull(state, at, events, only) {
+  const full = storageFullCheck(state);
+  const eaten = consumption(state);
+  const redirected = /* @__PURE__ */ new Map();
+  for (const id3 of RESOURCE_IDS) {
+    if (only && !only.has(id3) || !full(id3)) continue;
+    for (const b of state.buildings) {
+      if (isManualWorkplace(b.type) || buildingResource(state, b) !== id3) continue;
+      const ranked = workersOf(state, b.id).map((v, i) => ({ v, i, p: workerPower(v, id3) })).sort((x, y) => y.p - x.p || x.i - y.i).map((x) => x.v);
+      for (const v of ranked.slice(eaten[id3] > 0 ? 1 : 0)) {
+        if (v.locked) continue;
+        const to = freePlaceFor(state, v, full, b.id);
+        if (!to) continue;
+        v.homeJob ??= b.id;
+        v.job = { kind: "work", buildingId: to.id };
+        redirected.set(id3, (redirected.get(id3) ?? 0) + 1);
+      }
+    }
+  }
+  for (const [resource, count] of redirected)
+    events.push({ type: "kiwisRedirected", at, resource, count });
+}
+function autoPlace(state, v) {
+  const full = storageFullCheck(state);
+  let best;
+  for (const b of state.buildings) {
+    if (isManualWorkplace(b.type)) continue;
+    const slots = workerSlots(b);
+    if (slots === 0) continue;
+    const count = workersOf(state, b.id).length;
+    if (count >= slots) continue;
+    const id3 = buildingResource(state, b);
+    const isFull = id3 ? full(id3) : false;
+    const score = (id3 ? affinity(state, v, id3) : 1) - JOBS.ratioWeight * (count / slots);
+    if (!best || best.full && !isFull || best.full === isFull && score > best.score + 1e-9)
+      best = { b, score, full: isFull };
+  }
+  return best?.b;
+}
+
 // packages/shared/src/sim/advance.ts
 function advance(state, now) {
   const s = cloneState(state);
@@ -5093,6 +5309,7 @@ function advanceInPlace(s, now, events) {
   let map = faceMapOf(s);
   syncPools(s, map, s.now);
   startNextConstruction(s, s.now, events);
+  returnHome(s, s.now, events);
   let stage = hungerStage(s);
   for (let guard = 0; guard < 1e5; guard++) {
     planWave(s);
@@ -5133,6 +5350,7 @@ function advanceInPlace(s, now, events) {
       speechEnd
     );
     const target = Math.min(nextEvent, now);
+    const before = events.length;
     if (target > s.now) {
       accrue(s, flows, target - s.now, target, events);
       s.now = target;
@@ -5186,6 +5404,14 @@ function advanceInPlace(s, now, events) {
         events.push({ type: "expeditionReturned", at: e.returnAt, expeditionId: e.id });
       }
     }
+    returnHome(s, nextEvent, events);
+    const filled = /* @__PURE__ */ new Set();
+    for (let i = before; i < events.length; i++) {
+      const e = events[i];
+      if (e.type === "storageFull") filled.add(e.resource);
+    }
+    if (constructionEnd === nextEvent) redirectFull(s, nextEvent, events);
+    else if (filled.size > 0) redirectFull(s, nextEvent, events, filled);
   }
   s.now = Math.max(s.now, now);
 }
@@ -5276,6 +5502,13 @@ function computeFlows(s) {
     } else if (rates[id3] < 0) {
       const empty = s.resources[id3] / -rates[id3] * HOUR_MS2;
       next = Math.min(next, s.now + Math.max(1, Math.ceil(empty)));
+    }
+  }
+  for (const id3 of awaitedResources(s)) {
+    const threshold2 = cap[id3] * JOBS.returnBelow;
+    if (rates[id3] < 0 && !belowReturn(s, id3)) {
+      const ms2 = (s.resources[id3] - threshold2) / -rates[id3] * HOUR_MS2;
+      next = Math.min(next, s.now + Math.max(1, Math.ceil(ms2)));
     }
   }
   const hunger = hungerRate(s, deficit);
@@ -5452,20 +5685,8 @@ function hatch(s, at, events) {
 }
 function autoAssign(s, v) {
   if (v.kikiwiwi) return;
-  let best = null;
-  for (const b of s.buildings) {
-    const slots = workerSlots(b);
-    if (slots === 0 || isManualWorkplace(b.type)) continue;
-    const count = workersOf(s, b.id).length;
-    if (count >= slots) continue;
-    const ratio = count / slots;
-    const resource = buildingResource(s, b);
-    const power = resource ? workerPower(v, resource) : 1;
-    if (!best || ratio < best.ratio || ratio === best.ratio && power > best.power) {
-      best = { id: b.id, ratio, power };
-    }
-  }
-  if (best) v.job = { kind: "work", buildingId: best.id };
+  const b = autoPlace(s, v);
+  if (b) v.job = { kind: "work", buildingId: b.id };
 }
 function bestIdleFor(s, b) {
   return idleByPower(s, b)[0];
@@ -5667,120 +5888,6 @@ function buildableTiles(state, map, type) {
   return map.tiles.filter((t) => siteError(state, map, type, t) === null);
 }
 
-// packages/shared/src/sim/posts.ts
-function postKind(state, b) {
-  if (workerSlots(b) === 0) return null;
-  if (b.type === "library") return "research";
-  return buildingResource(state, b);
-}
-function kindPower(v, kind) {
-  return kind === "research" ? researchPower(v) : workerPower(v, kind);
-}
-function averagePower(state, kind) {
-  const kiwis = state.villagers.filter((v) => !v.kikiwiwi);
-  if (kiwis.length === 0) return 1;
-  return kiwis.reduce((sum, v) => sum + kindPower(v, kind), 0) / kiwis.length;
-}
-function affinity(state, v, kind) {
-  return kindPower(v, kind) / averagePower(state, kind);
-}
-function weakestWorker(state, b, except) {
-  const kind = postKind(state, b);
-  const workers = workersOf(state, b.id).filter((v) => v.id !== except);
-  if (!kind) return workers[workers.length - 1];
-  let weakest;
-  for (const v of workers) {
-    const p = kindPower(v, kind);
-    if (!weakest || p < weakest.p) weakest = { v, p };
-  }
-  return weakest?.v;
-}
-function kiwiPosts(state, v) {
-  const posts = [];
-  const average = /* @__PURE__ */ new Map();
-  for (const b of state.buildings) {
-    const kind = postKind(state, b);
-    if (!kind) continue;
-    if (!average.has(kind)) average.set(kind, averagePower(state, kind));
-    const workers = workersOf(state, b.id);
-    const slots = workerSlots(b);
-    const current = workers.some((x) => x.id === v.id);
-    const swap = !current && workers.length >= slots ? weakestWorker(state, b) : void 0;
-    const power = kindPower(v, kind);
-    posts.push({
-      buildingId: b.id,
-      type: b.type,
-      level: b.level,
-      kind,
-      workers: workers.length,
-      slots,
-      power,
-      affinity: power / average.get(kind),
-      current,
-      swapWith: swap ? { id: swap.id, name: swap.name } : null,
-      ideal: false
-    });
-  }
-  posts.sort((a, b) => b.affinity - a.affinity);
-  if (posts[0]) posts[0].ideal = true;
-  return posts;
-}
-var KIND_ORDER = ["pulp", "fiber", "seeds", "juice", "research"];
-function staffing(state) {
-  const byKind = {};
-  let freeSlots = 0;
-  for (const b of state.buildings) {
-    const kind = postKind(state, b);
-    if (!kind) continue;
-    const workers = workersOf(state, b.id).length;
-    const slots = workerSlots(b);
-    if (!isManualWorkplace(b.type)) freeSlots += Math.max(0, slots - workers);
-    const row = byKind[kind] ??= { workers: 0, slots: 0 };
-    row.workers += workers;
-    row.slots += slots;
-  }
-  const unassigned = state.villagers.filter((v) => v.job.kind === "idle" && !v.kikiwiwi).length;
-  return { byKind, unassigned, freeSlots };
-}
-function jobBoard(state) {
-  const full = storageFullCheck(state);
-  const night = calendarOf(state).night;
-  const rows = /* @__PURE__ */ new Map();
-  let freeSlots = 0;
-  for (const b of state.buildings) {
-    const kind = postKind(state, b);
-    if (!kind) continue;
-    const workers = workersOf(state, b.id);
-    const slots = workerSlots(b);
-    if (!isManualWorkplace(b.type)) freeSlots += Math.max(0, slots - workers.length);
-    let row = rows.get(kind);
-    if (!row) {
-      row = { kind, workers: 0, slots: 0, perHour: 0, status: "ok", buildings: [] };
-      rows.set(kind, row);
-    }
-    row.workers += workers.length;
-    row.slots += slots;
-    row.buildings.push({ building: b, workers, slots });
-    if (kind !== "research") row.perHour += buildingRates(state, b, full)[kind];
-  }
-  for (const row of rows.values()) {
-    if (row.kind === "research") row.perHour = researchPerHour(state);
-    const harvests = row.buildings.map((x) => buildingHarvest(state, x.building, full));
-    if (row.kind !== "research" && full(row.kind)) row.status = "full";
-    else if (row.workers === 0) row.status = "empty";
-    else if (harvests.length > 0 && harvests.every((h) => h?.status === "depleted"))
-      row.status = "depleted";
-    else if (night && row.kind !== "research") row.status = "night";
-  }
-  return {
-    rows: KIND_ORDER.filter((k) => rows.has(k)).map((k) => rows.get(k)),
-    unassigned: state.villagers.filter((v) => v.job.kind === "idle" && !v.kikiwiwi),
-    freeSlots,
-    guards: state.villagers.filter((v) => v.job.kind === "guard"),
-    builders: state.villagers.filter((v) => v.job.kind === "build")
-  };
-}
-
 // packages/shared/src/sim/commands.ts
 var COMMAND_ERRORS = [
   "unknownTile",
@@ -5902,6 +6009,7 @@ function applyCommand(state, cmd, ctx) {
   if (terraformKey(s)) ctx = { ...ctx, map: faceMapOf(s) };
   try {
     execute(s, cmd, ctx, events);
+    returnHome(s, ctx.now, events);
     return { ok: true, state: s, events };
   } catch (e) {
     if (e instanceof CommandFailure) return { ok: false, error: e.code, state: advanced, events };
@@ -6092,6 +6200,8 @@ function execute(s, cmd, ctx, events) {
       }
       const previous = v.job;
       v.job = { kind: "work", buildingId: b.id };
+      delete v.homeJob;
+      if (other) delete other.homeJob;
       if (other) {
         if (previous.kind === "work") other.job = { kind: "work", buildingId: previous.buildingId };
         else {
@@ -11748,6 +11858,7 @@ export {
   INCIDENTS,
   INCIDENT_KINDS,
   INTEL,
+  JOBS,
   KIKIWIWI,
   KIWI,
   KIWI_NAME_MAX,
@@ -11827,11 +11938,14 @@ export {
   applyTerraform,
   assignFace,
   autoAssign,
+  autoPlace,
   availableCrew,
   averagePower,
+  awaitedResources,
   awaitingReport,
   baseHarvest,
   bedsOf,
+  belowReturn,
   bestIdleFor,
   biomeFits,
   biomeProfile,
@@ -12051,6 +12165,7 @@ export {
   rebaseFreeDeposits,
   reconForecast,
   recordIntel,
+  redirectFull,
   regenBonus,
   releasePool,
   removeObstacle,
@@ -12068,6 +12183,7 @@ export {
   resolveArrival,
   resolveReturn,
   restNeed,
+  returnHome,
   rollKiwi,
   rollShiny,
   scaleCost,

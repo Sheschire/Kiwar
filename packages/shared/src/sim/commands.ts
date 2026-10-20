@@ -47,7 +47,7 @@ import {
   workersOf,
 } from './selectors';
 import { cloneState, nextId, type GameState, type MissionKind } from './state';
-import { weakestWorker } from './posts';
+import { returnHome, weakestWorker } from './posts';
 import { PASSAGE_TECHS, TECHS, type TechId } from '../data/research';
 import { ageOf, hasTech, researchTick, techEffects, techStatus } from './research';
 import { KIKIWIWI } from '../data/kikiwiwi';
@@ -291,6 +291,8 @@ export function applyCommand(state: GameState, cmd: Command, ctx: CommandContext
   if (terraformKey(s)) ctx = { ...ctx, map: faceMapOf(s) };
   try {
     execute(s, cmd, ctx, events);
+    // Spending can bring a full stock back down: redirected kiwis go home (chantier 09).
+    returnHome(s, ctx.now, events);
     return { ok: true, state: s, events };
   } catch (e) {
     if (e instanceof CommandFailure) return { ok: false, error: e.code, state: advanced, events };
@@ -504,6 +506,9 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       }
       const previous = v.job;
       v.job = { kind: 'work', buildingId: b.id };
+      // Placed by the player: no former workplace to go back to.
+      delete v.homeJob;
+      if (other) delete other.homeJob;
       if (other) {
         // The swapped kiwi takes the newcomer's former workplace, or looks for work.
         if (previous.kind === 'work') other.job = { kind: 'work', buildingId: previous.buildingId };

@@ -23,6 +23,7 @@ import {
   type Command,
   type GameState,
   kiwiPosts,
+  JOBS,
   jobBoard,
   idleVillagers,
   type BoardRow,
@@ -434,6 +435,7 @@ function KiwiSheet({ v }: { v: Villager }) {
         <PostPicker game={game} v={v} onDone={() => setAssigning(false)} />
       )}
       <KiwiFlags v={v} />
+      {v.homeJob && <RedirectNote game={game} v={v} />}
 
       {v.kikiwiwi && <TitanSection game={game} />}
       <GuardSection game={game} v={v} />
@@ -984,5 +986,20 @@ function KiwiFlags({ v }: { v: Villager }) {
             : t('posts.flagsHint')}
       </p>
     </div>
+  );
+}
+
+/** Chantier 09: where a kiwi redirected from a full stock will go back. */
+function RedirectNote({ game, v }: { game: GameState; v: Villager }) {
+  const t = useT();
+  const home = v.homeJob ? getBuilding(game, v.homeJob) : undefined;
+  if (!home) return null;
+  return (
+    <p class="small muted redirect-note">
+      {t('posts.redirected', {
+        building: t(`buildings.${home.type}.name`),
+        share: Math.round(JOBS.returnBelow * 100),
+      })}
+    </p>
   );
 }
