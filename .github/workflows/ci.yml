@@ -1,9 +1,9 @@
+# Full checks on a GitHub runner. Manual only (Actions tab → CI → Run workflow) to spare the
+# Actions minutes: every push is checked locally first (see the kiwar-workflow skill).
 name: CI
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   checks:

@@ -48,7 +48,11 @@ pnpm workspaces:
   and Claude-Session), never a model identifier elsewhere.
 - Push straight to main: `git push -q origin HEAD:main` (local branch name does not matter).
 - CI (`.github/workflows/ci.yml`): install, typecheck, lint, test, test:db (Postgres service),
-  build, balance 30 seeds × 24 h. Check runs with the GitHub MCP `actions_list` tool.
+  build, balance 30 seeds × 24 h. **Manual only** (`workflow_dispatch`) since the owner ran out
+  of free Actions minutes: the local checks above are the gate, run them before every push.
+- `deploy-functions.yml` still runs on every push touching `supabase/functions/**` (~15 s):
+  it is how the `game` function reaches Supabase. Check it with the GitHub MCP
+  `actions_list` tool after pushing shared changes (bundle rebuilt by `pnpm build:functions`).
 
 ## Environment pitfalls
 
