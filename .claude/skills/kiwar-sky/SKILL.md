@@ -21,7 +21,7 @@ chantier 15 may automate temporary posts).
 - `BLESSINGS` (heal 3, respec 6, +1 stat 10 at most 3 per kiwi, star egg 15, golden shiny 1/8),
   `FUEL` (5 stardust, travel × 0.75, reliability +0.15).
 - Costs elsewhere: `LevelDef.stardust` (monument level 2 = 15, level 3 = 25), `KIKIWIWI.stardust`
-  (10), `TechDef.stardust` (star techs 8–15).
+  (10, given back when the infusion fails), `TechDef.stardust` (star techs 8–15).
 
 ## State and simulation
 
@@ -86,7 +86,8 @@ announced: true }` (the comet fades in over 15 min of game time after `announceA
 
 - Bot (`tools/balance/src/bot.ts`): `cometOrders` sends `bestDustCrew` to every tile as soon as
   it falls, heals wounded kiwis with the surplus above `dustReserve` (the next monuments and a
-  Kikiwiwi); `titanOrders` waits for the Kikiwiwi's dust. `RunResult.final` has `comets`,
+  Kikiwiwi); `titanOrders` waits for the Kikiwiwi's dust **plus** the next monument's (`nextMonumentDust`:
+  the age first). `RunResult.final` has `comets`,
   `dustPicked`, `stardust`; the report's predators table shows them.
 - To retune: `COMETS.stock`/`intervalMs`/`firstMs`, the monument and Kikiwiwi dust costs. Check
   `pnpm balance:ages` (Iron and Industry must stay reachable within a few comets).

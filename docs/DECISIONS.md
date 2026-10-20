@@ -1183,3 +1183,12 @@ PC), while phones are very smooth. Measured with Playwright/CDP on the `perfSave
 - **Main report** (30 seeds per biome × 72 h, with the chantier 18 bot, comets on their own
   stream): every line green, biomes within ±9.2 % (population 10 in the lagoons), level 10 at
   2.1–2.2 days, Stone age 34–35 h, one comet and ~25 stardust picked per run.
+- **A failed infusion gives its stardust back** (the resources are still lost): with the
+  chantier 18 bot, two failed infusions (risk ≈ 40 %) burnt 30 stardust and pushed the
+  Industry age past 12 days. The bot now also keeps the next monument's stardust before an
+  infusion (the age first).
+- **Open issue for chantier 18**: with its new bot, `pnpm balance:ages` reaches the Industry
+  age at ~171–175 h for half the seeds and never for the others, **even with every stardust
+  cost set to 0** (seed crown, seed `ages-0`: the Industry monument can be ordered from 165 h —
+  `upgradeLock` is null — but the bot never orders it in the next 120 h; an earlier decision of
+  `decide` wins every round). Not a comet effect; to look at in chantier 18.

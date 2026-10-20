@@ -141,6 +141,10 @@ temporaires pourront aussi remplir les tuiles de poussière d'étoiles (chantier
   univers » ; la puissance des alliés vient de l'instantané (`universeInfo`), pas du temps réel ;
   le porteur doit exécuter la migration `20261026000000_universe_imports.sql` (d'ici là, la
   fonction retombe sur les anciennes colonnes : imports permis, pas de badge « venue du solo »).
+- Chantier 18 (constaté au chantier 13) : avec le nouveau bot, la sonde `pnpm balance:ages`
+  n'atteint l'Industrie que pour la moitié des graines, même sans aucun coût en poussière : le
+  monument de l'Industrie est commandable mais une autre décision de `decide` passe toujours
+  avant (graine `ages-0`, couronne de pépins).
 - Chantier 13 : ramassage de la poussière d'étoiles à la main seulement (le chantier 15 pourra
   l'automatiser comme les cratères) ; comète propre à chaque face, non montrée sur les planètes
   alliées ; pas de son dédié aux bénédictions ; la sonde `pnpm balance:ages` vérifie que les

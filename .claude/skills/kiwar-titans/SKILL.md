@@ -99,7 +99,8 @@ taken)` draws them from `<seed>/<face>/obstacles` (never the colony RNG), always
 ## Stardust (chantier 13)
 
 An infusion also costs `KIKIWIWI.stardust` (10), stored as the transform job's `paidDust` and
-refunded with `paid` when the lab is demolished (lost on failure). The bot waits for it.
+refunded with `paid` when the lab is demolished, and given back alone when the infusion fails.
+The bot waits for it and for the next monument's stardust.
 
 ## Balance
 
