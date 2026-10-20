@@ -604,7 +604,8 @@ export const fr: Dict = {
     unknownCrater: 'Ce cratère a disparu ou il est vide.',
     craterFull: 'Un cratère prend au plus trois mineur·euses.',
     alreadyStarted: 'Ce chantier a déjà son·sa bâtisseur·euse.',
-    noBuildSlot: 'Pas de place libre : attends la fin d’un chantier (le Nid fixe combien en même temps).',
+    noBuildSlot:
+      'Pas de place libre : attends la fin d’un chantier (le Nid fixe combien en même temps).',
   },
   offline: {
     title: 'Pendant votre absence…',
@@ -638,6 +639,7 @@ export const fr: Dict = {
   },
   compass: {
     label: 'Vers la planète alien — touchez pour revenir au Nid',
+    twin: 'Face alien — à coloniser',
   },
   debug: {
     title: 'Debug',

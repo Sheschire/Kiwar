@@ -33,16 +33,17 @@ import { TerrainView, worldPosition } from './terrain';
 import { FRONT_AZIMUTH } from './front';
 
 /**
- * Where the twin floats: towards the front, just above the top of the frame at the normal
- * zoom, sliding into the upper sky as the player zooms out (`ZOOM_IN` → `ZOOM_OUT`, ratios of
- * the framing distance). `BEHIND`: extra distance beyond the target, so it hangs past our rim.
+ * Where the twin floats: towards the front, hidden above the frame when zoomed in, half
+ * showing at the top of the screen at the normal zoom (1.0) and fully in the upper sky from a
+ * slight zoom out (`ZOOM_IN` → `ZOOM_OUT`, ratios of the framing distance, chantier 17).
+ * `BEHIND`: extra distance beyond the target, so it hangs past our rim.
  */
-const ZOOM_IN = 1.0;
-const ZOOM_OUT = 1.55;
+const ZOOM_IN = 0.6;
+const ZOOM_OUT = 1.15;
 const BEHIND = 34;
 const LEAN = 0.45;
 /** Seen from afar: a little smaller than our own half. */
-const SCALE = 0.55;
+const SCALE = 0.68;
 export interface TwinOptions {
   fog: boolean;
   friend?: TwinSnapshot | null;
@@ -50,6 +51,8 @@ export interface TwinOptions {
   intel?: IntelReport | null;
   /** Placed by its owner (an ally's planet far away) instead of following the camera. */
   anchored?: boolean;
+  /** Ribbon under an alien twin ("Alien face — to colonise"), so it reads as a target. */
+  caption?: string;
 }
 
 /** Fog layers over the twin surface (local heights). */
@@ -78,6 +81,7 @@ export class TwinView {
   private water: WaterView | null = null;
   private buildingMaterial: MeshStandardMaterial | null = null;
   private label: Sprite | null = null;
+  private caption: Sprite | null = null;
 
   private structureGeometries: (ConeGeometry | SphereGeometry)[] = [];
   private structureMaterials: MeshStandardMaterial[] = [];
@@ -132,7 +136,7 @@ export class TwinView {
           float puff = smoothstep(0.25, 0.7, n * 0.75 + n2 * 0.4);
           float r = length(vLocal) / uRadius;
           // Thick in the middle, frayed at the rim so the silhouette of the fruit shows.
-          float alpha = (0.3 + 0.38 * puff) * (1.0 - smoothstep(0.82, 1.0, r + 0.12 * (n2 - 0.5)));
+          float alpha = (0.14 + 0.36 * puff) * (1.0 - smoothstep(0.82, 1.0, r + 0.12 * (n2 - 0.5)));
           // Sectors seen by our scouts: the clouds part (frayed edges from the noise).
           float a = atan(-vLocal.y, vLocal.x);
           if (a < 0.0) a += 6.2831853;
@@ -158,6 +162,13 @@ export class TwinView {
     }
     if (opts.friend) this.showFriend(map, opts.friend);
     else if (opts.intel) this.showStructures(map, opts.intel);
+    if (opts.caption && !opts.friend && !opts.anchored) {
+      // Chantier 17: says what the half is, so it reads as a target, not a far moon.
+      this.caption = nameLabel(opts.caption, 'rgba(232, 240, 214, 0.9)', '#7d9a4a');
+      this.caption.material.transparent = true;
+      this.caption.scale.set(radius * 1.1, radius * 0.1375, 1);
+      this.group.add(this.caption);
+    }
     this.group.add(this.spin);
     this.group.scale.setScalar(SCALE);
   }
@@ -184,7 +195,7 @@ export class TwinView {
     const angularRadius = Math.atan(this.radius / along);
     const k = smoothstep((zoom - ZOOM_IN) / (ZOOM_OUT - ZOOM_IN));
     const hidden = vHalf + angularRadius * 1.15;
-    const shown = vHalf * 0.7;
+    const shown = vHalf * 0.6;
     const angle = hidden + (shown - hidden) * k;
     // Tilt the front direction up by `angle` around its right axis.
     const dir = this.lean.copy(forward).applyAxisAngle(right, angle);
@@ -197,6 +208,14 @@ export class TwinView {
     this.group.rotateX(LEAN);
     this.spin.rotation.y = time * 0.02;
     this.fogMaterial.uniforms.uTime!.value = time;
+    if (this.caption && this.group.visible) {
+      // Over the visible top of the half (its bottom hides behind our rim), once in view.
+      this.group.updateMatrixWorld();
+      this.tmp.copy(this.group.position).addScaledVector(camera.up, this.radius * 0.25);
+      this.caption.position.copy(this.group.worldToLocal(this.tmp));
+      this.caption.material.opacity = smoothstep((k - 0.75) / 0.25);
+      this.caption.visible = k > 0.75;
+    }
   }
 
   /** A friend's colony: pools, buildings (static models) and their name above. */
@@ -276,9 +295,10 @@ export class TwinView {
     this.obstacles?.dispose();
     // Building geometries are cached and shared with the colony: only the material goes.
     this.buildingMaterial?.dispose();
-    if (this.label) {
-      this.label.material.map?.dispose();
-      this.label.material.dispose();
+    for (const sprite of [this.label, this.caption]) {
+      if (!sprite) continue;
+      sprite.material.map?.dispose();
+      sprite.material.dispose();
     }
     for (const layer of this.fog) layer.geometry.dispose();
     for (const g of this.structureGeometries) g.dispose();
@@ -287,24 +307,26 @@ export class TwinView {
   }
 }
 
-/** The friend's name, on a parchment ribbon floating above their half. */
-function nameLabel(name: string): Sprite {
+/** The friend's name (or the alien face's caption), on a ribbon floating by their half. */
+function nameLabel(name: string, fill = 'rgba(246, 234, 208, 0.92)', stroke = '#b88a5a'): Sprite {
   const canvas = document.createElement('canvas');
-  canvas.width = 256;
+  const wide = name.length > 18;
+  canvas.width = wide ? 512 : 256;
   canvas.height = 64;
+  const w = canvas.width;
   const g = canvas.getContext('2d')!;
-  g.fillStyle = 'rgba(246, 234, 208, 0.92)';
-  g.strokeStyle = '#b88a5a';
+  g.fillStyle = fill;
+  g.strokeStyle = stroke;
   g.lineWidth = 4;
   g.beginPath();
-  g.roundRect(4, 6, 248, 52, 26);
+  g.roundRect(4, 6, w - 8, 52, 26);
   g.fill();
   g.stroke();
   g.fillStyle = '#4a3324';
   g.font = '600 30px Alegreya, Georgia, serif';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.fillText(name.slice(0, 18), 128, 33);
+  g.fillText(name.slice(0, wide ? 34 : 18), w / 2, 33);
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   return new Sprite(new SpriteMaterial({ map: texture, fog: false, depthTest: false }));

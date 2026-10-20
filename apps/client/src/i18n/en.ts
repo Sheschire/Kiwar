@@ -606,6 +606,7 @@ export const en = {
   },
   compass: {
     label: 'Towards the alien planet — tap to fly back to the Nest',
+    twin: 'Alien face — to colonise',
   },
   debug: {
     title: 'Debug',

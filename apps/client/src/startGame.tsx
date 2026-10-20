@@ -21,7 +21,7 @@ import { App } from './ui/App';
 import { Guard } from './ui/components/Guard';
 import { GameRenderer } from './render/GameRenderer';
 import { GameController } from './game/GameController';
-import { persistLang } from './i18n/i18n';
+import { persistLang, translate } from './i18n/i18n';
 import { pushToast, uiStore } from './ui/store';
 import { actions, bindActions } from './ui/actions';
 import { bindIntro, introSeen, startIntro } from './ui/intro';
@@ -90,11 +90,17 @@ function showTwin(state: GameState): void {
   const target = state.targets.find((t) => t.distance === 0 && t.face === twinFace);
   const intel = (!f && target && state.intel[target.id]) || null;
   const seen = intel ? `${intel.sectors.join('.')}/${intel.structures.length}` : '';
-  const key = `${state.seed}|${twinFace}|${params.biome}|${f ? `${f.owner}@${f.at}` : 'fog'}|${seen}`;
+  const lang = uiStore.getState().lang;
+  const key = `${state.seed}|${twinFace}|${params.biome}|${f ? `${f.owner}@${f.at}` : 'fog'}|${seen}|${lang}`;
   if (key === twinKey) return;
   twinKey = key;
   try {
-    renderer.setTwin(generateFace(state.seed, twinFace, params), { fog: !f, friend: f, intel });
+    renderer.setTwin(generateFace(state.seed, twinFace, params), {
+      fog: !f,
+      friend: f,
+      intel,
+      caption: translate(lang, 'compass.twin'),
+    });
   } catch (e) {
     // The twin is scenery: a broken snapshot must never block the colony.
     console.error(e);
