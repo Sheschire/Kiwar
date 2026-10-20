@@ -17,6 +17,12 @@ Ordre recommandé (les dépendances sont indiquées dans chaque document) :
 | 06  | [Menaces : furets et chauves-souris, défenses](06-menaces-predateurs.md)      | 03, 04    | non                   |
 | 07  | [Vaisseau kiwi géant et exploration](07-vaisseau-exploration.md)              | 05, 06    | non                   |
 | 08  | [Âges, recherche contre nature, Kikiwiwis](08-ages-recherche-kikiwiwi.md)     | 07        | non                   |
+| 09  | [Gestion des kiwis : affectation, priorités, postes](09-gestion-kiwis.md)     | 08        | avec 10               |
+| 10  | [Confort visuel et performance](10-confort-visuel-performance.md)             | —         | oui (client seul)     |
+| 11  | [Lisibilité de la construction](11-lisibilite-construction.md)                | 08        | avec 10               |
+| 12  | [Logistique visible, vagues orientées](12-logistique-vagues-orientees.md)     | 10        | non                   |
+| 13  | [Comètes et poussière d'étoiles](13-cometes-poussiere-etoiles.md)             | 08        | non                   |
+| 14  | [Emporter sa colonie solo dans un univers](14-import-solo-univers.md)         | —         | oui (serveur)         |
 
 « En parallèle possible » : deux conversations peuvent tourner en même temps sans se marcher
 dessus (fichiers différents). Sinon, attendre que le chantier précédent soit poussé sur `main`.

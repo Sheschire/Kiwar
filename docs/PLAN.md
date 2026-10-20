@@ -32,17 +32,23 @@ en ligne n'a été testé qu'avec le mock (`pnpm mock:supabase`).
 Détail, propositions et questions ouvertes dans [`docs/chantiers/`](chantiers/README.md). Ils
 remplacent les anciens jalons 5 à 8 de `VISION.md`.
 
-| #   | Chantier                                                               | État   |
-| --- | ---------------------------------------------------------------------- | ------ |
-| 01  | Démolition et bâtiments vivants                                        | ✅     |
-| 02  | Audio : socle, sons de base, espace admin                              | ✅     |
-| 03  | Kiwis individuels : niveaux, métiers, classes, shiny                   | ✅     |
-| 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | ✅     |
-| 05  | Intro, choix de la face, biomes, brouillard                            | ✅     |
-| 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | ✅     |
-| 07  | Vaisseau kiwi géant et exploration                                     | ✅     |
-| 08  | Âges, recherche contre nature, Kikiwiwis                               | 🟡 1/2 |
-| —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées  |
+| #   | Chantier                                                               | État    |
+| --- | ---------------------------------------------------------------------- | ------- |
+| 01  | Démolition et bâtiments vivants                                        | ✅      |
+| 02  | Audio : socle, sons de base, espace admin                              | ✅      |
+| 03  | Kiwis individuels : niveaux, métiers, classes, shiny                   | ✅      |
+| 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | ✅      |
+| 05  | Intro, choix de la face, biomes, brouillard                            | ✅      |
+| 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | ✅      |
+| 07  | Vaisseau kiwi géant et exploration                                     | ✅      |
+| 08  | Âges, recherche contre nature, Kikiwiwis                               | 🟡 1/2  |
+| 09  | Gestion des kiwis : affectation, priorités, tableau des postes         | à faire |
+| 10  | Confort visuel et performance (caméra, planète alien fixe, lenteurs)   | à faire |
+| 11  | Lisibilité de la construction (icônes, avant/après, arbre)             | à faire |
+| 12  | Logistique visible, vagues orientées, nuit plus courte                 | à faire |
+| 13  | Comètes et poussière d'étoiles                                         | à faire |
+| 14  | Emporter sa colonie solo dans un univers existant                      | à faire |
+| —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées   |
 
 **Prochaine conversation** : seconde moitié du chantier 08 (Kikiwiwis, laboratoire contre
 nature, obstacles et travaux de titan). Les réponses du porteur et le découpage sont dans
