@@ -4,8 +4,23 @@ import { PASSAGE_TECHS, type TechId } from '../data/research';
 import { RESOURCE_IDS, type ResourceId } from '../data/resources';
 import type { CommandError } from './commands';
 import { ageOf, hasTech, techEffects } from './research';
-import { buildingCount, copiesOf, nest, nestDef, turretCount, turretLimit } from './selectors';
+import {
+  buildingAt,
+  buildingCount,
+  copiesOf,
+  isRampart,
+  nest,
+  nestDef,
+  queuedBuildAt,
+  turretCount,
+  turretLimit,
+} from './selectors';
 import type { GameState } from './state';
+import type { FaceMap, Tile } from '../worldgen/generateFace';
+import { isFlooded } from './territory';
+import { seasonOf } from './calendar';
+import { obstacleAt } from './obstacles';
+import { titanAt } from './titan';
 
 /**
  * Chantier 11: what a building level or a technology brings, in numbers. One source of truth for
@@ -194,4 +209,27 @@ export function buildLock(state: GameState, type: BuildingType): CommandError | 
     if (turretCount(state) >= turretLimit(state)) return 'turretLimit';
   } else if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return 'buildingLimit';
   return null;
+}
+
+/** Why this tile cannot take this building (type of tile, taken, obstacle, flood…), or null. */
+export function siteError(
+  state: GameState,
+  map: FaceMap,
+  type: BuildingType,
+  tile: Tile,
+): CommandError | null {
+  if (!BUILDINGS[type].allowedTiles.includes(tile.type)) return 'tileNotAllowed';
+  if (buildingAt(state, tile.q, tile.r) || queuedBuildAt(state, tile.q, tile.r))
+    return 'tileOccupied';
+  if (obstacleAt(state, tile.q, tile.r)) return 'obstacle';
+  if (titanAt(state, tile.q, tile.r)) return 'titanAtWork';
+  if (isFlooded(tile, map.params.biome, seasonOf(state))) return 'flooded';
+  if (isTurret(type) && !isRampart(map, tile.q, tile.r)) return 'notOnRampart';
+  return null;
+}
+
+/** Tiles where `type` can be built right now (the building tree's placement mode). */
+export function buildableTiles(state: GameState, map: FaceMap, type: BuildingType): Tile[] {
+  if (buildLock(state, type)) return [];
+  return map.tiles.filter((t) => siteError(state, map, type, t) === null);
 }

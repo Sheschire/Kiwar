@@ -20,7 +20,8 @@ import { WorldModal } from './components/WorldModal';
 import { IntroOverlay } from './components/IntroOverlay';
 import { FollowBadge, VillageModal } from './components/VillageModal';
 import { DefenseModal, ThreatBadge } from './components/DefenseModal';
-import { ResearchModal } from './components/ResearchModal';
+import { PlansModal } from './components/ResearchModal';
+import { PlacingBanner } from './components/BuildingTree';
 import { BootScreen, Guard } from './components/Guard';
 import { VisitBanner } from './components/VisitBanner';
 import { RecapBubble } from './components/RecapBubble';
@@ -87,6 +88,7 @@ export function App() {
   const ready = useUi((s) => s.game !== null);
   const hasSheet = useUi((s) => s.selectedTile !== null);
   const pathMode = useUi((s) => s.pathMode);
+  const placing = useUi((s) => s.placing !== null);
   const intro = useUi((s) => s.intro !== null);
   const visiting = useUi((s) => s.visit !== null);
 
@@ -97,6 +99,7 @@ export function App() {
       } else if (e.key === 'Escape') {
         if (uiStore.getState().visit !== null) actions.visitAlly(null);
         else if (uiStore.getState().pathMode) actions.setPathMode(false);
+        else if (uiStore.getState().placing) actions.stopPlacing();
         else uiStore.setState({ selectedTile: null });
       }
     };
@@ -128,7 +131,7 @@ export function App() {
       </div>
     );
   return (
-    <div class={`hud ${hasSheet ? 'has-sheet' : ''} ${pathMode ? 'path-mode' : ''}`}>
+    <div class={`hud ${hasSheet ? 'has-sheet' : ''} ${pathMode || placing ? 'path-mode' : ''}`}>
       <TopBar />
       <ObjectivesPanel />
       <QueuePanel />
@@ -138,6 +141,7 @@ export function App() {
       <EggButton />
       <PathButton />
       <PathToolbar />
+      <PlacingBanner />
       <Guard>
         <TilePanel />
       </Guard>
@@ -157,7 +161,7 @@ export function App() {
         {modal === 'demolish' && <DemolishModal />}
         {modal === 'village' && <VillageModal />}
         {modal === 'defense' && <DefenseModal />}
-        {modal === 'research' && <ResearchModal />}
+        {modal === 'plans' && <PlansModal />}
         <JoinModal />
         <ChatPanel />
         <OfflineModal />

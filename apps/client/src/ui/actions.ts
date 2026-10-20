@@ -1,4 +1,5 @@
 import {
+  buildableTiles,
   buildingAt,
   obstacleAt,
   hexKey,
@@ -7,6 +8,7 @@ import {
   PATHS,
   queuedBuildAt,
   TILES,
+  type BuildingType,
   type Command,
   otherFace,
   type Face,
@@ -84,9 +86,33 @@ export const actions = {
   selectTile(tile: Tile | null): void {
     uiStore.setState({ selectedTile: tile });
   },
+  /** Chantier 11: the building tree's "Place" — the valid tiles light up, a tap builds. */
+  startPlacing(type: BuildingType): void {
+    const { game, map } = uiStore.getState();
+    if (!game || !map) return;
+    if (buildableTiles(game, map, type).length === 0) {
+      pushToast('info', 'plans.noTile');
+      return;
+    }
+    if (uiStore.getState().pathMode) actions.setPathMode(false);
+    uiStore.setState({ placing: type, modal: 'none', selectedTile: null });
+  },
+  stopPlacing(): void {
+    uiStore.setState({ placing: null });
+  },
+  /** A tap while placing: builds on a valid tile (then shows its site), ignores the others. */
+  placeAt(tile: Tile): void {
+    const { game, map, placing } = uiStore.getState();
+    if (!game || !map || !placing) return;
+    if (!buildableTiles(game, map, placing).some((t) => t.q === tile.q && t.r === tile.r)) return;
+    const ok = actions.dispatch({ type: 'build', buildingType: placing, q: tile.q, r: tile.r });
+    uiStore.setState(ok ? { placing: null, selectedTile: tile } : { placing: null });
+  },
   setPathMode(on: boolean): void {
     renderer?.setPaintMode(on);
-    uiStore.setState(on ? { pathMode: true, selectedTile: null } : { pathMode: false });
+    uiStore.setState(
+      on ? { pathMode: true, selectedTile: null, placing: null } : { pathMode: false },
+    );
   },
   /** Sends a painted stroke as path commands (only the tiles that would change). */
   paintPaths(tiles: Tile[], erase: boolean): void {

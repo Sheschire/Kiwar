@@ -3457,3 +3457,105 @@ button.chip:focus-visible {
 .change-values strong.bonus {
   color: #3f8a17;
 }
+
+/* ---------- Chantier 11: plans screen (building tree) ---------- */
+
+.building-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tree-family {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tree-card {
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.tree-card p {
+  margin: 0;
+}
+
+.tree-card.is-locked {
+  opacity: 0.72;
+  border-style: dashed;
+}
+
+.tree-card.is-hidden {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+.tree-silhouette .icon {
+  filter: brightness(0) opacity(0.45);
+}
+
+.tree-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tree-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tree-foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tree-reason {
+  flex-basis: 100%;
+}
+
+.tree-details summary {
+  cursor: pointer;
+  color: var(--ink-soft, inherit);
+}
+
+.tree-levels {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.tree-level {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 0.85rem;
+}
+
+.tree-level.is-hidden {
+  opacity: 0.6;
+}
+
+.modal-research .segmented .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.path-mode .paths-fab {
+  display: none;
+}

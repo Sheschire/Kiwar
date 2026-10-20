@@ -1,11 +1,4 @@
-import {
-  BUILDINGS,
-  isTurret,
-  levelDef,
-  MAX_LEVEL,
-  maxLevelOf,
-  type BuildingType,
-} from '../data/buildings';
+import { BUILDINGS, levelDef, MAX_LEVEL, maxLevelOf, type BuildingType } from '../data/buildings';
 import { CAMPS, PATHS } from '../data/territory';
 import { TILES } from '../data/tiles';
 import { hexKey } from '../hex/hex';
@@ -25,7 +18,7 @@ import { buildingResource, hasSkill, trainingCost, trainingDuration, workerPower
 import { CLASSES, SKILLS, type ClassId, type SkillId } from '../data/classes';
 import { faceMapOf, isFlooded, releasePool, syncPools, terraformKey } from './territory';
 import { seasonOf } from './calendar';
-import { buildLock } from './describe';
+import { buildLock, siteError } from './describe';
 import {
   buildCost,
   buildingAt,
@@ -47,7 +40,6 @@ import {
   population,
   housing,
   queuedBuildAt,
-  isRampart,
   repairCost,
   repairDuration,
   upgradeCost,
@@ -322,13 +314,9 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (!def || !def.buildable) fail('notBuildable');
       const tile = getTile(ctx.map, { q: cmd.q, r: cmd.r });
       if (!tile) return fail('unknownTile');
-      if (!def.allowedTiles.includes(tile.type)) fail('tileNotAllowed');
-      if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail('tileOccupied');
-      if (obstacleAt(s, cmd.q, cmd.r)) fail('obstacle');
-      if (titanAt(s, cmd.q, cmd.r)) fail('titanAtWork');
-      if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail('flooded');
-      if (isTurret(cmd.buildingType) && !isRampart(ctx.map, cmd.q, cmd.r)) fail('notOnRampart');
-      // Everything that does not depend on the tile (shared with the building tree).
+      // The tile, then everything that does not depend on it (shared with the building tree).
+      const site = siteError(s, ctx.map, cmd.buildingType, tile);
+      if (site) fail(site);
       const lock = buildLock(s, cmd.buildingType);
       if (lock) fail(lock);
       queueHasRoom(s);

@@ -1,6 +1,6 @@
 import { createStore } from 'zustand/vanilla';
 import { useEffect, useReducer, useRef } from 'preact/hooks';
-import type { Face, FaceMap, GameState, Tile } from '@kiwar/shared';
+import type { BuildingType, Face, FaceMap, GameState, Tile } from '@kiwar/shared';
 import {
   detectLang,
   persistLang,
@@ -33,7 +33,7 @@ export type Modal =
   | 'demolish'
   | 'village'
   | 'defense'
-  | 'research';
+  | 'plans';
 
 export interface UiState {
   lang: Lang;
@@ -75,6 +75,9 @@ export interface UiState {
   chatUnread: number;
   /** Path painting mode. */
   pathMode: boolean;
+  /** Chantier 11: the plans screen tab, and the building being placed from the tree. */
+  plansTab: 'buildings' | 'research';
+  placing: BuildingType | null;
   /** Volume settings (mirrors the audio engine). */
   audio: AudioSettings;
   /** Kiwi whose sheet is open in the village screen (null = the list). */
@@ -130,6 +133,8 @@ export const uiStore = createStore<UiState>(() => ({
   chat: [],
   chatUnread: 0,
   pathMode: false,
+  plansTab: 'buildings',
+  placing: null,
   audio: DEFAULT_SETTINGS,
   kiwiId: null,
   villageTab: 'kiwis',

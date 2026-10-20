@@ -515,6 +515,11 @@ export class GameRenderer {
     this.refreshCatchment();
   }
 
+  /** Chantier 11: lights the tiles where the building chosen in the tree can go. */
+  setPlacement(tiles: readonly Tile[]): void {
+    this.selection.setPlacement(tiles);
+  }
+
   /** Path mode: one-finger / left drags paint paths instead of moving the camera. */
   setPaintMode(on: boolean): void {
     this.painter.enabled = on;

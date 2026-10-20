@@ -5645,6 +5645,20 @@ function buildLock(state, type) {
   } else if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return "buildingLimit";
   return null;
 }
+function siteError(state, map, type, tile) {
+  if (!BUILDINGS[type].allowedTiles.includes(tile.type)) return "tileNotAllowed";
+  if (buildingAt(state, tile.q, tile.r) || queuedBuildAt(state, tile.q, tile.r))
+    return "tileOccupied";
+  if (obstacleAt(state, tile.q, tile.r)) return "obstacle";
+  if (titanAt(state, tile.q, tile.r)) return "titanAtWork";
+  if (isFlooded(tile, map.params.biome, seasonOf(state))) return "flooded";
+  if (isTurret(type) && !isRampart(map, tile.q, tile.r)) return "notOnRampart";
+  return null;
+}
+function buildableTiles(state, map, type) {
+  if (buildLock(state, type)) return [];
+  return map.tiles.filter((t) => siteError(state, map, type, t) === null);
+}
 
 // packages/shared/src/sim/posts.ts
 function postKind(state, b) {
@@ -5899,12 +5913,8 @@ function execute(s, cmd, ctx, events) {
       if (!def || !def.buildable) fail("notBuildable");
       const tile = getTile(ctx.map, { q: cmd.q, r: cmd.r });
       if (!tile) return fail("unknownTile");
-      if (!def.allowedTiles.includes(tile.type)) fail("tileNotAllowed");
-      if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail("tileOccupied");
-      if (obstacleAt(s, cmd.q, cmd.r)) fail("obstacle");
-      if (titanAt(s, cmd.q, cmd.r)) fail("titanAtWork");
-      if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail("flooded");
-      if (isTurret(cmd.buildingType) && !isRampart(ctx.map, cmd.q, cmd.r)) fail("notOnRampart");
+      const site = siteError(s, ctx.map, cmd.buildingType, tile);
+      if (site) fail(site);
       const lock = buildLock(s, cmd.buildingType);
       if (lock) fail(lock);
       queueHasRoom(s);
@@ -11800,6 +11810,7 @@ export {
   biomesOf,
   buildCost,
   buildLock,
+  buildableTiles,
   builderSpeed,
   buildingAt,
   buildingCount,
@@ -12044,6 +12055,7 @@ export {
   shipIdForAge,
   shipOf,
   shipReliability,
+  siteError,
   skyTick,
   soloTargets,
   splitsLand,

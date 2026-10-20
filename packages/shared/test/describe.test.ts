@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BUILDING_TYPES,
   BUILDINGS,
+  buildableTiles,
   buildLock,
   climateOf,
   describeLevel,
@@ -104,5 +105,23 @@ describe('buildLock (chantier 11)', () => {
     expect(buildLock(s, 'school')).toBe('nestLevelTooLow');
     expect(buildLock(s, 'lab')).toBe('nestLevelTooLow');
     expect(buildLock(s, 'nest')).toBe('notBuildable');
+  });
+});
+
+describe('buildableTiles (chantier 11)', () => {
+  it('lists exactly the tiles where the build command passes', () => {
+    const { map, state } = setup();
+    const s = rich(state);
+    for (const type of ['hut', 'juiceWell', 'seedTurret', 'school'] as const) {
+      const ok = new Set(buildableTiles(s, map, type).map((t) => `${t.q},${t.r}`));
+      for (const t of map.tiles) {
+        const error = validateCommand(
+          s,
+          { type: 'build', buildingType: type, q: t.q, r: t.r },
+          { now: T0, map },
+        );
+        expect(ok.has(`${t.q},${t.r}`), `${type} ${t.q},${t.r}`).toBe(error === null);
+      }
+    }
   });
 });

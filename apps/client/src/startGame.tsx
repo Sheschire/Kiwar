@@ -2,6 +2,7 @@
 import { render } from 'preact';
 import {
   generateFace,
+  buildableTiles,
   getTile,
   terraformKey,
   otherFace,
@@ -42,7 +43,8 @@ const renderer = new GameRenderer(
   canvas,
   {
     now: () => controller?.now() ?? 0,
-    onTileTap: (tile) => actions.selectTile(tile),
+    onTileTap: (tile) =>
+      uiStore.getState().placing && tile ? actions.placeAt(tile) : actions.selectTile(tile),
     onPaint: (tiles, erase) => actions.paintPaths(tiles, erase),
     onStats: (frame) => perfStore.setState({ frame }),
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
@@ -182,6 +184,17 @@ uiStore.subscribe((s, prev) => {
 // A menu over the scene: the 3D slows down to leave the main thread to the interface.
 uiStore.subscribe((s, prev) => {
   if (s.modal !== prev.modal) renderer.setBackground(s.modal !== 'none');
+});
+
+// Chantier 11: placing a building from the tree lights the valid tiles (kept up to date).
+let placementKey = '';
+uiStore.subscribe((s, prev) => {
+  if (!s.placing && !prev.placing) return;
+  const tiles = s.placing && s.game && s.map ? buildableTiles(s.game, s.map, s.placing) : [];
+  const key = `${s.placing}:${tiles.map((t) => `${t.q},${t.r}`).join(';')}`;
+  if (key === placementKey) return;
+  placementKey = key;
+  renderer.setPlacement(tiles);
 });
 
 const url = readUrlParams();

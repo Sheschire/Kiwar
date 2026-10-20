@@ -22,6 +22,7 @@ import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { BookIcon } from '../icons';
 import { BRANCH_ICONS, Icon } from '../iconSet';
+import { BuildingTree } from './BuildingTree';
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { Modal } from './Modal';
 import { TechChanges } from './StatChanges';
@@ -150,14 +151,10 @@ export function AgeInfo({ game, t }: { game: GameState; t: Translate }) {
 }
 
 /** Chantier 08: the technology tree, one row per age. */
-export function ResearchModal() {
-  const t = useT();
-  const game = useUi((s) => s.game);
-  if (!game) return null;
-  const close = () => uiStore.setState({ modal: 'none' });
+function ResearchTab({ game, t }: { game: GameState; t: Translate }) {
   const age = ageOf(game);
   return (
-    <Modal title={t('research.title')} onClose={close} class="modal-wide modal-research">
+    <>
       <AgeInfo game={game} t={t} />
       <ResearchSummary game={game} t={t} />
       {AGE_IDS.map((id, i) => (
@@ -173,6 +170,33 @@ export function ResearchModal() {
           </ul>
         </section>
       ))}
+    </>
+  );
+}
+
+/** Chantier 11: the plans screen — every building (and where to place it), and research. */
+export function PlansModal() {
+  const t = useT();
+  const game = useUi((s) => s.game);
+  const tab = useUi((s) => s.plansTab);
+  if (!game) return null;
+  const close = () => uiStore.setState({ modal: 'none' });
+  return (
+    <Modal title={t('plans.title')} onClose={close} class="modal-wide modal-research">
+      <div class="segmented" role="tablist">
+        {(['buildings', 'research'] as const).map((k) => (
+          <button
+            key={k}
+            role="tab"
+            aria-selected={tab === k}
+            class={`btn ${tab === k ? 'btn-active' : ''}`}
+            onClick={() => uiStore.setState({ plansTab: k })}
+          >
+            <Icon name={k === 'buildings' ? 'hut' : 'research'} size={18} /> {t(`plans.${k}`)}
+          </button>
+        ))}
+      </div>
+      {tab === 'buildings' ? <BuildingTree game={game} /> : <ResearchTab game={game} t={t} />}
     </Modal>
   );
 }

@@ -320,7 +320,10 @@ function BuildingSection({
         <>
           <p class="small muted">{t('research.researcherHint')}</p>
           <ResearchSummary game={game} t={t} />
-          <button class="btn" onClick={() => uiStore.setState({ modal: 'research' })}>
+          <button
+            class="btn"
+            onClick={() => uiStore.setState({ modal: 'plans', plansTab: 'research' })}
+          >
             <BookIcon size={18} /> {t('research.openTree')}
           </button>
         </>

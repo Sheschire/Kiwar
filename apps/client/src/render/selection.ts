@@ -12,6 +12,7 @@ import {
 } from 'three';
 import type { Tile } from '@kiwar/shared';
 import { HEX_VISUAL_RADIUS, worldPosition } from './terrain';
+import { WATER_LEVEL } from './water';
 
 function createHexRingGeometry(inner: number, outer: number): BufferGeometry {
   const positions: number[] = [];
@@ -71,6 +72,7 @@ class HexMarker {
 }
 
 const MAX_CATCHMENT = 64;
+const MAX_PLACEMENT = 600;
 
 /** Hover and selection outlines on top of tiles, and the catchment of a selected producer. */
 export class SelectionView {
@@ -89,11 +91,40 @@ export class SelectionView {
     MAX_CATCHMENT,
   );
 
+  /** Chantier 11: tiles where the building chosen in the tree can be placed. */
+  private readonly placement = new InstancedMesh(
+    createHexRingGeometry(HEX_VISUAL_RADIUS * 0.12, HEX_VISUAL_RADIUS * 0.86),
+    new MeshBasicMaterial({
+      color: '#ffe27a',
+      transparent: true,
+      opacity: 0.45,
+      depthWrite: false,
+      toneMapped: false,
+    }),
+    MAX_PLACEMENT,
+  );
+
   constructor() {
     this.catchment.count = 0;
     this.catchment.frustumCulled = false;
     this.catchment.renderOrder = 4;
-    this.group.add(this.hover.mesh, this.selected.mesh, this.catchment);
+    this.placement.count = 0;
+    this.placement.frustumCulled = false;
+    this.placement.renderOrder = 4;
+    this.group.add(this.hover.mesh, this.selected.mesh, this.catchment, this.placement);
+  }
+
+  setPlacement(tiles: readonly Tile[]): void {
+    const m = new Matrix4();
+    let n = 0;
+    for (const t of tiles.slice(0, MAX_PLACEMENT)) {
+      const p = worldPosition(t);
+      // Above the water of the juice pools.
+      m.makeTranslation(p.x, t.height + (t.type === 'juice' ? WATER_LEVEL : 0) + 0.03, p.z);
+      this.placement.setMatrixAt(n++, m);
+    }
+    this.placement.count = n;
+    this.placement.instanceMatrix.needsUpdate = true;
   }
 
   /** Highlights the deposit tiles harvested by the selected building. */
@@ -118,6 +149,8 @@ export class SelectionView {
   }
 
   update(time: number): void {
+    if (this.placement.count > 0)
+      (this.placement.material as MeshBasicMaterial).opacity = 0.35 + 0.2 * Math.sin(time * 3.5);
     this.selected.pulse(time, 4);
     this.hover.pulse(time, 2);
   }

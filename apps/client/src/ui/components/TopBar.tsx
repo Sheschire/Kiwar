@@ -310,10 +310,10 @@ export function TopBar() {
           <ShieldIcon />
         </button>
         <button
-          class={`btn btn-icon parchment-btn ${modal === 'research' ? 'btn-active' : ''}`}
-          aria-label={t('research.button')}
-          title={t('research.button')}
-          onClick={() => uiStore.setState({ modal: modal === 'research' ? 'none' : 'research' })}
+          class={`btn btn-icon parchment-btn ${modal === 'plans' ? 'btn-active' : ''}`}
+          aria-label={t('plans.button')}
+          title={t('plans.button')}
+          onClick={() => uiStore.setState({ modal: modal === 'plans' ? 'none' : 'plans' })}
         >
           <BookIcon />
         </button>
