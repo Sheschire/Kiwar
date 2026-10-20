@@ -79,6 +79,11 @@ import { WeatherView } from './weather';
 export interface RendererCallbacks {
   /** Current simulation time (for smooth progress animations between ticks). */
   now(): number;
+  /**
+   * Runs at the end of every animation frame, drawn or not (menu open): the simulation tick is
+   * driven from here, so its work lands right after a frame instead of at random.
+   */
+  afterFrame?(): void;
   onTileTap(tile: Tile | null): void;
   /** A path stroke painted in path mode. */
   onPaint?(tiles: Tile[], erase: boolean): void;
@@ -832,7 +837,10 @@ export class GameRenderer {
   private frame(): void {
     const start = performance.now();
     if (this.background && !this.intro) {
-      if (this.backgroundFrames <= 0) return;
+      if (this.backgroundFrames <= 0) {
+        this.runAfterFrame();
+        return;
+      }
       this.backgroundFrames--;
     }
     if (this.lastFrameAt > 0) {
@@ -845,6 +853,16 @@ export class GameRenderer {
     this.renderer.info.reset();
     this.drawFrame();
     this.lastCpu = performance.now() - start;
+    this.runAfterFrame();
+  }
+
+  private runAfterFrame(): void {
+    try {
+      this.callbacks.afterFrame?.();
+    } catch (e) {
+      // An exception here would stop the animation loop for good.
+      this.reportFrameError(e);
+    }
   }
 
   private lastCpu = 0;

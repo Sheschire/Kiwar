@@ -48,6 +48,7 @@ const renderer = new GameRenderer(
   canvas,
   {
     now: () => controller?.now() ?? 0,
+    afterFrame: () => afterFrame(),
     onTileTap: (tile) =>
       uiStore.getState().placing && tile ? actions.placeAt(tile) : actions.selectTile(tile),
     onPaint: (tiles, erase) => actions.paintPaths(tiles, erase),
@@ -110,6 +111,33 @@ let worldKey = '';
 /** Tiles reshaped by the Kikiwiwis on screen (chantier 08): redrawn in place. */
 let shapeKey = '';
 
+/** A tick's state waiting for the next frame to reach the interface. */
+let pendingUi: { state: GameState; now: number; advance: number; scene: number } | null = null;
+
+/** Hands a state to the interface (slow widgets once a second, or at once after an action). */
+function publishState(state: GameState, now: number, fromTick: boolean): void {
+  const ui = uiStore.getState();
+  const slow =
+    !fromTick || !ui.slowGame || Math.floor(now / 1000) !== Math.floor(ui.slowNow / 1000);
+  uiStore.setState(
+    slow ? { game: state, now, slowGame: state, slowNow: now } : { game: state, now },
+  );
+}
+
+/** After each animation frame: the interface half of a tick, or the next tick when due. */
+function afterFrame(): void {
+  if (!controller) return;
+  const p = pendingUi;
+  if (p) {
+    pendingUi = null;
+    const t = performance.now();
+    publishState(p.state, p.now, true);
+    recordTick(p.advance, p.scene, performance.now() - t);
+    return;
+  }
+  controller.tickIfDue();
+}
+
 controller = new GameController({
   onWorld: (map, state) => {
     const key = `${map.seed}|${map.face}|${JSON.stringify(map.params)}`;
@@ -142,18 +170,17 @@ controller = new GameController({
     const t0 = performance.now();
     renderer.setGameState(state);
     showTwin(state);
-    const t1 = performance.now();
-    // Slow widgets follow once a second, or at once when the state comes from an action.
-    const ui = uiStore.getState();
-    const slow =
-      !controller.ticking ||
-      !ui.slowGame ||
-      Math.floor(now / 1000) !== Math.floor(ui.slowNow / 1000);
-    uiStore.setState(
-      slow ? { game: state, now, slowGame: state, slowNow: now } : { game: state, now },
-    );
-    recordTick(controller.lastAdvanceMs, t1 - t0, performance.now() - t1);
+    const scene = performance.now() - t0;
+    const advance = controller.lastAdvanceMs;
     controller.lastAdvanceMs = 0;
+    if (controller.ticking) {
+      // A tick: the interface follows one frame later, so the two halves of the work land
+      // in two frames instead of one.
+      pendingUi = { state, now, advance, scene };
+      return;
+    }
+    pendingUi = null;
+    publishState(state, now, false);
   },
   onEvents: (events) => handleGameEvents(events, renderer),
   onError: (error) => {

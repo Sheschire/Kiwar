@@ -181,9 +181,13 @@ export class GameController {
       if (loaded.ok && !world) this.loadState(loaded.save.state);
       else this.newLocalWorld(world?.seed ?? fallbackSeed(), world?.face ?? 'kiwisu');
     }
-    this.tickTimer = window.setInterval(() => this.tick(), TICK_MS);
+    // The renderer drives the ticks right after its frames (`tickIfDue`); this timer only
+    // takes over when no frame comes (hidden tab).
+    this.tickTimer = window.setInterval(() => {
+      if (performance.now() - this.lastTickAt >= TICK_MS * 1.5) this.tick();
+    }, TICK_MS);
     this.saveTimer = window.setInterval(() => {
-      this.save();
+      this.saveSoon();
       if (document.visibilityState === 'visible') this.markSeen();
     }, AUTOSAVE_MS);
     document.addEventListener('visibilitychange', this.onVisibility);
@@ -285,7 +289,7 @@ export class GameController {
       this.pending.push(cmd);
       void this.flush();
     } else {
-      this.save();
+      this.saveSoon();
     }
     return true;
   }
@@ -296,7 +300,19 @@ export class GameController {
   /** True while a tick emits its state (the interface may skip some of those updates). */
   ticking = false;
 
+  /** When the last tick ran (performance clock). */
+  private lastTickAt = 0;
+
+  /** Ticks if the last one is at least one tick old (called after each animation frame). */
+  tickIfDue(): boolean {
+    // A few ms early is fine: frames come every 7–17 ms, ticks stay ~200 ms apart.
+    if (performance.now() - this.lastTickAt < TICK_MS - 8) return false;
+    this.tick();
+    return true;
+  }
+
   tick(): void {
+    this.lastTickAt = performance.now();
     if (!this.state) return;
     this.ticking = true;
     try {
@@ -314,7 +330,7 @@ export class GameController {
     this.state = state;
     if (events.length) {
       this.listener.onEvents(events);
-      this.save();
+      this.saveSoon();
     }
     this.emitState(now);
     // A ship landed: only the server knows what it found (hidden garrisons).
@@ -341,6 +357,25 @@ export class GameController {
     } catch {
       // Tried again on a later tick.
     }
+  }
+
+  private saveScheduled = false;
+
+  /**
+   * Saves when the main thread is idle (within 2 s): serialising the whole colony takes a few
+   * ms that must not land in the middle of camera movement. `save()` stays synchronous for
+   * leaving the page.
+   */
+  saveSoon(): void {
+    if (this.saveScheduled) return;
+    this.saveScheduled = true;
+    const run = () => {
+      this.saveScheduled = false;
+      this.save();
+    };
+    if (typeof window.requestIdleCallback === 'function')
+      window.requestIdleCallback(run, { timeout: 2000 });
+    else window.setTimeout(run, 500);
   }
 
   save(): void {
