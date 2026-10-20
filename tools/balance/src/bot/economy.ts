@@ -28,6 +28,7 @@ import {
   type GameState,
   type ResourceId,
   type Tile,
+  capacity,
 } from '@kiwar/shared';
 
 export const PRODUCERS: Record<ResourceId, BuildingType> = {
@@ -123,4 +124,26 @@ export function canFeedOneMore(state: GameState): boolean {
   return (['pulp', 'juice'] as const).every(
     (id) => rates[id] >= (eaten[id] * (n + 1) * 1.2) / n || eaten[id] === 0,
   );
+}
+
+/**
+ * Resources from the scarcest to the most plentiful: net rate (after the meals, with a margin)
+ * over the economy's need; a nearly full resource counts as plentiful (Infinity).
+ */
+export function bottlenecks(state: GameState): {
+  rates: Record<ResourceId, number>;
+  order: ResourceId[];
+} {
+  // What is left after the meals: food comes first when the kiwis eat it all.
+  const rates = emptyResources();
+  for (const b of state.buildings) {
+    const r = buildingRates(state, b, () => false);
+    for (const id of RESOURCE_IDS) rates[id] += r[id];
+  }
+  const eaten = consumption(state);
+  for (const id of RESOURCE_IDS) rates[id] = Math.max(0, rates[id] - eaten[id] * 1.3);
+  for (const id of RESOURCE_IDS)
+    if (state.resources[id] >= capacity(state)[id] * 0.95) rates[id] = Infinity;
+  const order = [...RESOURCE_IDS].sort((a, b) => rates[a] / NEED[a] - rates[b] / NEED[b]);
+  return { rates, order };
 }

@@ -5,18 +5,15 @@ import {
   applyCommand,
   buildCost,
   buildingHarvest,
-  buildingRates,
   buildingCount,
   canAfford,
   canHatch,
   capacity,
   hasSkill,
   KIWI,
-  consumption,
   currentObjective,
   HUNGER_SCALE,
   eggCost,
-  emptyResources,
   faceMapOf,
   housing,
   idleVillagers,
@@ -43,9 +40,17 @@ import {
   stardustOf,
 } from '@kiwar/shared';
 import { researchStaffing, ageDecision } from './bot/ages';
+import { campOrder } from './bot/camps';
 import { pathOrder } from './bot/paths';
 import { defenseOrders, turretDecision } from './bot/defense';
-import { PRODUCERS, NEED, BUILD_ORDER, bestTile, upgradeOk, canFeedOneMore } from './bot/economy';
+import {
+  PRODUCERS,
+  BUILD_ORDER,
+  bottlenecks,
+  bestTile,
+  upgradeOk,
+  canFeedOneMore,
+} from './bot/economy';
 import { rpgDecision } from './bot/rpg';
 import { cometOrders } from './bot/sky';
 import { titanOrders, labDecision } from './bot/titans';
@@ -90,8 +95,9 @@ export interface RunResult {
     comets?: number;
     dustPicked?: number;
     stardust?: number;
-    /** Chantier 18: path tiles at the end. */
+    /** Chantier 18: path tiles at the end, camps set up during the run. */
     paths?: number;
+    camps?: number;
   };
 }
 
@@ -147,6 +153,12 @@ function decide(state: GameState, map: FaceMap, play: Play): Command[] {
       });
       idle -= add;
     }
+  }
+
+  // Chantier 18: camps on meteorite craters and, with spare kiwis, on the scarcest deposit.
+  if (play.camps) {
+    const camp = campOrder(state, map);
+    if (camp) cmds.push(camp);
   }
 
   // Chantier 06: post guards just before a wave, shelter from a heavy defeat.
@@ -248,17 +260,7 @@ function decide(state: GameState, map: FaceMap, play: Play): Command[] {
 
   // 5. Upgrade the producer of the bottleneck resource (lowest production, full storage
   // ignored: a full resource is not a bottleneck).
-  // What is left after the meals: food comes first when the kiwis eat it all.
-  const rates = emptyResources();
-  for (const b of state.buildings) {
-    const r = buildingRates(state, b, () => false);
-    for (const id of RESOURCE_IDS) rates[id] += r[id];
-  }
-  const eaten = consumption(state);
-  for (const id of RESOURCE_IDS) rates[id] = Math.max(0, rates[id] - eaten[id] * 1.3);
-  for (const id of RESOURCE_IDS)
-    if (state.resources[id] >= capacity(state)[id] * 0.95) rates[id] = Infinity;
-  const order = [...RESOURCE_IDS].sort((a, b) => rates[a] / NEED[a] - rates[b] / NEED[b]);
+  const { rates, order } = bottlenecks(state);
   for (const res of order) {
     if (rates[res] === Infinity) continue;
     const type = PRODUCERS[res];
@@ -391,6 +393,7 @@ export function runBot(opts: RunOptions): RunResult {
   let wavesLost = 0;
   let wavesSeen = 0;
   let dustPicked = 0;
+  let campsSet = 0;
   while (now - start < opts.horizonMs) {
     const dustBefore = state.stardust;
     state = advance(state, now).state;
@@ -410,6 +413,7 @@ export function runBot(opts: RunOptions): RunResult {
       for (const cmd of cmds) {
         const next = try_(state, map, now, cmd);
         if (next) {
+          if (cmd.type === 'gather') campsSet++;
           state = next;
           applied = true;
           break;
@@ -452,6 +456,7 @@ export function runBot(opts: RunOptions): RunResult {
       dustPicked: Math.round(dustPicked / STARDUST_SCALE),
       stardust: stardustOf(state),
       paths: state.paths.length,
+      camps: campsSet,
     },
   };
 }
