@@ -457,7 +457,9 @@ export function runBot(opts: RunOptions): RunResult {
       wavesSeen = state.threats.waves;
     }
     // Apply every possible decision at this instant (first one wins per category).
-    for (let guard = 0; guard < 12; guard++) {
+    // An occasional player does everything it can in a session.
+    const away = !!opts.sessionEveryMs && now - start >= (opts.activeMs ?? 0);
+    for (let guard = 0; guard < (away ? 60 : 12); guard++) {
       const cmds = decide(state, map, play);
       let applied = false;
       for (const cmd of cmds) {

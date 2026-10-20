@@ -11,7 +11,18 @@ export interface Job {
   /** Seeds are `<prefix>-<i>`. */
   prefix?: string;
   without?: Mechanic[];
+  profile?: Profile;
 }
+
+/**
+ * Chantier 18: an attentive player, or an occasional one who plays the first hours attentively
+ * then comes back three times a day.
+ */
+export const PROFILES = {
+  active: {},
+  casual: { activeMs: 6 * 3_600_000, sessionEveryMs: 8 * 3_600_000 },
+} as const;
+export type Profile = keyof typeof PROFILES;
 
 export function runJob(job: Job): RunResult[] {
   const face = BIOMES[job.biome].face ?? 'kiwisu';
@@ -24,13 +35,14 @@ export function runJob(job: Job): RunResult[] {
         biome: job.biome,
         horizonMs: job.hours * 3_600_000,
         without: job.without,
+        ...PROFILES[job.profile ?? 'active'],
       }),
     );
   return results;
 }
 
 const label = (job: Job) =>
-  `${job.biome}${job.without?.length ? ` without ${job.without.join('+')}` : ''}`;
+  `${job.biome}${job.profile === 'casual' ? ' casual' : ''}${job.without?.length ? ` without ${job.without.join('+')}` : ''} (${Math.round(job.hours)} h)`;
 
 /**
  * Runs the jobs in child processes, `parallel` at a time (the biggest jobs are best listed

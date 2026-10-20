@@ -196,11 +196,13 @@ export function toMarkdown(
   biomes: { groups: Group[]; comparisons: Comparison[] },
   faces: { groups: Group[]; comparisons: Comparison[] },
   meta: { seeds: number; horizonHours: number; threshold: number; elapsedMs: number },
+  /** Chantier 18: more sections (ages, impact, expedition probe), already in markdown. */
+  extra: string[] = [],
 ): string {
   const lines: string[] = [];
   lines.push('# Kiwar balance report — biomes', '');
   lines.push(
-    `${meta.seeds} seeds per biome · horizon ${meta.horizonHours} h of game time · threshold ±${meta.threshold} % · computed in ${(meta.elapsedMs / 1000).toFixed(1)} s`,
+    `${meta.seeds} seeds per biome · horizon ${meta.horizonHours} h of game time · threshold ±${meta.threshold} % · computed in ${(meta.elapsedMs / 60_000).toFixed(1)} min`,
     '',
     'Each cell: median time to reach the milestone (gap to the median of all biomes). `[n/N]`: runs that reached it, when not all did.',
     '',
@@ -217,6 +219,7 @@ export function toMarkdown(
       ? `**Balanced**: every biome and both faces are within ±${meta.threshold} % on every milestone.`
       : `**${flagged.length} line(s) exceed ±${meta.threshold} %**: ${[...new Set(flagged.map((c) => LABELS[c.milestone]))].join(', ')}. Positive gap = slower.`,
   );
+  lines.push('', ...extra);
   lines.push(
     '',
     'Bot: follows the tutorial, keeps kiwis busy, hatches eggs, builds one of each building on the site with the most deposits in reach (weighted by logistics), then upgrades the bottleneck producer (or opens a new site when its deposits are exhausted), adds housing/storage when needed and upgrades the Nest as soon as possible. It keeps clear of floodable tiles. Chantier 18: it paves the walk from a producer to its depot when the extra harvest pays the fiber back within 6 h (checked once per game hour), which also retraces trampled paths; it sets up a camp on every meteorite crater (pulling a worker from the most plentiful resource) and, when kiwis are left idle, on the richest free deposit of the bottleneck resource. Chantier 06: one turret of each model after the Nest 2 (more, or upgraded, after a lost wave), guards posted 40 min before a strike to close the forecast gap, shelter when deaths or several injuries are still expected, repairs first. Chantier 08: a Library after the Nest 3 and the School, one researcher per five kiwis, the economy then each passage first, the monument as soon as its passage is known (it saves up for it). Chantier 18: a launchpad once the Library stands, two warriors and a scout, a reconnaissance of the twin face whenever the report is no longer fresh, and a raid when the forecast gives a likely victory and the loot (limited by the hold) beats the provisions, the wounds and the absence of the crew (less the experience brought back); the mayor, the builders and the best researcher stay home; the Kikiwiwi stands down from the rampart for a raid when no wave is due.',
@@ -289,5 +292,70 @@ export function impactMarkdown(
     }
     lines.push('');
   }
+  return lines;
+}
+
+/** Chantier 18: age targets of the attentive player (the occasional one: × `CASUAL_PACE`). */
+export const AGE_TARGETS_H = { stone: 36, iron: 96, industry: 192 } as const;
+export const CASUAL_PACE = 1.5;
+/** Tolerance on the age targets. */
+export const AGE_TOLERANCE = 15;
+
+/**
+ * The ages section: median time to each age per biome, for each profile, against the targets
+ * (±`AGE_TOLERANCE` %) and between biomes (±`threshold` %).
+ */
+export function agesMarkdown(
+  profiles: { label: string; pace: number; runs: RunResult[]; hours: number }[],
+  biomeLabels: Record<BiomeId, string>,
+  threshold: number,
+): string[] {
+  const lines: string[] = [];
+  const steps = ['nest3', 'library', 'stone', 'iron', 'lab', 'kikiwiwi', 'industry'] as const;
+  for (const p of profiles) {
+    const seeds = p.runs.filter((r) => r.biome === p.runs[0]?.biome).length;
+    lines.push(`### ${p.label} — ${seeds} seeds per biome × ${Math.round(p.hours / 24)} days`, '');
+    lines.push(`| Biome | ${steps.map((m) => LABELS[m]).join(' | ')} |`);
+    lines.push(`|---|${steps.map(() => '---').join('|')}|`);
+    const biomes = [...new Set(p.runs.map((r) => r.biome))];
+    const comparisons = compare(
+      biomes.map((b) => ({
+        id: b,
+        label: biomeLabels[b],
+        runs: p.runs.filter((r) => r.biome === b),
+      })),
+      threshold,
+    );
+    const byMilestone = new Map(comparisons.map((c) => [c.milestone, c]));
+    for (const b of biomes) {
+      const cells = steps.map((m) => {
+        const c = byMilestone.get(m)!;
+        const s = c.stats[b]!;
+        const reach = s.reached < s.runs ? ` [${s.reached}/${s.runs}]` : '';
+        return `${formatDuration(s.median)} (${formatGap(c.gaps[b] ?? null)})${reach}`;
+      });
+      lines.push(`| ${biomeLabels[b]} | ${cells.join(' | ')} |`);
+    }
+    // Targets: the median of the biomes' medians against the pace wanted.
+    const targetCells = steps.map((m) => {
+      const target = (AGE_TARGETS_H as Record<string, number>)[m];
+      const c = byMilestone.get(m)!;
+      const medians = biomes
+        .map((b) => c.stats[b]!.median)
+        .filter((x): x is number => x !== null)
+        .sort((a, b) => a - b);
+      const all = medians.length === biomes.length ? quantile(medians, 0.5) : null;
+      if (target === undefined) return `${formatDuration(all)} ${c.flagged ? '⚠️' : '✅'}`;
+      const wanted = target * p.pace * 3_600_000;
+      const gap = all === null ? null : ((all - wanted) / wanted) * 100;
+      const ok = gap !== null && Math.abs(gap) <= AGE_TOLERANCE && !c.flagged;
+      return `${formatDuration(all)} for ${formatDuration(wanted)} (${formatGap(gap)}) ${ok ? '✅' : '⚠️'}`;
+    });
+    lines.push(`| **All biomes vs target** | ${targetCells.join(' | ')} |`, '');
+  }
+  lines.push(
+    `Targets: Stone ≈ ${AGE_TARGETS_H.stone} h, Iron ≈ ${AGE_TARGETS_H.iron} h, Industry ≈ ${AGE_TARGETS_H.industry} h for the attentive player, × ${CASUAL_PACE} for the occasional one (±${AGE_TOLERANCE} %); biomes within ±${threshold} % of each other. \`[n/N]\`: runs that reached it.`,
+    '',
+  );
   return lines;
 }
