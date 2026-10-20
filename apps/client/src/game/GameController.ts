@@ -1,4 +1,8 @@
 import {
+  awaitingReport,
+  ensureAliens,
+  localAlienSeed,
+  publicState,
   advance,
   applyCommand,
   deserializeSave,
@@ -35,6 +39,8 @@ const TICK_MS = 200;
 const OFFLINE_SUMMARY_MIN_MS = 60_000;
 /** Re-download the authoritative state when coming back after this long. */
 const RESYNC_AFTER_MS = 30_000;
+/** How often to ask the server about a landed ship. */
+const REPORT_POLL_MS = 5_000;
 
 export type SyncStatus = 'local' | 'connecting' | 'online' | 'syncing' | 'offline';
 
@@ -110,6 +116,7 @@ export class GameController {
   /** 'solo' or the id of the shared universe being played. */
   universe = safeStorage(() => localStorage.getItem(UNIVERSE_KEY), null) ?? 'solo';
   private tickTimer: number | undefined;
+  private reportPolledAt = 0;
   private saveTimer: number | undefined;
 
   constructor(private readonly listener: ControllerListener) {
@@ -178,6 +185,8 @@ export class GameController {
   }
 
   private loadState(saved: GameState): void {
+    // Local games hold their alien garrisons (online, only the server does: chantier 07).
+    if (!this.config) ensureAliens(saved, localAlienSeed(saved));
     this.map = generateFace(saved.seed, saved.face, saved.params);
     const now = Math.max(this.now(), saved.now);
     const { state, events } = advance(saved, now);
@@ -243,6 +252,30 @@ export class GameController {
       this.save();
     }
     this.listener.onState(this.state, now);
+    // A ship landed: only the server knows what it found (hidden garrisons).
+    if (
+      this.online &&
+      !this.flushing &&
+      this.pending.length === 0 &&
+      Date.now() - this.reportPolledAt > REPORT_POLL_MS &&
+      awaitingReport(this.state, now).length > 0
+    ) {
+      this.reportPolledAt = Date.now();
+      void this.fetchReports();
+    }
+  }
+
+  /** Asks the server for the outcome of landed ships, then rebases on its answer. */
+  private async fetchReports(): Promise<void> {
+    try {
+      const res = await this.online!.call({ action: 'load', universe: this.universe });
+      if (this.pending.length > 0) return;
+      this.acceptServer(res);
+      if (res.ok && res.events.length) this.listener.onEvents(res.events);
+      this.rebase();
+    } catch {
+      // Tried again on a later tick.
+    }
   }
 
   save(): void {
@@ -274,11 +307,13 @@ export class GameController {
       if (cached.ok) this.loadState(cached.save.state);
       else
         this.setWorld(
-          newGame({
-            seed: world?.seed ?? fallbackSeed(),
-            face: world?.face ?? 'kiwisu',
-            now: this.now(),
-          }),
+          publicState(
+            newGame({
+              seed: world?.seed ?? fallbackSeed(),
+              face: world?.face ?? 'kiwisu',
+              now: this.now(),
+            }),
+          ),
         );
       this.listener.onSync('offline');
       this.scheduleRetry(() => this.reconnect(world));

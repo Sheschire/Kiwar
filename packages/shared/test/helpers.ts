@@ -1,5 +1,9 @@
 import {
   applyCommand,
+  alienDefense,
+  alienEnemies,
+  cloneState,
+  recordIntel,
   createRng,
   newKiwi,
   rollKiwi,
@@ -51,4 +55,22 @@ export function kiwi(id: string, name = id, bornAt = T0): Villager {
     job: { kind: 'idle' },
     ...newKiwi(rollKiwi(createRng(`test/${id}`))),
   };
+}
+
+/** A perfect, fresh report on every target, read from the hidden garrisons. */
+export function knowTruth(state: GameState, at: number): GameState {
+  const s = cloneState(state);
+  for (const t of s.targets) {
+    const defense = alienDefense(s, t.id, at)!;
+    const e = alienEnemies(s.aliens![t.id]!, defense);
+    recordIntel(s, t.id, {
+      at,
+      source: 'recon',
+      defense: { min: defense, max: defense },
+      ferrets: { min: e.ferrets, max: e.ferrets },
+      bats: { min: e.bats, max: e.bats },
+      victoriesAt: s.victories[t.id] ?? 0,
+    });
+  }
+  return s;
 }

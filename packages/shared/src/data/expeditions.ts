@@ -56,3 +56,41 @@ export function alienFaceOnKiwi(distance: number): ExpeditionTargetDef {
     travelMs: ms.min(90 + 60 * distance),
   };
 }
+
+/** Base numbers of an alien face, from its distance (public: the real garrison is drawn around them). */
+export function alienDefOf(distance: number): ExpeditionTargetDef {
+  return distance === 0 ? ALIEN_TWIN_FACE : alienFaceOnKiwi(distance);
+}
+
+/**
+ * Chantier 07: the real alien garrisons are hidden. Each one is drawn from a secret seed around
+ * the public base numbers; the player only knows what missions report.
+ */
+export const ALIENS = {
+  /** Spread of the real base defense around the public number (×). */
+  defenseSpread: [0.8, 1.3] as const,
+  /** Spread of the real loot around the public number (×). */
+  lootSpread: [0.8, 1.2] as const,
+  /** Defense gained per game day, as a share of the base defense (drawn in this range). */
+  growthPerDay: [0.02, 0.05] as const,
+  /** The garrison stops growing at this multiple of its base defense (victories aside). */
+  maxGrowth: 2,
+  /** Defense brought by one ferret or one bat. */
+  defensePerEnemy: 1,
+  /** Share of ferrets in the garrison (the rest are bats), drawn in this range. */
+  ferretShare: [0.35, 0.8] as const,
+  /** Number of dens and roosts on the face: base + per kiwi of distance. */
+  structures: { base: 6, perDistance: 2 },
+  /** Structures stand at this distance from the heart, in hex steps. */
+  structureRing: [2, 11] as const,
+} as const;
+
+/** What the player knows about alien faces (chantier 07). */
+export const INTEL = {
+  /** The face is cut into 6 slices × 2 rings: inner ring up to this hex distance. */
+  innerRadius: 6,
+  sectors: 12,
+  /** Report age labels, in game days: fresh below `fresh`, stale below `stale`, then old. */
+  fresh: 1,
+  stale: 3,
+} as const;

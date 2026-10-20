@@ -1058,6 +1058,35 @@ function alienFaceOnKiwi(distance) {
     travelMs: ms.min(90 + 60 * distance)
   };
 }
+function alienDefOf(distance) {
+  return distance === 0 ? ALIEN_TWIN_FACE : alienFaceOnKiwi(distance);
+}
+var ALIENS = {
+  /** Spread of the real base defense around the public number (×). */
+  defenseSpread: [0.8, 1.3],
+  /** Spread of the real loot around the public number (×). */
+  lootSpread: [0.8, 1.2],
+  /** Defense gained per game day, as a share of the base defense (drawn in this range). */
+  growthPerDay: [0.02, 0.05],
+  /** The garrison stops growing at this multiple of its base defense (victories aside). */
+  maxGrowth: 2,
+  /** Defense brought by one ferret or one bat. */
+  defensePerEnemy: 1,
+  /** Share of ferrets in the garrison (the rest are bats), drawn in this range. */
+  ferretShare: [0.35, 0.8],
+  /** Number of dens and roosts on the face: base + per kiwi of distance. */
+  structures: { base: 6, perDistance: 2 },
+  /** Structures stand at this distance from the heart, in hex steps. */
+  structureRing: [2, 11]
+};
+var INTEL = {
+  /** The face is cut into 6 slices × 2 rings: inner ring up to this hex distance. */
+  innerRadius: 6,
+  sectors: 12,
+  /** Report age labels, in game days: fresh below `fresh`, stale below `stale`, then old. */
+  fresh: 1,
+  stale: 3
+};
 
 // packages/shared/src/data/kiwis.ts
 var STAT_IDS = [
@@ -1687,6 +1716,126 @@ function countTiles(map) {
 }
 function tileAt(map, q, r) {
   return getTile(map, hex(q, r));
+}
+
+// packages/shared/src/sim/aliens.ts
+var round1 = (v) => Math.round(v * 10) / 10;
+var round3 = (v) => Math.round(v * 1e3) / 1e3;
+var fromHeart = (q, r) => hexDistance({ q, r }, { q: 0, r: 0 });
+function sectorOf(q, r) {
+  const x = Math.sqrt(3) * (q + r / 2);
+  const y = 1.5 * r;
+  const angle = (Math.atan2(y, x) + 2 * Math.PI) % (2 * Math.PI);
+  const slice = Math.min(5, Math.floor(angle / (Math.PI / 3)));
+  return (fromHeart(q, r) <= INTEL.innerRadius ? 0 : 6) + slice;
+}
+function drawGarrison(target, seed, since) {
+  const rng = createRng(seed);
+  const def = alienDefOf(target.distance);
+  const defense = round1(def.defense * rng.range(...ALIENS.defenseSpread));
+  const growth = round3(defense * rng.range(...ALIENS.growthPerDay));
+  const loot = emptyResources();
+  for (const id3 of RESOURCE_IDS)
+    loot[id3] = Math.floor(def.loot[id3] * rng.range(...ALIENS.lootSpread));
+  const ferretShare = Math.round(rng.range(...ALIENS.ferretShare) * 100) / 100;
+  const count = ALIENS.structures.base + ALIENS.structures.perDistance * target.distance;
+  const [near, far] = ALIENS.structureRing;
+  const structures = [];
+  const taken = /* @__PURE__ */ new Set();
+  for (let tries = 0; structures.length < count && tries < 500; tries++) {
+    const q = rng.int(-far, far);
+    const r = rng.int(-far, far);
+    const d = fromHeart(q, r);
+    if (d < near || d > far || taken.has(`${q},${r}`)) continue;
+    taken.add(`${q},${r}`);
+    structures.push({ kind: rng.chance(ferretShare) ? "den" : "roost", q, r });
+  }
+  return {
+    seed,
+    defense,
+    reinforce: def.reinforce,
+    growth,
+    loot,
+    ferretShare,
+    since,
+    structures
+  };
+}
+function ensureAliens(state, seed) {
+  const aliens = state.aliens ?? {};
+  let changed = !state.aliens;
+  for (const t of state.targets) {
+    if (aliens[t.id]) continue;
+    aliens[t.id] = drawGarrison(t, `${seed}/${t.id}`, state.createdAt);
+    changed = true;
+  }
+  state.aliens = aliens;
+  return changed;
+}
+function publicState(state) {
+  if (!state.aliens) return state;
+  const copy = { ...state };
+  delete copy.aliens;
+  return copy;
+}
+function alienDefense(state, targetId, at) {
+  const g = state.aliens?.[targetId];
+  if (!g) return null;
+  const days = Math.max(0, at - g.since) / CALENDAR.dayMs;
+  const growth = Math.min(g.growth * days, (ALIENS.maxGrowth - 1) * g.defense);
+  return round1(g.defense + g.reinforce * (state.victories[targetId] ?? 0) + growth);
+}
+function alienEnemies(g, defense) {
+  const total = Math.max(0, Math.round(defense / ALIENS.defensePerEnemy));
+  const ferrets = Math.round(total * g.ferretShare);
+  return { ferrets, bats: total - ferrets };
+}
+function canResolveArrival(state, e) {
+  return !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
+}
+function awaitingReport(state, now) {
+  return state.expeditions.filter(
+    (e) => e.status === "outbound" && e.arriveAt <= now && !canResolveArrival(state, e)
+  );
+}
+function intelView(state, targetId, now) {
+  const report = state.intel[targetId];
+  const target = state.targets.find((t) => t.id === targetId);
+  if (!report || !target) return null;
+  const age = Math.max(0, now - report.at);
+  const days = age / CALENDAR.dayMs;
+  const wins = Math.max(0, (state.victories[targetId] ?? 0) - report.victoriesAt);
+  const reinforced = alienDefOf(target.distance).reinforce * wins;
+  const grow = Math.min(1 + ALIENS.growthPerDay[1] * days, ALIENS.maxGrowth);
+  const defense = {
+    min: round1(report.defense.min + reinforced),
+    max: round1(report.defense.max * grow + reinforced)
+  };
+  const scale = report.defense.max > 0 ? defense.max / report.defense.max : 1;
+  const widen = (r) => ({ min: r.min, max: Math.round(r.max * scale) });
+  return {
+    report,
+    age,
+    days,
+    freshness: days < INTEL.fresh ? "fresh" : days < INTEL.stale ? "stale" : "old",
+    defense,
+    ferrets: widen(report.ferrets),
+    bats: widen(report.bats)
+  };
+}
+function recordIntel(state, targetId, report) {
+  const prev = state.intel[targetId];
+  const sectors = [.../* @__PURE__ */ new Set([...prev?.sectors ?? [], ...report.sectors ?? []])].sort(
+    (a, b) => a - b
+  );
+  const seen = /* @__PURE__ */ new Map();
+  for (const s of [...prev?.structures ?? [], ...report.structures ?? []])
+    seen.set(`${s.q},${s.r}`, { ...s });
+  state.intel[targetId] = {
+    ...report,
+    sectors,
+    structures: [...seen.values()]
+  };
 }
 
 // packages/shared/src/sim/calendar.ts
@@ -2527,7 +2676,7 @@ function trainingDuration(school, classId) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 11;
+var SCHEMA_VERSION = 12;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -2537,9 +2686,12 @@ function soloTargets(face) {
       kiwiIndex: 0,
       face: other,
       distance: 0,
-      ...ALIEN_TWIN_FACE
+      travelMs: alienDefOf(0).travelMs
     }
   ];
+}
+function localAlienSeed(state) {
+  return `${state.seed}/${state.face}/aliens`;
 }
 function newGame(opts) {
   const rng = createRng(`${opts.seed}/${opts.face}/game`);
@@ -2576,6 +2728,7 @@ function newGame(opts) {
     },
     targets: opts.targets ?? soloTargets(opts.face),
     victories: {},
+    intel: {},
     expeditions: [],
     paths: [],
     deposits: {},
@@ -2594,6 +2747,10 @@ function newGame(opts) {
     builtAt: opts.now
   });
   for (let i = 0; i < START.villagers; i++) addVillager(state, opts.now);
+  const alienSeed = opts.alienSeed ?? localAlienSeed(state);
+  state.aliens = Object.fromEntries(
+    state.targets.map((t) => [t.id, drawGarrison(t, `${alienSeed}/${t.id}`, opts.now)])
+  );
   return state;
 }
 function newThreats(seed, face, now) {
@@ -2681,8 +2838,10 @@ function cloneState(state) {
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
     egg: state.egg ? { ...state.egg } : null,
     stats: { ...state.stats, produced: { ...state.stats.produced } },
-    targets: state.targets.map((t) => ({ ...t, loot: { ...t.loot } })),
+    targets: state.targets.map((t) => ({ ...t })),
     victories: { ...state.victories },
+    ...state.aliens ? { aliens: cloneAliens(state.aliens) } : {},
+    intel: Object.fromEntries(Object.entries(state.intel).map(([k, i]) => [k, cloneIntel(i)])),
     paths: [...state.paths],
     deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
     threats: cloneThreats(state.threats),
@@ -2704,6 +2863,24 @@ function cloneState(state) {
       } : null
     })),
     rng: [...state.rng]
+  };
+}
+function cloneAliens(a) {
+  return Object.fromEntries(
+    Object.entries(a).map(([k, g]) => [
+      k,
+      { ...g, loot: { ...g.loot }, structures: g.structures.map((x) => ({ ...x })) }
+    ])
+  );
+}
+function cloneIntel(i) {
+  return {
+    ...i,
+    defense: { ...i.defense },
+    ferrets: { ...i.ferrets },
+    bats: { ...i.bats },
+    sectors: [...i.sectors],
+    structures: i.structures.map((x) => ({ ...x }))
   };
 }
 function cloneThreats(t) {
@@ -2982,9 +3159,6 @@ function launchpadOf(state, id3) {
 function shipCargo(launchpad) {
   return levelDef("launchpad", launchpad.level)?.cargo ?? 0;
 }
-function targetDefense(state, target) {
-  return target.defense + target.reinforce * (state.victories[target.id] ?? 0);
-}
 function travelTime(target, launchpad, crew = []) {
   const pad = levelDef("launchpad", launchpad.level)?.travelTime ?? 1;
   const wind = crew.some((v) => hasSkill(v, "tailwind")) ? SKILLS.tailwindTravel : 1;
@@ -3063,12 +3237,13 @@ function forecastExpedition(state, plan) {
   const need = rations(crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(crew, fed);
-  const defense = targetDefense(state, target);
+  const defense = intelView(state, target.id, state.now)?.defense ?? null;
   const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
-  const odds = strength.min >= defense ? "likely" : strength.max >= defense ? "uncertain" : "unlikely";
+  const odds = !defense ? "unknown" : strength.min >= defense.max ? "likely" : strength.max >= defense.min ? "uncertain" : "unlikely";
+  const guess = defense ? (defense.min + defense.max) / 2 : null;
   const kiwisWeight = crewWeight(crew);
   const weight = kiwisWeight + (plan.provisions.pulp + plan.provisions.juice) * EXPEDITIONS.resourceWeight;
-  const expectedLosses = Math.min(crew.length, crew.length * lossShare(base, defense));
+  const expectedLosses = guess === null ? 0 : Math.min(crew.length, crew.length * lossShare(base, guess));
   const exposure = crew.map((v) => kiwiExposure(v));
   const totalExposure = exposure.reduce((a, b) => a + b, 0) || 1;
   const risk = {};
@@ -3123,6 +3298,7 @@ function launch(state, plan, now, id3) {
   const travelMs = travelTime(target, pad, crew);
   const expedition = {
     id: id3,
+    mission: "raid",
     targetId: target.id,
     launchpadId: pad.id,
     crew: crew.map((v) => v.id),
@@ -3166,7 +3342,9 @@ function resolveArrival(state, e) {
     };
     return;
   }
-  const defense = targetDefense(state, target);
+  const garrison = state.aliens?.[target.id];
+  const defense = alienDefense(state, target.id, e.arriveAt);
+  if (!garrison || defense === null) throw new Error("resolveArrival: hidden garrison");
   const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
   const strength = strengthOf(members, fed) * luck;
   const victory = strength >= defense;
@@ -3174,14 +3352,23 @@ function resolveArrival(state, e) {
   const lost = drawLosses(state, members, losses);
   removeVillagers(state, lost, "battle", e.arriveAt);
   e.crew = e.crew.filter((id3) => !lost.includes(id3));
+  const seen = alienEnemies(garrison, defense);
+  recordIntel(state, target.id, {
+    at: e.arriveAt,
+    source: "raid",
+    defense: { min: defense, max: defense },
+    ferrets: { min: seen.ferrets, max: seen.ferrets },
+    bats: { min: seen.bats, max: seen.bats },
+    victoriesAt: state.victories[target.id] ?? 0
+  });
   const loot = emptyResources();
-  if (victory && target) {
+  if (victory) {
     state.victories[target.id] = (state.victories[target.id] ?? 0) + 1;
     const bonus = Math.min(2, 1 + 0.25 * (strength / Math.max(defense, 1) - 1));
     const w = EXPEDITIONS.resourceWeight;
     let room = e.cargo - crewWeight(crewMembers(state, e.crew)) - RESOURCE_IDS.reduce((sum, id3) => sum + e.provisions[id3], 0) * w;
     for (const id3 of ["seeds", "juice", "fiber", "pulp"]) {
-      const wanted = Math.floor(target.loot[id3] * bonus);
+      const wanted = Math.floor(garrison.loot[id3] * bonus);
       const take = Math.max(0, Math.min(wanted, Math.floor(room / w + 1e-9)));
       loot[id3] = take;
       room -= take * w;
@@ -4080,7 +4267,7 @@ function finishTrainings(s, at, events) {
 function nextExpeditionEvent(s) {
   let best = null;
   for (const e of s.expeditions) {
-    const at = e.status === "outbound" ? e.arriveAt : e.status === "returning" ? e.returnAt : Infinity;
+    const at = e.status === "outbound" ? canResolveArrival(s, e) ? e.arriveAt : Infinity : e.status === "returning" ? e.returnAt : Infinity;
     if (at !== Infinity && (!best || at < best.at)) best = { at, expedition: e };
   }
   return best;
@@ -8660,6 +8847,12 @@ var threats = external_exports.object({
     })
   ).max(INCIDENTS.history)
 });
+var range = external_exports.object({ min: external_exports.number().min(0), max: external_exports.number().min(0) });
+var structure = external_exports.object({
+  kind: external_exports.enum(["den", "roost"]),
+  q: external_exports.number().int(),
+  r: external_exports.number().int()
+});
 var gameStateSchema = external_exports.object({
   schemaVersion: external_exports.number().int(),
   universeId: id,
@@ -8755,16 +8948,43 @@ var gameStateSchema = external_exports.object({
       kiwiIndex: external_exports.number().int().min(0),
       face: external_exports.enum(FACES),
       distance: external_exports.number().min(0),
-      defense: external_exports.number().min(0),
-      reinforce: external_exports.number().min(0),
-      loot: resources,
       travelMs: external_exports.number().min(0)
     })
   ),
   victories: external_exports.record(external_exports.string(), external_exports.number().int().min(0)),
+  aliens: external_exports.record(
+    external_exports.string(),
+    external_exports.object({
+      seed: external_exports.string(),
+      defense: external_exports.number().min(0),
+      reinforce: external_exports.number().min(0),
+      growth: external_exports.number().min(0),
+      loot: resources,
+      ferretShare: external_exports.number().min(0).max(1),
+      since: external_exports.number(),
+      structures: external_exports.array(structure).max(64)
+    })
+  ).optional(),
+  intel: external_exports.record(
+    external_exports.string(),
+    external_exports.object({
+      at: external_exports.number(),
+      source: external_exports.enum(["recon", "raid"]),
+      defense: range,
+      ferrets: range,
+      bats: range,
+      victoriesAt: external_exports.number().int().min(0),
+      sectors: external_exports.array(
+        external_exports.number().int().min(0).max(INTEL.sectors - 1)
+      ).max(INTEL.sectors),
+      structures: external_exports.array(structure).max(64),
+      spotted: external_exports.boolean().optional()
+    })
+  ),
   expeditions: external_exports.array(
     external_exports.object({
       id,
+      mission: external_exports.enum(["raid", "recon"]),
       targetId: id,
       launchpadId: id,
       crew: external_exports.array(id),
@@ -8871,7 +9091,14 @@ var MIGRATIONS = {
     threats: newThreats(String(raw.seed), raw.face, Number(raw.now))
   }),
   // v10 → v11: gifts from the sky (chantier 06, part 3).
-  10: (raw) => ({ ...raw, sky: newSky(Number(raw.now)) })
+  10: (raw) => ({ ...raw, sky: newSky(Number(raw.now)) }),
+  // v11 → v12: hidden garrisons and intel (chantier 07). Targets lose their real numbers (zod
+  // strips them); the garrisons are drawn again by `ensureAliens` (server: secret seed).
+  11: (raw) => ({
+    ...raw,
+    intel: {},
+    expeditions: Array.isArray(raw.expeditions) ? raw.expeditions.map((e) => ({ ...e, mission: "raid" })) : raw.expeditions
+  })
 };
 function migrateState(input) {
   if (!input || typeof input !== "object") return { ok: false, reason: "corrupt" };
@@ -9036,15 +9263,13 @@ function universeTargets(members, me) {
     for (const face of FACES) {
       if (taken.has(`${k}:${face}`)) continue;
       const distance = Math.abs(k - me.kiwiIndex);
-      const def = distance === 0 ? ALIEN_TWIN_FACE : alienFaceOnKiwi(distance);
       targets.push({
         id: `aliens:${k}:${face}`,
         owner: "aliens",
         kiwiIndex: k,
         face,
         distance,
-        ...def,
-        loot: { ...def.loot }
+        travelMs: alienDefOf(distance).travelMs
       });
     }
   }
@@ -9073,7 +9298,14 @@ function mapFor(state) {
 }
 var soloId = (ctx) => `solo-${ctx.userId}`;
 function freshGame(ctx, seed, face) {
-  return newGame({ seed, face, now: ctx.now(), playerId: ctx.userId, universeId: soloId(ctx) });
+  return newGame({
+    seed,
+    face,
+    now: ctx.now(),
+    playerId: ctx.userId,
+    universeId: soloId(ctx),
+    alienSeed: ctx.randomSeed()
+  });
 }
 async function resolveScope(ctx, repo, universe2) {
   if (!universe2 || universe2 === "solo") return { universeId: soloId(ctx), shared: null };
@@ -9096,13 +9328,15 @@ function toInfo(row, members) {
 function toSummary(row, players) {
   return { id: row.id, name: row.name, code: row.code, players, maxPlayers: row.maxPlayers };
 }
-function withScopeTargets(state, scope) {
-  if (!scope.shared) return state;
-  return {
+function withScopeTargets(ctx, state, scope) {
+  const next = scope.shared ? {
     ...state,
     targets: universeTargets(scope.shared.info.members, scope.shared.me),
     calendarStart: scope.shared.info.createdAt === void 0 ? state.calendarStart : calendarStartFor(scope.shared.info.createdAt)
-  };
+  } : { ...state };
+  if (state.aliens) next.aliens = cloneAliens(state.aliens);
+  const changed = ensureAliens(next, ctx.randomSeed());
+  return { state: next, changed };
 }
 function universeGame(ctx, info, me) {
   return newGame({
@@ -9114,7 +9348,8 @@ function universeGame(ctx, info, me) {
     kiwiId: `k${me.kiwiIndex}`,
     // Everyone in a universe lives the same days and seasons.
     calendarStart: calendarStartFor(info.createdAt ?? ctx.now()),
-    targets: universeTargets(info.members, me)
+    targets: universeTargets(info.members, me),
+    alienSeed: ctx.randomSeed()
   });
 }
 async function twinOf(repo, info, me, now) {
@@ -9203,6 +9438,10 @@ function reply(ctx, state, events = []) {
   return { ok: true, state, events, serverTime: ctx.now() };
 }
 async function handleGameRequest(ctx, body) {
+  const res = await handle(ctx, body);
+  return res.state ? { ...res, state: publicState(res.state) } : res;
+}
+async function handle(ctx, body) {
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) return { ok: false, error: "invalidRequest", serverTime: ctx.now() };
   const req = parsed.data;
@@ -9266,10 +9505,10 @@ async function handleGameRequest(ctx, body) {
         if (!saved) return fail2("conflict");
         return {
           ok: true,
-          state: withScopeTargets(saved.state, {
+          state: withScopeTargets(ctx, saved.state, {
             universeId: info.id,
             shared: { info: next, me: moved }
-          }),
+          }).state,
           events: [],
           universe: next,
           twin: await twinOf(repo, next, moved, ctx.now()),
@@ -9277,7 +9516,7 @@ async function handleGameRequest(ctx, body) {
         };
       }
       return {
-        ...reply(ctx, withScopeTargets(game.state, scope)),
+        ...reply(ctx, withScopeTargets(ctx, game.state, scope).state),
         universe: info,
         twin: await twinOf(repo, info, me, ctx.now())
       };
@@ -9287,12 +9526,22 @@ async function handleGameRequest(ctx, body) {
       if (!scope) return fail2("forbidden");
       const existing = await repo.findGame(ctx.userId, scope.universeId);
       const twin = scope.shared ? await twinOf(repo, scope.shared.info, scope.shared.me, ctx.now()) : void 0;
-      if (existing)
-        return {
-          ...reply(ctx, withScopeTargets(existing.state, scope)),
-          universe: scope.shared?.info,
-          twin
-        };
+      if (existing) {
+        const scoped = withScopeTargets(ctx, existing.state, scope);
+        let state2 = scoped.state;
+        let events = [];
+        const landed = state2.expeditions.filter((e) => e.status === "outbound" && e.arriveAt <= ctx.now()).map((e) => e.arriveAt);
+        if (landed.length > 0) {
+          const result = advance(state2, Math.max(...landed));
+          state2 = result.state;
+          events = result.events;
+        }
+        if (scoped.changed || landed.length > 0) {
+          const saved = await repo.update(existing.id, state2, existing.version);
+          if (!saved) state2 = (await repo.findGame(ctx.userId, scope.universeId))?.state ?? state2;
+        }
+        return { ...reply(ctx, state2, events), universe: scope.shared?.info, twin };
+      }
       const state = scope.shared ? universeGame(ctx, scope.shared.info, scope.shared.me) : freshGame(ctx, req.create?.seed ?? ctx.randomSeed(), req.create?.face ?? "kiwisu");
       const created = await repo.create(ctx.userId, scope.universeId, state);
       return { ...reply(ctx, created.state), universe: scope.shared?.info, twin };
@@ -9315,6 +9564,8 @@ async function handleGameRequest(ctx, body) {
         playerId: ctx.userId,
         universeId: soloId(ctx)
       };
+      delete imported.aliens;
+      ensureAliens(imported, ctx.randomSeed());
       const state = advance(imported, now).state;
       const saved = existing ? await repo.update(existing.id, state, existing.version) : await repo.create(ctx.userId, soloId(ctx), state);
       return saved ? reply(ctx, saved.state) : fail2("conflict");
@@ -9329,7 +9580,7 @@ async function handleGameRequest(ctx, body) {
       for (let attempt = 0; attempt < 2; attempt++) {
         const game = await repo.findGame(ctx.userId, scope.universeId);
         if (!game) return fail2("invalidRequest");
-        const current = withScopeTargets(game.state, scope);
+        const current = withScopeTargets(ctx, game.state, scope).state;
         const result = applyCommand(current, req.command, { now: ctx.now(), map: mapFor(current) });
         await repo.logCommand({
           userId: ctx.userId,
@@ -9366,7 +9617,7 @@ async function joinAndPlay(ctx, repo, row, displayName2) {
     const scope = { universeId: row.id, shared: { info, me } };
     return {
       ok: true,
-      state: withScopeTargets(game.state, scope),
+      state: withScopeTargets(ctx, game.state, scope).state,
       events: [],
       universe: info,
       twin: await twinOf(repo, info, me, ctx.now()),
@@ -9469,6 +9720,7 @@ function createMemoryRepository() {
   };
 }
 export {
+  ALIENS,
   ALIEN_TWIN_FACE,
   BIOMES,
   BIOME_IDS,
@@ -9497,6 +9749,7 @@ export {
   HUNGER_SCALE,
   INCIDENTS,
   INCIDENT_KINDS,
+  INTEL,
   KIWI,
   KIWI_NAME_MAX,
   LOGISTICS,
@@ -9543,11 +9796,15 @@ export {
   addVillager,
   advance,
   advanceInPlace,
+  alienDefOf,
+  alienDefense,
+  alienEnemies,
   alienFaceOnKiwi,
   applyCommand,
   assignFace,
   autoAssign,
   availableCrew,
+  awaitingReport,
   baseHarvest,
   bedsOf,
   bestIdleFor,
@@ -9566,12 +9823,15 @@ export {
   calendarStartFor,
   canAfford,
   canHatch,
+  canResolveArrival,
   canStarve,
   capacity,
   catchmentPreview,
   catchmentRadius,
   cleanKiwiName,
   climateOf,
+  cloneAliens,
+  cloneIntel,
   cloneState,
   cloneThreats,
   cloneVillager,
@@ -9598,10 +9858,12 @@ export {
   deserializeSave,
   distanceIn,
   drawBiomes,
+  drawGarrison,
   eggCost,
   eggDuration,
   emptyMasteries,
   emptyResources,
+  ensureAliens,
   exposedKiwis,
   faceMapOf,
   foodLeftMs,
@@ -9643,6 +9905,7 @@ export {
   hungerWork,
   idleByPower,
   idleVillagers,
+  intelView,
   inviteCode,
   isDepot,
   isFace,
@@ -9667,6 +9930,7 @@ export {
   levelDef,
   levelForXp,
   levelProgress,
+  localAlienSeed,
   logisticsEfficiency,
   masteryHours,
   masteryProgress,
@@ -9712,9 +9976,11 @@ export {
   presence,
   productionRates,
   protectedStock,
+  publicState,
   queuedBuildAt,
   rankOf,
   rebaseFreeDeposits,
+  recordIntel,
   regenBonus,
   releasePool,
   removeVillagers,
@@ -9731,6 +9997,7 @@ export {
   seasonHarvest,
   seasonOf,
   seasonRegen,
+  sectorOf,
   serializeSave,
   shipCargo,
   skyTick,
@@ -9739,7 +10006,6 @@ export {
   startNextConstruction,
   storageFullCheck,
   syncPools,
-  targetDefense,
   threatTick,
   tileAt,
   tileDeposit,

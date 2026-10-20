@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   advance,
+  ALIEN_TWIN_FACE,
   applyCommand,
   deserializeSave,
   EXPEDITIONS,
@@ -14,7 +15,7 @@ import {
   type Command,
   type GameState,
 } from '../src';
-import { findTile, kiwi, rich, run, setup, T0 } from './helpers';
+import { findTile, kiwi, knowTruth, rich, run, setup, T0 } from './helpers';
 
 /** A colony with a Nest 2, a launchpad and plenty of kiwis, ready to launch. */
 function readyColony(extraKiwis = 8) {
@@ -37,6 +38,8 @@ function readyColony(extraKiwis = 8) {
   }
   s = { ...s, resources: { pulp: 3000, fiber: 3000, seeds: 3000, juice: 3000 } };
   const pad = s.buildings.find((b) => b.type === 'launchpad')!;
+  // The tests below plan with a perfect report (missions are tested in aliens.test.ts).
+  s = knowTruth(s, t);
   return { map, s, t, padId: pad.id, targetId: s.targets[0]!.id };
 }
 
@@ -128,7 +131,13 @@ describe('expeditions', () => {
         crew: 10,
         provisions: { pulp: 120, juice: 60 },
       })!.defense,
-    ).toBe(s.targets[0]!.defense + s.targets[0]!.reinforce);
+    ).toMatchObject({ min: e.result!.defense + ALIEN_TWIN_FACE.reinforce });
+    // The battle itself is the report: the defense faced, exactly.
+    expect(back.intel[targetId]).toMatchObject({
+      source: 'raid',
+      defense: { min: e.result!.defense, max: e.result!.defense },
+      victoriesAt: 0,
+    });
   });
 
   it('an unfed crew is weaker and can lose', () => {

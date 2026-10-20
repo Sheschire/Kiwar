@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'preact/hooks';
 import {
+  alienDefOf,
   availableCrew,
+  intelView,
   crewWeight,
   EXPEDITIONS,
   forecastExpedition,
   kiwiStrength,
   launchpadOf,
   maxCrew,
-  targetDefense,
   travelTime,
   validateCommand,
   type BuildingId,
@@ -23,6 +24,39 @@ import { Cost } from './Cost';
 import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
 import { useJobLabel } from './VillageModal';
+
+const range = (lang: Parameters<typeof formatNumber>[0], r: { min: number; max: number }) =>
+  r.min === r.max
+    ? formatNumber(lang, r.min)
+    : `${formatNumber(lang, r.min)}–${formatNumber(lang, r.max)}`;
+
+/** What the latest report says about a target (aged), or that nothing is known. */
+export function IntelLine(props: { game: GameState; target: ExpeditionTarget }) {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const now = useUi((s) => s.now);
+  const view = intelView(props.game, props.target.id, now);
+  if (!view)
+    return (
+      <>
+        {t('expedition.defenseUnknown')} · {t('expedition.neverSeen')}
+      </>
+    );
+  return (
+    <>
+      {view.defense.min === view.defense.max
+        ? t('expedition.defense', { value: formatNumber(lang, view.defense.min) })
+        : t('expedition.defenseRange', {
+            min: formatNumber(lang, view.defense.min),
+            max: formatNumber(lang, view.defense.max),
+          })}{' '}
+      ·{' '}
+      <span class={`freshness-${view.freshness}`}>
+        {t('expedition.seen', { ago: formatDuration(lang, view.age) })}
+      </span>
+    </>
+  );
+}
 
 /** Exact round-trip rations for a crew, with a 10 % safety margin, rounded up to 5. */
 function suggestedProvisions(
@@ -199,14 +233,13 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             >
               <strong>{targetLabel(t, x)}</strong>
               <span class="small muted">
-                {t('expedition.aliens')} ·{' '}
-                {t('expedition.defense', { value: targetDefense(game, x) })}
+                {t('expedition.aliens')} · <IntelLine game={game} target={x} />
               </span>
               <span class="small muted">
                 {t('expedition.travel', { duration: formatDuration(lang, travelTime(x, pad)) })}
               </span>
               <span class="small">
-                {t('expedition.potentialLoot')} <Cost cost={x.loot} />
+                {t('expedition.potentialLoot')} <Cost cost={alienDefOf(x.distance).loot} />
               </span>
             </button>
           ))}
@@ -293,7 +326,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
           {t('expedition.strength', {
             min: formatNumber(lang, Math.round(f.strength.min * 10) / 10),
             max: formatNumber(lang, Math.round(f.strength.max * 10) / 10),
-            defense: f.defense,
+            defense: f.defense ? range(lang, f.defense) : '?',
           })}
         </p>
         {f.crew.length > 0 && (

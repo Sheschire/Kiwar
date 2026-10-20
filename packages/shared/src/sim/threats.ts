@@ -210,7 +210,7 @@ export interface WaveForecast {
   wave: PlannedWave;
   threat: Sides;
   defense: Defense;
-  odds: Odds;
+  odds: Exclude<Odds, 'unknown'>;
   /** At average luck, with the colony as it is now. */
   expected: WaveOutcome;
   sheltered: boolean;
@@ -229,7 +229,11 @@ export function forecastWave(state: GameState): WaveForecast | null {
   const L = THREATS.luck;
   const holds = (k: number) =>
     threat.ground * k <= defense.ground + 1e-9 && threat.air * k <= defense.air + 1e-9;
-  const odds: Odds = holds(1 + L) ? 'likely' : holds(1 - L) ? 'uncertain' : 'unlikely';
+  const odds: Exclude<Odds, 'unknown'> = holds(1 + L)
+    ? 'likely'
+    : holds(1 - L)
+      ? 'uncertain'
+      : 'unlikely';
   const sheltered = state.threats.shelterUntil >= wave.at;
   const shelterFrom = wave.at - SHELTER.beforeMs;
   return {

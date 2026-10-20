@@ -1,4 +1,4 @@
-import { alienFaceOnKiwi, ALIEN_TWIN_FACE } from '../data/expeditions';
+import { alienDefOf } from '../data/expeditions';
 import type { ExpeditionTarget } from '../sim/state';
 import type { BuildingType } from '../data/buildings';
 import type { FaceParams } from '../worldgen/generateFace';
@@ -81,15 +81,14 @@ export function universeTargets(
     for (const face of FACES) {
       if (taken.has(`${k}:${face}`)) continue;
       const distance = Math.abs(k - me.kiwiIndex);
-      const def = distance === 0 ? ALIEN_TWIN_FACE : alienFaceOnKiwi(distance);
+      // Public part only: the garrison itself is drawn server-side (`ensureAliens`).
       targets.push({
         id: `aliens:${k}:${face}`,
         owner: 'aliens',
         kiwiIndex: k,
         face,
         distance,
-        ...def,
-        loot: { ...def.loot },
+        travelMs: alienDefOf(distance).travelMs,
       });
     }
   }

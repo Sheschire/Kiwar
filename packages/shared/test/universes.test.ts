@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assignFace,
+  alienDefOf,
   createMemoryRepository,
   handleGameRequest,
   kiwiCount,
@@ -62,8 +63,9 @@ describe('universe helpers', () => {
       kiwiIndex: 0,
       face: 'kiwisu',
     });
-    expect(solo[0]!.defense).toBeLessThan(t[0]!.defense);
-    expect(solo[0]!.loot.seeds).toBeLessThan(t[0]!.loot.seeds);
+    expect(solo[0]!.travelMs).toBeLessThan(t[0]!.travelMs);
+    expect(alienDefOf(solo[0]!.distance).defense).toBeLessThan(alienDefOf(t[0]!.distance).defense);
+    expect(alienDefOf(0).loot.seeds).toBeLessThan(alienDefOf(1).loot.seeds);
   });
 });
 

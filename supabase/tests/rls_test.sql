@@ -11,14 +11,15 @@ insert into public.games (user_id, universe_id, face, state)
 insert into public.command_log (user_id, command, ok) values ('11111111-1111-1111-1111-111111111111', '{}', true);
 reset role;
 
--- Player 1 sees only their game, cannot write it, cannot read the log.
+-- Players cannot read games at all (hidden alien garrisons, chantier 07), nor write them, nor
+-- read the log.
 set role authenticated;
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 do $$
 declare n int;
 begin
   select count(*) into n from public.games;
-  if n <> 1 then raise exception 'player should see exactly 1 game, saw %', n; end if;
+  if n <> 0 then raise exception 'player should not read games, saw %', n; end if;
   update public.games set state = '{"cheat":true}';
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'player could update % games', n; end if;

@@ -342,3 +342,10 @@ create policy "admins replace audio files"
 create policy "admins delete audio files"
   on storage.objects for delete to authenticated
   using (bucket_id = 'audio' and public.is_admin());
+
+-- ===== 20261024000000_hide_game_state.sql =====
+
+-- Chantier 07: stored games hold the real alien garrisons, which players must never see (they
+-- only get what their reconnaissance missions report). The game function (service role) is the
+-- only reader and writer of games: players no longer read their rows directly.
+drop policy if exists "players read their own games" on public.games;

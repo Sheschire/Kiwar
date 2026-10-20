@@ -9,6 +9,7 @@ import {
   type Expedition,
   type ExpeditionTarget,
   type GameState,
+  type IntelRange,
   type Memorial,
   type Villager,
 } from './state';
@@ -17,6 +18,7 @@ import { MORALE } from '../data/needs';
 import type { GameEvent } from './advance';
 import { grantXp, hasSkill, kiwiExposure, kiwiStrength, modifiers } from './kiwis';
 import { SKILLS } from '../data/classes';
+import { alienDefense, alienEnemies, intelView, recordIntel } from './aliens';
 
 export interface ExpeditionPlan {
   launchpadId: BuildingId;
@@ -27,7 +29,8 @@ export interface ExpeditionPlan {
   provisions: { pulp: number; juice: number };
 }
 
-export type Odds = 'likely' | 'uncertain' | 'unlikely';
+/** `unknown`: no report on the target yet (chantier 07: the real defense is hidden). */
+export type Odds = 'likely' | 'uncertain' | 'unlikely' | 'unknown';
 
 export interface ExpeditionForecast {
   cargo: number;
@@ -41,7 +44,8 @@ export interface ExpeditionForecast {
   /** Provisions left for the return if nobody is lost (can be negative = shortfall). */
   returnSurplus: { pulp: number; juice: number };
   strength: { min: number; max: number };
-  defense: number;
+  /** Defense as estimated from the latest report (aged), null when nothing is known. */
+  defense: IntelRange | null;
   odds: Odds;
   /** Cargo room free on the way back, for loot (if everyone survives). */
   lootRoom: number;
@@ -60,10 +64,6 @@ export function launchpadOf(state: GameState, id: BuildingId): Building | undefi
 
 export function shipCargo(launchpad: Building): number {
   return levelDef('launchpad', launchpad.level)?.cargo ?? 0;
-}
-
-export function targetDefense(state: GameState, target: ExpeditionTarget): number {
-  return target.defense + target.reinforce * (state.victories[target.id] ?? 0);
 }
 
 /** One-way travel time; a scout with Tailwind aboard shortens it. */
@@ -176,14 +176,22 @@ export function forecastExpedition(
   const need = rations(crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(crew, fed);
-  const defense = targetDefense(state, target);
+  const defense = intelView(state, target.id, state.now)?.defense ?? null;
   const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
-  const odds: Odds =
-    strength.min >= defense ? 'likely' : strength.max >= defense ? 'uncertain' : 'unlikely';
+  const odds: Odds = !defense
+    ? 'unknown'
+    : strength.min >= defense.max
+      ? 'likely'
+      : strength.max >= defense.min
+        ? 'uncertain'
+        : 'unlikely';
+  // Expected losses against the middle of the estimate (none can be told without a report).
+  const guess = defense ? (defense.min + defense.max) / 2 : null;
   const kiwisWeight = crewWeight(crew);
   const weight =
     kiwisWeight + (plan.provisions.pulp + plan.provisions.juice) * EXPEDITIONS.resourceWeight;
-  const expectedLosses = Math.min(crew.length, crew.length * lossShare(base, defense));
+  const expectedLosses =
+    guess === null ? 0 : Math.min(crew.length, crew.length * lossShare(base, guess));
   const exposure = crew.map((v) => kiwiExposure(v));
   const totalExposure = exposure.reduce((a, b) => a + b, 0) || 1;
   const risk: Record<string, number> = {};
@@ -252,6 +260,7 @@ export function launch(
   const travelMs = travelTime(target, pad, crew);
   const expedition: Expedition = {
     id,
+    mission: 'raid',
     targetId: target.id,
     launchpadId: pad.id,
     crew: crew.map((v) => v.id),
@@ -299,7 +308,9 @@ export function resolveArrival(state: GameState, e: Expedition): void {
     };
     return;
   }
-  const defense = targetDefense(state, target);
+  const garrison = state.aliens?.[target.id];
+  const defense = alienDefense(state, target.id, e.arriveAt);
+  if (!garrison || defense === null) throw new Error('resolveArrival: hidden garrison');
   const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
   const strength = strengthOf(members, fed) * luck;
   const victory = strength >= defense;
@@ -308,8 +319,18 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   removeVillagers(state, lost, 'battle', e.arriveAt);
   e.crew = e.crew.filter((id) => !lost.includes(id));
 
+  // The crew saw the whole garrison: the battle is the most precise report there is.
+  const seen = alienEnemies(garrison, defense);
+  recordIntel(state, target.id, {
+    at: e.arriveAt,
+    source: 'raid',
+    defense: { min: defense, max: defense },
+    ferrets: { min: seen.ferrets, max: seen.ferrets },
+    bats: { min: seen.bats, max: seen.bats },
+    victoriesAt: state.victories[target.id] ?? 0,
+  });
   const loot = emptyResources();
-  if (victory && target) {
+  if (victory) {
     state.victories[target.id] = (state.victories[target.id] ?? 0) + 1;
     // Richer loot for crushing victories, limited by the room left in the hold.
     const bonus = Math.min(2, 1 + 0.25 * (strength / Math.max(defense, 1) - 1));
@@ -320,7 +341,7 @@ export function resolveArrival(state: GameState, e: Expedition): void {
       RESOURCE_IDS.reduce((sum, id) => sum + e.provisions[id], 0) * w;
     // Most precious first: seeds, juice, fibre, pulp.
     for (const id of ['seeds', 'juice', 'fiber', 'pulp'] as const) {
-      const wanted = Math.floor(target.loot[id] * bonus);
+      const wanted = Math.floor(garrison.loot[id] * bonus);
       const take = Math.max(0, Math.min(wanted, Math.floor(room / w + 1e-9)));
       loot[id] = take;
       room -= take * w;

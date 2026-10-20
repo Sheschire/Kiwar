@@ -21,7 +21,8 @@ import {
   turretCount,
   turretLimit,
 } from '../sim/selectors';
-import { newGame, type GameState, type Villager } from '../sim/state';
+import { cloneAliens, newGame, type GameState, type Villager } from '../sim/state';
+import { ensureAliens, publicState } from '../sim/aliens';
 import { generateFace, type FaceMap } from '../worldgen/generateFace';
 import type { Face, PlayerId, UniverseId } from '../types/ids';
 import { requestSchema, type GameResponse, type ServerError } from './protocol';
@@ -114,7 +115,14 @@ function mapFor(state: GameState): FaceMap {
 const soloId = (ctx: ServiceContext) => `solo-${ctx.userId}`;
 
 function freshGame(ctx: ServiceContext, seed: string, face: Face): GameState {
-  return newGame({ seed, face, now: ctx.now(), playerId: ctx.userId, universeId: soloId(ctx) });
+  return newGame({
+    seed,
+    face,
+    now: ctx.now(),
+    playerId: ctx.userId,
+    universeId: soloId(ctx),
+    alienSeed: ctx.randomSeed(),
+  });
 }
 
 /** Where a request plays: the player's solo universe or a shared one they belong to. */
@@ -153,18 +161,27 @@ function toSummary(row: UniverseRow, players: number): UniverseSummary {
 
 /**
  * In a shared universe, the reachable alien faces change as friends join, and every colony
- * follows the universe's calendar (games created before chantier 04 are aligned here).
+ * follows the universe's calendar (games created before chantier 04 are aligned here). Every
+ * target gets its hidden garrison, drawn from a secret server seed (chantier 07).
  */
-function withScopeTargets(state: GameState, scope: Scope): GameState {
-  if (!scope.shared) return state;
-  return {
-    ...state,
-    targets: universeTargets(scope.shared.info.members, scope.shared.me),
-    calendarStart:
-      scope.shared.info.createdAt === undefined
-        ? state.calendarStart
-        : calendarStartFor(scope.shared.info.createdAt),
-  };
+function withScopeTargets(
+  ctx: ServiceContext,
+  state: GameState,
+  scope: Scope,
+): { state: GameState; changed: boolean } {
+  const next: GameState = scope.shared
+    ? {
+        ...state,
+        targets: universeTargets(scope.shared.info.members, scope.shared.me),
+        calendarStart:
+          scope.shared.info.createdAt === undefined
+            ? state.calendarStart
+            : calendarStartFor(scope.shared.info.createdAt),
+      }
+    : { ...state };
+  if (state.aliens) next.aliens = cloneAliens(state.aliens);
+  const changed = ensureAliens(next, ctx.randomSeed());
+  return { state: next, changed };
 }
 
 function universeGame(ctx: ServiceContext, info: UniverseInfo, me: UniverseMember): GameState {
@@ -178,6 +195,7 @@ function universeGame(ctx: ServiceContext, info: UniverseInfo, me: UniverseMembe
     // Everyone in a universe lives the same days and seasons.
     calendarStart: calendarStartFor(info.createdAt ?? ctx.now()),
     targets: universeTargets(info.members, me),
+    alienSeed: ctx.randomSeed(),
   });
 }
 
@@ -309,6 +327,12 @@ function reply(ctx: ServiceContext, state: GameState, events: GameEvent[] = []):
  * the client sends commands that are validated with the very same rules as offline play.
  */
 export async function handleGameRequest(ctx: ServiceContext, body: unknown): Promise<GameResponse> {
+  const res = await handle(ctx, body);
+  // Anti-cheat (chantier 07): the real alien garrisons never leave the server.
+  return res.state ? { ...res, state: publicState(res.state) } : res;
+}
+
+async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse> {
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) return { ok: false, error: 'invalidRequest', serverTime: ctx.now() };
   const req = parsed.data;
@@ -381,10 +405,10 @@ export async function handleGameRequest(ctx: ServiceContext, body: unknown): Pro
         if (!saved) return fail('conflict');
         return {
           ok: true,
-          state: withScopeTargets(saved.state, {
+          state: withScopeTargets(ctx, saved.state, {
             universeId: info.id,
             shared: { info: next, me: moved },
-          }),
+          }).state,
           events: [],
           universe: next,
           twin: await twinOf(repo, next, moved, ctx.now()),
@@ -392,7 +416,7 @@ export async function handleGameRequest(ctx: ServiceContext, body: unknown): Pro
         };
       }
       return {
-        ...reply(ctx, withScopeTargets(game.state, scope)),
+        ...reply(ctx, withScopeTargets(ctx, game.state, scope).state),
         universe: info,
         twin: await twinOf(repo, info, me, ctx.now()),
       };
@@ -407,12 +431,26 @@ export async function handleGameRequest(ctx: ServiceContext, body: unknown): Pro
       const twin = scope.shared
         ? await twinOf(repo, scope.shared.info, scope.shared.me, ctx.now())
         : undefined;
-      if (existing)
-        return {
-          ...reply(ctx, withScopeTargets(existing.state, scope)),
-          universe: scope.shared?.info,
-          twin,
-        };
+      if (existing) {
+        const scoped = withScopeTargets(ctx, existing.state, scope);
+        let state = scoped.state;
+        let events: GameEvent[] = [];
+        // Ships that landed meanwhile are resolved here: the client cannot (hidden garrison).
+        const landed = state.expeditions
+          .filter((e) => e.status === 'outbound' && e.arriveAt <= ctx.now())
+          .map((e) => e.arriveAt);
+        if (landed.length > 0) {
+          const result = advance(state, Math.max(...landed));
+          state = result.state;
+          events = result.events;
+        }
+        if (scoped.changed || landed.length > 0) {
+          const saved = await repo.update(existing.id, state, existing.version);
+          // Another request wrote in between: it resolved everything as well.
+          if (!saved) state = (await repo.findGame(ctx.userId, scope.universeId))?.state ?? state;
+        }
+        return { ...reply(ctx, state, events), universe: scope.shared?.info, twin };
+      }
       const state = scope.shared
         ? universeGame(ctx, scope.shared.info, scope.shared.me)
         : freshGame(ctx, req.create?.seed ?? ctx.randomSeed(), req.create?.face ?? 'kiwisu');
@@ -439,6 +477,9 @@ export async function handleGameRequest(ctx: ServiceContext, body: unknown): Pro
         playerId: ctx.userId as PlayerId,
         universeId: soloId(ctx) as UniverseId,
       };
+      // A local save carries its own garrisons: never trust them, draw secret ones.
+      delete imported.aliens;
+      ensureAliens(imported, ctx.randomSeed());
       const state = advance(imported, now).state;
       const saved = existing
         ? await repo.update(existing.id, state, existing.version)
@@ -457,7 +498,7 @@ export async function handleGameRequest(ctx: ServiceContext, body: unknown): Pro
       for (let attempt = 0; attempt < 2; attempt++) {
         const game = await repo.findGame(ctx.userId, scope.universeId);
         if (!game) return fail('invalidRequest');
-        const current = withScopeTargets(game.state, scope);
+        const current = withScopeTargets(ctx, game.state, scope).state;
         const result = applyCommand(current, req.command, { now: ctx.now(), map: mapFor(current) });
         await repo.logCommand({
           userId: ctx.userId,
@@ -504,7 +545,7 @@ async function joinAndPlay(
     const scope: Scope = { universeId: row.id, shared: { info, me } };
     return {
       ok: true,
-      state: withScopeTargets(game.state, scope),
+      state: withScopeTargets(ctx, game.state, scope).state,
       events: [],
       universe: info,
       twin: await twinOf(repo, info, me, ctx.now()),

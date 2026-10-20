@@ -14,6 +14,7 @@ import {
   workersOf,
 } from './selectors';
 import { resolveArrival, resolveReturn } from './expeditions';
+import { canResolveArrival } from './aliens';
 import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
 import type { ClassId } from '../data/classes';
 import { accrueKiwis, builderSpeed, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
@@ -604,8 +605,15 @@ function finishTrainings(s: GameState, at: TimeMs, events: GameEvent[]): void {
 function nextExpeditionEvent(s: GameState): { at: TimeMs; expedition: Expedition } | null {
   let best: { at: TimeMs; expedition: Expedition } | null = null;
   for (const e of s.expeditions) {
+    // Online, the client never holds the real garrison: the server resolves the landing.
     const at =
-      e.status === 'outbound' ? e.arriveAt : e.status === 'returning' ? e.returnAt : Infinity;
+      e.status === 'outbound'
+        ? canResolveArrival(s, e)
+          ? e.arriveAt
+          : Infinity
+        : e.status === 'returning'
+          ? e.returnAt
+          : Infinity;
     if (at !== Infinity && (!best || at < best.at)) best = { at, expedition: e };
   }
   return best;

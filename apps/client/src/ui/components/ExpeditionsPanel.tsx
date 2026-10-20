@@ -43,14 +43,16 @@ export function ExpeditionsPanel() {
               ) : (
                 <>
                   <span class="small">
-                    {e.status === 'outbound'
-                      ? t('expedition.outbound', {
-                          target: name,
-                          duration: formatDuration(lang, e.arriveAt - now),
-                        })
-                      : t('expedition.returning', {
-                          duration: formatDuration(lang, e.returnAt - now),
-                        })}
+                    {e.status === 'outbound' && e.arriveAt <= now
+                      ? t('expedition.awaiting', { target: name })
+                      : e.status === 'outbound'
+                        ? t('expedition.outbound', {
+                            target: name,
+                            duration: formatDuration(lang, e.arriveAt - now),
+                          })
+                        : t('expedition.returning', {
+                            duration: formatDuration(lang, e.returnAt - now),
+                          })}
                   </span>
                   <span class="progress">
                     <span style={{ width: `${progress * 100}%` }} />

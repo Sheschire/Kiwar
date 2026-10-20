@@ -5,6 +5,7 @@ import { FACES } from '../types/ids';
 import { newSky, newThreats, SCHEMA_VERSION, soloTargets, type GameState } from '../sim/state';
 import { INCIDENT_KINDS, INCIDENTS, METEORS, THREATS } from '../data/threats';
 import { RESOURCE_IDS } from '../data/resources';
+import { INTEL } from '../data/expeditions';
 import type { Face } from '../types/ids';
 import {
   KIWI,
@@ -101,6 +102,13 @@ const threats = z.object({
       }),
     )
     .max(INCIDENTS.history),
+});
+
+const range = z.object({ min: z.number().min(0), max: z.number().min(0) });
+const structure = z.object({
+  kind: z.enum(['den', 'roost']),
+  q: z.number().int(),
+  r: z.number().int(),
 });
 
 export const gameStateSchema = z.object({
@@ -203,16 +211,51 @@ export const gameStateSchema = z.object({
       kiwiIndex: z.number().int().min(0),
       face: z.enum(FACES),
       distance: z.number().min(0),
-      defense: z.number().min(0),
-      reinforce: z.number().min(0),
-      loot: resources,
       travelMs: z.number().min(0),
     }),
   ),
   victories: z.record(z.string(), z.number().int().min(0)),
+  aliens: z
+    .record(
+      z.string(),
+      z.object({
+        seed: z.string(),
+        defense: z.number().min(0),
+        reinforce: z.number().min(0),
+        growth: z.number().min(0),
+        loot: resources,
+        ferretShare: z.number().min(0).max(1),
+        since: z.number(),
+        structures: z.array(structure).max(64),
+      }),
+    )
+    .optional(),
+  intel: z.record(
+    z.string(),
+    z.object({
+      at: z.number(),
+      source: z.enum(['recon', 'raid']),
+      defense: range,
+      ferrets: range,
+      bats: range,
+      victoriesAt: z.number().int().min(0),
+      sectors: z
+        .array(
+          z
+            .number()
+            .int()
+            .min(0)
+            .max(INTEL.sectors - 1),
+        )
+        .max(INTEL.sectors),
+      structures: z.array(structure).max(64),
+      spotted: z.boolean().optional(),
+    }),
+  ),
   expeditions: z.array(
     z.object({
       id,
+      mission: z.enum(['raid', 'recon']),
       targetId: id,
       launchpadId: id,
       crew: z.array(id),
@@ -338,6 +381,15 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   }),
   // v10 → v11: gifts from the sky (chantier 06, part 3).
   10: (raw) => ({ ...raw, sky: newSky(Number(raw.now)) }),
+  // v11 → v12: hidden garrisons and intel (chantier 07). Targets lose their real numbers (zod
+  // strips them); the garrisons are drawn again by `ensureAliens` (server: secret seed).
+  11: (raw) => ({
+    ...raw,
+    intel: {},
+    expeditions: Array.isArray(raw.expeditions)
+      ? raw.expeditions.map((e: Record<string, unknown>) => ({ ...e, mission: 'raid' }))
+      : raw.expeditions,
+  }),
 };
 
 export type MigrateResult =

@@ -59,16 +59,20 @@ Ces tables sont créées : `games` (états de jeu), `command_log` (journal anti-
 `universes`, `universe_members`, `chat_messages`, `chat_reports`, `audio_assets` et
 `audio_bindings`, ainsi que le bucket Storage **`audio`** (lecture publique, 2 Mo par fichier).
 Les joueurs peuvent seulement **lire** leur partie. Toute écriture passe par la fonction serveur.
+Les parties (`games`) ne sont lisibles que par la fonction `game` : elles contiennent les
+garnisons extraterrestres réelles, que les joueurs ne connaissent que par leurs reconnaissances.
+
 Les sons (tables `audio_*` et bucket `audio`) sont lisibles par tout le monde et modifiables
 uniquement par les comptes de la table `admins`.
 
 Migrations, dans l'ordre :
 
-| Fichier                             | Contenu                                       |
-| ----------------------------------- | --------------------------------------------- |
-| `20261020000000_init.sql`           | parties, journal, admins                      |
-| `20261021000000_universes_chat.sql` | univers partagés, chat d'équipe               |
-| `20261022000000_audio.sql`          | sons : `is_admin()`, tables `audio_*`, bucket |
+| Fichier                              | Contenu                                                |
+| ------------------------------------ | ------------------------------------------------------ |
+| `20261020000000_init.sql`            | parties, journal, admins                               |
+| `20261021000000_universes_chat.sql`  | univers partagés, chat d'équipe                        |
+| `20261022000000_audio.sql`           | sons : `is_admin()`, tables `audio_*`, bucket          |
+| `20261024000000_hide_game_state.sql` | parties illisibles par les joueurs (garnisons cachées) |
 
 ## 4. Fonction serveur `game`
 

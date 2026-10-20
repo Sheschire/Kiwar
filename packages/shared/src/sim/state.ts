@@ -2,7 +2,8 @@ import type { BuildingType } from '../data/buildings';
 import { NAME_SYLLABLES, START } from '../data/start';
 import { calendarStartFor } from '../data/cycles';
 import { drawBiomes, type BiomeId } from '../data/biomes';
-import { ALIEN_TWIN_FACE } from '../data/expeditions';
+import { drawGarrison } from './aliens';
+import { alienDefOf } from '../data/expeditions';
 import type { ResourceId, Resources } from '../data/resources';
 import { INCIDENTS, METEORS, type IncidentKind } from '../data/threats';
 import { HEART, type FaceParams, DEFAULT_FACE_PARAMS } from '../worldgen/generateFace';
@@ -22,7 +23,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
 export type Job =
   | { kind: 'idle' }
@@ -144,7 +145,10 @@ export interface Egg {
   readyAt: TimeMs;
 }
 
-/** A face that expeditions can target (aliens for now; other players later). */
+/**
+ * A face that expeditions can target (aliens for now; other players later). Public: what the
+ * garrison really is lives in `GameState.aliens`, which the server never sends (chantier 07).
+ */
 export interface ExpeditionTarget {
   id: string;
   owner: 'aliens';
@@ -152,10 +156,58 @@ export interface ExpeditionTarget {
   face: Face;
   /** Kiwi distance from home (0 = the other face of our own kiwi). */
   distance: number;
-  defense: number;
-  reinforce: number;
-  loot: Resources;
   travelMs: number;
+}
+
+export type AlienStructureKind = 'den' | 'roost';
+
+/** A ferret den or a bat roost on an alien face (axial coordinates, snapped to land on screen). */
+export interface AlienStructure {
+  kind: AlienStructureKind;
+  q: number;
+  r: number;
+}
+
+/** The real alien garrison of a target: secret, server-side only when online. */
+export interface AlienGarrison {
+  /** Secret seed it was drawn from. */
+  seed: string;
+  /** Base defense (before growth and reinforcements). */
+  defense: number;
+  /** Defense added after each of our victories. */
+  reinforce: number;
+  /** Defense gained per game day (up to `ALIENS.maxGrowth` × base). */
+  growth: number;
+  /** Loot available on a victory (before cargo limits). */
+  loot: Resources;
+  /** Share of ferrets among the enemies (the rest are bats). */
+  ferretShare: number;
+  /** The garrison grows from this time on. */
+  since: TimeMs;
+  structures: AlienStructure[];
+}
+
+export interface IntelRange {
+  min: number;
+  max: number;
+}
+
+/** What missions told us about a target (public: it is the player's own knowledge). */
+export interface IntelReport {
+  /** Time the information was gathered. */
+  at: TimeMs;
+  source: 'recon' | 'raid';
+  defense: IntelRange;
+  ferrets: IntelRange;
+  bats: IntelRange;
+  /** Our victories against the target at that time (it reinforces after each). */
+  victoriesAt: number;
+  /** Sectors of the face seen so far (cumulative, see `INTEL.sectors`). */
+  sectors: number[];
+  /** Dens and roosts seen in those sectors. */
+  structures: AlienStructure[];
+  /** The scouts were spotted (incomplete report). */
+  spotted?: boolean;
 }
 
 export interface ExpeditionResult {
@@ -171,8 +223,12 @@ export interface ExpeditionResult {
   loot: Resources;
 }
 
+export type MissionKind = 'raid' | 'recon';
+
 export interface Expedition {
   id: string;
+  /** Raid (fight and loot) or reconnaissance (bring back information). */
+  mission: MissionKind;
   targetId: string;
   launchpadId: BuildingId;
   /** Kiwis still aboard (alive). */
@@ -322,6 +378,13 @@ export interface GameState {
   targets: ExpeditionTarget[];
   /** Victories per target (aliens reinforce after each). */
   victories: Record<string, number>;
+  /**
+   * The real alien garrisons per target. Hidden: absent from every state the server sends; the
+   * simulation waits for the server to resolve arrivals when it is missing (chantier 07).
+   */
+  aliens?: Record<string, AlienGarrison>;
+  /** What missions reported, per target. */
+  intel: Record<string, IntelReport>;
   /** In flight and recent expeditions (the last few finished ones are kept for reports). */
   expeditions: Expedition[];
   /** Tiles with a path (hex keys). */
@@ -348,6 +411,8 @@ export interface NewGameOptions {
   calendarStart?: TimeMs;
   /** Expedition targets; defaults to the alien-held other face of our kiwi. */
   targets?: ExpeditionTarget[];
+  /** Secret seed of the alien garrisons (the server draws it; solo games derive it). */
+  alienSeed?: string;
 }
 
 /** Default targets of a solo game: the aliens on the other face of our own kiwi. */
@@ -360,9 +425,14 @@ export function soloTargets(face: Face): ExpeditionTarget[] {
       kiwiIndex: 0,
       face: other,
       distance: 0,
-      ...ALIEN_TWIN_FACE,
+      travelMs: alienDefOf(0).travelMs,
     },
   ];
+}
+
+/** Seed of the alien garrisons of a local game (online games get a secret one from the server). */
+export function localAlienSeed(state: Pick<GameState, 'seed' | 'face'>): string {
+  return `${state.seed}/${state.face}/aliens`;
 }
 
 export function newGame(opts: NewGameOptions): GameState {
@@ -400,6 +470,7 @@ export function newGame(opts: NewGameOptions): GameState {
     },
     targets: opts.targets ?? soloTargets(opts.face),
     victories: {},
+    intel: {},
     expeditions: [],
     paths: [],
     deposits: {},
@@ -418,6 +489,10 @@ export function newGame(opts: NewGameOptions): GameState {
     builtAt: opts.now,
   });
   for (let i = 0; i < START.villagers; i++) addVillager(state, opts.now);
+  const alienSeed = opts.alienSeed ?? localAlienSeed(state);
+  state.aliens = Object.fromEntries(
+    state.targets.map((t) => [t.id, drawGarrison(t, `${alienSeed}/${t.id}`, opts.now)]),
+  );
   return state;
 }
 
@@ -519,8 +594,10 @@ export function cloneState(state: GameState): GameState {
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
     egg: state.egg ? { ...state.egg } : null,
     stats: { ...state.stats, produced: { ...state.stats.produced } },
-    targets: state.targets.map((t) => ({ ...t, loot: { ...t.loot } })),
+    targets: state.targets.map((t) => ({ ...t })),
     victories: { ...state.victories },
+    ...(state.aliens ? { aliens: cloneAliens(state.aliens) } : {}),
+    intel: Object.fromEntries(Object.entries(state.intel).map(([k, i]) => [k, cloneIntel(i)])),
     paths: [...state.paths],
     deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
     threats: cloneThreats(state.threats),
@@ -544,6 +621,26 @@ export function cloneState(state: GameState): GameState {
         : null,
     })),
     rng: [...state.rng] as RngState,
+  };
+}
+
+export function cloneAliens(a: Record<string, AlienGarrison>): Record<string, AlienGarrison> {
+  return Object.fromEntries(
+    Object.entries(a).map(([k, g]) => [
+      k,
+      { ...g, loot: { ...g.loot }, structures: g.structures.map((x) => ({ ...x })) },
+    ]),
+  );
+}
+
+export function cloneIntel(i: IntelReport): IntelReport {
+  return {
+    ...i,
+    defense: { ...i.defense },
+    ferrets: { ...i.ferrets },
+    bats: { ...i.bats },
+    sectors: [...i.sectors],
+    structures: i.structures.map((x) => ({ ...x })),
   };
 }
 
