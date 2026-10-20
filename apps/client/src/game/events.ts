@@ -65,10 +65,16 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         pushToast('info', 'cycles.changed', { season: `@cycles.seasons.${e.season}` });
         break;
       case 'expeditionArrived':
-        pushToast(
-          e.victory ? 'success' : 'error',
-          e.victory ? 'expedition.victory' : 'expedition.defeat',
-        );
+        if (e.mission === 'recon')
+          pushToast(
+            e.spotted ? 'error' : 'info',
+            e.spotted ? 'recon.toastSpotted' : 'recon.toastLanded',
+          );
+        else
+          pushToast(
+            e.victory ? 'success' : 'error',
+            e.victory ? 'expedition.victory' : 'expedition.defeat',
+          );
         break;
       case 'expeditionReturned':
         pushToast('success', 'expedition.returned');

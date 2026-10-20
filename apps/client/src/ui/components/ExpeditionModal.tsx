@@ -3,6 +3,7 @@ import {
   alienDefOf,
   availableCrew,
   intelView,
+  reconForecast,
   crewWeight,
   EXPEDITIONS,
   forecastExpedition,
@@ -14,6 +15,8 @@ import {
   type BuildingId,
   type ExpeditionTarget,
   type GameState,
+  type MissionKind,
+  type Villager,
   type VillagerId,
 } from '@kiwar/shared';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
@@ -21,6 +24,7 @@ import { actions } from '../actions';
 import { KiwiIcon, ResourceIcon, ShipIcon } from '../icons';
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
+import { IntelMap } from './IntelMap';
 import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
 import { useJobLabel } from './VillageModal';
@@ -58,10 +62,27 @@ export function IntelLine(props: { game: GameState; target: ExpeditionTarget }) 
   );
 }
 
+export const qualityLabel = (q: number) => (q >= 0.6 ? 'sharp' : q >= 0.35 ? 'fair' : 'rough');
+
+/** Ferrets and bats as the latest report tells (aged). */
+export function EnemyLine(props: { game: GameState; targetId: string }) {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const now = useUi((s) => s.now);
+  const view = intelView(props.game, props.targetId, now);
+  if (!view) return null;
+  return (
+    <p class="small">
+      {t('recon.enemies', { ferrets: range(lang, view.ferrets), bats: range(lang, view.bats) })}
+      {view.report.spotted ? ` · ${t('recon.spottedShort')}` : ''}
+    </p>
+  );
+}
+
 /** Exact round-trip rations for a crew, with a 10 % safety margin, rounded up to 5. */
 function suggestedProvisions(
   game: GameState,
-  plan: { launchpadId: BuildingId; targetId: string; crew: VillagerId[] },
+  plan: { launchpadId: BuildingId; targetId: string; crew: VillagerId[]; mission: MissionKind },
 ): { pulp: number; juice: number } {
   const f = forecastExpedition(game, { ...plan, provisions: { pulp: 0, juice: 0 } });
   if (!f) return { pulp: 0, juice: 0 };
@@ -69,11 +90,13 @@ function suggestedProvisions(
   return { pulp: up5(f.needOneWay.pulp), juice: up5(f.needOneWay.juice) };
 }
 
-/** Available kiwis, strongest first. */
-function candidates(game: GameState) {
+/** Available kiwis, strongest first (most discreet first for a reconnaissance). */
+function candidates(game: GameState, mission: MissionKind = 'raid') {
+  const score = (v: Villager) =>
+    mission === 'recon' ? reconForecast([v]).quality : kiwiStrength(v);
   return availableCrew(game)
-    .map((v) => ({ v, strength: kiwiStrength(v) }))
-    .sort((a, b) => b.strength - a.strength || a.v.name.localeCompare(b.v.name));
+    .map((v) => ({ v, strength: kiwiStrength(v), score: score(v) }))
+    .sort((a, b) => b.score - a.score || a.v.name.localeCompare(b.v.name));
 }
 
 function CrewPicker(props: {
@@ -81,12 +104,13 @@ function CrewPicker(props: {
   crew: VillagerId[];
   max: number;
   risk: Record<string, number>;
+  mission: MissionKind;
   onChange(crew: VillagerId[]): void;
 }) {
   const t = useT();
   const lang = useUi((s) => s.lang);
   const jobLabel = useJobLabel();
-  const list = candidates(props.game);
+  const list = candidates(props.game, props.mission);
   const chosen = new Set(props.crew);
   const full = props.crew.length >= props.max;
   return (
@@ -97,7 +121,7 @@ function CrewPicker(props: {
           class="btn btn-small"
           onClick={() => props.onChange(list.slice(0, props.max).map((c) => c.v.id))}
         >
-          {t('expedition.strongest')}
+          {t(props.mission === 'recon' ? 'recon.bestScouts' : 'expedition.strongest')}
         </button>
         <button class="btn btn-small" onClick={() => props.onChange([])}>
           {t('expedition.clearCrew')}
@@ -134,7 +158,14 @@ function CrewPicker(props: {
                       value: formatNumber(lang, Math.round(strength * 10) / 10),
                     })}
                   </span>
-                  {on && risk !== undefined && (
+                  {props.mission === 'recon' && (
+                    <span class="muted">
+                      {t('recon.stealth', {
+                        value: formatNumber(lang, v.stats.agility + v.stats.spirit),
+                      })}
+                    </span>
+                  )}
+                  {props.mission === 'raid' && on && risk !== undefined && (
                     <span class={risk > 0.5 ? 'warn' : 'muted'}>
                       {t('expedition.risk', { pct: Math.round(risk * 100) })}
                     </span>
@@ -185,21 +216,32 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
   const now = useUi((s) => s.now);
   const pad = launchpadOf(game, padId);
   const [targetId, setTargetId] = useState(game.targets[0]?.id ?? '');
-  const max = pad ? maxCrew(game, pad) : 0;
-  const target = game.targets.find((x) => x.id === targetId);
-  const [crew, setCrew] = useState<VillagerId[]>(() =>
-    candidates(game)
-      .slice(0, Math.min(6, max))
-      .map((c) => c.v.id),
+  // Nothing known yet about the twin face: suggest scouting it first.
+  const [mission, setMission] = useState<MissionKind>(() =>
+    game.targets[0] && !game.intel[game.targets[0].id] ? 'recon' : 'raid',
   );
+  const max = pad ? maxCrew(game, pad, mission) : 0;
+  const target = game.targets.find((x) => x.id === targetId);
+  const pick = (m: MissionKind) =>
+    candidates(game, m)
+      .slice(0, Math.min(m === 'recon' ? 1 : 6, pad ? maxCrew(game, pad, m) : 0))
+      .map((c) => c.v.id);
+  const [crew, setCrew] = useState<VillagerId[]>(() => pick(mission));
   const [food, setFood] = useState(() =>
     target
-      ? suggestedProvisions(game, { launchpadId: padId, targetId, crew })
+      ? suggestedProvisions(game, { launchpadId: padId, targetId, crew, mission })
       : { pulp: 0, juice: 0 },
   );
   if (!pad || !target || !map) return null;
 
-  const plan = { launchpadId: padId, targetId, crew, provisions: food };
+  const plan = { launchpadId: padId, targetId, crew, provisions: food, mission };
+  const switchTo = (m: MissionKind) => {
+    if (m === mission) return;
+    const c = pick(m);
+    setMission(m);
+    setCrew(c);
+    setFood(suggestedProvisions(game, { launchpadId: padId, targetId, crew: c, mission: m }));
+  };
   const f = forecastExpedition(game, plan)!;
   const error = validateCommand(game, { type: 'launchExpedition', ...plan }, { now, map });
   const fmt = (v: number) => formatNumber(lang, Math.round(v));
@@ -213,11 +255,29 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
   const backOk = f.returnSurplus.pulp >= -1e-6 && f.returnSurplus.juice >= -1e-6;
   const setCrewAndFood = (c: VillagerId[]) => {
     setCrew(c);
-    setFood(suggestedProvisions(game, { launchpadId: padId, targetId, crew: c }));
+    setFood(suggestedProvisions(game, { launchpadId: padId, targetId, crew: c, mission }));
   };
+  const intel = game.intel[targetId];
 
   return (
     <div class="expedition">
+      <section class="field">
+        <h3>{t('recon.mission')}</h3>
+        <div class="segmented mission-switch" role="group" aria-label={t('recon.mission')}>
+          {(['recon', 'raid'] as const).map((m) => (
+            <button
+              key={m}
+              class={`btn ${m === mission ? 'btn-active' : ''}`}
+              aria-pressed={m === mission}
+              onClick={() => switchTo(m)}
+            >
+              {t(`recon.kinds.${m}`)}
+            </button>
+          ))}
+        </div>
+        <p class="small muted">{t(`recon.hints.${mission}`)}</p>
+      </section>
+
       <section class="field">
         <h3>{t('expedition.target')}</h3>
         <div class="targets">
@@ -228,7 +288,9 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
               aria-pressed={x.id === targetId}
               onClick={() => {
                 setTargetId(x.id);
-                setFood(suggestedProvisions(game, { launchpadId: padId, targetId: x.id, crew }));
+                setFood(
+                  suggestedProvisions(game, { launchpadId: padId, targetId: x.id, crew, mission }),
+                );
               }}
             >
               <strong>{targetLabel(t, x)}</strong>
@@ -236,14 +298,21 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
                 {t('expedition.aliens')} · <IntelLine game={game} target={x} />
               </span>
               <span class="small muted">
-                {t('expedition.travel', { duration: formatDuration(lang, travelTime(x, pad)) })}
+                {t('expedition.travel', {
+                  duration: formatDuration(lang, travelTime(x, pad, [], mission)),
+                })}{' '}
+                · {t('recon.mapLabel', { seen: game.intel[x.id]?.sectors.length ?? 0, total: 12 })}
               </span>
-              <span class="small">
-                {t('expedition.potentialLoot')} <Cost cost={alienDefOf(x.distance).loot} />
-              </span>
+              {mission === 'raid' && (
+                <span class="small">
+                  {t('expedition.potentialLoot')} <Cost cost={alienDefOf(x.distance).loot} />
+                </span>
+              )}
             </button>
           ))}
         </div>
+        <IntelMap game={game} target={target} intel={intel} size={180} />
+        {intel && <EnemyLine game={game} targetId={targetId} />}
       </section>
 
       <section class="field">
@@ -253,7 +322,14 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             <KiwiIcon size={18} /> {crew.length} / {max}
           </span>
         </div>
-        <CrewPicker game={game} crew={crew} max={max} risk={f.risk} onChange={setCrewAndFood} />
+        <CrewPicker
+          game={game}
+          crew={crew}
+          max={max}
+          risk={f.risk}
+          mission={mission}
+          onChange={setCrewAndFood}
+        />
       </section>
 
       <section class="field">
@@ -262,7 +338,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
           <button
             class="btn btn-small"
             onClick={() =>
-              setFood(suggestedProvisions(game, { launchpadId: padId, targetId, crew }))
+              setFood(suggestedProvisions(game, { launchpadId: padId, targetId, crew, mission }))
             }
           >
             {t('expedition.suggest')}
@@ -287,7 +363,13 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
       <section class="forecast">
         <div class="title-row">
           <span class="small">{t('expedition.cargo', { used: fmt(f.weight), max: f.cargo })}</span>
-          <span class={`odds odds-${f.odds}`}>{t(`expedition.odds.${f.odds}`)}</span>
+          {f.recon ? (
+            <span class={`odds ${f.recon.spotChance > 0.3 ? 'odds-uncertain' : 'odds-likely'}`}>
+              {t('recon.spotChance', { pct: Math.round(f.recon.spotChance * 100) })}
+            </span>
+          ) : (
+            <span class={`odds odds-${f.odds}`}>{t(`expedition.odds.${f.odds}`)}</span>
+          )}
         </div>
         <div class={`cargo-bar ${f.weight > f.cargo ? 'overloaded' : ''}`} aria-hidden="true">
           <span class="seg-crew" style={{ width: pct(kiwisWeight) }} />
@@ -300,9 +382,11 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
           <span>
             <i class="dot seg-food" /> {t('expedition.cargoFood')} {fmt(foodWeight)}
           </span>
-          <span>
-            <i class="dot seg-loot" /> {t('expedition.cargoLoot')} {fmt(f.lootRoom)}
-          </span>
+          {!f.recon && (
+            <span>
+              <i class="dot seg-loot" /> {t('expedition.cargoLoot')} {fmt(f.lootRoom)}
+            </span>
+          )}
         </div>
         <p class="small">
           {t('expedition.rationsOut')}{' '}
@@ -322,14 +406,24 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             <span class="warn">⚠ {t('expedition.shortBack')}</span>
           )}
         </p>
-        <p class="small">
-          {t('expedition.strength', {
-            min: formatNumber(lang, Math.round(f.strength.min * 10) / 10),
-            max: formatNumber(lang, Math.round(f.strength.max * 10) / 10),
-            defense: f.defense ? range(lang, f.defense) : '?',
-          })}
-        </p>
-        {f.crew.length > 0 && (
+        {f.recon ? (
+          <p class="small">
+            {t('recon.quality', {
+              quality: t(`recon.qualities.${qualityLabel(f.recon.quality)}`),
+              sectors: f.recon.sectors,
+              spread: Math.round(f.recon.spread * 100),
+            })}
+          </p>
+        ) : (
+          <p class="small">
+            {t('expedition.strength', {
+              min: formatNumber(lang, Math.round(f.strength.min * 10) / 10),
+              max: formatNumber(lang, Math.round(f.strength.max * 10) / 10),
+              defense: f.defense ? range(lang, f.defense) : '?',
+            })}
+          </p>
+        )}
+        {!f.recon && f.crew.length > 0 && (
           <p class="small">
             {t('expedition.expectedLosses', { count: Math.round(f.expectedLosses * 10) / 10 })}
           </p>
@@ -345,7 +439,8 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             uiStore.setState({ modal: 'none', expeditionPad: null });
         }}
       >
-        <ShipIcon size={20} /> {t('expedition.launch')} · {formatDuration(lang, f.travelMs * 2)}
+        <ShipIcon size={20} /> {t(mission === 'recon' ? 'recon.launch' : 'expedition.launch')} ·{' '}
+        {formatDuration(lang, f.travelMs * 2)}
       </button>
       {error && <p class="small warn">{t(`errors.${error}`)}</p>}
     </div>

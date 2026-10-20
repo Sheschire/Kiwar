@@ -37,8 +37,12 @@ export function ExpeditionsPanel() {
                     }))
                   }
                 >
-                  {e.result?.victory ? t('expedition.victory') : t('expedition.defeat')} ·{' '}
-                  {t('expedition.report')}
+                  {e.mission === 'recon'
+                    ? t('recon.done')
+                    : e.result?.victory
+                      ? t('expedition.victory')
+                      : t('expedition.defeat')}{' '}
+                  · {t('expedition.report')}
                 </button>
               ) : (
                 <>

@@ -1,5 +1,5 @@
 import { levelDef } from '../data/buildings';
-import { EXPEDITIONS } from '../data/expeditions';
+import { EXPEDITIONS, INTEL, RECON } from '../data/expeditions';
 import { emptyResources, RESOURCE_IDS, type Resources } from '../data/resources';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
 import { getBuilding, HOUR_MS, idleVillagers, workersOf } from './selectors';
@@ -7,8 +7,10 @@ import {
   withRng,
   type Building,
   type Expedition,
+  type AlienGarrison,
   type ExpeditionTarget,
   type GameState,
+  type MissionKind,
   type IntelRange,
   type Memorial,
   type Villager,
@@ -18,7 +20,7 @@ import { MORALE } from '../data/needs';
 import type { GameEvent } from './advance';
 import { grantXp, hasSkill, kiwiExposure, kiwiStrength, modifiers } from './kiwis';
 import { SKILLS } from '../data/classes';
-import { alienDefense, alienEnemies, intelView, recordIntel } from './aliens';
+import { alienDefense, alienEnemies, intelView, recordIntel, sectorOf } from './aliens';
 
 export interface ExpeditionPlan {
   launchpadId: BuildingId;
@@ -27,6 +29,20 @@ export interface ExpeditionPlan {
   crew: number | readonly VillagerId[];
   /** Food and drink loaded on the ship. */
   provisions: { pulp: number; juice: number };
+  /** Raid (default) or reconnaissance. */
+  mission?: MissionKind;
+}
+
+/** What a reconnaissance crew can expect (chantier 07). */
+export interface ReconForecast {
+  /** Report quality (0–1): sectors seen and precision of the ranges. */
+  quality: number;
+  /** Chance to be spotted (skirmish, worse report). */
+  spotChance: number;
+  /** Sectors revealed if unseen. */
+  sectors: number;
+  /** Half-width of the reported ranges (share of the real values). */
+  spread: number;
 }
 
 /** `unknown`: no report on the target yet (chantier 07: the real defense is hidden). */
@@ -55,6 +71,9 @@ export interface ExpeditionForecast {
   expectedLosses: number;
   /** Chance of each kiwi to be lost in battle at average luck (0–1). */
   risk: Record<string, number>;
+  mission: MissionKind;
+  /** Reconnaissance only. */
+  recon: ReconForecast | null;
 }
 
 export function launchpadOf(state: GameState, id: BuildingId): Building | undefined {
@@ -66,15 +85,54 @@ export function shipCargo(launchpad: Building): number {
   return levelDef('launchpad', launchpad.level)?.cargo ?? 0;
 }
 
-/** One-way travel time; a scout with Tailwind aboard shortens it. */
+/** One-way travel time; a scout with Tailwind aboard shortens it, a light recon ship too. */
 export function travelTime(
   target: ExpeditionTarget,
   launchpad: Building,
   crew: readonly Villager[] = [],
+  mission: MissionKind = 'raid',
 ): number {
   const pad = levelDef('launchpad', launchpad.level)?.travelTime ?? 1;
   const wind = crew.some((v) => hasSkill(v, 'tailwind')) ? SKILLS.tailwindTravel : 1;
-  return Math.round((target.travelMs * pad * wind) / 1000) * 1000;
+  const light = mission === 'recon' ? RECON.travel : 1;
+  return Math.round((target.travelMs * pad * wind * light) / 1000) * 1000;
+}
+
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+const mean = (crew: readonly Villager[], f: (v: Villager) => number) =>
+  crew.length ? crew.reduce((sum, v) => sum + f(v), 0) / crew.length : 0;
+
+/** What scouts can tell: Agility and Spirit, experience, and the Scouting skill. */
+export function reconForecast(crew: readonly Villager[]): ReconForecast {
+  const q = RECON.quality;
+  const avg = KIWI.stat.average;
+  const scouting = crew.some((v) => hasSkill(v, 'scouting'));
+  const quality = clamp(
+    q.base +
+      mean(
+        crew,
+        (v) =>
+          q.perStat * ((v.stats.agility + v.stats.spirit) / 2 - avg) + q.perLevel * (v.level - 1),
+      ) +
+      (scouting ? q.scouting : 0),
+    0.05,
+    1,
+  );
+  const sp = RECON.spot;
+  const spotChance = clamp(
+    sp.base +
+      sp.perExtraKiwi * Math.max(0, crew.length - 1) -
+      sp.perAgility * mean(crew, (v) => v.stats.agility - avg) -
+      (scouting ? sp.scouting : 0),
+    sp.min,
+    sp.max,
+  );
+  return {
+    quality: round2(quality),
+    spotChance: round2(spotChance),
+    sectors: RECON.sectors.base + Math.round(RECON.sectors.perQuality * quality),
+    spread: round2(RECON.spread.worst - (RECON.spread.worst - RECON.spread.best) * quality),
+  };
 }
 
 /** What a crew eats over `ms` (gluttons eat more). */
@@ -171,8 +229,9 @@ export function forecastExpedition(
   const target = state.targets.find((t) => t.id === plan.targetId);
   if (!pad || !target) return null;
   const crew = crewOf(state, plan.crew) ?? [];
+  const mission = plan.mission ?? 'raid';
   const cargo = shipCargo(pad);
-  const travelMs = travelTime(target, pad, crew);
+  const travelMs = travelTime(target, pad, crew, mission);
   const need = rations(crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(crew, fed);
@@ -221,6 +280,8 @@ export function forecastExpedition(
     crew,
     expectedLosses,
     risk,
+    mission,
+    recon: mission === 'recon' ? reconForecast(crew) : null,
   };
 }
 
@@ -234,10 +295,19 @@ export function availableCrew(state: GameState): Villager[] {
   return [...idle, ...workers];
 }
 
-export function maxCrew(state: GameState, launchpad: Building): number {
+export function maxCrew(
+  state: GameState,
+  launchpad: Building,
+  mission: MissionKind = 'raid',
+): number {
   const byCargo = Math.floor(shipCargo(launchpad) / EXPEDITIONS.kiwiWeight);
   const byPeople = availableCrew(state).length - EXPEDITIONS.keepHome;
-  return Math.max(0, Math.min(byCargo, byPeople));
+  const byMission = mission === 'recon' ? RECON.maxCrew : Infinity;
+  return Math.max(0, Math.min(byCargo, byPeople, byMission));
+}
+
+export function minCrew(mission: MissionKind = 'raid'): number {
+  return mission === 'recon' ? RECON.minCrew : EXPEDITIONS.minCrew;
 }
 
 export function isLaunchpadBusy(state: GameState, id: BuildingId): boolean {
@@ -254,13 +324,14 @@ export function launch(
   const pad = launchpadOf(state, plan.launchpadId)!;
   const target = state.targets.find((t) => t.id === plan.targetId)!;
   const crew = crewOf(state, plan.crew)!;
+  const mission = plan.mission ?? 'raid';
   for (const v of crew) v.job = { kind: 'expedition', expeditionId: id };
   state.resources.pulp -= plan.provisions.pulp;
   state.resources.juice -= plan.provisions.juice;
-  const travelMs = travelTime(target, pad, crew);
+  const travelMs = travelTime(target, pad, crew, mission);
   const expedition: Expedition = {
     id,
-    mission: 'raid',
+    mission,
     targetId: target.id,
     launchpadId: pad.id,
     crew: crew.map((v) => v.id),
@@ -311,6 +382,7 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   const garrison = state.aliens?.[target.id];
   const defense = alienDefense(state, target.id, e.arriveAt);
   if (!garrison || defense === null) throw new Error('resolveArrival: hidden garrison');
+  if (e.mission === 'recon') return resolveRecon(state, e, garrison, defense, members, fed);
   const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
   const strength = strengthOf(members, fed) * luck;
   const victory = strength >= defense;
@@ -359,6 +431,87 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   };
 }
 
+/** Scouts look around: a partial map and ranges; spotted, they skirmish and see less. */
+function resolveRecon(
+  state: GameState,
+  e: Expedition,
+  garrison: AlienGarrison,
+  defense: number,
+  members: Villager[],
+  fed: number,
+): void {
+  const f = reconForecast(members);
+  const spotted = withRng(state, (rng) => rng.chance(f.spotChance));
+  let strength = 0;
+  let lost: VillagerId[] = [];
+  const injured: VillagerId[] = [];
+  if (spotted) {
+    // A skirmish with the sentries: outmatched scouts lose one of theirs, the others get away
+    // with a wound.
+    const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
+    strength = strengthOf(members, fed) * luck;
+    if (strength < defense * RECON.skirmishShare) {
+      lost = drawLosses(state, members, 1);
+      removeVillagers(state, lost, 'battle', e.arriveAt);
+      e.crew = e.crew.filter((id) => !lost.includes(id));
+    } else {
+      injured.push(drawLosses(state, members, 1)[0]!);
+    }
+  }
+  const quality = spotted ? f.quality * RECON.spottedQuality : f.quality;
+  const spread = RECON.spread.worst - (RECON.spread.worst - RECON.spread.best) * quality;
+  const count = RECON.sectors.base + Math.round(RECON.sectors.perQuality * quality);
+  const known = new Set(state.intel[e.targetId]?.sectors ?? []);
+  const { sectors, ranges } = withRng(state, (rng) => {
+    // Unseen sectors first, so that every mission adds to the map.
+    const order = [
+      ...rng.shuffle(
+        Array.from({ length: INTEL.sectors }, (_, i) => i).filter((i) => !known.has(i)),
+      ),
+      ...rng.shuffle([...known]),
+    ];
+    // Ranges always hold the truth, at a random place inside.
+    const around = (value: number, digits: number): IntelRange => {
+      const width = 2 * spread * value;
+      const min = Math.max(0, value - width * rng.next());
+      const k = 10 ** digits;
+      return { min: Math.floor(min * k) / k, max: Math.ceil((min + width) * k) / k };
+    };
+    const seen = alienEnemies(garrison, defense);
+    return {
+      sectors: order.slice(0, count).sort((a, b) => a - b),
+      ranges: {
+        defense: around(defense, 1),
+        ferrets: around(seen.ferrets, 0),
+        bats: around(seen.bats, 0),
+      },
+    };
+  });
+  const visible = new Set(sectors);
+  recordIntel(state, e.targetId, {
+    at: e.arriveAt,
+    source: 'recon',
+    ...ranges,
+    victoriesAt: state.victories[e.targetId] ?? 0,
+    sectors,
+    structures: garrison.structures.filter((x) => visible.has(sectorOf(x.q, x.r))),
+    ...(spotted ? { spotted: true } : {}),
+  });
+  e.status = 'returning';
+  e.result = {
+    victory: false,
+    strength: round2(strength),
+    defense: 0,
+    fed: round2(fed),
+    lostInBattle: lost.map((id) => nameOf(e, id)),
+    lostOnReturn: [],
+    loot: emptyResources(),
+    spotted,
+    sectors: sectors.filter((i) => !known.has(i)),
+    injured,
+  };
+}
+
 /** The ship comes home: the crew eats on the way (provisions first, then edible loot). */
 export function resolveReturn(state: GameState, e: Expedition, events: GameEvent[] = []): void {
   const result = e.result!;
@@ -376,7 +529,9 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
   result.lostOnReturn = lost.map((id) => nameOf(e, id));
 
   // Survivors come home wiser: a lump of experience, more after a victory.
-  const xp = KIWI.expeditionXp.base + (result.victory ? KIWI.expeditionXp.victory : 0);
+  const xp =
+    (KIWI.expeditionXp.base + (result.victory ? KIWI.expeditionXp.victory : 0)) *
+    (e.mission === 'recon' ? RECON.xp : 1);
   for (const v of crewMembers(state, e.crew)) {
     if (!result.aborted) {
       v.history.expeditions++;
@@ -393,8 +548,12 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
     seeds: e.provisions.seeds + result.loot.seeds,
   };
   for (const id of RESOURCE_IDS) state.resources[id] += unloaded[id];
+  const hurt = new Set(result.injured ?? []);
   for (const v of state.villagers) {
-    if (v.job.kind === 'expedition' && v.job.expeditionId === e.id) v.job = { kind: 'idle' };
+    if (v.job.kind !== 'expedition' || v.job.expeditionId !== e.id) continue;
+    v.job = hurt.has(v.id)
+      ? { kind: 'injured', until: e.returnAt + RECON.injuryMs }
+      : { kind: 'idle' };
   }
   e.provisions = emptyResources();
   e.status = 'done';

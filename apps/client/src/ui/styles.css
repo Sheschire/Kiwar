@@ -2675,3 +2675,64 @@ button.chip:focus-visible {
     padding-right: 356px;
   }
 }
+
+/* ---------- Reconnaissance (chantier 07) ---------- */
+
+.intel-map {
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.intel-map svg {
+  flex: none;
+  max-width: 100%;
+  height: auto;
+}
+
+.intel-map figcaption {
+  flex: 1;
+  min-width: 140px;
+}
+
+.intel-rim {
+  fill: #8a6a4a;
+  stroke: var(--edge);
+  stroke-width: 0.4;
+}
+
+.intel-fresh {
+  stroke: #f6d76b;
+  stroke-width: 0.18;
+}
+
+.intel-den ellipse,
+.intel-key.intel-den {
+  fill: #6b4a2e;
+  color: #6b4a2e;
+  stroke: #f6ead0;
+  stroke-width: 0.25;
+}
+
+.intel-den .intel-hole {
+  fill: #2b1d12;
+  stroke: none;
+}
+
+.intel-roost path,
+.intel-key.intel-roost {
+  fill: #4b3a63;
+  color: #4b3a63;
+  stroke: #f6ead0;
+  stroke-width: 0.25;
+}
+
+.freshness-stale {
+  color: #9a6b1f;
+}
+
+.freshness-old {
+  color: var(--berry);
+}

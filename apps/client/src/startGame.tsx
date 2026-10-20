@@ -60,10 +60,14 @@ function showTwin(state: GameState): void {
   const twinFace = otherFace(state.face);
   const f = friend?.face === twinFace ? friend : null;
   const params = f?.params ?? twinParams(state.seed, state.face, state.params);
-  const key = `${state.seed}|${twinFace}|${params.biome}|${f ? `${f.owner}@${f.at}` : 'fog'}`;
+  // Alien twin: the clouds part where our scouts went (chantier 07).
+  const target = state.targets.find((t) => t.distance === 0 && t.face === twinFace);
+  const intel = (!f && target && state.intel[target.id]) || null;
+  const seen = intel ? `${intel.sectors.join('.')}/${intel.structures.length}` : '';
+  const key = `${state.seed}|${twinFace}|${params.biome}|${f ? `${f.owner}@${f.at}` : 'fog'}|${seen}`;
   if (key === twinKey) return;
   twinKey = key;
-  renderer.setTwin(generateFace(state.seed, twinFace, params), { fog: !f, friend: f });
+  renderer.setTwin(generateFace(state.seed, twinFace, params), { fog: !f, friend: f, intel });
 }
 
 controller = new GameController({
@@ -76,6 +80,7 @@ controller = new GameController({
   },
   onState: (state, now) => {
     renderer.setGameState(state);
+    showTwin(state);
     uiStore.setState({ game: state, now });
   },
   onEvents: (events) => handleGameEvents(events, renderer),

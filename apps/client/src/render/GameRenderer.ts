@@ -21,7 +21,6 @@ import {
   seasonOf,
   type Face,
   type FaceMap,
-  type TwinSnapshot,
   type GameEvent,
   type GameState,
   type Tile,
@@ -50,7 +49,7 @@ import {
 import { SelectionView } from './selection';
 import { TerrainView } from './terrain';
 import { WaterView } from './water';
-import { TwinView } from './twin';
+import { TwinView, type TwinOptions } from './twin';
 import { IntroScene, type IntroHandlers, type IntroLayout } from './intro';
 import { DayCycle } from './dayCycle';
 import { updateSeasonLook, seasonUniforms } from './seasonLook';
@@ -267,10 +266,7 @@ export class GameRenderer {
   }
 
   /** The other half of our kiwi, floating above (fogged unless a friend lives there). */
-  setTwin(
-    map: FaceMap | null,
-    opts: { fog: boolean; friend?: TwinSnapshot | null } = { fog: true },
-  ): void {
+  setTwin(map: FaceMap | null, opts: TwinOptions = { fog: true }): void {
     if (this.twin) {
       this.scene.remove(this.twin.group);
       this.twin.dispose();

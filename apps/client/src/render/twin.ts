@@ -2,6 +2,8 @@ import type { Color } from 'three';
 import {
   CanvasTexture,
   CircleGeometry,
+  ConeGeometry,
+  SphereGeometry,
   DoubleSide,
   MeshStandardMaterial,
   SRGBColorSpace,
@@ -13,7 +15,15 @@ import {
   Vector3,
   type PerspectiveCamera,
 } from 'three';
-import { getTile, type FaceMap, type TwinSnapshot } from '@kiwar/shared';
+import {
+  getTile,
+  hexToPixel,
+  INTEL,
+  landTileNear,
+  type FaceMap,
+  type IntelReport,
+  type TwinSnapshot,
+} from '@kiwar/shared';
 import { buildingGeometry } from './buildingModels';
 import { WaterView, WATER_LEVEL } from './water';
 import { PALETTE } from './palette';
@@ -31,6 +41,13 @@ const BEHIND = 34;
 const LEAN = 0.45;
 /** Seen from afar: a little smaller than our own half. */
 const SCALE = 0.55;
+export interface TwinOptions {
+  fog: boolean;
+  friend?: TwinSnapshot | null;
+  /** Alien face: what our scouts saw (the clouds part over those sectors, chantier 07). */
+  intel?: IntelReport | null;
+}
+
 /** Fog layers over the twin surface (local heights). */
 const FOG_LAYERS = [1.2, 1.9, 2.6];
 
@@ -57,7 +74,10 @@ export class TwinView {
   private buildingMaterial: MeshStandardMaterial | null = null;
   private label: Sprite | null = null;
 
-  constructor(map: FaceMap, opts: { fog: boolean; friend?: TwinSnapshot | null }) {
+  private structureGeometries: (ConeGeometry | SphereGeometry)[] = [];
+  private structureMaterials: MeshStandardMaterial[] = [];
+
+  constructor(map: FaceMap, opts: TwinOptions) {
     this.terrain = new TerrainView(map);
     this.terrain.tiles.castShadow = false;
     this.terrain.tiles.receiveShadow = false;
@@ -79,6 +99,9 @@ export class TwinView {
         uRadius: { value: radius },
         uCloud: { value: PALETTE.cloud.clone() },
         uShade: { value: PALETTE.cloudShade.clone() },
+        uSeen: { value: seenMask(opts.intel) },
+        // Inner ring of sectors (see `INTEL.innerRadius`), in local units.
+        uInner: { value: Math.hypot(hexToPixel({ q: INTEL.innerRadius, r: 0 }).x, 0) + 0.8 },
       },
       vertexShader: /* glsl */ `
         varying vec2 vLocal;
@@ -90,7 +113,8 @@ export class TwinView {
         }
       `,
       fragmentShader: /* glsl */ `
-        uniform float uTime, uRadius;
+        uniform float uTime, uRadius, uInner;
+        uniform float uSeen[12];
         uniform vec3 uCloud, uShade;
         varying vec2 vLocal;
         varying float vLayer;
@@ -103,6 +127,14 @@ export class TwinView {
           float r = length(vLocal) / uRadius;
           // Thick in the middle, frayed at the rim so the silhouette of the fruit shows.
           float alpha = (0.3 + 0.38 * puff) * (1.0 - smoothstep(0.82, 1.0, r + 0.12 * (n2 - 0.5)));
+          // Sectors seen by our scouts: the clouds part (frayed edges from the noise).
+          float a = atan(-vLocal.y, vLocal.x);
+          if (a < 0.0) a += 6.2831853;
+          int slice = int(min(5.0, floor(a / 1.0471976)));
+          int idx = slice + (length(vLocal) + 0.6 * (n - 0.5) <= uInner ? 0 : 6);
+          float seen = 0.0;
+          for (int i = 0; i < 12; i++) if (i == idx) seen = uSeen[i];
+          alpha *= 1.0 - 0.92 * seen;
           gl_FragColor = vec4(mix(uShade, uCloud, puff), alpha);
           #include <colorspace_fragment>
         }
@@ -119,6 +151,7 @@ export class TwinView {
       }
     }
     if (opts.friend) this.showFriend(map, opts.friend);
+    else if (opts.intel) this.showStructures(map, opts.intel);
     this.group.add(this.spin);
     this.group.scale.setScalar(SCALE);
   }
@@ -181,6 +214,24 @@ export class TwinView {
     this.group.add(this.label);
   }
 
+  /** Dens and roosts seen by the scouts, frozen as they were reported. */
+  private showStructures(map: FaceMap, intel: IntelReport): void {
+    const den = new SphereGeometry(0.42, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2);
+    const roost = new ConeGeometry(0.28, 1.3, 6);
+    const denMat = new MeshStandardMaterial({ color: 0x6b4a2e, flatShading: true, fog: false });
+    const roostMat = new MeshStandardMaterial({ color: 0x3d2f4f, flatShading: true, fog: false });
+    this.structureGeometries.push(den, roost);
+    this.structureMaterials.push(denMat, roostMat);
+    for (const s of intel.structures) {
+      const tile = landTileNear(map, s.q, s.r);
+      if (!tile) continue;
+      const mesh = s.kind === 'den' ? new Mesh(den, denMat) : new Mesh(roost, roostMat);
+      const p = worldPosition(tile);
+      mesh.position.set(p.x, tile.height + (s.kind === 'den' ? 0 : 0.6), p.z);
+      this.terrain.group.add(mesh);
+    }
+  }
+
   setSky(cloud: Color, shade: Color): void {
     (this.fogMaterial.uniforms.uCloud!.value as Color).copy(cloud);
     (this.fogMaterial.uniforms.uShade!.value as Color).copy(shade);
@@ -196,6 +247,8 @@ export class TwinView {
       this.label.material.dispose();
     }
     for (const layer of this.fog) layer.geometry.dispose();
+    for (const g of this.structureGeometries) g.dispose();
+    for (const m of this.structureMaterials) m.dispose();
     this.fogMaterial.dispose();
   }
 }
@@ -221,6 +274,13 @@ function nameLabel(name: string): Sprite {
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   return new Sprite(new SpriteMaterial({ map: texture, fog: false, depthTest: false }));
+}
+
+/** 1 for each sector seen (the order of `sectorOf`). */
+function seenMask(intel: IntelReport | null | undefined): number[] {
+  const mask = new Array<number>(INTEL.sectors).fill(0);
+  for (const i of intel?.sectors ?? []) mask[i] = 1;
+  return mask;
 }
 
 const smoothstep = (x: number) => {

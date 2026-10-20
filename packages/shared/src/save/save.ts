@@ -284,6 +284,9 @@ export const gameStateSchema = z.object({
           lostInBattle: z.array(z.string()),
           lostOnReturn: z.array(z.string()),
           loot: resources,
+          spotted: z.boolean().optional(),
+          sectors: z.array(z.number().int().min(0)).optional(),
+          injured: z.array(id).optional(),
         })
         .nullable(),
     }),

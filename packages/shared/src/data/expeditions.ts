@@ -94,3 +94,26 @@ export const INTEL = {
   fresh: 1,
   stale: 3,
 } as const;
+
+/** Reconnaissance missions (chantier 07): a light crew brings back information, not loot. */
+export const RECON = {
+  minCrew: 1,
+  maxCrew: 2,
+  /** A light ship flies faster (× travel time). */
+  travel: 0.75,
+  /** Quality of the report (0–1), from the scouts' Agility and Spirit, level and skill. */
+  quality: { base: 0.25, perStat: 0.05, perLevel: 0.015, scouting: 0.15 },
+  /** Sectors revealed: base + quality × perQuality. */
+  sectors: { base: 2, perQuality: 4 },
+  /** Half-width of the reported ranges (share of the real value), worst to best quality. */
+  spread: { worst: 0.4, best: 0.08 },
+  /** Chance to be spotted: more kiwis are easier to see, agile ones harder. */
+  spot: { base: 0.2, perExtraKiwi: 0.15, perAgility: 0.03, scouting: 0.05, min: 0.05, max: 0.6 },
+  /** Spotted: a skirmish against this share of the garrison; the report is this much worse. */
+  skirmishShare: 0.12,
+  spottedQuality: 0.5,
+  /** Spotted scouts who hold the skirmish come back with one of them hurt for this long. */
+  injuryMs: ms.h(3),
+  /** Share of the expedition experience. */
+  xp: 0.5,
+} as const;

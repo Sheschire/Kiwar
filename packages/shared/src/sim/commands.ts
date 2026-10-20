@@ -56,10 +56,9 @@ import {
   workerSlots,
   workersOf,
 } from './selectors';
-import { cloneState, nextId, type GameState } from './state';
+import { cloneState, nextId, type GameState, type MissionKind } from './state';
 import { SHELTER } from '../data/threats';
 import { forecastWave } from './threats';
-import { EXPEDITIONS } from '../data/expeditions';
 import {
   crewOf,
   forecastExpedition,
@@ -67,6 +66,7 @@ import {
   launch,
   launchpadOf,
   maxCrew,
+  minCrew,
 } from './expeditions';
 
 export type Command =
@@ -83,6 +83,8 @@ export type Command =
       /** The kiwis to board (or a head count, picked automatically). */
       crew: number | VillagerId[];
       provisions: { pulp: number; juice: number };
+      /** Raid (default: fight and loot) or reconnaissance (chantier 07). */
+      mission?: MissionKind;
     }
   /** Paint paths on walkable tiles (one gesture); tiles that already have one are skipped. */
   | { type: 'buildPath'; tiles: { q: number; r: number }[] }
@@ -392,8 +394,8 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const crew = crewOf(s, cmd.crew);
       if (!crew) return fail('invalidCrew');
       const size = typeof cmd.crew === 'number' ? cmd.crew : crew.length;
-      if (size < EXPEDITIONS.minCrew) fail('crewTooSmall');
-      if (size > maxCrew(s, pad)) fail('crewTooLarge');
+      if (size < minCrew(cmd.mission)) fail('crewTooSmall');
+      if (size > maxCrew(s, pad, cmd.mission)) fail('crewTooLarge');
       const forecast = forecastExpedition(s, cmd)!;
       if (forecast.weight > forecast.cargo + 1e-9) fail('overloaded');
       if (!canAfford(s.resources, { pulp, juice })) fail('notEnoughResources');

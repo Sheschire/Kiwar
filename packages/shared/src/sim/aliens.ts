@@ -2,7 +2,17 @@ import { CALENDAR } from '../data/cycles';
 import { ALIENS, alienDefOf, INTEL } from '../data/expeditions';
 import { RESOURCE_IDS, emptyResources } from '../data/resources';
 import { createRng } from '../rng/rng';
-import { hexDistance } from '../hex/hex';
+import { hexDistance, hexRing } from '../hex/hex';
+import { drawBiomes } from '../data/biomes';
+import { kiwiSeed } from '../server/universes';
+import {
+  DEFAULT_FACE_PARAMS,
+  getTile,
+  twinParams,
+  type FaceMap,
+  type FaceParams,
+  type Tile,
+} from '../worldgen/generateFace';
 import type { TimeMs } from '../types/ids';
 import type {
   AlienGarrison,
@@ -181,4 +191,30 @@ export function recordIntel(
     sectors,
     structures: [...seen.values()],
   };
+}
+
+/** The land tile where a structure stands on screen: its own, or the nearest dry one. */
+export function landTileNear(map: FaceMap, q: number, r: number): Tile | undefined {
+  for (let radius = 0; radius <= 3; radius++) {
+    const ring = radius === 0 ? [{ q, r }] : hexRing({ q, r }, radius);
+    for (const h of ring) {
+      const tile = getTile(map, h);
+      if (tile && tile.type !== 'juice') return tile;
+    }
+  }
+  return undefined;
+}
+
+/** Face map of a target: our twin half, or a face of another kiwi of the universe. */
+export function targetFaceParams(
+  state: Pick<GameState, 'seed' | 'face' | 'params' | 'kiwiId'>,
+  target: ExpeditionTarget,
+  universeSeed: string | null,
+): { seed: string; params: FaceParams } | null {
+  const mine = Number(state.kiwiId.replace(/^k/, ''));
+  if (target.distance === 0 || (Number.isFinite(mine) && mine === target.kiwiIndex))
+    return { seed: state.seed, params: twinParams(state.seed, state.face, state.params) };
+  if (!universeSeed) return null;
+  const seed = kiwiSeed(universeSeed, target.kiwiIndex);
+  return { seed, params: { ...DEFAULT_FACE_PARAMS, biome: drawBiomes(seed)[target.face] } };
 }

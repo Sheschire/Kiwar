@@ -221,6 +221,12 @@ export interface ExpeditionResult {
   lostInBattle: string[];
   lostOnReturn: string[];
   loot: Resources;
+  /** Reconnaissance: the scouts were spotted (skirmish, worse report). */
+  spotted?: boolean;
+  /** Reconnaissance: sectors seen for the first time. */
+  sectors?: number[];
+  /** Kiwis back home wounded (ids, see `roster` for their names). */
+  injured?: VillagerId[];
 }
 
 export type MissionKind = 'raid' | 'recon';
@@ -617,6 +623,8 @@ export function cloneState(state: GameState): GameState {
             lostInBattle: [...e.result.lostInBattle],
             lostOnReturn: [...e.result.lostOnReturn],
             loot: { ...e.result.loot },
+            ...(e.result.sectors ? { sectors: [...e.result.sectors] } : {}),
+            ...(e.result.injured ? { injured: [...e.result.injured] } : {}),
           }
         : null,
     })),

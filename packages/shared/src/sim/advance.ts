@@ -42,6 +42,7 @@ import {
   nextId,
   type Building,
   type Expedition,
+  type MissionKind,
   type GameState,
   type Meteor,
   type Villager,
@@ -96,7 +97,14 @@ export type GameEvent =
   | { type: 'foodRanOut'; at: TimeMs; resource: 'pulp' | 'juice' }
   | { type: 'hungerChanged'; at: TimeMs; stage: HungerStage }
   | { type: 'starved'; at: TimeMs; villagerId: VillagerId; name: string }
-  | { type: 'expeditionArrived'; at: TimeMs; expeditionId: string; victory: boolean }
+  | {
+      type: 'expeditionArrived';
+      at: TimeMs;
+      expeditionId: string;
+      victory: boolean;
+      mission?: MissionKind;
+      spotted?: boolean;
+    }
   | { type: 'expeditionReturned'; at: TimeMs; expeditionId: string }
   /** Chantier 06: predators. */
   | {
@@ -230,6 +238,8 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
           at: e.arriveAt,
           expeditionId: e.id,
           victory: e.result!.victory,
+          mission: e.mission,
+          ...(e.result!.spotted ? { spotted: true } : {}),
         });
       } else {
         resolveReturn(s, e, events);
