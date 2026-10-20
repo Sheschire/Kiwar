@@ -83,6 +83,8 @@ export class IntroScene {
   private time = 0;
   private phase: IntroPhase = 'playing';
   private focus: Face | null = null;
+  /** The player clicked a face: the mouse hovering over the other one no longer moves it. */
+  private locked = false;
   private chosen: Face | null = null;
   private leaveTime = 0;
   private sliced = false;
@@ -170,6 +172,11 @@ export class IntroScene {
 
   setFocus(face: Face): void {
     this.focus = face;
+  }
+
+  /** A face was clicked (or its tab): hovering no longer changes the choice. */
+  lock(): void {
+    this.locked = true;
   }
 
   /** Jumps to the choice (tap during the animation, or reduced motion). */
@@ -383,7 +390,7 @@ export class IntroScene {
   }
 
   private readonly onPointerMove = (e: PointerEvent): void => {
-    if (this.phase !== 'choice' || e.pointerType !== 'mouse') return;
+    if (this.phase !== 'choice' || e.pointerType !== 'mouse' || this.locked) return;
     const face = this.faceAt(e.clientX, e.clientY);
     if (face && face !== this.focus) this.handlers.onFocus(face);
   };
@@ -392,7 +399,9 @@ export class IntroScene {
     if (this.phase === 'playing') return this.skip();
     if (this.phase !== 'choice') return;
     const face = this.faceAt(e.clientX, e.clientY);
-    if (face) this.handlers.onFocus(face);
+    if (!face) return;
+    this.locked = true;
+    this.handlers.onFocus(face);
   };
 
   dispose(): void {

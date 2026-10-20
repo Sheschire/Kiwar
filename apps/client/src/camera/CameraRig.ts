@@ -20,6 +20,16 @@ const A = CameraControls.ACTION;
 const ROTATE_STEP = Math.PI / 4;
 const KEY_SPEED = 0.9; // fraction of the camera distance per second
 const FOCUS_DISTANCE = 26;
+const AZIMUTH_KEY = 'kiwar.camera.azimuth';
+
+function loadAzimuth(): number {
+  try {
+    const v = Number(localStorage.getItem(AZIMUTH_KEY));
+    return Number.isFinite(v) ? v : 0;
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * Isometric-ish camera: bounded orbit, pan and zoom with damping.
@@ -36,6 +46,10 @@ export class CameraRig {
   private paintMode = false;
   /** Distance that frames the whole disc (zoom 1). */
   frameDistance = 60;
+  /** The player's favourite side of the colony, kept across sessions. */
+  private azimuth = loadAzimuth();
+  /** Away on an ally's planet: the camera there is not the player's home view. */
+  private away = false;
 
   constructor(camera: PerspectiveCamera, element: HTMLElement) {
     this.element = element;
@@ -61,6 +75,8 @@ export class CameraRig {
     c.maxPolarAngle = 1.12;
     c.boundaryFriction = 0.15;
 
+    // Remember where the player likes to look from once the camera settles.
+    c.addEventListener('rest', this.onRest);
     element.addEventListener('contextmenu', this.onContextMenu);
     element.addEventListener('pointerdown', this.onMouseDownCapture, { capture: true });
     window.addEventListener('keydown', this.onKeyDown);
@@ -83,10 +99,11 @@ export class CameraRig {
     // Zooming out far enough shows the other half of the kiwi floating above (chantier 05).
     this.controls.maxDistance = distance * 1.9;
     const polar = 0.78;
+    const azimuth = this.azimuth;
     void this.controls.setLookAt(
-      0,
+      Math.sin(azimuth) * Math.sin(polar) * distance,
       Math.cos(polar) * distance,
-      Math.sin(polar) * distance,
+      Math.cos(azimuth) * Math.sin(polar) * distance,
       0,
       0.4,
       0,
@@ -94,11 +111,26 @@ export class CameraRig {
     );
   }
 
+  private onRest = () => {
+    if (this.away) return;
+    const a = this.controls.azimuthAngle;
+    // Normalised to (-π, π], so the stored value never drifts after many turns.
+    const azimuth = Math.atan2(Math.sin(a), Math.cos(a));
+    if (Math.abs(azimuth - this.azimuth) < 1e-3) return;
+    this.azimuth = azimuth;
+    try {
+      localStorage.setItem(AZIMUTH_KEY, azimuth.toFixed(4));
+    } catch {
+      // ignore
+    }
+  };
+
   /**
    * Flies to a far planet (an ally's, seen from our side) and keeps the camera around it: its
    * own bounds and zoom range until `returnHome`.
    */
   visit(center: Vector3, radius: number): void {
+    this.away = true;
     const c = this.controls;
     c.setBoundary(
       new Box3(
@@ -129,6 +161,7 @@ export class CameraRig {
     extentZ: number,
     view: { position: Vector3; target: Vector3 } | null,
   ): void {
+    this.away = false;
     if (!view) {
       this.frame(extentX, extentZ, true);
       return;
@@ -291,6 +324,7 @@ export class CameraRig {
   }
 
   dispose(): void {
+    this.controls.removeEventListener('rest', this.onRest);
     this.element.removeEventListener('contextmenu', this.onContextMenu);
     this.element.removeEventListener('pointerdown', this.onMouseDownCapture, { capture: true });
     window.removeEventListener('pointerup', this.onMouseUpAnywhere);

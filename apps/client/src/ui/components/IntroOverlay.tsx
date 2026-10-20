@@ -100,7 +100,7 @@ export function IntroOverlay() {
                   role="tab"
                   aria-selected={f === face}
                   class={`btn ${f === face ? 'btn-active' : ''}`}
-                  onClick={() => focusIntro(f)}
+                  onClick={() => focusIntro(f, true)}
                 >
                   <strong>{t(`faces.${f}`)}</strong>
                   <span class="small">{t(`biomes.${intro.biomes[f]}.name`)}</span>

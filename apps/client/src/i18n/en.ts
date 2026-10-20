@@ -532,6 +532,10 @@ export const en = {
     incidents: 'Small incidents: {count}.',
     openDefense: 'See the defense',
     nothing: 'Your kiwis had a quiet nap.',
+    short: 'Back after {duration}',
+    shortCompleted: '{count} construction(s) finished',
+    shortHunger: 'The kiwis went hungry!',
+    details: 'Details',
   },
   world: {
     title: 'Start a new world?',

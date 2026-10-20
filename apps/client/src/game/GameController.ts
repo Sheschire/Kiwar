@@ -35,6 +35,8 @@ const IMPORTED_KEY = 'kiwar.save.v1.imported';
 const CACHE_KEY = 'kiwar.online.cache';
 const CLOCK_KEY = 'kiwar.clockOffset';
 const UNIVERSE_KEY = 'kiwar.universe';
+/** Online: when the player last had each colony on screen (server time, per universe). */
+const SEEN_KEY = 'kiwar.lastSeen';
 const AUTOSAVE_MS = 5000;
 const TICK_MS = 200;
 /** Absences shorter than this do not show the "while you were away" summary. */
@@ -177,7 +179,10 @@ export class GameController {
       else this.newLocalWorld(world?.seed ?? fallbackSeed(), world?.face ?? 'kiwisu');
     }
     this.tickTimer = window.setInterval(() => this.tick(), TICK_MS);
-    this.saveTimer = window.setInterval(() => this.save(), AUTOSAVE_MS);
+    this.saveTimer = window.setInterval(() => {
+      this.save();
+      if (document.visibilityState === 'visible') this.markSeen();
+    }, AUTOSAVE_MS);
     document.addEventListener('visibilitychange', this.onVisibility);
     window.addEventListener('pagehide', this.onPageHide);
   }
@@ -193,15 +198,30 @@ export class GameController {
     if (!this.config) ensureAliens(saved, localAlienSeed(saved));
     this.map = generateFace(saved.seed, saved.face, saved.params);
     const now = Math.max(this.now(), saved.now);
-    const { state, events } = advance(saved, now);
+    // Online, the stored state dates from the last server write: the player may have watched
+    // the colony long after it. The summary only covers the time they were really away.
+    const seenAt = this.config
+      ? Math.min(now, Math.max(saved.now, seenTimes()[saved.universeId] ?? 0))
+      : saved.now;
+    const before = seenAt > saved.now ? advance(saved, seenAt).state : saved;
+    const { state, events } = advance(before, now);
     this.state = state;
     this.listener.onWorld(this.map, this.state);
     this.listener.onState(this.state, now);
-    const away = now - saved.now;
+    const away = now - before.now;
     if (away >= OFFLINE_SUMMARY_MIN_MS) {
-      this.listener.onOfflineSummary(summarize(saved, state, events, away));
+      this.listener.onOfflineSummary(summarize(before, state, events, away));
     }
+    this.markSeen();
     this.save();
+  }
+
+  /** Online: remembers that the player has the colony on screen right now. */
+  private markSeen(): void {
+    if (!this.config || !this.state) return;
+    const seen = seenTimes();
+    seen[this.state.universeId] = this.now();
+    safeStorage(() => localStorage.setItem(SEEN_KEY, JSON.stringify(seen)), undefined);
   }
 
   newWorld(seed: string, face: Face): void {
@@ -621,6 +641,7 @@ export class GameController {
   private onVisibility = () => {
     if (document.visibilityState === 'hidden') {
       this.hiddenAt = Date.now();
+      this.markSeen();
       this.save();
       return;
     }
@@ -633,7 +654,10 @@ export class GameController {
     }
   };
 
-  private onPageHide = () => this.save();
+  private onPageHide = () => {
+    this.markSeen();
+    this.save();
+  };
 
   dispose(): void {
     window.clearInterval(this.tickTimer);
@@ -642,6 +666,13 @@ export class GameController {
     document.removeEventListener('visibilitychange', this.onVisibility);
     window.removeEventListener('pagehide', this.onPageHide);
   }
+}
+
+function seenTimes(): Record<string, number> {
+  return safeStorage(() => {
+    const parsed: unknown = JSON.parse(localStorage.getItem(SEEN_KEY) ?? '{}');
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, number>) : {};
+  }, {});
 }
 
 function summarize(

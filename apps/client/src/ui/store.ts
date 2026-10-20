@@ -50,6 +50,8 @@ export interface UiState {
   fps: number;
   timeScale: number;
   offlineSummary: OfflineSummary | null;
+  /** The full summary was asked for from the corner bubble. */
+  recapOpen: boolean;
   /** World waiting for confirmation; `pick`: the face will be chosen in the intro. */
   pendingWorld: { seed: string; face: Face; pick?: boolean } | null;
   toasts: Toast[];
@@ -110,6 +112,7 @@ export const uiStore = createStore<UiState>(() => ({
   fps: 0,
   timeScale: 1,
   offlineSummary: null,
+  recapOpen: false,
   pendingWorld: null,
   toasts: [],
   sync: 'local',

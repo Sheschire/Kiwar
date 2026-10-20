@@ -90,13 +90,21 @@ function showAllies(): void {
   if (visit !== null && renderer.visitedAlly === null) uiStore.setState({ visit: null });
 }
 
+/** The face on screen: reloading the same one (back from a break) keeps the view as it is. */
+let worldKey = '';
+
 controller = new GameController({
   onWorld: (map, state) => {
-    renderer.setFace(map);
-    twinKey = '';
+    const key = `${map.seed}|${map.face}|${JSON.stringify(map.params)}`;
+    if (key !== worldKey) {
+      worldKey = key;
+      renderer.setFace(map);
+      twinKey = '';
+      uiStore.setState({ selectedTile: null, visit: null });
+    }
     showTwin(state);
     renderer.setGameState(state);
-    uiStore.setState({ map, game: state, selectedTile: null, visit: null });
+    uiStore.setState({ map, game: state });
     showAllies();
   },
   onState: (state, now) => {
@@ -109,7 +117,7 @@ controller = new GameController({
     pushToast('error', `errors.${error}`);
     audio.play('ui.error');
   },
-  onOfflineSummary: (summary) => uiStore.setState({ offlineSummary: summary }),
+  onOfflineSummary: (summary) => uiStore.setState({ offlineSummary: summary, recapOpen: false }),
   onSync: (sync) => uiStore.setState({ sync }),
   onAccount: (account) => uiStore.setState({ account }),
   onUniverse: (universe) => {

@@ -23,6 +23,7 @@ import { DefenseModal, ThreatBadge } from './components/DefenseModal';
 import { ResearchModal } from './components/ResearchModal';
 import { BootScreen, Guard } from './components/Guard';
 import { VisitBanner } from './components/VisitBanner';
+import { RecapBubble } from './components/RecapBubble';
 import { actions } from './actions';
 import { uiStore, useT, useUi } from './store';
 import { consumption, foodLeftMs, hungerStage, NEEDS, netRates, SKILLS } from '@kiwar/shared';
@@ -132,6 +133,7 @@ export function App() {
       <QueuePanel />
       <ExpeditionsPanel />
       <SaveNudge />
+      <RecapBubble />
       <EggButton />
       <PathButton />
       <PathToolbar />

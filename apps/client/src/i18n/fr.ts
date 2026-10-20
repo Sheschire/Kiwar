@@ -561,6 +561,10 @@ export const fr: Dict = {
     incidents: 'Petits incidents : {count}.',
     openDefense: 'Voir la défense',
     nothing: 'Vos kiwis ont fait une petite sieste.',
+    short: 'De retour après {duration}',
+    shortCompleted: '{count} chantier(s) terminé(s)',
+    shortHunger: 'Les kiwis ont eu faim !',
+    details: 'Détails',
   },
   world: {
     title: 'Commencer un nouveau monde ?',

@@ -171,13 +171,16 @@ export class GameRenderer {
           if (ally && ally !== this.visiting) this.callbacks.onAllyTap?.(ally.kiwiIndex);
           return;
         }
-        if (ally && !this.pickTile(x, y)) {
+        const tile = this.pickTile(x, y);
+        if (ally && !tile) {
           this.callbacks.onAllyTap?.(ally.kiwiIndex);
           return;
         }
-        const kiwi = this.callbacks.onKiwiTap ? this.kiwiAt(x, y) : null;
+        // A building (or its site) wins over a kiwi walking by: its sheet is what one wants.
+        const kiwi =
+          this.callbacks.onKiwiTap && !(tile && this.hasStructure(tile)) ? this.kiwiAt(x, y) : null;
         if (kiwi) this.callbacks.onKiwiTap!(kiwi.id, kiwi.pos);
-        else this.callbacks.onTileTap(this.pickTile(x, y));
+        else this.callbacks.onTileTap(tile);
       },
       onHover: (x, y) => (this.hoverPoint = this.intro || this.visiting ? null : { x, y }),
       onHoverEnd: () => {
@@ -352,6 +355,15 @@ export class GameRenderer {
 
   get visitedAlly(): number | null {
     return this.visiting?.kiwiIndex ?? null;
+  }
+
+  private hasStructure(tile: Tile): boolean {
+    const s = this.lastState;
+    if (!s) return false;
+    return (
+      !!buildingAt(s, tile.q, tile.r) ||
+      s.queue.some((i) => i.kind === 'build' && i.q === tile.q && i.r === tile.r)
+    );
   }
 
   private allyAt(x: number, y: number): AllyPlanet | null {

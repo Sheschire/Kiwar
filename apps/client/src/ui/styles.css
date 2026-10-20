@@ -2935,3 +2935,55 @@ button.chip:focus-visible {
     justify-content: center;
   }
 }
+
+/* ---------- Back from a short break ---------- */
+
+.recap-bubble {
+  position: absolute;
+  top: calc(var(--gap) + var(--safe-top) + 64px);
+  right: calc(var(--gap) + var(--safe-right, 0px));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: min(260px, calc(100vw - 2 * var(--gap) - 64px));
+  padding: 8px 10px 10px 12px;
+  z-index: 20;
+  animation: toast-in 0.3s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.recap-bubble p {
+  margin: 0;
+}
+
+.recap-bubble.is-alarming {
+  border-color: var(--warn, #c0583a);
+}
+
+.recap-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+}
+
+.recap-gains {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.recap-gains span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+@media (max-width: 760px) {
+  .recap-bubble {
+    top: calc(var(--gap) + var(--safe-top) + 64px);
+    left: calc(var(--gap) + var(--safe-left, 0px));
+    right: auto;
+  }
+}

@@ -678,3 +678,16 @@ Feedback from a real game with friends (owner, 2026-10-20).
   there (`CameraRig.visit`, bounds and zoom of that planet); the HUD shrinks to a banner (whose
   colony, next ally, back home; Escape too) and nothing can be built there. Back home restores
   the view the player left.
+- **Comfort** (owner):
+  - Back from a break under 8 h: a small bubble in a corner (gains, finished constructions,
+    waves, hunger; "details" opens the full summary; closes by itself after 12 s unless
+    something went wrong). 8 h or more: the full summary as before. Online, the summary starts
+    from when the player last had the colony on screen (`kiwar.lastSeen` per universe), not from
+    the last server write, so it no longer shows after a short look away.
+  - Coming back (or reloading the same colony) no longer rebuilds the scene: the camera, its
+    rotation and the selection stay. The favourite rotation is kept across sessions
+    (`kiwar.camera.azimuth`, saved when the camera settles) and used when framing the colony.
+  - Tapping a tile with a building or a construction site opens its sheet even if a kiwi walks
+    there (kiwis are tapped elsewhere, or from the village screen).
+  - Intro: a click (or a tab) on a face locks the choice; hovering the other half no longer
+    changes it.

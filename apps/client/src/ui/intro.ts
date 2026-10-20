@@ -153,7 +153,9 @@ export function startIntro(opts: IntroOptions): void {
   );
 }
 
-export function focusIntro(face: Face): void {
+/** Shows a face (hover); `lock`: a deliberate pick (a tap or a tab) that hovering keeps. */
+export function focusIntro(face: Face, lock = false): void {
+  if (lock) scene?.lock();
   const intro = uiStore.getState().intro;
   if (!intro || intro.focus === face) return;
   uiStore.setState({ intro: { ...intro, focus: face } });

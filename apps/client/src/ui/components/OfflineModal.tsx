@@ -3,13 +3,16 @@ import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { EggIcon, ResourceIcon } from '../icons';
 import { uiStore, useT, useUi } from '../store';
 import { Modal } from './Modal';
+import { RECAP_MODAL_MS } from './RecapBubble';
 
 export function OfflineModal() {
   const t = useT();
   const lang = useUi((s) => s.lang);
   const summary = useUi((s) => s.offlineSummary);
-  if (!summary) return null;
-  const close = () => uiStore.setState({ offlineSummary: null });
+  const open = useUi((s) => s.recapOpen);
+  // Short breaks get the corner bubble; its "details" opens this.
+  if (!summary || (summary.awayMs < RECAP_MODAL_MS && !open)) return null;
+  const close = () => uiStore.setState({ offlineSummary: null, recapOpen: false });
   const gained = RESOURCE_IDS.filter((id) => summary.gained[id] >= 1);
   const nothing =
     gained.length === 0 &&
@@ -81,7 +84,12 @@ export function OfflineModal() {
           <button
             class="btn btn-small"
             onClick={() =>
-              uiStore.setState({ offlineSummary: null, modal: 'defense', unreadWave: null })
+              uiStore.setState({
+                offlineSummary: null,
+                recapOpen: false,
+                modal: 'defense',
+                unreadWave: null,
+              })
             }
           >
             {t('offline.openDefense')}
