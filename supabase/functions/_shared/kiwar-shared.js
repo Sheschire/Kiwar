@@ -427,7 +427,7 @@ var HARVESTS = {
   seedQuarry: "seedRing",
   juiceWell: "juice"
 };
-var CATCHMENT_RADIUS = [1, 1, 2];
+var CATCHMENT_RADIUS = [1, 1, 2, 2, 2, 3];
 var LOGISTICS = {
   cycleS: 30,
   stepS: 4,
@@ -584,11 +584,12 @@ var BUILDING_TYPES = [
   "launchpad",
   "school",
   "library",
+  "monument",
   "camp",
   "seedTurret",
   "skyTurret"
 ];
-var BUILDINGS = {
+var BASE = {
   nest: {
     id: "nest",
     allowedTiles: ["heart"],
@@ -875,6 +876,31 @@ var BUILDINGS = {
       }
     ]
   },
+  // Chantier 08: one monument per colony; each level opens an age (Stone, Iron, Industry) once
+  // its passage technology is researched. Outside the building cap, never demolished.
+  monument: {
+    id: "monument",
+    allowedTiles: ["flesh", "ray", "heart"],
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 2e3, fiber: 2e3, seeds: 400, juice: 600 },
+        durationMs: ms.h(2),
+        requiresNestLevel: 3
+      },
+      {
+        cost: { pulp: 6e3, fiber: 6e3, seeds: 1500, juice: 2e3 },
+        durationMs: ms.h(5),
+        requiresNestLevel: 4
+      },
+      {
+        cost: { pulp: 15e3, fiber: 15e3, seeds: 4e3, juice: 5e3 },
+        durationMs: ms.h(10),
+        requiresNestLevel: 5
+      }
+    ]
+  },
   // Gathering camp (milestone 4): set up instantly and for free with the `gather` command,
   // outside the building cap. Its harvest depends on the tile (see CAMPS).
   camp: {
@@ -946,11 +972,73 @@ var BUILDINGS = {
     ]
   }
 };
+var DEFAULT_GROWTH = { cost: 2.4, time: 1.6, output: 1.5 };
+var AGE_GROWTH = {
+  nest: { ...DEFAULT_GROWTH, output: 1.3, housing: 2, storage: 1.9, maxBuildings: 4, queueSize: 1 },
+  pulpery: { ...DEFAULT_GROWTH, workerSlots: 1 },
+  fiberWorkshop: { ...DEFAULT_GROWTH, workerSlots: 1 },
+  juiceWell: { ...DEFAULT_GROWTH, workerSlots: 1 },
+  seedQuarry: { ...DEFAULT_GROWTH, workerSlots: 1 },
+  hut: { ...DEFAULT_GROWTH, housing: 2 },
+  warehouse: { ...DEFAULT_GROWTH, storage: 1.9 },
+  launchpad: { ...DEFAULT_GROWTH, cargo: 200, travelTime: 0.9 },
+  school: { ...DEFAULT_GROWTH, trainingSlots: 1, trainingTime: 0.9 },
+  library: { ...DEFAULT_GROWTH, output: 1.2, workerSlots: 1 },
+  seedTurret: { ...DEFAULT_GROWTH, ammo: 1.4 },
+  skyTurret: { ...DEFAULT_GROWTH, ammo: 1.4 }
+};
+var round = (v, step) => Math.round(v / step) * step;
+function scaled(values, k, step) {
+  if (!values) return void 0;
+  const out = {};
+  for (const [key, v] of Object.entries(values)) out[key] = round(v * k, step);
+  return out;
+}
+function withAgeLevels(def) {
+  const g = AGE_GROWTH[def.id];
+  if (!g) return def;
+  const levels = [...def.levels];
+  for (let age = 1; age <= 3; age++) {
+    const prev = levels[levels.length - 1];
+    const level = levels.length + 1;
+    const next = {
+      cost: scaled(prev.cost, g.cost, 10),
+      durationMs: round(prev.durationMs * g.time, 1e3),
+      requiresNestLevel: def.id === "nest" ? level - 1 : level,
+      requiresAge: age
+    };
+    if (prev.production) next.production = scaled(prev.production, g.output, 10);
+    if (prev.passiveProduction)
+      next.passiveProduction = scaled(prev.passiveProduction, g.output, 10);
+    if (prev.workerSlots) next.workerSlots = prev.workerSlots + (g.workerSlots ?? 0);
+    if (prev.housing !== void 0) next.housing = prev.housing + (g.housing ?? 0);
+    if (prev.storage !== void 0) next.storage = round(prev.storage * (g.storage ?? 1), 50);
+    if (prev.cargo !== void 0) next.cargo = prev.cargo + (g.cargo ?? 0);
+    if (prev.travelTime !== void 0)
+      next.travelTime = Math.round(prev.travelTime * (g.travelTime ?? 1) * 100) / 100;
+    if (prev.trainingSlots !== void 0)
+      next.trainingSlots = prev.trainingSlots + (g.trainingSlots ?? 0);
+    if (prev.trainingTime !== void 0)
+      next.trainingTime = Math.round(prev.trainingTime * (g.trainingTime ?? 1) * 100) / 100;
+    if (prev.research !== void 0) next.research = round(prev.research * g.output, 1);
+    if (prev.defense) next.defense = scaled(prev.defense, g.output, 1);
+    if (prev.ammo !== void 0) next.ammo = round(prev.ammo * (g.ammo ?? 1), 5);
+    if (prev.maxBuildings !== void 0)
+      next.maxBuildings = prev.maxBuildings + (g.maxBuildings ?? 0);
+    if (prev.queueSize !== void 0)
+      next.queueSize = prev.queueSize + (age === 2 ? 0 : g.queueSize ?? 0);
+    levels.push(next);
+  }
+  return { ...def, levels };
+}
+var BUILDINGS = Object.fromEntries(
+  Object.entries(BASE).map(([id3, def]) => [id3, withAgeLevels(def)])
+);
 var TURRET_TYPES = ["seedTurret", "skyTurret"];
 function isTurret(type) {
   return TURRET_TYPES.includes(type);
 }
-var MAX_LEVEL = 3;
+var MAX_LEVEL = 6;
 function maxLevelOf(type) {
   return BUILDINGS[type].levels.length;
 }
@@ -1153,8 +1241,8 @@ var SHIPS = {
   /** Streamlined, with thrusters (Industry age, chantier 08). */
   jet: { id: "jet", reliability: 0.99, armor: 0.25, recon: 0.15 }
 };
-function shipIdForPad(level) {
-  return level >= 3 ? "iron" : level === 2 ? "logs" : "wood";
+function shipIdForAge(age) {
+  return SHIP_IDS[Math.max(0, Math.min(SHIP_IDS.length - 1, age))];
 }
 var SHIP_REPAIR = { perDexterity: 0.01, max: 0.05 };
 
@@ -1380,7 +1468,9 @@ var THREATS = {
   shieldMs: ms.h(24),
   /** Total wave power: base × Nest level factor × play time × provocation. */
   basePower: 6,
-  nestFactor: [0, 0.6, 1, 1.6],
+  nestFactor: [0, 0.6, 1, 1.6, 2.2, 2.9, 3.6],
+  /** Chantier 08: the predators grow with the age of the colony (index = age). */
+  ageFactor: [1, 1.15, 1.3, 1.5],
   /** Power gained per day of play, up to `maxDays`. */
   perDay: 0.25,
   maxDays: 14,
@@ -1426,7 +1516,7 @@ var THREATS = {
   history: 5
 };
 var TURRETS = {
-  max: [0, 2, 4, 6]
+  max: [0, 2, 4, 6, 7, 8, 9]
 };
 var GARRISON = {
   /** Defense of a posted kiwi: its fighting strength × this × its class affinity. */
@@ -1474,7 +1564,9 @@ var METEORS = {
   lifeMs: ms.h(48),
   /** Stock: base × Nest level factor × (1 + perDay × days played, capped like the threats). */
   stock: 300,
-  nestFactor: [0, 1, 1.5, 2.2],
+  nestFactor: [0, 1, 1.5, 2.2, 3, 3.8, 4.6],
+  /** Chantier 08: richer gifts in later ages (index = age). */
+  ageFactor: [1, 1.3, 1.7, 2.2],
   perDay: 0.15,
   /** What falls (weights). */
   resources: { seeds: 2, juice: 1, fiber: 1 },
@@ -2365,8 +2457,8 @@ function kiwiRhythm(state, v, t) {
 }
 
 // packages/shared/src/sim/research.ts
-function ageOf(_state) {
-  return 0;
+function ageOf(state) {
+  return state.buildings.find((b) => b.type === "monument")?.level ?? 0;
 }
 function hasTech(state, id3) {
   return state.research.done.includes(id3);
@@ -3469,7 +3561,7 @@ function pathLimit(state) {
   return PATHS.base + PATHS.perNestLevel * nest(state).level;
 }
 function buildingCount(state) {
-  const counted = (t) => t !== "nest" && t !== "camp" && !isTurret(t);
+  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && !isTurret(t);
   return state.buildings.filter((b) => counted(b.type)).length + state.queue.filter((i) => i.kind === "build" && counted(i.buildingType)).length;
 }
 function turretCount(state) {
@@ -3540,6 +3632,13 @@ function repairDuration(b) {
 function isMaxLevel(b) {
   return b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type));
 }
+function maxLevelNow(state, type) {
+  const age = ageOf(state);
+  const levels = BUILDINGS[type].levels;
+  let max = 0;
+  while (max < levels.length && (levels[max].requiresAge ?? 0) <= age) max++;
+  return max;
+}
 function eggCost(state) {
   return HATCHING.cost(population(state));
 }
@@ -3578,8 +3677,10 @@ function launchpadOf(state, id3) {
   const b = getBuilding(state, id3);
   return b?.type === "launchpad" ? b : void 0;
 }
-function shipOf(launchpad) {
-  return SHIPS[shipIdForPad(launchpad.level)];
+function shipOf(state) {
+  const ship = SHIPS[shipIdForAge(ageOf(state))];
+  const tech = techEffects(state);
+  return { ...ship, armor: ship.armor + tech.armor, recon: ship.recon + tech.recon };
 }
 function shipReliability(ship, crew) {
   const dex = Math.max(KIWI.stat.average, ...crew.map((v) => v.stats.dexterity));
@@ -3702,7 +3803,7 @@ function forecastExpedition(state, plan) {
   const guess = defense ? (defense.min + defense.max) / 2 : null;
   const kiwisWeight = crewWeight(crew);
   const weight = kiwisWeight + (plan.provisions.pulp + plan.provisions.juice) * EXPEDITIONS.resourceWeight;
-  const ship = shipOf(pad);
+  const ship = shipOf(state);
   const expectedLosses = guess === null ? 0 : Math.min(crew.length, crew.length * lossShare(base, guess) * (1 - ship.armor));
   const exposure = crew.map((v) => kiwiExposure(v));
   const totalExposure = exposure.reduce((a, b) => a + b, 0) || 1;
@@ -3765,7 +3866,7 @@ function launch(state, plan, now, id3) {
   state.resources.pulp -= plan.provisions.pulp;
   state.resources.juice -= plan.provisions.juice;
   const travelMs = travelTime(target, pad, crew, mission, techEffects(state).travel);
-  const broken = withRng(state, (rng) => !rng.chance(shipReliability(shipOf(pad), crew)));
+  const broken = withRng(state, (rng) => !rng.chance(shipReliability(shipOf(state), crew)));
   const outMs = broken ? Math.round(travelMs / 2e3) * 1e3 : travelMs;
   const expedition = {
     id: id3,
@@ -3837,7 +3938,7 @@ function resolveArrival(state, e) {
   const strength = strengthOf(members, fed) * luck;
   const victory = strength >= defense;
   const pad = launchpadOf(state, e.launchpadId);
-  const armor = pad ? shipOf(pad).armor : 0;
+  const armor = pad ? shipOf(state).armor : 0;
   const losses = Math.min(
     e.crew.length,
     Math.round(e.crew.length * lossShare(strength, defense) * (1 - armor))
@@ -3879,7 +3980,7 @@ function resolveArrival(state, e) {
   };
 }
 function resolveRecon(state, e, garrison, defense, members, fed) {
-  const f = reconForecast(members);
+  const f = reconForecast(members, shipOf(state));
   const spotted = withRng(state, (rng) => rng.chance(f.spotChance));
   let strength = 0;
   let lost = [];
@@ -4022,7 +4123,8 @@ function wavePower(state, at) {
   const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY));
   const victories = Object.values(state.victories).reduce((a, b) => a + b, 0);
   const provocation = Math.min(THREATS.maxProvocation, THREATS.perVictory * victories);
-  return THREATS.basePower * factor * (1 + THREATS.perDay * days) * (1 + provocation);
+  const age = THREATS.ageFactor[ageOf(state)] ?? 1;
+  return THREATS.basePower * factor * age * (1 + THREATS.perDay * days) * (1 + provocation);
 }
 function waveMix(state, power, at) {
   const c = calendarAt(state.calendarStart, at);
@@ -4130,7 +4232,9 @@ function waveOutcome(state, threat, defense, sheltered) {
   return { victory: false, severity, groundSeverity, damaged, loot, injured, deaths, pathsLost };
 }
 function damageable(state) {
-  return state.buildings.filter((b) => b.type !== "nest" && b.type !== "camp" && !b.damaged);
+  return state.buildings.filter(
+    (b) => b.type !== "nest" && b.type !== "camp" && b.type !== "monument" && !b.damaged
+  );
 }
 function forecastWave(state) {
   const wave = state.threats.next;
@@ -4323,8 +4427,9 @@ var EPS2 = 1e-6;
 function meteorStock(state, at) {
   const f = METEORS.nestFactor;
   const factor = f[Math.min(nest(state).level, f.length - 1)] ?? 1;
+  const age = METEORS.ageFactor[ageOf(state)] ?? 1;
   const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY2));
-  return Math.round(METEORS.stock * factor * (1 + METEORS.perDay * days));
+  return Math.round(METEORS.stock * factor * age * (1 + METEORS.perDay * days));
 }
 function meteorRate(m, harvests) {
   if (m.stock <= EPS2) return 0;
@@ -4760,6 +4865,8 @@ function completeConstruction(s, at, events) {
     q: item.q,
     r: item.r
   });
+  if (item.buildingType === "monument")
+    events.push({ type: "ageReached", at, age: item.targetLevel });
   if (item.kind === "build" && isProducer(item.buildingType) && !isManualWorkplace(item.buildingType)) {
     const idle = bestIdleFor(s, getBuilding(s, buildingId));
     if (idle) idle.job = { kind: "work", buildingId };
@@ -4913,7 +5020,10 @@ var COMMAND_ERRORS = [
   "unknownTech",
   "techDone",
   "techAgeLocked",
-  "libraryTooLow"
+  "libraryTooLow",
+  "ageTooLow",
+  "passageMissing",
+  "monumentExists"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -4973,7 +5083,10 @@ function execute(s, cmd, ctx, events) {
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail("tileOccupied");
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail("flooded");
       if (nest(s).level < def.levels[0].requiresNestLevel) fail("nestLevelTooLow");
-      if (isTurret(cmd.buildingType)) {
+      if (cmd.buildingType === "monument") {
+        if (copiesOf(s, "monument") > 0) fail("monumentExists");
+        if (!hasTech(s, PASSAGE_TECHS[1])) fail("passageMissing");
+      } else if (isTurret(cmd.buildingType)) {
         if (!isRampart(ctx.map, cmd.q, cmd.r)) fail("notOnRampart");
         if (turretCount(s) >= turretLimit(s)) fail("turretLimit");
       } else if (buildingCount(s) >= (nestDef(s).maxBuildings ?? 0)) fail("buildingLimit");
@@ -5009,6 +5122,8 @@ function execute(s, cmd, ctx, events) {
       const b = getBuilding(s, cmd.buildingId);
       if (!b) return fail("unknownBuilding");
       if (b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type))) fail("maxLevel");
+      if ((levelDef(b.type, b.level + 1).requiresAge ?? 0) > ageOf(s)) fail("ageTooLow");
+      if (b.type === "monument" && !hasTech(s, PASSAGE_TECHS[b.level + 1])) fail("passageMissing");
       const pending = pendingUpgrade(s, b.id);
       if (pending) fail(pending.kind === "repair" ? "alreadyRepairing" : "alreadyUpgrading");
       const target = b.level + 1;
@@ -5157,7 +5272,7 @@ function execute(s, cmd, ctx, events) {
     case "dismantle": {
       const b = getBuilding(s, cmd.buildingId);
       if (!b) return fail("unknownBuilding");
-      if (b.type === "nest") fail("notDemolishable");
+      if (b.type === "nest" || b.type === "monument") fail("notDemolishable");
       if (pendingUpgrade(s, b.id)) fail("upgradeInProgress");
       if (b.type === "launchpad" && isLaunchpadBusy(s, b.id)) fail("launchpadBusy");
       const housingLeft = housing(s) - (levelDef(b.type, b.level)?.housing ?? 0);
@@ -9467,7 +9582,7 @@ var gameStateSchema = external_exports.object({
       type: external_exports.enum(BUILDING_TYPES),
       q: external_exports.number().int(),
       r: external_exports.number().int(),
-      level: external_exports.number().int().min(1).max(3),
+      level: external_exports.number().int().min(1).max(MAX_LEVEL),
       richness: external_exports.number(),
       builtAt: external_exports.number(),
       pool: external_exports.object({ stock: external_exports.number().min(0), tiles: external_exports.array(external_exports.string()).max(64) }).optional(),
@@ -9521,7 +9636,7 @@ var gameStateSchema = external_exports.object({
       q: external_exports.number().int(),
       r: external_exports.number().int(),
       buildingId: id.nullable(),
-      targetLevel: external_exports.number().int().min(1).max(3),
+      targetLevel: external_exports.number().int().min(1).max(MAX_LEVEL),
       richness: external_exports.number(),
       durationMs: external_exports.number(),
       startedAt: external_exports.number().nullable(),
@@ -9993,7 +10108,7 @@ function isPlausible(state, now) {
     (v) => v.classId === "mayor" || v.job.kind === "train" && v.job.classId === "mayor"
   );
   if (mayors.length > 1 || state.speechUntil > state.now + SKILLS.speechMs * 2) return false;
-  if (!plausibleResearch(state)) return false;
+  if (!plausibleResearch(state) || !plausibleAge(state)) return false;
   return state.villagers.every((v) => plausibleKiwi(v, state.now));
 }
 function plausibleResearch(state) {
@@ -10009,6 +10124,13 @@ function plausibleResearch(state) {
   const earned = r.done.reduce((sum, id3) => sum + TECHS[id3].cost, 0) + r.points / RESEARCH_SCALE;
   const hours = Math.max(0, state.now - state.createdAt) / 36e5;
   return earned <= perHour * MAX_RESEARCH_POWER * hours + 1;
+}
+function plausibleAge(state) {
+  const monuments = state.buildings.filter((b) => b.type === "monument");
+  if (monuments.length > 1) return false;
+  const age = ageOf(state);
+  for (let a = 1; a <= age; a++) if (!state.research.done.includes(PASSAGE_TECHS[a])) return false;
+  return state.buildings.every((b) => (levelDef(b.type, b.level)?.requiresAge ?? 0) <= age);
 }
 var MAX_RESEARCH_POWER = 4;
 var MAX_XP_PER_MS = 100 * KIWI.xpPerHour.build * (1 + KIWI.spiritXp * KIWI.stat.cap) * 1.25;
@@ -10545,6 +10667,7 @@ export {
   masteryHours,
   masteryProgress,
   maxCrew,
+  maxLevelNow,
   maxLevelOf,
   mayorMorale,
   mayorOf,
@@ -10620,7 +10743,7 @@ export {
   sectorOf,
   serializeSave,
   shipCargo,
-  shipIdForPad,
+  shipIdForAge,
   shipOf,
   shipReliability,
   skyTick,

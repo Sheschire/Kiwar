@@ -53,11 +53,16 @@ function readyColony() {
   return { map, s, t, padId, targetId: s.targets[0]!.id };
 }
 
-/** An iron ship and handy crews: reliability 100 %, no breakdown in these tests. */
-function reliable(s: GameState): GameState {
+/** The Iron age (iron ship) and handy crews: reliability 100 %, no breakdown in these tests. */
+function reliable(s: GameState, age = 2): GameState {
   return {
     ...s,
-    buildings: s.buildings.map((b) => (b.type === 'launchpad' ? { ...b, level: 3 } : b)),
+    buildings: [
+      ...s.buildings
+        .filter((b) => b.type !== 'monument')
+        .map((b) => (b.type === 'launchpad' ? { ...b, level: 3 } : b)),
+      { id: 'bm' as never, type: 'monument', q: 2, r: -1, level: age, richness: 1, builtAt: T0 },
+    ],
     villagers: s.villagers.map((v) => ({ ...v, stats: { ...v.stats, dexterity: 10 } })),
   };
 }
@@ -410,12 +415,20 @@ describe('reconnaissance missions', () => {
 });
 
 describe('ship generations and breakdowns', () => {
-  it('follows the launchpad level until ages exist, Dexterity mends a little', () => {
-    const { s, padId } = readyColony();
-    const pad = s.buildings.find((b) => b.id === padId)!;
-    expect(shipOf({ ...pad, level: 1 }).id).toBe('wood');
-    expect(shipOf({ ...pad, level: 2 }).id).toBe('logs');
-    expect(shipOf({ ...pad, level: 3 }).id).toBe('iron');
+  it('follows the age of the colony, Dexterity mends a little', () => {
+    const s = { ...readyColony().s };
+    s.buildings = s.buildings.filter((b) => b.type !== 'monument');
+    const withAge = (age: number): GameState => ({
+      ...s,
+      buildings: [
+        ...s.buildings,
+        { id: 'bm' as never, type: 'monument', q: 1, r: 1, level: age, richness: 1, builtAt: T0 },
+      ],
+    });
+    expect(shipOf(s).id).toBe('wood');
+    expect(shipOf(withAge(1)).id).toBe('logs');
+    expect(shipOf(withAge(2)).id).toBe('iron');
+    expect(shipOf(withAge(3)).id).toBe('jet');
     const clumsy = { ...kiwi('a'), stats: { ...kiwi('a').stats, dexterity: 3 } };
     const handy = { ...kiwi('b'), stats: { ...kiwi('b').stats, dexterity: 9 } };
     expect(shipReliability(SHIPS.wood, [clumsy])).toBe(SHIPS.wood.reliability);
@@ -434,7 +447,7 @@ describe('ship generations and breakdowns', () => {
       const s: GameState = {
         ...ready.s,
         rng: createRng(`break-${seed}`).state(),
-        buildings: ready.s.buildings.map((b) => (b.id === padId ? { ...b, level: 1 } : b)),
+        buildings: ready.s.buildings.filter((b) => b.type !== 'monument'),
         villagers: ready.s.villagers.map((v) => ({ ...v, stats: { ...v.stats, dexterity: 5 } })),
       };
       const launched = run(
@@ -485,13 +498,7 @@ describe('ship generations and breakdowns', () => {
     const known = knowTruth(s, s.now);
     const plan = { launchpadId: padId, targetId, crew: 3, provisions: { pulp: 60, juice: 30 } };
     const iron = forecastExpedition(known, plan)!;
-    const logs = forecastExpedition(
-      {
-        ...known,
-        buildings: known.buildings.map((b) => (b.id === padId ? { ...b, level: 2 } : b)),
-      },
-      plan,
-    )!;
+    const logs = forecastExpedition(reliable(known, 1), plan)!;
     expect(iron.ship.armor).toBeGreaterThan(0);
     expect(iron.expectedLosses).toBeLessThan(logs.expectedLosses);
   });

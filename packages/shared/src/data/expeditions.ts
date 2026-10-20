@@ -119,8 +119,8 @@ export const RECON = {
 } as const;
 
 /**
- * Generations of the mechanical kiwi ship (chantier 07). Ages (chantier 08) will pick the
- * generation; until then the launchpad level does (`shipIdForPad`).
+ * Generations of the mechanical kiwi ship (chantier 07), one per age (chantier 08): wood in
+ * Eden, logs in the Stone age, iron, then the jet of the Industrial age.
  */
 export const SHIP_IDS = ['wood', 'logs', 'iron', 'jet'] as const;
 export type ShipId = (typeof SHIP_IDS)[number];
@@ -147,8 +147,8 @@ export const SHIPS: Record<ShipId, ShipDef> = {
 };
 
 /** Provisional: the ship generation follows the launchpad level until ages exist. */
-export function shipIdForPad(level: number): ShipId {
-  return level >= 3 ? 'iron' : level === 2 ? 'logs' : 'wood';
+export function shipIdForAge(age: number): ShipId {
+  return SHIP_IDS[Math.max(0, Math.min(SHIP_IDS.length - 1, age))]!;
 }
 
 /** The crew's best Dexterity mends the ship on the way: up to this much reliability. */

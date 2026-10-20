@@ -229,6 +229,10 @@ export const fr: Dict = {
       name: 'École',
       desc: 'Forme les kiwis expérimentés : bâtisseur·euse, guerrier·ère, maire, puis mage et éclaireur·euse.',
     },
+    monument: {
+      name: 'Monument',
+      desc: 'La fierté de la colonie : chaque niveau ouvre un nouvel âge, une fois son passage recherché.',
+    },
     library: {
       name: 'Bibliothèque',
       desc: 'Les kiwis à l’Esprit vif y recherchent de nouvelles techniques. Choisissez qui étudie.',
@@ -246,6 +250,7 @@ export const fr: Dict = {
     maxLevel: 'Niveau maximum',
     upgrading: 'Amélioration au niveau {level}…',
     needsNest: 'Nécessite le Nid niveau {level}',
+    needsAge: 'Nécessite : {age}',
     limits: 'Bâtiments {count}/{max} · File {queue}',
     addWorker: 'Ajouter un ouvrier',
     removeWorker: 'Retirer un ouvrier',
@@ -411,6 +416,7 @@ export const fr: Dict = {
     starved: '{name} n’a pas survécu à la faim…',
     repaired: '{name} est réparé.',
     researchDone: 'Recherche terminée : {tech} !',
+    ageReached: 'Un nouvel âge commence : {age} !',
   },
   needs: {
     stages: {
@@ -529,6 +535,9 @@ export const fr: Dict = {
     techDone: 'Déjà recherchée.',
     techAgeLocked: 'Appartient à un âge suivant.',
     libraryTooLow: 'Il faut une Bibliothèque de plus haut niveau.',
+    ageTooLow: 'Ce niveau appartient à un âge suivant.',
+    passageMissing: 'Recherchez d’abord le passage à l’âge suivant.',
+    monumentExists: 'La colonie a déjà son monument.',
   },
   offline: {
     title: 'Pendant votre absence…',
@@ -938,6 +947,14 @@ export const fr: Dict = {
     stone: 'Âge de pierre',
     iron: 'Âge du fer',
     industry: 'Âge industriel',
+    current: 'Âge : {age}',
+    next: 'Ensuite : {age}',
+    steps: 'Recherchez « {tech} » à la Bibliothèque, puis élevez le monument.',
+    passageDone: '« {tech} » est acquise : le monument peut être élevé.',
+    opens:
+      'Ouvre le niveau {level} des bâtiments, le vaisseau {ship} et des cadeaux plus riches — et des prédateurs plus forts.',
+    last: 'La colonie a atteint le dernier âge pour l’instant.',
+    ships: { wood: 'en bois', logs: 'en rondins', iron: 'en fer', jet: 'à réaction' },
   },
   branches: {
     economy: 'Économie',

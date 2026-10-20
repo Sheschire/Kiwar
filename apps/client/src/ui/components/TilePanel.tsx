@@ -1,4 +1,5 @@
 import {
+  AGE_IDS,
   BUILDABLE_TYPES,
   BUILDINGS,
   buildCost,
@@ -64,7 +65,7 @@ import {
 } from '../icons';
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
-import { ResearchSummary } from './ResearchModal';
+import { AgeInfo, ResearchSummary } from './ResearchModal';
 
 function Progress({ item, now }: { item: QueueItem; now: number }) {
   const t = useT();
@@ -285,6 +286,7 @@ function BuildingSection({
         </>
       )}
       {b.type === 'school' && <SchoolInfo game={game} b={b} now={now} t={t} />}
+      {b.type === 'monument' && <AgeInfo game={game} t={t} />}
       {b.type === 'library' && (
         <>
           <p class="small muted">{t('research.researcherHint')}</p>
@@ -355,14 +357,20 @@ function BuildingSection({
               {t('building.needsNest', { level: nextDef.requiresNestLevel })}
             </span>
           )}
+          {upgradeError === 'ageTooLow' && nextDef?.requiresAge !== undefined && (
+            <span class="small warn">
+              {t('building.needsAge', { age: `@ages.${AGE_IDS[nextDef.requiresAge]!}` })}
+            </span>
+          )}
           {upgradeError &&
             upgradeError !== 'nestLevelTooLow' &&
+            upgradeError !== 'ageTooLow' &&
             upgradeError !== 'notEnoughResources' && (
               <span class="small warn">{t(`errors.${upgradeError}`)}</span>
             )}
         </div>
       )}
-      {b.type !== 'nest' && (
+      {b.type !== 'nest' && b.type !== 'monument' && (
         <button
           class={`btn ${b.type === 'camp' ? '' : 'btn-ghost btn-small demolish-btn'}`}
           onClick={() => uiStore.setState({ modal: 'demolish', demolishId: b.id })}

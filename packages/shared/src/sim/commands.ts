@@ -30,6 +30,7 @@ import {
   buildingAt,
   buildingHarvest,
   buildingCount,
+  copiesOf,
   canAfford,
   canHatch,
   constructionDuration,
@@ -57,8 +58,8 @@ import {
   workersOf,
 } from './selectors';
 import { cloneState, nextId, type GameState, type MissionKind } from './state';
-import { TECHS, type TechId } from '../data/research';
-import { researchTick, techStatus } from './research';
+import { PASSAGE_TECHS, TECHS, type TechId } from '../data/research';
+import { ageOf, hasTech, researchTick, techStatus } from './research';
 import { SHELTER } from '../data/threats';
 import { forecastWave } from './threats';
 import {
@@ -178,6 +179,9 @@ export const COMMAND_ERRORS = [
   'techDone',
   'techAgeLocked',
   'libraryTooLow',
+  'ageTooLow',
+  'passageMissing',
+  'monumentExists',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -266,7 +270,10 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail('tileOccupied');
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail('flooded');
       if (nest(s).level < def.levels[0]!.requiresNestLevel) fail('nestLevelTooLow');
-      if (isTurret(cmd.buildingType)) {
+      if (cmd.buildingType === 'monument') {
+        if (copiesOf(s, 'monument') > 0) fail('monumentExists');
+        if (!hasTech(s, PASSAGE_TECHS[1]!)) fail('passageMissing');
+      } else if (isTurret(cmd.buildingType)) {
         if (!isRampart(ctx.map, cmd.q, cmd.r)) fail('notOnRampart');
         if (turretCount(s) >= turretLimit(s)) fail('turretLimit');
       } else if (buildingCount(s) >= (nestDef(s).maxBuildings ?? 0)) fail('buildingLimit');
@@ -303,6 +310,9 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const b = getBuilding(s, cmd.buildingId);
       if (!b) return fail('unknownBuilding');
       if (b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type))) fail('maxLevel');
+      // Levels 4–6 wait for the ages; each monument level for its passage technology.
+      if ((levelDef(b.type, b.level + 1)!.requiresAge ?? 0) > ageOf(s)) fail('ageTooLow');
+      if (b.type === 'monument' && !hasTech(s, PASSAGE_TECHS[b.level + 1]!)) fail('passageMissing');
       const pending = pendingUpgrade(s, b.id);
       if (pending) fail(pending.kind === 'repair' ? 'alreadyRepairing' : 'alreadyUpgrading');
       const target = b.level + 1;
@@ -464,7 +474,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
     case 'dismantle': {
       const b = getBuilding(s, cmd.buildingId);
       if (!b) return fail('unknownBuilding');
-      if (b.type === 'nest') fail('notDemolishable');
+      if (b.type === 'nest' || b.type === 'monument') fail('notDemolishable');
       if (pendingUpgrade(s, b.id)) fail('upgradeInProgress');
       if (b.type === 'launchpad' && isLaunchpadBusy(s, b.id)) fail('launchpadBusy');
       const housingLeft = housing(s) - (levelDef(b.type, b.level)?.housing ?? 0);

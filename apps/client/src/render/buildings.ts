@@ -14,6 +14,7 @@ import {
   Vector3,
 } from 'three';
 import {
+  ageOf,
   getTile,
   storageFullCheck,
   type Building,
@@ -147,19 +148,25 @@ export class BuildingsView {
       state.queue.map((i) => `${i.id}:${i.startedAt ?? '-'}`).join(',');
     if (sig === this.signature) return;
     this.signature = sig;
+    const age = ageOf(state);
 
     const seen = new Set<string>();
     for (const b of state.buildings) {
       seen.add(b.id);
       const existing = this.meshes.get(b.id);
       const shipAway = away(b.id);
-      if (existing && existing.userData.level === b.level && existing.userData.away === shipAway)
+      if (
+        existing &&
+        existing.userData.level === b.level &&
+        existing.userData.away === shipAway &&
+        existing.userData.age === age
+      )
         continue;
       if (existing) {
         this.group.remove(existing);
         this.life.detach(b.id);
       }
-      this.addBuildingMesh(b, shipAway);
+      this.addBuildingMesh(b, shipAway, age);
       this.life.setActivity(b.id, activityOf(state, b, full));
     }
     for (const [id, mesh] of this.meshes) {
@@ -188,10 +195,10 @@ export class BuildingsView {
     this.onChanged();
   }
 
-  private addBuildingMesh(b: Building, shipAway: boolean): Group {
-    const model = buildingModel(b.type, b.level, shipAway);
+  private addBuildingMesh(b: Building, shipAway: boolean, age: number): Group {
+    const model = buildingModel(b.type, b.level, shipAway, age);
     const g = new Group();
-    g.userData = { level: b.level, away: shipAway, buildingId: b.id, q: b.q, r: b.r };
+    g.userData = { level: b.level, away: shipAway, age, buildingId: b.id, q: b.q, r: b.r };
     const mesh = new Mesh(model.geometry, this.material);
     // Shadows are static: only the static part casts one.
     mesh.castShadow = true;

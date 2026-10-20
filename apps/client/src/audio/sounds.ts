@@ -46,6 +46,9 @@ export function playGameEventSounds(events: GameEvent[]): void {
       case 'researchDone':
         audio.play('research.done');
         break;
+      case 'ageReached':
+        audio.play('age.reached');
+        break;
       case 'trained':
         audio.play('kiwi.levelUp');
         break;

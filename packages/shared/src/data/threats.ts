@@ -20,7 +20,9 @@ export const THREATS = {
   shieldMs: ms.h(24),
   /** Total wave power: base × Nest level factor × play time × provocation. */
   basePower: 6,
-  nestFactor: [0, 0.6, 1, 1.6] as readonly number[],
+  nestFactor: [0, 0.6, 1, 1.6, 2.2, 2.9, 3.6] as readonly number[],
+  /** Chantier 08: the predators grow with the age of the colony (index = age). */
+  ageFactor: [1, 1.15, 1.3, 1.5] as readonly number[],
   /** Power gained per day of play, up to `maxDays`. */
   perDay: 0.25,
   maxDays: 14,
@@ -68,7 +70,7 @@ export const THREATS = {
 
 /** Turrets (both models together) allowed by Nest level (index = level). */
 export const TURRETS = {
-  max: [0, 2, 4, 6] as readonly number[],
+  max: [0, 2, 4, 6, 7, 8, 9] as readonly number[],
 } as const;
 
 /**
@@ -133,7 +135,9 @@ export const METEORS = {
   lifeMs: ms.h(48),
   /** Stock: base × Nest level factor × (1 + perDay × days played, capped like the threats). */
   stock: 300,
-  nestFactor: [0, 1, 1.5, 2.2] as readonly number[],
+  nestFactor: [0, 1, 1.5, 2.2, 3, 3.8, 4.6] as readonly number[],
+  /** Chantier 08: richer gifts in later ages (index = age). */
+  ageFactor: [1, 1.3, 1.7, 2.2] as readonly number[],
   perDay: 0.15,
   /** What falls (weights). */
   resources: { seeds: 2, juice: 1, fiber: 1 } as const,

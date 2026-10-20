@@ -1,6 +1,6 @@
 import { BIOME_IDS } from '../data/biomes';
 import { z } from 'zod';
-import { BUILDING_TYPES } from '../data/buildings';
+import { BUILDING_TYPES, MAX_LEVEL } from '../data/buildings';
 import { FACES } from '../types/ids';
 import { newSky, newThreats, SCHEMA_VERSION, soloTargets, type GameState } from '../sim/state';
 import { INCIDENT_KINDS, INCIDENTS, METEORS, THREATS } from '../data/threats';
@@ -131,7 +131,7 @@ export const gameStateSchema = z.object({
       type: z.enum(BUILDING_TYPES),
       q: z.number().int(),
       r: z.number().int(),
-      level: z.number().int().min(1).max(3),
+      level: z.number().int().min(1).max(MAX_LEVEL),
       richness: z.number(),
       builtAt: z.number(),
       pool: z.object({ stock: z.number().min(0), tiles: z.array(z.string()).max(64) }).optional(),
@@ -190,7 +190,7 @@ export const gameStateSchema = z.object({
       q: z.number().int(),
       r: z.number().int(),
       buildingId: id.nullable(),
-      targetLevel: z.number().int().min(1).max(3),
+      targetLevel: z.number().int().min(1).max(MAX_LEVEL),
       richness: z.number(),
       durationMs: z.number(),
       startedAt: z.number().nullable(),

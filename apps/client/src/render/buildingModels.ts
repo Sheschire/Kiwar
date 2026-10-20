@@ -14,7 +14,7 @@ import {
   Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { shipIdForPad, type BuildingType, type ShipId } from '@kiwar/shared';
+import { shipIdForAge, type BuildingType, type ShipId } from '@kiwar/shared';
 import type { ParticleKind } from './particles';
 
 /**
@@ -48,6 +48,10 @@ const C = {
   flagBlue: '#5b8fd6',
   flagGold: '#f2c14e',
   white: '#fbf6ea',
+  iron: '#7d858c',
+  ironDark: '#50575d',
+  brick: '#a2533b',
+  fire: '#ff9a3c',
 } as const;
 
 /** Geometry, colour, transform, and the rig it belongs to (none = static). */
@@ -578,7 +582,7 @@ export function bird(p: Parts, gen: ShipId, docked: boolean): void {
 }
 
 /** Launch platform; the mechanical kiwi bird is drawn only while it is docked. */
-function launchpad(level: number, docked = true): Parts {
+function launchpad(level: number, age = 0, docked = true): Parts {
   const p: Parts = [];
   const s = 0.9 + level * 0.08;
   p.push([cyl(14), C.wood, m(0, 0.06, 0, 0.62 * s, 0.12, 0.62 * s)]);
@@ -587,7 +591,7 @@ function launchpad(level: number, docked = true): Parts {
   p.push([box(), C.woodDark, m(-0.5 * s, 0.55, -0.1, 0.06, 1.0, 0.06)]);
   p.push([box(), C.woodDark, m(-0.5 * s, 0.55, 0.12, 0.06, 1.0, 0.06)]);
   for (const y of [0.35, 0.7]) p.push([box(), C.wood, m(-0.42 * s, y, 0.01, 0.2, 0.04, 0.26)]);
-  if (docked) bird(p, shipIdForPad(level), true);
+  if (docked) bird(p, shipIdForAge(age), true);
   flag(p, level, 0.5, 0.12, 0.35);
   return p;
 }
@@ -788,7 +792,65 @@ function library(level: number): Parts {
   return p;
 }
 
-const BUILDERS: Record<BuildingType, (level: number) => Parts> = {
+/**
+ * Monument (chantier 08), one level per age: a ring of standing stones (Stone age), a forge
+ * and iron bands (Iron age), then a clock tower with turning gears and steam (Industry).
+ */
+function monument(level: number): Parts {
+  const p: Parts = [];
+  p.push([cyl(14), C.stoneDark, m(0, 0.03, 0, 0.62, 0.06, 0.62)]);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + 0.3;
+    const h = 0.32 + (i % 2) * 0.08;
+    p.push([
+      box(),
+      C.stone,
+      m(Math.cos(a) * 0.5, h / 2 + 0.05, Math.sin(a) * 0.5, 0.1, h, 0.08, 0, -a, 0.05),
+    ]);
+  }
+  // The great menhir with a carved kiwi and a juice-green glow.
+  p.push([box(), C.stone, m(0, 0.45, 0, 0.2, 0.8, 0.16, 0, 0.2, 0)]);
+  p.push([cone(4), C.stone, m(0, 0.92, 0, 0.13, 0.16, 0.1, 0, Math.PI / 4 + 0.2, 0)]);
+  p.push([sphere(8, 6), C.juice, m(0.03, 0.55, 0.08, 0.05, 0.05, 0.02)]);
+  emitter(p, { kind: 'gold', at: [0, 0.7, 0.1], rate: 0.6, ambient: true });
+  if (level >= 2) {
+    for (const y of [0.25, 0.65])
+      p.push([cyl(10), C.ironDark, m(0, y, 0, 0.16, 0.04, 0.13, 0, 0.2, 0)]);
+    // Forge with a living fire and an anvil.
+    p.push([box(), C.brick, m(-0.32, 0.14, 0.28, 0.24, 0.2, 0.2)]);
+    rig(p, 'fire', [-0.32, 0.26, 0.28], { kind: 'flicker', amount: 0.25, speed: 4, ambient: true });
+    p.push([cone(6), C.fire, m(-0.32, 0.3, 0.28, 0.08, 0.12, 0.08), 'fire']);
+    emitter(p, { kind: 'spark', at: [-0.32, 0.36, 0.28], rate: 1.5, ambient: true });
+    p.push([box(), C.iron, m(0.3, 0.12, 0.3, 0.16, 0.06, 0.08)]);
+    p.push([box(), C.ironDark, m(0.3, 0.06, 0.3, 0.06, 0.08, 0.06)]);
+  }
+  if (level >= 3) {
+    // Clock tower with a turning gear and a smoking chimney.
+    const tx = 0.32;
+    const tz = -0.3;
+    p.push([box(), C.brick, m(tx, 0.45, tz, 0.2, 0.8, 0.2)]);
+    p.push([cone(4), C.ironDark, m(tx, 0.98, tz, 0.18, 0.26, 0.18, 0, Math.PI / 4, 0)]);
+    p.push([cyl(12), C.white, m(tx, 0.68, tz + 0.105, 0.07, 0.01, 0.07, Math.PI / 2)]);
+    rig(p, 'gear', [tx - 0.105, 0.45, tz], {
+      kind: 'spin',
+      axis: 'x',
+      amount: 1,
+      speed: 0.8,
+      ambient: true,
+    });
+    p.push([
+      new TorusGeometry(1, 0.35, 4, 8),
+      C.iron,
+      m(tx - 0.105, 0.45, tz, 0.07, 0.07, 0.07, 0, Math.PI / 2, 0),
+      'gear',
+    ]);
+    p.push([cyl(8), C.ironDark, m(-0.3, 0.5, -0.32, 0.05, 0.9, 0.05)]);
+    emitter(p, { kind: 'smoke', at: [-0.3, 0.98, -0.32], rate: 1.2, ambient: true });
+  }
+  return p;
+}
+
+const BUILDERS: Record<BuildingType, (level: number, age: number) => Parts> = {
   camp,
   launchpad,
   nest,
@@ -800,6 +862,7 @@ const BUILDERS: Record<BuildingType, (level: number) => Parts> = {
   warehouse,
   school,
   library,
+  monument,
   seedTurret,
   skyTurret,
 };
@@ -807,9 +870,9 @@ const BUILDERS: Record<BuildingType, (level: number) => Parts> = {
 const cache = new Map<string, BufferGeometry>();
 const models = new Map<string, BuildingModel>();
 
-function partsOf(type: BuildingType, level: number, shipAway: boolean): Parts {
+function partsOf(type: BuildingType, level: number, shipAway: boolean, age: number): Parts {
   const lvl = Math.max(1, Math.min(3, level));
-  return type === 'launchpad' && shipAway ? launchpad(lvl, false) : BUILDERS[type](lvl);
+  return type === 'launchpad' && shipAway ? launchpad(lvl, age, false) : BUILDERS[type](lvl, age);
 }
 
 /** The whole model merged in its rest pose (construction ghosts). */
@@ -817,22 +880,28 @@ export function buildingGeometry(
   type: BuildingType,
   level: number,
   shipAway = false,
+  age = 0,
 ): BufferGeometry {
-  const key = `${type}:${level}${shipAway ? ':away' : ''}`;
+  const key = `${type}:${level}:${age}${shipAway ? ':away' : ''}`;
   let g = cache.get(key);
   if (!g) {
-    g = bake(partsOf(type, level, shipAway));
+    g = bake(partsOf(type, level, shipAway, age));
     cache.set(key, g);
   }
   return g;
 }
 
 /** Static geometry plus the animated rigs of a building. */
-export function buildingModel(type: BuildingType, level: number, shipAway = false): BuildingModel {
-  const key = `${type}:${level}${shipAway ? ':away' : ''}`;
+export function buildingModel(
+  type: BuildingType,
+  level: number,
+  shipAway = false,
+  age = 0,
+): BuildingModel {
+  const key = `${type}:${level}:${age}${shipAway ? ':away' : ''}`;
   let model = models.get(key);
   if (!model) {
-    model = modelOf(partsOf(type, level, shipAway));
+    model = modelOf(partsOf(type, level, shipAway, age));
     models.set(key, model);
   }
   return model;

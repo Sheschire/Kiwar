@@ -6,6 +6,7 @@ import type { TimeMs } from '../types/ids';
 import type { GameEvent } from './advance';
 import { seasonOf } from './calendar';
 import { nest } from './selectors';
+import { ageOf } from './research';
 import { withThreatRng, type Building, type GameState, type Meteor } from './state';
 import { baseHarvest, catchmentRadius, faceMapOf, isFlooded, type Harvest } from './territory';
 
@@ -16,8 +17,9 @@ const EPS = 1e-6;
 export function meteorStock(state: GameState, at: TimeMs): number {
   const f = METEORS.nestFactor;
   const factor = f[Math.min(nest(state).level, f.length - 1)] ?? 1;
+  const age = METEORS.ageFactor[ageOf(state)] ?? 1;
   const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY));
-  return Math.round(METEORS.stock * factor * (1 + METEORS.perDay * days));
+  return Math.round(METEORS.stock * factor * age * (1 + METEORS.perDay * days));
 }
 
 /**

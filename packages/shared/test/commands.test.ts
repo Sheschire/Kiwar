@@ -97,7 +97,7 @@ describe('commands', () => {
     ).toBe('buildingLimit');
   });
 
-  it('gates level 3 behind nest level 2 and caps at level 3', () => {
+  it('gates level 3 behind nest level 2, and level 4 behind the Stone age', () => {
     const { map, state } = setup();
     let s = rich(state);
     const flesh = findTile(map, 'flesh');
@@ -121,7 +121,7 @@ describe('commands', () => {
     s = advance(s, t).state;
     expect(s.buildings.find((b) => b.type === 'pulpery')!.level).toBe(3);
     expect(validateCommand(s, { type: 'upgrade', buildingId: id() }, { now: t, map })).toBe(
-      'maxLevel',
+      'ageTooLow',
     );
   });
 

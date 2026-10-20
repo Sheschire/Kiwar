@@ -15,6 +15,7 @@ export const BUILDING_TYPES = [
   'launchpad',
   'school',
   'library',
+  'monument',
   'camp',
   'seedTurret',
   'skyTurret',
@@ -27,6 +28,8 @@ export interface BuildingLevelDef {
   durationMs: number;
   /** Required Nest level to start this level. */
   requiresNestLevel: number;
+  /** Required age (index in AGE_IDS) to start this level (chantier 08: levels 4–6). */
+  requiresAge?: number;
   /** Output per hour at full staffing, before tile richness and face multipliers. */
   production?: Partial<Resources>;
   /** Output per hour that needs no workers (the Nest). */
@@ -61,11 +64,8 @@ export interface BuildingDef {
   copyGrowth: number;
 }
 
-/**
- * Pacing: level 1 takes seconds, level 2 a few minutes, level 3 a quarter of an hour or more.
- * Tune the economy here (and check the result with `pnpm balance`).
- */
-export const BUILDINGS: Record<BuildingType, BuildingDef> = {
+/** Levels 1–3 (Eden); levels 4–6 are grown from them by `withAgeLevels`. */
+const BASE: Record<BuildingType, BuildingDef> = {
   nest: {
     id: 'nest',
     allowedTiles: ['heart'],
@@ -352,6 +352,31 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
       },
     ],
   },
+  // Chantier 08: one monument per colony; each level opens an age (Stone, Iron, Industry) once
+  // its passage technology is researched. Outside the building cap, never demolished.
+  monument: {
+    id: 'monument',
+    allowedTiles: ['flesh', 'ray', 'heart'],
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 2000, fiber: 2000, seeds: 400, juice: 600 },
+        durationMs: ms.h(2),
+        requiresNestLevel: 3,
+      },
+      {
+        cost: { pulp: 6000, fiber: 6000, seeds: 1500, juice: 2000 },
+        durationMs: ms.h(5),
+        requiresNestLevel: 4,
+      },
+      {
+        cost: { pulp: 15000, fiber: 15000, seeds: 4000, juice: 5000 },
+        durationMs: ms.h(10),
+        requiresNestLevel: 5,
+      },
+    ],
+  },
   // Gathering camp (milestone 4): set up instantly and for free with the `gather` command,
   // outside the building cap. Its harvest depends on the tile (see CAMPS).
   camp: {
@@ -424,13 +449,110 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   },
 };
 
+/** How levels 4–6 grow from the level before (one level per age reached, chantier 08). */
+interface AgeGrowth {
+  cost: number;
+  time: number;
+  /** Production, passive production, research and defense. */
+  output: number;
+  workerSlots?: number;
+  housing?: number;
+  storage?: number;
+  cargo?: number;
+  travelTime?: number;
+  ammo?: number;
+  maxBuildings?: number;
+  queueSize?: number;
+  trainingSlots?: number;
+  trainingTime?: number;
+}
+
+const DEFAULT_GROWTH: AgeGrowth = { cost: 2.4, time: 1.6, output: 1.5 };
+
+const AGE_GROWTH: Partial<Record<BuildingType, AgeGrowth>> = {
+  nest: { ...DEFAULT_GROWTH, output: 1.3, housing: 2, storage: 1.9, maxBuildings: 4, queueSize: 1 },
+  pulpery: { ...DEFAULT_GROWTH, workerSlots: 1 },
+  fiberWorkshop: { ...DEFAULT_GROWTH, workerSlots: 1 },
+  juiceWell: { ...DEFAULT_GROWTH, workerSlots: 1 },
+  seedQuarry: { ...DEFAULT_GROWTH, workerSlots: 1 },
+  hut: { ...DEFAULT_GROWTH, housing: 2 },
+  warehouse: { ...DEFAULT_GROWTH, storage: 1.9 },
+  launchpad: { ...DEFAULT_GROWTH, cargo: 200, travelTime: 0.9 },
+  school: { ...DEFAULT_GROWTH, trainingSlots: 1, trainingTime: 0.9 },
+  library: { ...DEFAULT_GROWTH, output: 1.2, workerSlots: 1 },
+  seedTurret: { ...DEFAULT_GROWTH, ammo: 1.4 },
+  skyTurret: { ...DEFAULT_GROWTH, ammo: 1.4 },
+};
+
+const round = (v: number, step: number) => Math.round(v / step) * step;
+
+function scaled<T extends string>(
+  values: Partial<Record<T, number>> | undefined,
+  k: number,
+  step: number,
+): Partial<Record<T, number>> | undefined {
+  if (!values) return undefined;
+  const out: Partial<Record<T, number>> = {};
+  for (const [key, v] of Object.entries(values) as [T, number][]) out[key] = round(v * k, step);
+  return out;
+}
+
+/** Levels 4–6: each needs the next age, and the Nest of the same level (the Nest itself: its
+ * previous level). */
+function withAgeLevels(def: BuildingDef): BuildingDef {
+  const g = AGE_GROWTH[def.id];
+  if (!g) return def;
+  const levels = [...def.levels];
+  for (let age = 1; age <= 3; age++) {
+    const prev = levels[levels.length - 1]!;
+    const level = levels.length + 1;
+    const next: BuildingLevelDef = {
+      cost: scaled(prev.cost, g.cost, 10)!,
+      durationMs: round(prev.durationMs * g.time, 1000),
+      requiresNestLevel: def.id === 'nest' ? level - 1 : level,
+      requiresAge: age,
+    };
+    if (prev.production) next.production = scaled(prev.production, g.output, 10);
+    if (prev.passiveProduction)
+      next.passiveProduction = scaled(prev.passiveProduction, g.output, 10);
+    if (prev.workerSlots) next.workerSlots = prev.workerSlots + (g.workerSlots ?? 0);
+    if (prev.housing !== undefined) next.housing = prev.housing + (g.housing ?? 0);
+    if (prev.storage !== undefined) next.storage = round(prev.storage * (g.storage ?? 1), 50);
+    if (prev.cargo !== undefined) next.cargo = prev.cargo + (g.cargo ?? 0);
+    if (prev.travelTime !== undefined)
+      next.travelTime = Math.round(prev.travelTime * (g.travelTime ?? 1) * 100) / 100;
+    if (prev.trainingSlots !== undefined)
+      next.trainingSlots = prev.trainingSlots + (g.trainingSlots ?? 0);
+    if (prev.trainingTime !== undefined)
+      next.trainingTime = Math.round(prev.trainingTime * (g.trainingTime ?? 1) * 100) / 100;
+    if (prev.research !== undefined) next.research = round(prev.research * g.output, 1);
+    if (prev.defense) next.defense = scaled(prev.defense, g.output, 1);
+    if (prev.ammo !== undefined) next.ammo = round(prev.ammo * (g.ammo ?? 1), 5);
+    if (prev.maxBuildings !== undefined)
+      next.maxBuildings = prev.maxBuildings + (g.maxBuildings ?? 0);
+    if (prev.queueSize !== undefined)
+      next.queueSize = prev.queueSize + (age === 2 ? 0 : (g.queueSize ?? 0));
+    levels.push(next);
+  }
+  return { ...def, levels };
+}
+
+/**
+ * Pacing: level 1 takes seconds, level 2 a few minutes, level 3 a quarter of an hour or more;
+ * levels 4–6 come with the ages (hours). Tune the economy here (check with `pnpm balance`).
+ */
+export const BUILDINGS: Record<BuildingType, BuildingDef> = Object.fromEntries(
+  Object.entries(BASE).map(([id, def]) => [id, withAgeLevels(def)]),
+) as Record<BuildingType, BuildingDef>;
+
 export const TURRET_TYPES = ['seedTurret', 'skyTurret'] as const satisfies readonly BuildingType[];
 
 export function isTurret(type: BuildingType): boolean {
   return (TURRET_TYPES as readonly BuildingType[]).includes(type);
 }
 
-export const MAX_LEVEL = 3;
+/** Highest level of any building (the last age). */
+export const MAX_LEVEL = 6;
 
 /** Highest level a building type can reach (camps have a single level). */
 export function maxLevelOf(type: BuildingType): number {

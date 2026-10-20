@@ -29,7 +29,7 @@ import {
   idleVillagers,
   isObjectiveComplete,
   logisticsEfficiency,
-  MAX_LEVEL,
+  maxLevelNow,
   nest,
   nestDef,
   newGame,
@@ -241,7 +241,7 @@ function decide(state: GameState, map: FaceMap): Command[] {
       .sort((a, b) => a.level - b.level)[0];
     if (
       hut &&
-      hut.level < MAX_LEVEL &&
+      hut.level < maxLevelNow(state, hut.type) &&
       !pendingUpgrade(state, hut.id) &&
       hut.level < nest(state).level + 1
     ) {
@@ -262,7 +262,7 @@ function decide(state: GameState, map: FaceMap): Command[] {
   // 3. Nest upgrade whenever affordable.
   const n = nest(state);
   if (
-    n.level < MAX_LEVEL &&
+    n.level < maxLevelNow(state, n.type) &&
     !pendingUpgrade(state, n.id) &&
     canAfford(state.resources, upgradeCost('nest', n.level + 1))
   ) {
@@ -276,7 +276,7 @@ function decide(state: GameState, map: FaceMap): Command[] {
     const wh = state.buildings
       .filter((b) => b.type === 'warehouse')
       .sort((a, b) => a.level - b.level)[0];
-    if (wh && wh.level < MAX_LEVEL && !pendingUpgrade(state, wh.id))
+    if (wh && wh.level < maxLevelNow(state, wh.type) && !pendingUpgrade(state, wh.id))
       return [...cmds, { type: 'upgrade', buildingId: wh.id }];
   }
 
@@ -301,7 +301,7 @@ function decide(state: GameState, map: FaceMap): Command[] {
       .filter(
         (b) =>
           b.type === type &&
-          b.level < MAX_LEVEL &&
+          b.level < maxLevelNow(state, b.type) &&
           !pendingUpgrade(state, b.id) &&
           buildingHarvest(state, b, () => false)?.status !== 'depleted',
       )
@@ -318,7 +318,7 @@ function decide(state: GameState, map: FaceMap): Command[] {
   }
   // 6. Then anything else that is not maxed (huts, warehouses).
   for (const b of state.buildings) {
-    if (b.level < MAX_LEVEL && !pendingUpgrade(state, b.id))
+    if (b.level < maxLevelNow(state, b.type) && !pendingUpgrade(state, b.id))
       cmds.push({ type: 'upgrade', buildingId: b.id });
   }
   return cmds;
@@ -395,7 +395,10 @@ function turretDecision(
       ? 'skyTurret'
       : 'seedTurret';
   const weakest = turrets
-    .filter((b) => b.type === type && b.level < MAX_LEVEL && !pendingUpgrade(state, b.id))
+    .filter(
+      (b) =>
+        b.type === type && b.level < maxLevelNow(state, b.type) && !pendingUpgrade(state, b.id),
+    )
     .sort((a, b) => a.level - b.level)[0];
   if (weakest && weakest.level < nest(state).level)
     return affordable({ type: 'upgrade', buildingId: weakest.id });
@@ -483,7 +486,7 @@ function checkMilestones(
     'allLevel3',
     // Economy buildings (the bot does not play expeditions yet).
     (['nest', ...BUILD_ORDER] as BuildingType[]).every((type) =>
-      state.buildings.some((b) => b.type === type && b.level >= MAX_LEVEL),
+      state.buildings.some((b) => b.type === type && b.level >= 3),
     ),
   );
 }

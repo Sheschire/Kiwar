@@ -1,6 +1,10 @@
 import {
   AGE_IDS,
   ageOf,
+  hasTech,
+  MAX_AGE,
+  PASSAGE_TECHS,
+  shipIdForAge,
   libraryLevel,
   RESEARCH_SCALE,
   researchBank,
@@ -108,6 +112,37 @@ function TechCard({ game, id, t }: { game: GameState; id: TechId; t: Translate }
   );
 }
 
+/** The age of the colony and how to reach the next one (monument sheet, research screen). */
+export function AgeInfo({ game, t }: { game: GameState; t: Translate }) {
+  const age = ageOf(game);
+  const next = age + 1;
+  return (
+    <div class="age-info">
+      <p>
+        <strong>{t('ages.current', { age: `@ages.${AGE_IDS[age]!}` })}</strong>
+      </p>
+      {age >= MAX_AGE ? (
+        <p class="small muted">{t('ages.last')}</p>
+      ) : (
+        <>
+          <p class="small">
+            {t('ages.next', { age: `@ages.${AGE_IDS[next]!}` })} ·{' '}
+            {hasTech(game, PASSAGE_TECHS[next]!)
+              ? t('ages.passageDone', { tech: `@techs.${PASSAGE_TECHS[next]!}.name` })
+              : t('ages.steps', { tech: `@techs.${PASSAGE_TECHS[next]!}.name` })}
+          </p>
+          <p class="small muted">
+            {t('ages.opens', {
+              level: next + 3,
+              ship: `@ages.ships.${shipIdForAge(next)}`,
+            })}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** Chantier 08: the technology tree, one row per age. */
 export function ResearchModal() {
   const t = useT();
@@ -117,6 +152,7 @@ export function ResearchModal() {
   const age = ageOf(game);
   return (
     <Modal title={t('research.title')} onClose={close} class="modal-wide modal-research">
+      <AgeInfo game={game} t={t} />
       <ResearchSummary game={game} t={t} />
       {AGE_IDS.map((id, i) => (
         <section key={id} class={`age-row ${i > age ? 'is-later' : ''}`}>

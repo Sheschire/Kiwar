@@ -30,6 +30,7 @@ import { faceMapOf, harvestOf, type Harvest } from './territory';
 import { regenBonus, workforce } from './kiwis';
 import { seasonEffects } from '../data/cycles';
 import { consumption } from './needs';
+import { ageOf } from './research';
 import { seasonOf } from './calendar';
 
 export const HOUR_MS = 3_600_000;
@@ -220,7 +221,8 @@ export function pathLimit(state: GameState): number {
 
 /** Buildings counted against the Nest cap (camps and turrets are outside it). */
 export function buildingCount(state: GameState): number {
-  const counted = (t: BuildingType) => t !== 'nest' && t !== 'camp' && !isTurret(t);
+  const counted = (t: BuildingType) =>
+    t !== 'nest' && t !== 'camp' && t !== 'monument' && !isTurret(t);
   return (
     state.buildings.filter((b) => counted(b.type)).length +
     state.queue.filter((i) => i.kind === 'build' && counted(i.buildingType)).length
@@ -332,6 +334,15 @@ export function repairDuration(b: Building): number {
 
 export function isMaxLevel(b: Building): boolean {
   return b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type));
+}
+
+/** Highest level a building type can reach in the colony's current age. */
+export function maxLevelNow(state: GameState, type: BuildingType): number {
+  const age = ageOf(state);
+  const levels = BUILDINGS[type].levels;
+  let max = 0;
+  while (max < levels.length && (levels[max]!.requiresAge ?? 0) <= age) max++;
+  return max;
 }
 
 export function eggCost(state: GameState): ResourceCost {

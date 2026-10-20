@@ -9,7 +9,7 @@ import type { Odds } from './expeditions';
 import { removeVillagers } from './expeditions';
 import { kiwiExposure, kiwiStrength } from './kiwis';
 import { nest } from './selectors';
-import { techEffects } from './research';
+import { ageOf, techEffects } from './research';
 import {
   withThreatRng,
   type GameState,
@@ -36,7 +36,8 @@ export function wavePower(state: GameState, at: TimeMs): number {
   const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY));
   const victories = Object.values(state.victories).reduce((a, b) => a + b, 0);
   const provocation = Math.min(THREATS.maxProvocation, THREATS.perVictory * victories);
-  return THREATS.basePower * factor * (1 + THREATS.perDay * days) * (1 + provocation);
+  const age = THREATS.ageFactor[ageOf(state)] ?? 1;
+  return THREATS.basePower * factor * age * (1 + THREATS.perDay * days) * (1 + provocation);
 }
 
 /** Ground / air split of a wave striking at `at` (night bats, winter ferrets, biome). */
@@ -202,7 +203,9 @@ export function waveOutcome(
 
 /** Buildings predators can damage (never the Nest, nor camps, nor what is already broken). */
 function damageable(state: GameState) {
-  return state.buildings.filter((b) => b.type !== 'nest' && b.type !== 'camp' && !b.damaged);
+  return state.buildings.filter(
+    (b) => b.type !== 'nest' && b.type !== 'camp' && b.type !== 'monument' && !b.damaged,
+  );
 }
 
 // ---------------------------------------------------------------------------------------------

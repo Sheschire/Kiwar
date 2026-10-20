@@ -1,4 +1,4 @@
-import type { GameEvent } from '@kiwar/shared';
+import { AGE_IDS, type GameEvent } from '@kiwar/shared';
 import type { GameRenderer } from '../render/GameRenderer';
 import { pushToast, uiStore } from '../ui/store';
 import { playGameEventSounds } from '../audio/sounds';
@@ -23,6 +23,9 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         if (e.shiny)
           pushToast('success', 'events.shinyHatched', { name: e.name, color: `@shiny.${e.shiny}` });
         else pushToast('success', 'egg.hatched', { name: e.name });
+        break;
+      case 'ageReached':
+        pushToast('success', 'events.ageReached', { age: `@ages.${AGE_IDS[e.age]!}` });
         break;
       case 'researchDone':
         pushToast('success', 'events.researchDone', { tech: `@techs.${e.tech}.name` });

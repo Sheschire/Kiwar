@@ -211,6 +211,10 @@ export const en = {
       name: 'School',
       desc: 'Teaches classes to experienced kiwis: builder, warrior, mayor, then mage and scout.',
     },
+    monument: {
+      name: 'Monument',
+      desc: 'The pride of the colony: each level opens a new age, once its passage is researched.',
+    },
     library: {
       name: 'Library',
       desc: 'Kiwis with a keen Spirit research new techniques here. Choose who studies.',
@@ -228,6 +232,7 @@ export const en = {
     maxLevel: 'Maximum level',
     upgrading: 'Upgrading to level {level}…',
     needsNest: 'Requires Nest level {level}',
+    needsAge: 'Requires: {age}',
     limits: 'Buildings {count}/{max} · Queue {queue}',
     addWorker: 'Add a worker',
     removeWorker: 'Remove a worker',
@@ -381,6 +386,7 @@ export const en = {
     starved: '{name} starved to death…',
     repaired: '{name} is repaired.',
     researchDone: 'Research complete: {tech}!',
+    ageReached: 'A new age begins: {age}!',
   },
   needs: {
     stages: {
@@ -500,6 +506,9 @@ export const en = {
     techDone: 'Already researched.',
     techAgeLocked: 'Belongs to a later age.',
     libraryTooLow: 'Needs a higher-level Library.',
+    ageTooLow: 'This level belongs to a later age.',
+    passageMissing: 'Research the passage to the next age first.',
+    monumentExists: 'The colony already has its monument.',
   },
   offline: {
     title: 'While you were away…',
@@ -907,6 +916,13 @@ export const en = {
     stone: 'Stone age',
     iron: 'Iron age',
     industry: 'Industrial age',
+    current: 'Age: {age}',
+    next: 'Next: {age}',
+    steps: 'Research “{tech}” at the Library, then raise the monument.',
+    passageDone: '“{tech}” is known: the monument can be raised.',
+    opens: 'Opens building level {level}, the {ship} ship and stronger gifts — and predators.',
+    last: 'The colony has reached the last age for now.',
+    ships: { wood: 'wooden', logs: 'log', iron: 'iron', jet: 'jet' },
   },
   branches: {
     economy: 'Economy',

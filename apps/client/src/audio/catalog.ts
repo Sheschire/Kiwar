@@ -130,6 +130,12 @@ export const SOUND_EVENTS = {
     synth: 'discovery',
     default: { sources: ['synth:discovery'], cooldownMs: 1500, volume: 0.7 },
   },
+  'age.reached': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'fanfare',
+    default: { sources: ['synth:fanfare'], cooldownMs: 3000, volume: 0.9 },
+  },
   'kiwi.shiny': {
     bus: 'sfx',
     group: 'colony',

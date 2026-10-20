@@ -8,7 +8,7 @@ import { RESOURCE_IDS } from '../data/resources';
 import { KIWI, MASTERY_IDS, STAT_IDS } from '../data/kiwis';
 import { CLASSES, SKILLS } from '../data/classes';
 import { levelForXp } from '../sim/kiwis';
-import { RESEARCH_SCALE, TECHS } from '../data/research';
+import { PASSAGE_TECHS, RESEARCH_SCALE, TECHS } from '../data/research';
 import { ageOf, libraries } from '../sim/research';
 import { deserializeSave, migrateState } from '../save/save';
 import { advance, type GameEvent } from '../sim/advance';
@@ -296,7 +296,7 @@ export function isPlausible(state: GameState, now: number): boolean {
     (v) => v.classId === 'mayor' || (v.job.kind === 'train' && v.job.classId === 'mayor'),
   );
   if (mayors.length > 1 || state.speechUntil > state.now + SKILLS.speechMs * 2) return false;
-  if (!plausibleResearch(state)) return false;
+  if (!plausibleResearch(state) || !plausibleAge(state)) return false;
   return state.villagers.every((v) => plausibleKiwi(v, state.now));
 }
 
@@ -317,6 +317,15 @@ function plausibleResearch(state: GameState): boolean {
   const earned = r.done.reduce((sum, id) => sum + TECHS[id].cost, 0) + r.points / RESEARCH_SCALE;
   const hours = Math.max(0, state.now - state.createdAt) / 3_600_000;
   return earned <= perHour * MAX_RESEARCH_POWER * hours + 1;
+}
+
+/** Ages (chantier 08): one monument, each level earned by its passage technology. */
+function plausibleAge(state: GameState): boolean {
+  const monuments = state.buildings.filter((b) => b.type === 'monument');
+  if (monuments.length > 1) return false;
+  const age = ageOf(state);
+  for (let a = 1; a <= age; a++) if (!state.research.done.includes(PASSAGE_TECHS[a]!)) return false;
+  return state.buildings.every((b) => (levelDef(b.type, b.level)?.requiresAge ?? 0) <= age);
 }
 
 /** Best research power of a kiwi (Spirit cap, mastery rank 10, mage, dreamer), rounded up. */

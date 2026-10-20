@@ -252,6 +252,45 @@ export const SYNTH_PRESETS = {
     ],
     peak: 0.4,
   },
+  // A new age: a short brass-like fanfare over a low drum.
+  fanfare: {
+    tones: [
+      { wave: 'sine', freq: 90, freqEnd: 50, attack: 0.005, decay: 0.5, gain: 0.8 },
+      {
+        wave: 'saw',
+        freq: C5,
+        start: 0.05,
+        attack: 0.02,
+        hold: 0.12,
+        decay: 0.2,
+        lowpass: 2200,
+        gain: 0.35,
+      },
+      {
+        wave: 'saw',
+        freq: G5,
+        start: 0.25,
+        attack: 0.02,
+        hold: 0.12,
+        decay: 0.2,
+        lowpass: 2400,
+        gain: 0.35,
+      },
+      {
+        wave: 'saw',
+        freq: C6,
+        start: 0.45,
+        attack: 0.02,
+        hold: 0.35,
+        decay: 0.9,
+        lowpass: 2600,
+        gain: 0.4,
+      },
+      { wave: 'triangle', freq: E5, start: 0.45, attack: 0.02, hold: 0.35, decay: 0.9, gain: 0.3 },
+      { wave: 'noise', freq: 0, start: 0.45, attack: 0.3, decay: 1.2, gain: 0.1, lowpass: 9000 },
+    ],
+    peak: 0.5,
+  },
   shiny: {
     tones: [
       ...[0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({

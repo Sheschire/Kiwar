@@ -5,13 +5,13 @@ import {
   RECON,
   SHIP_REPAIR,
   SHIPS,
-  shipIdForPad,
+  shipIdForAge,
   type ShipDef,
 } from '../data/expeditions';
 import { emptyResources, RESOURCE_IDS, type Resources } from '../data/resources';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
 import { getBuilding, HOUR_MS, idleVillagers, workersOf } from './selectors';
-import { techEffects } from './research';
+import { ageOf, techEffects } from './research';
 import {
   withRng,
   type Building,
@@ -93,9 +93,14 @@ export function launchpadOf(state: GameState, id: BuildingId): Building | undefi
   return b?.type === 'launchpad' ? b : undefined;
 }
 
-/** The ship of a launchpad: single entry point for the ages of chantier 08. */
-export function shipOf(launchpad: Building): ShipDef {
-  return SHIPS[shipIdForPad(launchpad.level)];
+/**
+ * The colony's ship: its generation follows the age (the launchpad level gives the cargo and
+ * the speed); technologies add armour and better reconnaissance.
+ */
+export function shipOf(state: GameState): ShipDef {
+  const ship = SHIPS[shipIdForAge(ageOf(state))];
+  const tech = techEffects(state);
+  return { ...ship, armor: ship.armor + tech.armor, recon: ship.recon + tech.recon };
 }
 
 /** Ship reliability, mended on the way by the crew's best Dexterity. */
@@ -276,7 +281,7 @@ export function forecastExpedition(
   const kiwisWeight = crewWeight(crew);
   const weight =
     kiwisWeight + (plan.provisions.pulp + plan.provisions.juice) * EXPEDITIONS.resourceWeight;
-  const ship = shipOf(pad);
+  const ship = shipOf(state);
   const expectedLosses =
     guess === null
       ? 0
@@ -362,7 +367,7 @@ export function launch(
   state.resources.juice -= plan.provisions.juice;
   const travelMs = travelTime(target, pad, crew, mission, techEffects(state).travel);
   // A breakdown is drawn at take-off: the ship turns back half-way.
-  const broken = withRng(state, (rng) => !rng.chance(shipReliability(shipOf(pad), crew)));
+  const broken = withRng(state, (rng) => !rng.chance(shipReliability(shipOf(state), crew)));
   const outMs = broken ? Math.round(travelMs / 2000) * 1000 : travelMs;
   const expedition: Expedition = {
     id,
@@ -439,7 +444,7 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   const strength = strengthOf(members, fed) * luck;
   const victory = strength >= defense;
   const pad = launchpadOf(state, e.launchpadId);
-  const armor = pad ? shipOf(pad).armor : 0;
+  const armor = pad ? shipOf(state).armor : 0;
   const losses = Math.min(
     e.crew.length,
     Math.round(e.crew.length * lossShare(strength, defense) * (1 - armor)),
@@ -497,7 +502,7 @@ function resolveRecon(
   members: Villager[],
   fed: number,
 ): void {
-  const f = reconForecast(members);
+  const f = reconForecast(members, shipOf(state));
   const spotted = withRng(state, (rng) => rng.chance(f.spotChance));
   let strength = 0;
   let lost: VillagerId[] = [];

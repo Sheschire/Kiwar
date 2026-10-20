@@ -139,8 +139,9 @@ export type GameEvent =
     }
   | { type: 'meteorLanded'; at: TimeMs; q: number; r: number; resource: ResourceId; stock: number }
   | { type: 'meteorFaded'; at: TimeMs; q: number; r: number; resource: ResourceId }
-  /** Chantier 08: a technology is researched. */
+  /** Chantier 08: a technology is researched; the monument opens a new age. */
   | { type: 'researchDone'; at: TimeMs; tech: TechId }
+  | { type: 'ageReached'; at: TimeMs; age: number }
   | {
       type: 'repaired';
       at: TimeMs;
@@ -515,6 +516,8 @@ function completeConstruction(s: GameState, at: TimeMs, events: GameEvent[]): vo
     q: item.q,
     r: item.r,
   });
+  if (item.buildingType === 'monument')
+    events.push({ type: 'ageReached', at, age: item.targetLevel });
 
   // A brand-new workplace gets an idle kiwi automatically (autonomous villagers).
   if (

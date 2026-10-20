@@ -19,12 +19,9 @@ import { hungerWork } from './needs';
 import { bedsOf, moraleWork, presence } from './rest';
 import type { Building, GameState, Villager } from './state';
 
-/**
- * Age reached by the colony (index in AGE_IDS, 0 = Eden). Chantier 08, part 2 ties it to the
- * monument; until then every colony is in Eden.
- */
-export function ageOf(_state: GameState): number {
-  return 0;
+/** Age reached by the colony (index in AGE_IDS, 0 = Eden): the level of its monument. */
+export function ageOf(state: GameState): number {
+  return state.buildings.find((b) => b.type === 'monument')?.level ?? 0;
 }
 
 export function hasTech(state: GameState, id: TechId): boolean {
