@@ -1,5 +1,13 @@
 # Chantier 09 — Gestion des kiwis : affectation, priorités, tableau des postes
 
+> **Terminé (octobre 2026).** Fait : commande `assignKiwi` et « Affecter à… » depuis la fiche
+> (rendement et affinité par poste, échange si plein), navigation ◀ ▶ et balayage, liste des
+> ouvriers et « Remplacer par… » sur un bâtiment, onglet **Postes** et pastille « N sans
+> poste », drapeaux **cadenas** et **bâtisseur·euse prioritaire**, **bascule automatique** quand
+> un stock est plein et retour sous 90 %, kiwis libres placés par affinité. Détail dans
+> `docs/DECISIONS.md`. Reste : garnison d'urgence et réparations prioritaires, postes
+> génériques (chantier 12), le bot n'utilise pas ces outils.
+
 Refonte de l'affectation des kiwis issue des retours de partie d'octobre 2026.
 
 ## Intention du porteur

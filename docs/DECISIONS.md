@@ -953,3 +953,43 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
   visiting. Textures are cached per (level, upgradable); the sync signature includes the
   upgradable flag so resources arriving light the arrow. Tapping a badge selects its building;
   picking now skips hidden objects.
+
+## Chantier 09 — Kiwi management: assignment, priorities, job board
+
+- **Owner's answers**: a stock is "full" when its own stock reaches the shared storage cap (no
+  per-resource storage); redirected kiwis come back **automatically**; no generic posts
+  without a building for now (idea kept for chantier 12); the −/+ stepper stays next to the
+  new worker list; automatic moves only target producers (never the Library or the
+  garrison); assigning to a full post proposes a swap; any number of priority builders.
+- **Assign a given kiwi** (part 1): `assignKiwi {villagerId, buildingId | null, replace?}`.
+  A full building swaps with `replace`, else its least skilled worker; the swapped kiwi takes
+  the newcomer's former workplace (or `autoAssign` if it had none). Guards can be assigned
+  (they leave the rampart); expedition, School, vat, titan, injured and builders cannot
+  (`kiwiBusy`); Kikiwiwis never work (`kikiwiwiNoWork`). "Assign to…" is inline under the
+  sheet's actions (two taps), sorted by **affinity** = the kiwi's power at the post / the
+  colony's average power there; ×value green above the average, "Ideal for this kiwi" on the
+  best one. ◀ ▶ (and a touch swipe > 60 px, mostly horizontal) follow the list's sort, kept in
+  the store.
+- **Job board** (part 2): Posts tab of the village screen, one line per resource (+ research,
+  garrison, construction) with workers/places, output per hour and a status (storage full >
+  nobody > depleted > night). Top bar: "N without a post" on the population chip and a pill
+  (orange when producers have room) opening the board; harvesters under each resource chip.
+- **Flags** (part 3, save v18): `locked` (never borrowed as a builder, never redirected),
+  `builderPriority` (the fastest one at home, idle or at work, builds first and goes back to
+  its post), both optional fields set by `setKiwiFlags`.
+- **Redirection** (part 4): at a `storageFull` event (or a construction end while a stock is
+  full) the unlocked harvesters of that resource move to the free producer where their
+  affinity is best (ties: the least staffed), remembering `homeJob`. One harvester stays per
+  building **only for eaten resources** (pulp, juice: it covers the meals); fiber and seeds
+  have nobody to feed. Below 90 % of the storage (`JOBS.returnBelow`) they go back if there
+  is room and forget `homeJob` either way. Player commands never redirect (a kiwi placed on a
+  full stock stays there) but can bring kiwis home (spending). A kiwi moved by the player, or
+  leaving work (except as a builder), forgets `homeJob`. Exact offline: the return is
+  state-based (start of `advance`, each loop iteration, after commands) and the 90 % crossing
+  by eating is an event.
+- **Idle kiwis** (`autoAssign` → `autoPlace`): best affinity − 0.5 × staffing ratio
+  (`JOBS.ratioWeight`), a full stock only as a last resort.
+- **Balance**: 30 seeds × 72 h per biome before / after part 4: every milestone within 1 %
+  (the bot fills slots with `assignWorkers`, and its stocks rarely sit full while slots are
+  free). The pre-existing ⚠️ (Nest 3 and Library +45 % in the seed crown and lagoons, Kiwino
+  +21 %) is in the baseline too: not from this chantier.

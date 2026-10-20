@@ -42,7 +42,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | ✅      |
 | 07  | Vaisseau kiwi géant et exploration                                     | ✅      |
 | 08  | Âges, recherche contre nature, Kikiwiwis                               | ✅      |
-| 09  | Gestion des kiwis : affectation, priorités, tableau des postes         | à faire |
+| 09  | Gestion des kiwis : affectation, priorités, tableau des postes         | ✅      |
 | 10  | Confort visuel et performance (caméra, planète alien fixe, lenteurs)   | ✅      |
 | 11  | Lisibilité de la construction (icônes, avant/après, arbre)             | ✅      |
 | 12  | Logistique visible, vagues orientées, nuit plus courte                 | à faire |
@@ -50,12 +50,20 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 14  | Emporter sa colonie solo dans un univers existant                      | ✅      |
 | —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées   |
 
-**Prochaine conversation** : chantier 09 (gestion des kiwis : affectation, priorités, tableau
-des postes), voir [`docs/chantiers/09-gestion-kiwis.md`](chantiers/09-gestion-kiwis.md).
+**Prochaine conversation** : terminer le chantier 12 (logistique visible, vagues orientées, nuit
+plus courte ; commencé dans une autre conversation), puis le chantier 13 (comètes et poussière
+d'étoiles), voir [`docs/chantiers/`](chantiers/README.md).
 
 ## Dette et idées en attente
 
 - Le bot d'équilibrage n'utilise ni camps, ni chemins, ni expéditions.
+- Chantier 09 : pas encore de garnison d'urgence ni de réparateur·ice prioritaire (même principe
+  que le·la bâtisseur·euse prioritaire) ; pas de postes génériques pour les kiwis en trop ; le
+  bot n'utilise ni cadenas ni affectation kiwi par kiwi ; le rapport d'équilibrage (30 graines,
+  avant comme après le chantier) signale le Nid 3 et la Bibliothèque ~45 % plus lents en couronne
+  de pépins et en lagunes (Kiwino +21 %), contre ±5,6 % à la fin du chantier 08 : régression
+  venue d'un autre chantier, à diagnostiquer ; le rapport officiel 200 graines n'a pas été
+  régénéré.
 - Les camps posés sur le jus flottent un peu.
 - Pas de modération automatique du chat (signalements seulement).
 - Déménager un bâtiment (garder son niveau contre un coût) : écarté du chantier 01, à revoir.

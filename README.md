@@ -26,6 +26,15 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 > silhouette** visible de loin, et un **badge de niveau** (avec une flèche verte quand on peut
 > améliorer) s'affiche au zoom moyen, ou partout avec la touche L.
 >
+> **Chantier 09** — on gère ses kiwis un par un : depuis la fiche d'un kiwi, « Affecter à… »
+> liste chaque poste avec son rendement (le meilleur est mis en avant) et l'envoie en deux
+> taps, en échangeant sa place si le poste est plein ; flèches et balayage pour passer d'un
+> kiwi à l'autre. Un onglet **Postes** montre qui travaille où, ressource par ressource, et la
+> barre du haut affiche le nombre de kiwis **sans poste**. Un **cadenas** garde un kiwi à son
+> poste, un drapeau en fait un·e **bâtisseur·euse prioritaire**. Quand un stock est plein, ses
+> récolteur·euses partent d'eux-mêmes vers un poste libre qui leur va bien, et reviennent
+> quand il redescend sous 90 %.
+>
 > **Chantier 14** — on peut **emporter sa colonie solo en rejoignant** un univers avec un code
 > (ou un lien d'invitation) : elle déménage sur un kiwi à elle, avec bâtiments, kiwis et ce
 > qu'elle sait de sa jumelle, suit les saisons de l'univers et reçoit un **bouclier de 48 h**

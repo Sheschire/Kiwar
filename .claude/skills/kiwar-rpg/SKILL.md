@@ -67,7 +67,7 @@ Load `kiwar-sim` too: everything here lives in the deterministic shared simulati
 
 - `postKind(state, b)` (a resource, `'research'` for the Library, null if no slots),
   `kindPower(v, kind)` (`workerPower` / `researchPower`), `averagePower`, `affinity(state, v,
-  kind)` = power / colony average (Kikiwiwis aside), `weakestWorker(state, b)`.
+kind)` = power / colony average (Kikiwiwis aside), `weakestWorker(state, b)`.
 - `kiwiPosts(state, v)` feeds "Assign to…" (yield, affinity, swap, `ideal`); `jobBoard(state)`
   the Posts tab (rows by kind: workers/slots, output, status full/depleted/night/empty, plus
   guards, builders, kiwis without a post, free places); `staffing(state)` the cheap top-bar
@@ -75,7 +75,7 @@ Load `kiwar-sim` too: everything here lives in the deterministic shared simulati
 - Commands: `assignKiwi {villagerId, buildingId | null, replace?}` (a full building swaps with
   `replace` or the weakest worker; the swapped kiwi takes the newcomer's former workplace or
   `autoAssign`; refuses `kiwiBusy`, `kikiwiwiNoWork`); `setKiwiFlags {villagerId, locked?,
-  builderPriority?}`. `assignWorkers` (−/+) still exists (bot, building sheet, job board).
+builderPriority?}`. `assignWorkers` (−/+) still exists (bot, building sheet, job board).
 - `Villager.locked` (never borrowed as a builder, never redirected), `builderPriority`
   (`pickBuilder` takes the fastest one at home, idle or at work, before idle kiwis),
   `homeJob` (workplace left because its stock was full). Save v18.

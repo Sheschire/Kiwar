@@ -24,6 +24,10 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   milestones unchanged (Nest 3 ≈ 7.3 h, mayor ≈ 12.6 h, level 10 ≈ 2.6 days), Library ≈ 7.4 h,
   Stone age ≈ 35 h in every biome; Iron and Industry need `pnpm balance:ages` (see
   `kiwar-ages`). Runs no longer stop early (the Industry milestone is never reached in 72 h).
+- Chantier 09 (30 seeds per biome × 72 h, before / after the redirection and `autoPlace`):
+  every milestone within 1 %. Both runs show Nest 3 and Library ~+45 % in the seed crown and
+  lagoons (Kiwino +21 %), against ±5.6 % at the end of chantier 08: a regression from another
+  chantier, not diagnosed yet.
 - Reference (end of chantier 06, 200 seeds per biome × 72 h, ~63 min): biomes within ±5.6 %,
   faces within 3.2 %, same milestones as chantier 05; 2 waves per run, almost all won by the
   attentive bot (seed crown 9 % lost). See `kiwar-threats` for the bot's defense.
