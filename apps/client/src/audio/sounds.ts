@@ -91,6 +91,12 @@ export function playGameEventSounds(events: GameEvent[]): void {
       case 'meteorLanded':
         audio.play('meteor.fall', { pos: at(e.q, e.r) });
         break;
+      case 'cometAnnounced':
+        audio.play('comet.seen');
+        break;
+      case 'cometPassed':
+        audio.play('comet.pass');
+        break;
       default:
         break;
     }

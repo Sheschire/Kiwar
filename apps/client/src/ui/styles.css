@@ -3718,3 +3718,63 @@ button.chip:focus-visible {
     display: none;
   }
 }
+
+/* Chantier 13: stardust chip (a small separate stock) and comet badge. */
+.chip-dust .chip-amount {
+  color: #9a6a12;
+}
+
+.chip-dust.is-picking .icon {
+  animation: dust-twinkle 1.6s ease-in-out infinite;
+}
+
+@keyframes dust-twinkle {
+  50% {
+    transform: scale(1.15) rotate(10deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip-dust.is-picking .icon {
+    animation: none;
+  }
+}
+
+.comet-badge {
+  border-color: #d9a83a;
+}
+
+/* Dust to pick: a golden halo whose opacity pulses (composited, no box-shadow animation). */
+.comet-badge.has-dust {
+  position: relative;
+}
+
+.comet-badge.has-dust::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 0 10px rgba(255, 205, 90, 0.85);
+  animation: halo-pulse 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .comet-badge.has-dust::after {
+    animation: none;
+  }
+}
+
+.dust-section h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dust-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}

@@ -2,9 +2,17 @@ import { BIOME_IDS } from '../data/biomes';
 import { z } from 'zod';
 import { BUILDING_TYPES, MAX_LEVEL } from '../data/buildings';
 import { FACES } from '../types/ids';
-import { newSky, newThreats, SCHEMA_VERSION, soloTargets, type GameState } from '../sim/state';
+import {
+  newComets,
+  newSky,
+  newThreats,
+  SCHEMA_VERSION,
+  soloTargets,
+  type GameState,
+} from '../sim/state';
 import { INCIDENT_KINDS, INCIDENTS, METEORS, THREATS } from '../data/threats';
 import { RESOURCE_IDS } from '../data/resources';
+import { COMETS, STARDUST, STARDUST_SCALE } from '../data/comets';
 import { INTEL } from '../data/expeditions';
 import type { Face } from '../types/ids';
 import {
@@ -59,6 +67,7 @@ const job = z.discriminatedUnion('kind', [
   }),
   z.object({ kind: z.literal('guard') }),
   z.object({ kind: z.literal('injured'), until: z.number() }),
+  z.object({ kind: z.literal('stardust'), patchId: id, returnTo: id.nullable() }),
   z.object({
     kind: z.literal('titan'),
     work: z.enum(TITAN_WORK_IDS),
@@ -402,6 +411,31 @@ export const gameStateSchema = z.object({
       )
       .max(METEORS.max + 1),
   }),
+  comets: z.object({
+    next: z
+      .object({ id, announceAt: z.number(), at: z.number(), announced: z.boolean() })
+      .nullable(),
+    lastAt: z.number().min(0),
+    passes: z.number().int().min(0),
+    patches: z
+      .array(
+        z.object({
+          id,
+          q: z.number().int(),
+          r: z.number().int(),
+          stock: z.number().int().min(0),
+          max: z.number().int().min(0),
+          landedAt: z.number(),
+          expiresAt: z.number(),
+        }),
+      )
+      .max(COMETS.tiles[1] * 2),
+  }),
+  stardust: z
+    .number()
+    .int()
+    .min(0)
+    .max(STARDUST.cap * STARDUST_SCALE),
   research: z.object({
     points: z.number().int().min(0),
     current: z.enum(TECH_IDS).nullable(),
@@ -497,6 +531,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   16: (raw) => ({ ...raw, terraform: {} }),
   // v17 → v18 (chantier 09): optional kiwi flags (locked, builder priority, home workplace).
   17: (raw) => raw,
+  // v18 → v19: comets and stardust (chantier 13). The first comet comes 36 h after loading.
+  18: (raw) => ({ ...raw, comets: newComets(Number(raw.now)), stardust: 0 }),
 };
 
 function obstaclesForOldGame(raw: Record<string, unknown>): Obstacle[] {

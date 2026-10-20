@@ -83,6 +83,7 @@ import { LevelStats, UpgradePreview } from './StatChanges';
 import { buildingIcon, Icon, type IconName } from '../iconSet';
 import { LabInfo } from './LabInfo';
 import { TitanWorks } from './TitanWorks';
+import { DustSection } from './DustSection';
 import { AgeInfo, ResearchSummary } from './ResearchModal';
 import { KiwiPortrait } from './KiwiPortrait';
 import { useJobLabel } from './VillageModal';
@@ -706,6 +707,7 @@ export function TilePanel() {
       </header>
       <div class="sheet-body">
         {free && <p class="small muted">{t(`tiles.${tile.type}.desc`)}</p>}
+        <DustSection game={game} tile={tile} now={now} t={t} />
         {obstacle && <ObstacleSection game={game} map={map} o={obstacle} now={now} t={t} />}
         {!building && !site && game.paths.includes(hexKey(tile)) && (
           <p class="small bonus">{t('tile.path')}</p>

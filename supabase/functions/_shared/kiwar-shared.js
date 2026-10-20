@@ -1896,6 +1896,43 @@ var TITAN = {
   terraceRise: 0.22
 };
 
+// packages/shared/src/data/comets.ts
+var COMETS = {
+  /** The first comet passes this long after the start (no draw at game creation)… */
+  firstMs: ms.h(36),
+  /** …and is announced this long before. */
+  firstNoticeMs: ms.h(9),
+  /** Time between two comets (drawn in this range). */
+  intervalMs: [ms.h(72), ms.h(120)],
+  /** How long before its passage a comet is announced (drawn in this range). */
+  noticeMs: [ms.h(6), ms.h(12)],
+  /** The comet is seen moving away for this long after the dust fell (cosmetic). */
+  passMs: ms.h(3),
+  /** Stardust lies on the ground this long, then scatters. */
+  lifeMs: ms.h(24),
+  /** Tiles the dust falls on (drawn in this range). */
+  tiles: [1, 3],
+  /** Land types it can fall on. */
+  landTypes: ["flesh", "grove", "seedRing"],
+  /** Stardust per comet (whole points), × the age factor (index = age). */
+  stock: 16,
+  ageFactor: [1, 1.3, 1.7, 2.2]
+};
+var STARDUST = {
+  /** Stock cap (points). */
+  cap: 50,
+  /** Kiwis per dust tile. */
+  slots: 3,
+  /** An average kiwi picks one point in this time… */
+  pickMs: ms.min(30),
+  /** …and this much faster per point of Dexterity above the average. */
+  perDexterity: 0.05
+};
+var STARDUST_SCALE = 100 * STARDUST.pickMs;
+function dustPoints(raw) {
+  return Math.floor(raw / STARDUST_SCALE + 1e-9);
+}
+
 // packages/shared/src/data/jobs.ts
 var JOBS = {
   /**
@@ -2602,6 +2639,8 @@ function workSite(state, v) {
   if (job2.kind === "train") return at(job2.schoolId);
   if (job2.kind === "transform") return at(job2.labId);
   if (job2.kind === "titan") return { q: job2.q, r: job2.r };
+  if (job2.kind === "stardust")
+    return state.comets.patches.find((p) => p.id === job2.patchId) ?? null;
   if (job2.kind === "build") return state.queue.find((i) => i.id === job2.queueItemId) ?? null;
   if (job2.kind === "expedition") return null;
   return state.buildings.find((b) => b.type === "nest") ?? null;
@@ -2619,7 +2658,7 @@ function bedsOf(state, map = faceMapOf(state)) {
   key += "|";
   for (const v of state.villagers) {
     const j = v.job;
-    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : j.kind === "transform" ? `${v.id}x${j.labId};` : j.kind === "titan" ? `${v.id}T${j.q},${j.r};` : "";
+    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : j.kind === "transform" ? `${v.id}x${j.labId};` : j.kind === "titan" ? `${v.id}T${j.q},${j.r};` : j.kind === "stardust" ? `${v.id}d${j.patchId};` : "";
   }
   key += `|${pathsKey(state.paths)}`;
   const cached = bedCache.get(key);
@@ -2918,7 +2957,7 @@ function ratesOf(state, v, masteries) {
     mastery = "build";
   } else if (job2.kind === "train" || job2.kind === "transform") {
     perHour = KIWI.xpPerHour.train;
-  } else if (job2.kind === "guard" || job2.kind === "titan") {
+  } else if (job2.kind === "guard" || job2.kind === "titan" || job2.kind === "stardust") {
     perHour = KIWI.xpPerHour.guard;
   }
   if (perHour === 0) return { xp: 0, practice: 0, mastery: null };
@@ -3874,7 +3913,7 @@ function removeObstacle(s, o, at, events, by) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 18;
+var SCHEMA_VERSION = 19;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -3937,6 +3976,8 @@ function newGame(opts) {
     terraform: {},
     threats: newThreats(opts.seed, opts.face, opts.now),
     sky: newSky(opts.now),
+    comets: newComets(opts.now),
+    stardust: 0,
     research: { points: 0, current: null, done: [] },
     nextId: 1,
     rng: rng.state()
@@ -3987,6 +4028,15 @@ function newSky(now) {
     lastFallAt: 0,
     falls: 0,
     meteors: []
+  };
+}
+function newComets(now) {
+  const at = now + COMETS.firstMs;
+  return {
+    next: { id: "c1", announceAt: at - COMETS.firstNoticeMs, at, announced: false },
+    lastAt: 0,
+    passes: 0,
+    patches: []
   };
 }
 function withThreatRng(state, fn) {
@@ -4057,6 +4107,11 @@ function cloneState(state) {
       next: state.sky.next ? { ...state.sky.next } : null,
       meteors: state.sky.meteors.map((m) => ({ ...m }))
     },
+    comets: {
+      ...state.comets,
+      next: state.comets.next ? { ...state.comets.next } : null,
+      patches: state.comets.patches.map((p) => ({ ...p }))
+    },
     research: { ...state.research, done: [...state.research.done] },
     friends: state.friends.map((f) => ({ ...f })),
     shipments: state.shipments.map((x) => ({ ...x, resources: { ...x.resources } })),
@@ -4123,6 +4178,170 @@ function cloneVillager(v) {
     mastery: { ...v.mastery },
     history: { ...v.history }
   };
+}
+
+// packages/shared/src/sim/comets.ts
+var STARDUST_CAP = STARDUST.cap * STARDUST_SCALE;
+function stardustOf(state) {
+  return dustPoints(state.stardust);
+}
+function cometStock(state) {
+  return Math.round(COMETS.stock * (COMETS.ageFactor[ageOf(state)] ?? 1));
+}
+function pickRate(v) {
+  const dex = 1 + STARDUST.perDexterity * (v.stats.dexterity - KIWI.stat.average);
+  return Math.max(1, Math.round(100 * dex));
+}
+function dustAt(state, q, r) {
+  return state.comets.patches.find((p) => p.q === q && p.r === r);
+}
+function dustPickers(state, patchId) {
+  return state.villagers.filter((v) => v.job.kind === "stardust" && v.job.patchId === patchId);
+}
+function patchRate(state, p) {
+  if (p.stock <= 0 || state.stardust >= STARDUST_CAP) return 0;
+  if (state.threats.shelterUntil > state.now) return 0;
+  let rate = 0;
+  for (const v of dustPickers(state, p.id)) rate += pickRate(v);
+  return rate;
+}
+function stardustPerHour(state) {
+  let rate = 0;
+  for (const p of state.comets.patches) rate += patchRate(state, p);
+  return rate * 36e5 / STARDUST_SCALE;
+}
+function planComet(s) {
+  const c = s.comets;
+  if (c.next) return;
+  withThreatRng(s, (rng) => {
+    const gap = Math.round(rng.range(COMETS.intervalMs[0], COMETS.intervalMs[1]));
+    const notice = Math.round(rng.range(COMETS.noticeMs[0], COMETS.noticeMs[1]));
+    const at = Math.max(c.lastAt + gap, s.now + notice);
+    c.next = { id: `c${c.passes + 1}`, announceAt: at - notice, at, announced: false };
+  });
+}
+function nextCometEvent(s) {
+  const c = s.comets;
+  let next = Infinity;
+  if (c.next) next = c.next.announced ? c.next.at : c.next.announceAt;
+  let total = 0;
+  for (const p of c.patches) {
+    next = Math.min(next, p.expiresAt);
+    const rate = patchRate(s, p);
+    if (rate > 0) {
+      total += rate;
+      next = Math.min(next, s.now + Math.max(1, Math.ceil(p.stock / rate)));
+    }
+  }
+  if (total > 0) {
+    next = Math.min(next, s.now + Math.max(1, Math.ceil((STARDUST_CAP - s.stardust) / total)));
+  } else if (s.stardust >= STARDUST_CAP && c.patches.some((p) => dustPickers(s, p.id).length > 0))
+    next = s.now;
+  return next;
+}
+function accrueStardust(s, dtMs) {
+  for (const p of s.comets.patches) {
+    const rate = patchRate(s, p);
+    if (rate <= 0) continue;
+    const take = Math.min(rate * dtMs, p.stock, STARDUST_CAP - s.stardust);
+    if (take <= 0) continue;
+    p.stock -= take;
+    s.stardust += take;
+  }
+}
+function freeTiles(s) {
+  const map = faceMapOf(s);
+  const season = seasonOf(s);
+  const taken = /* @__PURE__ */ new Set([
+    ...s.buildings.map((b) => hexKey(b)),
+    ...s.queue.filter((i) => i.kind === "build").map((i) => hexKey(i)),
+    ...s.sky.meteors.map((m) => hexKey(m)),
+    ...s.obstacles.map((o) => hexKey(o)),
+    ...s.comets.patches.map((p) => hexKey(p))
+  ]);
+  if (s.sky.next?.announced) taken.add(hexKey(s.sky.next));
+  return map.tiles.filter(
+    (t) => COMETS.landTypes.includes(t.type) && t.rho >= 0.25 && t.rho <= 0.92 && !taken.has(hexKey(t)) && !isFlooded(t, s.params.biome, season)
+  );
+}
+function releasePickers(s, patchId) {
+  for (const v of s.villagers) {
+    if (v.job.kind !== "stardust" || patchId !== null && v.job.patchId !== patchId) continue;
+    const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : void 0;
+    if (back && workersOf(s, back.id).length < workerSlots(back)) {
+      v.job = { kind: "work", buildingId: back.id };
+    } else {
+      v.job = { kind: "idle" };
+      autoAssign(s, v);
+    }
+  }
+}
+function cometTick(s, at, events) {
+  const c = s.comets;
+  const next = c.next;
+  if (next && !next.announced && next.announceAt === at) {
+    next.announced = true;
+    events.push({ type: "cometAnnounced", at, passAt: next.at });
+  }
+  if (next && next.announced && next.at === at) {
+    const stock = cometStock(s);
+    const tiles = withThreatRng(s, (rng) => {
+      const free = freeTiles(s);
+      const count = Math.min(free.length, rng.int(COMETS.tiles[0], COMETS.tiles[1]));
+      const out = [];
+      for (let i = 0; i < count; i++) {
+        const t = rng.pick(free);
+        free.splice(free.indexOf(t), 1);
+        out.push({ q: t.q, r: t.r });
+      }
+      return out;
+    });
+    const dropped = [];
+    tiles.forEach((t, i) => {
+      const points = Math.floor(stock / tiles.length) + (i < stock % tiles.length ? 1 : 0);
+      c.patches.push({
+        id: `${next.id}-${i + 1}`,
+        q: t.q,
+        r: t.r,
+        stock: points * STARDUST_SCALE,
+        max: points * STARDUST_SCALE,
+        landedAt: at,
+        expiresAt: at + COMETS.lifeMs
+      });
+      dropped.push({ q: t.q, r: t.r, stock: points });
+    });
+    c.passes++;
+    c.lastAt = at;
+    c.next = null;
+    events.push({ type: "cometPassed", at, patches: dropped });
+  }
+  for (const p of c.patches) {
+    if (p.stock <= 0) {
+      events.push({ type: "dustPicked", at, q: p.q, r: p.r });
+      releasePickers(s, p.id);
+    } else if (p.expiresAt === at) {
+      events.push({ type: "dustFaded", at, q: p.q, r: p.r, left: dustPoints(p.stock) });
+      releasePickers(s, p.id);
+    }
+  }
+  c.patches = c.patches.filter((p) => p.stock > 0 && p.expiresAt > at);
+  if (s.stardust >= STARDUST_CAP && s.villagers.some((v) => v.job.kind === "stardust")) {
+    events.push({ type: "stardustFull", at });
+    releasePickers(s, null);
+  }
+}
+function canPickDust(v) {
+  if (v.kikiwiwi) return false;
+  return v.job.kind === "idle" || v.job.kind === "work" || v.job.kind === "stardust";
+}
+function bestDustCrew(state, patchId) {
+  const here = dustPickers(state, patchId).map((v) => v.id);
+  const others = state.villagers.map((v, i) => ({ v, i })).filter(
+    ({ v }) => canPickDust(v) && v.job.kind !== "stardust" && (v.job.kind === "idle" || !v.locked)
+  ).sort(
+    (a, b) => b.v.stats.dexterity - a.v.stats.dexterity || Number(b.v.job.kind === "idle") - Number(a.v.job.kind === "idle") || a.i - b.i
+  ).map(({ v }) => v.id);
+  return [...here, ...others].slice(0, STARDUST.slots);
 }
 
 // packages/shared/src/sim/expeditions.ts
@@ -5431,7 +5650,8 @@ function jobBoard(state) {
     unassigned: state.villagers.filter((v) => v.job.kind === "idle" && !v.kikiwiwi),
     freeSlots,
     guards: state.villagers.filter((v) => v.job.kind === "guard"),
-    builders: state.villagers.filter((v) => v.job.kind === "build")
+    builders: state.villagers.filter((v) => v.job.kind === "build"),
+    pickers: state.villagers.filter((v) => v.job.kind === "stardust")
   };
 }
 function belowReturn(state, id3) {
@@ -5539,6 +5759,7 @@ function advanceInPlace(s, now, events) {
   for (let guard = 0; guard < 1e5; guard++) {
     planWave(s);
     planMeteor(s);
+    planComet(s);
     const active = activeItem(s);
     const constructionEnd = active ? active.startedAt + active.durationMs : Infinity;
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
@@ -5550,6 +5771,7 @@ function advanceInPlace(s, now, events) {
     const calendarChange = nextCalendarChange(s.calendarStart, s.now);
     const threatAt = nextThreatEvent(s);
     const skyAt = nextSkyEvent(s);
+    const cometAt = nextCometEvent(s);
     const injuryEnd = nextInjuryEnd(s);
     const researchAt = nextResearchEvent(s);
     const deliveryAt = nextDeliveryEvent(s);
@@ -5562,6 +5784,7 @@ function advanceInPlace(s, now, events) {
       deliveryAt,
       threatAt,
       skyAt,
+      cometAt,
       injuryEnd,
       calendarChange,
       flows.hungerAt,
@@ -5602,6 +5825,7 @@ function advanceInPlace(s, now, events) {
     if (injuryEnd === nextEvent) healInjuries(s, injuryEnd, events);
     if (threatAt === nextEvent) threatTick(s, threatAt, events);
     if (skyAt === nextEvent) skyTick(s, skyAt, events);
+    if (cometAt === nextEvent) cometTick(s, cometAt, events);
     if (researchAt === nextEvent) researchTick(s, researchAt, events);
     if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
     const st = hungerStage(s);
@@ -5782,6 +6006,7 @@ function accrue(s, flows, dtMs, at, events) {
   if (flows.hunger !== 0)
     s.hunger = Math.min(hungerCap(s), Math.max(0, s.hunger + flows.hunger * dtMs));
   accrueResearch(s, dtMs);
+  accrueStardust(s, dtMs);
   accrueKiwis(s, dtMs, at, events);
 }
 function startNextConstruction(s, at, events) {
@@ -6208,7 +6433,10 @@ var COMMAND_ERRORS = [
   "notReshapable",
   "terraformLimit",
   "titanAtWork",
-  "kikiwiwiNoWork"
+  "kikiwiwiNoWork",
+  "unknownPatch",
+  "patchFull",
+  "stardustFull"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -6713,6 +6941,38 @@ function execute(s, cmd, ctx, events) {
         orderedAt: now
       });
       startNextConstruction(s, now, events);
+      return;
+    }
+    case "collectStardust": {
+      const patch = s.comets.patches.find((p) => p.id === cmd.patchId);
+      if (!patch) return fail("unknownPatch");
+      const ids = new Set(cmd.villagerIds);
+      if (ids.size !== cmd.villagerIds.length) fail("invalidCrew");
+      if (ids.size > STARDUST.slots) fail("patchFull");
+      const crew = [];
+      for (const id3 of ids) {
+        const v = s.villagers.find((x) => x.id === id3);
+        if (!v) return fail("unknownVillager");
+        if (v.kikiwiwi) fail("kikiwiwiNoWork");
+        if (!canPickDust(v)) fail("kiwiBusy");
+        crew.push(v);
+      }
+      if (crew.length > 0 && s.stardust >= STARDUST_CAP) fail("stardustFull");
+      for (const v of crew) {
+        if (v.job.kind === "stardust" && v.job.patchId === patch.id) continue;
+        const returnTo = v.job.kind === "work" ? v.job.buildingId : v.job.kind === "stardust" ? v.job.returnTo : null;
+        v.job = { kind: "stardust", patchId: patch.id, returnTo };
+      }
+      for (const v of s.villagers) {
+        if (v.job.kind !== "stardust" || v.job.patchId !== patch.id || ids.has(v.id)) continue;
+        const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : void 0;
+        if (back && workersOf(s, back.id).length < workerSlots(back)) {
+          v.job = { kind: "work", buildingId: back.id };
+        } else {
+          v.job = { kind: "idle" };
+          autoAssign(s, v);
+        }
+      }
       return;
     }
     case "setGarrison": {
@@ -10828,6 +11088,7 @@ var job = external_exports.discriminatedUnion("kind", [
   }),
   external_exports.object({ kind: external_exports.literal("guard") }),
   external_exports.object({ kind: external_exports.literal("injured"), until: external_exports.number() }),
+  external_exports.object({ kind: external_exports.literal("stardust"), patchId: id, returnTo: id.nullable() }),
   external_exports.object({
     kind: external_exports.literal("titan"),
     work: external_exports.enum(TITAN_WORK_IDS),
@@ -11135,6 +11396,23 @@ var gameStateSchema = external_exports.object({
       })
     ).max(METEORS.max + 1)
   }),
+  comets: external_exports.object({
+    next: external_exports.object({ id, announceAt: external_exports.number(), at: external_exports.number(), announced: external_exports.boolean() }).nullable(),
+    lastAt: external_exports.number().min(0),
+    passes: external_exports.number().int().min(0),
+    patches: external_exports.array(
+      external_exports.object({
+        id,
+        q: external_exports.number().int(),
+        r: external_exports.number().int(),
+        stock: external_exports.number().int().min(0),
+        max: external_exports.number().int().min(0),
+        landedAt: external_exports.number(),
+        expiresAt: external_exports.number()
+      })
+    ).max(COMETS.tiles[1] * 2)
+  }),
+  stardust: external_exports.number().int().min(0).max(STARDUST.cap * STARDUST_SCALE),
   research: external_exports.object({
     points: external_exports.number().int().min(0),
     current: external_exports.enum(TECH_IDS).nullable(),
@@ -11213,7 +11491,9 @@ var MIGRATIONS = {
   // v16 → v17: titan works (no tile reshaped yet).
   16: (raw) => ({ ...raw, terraform: {} }),
   // v17 → v18 (chantier 09): optional kiwi flags (locked, builder priority, home workplace).
-  17: (raw) => raw
+  17: (raw) => raw,
+  // v18 → v19: comets and stardust (chantier 13). The first comet comes 36 h after loading.
+  18: (raw) => ({ ...raw, comets: newComets(Number(raw.now)), stardust: 0 })
 };
 function obstaclesForOldGame(raw) {
   const face = raw.face === "kiwino" ? "kiwino" : "kiwisu";
@@ -11337,6 +11617,11 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("shelter") }),
   external_exports.object({ type: external_exports.literal("repair"), buildingId: id2 }),
   external_exports.object({ type: external_exports.literal("setGarrison"), villagerIds: external_exports.array(id2).max(200) }),
+  external_exports.object({
+    type: external_exports.literal("collectStardust"),
+    patchId: id2,
+    villagerIds: external_exports.array(id2).max(STARDUST.slots)
+  }),
   external_exports.object({ type: external_exports.literal("setResearch"), tech: external_exports.enum(TECH_IDS).nullable() }),
   external_exports.object({ type: external_exports.literal("clearObstacle"), q: external_exports.number().int(), r: external_exports.number().int() }),
   external_exports.object({ type: external_exports.literal("transform"), villagerId: id2, labId: id2 }),
@@ -11551,6 +11836,16 @@ async function deliver(repo, universeId, me, shipment) {
 function isPristine(state) {
   return state.stats.constructionsCompleted === 0 && state.queue.length === 0 && state.objectiveIndex === 0;
 }
+function plausibleStardust(state) {
+  const c = state.comets;
+  const played = state.now - state.createdAt;
+  const maxPasses = played < COMETS.firstMs ? 0 : 1 + Math.floor((played - COMETS.firstMs) / COMETS.intervalMs[0]);
+  if (c.passes > maxPasses) return false;
+  const richest = Math.max(...COMETS.ageFactor) * COMETS.stock * STARDUST_SCALE;
+  if (state.stardust > c.passes * richest) return false;
+  if (c.next && c.next.at < state.createdAt + COMETS.firstMs) return false;
+  return c.patches.every((p) => p.stock <= p.max && p.max <= richest);
+}
 function isPlausible(state, now) {
   if (state.now > now + 6e4 || state.createdAt > state.now) return false;
   if (state.calendarStart !== calendarStartFor(state.createdAt)) return false;
@@ -11562,6 +11857,7 @@ function isPlausible(state, now) {
     const v = state.resources[id3];
     if (!Number.isFinite(v) || v < 0 || v > cap[id3] + rewards) return false;
   }
+  if (!plausibleStardust(state)) return false;
   if (state.buildings.filter((b) => b.type === "nest").length !== 1) return false;
   const n = nest(state);
   if (n.q !== 0 || n.r !== 0) return false;
@@ -12072,6 +12368,7 @@ export {
   CATCHMENT_RADIUS,
   CLASSES,
   CLASS_IDS,
+  COMETS,
   COMMAND_ERRORS,
   CYCLES,
   DEFAULT_FACE_PARAMS,
@@ -12138,6 +12435,9 @@ export {
   SKILLS,
   SKILL_IDS,
   SMASH,
+  STARDUST,
+  STARDUST_CAP,
+  STARDUST_SCALE,
   START,
   STAT_IDS,
   TECHS,
@@ -12159,6 +12459,7 @@ export {
   YEAR_MS,
   accrueKiwis,
   accrueResearch,
+  accrueStardust,
   activeItem,
   addVillager,
   advance,
@@ -12181,6 +12482,7 @@ export {
   baseHarvest,
   bedsOf,
   belowReturn,
+  bestDustCrew,
   bestIdleFor,
   biomeFits,
   biomeProfile,
@@ -12199,6 +12501,7 @@ export {
   calendarStartFor,
   canAfford,
   canHatch,
+  canPickDust,
   canReshape,
   canResolveArrival,
   canStarve,
@@ -12217,6 +12520,8 @@ export {
   cloneVillager,
   colonyBonus,
   colonyPower,
+  cometStock,
+  cometTick,
   commandSchema,
   computeClaims,
   constructionDuration,
@@ -12247,6 +12552,9 @@ export {
   distanceIn,
   drawBiomes,
   drawGarrison,
+  dustAt,
+  dustPickers,
+  dustPoints,
   eggCost,
   eggDuration,
   emptyMasteries,
@@ -12363,11 +12671,13 @@ export {
   nest,
   nestDef,
   netRates,
+  newComets,
   newGame,
   newKiwi,
   newSky,
   newThreats,
   nextCalendarChange,
+  nextCometEvent,
   nextDeliveryEvent,
   nextHungerEvent,
   nextId,
@@ -12383,13 +12693,16 @@ export {
   otherFace,
   parseHexKey,
   passiveRates,
+  patchRate,
   pathLimit,
   pathLogisticsChanges,
   pathSet,
   pathsKey,
   pendingUpgrade,
+  pickRate,
   pickStarving,
   pixelToHex,
+  planComet,
   planMeteor,
   planWave,
   planetSeedOf,
@@ -12449,6 +12762,8 @@ export {
   splitsLand,
   staffing,
   stageOf,
+  stardustOf,
+  stardustPerHour,
   startNextConstruction,
   storageFullCheck,
   syncPools,

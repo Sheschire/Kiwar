@@ -140,6 +140,8 @@ export interface JobBoard {
   freeSlots: number;
   guards: Villager[];
   builders: Villager[];
+  /** Chantier 13: kiwis picking stardust. */
+  pickers: Villager[];
 }
 
 const KIND_ORDER: PostKind[] = ['pulp', 'fiber', 'seeds', 'juice', 'research'];
@@ -203,6 +205,7 @@ export function jobBoard(state: GameState): JobBoard {
     freeSlots,
     guards: state.villagers.filter((v) => v.job.kind === 'guard'),
     builders: state.villagers.filter((v) => v.job.kind === 'build'),
+    pickers: state.villagers.filter((v) => v.job.kind === 'stardust'),
   };
 }
 

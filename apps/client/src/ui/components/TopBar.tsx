@@ -1,5 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { foodLeftMs, nest, NEEDS, RESOURCE_IDS, type ResourceId } from '@kiwar/shared';
+import {
+  foodLeftMs,
+  nest,
+  NEEDS,
+  RESOURCE_IDS,
+  STARDUST,
+  stardustOf,
+  stardustPerHour,
+  type ResourceId,
+} from '@kiwar/shared';
 import {
   capacity,
   consumption,
@@ -22,6 +31,7 @@ import {
   ShieldIcon,
   BookIcon,
   SpeakerIcon,
+  StardustIcon,
 } from '../icons';
 import { actions } from '../actions';
 import { chatActions } from '../chatActions';
@@ -30,7 +40,7 @@ import { SyncBadge } from './SyncBadge';
 import { ClockChip, ClockTip } from './ClockChip';
 import { MoraleLine } from './NeedsWidgets';
 
-type TipId = ResourceId | 'population' | 'clock';
+type TipId = ResourceId | 'population' | 'clock' | 'stardust';
 
 export interface ChipHandlers {
   open: boolean;
@@ -89,6 +99,33 @@ function ResourceChip({ id, h }: { id: ResourceId; h: ChipHandlers }) {
   );
 }
 
+/** Chantier 13: stardust, a small separate stock (shown once a comet has passed). */
+function StardustChip({ h }: { h: ChipHandlers }) {
+  const t = useT();
+  const amount = useUi((s) => (s.game ? stardustOf(s.game) : 0));
+  const picking = useUi((s) => (s.game ? stardustPerHour(s.game) > 0 : false));
+  return (
+    <button
+      type="button"
+      data-tip="stardust"
+      class={`chip chip-dust ${picking ? 'is-picking' : ''} ${h.open ? 'is-open' : ''}`}
+      aria-label={`${t('comet.name')} ${amount} / ${STARDUST.cap}`}
+      aria-expanded={h.open}
+      onPointerEnter={h.onEnter}
+      onPointerLeave={h.onLeave}
+      onClick={h.onToggle}
+    >
+      <StardustIcon size={24} />
+      <div class="chip-body">
+        <div class="chip-line">
+          <span class="chip-amount">{amount}</span>
+          <span class="chip-cap">/{STARDUST.cap}</span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 /** Concise explanation of a resource (or of the population) with live numbers. */
 function TipContent({ id }: { id: TipId }) {
   const t = useT();
@@ -96,6 +133,22 @@ function TipContent({ id }: { id: TipId }) {
   const game = useUi((s) => s.game);
   if (!game) return null;
   if (id === 'clock') return <ClockTip />;
+  if (id === 'stardust') {
+    const rate = stardustPerHour(game);
+    return (
+      <>
+        <strong class="tip-title">
+          <StardustIcon size={18} /> {t('comet.name')} {stardustOf(game)}/{STARDUST.cap}
+        </strong>
+        <p>{t('comet.tip', { cap: STARDUST.cap })}</p>
+        {rate > 0 && (
+          <p class="tip-line bonus">
+            {t('comet.perHour', { rate: formatNumber(lang, Math.round(rate * 10) / 10) })}
+          </p>
+        )}
+      </>
+    );
+  }
   if (id === 'population') {
     const idle = idleVillagers(game).length;
     return (
@@ -237,6 +290,11 @@ export function TopBar() {
   });
 
   const popHandlers = handlers('population');
+  const showDust = useUi(
+    (s) =>
+      !!s.game &&
+      (s.game.stardust > 0 || s.game.comets.passes > 0 || s.game.comets.patches.length > 0),
+  );
   return (
     <header class="topbar pe">
       <div class="resources parchment" ref={barRef}>
@@ -281,6 +339,7 @@ export function TopBar() {
             </button>
           )}
         </span>
+        {showDust && <StardustChip h={handlers('stardust')} />}
         <ClockChip h={handlers('clock')} />
         {tip && (
           <div class="tip parchment" role="tooltip" ref={tipRef} style={{ left: `${tipLeft}px` }}>

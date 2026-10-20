@@ -485,6 +485,11 @@ export class KiwisView {
     }
     if (villager.job.kind === 'titan')
       return { hex: { q: villager.job.q, r: villager.job.r }, resource: null };
+    if (villager.job.kind === 'stardust') {
+      const patchId = villager.job.patchId;
+      const p = this.state.comets.patches.find((x) => x.id === patchId);
+      return p ? { hex: { q: p.q, r: p.r }, resource: null } : null;
+    }
     if (villager.job.kind === 'transform') {
       const lab = getBuilding(this.state, villager.job.labId);
       return lab ? { hex: { q: lab.q, r: lab.r }, resource: null } : null;
@@ -534,7 +539,8 @@ export class KiwisView {
         job.kind === 'build' ||
         job.kind === 'train' ||
         job.kind === 'transform' ||
-        job.kind === 'titan')
+        job.kind === 'titan' ||
+        job.kind === 'stardust')
     ) {
       agent.inside = false;
       return false;
@@ -583,7 +589,9 @@ export class KiwisView {
                 ? `x:${job.labId}`
                 : job.kind === 'titan'
                   ? `T:${job.q},${job.r}`
-                  : 'idle';
+                  : job.kind === 'stardust'
+                    ? `d:${job.patchId}`
+                    : 'idle';
     const changed = sig !== agent.plan;
     agent.plan = sig;
     const work = this.workTile(villager);
@@ -602,7 +610,13 @@ export class KiwisView {
       return;
     }
 
-    if ((job.kind === 'build' || job.kind === 'train' || job.kind === 'titan') && work) {
+    if (
+      (job.kind === 'build' ||
+        job.kind === 'train' ||
+        job.kind === 'titan' ||
+        job.kind === 'stardust') &&
+      work
+    ) {
       if (changed || (agent.activity !== 'walk' && agent.activity !== 'build')) {
         agent.carrying = null;
         this.walkTo(agent, work.hex, 0.55);

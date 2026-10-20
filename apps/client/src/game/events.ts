@@ -164,6 +164,28 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
       case 'meteorFaded':
         pushToast('info', 'sky.faded');
         break;
+      case 'cometAnnounced':
+        pushToast('info', 'comet.announced', {
+          duration: formatDuration(uiStore.getState().lang, e.passAt - e.at),
+        });
+        break;
+      case 'cometPassed':
+        if (e.patches.length === 0) pushToast('info', 'comet.passedNone');
+        else
+          pushToast('success', 'comet.passed', {
+            stock: e.patches.reduce((sum, p) => sum + p.stock, 0),
+            count: e.patches.length,
+          });
+        break;
+      case 'dustPicked':
+        pushToast('success', 'comet.picked');
+        break;
+      case 'dustFaded':
+        if (e.left > 0) pushToast('info', 'comet.faded', { left: e.left });
+        break;
+      case 'stardustFull':
+        pushToast('info', 'comet.full');
+        break;
       case 'obstacleCleared': {
         // The main part of the loot (what did not fit in the storage is lost).
         const best = RESOURCE_IDS.reduce<ResourceId | null>(

@@ -561,6 +561,43 @@ export const SYNTH_PRESETS = {
     ],
     peak: 0.55,
   },
+  // Chantier 13: a comet in the sky (soft shimmer), then stardust raining down (a cascade).
+  cometSeen: {
+    tones: [
+      { wave: 'sine', freq: 1320, freqEnd: 1760, attack: 0.4, hold: 0.3, decay: 1.2, gain: 0.16 },
+      { wave: 'sine', freq: 1980, freqEnd: 2640, start: 0.2, attack: 0.4, decay: 1.2, gain: 0.1 },
+      {
+        wave: 'noise',
+        freq: 0,
+        attack: 0.8,
+        decay: 1,
+        gain: 0.08,
+        lowpass: 6000,
+        lowpassEnd: 2000,
+      },
+    ],
+    peak: 0.3,
+  },
+  comet: {
+    tones: [
+      { wave: 'sine', freq: 1568, start: 0, attack: 0.005, decay: 0.9, gain: 0.18 },
+      { wave: 'sine', freq: 1976, start: 0.09, attack: 0.005, decay: 0.9, gain: 0.18 },
+      { wave: 'sine', freq: 2349, start: 0.18, attack: 0.005, decay: 0.9, gain: 0.18 },
+      { wave: 'sine', freq: 2637, start: 0.27, attack: 0.005, decay: 0.9, gain: 0.18 },
+      { wave: 'sine', freq: 3136, start: 0.36, attack: 0.005, decay: 0.9, gain: 0.18 },
+      { wave: 'sine', freq: 3951, start: 0.45, attack: 0.005, decay: 0.9, gain: 0.18 },
+      {
+        wave: 'noise',
+        freq: 0,
+        attack: 0.3,
+        decay: 1.2,
+        gain: 0.12,
+        lowpass: 8000,
+        lowpassEnd: 3000,
+      },
+    ],
+    peak: 0.4,
+  },
   // Ambience loops.
   wind: {
     tones: [

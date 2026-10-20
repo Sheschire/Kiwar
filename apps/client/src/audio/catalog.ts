@@ -248,6 +248,18 @@ export const SOUND_EVENTS = {
     synth: 'meteor',
     default: { sources: ['synth:meteor'], cooldownMs: 2000 },
   },
+  'comet.seen': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'cometSeen',
+    default: { sources: ['synth:cometSeen'], cooldownMs: 5000 },
+  },
+  'comet.pass': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'comet',
+    default: { sources: ['synth:comet'], cooldownMs: 3000 },
+  },
   'ambience.nature': {
     bus: 'ambience',
     group: 'ambience',

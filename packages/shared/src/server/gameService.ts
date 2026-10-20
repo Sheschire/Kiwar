@@ -1,3 +1,4 @@
+import { COMETS, STARDUST_SCALE } from '../data/comets';
 import type { HexKey } from '../hex/hex';
 import { faceMapOf } from '../sim/territory';
 import { TITAN } from '../data/titan';
@@ -319,6 +320,19 @@ export function isPristine(state: GameState): boolean {
  * Basic anti-cheat for imported local saves: the state must be internally consistent and
  * reachable by the rules (no resources beyond storage, no impossible levels or counts…).
  */
+/** Chantier 13: no more stardust or comets than the time played allows. */
+function plausibleStardust(state: GameState): boolean {
+  const c = state.comets;
+  const played = state.now - state.createdAt;
+  const maxPasses =
+    played < COMETS.firstMs ? 0 : 1 + Math.floor((played - COMETS.firstMs) / COMETS.intervalMs[0]);
+  if (c.passes > maxPasses) return false;
+  const richest = Math.max(...COMETS.ageFactor) * COMETS.stock * STARDUST_SCALE;
+  if (state.stardust > c.passes * richest) return false;
+  if (c.next && c.next.at < state.createdAt + COMETS.firstMs) return false;
+  return c.patches.every((p) => p.stock <= p.max && p.max <= richest);
+}
+
 export function isPlausible(state: GameState, now: number): boolean {
   if (state.now > now + 60_000 || state.createdAt > state.now) return false;
   // Solo games follow their own calendar (no skipping winter).
@@ -333,6 +347,7 @@ export function isPlausible(state: GameState, now: number): boolean {
     const v = state.resources[id];
     if (!Number.isFinite(v) || v < 0 || v > cap[id] + rewards) return false;
   }
+  if (!plausibleStardust(state)) return false;
   if (state.buildings.filter((b) => b.type === 'nest').length !== 1) return false;
   const n = nest(state);
   if (n.q !== 0 || n.r !== 0) return false;

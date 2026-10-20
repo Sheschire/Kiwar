@@ -1,3 +1,5 @@
+import { STARDUST } from '../data/comets';
+import { canPickDust, STARDUST_CAP } from './comets';
 import { BUILDINGS, levelDef, type BuildingType } from '../data/buildings';
 import { CAMPS, PATHS } from '../data/territory';
 import { TILES } from '../data/tiles';
@@ -45,7 +47,7 @@ import {
   workerSlots,
   workersOf,
 } from './selectors';
-import { cloneState, nextId, type GameState, type MissionKind } from './state';
+import { cloneState, nextId, type GameState, type MissionKind, type Villager } from './state';
 import { returnHome, weakestWorker } from './posts';
 import { TECHS, type TechId } from '../data/research';
 import { researchTick, techEffects, techStatus } from './research';
@@ -145,6 +147,8 @@ export type Command =
   | { type: 'clearObstacle'; q: number; r: number }
   /** Chantier 08: the technology the researchers work on (null: bank the points). */
   | { type: 'setResearch'; tech: TechId | null }
+  /** Chantier 13: exactly these kiwis pick the stardust of a tile (others there go back). */
+  | { type: 'collectStardust'; patchId: string; villagerIds: VillagerId[] }
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
 export const COMMAND_ERRORS = [
@@ -229,6 +233,9 @@ export const COMMAND_ERRORS = [
   'terraformLimit',
   'titanAtWork',
   'kikiwiwiNoWork',
+  'unknownPatch',
+  'patchFull',
+  'stardustFull',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -794,6 +801,43 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         orderedAt: now,
       });
       startNextConstruction(s, now, events);
+      return;
+    }
+    case 'collectStardust': {
+      const patch = s.comets.patches.find((p) => p.id === cmd.patchId);
+      if (!patch) return fail('unknownPatch');
+      const ids = new Set(cmd.villagerIds);
+      if (ids.size !== cmd.villagerIds.length) fail('invalidCrew');
+      if (ids.size > STARDUST.slots) fail('patchFull');
+      const crew: Villager[] = [];
+      for (const id of ids) {
+        const v = s.villagers.find((x) => x.id === id);
+        if (!v) return fail('unknownVillager');
+        if (v.kikiwiwi) fail('kikiwiwiNoWork');
+        if (!canPickDust(v)) fail('kiwiBusy');
+        crew.push(v);
+      }
+      if (crew.length > 0 && s.stardust >= STARDUST_CAP) fail('stardustFull');
+      for (const v of crew) {
+        if (v.job.kind === 'stardust' && v.job.patchId === patch.id) continue;
+        const returnTo =
+          v.job.kind === 'work'
+            ? v.job.buildingId
+            : v.job.kind === 'stardust'
+              ? v.job.returnTo
+              : null;
+        v.job = { kind: 'stardust', patchId: patch.id, returnTo };
+      }
+      for (const v of s.villagers) {
+        if (v.job.kind !== 'stardust' || v.job.patchId !== patch.id || ids.has(v.id)) continue;
+        const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : undefined;
+        if (back && workersOf(s, back.id).length < workerSlots(back)) {
+          v.job = { kind: 'work', buildingId: back.id };
+        } else {
+          v.job = { kind: 'idle' };
+          autoAssign(s, v);
+        }
+      }
       return;
     }
     case 'setGarrison': {

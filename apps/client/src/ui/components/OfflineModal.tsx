@@ -22,6 +22,8 @@ export function OfflineModal() {
     summary.foodRanOut.length === 0 &&
     summary.waves.won + summary.waves.lost === 0 &&
     summary.meteors === 0 &&
+    summary.comets === 0 &&
+    summary.stardust === 0 &&
     summary.gifts.length === 0;
   return (
     <Modal
@@ -102,6 +104,10 @@ export function OfflineModal() {
       )}
       {summary.meteors > 0 && (
         <p class="bonus">{t('offline.meteors', { count: summary.meteors })}</p>
+      )}
+      {summary.comets > 0 && <p class="bonus">{t('offline.comets', { count: summary.comets })}</p>}
+      {summary.stardust > 0 && (
+        <p class="bonus">{t('offline.stardust', { count: summary.stardust })}</p>
       )}
       {summary.incidents > 0 && (
         <p class="small muted">{t('offline.incidents', { count: summary.incidents })}</p>

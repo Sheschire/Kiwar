@@ -28,6 +28,7 @@ import { VisitBanner } from './components/VisitBanner';
 import { RecapBubble } from './components/RecapBubble';
 import { actions } from './actions';
 import { uiStore, useT, useUi } from './store';
+import { CometBadge } from './components/CometBadge';
 import { foodLeftMs, NEEDS, SKILLS } from '@kiwar/shared';
 import { consumption, hungerStage, netRates } from './derived';
 import { ResourceIcon } from './icons';
@@ -162,6 +163,7 @@ export function App() {
       <FollowBadge />
       <div class="badge-stack">
         <ThreatBadge />
+        <CometBadge />
         <SpeechBadge />
         <HungerBadge />
       </div>

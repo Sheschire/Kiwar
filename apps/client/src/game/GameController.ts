@@ -27,6 +27,7 @@ import {
   type UniverseSummary,
   universeFriends,
   universeTargets,
+  stardustOf,
 } from '@kiwar/shared';
 import type { Account, OnlineBackend } from './onlineBackend';
 import { NetworkError, onlineConfig, type OnlineConfig } from './onlineConfig';
@@ -64,6 +65,8 @@ export interface OfflineSummary {
   /** Chantier 06: predator waves (repelled / lost), meteorites and small incidents. */
   waves: { won: number; lost: number };
   meteors: number;
+  comets: number;
+  stardust: number;
   incidents: number;
   /** Allies whose gifts landed meanwhile (one entry per delivery). */
   gifts: string[];
@@ -793,6 +796,8 @@ function summarize(
       lost: events.filter((e) => e.type === 'waveStruck' && !e.victory).length,
     },
     meteors: events.filter((e) => e.type === 'meteorLanded').length,
+    comets: events.filter((e) => e.type === 'cometPassed').length,
+    stardust: Math.max(0, stardustOf(after) - stardustOf(before)),
     incidents: events.filter((e) => e.type === 'incident').length,
     gifts: events.flatMap((e) => (e.type === 'cargoReceived' ? [e.from] : [])),
   };

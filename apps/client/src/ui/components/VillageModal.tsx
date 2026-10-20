@@ -61,6 +61,7 @@ function jobRank(v: Villager): number {
     train: 3,
     transform: 3,
     titan: 2,
+    stardust: 1,
     expedition: 4,
     injured: 5,
     idle: 6,
@@ -764,7 +765,7 @@ export function ResourceKind({ kind, size = 20 }: { kind: string; size?: number 
 }
 
 /** A row of small portraits; a tap opens the kiwi's sheet. */
-function KiwiChips({ kiwis }: { kiwis: Villager[] }) {
+export function KiwiChips({ kiwis }: { kiwis: Villager[] }) {
   return (
     <span class="kiwi-chips">
       {kiwis.map((v) => (
@@ -836,6 +837,17 @@ function JobBoardView() {
               </span>
             </div>
             <KiwiChips kiwis={board.builders} />
+          </li>
+        )}
+        {board.pickers.length > 0 && (
+          <li class="board-row is-static">
+            <div class="board-head">
+              <span class="board-main">
+                <strong>{t('comet.board')}</strong>
+                <span class="small muted">{board.pickers.length}</span>
+              </span>
+            </div>
+            <KiwiChips kiwis={board.pickers} />
           </li>
         )}
       </ul>

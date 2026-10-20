@@ -341,6 +341,31 @@ export function PathIcon({ size = 22, class: cls }: IconProps) {
   );
 }
 
+/** Chantier 13: stardust, a golden four-point sparkle with a small twin. */
+export function StardustIcon({ size = 22, class: cls }: IconProps) {
+  return svg(
+    size,
+    cls,
+    <>
+      <path
+        d="M14 3c1 6 3 8 9 9-6 1-8 3-9 9-1-6-3-8-9-9 6-1 8-3 9-9z"
+        fill="#ffd45e"
+        stroke="#a8741c"
+        stroke-width="1.6"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M24 19c.5 2.6 1.4 3.5 4 4-2.6.5-3.5 1.4-4 4-.5-2.6-1.4-3.5-4-4 2.6-.5 3.5-1.4 4-4z"
+        fill="#fff1b8"
+        stroke="#a8741c"
+        stroke-width="1.2"
+        stroke-linejoin="round"
+      />
+      <circle cx="14" cy="12" r="2" fill="#fffbe6" opacity=".9" />
+    </>,
+  );
+}
+
 export function ResourceIcon({ id, size }: { id: ResourceId; size?: number }) {
   switch (id) {
     case 'pulp':

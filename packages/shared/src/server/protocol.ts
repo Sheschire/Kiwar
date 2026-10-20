@@ -1,3 +1,4 @@
+import { STARDUST } from '../data/comets';
 import { TITAN_WORK_IDS } from '../data/titan';
 import { z } from 'zod';
 import { BUILDING_TYPES } from '../data/buildings';
@@ -93,6 +94,11 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('shelter') }),
   z.object({ type: z.literal('repair'), buildingId: id }),
   z.object({ type: z.literal('setGarrison'), villagerIds: z.array(id).max(200) }),
+  z.object({
+    type: z.literal('collectStardust'),
+    patchId: id,
+    villagerIds: z.array(id).max(STARDUST.slots),
+  }),
   z.object({ type: z.literal('setResearch'), tech: z.enum(TECH_IDS).nullable() }),
   z.object({ type: z.literal('clearObstacle'), q: z.number().int(), r: z.number().int() }),
   z.object({ type: z.literal('transform'), villagerId: id, labId: id }),

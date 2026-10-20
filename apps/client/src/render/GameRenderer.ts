@@ -50,6 +50,7 @@ import { pick, screenRay, TapDetector } from './picking';
 import { PathPainter } from './pathPainter';
 import { PathsView } from './paths';
 import { MeteorsView } from './meteors';
+import { CometsView } from './comets';
 import { ObstaclesView } from './obstacles';
 import { ShipsView } from './ship';
 import { PredatorShow } from './predators';
@@ -141,6 +142,8 @@ export class GameRenderer {
   private following = false;
   private paths: PathsView | null = null;
   private meteors: MeteorsView | null = null;
+  private comets: CometsView | null = null;
+  private readonly cometTarget = new Vector3();
   private obstacles: ObstaclesView | null = null;
   private ships: ShipsView | null = null;
   private predators: PredatorShow | null = null;
@@ -331,6 +334,7 @@ export class GameRenderer {
       this.paths,
       this.weather,
       this.meteors,
+      this.comets,
       this.obstacles,
       this.predators,
       this.ships,
@@ -356,6 +360,8 @@ export class GameRenderer {
     this.scene.add(this.paths.group);
     this.meteors = new MeteorsView(map);
     this.scene.add(this.meteors.group);
+    this.comets = new CometsView(map);
+    this.scene.add(this.comets.group);
     this.obstacles = new ObstaclesView(map, () => (this.renderer.shadowMap.needsUpdate = true));
     this.scene.add(this.obstacles.group);
     this.ships = new ShipsView(map);
@@ -503,6 +509,7 @@ export class GameRenderer {
     this.kiwis?.sync(state);
     this.paths?.sync(state.paths, ageOf(state));
     this.meteors?.sync(state);
+    this.comets?.sync(state);
     this.obstacles?.sync(state);
     this.ships?.sync(state);
     this.weather?.sync(state);
@@ -993,6 +1000,12 @@ export class GameRenderer {
         (this.levelBadges || this.rig.controls.distance < this.rig.frameDistance * BADGE_ZOOM),
     );
     this.meteors?.update(dt, this.callbacks.now());
+    this.comets?.update(
+      dt,
+      this.callbacks.now(),
+      this.camera,
+      this.rig.controls.getTarget(this.cometTarget),
+    );
     this.obstacles?.update(dt);
     this.ships?.update(
       dt,
@@ -1033,6 +1046,7 @@ export class GameRenderer {
     seasonUniforms.uNight.value = 1 - sky.daylight;
     this.water?.setIce(seasonUniforms.uSnow.value);
     this.weather?.update(this.elapsed, c, sky.night);
+    this.comets?.setNight(sky.night);
     // Shadows are static: refresh them when the sun has moved a little.
     if (sky.lightDir.dot(this.lastLightDir) < 0.99985) {
       this.lastLightDir.copy(sky.lightDir);

@@ -6,6 +6,7 @@ import { drawGarrison } from './aliens';
 import { alienDefOf } from '../data/expeditions';
 import type { ResourceId, Resources } from '../data/resources';
 import { INCIDENTS, METEORS, type IncidentKind } from '../data/threats';
+import { COMETS } from '../data/comets';
 import { DEFAULT_FACE_PARAMS, HEART, type FaceParams } from '../worldgen/generateFace';
 import { hexKey } from '../hex/hex';
 import type { ObstacleKind } from '../data/obstacles';
@@ -29,7 +30,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 18;
+export const SCHEMA_VERSION = 19;
 
 export type Job =
   | { kind: 'idle' }
@@ -56,7 +57,9 @@ export type Job =
    */
   | { kind: 'transform'; labId: BuildingId; until: TimeMs; risk: number; paid: Partial<Resources> }
   /** Chantier 08: a Kikiwiwi at work on a tile (smashing an obstacle, reshaping the land). */
-  | { kind: 'titan'; work: TitanWork; q: number; r: number; until: TimeMs };
+  | { kind: 'titan'; work: TitanWork; q: number; r: number; until: TimeMs }
+  /** Chantier 13: picking up stardust on a tile where a comet dropped some. */
+  | { kind: 'stardust'; patchId: string; returnTo: BuildingId | null };
 
 export interface KiwiHistory {
   expeditions: number;
@@ -406,6 +409,27 @@ export interface SkyState {
   meteors: Meteor[];
 }
 
+/** Stardust lying on a tile after a comet (chantier 13), in raw units (`STARDUST_SCALE`). */
+export interface DustPatch {
+  id: string;
+  q: number;
+  r: number;
+  stock: number;
+  max: number;
+  landedAt: TimeMs;
+  expiresAt: TimeMs;
+}
+
+/** Comets (chantier 13): the next one and the stardust on the ground. */
+export interface CometState {
+  /** Planned comet; the tiles are drawn when it passes. */
+  next: { id: string; announceAt: TimeMs; at: TimeMs; announced: boolean } | null;
+  /** Last passage (0: none yet). */
+  lastAt: TimeMs;
+  passes: number;
+  patches: DustPatch[];
+}
+
 /** A rock, a stump or a meteorite wreck blocking a land tile (chantier 08). */
 export interface Obstacle {
   /** `<kind>:<q>,<r>`. */
@@ -492,6 +516,9 @@ export interface GameState {
   terraform: Record<string, TerraformKind>;
   threats: ThreatState;
   sky: SkyState;
+  comets: CometState;
+  /** Stardust in raw units (`STARDUST_SCALE` per point), apart from the shared storage. */
+  stardust: number;
   research: ResearchState;
   nextId: number;
   rng: RngState;
@@ -581,6 +608,8 @@ export function newGame(opts: NewGameOptions): GameState {
     terraform: {},
     threats: newThreats(opts.seed, opts.face, opts.now),
     sky: newSky(opts.now),
+    comets: newComets(opts.now),
+    stardust: 0,
     research: { points: 0, current: null, done: [] },
     nextId: 1,
     rng: rng.state(),
@@ -635,6 +664,17 @@ export function newSky(now: TimeMs): SkyState {
     lastFallAt: 0,
     falls: 0,
     meteors: [],
+  };
+}
+
+/** The first comet is planned at a fixed time (no draw at game creation). */
+export function newComets(now: TimeMs): CometState {
+  const at = now + COMETS.firstMs;
+  return {
+    next: { id: 'c1', announceAt: at - COMETS.firstNoticeMs, at, announced: false },
+    lastAt: 0,
+    passes: 0,
+    patches: [],
   };
 }
 
@@ -714,6 +754,11 @@ export function cloneState(state: GameState): GameState {
       ...state.sky,
       next: state.sky.next ? { ...state.sky.next } : null,
       meteors: state.sky.meteors.map((m) => ({ ...m })),
+    },
+    comets: {
+      ...state.comets,
+      next: state.comets.next ? { ...state.comets.next } : null,
+      patches: state.comets.patches.map((p) => ({ ...p })),
     },
     research: { ...state.research, done: [...state.research.done] },
     friends: state.friends.map((f) => ({ ...f })),

@@ -1,3 +1,4 @@
+import { accrueStardust, cometTick, nextCometEvent, planComet } from './comets';
 import { isManualWorkplace, isProducer, type BuildingType } from '../data/buildings';
 import type { TechId } from '../data/research';
 import { RESOURCE_IDS, emptyResources, type ResourceId, type Resources } from '../data/resources';
@@ -186,6 +187,15 @@ export type GameEvent =
     }
   | { type: 'meteorLanded'; at: TimeMs; q: number; r: number; resource: ResourceId; stock: number }
   | { type: 'meteorFaded'; at: TimeMs; q: number; r: number; resource: ResourceId }
+  /** Chantier 13: a comet is seen in the sky, then drops stardust on a few tiles. */
+  | { type: 'cometAnnounced'; at: TimeMs; passAt: TimeMs }
+  | { type: 'cometPassed'; at: TimeMs; patches: { q: number; r: number; stock: number }[] }
+  /** All the stardust of a tile was picked up. */
+  | { type: 'dustPicked'; at: TimeMs; q: number; r: number }
+  /** The stardust of a tile scattered (`left` points lost). */
+  | { type: 'dustFaded'; at: TimeMs; q: number; r: number; left: number }
+  /** The stardust stock is full: the pickers go back to work. */
+  | { type: 'stardustFull'; at: TimeMs }
   /** Chantier 08: a technology is researched; the monument opens a new age. */
   | { type: 'researchDone'; at: TimeMs; tech: TechId }
   | { type: 'ageReached'; at: TimeMs; age: number }
@@ -229,6 +239,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     // The next wave is planned as soon as the beginners' protection is over (or after a wave).
     planWave(s);
     planMeteor(s);
+    planComet(s);
     const active = activeItem(s);
     const constructionEnd = active ? active.startedAt! + active.durationMs : Infinity;
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
@@ -241,6 +252,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const calendarChange = nextCalendarChange(s.calendarStart, s.now);
     const threatAt = nextThreatEvent(s);
     const skyAt = nextSkyEvent(s);
+    const cometAt = nextCometEvent(s);
     const injuryEnd = nextInjuryEnd(s);
     const researchAt = nextResearchEvent(s);
     const deliveryAt = nextDeliveryEvent(s);
@@ -253,6 +265,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
       deliveryAt,
       threatAt,
       skyAt,
+      cometAt,
       injuryEnd,
       calendarChange,
       flows.hungerAt,
@@ -293,6 +306,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     if (injuryEnd === nextEvent) healInjuries(s, injuryEnd, events);
     if (threatAt === nextEvent) threatTick(s, threatAt, events);
     if (skyAt === nextEvent) skyTick(s, skyAt, events);
+    if (cometAt === nextEvent) cometTick(s, cometAt, events);
     if (researchAt === nextEvent) researchTick(s, researchAt, events);
     if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
     const st = hungerStage(s);
@@ -506,6 +520,7 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
     s.hunger = Math.min(hungerCap(s), Math.max(0, s.hunger + flows.hunger * dtMs));
   // Research first: its rate depends on the kiwis as they were during the interval.
   accrueResearch(s, dtMs);
+  accrueStardust(s, dtMs);
   accrueKiwis(s, dtMs, at, events);
 }
 
