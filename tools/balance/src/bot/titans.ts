@@ -20,7 +20,10 @@ import {
   type FaceMap,
   type GameState,
   stardustOf,
+  currentObjective,
+  pendingUpgrade,
 } from '@kiwar/shared';
+import { upgradeOk } from './economy';
 
 /** Juice kept aside for the Kikiwiwis' upkeep before spending on infusions and works. */
 export const JUICE_RESERVE = 1500;
@@ -89,7 +92,12 @@ export function labDecision(
   // A stump costs a few meals (40 pulp): any colony can afford it (chantier 12: a 400 pulp
   // threshold made only pulp-rich biomes clear them, and their fiber loot sped up the Nest 3).
   const meals = (OBSTACLE_RULES.clearCost.pulp ?? 0) * 2;
-  if (state.queue.length === 0 && nest(state).level >= 2 && state.resources.pulp >= meals) {
+  // Chantier 15: not while saving up for the Nest (a stump holds a construction place for an
+  // hour, the Nest 3 waited behind it).
+  const n = nest(state);
+  const savingForNest =
+    !currentObjective(state) && upgradeOk(state, n) && !pendingUpgrade(state, n.id);
+  if (state.queue.length === 0 && n.level >= 2 && !savingForNest && state.resources.pulp >= meals) {
     const stump = state.obstacles
       .filter((o) => o.kind === 'stump')
       .sort((a, b) => hexDistance(a, HEART) - hexDistance(b, HEART))[0];

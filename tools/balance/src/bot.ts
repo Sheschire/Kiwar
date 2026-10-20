@@ -266,6 +266,10 @@ function decide(state: GameState, map: FaceMap, play: Play): Command[] {
   ) {
     return [...cmds, { type: 'upgrade', buildingId: n.id }];
   }
+  // Chantier 15: save up for the Nest (constructions start faster and in parallel, and an
+  // upgrade "whenever affordable" made the Nest 3 a race against the producers' upgrades,
+  // won or lost by chance: ±30 % between biomes). After the tutorial, which has its own goals.
+  if (!currentObjective(state) && upgradeOk(state, n) && !pendingUpgrade(state, n.id)) return cmds;
 
   // 4. Storage when something is nearly full.
   const cap = capacity(state);

@@ -1228,3 +1228,44 @@ PC), while phones are very smooth. Measured with Playwright/CDP on the `perfSave
   noise as idle), JS per frame 1.6–1.7 ms → 2.2–2.3 ms while placing, unchanged elsewhere.
   `scripts/perf.mjs` gained a placing scenario (desktop screens only; it needs a colony that
   can still place a Pulpery — the perf save is at its building cap).
+
+## Chantier 15 — Autonomous colony: constructions, research, meteorites, automation
+
+- **Owner's answers**: constructions in parallel by Nest level **1/1/2/2/3/3**, **one kiwi per
+  site**; priority garrison > repairs > constructions > research > craters and stardust >
+  harvest; **no camp on a crater any more**: a crater is harvested "by hand" (a post of its own)
+  and a **meteorite drill** researched later digs faster, better with each age; producers nearby
+  no longer nibble a crater; stardust is automated like the craters.
+- **Tasks** (`sim/tasks.ts`, skill `kiwar-tasks`): each task takes the best kiwis for its stat
+  among the idle ones and the ones doing something of lower priority (never a Kikiwiwi, never a
+  locked kiwi at work), and sends them back to their workplace when it ends. Builders keep
+  `returnTo` in their job, miners and pickers too; researchers and guards keep
+  `Villager.lent` (a moved kiwi forgets it). Save v21 (`state.automation`, `lent`).
+- **A site never starts without a kiwi**: the priority builder first, else the **strongest**
+  kiwi that may be borrowed (idle ones first on ties), even from a workplace it leaves empty
+  (the owner's rule; "never empty a workplace" made other biomes slower and was dropped).
+  Without anybody the site waits ("waiting for a builder"); the duration is still set by the
+  builder's speed at the start.
+- **Research**: while a technology is chosen, the Library's free places take the kiwis with the
+  most Spirit; they go back when nothing is researched; kiwis placed by hand stay (banked
+  points). In auto mode a researcher taken off by hand is replaced at once (switch the task to
+  manual to keep control).
+- **Meteorite post**: 3 places, per-kiwi rate = a level-1 workplace's rate (pulp 750, fiber
+  600, seeds 190, juice 450 per hour) × the miners' work (presence, hunger, morale, speech) ×
+  logistics × hour and season × drill; no climate. Nothing is built on a crater (`onCrater`).
+  Miners go back when it is empty or gone, and at the `storageFull` event of its resource; a
+  crater whose stock is at its cap is not filled. **Meteorite drill** (Stone age, economy, 300
+  points): ×1.5 Stone, ×2 Iron, ×2.5 Industry.
+- **Exactness**: the dispatcher runs after every event and every command, never at the start of
+  an `advance` call; it may only read what changes at events. A first version released the
+  miners when `storageFull(resource)` was true: that test depends on the gross rates, i.e. on
+  the miners themselves, so the dispatcher oscillated and "one big step = small steps" broke.
+- **Repairs**: ordered and paid as soon as affordable (read at events) and the queue has room,
+  inserted before the sites not started. **Garrison**: an `advance` event 40 min before an
+  announced strike; the kiwi that stops the most of what still breaks through at bad luck is
+  posted, again and again (at most half the colony, builders stay, nobody during a shelter);
+  they go back after the strike. Guards posted by hand stay.
+- **Automation panel**: a village tab with one auto/manual switch per task (constructions,
+  research, meteorites, stardust, repairs, garrison, full stocks) and a "N waiting" badge for a
+  manual task with nobody; in manual mode the construction queue offers "Choose…" (the
+  strongest kiwis; `assignBuilder`).
