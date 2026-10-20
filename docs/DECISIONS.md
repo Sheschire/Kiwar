@@ -691,3 +691,16 @@ Feedback from a real game with friends (owner, 2026-10-20).
     there (kiwis are tapped elsewhere, or from the village screen).
   - Intro: a click (or a tab) on a face locks the choice; hovering the other half no longer
     changes it.
+- **Deliveries between allies** (owner: the launchpad's bird as a cargo, free gifts, no risk,
+  no kiwis yet, the cargo is the only limit, the recipient sees the bird land). Save v14:
+  `friends` (the universe's other players, set by the server like `targets`; flight time as an
+  alien face at the same kiwi distance), `shipments`, `incoming`. `sendCargo { launchpadId,
+friendId, resources }`: weight = resources × 0.1 cargo units (level-1 launchpad: 1 500
+  resources), launchpad busy until the empty ship is back (no raid meanwhile), no breakdown.
+  The server writes the gift into the ally's game right away (`incoming`, retried on
+  conflicts); it is credited when it lands, up to the storage (the rest is lost and said so).
+  Ally snapshots carry `room` (free storage minus gifts on their way). Client: switch
+  "Expedition / Deliver to an ally" in the launchpad screen, "Send resources" from a visit,
+  flight towards the ally's planet, a visiting bird (wooden) resting 45 s beside the recipient's
+  Nest, toasts, existing ship sounds, gifts in the away summary; the 5-minute universe refresh
+  also reloads the state so new gifts show up long before they land (flights ≥ 1 h 30).

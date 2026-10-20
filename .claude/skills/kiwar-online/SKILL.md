@@ -42,6 +42,9 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   kiwi 0 (`moveSoloInto`; refused while pristine): same state re-keyed, `created_at` set so the
   calendar is unchanged, member `planet_seed` = the colony seed (`planetSeedOf(info, k)` gives
   the seed of any kiwi: use it, never `kiwiSeed` directly), then the solo slot starts over.
+- Deliveries: the `command` handler writes a `sendCargo` gift into the recipient's game (see
+  `kiwar-expeditions`); snapshots carry `friendId` and `room`. Mock: `/__mock/clock?ms=`
+  moves the server clock forward.
 - Responses with a universe carry `allies: AllySnapshot[]` (every other player's layout, seed
   and kiwi; never stocks) next to `twin` (`neighboursOf`). Client: see `kiwar-world`.
   Every colony of a universe shares its calendar: the repository reads `created_at`

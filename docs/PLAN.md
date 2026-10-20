@@ -91,6 +91,8 @@ nature, obstacles et travaux de titan). Les réponses du porteur et le découpag
   (jumelle alien), univers créé depuis la colonie solo, planètes alliées visibles et visitables
   en lecture, écran d'erreur au lieu d'un fond vide, récap discret, caméra conservée. Reste :
   la cause exacte de « certains ne peuvent pas construire » n'a pas été reproduite avec le mock
-  (l'écran d'erreur affiche désormais le message à transmettre) ; pas encore de voyage ni
-  d'échanges entre alliés ; le porteur doit exécuter la migration
-  `20261025000000_member_planet_seed.sql`.
+  (l'écran d'erreur affiche désormais le message à transmettre) ; le porteur doit exécuter la
+  migration `20261025000000_member_planet_seed.sql`.
+- Livraisons entre alliés (dons libres par l'oiseau de l'aire d'envol, sans risque) : faites.
+  Pas encore d'offres d'échange, de prêt de kiwis ni de renforts ; l'oiseau visiteur est
+  toujours en bois (on ne connaît pas l'âge de l'allié·e) ; le bot ne livre pas (solo).

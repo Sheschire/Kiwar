@@ -91,6 +91,21 @@ Crew strength, exposure and weighted losses come from `kiwar-rpg`.
 expeditionPad })` or `{ modal: 'report', reportId }`; zoom out (`dollyTo(frameDistance × 1.85)`)
   to see the twin's opened clouds.
 
+## Deliveries between allies (multiplayer)
+
+- `sim/deliveries.ts`: `cargoWeight`, `cargoLimit(pad)`, `deliveryTime(state, friend, pad)`,
+  `sendShipment`, `nextDeliveryEvent` / `deliveryTick` (an `advance` event: `cargoDelivered`,
+  `shipmentReturned`, `cargoReceived { received, lost }`), `deliveryOf(shipment, from, uid)`.
+- State (save v14): `friends` (server-set, `universeFriends`, ids `ally:<user id>`,
+  `userOfFriend`), `shipments` (our ship; `isLaunchpadBusy` counts them), `incoming`.
+- Server: after a successful `sendCargo`, `deliver()` appends the `Delivery` to the ally's
+  stored game (version retry). Nothing hidden: deliveries resolve on the client too.
+- Client: `ui/components/DeliveryPlanner.tsx` (in `ExpeditionModal`, store `deliverTo`),
+  `actions.prepareDelivery(friendId)`, `ShipsView` flights `ship:<id>` (to the ally's planet via
+  the `AllyLocator` from `AlliesView`) and visitors `gift:<id>` (90 s approach, 45 s rest beside
+  the Nest). Visual check: mock `/__mock/clock?ms=` to jump the server clock; render one page
+  at a time (two software-rendered pages starve each other's timers).
+
 ## Balance
 
 - `pnpm balance:expeditions [--seeds 300]` (`tools/balance/src/expeditions.ts`): breakdown rate
