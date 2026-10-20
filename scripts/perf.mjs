@@ -93,6 +93,20 @@ async function scenario(screen, preset) {
       );
     }
     rows.push({ what: 'hover', ...(await snapshot(page)) });
+
+    // Chantier 16: placing a producer (ghost model, planned catchment) under a moving mouse.
+    await page.evaluate(() => window.__kiwar.actions.startPlacing('pulpery'));
+    await snapshot(page);
+    const t1 = Date.now();
+    while (Date.now() - t1 < 4000) {
+      const a = (Date.now() - t1) / 400;
+      await page.mouse.move(
+        screen.width / 2 + Math.cos(a) * screen.width * 0.25,
+        screen.height / 2 + Math.sin(a) * screen.height * 0.25,
+      );
+    }
+    rows.push({ what: 'placing', ...(await snapshot(page)) });
+    await page.evaluate(() => window.__kiwar.actions.stopPlacing());
   }
 
   // The camera turning and sliding (what the player feels as stutter).

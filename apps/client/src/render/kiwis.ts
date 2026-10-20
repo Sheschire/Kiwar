@@ -48,7 +48,9 @@ import {
   type KiwiRhythm,
   nearestDepotOf,
   tileWalkCost,
+  workerPower,
   workersOf,
+  HOUR_MS,
 } from '@kiwar/shared';
 import { findPath } from './pathfinding';
 import { TitansView } from './kikiwiwi';
@@ -67,7 +69,10 @@ function stepSpeed(cost: number): number {
   return Number.isFinite(cost) ? Math.min(1.8, Math.max(0.6, 1 / Math.sqrt(cost))) : 1;
 }
 
-/** "+N/h" colours (readable on the parchment-dark outline). */
+/** A drop never counts more than this much game time (after a pause or a long jump). */
+const MAX_LOAD_MS = 10 * 60_000;
+
+/** Drop label colours (readable on the parchment-dark outline). */
 const LABEL_COLORS: Record<ResourceId, string> = {
   pulp: '#c6ef7a',
   fiber: '#f3e2b8',
@@ -93,6 +98,8 @@ interface Agent {
   /** Where the agent is heading in its work loop. */
   leg: 'toWork' | 'toNest' | 'none';
   carrying: ResourceId | null;
+  /** Chantier 16: game time since which the load being gathered accrues (last drop). */
+  loadSince: number;
   tint: Color;
   scale: number;
   /** Random part of the size (the rest comes from the stats). */
@@ -104,6 +111,13 @@ interface Agent {
   rhythmTimer: number;
   /** Asleep inside its home (not drawn). */
   inside: boolean;
+}
+
+/** "+12", "+3.4", "+0,4" in French (one decimal below 10, never below 0.1). */
+export function formatDrop(amount: number, lang = document.documentElement.lang): string {
+  if (amount >= 10) return `+${Math.round(amount)}`;
+  const text = String(Math.max(0.1, Math.round(amount * 10) / 10));
+  return `+${lang === 'fr' ? text.replace('.', ',') : text}`;
 }
 
 /** Shiny kiwis: the body colour is multiplied towards these (vertex colours stay in shape). */
@@ -403,6 +417,7 @@ export class KiwisView {
       plan: '',
       leg: 'none',
       carrying: null,
+      loadSince: this.state?.now ?? 0,
       tint,
       jitter,
       scale: sizeOf(v, jitter) * (v.kikiwiwi ? TITAN_SIZE : 1),
@@ -503,21 +518,32 @@ export class KiwisView {
     return null;
   }
 
-  /** Chantier 12: "+N/h" over the depot, this kiwi's share of its workplace's output. */
+  /**
+   * Chantier 16: "+0.4" and the resource icon over the depot: what this kiwi gathered since its
+   * last drop (its own worker power's share of the building's output × the game time elapsed),
+   * so the drops of an hour add up to the real rate.
+   */
   private showDrop(agent: Agent, villager: Villager): void {
     if (!this.state || villager.job.kind !== 'work' || !agent.carrying) return;
+    const now = this.state.now;
+    const elapsed = Math.min(MAX_LOAD_MS, Math.max(0, now - agent.loadSince));
+    agent.loadSince = now;
     const b = getBuilding(this.state, villager.job.buildingId);
     const h = b ? harvestOf(this.state, b.id) : null;
-    const crew = b ? workersOf(this.state, b.id).length : 0;
-    if (!h || crew === 0 || h.output <= 0) return;
-    const perKiwi = h.output / crew;
-    const text = `+${perKiwi >= 10 ? Math.round(perKiwi) : Math.round(perKiwi * 10) / 10}/h`;
+    if (!h || h.output <= 0 || elapsed <= 0) return;
+    const resource = agent.carrying;
+    const crew = workersOf(this.state, villager.job.buildingId);
+    const total = crew.reduce((sum, v) => sum + workerPower(v, resource), 0);
+    const share =
+      total > 0 ? workerPower(villager, resource) / total : 1 / Math.max(1, crew.length);
+    const amount = (h.output * share * elapsed) / HOUR_MS;
     this.drops.spawn(
       agent.pos.x,
       agent.pos.y + 0.5,
       agent.pos.z,
-      text,
-      LABEL_COLORS[agent.carrying],
+      formatDrop(amount),
+      resource,
+      LABEL_COLORS[resource],
     );
   }
 
@@ -632,6 +658,7 @@ export class KiwisView {
     if (job.kind === 'work' && work) {
       if (changed) {
         agent.carrying = null;
+        agent.loadSince = this.state?.now ?? 0;
         this.walkTo(agent, work.hex);
         agent.leg = 'toWork';
         return;
