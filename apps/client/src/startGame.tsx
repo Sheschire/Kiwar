@@ -24,7 +24,7 @@ import { actions, bindActions } from './ui/actions';
 import { bindIntro, introSeen, startIntro } from './ui/intro';
 import { clearUrlParams, randomSeed, readUrlParams } from './game/urlParams';
 import { gpuRendererName, loadQualityChoice } from './render/quality';
-import { installPerfProbe, perfStore } from './ui/perfProbe';
+import { installPerfProbe, perfStore, recordTick } from './ui/perfProbe';
 import { viewStore } from './ui/viewStore';
 import { handleGameEvents } from './game/events';
 import { ChatChannel, mutedUsers } from './game/chat';
@@ -139,9 +139,13 @@ controller = new GameController({
     showAllies();
   },
   onState: (state, now) => {
+    const t0 = performance.now();
     renderer.setGameState(state);
     showTwin(state);
+    const t1 = performance.now();
     uiStore.setState({ game: state, now });
+    recordTick(controller.lastAdvanceMs, t1 - t0, performance.now() - t1);
+    controller.lastAdvanceMs = 0;
   },
   onEvents: (events) => handleGameEvents(events, renderer),
   onError: (error) => {

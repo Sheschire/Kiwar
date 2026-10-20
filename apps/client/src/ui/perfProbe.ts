@@ -24,6 +24,21 @@ export interface PerfState {
   worstUpdate: number;
   lastMenu: MenuTiming | null;
   menus: MenuTiming[];
+  /**
+   * The simulation tick (every 200 ms, outside the frames): average ms of its parts over the
+   * last second, and the slowest whole tick.
+   */
+  tick: TickTiming | null;
+  /** Main-thread tasks over 50 ms in the last second (Chromium only), and their total ms. */
+  longTasks: number;
+  longTaskMs: number;
+}
+
+export interface TickTiming {
+  advance: number;
+  scene: number;
+  ui: number;
+  worst: number;
 }
 
 export const perfStore = createStore<PerfState>(() => ({
@@ -34,7 +49,24 @@ export const perfStore = createStore<PerfState>(() => ({
   worstUpdate: 0,
   lastMenu: null,
   menus: [],
+  tick: null,
+  longTasks: 0,
+  longTaskMs: 0,
 }));
+
+const ticks = { advance: 0, scene: 0, ui: 0, worst: 0, count: 0 };
+/** Cost of the last tick so far, until its Preact re-render (a microtask later) is added. */
+let openTick: number | null = null;
+
+/** One simulation tick: the advance, the 3D sync and the store update (ms). */
+export function recordTick(advance: number, scene: number, ui: number): void {
+  ticks.advance += advance;
+  ticks.scene += scene;
+  ticks.ui += ui;
+  ticks.worst = Math.max(ticks.worst, advance + scene + ui);
+  ticks.count++;
+  openTick = advance + scene + ui;
+}
 
 export const usePerf = <T>(selector: (s: PerfState) => T): T => useStoreSlice(perfStore, selector);
 
@@ -51,16 +83,42 @@ export function installPerfProbe(gpu: string): void {
   let worst = 0;
   let pendingStore = 0;
   let windowStart = performance.now();
+  let longTasks = 0;
+  let longTaskMs = 0;
+  try {
+    new PerformanceObserver((list) => {
+      for (const e of list.getEntries()) {
+        longTasks++;
+        longTaskMs += e.duration;
+      }
+    }).observe({ type: 'longtask' });
+  } catch {
+    // Not supported (Safari, Firefox).
+  }
   let opening: { name: string; at: number; render: number | null } | null = null;
 
   const flushWindow = (now: number) => {
     if (now - windowStart < 1000) return;
     const seconds = (now - windowStart) / 1000;
+    const n = ticks.count;
     perfStore.setState({
       uiMsPerSecond: busy / seconds,
       updatesPerSecond: updates / seconds,
       worstUpdate: worst,
+      tick: n
+        ? {
+            advance: ticks.advance / n,
+            scene: ticks.scene / n,
+            ui: ticks.ui / n,
+            worst: ticks.worst,
+          }
+        : null,
+      longTasks: longTasks / seconds,
+      longTaskMs: longTaskMs / seconds,
     });
+    Object.assign(ticks, { advance: 0, scene: 0, ui: 0, worst: 0, count: 0 });
+    longTasks = 0;
+    longTaskMs = 0;
     busy = 0;
     updates = 0;
     worst = 0;
@@ -88,6 +146,12 @@ export function installPerfProbe(gpu: string): void {
       busy += spent;
       worst = Math.max(worst, spent + pendingStore);
       if (opening && opening.render === null) opening.render = spent;
+      if (openTick !== null) {
+        // The re-render of a tick belongs to the same main-thread task.
+        ticks.ui += spent;
+        ticks.worst = Math.max(ticks.worst, openTick + spent);
+        openTick = null;
+      }
       pendingStore = 0;
     });
 

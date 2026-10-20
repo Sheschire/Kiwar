@@ -41,6 +41,7 @@ import { KiwisView } from './kiwis';
 import { CameraRig } from '../camera/CameraRig';
 import { Environment } from './environment';
 import { FpsMeter } from './fpsMeter';
+import { GpuTimer } from './gpuTimer';
 import { PerfStats, type FrameStats } from './perfStats';
 import { Lighting } from './lighting';
 import { PALETTE } from './palette';
@@ -114,6 +115,7 @@ export class GameRenderer {
   private readonly tap: TapDetector;
   private readonly fpsMeter = new FpsMeter();
   private readonly perf = new PerfStats();
+  private readonly gpuTimer: GpuTimer;
   private lastFrameAt = 0;
   private terrain: TerrainView | null = null;
   private water: WaterView | null = null;
@@ -177,6 +179,7 @@ export class GameRenderer {
     this.renderer.shadowMap.type = PCFSoftShadowMap;
     // Shadows only change when buildings change: render them on demand.
     this.renderer.shadowMap.autoUpdate = false;
+    this.gpuTimer = new GpuTimer(this.renderer.getContext());
 
     // Near plane at 1: the camera never comes closer than 11 (better depth precision).
     this.camera = new PerspectiveCamera(30, 1, 1, 2000);
@@ -883,8 +886,10 @@ export class GameRenderer {
       // One broken view must not leave the screen empty: keep drawing the rest.
       this.reportFrameError(e);
     }
+    this.gpuTimer.begin();
     if (this.postfx) this.postfx.render(dt);
     else this.renderer.render(this.scene, this.camera);
+    this.gpuTimer.end();
 
     this.fpsReportTimer += dt;
     if (this.fpsReportTimer > 0.5) {
@@ -899,6 +904,7 @@ export class GameRenderer {
     const size = this.renderer.getDrawingBufferSize(tmpSize);
     this.callbacks.onStats({
       ...this.perf.summary(),
+      gpuMs: this.gpuTimer.take(),
       drawCalls: this.renderer.info.render.calls,
       triangles: this.renderer.info.render.triangles,
       width: size.x,

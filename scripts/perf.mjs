@@ -45,6 +45,7 @@ const snapshot = (page) =>
       ui: p.uiMsPerSecond,
       updates: p.updatesPerSecond,
       worstUpdate: p.worstUpdate,
+      tick: p.tick,
       longTasks: tasks.length,
       longTaskMs: tasks.reduce((a, b) => a + b, 0),
     };
@@ -94,6 +95,21 @@ async function scenario(screen, preset) {
     rows.push({ what: 'hover', ...(await snapshot(page)) });
   }
 
+  // The camera turning and sliding (what the player feels as stutter).
+  await page.evaluate(() => {
+    const c = window.__kiwar.renderer.rig.controls;
+    let k = 0;
+    window.__spin = setInterval(() => {
+      k++;
+      void c.rotate(0.02, 0, true);
+      void c.truck(Math.sin(k / 30) * 0.2, 0, true);
+    }, 16);
+  });
+  await snapshot(page);
+  await wait(page, 4000);
+  rows.push({ what: 'camera', ...(await snapshot(page)) });
+  await page.evaluate(() => clearInterval(window.__spin));
+
   const nest = await page.evaluate(() => {
     const k = window.__kiwar;
     const b = k.uiStore.getState().game.buildings.find((x) => x.type === 'nest');
@@ -137,8 +153,8 @@ const fmt = (n, d = 0) => (n === undefined || n === null ? '–' : Number(n).toF
 const lines = [
   `CPU ×${slowdown} · ${new Date().toISOString()}`,
   '',
-  '| screen | preset | moment | fps | p95 ms | JS ms/frame | draws | px | UI ms/s | worst update ms | long tasks (ms) | menu → paint ms | menu render ms |',
-  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+  '| screen | preset | moment | fps | p95 ms | JS ms/frame | draws | px | UI ms/s | worst update ms | tick ms (worst) | long tasks (ms) | menu → paint ms | menu render ms |',
+  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
 ];
 for (const screen of SCREENS) {
   for (const preset of PRESETS) {
@@ -146,7 +162,7 @@ for (const screen of SCREENS) {
     for (const r of rows) {
       const f = r.frame ?? {};
       lines.push(
-        `| ${screen.name} | ${preset} | ${r.what} | ${fmt(f.fps)} | ${fmt(f.p95)} | ${fmt(f.cpu, 1)} | ${fmt(f.drawCalls)} | ${f.width ?? '–'}×${f.height ?? '–'} | ${fmt(r.ui)} | ${fmt(r.worstUpdate, 1)} | ${r.longTasks} (${fmt(r.longTaskMs)}) | ${fmt(r.menu?.ms)} | ${fmt(r.menu?.render, 1)} |`,
+        `| ${screen.name} | ${preset} | ${r.what} | ${fmt(f.fps)} | ${fmt(f.p95)} | ${fmt(f.cpu, 1)} | ${fmt(f.drawCalls)} | ${f.width ?? '–'}×${f.height ?? '–'} | ${fmt(r.ui)} | ${fmt(r.worstUpdate, 1)} | ${r.tick ? `${fmt(r.tick.advance + r.tick.scene + r.tick.ui, 1)} (${fmt(r.tick.worst, 1)})` : '–'} | ${r.longTasks} (${fmt(r.longTaskMs)}) | ${fmt(r.menu?.ms)} | ${fmt(r.menu?.render, 1)} |`,
       );
     }
     if (errors.length) lines.push(`errors: ${errors.join(' / ')}`);

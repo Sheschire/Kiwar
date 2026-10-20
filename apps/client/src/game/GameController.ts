@@ -290,10 +290,15 @@ export class GameController {
     return true;
   }
 
+  /** Cost of the last `advance` of a tick (ms, for the debug panel). */
+  lastAdvanceMs = 0;
+
   tick(): void {
     if (!this.state) return;
     const now = this.now();
+    const start = performance.now();
     const { state, events } = advance(this.state, now);
+    this.lastAdvanceMs = performance.now() - start;
     this.state = state;
     if (events.length) {
       this.listener.onEvents(events);

@@ -88,6 +88,8 @@ function PerfLines({ t }: { t: Translate }) {
     (s) => `${round(s.uiMsPerSecond)}|${round(s.updatesPerSecond)}|${round(s.worstUpdate, 1)}`,
   );
   const menu = usePerf((s) => s.lastMenu);
+  const tick = usePerf((s) => s.tick);
+  const long = usePerf((s) => `${round(s.longTasks, 1)}|${round(s.longTaskMs)}`);
   const [ms, updates, worst] = ui.split('|');
   return (
     <div class="field perf-lines small">
@@ -96,6 +98,7 @@ function PerfLines({ t }: { t: Translate }) {
           <span>
             {t('debug.perf', {
               fps: round(frame.fps),
+              median: round(frame.median, 1),
               p95: round(frame.p95, 1),
               worst: round(frame.worst),
               hitches: frame.hitches,
@@ -104,6 +107,7 @@ function PerfLines({ t }: { t: Translate }) {
           <span>
             {t('debug.cpu', {
               cpu: round(frame.cpu, 1),
+              gpu: frame.gpuMs === null ? '?' : round(frame.gpuMs, 1),
               calls: frame.drawCalls,
               tris: round(frame.triangles / 1000),
             })}
@@ -119,6 +123,19 @@ function PerfLines({ t }: { t: Translate }) {
         </>
       )}
       <span>{t('debug.ui', { ms: ms!, updates: updates!, worst: worst! })}</span>
+      {tick && (
+        <span>
+          {t('debug.tick', {
+            advance: round(tick.advance, 1),
+            scene: round(tick.scene, 1),
+            ui: round(tick.ui, 1),
+            worst: round(tick.worst, 1),
+          })}
+        </span>
+      )}
+      <span class="muted">
+        {t('debug.longTasks', { count: long.split('|')[0]!, ms: long.split('|')[1]! })}
+      </span>
       {menu && (
         <span>
           {t('debug.menu', { name: menu.name, ms: round(menu.ms), render: round(menu.render, 1) })}
