@@ -1269,3 +1269,42 @@ PC), while phones are very smooth. Measured with Playwright/CDP on the `perfSave
   research, meteorites, stardust, repairs, garrison, full stocks) and a "N waiting" badge for a
   manual task with nobody; in manual mode the construction queue offers "Choose…" (the
   strongest kiwis; `assignBuilder`).
+
+## Chantier 17 — Visual identity: distinct buildings, alien planet, living sky
+
+- **Owner's answers**: colours by family (production = its resource, storage dark wood and
+  slate, knowledge stone and blue, defense grey stone and iron, housing fur and straw, ship
+  light wood and copper); the alien planet stays fixed towards the front (no corner of the
+  screen when looking away); only the sea of clouds below (no second layer); with the ages a
+  family keeps its hue and only the material changes.
+- **Alien planet**: hidden when zoomed in, half showing at the top of the screen at zoom 1.0,
+  fully in view from 1.15 (`ZOOM_IN` 0.6, `ZOOM_OUT` 1.15, was 1.0 → 1.55), scale 0.68
+  (0.55), centre at 0.6 × the half field of view, thinner fog of war (alpha 0.14 + 0.36 ×
+  puff per layer). A ribbon "Alien face — to colonise" (`compass.twin`) floats over its top
+  once in view (k > 0.75), drawn after the fog layers. The default azimuth (0) already
+  looks towards the front: no reframing. A soft additive halo was tried and dropped (it did
+  not show over the pink sky). It costs about ten draw calls at the default zoom, where it
+  was hidden before.
+- **Family palette** in `buildingModels.ts` (`C.fiberRoof`, `seedRoof`, `juiceRoof`,
+  `storeWood`/`slate`, `blueRoof`, `guardStone`, `lightWood`/`copper`), still vertex colours
+  and one material. `AGE_COLORS` became `ageColor`: wood and walls swap material (Iron,
+  Industry), `FAMILY_COLORS` keep their hue (× 0.88 at Iron, 25 % towards metal grey at
+  Industry).
+- **Signature silhouettes**: warehouse wide and low with a double door and crate stacks;
+  School with a tall bell tower and a blue spire, its yard and dummy from level 1; fibre
+  workshop with a big spool turning on the ridge (the spinning wheel became static: same rig
+  count); pulpery press shaped like a kiwi whose head and beak peck the basket (`pound`);
+  seed quarry with a golden-roofed sorting shed; lime roof on the juice well, blue on the
+  Library, iron shields on the turrets, copper on the launch pad.
+- **Signs**: a post in each model (`SIGN_SPOTS`, the camp has none) and a round painted icon
+  drawn by `render/signs.ts` (`SignsView`): one `InstancedMesh` for every sign (+1 draw
+  call), one atlas canvas drawn from the `iconSet` SVGs, camera-facing in the vertex shader,
+  up to 1.7× bigger beyond a camera distance of 32 so it still reads at the default zoom,
+  darker at night (`seasonUniforms.uNight`), no raycast.
+- **Sea of clouds**: same plane, same two noises in medium/high — the fine puffs warped by
+  the big billows, a swell, gaps over a starry deep; low quality keeps the old plain drift.
+  Software-rendering medians at zoom 1.6 (scene + postfx): 466–490 ms after, 494–502 ms
+  before; `scripts/perf.mjs` (medium) shows no JS regression beyond the noise of headless
+  runs. To confirm with `?debug` on a real GPU.
+- **`?sheet[&age=0..3][&types=a,b]`**: every building, levels 1–3, lit like the game, with
+  their signs (`sheet/buildingSheet.ts`), the tool for the contact sheet.

@@ -39,8 +39,11 @@ biome)` (memoized), `tileDeposit(tile, biome)`, `twinParams(seed, face, params)`
   `setFlooded`), badge `flooded` in `buildingLife.ts`. `pathfinding.ts` passes biome + flood.
 - **Twin half** (`render/twin.ts`, `GameRenderer.setTwin(map, { fog, friend })`): like the moon,
   always towards the colony's front (`render/front.ts` `FRONT_AZIMUTH`), fixed orientation and
-  slow spin; its height follows the camera's distance and pitch — hidden just above the frame
-  until zoom 1.0 × `rig.frameDistance`, in the upper sky at 1.55 × (max zoom 1.9 ×). Turning the
+  slow spin; its height follows the camera's distance and pitch — hidden above the frame
+  below zoom 0.6 × `rig.frameDistance`, half showing at the top at 1.0 (the default zoom),
+  fully in the upper sky from 1.15 × (chantier 17; max zoom 1.9 ×). Scale 0.68; alien twins
+  carry a ribbon `TwinOptions.caption` ("Alien face — to colonise", `compass.twin`, shown
+  when k > 0.75, `renderOrder` above the fog layers). Turning the
   camera slides it off screen (the compass shows where it is). A truly fixed world position
   does not work: the camera looks 45–64° down. Terrain without shadows/props, materials `fog=false`,
   three `CircleGeometry` cloud layers (fog of war). Friend: `WaterView`, static

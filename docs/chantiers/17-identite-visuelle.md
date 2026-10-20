@@ -106,3 +106,42 @@ silhouette signature par famille, plus une enseigne-icône.
 2. Au zoom par défaut, la planète alien doit-elle rester visible dans un coin du ciel même quand
    la caméra regarde à l'opposé du front (au prix d'une position moins « fixe ») ?
 3. Seconde couche de nuages au-dessus : oui si le coût est nul, ou seulement la mer du dessous ?
+
+## Réponses du porteur aux questions ouvertes (octobre 2026)
+
+1. Couleurs **par famille**, comme proposé.
+2. La planète reste **fixe vers le front** (pas de coin d'écran quand on regarde ailleurs).
+3. **Mer du dessous seulement**, animée dans le même shader.
+4. (Question ajoutée) Avec les âges, **la teinte de famille reste, seule la matière change**.
+
+## Réalisé
+
+- **Planète alien** : à moitié visible en haut de l'écran au zoom 1,0 (entière sur
+  téléphone), pleine dès 1,15 (au lieu de 1,55), un peu plus grande, brouillard de guerre
+  plus léger ; ruban « Face alien — à coloniser » au-dessus d'elle une fois en vue. L'azimut
+  par défaut regarde déjà le front : pas de recadrage.
+- **Palette par famille** (couleurs par sommet, un seul matériau) et âges qui gardent la
+  teinte (`ageColor`).
+- **Silhouettes signature** : entrepôt large et bas (double porte, piles de caisses), école
+  au clocher bleu avec sa cour et son mannequin, bobine qui tourne sur le faîte de l'atelier
+  à fibre, presse-kiwi qui picore à la pulperie, cabane au toit brun doré à la carrière ;
+  toit vert vif du puits, bleu de la Bibliothèque, boucliers de fer des tourelles, cuivre de
+  l'aire d'envol.
+- **Enseignes-icônes** : un poteau dans chaque modèle et une enseigne ronde peinte avec
+  l'icône de l'interface, toutes dans une seule `InstancedMesh` (+1 appel de dessin), un
+  seul atlas.
+- **Mer de nuages vivante** : billows qui roulent, houle, trouées sur des étoiles, mêmes deux
+  bruits qu'avant en moyen/haut ; la qualité basse garde l'ancienne mer.
+- **Planche** `?sheet&age=0..3` (et `&types=`) : tous les bâtiments, niveaux 1 à 3, à la
+  lumière du jeu.
+- Mesures (rendu logiciel) : la mer coûte autant qu'avant ; `scripts/perf.mjs` en moyen ne
+  montre pas de hausse du JS au-delà du bruit.
+
+## Reste
+
+- Confirmer les images/s avec `?debug` sur un vrai GPU (MacBook Pro 2015) : la planète,
+  désormais visible au zoom par défaut, ajoute une dizaine d'appels de dessin.
+- Niveaux 4 à 6 : toujours la silhouette du niveau 3 agrandie.
+- La planète alien reste pâle sous son brouillard (Kiwino) ; un halo additif a été essayé et
+  retiré (invisible sur le ciel rose).
+- Les enseignes n'apparaissent pas sur la face d'un·e ami·e ni dans le fantôme de pose.

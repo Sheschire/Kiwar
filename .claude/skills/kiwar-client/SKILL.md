@@ -126,6 +126,23 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   pulperies): use `?seed=demo` + `debugGrant`, and `renderer.pickTile(x, y)` to find a tile's
   screen point; step `renderer.waves.update(1/60)` by hand with the loop stopped.
 
+- Chantier 17 (visual identity): **family palette** in `buildingModels.ts` (production in its
+  resource's colour, storage `storeWood`/`slate`, knowledge `blueRoof`, defense `guardStone` +
+  iron, ship `lightWood`/`copper`) — a new building picks its family's colours, never a new
+  material. Ages go through `ageColor` (wood/walls swap material at Iron and Industry,
+  `FAMILY_COLORS` keep their hue): add a new family colour to `FAMILY_COLORS`. **Signs**:
+  `partsOf` adds a post at `SIGN_SPOTS[type]` and sets `Parts.sign` (scaled by `grow`,
+  exposed as `BuildingModel.sign`); `render/signs.ts` `SignsView` (owned by `BuildingsView`,
+  `syncSigns` after `syncMeshes`) draws every sign as one camera-facing `InstancedMesh` from
+  an atlas of the `iconSet` SVGs (`SIGNED` = atlas order: a new building type needs an entry
+  there, `GRID` 4×4 holds 16), bigger beyond camera distance 32 (`NEAR`, `GROW`), no
+  raycast. **Contact sheet**: `?sheet[&age=0..3][&types=a,b]` (`sheet/buildingSheet.ts`,
+  routed in `main.tsx`): every building, levels 1–3, game lighting, signs; screenshot it
+  with `scripts/shot.mjs` (wait ~6 s) after any model change. Sea of clouds: see
+  `environment.ts` (`KIWAR_LITE` = the plain old sea). In-game check of many buildings: push
+  copies of the Nest on free tiles 2–4 steps away (see the Chantier 11 note) and look at the
+  default zoom.
+
 ## Performance (chantier 10)
 
 - **The UI store is the usual suspect.** The controller emits a new `game` and `now` 5 times

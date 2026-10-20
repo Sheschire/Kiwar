@@ -50,13 +50,13 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 14  | Emporter sa colonie solo dans un univers existant                      | ✅      |
 | 15  | Colonie autonome : constructions, recherche, météorites, automatismes  | ✅      |
 | 16  | Pose et terrain lisibles (modèle fantôme, zones, gains au dépôt)       | ✅      |
-| 17  | Identité visuelle : bâtiments distincts, planète alien, ciel vivant    | à faire |
+| 17  | Identité visuelle : bâtiments distincts, planète alien, ciel vivant    | ✅      |
 | 18  | Bot d'équilibrage complet : chemins, camps, expéditions                | à faire |
 | 19  | Colonisation de la face alien jumelle (siège, seconde colonie)         | à faire |
 | —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées   |
 
-**Prochaine conversation** : un chantier encore « à faire » du tableau (17 et 18 avancent dans
-d'autres conversations ; le 19, la colonisation, attend la fin du 18). Le chantier 15 a
+**Prochaine conversation** : un chantier encore « à faire » du tableau (le 18 avance dans
+une autre conversation ; le 19, la colonisation, attend la fin du 18). Le chantier 15 a
 ouvert le skill `kiwar-tasks` : toute tâche qui déplace des kiwis d'elle-même passe par
 `sim/tasks.ts`.
 
@@ -72,6 +72,11 @@ ouvert le skill `kiwar-tasks` : toute tâche qui déplace des kiwis d'elle-même
 - Chantier 12 : les gardes 3D se postent au pied d'une tourelle au hasard (pas dans leur
   secteur) ; les rapports de vague ne gardent que les totaux ; le bot n'utilise toujours pas
   les chemins (le gain logistique n'est pas mesuré par l'équilibrage).
+- Chantier 17 : les niveaux 4 à 6 gardent la silhouette du niveau 3 (plus grand, fanions
+  dorés) ; la nuance de la planète alien (Kiwino pâle sous le brouillard) n'est pas retouchée ;
+  mesures d'images/s en rendu logiciel seulement (à confirmer avec `?debug` sur un vrai GPU,
+  la planète visible au zoom par défaut coûte une dizaine d'appels de dessin) ; les
+  enseignes ne sont pas dans la face d'un·e ami·e (modèles statiques).
 - Chantier 16 : pas de fantôme quand on construit depuis la fiche d'une tuile ; la zone
   prévue d'une amélioration ne se voit qu'après (l'onde) ; mesures d'images/s faites en rendu
   logiciel, à confirmer par le porteur avec `?debug` pendant la pose.

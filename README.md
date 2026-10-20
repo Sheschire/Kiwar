@@ -9,6 +9,15 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 17** — on **reconnaît chaque bâtiment** d'un coup d'œil : une couleur par
+> famille (la production prend la couleur de sa ressource, l'entrepôt bois sombre et ardoise,
+> le savoir pierre et bleu, la défense pierre grise et fer), une silhouette signature (grande
+> bobine qui tourne sur l'atelier à fibre, presse en forme de kiwi à la pulperie, clocher bleu
+> de l'école, entrepôt large et bas) et une **enseigne ronde** avec l'icône du bâtiment. La
+> **planète alien** se voit dès le lancement, avec son ruban « Face alien — à coloniser »,
+> et la **mer de nuages** ondule, roule et s'entrouvre sur des étoiles. `?sheet` montre tous
+> les bâtiments côte à côte.
+>
 > **Chantier 15** — la colonie **s'organise toute seule** : chaque chantier part avec le kiwi
 > le plus fort (emprunté à son poste, il y retourne ensuite), et le Nid permet jusqu'à **trois
 > chantiers en même temps** ; choisir une recherche envoie les kiwis qui ont le plus d'**Esprit**
