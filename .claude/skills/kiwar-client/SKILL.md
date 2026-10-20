@@ -71,7 +71,11 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
 
 ## UI (`ui/`)
 
-- Village screen, kiwi sheets, portraits, crew picker: see the `kiwar-rpg` skill.
+- Village screen, kiwi sheets, portraits, crew picker, Posts tab, "Assign to…", the
+  "N without a post" pill: see the `kiwar-rpg` skill.
+- Dev server pitfall: after adding exports to a shared module, Vite may keep a stale module
+  ("does not provide an export named …" page error, `window.__kiwar` never appears): restart
+  `pnpm dev`.
 - `App.tsx` lays out the HUD; components in `ui/components/` (TopBar, TilePanel = contextual
   sheet for the selected tile, QueuePanel, EggButton, PathTools, ExpeditionModal, ChatPanel…).
   Expedition planner, reports, the target map (`IntelMap`) and the flying bird (`render/ship.ts`):

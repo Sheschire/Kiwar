@@ -63,8 +63,43 @@ Load `kiwar-sim` too: everything here lives in the deterministic shared simulati
 - Saves: v3 → v4 (stats from `hash(seed/id/kiwi)`, memorial), v4 → v5 (classes, speech).
   `isPlausible` checks kiwis of imported saves (`plausibleKiwi`).
 
+## Assignment (chantier 09, `sim/posts.ts`, `data/jobs.ts`)
+
+- `postKind(state, b)` (a resource, `'research'` for the Library, null if no slots),
+  `kindPower(v, kind)` (`workerPower` / `researchPower`), `averagePower`, `affinity(state, v,
+  kind)` = power / colony average (Kikiwiwis aside), `weakestWorker(state, b)`.
+- `kiwiPosts(state, v)` feeds "Assign to…" (yield, affinity, swap, `ideal`); `jobBoard(state)`
+  the Posts tab (rows by kind: workers/slots, output, status full/depleted/night/empty, plus
+  guards, builders, kiwis without a post, free places); `staffing(state)` the cheap top-bar
+  counts (memoized in the client `ui/derived.ts`).
+- Commands: `assignKiwi {villagerId, buildingId | null, replace?}` (a full building swaps with
+  `replace` or the weakest worker; the swapped kiwi takes the newcomer's former workplace or
+  `autoAssign`; refuses `kiwiBusy`, `kikiwiwiNoWork`); `setKiwiFlags {villagerId, locked?,
+  builderPriority?}`. `assignWorkers` (−/+) still exists (bot, building sheet, job board).
+- `Villager.locked` (never borrowed as a builder, never redirected), `builderPriority`
+  (`pickBuilder` takes the fastest one at home, idle or at work, before idle kiwis),
+  `homeJob` (workplace left because its stock was full). Save v18.
+- Full stock: `redirectFull` runs when a `storageFull` event happened in the loop iteration
+  (or at a construction end, new places): unlocked harvesters leave for the free producer with
+  the best affinity whose stock is not full; one stays per building if the colony eats the
+  resource. `returnHome` (state-based, idempotent) runs at the start of `advanceInPlace`, after
+  every loop iteration and after every successful command: below `JOBS.returnBelow` (90 %) of
+  the storage they go back if there is room, and forget `homeJob` in any case; a kiwi not at
+  work (except builders) or placed by the player forgets it too. The 90 % crossing by eating
+  is an advance event (`awaitedResources` in `computeFlows`). Player commands never trigger a
+  redirection (a kiwi placed on a full stock stays).
+- `autoAssign` → `autoPlace`: best `affinity − JOBS.ratioWeight × staffing ratio`, a full
+  stock only as a last resort; the Library stays manual.
+- Events `kiwisRedirected` / `kiwisReturned {resource, count}` (toasts).
+
 ## Client
 
+- Chantier 09: `VillageModal.tsx` tabs kiwis / posts (`JobBoardView`, `BoardLine`,
+  `KiwiChips`) / memorial; `SheetNavigator` (◀ ▶ and a touch swipe in the order of
+  `villageSort` from the store); `PostPicker` ("Assign to…" inline under the actions row);
+  `KiwiFlags` (lock / priority builder toggles), `FlagIcons`, `RedirectNote`. `TilePanel`
+  `WorkerList` ("Replace by…"). Top bar: `.chip-idle` pill (`actions.openPosts()`) and the
+  harvesters under each resource chip.
 - `ui/components/VillageModal.tsx` — list, memorial, `KiwiSheet` (radar `StatRadar`, rename,
   follow, workplace, `ClassSection` with courses and skills), `FollowBadge`, `useJobLabel`.
 - `KiwiPortrait.tsx` — SVG portrait (shiny colours, class outfits). `ExpeditionModal.tsx` —

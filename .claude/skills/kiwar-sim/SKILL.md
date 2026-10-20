@@ -98,6 +98,10 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 - A new `Job` kind must be handled in `ratesOf` (kiwis.ts), `availableCrew`, the renderer's
   `think`/`workTile`, `jobRank`/`useJobLabel` in the village screen, and building removal.
 
+- Chantier 09 (`kiwar-rpg`, `sim/posts.ts`): `returnHome` also runs after every successful
+  command (inside `applyCommand`) and at each loop iteration; `redirectFull` only at a
+  `storageFull` event or a construction end. Anything new that moves kiwis between workplaces
+  must keep `homeJob` / `locked` in mind.
 - Rich test states (`rich()`) exceed storage: harvesting pauses when storage is full, so reset
   resources when testing rates.
 - `buildingCount` excludes the Nest and camps (building cap).
