@@ -22,6 +22,7 @@ import {
   type Command,
   type FaceMap,
   type GameState,
+  researchBank,
 } from '@kiwar/shared';
 
 /** The economy first, then each passage as soon as possible, then the rest. */
@@ -53,7 +54,8 @@ export function researchStaffing(state: GameState): Command | null {
   const staff = workersOf(state, library.id).length;
   const want = Math.min(workerSlots(library), Math.max(1, Math.floor(population(state) / 5)));
   if (staff >= want) return null;
-  if (idleVillagers(state).length > 0)
+  // Kikiwiwis never work: an idle one must not block the staffing.
+  if (idleVillagers(state).some((v) => !v.kikiwiwi))
     return { type: 'assignWorkers', buildingId: library.id, count: staff + 1 };
   // Free the least useful worker of the most staffed producer.
   const busiest = state.buildings
@@ -86,15 +88,24 @@ export function ageDecision(
   const library = state.buildings.find((b) => b.type === 'library');
   if (!library) return null;
   const ok = (cmd: Command) => applyCommand(state, cmd, { now: state.now, map }).ok;
+  // The next wanted technology, in order; while it waits for a Library level, the points go to
+  // the bank (chantier 18: starting a lesser technology meanwhile delayed the passages).
+  const wanted = TECH_ORDER.find((id) => !hasTech(state, id) && techStatus(state, id) !== 'age');
   if (!state.research.current) {
-    const next = TECH_ORDER.find((id) => techStatus(state, id) === 'available');
+    const bankFull = state.research.points >= researchBank(state);
+    const next =
+      wanted && techStatus(state, wanted) === 'available'
+        ? wanted
+        : bankFull
+          ? TECH_ORDER.find((id) => techStatus(state, id) === 'available')
+          : undefined;
     if (next) return { type: 'setResearch', tech: next };
   }
-  // The Library level the next wanted technology needs.
-  const wanted = TECH_ORDER.find((id) => !hasTech(state, id) && techStatus(state, id) !== 'age');
+  // A Library level the next wanted technology needs, or (chantier 18) one that follows the Nest
+  // while research is going on: more researchers, sooner passages.
+  const behind = !!state.research.current && library.level < nest(state).level;
   if (
-    wanted &&
-    techStatus(state, wanted) === 'library' &&
+    ((wanted && techStatus(state, wanted) === 'library') || behind) &&
     !pendingUpgrade(state, library.id) &&
     ok({ type: 'upgrade', buildingId: library.id })
   )
