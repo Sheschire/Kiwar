@@ -864,3 +864,9 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
   1.08 → 1.75, so it shows sooner) a little higher above the rim than before.
 - **Lighter blur** (owner: lighter, no setting): high preset tilt-shift focus area 0.5 → 0.75,
   feather 0.32 → 0.2.
+- **Closed planet** (part 5): the skin dome is `FrontSide` and carries a "cut" disc
+  (`CircleGeometry` child of the dome, same ellipse as its rim): between the rim tiles and the
+  skin, and through the gaps between tile prisms, one sees the fruit's cut (the biome's outer
+  flesh mixed 55 % with a skin brown, olive in the classic biome), never the inside of the
+  skin. The twin, allies and intro share it through `TerrainView`. Near plane 0.5 → 1 (the
+  camera never comes closer than 11; polar angle still 0.32–1.12).

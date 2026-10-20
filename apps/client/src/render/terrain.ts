@@ -1,7 +1,7 @@
 import {
   BufferGeometry,
+  CircleGeometry,
   Color,
-  DoubleSide,
   DynamicDrawUsage,
   Float32BufferAttribute,
   Group,
@@ -308,12 +308,18 @@ export class TerrainView {
   dispose(): void {
     this.tiles.geometry.dispose();
     (this.tiles.material as MeshStandardMaterial).dispose();
-    this.dome.geometry.dispose();
-    (this.dome.material as MeshStandardMaterial).dispose();
+    this.dome.traverse((o) => {
+      if (!(o instanceof Mesh)) return;
+      o.geometry.dispose();
+      (o.material as MeshStandardMaterial).dispose();
+    });
   }
 }
 
 /** The other half of the kiwi: a furry brown dome hanging under the tiles. */
+/** Colour of the cut under the tiles: flesh darkened towards the skin. */
+const SKIN_CUT = new Color('#6b4a2c');
+
 function createKiwiDome(map: FaceMap): Mesh {
   const radius = map.params.radius * Math.sqrt(3) + 0.9;
   const geometry = new SphereGeometry(1, 48, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
@@ -321,7 +327,6 @@ function createKiwiDome(map: FaceMap): Mesh {
     color: '#7a4e2e',
     roughness: 1,
     flatShading: true,
-    side: DoubleSide,
   });
   material.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
@@ -345,5 +350,16 @@ function createKiwiDome(map: FaceMap): Mesh {
   dome.scale.set(radius * map.ellipse, radius * 0.55, radius / Math.sqrt(map.ellipse));
   dome.position.y = DOME_TOP;
   dome.receiveShadow = true;
+  // The cut face of the fruit closes the bowl: between the rim tiles and the skin, and in the
+  // gaps between tiles, one sees pulp, never the inside of the skin.
+  const pulp = new Mesh(
+    new CircleGeometry(1, 64).rotateX(-Math.PI / 2),
+    new MeshStandardMaterial({
+      color: biomeLook(map.params.biome).outer.clone().lerp(SKIN_CUT, 0.55),
+      roughness: 0.9,
+    }),
+  );
+  pulp.receiveShadow = true;
+  dome.add(pulp);
   return dome;
 }

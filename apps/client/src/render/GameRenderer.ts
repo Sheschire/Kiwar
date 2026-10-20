@@ -166,7 +166,8 @@ export class GameRenderer {
     // Shadows only change when buildings change: render them on demand.
     this.renderer.shadowMap.autoUpdate = false;
 
-    this.camera = new PerspectiveCamera(30, 1, 0.5, 2000);
+    // Near plane at 1: the camera never comes closer than 11 (better depth precision).
+    this.camera = new PerspectiveCamera(30, 1, 1, 2000);
     this.rig = new CameraRig(this.camera, canvas);
     this.environment = new Environment(this.scene);
     this.scene.fog = new Fog(PALETTE.skyHorizon, 90, 260);
