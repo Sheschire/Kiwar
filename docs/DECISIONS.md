@@ -996,3 +996,59 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
   (the bot fills slots with `assignWorkers`, and its stocks rarely sit full while slots are
   free). The pre-existing ⚠️ (Nest 3 and Library +45 % in the seed crown and lagoons, Kiwino
   +21 %) is in the baseline too: not from this chantier.
+
+## Chantier 12 — Visible logistics, oriented waves, shorter nights
+
+- **Owner's answers**: the exact hourly rate stays (no per-trip deposits in the simulation);
+  the rampart is cut in **3 sectors** (front facing the alien planet, two flanks); fixed
+  shares and ranges for every biome (ferrets 60/20/20, turret range 3/4/5 by level); bats
+  follow the sectors too but more scattered (40/30/30, sky turrets +1 range); running games
+  switch at once (an already announced wave is split by sector at the update); the garrison
+  is placed **automatically** where defense is missing.
+- **Nights** (part 1): 20 min (15 in summer) on the same 2 h day, so the calendar skips no
+  day. Work at night stays × 0.4. A kiwi without a bed no longer counts as "sleeping near its
+  work" (it used to get `distance: 0`); `missingBeds` shows what the missing beds cost
+  (village morale card, home sheets: "3 kiwis without a bed: −6 % presence").
+- **Visible logistics** (part 2): the simulation is unchanged (efficiency
+  `(30 + 12) / (30 + 4 d)`), only shown. Producer sheet and build options: "92 % · 4 steps
+  to the depot (Nest)" (`nearestDepotOf`, by walk). Path mode: the producers the stroke
+  changes most (`pathLogisticsChanges`, same distances as the harvest), and the logistics
+  overlay is on while painting. Overlay button (key O, not saved). Placing a producer tints
+  the valid tiles (green ≥ 100 %, amber ≥ 80 %, orange below) and the hovered tile shows its
+  number — numbers on every tile were unreadable. 3D kiwis: pace = 1/√(walking cost)
+  (clamped 0.6–1.8: paths are fastest), they carry to the nearest depot **by walk** (it was
+  the nearest as the crow flies), and each drop shows "+N/h" (the kiwi's share of its
+  workplace output; a per-trip amount would be a tiny decimal).
+- **Sectors** (part 3): a rampart tile's sector is its angle around the heart against
+  `FRONT_AZIMUTH` (π, the same constant as the alien planet in the sky since chantier 10, now
+  in `data/threats.ts`): front within ±60°, then left / right flanks. A turret's defense is
+  split over the sectors by the share of rampart tiles it covers (range by level, memoized
+  per map); ammo is unchanged. The **militia** (kiwis at home) runs first where the turrets
+  leave a ground gap, the rest by the ferret shares; each **guard** in turn goes to the
+  sector with the biggest gap it can fill (else the thinnest margin). `sectorClash`: what a
+  sector does not stop breaks through, except **50 %** that turns to the least defended flank
+  (for a flank: the other flank), where the spare defense can still stop it. Severity, loot,
+  damage, injuries and deaths keep their formulas on the total that breaks through; the
+  forecast odds use the same clash at ±15 % luck. No save migration (everything is derived).
+  Consequence: an undefended flank always leaks a little; a careful colony needs both flanks
+  covered (a turret where the front meets a flank covers both).
+- **Turrets and range in the UI** (part 4): one line per sector in the defense screen (also
+  without a wave), the badge names the weak sector, the turret sheet gives its range and the
+  sectors it defends; the covered rampart lights up (front orange, flanks yellow) when a
+  turret is selected or hovered while placing one. The wave show picks each predator's sector
+  by the shares.
+- **Bot** (part 3): a new turret of the leaking model as soon as the **announced** wave would
+  break through at bad luck and a sector has no turret of that model (else an upgrade),
+  placed by coverage × share / existing defense; guards posted one by one where they stop the
+  most. Without this, the first version lost ~42 % of the waves (one sky turret at the middle
+  of the front: the bats of the flanks went through).
+- **Balance regression from chantier 08 (part 10) found**: the bot cleared stumps only with
+  ≥ 400 pulp, so only pulp-rich biomes cleared them and their fiber loot (80 each) made the
+  Nest 3 ~25 % faster there (seed crown and lagoons looked ~45 % slower). The bot now clears
+  them as soon as it can pay their meals (2 × 40 pulp). Bisected with 8 seeds × 12 h on
+  orchard vs seed crown.
+- **Balance** (30 seeds per biome × 72 h, after the fix): Kiwisu / Kiwino within 3.8 % on every
+  milestone; biomes within ±10 % except Population 10 in the seed crown (+10.6 %, 1.9 h vs
+  1.7 h, already +11 % before this chantier: 30-seed noise on a short milestone); Nest 3 ≈
+  5.7 h and Library ≈ 6.2 h everywhere (faster than the chantier 08 reference since the
+  stumps); no wave lost by the attentive bot; nights shorter: Stone age ≈ 35 h unchanged.

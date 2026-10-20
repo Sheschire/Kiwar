@@ -42,7 +42,9 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
   the UI).
 - `sim/territory.ts` — deposits, catchment claims (`computeClaims`, oldest building first),
   pools (`syncPools`, `releasePool`), logistics (`depotDistances`, Dijkstra, memoized),
-  harvest (`harvestOf`, statuses ok/depleted/storageFull/idle), UI views.
+  harvest (`harvestOf`, statuses ok/depleted/storageFull/idle), UI views; chantier 12:
+  `nearestDepotOf` (depot by walk) and `pathLogisticsChanges` (what a path stroke does to
+  each producer's efficiency, same distances as the harvest).
 - `sim/expeditions.ts` — launch, forecast, arrival/return resolution (chosen crew, weighted
   losses, memorial).
 - `sim/aliens.ts`, missions, intel, ships — chantier 07: see the `kiwar-expeditions` skill.

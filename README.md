@@ -9,6 +9,17 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 12** — on **voit la logistique** : chaque kiwi qui dépose sa récolte affiche
+> « +N/h », marche plus vite sur les chemins et va au dépôt le plus proche à pied ; la fiche d'un
+> producteur indique « 92 % · 4 pas jusqu'au dépôt (Nid) » ; tracer un chemin montre le gain
+> (« Pulperie 78 % → 104 % ») ; poser un producteur colore les tuiles selon l'efficacité ; un
+> **calque logistique** (touche O) l'affiche au-dessus de chaque producteur. Les **vagues ont
+> une direction** : la muraille est découpée en un **front** face à la planète alien et deux
+> **flancs**. Une tourelle défend le rempart **à sa portée** (3 à 5 tuiles), la garnison et les
+> kiwis à la maison courent là où il manque de défense, et l'écran Défense détaille chaque
+> secteur. Les **nuits durent 20 min** (15 en été), et l'interface montre ce que coûtent les
+> kiwis sans lit.
+>
 > **Chantier 10** — le jeu est plus fluide : la barre du haut ne recalcule plus toute la
 > production plusieurs fois par seconde (≈ 3 fois moins de travail pour l'interface, menus deux
 > fois plus rapides à ouvrir), les grands écrans haute densité rendent moins de pixels, la 3D

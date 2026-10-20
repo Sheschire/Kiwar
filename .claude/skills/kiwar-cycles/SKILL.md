@@ -9,7 +9,7 @@ Load `kiwar-sim` too: everything here is deterministic and must stay exact offli
 
 ## Data
 
-- `data/cycles.ts` — `SEASONS`, `CALENDAR` (day 2 h, night 30 min / 20 min in summer, 12 days a
+- `data/cycles.ts` — `SEASONS`, `CALENDAR` (day 2 h, night 20 min / 15 min in summer since chantier 12, 12 days a
   season, `startOffsetMs` 20 min), `calendarStartFor(createdAt)`, `SEASON_MS`, `YEAR_MS`,
   `CYCLES` (night work ×0.4, per-season harvest / regen / walk / blocked tiles / hatching),
   `seasonHarvest`, `seasonRegen`, `seasonEffects` (all take the biome since chantier 05: a
@@ -41,7 +41,9 @@ sources)` is the memoized season-aware Dijkstra (`depotDistances` uses it), `dis
   `storageFullCheck(state, gross?)` is consumption-aware; `netRates` for the UI.
 - `sim/rest.ts` — `bedsOf` (greedy nearest free bed to `workSite`, memoized on a cheap key:
   homes, jobs, paths, season), `presence` (rest share × walk), `moraleOf` / `moraleWork`
-  (food stage, comfort, mayor's Charisma/Organisation, speech, mourning, season; cap ±20 %), `kiwiRhythm` (cosmetic: sleep at night for
+  (food stage, comfort, mayor's Charisma/Organisation, speech, mourning, season; cap ±20 %;
+  a kiwi without a bed is never "near its work"), `missingBeds` (kiwis sleeping outside and
+  the presence lost, chantier 12: village morale card and home sheets, `MissingBedsLine`), `kiwiRhythm` (cosmetic: sleep at night for
   60 % of kiwis, work/rest by day, fatigue 0–1). `workforce` = Σ power × presence × colony bonus
   × hunger work × morale.
 - Any new factor of work must change only at an event (or a command); if it depends on a stock

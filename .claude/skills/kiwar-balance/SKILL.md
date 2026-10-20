@@ -28,6 +28,12 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   every milestone within 1 %. Both runs show Nest 3 and Library ~+45 % in the seed crown and
   lagoons (Kiwino +21 %), against ±5.6 % at the end of chantier 08: a regression from another
   chantier, not diagnosed yet.
+- Chantier 12 (30 seeds per biome × 72 h): the "Nest 3 +45 % in the seed crown" gap came from
+  the bot (stumps cleared only with ≥ 400 pulp, so only pulp-rich biomes got their fiber);
+  fixed, Nest 3 ≈ 5.7 h and Library ≈ 6.2 h in every biome, faces within 3.8 %, no wave
+  lost. To bisect a balance gap quickly: a `git worktree` per commit and
+  `npx tsx src/cli.ts --seeds 8 --hours 12 --biomes orchard,seedCrown` (~20 s each; the
+  report's biomes exclude `classic`, which has no obstacles).
 - Reference (end of chantier 06, 200 seeds per biome × 72 h, ~63 min): biomes within ±5.6 %,
   faces within 3.2 %, same milestones as chantier 05; 2 waves per run, almost all won by the
   attentive bot (seed crown 9 % lost). See `kiwar-threats` for the bot's defense.

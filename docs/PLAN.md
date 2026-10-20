@@ -45,14 +45,13 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 09  | Gestion des kiwis : affectation, priorités, tableau des postes         | ✅      |
 | 10  | Confort visuel et performance (caméra, planète alien fixe, lenteurs)   | ✅      |
 | 11  | Lisibilité de la construction (icônes, avant/après, arbre)             | ✅      |
-| 12  | Logistique visible, vagues orientées, nuit plus courte                 | à faire |
+| 12  | Logistique visible, vagues orientées, nuit plus courte                 | ✅      |
 | 13  | Comètes et poussière d'étoiles                                         | à faire |
 | 14  | Emporter sa colonie solo dans un univers existant                      | ✅      |
 | —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées   |
 
-**Prochaine conversation** : terminer le chantier 12 (logistique visible, vagues orientées, nuit
-plus courte ; commencé dans une autre conversation), puis le chantier 13 (comètes et poussière
-d'étoiles), voir [`docs/chantiers/`](chantiers/README.md).
+**Prochaine conversation** : le chantier 13 (comètes et poussière d'étoiles), voir
+[`docs/chantiers/13-cometes-poussiere-etoiles.md`](chantiers/13-cometes-poussiere-etoiles.md).
 
 ## Dette et idées en attente
 
@@ -61,9 +60,12 @@ d'étoiles), voir [`docs/chantiers/`](chantiers/README.md).
   que le·la bâtisseur·euse prioritaire) ; pas de postes génériques pour les kiwis en trop ; le
   bot n'utilise ni cadenas ni affectation kiwi par kiwi ; le rapport d'équilibrage (30 graines,
   avant comme après le chantier) signale le Nid 3 et la Bibliothèque ~45 % plus lents en couronne
-  de pépins et en lagunes (Kiwino +21 %), contre ±5,6 % à la fin du chantier 08 : régression
-  venue d'un autre chantier, à diagnostiquer ; le rapport officiel 200 graines n'a pas été
-  régénéré.
+  de pépins et en lagunes (Kiwino +21 %), contre ±5,6 % à la fin du chantier 08 (cause trouvée et
+  corrigée au chantier 12 : le bot ne déracinait les souches qu'avec 400 pulpe).
+- Chantier 12 : les gardes 3D se postent au pied d'une tourelle au hasard (pas dans leur
+  secteur) ; les rapports de vague ne gardent que les totaux ; sur téléphone, l'efficacité
+  d'une tuile pendant la pose n'est donnée que par la couleur (pas de survol) ; le bot
+  n'utilise toujours pas les chemins (le gain logistique n'est pas mesuré par l'équilibrage).
 - Les camps posés sur le jus flottent un peu.
 - Pas de modération automatique du chat (signalements seulement).
 - Déménager un bâtiment (garder son niveau contre un coût) : écarté du chantier 01, à revoir.

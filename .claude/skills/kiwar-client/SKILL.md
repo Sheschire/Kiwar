@@ -85,9 +85,21 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   `Glide`: target samples on pointer moves, τ 0.28 s, stopped by any input or `focus`/`frame`),
   pinch, two-finger twist (eased). Path mode disables one-finger/left drag for the painter.
   Double tap / double click (`TapDetector.onDoubleTap`, the first tap still selects) flies to
-  the tile. `render/front.ts` `FRONT_AZIMUTH` is the colony's front (alien twin, compass,
-  chantier 12 waves); `Compass.tsx` reads the azimuth from `ui/viewStore.ts` (renderer
+  the tile. `render/front.ts` re-exports the shared `FRONT_AZIMUTH`, the colony's front
+  (alien twin, compass, chantier 12 wave sectors); `Compass.tsx` reads the azimuth from `ui/viewStore.ts` (renderer
   `onAzimuth`), a tap calls `renderer.focusNest()`.
+
+- Chantier 12 (visible logistics): `render/logisticsBadges.ts` ("92 %" sprites: overlay above
+  producers via `BuildingsView.anchorOf`, or the hovered placement tile) driven by
+  `renderer.setLogisticsOverlay` (store `showLogistics`, `LogisticsButton`, key O, also on in
+  path mode) and `setPlacement(tiles, efficiencies?, turret?)` (tiles tinted by
+  `efficiencyGlow` or by sector; `SelectionView` instance colours are allocated in the
+  constructor, or the shader ignores them). `render/dropLabels.ts`: "+N/h" when a 3D kiwi
+  drops its load (`KiwisView.showDrop`); kiwis walk at 1/√(walk cost) per segment and carry to
+  the shared `nearestDepotOf`. Path mode: `onPaintPreview` → `actions.previewPaths` →
+  store `pathGains` (shared `pathLogisticsChanges`) shown in `PathToolbar`. Tile sheet:
+  `LogisticsLine` / `logisticsParams` (percent, steps, depot name). Turret range and the
+  defense by sector: see `kiwar-threats`.
 
 ## Performance (chantier 10)
 

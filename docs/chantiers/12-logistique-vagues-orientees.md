@@ -116,3 +116,56 @@ rendre le placement utile, donner une direction aux attaques.
    défense aérienne globale compte) ?
 3. Les anciennes parties : accepter un changement de défense, ou un secteur unique jusqu'à la
    prochaine vague ?
+
+## Réponses du porteur aux questions ouvertes (octobre 2026)
+
+1. Parts et portées **fixes** pour tous les biomes : 60/20/20 au sol, portée 3/4/5.
+2. Les chauves-souris suivent aussi les secteurs, **plus dispersées** (40/30/30), avec une
+   portée +1 pour la tourelle anti-aérienne.
+3. **Changement immédiat** : une vague déjà annoncée est découpée en secteurs dès la mise à
+   jour (aucune migration de sauvegarde).
+4. (Question ajoutée) La garnison se place **automatiquement** là où il manque de la défense.
+
+## Réalisé
+
+- **Partie 1** : nuits de 20 min (15 en été) sur la même journée de 2 h. Correction du kiwi
+  sans lit compté « près de son travail ». La carte Moral et les fiches des maisons affichent
+  « N kiwis sans lit : −X % de présence ».
+- **Partie 2** : logistique visible.
+  - La fiche d'un producteur et les options de construction affichent « 92 % · 4 pas jusqu'au
+    dépôt (Nid) ».
+  - Pendant le tracé d'un chemin, on voit les producteurs accélérés (« Pulperie 78 % →
+    104 % »).
+  - Un calque logistique (bouton, touche O, actif aussi pendant le tracé) affiche l'efficacité
+    au-dessus de chaque producteur.
+  - Pendant la pose d'un producteur, les tuiles sont teintées selon l'efficacité, et le
+    chiffre s'affiche au survol.
+  - Les kiwis 3D marchent au rythme du coût de marche (plus vite sur les chemins) et vont au
+    dépôt le plus proche à pied ; « +N/h » s'affiche à chaque dépôt.
+- **Partie 3** : secteurs dans la simulation.
+  - Front à ±60° de la planète alien, puis les deux flancs.
+  - Une tourelle répartit sa défense selon les tuiles de rempart couvertes par sa portée.
+  - La milice comble d'abord les trous au sol, puis la garnison va au secteur qui manque le
+    plus.
+  - La moitié de ce qui passe un secteur se reporte sur le flanc le moins défendu.
+  - La prévision et la résolution utilisent le même calcul.
+  - Le bot place et ajoute ses tourelles selon les secteurs.
+- **Partie 4** : l'écran Défense montre une ligne par secteur (défense / menace, ce qui passe,
+  les gardes envoyés). La pastille nomme le secteur faible. La fiche d'une tourelle indique sa
+  portée et les secteurs qu'elle défend. En 3D, le rempart couvert s'allume quand on
+  sélectionne une tourelle (ou qu'on en survole une tuile pendant la pose), et la pose teinte
+  le front et les flancs. Dans la mise en scène, les furets et les chauves-souris arrivent par
+  leur secteur, surtout par le front.
+- **Correction du bot** : il ne déracinait les souches qu'à partir de 400 pulpe. Seuls les
+  biomes riches en pulpe en profitaient, et les 80 fibres de chaque souche accéléraient leur
+  Nid 3. C'est la cause de l'écart « Nid 3 +45 % en couronne et lagunes » relevé au
+  chantier 09. Le seuil suit désormais le coût réel (40 pulpe).
+
+## Reste
+
+- Les gardes 3D se postent au pied d'une tourelle au hasard, pas dans leur secteur.
+- Les rapports de vague gardent seulement les totaux (pas le détail par secteur).
+- Le « +N/h » montre le débit d'un kiwi, pas une quantité par voyage.
+- Sur téléphone, il n'y a pas de survol : pendant la pose, seules les couleurs donnent
+  l'efficacité. Le chiffre exact s'obtient en touchant la tuile hors mode pose (fiche de la
+  tuile).

@@ -35,6 +35,28 @@ colony × play time (× expedition victories: the aliens strike back), beginners
 - Turrets are buildings (`buildings.ts`): `seedTurret` (ground) and `skyTurret` (air), skin
   tiles only, `defense` + `ammo` per level; `isTurret`, `TURRET_TYPES`.
 
+## Sectors and range (chantier 12)
+
+- `data/threats.ts`: `SECTOR_IDS` (front, left, right), `FRONT_AZIMUTH` (π: the alien planet,
+  shared with the client's `render/front.ts`; direction (sin a, cos a) in `hexToPixel`
+  coordinates = world (x, z)), `SECTORS` (front ±60°, shares ground 60/20/20 and air
+  40/30/30, `overflow` 0.5, `range` by level 3/4/5 then 5, `skyRangeBonus` +1).
+- `sim/threats.ts`: `rampartSectorOf(h)` (angle around the heart; d > 0 = left, i.e. the
+  left of the default camera looking at the front), `rampartSectors(map)` and
+  `turretCoverage(map, type, level, h)` (share of covered rampart tiles per sector, memoized
+  per map object), `coveredRampart` (3D rings), `turretRange`, `sectorThreat`,
+  **`sectorClash(threat, defense.sectors)`** (excess per sector; half of it turns to the least
+  defended *other* flank where the spare defense can stop it).
+- `defenseOf` returns `sectors` and `guards` ({id, sector}): turrets split by coverage (ammo
+  share and tech applied), militia fills the ground gaps first (rest by the ferret shares),
+  then each guard goes to the sector with the biggest gap it can fill (else the thinnest
+  margin). Without a threat, an even threat {1, 1} is used for the allocation.
+- `waveOutcome(state, threat, defense: Defense, sheltered)` uses the clash (`through`) for
+  the severity; `forecastWave` odds use the same clash at ±luck. `WaveOutcome.sectors` for
+  the UI. Reports keep totals only (no save change).
+- Consequence for tests and the bot: an undefended flank always leaks a little. Test helpers
+  `middleOf` / `rampartAt` in `threats.test.ts` place turrets by sector.
+
 ## State (save v10 threats, v11 sky)
 
 - `GameState.threats`: own RNG stream (`withThreatRng`, never the colony's `rng`: adding draws
@@ -90,15 +112,24 @@ colony × play time (× expedition victories: the aliens strike back), beginners
 - Toasts in `game/events.ts`, offline summary lines (waves, meteorites, incidents), sounds
   `threat.warning|strike|victory|defeat`, `turret.fire` (via `renderer.onTurretShot`),
   `meteor.fall`. i18n: `threats`, `defense`, `garrison`, `sky`, `buildings.seedTurret|skyTurret`.
+- Chantier 12: `SectorTable` in the defense modal (also without a wave, via
+  `ui/derived.ts` `defenseNow`), the badge names the weak sector, `TurretReach` (range and
+  sectors) in the turret sheet and build option, `render/sectors.ts` colours (front orange,
+  flanks yellow) for the range ring (`SelectionView.setCatchment(tiles, colors)`) and the
+  placement tiles; `predators.ts` picks a sector by the shares, ferrets from its rampart,
+  bats from the sky above it.
 - Screenshots: force a wave with `controller.state.threats.next = { id, announceAt: now - 1,
 at: now + 3000, announced: true, ground, air }` then a `debugGrant` dispatch; the show plays
   when it strikes. A crater: push into `controller.state.sky.meteors`.
 
 ## Balance
 
-- Bot (`tools/balance/src/bot.ts`): repairs first, one turret of each model after the Nest 2
-  (more or upgraded after a lost wave), guards posted 40 min before a strike to close the gap
-  (bats first), shelter when deaths or several injuries are still expected. `RunResult.final`
+- Bot (`tools/balance/src/bot.ts`): repairs first, one turret of each model after the Nest 2,
+  then (chantier 12) a new turret of the leaking model when the announced wave would break
+  through somewhere at bad luck and a sector has no turret of that model (else an upgrade),
+  placed where `turretCoverage` × share / existing defense is best; guards posted 40 min
+  before a strike one by one, each time the kiwi that stops the most of what breaks
+  through; shelter when deaths or several injuries are still expected. `RunResult.final`
   has `waves`, `wavesLost`, `predatorDeaths`, `meteors`; the report adds a table per biome.
 - To retune: `THREATS.basePower`/`perDay`/`nestFactor` (pressure), turret `defense`/`ammo`,
   `GARRISON.power`, `METEORS.stock`. Check the milestones stay within ±10 % between biomes.
