@@ -50,10 +50,11 @@ half of chantier 08: see the `kiwar-titans` skill. Their techs (`juiceInfusion`,
 ## Client
 
 - `ui/components/ResearchModal.tsx`: `ResearchSummary` (points, rate, progress, ETA), `AgeInfo`
-  (age, next step, what it opens), `ResearchModal` (tree by age; store `modal: 'research'`,
-  `BookIcon` button in `TopBar`). `TilePanel`: Library and monument sheets, `needsAge` hint.
+  (age, next step, what it opens), `ResearchTab` (tree by age) inside `PlansModal` (chantier
+  11: store `modal: 'plans'`, `plansTab: 'research'`, `BookIcon` button in `TopBar`; each
+  `TechCard` lists `describeTech` before → after). `TilePanel`: Library and monument sheets, `needsAge` hint.
 - `render/buildingModels.ts`: `library`, `monument`; `partsOf` → `grow` (levels 4–6 = level 3
-  scaled + gold studs; the Library gets the real level for its laboratory) → `dress` (age
+  scaled + gold studs + a banner pole with one pennant per level above 3; the Library gets the real level for its laboratory) → `dress` (age
   colours `AGE_COLORS`, plinth, lantern, chimney). Models are cached per type:level:age;
   `BuildingsView` rebuilds meshes when the age changes. `PathsView.sync(paths, age)`.
   `ship.ts` and the docked bird use `shipIdForAge(ageOf(state))`.

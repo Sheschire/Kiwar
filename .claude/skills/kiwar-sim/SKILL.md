@@ -80,6 +80,18 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
    needs FR + EN strings (TypeScript enforces it), a 3D model for new buildings.
 8. Balance (`kiwar-balance`) and `docs/DECISIONS.md`.
 
+## Describing levels and build checks (chantier 11)
+
+- `sim/describe.ts`: `describeLevel(type, level, state?)`, `describeUpgrade`, `describeTech` —
+  the numbers the UI shows; add a `LevelStatId` / `TechStatId` (+ FR/EN `levelStats.*` /
+  `techStats.*` and an icon in `StatChanges.tsx`) when a level or tech gains a new kind of
+  number.
+- `buildLock` (tile-independent build conditions), `siteError` (tile conditions) and
+  `upgradeLock` are called by the `build` / `upgrade` commands: put any new build or upgrade
+  condition there, not inline in `execute`, so the building tree, placement mode and level
+  badges follow. `buildableTiles` lists where a type can go. `test/describe.test.ts` checks them
+  against `validateCommand`.
+
 ## Gotchas
 
 - **Flows can be negative** (meals): `computeFlows` returns net rates; a stock reaching zero or

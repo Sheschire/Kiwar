@@ -877,3 +877,55 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
   tail sweeping down the seam. Juice splashes from the cut (150 green drops, 22 dark seeds,
   instanced, gravity, 1.5 s, shrinking). The `slice` synth gained a wet splash and five drop
   "plips" (the ring is softer); still played by `onSlice`.
+
+## Chantier 11 — Construction readability (icons, before/after, building tree)
+
+- **Owner's answers**: level badges at medium zoom plus a "show levels" button; future ages in
+  the tree as "???" with the age that brings them; one "Plans" screen with two tabs (Buildings,
+  Research) behind the book button; a green "upgradable" arrow inside the badge.
+- **Icons** (`ui/iconSet.tsx`): one `<Icon name>` component over a registry of inline SVG
+  glyphs (32×32, filled shapes and brown outlines like `icons.tsx`, no icon font): one per
+  building, per effect (harvest, beds, storage, ground/air defense, ammo, cargo, speed, pupils,
+  research, cap, queue, guards, rations, injuries, armour, recon, firearms, terraforming…) and
+  per research branch (`BRANCH_ICONS`). The older named components stay and are reused.
+- **One truth for the numbers** (`packages/shared/src/sim/describe.ts`):
+  `describeLevel(type, level, state?)` lists a level's stats from `levelDef`; with a state,
+  production includes the face climate and the researched harvest bonus ("with every worker,
+  on this face": logistics and staffing stay in the building sheet), storage and turret defense
+  their tech multipliers. `describeUpgrade` pairs two levels (a stat new at the next level
+  starts from 0). `describeTech(id, state)` compares `techEffects` with and without the tech,
+  so bonuses stack on what is already known. Multipliers show as ±%, smaller-is-better stats
+  (durations, rations, injuries, upkeep) turn green when they drop.
+- **Build checks shared with the UI**: `buildLock` (Nest level, age, one lab/monument,
+  technology, turret and building caps), `siteError` (tile type, taken, obstacle, titan, flood,
+  rampart) and `upgradeLock` (the upgrade checks plus queue and resources) are what the `build`
+  and `upgrade` commands now call, in the same order, so the tree, the placement mode and the
+  badges can never disagree with the server. `buildableTiles(state, map, type)` feeds the
+  placement mode. Tests compare them with `validateCommand` on every tile / building.
+- **Upgrade preview**: the building sheet shows "Level N → N+1" with each stat, the next value
+  in green (red if it drops), above the cost. The build menu lists the level-1 numbers; each
+  technology card lists its effect on this colony, before → after.
+- **Plans screen** (`modal: 'plans'`, `plansTab`): the Buildings tab groups every type by family
+  (production, housing, storage, defense, knowledge, ship), with its icon, how many are built or
+  ordered (`copiesOf`), its level-1 numbers, a "All levels" fold-out (stats and Nest level per
+  level; levels of an age not reached show "??? · comes with: <age>"), its cost and "Place".
+  A type whose first level needs a later age is a dark silhouette "???". "Place" is disabled
+  with the reason (lock, queue full, resources). The Nest is listed (not placeable). Camps are
+  not in the tree (they stay a tile action).
+- **Placement mode** (`placing` in the store): the screen closes and the valid tiles pulse in
+  yellow (above the juice for wells); a tap on a lit tile builds and shows the new site, other
+  taps are ignored; the banner (reusing the path toolbar look) has Cancel, Escape cancels,
+  painting paths cancels it. No valid tile → a toast instead of an empty mode.
+- **Silhouettes per level**: levels 2 and 3 each add a piece readable from the default zoom
+  (hut annex rooms and a thatched cap, juice pockets on cradles, pulpery storehouse and drying
+  tower, fibre drying rack and loft, seed cart and silo, warehouse shed, launchpad windsock and
+  beacon, school archery target, turret shield plates / spiked base, sky turret lookout ring /
+  buttresses). Levels 4–6 add a banner pole with one golden pennant per level above 3, on top
+  of the existing gold studs and age dressing.
+- **Level badges** (`render/levelBadges.ts`, owned by `BuildingsView`): a canvas sprite per
+  building (camps excluded) above the model, constant size on screen (`sizeAttenuation: false`,
+  3 % of the screen height), shown below 0.6 × the framing distance or always with "show
+  levels" (round button above the compass, key L, `localStorage` `kiwar.levels`); hidden while
+  visiting. Textures are cached per (level, upgradable); the sync signature includes the
+  upgradable flag so resources arriving light the arrow. Tapping a badge selects its building;
+  picking now skips hidden objects.

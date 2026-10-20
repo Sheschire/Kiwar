@@ -53,8 +53,22 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   (Kikiwiwis posed from `KiwisView`), the `lab` model, `LabInfo.tsx`, `TitanWorks.tsx`;
   `renderer.reshape(map)` redraws a reshaped face without moving the camera.
 - Chantier 08 (`kiwar-ages`): models take the age (`buildingModel(type, level, shipAway, age)`;
-  levels 4–6 grown from level 3, age dressing), `ResearchModal.tsx` (research screen, `AgeInfo`),
+  levels 4–6 grown from level 3, age dressing), `ResearchModal.tsx` (plans screen, `AgeInfo`),
   Library and monument sheets, paths by age.
+- Chantier 11 (construction readability): `ui/iconSet.tsx` (`<Icon name>`: one glyph per
+  building, effect and research branch, `BRANCH_ICONS`, `buildingIcon`), `StatChanges.tsx`
+  (`LevelStats` chips, `UpgradePreview` "level N → N+1" in the building sheet, `TechChanges`),
+  all fed by the shared `describeLevel` / `describeUpgrade` / `describeTech`.
+  `PlansModal` (in `ResearchModal.tsx`, `modal: 'plans'` + `plansTab`) with `BuildingTree.tsx`
+  (families, levels fold-out, "???" for later ages, lock reason from `buildLock`, "Place").
+  Placement mode: store `placing`, `actions.startPlacing/placeAt/stopPlacing`, valid tiles from
+  the shared `buildableTiles` lit by `renderer.setPlacement` (`SelectionView`), `PlacingBanner`.
+  Level badges: `render/levelBadges.ts` (owned by `BuildingsView.badges`, constant screen size,
+  green arrow when `upgradeLock` is null, visible below 0.6 × `frameDistance` or with
+  `showLevels` — `LevelsButton`, key L, `kiwar.levels`). Each level 2/3 of a model adds a
+  silhouette piece: keep that rule when touching `buildingModels.ts`. Visual check of levels:
+  push copies of the Nest with another `type`/`level`/`q`/`r` into `controller.state.buildings`,
+  then dispatch a `debugGrant` to resync (no need to build them).
 - Chantier 06 (`kiwar-threats`): `meteors.ts` (shooting star, craters), `predators.ts` (wave
   show), turret models, damaged smoke/badge; UI `DefenseModal.tsx` (`ThreatBadge` in
   `.badge-stack`), shield button in the top bar (on 761–1500 px screens the resource bar centres
@@ -83,7 +97,8 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
 - Styles in `ui/styles.css`: parchment look, CSS variables (`--paper`, `--edge`, `--leaf`,
   `--berry`, `--gap`, `--safe-*`). Phone breakpoint `max-width: 760px`; when a tile sheet is
   open the HUD has `.has-sheet` (bottom sheet covers half the screen; other floating panels hide).
-- Icons are inline SVG components in `ui/icons.tsx`.
+- Icons are inline SVG: named components in `ui/icons.tsx`, and the `<Icon name>` registry of
+  `ui/iconSet.tsx` (chantier 11) for buildings, effects and branches.
 - Safety nets: `Guard` (error boundary) wraps the tile sheet, the modals and the whole app;
   `BootScreen` shows while `game` is null (loading line, or `bootError` with retry / play solo).
   Never return an empty HUD.

@@ -1,5 +1,7 @@
 # Chantier 11 — Lisibilité de la construction et des améliorations
 
+> **État : fait** (octobre 2026). Détails dans `docs/DECISIONS.md` (« Chantier 11 »).
+
 Retours de partie d'octobre 2026 : comprendre ce qu'on peut construire et ce qu'une amélioration
 apporte.
 
@@ -74,7 +76,39 @@ apporte.
   par défaut.
 - Tout bâtiment peut être posé depuis l'arbre.
 
-## Questions ouvertes
+## Réponses du porteur
+
+1. Badge de niveau : visible au **zoom moyen**, et partout avec un bouton « afficher les
+   niveaux » (touche L).
+2. Âges futurs : oui, en **silhouette « ??? »** avec le nom de l'âge qui les apporte.
+3. Un **seul écran « Plans »** à deux onglets (Bâtiments / Recherche), derrière le bouton livre.
+4. Une **flèche verte « améliorable »** dans le badge quand l'amélioration est possible tout de
+   suite.
+
+## Ce qui a été fait
+
+1. Icônes : composant `<Icon name>` (`ui/iconSet.tsx`), une par bâtiment, effet et branche de
+   recherche ; dans le menu de construction, le panneau du bâtiment et les technologies.
+2. `describeLevel` / `describeUpgrade` / `describeTech` (partagés) : tableau « Niveau N → N+1 »
+   en vert avant chaque amélioration, chiffres du niveau 1 dans le menu de construction, effet
+   avant → après de chaque technologie sur la colonie.
+3. Écran « Plans » : arbre des bâtiments par famille, niveaux dépliables, conditions, nombre
+   construit, âges futurs en « ??? » ; **Poser** allume les tuiles valides, un tap construit.
+   Les vérifications de construction (`buildLock`, `siteError`, `upgradeLock`) sont partagées
+   avec les commandes.
+4. Silhouettes : chaque niveau 2 et 3 ajoute un élément visible de loin ; niveaux 4 à 6 : un mât
+   à fanions dorés.
+5. Badges de niveau (taille fixe à l'écran) et flèche « améliorable » ; un tap sur un badge
+   sélectionne le bâtiment.
+
+## Reste à faire / idées
+
+- Mémoïser les calculs de l'écran Plans s'il pèse dans les mesures du chantier 10.
+- De vrais modèles pour les niveaux 4 à 6 (encore le niveau 3 agrandi et habillé).
+- Le Kikiwiwi, les camps et les obstacles n'apparaissent pas dans l'arbre.
+- Vérifier les icônes et la lisibilité des badges sur un vrai téléphone.
+
+## Questions ouvertes (posées au démarrage)
 
 1. Un badge de niveau permanent est-il acceptable visuellement, ou seulement à la demande ?
 2. L'arbre doit-il aussi montrer les bâtiments des âges futurs (en silhouette, « ??? »), pour

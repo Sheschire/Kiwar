@@ -9,6 +9,14 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 11** — construire devient lisible : de **petites icônes** partout (bâtiments,
+> effets, branches de recherche), un tableau **« niveau actuel → suivant »** en vert avant
+> chaque amélioration, l'effet chiffré de chaque technologie, et un écran **Plans** (bouton
+> livre) avec l'**arbre des bâtiments** : familles, niveaux, conditions, âges futurs en
+> « ??? », et **Poser**, qui allume les tuiles valides. Chaque niveau ajoute un **élément de
+> silhouette** visible de loin, et un **badge de niveau** (avec une flèche verte quand on peut
+> améliorer) s'affiche au zoom moyen, ou partout avec la touche L.
+>
 > **Chantier 14** — on peut **emporter sa colonie solo en rejoignant** un univers avec un code
 > (ou un lien d'invitation) : elle déménage sur un kiwi à elle, avec bâtiments, kiwis et ce
 > qu'elle sait de sa jumelle, suit les saisons de l'univers et reçoit un **bouclier de 48 h**

@@ -44,7 +44,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 08  | Âges, recherche contre nature, Kikiwiwis                               | ✅      |
 | 09  | Gestion des kiwis : affectation, priorités, tableau des postes         | à faire |
 | 10  | Confort visuel et performance (caméra, planète alien fixe, lenteurs)   | à faire |
-| 11  | Lisibilité de la construction (icônes, avant/après, arbre)             | à faire |
+| 11  | Lisibilité de la construction (icônes, avant/après, arbre)             | ✅      |
 | 12  | Logistique visible, vagues orientées, nuit plus courte                 | à faire |
 | 13  | Comètes et poussière d'étoiles                                         | à faire |
 | 14  | Emporter sa colonie solo dans un univers existant                      | ✅      |
@@ -101,6 +101,11 @@ des postes), voir [`docs/chantiers/09-gestion-kiwis.md`](chantiers/09-gestion-ki
   la cause exacte de « certains ne peuvent pas construire » n'a pas été reproduite avec le mock
   (l'écran d'erreur affiche désormais le message à transmettre) ; le porteur doit exécuter la
   migration `20261025000000_member_planet_seed.sql`.
+- Chantier 11 : l'écran Plans recalcule ses chiffres à chaque tick tant qu'il est ouvert (à
+  mémoïser si le chantier 10 le voit dans ses mesures) ; les icônes n'ont pas été relues sur un
+  vrai téléphone ; le Kikiwiwi, les obstacles et les camps ne sont pas dans l'arbre ; les
+  silhouettes des niveaux 4 à 6 restent celles du niveau 3 (plus grand, clous et fanions
+  dorés, habillage de l'âge).
 - Livraisons entre alliés (dons libres par l'oiseau de l'aire d'envol, sans risque) : faites.
   Pas encore d'offres d'échange, de prêt de kiwis ni de renforts ; l'oiseau visiteur est
   toujours en bois (on ne connaît pas l'âge de l'allié·e) ; le bot ne livre pas (solo).
