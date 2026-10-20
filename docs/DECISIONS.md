@@ -1131,3 +1131,50 @@ PC), while phones are very smooth. Measured with Playwright/CDP on the `perfSave
   work); never the mayor, the builders or the best researcher; the Kikiwiwi stands down from
   the rampart for a raid when no wave is announced; a day of rest after a raid that lost two
   kiwis. The aliens' reinforcements after each victory end the raids on their own.
+
+## Chantier 13 — Comets and stardust
+
+- **Owner's answers**: a comet every **3–5 days**, stock capped at **50**; **one comet per face**
+  (each colony has its own seeded calendar, never shared in a universe); stardust needed by the
+  monument **only for the Iron and Industry ages**; the star egg gives a **new golden shiny**;
+  pickers are sent **by hand** (temporary post of 3 places per tile, a "send the most
+  dexterous" button; chantier 15 may automate it); a player who comes once a day keeps enough
+  time (announced 6–12 h ahead, 24 h on the ground).
+- **Comet** (part 1): the first one passes at 36 h (announced 9 h before, fixed so that game
+  creation draws nothing), then every 72–120 h, announced 6–12 h ahead; the tiles (1–3 free
+  land tiles, no building, site, crater, obstacle or flood) are drawn **at the passage**, from
+  the threat RNG stream. Stock: 20 × age factor [1, 1.3, 1.7, 2.2], split between the tiles;
+  it scatters after 24 h.
+- **Stardust is not a resource id**: a separate `state.stardust` in raw integer units
+  (`STARDUST_SCALE` per point, like the experience) so that it never enters the shared storage,
+  loot, cargo or refunds, and offline picking stays exact (integer rates; the picking steps
+  always end at the "tile empty" and "stock full" events). Picking: an average kiwi gets one
+  point per 30 min, +5 % per Dexterity point above 5; pickers stop during a shelter, get XP
+  like guards and go back to their workplace when the tile is empty, scatters or the stock is
+  full.
+- **Blessings** (part 2): heal at once (3), redistribute every stat (6: all back to 1, the
+  points to place again, since the birth stats are not stored), +1 for good (10, three per
+  kiwi, the stat cap of 20 still applies). **Star egg**: the usual egg + 15, one more colony-RNG
+  draw only for star eggs, 1 in 8 of the golden shiny `star` (`KIWI_COLORS`; the four natural
+  colours stay the only ones drawn at hatching). Imports: golden shinies ≤ comets passed.
+- **Stars branch** (part 3): Clear nights (Stone, night work × 1.15 capped at a day's rate, 8),
+  Star watch (Stone, waves announced 4 h earlier, 8), Comet lure (Iron, interval × 0.8, 15),
+  Star iron (Iron, meteorites +30 %, 12). Stardust paid when the tech is chosen and refunded
+  when abandoned; calendar effects apply from the next planning (exact offline).
+- **Fuel, ages, Kikiwiwis** (part 4): fuel = 5 stardust for travel × 0.75 and +15 pts of
+  reliability; the monument's Iron level costs 15 and its Industry level **25** (30 first: when
+  the first comet passed just before the Stone age, Iron then a Kikiwiwi left 29 and the bot
+  waited for a third comet, +100 h in the Kiwino biomes); a Kikiwiwi costs 10. Refunds: queue
+  cancel, a demolished lab, an abandoned tech (up to the cap).
+- **Comet in the sky**: placed in screen space (normalized x/y unprojected far behind the
+  planet), crossing the band of sky above the planet from left to right between its
+  announcement and 3 h after its passage, lower and longer in portrait; normal blending (an
+  additive glow vanishes on the pale day sky), brighter at night. A world-space comet was
+  hidden by the planet or the interface most of the time.
+- **Bot**: sends its most dexterous kiwis to every tile as soon as it falls, keeps a reserve for
+  the remaining monuments and a Kikiwiwi and heals wounded kiwis with the surplus; the
+  infusion waits for its stardust.
+- **Balance** (`pnpm balance:ages -- --seeds 2 --days 12`, same code before and after, without
+  the chantier 18 bot): Stone 35–37 h unchanged, Iron 90–94 h (90–95 h before), first Kikiwiwi
+  138–157 h (140–156 h), Industry 173–209 h (182–194 h). With comets of 16 stardust and an
+  Industry level at 30, Industry was 210–270 h.

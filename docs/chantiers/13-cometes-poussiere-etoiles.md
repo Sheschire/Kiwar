@@ -87,8 +87,7 @@ poussière, phare) ne sont pas retenues.
 1. **Comète et ramassage** : première comète à 36 h (annoncée 9 h avant), puis tous les 3 à 5
    jours, annoncée 6 à 12 h avant ; elle traverse le haut du ciel (plus brillante la nuit) et
    laisse 20 × facteur d'âge (20, 26, 34, 44) poussières sur 1 à 3 tuiles libres pendant 24 h.
-   Jusqu'à 3 kiwis par tuile (≈ 2 poussières/h chacun, +5 % par point d'Adresse au-dessus de
-   5) ; stock à part plafonné à 50. Puce dans la barre du haut, badge, fiche de tuile, toasts,
+   Jusqu'à 3 kiwis par tuile (≈ 2 poussières/h chacun, +5 % par point d'Adresse au-dessus de 5) ; stock à part plafonné à 50. Puce dans la barre du haut, badge, fiche de tuile, toasts,
    résumé hors ligne, sons.
 2. **Bénédictions** (fiche du kiwi) : guérison immédiate (3), redistribution des stats (6),
    +1 pour toujours (10, trois fois par kiwi) ; **œuf étoilé** (+15) avec 1 chance sur 8 d'un

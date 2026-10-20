@@ -46,7 +46,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 10  | Confort visuel et performance (caméra, planète alien fixe, lenteurs)   | ✅      |
 | 11  | Lisibilité de la construction (icônes, avant/après, arbre)             | ✅      |
 | 12  | Logistique visible, vagues orientées, nuit plus courte                 | ✅      |
-| 13  | Comètes et poussière d'étoiles                                         | à faire |
+| 13  | Comètes et poussière d'étoiles                                         | ✅      |
 | 14  | Emporter sa colonie solo dans un univers existant                      | ✅      |
 | 15  | Colonie autonome : constructions, recherche, météorites, automatismes  | à faire |
 | 16  | Pose et terrain lisibles (modèle fantôme, zones, gains au dépôt)       | à faire |
@@ -55,8 +55,10 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 19  | Colonisation de la face alien jumelle (siège, seconde colonie)         | à faire |
 | —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées   |
 
-**Prochaine conversation** : le chantier 13 (comètes et poussière d'étoiles), voir
-[`docs/chantiers/13-cometes-poussiere-etoiles.md`](chantiers/13-cometes-poussiere-etoiles.md).
+**Prochaine conversation** : le chantier 15 (colonie autonome : constructions, recherche,
+météorites, automatismes), voir
+[`docs/chantiers/15-colonie-autonome.md`](chantiers/15-colonie-autonome.md). Ses postes
+temporaires pourront aussi remplir les tuiles de poussière d'étoiles (chantier 13).
 
 ## Dette et idées en attente
 
@@ -139,3 +141,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
   univers » ; la puissance des alliés vient de l'instantané (`universeInfo`), pas du temps réel ;
   le porteur doit exécuter la migration `20261026000000_universe_imports.sql` (d'ici là, la
   fonction retombe sur les anciennes colonnes : imports permis, pas de badge « venue du solo »).
+- Chantier 13 : ramassage de la poussière d'étoiles à la main seulement (le chantier 15 pourra
+  l'automatiser comme les cratères) ; comète propre à chaque face, non montrée sur les planètes
+  alliées ; pas de son dédié aux bénédictions ; la sonde `pnpm balance:ages` vérifie que les
+  âges n'attendent pas une comète de trop.

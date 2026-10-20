@@ -9,6 +9,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 13** — des **comètes** passent tous les 3 à 5 jours : annoncées quelques heures
+> avant, elles traversent le ciel (plus belles la nuit) et laissent de la **poussière
+> d'étoiles** dorée sur 1 à 3 tuiles pendant un jour. On y envoie ses kiwis les plus adroits
+> (bouton dans la fiche de la tuile) ; la poussière se garde à part (50 au plus). Elle paie des
+> **bénédictions** (guérir tout de suite, redistribuer les stats, +1 pour toujours), l'**œuf
+> étoilé** (1 chance sur 8 d'un kiwi **doré**), la branche de recherche **Étoiles** (nuits
+> claires, vagues annoncées plus tôt, comètes plus fréquentes, météorites plus riches), le
+> **carburant** du vaisseau (trajet plus court, moins de pannes), le monument du **Fer** et de
+> l'**Industrie** et la transformation en **Kikiwiwi**.
+>
 > **Chantier 12** — on **voit la logistique** : chaque kiwi qui dépose sa récolte affiche
 > « +N/h », marche plus vite sur les chemins et va au dépôt le plus proche à pied ; la fiche d'un
 > producteur indique « 92 % · 4 pas jusqu'au dépôt (Nid) » ; tracer un chemin montre le gain
