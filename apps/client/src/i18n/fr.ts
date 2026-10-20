@@ -482,6 +482,7 @@ export const fr: Dict = {
       hint: 'Le moral accélère ou ralentit tout le travail (jusqu’à ±{max} %).',
     },
     beds: 'Lits : {used}/{total}',
+    missingBeds: '{count} kiwi(s) sans lit : −{percent} % de présence. Bâtissez une Hutte.',
   },
   errors: {
     unknownTile: 'Il n’y a pas de tuile ici.',

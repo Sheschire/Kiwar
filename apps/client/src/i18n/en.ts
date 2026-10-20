@@ -452,6 +452,7 @@ export const en = {
       hint: 'Morale speeds up or slows down all work (up to ±{max} %).',
     },
     beds: 'Beds: {used}/{total}',
+    missingBeds: '{count} kiwi(s) without a bed: −{percent} % presence. Build a Hut.',
   },
   errors: {
     unknownTile: 'There is no tile here.',

@@ -162,11 +162,39 @@ function comfortOf(state: GameState, beds: Map<VillagerId, Bed>): number {
   for (const v of state.villagers) {
     if (v.job.kind !== 'work') continue;
     workers++;
-    if ((beds.get(v.id)?.distance ?? Infinity) <= MORALE.near) near++;
+    // A kiwi without a bed sleeps outside: never "near its work" (chantier 12 fix).
+    const bed = beds.get(v.id);
+    if (bed && bed.buildingId !== null && bed.distance <= MORALE.near) near++;
   }
   const comfort = workers > 0 ? MORALE.comfort * ((2 * near) / workers - 1) : 0;
   comfortCache.set(beds, comfort);
   return comfort;
+}
+
+export interface MissingBeds {
+  /** Kiwis at work or idle who sleep outside. */
+  count: number;
+  /** Share of the colony's presence lost because of them (0–1). */
+  presenceLost: number;
+}
+
+/** What the missing beds cost: kiwis sleeping outside rest twice slower. */
+export function missingBeds(state: GameState, beds = bedsOf(state)): MissingBeds {
+  let count = 0;
+  let total = 0;
+  let lost = 0;
+  for (const v of state.villagers) {
+    if (v.job.kind !== 'work' && v.job.kind !== 'idle') continue;
+    const bed = beds.get(v.id);
+    const p = presence(state, v, bed);
+    if (bed && bed.buildingId === null) {
+      count++;
+      const housed = presence(state, v, { buildingId: 'bed' as BuildingId, distance: 0 });
+      total += housed;
+      lost += housed - p;
+    } else total += p;
+  }
+  return { count, presenceLost: total > 0 ? lost / total : 0 };
 }
 
 export function moraleWork(state: GameState, beds = bedsOf(state)): number {

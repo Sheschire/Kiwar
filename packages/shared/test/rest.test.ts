@@ -8,6 +8,7 @@ import {
   HOUR_MS,
   kiwiRhythm,
   migrateState,
+  missingBeds,
   MORALE,
   moraleOf,
   presence,
@@ -87,6 +88,20 @@ describe('beds and rest', () => {
     for (const b of beds.values()) counts.set(b.buildingId!, (counts.get(b.buildingId!) ?? 0) + 1);
     expect([...counts.values()].reduce((a, b) => a + b, 0)).toBe(s.villagers.length);
     expect(counts.get(s.buildings[0]!.id)).toBeLessThanOrEqual(4);
+  });
+});
+
+describe('kiwis without a bed (chantier 12)', () => {
+  it('never count as sleeping near their work, and their cost is shown', () => {
+    const { s } = farPulpery();
+    const outside = new Map([...bedsOf(s)].map(([id]) => [id, { buildingId: null, distance: 0 }]));
+    expect(moraleOf(s, outside).comfort).toBeCloseTo(-MORALE.comfort, 9);
+    const cost = missingBeds(s, outside);
+    expect(cost.count).toBe(
+      s.villagers.filter((v) => v.job.kind === 'work' || v.job.kind === 'idle').length,
+    );
+    expect(cost.presenceLost).toBeGreaterThan(0);
+    expect(missingBeds(s)).toEqual({ count: 0, presenceLost: 0 });
   });
 });
 

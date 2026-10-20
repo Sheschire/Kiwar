@@ -1363,8 +1363,8 @@ var SEASONS = ["spring", "summer", "autumn", "winter"];
 var CALENDAR = {
   dayMs: ms.h(2),
   seasonDays: 12,
-  /** Night at the end of each day (longer days in summer). */
-  nightMs: { spring: ms.min(30), summer: ms.min(20), autumn: ms.min(30), winter: ms.min(30) },
+  /** Night at the end of each day (longer days in summer; chantier 12: shorter nights). */
+  nightMs: { spring: ms.min(20), summer: ms.min(15), autumn: ms.min(20), winter: ms.min(20) },
   /** A new calendar starts this long after dawn: a colony wakes up mid-morning in spring. */
   startOffsetMs: ms.min(20)
 };
@@ -2670,11 +2670,29 @@ function comfortOf(state, beds) {
   for (const v of state.villagers) {
     if (v.job.kind !== "work") continue;
     workers++;
-    if ((beds.get(v.id)?.distance ?? Infinity) <= MORALE.near) near++;
+    const bed = beds.get(v.id);
+    if (bed && bed.buildingId !== null && bed.distance <= MORALE.near) near++;
   }
   const comfort = workers > 0 ? MORALE.comfort * (2 * near / workers - 1) : 0;
   comfortCache.set(beds, comfort);
   return comfort;
+}
+function missingBeds(state, beds = bedsOf(state)) {
+  let count = 0;
+  let total = 0;
+  let lost = 0;
+  for (const v of state.villagers) {
+    if (v.job.kind !== "work" && v.job.kind !== "idle") continue;
+    const bed = beds.get(v.id);
+    const p = presence(state, v, bed);
+    if (bed && bed.buildingId === null) {
+      count++;
+      const housed = presence(state, v, { buildingId: "bed", distance: 0 });
+      total += housed;
+      lost += housed - p;
+    } else total += p;
+  }
+  return { count, presenceLost: total > 0 ? lost / total : 0 };
 }
 function moraleWork(state, beds = bedsOf(state)) {
   return 1 + moraleOf(state, beds).total;
@@ -12124,6 +12142,7 @@ export {
   meteorStock,
   migrateState,
   minCrew,
+  missingBeds,
   modifiers,
   moraleOf,
   moraleWork,

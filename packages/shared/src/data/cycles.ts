@@ -15,8 +15,8 @@ export type Season = (typeof SEASONS)[number];
 export const CALENDAR = {
   dayMs: ms.h(2),
   seasonDays: 12,
-  /** Night at the end of each day (longer days in summer). */
-  nightMs: { spring: ms.min(30), summer: ms.min(20), autumn: ms.min(30), winter: ms.min(30) },
+  /** Night at the end of each day (longer days in summer; chantier 12: shorter nights). */
+  nightMs: { spring: ms.min(20), summer: ms.min(15), autumn: ms.min(20), winter: ms.min(20) },
   /** A new calendar starts this long after dawn: a colony wakes up mid-morning in spring. */
   startOffsetMs: ms.min(20),
 } as const satisfies {

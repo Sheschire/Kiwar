@@ -10,6 +10,7 @@ import {
   housing as sharedHousing,
   hungerStage as sharedHungerStage,
   idleVillagers as sharedIdleVillagers,
+  missingBeds as sharedMissingBeds,
   moraleOf as sharedMoraleOf,
   netRates as sharedNetRates,
   population as sharedPopulation,
@@ -46,3 +47,4 @@ export const staffing = perGame(sharedStaffing);
 /** Beds of the kiwis (default map of the state). */
 export const bedsOf = perGame((state) => sharedBedsOf(state));
 export const moraleOf = perGame((state) => sharedMoraleOf(state, bedsOf(state)));
+export const missingBeds = perGame((state) => sharedMissingBeds(state, bedsOf(state)));

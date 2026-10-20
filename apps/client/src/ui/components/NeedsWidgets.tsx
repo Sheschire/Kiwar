@@ -6,7 +6,7 @@ import {
   type Morale,
   type Villager,
 } from '@kiwar/shared';
-import { bedsOf, hungerStage, moraleOf } from '../derived';
+import { bedsOf, hungerStage, missingBeds, moraleOf } from '../derived';
 import { formatNumber } from '../../i18n/i18n';
 import { useT, useUi } from '../store';
 
@@ -78,6 +78,7 @@ export function MoraleCard() {
           </li>
         ))}
       </ul>
+      <MissingBedsLine />
       <p class="small muted">{t('needs.morale.hint', { max: Math.round(MORALE.max * 100) })}</p>
     </div>
   );
@@ -105,6 +106,22 @@ export function KiwiNeedsLine({ v }: { v: Villager }) {
       )}
       {stage !== 'fed' && <span class="warn">{t(`needs.stages.${stage}`)}</span>}
     </span>
+  );
+}
+
+/** What the missing beds cost (village screen, home sheets); nothing when everyone has one. */
+export function MissingBedsLine() {
+  const t = useT();
+  const game = useUi((s) => s.game)!;
+  const homeless = missingBeds(game);
+  if (homeless.count === 0) return null;
+  return (
+    <p class="small warn">
+      {t('needs.missingBeds', {
+        count: homeless.count,
+        percent: Math.max(1, Math.round(homeless.presenceLost * 100)),
+      })}
+    </p>
   );
 }
 

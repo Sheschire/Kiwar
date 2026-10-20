@@ -61,6 +61,7 @@ import {
   type Villager,
 } from '@kiwar/shared';
 import { bedsOf, idleVillagers } from '../derived';
+import { MissingBedsLine } from './NeedsWidgets';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
 import {
@@ -297,6 +298,7 @@ function BuildingSection({
           })}
         </p>
       )}
+      {def.housing !== undefined && <MissingBedsLine />}
       {def.cargo !== undefined && (
         <>
           <div class="stat-row">
