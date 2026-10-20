@@ -131,6 +131,8 @@ que le client : il peut tourner en parallèle d'un chantier de simulation.
 
 ## Reste
 
-- Mesure sur un vrai MacBook Pro 2015 et sur les PC desktop qui rament (`?debug`).
+- Mesure réelle du MacBook Pro 2015 (Iris Pro, préréglage Bas) : 58 ips, pire image 27 ms,
+  aucun à-coup, interface 16 ms/s. Reste à mesurer en Moyen (si ≥ ~50 ips, rendre la descente
+  automatique plus patiente) et sur les PC desktop qui ramaient.
 - Instancing des parties animées si un vrai GPU les montre coûteuses.
 - Lueurs CSS animées en `box-shadow` (petites, gardées).

@@ -877,6 +877,12 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
   tail sweeping down the seam. Juice splashes from the cut (150 green drops, 22 dark seeds,
   instanced, gravity, 1.5 s, shrinking). The `slice` synth gained a wet splash and five drop
   "plips" (the ring is softer); still played by `onSlice`.
+- **Real measure** (owner's MacBook Pro 2015, Intel Iris Pro, online, `?debug`): low preset,
+  1776×900 px (×1.2), 58 fps, p95 21.6 ms, worst frame 27 ms, no hitch, JS 2.5 ms per frame,
+  134 draw calls; interface 16 ms/s for 5 updates/s, worst update 3.7 ms; debug panel opened
+  in 107 ms. Smooth. Auto detection gives medium for an Iris Pro, so low came either from the
+  owner or from the adaptive step-down (< 40 fps over 4 s, from 6 s after launch); a medium
+  measure is asked to decide whether the step-down should wait longer.
 
 ## Chantier 11 — Construction readability (icons, before/after, building tree)
 
