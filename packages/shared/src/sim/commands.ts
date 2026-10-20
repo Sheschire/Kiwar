@@ -9,7 +9,7 @@ import {
 import { CAMPS, PATHS } from '../data/territory';
 import { TILES } from '../data/tiles';
 import { hexKey } from '../hex/hex';
-import { RESOURCE_IDS, type ResourceCost, type Resources } from '../data/resources';
+import { emptyResources, RESOURCE_IDS, type ResourceCost, type Resources } from '../data/resources';
 import { getTile, type FaceMap } from '../worldgen/generateFace';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
 import { KIWI, KIWI_NAME_MAX, STAT_IDS, type StatId } from '../data/kiwis';
@@ -70,7 +70,9 @@ import {
   launchpadOf,
   maxCrew,
   minCrew,
+  shipCargo,
 } from './expeditions';
+import { cargoWeight, sendShipment } from './deliveries';
 
 export type Command =
   | { type: 'build'; buildingType: BuildingType; q: number; r: number }
@@ -88,6 +90,13 @@ export type Command =
       provisions: { pulp: number; juice: number };
       /** Raid (default: fight and loot) or reconnaissance (chantier 07). */
       mission?: MissionKind;
+    }
+  /** Multiplayer: the launchpad's ship carries a free gift of resources to an ally. */
+  | {
+      type: 'sendCargo';
+      launchpadId: BuildingId;
+      friendId: string;
+      resources: Partial<Resources>;
     }
   /** Paint paths on walkable tiles (one gesture); tiles that already have one are skipped. */
   | { type: 'buildPath'; tiles: { q: number; r: number }[] }
@@ -182,6 +191,8 @@ export const COMMAND_ERRORS = [
   'ageTooLow',
   'passageMissing',
   'monumentExists',
+  'unknownFriend',
+  'emptyCargo',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -420,6 +431,25 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (forecast.weight > forecast.cargo + 1e-9) fail('overloaded');
       if (!canAfford(s.resources, { pulp, juice })) fail('notEnoughResources');
       launch(s, cmd, now, nextId(s, 'x'));
+      return;
+    }
+    case 'sendCargo': {
+      const pad = launchpadOf(s, cmd.launchpadId);
+      if (!pad) return fail('notALaunchpad');
+      if (isLaunchpadBusy(s, pad.id)) fail('launchpadBusy');
+      if (pad.damaged) fail('launchpadDamaged');
+      const friend = s.friends.find((f) => f.id === cmd.friendId);
+      if (!friend) return fail('unknownFriend');
+      const load = emptyResources();
+      for (const r of RESOURCE_IDS) {
+        const v = cmd.resources[r] ?? 0;
+        if (!Number.isFinite(v) || v < 0) fail('invalidCount');
+        load[r] = Math.floor(v);
+      }
+      if (RESOURCE_IDS.every((r) => load[r] === 0)) fail('emptyCargo');
+      if (cargoWeight(load) > shipCargo(pad) + 1e-9) fail('overloaded');
+      if (!canAfford(s.resources, load)) fail('notEnoughResources');
+      sendShipment(s, pad.id, friend, pad, load, now, nextId(s, 'x'));
       return;
     }
     case 'buildPath': {

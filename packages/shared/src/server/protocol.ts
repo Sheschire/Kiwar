@@ -34,6 +34,17 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     mission: z.enum(['raid', 'recon']).optional(),
   }),
   z.object({
+    type: z.literal('sendCargo'),
+    launchpadId: id,
+    friendId: id,
+    resources: z.object({
+      pulp: z.number().min(0).max(1e7).optional(),
+      fiber: z.number().min(0).max(1e7).optional(),
+      seeds: z.number().min(0).max(1e7).optional(),
+      juice: z.number().min(0).max(1e7).optional(),
+    }),
+  }),
+  z.object({
     type: z.literal('buildPath'),
     tiles: z
       .array(z.object({ q: int, r: int }))

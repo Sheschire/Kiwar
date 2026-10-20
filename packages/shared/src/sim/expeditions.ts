@@ -116,7 +116,7 @@ export function shipCargo(launchpad: Building): number {
 
 /** One-way travel time; a scout with Tailwind aboard shortens it, a light recon ship too. */
 export function travelTime(
-  target: ExpeditionTarget,
+  target: Pick<ExpeditionTarget, 'travelMs'>,
   launchpad: Building,
   crew: readonly Villager[] = [],
   mission: MissionKind = 'raid',
@@ -353,7 +353,10 @@ export function minCrew(mission: MissionKind = 'raid'): number {
 }
 
 export function isLaunchpadBusy(state: GameState, id: BuildingId): boolean {
-  return state.expeditions.some((e) => e.launchpadId === id && e.status !== 'done');
+  return (
+    state.expeditions.some((e) => e.launchpadId === id && e.status !== 'done') ||
+    state.shipments.some((x) => x.launchpadId === id)
+  );
 }
 
 /** Boards the crew and the provisions (validation is done by the command). */

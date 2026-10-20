@@ -24,7 +24,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 13;
+export const SCHEMA_VERSION = 14;
 
 export type Job =
   | { kind: 'idle' }
@@ -139,6 +139,41 @@ export interface QueueItem {
   /** Resources paid when ordered (refunded on cancel). */
   paid: Partial<Resources>;
   orderedAt: TimeMs;
+}
+
+/** An ally of the universe our ship can fly to. */
+export interface Friend {
+  /** `ally:<user id>`. */
+  id: string;
+  owner: string;
+  kiwiIndex: number;
+  /** Kiwi distance from home (0: the other half of our own kiwi, older universes). */
+  distance: number;
+  /** Base one-way flight time (the launchpad and technologies shorten it). */
+  travelMs: number;
+}
+
+/** Our ship carrying resources to an ally (no crew, no risk), then flying back empty. */
+export interface Shipment {
+  id: string;
+  launchpadId: BuildingId;
+  friendId: string;
+  owner: string;
+  kiwiIndex: number;
+  resources: Resources;
+  departedAt: TimeMs;
+  arriveAt: TimeMs;
+  returnAt: TimeMs;
+  status: 'outbound' | 'returning';
+}
+
+/** Resources an ally sent us, landing at `arriveAt`. */
+export interface Delivery {
+  id: string;
+  from: string;
+  resources: Resources;
+  departedAt: TimeMs;
+  arriveAt: TimeMs;
 }
 
 export interface Egg {
@@ -407,6 +442,12 @@ export interface GameState {
   intel: Record<string, IntelReport>;
   /** In flight and recent expeditions (the last few finished ones are kept for reports). */
   expeditions: Expedition[];
+  /** Allies the ship can deliver to (set by the server from the universe; empty solo). */
+  friends: Friend[];
+  /** Our ship carrying a gift to an ally, until it is back. */
+  shipments: Shipment[];
+  /** Gifts on their way to us, credited when they land. */
+  incoming: Delivery[];
   /** Tiles with a path (hex keys). */
   paths: string[];
   /** Unharvested deposits that are not full yet (hex key → stock); absent means full. */
@@ -493,6 +534,9 @@ export function newGame(opts: NewGameOptions): GameState {
     victories: {},
     intel: {},
     expeditions: [],
+    friends: [],
+    shipments: [],
+    incoming: [],
     paths: [],
     deposits: {},
     threats: newThreats(opts.seed, opts.face, opts.now),
@@ -629,6 +673,9 @@ export function cloneState(state: GameState): GameState {
       meteors: state.sky.meteors.map((m) => ({ ...m })),
     },
     research: { ...state.research, done: [...state.research.done] },
+    friends: state.friends.map((f) => ({ ...f })),
+    shipments: state.shipments.map((x) => ({ ...x, resources: { ...x.resources } })),
+    incoming: state.incoming.map((d) => ({ ...d, resources: { ...d.resources } })),
     expeditions: state.expeditions.map((e) => ({
       ...e,
       crew: [...e.crew],

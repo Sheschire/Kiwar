@@ -546,6 +546,8 @@ export const fr: Dict = {
     ageTooLow: 'Ce niveau appartient à un âge suivant.',
     passageMissing: 'Recherchez d’abord le passage à l’âge suivant.',
     monumentExists: 'La colonie a déjà son monument.',
+    unknownFriend: 'Cet·te allié·e n’est plus dans l’univers.',
+    emptyCargo: 'Chargez au moins une ressource.',
   },
   offline: {
     title: 'Pendant votre absence…',

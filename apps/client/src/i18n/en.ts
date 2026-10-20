@@ -517,6 +517,8 @@ export const en = {
     ageTooLow: 'This level belongs to a later age.',
     passageMissing: 'Research the passage to the next age first.',
     monumentExists: 'The colony already has its monument.',
+    unknownFriend: 'This ally is no longer in the universe.',
+    emptyCargo: 'Load at least one resource.',
   },
   offline: {
     title: 'While you were away…',

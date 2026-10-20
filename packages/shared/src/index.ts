@@ -25,6 +25,7 @@ export * from './sim/selectors';
 export * from './sim/advance';
 export * from './sim/commands';
 export * from './sim/expeditions';
+export * from './sim/deliveries';
 export * from './sim/aliens';
 export * from './sim/territory';
 export * from './sim/kiwis';

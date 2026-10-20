@@ -3193,7 +3193,7 @@ function trainingDuration(school, classId) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 13;
+var SCHEMA_VERSION = 14;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -3247,6 +3247,9 @@ function newGame(opts) {
     victories: {},
     intel: {},
     expeditions: [],
+    friends: [],
+    shipments: [],
+    incoming: [],
     paths: [],
     deposits: {},
     threats: newThreats(opts.seed, opts.face, opts.now),
@@ -3369,6 +3372,9 @@ function cloneState(state) {
       meteors: state.sky.meteors.map((m) => ({ ...m }))
     },
     research: { ...state.research, done: [...state.research.done] },
+    friends: state.friends.map((f) => ({ ...f })),
+    shipments: state.shipments.map((x) => ({ ...x, resources: { ...x.resources } })),
+    incoming: state.incoming.map((d) => ({ ...d, resources: { ...d.resources } })),
     expeditions: state.expeditions.map((e) => ({
       ...e,
       crew: [...e.crew],
@@ -3863,7 +3869,7 @@ function minCrew(mission = "raid") {
   return mission === "recon" ? RECON.minCrew : EXPEDITIONS.minCrew;
 }
 function isLaunchpadBusy(state, id3) {
-  return state.expeditions.some((e) => e.launchpadId === id3 && e.status !== "done");
+  return state.expeditions.some((e) => e.launchpadId === id3 && e.status !== "done") || state.shipments.some((x) => x.launchpadId === id3);
 }
 function launch(state, plan, now, id3) {
   const pad = launchpadOf(state, plan.launchpadId);
@@ -4121,6 +4127,84 @@ function nameOf(e, id3) {
   return e.roster.find((r) => r.id === id3)?.name ?? id3;
 }
 var round22 = (v) => Math.round(v * 100) / 100;
+
+// packages/shared/src/sim/deliveries.ts
+function cargoWeight(resources2) {
+  return RESOURCE_IDS.reduce((sum, id3) => sum + (resources2[id3] ?? 0), 0) * EXPEDITIONS.resourceWeight;
+}
+function cargoLimit(launchpad) {
+  return Math.floor(shipCargo(launchpad) / EXPEDITIONS.resourceWeight);
+}
+function deliveryTime(state, friend, launchpad) {
+  return travelTime(friend, launchpad, [], "raid", techEffects(state).travel);
+}
+function sendShipment(state, launchpadId, friend, launchpad, resources2, now, id3) {
+  const travelMs = deliveryTime(state, friend, launchpad);
+  for (const r of RESOURCE_IDS) state.resources[r] -= resources2[r];
+  const shipment = {
+    id: id3,
+    launchpadId,
+    friendId: friend.id,
+    owner: friend.owner,
+    kiwiIndex: friend.kiwiIndex,
+    resources: { ...resources2 },
+    departedAt: now,
+    arriveAt: now + travelMs,
+    returnAt: now + 2 * travelMs,
+    status: "outbound"
+  };
+  state.shipments.push(shipment);
+  return shipment;
+}
+function nextDeliveryEvent(s) {
+  let at = Infinity;
+  for (const x of s.shipments) at = Math.min(at, x.status === "outbound" ? x.arriveAt : x.returnAt);
+  for (const d of s.incoming) at = Math.min(at, d.arriveAt);
+  return at;
+}
+function deliveryTick(s, at, events) {
+  for (const x of s.shipments) {
+    if (x.status === "outbound" && x.arriveAt === at) {
+      x.status = "returning";
+      events.push({
+        type: "cargoDelivered",
+        at,
+        shipmentId: x.id,
+        to: x.owner,
+        resources: { ...x.resources }
+      });
+    }
+  }
+  const back = s.shipments.filter((x) => x.status === "returning" && x.returnAt === at);
+  if (back.length) {
+    s.shipments = s.shipments.filter((x) => !back.includes(x));
+    for (const x of back) events.push({ type: "shipmentReturned", at, shipmentId: x.id });
+  }
+  const landed = s.incoming.filter((d) => d.arriveAt === at);
+  if (!landed.length) return;
+  s.incoming = s.incoming.filter((d) => !landed.includes(d));
+  const cap = capacity(s);
+  for (const d of landed) {
+    const received = emptyResources();
+    const lost = emptyResources();
+    for (const r of RESOURCE_IDS) {
+      const room = Math.max(0, cap[r] - s.resources[r]);
+      received[r] = Math.min(room, d.resources[r]);
+      lost[r] = d.resources[r] - received[r];
+      s.resources[r] += received[r];
+    }
+    events.push({ type: "cargoReceived", at, deliveryId: d.id, from: d.from, received, lost });
+  }
+}
+function deliveryOf(shipment, from, senderId) {
+  return {
+    id: `${senderId}:${shipment.id}`,
+    from,
+    resources: { ...shipment.resources },
+    departedAt: shipment.departedAt,
+    arriveAt: shipment.arriveAt
+  };
+}
 
 // packages/shared/src/sim/threats.ts
 var HOUR2 = 36e5;
@@ -4594,8 +4678,10 @@ function advanceInPlace(s, now, events) {
     const skyAt = nextSkyEvent(s);
     const injuryEnd = nextInjuryEnd(s);
     const researchAt = nextResearchEvent(s);
+    const deliveryAt = nextDeliveryEvent(s);
     const nextEvent = Math.min(
       researchAt,
+      deliveryAt,
       threatAt,
       skyAt,
       injuryEnd,
@@ -4633,6 +4719,7 @@ function advanceInPlace(s, now, events) {
     if (threatAt === nextEvent) threatTick(s, threatAt, events);
     if (skyAt === nextEvent) skyTick(s, skyAt, events);
     if (researchAt === nextEvent) researchTick(s, researchAt, events);
+    if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: "hungerChanged", at: s.now, stage: st });
@@ -5036,7 +5123,9 @@ var COMMAND_ERRORS = [
   "libraryTooLow",
   "ageTooLow",
   "passageMissing",
-  "monumentExists"
+  "monumentExists",
+  "unknownFriend",
+  "emptyCargo"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -5231,6 +5320,25 @@ function execute(s, cmd, ctx, events) {
       if (forecast.weight > forecast.cargo + 1e-9) fail("overloaded");
       if (!canAfford(s.resources, { pulp, juice })) fail("notEnoughResources");
       launch(s, cmd, now, nextId(s, "x"));
+      return;
+    }
+    case "sendCargo": {
+      const pad = launchpadOf(s, cmd.launchpadId);
+      if (!pad) return fail("notALaunchpad");
+      if (isLaunchpadBusy(s, pad.id)) fail("launchpadBusy");
+      if (pad.damaged) fail("launchpadDamaged");
+      const friend = s.friends.find((f) => f.id === cmd.friendId);
+      if (!friend) return fail("unknownFriend");
+      const load = emptyResources();
+      for (const r of RESOURCE_IDS) {
+        const v = cmd.resources[r] ?? 0;
+        if (!Number.isFinite(v) || v < 0) fail("invalidCount");
+        load[r] = Math.floor(v);
+      }
+      if (RESOURCE_IDS.every((r) => load[r] === 0)) fail("emptyCargo");
+      if (cargoWeight(load) > shipCargo(pad) + 1e-9) fail("overloaded");
+      if (!canAfford(s.resources, load)) fail("notEnoughResources");
+      sendShipment(s, pad.id, friend, pad, load, now, nextId(s, "x"));
       return;
     }
     case "buildPath": {
@@ -9743,6 +9851,38 @@ var gameStateSchema = external_exports.object({
       }).nullable()
     })
   ),
+  friends: external_exports.array(
+    external_exports.object({
+      id,
+      owner: external_exports.string(),
+      kiwiIndex: external_exports.number().int().min(0),
+      distance: external_exports.number().min(0),
+      travelMs: external_exports.number().min(0)
+    })
+  ).max(16),
+  shipments: external_exports.array(
+    external_exports.object({
+      id,
+      launchpadId: id,
+      friendId: id,
+      owner: external_exports.string(),
+      kiwiIndex: external_exports.number().int().min(0),
+      resources,
+      departedAt: external_exports.number(),
+      arriveAt: external_exports.number(),
+      returnAt: external_exports.number(),
+      status: external_exports.enum(["outbound", "returning"])
+    })
+  ).max(16),
+  incoming: external_exports.array(
+    external_exports.object({
+      id,
+      from: external_exports.string(),
+      resources,
+      departedAt: external_exports.number(),
+      arriveAt: external_exports.number()
+    })
+  ).max(64),
   paths: external_exports.array(external_exports.string().max(16)).max(500),
   deposits: external_exports.record(external_exports.string(), external_exports.object({ stock: external_exports.number().min(0), at: external_exports.number() })),
   threats,
@@ -9840,7 +9980,9 @@ var MIGRATIONS = {
       ...v,
       mastery: { ...v.mastery, research: 0 }
     })) : raw.villagers
-  })
+  }),
+  // v13 → v14: deliveries between allies (multiplayer).
+  13: (raw) => ({ ...raw, friends: [], shipments: [], incoming: [] })
 };
 function migrateState(input) {
   if (!input || typeof input !== "object") return { ok: false, reason: "corrupt" };
@@ -9899,6 +10041,17 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     crew: external_exports.union([int.min(0).max(1e3), external_exports.array(id2).max(200)]),
     provisions: external_exports.object({ pulp: external_exports.number().min(0).max(1e7), juice: external_exports.number().min(0).max(1e7) }),
     mission: external_exports.enum(["raid", "recon"]).optional()
+  }),
+  external_exports.object({
+    type: external_exports.literal("sendCargo"),
+    launchpadId: id2,
+    friendId: id2,
+    resources: external_exports.object({
+      pulp: external_exports.number().min(0).max(1e7).optional(),
+      fiber: external_exports.number().min(0).max(1e7).optional(),
+      seeds: external_exports.number().min(0).max(1e7).optional(),
+      juice: external_exports.number().min(0).max(1e7).optional()
+    })
   }),
   external_exports.object({
     type: external_exports.literal("buildPath"),
@@ -10612,6 +10765,8 @@ export {
   canResolveArrival,
   canStarve,
   capacity,
+  cargoLimit,
+  cargoWeight,
   catchmentPreview,
   catchmentRadius,
   cleanKiwiName,
@@ -10636,6 +10791,9 @@ export {
   currentObjective,
   cycleHarvest,
   defenseOf,
+  deliveryOf,
+  deliveryTick,
+  deliveryTime,
   demolitionPreview,
   demolitionRefund,
   depletedTiles,
@@ -10748,6 +10906,7 @@ export {
   newSky,
   newThreats,
   nextCalendarChange,
+  nextDeliveryEvent,
   nextHungerEvent,
   nextId,
   nextKiwiEvent,
@@ -10801,6 +10960,7 @@ export {
   seasonOf,
   seasonRegen,
   sectorOf,
+  sendShipment,
   serializeSave,
   shipCargo,
   shipIdForAge,

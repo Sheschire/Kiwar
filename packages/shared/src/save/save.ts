@@ -294,6 +294,44 @@ export const gameStateSchema = z.object({
         .nullable(),
     }),
   ),
+  friends: z
+    .array(
+      z.object({
+        id,
+        owner: z.string(),
+        kiwiIndex: z.number().int().min(0),
+        distance: z.number().min(0),
+        travelMs: z.number().min(0),
+      }),
+    )
+    .max(16),
+  shipments: z
+    .array(
+      z.object({
+        id,
+        launchpadId: id,
+        friendId: id,
+        owner: z.string(),
+        kiwiIndex: z.number().int().min(0),
+        resources,
+        departedAt: z.number(),
+        arriveAt: z.number(),
+        returnAt: z.number(),
+        status: z.enum(['outbound', 'returning']),
+      }),
+    )
+    .max(16),
+  incoming: z
+    .array(
+      z.object({
+        id,
+        from: z.string(),
+        resources,
+        departedAt: z.number(),
+        arriveAt: z.number(),
+      }),
+    )
+    .max(64),
   paths: z.array(z.string().max(16)).max(500),
   deposits: z.record(z.string(), z.object({ stock: z.number().min(0), at: z.number() })),
   threats,
@@ -412,6 +450,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
         }))
       : raw.villagers,
   }),
+  // v13 → v14: deliveries between allies (multiplayer).
+  13: (raw) => ({ ...raw, friends: [], shipments: [], incoming: [] }),
 };
 
 export type MigrateResult =

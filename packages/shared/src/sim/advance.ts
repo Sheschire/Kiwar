@@ -15,6 +15,7 @@ import {
   workersOf,
 } from './selectors';
 import { resolveArrival, resolveReturn } from './expeditions';
+import { deliveryTick, nextDeliveryEvent } from './deliveries';
 import { canResolveArrival } from './aliens';
 import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
 import type { ClassId } from '../data/classes';
@@ -109,6 +110,18 @@ export type GameEvent =
       broken?: boolean;
     }
   | { type: 'expeditionReturned'; at: TimeMs; expeditionId: string }
+  /** Deliveries between allies: our ship reached the ally, came back; a gift landed here. */
+  | { type: 'cargoDelivered'; at: TimeMs; shipmentId: string; to: string; resources: Resources }
+  | { type: 'shipmentReturned'; at: TimeMs; shipmentId: string }
+  | {
+      type: 'cargoReceived';
+      at: TimeMs;
+      deliveryId: string;
+      from: string;
+      received: Resources;
+      /** What did not fit in the storage. */
+      lost: Resources;
+    }
   /** Chantier 06: predators. */
   | {
       type: 'waveAnnounced';
@@ -194,8 +207,10 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const skyAt = nextSkyEvent(s);
     const injuryEnd = nextInjuryEnd(s);
     const researchAt = nextResearchEvent(s);
+    const deliveryAt = nextDeliveryEvent(s);
     const nextEvent = Math.min(
       researchAt,
+      deliveryAt,
       threatAt,
       skyAt,
       injuryEnd,
@@ -233,6 +248,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     if (threatAt === nextEvent) threatTick(s, threatAt, events);
     if (skyAt === nextEvent) skyTick(s, skyAt, events);
     if (researchAt === nextEvent) researchTick(s, researchAt, events);
+    if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: 'hungerChanged', at: s.now, stage: st });
