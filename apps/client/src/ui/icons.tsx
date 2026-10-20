@@ -500,3 +500,22 @@ export function DayDial({
     </>,
   );
 }
+
+/** Chantier 06: the colony's defense (a wooden shield with a seed). */
+export function ShieldIcon({ size = 22, class: cls }: IconProps) {
+  return svg(
+    size,
+    cls,
+    <>
+      <path
+        d="M16 4l10 3.5v7c0 6.5-4.4 11-10 13.5C10.4 25.5 6 21 6 14.5v-7z"
+        fill="#a7774a"
+        stroke="#5a3e26"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
+      <path d="M16 7.5v17" stroke="#7a5233" stroke-width="1.4" />
+      <ellipse cx="16" cy="15" rx="3" ry="4" fill="#1f1612" />
+    </>,
+  );
+}

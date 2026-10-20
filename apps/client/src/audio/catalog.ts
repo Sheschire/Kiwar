@@ -197,8 +197,44 @@ export const SOUND_EVENTS = {
     bus: 'sfx',
     group: 'colony',
     synth: 'warning',
-    reserved: true,
     default: { sources: ['synth:warning'], cooldownMs: 3000 },
+  },
+  // Chantier 06: the wave strikes, then its outcome; turrets firing during the show.
+  'threat.strike': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'strike',
+    default: { sources: ['synth:strike'], cooldownMs: 3000 },
+  },
+  'threat.victory': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'victory',
+    default: { sources: ['synth:victory'], cooldownMs: 3000 },
+  },
+  'threat.defeat': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'defeat',
+    default: { sources: ['synth:defeat'], cooldownMs: 3000 },
+  },
+  'turret.fire': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'shot',
+    default: {
+      sources: ['synth:shot'],
+      volume: 0.6,
+      pitchVariation: 3,
+      maxVoices: 3,
+      spatial: true,
+    },
+  },
+  'meteor.fall': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'meteor',
+    default: { sources: ['synth:meteor'], cooldownMs: 2000 },
   },
   'ambience.nature': {
     bus: 'ambience',

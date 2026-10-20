@@ -86,6 +86,7 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         break;
       case 'waveStruck':
         pushToast(e.victory ? 'success' : 'error', e.victory ? 'threats.won' : 'threats.lost');
+        uiStore.setState({ unreadWave: e.waveId });
         break;
       case 'shelterOver':
         pushToast('info', 'threats.shelterOver');

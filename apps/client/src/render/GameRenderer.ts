@@ -37,6 +37,7 @@ import { pick, TapDetector } from './picking';
 import { PathPainter } from './pathPainter';
 import { PathsView } from './paths';
 import { MeteorsView } from './meteors';
+import { PredatorShow } from './predators';
 import { PostFx } from './postfx';
 import { PropsView } from './props';
 import {
@@ -97,6 +98,11 @@ export class GameRenderer {
   private following = false;
   private paths: PathsView | null = null;
   private meteors: MeteorsView | null = null;
+  private predators: PredatorShow | null = null;
+  /** Turret shots of the wave show (wired to the audio by `installGameAudio`). */
+  onTurretShot: ((x: number, z: number) => void) | null = null;
+  /** Wave whose show starts as soon as its report is in the state. */
+  private pendingShow: string | null = null;
   private weather: WeatherView | null = null;
   private readonly dayCycle = new DayCycle();
   private readonly lastLightDir = new Vector3();
@@ -220,6 +226,7 @@ export class GameRenderer {
       this.paths,
       this.weather,
       this.meteors,
+      this.predators,
     ]) {
       if (!view) continue;
       this.scene.remove('group' in view ? view.group : view.mesh);
@@ -242,6 +249,9 @@ export class GameRenderer {
     this.scene.add(this.paths.group);
     this.meteors = new MeteorsView(map);
     this.scene.add(this.meteors.group);
+    this.predators = new PredatorShow(map);
+    this.predators.onShot = (x, z) => this.onTurretShot?.(x, z);
+    this.scene.add(this.predators.group);
     this.water = new WaterView(map, this.lighting.sun.position);
     this.scene.add(this.water.mesh);
     this.rebuildProps();
@@ -347,6 +357,9 @@ export class GameRenderer {
     for (const e of events) {
       if (e.type === 'constructionComplete') this.buildings?.celebrate(e.buildingId, e.q, e.r);
       if (e.type === 'repaired') this.buildings?.burst(e.q, e.r);
+      // A wave that strikes while the player watches gets its show (not offline catch-ups).
+      if (e.type === 'waveStruck' && Math.abs(this.callbacks.now() - e.at) < 20_000)
+        this.pendingShow = e.waveId;
       // The rock reaches the ground at the end of its fall animation.
       if (e.type === 'meteorLanded') window.setTimeout(() => this.buildings?.burst(e.q, e.r), 1300);
       if (e.type === 'hatched') {
@@ -554,6 +567,14 @@ export class GameRenderer {
     fog.far = fog.near + 170;
     this.buildings?.update(dt, this.callbacks.now());
     this.meteors?.update(dt, this.callbacks.now());
+    if (this.pendingShow && this.lastState && this.predators) {
+      const report = this.lastState.threats.reports.find((r) => r.id === this.pendingShow);
+      if (report) {
+        this.predators.play(this.lastState, report);
+        this.pendingShow = null;
+      }
+    }
+    this.predators?.update(dt);
     this.kiwis?.update(dt, this.elapsed, this.callbacks.now());
     this.updateFollow(dt);
     this.selection.update(this.elapsed);

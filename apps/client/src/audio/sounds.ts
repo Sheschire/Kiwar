@@ -62,6 +62,16 @@ export function playGameEventSounds(events: GameEvent[]): void {
       case 'expeditionReturned':
         audio.play('ship.return');
         break;
+      case 'waveAnnounced':
+        audio.play('threat.warning');
+        break;
+      case 'waveStruck':
+        audio.play('threat.strike');
+        window.setTimeout(() => audio.play(e.victory ? 'threat.victory' : 'threat.defeat'), 1800);
+        break;
+      case 'meteorLanded':
+        audio.play('meteor.fall', { pos: at(e.q, e.r) });
+        break;
       default:
         break;
     }

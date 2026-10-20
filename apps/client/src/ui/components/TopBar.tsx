@@ -22,6 +22,7 @@ import {
   KiwiIcon,
   ResourceIcon,
   ScrollIcon,
+  ShieldIcon,
   SpeakerIcon,
 } from '../icons';
 import { actions } from '../actions';
@@ -172,6 +173,7 @@ export function TopBar() {
   const chatUnread = useUi((s) => s.chatUnread);
   const muted = useUi((s) => s.audio.muted);
   const villageOpen = useUi((s) => s.modal === 'village');
+  const modal = useUi((s) => s.modal);
   const points = useUi((s) => s.game?.villagers.reduce((n, v) => n + v.statPoints, 0) ?? 0);
   const [tip, setTip] = useState<TipId | null>(null);
   const [tipLeft, setTipLeft] = useState(0);
@@ -270,6 +272,16 @@ export function TopBar() {
         >
           <KiwiIcon />
           {points > 0 && <span class="count">{points > 9 ? '9+' : points}</span>}
+        </button>
+        <button
+          class={`btn btn-icon parchment-btn ${modal === 'defense' ? 'btn-active' : ''}`}
+          aria-label={t('defense.button')}
+          title={t('defense.button')}
+          onClick={() =>
+            uiStore.setState({ modal: modal === 'defense' ? 'none' : 'defense', unreadWave: null })
+          }
+        >
+          <ShieldIcon />
         </button>
         <button
           class="btn btn-icon parchment-btn"

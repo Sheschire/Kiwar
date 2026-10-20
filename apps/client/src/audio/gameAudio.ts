@@ -34,6 +34,7 @@ export function installGameAudio(renderer: GameRenderer): void {
 
   audio.setLoop('music.main', 1);
   audio.spatializer = (pos) => renderer.spatialize(pos);
+  renderer.onTurretShot = (x, z) => audio.play('turret.fire', { pos: { x, z } });
 
   // Ambience follows the camera: more nature close up, more wind from afar; kiwis chirp
   // around when zoomed in (the binding's zoom condition, probability and cooldown decide).

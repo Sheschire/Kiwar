@@ -2513,3 +2513,165 @@ button.chip:focus-visible {
     opacity: 0;
   }
 }
+
+/* Chantier 06: badges under the top bar stack in one column (threat, speech, hunger). */
+.badge-stack {
+  position: absolute;
+  top: calc(var(--safe-top) + 78px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.badge-stack > * {
+  position: static !important;
+  transform: none !important;
+  pointer-events: auto;
+}
+
+@media (max-width: 760px) {
+  .badge-stack {
+    top: calc(var(--safe-top) + 118px);
+  }
+  .has-sheet .badge-stack {
+    display: none;
+  }
+}
+
+.threat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: 2px solid var(--edge);
+  font: inherit;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  cursor: pointer;
+  color: inherit;
+}
+
+.threat-badge.odds-unlikely {
+  border-color: var(--berry);
+  animation: threat-pulse 2.4s ease-in-out infinite;
+}
+
+.threat-badge.odds-unlikely strong,
+.defense-head.odds-unlikely strong {
+  color: var(--berry);
+}
+
+.threat-badge.odds-uncertain {
+  border-color: #d9822b;
+}
+
+.threat-badge.odds-likely strong,
+.defense-head.odds-likely strong {
+  color: var(--leaf);
+}
+
+@keyframes threat-pulse {
+  50% {
+    box-shadow: 0 0 0 4px rgba(184, 67, 47, 0.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .threat-badge.odds-unlikely {
+    animation: none;
+  }
+}
+
+.side-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gap);
+  margin: 8px 0;
+}
+
+.side-card {
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.side-card h4 {
+  margin: 0 0 4px;
+}
+
+.side-card.breaks {
+  border-color: var(--berry);
+}
+
+.side-card p {
+  margin: 2px 0;
+}
+
+.side-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.side-bar span {
+  display: block;
+  height: 100%;
+}
+
+.side-threat {
+  background: var(--berry);
+}
+
+.side-defense {
+  background: var(--leaf);
+}
+
+.shelter-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.wave-reports,
+.incident-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wave-report {
+  border-left: 3px solid var(--leaf);
+  padding-left: 8px;
+}
+
+.wave-report.lost {
+  border-left-color: var(--berry);
+}
+
+.wave-report p {
+  margin: 2px 0;
+}
+
+.damaged-box {
+  border-color: var(--berry);
+}
+
+/* Chantier 06: one more round button (Defense). On mid-size screens the resource bar centres
+   in the room left of the buttons instead of sliding under them. */
+@media (min-width: 761px) and (max-width: 1500px) and (min-height: 521px) {
+  .topbar {
+    padding-right: 356px;
+  }
+}

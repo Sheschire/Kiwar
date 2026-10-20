@@ -16,7 +16,9 @@ export function OfflineModal() {
     summary.completed.length === 0 &&
     summary.hatched.length === 0 &&
     summary.starved.length === 0 &&
-    summary.foodRanOut.length === 0;
+    summary.foodRanOut.length === 0 &&
+    summary.waves.won + summary.waves.lost === 0 &&
+    summary.meteors === 0;
   return (
     <Modal
       title={t('offline.title')}
@@ -72,6 +74,25 @@ export function OfflineModal() {
       )}
       {summary.starved.length > 0 && (
         <p class="warn">{t('offline.starved', { names: summary.starved.join(', ') })}</p>
+      )}
+      {summary.waves.won + summary.waves.lost > 0 && (
+        <p class={summary.waves.lost > 0 ? 'warn' : 'bonus'}>
+          {t('offline.waves', summary.waves)}{' '}
+          <button
+            class="btn btn-small"
+            onClick={() =>
+              uiStore.setState({ offlineSummary: null, modal: 'defense', unreadWave: null })
+            }
+          >
+            {t('offline.openDefense')}
+          </button>
+        </p>
+      )}
+      {summary.meteors > 0 && (
+        <p class="bonus">{t('offline.meteors', { count: summary.meteors })}</p>
+      )}
+      {summary.incidents > 0 && (
+        <p class="small muted">{t('offline.incidents', { count: summary.incidents })}</p>
       )}
       {summary.storageFull.length > 0 && (
         <p class="warn">

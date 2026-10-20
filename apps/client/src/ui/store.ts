@@ -25,7 +25,7 @@ export interface Toast {
 }
 
 export type Modal =
-  'none' | 'settings' | 'expedition' | 'report' | 'universe' | 'demolish' | 'village';
+  'none' | 'settings' | 'expedition' | 'report' | 'universe' | 'demolish' | 'village' | 'defense';
 
 export interface UiState {
   lang: Lang;
@@ -75,6 +75,8 @@ export interface UiState {
   intro: IntroUi | null;
   /** Short fade from the intro into the game. */
   introFade: boolean;
+  /** Last wave report not opened yet (chantier 06). */
+  unreadWave: string | null;
 }
 
 const wideScreen =
@@ -114,6 +116,7 @@ export const uiStore = createStore<UiState>(() => ({
   followId: null,
   intro: null,
   introFade: false,
+  unreadWave: null,
 }));
 
 export function setLang(lang: Lang): void {

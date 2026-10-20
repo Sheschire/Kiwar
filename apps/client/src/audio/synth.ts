@@ -425,6 +425,73 @@ export const SYNTH_PRESETS = {
     ]),
     peak: 0.35,
   },
+  // Chantier 06: predators and gifts from the sky.
+  strike: {
+    tones: [
+      {
+        wave: 'noise',
+        freq: 0,
+        attack: 0.02,
+        decay: 0.6,
+        gain: 0.6,
+        lowpass: 500,
+        lowpassEnd: 2400,
+      },
+      { wave: 'saw', freq: 220, freqEnd: 110, attack: 0.01, decay: 0.5, gain: 0.35, lowpass: 1200 },
+      {
+        wave: 'saw',
+        freq: 233,
+        freqEnd: 116,
+        start: 0.05,
+        attack: 0.01,
+        decay: 0.5,
+        gain: 0.25,
+        lowpass: 1200,
+      },
+    ],
+    peak: 0.5,
+  },
+  victory: {
+    tones: [
+      { wave: 'triangle', freq: 523, attack: 0.01, hold: 0.08, decay: 0.2 },
+      { wave: 'triangle', freq: 659, start: 0.12, attack: 0.01, hold: 0.08, decay: 0.2 },
+      { wave: 'triangle', freq: 784, start: 0.24, attack: 0.01, hold: 0.2, decay: 0.6 },
+      { wave: 'sine', freq: 1047, start: 0.24, attack: 0.01, decay: 0.7, gain: 0.3 },
+    ],
+    peak: 0.45,
+  },
+  defeat: {
+    tones: [
+      { wave: 'triangle', freq: 330, attack: 0.02, hold: 0.15, decay: 0.3 },
+      { wave: 'triangle', freq: 277, start: 0.3, attack: 0.02, hold: 0.15, decay: 0.3 },
+      { wave: 'triangle', freq: 220, start: 0.6, attack: 0.02, hold: 0.2, decay: 0.9, gain: 0.8 },
+    ],
+    peak: 0.4,
+  },
+  shot: {
+    tones: [
+      { wave: 'noise', freq: 0, attack: 0.002, decay: 0.08, gain: 0.5, lowpass: 3000 },
+      { wave: 'sine', freq: 900, freqEnd: 300, attack: 0.002, decay: 0.12, gain: 0.3 },
+    ],
+    peak: 0.3,
+  },
+  meteor: {
+    tones: [
+      {
+        wave: 'noise',
+        freq: 0,
+        attack: 0.6,
+        decay: 0.3,
+        gain: 0.4,
+        lowpass: 400,
+        lowpassEnd: 4000,
+      },
+      { wave: 'sine', freq: 1800, freqEnd: 300, attack: 0.05, hold: 0.5, decay: 0.3, gain: 0.2 },
+      { wave: 'noise', freq: 0, start: 0.9, attack: 0.005, decay: 0.7, gain: 0.7, lowpass: 700 },
+      { wave: 'sine', freq: 90, freqEnd: 40, start: 0.9, attack: 0.005, decay: 0.6, gain: 0.6 },
+    ],
+    peak: 0.55,
+  },
   // Ambience loops.
   wind: {
     tones: [

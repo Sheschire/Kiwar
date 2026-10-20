@@ -50,6 +50,10 @@ export interface OfflineSummary {
   /** Food stocks that ran dry, and kiwis who starved. */
   foodRanOut: string[];
   starved: string[];
+  /** Chantier 06: predator waves (repelled / lost), meteorites and small incidents. */
+  waves: { won: number; lost: number };
+  meteors: number;
+  incidents: number;
 }
 
 export interface ControllerListener {
@@ -594,5 +598,11 @@ function summarize(
     ],
     foodRanOut: [...new Set(events.flatMap((e) => (e.type === 'foodRanOut' ? [e.resource] : [])))],
     starved: events.flatMap((e) => (e.type === 'starved' ? [e.name] : [])),
+    waves: {
+      won: events.filter((e) => e.type === 'waveStruck' && e.victory).length,
+      lost: events.filter((e) => e.type === 'waveStruck' && !e.victory).length,
+    },
+    meteors: events.filter((e) => e.type === 'meteorLanded').length,
+    incidents: events.filter((e) => e.type === 'incident').length,
   };
 }

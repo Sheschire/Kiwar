@@ -19,6 +19,7 @@ import { TopBar } from './components/TopBar';
 import { WorldModal } from './components/WorldModal';
 import { IntroOverlay } from './components/IntroOverlay';
 import { FollowBadge, VillageModal } from './components/VillageModal';
+import { DefenseModal, ThreatBadge } from './components/DefenseModal';
 import { actions } from './actions';
 import { uiStore, useT, useUi } from './store';
 import { consumption, foodLeftMs, hungerStage, NEEDS, netRates, SKILLS } from '@kiwar/shared';
@@ -117,8 +118,11 @@ export function App() {
       <PathToolbar />
       <TilePanel />
       <FollowBadge />
-      <SpeechBadge />
-      <HungerBadge />
+      <div class="badge-stack">
+        <ThreatBadge />
+        <SpeechBadge />
+        <HungerBadge />
+      </div>
       <Toasts />
       {debugOpen && <DebugPanel />}
       {modal === 'settings' && <SettingsModal />}
@@ -127,6 +131,7 @@ export function App() {
       {modal === 'universe' && <UniverseModal />}
       {modal === 'demolish' && <DemolishModal />}
       {modal === 'village' && <VillageModal />}
+      {modal === 'defense' && <DefenseModal />}
       <JoinModal />
       <ChatPanel />
       <OfflineModal />
