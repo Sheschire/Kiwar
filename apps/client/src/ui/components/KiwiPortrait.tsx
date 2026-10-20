@@ -1,3 +1,4 @@
+import { memo } from 'preact/compat';
 import type { ClassId, ShinyColor } from '@kiwar/shared';
 
 const SHINY_FILL: Record<ShinyColor, { body: string; head: string }> = {
@@ -8,7 +9,8 @@ const SHINY_FILL: Record<ShinyColor, { body: string; head: string }> = {
 };
 
 /** A kiwi drawn in SVG for lists and sheets (shiny colour, later class outfits). */
-export function KiwiPortrait(props: {
+/** Kiwi portrait (memoized: lists re-render at every tick, portraits never change). */
+export const KiwiPortrait = memo(function KiwiPortrait(props: {
   shiny: ShinyColor | null;
   size?: number;
   seed?: string;
@@ -129,7 +131,7 @@ export function KiwiPortrait(props: {
       )}
     </svg>
   );
-}
+});
 
 function hash(s: string): number {
   let h = 2166136261;

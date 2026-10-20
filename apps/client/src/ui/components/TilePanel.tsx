@@ -16,7 +16,6 @@ import {
   BIOMES,
   climateOf,
   HARVESTS,
-  idleVillagers,
   isLaunchpadBusy,
   hexKey,
   isMaxLevel,
@@ -52,7 +51,6 @@ import {
   type GameState,
   type QueueItem,
   type Tile,
-  bedsOf,
   calendarOf,
   CYCLES,
   seasonHarvest,
@@ -62,6 +60,7 @@ import {
   postKind,
   type Villager,
 } from '@kiwar/shared';
+import { bedsOf, idleVillagers } from '../derived';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
 import {

@@ -1,11 +1,5 @@
-import {
-  demolitionPreview,
-  getBuilding,
-  housing,
-  population,
-  validateCommand,
-  type BuildingId,
-} from '@kiwar/shared';
+import { demolitionPreview, getBuilding, validateCommand, type BuildingId } from '@kiwar/shared';
+import { housing, population } from '../derived';
 import { actions } from '../actions';
 import { uiStore, useT, useUi } from '../store';
 import { Cost } from './Cost';

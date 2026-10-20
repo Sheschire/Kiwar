@@ -10,7 +10,6 @@ import {
   RESEARCH_SCALE,
   researchBank,
   researchEta,
-  researchPerHour,
   researchPoints,
   TECHS,
   techStatus,
@@ -18,6 +17,7 @@ import {
   type GameState,
   type TechId,
 } from '@kiwar/shared';
+import { researchPerHour } from '../derived';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { BookIcon } from '../icons';

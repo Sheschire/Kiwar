@@ -409,9 +409,8 @@ button.chip:focus-visible {
   align-items: center;
   justify-content: center;
   padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom));
-  background: rgba(60, 35, 60, 0.28);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  /* No backdrop blur: it re-blurs the WebGL canvas at every frame (costly on older GPUs). */
+  background: rgba(60, 35, 60, 0.36);
   z-index: 50;
   animation: fade-in 0.18s ease;
 }

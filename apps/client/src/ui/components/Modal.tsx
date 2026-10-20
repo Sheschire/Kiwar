@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect } from 'preact/hooks';
+import { useEffect, useRef } from 'preact/hooks';
 import { CloseIcon } from '../icons';
 import { useT } from '../store';
 
@@ -12,12 +12,16 @@ export function Modal(props: {
 }) {
   const t = useT();
   const { onClose } = props;
+  // Callers pass a fresh arrow at every render: listen once, call the latest one.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const closable = !!onClose;
   useEffect(() => {
-    if (!onClose) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    if (!closable) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current?.();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [closable]);
   return (
     <div
       class="modal-backdrop pe"

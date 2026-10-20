@@ -26,7 +26,8 @@ import { VisitBanner } from './components/VisitBanner';
 import { RecapBubble } from './components/RecapBubble';
 import { actions } from './actions';
 import { uiStore, useT, useUi } from './store';
-import { consumption, foodLeftMs, hungerStage, NEEDS, netRates, SKILLS } from '@kiwar/shared';
+import { foodLeftMs, NEEDS, SKILLS } from '@kiwar/shared';
+import { consumption, hungerStage, netRates } from './derived';
 import { ResourceIcon } from './icons';
 import { formatDuration } from '../i18n/i18n';
 

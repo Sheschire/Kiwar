@@ -818,3 +818,26 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
   - Reading: the stutter felt on desktop, even on fast PCs, is the interface work at each
     tick (larger HUD on desktop: objectives, queue, expeditions panels), on top of a GPU bill
     that grows with the screen (high preset: DPR 2, MSAA 4, N8AO).
+- **Optimisations** (part 2), all client-side:
+  - `ui/derived.ts`: the shared selectors used by the HUD (`netRates`, `capacity`,
+    `consumption`, `housing`, `population`, `hungerStage`, `forecastWave`, `bedsOf`,
+    `moraleOf`…) are memoized per state object (the controller emits a new state at each tick
+    and never mutates an emitted one), so each is computed once per tick.
+  - `fps` left the main store (debug numbers live in `perfStore`), `useT` returns the same
+    function while the language stays, `useUi(selector, equals?)` + `shallow`, `Modal` listens
+    to Escape once, `KiwiPortrait` is memoized, number formatters are cached.
+  - Pixel budget per preset (`pixelRatioFor`: low 1.6 M, medium 2.6 M, high 4.2 M device
+    pixels, never below a ratio of 1): large HiDPI desktop screens lower their ratio, phones do
+    not change. Intel GPUs other than Iris Xe / Arc are capped at a ratio of 1.25 (the auto
+    preset already gave them medium). High preset: MSAA 4 → 2.
+  - While a menu is open, the 3D is drawn at ~20 fps (`GameRenderer.setBackground`).
+  - The menu backdrop no longer blurs the canvas (`backdrop-filter`), it is a little darker.
+  - Kept: the infinite box-shadow glows (small elements, changing them would move layouts);
+    building animations stay one mesh per part (the 3D loop costs 5–20 ms of JS at CPU ×4,
+    draw calls 136–155: not the bottleneck).
+- **After** (same probe, CPU ×4): interface 34–89 ms/s with nothing open (was 135–210),
+  100–160 ms/s with the village open (was 240–490); worst update 11–60 ms (was 45–147); long
+  tasks almost gone. Menu work: village 63–96 ms (was 110–170), defense 40–59 (90–135),
+  research 18–38 (55–75), tile sheet 27–77 (65–75), settings 12–38 (35–50). Without slowdown
+  this is ~4× less, under the 100 ms target on an old laptop. The owner can check real frame
+  rates with `?debug` (GPU, pixels, fps, p95, menu times).

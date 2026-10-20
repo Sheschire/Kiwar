@@ -1,14 +1,12 @@
 import {
-  bedsOf,
   getBuilding,
-  hungerStage,
   kiwiRhythm,
   MORALE,
-  moraleOf,
   presence,
   type Morale,
   type Villager,
 } from '@kiwar/shared';
+import { bedsOf, hungerStage, moraleOf } from '../derived';
 import { formatNumber } from '../../i18n/i18n';
 import { useT, useUi } from '../store';
 

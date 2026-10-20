@@ -1,19 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { foodLeftMs, nest, NEEDS, RESOURCE_IDS, type ResourceId } from '@kiwar/shared';
 import {
   capacity,
-  housing,
-  idleVillagers,
   consumption,
-  foodLeftMs,
   homeKiwis,
+  housing,
   hungerStage,
-  nest,
-  NEEDS,
+  idleVillagers,
   netRates,
   population,
-  RESOURCE_IDS,
-  type ResourceId,
-} from '@kiwar/shared';
+} from '../derived';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import {
   ChatIcon,

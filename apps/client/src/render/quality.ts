@@ -6,6 +6,11 @@ export interface QualitySettings {
   preset: QualityPreset;
   /** Upper bound for devicePixelRatio. */
   maxPixelRatio: number;
+  /**
+   * Most device pixels drawn per frame: large (HiDPI) desktop screens lower their pixel ratio
+   * to stay within it, never below 1 (phones stay well under it).
+   */
+  pixelBudget: number;
   /** 0 disables shadows. Shadows are static (re-rendered only when the scene changes). */
   shadowMapSize: number;
   /** Use the post-processing chain (otherwise render directly with ACES tone mapping). */
@@ -26,6 +31,7 @@ export const QUALITY: Record<QualityPreset, QualitySettings> = {
   low: {
     preset: 'low',
     maxPixelRatio: 1.25,
+    pixelBudget: 1_600_000,
     shadowMapSize: 1024,
     postprocessing: false,
     ao: false,
@@ -39,6 +45,7 @@ export const QUALITY: Record<QualityPreset, QualitySettings> = {
   medium: {
     preset: 'medium',
     maxPixelRatio: 1.5,
+    pixelBudget: 2_600_000,
     shadowMapSize: 2048,
     postprocessing: true,
     ao: false,
@@ -52,12 +59,13 @@ export const QUALITY: Record<QualityPreset, QualitySettings> = {
   high: {
     preset: 'high',
     maxPixelRatio: 2,
+    pixelBudget: 4_200_000,
     shadowMapSize: 2048,
     postprocessing: true,
     ao: true,
     bloom: true,
     tiltShift: true,
-    msaa: 4,
+    msaa: 2,
     propDensity: 1,
     buildingAnimations: true,
     particles: true,
@@ -126,8 +134,33 @@ export function detectQuality(): QualityPreset {
   if (/mali-[gt]?[0-7]\d\b|adreno \(tm\) [3-5]\d\d|powervr|intel\(r\) hd graphics [2-5]/.test(gpu))
     return 'low';
   if (mobile) return 'medium';
-  if (/apple m\d|apple gpu|nvidia|geforce|rtx|radeon|amd|iris xe|arc/.test(gpu)) return 'high';
+  if (/apple m\d|apple gpu|nvidia|geforce|rtx|radeon|amd|iris(\(r\))? xe|\barc\b/.test(gpu)) return 'high';
   return 'medium';
+}
+
+/** Integrated GPUs of older laptops (e.g. a 2015 MacBook Pro): a lower pixel ratio. */
+export const INTEGRATED_MAX_PIXEL_RATIO = 1.25;
+
+export function isIntegratedGpu(gpu: string): boolean {
+  const g = gpu.toLowerCase();
+  return /intel/.test(g) && !/iris(\(r\))? xe|\barc\b/.test(g);
+}
+
+/** Pixel ratio for a canvas of `cssWidth` × `cssHeight` CSS pixels. */
+export function pixelRatioFor(
+  q: QualitySettings,
+  cssWidth: number,
+  cssHeight: number,
+  devicePixelRatio: number,
+  integrated = false,
+): number {
+  const max = Math.min(
+    devicePixelRatio,
+    q.maxPixelRatio,
+    integrated ? INTEGRATED_MAX_PIXEL_RATIO : Infinity,
+  );
+  const fit = Math.sqrt(q.pixelBudget / Math.max(1, cssWidth * cssHeight));
+  return Math.max(Math.min(1, max), Math.min(max, fit));
 }
 
 export function lowerPreset(p: QualityPreset): QualityPreset | null {

@@ -47,7 +47,6 @@ export interface UiState {
   selectedTile: Tile | null;
   qualityChoice: QualityChoice;
   qualityPreset: QualityPreset;
-  fps: number;
   timeScale: number;
   offlineSummary: OfflineSummary | null;
   /** The full summary was asked for from the corner bubble. */
@@ -113,7 +112,6 @@ export const uiStore = createStore<UiState>(() => ({
   selectedTile: null,
   qualityChoice: 'auto',
   qualityPreset: 'medium',
-  fps: 0,
   timeScale: 1,
   offlineSummary: null,
   recapOpen: false,
@@ -166,6 +164,8 @@ export function useStoreSlice<S, T>(
   selector: (s: S) => T,
   equals: (a: T, b: T) => boolean = Object.is,
 ): T {
+  const equalsRef = useRef(equals);
+  equalsRef.current = equals;
   const [, force] = useReducer((n: number) => n + 1, 0);
   const selectorRef = useRef(selector);
   selectorRef.current = selector;
@@ -176,18 +176,39 @@ export function useStoreSlice<S, T>(
     () =>
       store.subscribe((s) => {
         const next = selectorRef.current(s);
-        if (!equals(next, valueRef.current)) force(0);
+        if (!equalsRef.current(next, valueRef.current)) force(0);
       }),
-    [store, equals],
+    [store],
   );
   return value;
 }
 
-export const useUi = <T>(selector: (s: UiState) => T): T => useStoreSlice(uiStore, selector);
+export const useUi = <T>(selector: (s: UiState) => T, equals?: (a: T, b: T) => boolean): T =>
+  useStoreSlice(uiStore, selector, equals);
+
+/** Same keys with the same values (one level deep): for selectors returning objects or arrays. */
+export function shallow<T>(a: T, b: T): boolean {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a);
+  if (ka.length !== Object.keys(b).length) return false;
+  return ka.every((k) =>
+    Object.is((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]),
+  );
+}
 
 export type Translate = (key: TKey, params?: TParams) => string;
 
+const translators = new Map<Lang, Translate>();
+
+/** The translator of the current language (the same function while the language stays). */
 export function useT(): Translate {
   const lang = useUi((s) => s.lang);
-  return (key, params) => translate(lang, key, params);
+  let t = translators.get(lang);
+  if (!t) {
+    t = (key, params) => translate(lang, key, params);
+    translators.set(lang, t);
+  }
+  return t;
 }

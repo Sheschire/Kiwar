@@ -1,11 +1,5 @@
-import {
-  canHatch,
-  eggCost,
-  eggDuration,
-  housing,
-  population,
-  validateCommand,
-} from '@kiwar/shared';
+import { canHatch, eggCost, eggDuration, validateCommand } from '@kiwar/shared';
+import { housing, population } from '../derived';
 import { formatDuration } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { EggIcon } from '../icons';

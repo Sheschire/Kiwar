@@ -1,5 +1,4 @@
 import {
-  forecastWave,
   garrisonOf,
   guardPower,
   nest,
@@ -13,6 +12,7 @@ import {
   type VillagerId,
   type WaveReport,
 } from '@kiwar/shared';
+import { forecastWave } from '../derived';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { uiStore, useT, useUi, type Translate } from '../store';

@@ -44,7 +44,6 @@ const renderer = new GameRenderer(
     now: () => controller?.now() ?? 0,
     onTileTap: (tile) => actions.selectTile(tile),
     onPaint: (tiles, erase) => actions.paintPaths(tiles, erase),
-    onFps: (fps) => uiStore.setState({ fps }),
     onStats: (frame) => perfStore.setState({ frame }),
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
     onAllyTap: (kiwiIndex) => actions.visitAlly(kiwiIndex),
@@ -178,6 +177,11 @@ uiStore.subscribe((s, prev) => {
     if (s.selectedTile) renderer.focusTile(s.selectedTile);
     renderer.setBottomInset(s.selectedTile ? 0.5 : 0);
   }
+});
+
+// A menu over the scene: the 3D slows down to leave the main thread to the interface.
+uiStore.subscribe((s, prev) => {
+  if (s.modal !== prev.modal) renderer.setBackground(s.modal !== 'none');
 });
 
 const url = readUrlParams();

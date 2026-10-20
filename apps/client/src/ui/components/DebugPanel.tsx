@@ -9,7 +9,7 @@ const SCALES = [1, 10, 100];
 
 export function DebugPanel() {
   const t = useT();
-  const fps = useUi((s) => Math.round(s.fps));
+  const fps = usePerf((s) => Math.round(s.frame?.fps ?? 0));
   const scale = useUi((s) => s.timeScale);
   const online = useUi((s) => s.sync !== 'local');
   const seed = useUi((s) => s.game?.seed ?? '');

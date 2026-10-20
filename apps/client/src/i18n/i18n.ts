@@ -76,10 +76,19 @@ export function translate(lang: Lang, key: TKey, params?: TParams): string {
   });
 }
 
+const numberFormats = new Map<string, Intl.NumberFormat>();
+
 export function formatNumber(lang: Lang, value: number): string {
   const abs = Math.abs(value);
   const digits = abs >= 100 || Number.isInteger(value) ? 0 : 1;
-  return new Intl.NumberFormat(lang, { maximumFractionDigits: digits }).format(value);
+  // Building a formatter is costly: keep one per language and precision.
+  const key = `${lang}${digits}`;
+  let format = numberFormats.get(key);
+  if (!format) {
+    format = new Intl.NumberFormat(lang, { maximumFractionDigits: digits });
+    numberFormats.set(key, format);
+  }
+  return format.format(value);
 }
 
 /** Compact duration such as "45 s", "3 min 20 s", "2 h 05". */

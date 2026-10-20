@@ -47,7 +47,10 @@ import { PostFx } from './postfx';
 import { PropsView } from './props';
 import {
   detectQuality,
+  gpuRendererName,
+  isIntegratedGpu,
   lowerPreset,
+  pixelRatioFor,
   QUALITY,
   type QualityChoice,
   type QualityPreset,
@@ -68,7 +71,6 @@ export interface RendererCallbacks {
   onTileTap(tile: Tile | null): void;
   /** A path stroke painted in path mode. */
   onPaint?(tiles: Tile[], erase: boolean): void;
-  onFps?(fps: number): void;
   /** Detailed frame timing, twice a second (debug panel). */
   onStats?(stats: FrameStats): void;
   onQualityChange?(preset: QualityPreset): void;
@@ -83,6 +85,8 @@ export interface RendererCallbacks {
 const tmpV = new Vector3();
 const tmpTarget = new Vector3();
 const tmpSize = new Vector2();
+/** Frame interval while a menu covers the scene (~20 fps). */
+const BACKGROUND_FRAME_MS = 48;
 
 /** Owns the WebGL renderer, the scene graph and the frame loop. */
 export class GameRenderer {
@@ -136,6 +140,7 @@ export class GameRenderer {
   private elapsed = 0;
   private hoverPoint: { x: number; y: number } | null = null;
   private qualityChoice: QualityChoice = 'auto';
+  private readonly integrated = isIntegratedGpu(gpuRendererName());
   private preset: QualityPreset = 'medium';
   private fpsReportTimer = 0;
   private adaptiveTimer = 0;
@@ -226,7 +231,6 @@ export class GameRenderer {
   private applyPreset(preset: QualityPreset): void {
     this.preset = preset;
     const q = QUALITY[preset];
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, q.maxPixelRatio));
     this.lighting.setShadowMapSize(q.shadowMapSize);
     this.renderer.shadowMap.enabled = q.shadowMapSize > 0;
     this.postfx?.dispose();
@@ -654,6 +658,14 @@ export class GameRenderer {
   private resize(): void {
     const w = this.canvas.clientWidth || 1;
     const h = this.canvas.clientHeight || 1;
+    const ratio = pixelRatioFor(
+      QUALITY[this.preset],
+      w,
+      h,
+      window.devicePixelRatio,
+      this.integrated,
+    );
+    if (ratio !== this.renderer.getPixelRatio()) this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(w, h, false);
     this.postfx?.setSize(w, h);
     this.camera.aspect = w / h;
@@ -666,8 +678,16 @@ export class GameRenderer {
     );
   }
 
+  /** A menu covers the scene: draw it at a calm pace (the loop keeps running). */
+  setBackground(background: boolean): void {
+    this.background = background;
+  }
+
+  private background = false;
+
   private frame(): void {
     const start = performance.now();
+    if (this.background && !this.intro && start - this.lastFrameAt < BACKGROUND_FRAME_MS) return;
     if (this.lastFrameAt > 0) {
       // Recorded at the start of the next frame: the cost of the previous one is known.
       this.perf.record(start - this.lastFrameAt, this.lastCpu);
@@ -711,7 +731,6 @@ export class GameRenderer {
     this.fpsReportTimer += dt;
     if (this.fpsReportTimer > 0.5) {
       this.fpsReportTimer = 0;
-      this.callbacks.onFps?.(this.fpsMeter.fps);
       this.reportStats();
     }
     this.adaptQuality(dt);
