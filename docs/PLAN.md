@@ -47,7 +47,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 11  | Lisibilité de la construction (icônes, avant/après, arbre)             | à faire |
 | 12  | Logistique visible, vagues orientées, nuit plus courte                 | à faire |
 | 13  | Comètes et poussière d'étoiles                                         | à faire |
-| 14  | Emporter sa colonie solo dans un univers existant                      | à faire |
+| 14  | Emporter sa colonie solo dans un univers existant                      | ✅      |
 | —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées   |
 
 **Prochaine conversation** : chantier 09 (gestion des kiwis : affectation, priorités, tableau
@@ -104,3 +104,8 @@ des postes), voir [`docs/chantiers/09-gestion-kiwis.md`](chantiers/09-gestion-ki
 - Livraisons entre alliés (dons libres par l'oiseau de l'aire d'envol, sans risque) : faites.
   Pas encore d'offres d'échange, de prêt de kiwis ni de renforts ; l'oiseau visiteur est
   toujours en bois (on ne connaît pas l'âge de l'allié·e) ; le bot ne livre pas (solo).
+- Chantier 14 : la colonie solo ne peut être emportée que si elle est chargée (on rejoint
+  depuis le solo) ; pas d'export/import par fichier (écarté : triche) ; pas de « quitter un
+  univers » ; la puissance des alliés vient de l'instantané (`universeInfo`), pas du temps réel ;
+  le porteur doit exécuter la migration `20261026000000_universe_imports.sql` (d'ici là, la
+  fonction retombe sur les anciennes colonnes : imports permis, pas de badge « venue du solo »).

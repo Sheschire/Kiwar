@@ -9,6 +9,13 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 14** — on peut **emporter sa colonie solo en rejoignant** un univers avec un code
+> (ou un lien d'invitation) : elle déménage sur un kiwi à elle, avec bâtiments, kiwis et ce
+> qu'elle sait de sa jumelle, suit les saisons de l'univers et reçoit un **bouclier de 48 h**
+> contre les prédateurs. La liste des membres montre la **puissance** de chaque colonie (âge,
+> Nid, kiwis, défense), un badge « venue du solo » et le bouclier ; l'hôte peut fermer
+> l'univers aux colonies importées.
+>
 > **Chantier 08 (2e moitié)** — des **obstacles** parsèment la carte : de vieilles souches
 > qu'un·e bâtisseur·euse arrache pour un peu de fibre, des rochers trop lourds pour un kiwi, et
 > les épaves luisantes que laissent les cratères de météorite. À l'âge du Fer, la recherche

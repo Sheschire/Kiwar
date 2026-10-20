@@ -58,7 +58,8 @@ colony × play time (× expedition victories: the aliens strike back), beginners
   `nextThreatEvent` / `threatTick` (announce, strike, incident, shelter end), `nextInjuryEnd` /
   `healInjuries`, `nextSkyEvent` / `skyTick`. The strike spends the seeds (`ammoUsed`), loots,
   damages (weighted by level, never the Nest or camps), injures (weighted by exposure, guards
-  more), kills at most one kiwi on a lethal wave, sets the shield on a defeat.
+  more), kills at most one kiwi on a lethal wave, sets the shield on a defeat. A solo colony
+  joining a universe gets a 48 h shield too (`shieldArrival`, chantier 14, see `kiwar-online`).
 - `workforce` returns 0 during a shelter and × `damagedWork` for a damaged building.
 - Meteorites (`sim/sky.ts`): `meteorRate(m, harvests)` — a camp on the crater picks it at the
   camp rate of its resource, a producer of the same resource reaching it takes

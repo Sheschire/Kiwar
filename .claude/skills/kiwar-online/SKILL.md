@@ -42,6 +42,17 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   kiwi 0 (`moveSoloInto`; refused while pristine): same state re-keyed, `created_at` set so the
   calendar is unchanged, member `planet_seed` = the colony seed (`planetSeedOf(info, k)` gives
   the seed of any kiwi: use it, never `kiwiSeed` directly), then the solo slot starts over.
+- **Chantier 14**: `joinUniverse { fromSolo: true }` reuses `moveSoloInto(…, members)`: the
+  colony takes the first free kiwi (`assignFace`), keeps its seed/face, its twin's intel,
+  victories and garrison are re-keyed (`rekeyTwin`: `aliens:0:` → `aliens:<k>:`), friends and
+  deliveries reset, calendar = universe's (`withScopeTargets`), 48 h arrival shield
+  (`shieldArrival`, `THREATS.importShieldMs`), member `imported: true` (`imported_at`).
+  Refusals: `importsClosed` (host setting), `alreadyMember`, pristine solo (`invalidRequest`),
+  `shipAway`. `universeSettings { universe, allowImports }` (host = `UniverseInfo.hostId`, from
+  `universes.created_by`; `repo.setAllowImports`). Ally snapshots carry
+  `power: ColonyPower` (`colonyPower(state)`: age, Nest, kiwis, defense, shieldUntil).
+  The Supabase repository falls back to the pre-chantier-14 columns on `42703`/`PGRST204`
+  (function deployed before the migration): keep that pattern for future column additions.
 - Deliveries: the `command` handler writes a `sendCargo` gift into the recipient's game (see
   `kiwar-expeditions`); snapshots carry `friendId` and `room`. Mock: `/__mock/clock?ms=`
   moves the server clock forward.

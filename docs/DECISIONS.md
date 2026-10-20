@@ -765,3 +765,30 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
   182–208 h (before this half: 175–194 h; the infusion research, the laboratory and the juice
   cost a few hours; every biome within ±10 % of the median). The 4-seed × 48 h report is
   unchanged by the obstacles once boulders stay off the seed rings.
+
+## Chantier 14 — Bring the solo colony into an existing universe
+
+- **Joining with the colony** (owner): `joinUniverse { fromSolo }` moves the online solo colony
+  onto the first free kiwi (`assignFace`), with its own planet seed (member `planet_seed`) and
+  face. What it knows of its twin moves along: intel, victories and the hidden garrison are
+  re-keyed from `aliens:0:` to `aliens:<k>:`. Friends and deliveries start empty; the solo slot
+  starts over on a new world (moved, not copied, as when founding).
+- **Calendar**: the colony follows the universe's seasons (the shared-calendar rule wins); only
+  a founding colony keeps its own, since the universe calendar is set from it.
+- **Arrival shield** (owner: 48 h): predator waves are the only incoming threat (co-op only),
+  so the shield is `threats.shieldUntil = max(current, now + 48 h)`
+  (`THREATS.importShieldMs`); a wave already planned before then is dropped and replanned.
+- **Guard rails**: one import per account and universe = membership itself (no leaving yet):
+  `alreadyMember`; an untouched solo colony is refused (`isPristine`); no ship may be away
+  (`shipAway`: targets are renamed on the way). `isPlausible` is not applied: the online solo
+  state is written by the server only, and it would refuse legitimate expeditions.
+- **Host setting** (owner: the host may refuse): `universes.allow_imports` (default true),
+  changed by `universeSettings` (creator only, `created_by`). A plain join stays possible.
+- **Colony power** (owner: age + Nest + kiwis + defense, for every member): `colonyPower(state)`
+  in ally snapshots (`AllySnapshot.power`, defense = `defenseOf` ground + air) and from the own
+  state; members imported get `imported_at` and a "from solo" badge; the shield shows as a badge
+  while active.
+- **Deploy before migration**: the edge repository retries with the older columns on an
+  unknown-column error (`42703` / `PGRST204`), so pushing the function before the owner runs the
+  SQL keeps universes working (imports allowed, no imported flag, host toggle fails).
+- File export/import: left out (owner: cheating risk).

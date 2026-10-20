@@ -74,6 +74,7 @@ Migrations, dans l'ordre :
 | `20261022000000_audio.sql`              | sons : `is_admin()`, tables `audio_*`, bucket              |
 | `20261024000000_hide_game_state.sql`    | parties illisibles par les joueurs (garnisons cachées)     |
 | `20261025000000_member_planet_seed.sql` | graine du kiwi d'une colonie solo emportée dans un univers |
+| `20261026000000_universe_imports.sql`   | réglage « colonies importées » de l'hôte, membre importé   |
 
 ## 4. Fonction serveur `game`
 
