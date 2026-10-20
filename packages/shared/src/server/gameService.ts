@@ -1,3 +1,6 @@
+import type { HexKey } from '../hex/hex';
+import { faceMapOf } from '../sim/territory';
+import { TITAN } from '../data/titan';
 import { kikiwiwiCap, kikiwiwiCount } from '../sim/kikiwiwi';
 import { OBSTACLES, OBSTACLE_RULES } from '../data/obstacles';
 import { METEORS } from '../data/threats';
@@ -111,8 +114,14 @@ export interface ServiceContext {
 
 export const RATE_LIMIT = { windowMs: 10_000, maxCommands: 40 };
 
-const mapCache = new Map<string, FaceMap>();
+/** The colony's map, reshaped tiles included (chantier 08: the same one as the simulation). */
 function mapFor(state: GameState): FaceMap {
+  return faceMapOf(state);
+}
+
+const mapCache = new Map<string, FaceMap>();
+// The generated map only (obstacles are drawn on it).
+function baseMapFor(state: GameState): FaceMap {
   const key = `${state.seed}/${state.face}/${state.params.radius}/${state.params.biome}`;
   let map = mapCache.get(key);
   if (!map) {
@@ -246,6 +255,7 @@ async function neighboursOf(
         buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
         paths: s.paths,
         obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
+        terraform: s.terraform,
         at: now,
       };
     }),
@@ -352,7 +362,29 @@ export function isPlausible(state: GameState, now: number): boolean {
   const labs = state.buildings.filter((b) => b.type === 'lab').length;
   if (labs > 1 || (labs > 0 && !techEffects(state).laboratory)) return false;
   if (kikiwiwiCount(state) > kikiwiwiCap(state)) return false;
+  if (!plausibleTerraform(state)) return false;
   return state.villagers.every((v) => plausibleKiwi(v, state.now));
+}
+
+/** Reshaped tiles (chantier 08): within the cap of the age, on tiles of the right kind. */
+function plausibleTerraform(state: GameState): boolean {
+  const entries = Object.entries(state.terraform);
+  if (entries.length === 0) return true;
+  if (!techEffects(state).terraform) return false;
+  if (entries.length > (TITAN.maxTerraform[ageOf(state)] ?? 0)) return false;
+  const base = baseMapFor(state);
+  for (const [key, kind] of entries) {
+    const tile = base.tiles[base.index.get(key as HexKey) ?? -1];
+    if (!tile) return false;
+    const ok =
+      kind === 'terrace'
+        ? !!tile.flood
+        : kind === 'flatten'
+          ? tile.type === 'grove' || tile.type === 'seedRing'
+          : tile.type === 'flesh' || tile.type === 'grove' || tile.type === 'seedRing';
+    if (!ok) return false;
+  }
+  return true;
 }
 
 /**
@@ -360,8 +392,8 @@ export function isPlausible(state: GameState, now: number): boolean {
  * wrecks are capped and stand on land, loot is never above its table.
  */
 function plausibleObstacles(state: GameState): boolean {
-  const generated = new Map(generateObstacles(mapFor(state)).map((o) => [o.id, o]));
-  const map = mapFor(state);
+  const map = baseMapFor(state);
+  const generated = new Map(generateObstacles(map).map((o) => [o.id, o]));
   const wrecks = state.obstacles.filter((o) => o.kind === 'wreck');
   if (wrecks.length > OBSTACLE_RULES.maxWrecks) return false;
   const maxAge = METEORS.ageFactor[METEORS.ageFactor.length - 1] ?? 1;

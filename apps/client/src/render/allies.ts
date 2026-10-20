@@ -1,5 +1,5 @@
 import { Group, Vector3, type Raycaster } from 'three';
-import { generateFace, type AllySnapshot } from '@kiwar/shared';
+import { applyTerraform, generateFace, type AllySnapshot } from '@kiwar/shared';
 import { TwinView } from './twin';
 
 /**
@@ -50,7 +50,9 @@ export class AlliesView {
         a.kiwiIndex - b.kiwiIndex,
     );
     sorted.forEach((ally, rank) => {
-      const map = generateFace(ally.seed, ally.face, ally.params);
+      const base = generateFace(ally.seed, ally.face, ally.params);
+      // Tiles their Kikiwiwis reshaped (chantier 08).
+      const map = ally.terraform ? applyTerraform(base, ally.terraform) : base;
       const view = new TwinView(map, { fog: false, friend: ally, anchored: true });
       const angle = SLOTS[rank % SLOTS.length]!;
       const distance = RING + RING_STEP * (Math.abs(ally.kiwiIndex - myKiwi) - 1);

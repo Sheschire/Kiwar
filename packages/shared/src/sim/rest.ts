@@ -9,7 +9,7 @@ import { calendarAt, seasonOf } from './calendar';
 import { hungerStage } from './needs';
 import { mayorMorale, modifiers } from './kiwis';
 import type { Building, GameState, Villager } from './state';
-import { distanceIn, faceMapOf, walkDistances } from './territory';
+import { terraformKey, distanceIn, faceMapOf, walkDistances } from './territory';
 
 /** Where a kiwi sleeps: a home with a free bed (null: outside) and the walk from its work. */
 export interface Bed {
@@ -27,6 +27,7 @@ export function workSite(state: GameState, v: Villager): Hex | null {
   if (job.kind === 'work') return at(job.buildingId);
   if (job.kind === 'train') return at(job.schoolId);
   if (job.kind === 'transform') return at(job.labId);
+  if (job.kind === 'titan') return { q: job.q, r: job.r };
   if (job.kind === 'build') return state.queue.find((i) => i.id === job.queueItemId) ?? null;
   if (job.kind === 'expedition') return null;
   return state.buildings.find((b) => b.type === 'nest') ?? null;
@@ -47,7 +48,7 @@ const bedCache = new Map<string, Map<VillagerId, Bed>>();
 export function bedsOf(state: GameState, map: FaceMap = faceMapOf(state)): Map<VillagerId, Bed> {
   // Cheap key (called for every producer at every event): homes, jobs, paths and season.
   // Building and queue item positions never change, so ids stand for the work sites.
-  let key = `${state.seed}|${state.face}|${seasonOf(state)}|`;
+  let key = `${state.seed}|${state.face}|${terraformKey(state)}|${seasonOf(state)}|`;
   for (const b of state.buildings) {
     const beds = levelDef(b.type, b.level)?.housing ?? 0;
     if (beds > 0) key += `${b.id}:${beds};`;
@@ -70,7 +71,9 @@ export function bedsOf(state: GameState, map: FaceMap = faceMapOf(state)): Map<V
                   ? `${v.id}h;`
                   : j.kind === 'transform'
                     ? `${v.id}x${j.labId};`
-                    : '';
+                    : j.kind === 'titan'
+                      ? `${v.id}T${j.q},${j.r};`
+                      : '';
   }
   key += `|${state.paths.join(';')}`;
   const cached = bedCache.get(key);

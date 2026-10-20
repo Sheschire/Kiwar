@@ -40,6 +40,8 @@ import { nextThreatEvent, planWave, threatTick } from './threats';
 import { meteorRate, nextSkyEvent, planMeteor, skyTick } from './sky';
 import { obstacleAt, removeObstacle } from './obstacles';
 import { finishInfusions, nextInfusionEnd } from './kikiwiwi';
+import { finishTitanWorks, nextTitanEnd } from './titan';
+import type { TerraformKind, TitanWork } from '../data/titan';
 import type { ObstacleKind } from '../data/obstacles';
 import { accrueResearch, nextResearchEvent, researchTick } from './research';
 import {
@@ -112,6 +114,16 @@ export type GameEvent =
   /** Chantier 08: an infusion ended (a Kikiwiwi, or a failure: hurt and weakened). */
   | { type: 'kikiwiwiBorn'; at: TimeMs; villagerId: VillagerId; name: string }
   | { type: 'infusionFailed'; at: TimeMs; villagerId: VillagerId; name: string }
+  /** Chantier 08: a titan work ended; a tile took a new shape. */
+  | { type: 'titanDone'; at: TimeMs; villagerId: VillagerId; name: string; work: TitanWork }
+  | {
+      type: 'terraformed';
+      at: TimeMs;
+      q: number;
+      r: number;
+      kind: TerraformKind;
+      villagerId: VillagerId;
+    }
   | { type: 'seasonChanged'; at: TimeMs; season: Season }
   /** A food stock ran dry: the colony eats what is harvested and goes hungry. */
   | { type: 'foodRanOut'; at: TimeMs; resource: 'pulp' | 'juice' }
@@ -201,7 +213,8 @@ export function advance(state: GameState, now: TimeMs): AdvanceResult {
 
 /** Mutating version used internally (and by command handlers working on a fresh copy). */
 export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): void {
-  const map = faceMapOf(s);
+  // Reshaped tiles change the map (titan works): it is read again after each of them.
+  let map = faceMapOf(s);
   syncPools(s, map, s.now);
   startNextConstruction(s, s.now, events);
   let stage = hungerStage(s);
@@ -226,8 +239,10 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const researchAt = nextResearchEvent(s);
     const deliveryAt = nextDeliveryEvent(s);
     const infusionEnd = nextInfusionEnd(s);
+    const titanEnd = nextTitanEnd(s);
     const nextEvent = Math.min(
       infusionEnd,
+      titanEnd,
       researchAt,
       deliveryAt,
       threatAt,
@@ -260,6 +275,10 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     }
     if (trainingEnd === nextEvent) finishTrainings(s, trainingEnd, events);
     if (infusionEnd === nextEvent) finishInfusions(s, infusionEnd, events);
+    if (titanEnd === nextEvent) {
+      finishTitanWorks(s, titanEnd, events);
+      map = faceMapOf(s);
+    }
     if (speechEnd === nextEvent) events.push({ type: 'speechOver', at: speechEnd });
     if (mourningEnd === nextEvent) events.push({ type: 'mourningOver', at: mourningEnd });
     if (calendarChange === nextEvent) calendarTick(s, calendarChange, events);

@@ -242,7 +242,21 @@ export class GameRenderer {
     this.callbacks.onQualityChange?.(preset);
   }
 
-  setFace(map: FaceMap): void {
+  /**
+   * The same face with reshaped tiles (titan works): the scene is rebuilt from the new map, the
+   * camera, the visit and the selection stay as they are.
+   */
+  reshape(map: FaceMap): void {
+    const visiting = this.visiting;
+    const homeView = this.homeView;
+    const state = this.lastState;
+    this.setFace(map, true);
+    this.visiting = visiting;
+    this.homeView = homeView;
+    if (state) this.setGameState(state);
+  }
+
+  setFace(map: FaceMap, keepView = false): void {
     this.map = map;
     this.visiting = null;
     this.homeView = null;
@@ -296,8 +310,10 @@ export class GameRenderer {
     this.scene.add(this.weather.group);
     this.resize();
     this.lighting.fit(Math.max(e.x, e.z) + 3);
-    this.rig.frame(e.x, e.z);
-    this.selection.setSelected(null);
+    if (!keepView) {
+      this.rig.frame(e.x, e.z);
+      this.selection.setSelected(null);
+    }
     this.renderer.shadowMap.needsUpdate = true;
   }
 

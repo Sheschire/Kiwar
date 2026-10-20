@@ -401,6 +401,7 @@ export const en = {
     researchDone: 'Research complete: {tech}!',
     ageReached: 'A new age begins: {age}!',
     kikiwiwiBorn: '{name} came out of the vat: a Kikiwiwi is born!',
+    titanDone: '{name} finished the titan works: {work}.',
     infusionFailed: 'The infusion failed: {name} survived, hurt and weakened. The juice is lost.',
   },
   needs: {
@@ -537,6 +538,12 @@ export const en = {
     kikiwiwiLimit: 'No more Kikiwiwis at this age (one per age from the Iron age).',
     alreadyKikiwiwi: 'Already a Kikiwiwi.',
     oneKikiwiwi: 'One Kikiwiwi per ship: it takes the room of five kiwis.',
+    notAKikiwiwi: 'Only a Kikiwiwi can do that.',
+    kikiwiwiWeak: 'No juice left: the Kikiwiwi is too weak for titan works.',
+    notReshapable:
+      'This tile cannot be reshaped that way (land type, something on it, or it would cut the land in two).',
+    terraformLimit: 'No more tiles to reshape at this age.',
+    titanAtWork: 'A Kikiwiwi is at work on this tile.',
   },
   offline: {
     title: 'While you were away…',
@@ -846,6 +853,28 @@ export const en = {
     reportAmmo: '{count} seeds fired',
     incidentLine: '{ago} ago · {text}',
   },
+  titan: {
+    title: 'Titan works',
+    go: 'Send {name}',
+    atWork: '{name} is at work here: {work}',
+    needTech: 'Research “Titan works” to reshape tiles.',
+    left: 'Tiles left to reshape at this age: {count}',
+    works: {
+      smash: { name: 'Smash it', desc: 'Breaks the obstacle to pieces and brings back its loot.' },
+      spring: {
+        name: 'Dig a juice spring',
+        desc: 'The flesh gives way to a small juice pool: a new deposit for a well.',
+      },
+      terrace: {
+        name: 'Raise a terrace',
+        desc: 'Lifts the tile above the water: it never floods again.',
+      },
+      flatten: {
+        name: 'Flatten',
+        desc: 'Turns the tile into flesh: buildable for pulp and easier to cross.',
+      },
+    },
+  },
   kikiwiwi: {
     badge: 'Kikiwiwi',
     title: 'Kikiwiwi',
@@ -987,6 +1016,7 @@ export const en = {
       injured: 'Recovering',
       guard: 'On guard',
       transform: 'In the vat',
+      titan: 'Titan works',
     },
   },
   research: {

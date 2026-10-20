@@ -53,6 +53,9 @@ export function playGameEventSounds(events: GameEvent[]): void {
       case 'infusionFailed':
         audio.play('threat.defeat');
         break;
+      case 'terraformed':
+        audio.play('build.upgrade', { pos: at(e.q, e.r) });
+        break;
       case 'obstacleCleared':
         audio.play('build.complete', { pos: at(e.q, e.r) });
         break;

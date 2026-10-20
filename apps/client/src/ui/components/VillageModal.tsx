@@ -43,6 +43,7 @@ function jobRank(v: Villager): number {
     build: 2,
     train: 3,
     transform: 3,
+    titan: 2,
     expedition: 4,
     injured: 5,
     idle: 6,

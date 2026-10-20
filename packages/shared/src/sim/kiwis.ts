@@ -287,7 +287,7 @@ function ratesOf(
     mastery = 'build';
   } else if (job.kind === 'train' || job.kind === 'transform') {
     perHour = KIWI.xpPerHour.train;
-  } else if (job.kind === 'guard') {
+  } else if (job.kind === 'guard' || job.kind === 'titan') {
     perHour = KIWI.xpPerHour.guard;
   }
   if (perHour === 0) return { xp: 0, practice: 0, mastery: null };

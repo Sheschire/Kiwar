@@ -2,6 +2,8 @@
 import { render } from 'preact';
 import {
   generateFace,
+  getTile,
+  terraformKey,
   otherFace,
   twinParams,
   type GameState,
@@ -92,15 +94,31 @@ function showAllies(): void {
 
 /** The face on screen: reloading the same one (back from a break) keeps the view as it is. */
 let worldKey = '';
+/** Tiles reshaped by the Kikiwiwis on screen (chantier 08): redrawn in place. */
+let shapeKey = '';
 
 controller = new GameController({
   onWorld: (map, state) => {
     const key = `${map.seed}|${map.face}|${JSON.stringify(map.params)}`;
+    const shape = terraformKey(state);
     if (key !== worldKey) {
       worldKey = key;
+      shapeKey = shape;
       renderer.setFace(map);
       twinKey = '';
       uiStore.setState({ selectedTile: null, visit: null });
+    } else if (shape !== shapeKey) {
+      shapeKey = shape;
+      renderer.reshape(map);
+      // The twin half is rebuilt with the scene.
+      twinKey = '';
+      // The selected tile is the new one (its type may have changed).
+      const sel = uiStore.getState().selectedTile;
+      if (sel) {
+        const tile = getTile(map, sel) ?? null;
+        uiStore.setState({ selectedTile: tile });
+        renderer.setSelectedTile(tile);
+      }
     }
     showTwin(state);
     renderer.setGameState(state);

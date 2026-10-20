@@ -10,6 +10,7 @@ import type { BuildingId, TimeMs } from '../types/ids';
 import type { Building, GameState } from './state';
 import { CYCLES, seasonEffects, seasonHarvest, seasonRegen, type Season } from '../data/cycles';
 import { calendarAt, isNight, seasonOf } from './calendar';
+import { TITAN, type TerraformKind } from '../data/titan';
 
 const HOUR_MS = 3_600_000;
 const EPS = 1e-6;
@@ -20,15 +21,66 @@ const EPS = 1e-6;
 
 const mapCache = new Map<string, FaceMap>();
 
-export function faceMapOf(state: Pick<GameState, 'seed' | 'face' | 'params'>): FaceMap {
-  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}`;
+type MapSource = Pick<GameState, 'seed' | 'face' | 'params'> & {
+  terraform?: Readonly<Record<string, TerraformKind>>;
+};
+
+/** Stable signature of the reshaped tiles (empty when none: the generated map). */
+export function terraformKey(state: {
+  terraform?: Readonly<Record<string, TerraformKind>>;
+}): string {
+  const t = state.terraform;
+  if (!t) return '';
+  const keys = Object.keys(t);
+  if (keys.length === 0) return '';
+  return keys
+    .sort()
+    .map((k) => `${k}=${t[k]}`)
+    .join(';');
+}
+
+/**
+ * The face of a colony: generated from the seed, with the tiles its Kikiwiwis reshaped
+ * (chantier 08). The single source of the map for the simulation, the server and the client.
+ */
+export function faceMapOf(state: MapSource): FaceMap {
+  const base = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}`;
+  const tf = terraformKey(state);
+  const key = tf ? `${base}|${tf}` : base;
   let map = mapCache.get(key);
   if (!map) {
-    map = generateFace(state.seed, state.face, state.params);
-    if (mapCache.size >= 8) mapCache.delete(mapCache.keys().next().value!);
+    map = tf
+      ? applyTerraform(
+          faceMapOf({ seed: state.seed, face: state.face, params: state.params }),
+          state.terraform!,
+        )
+      : generateFace(state.seed, state.face, state.params);
+    if (mapCache.size >= 12) mapCache.delete(mapCache.keys().next().value!);
     mapCache.set(key, map);
   }
   return map;
+}
+
+/** The generated map with reshaped tiles: a spring is juice, a terrace no longer floods. */
+export function applyTerraform(
+  base: FaceMap,
+  terraform: Readonly<Record<string, TerraformKind>>,
+): FaceMap {
+  const tiles = base.tiles.map((t) => {
+    const kind = terraform[hexKey(t)];
+    if (!kind) return t;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { flood, ...dry } = t;
+    if (kind === 'spring')
+      return { ...dry, type: 'juice' as const, height: TILES.juice.baseHeight };
+    if (kind === 'terrace') return { ...dry, height: t.height + TITAN.terraceRise };
+    return {
+      ...t,
+      type: 'flesh' as const,
+      height: Math.max(TILES.flesh.baseHeight, t.height * 0.85),
+    };
+  });
+  return { ...base, tiles };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -287,7 +339,7 @@ export function walkDistances(
   sources: readonly string[],
 ): Map<string, number> {
   const season = seasonOf(state);
-  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}|${season}|${sources.join(';')}|${[...state.paths].sort().join(';')}`;
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}|${terraformKey(state)}|${season}|${sources.join(';')}|${[...state.paths].sort().join(';')}`;
   const cached = distanceCache.get(key);
   if (cached) return cached;
   const paths = pathSet(state);

@@ -24,6 +24,7 @@ import { CLASS_IDS, SKILL_IDS } from '../data/classes';
 import { TECH_IDS } from '../data/research';
 import { newKiwi, rollKiwi } from '../sim/kiwis';
 import { OBSTACLE_KINDS } from '../data/obstacles';
+import { TERRAFORM_KINDS, TITAN_WORK_IDS } from '../data/titan';
 import { generateObstacles } from '../sim/obstacles';
 import { faceMapOf } from '../sim/territory';
 import { hexKey } from '../hex/hex';
@@ -58,6 +59,13 @@ const job = z.discriminatedUnion('kind', [
   }),
   z.object({ kind: z.literal('guard') }),
   z.object({ kind: z.literal('injured'), until: z.number() }),
+  z.object({
+    kind: z.literal('titan'),
+    work: z.enum(TITAN_WORK_IDS),
+    q: z.number().int(),
+    r: z.number().int(),
+    until: z.number(),
+  }),
   z.object({
     kind: z.literal('transform'),
     labId: id,
@@ -359,6 +367,7 @@ export const gameStateSchema = z.object({
       }),
     )
     .max(64),
+  terraform: z.record(z.string().max(16), z.enum(TERRAFORM_KINDS)),
   threats,
   sky: z.object({
     next: z
@@ -481,6 +490,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   14: (raw) => ({ ...raw, obstacles: obstaclesForOldGame(raw) }),
   // v15 → v16: laboratory against nature and Kikiwiwis (nothing to fill: optional field).
   15: (raw) => raw,
+  // v16 → v17: titan works (no tile reshaped yet).
+  16: (raw) => ({ ...raw, terraform: {} }),
 };
 
 function obstaclesForOldGame(raw: Record<string, unknown>): Obstacle[] {

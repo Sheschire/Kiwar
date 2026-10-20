@@ -431,6 +431,7 @@ export const fr: Dict = {
     researchDone: 'Recherche terminée : {tech} !',
     ageReached: 'Un nouvel âge commence : {age} !',
     kikiwiwiBorn: '{name} sort de la cuve : un Kikiwiwi est né !',
+    titanDone: '{name} a fini ses travaux de titan : {work}.',
     infusionFailed:
       'L’infusion a raté : {name} a survécu, blessé·e et affaibli·e. Le jus est perdu.',
   },
@@ -567,6 +568,12 @@ export const fr: Dict = {
     kikiwiwiLimit: 'Plus de Kikiwiwi possible à cet âge (un par âge dès le Fer).',
     alreadyKikiwiwi: 'C’est déjà un Kikiwiwi.',
     oneKikiwiwi: 'Un seul Kikiwiwi par vaisseau : il prend la place de cinq kiwis.',
+    notAKikiwiwi: 'Seul un Kikiwiwi peut faire ça.',
+    kikiwiwiWeak: 'Plus de jus : le Kikiwiwi est trop faible pour des travaux de titan.',
+    notReshapable:
+      'Cette tuile ne peut pas être remodelée ainsi (type de terrain, quelque chose dessus, ou cela couperait la terre en deux).',
+    terraformLimit: 'Plus de tuile à remodeler à cet âge.',
+    titanAtWork: 'Un Kikiwiwi travaille sur cette tuile.',
   },
   offline: {
     title: 'Pendant votre absence…',
@@ -877,6 +884,28 @@ export const fr: Dict = {
     reportAmmo: '{count} pépins tirés',
     incidentLine: 'il y a {ago} · {text}',
   },
+  titan: {
+    title: 'Travaux de titan',
+    go: 'Envoyer {name}',
+    atWork: '{name} travaille ici : {work}',
+    needTech: 'Recherchez « Travaux de titan » pour remodeler les tuiles.',
+    left: 'Tuiles encore remodelables à cet âge : {count}',
+    works: {
+      smash: { name: 'Fracasser', desc: 'Réduit l’obstacle en morceaux et rapporte son butin.' },
+      spring: {
+        name: 'Creuser une source',
+        desc: 'La chair cède la place à une petite mare de jus : un nouveau gisement pour un puits.',
+      },
+      terrace: {
+        name: 'Élever une terrasse',
+        desc: 'Soulève la tuile au-dessus de l’eau : elle ne s’inonde plus.',
+      },
+      flatten: {
+        name: 'Aplanir',
+        desc: 'Change la tuile en chair : constructible pour la pulpe et plus facile à traverser.',
+      },
+    },
+  },
   kikiwiwi: {
     badge: 'Kikiwiwi',
     title: 'Kikiwiwi',
@@ -1018,6 +1047,7 @@ export const fr: Dict = {
       injured: 'En convalescence',
       guard: 'De garde',
       transform: 'Dans la cuve',
+      titan: 'Travaux de titan',
     },
   },
   research: {

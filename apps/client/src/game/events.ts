@@ -30,6 +30,12 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
       case 'kikiwiwiBorn':
         pushToast('success', 'events.kikiwiwiBorn', { name: e.name });
         break;
+      case 'titanDone':
+        pushToast('success', 'events.titanDone', {
+          name: e.name,
+          work: `@titan.works.${e.work}.name`,
+        });
+        break;
       case 'infusionFailed':
         pushToast('error', 'events.infusionFailed', { name: e.name });
         break;

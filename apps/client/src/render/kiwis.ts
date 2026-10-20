@@ -453,6 +453,8 @@ export class KiwisView {
       const school = getBuilding(this.state, villager.job.schoolId);
       return school ? { hex: { q: school.q, r: school.r }, resource: null } : null;
     }
+    if (villager.job.kind === 'titan')
+      return { hex: { q: villager.job.q, r: villager.job.r }, resource: null };
     if (villager.job.kind === 'transform') {
       const lab = getBuilding(this.state, villager.job.labId);
       return lab ? { hex: { q: lab.q, r: lab.r }, resource: null } : null;
@@ -490,7 +492,8 @@ export class KiwisView {
       (agent.rhythm === 'work' ||
         job.kind === 'build' ||
         job.kind === 'train' ||
-        job.kind === 'transform')
+        job.kind === 'transform' ||
+        job.kind === 'titan')
     ) {
       agent.inside = false;
       return false;
@@ -537,7 +540,9 @@ export class KiwisView {
               ? 'g'
               : job.kind === 'transform'
                 ? `x:${job.labId}`
-                : 'idle';
+                : job.kind === 'titan'
+                  ? `T:${job.q},${job.r}`
+                  : 'idle';
     const changed = sig !== agent.plan;
     agent.plan = sig;
     const work = this.workTile(villager);
@@ -556,7 +561,7 @@ export class KiwisView {
       return;
     }
 
-    if ((job.kind === 'build' || job.kind === 'train') && work) {
+    if ((job.kind === 'build' || job.kind === 'train' || job.kind === 'titan') && work) {
       if (changed || (agent.activity !== 'walk' && agent.activity !== 'build')) {
         agent.carrying = null;
         this.walkTo(agent, work.hex, 0.55);

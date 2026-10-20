@@ -9,6 +9,7 @@ import { INCIDENTS, METEORS, type IncidentKind } from '../data/threats';
 import { DEFAULT_FACE_PARAMS, HEART, type FaceParams } from '../worldgen/generateFace';
 import { hexKey } from '../hex/hex';
 import type { ObstacleKind } from '../data/obstacles';
+import type { TerraformKind, TitanWork } from '../data/titan';
 import { generateObstacles } from './obstacles';
 import { faceMapOf } from './territory';
 import { createRng, type Rng, type RngState } from '../rng/rng';
@@ -28,7 +29,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 16;
+export const SCHEMA_VERSION = 17;
 
 export type Job =
   | { kind: 'idle' }
@@ -53,7 +54,9 @@ export type Job =
    * Chantier 08: in a vat of the laboratory against nature until `until` (`risk` of failure,
    * set when it starts; `paid` is refunded if the laboratory goes).
    */
-  | { kind: 'transform'; labId: BuildingId; until: TimeMs; risk: number; paid: Partial<Resources> };
+  | { kind: 'transform'; labId: BuildingId; until: TimeMs; risk: number; paid: Partial<Resources> }
+  /** Chantier 08: a Kikiwiwi at work on a tile (smashing an obstacle, reshaping the land). */
+  | { kind: 'titan'; work: TitanWork; q: number; r: number; until: TimeMs };
 
 export interface KiwiHistory {
   expeditions: number;
@@ -479,6 +482,8 @@ export interface GameState {
   deposits: Record<string, FreeDeposit>;
   /** Rocks, stumps and wrecks blocking tiles. */
   obstacles: Obstacle[];
+  /** Tiles reshaped by the Kikiwiwis (hex key → what they became; see `faceMapOf`). */
+  terraform: Record<string, TerraformKind>;
   threats: ThreatState;
   sky: SkyState;
   research: ResearchState;
@@ -567,6 +572,7 @@ export function newGame(opts: NewGameOptions): GameState {
     paths: [],
     deposits: {},
     obstacles: [],
+    terraform: {},
     threats: newThreats(opts.seed, opts.face, opts.now),
     sky: newSky(opts.now),
     research: { points: 0, current: null, done: [] },
@@ -696,6 +702,7 @@ export function cloneState(state: GameState): GameState {
     paths: [...state.paths],
     deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
     obstacles: state.obstacles.map((o) => ({ ...o, loot: { ...o.loot } })),
+    terraform: { ...state.terraform },
     threats: cloneThreats(state.threats),
     sky: {
       ...state.sky,

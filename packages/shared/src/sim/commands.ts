@@ -23,7 +23,7 @@ import {
 } from './advance';
 import { buildingResource, hasSkill, trainingCost, trainingDuration, workerPower } from './kiwis';
 import { CLASSES, SKILLS, type ClassId, type SkillId } from '../data/classes';
-import { isFlooded, releasePool, syncPools } from './territory';
+import { faceMapOf, isFlooded, releasePool, syncPools, terraformKey } from './territory';
 import { seasonOf } from './calendar';
 import {
   buildCost,
@@ -61,7 +61,13 @@ import { cloneState, nextId, type GameState, type MissionKind } from './state';
 import { PASSAGE_TECHS, TECHS, type TechId } from '../data/research';
 import { ageOf, hasTech, researchTick, techEffects, techStatus } from './research';
 import { KIKIWIWI } from '../data/kikiwiwi';
-import { infusionDuration, infusionRisk, kikiwiwiCap, kikiwiwiCount } from './kikiwiwi';
+import {
+  infusionDuration,
+  infusionRisk,
+  kikiwiwiCap,
+  kikiwiwiCount,
+  kikiwiwiWeak,
+} from './kikiwiwi';
 import { SHELTER } from '../data/threats';
 import { forecastWave } from './threats';
 import {
@@ -77,6 +83,8 @@ import {
 import { cargoWeight, sendShipment } from './deliveries';
 import { OBSTACLES, OBSTACLE_RULES } from '../data/obstacles';
 import { clearDuration, obstacleAt } from './obstacles';
+import { TITAN_WORK_IDS, type TitanWork } from '../data/titan';
+import { canReshape, terraformLeft, titanAt, titanCost } from './titan';
 
 export type Command =
   | { type: 'build'; buildingType: BuildingType; q: number; r: number }
@@ -130,6 +138,8 @@ export type Command =
   | { type: 'setGarrison'; villagerIds: VillagerId[] }
   /** Chantier 08: a kiwi goes into the vat of the laboratory against nature. */
   | { type: 'transform'; villagerId: VillagerId; labId: BuildingId }
+  /** Chantier 08: a Kikiwiwi smashes the obstacle on a tile, or reshapes it. */
+  | { type: 'titanWork'; villagerId: VillagerId; q: number; r: number; work: TitanWork }
   /** Chantier 08: a builder clears the stump on this tile (queued like a construction). */
   | { type: 'clearObstacle'; q: number; r: number }
   /** Chantier 08: the technology the researchers work on (null: bank the points). */
@@ -212,6 +222,11 @@ export const COMMAND_ERRORS = [
   'kikiwiwiLimit',
   'alreadyKikiwiwi',
   'oneKikiwiwi',
+  'notAKikiwiwi',
+  'kikiwiwiWeak',
+  'notReshapable',
+  'terraformLimit',
+  'titanAtWork',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -269,6 +284,8 @@ export function applyCommand(state: GameState, cmd: Command, ctx: CommandContext
   const events: GameEvent[] = [];
   advanceInPlace(s, ctx.now, events);
   const advanced = cloneState(s);
+  // Reshaped tiles (chantier 08): the colony's own map, whatever map the caller holds.
+  if (terraformKey(s)) ctx = { ...ctx, map: faceMapOf(s) };
   try {
     execute(s, cmd, ctx, events);
     return { ok: true, state: s, events };
@@ -299,6 +316,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (!def.allowedTiles.includes(tile.type)) fail('tileNotAllowed');
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail('tileOccupied');
       if (obstacleAt(s, cmd.q, cmd.r)) fail('obstacle');
+      if (titanAt(s, cmd.q, cmd.r)) fail('titanAtWork');
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail('flooded');
       if (nest(s).level < def.levels[0]!.requiresNestLevel) fail('nestLevelTooLow');
       if ((def.levels[0]!.requiresAge ?? 0) > ageOf(s)) fail('ageTooLow');
@@ -392,11 +410,38 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       startNextConstruction(s, now, events);
       return;
     }
+    case 'titanWork': {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail('unknownVillager');
+      if (!v.kikiwiwi) fail('notAKikiwiwi');
+      if (v.job.kind !== 'idle' && v.job.kind !== 'guard') fail('kiwiBusy');
+      if (kikiwiwiWeak(s)) fail('kikiwiwiWeak');
+      if (!TITAN_WORK_IDS.includes(cmd.work)) fail('invalidCount');
+      if (!getTile(ctx.map, cmd)) return fail('unknownTile');
+      if (titanAt(s, cmd.q, cmd.r)) fail('titanAtWork');
+      if (cmd.work === 'smash') {
+        if (!obstacleAt(s, cmd.q, cmd.r)) fail('noObstacle');
+        if (s.queue.some((i) => i.kind === 'clear' && i.q === cmd.q && i.r === cmd.r))
+          fail('alreadyClearing');
+      } else {
+        if (!techEffects(s).terraform) fail('techMissing');
+        if (!canReshape(s, ctx.map, cmd.work, cmd.q, cmd.r)) fail('notReshapable');
+        if (terraformLeft(s) <= 0) fail('terraformLimit');
+      }
+      const cost = titanCost(s, cmd.work, cmd.q, cmd.r)!;
+      pay(s, { juice: cost.juice });
+      if (cmd.work !== 'smash') s.paths = s.paths.filter((k) => k !== hexKey(cmd));
+      v.job = { kind: 'titan', work: cmd.work, q: cmd.q, r: cmd.r, until: now + cost.durationMs };
+      return;
+    }
     case 'clearObstacle': {
       const o = obstacleAt(s, cmd.q, cmd.r);
       if (!o) return fail('noObstacle');
       if (OBSTACLES[o.kind].clearedBy !== 'kiwis') fail('needsKikiwiwi');
-      if (s.queue.some((i) => i.kind === 'clear' && i.q === o.q && i.r === o.r))
+      if (
+        s.queue.some((i) => i.kind === 'clear' && i.q === o.q && i.r === o.r) ||
+        titanAt(s, o.q, o.r)
+      )
         fail('alreadyClearing');
       queueHasRoom(s);
       const cost = { ...OBSTACLE_RULES.clearCost };
@@ -516,6 +561,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         if (!TILES[tile.type].walkable) fail('pathNotAllowed');
         if (buildingAt(s, h.q, h.r) || queuedBuildAt(s, h.q, h.r)) fail('tileOccupied');
         if (obstacleAt(s, h.q, h.r)) fail('obstacle');
+        if (titanAt(s, h.q, h.r)) fail('titanAtWork');
         added.push(key);
       }
       if (s.paths.length + added.length > pathLimit(s)) fail('pathLimit');
@@ -535,6 +581,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (!CAMPS.tiles.includes(tile.type)) fail('tileNotAllowed');
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail('tileOccupied');
       if (obstacleAt(s, cmd.q, cmd.r)) fail('obstacle');
+      if (titanAt(s, cmd.q, cmd.r)) fail('titanAtWork');
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail('flooded');
       if (s.buildings.filter((b) => b.type === 'camp').length >= CAMPS.max) fail('campLimit');
       const id = nextId(s, 'b') as BuildingId;

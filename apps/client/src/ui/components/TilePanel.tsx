@@ -71,6 +71,7 @@ import {
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
 import { LabInfo } from './LabInfo';
+import { TitanWorks } from './TitanWorks';
 import { AgeInfo, ResearchSummary } from './ResearchModal';
 
 function Progress({ item, now }: { item: QueueItem; now: number }) {
@@ -664,6 +665,7 @@ export function TilePanel() {
           </div>
         )}
         {free && <GatherOption game={game} map={map} tile={tile} now={now} t={t} />}
+        {!building && !site && <TitanWorks game={game} map={map} tile={tile} now={now} />}
         {free && options.length === 0 && <p class="small">{t('tile.nothing')}</p>}
       </div>
     </aside>
@@ -723,7 +725,7 @@ function ObstacleSection({
           </button>
           {error && <span class="small warn">{t(`errors.${error}`)}</span>}
         </div>
-      ) : (
+      ) : game.villagers.some((v) => v.kikiwiwi) ? null : (
         <p class="small warn">{t('obstacles.needsTitan')}</p>
       )}
     </div>

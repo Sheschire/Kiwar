@@ -6,7 +6,7 @@ import {
   advance,
   applyCommand,
   deserializeSave,
-  generateFace,
+  faceMapOf,
   isPristine,
   migrateState,
   newGame,
@@ -199,7 +199,7 @@ export class GameController {
   private loadState(saved: GameState): void {
     // Local games hold their alien garrisons (online, only the server does: chantier 07).
     if (!this.config) ensureAliens(saved, localAlienSeed(saved));
-    this.map = generateFace(saved.seed, saved.face, saved.params);
+    this.map = faceMapOf(saved);
     const now = Math.max(this.now(), saved.now);
     // Online, the stored state dates from the last server write: the player may have watched
     // the colony long after it. The summary only covers the time they were really away.
@@ -210,7 +210,7 @@ export class GameController {
     const { state, events } = advance(before, now);
     this.state = state;
     this.listener.onWorld(this.map, this.state);
-    this.listener.onState(this.state, now);
+    this.emitState(now);
     const away = now - before.now;
     if (away >= OFFLINE_SUMMARY_MIN_MS) {
       this.listener.onOfflineSummary(summarize(before, state, events, away));
@@ -245,9 +245,22 @@ export class GameController {
 
   private setWorld(state: GameState): void {
     this.state = state;
-    this.map = generateFace(state.seed, state.face, state.params);
+    this.map = faceMapOf(state);
     this.listener.onWorld(this.map, this.state);
-    this.listener.onState(this.state, this.now());
+    this.emitState(this.now());
+  }
+
+  /**
+   * Tells the UI about the new state. When the Kikiwiwis reshaped a tile (chantier 08), the map
+   * changes too: the world is sent again (the renderer keeps the view).
+   */
+  private emitState(now: number): void {
+    const map = faceMapOf(this.state);
+    if (map !== this.map) {
+      this.map = map;
+      this.listener.onWorld(this.map, this.state);
+    }
+    this.listener.onState(this.state, now);
   }
 
   dispatch(cmd: Command): boolean {
@@ -263,7 +276,7 @@ export class GameController {
     }
     this.state = result.state;
     if (result.events.length) this.listener.onEvents(result.events);
-    this.listener.onState(this.state, now);
+    this.emitState(now);
     if (!result.ok) {
       this.listener.onError(result.error);
       return false;
@@ -286,7 +299,7 @@ export class GameController {
       this.listener.onEvents(events);
       this.save();
     }
-    this.listener.onState(this.state, now);
+    this.emitState(now);
     // A ship landed: only the server knows what it found (hidden garrisons).
     if (
       this.online &&
@@ -495,7 +508,7 @@ export class GameController {
           targets: universeTargets(res.universe.members, me),
           friends: universeFriends(res.universe.members, me),
         };
-        this.listener.onState(this.state, this.now());
+        this.emitState(this.now());
       }
       this.listener.onUniverse(res.universe);
       this.listener.onTwin(res.twin ?? null);
@@ -633,7 +646,7 @@ export class GameController {
       if (r.ok) state = r.state;
     }
     this.state = state;
-    this.listener.onState(this.state, now);
+    this.emitState(now);
   }
 
   private onAccountChange(account: Account | null): void {

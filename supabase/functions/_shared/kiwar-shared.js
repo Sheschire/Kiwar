@@ -1854,6 +1854,30 @@ var KIKIWIWI = {
   perShip: 1
 };
 
+// packages/shared/src/data/titan.ts
+var TITAN_WORK_IDS = ["smash", "spring", "terrace", "flatten"];
+var TERRAFORM_KINDS = [
+  "spring",
+  "terrace",
+  "flatten"
+];
+var TERRAFORM = {
+  spring: { tiles: ["flesh"], juice: 600, durationMs: ms.h(3) },
+  terrace: { tiles: "flood", juice: 400, durationMs: ms.h(2) },
+  flatten: { tiles: ["grove", "seedRing"], juice: 300, durationMs: ms.h(2) }
+};
+var SMASH = {
+  stump: { juice: 50, durationMs: ms.min(20) },
+  rock: { juice: 200, durationMs: ms.h(1) },
+  wreck: { juice: 300, durationMs: ms.h(1.5) }
+};
+var TITAN = {
+  /** Tiles that may be reshaped by age (index = age). */
+  maxTerraform: [0, 0, 4, 8],
+  /** A terrace is raised this much above the water. */
+  terraceRise: 0.22
+};
+
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
 var SQRT5 = /* @__PURE__ */ Math.sqrt(5);
@@ -2545,6 +2569,7 @@ function workSite(state, v) {
   if (job2.kind === "work") return at(job2.buildingId);
   if (job2.kind === "train") return at(job2.schoolId);
   if (job2.kind === "transform") return at(job2.labId);
+  if (job2.kind === "titan") return { q: job2.q, r: job2.r };
   if (job2.kind === "build") return state.queue.find((i) => i.id === job2.queueItemId) ?? null;
   if (job2.kind === "expedition") return null;
   return state.buildings.find((b) => b.type === "nest") ?? null;
@@ -2554,7 +2579,7 @@ function homes(state) {
 }
 var bedCache = /* @__PURE__ */ new Map();
 function bedsOf(state, map = faceMapOf(state)) {
-  let key = `${state.seed}|${state.face}|${seasonOf(state)}|`;
+  let key = `${state.seed}|${state.face}|${terraformKey(state)}|${seasonOf(state)}|`;
   for (const b of state.buildings) {
     const beds = levelDef(b.type, b.level)?.housing ?? 0;
     if (beds > 0) key += `${b.id}:${beds};`;
@@ -2562,7 +2587,7 @@ function bedsOf(state, map = faceMapOf(state)) {
   key += "|";
   for (const v of state.villagers) {
     const j = v.job;
-    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : j.kind === "transform" ? `${v.id}x${j.labId};` : "";
+    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : j.kind === "transform" ? `${v.id}x${j.labId};` : j.kind === "titan" ? `${v.id}T${j.q},${j.r};` : "";
   }
   key += `|${state.paths.join(";")}`;
   const cached = bedCache.get(key);
@@ -2838,7 +2863,7 @@ function ratesOf(state, v, masteries) {
     mastery = "build";
   } else if (job2.kind === "train" || job2.kind === "transform") {
     perHour = KIWI.xpPerHour.train;
-  } else if (job2.kind === "guard") {
+  } else if (job2.kind === "guard" || job2.kind === "titan") {
     perHour = KIWI.xpPerHour.guard;
   }
   if (perHour === 0) return { xp: 0, practice: 0, mastery: null };
@@ -3078,15 +3103,43 @@ function researchTick(state, at, events) {
 var HOUR_MS = 36e5;
 var EPS = 1e-6;
 var mapCache = /* @__PURE__ */ new Map();
+function terraformKey(state) {
+  const t = state.terraform;
+  if (!t) return "";
+  const keys = Object.keys(t);
+  if (keys.length === 0) return "";
+  return keys.sort().map((k) => `${k}=${t[k]}`).join(";");
+}
 function faceMapOf(state) {
-  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}`;
+  const base = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}`;
+  const tf = terraformKey(state);
+  const key = tf ? `${base}|${tf}` : base;
   let map = mapCache.get(key);
   if (!map) {
-    map = generateFace(state.seed, state.face, state.params);
-    if (mapCache.size >= 8) mapCache.delete(mapCache.keys().next().value);
+    map = tf ? applyTerraform(
+      faceMapOf({ seed: state.seed, face: state.face, params: state.params }),
+      state.terraform
+    ) : generateFace(state.seed, state.face, state.params);
+    if (mapCache.size >= 12) mapCache.delete(mapCache.keys().next().value);
     mapCache.set(key, map);
   }
   return map;
+}
+function applyTerraform(base, terraform) {
+  const tiles = base.tiles.map((t) => {
+    const kind = terraform[hexKey(t)];
+    if (!kind) return t;
+    const { flood, ...dry } = t;
+    if (kind === "spring")
+      return { ...dry, type: "juice", height: TILES.juice.baseHeight };
+    if (kind === "terrace") return { ...dry, height: t.height + TITAN.terraceRise };
+    return {
+      ...t,
+      type: "flesh",
+      height: Math.max(TILES.flesh.baseHeight, t.height * 0.85)
+    };
+  });
+  return { ...base, tiles };
 }
 function tileDeposit(tile, biome = "classic") {
   const def = tile ? DEPOSITS[tile.type] : void 0;
@@ -3253,7 +3306,7 @@ function depotDistances(state, map) {
 }
 function walkDistances(state, map, sources) {
   const season = seasonOf(state);
-  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}|${season}|${sources.join(";")}|${[...state.paths].sort().join(";")}`;
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}|${terraformKey(state)}|${season}|${sources.join(";")}|${[...state.paths].sort().join(";")}`;
   const cached = distanceCache.get(key);
   if (cached) return cached;
   const paths = pathSet(state);
@@ -3716,7 +3769,7 @@ function removeObstacle(s, o, at, events, by) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 16;
+var SCHEMA_VERSION = 17;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -3776,6 +3829,7 @@ function newGame(opts) {
     paths: [],
     deposits: {},
     obstacles: [],
+    terraform: {},
     threats: newThreats(opts.seed, opts.face, opts.now),
     sky: newSky(opts.now),
     research: { points: 0, current: null, done: [] },
@@ -3891,6 +3945,7 @@ function cloneState(state) {
     paths: [...state.paths],
     deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
     obstacles: state.obstacles.map((o) => ({ ...o, loot: { ...o.loot } })),
+    terraform: { ...state.terraform },
     threats: cloneThreats(state.threats),
     sky: {
       ...state.sky,
@@ -4937,6 +4992,94 @@ function skyTick(s, at, events) {
   sky.meteors = sky.meteors.filter((m) => m.expiresAt > at);
 }
 
+// packages/shared/src/sim/titan.ts
+function terraformLeft(state) {
+  const caps = TITAN.maxTerraform;
+  const cap = caps[Math.min(ageOf(state), caps.length - 1)] ?? 0;
+  const pending = state.villagers.filter(
+    (v) => v.job.kind === "titan" && v.job.work !== "smash"
+  ).length;
+  return Math.max(0, cap - Object.keys(state.terraform).length - pending);
+}
+function titanAt(state, q, r) {
+  return state.villagers.find((v) => v.job.kind === "titan" && v.job.q === q && v.job.r === r);
+}
+function titanCost(state, work, q, r) {
+  if (work === "smash") {
+    const o = obstacleAt(state, q, r);
+    return o ? { ...SMASH[o.kind] } : null;
+  }
+  const def = TERRAFORM[work];
+  const k = techEffects(state).build;
+  return { juice: def.juice, durationMs: Math.round(def.durationMs * k) };
+}
+function canReshape(state, map, kind, q, r) {
+  const tile = getTile(map, { q, r });
+  if (!tile) return false;
+  const def = TERRAFORM[kind];
+  const fits = def.tiles === "flood" ? !!tile.flood : def.tiles.includes(tile.type);
+  if (!fits) return false;
+  if (q === HEART.q && r === HEART.r) return false;
+  if (state.buildings.some((b) => b.q === q && b.r === r)) return false;
+  if (state.queue.some((i) => i.q === q && i.r === r)) return false;
+  if (obstacleAt(state, q, r) || meteorAt(state, q, r)) return false;
+  if (kind === "spring" && splitsLand(map, q, r)) return false;
+  return true;
+}
+function splitsLand(map, q, r) {
+  const walkable = (t) => TILES[t.type].walkable;
+  const removed = hexKey({ q, r });
+  const count = (skip) => {
+    const seen = /* @__PURE__ */ new Set([hexKey(HEART)]);
+    const stack = [HEART];
+    while (stack.length > 0) {
+      const h = stack.pop();
+      for (const n of hexNeighbors(h)) {
+        const k = hexKey(n);
+        if (k === skip || seen.has(k)) continue;
+        const t = getTile(map, n);
+        if (!t || !walkable(t)) continue;
+        seen.add(k);
+        stack.push(n);
+      }
+    }
+    return seen.size;
+  };
+  return count(removed) < count(null) - 1;
+}
+function nextTitanEnd(state) {
+  let next = Infinity;
+  for (const v of state.villagers) if (v.job.kind === "titan") next = Math.min(next, v.job.until);
+  return next;
+}
+function finishTitanWorks(s, at, events) {
+  for (const v of s.villagers) {
+    const job2 = v.job;
+    if (job2.kind !== "titan" || job2.until !== at) continue;
+    v.job = { kind: "idle" };
+    if (job2.work === "smash") {
+      const o = obstacleAt(s, job2.q, job2.r);
+      if (o) removeObstacle(s, o, at, events, "titan");
+    } else {
+      const key = hexKey(job2);
+      s.terraform[key] = job2.work;
+      delete s.deposits[key];
+      s.paths = job2.work === "spring" ? s.paths.filter((p) => p !== key) : s.paths;
+      syncPools(s, faceMapOf(s), at);
+      events.push({
+        type: "terraformed",
+        at,
+        q: job2.q,
+        r: job2.r,
+        kind: job2.work,
+        villagerId: v.id
+      });
+    }
+    events.push({ type: "titanDone", at, villagerId: v.id, name: v.name, work: job2.work });
+    autoAssign(s, v);
+  }
+}
+
 // packages/shared/src/sim/advance.ts
 function advance(state, now) {
   const s = cloneState(state);
@@ -4945,7 +5088,7 @@ function advance(state, now) {
   return { state: s, events };
 }
 function advanceInPlace(s, now, events) {
-  const map = faceMapOf(s);
+  let map = faceMapOf(s);
   syncPools(s, map, s.now);
   startNextConstruction(s, s.now, events);
   let stage = hungerStage(s);
@@ -4967,8 +5110,10 @@ function advanceInPlace(s, now, events) {
     const researchAt = nextResearchEvent(s);
     const deliveryAt = nextDeliveryEvent(s);
     const infusionEnd = nextInfusionEnd(s);
+    const titanEnd = nextTitanEnd(s);
     const nextEvent = Math.min(
       infusionEnd,
+      titanEnd,
       researchAt,
       deliveryAt,
       threatAt,
@@ -5001,6 +5146,10 @@ function advanceInPlace(s, now, events) {
     }
     if (trainingEnd === nextEvent) finishTrainings(s, trainingEnd, events);
     if (infusionEnd === nextEvent) finishInfusions(s, infusionEnd, events);
+    if (titanEnd === nextEvent) {
+      finishTitanWorks(s, titanEnd, events);
+      map = faceMapOf(s);
+    }
     if (speechEnd === nextEvent) events.push({ type: "speechOver", at: speechEnd });
     if (mourningEnd === nextEvent) events.push({ type: "mourningOver", at: mourningEnd });
     if (calendarChange === nextEvent) calendarTick(s, calendarChange, events);
@@ -5436,7 +5585,12 @@ var COMMAND_ERRORS = [
   "labBusy",
   "kikiwiwiLimit",
   "alreadyKikiwiwi",
-  "oneKikiwiwi"
+  "oneKikiwiwi",
+  "notAKikiwiwi",
+  "kikiwiwiWeak",
+  "notReshapable",
+  "terraformLimit",
+  "titanAtWork"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -5472,6 +5626,7 @@ function applyCommand(state, cmd, ctx) {
   const events = [];
   advanceInPlace(s, ctx.now, events);
   const advanced = cloneState(s);
+  if (terraformKey(s)) ctx = { ...ctx, map: faceMapOf(s) };
   try {
     execute(s, cmd, ctx, events);
     return { ok: true, state: s, events };
@@ -5495,6 +5650,7 @@ function execute(s, cmd, ctx, events) {
       if (!def.allowedTiles.includes(tile.type)) fail("tileNotAllowed");
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail("tileOccupied");
       if (obstacleAt(s, cmd.q, cmd.r)) fail("obstacle");
+      if (titanAt(s, cmd.q, cmd.r)) fail("titanAtWork");
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail("flooded");
       if (nest(s).level < def.levels[0].requiresNestLevel) fail("nestLevelTooLow");
       if ((def.levels[0].requiresAge ?? 0) > ageOf(s)) fail("ageTooLow");
@@ -5582,11 +5738,35 @@ function execute(s, cmd, ctx, events) {
       startNextConstruction(s, now, events);
       return;
     }
+    case "titanWork": {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail("unknownVillager");
+      if (!v.kikiwiwi) fail("notAKikiwiwi");
+      if (v.job.kind !== "idle" && v.job.kind !== "guard") fail("kiwiBusy");
+      if (kikiwiwiWeak(s)) fail("kikiwiwiWeak");
+      if (!TITAN_WORK_IDS.includes(cmd.work)) fail("invalidCount");
+      if (!getTile(ctx.map, cmd)) return fail("unknownTile");
+      if (titanAt(s, cmd.q, cmd.r)) fail("titanAtWork");
+      if (cmd.work === "smash") {
+        if (!obstacleAt(s, cmd.q, cmd.r)) fail("noObstacle");
+        if (s.queue.some((i) => i.kind === "clear" && i.q === cmd.q && i.r === cmd.r))
+          fail("alreadyClearing");
+      } else {
+        if (!techEffects(s).terraform) fail("techMissing");
+        if (!canReshape(s, ctx.map, cmd.work, cmd.q, cmd.r)) fail("notReshapable");
+        if (terraformLeft(s) <= 0) fail("terraformLimit");
+      }
+      const cost = titanCost(s, cmd.work, cmd.q, cmd.r);
+      pay(s, { juice: cost.juice });
+      if (cmd.work !== "smash") s.paths = s.paths.filter((k) => k !== hexKey(cmd));
+      v.job = { kind: "titan", work: cmd.work, q: cmd.q, r: cmd.r, until: now + cost.durationMs };
+      return;
+    }
     case "clearObstacle": {
       const o = obstacleAt(s, cmd.q, cmd.r);
       if (!o) return fail("noObstacle");
       if (OBSTACLES[o.kind].clearedBy !== "kiwis") fail("needsKikiwiwi");
-      if (s.queue.some((i) => i.kind === "clear" && i.q === o.q && i.r === o.r))
+      if (s.queue.some((i) => i.kind === "clear" && i.q === o.q && i.r === o.r) || titanAt(s, o.q, o.r))
         fail("alreadyClearing");
       queueHasRoom(s);
       const cost = { ...OBSTACLE_RULES.clearCost };
@@ -5697,6 +5877,7 @@ function execute(s, cmd, ctx, events) {
         if (!TILES[tile.type].walkable) fail("pathNotAllowed");
         if (buildingAt(s, h.q, h.r) || queuedBuildAt(s, h.q, h.r)) fail("tileOccupied");
         if (obstacleAt(s, h.q, h.r)) fail("obstacle");
+        if (titanAt(s, h.q, h.r)) fail("titanAtWork");
         added.push(key);
       }
       if (s.paths.length + added.length > pathLimit(s)) fail("pathLimit");
@@ -5716,6 +5897,7 @@ function execute(s, cmd, ctx, events) {
       if (!CAMPS.tiles.includes(tile.type)) fail("tileNotAllowed");
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail("tileOccupied");
       if (obstacleAt(s, cmd.q, cmd.r)) fail("obstacle");
+      if (titanAt(s, cmd.q, cmd.r)) fail("titanAtWork");
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail("flooded");
       if (s.buildings.filter((b) => b.type === "camp").length >= CAMPS.max) fail("campLimit");
       const id3 = nextId(s, "b");
@@ -10002,6 +10184,13 @@ var job = external_exports.discriminatedUnion("kind", [
   external_exports.object({ kind: external_exports.literal("guard") }),
   external_exports.object({ kind: external_exports.literal("injured"), until: external_exports.number() }),
   external_exports.object({
+    kind: external_exports.literal("titan"),
+    work: external_exports.enum(TITAN_WORK_IDS),
+    q: external_exports.number().int(),
+    r: external_exports.number().int(),
+    until: external_exports.number()
+  }),
+  external_exports.object({
     kind: external_exports.literal("transform"),
     labId: id,
     until: external_exports.number(),
@@ -10270,6 +10459,7 @@ var gameStateSchema = external_exports.object({
       loot: partialResources
     })
   ).max(64),
+  terraform: external_exports.record(external_exports.string().max(16), external_exports.enum(TERRAFORM_KINDS)),
   threats,
   sky: external_exports.object({
     next: external_exports.object({
@@ -10371,7 +10561,9 @@ var MIGRATIONS = {
   // v14 → v15: obstacles (chantier 08, second half), only on tiles nothing stands on.
   14: (raw) => ({ ...raw, obstacles: obstaclesForOldGame(raw) }),
   // v15 → v16: laboratory against nature and Kikiwiwis (nothing to fill: optional field).
-  15: (raw) => raw
+  15: (raw) => raw,
+  // v16 → v17: titan works (no tile reshaped yet).
+  16: (raw) => ({ ...raw, terraform: {} })
 };
 function obstaclesForOldGame(raw) {
   const face = raw.face === "kiwino" ? "kiwino" : "kiwisu";
@@ -10487,6 +10679,13 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("clearObstacle"), q: external_exports.number().int(), r: external_exports.number().int() }),
   external_exports.object({ type: external_exports.literal("transform"), villagerId: id2, labId: id2 }),
   external_exports.object({
+    type: external_exports.literal("titanWork"),
+    villagerId: id2,
+    q: external_exports.number().int(),
+    r: external_exports.number().int(),
+    work: external_exports.enum(TITAN_WORK_IDS)
+  }),
+  external_exports.object({
     type: external_exports.literal("debugGrant"),
     resources: external_exports.object({
       pulp: external_exports.number().min(0).max(1e6).optional(),
@@ -10548,8 +10747,11 @@ var SERVER_ERRORS = [
 
 // packages/shared/src/server/gameService.ts
 var RATE_LIMIT = { windowMs: 1e4, maxCommands: 40 };
-var mapCache2 = /* @__PURE__ */ new Map();
 function mapFor(state) {
+  return faceMapOf(state);
+}
+var mapCache2 = /* @__PURE__ */ new Map();
+function baseMapFor(state) {
   const key = `${state.seed}/${state.face}/${state.params.radius}/${state.params.biome}`;
   let map = mapCache2.get(key);
   if (!map) {
@@ -10640,6 +10842,7 @@ async function neighboursOf(repo, info, me, now) {
         buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
         paths: s.paths,
         obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
+        terraform: s.terraform,
         at: now
       };
     })
@@ -10715,11 +10918,26 @@ function isPlausible(state, now) {
   const labs = state.buildings.filter((b) => b.type === "lab").length;
   if (labs > 1 || labs > 0 && !techEffects(state).laboratory) return false;
   if (kikiwiwiCount(state) > kikiwiwiCap(state)) return false;
+  if (!plausibleTerraform(state)) return false;
   return state.villagers.every((v) => plausibleKiwi(v, state.now));
 }
+function plausibleTerraform(state) {
+  const entries = Object.entries(state.terraform);
+  if (entries.length === 0) return true;
+  if (!techEffects(state).terraform) return false;
+  if (entries.length > (TITAN.maxTerraform[ageOf(state)] ?? 0)) return false;
+  const base = baseMapFor(state);
+  for (const [key, kind] of entries) {
+    const tile = base.tiles[base.index.get(key) ?? -1];
+    if (!tile) return false;
+    const ok = kind === "terrace" ? !!tile.flood : kind === "flatten" ? tile.type === "grove" || tile.type === "seedRing" : tile.type === "flesh" || tile.type === "grove" || tile.type === "seedRing";
+    if (!ok) return false;
+  }
+  return true;
+}
 function plausibleObstacles(state) {
-  const generated = new Map(generateObstacles(mapFor(state)).map((o) => [o.id, o]));
-  const map = mapFor(state);
+  const map = baseMapFor(state);
+  const generated = new Map(generateObstacles(map).map((o) => [o.id, o]));
   const wrecks = state.obstacles.filter((o) => o.kind === "wreck");
   if (wrecks.length > OBSTACLE_RULES.maxWrecks) return false;
   const maxAge = METEORS.ageFactor[METEORS.ageFactor.length - 1] ?? 1;
@@ -11178,14 +11396,19 @@ export {
   SHIP_REPAIR,
   SKILLS,
   SKILL_IDS,
+  SMASH,
   START,
   STAT_IDS,
   TECHS,
   TECH_BRANCHES,
   TECH_IDS,
+  TERRAFORM,
+  TERRAFORM_KINDS,
   THREATS,
   TILES,
   TILE_TYPES,
+  TITAN,
+  TITAN_WORK_IDS,
   TRAITS,
   TRAIT_IDS,
   TURRETS,
@@ -11204,6 +11427,7 @@ export {
   alienEnemies,
   alienFaceOnKiwi,
   applyCommand,
+  applyTerraform,
   assignFace,
   autoAssign,
   availableCrew,
@@ -11226,6 +11450,7 @@ export {
   calendarStartFor,
   canAfford,
   canHatch,
+  canReshape,
   canResolveArrival,
   canStarve,
   capacity,
@@ -11276,6 +11501,7 @@ export {
   exposedKiwis,
   faceMapOf,
   finishInfusions,
+  finishTitanWorks,
   foodLeftMs,
   forecastExpedition,
   forecastWave,
@@ -11391,6 +11617,7 @@ export {
   nextResearchEvent,
   nextSkyEvent,
   nextThreatEvent,
+  nextTitanEnd,
   objectiveProgress,
   obstacleAt,
   obstacleId,
@@ -11449,6 +11676,7 @@ export {
   shipReliability,
   skyTick,
   soloTargets,
+  splitsLand,
   stageOf,
   startNextConstruction,
   storageFullCheck,
@@ -11457,12 +11685,16 @@ export {
   techEffects,
   techStatus,
   techsOfAge,
+  terraformKey,
+  terraformLeft,
   threatTick,
   tileAt,
   tileDeposit,
   tileDepositState,
   tileWalkCost,
   timeToDepletion,
+  titanAt,
+  titanCost,
   titanPower,
   totalWorkers,
   trainingCost,
