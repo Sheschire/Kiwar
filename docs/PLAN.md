@@ -108,13 +108,18 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 - Chantier 08 (2e moitié) : pas encore de colonisation (là où les Kikiwiwis serviront le plus) ;
   le bot ne terraforme pas et n'emmène pas son Kikiwiwi en expédition ; les obstacles ne gênent
   pas la marche ; pas de son dédié au Kikiwiwi.
+- Passe perf d'octobre 2026 (caméra saccadée sur desktop, voir `DECISIONS.md`) : tick divisé
+  par ~2,3 et étalé sur deux images, GPU allégé en Basse. À confirmer par le porteur avec
+  `?debug` (médiane, à-coups, temps GPU, coût du tick) sur le MacBook Pro 2015 et le PC i5.
+  Pistes suivantes si ça ne suffit pas : terrain moins cher (le plus gros poste GPU), simulation
+  (`advance`) dans un worker.
 - Chantier 10 : mesures faites en Chromium headless (rendu WebGL logiciel) : le coût GPU réel
   n'est pas mesuré ; le porteur peut relever images/s, p95 et temps d'ouverture des menus avec
   `?debug` sur son MacBook Pro 2015 et chez ses ami·es (desktop lent). Animations des
   bâtiments toujours un mesh par partie animée (leur JS ne ressort pas dans les profils ; à
   passer en instancing si un vrai GPU les montre). La planète alien « fixe » se comporte
-  comme la lune (direction et orientation fixes, hauteur selon le zoom). Lueurs CSS animées
-  (`box-shadow`) gardées. L'inertie n'est pas testée sur un vrai téléphone.
+  comme la lune (direction et orientation fixes, hauteur selon le zoom). Lueurs CSS animées : passées
+  en opacité d'un `::after` (passe perf d'octobre 2026). L'inertie n'est pas testée sur un vrai téléphone.
 - Retours de partie à plusieurs (octobre 2026, corrigés hors chantier) : un kiwi par joueur
   (jumelle alien), univers créé depuis la colonie solo, planètes alliées visibles et visitables
   en lecture, écran d'erreur au lieu d'un fond vide, récap discret, caméra conservée. Reste :

@@ -845,9 +845,9 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
   - Glide after a one-finger pan on touch screens (`camera/inertia.ts`): the release velocity
     of the camera target over the last 100 ms (sampled on pointer moves; a finger resting
     > 60 ms before lifting does not throw the camera), fading with a 0.28 s time constant
-    (≈ 12 % left after 0.6 s), capped at 3 camera distances per second, braked against the
-    edge of the colony, stopped by any new touch, click, wheel, focus or framing. Mouse drags
-    keep camera-controls' own smoothing.
+    > (≈ 12 % left after 0.6 s), capped at 3 camera distances per second, braked against the
+    > edge of the colony, stopped by any new touch, click, wheel, focus or framing. Mouse drags
+    > keep camera-controls' own smoothing.
   - Double tap (or double click) on a tile: the first tap selects as before, the second one
     flies the camera there (`TapDetector.onDoubleTap`, < 320 ms and < 30 px apart).
   - Two-finger twist goes through camera-controls' easing like the other gestures.
@@ -1055,3 +1055,40 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
 - **Official report** (200 seeds per biome × 72 h, `docs/BALANCE_REPORT.md`): every biome and
   both faces within ±10 % on every milestone (biomes ±7.6 %, Kiwisu / Kiwino 4.4 %), no wave
   lost.
+
+## Performance pass — choppy camera on desktop (October 2026)
+
+Owner: the camera stutters on desktop even in Low (MacBook Pro 2015 Iris Pro, an Intel Core i5
+PC), while phones are very smooth. Measured with Playwright/CDP on the `perfSave` colony.
+
+- **Diagnosis.** Two causes add up. (1) Frame pacing: the 200 ms tick ran outside the frames
+  as one 5–12 ms task (80 % in `emitState`: the interface and the 3D re-derived every
+  building's harvest, 3 times per tick); at 144 Hz a frame has 6.9 ms, on a 2015 CPU it is
+  worse. (2) Integrated GPUs: fill-bound (pixels × shader); the terrain, the full-screen sky
+  drawn first and three's 17-read PCF shadows dominate. Phones have stronger GPUs than an Iris
+  Pro and draw about half the pixels, without hover picking (measured negligible, 0.15 ms).
+- **Debug panel** (`?debug`): median frame interval, skipped beats (> 1.5 × median instead of
+  > 33 ms), GPU ms per frame (WebGL2 timer queries when exposed), tick cost split
+  > (simulation / 3D / interface including its re-render), long tasks per second.
+- **Tick cost ÷ 2.3** (5.1 → 2.2 ms average, worst 9.9 → 3.5 ms on the perf colony): shared
+  caches keyed on objects the simulation replaces instead of mutating (paths, `terraform`:
+  `s.paths.push` and `s.terraform[k] =` became replacements), deposits per map, kiwi modifiers
+  by trait/class/level; client `game/perState.ts` computes the harvest of every building once
+  per state for the interface and the 3D. `slowGame` / `slowNow` (owner: OK) refresh the clock,
+  objectives, hunger/threat badges and the mayor speech once a second or right after an
+  action; resource counters and bars stay at 5/s.
+- **Tick on the frames**: the renderer's `afterFrame` drives `controller.tickIfDue()`; a tick
+  syncs the 3D in one frame and the interface in the next; the 200 ms timer only takes over
+  without frames (hidden tab). Saves go through `requestIdleCallback` (2 s timeout), except
+  when leaving the page.
+- **Kiwi view**: no Map/Set/Vector3/Euler allocated per frame, beds from the per-state cache,
+  rhythm timers spread over a second, at most 6 path searches per frame. Frame `dt` from the
+  animation-frame timestamp.
+- **Rare hitches**: shaders recompile only when the tone mapping changes; buffers are
+  reallocated only when the size or ratio changes. CSS halos animate an `::after` opacity, no
+  width transitions on bars (no repaint/layout every frame over the canvas).
+- **GPU**: sky after the opaque scene (depth test skips covered pixels), tile tops skip the
+  strata noise, Low: lighter sky/cloud noise and a 4-read bilinear PCF through the unused
+  `BasicShadowMap` branch (`render/shadowChunk.ts`; slightly crisper shadows). Lambert instead
+  of PBR was measured: no gain, not done. MSAA and the 1.25 ratio kept (owner's earlier
+  choice).

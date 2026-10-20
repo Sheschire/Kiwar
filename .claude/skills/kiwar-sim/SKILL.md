@@ -96,6 +96,10 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 
 ## Gotchas
 
+- **Replace `state.paths` and `state.terraform`, never mutate them in place** (`s.paths = [...]`,
+  `s.terraform = { ...s.terraform, [k]: kind }`): `pathsKey` / `terraformKey` (territory.ts)
+  cache their key strings on the object (perf pass of October 2026). `modifiers(v)` returns a
+  frozen shared object (cached by trait, Kikiwiwi, class and level): do not write to it.
 - **Flows can be negative** (meals): `computeFlows` returns net rates; a stock reaching zero or
   its cap is an event; a full stock harvests only what is eaten. Anything that changes a rate
   (calendar, hunger stage, beds, morale, mourning) must be an event — see `kiwar-cycles`.

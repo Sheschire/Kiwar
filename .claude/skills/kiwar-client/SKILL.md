@@ -111,15 +111,37 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   fast-changing numbers out of `uiStore` (frame stats → `perfStore`, camera → `viewStore`).
   `useUi(selector, shallow)` for object/array selectors; `useT()` is stable per language;
   memoize list items (`memo` from `preact/compat`, e.g. `KiwiPortrait`).
-- Measure: `?debug` (frame fps/p95/worst/hitches, JS ms per frame, draw calls, pixels, GPU;
-  interface ms/s, worst update, last menu open time). `scripts/perf.mjs <save.json>` replays a
+- **The tick is driven by the frames** (October 2026 pass): `GameRenderer` calls
+  `callbacks.afterFrame()` after every animation frame (drawn or not); `startGame` uses it to
+  run `controller.tickIfDue()` and, one frame later, the interface half of that tick
+  (`pendingUi` → `publishState`). The controller's 200 ms timer only ticks when no frame came
+  for 300 ms (hidden tab). Exceptions in `afterFrame` are caught (they would stop the loop).
+  Saves: `controller.saveSoon()` (idle callback); `save()` only for leaving the page.
+- **Per-state caches shared by UI and 3D**: `game/perState.ts` (`perGame`, `harvests`,
+  `harvestOf(state, id)`, `productionRates`, `netRates`, `storageFull`, `bedsOf`), re-exported
+  by `ui/derived.ts`. Never call the shared `buildingHarvest` / `netRates` per building in a
+  view or a render body. `slowGame` / `slowNow` in the store: refreshed once a second or right
+  after an action, for slow widgets (clock, objectives, hunger/threat badges, speech).
+- Shared caches keyed on objects (`pathsKey`, `terraformKey`) rely on the simulation
+  **replacing** `state.paths` / `state.terraform` instead of mutating them (a length/count
+  check catches appends): keep it that way.
+- Measure: `?debug` (frame fps, median, p95, worst, skipped beats = frames over 1.5 × median,
+  JS ms per frame, GPU ms per frame via `render/gpuTimer.ts` when the browser exposes timer
+  queries, draw calls, pixels, GPU name; interface ms/s, worst update; tick cost split
+  simulation / 3D / interface; long tasks per second; last menu open time). `scripts/perf.mjs <save.json>` replays a
   colony from `tools/balance/src/perfSave.ts` on desktop/phone screens, medium/low, CPU ×4.
   Headless WebGL is software (≈ 1 fps): trust the JS/interface columns, not fps. For a CPU
   profile, use CDP `Profiler.start/stop` from Playwright and sum self/inclusive time per
   function (the hot path shows up immediately).
 - Rendering: `pixelRatioFor` (quality.ts) caps device pixels per preset (`pixelBudget`) and
   integrated Intel GPUs (`isIntegratedGpu`) at 1.25, recomputed on resize; those also get the
-  low preset in auto (a ratio of 1 without canvas MSAA looked jagged to the owner: keep MSAA). Soft shadows only in high (`softShadows`). While a modal
+  low preset in auto (a ratio of 1 without canvas MSAA looked jagged to the owner: keep MSAA). Soft shadows only in high (`softShadows`); low uses
+  `liteShadows`: `BasicShadowMap`, whose chunk branch `render/shadowChunk.ts` turns into a
+  4-read bilinear PCF (three's PCF reads 17 times per pixel). The sky is drawn after the opaque
+  scene (`renderOrder` 50, far plane) so covered pixels skip its noise; `Environment.setLite`
+  (low) lightens the sky and cloud noise. Ablation per scene group in software rendering is a
+  good relative guide (fill-bound: terrain ≈ 45 %, shadows ≈ 20 %); Lambert instead of PBR
+  gained nothing. While a modal
   is open the renderer stops drawing after two frames (`setBackground`). No
   `backdrop-filter` over the canvas. Real measure (Iris Pro, 2015 MacBook Pro): GPU-bound,
   low 58 fps, medium 37, high 22, JS ≤ 5.5 ms per frame.
