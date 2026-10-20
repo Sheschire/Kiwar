@@ -118,8 +118,8 @@ interface EmitterDef {
   ambient?: boolean;
 }
 
-/** Parts plus the rigs and particle emitters they declare. */
-type Parts = Part[] & { rigs?: RigDef[]; emitters?: EmitterDef[] };
+/** Parts plus the rigs, particle emitters and sign (chantier 17) they declare. */
+type Parts = Part[] & { rigs?: RigDef[]; emitters?: EmitterDef[]; sign?: Vector3 };
 
 function rig(p: Parts, name: string, pivot: [number, number, number], motion: RigMotion): void {
   (p.rigs ??= []).push({ name, pivot: new Vector3(...pivot), motion });
@@ -156,6 +156,8 @@ export interface BuildingModel {
   emitters: BuildingEmitter[];
   /** Top of the model (for status icons). */
   height: number;
+  /** Where the sign with the building's icon hangs (local space, scaled), if it has one. */
+  sign: Vector3 | null;
 }
 
 /** Models are authored for a unit tile; this makes them read better from the default zoom. */
@@ -1193,9 +1195,38 @@ function partsOf(type: BuildingType, level: number, shipAway: boolean, age: numb
     type === 'launchpad' && shipAway
       ? launchpad(lvl, age, false)
       : BUILDERS[type](type === 'library' ? level : lvl, age);
+  if (type !== 'camp') signPost(p, type);
   if (level > 3) grow(p, level);
   if (type !== 'camp' && type !== 'monument') dress(p, type, age);
   return p;
+}
+
+/**
+ * Chantier 17: where each building's sign stands (x, z on the unit tile), on the side, clear
+ * of its parts; the round icon itself is drawn by `SignsView`.
+ */
+const SIGN_SPOTS: Partial<Record<BuildingType, [number, number]>> = {
+  nest: [0.78, 0.2],
+  warehouse: [-0.62, 0.42],
+  pulpery: [-0.3, 0.5],
+  fiberWorkshop: [0.62, 0.05],
+  seedQuarry: [-0.62, 0.1],
+  juiceWell: [-0.5, -0.2],
+  school: [-0.62, -0.05],
+  library: [0.5, 0.05],
+  hut: [-0.55, 0.3],
+  launchpad: [0.68, 0.1],
+  seedTurret: [0.45, -0.35],
+  skyTurret: [-0.4, 0.3],
+  lab: [0.6, -0.3],
+  monument: [-0.68, -0.1],
+};
+const SIGN_HEIGHT = 0.5;
+
+function signPost(p: Parts, type: BuildingType): void {
+  const [x, z] = SIGN_SPOTS[type] ?? [0.55, 0.4];
+  p.push([cyl(5), C.woodDark, m(x, SIGN_HEIGHT / 2, z, 0.022, SIGN_HEIGHT, 0.022)]);
+  p.sign = new Vector3(x, SIGN_HEIGHT + 0.16, z);
 }
 
 /** Levels 4–6 (chantier 08): the level-3 model, a little bigger, with gold studs. */
@@ -1205,6 +1236,7 @@ function grow(p: Parts, level: number): void {
   for (const part of p) part[2] = part[2].clone().premultiply(scale);
   for (const r of p.rigs ?? []) r.pivot.multiplyScalar(k);
   for (const e of p.emitters ?? []) e.at = [e.at[0] * k, e.at[1] * k, e.at[2] * k];
+  p.sign?.multiplyScalar(k);
   for (let i = 0; i < level - 3; i++) {
     const a = Math.PI * 0.75 + i * 0.35;
     p.push([
@@ -1372,7 +1404,8 @@ function modelOf(parts: Parts): BuildingModel {
     phase: e.phase ?? 0,
     ambient: e.ambient ?? false,
   }));
-  return { geometry, rigs, emitters, height };
+  const sign = parts.sign ? parts.sign.clone().multiplyScalar(MODEL_SCALE) : null;
+  return { geometry, rigs, emitters, height, sign };
 }
 
 /** Wooden scaffolding around a construction site. */

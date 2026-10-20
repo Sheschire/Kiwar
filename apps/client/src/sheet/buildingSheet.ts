@@ -14,6 +14,7 @@ import {
 import { AGE_IDS, type BuildingType } from '@kiwar/shared';
 import { buildingModel } from '../render/buildingModels';
 import { Lighting } from '../render/lighting';
+import { SignsView, type SignSpot } from '../render/signs';
 
 /**
  * Chantier 17: a contact sheet of every building, levels 1 to 3, for one age
@@ -82,6 +83,9 @@ function start(): void {
   const cellWidth = 3 * STEP + 0.8;
   const rows = Math.ceil(types.length / PER_ROW);
   const labels: { text: string; at: Vector3 }[] = [];
+  const signs = new SignsView();
+  const spots: SignSpot[] = [];
+  scene.add(signs.mesh);
   types.forEach((type, i) => {
     const cx = ((i % PER_ROW) - (PER_ROW - 1) / 2) * cellWidth;
     const cz = (Math.floor(i / PER_ROW) - (rows - 1) / 2) * ROW;
@@ -92,6 +96,7 @@ function start(): void {
       mesh.position.set(x, 0, cz);
       mesh.castShadow = true;
       scene.add(mesh);
+      if (model.sign) spots.push({ type, at: model.sign.clone().add(mesh.position) });
       for (const r of model.rigs) {
         const part = new Mesh(r.geometry, material);
         part.position.set(x + r.pivot.x, r.pivot.y, cz + r.pivot.z);
@@ -102,6 +107,7 @@ function start(): void {
     labels.push({ text: type, at: new Vector3(cx, 0, cz + 1.05) });
   });
 
+  signs.sync(spots);
   const camera = new PerspectiveCamera(40, 1, 0.5, 400);
   const title = document.createElement('div');
   title.textContent = `Age ${age} — ${AGE_IDS[age]}`;
@@ -128,7 +134,7 @@ function start(): void {
     const halfWidth = (PER_ROW * cellWidth) / 2 + 0.6;
     const halfDepth = (rows * ROW) / 2 + 1;
     const tanV = Math.tan((camera.fov * Math.PI) / 360);
-    const distance = Math.max(halfWidth / (tanV * camera.aspect), halfDepth / tanV) * 0.85 + 2;
+    const distance = Math.max(halfWidth / (tanV * camera.aspect), halfDepth / tanV) + 2.5;
     camera.position.set(0, Math.cos(polar) * distance, Math.sin(polar) * distance);
     camera.lookAt(0, 0, 0.6);
     camera.updateProjectionMatrix();
@@ -142,6 +148,8 @@ function start(): void {
   };
   window.addEventListener('resize', layout);
   layout();
+  // The sign icons load as images: draw again once they are in.
+  window.setTimeout(layout, 600);
 }
 
 start();

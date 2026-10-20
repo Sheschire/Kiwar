@@ -17,6 +17,7 @@ import {
   ageOf,
   getTile,
   type Building,
+  type BuildingType,
   type FaceMap,
   type GameState,
   type QueueItem,
@@ -27,6 +28,7 @@ import { activityOf, BuildingLife } from './buildingLife';
 import { worldPosition } from './terrain';
 import { WATER_LEVEL } from './water';
 import { LevelBadges } from './levelBadges';
+import { SignsView, type SignSpot } from './signs';
 
 const SPARKS = 18;
 const DUST = 26;
@@ -55,6 +57,7 @@ interface Collapse {
 }
 
 const COLLAPSE_S = 1.6;
+const UP = new Vector3(0, 1, 0);
 
 /**
  * Renders buildings, construction sites (scaffolding + rising ghost), planned sites (stakes),
@@ -79,6 +82,8 @@ export class BuildingsView {
   private readonly life = new BuildingLife();
   /** Chantier 11: level badges (and the "upgradable" arrow) above the buildings. */
   readonly badges = new LevelBadges();
+  /** Chantier 17: the round sign with its icon by each building (one instanced mesh). */
+  readonly signs = new SignsView();
   private readonly sites = new Map<string, Group>();
   private signature = '';
   private pops: Pop[] = [];
@@ -123,6 +128,7 @@ export class BuildingsView {
     this.group.add(this.dust);
     this.group.add(this.life.particles.mesh);
     this.group.add(this.badges.group);
+    this.group.add(this.signs.mesh);
   }
 
   /** Ground height for a building on this tile (wells stand in the juice). */
@@ -196,6 +202,7 @@ export class BuildingsView {
         this.collapse(mesh);
       }
     }
+    this.syncSigns();
 
     const seenSites = new Set<string>();
     for (const item of state.queue) {
@@ -222,6 +229,8 @@ export class BuildingsView {
       level: b.level,
       away: shipAway,
       age,
+      type: b.type,
+      sign: model.sign,
       buildingId: b.id,
       q: b.q,
       r: b.r,
@@ -238,6 +247,18 @@ export class BuildingsView {
     this.meshes.set(b.id, g);
     this.group.add(g);
     return g;
+  }
+
+  /** Chantier 17: the signs follow the buildings (rotated with them). */
+  private syncSigns(): void {
+    const spots: SignSpot[] = [];
+    for (const g of this.meshes.values()) {
+      const sign = g.userData.sign as Vector3 | null;
+      if (!sign) continue;
+      const at = sign.clone().applyAxisAngle(UP, g.rotation.y).add(g.position);
+      spots.push({ type: g.userData.type as BuildingType, at });
+    }
+    this.signs.sync(spots);
   }
 
   /** Low quality presets keep the buildings still. */
@@ -413,6 +434,7 @@ export class BuildingsView {
     this.ghostMaterial.dispose();
     this.life.dispose();
     this.badges.dispose();
+    this.signs.dispose();
     this.sparks.geometry.dispose();
     this.dust.geometry.dispose();
     (this.dust.material as MeshStandardMaterial).dispose();
