@@ -1143,7 +1143,9 @@ PC), while phones are very smooth. Measured with Playwright/CDP on the `perfSave
 - **Comet** (part 1): the first one passes at 36 h (announced 9 h before, fixed so that game
   creation draws nothing), then every 72–120 h, announced 6–12 h ahead; the tiles (1–3 free
   land tiles, no building, site, crater, obstacle or flood) are drawn **at the passage**, from
-  the threat RNG stream. Stock: 20 × age factor [1, 1.3, 1.7, 2.2], split between the tiles;
+  their own stateless stream (seed / face / comet number): drawing from the threat stream
+  reshuffled every later wave, and the bot's first level-10 kiwi moved by 17 % between biomes
+  (pure noise, gone with the separate stream). Stock: 20 × age factor [1, 1.3, 1.7, 2.2], split between the tiles;
   it scatters after 24 h.
 - **Stardust is not a resource id**: a separate `state.stardust` in raw integer units
   (`STARDUST_SCALE` per point, like the experience) so that it never enters the shared storage,

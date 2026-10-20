@@ -124,8 +124,8 @@ at: now + 3000, announced: true, ground, air }` then a `debugGrant` dispatch; th
 
 ## Comets (chantier 13)
 
-The other gift from the sky, comets and their stardust, is in the `kiwar-sky` skill (same
-threat RNG stream). Star techs: `starWatch` adds `techEffects.waveNotice` to the wave notice in
+The other gift from the sky, comets and their stardust, is in the `kiwar-sky` skill (their
+own RNG stream). Star techs: `starWatch` adds `techEffects.waveNotice` to the wave notice in
 `planWave`, `starIron` multiplies `meteorStock`. Dust tiles never land on a crater, and the
 pickers stop during a shelter.
 

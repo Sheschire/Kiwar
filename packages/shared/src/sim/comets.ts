@@ -1,3 +1,4 @@
+import { createRng, type Rng } from '../rng/rng';
 import { COMETS, STARDUST, STARDUST_SCALE, dustPoints } from '../data/comets';
 import { KIWI } from '../data/kiwis';
 import { hexKey, type Hex } from '../hex/hex';
@@ -6,7 +7,7 @@ import { autoAssign, type GameEvent } from './advance';
 import { seasonOf } from './calendar';
 import { ageOf, techEffects } from './research';
 import { getBuilding, workerSlots, workersOf } from './selectors';
-import { withThreatRng, type DustPatch, type GameState, type Villager } from './state';
+import { type DustPatch, type GameState, type Villager } from './state';
 import { faceMapOf, isFlooded } from './territory';
 
 /** Stardust cap in raw units. */
@@ -53,18 +54,27 @@ export function stardustPerHour(state: GameState): number {
   return (rate * 3_600_000) / STARDUST_SCALE;
 }
 
+/**
+ * Comets draw from their own stream, derived from the seed and the comet number (nothing to
+ * save): adding them must not reshuffle the waves, incidents or meteorites.
+ */
+function cometRng(s: GameState, what: string): Rng {
+  return createRng(`${s.seed}/${s.face}/comet/${s.comets.passes}/${what}`);
+}
+
 /** Plans the next comet when none is (a few days after the last one). */
 export function planComet(s: GameState): void {
   const c = s.comets;
   if (c.next) return;
-  withThreatRng(s, (rng) => {
+  {
+    const rng = cometRng(s, 'plan');
     const gap = Math.round(
       rng.range(COMETS.intervalMs[0], COMETS.intervalMs[1]) * techEffects(s).cometInterval,
     );
     const notice = Math.round(rng.range(COMETS.noticeMs[0], COMETS.noticeMs[1]));
     const at = Math.max(c.lastAt + gap, s.now + notice);
     c.next = { id: `c${c.passes + 1}`, announceAt: at - notice, at, announced: false };
-  });
+  }
 }
 
 /** Next announcement, passage, dust running out or scattering, or the stock filling up. */
@@ -145,7 +155,7 @@ export function cometTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
   }
   if (next && next.announced && next.at === at) {
     const stock = cometStock(s);
-    const tiles = withThreatRng(s, (rng) => {
+    const tiles = ((rng) => {
       const free = freeTiles(s);
       const count = Math.min(free.length, rng.int(COMETS.tiles[0], COMETS.tiles[1]));
       const out: Hex[] = [];
@@ -155,7 +165,7 @@ export function cometTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
         out.push({ q: t.q, r: t.r });
       }
       return out;
-    });
+    })(cometRng(s, 'tiles'));
     const dropped: { q: number; r: number; stock: number }[] = [];
     tiles.forEach((t, i) => {
       // Whole points per tile; the first tiles get the remainder.

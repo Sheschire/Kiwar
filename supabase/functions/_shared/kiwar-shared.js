@@ -4308,17 +4308,21 @@ function stardustPerHour(state) {
   for (const p of state.comets.patches) rate += patchRate(state, p);
   return rate * 36e5 / STARDUST_SCALE;
 }
+function cometRng(s, what) {
+  return createRng(`${s.seed}/${s.face}/comet/${s.comets.passes}/${what}`);
+}
 function planComet(s) {
   const c = s.comets;
   if (c.next) return;
-  withThreatRng(s, (rng) => {
+  {
+    const rng = cometRng(s, "plan");
     const gap = Math.round(
       rng.range(COMETS.intervalMs[0], COMETS.intervalMs[1]) * techEffects(s).cometInterval
     );
     const notice = Math.round(rng.range(COMETS.noticeMs[0], COMETS.noticeMs[1]));
     const at = Math.max(c.lastAt + gap, s.now + notice);
     c.next = { id: `c${c.passes + 1}`, announceAt: at - notice, at, announced: false };
-  });
+  }
 }
 function nextCometEvent(s) {
   const c = s.comets;
@@ -4385,7 +4389,7 @@ function cometTick(s, at, events) {
   }
   if (next && next.announced && next.at === at) {
     const stock = cometStock(s);
-    const tiles = withThreatRng(s, (rng) => {
+    const tiles = ((rng) => {
       const free = freeTiles(s);
       const count = Math.min(free.length, rng.int(COMETS.tiles[0], COMETS.tiles[1]));
       const out = [];
@@ -4395,7 +4399,7 @@ function cometTick(s, at, events) {
         out.push({ q: t.q, r: t.r });
       }
       return out;
-    });
+    })(cometRng(s, "tiles"));
     const dropped = [];
     tiles.forEach((t, i) => {
       const points = Math.floor(stock / tiles.length) + (i < stock % tiles.length ? 1 : 0);

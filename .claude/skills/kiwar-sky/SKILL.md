@@ -30,9 +30,9 @@ chantier 15 may automate temporary posts).
   `passes`, `patches: DustPatch[]` (stock/max raw, landedAt, expiresAt) }. Save v19 (comets),
   v20 (blessings, star eggs: optional `Villager.blessings`, `Egg.star`, `QueueItem.paidDust`,
   transform job `paidDust`).
-- `sim/comets.ts`: `planComet` (loop top, threat RNG stream `withThreatRng`, interval ×
+- `sim/comets.ts`: `planComet` (loop top, own stateless stream `cometRng` = seed/face/comet number, never the threat stream: comets must not reshuffle the waves; interval ×
   `techEffects.cometInterval`), `nextCometEvent` (announcement, passage, a patch running out —
-  ceil of stock / rate —, expiry, the cap), `cometTick` (tiles drawn **at the passage**: free
+  ceil of stock / rate —, expiry, the cap), `cometTick` (tiles drawn **at the passage** (`cometRng(s, "tiles")`): free
   land, no building/queued build/crater/obstacle/patch, not flooded), `accrueStardust` (integer
   rate × dt, clamped by the patch stock and the cap; the steps always end at those events, so
   one big step = small steps exactly), `releasePickers` (back to `returnTo` if it has room,
