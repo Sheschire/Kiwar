@@ -378,7 +378,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
         cost: { pulp: 20000, fiber: 20000, seeds: 5000, juice: 7000 },
         durationMs: ms.h(12),
         requiresNestLevel: 5,
-        stardust: 30,
+        stardust: 25,
       },
     ],
   },

@@ -98,7 +98,7 @@ poussière, phare) ne sont pas retenues.
    15), Fer d'étoile (Fer, météorites +30 %, 12). Poussière payée au choix, rendue si on
    abandonne.
 4. **Carburant** (5 : trajet −25 %, fiabilité +15 pts), **monument** du Fer (15) et de
-   l'Industrie (30), **Kikiwiwi** (10). Le bot ramasse, garde sa réserve et soigne avec le
+   l'Industrie (25), **Kikiwiwi** (10). Le bot ramasse, garde sa réserve et soigne avec le
    surplus.
 
 ## Reste à faire / idées

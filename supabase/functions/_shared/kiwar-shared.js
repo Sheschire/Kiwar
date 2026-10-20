@@ -900,7 +900,7 @@ var BASE = {
         cost: { pulp: 2e4, fiber: 2e4, seeds: 5e3, juice: 7e3 },
         durationMs: ms.h(12),
         requiresNestLevel: 5,
-        stardust: 30
+        stardust: 25
       }
     ]
   },

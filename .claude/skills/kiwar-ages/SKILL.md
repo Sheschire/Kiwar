@@ -68,7 +68,7 @@ half of chantier 08: see the `kiwar-titans` skill. Their techs (`juiceInfusion`,
 - Branch `stars` (`clearNights`, `starWatch` at Stone; `cometLure`, `starIron` at Iron):
   `TechDef.stardust` is paid by `setResearch` when chosen, refunded when abandoned.
   `nightWork(state)` replaces `CYCLES.nightWork` (harvest and research).
-- `LevelDef.stardust`: the monument's Iron (15) and Industry (30) levels; `upgradeLock` returns
+- `LevelDef.stardust`: the monument's Iron (15) and Industry (25) levels; `upgradeLock` returns
   `notEnoughStardust`, `QueueItem.paidDust` is refunded on cancel. The Stone age needs none.
 
 ## Balance

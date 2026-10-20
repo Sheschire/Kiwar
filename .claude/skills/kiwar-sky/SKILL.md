@@ -20,7 +20,7 @@ chantier 15 may automate temporary posts).
   Dexterity point above 5. `STARDUST_SCALE` raw units per point; `dustPoints(raw)`.
 - `BLESSINGS` (heal 3, respec 6, +1 stat 10 at most 3 per kiwi, star egg 15, golden shiny 1/8),
   `FUEL` (5 stardust, travel × 0.75, reliability +0.15).
-- Costs elsewhere: `LevelDef.stardust` (monument level 2 = 15, level 3 = 30), `KIKIWIWI.stardust`
+- Costs elsewhere: `LevelDef.stardust` (monument level 2 = 15, level 3 = 25), `KIKIWIWI.stardust`
   (10), `TechDef.stardust` (star techs 8–15).
 
 ## State and simulation
