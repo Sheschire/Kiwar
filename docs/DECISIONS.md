@@ -399,3 +399,5 @@ mayor's **Charisma joins morale**; both need-related traits; voices from the sta
   and the colony's hunger stage when it is not fed.
 - **Voices**: pitch = own offset (hash of the id, ±1.5 semitones) + 0.6 × (Agility − mean of
   Strength and Endurance), clamped to ±5: sturdy kiwis sound lower, agile ones higher.
+- Balance (30 seeds × 72 h) unchanged: tutorial 1.5 h, Nest 3 ≈ 7 h, mayor ≈ 12.3 h, faces
+  within 6 %.
