@@ -28,6 +28,10 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   every milestone within 1 %. Both runs show Nest 3 and Library ~+45 % in the seed crown and
   lagoons (Kiwino +21 %), against ±5.6 % at the end of chantier 08: a regression from another
   chantier, not diagnosed yet.
+- **Reference (end of chantier 12, 200 seeds per biome × 72 h, ~100 min)**: every line green,
+  biomes within ±7.6 %, faces within 4.4 %; tutorial 1.4–1.5 h, Nest 3 ≈ 5.7 h, Library
+  ≈ 6.2 h, level 5 ≈ 10.1 h, mayor ≈ 12.9 h, level 10 ≈ 2.6 days, Stone age ≈ 35 h; 2.5 waves
+  per run, none lost.
 - Chantier 12 (30 seeds per biome × 72 h): the "Nest 3 +45 % in the seed crown" gap came from
   the bot (stumps cleared only with ≥ 400 pulp, so only pulp-rich biomes got their fiber);
   fixed, Nest 3 ≈ 5.7 h and Library ≈ 6.2 h in every biome, faces within 3.8 %, no wave

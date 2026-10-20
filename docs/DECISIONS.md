@@ -1052,3 +1052,6 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
   1.7 h, already +11 % before this chantier: 30-seed noise on a short milestone); Nest 3 ≈
   5.7 h and Library ≈ 6.2 h everywhere (faster than the chantier 08 reference since the
   stumps); no wave lost by the attentive bot; nights shorter: Stone age ≈ 35 h unchanged.
+- **Official report** (200 seeds per biome × 72 h, `docs/BALANCE_REPORT.md`): every biome and
+  both faces within ±10 % on every milestone (biomes ±7.6 %, Kiwisu / Kiwino 4.4 %), no wave
+  lost.
