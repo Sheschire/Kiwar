@@ -4,13 +4,14 @@ import type { TimeMs } from '../types/ids';
 import { seasonOf } from './calendar';
 import { withRng, type GameState, type Villager } from './state';
 import { modifiers } from './kiwis';
+import { kikiwiwiUpkeep } from './kikiwiwi';
 
 /** Kiwis eating from the colony stock (not away on an expedition). */
 export function homeKiwis(state: GameState): Villager[] {
   return state.villagers.filter((v) => v.job.kind !== 'expedition');
 }
 
-/** Food eaten by the colony per hour (season appetite included). */
+/** Food eaten by the colony per hour (season appetite included, Kikiwiwis' juice too). */
 export function consumption(state: GameState): Resources {
   const out = emptyResources();
   // Gluttons count for more mouths.
@@ -19,7 +20,7 @@ export function consumption(state: GameState): Resources {
   if (mouths === 0) return out;
   const appetite = NEEDS.appetite[seasonOf(state)];
   out.pulp = NEEDS.eat.pulp * mouths * appetite;
-  out.juice = NEEDS.eat.juice * mouths * appetite;
+  out.juice = NEEDS.eat.juice * mouths * appetite + kikiwiwiUpkeep(state);
   return out;
 }
 

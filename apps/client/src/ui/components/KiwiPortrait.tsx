@@ -13,21 +13,29 @@ export function KiwiPortrait(props: {
   size?: number;
   seed?: string;
   classId?: ClassId | null;
+  /** A Kikiwiwi (chantier 08): darker, green veins, glowing eye. */
+  titan?: boolean;
 }) {
   const cls = props.classId ?? null;
   const size = props.size ?? 40;
-  const fill = props.shiny ? SHINY_FILL[props.shiny] : { body: '#8a6440', head: '#7d5a39' };
+  const titan = !!props.titan;
+  const fill = props.shiny
+    ? SHINY_FILL[props.shiny]
+    : titan
+      ? { body: '#4d3a2a', head: '#433223' }
+      : { body: '#8a6440', head: '#7d5a39' };
   // A stable little head tilt per kiwi, for character.
   const tilt = props.seed ? (hash(props.seed) % 13) - 6 : 0;
   return (
     <svg
-      class={`kiwi-portrait ${props.shiny ? 'is-shiny' : ''}`}
+      class={`kiwi-portrait ${props.shiny ? 'is-shiny' : ''} ${titan ? 'is-titan' : ''}`}
       width={size}
       height={size}
       viewBox="0 0 64 64"
       aria-hidden="true"
     >
       {props.shiny && <circle cx="32" cy="32" r="30" class="kiwi-portrait-glow" />}
+      {titan && <circle cx="32" cy="34" r="29" fill="#7dff6a" opacity="0.16" />}
       <ellipse cx="32" cy="58" rx="18" ry="3.5" fill="#2b1a24" opacity="0.18" />
       <path
         d="M26 50 l-3 7 M26 50 l0 7 M38 50 l-1 7 M38 50 l2 7"
@@ -44,6 +52,15 @@ export function KiwiPortrait(props: {
         />
       )}
       <ellipse cx="30" cy="38" rx="20" ry="15" fill={fill.body} />
+      {titan && (
+        <path
+          d="M14 36 q6 -6 10 0 t10 2 M20 46 q5 -5 11 -1 t9 -3 M34 30 q4 4 9 1"
+          stroke="#7dff6a"
+          stroke-width="1.6"
+          fill="none"
+          stroke-linecap="round"
+        />
+      )}
       {cls === 'mayor' && (
         <path d="M18 27 L40 50" stroke="#c0504a" stroke-width="5" stroke-linecap="round" />
       )}
@@ -63,7 +80,7 @@ export function KiwiPortrait(props: {
           fill="none"
           stroke-linecap="round"
         />
-        <circle cx="47" cy="23.5" r="2" fill="#1a120e" />
+        <circle cx="47" cy="23.5" r="2" fill={titan ? '#b8ff7a' : '#1a120e'} />
         <circle cx="47.6" cy="22.9" r="0.6" fill="#fff" />
         {cls === 'builder' && (
           <path d="M33 21 Q44 8 55 21 L57 23 L31 23 Z" fill="#f2c14e" stroke="#b08a48" />

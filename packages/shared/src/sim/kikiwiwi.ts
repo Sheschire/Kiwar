@@ -11,6 +11,27 @@ export function isKikiwiwi(v: Villager): boolean {
   return v.kikiwiwi !== undefined;
 }
 
+/**
+ * Power multiplier of a Kikiwiwi at home: green blood makes it stronger, an empty juice stock
+ * weakens it (1 for an ordinary kiwi). Changes only at events (stock empty, refilled).
+ */
+export function titanPower(state: GameState, v: Villager): number {
+  if (!v.kikiwiwi) return 1;
+  const weak = state.resources.juice <= 1e-6 ? KIKIWIWI.weakPower : 1;
+  return techEffects(state).kikiwiwiPower * weak;
+}
+
+/** Whether the colony's Kikiwiwis go thirsty (no juice left). */
+export function kikiwiwiWeak(state: GameState): boolean {
+  return state.resources.juice <= 1e-6;
+}
+
+/** Juice the Kikiwiwis at home drink per hour. */
+export function kikiwiwiUpkeep(state: GameState): number {
+  const n = state.villagers.filter((v) => v.kikiwiwi && v.job.kind !== 'expedition').length;
+  return n * KIKIWIWI.upkeep * techEffects(state).kikiwiwiUpkeep;
+}
+
 export function laboratoryOf(state: GameState): Building | undefined {
   return state.buildings.find((b) => b.type === 'lab');
 }

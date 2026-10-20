@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   advance,
   applyCommand,
+  consumption,
+  crewOf,
+  crewWeight,
+  EXPEDITIONS,
+  GARRISON,
+  guardPower,
+  kiwiStrength,
+  modifiers,
   HOUR_MS,
   infusionRisk,
   isPlausible,
@@ -192,5 +200,85 @@ describe('laboratory against nature', () => {
     const old = { ...s0, schemaVersion: 15 } as Record<string, unknown>;
     const m = migrateState(old);
     expect(m.ok).toBe(true);
+  });
+});
+
+describe('the Kikiwiwi', () => {
+  function titan() {
+    const { map, s } = ironColony();
+    const t = withLab(s, map);
+    t.villagers[0]!.kikiwiwi = { since: T0 };
+    return { map, s: t, k: t.villagers[0]!, plain: { ...t.villagers[0]!, kikiwiwi: undefined } };
+  }
+
+  it('guards against ferrets and bats alike, four times as strong', () => {
+    const { s, k, plain } = titan();
+    const p = guardPower(k, s);
+    const base = guardPower(plain, s);
+    expect(p.air).toBeGreaterThan(0);
+    expect(p.ground).toBeCloseTo(p.air, 9);
+    expect(p.ground / kiwiStrength(plain)).toBeCloseTo(
+      (base.ground / kiwiStrength(plain) / GARRISON.affinity[plain.classId ?? 'none'].ground) *
+        KIKIWIWI.modifiers.fight,
+      6,
+    );
+    // No juice left: weakened.
+    const dry = { ...s, resources: { ...s.resources, juice: 0 } };
+    expect(guardPower(k, dry).ground).toBeCloseTo(p.ground * KIKIWIWI.weakPower, 9);
+    // Green blood: stronger.
+    const green = {
+      ...s,
+      research: { ...s.research, done: [...s.research.done, 'greenBlood' as TechId] },
+    };
+    expect(guardPower(k, green).ground).toBeGreaterThan(p.ground);
+  });
+
+  it('drinks juice at home, exactly offline until the stock runs dry', () => {
+    const { s } = titan();
+    const without = structuredClone(s);
+    delete without.villagers[0]!.kikiwiwi;
+    expect(consumption(s).juice - consumption(without).juice).toBeCloseTo(KIKIWIWI.upkeep, 9);
+    const low = structuredClone(s);
+    low.resources.juice = 50;
+    const end = low.now + 12 * HOUR_MS;
+    const big = advance(low, end);
+    let small = low;
+    for (let t = low.now; t < end; t += HOUR_MS / 5) small = advance(small, t).state;
+    small = advance(small, end).state;
+    expect(small.resources.juice).toBeCloseTo(big.state.resources.juice, 6);
+    expect(small.hunger).toBe(big.state.hunger);
+  });
+
+  it('boards only by name, one per ship, and weighs five kiwis', () => {
+    const { map, s, k } = titan();
+    const pad = findTile(map, 'flesh', 10);
+    const t = structuredClone(s);
+    t.buildings.push({
+      id: 'bpad' as BuildingId,
+      type: 'launchpad',
+      q: pad.q,
+      r: pad.r,
+      level: 3,
+      richness: pad.richness,
+      builtAt: T0,
+    });
+    const crewByCount = crewOf(t, 3)!;
+    expect(crewByCount.some((v) => v.kikiwiwi)).toBe(false);
+    expect(crewWeight([k])).toBeCloseTo(
+      EXPEDITIONS.kiwiWeight *
+        KIKIWIWI.modifiers.weight *
+        modifiers({ ...k, kikiwiwi: undefined }).weight,
+      9,
+    );
+    const second = t.villagers[1]!;
+    second.kikiwiwi = { since: T0 };
+    const launch: Command = {
+      type: 'launchExpedition',
+      launchpadId: 'bpad' as BuildingId,
+      targetId: t.targets[0]!.id,
+      crew: [k.id, second.id],
+      provisions: { pulp: 200, juice: 200 },
+    };
+    expect(errorOf(t, launch, map)).toBe('oneKikiwiwi');
   });
 });

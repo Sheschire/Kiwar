@@ -30,4 +30,17 @@ export const KIKIWIWI = {
   },
   /** Kikiwiwis allowed by age (index = age): from the Iron age, one per age reached. */
   capByAge: [0, 0, 1, 2] as readonly number[],
+  /**
+   * What the juice does to a kiwi (multiplied onto its trait and class): four times as strong,
+   * hard to hurt, but heavy in the ship's hold and a big eater on expeditions.
+   */
+  modifiers: { fight: 4, exposure: 0.3, weight: 5, rations: 3 },
+  /** On the rampart: reaches ferrets and bats alike, whatever its class. */
+  affinity: { ground: 1, air: 1 },
+  /** Juice drunk per hour at home (on top of the usual meals). */
+  upkeep: 40,
+  /** Power while the colony has no juice left. */
+  weakPower: 0.5,
+  /** Kikiwiwis on one ship. */
+  perShip: 1,
 } as const;

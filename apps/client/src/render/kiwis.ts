@@ -51,9 +51,12 @@ import {
   type KiwiRhythm,
 } from '@kiwar/shared';
 import { findPath } from './pathfinding';
+import { TitansView } from './kikiwiwi';
 import { WATER_LEVEL } from './water';
 
 const MAX_KIWIS = 64;
+/** A Kikiwiwi stands this much taller than its kiwi self. */
+const TITAN_SIZE = 1.6;
 const WALK_SPEED = 1.15; // world units per second
 const RAY_SPEEDUP = 1.6;
 
@@ -260,6 +263,8 @@ export class KiwisView {
   private readonly outfits = new Map<ClassId, InstancedMesh>();
   private readonly classOf = new Map<VillagerId, ClassId | null>();
   private readonly ring: Mesh;
+  /** Kikiwiwis have their own animated models (chantier 08). */
+  private readonly titans = new TitansView();
   private highlightId: string | null = null;
   /** Kiwis drawn at the last update (for taps and sounds). */
   private drawn: Agent[] = [];
@@ -330,6 +335,7 @@ export class KiwisView {
     this.ring.renderOrder = 2;
     this.ring.visible = false;
     this.group.add(this.ring);
+    this.group.add(this.titans.group);
   }
 
   sync(state: GameState): void {
@@ -343,7 +349,7 @@ export class KiwisView {
       this.classOf.set(v.id, v.classId);
       const agent = this.agents.get(v.id);
       if (agent) {
-        agent.scale = sizeOf(v, agent.jitter);
+        agent.scale = sizeOf(v, agent.jitter) * (v.kikiwiwi ? TITAN_SIZE : 1);
         if (v.shiny) agent.tint.copy(shinyTint(v.shiny));
       } else if (this.agents.size < MAX_KIWIS) this.agents.set(v.id, this.spawn(v));
     }
@@ -374,7 +380,7 @@ export class KiwisView {
       carrying: null,
       tint,
       jitter,
-      scale: sizeOf(v, jitter),
+      scale: sizeOf(v, jitter) * (v.kikiwiwi ? TITAN_SIZE : 1),
       spawn: 0,
       rng,
       rhythm: 'work',
@@ -656,12 +662,18 @@ export class KiwisView {
     if (!this.state) return;
     const villagers = new Map(this.state.villagers.map((v) => [v.id, v]));
     const outfitCounts = new Map([...this.outfits.values()].map((mesh) => [mesh, { n: 0 }]));
+    const weak = this.state.resources.juice <= 1e-6;
+    this.titans.keep(new Set(this.state.villagers.filter((v) => v.kikiwiwi).map((v) => v.id)));
+    this.titans.update(dt, weak);
     let i = 0;
     this.drawn.length = 0;
     for (const agent of this.agents.values()) {
       const villager = villagers.get(agent.id);
       // Kiwis away on an expedition are not on the map.
-      if (!villager || villager.job.kind === 'expedition') continue;
+      if (!villager || villager.job.kind === 'expedition') {
+        this.titans.hide(agent.id);
+        continue;
+      }
       agent.timer -= dt;
       agent.rhythmTimer -= dt;
       if (agent.rhythmTimer <= 0) {
@@ -671,7 +683,10 @@ export class KiwisView {
       agent.spawn = Math.min(1, agent.spawn + dt * 2);
       this.think(agent, villager);
       // Asleep inside its hut: not drawn.
-      if (agent.inside) continue;
+      if (agent.inside) {
+        this.titans.hide(agent.id);
+        continue;
+      }
       this.drawn.push(agent);
 
       // Movement.
@@ -679,7 +694,8 @@ export class KiwisView {
       if (agent.activity === 'walk' && agent.path.length > 0) {
         const target = agent.path[0]!;
         const fast = agent.fastPath[0] ? RAY_SPEEDUP : 1;
-        speed = WALK_SPEED * fast;
+        // Kikiwiwis stride slower, but further.
+        speed = WALK_SPEED * fast * (villager.kikiwiwi ? 0.8 : 1);
         const dx = target.x - agent.pos.x;
         const dz = target.z - agent.pos.z;
         const dist = Math.hypot(dx, dz);
@@ -707,6 +723,24 @@ export class KiwisView {
       agent.phase +=
         dt * (moving ? 13 * (speed / WALK_SPEED) : agent.activity === 'build' ? 16 : 5);
       const ph = agent.phase;
+      if (villager.kikiwiwi) {
+        this.titans.pose(
+          agent.id,
+          {
+            x: agent.pos.x,
+            y: agent.pos.y,
+            z: agent.pos.z,
+            heading: agent.heading,
+            phase: ph,
+            moving,
+            activity: agent.activity,
+            scale: agent.scale * (0.4 + 0.6 * easeOutBack(agent.spawn)),
+            weak,
+          },
+          dt,
+        );
+        continue;
+      }
       let bob = 0;
       let roll = 0;
       let pitch = 0;
@@ -807,6 +841,7 @@ export class KiwisView {
       (mesh.material as MeshStandardMaterial).dispose();
     }
     for (const mesh of this.outfits.values()) mesh.geometry.dispose();
+    this.titans.dispose();
     (this.outfits.get('builder')?.material as MeshStandardMaterial | undefined)?.dispose();
   }
 }

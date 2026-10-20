@@ -211,6 +211,7 @@ export const COMMAND_ERRORS = [
   'labBusy',
   'kikiwiwiLimit',
   'alreadyKikiwiwi',
+  'oneKikiwiwi',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -476,6 +477,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const size = typeof cmd.crew === 'number' ? cmd.crew : crew.length;
       if (size < minCrew(cmd.mission)) fail('crewTooSmall');
       if (size > maxCrew(s, pad, cmd.mission)) fail('crewTooLarge');
+      if (crew.filter((v) => v.kikiwiwi).length > KIKIWIWI.perShip) fail('oneKikiwiwi');
       const forecast = forecastExpedition(s, cmd)!;
       if (forecast.weight > forecast.cargo + 1e-9) fail('overloaded');
       if (!canAfford(s.resources, { pulp, juice })) fail('notEnoughResources');

@@ -536,6 +536,7 @@ export const en = {
     labBusy: 'The vat is taken: one infusion at a time.',
     kikiwiwiLimit: 'No more Kikiwiwis at this age (one per age from the Iron age).',
     alreadyKikiwiwi: 'Already a Kikiwiwi.',
+    oneKikiwiwi: 'One Kikiwiwi per ship: it takes the room of five kiwis.',
   },
   offline: {
     title: 'While you were away…',
@@ -845,6 +846,13 @@ export const en = {
     reportAmmo: '{count} seeds fired',
     incidentLine: '{ago} ago · {text}',
   },
+  kikiwiwi: {
+    badge: 'Kikiwiwi',
+    title: 'Kikiwiwi',
+    upkeep: 'Drinks {juice} juice per hour at home, on top of its meals.',
+    weak: 'No juice left: the Kikiwiwi is weakened (half power, no titan works).',
+    hint: 'Planet juice runs in its veins: it reaches ferrets and bats alike and is hard to hurt. It never works in a building. On a ship it takes the room of {weight} kiwis (at most {perShip} per ship).',
+  },
   lab: {
     title: 'Infusion',
     pick: 'Kiwi to transform',
@@ -891,6 +899,7 @@ export const en = {
     title: 'Garrison',
     post: 'Post on guard',
     relieve: 'Back to work',
+    standDown: 'Stand down',
     hint: 'A kiwi on guard no longer harvests. Swords reach the ferrets; only mages and scouts reach the bats.',
     power: 'On guard: ferrets {ground} · bats {air}',
   },

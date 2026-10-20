@@ -1,3 +1,5 @@
+import { KIKIWIWI } from '../data/kikiwiwi';
+import { titanPower } from './kikiwiwi';
 import { BIOMES } from '../data/biomes';
 import { levelDef } from '../data/buildings';
 import { emptyResources, RESOURCE_IDS, type ResourceId, type Resources } from '../data/resources';
@@ -68,11 +70,14 @@ export function garrisonOf(state: GameState): Villager[] {
 
 /** What one posted kiwi adds to each side (swords never reach the bats). */
 export function guardPower(v: Villager, state?: GameState): Sides {
-  const a = GARRISON.affinity[v.classId ?? 'none'];
+  // A Kikiwiwi reaches ferrets and bats alike (chantier 08).
+  const a = v.kikiwiwi ? KIKIWIWI.affinity : GARRISON.affinity[v.classId ?? 'none'];
   const tech = state ? techEffects(state) : null;
-  const p = kiwiStrength(v) * GARRISON.power * (tech?.guard ?? 1);
+  const titan = state ? titanPower(state, v) : 1;
+  const p = kiwiStrength(v) * GARRISON.power * (tech?.guard ?? 1) * titan;
   // Firearms (Industrial age): warriors reach the bats.
-  const air = v.classId === 'warrior' && tech?.firearms ? GARRISON.firearmsAir : a.air;
+  const air =
+    v.classId === 'warrior' && tech?.firearms ? Math.max(a.air, GARRISON.firearmsAir) : a.air;
   return { ground: p * a.ground, air: p * air };
 }
 
@@ -118,7 +123,7 @@ export function defenseOf(state: GameState, threat?: Sides): Defense {
   let militia = 0;
   for (const v of state.villagers)
     if (v.job.kind === 'work' || v.job.kind === 'idle')
-      militia += THREATS.militia * kiwiStrength(v);
+      militia += THREATS.militia * kiwiStrength(v) * titanPower(state, v);
   return {
     ground: turrets.ground + garrison.ground + militia,
     air: turrets.air + garrison.air,

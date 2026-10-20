@@ -566,6 +566,7 @@ export const fr: Dict = {
     labBusy: 'La cuve est occupée : une infusion à la fois.',
     kikiwiwiLimit: 'Plus de Kikiwiwi possible à cet âge (un par âge dès le Fer).',
     alreadyKikiwiwi: 'C’est déjà un Kikiwiwi.',
+    oneKikiwiwi: 'Un seul Kikiwiwi par vaisseau : il prend la place de cinq kiwis.',
   },
   offline: {
     title: 'Pendant votre absence…',
@@ -876,6 +877,13 @@ export const fr: Dict = {
     reportAmmo: '{count} pépins tirés',
     incidentLine: 'il y a {ago} · {text}',
   },
+  kikiwiwi: {
+    badge: 'Kikiwiwi',
+    title: 'Kikiwiwi',
+    upkeep: 'Boit {juice} de jus par heure à la colonie, en plus de ses repas.',
+    weak: 'Plus de jus : le Kikiwiwi est affaibli (moitié de sa puissance, pas de travaux de titan).',
+    hint: 'Le jus de la planète coule dans ses veines : il touche furets et chauves-souris et se blesse rarement. Il ne travaille jamais dans un bâtiment. Dans le vaisseau, il prend la place de {weight} kiwis ({perShip} au plus par vaisseau).',
+  },
   lab: {
     title: 'Infusion',
     pick: 'Kiwi à transformer',
@@ -922,6 +930,7 @@ export const fr: Dict = {
     title: 'Garnison',
     post: 'Poster de garde',
     relieve: 'Retour au travail',
+    standDown: 'Quitter la garde',
     hint: 'Un kiwi de garde ne récolte plus. Les épées atteignent les furets ; seuls les mages et les éclaireurs atteignent les chauves-souris.',
     power: 'De garde : furets {ground} · chauves-souris {air}',
   },

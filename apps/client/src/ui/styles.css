@@ -3024,3 +3024,14 @@ button.chip:focus-visible {
 .lab-section .xp-bar {
   margin: 4px 0;
 }
+
+.badge-titan {
+  background: #2f4a22;
+  color: #c8ff9a;
+  border-color: #5f9a3a;
+  margin-left: 6px;
+}
+
+.kiwi-portrait.is-titan {
+  filter: drop-shadow(0 0 4px rgba(125, 255, 106, 0.55));
+}

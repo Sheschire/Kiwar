@@ -192,7 +192,9 @@ export function crewWeight(crew: readonly Villager[]): number {
  */
 export function crewOf(state: GameState, crew: number | readonly VillagerId[]): Villager[] | null {
   const available = availableCrew(state);
-  if (typeof crew === 'number') return available.slice(0, Math.max(0, crew));
+  // A head count never boards a Kikiwiwi: the player picks it by name.
+  if (typeof crew === 'number')
+    return available.filter((v) => !v.kikiwiwi).slice(0, Math.max(0, crew));
   const free = new Map(available.map((v) => [v.id, v]));
   const out: Villager[] = [];
   for (const id of crew) {
@@ -250,9 +252,11 @@ function coverage(
   return Math.max(0, Math.min(1, p, j));
 }
 
-function strengthOf(crew: readonly Villager[], fed: number): number {
+function strengthOf(state: GameState, crew: readonly Villager[], fed: number): number {
   const hunger = EXPEDITIONS.starvingStrength + (1 - EXPEDITIONS.starvingStrength) * fed;
-  const total = crew.reduce((sum, v) => sum + kiwiStrength(v), 0);
+  // Green blood makes the Kikiwiwis stronger (they bring their own juice along).
+  const titan = techEffects(state).kikiwiwiPower;
+  const total = crew.reduce((sum, v) => sum + kiwiStrength(v) * (v.kikiwiwi ? titan : 1), 0);
   const scouting = crew.some((v) => hasSkill(v, 'scouting')) ? 1 + SKILLS.scoutingStrength : 1;
   return total * EXPEDITIONS.strengthPerKiwi * hunger * scouting;
 }
@@ -271,7 +275,7 @@ export function forecastExpedition(
   const travelMs = travelTime(target, pad, crew, mission, techEffects(state).travel);
   const need = rations(state, crew, travelMs);
   const fed = coverage(plan.provisions, need);
-  const base = strengthOf(crew, fed);
+  const base = strengthOf(state, crew, fed);
   const defense = intelView(state, target.id, state.now)?.defense ?? null;
   const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
   const odds: Odds = !defense
@@ -449,7 +453,7 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   if (!garrison || defense === null) throw new Error('resolveArrival: hidden garrison');
   if (e.mission === 'recon') return resolveRecon(state, e, garrison, defense, members, fed);
   const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
-  const strength = strengthOf(members, fed) * luck;
+  const strength = strengthOf(state, members, fed) * luck;
   const victory = strength >= defense;
   const pad = launchpadOf(state, e.launchpadId);
   const armor = pad ? shipOf(state).armor : 0;
@@ -519,7 +523,7 @@ function resolveRecon(
     // A skirmish with the sentries: outmatched scouts lose one of theirs, the others get away
     // with a wound.
     const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
-    strength = strengthOf(members, fed) * luck;
+    strength = strengthOf(state, members, fed) * luck;
     if (strength < defense * RECON.skirmishShare) {
       lost = drawLosses(state, members, 1);
       removeVillagers(state, lost, 'battle', e.arriveAt);

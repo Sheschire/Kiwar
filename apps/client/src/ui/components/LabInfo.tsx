@@ -85,7 +85,13 @@ export function LabInfo(props: { game: GameState; map: FaceMap; b: Building; now
                     checked={chosen?.v.id === v.id}
                     onChange={() => setPicked(v.id)}
                   />
-                  <KiwiPortrait shiny={v.shiny} classId={v.classId} seed={v.id} size={30} />
+                  <KiwiPortrait
+                    shiny={v.shiny}
+                    classId={v.classId}
+                    titan={!!v.kikiwiwi}
+                    seed={v.id}
+                    size={30}
+                  />
                   <span class="kiwi-row-main">
                     <span class="kiwi-row-name">
                       {v.name}{' '}

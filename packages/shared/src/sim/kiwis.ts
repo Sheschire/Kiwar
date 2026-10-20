@@ -1,3 +1,4 @@
+import { KIKIWIWI } from '../data/kikiwiwi';
 import {
   KIWI,
   MASTERY_IDS,
@@ -105,6 +106,7 @@ export function modifiers(v: Villager): Required<KiwiModifiers> {
     if (m) for (const k of MODIFIER_KEYS) out[k] *= m[k] ?? 1;
   };
   apply(v.trait ? TRAITS[v.trait] : undefined);
+  if (v.kikiwiwi) apply(KIKIWIWI.modifiers);
   if (v.classId) {
     const c = CLASSES[v.classId];
     apply(c.modifiers);

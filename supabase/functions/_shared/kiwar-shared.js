@@ -1838,7 +1838,20 @@ var KIKIWIWI = {
     stats: ["strength", "endurance"]
   },
   /** Kikiwiwis allowed by age (index = age): from the Iron age, one per age reached. */
-  capByAge: [0, 0, 1, 2]
+  capByAge: [0, 0, 1, 2],
+  /**
+   * What the juice does to a kiwi (multiplied onto its trait and class): four times as strong,
+   * hard to hurt, but heavy in the ship's hold and a big eater on expeditions.
+   */
+  modifiers: { fight: 4, exposure: 0.3, weight: 5, rations: 3 },
+  /** On the rampart: reaches ferrets and bats alike, whatever its class. */
+  affinity: { ground: 1, air: 1 },
+  /** Juice drunk per hour at home (on top of the usual meals). */
+  upkeep: 40,
+  /** Power while the colony has no juice left. */
+  weakPower: 0.5,
+  /** Kikiwiwis on one ship. */
+  perShip: 1
 };
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
@@ -2380,6 +2393,65 @@ function isNight(state) {
   return calendarAt(state.calendarStart, state.now).night;
 }
 
+// packages/shared/src/sim/kikiwiwi.ts
+function isKikiwiwi(v) {
+  return v.kikiwiwi !== void 0;
+}
+function titanPower(state, v) {
+  if (!v.kikiwiwi) return 1;
+  const weak = state.resources.juice <= 1e-6 ? KIKIWIWI.weakPower : 1;
+  return techEffects(state).kikiwiwiPower * weak;
+}
+function kikiwiwiWeak(state) {
+  return state.resources.juice <= 1e-6;
+}
+function kikiwiwiUpkeep(state) {
+  const n = state.villagers.filter((v) => v.kikiwiwi && v.job.kind !== "expedition").length;
+  return n * KIKIWIWI.upkeep * techEffects(state).kikiwiwiUpkeep;
+}
+function laboratoryOf(state) {
+  return state.buildings.find((b) => b.type === "lab");
+}
+function kikiwiwiCap(state) {
+  const caps = KIKIWIWI.capByAge;
+  return caps[Math.min(ageOf(state), caps.length - 1)] ?? 0;
+}
+function kikiwiwiCount(state) {
+  return state.villagers.filter((v) => isKikiwiwi(v) || v.job.kind === "transform").length;
+}
+function infusionRisk(state, v, lab) {
+  const r = KIKIWIWI.risk;
+  const risk = r.base - r.endurance * (v.stats.endurance - KIWI.stat.average) - r.level * (v.level - 1) - (r.lab[lab.level - 1] ?? 0) - techEffects(state).infusionRisk;
+  return Math.round(Math.min(r.max, Math.max(r.min, risk)) * 1e3) / 1e3;
+}
+function infusionDuration(lab) {
+  const d = KIKIWIWI.durationMs;
+  return d[Math.min(lab.level, d.length) - 1] ?? d[0];
+}
+function nextInfusionEnd(state) {
+  let next = Infinity;
+  for (const v of state.villagers)
+    if (v.job.kind === "transform") next = Math.min(next, v.job.until);
+  return next;
+}
+function finishInfusions(s, at, events) {
+  for (const v of s.villagers) {
+    if (v.job.kind !== "transform" || v.job.until !== at) continue;
+    const risk = v.job.risk;
+    const failed = withRng(s, (rng) => rng.next() < risk);
+    if (failed) {
+      for (const stat of KIKIWIWI.failure.stats)
+        v.stats[stat] = Math.max(KIWI.stat.min, v.stats[stat] - 1);
+      v.job = { kind: "injured", until: at + KIKIWIWI.failure.injuredMs };
+      events.push({ type: "infusionFailed", at, villagerId: v.id, name: v.name });
+    } else {
+      v.kikiwiwi = { since: at };
+      v.job = { kind: "idle" };
+      events.push({ type: "kikiwiwiBorn", at, villagerId: v.id, name: v.name });
+    }
+  }
+}
+
 // packages/shared/src/sim/needs.ts
 function homeKiwis(state) {
   return state.villagers.filter((v) => v.job.kind !== "expedition");
@@ -2391,7 +2463,7 @@ function consumption(state) {
   if (mouths === 0) return out;
   const appetite = NEEDS.appetite[seasonOf(state)];
   out.pulp = NEEDS.eat.pulp * mouths * appetite;
-  out.juice = NEEDS.eat.juice * mouths * appetite;
+  out.juice = NEEDS.eat.juice * mouths * appetite + kikiwiwiUpkeep(state);
   return out;
 }
 var STAGE_ORDER = ["fed", "hungry", "weak", "starving"];
@@ -2643,6 +2715,7 @@ function modifiers(v) {
     if (m) for (const k of MODIFIER_KEYS) out[k] *= m[k] ?? 1;
   };
   apply(v.trait ? TRAITS[v.trait] : void 0);
+  if (v.kikiwiwi) apply(KIKIWIWI.modifiers);
   if (v.classId) {
     const c = CLASSES[v.classId];
     apply(c.modifiers);
@@ -3955,7 +4028,8 @@ function crewWeight(crew) {
 }
 function crewOf(state, crew) {
   const available = availableCrew(state);
-  if (typeof crew === "number") return available.slice(0, Math.max(0, crew));
+  if (typeof crew === "number")
+    return available.filter((v) => !v.kikiwiwi).slice(0, Math.max(0, crew));
   const free = new Map(available.map((v) => [v.id, v]));
   const out = [];
   for (const id3 of crew) {
@@ -4000,9 +4074,10 @@ function coverage(have, need) {
   const j = need.juice > 0 ? have.juice / need.juice : 1;
   return Math.max(0, Math.min(1, p, j));
 }
-function strengthOf(crew, fed) {
+function strengthOf(state, crew, fed) {
   const hunger = EXPEDITIONS.starvingStrength + (1 - EXPEDITIONS.starvingStrength) * fed;
-  const total = crew.reduce((sum, v) => sum + kiwiStrength(v), 0);
+  const titan = techEffects(state).kikiwiwiPower;
+  const total = crew.reduce((sum, v) => sum + kiwiStrength(v) * (v.kikiwiwi ? titan : 1), 0);
   const scouting = crew.some((v) => hasSkill(v, "scouting")) ? 1 + SKILLS.scoutingStrength : 1;
   return total * EXPEDITIONS.strengthPerKiwi * hunger * scouting;
 }
@@ -4016,7 +4091,7 @@ function forecastExpedition(state, plan) {
   const travelMs = travelTime(target, pad, crew, mission, techEffects(state).travel);
   const need = rations(state, crew, travelMs);
   const fed = coverage(plan.provisions, need);
-  const base = strengthOf(crew, fed);
+  const base = strengthOf(state, crew, fed);
   const defense = intelView(state, target.id, state.now)?.defense ?? null;
   const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
   const odds = !defense ? "unknown" : strength.min >= defense.max ? "likely" : strength.max >= defense.min ? "uncertain" : "unlikely";
@@ -4155,7 +4230,7 @@ function resolveArrival(state, e) {
   if (!garrison || defense === null) throw new Error("resolveArrival: hidden garrison");
   if (e.mission === "recon") return resolveRecon(state, e, garrison, defense, members, fed);
   const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
-  const strength = strengthOf(members, fed) * luck;
+  const strength = strengthOf(state, members, fed) * luck;
   const victory = strength >= defense;
   const pad = launchpadOf(state, e.launchpadId);
   const armor = pad ? shipOf(state).armor : 0;
@@ -4207,7 +4282,7 @@ function resolveRecon(state, e, garrison, defense, members, fed) {
   const injured = [];
   if (spotted) {
     const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
-    strength = strengthOf(members, fed) * luck;
+    strength = strengthOf(state, members, fed) * luck;
     if (strength < defense * RECON.skirmishShare) {
       lost = drawLosses(state, members, 1);
       removeVillagers(state, lost, "battle", e.arriveAt);
@@ -4443,10 +4518,11 @@ function garrisonOf(state) {
   return state.villagers.filter((v) => v.job.kind === "guard");
 }
 function guardPower(v, state) {
-  const a = GARRISON.affinity[v.classId ?? "none"];
+  const a = v.kikiwiwi ? KIKIWIWI.affinity : GARRISON.affinity[v.classId ?? "none"];
   const tech = state ? techEffects(state) : null;
-  const p = kiwiStrength(v) * GARRISON.power * (tech?.guard ?? 1);
-  const air = v.classId === "warrior" && tech?.firearms ? GARRISON.firearmsAir : a.air;
+  const titan = state ? titanPower(state, v) : 1;
+  const p = kiwiStrength(v) * GARRISON.power * (tech?.guard ?? 1) * titan;
+  const air = v.classId === "warrior" && tech?.firearms ? Math.max(a.air, GARRISON.firearmsAir) : a.air;
   return { ground: p * a.ground, air: p * air };
 }
 function defenseOf(state, threat) {
@@ -4477,7 +4553,7 @@ function defenseOf(state, threat) {
   let militia = 0;
   for (const v of state.villagers)
     if (v.job.kind === "work" || v.job.kind === "idle")
-      militia += THREATS.militia * kiwiStrength(v);
+      militia += THREATS.militia * kiwiStrength(v) * titanPower(state, v);
   return {
     ground: turrets.ground + garrison.ground + militia,
     air: turrets.air + garrison.air,
@@ -4859,53 +4935,6 @@ function skyTick(s, at, events) {
     leaveWreck(s, m, at, events);
   }
   sky.meteors = sky.meteors.filter((m) => m.expiresAt > at);
-}
-
-// packages/shared/src/sim/kikiwiwi.ts
-function isKikiwiwi(v) {
-  return v.kikiwiwi !== void 0;
-}
-function laboratoryOf(state) {
-  return state.buildings.find((b) => b.type === "lab");
-}
-function kikiwiwiCap(state) {
-  const caps = KIKIWIWI.capByAge;
-  return caps[Math.min(ageOf(state), caps.length - 1)] ?? 0;
-}
-function kikiwiwiCount(state) {
-  return state.villagers.filter((v) => isKikiwiwi(v) || v.job.kind === "transform").length;
-}
-function infusionRisk(state, v, lab) {
-  const r = KIKIWIWI.risk;
-  const risk = r.base - r.endurance * (v.stats.endurance - KIWI.stat.average) - r.level * (v.level - 1) - (r.lab[lab.level - 1] ?? 0) - techEffects(state).infusionRisk;
-  return Math.round(Math.min(r.max, Math.max(r.min, risk)) * 1e3) / 1e3;
-}
-function infusionDuration(lab) {
-  const d = KIKIWIWI.durationMs;
-  return d[Math.min(lab.level, d.length) - 1] ?? d[0];
-}
-function nextInfusionEnd(state) {
-  let next = Infinity;
-  for (const v of state.villagers)
-    if (v.job.kind === "transform") next = Math.min(next, v.job.until);
-  return next;
-}
-function finishInfusions(s, at, events) {
-  for (const v of s.villagers) {
-    if (v.job.kind !== "transform" || v.job.until !== at) continue;
-    const risk = v.job.risk;
-    const failed = withRng(s, (rng) => rng.next() < risk);
-    if (failed) {
-      for (const stat of KIKIWIWI.failure.stats)
-        v.stats[stat] = Math.max(KIWI.stat.min, v.stats[stat] - 1);
-      v.job = { kind: "injured", until: at + KIKIWIWI.failure.injuredMs };
-      events.push({ type: "infusionFailed", at, villagerId: v.id, name: v.name });
-    } else {
-      v.kikiwiwi = { since: at };
-      v.job = { kind: "idle" };
-      events.push({ type: "kikiwiwiBorn", at, villagerId: v.id, name: v.name });
-    }
-  }
 }
 
 // packages/shared/src/sim/advance.ts
@@ -5406,7 +5435,8 @@ var COMMAND_ERRORS = [
   "notALab",
   "labBusy",
   "kikiwiwiLimit",
-  "alreadyKikiwiwi"
+  "alreadyKikiwiwi",
+  "oneKikiwiwi"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -5628,6 +5658,7 @@ function execute(s, cmd, ctx, events) {
       const size = typeof cmd.crew === "number" ? cmd.crew : crew.length;
       if (size < minCrew(cmd.mission)) fail("crewTooSmall");
       if (size > maxCrew(s, pad, cmd.mission)) fail("crewTooLarge");
+      if (crew.filter((v) => v.kikiwiwi).length > KIKIWIWI.perShip) fail("oneKikiwiwi");
       const forecast = forecastExpedition(s, cmd);
       if (forecast.weight > forecast.cargo + 1e-9) fail("overloaded");
       if (!canAfford(s.resources, { pulp, juice })) fail("notEnoughResources");
@@ -11308,6 +11339,8 @@ export {
   isTurret,
   kikiwiwiCap,
   kikiwiwiCount,
+  kikiwiwiUpkeep,
+  kikiwiwiWeak,
   kiwiCount,
   kiwiExposure,
   kiwiRhythm,
@@ -11430,6 +11463,7 @@ export {
   tileDepositState,
   tileWalkCost,
   timeToDepletion,
+  titanPower,
   totalWorkers,
   trainingCost,
   trainingDuration,

@@ -11,6 +11,9 @@ import {
   workerPower,
   garrisonOf,
   guardPower,
+  KIKIWIWI,
+  kikiwiwiWeak,
+  techEffects,
   CLASS_IDS,
   CLASSES,
   trainingCost,
@@ -100,10 +103,17 @@ function KiwiList() {
         {kiwis.map((v) => (
           <li key={v.id}>
             <button class="kiwi-row" onClick={() => actions.showKiwi(v.id)}>
-              <KiwiPortrait shiny={v.shiny} classId={v.classId} seed={v.id} size={44} />
+              <KiwiPortrait
+                shiny={v.shiny}
+                classId={v.classId}
+                titan={!!v.kikiwiwi}
+                seed={v.id}
+                size={44}
+              />
               <span class="kiwi-row-main">
                 <span class="kiwi-row-name">
                   {v.name}
+                  {v.kikiwiwi && <span class="badge badge-titan">{t('kikiwiwi.badge')}</span>}
                   {v.statPoints > 0 && (
                     <span
                       class="badge badge-points"
@@ -338,7 +348,13 @@ function KiwiSheet({ v }: { v: Villager }) {
   return (
     <div class="kiwi-sheet">
       <header class="kiwi-head">
-        <KiwiPortrait shiny={v.shiny} classId={v.classId} seed={v.id} size={88} />
+        <KiwiPortrait
+          shiny={v.shiny}
+          classId={v.classId}
+          titan={!!v.kikiwiwi}
+          seed={v.id}
+          size={88}
+        />
         <div class="kiwi-head-main">
           {renaming ? (
             <RenameForm v={v} onDone={() => setRenaming(false)} />
@@ -352,6 +368,7 @@ function KiwiSheet({ v }: { v: Villager }) {
           )}
           <p class="small">
             <strong>{t('kiwi.level', { level: v.level })}</strong> · {jobLabel(game, v)}
+            {v.kikiwiwi && <span class="badge badge-titan">{t('kikiwiwi.badge')}</span>}
             {v.shiny && (
               <span class={`badge badge-shiny shiny-${v.shiny}`}>
                 {t('kiwi.shiny')} · {t(`shiny.${v.shiny}`)}
@@ -390,6 +407,7 @@ function KiwiSheet({ v }: { v: Villager }) {
         )}
       </div>
 
+      {v.kikiwiwi && <TitanSection game={game} />}
       <GuardSection game={game} v={v} />
 
       <RestSection v={v} />
@@ -520,7 +538,13 @@ export function FollowBadge() {
   if (!id || !v) return null;
   return (
     <div class="follow-badge parchment pe">
-      <KiwiPortrait shiny={v.shiny} classId={v.classId} seed={v.id} size={28} />
+      <KiwiPortrait
+        shiny={v.shiny}
+        classId={v.classId}
+        titan={!!v.kikiwiwi}
+        seed={v.id}
+        size={28}
+      />
       <span>{t('kiwi.following', { name: v.name })}</span>
       <button class="btn btn-small" onClick={() => actions.openVillage(v.id)}>
         {t('kiwi.sheet')}
@@ -529,6 +553,26 @@ export function FollowBadge() {
         {t('kiwi.stopFollow')}
       </button>
     </div>
+  );
+}
+
+/** A Kikiwiwi's juice and what it can do (chantier 08). */
+function TitanSection({ game }: { game: GameState }) {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const weak = kikiwiwiWeak(game);
+  const fmt = (x: number) => formatNumber(lang, Math.round(x * 10) / 10);
+  const upkeep = KIKIWIWI.upkeep * techEffects(game).kikiwiwiUpkeep;
+  return (
+    <section class="field titan-section">
+      <h3>{t('kikiwiwi.title')}</h3>
+      <p class={`small ${weak ? 'warn' : ''}`}>
+        {weak ? t('kikiwiwi.weak') : t('kikiwiwi.upkeep', { juice: fmt(upkeep) })}
+      </p>
+      <p class="small muted">
+        {t('kikiwiwi.hint', { weight: KIKIWIWI.modifiers.weight, perShip: KIKIWIWI.perShip })}
+      </p>
+    </section>
   );
 }
 
@@ -557,7 +601,7 @@ function GuardSection({ game, v }: { game: GameState; v: Villager }) {
           })
         }
       >
-        {guard ? t('garrison.relieve') : t('garrison.post')}
+        {guard ? t(v.kikiwiwi ? 'garrison.standDown' : 'garrison.relieve') : t('garrison.post')}
       </button>
     </section>
   );
