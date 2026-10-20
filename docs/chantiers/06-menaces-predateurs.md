@@ -87,3 +87,33 @@ des « vampires de jus » attirés par les bassins et les réserves de jus.
 3. Fréquence exacte des petits incidents ?
 4. Chauves-souris surtout la nuit (lien avec le chantier 04) ?
 5. Faut-il des dégâts sur les chemins et les gisements (furets qui saccagent) ?
+
+## Réponses du porteur
+
+1. Tourelles automatiques hors ligne : oui.
+2. Esquive : oui, « Tous au Nid » pendant la fenêtre de la vague (personne n'est blessé, la
+   récolte s'arrête ; bâtiments et stocks ne sont pas épargnés). Absorber = entrepôts.
+3. Environ 3 petits incidents par jour, très mineurs.
+4. Chauves-souris surtout la nuit et en été, furets affamés en hiver.
+5. Les furets peuvent piétiner des chemins, jamais les gisements.
+6. Une grosse vague par jour réel, protection 24 h + Nid 2, au plus 1 mort par vague (menace >
+   2× la défense, jamais sous 4 kiwis), météorites = gisements temporaires (~1 par jour).
+
+## Réalisé (chantier terminé)
+
+1. **Moteur des vagues** (`data/threats.ts`, `sim/threats.ts`) : planification, annonce,
+   résolution dans `advance` (exact hors ligne, flux RNG à part), dégâts, pillage plafonné,
+   blessés, mort rare, bouclier, abri, réparations, incidents.
+2. **Défenses** : Arbalète à pépins et Fronde céleste sur le rempart de peau (munitions en
+   pépins), garnison (job `guard`, affinités de classe), prévision partagée `forecastWave`.
+3. **Cadeaux du ciel** (`sim/sky.ts`) : étoile filante, cratère-gisement de 48 h récolté par un
+   camp ou un producteur à portée.
+4. **Client** : badge de menace, écran Défense, garnison dans la fiche du kiwi, réparation,
+   fumée, mise en scène des vagues, rapports, résumé hors ligne, sons.
+5. **Équilibrage** : le bot défend (tourelles, garnison avant l'impact, abri, réparations) ;
+   rapport par biome des vagues perdues. Skill `kiwar-threats`.
+
+Reste pour plus tard : variantes (furet blindé, chauve-souris géante, reine des furets) ; armes
+à feu aux âges avancés (chantier 08) ; technologies tombées du ciel (chantier 08) ; raids venus
+des faces provoquées dans les univers partagés (aujourd'hui la provocation augmente seulement la
+puissance) ; vrais modèles 3D décimés (glTF ~1–2k triangles) à la place des modèles procéduraux.

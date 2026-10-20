@@ -49,6 +49,10 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
 - Biome palettes, flood water, the twin half in the sky (`twin.ts`) and the intro scene
   (`intro.ts`, drawn instead of the game while `renderer.playIntro` runs): see `kiwar-world`.
   The scene haze follows the camera distance; max zoom is 1.9 × `rig.frameDistance`.
+- Chantier 06 (`kiwar-threats`): `meteors.ts` (shooting star, craters), `predators.ts` (wave
+  show), turret models, damaged smoke/badge; UI `DefenseModal.tsx` (`ThreatBadge` in
+  `.badge-stack`), shield button in the top bar (on 761–1500 px screens the resource bar centres
+  left of the round buttons).
 - Day/night, seasons, weather, HUD clock, hunger badge, rest and morale widgets: see the
   `kiwar-cycles` skill (`dayCycle.ts`, `seasonLook.ts`, `weather.ts`, `ClockChip.tsx`,
   `NeedsWidgets.tsx`). Shadows also refresh when the sun moves.

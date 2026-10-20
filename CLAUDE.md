@@ -21,6 +21,7 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
   - `kiwar-rpg` — individual kiwis: stats, XP, masteries, classes, skills, School, village screen.
   - `kiwar-cycles` — calendar, day/night and seasons, hunger, rest and beds, morale, sky/weather.
   - `kiwar-world` — biomes, floods, the twin half under fog of war, the intro and the face choice.
+  - `kiwar-threats` — predator waves, incidents, turrets, garrison, shelter, repairs, meteorites.
 
 ## Owner's rules
 

@@ -43,6 +43,10 @@ space (owner) through a **manifest**.
 - Renderer helpers (`render/GameRenderer.ts`): `audioZoom()` (0 close → 1 far),
   `spatialize(pos)`, `kiwiAt(x, y)` (tap → `onKiwiTap`), `randomVisibleKiwi()`.
 
+Chantier 06: `threat.warning` (no longer reserved), `threat.strike|victory|defeat`,
+`turret.fire` (spatial, fired by the wave show through `renderer.onTurretShot`) and
+`meteor.fall`, synth presets `strike`, `victory`, `defeat`, `shot`, `meteor`.
+
 Chantier 04: `colony.hunger` (food ran out, hunger worsens, a kiwi starved) and
 `ambience.night` (synth crickets, loop at night); `ambience.day` stays reserved (the birds of
 `ambience.nature` are the day ambience, quieter at night). `gameAudio.ts` fills

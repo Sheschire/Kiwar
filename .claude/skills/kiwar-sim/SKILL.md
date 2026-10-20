@@ -44,6 +44,9 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
   losses, memorial).
 - `data/cycles.ts`, `data/needs.ts`, `sim/calendar.ts`, `sim/needs.ts`, `sim/rest.ts` —
   chantier 04 (calendar, seasons, hunger, rest, morale): see the `kiwar-cycles` skill.
+- `data/threats.ts`, `sim/threats.ts`, `sim/sky.ts` — chantier 06 (predator waves, incidents,
+  turrets, garrison, shelter, repairs, meteorites): see the `kiwar-threats` skill. Threat and
+  sky draws use `withThreatRng` (their own stream), never the colony RNG.
 - `sim/kiwis.ts` — individual kiwis (stats, XP, masteries, powers, classes, skills): see the
   `kiwar-rpg` skill. Production uses `workforce` (summed worker power), not the head count.
 - `save/save.ts` — zod schema of the state, `MIGRATIONS[n]` (n → n+1), `migrateState`.
@@ -78,6 +81,10 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 - **Integer progress**: anything that accumulates per kiwi over time (XP, practice) uses
   integer raw units and integer rates so small steps equal one big step exactly; the offline
   tests compare villagers with `toEqual` (and the RNG state).
+- Jobs since chantier 06: `guard` (posted against predators) and `injured { until }`.
+- **Planning at the loop top** (`planWave`, `planMeteor`) is safe only because it acts when
+  nothing is planned, a condition that changes at events; anything planned at game creation
+  must not draw from an RNG (advancing by 0 ms must leave the state unchanged).
 - A new `Job` kind must be handled in `ratesOf` (kiwis.ts), `availableCrew`, the renderer's
   `think`/`workTile`, `jobRank`/`useJobLabel` in the village screen, and building removal.
 

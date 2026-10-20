@@ -41,6 +41,9 @@ Load `kiwar-sim` too: everything here lives in the deterministic shared simulati
   at the interval end (`levelUps`: odd level → RNG stat weighted by the job, even → a point).
   Training ends (`finishTrainings`) and `speechUntil` are `advance` events too. Never accrue
   progress with floats; never change a power outside an event or a command.
+- Chantier 06: job `guard` (XP `KIWI.xpPerHour.guard`, defends by `kiwiStrength` × class
+  affinity, see `kiwar-threats`) and `injured` (hurt by a wave, back to work at `until`);
+  memorial cause `predator`. The kiwi sheet has a Garrison section.
 - `grantXp` (expedition lumps, in points) — called in `resolveReturn` with the events array.
 - Expeditions (`sim/expeditions.ts`): `crewOf(state, number | ids)`, `crewWeight`, `rations`
   (per kiwi), `strengthOf` (sum + Scouting), `travelTime(target, pad, crew)` (Tailwind),

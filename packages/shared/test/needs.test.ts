@@ -130,7 +130,9 @@ describe('hunger', () => {
     expect(deaths.length).toBeGreaterThan(0);
     for (let i = 1; i < deaths.length; i++)
       expect(deaths[i]!.at - deaths[i - 1]!.at).toBeGreaterThanOrEqual(NEEDS.deathRelief);
-    expect(later.villagers.length).toBe(24 - deaths.length);
+    // Predator waves (chantier 06) may also take a kiwi during these three days.
+    const predators = later.memorial.filter((m) => m.cause === 'predator').length;
+    expect(later.villagers.length).toBe(24 - deaths.length - predators);
     expect(later.villagers.length).toBeGreaterThanOrEqual(NEEDS.minSurvivors);
     expect(later.memorial.filter((m) => m.cause === 'famine')).toHaveLength(deaths.length);
     // The first death needs 18 hours of full privation, so it comes later than that.

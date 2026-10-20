@@ -1280,10 +1280,10 @@ var THREATS = {
   /** No wave strikes until this long after a defeat. */
   shieldMs: ms.h(24),
   /** Total wave power: base × Nest level factor × play time × provocation. */
-  basePower: 5,
+  basePower: 6,
   nestFactor: [0, 0.6, 1, 1.6],
   /** Power gained per day of play, up to `maxDays`. */
-  perDay: 0.2,
+  perDay: 0.25,
   maxDays: 14,
   /** Power gained per expedition victory (the aliens strike back), up to `maxProvocation`. */
   perVictory: 0.08,

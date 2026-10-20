@@ -134,6 +134,23 @@ function table(groups: Group[], comparisons: Comparison[], lines: string[]): voi
   lines.push('');
 }
 
+/** Chantier 06: what the predators did to the bot's colonies (averages per run). */
+function threatTable(groups: Group[], lines: string[]): void {
+  const avg = (runs: RunResult[], f: (r: RunResult) => number) =>
+    runs.length ? runs.reduce((s, r) => s + f(r), 0) / runs.length : 0;
+  lines.push('## Predators and gifts from the sky (average per run)', '');
+  lines.push('| Biome | Waves | Lost | Kiwis killed | Meteorites |');
+  lines.push('|---|---|---|---|---|');
+  for (const g of groups) {
+    const waves = avg(g.runs, (r) => r.final.waves ?? 0);
+    const lost = avg(g.runs, (r) => r.final.wavesLost ?? 0);
+    lines.push(
+      `| ${g.label} | ${waves.toFixed(1)} | ${lost.toFixed(1)} (${waves > 0 ? Math.round((lost / waves) * 100) : 0} %) | ${avg(g.runs, (r) => r.final.predatorDeaths ?? 0).toFixed(2)} | ${avg(g.runs, (r) => r.final.meteors ?? 0).toFixed(1)} |`,
+    );
+  }
+  lines.push('');
+}
+
 export function toMarkdown(
   biomes: { groups: Group[]; comparisons: Comparison[] },
   faces: { groups: Group[]; comparisons: Comparison[] },
@@ -151,6 +168,7 @@ export function toMarkdown(
   table(biomes.groups, biomes.comparisons, lines);
   lines.push('## Kiwisu vs Kiwino (all biomes of each face)', '');
   table(faces.groups, faces.comparisons, lines);
+  threatTable(biomes.groups, lines);
   const flagged = [...biomes.comparisons, ...faces.comparisons].filter((c) => c.flagged);
   lines.push(
     flagged.length === 0
@@ -159,7 +177,7 @@ export function toMarkdown(
   );
   lines.push(
     '',
-    'Bot: follows the tutorial, keeps kiwis busy, hatches eggs, builds one of each building on the site with the most deposits in reach (weighted by logistics), then upgrades the bottleneck producer (or opens a new site when its deposits are exhausted), adds housing/storage when needed and upgrades the Nest as soon as possible. It keeps clear of floodable tiles and uses neither camps nor paths.',
+    'Bot: follows the tutorial, keeps kiwis busy, hatches eggs, builds one of each building on the site with the most deposits in reach (weighted by logistics), then upgrades the bottleneck producer (or opens a new site when its deposits are exhausted), adds housing/storage when needed and upgrades the Nest as soon as possible. It keeps clear of floodable tiles and uses neither camps nor paths. Chantier 06: one turret of each model after the Nest 2 (more, or upgraded, after a lost wave), guards posted 40 min before a strike to close the forecast gap, shelter when deaths or several injuries are still expected, repairs first.',
   );
   return lines.join('\n') + '\n';
 }

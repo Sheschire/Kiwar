@@ -38,6 +38,14 @@ import {
   population,
   queuedBuildAt,
   RESOURCE_IDS,
+  forecastWave,
+  garrisonOf,
+  guardPower,
+  isRampart,
+  isTurret,
+  repairCost,
+  turretCount,
+  turretLimit,
   upgradeCost,
   workersOf,
   workerSlots,
@@ -49,6 +57,7 @@ import {
   type GameState,
   type ResourceId,
   type Tile,
+  type VillagerId,
 } from '@kiwar/shared';
 
 export const MILESTONES = [
@@ -76,6 +85,11 @@ export interface RunResult {
     /** Kiwis lost to famine, and the longest hunger gauge reached (hours of privation). */
     starved?: number;
     maxHungerH?: number;
+    /** Chantier 06: predator waves met and lost, kiwis killed by them, meteorites fallen. */
+    waves?: number;
+    wavesLost?: number;
+    predatorDeaths?: number;
+    meteors?: number;
   };
 }
 
@@ -113,6 +127,7 @@ function bestTile(state: GameState, map: FaceMap, type: BuildingType): Tile | nu
     if (!BUILDINGS[type].allowedTiles.includes(t.type)) continue;
     if (buildingAt(state, t.q, t.r) || queuedBuildAt(state, t.q, t.r)) continue;
     if (t.q === 0 && t.r === 0) continue;
+    if (isTurret(type) && !isRampart(map, t.q, t.r)) continue;
     // A sensible player keeps clear of the floodable shores (lagoons).
     if (t.flood) continue;
     let score: number;
@@ -185,6 +200,9 @@ function decide(state: GameState, map: FaceMap): Command[] {
     }
   }
 
+  // Chantier 06: post guards just before a wave, shelter from a heavy defeat.
+  cmds.push(...defenseOrders(state));
+
   // Hatch only kiwis the colony can feed (chantier 04).
   if (canHatch(state) && canAfford(state.resources, eggCost(state)) && canFeedOneMore(state))
     cmds.push({ type: 'hatchEgg' });
@@ -199,6 +217,12 @@ function decide(state: GameState, map: FaceMap): Command[] {
     const tile = bestTile(state, map, type);
     return tile ? { type: 'build', buildingType: type, q: tile.q, r: tile.r } : null;
   };
+
+  // 0. Repairs first: a damaged building works at half pace.
+  for (const b of state.buildings) {
+    if (b.damaged && !pendingUpgrade(state, b.id) && canAfford(state.resources, repairCost(b)))
+      return [...cmds, { type: 'repair', buildingId: b.id }];
+  }
 
   // 1. One of each building, in order.
   for (const type of BUILD_ORDER) {
@@ -226,6 +250,10 @@ function decide(state: GameState, map: FaceMap): Command[] {
     const c = build('hut');
     if (c && buildingCount(state) < (nestDef(state).maxBuildings ?? 0)) return [...cmds, c];
   }
+
+  // 2a. Turrets (chantier 06) once the Nest is level 2.
+  const turret = turretDecision(state, build);
+  if (turret) return [...cmds, turret];
 
   // 2b. RPG (chantier 03): a School once the Nest is level 2, then a mayor and a builder.
   const rpg = rpgDecision(state, map, build, has);
@@ -294,6 +322,85 @@ function decide(state: GameState, map: FaceMap): Command[] {
       cmds.push({ type: 'upgrade', buildingId: b.id });
   }
   return cmds;
+}
+
+/** How long before a strike the bot posts its guards (they stop harvesting meanwhile). */
+const GUARD_LEAD_MS = 40 * 60_000;
+
+/**
+ * Garrison and shelter: just before a wave, post the kiwis that close the gap on each side
+ * (bats first: only mages and scouts reach them), relieve them afterwards; take shelter when
+ * the forecast still expects deaths or several kiwis hurt.
+ */
+function defenseOrders(state: GameState): Command[] {
+  const f = forecastWave(state);
+  const posted = garrisonOf(state).map((v) => v.id);
+  const want: VillagerId[] = [];
+  if (f && f.wave.at - state.now <= GUARD_LEAD_MS) {
+    const need = {
+      ground: f.threat.ground * 1.15 - (f.defense.ground - f.defense.garrison.ground),
+      air: f.threat.air * 1.15 - (f.defense.air - f.defense.garrison.air),
+    };
+    const pool = state.villagers
+      .filter((v) => v.job.kind === 'work' || v.job.kind === 'idle' || v.job.kind === 'guard')
+      .map((v) => ({ id: v.id, p: guardPower(v) }));
+    const max = Math.floor(state.villagers.length / 2);
+    for (const side of ['air', 'ground'] as const) {
+      pool.sort((a, b) => b.p[side] - a.p[side]);
+      for (const k of pool) {
+        if (need[side] <= 0 || want.length >= max) break;
+        if (k.p[side] <= 0 || want.includes(k.id)) continue;
+        want.push(k.id);
+        need.ground -= k.p.ground;
+        need.air -= k.p.air;
+      }
+    }
+  }
+  const out: Command[] = [];
+  const same = want.length === posted.length && want.every((id) => posted.includes(id));
+  if (!same) out.push({ type: 'setGarrison', villagerIds: want });
+  if (f?.canShelter && !f.expected.victory && (f.expected.deaths > 0 || f.expected.injured >= 2))
+    out.push({ type: 'shelter' });
+  return out;
+}
+
+/** One turret of each model after the Nest 2; more, and better ones, after a lost wave. */
+function turretDecision(
+  state: GameState,
+  build: (type: BuildingType) => Command | null,
+): Command | null {
+  if (nest(state).level < 2) return null;
+  const turrets = state.buildings.filter((b) => isTurret(b.type));
+  const queued = state.queue.some((i) => isTurret(i.buildingType));
+  if (queued) return null;
+  const affordable = (c: Command | null): Command | null => {
+    if (!c) return null;
+    if (c.type === 'build')
+      return canAfford(state.resources, buildCost(state, c.buildingType)) ? c : null;
+    if (c.type === 'upgrade') {
+      const b = state.buildings.find((x) => x.id === c.buildingId)!;
+      return canAfford(state.resources, upgradeCost(b.type, b.level + 1)) ? c : null;
+    }
+    return c;
+  };
+  for (const type of ['seedTurret', 'skyTurret'] as const) {
+    if (!turrets.some((b) => b.type === type) && turretCount(state) < turretLimit(state))
+      return affordable(build(type));
+  }
+  const last = state.threats.reports.at(-1);
+  if (!last || last.victory) return null;
+  // Strengthen the side that broke.
+  const type =
+    last.threat.air - last.defense.air > last.threat.ground - last.defense.ground
+      ? 'skyTurret'
+      : 'seedTurret';
+  const weakest = turrets
+    .filter((b) => b.type === type && b.level < MAX_LEVEL && !pendingUpgrade(state, b.id))
+    .sort((a, b) => a.level - b.level)[0];
+  if (weakest && weakest.level < nest(state).level)
+    return affordable({ type: 'upgrade', buildingId: weakest.id });
+  if (turretCount(state) < turretLimit(state)) return affordable(build(type));
+  return null;
 }
 
 /** Whether production (gross, by day) covers the meals of one more kiwi, with a margin. */
@@ -412,9 +519,17 @@ export function runBot(opts: RunOptions): RunResult {
   const step = opts.stepMs ?? 30_000;
   let now = start;
   let maxHunger = 0;
+  let wavesLost = 0;
+  let wavesSeen = 0;
   while (now - start < opts.horizonMs) {
     state = advance(state, now).state;
     maxHunger = Math.max(maxHunger, state.hunger);
+    // Count the waves lost since the last look (reports keep the last few).
+    if (state.threats.waves > wavesSeen) {
+      const fresh = state.threats.reports.slice(-(state.threats.waves - wavesSeen));
+      wavesLost += fresh.filter((r) => !r.victory).length;
+      wavesSeen = state.threats.waves;
+    }
     // Apply every possible decision at this instant (first one wins per category).
     for (let guard = 0; guard < 12; guard++) {
       const cmds = decide(state, map);
@@ -456,6 +571,10 @@ export function runBot(opts: RunOptions): RunResult {
       produced: Math.round(RESOURCE_IDS.reduce((s, id) => s + state.stats.produced[id], 0)),
       starved: state.memorial.filter((m) => m.cause === 'famine').length,
       maxHungerH: Math.round((maxHunger / HUNGER_SCALE / 3_600_000) * 10) / 10,
+      waves: state.threats.waves,
+      wavesLost,
+      predatorDeaths: state.memorial.filter((m) => m.cause === 'predator').length,
+      meteors: state.sky.falls,
     },
   };
 }

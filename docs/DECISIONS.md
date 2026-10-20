@@ -463,3 +463,56 @@ are data for chantier 06; existing worlds keep their map with a hidden **classic
   median of all biomes on every milestone (delta −5.6 % and highlands −3.9 % early, seed crown
   +4.8 % and lagoons +3 %), Kiwisu / Kiwino within 3.2 %; tutorial 1.5–1.6 h, Nest 3 ≈ 7 h, first
   level-5 kiwi ≈ 10.1 h, mayor ≈ 12.4 h, first level-10 kiwi ≈ 2.6 days.
+
+## Chantier 06 — Threats: ferrets and bats, defenses, gifts from the sky
+
+Owner's answers (this chantier): one big wave a real day (20–28 h apart), announced 8–12 h
+ahead; a dodge exists (everybody into the Nest); bats mostly at night and in summer, hungry
+ferrets in winter; ~3 small incidents a day; turrets on the skin rampart, two models, outside
+the building cap; protection 24 h **and** Nest 2, shield 24 h after a defeat, ferrets may trample
+paths but never deposits; at most one death on a wave more than twice the defense, never below
+4 kiwis; meteorites as temporary deposits, about one a day. Turrets fire offline.
+
+- **Resolution in `advance`**: a wave is planned (time only) as soon as the colony is out of
+  protection, announced at `announceAt` (composition drawn then, with the calendar of the strike
+  time and the biome) and resolved at `at`. `waveOutcome` is shared by `forecastWave` (UI, average
+  luck) and the strike (luck ±15 %): severity = unstopped threat / total threat; a defeat damages
+  `round(severity × 4)` buildings (at least one, never the Nest or camps, bigger ones first), loots
+  `severity × 35 %` of the stock above what the Nest (30 % of its storage) and Warehouses (60 %)
+  protect, hurts `severity × 40 %` of the kiwis at home (2–6 h), tramples paths with the ferrets'
+  part, and kills one kiwi if the threat exceeds twice the defense and the colony has more than
+  four kiwis. Every defeat gives a 24 h shield.
+- **Own RNG stream** for threats and the sky (`threats.rng`), so existing colonies keep their
+  hatching and level-up draws; nothing is drawn at game creation (first incident at 4 h, first
+  meteorite at 6 h are fixed), so advancing by 0 ms leaves the state unchanged.
+- **Power** = 6 × Nest factor (0.6 / 1 / 1.6) × (1 + 0.25 × days played, up to 14) × (1 + 0.08 ×
+  expedition victories, up to +80 %); air share 70 % at night, 25 % by day; ±15 % at the
+  announcement. Biomes multiply ferrets / bats (chantier 05 data).
+- **Defenses**: Seed crossbow (ground 4/8/14) and Sky sling (air 4/8/14), 15/25/40 seeds per
+  wave each, firing only at the side they face; without enough seeds they fire in proportion;
+  damaged ones at half power. 2/4/6 turrets by Nest level. Garrison: `kiwiStrength × 1.5 ×
+  affinity` (warrior ground 1 / air 0, mage 0.8 / 1, scout 0.5 / 0.8, builder 0.5 / 0, others
+  0.4 / 0); guards stop harvesting, earn 8 XP/h and are 1.5× more exposed. Kiwis at home add
+  15 % of their strength on the ground (militia), never in the air.
+- **Shelter**: possible from 45 min before the strike, everybody stays in the Nest until 15 min
+  after it (workforce 0, an event); nobody is hurt, buildings and stocks are not spared.
+- **Repairs**: a queue item `repair` (30 % of the level cost, 40 % of its time); an upgrade also
+  mends. Damaged buildings work at 50 %.
+- **Incidents** (every 5–11 h): a thief steals 2–5 % of the pulp or fiber, a bat drinks 3–6 % of
+  the juice (both stopped with a chance defense / (defense + 4), max 80 %), a storm blows 1–3 path
+  tiles away.
+- **Meteorites**: seen an hour ahead (a star coming down over a target ring), land on free flesh,
+  grove or seed ring as a 48 h deposit of seeds (½), juice or fiber (¼ each), 300 × Nest factor
+  (1 / 1.5 / 2.2) × (1 + 0.15 × days). A camp on the crater picks it at the camp rate, a producer
+  of the same resource reaching it takes half its base rate, on top of their usual harvest; no
+  regrowth, no climate. Drained exactly like a pool.
+- **UI**: a threat pill under the top bar (countdown + odds, shelter, unread report), a Defense
+  button (shield) and screen (threat vs defense per side with breakdown, seeds, expected losses,
+  shelter, garrison picker, reports, incidents), a Garrison section in the kiwi sheet, repair box
+  and smoke on damaged buildings, a short show when the player watches a strike (purely
+  cosmetic, follows the report), offline summary lines, synth sounds.
+- **No SQL change**: the game state is a `jsonb` (save v10 threats, v11 sky).
+- **3D models from Sketchfab** (owner's suggestion): the animated weasel is not downloadable and
+  personal use only; the bat (CC BY) has 132k triangles and the kiwi (CC BY) 502k without
+  animation — far too heavy for instanced crowds on phones. Procedural low-poly models are kept;
+  a decimated (~1–2k triangles) glTF could replace them later.

@@ -39,8 +39,8 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 03  | Kiwis individuels : niveaux, métiers, classes, shiny                   | ✅         |
 | 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | ✅         |
 | 05  | Intro, choix de la face, biomes, brouillard                            | ✅         |
-| 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | ⏭ prochain |
-| 07  | Vaisseau kiwi géant et exploration                                     | à faire    |
+| 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | ✅         |
+| 07  | Vaisseau kiwi géant et exploration                                     | ⏭ prochain |
 | 08  | Âges, recherche contre nature, Kikiwiwis                               | à faire    |
 | —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées      |
 
@@ -68,5 +68,10 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
   univers : chantier 07, avec la reconnaissance qui révélera une image figée sous le
   brouillard) ; le bot n'utilise pas les chemins, alors qu'ils aident beaucoup dans le Delta ;
   l'intro n'a pas été chronométrée sur un vrai téléphone.
+- Chantier 06 : modèles procéduraux pour furets, chauves-souris et tourelles (les modèles
+  Sketchfab proposés sont trop lourds ou non téléchargeables : à remplacer par des glTF décimés
+  si le porteur en fournit) ; pas de variantes d'ennemis ni de raids ciblés venus des faces
+  provoquées (la provocation augmente seulement la puissance) ; le bot ne pose pas de camp sur
+  les météorites ; la mise en scène ne joue que si le joueur est là à l'impact.
 - Performance des animations non mesurée sur un vrai téléphone (un mesh par partie animée, ~1 à
   10 par bâtiment) : à vérifier, sinon passer les drapeaux en instancing.

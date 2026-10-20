@@ -9,6 +9,18 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 06** — les **prédateurs** des kiwis attaquent : des meutes de **furets** au sol et
+> des nuées de **chauves-souris** dans les airs (surtout la nuit), en grosses vagues annoncées 8 à
+> 12 h à l'avance (environ une par jour, jamais avant le Nid 2 et 24 h de jeu), plus quelques
+> petits incidents sans préavis. On se défend avec des **tourelles à pépins** posées sur le
+> rempart de peau (arbalète contre les furets, fronde céleste contre les chauves-souris, qui
+> consomment des pépins) et une **garnison** de kiwis postés (les épées ne touchent pas les
+> chauves-souris : il faut des mages ou des éclaireurs). On peut aussi mettre tout le monde à
+> l'abri au Nid. Une défaite abîme des bâtiments (à réparer), pille une partie du stock non
+> protégé, blesse des kiwis et peut en tuer un, mais ne rase jamais la colonie. Le ciel apporte
+> aussi du bon : des **météorites** de pépins, de jus ou de fibre, à récolter avant qu'elles
+> s'éteignent.
+>
 > **Chantier 05** — chaque nouveau monde commence par un kiwi entier qui tourne dans l'espace et
 > se fait **trancher en deux** : on choisit sa face (Kiwisu ou Kiwino), chacune avec son
 > **biome** tiré au hasard (Verger luxuriant, Hauts plateaux duveteux, Delta sucré, Couronne de
