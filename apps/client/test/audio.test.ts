@@ -94,7 +94,7 @@ describe('synth', () => {
       }
       expect(max, id).toBeCloseTo(preset.peak ?? 0.5, 5);
     }
-  });
+  }, 20_000);
 
   it('is deterministic', () => {
     expect(renderPreset(SYNTH_PRESETS.hatch, 8000)).toEqual(

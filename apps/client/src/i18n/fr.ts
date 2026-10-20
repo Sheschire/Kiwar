@@ -494,6 +494,7 @@ export const fr: Dict = {
     flooded: 'Cette tuile est sous l’eau jusqu’à la décrue.',
     universeNotFound: 'Aucun univers ne correspond à ce code d’invitation.',
     universeFull: 'Cet univers est complet.',
+    faceTaken: 'Quelqu’un vit déjà sur cette face.',
   },
   offline: {
     title: 'Pendant votre absence…',

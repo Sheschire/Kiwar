@@ -1,5 +1,7 @@
 import { alienFaceOnKiwi, ALIEN_TWIN_FACE } from '../data/expeditions';
 import type { ExpeditionTarget } from '../sim/state';
+import type { BuildingType } from '../data/buildings';
+import type { FaceParams } from '../worldgen/generateFace';
 import { FACES, type Face } from '../types/ids';
 
 /**
@@ -31,6 +33,20 @@ export interface UniverseInfo extends UniverseSummary {
   kiwiCount: number;
   /** Creation time: start of the shared calendar. */
   createdAt?: number;
+}
+
+/**
+ * What a player sees of a friend living on the other half of their kiwi (chantier 05): the
+ * layout only (no stocks), refreshed when the universe is loaded or its info refreshed.
+ */
+export interface TwinSnapshot {
+  owner: string;
+  face: Face;
+  params: FaceParams;
+  buildings: { type: BuildingType; level: number; q: number; r: number }[];
+  paths: string[];
+  /** Server time of the snapshot. */
+  at: number;
 }
 
 /** Number of kiwis: enough for every player plus at least one alien face. */

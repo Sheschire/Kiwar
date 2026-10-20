@@ -21,6 +21,7 @@ import {
   seasonOf,
   type Face,
   type FaceMap,
+  type TwinSnapshot,
   type GameEvent,
   type GameState,
   type Tile,
@@ -251,7 +252,10 @@ export class GameRenderer {
   }
 
   /** The other half of our kiwi, floating above (fogged unless a friend lives there). */
-  setTwin(map: FaceMap | null, opts: { fog: boolean } = { fog: true }): void {
+  setTwin(
+    map: FaceMap | null,
+    opts: { fog: boolean; friend?: TwinSnapshot | null } = { fog: true },
+  ): void {
     if (this.twin) {
       this.scene.remove(this.twin.group);
       this.twin.dispose();

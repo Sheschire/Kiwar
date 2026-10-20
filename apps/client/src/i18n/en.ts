@@ -465,6 +465,7 @@ export const en = {
     flooded: 'This tile is under water until the floods recede.',
     universeNotFound: 'No universe with this invite code.',
     universeFull: 'This universe is full.',
+    faceTaken: 'Someone already lives on this face.',
   },
   offline: {
     title: 'While you were away…',

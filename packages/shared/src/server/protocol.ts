@@ -7,7 +7,7 @@ import { type Command } from '../sim/commands';
 import type { GameEvent } from '../sim/advance';
 import type { GameState } from '../sim/state';
 import { FACES, type Face } from '../types/ids';
-import type { UniverseInfo, UniverseSummary } from './universes';
+import type { TwinSnapshot, UniverseInfo, UniverseSummary } from './universes';
 
 /**
  * Client ↔ server protocol (milestone 2). The server is authoritative: the client only sends
@@ -107,6 +107,12 @@ export const requestSchema = z.discriminatedUnion('action', [
     face: z.enum(FACES),
   }),
   z.object({ action: z.literal('import'), save: z.string().min(2).max(500_000) }),
+  /** Chantier 05: a newcomer moves to the other face of their kiwi while still pristine. */
+  z.object({
+    action: z.literal('pickFace'),
+    universe: z.string().min(1).max(64),
+    face: z.enum(FACES),
+  }),
 ]);
 
 export type GameRequest = z.infer<typeof requestSchema>;
@@ -121,6 +127,7 @@ export const SERVER_ERRORS = [
   'internal',
   'universeNotFound',
   'universeFull',
+  'faceTaken',
 ] as const;
 export type ServerError = (typeof SERVER_ERRORS)[number] | (typeof COMMAND_ERRORS)[number];
 
@@ -133,6 +140,8 @@ export type GameResponse =
       serverTime: number;
       universe?: UniverseInfo;
       universes?: UniverseSummary[];
+      /** Shared universe: the twin face when a friend lives there (null: aliens, fogged). */
+      twin?: TwinSnapshot | null;
     }
   | { ok: false; error: ServerError; state?: GameState; serverTime: number };
 

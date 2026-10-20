@@ -25,6 +25,7 @@ import {
   universeTargets,
   type UniverseInfo,
   type UniverseMember,
+  type TwinSnapshot,
   type UniverseSummary,
 } from './universes';
 
@@ -71,6 +72,8 @@ export interface GameRepository {
   /** Adds a member; returns false if the face (or the user) is already taken (race). */
   addMember(universeId: string, member: UniverseMember): Promise<boolean>;
   listUserUniverses(userId: string): Promise<UniverseRow[]>;
+  /** Moves a member to another face of their kiwi; false if that face is taken (race). */
+  moveMember(universeId: string, userId: string, face: Face): Promise<boolean>;
 }
 
 export interface ServiceContext {
@@ -167,6 +170,28 @@ function universeGame(ctx: ServiceContext, info: UniverseInfo, me: UniverseMembe
     calendarStart: calendarStartFor(info.createdAt ?? ctx.now()),
     targets: universeTargets(info.members, me),
   });
+}
+
+/** The friend on the other half of my kiwi, as they look now (null: aliens live there). */
+async function twinOf(
+  repo: GameRepository,
+  info: UniverseInfo,
+  me: UniverseMember,
+  now: number,
+): Promise<TwinSnapshot | null> {
+  const friend = info.members.find((m) => m.kiwiIndex === me.kiwiIndex && m.face !== me.face);
+  if (!friend) return null;
+  const game = await repo.findGame(friend.userId, info.id);
+  if (!game) return null;
+  const s = game.state;
+  return {
+    owner: friend.displayName,
+    face: s.face,
+    params: s.params,
+    buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
+    paths: s.paths,
+    at: now,
+  };
 }
 
 /** A game with no player progress can be replaced by an import without loss. */
@@ -315,7 +340,52 @@ export async function handleGameRequest(ctx: ServiceContext, body: unknown): Pro
     case 'universeInfo': {
       const scope = await resolveScope(ctx, repo, req.universe);
       if (!scope?.shared) return fail('forbidden');
-      return { ok: true, events: [], universe: scope.shared.info, serverTime: ctx.now() };
+      const { info, me } = scope.shared;
+      return {
+        ok: true,
+        events: [],
+        universe: info,
+        twin: await twinOf(repo, info, me, ctx.now()),
+        serverTime: ctx.now(),
+      };
+    }
+
+    case 'pickFace': {
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope?.shared) return fail('forbidden');
+      const { info, me } = scope.shared;
+      const game = await repo.findGame(ctx.userId, info.id);
+      if (!game) return fail('invalidRequest');
+      if (me.face !== req.face) {
+        // Only a newcomer may still change sides, and only to a face nobody holds.
+        if (!isPristine(game.state)) return fail('forbidden', game.state);
+        const holder = info.members.find(
+          (m) => m.kiwiIndex === me.kiwiIndex && m.face === req.face,
+        );
+        if (holder || !(await repo.moveMember(info.id, ctx.userId, req.face)))
+          return fail('faceTaken', game.state);
+        const moved: UniverseMember = { ...me, face: req.face };
+        const members = info.members.map((m) => (m.userId === ctx.userId ? moved : m));
+        const next = { ...info, members };
+        const saved = await repo.update(game.id, universeGame(ctx, next, moved), game.version);
+        if (!saved) return fail('conflict');
+        return {
+          ok: true,
+          state: withScopeTargets(saved.state, {
+            universeId: info.id,
+            shared: { info: next, me: moved },
+          }),
+          events: [],
+          universe: next,
+          twin: await twinOf(repo, next, moved, ctx.now()),
+          serverTime: ctx.now(),
+        };
+      }
+      return {
+        ...reply(ctx, withScopeTargets(game.state, scope)),
+        universe: info,
+        twin: await twinOf(repo, info, me, ctx.now()),
+      };
     }
 
     case 'load': {
@@ -324,16 +394,20 @@ export async function handleGameRequest(ctx: ServiceContext, body: unknown): Pro
       const existing = await repo.findGame(ctx.userId, scope.universeId);
       // The stored state is returned as is: the client advances it to the server time,
       // which lets it show the "while you were away" summary.
+      const twin = scope.shared
+        ? await twinOf(repo, scope.shared.info, scope.shared.me, ctx.now())
+        : undefined;
       if (existing)
         return {
           ...reply(ctx, withScopeTargets(existing.state, scope)),
           universe: scope.shared?.info,
+          twin,
         };
       const state = scope.shared
         ? universeGame(ctx, scope.shared.info, scope.shared.me)
         : freshGame(ctx, req.create?.seed ?? ctx.randomSeed(), req.create?.face ?? 'kiwisu');
       const created = await repo.create(ctx.userId, scope.universeId, state);
-      return { ...reply(ctx, created.state), universe: scope.shared?.info };
+      return { ...reply(ctx, created.state), universe: scope.shared?.info, twin };
     }
 
     case 'newWorld': {
@@ -423,6 +497,7 @@ async function joinAndPlay(
       state: withScopeTargets(game.state, scope),
       events: [],
       universe: info,
+      twin: await twinOf(repo, info, me, ctx.now()),
       serverTime: ctx.now(),
     };
   }
@@ -518,6 +593,13 @@ export function createMemoryRepository(): GameRepository & {
       }
       list.push(clone(member));
       members.set(universeId, list);
+      return true;
+    },
+    async moveMember(universeId, userId, face) {
+      const list = members.get(universeId) ?? [];
+      const me = list.find((m) => m.userId === userId);
+      if (!me || list.some((m) => m.kiwiIndex === me.kiwiIndex && m.face === face)) return false;
+      me.face = face;
       return true;
     },
     async listUserUniverses(userId) {

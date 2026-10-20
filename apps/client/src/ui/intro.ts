@@ -45,6 +45,8 @@ export interface IntroOptions {
   params?: Record<Face, FaceParams>;
   taken?: Partial<Record<Face, string>>;
   current?: Face | null;
+  /** Face shown first (default: the player's, or the first free one). */
+  focus?: Face;
   /** Called with the chosen face once the camera has dived onto it. */
   onChoose?(face: Face): void;
 }
@@ -118,7 +120,7 @@ export function startIntro(opts: IntroOptions): void {
     kiwino: generateFace(opts.seed, 'kiwino', params.kiwino),
   };
   const taken = opts.taken ?? {};
-  const focus: Face = opts.current ?? FACES.find((f) => !taken[f]) ?? 'kiwisu';
+  const focus: Face = opts.focus ?? opts.current ?? FACES.find((f) => !taken[f]) ?? 'kiwisu';
   onChoose = opts.onChoose ?? null;
   uiStore.setState({
     modal: 'none',

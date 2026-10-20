@@ -9,6 +9,7 @@ import {
   type GameState,
   type ServiceContext,
 } from '../src';
+import { findTileForTest } from './serverHelpers';
 
 function world() {
   const repo = createMemoryRepository();
@@ -197,5 +198,83 @@ describe('shared universes (server)', () => {
       }),
     );
     expect(r.state.egg).not.toBeNull();
+  });
+});
+
+describe('choosing a face and seeing a friend (chantier 05)', () => {
+  it('lets a newcomer move to the free face of their kiwi, never to a taken one', async () => {
+    const { as } = world();
+    const created = ok(
+      await handleGameRequest(as('alice'), {
+        action: 'createUniverse',
+        name: 'Orchard',
+        displayName: 'Alice',
+      }),
+    );
+    const universe = created.universe!.id;
+    expect(created.state.face).toBe('kiwisu');
+    expect(created.twin).toBeNull();
+    // The twin face is free (aliens): Alice may still change sides.
+    const moved = ok(
+      await handleGameRequest(as('alice'), { action: 'pickFace', universe, face: 'kiwino' }),
+    );
+    expect(moved.state.face).toBe('kiwino');
+    expect(moved.state.seed).toBe(created.state.seed);
+    expect(moved.universe!.members[0]!.face).toBe('kiwino');
+    // Bob lands on the free face; Alice's face is taken.
+    const bob = ok(
+      await handleGameRequest(as('bob'), {
+        action: 'joinUniverse',
+        code: created.universe!.code,
+        displayName: 'Bob',
+      }),
+    );
+    expect(bob.state.face).toBe('kiwisu');
+    const refused = await handleGameRequest(as('bob'), {
+      action: 'pickFace',
+      universe,
+      face: 'kiwino',
+    });
+    expect(refused.ok).toBe(false);
+    expect(!refused.ok && refused.error).toBe('faceTaken');
+  });
+
+  it('refuses to move a colony that has started, and shows the friend on the twin face', async () => {
+    const { as } = world();
+    const created = ok(
+      await handleGameRequest(as('alice'), {
+        action: 'createUniverse',
+        name: 'Pair',
+        displayName: 'Alice',
+      }),
+    );
+    const universe = created.universe!.id;
+    const tile = findTileForTest(created.state, 'flesh');
+    ok(
+      await handleGameRequest(as('alice'), {
+        action: 'command',
+        universe,
+        command: { type: 'build', buildingType: 'pulpery', q: tile.q, r: tile.r },
+      }),
+    );
+    const refused = await handleGameRequest(as('alice'), {
+      action: 'pickFace',
+      universe,
+      face: 'kiwino',
+    });
+    expect(!refused.ok && refused.error).toBe('forbidden');
+    const bob = ok(
+      await handleGameRequest(as('bob'), {
+        action: 'joinUniverse',
+        code: created.universe!.code,
+        displayName: 'Bob',
+      }),
+    );
+    // Bob sees Alice's layout on the other half of their kiwi (no stocks).
+    expect(bob.twin).toMatchObject({ owner: 'Alice', face: 'kiwisu' });
+    expect(bob.twin!.buildings.map((b) => b.type)).toEqual(['nest']);
+    expect(bob.twin).not.toHaveProperty('resources');
+    const info = ok(await handleGameRequest(as('alice'), { action: 'universeInfo', universe }));
+    expect(info.twin).toMatchObject({ owner: 'Bob', face: 'kiwino' });
   });
 });

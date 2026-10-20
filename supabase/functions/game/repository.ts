@@ -183,6 +183,16 @@ export function createSupabaseRepository(db: SupabaseClient) {
       if (error) fail('addMember', error);
       return true;
     },
+    async moveMember(universeId: string, userId: string, face: string) {
+      const { error } = await db
+        .from('universe_members')
+        .update({ face })
+        .eq('universe_id', universeId)
+        .eq('user_id', userId);
+      if (error?.code === '23505') return false; // unique violation: face taken meanwhile
+      if (error) fail('moveMember', error);
+      return true;
+    },
     async listUserUniverses(userId: string) {
       const { data, error } = await db
         .from('universe_members')

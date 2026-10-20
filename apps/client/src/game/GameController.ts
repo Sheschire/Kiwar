@@ -16,6 +16,7 @@ import {
   type GameState,
   type Resources,
   type ServerError,
+  type TwinSnapshot,
   type UniverseInfo,
   type UniverseSummary,
   universeTargets,
@@ -61,6 +62,8 @@ export interface ControllerListener {
   onAccount(account: Account | null): void;
   /** Shared universe currently played (null = solo). */
   onUniverse(info: UniverseInfo | null): void;
+  /** A friend living on the twin face (shared universes; null = aliens under fog). */
+  onTwin(twin: TwinSnapshot | null): void;
 }
 
 function safeStorage<T>(fn: () => T, fallback: T): T {
@@ -327,6 +330,7 @@ export class GameController {
     this.pending = [];
     this.loadState(res.state);
     this.listener.onUniverse(res.universe ?? null);
+    this.listener.onTwin(res.twin ?? null);
     this.listener.onSync('online');
   }
 
@@ -362,6 +366,7 @@ export class GameController {
       this.setUniverse(res.universe.id, res.universe);
       this.pending = [];
       this.loadState(res.state);
+      this.listener.onTwin(res.twin ?? null);
       return null;
     } catch {
       return 'network';
@@ -399,8 +404,31 @@ export class GameController {
         this.listener.onState(this.state, this.now());
       }
       this.listener.onUniverse(res.universe);
+      this.listener.onTwin(res.twin ?? null);
     } catch {
       // Offline: keep what we have.
+    }
+  }
+
+  /**
+   * Chantier 05: a newcomer to a shared universe moves to the other face of their kiwi (only
+   * while the colony is untouched, and if nobody lives there).
+   */
+  async pickFace(face: Face): Promise<ClientError | null> {
+    if (!this.online || this.universe === 'solo') return 'forbidden';
+    if (this.state?.face === face) return null;
+    if (!(await this.drainPending())) return 'network';
+    try {
+      const res = await this.online.call({ action: 'pickFace', universe: this.universe, face });
+      this.acceptServer(res);
+      if (!res.ok || !res.state) return res.ok ? 'internal' : res.error;
+      this.pending = [];
+      this.loadState(res.state);
+      if (res.universe) this.listener.onUniverse(res.universe);
+      this.listener.onTwin(res.twin ?? null);
+      return null;
+    } catch {
+      return 'network';
     }
   }
 

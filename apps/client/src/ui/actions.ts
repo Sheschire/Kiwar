@@ -6,13 +6,15 @@ import {
   queuedBuildAt,
   TILES,
   type Command,
+  otherFace,
   type Face,
   type Tile,
 } from '@kiwar/shared';
 import type { GameController } from '../game/GameController';
 import type { GameRenderer } from '../render/GameRenderer';
 import { saveQualityChoice, type QualityChoice } from '../render/quality';
-import { uiStore } from './store';
+import { pushToast, uiStore } from './store';
+import { startIntro } from './intro';
 import { audio } from '../audio/engine';
 import { playCommandSound } from '../audio/sounds';
 import type { AudioSettings } from '../audio/settings';
@@ -42,6 +44,30 @@ let renderer: GameRenderer | null = null;
 export function bindActions(c: GameController, r: GameRenderer): void {
   controller = c;
   renderer = r;
+}
+
+/**
+ * A new colony in a shared universe: the intro shows our kiwi; the player keeps the face they
+ * were given or moves to the other one if nobody lives there (chantier 05).
+ */
+function joinIntro(c: GameController): void {
+  const s = c.state;
+  const info = uiStore.getState().universe;
+  const kiwi = Number(s.kiwiId.replace(/^k/, ''));
+  const twin = otherFace(s.face);
+  const holder = info?.members.find((m) => m.kiwiIndex === kiwi && m.face === twin);
+  startIntro({
+    mode: 'join',
+    seed: s.seed,
+    focus: s.face,
+    taken: holder ? { [twin]: holder.displayName } : {},
+    onChoose: (face) => {
+      if (face === s.face) return;
+      void c.pickFace(face).then((err) => {
+        if (err) pushToast('error', `errors.${err}`);
+      });
+    },
+  });
 }
 
 export const actions = {
@@ -144,7 +170,10 @@ export const actions = {
   async enterUniverse(how: { create: string } | { code: string }, displayName: string) {
     saveDisplayName(displayName);
     const error = controller ? await controller.enterUniverse(how, displayName) : 'forbidden';
-    if (!error) uiStore.setState({ modal: 'none', pendingJoin: null, selectedTile: null });
+    if (!error) {
+      uiStore.setState({ modal: 'none', pendingJoin: null, selectedTile: null });
+      if (controller && !controller.hasProgress()) joinIntro(controller);
+    }
     return error;
   },
   refreshUniverse(): void {

@@ -1,18 +1,24 @@
 import type { Color } from 'three';
 import {
+  CanvasTexture,
   CircleGeometry,
   DoubleSide,
+  MeshStandardMaterial,
+  SRGBColorSpace,
+  Sprite,
+  SpriteMaterial,
   Group,
   Mesh,
-  type MeshStandardMaterial,
   ShaderMaterial,
   Vector3,
   type PerspectiveCamera,
 } from 'three';
-import type { FaceMap } from '@kiwar/shared';
+import { getTile, type FaceMap, type TwinSnapshot } from '@kiwar/shared';
+import { buildingGeometry } from './buildingModels';
+import { WaterView, WATER_LEVEL } from './water';
 import { PALETTE } from './palette';
 import { GLSL_NOISE } from './shaderChunks';
-import { TerrainView } from './terrain';
+import { TerrainView, worldPosition } from './terrain';
 
 /**
  * Where the twin floats, relative to the view: just above the top of the frame at the normal
@@ -32,7 +38,8 @@ const FOG_LAYERS = [1.2, 1.9, 2.6];
  * The other half of our kiwi, floating high above the colony (chantier 05). It is only seen
  * when the camera zooms out, leans towards it so its surface shows, and turns slowly. Under
  * fog of war (alien face) only its silhouette is visible: the client never knows what happens
- * there. Rendered without shadows nor props, so it stays cheap on phones.
+ * there. Rendered without shadows nor props, so it stays cheap on phones. When a friend lives
+ * there (shared universe), no fog: their pools, buildings and name show instead.
  */
 export class TwinView {
   readonly group = new Group();
@@ -46,7 +53,11 @@ export class TwinView {
   /** World radius of the twin (for its apparent size). */
   private readonly radius: number;
 
-  constructor(map: FaceMap, opts: { fog: boolean }) {
+  private water: WaterView | null = null;
+  private buildingMaterial: MeshStandardMaterial | null = null;
+  private label: Sprite | null = null;
+
+  constructor(map: FaceMap, opts: { fog: boolean; friend?: TwinSnapshot | null }) {
     this.terrain = new TerrainView(map);
     this.terrain.tiles.castShadow = false;
     this.terrain.tiles.receiveShadow = false;
@@ -107,6 +118,7 @@ export class TwinView {
         this.spin.add(layer);
       }
     }
+    if (opts.friend) this.showFriend(map, opts.friend);
     this.group.add(this.spin);
     this.group.scale.setScalar(SCALE);
   }
@@ -140,6 +152,35 @@ export class TwinView {
     this.fogMaterial.uniforms.uTime!.value = time;
   }
 
+  /** A friend's colony: pools, buildings (static models) and their name above. */
+  private showFriend(map: FaceMap, friend: TwinSnapshot): void {
+    this.water = new WaterView(map, new Vector3(0.4, 1, 0.3));
+    this.terrain.group.add(this.water.mesh);
+    const material = new MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.8,
+      flatShading: true,
+      fog: false,
+    });
+    this.buildingMaterial = material;
+    for (const b of friend.buildings) {
+      const tile = getTile(map, b);
+      if (!tile) continue;
+      const mesh = new Mesh(buildingGeometry(b.type, b.level), material);
+      const p = worldPosition(b);
+      const y = tile.type === 'juice' ? tile.height + WATER_LEVEL - 0.08 : tile.height;
+      mesh.position.set(p.x, y, p.z);
+      mesh.rotation.y = Math.atan2(p.x, p.z) + Math.PI;
+      this.terrain.group.add(mesh);
+    }
+    this.label = nameLabel(friend.owner);
+    // Above the far rim (the group leans towards the camera, its -Z side is up on screen).
+    const e = this.terrain.extent();
+    this.label.position.set(0, 6, -Math.max(e.x, e.z) - 2);
+    this.label.scale.set(16, 4, 1);
+    this.group.add(this.label);
+  }
+
   setSky(cloud: Color, shade: Color): void {
     (this.fogMaterial.uniforms.uCloud!.value as Color).copy(cloud);
     (this.fogMaterial.uniforms.uShade!.value as Color).copy(shade);
@@ -147,9 +188,39 @@ export class TwinView {
 
   dispose(): void {
     this.terrain.dispose();
+    this.water?.dispose();
+    // Building geometries are cached and shared with the colony: only the material goes.
+    this.buildingMaterial?.dispose();
+    if (this.label) {
+      this.label.material.map?.dispose();
+      this.label.material.dispose();
+    }
     for (const layer of this.fog) layer.geometry.dispose();
     this.fogMaterial.dispose();
   }
+}
+
+/** The friend's name, on a parchment ribbon floating above their half. */
+function nameLabel(name: string): Sprite {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
+  const g = canvas.getContext('2d')!;
+  g.fillStyle = 'rgba(246, 234, 208, 0.92)';
+  g.strokeStyle = '#b88a5a';
+  g.lineWidth = 4;
+  g.beginPath();
+  g.roundRect(4, 6, 248, 52, 26);
+  g.fill();
+  g.stroke();
+  g.fillStyle = '#4a3324';
+  g.font = '600 30px Alegreya, Georgia, serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(name.slice(0, 18), 128, 33);
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  return new Sprite(new SpriteMaterial({ map: texture, fog: false, depthTest: false }));
 }
 
 const smoothstep = (x: number) => {

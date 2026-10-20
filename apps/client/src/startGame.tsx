@@ -1,6 +1,12 @@
 // Game entry (loaded by main.tsx unless the admin space is requested).
 import { render } from 'preact';
-import { generateFace, otherFace, twinParams } from '@kiwar/shared';
+import {
+  generateFace,
+  otherFace,
+  twinParams,
+  type GameState,
+  type TwinSnapshot,
+} from '@kiwar/shared';
 import { App } from './ui/App';
 import { GameRenderer } from './render/GameRenderer';
 import { GameController } from './game/GameController';
@@ -45,16 +51,26 @@ const renderer = new GameRenderer(
   qualityChoice,
 );
 
+/** Friend on the twin face, as last reported by the server (shared universes). */
+let friend: TwinSnapshot | null = null;
+let twinKey = '';
+
+/** The other half of our kiwi above us: a friend's colony, or aliens under fog. */
+function showTwin(state: GameState): void {
+  const twinFace = otherFace(state.face);
+  const f = friend?.face === twinFace ? friend : null;
+  const params = f?.params ?? twinParams(state.seed, state.face, state.params);
+  const key = `${state.seed}|${twinFace}|${params.biome}|${f ? `${f.owner}@${f.at}` : 'fog'}`;
+  if (key === twinKey) return;
+  twinKey = key;
+  renderer.setTwin(generateFace(state.seed, twinFace, params), { fog: !f, friend: f });
+}
+
 controller = new GameController({
   onWorld: (map, state) => {
     renderer.setFace(map);
-    renderer.setTwin(
-      generateFace(
-        state.seed,
-        otherFace(state.face),
-        twinParams(state.seed, state.face, state.params),
-      ),
-    );
+    twinKey = '';
+    showTwin(state);
     renderer.setGameState(state);
     uiStore.setState({ map, game: state, selectedTile: null });
   },
@@ -70,10 +86,21 @@ controller = new GameController({
   onOfflineSummary: (summary) => uiStore.setState({ offlineSummary: summary }),
   onSync: (sync) => uiStore.setState({ sync }),
   onAccount: (account) => uiStore.setState({ account }),
-  onUniverse: (universe) => uiStore.setState({ universe }),
+  onUniverse: (universe) => {
+    if (!universe) friend = null;
+    uiStore.setState({ universe });
+  },
+  onTwin: (twin) => {
+    friend = twin;
+    if (controller.state) showTwin(controller.state);
+  },
 });
 bindActions(controller, renderer);
 bindIntro(renderer);
+// Shared universes: refresh friends (and the friend on the twin face) every few minutes.
+window.setInterval(() => {
+  if (uiStore.getState().universe && !document.hidden) void controller.refreshUniverse();
+}, 5 * 60_000);
 installGameAudio(renderer);
 
 // Keep the 3D selection marker in sync with the UI selection.
