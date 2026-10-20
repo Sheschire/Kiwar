@@ -1546,6 +1546,22 @@ var THREATS = {
   /** Wave reports kept for the UI. */
   history: 5
 };
+var SECTOR_IDS = ["front", "left", "right"];
+var FRONT_AZIMUTH = Math.PI;
+var SECTORS = {
+  /** Half the angle of the front sector (the flanks share the rest). */
+  frontHalfAngle: Math.PI / 3,
+  /** How a wave spreads over the sectors: ferrets mostly by the front, bats more scattered. */
+  share: {
+    ground: { front: 0.6, left: 0.2, right: 0.2 },
+    air: { front: 0.4, left: 0.3, right: 0.3 }
+  },
+  /** Share of what breaks through a sector that turns to the least defended flank instead. */
+  overflow: 0.5,
+  /** Range of the turrets in tiles (index = level); sky turrets reach one tile further. */
+  range: [0, 3, 4, 5, 5, 5, 5],
+  skyRangeBonus: 1
+};
 var TURRETS = {
   max: [0, 2, 4, 6, 7, 8, 9]
 };
@@ -4624,6 +4640,83 @@ function waveMix(state, power, at) {
     air: power * air * biome.bats * season.bats
   };
 }
+var perSector = (make) => ({ front: make("front"), left: make("left"), right: make("right") });
+function rampartSectorOf(h) {
+  const p = hexToPixel(h);
+  const a = Math.atan2(p.x, p.y) - FRONT_AZIMUTH;
+  const d = Math.atan2(Math.sin(a), Math.cos(a));
+  if (Math.abs(d) <= SECTORS.frontHalfAngle + 1e-9) return "front";
+  return d > 0 ? "left" : "right";
+}
+var rampartCache = /* @__PURE__ */ new WeakMap();
+function rampartSectors(map) {
+  let r = rampartCache.get(map);
+  if (!r) {
+    const tiles = map.tiles.filter((t) => isRampart(map, t.q, t.r));
+    r = { tiles, sectors: tiles.map(rampartSectorOf) };
+    rampartCache.set(map, r);
+  }
+  return r;
+}
+function turretRange(type, level) {
+  const base = SECTORS.range[Math.min(level, SECTORS.range.length - 1)] ?? 0;
+  return base + (type === "skyTurret" ? SECTORS.skyRangeBonus : 0);
+}
+function coveredRampart(map, type, level, h) {
+  const range2 = turretRange(type, level);
+  const r = rampartSectors(map);
+  const out = [];
+  r.tiles.forEach((tile, i) => {
+    if (hexDistance(tile, h) <= range2) out.push({ tile, sector: r.sectors[i] });
+  });
+  return out;
+}
+var coverageCache = /* @__PURE__ */ new WeakMap();
+function turretCoverage(map, type, level, h) {
+  let cache = coverageCache.get(map);
+  if (!cache) coverageCache.set(map, cache = /* @__PURE__ */ new Map());
+  const key = `${type}|${level}|${h.q},${h.r}`;
+  let c = cache.get(key);
+  if (!c) {
+    const counts = perSector(() => 0);
+    const covered = coveredRampart(map, type, level, h);
+    for (const x of covered) counts[x.sector]++;
+    if (covered.length === 0) counts[rampartSectorOf(h)] = 1;
+    const total = counts.front + counts.left + counts.right;
+    c = perSector((s) => counts[s] / total);
+    cache.set(key, c);
+  }
+  return c;
+}
+function sectorThreat(threat) {
+  return perSector((s) => ({
+    ground: threat.ground * SECTORS.share.ground[s],
+    air: threat.air * SECTORS.share.air[s]
+  }));
+}
+function sectorClash(threat, defense) {
+  const t = sectorThreat(threat);
+  const sectors = perSector((s) => ({
+    threat: t[s],
+    defense: defense[s],
+    through: { ground: 0, air: 0 }
+  }));
+  const through = { ground: 0, air: 0 };
+  for (const side of ["ground", "air"]) {
+    const spare = perSector((s) => Math.max(0, defense[s][side] - t[s][side]));
+    for (const s of SECTOR_IDS) {
+      const excess = Math.max(0, t[s][side] - defense[s][side]);
+      if (excess <= 0) continue;
+      const flanks = SECTOR_IDS.filter((x) => x !== "front" && x !== s);
+      const target = flanks.reduce((a, b) => defense[b][side] < defense[a][side] ? b : a);
+      const absorbed = Math.min(spare[target], SECTORS.overflow * excess);
+      spare[target] -= absorbed;
+      sectors[s].through[side] = excess - absorbed;
+      through[side] += excess - absorbed;
+    }
+  }
+  return { sectors, through };
+}
 function exposedKiwis(state) {
   return state.villagers.filter(
     (v) => v.job.kind === "work" || v.job.kind === "idle" || v.job.kind === "guard"
@@ -4641,7 +4734,9 @@ function guardPower(v, state) {
   return { ground: p * a.ground, air: p * air };
 }
 function defenseOf(state, threat) {
+  const map = faceMapOf(state);
   const turrets = { ground: 0, air: 0 };
+  const sectors = perSector(() => ({ ground: 0, air: 0 }));
   let need = 0;
   for (const b of state.buildings) {
     const def = levelDef(b.type, b.level);
@@ -4653,25 +4748,64 @@ function defenseOf(state, threat) {
     turrets.ground += g * k;
     turrets.air += a * k;
     need += def.ammo ?? 0;
+    const cover = turretCoverage(map, b.type, b.level, b);
+    for (const s of SECTOR_IDS) {
+      sectors[s].ground += g * k * cover[s];
+      sectors[s].air += a * k * cover[s];
+    }
   }
   const have = state.resources.seeds;
   const share = need > 0 ? Math.min(1, have / need) : 1;
   const tech = techEffects(state).turretDefense;
   turrets.ground *= share * tech;
   turrets.air *= share * tech;
-  const garrison = { ground: 0, air: 0 };
-  for (const v of garrisonOf(state)) {
-    const p = guardPower(v, state);
-    garrison.ground += p.ground;
-    garrison.air += p.air;
+  for (const s of SECTOR_IDS) {
+    sectors[s].ground *= share * tech;
+    sectors[s].air *= share * tech;
   }
   let militia = 0;
   for (const v of state.villagers)
     if (v.job.kind === "work" || v.job.kind === "idle")
       militia += THREATS.militia * kiwiStrength(v) * titanPower(state, v);
+  const want = sectorThreat(threat ?? { ground: 1, air: 1 });
+  const gaps = perSector((s) => Math.max(0, want[s].ground - sectors[s].ground));
+  const gapSum = gaps.front + gaps.left + gaps.right;
+  const filled = Math.min(militia, gapSum);
+  for (const s of SECTOR_IDS) {
+    const rest = (militia - filled) * SECTORS.share.ground[s];
+    sectors[s].ground += (gapSum > 0 ? filled * gaps[s] / gapSum : 0) + rest;
+  }
+  const garrison = { ground: 0, air: 0 };
+  const guards = [];
+  for (const v of garrisonOf(state)) {
+    const p = guardPower(v, state);
+    garrison.ground += p.ground;
+    garrison.air += p.air;
+    let best = "front";
+    let bestScore = -Infinity;
+    for (const s of SECTOR_IDS) {
+      const gap = (side) => Math.max(0, want[s][side] - sectors[s][side]);
+      const covered = (side) => want[s][side] > 0 ? sectors[s][side] / want[s][side] : Infinity;
+      const fills = Math.min(p.ground, gap("ground")) + Math.min(p.air, gap("air"));
+      const margin = Math.min(
+        p.ground > 0 ? covered("ground") : Infinity,
+        p.air > 0 ? covered("air") : Infinity
+      );
+      const score = fills > 1e-9 ? 1e6 + fills : -margin;
+      if (score > bestScore + 1e-9) {
+        bestScore = score;
+        best = s;
+      }
+    }
+    sectors[best].ground += p.ground;
+    sectors[best].air += p.air;
+    guards.push({ id: v.id, sector: best });
+  }
   return {
     ground: turrets.ground + garrison.ground + militia,
     air: turrets.air + garrison.air,
+    sectors,
+    guards,
     turrets,
     garrison,
     militia,
@@ -4691,14 +4825,16 @@ function protectedStock(state) {
 }
 function waveOutcome(state, threat, defense, sheltered) {
   const total = threat.ground + threat.air;
-  const groundExcess = Math.max(0, threat.ground - defense.ground);
-  const excess = groundExcess + Math.max(0, threat.air - defense.air);
+  const clash = sectorClash(threat, defense.sectors);
+  const groundExcess = clash.through.ground;
+  const excess = groundExcess + clash.through.air;
   const severity = total > 0 ? Math.min(1, excess / total) : 0;
   const groundSeverity = total > 0 ? Math.min(1, groundExcess / total) : 0;
   const loot = emptyResources();
   if (excess <= 1e-9) {
     return {
       victory: true,
+      sectors: clash.sectors,
       severity: 0,
       groundSeverity: 0,
       damaged: 0,
@@ -4723,7 +4859,17 @@ function waveOutcome(state, threat, defense, sheltered) {
     Math.round(severity * THREATS.injuryShare * techEffects(state).injuries * exposed)
   );
   const pathsLost = Math.min(state.paths.length, Math.round(groundSeverity * THREATS.maxPathsLost));
-  return { victory: false, severity, groundSeverity, damaged, loot, injured, deaths, pathsLost };
+  return {
+    victory: false,
+    sectors: clash.sectors,
+    severity,
+    groundSeverity,
+    damaged,
+    loot,
+    injured,
+    deaths,
+    pathsLost
+  };
 }
 function damageable(state) {
   return state.buildings.filter(
@@ -4736,7 +4882,13 @@ function forecastWave(state) {
   const threat = { ground: wave.ground, air: wave.air };
   const defense = defenseOf(state, threat);
   const L = THREATS.luck;
-  const holds = (k) => threat.ground * k <= defense.ground + 1e-9 && threat.air * k <= defense.air + 1e-9;
+  const holds = (k) => {
+    const through = sectorClash(
+      { ground: threat.ground * k, air: threat.air * k },
+      defense.sectors
+    ).through;
+    return through.ground + through.air <= 1e-9;
+  };
   const odds = holds(1 + L) ? "likely" : holds(1 - L) ? "uncertain" : "unlikely";
   const sheltered = state.threats.shelterUntil >= wave.at;
   const shelterFrom = wave.at - SHELTER.beforeMs;
@@ -11899,6 +12051,7 @@ export {
   EXPEDITIONS,
   FACES,
   FACE_PROFILES,
+  FRONT_AZIMUTH,
   GARRISON,
   HARVESTS,
   HATCHING,
@@ -11945,6 +12098,8 @@ export {
   SCHOOL,
   SEASONS,
   SEASON_MS,
+  SECTORS,
+  SECTOR_IDS,
   SERVER_ERRORS,
   SHELTER,
   SHINY_COLORS,
@@ -12040,6 +12195,7 @@ export {
   consumption,
   copiesOf,
   countTiles,
+  coveredRampart,
   createMemoryRepository,
   createRng,
   crewOf,
@@ -12215,6 +12371,8 @@ export {
   protectedStock,
   publicState,
   queuedBuildAt,
+  rampartSectorOf,
+  rampartSectors,
   rankOf,
   rebaseFreeDeposits,
   reconForecast,
@@ -12245,7 +12403,9 @@ export {
   seasonHarvest,
   seasonOf,
   seasonRegen,
+  sectorClash,
   sectorOf,
+  sectorThreat,
   sendShipment,
   serializeSave,
   shieldArrival,
@@ -12282,7 +12442,9 @@ export {
   trainingDuration,
   travelTime,
   turretCount,
+  turretCoverage,
   turretLimit,
+  turretRange,
   twinParams,
   universeFriends,
   universeTargets,

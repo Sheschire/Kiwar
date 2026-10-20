@@ -20,6 +20,7 @@ import {
   type Command,
   type GameEvent,
   type GameState,
+  type Defense,
 } from '../src';
 import { findTile, kiwi, rich, run, setup, T0 } from './helpers';
 
@@ -169,8 +170,14 @@ describe('research', () => {
       villagers: Array.from({ length: 10 }, (_, i) => kiwi(`c${i}`)),
     });
     const threat = { ground: 400, air: 400 };
+    const zero = { ground: 0, air: 0 };
     const hurt = (st: GameState) =>
-      waveOutcome(crowd(st), threat, { ground: 0, air: 0 }, false).injured;
+      waveOutcome(
+        crowd(st),
+        threat,
+        { ...zero, sectors: { front: zero, left: zero, right: zero } } as Defense,
+        false,
+      ).injured;
     expect(hurt(known('armor'))).toBeLessThan(hurt(s));
   });
 

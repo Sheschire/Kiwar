@@ -70,6 +70,35 @@ export const THREATS = {
   history: 5,
 } as const;
 
+/**
+ * Chantier 12: the waves come mostly from the alien planet. The rampart is cut in three
+ * sectors around the colony: the front (facing the alien planet) and two flanks. A turret
+ * defends the rampart within its range; the garrison goes where defense is missing.
+ */
+export const SECTOR_IDS = ['front', 'left', 'right'] as const;
+export type SectorId = (typeof SECTOR_IDS)[number];
+
+/**
+ * Direction of the alien planet, the same on every face: an azimuth in the plane of the face
+ * (direction (sin a, cos a) in `hexToPixel` coordinates, which the client draws as (x, z)).
+ */
+export const FRONT_AZIMUTH = Math.PI;
+
+export const SECTORS = {
+  /** Half the angle of the front sector (the flanks share the rest). */
+  frontHalfAngle: Math.PI / 3,
+  /** How a wave spreads over the sectors: ferrets mostly by the front, bats more scattered. */
+  share: {
+    ground: { front: 0.6, left: 0.2, right: 0.2 },
+    air: { front: 0.4, left: 0.3, right: 0.3 },
+  } satisfies Record<'ground' | 'air', Record<SectorId, number>>,
+  /** Share of what breaks through a sector that turns to the least defended flank instead. */
+  overflow: 0.5,
+  /** Range of the turrets in tiles (index = level); sky turrets reach one tile further. */
+  range: [0, 3, 4, 5, 5, 5, 5] as readonly number[],
+  skyRangeBonus: 1,
+} as const;
+
 /** Turrets (both models together) allowed by Nest level (index = level). */
 export const TURRETS = {
   max: [0, 2, 4, 6, 7, 8, 9] as readonly number[],

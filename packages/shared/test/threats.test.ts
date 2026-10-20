@@ -7,6 +7,14 @@ import {
   defenseOf,
   guardPower,
   isRampart,
+  FRONT_AZIMUTH,
+  hexToPixel,
+  rampartSectors,
+  sectorClash,
+  SECTORS,
+  turretCoverage,
+  type FaceMap,
+  type SectorId,
   turretCount,
   TURRETS,
   forecastWave,
@@ -24,6 +32,28 @@ import {
 import { findTile, kiwi, rich, run, setup, T0 } from './helpers';
 
 const DAY = 24 * HOUR_MS;
+
+/** Angle of a tile from the front, in (−π, π]. */
+function offset(h: { q: number; r: number }): number {
+  const p = hexToPixel(h);
+  const a = Math.atan2(p.x, p.y) - FRONT_AZIMUTH;
+  return Math.atan2(Math.sin(a), Math.cos(a));
+}
+
+/** The k-th rampart tile from the middle of a sector (every few tiles). */
+function middleOf(map: FaceMap, sector: SectorId, k: number) {
+  const centre = { front: 0, left: (2 * Math.PI) / 3, right: (-2 * Math.PI) / 3 }[sector];
+  return rampartAt(map, centre, sector, k * 3);
+}
+
+/** The n-th closest rampart tile of a sector to an angle from the front. */
+function rampartAt(map: FaceMap, angle: number, sector: SectorId, n = 0) {
+  const r = rampartSectors(map);
+  const tiles = r.tiles
+    .filter((_, i) => r.sectors[i] === sector)
+    .sort((a, b) => Math.abs(offset(a) - angle) - Math.abs(offset(b) - angle));
+  return tiles[n]!;
+}
 
 /** A small colony with a level-2 Nest, a few producers and eight kiwis. */
 function colony() {
@@ -296,10 +326,19 @@ describe('defenses', () => {
     const { map, state } = colony();
     let s = rich(state);
     s.buildings[0]!.level = 3;
-    const spots = map.tiles.filter((t) => isRampart(map, t.q, t.r));
-    for (let i = 0; i < 6; i++) {
-      const t = spots[i * 5]!;
-      const type = i % 2 === 0 ? 'seedTurret' : 'skyTurret';
+    // Chantier 12: turrets where the predators come (mostly by the front).
+    // Ferrets: two turrets at the front, one on each flank; bats: two turrets where the front
+    // meets a flank (each covers both).
+    const edge = SECTORS.frontHalfAngle;
+    const plan = [
+      ['seedTurret', middleOf(map, 'front', 0)],
+      ['seedTurret', middleOf(map, 'front', 1)],
+      ['seedTurret', middleOf(map, 'left', 0)],
+      ['seedTurret', middleOf(map, 'right', 0)],
+      ['skyTurret', rampartAt(map, edge, 'front')],
+      ['skyTurret', rampartAt(map, -edge, 'front')],
+    ] as const;
+    for (const [type, t] of plan) {
       s = run(s, { type: 'build', buildingType: type, q: t.q, r: t.r }, s.now, map);
       s = advance(s, s.now + 10 * 60_000).state;
     }
@@ -315,6 +354,89 @@ describe('defenses', () => {
     expect(report.ammoUsed).toBeLessThanOrEqual(f.defense.ammo.need);
     expect(after.resources.seeds).toBeLessThan(seeds);
     expect(after.threats.shieldUntil).toBe(0);
+  });
+});
+
+describe('sectors and range (chantier 12)', () => {
+  it('cuts the rampart in a front facing the alien planet and two flanks', () => {
+    const { map } = setup();
+    const r = rampartSectors(map);
+    expect(r.tiles.length).toBeGreaterThan(30);
+    const count = (s: SectorId) => r.sectors.filter((x) => x === s).length;
+    for (const s of ['front', 'left', 'right'] as const)
+      expect(count(s) / r.tiles.length).toBeGreaterThan(0.25);
+    r.tiles.forEach((t, i) => {
+      const d = Math.abs(offset(t));
+      expect(r.sectors[i] === 'front').toBe(d <= SECTORS.frontHalfAngle + 1e-9);
+    });
+    // Memoized per map.
+    expect(rampartSectors(map)).toBe(r);
+  });
+
+  it('a turret defends the rampart within its range only', () => {
+    const { map } = setup();
+    const front = middleOf(map, 'front', 0);
+    const flank = middleOf(map, 'right', 0);
+    expect(turretCoverage(map, 'seedTurret', 1, front).front).toBe(1);
+    expect(turretCoverage(map, 'seedTurret', 1, flank).front).toBe(0);
+    const c = turretCoverage(map, 'skyTurret', 3, flank);
+    expect(c.front + c.left + c.right).toBeCloseTo(1, 9);
+  });
+
+  it('what breaks through turns partly to the weakest flank', () => {
+    const zero = { ground: 0, air: 0 };
+    const threat = { ground: 10, air: 0 };
+    // The front stops nothing (6 through); the weakest flank (right) has nothing to spare.
+    let r = sectorClash(threat, {
+      front: zero,
+      left: { ground: 20, air: 0 },
+      right: { ground: 2, air: 0 },
+    });
+    expect(r.through.ground).toBeCloseTo(6, 9);
+    // With 3 to spare on the right, half of the front's excess (3) is stopped there.
+    r = sectorClash(threat, {
+      front: zero,
+      left: { ground: 20, air: 0 },
+      right: { ground: 5, air: 0 },
+    });
+    expect(r.through.ground).toBeCloseTo(3, 9);
+    expect(r.sectors.front.through.ground).toBeCloseTo(3, 9);
+    expect(r.sectors.front.threat.ground).toBeCloseTo(6, 9);
+  });
+
+  it('turrets far from the front show in the forecast, the garrison fills the gap', () => {
+    const { map, state } = colony();
+    const build = (sector: SectorId) => {
+      let s = rich(state);
+      s.buildings[0]!.level = 3;
+      for (const k of [0, 1, 2]) {
+        const t = middleOf(map, sector, k);
+        s = run(s, { type: 'build', buildingType: 'seedTurret', q: t.q, r: t.r }, s.now, map);
+        s = advance(s, s.now + 10 * 60_000).state;
+      }
+      s = { ...s, resources: { pulp: 1500, fiber: 1500, seeds: 1500, juice: 1500 } };
+      s.threats.next = {
+        id: 'w1',
+        announceAt: s.now - 1,
+        at: s.now + HOUR_MS,
+        announced: true,
+        ground: 30,
+        air: 0,
+      };
+      return s;
+    };
+    const atFront = forecastWave(build('front'))!;
+    const onFlank = forecastWave(build('right'))!;
+    expect(atFront.defense.ground).toBeCloseTo(onFlank.defense.ground, 9);
+    expect(atFront.defense.sectors.front.ground).toBeGreaterThan(
+      onFlank.defense.sectors.front.ground,
+    );
+    expect(onFlank.expected.severity).toBeGreaterThan(atFront.expected.severity);
+    // A guard goes where defense is missing (the front, for the misplaced turrets).
+    let s = build('right');
+    const id = s.villagers.find((v) => v.job.kind === 'idle' || v.job.kind === 'work')!.id;
+    s = run(s, { type: 'setGarrison', villagerIds: [id] }, s.now, map);
+    expect(defenseOf(s, { ground: 30, air: 0 }).guards).toEqual([{ id, sector: 'front' }]);
   });
 });
 

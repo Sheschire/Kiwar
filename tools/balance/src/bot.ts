@@ -31,6 +31,7 @@ import {
   kikiwiwiWeak,
   laboratoryOf,
   obstacleAt,
+  OBSTACLE_RULES,
   techEffects,
   titanAt,
   HARVESTS,
@@ -55,6 +56,11 @@ import {
   queuedBuildAt,
   RESOURCE_IDS,
   forecastWave,
+  defenseOf,
+  sectorClash,
+  SECTOR_IDS,
+  SECTORS,
+  turretCoverage,
   garrisonOf,
   guardPower,
   isRampart,
@@ -145,6 +151,10 @@ function bestTile(state: GameState, map: FaceMap, type: BuildingType): Tile | nu
   // Huts: each producer's walk to its nearest home today.
   const homes = state.buildings.filter((b) => b.type === 'hut' || b.type === 'nest');
   const homeWalk = producers.map((p) => Math.min(...homes.map((h) => hexDistance(p, h))));
+  // Turrets (chantier 12): where the sectors lack defense against their share of a wave.
+  const side = type === 'skyTurret' ? 'air' : 'ground';
+  const sectors = isTurret(type) ? defenseOf(state).sectors : null;
+  const unit = isTurret(type) ? (levelDef(type, 1)?.defense?.[side] ?? 1) : 1;
   for (const t of map.tiles) {
     if (!BUILDINGS[type].allowedTiles.includes(t.type)) continue;
     if (buildingAt(state, t.q, t.r) || queuedBuildAt(state, t.q, t.r)) continue;
@@ -154,7 +164,12 @@ function bestTile(state: GameState, map: FaceMap, type: BuildingType): Tile | nu
     // A sensible player keeps clear of the floodable shores (lagoons).
     if (t.flood) continue;
     let score: number;
-    if (HARVESTS[type]) {
+    if (sectors) {
+      const cover = turretCoverage(map, type, 1, t);
+      score = 0;
+      for (const s of SECTOR_IDS)
+        score += (cover[s] * SECTORS.share[side][s]) / (1 + sectors[s][side] / unit);
+    } else if (HARVESTS[type]) {
       const now = catchmentPreview(state, map, type, t, 1).regen;
       const later = catchmentPreview(state, map, type, t, 3).regen;
       score = (now + 0.5 * later) * logisticsEfficiency(depotDistance(state, map, t));
@@ -384,23 +399,47 @@ function defenseOrders(state: GameState): Command[] {
   const posted = garrisonOf(state).map((v) => v.id);
   const want: VillagerId[] = [];
   if (f && f.wave.at - state.now <= GUARD_LEAD_MS) {
-    const need = {
-      ground: f.threat.ground * 1.15 - (f.defense.ground - f.defense.garrison.ground),
-      air: f.threat.air * 1.15 - (f.defense.air - f.defense.garrison.air),
+    // Chantier 12: post kiwis one by one, each time the one that stops the most of what still
+    // breaks through somewhere (the garrison goes to the sector that needs it).
+    const threat = { ground: f.threat.ground * 1.15, air: f.threat.air * 1.15 };
+    const through = (ids: readonly VillagerId[]) => {
+      const set = new Set<string>(ids);
+      const s: GameState = {
+        ...state,
+        villagers: state.villagers.map((v) =>
+          set.has(v.id)
+            ? { ...v, job: { kind: 'guard' as const } }
+            : v.job.kind === 'guard'
+              ? { ...v, job: { kind: 'idle' as const } }
+              : v,
+        ),
+      };
+      const t = sectorClash(threat, defenseOf(s, f.threat).sectors).through;
+      return t.ground + t.air;
     };
     const pool = state.villagers
       .filter((v) => v.job.kind === 'work' || v.job.kind === 'idle' || v.job.kind === 'guard')
-      .map((v) => ({ id: v.id, p: guardPower(v, state) }));
+      .filter((v) => {
+        const p = guardPower(v, state);
+        return p.ground + p.air > 0;
+      })
+      .map((v) => v.id as VillagerId);
     const max = Math.floor(state.villagers.length / 2);
-    for (const side of ['air', 'ground'] as const) {
-      pool.sort((a, b) => b.p[side] - a.p[side]);
-      for (const k of pool) {
-        if (need[side] <= 0 || want.length >= max) break;
-        if (k.p[side] <= 0 || want.includes(k.id)) continue;
-        want.push(k.id);
-        need.ground -= k.p.ground;
-        need.air -= k.p.air;
+    let left = through(want);
+    while (left > 1e-9 && want.length < max) {
+      let best: VillagerId | null = null;
+      let bestLeft = left;
+      for (const id of pool) {
+        if (want.includes(id)) continue;
+        const l = through([...want, id]);
+        if (l < bestLeft - 1e-9) {
+          bestLeft = l;
+          best = id;
+        }
       }
+      if (!best) break;
+      want.push(best);
+      left = bestLeft;
     }
   }
   const out: Command[] = [];
@@ -434,13 +473,22 @@ function turretDecision(
     if (!turrets.some((b) => b.type === type) && turretCount(state) < turretLimit(state))
       return affordable(build(type));
   }
+  // Strengthen the side that breaks through (sector by sector, chantier 12): the announced
+  // wave at bad luck (turrets only: guards come later), else the last lost one.
+  const f = forecastWave(state);
   const last = state.threats.reports.at(-1);
-  if (!last || last.victory) return null;
-  // Strengthen the side that broke.
-  const type =
-    last.threat.air - last.defense.air > last.threat.ground - last.defense.ground
-      ? 'skyTurret'
-      : 'seedTurret';
+  const threat = f
+    ? { ground: f.threat.ground * 1.15, air: f.threat.air * 1.15 }
+    : last && !last.victory
+      ? last.threat
+      : null;
+  if (!threat) return null;
+  const through = sectorClash(threat, defenseOf(state, threat).sectors).through;
+  if (through.ground + through.air <= 1e-9) return null;
+  const type = through.air > through.ground ? 'skyTurret' : 'seedTurret';
+  // A sector without any turret of that model needs a new one more than an upgrade.
+  if (turretCount(state) < turretLimit(state) && sectorWithout(state, type))
+    return affordable(build(type));
   const weakest = turrets
     .filter((b) => b.type === type && upgradeOk(state, b) && !pendingUpgrade(state, b.id))
     .sort((a, b) => a.level - b.level)[0];
@@ -448,6 +496,18 @@ function turretDecision(
     return affordable({ type: 'upgrade', buildingId: weakest.id });
   if (turretCount(state) < turretLimit(state)) return affordable(build(type));
   return null;
+}
+
+/** Whether a sector gets no fire at all from turrets of this model (chantier 12). */
+function sectorWithout(state: GameState, type: 'seedTurret' | 'skyTurret'): boolean {
+  const map = faceMapOf(state);
+  const cover = { front: 0, left: 0, right: 0 };
+  for (const b of state.buildings) {
+    if (b.type !== type) continue;
+    const c = turretCoverage(map, b.type, b.level, b);
+    for (const sec of SECTOR_IDS) cover[sec] += c[sec];
+  }
+  return SECTOR_IDS.some((sec) => cover[sec] < 0.05);
 }
 
 /** Whether production (gross, by day) covers the meals of one more kiwi, with a margin. */
@@ -586,7 +646,10 @@ function labDecision(
   if (techEffects(state).laboratory && !has('lab')) {
     if (canAfford(state.resources, buildCost(state, 'lab'))) return build('lab');
   }
-  if (state.queue.length === 0 && nest(state).level >= 2 && state.resources.pulp >= 400) {
+  // A stump costs a few meals (40 pulp): any colony can afford it (chantier 12: a 400 pulp
+  // threshold made only pulp-rich biomes clear them, and their fiber loot sped up the Nest 3).
+  const meals = (OBSTACLE_RULES.clearCost.pulp ?? 0) * 2;
+  if (state.queue.length === 0 && nest(state).level >= 2 && state.resources.pulp >= meals) {
     const stump = state.obstacles
       .filter((o) => o.kind === 'stump')
       .sort((a, b) => hexDistance(a, HEART) - hexDistance(b, HEART))[0];
