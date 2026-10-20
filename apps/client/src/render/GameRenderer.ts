@@ -155,8 +155,7 @@ export class GameRenderer {
   ) {
     this.renderer = new WebGLRenderer({
       canvas,
-      // Integrated GPUs: hardware MSAA of the whole canvas costs too much fill rate.
-      antialias: !this.integrated,
+      antialias: true,
       powerPreference: 'high-performance',
       stencil: false,
     });

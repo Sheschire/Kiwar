@@ -20,7 +20,7 @@ describe('pixelRatioFor', () => {
   });
 
   it('caps integrated GPUs', () => {
-    expect(pixelRatioFor(QUALITY.medium, 1280, 800, 2, true)).toBe(1);
+    expect(pixelRatioFor(QUALITY.medium, 1280, 800, 2, true)).toBe(1.25);
     expect(isIntegratedGpu('ANGLE (Intel Inc., Intel(R) Iris(TM) Pro Graphics 6200)')).toBe(true);
     expect(isIntegratedGpu('Intel(R) Iris(R) Xe Graphics')).toBe(false);
     expect(isIntegratedGpu('NVIDIA GeForce RTX 3070')).toBe(false);

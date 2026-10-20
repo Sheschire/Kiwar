@@ -901,6 +901,9 @@ worker); terraforming at launch: **dig a juice spring, raise a terrace, flatten*
 - **Furry intro kiwi** (owner: more realistic hairs): shell fur (`addFurShells`, 14 layers,
   6 % of the radius, one hair per warped 3D grid cell, dark roots and tan tips, hairs leaning
   along the fruit) on the whole kiwi and, during the intro only, on the two halves' domes.
+- **Reverted** (owner: "less smooth and less sharp, jagged pixels" with the screenshot): the
+  ratio of 1 and the canvas without MSAA for integrated GPUs. Back to MSAA and a ratio capped
+  at 1.25. Kept: auto low for them, plain PCF shadows in low/medium, 3D stopped behind menus.
 
 ## Chantier 11 — Construction readability (icons, before/after, building tree)
 

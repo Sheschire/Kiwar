@@ -106,8 +106,8 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   profile, use CDP `Profiler.start/stop` from Playwright and sum self/inclusive time per
   function (the hot path shows up immediately).
 - Rendering: `pixelRatioFor` (quality.ts) caps device pixels per preset (`pixelBudget`) and
-  integrated Intel GPUs (`isIntegratedGpu`) at 1, recomputed on resize; those also get the low
-  preset in auto and no canvas MSAA. Soft shadows only in high (`softShadows`). While a modal
+  integrated Intel GPUs (`isIntegratedGpu`) at 1.25, recomputed on resize; those also get the
+  low preset in auto (a ratio of 1 without canvas MSAA looked jagged to the owner: keep MSAA). Soft shadows only in high (`softShadows`). While a modal
   is open the renderer stops drawing after two frames (`setBackground`). No
   `backdrop-filter` over the canvas. Real measure (Iris Pro, 2015 MacBook Pro): GPU-bound,
   low 58 fps, medium 37, high 22, JS ≤ 5.5 ms per frame.

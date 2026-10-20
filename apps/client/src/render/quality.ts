@@ -147,10 +147,10 @@ export function detectQuality(): QualityPreset {
 }
 
 /**
- * Integrated GPUs of older laptops (e.g. a 2015 MacBook Pro, Iris Pro: 58 fps in low at a
- * ratio of 1.2, 37 in medium): one device pixel per CSS pixel.
+ * Integrated GPUs of older laptops (e.g. a 2015 MacBook Pro, Iris Pro): a lower pixel ratio.
+ * A ratio of 1 without canvas MSAA was tried and looked jagged (owner): 1.25 with MSAA.
  */
-export const INTEGRATED_MAX_PIXEL_RATIO = 1;
+export const INTEGRATED_MAX_PIXEL_RATIO = 1.25;
 
 export function isIntegratedGpu(gpu: string): boolean {
   const g = gpu.toLowerCase();
