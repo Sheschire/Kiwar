@@ -2,6 +2,7 @@
 // state at every tick and never mutates a state it has emitted, so a WeakMap keyed on it
 // computes each number once per tick for the interface and the 3D views together.
 import {
+  bedsOf as sharedBedsOf,
   buildingHarvest,
   consumption as sharedConsumption,
   emptyResources,
@@ -26,6 +27,9 @@ export function perGame<R>(fn: (state: GameState) => R): (state: GameState) => R
 }
 
 export const consumption = perGame(sharedConsumption);
+
+/** Beds of the kiwis (default map of the state). */
+export const bedsOf = perGame((state) => sharedBedsOf(state));
 
 /** Which stocks are full and cannot grow (lazy inside, like the shared check). */
 export const storageFull = perGame((state) => storageFullCheck(state));

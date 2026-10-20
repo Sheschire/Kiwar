@@ -44,7 +44,6 @@ import {
   type Villager,
   type VillagerId,
   seasonOf,
-  bedsOf,
   kiwiRhythm,
   type KiwiRhythm,
   nearestDepotOf,
@@ -55,9 +54,11 @@ import { findPath } from './pathfinding';
 import { TitansView } from './kikiwiwi';
 import { DropLabels } from './dropLabels';
 import { WATER_LEVEL } from './water';
-import { harvestOf } from '../game/perState';
+import { bedsOf, harvestOf } from '../game/perState';
 
 const MAX_KIWIS = 64;
+/** Path searches (A*) per frame; the other kiwis decide on the next frames. */
+const MAX_PATHS_PER_FRAME = 6;
 /** A Kikiwiwi stands this much taller than its kiwi self. */
 const TITAN_SIZE = 1.6;
 const WALK_SPEED = 1.15; // world units per second
@@ -276,6 +277,12 @@ export class KiwisView {
   private readonly agents = new Map<VillagerId, Agent>();
   private readonly outfits = new Map<ClassId, InstancedMesh>();
   private readonly classOf = new Map<VillagerId, ClassId | null>();
+  /** Villagers of the last state by id (rebuilt by `sync`, read every frame). */
+  private villagers = new Map<VillagerId, Villager>();
+  /** Instances used per outfit mesh this frame (reused, not reallocated). */
+  private readonly outfitCount = new Map<InstancedMesh, number>();
+  /** Path searches started this frame (`walkTo`), capped so a nightfall spreads its replans. */
+  private pathsThisFrame = 0;
   private readonly ring: Mesh;
   /** Kikiwiwis have their own animated models (chantier 08). */
   private readonly titans = new TitansView();
@@ -358,8 +365,9 @@ export class KiwisView {
     if (state.paths.length !== this.paths.size || state.paths.some((k) => !this.paths.has(k)))
       this.paths = new Set(state.paths);
     this.state = state;
-    const ids = new Set(state.villagers.map((v) => v.id));
-    for (const id of this.agents.keys()) if (!ids.has(id)) this.agents.delete(id);
+    this.villagers = new Map(state.villagers.map((v) => [v.id, v]));
+    for (const id of this.agents.keys()) if (!this.villagers.has(id)) this.agents.delete(id);
+    this.titans.keep(new Set(state.villagers.filter((v) => v.kikiwiwi).map((v) => v.id)));
     this.classOf.clear();
     for (const v of state.villagers) {
       this.classOf.set(v.id, v.classId);
@@ -400,7 +408,8 @@ export class KiwisView {
       spawn: 0,
       rng,
       rhythm: 'work',
-      rhythmTimer: 0,
+      // Spread over a second, so all the kiwis do not reconsider their rhythm in one frame.
+      rhythmTimer: rng.range(0, 1),
       inside: false,
     };
   }
@@ -441,6 +450,7 @@ export class KiwisView {
   private walkTo(agent: Agent, target: Hex, spread = 0.35): void {
     const from = this.hexAt(agent.pos);
     const season = this.state ? seasonOf(this.state) : 'spring';
+    this.pathsThisFrame++;
     const hexes = findPath(this.map, from, target, this.paths, season) ?? [from, target];
     const pts: Vector3[] = [];
     const speeds: number[] = [];
@@ -697,10 +707,12 @@ export class KiwisView {
 
   update(dt: number, time: number, now: number): void {
     if (!this.state) return;
-    const villagers = new Map(this.state.villagers.map((v) => [v.id, v]));
-    const outfitCounts = new Map([...this.outfits.values()].map((mesh) => [mesh, { n: 0 }]));
+    const villagers = this.villagers;
+    const outfitCount = this.outfitCount;
+    for (const mesh of this.outfits.values()) outfitCount.set(mesh, 0);
     const weak = this.state.resources.juice <= 1e-6;
-    this.titans.keep(new Set(this.state.villagers.filter((v) => v.kikiwiwi).map((v) => v.id)));
+    const beds = bedsOf(this.state);
+    this.pathsThisFrame = 0;
     this.titans.update(dt, weak);
     this.drops.update(dt);
     let i = 0;
@@ -716,10 +728,11 @@ export class KiwisView {
       agent.rhythmTimer -= dt;
       if (agent.rhythmTimer <= 0) {
         agent.rhythmTimer = 1;
-        agent.rhythm = kiwiRhythm(this.state, villager, now).rhythm;
+        agent.rhythm = kiwiRhythm(this.state, villager, now, beds).rhythm;
       }
       agent.spawn = Math.min(1, agent.spawn + dt * 2);
-      this.think(agent, villager);
+      // Past a few path searches, the others think next frame (no visible delay).
+      if (this.pathsThisFrame < MAX_PATHS_PER_FRAME) this.think(agent, villager);
       // Asleep inside its hut: not drawn.
       if (agent.inside) {
         this.titans.hide(agent.id);
@@ -802,6 +815,8 @@ export class KiwisView {
 
       const sc = agent.scale * (0.4 + 0.6 * easeOutBack(agent.spawn));
       const legLift = 0.13 * sc;
+      const cosH = Math.cos(agent.heading);
+      const sinH = Math.sin(agent.heading);
       this.e.set(pitch, agent.heading + yawWobble, roll, 'YXZ');
       this.q.setFromEuler(this.e);
       this.v.set(agent.pos.x, agent.pos.y + legLift * 0.85 + bob, agent.pos.z);
@@ -811,18 +826,25 @@ export class KiwisView {
       this.bodies.setColorAt(i, agent.tint);
       const cls = this.classOf.get(agent.id);
       const outfit = cls ? this.outfits.get(cls) : undefined;
-      if (outfit) outfit.setMatrixAt(outfitCounts.get(outfit)!.n++, this.m);
+      if (outfit) {
+        const n = outfitCount.get(outfit) ?? 0;
+        outfit.setMatrixAt(n, this.m);
+        outfitCount.set(outfit, n + 1);
+      }
 
       // Legs swing alternately.
       for (let l = 0; l < 2; l++) {
         const side = l === 0 ? 1 : -1;
         const swing = moving ? Math.sin(ph + l * Math.PI) * 0.7 : 0;
-        const offset = new Vector3(0.06 * side * sc, legLift * 0.9 + bob, 0).applyEuler(
-          new Euler(0, agent.heading, 0),
-        );
+        // The hip offset turned with the heading (a rotation about Y, without allocating).
+        const hip = 0.06 * side * sc;
         this.e.set(swing, agent.heading, 0, 'YXZ');
         this.q.setFromEuler(this.e);
-        this.v.set(agent.pos.x + offset.x, agent.pos.y + offset.y, agent.pos.z + offset.z);
+        this.v.set(
+          agent.pos.x + hip * cosH,
+          agent.pos.y + legLift * 0.9 + bob,
+          agent.pos.z - hip * sinH,
+        );
         this.m.compose(this.v, this.q, this.s);
         this.legs.setMatrixAt(i * 2 + l, this.m);
       }
@@ -836,11 +858,13 @@ export class KiwisView {
 
       // Load carried on the back.
       if (agent.carrying) {
-        const back = new Vector3(0, 0.36 * sc + legLift * 0.85 + bob, -0.06 * sc).applyEuler(
-          new Euler(0, agent.heading, 0),
-        );
+        const back = -0.06 * sc;
         this.m.compose(
-          this.v.set(agent.pos.x + back.x, agent.pos.y + back.y, agent.pos.z + back.z),
+          this.v.set(
+            agent.pos.x + back * sinH,
+            agent.pos.y + 0.36 * sc + legLift * 0.85 + bob,
+            agent.pos.z + back * cosH,
+          ),
           this.q.identity(),
           this.s.set(sc, sc, sc),
         );
@@ -851,8 +875,8 @@ export class KiwisView {
       this.loads.setMatrixAt(i, this.m);
       i++;
     }
-    for (const [mesh, c] of outfitCounts) {
-      mesh.count = c.n;
+    for (const [mesh, n] of outfitCount) {
+      mesh.count = n;
       mesh.instanceMatrix.needsUpdate = true;
     }
     const lit = this.highlightId ? this.agents.get(this.highlightId as VillagerId) : undefined;

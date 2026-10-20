@@ -2723,14 +2723,14 @@ function phaseOf(id3) {
   h ^= h >>> 16;
   return (h >>> 0) / 2 ** 32;
 }
-function kiwiRhythm(state, v, t) {
+function kiwiRhythm(state, v, t, beds) {
   const seed = phaseOf(v.id);
   const c = calendarAt(state.calendarStart, t);
   if (c.night && (seed < 1 - CYCLES.nightWork || v.trait === "earlyBird")) {
     const slept = (t - c.nightAt) / Math.max(1, c.dawnAt - c.nightAt);
     return { rhythm: "sleep", fatigue: Math.max(0.05, 0.6 - 0.55 * slept) };
   }
-  const p = presence(state, v);
+  const p = presence(state, v, beds ? beds.get(v.id) : void 0);
   const x = ((t + seed * REST.cycleMs) % REST.cycleMs + REST.cycleMs) % REST.cycleMs;
   const k = x / REST.cycleMs;
   if (k < p) return { rhythm: "work", fatigue: 0.15 + 0.75 * (k / p) };

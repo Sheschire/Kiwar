@@ -2,7 +2,6 @@
 // tick (and never mutates a state it has emitted), so a WeakMap keyed on it computes each
 // number once per tick, however many components and selectors ask for it.
 import {
-  bedsOf as sharedBedsOf,
   capacity as sharedCapacity,
   forecastWave as sharedForecastWave,
   defenseOf as sharedDefenseOf,
@@ -17,10 +16,11 @@ import {
   staffing as sharedStaffing,
 } from '@kiwar/shared';
 
-import { perGame } from '../game/perState';
+import { bedsOf, perGame } from '../game/perState';
 
 // The harvest-based numbers are shared with the 3D views (`game/perState.ts`).
 export {
+  bedsOf,
   consumption,
   harvestOf,
   netRates,
@@ -41,7 +41,5 @@ export const defenseNow = perGame((state) => sharedDefenseOf(state));
 export const researchPerHour = perGame(sharedResearchPerHour);
 /** Workers by kind of post, kiwis without a post, free places (chantier 09). */
 export const staffing = perGame(sharedStaffing);
-/** Beds of the kiwis (default map of the state). */
-export const bedsOf = perGame((state) => sharedBedsOf(state));
 export const moraleOf = perGame((state) => sharedMoraleOf(state, bedsOf(state)));
 export const missingBeds = perGame((state) => sharedMissingBeds(state, bedsOf(state)));

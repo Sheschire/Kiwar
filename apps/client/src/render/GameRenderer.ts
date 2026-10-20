@@ -1,5 +1,4 @@
 import {
-  Clock,
   Fog,
   NeutralToneMapping,
   NoToneMapping,
@@ -156,7 +155,8 @@ export class GameRenderer {
   private lastState: GameState | null = null;
   private postfx: PostFx | null = null;
   private map: FaceMap | null = null;
-  private readonly clock = new Clock();
+  /** Timestamp of the last drawn frame (the browser's frame clock, ms). */
+  private lastDrawTime = 0;
   private readonly resizeObserver: ResizeObserver;
   private elapsed = 0;
   private hoverPoint: { x: number; y: number } | null = null;
@@ -253,7 +253,7 @@ export class GameRenderer {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas);
     this.resize();
-    this.renderer.setAnimationLoop(() => this.frame());
+    this.renderer.setAnimationLoop((time) => this.frame(time));
   }
 
   get qualityPreset(): QualityPreset {
@@ -834,7 +834,7 @@ export class GameRenderer {
   private background = false;
   private backgroundFrames = 0;
 
-  private frame(): void {
+  private frame(time: number): void {
     const start = performance.now();
     if (this.background && !this.intro) {
       if (this.backgroundFrames <= 0) {
@@ -851,7 +851,7 @@ export class GameRenderer {
     }
     this.lastFrameAt = start;
     this.renderer.info.reset();
-    this.drawFrame();
+    this.drawFrame(time);
     this.lastCpu = performance.now() - start;
     this.runAfterFrame();
   }
@@ -868,8 +868,12 @@ export class GameRenderer {
   private lastCpu = 0;
   private lastAzimuth = NaN;
 
-  private drawFrame(): void {
-    const dt = Math.min(this.clock.getDelta(), 0.1);
+  private drawFrame(time: number): void {
+    // The browser's frame timestamp (aligned on the display), not the clock read mid-callback:
+    // the camera smoothing gets even steps.
+    const dt =
+      this.lastDrawTime > 0 ? Math.min(Math.max(0, time - this.lastDrawTime) / 1000, 0.1) : 0;
+    this.lastDrawTime = time;
     this.elapsed += dt;
     const intro = this.intro;
     if (intro) {
