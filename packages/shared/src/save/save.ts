@@ -48,6 +48,7 @@ const job = z.discriminatedUnion('kind', [
     until: z.number(),
     paid: partialResources,
   }),
+  z.object({ kind: z.literal('guard') }),
   z.object({ kind: z.literal('injured'), until: z.number() }),
 ]);
 

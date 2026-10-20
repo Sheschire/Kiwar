@@ -63,7 +63,11 @@ export function bedsOf(state: GameState, map: FaceMap = faceMapOf(state)): Map<V
             ? `${v.id}t${j.schoolId};`
             : j.kind === 'idle'
               ? `${v.id}i;`
-              : '';
+              : j.kind === 'guard'
+                ? `${v.id}g;`
+                : j.kind === 'injured'
+                  ? `${v.id}h;`
+                  : '';
   }
   key += `|${state.paths.join(';')}`;
   const cached = bedCache.get(key);

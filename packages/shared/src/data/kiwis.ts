@@ -78,7 +78,7 @@ export const KIWI = {
   traitChance: 0.3,
   maxLevel: 30,
   /** Experience per hour by activity (idle and travelling kiwis do not learn; see expeditionXp). */
-  xpPerHour: { work: 10, build: 12, train: 10 },
+  xpPerHour: { work: 10, build: 12, train: 10, guard: 8 },
   /** Experience bonus per point of Spirit above average (+4 %). */
   spiritXp: 0.04,
   /** Lump of experience for every crew member coming home (part 3). */

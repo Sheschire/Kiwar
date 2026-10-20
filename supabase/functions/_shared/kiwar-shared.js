@@ -583,7 +583,9 @@ var BUILDING_TYPES = [
   "warehouse",
   "launchpad",
   "school",
-  "camp"
+  "camp",
+  "seedTurret",
+  "skyTurret"
 ];
 var BUILDINGS = {
   nest: {
@@ -850,8 +852,73 @@ var BUILDINGS = {
     buildable: false,
     copyGrowth: 1,
     levels: [{ cost: {}, durationMs: 0, requiresNestLevel: 1, workerSlots: CAMPS.workerSlots }]
+  },
+  // Chantier 06: turrets stand on the skin rampart and fire seeds at the predators, on their
+  // own (offline too). Outside the building cap, limited by the Nest level (TURRETS).
+  seedTurret: {
+    id: "seedTurret",
+    allowedTiles: ["skin"],
+    buildable: true,
+    copyGrowth: 1.4,
+    levels: [
+      {
+        cost: { pulp: 80, fiber: 140, seeds: 50 },
+        durationMs: ms.min(1),
+        requiresNestLevel: 1,
+        defense: { ground: 4 },
+        ammo: 15
+      },
+      {
+        cost: { pulp: 300, fiber: 350, seeds: 150 },
+        durationMs: ms.min(4),
+        requiresNestLevel: 2,
+        defense: { ground: 8 },
+        ammo: 25
+      },
+      {
+        cost: { pulp: 800, fiber: 900, seeds: 400, juice: 150 },
+        durationMs: ms.min(15),
+        requiresNestLevel: 3,
+        defense: { ground: 14 },
+        ammo: 40
+      }
+    ]
+  },
+  // Shoots seed bursts high in the air: the only building that reaches the bats.
+  skyTurret: {
+    id: "skyTurret",
+    allowedTiles: ["skin"],
+    buildable: true,
+    copyGrowth: 1.4,
+    levels: [
+      {
+        cost: { pulp: 60, fiber: 160, seeds: 50, juice: 40 },
+        durationMs: ms.min(1.5),
+        requiresNestLevel: 1,
+        defense: { air: 4 },
+        ammo: 15
+      },
+      {
+        cost: { pulp: 250, fiber: 400, seeds: 150, juice: 120 },
+        durationMs: ms.min(5),
+        requiresNestLevel: 2,
+        defense: { air: 8 },
+        ammo: 25
+      },
+      {
+        cost: { pulp: 700, fiber: 1e3, seeds: 400, juice: 300 },
+        durationMs: ms.min(18),
+        requiresNestLevel: 3,
+        defense: { air: 14 },
+        ammo: 40
+      }
+    ]
   }
 };
+var TURRET_TYPES = ["seedTurret", "skyTurret"];
+function isTurret(type) {
+  return TURRET_TYPES.includes(type);
+}
 var MAX_LEVEL = 3;
 function maxLevelOf(type) {
   return BUILDINGS[type].levels.length;
@@ -1029,7 +1096,7 @@ var KIWI = {
   traitChance: 0.3,
   maxLevel: 30,
   /** Experience per hour by activity (idle and travelling kiwis do not learn; see expeditionXp). */
-  xpPerHour: { work: 10, build: 12, train: 10 },
+  xpPerHour: { work: 10, build: 12, train: 10, guard: 8 },
   /** Experience bonus per point of Spirit above average (+4 %). */
   spiritXp: 0.04,
   /** Lump of experience for every crew member coming home (part 3). */
@@ -1258,6 +1325,23 @@ var THREATS = {
   repairTime: 0.4,
   /** Wave reports kept for the UI. */
   history: 5
+};
+var TURRETS = {
+  max: [0, 2, 4, 6]
+};
+var GARRISON = {
+  /** Defense of a posted kiwi: its fighting strength × this × its class affinity. */
+  power: 1.5,
+  affinity: {
+    none: { ground: 0.4, air: 0 },
+    builder: { ground: 0.5, air: 0 },
+    warrior: { ground: 1, air: 0 },
+    mage: { ground: 0.8, air: 1 },
+    scout: { ground: 0.5, air: 0.8 },
+    mayor: { ground: 0.4, air: 0 }
+  },
+  /** Posted kiwis stand in the front line: more often hurt. */
+  exposure: 1.5
 };
 var SHELTER = {
   /** Possible this long before the strike… */
@@ -2059,7 +2143,7 @@ function bedsOf(state, map = faceMapOf(state)) {
   key += "|";
   for (const v of state.villagers) {
     const j = v.job;
-    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : "";
+    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : "";
   }
   key += `|${state.paths.join(";")}`;
   const cached = bedCache.get(key);
@@ -2325,6 +2409,8 @@ function ratesOf(state, v, resources2) {
     mastery = "build";
   } else if (job2.kind === "train") {
     perHour = KIWI.xpPerHour.train;
+  } else if (job2.kind === "guard") {
+    perHour = KIWI.xpPerHour.guard;
   }
   if (perHour === 0) return { xp: 0, practice: 0, mastery: null };
   const m = modifiers(v);
@@ -2739,7 +2825,22 @@ function pathLimit(state) {
   return PATHS.base + PATHS.perNestLevel * nest(state).level;
 }
 function buildingCount(state) {
-  return state.buildings.filter((b) => b.type !== "nest" && b.type !== "camp").length + state.queue.filter((i) => i.kind === "build").length;
+  const counted = (t) => t !== "nest" && t !== "camp" && !isTurret(t);
+  return state.buildings.filter((b) => counted(b.type)).length + state.queue.filter((i) => i.kind === "build" && counted(i.buildingType)).length;
+}
+function turretCount(state) {
+  return state.buildings.filter((b) => isTurret(b.type)).length + state.queue.filter((i) => i.kind === "build" && isTurret(i.buildingType)).length;
+}
+function turretLimit(state) {
+  const max = TURRETS.max;
+  return max[Math.min(nest(state).level, max.length - 1)] ?? 0;
+}
+function isRampart(map, q, r) {
+  if (getTile(map, { q, r })?.type !== "skin") return false;
+  return hexNeighbors({ q, r }).some((h) => {
+    const t = getTile(map, h);
+    return !!t && TILES[t.type].walkable;
+  });
 }
 function buildCost(state, type) {
   const def = BUILDINGS[type];
@@ -3135,12 +3236,57 @@ function waveMix(state, power, at) {
   };
 }
 function exposedKiwis(state) {
-  return state.villagers.filter((v) => v.job.kind === "work" || v.job.kind === "idle");
+  return state.villagers.filter(
+    (v) => v.job.kind === "work" || v.job.kind === "idle" || v.job.kind === "guard"
+  );
 }
-function defenseOf(state) {
-  let ground = 0;
-  for (const v of exposedKiwis(state)) ground += THREATS.militia * kiwiStrength(v);
-  return { ground, air: 0 };
+function garrisonOf(state) {
+  return state.villagers.filter((v) => v.job.kind === "guard");
+}
+function guardPower(v) {
+  const a = GARRISON.affinity[v.classId ?? "none"];
+  const p = kiwiStrength(v) * GARRISON.power;
+  return { ground: p * a.ground, air: p * a.air };
+}
+function defenseOf(state, threat) {
+  const turrets = { ground: 0, air: 0 };
+  let need = 0;
+  for (const b of state.buildings) {
+    const def = levelDef(b.type, b.level);
+    if (!def?.defense) continue;
+    const g = def.defense.ground ?? 0;
+    const a = def.defense.air ?? 0;
+    if (threat && !(g > 0 && threat.ground > 0 || a > 0 && threat.air > 0)) continue;
+    const k = b.damaged ? THREATS.damagedWork : 1;
+    turrets.ground += g * k;
+    turrets.air += a * k;
+    need += def.ammo ?? 0;
+  }
+  const have = state.resources.seeds;
+  const share = need > 0 ? Math.min(1, have / need) : 1;
+  turrets.ground *= share;
+  turrets.air *= share;
+  const garrison = { ground: 0, air: 0 };
+  for (const v of garrisonOf(state)) {
+    const p = guardPower(v);
+    garrison.ground += p.ground;
+    garrison.air += p.air;
+  }
+  let militia = 0;
+  for (const v of state.villagers)
+    if (v.job.kind === "work" || v.job.kind === "idle")
+      militia += THREATS.militia * kiwiStrength(v);
+  return {
+    ground: turrets.ground + garrison.ground + militia,
+    air: turrets.air + garrison.air,
+    turrets,
+    garrison,
+    militia,
+    ammo: { need, have, share }
+  };
+}
+function hurtWeight(v) {
+  return kiwiExposure(v) * (v.job.kind === "guard" ? GARRISON.exposure : 1);
 }
 function protectedStock(state) {
   let safe = 0;
@@ -3190,7 +3336,7 @@ function forecastWave(state) {
   const wave = state.threats.next;
   if (!wave || !wave.announced) return null;
   const threat = { ground: wave.ground, air: wave.air };
-  const defense = defenseOf(state);
+  const defense = defenseOf(state, threat);
   const L = THREATS.luck;
   const holds = (k) => threat.ground * k <= defense.ground + 1e-9 && threat.air * k <= defense.air + 1e-9;
   const odds = holds(1 + L) ? "likely" : holds(1 - L) ? "uncertain" : "unlikely";
@@ -3284,18 +3430,20 @@ function strike(s, wave, events) {
   const at = wave.at;
   const luck = withThreatRng(s, (rng) => 1 + rng.range(-THREATS.luck, THREATS.luck));
   const threat = { ground: wave.ground * luck, air: wave.air * luck };
-  const defense = defenseOf(s);
+  const defense = defenseOf(s, threat);
   const sheltered = t.shelterUntil >= at;
   const out = waveOutcome(s, threat, defense, sheltered);
+  const ammoUsed = Math.min(s.resources.seeds, defense.ammo.need);
+  s.resources.seeds -= ammoUsed;
   const report = {
     id: wave.id,
     at,
     victory: out.victory,
     sheltered,
     threat,
-    defense,
+    defense: { ground: defense.ground, air: defense.air },
     severity: out.severity,
-    ammoUsed: 0,
+    ammoUsed,
     damaged: [],
     loot: out.loot,
     injured: [],
@@ -3312,7 +3460,7 @@ function strike(s, wave, events) {
     s.paths = s.paths.filter((k) => !lost.has(k));
     report.pathsLost = lost.size;
   }
-  const hurt = drawWeighted(s, exposedKiwis(s), kiwiExposure, out.deaths + out.injured);
+  const hurt = drawWeighted(s, exposedKiwis(s), hurtWeight, out.deaths + out.injured);
   const dead = hurt.slice(0, out.deaths);
   for (const v of hurt.slice(out.deaths)) {
     const until = withThreatRng(
@@ -3788,7 +3936,9 @@ var COMMAND_ERRORS = [
   "noWaveSoon",
   "alreadySheltered",
   "notDamaged",
-  "alreadyRepairing"
+  "alreadyRepairing",
+  "notOnRampart",
+  "turretLimit"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -3848,7 +3998,10 @@ function execute(s, cmd, ctx, events) {
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail("tileOccupied");
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail("flooded");
       if (nest(s).level < def.levels[0].requiresNestLevel) fail("nestLevelTooLow");
-      if (buildingCount(s) >= (nestDef(s).maxBuildings ?? 0)) fail("buildingLimit");
+      if (isTurret(cmd.buildingType)) {
+        if (!isRampart(ctx.map, cmd.q, cmd.r)) fail("notOnRampart");
+        if (turretCount(s) >= turretLimit(s)) fail("turretLimit");
+      } else if (buildingCount(s) >= (nestDef(s).maxBuildings ?? 0)) fail("buildingLimit");
       queueHasRoom(s);
       const cost = buildCost(s, cmd.buildingType);
       const durationMs = constructionDuration(
@@ -4153,6 +4306,24 @@ function execute(s, cmd, ctx, events) {
         orderedAt: now
       });
       startNextConstruction(s, now, events);
+      return;
+    }
+    case "setGarrison": {
+      const ids = new Set(cmd.villagerIds);
+      if (ids.size !== cmd.villagerIds.length) fail("invalidCrew");
+      for (const id3 of ids) {
+        const v = s.villagers.find((x) => x.id === id3);
+        if (!v) return fail("unknownVillager");
+        if (v.job.kind !== "idle" && v.job.kind !== "work" && v.job.kind !== "guard")
+          fail("kiwiBusy");
+      }
+      for (const v of s.villagers) {
+        if (ids.has(v.id)) v.job = { kind: "guard" };
+        else if (v.job.kind === "guard") {
+          v.job = { kind: "idle" };
+          autoAssign(s, v);
+        }
+      }
       return;
     }
     case "debugGrant": {
@@ -8234,6 +8405,7 @@ var job = external_exports.discriminatedUnion("kind", [
     until: external_exports.number(),
     paid: partialResources
   }),
+  external_exports.object({ kind: external_exports.literal("guard") }),
   external_exports.object({ kind: external_exports.literal("injured"), until: external_exports.number() })
 ]);
 var sides = external_exports.object({ ground: external_exports.number().min(0), air: external_exports.number().min(0) });
@@ -8548,6 +8720,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("useSkill"), villagerId: id2, skill: external_exports.enum(SKILL_IDS) }),
   external_exports.object({ type: external_exports.literal("shelter") }),
   external_exports.object({ type: external_exports.literal("repair"), buildingId: id2 }),
+  external_exports.object({ type: external_exports.literal("setGarrison"), villagerIds: external_exports.array(id2).max(200) }),
   external_exports.object({
     type: external_exports.literal("debugGrant"),
     resources: external_exports.object({
@@ -8742,6 +8915,7 @@ function isPlausible(state, now) {
   if (n.q !== 0 || n.r !== 0) return false;
   if (buildingCount(state) > (nestDef(state).maxBuildings ?? 0)) return false;
   if (state.buildings.filter((b) => b.type === "camp").length > CAMPS.max) return false;
+  if (turretCount(state) > turretLimit(state)) return false;
   if (state.paths.length > pathLimit(state)) return false;
   for (const b of state.buildings) {
     if (b.level < 1 || b.level > MAX_LEVEL || !levelDef(b.type, b.level)) return false;
@@ -9078,6 +9252,7 @@ export {
   EXPEDITIONS,
   FACES,
   FACE_PROFILES,
+  GARRISON,
   HARVESTS,
   HATCHING,
   HEART,
@@ -9122,6 +9297,8 @@ export {
   TILE_TYPES,
   TRAITS,
   TRAIT_IDS,
+  TURRETS,
+  TURRET_TYPES,
   XP_SCALE,
   YEAR_MS,
   accrueKiwis,
@@ -9195,11 +9372,13 @@ export {
   forecastWave,
   freeDepositStock,
   gameStateSchema,
+  garrisonOf,
   generateFace,
   geometric,
   getBuilding,
   getTile,
   grantXp,
+  guardPower,
   handleGameRequest,
   harvestOf,
   harvestedTileType,
@@ -9239,6 +9418,8 @@ export {
   isPlausible,
   isPristine,
   isProducer,
+  isRampart,
+  isTurret,
   kiwiCount,
   kiwiExposure,
   kiwiRhythm,
@@ -9325,6 +9506,8 @@ export {
   trainingCost,
   trainingDuration,
   travelTime,
+  turretCount,
+  turretLimit,
   twinParams,
   universeTargets,
   upgradeCost,

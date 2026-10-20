@@ -9,6 +9,8 @@ import {
   masteryHours,
   masteryProgress,
   workerPower,
+  garrisonOf,
+  guardPower,
   CLASS_IDS,
   CLASSES,
   trainingCost,
@@ -32,7 +34,7 @@ type Sort = 'level' | 'name' | 'job' | 'born';
 const SORTS: Sort[] = ['level', 'name', 'job', 'born'];
 
 function jobRank(v: Villager): number {
-  return { work: 0, build: 1, train: 2, expedition: 3, injured: 4, idle: 5 }[v.job.kind];
+  return { work: 0, guard: 1, build: 2, train: 3, expedition: 4, injured: 5, idle: 6 }[v.job.kind];
 }
 
 /** What a kiwi is doing, in words. */
@@ -379,6 +381,8 @@ function KiwiSheet({ v }: { v: Villager }) {
         )}
       </div>
 
+      <GuardSection game={game} v={v} />
+
       <RestSection v={v} />
 
       <section class="field">
@@ -516,5 +520,36 @@ export function FollowBadge() {
         {t('kiwi.stopFollow')}
       </button>
     </div>
+  );
+}
+
+/** Chantier 06: post a kiwi on the rampart against predators, or send it back to work. */
+function GuardSection({ game, v }: { game: GameState; v: Villager }) {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const guard = v.job.kind === 'guard';
+  if (!guard && v.job.kind !== 'work' && v.job.kind !== 'idle') return null;
+  const others = garrisonOf(game)
+    .map((x) => x.id)
+    .filter((id) => id !== v.id);
+  const power = guardPower(v);
+  const fmt = (x: number) => formatNumber(lang, Math.round(x * 10) / 10);
+  return (
+    <section class="field guard-section">
+      <h3>{t('garrison.title')}</h3>
+      <p class="small">{t('garrison.power', { ground: fmt(power.ground), air: fmt(power.air) })}</p>
+      <p class="small muted">{t('garrison.hint')}</p>
+      <button
+        class={`btn ${guard ? '' : 'btn-primary'}`}
+        onClick={() =>
+          actions.dispatch({
+            type: 'setGarrison',
+            villagerIds: guard ? others : [...others, v.id],
+          })
+        }
+      >
+        {guard ? t('garrison.relieve') : t('garrison.post')}
+      </button>
+    </section>
   );
 }

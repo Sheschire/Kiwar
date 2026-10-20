@@ -11,7 +11,16 @@ import { levelForXp } from '../sim/kiwis';
 import { deserializeSave, migrateState } from '../save/save';
 import { advance, type GameEvent } from '../sim/advance';
 import { applyCommand } from '../sim/commands';
-import { buildingCount, capacity, housing, nest, nestDef, pathLimit } from '../sim/selectors';
+import {
+  buildingCount,
+  capacity,
+  housing,
+  nest,
+  nestDef,
+  pathLimit,
+  turretCount,
+  turretLimit,
+} from '../sim/selectors';
 import { newGame, type GameState, type Villager } from '../sim/state';
 import { generateFace, type FaceMap } from '../worldgen/generateFace';
 import type { Face, PlayerId, UniverseId } from '../types/ids';
@@ -226,6 +235,7 @@ export function isPlausible(state: GameState, now: number): boolean {
   if (n.q !== 0 || n.r !== 0) return false;
   if (buildingCount(state) > (nestDef(state).maxBuildings ?? 0)) return false;
   if (state.buildings.filter((b) => b.type === 'camp').length > CAMPS.max) return false;
+  if (turretCount(state) > turretLimit(state)) return false;
   if (state.paths.length > pathLimit(state)) return false;
   for (const b of state.buildings) {
     if (b.level < 1 || b.level > MAX_LEVEL || !levelDef(b.type, b.level)) return false;

@@ -1,7 +1,7 @@
 import { BIOMES } from '../data/biomes';
 import { levelDef } from '../data/buildings';
 import { emptyResources, RESOURCE_IDS, type ResourceId, type Resources } from '../data/resources';
-import { INCIDENTS, SHELTER, THREATS, type IncidentKind } from '../data/threats';
+import { GARRISON, INCIDENTS, SHELTER, THREATS, type IncidentKind } from '../data/threats';
 import type { TimeMs, VillagerId } from '../types/ids';
 import type { GameEvent } from './advance';
 import { calendarAt } from './calendar';
@@ -53,17 +53,79 @@ export function waveMix(state: GameState, power: number, at: TimeMs): Sides {
 // ---------------------------------------------------------------------------------------------
 // Defense
 
-/** Kiwis who can be hurt by a wave (at home, not building or learning). */
+/** Kiwis who can be hurt by a wave (at home or on guard, not building or learning). */
 export function exposedKiwis(state: GameState): Villager[] {
-  return state.villagers.filter((v) => v.job.kind === 'work' || v.job.kind === 'idle');
+  return state.villagers.filter(
+    (v) => v.job.kind === 'work' || v.job.kind === 'idle' || v.job.kind === 'guard',
+  );
 }
 
-/** Defense of the colony right now, per side. */
-export function defenseOf(state: GameState): Sides {
+export function garrisonOf(state: GameState): Villager[] {
+  return state.villagers.filter((v) => v.job.kind === 'guard');
+}
+
+/** What one posted kiwi adds to each side (swords never reach the bats). */
+export function guardPower(v: Villager): Sides {
+  const a = GARRISON.affinity[v.classId ?? 'none'];
+  const p = kiwiStrength(v) * GARRISON.power;
+  return { ground: p * a.ground, air: p * a.air };
+}
+
+export interface Defense extends Sides {
+  /** Per source, for the UI. */
+  turrets: Sides;
+  garrison: Sides;
+  militia: number;
+  /** Seeds the turrets fire at this wave, and the share they can fire with the stock. */
+  ammo: { need: number; have: number; share: number };
+}
+
+/**
+ * Defense of the colony right now, per side. With a threat, only the turrets facing it fire
+ * (and need seeds); without, every turret counts (incidents).
+ */
+export function defenseOf(state: GameState, threat?: Sides): Defense {
+  const turrets = { ground: 0, air: 0 };
+  let need = 0;
+  for (const b of state.buildings) {
+    const def = levelDef(b.type, b.level);
+    if (!def?.defense) continue;
+    const g = def.defense.ground ?? 0;
+    const a = def.defense.air ?? 0;
+    if (threat && !((g > 0 && threat.ground > 0) || (a > 0 && threat.air > 0))) continue;
+    const k = b.damaged ? THREATS.damagedWork : 1;
+    turrets.ground += g * k;
+    turrets.air += a * k;
+    need += def.ammo ?? 0;
+  }
+  const have = state.resources.seeds;
+  const share = need > 0 ? Math.min(1, have / need) : 1;
+  turrets.ground *= share;
+  turrets.air *= share;
+  const garrison = { ground: 0, air: 0 };
+  for (const v of garrisonOf(state)) {
+    const p = guardPower(v);
+    garrison.ground += p.ground;
+    garrison.air += p.air;
+  }
   // The kiwis at home chase a few ferrets away; nobody reaches the bats without help.
-  let ground = 0;
-  for (const v of exposedKiwis(state)) ground += THREATS.militia * kiwiStrength(v);
-  return { ground, air: 0 };
+  let militia = 0;
+  for (const v of state.villagers)
+    if (v.job.kind === 'work' || v.job.kind === 'idle')
+      militia += THREATS.militia * kiwiStrength(v);
+  return {
+    ground: turrets.ground + garrison.ground + militia,
+    air: turrets.air + garrison.air,
+    turrets,
+    garrison,
+    militia,
+    ammo: { need, have, share },
+  };
+}
+
+/** Chance of each kiwi to be hurt: posted kiwis stand in the front line. */
+function hurtWeight(v: Villager): number {
+  return kiwiExposure(v) * (v.job.kind === 'guard' ? GARRISON.exposure : 1);
 }
 
 /** Stock the Nest and the Warehouses keep safe from looting. */
@@ -147,7 +209,7 @@ function damageable(state: GameState) {
 export interface WaveForecast {
   wave: PlannedWave;
   threat: Sides;
-  defense: Sides;
+  defense: Defense;
   odds: Odds;
   /** At average luck, with the colony as it is now. */
   expected: WaveOutcome;
@@ -163,7 +225,7 @@ export function forecastWave(state: GameState): WaveForecast | null {
   const wave = state.threats.next;
   if (!wave || !wave.announced) return null;
   const threat = { ground: wave.ground, air: wave.air };
-  const defense = defenseOf(state);
+  const defense = defenseOf(state, threat);
   const L = THREATS.luck;
   const holds = (k: number) =>
     threat.ground * k <= defense.ground + 1e-9 && threat.air * k <= defense.air + 1e-9;
@@ -277,18 +339,21 @@ function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
   const at = wave.at;
   const luck = withThreatRng(s, (rng) => 1 + rng.range(-THREATS.luck, THREATS.luck));
   const threat = { ground: wave.ground * luck, air: wave.air * luck };
-  const defense = defenseOf(s);
+  const defense = defenseOf(s, threat);
   const sheltered = t.shelterUntil >= at;
   const out = waveOutcome(s, threat, defense, sheltered);
+  // The turrets fire first (the loot is taken from what is left).
+  const ammoUsed = Math.min(s.resources.seeds, defense.ammo.need);
+  s.resources.seeds -= ammoUsed;
   const report: WaveReport = {
     id: wave.id,
     at,
     victory: out.victory,
     sheltered,
     threat,
-    defense,
+    defense: { ground: defense.ground, air: defense.air },
     severity: out.severity,
-    ammoUsed: 0,
+    ammoUsed,
     damaged: [],
     loot: out.loot,
     injured: [],
@@ -306,7 +371,7 @@ function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
     s.paths = s.paths.filter((k) => !lost.has(k));
     report.pathsLost = lost.size;
   }
-  const hurt = drawWeighted(s, exposedKiwis(s), kiwiExposure, out.deaths + out.injured);
+  const hurt = drawWeighted(s, exposedKiwis(s), hurtWeight, out.deaths + out.injured);
   const dead = hurt.slice(0, out.deaths);
   for (const v of hurt.slice(out.deaths)) {
     const until = withThreatRng(s, (rng) =>

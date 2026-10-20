@@ -1,4 +1,5 @@
 import { ms } from './curves';
+import type { ClassId } from './classes';
 import type { Season } from './cycles';
 
 /**
@@ -63,6 +64,30 @@ export const THREATS = {
   repairTime: 0.4,
   /** Wave reports kept for the UI. */
   history: 5,
+} as const;
+
+/** Turrets (both models together) allowed by Nest level (index = level). */
+export const TURRETS = {
+  max: [0, 2, 4, 6] as readonly number[],
+} as const;
+
+/**
+ * Garrison: kiwis posted on the rampart (they no longer harvest). Swords hit ferrets, never
+ * bats; mages and flying scouts reach the bats.
+ */
+export const GARRISON = {
+  /** Defense of a posted kiwi: its fighting strength × this × its class affinity. */
+  power: 1.5,
+  affinity: {
+    none: { ground: 0.4, air: 0 },
+    builder: { ground: 0.5, air: 0 },
+    warrior: { ground: 1, air: 0 },
+    mage: { ground: 0.8, air: 1 },
+    scout: { ground: 0.5, air: 0.8 },
+    mayor: { ground: 0.4, air: 0 },
+  } satisfies Record<ClassId | 'none', { ground: number; air: number }>,
+  /** Posted kiwis stand in the front line: more often hurt. */
+  exposure: 1.5,
 } as const;
 
 /** Taking shelter in the Nest: no one is hurt, the harvest stops for the strike. */

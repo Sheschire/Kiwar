@@ -22,6 +22,10 @@ import {
   nearRay,
   nestDef,
   pendingUpgrade,
+  isRampart,
+  isTurret,
+  turretCount,
+  turretLimit,
   repairCost,
   repairDuration,
   queuedBuildAt,
@@ -271,6 +275,22 @@ function BuildingSection({
         </>
       )}
       {b.type === 'school' && <SchoolInfo game={game} b={b} now={now} t={t} />}
+      {def.defense && (
+        <>
+          <div class="stat-row">
+            <span class="stat-label">{t('building.defense')}</span>
+            <span>
+              {def.defense.ground
+                ? t('building.defenseGround', { value: def.defense.ground })
+                : t('building.defenseAir', { value: def.defense.air ?? 0 })}
+            </span>
+          </div>
+          <p class="small muted">
+            {t('building.ammo', { count: def.ammo ?? 0 })} ·{' '}
+            {t('building.turrets', { count: turretCount(game), max: turretLimit(game) })}
+          </p>
+        </>
+      )}
       {def.storage !== undefined && (
         <div class="stat-row">
           <span class="stat-label">{t('building.storage')}</span>
@@ -536,8 +556,10 @@ export function TilePanel() {
 
   const building = buildingAt(game, tile.q, tile.r);
   const site = queuedBuildAt(game, tile.q, tile.r);
-  const options = BUILDABLE_TYPES.filter((type) =>
-    BUILDINGS[type].allowedTiles.includes(tile.type),
+  const options = BUILDABLE_TYPES.filter(
+    (type) =>
+      BUILDINGS[type].allowedTiles.includes(tile.type) &&
+      (!isTurret(type) || isRampart(map, tile.q, tile.r)),
   );
   const resource = TILES[tile.type].resource;
   const ray = nearRay(map, tile.q, tile.r);

@@ -209,6 +209,14 @@ export const fr: Dict = {
     juiceWell: { name: 'Puits de jus', desc: 'Puise le jus sucré d’une mare.' },
     hut: { name: 'Hutte', desc: 'Un nid douillet pour loger plus de kiwis.' },
     warehouse: { name: 'Entrepôt', desc: 'Plus de place pour stocker toutes les ressources.' },
+    seedTurret: {
+      name: 'Arbalète à pépins',
+      desc: 'Une tour sur le rempart de peau qui tire des pépins sur les furets, même en ton absence. Sans pépins, elle se tait.',
+    },
+    skyTurret: {
+      name: 'Fronde céleste',
+      desc: 'Lance des gerbes de pépins haut dans le ciel : le seul bâtiment qui atteint les chauves-souris. Consomme aussi des pépins.',
+    },
     camp: {
       name: 'Camp de cueillette',
       desc: 'Quelques kiwis qui cueillent à la main. Plus lent qu’un bâtiment, mais gratuit et immédiat.',
@@ -251,6 +259,11 @@ export const fr: Dict = {
     storagePaused: 'Entrepôts pleins : les kiwis ne récoltent que ce que la colonie mange.',
     flooded: 'Inondé : le travail s’arrête jusqu’à la décrue.',
     damaged: 'Abîmé par les prédateurs : travaille à moitié jusqu’à réparation.',
+    defense: 'Défense',
+    defenseGround: 'Furets {value}',
+    defenseAir: 'Chauves-souris {value}',
+    ammo: '{count} pépins par vague',
+    turrets: 'Tourelles {count}/{max}',
     repair: 'Réparer',
     repairing: 'Réparation…',
     logistics: 'Logistique',
@@ -504,6 +517,8 @@ export const fr: Dict = {
     alreadySheltered: 'Tout le monde est déjà au Nid.',
     notDamaged: 'Ce bâtiment n’est pas abîmé.',
     alreadyRepairing: 'Les réparations sont déjà prévues.',
+    notOnRampart: 'Les tourelles se posent sur le rempart de peau, au bord des terres.',
+    turretLimit: 'Limite de tourelles atteinte : améliore le Nid pour en avoir plus.',
   },
   offline: {
     title: 'Pendant votre absence…',
@@ -669,6 +684,13 @@ export const fr: Dict = {
     cost: '{cost} fibre par tuile',
     done: 'Terminé',
   },
+  garrison: {
+    title: 'Garnison',
+    post: 'Poster de garde',
+    relieve: 'Retour au travail',
+    hint: 'Un kiwi de garde ne récolte plus. Les épées atteignent les furets ; seuls les mages et les éclaireurs atteignent les chauves-souris.',
+    power: 'De garde : furets {ground} · chauves-souris {air}',
+  },
   threats: {
     announced: 'Des prédateurs en vue ! Une vague frappe dans {duration}.',
     won: 'Les prédateurs ont été repoussés !',
@@ -751,6 +773,7 @@ export const fr: Dict = {
       build: 'En chantier',
       expedition: 'En expédition',
       injured: 'En convalescence',
+      guard: 'De garde',
     },
   },
   stats: {

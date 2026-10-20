@@ -1,4 +1,11 @@
-import { BUILDINGS, levelDef, MAX_LEVEL, maxLevelOf, type BuildingType } from '../data/buildings';
+import {
+  BUILDINGS,
+  isTurret,
+  levelDef,
+  MAX_LEVEL,
+  maxLevelOf,
+  type BuildingType,
+} from '../data/buildings';
 import { CAMPS, PATHS } from '../data/territory';
 import { TILES } from '../data/tiles';
 import { hexKey } from '../hex/hex';
@@ -40,6 +47,9 @@ import {
   population,
   housing,
   queuedBuildAt,
+  isRampart,
+  turretCount,
+  turretLimit,
   repairCost,
   repairDuration,
   upgradeCost,
@@ -98,6 +108,8 @@ export type Command =
   | { type: 'shelter' }
   /** Mends a building damaged by predators (queued like a construction). */
   | { type: 'repair'; buildingId: BuildingId }
+  /** Posts exactly these kiwis on the rampart (the others go back to work). */
+  | { type: 'setGarrison'; villagerIds: VillagerId[] }
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
 export const COMMAND_ERRORS = [
@@ -153,6 +165,8 @@ export const COMMAND_ERRORS = [
   'alreadySheltered',
   'notDamaged',
   'alreadyRepairing',
+  'notOnRampart',
+  'turretLimit',
 ] as const;
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
@@ -241,7 +255,10 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (buildingAt(s, cmd.q, cmd.r) || queuedBuildAt(s, cmd.q, cmd.r)) fail('tileOccupied');
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail('flooded');
       if (nest(s).level < def.levels[0]!.requiresNestLevel) fail('nestLevelTooLow');
-      if (buildingCount(s) >= (nestDef(s).maxBuildings ?? 0)) fail('buildingLimit');
+      if (isTurret(cmd.buildingType)) {
+        if (!isRampart(ctx.map, cmd.q, cmd.r)) fail('notOnRampart');
+        if (turretCount(s) >= turretLimit(s)) fail('turretLimit');
+      } else if (buildingCount(s) >= (nestDef(s).maxBuildings ?? 0)) fail('buildingLimit');
       queueHasRoom(s);
       const cost = buildCost(s, cmd.buildingType);
       const durationMs = constructionDuration(
@@ -567,6 +584,24 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         orderedAt: now,
       });
       startNextConstruction(s, now, events);
+      return;
+    }
+    case 'setGarrison': {
+      const ids = new Set(cmd.villagerIds);
+      if (ids.size !== cmd.villagerIds.length) fail('invalidCrew');
+      for (const id of ids) {
+        const v = s.villagers.find((x) => x.id === id);
+        if (!v) return fail('unknownVillager');
+        if (v.job.kind !== 'idle' && v.job.kind !== 'work' && v.job.kind !== 'guard')
+          fail('kiwiBusy');
+      }
+      for (const v of s.villagers) {
+        if (ids.has(v.id)) v.job = { kind: 'guard' };
+        else if (v.job.kind === 'guard') {
+          v.job = { kind: 'idle' };
+          autoAssign(s, v);
+        }
+      }
       return;
     }
     case 'debugGrant': {

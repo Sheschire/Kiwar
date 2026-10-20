@@ -1,6 +1,7 @@
 import {
   BUILDINGS,
   DEMOLITION,
+  isTurret,
   levelDef,
   MAX_LEVEL,
   maxLevelOf,
@@ -10,7 +11,8 @@ import {
 } from '../data/buildings';
 import { climateOf } from '../data/biomes';
 import { PATHS } from '../data/territory';
-import { THREATS } from '../data/threats';
+import { THREATS, TURRETS } from '../data/threats';
+import { TILES } from '../data/tiles';
 import { HATCHING } from '../data/hatching';
 import { OBJECTIVES, type ObjectiveDef } from '../data/objectives';
 import {
@@ -216,12 +218,35 @@ export function pathLimit(state: GameState): number {
   return PATHS.base + PATHS.perNestLevel * nest(state).level;
 }
 
-/** Buildings counted against the Nest cap (camps are outside it). */
+/** Buildings counted against the Nest cap (camps and turrets are outside it). */
 export function buildingCount(state: GameState): number {
+  const counted = (t: BuildingType) => t !== 'nest' && t !== 'camp' && !isTurret(t);
   return (
-    state.buildings.filter((b) => b.type !== 'nest' && b.type !== 'camp').length +
-    state.queue.filter((i) => i.kind === 'build').length
+    state.buildings.filter((b) => counted(b.type)).length +
+    state.queue.filter((i) => i.kind === 'build' && counted(i.buildingType)).length
   );
+}
+
+/** Turrets built or ordered (both models). */
+export function turretCount(state: GameState): number {
+  return (
+    state.buildings.filter((b) => isTurret(b.type)).length +
+    state.queue.filter((i) => i.kind === 'build' && isTurret(i.buildingType)).length
+  );
+}
+
+export function turretLimit(state: GameState): number {
+  const max = TURRETS.max;
+  return max[Math.min(nest(state).level, max.length - 1)] ?? 0;
+}
+
+/** A rampart tile: skin next to land the kiwis can walk on (turrets stand there). */
+export function isRampart(map: FaceMap, q: number, r: number): boolean {
+  if (getTile(map, { q, r })?.type !== 'skin') return false;
+  return hexNeighbors({ q, r }).some((h) => {
+    const t = getTile(map, h);
+    return !!t && TILES[t.type].walkable;
+  });
 }
 
 export function buildCost(state: GameState, type: BuildingType): ResourceCost {

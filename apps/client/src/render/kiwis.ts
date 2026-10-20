@@ -32,6 +32,7 @@ import {
   harvestedTileType,
   hexDistance,
   isDepot,
+  isTurret,
   pixelToHex,
   TILES,
   type FaceMap,
@@ -519,7 +520,9 @@ export class KiwisView {
           ? `b:${job.queueItemId}`
           : job.kind === 'train'
             ? `t:${job.schoolId}`
-            : 'idle';
+            : job.kind === 'guard'
+              ? 'g'
+              : 'idle';
     const changed = sig !== agent.plan;
     agent.plan = sig;
     const work = this.workTile(villager);
@@ -569,6 +572,19 @@ export class KiwisView {
       return;
     }
 
+    // On guard: stand at the foot of a turret (or around the Nest) and watch.
+    if (job.kind === 'guard') {
+      if (changed) {
+        agent.carrying = null;
+        agent.leg = 'toWork';
+        this.walkTo(agent, this.guardPost(agent), 0.45);
+      } else if (agent.activity === 'walk' && agent.path.length === 0) {
+        agent.activity = 'idle';
+        agent.timer = 1e9;
+      }
+      return;
+    }
+
     // Idle: potter around the Nest.
     if (changed) {
       agent.carrying = null;
@@ -583,6 +599,18 @@ export class KiwisView {
       const target = agent.rng.chance(0.7) ? this.nestRing(agent) : this.randomNear(agent);
       this.walkTo(agent, target, 0.45);
     }
+  }
+
+  /** Land next to a turret (one picked per kiwi), or the Nest ring without turrets. */
+  private guardPost(agent: Agent): Hex {
+    const turrets = (this.state?.buildings ?? []).filter((b) => isTurret(b.type));
+    if (turrets.length === 0) return this.nestRing(agent);
+    const t = agent.rng.pick(turrets);
+    const land = hexRing(t, 1).filter((h) => {
+      const tile = getTile(this.map, h);
+      return !!tile && TILES[tile.type].walkable;
+    });
+    return land.length ? agent.rng.pick(land) : this.nestRing(agent);
   }
 
   /** A tile of the heart ring around the Nest (the Nest itself fills the centre). */

@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   advance,
   applyCommand,
+  BUILDINGS,
+  buildingCount,
+  defenseOf,
+  guardPower,
+  isRampart,
+  turretCount,
+  TURRETS,
   forecastWave,
   HOUR_MS,
   INCIDENTS,
@@ -195,5 +202,111 @@ describe('save v9 → v10', () => {
       expect(r.state.threats.next).toBeNull();
       expect(r.state.threats.nextIncidentAt).toBe(state.now + INCIDENTS.firstMs);
     }
+  });
+});
+
+describe('defenses', () => {
+  function rampart(map: ReturnType<typeof setup>['map'], skip = 0) {
+    const tiles = map.tiles
+      .filter((t) => isRampart(map, t.q, t.r))
+      .sort((a, b) => a.q - b.q || a.r - b.r);
+    return tiles[skip]!;
+  }
+
+  it('turrets stand on the rampart, outside the building cap, limited by the Nest', () => {
+    const { map, state } = setup();
+    let s = rich(state);
+    const flesh = findTile(map, 'flesh');
+    const bad = applyCommand(
+      s,
+      { type: 'build', buildingType: 'seedTurret', q: flesh.q, r: flesh.r },
+      { now: T0, map },
+    );
+    expect(!bad.ok && bad.error).toBe('tileNotAllowed');
+    const inner = map.tiles.find((t) => t.type === 'skin' && !isRampart(map, t.q, t.r));
+    if (inner) {
+      const r = applyCommand(
+        s,
+        { type: 'build', buildingType: 'seedTurret', q: inner.q, r: inner.r },
+        { now: T0, map },
+      );
+      expect(!r.ok && r.error).toBe('notOnRampart');
+    }
+    const before = buildingCount(s);
+    for (let i = 0; i < TURRETS.max[1]!; i++) {
+      const t = rampart(map, i * 3);
+      s = run(s, { type: 'build', buildingType: 'seedTurret', q: t.q, r: t.r }, T0, map);
+      s = advance(s, s.now + 10 * 60_000).state;
+    }
+    expect(buildingCount(s)).toBe(before);
+    expect(turretCount(s)).toBe(TURRETS.max[1]);
+    const t = rampart(map, 30);
+    const over = applyCommand(
+      s,
+      { type: 'build', buildingType: 'skyTurret', q: t.q, r: t.r },
+      { now: s.now, map },
+    );
+    expect(!over.ok && over.error).toBe('turretLimit');
+  });
+
+  it('turrets need seeds; swords never reach the bats', () => {
+    const { map, state } = colony();
+    let s = rich(state);
+    const t1 = map.tiles.find((t) => isRampart(map, t.q, t.r))!;
+    s = run(s, { type: 'build', buildingType: 'seedTurret', q: t1.q, r: t1.r }, s.now, map);
+    s = advance(s, s.now + 10 * 60_000).state;
+    const threat = { ground: 10, air: 10 };
+    const full = defenseOf(s, threat);
+    expect(full.turrets.ground).toBe(BUILDINGS.seedTurret.levels[0]!.defense!.ground);
+    expect(full.ammo.need).toBe(BUILDINGS.seedTurret.levels[0]!.ammo);
+    const empty = defenseOf({ ...s, resources: { ...s.resources, seeds: 0 } }, threat);
+    expect(empty.turrets.ground).toBe(0);
+    // A warrior on guard: strong on the ground, useless against bats.
+    const w = s.villagers[0]!;
+    w.classId = 'warrior';
+    s = run(s, { type: 'setGarrison', villagerIds: [w.id] }, s.now, map);
+    expect(s.villagers[0]!.job.kind).toBe('guard');
+    const d = defenseOf(s, threat);
+    expect(d.garrison.ground).toBeCloseTo(guardPower(s.villagers[0]!).ground, 9);
+    expect(d.garrison.air).toBe(0);
+    // A mage reaches them.
+    const m = s.villagers[1]!;
+    m.classId = 'mage';
+    s = run(s, { type: 'setGarrison', villagerIds: [w.id, m.id] }, s.now, map);
+    expect(defenseOf(s, threat).garrison.air).toBeGreaterThan(0);
+    // Relieving the guards sends them back to work.
+    s = run(s, { type: 'setGarrison', villagerIds: [] }, s.now, map);
+    expect(s.villagers.some((v) => v.job.kind === 'guard')).toBe(false);
+    const dup = applyCommand(
+      s,
+      { type: 'setGarrison', villagerIds: [w.id, w.id] },
+      { now: s.now, map },
+    );
+    expect(!dup.ok && dup.error).toBe('invalidCrew');
+  });
+
+  it('a well defended colony repels the wave and spends seeds', () => {
+    const { map, state } = colony();
+    let s = rich(state);
+    s.buildings[0]!.level = 3;
+    const spots = map.tiles.filter((t) => isRampart(map, t.q, t.r));
+    for (let i = 0; i < 6; i++) {
+      const t = spots[i * 5]!;
+      const type = i % 2 === 0 ? 'seedTurret' : 'skyTurret';
+      s = run(s, { type: 'build', buildingType: type, q: t.q, r: t.r }, s.now, map);
+      s = advance(s, s.now + 10 * 60_000).state;
+    }
+    s = { ...s, resources: { pulp: 1500, fiber: 1500, seeds: 1500, juice: 1500 } };
+    while (!s.threats.next?.announced) s = advance(s, s.now + HOUR_MS).state;
+    const f = forecastWave(s)!;
+    expect(f.odds).toBe('likely');
+    const seeds = s.resources.seeds;
+    const after = advance(s, f.wave.at + 1).state;
+    const report = after.threats.reports.at(-1)!;
+    expect(report.victory).toBe(true);
+    expect(report.ammoUsed).toBeGreaterThan(0);
+    expect(report.ammoUsed).toBeLessThanOrEqual(f.defense.ammo.need);
+    expect(after.resources.seeds).toBeLessThan(seeds);
+    expect(after.threats.shieldUntil).toBe(0);
   });
 });

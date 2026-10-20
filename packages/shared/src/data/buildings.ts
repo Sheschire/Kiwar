@@ -15,6 +15,8 @@ export const BUILDING_TYPES = [
   'launchpad',
   'school',
   'camp',
+  'seedTurret',
+  'skyTurret',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
@@ -38,6 +40,9 @@ export interface BuildingLevelDef {
   /** School only: kiwis trained at once and training time multiplier. */
   trainingSlots?: number;
   trainingTime?: number;
+  /** Turrets only: defense against ferrets (ground) and bats (air), and seeds fired per wave. */
+  defense?: { ground?: number; air?: number };
+  ammo?: number;
   /** Nest only: building cap (Nest excluded) and construction queue length. */
   maxBuildings?: number;
   queueSize?: number;
@@ -323,7 +328,74 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     copyGrowth: 1,
     levels: [{ cost: {}, durationMs: 0, requiresNestLevel: 1, workerSlots: CAMPS.workerSlots }],
   },
+  // Chantier 06: turrets stand on the skin rampart and fire seeds at the predators, on their
+  // own (offline too). Outside the building cap, limited by the Nest level (TURRETS).
+  seedTurret: {
+    id: 'seedTurret',
+    allowedTiles: ['skin'],
+    buildable: true,
+    copyGrowth: 1.4,
+    levels: [
+      {
+        cost: { pulp: 80, fiber: 140, seeds: 50 },
+        durationMs: ms.min(1),
+        requiresNestLevel: 1,
+        defense: { ground: 4 },
+        ammo: 15,
+      },
+      {
+        cost: { pulp: 300, fiber: 350, seeds: 150 },
+        durationMs: ms.min(4),
+        requiresNestLevel: 2,
+        defense: { ground: 8 },
+        ammo: 25,
+      },
+      {
+        cost: { pulp: 800, fiber: 900, seeds: 400, juice: 150 },
+        durationMs: ms.min(15),
+        requiresNestLevel: 3,
+        defense: { ground: 14 },
+        ammo: 40,
+      },
+    ],
+  },
+  // Shoots seed bursts high in the air: the only building that reaches the bats.
+  skyTurret: {
+    id: 'skyTurret',
+    allowedTiles: ['skin'],
+    buildable: true,
+    copyGrowth: 1.4,
+    levels: [
+      {
+        cost: { pulp: 60, fiber: 160, seeds: 50, juice: 40 },
+        durationMs: ms.min(1.5),
+        requiresNestLevel: 1,
+        defense: { air: 4 },
+        ammo: 15,
+      },
+      {
+        cost: { pulp: 250, fiber: 400, seeds: 150, juice: 120 },
+        durationMs: ms.min(5),
+        requiresNestLevel: 2,
+        defense: { air: 8 },
+        ammo: 25,
+      },
+      {
+        cost: { pulp: 700, fiber: 1000, seeds: 400, juice: 300 },
+        durationMs: ms.min(18),
+        requiresNestLevel: 3,
+        defense: { air: 14 },
+        ammo: 40,
+      },
+    ],
+  },
 };
+
+export const TURRET_TYPES = ['seedTurret', 'skyTurret'] as const satisfies readonly BuildingType[];
+
+export function isTurret(type: BuildingType): boolean {
+  return (TURRET_TYPES as readonly BuildingType[]).includes(type);
+}
 
 export const MAX_LEVEL = 3;
 

@@ -191,6 +191,14 @@ export const en = {
     juiceWell: { name: 'Juice well', desc: 'Draws sweet juice from a pool.' },
     hut: { name: 'Hut', desc: 'A cosy round home for more kiwis.' },
     warehouse: { name: 'Warehouse', desc: 'More room to store every resource.' },
+    seedTurret: {
+      name: 'Seed crossbow',
+      desc: 'A tower on the skin rampart that shoots seeds at the ferrets, even while you are away. No seeds, no shots.',
+    },
+    skyTurret: {
+      name: 'Sky sling',
+      desc: 'Flings seed bursts high in the sky: the only building that reaches the bats. Fires seeds too.',
+    },
     camp: {
       name: 'Gathering camp',
       desc: 'A few kiwis picking by hand. Slower than a building, but free and instant.',
@@ -234,6 +242,11 @@ export const en = {
     storagePaused: 'Storage full: the kiwis only gather what the colony eats.',
     flooded: 'Flooded: the work stops until the waters recede.',
     damaged: 'Damaged by predators: works at half pace until repaired.',
+    defense: 'Defense',
+    defenseGround: 'Ferrets {value}',
+    defenseAir: 'Bats {value}',
+    ammo: '{count} seeds per wave',
+    turrets: 'Turrets {count}/{max}',
     repair: 'Repair',
     repairing: 'Repairing…',
     logistics: 'Logistics',
@@ -475,6 +488,8 @@ export const en = {
     alreadySheltered: 'Everybody is already in the Nest.',
     notDamaged: 'This building is not damaged.',
     alreadyRepairing: 'Repairs are already planned.',
+    notOnRampart: 'Turrets stand on the skin rampart, next to the land.',
+    turretLimit: 'Turret limit reached: upgrade the Nest for more.',
   },
   offline: {
     title: 'While you were away…',
@@ -636,6 +651,13 @@ export const en = {
     cost: '{cost} fibre per tile',
     done: 'Done',
   },
+  garrison: {
+    title: 'Garrison',
+    post: 'Post on guard',
+    relieve: 'Back to work',
+    hint: 'A kiwi on guard no longer harvests. Swords reach the ferrets; only mages and scouts reach the bats.',
+    power: 'On guard: ferrets {ground} · bats {air}',
+  },
   threats: {
     announced: 'Predators spotted! A wave strikes in {duration}.',
     won: 'The predators were driven off!',
@@ -718,6 +740,7 @@ export const en = {
       build: 'Building',
       expedition: 'On an expedition',
       injured: 'Recovering',
+      guard: 'On guard',
     },
   },
   stats: {

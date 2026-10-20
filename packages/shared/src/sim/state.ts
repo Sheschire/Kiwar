@@ -39,6 +39,8 @@ export type Job =
       until: TimeMs;
       paid: Partial<Resources>;
     }
+  /** Posted on the rampart against predators (no harvest). */
+  | { kind: 'guard' }
   /** Hurt by predators: rests at home until `until`, then looks for work. */
   | { kind: 'injured'; until: TimeMs };
 
