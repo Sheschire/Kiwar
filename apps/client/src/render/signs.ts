@@ -1,4 +1,5 @@
 import { h, render } from 'preact';
+import type { Vector3 } from 'three';
 import {
   CanvasTexture,
   InstancedBufferAttribute,
@@ -7,7 +8,6 @@ import {
   PlaneGeometry,
   SRGBColorSpace,
   ShaderMaterial,
-  Vector3,
 } from 'three';
 import type { BuildingType } from '@kiwar/shared';
 import { Icon, buildingIcon } from '../ui/iconSet';
