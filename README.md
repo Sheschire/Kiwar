@@ -9,6 +9,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 16** — on **voit ce qu'un bâtiment fait au terrain** : pendant la pose, le
+> bâtiment **lévite, translucide**, au-dessus de la tuile visée (vert si on peut construire,
+> rouge sinon, avec la raison). Autour de lui, les tuiles qu'il récoltera **pulsent en vert**
+> et celles déjà prises par un autre bâtiment sont **grises**, avec le total du gisement
+> (« 3 tuiles de chair : 1 800 pulpe en réserve »). Sur téléphone, on touche une tuile puis
+> « Construire ici ». À la fin d'un chantier, une **onde** allume la zone du bâtiment, de
+> proche en proche. Le calque **Logistique** (touche O) montre la zone de chaque producteur et
+> les recouvrements. Chaque kiwi qui dépose sa récolte affiche **ce qu'il rapporte**
+> (« +0,4 » et l'icône de la ressource), et plus un débit horaire.
+>
 > **Chantier 13** — des **comètes** passent tous les 3 à 5 jours : annoncées quelques heures
 > avant, elles traversent le ciel (plus belles la nuit) et laissent de la **poussière
 > d'étoiles** dorée sur 1 à 3 tuiles pendant un jour. On y envoie ses kiwis les plus adroits

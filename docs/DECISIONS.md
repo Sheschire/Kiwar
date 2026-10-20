@@ -1192,3 +1192,39 @@ PC), while phones are very smooth. Measured with Playwright/CDP on the `perfSave
   cost set to 0** (seed crown, seed `ages-0`: the Industry monument can be ordered from 165 h —
   `upgradeLock` is null — but the bot never orders it in the next 120 h; an earlier decision of
   `decide` wins every round). Not a comet effect; to look at in chantier 18.
+
+## Chantier 16 — Readable placement and land
+
+- **Owner's answers**: two-step placement on a phone (a tap moves the ghost, "Build here"
+  confirms; one-finger drags stay with the camera), the zones overlay **merged into the
+  logistics button** (key O, no new button), a discreet sound for the wave, drops shown as a
+  number and the resource icon.
+- **Drops in units** (part 1): a kiwi's drop is what it gathered since its previous drop:
+  building output × (its `workerPower` / the crew's summed power) × game time elapsed, capped
+  at 10 min of game time (a pause, a long jump). The drops of an hour add up to the real rate.
+  Nothing shows when the stock is full (nothing is added). One decimal below 10, decimal comma
+  in French (`document.documentElement.lang`, the render layer stays free of i18n). Small
+  colonies see "+0,3": honest, and the hourly rate stays in the building sheet.
+- **Ghost** (part 2): the cached level-1 geometry (with the age dressing) in one transparent
+  material, tinted green / red by emissive, hovering and swaying a little. Tile validity is
+  `buildLock ?? siteError` (`game/placement.ts`), the same as the build command; a wrong tile
+  type names the right ground. Taps carry their pointer type (`TapDetector`): a mouse click
+  builds at once, a finger pins the ghost. Kiwis cannot be tapped while placing.
+- **Planned catchment** (part 3): shared `catchmentPlan` builds on `computeClaims` with a
+  probe building (newest, so it never steals tiles), and lists the tiles in reach kept by
+  someone else (`claimed` by an older producer or `built` over). The banner shows the stock in
+  resource units (deposit cap × the face's climate). Ghost, plan and banner follow `slowGame`
+  (once a second) and the pointed tile: nothing runs per frame.
+- **Wave** (part 4): only for constructions and upgrades whose event is less than 15 s old (no
+  wave or sound after an offline catch-up), producers (their pool) and turrets (their rampart,
+  by sector); other buildings keep the existing sparkle. Additive glow at 0.42 (at full
+  strength the tiles turned white on winter ground). Sound `build.awaken` 250 ms after the
+  completion sound.
+- **Zones overlay**: each producer's pool in one of six colours, tiles within the radius of
+  several producers of the same ground ringed dark (they go to the oldest). Hidden while
+  placing (the plan shows instead).
+- **Measures** (headless Chromium, software WebGL, 640×400, low, fresh colony, mouse sweeping,
+  two runs each): frame median 135–152 ms before vs 145–151 ms after while placing (same
+  noise as idle), JS per frame 1.6–1.7 ms → 2.2–2.3 ms while placing, unchanged elsewhere.
+  `scripts/perf.mjs` gained a placing scenario (desktop screens only; it needs a colony that
+  can still place a Pulpery — the perf save is at its building cap).

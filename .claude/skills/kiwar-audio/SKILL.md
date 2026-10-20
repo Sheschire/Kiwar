@@ -47,6 +47,10 @@ Chantier 06: `threat.warning` (no longer reserved), `threat.strike|victory|defea
 `turret.fire` (spatial, fired by the wave show through `renderer.onTurretShot`) and
 `meteor.fall`, synth presets `strike`, `victory`, `defeat`, `shot`, `meteor`.
 
+Chantier 16: `build.awaken` (synth `awaken`, spatial), fired from `audio/sounds.ts` 250 ms
+after the completion of a producer or a turret, only for events less than 15 s old (the same
+rule as the renderer's wave).
+
 Chantier 13: `comet.seen` (synth `cometSeen`, a comet is announced) and `comet.pass` (synth
 `comet`, a cascade when the stardust falls).
 

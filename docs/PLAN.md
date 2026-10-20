@@ -49,7 +49,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 13  | Comètes et poussière d'étoiles                                         | ✅      |
 | 14  | Emporter sa colonie solo dans un univers existant                      | ✅      |
 | 15  | Colonie autonome : constructions, recherche, météorites, automatismes  | à faire |
-| 16  | Pose et terrain lisibles (modèle fantôme, zones, gains au dépôt)       | à faire |
+| 16  | Pose et terrain lisibles (modèle fantôme, zones, gains au dépôt)       | ✅      |
 | 17  | Identité visuelle : bâtiments distincts, planète alien, ciel vivant    | à faire |
 | 18  | Bot d'équilibrage complet : chemins, camps, expéditions                | à faire |
 | 19  | Colonisation de la face alien jumelle (siège, seconde colonie)         | à faire |
@@ -70,9 +70,11 @@ temporaires pourront aussi remplir les tuiles de poussière d'étoiles (chantier
   de pépins et en lagunes (Kiwino +21 %), contre ±5,6 % à la fin du chantier 08 (cause trouvée et
   corrigée au chantier 12 : le bot ne déracinait les souches qu'avec 400 pulpe).
 - Chantier 12 : les gardes 3D se postent au pied d'une tourelle au hasard (pas dans leur
-  secteur) ; les rapports de vague ne gardent que les totaux ; sur téléphone, l'efficacité
-  d'une tuile pendant la pose n'est donnée que par la couleur (pas de survol) ; le bot
-  n'utilise toujours pas les chemins (le gain logistique n'est pas mesuré par l'équilibrage).
+  secteur) ; les rapports de vague ne gardent que les totaux ; le bot n'utilise toujours pas
+  les chemins (le gain logistique n'est pas mesuré par l'équilibrage).
+- Chantier 16 : pas de fantôme quand on construit depuis la fiche d'une tuile ; la zone
+  prévue d'une amélioration ne se voit qu'après (l'onde) ; mesures d'images/s faites en rendu
+  logiciel, à confirmer par le porteur avec `?debug` pendant la pose.
 - Les camps posés sur le jus flottent un peu.
 - Pas de modération automatique du chat (signalements seulement).
 - Déménager un bâtiment (garder son niveau contre un coût) : écarté du chantier 01, à revoir.

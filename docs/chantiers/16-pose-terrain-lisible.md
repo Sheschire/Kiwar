@@ -91,3 +91,47 @@ autour de lui, et le gain affiché au dépôt n'est pas parlant.
    directement depuis le menu ?
 2. Le calque « zones » : bouton permanent dans la barre, ou seulement dans l'écran Plans ?
 3. L'onde de fin de construction : un son ?
+
+## Réponses du porteur aux questions ouvertes (octobre 2026)
+
+1. Sur téléphone, **pose en deux temps** : un tap pose le fantôme (un autre le déplace), le
+   bouton « Construire ici » confirme. Le glisser d'un doigt reste à la caméra.
+2. Le calque « zones » est **fusionné avec le bouton Logistique** (touche O).
+3. L'onde a un **son discret** (`build.awaken`, remplaçable depuis `/admin`).
+4. (Question ajoutée) Le dépôt affiche **un nombre et l'icône** de la ressource.
+
+## Réalisé
+
+- **Partie 1** : chaque dépôt affiche « +0,4 » et l'icône de la ressource, c'est-à-dire ce
+  que ce kiwi a récolté depuis son dépôt précédent (sa puissance de travail, pas une part
+  égale). La somme d'une heure retombe sur le débit réel.
+- **Partie 2** : pendant la pose, le modèle du bâtiment (niveau 1, habillage de l'âge) lévite,
+  translucide, au-dessus de la tuile visée. Il est vert si on peut construire, rouge sinon,
+  avec la raison dans le bandeau (« à poser sur chair »). Sur téléphone, c'est la pose en deux
+  temps.
+- **Partie 3** : autour du fantôme, les tuiles qu'il récoltera pulsent en vert et celles déjà
+  prises sont grises. Le bandeau résume : « Récoltera 3 tuile(s) de chair : 1 800 pulpe en
+  réserve », « 1 tuile(s) à portée déjà prise(s) : Cueillerie ». La fonction partagée
+  `catchmentPlan` reprend les règles de la simulation.
+- **Partie 4** :
+  - À la fin d'une construction ou d'une amélioration, une onde part du bâtiment et allume
+    les tuiles de sa zone, de proche en proche, avec quelques pousses. Pour une tourelle, c'est
+    son rempart. Elle est accompagnée d'un petit carillon.
+  - Le calque Logistique (touche O) colore aussi la zone de chaque producteur et cercle de
+    sombre les tuiles à portée de plusieurs producteurs.
+- **Bonus** : sur téléphone, la tuile touchée pendant la pose affiche son % de logistique (et
+  la portée d'une tourelle). C'était une dette du chantier 12.
+- **Mesures** (Chromium sans GPU) : images/s identiques pendant la pose, à la précision près
+  (≈ 7 images/s en rendu logiciel, avant comme après). Le JS par image passe de 1,7 à 2,3 ms
+  pendant la pose et reste inchangé ailleurs.
+
+## Reste
+
+- La pose depuis la fiche d'une tuile (bouton « Construire » des options) n'a pas de
+  fantôme : on y choisit déjà la tuile d'abord.
+- Le fantôme ne montre que le niveau 1. La zone prévue d'une amélioration (rayon qui grandit)
+  ne s'affiche pas avant l'amélioration ; l'onde la montre après.
+- L'onde et les pousses ne se voient pas sur un téléphone en qualité Basse (pas de
+  particules) ; l'allumage des tuiles, si.
+- Les mesures ont été faites en rendu logiciel. Le porteur peut vérifier avec `?debug` sur
+  son MacBook (pose d'un producteur en balayant la carte).

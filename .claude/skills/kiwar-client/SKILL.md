@@ -94,12 +94,34 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   `renderer.setLogisticsOverlay` (store `showLogistics`, `LogisticsButton`, key O, also on in
   path mode) and `setPlacement(tiles, efficiencies?, turret?)` (tiles tinted by
   `efficiencyGlow` or by sector; `SelectionView` instance colours are allocated in the
-  constructor, or the shader ignores them). `render/dropLabels.ts`: "+N/h" when a 3D kiwi
-  drops its load (`KiwisView.showDrop`); kiwis walk at 1/√(walk cost) per segment and carry to
-  the shared `nearestDepotOf`. Path mode: `onPaintPreview` → `actions.previewPaths` →
+  constructor, or the shader ignores them). `render/dropLabels.ts`: "+0,4" and the resource
+  icon (canvas copy of `ui/icons.tsx`, texture cache capped) when a 3D kiwi drops its load
+  (`KiwisView.showDrop`, chantier 16: output × its worker-power share × game time since its
+  `loadSince`, capped at 10 min; nothing when the stock is full); kiwis walk at 1/√(walk cost)
+  per segment and carry to the shared `nearestDepotOf`. Path mode: `onPaintPreview` → `actions.previewPaths` →
   store `pathGains` (shared `pathLogisticsChanges`) shown in `PathToolbar`. Tile sheet:
   `LogisticsLine` / `logisticsParams` (percent, steps, depot name). Turret range and the
   defense by sector: see `kiwar-threats`.
+
+- Chantier 16 (readable placement): store `placingTile` / `placingPinned`;
+  `actions.pointPlacement` (mouse hover, via `renderer.onPlacementHover`), `pinPlacement`
+  (finger tap: `onTileTap(tile, touch)` — `TapDetector` passes the pointer type),
+  `confirmPlacement` ("Build here"). `game/placement.ts`: `placementError` (= `buildLock ??
+siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and tile, free and
+  taken tiles). A `startGame` subscription (on `slowGame`, the pointed tile and `placing`)
+  drives `renderer.setGhostModel/setGhostTile` (`render/placementGhost.ts`: cached level-1
+  geometry, one transparent material, green/red emissive, hovering) and
+  `setPlannedCatchment` (`SelectionView.setPlanned`: two small instanced meshes, pulsing green
+  / grey). `setGhostTile` also moves `placementHover`, so a tapped tile shows its logistics %
+  and turret range on phones. `PlacingBanner` (`.placing-banner`, buttons below the text on
+  phones) shows the reason or the plan summary. Waves: `render/tileWave.ts` (`TileWaves`, one
+  additive instanced mesh + a ring per wave, sprouts from `BuildingsView.particles`), started
+  from `onGameEvents` → `pendingWaves` → the next `setGameState` (the event comes before its
+  state); only events < 15 s old. Zones: `refreshZones` (inside `refreshLogistics`, keyed on
+  producers and pools) → `SelectionView.setZones` (colour per producer, dark rings on tiles
+  in reach of several). Visual checks: the perf save is at its building cap (placing refuses
+  pulperies): use `?seed=demo` + `debugGrant`, and `renderer.pickTile(x, y)` to find a tile's
+  screen point; step `renderer.waves.update(1/60)` by hand with the loop stopped.
 
 ## Performance (chantier 10)
 
