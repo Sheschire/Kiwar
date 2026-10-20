@@ -19,7 +19,8 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   within ±5.6 % of the median (delta and highlands fastest early, seed crown and lagoons
   slowest), Kiwisu / Kiwino within 3.2 %; tutorial 1.5–1.6 h, Nest 3 ≈ 7 h, level 5 ≈ 10.1 h,
   mayor ≈ 12.4 h, level 10 ≈ 2.6 days. Unchanged from chantier 04 on average.
-- Reference (end of the first half of chantier 08, 30 seeds per biome × 72 h, ~14 min): older
+- Reference (end of the first half of chantier 08, 200 seeds per biome × 72 h, ~93 min; 30 seeds
+  ~14 min): every biome within ±5.6 %, every line green; older
   milestones unchanged (Nest 3 ≈ 7.3 h, mayor ≈ 12.6 h, level 10 ≈ 2.6 days), Library ≈ 7.4 h,
   Stone age ≈ 35 h in every biome; Iron and Industry need `pnpm balance:ages` (see
   `kiwar-ages`). Runs no longer stop early (the Industry milestone is never reached in 72 h).
