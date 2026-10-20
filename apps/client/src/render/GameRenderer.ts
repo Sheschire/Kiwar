@@ -77,6 +77,7 @@ import { IntroScene, type IntroHandlers, type IntroLayout } from './intro';
 import { DayCycle } from './dayCycle';
 import { updateSeasonLook, seasonUniforms } from './seasonLook';
 import { WeatherView } from './weather';
+import { PlacementGhost } from './placementGhost';
 
 export interface RendererCallbacks {
   /** Current simulation time (for smooth progress animations between ticks). */
@@ -86,7 +87,10 @@ export interface RendererCallbacks {
    * driven from here, so its work lands right after a frame instead of at random.
    */
   afterFrame?(): void;
-  onTileTap(tile: Tile | null): void;
+  /** A tile was tapped (`touch`: by a finger, not a mouse). */
+  onTileTap(tile: Tile | null, touch: boolean): void;
+  /** Chantier 16: while placing, the pointer moved onto another tile (mouse only). */
+  onPlacementHover?(tile: Tile | null): void;
   /** A path stroke painted in path mode. */
   onPaint?(tiles: Tile[], erase: boolean): void;
   /** The stroke being painted changed (empty when it ends or is cancelled). */
@@ -203,6 +207,7 @@ export class GameRenderer {
       this.selection.group,
       this.allies.group,
       this.logistics.group,
+      this.ghost.group,
     );
 
     // Any camera gesture by the player ends the follow mode.
@@ -214,7 +219,7 @@ export class GameRenderer {
     });
 
     this.tap = new TapDetector(canvas, {
-      onTap: (x, y) => {
+      onTap: (x, y, touch) => {
         if (this.painter.enabled || this.intro) return;
         const ally = this.allyAt(x, y);
         if (this.visiting) {
@@ -230,8 +235,8 @@ export class GameRenderer {
         // A building (or its site) wins over a kiwi walking by: its sheet is what one wants.
         const kiwi =
           this.callbacks.onKiwiTap && !(tile && this.hasStructure(tile)) ? this.kiwiAt(x, y) : null;
-        if (kiwi) this.callbacks.onKiwiTap!(kiwi.id, kiwi.pos);
-        else this.callbacks.onTileTap(tile);
+        if (kiwi && !this.placingGhost) this.callbacks.onKiwiTap!(kiwi.id, kiwi.pos);
+        else this.callbacks.onTileTap(tile, touch);
       },
       // Double tap: fly to the tile (the first tap already selected it).
       onDoubleTap: (x, y) => {
@@ -588,6 +593,25 @@ export class GameRenderer {
   private placementHoverTile: Tile | null = null;
   private placingTurret: BuildingType | null = null;
 
+  /** Chantier 16: the translucent building that follows the pointer while placing. */
+  private readonly ghost = new PlacementGhost();
+  private placingGhost = false;
+
+  /** Chantier 16: the building being placed (null: placement over) and the colony's age. */
+  setGhostModel(type: BuildingType | null, age: number): void {
+    this.placingGhost = type !== null;
+    this.ghost.setModel(type, age);
+    if (!type) {
+      this.placementHover = '';
+      this.placementHoverTile = null;
+    }
+  }
+
+  /** Chantier 16: where the ghost hovers (the pointed or tapped tile) and if it can go there. */
+  setGhostTile(tile: Tile | null, valid: boolean): void {
+    this.ghost.setTile(tile, valid);
+  }
+
   /** Chantier 12: the logistics overlay (efficiency of every producer). */
   setLogisticsOverlay(on: boolean): void {
     this.logisticsOverlay = on;
@@ -643,7 +667,8 @@ export class GameRenderer {
           return {
             key: `t${t.q},${t.r}`,
             x: p.x,
-            y: t.height + 0.55,
+            // Above the hovering ghost (chantier 16).
+            y: t.height + 1.45,
             z: p.z,
             value: efficiencies[i]!,
             q: t.q,
@@ -921,11 +946,15 @@ export class GameRenderer {
       this.selection.setHover(tile);
       this.hoverPoint = null;
       const key = tile ? `t${tile.q},${tile.r}` : '';
-      if ((this.placementLabels.length > 0 || this.placingTurret) && key !== this.placementHover) {
+      if (
+        (this.placementLabels.length > 0 || this.placingTurret || this.placingGhost) &&
+        key !== this.placementHover
+      ) {
         this.placementHover = key;
         this.placementHoverTile = tile;
         this.refreshLogistics();
         this.refreshCatchment();
+        if (this.placingGhost) this.callbacks.onPlacementHover?.(tile);
       }
     }
     try {
@@ -1028,6 +1057,7 @@ export class GameRenderer {
     this.kiwis?.update(dt, this.elapsed, this.callbacks.now());
     this.updateFollow(dt);
     this.selection.update(this.elapsed);
+    this.ghost.update(this.elapsed);
   }
 
   /** Day/night light and sky, season look and weather, from the simulation clock. */
@@ -1069,6 +1099,7 @@ export class GameRenderer {
 
   dispose(): void {
     this.logistics.dispose();
+    this.ghost.dispose();
     this.renderer.setAnimationLoop(null);
     this.resizeObserver.disconnect();
     this.tap.dispose();

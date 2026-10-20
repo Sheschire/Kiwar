@@ -11,9 +11,12 @@ import {
   terraformKey,
   otherFace,
   twinParams,
+  ageOf,
+  hexKey,
   type GameState,
   type TwinSnapshot,
 } from '@kiwar/shared';
+import { placementError } from './game/placement';
 import { App } from './ui/App';
 import { Guard } from './ui/components/Guard';
 import { GameRenderer } from './render/GameRenderer';
@@ -49,8 +52,13 @@ const renderer = new GameRenderer(
   {
     now: () => controller?.now() ?? 0,
     afterFrame: () => afterFrame(),
-    onTileTap: (tile) =>
-      uiStore.getState().placing && tile ? actions.placeAt(tile) : actions.selectTile(tile),
+    // Chantier 16: placing with a finger takes two steps (tap moves the ghost, then confirm).
+    onTileTap: (tile, touch) => {
+      if (!uiStore.getState().placing || !tile) actions.selectTile(tile);
+      else if (touch) actions.pinPlacement(tile);
+      else actions.placeAt(tile);
+    },
+    onPlacementHover: (tile) => actions.pointPlacement(tile),
     onPaint: (tiles, erase) => actions.paintPaths(tiles, erase),
     onPaintPreview: (tiles, erase) => actions.previewPaths(tiles, erase),
     onStats: (frame) => perfStore.setState({ frame }),
@@ -259,6 +267,23 @@ uiStore.subscribe((s, prev) => {
     producer ? tiles.map((t) => logisticsEfficiency(depotDistance(s.game!, s.map!, t))) : undefined,
     s.placing && isTurret(s.placing) ? s.placing : null,
   );
+});
+
+// Chantier 16: the translucent building above the pointed (or tapped) tile.
+let ghostKey = '';
+uiStore.subscribe((s, prev) => {
+  if (!s.placing && !prev.placing) return;
+  const game = s.game;
+  const map = s.map;
+  const age = game ? ageOf(game) : 0;
+  const tile = s.placing ? s.placingTile : null;
+  const valid =
+    !!tile && !!game && !!map && !!s.placing && placementError(game, map, s.placing, tile) === null;
+  const key = `${s.placing}:${age}:${tile ? hexKey(tile) : ''}:${valid}`;
+  if (key === ghostKey) return;
+  ghostKey = key;
+  renderer.setGhostModel(s.placing, age);
+  renderer.setGhostTile(tile, valid);
 });
 
 const url = readUrlParams();

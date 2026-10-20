@@ -1223,7 +1223,10 @@ export const en = {
     queueFull: 'Construction queue full',
     noTile: 'No free tile can take this building right now.',
     placing: 'Place: {name}',
-    placingHint: 'Tap a glowing tile.',
+    placingHint: 'Click a glowing tile.',
+    placingHintTouch: 'Tap a glowing tile, then “Build here”.',
+    buildHere: 'Build here',
+    goesOn: 'Not on this tile: place it on {tiles}.',
     cancel: 'Cancel',
   },
   levelStats: {

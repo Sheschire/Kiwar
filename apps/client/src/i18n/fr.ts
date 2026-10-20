@@ -1263,7 +1263,10 @@ export const fr: Dict = {
     queueFull: 'File de chantiers pleine',
     noTile: 'Aucune tuile libre ne peut accueillir ce bâtiment pour l’instant.',
     placing: 'Poser : {name}',
-    placingHint: 'Touche une tuile qui brille.',
+    placingHint: 'Clique sur une tuile qui brille.',
+    placingHintTouch: 'Touche une tuile qui brille, puis « Construire ici ».',
+    buildHere: 'Construire ici',
+    goesOn: 'Pas sur cette tuile : à poser sur {tiles}.',
     cancel: 'Annuler',
   },
   levelStats: {

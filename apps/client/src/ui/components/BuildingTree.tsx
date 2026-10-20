@@ -20,6 +20,7 @@ import { buildingIcon, Icon } from '../iconSet';
 import { useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
 import { LevelStats } from './StatChanges';
+import { placementError } from '../../game/placement';
 
 /** Chantier 11: every building by family, its levels, what unlocks it, and "Place". */
 
@@ -168,16 +169,44 @@ export function BuildingTree({ game }: { game: GameState }) {
 export function PlacingBanner() {
   const t = useT();
   const placing = useUi((s) => s.placing);
+  const tile = useUi((s) => s.placingTile);
+  const pinned = useUi((s) => s.placingPinned);
+  const game = useUi((s) => (s.placing && s.placingTile ? s.slowGame : null));
+  const map = useUi((s) => s.map);
   if (!placing) return null;
+  // Chantier 16: what the ghost's tile would give, or why it cannot go there.
+  const error = tile && game && map ? placementError(game, map, placing, tile) : null;
+  const touch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
   return (
     <div class="path-toolbar parchment pe" role="dialog" aria-label={t('plans.placingHint')}>
       <Icon name={buildingIcon(placing)} size={30} />
       <div class="path-toolbar-text">
         <strong>{t('plans.placing', { name: `@buildings.${placing}.name` })}</strong>
-        <span class="small muted">{t('plans.placingHint')}</span>
-        {HARVESTS[placing] && <span class="small muted">{t('plans.placingLogistics')}</span>}
-        {isTurret(placing) && <span class="small muted">{t('plans.placingTurret')}</span>}
+        {error === 'tileNotAllowed' ? (
+          <span class="small warn">
+            {t('plans.goesOn', {
+              tiles: BUILDINGS[placing].allowedTiles
+                .map((k) => t(`tiles.${k}.name`).toLowerCase())
+                .join(', '),
+            })}
+          </span>
+        ) : error ? (
+          <span class="small warn">{t(`errors.${error}`)}</span>
+        ) : (
+          <>
+            <span class="small muted">
+              {t(touch ? 'plans.placingHintTouch' : 'plans.placingHint')}
+            </span>
+            {HARVESTS[placing] && <span class="small muted">{t('plans.placingLogistics')}</span>}
+            {isTurret(placing) && <span class="small muted">{t('plans.placingTurret')}</span>}
+          </>
+        )}
       </div>
+      {pinned && tile && !error && (
+        <button class="btn btn-primary" onClick={() => actions.confirmPlacement()}>
+          {t('plans.buildHere')}
+        </button>
+      )}
       <button class="btn" onClick={() => actions.stopPlacing()}>
         {t('plans.cancel')}
       </button>

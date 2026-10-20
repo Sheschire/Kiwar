@@ -112,7 +112,13 @@ export const actions = {
       return;
     }
     if (uiStore.getState().pathMode) actions.setPathMode(false);
-    uiStore.setState({ placing: type, modal: 'none', selectedTile: null });
+    uiStore.setState({
+      placing: type,
+      placingTile: null,
+      placingPinned: false,
+      modal: 'none',
+      selectedTile: null,
+    });
   },
   toggleLevels(): void {
     const on = !uiStore.getState().showLevels;
@@ -123,7 +129,20 @@ export const actions = {
     uiStore.setState((s) => ({ showLogistics: !s.showLogistics }));
   },
   stopPlacing(): void {
-    uiStore.setState({ placing: null });
+    uiStore.setState({ placing: null, placingTile: null, placingPinned: false });
+  },
+  /** Chantier 16: the mouse points at another tile while placing (the ghost follows). */
+  pointPlacement(tile: Tile | null): void {
+    const s = uiStore.getState();
+    if (s.placing && !s.placingPinned) uiStore.setState({ placingTile: tile });
+  },
+  /** Chantier 16, on a phone: a tap moves the ghost there; "Build here" confirms. */
+  pinPlacement(tile: Tile): void {
+    if (uiStore.getState().placing) uiStore.setState({ placingTile: tile, placingPinned: true });
+  },
+  confirmPlacement(): void {
+    const tile = uiStore.getState().placingTile;
+    if (tile) actions.placeAt(tile);
   },
   /** A tap while placing: builds on a valid tile (then shows its site), ignores the others. */
   placeAt(tile: Tile): void {
@@ -131,13 +150,21 @@ export const actions = {
     if (!game || !map || !placing) return;
     if (!buildableTiles(game, map, placing).some((t) => t.q === tile.q && t.r === tile.r)) return;
     const ok = actions.dispatch({ type: 'build', buildingType: placing, q: tile.q, r: tile.r });
-    uiStore.setState(ok ? { placing: null, selectedTile: tile } : { placing: null });
+    const done = { placing: null, placingTile: null, placingPinned: false };
+    uiStore.setState(ok ? { ...done, selectedTile: tile } : done);
   },
   setPathMode(on: boolean): void {
     renderer?.setPaintMode(on);
     uiStore.setState(
       on
-        ? { pathMode: true, selectedTile: null, placing: null, pathGains: null }
+        ? {
+            pathMode: true,
+            selectedTile: null,
+            placing: null,
+            placingTile: null,
+            placingPinned: false,
+            pathGains: null,
+          }
         : { pathMode: false, pathGains: null },
     );
   },

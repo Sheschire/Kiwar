@@ -8,7 +8,8 @@ export const DOUBLE_TAP_MS = 320;
 export const DOUBLE_TAP_MAX_MOVE = 30;
 
 export interface TapHandlers {
-  onTap(x: number, y: number): void;
+  /** `touch`: the tap came from a finger or a pen, not a mouse. */
+  onTap(x: number, y: number, touch: boolean): void;
   /** Second tap of a double tap (after its own `onTap`). */
   onDoubleTap?(x: number, y: number): void;
   onHover(x: number, y: number): void;
@@ -66,7 +67,7 @@ export class TapDetector {
     if (!d || d.id !== e.pointerId) return;
     const now = performance.now();
     if (now - d.t > TAP_MAX_MS) return;
-    this.handlers.onTap(e.clientX, e.clientY);
+    this.handlers.onTap(e.clientX, e.clientY, d.touch);
     const last = this.lastTap;
     if (
       last &&

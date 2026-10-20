@@ -86,6 +86,12 @@ export interface UiState {
   /** Chantier 11: the plans screen tab, and the building being placed from the tree. */
   plansTab: 'buildings' | 'research';
   placing: BuildingType | null;
+  /**
+   * Chantier 16: the tile under the placement ghost (pointed by the mouse, or tapped on a
+   * phone: `placingPinned`, confirmed by "Build here").
+   */
+  placingTile: Tile | null;
+  placingPinned: boolean;
   /** Level badges above every building, whatever the zoom. */
   showLevels: boolean;
   /** Chantier 12: logistics overlay (efficiency above every producer). */
@@ -168,6 +174,8 @@ export const uiStore = createStore<UiState>(() => ({
   pathGains: null,
   plansTab: 'buildings',
   placing: null,
+  placingTile: null,
+  placingPinned: false,
   showLevels: loadShowLevels(),
   showLogistics: false,
   audio: DEFAULT_SETTINGS,
