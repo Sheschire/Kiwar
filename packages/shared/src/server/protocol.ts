@@ -37,7 +37,7 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     locked: z.boolean().optional(),
     builderPriority: z.boolean().optional(),
   }),
-  z.object({ type: z.literal('hatchEgg') }),
+  z.object({ type: z.literal('hatchEgg'), star: z.boolean().optional() }),
   z.object({ type: z.literal('claimObjective') }),
   z.object({
     type: z.literal('launchExpedition'),
@@ -94,6 +94,12 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('shelter') }),
   z.object({ type: z.literal('repair'), buildingId: id }),
   z.object({ type: z.literal('setGarrison'), villagerIds: z.array(id).max(200) }),
+  z.object({
+    type: z.literal('bless'),
+    villagerId: id,
+    kind: z.enum(['heal', 'respec', 'stat']),
+    stat: z.enum(STAT_IDS).optional(),
+  }),
   z.object({
     type: z.literal('collectStardust'),
     patchId: id,

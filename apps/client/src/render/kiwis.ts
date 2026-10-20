@@ -112,6 +112,7 @@ export const SHINY_HEX: Record<ShinyColor, string> = {
   yellow: '#f4c430',
   green: '#4cb04a',
   blue: '#3f7fe0',
+  star: '#ffd86b',
 };
 const BODY_BROWN = new Color('#8a6440');
 

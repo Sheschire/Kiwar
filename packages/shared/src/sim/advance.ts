@@ -664,8 +664,9 @@ function releaseBuilder(s: GameState, itemId: QueueItemId, built: boolean): void
 }
 
 function hatch(s: GameState, at: TimeMs, events: GameEvent[]): void {
+  const star = !!s.egg?.star;
   s.egg = null;
-  const v = addVillager(s, at);
+  const v = addVillager(s, at, star);
   s.stats.eggsHatched++;
   events.push({ type: 'hatched', at, villagerId: v.id, name: v.name, shiny: v.shiny });
   autoAssign(s, v);

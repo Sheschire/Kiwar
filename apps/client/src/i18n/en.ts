@@ -350,6 +350,8 @@ export const en = {
     housingFull: 'Build huts to house more kiwis',
     cost: 'Cost',
     hatched: '{name} hatched!',
+    star: 'Star egg',
+    starTitle: 'Star egg: {dust} stardust more, 1 chance in {odds} of a golden shiny',
   },
   objectives: {
     title: 'Objectives',
@@ -555,6 +557,9 @@ export const en = {
     unknownPatch: 'This stardust has scattered.',
     patchFull: 'Three kiwis at most per stardust tile.',
     stardustFull: 'The stardust stock is full.',
+    notEnoughStardust: 'Not enough stardust.',
+    notInjured: 'This kiwi is not wounded.',
+    blessingLimit: 'This kiwi already got its three blessings.',
   },
   offline: {
     title: 'While you were away…',
@@ -970,6 +975,16 @@ export const en = {
     landed: 'A meteorite fell: {stock} {resource} to pick.',
     faded: 'A meteorite crater faded away.',
   },
+  bless: {
+    title: 'Blessings',
+    have: 'Stardust: {count}',
+    heal: 'Heal at once',
+    healHint: 'Back to work right away.',
+    respec: 'Redistribute',
+    respecHint: 'Every stat back to 1: the points can be placed again.',
+    stat: '+1 for good',
+    statHint: '{used}/{max} blessings of this kind used.',
+  },
   comet: {
     name: 'Stardust',
     tip: 'Dropped by comets, kept apart from the storage (at most {cap}). It pays for blessings, star research, ship fuel, the Iron and Industry ages and the Kikiwiwis.',
@@ -1333,7 +1348,7 @@ export const en = {
     build: 'Construction',
     research: 'Research',
   },
-  shiny: { red: 'red', yellow: 'yellow', green: 'green', blue: 'blue' },
+  shiny: { red: 'red', yellow: 'yellow', green: 'green', blue: 'blue', star: 'golden' },
   classes: {
     builder: { name: 'Builder', desc: 'Builds 30 % faster.' },
     warrior: {

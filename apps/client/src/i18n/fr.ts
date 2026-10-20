@@ -368,6 +368,9 @@ export const fr: Dict = {
     housingFull: 'Construisez des huttes pour loger plus de kiwis',
     cost: 'Coût',
     hatched: '{name} a éclos !',
+    star: 'Œuf étoilé',
+    starTitle:
+      'Œuf étoilé : {dust} poussières d’étoiles en plus, 1 chance sur {odds} d’un shiny doré',
   },
   objectives: {
     title: 'Objectifs',
@@ -585,6 +588,9 @@ export const fr: Dict = {
     unknownPatch: 'Cette poussière s’est dispersée.',
     patchFull: 'Trois kiwis au plus par tuile de poussière.',
     stardustFull: 'La réserve de poussière d’étoiles est pleine.',
+    notEnoughStardust: 'Pas assez de poussière d’étoiles.',
+    notInjured: 'Ce kiwi n’est pas blessé.',
+    blessingLimit: 'Ce kiwi a déjà reçu ses trois bénédictions.',
   },
   offline: {
     title: 'Pendant votre absence…',
@@ -1001,6 +1007,16 @@ export const fr: Dict = {
     landed: 'Une météorite est tombée : {stock} {resource} à récolter.',
     faded: 'Un cratère de météorite s’est éteint.',
   },
+  bless: {
+    title: 'Bénédictions',
+    have: 'Poussière d’étoiles : {count}',
+    heal: 'Guérir tout de suite',
+    healHint: 'Retour au travail immédiat.',
+    respec: 'Redistribuer',
+    respecHint: 'Toutes les stats reviennent à 1 : les points sont à replacer.',
+    stat: '+1 pour toujours',
+    statHint: '{used}/{max} bénédictions de ce genre utilisées.',
+  },
   comet: {
     name: 'Poussière d’étoiles',
     tip: 'Apportée par les comètes, gardée à part du stockage (au plus {cap}). Elle paie les bénédictions, la recherche des étoiles, le carburant du vaisseau, les âges du Fer et de l’Industrie et les Kikiwiwis.',
@@ -1378,7 +1394,7 @@ export const fr: Dict = {
     build: 'Construction',
     research: 'Recherche',
   },
-  shiny: { red: 'rouge', yellow: 'jaune', green: 'vert', blue: 'bleu' },
+  shiny: { red: 'rouge', yellow: 'jaune', green: 'vert', blue: 'bleu', star: 'doré' },
   classes: {
     builder: { name: 'Bâtisseur·euse', desc: 'Construit 30 % plus vite.' },
     warrior: {

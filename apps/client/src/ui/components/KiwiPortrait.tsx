@@ -6,6 +6,7 @@ const SHINY_FILL: Record<ShinyColor, { body: string; head: string }> = {
   yellow: { body: '#f4c430', head: '#dcab1f' },
   green: { body: '#4cb04a', head: '#3c963b' },
   blue: { body: '#3f7fe0', head: '#3168c4' },
+  star: { body: '#f2c14e', head: '#e0a92c' },
 };
 
 /** A kiwi drawn in SVG for lists and sheets (shiny colour, later class outfits). */
@@ -54,6 +55,13 @@ export const KiwiPortrait = memo(function KiwiPortrait(props: {
         />
       )}
       <ellipse cx="30" cy="38" rx="20" ry="15" fill={fill.body} />
+      {props.shiny === 'star' && (
+        <g fill="#fff6c8" stroke="#a8741c" stroke-width="0.6">
+          <path d="M20 33 l1.2 3 3 1.2 -3 1.2 -1.2 3 -1.2 -3 -3 -1.2 3 -1.2z" />
+          <path d="M33 43 l0.9 2.2 2.2 0.9 -2.2 0.9 -0.9 2.2 -0.9 -2.2 -2.2 -0.9 2.2 -0.9z" />
+          <path d="M40 34 l0.7 1.7 1.7 0.7 -1.7 0.7 -0.7 1.7 -0.7 -1.7 -1.7 -0.7 1.7 -0.7z" />
+        </g>
+      )}
       {titan && (
         <path
           d="M14 36 q6 -6 10 0 t10 2 M20 46 q5 -5 11 -1 t9 -3 M34 30 q4 4 9 1"

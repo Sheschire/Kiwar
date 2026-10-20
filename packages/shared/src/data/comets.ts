@@ -39,6 +39,21 @@ export const STARDUST = {
   perDexterity: 0.05,
 } as const;
 
+/** Chantier 13: what stardust buys for a kiwi (costs in points). */
+export const BLESSINGS = {
+  /** Heals a wounded kiwi at once. */
+  heal: 3,
+  /** Every stat back to 1, the points to place again. */
+  respec: 6,
+  /** +1 in a stat, at most `statMax` times per kiwi. */
+  stat: 10,
+  statMax: 3,
+  /** A star egg costs the usual egg plus this much stardust… */
+  starEgg: 15,
+  /** …and hatches a golden shiny with this chance. */
+  starShiny: 1 / 8,
+} as const;
+
 /** Raw stardust units per point. A kiwi picks `rate` raw units per ms (an integer). */
 export const STARDUST_SCALE = 100 * STARDUST.pickMs;
 

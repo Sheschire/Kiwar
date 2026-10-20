@@ -388,8 +388,11 @@ export function isPlausible(state: GameState, now: number): boolean {
   if (state.expeditions.length > 0 || Object.keys(state.victories).length > 0) return false;
   if (state.memorial.length > 0) return false;
   // Shinies are 1 in 512: a save full of them was edited.
-  const shinies = state.villagers.filter((v) => v.shiny).length;
+  const shinies = state.villagers.filter((v) => v.shiny && v.shiny !== 'star').length;
   if (shinies > 2 + Math.floor(state.villagers.length / 128)) return false;
+  // Golden shinies come from star eggs, which cost stardust (chantier 13).
+  const stars = state.villagers.filter((v) => v.shiny === 'star').length;
+  if (stars > state.comets.passes) return false;
   const mayors = state.villagers.filter(
     (v) => v.classId === 'mayor' || (v.job.kind === 'train' && v.job.classId === 'mayor'),
   );

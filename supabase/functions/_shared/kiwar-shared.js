@@ -1285,6 +1285,7 @@ var STAT_IDS = [
   "charisma"
 ];
 var SHINY_COLORS = ["red", "yellow", "green", "blue"];
+var KIWI_COLORS = [...SHINY_COLORS, "star"];
 var MASTERY_IDS = ["pulp", "fiber", "seeds", "juice", "build", "research"];
 var TRAIT_IDS = [
   "earlyBird",
@@ -1927,6 +1928,19 @@ var STARDUST = {
   pickMs: ms.min(30),
   /** …and this much faster per point of Dexterity above the average. */
   perDexterity: 0.05
+};
+var BLESSINGS = {
+  /** Heals a wounded kiwi at once. */
+  heal: 3,
+  /** Every stat back to 1, the points to place again. */
+  respec: 6,
+  /** +1 in a stat, at most `statMax` times per kiwi. */
+  stat: 10,
+  statMax: 3,
+  /** A star egg costs the usual egg plus this much stardust… */
+  starEgg: 15,
+  /** …and hatches a golden shiny with this chance. */
+  starShiny: 1 / 8
 };
 var STARDUST_SCALE = 100 * STARDUST.pickMs;
 function dustPoints(raw) {
@@ -3913,7 +3927,7 @@ function removeObstacle(s, o, at, events, by) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 19;
+var SCHEMA_VERSION = 20;
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -4054,12 +4068,13 @@ function withRng(state, fn) {
   state.rng = rng.state();
   return out;
 }
-function addVillager(state, at) {
+function addVillager(state, at, star = false) {
   const taken = new Set(state.villagers.map((v2) => v2.name));
   const { name, roll } = withRng(state, (rng) => ({
     name: drawName(rng, taken, state),
     roll: rollKiwi(rng)
   }));
+  if (star && withRng(state, (rng) => rng.next() < BLESSINGS.starShiny)) roll.shiny = "star";
   const v = {
     id: nextId(state, "v"),
     name,
@@ -6127,8 +6142,9 @@ function releaseBuilder(s, itemId, built) {
   }
 }
 function hatch(s, at, events) {
+  const star = !!s.egg?.star;
   s.egg = null;
-  const v = addVillager(s, at);
+  const v = addVillager(s, at, star);
   s.stats.eggsHatched++;
   events.push({ type: "hatched", at, villagerId: v.id, name: v.name, shiny: v.shiny });
   autoAssign(s, v);
@@ -6436,7 +6452,10 @@ var COMMAND_ERRORS = [
   "kikiwiwiNoWork",
   "unknownPatch",
   "patchFull",
-  "stardustFull"
+  "stardustFull",
+  "notEnoughStardust",
+  "notInjured",
+  "blessingLimit"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -6447,6 +6466,11 @@ var CommandFailure = class extends Error {
 var fail = (code) => {
   throw new CommandFailure(code);
 };
+function payStardust(s, points) {
+  if (points <= 0) return;
+  if (stardustOf(s) < points) fail("notEnoughStardust");
+  s.stardust -= points * STARDUST_SCALE;
+}
 function pay(s, cost) {
   if (!canAfford(s.resources, cost)) fail("notEnoughResources");
   for (const id3 of RESOURCE_IDS) s.resources[id3] -= cost[id3] ?? 0;
@@ -6684,8 +6708,13 @@ function execute(s, cmd, ctx, events) {
     case "hatchEgg": {
       if (s.egg) fail("eggInProgress");
       if (!canHatch(s) || population(s) >= housing(s)) fail("housingFull");
+      if (cmd.star) payStardust(s, BLESSINGS.starEgg);
       pay(s, eggCost(s));
-      s.egg = { startedAt: now, readyAt: now + eggDuration(s) };
+      s.egg = {
+        startedAt: now,
+        readyAt: now + eggDuration(s),
+        ...cmd.star ? { star: true } : {}
+      };
       return;
     }
     case "claimObjective": {
@@ -6941,6 +6970,30 @@ function execute(s, cmd, ctx, events) {
         orderedAt: now
       });
       startNextConstruction(s, now, events);
+      return;
+    }
+    case "bless": {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail("unknownVillager");
+      if (cmd.kind === "heal") {
+        if (v.job.kind !== "injured") fail("notInjured");
+        payStardust(s, BLESSINGS.heal);
+        v.job = { kind: "idle" };
+        autoAssign(s, v);
+      } else if (cmd.kind === "respec") {
+        payStardust(s, BLESSINGS.respec);
+        for (const id3 of STAT_IDS) {
+          v.statPoints += v.stats[id3] - KIWI.stat.min;
+          v.stats[id3] = KIWI.stat.min;
+        }
+      } else if (cmd.kind === "stat") {
+        if (!cmd.stat || !STAT_IDS.includes(cmd.stat)) return fail("invalidCount");
+        if ((v.blessings ?? 0) >= BLESSINGS.statMax) fail("blessingLimit");
+        if (v.stats[cmd.stat] >= KIWI.stat.cap) fail("statMaxed");
+        payStardust(s, BLESSINGS.stat);
+        v.stats[cmd.stat]++;
+        v.blessings = (v.blessings ?? 0) + 1;
+      } else return fail("invalidCount");
       return;
     }
     case "collectStardust": {
@@ -11188,10 +11241,11 @@ var gameStateSchema = external_exports.object({
       job,
       stats,
       trait: external_exports.enum(TRAIT_IDS).nullable(),
-      shiny: external_exports.enum(SHINY_COLORS).nullable(),
+      shiny: external_exports.enum(KIWI_COLORS).nullable(),
       level: external_exports.number().int().min(1).max(KIWI.maxLevel),
       xp: external_exports.number().int().min(0),
       statPoints: external_exports.number().int().min(0),
+      blessings: external_exports.number().int().min(0).max(BLESSINGS.statMax).optional(),
       mastery: external_exports.object(
         Object.fromEntries(MASTERY_IDS.map((m) => [m, external_exports.number().int().min(0)]))
       ),
@@ -11213,7 +11267,7 @@ var gameStateSchema = external_exports.object({
       id,
       name: external_exports.string().max(4 * KIWI_NAME_MAX),
       level: external_exports.number().int().min(1).max(KIWI.maxLevel),
-      shiny: external_exports.enum(SHINY_COLORS).nullable(),
+      shiny: external_exports.enum(KIWI_COLORS).nullable(),
       classId: external_exports.enum(CLASS_IDS).nullable().optional(),
       bornAt: external_exports.number(),
       diedAt: external_exports.number(),
@@ -11239,7 +11293,7 @@ var gameStateSchema = external_exports.object({
       orderedAt: external_exports.number()
     })
   ),
-  egg: external_exports.object({ startedAt: external_exports.number(), readyAt: external_exports.number() }).nullable(),
+  egg: external_exports.object({ startedAt: external_exports.number(), readyAt: external_exports.number(), star: external_exports.boolean().optional() }).nullable(),
   objectiveIndex: external_exports.number().int().min(0),
   stats: external_exports.object({
     produced: resources,
@@ -11298,7 +11352,7 @@ var gameStateSchema = external_exports.object({
           id,
           name: external_exports.string(),
           level: external_exports.number().int().min(1).optional(),
-          shiny: external_exports.enum(SHINY_COLORS).nullable().optional(),
+          shiny: external_exports.enum(KIWI_COLORS).nullable().optional(),
           classId: external_exports.enum(CLASS_IDS).nullable().optional()
         })
       ),
@@ -11493,7 +11547,9 @@ var MIGRATIONS = {
   // v17 → v18 (chantier 09): optional kiwi flags (locked, builder priority, home workplace).
   17: (raw) => raw,
   // v18 → v19: comets and stardust (chantier 13). The first comet comes 36 h after loading.
-  18: (raw) => ({ ...raw, comets: newComets(Number(raw.now)), stardust: 0 })
+  18: (raw) => ({ ...raw, comets: newComets(Number(raw.now)), stardust: 0 }),
+  // v19 → v20: blessings and star eggs (optional fields, chantier 13).
+  19: (raw) => raw
 };
 function obstaclesForOldGame(raw) {
   const face = raw.face === "kiwino" ? "kiwino" : "kiwisu";
@@ -11569,7 +11625,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     locked: external_exports.boolean().optional(),
     builderPriority: external_exports.boolean().optional()
   }),
-  external_exports.object({ type: external_exports.literal("hatchEgg") }),
+  external_exports.object({ type: external_exports.literal("hatchEgg"), star: external_exports.boolean().optional() }),
   external_exports.object({ type: external_exports.literal("claimObjective") }),
   external_exports.object({
     type: external_exports.literal("launchExpedition"),
@@ -11617,6 +11673,12 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("shelter") }),
   external_exports.object({ type: external_exports.literal("repair"), buildingId: id2 }),
   external_exports.object({ type: external_exports.literal("setGarrison"), villagerIds: external_exports.array(id2).max(200) }),
+  external_exports.object({
+    type: external_exports.literal("bless"),
+    villagerId: id2,
+    kind: external_exports.enum(["heal", "respec", "stat"]),
+    stat: external_exports.enum(STAT_IDS).optional()
+  }),
   external_exports.object({
     type: external_exports.literal("collectStardust"),
     patchId: id2,
@@ -11889,8 +11951,10 @@ function isPlausible(state, now) {
   if (state.queue.length > (nestDef(state).queueSize ?? 0)) return false;
   if (state.expeditions.length > 0 || Object.keys(state.victories).length > 0) return false;
   if (state.memorial.length > 0) return false;
-  const shinies = state.villagers.filter((v) => v.shiny).length;
+  const shinies = state.villagers.filter((v) => v.shiny && v.shiny !== "star").length;
   if (shinies > 2 + Math.floor(state.villagers.length / 128)) return false;
+  const stars = state.villagers.filter((v) => v.shiny === "star").length;
+  if (stars > state.comets.passes) return false;
   const mayors = state.villagers.filter(
     (v) => v.classId === "mayor" || v.job.kind === "train" && v.job.classId === "mayor"
   );
@@ -12360,6 +12424,7 @@ export {
   ALIEN_TWIN_FACE,
   BIOMES,
   BIOME_IDS,
+  BLESSINGS,
   BUILDABLE_TYPES,
   BUILDINGS,
   BUILDING_TYPES,
@@ -12391,6 +12456,7 @@ export {
   JOBS,
   KIKIWIWI,
   KIWI,
+  KIWI_COLORS,
   KIWI_NAME_MAX,
   LEVEL_STATS,
   LOGISTICS,
@@ -12698,6 +12764,7 @@ export {
   pathLogisticsChanges,
   pathSet,
   pathsKey,
+  payStardust,
   pendingUpgrade,
   pickRate,
   pickStarving,

@@ -16,8 +16,11 @@ export const STAT_IDS = [
 export type StatId = (typeof STAT_IDS)[number];
 export type Stats = Record<StatId, number>;
 
+/** Colours drawn at hatching. */
 export const SHINY_COLORS = ['red', 'yellow', 'green', 'blue'] as const;
-export type ShinyColor = (typeof SHINY_COLORS)[number];
+/** Chantier 13: plus the golden "starry" shiny, only from a star egg. */
+export const KIWI_COLORS = [...SHINY_COLORS, 'star'] as const;
+export type ShinyColor = (typeof KIWI_COLORS)[number];
 
 /** Masteries: one per harvested resource, plus construction and research (chantier 08). */
 export const MASTERY_IDS = ['pulp', 'fiber', 'seeds', 'juice', 'build', 'research'] as const;

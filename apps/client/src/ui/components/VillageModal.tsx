@@ -36,6 +36,7 @@ import { pushToast, useT, useUi, uiStore } from '../store';
 import { BookIcon, HammerIcon, LockIcon, ResourceIcon } from '../icons';
 import { Cost } from './Cost';
 import { KiwiPortrait } from './KiwiPortrait';
+import { BlessingSection } from './BlessingSection';
 import { Modal } from './Modal';
 import { StatRadar } from './StatRadar';
 import { KiwiNeedsLine, MoraleCard, RestSection } from './NeedsWidgets';
@@ -460,6 +461,8 @@ function KiwiSheet({ v }: { v: Villager }) {
           {t('kiwi.building', { value: fmt(builderSpeed(v)) })}
         </p>
       </section>
+
+      <BlessingSection game={game} v={v} />
 
       <ClassSection v={v} />
 

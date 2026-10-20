@@ -1,5 +1,5 @@
-import { STARDUST } from '../data/comets';
-import { canPickDust, STARDUST_CAP } from './comets';
+import { BLESSINGS, STARDUST, STARDUST_SCALE } from '../data/comets';
+import { canPickDust, STARDUST_CAP, stardustOf } from './comets';
 import { BUILDINGS, levelDef, type BuildingType } from '../data/buildings';
 import { CAMPS, PATHS } from '../data/territory';
 import { TILES } from '../data/tiles';
@@ -94,7 +94,8 @@ export type Command =
     }
   /** Chantier 09: the lock (never moved automatically) and the builder priority of a kiwi. */
   | { type: 'setKiwiFlags'; villagerId: VillagerId; locked?: boolean; builderPriority?: boolean }
-  | { type: 'hatchEgg' }
+  /** Chantier 13: `star` pays stardust on top for a likely golden shiny. */
+  | { type: 'hatchEgg'; star?: boolean }
   | { type: 'claimObjective' }
   | {
       type: 'launchExpedition';
@@ -149,6 +150,8 @@ export type Command =
   | { type: 'setResearch'; tech: TechId | null }
   /** Chantier 13: exactly these kiwis pick the stardust of a tile (others there go back). */
   | { type: 'collectStardust'; patchId: string; villagerIds: VillagerId[] }
+  /** Chantier 13: a blessing bought with stardust (heal, redistribute the stats, +1 in a stat). */
+  | { type: 'bless'; villagerId: VillagerId; kind: BlessingKind; stat?: StatId }
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
 export const COMMAND_ERRORS = [
@@ -236,7 +239,12 @@ export const COMMAND_ERRORS = [
   'unknownPatch',
   'patchFull',
   'stardustFull',
+  'notEnoughStardust',
+  'notInjured',
+  'blessingLimit',
 ] as const;
+export type BlessingKind = 'heal' | 'respec' | 'stat';
+
 export type CommandError = (typeof COMMAND_ERRORS)[number];
 
 export type CommandResult =
@@ -258,6 +266,13 @@ class CommandFailure extends Error {
 const fail = (code: CommandError): never => {
   throw new CommandFailure(code);
 };
+
+/** Chantier 13: spends whole stardust points (`notEnoughStardust` otherwise). */
+export function payStardust(s: GameState, points: number): void {
+  if (points <= 0) return;
+  if (stardustOf(s) < points) fail('notEnoughStardust');
+  s.stardust -= points * STARDUST_SCALE;
+}
 
 function pay(s: GameState, cost: ResourceCost): void {
   if (!canAfford(s.resources, cost)) fail('notEnoughResources');
@@ -531,8 +546,13 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
     case 'hatchEgg': {
       if (s.egg) fail('eggInProgress');
       if (!canHatch(s) || population(s) >= housing(s)) fail('housingFull');
+      if (cmd.star) payStardust(s, BLESSINGS.starEgg);
       pay(s, eggCost(s));
-      s.egg = { startedAt: now, readyAt: now + eggDuration(s) };
+      s.egg = {
+        startedAt: now,
+        readyAt: now + eggDuration(s),
+        ...(cmd.star ? { star: true } : {}),
+      };
       return;
     }
     case 'claimObjective': {
@@ -801,6 +821,30 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         orderedAt: now,
       });
       startNextConstruction(s, now, events);
+      return;
+    }
+    case 'bless': {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail('unknownVillager');
+      if (cmd.kind === 'heal') {
+        if (v.job.kind !== 'injured') fail('notInjured');
+        payStardust(s, BLESSINGS.heal);
+        v.job = { kind: 'idle' };
+        autoAssign(s, v);
+      } else if (cmd.kind === 'respec') {
+        payStardust(s, BLESSINGS.respec);
+        for (const id of STAT_IDS) {
+          v.statPoints += v.stats[id] - KIWI.stat.min;
+          v.stats[id] = KIWI.stat.min;
+        }
+      } else if (cmd.kind === 'stat') {
+        if (!cmd.stat || !STAT_IDS.includes(cmd.stat)) return fail('invalidCount');
+        if ((v.blessings ?? 0) >= BLESSINGS.statMax) fail('blessingLimit');
+        if (v.stats[cmd.stat] >= KIWI.stat.cap) fail('statMaxed');
+        payStardust(s, BLESSINGS.stat);
+        v.stats[cmd.stat]++;
+        v.blessings = (v.blessings ?? 0) + 1;
+      } else return fail('invalidCount');
       return;
     }
     case 'collectStardust': {

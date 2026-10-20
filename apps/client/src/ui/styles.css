@@ -2298,6 +2298,9 @@ button.chip:focus-visible {
 .shiny-blue {
   background: #3f7fe0;
 }
+.shiny-star {
+  background: linear-gradient(135deg, #f7d15c, #d99a1e);
+}
 
 .xp-bar {
   display: block;
@@ -3777,4 +3780,68 @@ button.chip:focus-visible {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
+}
+
+/* Chantier 13: blessings in the kiwi sheet, the star egg. */
+.blessings h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bless-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 8px;
+}
+
+.bless-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.dust-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 700;
+  color: #9a6a12;
+}
+
+.dust-price.missing {
+  color: var(--berry);
+}
+
+.egg-star {
+  position: absolute;
+  right: 78px;
+  bottom: 52px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 2px solid #d9a83a;
+  background: var(--paper, #fff8e8);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #9a6a12;
+  cursor: pointer;
+}
+
+.egg-star:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.egg-star .missing {
+  color: var(--berry);
+}
+
+.egg-btn.hatching.is-star {
+  border-color: #d9a83a;
 }

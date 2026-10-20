@@ -1,8 +1,15 @@
-import { canHatch, eggCost, eggDuration, validateCommand } from '@kiwar/shared';
+import {
+  BLESSINGS,
+  canHatch,
+  eggCost,
+  eggDuration,
+  stardustOf,
+  validateCommand,
+} from '@kiwar/shared';
 import { housing, population } from '../derived';
 import { formatDuration } from '../../i18n/i18n';
 import { actions } from '../actions';
-import { EggIcon } from '../icons';
+import { EggIcon, StardustIcon } from '../icons';
 import { useT, useUi } from '../store';
 import { Cost } from './Cost';
 
@@ -21,7 +28,7 @@ export function EggButton() {
     return (
       <div class="egg-wrap pe">
         <div
-          class="egg-btn hatching"
+          class={`egg-btn hatching ${egg.star ? 'is-star' : ''}`}
           style={{ '--p': `${progress * 360}deg` }}
           aria-label={t('egg.hatching')}
           role="status"
@@ -37,8 +44,30 @@ export function EggButton() {
 
   const full = !canHatch(game);
   const error = full ? 'housingFull' : validateCommand(game, { type: 'hatchEgg' }, { now, map });
+  // Chantier 13: the star egg, once the colony has seen stardust.
+  const showStar = game.stardust > 0 || game.comets.passes > 0;
+  const starError = full
+    ? 'housingFull'
+    : validateCommand(game, { type: 'hatchEgg', star: true }, { now, map });
   return (
     <div class="egg-wrap pe">
+      {showStar && (
+        <button
+          class={`egg-star parchment-btn ${starError ? '' : 'ready'}`}
+          disabled={starError !== null}
+          aria-label={t('egg.star')}
+          title={t('egg.starTitle', {
+            dust: BLESSINGS.starEgg,
+            odds: Math.round(1 / BLESSINGS.starShiny),
+          })}
+          onClick={() => actions.dispatch({ type: 'hatchEgg', star: true })}
+        >
+          <StardustIcon size={18} />
+          <span class={stardustOf(game) < BLESSINGS.starEgg ? 'missing' : ''}>
+            {BLESSINGS.starEgg}
+          </span>
+        </button>
+      )}
       <button
         class={`egg-btn ${error ? '' : 'ready'}`}
         disabled={error !== null}

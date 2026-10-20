@@ -12,7 +12,7 @@ import {
 } from '../sim/state';
 import { INCIDENT_KINDS, INCIDENTS, METEORS, THREATS } from '../data/threats';
 import { RESOURCE_IDS } from '../data/resources';
-import { COMETS, STARDUST, STARDUST_SCALE } from '../data/comets';
+import { BLESSINGS, COMETS, STARDUST, STARDUST_SCALE } from '../data/comets';
 import { INTEL } from '../data/expeditions';
 import type { Face } from '../types/ids';
 import {
@@ -20,7 +20,7 @@ import {
   KIWI_NAME_MAX,
   MASTERY_IDS,
   MEMORIAL_MAX,
-  SHINY_COLORS,
+  KIWI_COLORS,
   STAT_IDS,
   TRAIT_IDS,
   type MasteryId,
@@ -176,10 +176,11 @@ export const gameStateSchema = z.object({
       job,
       stats,
       trait: z.enum(TRAIT_IDS).nullable(),
-      shiny: z.enum(SHINY_COLORS).nullable(),
+      shiny: z.enum(KIWI_COLORS).nullable(),
       level: z.number().int().min(1).max(KIWI.maxLevel),
       xp: z.number().int().min(0),
       statPoints: z.number().int().min(0),
+      blessings: z.number().int().min(0).max(BLESSINGS.statMax).optional(),
       mastery: z.object(
         Object.fromEntries(MASTERY_IDS.map((m) => [m, z.number().int().min(0)])) as Record<
           MasteryId,
@@ -205,7 +206,7 @@ export const gameStateSchema = z.object({
         id,
         name: z.string().max(4 * KIWI_NAME_MAX),
         level: z.number().int().min(1).max(KIWI.maxLevel),
-        shiny: z.enum(SHINY_COLORS).nullable(),
+        shiny: z.enum(KIWI_COLORS).nullable(),
         classId: z.enum(CLASS_IDS).nullable().optional(),
         bornAt: z.number(),
         diedAt: z.number(),
@@ -232,7 +233,9 @@ export const gameStateSchema = z.object({
       orderedAt: z.number(),
     }),
   ),
-  egg: z.object({ startedAt: z.number(), readyAt: z.number() }).nullable(),
+  egg: z
+    .object({ startedAt: z.number(), readyAt: z.number(), star: z.boolean().optional() })
+    .nullable(),
   objectiveIndex: z.number().int().min(0),
   stats: z.object({
     produced: resources,
@@ -299,7 +302,7 @@ export const gameStateSchema = z.object({
           id,
           name: z.string(),
           level: z.number().int().min(1).optional(),
-          shiny: z.enum(SHINY_COLORS).nullable().optional(),
+          shiny: z.enum(KIWI_COLORS).nullable().optional(),
           classId: z.enum(CLASS_IDS).nullable().optional(),
         }),
       ),
@@ -533,6 +536,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   17: (raw) => raw,
   // v18 → v19: comets and stardust (chantier 13). The first comet comes 36 h after loading.
   18: (raw) => ({ ...raw, comets: newComets(Number(raw.now)), stardust: 0 }),
+  // v19 → v20: blessings and star eggs (optional fields, chantier 13).
+  19: (raw) => raw,
 };
 
 function obstaclesForOldGame(raw: Record<string, unknown>): Obstacle[] {

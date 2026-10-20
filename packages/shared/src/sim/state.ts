@@ -6,7 +6,7 @@ import { drawGarrison } from './aliens';
 import { alienDefOf } from '../data/expeditions';
 import type { ResourceId, Resources } from '../data/resources';
 import { INCIDENTS, METEORS, type IncidentKind } from '../data/threats';
-import { COMETS } from '../data/comets';
+import { BLESSINGS, COMETS } from '../data/comets';
 import { DEFAULT_FACE_PARAMS, HEART, type FaceParams } from '../worldgen/generateFace';
 import { hexKey } from '../hex/hex';
 import type { ObstacleKind } from '../data/obstacles';
@@ -30,7 +30,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 19;
+export const SCHEMA_VERSION = 20;
 
 export type Job =
   | { kind: 'idle' }
@@ -83,6 +83,8 @@ export interface Villager {
   xp: number;
   /** Stat points earned on even levels, to be placed by the player. */
   statPoints: number;
+  /** Chantier 13: permanent +1s bought with stardust (at most `BLESSINGS.statMax`). */
+  blessings?: number;
   /** Practice per mastery in raw units (PRACTICE_SCALE per hour). */
   mastery: Masteries;
   history: KiwiHistory;
@@ -205,6 +207,8 @@ export interface Delivery {
 export interface Egg {
   startedAt: TimeMs;
   readyAt: TimeMs;
+  /** Chantier 13: a star egg (paid with stardust), with a high chance of a golden shiny. */
+  star?: boolean;
 }
 
 /**
@@ -698,12 +702,14 @@ export function withRng<T>(state: GameState, fn: (rng: Rng) => T): T {
   return out;
 }
 
-export function addVillager(state: GameState, at: TimeMs): Villager {
+export function addVillager(state: GameState, at: TimeMs, star = false): Villager {
   const taken = new Set(state.villagers.map((v) => v.name));
   const { name, roll } = withRng(state, (rng) => ({
     name: drawName(rng, taken, state),
     roll: rollKiwi(rng),
   }));
+  // A star egg (chantier 13): one more draw, for the golden shiny.
+  if (star && withRng(state, (rng) => rng.next() < BLESSINGS.starShiny)) roll.shiny = 'star';
   const v: Villager = {
     id: nextId(state, 'v') as VillagerId,
     name,
