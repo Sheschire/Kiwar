@@ -46,8 +46,9 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   sprites); `particles.ts` is the instanced pool. Quality flags `buildingAnimations` /
   `particles` (off in low). Removed buildings collapse in dust (`collapse` in `buildings.ts`).
 - Shadows are static: after changing meshes set `renderer.shadowMap.needsUpdate = true`.
-- Biome palettes, flood water, the twin half in the sky (`twin.ts`) and the intro scene
-  (`intro.ts`, drawn instead of the game while `renderer.playIntro` runs): see `kiwar-world`.
+- Biome palettes, flood water, the twin half in the sky (`twin.ts`), the closed planet (cut
+  disc under the tiles) and the intro scene (`intro.ts` + `introFx.ts`, drawn instead of the
+  game while `renderer.playIntro` runs): see `kiwar-world`.
   The scene haze follows the camera distance; max zoom is 1.9 × `rig.frameDistance`.
 - Chantier 08, second half (`kiwar-titans`): `render/obstacles.ts`, `render/kikiwiwi.ts`
   (Kikiwiwis posed from `KiwisView`), the `lab` model, `LabInfo.tsx`, `TitanWorks.tsx`;
@@ -80,8 +81,33 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   buildings/paths), `kiwis.ts` (cosmetic agents, A* in `pathfinding.ts` with the same walk
   costs as the sim), `selection.ts` (hover/selected/catchment markers), `paths.ts`.
 - Camera: `camera/CameraRig.ts` (camera-controls). Desktop: left-drag pan, right or Alt/Ctrl+drag
-  rotate, wheel zoom, WASD, Q/E. Touch: one finger pan, pinch, two-finger twist. Path mode
-  disables one-finger/left drag for the painter.
+  rotate, wheel zoom, WASD, Q/E. Touch: one finger pan (then a glide, `camera/inertia.ts`
+  `Glide`: target samples on pointer moves, τ 0.28 s, stopped by any input or `focus`/`frame`),
+  pinch, two-finger twist (eased). Path mode disables one-finger/left drag for the painter.
+  Double tap / double click (`TapDetector.onDoubleTap`, the first tap still selects) flies to
+  the tile. `render/front.ts` `FRONT_AZIMUTH` is the colony's front (alien twin, compass,
+  chantier 12 waves); `Compass.tsx` reads the azimuth from `ui/viewStore.ts` (renderer
+  `onAzimuth`), a tap calls `renderer.focusNest()`.
+
+## Performance (chantier 10)
+
+- **The UI store is the usual suspect.** The controller emits a new `game` and `now` 5 times
+  a second; every mounted `useUi` selector runs on every `setState`. Never call costly shared
+  selectors in a selector or render body directly: use the per-state memoized versions in
+  `ui/derived.ts` (`netRates`, `capacity`, `consumption`, `housing`, `population`,
+  `hungerStage`, `forecastWave`, `bedsOf`, `moraleOf`…; add new ones with `perGame`). Keep
+  fast-changing numbers out of `uiStore` (frame stats → `perfStore`, camera → `viewStore`).
+  `useUi(selector, shallow)` for object/array selectors; `useT()` is stable per language;
+  memoize list items (`memo` from `preact/compat`, e.g. `KiwiPortrait`).
+- Measure: `?debug` (frame fps/p95/worst/hitches, JS ms per frame, draw calls, pixels, GPU;
+  interface ms/s, worst update, last menu open time). `scripts/perf.mjs <save.json>` replays a
+  colony from `tools/balance/src/perfSave.ts` on desktop/phone screens, medium/low, CPU ×4.
+  Headless WebGL is software (≈ 1 fps): trust the JS/interface columns, not fps. For a CPU
+  profile, use CDP `Profiler.start/stop` from Playwright and sum self/inclusive time per
+  function (the hot path shows up immediately).
+- Rendering: `pixelRatioFor` (quality.ts) caps device pixels per preset (`pixelBudget`) and
+  integrated Intel GPUs at 1.25, recomputed on resize; while a modal is open the renderer
+  draws at ~20 fps (`setBackground`). No `backdrop-filter` over the canvas.
 
 ## UI (`ui/`)
 
@@ -130,3 +156,8 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
    `renderer.rig.focus(x, y, z)` + `renderer.rig.controls.dollyTo(d, false)`.
 5. Confirmations: `uiStore.setState({ modal: 'demolish', demolishId })`; the `.modal-confirm`
    class turns a modal into a bottom sheet on phones.
+6. Gestures and animations at real speed: headless frames take ~0.5 s, so pointer events
+   arrive far apart. Stop the loop (`renderer.renderer.setAnimationLoop(null)`) and drive
+   `rig.update(1/60)` from a `setInterval`, or step an animation by hand (`intro.update(1/60)`
+   up to a time, then `renderer.renderer.render(intro.scene, intro.camera)`) before the shot.
+   Touch swipes: CDP `Input.dispatchTouchEvent`.

@@ -43,7 +43,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 07  | Vaisseau kiwi géant et exploration                                     | ✅      |
 | 08  | Âges, recherche contre nature, Kikiwiwis                               | ✅      |
 | 09  | Gestion des kiwis : affectation, priorités, tableau des postes         | à faire |
-| 10  | Confort visuel et performance (caméra, planète alien fixe, lenteurs)   | à faire |
+| 10  | Confort visuel et performance (caméra, planète alien fixe, lenteurs)   | ✅      |
 | 11  | Lisibilité de la construction (icônes, avant/après, arbre)             | ✅      |
 | 12  | Logistique visible, vagues orientées, nuit plus courte                 | à faire |
 | 13  | Comètes et poussière d'étoiles                                         | à faire |
@@ -93,8 +93,13 @@ des postes), voir [`docs/chantiers/09-gestion-kiwis.md`](chantiers/09-gestion-ki
 - Chantier 08 (2e moitié) : pas encore de colonisation (là où les Kikiwiwis serviront le plus) ;
   le bot ne terraforme pas et n'emmène pas son Kikiwiwi en expédition ; les obstacles ne gênent
   pas la marche ; pas de son dédié au Kikiwiwi.
-- Performance des animations non mesurée sur un vrai téléphone (un mesh par partie animée, ~1 à
-  10 par bâtiment) : à vérifier, sinon passer les drapeaux en instancing.
+- Chantier 10 : mesures faites en Chromium headless (rendu WebGL logiciel) : le coût GPU réel
+  n'est pas mesuré ; le porteur peut relever images/s, p95 et temps d'ouverture des menus avec
+  `?debug` sur son MacBook Pro 2015 et chez ses ami·es (desktop lent). Animations des
+  bâtiments toujours un mesh par partie animée (leur JS ne ressort pas dans les profils ; à
+  passer en instancing si un vrai GPU les montre). La planète alien « fixe » se comporte
+  comme la lune (direction et orientation fixes, hauteur selon le zoom). Lueurs CSS animées
+  (`box-shadow`) gardées. L'inertie n'est pas testée sur un vrai téléphone.
 - Retours de partie à plusieurs (octobre 2026, corrigés hors chantier) : un kiwi par joueur
   (jumelle alien), univers créé depuis la colonie solo, planètes alliées visibles et visitables
   en lecture, écran d'erreur au lieu d'un fond vide, récap discret, caméra conservée. Reste :

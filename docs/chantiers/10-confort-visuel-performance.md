@@ -1,5 +1,8 @@
 # Chantier 10 — Confort visuel et performance
 
+> **État : terminé** (octobre 2026). Détail des choix et mesures avant/après dans
+> `docs/DECISIONS.md` (« Chantier 10 »).
+
 Retours de partie d'octobre 2026 sur la caméra, le rendu et la fluidité. Ce chantier ne touche
 que le client : il peut tourner en parallèle d'un chantier de simulation.
 
@@ -102,3 +105,32 @@ que le client : il peut tourner en parallèle d'un chantier de simulation.
 2. Garder le tilt-shift, même léger, ou le supprimer complètement ?
 3. Double tap pour voler vers une tuile : est-ce que ça gêne la sélection d'un bâtiment (on garde
    le tap simple pour sélectionner) ?
+
+## Réponses du porteur
+
+1. Mesure : « même avec des gros PC gaming, sur desktop (web) le jeu est très lent, même
+   graphismes au max ; sur mobile, quasiment aucun souci ». Mesures faites ici en headless ; le
+   compteur `?debug` permet de relever les vrais chiffres.
+2. Tilt-shift : gardé, allégé, sans réglage.
+3. Double tap : le premier tap sélectionne tout de suite, le second fait voler la caméra.
+4. Planète alien côté « front », boussole en bas (tap = retour au Nid).
+
+## Fait
+
+- Mesures : compteur détaillé (`?debug`), sonde d'interface, `scripts/perf.mjs` sur une colonie
+  jouée 72 h par le bot. Cause principale des saccades : `netRates` recalculé ~9 fois à chaque
+  mise à jour par la barre du haut, et tout le HUD re-rendu 5 fois par seconde.
+- Optimisations : sélecteurs mémoïsés par état (`ui/derived.ts`), `fps` hors du store, `useT`
+  stable, portraits mémoïsés, budget de pixels par préréglage, GPU Intel intégrés à 1,25, MSAA 2
+  en haute qualité, 3D à ~20 images/s derrière les menus, plus de flou CSS derrière les menus.
+- Caméra : glisse après un geste à un doigt, double tap pour voler, rotation à deux doigts
+  lissée, boussole.
+- Planète alien toujours vers le front (comme la lune), tilt-shift allégé.
+- Planète fermée par la coupe du fruit (disque sous les tuiles), plan proche à 1.
+- Intro : kiwi rond, lame nette, giclée de jus, son « splash ».
+
+## Reste
+
+- Mesure sur un vrai MacBook Pro 2015 et sur les PC desktop qui rament (`?debug`).
+- Instancing des parties animées si un vrai GPU les montre coûteuses.
+- Lueurs CSS animées en `box-shadow` (petites, gardées).

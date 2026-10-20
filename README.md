@@ -9,6 +9,15 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 10** — le jeu est plus fluide : la barre du haut ne recalcule plus toute la
+> production plusieurs fois par seconde (≈ 3 fois moins de travail pour l'interface, menus deux
+> fois plus rapides à ouvrir), les grands écrans haute densité rendent moins de pixels, la 3D
+> ralentit derrière les menus, et `?debug` affiche images/s et temps d'ouverture des menus. Sur
+> téléphone, la caméra **glisse** après un geste, un **double tap** y vole et une **boussole**
+> montre la planète alien (tap : retour au Nid). La planète alien reste du même côté du ciel,
+> le flou de la qualité haute est plus léger, la planète est fermée (on voit la coupe du
+> fruit, jamais l'intérieur) et l'intro montre un kiwi bien rond tranché net, avec du jus.
+>
 > **Chantier 11** — construire devient lisible : de **petites icônes** partout (bâtiments,
 > effets, branches de recherche), un tableau **« niveau actuel → suivant »** en vert avant
 > chaque amélioration, l'effet chiffré de chaque technologie, et un écran **Plans** (bouton

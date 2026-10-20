@@ -37,16 +37,25 @@ biome)` (memoized), `tileDeposit(tile, biome)`, `twinParams(seed, face, params)`
 - Palettes: `BIOME_LOOKS` in `render/terrain.ts` (flesh gradient + tile colours),
   `tileTopColor(tile, out, biome)`. Flood water: `WaterView.flood` (second instanced mesh,
   `setFlooded`), badge `flooded` in `buildingLife.ts`. `pathfinding.ts` passes biome + flood.
-- **Twin half** (`render/twin.ts`, `GameRenderer.setTwin(map, { fog, friend })`): placed from the
-  camera each frame — hidden just above the frame until zoom 1.08 × `rig.frameDistance`, fully in
-  the upper sky at 1.75 × (max zoom 1.9 ×). Terrain without shadows/props, materials `fog=false`,
+- **Twin half** (`render/twin.ts`, `GameRenderer.setTwin(map, { fog, friend })`): like the moon,
+  always towards the colony's front (`render/front.ts` `FRONT_AZIMUTH`), fixed orientation and
+  slow spin; its height follows the camera's distance and pitch — hidden just above the frame
+  until zoom 1.0 × `rig.frameDistance`, in the upper sky at 1.55 × (max zoom 1.9 ×). Turning the
+  camera slides it off screen (the compass shows where it is). A truly fixed world position
+  does not work: the camera looks 45–64° down. Terrain without shadows/props, materials `fog=false`,
   three `CircleGeometry` cloud layers (fog of war). Friend: `WaterView`, static
   `buildingGeometry` meshes (shared cache, do not dispose), name sprite. `startGame.showTwin`
   rebuilds it only when the key (seed, face, biome, friend snapshot time) changes.
-- **Intro** (`render/intro.ts` `IntroScene`): own scene/camera; `GameRenderer.playIntro(maps,
-handlers, skip)` renders it instead of the game (camera controls and taps off), `endIntro()`.
-  Timeline: whole fruit (domes only, stretched ×1.18, rolling around X) → blade at 1.6 s
-  (`onSlice`) → parting 1.9–3.3 s → choice (focus: hover on desktop, taps, tabs) → `choose` →
+- **Closed planet**: the skin dome (`createKiwiDome`, `FrontSide`) carries a cut disc child
+  (biome flesh mixed with skin brown): the gaps between tiles and the ring outside the rim show
+  the fruit's cut, never the inside of the skin. The intro finds the dome as the terrain
+  group's child that is neither tiles nor water: keep extra parts as children of the dome.
+- **Intro** (`render/intro.ts` `IntroScene`, effects in `render/introFx.ts`): own scene/camera;
+  `GameRenderer.playIntro(maps, handlers, skip)` renders it instead of the game (camera
+  controls and taps off), `endIntro()`. Timeline: whole round kiwi (`createWholeKiwi`, domes
+  hidden, rolling around X) → blade streak at 1.6 s (`BladeTrail`) + juice (`JuiceBurst`) +
+  `onSlice` (synth `slice`: whoosh, splash, drops); the halves start as deep as the whole fruit
+  and settle into the game dome while parting 1.9–3.3 s → choice (focus: hover on desktop, taps, tabs) → `choose` →
   1.3 s dive → `onDone`. Layout: `setIntroLayout` frees the right panel (desktop) or the bottom
   48 % (phone). The terrain shaders share `seasonUniforms`: the intro sets a neutral look.
 - `ui/intro.ts`: `startIntro({ mode: 'new' | 'join' | 'replay', seed, params?, taken?, current?,
