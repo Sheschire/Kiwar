@@ -167,9 +167,14 @@ export function reconForecast(crew: readonly Villager[], ship?: ShipDef): ReconF
   };
 }
 
-/** What a crew eats over `ms` (gluttons eat more). */
-function rations(crew: readonly Villager[], ms: number): { pulp: number; juice: number } {
-  const eaters = crew.reduce((sum, v) => sum + modifiers(v).rations, 0);
+/** What a crew eats over `ms` (gluttons eat more, preserves less). */
+function rations(
+  state: GameState,
+  crew: readonly Villager[],
+  ms: number,
+): { pulp: number; juice: number } {
+  const eaters =
+    crew.reduce((sum, v) => sum + modifiers(v).rations, 0) * techEffects(state).rations;
   return {
     pulp: (eaters * EXPEDITIONS.hourlyRations.pulp * ms) / HOUR_MS,
     juice: (eaters * EXPEDITIONS.hourlyRations.juice * ms) / HOUR_MS,
@@ -264,7 +269,7 @@ export function forecastExpedition(
   const mission = plan.mission ?? 'raid';
   const cargo = shipCargo(pad);
   const travelMs = travelTime(target, pad, crew, mission, techEffects(state).travel);
-  const need = rations(crew, travelMs);
+  const need = rations(state, crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(crew, fed);
   const defense = intelView(state, target.id, state.now)?.defense ?? null;
@@ -400,7 +405,7 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   const target = state.targets.find((t) => t.id === e.targetId);
   const travelMs = e.arriveAt - e.departedAt;
   const members = crewMembers(state, e.crew);
-  const need = rations(members, travelMs);
+  const need = rations(state, members, travelMs);
   const fed = coverage(e.provisions, need);
   e.provisions.pulp -= Math.min(e.provisions.pulp, need.pulp);
   e.provisions.juice -= Math.min(e.provisions.juice, need.juice);
@@ -578,7 +583,7 @@ function resolveRecon(
 export function resolveReturn(state: GameState, e: Expedition, events: GameEvent[] = []): void {
   const result = e.result!;
   const members = crewMembers(state, e.crew);
-  const need = rations(members, e.returnAt - e.arriveAt);
+  const need = rations(state, members, e.returnAt - e.arriveAt);
   const pantry = {
     pulp: e.provisions.pulp + result.loot.pulp,
     juice: e.provisions.juice + result.loot.juice,

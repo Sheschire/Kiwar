@@ -3,7 +3,11 @@ import {
   advance,
   applyCommand,
   buildingHarvest,
+  capacity,
+  constructionDuration,
   defenseOf,
+  guardPower,
+  waveOutcome,
   HOUR_MS,
   migrateState,
   RESEARCH,
@@ -17,7 +21,7 @@ import {
   type GameEvent,
   type GameState,
 } from '../src';
-import { findTile, rich, run, setup, T0 } from './helpers';
+import { findTile, kiwi, rich, run, setup, T0 } from './helpers';
 
 /** A colony with a Nest 2, a pulpery and a Library (nobody researching yet). */
 function libraryColony(level = 1) {
@@ -141,6 +145,33 @@ describe('research', () => {
     const a = { ...s, buildings: [...s.buildings, turret] };
     const b = { ...known, buildings: [...known.buildings, turret] };
     expect(defenseOf(b).turrets.ground).toBeCloseTo(defenseOf(a).turrets.ground * 1.15, 6);
+  });
+
+  it('later technologies: storage, building time, guards, firearms and injuries', () => {
+    const { s } = libraryColony();
+    const known = (...done: (typeof s.research.done)[number][]): GameState => ({
+      ...s,
+      research: { ...s.research, done },
+    });
+    expect(capacity(known('masonry')).pulp).toBeCloseTo(capacity(s).pulp * 1.2, 6);
+    expect(constructionDuration(known('smelting'), 'hut', 2, false, false)).toBeLessThan(
+      constructionDuration(s, 'hut', 2, false, false),
+    );
+    const warrior = { ...kiwi('w'), classId: 'warrior' as const };
+    expect(guardPower(warrior, s).air).toBe(0);
+    expect(guardPower(warrior, known('firearms')).air).toBeGreaterThan(0);
+    expect(guardPower(warrior, known('slingshots')).ground).toBeCloseTo(
+      guardPower(warrior, s).ground * 1.25,
+      6,
+    );
+    const crowd = (st: GameState): GameState => ({
+      ...st,
+      villagers: Array.from({ length: 10 }, (_, i) => kiwi(`c${i}`)),
+    });
+    const threat = { ground: 400, air: 400 };
+    const hurt = (st: GameState) =>
+      waveOutcome(crowd(st), threat, { ground: 0, air: 0 }, false).injured;
+    expect(hurt(known('armor'))).toBeLessThan(hurt(s));
   });
 
   it('migrates v12 saves with an empty research and no practice', () => {

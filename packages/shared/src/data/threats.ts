@@ -88,6 +88,8 @@ export const GARRISON = {
     scout: { ground: 0.5, air: 0.8 },
     mayor: { ground: 0.4, air: 0 },
   } satisfies Record<ClassId | 'none', { ground: number; air: number }>,
+  /** Chantier 08: with firearms, warriors shoot the bats too. */
+  firearmsAir: 0.8,
   /** Posted kiwis stand in the front line: more often hurt. */
   exposure: 1.5,
 } as const;

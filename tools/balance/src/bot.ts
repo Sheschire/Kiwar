@@ -343,7 +343,7 @@ function defenseOrders(state: GameState): Command[] {
     };
     const pool = state.villagers
       .filter((v) => v.job.kind === 'work' || v.job.kind === 'idle' || v.job.kind === 'guard')
-      .map((v) => ({ id: v.id, p: guardPower(v) }));
+      .map((v) => ({ id: v.id, p: guardPower(v, state) }));
     const max = Math.floor(state.villagers.length / 2);
     for (const side of ['air', 'ground'] as const) {
       pool.sort((a, b) => b.p[side] - a.p[side]);

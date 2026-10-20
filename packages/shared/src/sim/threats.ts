@@ -67,10 +67,13 @@ export function garrisonOf(state: GameState): Villager[] {
 }
 
 /** What one posted kiwi adds to each side (swords never reach the bats). */
-export function guardPower(v: Villager): Sides {
+export function guardPower(v: Villager, state?: GameState): Sides {
   const a = GARRISON.affinity[v.classId ?? 'none'];
-  const p = kiwiStrength(v) * GARRISON.power;
-  return { ground: p * a.ground, air: p * a.air };
+  const tech = state ? techEffects(state) : null;
+  const p = kiwiStrength(v) * GARRISON.power * (tech?.guard ?? 1);
+  // Firearms (Industrial age): warriors reach the bats.
+  const air = v.classId === 'warrior' && tech?.firearms ? GARRISON.firearmsAir : a.air;
+  return { ground: p * a.ground, air: p * air };
 }
 
 export interface Defense extends Sides {
@@ -107,7 +110,7 @@ export function defenseOf(state: GameState, threat?: Sides): Defense {
   turrets.air *= share * tech;
   const garrison = { ground: 0, air: 0 };
   for (const v of garrisonOf(state)) {
-    const p = guardPower(v);
+    const p = guardPower(v, state);
     garrison.ground += p.ground;
     garrison.air += p.air;
   }
@@ -196,7 +199,10 @@ export function waveOutcome(
       : 0;
   const injured = sheltered
     ? 0
-    : Math.min(exposed - deaths, Math.round(severity * THREATS.injuryShare * exposed));
+    : Math.min(
+        exposed - deaths,
+        Math.round(severity * THREATS.injuryShare * techEffects(state).injuries * exposed),
+      );
   const pathsLost = Math.min(state.paths.length, Math.round(groundSeverity * THREATS.maxPathsLost));
   return { victory: false, severity, groundSeverity, damaged, loot, injured, deaths, pathsLost };
 }

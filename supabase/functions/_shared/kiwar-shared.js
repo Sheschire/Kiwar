@@ -1529,6 +1529,8 @@ var GARRISON = {
     scout: { ground: 0.5, air: 0.8 },
     mayor: { ground: 0.4, air: 0 }
   },
+  /** Chantier 08: with firearms, warriors shoot the bats too. */
+  firearmsAir: 0.8,
   /** Posted kiwis stand in the front line: more often hurt. */
   exposure: 1.5
 };
@@ -3471,7 +3473,8 @@ function capacity(state) {
     (sum, b) => sum + (levelDef(b.type, b.level)?.storage ?? 0),
     0
   );
-  return { pulp: storage, fiber: storage, seeds: storage, juice: storage };
+  const cap = storage * techEffects(state).storage;
+  return { pulp: cap, fiber: cap, seeds: cap, juice: cap };
 }
 function storageFullCheck(state, known) {
   const cap = capacity(state);
@@ -3616,7 +3619,7 @@ function constructionDuration(state, type, level, isNewCopy, rayBonus) {
   const def = BUILDINGS[type];
   const base = levelDef(type, level)?.durationMs ?? 0;
   const copies = isNewCopy ? def.copyGrowth ** copiesOf(state, type) : 1;
-  const speed = rayBonus ? RAY_BUILD_SPEEDUP : 1;
+  const speed = (rayBonus ? RAY_BUILD_SPEEDUP : 1) * techEffects(state).build;
   return Math.max(1e3, Math.round(base * Math.sqrt(copies) * speed / 1e3) * 1e3);
 }
 function pendingUpgrade(state, buildingId) {
@@ -3723,8 +3726,8 @@ function reconForecast(crew, ship) {
     spread: round22(RECON.spread.worst - (RECON.spread.worst - RECON.spread.best) * quality)
   };
 }
-function rations(crew, ms2) {
-  const eaters = crew.reduce((sum, v) => sum + modifiers(v).rations, 0);
+function rations(state, crew, ms2) {
+  const eaters = crew.reduce((sum, v) => sum + modifiers(v).rations, 0) * techEffects(state).rations;
   return {
     pulp: eaters * EXPEDITIONS.hourlyRations.pulp * ms2 / HOUR_MS2,
     juice: eaters * EXPEDITIONS.hourlyRations.juice * ms2 / HOUR_MS2
@@ -3794,7 +3797,7 @@ function forecastExpedition(state, plan) {
   const mission = plan.mission ?? "raid";
   const cargo = shipCargo(pad);
   const travelMs = travelTime(target, pad, crew, mission, techEffects(state).travel);
-  const need = rations(crew, travelMs);
+  const need = rations(state, crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(crew, fed);
   const defense = intelView(state, target.id, state.now)?.defense ?? null;
@@ -3897,7 +3900,7 @@ function resolveArrival(state, e) {
   const target = state.targets.find((t) => t.id === e.targetId);
   const travelMs = e.arriveAt - e.departedAt;
   const members = crewMembers(state, e.crew);
-  const need = rations(members, travelMs);
+  const need = rations(state, members, travelMs);
   const fed = coverage(e.provisions, need);
   e.provisions.pulp -= Math.min(e.provisions.pulp, need.pulp);
   e.provisions.juice -= Math.min(e.provisions.juice, need.juice);
@@ -4050,7 +4053,7 @@ function resolveRecon(state, e, garrison, defense, members, fed) {
 function resolveReturn(state, e, events = []) {
   const result = e.result;
   const members = crewMembers(state, e.crew);
-  const need = rations(members, e.returnAt - e.arriveAt);
+  const need = rations(state, members, e.returnAt - e.arriveAt);
   const pantry = {
     pulp: e.provisions.pulp + result.loot.pulp,
     juice: e.provisions.juice + result.loot.juice
@@ -4144,10 +4147,12 @@ function exposedKiwis(state) {
 function garrisonOf(state) {
   return state.villagers.filter((v) => v.job.kind === "guard");
 }
-function guardPower(v) {
+function guardPower(v, state) {
   const a = GARRISON.affinity[v.classId ?? "none"];
-  const p = kiwiStrength(v) * GARRISON.power;
-  return { ground: p * a.ground, air: p * a.air };
+  const tech = state ? techEffects(state) : null;
+  const p = kiwiStrength(v) * GARRISON.power * (tech?.guard ?? 1);
+  const air = v.classId === "warrior" && tech?.firearms ? GARRISON.firearmsAir : a.air;
+  return { ground: p * a.ground, air: p * air };
 }
 function defenseOf(state, threat) {
   const turrets = { ground: 0, air: 0 };
@@ -4170,7 +4175,7 @@ function defenseOf(state, threat) {
   turrets.air *= share * tech;
   const garrison = { ground: 0, air: 0 };
   for (const v of garrisonOf(state)) {
-    const p = guardPower(v);
+    const p = guardPower(v, state);
     garrison.ground += p.ground;
     garrison.air += p.air;
   }
@@ -4227,7 +4232,10 @@ function waveOutcome(state, threat, defense, sheltered) {
   const exposed = exposedKiwis(state).length;
   const lethal = total > THREATS.deathRatio * (defense.ground + defense.air);
   const deaths = !sheltered && lethal && state.villagers.length > THREATS.minKiwis && exposed > 0 ? THREATS.maxDeaths : 0;
-  const injured = sheltered ? 0 : Math.min(exposed - deaths, Math.round(severity * THREATS.injuryShare * exposed));
+  const injured = sheltered ? 0 : Math.min(
+    exposed - deaths,
+    Math.round(severity * THREATS.injuryShare * techEffects(state).injuries * exposed)
+  );
   const pathsLost = Math.min(state.paths.length, Math.round(groundSeverity * THREATS.maxPathsLost));
   return { victory: false, severity, groundSeverity, damaged, loot, injured, deaths, pathsLost };
 }

@@ -30,7 +30,7 @@ import { faceMapOf, harvestOf, type Harvest } from './territory';
 import { regenBonus, workforce } from './kiwis';
 import { seasonEffects } from '../data/cycles';
 import { consumption } from './needs';
-import { ageOf } from './research';
+import { ageOf, techEffects } from './research';
 import { seasonOf } from './calendar';
 
 export const HOUR_MS = 3_600_000;
@@ -91,7 +91,8 @@ export function capacity(state: GameState): Resources {
     (sum, b) => sum + (levelDef(b.type, b.level)?.storage ?? 0),
     0,
   );
-  return { pulp: storage, fiber: storage, seeds: storage, juice: storage };
+  const cap = storage * techEffects(state).storage;
+  return { pulp: cap, fiber: cap, seeds: cap, juice: cap };
 }
 
 /**
@@ -313,7 +314,7 @@ export function constructionDuration(
   const def = BUILDINGS[type];
   const base = levelDef(type, level)?.durationMs ?? 0;
   const copies = isNewCopy ? def.copyGrowth ** copiesOf(state, type) : 1;
-  const speed = rayBonus ? RAY_BUILD_SPEEDUP : 1;
+  const speed = (rayBonus ? RAY_BUILD_SPEEDUP : 1) * techEffects(state).build;
   return Math.max(1000, Math.round((base * Math.sqrt(copies) * speed) / 1000) * 1000);
 }
 

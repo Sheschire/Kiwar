@@ -532,7 +532,7 @@ function GuardSection({ game, v }: { game: GameState; v: Villager }) {
   const others = garrisonOf(game)
     .map((x) => x.id)
     .filter((id) => id !== v.id);
-  const power = guardPower(v);
+  const power = guardPower(v, game);
   const fmt = (x: number) => formatNumber(lang, Math.round(x * 10) / 10);
   return (
     <section class="field guard-section">

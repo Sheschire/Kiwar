@@ -106,7 +106,7 @@ function SideCard({
 function guardCandidates(game: GameState): { v: Villager; power: Sides }[] {
   return game.villagers
     .filter((v) => v.job.kind === 'work' || v.job.kind === 'idle' || v.job.kind === 'guard')
-    .map((v) => ({ v, power: guardPower(v) }))
+    .map((v) => ({ v, power: guardPower(v, game) }))
     .sort((a, b) => b.power.air + b.power.ground - (a.power.air + a.power.ground));
 }
 
