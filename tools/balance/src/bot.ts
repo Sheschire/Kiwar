@@ -1,73 +1,35 @@
 import {
   activeItem,
+  HOUR_MS,
   advance,
   applyCommand,
-  BUILDINGS,
   buildCost,
-  buildingAt,
   buildingHarvest,
   buildingRates,
   buildingCount,
   canAfford,
   canHatch,
   capacity,
-  CLASSES,
   hasSkill,
   KIWI,
-  type ClassId,
-  catchmentPreview,
   consumption,
   currentObjective,
   HUNGER_SCALE,
-  depotDistance,
   eggCost,
   emptyResources,
   faceMapOf,
-  HEART,
-  infusionRisk,
-  KIKIWIWI,
-  kikiwiwiCap,
-  kikiwiwiCount,
-  kikiwiwiWeak,
-  laboratoryOf,
-  obstacleAt,
-  OBSTACLE_RULES,
-  techEffects,
-  titanAt,
-  HARVESTS,
-  hexDistance,
   housing,
   idleVillagers,
   isObjectiveComplete,
-  logisticsEfficiency,
-  levelDef,
-  type Building,
   ageOf,
-  hasTech,
-  PASSAGE_TECHS,
-  techStatus,
-  type TechId,
   nest,
   nestDef,
   newGame,
   OBJECTIVES,
   pendingUpgrade,
   population,
-  queuedBuildAt,
   RESOURCE_IDS,
-  forecastWave,
-  defenseOf,
-  sectorClash,
-  SECTOR_IDS,
-  SECTORS,
-  turretCoverage,
-  garrisonOf,
-  guardPower,
-  isRampart,
-  isTurret,
   repairCost,
-  turretCount,
-  turretLimit,
   upgradeCost,
   workersOf,
   workerSlots,
@@ -77,16 +39,16 @@ import {
   type Face,
   type FaceMap,
   type GameState,
-  type ResourceId,
-  type Tile,
-  type VillagerId,
-  BLESSINGS,
-  bestDustCrew,
-  dustPickers,
-  STARDUST_CAP,
   STARDUST_SCALE,
   stardustOf,
 } from '@kiwar/shared';
+import { researchStaffing, ageDecision } from './bot/ages';
+import { pathOrder } from './bot/paths';
+import { defenseOrders, turretDecision } from './bot/defense';
+import { PRODUCERS, NEED, BUILD_ORDER, bestTile, upgradeOk, canFeedOneMore } from './bot/economy';
+import { rpgDecision } from './bot/rpg';
+import { cometOrders } from './bot/sky';
+import { titanOrders, labDecision } from './bot/titans';
 
 export const MILESTONES = [
   'tutorial',
@@ -128,88 +90,9 @@ export interface RunResult {
     comets?: number;
     dustPicked?: number;
     stardust?: number;
+    /** Chantier 18: path tiles at the end. */
+    paths?: number;
   };
-}
-
-const PRODUCERS: Record<ResourceId, BuildingType> = {
-  pulp: 'pulpery',
-  fiber: 'fiberWorkshop',
-  seeds: 'seedQuarry',
-  juice: 'juiceWell',
-};
-/** Relative needs of the economy (roughly the mix of upgrade costs). */
-const NEED: Record<ResourceId, number> = { pulp: 1, fiber: 1, seeds: 0.18, juice: 0.32 };
-
-const BUILD_ORDER: BuildingType[] = [
-  'pulpery',
-  'fiberWorkshop',
-  'juiceWell',
-  'seedQuarry',
-  'hut',
-  'warehouse',
-];
-
-/**
- * Best free tile for a building. Producers: the most deposit regrowth in reach (now and at
- * level 3), weighted by logistics. Others: rays and the heart first (no deposit lost), close
- * to the producers for warehouses, close to the heart otherwise.
- */
-function bestTile(state: GameState, map: FaceMap, type: BuildingType): Tile | null {
-  let best: Tile | null = null;
-  let bestScore = -Infinity;
-  const producers = state.buildings.filter((b) => HARVESTS[b.type]);
-  // Huts: each producer's walk to its nearest home today.
-  const homes = state.buildings.filter((b) => b.type === 'hut' || b.type === 'nest');
-  const homeWalk = producers.map((p) => Math.min(...homes.map((h) => hexDistance(p, h))));
-  // Turrets (chantier 12): where the sectors lack defense against their share of a wave.
-  const side = type === 'skyTurret' ? 'air' : 'ground';
-  const sectors = isTurret(type) ? defenseOf(state).sectors : null;
-  const unit = isTurret(type) ? (levelDef(type, 1)?.defense?.[side] ?? 1) : 1;
-  for (const t of map.tiles) {
-    if (!BUILDINGS[type].allowedTiles.includes(t.type)) continue;
-    if (buildingAt(state, t.q, t.r) || queuedBuildAt(state, t.q, t.r)) continue;
-    if (obstacleAt(state, t.q, t.r) || titanAt(state, t.q, t.r)) continue;
-    if (t.q === 0 && t.r === 0) continue;
-    if (isTurret(type) && !isRampart(map, t.q, t.r)) continue;
-    // A sensible player keeps clear of the floodable shores (lagoons).
-    if (t.flood) continue;
-    let score: number;
-    if (sectors) {
-      const cover = turretCoverage(map, type, 1, t);
-      score = 0;
-      for (const s of SECTOR_IDS)
-        score += (cover[s] * SECTORS.share[side][s]) / (1 + sectors[s][side] / unit);
-    } else if (HARVESTS[type]) {
-      const now = catchmentPreview(state, map, type, t, 1).regen;
-      const later = catchmentPreview(state, map, type, t, 3).regen;
-      score = (now + 0.5 * later) * logisticsEfficiency(depotDistance(state, map, t));
-    } else if (type === 'hut' && producers.length > 0) {
-      // Huts go where kiwis work far from any bed (chantier 04: the walk to bed costs work).
-      let walk = 0;
-      for (let i = 0; i < producers.length; i++)
-        walk += Math.min(hexDistance(producers[i]!, t), homeWalk[i]!);
-      score = (t.type === 'flesh' ? -1 : 0) - walk * 0.3;
-    } else {
-      const spare = t.type === 'flesh' ? -1 : 0;
-      const near =
-        type === 'warehouse' && producers.length > 0
-          ? -producers.reduce((sum, b) => sum + hexDistance(b, t), 0) / producers.length
-          : -t.rho * 5;
-      score = spare + near * 0.3;
-    }
-    if (score > bestScore) {
-      bestScore = score;
-      best = t;
-    }
-  }
-  return best;
-}
-
-/** The next level exists in this age and the Nest allows it. */
-function upgradeOk(state: GameState, b: Building): boolean {
-  const def = levelDef(b.type, b.level + 1);
-  if (!def || (def.requiresAge ?? 0) > ageOf(state)) return false;
-  return b.type === 'nest' || nest(state).level >= def.requiresNestLevel;
 }
 
 function try_(state: GameState, map: FaceMap, now: number, cmd: Command): GameState | null {
@@ -222,7 +105,7 @@ function try_(state: GameState, map: FaceMap, now: number, cmd: Command): GameSt
  * builds one of each producer, then upgrades the bottleneck resource, adds housing and storage
  * when needed and upgrades the Nest as soon as possible.
  */
-function decide(state: GameState, map: FaceMap): Command[] {
+function decide(state: GameState, map: FaceMap, play: Play): Command[] {
   const cmds: Command[] = [];
   const obj = currentObjective(state);
   if (obj && isObjectiveComplete(state, obj)) cmds.push({ type: 'claimObjective' });
@@ -272,6 +155,14 @@ function decide(state: GameState, map: FaceMap): Command[] {
   // Hatch only kiwis the colony can feed (chantier 04).
   if (canHatch(state) && canAfford(state.resources, eggCost(state)) && canFeedOneMore(state))
     cmds.push({ type: 'hatchEgg' });
+
+  // Chantier 18: paths pave the walk to the depot when they pay back quickly (no queue).
+  // Looked at once per game hour, like a player checking the map now and then.
+  if (play.paths && state.now >= play.pathsAt) {
+    const path = pathOrder(state, map);
+    if (path) cmds.push(path);
+    else play.pathsAt = state.now + HOUR_MS;
+  }
 
   const queueRoom = state.queue.length < (nestDef(state).queueSize ?? 1);
   if (!queueRoom) return cmds;
@@ -399,378 +290,6 @@ function decide(state: GameState, map: FaceMap): Command[] {
   return cmds;
 }
 
-/** How long before a strike the bot posts its guards (they stop harvesting meanwhile). */
-const GUARD_LEAD_MS = 40 * 60_000;
-
-/**
- * Garrison and shelter: just before a wave, post the kiwis that close the gap on each side
- * (bats first: only mages and scouts reach them), relieve them afterwards; take shelter when
- * the forecast still expects deaths or several kiwis hurt.
- */
-function defenseOrders(state: GameState): Command[] {
-  const f = forecastWave(state);
-  const posted = garrisonOf(state).map((v) => v.id);
-  const want: VillagerId[] = [];
-  if (f && f.wave.at - state.now <= GUARD_LEAD_MS) {
-    // Chantier 12: post kiwis one by one, each time the one that stops the most of what still
-    // breaks through somewhere (the garrison goes to the sector that needs it).
-    const threat = { ground: f.threat.ground * 1.15, air: f.threat.air * 1.15 };
-    const through = (ids: readonly VillagerId[]) => {
-      const set = new Set<string>(ids);
-      const s: GameState = {
-        ...state,
-        villagers: state.villagers.map((v) =>
-          set.has(v.id)
-            ? { ...v, job: { kind: 'guard' as const } }
-            : v.job.kind === 'guard'
-              ? { ...v, job: { kind: 'idle' as const } }
-              : v,
-        ),
-      };
-      const t = sectorClash(threat, defenseOf(s, f.threat).sectors).through;
-      return t.ground + t.air;
-    };
-    const pool = state.villagers
-      .filter((v) => v.job.kind === 'work' || v.job.kind === 'idle' || v.job.kind === 'guard')
-      .filter((v) => {
-        const p = guardPower(v, state);
-        return p.ground + p.air > 0;
-      })
-      .map((v) => v.id as VillagerId);
-    const max = Math.floor(state.villagers.length / 2);
-    let left = through(want);
-    while (left > 1e-9 && want.length < max) {
-      let best: VillagerId | null = null;
-      let bestLeft = left;
-      for (const id of pool) {
-        if (want.includes(id)) continue;
-        const l = through([...want, id]);
-        if (l < bestLeft - 1e-9) {
-          bestLeft = l;
-          best = id;
-        }
-      }
-      if (!best) break;
-      want.push(best);
-      left = bestLeft;
-    }
-  }
-  const out: Command[] = [];
-  const same = want.length === posted.length && want.every((id) => posted.includes(id));
-  if (!same) out.push({ type: 'setGarrison', villagerIds: want });
-  if (f?.canShelter && !f.expected.victory && (f.expected.deaths > 0 || f.expected.injured >= 2))
-    out.push({ type: 'shelter' });
-  return out;
-}
-
-/** One turret of each model after the Nest 2; more, and better ones, after a lost wave. */
-function turretDecision(
-  state: GameState,
-  build: (type: BuildingType) => Command | null,
-): Command | null {
-  if (nest(state).level < 2) return null;
-  const turrets = state.buildings.filter((b) => isTurret(b.type));
-  const queued = state.queue.some((i) => isTurret(i.buildingType));
-  if (queued) return null;
-  const affordable = (c: Command | null): Command | null => {
-    if (!c) return null;
-    if (c.type === 'build')
-      return canAfford(state.resources, buildCost(state, c.buildingType)) ? c : null;
-    if (c.type === 'upgrade') {
-      const b = state.buildings.find((x) => x.id === c.buildingId)!;
-      return canAfford(state.resources, upgradeCost(b.type, b.level + 1)) ? c : null;
-    }
-    return c;
-  };
-  for (const type of ['seedTurret', 'skyTurret'] as const) {
-    if (!turrets.some((b) => b.type === type) && turretCount(state) < turretLimit(state))
-      return affordable(build(type));
-  }
-  // Strengthen the side that breaks through (sector by sector, chantier 12): the announced
-  // wave at bad luck (turrets only: guards come later), else the last lost one.
-  const f = forecastWave(state);
-  const last = state.threats.reports.at(-1);
-  const threat = f
-    ? { ground: f.threat.ground * 1.15, air: f.threat.air * 1.15 }
-    : last && !last.victory
-      ? last.threat
-      : null;
-  if (!threat) return null;
-  const through = sectorClash(threat, defenseOf(state, threat).sectors).through;
-  if (through.ground + through.air <= 1e-9) return null;
-  const type = through.air > through.ground ? 'skyTurret' : 'seedTurret';
-  // A sector without any turret of that model needs a new one more than an upgrade.
-  if (turretCount(state) < turretLimit(state) && sectorWithout(state, type))
-    return affordable(build(type));
-  const weakest = turrets
-    .filter((b) => b.type === type && upgradeOk(state, b) && !pendingUpgrade(state, b.id))
-    .sort((a, b) => a.level - b.level)[0];
-  if (weakest && weakest.level < nest(state).level)
-    return affordable({ type: 'upgrade', buildingId: weakest.id });
-  if (turretCount(state) < turretLimit(state)) return affordable(build(type));
-  return null;
-}
-
-/** Whether a sector gets no fire at all from turrets of this model (chantier 12). */
-function sectorWithout(state: GameState, type: 'seedTurret' | 'skyTurret'): boolean {
-  const map = faceMapOf(state);
-  const cover = { front: 0, left: 0, right: 0 };
-  for (const b of state.buildings) {
-    if (b.type !== type) continue;
-    const c = turretCoverage(map, b.type, b.level, b);
-    for (const sec of SECTOR_IDS) cover[sec] += c[sec];
-  }
-  return SECTOR_IDS.some((sec) => cover[sec] < 0.05);
-}
-
-/** Whether production (gross, by day) covers the meals of one more kiwi, with a margin. */
-function canFeedOneMore(state: GameState): boolean {
-  const rates = emptyResources();
-  for (const b of state.buildings) {
-    const r = buildingRates(state, b, () => false);
-    for (const id of RESOURCE_IDS) rates[id] += r[id];
-  }
-  const eaten = consumption(state);
-  const n = Math.max(1, state.villagers.length);
-  return (['pulp', 'juice'] as const).every(
-    (id) => rates[id] >= (eaten[id] * (n + 1) * 1.2) / n || eaten[id] === 0,
-  );
-}
-
-/**
- * The School comes after the Nest 2 (never before the bottleneck economy is in place); the
- * most charismatic experienced kiwi becomes mayor, the strongest one a builder.
- */
-function rpgDecision(
-  state: GameState,
-  map: FaceMap,
-  build: (type: BuildingType) => Command | null,
-  has: (type: BuildingType) => boolean,
-): Command | null {
-  if (nest(state).level < 2) return null;
-  if (!has('school')) {
-    if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return null;
-    if (!canAfford(state.resources, buildCost(state, 'school'))) return null;
-    return build('school');
-  }
-  const school = state.buildings.find((b) => b.type === 'school');
-  if (!school) return null;
-  const free = state.villagers.filter((v) => v.job.kind === 'idle' || v.job.kind === 'work');
-  const pick = (classId: ClassId, score: (v: (typeof free)[number]) => number) => {
-    if (
-      state.villagers.some(
-        (v) => v.classId === classId || (v.job.kind === 'train' && v.job.classId === classId),
-      )
-    )
-      return null;
-    const candidates = free
-      .filter((v) => !v.classId && v.level >= CLASSES[classId].minLevel)
-      .sort((a, b) => score(b) - score(a));
-    const v = candidates[0];
-    if (!v) return null;
-    const cmd: Command = { type: 'train', villagerId: v.id, schoolId: school.id, classId };
-    return applyCommand(state, cmd, { now: state.now, map }).ok ? cmd : null;
-  };
-  return pick('mayor', (v) => v.stats.charisma) ?? pick('builder', (v) => v.stats.strength) ?? null;
-}
-
-/** The economy first, then each passage as soon as possible, then the rest. */
-const TECH_ORDER: TechId[] = [
-  'foraging',
-  'stoneAge',
-  'masonry',
-  'ironAge',
-  'smelting',
-  'juiceInfusion',
-  'industryAge',
-  'machines',
-  'greenBlood',
-  'palisade',
-  'slingshots',
-  'armor',
-  'firearms',
-  'starCharts',
-  'preserves',
-  'compass',
-  'steamEngines',
-  'titanWorks',
-];
-
-/** Juice kept aside for the Kikiwiwis' upkeep before spending on infusions and works. */
-const JUICE_RESERVE = 1500;
-
-/**
- * Kikiwiwis: transform the safest candidate when the cap allows it, then keep each one on the
- * rampart, sent now and then to smash a rock or a wreck when the juice allows it.
- */
-function titanOrders(state: GameState, map: FaceMap): Command | null {
-  const lab = laboratoryOf(state);
-  if (
-    lab &&
-    kikiwiwiCount(state) < kikiwiwiCap(state) &&
-    !state.villagers.some((v) => v.job.kind === 'transform') &&
-    state.resources.juice >= (KIKIWIWI.cost.juice ?? 0) + JUICE_RESERVE &&
-    stardustOf(state) >= KIKIWIWI.stardust &&
-    canAfford(state.resources, KIKIWIWI.cost)
-  ) {
-    const best = state.villagers
-      .filter(
-        (v) =>
-          !v.kikiwiwi &&
-          v.level >= KIKIWIWI.minLevel &&
-          v.classId !== 'mayor' &&
-          (v.job.kind === 'idle' || v.job.kind === 'work'),
-      )
-      .sort((a, b) => infusionRisk(state, a, lab) - infusionRisk(state, b, lab))[0];
-    if (best) return { type: 'transform', villagerId: best.id, labId: lab.id };
-  }
-  for (const v of state.villagers) {
-    if (!v.kikiwiwi || (v.job.kind !== 'idle' && v.job.kind !== 'guard')) continue;
-    const target = state.obstacles
-      .filter((o) => o.kind !== 'stump' && !titanAt(state, o.q, o.r))
-      .sort((a, b) => hexDistance(a, HEART) - hexDistance(b, HEART))[0];
-    if (target && state.resources.juice >= JUICE_RESERVE * 1.5 && !kikiwiwiWeak(state)) {
-      const cmd: Command = {
-        type: 'titanWork',
-        villagerId: v.id,
-        q: target.q,
-        r: target.r,
-        work: 'smash',
-      };
-      if (applyCommand(state, cmd, { now: state.now, map }).ok) return cmd;
-    }
-    if (v.job.kind === 'idle')
-      return {
-        type: 'setGarrison',
-        villagerIds: [
-          ...state.villagers.filter((x) => x.job.kind === 'guard').map((x) => x.id),
-          v.id,
-        ],
-      };
-  }
-  return null;
-}
-
-/** The laboratory as soon as it is known and affordable; a stump cleared when the queue is idle. */
-function labDecision(
-  state: GameState,
-  build: (type: BuildingType) => Command | null,
-  has: (type: BuildingType) => boolean,
-): Command | null {
-  if (techEffects(state).laboratory && !has('lab')) {
-    if (canAfford(state.resources, buildCost(state, 'lab'))) return build('lab');
-  }
-  // A stump costs a few meals (40 pulp): any colony can afford it (chantier 12: a 400 pulp
-  // threshold made only pulp-rich biomes clear them, and their fiber loot sped up the Nest 3).
-  const meals = (OBSTACLE_RULES.clearCost.pulp ?? 0) * 2;
-  if (state.queue.length === 0 && nest(state).level >= 2 && state.resources.pulp >= meals) {
-    const stump = state.obstacles
-      .filter((o) => o.kind === 'stump')
-      .sort((a, b) => hexDistance(a, HEART) - hexDistance(b, HEART))[0];
-    if (stump) return { type: 'clearObstacle', q: stump.q, r: stump.r };
-  }
-  return null;
-}
-
-/** Researchers wanted: one per five kiwis, within the Library's slots. */
-function researchStaffing(state: GameState): Command | null {
-  const library = state.buildings.find((b) => b.type === 'library');
-  if (!library) return null;
-  const staff = workersOf(state, library.id).length;
-  const want = Math.min(workerSlots(library), Math.max(1, Math.floor(population(state) / 5)));
-  if (staff >= want) return null;
-  if (idleVillagers(state).length > 0)
-    return { type: 'assignWorkers', buildingId: library.id, count: staff + 1 };
-  // Free the least useful worker of the most staffed producer.
-  const busiest = state.buildings
-    .filter((b) => b.id !== library.id && workerSlots(b) > 0)
-    .map((b) => ({ b, n: workersOf(state, b.id).length }))
-    .sort((a, b) => b.n - a.n)[0];
-  if (!busiest || busiest.n < 2) return null;
-  return { type: 'assignWorkers', buildingId: busiest.b.id, count: busiest.n - 1 };
-}
-
-/**
- * A Library after the School and the Nest 3, the next technology of TECH_ORDER, Library upgrades when a
- * technology needs them, and the monument as soon as its passage is known ('save': keep the
- * resources for it).
- */
-function ageDecision(
-  state: GameState,
-  map: FaceMap,
-  build: (type: BuildingType) => Command | null,
-  has: (type: BuildingType) => boolean,
-): Command | 'save' | null {
-  if (nest(state).level < 2 || !has('school')) return null;
-  if (!has('library')) {
-    // After the Nest 3: the early economy comes first.
-    if (nest(state).level < 3) return null;
-    if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return null;
-    if (!canAfford(state.resources, buildCost(state, 'library'))) return null;
-    return build('library');
-  }
-  const library = state.buildings.find((b) => b.type === 'library');
-  if (!library) return null;
-  const ok = (cmd: Command) => applyCommand(state, cmd, { now: state.now, map }).ok;
-  if (!state.research.current) {
-    const next = TECH_ORDER.find((id) => techStatus(state, id) === 'available');
-    if (next) return { type: 'setResearch', tech: next };
-  }
-  // The Library level the next wanted technology needs.
-  const wanted = TECH_ORDER.find((id) => !hasTech(state, id) && techStatus(state, id) !== 'age');
-  if (
-    wanted &&
-    techStatus(state, wanted) === 'library' &&
-    !pendingUpgrade(state, library.id) &&
-    ok({ type: 'upgrade', buildingId: library.id })
-  )
-    return { type: 'upgrade', buildingId: library.id };
-  // The monument once the passage is known.
-  const age = ageOf(state);
-  const passage = PASSAGE_TECHS[age + 1];
-  if (!passage || !hasTech(state, passage)) return null;
-  const monument = state.buildings.find((b) => b.type === 'monument');
-  if (monument && pendingUpgrade(state, monument.id)) return null;
-  if (!monument && state.queue.some((i) => i.buildingType === 'monument')) return null;
-  const cmd: Command | null = monument
-    ? { type: 'upgrade', buildingId: monument.id }
-    : build('monument');
-  if (!cmd) return null;
-  const r = applyCommand(state, cmd, { now: state.now, map });
-  if (r.ok) return cmd;
-  if (r.error !== 'notEnoughResources') return null;
-  // Too big for the storage: grow a warehouse first.
-  const cost = upgradeCost('monument', (monument?.level ?? 0) + 1);
-  const cap = capacity(state);
-  if (RESOURCE_IDS.some((id) => (cost[id] ?? 0) > cap[id])) return null;
-  return 'save';
-}
-
-/** Stardust kept for what the colony still needs: the next monuments and a Kikiwiwi. */
-function dustReserve(state: GameState): number {
-  let need = 0;
-  const monument = state.buildings.find((b) => b.type === 'monument');
-  for (let level = (monument?.level ?? 0) + 1; level <= 3; level++)
-    need += levelDef('monument', level)?.stardust ?? 0;
-  if (!state.villagers.some((v) => v.kikiwiwi)) need += KIKIWIWI.stardust;
-  return need;
-}
-
-/** Pickers on every stardust tile; the surplus heals wounded kiwis. */
-function cometOrders(state: GameState): Command[] {
-  const cmds: Command[] = [];
-  if (state.stardust < STARDUST_CAP)
-    for (const p of state.comets.patches) {
-      const crew = bestDustCrew(state, p.id);
-      if (crew.length > dustPickers(state, p.id).length)
-        cmds.push({ type: 'collectStardust', patchId: p.id, villagerIds: crew });
-    }
-  const hurt = state.villagers.find((v) => v.job.kind === 'injured');
-  if (hurt && stardustOf(state) >= dustReserve(state) + BLESSINGS.heal)
-    cmds.push({ type: 'bless', villagerId: hurt.id, kind: 'heal' });
-  return cmds;
-}
-
 function checkMilestones(
   state: GameState,
   start: number,
@@ -820,6 +339,14 @@ function checkMilestones(
   );
 }
 
+/** Mechanics the bot can be told to leave aside, to measure what each one brings. */
+export const MECHANICS = ['paths', 'camps', 'expeditions'] as const;
+export type Mechanic = (typeof MECHANICS)[number];
+interface Play extends Record<Mechanic, boolean> {
+  /** Next look at the paths. */
+  pathsAt: number;
+}
+
 export interface RunOptions {
   seed: string;
   face: Face;
@@ -832,6 +359,8 @@ export interface RunOptions {
   onStep?(state: GameState, map: FaceMap): void;
   /** Keep playing until the horizon even once every milestone is reached. */
   fullHorizon?: boolean;
+  /** Mechanics the bot does not use (impact report). */
+  without?: readonly Mechanic[];
   /**
    * An occasional player: after `activeMs` of attentive play, the bot only comes back every
    * `sessionEveryMs` (e.g. twice a day) and the colony runs on its own in between.
@@ -845,6 +374,13 @@ export function runBot(opts: RunOptions): RunResult {
   let state = newGame({ seed: opts.seed, face: opts.face, now: start, biome: opts.biome });
   // The map follows the tiles the Kikiwiwis reshape (chantier 08).
   let map = faceMapOf(state);
+  const play: Play = {
+    ...(Object.fromEntries(MECHANICS.map((m) => [m, !opts.without?.includes(m)])) as Record<
+      Mechanic,
+      boolean
+    >),
+    pathsAt: 0,
+  };
   const times = Object.fromEntries(MILESTONES.map((m) => [m, null])) as Record<
     Milestone,
     number | null
@@ -869,7 +405,7 @@ export function runBot(opts: RunOptions): RunResult {
     }
     // Apply every possible decision at this instant (first one wins per category).
     for (let guard = 0; guard < 12; guard++) {
-      const cmds = decide(state, map);
+      const cmds = decide(state, map, play);
       let applied = false;
       for (const cmd of cmds) {
         const next = try_(state, map, now, cmd);
@@ -915,6 +451,7 @@ export function runBot(opts: RunOptions): RunResult {
       comets: state.comets.passes,
       dustPicked: Math.round(dustPicked / STARDUST_SCALE),
       stardust: stardustOf(state),
+      paths: state.paths.length,
     },
   };
 }

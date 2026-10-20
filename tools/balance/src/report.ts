@@ -106,6 +106,16 @@ export const LABELS: Record<Milestone, string> = {
   kikiwiwi: 'First Kikiwiwi',
 };
 
+export const BIOME_LABELS: Record<BiomeId, string> = {
+  classic: 'Classic',
+  orchard: 'Orchard',
+  highlands: 'Highlands',
+  delta: 'Delta',
+  seedCrown: 'Seed crown',
+  lagoons: 'Lagoons',
+  tundra: 'Tundra',
+};
+
 export function biomeGroups(results: RunResult[], labels: Record<BiomeId, string>): Group[] {
   const ids = [...new Set(results.map((r) => r.biome))];
   return ids.map((id) => ({
@@ -183,7 +193,75 @@ export function toMarkdown(
   );
   lines.push(
     '',
-    'Bot: follows the tutorial, keeps kiwis busy, hatches eggs, builds one of each building on the site with the most deposits in reach (weighted by logistics), then upgrades the bottleneck producer (or opens a new site when its deposits are exhausted), adds housing/storage when needed and upgrades the Nest as soon as possible. It keeps clear of floodable tiles and uses neither camps nor paths. Chantier 06: one turret of each model after the Nest 2 (more, or upgraded, after a lost wave), guards posted 40 min before a strike to close the forecast gap, shelter when deaths or several injuries are still expected, repairs first. Chantier 08: a Library after the Nest 3 and the School, one researcher per five kiwis, the economy then each passage first, the monument as soon as its passage is known (it saves up for it).',
+    'Bot: follows the tutorial, keeps kiwis busy, hatches eggs, builds one of each building on the site with the most deposits in reach (weighted by logistics), then upgrades the bottleneck producer (or opens a new site when its deposits are exhausted), adds housing/storage when needed and upgrades the Nest as soon as possible. It keeps clear of floodable tiles. Chantier 18: it paves the walk from a producer to its depot when the extra harvest pays the fiber back within 6 h (checked once per game hour), which also retraces trampled paths. Chantier 06: one turret of each model after the Nest 2 (more, or upgraded, after a lost wave), guards posted 40 min before a strike to close the forecast gap, shelter when deaths or several injuries are still expected, repairs first. Chantier 08: a Library after the Nest 3 and the School, one researcher per five kiwis, the economy then each passage first, the monument as soon as its passage is known (it saves up for it).',
   );
   return lines.join('\n') + '\n';
+}
+
+/** Median of the biomes' medians for one milestone (null when no biome reaches it). */
+function medianOfBiomes(runs: RunResult[], milestone: Milestone): number | null {
+  const medians = [...new Set(runs.map((r) => r.biome))]
+    .map(
+      (b) =>
+        statsOf(
+          runs.filter((r) => r.biome === b),
+          milestone,
+        ).median,
+    )
+    .filter((m): m is number => m !== null)
+    .sort((a, b) => a - b);
+  return quantile(medians, 0.5);
+}
+
+/** One variant of the impact report: the same seeds, with some mechanics left aside. */
+export interface Variant {
+  label: string;
+  runs: RunResult[];
+}
+
+/**
+ * Chantier 18: what each mechanic brings. The first variant is the full bot; the others leave
+ * one mechanic aside, on the same seeds. Positive gap = slower without the mechanic.
+ */
+export function impactMarkdown(
+  variants: Variant[],
+  biomeLabels: Record<BiomeId, string>,
+  focus: Milestone[],
+): string[] {
+  const [full, ...others] = variants;
+  if (!full) return [];
+  const lines: string[] = [];
+  const gap = (ref: number | null, m: number | null) =>
+    ref !== null && m !== null && ref > 0 ? ((m - ref) / ref) * 100 : null;
+  lines.push(`| Milestone | ${variants.map((v) => v.label).join(' | ')} |`);
+  lines.push(`|---|${variants.map(() => '---').join('|')}|`);
+  for (const milestone of MILESTONES) {
+    const ref = medianOfBiomes(full.runs, milestone);
+    if (ref === null && others.every((v) => medianOfBiomes(v.runs, milestone) === null)) continue;
+    const cells = others.map((v) => {
+      const m = medianOfBiomes(v.runs, milestone);
+      return `${formatDuration(m)} (${formatGap(gap(ref, m))})`;
+    });
+    lines.push(`| ${LABELS[milestone]} | ${formatDuration(ref)} | ${cells.join(' | ')} |`);
+  }
+  lines.push('');
+  // Biome by biome on a few milestones: where a mechanic matters most.
+  const biomes = [...new Set(full.runs.map((r) => r.biome))];
+  const median = (runs: RunResult[], b: BiomeId, m: Milestone) =>
+    statsOf(
+      runs.filter((r) => r.biome === b),
+      m,
+    ).median;
+  for (const m of focus) {
+    lines.push(`**${LABELS[m]}** by biome`, '');
+    lines.push(`| Biome | ${variants.map((v) => v.label).join(' | ')} |`);
+    lines.push(`|---|${variants.map(() => '---').join('|')}|`);
+    for (const b of biomes) {
+      const ref = median(full.runs, b, m);
+      const cells = others.map((v) => formatGap(gap(ref, median(v.runs, b, m))));
+      lines.push(`| ${biomeLabels[b]} | ${formatDuration(ref)} | ${cells.join(' | ')} |`);
+    }
+    lines.push('');
+  }
+  return lines;
 }
