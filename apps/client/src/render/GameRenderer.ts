@@ -36,6 +36,7 @@ import { pick, TapDetector } from './picking';
 import { PathPainter } from './pathPainter';
 import { PathsView } from './paths';
 import { MeteorsView } from './meteors';
+import { ShipsView } from './ship';
 import { PredatorShow } from './predators';
 import { PostFx } from './postfx';
 import { PropsView } from './props';
@@ -97,6 +98,7 @@ export class GameRenderer {
   private following = false;
   private paths: PathsView | null = null;
   private meteors: MeteorsView | null = null;
+  private ships: ShipsView | null = null;
   private predators: PredatorShow | null = null;
   /** Turret shots of the wave show (wired to the audio by `installGameAudio`). */
   onTurretShot: ((x: number, z: number) => void) | null = null;
@@ -208,6 +210,7 @@ export class GameRenderer {
     if (this.map) this.rebuildProps();
     this.buildings?.setAnimated(q.buildingAnimations, q.particles);
     this.weather?.setDensity(q.particles ? 1 : 0.35);
+    this.ships?.setParticles(q.particles);
     this.resize();
     this.renderer.shadowMap.needsUpdate = true;
     this.fpsMeter.reset();
@@ -226,6 +229,7 @@ export class GameRenderer {
       this.weather,
       this.meteors,
       this.predators,
+      this.ships,
     ]) {
       if (!view) continue;
       this.scene.remove('group' in view ? view.group : view.mesh);
@@ -248,6 +252,9 @@ export class GameRenderer {
     this.scene.add(this.paths.group);
     this.meteors = new MeteorsView(map);
     this.scene.add(this.meteors.group);
+    this.ships = new ShipsView(map);
+    this.ships.setParticles(QUALITY[this.preset].particles);
+    this.scene.add(this.ships.group);
     this.predators = new PredatorShow(map);
     this.predators.onShot = (x, z) => this.onTurretShot?.(x, z);
     this.scene.add(this.predators.group);
@@ -325,6 +332,7 @@ export class GameRenderer {
     this.kiwis?.sync(state);
     this.paths?.sync(state.paths);
     this.meteors?.sync(state);
+    this.ships?.sync(state);
     this.weather?.sync(state);
     if (this.map) this.terrain?.setDepletion(depletedTiles(state, this.map));
     this.water?.setFlooded(BIOMES[state.params.biome].floods === seasonOf(state));
@@ -563,6 +571,7 @@ export class GameRenderer {
     fog.far = fog.near + 170;
     this.buildings?.update(dt, this.callbacks.now());
     this.meteors?.update(dt, this.callbacks.now());
+    this.ships?.update(dt, this.elapsed, this.callbacks.now(), this.twin?.group.position ?? null);
     if (this.pendingShow && this.lastState && this.predators) {
       const report = this.lastState.threats.reports.find((r) => r.id === this.pendingShow);
       if (report) {

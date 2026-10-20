@@ -14,7 +14,7 @@ import {
   Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { BuildingType } from '@kiwar/shared';
+import { shipIdForPad, type BuildingType, type ShipId } from '@kiwar/shared';
 import type { ParticleKind } from './particles';
 
 /**
@@ -51,7 +51,7 @@ const C = {
 } as const;
 
 /** Geometry, colour, transform, and the rig it belongs to (none = static). */
-type Part = [BufferGeometry, string, Matrix4, string?];
+type Part = [BufferGeometry, string, Matrix4, (string | undefined)?];
 
 /**
  * How a rig moves; `phase` advances with the building's activity.
@@ -484,7 +484,100 @@ function warehouse(level: number): Parts {
   return p;
 }
 
-/** Launch platform; the kiwi-shaped ship is drawn only while it is docked. */
+/** Colours of each ship generation (chantier 07): hull, trim, wings. */
+const SHIP_LOOKS: Record<ShipId, { hull: string; trim: string; wing: string }> = {
+  wood: { hull: C.wood, trim: C.woodDark, wing: C.cream },
+  logs: { hull: C.twig, trim: C.straw, wing: '#e8d7b0' },
+  iron: { hull: '#8f969c', trim: '#5d646b', wing: '#b7bdc2' },
+  jet: { hull: '#eef2f0', trim: '#3aa6a0', wing: '#d5e4e2' },
+};
+
+/**
+ * The mechanical kiwi bird (chantier 07): round body, small head, long beak, folded legs and
+ * two wings on rigs (`wingL`, `wingR`, pivots at the shoulders). The body is the `ship` rig, so
+ * it breathes on the pad. Front is +z. Each generation has its own materials and gear: pedal
+ * crank (wood), rope bands (logs), rivets and a steam stack (iron), thrusters (jet).
+ */
+export function bird(p: Parts, gen: ShipId, docked: boolean): void {
+  const look = SHIP_LOOKS[gen];
+  const y = 0.46;
+  if (docked)
+    rig(p, 'ship', [0, 0.16, 0], { kind: 'breathe', amount: 0.03, speed: 1.4, ambient: true });
+  const body = docked ? 'ship' : undefined;
+  p.push([sphere(12, 8), look.hull, m(0, y, 0, 0.29, 0.26, 0.38), body]);
+  // Head, beak and eyes.
+  p.push([sphere(10, 7), look.hull, m(0, y + 0.13, 0.3, 0.14, 0.13, 0.14), body]);
+  p.push([cone(8), '#e2c992', m(0, y + 0.07, 0.6, 0.035, 0.36, 0.035, Math.PI / 2 + 0.35), body]);
+  for (const side of [-1, 1])
+    p.push([sphere(6, 4), C.seed, m(side * 0.09, y + 0.17, 0.39, 0.025, 0.025, 0.025), body]);
+  // Folded legs.
+  for (const side of [-1, 1])
+    p.push([cyl(5), '#c9a36a', m(side * 0.1, y - 0.24, 0.02, 0.025, 0.16, 0.025, 1.1), body]);
+  // Tail tuft.
+  p.push([cone(6), look.trim, m(0, y + 0.02, -0.4, 0.08, 0.14, 0.06, -Math.PI / 2 - 0.3), body]);
+  if (gen === 'wood') {
+    // Pedal crank on the flank.
+    for (const side of [-1, 1])
+      p.push([
+        new TorusGeometry(0.07, 0.015, 4, 10),
+        look.trim,
+        m(side * 0.29, y - 0.05, 0, 1, 1, 1, 0, Math.PI / 2),
+        body,
+      ]);
+  } else if (gen === 'logs') {
+    for (const z of [-0.16, 0.12])
+      p.push([new TorusGeometry(0.27, 0.018, 4, 16), look.trim, m(0, y, z, 1, 0.95, 1), body]);
+  } else if (gen === 'iron') {
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      p.push([
+        sphere(4, 3),
+        look.trim,
+        m(Math.cos(a) * 0.29, y + Math.sin(a) * 0.25, 0.02, 0.02, 0.02, 0.02),
+        body,
+      ]);
+    }
+    p.push([cyl(8), look.trim, m(0, y + 0.3, -0.1, 0.045, 0.16, 0.045), body]);
+    emitter(p, { kind: 'smoke', at: [0, y + 0.4, -0.1], rate: 0.6, ambient: true });
+  } else {
+    for (const side of [-1, 1])
+      p.push([
+        cone(8),
+        C.flagGold,
+        m(side * 0.12, y - 0.04, -0.44, 0.07, 0.14, 0.07, -Math.PI / 2),
+        body,
+      ]);
+  }
+  // Wings: canvas (or plates) on a frame, hinged at the shoulders.
+  for (const side of [-1, 1]) {
+    const name = side < 0 ? 'wingL' : 'wingR';
+    const sx = side * 0.26;
+    rig(p, name, [sx, y + 0.08, 0], {
+      kind: 'swing',
+      axis: 'z',
+      amount: side * 0.22,
+      speed: 0.9,
+      ambient: true,
+    });
+    p.push([
+      box(),
+      look.wing,
+      m(sx + side * 0.22, y + 0.08, -0.02, 0.44, 0.025, 0.26, 0, side * 0.12),
+      name,
+    ]);
+    p.push([
+      box(),
+      look.trim,
+      m(sx + side * 0.22, y + 0.095, 0.1, 0.46, 0.03, 0.03, 0, side * 0.12),
+      name,
+    ]);
+    if (gen === 'wood' || gen === 'logs')
+      for (const k of [0.12, 0.3])
+        p.push([box(), look.trim, m(sx + side * k, y + 0.095, -0.02, 0.02, 0.03, 0.24), name]);
+  }
+}
+
+/** Launch platform; the mechanical kiwi bird is drawn only while it is docked. */
 function launchpad(level: number, docked = true): Parts {
   const p: Parts = [];
   const s = 0.9 + level * 0.08;
@@ -494,31 +587,7 @@ function launchpad(level: number, docked = true): Parts {
   p.push([box(), C.woodDark, m(-0.5 * s, 0.55, -0.1, 0.06, 1.0, 0.06)]);
   p.push([box(), C.woodDark, m(-0.5 * s, 0.55, 0.12, 0.06, 1.0, 0.06)]);
   for (const y of [0.35, 0.7]) p.push([box(), C.wood, m(-0.42 * s, y, 0.01, 0.2, 0.04, 0.26)]);
-  if (docked) {
-    // Hull: half a kiwi (furry skin below, green slice deck on top), fins and a leaf sail.
-    // The docked ship slowly "breathes".
-    rig(p, 'ship', [0, 0.16, 0], { kind: 'breathe', amount: 0.035, speed: 1.4, ambient: true });
-    p.push([
-      new SphereGeometry(1, 12, 7, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
-      C.fur,
-      m(0, 0.42, 0, 0.32, 0.26, 0.42),
-      'ship',
-    ]);
-    p.push([cyl(14), C.leaf, m(0, 0.42, 0, 0.31, 0.02, 0.41), 'ship']);
-    p.push([cyl(10), C.cream, m(0, 0.43, 0, 0.1, 0.02, 0.14), 'ship']);
-    for (const side of [-1, 1]) {
-      p.push([
-        box(),
-        C.roof,
-        m(side * 0.3, 0.3, -0.25, 0.04, 0.16, 0.18, 0, 0, side * 0.5),
-        'ship',
-      ]);
-    }
-    p.push([cyl(6), C.woodDark, m(0, 0.75, 0.05, 0.025, 0.65, 0.025), 'ship']);
-    p.push([sphere(8, 5), C.leafDark, m(0, 0.8, 0.12, 0.03, 0.26, 0.16), 'ship']);
-    if (level >= 2)
-      p.push([cone(8), C.flagGold, m(0, 0.33, -0.45, 0.08, 0.12, 0.08, -Math.PI / 2), 'ship']);
-  }
+  if (docked) bird(p, shipIdForPad(level), true);
   flag(p, level, 0.5, 0.12, 0.35);
   return p;
 }
@@ -708,35 +777,50 @@ export function buildingModel(type: BuildingType, level: number, shipAway = fals
   const key = `${type}:${level}${shipAway ? ':away' : ''}`;
   let model = models.get(key);
   if (!model) {
-    const parts = partsOf(type, level, shipAway);
-    const geometry = bake(parts.filter((part) => !part[3]));
-    const rigs = (parts.rigs ?? [])
-      .filter((r) => parts.some((part) => part[3] === r.name))
-      .map((r) => ({
-        geometry: bake(
-          parts.filter((part) => part[3] === r.name),
-          r.pivot,
-        ),
-        pivot: r.pivot.clone().multiplyScalar(MODEL_SCALE),
-        motion: r.motion,
-      }));
-    const height = buildingGeometry(type, level, shipAway).boundingBox!.max.y;
-    const rigNames = (parts.rigs ?? [])
-      .filter((r) => parts.some((part) => part[3] === r.name))
-      .map((r) => r.name);
-    const emitters = (parts.emitters ?? []).map((e) => ({
-      kind: e.kind,
-      at: new Vector3(...e.at).multiplyScalar(MODEL_SCALE),
-      rate: e.rate ?? 0,
-      rig: e.rig ? rigNames.indexOf(e.rig) : -1,
-      count: e.count ?? 1,
-      phase: e.phase ?? 0,
-      ambient: e.ambient ?? false,
-    }));
-    model = { geometry, rigs, emitters, height };
+    model = modelOf(partsOf(type, level, shipAway));
     models.set(key, model);
   }
   return model;
+}
+
+/** The flying mechanical bird of a ship generation (wings as rigs, centred on its body). */
+export function shipModel(gen: ShipId): BuildingModel {
+  const key = `ship:${gen}`;
+  let model = models.get(key);
+  if (!model) {
+    const p: Parts = [];
+    bird(p, gen, false);
+    model = modelOf(p);
+    models.set(key, model);
+  }
+  return model;
+}
+
+function modelOf(parts: Parts): BuildingModel {
+  const geometry = bake(parts.filter((part) => !part[3]));
+  const used = (parts.rigs ?? []).filter((r) => parts.some((part) => part[3] === r.name));
+  const rigs = used.map((r) => ({
+    geometry: bake(
+      parts.filter((part) => part[3] === r.name),
+      r.pivot,
+    ),
+    pivot: r.pivot.clone().multiplyScalar(MODEL_SCALE),
+    motion: r.motion,
+  }));
+  const whole = bake(parts);
+  const height = whole.boundingBox!.max.y;
+  whole.dispose();
+  const rigNames = used.map((r) => r.name);
+  const emitters = (parts.emitters ?? []).map((e) => ({
+    kind: e.kind,
+    at: new Vector3(...e.at).multiplyScalar(MODEL_SCALE),
+    rate: e.rate ?? 0,
+    rig: e.rig ? rigNames.indexOf(e.rig) : -1,
+    count: e.count ?? 1,
+    phase: e.phase ?? 0,
+    ambient: e.ambient ?? false,
+  }));
+  return { geometry, rigs, emitters, height };
 }
 
 /** Wooden scaffolding around a construction site. */
