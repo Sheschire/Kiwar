@@ -484,6 +484,7 @@ export const fr: Dict = {
     network: 'Pas de connexion. Vos actions partiront dès le retour du réseau.',
     notALaunchpad: 'Les expéditions partent d’une Aire d’envol.',
     launchpadBusy: 'Le vaisseau de cette aire est déjà parti.',
+    launchpadDamaged: 'Le vaisseau est abîmé : réparez d’abord l’aire d’envol.',
     unknownTarget: 'Destination inconnue.',
     crewTooSmall: 'Il faut au moins 2 kiwis dans l’équipage.',
     crewTooLarge: 'Pas assez de place ou de kiwis pour cet équipage (un kiwi reste au nid).',
@@ -581,6 +582,20 @@ export const fr: Dict = {
     syncing: 'Sauvegarde…',
     offline: 'Hors ligne — nouvel essai',
   },
+  ship: {
+    names: {
+      wood: 'Oiseau de bois et de toile',
+      logs: 'Oiseau de rondins et de cordes',
+      iron: 'Oiseau de fer riveté',
+      jet: 'Oiseau à propulseurs',
+    },
+    line: '{name} · fiabilité {pct} %',
+    armor: 'blindage −{pct} % de pertes',
+    damaged: 'Le vaisseau est rentré cassé : réparez l’aire d’envol avant le prochain vol.',
+    brokeDown: 'Le vaisseau est tombé en panne et fait demi-tour !',
+    reportBroken:
+      'Le vaisseau est tombé en panne et a fait demi-tour à mi-chemin. L’équipage est sauf, les provisions mangées, l’aire d’envol est à réparer.',
+  },
   recon: {
     mission: 'Mission',
     kinds: { recon: 'Reconnaissance', raid: 'Raid' },
@@ -647,6 +662,7 @@ export const fr: Dict = {
     inFlight: 'Expéditions',
     outbound: 'Vers {target} — atterrit dans {duration}',
     returning: 'Retour au nid — {duration}',
+    returningBroken: 'En panne, retour clopin-clopant — {duration}',
     report: 'Rapport',
     victory: 'Victoire !',
     defeat: 'Défaite…',

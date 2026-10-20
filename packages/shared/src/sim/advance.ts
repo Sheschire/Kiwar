@@ -104,6 +104,7 @@ export type GameEvent =
       victory: boolean;
       mission?: MissionKind;
       spotted?: boolean;
+      broken?: boolean;
     }
   | { type: 'expeditionReturned'; at: TimeMs; expeditionId: string }
   /** Chantier 06: predators. */
@@ -240,6 +241,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
           victory: e.result!.victory,
           mission: e.mission,
           ...(e.result!.spotted ? { spotted: true } : {}),
+          ...(e.result!.broken ? { broken: true } : {}),
         });
       } else {
         resolveReturn(s, e, events);

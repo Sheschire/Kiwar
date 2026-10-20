@@ -2736,3 +2736,9 @@ button.chip:focus-visible {
 .freshness-old {
   color: var(--berry);
 }
+
+.ship-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

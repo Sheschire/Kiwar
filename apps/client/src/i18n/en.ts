@@ -455,6 +455,7 @@ export const en = {
     network: 'No connection. Your actions will be sent when you are back online.',
     notALaunchpad: 'Expeditions leave from a Launchpad.',
     launchpadBusy: 'This launchpad’s ship is already away.',
+    launchpadDamaged: 'The ship is damaged: repair the launchpad first.',
     unknownTarget: 'Unknown destination.',
     crewTooSmall: 'A crew needs at least 2 kiwis.',
     crewTooLarge: 'Not enough room or kiwis for this crew (one kiwi stays home).',
@@ -552,6 +553,20 @@ export const en = {
     syncing: 'Saving…',
     offline: 'Offline — retrying',
   },
+  ship: {
+    names: {
+      wood: 'Wood-and-canvas bird',
+      logs: 'Log-and-rope bird',
+      iron: 'Riveted iron bird',
+      jet: 'Streamlined jet bird',
+    },
+    line: '{name} · reliability {pct} %',
+    armor: 'armour −{pct} % losses',
+    damaged: 'The ship came back broken: repair the launchpad before the next flight.',
+    brokeDown: 'The ship broke down and turns back!',
+    reportBroken:
+      'The ship broke down on the way and turned back half-way. The crew is safe, the provisions eaten, the launchpad needs repairs.',
+  },
   recon: {
     mission: 'Mission',
     kinds: { recon: 'Reconnaissance', raid: 'Raid' },
@@ -618,6 +633,7 @@ export const en = {
     inFlight: 'Expeditions',
     outbound: 'To {target} — lands in {duration}',
     returning: 'Coming home — {duration}',
+    returningBroken: 'Broken down, limping home — {duration}',
     report: 'Report',
     victory: 'Victory!',
     defeat: 'Defeat…',

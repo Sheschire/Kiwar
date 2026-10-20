@@ -274,6 +274,7 @@ export const gameStateSchema = z.object({
       arriveAt: z.number(),
       returnAt: z.number(),
       status: z.enum(['outbound', 'returning', 'done']),
+      broken: z.boolean().optional(),
       result: z
         .object({
           victory: z.boolean(),
@@ -284,6 +285,7 @@ export const gameStateSchema = z.object({
           lostInBattle: z.array(z.string()),
           lostOnReturn: z.array(z.string()),
           loot: resources,
+          broken: z.boolean().optional(),
           spotted: z.boolean().optional(),
           sectors: z.array(z.number().int().min(0)).optional(),
           injured: z.array(id).optional(),

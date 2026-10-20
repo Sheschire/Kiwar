@@ -22,7 +22,10 @@ export function ExpeditionsPanel() {
         {active.map((e) => {
           const target = game.targets.find((x) => x.id === e.targetId);
           const name = target ? targetLabel(t, target) : e.targetId;
-          const total = e.returnAt - e.departedAt;
+          // A breakdown shows only once the ship turns back (half-way).
+          const hidden = !!e.broken && e.status === 'outbound';
+          const arrive = hidden ? e.departedAt + 2 * (e.arriveAt - e.departedAt) : e.arriveAt;
+          const total = (hidden ? 2 * (arrive - e.departedAt) : e.returnAt - e.departedAt) || 1;
           const progress = Math.min(1, Math.max(0, (now - e.departedAt) / total));
           return (
             <li key={e.id}>
@@ -52,9 +55,9 @@ export function ExpeditionsPanel() {
                       : e.status === 'outbound'
                         ? t('expedition.outbound', {
                             target: name,
-                            duration: formatDuration(lang, e.arriveAt - now),
+                            duration: formatDuration(lang, arrive - now),
                           })
-                        : t('expedition.returning', {
+                        : t(e.broken ? 'expedition.returningBroken' : 'expedition.returning', {
                             duration: formatDuration(lang, e.returnAt - now),
                           })}
                   </span>

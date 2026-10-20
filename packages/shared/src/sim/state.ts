@@ -221,6 +221,8 @@ export interface ExpeditionResult {
   lostInBattle: string[];
   lostOnReturn: string[];
   loot: Resources;
+  /** The ship broke down and turned back half-way. */
+  broken?: boolean;
   /** Reconnaissance: the scouts were spotted (skirmish, worse report). */
   spotted?: boolean;
   /** Reconnaissance: sectors seen for the first time. */
@@ -255,6 +257,8 @@ export interface Expedition {
   returnAt: TimeMs;
   status: 'outbound' | 'returning' | 'done';
   result: ExpeditionResult | null;
+  /** The ship broke down at take-off: it turns back half-way (chantier 07). */
+  broken?: boolean;
 }
 
 /** A big wave on its way: planned (time only), then announced (composition). */

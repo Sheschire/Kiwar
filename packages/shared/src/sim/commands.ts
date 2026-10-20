@@ -137,6 +137,7 @@ export const COMMAND_ERRORS = [
   'noObjective',
   'notALaunchpad',
   'launchpadBusy',
+  'launchpadDamaged',
   'unknownTarget',
   'crewTooSmall',
   'crewTooLarge',
@@ -383,6 +384,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const pad = launchpadOf(s, cmd.launchpadId);
       if (!pad) return fail('notALaunchpad');
       if (isLaunchpadBusy(s, pad.id)) fail('launchpadBusy');
+      if (pad.damaged) fail('launchpadDamaged');
       if (!s.targets.some((t) => t.id === cmd.targetId)) fail('unknownTarget');
       const { pulp, juice } = cmd.provisions;
       if (

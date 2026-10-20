@@ -1,5 +1,13 @@
 import { levelDef } from '../data/buildings';
-import { EXPEDITIONS, INTEL, RECON } from '../data/expeditions';
+import {
+  EXPEDITIONS,
+  INTEL,
+  RECON,
+  SHIP_REPAIR,
+  SHIPS,
+  shipIdForPad,
+  type ShipDef,
+} from '../data/expeditions';
 import { emptyResources, RESOURCE_IDS, type Resources } from '../data/resources';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
 import { getBuilding, HOUR_MS, idleVillagers, workersOf } from './selectors';
@@ -74,11 +82,26 @@ export interface ExpeditionForecast {
   mission: MissionKind;
   /** Reconnaissance only. */
   recon: ReconForecast | null;
+  ship: ShipDef;
+  /** Chance to make the trip without breaking down (ship and crew Dexterity). */
+  reliability: number;
 }
 
 export function launchpadOf(state: GameState, id: BuildingId): Building | undefined {
   const b = getBuilding(state, id);
   return b?.type === 'launchpad' ? b : undefined;
+}
+
+/** The ship of a launchpad: single entry point for the ages of chantier 08. */
+export function shipOf(launchpad: Building): ShipDef {
+  return SHIPS[shipIdForPad(launchpad.level)];
+}
+
+/** Ship reliability, mended on the way by the crew's best Dexterity. */
+export function shipReliability(ship: ShipDef, crew: readonly Villager[]): number {
+  const dex = Math.max(KIWI.stat.average, ...crew.map((v) => v.stats.dexterity));
+  const mend = Math.min(SHIP_REPAIR.max, SHIP_REPAIR.perDexterity * (dex - KIWI.stat.average));
+  return round2(Math.min(1, ship.reliability + mend));
 }
 
 export function shipCargo(launchpad: Building): number {
@@ -103,7 +126,7 @@ const mean = (crew: readonly Villager[], f: (v: Villager) => number) =>
   crew.length ? crew.reduce((sum, v) => sum + f(v), 0) / crew.length : 0;
 
 /** What scouts can tell: Agility and Spirit, experience, and the Scouting skill. */
-export function reconForecast(crew: readonly Villager[]): ReconForecast {
+export function reconForecast(crew: readonly Villager[], ship?: ShipDef): ReconForecast {
   const q = RECON.quality;
   const avg = KIWI.stat.average;
   const scouting = crew.some((v) => hasSkill(v, 'scouting'));
@@ -114,7 +137,8 @@ export function reconForecast(crew: readonly Villager[]): ReconForecast {
         (v) =>
           q.perStat * ((v.stats.agility + v.stats.spirit) / 2 - avg) + q.perLevel * (v.level - 1),
       ) +
-      (scouting ? q.scouting : 0),
+      (scouting ? q.scouting : 0) +
+      (ship?.recon ?? 0),
     0.05,
     1,
   );
@@ -249,8 +273,11 @@ export function forecastExpedition(
   const kiwisWeight = crewWeight(crew);
   const weight =
     kiwisWeight + (plan.provisions.pulp + plan.provisions.juice) * EXPEDITIONS.resourceWeight;
+  const ship = shipOf(pad);
   const expectedLosses =
-    guess === null ? 0 : Math.min(crew.length, crew.length * lossShare(base, guess));
+    guess === null
+      ? 0
+      : Math.min(crew.length, crew.length * lossShare(base, guess) * (1 - ship.armor));
   const exposure = crew.map((v) => kiwiExposure(v));
   const totalExposure = exposure.reduce((a, b) => a + b, 0) || 1;
   const risk: Record<string, number> = {};
@@ -281,7 +308,9 @@ export function forecastExpedition(
     expectedLosses,
     risk,
     mission,
-    recon: mission === 'recon' ? reconForecast(crew) : null,
+    recon: mission === 'recon' ? reconForecast(crew, ship) : null,
+    ship,
+    reliability: shipReliability(ship, crew),
   };
 }
 
@@ -329,6 +358,9 @@ export function launch(
   state.resources.pulp -= plan.provisions.pulp;
   state.resources.juice -= plan.provisions.juice;
   const travelMs = travelTime(target, pad, crew, mission);
+  // A breakdown is drawn at take-off: the ship turns back half-way.
+  const broken = withRng(state, (rng) => !rng.chance(shipReliability(shipOf(pad), crew)));
+  const outMs = broken ? Math.round(travelMs / 2000) * 1000 : travelMs;
   const expedition: Expedition = {
     id,
     mission,
@@ -345,10 +377,11 @@ export function launch(
     provisions: { ...emptyResources(), pulp: plan.provisions.pulp, juice: plan.provisions.juice },
     cargo: shipCargo(pad),
     departedAt: now,
-    arriveAt: now + travelMs,
-    returnAt: now + 2 * travelMs,
+    arriveAt: now + outMs,
+    returnAt: now + 2 * outMs,
     status: 'outbound',
     result: null,
+    ...(broken ? { broken: true } : {}),
   };
   state.expeditions.push(expedition);
   return expedition;
@@ -364,6 +397,22 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   e.provisions.pulp -= Math.min(e.provisions.pulp, need.pulp);
   e.provisions.juice -= Math.min(e.provisions.juice, need.juice);
 
+  if (e.broken) {
+    // Broke down half-way: the crew limps home, the hold empty.
+    e.status = 'returning';
+    e.result = {
+      victory: false,
+      aborted: true,
+      broken: true,
+      strength: 0,
+      defense: 0,
+      fed: round2(fed),
+      lostInBattle: [],
+      lostOnReturn: [],
+      loot: emptyResources(),
+    };
+    return;
+  }
   if (!target) {
     // The face was claimed by a friend while the ship was flying: no battle, the ship turns back.
     e.status = 'returning';
@@ -386,7 +435,12 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
   const strength = strengthOf(members, fed) * luck;
   const victory = strength >= defense;
-  const losses = Math.min(e.crew.length, Math.round(e.crew.length * lossShare(strength, defense)));
+  const pad = launchpadOf(state, e.launchpadId);
+  const armor = pad ? shipOf(pad).armor : 0;
+  const losses = Math.min(
+    e.crew.length,
+    Math.round(e.crew.length * lossShare(strength, defense) * (1 - armor)),
+  );
   const lost = drawLosses(state, members, losses);
   removeVillagers(state, lost, 'battle', e.arriveAt);
   e.crew = e.crew.filter((id) => !lost.includes(id));
@@ -557,6 +611,11 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
   }
   e.provisions = emptyResources();
   e.status = 'done';
+  // A broken ship lands, but the launchpad needs mending before the next take-off.
+  if (e.broken) {
+    const pad = launchpadOf(state, e.launchpadId);
+    if (pad) pad.damaged = true;
+  }
   // Keep only the last few reports.
   const done = state.expeditions.filter((x) => x.status === 'done');
   if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);

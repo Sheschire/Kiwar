@@ -65,7 +65,8 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         pushToast('info', 'cycles.changed', { season: `@cycles.seasons.${e.season}` });
         break;
       case 'expeditionArrived':
-        if (e.mission === 'recon')
+        if (e.broken) pushToast('error', 'ship.brokeDown');
+        else if (e.mission === 'recon')
           pushToast(
             e.spotted ? 'error' : 'info',
             e.spotted ? 'recon.toastSpotted' : 'recon.toastLanded',

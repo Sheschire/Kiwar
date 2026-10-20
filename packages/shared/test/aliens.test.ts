@@ -13,6 +13,10 @@ import {
   RECON,
   reconForecast,
   validateCommand,
+  shipOf,
+  shipReliability,
+  SHIPS,
+  travelTime,
   createMemoryRepository,
   forecastExpedition,
   handleGameRequest,
@@ -26,7 +30,7 @@ import {
   type GameState,
   type ServiceContext,
 } from '../src';
-import { findTile, kiwi, rich, run, setup, T0 } from './helpers';
+import { findTile, kiwi, knowTruth, rich, run, setup, T0 } from './helpers';
 
 /** Nest 2, a launchpad, a crowd of kiwis and full stocks: ready to raid the twin face. */
 function readyColony() {
@@ -40,13 +44,22 @@ function readyColony() {
   s = run(s, { type: 'build', buildingType: 'launchpad', q: flesh.q, r: flesh.r }, t, map);
   t += HOUR_MS;
   s = advance(s, t).state;
-  s = {
+  s = reliable({
     ...s,
     villagers: [...s.villagers, ...Array.from({ length: 8 }, (_, i) => kiwi(`vx${i}`, `K${i}`, t))],
     resources: { pulp: 3000, fiber: 3000, seeds: 3000, juice: 3000 },
-  };
+  });
   const padId = s.buildings.find((b) => b.type === 'launchpad')!.id;
   return { map, s, t, padId, targetId: s.targets[0]!.id };
+}
+
+/** An iron ship and handy crews: reliability 100 %, no breakdown in these tests. */
+function reliable(s: GameState): GameState {
+  return {
+    ...s,
+    buildings: s.buildings.map((b) => (b.type === 'launchpad' ? { ...b, level: 3 } : b)),
+    villagers: s.villagers.map((v) => ({ ...v, stats: { ...v.stats, dexterity: 10 } })),
+  };
 }
 
 describe('hidden alien garrisons (chantier 07)', () => {
@@ -305,7 +318,9 @@ describe('reconnaissance missions', () => {
     const launched = run(s, recon(padId, targetId, 1), t, map);
     const e = launched.expeditions[0]!;
     expect(e.mission).toBe('recon');
-    expect(e.arriveAt - t).toBe(Math.round((alienDefOf(0).travelMs * RECON.travel) / 1000) * 1000);
+    const pad = launched.buildings.find((b) => b.id === padId)!;
+    expect(e.arriveAt - t).toBe(travelTime(launched.targets[0]!, pad, [], 'recon'));
+    expect(e.arriveAt - t).toBeLessThan(travelTime(launched.targets[0]!, pad, [], 'raid'));
     const back = advance(launched, e.returnAt).state;
     const done = back.expeditions[0]!;
     expect(done.status).toBe('done');
@@ -391,5 +406,93 @@ describe('reconnaissance missions', () => {
     expect(small.intel).toEqual(big.intel);
     expect(small.villagers).toEqual(big.villagers);
     expect(small.rng).toEqual(big.rng);
+  });
+});
+
+describe('ship generations and breakdowns', () => {
+  it('follows the launchpad level until ages exist, Dexterity mends a little', () => {
+    const { s, padId } = readyColony();
+    const pad = s.buildings.find((b) => b.id === padId)!;
+    expect(shipOf({ ...pad, level: 1 }).id).toBe('wood');
+    expect(shipOf({ ...pad, level: 2 }).id).toBe('logs');
+    expect(shipOf({ ...pad, level: 3 }).id).toBe('iron');
+    const clumsy = { ...kiwi('a'), stats: { ...kiwi('a').stats, dexterity: 3 } };
+    const handy = { ...kiwi('b'), stats: { ...kiwi('b').stats, dexterity: 9 } };
+    expect(shipReliability(SHIPS.wood, [clumsy])).toBe(SHIPS.wood.reliability);
+    expect(shipReliability(SHIPS.wood, [clumsy, handy])).toBeCloseTo(SHIPS.wood.reliability + 0.04);
+    expect(
+      shipReliability(SHIPS.iron, [handy, { ...handy, stats: { ...handy.stats, dexterity: 20 } }]),
+    ).toBe(1);
+  });
+
+  it('a broken ship turns back half-way, empty, and its launchpad needs mending', () => {
+    let found = false;
+    for (let seed = 0; seed < 60 && !found; seed++) {
+      const ready = readyColony();
+      const { t, map, padId, targetId } = ready;
+      // A wooden ship and plain crews.
+      const s: GameState = {
+        ...ready.s,
+        rng: createRng(`break-${seed}`).state(),
+        buildings: ready.s.buildings.map((b) => (b.id === padId ? { ...b, level: 1 } : b)),
+        villagers: ready.s.villagers.map((v) => ({ ...v, stats: { ...v.stats, dexterity: 5 } })),
+      };
+      const launched = run(
+        s,
+        {
+          type: 'launchExpedition',
+          launchpadId: padId,
+          targetId,
+          crew: 4,
+          provisions: { pulp: 200, juice: 100 },
+        },
+        t,
+        map,
+      );
+      const e = launched.expeditions[0]!;
+      if (!e.broken) continue;
+      found = true;
+      const pad = launched.buildings.find((b) => b.id === padId)!;
+      expect(e.arriveAt - t).toBe(Math.round(travelTime(launched.targets[0]!, pad) / 2000) * 1000);
+      // No garrison needed to know a breakdown: the client plays it alone.
+      const back = advance(publicState(launched), e.returnAt).state;
+      const done = back.expeditions[0]!;
+      expect(done.status).toBe('done');
+      expect(done.result).toMatchObject({ broken: true, victory: false, lostInBattle: [] });
+      expect(done.result!.loot).toEqual({ pulp: 0, fiber: 0, seeds: 0, juice: 0 });
+      expect(back.intel[targetId]).toBeUndefined();
+      expect(back.buildings.find((b) => b.id === padId)!.damaged).toBe(true);
+      const again = {
+        type: 'launchExpedition' as const,
+        launchpadId: padId,
+        targetId,
+        crew: 2,
+        provisions: { pulp: 60, juice: 30 },
+      };
+      expect(validateCommand(back, again, { now: back.now, map })).toBe('launchpadDamaged');
+      const mended = advance(
+        run(back, { type: 'repair', buildingId: padId }, back.now, map),
+        back.now + 3 * HOUR_MS,
+      ).state;
+      expect(mended.buildings.find((b) => b.id === padId)!.damaged).toBeFalsy();
+      expect(validateCommand(mended, again, { now: mended.now, map })).toBeNull();
+    }
+    expect(found).toBe(true);
+  });
+
+  it('armour lowers raid losses', () => {
+    const { s, padId, targetId } = readyColony();
+    const known = knowTruth(s, s.now);
+    const plan = { launchpadId: padId, targetId, crew: 3, provisions: { pulp: 60, juice: 30 } };
+    const iron = forecastExpedition(known, plan)!;
+    const logs = forecastExpedition(
+      {
+        ...known,
+        buildings: known.buildings.map((b) => (b.id === padId ? { ...b, level: 2 } : b)),
+      },
+      plan,
+    )!;
+    expect(iron.ship.armor).toBeGreaterThan(0);
+    expect(iron.expectedLosses).toBeLessThan(logs.expectedLosses);
   });
 });

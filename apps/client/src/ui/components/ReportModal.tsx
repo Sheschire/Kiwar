@@ -31,7 +31,12 @@ export function ReportModal() {
         </button>
       }
     >
-      {recon ? (
+      {r.broken ? (
+        <>
+          <h2 class="warn">{t('expedition.defeat')}</h2>
+          <p class="small warn">{t('ship.reportBroken')}</p>
+        </>
+      ) : recon ? (
         <>
           <h2>{t('recon.reportTitle')}</h2>
           <p class="small">
@@ -103,7 +108,7 @@ export function ReportModal() {
           })}
         </ul>
       </section>
-      {!recon && (
+      {!recon && !r.broken && (
         <p>
           <strong>{t('expedition.loot')}</strong>
           {looted ? <Cost cost={r.loot} /> : t('expedition.nothing')}

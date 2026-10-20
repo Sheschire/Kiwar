@@ -429,6 +429,17 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
           </p>
         )}
         {f.fed < 1 && <p class="small muted">{t('expedition.hungry')}</p>}
+        <p class="small ship-line">
+          <ShipIcon size={16} />
+          {t('ship.line', {
+            name: t(`ship.names.${f.ship.id}`),
+            pct: Math.round(f.reliability * 100),
+          })}
+          {f.ship.armor > 0 &&
+            !f.recon &&
+            ` · ${t('ship.armor', { pct: Math.round(f.ship.armor * 100) })}`}
+        </p>
+        {pad.damaged && <p class="small warn">{t('ship.damaged')}</p>}
       </section>
 
       <button

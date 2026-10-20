@@ -117,3 +117,39 @@ export const RECON = {
   /** Share of the expedition experience. */
   xp: 0.5,
 } as const;
+
+/**
+ * Generations of the mechanical kiwi ship (chantier 07). Ages (chantier 08) will pick the
+ * generation; until then the launchpad level does (`shipIdForPad`).
+ */
+export const SHIP_IDS = ['wood', 'logs', 'iron', 'jet'] as const;
+export type ShipId = (typeof SHIP_IDS)[number];
+
+export interface ShipDef {
+  id: ShipId;
+  /** Chance to make the trip without breaking down. */
+  reliability: number;
+  /** Raid losses are reduced by this share. */
+  armor: number;
+  /** Added to the quality of reconnaissance reports. */
+  recon: number;
+}
+
+export const SHIPS: Record<ShipId, ShipDef> = {
+  /** Wood and canvas, pedal-powered wings. */
+  wood: { id: 'wood', reliability: 0.7, armor: 0, recon: 0 },
+  /** Logs and ropes. */
+  logs: { id: 'logs', reliability: 0.85, armor: 0, recon: 0.05 },
+  /** Riveted metal, steam wings. */
+  iron: { id: 'iron', reliability: 0.95, armor: 0.15, recon: 0.1 },
+  /** Streamlined, with thrusters (Industry age, chantier 08). */
+  jet: { id: 'jet', reliability: 0.99, armor: 0.25, recon: 0.15 },
+};
+
+/** Provisional: the ship generation follows the launchpad level until ages exist. */
+export function shipIdForPad(level: number): ShipId {
+  return level >= 3 ? 'iron' : level === 2 ? 'logs' : 'wood';
+}
+
+/** The crew's best Dexterity mends the ship on the way: up to this much reliability. */
+export const SHIP_REPAIR = { perDexterity: 0.01, max: 0.05 } as const;

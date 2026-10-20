@@ -117,9 +117,11 @@ export function alienEnemies(
   return { ferrets, bats: total - ferrets };
 }
 
-/** True when this client can resolve the arrival itself (it holds the truth, or the face is gone). */
+/** True when this client can resolve the arrival itself (truth held, face gone, or broken down). */
 export function canResolveArrival(state: GameState, e: Expedition): boolean {
-  return !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
+  return (
+    !!e.broken || !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId)
+  );
 }
 
 /** Expeditions that have landed but wait for the server to tell what happened. */

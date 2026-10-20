@@ -1108,6 +1108,21 @@ var RECON = {
   /** Share of the expedition experience. */
   xp: 0.5
 };
+var SHIP_IDS = ["wood", "logs", "iron", "jet"];
+var SHIPS = {
+  /** Wood and canvas, pedal-powered wings. */
+  wood: { id: "wood", reliability: 0.7, armor: 0, recon: 0 },
+  /** Logs and ropes. */
+  logs: { id: "logs", reliability: 0.85, armor: 0, recon: 0.05 },
+  /** Riveted metal, steam wings. */
+  iron: { id: "iron", reliability: 0.95, armor: 0.15, recon: 0.1 },
+  /** Streamlined, with thrusters (Industry age, chantier 08). */
+  jet: { id: "jet", reliability: 0.99, armor: 0.25, recon: 0.15 }
+};
+function shipIdForPad(level) {
+  return level >= 3 ? "iron" : level === 2 ? "logs" : "wood";
+}
+var SHIP_REPAIR = { perDexterity: 0.01, max: 0.05 };
 
 // packages/shared/src/data/kiwis.ts
 var STAT_IDS = [
@@ -1853,7 +1868,7 @@ function alienEnemies(g, defense) {
   return { ferrets, bats: total - ferrets };
 }
 function canResolveArrival(state, e) {
-  return !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
+  return !!e.broken || !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
 }
 function awaitingReport(state, now) {
   return state.expeditions.filter(
@@ -3238,6 +3253,14 @@ function launchpadOf(state, id3) {
   const b = getBuilding(state, id3);
   return b?.type === "launchpad" ? b : void 0;
 }
+function shipOf(launchpad) {
+  return SHIPS[shipIdForPad(launchpad.level)];
+}
+function shipReliability(ship, crew) {
+  const dex = Math.max(KIWI.stat.average, ...crew.map((v) => v.stats.dexterity));
+  const mend = Math.min(SHIP_REPAIR.max, SHIP_REPAIR.perDexterity * (dex - KIWI.stat.average));
+  return round22(Math.min(1, ship.reliability + mend));
+}
 function shipCargo(launchpad) {
   return levelDef("launchpad", launchpad.level)?.cargo ?? 0;
 }
@@ -3249,7 +3272,7 @@ function travelTime(target, launchpad, crew = [], mission = "raid") {
 }
 var clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 var mean = (crew, f) => crew.length ? crew.reduce((sum, v) => sum + f(v), 0) / crew.length : 0;
-function reconForecast(crew) {
+function reconForecast(crew, ship) {
   const q = RECON.quality;
   const avg = KIWI.stat.average;
   const scouting = crew.some((v) => hasSkill(v, "scouting"));
@@ -3257,7 +3280,7 @@ function reconForecast(crew) {
     q.base + mean(
       crew,
       (v) => q.perStat * ((v.stats.agility + v.stats.spirit) / 2 - avg) + q.perLevel * (v.level - 1)
-    ) + (scouting ? q.scouting : 0),
+    ) + (scouting ? q.scouting : 0) + (ship?.recon ?? 0),
     0.05,
     1
   );
@@ -3354,7 +3377,8 @@ function forecastExpedition(state, plan) {
   const guess = defense ? (defense.min + defense.max) / 2 : null;
   const kiwisWeight = crewWeight(crew);
   const weight = kiwisWeight + (plan.provisions.pulp + plan.provisions.juice) * EXPEDITIONS.resourceWeight;
-  const expectedLosses = guess === null ? 0 : Math.min(crew.length, crew.length * lossShare(base, guess));
+  const ship = shipOf(pad);
+  const expectedLosses = guess === null ? 0 : Math.min(crew.length, crew.length * lossShare(base, guess) * (1 - ship.armor));
   const exposure = crew.map((v) => kiwiExposure(v));
   const totalExposure = exposure.reduce((a, b) => a + b, 0) || 1;
   const risk = {};
@@ -3385,7 +3409,9 @@ function forecastExpedition(state, plan) {
     expectedLosses,
     risk,
     mission,
-    recon: mission === "recon" ? reconForecast(crew) : null
+    recon: mission === "recon" ? reconForecast(crew, ship) : null,
+    ship,
+    reliability: shipReliability(ship, crew)
   };
 }
 function availableCrew(state) {
@@ -3414,6 +3440,8 @@ function launch(state, plan, now, id3) {
   state.resources.pulp -= plan.provisions.pulp;
   state.resources.juice -= plan.provisions.juice;
   const travelMs = travelTime(target, pad, crew, mission);
+  const broken = withRng(state, (rng) => !rng.chance(shipReliability(shipOf(pad), crew)));
+  const outMs = broken ? Math.round(travelMs / 2e3) * 1e3 : travelMs;
   const expedition = {
     id: id3,
     mission,
@@ -3430,10 +3458,11 @@ function launch(state, plan, now, id3) {
     provisions: { ...emptyResources(), pulp: plan.provisions.pulp, juice: plan.provisions.juice },
     cargo: shipCargo(pad),
     departedAt: now,
-    arriveAt: now + travelMs,
-    returnAt: now + 2 * travelMs,
+    arriveAt: now + outMs,
+    returnAt: now + 2 * outMs,
     status: "outbound",
-    result: null
+    result: null,
+    ...broken ? { broken: true } : {}
   };
   state.expeditions.push(expedition);
   return expedition;
@@ -3446,6 +3475,21 @@ function resolveArrival(state, e) {
   const fed = coverage(e.provisions, need);
   e.provisions.pulp -= Math.min(e.provisions.pulp, need.pulp);
   e.provisions.juice -= Math.min(e.provisions.juice, need.juice);
+  if (e.broken) {
+    e.status = "returning";
+    e.result = {
+      victory: false,
+      aborted: true,
+      broken: true,
+      strength: 0,
+      defense: 0,
+      fed: round22(fed),
+      lostInBattle: [],
+      lostOnReturn: [],
+      loot: emptyResources()
+    };
+    return;
+  }
   if (!target) {
     e.status = "returning";
     e.result = {
@@ -3467,7 +3511,12 @@ function resolveArrival(state, e) {
   const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
   const strength = strengthOf(members, fed) * luck;
   const victory = strength >= defense;
-  const losses = Math.min(e.crew.length, Math.round(e.crew.length * lossShare(strength, defense)));
+  const pad = launchpadOf(state, e.launchpadId);
+  const armor = pad ? shipOf(pad).armor : 0;
+  const losses = Math.min(
+    e.crew.length,
+    Math.round(e.crew.length * lossShare(strength, defense) * (1 - armor))
+  );
   const lost = drawLosses(state, members, losses);
   removeVillagers(state, lost, "battle", e.arriveAt);
   e.crew = e.crew.filter((id3) => !lost.includes(id3));
@@ -3608,6 +3657,10 @@ function resolveReturn(state, e, events = []) {
   }
   e.provisions = emptyResources();
   e.status = "done";
+  if (e.broken) {
+    const pad = launchpadOf(state, e.launchpadId);
+    if (pad) pad.damaged = true;
+  }
   const done = state.expeditions.filter((x) => x.status === "done");
   if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
 }
@@ -4148,7 +4201,8 @@ function advanceInPlace(s, now, events) {
           expeditionId: e.id,
           victory: e.result.victory,
           mission: e.mission,
-          ...e.result.spotted ? { spotted: true } : {}
+          ...e.result.spotted ? { spotted: true } : {},
+          ...e.result.broken ? { broken: true } : {}
         });
       } else {
         resolveReturn(s, e, events);
@@ -4493,6 +4547,7 @@ var COMMAND_ERRORS = [
   "noObjective",
   "notALaunchpad",
   "launchpadBusy",
+  "launchpadDamaged",
   "unknownTarget",
   "crewTooSmall",
   "crewTooLarge",
@@ -4699,6 +4754,7 @@ function execute(s, cmd, ctx, events) {
       const pad = launchpadOf(s, cmd.launchpadId);
       if (!pad) return fail("notALaunchpad");
       if (isLaunchpadBusy(s, pad.id)) fail("launchpadBusy");
+      if (pad.damaged) fail("launchpadDamaged");
       if (!s.targets.some((t) => t.id === cmd.targetId)) fail("unknownTarget");
       const { pulp, juice } = cmd.provisions;
       if (typeof cmd.crew === "number" && !Number.isInteger(cmd.crew) || ![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) {
@@ -9194,6 +9250,7 @@ var gameStateSchema = external_exports.object({
       arriveAt: external_exports.number(),
       returnAt: external_exports.number(),
       status: external_exports.enum(["outbound", "returning", "done"]),
+      broken: external_exports.boolean().optional(),
       result: external_exports.object({
         victory: external_exports.boolean(),
         aborted: external_exports.boolean().optional(),
@@ -9203,6 +9260,7 @@ var gameStateSchema = external_exports.object({
         lostInBattle: external_exports.array(external_exports.string()),
         lostOnReturn: external_exports.array(external_exports.string()),
         loot: resources,
+        broken: external_exports.boolean().optional(),
         spotted: external_exports.boolean().optional(),
         sectors: external_exports.array(external_exports.number().int().min(0)).optional(),
         injured: external_exports.array(id).optional()
@@ -9933,6 +9991,9 @@ export {
   SERVER_ERRORS,
   SHELTER,
   SHINY_COLORS,
+  SHIPS,
+  SHIP_IDS,
+  SHIP_REPAIR,
   SKILLS,
   SKILL_IDS,
   START,
@@ -10158,6 +10219,9 @@ export {
   sectorOf,
   serializeSave,
   shipCargo,
+  shipIdForPad,
+  shipOf,
+  shipReliability,
   skyTick,
   soloTargets,
   stageOf,
