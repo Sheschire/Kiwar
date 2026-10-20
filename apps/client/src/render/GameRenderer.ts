@@ -656,6 +656,14 @@ export class GameRenderer {
   /** Chantier 16: where the ghost hovers (the pointed or tapped tile) and if it can go there. */
   setGhostTile(tile: Tile | null, valid: boolean): void {
     this.ghost.setTile(tile, valid);
+    // On a phone (no hover) the tapped tile also shows its logistics % or turret range.
+    const key = tile ? `t${tile.q},${tile.r}` : '';
+    if (tile && key !== this.placementHover) {
+      this.placementHover = key;
+      this.placementHoverTile = tile;
+      this.refreshLogistics();
+      this.refreshCatchment();
+    }
   }
 
   /** Chantier 16: the catchment a producer would have under the ghost (empty: none). */
