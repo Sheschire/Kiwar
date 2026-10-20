@@ -60,6 +60,17 @@ Crew strength, exposure and weighted losses come from `kiwar-rpg`.
 - `ExpeditionResult` extras: `broken`, `spotted`, `sectors` (new this time), `injured`.
 - `expeditionArrived` events carry `mission`, `spotted`, `broken` (toasts in `game/events.ts`).
 
+## Victories wound, loot by age (chantier 18)
+
+- In a **victory** the kiwis hit (same `lossShare` count, weighted by exposure) come back
+  **wounded** for `EXPEDITIONS.victoryInjuryMs` (6 h, `result.injured`, job `injured` on
+  return); only a defeat or starvation on the way back kills. `ExpeditionForecast.woundsOnly`
+  (victory expected at the middle of the estimate) switches the planner line to "about n
+  wounded, no deaths". Raids used to cost 1.5–2 dead kiwis whatever the crew: never worth it.
+- Loot ×8 (twin face 1 920 / 960 / 960 / 1 440) × `lootByAge(state)` (`EXPEDITIONS.lootByAge`
+  1 / 1.5 / 2 / 3), applied at resolution; `potentialLoot(state, distance)` for the target
+  cards. Garrisons drawn earlier keep their old loot (× the age).
+
 ## Kikiwiwis aboard (chantier 08, `kiwar-titans`)
 
 - One per crew (`oneKikiwiwi`), boarded by name only (a head count skips them); weight ×5,
@@ -123,4 +134,8 @@ expeditionPad })` or `{ modal: 'report', reportId }`; zoom out (`dollyTo(frameDi
   per launchpad level, spotted / fallen / wounded scouts, sectors and range width, blind vs
   informed raid wins and losses. Reference (end of chantier 07): breakdowns 28/14/3 %, spotted
   17 %, fallen 1 %, wounded 16 %, 2.9 sectors ±26 %, blind ×6 raid wins 37 %, informed 100 %
-  with 13–18 % losses. The colony bot (`pnpm balance`) does not send expeditions.
+  with 13–18 % losses. Since chantier 18 the probe is also a report section
+  (`pnpm balance --probe 100`, `tools/balance/src/probe.ts`): breakdowns 35 % at every
+  launchpad level (reliability follows the age since chantier 08), informed raids 100 % won,
+  0 % fallen, ~17 % wounded. The colony bot sends reconnaissances and raids (`bot/expeditions.ts`,
+  see `kiwar-balance`).

@@ -5,6 +5,39 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
 
 # Kiwar balance
 
+## Chantier 18: the complete bot and the report
+
+- **Layout**: `src/bot.ts` (run loop, decision order, milestones, `RunResult`), one module per
+  domain in `src/bot/` (economy: `bestTile`, `bottlenecks`; defense; rpg; ages; titans; sky;
+  **paths**, **camps**, **expeditions**). `src/runner.ts` runs `Job`s (biome, seeds, hours,
+  `without`, `profile`) in child processes (`worker.ts`); `report.ts` formats everything.
+- **Paths** (`bot/paths.ts`): once per game hour, the route from each producer to its nearest
+  depot (Dijkstra on paved costs) is paved when the extra harvest pays the fiber back within
+  `PATH_PAYBACK_H` (6 h). **Camps** (`bot/camps.ts`): every meteorite crater, and the richest
+  free deposit of the bottleneck when kiwis are idle; dismantled as soon as a workplace wants
+  them back. **Expeditions** (`bot/expeditions.ts`, checked every 30 game minutes): launchpad
+  after the Library, reconnaissance whenever the report is not `fresh`, raids when the
+  forecast is `likely` and the loot beats provisions + wounds + the crew's absence (less XP);
+  the bot also trains two warriors and a scout. Each check that finds nothing is throttled
+  (`play.pathsAt`, `play.expeditionsAt`): an unthrottled bot was 3× slower.
+- **Options of `pnpm balance`**: `--without paths,camps,expeditions`, `--profile active|casual`
+  (casual: attentive 6 h, then a visit every 8 h, 60 decisions per visit), `--ages <seeds>
+[--ages-days 10]` (long runs of both profiles against the age targets: Stone 36 h, Iron
+  96 h, Industry 192 h, casual × 1.5, ±15 %; casual horizon × 1.4), `--impact <seeds>` (same
+  seeds without each mechanic, reusing the main runs as the full bot), `--probe <seeds>` (the
+  expedition probe, `probe.ts`). `pnpm balance:impact` and `pnpm balance:expeditions` still
+  run alone.
+- Milestones `recon` and `raidWon` are informative (`INFORMATIVE`: never flagged).
+- **Bot bugs the long runs found** (check these first when an age stalls): a decision step
+  that returns a command which always fails stops every later step (an idle Kikiwiwi made
+  `researchStaffing` ask for a Library worker forever: Industry never came); a lesser tech
+  started while the passage waited for a Library level delayed the ages.
+- Quick checks: a scratch script calling `runBot` with `onStep` (log every 12 h: age,
+  research, queue, resources, stardust) finds stalls fast; long runs must go through the CLI
+  (parallel) — a sequential 9 × 9-day script exceeds the 30 min tool limit.
+
+## Before chantier 18
+
 - `pnpm balance --seeds 30` runs the bot on N seeds **per biome** (chantier 05: six biomes,
   each run in its own child process, `--jobs` = CPU count by default, `--biomes a,b` to pick)
   and prints medians of milestones (tutorial, pop10, nest2, nest3, allLevel3, kiwi5, kiwi10,
@@ -53,9 +86,8 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   the bottleneck, adds housing/storage, upgrades the Nest ASAP. Chantier 03: places stat points
   (Dexterity, Charisma for the mayor, Strength for the builder), builds a School after the
   Nest 2, trains the most charismatic level-5 kiwi as mayor then a builder, and gives speeches.
-  It does not use camps, paths, expeditions, mages or scouts — update it when a new mechanic
-  matters for progression. Expeditions have their own probe: `pnpm balance:expeditions`
-  (`kiwar-expeditions`).
+  Since chantier 18 it uses paths, camps and expeditions (see above); still not: mages,
+  deliveries, terraforming beyond smashing rocks, locks (chantier 15).
 - Chantier 04: the bot feeds its colony (`canFeedOneMore`, meals in the bottleneck), places huts
   where producers walk the most to a bed; `fullHorizon`, `activeMs` + `sessionEveryMs`
   (occasional player) and `final.starved` / `maxHungerH` let you check winters. A bot run costs
