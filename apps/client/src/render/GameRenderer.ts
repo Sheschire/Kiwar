@@ -154,6 +154,8 @@ export class GameRenderer {
   private clearedTiles = new Set<string>();
   private lastState: GameState | null = null;
   private postfx: PostFx | null = null;
+  /** The post-processing chain that got the current size (a new one needs it). */
+  private postfxSized: PostFx | null = null;
   private map: FaceMap | null = null;
   /** Timestamp of the last drawn frame (the browser's frame clock, ms). */
   private lastDrawTime = 0;
@@ -273,15 +275,18 @@ export class GameRenderer {
     this.renderer.shadowMap.type = q.softShadows ? PCFSoftShadowMap : PCFShadowMap;
     this.postfx?.dispose();
     this.postfx = q.postprocessing ? new PostFx(this.renderer, this.scene, this.camera, q) : null;
-    this.renderer.toneMapping = q.postprocessing ? NoToneMapping : NeutralToneMapping;
+    const toneMapping = q.postprocessing ? NoToneMapping : NeutralToneMapping;
+    const recompile = toneMapping !== this.renderer.toneMapping;
+    this.renderer.toneMapping = toneMapping;
     this.renderer.toneMappingExposure = 1.05;
-    // Materials must recompile when tone mapping changes.
-    this.scene.traverse((o) => {
-      const m = (o as { material?: { needsUpdate: boolean } | { needsUpdate: boolean }[] })
-        .material;
-      if (Array.isArray(m)) m.forEach((x) => (x.needsUpdate = true));
-      else if (m) m.needsUpdate = true;
-    });
+    // Materials must recompile when tone mapping changes (only then: it is a long hitch).
+    if (recompile)
+      this.scene.traverse((o) => {
+        const m = (o as { material?: { needsUpdate: boolean } | { needsUpdate: boolean }[] })
+          .material;
+        if (Array.isArray(m)) m.forEach((x) => (x.needsUpdate = true));
+        else if (m) m.needsUpdate = true;
+      });
     if (this.map) this.rebuildProps();
     this.buildings?.setAnimated(q.buildingAnimations, q.particles);
     this.weather?.setDensity(q.particles ? 1 : 0.35);
@@ -806,9 +811,16 @@ export class GameRenderer {
       window.devicePixelRatio,
       this.integrated,
     );
+    const size = this.renderer.getSize(tmpSize);
+    const changed = ratio !== this.renderer.getPixelRatio() || size.x !== w || size.y !== h;
     if (ratio !== this.renderer.getPixelRatio()) this.renderer.setPixelRatio(ratio);
-    this.renderer.setSize(w, h, false);
-    this.postfx?.setSize(w, h);
+    // Reallocating the buffers is costly: only when the size or the ratio changed (a new
+    // post-processing chain always needs its size).
+    if (changed) this.renderer.setSize(w, h, false);
+    if (changed || this.postfxSized !== this.postfx) {
+      this.postfx?.setSize(w, h);
+      this.postfxSized = this.postfx;
+    }
     this.camera.aspect = w / h;
     // Keep the disc comfortably framed in portrait.
     this.camera.fov = this.camera.aspect < 0.8 ? 40 : 30;

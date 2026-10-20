@@ -325,7 +325,6 @@ p {
   height: 100%;
   border-radius: 3px;
   background: linear-gradient(90deg, #a3cf4e, #6f9a2c);
-  transition: width 0.4s ease;
 }
 
 .chip.is-full .chip-bar > span {
@@ -387,13 +386,6 @@ p {
   background: #e08a2e;
   border-color: #b5651d;
   color: #fff;
-  animation: idle-pulse 2.4s ease-in-out infinite;
-}
-
-@keyframes idle-pulse {
-  50% {
-    box-shadow: 0 0 0 4px rgba(224, 138, 46, 0.25);
-  }
 }
 
 /* Chips are buttons (they open a tooltip). */
@@ -678,7 +670,6 @@ button.chip:focus-visible {
   height: 100%;
   border-radius: 6px;
   background: repeating-linear-gradient(-45deg, #9ccc4a 0 8px, #8bbd3c 8px 16px);
-  transition: width 0.25s linear;
 }
 
 .bonus {
@@ -686,16 +677,50 @@ button.chip:focus-visible {
   font-weight: 500;
 }
 
-.glow {
-  animation: glow 1.6s ease-in-out infinite;
+/*
+ * Pulsing halos: a ::after whose opacity animates (composited), never an animated box-shadow
+ * (a repaint every frame over the 3D). Progress bars have no width transition for the same
+ * reason: they move 5 times a second, in steps too small to see.
+ */
+.glow,
+.egg-btn.ready,
+.threat-badge.odds-unlikely {
+  position: relative;
 }
 
-@keyframes glow {
+.glow::after,
+.egg-btn.ready::after,
+.chip-idle.is-alert::after,
+.threat-badge.odds-unlikely::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow:
+    0 0 0 5px rgba(160, 210, 80, 0.35),
+    0 3px 12px rgba(40, 60, 10, 0.3);
+  animation: halo-pulse 1.6s ease-in-out infinite;
+}
+
+.egg-btn.ready::after {
+  animation-duration: 1.8s;
+}
+
+.chip-idle.is-alert::after {
+  box-shadow: 0 0 0 4px rgba(224, 138, 46, 0.25);
+  animation-duration: 2.4s;
+}
+
+.threat-badge.odds-unlikely::after {
+  box-shadow: 0 0 0 4px rgba(184, 67, 47, 0.25);
+  animation-duration: 2.4s;
+}
+
+@keyframes halo-pulse {
   50% {
-    box-shadow:
-      0 2px 0 var(--leaf-dark),
-      0 0 0 5px rgba(160, 210, 80, 0.35),
-      0 3px 12px rgba(40, 60, 10, 0.3);
+    opacity: 1;
   }
 }
 
@@ -995,7 +1020,6 @@ button.chip:focus-visible {
 
 .egg-btn.ready {
   border-color: var(--leaf-dark);
-  animation: glow 1.8s ease-in-out infinite;
 }
 
 .egg-btn.ready:active {
@@ -1659,7 +1683,6 @@ button.chip:focus-visible {
   height: 100%;
   border-radius: 6px;
   background: linear-gradient(90deg, var(--leaf-dark), var(--leaf));
-  transition: width 0.4s ease;
 }
 
 .deposit-bar.low > span {
@@ -2726,7 +2749,6 @@ button.chip:focus-visible {
   display: block;
   height: 100%;
   background: #8a8fd6;
-  transition: width 0.4s ease;
 }
 
 .fatigue-bar.high span {
@@ -2996,7 +3018,6 @@ button.chip:focus-visible {
 
 .threat-badge.odds-unlikely {
   border-color: var(--berry);
-  animation: threat-pulse 2.4s ease-in-out infinite;
 }
 
 .threat-badge.odds-unlikely strong,
@@ -3013,14 +3034,8 @@ button.chip:focus-visible {
   color: var(--leaf);
 }
 
-@keyframes threat-pulse {
-  50% {
-    box-shadow: 0 0 0 4px rgba(184, 67, 47, 0.25);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .threat-badge.odds-unlikely {
+  .threat-badge.odds-unlikely::after {
     animation: none;
   }
 }
