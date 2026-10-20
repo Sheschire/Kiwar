@@ -106,7 +106,8 @@ export function finishTitanWorks(s: GameState, at: TimeMs, events: GameEvent[]):
       if (o) removeObstacle(s, o, at, events, 'titan');
     } else {
       const key = hexKey(job);
-      s.terraform[key] = job.work;
+      // A new object: cached map keys follow the object (`terraformKey`).
+      s.terraform = { ...s.terraform, [key]: job.work };
       // The tile starts over as a full deposit of its new kind.
       delete s.deposits[key];
       s.paths = job.work === 'spring' ? s.paths.filter((p) => p !== key) : s.paths;

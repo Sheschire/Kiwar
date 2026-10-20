@@ -13,7 +13,7 @@ import type { TKey } from '../../i18n/i18n';
 export function ObjectivesPanel() {
   const t = useT();
   const open = useUi((s) => s.objectivesOpen);
-  const game = useUi((s) => s.game);
+  const game = useUi((s) => s.slowGame);
   if (!open || !game) return null;
   const obj = currentObjective(game);
   return (

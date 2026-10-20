@@ -9,15 +9,8 @@ import {
   type Material,
   type Object3D,
 } from 'three';
-import {
-  buildingHarvest,
-  isProducer,
-  storageFullCheck,
-  workersOf,
-  workerSlots,
-  type Building,
-  type GameState,
-} from '@kiwar/shared';
+import { isProducer, workersOf, workerSlots, type Building, type GameState } from '@kiwar/shared';
+import { harvestOf } from '../game/perState';
 import type { BuildingEmitter, BuildingModel, RigMotion } from './buildingModels';
 import { Particles } from './particles';
 
@@ -33,28 +26,20 @@ export interface Activity {
 export type StatusIcon = 'depleted' | 'storageFull' | 'flooded' | 'damaged';
 
 /** Pace of the animations, read from the very same harvest rules as the simulation. */
-export function activityOf(
-  state: GameState,
-  b: Building,
-  full = storageFullCheck(state),
-): Activity {
-  const a = baseActivity(state, b, full);
+export function activityOf(state: GameState, b: Building): Activity {
+  const a = baseActivity(state, b);
   if (!b.damaged) return a;
   return { speed: a.speed * 0.5, icon: a.icon ?? 'damaged', damaged: true };
 }
 
-function baseActivity(
-  state: GameState,
-  b: Building,
-  full: ReturnType<typeof storageFullCheck>,
-): Activity {
+function baseActivity(state: GameState, b: Building): Activity {
   if (b.type === 'school') {
     // The bell rings while a class is in session.
     const busy = state.villagers.some((v) => v.job.kind === 'train' && v.job.schoolId === b.id);
     return { speed: busy ? 1 : 0, icon: null };
   }
   if (!isProducer(b.type)) return { speed: 1, icon: null };
-  const h = buildingHarvest(state, b, full);
+  const h = harvestOf(state, b.id);
   if (!h) return { speed: 0, icon: null };
   switch (h.status) {
     case 'ok': {

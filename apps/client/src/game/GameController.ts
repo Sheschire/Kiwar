@@ -293,8 +293,20 @@ export class GameController {
   /** Cost of the last `advance` of a tick (ms, for the debug panel). */
   lastAdvanceMs = 0;
 
+  /** True while a tick emits its state (the interface may skip some of those updates). */
+  ticking = false;
+
   tick(): void {
     if (!this.state) return;
+    this.ticking = true;
+    try {
+      this.tickState();
+    } finally {
+      this.ticking = false;
+    }
+  }
+
+  private tickState(): void {
     const now = this.now();
     const start = performance.now();
     const { state, events } = advance(this.state, now);

@@ -16,7 +16,6 @@ import {
 import {
   ageOf,
   getTile,
-  storageFullCheck,
   type Building,
   type FaceMap,
   type GameState,
@@ -142,8 +141,7 @@ export class BuildingsView {
   /** Synchronises meshes with the game state (cheap when nothing changed). */
   sync(state: GameState): void {
     this.state = state;
-    const full = storageFullCheck(state);
-    for (const b of state.buildings) this.life.setActivity(b.id, activityOf(state, b, full));
+    for (const b of state.buildings) this.life.setActivity(b.id, activityOf(state, b));
     const away = (id: string) =>
       state.expeditions.some((e) => e.launchpadId === id && e.status !== 'done');
     const sig =
@@ -152,7 +150,7 @@ export class BuildingsView {
       state.queue.map((i) => `${i.id}:${i.startedAt ?? '-'}`).join(',');
     if (sig !== this.signature) {
       this.signature = sig;
-      this.syncMeshes(state, full, away);
+      this.syncMeshes(state, away);
     }
     this.badges.sync(state, (id) => this.anchorOf(id));
   }
@@ -168,11 +166,7 @@ export class BuildingsView {
     };
   }
 
-  private syncMeshes(
-    state: GameState,
-    full: ReturnType<typeof storageFullCheck>,
-    away: (id: string) => boolean,
-  ): void {
+  private syncMeshes(state: GameState, away: (id: string) => boolean): void {
     const age = ageOf(state);
 
     const seen = new Set<string>();
@@ -192,7 +186,7 @@ export class BuildingsView {
         this.life.detach(b.id);
       }
       this.addBuildingMesh(b, shipAway, age);
-      this.life.setActivity(b.id, activityOf(state, b, full));
+      this.life.setActivity(b.id, activityOf(state, b));
     }
     for (const [id, mesh] of this.meshes) {
       if (!seen.has(id)) {

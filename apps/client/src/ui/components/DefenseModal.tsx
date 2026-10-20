@@ -43,8 +43,8 @@ function weakestSector(sectors: Record<SectorId, SectorClash>): SectorId | null 
 export function ThreatBadge() {
   const t = useT();
   const lang = useUi((s) => s.lang);
-  const game = useUi((s) => s.game);
-  const now = useUi((s) => s.now);
+  const game = useUi((s) => s.slowGame);
+  const now = useUi((s) => s.slowNow);
   const unread = useUi((s) => s.unreadWave);
   if (!game) return null;
   const open = () => uiStore.setState({ modal: 'defense', unreadWave: null });

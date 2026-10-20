@@ -2621,7 +2621,7 @@ function bedsOf(state, map = faceMapOf(state)) {
     const j = v.job;
     key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : j.kind === "transform" ? `${v.id}x${j.labId};` : j.kind === "titan" ? `${v.id}T${j.q},${j.r};` : "";
   }
-  key += `|${state.paths.join(";")}`;
+  key += `|${pathsKey(state.paths)}`;
   const cached = bedCache.get(key);
   if (cached) return cached;
   const houses = homes(state);
@@ -2784,7 +2784,11 @@ var MODIFIER_KEYS = [
   "appetite",
   "research"
 ];
+var modifierCache = /* @__PURE__ */ new Map();
 function modifiers(v) {
+  const key = `${v.trait ?? ""}|${v.kikiwiwi ? 1 : 0}|${v.classId ?? ""}|${v.classId ? v.level : 0}`;
+  const cached = modifierCache.get(key);
+  if (cached) return cached;
   const out = Object.fromEntries(MODIFIER_KEYS.map((k) => [k, 1]));
   const apply = (m) => {
     if (m) for (const k of MODIFIER_KEYS) out[k] *= m[k] ?? 1;
@@ -2796,6 +2800,7 @@ function modifiers(v) {
     apply(c.modifiers);
     for (const skill of c.skills) if (v.level >= skill.level) apply(skill.modifiers);
   }
+  modifierCache.set(key, Object.freeze(out));
   return out;
 }
 function hasSkill(v, skill) {
@@ -3153,12 +3158,25 @@ function researchTick(state, at, events) {
 var HOUR_MS = 36e5;
 var EPS = 1e-6;
 var mapCache = /* @__PURE__ */ new Map();
+var terraformKeys = /* @__PURE__ */ new WeakMap();
 function terraformKey(state) {
   const t = state.terraform;
   if (!t) return "";
-  const keys = Object.keys(t);
-  if (keys.length === 0) return "";
-  return keys.sort().map((k) => `${k}=${t[k]}`).join(";");
+  const n = Object.keys(t).length;
+  if (n === 0) return "";
+  const cached = terraformKeys.get(t);
+  if (cached && cached.n === n) return cached.key;
+  const key = Object.keys(t).sort().map((k) => `${k}=${t[k]}`).join(";");
+  terraformKeys.set(t, { n, key });
+  return key;
+}
+var pathKeys = /* @__PURE__ */ new WeakMap();
+function pathsKey(paths) {
+  const cached = pathKeys.get(paths);
+  if (cached && cached.n === paths.length) return cached.key;
+  const key = [...paths].sort().join(";");
+  pathKeys.set(paths, { n: paths.length, key });
+  return key;
 }
 function faceMapOf(state) {
   const base = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}`;
@@ -3201,8 +3219,20 @@ function tileDeposit(tile, biome = "classic") {
     regen: def.regen * tile.richness * (regen[def.resource] ?? 1)
   };
 }
+var depositCache = /* @__PURE__ */ new WeakMap();
 function depositAtKey(map, key) {
-  return tileDeposit(getTile(map, parseHexKey(key)), map.params.biome);
+  let deposits = depositCache.get(map);
+  if (!deposits) {
+    deposits = /* @__PURE__ */ new Map();
+    depositCache.set(map, deposits);
+  }
+  let dep = deposits.get(key);
+  if (dep === void 0) {
+    const i = map.index.get(key);
+    dep = tileDeposit(i === void 0 ? void 0 : map.tiles[i], map.params.biome);
+    deposits.set(key, dep);
+  }
+  return dep;
 }
 function isFlooded(tile, biome, season) {
   return !!tile?.flood && BIOMES[biome].floods === season;
@@ -3356,7 +3386,7 @@ function depotDistances(state, map) {
 }
 function walkDistances(state, map, sources) {
   const season = seasonOf(state);
-  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}|${terraformKey(state)}|${season}|${sources.join(";")}|${[...state.paths].sort().join(";")}`;
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}|${terraformKey(state)}|${season}|${sources.join(";")}|${pathsKey(state.paths)}`;
   const cached = distanceCache.get(key);
   if (cached) return cached;
   const paths = pathSet(state);
@@ -3610,7 +3640,7 @@ function grossRates(state) {
 }
 function netRates(state) {
   const full = storageFullCheck(state);
-  const prod = productionRates(state);
+  const prod = productionRates(state, full);
   const eaten = consumption(state);
   const out = emptyResources();
   for (const id3 of RESOURCE_IDS) {
@@ -3641,9 +3671,8 @@ function buildingRates(state, b, full = storageFullCheck(state)) {
   if (h) out[h.resource] += h.output;
   return out;
 }
-function productionRates(state) {
+function productionRates(state, full = storageFullCheck(state)) {
   const total = emptyResources();
-  const full = storageFullCheck(state);
   for (const b of state.buildings) {
     const r = buildingRates(state, b, full);
     for (const id3 of RESOURCE_IDS) total[id3] += r[id3];
@@ -5274,7 +5303,7 @@ function finishTitanWorks(s, at, events) {
       if (o) removeObstacle(s, o, at, events, "titan");
     } else {
       const key = hexKey(job2);
-      s.terraform[key] = job2.work;
+      s.terraform = { ...s.terraform, [key]: job2.work };
       delete s.deposits[key];
       s.paths = job2.work === "spring" ? s.paths.filter((p) => p !== key) : s.paths;
       syncPools(s, faceMapOf(s), at);
@@ -6498,7 +6527,7 @@ function execute(s, cmd, ctx, events) {
       }
       if (s.paths.length + added.length > pathLimit(s)) fail("pathLimit");
       pay(s, scaleRaw(PATHS.cost, added.length));
-      s.paths.push(...added);
+      s.paths = [...s.paths, ...added];
       return;
     }
     case "removePath": {
@@ -12357,6 +12386,7 @@ export {
   pathLimit,
   pathLogisticsChanges,
   pathSet,
+  pathsKey,
   pendingUpgrade,
   pickStarving,
   pixelToHex,

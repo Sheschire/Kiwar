@@ -9,7 +9,7 @@ import { calendarAt, seasonOf } from './calendar';
 import { hungerStage } from './needs';
 import { mayorMorale, modifiers } from './kiwis';
 import type { Building, GameState, Villager } from './state';
-import { terraformKey, distanceIn, faceMapOf, walkDistances } from './territory';
+import { terraformKey, distanceIn, faceMapOf, pathsKey, walkDistances } from './territory';
 
 /** Where a kiwi sleeps: a home with a free bed (null: outside) and the walk from its work. */
 export interface Bed {
@@ -75,7 +75,7 @@ export function bedsOf(state: GameState, map: FaceMap = faceMapOf(state)): Map<V
                       ? `${v.id}T${j.q},${j.r};`
                       : '';
   }
-  key += `|${state.paths.join(';')}`;
+  key += `|${pathsKey(state.paths)}`;
   const cached = bedCache.get(key);
   if (cached) return cached;
 

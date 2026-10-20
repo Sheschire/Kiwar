@@ -47,7 +47,6 @@ import {
   bedsOf,
   kiwiRhythm,
   type KiwiRhythm,
-  buildingHarvest,
   nearestDepotOf,
   tileWalkCost,
   workersOf,
@@ -56,6 +55,7 @@ import { findPath } from './pathfinding';
 import { TitansView } from './kikiwiwi';
 import { DropLabels } from './dropLabels';
 import { WATER_LEVEL } from './water';
+import { harvestOf } from '../game/perState';
 
 const MAX_KIWIS = 64;
 /** A Kikiwiwi stands this much taller than its kiwi self. */
@@ -491,7 +491,7 @@ export class KiwisView {
   private showDrop(agent: Agent, villager: Villager): void {
     if (!this.state || villager.job.kind !== 'work' || !agent.carrying) return;
     const b = getBuilding(this.state, villager.job.buildingId);
-    const h = b ? buildingHarvest(this.state, b) : null;
+    const h = b ? harvestOf(this.state, b.id) : null;
     const crew = b ? workersOf(this.state, b.id).length : 0;
     if (!h || crew === 0 || h.output <= 0) return;
     const perKiwi = h.output / crew;

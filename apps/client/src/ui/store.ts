@@ -44,6 +44,12 @@ export interface UiState {
   map: FaceMap | null;
   /** Simulation time of the last update. */
   now: number;
+  /**
+   * The same game and time refreshed once a second (and right after the player acts): for the
+   * widgets that change slowly (clock, objectives, badges), so they skip most ticks.
+   */
+  slowGame: GameState | null;
+  slowNow: number;
   selectedTile: Tile | null;
   qualityChoice: QualityChoice;
   qualityPreset: QualityPreset;
@@ -136,6 +142,8 @@ export const uiStore = createStore<UiState>(() => ({
   game: null,
   map: null,
   now: 0,
+  slowGame: null,
+  slowNow: 0,
   selectedTile: null,
   qualityChoice: 'auto',
   qualityPreset: 'medium',

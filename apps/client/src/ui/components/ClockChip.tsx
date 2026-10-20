@@ -15,7 +15,8 @@ import type { ChipHandlers } from './TopBar';
 /** Calendar at the UI clock, or null before the game loads. */
 function useCalendar() {
   const start = useUi((s) => s.game?.calendarStart ?? null);
-  const now = useUi((s) => s.now);
+  // Once a second is plenty for a clock and a season countdown.
+  const now = useUi((s) => s.slowNow);
   if (start === null) return null;
   return { c: calendarAt(start, now), now };
 }

@@ -4,7 +4,7 @@ import { BIOMES, climateOf, type BiomeId } from '../data/biomes';
 import type { ResourceId } from '../data/resources';
 import { CAMPS, CATCHMENT_RADIUS, DEPOSITS, HARVESTS, LOGISTICS, PATHS } from '../data/territory';
 import { TILES, type TileType } from '../data/tiles';
-import { hexDisk, hexKey, hexNeighbors, parseHexKey, type Hex } from '../hex/hex';
+import { hexDisk, hexKey, hexNeighbors, parseHexKey, type Hex, type HexKey } from '../hex/hex';
 import { generateFace, getTile, type FaceMap, type Tile } from '../worldgen/generateFace';
 import type { BuildingId, TimeMs } from '../types/ids';
 import type { Building, GameState } from './state';
@@ -25,18 +25,40 @@ type MapSource = Pick<GameState, 'seed' | 'face' | 'params'> & {
   terraform?: Readonly<Record<string, TerraformKind>>;
 };
 
+const terraformKeys = new WeakMap<object, { n: number; key: string }>();
+
 /** Stable signature of the reshaped tiles (empty when none: the generated map). */
 export function terraformKey(state: {
   terraform?: Readonly<Record<string, TerraformKind>>;
 }): string {
   const t = state.terraform;
   if (!t) return '';
-  const keys = Object.keys(t);
-  if (keys.length === 0) return '';
-  return keys
+  // Asked many times per tick: cached on the object (the simulation replaces it when a tile is
+  // reshaped; the count catches a change made in place).
+  const n = Object.keys(t).length;
+  if (n === 0) return '';
+  const cached = terraformKeys.get(t);
+  if (cached && cached.n === n) return cached.key;
+  const key = Object.keys(t)
     .sort()
     .map((k) => `${k}=${t[k]}`)
     .join(';');
+  terraformKeys.set(t, { n, key });
+  return key;
+}
+
+const pathKeys = new WeakMap<readonly string[], { n: number; key: string }>();
+
+/**
+ * Stable signature of a list of paths (sorted). Cached on the array: a state's paths are
+ * replaced or only appended to, so the length tells when it went stale.
+ */
+export function pathsKey(paths: readonly string[]): string {
+  const cached = pathKeys.get(paths);
+  if (cached && cached.n === paths.length) return cached.key;
+  const key = [...paths].sort().join(';');
+  pathKeys.set(paths, { n: paths.length, key });
+  return key;
 }
 
 /**
@@ -107,8 +129,22 @@ export function tileDeposit(
   };
 }
 
+const depositCache = new WeakMap<FaceMap, Map<string, TileDeposit | null>>();
+
+/** Deposit of a tile by its key (cached per map: maps never change once made). */
 function depositAtKey(map: FaceMap, key: string): TileDeposit | null {
-  return tileDeposit(getTile(map, parseHexKey(key)), map.params.biome);
+  let deposits = depositCache.get(map);
+  if (!deposits) {
+    deposits = new Map();
+    depositCache.set(map, deposits);
+  }
+  let dep = deposits.get(key);
+  if (dep === undefined) {
+    const i = map.index.get(key as HexKey);
+    dep = tileDeposit(i === undefined ? undefined : map.tiles[i], map.params.biome);
+    deposits.set(key, dep);
+  }
+  return dep;
 }
 
 /** A floodable tile is under water during its biome's flood season (lagoons in spring). */
@@ -339,7 +375,7 @@ export function walkDistances(
   sources: readonly string[],
 ): Map<string, number> {
   const season = seasonOf(state);
-  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}|${terraformKey(state)}|${season}|${sources.join(';')}|${[...state.paths].sort().join(';')}`;
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}|${terraformKey(state)}|${season}|${sources.join(';')}|${pathsKey(state.paths)}`;
   const cached = distanceCache.get(key);
   if (cached) return cached;
   const paths = pathSet(state);

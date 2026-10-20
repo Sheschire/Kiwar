@@ -598,7 +598,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       }
       if (s.paths.length + added.length > pathLimit(s)) fail('pathLimit');
       pay(s, scaleRaw(PATHS.cost, added.length));
-      s.paths.push(...added);
+      s.paths = [...s.paths, ...added];
       return;
     }
     case 'removePath': {

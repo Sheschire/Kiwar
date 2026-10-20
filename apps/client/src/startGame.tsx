@@ -135,7 +135,7 @@ controller = new GameController({
     }
     showTwin(state);
     renderer.setGameState(state);
-    uiStore.setState({ map, game: state });
+    uiStore.setState({ map, game: state, slowGame: state, slowNow: controller.now() });
     showAllies();
   },
   onState: (state, now) => {
@@ -143,7 +143,15 @@ controller = new GameController({
     renderer.setGameState(state);
     showTwin(state);
     const t1 = performance.now();
-    uiStore.setState({ game: state, now });
+    // Slow widgets follow once a second, or at once when the state comes from an action.
+    const ui = uiStore.getState();
+    const slow =
+      !controller.ticking ||
+      !ui.slowGame ||
+      Math.floor(now / 1000) !== Math.floor(ui.slowNow / 1000);
+    uiStore.setState(
+      slow ? { game: state, now, slowGame: state, slowNow: now } : { game: state, now },
+    );
     recordTick(controller.lastAdvanceMs, t1 - t0, performance.now() - t1);
     controller.lastAdvanceMs = 0;
   },

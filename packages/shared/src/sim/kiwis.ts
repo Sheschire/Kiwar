@@ -100,7 +100,14 @@ const MODIFIER_KEYS = [
 ] as const satisfies readonly (keyof KiwiModifiers)[];
 
 /** Trait × class × unlocked passive skills. */
-export function modifiers(v: Villager): Required<KiwiModifiers> {
+const modifierCache = new Map<string, Readonly<Required<KiwiModifiers>>>();
+
+export function modifiers(v: Villager): Readonly<Required<KiwiModifiers>> {
+  // Only the trait, the Kikiwiwi infusion, the class and its level matter (asked per worker,
+  // many times per tick).
+  const key = `${v.trait ?? ''}|${v.kikiwiwi ? 1 : 0}|${v.classId ?? ''}|${v.classId ? v.level : 0}`;
+  const cached = modifierCache.get(key);
+  if (cached) return cached;
   const out = Object.fromEntries(MODIFIER_KEYS.map((k) => [k, 1])) as Required<KiwiModifiers>;
   const apply = (m: KiwiModifiers | undefined) => {
     if (m) for (const k of MODIFIER_KEYS) out[k] *= m[k] ?? 1;
@@ -112,6 +119,7 @@ export function modifiers(v: Villager): Required<KiwiModifiers> {
     apply(c.modifiers);
     for (const skill of c.skills) if (v.level >= skill.level) apply(skill.modifiers);
   }
+  modifierCache.set(key, Object.freeze(out));
   return out;
 }
 

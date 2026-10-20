@@ -37,7 +37,7 @@ import { formatDuration } from '../i18n/i18n';
 function SpeechBadge() {
   const t = useT();
   const lang = useUi((s) => s.lang);
-  const left = useUi((s) => (s.game ? s.game.speechUntil - s.now : 0));
+  const left = useUi((s) => (s.slowGame ? s.slowGame.speechUntil - s.slowNow : 0));
   if (left <= 0) return null;
   return (
     <div class="buff-badge parchment pe">
@@ -51,7 +51,7 @@ function SpeechBadge() {
 function HungerBadge() {
   const t = useT();
   const lang = useUi((s) => s.lang);
-  const game = useUi((s) => s.game);
+  const game = useUi((s) => s.slowGame);
   if (!game) return null;
   const stage = hungerStage(game);
   const net = netRates(game);

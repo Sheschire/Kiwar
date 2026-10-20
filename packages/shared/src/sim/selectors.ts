@@ -139,7 +139,7 @@ function grossRates(state: GameState): Resources {
 /** Net change of every stock per hour: production minus what the kiwis eat. */
 export function netRates(state: GameState): Resources {
   const full = storageFullCheck(state);
-  const prod = productionRates(state);
+  const prod = productionRates(state, full);
   const eaten = consumption(state);
   const out = emptyResources();
   for (const id of RESOURCE_IDS) {
@@ -184,9 +184,8 @@ export function buildingRates(
 }
 
 /** Total production per hour. */
-export function productionRates(state: GameState): Resources {
+export function productionRates(state: GameState, full = storageFullCheck(state)): Resources {
   const total = emptyResources();
-  const full = storageFullCheck(state);
   for (const b of state.buildings) {
     const r = buildingRates(state, b, full);
     for (const id of RESOURCE_IDS) total[id] += r[id];

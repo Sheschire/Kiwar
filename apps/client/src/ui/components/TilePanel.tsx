@@ -5,7 +5,6 @@ import {
   buildCost,
   buildingAt,
   buildingCount,
-  buildingHarvest,
   buildingRates,
   CAMPS,
   catchmentPreview,
@@ -65,7 +64,7 @@ import {
   postKind,
   type Villager,
 } from '@kiwar/shared';
-import { bedsOf, idleVillagers } from '../derived';
+import { bedsOf, harvestOf, idleVillagers } from '../derived';
 import { MissingBedsLine } from './NeedsWidgets';
 import { formatDuration, formatNumber, type Lang } from '../../i18n/i18n';
 import { actions } from '../actions';
@@ -216,7 +215,7 @@ function LogisticsLine({ game, tile, t }: { game: GameState; tile: Tile; t: Tran
 /** Deposit, regrowth and logistics of a producer. */
 function HarvestInfo({ game, b, t }: { game: GameState; b: Building; t: Translate }) {
   const lang = useUi((s) => s.lang);
-  const h = buildingHarvest(game, b);
+  const h = harvestOf(game, b.id);
   if (!h) return null;
   const fmt = (v: number) => formatNumber(lang, Math.round(v));
   const dry = timeToDepletion(h);

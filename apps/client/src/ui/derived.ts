@@ -4,7 +4,6 @@
 import {
   bedsOf as sharedBedsOf,
   capacity as sharedCapacity,
-  consumption as sharedConsumption,
   forecastWave as sharedForecastWave,
   defenseOf as sharedDefenseOf,
   homeKiwis as sharedHomeKiwis,
@@ -13,29 +12,24 @@ import {
   idleVillagers as sharedIdleVillagers,
   missingBeds as sharedMissingBeds,
   moraleOf as sharedMoraleOf,
-  netRates as sharedNetRates,
   population as sharedPopulation,
-  productionRates as sharedProductionRates,
   researchPerHour as sharedResearchPerHour,
   staffing as sharedStaffing,
-  type GameState,
 } from '@kiwar/shared';
 
-/** Wraps a one-argument selector of the game state with a per-state cache. */
-export function perGame<R>(fn: (state: GameState) => R): (state: GameState) => R {
-  const cache = new WeakMap<GameState, R>();
-  return (state) => {
-    if (cache.has(state)) return cache.get(state)!;
-    const value = fn(state);
-    cache.set(state, value);
-    return value;
-  };
-}
+import { perGame } from '../game/perState';
 
-export const netRates = perGame(sharedNetRates);
-export const productionRates = perGame(sharedProductionRates);
+// The harvest-based numbers are shared with the 3D views (`game/perState.ts`).
+export {
+  consumption,
+  harvestOf,
+  netRates,
+  perGame,
+  productionRates,
+  storageFull,
+} from '../game/perState';
+
 export const capacity = perGame(sharedCapacity);
-export const consumption = perGame(sharedConsumption);
 export const housing = perGame(sharedHousing);
 export const population = perGame(sharedPopulation);
 export const hungerStage = perGame(sharedHungerStage);
