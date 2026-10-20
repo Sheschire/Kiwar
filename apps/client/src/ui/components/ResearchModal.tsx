@@ -1,6 +1,7 @@
 import {
   AGE_IDS,
   ageOf,
+  describeTech,
   hasTech,
   MAX_AGE,
   PASSAGE_TECHS,
@@ -20,8 +21,10 @@ import {
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { BookIcon } from '../icons';
+import { BRANCH_ICONS, Icon } from '../iconSet';
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { Modal } from './Modal';
+import { TechChanges } from './StatChanges';
 
 /** Points, rate and the technology in progress (also shown in the Library sheet). */
 export function ResearchSummary({ game, t }: { game: GameState; t: Translate }) {
@@ -80,9 +83,12 @@ function TechCard({ game, id, t }: { game: GameState; id: TechId; t: Translate }
     <li class={`tech-card tech-${status} branch-${def.branch}`}>
       <div class="tech-head">
         <strong>{t(`techs.${id}.name`)}</strong>
-        <span class="tech-branch small muted">{t(`branches.${def.branch}`)}</span>
+        <span class="tech-branch small muted">
+          <Icon name={BRANCH_ICONS[def.branch]} size={14} /> {t(`branches.${def.branch}`)}
+        </span>
       </div>
       <p class="small">{t(`techs.${id}.desc`)}</p>
+      {status !== 'done' && <TechChanges rows={describeTech(id, game)} />}
       <div class="tech-foot">
         <span class="small muted">
           {status === 'library'

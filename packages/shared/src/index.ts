@@ -41,6 +41,7 @@ export * from './sim/research';
 export * from './sim/obstacles';
 export * from './sim/kikiwiwi';
 export * from './sim/titan';
+export * from './sim/describe';
 export * from './save/save';
 export * from './server/protocol';
 export * from './server/gameService';

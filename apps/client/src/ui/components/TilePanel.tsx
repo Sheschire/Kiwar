@@ -11,6 +11,8 @@ import {
   catchmentPreview,
   constructionDuration,
   depotDistance,
+  describeLevel,
+  describeUpgrade,
   BIOMES,
   climateOf,
   HARVESTS,
@@ -70,6 +72,8 @@ import {
 } from '../icons';
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
+import { LevelStats, UpgradePreview } from './StatChanges';
+import { buildingIcon, Icon, type IconName } from '../iconSet';
 import { LabInfo } from './LabInfo';
 import { TitanWorks } from './TitanWorks';
 import { AgeInfo, ResearchSummary } from './ResearchModal';
@@ -102,6 +106,15 @@ function Rates({ rates }: { rates: Record<string, number> }) {
           <ResourceIcon id={id} size={16} />+{formatNumber(lang, rates[id]!)}/h
         </span>
       ))}
+    </span>
+  );
+}
+
+/** A stat name with its little icon (chantier 11). */
+function StatLabel({ icon, label }: { icon: IconName; label: string }) {
+  return (
+    <span class="stat-label">
+      <Icon name={icon} size={15} /> {label}
     </span>
   );
 }
@@ -216,7 +229,9 @@ function BuildingSection({
   return (
     <div class="section">
       <div class="title-row">
-        <h3>{t(`buildings.${b.type}.name`)}</h3>
+        <h3>
+          <Icon name={buildingIcon(b.type)} size={22} /> {t(`buildings.${b.type}.name`)}
+        </h3>
         <span class="badge">{t('common.levelShort', { level: b.level })}</span>
       </div>
       <p class="muted small">{t(`buildings.${b.type}.desc`)}</p>
@@ -224,7 +239,7 @@ function BuildingSection({
 
       {slots > 0 && (
         <div class="stat-row">
-          <span class="stat-label">{t('building.workers')}</span>
+          <StatLabel icon="workers" label={t('building.workers')} />
           <div class="stepper">
             <button
               class="btn btn-icon"
@@ -255,14 +270,14 @@ function BuildingSection({
       )}
       {(def.production || def.passiveProduction || b.type === 'camp') && (
         <div class="stat-row">
-          <span class="stat-label">{t('building.production')}</span>
+          <StatLabel icon="harvest" label={t('building.production')} />
           <Rates rates={buildingRates(game, b)} />
         </div>
       )}
       <HarvestInfo game={game} b={b} t={t} />
       {def.housing !== undefined && (
         <div class="stat-row">
-          <span class="stat-label">{t('building.housing')}</span>
+          <StatLabel icon="housing" label={t('building.housing')} />
           <span>
             <KiwiIcon size={16} /> {def.housing}
           </span>
@@ -279,7 +294,7 @@ function BuildingSection({
       {def.cargo !== undefined && (
         <>
           <div class="stat-row">
-            <span class="stat-label">{t('building.cargo')}</span>
+            <StatLabel icon="cargo" label={t('building.cargo')} />
             <span>{def.cargo}</span>
           </div>
           <button
@@ -307,7 +322,10 @@ function BuildingSection({
       {def.defense && (
         <>
           <div class="stat-row">
-            <span class="stat-label">{t('building.defense')}</span>
+            <StatLabel
+              icon={def.defense.ground ? 'defenseGround' : 'defenseAir'}
+              label={t('building.defense')}
+            />
             <span>
               {def.defense.ground
                 ? t('building.defenseGround', { value: def.defense.ground })
@@ -322,7 +340,7 @@ function BuildingSection({
       )}
       {def.storage !== undefined && (
         <div class="stat-row">
-          <span class="stat-label">{t('building.storage')}</span>
+          <StatLabel icon="storage" label={t('building.storage')} />
           <span>{def.storage}</span>
         </div>
       )}
@@ -347,6 +365,11 @@ function BuildingSection({
         <p class="small muted">{t('building.maxLevel')}</p>
       ) : (
         <div class="upgrade-box">
+          <UpgradePreview
+            rows={describeUpgrade(b.type, b.level, target, game)}
+            from={b.level}
+            to={target}
+          />
           <Cost
             cost={upgradeCost(b.type, target)}
             have={game.resources}
@@ -399,7 +422,7 @@ function SchoolInfo(props: { game: GameState; b: Building; now: number; t: Trans
   return (
     <>
       <div class="stat-row">
-        <span class="stat-label">{t('building.trainees')}</span>
+        <StatLabel icon="training" label={t('building.trainees')} />
         <span>
           <KiwiIcon size={16} /> {trainees.length}/{slots}
         </span>
@@ -458,14 +481,11 @@ function BuildOption({
   return (
     <div class="build-option">
       <div class="build-option-head">
-        <strong>{t(`buildings.${type}.name`)}</strong>
+        <strong>
+          <Icon name={buildingIcon(type)} size={22} /> {t(`buildings.${type}.name`)}
+        </strong>
         <Rates rates={preview} />
-        {lvl1.housing && (
-          <span class="cost-item">
-            <KiwiIcon size={16} />+{lvl1.housing}
-          </span>
-        )}
-        {lvl1.storage && <span class="cost-item">+{lvl1.storage}</span>}
+        <LevelStats stats={describeLevel(type, 1, game).filter((x) => x.stat !== 'production')} />
       </div>
       <p class="small muted">{t(`buildings.${type}.desc`)}</p>
       {reach && (

@@ -698,6 +698,9 @@ button.chip:focus-visible {
 }
 
 .stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   min-width: 90px;
   font-weight: 700;
   font-size: 0.9rem;
@@ -755,6 +758,21 @@ button.chip:focus-visible {
   align-items: center;
   flex-wrap: wrap;
   gap: 4px 10px;
+}
+
+/* Chantier 11: a building's name with its icon; icon + value on one line. */
+.stat-row > span:not(.stat-label) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.build-option-head strong,
+.title-row h3,
+.tech-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .build-option-foot {
@@ -3053,4 +3071,52 @@ button.chip:focus-visible {
 
 .kiwi-portrait.is-titan {
   filter: drop-shadow(0 0 4px rgba(125, 255, 106, 0.55));
+}
+
+/* ---------- Chantier 11: what a level or a technology brings ---------- */
+
+.level-stats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.upgrade-preview {
+  width: 100%;
+}
+
+.change-list {
+  list-style: none;
+  margin: 4px 0 6px;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.change-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.85rem;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.change-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.change-values {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.change-values strong.bonus {
+  color: #3f8a17;
 }

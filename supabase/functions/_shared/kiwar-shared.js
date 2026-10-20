@@ -5511,6 +5511,141 @@ function constructionRemaining(s, now) {
   return Math.max(0, a.startedAt + a.durationMs - now);
 }
 
+// packages/shared/src/sim/describe.ts
+var LEVEL_STATS = [
+  "production",
+  "passive",
+  "workers",
+  "housing",
+  "storage",
+  "defenseGround",
+  "defenseAir",
+  "ammo",
+  "cargo",
+  "travelTime",
+  "trainingSlots",
+  "trainingTime",
+  "research",
+  "maxBuildings",
+  "queueSize"
+];
+function describeLevel(type, level, state) {
+  const def = levelDef(type, level);
+  if (!def) return [];
+  const climate = state ? climateOf(state.face, state.params.biome) : null;
+  const tech = state ? techEffects(state) : null;
+  const out = [];
+  const push = (stat, value, resource) => {
+    if (value === void 0) return;
+    out.push(resource ? { stat, resource, value } : { stat, value });
+  };
+  for (const r of RESOURCE_IDS) {
+    const v = def.production?.[r];
+    if (v) push("production", v * (climate?.[r] ?? 1) * (tech?.harvest[r] ?? 1), r);
+  }
+  for (const r of RESOURCE_IDS) {
+    const v = def.passiveProduction?.[r];
+    if (v) push("passive", v * (climate?.[r] ?? 1), r);
+  }
+  push("workers", def.workerSlots || void 0);
+  push("housing", def.housing);
+  push("storage", def.storage === void 0 ? void 0 : def.storage * (tech?.storage ?? 1));
+  const k = tech?.turretDefense ?? 1;
+  push("defenseGround", def.defense?.ground === void 0 ? void 0 : def.defense.ground * k);
+  push("defenseAir", def.defense?.air === void 0 ? void 0 : def.defense.air * k);
+  push("ammo", def.ammo);
+  push("cargo", def.cargo);
+  push("travelTime", def.travelTime);
+  push("trainingSlots", def.trainingSlots);
+  push("trainingTime", def.trainingTime);
+  push("research", def.research);
+  push("maxBuildings", def.maxBuildings);
+  push("queueSize", def.queueSize);
+  return out;
+}
+var statKey = (s) => `${s.stat}:${s.resource ?? ""}`;
+function describeUpgrade(type, from, to, state) {
+  const before = new Map(describeLevel(type, from, state).map((s) => [statKey(s), s.value]));
+  return describeLevel(type, to, state).map((s) => ({
+    stat: s.stat,
+    ...s.resource ? { resource: s.resource } : {},
+    before: before.get(statKey(s)) ?? 0,
+    after: s.value
+  }));
+}
+var TECH_STATS = [
+  "harvest",
+  "storage",
+  "turretDefense",
+  "guard",
+  "travel",
+  "rations",
+  "build",
+  "injuries",
+  "armor",
+  "recon",
+  "firearms",
+  "laboratory",
+  "terraform",
+  "kikiwiwiPower",
+  "kikiwiwiUpkeep",
+  "infusionRisk"
+];
+var MULTIPLIERS = [
+  "storage",
+  "turretDefense",
+  "guard",
+  "travel",
+  "rations",
+  "build",
+  "injuries",
+  "kikiwiwiPower",
+  "kikiwiwiUpkeep"
+];
+var BONUSES = ["armor", "recon", "infusionRisk"];
+var UNLOCKS = ["firearms", "laboratory", "terraform"];
+function describeTech(id3, state) {
+  const now = techEffects(state);
+  const done = state.research.done.includes(id3) ? state.research.done : [...state.research.done, id3];
+  const next = techEffects({ ...state, research: { ...state.research, done } });
+  const out = [];
+  for (const r of RESOURCE_IDS)
+    if (now.harvest[r] !== next.harvest[r])
+      out.push({
+        stat: "harvest",
+        resource: r,
+        before: now.harvest[r],
+        after: next.harvest[r],
+        kind: "multiplier"
+      });
+  for (const s of MULTIPLIERS)
+    if (now[s] !== next[s])
+      out.push({ stat: s, before: now[s], after: next[s], kind: "multiplier" });
+  for (const s of BONUSES)
+    if (now[s] !== next[s]) out.push({ stat: s, before: now[s], after: next[s], kind: "bonus" });
+  for (const s of UNLOCKS)
+    if (now[s] !== next[s])
+      out.push({ stat: s, before: now[s] ? 1 : 0, after: next[s] ? 1 : 0, kind: "unlock" });
+  return out;
+}
+function buildLock(state, type) {
+  const def = BUILDINGS[type];
+  if (!def.buildable) return "notBuildable";
+  const first = def.levels[0];
+  if (nest(state).level < first.requiresNestLevel) return "nestLevelTooLow";
+  if ((first.requiresAge ?? 0) > ageOf(state)) return "ageTooLow";
+  if (type === "lab") {
+    if (copiesOf(state, "lab") > 0) return "labExists";
+    if (!techEffects(state).laboratory) return "techMissing";
+  } else if (type === "monument") {
+    if (copiesOf(state, "monument") > 0) return "monumentExists";
+    if (!hasTech(state, PASSAGE_TECHS[1])) return "passageMissing";
+  } else if (isTurret(type)) {
+    if (turretCount(state) >= turretLimit(state)) return "turretLimit";
+  } else if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return "buildingLimit";
+  return null;
+}
+
 // packages/shared/src/sim/commands.ts
 var COMMAND_ERRORS = [
   "unknownTile",
@@ -5654,18 +5789,9 @@ function execute(s, cmd, ctx, events) {
       if (obstacleAt(s, cmd.q, cmd.r)) fail("obstacle");
       if (titanAt(s, cmd.q, cmd.r)) fail("titanAtWork");
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail("flooded");
-      if (nest(s).level < def.levels[0].requiresNestLevel) fail("nestLevelTooLow");
-      if ((def.levels[0].requiresAge ?? 0) > ageOf(s)) fail("ageTooLow");
-      if (cmd.buildingType === "lab") {
-        if (copiesOf(s, "lab") > 0) fail("labExists");
-        if (!techEffects(s).laboratory) fail("techMissing");
-      } else if (cmd.buildingType === "monument") {
-        if (copiesOf(s, "monument") > 0) fail("monumentExists");
-        if (!hasTech(s, PASSAGE_TECHS[1])) fail("passageMissing");
-      } else if (isTurret(cmd.buildingType)) {
-        if (!isRampart(ctx.map, cmd.q, cmd.r)) fail("notOnRampart");
-        if (turretCount(s) >= turretLimit(s)) fail("turretLimit");
-      } else if (buildingCount(s) >= (nestDef(s).maxBuildings ?? 0)) fail("buildingLimit");
+      if (isTurret(cmd.buildingType) && !isRampart(ctx.map, cmd.q, cmd.r)) fail("notOnRampart");
+      const lock = buildLock(s, cmd.buildingType);
+      if (lock) fail(lock);
       queueHasRoom(s);
       const cost = buildCost(s, cmd.buildingType);
       const durationMs = constructionDuration(
@@ -11433,6 +11559,7 @@ export {
   KIKIWIWI,
   KIWI,
   KIWI_NAME_MAX,
+  LEVEL_STATS,
   LOGISTICS,
   MASTERY_IDS,
   MAX_AGE,
@@ -11478,6 +11605,7 @@ export {
   TECHS,
   TECH_BRANCHES,
   TECH_IDS,
+  TECH_STATS,
   TERRAFORM,
   TERRAFORM_KINDS,
   THREATS,
@@ -11515,6 +11643,7 @@ export {
   biomeProfile,
   biomesOf,
   buildCost,
+  buildLock,
   builderSpeed,
   buildingAt,
   buildingCount,
@@ -11566,6 +11695,9 @@ export {
   depletedTiles,
   depotDistance,
   depotDistances,
+  describeLevel,
+  describeTech,
+  describeUpgrade,
   deserializeSave,
   distanceIn,
   drawBiomes,

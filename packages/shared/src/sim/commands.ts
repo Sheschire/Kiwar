@@ -25,12 +25,11 @@ import { buildingResource, hasSkill, trainingCost, trainingDuration, workerPower
 import { CLASSES, SKILLS, type ClassId, type SkillId } from '../data/classes';
 import { faceMapOf, isFlooded, releasePool, syncPools, terraformKey } from './territory';
 import { seasonOf } from './calendar';
+import { buildLock } from './describe';
 import {
   buildCost,
   buildingAt,
   buildingHarvest,
-  buildingCount,
-  copiesOf,
   canAfford,
   canHatch,
   constructionDuration,
@@ -49,8 +48,6 @@ import {
   housing,
   queuedBuildAt,
   isRampart,
-  turretCount,
-  turretLimit,
   repairCost,
   repairDuration,
   upgradeCost,
@@ -318,18 +315,10 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (obstacleAt(s, cmd.q, cmd.r)) fail('obstacle');
       if (titanAt(s, cmd.q, cmd.r)) fail('titanAtWork');
       if (isFlooded(tile, ctx.map.params.biome, seasonOf(s))) fail('flooded');
-      if (nest(s).level < def.levels[0]!.requiresNestLevel) fail('nestLevelTooLow');
-      if ((def.levels[0]!.requiresAge ?? 0) > ageOf(s)) fail('ageTooLow');
-      if (cmd.buildingType === 'lab') {
-        if (copiesOf(s, 'lab') > 0) fail('labExists');
-        if (!techEffects(s).laboratory) fail('techMissing');
-      } else if (cmd.buildingType === 'monument') {
-        if (copiesOf(s, 'monument') > 0) fail('monumentExists');
-        if (!hasTech(s, PASSAGE_TECHS[1]!)) fail('passageMissing');
-      } else if (isTurret(cmd.buildingType)) {
-        if (!isRampart(ctx.map, cmd.q, cmd.r)) fail('notOnRampart');
-        if (turretCount(s) >= turretLimit(s)) fail('turretLimit');
-      } else if (buildingCount(s) >= (nestDef(s).maxBuildings ?? 0)) fail('buildingLimit');
+      if (isTurret(cmd.buildingType) && !isRampart(ctx.map, cmd.q, cmd.r)) fail('notOnRampart');
+      // Everything that does not depend on the tile (shared with the building tree).
+      const lock = buildLock(s, cmd.buildingType);
+      if (lock) fail(lock);
       queueHasRoom(s);
       const cost = buildCost(s, cmd.buildingType);
       const durationMs = constructionDuration(
