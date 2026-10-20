@@ -459,3 +459,7 @@ are data for chantier 06; existing worlds keep their map with a hidden **classic
   the member's face is updated in place (`moveMember`).
 - **Balance**: the report compares each biome to the median of all biomes (plus Kiwisu vs
   Kiwino over their biomes); biomes run in parallel processes (`--jobs`, default = CPU count).
+- **Balance report** (200 seeds per biome × 72 h, ~66 min): every biome within ±5.6 % of the
+  median of all biomes on every milestone (delta −5.6 % and highlands −3.9 % early, seed crown
+  +4.8 % and lagoons +3 %), Kiwisu / Kiwino within 3.2 %; tutorial 1.5–1.6 h, Nest 3 ≈ 7 h, first
+  level-5 kiwi ≈ 10.1 h, mayor ≈ 12.4 h, first level-10 kiwi ≈ 2.6 days.

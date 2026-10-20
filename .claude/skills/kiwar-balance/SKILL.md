@@ -15,6 +15,10 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   Writes `tools/balance/reports/latest.md`.
 - Official report: `pnpm balance --seeds 200 --out ../../docs/BALANCE_REPORT.md` — **`--out` is
   resolved from `tools/balance`** (pnpm runs the script there). ~2 min: run it in the background.
+- Reference (end of chantier 05, 200 seeds per biome × 72 h, ~66 min on 4 cores): every biome
+  within ±5.6 % of the median (delta and highlands fastest early, seed crown and lagoons
+  slowest), Kiwisu / Kiwino within 3.2 %; tutorial 1.5–1.6 h, Nest 3 ≈ 7 h, level 5 ≈ 10.1 h,
+  mayor ≈ 12.4 h, level 10 ≈ 2.6 days. Unchanged from chantier 04 on average.
 - Reference (end of chantier 04, 200 seeds × 72 h, ~38 min): tutorial 1.5–1.6 h, Nest 3 ≈ 7 h,
   level 5 ≈ 10 h, mayor ≈ 12.3 h, level 10 ≈ 2.6 days, faces within 6 %.
 - Previous reference (end of chantier 03, 200 seeds × 72 h): tutorial 1.5 h, Nest 2 1.5 h, Nest 3 ≈ 6.2 h,
