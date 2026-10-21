@@ -120,7 +120,8 @@ function try_(state: GameState, map: FaceMap, now: number, cmd: Command): GameSt
  * builds one of each producer, then upgrades the bottleneck resource, adds housing and storage
  * when needed and upgrades the Nest as soon as possible.
  */
-function decide(state: GameState, map: FaceMap, play: Play): Command[] {
+/** One decision round (exported for diagnostics: what the bot wants to do right now). */
+export function decide(state: GameState, map: FaceMap, play: Play): Command[] {
   const cmds: Command[] = [];
   const obj = currentObjective(state);
   if (obj && isObjectiveComplete(state, obj)) cmds.push({ type: 'claimObjective' });
@@ -368,7 +369,7 @@ function checkMilestones(
 /** Mechanics the bot can be told to leave aside, to measure what each one brings. */
 export const MECHANICS = ['paths', 'camps', 'expeditions'] as const;
 export type Mechanic = (typeof MECHANICS)[number];
-interface Play extends Record<Mechanic, boolean> {
+export interface Play extends Record<Mechanic, boolean> {
   /** Next look at the paths and at the expeditions. */
   pathsAt: number;
   expeditionsAt: number;
