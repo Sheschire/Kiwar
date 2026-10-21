@@ -1347,3 +1347,49 @@ another user id: the guest colony stayed in the database under the old anonymous
   runs. To confirm with `?debug` on a real GPU.
 - **`?sheet[&age=0..3][&types=a,b]`**: every building, levels 1–3, lit like the game, with
   their signs (`sheet/buildingSheet.ts`), the tool for the contact sheet.
+
+## Chantier 20 — Fixes and comfort
+
+Owner's answers: crickets stay but rarer; folded panels keep a pill; sort by stat descending
+only.
+
+- **Taps that stopped working.** `TapDetector` counted pressed pointers with a bare integer
+  decremented only by the canvas's own `pointerup`/`pointercancel`. A press on the map
+  released over a panel (reproduced with a mouse in Chromium: the counter stayed at 1, then 2) made every later press look like a two-finger gesture. It now keeps a `Set` of pointer
+  ids, cleared on a mouse press or the first finger of a gesture (`isPrimary`), on window
+  `blur` and `visibilitychange`; releases are also caught on the window in the capture phase
+  (those on the canvas itself are left to `onUp`), and on `lostpointercapture` and
+  `pointerleave`. No `setPointerCapture` of our own (camera-controls already captures).
+  The window/document are injectable for the unit test (`test/picking.test.ts`).
+- Opening any modal ends placing and path painting (`startGame` subscription): no Escape key
+  on a phone, and a forgotten mode turned taps into builds or strokes. The Cancel buttons of
+  both modes were already visible on phones.
+- **Kiwi sheet**: the `.kiwi-nav` bar is `position: sticky` in `.modal-body` and shows the
+  name and class (or level). **Sort by stat**: `VillageSort` = the four orders or a `StatId`,
+  best first (level breaks ties), picked from a `<select>` beside the buttons; the sorted
+  value shows as a gold badge on each row. **Training bar** (`TrainingBar.tsx`): progress =
+  `(now − (until − trainingDuration(school, class))) / trainingDuration`, so it is
+  approximate if the School is upgraded mid-course; green to tell it from the XP bar.
+- **Folding**: `queueOpen` / `threatOpen` in the store, persisted (`kiwar.queueOpen`,
+  `kiwar.threatOpen`, `setPanelOpen`). Folded queue: a pill (count, time left on the first
+  running site). Folded alert: paw + countdown (or "!" for an unread report), still opening
+  the defense screen; a ▸/◂ button beside it. A wave under an hour away unfolds the alert
+  once per wave (its time remembered in `kiwar.threatReopened`, so a reload does not unfold
+  it again).
+- **Zone on hover** (mouse): with nothing selected or being placed, the building under the
+  pointer shows its catchment or turret rampart through the same mesh at opacity 0.5
+  (selection 0.7). Huts have no zone drawn (beds are not tiles). **Placing**: eligible
+  tiles 0.24 without pulse (was 0.35–0.55), planned zone 0.68–0.82 pulsing (was 0.42–0.62)
+  with a white rim mesh (`plannedRim`, ring 0.84–0.97). The overlays are unlit (`toneMapped:
+false`), so night only darkens the ground around them.
+- **Glide**: tau 0.6 s (0.28), starts if the finger moved in the last 120 ms (60), from 0.3
+  units/s (0.6), cap 5 camera distances/s (3). A two-finger twist let go while turning spins
+  on with a second `Glide` fed with the accumulated twist angle (cap 5 rad/s). The glide
+  clamps its own target to the bounds (`setBounds` keeps a copy of the box): camera-controls'
+  `_encloseToBoundary` divides by `offset · delta`, which is 0 when the target sits above or
+  below the box after a pan and the offset has no height — the camera turned to NaN (seen in
+  headless as soon as a glide started; the old glide rarely started). The rig also forgets
+  older fingers on the first finger of a gesture and on blur.
+- **Crickets**: two voices (4.4 and 5 kHz), 3–8 s between trills of a voice, a 20 s loop (8),
+  binding volume 0.35 (0.6), and `nightChorus`: level 1 for the first third of the night,
+  fading to 0 by its middle (the night bed goes with them).

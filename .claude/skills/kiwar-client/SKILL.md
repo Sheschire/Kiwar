@@ -82,8 +82,12 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   costs as the sim), `selection.ts` (hover/selected/catchment markers), `paths.ts`.
 - Camera: `camera/CameraRig.ts` (camera-controls). Desktop: left-drag pan, right or Alt/Ctrl+drag
   rotate, wheel zoom, WASD, Q/E. Touch: one finger pan (then a glide, `camera/inertia.ts`
-  `Glide`: target samples on pointer moves, τ 0.28 s, stopped by any input or `focus`/`frame`),
-  pinch, two-finger twist (eased). Path mode disables one-finger/left drag for the painter.
+  `Glide`: target samples on pointer moves, τ 0.6 s since chantier 20, stopped by any input or `focus`/`frame`),
+  pinch, two-finger twist (eased; chantier 20: a released twist spins on with a second
+  `Glide`). Glide tau 0.6 s, starts within 120 ms of the last move. `updateGlide` clamps its
+  target to `this.bounds` itself (always set the boundary through `setBounds`):
+  camera-controls' `_encloseToBoundary` returns NaN when the target is above/below the box
+  and the offset has no height. Path mode disables one-finger/left drag for the painter.
   Double tap / double click (`TapDetector.onDoubleTap`, the first tap still selects) flies to
   the tile. `render/front.ts` re-exports the shared `FRONT_AZIMUTH`, the colony's front
   (alien twin, compass, chantier 12 wave sectors); `Compass.tsx` reads the azimuth from `ui/viewStore.ts` (renderer
@@ -209,6 +213,14 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   Never return an empty HUD.
 - Back from a break: `RecapBubble` (corner, < 8 h, auto-closes after 12 s unless alarming;
   "details" sets `recapOpen`) or `OfflineModal` (≥ 8 h or on demand).
+- Chantier 20 (comfort): `TapDetector` tracks pointers by id (a `Set`), catches releases on
+  the window in the capture phase, on `lostpointercapture`/`pointerleave`, and forgets every
+  pointer on blur/hidden and on a mouse press or a first finger (`isPrimary`). **Never count
+  pointers with a bare integer** (a release over a panel blocked every tap until a reload);
+  the env is injectable for `test/picking.test.ts`. Opening a modal ends placing and path
+  mode (`startGame`). `TrainingBar.tsx`; `VillageSort` (+ the six stats); sticky
+  `.kiwi-nav`; `queueOpen`/`threatOpen` + `setPanelOpen` (persisted); hover zone
+  (`hoverBuildingTile` → `refreshCatchment`, `setCatchment(…, faint)`); `plannedRim`.
 - Taps: an ally planet (no tile hit) → visit; a building or construction site wins over a
   kiwi standing on it (`GameRenderer.hasStructure`); otherwise a kiwi near the pointer wins.
 - Camera: `onWorld` rebuilds the scene only when seed/face/params change (`startGame.worldKey`),

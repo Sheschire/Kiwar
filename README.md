@@ -9,6 +9,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 20** — plus besoin de **recharger la page** : un appui sur la carte relâché sur
+> un panneau ne bloque plus les taps. La fiche d'un kiwi garde sa barre ◀ ▶ (avec le nom et
+> la classe) **collée en haut** ; le Village se **trie par stat** (les meilleur·es d'abord) ;
+> une **barre verte** suit la formation à l'École. La **file des chantiers** et l'**alerte de
+> vague** se **replient** en pastille (choix gardé ; une vague à moins d'une heure redéplie
+> l'alerte). Survoler un bâtiment montre **sa zone** ; pendant la pose, la **zone visée**
+> ressort nettement des tuiles possibles. Sur téléphone, un lancer du doigt **glisse**
+> vraiment (et la rotation à deux doigts aussi). Les **grillons** chantent plus rarement, plus
+> bas, et se taisent à la mi-nuit.
+>
 > **Chantier 17** — on **reconnaît chaque bâtiment** d'un coup d'œil : une couleur par
 > famille (la production prend la couleur de sa ressource, l'entrepôt bois sombre et ardoise,
 > le savoir pierre et bleu, la défense pierre grise et fer), une silhouette signature (grande

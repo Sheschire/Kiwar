@@ -53,7 +53,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 17  | Identité visuelle : bâtiments distincts, planète alien, ciel vivant     | ✅      |
 | 18  | Bot d'équilibrage complet : chemins, camps, expéditions                 | à faire |
 | 19  | Colonisation de la face alien jumelle (siège, seconde colonie)          | à faire |
-| 20  | Correctifs et confort (tap qui se bloque, tri, file repliable, inertie) | à faire |
+| 20  | Correctifs et confort (tap qui se bloque, tri, file repliable, inertie) | ✅      |
 | 21  | Interface mobile : barre au pouce, menu nommé                           | à faire |
 | 22  | Premières impressions : écran de chargement animé, intro interactive    | à faire |
 | 23  | Lumières HD, tuiles exploitées vivantes, chemins pavés, sobriété        | à faire |
@@ -74,6 +74,10 @@ chantiers de simulation après le 19 : 25 → 26 → 27, et 28, 29. Le chantier 
 ## Dette et idées en attente
 
 - Le bot d'équilibrage n'utilise ni camps, ni chemins, ni expéditions.
+- Chantier 20 : l'inertie (τ 0,6 s, rotation à deux doigts) et le blocage du tap n'ont été
+  vérifiés qu'en Chromium headless (évènements tactiles CDP) : à confirmer sur un vrai
+  téléphone par le porteur. Les grillons (deux voix, 3 à 8 s de silence, volume 0,35, fondu à
+  la mi-nuit) sont à régler à l'oreille, depuis `/admin` si besoin.
 - Chantier 09 : pas encore de garnison d'urgence ni de réparateur·ice prioritaire (même principe
   que le·la bâtisseur·euse prioritaire) ; pas de postes génériques pour les kiwis en trop ; le
   bot n'utilise ni cadenas ni affectation kiwi par kiwi ; le rapport d'équilibrage (30 graines,

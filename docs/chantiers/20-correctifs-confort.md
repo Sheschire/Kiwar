@@ -1,5 +1,9 @@
 # Chantier 20 — Correctifs et confort
 
+> **État : ✅ terminé (octobre 2026).** Questions ouvertes tranchées (voir « Réponses »), puis
+> livré en cinq parties : voir « Ce qui a été fait » et « Ce qui reste » en fin de document,
+> `docs/DECISIONS.md` (chantier 20) et le skill `kiwar-client`.
+
 Retours de partie de fin octobre 2026 : un bug bloquant et une série de petits irritants
 d'interface. **Client seulement** : peut tourner en parallèle du chantier 19 (colonisation) et
 des chantiers 22 et 23. À lancer **en premier**.
@@ -130,3 +134,37 @@ Chemins sous `apps/client/src/`.
 2. Repliées, la file et l'alerte gardent-elles une pastille (proposé), ou disparaissent-elles
    complètement ?
 3. Le tri par stat : décroissant seulement, ou bascule croissant/décroissant ?
+
+## Réponses aux questions ouvertes (octobre 2026)
+
+1. Grillons : **gardés, plus rares** (pas d'autre ambiance de nuit).
+2. Repliées, la file et l'alerte gardent une **pastille**.
+3. Tri par stat : **décroissant seulement**.
+
+## Ce qui a été fait
+
+1. **Tap fiable** : le `TapDetector` suit les pointeurs par identifiant et voit les relâchés
+   partout (fenêtre en capture, `pointercancel`, `lostpointercapture`, `pointerleave`, perte de
+   focus, page cachée) ; un appui souris ou un premier doigt repart propre. Bug reproduit dans
+   Chromium (appui sur la carte, relâche sur la barre du haut : compteur bloqué) puis corrigé ;
+   test `test/picking.test.ts`. Ouvrir un écran quitte la pose et le mode chemins (le bouton
+   Annuler était déjà visible sur téléphone).
+2. **Fiche** : barre ◀ nom · classe ▶ collante ; tri par l'une des six stats (badge de la
+   valeur) ; barre verte de formation (fiche, liste, fiche de l'École).
+3. **Repli** de la file (pastille : nombre + temps restant) et de l'alerte (patte + compte à
+   rebours), mémorisé ; une vague à moins d'une heure redéplie l'alerte une fois.
+4. **Zone au survol** (souris, plus pâle qu'une sélection) ; **pose** : tuiles éligibles
+   discrètes, zone visée franche et pulsée avec un liseré blanc.
+5. **Inertie** (τ 0,6 s, départ jusqu'à 120 ms d'arrêt, seuil abaissé, rotation à deux doigts
+   aussi) ; correctif d'un NaN de caméra au départ de la glisse ; doigt fantôme oublié par la
+   caméra. **Grillons** : deux voix, 3 à 8 s de silence, volume 0,35, fondu entre le tiers et
+   la moitié de la nuit.
+
+## Ce qui reste
+
+- Essai de l'inertie et des taps sur un **vrai téléphone** (le porteur), idéalement en vidéo :
+  tout n'a été vérifié qu'en Chromium headless avec des évènements tactiles CDP.
+- Grillons à régler à l'oreille avec le porteur (valeurs remplaçables depuis `/admin`).
+- Pas de zone au survol pour la hutte (les lits ne sont pas des tuiles) ; sur téléphone, le
+  premier tap (sélection) montre la zone.
+- La barre de formation suppose que le niveau de l'École n'a pas changé pendant le cours.

@@ -55,7 +55,9 @@ Chantier 13: `comet.seen` (synth `cometSeen`, a comet is announced) and `comet.p
 `comet`, a cascade when the stardust falls).
 
 Chantier 04: `colony.hunger` (food ran out, hunger worsens, a kiwi starved) and
-`ambience.night` (synth crickets, loop at night); `ambience.day` stays reserved (the birds of
+`ambience.night` (synth crickets, loop at night; chantier 20: two voices, 3–8 s between
+trills, 20 s loop, volume 0.35, level from `nightChorus` in `gameAudio.ts`: full for the first
+third of the night, silent from its middle); `ambience.day` stays reserved (the birds of
 `ambience.nature` are the day ambience, quieter at night). `gameAudio.ts` fills
 `audio.context.timeOfDay` / `season` from the calendar every 250 ms (binding conditions).
 
