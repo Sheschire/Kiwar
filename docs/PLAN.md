@@ -56,7 +56,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 20  | Correctifs et confort (tap qui se bloque, tri, file repliable, inertie) | à faire |
 | 21  | Interface mobile : barre au pouce, menu nommé                           | à faire |
 | 22  | Premières impressions : écran de chargement animé, intro interactive    | à faire |
-| 23  | Lumières HD, chemins pavés par âge, sobriété (le PC chauffe)            | à faire |
+| 23  | Lumières HD, tuiles exploitées vivantes, chemins pavés, sobriété        | à faire |
 | 24  | Caméra libre et planètes fixes dans l'espace                            | à faire |
 | 25  | Classes : une par stat, Cueilleur·euse, arbre de classes                | à faire |
 | 26  | Bâtiments sur plusieurs tuiles (3 tuiles, monument 7)                   | à faire |

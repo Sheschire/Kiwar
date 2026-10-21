@@ -1,4 +1,4 @@
-# Chantier 23 — Lumières HD, chemins pavés et sobriété
+# Chantier 23 — Lumières HD, tuiles vivantes, chemins pavés et sobriété
 
 Retours de partie de fin octobre 2026. **Client seulement**. Peut tourner en parallèle des
 chantiers 19 et 22 ; après le chantier 20 si possible (même `GameRenderer.ts`).
@@ -11,6 +11,10 @@ chantiers 19 et 22 ; après le chantier 20 si possible (même `GameRenderer.ts`)
   **animations simples**. »
 - « Changer le design des **tuiles de chemin** : plutôt des petits **pavés de bois / pierre /
   route** au fur et à mesure des âges. »
+- « Des **animations simples sur les tuiles concernées par un bâtiment** (par exemple, les
+  tuiles de cueillette du bâtiment doivent avoir une **apparence différente**). Je veux que
+  visuellement on **voie les récoltes se développer**, qu'on **comprenne quelle case est
+  exploitée**. Mais de façon **naturelle, vivante**, pour **embellir notre kiwi**. »
 
 ## État actuel (code)
 
@@ -29,6 +33,14 @@ Chemins sous `apps/client/src/`.
   jamais très bas, la lune reste haute. Rendu : sRGB, ombres PCFSoft mises à jour seulement
   quand le soleil bouge, tone mapping NEUTRAL ; chaîne postfx : N8AO, bloom, tilt-shift,
   teinte, contraste, vignette.
+- **Tuiles exploitées** : rien ne les distingue d'une tuile sauvage tant qu'on ne sélectionne
+  pas le bâtiment (anneau de zone, `refreshCatchment`) ou qu'on n'ouvre pas le calque
+  Logistique (`refreshZones`). Seul signe permanent : `TerrainView.setDepletion`
+  (`render/terrain.ts` ~270) teinte une tuile vidée vers une couleur de paille sèche (8 paliers,
+  par la couleur d'instance). Les décors (`render/props.ts`, arbres, rochers, en
+  `InstancedMesh` par lot) sont fixes et ne savent pas qu'une tuile est récoltée. L'onde de fin
+  de construction (`render/tileWave.ts`, chantier 16) allume la zone une seule fois, avec
+  quelques pousses.
 - **Chemins** (`render/paths.ts`) : une dalle hexagonale plate + 3 cailloux par tuile, en
   `InstancedMesh` (max 200). `PATH_LOOKS` ne change que les couleurs avec l'âge (sable → gris).
 
@@ -65,7 +77,32 @@ Chemins sous `apps/client/src/`.
 - Réglées par une planche de captures (`?sheet`-like) aux huit heures clés de la journée et aux
   quatre saisons.
 
-### 3. Chemins pavés par âge
+### 3. Tuiles exploitées vivantes
+
+But : qu'on voie d'un coup d'œil **quelle case est cultivée** et **où en est la récolte**, sans
+calque ni sélection, de façon naturelle (pas de contour ni de couleur d'interface).
+
+- **Aspect « cultivé »** selon la ressource de la tuile, dès qu'un bâtiment la récolte :
+  - **chair (pulpe)** : rangées de petits buttes de pulpe ou de jeunes pousses alignées, terre
+    un peu retournée ;
+  - **bosquet (fibre)** : tiges de fibre en touffes taillées, quelques bottes liées ;
+  - **couronne de pépins (graines)** : pépins rangés en tas ou en sillons, petit outil posé ;
+  - **jus** : un ponton ou une rigole en bois au bord, des seaux, des reflets qui bougent ;
+  - les tuiles sauvages gardent leur décor naturel : le contraste suffit à lire la zone.
+- **La récolte qui pousse** : la hauteur, la densité et la couleur des pousses suivent le
+  remplissage du gisement (le même ratio que `setDepletion`) : pleine = touffue et colorée,
+  entamée = clairsemée, vidée = terre nue et paille ; la repousse se voit grandir doucement.
+  Les paliers évitent de reconstruire à chaque tick (même principe que `depletionSig`).
+- **Vie** : les pousses ondulent au vent (shader de sommets, phase par tuile), un kiwi qui
+  récolte fait frémir la touffe, quelques particules (feuilles, gouttes, poussière de pépins)
+  au moment de la cueillette ; en hiver neige sur les buttes, au printemps petites fleurs.
+- **Tuile convoitée par deux bâtiments** : partagée, elle porte les deux aspects mêlés (pas de
+  signal d'alerte : le calque Logistique reste l'outil d'analyse).
+- **Coût** : un `InstancedMesh` par type de pousse pour toute la carte (quelques appels de
+  dessin), matrices et couleurs mises à jour seulement quand un palier change ; animation dans
+  le shader. Qualité Basse : pousses moins nombreuses, sans vent.
+
+### 4. Chemins pavés par âge
 
 - **Éden** : planches de bois et rondins posés en travers ; **Pierre** : pavés irréguliers ;
   **Fer** : pavés taillés avec bordure ; **Industrie** : route lisse avec marquage.
@@ -76,7 +113,10 @@ Chemins sous `apps/client/src/`.
 
 - Client seulement : `GameRenderer.ts`, `render/quality.ts`, `render/postfx.ts`,
   `render/lighting.ts`, `render/dayCycle.ts`, `render/environment.ts`, `render/paths.ts`,
-  `render/buildingModels.ts` (fenêtres émissives), réglages, i18n FR + EN.
+  `render/buildingModels.ts` (fenêtres émissives), `render/terrain.ts` et un nouveau
+  `render/crops.ts` (tuiles exploitées, à partir des zones de récolte déjà calculées par
+  `game/perState.ts` et `catchmentPlan`), `render/props.ts` (masquer le décor sauvage d'une
+  tuile cultivée), réglages, i18n FR + EN.
 - Aucune lumière ponctuelle en plus (coût par fragment) : tout passe par l'émissif et le bloom.
 - Le chantier 24 (caméra libre) change la profondeur et le ciel : se coordonner si les deux
   tournent en même temps.
@@ -86,8 +126,10 @@ Chemins sous `apps/client/src/`.
 1. Mesures, limite d'images/s, repos, `auto` revu (pousser seul : c'est le plus utile).
 2. Courbes de lumière continues, aube et crépuscule.
 3. Nuit : fenêtres et lanternes ; animations de vent.
-4. Chemins pavés par âge.
-5. Planche de captures (heures × saisons), mesures avant/après, docs, skills `kiwar-client` et
+4. Tuiles exploitées vivantes : aspect cultivé par ressource, pousses qui suivent le
+   gisement, vent et frémissement.
+5. Chemins pavés par âge.
+6. Planche de captures (heures × saisons), mesures avant/après, docs, skills `kiwar-client` et
    `kiwar-cycles`.
 
 ## Critères d'acceptation
@@ -95,6 +137,9 @@ Chemins sous `apps/client/src/`.
 - Au repos, la colonie consomme nettement moins (images/s et temps GPU divisés au moins par
   deux sur la mesure `?debug`).
 - Une capture à l'aube et une au crépuscule paraissent « dorées » et différentes de midi.
+- Sans rien sélectionner, on reconnaît les cases exploitées et on voit si leur gisement est
+  plein, entamé ou vide ; la colonie paraît cultivée et vivante (planche de captures avant /
+  après).
 - Les chemins changent de matière à chaque âge et se raccordent.
 - Pas de baisse d'images/s en partie (mesure avant/après).
 
@@ -104,3 +149,6 @@ Chemins sous `apps/client/src/`.
 2. Fenêtres allumées la nuit : sur tous les bâtiments, ou seulement là où des kiwis dorment /
    travaillent ?
 3. Faut-il garder le tilt-shift (flou des bords) en Haute s'il coûte cher ?
+4. Tuiles exploitées : l'aspect cultivé apparaît dès que le bâtiment est posé (zone entière),
+   ou seulement sur les tuiles où des kiwis récoltent vraiment (plus juste, mais la zone se
+   remplit au fil du travail) ?
