@@ -81,7 +81,7 @@ chantiers de simulation après le 19 : 25 → 26 → 27, et 28, 29. Le chantier 
 - Chantier 18 : le bot d'équilibrage joue chemins, camps et expéditions (rapport d'impact,
   profils actif / occasionnel, âges sur 10 jours) ; il n'utilise ni mages, ni livraisons, ni
   terraformation au-delà du concassage. L'occasionnel·le atteint l'Industrie à ~1,25× l'actif
-  (la recherche avance hors ligne, accepté). Un rapport officiel complet prend ~3 h sur 4 cœurs.
+  (la recherche avance hors ligne, accepté). Un rapport officiel complet prend ~2 h sur 4 cœurs.
 - Chantier 09 : pas encore de garnison d'urgence ni de réparateur·ice prioritaire (même principe
   que le·la bâtisseur·euse prioritaire) ; pas de postes génériques pour les kiwis en trop ; le
   bot n'utilise ni cadenas ni affectation kiwi par kiwi ; le rapport d'équilibrage (30 graines,
