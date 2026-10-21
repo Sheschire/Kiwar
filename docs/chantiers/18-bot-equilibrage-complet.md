@@ -111,7 +111,7 @@ un·e joueur·euse attentif·ve, avec **toutes** les mécaniques qui pèsent sur
 - **Bot découpé** par domaine (`tools/balance/src/bot/`), même résultat au bit près avant les
   nouvelles décisions ; `runBot({ without })` pour mesurer chaque mécanique.
 - **Chemins** : le tracé le moins cher de chaque producteur vers son dépôt, posé s'il se
-  rembourse en 6 h ; retracé après piétinement ou tempête. Nid 3 et Bibliothèque −35 %.
+  rembourse en 6 h ; retracé après piétinement ou tempête. Nid 3 et Bibliothèque −20 %.
 - **Camps** : sur chaque cratère de météorite, et sur le gisement le plus riche de la
   ressource goulot quand des kiwis sont inoccupés ; démontés dès qu'un poste les réclame.
 - **Expéditions** : aire d'envol après la Bibliothèque, deux guerrier·ères et un·e
@@ -127,9 +127,10 @@ un·e joueur·euse attentif·ve, avec **toutes** les mécaniques qui pèsent sur
   recherche, ping-pong de garnison qui empêchait le monument de l'Industrie, recherche et
   Bibliothèque mal priorisées) ; **passages** retouchés deux fois, la seconde après les
   automatismes du chantier 15 (1 000 / 2 900 / 5 800 points).
-- Résultat (`docs/BALANCE_REPORT.md`) : biomes à ±8,4 % au pire, faces à ±1,3 % ; actif
-  Pierre ≈ 36 h, Fer ≈ 4 j, Industrie ≈ 7,9 j ; occasionnel Pierre ≈ 2,3 j, Fer ≈ 5,6 j,
-  Industrie ≈ 9,7 j.
+- Résultat (`docs/BALANCE_REPORT.md`, après le chantier 15) : biomes à ±7,2 % au pire, faces à
+  ±3,7 % ; actif Pierre ≈ 36 h, Fer ≈ 4,1 j, Industrie ≈ 7,8 j ; occasionnel Pierre ≈ 2,3 j,
+  Fer ≈ 5,5 j, Industrie ≈ 9,8 j. Sans chemins ou sans camps, Nid 3 et Bibliothèque +25 % ;
+  sans expéditions, le premier kiwi niveau 10 arrive 24 % plus tard.
 
 ## Reste à faire / idées
 

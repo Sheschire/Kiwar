@@ -1106,8 +1106,7 @@ PC), while phones are very smooth. Measured with Playwright/CDP on the `perfSave
 - **Paths**: once per game hour, the route from each producer to its nearest depot (Dijkstra on
   the walking cost once paved, existing paths shared) is paved when the extra harvest pays the
   fiber back within 6 h (all resources counted alike), keeping twice the cost in fiber.
-  Trampled or storm-swept tiles come back the same way. Big effect: Nest 3 and Library ~3.6 h
-  instead of 3.5–6.5 h.
+  Trampled or storm-swept tiles come back the same way. Big effect: Nest 3 and Library −20 %.
 - **Camps**: one on every meteorite crater holding something, fully staffed (a worker pulled
   from the most plentiful resource); with idle kiwis and no producer on its way, one on the
   richest free deposit of the bottleneck resource; dismantled once spent or as soon as a
@@ -1561,11 +1560,15 @@ tile looks cultivated as soon as its building is placed (whole zone).
   `industryAge` 4 000 → 5 800 research points. Result (4 seeds per biome × 10 days, then the
   official report): Stone ≈ 36 h, Iron ≈ 4 d, Industry ≈ 8 d, biomes within ±7 %.
 - **Occasional player** (attentive 6 h, then a visit every 8 h): Stone ≈ 2.3 d and Iron
-  ≈ 5.6 d (the 2/3 pace), Industry ≈ 9.7 d: the late game runs on research, which goes on
+  ≈ 5.6 d (the 2/3 pace), Industry ≈ 9.8 d: the late game runs on research, which goes on
   offline. Owner: accepted, the late game is kinder to whoever plays little; the report's
   target for the occasional Industry is × 1.25 (`CASUAL_PACE`).
-- **Impact** (20 seeds per biome × 72 h, same seeds): without paths, Nest 3 and Library +52 %
-  (Delta +6 % only: its land is already easy to walk), Stone +3.5 %; without camps, Nest 3 and
-  Library +40 % in the seed crown and the lagoons (crater seeds), ±3 % elsewhere; without
-  expeditions, kiwi level 10 +23 % (raid XP) but Stone −3.8 % (the crews stay at work):
-  raids trade production for experience and loot (~8 000 a day).
+- **Impact** (official report after chantier 15, 20 seeds per biome × 72 h, same seeds):
+  without paths, Nest 3 and Library +25 % in every biome, Stone +3 %; without camps, Nest 3
+  and Library +23–26 % (only +6 % in the highlands and the delta), Stone +2 %; without
+  expeditions, kiwi level 10 +24 % (raid XP) but Stone −1 % (the crews stay at work): raids
+  trade production for experience and loot (~8 000 a day, ~1 kiwi lost per 72 h, all raids
+  won).
+- **Official report** (200 seeds × 72 h, ages 10 seeds × 10 days, ~2 h on 4 cores): every
+  line green, biomes within ±7.2 %, faces within 3.7 %; attentive Stone 36.3 h, Iron 4.1 d,
+  Industry 7.8 d; occasional 2.3 d, 5.5 d, 9.8 d.
