@@ -32,33 +32,44 @@ en ligne n'a été testé qu'avec le mock (`pnpm mock:supabase`).
 Détail, propositions et questions ouvertes dans [`docs/chantiers/`](chantiers/README.md). Ils
 remplacent les anciens jalons 5 à 8 de `VISION.md`.
 
-| #   | Chantier                                                               | État    |
-| --- | ---------------------------------------------------------------------- | ------- |
-| 01  | Démolition et bâtiments vivants                                        | ✅      |
-| 02  | Audio : socle, sons de base, espace admin                              | ✅      |
-| 03  | Kiwis individuels : niveaux, métiers, classes, shiny                   | ✅      |
-| 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                  | ✅      |
-| 05  | Intro, choix de la face, biomes, brouillard                            | ✅      |
-| 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel          | ✅      |
-| 07  | Vaisseau kiwi géant et exploration                                     | ✅      |
-| 08  | Âges, recherche contre nature, Kikiwiwis                               | ✅      |
-| 09  | Gestion des kiwis : affectation, priorités, tableau des postes         | ✅      |
-| 10  | Confort visuel et performance (caméra, planète alien fixe, lenteurs)   | ✅      |
-| 11  | Lisibilité de la construction (icônes, avant/après, arbre)             | ✅      |
-| 12  | Logistique visible, vagues orientées, nuit plus courte                 | ✅      |
-| 13  | Comètes et poussière d'étoiles                                         | ✅      |
-| 14  | Emporter sa colonie solo dans un univers existant                      | ✅      |
-| 15  | Colonie autonome : constructions, recherche, météorites, automatismes  | ✅      |
-| 16  | Pose et terrain lisibles (modèle fantôme, zones, gains au dépôt)       | ✅      |
-| 17  | Identité visuelle : bâtiments distincts, planète alien, ciel vivant    | ✅      |
-| 18  | Bot d'équilibrage complet : chemins, camps, expéditions                | à faire |
-| 19  | Colonisation de la face alien jumelle (siège, seconde colonie)         | à faire |
-| —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges | idées   |
+| #   | Chantier                                                                | État    |
+| --- | ----------------------------------------------------------------------- | ------- |
+| 01  | Démolition et bâtiments vivants                                         | ✅      |
+| 02  | Audio : socle, sons de base, espace admin                               | ✅      |
+| 03  | Kiwis individuels : niveaux, métiers, classes, shiny                    | ✅      |
+| 04  | Besoins et cycles : faim, fatigue, jour/nuit, saisons                   | ✅      |
+| 05  | Intro, choix de la face, biomes, brouillard                             | ✅      |
+| 06  | Menaces : furets et chauves-souris, défenses, cadeaux du ciel           | ✅      |
+| 07  | Vaisseau kiwi géant et exploration                                      | ✅      |
+| 08  | Âges, recherche contre nature, Kikiwiwis                                | ✅      |
+| 09  | Gestion des kiwis : affectation, priorités, tableau des postes          | ✅      |
+| 10  | Confort visuel et performance (caméra, planète alien fixe, lenteurs)    | ✅      |
+| 11  | Lisibilité de la construction (icônes, avant/après, arbre)              | ✅      |
+| 12  | Logistique visible, vagues orientées, nuit plus courte                  | ✅      |
+| 13  | Comètes et poussière d'étoiles                                          | ✅      |
+| 14  | Emporter sa colonie solo dans un univers existant                       | ✅      |
+| 15  | Colonie autonome : constructions, recherche, météorites, automatismes   | ✅      |
+| 16  | Pose et terrain lisibles (modèle fantôme, zones, gains au dépôt)        | ✅      |
+| 17  | Identité visuelle : bâtiments distincts, planète alien, ciel vivant     | ✅      |
+| 18  | Bot d'équilibrage complet : chemins, camps, expéditions                 | à faire |
+| 19  | Colonisation de la face alien jumelle (siège, seconde colonie)          | à faire |
+| 20  | Correctifs et confort (tap qui se bloque, tri, file repliable, inertie) | à faire |
+| 21  | Interface mobile : barre au pouce, menu nommé                           | à faire |
+| 22  | Premières impressions : écran de chargement animé, intro interactive    | à faire |
+| 23  | Lumières HD, chemins pavés par âge, sobriété (le PC chauffe)            | à faire |
+| 24  | Caméra libre et planètes fixes dans l'espace                            | à faire |
+| 25  | Classes : une par stat, Cueilleur·euse, arbre de classes                | à faire |
+| 26  | Bâtiments sur plusieurs tuiles (3 tuiles, monument 7)                   | à faire |
+| 27  | Mairie et Discours (rassemblement, moral)                               | à faire |
+| 28  | Fer météorique (minerai des cratères)                                   | à faire |
+| 29  | Canaux de jus (creuser la chair dès l'Éden)                             | à faire |
+| —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges  | idées   |
 
-**Prochaine conversation** : un chantier encore « à faire » du tableau (le 18 avance dans
-une autre conversation ; le 19, la colonisation, attend la fin du 18). Le chantier 15 a
-ouvert le skill `kiwar-tasks` : toute tâche qui déplace des kiwis d'elle-même passe par
-`sim/tasks.ts`.
+**Prochaine conversation** : retours de fin octobre 2026 → chantiers 20 à 29. Ordre choisi
+par le porteur : **les correctifs client d'abord** (20, puis 21 ; 22 et 23 en parallèle ; 24 à
+coordonner avec le 19), **le 19 (colonisation) en parallèle** dès que le 18 est fini, puis les
+chantiers de simulation après le 19 : 25 → 26 → 27, et 28, 29. Le chantier 15 a ouvert le skill
+`kiwar-tasks` : toute tâche qui déplace des kiwis d'elle-même passe par `sim/tasks.ts`.
 
 ## Dette et idées en attente
 

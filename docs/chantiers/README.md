@@ -28,6 +28,16 @@ Ordre recommandé (les dépendances sont indiquées dans chaque document) :
 | 17  | [Identité visuelle : bâtiments, planète alien, ciel](17-identite-visuelle.md)            | audit d'optimisation | avec 15               |
 | 18  | [Bot d'équilibrage complet : chemins, camps, expéditions](18-bot-equilibrage-complet.md) | 13                   | avec 16 et 17         |
 | 19  | [Colonisation de la face alien jumelle](19-colonisation.md)                              | 15, 18               | non                   |
+| 20  | [Correctifs et confort (tap, tri, file, inertie)](20-correctifs-confort.md)              | —                    | avec 19, 22, 23       |
+| 21  | [Interface mobile : barre au pouce, menu nommé](21-interface-mobile.md)                  | 20                   | avec 19, 22, 23       |
+| 22  | [Premières impressions : chargement et intro](22-premieres-impressions.md)               | —                    | oui (client seul)     |
+| 23  | [Lumières HD, chemins pavés et sobriété](23-lumieres-sobriete.md)                        | 20 (conseillé)       | avec 19, 22           |
+| 24  | [Caméra libre et planètes dans l'espace](24-camera-libre-planetes.md)                    | —                    | avec 19 (coordonner)  |
+| 25  | [Classes : une par stat, arbre de classes](25-classes-arbre.md)                          | 19                   | non                   |
+| 26  | [Bâtiments sur plusieurs tuiles](26-batiments-multi-tuiles.md)                           | 25                   | non                   |
+| 27  | [Mairie et Discours](27-mairie-discours.md)                                              | 26                   | non                   |
+| 28  | [Fer météorique](28-fer-meteorique.md)                                                   | 25                   | non                   |
+| 29  | [Canaux de jus](29-canaux-de-jus.md)                                                     | 26                   | non                   |
 
 « En parallèle possible » : deux conversations peuvent tourner en même temps sans se marcher
 dessus (fichiers différents). Sinon, attendre que le chantier précédent soit poussé sur `main`.

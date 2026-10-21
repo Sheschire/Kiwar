@@ -170,3 +170,11 @@ Le porteur a précisé sa vision ; chaque sujet a son document dans `docs/chanti
 - **Kikiwiwis** : kiwis modifiés au jus de kiwi dans des laboratoires « contre nature », géants
   aux veines vertes lumineuses, un seul par vaisseau, capables de travaux de titan
   (terraformer, détruire des obstacles) → chantier 08.
+
+## Idées pour plus tard (retours de fin octobre 2026)
+
+- **Vue à la première personne et pilotage du vaisseau d'expédition** : gardé pour plus tard.
+  Les expéditions sont résolues par le serveur (règle anti-triche, la garnison alien n'arrive
+  jamais au client) : un pilotage ne peut pas changer le résultat du combat, il faudrait un
+  mini-jeu à part (par exemple moins de pannes), coûteux pour peu de gestion. Une caméra
+  embarquée sans pilotage pourrait venir avec le chantier 24 (caméra libre).
