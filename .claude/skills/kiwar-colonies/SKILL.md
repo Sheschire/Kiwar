@@ -85,7 +85,9 @@ queenFallen`, `MISSION_KINDS` (raid, recon, assault, reinforce, final, retreat; 
   mission (final: 75 % of the seats, one Kikiwiwi).
 - `render/twin.ts`: `TwinOptions.siege` → flags on bridgeheads (`sectorMiddle`), no dens once
   conquered; `startGame.showTwin` keys on bridgeheads and conquest. The twin's place belongs
-  to chantier 24 (`render/space.ts`, `twinPlace(approach)` reserved for the siege show).
+  to chantier 24 (`render/space.ts`, see `kiwar-world` "Map of space"): bring it closer for
+  the siege show with `renderer.setTwinApproach(t)`; the sister colony sits at the twin's
+  place (`setTwin(map, { fog: false, friend })`); `actions.travelTo('twin')` flies there.
 - Sounds `siege.warning|victory|defeat|queen` (`audio/catalog.ts`, `/admin` labels).
 - Screenshots: push a monument level 2, a launchpad level 3, kiwis (clone `villagers[0]`), a
   Kikiwiwi, `intel[twin].siege`, bridgeheads with `outpost` holders and an announced counter

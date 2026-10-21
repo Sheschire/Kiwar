@@ -68,12 +68,15 @@ porteur (fin octobre 2026).
 - **Seconde colonie** : « Fonder la colonie » crée un état lié (même calendrier, carte de la
   jumelle, survivant·es comme colons, Nid niveau 1, ressources débarquées), recherche
   partagée, monument propre, sélecteur de colonies, planète sœur éclairée dans le ciel
-  (position du chantier 24), **migration SQL** (lignes `games` liées, RLS) et mode local (deux
+  (position du chantier 24 : l'autre moitié du kiwi est toujours à `twinPlace()`, dessinée
+  avec `setTwin(map, { fog: false, friend })` ; voir le skill `kiwar-world`), **migration SQL** (lignes `games` liées, RLS) et mode local (deux
   sauvegardes liées).
 - **Liaisons** entre les deux faces (vaisseau, oiseau ; réutiliser les livraisons) et
   **menaces** de la seconde colonie (vagues plus faibles au début) ; traces des aliens
   (ruines, nids) en tuiles spéciales.
-- **Mise en scène 3D** : la jumelle se rapproche pendant les assauts (`twinPlace(approach)`),
+- **Mise en scène 3D** : la jumelle se rapproche pendant les assauts
+  (`renderer.setTwinApproach(t)`, chantier 24 ; à jouer depuis chez soi, `travelTo('twin')`
+  pour aller la voir),
   combat, chute de la reine, brouillard qui se lève sur la vraie planète.
 - **Bot** : mener un siège (reconnaissance, assauts, renforts, aménagement, assaut final) et
   mesurer quand la colonisation arrive (visée : âge du Fer avancé) ; ajuster `SIEGE`.

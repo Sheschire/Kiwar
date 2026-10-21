@@ -102,3 +102,48 @@ frameDistance × 1,9`. La planète du joueur est à l'origine. La visite d'une a
 2. Les planètes tournent-elles sur elles-mêmes (vivant) ou restent-elles fixes (lisible) ?
 3. Peut-on aussi voyager vers la face d'un·e **inconnu·e** de l'univers (lecture seule), ou
    seulement les allié·es et sa jumelle ?
+
+Réponses du porteur (conversation du chantier) : la jumelle est cachée au zoom par défaut et
+apparaît en dézoomant, la caméra **se redressant vers l'horizon** (vue « espace ») ; les
+planètes **tournent lentement** (un tour en 5 min) et celle qu'on visite se fige ; on voyage
+vers **sa jumelle et les membres de l'univers** (pas les faces aliens inconnues) ; la jumelle
+montre son nom et son exploration au survol, une carte « Y aller » au clic, et sur place
+« Préparer une expédition » (et « Siège » quand le chantier 19 l'ouvre).
+
+## Bilan
+
+Fait (détail et mesures dans `DECISIONS.md`) :
+
+1. **Carte de l'espace** (`render/space.ts`) : chez soi à l'origine, la jumelle à 120 vers le
+   front, à hauteur 8 ; les membres sur un anneau à 210 (+20 par kiwi d'écart), hors d'un
+   secteur de 35° autour du front ; orientation fixe vers chez soi. Plus aucun bandeau « à
+   coloniser » ; au survol, « Kiwino — inexplorée » / « explorée à N % ».
+2. **Vue espace** : dézoom jusqu'à 3 × le cadrage ; au-delà du cadrage la caméra se relève
+   (0,78 → 1,42 rad), la jumelle pointe dès ≈ 1,4× ; en rezoomant on retrouve son inclinaison.
+   Ciel et lunes suivent la caméra (à l'infini), mer de nuages élargie.
+3. **Voyage** : carte « Y aller » (tap / clic sur une planète), liste **Planètes** (bouton
+   rond sur desktop, entrée du menu sur téléphone, écran Univers) ; vol en arc de 1,4 à 2 s,
+   orbite autour de la planète avec ses bornes, bandeau de visite et retour au point de vue
+   quitté.
+4. **Niveau de détail** : de loin, une planète = son dôme + un disque peint (3 appels de
+   dessin) ; les bâtiments d'un·e allié·e sont fusionnés en une géométrie.
+5. **Crochets du chantier 19** : `renderer.setTwinApproach(t)` (la jumelle se rapproche) et la
+   règle de la planète sœur (l'autre moitié du kiwi est toujours à la place de la jumelle),
+   décrits dans le skill `kiwar-world`.
+
+Mesures (`?debug`, Chromium sans GPU, 1280×800, Moyenne, face au front) :
+
+| Zoom            | Avant : appels / triangles | Après : appels / triangles | Planètes avant → après |
+| --------------- | -------------------------- | -------------------------- | ---------------------- |
+| 1 (défaut)      | 86 / 62,5 k                | 79 / 46,8 k                | 7 → 0 (hors champ)     |
+| 1,9             | 86 / 62,5 k                | 82 / 48,4 k                | 7 → 3                  |
+| max (1,9 → 3)   | 86 / 62,5 k                | 82 / 48,4 k                | 7 → 3                  |
+| 1 allié·e, loin | —                          | —                          | 60 → 5                 |
+
+Téléphone 390×844 au zoom par défaut : 82 / 62,9 k → 75 / 46,7 k. Coût JS de la scène
+inchangé (< 0,1 ms par image).
+
+Reste : le vol et la vue espace sont à essayer sur un vrai téléphone et sur le MacBook
+(images/s réelles en dézoom) ; la jumelle passe d'un coup du disque peint au détail pendant
+le vol (≈ 8 rayons) ; la caméra ne suit pas une jumelle qui se rapproche pendant une visite
+(jouer la mise en scène depuis chez soi) ; les faces aliens inconnues ne sont pas dessinées.

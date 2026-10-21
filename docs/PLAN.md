@@ -57,7 +57,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 21  | Interface mobile : barre au pouce, menu nommé                           | ✅      |
 | 22  | Premières impressions : écran de chargement animé, intro interactive    | ✅      |
 | 23  | Lumières HD, tuiles exploitées vivantes, chemins pavés, sobriété        | ✅      |
-| 24  | Caméra libre et planètes fixes dans l'espace                            | à faire |
+| 24  | Caméra libre et planètes fixes dans l'espace                            | ✅      |
 | 25  | Classes : une par stat, Cueilleur·euse, arbre de classes                | à faire |
 | 26  | Bâtiments sur plusieurs tuiles (3 tuiles, monument 7)                   | à faire |
 | 27  | Mairie et Discours (rassemblement, moral)                               | à faire |
@@ -78,13 +78,21 @@ une nouvelle animation visible importante (spectacle, outil en main) doit révei
 Le chantier 19 (1re moitié : siège et assaut final) a ouvert le skill `kiwar-colonies` ; la
 **2e conversation** du 19 fait la seconde colonie (état lié, colons, sélecteur, planète sœur,
 migration SQL), les liaisons, les menaces de la seconde face, le bot et l'équilibrage : voir
-« Reste » dans `docs/chantiers/19-colonisation.md`. Idéalement après le chantier 24 (planète
-sœur à sa place fixe, `twinPlace(approach)` pour rapprocher la jumelle pendant les assauts).
+« Reste » dans `docs/chantiers/19-colonisation.md`. Le chantier 24 est fait : les planètes ont
+une place fixe (`render/space.ts`), la planète sœur prend la place de la jumelle et
+`renderer.setTwinApproach(t)` la rapproche pendant les assauts (skill `kiwar-world`, « Map of
+space »).
 
 ## Dette et idées en attente
 
+- Chantier 24 : vue espace et vol entre planètes vérifiés en Chromium sans GPU seulement (à
+  essayer sur un vrai téléphone et sur le MacBook avec `?debug` en dézoom) ; la jumelle passe
+  d'un coup du disque peint au détail pendant le vol ; la caméra ne suit pas une jumelle qui
+  se rapproche pendant une visite ; les faces aliens inconnues de l'univers ne sont pas
+  dessinées (seulement la carte des cibles).
+
 - Chantier 19 (1re moitié) : la mise en scène est un spectacle 2D par-dessus la scène (la
-  jumelle ne se rapproche pas encore : `twinPlace(approach)` du chantier 24 attend) ; le bot
+  jumelle ne se rapproche pas encore : `renderer.setTwinApproach(t)` du chantier 24 est prêt) ; le bot
   ne mène pas de siège (sonde `pnpm balance:siege` seulement : chiffres réglés sur 1 graine
   × 4 biomes) ; le résumé « pendant votre absence » ne cite pas les contre-attaques ; les
   kiwis qui rentrent d'une tête de pont tombée volent sans vaisseau visible ; « Fonder la
@@ -110,7 +118,7 @@ sœur à sa place fixe, `twinPlace(approach)` pour rapprocher la jumelle pendant
 - Chantier 17 : les niveaux 4 à 6 gardent la silhouette du niveau 3 (plus grand, fanions
   dorés) ; la nuance de la planète alien (Kiwino pâle sous le brouillard) n'est pas retouchée ;
   mesures d'images/s en rendu logiciel seulement (à confirmer avec `?debug` sur un vrai GPU,
-  la planète visible au zoom par défaut coûte une dizaine d'appels de dessin) ; les
+  la planète alien n'est plus dessinée au zoom par défaut depuis le chantier 24) ; les
   enseignes ne sont pas dans la face d'un·e ami·e (modèles statiques).
 - Chantier 16 : pas de fantôme quand on construit depuis la fiche d'une tuile ; la zone
   prévue d'une amélioration ne se voit qu'après (l'onde) ; mesures d'images/s faites en rendu
@@ -164,8 +172,8 @@ sœur à sa place fixe, `twinPlace(approach)` pour rapprocher la jumelle pendant
   n'est pas mesuré ; le porteur peut relever images/s, p95 et temps d'ouverture des menus avec
   `?debug` sur son MacBook Pro 2015 et chez ses ami·es (desktop lent). Animations des
   bâtiments toujours un mesh par partie animée (leur JS ne ressort pas dans les profils ; à
-  passer en instancing si un vrai GPU les montre). La planète alien « fixe » se comporte
-  comme la lune (direction et orientation fixes, hauteur selon le zoom). Lueurs CSS animées : passées
+  passer en instancing si un vrai GPU les montre). La planète alien a une vraie place
+  fixe dans l'espace depuis le chantier 24. Lueurs CSS animées : passées
   en opacité d'un `::after` (passe perf d'octobre 2026). L'inertie n'est pas testée sur un vrai téléphone.
 - Retours de partie à plusieurs (octobre 2026, corrigés hors chantier) : un kiwi par joueur
   (jumelle alien), univers créé depuis la colonie solo, planètes alliées visibles et visitables

@@ -49,7 +49,17 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
 - Biome palettes, flood water, the twin half in the sky (`twin.ts`), the closed planet (cut
   disc under the tiles) and the intro scene (`intro.ts` + `introFx.ts`, drawn instead of the
   game while `renderer.playIntro` runs): see `kiwar-world`.
-  The scene haze follows the camera distance; max zoom is 1.9 × `rig.frameDistance`.
+  The scene haze follows the camera distance; max zoom is `MAX_ZOOM` 3 × `rig.frameDistance`.
+- **Chantier 24 (planets in space)**: the twin and the members' planets have fixed places
+  (`render/space.ts`, see `kiwar-world`); past the framing the camera rises towards the
+  horizon (`CameraRig.liftPolar`, "space view"); `GameRenderer.travelTo(ref)` /
+  `actions.travelTo` fly the camera to a planet (`CameraRig.visit`, `flyTo`/`stepFlight`: an
+  arc, controls off until the landing; `rig.flying`) and `travelTo(null)` back. UI:
+  `PlanetTag` (hover name, `viewStore.planetHover`), `PlanetCard` ("Go there", store
+  `planetCard`), `PlanetsPanel` + `PlanetsButton` (round fab above the logistics one, phone
+  menu entry "Planets", store `planetsOpen`), `VisitBanner` for any `visit: PlanetRef`.
+  Measure planets with `renderer.renderer.info` with and without `twin.group` /
+  `allies.group` visible (same page).
 - Chantier 08, second half (`kiwar-titans`): `render/obstacles.ts`, `render/kikiwiwi.ts`
   (Kikiwiwis posed from `KiwisView`), the `lab` model, `LabInfo.tsx`, `TitanWorks.tsx`;
   `renderer.reshape(map)` redraws a reshaped face without moving the camera.
@@ -268,7 +278,8 @@ compact`). Long sheets on touch: `FoldSection` (a `<details>` there, a plain sec
   (dev server running; also 393 852 and 915 412): it needs `window.__kiwar`, imports the
   shared module the page loaded, waits for the camera to rest (a selection pans it) and
   targets buttons with `button:has-text(...)` (banner hints quote button names).
-- Taps: an ally planet (no tile hit) → visit; a building or construction site wins over a
+- Taps: a far planet (no tile hit) → its card (`onPlanetTap`; while visiting, only other
+  planets answer); a building or construction site wins over a
   kiwi standing on it (`GameRenderer.hasStructure`); otherwise a kiwi near the pointer wins.
 - Camera: `onWorld` rebuilds the scene only when seed/face/params change (`startGame.worldKey`),
   so a resync keeps camera and selection; `CameraRig` saves the azimuth on `rest`

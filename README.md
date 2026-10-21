@@ -22,6 +22,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 > la face est conquise et le brouillard se lève (la seconde colonie arrive à la 2e moitié du
 > chantier). Les forces réelles restent **cachées côté serveur**.
 >
+> **Chantier 24** — les planètes sont **de vrais astres** : la jumelle a sa place fixe dans
+> l'espace, du côté d'où viennent les vagues, et les planètes des allié·es tournent sur un
+> anneau plus loin ; elles tournent lentement sur elles-mêmes. En **dézoomant**, la caméra se
+> redresse vers l'horizon et l'on découvre la jumelle puis tout le système. Le bandeau « à
+> coloniser » a disparu : au survol, la planète dit son nom et ce qu'on en a exploré, et un
+> clic propose **« Y aller »** — la caméra **vole** jusqu'à elle, on tourne autour, puis
+> **« Retour à ma colonie »**. Une liste **Planètes** (bouton rond sur ordinateur, menu sur
+> téléphone) mène partout en un geste ; sur la jumelle, raccourcis vers l'expédition et le
+> siège. De loin, chaque planète ne coûte presque rien à dessiner.
+>
 > **Chantier 23** — le PC **chauffe moins** : la scène se limite à **60 images/s** (réglage
 > 30 / 60 / illimité) et **ralentit au repos** (30 puis 20 images/s quand rien ne bouge,
 > reprise immédiate au moindre geste) ; en Auto, la qualité Haute ne se choisit plus que si

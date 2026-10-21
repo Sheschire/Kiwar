@@ -1,6 +1,6 @@
 ---
 name: kiwar-world
-description: Kiwar world and faces (chantier 05) — biomes (data, generation, floods, palettes), the twin half floating in the sky under fog of war, a friend's twin face, the intro (kiwi sliced in two) and the choice of a face, pickFace in shared universes. Use when touching world generation, biomes, the intro, the twin view or face choice.
+description: Kiwar world and faces (chantiers 05 and 24) — biomes (data, generation, floods, palettes), the map of space (fixed places of the twin, the members and the sister colony of chantier 19, space view, camera travel between planets, level of detail), the twin half under fog of war, a friend's twin face, the intro (kiwi sliced in two) and the choice of a face, pickFace in shared universes. Use when touching world generation, biomes, the intro, the twin or planets in space, travel between planets or face choice.
 ---
 
 # Kiwar world: biomes, twin half, intro
@@ -37,18 +37,41 @@ biome)` (memoized), `tileDeposit(tile, biome)`, `twinParams(seed, face, params)`
 - Palettes: `BIOME_LOOKS` in `render/terrain.ts` (flesh gradient + tile colours),
   `tileTopColor(tile, out, biome)`. Flood water: `WaterView.flood` (second instanced mesh,
   `setFlooded`), badge `flooded` in `buildingLife.ts`. `pathfinding.ts` passes biome + flood.
-- **Twin half** (`render/twin.ts`, `GameRenderer.setTwin(map, { fog, friend })`): like the moon,
-  always towards the colony's front (`render/front.ts` `FRONT_AZIMUTH`), fixed orientation and
-  slow spin; its height follows the camera's distance and pitch — hidden above the frame
-  below zoom 0.6 × `rig.frameDistance`, half showing at the top at 1.0 (the default zoom),
-  fully in the upper sky from 1.15 × (chantier 17; max zoom 1.9 ×). Scale 0.68; alien twins
-  carry a ribbon `TwinOptions.caption` ("Alien face — to colonise", `compass.twin`, shown
-  when k > 0.75, `renderOrder` above the fog layers). Turning the
-  camera slides it off screen (the compass shows where it is). A truly fixed world position
-  does not work: the camera looks 45–64° down. Terrain without shadows/props, materials `fog=false`,
-  three `CircleGeometry` cloud layers (fog of war). Friend: `WaterView`, static
-  `buildingGeometry` meshes (shared cache, do not dispose), name sprite. `startGame.showTwin`
-  rebuilds it only when the key (seed, face, biome, friend snapshot time) changes.
+- **Map of space** (chantier 24, `render/space.ts`, pure functions tested in
+  `apps/client/test/space.test.ts`): every planet has a **fixed place**, none follows the
+  camera. The face on show ("home") is always at the **origin**; `twinPlace(approach = 0)` =
+  the other half of the same kiwi, `TWIN_DISTANCE` 120 towards `FRONT_AZIMUTH` (the front of
+  waves and compass), height `TWIN_HEIGHT` 8; `allyPlace(rank, kiwiGap)` = the members on an
+  outer ring (`ALLY_RING` 210 + 20 per extra kiwi of gap, a second lap 60 further), slots
+  `ALLY_SLOTS` (±50°, ±80°… 180° from the front, never within `FRONT_CLEARANCE` 35° of the
+  twin), heights −10 / −16; `planetOrientation(place)` = yaw towards home then the far rim
+  lifted by `PLANET_TILT` 0.42. `PlanetRef` = `'twin' | kiwiIndex`.
+- **For chantier 19 (colonisation)**: the siege show moves the twin with
+  `GameRenderer.setTwinApproach(t)` (0 → 1 eases it from 120 to `TWIN_CLOSEST` 65 along the
+  front, wakes the frame loop while moving; the camera bounds of a twin visit do not follow,
+  so play the show from home). **Sister colony rule**: "the other half of the kiwi is always
+  at the twin's place". Playing colony 1 → face 2 sits at `twinPlace()` (under fog while
+  alien; once colonised, `setTwin(map, { fog: false, friend: snapshotOfTheSister })` draws it
+  lit, with its buildings, like a friend's face). Switching to colony 2 rebuilds the scene
+  with face 2 at the origin and colony 1 at the same twin place (same `FRONT_AZIMUTH`, so
+  waves and compass keep their meaning). Going to look at the sister = `travelTo('twin')`.
+- **Twin half** (`render/twin.ts` `TwinView`, `GameRenderer.setTwin(map, { fog, friend,
+intel })`): placed once with `place(twinPlace())` (members: `place(allyPlace(...))`), turns
+  on itself once in 5 min and bobs (`update(dt, time, eye, frozen, phase)`; a visited planet
+  is `frozen`). Scale 0.68. Terrain without shadows/props, materials `fog=false`, three
+  `CircleGeometry` cloud layers (fog of war). **Level of detail**: farther than 8 radii from
+  the camera only the dome and one painted disc show (`farDisc`: every tile a dot of its
+  colour on a canvas, veiled with cloud colour under fog; 3 draw calls, 1.6 k triangles); the
+  tiles, pools, fog layers, dens and obstacles show near or while visited. Friend: `WaterView`,
+  buildings **merged into one geometry** (clones of the cached `buildingGeometry`, the merge
+  is disposed with the view), name sprite. `rayHit(ray)` = a sphere of `radius` (hover and
+  taps). `startGame.showTwin` rebuilds it only when the key (seed, face, biome, friend
+  snapshot time, intel) changes and sets the store's `twinOwner`.
+- **Space view** (`camera/CameraRig.ts`): zoom out to `MAX_ZOOM` 3 × `frameDistance`; past
+  the framing `liftPolar(k)` raises the camera towards the horizon (0.78 → `SPACE_POLAR` 1.42
+  at k ≈ 2.6, eased out) so the planets come into view (the twin peeks in from k ≈ 1.4);
+  zooming back in gives the player's own tilt back (`playerPolar`). Sky sphere (radius 900)
+  and moons follow the camera (at infinity); the cloud sea is 1000 wide, fading 220–450.
 - **Closed planet**: the skin dome (`createKiwiDome`, `FrontSide`, radius `domeRadius(map)`:
   its rim stays under the rim tiles, no ledge) carries a dark cut disc child that closes the
   gaps between tiles. Anything sized on the skin (dome fur props) uses `domeRadius`. The intro finds the dome as the terrain
@@ -88,13 +111,19 @@ focus?, onChoose })`, store `intro` / `introFade`, gauges (sustainable regrowth 
   (`TwinOptions.intel`, shader mask `uSeen`), with the dens/roosts they reported — see
   `kiwar-expeditions`.
 - **Allied planets** (`render/allies.ts` `AlliesView`, `GameRenderer.setAllies(allies, myKiwi)`):
-  each ally's face is an anchored `TwinView` (`anchored: true`, no fog, name ribbon above) at a
-  fixed place: slots around the far side, ring 95 + 14 per extra kiwi of distance, y ≈ −14
-  (above the sea of clouds at −26), leaning towards us. Tapping one (when no tile is hit) or
-  `actions.visitAlly(k)` → `GameRenderer.visitAlly` → `CameraRig.visit(center, radius)` (bounds
-  and zoom of that planet, `away` flag); `visitAlly(null)` → `returnHome` (restores the saved
-  view). Store `allies`, `visit`; the HUD shrinks to `VisitBanner`, taps and hover are off,
-  the alien twin hides. `startGame.showAllies` re-syncs after `onAllies` / `onWorld`.
+  each member's face is a `TwinView` (no fog, name ribbon above) at `allyPlace(rank, gap)`
+  (rank = nearest kiwi first, then kiwi index).
+- **Travel** (chantier 24): a tap on a planet (when no tile is hit) opens its card
+  (`PlanetCard`, store `planetCard`, `actions.showPlanetCard`); "Go there", the Planets list
+  (`PlanetsPanel`, store `planetsOpen`: round button on desktop, "Planets" in the phone
+  menu) or the universe screen call `actions.travelTo(ref)` → `GameRenderer.travelTo` →
+  `CameraRig.visit(center, radius)`: an eased flight along an arc (1.4–2 s, controls and limits
+  off until the landing, `rig.flying`), then that planet's bounds and zoom (`away` flag).
+  `travelTo(null)` → `returnHome` flies back to the saved view. Store `visit: PlanetRef |
+null`; the HUD shrinks to `VisitBanner` (twin: "Siege" when `siegeVisible`, "Prepare an
+  expedition"; member: delivery, next, home), taps reach only other planets, hover shows
+  `PlanetTag` (viewStore `planetHover`, names from `ui/planets.ts` `planetLabel`, twin
+  explored % = intel sectors / 12). `startGame.showAllies` re-syncs after `onAllies` / `onWorld`.
 - `twin` in responses (`TwinSnapshot`: owner, face, params, buildings, paths, at) when a friend
   lives on the other half of our kiwi (older universes only: each newcomer now gets their own
   kiwi), and `allies` (`AllySnapshot` = twin snapshot + `kiwiIndex`, `seed`) for everyone else;

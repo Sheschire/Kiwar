@@ -1721,3 +1721,61 @@ alien again; only the twin is ever colonised (other alien faces stay raid target
 - Sounds `siege.warning|victory|defeat|queen` reuse synthesized voices (warning, victory,
   defeat, fanfare), replaceable from `/admin`.
 - No SQL migration: everything lives in the game state (JSON).
+
+## Chantier 24 — Free camera and planets fixed in space
+
+Owner's answers: the twin hides at the default zoom and shows when zooming out, the camera
+rising towards the horizon; planets turn slowly (one turn in 5 min) and the visited one holds
+still; travel to one's twin and the universe's members only; the twin shows its name and
+exploration on hover, a "Go there" card on tap, and "Prepare an expedition" (and "Siege",
+chantier 19) once there.
+
+### Part 1 — Map of space, space view
+
+- `render/space.ts`: the face on show at the origin; the twin at 120 towards
+  `FRONT_AZIMUTH`, height 8 (120 rather than 140 so it does not shrink to a dot at the
+  farthest zoom; 8 so it floats clear of our far rim in the near-level space view); members
+  on a ring at 210 + 20 per kiwi of gap (second lap +60), slots at ±50°, ±80°, ±110°, ±140°,
+  180° from the front (never within 35° of the twin), heights −10/−16; each planet turned to
+  face home, far rim lifted by 0.42. Nothing follows the camera any more.
+- **Why the camera rises**: the camera looks 45–64° down with a 30° field, so a body near the
+  horizon is never on screen. Past the framing `liftPolar(k)` raises the polar angle from
+  0.78 to 1.42 (eased out, reached at k ≈ 2.6); the max zoom goes from 1.9 to 3 × the
+  framing; zooming back in restores the player's own tilt; tilting up by hand while lifted
+  keeps the player's tilt. The twin peeks in from k ≈ 1.4.
+- The sky sphere (radius 900) and the moons (pushed out ×2.5) follow the camera: they stay at
+  infinity and the camera never leaves the sky while flying. The cloud sea is 1000 wide,
+  fading 220–450 from home.
+- The "Alien face — to colonise" ribbon is gone; hovering a planet shows `PlanetTag` (name,
+  "unexplored" / "N % explored" from the intel sectors).
+
+### Part 2 — Travel
+
+- A tap on a planet opens a card ("Go there") rather than flying at once (a stray tap in the
+  sky must not throw the camera away); the Planets list (round button on desktop, "Planets"
+  in the phone menu) and the universe screen go there in one tap. Back home: the banner
+  button or Escape.
+- The flight: a quadratic Bézier through a point raised by a quarter of the way, smoothstep
+  easing, 1.4 s + length / 600 (≤ 2 s); camera-controls is disabled and every limit lifted
+  during the flight, the arrival's bounds and zoom range set at the landing. Back home it
+  flies to the view the player left (or the framing).
+- The twin banner offers "Prepare an expedition" (the twin is always the planner's first
+  target, so no new store field) and the Siege screen when `siegeVisible`.
+- `visit` in the store is a `PlanetRef` (`'twin'` or a kiwi index); `!== null` checks only
+  (kiwi index 0 is falsy).
+
+### Part 3 — Level of detail, siege hooks
+
+- Farther than 8 radii from the camera a planet draws only its dome and one disc painted on a
+  canvas (a dot of its colour per tile, cloud-veiled under fog): the twin costs 3 draw calls
+  and 1.6 k triangles in the space view instead of 6 and 16 k. Near or visited, the full
+  tiles, pools, fog layers, dens, flags and obstacles. A member's buildings are merged into
+  one geometry: one member's planet from afar went from 60 draw calls to 5.
+- `GameRenderer.setTwinApproach(t)` eases the twin from 120 to 65 along the front (for
+  chantier 19's 3D siege staging; keeps the frame loop awake while moving).
+- **Sister colony rule** (for chantier 19's second colony): the other half of the kiwi is
+  always at the twin's place; the face on show is always at the origin. Switching colony
+  rebuilds the scene the other way round.
+- Measures (software WebGL, 1280×800, Medium, facing the front): default zoom 86 draw calls /
+  62.5 k triangles → 79 / 46.8 k (the twin is out of the frame there now); space view 82 /
+  48.4 k; phone 82 / 62.9 k → 75 / 46.7 k. Scene JS unchanged (< 0.1 ms per frame).
