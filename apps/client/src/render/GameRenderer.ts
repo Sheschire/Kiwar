@@ -181,6 +181,8 @@ export class GameRenderer {
   private readonly resizeObserver: ResizeObserver;
   private elapsed = 0;
   private hoverPoint: { x: number; y: number } | null = null;
+  /** Chantier 20: the building tile under the mouse (its zone shows, paler). */
+  private hoverBuildingTile: Tile | null = null;
   private qualityChoice: QualityChoice = 'auto';
   private readonly integrated = isIntegratedGpu(gpuRendererName());
   private preset: QualityPreset = 'medium';
@@ -258,6 +260,10 @@ export class GameRenderer {
       onHoverEnd: () => {
         this.hoverPoint = null;
         this.selection.setHover(null);
+        if (this.hoverBuildingTile) {
+          this.hoverBuildingTile = null;
+          this.refreshCatchment();
+        }
       },
     });
 
@@ -792,7 +798,15 @@ export class GameRenderer {
 
   private refreshCatchment(): void {
     const t = this.selectedTile;
-    const b = t && this.lastState ? buildingAt(this.lastState, t.q, t.r) : undefined;
+    const selected = t && this.lastState ? buildingAt(this.lastState, t.q, t.r) : undefined;
+    // Chantier 20: with nothing selected, the building under the mouse shows its zone (paler).
+    const h = this.hoverBuildingTile;
+    const hoveredBuilding =
+      !selected && !this.placingGhost && !this.placingTurret && h && this.lastState
+        ? buildingAt(this.lastState, h.q, h.r)
+        : undefined;
+    const b = selected ?? hoveredBuilding;
+    const faint = !selected && !!hoveredBuilding;
     // Chantier 12: the rampart a turret defends (selected, or hovered while placing one).
     const hovered = this.placingTurret && this.placementHover ? this.placementHoverTile : null;
     if (this.map && (hovered || (b && isTurret(b.type)))) {
@@ -802,6 +816,7 @@ export class GameRenderer {
       this.selection.setCatchment(
         covered.map((x) => x.tile),
         covered.map((x) => SECTOR_COLORS[x.sector]),
+        faint && !hovered,
       );
       return;
     }
@@ -812,7 +827,7 @@ export class GameRenderer {
         if (tile) tiles.push(tile);
       }
     }
-    this.selection.setCatchment(tiles);
+    this.selection.setCatchment(tiles, undefined, faint);
   }
 
   setBottomInset(fraction: number): void {
@@ -1048,6 +1063,13 @@ export class GameRenderer {
       const tile = this.pickTile(this.hoverPoint.x, this.hoverPoint.y);
       this.selection.setHover(tile);
       this.hoverPoint = null;
+      const onBuilding =
+        tile && this.lastState && buildingAt(this.lastState, tile.q, tile.r) ? tile : null;
+      const was = this.hoverBuildingTile;
+      if (onBuilding?.q !== was?.q || onBuilding?.r !== was?.r) {
+        this.hoverBuildingTile = onBuilding;
+        this.refreshCatchment();
+      }
       const key = tile ? `t${tile.q},${tile.r}` : '';
       if (
         (this.placementLabels.length > 0 || this.placingTurret || this.placingGhost) &&

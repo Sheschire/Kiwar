@@ -17,6 +17,8 @@ import { HEX_VISUAL_RADIUS, worldPosition } from './terrain';
 import { WATER_LEVEL } from './water';
 
 const PLACEMENT_COLOR = '#ffe27a';
+/** Chantier 20: eligible tiles while placing, kept below the aimed zone (0.75 + rim). */
+const PLACEMENT_OPACITY = 0.24;
 
 function createHexRingGeometry(inner: number, outer: number): BufferGeometry {
   const positions: number[] = [];
@@ -88,9 +90,10 @@ function plannedMesh(
   opacity: number,
   max = MAX_PLANNED,
   inner = 0,
+  outer = 0.84,
 ): InstancedMesh {
   const mesh = new InstancedMesh(
-    createHexRingGeometry(HEX_VISUAL_RADIUS * inner, HEX_VISUAL_RADIUS * 0.84),
+    createHexRingGeometry(HEX_VISUAL_RADIUS * inner, HEX_VISUAL_RADIUS * outer),
     new MeshBasicMaterial({
       color,
       transparent: true,
@@ -141,7 +144,7 @@ export class SelectionView {
     new MeshBasicMaterial({
       color: '#ffffff',
       transparent: true,
-      opacity: 0.45,
+      opacity: PLACEMENT_OPACITY,
       depthWrite: false,
       toneMapped: false,
     }),
@@ -150,8 +153,11 @@ export class SelectionView {
 
   /** Chantier 16: deposit tiles a producer placed under the ghost would harvest, and the
    * ones in its reach that other buildings keep (grey). */
-  private readonly plannedFree = plannedMesh('#8df06e', 0.5);
+  private readonly plannedFree = plannedMesh('#8df06e', 0.75);
   private readonly plannedTaken = plannedMesh('#4a4440', 0.65);
+  /** Chantier 20: a white rim around the planned tiles, so the aimed zone stands out from the
+   * (quieter) eligible tiles. */
+  private readonly plannedRim = plannedMesh('#ffffff', 0.9, MAX_PLANNED * 2, 0.84, 0.97);
 
   /** Chantier 16: every producer's catchment (logistics overlay) and the contested tiles. */
   private readonly zones = new InstancedMesh(
@@ -197,6 +203,7 @@ export class SelectionView {
       this.placement,
       this.plannedFree,
       this.plannedTaken,
+      this.plannedRim,
       this.zones,
       this.contested,
     );
@@ -223,7 +230,9 @@ export class SelectionView {
    * Highlights the deposit tiles harvested by the selected building, or (chantier 12) the
    * rampart a turret defends, coloured by sector.
    */
-  setCatchment(tiles: readonly Tile[], colors?: readonly string[]): void {
+  setCatchment(tiles: readonly Tile[], colors?: readonly string[], faint = false): void {
+    // Chantier 20: a hovered building shows its zone paler than a selected one.
+    (this.catchment.material as MeshBasicMaterial).opacity = faint ? 0.5 : 0.7;
     const m = new Matrix4();
     const c = new Color();
     let n = 0;
@@ -242,6 +251,7 @@ export class SelectionView {
   setPlanned(free: readonly Tile[], taken: readonly Tile[]): void {
     placeTiles(this.plannedFree, free, 0.04);
     placeTiles(this.plannedTaken, taken, 0.04);
+    placeTiles(this.plannedRim, [...free, ...taken], 0.05);
   }
 
   /** Chantier 16: catchments by producer colour, and contested tiles ringed (empty: off). */
@@ -262,10 +272,11 @@ export class SelectionView {
   }
 
   update(time: number): void {
-    if (this.placement.count > 0)
-      (this.placement.material as MeshBasicMaterial).opacity = 0.35 + 0.2 * Math.sin(time * 3.5);
+    // Chantier 20: the eligible tiles stay still and quiet; the aimed zone pulses, bright.
     if (this.plannedFree.count > 0)
-      (this.plannedFree.material as MeshBasicMaterial).opacity = 0.42 + 0.2 * Math.sin(time * 5);
+      (this.plannedFree.material as MeshBasicMaterial).opacity = 0.68 + 0.14 * Math.sin(time * 5);
+    if (this.plannedRim.count > 0)
+      (this.plannedRim.material as MeshBasicMaterial).opacity = 0.75 + 0.2 * Math.sin(time * 5);
     this.selected.pulse(time, 4);
     this.hover.pulse(time, 2);
   }
