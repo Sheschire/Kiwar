@@ -31,7 +31,12 @@ import {
   stardustOf,
 } from '@kiwar/shared';
 import type { Account, OnlineBackend } from './onlineBackend';
-import { clearGuestStash, readGuestStash, type AuthRedirectError } from './authRedirect';
+import {
+  clearGuestStash,
+  readGuestStash,
+  shouldAutoSignIn,
+  type AuthRedirectError,
+} from './authRedirect';
 import { NetworkError, onlineConfig, type OnlineConfig } from './onlineConfig';
 
 const SAVE_KEY = 'kiwar.save.v1';
@@ -407,7 +412,11 @@ export class GameController {
       const account = await this.online!.init();
       this.userId = account.userId;
       this.listener.onAccount(account);
-      if (this.online!.redirectError) this.listener.onAuthError(this.online!.redirectError);
+      const redirect = this.online!.redirectError;
+      if (redirect && shouldAutoSignIn(redirect, account.isAnonymous)) {
+        // That Google account already has its colony: go there (the guest's may follow).
+        void this.online!.signInWithGoogle().catch(() => this.listener.onAuthError(redirect));
+      } else if (redirect) this.listener.onAuthError(redirect);
       await this.loadFromServer(world);
       await this.importLocalSaveOnce();
       await this.offerGuestTransfer();

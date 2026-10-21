@@ -640,7 +640,11 @@ export const en = {
     emailPlaceholder: 'you@example.com',
     linkEmail: 'Save with a magic link',
     linkSent: 'Check your inbox and click the link to confirm.',
-    existing: 'Already have an account?',
+    existing: 'I already have an account',
+    newAccount: 'New account',
+    reconnect: 'Sign back in ({name})',
+    signOutHint:
+      'You will be a guest again on this device: sign back in afterwards to find your colony.',
     existingHint:
       'Your guest colony comes along: if your account already has one, you will choose which to keep.',
     signInGoogle: 'Sign in with Google',

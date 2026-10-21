@@ -1306,6 +1306,13 @@ another user id: the guest colony stayed in the database under the old anonymous
   (`GuestTransferModal`). `keep: 'guest'` **swaps** the two solo states (re-keyed `playerId` /
   `universeId`), so the account's previous colony stays with the guest user and a colony never
   exists twice; nothing is deleted. Owner's choice: ask which one to keep.
+- **Signing back in** (same day, the friend's real case: he had linked Google, signed out,
+  became a new guest and pressed "Continue with Google", which tries to _link_ an account that
+  already exists): `identity_already_exists` on a guest now signs in to that account straight
+  away (`shouldAutoSignIn`, once per tab); the device remembers its last permanent account
+  (`kiwar.lastAccount`) and offers "Sign back in (email)" first; the guest section shows "New
+  account" and "I already have an account" side by side (no fold); a line under "Sign out"
+  says you become a guest again.
 - Only the **solo** colony follows: a guest's shared-universe colonies stay with the guest
   user (memberships are keyed by user id; rare for a guest). No SQL change.
 

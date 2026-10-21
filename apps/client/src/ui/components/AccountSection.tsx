@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { readLastAccount } from '../../game/authRedirect';
 import { actions } from '../actions';
 import { useT, useUi } from '../store';
 
@@ -23,6 +24,8 @@ export function AccountSection() {
   /** The Google account or the email already belongs to an account: offer to sign in. */
   const [taken, setTaken] = useState<'google' | 'email' | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Account used before on this device: offered first to a guest (after a sign-out). */
+  const [last] = useState(readLastAccount);
 
   if (sync === 'local') {
     return (
@@ -33,11 +36,11 @@ export function AccountSection() {
     );
   }
 
-  const run = async (op: Op, sentKey?: 'account.linkSent') => {
+  const run = async (op: Op, sentKey?: 'account.linkSent', to = email.trim()) => {
     setBusy(true);
     setMessage(null);
     setTaken(null);
-    const error = await actions.account(op, email.trim());
+    const error = await actions.account(op, to);
     setBusy(false);
     if (error && op === 'linkEmail' && isTaken(error)) {
       setTaken('email');
@@ -62,13 +65,32 @@ export function AccountSection() {
           <button class="btn" disabled={busy} onClick={() => run('signOut')}>
             {t('account.signOut')}
           </button>
+          <p class="small muted">{t('account.signOutHint')}</p>
         </>
       ) : (
         <>
           <p class="small">
             <strong>{t('account.guest')}</strong> {t('account.guestHint')}
           </p>
-          <button class="btn btn-primary" disabled={busy} onClick={() => run('linkGoogle')}>
+          {last && (
+            <button
+              class="btn btn-primary"
+              disabled={busy}
+              onClick={() =>
+                last.provider === 'google' || !last.email
+                  ? run('signInGoogle')
+                  : run('signInEmail', 'account.linkSent', last.email)
+              }
+            >
+              {t('account.reconnect', { name: last.email ?? 'Google' })}
+            </button>
+          )}
+          <h4>{t('account.newAccount')}</h4>
+          <button
+            class={`btn ${last ? '' : 'btn-primary'}`}
+            disabled={busy}
+            onClick={() => run('linkGoogle')}
+          >
             {t('account.linkGoogle')}
           </button>
           <label class="small muted" for="kiwar-email">
@@ -93,22 +115,20 @@ export function AccountSection() {
               {t('account.linkEmail')}
             </button>
           </div>
-          <details class="small">
-            <summary>{t('account.existing')}</summary>
-            <p class="muted">{t('account.existingHint')}</p>
-            <div class="row">
-              <button class="btn" disabled={busy} onClick={() => run('signInGoogle')}>
-                {t('account.signInGoogle')}
-              </button>
-              <button
-                class="btn"
-                disabled={busy || !validEmail}
-                onClick={() => run('signInEmail', 'account.linkSent')}
-              >
-                {t('account.signInEmail')}
-              </button>
-            </div>
-          </details>
+          <h4>{t('account.existing')}</h4>
+          <p class="small muted">{t('account.existingHint')}</p>
+          <div class="row">
+            <button class="btn" disabled={busy} onClick={() => run('signInGoogle')}>
+              {t('account.signInGoogle')}
+            </button>
+            <button
+              class="btn"
+              disabled={busy || !validEmail}
+              onClick={() => run('signInEmail', 'account.linkSent')}
+            >
+              {t('account.signInEmail')}
+            </button>
+          </div>
         </>
       )}
       {message && (

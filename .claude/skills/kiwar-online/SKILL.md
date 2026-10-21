@@ -72,7 +72,9 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   `playerId` / `universeId`), never deletes. Client: `game/authRedirect.ts` (redirect errors
   read before `createClient`, the guest stash `kiwar.guestTransfer` written before
   `signInWithGoogle` / `signInWithEmail`), `GameController.offerGuestTransfer` / `keepColony`,
-  `ui/components/AccountNotices.tsx`. The mock cannot run OAuth: test it with unit tests
+  `ui/components/AccountNotices.tsx`. `identity_already_exists` on a guest signs in to that
+  account automatically (`shouldAutoSignIn`, once per tab); `kiwar.lastAccount` drives the
+  "Sign back in" button. The mock cannot run OAuth: test it with unit tests
   (`packages/shared/test/guestTransfer.test.ts`, `apps/client/test/authRedirect.test.ts`).
 - Client side: `game/onlineBackend.ts` (auth: anonymous guest, link Google / magic link),
   `game/onlineConfig.ts` (env `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`), `game/chat.ts`.

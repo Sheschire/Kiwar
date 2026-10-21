@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { takeAuthRedirectError } from '../src/game/authRedirect';
+import { shouldAutoSignIn, takeAuthRedirectError } from '../src/game/authRedirect';
 import { isTaken } from '../src/ui/components/AccountSection';
 
 describe('auth redirect errors', () => {
@@ -33,5 +33,18 @@ describe('auth redirect errors', () => {
       true,
     );
     expect(isTaken({ message: 'Network down' })).toBe(false);
+  });
+
+  it('signs a guest in to an existing Google account once per tab', () => {
+    const data = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => data.get(k) ?? null,
+      setItem: (k: string, v: string) => void data.set(k, v),
+    };
+    const taken = { code: 'identity_already_exists', description: '' };
+    expect(shouldAutoSignIn({ code: 'access_denied', description: '' }, true, storage)).toBe(false);
+    expect(shouldAutoSignIn(taken, false, storage)).toBe(false);
+    expect(shouldAutoSignIn(taken, true, storage)).toBe(true);
+    expect(shouldAutoSignIn(taken, true, storage)).toBe(false);
   });
 });

@@ -1,7 +1,12 @@
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 import type { GameRequest, GameResponse } from '@kiwar/shared';
 import { NetworkError, type OnlineConfig } from './onlineConfig';
-import { takeAuthRedirectError, writeGuestStash, type AuthRedirectError } from './authRedirect';
+import {
+  takeAuthRedirectError,
+  writeGuestStash,
+  writeLastAccount,
+  type AuthRedirectError,
+} from './authRedirect';
 
 export interface Account {
   userId: string;
@@ -50,6 +55,11 @@ export class OnlineBackend {
     });
     this.client.auth.onAuthStateChange((_event, session) => {
       this.account = toAccount(session);
+      if (this.account && !this.account.isAnonymous)
+        writeLastAccount({
+          provider: this.account.providers.includes('google') ? 'google' : 'email',
+          email: this.account.email,
+        });
       onAccount(this.account);
     });
   }

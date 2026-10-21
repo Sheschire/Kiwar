@@ -673,7 +673,11 @@ export const fr: Dict = {
     emailPlaceholder: 'vous@exemple.fr',
     linkEmail: 'Sauvegarder avec un lien magique',
     linkSent: 'Ouvrez votre boîte mail et cliquez sur le lien pour confirmer.',
-    existing: 'Déjà un compte ?',
+    existing: 'J’ai déjà un compte',
+    newAccount: 'Nouveau compte',
+    reconnect: 'Me reconnecter ({name})',
+    signOutHint:
+      'Vous redeviendrez invité·e sur cet appareil : reconnectez-vous ensuite pour retrouver votre colonie.',
     existingHint:
       'Votre colonie invitée vous suit : si votre compte a déjà la sienne, vous choisirez laquelle garder.',
     signInGoogle: 'Se connecter avec Google',

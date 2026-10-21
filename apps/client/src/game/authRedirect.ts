@@ -70,3 +70,50 @@ export function clearGuestStash(): void {
     // ignore
   }
 }
+
+const AUTO_SIGN_IN_KEY = 'kiwar.autoSignIn';
+
+/**
+ * A guest pressed "Continue with Google" with a Google account that already has its own user
+ * (e.g. after signing out): sign in to that account straight away, once per tab, so a second
+ * failure only shows the banner.
+ */
+export function shouldAutoSignIn(
+  error: AuthRedirectError,
+  isGuest: boolean,
+  storage: Pick<Storage, 'getItem' | 'setItem'> = sessionStorage,
+): boolean {
+  if (error.code !== 'identity_already_exists' || !isGuest) return false;
+  try {
+    if (storage.getItem(AUTO_SIGN_IN_KEY)) return false;
+    storage.setItem(AUTO_SIGN_IN_KEY, '1');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The last permanent account used on this device, offered first after a sign-out. */
+export interface LastAccount {
+  provider: 'google' | 'email';
+  email: string | null;
+}
+
+const LAST_ACCOUNT_KEY = 'kiwar.lastAccount';
+
+export function readLastAccount(): LastAccount | null {
+  try {
+    const last = JSON.parse(localStorage.getItem(LAST_ACCOUNT_KEY) ?? 'null') as LastAccount | null;
+    return last && (last.provider === 'google' || last.provider === 'email') ? last : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeLastAccount(last: LastAccount): void {
+  try {
+    localStorage.setItem(LAST_ACCOUNT_KEY, JSON.stringify(last));
+  } catch {
+    // ignore
+  }
+}
