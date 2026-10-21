@@ -64,6 +64,12 @@ Deno.serve(async (req) => {
         randomSeed,
         randomBytes: (n: number) => crypto.getRandomValues(new Uint8Array(n)),
         isAdmin: !!adminRow,
+        // Guest transfer: only a still-valid token of an anonymous user counts.
+        guestUserOf: async (guestToken: string) => {
+          const { data: guest, error: guestError } = await admin.auth.getUser(guestToken);
+          if (guestError || !guest.user?.is_anonymous) return null;
+          return guest.user.id;
+        },
       },
       body,
     );

@@ -65,6 +65,15 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   states go through `migrateState` in `acceptServer`, the cache fallback never re-throws (it is
   dropped), `boot()` errors and an empty game show `BootScreen` (retry / play solo), panels sit
   in `Guard` error boundaries. The local save import and the first-visit intro are solo only.
+- **Guest transfer** (hotfix, October 2026): `guestTransfer { guestToken, keep? }` — the
+  edge function resolves the token through `ServiceContext.guestUserOf` (valid, anonymous, not
+  the caller; the mock does the same); without `keep` a preview (`transfer`:
+  `GuestTransferPreview`), `keep: 'guest'` swaps the two solo states (`soloFor` re-keys
+  `playerId` / `universeId`), never deletes. Client: `game/authRedirect.ts` (redirect errors
+  read before `createClient`, the guest stash `kiwar.guestTransfer` written before
+  `signInWithGoogle` / `signInWithEmail`), `GameController.offerGuestTransfer` / `keepColony`,
+  `ui/components/AccountNotices.tsx`. The mock cannot run OAuth: test it with unit tests
+  (`packages/shared/test/guestTransfer.test.ts`, `apps/client/test/authRedirect.test.ts`).
 - Client side: `game/onlineBackend.ts` (auth: anonymous guest, link Google / magic link),
   `game/onlineConfig.ts` (env `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`), `game/chat.ts`.
 - Owner setup guide: `docs/SUPABASE_SETUP.md` (keep it in sync with new migrations/env vars).

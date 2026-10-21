@@ -4,6 +4,15 @@ import { useT, useUi } from '../store';
 
 type Op = 'linkGoogle' | 'linkEmail' | 'signInGoogle' | 'signInEmail' | 'signOut';
 
+/** Supabase refuses to link an email or a Google account that already has its own user. */
+export function isTaken(error: { message: string; code?: string }): boolean {
+  return (
+    error.code === 'email_exists' ||
+    error.code === 'identity_already_exists' ||
+    /already (been )?(registered|linked|exists)/i.test(error.message)
+  );
+}
+
 /** Guest → account conversion (Google or magic link), sign-in on another device, sign-out. */
 export function AccountSection() {
   const t = useT();
@@ -11,6 +20,8 @@ export function AccountSection() {
   const account = useUi((s) => s.account);
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  /** The Google account or the email already belongs to an account: offer to sign in. */
+  const [taken, setTaken] = useState<'google' | 'email' | null>(null);
   const [busy, setBusy] = useState(false);
 
   if (sync === 'local') {
@@ -25,9 +36,17 @@ export function AccountSection() {
   const run = async (op: Op, sentKey?: 'account.linkSent') => {
     setBusy(true);
     setMessage(null);
+    setTaken(null);
     const error = await actions.account(op, email.trim());
     setBusy(false);
-    if (error) setMessage({ kind: 'error', text: t('account.error', { message: error }) });
+    if (error && op === 'linkEmail' && isTaken(error)) {
+      setTaken('email');
+      setMessage({ kind: 'error', text: t('account.emailTaken') });
+    } else if (error && op === 'linkGoogle' && isTaken(error)) {
+      setTaken('google');
+      setMessage({ kind: 'error', text: t('account.googleTaken') });
+    } else if (error)
+      setMessage({ kind: 'error', text: t('account.error', { message: error.message }) });
     else if (sentKey) setMessage({ kind: 'ok', text: t(sentKey) });
   };
   const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
@@ -94,6 +113,17 @@ export function AccountSection() {
       )}
       {message && (
         <p class={`small ${message.kind === 'error' ? 'warn' : 'bonus'}`}>{message.text}</p>
+      )}
+      {taken && (
+        <button
+          class="btn btn-primary"
+          disabled={busy}
+          onClick={() =>
+            taken === 'google' ? run('signInGoogle') : run('signInEmail', 'account.linkSent')
+          }
+        >
+          {t(taken === 'google' ? 'account.signInGoogle' : 'account.signInEmail')}
+        </button>
       )}
     </div>
   );

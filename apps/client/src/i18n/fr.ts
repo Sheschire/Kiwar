@@ -671,7 +671,8 @@ export const fr: Dict = {
     linkEmail: 'Sauvegarder avec un lien magique',
     linkSent: 'Ouvrez votre boîte mail et cliquez sur le lien pour confirmer.',
     existing: 'Déjà un compte ?',
-    existingHint: 'La colonie invitée de cet appareil sera remplacée par celle de votre compte.',
+    existingHint:
+      'Votre colonie invitée vous suit : si votre compte a déjà la sienne, vous choisirez laquelle garder.',
     signInGoogle: 'Se connecter avec Google',
     signInEmail: 'Recevoir un lien de connexion',
     signOut: 'Se déconnecter',
@@ -679,6 +680,26 @@ export const fr: Dict = {
     error: 'Un souci est survenu : {message}',
     nudge: 'Votre colonie grandit ! Sauvegardez-la pour ne pas la perdre.',
     nudgeAction: 'Sauvegarder ma colonie',
+    googleTaken:
+      'Ce compte Google a déjà sa colonie Kiwar. Connectez-vous à ce compte : votre colonie invitée vous suivra.',
+    emailTaken:
+      'Cette adresse a déjà un compte. Recevez un lien de connexion : votre colonie invitée vous suivra.',
+    authErrors: {
+      identity_already_exists:
+        'Ce compte Google a déjà sa colonie Kiwar. Connectez-vous à ce compte : votre colonie invitée vous suivra.',
+      access_denied:
+        'La connexion a été annulée ou refusée par Google. Réessayez quand vous voulez.',
+      other: 'La connexion n’a pas abouti : {message}',
+    },
+    transferTitle: 'Quelle colonie garder ?',
+    transferHint:
+      'Vous jouiez en invité sur cet appareil, et votre compte a déjà sa propre colonie. Choisissez celle que vous voulez continuer.',
+    transferGuest: 'Colonie invitée (cet appareil)',
+    transferAccount: 'Colonie du compte',
+    colonyLine: '{age} · Nid {nest} · {kiwis} kiwis · jouée il y a {ago}',
+    keepGuest: 'Garder la colonie invitée',
+    keepAccount: 'Garder la colonie du compte',
+    transferSafe: 'L’autre colonie n’est pas effacée : elle reste sur le serveur.',
   },
   sync: {
     local: 'Sauvegardé dans ce navigateur',

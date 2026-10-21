@@ -12,7 +12,13 @@ import { type Command } from '../sim/commands';
 import type { GameEvent } from '../sim/advance';
 import type { GameState } from '../sim/state';
 import { FACES, type Face } from '../types/ids';
-import type { AllySnapshot, TwinSnapshot, UniverseInfo, UniverseSummary } from './universes';
+import type {
+  AllySnapshot,
+  ColonyPower,
+  TwinSnapshot,
+  UniverseInfo,
+  UniverseSummary,
+} from './universes';
 
 /**
  * Client ↔ server protocol (milestone 2). The server is authoritative: the client only sends
@@ -178,6 +184,16 @@ export const requestSchema = z.discriminatedUnion('action', [
     face: z.enum(FACES),
   }),
   z.object({ action: z.literal('import'), save: z.string().min(2).max(500_000) }),
+  /**
+   * A guest signed in to an existing account: bring the guest's solo colony along. Without
+   * `keep`, only previews both colonies; `keep: 'guest'` swaps the two solo colonies (nothing
+   * is ever deleted), `keep: 'account'` leaves them as they are.
+   */
+  z.object({
+    action: z.literal('guestTransfer'),
+    guestToken: z.string().min(16).max(8000),
+    keep: z.enum(['guest', 'account']).optional(),
+  }),
   /** Chantier 05: a newcomer moves to the other face of their kiwi while still pristine. */
   z.object({
     action: z.literal('pickFace'),
@@ -187,6 +203,20 @@ export const requestSchema = z.discriminatedUnion('action', [
 ]);
 
 export type GameRequest = z.infer<typeof requestSchema>;
+
+/** One solo colony as shown when a guest chooses which one to keep. */
+export interface ColonySummary extends ColonyPower {
+  /** Simulated time of the stored state (last time it was played). */
+  playedAt: number;
+}
+
+/** `guestTransfer` preview: the guest's colony and the account's own (null: none yet). */
+export interface GuestTransferPreview {
+  guest: ColonySummary | null;
+  account: ColonySummary | null;
+  /** The account's solo colony was never played: the guest's one can replace it freely. */
+  accountPristine: boolean;
+}
 
 export const SERVER_ERRORS = [
   'invalidRequest',
@@ -218,6 +248,8 @@ export type GameResponse =
       twin?: TwinSnapshot | null;
       /** Shared universe: the other players' colonies, on kiwis far away (layout only). */
       allies?: AllySnapshot[];
+      /** `guestTransfer` without `keep`. */
+      transfer?: GuestTransferPreview;
     }
   | { ok: false; error: ServerError; state?: GameState; serverTime: number };
 

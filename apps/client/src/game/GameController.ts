@@ -22,6 +22,7 @@ import {
   type Resources,
   type ServerError,
   type AllySnapshot,
+  type GuestTransferPreview,
   type TwinSnapshot,
   type UniverseInfo,
   type UniverseSummary,
@@ -30,6 +31,7 @@ import {
   stardustOf,
 } from '@kiwar/shared';
 import type { Account, OnlineBackend } from './onlineBackend';
+import { clearGuestStash, readGuestStash, type AuthRedirectError } from './authRedirect';
 import { NetworkError, onlineConfig, type OnlineConfig } from './onlineConfig';
 
 const SAVE_KEY = 'kiwar.save.v1';
@@ -86,6 +88,10 @@ export interface ControllerListener {
   onTwin(twin: TwinSnapshot | null): void;
   /** The other players of the universe, on kiwis far away (shared universes). */
   onAllies(allies: AllySnapshot[]): void;
+  /** An auth error came back on the redirect URL (shown once). */
+  onAuthError(error: AuthRedirectError | null): void;
+  /** The guest's colony may follow into this account: which one to keep? (null: done). */
+  onGuestTransfer(preview: GuestTransferPreview | null): void;
 }
 
 function safeStorage<T>(fn: () => T, fallback: T): T {
@@ -401,8 +407,10 @@ export class GameController {
       const account = await this.online!.init();
       this.userId = account.userId;
       this.listener.onAccount(account);
+      if (this.online!.redirectError) this.listener.onAuthError(this.online!.redirectError);
       await this.loadFromServer(world);
       await this.importLocalSaveOnce();
+      await this.offerGuestTransfer();
     } catch (e) {
       if (!(e instanceof NetworkError)) console.error(e);
       // Show the last known colony (if any) and keep trying to reconnect.
@@ -727,7 +735,59 @@ export class GameController {
     if (account && this.userId && account.userId !== this.userId) {
       this.userId = account.userId;
       this.serverState = null;
-      void this.loadFromServer(null).catch(() => this.listener.onSync('offline'));
+      void this.loadFromServer(null)
+        .then(() => this.offerGuestTransfer())
+        .catch(() => this.listener.onSync('offline'));
+    }
+  }
+
+  /**
+   * After signing in to another account, the guest colony left behind may follow
+   * (`guestTransfer`): silently when the account's own colony was never played, otherwise
+   * the player chooses (`keepColony`).
+   */
+  private async offerGuestTransfer(): Promise<void> {
+    const stash = readGuestStash();
+    const account = this.online?.currentAccount;
+    if (!stash || !account || account.isAnonymous || account.userId === stash.userId) return;
+    try {
+      const res = await this.online!.call({ action: 'guestTransfer', guestToken: stash.token });
+      if (!res.ok || !res.transfer?.guest) {
+        clearGuestStash();
+        return;
+      }
+      if (res.transfer.accountPristine) await this.keepColony('guest');
+      else this.listener.onGuestTransfer(res.transfer);
+    } catch (e) {
+      // Offline: the stash stays for the next start (until the guest token expires).
+      if (!(e instanceof NetworkError)) console.error(e);
+    }
+  }
+
+  /** The player's choice after `onGuestTransfer`. */
+  async keepColony(keep: 'guest' | 'account'): Promise<void> {
+    const stash = readGuestStash();
+    this.listener.onGuestTransfer(null);
+    if (!stash || !this.online) return;
+    try {
+      const res = await this.online.call({
+        action: 'guestTransfer',
+        guestToken: stash.token,
+        keep,
+      });
+      clearGuestStash();
+      if (!res.ok) {
+        this.listener.onError(res.error);
+        return;
+      }
+      if (keep === 'guest' && this.universe === 'solo' && res.state) {
+        this.acceptServer(res);
+        this.pending = [];
+        this.loadState(res.state);
+      }
+    } catch (e) {
+      if (!(e instanceof NetworkError)) console.error(e);
+      this.listener.onError('network');
     }
   }
 

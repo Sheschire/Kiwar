@@ -37,7 +37,7 @@ import { deliveryOf } from '../sim/deliveries';
 import { ensureAliens, publicState } from '../sim/aliens';
 import { generateFace, type FaceMap } from '../worldgen/generateFace';
 import type { Face, KiwiId, PlayerId, UniverseId } from '../types/ids';
-import { requestSchema, type GameResponse, type ServerError } from './protocol';
+import { requestSchema, type ColonySummary, type GameResponse, type ServerError } from './protocol';
 import {
   assignFace,
   inviteCode,
@@ -119,6 +119,11 @@ export interface ServiceContext {
   randomBytes: (n: number) => Uint8Array;
   /** Admins may use debug commands (time is never accelerable server-side). */
   isAdmin?: boolean;
+  /**
+   * `guestTransfer`: the anonymous (guest) user an access token belongs to, or null when the
+   * token is invalid, expired or not a guest's. Absent: transfers are unavailable.
+   */
+  guestUserOf?: (token: string) => Promise<string | null>;
 }
 
 export const RATE_LIMIT = { windowMs: 10_000, maxCommands: 40 };
@@ -141,17 +146,83 @@ function baseMapFor(state: GameState): FaceMap {
   return map;
 }
 
-const soloId = (ctx: ServiceContext) => `solo-${ctx.userId}`;
+const soloOf = (userId: string) => `solo-${userId}`;
+const soloId = (ctx: ServiceContext) => soloOf(ctx.userId);
 
-function freshGame(ctx: ServiceContext, seed: string, face: Face): GameState {
+function freshGame(
+  ctx: ServiceContext,
+  seed: string,
+  face: Face,
+  userId: string = ctx.userId,
+): GameState {
   return newGame({
     seed,
     face,
     now: ctx.now(),
-    playerId: ctx.userId,
-    universeId: soloId(ctx),
+    playerId: userId,
+    universeId: soloOf(userId),
     alienSeed: ctx.randomSeed(),
   });
+}
+
+/** A solo colony handed to another user (guest transfer): same game, new owner. */
+function soloFor(state: GameState, userId: string): GameState {
+  return {
+    ...state,
+    playerId: userId as PlayerId,
+    universeId: soloOf(userId) as UniverseId,
+  };
+}
+
+function colonySummary(game: StoredGame | null): ColonySummary | null {
+  return game ? { ...colonyPower(game.state), playedAt: game.state.now } : null;
+}
+
+/**
+ * A guest signed in to an existing account (chantier 20 hotfix): the guest's solo colony
+ * follows. Without `keep`, previews both; `keep: 'guest'` swaps the two solo colonies, so the
+ * account's previous one stays with the guest user (never deleted); `keep: 'account'` changes
+ * nothing.
+ */
+async function guestTransfer(
+  ctx: ServiceContext,
+  repo: GameRepository,
+  guestToken: string,
+  keep: 'guest' | 'account' | undefined,
+): Promise<GameResponse> {
+  const fail = (error: ServerError): GameResponse => ({ ok: false, error, serverTime: ctx.now() });
+  const guestId = ctx.guestUserOf ? await ctx.guestUserOf(guestToken) : null;
+  if (!guestId || guestId === ctx.userId) return fail('forbidden');
+  const guest = await repo.findGame(guestId, soloOf(guestId));
+  const mine = await repo.findGame(ctx.userId, soloId(ctx));
+  const guestPlayed = !!guest && !isPristine(guest.state);
+  if (keep === undefined) {
+    return {
+      ok: true,
+      events: [],
+      transfer: {
+        guest: guestPlayed ? colonySummary(guest) : null,
+        account: colonySummary(mine),
+        accountPristine: !mine || isPristine(mine.state),
+      },
+      serverTime: ctx.now(),
+    };
+  }
+  if (keep === 'account' || !guest || !guestPlayed) {
+    return mine ? reply(ctx, mine.state) : fail('invalidRequest');
+  }
+  const incoming = soloFor(guest.state, ctx.userId);
+  const saved = mine
+    ? await repo.update(mine.id, incoming, mine.version)
+    : await repo.create(ctx.userId, soloId(ctx), incoming);
+  if (!saved) return fail('conflict');
+  // The account's previous colony goes to the guest user (a fresh world if it had none):
+  // the guest's colony never exists twice.
+  const left = mine
+    ? soloFor(mine.state, guestId)
+    : freshGame(ctx, ctx.randomSeed(), 'kiwisu', guestId);
+  await repo.update(guest.id, left, guest.version);
+  return reply(ctx, saved.state);
 }
 
 /** Where a request plays: the player's solo universe or a shared one they belong to. */
@@ -675,6 +746,9 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
       const created = await repo.create(ctx.userId, scope.universeId, state);
       return { ...reply(ctx, created.state), universe: scope.shared?.info, ...near };
     }
+
+    case 'guestTransfer':
+      return guestTransfer(ctx, repo, req.guestToken, req.keep);
 
     case 'newWorld': {
       const state = freshGame(ctx, req.seed ?? ctx.randomSeed(), req.face);

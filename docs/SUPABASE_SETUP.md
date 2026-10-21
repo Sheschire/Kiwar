@@ -26,7 +26,12 @@ Dans **Authentication** :
      créez un **OAuth client ID** de type _Web application_ ;
    - dans _Authorized redirect URIs_, collez l'URL de callback affichée par Supabase
      (`https://xxxx.supabase.co/auth/v1/callback`) ;
-   - recopiez le _Client ID_ et le _Client secret_ dans Supabase, puis activez le fournisseur.
+   - recopiez le _Client ID_ et le _Client secret_ dans Supabase, puis activez le fournisseur ;
+   - dans **Google Auth Platform → Audience** (écran de consentement), **publiez l'application**
+     (_Publish app_, statut « En production ») : tant qu'elle est « En test », seules les
+     adresses ajoutées comme testeur·euses peuvent se connecter, et les autres voient une erreur.
+     Les navigateurs intégrés aux applis (Instagram, Messenger…) sont refusés par Google : il
+     faut ouvrir le jeu dans Safari ou Chrome.
 5. **URL Configuration** :
    - _Site URL_ : `https://kiwars.vercel.app`, ou votre domaine ;
    - _Redirect URLs_ : ajoutez `https://kiwars.vercel.app/**`, `https://kiwars-*-sheschires-projects.vercel.app/**`

@@ -204,6 +204,8 @@ controller = new GameController({
   onOfflineSummary: (summary) => uiStore.setState({ offlineSummary: summary, recapOpen: false }),
   onSync: (sync) => uiStore.setState({ sync }),
   onAccount: (account) => uiStore.setState({ account }),
+  onAuthError: (authError) => uiStore.setState({ authError }),
+  onGuestTransfer: (guestTransfer) => uiStore.setState({ guestTransfer }),
   onUniverse: (universe) => {
     if (!universe) {
       friend = null;

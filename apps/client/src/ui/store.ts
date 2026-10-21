@@ -11,8 +11,14 @@ import {
 } from '../i18n/i18n';
 import type { OfflineSummary, SyncStatus } from '../game/GameController';
 import type { Account } from '../game/onlineBackend';
+import type { AuthRedirectError } from '../game/authRedirect';
 import type { ChatMessage } from '../game/chat';
-import type { AllySnapshot, LogisticsChange, UniverseInfo } from '@kiwar/shared';
+import type {
+  AllySnapshot,
+  GuestTransferPreview,
+  LogisticsChange,
+  UniverseInfo,
+} from '@kiwar/shared';
 import type { QualityChoice, QualityPreset } from '../render/quality';
 import { DEFAULT_SETTINGS, type AudioSettings } from '../audio/settings';
 import type { IntroUi } from './intro';
@@ -68,6 +74,10 @@ export interface UiState {
   toasts: Toast[];
   sync: SyncStatus;
   account: Account | null;
+  /** Auth error sent back by a redirect (Google, magic link), until dismissed. */
+  authError: AuthRedirectError | null;
+  /** The guest colony may follow into this account: the player picks one. */
+  guestTransfer: GuestTransferPreview | null;
   /** Launchpad being prepared (expedition modal). */
   expeditionPad: string | null;
   /** The expedition modal opens on a delivery to this ally (`Friend.id`). */
@@ -190,6 +200,8 @@ export const uiStore = createStore<UiState>(() => ({
   toasts: [],
   sync: 'local',
   account: null,
+  authError: null,
+  guestTransfer: null,
   expeditionPad: null,
   deliverTo: null,
   reportId: null,

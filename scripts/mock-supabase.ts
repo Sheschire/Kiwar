@@ -124,6 +124,10 @@ createServer(async (req, res) => {
         randomSeed: () => randomUUID().slice(0, 8),
         randomBytes: (n) => randomBytes(n),
         isAdmin: true,
+        guestUserOf: async (token) => {
+          const guest = userFromToken(`Bearer ${token}`);
+          return guest?.is_anonymous ? guest.id : null;
+        },
       },
       body,
     );

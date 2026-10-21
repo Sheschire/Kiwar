@@ -126,7 +126,7 @@ Larger choices were validated with the project owner (marked ✅).
 
 ## Milestone 2 — backend (Supabase)
 
-- **Guests are anonymous Supabase users** (`signInAnonymously`): playing starts immediately, the game is already server-side, and converting keeps the same user id (Google via `linkIdentity`, email via `updateUser` + confirmation link). Signing in to an existing account on another device replaces the local guest colony (the UI says so).
+- **Guests are anonymous Supabase users** (`signInAnonymously`): playing starts immediately, the game is already server-side, and converting keeps the same user id (Google via `linkIdentity`, email via `updateUser` + confirmation link). Signing in to an existing account on another device replaced the local guest colony (since the October 2026 hotfix, the guest colony can follow: see "Guest colony follows a sign-in").
 - **Server authority**: the `game` edge function (Deno) runs the very same shared rules (bundled from `packages/shared` with esbuild; a test fails if the bundle is stale). The client never sends state, only commands; the server owns the clock (no time multiplier online) and the randomness (seeds).
 - **Protocol** (`shared/server/protocol.ts`, zod-validated): `load` (creates the game if needed, optionally from a shared link), `command`, `newWorld`, `import`. Responses carry the authoritative state and the server time.
 - **Optimistic client**: commands are applied locally for instant feedback, queued, sent in order; each answer rebases the local state (authoritative state + still-pending commands, advanced to now). Rejected commands show the error and roll back. Offline: commands wait and retry with exponential backoff (2 s → 30 s); the last authoritative state is cached for display.
@@ -1279,9 +1279,35 @@ PC), while phones are very smooth. Measured with Playwright/CDP on the `perfSave
   unchanged, Nest 3 3.8 → 3.7 h, Library 4.1 → 3.8 h, mayor 13.3 → 12.6 h, level 10 2.1 days
   unchanged, Stone age 32.4 → 28.8 h; the Iron age now shows up within 72 h (2.9 days, reached
   by about half the runs: the report's ⚠️ only says that). Ages probe (`pnpm balance:ages --
-  --seeds 2 --days 12`, median of the biomes): Stone 33.8 → 29.1 h (−14 %), Iron 84 → 74 h
+--seeds 2 --days 12`, median of the biomes): Stone 33.8 → 29.1 h (−14 %), Iron 84 → 74 h
   (−12 %), Industry 175 → 159 h (−9 %), all within the ±15 % the owner asked for; the gain is
   the automation itself (sites in parallel, never without a builder, researchers always there).
+
+## Guest colony follows a sign-in (hotfix, October 2026)
+
+A friend of the owner lost his guest colony when creating an account, and Google sign-in "did
+nothing". Cause: a Google link that failed after the redirect (that Google account already had
+a Kiwar user, or the consent screen was still in "Testing") left an error on the URL that
+supabase-js drops silently; the player then used "Already have an account?", which switches to
+another user id: the guest colony stayed in the database under the old anonymous user.
+
+- **Errors after a redirect are shown**: `game/authRedirect.ts` reads `error` /
+  `error_code` / `error_description` from the query or the hash **before** `createClient`, and
+  cleans the URL; `AuthErrorBanner` explains it (FR + EN), with "Sign in with Google" when that
+  Google account already has a user (`identity_already_exists`). Linking an email or a Google
+  account that already has a user (`email_exists`, "already registered") offers to sign in
+  instead (`AccountSection`, `isTaken`).
+- **The guest colony follows** (`guestTransfer`): before signing in to another account
+  (`signInWithGoogle` / `signInWithEmail`), the guest's access token is kept in localStorage
+  (`kiwar.guestTransfer`, until it expires, about an hour: it survives the redirect and the
+  magic-link tab). After sign-in, the client asks the server: the edge function resolves the
+  token (`guestUserOf`: valid, anonymous, not the caller), the service previews both solo
+  colonies. An untouched account colony is replaced silently; otherwise the player chooses
+  (`GuestTransferModal`). `keep: 'guest'` **swaps** the two solo states (re-keyed `playerId` /
+  `universeId`), so the account's previous colony stays with the guest user and a colony never
+  exists twice; nothing is deleted. Owner's choice: ask which one to keep.
+- Only the **solo** colony follows: a guest's shared-universe colonies stay with the guest
+  user (memberships are keyed by user id; rare for a guest). No SQL change.
 
 ## Chantier 17 — Visual identity: distinct buildings, alien planet, living sky
 

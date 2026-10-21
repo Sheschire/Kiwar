@@ -11,6 +11,7 @@ import { JoinModal, UniverseModal } from './components/UniverseModal';
 import { ObjectivesPanel } from './components/ObjectivesPanel';
 import { QueuePanel } from './components/QueuePanel';
 import { SaveNudge } from './components/SaveNudge';
+import { AuthErrorBanner, GuestTransferModal } from './components/AccountNotices';
 import { TilePanel } from './components/TilePanel';
 import { OfflineModal } from './components/OfflineModal';
 import { PathButton, PathToolbar } from './components/PathTools';
@@ -149,6 +150,7 @@ export function App() {
       <QueuePanel />
       <ExpeditionsPanel />
       <SaveNudge />
+      <AuthErrorBanner />
       <RecapBubble />
       <EggButton />
       <PathButton />
@@ -181,6 +183,7 @@ export function App() {
         <JoinModal />
         <ChatPanel />
         <OfflineModal />
+        <GuestTransferModal />
         <WorldModal />
         <IntroOverlay />
       </Guard>

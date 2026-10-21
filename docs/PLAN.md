@@ -93,6 +93,9 @@ chantiers de simulation après le 19 : 25 → 26 → 27, et 28, 29. Le chantier 
   logiciel, à confirmer par le porteur avec `?debug` pendant la pose.
 - Les camps posés sur le jus flottent un peu.
 - Pas de modération automatique du chat (signalements seulement).
+- Compte : seule la colonie **solo** d'un·e invité·e suit une connexion à un autre compte (ses
+  colonies d'univers restent à l'utilisateur invité) ; le passage par Google n'a pas pu être
+  testé avec le mock (pas d'OAuth), seulement par tests unitaires.
 - Déménager un bâtiment (garder son niveau contre un coût) : écarté du chantier 01, à revoir.
 - Remboursement de démolition approximatif quand plusieurs copies ont été construites (prix de la
   dernière copie).

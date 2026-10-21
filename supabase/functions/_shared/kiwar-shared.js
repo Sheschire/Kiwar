@@ -12320,6 +12320,16 @@ var requestSchema = external_exports.discriminatedUnion("action", [
     face: external_exports.enum(FACES)
   }),
   external_exports.object({ action: external_exports.literal("import"), save: external_exports.string().min(2).max(5e5) }),
+  /**
+   * A guest signed in to an existing account: bring the guest's solo colony along. Without
+   * `keep`, only previews both colonies; `keep: 'guest'` swaps the two solo colonies (nothing
+   * is ever deleted), `keep: 'account'` leaves them as they are.
+   */
+  external_exports.object({
+    action: external_exports.literal("guestTransfer"),
+    guestToken: external_exports.string().min(16).max(8e3),
+    keep: external_exports.enum(["guest", "account"]).optional()
+  }),
   /** Chantier 05: a newcomer moves to the other face of their kiwi while still pristine. */
   external_exports.object({
     action: external_exports.literal("pickFace"),
@@ -12359,16 +12369,56 @@ function baseMapFor(state) {
   }
   return map;
 }
-var soloId = (ctx) => `solo-${ctx.userId}`;
-function freshGame(ctx, seed, face) {
+var soloOf = (userId) => `solo-${userId}`;
+var soloId = (ctx) => soloOf(ctx.userId);
+function freshGame(ctx, seed, face, userId = ctx.userId) {
   return newGame({
     seed,
     face,
     now: ctx.now(),
-    playerId: ctx.userId,
-    universeId: soloId(ctx),
+    playerId: userId,
+    universeId: soloOf(userId),
     alienSeed: ctx.randomSeed()
   });
+}
+function soloFor(state, userId) {
+  return {
+    ...state,
+    playerId: userId,
+    universeId: soloOf(userId)
+  };
+}
+function colonySummary(game) {
+  return game ? { ...colonyPower(game.state), playedAt: game.state.now } : null;
+}
+async function guestTransfer(ctx, repo, guestToken, keep) {
+  const fail2 = (error) => ({ ok: false, error, serverTime: ctx.now() });
+  const guestId = ctx.guestUserOf ? await ctx.guestUserOf(guestToken) : null;
+  if (!guestId || guestId === ctx.userId) return fail2("forbidden");
+  const guest = await repo.findGame(guestId, soloOf(guestId));
+  const mine = await repo.findGame(ctx.userId, soloId(ctx));
+  const guestPlayed = !!guest && !isPristine(guest.state);
+  if (keep === void 0) {
+    return {
+      ok: true,
+      events: [],
+      transfer: {
+        guest: guestPlayed ? colonySummary(guest) : null,
+        account: colonySummary(mine),
+        accountPristine: !mine || isPristine(mine.state)
+      },
+      serverTime: ctx.now()
+    };
+  }
+  if (keep === "account" || !guest || !guestPlayed) {
+    return mine ? reply(ctx, mine.state) : fail2("invalidRequest");
+  }
+  const incoming = soloFor(guest.state, ctx.userId);
+  const saved = mine ? await repo.update(mine.id, incoming, mine.version) : await repo.create(ctx.userId, soloId(ctx), incoming);
+  if (!saved) return fail2("conflict");
+  const left = mine ? soloFor(mine.state, guestId) : freshGame(ctx, ctx.randomSeed(), "kiwisu", guestId);
+  await repo.update(guest.id, left, guest.version);
+  return reply(ctx, saved.state);
 }
 async function resolveScope(ctx, repo, universe2) {
   if (!universe2 || universe2 === "solo") return { universeId: soloId(ctx), shared: null };
@@ -12753,6 +12803,8 @@ async function handle(ctx, body) {
       const created = await repo.create(ctx.userId, scope.universeId, state);
       return { ...reply(ctx, created.state), universe: scope.shared?.info, ...near };
     }
+    case "guestTransfer":
+      return guestTransfer(ctx, repo, req.guestToken, req.keep);
     case "newWorld": {
       const state = freshGame(ctx, req.seed ?? ctx.randomSeed(), req.face);
       const existing = await repo.findGame(ctx.userId, soloId(ctx));

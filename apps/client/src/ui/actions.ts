@@ -237,7 +237,7 @@ export const actions = {
   async account(
     op: 'linkGoogle' | 'linkEmail' | 'signInGoogle' | 'signInEmail' | 'signOut',
     email?: string,
-  ): Promise<string | null> {
+  ): Promise<{ message: string; code?: string } | null> {
     const backend = controller?.online;
     if (!backend) return null;
     try {
@@ -251,8 +251,16 @@ export const actions = {
       }
       return null;
     } catch (e) {
-      return e instanceof Error ? e.message : String(e);
+      const code = (e as { code?: unknown } | null)?.code;
+      return {
+        message: e instanceof Error ? e.message : String(e),
+        ...(typeof code === 'string' ? { code } : {}),
+      };
     }
+  },
+  /** After signing in from a guest: which solo colony the account keeps. */
+  async keepColony(keep: 'guest' | 'account'): Promise<void> {
+    await controller?.keepColony(keep);
   },
   async listUniverses() {
     return (await controller?.listUniverses()) ?? [];

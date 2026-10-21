@@ -638,7 +638,8 @@ export const en = {
     linkEmail: 'Save with a magic link',
     linkSent: 'Check your inbox and click the link to confirm.',
     existing: 'Already have an account?',
-    existingHint: 'Your guest colony on this device will be replaced by your account’s colony.',
+    existingHint:
+      'Your guest colony comes along: if your account already has one, you will choose which to keep.',
     signInGoogle: 'Sign in with Google',
     signInEmail: 'Send me a sign-in link',
     signOut: 'Sign out',
@@ -646,6 +647,25 @@ export const en = {
     error: 'Something went wrong: {message}',
     nudge: 'Your colony is growing! Save it to keep it safe.',
     nudgeAction: 'Save my colony',
+    googleTaken:
+      'This Google account already has a Kiwar colony. Sign in to it: your guest colony will come along.',
+    emailTaken:
+      'This address already has an account. Get a sign-in link: your guest colony will come along.',
+    authErrors: {
+      identity_already_exists:
+        'This Google account already has a Kiwar colony. Sign in to it: your guest colony will come along.',
+      access_denied: 'Sign-in was cancelled or refused by Google. Try again whenever you like.',
+      other: 'Sign-in did not go through: {message}',
+    },
+    transferTitle: 'Which colony to keep?',
+    transferHint:
+      'You were playing as a guest on this device, and your account already has its own colony. Choose the one you want to go on with.',
+    transferGuest: 'Guest colony (this device)',
+    transferAccount: 'Account colony',
+    colonyLine: '{age} · Nest {nest} · {kiwis} kiwis · played {ago} ago',
+    keepGuest: 'Keep the guest colony',
+    keepAccount: 'Keep the account colony',
+    transferSafe: 'The other colony is not erased: it stays on the server.',
   },
   sync: {
     local: 'Saved in this browser',

@@ -1,6 +1,7 @@
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 import type { GameRequest, GameResponse } from '@kiwar/shared';
 import { NetworkError, type OnlineConfig } from './onlineConfig';
+import { takeAuthRedirectError, writeGuestStash, type AuthRedirectError } from './authRedirect';
 
 export interface Account {
   userId: string;
@@ -37,8 +38,13 @@ function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<
 export class OnlineBackend {
   readonly client: SupabaseClient;
   private account: Account | null = null;
+  /** Error that came back from the last redirect (Google, magic link), shown once. */
+  readonly redirectError: AuthRedirectError | null;
 
   constructor(config: OnlineConfig, onAccount: (account: Account | null) => void) {
+    const { error, cleaned } = takeAuthRedirectError(window.location.href);
+    this.redirectError = error;
+    if (error) window.history.replaceState(window.history.state, '', cleaned);
     this.client = createClient(config.url, config.anonKey, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
     });
@@ -54,7 +60,8 @@ export class OnlineBackend {
   }
 
   private async restore(): Promise<Account> {
-    const { data } = await this.client.auth.getSession();
+    const { data, error: sessionError } = await this.client.auth.getSession();
+    if (sessionError) console.error('session', sessionError);
     let session = data.session;
     if (!session) {
       const { data: anon, error } = await this.client.auth.signInAnonymously();
@@ -114,8 +121,24 @@ export class OnlineBackend {
     if (error) throw error;
   }
 
-  /** Returning player on another device (replaces the current guest). */
+  /**
+   * Before switching to another account, remember the guest so its colony can follow
+   * (`guestTransfer`). The token lives until it expires (about an hour).
+   */
+  private async stashGuest(): Promise<void> {
+    const { data } = await this.client.auth.getSession();
+    const session = data.session;
+    if (!session?.user.is_anonymous) return;
+    writeGuestStash({
+      token: session.access_token,
+      userId: session.user.id,
+      expiresAt: (session.expires_at ?? 0) * 1000,
+    });
+  }
+
+  /** Returning player (or a Google account already used): the guest colony may follow. */
   async signInWithGoogle(): Promise<void> {
+    await this.stashGuest();
     const { error } = await this.client.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: this.redirectTo() },
@@ -124,6 +147,7 @@ export class OnlineBackend {
   }
 
   async signInWithEmail(email: string): Promise<void> {
+    await this.stashGuest();
     const { error } = await this.client.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: this.redirectTo(), shouldCreateUser: false },
