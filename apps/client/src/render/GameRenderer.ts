@@ -44,6 +44,7 @@ import { CameraRig } from '../camera/CameraRig';
 import { Environment } from './environment';
 import { FpsMeter } from './fpsMeter';
 import { windUniforms } from './wind';
+import { CropsView, type CropZone } from './crops';
 import { DEFAULT_FPS_CAP, FrameLimiter, IdleWatch, type FpsCap } from './frameLimiter';
 import { GpuTimer } from './gpuTimer';
 import { liteShadows } from './shadowChunk';
@@ -188,6 +189,7 @@ export class GameRenderer {
   private readonly painter: PathPainter;
   private selectedTile: Tile | null = null;
   private clearedTiles = new Set<string>();
+  private crops: CropsView | null = null;
   private lastState: GameState | null = null;
   private postfx: PostFx | null = null;
   /** The post-processing chain that got the current size (a new one needs it). */
@@ -564,11 +566,49 @@ export class GameRenderer {
     }
     this.props = new PropsView(this.map, QUALITY[this.preset].propDensity);
     this.scene.add(this.props.group);
+    if (this.crops) {
+      this.scene.remove(this.crops.group);
+      this.crops.dispose();
+    }
+    this.crops = new CropsView(this.map, QUALITY[this.preset].propDensity);
+    this.scene.add(this.crops.group);
+    if (this.lastState) this.syncCrops(this.lastState, depletedTiles(this.lastState, this.map));
     for (const key of this.clearedTiles) {
       const [q, r] = key.split(',').map(Number) as [number, number];
       this.props.setTileCleared({ q, r }, true);
     }
     this.renderer.shadowMap.needsUpdate = true;
+  }
+
+  /**
+   * Chantier 23: the producers' tiles (their pools) with the fill ratio of the deposit, for the
+   * crops. Returns the keys of the cultivated tiles.
+   */
+  private syncCrops(
+    state: GameState,
+    depleted: ReadonlyMap<string, number>,
+    occupied?: ReadonlySet<string>,
+  ): string[] {
+    const map = this.map;
+    if (!map || !this.crops) return [];
+    const taken =
+      occupied ??
+      new Set([
+        ...state.paths,
+        ...state.buildings.map(hexKey),
+        ...state.queue.map(hexKey),
+        ...state.obstacles.map(hexKey),
+      ]);
+    const zones: CropZone[] = [];
+    for (const b of state.buildings) {
+      if (!b.pool || b.type === 'camp') continue;
+      const type = harvestedTileType(map, b);
+      if (!type) continue;
+      for (const key of b.pool.tiles)
+        if (!taken.has(key)) zones.push({ key, type, ratio: depleted.get(key) ?? 1 });
+    }
+    this.crops.sync(zones, seasonOf(state));
+    return zones.map((z) => z.key);
   }
 
   /** Chantier 16: a wave over the catchment (or the rampart) of each building just finished. */
@@ -610,7 +650,8 @@ export class GameRenderer {
     this.obstacles?.sync(state);
     this.ships?.sync(state);
     this.weather?.sync(state, this.buildings?.lit ?? null);
-    if (this.map) this.terrain?.setDepletion(depletedTiles(state, this.map));
+    const depleted = this.map ? depletedTiles(state, this.map) : null;
+    if (depleted) this.terrain?.setDepletion(depleted);
     this.water?.setFlooded(BIOMES[state.params.biome].floods === seasonOf(state));
     this.refreshCatchment();
     this.refreshLogistics();
@@ -619,6 +660,9 @@ export class GameRenderer {
     for (const b of state.buildings) occupied.add(hexKey(b));
     for (const i of state.queue) occupied.add(hexKey(i));
     for (const o of state.obstacles) occupied.add(hexKey(o));
+    // Chantier 23: cultivated tiles trade their wild props for crops.
+    const crops = depleted ? this.syncCrops(state, depleted, occupied) : [];
+    for (const key of crops) occupied.add(key);
     for (const key of occupied) {
       if (this.clearedTiles.has(key)) continue;
       this.clearedTiles.add(key);
@@ -1213,6 +1257,7 @@ export class GameRenderer {
   private updateScene(dt: number): void {
     this.updateCycles();
     windUniforms.uWindTime.value = this.elapsed;
+    this.crops?.update(dt);
     this.environment.update(this.elapsed);
     this.water?.update(this.elapsed);
     this.allies.update(this.elapsed);

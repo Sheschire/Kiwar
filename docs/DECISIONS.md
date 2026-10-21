@@ -1525,3 +1525,24 @@ tile looks cultivated as soon as its building is placed (whole zone).
   stems, fur sway in the vertex shader (h² × sway, two sines, slow gusts phased by position);
   off in Low. A/B in the same page (software WebGL): no measurable difference.
 - Lanterns on paths: moved to part 5 (the paths are rebuilt there).
+
+### Part 4 — Living harvested tiles
+
+- `render/crops.ts` `CropsView`: every tile of a producer's pool (owner's choice: as soon as
+  the building is placed and owns its zone, not only where kiwis pick) looks cultivated, and
+  its wild props are cleared like under a building. By resource: **flesh** three rows of soil
+  mounds with a pulp bulb and a sprout each (spring: a few white flowers), **grove** trimmed
+  fibre tufts and a bale on its side, **seed ring** two furrows with seeds laid along them,
+  **juice** a little jetty on posts with one or two buckets. Camps keep their own look.
+- **The crop follows the deposit**: the pool's fill ratio (the same as the terrain tint, 8
+  steps): sprouts and tufts shorten (30 % at empty), bulbs and flowers shrink, plants dry
+  towards straw colours, and pieces drop out one by one as the deposit empties (each has its
+  own threshold): full = lush, half = sparse, empty = bare mounds, empty furrows. Emptying
+  shows at once; refilling **grows back** at 0.35 of the ratio a second.
+- Cost: one instanced mesh per piece kind for the whole face (11), capacity grown on demand,
+  matrices and colours written only when a tile changes step or while it regrows. Sprouts and
+  tufts sway with the wind; snow settles on mounds, bales and planks (`withSeasonLook`). Low:
+  a share of the pieces.
+- Left for later: the shiver of a tuft when a kiwi picks it and the picking particles (would
+  need the 3D kiwis to report their harvest tile); a contested tile shows the pool that owns
+  it (pools never overlap).
