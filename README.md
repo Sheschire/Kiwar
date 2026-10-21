@@ -19,6 +19,14 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 > vraiment (et la rotation à deux doigts aussi). Les **grillons** chantent plus rarement, plus
 > bas, et se taisent à la mi-nuit.
 >
+> **Chantier 22** — de **meilleures premières impressions** : au chargement, un kiwi oiseau
+> **court sur un kiwi** qui tourne (plus de texte « On épluche le kiwi »). L'intro **attend le
+> joueur** : le kiwi dérive dans l'espace, vu de trois quarts, sa couture à peine marquée ; on
+> le **touche** (ou on glisse le doigt dessus, ou le bouton « Trancher le kiwi ») et la lame
+> suit exactement la couture. La découpe est **juteuse** : ralenti, chair humide avec ses
+> pépins, filets de jus qui s'étirent entre les moitiés avant de casser, poils qui frémissent,
+> puis la chair fond pour laisser voir les deux faces.
+>
 > **Chantier 17** — on **reconnaît chaque bâtiment** d'un coup d'œil : une couleur par
 > famille (la production prend la couleur de sa ressource, l'entrepôt bois sombre et ardoise,
 > le savoir pierre et bleu, la défense pierre grise et fer), une silhouette signature (grande

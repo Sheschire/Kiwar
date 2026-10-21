@@ -209,7 +209,11 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
 - Icons are inline SVG: named components in `ui/icons.tsx`, and the `<Icon name>` registry of
   `ui/iconSet.tsx` (chantier 11) for buildings, effects and branches.
 - Safety nets: `Guard` (error boundary) wraps the tile sheet, the modals and the whole app;
-  `BootScreen` shows while `game` is null (loading line, or `bootError` with retry / play solo).
+  while loading, the animated `#loader` of `index.html` (chantier 22: inline SVG + CSS, a kiwi
+  bird running on a turning kiwi slice) covers the page until `game`, `intro` or `bootError`
+  is set (`startGame` subscription, then two frames, fade 0.6 s); `BootScreen` only shows
+  `bootError` (retry / play solo). Screenshot the loader by loading `index.html` without its
+  script (`page.setContent`): blocking `main.tsx` stalls the page.
   Never return an empty HUD.
 - Back from a break: `RecapBubble` (corner, < 8 h, auto-closes after 12 s unless alarming;
   "details" sets `recapOpen`) or `OfflineModal` (≥ 8 h or on demand).
@@ -251,4 +255,6 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
    arrive far apart. Stop the loop (`renderer.renderer.setAnimationLoop(null)`) and drive
    `rig.update(1/60)` from a `setInterval`, or step an animation by hand (`intro.update(1/60)`
    up to a time, then `renderer.renderer.render(intro.scene, intro.camera)`) before the shot.
+   A short video: step 1/30 s per frame, a screenshot each, then
+   `ffmpeg -framerate 30 -i f%04d.png -c:v libx264 -pix_fmt yuv420p out.mp4` (installed).
    Touch swipes: CDP `Input.dispatchTouchEvent`.

@@ -1,5 +1,9 @@
 # Chantier 22 — Premières impressions : chargement et intro
 
+> **Fait** (octobre 2026). Réponses du porteur : dessin plat ; tap ou glisser déclenchent la
+> coupe mais la lame suit toujours la couture ; une phrase d'ambiance ; un voile de chair qui
+> fond. Voir « Bilan » en fin de document et `DECISIONS.md`.
+
 Retours de partie de fin octobre 2026. **Client seulement** : peut tourner en parallèle des
 chantiers 19, 20 et 23.
 
@@ -95,3 +99,22 @@ Chemins sous `apps/client/src/`.
    amusant, mais l'orientation suit alors le geste) ?
 3. Faut-il une phrase d'ambiance pendant l'attente (« Une planète kiwi dérive dans
    l'espace… ») ?
+
+## Bilan
+
+Fait :
+
+1. **Écran de chargement** (`index.html`) : kiwi oiseau en aplats qui court sur une tranche de
+   kiwi qui tourne, en SVG + CSS, points après 2,5 s, image fixe en mouvement réduit. Le même
+   `#loader` reste jusqu'à la colonie, l'intro ou l'erreur (plus de saut vers `BootScreen`,
+   qui ne montre plus que l'erreur).
+2. **Intro interactive** : phase `waiting`, kiwi de trois quarts qui dérive et tourne, couture
+   claire sans poils, lueur qui pulse, « Trancher le kiwi » / « Touche le kiwi », phrase
+   d'ambiance, tap ou glisser sur le fruit. La rotation se pose avec la couture en diagonale
+   et la lame court **sur l'arc visible de la couture**, dans le plan de coupe.
+3. **Découpe organique** : ralenti, voile de chair humide (cœur, fibres, pépins, reflets) avec
+   une lueur chaude brève puis qui fond vers les tuiles, filets de jus qui s'étirent et
+   cassent, gerbe plus fine, poils qui frémissent, son plus mat et nouveau son `intro.juice`.
+
+Reste : mesure sur un vrai téléphone (le rendu headless est logiciel) ; écoute des sons
+synthétisés ; filets de jus en cylindres simples.

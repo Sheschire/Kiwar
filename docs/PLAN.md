@@ -55,7 +55,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 19  | Colonisation de la face alien jumelle (siège, seconde colonie)          | à faire |
 | 20  | Correctifs et confort (tap qui se bloque, tri, file repliable, inertie) | ✅      |
 | 21  | Interface mobile : barre au pouce, menu nommé                           | à faire |
-| 22  | Premières impressions : écran de chargement animé, intro interactive    | à faire |
+| 22  | Premières impressions : écran de chargement animé, intro interactive    | ✅      |
 | 23  | Lumières HD, tuiles exploitées vivantes, chemins pavés, sobriété        | à faire |
 | 24  | Caméra libre et planètes fixes dans l'espace                            | à faire |
 | 25  | Classes : une par stat, Cueilleur·euse, arbre de classes                | à faire |
@@ -176,3 +176,7 @@ chantiers de simulation après le 19 : 25 → 26 → 27, et 28, 29. Le chantier 
 - Chantier 13 : ramassage automatisé depuis le chantier 15 ; comète propre à chaque face, non
   montrée sur les planètes alliées ; pas de son dédié aux bénédictions ; la sonde `pnpm balance:ages` vérifie que les
   âges n'attendent pas une comète de trop.
+- Chantier 22 : l'intro n'a été vue qu'en rendu logiciel (images pas à pas) ; la fluidité sur
+  un vrai téléphone moyen (60 images/s visées) reste à confirmer par le porteur ; les sons
+  `intro.slice` et `intro.juice` sont synthétisés, choisis sans écoute (remplaçables depuis
+  `/admin`) ; les filets de jus sont des cylindres (pas de vraie goutte qui s'étire).

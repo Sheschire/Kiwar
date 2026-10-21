@@ -55,12 +55,22 @@ biome)` (memoized), `tileDeposit(tile, biome)`, `twinParams(seed, face, params)`
   group's child that is neither tiles nor water: keep extra parts as children of the dome.
 - **Intro** (`render/intro.ts` `IntroScene`, effects in `render/introFx.ts`): own scene/camera;
   `GameRenderer.playIntro(maps, handlers, skip)` renders it instead of the game (camera
-  controls and taps off), `endIntro()`. Timeline: whole round kiwi (`createWholeKiwi`, shell
-  fur `addFurShells` also put on the halves' domes for the intro, `disposeFur`; domes hidden,
-  rolling around X) → blade streak at 1.6 s (`BladeTrail`) + juice (`JuiceBurst`) +
-  `onSlice` (synth `slice`: whoosh, splash, drops); the halves start as deep as the whole fruit
-  and settle into the game dome while parting 1.9–3.3 s → choice (focus: hover on desktop, taps, tabs) → `choose` →
-  1.3 s dive → `onDone`. Layout: `setIntroLayout` frees the right panel (desktop) or the bottom
+  controls and taps off), `endIntro()`. Phases `waiting` → `playing` → `choice` → `leaving`
+  (chantier 22). **Waiting**: the whole round kiwi (`createWholeKiwi`, shell fur
+  `addFurShells(mesh, lean, parting)` — no hair on the seam —, also put on the halves' domes,
+  `disposeFur`) posed three quarters on (`POSE`, axis `AXIS` 60° from the view), drifting
+  (`drift`) and turning on its own axis, a pulsing glow (`createGlow`); `slice()` from a tap
+  on the fruit (`onFruit` < 1, 24 px slack), a 40 px swipe crossing it, or the overlay button
+  (`sliceIntro`). **Cut** (times from the request, `cut`): the drift settles 0–0.4 s, the
+  blade (`BladeTrail`, a streak **on the seam's circle**, front half, in the plane of the
+  cut: `aimBlade`) runs 0.4–0.7 s with slow motion (`SLOW` 0.3 for `SLOW_S` real seconds),
+  juice spray (`JuiceBurst.burst(radius, POSE)`), `onSlice`, fur quiver (`furShiver`); at
+  0.7 s `split()` swaps the fruit for the halves (deep as the fruit, settling into the game
+  dome while parting until 2.1 s, first along the axis), each covered by a `FleshVeil` (wet
+  flesh canvas texture, warm glow, noise dissolve `melt`) and joined by `JuiceStrands`
+  (break → `drip` + `onJuice`) → choice (focus: hover on desktop, taps, tabs) → `choose` →
+  1.3 s dive → `onDone`. Taps during the cut do nothing (Skip button). Check it frame by frame
+  (see `kiwar-client`, Verify visually). Layout: `setIntroLayout` frees the right panel (desktop) or the bottom
   48 % (phone). The terrain shaders share `seasonUniforms`: the intro sets a neutral look.
 - `ui/intro.ts`: `startIntro({ mode: 'new' | 'join' | 'replay', seed, params?, taken?, current?,
 focus?, onChoose })`, store `intro` / `introFade`, gauges (sustainable regrowth × climate vs

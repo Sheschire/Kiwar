@@ -1393,3 +1393,41 @@ false`), so night only darkens the ground around them.
 - **Crickets**: two voices (4.4 and 5 kHz), 3–8 s between trills of a voice, a 20 s loop (8),
   binding volume 0.35 (0.6), and `nightChorus`: level 1 for the first third of the night,
   fading to 0 by its middle (the night bed goes with them).
+
+## Chantier 22 — First impressions: loading screen and interactive intro
+
+- **Owner's answers**: a flat drawing for the loading screen (the style of the game's icons);
+  a tap on the kiwi or its button slices it, a swipe across it too, but the blade always
+  follows the seam (the gesture triggers, it does not orient); one discreet line of mood
+  while waiting; a disc of wet flesh that melts away to reveal the tiles (the cut faces are
+  the real maps, not kiwi flesh).
+- **Loading screen**: inline SVG + CSS in `index.html` (shows before any script): a flat kiwi
+  bird running on a turning kiwi slice (legs in two frames, bounce, tail, shadow), "Kiwar",
+  dots after 2.5 s, a still picture with reduced motion. One element from start to end:
+  `#loader` fades out when `game`, `intro` or `bootError` is set (store subscription, then
+  two frames), no longer two frames after the first render; `BootScreen` only shows the
+  error card. The "Peeling the kiwi…" text (`app.loading`) is gone.
+- **Waiting**: new intro phase `waiting` (all modes: new, join, replay; reduced motion still
+  jumps to the choice). The fruit is posed three quarters on (`POSE`: its axis leans 60° from
+  the camera towards the lower right), drifts slowly and turns on its own axis (the seam
+  stays put), a faint pale seam with no fur on it (`addFurShells(…, parting)`), a pulsing
+  additive glow. "Slice the kiwi" / "Touch the kiwi" (`pointer: coarse`) and the mood line
+  "A kiwi planet drifts through space…". Tap within 24 px of the fruit's outline, or a 40 px
+  swipe crossing it. Taps during the cut no longer skip it (the Skip button does).
+- **Orientation**: the drift settles in 0.4 s with the seam on the screen's diagonal. A
+  straight blade through the centre missed the visible seam (the front half of the seam's
+  ellipse bows away from its long axis): the blade is now drawn **on the seam's circle**, in
+  the plane of the cut, front half only, a spark at its head — the same line the player sees.
+  The whole fruit holds while the blade runs (0.3 s), then gives way to the halves (they
+  first slide apart along the fruit's axis).
+- **Organic cut**: slow motion 0.3× for 0.3 s at the bite; `FleshVeil` (canvas texture drawn
+  once, 512²: creamy heart, fibres, 70 seeds, pale band under the skin; roughness 0.14, wet
+  glints, a little self-light) with a warm glow (emissive, 0.4 s) instead of the CSS flash,
+  melting through noise from the rim inwards in 0.9 s; `JuiceStrands` (12 strands × 2
+  segments in one `InstancedMesh`, sagging, thinner as they stretch, breaking at their rest
+  length + 0.3–1.2 × radius, dripping into `JuiceBurst`); a finer spray (100 drops from the
+  seam's rim, stretched along their fall, each with its own life); the fur quivers
+  (`furShiver`, shared uniform). Two draw calls more than before (veil × 2, strands; the
+  glow before the cut).
+- **Sound**: `slice` is muffled and wet (swish, low tear, thump, splash, no high ring); new
+  event `intro.juice` (synth `juice`) when the first strands break, replaceable in `/admin`.
