@@ -224,7 +224,10 @@ function worthIt(f: NonNullable<ExpeditionForecast['final']>): boolean {
   );
 }
 
-/** The final assault: as many as the hold takes, the Kikiwiwi if at home, when likely. */
+/**
+ * The final assault: the biggest crew whose return (with every posted kiwi) fits the hold,
+ * the Kikiwiwi if at home, when the forecast is worth it.
+ */
 function finalAssault(
   state: GameState,
   map: FaceMap,
@@ -232,20 +235,27 @@ function finalAssault(
   targetId: string,
 ): Command | null {
   const titan = homeTitan(state);
-  const pool = fighters(state);
-  const seats = Math.floor(maxCrew(state, pad, 'final') * 0.75);
-  const crew = [...(titan ? [titan] : []), ...pool].slice(0, seats).map((v) => v.id);
-  const plan: ExpeditionPlan = {
-    launchpadId: pad.id,
-    targetId,
-    crew,
-    provisions: { pulp: 0, juice: 0 },
-    mission: 'final',
-  };
-  const f = forecastExpedition(state, plan);
-  if (!f?.final || !worthIt(f.final)) return null;
-  if (titan && titan.job.kind === 'guard') return standDown(state, titan);
-  return launchable(state, map, plan);
+  const pool = [...(titan ? [titan] : []), ...fighters(state)];
+  for (let n = Math.min(pool.length, maxCrew(state, pad, 'final')); n >= EXPEDITIONS.minCrew; n--) {
+    const crew = pool.slice(0, n).map((v) => v.id);
+    const plan: ExpeditionPlan = {
+      launchpadId: pad.id,
+      targetId,
+      crew,
+      provisions: { pulp: 0, juice: 0 },
+      mission: 'final',
+    };
+    const dry = forecastExpedition(state, plan);
+    if (!dry?.final) return null;
+    const f = forecastExpedition(state, { ...plan, provisions: provisionsFor(dry) })!;
+    if (f.weight > f.cargo || f.returnWeight > f.cargo) continue;
+    if (!worthIt(f.final!)) return null;
+    if (titan && titan.job.kind === 'guard' && crew.includes(titan.id))
+      return standDown(state, titan);
+    const cmd = launchable(state, map, plan);
+    if (cmd) return cmd;
+  }
+  return null;
 }
 
 /** The settlers' ship: the kiwis that matter least here, and some of every stock. */

@@ -23,6 +23,7 @@ import {
   FUEL,
   stardustOf,
   twinTarget,
+  allHolders,
   BUILDINGS,
   emptyResources,
   RESOURCE_IDS,
@@ -332,7 +333,11 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
   const pick = (m: MissionKind) => {
     const room = pad ? maxCrew(game, pad, m) : 0;
     // The final assault takes as many as the hold allows (with room for the rations).
-    const n = m === 'final' ? Math.floor(room * 0.75) : Math.min(DEFAULT_CREW[m], room);
+    // The posted kiwis fly back with it: they need their seats too.
+    const n =
+      m === 'final'
+        ? Math.max(1, Math.floor(room * 0.75) - allHolders(game).length)
+        : Math.min(DEFAULT_CREW[m], room);
     let titans = 0;
     return candidates(game, m)
       .filter((c) => !c.v.kikiwiwi || titans++ < 1)
