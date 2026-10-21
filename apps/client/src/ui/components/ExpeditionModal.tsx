@@ -214,6 +214,7 @@ const DEFAULT_CREW: Record<MissionKind, number> = {
   reinforce: 2,
   final: 0,
   retreat: 0,
+  found: 6,
 };
 
 const LAUNCH_LABEL = {
@@ -223,6 +224,7 @@ const LAUNCH_LABEL = {
   reinforce: 'siege.launch.reinforce',
   final: 'siege.launch.final',
   retreat: 'expedition.launch',
+  found: 'siege.launch.found',
 } as const satisfies Record<MissionKind, TKey>;
 
 /** Chantier 19: a face whose queen fell takes no more missions. */

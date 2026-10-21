@@ -33,7 +33,7 @@ describe('obstacles', () => {
       [],
     );
     const { state, map } = colony();
-    const counts = { stump: 0, rock: 0, wreck: 0 };
+    const counts = { stump: 0, rock: 0, wreck: 0, ruin: 0, den: 0 };
     for (const o of state.obstacles) {
       counts[o.kind]++;
       const tile = map.tiles[map.index.get(`${o.q},${o.r}`)!]!;
@@ -41,7 +41,13 @@ describe('obstacles', () => {
       expect(tile.rho).toBeGreaterThanOrEqual(OBSTACLE_RULES.rho[0]);
       expect(tile.flood).toBeUndefined();
     }
-    expect(counts).toEqual({ stump: OBSTACLES.stump.count, rock: OBSTACLES.rock.count, wreck: 0 });
+    expect(counts).toEqual({
+      stump: OBSTACLES.stump.count,
+      rock: OBSTACLES.rock.count,
+      wreck: 0,
+      ruin: 0,
+      den: 0,
+    });
     expect(new Set(state.obstacles.map((o) => o.id)).size).toBe(state.obstacles.length);
     // Deterministic, and drawn apart from the colony RNG.
     expect(colony().state).toEqual(state);

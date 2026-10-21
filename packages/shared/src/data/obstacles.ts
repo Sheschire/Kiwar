@@ -8,7 +8,11 @@ import { ms } from './curves';
  * Kikiwiwi. They live in the state (not in the map generation, so maps stay identical) and are
  * placed far from the Nest so that no start is ever blocked.
  */
-export const OBSTACLE_KINDS = ['stump', 'rock', 'wreck'] as const;
+/**
+ * Chantier 19: ruins and ferret dens are traces of the aliens on a colonised twin face, placed
+ * only when the colony is founded (`count` 0: never drawn on a fresh face).
+ */
+export const OBSTACLE_KINDS = ['stump', 'rock', 'wreck', 'ruin', 'den'] as const;
 export type ObstacleKind = (typeof OBSTACLE_KINDS)[number];
 
 export interface ObstacleDef {
@@ -36,6 +40,14 @@ export const OBSTACLES: Record<ObstacleKind, ObstacleDef> = {
     loot: { seeds: 150, juice: 150 },
     clearedBy: 'titan',
   },
+  ruin: {
+    tiles: ['flesh', 'grove', 'seedRing', 'ray'],
+    count: 0,
+    loot: { fiber: 150, seeds: 150, pulp: 100 },
+    clearedBy: 'kiwis',
+  },
+  /** Raided by the guards (`raidDen`) or smashed by a Kikiwiwi. */
+  den: { tiles: ['flesh', 'grove'], count: 0, loot: { juice: 150, seeds: 60 }, clearedBy: 'titan' },
 };
 
 export const OBSTACLE_RULES = {

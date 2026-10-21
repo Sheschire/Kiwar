@@ -54,7 +54,7 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     targetId: id,
     crew: z.union([int.min(0).max(1000), z.array(id).max(200)]),
     provisions: z.object({ pulp: z.number().min(0).max(1e7), juice: z.number().min(0).max(1e7) }),
-    mission: z.enum(['raid', 'recon', 'assault', 'reinforce', 'final']).optional(),
+    mission: z.enum(['raid', 'recon', 'assault', 'reinforce', 'final', 'found']).optional(),
     fuel: z.boolean().optional(),
     sector: int
       .min(0)
@@ -62,8 +62,17 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
       .optional(),
     holders: z.array(id).max(200).optional(),
     bringBack: z.array(id).max(200).optional(),
+    freight: z
+      .object({
+        pulp: z.number().min(0).max(1e7).optional(),
+        fiber: z.number().min(0).max(1e7).optional(),
+        seeds: z.number().min(0).max(1e7).optional(),
+        juice: z.number().min(0).max(1e7).optional(),
+      })
+      .optional(),
   }),
   z.object({ type: z.literal('fortifyBridgehead'), sector: int.min(0).max(INTEL.sectors - 1) }),
+  z.object({ type: z.literal('raidDen'), q: z.number().int(), r: z.number().int() }),
   z.object({
     type: z.literal('sendCargo'),
     launchpadId: id,

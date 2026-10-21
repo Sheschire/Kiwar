@@ -124,6 +124,8 @@ export function canResolveArrival(state: GameState, e: Expedition): boolean {
     !!e.broken ||
     // Chantier 19: a reinforcement meets no alien on its bridgehead.
     e.mission === 'reinforce' ||
+    // …nor does a settlers' ship on a conquered face.
+    e.mission === 'found' ||
     !!state.aliens?.[e.targetId] ||
     !state.targets.some((t) => t.id === e.targetId)
   );

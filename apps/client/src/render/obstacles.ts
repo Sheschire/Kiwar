@@ -19,7 +19,13 @@ import {
 } from '@kiwar/shared';
 import { worldPosition } from './terrain';
 
-const SCALE: Record<ObstacleKind, number> = { stump: 1.5, rock: 1.45, wreck: 1.6 };
+const SCALE: Record<ObstacleKind, number> = {
+  stump: 1.5,
+  rock: 1.45,
+  wreck: 1.6,
+  ruin: 1.5,
+  den: 1.4,
+};
 
 /** Stable pseudo-random numbers in [0, 1) for a tile (cosmetic variations). */
 function noise(o: { q: number; r: number }, salt: number): number {

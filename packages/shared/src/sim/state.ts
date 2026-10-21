@@ -31,7 +31,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 22;
+export const SCHEMA_VERSION = 23;
 
 export type Job =
   | { kind: 'idle' }
@@ -338,14 +338,24 @@ export interface ExpeditionResult {
   sides?: { strength: { ground: number; air: number }; queen: { ground: number; air: number } };
   /** Chantier 19: the queen fell (final assault won). */
   queenFallen?: boolean;
+  /** Chantier 19: the settlers landed and the second colony is founded. */
+  founded?: boolean;
 }
 
 /**
  * Raid (fight and loot), reconnaissance, and the siege of the twin (chantier 19): assault on a
  * sector, reinforcement of a bridgehead, final assault on the queen, retreat of the survivors
- * of a fallen bridgehead.
+ * of a fallen bridgehead; then the settlers' ship that founds the second colony.
  */
-export const MISSION_KINDS = ['raid', 'recon', 'assault', 'reinforce', 'final', 'retreat'] as const;
+export const MISSION_KINDS = [
+  'raid',
+  'recon',
+  'assault',
+  'reinforce',
+  'final',
+  'retreat',
+  'found',
+] as const;
 export type MissionKind = (typeof MISSION_KINDS)[number];
 
 export interface Expedition {
@@ -380,6 +390,8 @@ export interface Expedition {
   holders?: VillagerId[];
   /** Chantier 19: posted kiwis the reinforcement brings back home. */
   bringBack?: VillagerId[];
+  /** Chantier 19: resources the settlers' ship carries to the new colony (mission `found`). */
+  freight?: Resources;
 }
 
 /** Chantier 19: a bridgehead on an outer sector of the twin face. */
@@ -553,6 +565,28 @@ export interface ResearchState {
   current: TechId | null;
   /** Researched technologies, in order. */
   done: TechId[];
+  /**
+   * Chantier 19: in a sister colony (`colony.index` 1) the Library's points pile up here and
+   * go to the shared research (the home colony's) at the next sync (`syncColonies`).
+   */
+  outbox: number;
+}
+
+/** Chantier 19: what the settlers' ship brought to the twin face (the sister is made of it). */
+export interface Founding {
+  at: TimeMs;
+  settlers: Villager[];
+  resources: Resources;
+}
+
+/** Chantier 19: the link between the two colonies of a player on one kiwi. */
+export interface ColonyLink {
+  /** 0: the home face; 1: the twin face, colonised. */
+  index: 0 | 1;
+  /** Home colony: the settlers landed, the sister colony is still to be created from this. */
+  founding: Founding | null;
+  /** When the sister colony was founded (0: none yet); a sister's own founding time. */
+  foundedAt: TimeMs;
 }
 
 export interface GameStats {
@@ -629,6 +663,8 @@ export interface GameState {
   automation: Record<AutoTask, boolean>;
   /** Chantier 19: the siege of the twin face. */
   siege: SiegeState;
+  /** Chantier 19: which colony of the player this is, and its link to the other one. */
+  colony: ColonyLink;
   nextId: number;
   rng: RngState;
 }
@@ -719,9 +755,10 @@ export function newGame(opts: NewGameOptions): GameState {
     sky: newSky(opts.now),
     comets: newComets(opts.now),
     stardust: 0,
-    research: { points: 0, current: null, done: [] },
+    research: { points: 0, current: null, done: [], outbox: 0 },
     automation: defaultAutomation(),
     siege: newSiege(),
+    colony: newColonyLink(),
     nextId: 1,
     rng: rng.state(),
   };
@@ -741,6 +778,24 @@ export function newGame(opts: NewGameOptions): GameState {
     state.targets.map((t) => [t.id, drawGarrison(t, `${alienSeed}/${t.id}`, opts.now)]),
   );
   return state;
+}
+
+/** Chantier 19: a home colony with no sister yet. */
+export function newColonyLink(): ColonyLink {
+  return { index: 0, founding: null, foundedAt: 0 };
+}
+
+export function cloneColonyLink(c: ColonyLink): ColonyLink {
+  return {
+    ...c,
+    founding: c.founding
+      ? {
+          at: c.founding.at,
+          settlers: c.founding.settlers.map(cloneVillager),
+          resources: { ...c.founding.resources },
+        }
+      : null,
+  };
 }
 
 /** Chantier 19: no siege yet. */
@@ -902,6 +957,7 @@ export function cloneState(state: GameState): GameState {
     research: { ...state.research, done: [...state.research.done] },
     automation: { ...state.automation },
     siege: cloneSiege(state.siege),
+    colony: cloneColonyLink(state.colony),
     friends: state.friends.map((f) => ({ ...f })),
     shipments: state.shipments.map((x) => ({ ...x, resources: { ...x.resources } })),
     incoming: state.incoming.map((d) => ({ ...d, resources: { ...d.resources } })),
@@ -930,6 +986,7 @@ export function cloneState(state: GameState): GameState {
         : null,
       ...(e.holders ? { holders: [...e.holders] } : {}),
       ...(e.bringBack ? { bringBack: [...e.bringBack] } : {}),
+      ...(e.freight ? { freight: { ...e.freight } } : {}),
     })),
     rng: [...state.rng] as RngState,
   };

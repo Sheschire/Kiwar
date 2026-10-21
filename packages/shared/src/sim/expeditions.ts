@@ -1,4 +1,5 @@
 import { FUEL } from '../data/comets';
+import { COLONY } from '../data/colonies';
 import { levelDef } from '../data/buildings';
 import {
   alienDefOf,
@@ -32,6 +33,7 @@ import type { GameEvent } from './advance';
 import { grantXp, hasSkill, kiwiExposure, kiwiStrength, modifiers } from './kiwis';
 import { SKILLS } from '../data/classes';
 import { alienDefense, alienEnemies, intelView, recordIntel, sectorOf } from './aliens';
+import { landSettlers } from './colonies';
 import {
   allHolders,
   assaultEnemy,
@@ -64,6 +66,8 @@ export interface ExpeditionPlan {
   holders?: readonly VillagerId[];
   /** Chantier 19: posted kiwis a reinforcement brings back home. */
   bringBack?: readonly VillagerId[];
+  /** Chantier 19: what the settlers' ship carries to found the colony (mission `found`). */
+  freight?: Partial<Resources>;
 }
 
 /** What a reconnaissance crew can expect (chantier 07). */
@@ -369,8 +373,10 @@ export function forecastExpedition(
       : null;
   const fighters = final ? crew.length + allHolders(state).length : crew.length;
   const kiwisWeight = crewWeight(crew);
+  const freight = RESOURCE_IDS.reduce((sum, id) => sum + (plan.freight?.[id] ?? 0), 0);
   const weight =
-    kiwisWeight + (plan.provisions.pulp + plan.provisions.juice) * EXPEDITIONS.resourceWeight;
+    kiwisWeight +
+    (plan.provisions.pulp + plan.provisions.juice + freight) * EXPEDITIONS.resourceWeight;
   const ship = shipOf(state);
   const expectedLosses =
     guess === null ? 0 : Math.min(fighters, fighters * lossShare(base, guess) * (1 - ship.armor));
@@ -429,6 +435,8 @@ function returnCrewOf(
 ): Villager[] {
   if (mission === 'assault') return crew.filter((v) => !(plan.holders ?? []).includes(v.id));
   if (mission === 'final') return [...crew, ...allHolders(state)];
+  // Chantier 19: the settlers stay on the twin face, the ship flies back empty.
+  if (mission === 'found') return [];
   if (mission === 'reinforce') {
     const b = plan.sector === undefined ? undefined : bridgeheadAt(state, plan.sector);
     return b
@@ -464,6 +472,7 @@ export function maxCrew(
 
 export function minCrew(mission: MissionKind = 'raid'): number {
   // A reinforcement may fly empty to bring posted kiwis home (chantier 19).
+  if (mission === 'found') return COLONY.minSettlers;
   return mission === 'recon' ? RECON.minCrew : mission === 'reinforce' ? 0 : EXPEDITIONS.minCrew;
 }
 
@@ -472,6 +481,13 @@ export function isLaunchpadBusy(state: GameState, id: BuildingId): boolean {
     state.expeditions.some((e) => e.launchpadId === id && e.status !== 'done') ||
     state.shipments.some((x) => x.launchpadId === id)
   );
+}
+
+/** Whole, non-negative amounts of every resource (chantier 19: the settlers' freight). */
+export function cleanFreight(f: Partial<Resources>): Resources {
+  const out = emptyResources();
+  for (const r of RESOURCE_IDS) out[r] = Math.max(0, Math.floor(f[r] ?? 0));
+  return out;
 }
 
 /** Boards the crew and the provisions (validation is done by the command). */
@@ -488,6 +504,8 @@ export function launch(
   for (const v of crew) v.job = { kind: 'expedition', expeditionId: id };
   state.resources.pulp -= plan.provisions.pulp;
   state.resources.juice -= plan.provisions.juice;
+  const freight = mission === 'found' && plan.freight ? cleanFreight(plan.freight) : null;
+  if (freight) for (const r of RESOURCE_IDS) state.resources[r] -= freight[r];
   const travelMs = travelTime(target, pad, crew, mission, travelFactor(state, plan));
   // A breakdown is drawn at take-off: the ship turns back half-way.
   const broken = withRng(
@@ -521,6 +539,7 @@ export function launch(
       : {}),
     ...(mission === 'assault' && plan.holders ? { holders: [...plan.holders] } : {}),
     ...(mission === 'reinforce' && plan.bringBack ? { bringBack: [...plan.bringBack] } : {}),
+    ...(freight ? { freight } : {}),
   };
   state.expeditions.push(expedition);
   return expedition;
@@ -567,6 +586,7 @@ export function resolveArrival(state: GameState, e: Expedition): void {
     };
     return;
   }
+  if (e.mission === 'found') return landSettlers(state, e, members, fed);
   if (isSiegeMission(e.mission)) return resolveSiegeLanding(state, e, members, fed);
   const garrison = state.aliens?.[target.id];
   const defense = alienDefense(state, target.id, e.arriveAt);

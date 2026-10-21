@@ -1,6 +1,7 @@
 import { KIKIWIWI } from '../data/kikiwiwi';
 import { titanPower } from './kikiwiwi';
 import { BIOMES } from '../data/biomes';
+import { COLONY } from '../data/colonies';
 import { levelDef, type BuildingType } from '../data/buildings';
 import { emptyResources, RESOURCE_IDS, type ResourceId, type Resources } from '../data/resources';
 import {
@@ -52,7 +53,26 @@ export function wavePower(state: GameState, at: TimeMs): number {
   const victories = Object.values(state.victories).reduce((a, b) => a + b, 0);
   const provocation = Math.min(THREATS.maxProvocation, THREATS.perVictory * victories);
   const age = THREATS.ageFactor[ageOf(state)] ?? 1;
-  return THREATS.basePower * factor * age * (1 + THREATS.perDay * days) * (1 + provocation);
+  return (
+    THREATS.basePower *
+    factor *
+    age *
+    (1 + THREATS.perDay * days) *
+    (1 + provocation) *
+    sisterThreat(state, at)
+  );
+}
+
+/**
+ * Chantier 19: the last aliens of a colonised face. Their waves start weak and reach full
+ * power after `COLONY.rampMs`; each ferret den still standing makes them stronger.
+ */
+export function sisterThreat(state: GameState, at: TimeMs): number {
+  if (state.colony.index !== 1) return 1;
+  const t = Math.min(1, Math.max(0, at - state.colony.foundedAt) / COLONY.rampMs);
+  const ramp = COLONY.rampStart + (1 - COLONY.rampStart) * t;
+  const dens = state.obstacles.filter((o) => o.kind === 'den').length;
+  return ramp * (1 + COLONY.denWave * dens);
 }
 
 /** Ground / air split of a wave striking at `at` (night bats, winter ferrets, biome). */

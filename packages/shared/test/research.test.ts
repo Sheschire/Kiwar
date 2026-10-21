@@ -194,7 +194,7 @@ describe('research', () => {
     const r = migrateState(old);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.state.research).toEqual({ points: 0, current: null, done: [] });
+    expect(r.state.research).toEqual({ points: 0, current: null, done: [], outbox: 0 });
     expect(r.state.villagers[0]!.mastery.research).toBe(0);
   });
 });

@@ -1893,7 +1893,7 @@ var RESEARCH = {
 var RESEARCH_SCALE = 100 * 36e5;
 
 // packages/shared/src/data/obstacles.ts
-var OBSTACLE_KINDS = ["stump", "rock", "wreck"];
+var OBSTACLE_KINDS = ["stump", "rock", "wreck", "ruin", "den"];
 var OBSTACLES = {
   stump: { tiles: ["grove", "flesh"], count: 6, loot: { fiber: 80 }, clearedBy: "kiwis" },
   rock: {
@@ -1907,7 +1907,15 @@ var OBSTACLES = {
     count: 0,
     loot: { seeds: 150, juice: 150 },
     clearedBy: "titan"
-  }
+  },
+  ruin: {
+    tiles: ["flesh", "grove", "seedRing", "ray"],
+    count: 0,
+    loot: { fiber: 150, seeds: 150, pulp: 100 },
+    clearedBy: "kiwis"
+  },
+  /** Raided by the guards (`raidDen`) or smashed by a Kikiwiwi. */
+  den: { tiles: ["flesh", "grove"], count: 0, loot: { juice: 150, seeds: 60 }, clearedBy: "titan" }
 };
 var OBSTACLE_RULES = {
   /** Placed between these normalised distances from the heart (never next to the Nest). */
@@ -1977,7 +1985,9 @@ var TERRAFORM = {
 var SMASH = {
   stump: { juice: 50, durationMs: ms.min(20) },
   rock: { juice: 200, durationMs: ms.h(1) },
-  wreck: { juice: 300, durationMs: ms.h(1.5) }
+  wreck: { juice: 300, durationMs: ms.h(1.5) },
+  ruin: { juice: 100, durationMs: ms.min(40) },
+  den: { juice: 250, durationMs: ms.h(1) }
 };
 var TITAN = {
   /** Tiles that may be reshaped by age (index = age). */
@@ -2106,6 +2116,30 @@ var SIEGE = {
   fortify: { durationMs: ms.h(12), juice: 400, bonus: 1.5 },
   /** Share of the posted kiwis lost when a counter-attack takes a bridgehead (owner: heavy). */
   fallLosses: [0.5, 0.9]
+};
+
+// packages/shared/src/data/colonies.ts
+var COLONY = {
+  /** Settlers needed on the founding ship. */
+  minSettlers: 5,
+  /** No wave strikes the new colony before this long after its founding. */
+  shieldMs: ms.h(48),
+  /** Waves start at this share of their power and reach full power after `rampMs`. */
+  rampStart: 0.5,
+  rampMs: ms.h(96),
+  /** Traces of the aliens on the new face (public: the face is ours). */
+  traces: {
+    /** Placed between these normalised distances from the heart (never next to the Nest). */
+    rho: [0.3, 0.92],
+    ruins: [4, 6],
+    dens: 3
+  },
+  /** A ferret den still standing makes every wave this much stronger. */
+  denWave: 0.15,
+  /** Guards raiding a den need this much ground power (no luck: the outcome is foreseen). */
+  denPower: 10,
+  /** Guards hit by a raid rest this long. */
+  denInjuryMs: ms.h(6)
 };
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
@@ -2519,7 +2553,14 @@ function wavePower(state, at) {
   const victories = Object.values(state.victories).reduce((a, b) => a + b, 0);
   const provocation = Math.min(THREATS.maxProvocation, THREATS.perVictory * victories);
   const age = THREATS.ageFactor[ageOf(state)] ?? 1;
-  return THREATS.basePower * factor * age * (1 + THREATS.perDay * days) * (1 + provocation);
+  return THREATS.basePower * factor * age * (1 + THREATS.perDay * days) * (1 + provocation) * sisterThreat(state, at);
+}
+function sisterThreat(state, at) {
+  if (state.colony.index !== 1) return 1;
+  const t = Math.min(1, Math.max(0, at - state.colony.foundedAt) / COLONY.rampMs);
+  const ramp = COLONY.rampStart + (1 - COLONY.rampStart) * t;
+  const dens = state.obstacles.filter((o) => o.kind === "den").length;
+  return ramp * (1 + COLONY.denWave * dens);
 }
 function waveMix(state, power, at) {
   const c = calendarAt(state.calendarStart, at);
@@ -5113,6 +5154,12 @@ function researchRate(state) {
   const perHour = researchPerHour(state);
   return perHour > 0 ? Math.max(1, Math.round(perHour * 100)) : 0;
 }
+function receiveResearch(state, raw) {
+  if (raw <= 0) return;
+  const r = state.research;
+  if (r.current) r.points += raw;
+  else r.points = Math.max(r.points, Math.min(researchBank(state), r.points + raw));
+}
 function researchBank(state) {
   const level = libraryLevel(state);
   return level > 0 ? (RESEARCH.bank[level - 1] ?? 0) * RESEARCH_SCALE : 0;
@@ -5133,7 +5180,7 @@ function techsOfAge(age) {
 }
 function nextResearchEvent(state) {
   const current = state.research.current;
-  if (!current) return Infinity;
+  if (!current || state.colony.index === 1) return Infinity;
   const need = TECHS[current].cost * RESEARCH_SCALE - state.research.points;
   if (need <= 0) return state.now;
   const rate = researchRate(state);
@@ -5149,7 +5196,8 @@ function accrueResearch(state, dtMs) {
   if (rate <= 0) return;
   const r = state.research;
   const gain = rate * dtMs;
-  if (r.current) r.points += gain;
+  if (state.colony.index === 1) r.outbox += gain;
+  else if (r.current) r.points += gain;
   else {
     const cap = researchBank(state);
     if (r.points < cap) r.points = Math.min(cap, r.points + gain);
@@ -5158,7 +5206,7 @@ function accrueResearch(state, dtMs) {
 function researchTick(state, at, events) {
   const r = state.research;
   const current = r.current;
-  if (!current) return;
+  if (!current || state.colony.index === 1) return;
   const cost = TECHS[current].cost * RESEARCH_SCALE;
   if (r.points < cost) return;
   r.points -= cost;
@@ -5856,6 +5904,146 @@ function isObjectiveComplete(state, def) {
   return p.current >= p.target;
 }
 
+// packages/shared/src/sim/colonies.ts
+function isSister(state) {
+  return state.colony.index === 1;
+}
+function hasSister(state) {
+  return state.colony.foundedAt > 0 || state.colony.founding !== null;
+}
+function foundLock(state) {
+  if (isSister(state) || !twinTarget(state)) return "unknownTarget";
+  if (state.siege.conqueredAt <= 0) return "notConquered";
+  if (hasSister(state) || state.expeditions.some((e) => e.mission === "found" && !e.result))
+    return "alreadyFounded";
+  return null;
+}
+function settle(v) {
+  const out = cloneVillager(v);
+  out.job = { kind: "idle" };
+  delete out.locked;
+  delete out.builderPriority;
+  delete out.homeJob;
+  delete out.lent;
+  return out;
+}
+function emigrate(state, ids) {
+  if (ids.length === 0) return;
+  state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
+}
+function landSettlers(s, e, members, fed) {
+  const resources2 = emptyResources();
+  for (const id3 of RESOURCE_IDS) resources2[id3] = (e.freight?.[id3] ?? 0) + e.provisions[id3];
+  s.colony.founding = { at: e.arriveAt, settlers: members.map(settle), resources: resources2 };
+  emigrate(
+    s,
+    members.map((v) => v.id)
+  );
+  e.provisions = emptyResources();
+  e.crew = [];
+  e.status = "returning";
+  e.result = {
+    victory: true,
+    strength: 0,
+    defense: 0,
+    fed: Math.round(fed * 100) / 100,
+    lostInBattle: [],
+    lostOnReturn: [],
+    loot: emptyResources(),
+    founded: true
+  };
+}
+function generateTraces(map, taken) {
+  const rng = createRng(`${map.seed}/${map.face}/traces`);
+  const [lo, hi] = COLONY.traces.rho;
+  const used = new Set(taken);
+  const out = [];
+  const place = (kind, count) => {
+    const def = OBSTACLES[kind];
+    const spots = rng.shuffle(
+      map.tiles.filter((t) => def.tiles.includes(t.type) && !t.flood && t.rho >= lo && t.rho <= hi)
+    );
+    let placed = 0;
+    for (const t of spots) {
+      if (placed >= count) break;
+      const key = hexKey(t);
+      if (used.has(key)) continue;
+      used.add(key);
+      placed++;
+      out.push({ id: obstacleId(kind, t.q, t.r), kind, q: t.q, r: t.r, loot: { ...def.loot } });
+    }
+  };
+  place("ruin", rng.int(COLONY.traces.ruins[0], COLONY.traces.ruins[1]));
+  place("den", COLONY.traces.dens);
+  return out;
+}
+function newSister(home, f) {
+  const s = newGame({
+    seed: home.seed,
+    face: otherFace(home.face),
+    now: f.at,
+    params: twinParams(home.seed, home.face, home.params),
+    playerId: home.playerId,
+    universeId: home.universeId,
+    kiwiId: home.kiwiId,
+    calendarStart: home.calendarStart,
+    targets: []
+  });
+  delete s.aliens;
+  s.villagers = f.settlers.map((v) => ({ ...settle(v), id: nextId(s, "v") }));
+  const cap = capacity(s);
+  for (const id3 of RESOURCE_IDS) s.resources[id3] = Math.min(cap[id3], f.resources[id3]);
+  s.objectiveIndex = OBJECTIVES.length;
+  s.colony = { index: 1, founding: null, foundedAt: f.at };
+  s.threats.shieldUntil = f.at + COLONY.shieldMs;
+  s.research = {
+    points: 0,
+    current: home.research.current,
+    done: [...home.research.done],
+    outbox: 0
+  };
+  const taken = /* @__PURE__ */ new Set([hexKey(HEART), ...s.obstacles.map((o) => hexKey(o))]);
+  s.obstacles = [...s.obstacles, ...generateTraces(faceMapOf(s), taken)];
+  return s;
+}
+function takeFounding(home) {
+  const f = home.colony.founding;
+  if (!f) return null;
+  const sister = newSister(home, f);
+  home.colony = { ...home.colony, founding: null, foundedAt: f.at };
+  return sister;
+}
+function syncColonies(home, sister) {
+  receiveResearch(home, sister.research.outbox);
+  sister.research = {
+    points: 0,
+    current: home.research.current,
+    done: [...home.research.done],
+    outbox: 0
+  };
+}
+function denRaiders(state) {
+  return state.villagers.filter((v) => v.job.kind === "guard");
+}
+function denRaidForecast(state) {
+  const guards = denRaiders(state);
+  const strength = guards.reduce((sum, v) => sum + guardPower(v, state).ground, 0);
+  const power = COLONY.denPower * GARRISON.power;
+  const wounded = strength >= power ? Math.min(guards.length, Math.round(guards.length * lossShare(strength, power))) : 0;
+  return { strength, power, wounded };
+}
+function raidDen(state, q, r, now, events) {
+  const den = obstacleAt(state, q, r);
+  const { wounded } = denRaidForecast(state);
+  const hurt = [...denRaiders(state)].sort((a, b) => guardPower(a, state).ground - guardPower(b, state).ground).slice(0, wounded);
+  for (const v of crewMembers(
+    state,
+    hurt.map((v2) => v2.id)
+  ))
+    v.job = { kind: "injured", until: now + COLONY.denInjuryMs };
+  removeObstacle(state, den, now, events, "kiwis");
+}
+
 // packages/shared/src/sim/expeditions.ts
 function launchpadOf(state, id3) {
   const b = getBuilding(state, id3);
@@ -6009,7 +6197,8 @@ function forecastExpedition(state, plan) {
   ) : null : defense ? mid(defense) : null;
   const fighters = final ? crew.length + allHolders(state).length : crew.length;
   const kiwisWeight = crewWeight(crew);
-  const weight = kiwisWeight + (plan.provisions.pulp + plan.provisions.juice) * EXPEDITIONS.resourceWeight;
+  const freight = RESOURCE_IDS.reduce((sum, id3) => sum + (plan.freight?.[id3] ?? 0), 0);
+  const weight = kiwisWeight + (plan.provisions.pulp + plan.provisions.juice + freight) * EXPEDITIONS.resourceWeight;
   const ship = shipOf(state);
   const expectedLosses = guess === null ? 0 : Math.min(fighters, fighters * lossShare(base, guess) * (1 - ship.armor));
   const exposure = crew.map((v) => kiwiExposure(v));
@@ -6060,6 +6249,7 @@ function forecastExpedition(state, plan) {
 function returnCrewOf(state, plan, crew, mission) {
   if (mission === "assault") return crew.filter((v) => !(plan.holders ?? []).includes(v.id));
   if (mission === "final") return [...crew, ...allHolders(state)];
+  if (mission === "found") return [];
   if (mission === "reinforce") {
     const b = plan.sector === void 0 ? void 0 : bridgeheadAt(state, plan.sector);
     return b ? crewMembers(
@@ -6081,10 +6271,16 @@ function maxCrew(state, launchpad, mission = "raid") {
   return Math.max(0, Math.min(byCargo, byPeople, byMission));
 }
 function minCrew(mission = "raid") {
+  if (mission === "found") return COLONY.minSettlers;
   return mission === "recon" ? RECON.minCrew : mission === "reinforce" ? 0 : EXPEDITIONS.minCrew;
 }
 function isLaunchpadBusy(state, id3) {
   return state.expeditions.some((e) => e.launchpadId === id3 && e.status !== "done") || state.shipments.some((x) => x.launchpadId === id3);
+}
+function cleanFreight(f) {
+  const out = emptyResources();
+  for (const r of RESOURCE_IDS) out[r] = Math.max(0, Math.floor(f[r] ?? 0));
+  return out;
 }
 function launch(state, plan, now, id3) {
   const pad = launchpadOf(state, plan.launchpadId);
@@ -6094,6 +6290,8 @@ function launch(state, plan, now, id3) {
   for (const v of crew) v.job = { kind: "expedition", expeditionId: id3 };
   state.resources.pulp -= plan.provisions.pulp;
   state.resources.juice -= plan.provisions.juice;
+  const freight = mission === "found" && plan.freight ? cleanFreight(plan.freight) : null;
+  if (freight) for (const r of RESOURCE_IDS) state.resources[r] -= freight[r];
   const travelMs = travelTime(target, pad, crew, mission, travelFactor(state, plan));
   const broken = withRng(
     state,
@@ -6123,7 +6321,8 @@ function launch(state, plan, now, id3) {
     ...broken ? { broken: true } : {},
     ...plan.sector !== void 0 && (mission === "assault" || mission === "reinforce") ? { sector: plan.sector } : {},
     ...mission === "assault" && plan.holders ? { holders: [...plan.holders] } : {},
-    ...mission === "reinforce" && plan.bringBack ? { bringBack: [...plan.bringBack] } : {}
+    ...mission === "reinforce" && plan.bringBack ? { bringBack: [...plan.bringBack] } : {},
+    ...freight ? { freight } : {}
   };
   state.expeditions.push(expedition);
   return expedition;
@@ -6165,6 +6364,7 @@ function resolveArrival(state, e) {
     };
     return;
   }
+  if (e.mission === "found") return landSettlers(state, e, members, fed);
   if (isSiegeMission(e.mission)) return resolveSiegeLanding(state, e, members, fed);
   const garrison = state.aliens?.[target.id];
   const defense = alienDefense(state, target.id, e.arriveAt);
@@ -7000,7 +7200,8 @@ function alienEnemies(g, defense) {
 }
 function canResolveArrival(state, e) {
   return !!e.broken || // Chantier 19: a reinforcement meets no alien on its bridgehead.
-  e.mission === "reinforce" || !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
+  e.mission === "reinforce" || // …nor does a settlers' ship on a conquered face.
+  e.mission === "found" || !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
 }
 function awaitingServer(state, now) {
   return awaitingReport(state, now).length > 0 || counterAwaited(state, now);
@@ -7077,8 +7278,16 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 22;
-var MISSION_KINDS = ["raid", "recon", "assault", "reinforce", "final", "retreat"];
+var SCHEMA_VERSION = 23;
+var MISSION_KINDS = [
+  "raid",
+  "recon",
+  "assault",
+  "reinforce",
+  "final",
+  "retreat",
+  "found"
+];
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
   return [
@@ -7143,9 +7352,10 @@ function newGame(opts) {
     sky: newSky(opts.now),
     comets: newComets(opts.now),
     stardust: 0,
-    research: { points: 0, current: null, done: [] },
+    research: { points: 0, current: null, done: [], outbox: 0 },
     automation: defaultAutomation(),
     siege: newSiege(),
+    colony: newColonyLink(),
     nextId: 1,
     rng: rng.state()
   };
@@ -7165,6 +7375,19 @@ function newGame(opts) {
     state.targets.map((t) => [t.id, drawGarrison(t, `${alienSeed}/${t.id}`, opts.now)])
   );
   return state;
+}
+function newColonyLink() {
+  return { index: 0, founding: null, foundedAt: 0 };
+}
+function cloneColonyLink(c) {
+  return {
+    ...c,
+    founding: c.founding ? {
+      at: c.founding.at,
+      settlers: c.founding.settlers.map(cloneVillager),
+      resources: { ...c.founding.resources }
+    } : null
+  };
 }
 function newSiege() {
   return {
@@ -7304,6 +7527,7 @@ function cloneState(state) {
     research: { ...state.research, done: [...state.research.done] },
     automation: { ...state.automation },
     siege: cloneSiege(state.siege),
+    colony: cloneColonyLink(state.colony),
     friends: state.friends.map((f) => ({ ...f })),
     shipments: state.shipments.map((x) => ({ ...x, resources: { ...x.resources } })),
     incoming: state.incoming.map((d) => ({ ...d, resources: { ...d.resources } })),
@@ -7327,7 +7551,8 @@ function cloneState(state) {
         } : {}
       } : null,
       ...e.holders ? { holders: [...e.holders] } : {},
-      ...e.bringBack ? { bringBack: [...e.bringBack] } : {}
+      ...e.bringBack ? { bringBack: [...e.bringBack] } : {},
+      ...e.freight ? { freight: { ...e.freight } } : {}
     })),
     rng: [...state.rng]
   };
@@ -7672,7 +7897,14 @@ var COMMAND_ERRORS = [
   "invalidHolders",
   "alreadyFortified",
   "fortifying",
-  "invalidMission"
+  "invalidMission",
+  // Chantier 19 (second half): the second colony.
+  "notConquered",
+  "alreadyFounded",
+  "sharedResearch",
+  "noDen",
+  "noGuards",
+  "tooStrong"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -7839,6 +8071,16 @@ function execute(s, cmd, ctx, events) {
       v.job = { kind: "titan", work: cmd.work, q: cmd.q, r: cmd.r, until: now + cost.durationMs };
       return;
     }
+    case "raidDen": {
+      const o = obstacleAt(s, cmd.q, cmd.r);
+      if (!o || o.kind !== "den") return fail("noDen");
+      if (titanAt(s, o.q, o.r)) fail("titanAtWork");
+      const f = denRaidForecast(s);
+      if (denRaiders(s).length === 0) fail("noGuards");
+      if (f.strength < f.power) fail("tooStrong");
+      raidDen(s, o.q, o.r, now, events);
+      return;
+    }
     case "clearObstacle": {
       const o = obstacleAt(s, cmd.q, cmd.r);
       if (!o) return fail("noObstacle");
@@ -7959,7 +8201,12 @@ function execute(s, cmd, ctx, events) {
       const mission = cmd.mission ?? "raid";
       if (mission === "retreat") fail("invalidMission");
       const onTwin = twinTarget(s)?.id === cmd.targetId;
-      if (onTwin && s.siege.conqueredAt > 0) fail("conquered");
+      if (mission === "found") {
+        const lock = foundLock(s);
+        if (lock) fail(lock);
+        if (!onTwin) fail("unknownTarget");
+      } else if (onTwin && s.siege.conqueredAt > 0) fail("conquered");
+      if (mission !== "found" && cmd.freight) fail("invalidMission");
       if (isSiegeMission(mission) && !onTwin) fail("unknownTarget");
       const { pulp, juice } = cmd.provisions;
       if (typeof cmd.crew === "number" && !Number.isInteger(cmd.crew) || ![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) {
@@ -7969,13 +8216,21 @@ function execute(s, cmd, ctx, events) {
       if (!crew) return fail("invalidCrew");
       const size = typeof cmd.crew === "number" ? cmd.crew : crew.length;
       if (size < minCrew(cmd.mission)) fail("crewTooSmall");
+      if (cmd.freight) {
+        for (const r of RESOURCE_IDS) {
+          const v = cmd.freight[r] ?? 0;
+          if (!Number.isFinite(v) || v < 0) fail("invalidCount");
+        }
+      }
       if (size > maxCrew(s, pad, cmd.mission)) fail("crewTooLarge");
       if (crew.filter((v) => v.kikiwiwi).length > KIKIWIWI.perShip) fail("oneKikiwiwi");
       siegeLaunchCheck(s, cmd, crew);
       const forecast = forecastExpedition(s, cmd);
       if (forecast.weight > forecast.cargo + 1e-9) fail("overloaded");
       if (forecast.returnWeight > forecast.cargo + 1e-9) fail("overloaded");
-      if (!canAfford(s.resources, { pulp, juice })) fail("notEnoughResources");
+      const freight = cleanFreight(cmd.freight ?? {});
+      const need = { ...freight, pulp: freight.pulp + pulp, juice: freight.juice + juice };
+      if (!canAfford(s.resources, need)) fail("notEnoughResources");
       if (cmd.fuel) payStardust(s, FUEL.stardust);
       launch(s, cmd, now, nextId(s, "x"));
       return;
@@ -8330,6 +8585,7 @@ function execute(s, cmd, ctx, events) {
       return;
     }
     case "setResearch": {
+      if (isSister(s)) fail("sharedResearch");
       const before = s.research.current;
       if (cmd.tech === null) {
         s.research.current = null;
@@ -12526,6 +12782,34 @@ var structure = external_exports.object({
   q: external_exports.number().int(),
   r: external_exports.number().int()
 });
+var villager = external_exports.object({
+  id,
+  name: external_exports.string().max(4 * KIWI_NAME_MAX),
+  bornAt: external_exports.number(),
+  job,
+  stats,
+  trait: external_exports.enum(TRAIT_IDS).nullable(),
+  shiny: external_exports.enum(KIWI_COLORS).nullable(),
+  level: external_exports.number().int().min(1).max(KIWI.maxLevel),
+  xp: external_exports.number().int().min(0),
+  statPoints: external_exports.number().int().min(0),
+  blessings: external_exports.number().int().min(0).max(BLESSINGS.statMax).optional(),
+  mastery: external_exports.object(
+    Object.fromEntries(MASTERY_IDS.map((m) => [m, external_exports.number().int().min(0)]))
+  ),
+  history: external_exports.object({
+    expeditions: external_exports.number().int().min(0),
+    victories: external_exports.number().int().min(0),
+    built: external_exports.number().int().min(0)
+  }),
+  classId: external_exports.enum(CLASS_IDS).nullable(),
+  skillReadyAt: external_exports.record(external_exports.enum(SKILL_IDS), external_exports.number()),
+  kikiwiwi: external_exports.object({ since: external_exports.number() }).optional(),
+  locked: external_exports.literal(true).optional(),
+  builderPriority: external_exports.literal(true).optional(),
+  homeJob: id.optional(),
+  lent: id.nullable().optional()
+});
 var gameStateSchema = external_exports.object({
   schemaVersion: external_exports.number().int(),
   universeId: id,
@@ -12552,36 +12836,7 @@ var gameStateSchema = external_exports.object({
       damaged: external_exports.boolean().optional()
     })
   ),
-  villagers: external_exports.array(
-    external_exports.object({
-      id,
-      name: external_exports.string().max(4 * KIWI_NAME_MAX),
-      bornAt: external_exports.number(),
-      job,
-      stats,
-      trait: external_exports.enum(TRAIT_IDS).nullable(),
-      shiny: external_exports.enum(KIWI_COLORS).nullable(),
-      level: external_exports.number().int().min(1).max(KIWI.maxLevel),
-      xp: external_exports.number().int().min(0),
-      statPoints: external_exports.number().int().min(0),
-      blessings: external_exports.number().int().min(0).max(BLESSINGS.statMax).optional(),
-      mastery: external_exports.object(
-        Object.fromEntries(MASTERY_IDS.map((m) => [m, external_exports.number().int().min(0)]))
-      ),
-      history: external_exports.object({
-        expeditions: external_exports.number().int().min(0),
-        victories: external_exports.number().int().min(0),
-        built: external_exports.number().int().min(0)
-      }),
-      classId: external_exports.enum(CLASS_IDS).nullable(),
-      skillReadyAt: external_exports.record(external_exports.enum(SKILL_IDS), external_exports.number()),
-      kikiwiwi: external_exports.object({ since: external_exports.number() }).optional(),
-      locked: external_exports.literal(true).optional(),
-      builderPriority: external_exports.literal(true).optional(),
-      homeJob: id.optional(),
-      lent: id.nullable().optional()
-    })
-  ),
+  villagers: external_exports.array(villager),
   memorial: external_exports.array(
     external_exports.object({
       id,
@@ -12692,6 +12947,7 @@ var gameStateSchema = external_exports.object({
       sector: sectorId.optional(),
       holders: external_exports.array(id).max(200).optional(),
       bringBack: external_exports.array(id).max(200).optional(),
+      freight: resources.optional(),
       result: external_exports.object({
         victory: external_exports.boolean(),
         aborted: external_exports.boolean().optional(),
@@ -12707,6 +12963,7 @@ var gameStateSchema = external_exports.object({
         injured: external_exports.array(id).optional(),
         bridgehead: external_exports.boolean().optional(),
         queenFallen: external_exports.boolean().optional(),
+        founded: external_exports.boolean().optional(),
         sides: external_exports.object({ strength: groundAir, queen: groundAir }).optional()
       }).nullable()
     })
@@ -12802,7 +13059,8 @@ var gameStateSchema = external_exports.object({
   research: external_exports.object({
     points: external_exports.number().int().min(0),
     current: external_exports.enum(TECH_IDS).nullable(),
-    done: external_exports.array(external_exports.enum(TECH_IDS)).max(TECH_IDS.length)
+    done: external_exports.array(external_exports.enum(TECH_IDS)).max(TECH_IDS.length),
+    outbox: external_exports.number().int().min(0)
   }),
   automation: external_exports.object(
     Object.fromEntries(AUTO_TASKS.map((t) => [t, external_exports.boolean()]))
@@ -12840,6 +13098,11 @@ var gameStateSchema = external_exports.object({
       })
     ).max(5),
     conqueredAt: external_exports.number().min(0)
+  }),
+  colony: external_exports.object({
+    index: external_exports.union([external_exports.literal(0), external_exports.literal(1)]),
+    founding: external_exports.object({ at: external_exports.number(), settlers: external_exports.array(villager).max(200), resources }).nullable(),
+    foundedAt: external_exports.number().min(0)
   }),
   nextId: external_exports.number().int(),
   rng: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number(), external_exports.number()])
@@ -12922,7 +13185,13 @@ var MIGRATIONS = {
   // v20 → v21 (chantier 15): every task in automatic mode (the optional `lent` needs nothing).
   20: (raw) => ({ ...raw, automation: defaultAutomation() }),
   // v21 → v22 (chantier 19): no siege yet (the new optional fields need nothing).
-  21: (raw) => ({ ...raw, siege: newSiege() })
+  21: (raw) => ({ ...raw, siege: newSiege() }),
+  // v22 → v23 (chantier 19, second half): a home colony, no sister, nothing to send.
+  22: (raw) => ({
+    ...raw,
+    colony: newColonyLink(),
+    research: { ...raw.research, outbox: 0 }
+  })
 };
 function obstaclesForOldGame(raw) {
   const face = raw.face === "kiwino" ? "kiwino" : "kiwisu";
@@ -13006,13 +13275,20 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     targetId: id2,
     crew: external_exports.union([int.min(0).max(1e3), external_exports.array(id2).max(200)]),
     provisions: external_exports.object({ pulp: external_exports.number().min(0).max(1e7), juice: external_exports.number().min(0).max(1e7) }),
-    mission: external_exports.enum(["raid", "recon", "assault", "reinforce", "final"]).optional(),
+    mission: external_exports.enum(["raid", "recon", "assault", "reinforce", "final", "found"]).optional(),
     fuel: external_exports.boolean().optional(),
     sector: int.min(0).max(INTEL.sectors - 1).optional(),
     holders: external_exports.array(id2).max(200).optional(),
-    bringBack: external_exports.array(id2).max(200).optional()
+    bringBack: external_exports.array(id2).max(200).optional(),
+    freight: external_exports.object({
+      pulp: external_exports.number().min(0).max(1e7).optional(),
+      fiber: external_exports.number().min(0).max(1e7).optional(),
+      seeds: external_exports.number().min(0).max(1e7).optional(),
+      juice: external_exports.number().min(0).max(1e7).optional()
+    }).optional()
   }),
   external_exports.object({ type: external_exports.literal("fortifyBridgehead"), sector: int.min(0).max(INTEL.sectors - 1) }),
+  external_exports.object({ type: external_exports.literal("raidDen"), q: external_exports.number().int(), r: external_exports.number().int() }),
   external_exports.object({
     type: external_exports.literal("sendCargo"),
     launchpadId: id2,
@@ -13872,6 +14148,7 @@ export {
   CATCHMENT_RADIUS,
   CLASSES,
   CLASS_IDS,
+  COLONY,
   COMETS,
   COMMAND_ERRORS,
   CYCLES,
@@ -14033,10 +14310,12 @@ export {
   catchmentPlan,
   catchmentPreview,
   catchmentRadius,
+  cleanFreight,
   cleanKiwiName,
   clearDuration,
   climateOf,
   cloneAliens,
+  cloneColonyLink,
   cloneIntel,
   cloneSiege,
   cloneSiegeIntel,
@@ -14074,6 +14353,8 @@ export {
   deliveryTime,
   demolitionPreview,
   demolitionRefund,
+  denRaidForecast,
+  denRaiders,
   depletedTiles,
   depotDistance,
   depotDistances,
@@ -14092,6 +14373,7 @@ export {
   dustPoints,
   eggCost,
   eggDuration,
+  emigrate,
   emptyMasteries,
   emptyResources,
   ensureAliens,
@@ -14111,12 +14393,14 @@ export {
   forecastWave,
   forgetHolders,
   fortifyLock,
+  foundLock,
   freeDepositStock,
   friendId,
   gameStateSchema,
   garrisonOf,
   generateFace,
   generateObstacles,
+  generateTraces,
   geometric,
   getBuilding,
   getTile,
@@ -14125,6 +14409,7 @@ export {
   handleGameRequest,
   harvestOf,
   harvestedTileType,
+  hasSister,
   hasSkill,
   hasTech,
   hashSeed,
@@ -14174,6 +14459,7 @@ export {
   isProducer,
   isRampart,
   isSiegeMission,
+  isSister,
   isTurret,
   jobBoard,
   kikiwiwiCap,
@@ -14188,6 +14474,7 @@ export {
   kiwiSeed,
   kiwiStrength,
   laboratoryOf,
+  landSettlers,
   landTileNear,
   launch,
   launchpadOf,
@@ -14225,10 +14512,12 @@ export {
   nest,
   nestDef,
   netRates,
+  newColonyLink,
   newComets,
   newGame,
   newKiwi,
   newSiege,
+  newSister,
   newSky,
   newThreats,
   nextCalendarChange,
@@ -14280,11 +14569,13 @@ export {
   queenPower,
   queenReduction,
   queuedBuildAt,
+  raidDen,
   rampartSectorOf,
   rampartSectors,
   rankOf,
   rations,
   rebaseFreeDeposits,
+  receiveResearch,
   reconForecast,
   recordIntel,
   recordSiegeIntel,
@@ -14324,6 +14615,7 @@ export {
   sendBackAll,
   sendShipment,
   serializeSave,
+  settle,
   shieldArrival,
   shipCargo,
   shipIdForAge,
@@ -14334,6 +14626,7 @@ export {
   siegeTick,
   siegeTruth,
   siegeView,
+  sisterThreat,
   siteError,
   skyTick,
   soloTargets,
@@ -14348,7 +14641,9 @@ export {
   startedItems,
   storageFullCheck,
   strengthOf,
+  syncColonies,
   syncPools,
+  takeFounding,
   targetFaceParams,
   taskLevel,
   taskNeeds,

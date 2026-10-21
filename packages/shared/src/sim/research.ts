@@ -158,6 +158,17 @@ export function researchRate(state: GameState): number {
   return perHour > 0 ? Math.max(1, Math.round(perHour * 100)) : 0;
 }
 
+/**
+ * Chantier 19: points sent by a sister colony join the shared research: the current
+ * technology, or the bank up to its cap.
+ */
+export function receiveResearch(state: GameState, raw: number): void {
+  if (raw <= 0) return;
+  const r = state.research;
+  if (r.current) r.points += raw;
+  else r.points = Math.max(r.points, Math.min(researchBank(state), r.points + raw));
+}
+
 /** Points kept when no technology is chosen (raw units). */
 export function researchBank(state: GameState): number {
   const level = libraryLevel(state);
@@ -189,7 +200,8 @@ export function techsOfAge(age: number): TechId[] {
 /** Next time the current technology completes. */
 export function nextResearchEvent(state: GameState): TimeMs {
   const current = state.research.current;
-  if (!current) return Infinity;
+  // A sister colony never completes a technology itself (chantier 19: shared research).
+  if (!current || state.colony.index === 1) return Infinity;
   const need = TECHS[current].cost * RESEARCH_SCALE - state.research.points;
   if (need <= 0) return state.now;
   const rate = researchRate(state);
@@ -209,7 +221,8 @@ export function accrueResearch(state: GameState, dtMs: number): void {
   if (rate <= 0) return;
   const r = state.research;
   const gain = rate * dtMs;
-  if (r.current) r.points += gain;
+  if (state.colony.index === 1) r.outbox += gain;
+  else if (r.current) r.points += gain;
   else {
     const cap = researchBank(state);
     if (r.points < cap) r.points = Math.min(cap, r.points + gain);
@@ -220,7 +233,7 @@ export function accrueResearch(state: GameState, dtMs: number): void {
 export function researchTick(state: GameState, at: TimeMs, events: GameEvent[]): void {
   const r = state.research;
   const current = r.current;
-  if (!current) return;
+  if (!current || state.colony.index === 1) return;
   const cost = TECHS[current].cost * RESEARCH_SCALE;
   if (r.points < cost) return;
   r.points -= cost;

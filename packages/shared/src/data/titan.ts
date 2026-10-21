@@ -35,6 +35,8 @@ export const SMASH: Record<ObstacleKind, { juice: number; durationMs: number }> 
   stump: { juice: 50, durationMs: ms.min(20) },
   rock: { juice: 200, durationMs: ms.h(1) },
   wreck: { juice: 300, durationMs: ms.h(1.5) },
+  ruin: { juice: 100, durationMs: ms.min(40) },
+  den: { juice: 250, durationMs: ms.h(1) },
 };
 
 export const TITAN = {

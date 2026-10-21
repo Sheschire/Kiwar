@@ -614,6 +614,12 @@ export const en = {
     alreadyFortified: 'This bridgehead is already fortified.',
     fortifying: 'A Kikiwiwi is already fortifying this bridgehead.',
     invalidMission: 'Unknown mission.',
+    notConquered: 'The twin face is not conquered yet.',
+    alreadyFounded: 'The sister colony is already founded (or its settlers are on their way).',
+    sharedResearch: 'Research is shared: choose it from the home colony.',
+    noDen: 'No ferret den on this tile.',
+    noGuards: 'Post guards on the rampart first.',
+    tooStrong: 'The guards are not strong enough for this den.',
   },
   siege: {
     show: {
@@ -684,6 +690,7 @@ export const en = {
       assault: 'Launch the assault',
       reinforce: 'Send the reinforcement',
       final: 'Launch the final assault',
+      found: 'Found the colony',
     },
     holders: 'Who stays on the bridgehead',
     holdersHint:
@@ -875,6 +882,8 @@ export const en = {
       final:
         'The assault on the ferret queen. Every kiwi posted on a bridgehead joins the crew. You must match her on the ground and in the air.',
       retreat: 'The survivors of a fallen bridgehead fly home.',
+      found:
+        'The settlers move to the conquered face for good, with the freight: the second colony is born at the landing. The ship flies back empty.',
     },
     launch: 'Send the scouts',
     spotChance: 'Spotted {pct} %',
@@ -1197,6 +1206,14 @@ export const en = {
     wreck: {
       name: 'Meteorite wreck',
       desc: 'The cracked core of a fallen meteorite, still faintly glowing. Rich, but very heavy.',
+    },
+    ruin: {
+      name: 'Alien ruins',
+      desc: 'What is left of an alien outpost. A builder can search it for loot.',
+    },
+    den: {
+      name: 'Ferret den',
+      desc: 'The queen’s last ferrets hide there: while it stands, waves are stronger. Guards or a Kikiwiwi can destroy it.',
     },
   },
   sky: {

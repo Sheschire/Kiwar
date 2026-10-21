@@ -74,6 +74,7 @@ import {
 import { METEORS, SHELTER } from '../data/threats';
 import { forecastWave } from './threats';
 import {
+  cleanFreight,
   crewOf,
   forecastExpedition,
   isLaunchpadBusy,
@@ -84,6 +85,7 @@ import {
   shipCargo,
 } from './expeditions';
 import { cargoWeight, sendShipment } from './deliveries';
+import { denRaidForecast, denRaiders, foundLock, isSister, raidDen } from './colonies';
 import { OBSTACLES, OBSTACLE_RULES } from '../data/obstacles';
 import { clearDuration, obstacleAt } from './obstacles';
 import { TITAN_WORK_IDS, type TitanWork } from '../data/titan';
@@ -126,6 +128,8 @@ export type Command =
       holders?: VillagerId[];
       /** Chantier 19: posted kiwis a reinforcement brings back home. */
       bringBack?: VillagerId[];
+      /** Chantier 19: resources the settlers carry to found the colony (mission `found`). */
+      freight?: Partial<Resources>;
     }
   /** Multiplayer: the launchpad's ship carries a free gift of resources to an ally. */
   | {
@@ -166,6 +170,8 @@ export type Command =
   | { type: 'titanWork'; villagerId: VillagerId; q: number; r: number; work: TitanWork }
   /** Chantier 19: a Kikiwiwi posted on this bridgehead fortifies it. */
   | { type: 'fortifyBridgehead'; sector: number }
+  /** Chantier 19: the guards raid the ferret den on this tile (a colonised face). */
+  | { type: 'raidDen'; q: number; r: number }
   /** Chantier 08: a builder clears the stump on this tile (queued like a construction). */
   | { type: 'clearObstacle'; q: number; r: number }
   /** Chantier 08: the technology the researchers work on (null: bank the points). */
@@ -290,6 +296,13 @@ export const COMMAND_ERRORS = [
   'alreadyFortified',
   'fortifying',
   'invalidMission',
+  // Chantier 19 (second half): the second colony.
+  'notConquered',
+  'alreadyFounded',
+  'sharedResearch',
+  'noDen',
+  'noGuards',
+  'tooStrong',
 ] as const;
 export type BlessingKind = 'heal' | 'respec' | 'stat';
 
@@ -502,6 +515,16 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       v.job = { kind: 'titan', work: cmd.work, q: cmd.q, r: cmd.r, until: now + cost.durationMs };
       return;
     }
+    case 'raidDen': {
+      const o = obstacleAt(s, cmd.q, cmd.r);
+      if (!o || o.kind !== 'den') return fail('noDen');
+      if (titanAt(s, o.q, o.r)) fail('titanAtWork');
+      const f = denRaidForecast(s);
+      if (denRaiders(s).length === 0) fail('noGuards');
+      if (f.strength < f.power) fail('tooStrong');
+      raidDen(s, o.q, o.r, now, events);
+      return;
+    }
     case 'clearObstacle': {
       const o = obstacleAt(s, cmd.q, cmd.r);
       if (!o) return fail('noObstacle');
@@ -640,7 +663,12 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const mission = cmd.mission ?? 'raid';
       if (mission === 'retreat') fail('invalidMission');
       const onTwin = twinTarget(s)?.id === cmd.targetId;
-      if (onTwin && s.siege.conqueredAt > 0) fail('conquered');
+      if (mission === 'found') {
+        const lock = foundLock(s);
+        if (lock) fail(lock);
+        if (!onTwin) fail('unknownTarget');
+      } else if (onTwin && s.siege.conqueredAt > 0) fail('conquered');
+      if (mission !== 'found' && cmd.freight) fail('invalidMission');
       if (isSiegeMission(mission) && !onTwin) fail('unknownTarget');
       const { pulp, juice } = cmd.provisions;
       if (
@@ -653,13 +681,21 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (!crew) return fail('invalidCrew');
       const size = typeof cmd.crew === 'number' ? cmd.crew : crew.length;
       if (size < minCrew(cmd.mission)) fail('crewTooSmall');
+      if (cmd.freight) {
+        for (const r of RESOURCE_IDS) {
+          const v = cmd.freight[r] ?? 0;
+          if (!Number.isFinite(v) || v < 0) fail('invalidCount');
+        }
+      }
       if (size > maxCrew(s, pad, cmd.mission)) fail('crewTooLarge');
       if (crew.filter((v) => v.kikiwiwi).length > KIKIWIWI.perShip) fail('oneKikiwiwi');
       siegeLaunchCheck(s, cmd, crew);
       const forecast = forecastExpedition(s, cmd)!;
       if (forecast.weight > forecast.cargo + 1e-9) fail('overloaded');
       if (forecast.returnWeight > forecast.cargo + 1e-9) fail('overloaded');
-      if (!canAfford(s.resources, { pulp, juice })) fail('notEnoughResources');
+      const freight = cleanFreight(cmd.freight ?? {});
+      const need = { ...freight, pulp: freight.pulp + pulp, juice: freight.juice + juice };
+      if (!canAfford(s.resources, need)) fail('notEnoughResources');
       if (cmd.fuel) payStardust(s, FUEL.stardust);
       launch(s, cmd, now, nextId(s, 'x'));
       return;
@@ -1040,6 +1076,8 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       return;
     }
     case 'setResearch': {
+      // Chantier 19: the shared research is chosen at home (the server routes it there).
+      if (isSister(s)) fail('sharedResearch');
       const before = s.research.current;
       if (cmd.tech === null) {
         s.research.current = null;

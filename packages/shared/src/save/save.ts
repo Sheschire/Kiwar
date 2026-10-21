@@ -6,6 +6,7 @@ import {
   defaultAutomation,
   MISSION_KINDS,
   newComets,
+  newColonyLink,
   newSiege,
   newSky,
   newThreats,
@@ -157,6 +158,38 @@ const structure = z.object({
   r: z.number().int(),
 });
 
+const villager = z.object({
+  id,
+  name: z.string().max(4 * KIWI_NAME_MAX),
+  bornAt: z.number(),
+  job,
+  stats,
+  trait: z.enum(TRAIT_IDS).nullable(),
+  shiny: z.enum(KIWI_COLORS).nullable(),
+  level: z.number().int().min(1).max(KIWI.maxLevel),
+  xp: z.number().int().min(0),
+  statPoints: z.number().int().min(0),
+  blessings: z.number().int().min(0).max(BLESSINGS.statMax).optional(),
+  mastery: z.object(
+    Object.fromEntries(MASTERY_IDS.map((m) => [m, z.number().int().min(0)])) as Record<
+      MasteryId,
+      z.ZodNumber
+    >,
+  ),
+  history: z.object({
+    expeditions: z.number().int().min(0),
+    victories: z.number().int().min(0),
+    built: z.number().int().min(0),
+  }),
+  classId: z.enum(CLASS_IDS).nullable(),
+  skillReadyAt: z.record(z.enum(SKILL_IDS), z.number()),
+  kikiwiwi: z.object({ since: z.number() }).optional(),
+  locked: z.literal(true).optional(),
+  builderPriority: z.literal(true).optional(),
+  homeJob: id.optional(),
+  lent: id.nullable().optional(),
+});
+
 export const gameStateSchema = z.object({
   schemaVersion: z.number().int(),
   universeId: id,
@@ -183,39 +216,7 @@ export const gameStateSchema = z.object({
       damaged: z.boolean().optional(),
     }),
   ),
-  villagers: z.array(
-    z.object({
-      id,
-      name: z.string().max(4 * KIWI_NAME_MAX),
-      bornAt: z.number(),
-      job,
-      stats,
-      trait: z.enum(TRAIT_IDS).nullable(),
-      shiny: z.enum(KIWI_COLORS).nullable(),
-      level: z.number().int().min(1).max(KIWI.maxLevel),
-      xp: z.number().int().min(0),
-      statPoints: z.number().int().min(0),
-      blessings: z.number().int().min(0).max(BLESSINGS.statMax).optional(),
-      mastery: z.object(
-        Object.fromEntries(MASTERY_IDS.map((m) => [m, z.number().int().min(0)])) as Record<
-          MasteryId,
-          z.ZodNumber
-        >,
-      ),
-      history: z.object({
-        expeditions: z.number().int().min(0),
-        victories: z.number().int().min(0),
-        built: z.number().int().min(0),
-      }),
-      classId: z.enum(CLASS_IDS).nullable(),
-      skillReadyAt: z.record(z.enum(SKILL_IDS), z.number()),
-      kikiwiwi: z.object({ since: z.number() }).optional(),
-      locked: z.literal(true).optional(),
-      builderPriority: z.literal(true).optional(),
-      homeJob: id.optional(),
-      lent: id.nullable().optional(),
-    }),
-  ),
+  villagers: z.array(villager),
   memorial: z
     .array(
       z.object({
@@ -340,6 +341,7 @@ export const gameStateSchema = z.object({
       sector: sectorId.optional(),
       holders: z.array(id).max(200).optional(),
       bringBack: z.array(id).max(200).optional(),
+      freight: resources.optional(),
       result: z
         .object({
           victory: z.boolean(),
@@ -356,6 +358,7 @@ export const gameStateSchema = z.object({
           injured: z.array(id).optional(),
           bridgehead: z.boolean().optional(),
           queenFallen: z.boolean().optional(),
+          founded: z.boolean().optional(),
           sides: z.object({ strength: groundAir, queen: groundAir }).optional(),
         })
         .nullable(),
@@ -473,6 +476,7 @@ export const gameStateSchema = z.object({
     points: z.number().int().min(0),
     current: z.enum(TECH_IDS).nullable(),
     done: z.array(z.enum(TECH_IDS)).max(TECH_IDS.length),
+    outbox: z.number().int().min(0),
   }),
   automation: z.object(
     Object.fromEntries(AUTO_TASKS.map((t) => [t, z.boolean()])) as Record<AutoTask, z.ZodBoolean>,
@@ -516,6 +520,13 @@ export const gameStateSchema = z.object({
       )
       .max(5),
     conqueredAt: z.number().min(0),
+  }),
+  colony: z.object({
+    index: z.union([z.literal(0), z.literal(1)]),
+    founding: z
+      .object({ at: z.number(), settlers: z.array(villager).max(200), resources })
+      .nullable(),
+    foundedAt: z.number().min(0),
   }),
   nextId: z.number().int(),
   rng: z.tuple([z.number(), z.number(), z.number(), z.number()]),
@@ -615,6 +626,12 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   20: (raw) => ({ ...raw, automation: defaultAutomation() }),
   // v21 → v22 (chantier 19): no siege yet (the new optional fields need nothing).
   21: (raw) => ({ ...raw, siege: newSiege() }),
+  // v22 → v23 (chantier 19, second half): a home colony, no sister, nothing to send.
+  22: (raw) => ({
+    ...raw,
+    colony: newColonyLink(),
+    research: { ...(raw.research as object), outbox: 0 },
+  }),
 };
 
 function obstaclesForOldGame(raw: Record<string, unknown>): Obstacle[] {

@@ -648,6 +648,12 @@ export const fr: Dict = {
     alreadyFortified: 'Cette tête de pont est déjà aménagée.',
     fortifying: 'Un Kikiwiwi aménage déjà cette tête de pont.',
     invalidMission: 'Mission inconnue.',
+    notConquered: 'La face jumelle n’est pas encore conquise.',
+    alreadyFounded: 'La colonie sœur est déjà fondée (ou ses colons sont en route).',
+    sharedResearch: 'La recherche est commune : on la choisit depuis la colonie d’origine.',
+    noDen: 'Aucun nid de furets sur cette tuile.',
+    noGuards: 'Postez d’abord des gardes sur le rempart.',
+    tooStrong: 'Les gardes ne sont pas assez fort·es pour ce nid.',
   },
   siege: {
     show: {
@@ -718,6 +724,7 @@ export const fr: Dict = {
       assault: 'Lancer l’assaut',
       reinforce: 'Envoyer le renfort',
       final: 'Lancer l’assaut final',
+      found: 'Fonder la colonie',
     },
     holders: 'Qui reste sur la tête de pont',
     holdersHint:
@@ -912,6 +919,8 @@ export const fr: Dict = {
       final:
         'L’assaut contre la reine des furets. Tous les kiwis postés sur les têtes de pont se joignent à l’équipage. Il faut tenir tête au sol et dans les airs.',
       retreat: 'Les survivant·es d’une tête de pont tombée rentrent.',
+      found:
+        'Les colons s’installent pour de bon sur la face conquise, avec la cargaison : la seconde colonie naît à l’atterrissage. Le vaisseau revient à vide.',
     },
     launch: 'Envoyer les éclaireurs',
     spotChance: 'Repérage {pct} %',
@@ -1235,6 +1244,14 @@ export const fr: Dict = {
     wreck: {
       name: 'Épave de météorite',
       desc: 'Le cœur fendu d’une météorite tombée, qui luit encore un peu. Riche, mais très lourd.',
+    },
+    ruin: {
+      name: 'Ruines aliens',
+      desc: 'Les restes d’un poste des aliens. Un·e bâtisseur·euse peut les fouiller et en tirer du butin.',
+    },
+    den: {
+      name: 'Nid de furets',
+      desc: 'Les derniers furets de la reine s’y terrent : tant qu’il tient, les vagues sont plus fortes. Des gardes ou un Kikiwiwi peuvent le détruire.',
     },
   },
   sky: {
