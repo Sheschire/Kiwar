@@ -1,5 +1,10 @@
 # Chantier 15 — Colonie autonome : constructions, recherche, météorites, automatismes
 
+> **État : ✅ terminé (octobre 2026).** Les questions ouvertes ont reçu leur réponse (voir
+> « Réponses aux questions ouvertes » plus bas), puis tout a été livré en six parties :
+> voir « Ce qui a été fait » et « Ce qui reste » en fin de document, `docs/DECISIONS.md`
+> (chantier 15) et le skill `kiwar-tasks`.
+
 Retours de partie de fin octobre 2026, après les chantiers 09 à 14.
 
 ## Intention du porteur
