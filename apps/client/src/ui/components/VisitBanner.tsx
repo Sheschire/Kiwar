@@ -1,8 +1,9 @@
 import { isLaunchpadBusy } from '@kiwar/shared';
 import { actions } from '../actions';
-import { ShipIcon } from '../icons';
+import { ShipIcon, TargetIcon } from '../icons';
+import { siegeVisible } from './SiegeModal';
 import { planetLabel } from '../planets';
-import { useT, useUi } from '../store';
+import { uiStore, useT, useUi } from '../store';
 
 /**
  * Visiting a far planet (chantier 24: the twin under its fog, or a member's): whose it is,
@@ -33,6 +34,17 @@ export function VisitBanner() {
         </span>
       </div>
       <div class="row visit-actions">
+        {visit === 'twin' && !twinOwner && siegeVisible(game) && (
+          <button
+            class="btn"
+            onClick={() => {
+              actions.travelTo(null);
+              uiStore.setState({ modal: 'siege' });
+            }}
+          >
+            <TargetIcon size={16} /> {t('siege.button')}
+          </button>
+        )}
         {visit === 'twin' && !twinOwner && pads.length > 0 && (
           <button class="btn" disabled={!padFree} onClick={() => actions.prepareExpedition()}>
             <ShipIcon size={16} /> {t('planets.prepare')}

@@ -1,4 +1,4 @@
-import { Group, type Ray } from 'three';
+import { Group, type Ray, type Vector3 } from 'three';
 import { applyTerraform, generateFace, type AllySnapshot } from '@kiwar/shared';
 import { allyPlace } from './space';
 import { TwinView } from './twin';
@@ -59,10 +59,10 @@ export class AlliesView {
     return this.planets.find((p) => p.kiwiIndex === kiwiIndex) ?? null;
   }
 
-  update(dt: number, time: number): void {
+  update(dt: number, time: number, eye: Vector3): void {
     for (let i = 0; i < this.planets.length; i++) {
       const p = this.planets[i]!;
-      p.view.update(dt, time, p === this.visited, i * 1.7);
+      p.view.update(dt, time, eye, p === this.visited, i * 1.7);
     }
   }
 

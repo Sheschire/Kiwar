@@ -1,7 +1,10 @@
 import { ObstaclesView } from './obstacles';
-import type { Color } from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   BufferGeometry,
+  Color,
+  Matrix4,
+  type Object3D,
   CanvasTexture,
   CircleGeometry,
   ConeGeometry,
@@ -35,7 +38,7 @@ import { buildingGeometry } from './buildingModels';
 import { WaterView, WATER_LEVEL } from './water';
 import { PALETTE } from './palette';
 import { GLSL_NOISE } from './shaderChunks';
-import { TerrainView, worldPosition } from './terrain';
+import { TerrainView, tileTopColor, worldPosition } from './terrain';
 import { planetOrientation, type SpacePoint } from './space';
 
 /** Seen from afar: a little smaller than our own half. */
@@ -43,6 +46,11 @@ const SCALE = 0.68;
 /** One turn on itself every five minutes (chantier 24), a gentle bob. */
 const SPIN = (Math.PI * 2) / 300;
 const BOB = 0.5;
+/**
+ * Level of detail (chantier 24): farther than this many radii from the camera, the tiles,
+ * pools, fog layers and dens give way to one painted disc on the dome.
+ */
+const NEAR_RADII = 8;
 export interface TwinOptions {
   fog: boolean;
   friend?: TwinSnapshot | null;
@@ -79,7 +87,13 @@ export class TwinView {
 
   private water: WaterView | null = null;
   private buildingMaterial: MeshStandardMaterial | null = null;
+  /** A friend's buildings, merged into one geometry (one draw call per planet). */
+  private buildingGeometry: BufferGeometry | null = null;
   private label: Sprite | null = null;
+  /** Far level of detail: the face painted on a disc, and what it replaces. */
+  private readonly far: Mesh;
+  private readonly near: Object3D[] = [];
+  private isNear = true;
 
   private structureGeometries: BufferGeometry[] = [];
   private structureMaterials: MeshStandardMaterial[] = [];
@@ -160,6 +174,12 @@ export class TwinView {
     if (opts.friend) this.showFriend(map, opts.friend);
     else if (opts.intel && !opts.siege?.conquered) this.showStructures(map, opts.intel);
     if (!opts.friend && opts.siege?.heads.length) this.showBridgeheads(map, opts.siege.heads);
+    this.far = farDisc(map, radius, opts.fog);
+    this.spin.add(this.far);
+    this.near.push(this.terrain.tiles, ...this.fog);
+    if (this.water) this.near.push(this.water.mesh);
+    if (this.obstacles) this.near.push(this.obstacles.group);
+    this.setNear(false);
     this.group.add(this.spin);
     this.group.scale.setScalar(SCALE);
   }
@@ -174,14 +194,25 @@ export class TwinView {
     this.group.rotateX(tilt);
   }
 
-  /** Slow spin and bob; a planet being visited holds still (`frozen`). */
-  update(dt: number, time: number, frozen = false, phase = 0): void {
+  /**
+   * Slow spin and bob; a planet being visited holds still (`frozen`) and shows every detail,
+   * the others only when the camera (`eye`) comes near.
+   */
+  update(dt: number, time: number, eye: Vector3, frozen = false, phase = 0): void {
+    this.setNear(frozen || eye.distanceTo(this.group.position) < this.radius * NEAR_RADII);
     if (!frozen) {
       this.angle += dt * SPIN;
       this.group.position.y = this.home.y + Math.sin(time * 0.25 + phase) * BOB;
     }
     this.spin.rotation.y = this.angle;
     this.fogMaterial.uniforms.uTime!.value = time;
+  }
+
+  private setNear(near: boolean): void {
+    if (near === this.isNear) return;
+    this.isNear = near;
+    for (const o of this.near) o.visible = near;
+    this.far.visible = !near;
   }
 
   /** A friend's colony: pools, buildings (static models) and their name above. */
@@ -197,15 +228,21 @@ export class TwinView {
       fog: false,
     });
     this.buildingMaterial = material;
+    // Chantier 24: one merged geometry instead of a mesh per building.
+    const parts: BufferGeometry[] = [];
+    const m = new Matrix4();
     for (const b of friend.buildings) {
       const tile = getTile(map, b);
       if (!tile) continue;
-      const mesh = new Mesh(buildingGeometry(b.type, b.level), material);
       const p = worldPosition(b);
       const y = tile.type === 'juice' ? tile.height + WATER_LEVEL - 0.08 : tile.height;
-      mesh.position.set(p.x, y, p.z);
-      mesh.rotation.y = Math.atan2(p.x, p.z) + Math.PI;
-      this.terrain.group.add(mesh);
+      m.makeRotationY(Math.atan2(p.x, p.z) + Math.PI).setPosition(p.x, y, p.z);
+      parts.push(buildingGeometry(b.type, b.level).clone().applyMatrix4(m));
+    }
+    if (parts.length > 0) {
+      this.buildingGeometry = mergeGeometries(parts, false);
+      for (const g of parts) g.dispose();
+      if (this.buildingGeometry) this.terrain.group.add(new Mesh(this.buildingGeometry, material));
     }
     if (friend.obstacles?.length) {
       this.obstacles = new ObstaclesView(map);
@@ -269,6 +306,7 @@ export class TwinView {
         flag.add(ring);
       }
       this.terrain.group.add(flag);
+      this.near.push(flag);
     }
   }
 
@@ -287,6 +325,7 @@ export class TwinView {
       const p = worldPosition(tile);
       mesh.position.set(p.x, tile.height + (s.kind === 'den' ? 0 : 0.6), p.z);
       this.terrain.group.add(mesh);
+      this.near.push(mesh);
     }
   }
 
@@ -316,8 +355,12 @@ export class TwinView {
     this.terrain.dispose();
     this.water?.dispose();
     this.obstacles?.dispose();
-    // Building geometries are cached and shared with the colony: only the material goes.
     this.buildingMaterial?.dispose();
+    this.buildingGeometry?.dispose();
+    const farMaterial = this.far.material as MeshStandardMaterial;
+    farMaterial.map?.dispose();
+    farMaterial.dispose();
+    this.far.geometry.dispose();
     if (this.label) {
       this.label.material.map?.dispose();
       this.label.material.dispose();
@@ -373,6 +416,48 @@ function sectorMiddle(map: FaceMap, sector: number): Tile | undefined {
     }
   }
   return best;
+}
+
+/**
+ * The far level of detail (chantier 24): every tile painted as a dot of its colour on a disc
+ * at the mean tile height; under fog of war, veiled by the clouds.
+ */
+function farDisc(map: FaceMap, radius: number, fog: boolean): Mesh {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const g = canvas.getContext('2d')!;
+  const px = size / (2 * radius);
+  const step = hexToPixel({ q: 1, r: 0 }).x;
+  const c = new Color();
+  let height = 0;
+  for (const tile of map.tiles) {
+    const p = worldPosition(tile);
+    height += tile.height;
+    g.fillStyle = `#${tileTopColor(tile, c, map.params.biome).getHexString()}`;
+    g.beginPath();
+    g.arc((p.x + radius) * px, (p.z + radius) * px, step * 0.56 * px, 0, Math.PI * 2);
+    g.fill();
+  }
+  if (fog) {
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = `#${PALETTE.cloud.getHexString()}`;
+    g.globalAlpha = 0.78;
+    g.fillRect(0, 0, size, size);
+  }
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  const geometry = new CircleGeometry(radius - 0.6, 48).rotateX(-Math.PI / 2);
+  // CircleGeometry's UVs run from -X/+Y: flip V so the canvas (+Z down) lines up.
+  const uv = geometry.getAttribute('uv');
+  for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i));
+  const mesh = new Mesh(
+    geometry,
+    new MeshStandardMaterial({ map: texture, transparent: true, roughness: 1, fog: false }),
+  );
+  mesh.position.y = map.tiles.length ? height / map.tiles.length : 0;
+  return mesh;
 }
 
 /** 1 for each sector seen (the order of `sectorOf`). */

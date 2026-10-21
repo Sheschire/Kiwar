@@ -476,8 +476,19 @@ export class GameRenderer {
       return;
     }
     this.twin = new TwinView(map, opts);
-    this.twin.place(twinPlace());
+    this.twin.place(twinPlace(this.twinApproach));
     this.scene.add(this.twin.group);
+  }
+
+  private twinApproach = 0;
+  private twinApproachTarget = 0;
+
+  /**
+   * Chantier 24, for the siege show of chantier 19: brings the twin closer along the front
+   * (0 = its resting place, 1 = `TWIN_CLOSEST`), eased over a couple of seconds.
+   */
+  setTwinApproach(approach: number): void {
+    this.twinApproachTarget = Math.min(1, Math.max(0, approach));
   }
 
   /** The other players' colonies, far away (shared universes). */
@@ -506,6 +517,7 @@ export class GameRenderer {
       if (this.visiting === null && !this.homeView) return true;
       this.visiting = null;
       this.allies.setVisited(null);
+      this.twin?.setLabelVisible(true);
       const e = this.terrain?.extent() ?? { x: 20, z: 20 };
       this.rig.returnHome(e.x, e.z, this.homeView);
       this.homeView = null;
@@ -526,6 +538,8 @@ export class GameRenderer {
     }
     this.visiting = planet;
     this.allies.setVisited(typeof planet === 'number' ? this.allies.find(planet) : null);
+    // The name ribbon would cover the planet being visited.
+    this.twin?.setLabelVisible(planet !== 'twin');
     this.selection.setHover(null);
     this.rig.visit(view.home, view.radius);
     return true;
@@ -1205,7 +1219,8 @@ export class GameRenderer {
       this.placingGhost ||
       this.waves?.active ||
       this.predators?.playing ||
-      this.pendingShow
+      this.pendingShow ||
+      this.twinApproach !== this.twinApproachTarget
     )
       this.idle.wake(time);
     const azimuth = this.rig.controls.azimuthAngle;
@@ -1314,8 +1329,16 @@ export class GameRenderer {
     this.crops?.update(dt);
     this.environment.update(this.elapsed, this.camera.position);
     this.water?.update(this.elapsed);
-    this.allies.update(dt, this.elapsed);
-    this.twin?.update(dt, this.elapsed, this.visiting === 'twin');
+    if (this.twinApproach !== this.twinApproachTarget) {
+      const gap = this.twinApproachTarget - this.twinApproach;
+      this.twinApproach =
+        Math.abs(gap) < 1e-3
+          ? this.twinApproachTarget
+          : this.twinApproach + gap * Math.min(1, dt * 1.5);
+      this.twin?.place(twinPlace(this.twinApproach));
+    }
+    this.allies.update(dt, this.elapsed, this.camera.position);
+    this.twin?.update(dt, this.elapsed, this.camera.position, this.visiting === 'twin');
     // The haze follows the zoom, so zooming out does not drown the colony in it.
     const fog = this.scene.fog as Fog;
     fog.near = Math.max(90, this.rig.controls.distance + 25);
