@@ -6,6 +6,7 @@ import {
   COLONY,
   counterForecast,
   EXPEDITIONS,
+  finalForecast,
   finalLock,
   forecastExpedition,
   fortifyLock,
@@ -199,7 +200,8 @@ function shoreUp(state: GameState, map: FaceMap, pad: Building, targetId: string
   const need =
     (c.enemy.max * 1.1) / k / (1 - EXPEDITIONS.luck) - c.strength.max / (1 + EXPEDITIONS.luck);
   const pool = fighters(state);
-  const room = maxCrew(state, pad, 'reinforce');
+  // Never strip the colony: half of who could leave at most.
+  const room = Math.min(maxCrew(state, pad, 'reinforce'), Math.floor(pool.length / 2));
   const crew: Villager[] = [];
   for (const v of pool) {
     if (crew.length >= room || strengthOf(state, crew, 1) >= need) break;
@@ -275,9 +277,19 @@ export function siegeOrder(state: GameState, map: FaceMap): Command | null {
     if (fortifyLock(state, b.sector) === null)
       return { type: 'fortifyBridgehead', sector: b.sector };
   if (!pad) return null;
+  const view = siegeView(state, state.now);
+  const scouting = inFlight(state, 'recon');
+  // Old intel widens every estimate: look again before a counter-attack and the final.
+  const c = state.siege.counter;
+  const holdOld = c && c.announced && view.holds[c.sector]?.freshness !== 'fresh';
+  const queenOld =
+    finalLock(state) === null && view.queen !== null && view.queen.ground.freshness !== 'fresh';
+  if ((holdOld || queenOld) && !scouting) {
+    const look = recon(state, map, pad, twin.id);
+    if (look) return look;
+  }
   const counter = shoreUp(state, map, pad, twin.id);
   if (counter) return counter;
-  const view = siegeView(state, state.now);
   const heads = state.siege.bridgeheads;
   const assaults = state.expeditions.filter(
     (e) => e.mission === 'assault' && e.status === 'outbound',
@@ -325,8 +337,7 @@ export function siegeOrder(state: GameState, map: FaceMap): Command | null {
   }
   // Deep reconnaissance until the queen and enough holds are known.
   const knownHolds = SIEGE.outerSectors.filter((s) => view.holds[s]).length;
-  if ((!view.queen || knownHolds < 3) && !inFlight(state, 'recon'))
-    return recon(state, map, pad, twin.id);
+  if ((!view.queen || knownHolds < 3) && !scouting) return recon(state, map, pad, twin.id);
   return null;
 }
 
@@ -343,5 +354,14 @@ export function siegeDebug(state: GameState): string {
     .map((s) => `${s}:${view.holds[s]!.min.toFixed(0)}-${view.holds[s]!.max.toFixed(0)}`)
     .join(' ');
   const f = finalLock(state);
-  return `pool ${pool.length} (max ${most}) best ${best.toFixed(1)} · holds ${holds || '?'} · queen ${view.queen ? 'known' : '?'} · final ${f ?? 'ok'}`;
+  let final = '';
+  if (!f) {
+    const seats = Math.floor(maxCrew(state, pad, 'final') * 0.75);
+    const titan = homeTitan(state);
+    const crew = [...(titan ? [titan] : []), ...pool].slice(0, seats);
+    const ff = finalForecast(state, crew, 1, state.now);
+    const r = (x: { min: number; max: number }) => `${x.min.toFixed(0)}-${x.max.toFixed(0)}`;
+    final = ` (${crew.length}: ${r(ff.strength.ground)}/${r(ff.strength.air)} vs ${ff.queen ? `${r(ff.queen.ground)}/${r(ff.queen.air)}` : '?'} ${ff.odds})`;
+  }
+  return `pool ${pool.length} (max ${most}) best ${best.toFixed(1)} · holds ${holds || '?'} · queen ${view.queen ? 'known' : '?'} · final ${f ?? 'ok'}${final}`;
 }
