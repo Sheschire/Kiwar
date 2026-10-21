@@ -15,6 +15,7 @@ import {
   BIOME_LABELS,
   toMarkdown,
   agesMarkdown,
+  ACTIVE_PACE,
   CASUAL_PACE,
   impactMarkdown,
 } from './report';
@@ -145,7 +146,7 @@ const args = parseArgs(process.argv.slice(2));
         [
           {
             label: 'Attentive player',
-            pace: 1,
+            pace: ACTIVE_PACE,
             runs: agesOut.slice(0, n).flat(),
             hours: args.agesDays * 24,
           },

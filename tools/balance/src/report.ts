@@ -297,7 +297,21 @@ export function impactMarkdown(
 
 /** Chantier 18: age targets of the attentive player (the occasional one: × `CASUAL_PACE`). */
 export const AGE_TARGETS_H = { stone: 36, iron: 96, industry: 192 } as const;
-export const CASUAL_PACE = 1.5;
+/**
+ * Occasional player: about 2/3 of the attentive pace (owner), the late game more lenient: the
+ * research that paces it runs offline (owner: accepted, Industry × 1.25).
+ */
+export const CASUAL_PACE: Record<keyof typeof AGE_TARGETS_H, number> = {
+  stone: 1.5,
+  iron: 1.5,
+  industry: 1.25,
+};
+/** The attentive player's pace (× 1 everywhere). */
+export const ACTIVE_PACE: Record<keyof typeof AGE_TARGETS_H, number> = {
+  stone: 1,
+  iron: 1,
+  industry: 1,
+};
 /** Tolerance on the age targets. */
 export const AGE_TOLERANCE = 15;
 
@@ -306,7 +320,12 @@ export const AGE_TOLERANCE = 15;
  * (±`AGE_TOLERANCE` %) and between biomes (±`threshold` %).
  */
 export function agesMarkdown(
-  profiles: { label: string; pace: number; runs: RunResult[]; hours: number }[],
+  profiles: {
+    label: string;
+    pace: Record<keyof typeof AGE_TARGETS_H, number>;
+    runs: RunResult[];
+    hours: number;
+  }[],
   biomeLabels: Record<BiomeId, string>,
   threshold: number,
 ): string[] {
@@ -346,7 +365,7 @@ export function agesMarkdown(
         .sort((a, b) => a - b);
       const all = medians.length === biomes.length ? quantile(medians, 0.5) : null;
       if (target === undefined) return `${formatDuration(all)} ${c.flagged ? '⚠️' : '✅'}`;
-      const wanted = target * p.pace * 3_600_000;
+      const wanted = target * p.pace[m as keyof typeof AGE_TARGETS_H] * 3_600_000;
       const gap = all === null ? null : ((all - wanted) / wanted) * 100;
       const ok = gap !== null && Math.abs(gap) <= AGE_TOLERANCE && !c.flagged;
       return `${formatDuration(all)} for ${formatDuration(wanted)} (${formatGap(gap)}) ${ok ? '✅' : '⚠️'}`;
@@ -354,7 +373,7 @@ export function agesMarkdown(
     lines.push(`| **All biomes vs target** | ${targetCells.join(' | ')} |`, '');
   }
   lines.push(
-    `Targets: Stone ≈ ${AGE_TARGETS_H.stone} h, Iron ≈ ${AGE_TARGETS_H.iron} h, Industry ≈ ${AGE_TARGETS_H.industry} h for the attentive player, × ${CASUAL_PACE} for the occasional one (±${AGE_TOLERANCE} %); biomes within ±${threshold} % of each other. \`[n/N]\`: runs that reached it.`,
+    `Targets: Stone ≈ ${AGE_TARGETS_H.stone} h, Iron ≈ ${AGE_TARGETS_H.iron} h, Industry ≈ ${AGE_TARGETS_H.industry} h for the attentive player, × ${CASUAL_PACE.stone} / ${CASUAL_PACE.iron} / ${CASUAL_PACE.industry} for the occasional one (the late game runs on research, which goes on offline) (±${AGE_TOLERANCE} %); biomes within ±${threshold} % of each other. \`[n/N]\`: runs that reached it.`,
     '',
   );
   return lines;
