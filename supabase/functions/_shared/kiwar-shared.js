@@ -2093,7 +2093,7 @@ var SIEGE = {
   hold: { base: 9, spread: [0.75, 1.3] },
   /** The ferret queen: ground (ferrets) and air (bats) power, very strong. */
   queen: {
-    ground: 26,
+    ground: 24,
     air: 14,
     spread: [0.85, 1.2],
     /** Each bridgehead held weakens her (share of her power). */
