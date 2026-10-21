@@ -1,6 +1,7 @@
 import { otherFace, twinParams, type Face, type FaceParams } from '@kiwar/shared';
 import { LANGS } from '../../i18n/i18n';
 import { QUALITY_PRESETS } from '../../render/quality';
+import { FPS_CAPS } from '../../render/frameLimiter';
 import { randomSeed } from '../../game/urlParams';
 import { actions } from '../actions';
 import { setLang, uiStore, useT, useUi } from '../store';
@@ -30,6 +31,7 @@ export function SettingsModal() {
   const lang = useUi((s) => s.lang);
   const choice = useUi((s) => s.qualityChoice);
   const preset = useUi((s) => s.qualityPreset);
+  const fpsCap = useUi((s) => s.fpsCap);
   const face = useUi((s) => s.game?.face ?? 'kiwisu');
   const biome = useUi((s) => s.game?.params.biome ?? 'classic');
   const seed = useUi((s) => s.game?.seed ?? '');
@@ -76,6 +78,22 @@ export function SettingsModal() {
             </button>
           ))}
         </div>
+      </div>
+      <div class="field">
+        <h3>{t('settings.fps')}</h3>
+        <div class="segmented" role="group" aria-label={t('settings.fps')}>
+          {FPS_CAPS.map((cap) => (
+            <button
+              key={cap}
+              class={`btn ${fpsCap === cap ? 'btn-active' : ''}`}
+              aria-pressed={fpsCap === cap}
+              onClick={() => actions.setFpsCap(cap)}
+            >
+              {cap === 0 ? t('settings.fpsUnlimited') : t('settings.fpsCap', { fps: cap })}
+            </button>
+          ))}
+        </div>
+        <p class="muted small">{t('settings.fpsHint')}</p>
       </div>
       <SoundSection />
       <div class="field">

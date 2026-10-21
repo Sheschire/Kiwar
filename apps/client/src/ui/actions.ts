@@ -19,6 +19,7 @@ import {
 import type { GameController } from '../game/GameController';
 import type { GameRenderer } from '../render/GameRenderer';
 import { saveQualityChoice, type QualityChoice } from '../render/quality';
+import { saveFpsCap, type FpsCap } from '../render/frameLimiter';
 import { pushToast, saveShowLevels, uiStore } from './store';
 import { startIntro } from './intro';
 import { audio } from '../audio/engine';
@@ -228,6 +229,11 @@ export const actions = {
     saveQualityChoice(choice);
     renderer?.setQuality(choice);
     uiStore.setState({ qualityChoice: choice });
+  },
+  setFpsCap(cap: FpsCap): void {
+    saveFpsCap(cap);
+    renderer?.setFpsCap(cap);
+    uiStore.setState({ fpsCap: cap });
   },
   setTimeScale(scale: number): void {
     controller?.setTimeScale(scale);

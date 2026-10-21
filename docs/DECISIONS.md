@@ -1438,3 +1438,48 @@ false`), so night only darkens the ground around them.
   glow before the cut).
 - **Sound**: `slice` is muffled and wet (swish, low tear, thump, splash, no high ring); new
   event `intro.juice` (synth `juice`) when the first strands break, replaceable in `/admin`.
+
+## Chantier 23 — HD lights, living tiles, paved paths, sobriety
+
+### Part 1 — Sobriety (the owner's PC ran hot)
+
+Owner's answers: 60 fps by default and a slowdown at rest; windows lit only where kiwis
+sleep or work; tilt-shift kept only if it costs little (≤ ~10 % of the frame); a harvested
+tile looks cultivated as soon as its building is placed (whole zone).
+
+- **Frame cap** (`render/frameLimiter.ts`, `FrameLimiter`): the loop draws at most 30, 60
+  (default) or unlimited frames a second (Settings → "Frames per second", `kiwar.fps`,
+  `?fps=30|60|max`). A skipped animation frame still runs `afterFrame` (the tick driven by the
+  frames keeps its pace); only the drawing is spared. Slack of a quarter period (≤ 4 ms): a
+  60 Hz screen at 60 draws every frame, 120/144 Hz screens draw an even 60; no catch-up burst
+  after a stall.
+- **Idle slowdown** (`IdleWatch`): 30 fps after 3 s without a sign of life, 20 fps after 20 s.
+  Signs of life: any `pointerdown/pointermove/wheel/keydown/touchstart` on the window
+  (interface included), the camera moving or gliding (`rig.update` returns true), path
+  painting, placing, a tile wave or a predator show, closing a menu. A wake resets the
+  limiter, so the next frame is drawn at once. `dt` stays the real interval: animations keep
+  their speed, they only get fewer steps. Kiwis walking do not keep the full rate (they always
+  walk: the colony would never rest).
+- **Hidden tab**: frames that still arrive while `document.hidden` only run the tick.
+- **Adaptive quality** judges the fps against the aimed rate (an idle 20 fps is not a slow
+  device) and resets its measure when the aim changes.
+- **Auto no longer jumps to High**: a GPU that used to get High starts on Medium and steps up
+  only when the GPU timer shows a Medium frame under 5 ms while holding ≥ 92 % of 60 fps
+  (High costs about twice as much). Without timer queries (Safari, Firefox) it stays on
+  Medium — the player can still pick High. A step down forbids any later step up.
+- **Effect costs** (software WebGL at 480×300, median frame, relative only): Medium ≈ 400 ms,
+  High ≈ 550 ms; High without N8AO ≈ −10 %, without tilt-shift ≈ −3 % (noise level), without
+  soft shadows ≈ 0 (shadows are static). Tilt-shift stays in High (below the owner's 10 %
+  threshold); N8AO stays too, High being opt-in or earned in auto.
+- **Measures** (`scripts/sobriety.mjs`, perf save, 640×400, WebGL calls stubbed so the loop
+  runs at the display rate; GPU work ∝ frames drawn), Medium:
+
+  | moment         | frames drawn/s before → after | main thread ms/s before → after |
+  | -------------- | ----------------------------- | ------------------------------- |
+  | idle 6–14 s    | 60 → 30                       | 97 → 80                         |
+  | idle 22–30 s   | 60 → 20                       | 87 → 70                         |
+  | camera turning | 60 → 60                       | 168 → 164                       |
+  | hidden (flag)  | 60 → 0                        | 76 → 51                         |
+
+  On a 144 Hz screen the old loop drew 144 frames a second: now 60, then 30 and 20 at rest.
+- `?debug` shows the aimed rate, "(idle)" and the share of display frames drawn.

@@ -21,6 +21,7 @@ import type {
   UniverseInfo,
 } from '@kiwar/shared';
 import type { QualityChoice, QualityPreset } from '../render/quality';
+import { DEFAULT_FPS_CAP, type FpsCap } from '../render/frameLimiter';
 import { DEFAULT_SETTINGS, type AudioSettings } from '../audio/settings';
 import type { IntroUi } from './intro';
 
@@ -68,6 +69,8 @@ export interface UiState {
   selectedTile: Tile | null;
   qualityChoice: QualityChoice;
   qualityPreset: QualityPreset;
+  /** Chantier 23: frames per second the player allows (0 = no cap). */
+  fpsCap: FpsCap;
   timeScale: number;
   offlineSummary: OfflineSummary | null;
   /** The full summary was asked for from the corner bubble. */
@@ -201,6 +204,7 @@ export const uiStore = createStore<UiState>(() => ({
   selectedTile: null,
   qualityChoice: 'auto',
   qualityPreset: 'medium',
+  fpsCap: DEFAULT_FPS_CAP,
   timeScale: 1,
   offlineSummary: null,
   recapOpen: false,

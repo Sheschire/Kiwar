@@ -120,6 +120,13 @@ function PerfLines({ t }: { t: Translate }) {
               gpu: gpu || '?',
             })}
           </span>
+          <span class="muted">
+            {t(frame.targetFps === 0 ? 'debug.paceUnlimited' : 'debug.pace', {
+              target: frame.targetFps,
+              idle: frame.idle ? t('debug.paceIdle') : '',
+              drawn: round(frame.drawnShare * 100),
+            })}
+          </span>
         </>
       )}
       <span>{t('debug.ui', { ms: ms!, updates: updates!, worst: worst! })}</span>

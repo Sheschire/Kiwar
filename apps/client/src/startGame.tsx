@@ -27,6 +27,7 @@ import { actions, bindActions } from './ui/actions';
 import { bindIntro, introSeen, startIntro } from './ui/intro';
 import { clearUrlParams, randomSeed, readUrlParams } from './game/urlParams';
 import { gpuRendererName, loadQualityChoice } from './render/quality';
+import { loadFpsCap } from './render/frameLimiter';
 import { installPerfProbe, perfStore, recordTick } from './ui/perfProbe';
 import { viewStore } from './ui/viewStore';
 import { handleGameEvents } from './game/events';
@@ -40,7 +41,8 @@ persistLang(uiStore.getState().lang);
 
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
 const qualityChoice = loadQualityChoice();
-uiStore.setState({ qualityChoice });
+const fpsCap = loadFpsCap();
+uiStore.setState({ qualityChoice, fpsCap });
 installPerfProbe(gpuRendererName());
 // `?debug` opens the debug panel (frame timing to share when the game feels slow).
 if (new URLSearchParams(window.location.search).has('debug')) uiStore.setState({ debugOpen: true });
@@ -76,6 +78,7 @@ const renderer = new GameRenderer(
   },
   qualityChoice,
 );
+renderer.setFpsCap(fpsCap);
 
 /** Friend on the twin face, as last reported by the server (shared universes). */
 let friend: TwinSnapshot | null = null;

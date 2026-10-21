@@ -43,6 +43,7 @@ import { KiwisView } from './kiwis';
 import { CameraRig } from '../camera/CameraRig';
 import { Environment } from './environment';
 import { FpsMeter } from './fpsMeter';
+import { DEFAULT_FPS_CAP, FrameLimiter, IdleWatch, type FpsCap } from './frameLimiter';
 import { GpuTimer } from './gpuTimer';
 import { liteShadows } from './shadowChunk';
 import { PerfStats, type FrameStats } from './perfStats';
@@ -114,6 +115,13 @@ export interface RendererCallbacks {
 const tmpV = new Vector3();
 const tmpTarget = new Vector3();
 const tmpSize = new Vector2();
+/**
+ * Auto steps medium up to high only if a medium frame costs the GPU less than this (high costs
+ * about twice as much: it must stay well within a 60 fps frame).
+ */
+const AUTO_HIGH_GPU_MS = 5;
+/** Inputs that end the idle slowdown (captured on the window: the interface counts too). */
+const WAKE_EVENTS = ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchstart'] as const;
 /** Level badges show up below this share of the framing distance (chantier 11: medium zoom). */
 const BADGE_ZOOM = 0.6;
 /** Chantier 16: constructions that ended longer ago than this get no wave (offline). */
@@ -133,6 +141,14 @@ export class GameRenderer {
   private readonly tap: TapDetector;
   private readonly fpsMeter = new FpsMeter();
   private readonly perf = new PerfStats();
+  /** Chantier 23: frames drawn at most at the player's cap, fewer while nothing happens. */
+  private readonly limiter = new FrameLimiter();
+  private readonly idle = new IdleWatch();
+  private fpsCap: FpsCap = DEFAULT_FPS_CAP;
+  private drawTarget: number = DEFAULT_FPS_CAP;
+  private drawnFrames = 0;
+  private lastGpuMs: number | null = null;
+  private skippedFrames = 0;
   private readonly gpuTimer: GpuTimer;
   private lastFrameAt = 0;
   private terrain: TerrainView | null = null;
@@ -184,6 +200,8 @@ export class GameRenderer {
   /** Chantier 20: the building tile under the mouse (its zone shows, paler). */
   private hoverBuildingTile: Tile | null = null;
   private qualityChoice: QualityChoice = 'auto';
+  /** In auto, the preset the device may step up to when the GPU has room (chantier 23). */
+  private autoCeiling: QualityPreset | null = null;
   private readonly integrated = isIntegratedGpu(gpuRendererName());
   private preset: QualityPreset = 'medium';
   private fpsReportTimer = 0;
@@ -281,7 +299,22 @@ export class GameRenderer {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas);
     this.resize();
+    for (const type of WAKE_EVENTS)
+      window.addEventListener(type, this.wake, { capture: true, passive: true });
     this.renderer.setAnimationLoop((time) => this.frame(time));
+  }
+
+  /** Any input (on the scene or the interface) brings the full frame rate back at once. */
+  readonly wake = (): void => {
+    const slowed = this.drawTarget !== this.fpsCap;
+    this.idle.wake(performance.now());
+    if (slowed) this.limiter.reset();
+  };
+
+  setFpsCap(cap: FpsCap): void {
+    this.fpsCap = cap;
+    this.limiter.reset();
+    this.wake();
   }
 
   get qualityPreset(): QualityPreset {
@@ -290,7 +323,16 @@ export class GameRenderer {
 
   setQuality(choice: QualityChoice): void {
     this.qualityChoice = choice;
-    this.applyPreset(choice === 'auto' ? detectQuality() : choice);
+    if (choice !== 'auto') {
+      this.autoCeiling = null;
+      this.applyPreset(choice);
+      return;
+    }
+    // Chantier 23: auto starts a strong GPU on medium and only steps up to high once the GPU
+    // timer shows room to spare (high made laptops run hot for little gain).
+    const detected = detectQuality();
+    this.autoCeiling = detected === 'high' ? 'high' : null;
+    this.applyPreset(detected === 'high' ? 'medium' : detected);
   }
 
   private applyPreset(preset: QualityPreset): void {
@@ -997,7 +1039,10 @@ export class GameRenderer {
     this.background = background;
     this.backgroundFrames = 2;
     // The paused time is not a slow frame.
-    if (!background) this.lastFrameAt = 0;
+    if (!background) {
+      this.lastFrameAt = 0;
+      this.wake();
+    }
   }
 
   private background = false;
@@ -1005,6 +1050,11 @@ export class GameRenderer {
 
   private frame(time: number): void {
     const start = performance.now();
+    // A hidden tab normally gets no frames at all; if one comes, only the tick runs.
+    if (document.hidden && !this.intro) {
+      this.runAfterFrame();
+      return;
+    }
     if (this.background && !this.intro) {
       if (this.backgroundFrames <= 0) {
         this.runAfterFrame();
@@ -1012,6 +1062,20 @@ export class GameRenderer {
       }
       this.backgroundFrames--;
     }
+    const target = this.intro ? this.fpsCap : this.idle.target(time, this.fpsCap);
+    if (target !== this.drawTarget) {
+      this.drawTarget = target;
+      // The measures of another rhythm say nothing about this one.
+      this.fpsMeter.reset();
+      this.adaptiveTimer = 0;
+      this.lastFrameAt = 0;
+    }
+    if (!this.limiter.shouldDraw(time, target)) {
+      this.skippedFrames++;
+      this.runAfterFrame();
+      return;
+    }
+    this.drawnFrames++;
     if (this.lastFrameAt > 0) {
       // Recorded at the start of the next frame: the cost of the previous one is known.
       this.perf.record(start - this.lastFrameAt, this.lastCpu);
@@ -1053,7 +1117,17 @@ export class GameRenderer {
         return;
       }
     }
-    this.rig.update(dt);
+    // Signs of life that keep the full frame rate: the camera moving or gliding, a tool in
+    // hand, a show on screen.
+    if (
+      this.rig.update(dt) ||
+      this.painter.enabled ||
+      this.placingGhost ||
+      this.waves?.active ||
+      this.predators?.playing ||
+      this.pendingShow
+    )
+      this.idle.wake(time);
     const azimuth = this.rig.controls.azimuthAngle;
     if (!(Math.abs(azimuth - this.lastAzimuth) <= 0.004)) {
       this.lastAzimuth = azimuth;
@@ -1102,11 +1176,19 @@ export class GameRenderer {
   }
 
   private reportStats(): void {
+    this.lastGpuMs = this.gpuTimer.take();
+    const drawn = this.drawnFrames;
+    const skipped = this.skippedFrames;
+    this.drawnFrames = 0;
+    this.skippedFrames = 0;
     if (!this.callbacks.onStats) return;
     const size = this.renderer.getDrawingBufferSize(tmpSize);
     this.callbacks.onStats({
       ...this.perf.summary(),
-      gpuMs: this.gpuTimer.take(),
+      gpuMs: this.lastGpuMs,
+      targetFps: this.drawTarget,
+      idle: this.drawTarget !== this.fpsCap,
+      drawnShare: drawn + skipped > 0 ? drawn / (drawn + skipped) : 1,
       drawCalls: this.renderer.info.render.calls,
       triangles: this.renderer.info.render.triangles,
       width: size.x,
@@ -1216,17 +1298,33 @@ export class GameRenderer {
     if (this.qualityChoice !== 'auto' || document.hidden) return;
     this.adaptiveTimer += dt;
     if (this.adaptiveTimer < 6 || this.fpsMeter.sampleCount < 8) return;
-    if (this.fpsMeter.slowAverage < 40) {
-      const lower = lowerPreset(this.preset);
-      if (lower) this.applyPreset(lower);
-    }
     this.adaptiveTimer = 0;
+    // Judged against the rhythm aimed at: an idle 20 fps is not a slow device.
+    const target = this.drawTarget || 60;
+    const fps = this.fpsMeter.slowAverage;
+    if (fps < Math.min(40, target * 0.67)) {
+      const lower = lowerPreset(this.preset);
+      // Once stepped down, never back up (no see-saw between presets).
+      this.autoCeiling = null;
+      if (lower) this.applyPreset(lower);
+      return;
+    }
+    const higher = this.autoCeiling && this.preset !== this.autoCeiling ? 'high' : null;
+    if (
+      higher &&
+      target >= 55 &&
+      fps >= target * 0.92 &&
+      this.lastGpuMs !== null &&
+      this.lastGpuMs < AUTO_HIGH_GPU_MS
+    )
+      this.applyPreset(higher);
   }
 
   dispose(): void {
     this.logistics.dispose();
     this.ghost.dispose();
     this.renderer.setAnimationLoop(null);
+    for (const type of WAKE_EVENTS) window.removeEventListener(type, this.wake, { capture: true });
     this.resizeObserver.disconnect();
     this.tap.dispose();
     this.painter.dispose();

@@ -20,6 +20,11 @@ export interface FrameStats {
   width: number;
   height: number;
   dpr: number;
+  /** Chantier 23: the frame rate aimed at now (0 = no cap), slowed down while idle. */
+  targetFps: number;
+  idle: boolean;
+  /** Share of the display's frames actually drawn (the others only run the tick). */
+  drawnShare: number;
 }
 
 const WINDOW = 240;
