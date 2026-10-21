@@ -25,7 +25,10 @@ import {
   createGlow,
   createWholeKiwi,
   disposeFur,
+  FleshVeil,
+  furShiver,
   JuiceBurst,
+  JuiceStrands,
   RING,
   type Glow,
 } from './introFx';
@@ -38,6 +41,9 @@ const T_SLICE = 0.4;
 const T_PART = T_SLICE + 0.3;
 const T_CHOICE = T_PART + 1.4;
 const LEAVE_S = 1.3;
+/** Slow motion when the blade bites (real seconds, at `SLOW` speed). */
+const SLOW_S = 0.3;
+const SLOW = 0.3;
 /** A tap within this many pixels of the fruit's outline still counts. */
 const TAP_SLACK_PX = 24;
 /** A drag this long across the fruit slices it too. */
@@ -50,8 +56,10 @@ export interface IntroHandlers {
   onPhase(phase: IntroPhase): void;
   /** The pointer is over a half (desktop hover) or a half was tapped. */
   onFocus(face: Face): void;
-  /** The blade cuts: sound and flash. */
+  /** The blade cuts: sound. */
   onSlice(): void;
+  /** The first strands of juice between the halves break: sound. */
+  onJuice(): void;
   /** The camera has dived onto the chosen half. */
   onDone(face: Face): void;
 }
@@ -73,6 +81,8 @@ interface Half {
   /** Depth of the dome in the game (its Y scale). */
   domeDepth: number;
   water: WaterView;
+  /** Wet flesh over the face just after the cut, melting to reveal the tiles. */
+  veil: FleshVeil;
   /** Side of the screen: -1 left (Kiwisu), +1 right (Kiwino). */
   side: number;
   scale: number;
@@ -106,6 +116,10 @@ export class IntroScene {
   private readonly halves: Half[] = [];
   private readonly blade = new BladeTrail();
   private readonly juice = new JuiceBurst();
+  private readonly strands = new JuiceStrands();
+  /** Real seconds of slow motion left. */
+  private slowLeft = 0;
+  private juiceHeard = false;
   /** The whole round fruit, until the cut. */
   private readonly whole: Mesh;
   private readonly radius: number;
@@ -172,6 +186,7 @@ export class IntroScene {
         dome: terrain.group.children.find((c) => c !== terrain.tiles && c !== water.mesh)!,
         domeDepth: 0,
         water,
+        veil: new FleshVeil(1),
       });
       const e = terrain.extent();
       radius = Math.max(radius, e.x, e.z);
@@ -188,6 +203,13 @@ export class IntroScene {
       addFurShells(h.dome as Mesh, new Vector3(0, -1, 0));
     }
     this.skinRadius = skin;
+    for (const h of this.halves) {
+      // The fresh cut covers the face, just above its highest tile.
+      const top = h.terrain.tiles.boundingBox!.max.y + h.terrain.group.position.y;
+      h.veil.mesh.scale.setScalar(Math.max(this.radius, skin) * 1.02);
+      h.veil.mesh.position.y = top + 0.05;
+      h.pivot.add(h.veil.mesh);
+    }
     // A round kiwi, barely longer along its axis (X, across the cut).
     this.whole = createWholeKiwi();
     this.whole.scale.set(skin * 1.04, skin, skin);
@@ -198,7 +220,7 @@ export class IntroScene {
     this.glow.sprite.scale.setScalar(skin * 3.4);
     this.scene.add(this.glow.sprite);
 
-    this.scene.add(this.blade.mesh, this.juice.drops, this.juice.seeds);
+    this.scene.add(this.blade.mesh, this.juice.drops, this.juice.seeds, this.strands.mesh);
 
     canvas.addEventListener('pointerdown', this.onPointerDown);
     canvas.addEventListener('pointermove', this.onPointerMove);
@@ -246,6 +268,10 @@ export class IntroScene {
       h.pivot.quaternion.copy(this.facing(h, 0.3));
     }
     this.blade.mesh.visible = false;
+    this.strands.clear();
+    furShiver.value = 0;
+    this.slowLeft = 0;
+    for (const h of this.halves) h.veil.set(0, 1);
     this.setPhase('choice');
     this.placeCamera(1);
   }
@@ -258,15 +284,25 @@ export class IntroScene {
     this.setPhase('leaving');
   }
 
-  update(dt: number): void {
+  update(realDt: number): void {
     // The terrain shaders share the season uniforms with the game: neutral look in space.
     seasonUniforms.uNight.value = 0;
     seasonUniforms.uSnow.value = 0;
     seasonUniforms.uSeasonTintAmount.value = 0.12;
+    // Slow motion as the blade bites, easing back to full speed over its last 0.1 s.
+    let dt = realDt;
+    if (this.slowLeft > 0) {
+      this.slowLeft -= realDt;
+      dt *= SLOW + (1 - SLOW) * Math.max(0, 1 - this.slowLeft / 0.1);
+    }
     this.time += dt;
     const t = this.time;
     for (const h of this.halves) h.water.update(t);
     this.juice.update(dt);
+    if (this.strands.update(this.juice) > 0 && !this.juiceHeard) {
+      this.juiceHeard = true;
+      this.handlers.onJuice();
+    }
     if (this.phase === 'waiting') this.wait(t, dt);
     else if (this.phase === 'playing') this.play(dt);
     else if (this.phase === 'choice') this.idle(dt);
@@ -307,8 +343,12 @@ export class IntroScene {
       this.glow.sprite.visible = false;
       this.aimBlade();
       this.juice.burst(this.skinRadius, POSE);
+      this.slowLeft = SLOW_S;
       this.handlers.onSlice();
     }
+    // The fur quivers from the blow.
+    const blow = c - T_SLICE;
+    furShiver.value = blow > 0 && blow < 1.2 ? Math.exp(-blow * 4) * Math.sin(blow * 45) : 0;
     // The whole fruit holds together while the blade runs through it, then falls in two.
     if (c >= T_PART && this.whole.visible) this.split();
     // Blade: a thin streak sweeping along the seam, in the plane of the cut.
@@ -319,7 +359,12 @@ export class IntroScene {
     } else this.blade.mesh.visible = false;
     if (c >= T_PART) {
       const k = ease((c - T_PART) / (T_CHOICE - T_PART));
+      // The fresh cut glows warm for a moment, then the flesh melts into the colony's face.
+      const after = c - T_PART;
+      const glow = Math.max(0, 1 - after / 0.4) ** 2;
+      const melt = ease((after - 0.35) / 0.9);
       for (const h of this.halves) {
+        h.veil.set(glow, melt);
         h.dome.scale.y = this.skinRadius * 1.04 + (h.domeDepth - this.skinRadius * 1.04) * k;
         const from = h.pivot.userData.from as Quaternion;
         // The halves first slide apart along the fruit's axis, then take their places.
@@ -347,8 +392,12 @@ export class IntroScene {
       this.reveal(h);
       // Cut from the round fruit: as deep as it, settling into the game's dome as it parts.
       h.dome.scale.y = this.skinRadius * 1.04;
+      h.veil.set(1, 0);
     }
     this.whole.visible = false;
+    // Strands of juice from one cut to the other, anchored on the flesh.
+    const [a, b] = this.halves;
+    this.strands.attach(a!.pivot, b!.pivot, this.skinRadius * 0.9, POSE, a!.veil.mesh.position.y);
   }
 
   /**
@@ -572,9 +621,12 @@ export class IntroScene {
       disposeFur(h.dome as Mesh);
       h.terrain.dispose();
       h.water.dispose();
+      h.veil.dispose();
     }
     this.blade.dispose();
     this.juice.dispose();
+    this.strands.dispose();
+    furShiver.value = 0;
     this.glow.dispose();
     disposeFur(this.whole);
     this.whole.geometry.dispose();

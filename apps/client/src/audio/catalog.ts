@@ -212,6 +212,12 @@ export const SOUND_EVENTS = {
     synth: 'slice',
     default: { sources: ['synth:slice'], volume: 0.9 },
   },
+  'intro.juice': {
+    bus: 'sfx',
+    group: 'ui',
+    synth: 'juice',
+    default: { sources: ['synth:juice'], volume: 0.8 },
+  },
   'threat.warning': {
     bus: 'sfx',
     group: 'colony',

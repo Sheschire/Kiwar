@@ -147,6 +147,7 @@ export function startIntro(opts: IntroOptions): void {
       },
       onFocus: (face) => focusIntro(face),
       onSlice: () => audio.play('intro.slice'),
+      onJuice: () => audio.play('intro.juice'),
       onDone: (face) => finish(face),
     },
     reducedMotion(),

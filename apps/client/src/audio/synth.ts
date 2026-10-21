@@ -108,52 +108,80 @@ function chirps(seed: number, count: number, length: number, gain: number): Tone
 }
 
 export const SYNTH_PRESETS = {
-  // Intro: a blade whooshes through the fruit, a short ring, a wet splash of juice with a few
-  // drops, then the halves part softly.
+  // Intro (chantier 22): a short, muffled swish, the flesh giving way (a low wet tear and a
+  // soft thump), then a splash sliding down — no ring, the cut is organic.
   slice: {
     tones: [
       {
         wave: 'noise',
         freq: 0,
-        attack: 0.08,
-        decay: 0.22,
-        gain: 0.7,
-        lowpass: 900,
-        lowpassEnd: 7000,
+        attack: 0.05,
+        decay: 0.16,
+        gain: 0.45,
+        lowpass: 700,
+        lowpassEnd: 2600,
       },
-      {
-        wave: 'sine',
-        freq: 2600,
-        freqEnd: 2350,
-        start: 0.18,
-        attack: 0.002,
-        decay: 0.5,
-        gain: 0.2,
-      },
-      // Splash: a wet burst sliding down, then drops.
+      // The flesh gives way: a low, wet tear.
       {
         wave: 'noise',
         freq: 0,
-        start: 0.17,
-        attack: 0.004,
-        decay: 0.28,
-        gain: 0.65,
-        lowpass: 2400,
-        lowpassEnd: 500,
+        start: 0.12,
+        attack: 0.01,
+        hold: 0.05,
+        decay: 0.22,
+        gain: 0.7,
+        lowpass: 520,
+        lowpassEnd: 180,
+        tremolo: [38, 0.6],
       },
-      ...[0.26, 0.33, 0.41, 0.52, 0.6].map((start, i) => ({
+      { wave: 'sine', freq: 120, freqEnd: 55, start: 0.13, attack: 0.008, decay: 0.32, gain: 0.55 },
+      // Splash: a wet burst sliding down.
+      {
+        wave: 'noise',
+        freq: 0,
+        start: 0.24,
+        attack: 0.006,
+        decay: 0.3,
+        gain: 0.5,
+        lowpass: 1800,
+        lowpassEnd: 400,
+      },
+      ...[0.34, 0.43, 0.55].map((start, i) => ({
         wave: 'sine' as const,
-        freq: 520 + i * 90,
-        freqEnd: 1100 + i * 140,
+        freq: 420 + i * 70,
+        freqEnd: 820 + i * 110,
         start,
         attack: 0.003,
-        decay: 0.06,
-        gain: 0.28 - i * 0.03,
+        decay: 0.05,
+        gain: 0.18 - i * 0.03,
       })),
-      { wave: 'noise', freq: 0, start: 0.3, attack: 0.05, decay: 0.5, gain: 0.3, lowpass: 600 },
-      { wave: 'sine', freq: 140, freqEnd: 60, start: 0.3, attack: 0.01, decay: 0.5, gain: 0.5 },
     ],
     peak: 0.6,
+  },
+  // Intro (chantier 22): the strands of juice between the halves break and drip.
+  juice: {
+    tones: [
+      {
+        wave: 'noise',
+        freq: 0,
+        attack: 0.01,
+        decay: 0.18,
+        gain: 0.35,
+        lowpass: 900,
+        lowpassEnd: 300,
+        tremolo: [26, 0.7],
+      },
+      ...[0.05, 0.16, 0.24, 0.37, 0.52, 0.7].map((start, i) => ({
+        wave: 'sine' as const,
+        freq: 380 + ((i * 137) % 260),
+        freqEnd: 900 + ((i * 211) % 500),
+        start,
+        attack: 0.002,
+        decay: 0.045,
+        gain: 0.26 - i * 0.025,
+      })),
+    ],
+    peak: 0.45,
   },
   click: {
     tones: [{ wave: 'triangle', freq: 1400, freqEnd: 900, attack: 0.002, decay: 0.035 }],
