@@ -32,6 +32,20 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   that returns a command which always fails stops every later step (an idle Kikiwiwi made
   `researchStaffing` ask for a Library worker forever: Industry never came); a lesser tech
   started while the passage waited for a Library level delayed the ages.
+- **Reference (end of chantier 18, `pnpm balance --seeds 200 --ages 10 --impact 20 --probe
+100`, ~3 h on 4 cores)**: every line green; biomes within ±8.4 %, faces within 1.3 %;
+  tutorial 1.3 h, Nest 3 ≈ 3.8 h, Library ≈ 4.0 h (paths), mayor ≈ 13.2 h, level 10 ≈ 2.1 d,
+  Stone ≈ 36.5 h; ~60 path tiles, ~18 camps, ~15 reconnaissances and ~5 raids (all won,
+  ~8 000 loot a day, ~1 kiwi lost) per 72 h run. Ages (10 seeds × 10 days): attentive Stone
+  36.4 h, Iron 4.0 d, Industry 7.9 d; occasional 2.3 d, 5.6 d, 9.7 d (Industry target × 1.25:
+  research runs offline, accepted). Impact: without paths Nest 3 / Library +52 %, without
+  camps +40 % in the seed crown and lagoons, without expeditions kiwi level 10 +23 % but Stone
+  −4 %.
+- A decision step that returns a command which never applies (or two steps undoing each
+  other: `defenseOrders` vs `titanOrders` relieving / posting the Kikiwiwi) eats the 12
+  decisions of a round and freezes the bot: replay the loop with the exported `decide` on the
+  stalled state (`runBot({ onStep })` up to the stall, then apply the first command that
+  succeeds, 14 times, printing each).
 - Quick checks: a scratch script calling `runBot` with `onStep` (log every 12 h: age,
   research, queue, resources, stardust) finds stalls fast; long runs must go through the CLI
   (parallel) — a sequential 9 × 9-day script exceeds the 30 min tool limit.

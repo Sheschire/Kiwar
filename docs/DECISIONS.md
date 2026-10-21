@@ -1559,7 +1559,7 @@ tile looks cultivated as soon as its building is placed (whole zone).
   research points. Result (10 seeds per biome × 10 days): Stone ≈ 36 h, Iron ≈ 4 d,
   Industry ≈ 8 d, biomes within ±7 %.
 - **Occasional player** (attentive 6 h, then a visit every 8 h): Stone ≈ 2.3 d and Iron
-  ≈ 5.6 d (the 2/3 pace), Industry ≈ 9.6 d: the late game runs on research, which goes on
+  ≈ 5.6 d (the 2/3 pace), Industry ≈ 9.7 d: the late game runs on research, which goes on
   offline. Owner: accepted, the late game is kinder to whoever plays little; the report's
   target for the occasional Industry is × 1.25 (`CASUAL_PACE`).
 - **Impact** (20 seeds per biome × 72 h, same seeds): without paths, Nest 3 and Library +52 %
