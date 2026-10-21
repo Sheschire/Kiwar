@@ -2922,25 +2922,43 @@ button.chip:focus-visible {
   opacity: 0.85;
 }
 
-/* The blade's flash, timed with the slice of the 3D scene. */
-.intro-flash {
+/* Chantier 22: the whole kiwi waits for the player — a line of mood, a call to action. */
+.intro-drift {
   position: absolute;
-  inset: 0;
-  background: #fffbe8;
+  top: calc(var(--gap) + 18px + var(--safe-top));
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0 24px;
+  text-align: center;
+  font-family: var(--font);
+  font-size: 1.15rem;
+  font-style: italic;
+  color: #f4e9ff;
+  text-shadow: 0 2px 10px rgba(20, 10, 40, 0.8);
   opacity: 0;
-  animation: intro-flash 2.2s ease-out forwards;
+  animation: intro-drift 1.6s ease 0.4s forwards;
 }
 
-@keyframes intro-flash {
-  0%,
-  70% {
-    opacity: 0;
+.intro-cta {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--gap) + 64px + var(--safe-bottom));
+  transform: translateX(-50%);
+  min-width: 200px;
+  font-size: 1.05rem;
+  animation: intro-cta 1.8s ease-in-out infinite;
+}
+
+@keyframes intro-drift {
+  to {
+    opacity: 0.92;
   }
-  75% {
-    opacity: 0.55;
-  }
-  100% {
-    opacity: 0;
+}
+
+@keyframes intro-cta {
+  50% {
+    box-shadow: 0 0 0 8px rgba(214, 240, 150, 0.25);
   }
 }
 
@@ -3083,7 +3101,6 @@ button.chip:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .intro-flash,
   .intro-fade {
     animation: none;
     opacity: 0;

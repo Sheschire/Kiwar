@@ -1,7 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { BIOMES, FACES, RESOURCE_IDS, SEASONS, type BiomeId, type ResourceId } from '@kiwar/shared';
 import { ResourceIcon } from '../icons';
-import { chooseIntro, focusIntro, setIntroLayout, skipIntro } from '../intro';
+import { chooseIntro, focusIntro, setIntroLayout, skipIntro, sliceIntro } from '../intro';
 import { useT, useUi } from '../store';
 
 /** Characteristics of a biome read from its data, so the numbers never drift. */
@@ -56,6 +56,10 @@ function useTraits(biome: BiomeId): string[] {
   return lines;
 }
 
+/** A finger is the main pointer (the call to action says "touch" instead of "slice"). */
+const touchScreen = () =>
+  typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
+
 /**
  * Intro overlay (chantier 05): a skip hint while the kiwi is sliced, then the choice of a
  * face — side panel on desktop, bottom sheet on phones — and a short fade into the game.
@@ -81,15 +85,20 @@ export function IntroOverlay() {
 
   return (
     <div class={`intro intro-${intro.phase}`}>
-      {intro.phase === 'playing' && (
+      {intro.phase === 'waiting' && (
         <>
-          <div class="intro-flash" />
-          <button class="btn intro-skip pe" onClick={skipIntro}>
-            {t('intro.skip')}
+          <p class="intro-drift">{t('intro.drift')}</p>
+          <button class="btn btn-primary intro-cta pe" onClick={sliceIntro}>
+            {t(touchScreen() ? 'intro.sliceTouch' : 'intro.slice')}
           </button>
         </>
       )}
-      {intro.phase !== 'playing' && (
+      {(intro.phase === 'waiting' || intro.phase === 'playing') && (
+        <button class="btn intro-skip pe" onClick={skipIntro}>
+          {t('intro.skip')}
+        </button>
+      )}
+      {intro.phase !== 'waiting' && intro.phase !== 'playing' && (
         <aside class="intro-panel parchment pe" aria-label={t('intro.title')}>
           <div class="intro-head">
             <h2>{t(replay ? 'intro.replayTitle' : 'intro.title')}</h2>

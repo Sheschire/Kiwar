@@ -6,6 +6,7 @@ import {
   Float32BufferAttribute,
   Group,
   HemisphereLight,
+  Matrix4,
   PerspectiveCamera,
   Points,
   PointsMaterial,
@@ -18,15 +19,32 @@ import { FACES, type Face, type FaceMap } from '@kiwar/shared';
 import { seasonUniforms } from './seasonLook';
 import { DOME_TOP, TerrainView } from './terrain';
 import { WaterView } from './water';
-import { addFurShells, BladeTrail, createWholeKiwi, disposeFur, JuiceBurst } from './introFx';
+import {
+  addFurShells,
+  BladeTrail,
+  createGlow,
+  createWholeKiwi,
+  disposeFur,
+  JuiceBurst,
+  RING,
+  type Glow,
+} from './introFx';
 
-/** Intro timeline (seconds): the whole fruit turns, the blade, the halves part. */
-const T_SLICE = 1.6;
+/**
+ * Intro timeline (seconds since the player asked for the cut): the fruit settles with its seam
+ * on the diagonal, the blade, the halves part.
+ */
+const T_SLICE = 0.4;
 const T_PART = T_SLICE + 0.3;
 const T_CHOICE = T_PART + 1.4;
 const LEAVE_S = 1.3;
+/** A tap within this many pixels of the fruit's outline still counts. */
+const TAP_SLACK_PX = 24;
+/** A drag this long across the fruit slices it too. */
+const SWIPE_PX = 40;
 
-export type IntroPhase = 'playing' | 'choice' | 'leaving';
+/** `waiting`: the whole fruit turns until the player slices it (chantier 22). */
+export type IntroPhase = 'waiting' | 'playing' | 'choice' | 'leaving';
 
 export interface IntroHandlers {
   onPhase(phase: IntroPhase): void;
@@ -60,7 +78,15 @@ interface Half {
   scale: number;
 }
 
+const X = new Vector3(1, 0, 0);
 const Y = new Vector3(0, 1, 0);
+/**
+ * Pose of the fruit when it is cut (chantier 22): its axis (X, across the cut) leans 60° away
+ * from the camera towards the lower right, so the seam shows as an ellipse whose long axis is
+ * the screen's other diagonal — the line the blade follows.
+ */
+const AXIS = new Vector3(0.62, -0.6, 0.5).normalize();
+const POSE = new Quaternion().setFromUnitVectors(X, AXIS);
 const damp = (k: number, dt: number) => 1 - Math.exp(-k * dt);
 const ease = (x: number) => {
   const t = Math.min(1, Math.max(0, x));
@@ -85,8 +111,15 @@ export class IntroScene {
   private readonly radius: number;
   /** Radius of the skin (the whole fruit's size). */
   private readonly skinRadius: number;
+  private readonly glow: Glow;
   private time = 0;
-  private phase: IntroPhase = 'playing';
+  /** Seconds since the player asked for the cut (null while waiting). */
+  private cut: number | null = null;
+  /** Turn of the fruit around its own axis (the seam stays in place). */
+  private spin = 0;
+  private phase: IntroPhase = 'waiting';
+  /** Where a press started (tap or swipe across the fruit). */
+  private press: { x: number; y: number; id: number } | null = null;
   private focus: Face | null = null;
   /** The player clicked a face: the mouse hovering over the other one no longer moves it. */
   private locked = false;
@@ -159,11 +192,15 @@ export class IntroScene {
     this.whole = createWholeKiwi();
     this.whole.scale.set(skin * 1.04, skin, skin);
     this.fruit.add(this.whole);
+    this.fruit.quaternion.copy(POSE);
     this.scene.add(this.fruit);
+    this.glow = createGlow();
+    this.glow.sprite.scale.setScalar(skin * 3.4);
+    this.scene.add(this.glow.sprite);
 
-    this.blade.mesh.rotation.z = 0.12;
     this.scene.add(this.blade.mesh, this.juice.drops, this.juice.seeds);
 
+    canvas.addEventListener('pointerdown', this.onPointerDown);
     canvas.addEventListener('pointermove', this.onPointerMove);
     canvas.addEventListener('pointerup', this.onPointerUp);
     this.placeCamera(1);
@@ -187,11 +224,20 @@ export class IntroScene {
     this.locked = true;
   }
 
-  /** Jumps to the choice (tap during the animation, or reduced motion). */
+  /** The player asks for the cut (tap on the fruit, a swipe across it, or the button). */
+  slice(): void {
+    if (this.phase !== 'waiting') return;
+    this.cut = 0;
+    this.setPhase('playing');
+  }
+
+  /** Jumps to the choice (the Skip button, or reduced motion). */
   skip(): void {
-    if (this.phase !== 'playing') return;
-    this.time = T_CHOICE;
+    if (this.phase !== 'waiting' && this.phase !== 'playing') return;
+    this.cut = T_CHOICE;
     this.sliced = true;
+    this.whole.visible = false;
+    this.glow.sprite.visible = false;
     this.fruit.quaternion.identity();
     for (const h of this.halves) {
       this.reveal(h);
@@ -221,53 +267,107 @@ export class IntroScene {
     const t = this.time;
     for (const h of this.halves) h.water.update(t);
     this.juice.update(dt);
-    if (this.phase === 'playing') this.play(t, dt);
+    if (this.phase === 'waiting') this.wait(t, dt);
+    else if (this.phase === 'playing') this.play(dt);
     else if (this.phase === 'choice') this.idle(dt);
     else this.leave(dt);
   }
 
-  private play(t: number, dt: number): void {
-    if (t < T_SLICE) {
-      // The whole fruit rolls around its axis (the cut stays edge-on to the camera).
-      this.fruit.rotation.set(t * 0.9, 0.25 * Math.sin(t * 0.8), 0);
+  /** The whole fruit drifts and turns, its seam faintly lit, a glow pulsing behind it. */
+  private wait(t: number, dt: number): void {
+    this.spin += dt * 0.7;
+    this.fruit.quaternion.copy(this.drift(t, 1));
+    this.glow.set(0.5 + 0.5 * Math.sin(t * 2.2));
+    this.placeCamera(dt * 1.5);
+  }
+
+  /**
+   * Orientation of the whole fruit: the cut pose, rocked by a slow drift (`amount` 1) that
+   * eases out when the player asks for the cut, and turned around its own axis.
+   */
+  private drift(t: number, amount: number): Quaternion {
+    const q = this.tmpQ.setFromAxisAngle(
+      this.tmpV.set(0, 0, 1),
+      0.45 * Math.sin(t * 0.35) * amount,
+    );
+    const yaw = new Quaternion().setFromAxisAngle(Y, 0.5 * Math.sin(t * 0.23 + 1) * amount);
+    return q.multiply(yaw).multiply(POSE).multiply(new Quaternion().setFromAxisAngle(X, this.spin));
+  }
+
+  private play(dt: number): void {
+    const c = (this.cut ?? 0) + dt;
+    this.cut = c;
+    if (c < T_SLICE) {
+      // The drift settles: the seam comes to rest on the diagonal the blade will follow.
+      this.spin += dt * 0.7 * (1 - c / T_SLICE);
+      this.fruit.quaternion.copy(this.drift(this.time, 1 - ease(c / T_SLICE)));
+      this.glow.set(0.5 * (1 - c / T_SLICE));
     } else if (!this.sliced) {
       this.sliced = true;
-      // Bake the fruit's turn into the halves, then part them from there.
-      this.fruit.updateMatrixWorld();
-      for (const h of this.halves) {
-        h.pivot.getWorldQuaternion(this.tmpQ);
-        h.pivot.quaternion.copy(this.tmpQ);
-        h.pivot.userData.from = this.tmpQ.clone();
-      }
-      this.fruit.quaternion.identity();
-      for (const h of this.halves) {
-        this.reveal(h);
-        // Cut from the round fruit: as deep as it, settling into the game's dome as it parts.
-        h.dome.scale.y = this.skinRadius * 1.04;
-      }
-      this.whole.visible = false;
-      this.juice.burst(this.skinRadius);
+      this.glow.sprite.visible = false;
+      this.aimBlade();
+      this.juice.burst(this.skinRadius, POSE);
       this.handlers.onSlice();
     }
-    // Blade: a thin streak sweeping down the seam, its tail fading behind it.
-    const b = (t - T_SLICE) / (T_PART - T_SLICE);
+    // The whole fruit holds together while the blade runs through it, then falls in two.
+    if (c >= T_PART && this.whole.visible) this.split();
+    // Blade: a thin streak sweeping along the seam, in the plane of the cut.
+    const b = (c - T_SLICE) / (T_PART - T_SLICE);
     if (b > 0 && b < 2) {
       this.blade.mesh.visible = true;
-      this.blade.mesh.scale.set(this.skinRadius * 0.12, this.skinRadius * 2.9, 1);
-      this.blade.mesh.position.set(0, 0, this.skinRadius + 4);
       this.blade.set(ease(b * 0.9) * 1.45, 1 - ease((b - 1) * 1.2));
     } else this.blade.mesh.visible = false;
-    if (t >= T_PART) {
-      const k = ease((t - T_PART) / (T_CHOICE - T_PART));
+    if (c >= T_PART) {
+      const k = ease((c - T_PART) / (T_CHOICE - T_PART));
       for (const h of this.halves) {
         h.dome.scale.y = this.skinRadius * 1.04 + (h.domeDepth - this.skinRadius * 1.04) * k;
         const from = h.pivot.userData.from as Quaternion;
-        h.pivot.position.copy(this.partPosition(h, k));
+        // The halves first slide apart along the fruit's axis, then take their places.
+        h.pivot.position
+          .copy(this.partPosition(h, k))
+          .addScaledVector(AXIS, h.side * this.radius * 0.45 * 4 * k * (1 - k));
         h.pivot.quaternion.slerpQuaternions(from, this.facing(h, 0.3), k);
       }
     }
     this.placeCamera(dt * 1.5);
-    if (t >= T_CHOICE) this.setPhase('choice');
+    if (c >= T_CHOICE) this.setPhase('choice');
+  }
+
+  /** The whole fruit gives way to its two halves, which then part. */
+  private split(): void {
+    // Bake the fruit's turn into the halves, then part them from there.
+    this.fruit.updateMatrixWorld();
+    for (const h of this.halves) {
+      h.pivot.getWorldQuaternion(this.tmpQ);
+      h.pivot.quaternion.copy(this.tmpQ);
+      h.pivot.userData.from = this.tmpQ.clone();
+    }
+    this.fruit.quaternion.identity();
+    for (const h of this.halves) {
+      this.reveal(h);
+      // Cut from the round fruit: as deep as it, settling into the game's dome as it parts.
+      h.dome.scale.y = this.skinRadius * 1.04;
+    }
+    this.whole.visible = false;
+  }
+
+  /**
+   * Lays the blade in the plane of the cut, on the seam's circle: local Y along the seam's long
+   * axis on screen (the in-plane direction square to the view, pointing up), local X towards
+   * the camera, so the streak runs down the visible front of the seam.
+   */
+  private aimBlade(): void {
+    const view = this.tmpV.copy(this.camera.position).sub(this.lookAt).normalize();
+    const along = new Vector3().crossVectors(AXIS, view).normalize();
+    if (along.y < 0) along.negate();
+    const across = new Vector3().crossVectors(along, AXIS);
+    if (across.dot(view) < 0) across.negate();
+    const normal = new Vector3().crossVectors(across, along);
+    const mesh = this.blade.mesh;
+    mesh.quaternion.setFromRotationMatrix(new Matrix4().makeBasis(across, along, normal));
+    mesh.position.set(0, 0, 0);
+    // The seam's circle: the skin's radius plus its fur.
+    mesh.scale.setScalar(this.skinRadius * 1.04 * 2 * RING);
   }
 
   private idle(dt: number): void {
@@ -348,17 +448,23 @@ export class IntroScene {
     const hHalf = Math.atan(Math.tan(vHalf) * this.camera.aspect);
     const width = this.parted() ? this.radius * 2.6 : this.radius * 1.3;
     const height = this.radius * 1.25;
-    return Math.max(width / (1 - right) / Math.tan(hHalf), height / (1 - bottom) / Math.tan(vHalf));
+    // The whole fruit keeps some room around it (its glow, the call to action below).
+    const room = this.parted() ? 1 : 1.3;
+    return (
+      room *
+      Math.max(width / (1 - right) / Math.tan(hHalf), height / (1 - bottom) / Math.tan(vHalf))
+    );
   }
 
   private parted(): boolean {
-    return this.time >= T_PART;
+    return this.cut !== null && this.cut >= T_PART;
   }
 
   /** Eases the camera to frame the scene in the area the UI leaves free. */
   private placeCamera(dt: number): void {
     const d = this.fitDistance();
-    const { right, bottom } = this.phase === 'playing' ? { right: 0, bottom: 0 } : this.layout;
+    const whole = this.phase === 'waiting' || this.phase === 'playing';
+    const { right, bottom } = whole ? { right: 0, bottom: 0 } : this.layout;
     const vHalf = (this.camera.fov * Math.PI) / 360;
     const hh = d * Math.tan(vHalf);
     const hw = hh * this.camera.aspect;
@@ -401,14 +507,56 @@ export class IntroScene {
     return best;
   }
 
+  /** Distance of a screen point from the whole fruit's centre, in its radii (< 1: on it). */
+  private onFruit(clientX: number, clientY: number): number {
+    const rect = this.canvas.getBoundingClientRect();
+    const c = this.tmpV.set(0, 0, 0).project(this.camera);
+    const cx = rect.left + ((c.x + 1) / 2) * rect.width;
+    const cy = rect.top + ((1 - c.y) / 2) * rect.height;
+    // Screen radius of the fruit: half its angular size at the camera's distance.
+    const dist = this.camera.position.length();
+    const vHalf = (this.camera.fov * Math.PI) / 360;
+    const r = ((this.skinRadius * 1.06) / (dist * Math.tan(vHalf))) * (rect.height / 2);
+    return Math.hypot(clientX - cx, clientY - cy) / (r + TAP_SLACK_PX);
+  }
+
+  private readonly onPointerDown = (e: PointerEvent): void => {
+    this.press = { x: e.clientX, y: e.clientY, id: e.pointerId };
+  };
+
   private readonly onPointerMove = (e: PointerEvent): void => {
+    const press = this.press;
+    if (this.phase === 'waiting' && press && press.id === e.pointerId) {
+      // A swipe across the fruit slices it (the blade still follows the seam).
+      const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y);
+      if (moved > SWIPE_PX && this.crosses(press.x, press.y, e.clientX, e.clientY)) {
+        this.press = null;
+        this.slice();
+      }
+      return;
+    }
     if (this.phase !== 'choice' || e.pointerType !== 'mouse' || this.locked) return;
     const face = this.faceAt(e.clientX, e.clientY);
     if (face && face !== this.focus) this.handlers.onFocus(face);
   };
 
+  /** Whether the segment between two screen points passes over the fruit. */
+  private crosses(x0: number, y0: number, x1: number, y1: number): boolean {
+    for (let i = 0; i <= 8; i++) {
+      const k = i / 8;
+      if (this.onFruit(x0 + (x1 - x0) * k, y0 + (y1 - y0) * k) < 1) return true;
+    }
+    return false;
+  }
+
   private readonly onPointerUp = (e: PointerEvent): void => {
-    if (this.phase === 'playing') return this.skip();
+    const press = this.press;
+    this.press = null;
+    if (this.phase === 'waiting') {
+      if (press && this.onFruit(e.clientX, e.clientY) < 1) this.slice();
+      return;
+    }
+    // During the cut the Skip button skips: a second tap (or the end of a swipe) must not.
     if (this.phase !== 'choice') return;
     const face = this.faceAt(e.clientX, e.clientY);
     if (!face) return;
@@ -417,6 +565,7 @@ export class IntroScene {
   };
 
   dispose(): void {
+    this.canvas.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
     for (const h of this.halves) {
@@ -426,6 +575,7 @@ export class IntroScene {
     }
     this.blade.dispose();
     this.juice.dispose();
+    this.glow.dispose();
     disposeFur(this.whole);
     this.whole.geometry.dispose();
     (this.whole.material as MeshStandardMaterial).dispose();

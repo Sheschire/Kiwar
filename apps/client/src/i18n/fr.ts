@@ -72,6 +72,9 @@ export const fr: Dict = {
   faces: { kiwisu: 'Kiwisu', kiwino: 'Kiwino' },
   intro: {
     skip: 'Passer',
+    drift: 'Une planète kiwi dérive dans l’espace…',
+    slice: 'Trancher le kiwi',
+    sliceTouch: 'Touche le kiwi',
     title: 'Choisissez votre face',
     replayTitle: 'Votre kiwi',
     faces: {

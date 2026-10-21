@@ -67,6 +67,9 @@ export const en = {
   faces: { kiwisu: 'Kiwisu', kiwino: 'Kiwino' },
   intro: {
     skip: 'Skip',
+    drift: 'A kiwi planet drifts through space…',
+    slice: 'Slice the kiwi',
+    sliceTouch: 'Touch the kiwi',
     title: 'Choose your face',
     replayTitle: 'Your kiwi',
     faces: {

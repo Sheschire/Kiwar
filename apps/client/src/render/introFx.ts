@@ -1,6 +1,9 @@
 // Effects of the intro's cut (chantier 10): the whole round kiwi, the blade's trail and the
 // juice that splashes out.
 import {
+  AdditiveBlending,
+  DoubleSide,
+  CanvasTexture,
   Color,
   DynamicDrawUsage,
   IcosahedronGeometry,
@@ -12,6 +15,8 @@ import {
   Quaternion,
   ShaderMaterial,
   SphereGeometry,
+  Sprite,
+  SpriteMaterial,
   Vector3,
 } from 'three';
 import { GLSL_NOISE } from './shaderChunks';
@@ -34,15 +39,20 @@ export function createWholeKiwi(): Mesh {
           float fur = kNoise(vec2(a * 50.0, vObj.x * 14.0)) * 0.5 + kNoise(vec2(a * 120.0, vObj.x * 34.0)) * 0.5;
           diffuseColor.rgb *= 0.78 + 0.32 * fur;
           diffuseColor.rgb *= 1.0 - 0.28 * smoothstep(0.55, 1.0, abs(vObj.x));
+          // Chantier 22: the seam where the blade will pass, a faint pale line.
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.8, 0.55), 0.55 * (1.0 - smoothstep(0.004, 0.022, abs(vObj.x))));
         }`,
       );
   };
   material.customProgramCacheKey = () => 'kiwar-whole-kiwi';
   const mesh = new Mesh(new SphereGeometry(1, 64, 48), material);
-  // Hairs lie along the fruit, towards its ends.
-  addFurShells(mesh, new Vector3(1, 0, 0));
+  // Hairs lie along the fruit, towards its ends, parted along the seam.
+  addFurShells(mesh, new Vector3(1, 0, 0), 0.03);
   return mesh;
 }
+
+/** The blade's quad spans the seam's circle with this much margin around it. */
+export const RING = 1.15;
 
 const FUR_LAYERS = 14;
 /** Length of the hairs, as a share of the radius. */
@@ -54,13 +64,14 @@ const FUR_LENGTH = 0.06;
  * tips lighter. `lean`: object-space direction the hairs bend towards. Intro only (one draw per
  * layer). The copies share the geometry: dispose only their materials (`disposeFur`).
  */
-export function addFurShells(mesh: Mesh, lean: Vector3): void {
+export function addFurShells(mesh: Mesh, lean: Vector3, parting = 0): void {
   for (let i = 1; i <= FUR_LAYERS; i++) {
     const layer = i / FUR_LAYERS;
     const material = new MeshStandardMaterial({ color: '#6e4b2c', roughness: 1 });
     material.onBeforeCompile = (shader) => {
       shader.uniforms.uLayer = { value: layer };
       shader.uniforms.uLean = { value: lean };
+      shader.uniforms.uParting = { value: parting };
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\nvarying vec3 vFur;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFur = position;');
@@ -71,12 +82,15 @@ export function addFurShells(mesh: Mesh, lean: Vector3): void {
           varying vec3 vFur;
           uniform float uLayer;
           uniform vec3 uLean;
+          uniform float uParting;
           float furHash(vec3 c) { return fract(sin(dot(c, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }`,
         )
         .replace(
           '#include <color_fragment>',
           `#include <color_fragment>
           {
+            // No hair on the seam (the plane x = 0), so the cut line shows.
+            if (abs(normalize(vFur).x) < uParting) discard;
             // Higher layers sample the grid shifted along the lean: the hairs bend.
             vec3 p = normalize(vFur) * 95.0 + uLean * uLayer * 1.8;
             // Warp the grid: without it the sphere slices the cells into visible rings.
@@ -92,7 +106,7 @@ export function addFurShells(mesh: Mesh, lean: Vector3): void {
           }`,
         );
     };
-    material.customProgramCacheKey = () => `kiwar-fur-${i}`;
+    material.customProgramCacheKey = () => `kiwar-fur-${i}-${parting > 0 ? 'p' : 'n'}`;
     const shell = new Mesh(mesh.geometry, material);
     shell.scale.setScalar(1 + FUR_LENGTH * layer);
     shell.userData.fur = true;
@@ -109,9 +123,51 @@ export function disposeFur(mesh: Mesh): void {
   }
 }
 
+/** A soft halo behind the whole fruit, pulsing while it waits for the player. */
+export interface Glow {
+  sprite: Sprite;
+  /** Pulse, 0 (dim) → 1 (bright). */
+  set(pulse: number): void;
+  dispose(): void;
+}
+
+export function createGlow(): Glow {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const g = canvas.getContext('2d')!;
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255, 238, 190, 1)');
+  grad.addColorStop(0.4, 'rgba(214, 240, 150, 0.55)');
+  grad.addColorStop(1, 'rgba(160, 120, 220, 0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  const map = new CanvasTexture(canvas);
+  const material = new SpriteMaterial({
+    map,
+    blending: AdditiveBlending,
+    depthWrite: false,
+    transparent: true,
+    fog: false,
+  });
+  const sprite = new Sprite(material);
+  sprite.renderOrder = -1;
+  return {
+    sprite,
+    set(pulse) {
+      material.opacity = 0.22 + 0.28 * pulse;
+    },
+    dispose() {
+      map.dispose();
+      material.dispose();
+    },
+  };
+}
+
 /**
- * The blade: a thin bright streak sweeping down the seam, its tail fading out (no flash).
- * `progress` 0 → 1 moves the head from the top to the bottom; `fade` dims the whole streak.
+ * The blade (chantier 22): a bright streak running along the seam itself — the front half of
+ * the cut's circle, drawn in the plane of the cut — its tail fading out behind it. The quad
+ * spans the circle (radius 1 / `RING`), local X towards the camera, local Y the seam's long
+ * axis. `progress` 0 → 1 moves the head from the top end to the bottom end; `fade` dims it.
  */
 export class BladeTrail {
   readonly mesh: Mesh;
@@ -122,6 +178,7 @@ export class BladeTrail {
       transparent: true,
       depthTest: false,
       depthWrite: false,
+      side: DoubleSide,
       uniforms: { uHead: { value: 0 }, uFade: { value: 0 } },
       vertexShader: /* glsl */ `
         varying vec2 vUv;
@@ -134,13 +191,21 @@ export class BladeTrail {
         uniform float uFade;
         varying vec2 vUv;
         void main() {
-          // Head at 1 - uHead (top to bottom), tail behind it (above).
-          float head = 1.0 - uHead;
-          float d = vUv.y - head;
-          float tail = d < 0.0 ? 0.0 : 1.0 - smoothstep(0.0, 0.45, d);
-          float core = 1.0 - smoothstep(0.0, 0.5, abs(vUv.x - 0.5));
-          float a = tail * core * uFade;
-          vec3 color = mix(vec3(0.78, 0.95, 0.72), vec3(1.0, 1.0, 0.96), core * core);
+          vec2 p = (vUv - 0.5) * 2.0 * ${RING.toFixed(2)};
+          // Only the front half of the circle (towards the camera) is the visible seam.
+          if (p.x < 0.0) discard;
+          float r = length(p);
+          float ring = 1.0 - smoothstep(0.0, 0.05, abs(r - 1.0));
+          // 0 at the top end of the seam, 1 at the bottom end.
+          float along = atan(p.x, p.y) / 3.14159265;
+          float d = uHead - along;
+          float tail = d < 0.0 ? 0.0 : 1.0 - smoothstep(0.0, 0.5, d);
+          // A brighter spark at the head of the blade.
+          float spark = exp(-d * d * 900.0) * (1.0 - smoothstep(0.0, 0.12, abs(r - 1.0)));
+          float a = max(ring * tail, spark) * uFade;
+          if (a < 0.002) discard;
+          float core = 1.0 - smoothstep(0.0, 0.02, abs(r - 1.0));
+          vec3 color = mix(vec3(0.78, 0.95, 0.72), vec3(1.0, 1.0, 0.96), max(core, spark));
           gl_FragColor = vec4(color, a);
         }`,
     });
@@ -209,8 +274,11 @@ export class JuiceBurst {
     }
   }
 
-  /** Splashes from the seam (the plane x = 0) of a fruit of radius `radius`. */
-  burst(radius: number): void {
+  /**
+   * Splashes from the seam (the plane x = 0) of a fruit of radius `radius`, turned by `pose`
+   * (the fruit's orientation when cut).
+   */
+  burst(radius: number, pose: Quaternion): void {
     let seed = 7;
     const rand = () => {
       seed = (seed * 1664525 + 1013904223) >>> 0;
@@ -219,15 +287,19 @@ export class JuiceBurst {
     const spawn = (out: Drop[], count: number, size: () => number) => {
       out.length = 0;
       for (let i = 0; i < count; i++) {
-        // Along the blade's path (the visible rim of the seam), a little towards the camera.
-        const y = (rand() * 2 - 1) * radius * 0.85;
-        const z = radius * (0.4 + rand() * 0.55);
+        // Anywhere on the cut (the plane x = 0 of the fruit), thrown out sideways from it,
+        // upwards and a little towards the camera.
+        const a = rand() * Math.PI * 2;
+        const r = radius * (0.3 + rand() * 0.6);
         const side = rand() < 0.5 ? -1 : 1;
+        const s = radius / 14;
         out.push({
-          p: new Vector3(side * rand() * 0.6, y, z),
-          v: new Vector3(side * (3 + rand() * 11), 4 + rand() * 12, 3 + rand() * 10).multiplyScalar(
-            radius / 14,
+          p: new Vector3(side * rand() * 0.6, Math.cos(a) * r, Math.sin(a) * r).applyQuaternion(
+            pose,
           ),
+          v: new Vector3(side * (3 + rand() * 11) * s, 0, 0)
+            .applyQuaternion(pose)
+            .add(new Vector3(0, (4 + rand() * 12) * s, (3 + rand() * 10) * s)),
           size: size(),
           spin: rand() * Math.PI * 2,
         });

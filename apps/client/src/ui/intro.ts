@@ -132,7 +132,7 @@ export function startIntro(opts: IntroOptions): void {
       biomes: { kiwisu: params.kiwisu.biome, kiwino: params.kiwino.biome },
       taken,
       current: opts.current ?? null,
-      phase: 'playing',
+      phase: 'waiting',
       focus,
       gauges: gaugesOf(maps, opts.seed),
     },
@@ -165,6 +165,11 @@ export function focusIntro(face: Face, lock = false): void {
 
 export function skipIntro(): void {
   scene?.skip();
+}
+
+/** The player asks for the cut (the call-to-action button; taps and swipes go to the scene). */
+export function sliceIntro(): void {
+  scene?.slice();
 }
 
 /** Confirms the focused face (or leaves, when replaying). */
