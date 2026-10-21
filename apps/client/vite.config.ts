@@ -32,6 +32,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        // The privacy page is a plain static page, never the game shell.
+        navigateFallbackDenylist: [/^\/privacy/],
         // Sounds are fetched on demand (never precached) and kept once heard.
         runtimeCaching: [
           {
