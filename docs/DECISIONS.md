@@ -1776,7 +1776,14 @@ conquest around **8–10 days** for the active bot; the bot **plays both colonie
   both sides ≥ 1.15 × the middle of the queen's estimate; then 6 settlers and 30 % of each
   stock. It plays the sister with the same decisions (`linkOrder` sends home's surplus).
 - **Balance** (`pnpm balance:siege`, 2 seeds × 6 biomes × 12 days): the queen went from 26 /
-  16 to **24 / 14** (ground / air). BALANCE_PLACEHOLDER
+  16 to **24 / 14** (ground / air); the bot's margins above. Result: siege open at 137–172 h
+  (the Kikiwiwi is the gate, ~45 h after the Iron age), first bridgehead 2–5 h later,
+  Industry 177–201 h; **conquest in 9 runs out of 12 within 12 days: 162–272 h, median
+  240 h (10 days)** — the upper edge of the owner's 8–10 days; founding 2 h later; the
+  sister reaches its Nest 3 within 2–13 h (shared Industrial techs, home's cargo); 3–17
+  kiwis lost in battle per siege. The 3 runs without conquest: one final lost (delta), two
+  finals never "worth it" (delta, orchard). The regular 72 h report is unchanged (the siege
+  never opens before 137 h; raids pause only while besieging).
 
 ## Chantier 24 — Free camera and planets fixed in space
 

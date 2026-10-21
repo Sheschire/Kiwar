@@ -120,8 +120,12 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
 
 ## Siege probe (chantier 19)
 
-`pnpm balance:siege` (`tools/balance/src/siege.ts`) measures, when the siege opens (Iron age +
-a Kikiwiwi), the 10 best kiwis against the holds and an army against the queen after two
-bridgeheads. Reference (1 seed × orchard / tundra / seedCrown / lagoons, 11 days): opens at
-143–171 h, holds 17.6–23.4 vs 23–27, queen 33–37 / 22–25 vs 35–41 / 21–23. The bot does not
-besiege yet (second half of chantier 19).
+The bot plays the whole siege and the sister colony (`bot/siege.ts`, `bot/colonies.ts`, see
+`kiwar-colonies`); milestones `siegeOpen`, `bridgehead`, `conquest`, `founded`,
+`sisterNest3`, `sisterWave` are informative. `pnpm balance:siege [--seeds 2] [--days 12]
+[--biomes …] [--trace]` prints one line per run (`--trace`: a diagnostic line every 12 game
+hours: best assault the pool can field, known holds, the final forecast). Run the six biomes
+as six background processes (each 2 seeds × 12 days ≈ 15 min; the 4 cores are then busy:
+vitest's bot test may time out meanwhile). Reference (end of chantier 19, 2 seeds × 6
+biomes): siege open 137–172 h, conquest in 9/12 runs, 162–272 h, median 240 h; tune
+`SIEGE.queen`, the bot's `ASSAULT_MARGIN` / `FINAL_MARGIN`.
