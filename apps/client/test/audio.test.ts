@@ -1,3 +1,4 @@
+import { nightChorus } from '../src/audio/gameAudio';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -144,5 +145,15 @@ describe('manifest', () => {
     const urls = assetUrls(m, (a) => `https://x/${a.path}`);
     expect(urls.get('asset:abc')).toBe('https://x/ui/click.ogg');
     expect(parseManifest('garbage')).toEqual(EMPTY_MANIFEST);
+  });
+});
+
+describe('nightChorus', () => {
+  it('sings in the first third of the night, then fades out by its middle', () => {
+    expect(nightChorus(1000, 4000, 1000)).toBe(1);
+    expect(nightChorus(1000, 4000, 2000)).toBeCloseTo(1, 6);
+    expect(nightChorus(1000, 4000, 2250)).toBeCloseTo(0.5, 6);
+    expect(nightChorus(1000, 4000, 2500)).toBe(0);
+    expect(nightChorus(1000, 4000, 3900)).toBe(0);
   });
 });

@@ -1,12 +1,18 @@
-/** Glide after a one-finger pan: the finger's last velocity, fading out in about 0.6 s. */
+/**
+ * Glide after a one-finger pan (or, chantier 20, a two-finger twist): the finger's last
+ * velocity, fading out over a second or two.
+ */
 
-/** Time constant of the fade (s): after 0.6 s about 12 % of the speed is left. */
-export const GLIDE_TAU = 0.28;
+/** Time constant of the fade (s): after 0.6 s about 37 % of the speed is left (chantier 20:
+ * 0.28 s was too short to be felt on a phone). */
+export const GLIDE_TAU = 0.6;
 /** Only the last moments of the drag give the release velocity (ms). */
 const SAMPLE_MS = 100;
 /** A finger resting longer than this before lifting does not throw the camera (ms). */
-const HOLD_MS = 60;
+const HOLD_MS = 120;
 const STOP_SPEED = 0.15;
+/** Slower flicks than this do not glide (world units, or radians, per second). */
+const START_SPEED = 0.3;
 
 interface Sample {
   t: number;
@@ -48,7 +54,7 @@ export class Glide {
     let vx = (last.x - first.x) / span;
     let vz = (last.z - first.z) / span;
     const speed = Math.hypot(vx, vz);
-    if (speed < STOP_SPEED * 4) return false;
+    if (speed < START_SPEED) return false;
     if (speed > maxSpeed) {
       vx *= maxSpeed / speed;
       vz *= maxSpeed / speed;

@@ -8,17 +8,29 @@ describe('Glide', () => {
     for (let t = 0; t <= 100; t += 16) g.sample(t, (speed * t) / 1000, 0);
   };
 
-  it('keeps the finger speed and fades out in about 0.6 s', () => {
+  it('keeps the finger speed and fades out over a second or two', () => {
     const g = new Glide();
     flick(g, 20);
     expect(g.release(110, 1000)).toBe(true);
     expect(g.vx).toBeCloseTo(20, 5);
     let travelled = 0;
     for (let i = 0; i < 36; i++) travelled += g.step(1 / 60)?.dx ?? 0;
-    // The whole glide covers speed × tau; after 0.6 s little is left.
-    expect(travelled).toBeGreaterThan(20 * GLIDE_TAU * 0.85);
+    // After 0.6 s about a third of the speed is left (it is felt on a phone)...
+    expect(g.vx).toBeCloseTo(20 * Math.exp(-0.6 / GLIDE_TAU), 3);
+    expect(g.vx).toBeGreaterThan(20 * 0.3);
+    // ...and the whole glide covers speed × tau.
+    for (let i = 0; i < 600 && g.active; i++) travelled += g.step(1 / 60)?.dx ?? 0;
+    expect(travelled).toBeGreaterThan(20 * GLIDE_TAU * 0.95);
     expect(travelled).toBeLessThan(20 * GLIDE_TAU);
-    expect(Math.abs(g.vx)).toBeLessThan(20 * 0.15);
+  });
+
+  it('still glides after a short pause or a slow flick (chantier 20)', () => {
+    const paused = new Glide();
+    flick(paused, 20);
+    expect(paused.release(96 + 100, 1000)).toBe(true);
+    const slow = new Glide();
+    flick(slow, 0.4);
+    expect(slow.release(100, 1000)).toBe(true);
   });
 
   it('does not throw the camera when the finger rested before lifting', () => {

@@ -38,6 +38,9 @@ export interface Preset {
   peak?: number;
 }
 
+/** The night loop is long enough for the crickets' silences not to repeat audibly. */
+const NIGHT_LOOP_S = 20;
+
 const note = (semitonesFromA4: number) => 440 * 2 ** (semitonesFromA4 / 12);
 // Handy pitches (A4 = 0).
 const C5 = note(3);
@@ -48,7 +51,10 @@ const A5 = note(12);
 const C6 = note(15);
 const E6 = note(19);
 
-/** Night crickets: short trills of a high tone, a few voices at different pitches. */
+/**
+ * Night crickets: short trills of a high tone, two voices at different pitches. Chantier 20:
+ * rare (3 to 8 s of silence between two trills of a voice); they were tiring.
+ */
 function crickets(seed: number, length: number): Tone[] {
   let s = seed;
   const rand = () => {
@@ -56,8 +62,8 @@ function crickets(seed: number, length: number): Tone[] {
     return s / 2 ** 32;
   };
   const out: Tone[] = [];
-  for (const f of [4300, 4700, 5100]) {
-    let t = rand() * 0.6;
+  for (const f of [4400, 5000]) {
+    let t = rand() * 3;
     while (t < length - 0.5) {
       out.push({
         wave: 'sine',
@@ -69,7 +75,7 @@ function crickets(seed: number, length: number): Tone[] {
         gain: 0.25 + rand() * 0.2,
         tremolo: [32, 0.9],
       });
-      t += 0.55 + rand() * 0.9;
+      t += 3 + rand() * 5;
     }
   }
   return out;
@@ -670,15 +676,15 @@ export const SYNTH_PRESETS = {
         wave: 'noise',
         freq: 0,
         attack: 0.01,
-        hold: 8,
+        hold: NIGHT_LOOP_S,
         decay: 0.01,
         gain: 0.15,
         lowpass: 500,
         tremolo: [0.2, 0.5],
       },
-      ...crickets(7, 8),
+      ...crickets(7, NIGHT_LOOP_S),
     ],
-    length: 8,
+    length: NIGHT_LOOP_S,
     loop: true,
     peak: 0.25,
   },

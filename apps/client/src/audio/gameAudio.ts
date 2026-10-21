@@ -48,7 +48,7 @@ export function installGameAudio(renderer: GameRenderer): void {
     audio.context.timeOfDay = c?.night ? 'night' : 'day';
     audio.context.season = c?.season ?? 'spring';
     const birds = c?.night ? 0.3 : 1;
-    audio.setLoop('ambience.night', c?.night ? 1 : 0);
+    audio.setLoop('ambience.night', c?.night ? nightChorus(c.nightAt, c.dawnAt, simNow) : 0);
     audio.setLoop('ambience.nature', (0.25 + 0.75 * (1 - zoom)) * birds);
     audio.setLoop('ambience.wind', 0.1 + 0.9 * zoom);
     const now = performance.now();
@@ -58,4 +58,13 @@ export function installGameAudio(renderer: GameRenderer): void {
       if (kiwi) audio.play('kiwi.chirp', { pos: kiwi.pos, pitchOffset: kiwiVoicePitch(kiwi.id) });
     }
   }, 250);
+}
+
+/**
+ * Chantier 20: the crickets sing in the first third of the night, then fade out by its middle
+ * (a whole night of them was tiring).
+ */
+export function nightChorus(nightAt: number, dawnAt: number, now: number): number {
+  const share = (now - nightAt) / Math.max(1, dawnAt - nightAt);
+  return Math.max(0, Math.min(1, (0.5 - share) / (0.5 - 1 / 3)));
 }

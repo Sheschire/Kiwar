@@ -23,7 +23,9 @@ const KEY_SPEED = 0.9; // fraction of the camera distance per second
 const FOCUS_DISTANCE = 26;
 const AZIMUTH_KEY = 'kiwar.camera.azimuth';
 /** Fastest glide after a flick, in camera distances per second. */
-const GLIDE_MAX_SPEED = 3;
+const GLIDE_MAX_SPEED = 5;
+/** Chantier 20: fastest spin after a two-finger twist is let go (radians per second). */
+const SPIN_MAX_SPEED = 5;
 const tmpTarget = new Vector3();
 const tmpEnd = new Vector3();
 
@@ -57,6 +59,10 @@ export class CameraRig {
   private away = false;
   /** Glide after a one-finger pan on touch screens. */
   private readonly glide = new Glide();
+  /** Chantier 20: the same fading glide for the azimuth after a two-finger twist. */
+  private readonly spin = new Glide();
+  private twistTotal = 0;
+  private bounds: Box3 | null = null;
   /** A one-finger pan is under way (no second finger since it started). */
   private panning = false;
 
@@ -98,15 +104,16 @@ export class CameraRig {
     element.addEventListener('wheel', this.stopGlide, { passive: true });
   }
 
-  private stopGlide = () => this.glide.reset();
+  private stopGlide = () => {
+    this.glide.reset();
+    this.spin.reset();
+  };
 
   /** Frames the whole disc of the given half extents. */
   frame(extentX: number, extentZ: number, enableTransition = false): void {
-    this.glide.reset();
+    this.stopGlide();
     const r = Math.max(extentX, extentZ);
-    this.controls.setBoundary(
-      new Box3(new Vector3(-extentX, -1, -extentZ), new Vector3(extentX, 3, extentZ)),
-    );
+    this.setBounds(new Box3(new Vector3(-extentX, -1, -extentZ), new Vector3(extentX, 3, extentZ)));
     const distance = this.fitDistance(r);
     this.frameDistance = distance;
     // Zooming out far enough shows the other half of the kiwi floating above (chantier 05).
@@ -144,9 +151,9 @@ export class CameraRig {
    */
   visit(center: Vector3, radius: number): void {
     this.away = true;
-    this.glide.reset();
+    this.stopGlide();
     const c = this.controls;
-    c.setBoundary(
+    this.setBounds(
       new Box3(
         new Vector3(center.x - radius, center.y - 4, center.z - radius),
         new Vector3(center.x + radius, center.y + 6, center.z + radius),
@@ -182,7 +189,7 @@ export class CameraRig {
     }
     const c = this.controls;
     // Lift the bounds first: the flight back starts far outside them.
-    c.setBoundary(undefined);
+    this.setBounds(undefined);
     c.minDistance = 11;
     c.maxDistance = this.frameDistance * 1.9;
     void c
@@ -196,7 +203,7 @@ export class CameraRig {
         true,
       )
       .then(() =>
-        c.setBoundary(
+        this.setBounds(
           new Box3(new Vector3(-extentX, -1, -extentZ), new Vector3(extentX, 3, extentZ)),
         ),
       );
@@ -225,7 +232,7 @@ export class CameraRig {
   }
 
   focus(x: number, y: number, z: number): void {
-    this.glide.reset();
+    this.stopGlide();
     void this.controls.moveTo(x, y, z, true);
     if (this.controls.distance > FOCUS_DISTANCE + 4)
       void this.controls.dollyTo(FOCUS_DISTANCE, true);
@@ -234,7 +241,7 @@ export class CameraRig {
   /** While painting, left-drag and one-finger drags belong to the painter. */
   setPaintMode(on: boolean): void {
     this.paintMode = on;
-    this.glide.reset();
+    this.stopGlide();
     this.controls.mouseButtons.left = on ? A.NONE : A.TRUCK;
     this.controls.touches.one = on ? A.NONE : A.TOUCH_TRUCK;
     this.controls.touches.two = on ? A.TOUCH_DOLLY_TRUCK : A.TOUCH_DOLLY_ROTATE;
@@ -264,16 +271,28 @@ export class CameraRig {
   }
 
   private updateGlide(dt: number): void {
+    const spin = this.spin.step(dt);
+    if (spin) void this.controls.rotate(spin.dx, 0, false);
     const d = this.glide.step(dt);
     if (!d) return;
     const c = this.controls;
     c.getTarget(tmpTarget, true);
-    const wantX = tmpTarget.x + d.dx;
-    const wantZ = tmpTarget.z + d.dz;
-    void c.moveTo(wantX, tmpTarget.y, wantZ, true);
+    tmpTarget.x += d.dx;
+    tmpTarget.z += d.dz;
+    // Chantier 20: clamp here. A pan can leave the target above or below the bounds; then
+    // camera-controls' own enclosing divides by zero (an offset with no height) and the
+    // camera turns to NaN.
+    tmpEnd.copy(tmpTarget);
+    if (this.bounds) this.bounds.clampPoint(tmpTarget, tmpTarget);
+    void c.moveTo(tmpTarget.x, tmpTarget.y, tmpTarget.z, true);
     // Against the edge of the colony the bounds hold the target back: stop gliding softly.
-    c.getTarget(tmpEnd, true);
-    if (Math.hypot(tmpEnd.x - wantX, tmpEnd.z - wantZ) > 1e-3) this.glide.brake(0.6);
+    if (Math.hypot(tmpEnd.x - tmpTarget.x, tmpEnd.z - tmpTarget.z) > 1e-3) this.glide.brake(0.6);
+  }
+
+  /** The camera-controls boundary, kept here too (the glide clamps against it). */
+  private setBounds(box: Box3 | undefined): void {
+    this.bounds = box ?? null;
+    this.controls.setBoundary(box);
   }
 
   private isTyping(e: KeyboardEvent): boolean {
@@ -296,6 +315,7 @@ export class CameraRig {
 
   private onBlur = () => {
     this.keys.clear();
+    this.touches.clear();
     this.controls.mouseButtons.right = A.ROTATE;
   };
 
@@ -307,7 +327,7 @@ export class CameraRig {
    * "grabbing" cursor while dragging.
    */
   private onMouseDownCapture = (e: PointerEvent) => {
-    this.glide.reset();
+    this.stopGlide();
     if (e.pointerType !== 'mouse') return;
     this.controls.mouseButtons.left =
       e.altKey || e.ctrlKey ? A.ROTATE : this.paintMode ? A.NONE : A.TRUCK;
@@ -323,6 +343,9 @@ export class CameraRig {
   // Two-finger twist → azimuth rotation (camera-controls only handles drag for rotation).
   private onPointerDown = (e: PointerEvent) => {
     if (e.pointerType !== 'touch') return;
+    // Chantier 20: the first finger of a gesture: no older finger can still be down (a lost
+    // pointerup must not block the pan's glide or fake a twist).
+    if (e.isPrimary) this.touches.clear();
     this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this.twistAngle = this.currentTwist();
     this.panning = this.touches.size === 1 && !this.paintMode;
@@ -348,7 +371,11 @@ export class CameraRig {
       if (delta > Math.PI) delta -= Math.PI * 2;
       if (delta < -Math.PI) delta += Math.PI * 2;
       // Smoothed like the other gestures (camera-controls eases towards the end angle).
-      if (Math.abs(delta) < 0.5) void this.controls.rotate(delta, 0, true);
+      if (Math.abs(delta) < 0.5) {
+        void this.controls.rotate(delta, 0, true);
+        this.twistTotal += delta;
+        this.spin.sample(performance.now(), this.twistTotal, 0);
+      }
     }
     this.twistAngle = angle;
   };
@@ -356,8 +383,12 @@ export class CameraRig {
   private onPointerUp = (e: PointerEvent) => {
     if (!this.touches.has(e.pointerId)) return;
     this.samplePan();
+    const twisting = this.touches.size === 2;
     this.touches.delete(e.pointerId);
     this.twistAngle = this.currentTwist();
+    // Chantier 20: a twist let go while turning keeps spinning a little.
+    if (twisting && e.type === 'pointerup') this.spin.release(performance.now(), SPIN_MAX_SPEED);
+    if (twisting) this.twistTotal = 0;
     if (this.touches.size === 0 && this.panning && e.type === 'pointerup') {
       this.glide.release(performance.now(), this.controls.distance * GLIDE_MAX_SPEED);
     }

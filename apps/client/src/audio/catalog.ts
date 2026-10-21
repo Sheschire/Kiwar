@@ -300,7 +300,7 @@ export const SOUND_EVENTS = {
       loop: true,
       fadeInMs: 3000,
       fadeOutMs: 3000,
-      volume: 0.6,
+      volume: 0.35,
       conditions: { timeOfDay: 'night' },
     },
   },
