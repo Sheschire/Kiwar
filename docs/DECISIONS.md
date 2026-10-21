@@ -1130,6 +1130,33 @@ PC), while phones are very smooth. Measured with Playwright/CDP on the `perfSave
   work); never the mayor, the builders or the best researcher; the Kikiwiwi stands down from
   the rampart for a raid when no wave is announced; a day of rest after a raid that lost two
   kiwis. The aliens' reinforcements after each victory end the raids on their own.
+- **Bot bugs the long runs found** (they hid behind the 72 h horizon): an idle Kikiwiwi made
+  `researchStaffing` ask forever for a Library worker it could never get (Industry never
+  reached); `defenseOrders` relieved the Kikiwiwi that `titanOrders` had just posted, and the
+  ping-pong ate every decision of the round (half the highlands runs never built the Industry
+  monument). A lesser technology started while the passage waited for a Library level, and a
+  Library left behind the Nest, delayed the ages (occasional player Stone +50 %). Fixed in the
+  bot: research in `TECH_ORDER` with banking, the Library follows the Nest during research.
+  (Chantier 15 then gave the garrison and the Library staffing to the automation: the bot no
+  longer does either.)
+- **Passages retuned** for the complete bot, which reached the ages 11–16 % ahead of the
+  targets, then again 10–14 % ahead once the chantier 15 automation landed (sites in
+  parallel, researchers always there): `stoneAge` 700 → 1 000, `ironAge` 1 800 → 2 900,
+  `industryAge` 4 000 → 5 800 research points. Result (4 seeds per biome × 10 days, then the
+  official report): Stone ≈ 36 h, Iron ≈ 4 d, Industry ≈ 8 d, biomes within ±7 %.
+- **Occasional player** (attentive 6 h, then a visit every 8 h): Stone ≈ 2.3 d and Iron
+  ≈ 5.6 d (the 2/3 pace), Industry ≈ 9.8 d: the late game runs on research, which goes on
+  offline. Owner: accepted, the late game is kinder to whoever plays little; the report's
+  target for the occasional Industry is × 1.25 (`CASUAL_PACE`).
+- **Impact** (official report after chantier 15, 20 seeds per biome × 72 h, same seeds):
+  without paths, Nest 3 and Library +25 % in every biome, Stone +3 %; without camps, Nest 3
+  and Library +23–26 % (only +6 % in the highlands and the delta), Stone +2 %; without
+  expeditions, kiwi level 10 +24 % (raid XP) but Stone −1 % (the crews stay at work): raids
+  trade production for experience and loot (~8 000 a day, ~1 kiwi lost per 72 h, all raids
+  won).
+- **Official report** (200 seeds × 72 h, ages 10 seeds × 10 days, ~2 h on 4 cores): every
+  line green, biomes within ±7.2 %, faces within 3.7 %; attentive Stone 36.3 h, Iron 4.1 d,
+  Industry 7.8 d; occasional 2.3 d, 5.5 d, 9.8 d.
 
 ## Chantier 13 — Comets and stardust
 
@@ -1587,30 +1614,22 @@ tile looks cultivated as soon as its building is placed (whole zone).
 - Left for later: the shiver of a tuft when a kiwi picks it and the picking particles (would
   need the 3D kiwis to report their harvest tile); a contested tile shows the pool that owns
   it (pools never overlap).
-- **Bot bugs the long runs found** (they hid behind the 72 h horizon): an idle Kikiwiwi made
-  `researchStaffing` ask forever for a Library worker it could never get (Industry never
-  reached); `defenseOrders` relieved the Kikiwiwi that `titanOrders` had just posted, and the
-  ping-pong ate every decision of the round (half the highlands runs never built the Industry
-  monument). A lesser technology started while the passage waited for a Library level, and a
-  Library left behind the Nest, delayed the ages (occasional player Stone +50 %). Fixed in the
-  bot: research in `TECH_ORDER` with banking, the Library follows the Nest during research.
-  (Chantier 15 then gave the garrison and the Library staffing to the automation: the bot no
-  longer does either.)
-- **Passages retuned** for the complete bot, which reached the ages 11–16 % ahead of the
-  targets, then again 10–14 % ahead once the chantier 15 automation landed (sites in
-  parallel, researchers always there): `stoneAge` 700 → 1 000, `ironAge` 1 800 → 2 900,
-  `industryAge` 4 000 → 5 800 research points. Result (4 seeds per biome × 10 days, then the
-  official report): Stone ≈ 36 h, Iron ≈ 4 d, Industry ≈ 8 d, biomes within ±7 %.
-- **Occasional player** (attentive 6 h, then a visit every 8 h): Stone ≈ 2.3 d and Iron
-  ≈ 5.6 d (the 2/3 pace), Industry ≈ 9.8 d: the late game runs on research, which goes on
-  offline. Owner: accepted, the late game is kinder to whoever plays little; the report's
-  target for the occasional Industry is × 1.25 (`CASUAL_PACE`).
-- **Impact** (official report after chantier 15, 20 seeds per biome × 72 h, same seeds):
-  without paths, Nest 3 and Library +25 % in every biome, Stone +3 %; without camps, Nest 3
-  and Library +23–26 % (only +6 % in the highlands and the delta), Stone +2 %; without
-  expeditions, kiwi level 10 +24 % (raid XP) but Stone −1 % (the crews stay at work): raids
-  trade production for experience and loot (~8 000 a day, ~1 kiwi lost per 72 h, all raids
-  won).
-- **Official report** (200 seeds × 72 h, ages 10 seeds × 10 days, ~2 h on 4 cores): every
-  line green, biomes within ±7.2 %, faces within 3.7 %; attentive Stone 36.3 h, Iron 4.1 d,
-  Industry 7.8 d; occasional 2.3 d, 5.5 d, 9.8 d.
+
+### Part 5 — Paved paths by age, lanterns
+
+- `render/paths.ts` rewritten: a path tile is a small hub plus a **segment towards each
+  neighbour that is a path, a building or a construction site** (the ways join up and reach
+  the doors). Eden: a dirt track with crooked wooden planks across; Stone: irregular cobbles
+  two or three abreast; Iron: cut pavers in a running bond between curbs; Industry: a dark
+  smooth road with a dashed white line and curbs.
+- Every segment has the same length on the hex grid: one **merged geometry per age and
+  variant** (2 variants, vertex colours) holds track, details and curbs and is instanced once
+  per segment (≈ 200 instances, 2 draw calls) — a first version with one instance per paver
+  drew 3 300 pavers. Pavers, cobbles and dashes are their top face only (2 and 5 triangles):
+  the Iron colony of the perf save draws 148 k triangles against 137 k before.
+- **Lanterns** from the Stone age on about a third of the path tiles, beside the track: a
+  dark post (casts a shadow) and an emissive lamp lit with the windows (same curve, warm
+  `#ffc46e` × 2.8, blooms).
+- Measures (software WebGL, 480×300, Medium): hiding the whole path layer in the same page
+  changes nothing measurable (16 alternations: 528 vs 540 ms medians); between page loads the
+  noise reaches ±15 %.

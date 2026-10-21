@@ -644,7 +644,11 @@ export class GameRenderer {
     this.buildings?.sync(state);
     if (this.pendingWaves.length > 0) this.startWaves(state);
     this.kiwis?.sync(state);
-    this.paths?.sync(state.paths, ageOf(state));
+    this.paths?.sync(
+      state.paths,
+      ageOf(state),
+      new Set([...state.buildings.map(hexKey), ...state.queue.map(hexKey)]),
+    );
     this.meteors?.sync(state);
     this.comets?.sync(state);
     this.obstacles?.sync(state);
@@ -1333,7 +1337,9 @@ export class GameRenderer {
     seasonUniforms.uNight.value = 1 - sky.daylight;
     // Lamps come on as the sun sets and go out after sunrise.
     const dim = Math.min(1, Math.max(0, (0.85 - sky.daylight) / 0.5));
-    this.buildings?.windows.setGlow(dim * dim * (3 - 2 * dim));
+    const lamps = dim * dim * (3 - 2 * dim);
+    this.buildings?.windows.setGlow(lamps);
+    this.paths?.setGlow(lamps);
     this.water?.setIce(seasonUniforms.uSnow.value);
     this.weather?.update(this.elapsed, c, sky.night);
     this.comets?.setNight(sky.night);
