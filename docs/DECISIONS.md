@@ -1483,3 +1483,25 @@ tile looks cultivated as soon as its building is placed (whole zone).
 
   On a 144 Hz screen the old loop drew 144 frames a second: now 60, then 30 and 20 at rest.
 - `?debug` shows the aimed rate, "(idle)" and the share of display frames drawn.
+
+### Part 2 — Continuous light, golden dawn and dusk
+
+- `dayCycle.ts`: the four blended presets became **two strings of keys along the sun's
+  elevation** (noon 1, high 0.6, golden 0.3, sunrise/sunset 0.02, blue hour −0.22, night
+  −0.55), smoothstep between neighbours. Morning keys are rosier and cooler (pink sun
+  `#ff9e94`, peach golden hour), evening keys more golden and orange (`#ffae58` → `#ff8442`);
+  the hemisphere fills with blue-violet against the warm sun; the horizon (hence the fog and
+  the sea of clouds) turns warm; noon is a frank near-neutral sun (`#fff0d8`, 2.55).
+- Sun height: tried a much lower sun at dawn and dusk (0.12–0.2 + elevation) for long
+  shadows, but a grazing sun left the flat tiles muddy and dark (sheet); kept a floor of 0.34
+  (0.34 + 0.92 × elevation, about the old curve): the golden hours come from the colours, the
+  rim and the warm fill, not from the angle. The sun's path goes on under the horizon until
+  elevation −0.1, then the moon (colder, lower: height 1.05 instead of 1.4) takes over in the
+  dim blue hour, where the switch of shadows is barely visible.
+- **Rim light**: a second directional light without shadow, from across the sun and low
+  (`rim`, `rimIntensity`: 0 at noon, ~0.5 at the golden hours, faint blue at night); off in
+  Low (one light less in every shader).
+- Light sheet: `scripts/lightSheet.mjs <save.json> <out.png>` renders the perf save at 8
+  moments × 4 seasons in the game itself (time frozen, weather off, camera at 0.7 × the frame
+  distance) and collates a grid. Medium frame in software WebGL: 404–448 ms before,
+  433–460 ms after (noise level).

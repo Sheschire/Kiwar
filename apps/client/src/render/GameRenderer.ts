@@ -362,6 +362,7 @@ export class GameRenderer {
     if (this.map) this.rebuildProps();
     this.buildings?.setAnimated(q.buildingAnimations, q.particles);
     this.environment.setLite(preset === 'low');
+    this.lighting.setRim(preset !== 'low');
     this.weather?.setDensity(q.particles ? 1 : 0.35);
     this.ships?.setParticles(q.particles);
     this.resize();

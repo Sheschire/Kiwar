@@ -7,6 +7,8 @@ export class Lighting {
   readonly group = new Group();
   readonly sun: DirectionalLight;
   readonly hemi: HemisphereLight;
+  /** Chantier 23: warm back light of the golden hours (no shadow, no extra pass). */
+  readonly rim: DirectionalLight;
   private readonly target = new Object3D();
 
   constructor() {
@@ -18,7 +20,9 @@ export class Lighting {
     this.sun.shadow.bias = -0.0004;
     this.sun.shadow.normalBias = 0.03;
     this.sun.shadow.radius = 4;
-    this.group.add(this.hemi, this.sun, this.target);
+    this.rim = new DirectionalLight('#ffc070', 0);
+    this.rim.target = this.target;
+    this.group.add(this.hemi, this.sun, this.rim, this.target);
   }
 
   /** Colours, intensities and direction of the day/night cycle. */
@@ -29,6 +33,14 @@ export class Lighting {
     this.hemi.color.copy(sky.hemiSky);
     this.hemi.groundColor.copy(sky.hemiGround);
     this.hemi.intensity = sky.hemiIntensity;
+    this.rim.color.copy(sky.rim);
+    this.rim.intensity = sky.rimIntensity;
+    this.rim.position.copy(sky.rimDir).multiplyScalar(45);
+  }
+
+  /** Low quality: no rim light (one light less in every lit shader). */
+  setRim(on: boolean): void {
+    this.rim.visible = on;
   }
 
   /** Fits the shadow camera to a disc of the given radius. */
