@@ -100,7 +100,17 @@ function showTwin(state: GameState): void {
   const target = state.targets.find((t) => t.distance === 0 && t.face === twinFace);
   const intel = (!f && target && state.intel[target.id]) || null;
   const seen = intel ? `${intel.sectors.join('.')}/${intel.structures.length}` : '';
-  const key = `${state.seed}|${twinFace}|${params.biome}|${f ? `${f.owner}@${f.at}` : 'fog'}|${seen}`;
+  // Chantier 19: bridgehead flags, and no aliens left once the queen fell.
+  const siege = f
+    ? null
+    : {
+        heads: state.siege.bridgeheads.map((b) => ({ sector: b.sector, fortified: b.fortified })),
+        conquered: state.siege.conqueredAt > 0,
+      };
+  const flags = siege
+    ? `${siege.heads.map((h) => `${h.sector}${h.fortified ? '+' : ''}`).join('.')}/${siege.conquered}`
+    : '';
+  const key = `${state.seed}|${twinFace}|${params.biome}|${f ? `${f.owner}@${f.at}` : 'fog'}|${seen}|${flags}`;
   if (key === twinKey) return;
   twinKey = key;
   uiStore.setState({ twinOwner: f?.owner ?? null });
@@ -109,6 +119,7 @@ function showTwin(state: GameState): void {
       fog: !f,
       friend: f,
       intel,
+      siege,
     });
   } catch (e) {
     // The twin is scenery: a broken snapshot must never block the colony.

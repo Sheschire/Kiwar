@@ -6,7 +6,7 @@ import {
   type ResourceId,
 } from '@kiwar/shared';
 import type { GameRenderer } from '../render/GameRenderer';
-import { pushToast, uiStore } from '../ui/store';
+import { pushToast, uiStore, type SiegeShowKind } from '../ui/store';
 import { playGameEventSounds } from '../audio/sounds';
 import { formatDuration, formatNumber, translate, type TKey } from '../i18n/i18n';
 
@@ -21,11 +21,26 @@ const SIEGE_TOASTS: Partial<Record<MissionKind, readonly [TKey, TKey]>> = {
   final: ['siege.toast.queenFell', 'siege.toast.queenHeld'],
 };
 
+let showId = 0;
+
+/** Chantier 19: a siege fight seen live (not an offline catch-up) gets its short show. */
+function showSiege(e: GameEvent): void {
+  if (Math.abs(uiStore.getState().now - e.at) > 20_000) return;
+  let kind: SiegeShowKind | null = null;
+  if (e.type === 'counterStruck') kind = e.victory ? 'held' : 'fell';
+  else if (e.type === 'expeditionArrived' && !e.broken && e.mission === 'assault')
+    kind = e.victory ? 'taken' : 'repelled';
+  else if (e.type === 'expeditionArrived' && !e.broken && e.mission === 'final')
+    kind = e.victory ? 'queen' : 'queenHeld';
+  if (kind) uiStore.setState({ siegeShow: { kind, id: ++showId } });
+}
+
 /** Turns simulation events into toasts and visual effects. */
 export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): void {
   renderer.onGameEvents(events);
   playGameEventSounds(events);
   for (const e of events) {
+    showSiege(e);
     switch (e.type) {
       case 'constructionComplete':
         if (e.level === 1)

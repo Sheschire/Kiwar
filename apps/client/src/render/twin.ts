@@ -1,9 +1,12 @@
 import { ObstaclesView } from './obstacles';
 import type { Color } from 'three';
 import {
+  BufferGeometry,
   CanvasTexture,
   CircleGeometry,
   ConeGeometry,
+  CylinderGeometry,
+  Float32BufferAttribute,
   SphereGeometry,
   DoubleSide,
   MeshStandardMaterial,
@@ -22,7 +25,9 @@ import {
   hexToPixel,
   INTEL,
   landTileNear,
+  sectorOf,
   type FaceMap,
+  type Tile,
   type IntelReport,
   type TwinSnapshot,
 } from '@kiwar/shared';
@@ -43,6 +48,8 @@ export interface TwinOptions {
   friend?: TwinSnapshot | null;
   /** Alien face: what our scouts saw (the clouds part over those sectors, chantier 07). */
   intel?: IntelReport | null;
+  /** Chantier 19: our bridgeheads (flags), and whether the queen fell (no aliens left). */
+  siege?: { heads: { sector: number; fortified: boolean }[]; conquered: boolean } | null;
 }
 
 /** Fog layers over the twin surface (local heights). */
@@ -74,7 +81,7 @@ export class TwinView {
   private buildingMaterial: MeshStandardMaterial | null = null;
   private label: Sprite | null = null;
 
-  private structureGeometries: (ConeGeometry | SphereGeometry)[] = [];
+  private structureGeometries: BufferGeometry[] = [];
   private structureMaterials: MeshStandardMaterial[] = [];
 
   constructor(map: FaceMap, opts: TwinOptions) {
@@ -151,7 +158,8 @@ export class TwinView {
       }
     }
     if (opts.friend) this.showFriend(map, opts.friend);
-    else if (opts.intel) this.showStructures(map, opts.intel);
+    else if (opts.intel && !opts.siege?.conquered) this.showStructures(map, opts.intel);
+    if (!opts.friend && opts.siege?.heads.length) this.showBridgeheads(map, opts.siege.heads);
     this.group.add(this.spin);
     this.group.scale.setScalar(SCALE);
   }
@@ -211,6 +219,57 @@ export class TwinView {
     this.label.position.set(0, 16, 0);
     this.label.scale.set(28, 7, 1);
     this.group.add(this.label);
+  }
+
+  /**
+   * Chantier 19: a kiwi flag on each bridgehead, on the land tile of its sector nearest to the
+   * middle of the ring (gold, with a low wall, once fortified).
+   */
+  private showBridgeheads(map: FaceMap, heads: { sector: number; fortified: boolean }[]): void {
+    const pole = new CylinderGeometry(0.07, 0.07, 3.2, 5);
+    const cloth = new BufferGeometry();
+    cloth.setAttribute(
+      'position',
+      new Float32BufferAttribute([0, 1.5, 0, 1.5, 1.0, 0, 0, 0.5, 0], 3),
+    );
+    cloth.computeVertexNormals();
+    const wall = new CylinderGeometry(0.75, 0.85, 0.35, 8, 1, true);
+    const wood = new MeshStandardMaterial({ color: 0x5a3b22, flatShading: true, fog: false });
+    const green = new MeshStandardMaterial({
+      color: 0x7fb52e,
+      flatShading: true,
+      side: DoubleSide,
+      fog: false,
+      emissive: 0x2a4a0a,
+    });
+    const gold = new MeshStandardMaterial({
+      color: 0xe0a83a,
+      flatShading: true,
+      side: DoubleSide,
+      fog: false,
+      emissive: 0x4a300a,
+    });
+    const stone = new MeshStandardMaterial({ color: 0x9a8a76, flatShading: true, fog: false });
+    this.structureGeometries.push(pole, cloth, wall);
+    this.structureMaterials.push(wood, green, gold, stone);
+    for (const h of heads) {
+      const tile = sectorMiddle(map, h.sector);
+      if (!tile) continue;
+      const p = worldPosition(tile);
+      const flag = new Group();
+      flag.position.set(p.x, tile.height, p.z);
+      const stick = new Mesh(pole, wood);
+      stick.position.y = 1.6;
+      const banner = new Mesh(cloth, h.fortified ? gold : green);
+      banner.position.y = 1.6;
+      flag.add(stick, banner);
+      if (h.fortified) {
+        const ring = new Mesh(wall, stone);
+        ring.position.y = 0.17;
+        flag.add(ring);
+      }
+      this.terrain.group.add(flag);
+    }
   }
 
   /** Dens and roosts seen by the scouts, frozen as they were reported. */
@@ -293,6 +352,27 @@ function nameLabel(name: string, fill = 'rgba(246, 234, 208, 0.92)', stroke = '#
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   return new Sprite(new SpriteMaterial({ map: texture, fog: false, depthTest: false }));
+}
+
+/** The land tile of an outer sector nearest to the middle of its slice (chantier 19). */
+function sectorMiddle(map: FaceMap, sector: number): Tile | undefined {
+  const slice = sector % (INTEL.sectors / 2);
+  const a = ((slice + 0.5) * Math.PI) / 3;
+  const r = 14;
+  const x = r * Math.cos(a);
+  const y = r * Math.sin(a);
+  let best: Tile | undefined;
+  let bestD = Infinity;
+  for (const tile of map.tiles) {
+    if (tile.type === 'juice' || sectorOf(tile.q, tile.r) !== sector) continue;
+    const p = hexToPixel(tile);
+    const d = (p.x - x) ** 2 + (p.y - y) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = tile;
+    }
+  }
+  return best;
 }
 
 /** 1 for each sector seen (the order of `sectorOf`). */

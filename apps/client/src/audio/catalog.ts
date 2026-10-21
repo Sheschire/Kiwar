@@ -243,6 +243,31 @@ export const SOUND_EVENTS = {
     synth: 'defeat',
     default: { sources: ['synth:defeat'], cooldownMs: 3000 },
   },
+  // Chantier 19: the siege of the twin face.
+  'siege.warning': {
+    bus: 'sfx',
+    group: 'expedition',
+    synth: 'warning',
+    default: { sources: ['synth:warning'], cooldownMs: 3000, volume: 0.8 },
+  },
+  'siege.victory': {
+    bus: 'sfx',
+    group: 'expedition',
+    synth: 'victory',
+    default: { sources: ['synth:victory'], cooldownMs: 3000 },
+  },
+  'siege.defeat': {
+    bus: 'sfx',
+    group: 'expedition',
+    synth: 'defeat',
+    default: { sources: ['synth:defeat'], cooldownMs: 3000 },
+  },
+  'siege.queen': {
+    bus: 'sfx',
+    group: 'expedition',
+    synth: 'fanfare',
+    default: { sources: ['synth:fanfare'], cooldownMs: 5000 },
+  },
   'turret.fire': {
     bus: 'sfx',
     group: 'colony',

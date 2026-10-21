@@ -84,6 +84,24 @@ export function playGameEventSounds(events: GameEvent[]): void {
         if (e.stage !== 'fed') audio.play('colony.hunger');
         break;
       case 'expeditionArrived':
+        audio.play('ship.arrive');
+        if (e.mission === 'assault' || e.mission === 'final') {
+          const id =
+            e.mission === 'final' && e.victory
+              ? 'siege.queen'
+              : e.victory
+                ? 'siege.victory'
+                : 'siege.defeat';
+          window.setTimeout(() => audio.play(id), 1200);
+        }
+        break;
+      case 'counterAnnounced':
+        audio.play('siege.warning');
+        break;
+      case 'counterStruck':
+        audio.play('threat.strike');
+        window.setTimeout(() => audio.play(e.victory ? 'siege.victory' : 'siege.defeat'), 1500);
+        break;
       case 'cargoDelivered':
       case 'cargoReceived':
         audio.play('ship.arrive');

@@ -650,6 +650,14 @@ export const fr: Dict = {
     invalidMission: 'Mission inconnue.',
   },
   siege: {
+    show: {
+      taken: 'Tête de pont prise !',
+      repelled: 'Assaut repoussé',
+      held: 'La tête de pont tient bon',
+      fell: 'La tête de pont est tombée',
+      queen: 'La reine est tombée ! Le brouillard se lève…',
+      queenHeld: 'La reine a tenu',
+    },
     report: {
       taken: 'Tête de pont prise : {sector}',
       repelled: 'Assaut repoussé : {sector}',

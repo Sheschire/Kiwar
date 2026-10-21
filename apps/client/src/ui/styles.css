@@ -4833,3 +4833,213 @@ button.chip:focus-visible {
     align-items: center;
   }
 }
+
+/* The short show of a siege fight (chantier 19). */
+.siege-show {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 60;
+  background: radial-gradient(circle, rgba(43, 29, 18, 0.25), transparent 65%);
+  animation:
+    siege-show-in 0.35s ease-out both,
+    siege-show-out 0.5s ease-in 3.7s both;
+}
+
+.siege-show-card {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 14px 22px 16px;
+  border-radius: var(--radius);
+  font-size: 1.15em;
+  text-align: center;
+  max-width: calc(100vw - 32px);
+}
+
+.siege-show.is-good strong {
+  color: var(--leaf-dark);
+}
+
+.siege-show.is-bad strong {
+  color: var(--berry);
+}
+
+.siege-show-fog circle {
+  fill: #f2ede4;
+  opacity: 0.85;
+}
+
+.is-queen .siege-show-fog {
+  animation: siege-fog-lift 2.4s ease-in 0.9s both;
+}
+
+.siege-show-pole {
+  stroke: #4a3324;
+  stroke-width: 2.4;
+}
+
+.siege-show-cloth {
+  fill: var(--leaf);
+  stroke: var(--paper-light);
+  stroke-width: 1;
+}
+
+.siege-show-flag {
+  transform-box: fill-box;
+  transform-origin: bottom left;
+}
+
+.siege-show-fog,
+.siege-show-crown,
+.siege-show-claws path {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.is-taken .siege-show-flag,
+.is-held .siege-show-flag {
+  animation: siege-flag-up 0.9s cubic-bezier(0.3, 1.6, 0.5, 1) 0.3s both;
+}
+
+.is-fell .siege-show-flag {
+  animation: siege-flag-fall 1.2s ease-in 0.8s both;
+}
+
+.is-repelled .siege-show-flag {
+  opacity: 0;
+}
+
+.siege-show-crown path {
+  fill: var(--gold);
+  stroke: #4a3324;
+  stroke-width: 1.6;
+}
+
+.is-queen .siege-show-crown {
+  animation: siege-crown-fall 1.4s ease-in 0.5s both;
+}
+
+.is-queenHeld .siege-show-crown {
+  animation: siege-shake 0.5s ease-in-out 0.6s 3;
+}
+
+.siege-show-ship path {
+  fill: #8a5f38;
+  stroke: #4a3324;
+  stroke-width: 1.4;
+}
+
+.siege-show-ship {
+  animation: siege-ship-bounce 1.6s ease-out 0.2s both;
+}
+
+.siege-show-claws path {
+  stroke: var(--berry);
+  stroke-width: 3;
+  stroke-linecap: round;
+  animation: siege-claws 0.6s ease-out 0.3s both;
+}
+
+.siege-show-rays path {
+  fill: var(--gold);
+  opacity: 0.8;
+}
+
+.siege-show-rays {
+  animation: siege-rays 3.5s linear both;
+}
+
+@keyframes siege-show-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@keyframes siege-show-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes siege-flag-up {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes siege-flag-fall {
+  to {
+    transform: rotate(80deg);
+    opacity: 0.4;
+  }
+}
+
+@keyframes siege-crown-fall {
+  30% {
+    transform: translateY(-6px) rotate(-8deg);
+  }
+  to {
+    transform: translateY(46px) rotate(40deg);
+    opacity: 0;
+  }
+}
+
+@keyframes siege-fog-lift {
+  to {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes siege-shake {
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+
+@keyframes siege-ship-bounce {
+  from {
+    transform: translate(-50px, -40px);
+  }
+  45% {
+    transform: translate(-8px, -14px);
+  }
+  to {
+    transform: translate(-60px, -48px) rotate(-30deg);
+    opacity: 0;
+  }
+}
+
+@keyframes siege-claws {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+
+@keyframes siege-rays {
+  from {
+    opacity: 0;
+    transform: rotate(0deg);
+  }
+  20% {
+    opacity: 1;
+  }
+  to {
+    transform: rotate(40deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .siege-show,
+  .siege-show * {
+    animation-duration: 0.01s !important;
+    animation-delay: 0s !important;
+  }
+}

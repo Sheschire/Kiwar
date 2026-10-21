@@ -25,6 +25,7 @@ import { FollowBadge, VillageModal } from './components/VillageModal';
 import { DefenseModal, ThreatBadge } from './components/DefenseModal';
 import { PlansModal } from './components/ResearchModal';
 import { CounterBadge, SiegeModal } from './components/SiegeModal';
+import { SiegeShow } from './components/SiegeShow';
 import { LevelsButton, LogisticsButton, PlacingBanner } from './components/BuildingTree';
 import { BootScreen, Guard } from './components/Guard';
 import { VisitBanner } from './components/VisitBanner';
@@ -218,6 +219,7 @@ export function App() {
       <PlanetCard />
       <PlanetsPanel />
       <PlanetTag />
+      <SiegeShow />
       <Toasts />
       <Guard>
         {debugOpen && <DebugPanel />}

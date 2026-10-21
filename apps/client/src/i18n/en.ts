@@ -616,6 +616,14 @@ export const en = {
     invalidMission: 'Unknown mission.',
   },
   siege: {
+    show: {
+      taken: 'Bridgehead taken!',
+      repelled: 'Assault driven back',
+      held: 'The bridgehead holds',
+      fell: 'The bridgehead fell',
+      queen: 'The queen fell! The fog lifts…',
+      queenHeld: 'The queen held',
+    },
     report: {
       taken: 'Bridgehead taken: {sector}',
       repelled: 'Assault driven back: {sector}',

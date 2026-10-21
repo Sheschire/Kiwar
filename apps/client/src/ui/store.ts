@@ -48,6 +48,9 @@ export type Modal =
   | 'plans'
   | 'siege';
 
+/** Chantier 19: the short show of a siege fight seen live. */
+export type SiegeShowKind = 'taken' | 'repelled' | 'held' | 'fell' | 'queen' | 'queenHeld';
+
 /** Chantier 19: a siege mission prepared from the Siege screen (the planner opens on it). */
 export interface SiegePlan {
   mission: 'recon' | 'assault' | 'reinforce' | 'final';
@@ -100,6 +103,7 @@ export interface UiState {
   deliverTo: string | null;
   /** Chantier 19: the siege mission the expedition planner is set to (null: free choice). */
   siegePlan: SiegePlan | null;
+  siegeShow: { kind: SiegeShowKind; id: number } | null;
   /** Expedition whose report is shown. */
   reportId: string | null;
   /** Building waiting for demolition confirmation. */
@@ -236,6 +240,7 @@ export const uiStore = createStore<UiState>(() => ({
   expeditionPad: null,
   deliverTo: null,
   siegePlan: null,
+  siegeShow: null,
   reportId: null,
   demolishId: null,
   unreadReports: [],
