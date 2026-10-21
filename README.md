@@ -53,6 +53,14 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 > proche en proche. Le calque **Logistique** (touche O) montre la zone de chaque producteur et
 > les recouvrements. Chaque kiwi qui dépose sa récolte affiche **ce qu'il rapporte**
 > (« +0,4 » et l'icône de la ressource), et plus un débit horaire.
+> **Chantier 18** — l'équilibrage joue maintenant comme un·e joueur·euse attentif·ve : il
+> trace des **chemins** quand ils se remboursent vite, pose des **camps** sur les météorites et
+> les gisements lointains, envoie des **reconnaissances** et des **raids** sur la face jumelle.
+> Les raids deviennent intéressants : une victoire **blesse** les kiwis touchés (6 h) au lieu
+> de les tuer, et le **butin** est 8 fois plus gros, et plus encore aux âges suivants. Le
+> rapport compare un·e joueur·euse attentif·ve et occasionnel·le (trois visites par jour) et
+> chiffre l'apport de chaque mécanique ; les âges arrivent à l'heure (Pierre ≈ 1,5 jour, Fer
+> ≈ 4 jours, Industrie ≈ 8 jours) dans tous les biomes.
 >
 > **Chantier 13** — des **comètes** passent tous les 3 à 5 jours : annoncées quelques heures
 > avant, elles traversent le ciel (plus belles la nuit) et laissent de la **poussière

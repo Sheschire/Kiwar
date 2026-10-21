@@ -95,3 +95,47 @@ un·e joueur·euse attentif·ve, avec **toutes** les mécaniques qui pèsent sur
    fraction du rythme actif ?
 2. Le bot doit-il aussi faire des livraisons entre alliés (simulation d'un univers à 2) ?
 3. Après le chantier 19, le bot devra coloniser : c'est prévu dans le 19.
+
+## Réponses du porteur (octobre 2026)
+
+1. Rythme occasionnel : ~2/3 du rythme actif (âges ~1,5× plus tard), à ±15 %.
+2. Pas de livraisons entre alliés dans le bot (solo seulement, à revoir avec le chantier 19).
+3. Rapport officiel : 200 graines × 72 h, plus une section « âges » longue (10 jours).
+4. Les cibles d'âge valent pour le bot complet (qui utilise tout).
+5. Raids (en cours de chantier, après mesure : jamais rentables) : une victoire **blesse** au
+   lieu de tuer (6 h), butin **×8** et croissant avec l'âge.
+6. Fin de partie de l'occasionnel·le plus clémente (Industrie ≈ 1,25× l'actif) : acceptée.
+
+## Réalisé (octobre 2026)
+
+- **Bot découpé** par domaine (`tools/balance/src/bot/`), même résultat au bit près avant les
+  nouvelles décisions ; `runBot({ without })` pour mesurer chaque mécanique.
+- **Chemins** : le tracé le moins cher de chaque producteur vers son dépôt, posé s'il se
+  rembourse en 6 h ; retracé après piétinement ou tempête. Nid 3 et Bibliothèque −35 %.
+- **Camps** : sur chaque cratère de météorite, et sur le gisement le plus riche de la
+  ressource goulot quand des kiwis sont inoccupés ; démontés dès qu'un poste les réclame.
+- **Expéditions** : aire d'envol après la Bibliothèque, deux guerrier·ères et un·e
+  éclaireur·euse, reconnaissance dès que le rapport n'est plus frais, raid quand la prévision
+  est favorable et que le butin vaut provisions, blessures et absence de l'équipage ; maire,
+  bâtisseur·euses et meilleur·e chercheur·euse restent au village ; le Kikiwiwi quitte le
+  rempart pour un raid.
+- **Règles changées** : victoires qui blessent (6 h), butin ×8 et × l'âge (1 / 1,5 / 2 / 3),
+  ligne « victoire attendue : environ n blessé·es, aucun mort » dans le planificateur.
+- **Profils** actif / occasionnel (`--profile`), **rapport officiel** enrichi : section âges
+  sur 10 jours pour les deux profils face aux cibles, rapport d'impact, sonde d'expéditions.
+- **Bugs du bot** trouvés par les longues parties (Kikiwiwi inoccupé qui bloquait la
+  recherche, ping-pong de garnison qui empêchait le monument de l'Industrie, recherche et
+  Bibliothèque mal priorisées) ; **passages** retouchés (850 / 2 300 / 4 600 points).
+- Résultat (`docs/BALANCE_REPORT.md`) : biomes à ±8,4 % au pire, faces à ±1,3 % ; actif
+  Pierre ≈ 36 h, Fer ≈ 4 j, Industrie ≈ 8 j ; occasionnel Pierre ≈ 2,3 j, Fer ≈ 5,6 j,
+  Industrie ≈ 9,6 j.
+
+## Reste à faire / idées
+
+- Le bot n'utilise ni mages, ni livraisons, ni cadenas / affectation kiwi par kiwi
+  (chantier 15), ni terraformation au-delà du concassage des rochers.
+- Une seule cible (la face jumelle) : les faces aliens des autres kiwis d'un univers ne sont
+  pas jouées (solo).
+- La sonde d'expéditions montre 35 % de pannes à tous les niveaux d'aire (la fiabilité suit
+  l'âge depuis le chantier 08) : à revoir si les pannes paraissent trop fréquentes en Éden.
+- Un rapport officiel complet prend ~3 h sur 4 cœurs (72 h × 200, âges × 10, impact × 20).

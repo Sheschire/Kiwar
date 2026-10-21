@@ -1546,3 +1546,24 @@ tile looks cultivated as soon as its building is placed (whole zone).
 - Left for later: the shiver of a tuft when a kiwi picks it and the picking particles (would
   need the 3D kiwis to report their harvest tile); a contested tile shows the pool that owns
   it (pools never overlap).
+- **Bot bugs the long runs found** (they hid behind the 72 h horizon): an idle Kikiwiwi made
+  `researchStaffing` ask forever for a Library worker it could never get (Industry never
+  reached); `defenseOrders` relieved the Kikiwiwi that `titanOrders` had just posted, and the
+  ping-pong ate every decision of the round (half the highlands runs never built the Industry
+  monument). A lesser technology started while the passage waited for a Library level, and a
+  Library left behind the Nest, delayed the ages (occasional player Stone +50 %). Fixed in the
+  bot: research in `TECH_ORDER` with banking, the Library follows the Nest during research,
+  Kikiwiwis stay on the rampart.
+- **Passages retuned** for the complete bot, which reached the ages 11–16 % ahead of the
+  targets: `stoneAge` 700 → 850, `ironAge` 1 800 → 2 300, `industryAge` 4 000 → 4 600
+  research points. Result (10 seeds per biome × 10 days): Stone ≈ 36 h, Iron ≈ 4 d,
+  Industry ≈ 8 d, biomes within ±7 %.
+- **Occasional player** (attentive 6 h, then a visit every 8 h): Stone ≈ 2.3 d and Iron
+  ≈ 5.6 d (the 2/3 pace), Industry ≈ 9.6 d: the late game runs on research, which goes on
+  offline. Owner: accepted, the late game is kinder to whoever plays little; the report's
+  target for the occasional Industry is × 1.25 (`CASUAL_PACE`).
+- **Impact** (20 seeds per biome × 72 h, same seeds): without paths, Nest 3 and Library +52 %
+  (Delta +6 % only: its land is already easy to walk), Stone +3.5 %; without camps, Nest 3 and
+  Library +40 % in the seed crown and the lagoons (crater seeds), ±3 % elsewhere; without
+  expeditions, kiwi level 10 +23 % (raid XP) but Stone −3.8 % (the crews stay at work):
+  raids trade production for experience and loot (~8 000 a day).
