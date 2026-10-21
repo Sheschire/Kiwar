@@ -64,6 +64,7 @@ import { returnHome, weakestWorker } from './posts';
 import { TECHS, type TechId } from '../data/research';
 import { researchTick, techEffects, techStatus } from './research';
 import { KIKIWIWI } from '../data/kikiwiwi';
+import { EXPEDITIONS } from '../data/expeditions';
 import {
   infusionDuration,
   infusionRisk,
@@ -74,8 +75,10 @@ import {
 import { METEORS, SHELTER } from '../data/threats';
 import { forecastWave } from './threats';
 import {
+  availableCrew,
   cleanFreight,
   crewOf,
+  crewWeight,
   forecastExpedition,
   isLaunchpadBusy,
   launch,
@@ -85,7 +88,14 @@ import {
   shipCargo,
 } from './expeditions';
 import { cargoWeight, sendShipment } from './deliveries';
-import { denRaidForecast, denRaiders, foundLock, isSister, raidDen } from './colonies';
+import {
+  denRaidForecast,
+  denRaiders,
+  foundLock,
+  isSister,
+  raidDen,
+  SISTER_FRIEND,
+} from './colonies';
 import { OBSTACLES, OBSTACLE_RULES } from '../data/obstacles';
 import { clearDuration, obstacleAt } from './obstacles';
 import { TITAN_WORK_IDS, type TitanWork } from '../data/titan';
@@ -137,6 +147,8 @@ export type Command =
       launchpadId: BuildingId;
       friendId: string;
       resources: Partial<Resources>;
+      /** Chantier 19: kiwis moving to our other colony (friend `sister` only). */
+      villagerIds?: VillagerId[];
     }
   /** Paint paths on walkable tiles (one gesture); tiles that already have one are skipped. */
   | { type: 'buildPath'; tiles: { q: number; r: number }[] }
@@ -720,10 +732,19 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         if (!Number.isFinite(v) || v < 0) fail('invalidCount');
         load[r] = Math.floor(v);
       }
-      if (RESOURCE_IDS.every((r) => load[r] === 0)) fail('emptyCargo');
-      if (cargoWeight(load) > shipCargo(pad) + 1e-9) fail('overloaded');
+      // Chantier 19: kiwis may move to our other colony (never to an ally).
+      const ids = cmd.villagerIds ?? [];
+      if (ids.length > 0 && friend.id !== SISTER_FRIEND) fail('invalidCrew');
+      const movers = crewOf(s, ids);
+      if (!movers || new Set(ids).size !== ids.length) return fail('invalidCrew');
+      const free = new Set(availableCrew(s).map((v) => v.id));
+      if (movers.some((v) => !free.has(v.id))) fail('kiwiBusy');
+      if (movers.length > free.size - EXPEDITIONS.keepHome) fail('crewTooLarge');
+      if (movers.filter((v) => v.kikiwiwi).length > KIKIWIWI.perShip) fail('oneKikiwiwi');
+      if (RESOURCE_IDS.every((r) => load[r] === 0) && movers.length === 0) fail('emptyCargo');
+      if (cargoWeight(load) + crewWeight(movers) > shipCargo(pad) + 1e-9) fail('overloaded');
       if (!canAfford(s.resources, load)) fail('notEnoughResources');
-      sendShipment(s, pad.id, friend, pad, load, now, nextId(s, 'x'));
+      sendShipment(s, pad.id, friend, pad, load, now, nextId(s, 'x'), ids);
       return;
     }
     case 'buildPath': {

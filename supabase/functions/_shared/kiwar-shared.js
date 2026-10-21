@@ -3219,6 +3219,175 @@ function skyTick(s, at, events) {
   sky.meteors = sky.meteors.filter((m) => m.expiresAt > at);
 }
 
+// packages/shared/src/sim/colonies.ts
+var SISTER_FRIEND = "sister";
+function sisterFriend(state) {
+  return {
+    id: SISTER_FRIEND,
+    owner: otherFace(state.face),
+    kiwiIndex: 0,
+    distance: 0,
+    travelMs: alienDefOf(0).travelMs
+  };
+}
+function linkSister(state) {
+  state.friends = [...state.friends.filter((f) => f.id !== SISTER_FRIEND), sisterFriend(state)];
+}
+function isSister(state) {
+  return state.colony.index === 1;
+}
+function hasSister(state) {
+  return state.colony.foundedAt > 0 || state.colony.founding !== null;
+}
+function foundLock(state) {
+  if (isSister(state) || !twinTarget(state)) return "unknownTarget";
+  if (state.siege.conqueredAt <= 0) return "notConquered";
+  if (hasSister(state) || state.expeditions.some((e) => e.mission === "found" && !e.result))
+    return "alreadyFounded";
+  return null;
+}
+function settle(v) {
+  const out = cloneVillager(v);
+  out.job = { kind: "idle" };
+  delete out.locked;
+  delete out.builderPriority;
+  delete out.homeJob;
+  delete out.lent;
+  return out;
+}
+function emigrate(state, ids) {
+  if (ids.length === 0) return;
+  state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
+}
+function landSettlers(s, e, members, fed) {
+  const resources2 = emptyResources();
+  for (const id3 of RESOURCE_IDS) resources2[id3] = (e.freight?.[id3] ?? 0) + e.provisions[id3];
+  s.colony.founding = { at: e.arriveAt, settlers: members.map(settle), resources: resources2 };
+  emigrate(
+    s,
+    members.map((v) => v.id)
+  );
+  e.provisions = emptyResources();
+  e.crew = [];
+  e.status = "returning";
+  e.result = {
+    victory: true,
+    strength: 0,
+    defense: 0,
+    fed: Math.round(fed * 100) / 100,
+    lostInBattle: [],
+    lostOnReturn: [],
+    loot: emptyResources(),
+    founded: true
+  };
+}
+function generateTraces(map, taken) {
+  const rng = createRng(`${map.seed}/${map.face}/traces`);
+  const [lo, hi] = COLONY.traces.rho;
+  const used = new Set(taken);
+  const out = [];
+  const place = (kind, count) => {
+    const def = OBSTACLES[kind];
+    const spots = rng.shuffle(
+      map.tiles.filter((t) => def.tiles.includes(t.type) && !t.flood && t.rho >= lo && t.rho <= hi)
+    );
+    let placed = 0;
+    for (const t of spots) {
+      if (placed >= count) break;
+      const key = hexKey(t);
+      if (used.has(key)) continue;
+      used.add(key);
+      placed++;
+      out.push({ id: obstacleId(kind, t.q, t.r), kind, q: t.q, r: t.r, loot: { ...def.loot } });
+    }
+  };
+  place("ruin", rng.int(COLONY.traces.ruins[0], COLONY.traces.ruins[1]));
+  place("den", COLONY.traces.dens);
+  return out;
+}
+function newSister(home, f) {
+  const s = newGame({
+    seed: home.seed,
+    face: otherFace(home.face),
+    now: f.at,
+    params: twinParams(home.seed, home.face, home.params),
+    playerId: home.playerId,
+    universeId: home.universeId,
+    kiwiId: home.kiwiId,
+    calendarStart: home.calendarStart,
+    targets: []
+  });
+  delete s.aliens;
+  s.villagers = f.settlers.map((v) => ({ ...settle(v), id: nextId(s, "v") }));
+  const cap = capacity(s);
+  for (const id3 of RESOURCE_IDS) s.resources[id3] = Math.min(cap[id3], f.resources[id3]);
+  s.objectiveIndex = OBJECTIVES.length;
+  s.colony = { index: 1, founding: null, foundedAt: f.at };
+  s.threats.shieldUntil = f.at + COLONY.shieldMs;
+  s.research = {
+    points: 0,
+    current: home.research.current,
+    done: [...home.research.done],
+    outbox: 0
+  };
+  const taken = /* @__PURE__ */ new Set([hexKey(HEART), ...s.obstacles.map((o) => hexKey(o))]);
+  s.obstacles = [...s.obstacles, ...generateTraces(faceMapOf(s), taken)];
+  linkSister(s);
+  return s;
+}
+function takeFounding(home) {
+  const f = home.colony.founding;
+  if (!f) return null;
+  const sister = newSister(home, f);
+  home.colony = { ...home.colony, founding: null, foundedAt: f.at };
+  linkSister(home);
+  return sister;
+}
+function syncColonies(home, sister) {
+  receiveResearch(home, sister.research.outbox);
+  sister.research = {
+    points: 0,
+    current: home.research.current,
+    done: [...home.research.done],
+    outbox: 0
+  };
+}
+function pendingToSister(sender) {
+  return sender.shipments.filter((x) => x.friendId === SISTER_FRIEND && !x.delivered);
+}
+function deliverToSister(sender, receiver) {
+  const pending = pendingToSister(sender);
+  for (const x of pending) {
+    const d = deliveryOf(x, `colony:${sender.face}`, `c${sender.colony.index}`);
+    d.arriveAt = Math.max(d.arriveAt, receiver.now);
+    if (!receiver.incoming.some((i) => i.id === d.id))
+      receiver.incoming = [...receiver.incoming, d];
+    x.delivered = true;
+  }
+  return pending.length;
+}
+function denRaiders(state) {
+  return state.villagers.filter((v) => v.job.kind === "guard");
+}
+function denRaidForecast(state) {
+  const guards = denRaiders(state);
+  const strength = guards.reduce((sum, v) => sum + guardPower(v, state).ground, 0);
+  const power = COLONY.denPower * GARRISON.power;
+  const wounded = strength >= power ? Math.min(guards.length, Math.round(guards.length * lossShare(strength, power))) : 0;
+  return { strength, power, wounded };
+}
+function raidDen(state, q, r, now, events) {
+  const den = obstacleAt(state, q, r);
+  const { wounded } = denRaidForecast(state);
+  const hurt = [...denRaiders(state)].sort((a, b) => guardPower(a, state).ground - guardPower(b, state).ground).slice(0, wounded);
+  for (const v of crewMembers(
+    state,
+    hurt.map((v2) => v2.id)
+  ))
+    v.job = { kind: "injured", until: now + COLONY.denInjuryMs };
+  removeObstacle(state, den, now, events, "kiwis");
+}
+
 // packages/shared/src/sim/deliveries.ts
 function cargoWeight(resources2) {
   return RESOURCE_IDS.reduce((sum, id3) => sum + (resources2[id3] ?? 0), 0) * EXPEDITIONS.resourceWeight;
@@ -3229,9 +3398,11 @@ function cargoLimit(launchpad) {
 function deliveryTime(state, friend, launchpad) {
   return travelTime(friend, launchpad, [], "raid", techEffects(state).travel);
 }
-function sendShipment(state, launchpadId, friend, launchpad, resources2, now, id3) {
+function sendShipment(state, launchpadId, friend, launchpad, resources2, now, id3, villagers = []) {
   const travelMs = deliveryTime(state, friend, launchpad);
   for (const r of RESOURCE_IDS) state.resources[r] -= resources2[r];
+  const movers = state.villagers.filter((v) => villagers.includes(v.id)).map(settle);
+  emigrate(state, villagers);
   const shipment = {
     id: id3,
     launchpadId,
@@ -3242,7 +3413,8 @@ function sendShipment(state, launchpadId, friend, launchpad, resources2, now, id
     departedAt: now,
     arriveAt: now + travelMs,
     returnAt: now + 2 * travelMs,
-    status: "outbound"
+    status: "outbound",
+    ...movers.length ? { villagers: movers } : {}
   };
   state.shipments.push(shipment);
   return shipment;
@@ -3285,6 +3457,16 @@ function deliveryTick(s, at, events) {
       s.resources[r] += received[r];
     }
     events.push({ type: "cargoReceived", at, deliveryId: d.id, from: d.from, received, lost });
+    if (d.villagers?.length) {
+      for (const v of d.villagers)
+        s.villagers.push({ ...settle(v), id: nextId(s, "v") });
+      events.push({
+        type: "settlersArrived",
+        at,
+        deliveryId: d.id,
+        names: d.villagers.map((v) => v.name)
+      });
+    }
   }
 }
 function deliveryOf(shipment, from, senderId) {
@@ -3293,7 +3475,8 @@ function deliveryOf(shipment, from, senderId) {
     from,
     resources: { ...shipment.resources },
     departedAt: shipment.departedAt,
-    arriveAt: shipment.arriveAt
+    arriveAt: shipment.arriveAt,
+    ...shipment.villagers?.length ? { villagers: shipment.villagers.map(cloneVillager) } : {}
   };
 }
 
@@ -5904,146 +6087,6 @@ function isObjectiveComplete(state, def) {
   return p.current >= p.target;
 }
 
-// packages/shared/src/sim/colonies.ts
-function isSister(state) {
-  return state.colony.index === 1;
-}
-function hasSister(state) {
-  return state.colony.foundedAt > 0 || state.colony.founding !== null;
-}
-function foundLock(state) {
-  if (isSister(state) || !twinTarget(state)) return "unknownTarget";
-  if (state.siege.conqueredAt <= 0) return "notConquered";
-  if (hasSister(state) || state.expeditions.some((e) => e.mission === "found" && !e.result))
-    return "alreadyFounded";
-  return null;
-}
-function settle(v) {
-  const out = cloneVillager(v);
-  out.job = { kind: "idle" };
-  delete out.locked;
-  delete out.builderPriority;
-  delete out.homeJob;
-  delete out.lent;
-  return out;
-}
-function emigrate(state, ids) {
-  if (ids.length === 0) return;
-  state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
-}
-function landSettlers(s, e, members, fed) {
-  const resources2 = emptyResources();
-  for (const id3 of RESOURCE_IDS) resources2[id3] = (e.freight?.[id3] ?? 0) + e.provisions[id3];
-  s.colony.founding = { at: e.arriveAt, settlers: members.map(settle), resources: resources2 };
-  emigrate(
-    s,
-    members.map((v) => v.id)
-  );
-  e.provisions = emptyResources();
-  e.crew = [];
-  e.status = "returning";
-  e.result = {
-    victory: true,
-    strength: 0,
-    defense: 0,
-    fed: Math.round(fed * 100) / 100,
-    lostInBattle: [],
-    lostOnReturn: [],
-    loot: emptyResources(),
-    founded: true
-  };
-}
-function generateTraces(map, taken) {
-  const rng = createRng(`${map.seed}/${map.face}/traces`);
-  const [lo, hi] = COLONY.traces.rho;
-  const used = new Set(taken);
-  const out = [];
-  const place = (kind, count) => {
-    const def = OBSTACLES[kind];
-    const spots = rng.shuffle(
-      map.tiles.filter((t) => def.tiles.includes(t.type) && !t.flood && t.rho >= lo && t.rho <= hi)
-    );
-    let placed = 0;
-    for (const t of spots) {
-      if (placed >= count) break;
-      const key = hexKey(t);
-      if (used.has(key)) continue;
-      used.add(key);
-      placed++;
-      out.push({ id: obstacleId(kind, t.q, t.r), kind, q: t.q, r: t.r, loot: { ...def.loot } });
-    }
-  };
-  place("ruin", rng.int(COLONY.traces.ruins[0], COLONY.traces.ruins[1]));
-  place("den", COLONY.traces.dens);
-  return out;
-}
-function newSister(home, f) {
-  const s = newGame({
-    seed: home.seed,
-    face: otherFace(home.face),
-    now: f.at,
-    params: twinParams(home.seed, home.face, home.params),
-    playerId: home.playerId,
-    universeId: home.universeId,
-    kiwiId: home.kiwiId,
-    calendarStart: home.calendarStart,
-    targets: []
-  });
-  delete s.aliens;
-  s.villagers = f.settlers.map((v) => ({ ...settle(v), id: nextId(s, "v") }));
-  const cap = capacity(s);
-  for (const id3 of RESOURCE_IDS) s.resources[id3] = Math.min(cap[id3], f.resources[id3]);
-  s.objectiveIndex = OBJECTIVES.length;
-  s.colony = { index: 1, founding: null, foundedAt: f.at };
-  s.threats.shieldUntil = f.at + COLONY.shieldMs;
-  s.research = {
-    points: 0,
-    current: home.research.current,
-    done: [...home.research.done],
-    outbox: 0
-  };
-  const taken = /* @__PURE__ */ new Set([hexKey(HEART), ...s.obstacles.map((o) => hexKey(o))]);
-  s.obstacles = [...s.obstacles, ...generateTraces(faceMapOf(s), taken)];
-  return s;
-}
-function takeFounding(home) {
-  const f = home.colony.founding;
-  if (!f) return null;
-  const sister = newSister(home, f);
-  home.colony = { ...home.colony, founding: null, foundedAt: f.at };
-  return sister;
-}
-function syncColonies(home, sister) {
-  receiveResearch(home, sister.research.outbox);
-  sister.research = {
-    points: 0,
-    current: home.research.current,
-    done: [...home.research.done],
-    outbox: 0
-  };
-}
-function denRaiders(state) {
-  return state.villagers.filter((v) => v.job.kind === "guard");
-}
-function denRaidForecast(state) {
-  const guards = denRaiders(state);
-  const strength = guards.reduce((sum, v) => sum + guardPower(v, state).ground, 0);
-  const power = COLONY.denPower * GARRISON.power;
-  const wounded = strength >= power ? Math.min(guards.length, Math.round(guards.length * lossShare(strength, power))) : 0;
-  return { strength, power, wounded };
-}
-function raidDen(state, q, r, now, events) {
-  const den = obstacleAt(state, q, r);
-  const { wounded } = denRaidForecast(state);
-  const hurt = [...denRaiders(state)].sort((a, b) => guardPower(a, state).ground - guardPower(b, state).ground).slice(0, wounded);
-  for (const v of crewMembers(
-    state,
-    hurt.map((v2) => v2.id)
-  ))
-    v.job = { kind: "injured", until: now + COLONY.denInjuryMs };
-  removeObstacle(state, den, now, events, "kiwis");
-}
-
 // packages/shared/src/sim/expeditions.ts
 function launchpadOf(state, id3) {
   const b = getBuilding(state, id3);
@@ -7529,8 +7572,16 @@ function cloneState(state) {
     siege: cloneSiege(state.siege),
     colony: cloneColonyLink(state.colony),
     friends: state.friends.map((f) => ({ ...f })),
-    shipments: state.shipments.map((x) => ({ ...x, resources: { ...x.resources } })),
-    incoming: state.incoming.map((d) => ({ ...d, resources: { ...d.resources } })),
+    shipments: state.shipments.map((x) => ({
+      ...x,
+      resources: { ...x.resources },
+      ...x.villagers ? { villagers: x.villagers.map(cloneVillager) } : {}
+    })),
+    incoming: state.incoming.map((d) => ({
+      ...d,
+      resources: { ...d.resources },
+      ...d.villagers ? { villagers: d.villagers.map(cloneVillager) } : {}
+    })),
     expeditions: state.expeditions.map((e) => ({
       ...e,
       crew: [...e.crew],
@@ -8255,10 +8306,18 @@ function execute(s, cmd, ctx, events) {
         if (!Number.isFinite(v) || v < 0) fail("invalidCount");
         load[r] = Math.floor(v);
       }
-      if (RESOURCE_IDS.every((r) => load[r] === 0)) fail("emptyCargo");
-      if (cargoWeight(load) > shipCargo(pad) + 1e-9) fail("overloaded");
+      const ids = cmd.villagerIds ?? [];
+      if (ids.length > 0 && friend.id !== SISTER_FRIEND) fail("invalidCrew");
+      const movers = crewOf(s, ids);
+      if (!movers || new Set(ids).size !== ids.length) return fail("invalidCrew");
+      const free = new Set(availableCrew(s).map((v) => v.id));
+      if (movers.some((v) => !free.has(v.id))) fail("kiwiBusy");
+      if (movers.length > free.size - EXPEDITIONS.keepHome) fail("crewTooLarge");
+      if (movers.filter((v) => v.kikiwiwi).length > KIKIWIWI.perShip) fail("oneKikiwiwi");
+      if (RESOURCE_IDS.every((r) => load[r] === 0) && movers.length === 0) fail("emptyCargo");
+      if (cargoWeight(load) + crewWeight(movers) > shipCargo(pad) + 1e-9) fail("overloaded");
       if (!canAfford(s.resources, load)) fail("notEnoughResources");
-      sendShipment(s, pad.id, friend, pad, load, now, nextId(s, "x"));
+      sendShipment(s, pad.id, friend, pad, load, now, nextId(s, "x"), ids);
       return;
     }
     case "buildPath": {
@@ -12988,7 +13047,9 @@ var gameStateSchema = external_exports.object({
       departedAt: external_exports.number(),
       arriveAt: external_exports.number(),
       returnAt: external_exports.number(),
-      status: external_exports.enum(["outbound", "returning"])
+      status: external_exports.enum(["outbound", "returning"]),
+      villagers: external_exports.array(villager).max(200).optional(),
+      delivered: external_exports.boolean().optional()
     })
   ).max(16),
   incoming: external_exports.array(
@@ -12997,7 +13058,8 @@ var gameStateSchema = external_exports.object({
       from: external_exports.string(),
       resources,
       departedAt: external_exports.number(),
-      arriveAt: external_exports.number()
+      arriveAt: external_exports.number(),
+      villagers: external_exports.array(villager).max(200).optional()
     })
   ).max(64),
   paths: external_exports.array(external_exports.string().max(16)).max(500),
@@ -13298,7 +13360,8 @@ var commandSchema = external_exports.discriminatedUnion("type", [
       fiber: external_exports.number().min(0).max(1e7).optional(),
       seeds: external_exports.number().min(0).max(1e7).optional(),
       juice: external_exports.number().min(0).max(1e7).optional()
-    })
+    }),
+    villagerIds: external_exports.array(id2).max(200).optional()
   }),
   external_exports.object({
     type: external_exports.literal("buildPath"),
@@ -14217,6 +14280,7 @@ export {
   SHIP_IDS,
   SHIP_REPAIR,
   SIEGE,
+  SISTER_FRIEND,
   SKILLS,
   SKILL_IDS,
   SMASH,
@@ -14348,6 +14412,7 @@ export {
   deepRecon,
   defaultAutomation,
   defenseOf,
+  deliverToSister,
   deliveryOf,
   deliveryTick,
   deliveryTime,
@@ -14484,6 +14549,7 @@ export {
   levelProgress,
   libraries,
   libraryLevel,
+  linkSister,
   localAlienSeed,
   logisticsEfficiency,
   lootByAge,
@@ -14548,6 +14614,7 @@ export {
   pathSet,
   pathsKey,
   payStardust,
+  pendingToSister,
   pendingUpgrade,
   pickBuilder,
   pickRate,
@@ -14626,6 +14693,7 @@ export {
   siegeTick,
   siegeTruth,
   siegeView,
+  sisterFriend,
   sisterThreat,
   siteError,
   skyTick,

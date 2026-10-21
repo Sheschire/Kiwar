@@ -1,11 +1,20 @@
 import { EXPEDITIONS } from '../data/expeditions';
 import { emptyResources, RESOURCE_IDS, type Resources } from '../data/resources';
-import type { BuildingId, TimeMs } from '../types/ids';
+import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
+import { emigrate, settle } from './colonies';
 import type { GameEvent } from './advance';
 import { shipCargo, travelTime } from './expeditions';
 import { techEffects } from './research';
 import { capacity } from './selectors';
-import type { Building, Delivery, Friend, GameState, Shipment } from './state';
+import {
+  cloneVillager,
+  nextId,
+  type Building,
+  type Delivery,
+  type Friend,
+  type GameState,
+  type Shipment,
+} from './state';
 
 /**
  * Deliveries between allies (multiplayer): the launchpad's ship carries resources to an ally's
@@ -40,9 +49,13 @@ export function sendShipment(
   resources: Resources,
   now: TimeMs,
   id: string,
+  villagers: readonly VillagerId[] = [],
 ): Shipment {
   const travelMs = deliveryTime(state, friend, launchpad);
   for (const r of RESOURCE_IDS) state.resources[r] -= resources[r];
+  // Chantier 19: kiwis moving to our other colony leave this one for good (alive).
+  const movers = state.villagers.filter((v) => villagers.includes(v.id)).map(settle);
+  emigrate(state, villagers);
   const shipment: Shipment = {
     id,
     launchpadId,
@@ -54,6 +67,7 @@ export function sendShipment(
     arriveAt: now + travelMs,
     returnAt: now + 2 * travelMs,
     status: 'outbound',
+    ...(movers.length ? { villagers: movers } : {}),
   };
   state.shipments.push(shipment);
   return shipment;
@@ -101,6 +115,16 @@ export function deliveryTick(s: GameState, at: TimeMs, events: GameEvent[]): voi
       s.resources[r] += received[r];
     }
     events.push({ type: 'cargoReceived', at, deliveryId: d.id, from: d.from, received, lost });
+    if (d.villagers?.length) {
+      for (const v of d.villagers)
+        s.villagers.push({ ...settle(v), id: nextId(s, 'v') as VillagerId });
+      events.push({
+        type: 'settlersArrived',
+        at,
+        deliveryId: d.id,
+        names: d.villagers.map((v) => v.name),
+      });
+    }
   }
 }
 
@@ -112,5 +136,6 @@ export function deliveryOf(shipment: Shipment, from: string, senderId: string): 
     resources: { ...shipment.resources },
     departedAt: shipment.departedAt,
     arriveAt: shipment.arriveAt,
+    ...(shipment.villagers?.length ? { villagers: shipment.villagers.map(cloneVillager) } : {}),
   };
 }

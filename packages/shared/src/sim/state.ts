@@ -213,6 +213,10 @@ export interface Shipment {
   arriveAt: TimeMs;
   returnAt: TimeMs;
   status: 'outbound' | 'returning';
+  /** Chantier 19: kiwis moving to our other colony (only to the sister friend). */
+  villagers?: Villager[];
+  /** Chantier 19: handed over to our other colony (`deliverToSister`). */
+  delivered?: boolean;
 }
 
 /** Resources an ally sent us, landing at `arriveAt`. */
@@ -222,6 +226,8 @@ export interface Delivery {
   resources: Resources;
   departedAt: TimeMs;
   arriveAt: TimeMs;
+  /** Chantier 19: kiwis coming from our other colony. */
+  villagers?: Villager[];
 }
 
 export interface Egg {
@@ -959,8 +965,16 @@ export function cloneState(state: GameState): GameState {
     siege: cloneSiege(state.siege),
     colony: cloneColonyLink(state.colony),
     friends: state.friends.map((f) => ({ ...f })),
-    shipments: state.shipments.map((x) => ({ ...x, resources: { ...x.resources } })),
-    incoming: state.incoming.map((d) => ({ ...d, resources: { ...d.resources } })),
+    shipments: state.shipments.map((x) => ({
+      ...x,
+      resources: { ...x.resources },
+      ...(x.villagers ? { villagers: x.villagers.map(cloneVillager) } : {}),
+    })),
+    incoming: state.incoming.map((d) => ({
+      ...d,
+      resources: { ...d.resources },
+      ...(d.villagers ? { villagers: d.villagers.map(cloneVillager) } : {}),
+    })),
     expeditions: state.expeditions.map((e) => ({
       ...e,
       crew: [...e.crew],

@@ -4,6 +4,7 @@ import {
   applyCommand,
   capacity,
   COLONY,
+  deliverToSister,
   denRaidForecast,
   faceMapOf,
   foundLock,
@@ -11,6 +12,7 @@ import {
   migrateState,
   newSister,
   RESEARCH_SCALE,
+  SISTER_FRIEND,
   sisterThreat,
   syncColonies,
   takeFounding,
@@ -269,6 +271,91 @@ describe('the last aliens', () => {
     expect(r.state.obstacles.some((o) => o.id === den.id)).toBe(false);
     expect(r.events.some((e) => e.type === 'obstacleCleared')).toBe(true);
     expect(sisterThreat(r.state, sister.now)).toBeLessThan(sisterThreat(strong, sister.now));
+  });
+});
+
+describe('links between the two faces', () => {
+  function linked() {
+    const { home, map } = landed('colony-links');
+    const h = structuredClone(home);
+    const sister = takeFounding(h)!;
+    const sMap = faceMapOf(sister);
+    const site = findTile(sMap, 'flesh', 3);
+    sister.buildings.push({
+      id: 'bspad' as BuildingId,
+      type: 'launchpad',
+      q: site.q,
+      r: site.r,
+      level: 2,
+      richness: 1,
+      builtAt: sister.now,
+    });
+    // Once the settlers' ship is back home.
+    const at = h.expeditions.find((e) => e.mission === 'found')!.returnAt;
+    return { home: advance(h, at).state, sister: advance(sister, at).state, map, sMap };
+  }
+
+  it('carries resources and kiwis to the sister, once', () => {
+    const { home, sister, map } = linked();
+    expect(home.friends.map((f) => f.id)).toContain(SISTER_FRIEND);
+    expect(sister.friends.map((f) => f.id)).toContain(SISTER_FRIEND);
+    const movers = home.villagers.filter((v) => v.job.kind !== 'expedition').slice(0, 3);
+    const cmd: Command = {
+      type: 'sendCargo',
+      launchpadId: PAD,
+      friendId: SISTER_FRIEND,
+      resources: { fiber: 100 },
+      villagerIds: movers.map((v) => v.id),
+    };
+    const r = applyCommand(home, cmd, { now: home.now, map });
+    if (!r.ok) throw new Error(r.error);
+    const sent = r.state;
+    expect(sent.villagers.some((v) => movers.some((m) => m.id === v.id))).toBe(false);
+    expect(sent.memorial).toEqual([]);
+    const other = structuredClone(sister);
+    expect(deliverToSister(sent, other)).toBe(1);
+    expect(deliverToSister(sent, other)).toBe(0);
+    expect(other.incoming).toHaveLength(1);
+    const x = sent.shipments[0]!;
+    const there = advance(other, x.arriveAt);
+    const names = movers.map((v) => v.name);
+    expect(there.events.find((e) => e.type === 'settlersArrived')).toMatchObject({ names });
+    expect(there.state.villagers.filter((v) => names.includes(v.name))).toHaveLength(3);
+    expect(new Set(there.state.villagers.map((v) => v.id)).size).toBe(there.state.villagers.length);
+    // The ship flies back empty to its own launchpad.
+    const back = advance(sent, x.returnAt).state;
+    expect(back.shipments).toEqual([]);
+  });
+
+  it('works the other way, and never carries kiwis to an ally', () => {
+    const { home, sister, sMap, map } = linked();
+    const v = sister.villagers[0]!;
+    const cmd: Command = {
+      type: 'sendCargo',
+      launchpadId: 'bspad' as BuildingId,
+      friendId: SISTER_FRIEND,
+      resources: {},
+      villagerIds: [v.id],
+    };
+    const r = applyCommand(sister, cmd, { now: sister.now, map: sMap });
+    if (!r.ok) throw new Error(r.error);
+    const h = structuredClone(home);
+    deliverToSister(r.state, h);
+    const landedHome = advance(h, r.state.shipments[0]!.arriveAt).state;
+    expect(landedHome.villagers.some((k) => k.name === v.name)).toBe(true);
+    const ally = {
+      ...home,
+      friends: [...home.friends, { ...home.friends[0]!, id: 'ally:bob', owner: 'Bob' }],
+    };
+    const toAlly = {
+      ...cmd,
+      launchpadId: PAD,
+      friendId: 'ally:bob',
+      villagerIds: [home.villagers[0]!.id],
+    };
+    expect(validateCommand(ally, toAlly, { now: home.now, map })).toBe('invalidCrew');
+    const everyone = { ...cmd, villagerIds: sister.villagers.map((k) => k.id) };
+    expect(validateCommand(sister, everyone, { now: sister.now, map: sMap })).toBe('crewTooLarge');
   });
 });
 

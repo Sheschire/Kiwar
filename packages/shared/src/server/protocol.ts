@@ -83,6 +83,7 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
       seeds: z.number().min(0).max(1e7).optional(),
       juice: z.number().min(0).max(1e7).optional(),
     }),
+    villagerIds: z.array(id).max(200).optional(),
   }),
   z.object({
     type: z.literal('buildPath'),

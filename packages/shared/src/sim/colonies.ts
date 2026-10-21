@@ -8,6 +8,8 @@ import { createRng } from '../rng/rng';
 import { otherFace, type TimeMs, type VillagerId } from '../types/ids';
 import { HEART, twinParams, type FaceMap } from '../worldgen/generateFace';
 import type { GameEvent } from './advance';
+import { alienDefOf } from '../data/expeditions';
+import { deliveryOf } from './deliveries';
 import { crewMembers, lossShare } from './expeditions';
 import { obstacleAt, obstacleId, removeObstacle } from './obstacles';
 import { receiveResearch } from './research';
@@ -19,7 +21,9 @@ import {
   nextId,
   type Expedition,
   type Founding,
+  type Friend,
   type GameState,
+  type Shipment,
   type Obstacle,
   type Villager,
 } from './state';
@@ -31,6 +35,25 @@ import { guardPower } from './threats';
  * home colony (`colony.index` 0) holds the shared research, the sister (1) sends its Library's
  * points over at each sync. Everything here is public (the conquered face hides nothing).
  */
+
+/** Friend id of our other colony in `friends` (deliveries between our two faces). */
+export const SISTER_FRIEND = 'sister';
+
+/** Our other colony as a delivery target: the twin's flight, no risk. */
+export function sisterFriend(state: Pick<GameState, 'playerId' | 'targets' | 'face'>): Friend {
+  return {
+    id: SISTER_FRIEND,
+    owner: otherFace(state.face),
+    kiwiIndex: 0,
+    distance: 0,
+    travelMs: alienDefOf(0).travelMs,
+  };
+}
+
+/** Adds (or refreshes) the sister colony among the delivery targets. */
+export function linkSister(state: GameState): void {
+  state.friends = [...state.friends.filter((f) => f.id !== SISTER_FRIEND), sisterFriend(state)];
+}
 
 export function isSister(state: Pick<GameState, 'colony'>): boolean {
   return state.colony.index === 1;
@@ -154,6 +177,7 @@ export function newSister(home: GameState, f: Founding): GameState {
   };
   const taken = new Set<string>([hexKey(HEART), ...s.obstacles.map((o) => hexKey(o))]);
   s.obstacles = [...s.obstacles, ...generateTraces(faceMapOf(s), taken)];
+  linkSister(s);
   return s;
 }
 
@@ -166,6 +190,7 @@ export function takeFounding(home: GameState): GameState | null {
   if (!f) return null;
   const sister = newSister(home, f);
   home.colony = { ...home.colony, founding: null, foundedAt: f.at };
+  linkSister(home);
   return sister;
 }
 
@@ -181,6 +206,28 @@ export function syncColonies(home: GameState, sister: GameState): void {
     done: [...home.research.done],
     outbox: 0,
   };
+}
+
+/** Ships to our other colony whose cargo was not handed over yet. */
+export function pendingToSister(sender: GameState): Shipment[] {
+  return sender.shipments.filter((x) => x.friendId === SISTER_FRIEND && !x.delivered);
+}
+
+/**
+ * Hands the ships bound for our other colony over to it (the caller then saves both states;
+ * the server both game rows). A cargo lands at its arrival time, or at once if the other
+ * colony is already past it. Returns how many were handed over.
+ */
+export function deliverToSister(sender: GameState, receiver: GameState): number {
+  const pending = pendingToSister(sender);
+  for (const x of pending) {
+    const d = deliveryOf(x, `colony:${sender.face}`, `c${sender.colony.index}`);
+    d.arriveAt = Math.max(d.arriveAt, receiver.now);
+    if (!receiver.incoming.some((i) => i.id === d.id))
+      receiver.incoming = [...receiver.incoming, d];
+    x.delivered = true;
+  }
+  return pending.length;
 }
 
 // --- Ferret dens ----------------------------------------------------------------------------

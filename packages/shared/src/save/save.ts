@@ -388,6 +388,8 @@ export const gameStateSchema = z.object({
         arriveAt: z.number(),
         returnAt: z.number(),
         status: z.enum(['outbound', 'returning']),
+        villagers: z.array(villager).max(200).optional(),
+        delivered: z.boolean().optional(),
       }),
     )
     .max(16),
@@ -399,6 +401,7 @@ export const gameStateSchema = z.object({
         resources,
         departedAt: z.number(),
         arriveAt: z.number(),
+        villagers: z.array(villager).max(200).optional(),
       }),
     )
     .max(64),

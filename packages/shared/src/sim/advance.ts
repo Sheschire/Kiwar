@@ -159,6 +159,8 @@ export type GameEvent =
       /** What did not fit in the storage. */
       lost: Resources;
     }
+  /** Chantier 19: kiwis from our other colony landed (new ids here). */
+  | { type: 'settlersArrived'; at: TimeMs; deliveryId: string; names: string[] }
   /** Chantier 06: predators. */
   | {
       type: 'waveAnnounced';
