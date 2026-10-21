@@ -29,10 +29,12 @@ import {
   type BoardRow,
   type ResourceId,
   type Villager,
+  STAT_IDS,
+  type StatId,
 } from '@kiwar/shared';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
-import { pushToast, useT, useUi, uiStore } from '../store';
+import { pushToast, useT, useUi, uiStore, type VillageSort } from '../store';
 import { BookIcon, HammerIcon, LockIcon, ResourceIcon } from '../icons';
 import { Cost } from './Cost';
 import { KiwiPortrait } from './KiwiPortrait';
@@ -40,10 +42,15 @@ import { BlessingSection } from './BlessingSection';
 import { Modal } from './Modal';
 import { AutomationPanel, manualNeeds } from './AutomationPanel';
 import { StatRadar } from './StatRadar';
+import { TrainingBar } from './TrainingBar';
 import { KiwiNeedsLine, MoraleCard, RestSection } from './NeedsWidgets';
 
-type Sort = 'level' | 'name' | 'job' | 'born';
-const SORTS: Sort[] = ['level', 'name', 'job', 'born'];
+type Sort = VillageSort;
+const SORTS = ['level', 'name', 'job', 'born'] as const;
+
+function isStat(sort: Sort): sort is StatId {
+  return (STAT_IDS as readonly string[]).includes(sort);
+}
 
 /** The kiwis in the order of the village list (the sheet arrows follow it). */
 function sortedKiwis(game: GameState, sort: Sort): Villager[] {
@@ -51,6 +58,8 @@ function sortedKiwis(game: GameState, sort: Sort): Villager[] {
     if (sort === 'name') return a.name.localeCompare(b.name);
     if (sort === 'job') return jobRank(a) - jobRank(b) || b.level - a.level;
     if (sort === 'born') return a.bornAt - b.bornAt;
+    // Chantier 20: by a stat, the best first.
+    if (isStat(sort)) return b.stats[sort] - a.stats[sort] || b.level - a.level;
     return b.level - a.level || b.xp - a.xp;
   });
 }
@@ -97,6 +106,7 @@ function KiwiList() {
   const t = useT();
   const game = useUi((s) => s.game)!;
   const sort = useUi((s) => s.villageSort);
+  const now = useUi((s) => s.slowNow);
   const jobLabel = useJobLabel();
   const kiwis = sortedKiwis(game, sort);
   if (kiwis.length === 0) return <p class="muted">{t('village.empty')}</p>;
@@ -115,6 +125,24 @@ function KiwiList() {
             {t(`village.sorts.${s}`)}
           </button>
         ))}
+        <select
+          class={`input input-small village-sort-stat ${isStat(sort) ? 'is-active' : ''}`}
+          aria-label={t('village.sortStat')}
+          value={isStat(sort) ? sort : ''}
+          onChange={(e) => {
+            const value = (e.target as HTMLSelectElement).value as StatId | '';
+            if (value) uiStore.setState({ villageSort: value });
+          }}
+        >
+          <option value="" disabled>
+            {t('village.sortStat')}
+          </option>
+          {STAT_IDS.map((id) => (
+            <option key={id} value={id}>
+              {t(`stats.${id}`)}
+            </option>
+          ))}
+        </select>
       </div>
       <ul class="kiwi-list">
         {kiwis.map((v) => (
@@ -132,6 +160,11 @@ function KiwiList() {
                   {v.name}
                   {v.kikiwiwi && <span class="badge badge-titan">{t('kikiwiwi.badge')}</span>}
                   <FlagIcons v={v} />
+                  {isStat(sort) && (
+                    <span class="badge badge-stat" title={t(`stats.${sort}`)}>
+                      {t(`statsShort.${sort}`)} {v.stats[sort]}
+                    </span>
+                  )}
                   {v.statPoints > 0 && (
                     <span
                       class="badge badge-points"
@@ -143,6 +176,7 @@ function KiwiList() {
                 </span>
                 <span class="small muted">{jobLabel(game, v)}</span>
                 <XpBar v={v} />
+                <TrainingBar game={game} v={v} now={now} />
                 <KiwiNeedsLine v={v} />
               </span>
               <span class="kiwi-row-level">{t('common.levelShort', { level: v.level })}</span>
@@ -242,6 +276,7 @@ function ClassSection({ v }: { v: Villager }) {
             class: t(`classes.${job.classId}.name`),
             duration: formatDuration(lang, Math.max(0, job.until - now)),
           })}
+          <TrainingBar game={game} v={v} now={now} />
         </p>
       )}
       {v.classId ? (
@@ -683,6 +718,14 @@ function SheetNavigator({ game, v }: { game: GameState; v: Villager }) {
         <button class="btn btn-small btn-ghost back" onClick={() => actions.showKiwi(null)}>
           ← {t('kiwi.back')}
         </button>
+        <span class="kiwi-nav-name">
+          <strong>{v.name}</strong>
+          <span class="small muted">
+            {v.classId
+              ? t(`classes.${v.classId}.name`)
+              : t('common.levelShort', { level: v.level })}
+          </span>
+        </span>
         {kiwis.length > 1 && (
           <span class="kiwi-nav-arrows">
             <button

@@ -1120,6 +1120,7 @@ export const en = {
       predator: 'to the predators',
     },
     sort: 'Sort by',
+    sortStat: 'By stat…',
     sorts: { level: 'Level', name: 'Name', job: 'Job', born: 'Age' },
     points: '{count} point(s) to place',
     empty: 'Nobody here yet.',

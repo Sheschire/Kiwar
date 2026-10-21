@@ -1,6 +1,6 @@
 import { createStore } from 'zustand/vanilla';
 import { useEffect, useReducer, useRef } from 'preact/hooks';
-import type { BuildingType, Face, FaceMap, GameState, Tile } from '@kiwar/shared';
+import type { BuildingType, Face, FaceMap, GameState, StatId, Tile } from '@kiwar/shared';
 import {
   detectLang,
   persistLang,
@@ -16,6 +16,9 @@ import type { AllySnapshot, LogisticsChange, UniverseInfo } from '@kiwar/shared'
 import type { QualityChoice, QualityPreset } from '../render/quality';
 import { DEFAULT_SETTINGS, type AudioSettings } from '../audio/settings';
 import type { IntroUi } from './intro';
+
+/** Order of the village list: the four plain orders or a stat, best first (chantier 20). */
+export type VillageSort = 'level' | 'name' | 'job' | 'born' | StatId;
 
 export interface Toast {
   id: number;
@@ -102,7 +105,7 @@ export interface UiState {
   kiwiId: string | null;
   villageTab: 'kiwis' | 'posts' | 'auto' | 'memorial';
   /** Order of the kiwi list, also used by the ◀ ▶ arrows of a sheet. */
-  villageSort: 'level' | 'name' | 'job' | 'born';
+  villageSort: VillageSort;
   /** Kiwi followed by the camera. */
   followId: string | null;
   /** Intro and choice of a face (chantier 05). */

@@ -89,6 +89,7 @@ import { DustSection } from './DustSection';
 import { MeteorSection } from './MeteorSection';
 import { AgeInfo, ResearchSummary } from './ResearchModal';
 import { KiwiPortrait } from './KiwiPortrait';
+import { TrainingBar } from './TrainingBar';
 import { useJobLabel } from './VillageModal';
 import { useState } from 'preact/hooks';
 
@@ -516,6 +517,7 @@ function SchoolInfo(props: { game: GameState; b: Building; now: number; t: Trans
                 class: `${v.name} → ${t(`classes.${v.job.classId}.name`)}`,
                 duration: formatDuration(lang, Math.max(0, v.job.until - now)),
               })}
+              <TrainingBar game={game} v={v} now={now} />
             </p>
           ) : null,
         )

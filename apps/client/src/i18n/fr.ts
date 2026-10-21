@@ -1156,6 +1156,7 @@ export const fr: Dict = {
       predator: 'face aux prédateurs',
     },
     sort: 'Trier par',
+    sortStat: 'Par stat…',
     sorts: { level: 'Niveau', name: 'Nom', job: 'Métier', born: 'Âge' },
     points: '{count} point(s) à placer',
     empty: 'Personne ici pour l’instant.',

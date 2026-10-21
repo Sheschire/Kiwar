@@ -1939,6 +1939,32 @@ button.chip:focus-visible {
   align-items: center;
 }
 
+/* Chantier 20: sort by a stat (best first), its value as a badge on each row. */
+.village-sort-stat {
+  min-height: 32px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+.village-sort-stat.is-active {
+  border-color: var(--leaf);
+  background: #e6f2d4;
+}
+
+.badge-stat {
+  background: var(--gold);
+  color: #fff;
+}
+
+.training-bar {
+  margin-top: 4px;
+}
+
+.xp-bar.training-bar > span {
+  background: linear-gradient(90deg, var(--leaf), #a6d873);
+}
+
 .kiwi-list {
   gap: 6px !important;
 }
@@ -2016,6 +2042,31 @@ button.chip:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  /* Chantier 20: stays at the top while the sheet scrolls (switch kiwi without scrolling). */
+  position: sticky;
+  top: -6px;
+  z-index: 3;
+  margin: -6px -18px 0;
+  padding: 6px 18px;
+  background: var(--paper);
+  box-shadow: 0 6px 8px -8px rgba(74, 47, 26, 0.45);
+}
+
+.kiwi-nav-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.kiwi-nav-name > * {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .modal-village .kiwi-nav .back {
