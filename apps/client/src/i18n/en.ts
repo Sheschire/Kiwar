@@ -3,7 +3,6 @@ export const en = {
   app: {
     title: 'Kiwar',
     tagline: 'A cozy kiwi civilization',
-    loading: 'Peeling the kiwi…',
   },
   boot: {
     title: 'The colony cannot be shown',

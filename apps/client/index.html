@@ -24,7 +24,7 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 14px;
+        gap: 10px;
         background: radial-gradient(circle at 50% 35%, #ffd6b5, #c7a6dc 70%);
         font-family: Georgia, serif;
         color: #4a3324;
@@ -34,22 +34,217 @@
         opacity: 0;
         pointer-events: none;
       }
-      #loader img {
-        width: 96px;
-        height: 96px;
-        border-radius: 24px;
-        box-shadow: 0 8px 24px rgba(74, 40, 20, 0.25);
-        animation: kiwar-bob 1.2s ease-in-out infinite;
+      #loader svg {
+        width: min(220px, 56vw);
+        height: auto;
+        overflow: visible;
       }
-      @keyframes kiwar-bob {
+      #loader .kl-name {
+        font-size: 22px;
+        letter-spacing: 0.06em;
+      }
+      #loader .kl-dots {
+        display: flex;
+        gap: 6px;
+        height: 8px;
+        opacity: 0;
+        animation: kl-show 0.6s ease 2.5s forwards;
+      }
+      #loader .kl-dots i {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #6e4a33;
+        animation: kl-dot 1.2s ease-in-out infinite;
+      }
+      #loader .kl-dots i:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      #loader .kl-dots i:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      /* The fruit turns like a treadmill under the running bird. */
+      .kl-wheel {
+        animation: kl-turn 3.2s linear infinite;
+      }
+      .kl-bird {
+        animation: kl-bounce 0.36s ease-in-out infinite;
+      }
+      .kl-tail {
+        transform-origin: -28px -2px;
+        animation: kl-wag 0.36s ease-in-out infinite;
+      }
+      .kl-legs-a {
+        animation: kl-step-a 0.36s infinite;
+      }
+      .kl-legs-b {
+        opacity: 0;
+        animation: kl-step-b 0.36s infinite;
+      }
+      .kl-shadow {
+        transform-origin: 120px 222px;
+        animation: kl-shadow 0.36s ease-in-out infinite;
+      }
+      @keyframes kl-turn {
+        to {
+          transform: rotate(-360deg);
+        }
+      }
+      @keyframes kl-bounce {
+        25%,
+        75% {
+          transform: translateY(-3px);
+        }
+      }
+      @keyframes kl-wag {
         50% {
-          transform: translateY(-8px) rotate(-3deg);
+          transform: rotate(14deg);
+        }
+      }
+      @keyframes kl-step-a {
+        0%,
+        49.9% {
+          opacity: 1;
+        }
+        50%,
+        100% {
+          opacity: 0;
+        }
+      }
+      @keyframes kl-step-b {
+        0%,
+        49.9% {
+          opacity: 0;
+        }
+        50%,
+        100% {
+          opacity: 1;
+        }
+      }
+      @keyframes kl-shadow {
+        25%,
+        75% {
+          transform: scaleX(0.96);
+        }
+      }
+      @keyframes kl-show {
+        to {
+          opacity: 1;
+        }
+      }
+      @keyframes kl-dot {
+        50% {
+          opacity: 0.25;
+          transform: translateY(-2px);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #loader * {
+          animation: none !important;
+        }
+        #loader .kl-dots {
+          opacity: 1;
         }
       }
     </style>
   </head>
   <body>
-    <div id="loader"><img src="./icon-192.png" alt="" /><span>Kiwar</span></div>
+    <!-- Chantier 22: a kiwi bird running on a turning kiwi fruit, until the game is ready. -->
+    <div id="loader" role="status" aria-label="Kiwar">
+      <svg viewBox="0 0 240 232" aria-hidden="true">
+        <ellipse class="kl-shadow" cx="120" cy="222" rx="58" ry="7" fill="#6e4a33" opacity="0.22" />
+        <g transform="translate(120 152)">
+          <g class="kl-wheel">
+            <circle r="66" fill="#6e4a33" />
+            <circle r="63" fill="none" stroke="#8a6440" stroke-width="6" stroke-dasharray="2 4.6" />
+            <circle r="56" fill="#8cc43c" />
+            <circle r="44" fill="#b2d95f" />
+            <circle
+              r="32"
+              fill="none"
+              stroke="#c9e57f"
+              stroke-width="22"
+              stroke-dasharray="1.6 5"
+            />
+            <g fill="#2a1f1a">
+              <ellipse cx="25.0" cy="0.0" rx="4.5" ry="2.4" />
+              <ellipse cx="21.7" cy="12.5" rx="4.5" ry="2.4" transform="rotate(30 21.7 12.5)" />
+              <ellipse cx="12.5" cy="21.7" rx="4.5" ry="2.4" transform="rotate(60 12.5 21.7)" />
+              <ellipse cx="0" cy="25" rx="4.5" ry="2.4" transform="rotate(90 0 25)" />
+              <ellipse cx="-12.5" cy="21.7" rx="4.5" ry="2.4" transform="rotate(120 -12.5 21.7)" />
+              <ellipse cx="-21.7" cy="12.5" rx="4.5" ry="2.4" transform="rotate(150 -21.7 12.5)" />
+              <ellipse cx="-25" cy="0" rx="4.5" ry="2.4" />
+              <ellipse
+                cx="-21.7"
+                cy="-12.5"
+                rx="4.5"
+                ry="2.4"
+                transform="rotate(210 -21.7 -12.5)"
+              />
+              <ellipse
+                cx="-12.5"
+                cy="-21.7"
+                rx="4.5"
+                ry="2.4"
+                transform="rotate(240 -12.5 -21.7)"
+              />
+              <ellipse cx="0" cy="-25" rx="4.5" ry="2.4" transform="rotate(270 0 -25)" />
+              <ellipse cx="12.5" cy="-21.7" rx="4.5" ry="2.4" transform="rotate(300 12.5 -21.7)" />
+              <ellipse cx="21.7" cy="-12.5" rx="4.5" ry="2.4" transform="rotate(330 21.7 -12.5)" />
+            </g>
+            <ellipse rx="14" ry="10" fill="#fbf3d0" />
+          </g>
+        </g>
+        <g transform="translate(116 51) scale(1.15)">
+          <g class="kl-bird">
+            <g
+              class="kl-legs-a"
+              fill="none"
+              stroke="#d9a35f"
+              stroke-width="4.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M8 16 L20 27 L29 28" />
+              <path d="M-4 17 L-15 28 L-23 25" />
+            </g>
+            <g
+              class="kl-legs-b"
+              fill="none"
+              stroke="#d9a35f"
+              stroke-width="4.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M8 16 L0 30 L9 31" />
+              <path d="M-4 17 L-2 29 L7 30" />
+            </g>
+            <g class="kl-tail" stroke="#5a3e26" stroke-width="3.5" stroke-linecap="round">
+              <path d="M-28 -2 L-38 -8 M-28 1 L-40 0 M-27 4 L-37 9" />
+            </g>
+            <ellipse rx="31" ry="23" fill="#8a6440" stroke="#5a3e26" stroke-width="4" />
+            <path
+              d="M-14 -6 q6 5 12 0 M-6 6 q6 5 12 0"
+              fill="none"
+              stroke="#6b4a2e"
+              stroke-width="2.5"
+              stroke-linecap="round"
+            />
+            <circle cx="23" cy="-13" r="14" fill="#7d5a39" />
+            <path
+              d="M35 -10 Q51 -1 64 15"
+              fill="none"
+              stroke="#e3c07a"
+              stroke-width="5.5"
+              stroke-linecap="round"
+            />
+            <circle cx="28" cy="-17" r="3.2" fill="#1a120e" />
+          </g>
+        </g>
+      </svg>
+      <span class="kl-name">Kiwar</span>
+      <span class="kl-dots"><i></i><i></i><i></i></span>
+    </div>
     <canvas id="scene" aria-hidden="true"></canvas>
     <div id="ui"></div>
     <script type="module" src="/src/main.tsx"></script>

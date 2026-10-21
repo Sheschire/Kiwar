@@ -17,35 +17,30 @@ function playSolo(): void {
 }
 
 /**
- * Shown until the colony is on screen: a loading line, or what went wrong with a way out
- * (never an empty screen).
+ * What went wrong while starting, with a way out (never an empty screen). While loading, the
+ * animated loader of `index.html` covers the page (chantier 22): nothing to draw here.
  */
 export function BootScreen() {
   const t = useT();
   const error = useUi((s) => s.bootError);
   const online = useUi((s) => s.sync !== 'local');
+  if (!error) return null;
   return (
     <div class="boot-screen pe">
-      <div class="parchment boot-card" role={error ? 'alert' : 'status'}>
-        {error ? (
-          <>
-            <h2>{t('boot.title')}</h2>
-            <p class="small">{t('boot.body')}</p>
-            <p class="small muted boot-detail">{error}</p>
-            <div class="row boot-actions">
-              <button class="btn btn-primary" onClick={reload}>
-                {t('boot.retry')}
-              </button>
-              {online && (
-                <button class="btn" onClick={playSolo}>
-                  {t('boot.solo')}
-                </button>
-              )}
-            </div>
-          </>
-        ) : (
-          <p>{t('app.loading')}</p>
-        )}
+      <div class="parchment boot-card" role="alert">
+        <h2>{t('boot.title')}</h2>
+        <p class="small">{t('boot.body')}</p>
+        <p class="small muted boot-detail">{error}</p>
+        <div class="row boot-actions">
+          <button class="btn btn-primary" onClick={reload}>
+            {t('boot.retry')}
+          </button>
+          {online && (
+            <button class="btn" onClick={playSolo}>
+              {t('boot.solo')}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

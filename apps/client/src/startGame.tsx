@@ -374,14 +374,27 @@ render(
   </Guard>,
   document.getElementById('ui')!,
 );
-// Fade out the loading screen once the first frames are on screen.
-requestAnimationFrame(() =>
-  requestAnimationFrame(() => {
-    const loader = document.getElementById('loader');
-    loader?.classList.add('done');
-    window.setTimeout(() => loader?.remove(), 700);
-  }),
-);
+// Chantier 22: the animated loading screen stays until the colony (or the intro, or a boot
+// error) is ready, then fades out once its first frames are on screen.
+const loaderDone = (s: ReturnType<typeof uiStore.getState>) =>
+  s.game !== null || s.intro !== null || s.bootError !== null;
+function fadeLoader(): void {
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const loader = document.getElementById('loader');
+      loader?.classList.add('done');
+      window.setTimeout(() => loader?.remove(), 700);
+    }),
+  );
+}
+if (loaderDone(uiStore.getState())) fadeLoader();
+else {
+  const stop = uiStore.subscribe((s) => {
+    if (!loaderDone(s)) return;
+    stop();
+    fadeLoader();
+  });
+}
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {

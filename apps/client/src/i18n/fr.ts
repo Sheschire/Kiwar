@@ -4,7 +4,6 @@ export const fr: Dict = {
   app: {
     title: 'Kiwar',
     tagline: 'Une civilisation kiwi toute douce',
-    loading: 'On épluche le kiwi…',
   },
   boot: {
     title: 'La colonie ne s’affiche pas',
