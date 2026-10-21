@@ -15,10 +15,11 @@ import {
   type VillagerId,
   type WaveReport,
 } from '@kiwar/shared';
+import { useEffect } from 'preact/hooks';
 import { defenseNow, forecastWave } from '../derived';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
-import { uiStore, useT, useUi, type Translate } from '../store';
+import { setPanelOpen, uiStore, useT, useUi, type Translate } from '../store';
 import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
 import { useJobLabel } from './VillageModal';
@@ -46,40 +47,105 @@ export function ThreatBadge() {
   const game = useUi((s) => s.slowGame);
   const now = useUi((s) => s.slowNow);
   const unread = useUi((s) => s.unreadWave);
+  const unfolded = useUi((s) => s.threatOpen);
+  const f = game ? forecastWave(game) : null;
+  // A wave less than an hour away unfolds the alert, once per wave.
+  const soon = f && !unfolded && f.wave.at - now < REOPEN_BEFORE_MS ? f.wave.at : null;
+  useEffect(() => {
+    if (soon !== null && reopenedFor() !== soon) {
+      rememberReopen(soon);
+      setPanelOpen('threat', true);
+    }
+  }, [soon]);
   if (!game) return null;
   const open = () => uiStore.setState({ modal: 'defense', unreadWave: null });
-  const f = forecastWave(game);
   const shelter = game.threats.shelterUntil > now;
   if (!f && !shelter && !unread) return null;
   const odds = f?.odds ?? 'likely';
   const weak = f ? weakestSector(f.expected.sectors) : null;
-  return (
-    <button class={`threat-badge parchment pe odds-${odds}`} onClick={open}>
-      <span class="threat-paw" aria-hidden="true">
-        🐾
+  if (!unfolded) {
+    const left = shelter ? game.threats.shelterUntil - now : f ? f.wave.at - now : null;
+    return (
+      <span class="threat-wrap pe">
+        <button
+          class={`threat-badge threat-pill parchment odds-${odds}`}
+          onClick={open}
+          aria-label={t('defense.button')}
+        >
+          <span class="threat-paw" aria-hidden="true">
+            🐾
+          </span>
+          {left !== null ? <span>{formatDuration(lang, left)}</span> : <strong>!</strong>}
+        </button>
+        <button
+          class="btn btn-icon btn-small fold-btn threat-fold"
+          aria-label={t('defense.unfold')}
+          aria-expanded={false}
+          onClick={() => setPanelOpen('threat', true)}
+        >
+          ▸
+        </button>
       </span>
-      {shelter ? (
-        <span>
-          {t('defense.badgeShelter', {
-            duration: formatDuration(lang, game.threats.shelterUntil - now),
-          })}
+    );
+  }
+  return (
+    <span class="threat-wrap pe">
+      <button class={`threat-badge parchment odds-${odds}`} onClick={open}>
+        <span class="threat-paw" aria-hidden="true">
+          🐾
         </span>
-      ) : f ? (
-        <span>
-          {t('defense.badge', { duration: formatDuration(lang, f.wave.at - now) })} ·{' '}
-          <strong>{t(`defense.odds.${f.odds}`)}</strong>
-          {weak && (
-            <span class="small">
-              {' '}
-              · {t('defense.weakSector', { sector: `@defense.sectors.${weak}` })}
-            </span>
-          )}
-        </span>
-      ) : (
-        <span>{t('defense.badgeReport')}</span>
-      )}
-    </button>
+        {shelter ? (
+          <span>
+            {t('defense.badgeShelter', {
+              duration: formatDuration(lang, game.threats.shelterUntil - now),
+            })}
+          </span>
+        ) : f ? (
+          <span>
+            {t('defense.badge', { duration: formatDuration(lang, f.wave.at - now) })} ·{' '}
+            <strong>{t(`defense.odds.${f.odds}`)}</strong>
+            {weak && (
+              <span class="small">
+                {' '}
+                · {t('defense.weakSector', { sector: `@defense.sectors.${weak}` })}
+              </span>
+            )}
+          </span>
+        ) : (
+          <span>{t('defense.badgeReport')}</span>
+        )}
+      </button>
+      <button
+        class="btn btn-icon btn-small fold-btn threat-fold"
+        aria-label={t('defense.fold')}
+        aria-expanded={true}
+        onClick={() => setPanelOpen('threat', false)}
+      >
+        ◂
+      </button>
+    </span>
   );
+}
+
+const REOPEN_BEFORE_MS = 3_600_000;
+const REOPEN_KEY = 'kiwar.threatReopened';
+
+/** The wave (its time) that last unfolded the alert by itself. */
+function reopenedFor(): number | null {
+  try {
+    const v = localStorage.getItem(REOPEN_KEY);
+    return v === null ? null : Number(v);
+  } catch {
+    return null;
+  }
+}
+
+function rememberReopen(at: number): void {
+  try {
+    localStorage.setItem(REOPEN_KEY, String(at));
+  } catch {
+    // ignore
+  }
 }
 
 function lootList(t: Translate, lang: 'fr' | 'en', loot: Resources): string {

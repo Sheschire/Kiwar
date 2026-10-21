@@ -308,6 +308,8 @@ export const fr: Dict = {
     final: 'Le bâtiment et ses niveaux sont perdus.',
   },
   queue: {
+    fold: 'Replier la file des chantiers',
+    unfold: 'Afficher la file des chantiers',
     title: 'Chantiers',
     empty: 'Aucun chantier',
     waiting: 'En attente',
@@ -888,6 +890,8 @@ export const fr: Dict = {
     noGain: 'Ce tracé n’accélère aucun producteur.',
   },
   defense: {
+    fold: 'Replier l’alerte de vague',
+    unfold: 'Afficher l’alerte de vague',
     button: 'Défense',
     title: 'Défense de la colonie',
     badge: 'Prédateurs dans {duration}',

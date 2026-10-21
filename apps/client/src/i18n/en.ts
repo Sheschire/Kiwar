@@ -290,6 +290,8 @@ export const en = {
     final: 'The building and its levels are lost.',
   },
   queue: {
+    fold: 'Fold the construction queue',
+    unfold: 'Show the construction queue',
     title: 'Construction',
     empty: 'No construction',
     waiting: 'Waiting',
@@ -855,6 +857,8 @@ export const en = {
     noGain: 'No producer walks faster with this stroke.',
   },
   defense: {
+    fold: 'Fold the wave alert',
+    unfold: 'Show the wave alert',
     button: 'Defense',
     title: 'Defense of the colony',
     badge: 'Predators in {duration}',

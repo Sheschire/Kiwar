@@ -43,6 +43,9 @@ export interface UiState {
   modal: Modal;
   debugOpen: boolean;
   objectivesOpen: boolean;
+  /** Chantier 20: the construction queue and the wave alert can fold (remembered). */
+  queueOpen: boolean;
+  threatOpen: boolean;
   game: GameState | null;
   map: FaceMap | null;
   /** Simulation time of the last update. */
@@ -140,6 +143,28 @@ export function saveShowLevels(on: boolean): void {
   }
 }
 
+const QUEUE_OPEN_KEY = 'kiwar.queueOpen';
+const THREAT_OPEN_KEY = 'kiwar.threatOpen';
+
+function loadFlag(key: string, fallback: boolean): boolean {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v === '1';
+  } catch {
+    return fallback;
+  }
+}
+
+/** Chantier 20: fold or unfold the construction queue / the wave alert, remembered. */
+export function setPanelOpen(panel: 'queue' | 'threat', open: boolean): void {
+  try {
+    localStorage.setItem(panel === 'queue' ? QUEUE_OPEN_KEY : THREAT_OPEN_KEY, open ? '1' : '0');
+  } catch {
+    // ignore
+  }
+  uiStore.setState(panel === 'queue' ? { queueOpen: open } : { threatOpen: open });
+}
+
 const wideScreen =
   typeof window !== 'undefined' && window.matchMedia?.('(min-width: 900px)').matches;
 
@@ -148,6 +173,8 @@ export const uiStore = createStore<UiState>(() => ({
   modal: 'none',
   debugOpen: false,
   objectivesOpen: wideScreen,
+  queueOpen: loadFlag(QUEUE_OPEN_KEY, true),
+  threatOpen: loadFlag(THREAT_OPEN_KEY, true),
   game: null,
   map: null,
   now: 0,

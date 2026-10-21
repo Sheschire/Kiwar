@@ -12,7 +12,7 @@ import { useState } from 'preact/hooks';
 import { formatDuration } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { CloseIcon, HammerIcon } from '../icons';
-import { useT, useUi } from '../store';
+import { setPanelOpen, useT, useUi } from '../store';
 
 function QueueRow({
   item,
@@ -141,7 +141,32 @@ export function QueuePanel() {
   const villagers = useUi((s) => s.game?.villagers ?? []);
   const now = useUi((s) => s.now);
   const game = useUi((s) => s.game);
+  const open = useUi((s) => s.queueOpen);
+  const lang = useUi((s) => s.lang);
   if (queue.length === 0 || !game) return null;
+  if (!open) {
+    // Folded: a pill with the count and the time left on the first running site.
+    const first = queue.find((i) => i.startedAt !== null);
+    return (
+      <button
+        class="queue queue-pill parchment pe"
+        aria-label={t('queue.unfold')}
+        aria-expanded={false}
+        onClick={() => setPanelOpen('queue', true)}
+      >
+        <HammerIcon size={16} />
+        <strong>{queue.length}</strong>
+        {first?.startedAt != null && (
+          <span class="small muted">
+            {formatDuration(lang, first.startedAt + first.durationMs - now)}
+          </span>
+        )}
+        <span class="fold-chevron" aria-hidden="true">
+          ▴
+        </span>
+      </button>
+    );
+  }
   const slots = buildSlots(game);
   const started = queue.filter((i) => i.startedAt !== null).length;
   const waiting = new Set(waitingForBuilder(game).map((i) => i.id));
@@ -155,6 +180,14 @@ export function QueuePanel() {
             {t('queue.slots', { count: started, max: slots })}
           </span>
         )}
+        <button
+          class="btn btn-icon btn-small btn-ghost fold-btn"
+          aria-label={t('queue.fold')}
+          aria-expanded={true}
+          onClick={() => setPanelOpen('queue', false)}
+        >
+          ▾
+        </button>
       </h3>
       <ul>
         {queue.map((item) => {
