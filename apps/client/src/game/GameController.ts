@@ -1,5 +1,5 @@
 import {
-  awaitingReport,
+  awaitingServer,
   ensureAliens,
   localAlienSeed,
   publicState,
@@ -347,13 +347,13 @@ export class GameController {
       this.saveSoon();
     }
     this.emitState(now);
-    // A ship landed: only the server knows what it found (hidden garrisons).
+    // A ship landed or a counter-attack struck: only the server knows (hidden garrisons).
     if (
       this.online &&
       !this.flushing &&
       this.pending.length === 0 &&
       Date.now() - this.reportPolledAt > REPORT_POLL_MS &&
-      awaitingReport(this.state, now).length > 0
+      awaitingServer(this.state, now)
     ) {
       this.reportPolledAt = Date.now();
       void this.fetchReports();

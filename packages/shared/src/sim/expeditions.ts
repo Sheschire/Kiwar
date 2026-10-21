@@ -32,6 +32,20 @@ import type { GameEvent } from './advance';
 import { grantXp, hasSkill, kiwiExposure, kiwiStrength, modifiers } from './kiwis';
 import { SKILLS } from '../data/classes';
 import { alienDefense, alienEnemies, intelView, recordIntel, sectorOf } from './aliens';
+import {
+  allHolders,
+  assaultEnemy,
+  bridgeheadAt,
+  deepRecon,
+  finalForecast,
+  forgetHolders,
+  isSiegeMission,
+  recordSiegeIntel,
+  resolveSiegeLanding,
+  siegeLock,
+  twinTarget,
+  type FinalForecast,
+} from './siege';
 
 export interface ExpeditionPlan {
   launchpadId: BuildingId;
@@ -44,6 +58,12 @@ export interface ExpeditionPlan {
   mission?: MissionKind;
   /** Chantier 13: stardust burnt as fuel (faster, fewer breakdowns). */
   fuel?: boolean;
+  /** Chantier 19: outer sector of an assault or a reinforcement. */
+  sector?: number;
+  /** Chantier 19: assault crew members who stay on the bridgehead if it is taken. */
+  holders?: readonly VillagerId[];
+  /** Chantier 19: posted kiwis a reinforcement brings back home. */
+  bringBack?: readonly VillagerId[];
 }
 
 /** What a reconnaissance crew can expect (chantier 07). */
@@ -92,6 +112,12 @@ export interface ExpeditionForecast {
   ship: ShipDef;
   /** Chance to make the trip without breaking down (ship and crew Dexterity). */
   reliability: number;
+  /** Chantier 19: kiwis flying back (assault: without the holders; reinforcement: relieved). */
+  returnCrew: Villager[];
+  /** Cargo used on the way back by the kiwis aboard. */
+  returnWeight: number;
+  /** Chantier 19: final assault (both sides, the queen as estimated). */
+  final: FinalForecast | null;
 }
 
 export function launchpadOf(state: GameState, id: BuildingId): Building | undefined {
@@ -180,7 +206,7 @@ export function reconForecast(crew: readonly Villager[], ship?: ShipDef): ReconF
 }
 
 /** What a crew eats over `ms` (gluttons eat more, preserves less). */
-function rations(
+export function rations(
   state: GameState,
   crew: readonly Villager[],
   ms: number,
@@ -219,7 +245,7 @@ export function crewOf(state: GameState, crew: number | readonly VillagerId[]): 
 }
 
 /** Share of the crew lost in battle for a given strength. */
-function lossShare(strength: number, defense: number): number {
+export function lossShare(strength: number, defense: number): number {
   const ratio = defense / Math.max(strength, 1e-6);
   return strength >= defense
     ? Math.min(EXPEDITIONS.victoryLosses.max, EXPEDITIONS.victoryLosses.factor * ratio)
@@ -230,7 +256,11 @@ function lossShare(strength: number, defense: number): number {
 }
 
 /** Weighted draw without replacement: exposed kiwis fall first, more often. */
-function drawLosses(state: GameState, crew: readonly Villager[], count: number): VillagerId[] {
+export function drawLosses(
+  state: GameState,
+  crew: readonly Villager[],
+  count: number,
+): VillagerId[] {
   if (count <= 0) return [];
   return withRng(state, (rng) => {
     const pool = crew.map((v) => ({ id: v.id, w: kiwiExposure(v) }));
@@ -250,7 +280,7 @@ function drawLosses(state: GameState, crew: readonly Villager[], count: number):
   });
 }
 
-function crewMembers(state: GameState, ids: readonly VillagerId[]): Villager[] {
+export function crewMembers(state: GameState, ids: readonly VillagerId[]): Villager[] {
   return ids.map((id) => state.villagers.find((v) => v.id === id)).filter((v) => !!v);
 }
 
@@ -264,7 +294,7 @@ function coverage(
   return Math.max(0, Math.min(1, p, j));
 }
 
-function strengthOf(state: GameState, crew: readonly Villager[], fed: number): number {
+export function strengthOf(state: GameState, crew: readonly Villager[], fed: number): number {
   const hunger = EXPEDITIONS.starvingStrength + (1 - EXPEDITIONS.starvingStrength) * fed;
   // Green blood makes the Kikiwiwis stronger (they bring their own juice along).
   const titan = techEffects(state).kikiwiwiPower;
@@ -303,25 +333,47 @@ export function forecastExpedition(
   const need = rations(state, crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(state, crew, fed);
-  const defense = intelView(state, target.id, state.now)?.defense ?? null;
+  const final = mission === 'final' ? finalForecast(state, crew, fed, state.now) : null;
+  const defense =
+    mission === 'assault'
+      ? plan.sector === undefined
+        ? null
+        : assaultEnemy(state, plan.sector, state.now)
+      : mission === 'raid' || mission === 'recon'
+        ? (intelView(state, target.id, state.now)?.defense ?? null)
+        : null;
   const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
-  const odds: Odds = !defense
-    ? 'unknown'
-    : strength.min >= defense.max
+  const odds: Odds = final
+    ? final.odds
+    : mission === 'reinforce'
       ? 'likely'
-      : strength.max >= defense.min
-        ? 'uncertain'
-        : 'unlikely';
+      : !defense
+        ? 'unknown'
+        : strength.min >= defense.max
+          ? 'likely'
+          : strength.max >= defense.min
+            ? 'uncertain'
+            : 'unlikely';
   // Expected losses against the middle of the estimate (none can be told without a report).
-  const guess = defense ? (defense.min + defense.max) / 2 : null;
+  const mid = (r: IntelRange) => (r.min + r.max) / 2;
+  const guess = final
+    ? final.queen
+      ? base *
+        Math.max(
+          mid(final.queen.ground) / Math.max(mid(final.strength.ground), 1e-6),
+          mid(final.queen.air) / Math.max(mid(final.strength.air), 1e-6),
+        )
+      : null
+    : defense
+      ? mid(defense)
+      : null;
+  const fighters = final ? crew.length + allHolders(state).length : crew.length;
   const kiwisWeight = crewWeight(crew);
   const weight =
     kiwisWeight + (plan.provisions.pulp + plan.provisions.juice) * EXPEDITIONS.resourceWeight;
   const ship = shipOf(state);
   const expectedLosses =
-    guess === null
-      ? 0
-      : Math.min(crew.length, crew.length * lossShare(base, guess) * (1 - ship.armor));
+    guess === null ? 0 : Math.min(fighters, fighters * lossShare(base, guess) * (1 - ship.armor));
   const exposure = crew.map((v) => kiwiExposure(v));
   const totalExposure = exposure.reduce((a, b) => a + b, 0) || 1;
   const risk: Record<string, number> = {};
@@ -332,10 +384,16 @@ export function forecastExpedition(
     pulp: plan.provisions.pulp - Math.min(plan.provisions.pulp, need.pulp),
     juice: plan.provisions.juice - Math.min(plan.provisions.juice, need.juice),
   };
-  const returnSurplus = { pulp: left.pulp - need.pulp, juice: left.juice - need.juice };
+  const returnCrew = returnCrewOf(state, plan, crew, mission);
+  const returnNeed = rations(state, returnCrew, travelMs);
+  const returnSurplus = {
+    pulp: left.pulp - returnNeed.pulp,
+    juice: left.juice - returnNeed.juice,
+  };
+  const returnWeight = crewWeight(returnCrew);
   const lootRoom = Math.max(
     0,
-    cargo - kiwisWeight - (left.pulp + left.juice) * EXPEDITIONS.resourceWeight,
+    cargo - returnWeight - (left.pulp + left.juice) * EXPEDITIONS.resourceWeight,
   );
   return {
     cargo,
@@ -356,7 +414,31 @@ export function forecastExpedition(
     recon: mission === 'recon' ? reconForecast(crew, ship) : null,
     ship,
     reliability: shipReliability(ship, crew, !!plan.fuel),
+    returnCrew,
+    returnWeight,
+    final,
   };
+}
+
+/** Who flies back with the ship if nobody is lost (chantier 19 missions change it). */
+function returnCrewOf(
+  state: GameState,
+  plan: ExpeditionPlan,
+  crew: Villager[],
+  mission: MissionKind,
+): Villager[] {
+  if (mission === 'assault') return crew.filter((v) => !(plan.holders ?? []).includes(v.id));
+  if (mission === 'final') return [...crew, ...allHolders(state)];
+  if (mission === 'reinforce') {
+    const b = plan.sector === undefined ? undefined : bridgeheadAt(state, plan.sector);
+    return b
+      ? crewMembers(
+          state,
+          (plan.bringBack ?? []).filter((id) => b.holders.includes(id)),
+        )
+      : [];
+  }
+  return crew;
 }
 
 /** Kiwis that can board: idle ones first, then workers from the most staffed workplaces. */
@@ -381,7 +463,8 @@ export function maxCrew(
 }
 
 export function minCrew(mission: MissionKind = 'raid'): number {
-  return mission === 'recon' ? RECON.minCrew : EXPEDITIONS.minCrew;
+  // A reinforcement may fly empty to bring posted kiwis home (chantier 19).
+  return mission === 'recon' ? RECON.minCrew : mission === 'reinforce' ? 0 : EXPEDITIONS.minCrew;
 }
 
 export function isLaunchpadBusy(state: GameState, id: BuildingId): boolean {
@@ -433,6 +516,11 @@ export function launch(
     status: 'outbound',
     result: null,
     ...(broken ? { broken: true } : {}),
+    ...(plan.sector !== undefined && (mission === 'assault' || mission === 'reinforce')
+      ? { sector: plan.sector }
+      : {}),
+    ...(mission === 'assault' && plan.holders ? { holders: [...plan.holders] } : {}),
+    ...(mission === 'reinforce' && plan.bringBack ? { bringBack: [...plan.bringBack] } : {}),
   };
   state.expeditions.push(expedition);
   return expedition;
@@ -479,6 +567,7 @@ export function resolveArrival(state: GameState, e: Expedition): void {
     };
     return;
   }
+  if (isSiegeMission(e.mission)) return resolveSiegeLanding(state, e, members, fed);
   const garrison = state.aliens?.[target.id];
   const defense = alienDefense(state, target.id, e.arriveAt);
   if (!garrison || defense === null) throw new Error('resolveArrival: hidden garrison');
@@ -570,7 +659,19 @@ function resolveRecon(
   const spread = RECON.spread.worst - (RECON.spread.worst - RECON.spread.best) * quality;
   const count = RECON.sectors.base + Math.round(RECON.sectors.perQuality * quality);
   const known = new Set(state.intel[e.targetId]?.sectors ?? []);
-  const { sectors, ranges } = withRng(state, (rng) => {
+  // Chantier 19: while the siege is open, scouts on the twin look at the holds and the queen.
+  const deep = !siegeLock(state) && twinTarget(state)?.id === e.targetId;
+  const { sectors, ranges, siege } = withRng(state, (rng) => {
+    const look = deep
+      ? deepRecon(
+          garrison,
+          state.intel[e.targetId]?.siege?.seen ?? [],
+          count,
+          spread,
+          e.arriveAt,
+          rng,
+        )
+      : null;
     // Unseen sectors first, so that every mission adds to the map.
     const order = [
       ...rng.shuffle(
@@ -587,7 +688,8 @@ function resolveRecon(
     };
     const seen = alienEnemies(garrison, defense);
     return {
-      sectors: order.slice(0, count).sort((a, b) => a - b),
+      siege: look?.siege ?? null,
+      sectors: look ? look.sectors : order.slice(0, count).sort((a, b) => a - b),
       ranges: {
         defense: around(defense, 1),
         ferrets: around(seen.ferrets, 0),
@@ -605,6 +707,7 @@ function resolveRecon(
     structures: garrison.structures.filter((x) => visible.has(sectorOf(x.q, x.r))),
     ...(spotted ? { spotted: true } : {}),
   });
+  if (siege) recordSiegeIntel(state, e.targetId, siege);
   e.status = 'returning';
   e.result = {
     victory: false,
@@ -702,6 +805,7 @@ export function removeVillagers(
   if (state.memorial.length > MEMORIAL_MAX)
     state.memorial.splice(0, state.memorial.length - MEMORIAL_MAX);
   state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
+  forgetHolders(state, ids);
   // The colony mourns its lost kiwis (morale).
   if (ids.length > 0) state.mourningUntil = Math.max(state.mourningUntil, at + MORALE.mourningMs);
 }

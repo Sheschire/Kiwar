@@ -18,6 +18,7 @@ import {
 import { resolveArrival, resolveReturn } from './expeditions';
 import { deliveryTick, nextDeliveryEvent } from './deliveries';
 import { canResolveArrival } from './aliens';
+import { nextSiegeEvent, planCounter, siegeTick } from './siege';
 import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
 import type { ClassId } from '../data/classes';
 import { accrueKiwis, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
@@ -200,6 +201,10 @@ export type GameEvent =
   /** Chantier 08: a technology is researched; the monument opens a new age. */
   | { type: 'researchDone'; at: TimeMs; tech: TechId }
   | { type: 'ageReached'; at: TimeMs; age: number }
+  /** Chantier 19: the siege of the twin face. */
+  | { type: 'counterAnnounced'; at: TimeMs; sector: number; strikeAt: TimeMs }
+  | { type: 'counterStruck'; at: TimeMs; sector: number; victory: boolean; dead: number }
+  | { type: 'bridgeheadFortified'; at: TimeMs; sector: number }
   | {
       type: 'repaired';
       at: TimeMs;
@@ -240,6 +245,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     planWave(s);
     planMeteor(s);
     planComet(s);
+    planCounter(s);
     const constructionEnd = nextConstructionEnd(s);
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
@@ -257,10 +263,12 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const deliveryAt = nextDeliveryEvent(s);
     const infusionEnd = nextInfusionEnd(s);
     const titanEnd = nextTitanEnd(s);
+    const siegeAt = nextSiegeEvent(s);
     // Chantier 15: the automatic garrison posts its guards a little before a strike.
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
       garrisonAt,
+      siegeAt,
       infusionEnd,
       titanEnd,
       researchAt,
@@ -314,6 +322,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     if (cometAt === nextEvent) cometTick(s, cometAt, events);
     if (researchAt === nextEvent) researchTick(s, researchAt, events);
     if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
+    if (siegeAt === nextEvent) siegeTick(s, siegeAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: 'hungerChanged', at: s.now, stage: st });

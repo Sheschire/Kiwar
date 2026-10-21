@@ -32,7 +32,7 @@ export function workSite(state: GameState, v: Villager): Hex | null {
     return state.comets.patches.find((p) => p.id === job.patchId) ?? null;
   if (job.kind === 'meteor') return state.sky.meteors.find((m) => m.id === job.meteorId) ?? null;
   if (job.kind === 'build') return state.queue.find((i) => i.id === job.queueItemId) ?? null;
-  if (job.kind === 'expedition') return null;
+  if (job.kind === 'expedition' || job.kind === 'outpost') return null;
   return state.buildings.find((b) => b.type === 'nest') ?? null;
 }
 
@@ -87,7 +87,9 @@ export function bedsOf(state: GameState, map: FaceMap = faceMapOf(state)): Map<V
   if (cached) return cached;
 
   const houses = homes(state);
-  const kiwis = state.villagers.filter((v) => v.job.kind !== 'expedition');
+  const kiwis = state.villagers.filter(
+    (v) => v.job.kind !== 'expedition' && v.job.kind !== 'outpost',
+  );
   const workers = [
     ...kiwis.filter((v) => v.job.kind !== 'idle'),
     ...kiwis.filter((v) => v.job.kind === 'idle'),

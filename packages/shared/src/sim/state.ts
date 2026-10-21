@@ -31,7 +31,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 21;
+export const SCHEMA_VERSION = 22;
 
 export type Job =
   | { kind: 'idle' }
@@ -70,7 +70,9 @@ export type Job =
   /** Chantier 13: picking up stardust on a tile where a comet dropped some. */
   | { kind: 'stardust'; patchId: string; returnTo: BuildingId | null }
   /** Chantier 15: harvesting a meteorite crater (a temporary post). */
-  | { kind: 'meteor'; meteorId: string; returnTo: BuildingId | null };
+  | { kind: 'meteor'; meteorId: string; returnTo: BuildingId | null }
+  /** Chantier 19: posted on a bridgehead of the twin face (away, fed from the colony stock). */
+  | { kind: 'outpost'; sector: number };
 
 export interface KiwiHistory {
   expeditions: number;
@@ -292,6 +294,23 @@ export interface IntelReport {
   structures: AlienStructure[];
   /** The scouts were spotted (incomplete report). */
   spotted?: boolean;
+  /** Chantier 19: what deep reconnaissance and assaults told about the siege. */
+  siege?: SiegeIntel;
+}
+
+/** A range seen at a time (it ages like the defense of the face). */
+export interface DatedRange extends IntelRange {
+  at: TimeMs;
+}
+
+/** Chantier 19: the holds of the outer sectors and the queen, as far as we know. */
+export interface SiegeIntel {
+  /** Sectors looked at by a deep reconnaissance (or fought for). */
+  seen: number[];
+  /** Strength of the aliens holding an outer sector (key: sector). */
+  holds: Record<string, DatedRange>;
+  /** The queen, once a deep reconnaissance saw her lair (an inner sector). */
+  queen?: { sector: number; ground: DatedRange; air: DatedRange };
 }
 
 export interface ExpeditionResult {
@@ -313,9 +332,21 @@ export interface ExpeditionResult {
   sectors?: number[];
   /** Kiwis back home wounded (ids, see `roster` for their names). */
   injured?: VillagerId[];
+  /** Chantier 19: assault won, a bridgehead stands (the holders stayed on it). */
+  bridgehead?: boolean;
+  /** Chantier 19: final assault, both sides of the fight (luck included). */
+  sides?: { strength: { ground: number; air: number }; queen: { ground: number; air: number } };
+  /** Chantier 19: the queen fell (final assault won). */
+  queenFallen?: boolean;
 }
 
-export type MissionKind = 'raid' | 'recon';
+/**
+ * Raid (fight and loot), reconnaissance, and the siege of the twin (chantier 19): assault on a
+ * sector, reinforcement of a bridgehead, final assault on the queen, retreat of the survivors
+ * of a fallen bridgehead.
+ */
+export const MISSION_KINDS = ['raid', 'recon', 'assault', 'reinforce', 'final', 'retreat'] as const;
+export type MissionKind = (typeof MISSION_KINDS)[number];
 
 export interface Expedition {
   id: string;
@@ -343,6 +374,58 @@ export interface Expedition {
   result: ExpeditionResult | null;
   /** The ship broke down at take-off: it turns back half-way (chantier 07). */
   broken?: boolean;
+  /** Chantier 19: the outer sector aimed at (assault, reinforcement). */
+  sector?: number;
+  /** Chantier 19: assault crew members who stay on the bridgehead if it is taken. */
+  holders?: VillagerId[];
+  /** Chantier 19: posted kiwis the reinforcement brings back home. */
+  bringBack?: VillagerId[];
+}
+
+/** Chantier 19: a bridgehead on an outer sector of the twin face. */
+export interface Bridgehead {
+  sector: number;
+  since: TimeMs;
+  /** Kiwis posted there (job `outpost`). */
+  holders: VillagerId[];
+  fortified: boolean;
+  /** A Kikiwiwi is fortifying it until then. */
+  fortifyUntil?: TimeMs;
+  fortifierId?: VillagerId;
+}
+
+/** Chantier 19: the next counter-attack (time and target public, strength hidden). */
+export interface CounterAttack {
+  id: string;
+  sector: number;
+  announceAt: TimeMs;
+  at: TimeMs;
+  announced: boolean;
+}
+
+export interface CounterReport {
+  id: string;
+  at: TimeMs;
+  sector: number;
+  victory: boolean;
+  /** Strength of the holders (cover, fortification and luck included) and of the aliens. */
+  strength: number;
+  enemy: number;
+  dead: string[];
+  /** Survivors flying back home when the bridgehead fell. */
+  retreating: number;
+}
+
+/** Chantier 19: the siege of the twin face (public: the truth stays in `aliens`). */
+export interface SiegeState {
+  bridgeheads: Bridgehead[];
+  counter: CounterAttack | null;
+  /** Counter-attacks struck so far (they grow stronger). */
+  counters: number;
+  lastCounterAt: TimeMs;
+  reports: CounterReport[];
+  /** The queen fell then: the face is ours (0: not yet). */
+  conqueredAt: TimeMs;
 }
 
 /** A big wave on its way: planned (time only), then announced (composition). */
@@ -544,6 +627,8 @@ export interface GameState {
   research: ResearchState;
   /** Chantier 15: which tasks the automation fills on its own (all on by default). */
   automation: Record<AutoTask, boolean>;
+  /** Chantier 19: the siege of the twin face. */
+  siege: SiegeState;
   nextId: number;
   rng: RngState;
 }
@@ -636,6 +721,7 @@ export function newGame(opts: NewGameOptions): GameState {
     stardust: 0,
     research: { points: 0, current: null, done: [] },
     automation: defaultAutomation(),
+    siege: newSiege(),
     nextId: 1,
     rng: rng.state(),
   };
@@ -655,6 +741,27 @@ export function newGame(opts: NewGameOptions): GameState {
     state.targets.map((t) => [t.id, drawGarrison(t, `${alienSeed}/${t.id}`, opts.now)]),
   );
   return state;
+}
+
+/** Chantier 19: no siege yet. */
+export function newSiege(): SiegeState {
+  return {
+    bridgeheads: [],
+    counter: null,
+    counters: 0,
+    lastCounterAt: 0,
+    reports: [],
+    conqueredAt: 0,
+  };
+}
+
+export function cloneSiege(s: SiegeState): SiegeState {
+  return {
+    ...s,
+    bridgeheads: s.bridgeheads.map((b) => ({ ...b, holders: [...b.holders] })),
+    counter: s.counter ? { ...s.counter } : null,
+    reports: s.reports.map((r) => ({ ...r, dead: [...r.dead] })),
+  };
 }
 
 /** Every task in automatic mode. */
@@ -794,6 +901,7 @@ export function cloneState(state: GameState): GameState {
     },
     research: { ...state.research, done: [...state.research.done] },
     automation: { ...state.automation },
+    siege: cloneSiege(state.siege),
     friends: state.friends.map((f) => ({ ...f })),
     shipments: state.shipments.map((x) => ({ ...x, resources: { ...x.resources } })),
     incoming: state.incoming.map((d) => ({ ...d, resources: { ...d.resources } })),
@@ -810,8 +918,18 @@ export function cloneState(state: GameState): GameState {
             loot: { ...e.result.loot },
             ...(e.result.sectors ? { sectors: [...e.result.sectors] } : {}),
             ...(e.result.injured ? { injured: [...e.result.injured] } : {}),
+            ...(e.result.sides
+              ? {
+                  sides: {
+                    strength: { ...e.result.sides.strength },
+                    queen: { ...e.result.sides.queen },
+                  },
+                }
+              : {}),
           }
         : null,
+      ...(e.holders ? { holders: [...e.holders] } : {}),
+      ...(e.bringBack ? { bringBack: [...e.bringBack] } : {}),
     })),
     rng: [...state.rng] as RngState,
   };
@@ -834,6 +952,19 @@ export function cloneIntel(i: IntelReport): IntelReport {
     bats: { ...i.bats },
     sectors: [...i.sectors],
     structures: i.structures.map((x) => ({ ...x })),
+    ...(i.siege ? { siege: cloneSiegeIntel(i.siege) } : {}),
+  };
+}
+
+export function cloneSiegeIntel(s: SiegeIntel): SiegeIntel {
+  return {
+    seen: [...s.seen],
+    holds: Object.fromEntries(Object.entries(s.holds).map(([k, r]) => [k, { ...r }])),
+    ...(s.queen
+      ? {
+          queen: { sector: s.queen.sector, ground: { ...s.queen.ground }, air: { ...s.queen.air } },
+        }
+      : {}),
   };
 }
 

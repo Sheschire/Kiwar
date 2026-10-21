@@ -1,3 +1,4 @@
+import { INTEL } from '../data/expeditions';
 import { STARDUST } from '../data/comets';
 import { TITAN_WORK_IDS } from '../data/titan';
 import { METEORS } from '../data/threats';
@@ -53,9 +54,16 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     targetId: id,
     crew: z.union([int.min(0).max(1000), z.array(id).max(200)]),
     provisions: z.object({ pulp: z.number().min(0).max(1e7), juice: z.number().min(0).max(1e7) }),
-    mission: z.enum(['raid', 'recon']).optional(),
+    mission: z.enum(['raid', 'recon', 'assault', 'reinforce', 'final']).optional(),
     fuel: z.boolean().optional(),
+    sector: int
+      .min(0)
+      .max(INTEL.sectors - 1)
+      .optional(),
+    holders: z.array(id).max(200).optional(),
+    bringBack: z.array(id).max(200).optional(),
   }),
+  z.object({ type: z.literal('fortifyBridgehead'), sector: int.min(0).max(INTEL.sectors - 1) }),
   z.object({
     type: z.literal('sendCargo'),
     launchpadId: id,

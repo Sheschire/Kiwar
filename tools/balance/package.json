@@ -8,6 +8,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "expeditions": "tsx src/expeditions.ts",
     "ages": "tsx src/ages.ts",
+    "siege": "tsx src/siege.ts",
     "impact": "tsx src/impact.ts"
   },
   "dependencies": {

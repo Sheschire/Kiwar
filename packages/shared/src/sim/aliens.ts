@@ -14,6 +14,7 @@ import {
   type Tile,
 } from '../worldgen/generateFace';
 import type { TimeMs } from '../types/ids';
+import { counterAwaited, mergeSiegeIntel } from './siege';
 import type {
   AlienGarrison,
   AlienStructure,
@@ -120,8 +121,27 @@ export function alienEnemies(
 /** True when this client can resolve the arrival itself (truth held, face gone, or broken down). */
 export function canResolveArrival(state: GameState, e: Expedition): boolean {
   return (
-    !!e.broken || !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId)
+    !!e.broken ||
+    // Chantier 19: a reinforcement meets no alien on its bridgehead.
+    e.mission === 'reinforce' ||
+    !!state.aliens?.[e.targetId] ||
+    !state.targets.some((t) => t.id === e.targetId)
   );
+}
+
+/** Chantier 19: something happened that only the server can tell (a landing, a counter-attack). */
+export function awaitingServer(state: GameState, now: TimeMs): boolean {
+  return awaitingReport(state, now).length > 0 || counterAwaited(state, now);
+}
+
+/** Times of the hidden events due by `now` (the server resolves them on `load`). */
+export function hiddenDue(state: GameState, now: TimeMs): TimeMs[] {
+  const out = state.expeditions
+    .filter((e) => e.status === 'outbound' && e.arriveAt <= now)
+    .map((e) => e.arriveAt);
+  const c = state.siege.counter;
+  if (c && c.at <= now) out.push(c.at);
+  return out;
 }
 
 /** Expeditions that have landed but wait for the server to tell what happened. */
@@ -188,10 +208,12 @@ export function recordIntel(
   const seen = new Map<string, AlienStructure>();
   for (const s of [...(prev?.structures ?? []), ...(report.structures ?? [])])
     seen.set(`${s.q},${s.r}`, { ...s });
+  const siege = mergeSiegeIntel(prev?.siege, report.siege);
   state.intel[targetId] = {
     ...report,
     sectors,
     structures: [...seen.values()],
+    ...(siege ? { siege } : {}),
   };
 }
 

@@ -34,7 +34,8 @@ import {
 } from '../sim/selectors';
 import { cloneAliens, newGame, type GameState, type Shipment, type Villager } from '../sim/state';
 import { deliveryOf } from '../sim/deliveries';
-import { ensureAliens, publicState } from '../sim/aliens';
+import { ensureAliens, hiddenDue, publicState } from '../sim/aliens';
+import { resetSiege } from '../sim/siege';
 import { generateFace, type FaceMap } from '../worldgen/generateFace';
 import type { Face, KiwiId, PlayerId, UniverseId } from '../types/ids';
 import { requestSchema, type ColonySummary, type GameResponse, type ServerError } from './protocol';
@@ -724,10 +725,9 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
         const scoped = withScopeTargets(ctx, existing.state, scope);
         let state = scoped.state;
         let events: GameEvent[] = [];
-        // Ships that landed meanwhile are resolved here: the client cannot (hidden garrison).
-        const landed = state.expeditions
-          .filter((e) => e.status === 'outbound' && e.arriveAt <= ctx.now())
-          .map((e) => e.arriveAt);
+        // Ships that landed and counter-attacks that struck meanwhile are resolved here: the
+        // client cannot (hidden garrison, chantier 19 siege).
+        const landed = hiddenDue(state, ctx.now());
         if (landed.length > 0) {
           const result = advance(state, Math.max(...landed));
           state = result.state;
@@ -774,6 +774,7 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
       };
       // A local save carries its own garrisons: never trust them, draw secret ones.
       delete imported.aliens;
+      resetSiege(imported);
       ensureAliens(imported, ctx.randomSeed());
       const state = advance(imported, now).state;
       const saved = existing

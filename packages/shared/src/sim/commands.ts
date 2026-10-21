@@ -51,6 +51,15 @@ import {
   workersOf,
 } from './selectors';
 import { cloneState, nextId, type GameState, type MissionKind, type Villager } from './state';
+import {
+  assaultLock,
+  bridgeheadAt,
+  finalLock,
+  fortifyLock,
+  isSiegeMission,
+  startFortify,
+  twinTarget,
+} from './siege';
 import { returnHome, weakestWorker } from './posts';
 import { TECHS, type TechId } from '../data/research';
 import { researchTick, techEffects, techStatus } from './research';
@@ -111,6 +120,12 @@ export type Command =
       mission?: MissionKind;
       /** Chantier 13: burn stardust for a faster, safer trip. */
       fuel?: boolean;
+      /** Chantier 19: outer sector of an assault or a reinforcement. */
+      sector?: number;
+      /** Chantier 19: assault crew members who stay on the bridgehead (at least one). */
+      holders?: VillagerId[];
+      /** Chantier 19: posted kiwis a reinforcement brings back home. */
+      bringBack?: VillagerId[];
     }
   /** Multiplayer: the launchpad's ship carries a free gift of resources to an ally. */
   | {
@@ -149,6 +164,8 @@ export type Command =
   | { type: 'transform'; villagerId: VillagerId; labId: BuildingId }
   /** Chantier 08: a Kikiwiwi smashes the obstacle on a tile, or reshapes it. */
   | { type: 'titanWork'; villagerId: VillagerId; q: number; r: number; work: TitanWork }
+  /** Chantier 19: a Kikiwiwi posted on this bridgehead fortifies it. */
+  | { type: 'fortifyBridgehead'; sector: number }
   /** Chantier 08: a builder clears the stump on this tile (queued like a construction). */
   | { type: 'clearObstacle'; q: number; r: number }
   /** Chantier 08: the technology the researchers work on (null: bank the points). */
@@ -259,6 +276,20 @@ export const COMMAND_ERRORS = [
   'craterFull',
   'alreadyStarted',
   'noBuildSlot',
+  // Chantier 19: the siege of the twin face.
+  'conquered',
+  'notASector',
+  'sectorUnseen',
+  'bridgeheadHere',
+  'bridgeheadLimit',
+  'noBridgehead',
+  'queenUnknown',
+  'needBridgeheads',
+  'needFortified',
+  'invalidHolders',
+  'alreadyFortified',
+  'fortifying',
+  'invalidMission',
 ] as const;
 export type BlessingKind = 'heal' | 'respec' | 'stat';
 
@@ -606,6 +637,11 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (isLaunchpadBusy(s, pad.id)) fail('launchpadBusy');
       if (pad.damaged) fail('launchpadDamaged');
       if (!s.targets.some((t) => t.id === cmd.targetId)) fail('unknownTarget');
+      const mission = cmd.mission ?? 'raid';
+      if (mission === 'retreat') fail('invalidMission');
+      const onTwin = twinTarget(s)?.id === cmd.targetId;
+      if (onTwin && s.siege.conqueredAt > 0) fail('conquered');
+      if (isSiegeMission(mission) && !onTwin) fail('unknownTarget');
       const { pulp, juice } = cmd.provisions;
       if (
         (typeof cmd.crew === 'number' && !Number.isInteger(cmd.crew)) ||
@@ -619,11 +655,20 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (size < minCrew(cmd.mission)) fail('crewTooSmall');
       if (size > maxCrew(s, pad, cmd.mission)) fail('crewTooLarge');
       if (crew.filter((v) => v.kikiwiwi).length > KIKIWIWI.perShip) fail('oneKikiwiwi');
+      siegeLaunchCheck(s, cmd, crew);
       const forecast = forecastExpedition(s, cmd)!;
       if (forecast.weight > forecast.cargo + 1e-9) fail('overloaded');
+      if (forecast.returnWeight > forecast.cargo + 1e-9) fail('overloaded');
       if (!canAfford(s.resources, { pulp, juice })) fail('notEnoughResources');
       if (cmd.fuel) payStardust(s, FUEL.stardust);
       launch(s, cmd, now, nextId(s, 'x'));
+      return;
+    }
+    case 'fortifyBridgehead': {
+      const lock = fortifyLock(s, cmd.sector);
+      if (lock === 'notAKikiwiwi' || lock === 'noBridgehead') return fail(lock);
+      if (lock) fail(lock);
+      startFortify(s, cmd.sector, now);
       return;
     }
     case 'sendCargo': {
@@ -819,7 +864,12 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const def = v.classId ? CLASSES[v.classId].skills.find((x) => x.id === cmd.skill) : undefined;
       if (!def?.cooldownMs || !hasSkill(v, cmd.skill)) return fail('skillLocked');
       if ((v.skillReadyAt[cmd.skill] ?? 0) > now) fail('skillCooling');
-      if (v.job.kind === 'expedition' || v.job.kind === 'train' || v.job.kind === 'transform')
+      if (
+        v.job.kind === 'expedition' ||
+        v.job.kind === 'outpost' ||
+        v.job.kind === 'train' ||
+        v.job.kind === 'transform'
+      )
         fail('kiwiBusy');
       if (cmd.skill === 'rain') {
         const b = v.job.kind === 'work' ? getBuilding(s, v.job.buildingId) : undefined;
@@ -1025,4 +1075,38 @@ export function cleanKiwiName(raw: string): string | null {
     .trim();
   if (name.length === 0 || [...name].length > KIWI_NAME_MAX) return null;
   return name;
+}
+
+/** Chantier 19: what an assault, a reinforcement or the final assault needs at take-off. */
+function siegeLaunchCheck(
+  s: GameState,
+  cmd: Extract<Command, { type: 'launchExpedition' }>,
+  crew: Villager[],
+): void {
+  const mission = cmd.mission ?? 'raid';
+  const ids = new Set(crew.map((v) => v.id));
+  if (mission === 'assault') {
+    if (cmd.sector === undefined) return fail('notASector');
+    const lock = assaultLock(s, cmd.sector);
+    if (lock) fail(lock);
+    const holders = cmd.holders ?? [];
+    if (
+      holders.length === 0 ||
+      new Set(holders).size !== holders.length ||
+      holders.some((id) => !ids.has(id))
+    )
+      fail('invalidHolders');
+  } else if (mission === 'reinforce') {
+    const b = cmd.sector === undefined ? undefined : bridgeheadAt(s, cmd.sector);
+    if (!b) return fail('noBridgehead');
+    const back = cmd.bringBack ?? [];
+    if (new Set(back).size !== back.length || back.some((id) => !b.holders.includes(id)))
+      fail('invalidHolders');
+    if (crew.length + back.length === 0) fail('crewTooSmall');
+  } else if (mission === 'final') {
+    const lock = finalLock(s);
+    if (lock) fail(lock);
+  }
+  if (mission !== 'assault' && cmd.holders?.length) fail('invalidHolders');
+  if (mission !== 'reinforce' && cmd.bringBack?.length) fail('invalidHolders');
 }

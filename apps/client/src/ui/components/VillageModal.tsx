@@ -76,6 +76,7 @@ function jobRank(v: Villager): number {
     stardust: 1,
     meteor: 1,
     expedition: 4,
+    outpost: 4,
     injured: 5,
     idle: 6,
   }[v.job.kind];

@@ -634,6 +634,20 @@ export const fr: Dict = {
     alreadyStarted: 'Ce chantier a déjà son·sa bâtisseur·euse.',
     noBuildSlot:
       'Pas de place libre : attends la fin d’un chantier (le Nid fixe combien en même temps).',
+    conquered: 'La face jumelle est déjà à vous : plus rien à y conquérir.',
+    notASector: 'Choisis un secteur extérieur de la face jumelle.',
+    sectorUnseen: 'Ce secteur n’a pas encore été reconnu : envoie d’abord une reconnaissance.',
+    bridgeheadHere: 'Une tête de pont tient déjà ce secteur (ou un assaut est en route).',
+    bridgeheadLimit: 'Trois têtes de pont au plus (assauts en route compris).',
+    noBridgehead: 'Aucune tête de pont ne tient ce secteur.',
+    queenUnknown:
+      'On ne sait pas encore où se terre la reine : une reconnaissance approfondie d’abord.',
+    needBridgeheads: 'L’assaut final demande deux têtes de pont.',
+    needFortified: 'L’assaut final demande une tête de pont aménagée par un Kikiwiwi.',
+    invalidHolders: 'Les kiwis qui restent doivent faire partie de l’équipage (un·e au moins).',
+    alreadyFortified: 'Cette tête de pont est déjà aménagée.',
+    fortifying: 'Un Kikiwiwi aménage déjà cette tête de pont.',
+    invalidMission: 'Mission inconnue.',
   },
   offline: {
     title: 'Pendant votre absence…',
@@ -763,6 +777,13 @@ export const fr: Dict = {
       recon:
         '1 ou 2 kiwis discrets : pas de combat recherché, pas de butin. Ils cartographient une partie de la face et estiment sa garnison. L’Agilité et l’Esprit donnent de meilleurs rapports.',
       raid: 'Affronter la garnison et rapporter du butin. Reconnaître d’abord pour savoir à quoi s’attendre.',
+      assault:
+        'Prendre un secteur extérieur de la jumelle. À la victoire, les kiwis choisis restent sur place et tiennent la tête de pont (nourris sur vos stocks).',
+      reinforce:
+        'Amener des kiwis sur une tête de pont et en ramener d’autres. Pas de combat. Une tête de pont vidée est abandonnée.',
+      final:
+        'L’assaut contre la reine des furets. Tous les kiwis postés sur les têtes de pont se joignent à l’équipage. Il faut tenir tête au sol et dans les airs.',
+      retreat: 'Les survivant·es d’une tête de pont tombée rentrent.',
     },
     launch: 'Envoyer les éclaireurs',
     spotChance: 'Repérage {pct} %',
@@ -1287,6 +1308,7 @@ export const fr: Dict = {
       titan: 'Travaux de titan',
       stardust: 'Ramasse la poussière',
       meteor: 'Sur une météorite',
+      outpost: 'Sur une tête de pont',
     },
   },
   posts: {

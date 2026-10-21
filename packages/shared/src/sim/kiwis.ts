@@ -240,7 +240,9 @@ export function crewWork(
 
 /** The mayor at home, if any. */
 export function mayorOf(state: GameState): Villager | undefined {
-  return state.villagers.find((v) => v.classId === 'mayor' && v.job.kind !== 'expedition');
+  return state.villagers.find(
+    (v) => v.classId === 'mayor' && v.job.kind !== 'expedition' && v.job.kind !== 'outpost',
+  );
 }
 
 /** Harvest multiplier of the whole colony: the mayor's speech (a short boost). */

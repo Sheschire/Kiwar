@@ -601,6 +601,19 @@ export const en = {
     craterFull: 'A crater takes at most three miners.',
     alreadyStarted: 'This site already has its builder.',
     noBuildSlot: 'No free place: wait for a site to end (the Nest sets how many at once).',
+    conquered: 'The twin face is already yours: nothing left to conquer there.',
+    notASector: 'Pick an outer sector of the twin face.',
+    sectorUnseen: 'This sector has not been scouted yet: send a reconnaissance first.',
+    bridgeheadHere: 'A bridgehead already holds this sector (or an assault is on its way).',
+    bridgeheadLimit: 'Three bridgeheads at most (assaults on their way included).',
+    noBridgehead: 'No bridgehead holds this sector.',
+    queenUnknown: 'Nobody knows where the queen hides yet: send a deep reconnaissance first.',
+    needBridgeheads: 'The final assault needs two bridgeheads.',
+    needFortified: 'The final assault needs a bridgehead fortified by a Kikiwiwi.',
+    invalidHolders: 'The kiwis who stay must be part of the crew (at least one).',
+    alreadyFortified: 'This bridgehead is already fortified.',
+    fortifying: 'A Kikiwiwi is already fortifying this bridgehead.',
+    invalidMission: 'Unknown mission.',
   },
   offline: {
     title: 'While you were away…',
@@ -729,6 +742,13 @@ export const en = {
       recon:
         '1 or 2 discreet kiwis: no fight sought, no loot. They map part of the face and estimate its garrison. Agility and Spirit make better reports.',
       raid: 'Fight the garrison and bring back loot. Scout first to know what you are up against.',
+      assault:
+        'Take an outer sector of the twin. If you win, the chosen kiwis stay there and hold the bridgehead (fed from your stocks).',
+      reinforce:
+        'Bring kiwis to a bridgehead and bring others home. No fight. A bridgehead left empty is abandoned.',
+      final:
+        'The assault on the ferret queen. Every kiwi posted on a bridgehead joins the crew. You must match her on the ground and in the air.',
+      retreat: 'The survivors of a fallen bridgehead fly home.',
     },
     launch: 'Send the scouts',
     spotChance: 'Spotted {pct} %',
@@ -1250,6 +1270,7 @@ export const en = {
       titan: 'Titan works',
       stardust: 'Picking stardust',
       meteor: 'At a meteorite',
+      outpost: 'On a bridgehead',
     },
   },
   posts: {
