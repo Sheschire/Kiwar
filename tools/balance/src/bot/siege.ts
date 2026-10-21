@@ -111,6 +111,16 @@ function homeTitan(state: GameState): Villager | undefined {
   );
 }
 
+/** The state as if this Kikiwiwi had left the rampart (to weigh a plan with it). */
+function idleTitan(state: GameState, titan: Villager): GameState {
+  return {
+    ...state,
+    villagers: state.villagers.map((v) =>
+      v.id === titan.id ? { ...v, job: { kind: 'idle' as const } } : v,
+    ),
+  };
+}
+
 /** The Kikiwiwi on the rampart must stand down before boarding. */
 function standDown(state: GameState, titan: Villager): Command | null {
   if (titan.job.kind !== 'guard') return null;
@@ -235,8 +245,10 @@ function finalAssault(
   targetId: string,
 ): Command | null {
   const titan = homeTitan(state);
+  // Weighed as if the Kikiwiwi had already left the rampart (it stands down first).
+  const free = titan?.job.kind === 'guard' ? idleTitan(state, titan) : state;
   const pool = [...(titan ? [titan] : []), ...fighters(state)];
-  for (let n = Math.min(pool.length, maxCrew(state, pad, 'final')); n >= EXPEDITIONS.minCrew; n--) {
+  for (let n = Math.min(pool.length, maxCrew(free, pad, 'final')); n >= EXPEDITIONS.minCrew; n--) {
     const crew = pool.slice(0, n).map((v) => v.id);
     const plan: ExpeditionPlan = {
       launchpadId: pad.id,
@@ -245,10 +257,10 @@ function finalAssault(
       provisions: { pulp: 0, juice: 0 },
       mission: 'final',
     };
-    const dry = forecastExpedition(state, plan);
+    const dry = forecastExpedition(free, plan);
     if (!dry?.final) return null;
-    const f = forecastExpedition(state, { ...plan, provisions: provisionsFor(dry) })!;
-    if (f.weight > f.cargo || f.returnWeight > f.cargo) continue;
+    const f = forecastExpedition(free, { ...plan, provisions: provisionsFor(dry) })!;
+    if (f.crew.length !== n || f.weight > f.cargo || f.returnWeight > f.cargo) continue;
     if (!worthIt(f.final!)) return null;
     if (titan && titan.job.kind === 'guard' && crew.includes(titan.id))
       return standDown(state, titan);
