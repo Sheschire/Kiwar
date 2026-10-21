@@ -788,6 +788,7 @@ export const fr: Dict = {
     foodRanOut: 'Plus de : {list}. Les kiwis ont eu faim.',
     starved: 'Victimes de la famine : {names}.',
     waves: 'Vagues de prédateurs : {won} repoussée(s), {lost} perdue(s).',
+    counters: 'Contre-attaques sur les têtes de pont : {held} tenue(s), {fell} tombée(s).',
     meteors: 'Météorites tombées : {count}.',
     comets: 'Comète passée : {count}.',
     stardust: 'Poussière d’étoiles ramassée : {count}.',

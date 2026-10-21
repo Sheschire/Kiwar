@@ -83,6 +83,8 @@ export interface OfflineSummary {
   starved: string[];
   /** Chantier 06: predator waves (repelled / lost), meteorites and small incidents. */
   waves: { won: number; lost: number };
+  /** Chantier 19: counter-attacks on the bridgeheads (held / fell). */
+  counters: { held: number; fell: number };
   meteors: number;
   comets: number;
   stardust: number;
@@ -1093,6 +1095,10 @@ function summarize(
     waves: {
       won: events.filter((e) => e.type === 'waveStruck' && e.victory).length,
       lost: events.filter((e) => e.type === 'waveStruck' && !e.victory).length,
+    },
+    counters: {
+      held: events.filter((e) => e.type === 'counterStruck' && e.victory).length,
+      fell: events.filter((e) => e.type === 'counterStruck' && !e.victory).length,
     },
     meteors: events.filter((e) => e.type === 'meteorLanded').length,
     comets: events.filter((e) => e.type === 'cometPassed').length,

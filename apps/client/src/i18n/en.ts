@@ -752,6 +752,7 @@ export const en = {
     foodRanOut: 'Ran out of: {list}. Your kiwis went hungry.',
     starved: 'Starved to death: {names}.',
     waves: 'Predator waves: {won} repelled, {lost} lost.',
+    counters: 'Counter-attacks on the bridgeheads: {held} held, {fell} fell.',
     meteors: 'Meteorites fell: {count}.',
     comets: 'A comet passed: {count}.',
     stardust: 'Stardust picked: {count}.',

@@ -1,6 +1,7 @@
 import {
   AGE_IDS,
   otherFace,
+  twinTarget,
   RESOURCE_IDS,
   type GameEvent,
   type MissionKind,
@@ -32,15 +33,36 @@ function nameOf(owner: string): string {
 }
 
 /** Chantier 19: a siege fight seen live (not an offline catch-up) gets its short show. */
-function showSiege(e: GameEvent): void {
+function showSiege(e: GameEvent, renderer: GameRenderer): void {
   if (Math.abs(uiStore.getState().now - e.at) > 20_000) return;
   let kind: SiegeShowKind | null = null;
-  if (e.type === 'counterStruck') kind = e.victory ? 'held' : 'fell';
-  else if (e.type === 'expeditionArrived' && !e.broken && e.mission === 'assault')
+  let sector: number | null = null;
+  if (e.type === 'counterStruck') {
+    kind = e.victory ? 'held' : 'fell';
+    sector = e.sector;
+  } else if (e.type === 'expeditionArrived' && !e.broken && e.mission === 'assault') {
     kind = e.victory ? 'taken' : 'repelled';
-  else if (e.type === 'expeditionArrived' && !e.broken && e.mission === 'final')
+    sector = expeditionSector(e.expeditionId);
+  } else if (e.type === 'expeditionArrived' && !e.broken && e.mission === 'final') {
     kind = e.victory ? 'queen' : 'queenHeld';
-  if (kind) uiStore.setState({ siegeShow: { kind, id: ++showId } });
+    sector = queenSector();
+  }
+  if (!kind) return;
+  // Chantier 19: from home the fight plays in 3D, the card shrinks to a caption.
+  const in3d = renderer.playSiege(kind, sector);
+  uiStore.setState({ siegeShow: { kind, id: ++showId, sector, in3d } });
+}
+
+function expeditionSector(id: string): number | null {
+  return uiStore.getState().game?.expeditions.find((x) => x.id === id)?.sector ?? null;
+}
+
+/** Where the queen's lair is, as far as our scouts know (the middle when unknown). */
+function queenSector(): number | null {
+  const game = uiStore.getState().game;
+  if (!game) return null;
+  const twin = twinTarget(game);
+  return (twin && game.intel[twin.id]?.siege?.queen?.sector) ?? null;
 }
 
 /** Turns simulation events into toasts and visual effects. */
@@ -48,7 +70,7 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
   renderer.onGameEvents(events);
   playGameEventSounds(events);
   for (const e of events) {
-    showSiege(e);
+    showSiege(e, renderer);
     switch (e.type) {
       case 'constructionComplete':
         if (e.level === 1)

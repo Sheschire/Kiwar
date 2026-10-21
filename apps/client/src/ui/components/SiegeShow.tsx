@@ -2,11 +2,14 @@ import { useEffect } from 'preact/hooks';
 import { uiStore, useT, useUi } from '../store';
 
 const SHOW_MS = 4200;
+/** The 3D show from home lasts longer (`SIEGE_FX_SECONDS`): the caption stays with it. */
+const SHOW_3D_MS = 6500;
 
 /**
- * Chantier 19: a short show over the scene when a siege fight is seen live — a flag planted or
- * torn down on the twin, the queen's crown falling and the fog lifting. Kept simple and 2D: the
- * twin's place in space belongs to chantier 24, the 3D staging will plug in later.
+ * Chantier 19: a short show when a siege fight is seen live — a flag planted or torn down on
+ * the twin, the queen's crown falling and the fog lifting. From home it plays in 3D
+ * (`GameRenderer.playSiege`) and this card shrinks to a caption at the top; while visiting a
+ * planet it is the whole show.
  */
 export function SiegeShow() {
   const t = useT();
@@ -14,9 +17,12 @@ export function SiegeShow() {
   useEffect(() => {
     if (!show) return;
     const id = show.id;
-    const timer = window.setTimeout(() => {
-      if (uiStore.getState().siegeShow?.id === id) uiStore.setState({ siegeShow: null });
-    }, SHOW_MS);
+    const timer = window.setTimeout(
+      () => {
+        if (uiStore.getState().siegeShow?.id === id) uiStore.setState({ siegeShow: null });
+      },
+      show.in3d ? SHOW_3D_MS : SHOW_MS,
+    );
     return () => window.clearTimeout(timer);
   }, [show?.id]);
   if (!show) return null;
@@ -25,7 +31,7 @@ export function SiegeShow() {
   const queen = k === 'queen' || k === 'queenHeld';
   return (
     <div
-      class={`siege-show pe is-${k} ${good ? 'is-good' : 'is-bad'}`}
+      class={`siege-show pe is-${k} ${good ? 'is-good' : 'is-bad'} ${show.in3d ? 'is-3d' : ''}`}
       role="status"
       onClick={() => uiStore.setState({ siegeShow: null })}
     >

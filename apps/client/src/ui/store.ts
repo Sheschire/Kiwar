@@ -104,7 +104,8 @@ export interface UiState {
   deliverTo: string | null;
   /** Chantier 19: the siege mission the expedition planner is set to (null: free choice). */
   siegePlan: SiegePlan | null;
-  siegeShow: { kind: SiegeShowKind; id: number } | null;
+  /** Chantier 19: a siege fight seen live (`sector`: where; `in3d`: played in the scene). */
+  siegeShow: { kind: SiegeShowKind; id: number; sector: number | null; in3d?: boolean } | null;
   /** Expedition whose report is shown. */
   reportId: string | null;
   /** Building waiting for demolition confirmation. */

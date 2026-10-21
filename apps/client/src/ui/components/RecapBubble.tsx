@@ -18,7 +18,10 @@ export function RecapBubble() {
   const short = !!summary && summary.awayMs < RECAP_MODAL_MS && !open;
   const alarming =
     !!summary &&
-    (summary.waves.lost > 0 || summary.starved.length > 0 || summary.foodRanOut.length > 0);
+    (summary.waves.lost > 0 ||
+      summary.counters.fell > 0 ||
+      summary.starved.length > 0 ||
+      summary.foodRanOut.length > 0);
   useEffect(() => {
     if (!short || hover || alarming) return;
     const timer = window.setTimeout(
@@ -57,6 +60,11 @@ export function RecapBubble() {
       )}
       {summary.completed.length > 0 && (
         <p class="small">{t('offline.shortCompleted', { count: summary.completed.length })}</p>
+      )}
+      {summary.counters.held + summary.counters.fell > 0 && (
+        <p class={`small ${summary.counters.fell > 0 ? 'warn' : ''}`}>
+          {t('offline.counters', summary.counters)}
+        </p>
       )}
       {summary.waves.won + summary.waves.lost > 0 && (
         <p class={`small ${summary.waves.lost > 0 ? 'warn' : ''}`}>

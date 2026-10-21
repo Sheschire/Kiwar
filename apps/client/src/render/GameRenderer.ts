@@ -77,6 +77,7 @@ import { SECTOR_COLORS } from './sectors';
 import { efficiencyGlow, LogisticsBadges, type PercentBadge } from './logisticsBadges';
 import { WaterView } from './water';
 import { TwinView, type TwinOptions } from './twin';
+import { SIEGE_FX_SECONDS, SiegeFx, type SiegeFxKind } from './siegeFx';
 import { AlliesView } from './allies';
 import { twinPlace, type PlanetRef } from './space';
 import { IntroScene, type IntroHandlers, type IntroLayout } from './intro';
@@ -163,6 +164,10 @@ export class GameRenderer {
   private water: WaterView | null = null;
   private twin: TwinView | null = null;
   private readonly allies = new AlliesView();
+  /** Chantier 19: the 3D staging of a siege fight seen from home. */
+  private readonly siegeFx = new SiegeFx();
+  /** Camera distance before a siege show zoomed out (restored after it). */
+  private siegeZoom: number | null = null;
   /** Ally planet the camera visits (null: at home). */
   private visiting: PlanetRef | null = null;
   private homeView: { position: Vector3; target: Vector3 } | null = null;
@@ -244,6 +249,7 @@ export class GameRenderer {
       this.lighting.group,
       this.selection.group,
       this.allies.group,
+      this.siegeFx.group,
       this.logistics.group,
       this.ghost.group,
     );
@@ -371,6 +377,7 @@ export class GameRenderer {
     if (this.map) this.rebuildProps();
     this.buildings?.setAnimated(q.buildingAnimations, q.particles);
     this.environment.setLite(preset === 'low');
+    this.siegeFx.setLite(preset === 'low');
     this.lighting.setRim(preset !== 'low');
     windUniforms.uWindAmount.value = preset === 'low' ? 0 : 1;
     this.weather?.setDensity(q.particles ? 1 : 0.35);
@@ -490,6 +497,26 @@ export class GameRenderer {
   setTwinApproach(approach: number): void {
     this.twinApproachTarget = Math.min(1, Math.max(0, approach));
   }
+
+  /**
+   * Chantier 19: plays a siege fight in 3D from home — the camera rises towards space, the
+   * twin comes closer, the fight, then everything goes back. False when it cannot be seen
+   * (visiting a planet, no twin): the 2D caption is then the whole show.
+   */
+  playSiege(kind: SiegeFxKind, sector: number | null): boolean {
+    if (!this.twin || this.visiting !== null) return false;
+    this.siegeFx.play(kind, sector);
+    this.setTwinApproach(1);
+    if (this.siegeZoom === null) {
+      this.siegeZoom = this.rig.controls.distance;
+      void this.rig.controls.dollyTo(Math.max(this.siegeZoom, this.rig.frameDistance * 2.4), true);
+    }
+    this.wake();
+    return true;
+  }
+
+  /** Seconds a 3D siege show lasts. */
+  readonly siegeSeconds = SIEGE_FX_SECONDS;
 
   /** The other players' colonies, far away (shared universes). */
   setAllies(allies: AllySnapshot[], myKiwi: number): void {
@@ -1220,6 +1247,7 @@ export class GameRenderer {
       this.waves?.active ||
       this.predators?.playing ||
       this.pendingShow ||
+      this.siegeFx.playing ||
       this.twinApproach !== this.twinApproachTarget
     )
       this.idle.wake(time);
@@ -1339,6 +1367,17 @@ export class GameRenderer {
     }
     this.allies.update(dt, this.elapsed, this.camera.position);
     this.twin?.update(dt, this.elapsed, this.camera.position, this.visiting === 'twin');
+    if (this.siegeFx.playing) {
+      this.siegeFx.update(dt, this.twin);
+      // The fight is over: the twin goes back to its place and the camera to the player's zoom.
+      if (this.siegeFx.retreating || !this.siegeFx.playing) {
+        this.setTwinApproach(0);
+        if (this.siegeZoom !== null) {
+          void this.rig.controls.dollyTo(this.siegeZoom, true);
+          this.siegeZoom = null;
+        }
+      }
+    }
     // The haze follows the zoom, so zooming out does not drown the colony in it.
     const fog = this.scene.fog as Fog;
     fog.near = Math.max(90, this.rig.controls.distance + 25);

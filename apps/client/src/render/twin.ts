@@ -98,7 +98,10 @@ export class TwinView {
   private structureGeometries: BufferGeometry[] = [];
   private structureMaterials: MeshStandardMaterial[] = [];
 
-  constructor(map: FaceMap, opts: TwinOptions) {
+  constructor(
+    private readonly map: FaceMap,
+    opts: TwinOptions,
+  ) {
     this.terrain = new TerrainView(map);
     this.terrain.tiles.castShadow = false;
     this.terrain.tiles.receiveShadow = false;
@@ -206,6 +209,21 @@ export class TwinView {
     }
     this.spin.rotation.y = this.angle;
     this.fogMaterial.uniforms.uTime!.value = time;
+  }
+
+  /** Chantier 19 (siege show): the middle of the planet, in world space. */
+  worldCenter(out: Vector3): Vector3 {
+    this.spin.updateWorldMatrix(true, false);
+    return this.spin.localToWorld(out.set(0, 0, 0));
+  }
+
+  /** Chantier 19 (siege show): the middle of a sector (null: the middle), in world space. */
+  sectorWorld(sector: number | null, out: Vector3): Vector3 {
+    const tile = sector === null ? undefined : sectorMiddle(this.map, sector);
+    if (!tile) return this.worldCenter(out);
+    const p = worldPosition(tile);
+    this.spin.updateWorldMatrix(true, false);
+    return this.spin.localToWorld(out.set(p.x, tile.height, p.z));
   }
 
   private setNear(near: boolean): void {
@@ -397,11 +415,11 @@ function nameLabel(name: string, fill = 'rgba(246, 234, 208, 0.92)', stroke = '#
   return new Sprite(new SpriteMaterial({ map: texture, fog: false, depthTest: false }));
 }
 
-/** The land tile of an outer sector nearest to the middle of its slice (chantier 19). */
+/** The land tile of a sector nearest to the middle of its slice and ring (chantier 19). */
 function sectorMiddle(map: FaceMap, sector: number): Tile | undefined {
   const slice = sector % (INTEL.sectors / 2);
   const a = ((slice + 0.5) * Math.PI) / 3;
-  const r = 14;
+  const r = sector >= INTEL.sectors / 2 ? 14 : 5;
   const x = r * Math.cos(a);
   const y = r * Math.sin(a);
   let best: Tile | undefined;
