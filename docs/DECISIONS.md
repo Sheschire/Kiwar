@@ -1093,6 +1093,20 @@ PC), while phones are very smooth. Measured with Playwright/CDP on the `perfSave
   of PBR was measured: no gain, not done. MSAA and the 1.25 ratio kept (owner's earlier
   choice).
 
+## Slow frames on the wrong graphics chip (hotfix, October 2026)
+
+A friend's gaming PC ran at 13 fps: JS 2.8 ms per frame, renderer `ANGLE (Intel HD Graphics)`,
+preset High picked by hand, 2868×1464 px. A web page cannot choose the GPU: it can only ask
+(`powerPreference: 'high-performance'`, already set), and Chrome/Edge on Windows dual-GPU
+laptops often stay on the integrated chip (installed games are routed by the NVIDIA/AMD driver
+profiles, or export `NvOptimusEnablement`, which a page cannot). So the game says it:
+`slowFramesTip` (`render/quality.ts`) — an integrated Intel chip under 30 fps for 10 s → the
+Windows setting (Display → Graphics → the browser → High performance); a hand-picked preset
+above Low under 20 fps → "Switch to Auto". `GameRenderer.watchFrames` reports a lasting low
+rate (full rhythm only, not the idle one), `GpuTip` shows it once per kind (dismissal kept);
+the debug panel marks an integrated chip. A packaged desktop app (Electron/Tauri can force the
+discrete GPU) stays an idea for later.
+
 ## Chantier 18 — Complete balance bot: paths, camps, expeditions
 
 - **Owner's answers**: an occasional player (three visits a day after the first hours) should
@@ -1436,7 +1450,7 @@ tutorial check: the "Put 4 kiwis to work" hint now says to upgrade the Pulpery (
 clearer hint over changing the objective).
 
 - **When**: `ui/layout.ts` `THUMB_QUERY` = `(max-width: 760px), (max-height: 520px),
-  (pointer: coarse) and (max-width: 1500px)`; `useThumbLayout()` follows rotations; the HUD
+(pointer: coarse) and (max-width: 1500px)`; `useThumbLayout()` follows rotations; the HUD
   gets `.thumb`. Phones always match, so the old phone offsets of the round buttons, the egg
   and the panels were removed instead of overridden.
 - **Bar** (`MobileNav.tsx` `ThumbBar`): five slots, the egg raised in the middle
@@ -1550,6 +1564,7 @@ tile looks cultivated as soon as its building is placed (whole zone).
   | hidden (flag)  | 60 → 0                        | 76 → 51                         |
 
   On a 144 Hz screen the old loop drew 144 frames a second: now 60, then 30 and 20 at rest.
+
 - `?debug` shows the aimed rate, "(idle)" and the share of display frames drawn.
 
 ### Part 2 — Continuous light, golden dawn and dusk

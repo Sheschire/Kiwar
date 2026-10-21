@@ -772,6 +772,7 @@ export const en = {
     tick: 'Tick (5/s): sim {advance} · 3D {scene} · interface {ui} ms · worst {worst} ms',
     longTasks: 'Long tasks: {count}/s · {ms} ms/s',
     pixels: '{w}×{h} px (×{dpr}) · {gpu}',
+    integrated: 'integrated chip',
     pace: 'Aim {target} fps{idle} · {drawn} % of the display frames drawn',
     paceUnlimited: 'No cap{idle} · {drawn} % of the display frames drawn',
     paceIdle: ' (idle)',
@@ -780,6 +781,11 @@ export const en = {
     seed: 'Seed: {seed}',
     serverClock: 'Online: the server owns the clock (no time speed-up).',
     shortcut: 'Toggle with the ` key',
+  },
+  gpuTip: {
+    gpu: 'The game runs on this PC’s Intel graphics chip, which struggles. If it has an NVIDIA or AMD card: Windows Settings → System → Display → Graphics → your browser → Options → High performance, then restart the browser.',
+    auto: 'This graphics setting is too heavy for this device. Auto quality adapts by itself.',
+    useAuto: 'Switch to Auto',
   },
   account: {
     title: 'Account',

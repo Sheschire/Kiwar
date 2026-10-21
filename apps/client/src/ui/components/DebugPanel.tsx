@@ -4,6 +4,7 @@ import { actions } from '../actions';
 import { CloseIcon } from '../icons';
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { usePerf } from '../perfProbe';
+import { isIntegratedGpu } from '../../render/quality';
 
 const SCALES = [1, 10, 100];
 
@@ -117,7 +118,7 @@ function PerfLines({ t }: { t: Translate }) {
               w: frame.width,
               h: frame.height,
               dpr: round(frame.dpr, 2),
-              gpu: gpu || '?',
+              gpu: gpu ? (isIntegratedGpu(gpu) ? `${gpu} (${t('debug.integrated')})` : gpu) : '?',
             })}
           </span>
           <span class="muted">

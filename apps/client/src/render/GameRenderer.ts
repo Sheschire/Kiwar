@@ -107,6 +107,8 @@ export interface RendererCallbacks {
   /** Detailed frame timing, twice a second (debug panel). */
   onStats?(stats: FrameStats): void;
   onQualityChange?(preset: QualityPreset): void;
+  /** Average frame rate over the last seconds, every 10 s while drawing at full rhythm. */
+  onSlowFrames?(fps: number): void;
   /** A kiwi was tapped (it speaks instead of selecting its tile). */
   onKiwiTap?(id: string, pos: { x: number; z: number }): void;
   /** The player moved the camera while it was following a kiwi (or the kiwi left the map). */
@@ -1257,6 +1259,21 @@ export class GameRenderer {
       this.reportStats();
     }
     this.adaptQuality(dt);
+    this.watchFrames(dt);
+  }
+
+  private framesTimer = 0;
+
+  /** Reports a lasting low frame rate (the interface may advise the player). */
+  private watchFrames(dt: number): void {
+    this.framesTimer += dt;
+    if (this.framesTimer < 10) return;
+    this.framesTimer = 0;
+    // An idle, slowed-down rhythm is not a slow device.
+    if (document.hidden || this.fpsMeter.sampleCount < 8 || this.drawTarget !== this.fpsCap) return;
+    const fps = this.fpsMeter.slowAverage;
+    const slow = this.drawTarget > 0 ? Math.min(30, this.drawTarget * 0.67) : 30;
+    if (fps < slow) this.callbacks.onSlowFrames?.(fps);
   }
 
   private reportStats(): void {

@@ -12,6 +12,7 @@ import { ObjectivesPanel } from './components/ObjectivesPanel';
 import { QueuePanel } from './components/QueuePanel';
 import { SaveNudge } from './components/SaveNudge';
 import { AuthErrorBanner, GuestTransferModal } from './components/AccountNotices';
+import { GpuTip } from './components/GpuTip';
 import { TilePanel } from './components/TilePanel';
 import { OfflineModal } from './components/OfflineModal';
 import { PathButton, PathToolbar } from './components/PathTools';
@@ -180,6 +181,7 @@ export function App() {
           <ExpeditionsPanel />
           <SaveNudge />
           <AuthErrorBanner />
+          <GpuTip />
         </>
       )}
       <RecapBubble />

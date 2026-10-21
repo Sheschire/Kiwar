@@ -162,6 +162,21 @@ export function isIntegratedGpu(gpu: string): boolean {
   return /intel/.test(g) && !/iris(\(r\))? xe|\barc\b/.test(g);
 }
 
+/**
+ * Advice when frames stay slow: `gpu` — the browser draws on an integrated Intel chip (a PC
+ * with a gaming card may be using the wrong one: a Windows setting); `auto` — a preset chosen
+ * by hand is too heavy for this device. Null: nothing to say.
+ */
+export function slowFramesTip(
+  gpu: string,
+  fps: number,
+  choice: QualityChoice,
+): 'gpu' | 'auto' | null {
+  if (isIntegratedGpu(gpu) && fps < 30) return 'gpu';
+  if (choice !== 'auto' && choice !== 'low' && fps < 20) return 'auto';
+  return null;
+}
+
 /** Pixel ratio for a canvas of `cssWidth` × `cssHeight` CSS pixels. */
 export function pixelRatioFor(
   q: QualitySettings,

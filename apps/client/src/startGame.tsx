@@ -23,10 +23,11 @@ import { GameRenderer } from './render/GameRenderer';
 import { GameController } from './game/GameController';
 import { persistLang } from './i18n/i18n';
 import { pushToast, uiStore } from './ui/store';
+import { gpuTipDismissed } from './ui/components/GpuTip';
 import { actions, bindActions } from './ui/actions';
 import { bindIntro, introSeen, startIntro } from './ui/intro';
 import { clearUrlParams, randomSeed, readUrlParams } from './game/urlParams';
-import { gpuRendererName, loadQualityChoice } from './render/quality';
+import { gpuRendererName, loadQualityChoice, slowFramesTip } from './render/quality';
 import { loadFpsCap } from './render/frameLimiter';
 import { installPerfProbe, perfStore, recordTick } from './ui/perfProbe';
 import { viewStore } from './ui/viewStore';
@@ -67,6 +68,10 @@ const renderer = new GameRenderer(
     onAzimuth: (azimuth) => viewStore.setState({ azimuth }),
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
     onPlanetTap: (planet) => actions.showPlanetCard(planet),
+    onSlowFrames: (fps) => {
+      const tip = slowFramesTip(gpuRendererName(), fps, uiStore.getState().qualityChoice);
+      if (tip && !gpuTipDismissed(tip)) uiStore.setState({ gpuTip: tip });
+    },
     onPlanetHover: (planet, x, y) =>
       viewStore.setState({ planetHover: planet === null ? null : { planet, x, y } }),
     onKiwiTap: (id, pos) => {

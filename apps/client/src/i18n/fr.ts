@@ -808,6 +808,7 @@ export const fr: Dict = {
     tick: 'Tick (5/s) : simulation {advance} · 3D {scene} · interface {ui} ms · pire {worst} ms',
     longTasks: 'Tâches longues : {count}/s · {ms} ms/s',
     pixels: '{w}×{h} px (×{dpr}) · {gpu}',
+    integrated: 'puce intégrée',
     pace: 'Visée {target} ips{idle} · {drawn} % des images de l’écran dessinées',
     paceUnlimited: 'Sans limite{idle} · {drawn} % des images de l’écran dessinées',
     paceIdle: ' (au repos)',
@@ -816,6 +817,11 @@ export const fr: Dict = {
     seed: 'Seed : {seed}',
     serverClock: 'En ligne : le serveur maîtrise l’horloge (pas d’accélération).',
     shortcut: 'Ouvrir/fermer avec la touche `',
+  },
+  gpuTip: {
+    gpu: 'Le jeu tourne sur la puce graphique Intel de ce PC, qui peine. S’il a une carte NVIDIA ou AMD : Paramètres Windows → Système → Écran → Graphiques → votre navigateur → Options → Hautes performances, puis relancez le navigateur.',
+    auto: 'Ce réglage graphique est trop lourd pour cet appareil. La qualité Auto s’adapte toute seule.',
+    useAuto: 'Passer en Auto',
   },
   account: {
     title: 'Compte',

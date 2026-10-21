@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isIntegratedGpu, pixelRatioFor, QUALITY } from '../src/render/quality';
+import { isIntegratedGpu, pixelRatioFor, QUALITY, slowFramesTip } from '../src/render/quality';
 
 describe('pixelRatioFor', () => {
   it('keeps phones at their preset ratio', () => {
@@ -24,5 +24,20 @@ describe('pixelRatioFor', () => {
     expect(isIntegratedGpu('ANGLE (Intel Inc., Intel(R) Iris(TM) Pro Graphics 6200)')).toBe(true);
     expect(isIntegratedGpu('Intel(R) Iris(R) Xe Graphics')).toBe(false);
     expect(isIntegratedGpu('NVIDIA GeForce RTX 3070')).toBe(false);
+  });
+});
+
+describe('slow frames tip', () => {
+  const intel = 'ANGLE (Intel, Intel(R) HD Graphics Direct3D11 vs_5_0 ps_5_0)';
+  const nvidia = 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0)';
+  it('points at the Intel chip of a PC that may have a gaming card', () => {
+    expect(slowFramesTip(intel, 13, 'high')).toBe('gpu');
+    expect(slowFramesTip(intel, 45, 'high')).toBeNull();
+  });
+  it('suggests Auto when a hand-picked preset is too heavy', () => {
+    expect(slowFramesTip(nvidia, 15, 'high')).toBe('auto');
+    expect(slowFramesTip(nvidia, 15, 'auto')).toBeNull();
+    expect(slowFramesTip(nvidia, 15, 'low')).toBeNull();
+    expect(slowFramesTip(nvidia, 25, 'high')).toBeNull();
   });
 });

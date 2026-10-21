@@ -88,6 +88,8 @@ export interface UiState {
   toasts: Toast[];
   sync: SyncStatus;
   account: Account | null;
+  /** Lasting slow frames: advice for the player (`slowFramesTip`), until dismissed. */
+  gpuTip: 'gpu' | 'auto' | null;
   /** Auth error sent back by a redirect (Google, magic link), until dismissed. */
   authError: AuthRedirectError | null;
   /** The guest colony may follow into this account: the player picks one. */
@@ -228,6 +230,7 @@ export const uiStore = createStore<UiState>(() => ({
   toasts: [],
   sync: 'local',
   account: null,
+  gpuTip: null,
   authError: null,
   guestTransfer: null,
   expeditionPad: null,
