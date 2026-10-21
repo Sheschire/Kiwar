@@ -13,6 +13,7 @@ import {
   Vector3,
 } from 'three';
 import { withSeasonLook } from './seasonLook';
+import { withWind } from './wind';
 import { createRng, hexKey, type FaceMap, type HexKey, type Rng, type Tile } from '@kiwar/shared';
 import { DOME_TOP, domeRadius, worldPosition } from './terrain';
 
@@ -140,6 +141,11 @@ export class PropsView {
     withSeasonLook(blade.material, { tint: 1, snow: 0.6 });
     for (const b of [tuftStem, seed, pulp, pebble, fur])
       withSeasonLook(b.material, { tint: 0.3, snow: 0.8 });
+    // Chantier 23: a breeze (the puff follows the top of its stem: same sway at the same height).
+    withWind(tuftStem.material, 0.045);
+    withWind(tuftPuff.material, 0.045);
+    withWind(blade.material, 0.5);
+    withWind(fur.material, 0.12);
 
     const count = (n: number) => {
       const scaled = n * density;

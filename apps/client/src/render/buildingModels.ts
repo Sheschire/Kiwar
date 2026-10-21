@@ -8,7 +8,9 @@ import {
   Float32BufferAttribute,
   IcosahedronGeometry,
   Matrix4,
+  Mesh,
   Quaternion,
+  Raycaster,
   SphereGeometry,
   TorusGeometry,
   Vector3,
@@ -119,7 +121,13 @@ interface EmitterDef {
 }
 
 /** Parts plus the rigs, particle emitters and sign (chantier 17) they declare. */
-type Parts = Part[] & { rigs?: RigDef[]; emitters?: EmitterDef[]; sign?: Vector3 };
+type Parts = Part[] & {
+  rigs?: RigDef[];
+  emitters?: EmitterDef[];
+  sign?: Vector3;
+  /** The door parts, marked before the age recolours them (chantier 23: night lights). */
+  doors?: Part[];
+};
 
 function rig(p: Parts, name: string, pivot: [number, number, number], motion: RigMotion): void {
   (p.rigs ??= []).push({ name, pivot: new Vector3(...pivot), motion });
@@ -158,6 +166,11 @@ export interface BuildingModel {
   height: number;
   /** Where the sign with the building's icon hangs (local space, scaled), if it has one. */
   sign: Vector3 | null;
+  /**
+   * Chantier 23: night lights, in local space (scaled), as matrices of a unit plane facing +z:
+   * a warm pane over each door, and small windows on the wall beside it.
+   */
+  lights: { doors: Matrix4[]; windows: Matrix4[] };
 }
 
 /** Models are authored for a unit tile; this makes them read better from the default zoom. */
@@ -1195,6 +1208,7 @@ function partsOf(type: BuildingType, level: number, shipAway: boolean, age: numb
     type === 'launchpad' && shipAway
       ? launchpad(lvl, age, false)
       : BUILDERS[type](type === 'library' ? level : lvl, age);
+  p.doors = p.filter((part) => part[1] === C.door && !part[3]);
   if (type !== 'camp') signPost(p, type);
   if (level > 3) grow(p, level);
   if (type !== 'camp' && type !== 'monument') dress(p, type, age);
@@ -1405,7 +1419,8 @@ function modelOf(parts: Parts): BuildingModel {
     ambient: e.ambient ?? false,
   }));
   const sign = parts.sign ? parts.sign.clone().multiplyScalar(MODEL_SCALE) : null;
-  return { geometry, rigs, emitters, height, sign };
+  const lights = lightSpots(parts.doors ?? [], geometry);
+  return { geometry, rigs, emitters, height, sign, lights };
 }
 
 /** Wooden scaffolding around a construction site. */
@@ -1444,4 +1459,66 @@ export function stakeGeometry(): BufferGeometry {
     cache.set('stake', g);
   }
   return g;
+}
+
+const FORWARD = new Vector3(0, 0, 1);
+const raycaster = new Raycaster();
+
+/**
+ * Chantier 23: where a building glows at night, found from its doors (every model has one).
+ * The door pane lights the doorway; a window is tried on each side of the door and kept only
+ * where a ray finds the wall right behind it (no window floating beside a narrow front).
+ */
+function lightSpots(doorParts: Part[], geometry: BufferGeometry): BuildingModel['lights'] {
+  const doors: Matrix4[] = [];
+  const windows: Matrix4[] = [];
+  const mesh = new Mesh(geometry);
+  const pos = new Vector3();
+  const quat = new Quaternion();
+  const size = new Vector3();
+  const scale = new Matrix4().makeScale(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
+  for (const [, , matrix] of doorParts) {
+    matrix.decompose(pos, quat, size);
+    // The thin side of the door box is its facing; it faces away from the building's middle.
+    const thinX = Math.abs(size.x) < Math.abs(size.z);
+    const normal = new Vector3(thinX ? 1 : 0, 0, thinX ? 0 : 1).applyQuaternion(quat);
+    normal.y = 0;
+    if (normal.lengthSq() < 0.01) continue;
+    normal.normalize();
+    if (normal.x * pos.x + normal.z * pos.z < 0) normal.negate();
+    const width = Math.abs(thinX ? size.z : size.x);
+    const height = Math.abs(size.y);
+    const thick = Math.abs(thinX ? size.x : size.z);
+    const facing = new Quaternion().setFromUnitVectors(FORWARD, normal);
+    const at = pos.clone().addScaledVector(normal, thick / 2 + 0.006);
+    doors.push(
+      new Matrix4()
+        .compose(at, facing, new Vector3(width * 0.62, height * 0.7, 1))
+        .premultiply(scale),
+    );
+    // Windows: either side of the door, a little higher than its middle.
+    const side = new Vector3().crossVectors(new Vector3(0, 1, 0), normal);
+    const w = Math.min(0.085, Math.max(0.05, width * 0.5));
+    for (const k of [-1, 1]) {
+      const spot = pos
+        .clone()
+        .addScaledVector(side, k * (width / 2 + w * 0.9 + 0.03))
+        .setY(pos.y + height * 0.12);
+      const origin = spot.clone().addScaledVector(normal, 0.18).multiplyScalar(MODEL_SCALE);
+      raycaster.set(origin, normal.clone().negate());
+      raycaster.far = 0.36 * MODEL_SCALE;
+      const hit = raycaster.intersectObject(mesh, false)[0];
+      // The wall must be there and face the same way (not a roof or a post).
+      if (!hit?.face || hit.face.normal.dot(normal) < 0.7) continue;
+      const wall = hit.point.clone().addScaledVector(normal, 0.008);
+      windows.push(
+        new Matrix4().compose(
+          wall,
+          facing,
+          new Vector3(w * MODEL_SCALE, w * 1.15 * MODEL_SCALE, 1),
+        ),
+      );
+    }
+  }
+  return { doors, windows };
 }

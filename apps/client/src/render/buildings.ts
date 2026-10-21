@@ -29,6 +29,8 @@ import { worldPosition } from './terrain';
 import { WATER_LEVEL } from './water';
 import { LevelBadges } from './levelBadges';
 import { SignsView, type SignSpot } from './signs';
+import { WindowsView, type WindowSpots } from './windows';
+import { bedsOf } from '../game/perState';
 
 const SPARKS = 18;
 const DUST = 26;
@@ -84,6 +86,11 @@ export class BuildingsView {
   readonly badges = new LevelBadges();
   /** Chantier 17: the round sign with its icon by each building (one instanced mesh). */
   readonly signs = new SignsView();
+  /** Chantier 23: doorways and windows lit at night where kiwis sleep or work. */
+  readonly windows = new WindowsView();
+  /** Buildings with someone home or at work (their windows light up at night). */
+  lit: ReadonlySet<string> = new Set();
+  private litSig = '';
   private readonly sites = new Map<string, Group>();
   private signature = '';
   private pops: Pop[] = [];
@@ -129,6 +136,7 @@ export class BuildingsView {
     this.group.add(this.life.particles.mesh);
     this.group.add(this.badges.group);
     this.group.add(this.signs.mesh);
+    this.group.add(this.windows.group);
   }
 
   /** Ground height for a building on this tile (wells stand in the juice). */
@@ -155,9 +163,17 @@ export class BuildingsView {
       state.buildings.map((b) => `${b.id}:${b.level}:${away(b.id) ? 1 : 0}`).join(',') +
       '|' +
       state.queue.map((i) => `${i.id}:${i.startedAt ?? '-'}`).join(',');
+    const lit = litBuildings(state);
+    const litSig = [...lit].join(',');
     if (sig !== this.signature) {
       this.signature = sig;
       this.syncMeshes(state, away);
+      this.litSig = '';
+    }
+    if (litSig !== this.litSig) {
+      this.litSig = litSig;
+      this.lit = lit;
+      this.syncWindows();
     }
     this.badges.sync(state, (id) => this.anchorOf(id));
   }
@@ -235,6 +251,7 @@ export class BuildingsView {
       q: b.q,
       r: b.r,
       height: model.height,
+      lights: model.lights,
     };
     const mesh = new Mesh(model.geometry, this.material);
     // Shadows are static: only the static part casts one.
@@ -247,6 +264,22 @@ export class BuildingsView {
     this.meshes.set(b.id, g);
     this.group.add(g);
     return g;
+  }
+
+  private syncWindows(): void {
+    const spots: WindowSpots[] = [];
+    for (const [id, g] of this.meshes) {
+      const lights = g.userData.lights as WindowSpots | undefined;
+      if (!lights) continue;
+      g.updateMatrix();
+      spots.push({
+        world: g.matrix,
+        doors: lights.doors,
+        windows: lights.windows,
+        lit: this.lit.has(id),
+      });
+    }
+    this.windows.sync(spots);
   }
 
   /** Chantier 17: the signs follow the buildings (rotated with them). */
@@ -435,9 +468,21 @@ export class BuildingsView {
     this.life.dispose();
     this.badges.dispose();
     this.signs.dispose();
+    this.windows.dispose();
     this.sparks.geometry.dispose();
     this.dust.geometry.dispose();
     (this.dust.material as MeshStandardMaterial).dispose();
     (this.sparks.material as MeshBasicMaterial).dispose();
   }
+}
+
+/** Buildings where kiwis sleep (a bed) or work (a post, a class), in state order. */
+function litBuildings(state: GameState): Set<string> {
+  const ids = new Set<string>();
+  for (const bed of bedsOf(state).values()) if (bed.buildingId) ids.add(bed.buildingId);
+  for (const v of state.villagers) {
+    if (v.job.kind === 'work') ids.add(v.job.buildingId);
+    else if (v.job.kind === 'train') ids.add(v.job.schoolId);
+  }
+  return ids;
 }

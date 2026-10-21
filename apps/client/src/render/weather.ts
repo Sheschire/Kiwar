@@ -187,19 +187,25 @@ export class WeatherView {
     this.density = density;
   }
 
-  /** Windows glow at night in the Nest and the huts. */
-  sync(state: GameState): void {
-    const homes = state.buildings.filter((b) => b.type === 'nest' || b.type === 'hut');
-    const sig = homes.map((b) => `${b.q},${b.r},${b.level}`).join(';');
+  /**
+   * A soft halo at night over the buildings where kiwis sleep or work (chantier 23: an empty
+   * building stays dark; the panes themselves are `WindowsView`). Without the list (before the
+   * first sync of the buildings) the Nest and the huts glow.
+   */
+  sync(state: GameState, lit: ReadonlySet<string> | null): void {
+    const glowing = state.buildings.filter((b) =>
+      lit ? lit.has(b.id) : b.type === 'nest' || b.type === 'hut',
+    );
+    const sig = glowing.map((b) => `${b.q},${b.r},${b.level}`).join(';');
     if (sig === this.glowSig) return;
     this.glowSig = sig;
     for (const g of this.glows) this.group.remove(g);
     this.glows.length = 0;
-    for (const b of homes) {
+    for (const b of glowing) {
       const tile = getTile(this.map, b);
       const p = worldPosition(b);
       const s = new Sprite(this.glowMaterial);
-      const big = b.type === 'nest' ? 1.6 : 1;
+      const big = b.type === 'nest' ? 1.6 : b.type === 'hut' ? 1 : 0.85;
       s.position.set(p.x, (tile?.height ?? 0) + 0.7 * big, p.z);
       s.scale.setScalar(2.2 * big);
       s.renderOrder = 6;

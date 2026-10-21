@@ -1505,3 +1505,23 @@ tile looks cultivated as soon as its building is placed (whole zone).
   moments × 4 seasons in the game itself (time frozen, weather off, camera at 0.7 × the frame
   distance) and collates a grid. Medium frame in software WebGL: 404–448 ms before,
   433–460 ms after (noise level).
+
+### Part 3 — Lit windows at night, wind
+
+- **Windows from the doors** (`buildingModels.ts` `lightSpots`, `BuildingModel.lights`): every
+  model already has a door part (`C.door`, marked in `partsOf` before the age recolours it):
+  a warm pane over each door, and a small window tried on each side, kept only where a ray
+  finds the wall right behind it, facing the same way (no window floating beside a narrow
+  front). The Nest, the warehouse, the well, turrets, the launchpad and the monument have no
+  door: no panes (the Nest keeps its halo).
+- **Who is home** (owner's choice): `BuildingsView.lit` = buildings with a bed in use
+  (`bedsOf`) or a kiwi at work or in class there; rebuilt only when that set or the meshes
+  change. `render/windows.ts` `WindowsView`: two instanced meshes (lit, dark panes), lit
+  panes go from the door colour by day to a warm `#ffb661` × 2.6 (blooms) between daylight
+  0.85 and 0.35 — they come on at sunset. The soft halo sprites of `weather.ts` now follow the
+  same set (every lit building, not only homes; smaller over workplaces): the halo is what
+  reads from the default camera, the panes up close. No point light.
+- **Wind** (`render/wind.ts` `withWind`, shared `windUniforms`): grass blades, down tufts and
+  stems, fur sway in the vertex shader (h² × sway, two sines, slow gusts phased by position);
+  off in Low. A/B in the same page (software WebGL): no measurable difference.
+- Lanterns on paths: moved to part 5 (the paths are rebuilt there).

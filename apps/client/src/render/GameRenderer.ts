@@ -43,6 +43,7 @@ import { KiwisView } from './kiwis';
 import { CameraRig } from '../camera/CameraRig';
 import { Environment } from './environment';
 import { FpsMeter } from './fpsMeter';
+import { windUniforms } from './wind';
 import { DEFAULT_FPS_CAP, FrameLimiter, IdleWatch, type FpsCap } from './frameLimiter';
 import { GpuTimer } from './gpuTimer';
 import { liteShadows } from './shadowChunk';
@@ -363,6 +364,7 @@ export class GameRenderer {
     this.buildings?.setAnimated(q.buildingAnimations, q.particles);
     this.environment.setLite(preset === 'low');
     this.lighting.setRim(preset !== 'low');
+    windUniforms.uWindAmount.value = preset === 'low' ? 0 : 1;
     this.weather?.setDensity(q.particles ? 1 : 0.35);
     this.ships?.setParticles(q.particles);
     this.resize();
@@ -607,7 +609,7 @@ export class GameRenderer {
     this.comets?.sync(state);
     this.obstacles?.sync(state);
     this.ships?.sync(state);
-    this.weather?.sync(state);
+    this.weather?.sync(state, this.buildings?.lit ?? null);
     if (this.map) this.terrain?.setDepletion(depletedTiles(state, this.map));
     this.water?.setFlooded(BIOMES[state.params.biome].floods === seasonOf(state));
     this.refreshCatchment();
@@ -1210,6 +1212,7 @@ export class GameRenderer {
   /** Everything animated before the frame is drawn. */
   private updateScene(dt: number): void {
     this.updateCycles();
+    windUniforms.uWindTime.value = this.elapsed;
     this.environment.update(this.elapsed);
     this.water?.update(this.elapsed);
     this.allies.update(this.elapsed);
@@ -1283,6 +1286,9 @@ export class GameRenderer {
     (this.scene.fog as Fog).color.copy(sky.horizon);
     updateSeasonLook(c, now);
     seasonUniforms.uNight.value = 1 - sky.daylight;
+    // Lamps come on as the sun sets and go out after sunrise.
+    const dim = Math.min(1, Math.max(0, (0.85 - sky.daylight) / 0.5));
+    this.buildings?.windows.setGlow(dim * dim * (3 - 2 * dim));
     this.water?.setIce(seasonUniforms.uSnow.value);
     this.weather?.update(this.elapsed, c, sky.night);
     this.comets?.setNight(sky.night);
