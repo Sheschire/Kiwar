@@ -13,7 +13,7 @@ export interface AllyPlanet {
  * The other players of a shared universe, each on their own kiwi far away: their face floats at
  * a fixed place on the outer ring of the map of space (`allyPlace`, chantier 24; layout only,
  * as the server last reported it). Tapping one, or the
- * "visit" button, flies the camera there (`GameRenderer.visitAlly`).
+ * "visit" button, flies the camera there (`GameRenderer.travelTo`).
  */
 export class AlliesView {
   readonly group = new Group();

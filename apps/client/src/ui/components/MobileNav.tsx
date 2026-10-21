@@ -14,6 +14,7 @@ import {
   KiwiIcon,
   MenuIcon,
   PathIcon,
+  PlanetsIcon,
   ScrollIcon,
   ShieldIcon,
   SpeakerIcon,
@@ -284,6 +285,9 @@ function NavMenu() {
           </Entry>
           <Entry label={t('hud.centerCamera')} onClick={go(() => actions.focusNest())}>
             <CompassNeedle size={28} />
+          </Entry>
+          <Entry label={t('planets.title')} onClick={go(() => actions.togglePlanets(true))}>
+            <PlanetsIcon size={28} />
           </Entry>
         </Group>
         <Group title={t('nav.groups.social')}>

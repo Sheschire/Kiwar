@@ -294,6 +294,31 @@ export function GlobeIcon({ size = 22, class: cls }: IconProps) {
   );
 }
 
+/** Chantier 24: our half and a far one on an orbit (the Planets list). */
+export function PlanetsIcon({ size = 22, class: cls }: IconProps) {
+  return svg(
+    size,
+    cls,
+    <>
+      <ellipse
+        cx="16"
+        cy="17"
+        rx="13"
+        ry="5"
+        fill="none"
+        stroke="#c9a77a"
+        stroke-width="1.4"
+        stroke-dasharray="2.5 2"
+      />
+      <path d="M6 18a8 8 0 0 0 16 0z" fill="#7a4e2e" />
+      <ellipse cx="14" cy="18" rx="8" ry="2.6" fill="#8cc43c" stroke="#4f7419" stroke-width="1.4" />
+      <circle cx="14" cy="18" r="1.4" fill="#fbf3d0" />
+      <circle cx="24" cy="8" r="4.5" fill="#d9cbe6" stroke="#5d3a6b" stroke-width="1.5" />
+      <circle cx="24" cy="8" r="1.5" fill="#8f4f9e" />
+    </>,
+  );
+}
+
 export function ChatIcon({ size = 22, class: cls }: IconProps) {
   return svg(
     size,

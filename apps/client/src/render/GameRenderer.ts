@@ -77,7 +77,7 @@ import { SECTOR_COLORS } from './sectors';
 import { efficiencyGlow, LogisticsBadges, type PercentBadge } from './logisticsBadges';
 import { WaterView } from './water';
 import { TwinView, type TwinOptions } from './twin';
-import { AlliesView, type AllyPlanet } from './allies';
+import { AlliesView } from './allies';
 import { twinPlace, type PlanetRef } from './space';
 import { IntroScene, type IntroHandlers, type IntroLayout } from './intro';
 import { DayCycle } from './dayCycle';
@@ -112,7 +112,8 @@ export interface RendererCallbacks {
   /** The player moved the camera while it was following a kiwi (or the kiwi left the map). */
   onFollowEnd?(): void;
   /** An ally's planet was tapped (shared universes). */
-  onAllyTap?(kiwiIndex: number): void;
+  /** Chantier 24: a far planet was tapped (the twin or a member's). */
+  onPlanetTap?(planet: PlanetRef): void;
   /** Chantier 24: the pointer is over a far planet (null: over none), at screen x/y. */
   onPlanetHover?(planet: PlanetRef | null, x: number, y: number): void;
 }
@@ -161,7 +162,7 @@ export class GameRenderer {
   private twin: TwinView | null = null;
   private readonly allies = new AlliesView();
   /** Ally planet the camera visits (null: at home). */
-  private visiting: AllyPlanet | null = null;
+  private visiting: PlanetRef | null = null;
   private homeView: { position: Vector3; target: Vector3 } | null = null;
   private intro: IntroScene | null = null;
   private props: PropsView | null = null;
@@ -256,15 +257,15 @@ export class GameRenderer {
     this.tap = new TapDetector(canvas, {
       onTap: (x, y, touch) => {
         if (this.painter.enabled || this.intro) return;
-        const ally = this.allyAt(x, y);
-        if (this.visiting) {
+        const planet = this.planetAt(x, y);
+        if (this.visiting !== null) {
           // Visiting is read-only: only another planet can be tapped.
-          if (ally && ally !== this.visiting) this.callbacks.onAllyTap?.(ally.kiwiIndex);
+          if (planet !== null && planet !== this.visiting) this.callbacks.onPlanetTap?.(planet);
           return;
         }
         const tile = this.pickTile(x, y);
-        if (ally && !tile) {
-          this.callbacks.onAllyTap?.(ally.kiwiIndex);
+        if (planet !== null && !tile) {
+          this.callbacks.onPlanetTap?.(planet);
           return;
         }
         // A building (or its site) wins over a kiwi walking by: its sheet is what one wants.
@@ -275,7 +276,7 @@ export class GameRenderer {
       },
       // Double tap: fly to the tile (the first tap already selected it).
       onDoubleTap: (x, y) => {
-        if (this.painter.enabled || this.intro || this.visiting) return;
+        if (this.painter.enabled || this.intro || this.visiting !== null) return;
         const tile = this.pickTile(x, y);
         if (tile) this.focusTile(tile);
       },
@@ -468,7 +469,10 @@ export class GameRenderer {
       this.twin.dispose();
       this.twin = null;
     }
-    if (!map) return;
+    if (!map) {
+      if (this.visiting === 'twin') this.travelTo(null);
+      return;
+    }
     this.twin = new TwinView(map, opts);
     this.twin.place(twinPlace());
     this.scene.add(this.twin.group);
@@ -477,21 +481,27 @@ export class GameRenderer {
   /** The other players' colonies, far away (shared universes). */
   setAllies(allies: AllySnapshot[], myKiwi: number): void {
     this.allies.set(allies, myKiwi);
-    if (this.visiting && !this.allies.planets.includes(this.visiting)) {
-      // The planet was rebuilt (fresh snapshot): keep visiting the same kiwi.
-      this.visiting = this.allies.find(this.visiting.kiwiIndex);
-      if (this.visiting) this.allies.setVisited(this.visiting);
-      else this.visitAlly(null);
+    const visiting = this.visiting;
+    if (typeof visiting === 'number') {
+      // Rebuilt from a fresh snapshot: keep visiting the same kiwi, if it is still there.
+      const planet = this.allies.find(visiting);
+      if (planet) this.allies.setVisited(planet);
+      else this.travelTo(null);
     }
   }
 
+  /** The view of a far planet, if drawn. */
+  private planetView(planet: PlanetRef): TwinView | null {
+    return planet === 'twin' ? this.twin : (this.allies.find(planet)?.view ?? null);
+  }
+
   /**
-   * Flies the camera to an ally's planet (read-only visit), or back home (null). Returns false
-   * when that planet is not drawn.
+   * Chantier 24: flies the camera to a far planet (the twin under its fog, or a member's, read
+   * only) and orbits it there, or back home (null). Returns false when that planet is not drawn.
    */
-  visitAlly(kiwiIndex: number | null): boolean {
-    if (kiwiIndex === null) {
-      if (!this.visiting && !this.homeView) return true;
+  travelTo(planet: PlanetRef | null): boolean {
+    if (planet === null) {
+      if (this.visiting === null && !this.homeView) return true;
       this.visiting = null;
       this.allies.setVisited(null);
       const e = this.terrain?.extent() ?? { x: 20, z: 20 };
@@ -499,9 +509,9 @@ export class GameRenderer {
       this.homeView = null;
       return true;
     }
-    const planet = this.allies.find(kiwiIndex);
-    if (!planet) return false;
-    if (!this.visiting) {
+    const view = this.planetView(planet);
+    if (!view) return false;
+    if (this.visiting === null) {
       const c = this.rig.controls;
       this.homeView = {
         position: c.getPosition(new Vector3()),
@@ -513,14 +523,15 @@ export class GameRenderer {
       this.callbacks.onFollowEnd?.();
     }
     this.visiting = planet;
-    this.allies.setVisited(planet);
+    this.allies.setVisited(typeof planet === 'number' ? this.allies.find(planet) : null);
     this.selection.setHover(null);
-    this.rig.visit(planet.view.home, planet.view.radius);
+    this.rig.visit(view.home, view.radius);
     return true;
   }
 
-  get visitedAlly(): number | null {
-    return this.visiting?.kiwiIndex ?? null;
+  /** The far planet the camera is visiting (null: at home). */
+  get visitedPlanet(): PlanetRef | null {
+    return this.visiting;
   }
 
   private hasStructure(tile: Tile): boolean {
@@ -530,11 +541,6 @@ export class GameRenderer {
       !!buildingAt(s, tile.q, tile.r) ||
       s.queue.some((i) => i.kind === 'build' && i.q === tile.q && i.r === tile.r)
     );
-  }
-
-  private allyAt(x: number, y: number): AllyPlanet | null {
-    if (this.allies.planets.length === 0) return null;
-    return this.allies.pick(screenRay(this.canvas, this.camera, x, y).ray)?.planet ?? null;
   }
 
   /** The far planet under a screen point (chantier 24): the twin or a member's, nearest first. */
@@ -629,7 +635,7 @@ export class GameRenderer {
     const map = this.map;
     const ids = this.pendingWaves;
     this.pendingWaves = [];
-    if (!map || !this.waves || this.visiting) return;
+    if (!map || !this.waves || this.visiting !== null) return;
     for (const id of ids) {
       const b = state.buildings.find((x) => x.id === id);
       const origin = b && getTile(map, b);
@@ -1208,10 +1214,11 @@ export class GameRenderer {
     const point = this.hoverPoint;
     this.hoverPoint = null;
     // Visiting is read-only: only the planets answer the pointer there.
-    const hoverTile = point && !this.visiting ? this.pickTile(point.x, point.y) : null;
+    const away = this.visiting !== null;
+    const hoverTile = point && !away ? this.pickTile(point.x, point.y) : null;
     if (point)
       this.hoverPlanet(hoverTile ? null : this.planetAt(point.x, point.y), point.x, point.y);
-    if (point && !this.visiting) {
+    if (point && !away) {
       const tile = hoverTile;
       this.selection.setHover(tile);
       const onBuilding =
@@ -1291,16 +1298,16 @@ export class GameRenderer {
     this.environment.update(this.elapsed, this.camera.position);
     this.water?.update(this.elapsed);
     this.allies.update(dt, this.elapsed);
-    this.twin?.update(dt, this.elapsed);
+    this.twin?.update(dt, this.elapsed, this.visiting === 'twin');
     // The haze follows the zoom, so zooming out does not drown the colony in it.
     const fog = this.scene.fog as Fog;
     fog.near = Math.max(90, this.rig.controls.distance + 25);
     fog.far = fog.near + 170;
     this.buildings?.update(dt, this.callbacks.now());
     this.waves?.update(dt);
-    this.logistics.group.visible = !this.visiting;
+    this.logistics.group.visible = this.visiting === null;
     this.buildings?.badges.setVisible(
-      !this.visiting &&
+      this.visiting === null &&
         !this.logisticsOverlay &&
         this.placementLabels.length === 0 &&
         (this.levelBadges || this.rig.controls.distance < this.rig.frameDistance * BADGE_ZOOM),

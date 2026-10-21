@@ -66,7 +66,7 @@ const renderer = new GameRenderer(
     onStats: (frame) => perfStore.setState({ frame }),
     onAzimuth: (azimuth) => viewStore.setState({ azimuth }),
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
-    onAllyTap: (kiwiIndex) => actions.visitAlly(kiwiIndex),
+    onPlanetTap: (planet) => actions.showPlanetCard(planet),
     onPlanetHover: (planet, x, y) =>
       viewStore.setState({ planetHover: planet === null ? null : { planet, x, y } }),
     onKiwiTap: (id, pos) => {
@@ -121,7 +121,7 @@ function showAllies(): void {
   } catch (e) {
     console.error(e);
   }
-  if (visit !== null && renderer.visitedAlly === null) uiStore.setState({ visit: null });
+  if (visit !== null && renderer.visitedPlanet === null) uiStore.setState({ visit: null });
 }
 
 /** The face on screen: reloading the same one (back from a break) keeps the view as it is. */

@@ -3464,6 +3464,81 @@ button.chip:focus-visible {
   white-space: nowrap;
 }
 
+/* Chantier 24: a tapped planet ("Go there"), at the top like the visit banner. */
+.planet-card {
+  position: absolute;
+  z-index: 20;
+  top: calc(var(--gap) + var(--safe-top, 0px) + 70px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 12px;
+  max-width: calc(100vw - 2 * var(--gap));
+  animation: toast-in 0.3s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.planet-card .btn {
+  white-space: nowrap;
+}
+
+.thumb .planet-card {
+  left: var(--gap);
+  right: var(--gap);
+  transform: none;
+  top: calc(var(--gap) + var(--safe-top, 0px) + 64px);
+  max-width: none;
+}
+
+.thumb .planet-card .visit-title {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Chantier 24: the Planets list (a popover by the round buttons, a bottom sheet on phones). */
+.planets-panel {
+  position: absolute;
+  z-index: 41;
+  right: calc(var(--gap) + var(--safe-right) + 70px);
+  bottom: calc(var(--gap) + var(--safe-bottom) + 150px);
+  width: min(340px, calc(100vw - 2 * var(--gap)));
+  max-height: 70%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px 12px;
+  animation: nav-up 0.2s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+.thumb .planets-panel {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  max-height: 80%;
+  padding: 10px calc(14px + var(--safe-right)) calc(16px + var(--safe-bottom))
+    calc(14px + var(--safe-left));
+  border-radius: 22px 22px 0 0;
+}
+
+.planets-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.planets-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 4px;
+  border-top: 1px dashed var(--edge);
+}
+
 .visit-banner {
   position: absolute;
   top: calc(var(--gap) + var(--safe-top, 0px));
@@ -3762,6 +3837,13 @@ button.chip:focus-visible {
 .logistics-fab {
   right: calc(var(--gap) + var(--safe-right) + 11px);
   bottom: calc(var(--gap) + var(--safe-bottom) + 260px);
+  width: 46px;
+  height: 46px;
+}
+
+.planets-fab {
+  right: calc(var(--gap) + var(--safe-right) + 11px);
+  bottom: calc(var(--gap) + var(--safe-bottom) + 314px);
   width: 46px;
   height: 46px;
 }

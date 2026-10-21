@@ -94,6 +94,17 @@ export class CameraRig {
   private lifted = false;
   private playerPolar = DEFAULT_POLAR;
   private lastLift = 0;
+  /** Chantier 24: a flight between planets (`flyTo`), stepped in `update`. */
+  private flight: {
+    t: number;
+    duration: number;
+    from: Vector3;
+    via: Vector3;
+    to: Vector3;
+    fromTarget: Vector3;
+    toTarget: Vector3;
+    land: () => void;
+  } | null = null;
 
   constructor(camera: PerspectiveCamera, element: HTMLElement) {
     this.element = element;
@@ -141,6 +152,15 @@ export class CameraRig {
   /** Frames the whole disc of the given half extents. */
   frame(extentX: number, extentZ: number, enableTransition = false): void {
     this.stopGlide();
+    if (this.flight) {
+      // A new face while flying: the flight is over, home limits come back below.
+      this.flight = null;
+      this.away = false;
+      this.controls.enabled = true;
+      this.controls.minDistance = 11;
+      this.controls.minPolarAngle = MIN_POLAR;
+      this.controls.maxPolarAngle = MAX_POLAR;
+    }
     const r = Math.max(extentX, extentZ);
     this.setBounds(new Box3(new Vector3(-extentX, -1, -extentZ), new Vector3(extentX, 3, extentZ)));
     const distance = this.fitDistance(r);
@@ -148,15 +168,14 @@ export class CameraRig {
     // Zooming out far enough shows the planets of the map of space (chantier 24).
     this.controls.maxDistance = distance * MAX_ZOOM;
     this.lifted = false;
-    const polar = DEFAULT_POLAR;
-    const azimuth = this.azimuth;
+    const { position, target } = this.framing(r);
     void this.controls.setLookAt(
-      Math.sin(azimuth) * Math.sin(polar) * distance,
-      Math.cos(polar) * distance,
-      Math.cos(azimuth) * Math.sin(polar) * distance,
-      0,
-      0.4,
-      0,
+      position.x,
+      position.y,
+      position.z,
+      target.x,
+      target.y,
+      target.z,
       enableTransition,
     );
   }
@@ -176,34 +195,31 @@ export class CameraRig {
   };
 
   /**
-   * Flies to a far planet (an ally's, seen from our side) and keeps the camera around it: its
-   * own bounds and zoom range until `returnHome`.
+   * Chantier 24: flies to a far planet (the twin or a member's, seen from our side) along an
+   * arc, then keeps the camera around it: its own bounds and zoom range until `returnHome`.
    */
   visit(center: Vector3, radius: number): void {
     this.away = true;
-    this.stopGlide();
-    const c = this.controls;
-    this.setBounds(
-      new Box3(
-        new Vector3(center.x - radius, center.y - 4, center.z - radius),
-        new Vector3(center.x + radius, center.y + 6, center.z + radius),
-      ),
-    );
     const distance = this.fitDistance(radius) * 1.2;
-    c.minDistance = Math.min(8, distance * 0.4);
-    c.maxDistance = distance * 1.6;
     // Seen from our side of the sky, the way the planet leans towards us.
     const toward = new Vector3(-center.x, 0, -center.z).normalize();
     const polar = 0.7;
-    void c.setLookAt(
+    const position = new Vector3(
       center.x + toward.x * Math.sin(polar) * distance,
       center.y + Math.cos(polar) * distance,
       center.z + toward.z * Math.sin(polar) * distance,
-      center.x,
-      center.y,
-      center.z,
-      true,
     );
+    this.flyTo(position, center.clone(), () => {
+      const c = this.controls;
+      c.minDistance = Math.min(8, distance * 0.4);
+      c.maxDistance = distance * 1.6;
+      this.setBounds(
+        new Box3(
+          new Vector3(center.x - radius, center.y - 4, center.z - radius),
+          new Vector3(center.x + radius, center.y + 6, center.z + radius),
+        ),
+      );
+    });
   }
 
   /** Back from a visit: the colony's bounds, and the view the player left (or the framing). */
@@ -212,31 +228,100 @@ export class CameraRig {
     extentZ: number,
     view: { position: Vector3; target: Vector3 } | null,
   ): void {
-    this.away = false;
-    if (!view) {
-      this.frame(extentX, extentZ, true);
-      return;
-    }
-    const c = this.controls;
-    // Lift the bounds first: the flight back starts far outside them.
-    this.setBounds(undefined);
-    c.minDistance = 11;
-    c.maxDistance = this.frameDistance * MAX_ZOOM;
-    void c
-      .setLookAt(
-        view.position.x,
-        view.position.y,
-        view.position.z,
-        view.target.x,
-        view.target.y,
-        view.target.z,
-        true,
-      )
-      .then(() =>
-        this.setBounds(
-          new Box3(new Vector3(-extentX, -1, -extentZ), new Vector3(extentX, 3, extentZ)),
-        ),
+    const home = view ?? this.framing(Math.max(extentX, extentZ));
+    this.flyTo(home.position.clone(), home.target.clone(), () => {
+      this.away = false;
+      this.lifted = false;
+      const c = this.controls;
+      c.minDistance = 11;
+      c.maxDistance = this.frameDistance * MAX_ZOOM;
+      this.setBounds(
+        new Box3(new Vector3(-extentX, -1, -extentZ), new Vector3(extentX, 3, extentZ)),
       );
+    });
+  }
+
+  /** The framing view of a disc of radius `r` (`frame`), from the player's favourite side. */
+  private framing(r: number): { position: Vector3; target: Vector3 } {
+    const distance = this.fitDistance(r);
+    const polar = DEFAULT_POLAR;
+    const azimuth = this.azimuth;
+    return {
+      position: new Vector3(
+        Math.sin(azimuth) * Math.sin(polar) * distance,
+        Math.cos(polar) * distance,
+        Math.cos(azimuth) * Math.sin(polar) * distance,
+      ),
+      target: new Vector3(0, 0.4, 0),
+    };
+  }
+
+  /**
+   * Chantier 24: an eased flight along an arc (rising halfway by a quarter of the way), the
+   * target sliding from one planet to the other. The player's gestures and every limit are
+   * off until `land` sets those of the arrival.
+   */
+  private flyTo(position: Vector3, target: Vector3, land: () => void): void {
+    this.stopGlide();
+    const c = this.controls;
+    // Lift every limit: the flight starts far outside the arrival's bounds and zoom range.
+    this.setBounds(undefined);
+    c.minDistance = 0;
+    c.maxDistance = Infinity;
+    c.minPolarAngle = 0;
+    c.maxPolarAngle = Math.PI;
+    c.enabled = false;
+    const from = c.getPosition(new Vector3());
+    const fromTarget = c.getTarget(new Vector3());
+    const via = from.clone().add(position).multiplyScalar(0.5);
+    via.y += from.distanceTo(position) * 0.25;
+    const length = from.distanceTo(via) + via.distanceTo(position);
+    this.flight = {
+      t: 0,
+      // 1.4 s for a short hop, up to 2 s across the map.
+      duration: Math.min(2, 1.4 + length / 600),
+      from,
+      via,
+      to: position,
+      fromTarget,
+      toTarget: target,
+      land,
+    };
+  }
+
+  private stepFlight(dt: number): void {
+    const f = this.flight!;
+    f.t = Math.min(1, f.t + dt / f.duration);
+    const e = f.t * f.t * (3 - 2 * f.t);
+    const u = 1 - e;
+    // Quadratic Bézier through `via`.
+    tmpEnd
+      .copy(f.from)
+      .multiplyScalar(u * u)
+      .addScaledVector(f.via, 2 * u * e)
+      .addScaledVector(f.to, e * e);
+    tmpTarget.lerpVectors(f.fromTarget, f.toTarget, e);
+    void this.controls.setLookAt(
+      tmpEnd.x,
+      tmpEnd.y,
+      tmpEnd.z,
+      tmpTarget.x,
+      tmpTarget.y,
+      tmpTarget.z,
+      false,
+    );
+    if (f.t < 1) return;
+    this.flight = null;
+    const c = this.controls;
+    c.minPolarAngle = MIN_POLAR;
+    c.maxPolarAngle = MAX_POLAR;
+    c.enabled = true;
+    f.land();
+  }
+
+  /** A camera flight between planets is under way. */
+  get flying(): boolean {
+    return this.flight !== null;
   }
 
   /** Distance at which a disc of radius `r` fits on screen for the current aspect ratio. */
@@ -285,6 +370,10 @@ export class CameraRig {
   }
 
   update(dt: number): boolean {
+    if (this.flight) {
+      this.stepFlight(dt);
+      return this.controls.update(dt) || true;
+    }
     const forward =
       (this.keys.has('KeyW') || this.keys.has('ArrowUp') ? 1 : 0) -
       (this.keys.has('KeyS') || this.keys.has('ArrowDown') ? 1 : 0);

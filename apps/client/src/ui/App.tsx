@@ -28,6 +28,7 @@ import { LevelsButton, LogisticsButton, PlacingBanner } from './components/Build
 import { BootScreen, Guard } from './components/Guard';
 import { VisitBanner } from './components/VisitBanner';
 import { PlanetTag } from './components/PlanetTag';
+import { PlanetCard, PlanetsButton, PlanetsPanel } from './components/PlanetCard';
 import { RecapBubble } from './components/RecapBubble';
 import { actions } from './actions';
 import { uiStore, useT, useUi } from './store';
@@ -128,7 +129,10 @@ export function App() {
       } else if ((e.key === 'o' || e.key === 'O') && !isTyping(e)) {
         actions.toggleLogistics();
       } else if (e.key === 'Escape') {
-        if (uiStore.getState().visit !== null) actions.visitAlly(null);
+        const ui = uiStore.getState();
+        if (ui.planetCard !== null) actions.showPlanetCard(null);
+        else if (ui.planetsOpen) actions.togglePlanets(false);
+        else if (ui.visit !== null) actions.travelTo(null);
         else if (uiStore.getState().pathMode) actions.setPathMode(false);
         else if (uiStore.getState().placing) actions.stopPlacing();
         else uiStore.setState({ selectedTile: null });
@@ -158,6 +162,8 @@ export function App() {
     return (
       <div class="hud">
         <VisitBanner />
+        <PlanetCard />
+        <PlanetsPanel />
         <PlanetTag />
         <Toasts />
       </div>
@@ -186,6 +192,7 @@ export function App() {
           <Compass />
           <LevelsButton />
           <LogisticsButton />
+          <PlanetsButton />
         </>
       )}
       <PathToolbar />
@@ -206,6 +213,8 @@ export function App() {
       ) : (
         <Badges />
       )}
+      <PlanetCard />
+      <PlanetsPanel />
       <PlanetTag />
       <Toasts />
       <Guard>

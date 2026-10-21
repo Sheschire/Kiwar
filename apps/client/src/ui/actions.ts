@@ -20,6 +20,7 @@ import type { GameController } from '../game/GameController';
 import type { GameRenderer } from '../render/GameRenderer';
 import { saveQualityChoice, type QualityChoice } from '../render/quality';
 import { saveFpsCap, type FpsCap } from '../render/frameLimiter';
+import type { PlanetRef } from '../render/space';
 import { pushToast, saveShowLevels, uiStore, type SiegePlan } from './store';
 import { startIntro } from './intro';
 import { audio } from '../audio/engine';
@@ -290,7 +291,7 @@ export const actions = {
       (b) => b.type === 'launchpad' && !b.damaged && !isLaunchpadBusy(game, b.id),
     );
     if (!pad) return false;
-    actions.visitAlly(null);
+    actions.travelTo(null);
     uiStore.setState({ modal: 'expedition', expeditionPad: pad.id, deliverTo: friendId });
     return true;
   },
@@ -312,11 +313,41 @@ export const actions = {
     });
     return true;
   },
-  /** Flies the camera to an ally's planet (read-only), or back home with null. */
-  visitAlly(kiwiIndex: number | null): void {
-    if (!renderer?.visitAlly(kiwiIndex)) return;
-    uiStore.setState({ visit: kiwiIndex, modal: 'none', selectedTile: null });
+  /**
+   * Chantier 24: back home, then the launchpad's expedition planner (the twin is its first
+   * target). False without a free launchpad.
+   */
+  prepareExpedition(): boolean {
+    const game = uiStore.getState().game;
+    const pad = game?.buildings.find(
+      (b) => b.type === 'launchpad' && !b.damaged && !isLaunchpadBusy(game, b.id),
+    );
+    if (!pad) return false;
+    actions.travelTo(null);
+    uiStore.setState({ modal: 'expedition', expeditionPad: pad.id, deliverTo: null });
+    return true;
+  },
+  /**
+   * Chantier 24: flies the camera to a far planet (the twin, or a member's by kiwi index; read
+   * only), or back home with null.
+   */
+  travelTo(planet: PlanetRef | null): void {
+    if (!renderer?.travelTo(planet)) return;
+    uiStore.setState({
+      visit: planet,
+      planetCard: null,
+      planetsOpen: false,
+      modal: 'none',
+      selectedTile: null,
+    });
     audio.play('ui.click');
+  },
+  /** Chantier 24: the small card of a tapped planet ("Go there"), or none. */
+  showPlanetCard(planet: PlanetRef | null): void {
+    uiStore.setState({ planetCard: planet, planetsOpen: false });
+  },
+  togglePlanets(open?: boolean): void {
+    uiStore.setState((s) => ({ planetsOpen: open ?? !s.planetsOpen, planetCard: null }));
   },
   async setAllowImports(allow: boolean) {
     return controller ? await controller.setAllowImports(allow) : 'forbidden';

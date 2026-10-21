@@ -163,7 +163,7 @@ function InvitePanel() {
                 {t('universe.memberFace', { face: t(`faces.${m.face}`), index: m.kiwiIndex + 1 })}
               </span>
               {!mine && ally && (
-                <button class="btn btn-small" onClick={() => actions.visitAlly(m.kiwiIndex)}>
+                <button class="btn btn-small" onClick={() => actions.travelTo(m.kiwiIndex)}>
                   {t('allies.visit')}
                 </button>
               )}

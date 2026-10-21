@@ -21,6 +21,7 @@ import type {
   UniverseInfo,
 } from '@kiwar/shared';
 import type { QualityChoice, QualityPreset } from '../render/quality';
+import type { PlanetRef } from '../render/space';
 import { DEFAULT_FPS_CAP, type FpsCap } from '../render/frameLimiter';
 import { DEFAULT_SETTINGS, type AudioSettings } from '../audio/settings';
 import type { IntroUi } from './intro';
@@ -148,8 +149,12 @@ export interface UiState {
   allies: AllySnapshot[];
   /** A friend living on our twin face (older shared universes), by name; null: aliens. */
   twinOwner: string | null;
-  /** Kiwi of the ally being visited by the camera (null: at home). */
-  visit: number | null;
+  /** Far planet the camera is visiting (chantier 24: the twin or a member's; null: home). */
+  visit: PlanetRef | null;
+  /** Chantier 24: the card of a tapped planet ("Go there"). */
+  planetCard: PlanetRef | null;
+  /** Chantier 24: the Planets list is open. */
+  planetsOpen: boolean;
 }
 
 const LEVELS_KEY = 'kiwar.levels';
@@ -256,6 +261,8 @@ export const uiStore = createStore<UiState>(() => ({
   allies: [],
   twinOwner: null,
   visit: null,
+  planetCard: null,
+  planetsOpen: false,
 }));
 
 export function setLang(lang: Lang): void {
