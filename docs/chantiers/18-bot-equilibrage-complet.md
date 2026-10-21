@@ -125,7 +125,8 @@ un·e joueur·euse attentif·ve, avec **toutes** les mécaniques qui pèsent sur
   sur 10 jours pour les deux profils face aux cibles, rapport d'impact, sonde d'expéditions.
 - **Bugs du bot** trouvés par les longues parties (Kikiwiwi inoccupé qui bloquait la
   recherche, ping-pong de garnison qui empêchait le monument de l'Industrie, recherche et
-  Bibliothèque mal priorisées) ; **passages** retouchés (850 / 2 300 / 4 600 points).
+  Bibliothèque mal priorisées) ; **passages** retouchés deux fois, la seconde après les
+  automatismes du chantier 15 (1 000 / 2 900 / 5 800 points).
 - Résultat (`docs/BALANCE_REPORT.md`) : biomes à ±8,4 % au pire, faces à ±1,3 % ; actif
   Pierre ≈ 36 h, Fer ≈ 4 j, Industrie ≈ 7,9 j ; occasionnel Pierre ≈ 2,3 j, Fer ≈ 5,6 j,
   Industrie ≈ 9,7 j.

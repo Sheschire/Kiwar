@@ -1552,12 +1552,14 @@ tile looks cultivated as soon as its building is placed (whole zone).
   ping-pong ate every decision of the round (half the highlands runs never built the Industry
   monument). A lesser technology started while the passage waited for a Library level, and a
   Library left behind the Nest, delayed the ages (occasional player Stone +50 %). Fixed in the
-  bot: research in `TECH_ORDER` with banking, the Library follows the Nest during research,
-  Kikiwiwis stay on the rampart.
+  bot: research in `TECH_ORDER` with banking, the Library follows the Nest during research.
+  (Chantier 15 then gave the garrison and the Library staffing to the automation: the bot no
+  longer does either.)
 - **Passages retuned** for the complete bot, which reached the ages 11–16 % ahead of the
-  targets: `stoneAge` 700 → 850, `ironAge` 1 800 → 2 300, `industryAge` 4 000 → 4 600
-  research points. Result (10 seeds per biome × 10 days): Stone ≈ 36 h, Iron ≈ 4 d,
-  Industry ≈ 8 d, biomes within ±7 %.
+  targets, then again 10–14 % ahead once the chantier 15 automation landed (sites in
+  parallel, researchers always there): `stoneAge` 700 → 1 000, `ironAge` 1 800 → 2 900,
+  `industryAge` 4 000 → 5 800 research points. Result (4 seeds per biome × 10 days, then the
+  official report): Stone ≈ 36 h, Iron ≈ 4 d, Industry ≈ 8 d, biomes within ±7 %.
 - **Occasional player** (attentive 6 h, then a visit every 8 h): Stone ≈ 2.3 d and Iron
   ≈ 5.6 d (the 2/3 pace), Industry ≈ 9.7 d: the late game runs on research, which goes on
   offline. Owner: accepted, the late game is kinder to whoever plays little; the report's

@@ -85,7 +85,7 @@ half of chantier 08: see the `kiwar-titans` skill. Their techs (`juiceInfusion`,
 - `pnpm balance:ages -- --seeds 3 --days 14 [--biomes a,b]`: median time to Nest 3, Library and
   each age per biome (~10 min for 2 seeds × 6 biomes × 12 days, one process per biome).
   Reference (end of the first half of chantier 08): Stone 34–41 h, Iron 88–104 h, Industry
-  175–194 h for the active bot, biomes within ±6 %. Chantier 18: passages 850 / 2 300 /
-  4 600 points for the complete bot (Stone 36 h, Iron 4.0 d, Industry 7.9 d); the long ages
+  175–194 h for the active bot, biomes within ±6 %. Chantier 18: passages 1 000 / 2 900 /
+  5 800 points for the complete bot with the chantier 15 automation (Stone 36 h, Iron 4.0 d, Industry 7.9 d); the long ages
   runs are now a section of `pnpm balance --ages 10` (both profiles). Tune passages (`TECHS` costs),
   monument costs/durations and `AGE_GROWTH`.

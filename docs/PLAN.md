@@ -51,7 +51,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 15  | Colonie autonome : constructions, recherche, météorites, automatismes   | ✅      |
 | 16  | Pose et terrain lisibles (modèle fantôme, zones, gains au dépôt)        | ✅      |
 | 17  | Identité visuelle : bâtiments distincts, planète alien, ciel vivant     | ✅      |
-| 18  | Bot d'équilibrage complet : chemins, camps, expéditions                 | à faire |
+| 18  | Bot d'équilibrage complet : chemins, camps, expéditions                 | ✅      |
 | 19  | Colonisation de la face alien jumelle (siège, seconde colonie)          | à faire |
 | 20  | Correctifs et confort (tap qui se bloque, tri, file repliable, inertie) | ✅      |
 | 21  | Interface mobile : barre au pouce, menu nommé                           | à faire |
@@ -78,6 +78,10 @@ chantiers de simulation après le 19 : 25 → 26 → 27, et 28, 29. Le chantier 
   vérifiés qu'en Chromium headless (évènements tactiles CDP) : à confirmer sur un vrai
   téléphone par le porteur. Les grillons (deux voix, 3 à 8 s de silence, volume 0,35, fondu à
   la mi-nuit) sont à régler à l'oreille, depuis `/admin` si besoin.
+- Chantier 18 : le bot d'équilibrage joue chemins, camps et expéditions (rapport d'impact,
+  profils actif / occasionnel, âges sur 10 jours) ; il n'utilise ni mages, ni livraisons, ni
+  terraformation au-delà du concassage. L'occasionnel·le atteint l'Industrie à ~1,25× l'actif
+  (la recherche avance hors ligne, accepté). Un rapport officiel complet prend ~3 h sur 4 cœurs.
 - Chantier 09 : pas encore de garnison d'urgence ni de réparateur·ice prioritaire (même principe
   que le·la bâtisseur·euse prioritaire) ; pas de postes génériques pour les kiwis en trop ; le
   bot n'utilise ni cadenas ni affectation kiwi par kiwi ; le rapport d'équilibrage (30 graines,
@@ -109,7 +113,7 @@ chantiers de simulation après le 19 : 25 → 26 → 27, et 28, 29. Le chantier 
   remplaçables depuis `/admin`).
 - Chantier 03 : compétences de combat contre
   furets et chauves-souris au chantier 06 ;
-  le bot d'équilibrage n'utilise que maire et bâtisseur (pas d'expéditions ni de mage).
+  le bot d'équilibrage n'utilise pas de mage.
 - Chantier 04 : l'hiver reste doux pour une colonie saturée (stocks et gisements pleins) ; à
   durcir quand l'économie aura plus de débouchés (chantiers 05+). Les chantiers et l'expérience
   ne ralentissent pas la nuit. Une partie du bot coûte ~2× plus de calcul (lits, moral) : le
