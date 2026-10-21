@@ -133,7 +133,7 @@ export const TECHS: Record<TechId, TechDef> = {
     libraryLevel: 1,
     effects: { travel: 0.9 },
   },
-  stoneAge: { id: 'stoneAge', age: 0, branch: 'passage', cost: 850, libraryLevel: 2, effects: {} },
+  stoneAge: { id: 'stoneAge', age: 0, branch: 'passage', cost: 1000, libraryLevel: 2, effects: {} },
   masonry: {
     id: 'masonry',
     age: 1,
@@ -158,7 +158,7 @@ export const TECHS: Record<TechId, TechDef> = {
     libraryLevel: 2,
     effects: { rations: 0.8 },
   },
-  ironAge: { id: 'ironAge', age: 1, branch: 'passage', cost: 2300, libraryLevel: 4, effects: {} },
+  ironAge: { id: 'ironAge', age: 1, branch: 'passage', cost: 2900, libraryLevel: 4, effects: {} },
   smelting: {
     id: 'smelting',
     age: 2,
@@ -188,7 +188,7 @@ export const TECHS: Record<TechId, TechDef> = {
     age: 2,
     branch: 'passage',
     // Chantier 18: passages retuned for the complete bot (Stone ≈ 36 h, Iron ≈ 4 d, Industry ≈ 8 d).
-    cost: 4600,
+    cost: 5800,
     libraryLevel: 5,
     effects: {},
   },
