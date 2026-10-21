@@ -1633,3 +1633,13 @@ tile looks cultivated as soon as its building is placed (whole zone).
 - Measures (software WebGL, 480×300, Medium): hiding the whole path layer in the same page
   changes nothing measurable (16 alternations: 528 vs 540 ms medians); between page loads the
   noise reaches ±15 %.
+
+### Part 6 — Final measures
+
+- Sobriety after the whole chantier (`STUB=1 scripts/sobriety.mjs`, perf save, Medium): idle
+  6–14 s 30 frames drawn/s (60 before the chantier), idle 22–30 s 20 (60), camera turning 60
+  (60), hidden tab 0 (60); main thread at rest 68–87 ms/s (87–97 before).
+- Light sheet (8 moments × 4 seasons) before/after with crops, windows and paths: dawn rosy,
+  dusk golden-orange, noon neutral, blue hour violet, nights lit where kiwis live. Triangles
+  of the perf save: 137 k → 148 k (paths), +2 draw calls for windows, ~11 for crops (only
+  kinds in use draw).

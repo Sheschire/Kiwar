@@ -152,3 +152,30 @@ calque ni sélection, de façon naturelle (pas de contour ni de couleur d'interf
 4. Tuiles exploitées : l'aspect cultivé apparaît dès que le bâtiment est posé (zone entière),
    ou seulement sur les tuiles où des kiwis récoltent vraiment (plus juste, mais la zone se
    remplit au fil du travail) ?
+
+Réponses du porteur : 60 images/s par défaut avec ralenti au repos ; fenêtres allumées là où
+des kiwis dorment ou travaillent ; tilt-shift gardé s'il coûte peu (≈ 3 % mesuré : gardé) ;
+aspect cultivé dès que le bâtiment est posé (zone entière).
+
+## Bilan
+
+Fait (détail et mesures dans `DECISIONS.md`) :
+
+1. **Sobriété** : limite d'images/s (30 / 60 / illimité, 60 par défaut, Réglages), ralenti au
+   repos (30 images/s après 3 s, 20 après 20 s, réveil au moindre geste ou spectacle), rien
+   dessiné onglet caché, qualité adaptative jugée sur la cadence visée, `auto` qui part de
+   Moyenne et ne monte à Haute qu'avec de la marge GPU. `?debug` montre la cadence visée.
+   `scripts/sobriety.mjs` : au repos 60 → 30 → 20 images dessinées par seconde.
+2. **Lumière continue** : deux chapelets de clés le long de l'élévation du soleil (matin rosé,
+   soir doré, heure bleue, nuit), contre-jour chaud aux heures dorées (coupé en Basse), lune
+   plus froide et plus basse. `scripts/lightSheet.mjs` : planche 8 heures × 4 saisons.
+3. **Nuit et vent** : vitres chaudes sur les portes et fenêtres posées au lancer de rayon,
+   allumées au coucher là où des kiwis dorment, travaillent ou étudient ; halos sur les mêmes
+   bâtiments ; vent dans l'herbe, les touffes et les poils (shader, coupé en Basse).
+4. **Tuiles exploitées vivantes** (`render/crops.ts`) : aspect cultivé par ressource, pousses
+   qui suivent le gisement (8 paliers, éclaircies, sèches, repousse douce).
+5. **Chemins pavés par âge** raccordés aux voisins et aux bâtiments, lanternes dès Pierre.
+
+Reste : frémissement d'une touffe et particules quand un kiwi récolte ; reflets mouvants du
+jus ; soleil vraiment rasant (essayé, sol trop sombre) ; mesure du temps GPU réel et du
+passage `auto` → Haute sur le PC du porteur.

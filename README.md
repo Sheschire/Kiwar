@@ -9,6 +9,18 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 23** — le PC **chauffe moins** : la scène se limite à **60 images/s** (réglage
+> 30 / 60 / illimité) et **ralentit au repos** (30 puis 20 images/s quand rien ne bouge,
+> reprise immédiate au moindre geste) ; en Auto, la qualité Haute ne se choisit plus que si
+> la carte graphique a de la marge. La **lumière suit la journée** : aube rosée, midi franc,
+> crépuscule doré avec un contre-jour chaud, heure bleue, nuit au clair de lune. La nuit, les
+> **fenêtres s'allument** là où des kiwis dorment ou travaillent, et des **lanternes**
+> bordent les chemins dès l'âge de Pierre. Les **cases récoltées ont l'air cultivées**
+> (buttes et pousses de pulpe, touffes taillées et botte de fibre, pépins en sillons,
+> ponton sur le jus) et l'on voit le gisement s'épuiser puis repousser ; l'herbe et les
+> touffes ondulent au vent. Les **chemins** se raccordent et changent de matière avec les
+> âges : planches, pavés irréguliers, pavés taillés bordés, route marquée.
+>
 > **Chantier 21** — sur téléphone, **une barre au pouce** remplace la colonne d'icônes :
 > **Construire**, **Village**, l'**Œuf** au centre (son coût dessous), **Défense** (avec le
 > compte à rebours de la vague) et **Menu**, un tiroir aux entrées **nommées** et rangées

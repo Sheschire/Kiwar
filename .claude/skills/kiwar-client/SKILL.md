@@ -147,6 +147,32 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   copies of the Nest on free tiles 2–4 steps away (see the Chantier 11 note) and look at the
   default zoom.
 
+- Chantier 23 (lights, living tiles, paths, sobriety): **frame loop** — `render/frameLimiter.ts`
+  `FrameLimiter` (cap 30 / 60 / 0 = unlimited, store `fpsCap`, `actions.setFpsCap`,
+  `kiwar.fps`, `?fps=30|60|max`) and `IdleWatch` (30 fps after 3 s without a sign of life, 20
+  after 20 s). Skipped rAF frames only run `afterFrame` (the tick). Signs of life: window
+  `pointerdown/move`, `wheel`, `keydown`, `touchstart` (`renderer.wake`, also on menu close),
+  `rig.update()` true, painter, placing ghost, `waves.active`, `predators.playing`,
+  `pendingShow`. **A new on-screen show must wake the loop** (add it to that list in
+  `drawFrame`). `adaptQuality` compares fps with the aimed rate; auto starts strong GPUs on
+  Medium (`autoCeiling`) and steps up to High when the GPU timer reads < 5 ms. Measures:
+  `scripts/sobriety.mjs <save>` (`STUB=1` skips the WebGL calls: frames drawn and main-thread
+  ms per second), `scripts/lightSheet.mjs <save> <out.png>` (8 hours × 4 seasons, env `HOURS`,
+  `SEASONS`, `ZOOM`, `W`/`H`). Headless software WebGL: compare A/B **in the same page**
+  (toggle a group's `visible` or a uniform); page-to-page noise reaches ±15 %; read
+  `renderer.renderer.info.render.triangles` for geometry cost. **Night lights**:
+  `BuildingModel.lights` (doors marked in `partsOf` before `dress`, windows kept where a ray
+  hits the wall; a new model needs a `C.door` part to glow), `render/windows.ts`
+  `WindowsView` owned by `BuildingsView` (`lit` = beds in use + work/train jobs), halos in
+  `weather.sync(state, lit)`, path lanterns (`PathsView.setGlow`); all on the same curve from
+  `updateCycles`. **Wind**: `render/wind.ts` `withWind(material, sway)` (instanced materials,
+  props unrotated; `windUniforms`, off in Low). **Crops**: `render/crops.ts` `CropsView`
+  (`GameRenderer.syncCrops`: producers' pool tiles, ratio from `depletedTiles`; their props
+  are cleared like under a building; one instanced mesh per piece kind). **Paths**:
+  `render/paths.ts` — one merged segment geometry per age × 2 variants instanced per
+  segment (all segments have the same length), hub per tile, `sync(paths, age, ends)` with
+  building/site keys as ends.
+
 ## Performance (chantier 10)
 
 - **The UI store is the usual suspect.** The controller emits a new `game` and `now` 5 times

@@ -51,12 +51,17 @@ sources)` is the memoized season-aware Dijkstra (`depotDistances` uses it), `dis
 
 ## Client
 
-- `render/dayCycle.ts` (sky keys DAY / DAWN / DUSK / NIGHT, light direction), `lighting.applySky`,
+- `render/dayCycle.ts` (chantier 23: two strings of keys along the sun's elevation, `MORNING`
+  rosy and `EVENING` golden: noon 1, high 0.6, golden 0.3, sunrise/sunset 0.02, blue hour
+  −0.22, night −0.55, smoothstep between keys; sun height 0.34 + 0.92 × elevation, the moon
+  takes over below −0.1; `rim`/`rimDir` = a warm shadowless back light, `Lighting.rim`, off in
+  Low; tune with `scripts/lightSheet.mjs`), light direction, `lighting.applySky`,
   `environment.setSky`, fog colour, `seasonLook.ts` (`seasonUniforms`: tint, snow, night;
   `withSeasonLook(material, {tint, snow})` patches terrain, props, paths, buildings),
   `water.setIce`, `weather.ts` (shader points: rain, snow, leaves, fireflies; `weatherOf(c)` per
   day; home glows), all driven from `GameRenderer.updateCycles()`; shadows refresh when the sun
-  moves ~1°. Night look: `uNight` desaturation.
+  moves ~1°. Night look: `uNight` desaturation. Lamps (windows, halos, lanterns) follow
+  daylight 0.85 → 0.35 (`updateCycles`).
 - 3D kiwis (`render/kiwis.ts`): `thinkRest` sends resting / sleeping kiwis to their bed and hides
   them inside (`agent.inside`); the A* takes the season.
 - UI: `ClockChip.tsx` (dial, season, countdown, effects tooltip), `TopBar` (net rates, low-food

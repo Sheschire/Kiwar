@@ -56,7 +56,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 20  | Correctifs et confort (tap qui se bloque, tri, file repliable, inertie) | ✅      |
 | 21  | Interface mobile : barre au pouce, menu nommé                           | ✅      |
 | 22  | Premières impressions : écran de chargement animé, intro interactive    | ✅      |
-| 23  | Lumières HD, tuiles exploitées vivantes, chemins pavés, sobriété        | à faire |
+| 23  | Lumières HD, tuiles exploitées vivantes, chemins pavés, sobriété        | ✅      |
 | 24  | Caméra libre et planètes fixes dans l'espace                            | à faire |
 | 25  | Classes : une par stat, Cueilleur·euse, arbre de classes                | à faire |
 | 26  | Bâtiments sur plusieurs tuiles (3 tuiles, monument 7)                   | à faire |
@@ -72,6 +72,9 @@ chantiers de simulation après le 19 : 25 → 26 → 27, et 28, 29. Le chantier 
 `kiwar-tasks` : toute tâche qui déplace des kiwis d'elle-même passe par `sim/tasks.ts`.
 Le chantier 21 a mis le HUD des téléphones et écrans tactiles dans `MobileNav.tsx` (barre au
 pouce + menu nommé, skill `kiwar-client`) : tout nouveau bouton du HUD y prend une entrée.
+Le chantier 23 a ajouté un limiteur d'images/s et un ralenti au repos (`render/frameLimiter.ts`) :
+une nouvelle animation visible importante (spectacle, outil en main) doit réveiller la boucle
+(`renderer.wake()` ou la liste des signes de vie de `drawFrame`).
 
 ## Dette et idées en attente
 
@@ -192,3 +195,9 @@ pouce + menu nommé, skill `kiwar-client`) : tout nouveau bouton du HUD y prend 
   un vrai téléphone moyen (60 images/s visées) reste à confirmer par le porteur ; les sons
   `intro.slice` et `intro.juice` sont synthétisés, choisis sans écoute (remplaçables depuis
   `/admin`) ; les filets de jus sont des cylindres (pas de vraie goutte qui s'étire).
+- Chantier 23 : mesures en rendu logiciel seulement (le GPU du conteneur est émulé) : le gain au
+  repos se compte en images dessinées (60 → 30 → 20 par seconde ; 144 → 60 sur un écran 144 Hz),
+  le temps GPU réel et la montée `auto` vers Haute (seuil 5 ms) sont à vérifier sur le PC du
+  porteur avec `?debug`. Restent : frémissement d'une touffe quand un kiwi récolte et
+  particules de cueillette ; reflets mouvants du jus ; fumée des cheminées (les émetteurs
+  existants suffisent pour l'instant) ; soleil vraiment rasant (essayé : sol trop sombre).
