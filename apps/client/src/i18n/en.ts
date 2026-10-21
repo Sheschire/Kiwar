@@ -384,6 +384,7 @@ export const en = {
     starTitle: 'Star egg: {dust} stardust more, 1 chance in {odds} of a golden shiny',
   },
   objectives: {
+    fold: 'Fold the objectives',
     title: 'Objectives',
     claim: 'Collect',
     reward: 'Reward',

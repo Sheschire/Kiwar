@@ -102,39 +102,55 @@ export function UpgradePreview({
   rows,
   from,
   to,
+  foldable = false,
 }: {
   rows: StatChange[];
   from: number;
   to: number;
+  /** Chantier 21: folded behind its title on phones (the sheet keeps its actions in view). */
+  foldable?: boolean;
 }) {
   const t = useT();
   const lang = useUi((s) => s.lang);
+  const title = t('levelStats.next', { from, to });
+  const list =
+    rows.length === 0 ? (
+      <p class="small muted">{t('levelStats.none')}</p>
+    ) : (
+      <ul class="change-list">
+        {rows.map((r) => {
+          const better = LOWER_IS_BETTER.has(r.stat) ? r.after < r.before : r.after > r.before;
+          return (
+            <li key={`${r.stat}${r.resource ?? ''}`} class="change-row">
+              <span class="change-label">
+                <StatIcon stat={r.stat} resource={r.resource} /> {t(`levelStats.${r.stat}`)}
+              </span>
+              <span class="change-values">
+                <span class="muted">{formatLevelStat(lang, t, r.stat, r.before)}</span>
+                <span aria-hidden="true">→</span>
+                <strong class={better ? 'bonus' : r.after === r.before ? '' : 'warn'}>
+                  {formatLevelStat(lang, t, r.stat, r.after)}
+                </strong>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  if (foldable)
+    return (
+      <details class="upgrade-preview fold-details">
+        <summary class="small muted">
+          {title}
+          {rows.length > 0 && <span class="badge">{rows.length}</span>}
+        </summary>
+        {list}
+      </details>
+    );
   return (
     <div class="upgrade-preview">
-      <p class="small muted">{t('levelStats.next', { from, to })}</p>
-      {rows.length === 0 ? (
-        <p class="small muted">{t('levelStats.none')}</p>
-      ) : (
-        <ul class="change-list">
-          {rows.map((r) => {
-            const better = LOWER_IS_BETTER.has(r.stat) ? r.after < r.before : r.after > r.before;
-            return (
-              <li key={`${r.stat}${r.resource ?? ''}`} class="change-row">
-                <span class="change-label">
-                  <StatIcon stat={r.stat} resource={r.resource} /> {t(`levelStats.${r.stat}`)}
-                </span>
-                <span class="change-values">
-                  <span class="muted">{formatLevelStat(lang, t, r.stat, r.before)}</span>
-                  <span aria-hidden="true">→</span>
-                  <strong class={better ? 'bonus' : r.after === r.before ? '' : 'warn'}>
-                    {formatLevelStat(lang, t, r.stat, r.after)}
-                  </strong>
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <p class="small muted">{title}</p>
+      {list}
     </div>
   );
 }

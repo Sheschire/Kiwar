@@ -70,6 +70,7 @@ import { bedsOf, harvestOf, idleVillagers } from '../derived';
 import { MissingBedsLine } from './NeedsWidgets';
 import { formatDuration, formatNumber, type Lang } from '../../i18n/i18n';
 import { actions } from '../actions';
+import { useThumbLayout } from '../layout';
 import {
   BookIcon,
   CloseIcon,
@@ -289,11 +290,8 @@ function BuildingSection({
   const idle = idleVillagers(game).length;
   const upgrading = pendingUpgrade(game, b.id);
   const target = b.level + 1;
-  const ctx = { now, map };
-  const upgradeError = !isMaxLevel(b)
-    ? validateCommand(game, { type: 'upgrade', buildingId: b.id }, ctx)
-    : null;
-  const nextDef = levelDef(b.type, target);
+  // Chantier 21: on phones the upgrade button lives in the sheet footer, always in view.
+  const thumb = useThumbLayout();
   return (
     <div class="section">
       <div class="title-row">
@@ -447,38 +445,9 @@ function BuildingSection({
             rows={describeUpgrade(b.type, b.level, target, game)}
             from={b.level}
             to={target}
+            foldable={thumb}
           />
-          <Cost
-            cost={upgradeCost(b.type, target)}
-            have={game.resources}
-            stardust={levelDef(b.type, target)?.stardust}
-            haveDust={stardustOf(game)}
-            durationMs={constructionDuration(game, b.type, target, false, nearRay(map, b.q, b.r))}
-          />
-          <button
-            class="btn btn-primary"
-            disabled={upgradeError !== null}
-            title={upgradeError ? t(`errors.${upgradeError}`) : undefined}
-            onClick={() => actions.dispatch({ type: 'upgrade', buildingId: b.id })}
-          >
-            <HammerIcon size={18} /> {t('building.upgrade', { level: target })}
-          </button>
-          {upgradeError === 'nestLevelTooLow' && nextDef && (
-            <span class="small warn">
-              {t('building.needsNest', { level: nextDef.requiresNestLevel })}
-            </span>
-          )}
-          {upgradeError === 'ageTooLow' && nextDef?.requiresAge !== undefined && (
-            <span class="small warn">
-              {t('building.needsAge', { age: `@ages.${AGE_IDS[nextDef.requiresAge]!}` })}
-            </span>
-          )}
-          {upgradeError &&
-            upgradeError !== 'nestLevelTooLow' &&
-            upgradeError !== 'ageTooLow' &&
-            upgradeError !== 'notEnoughResources' && (
-              <span class="small warn">{t(`errors.${upgradeError}`)}</span>
-            )}
+          {!thumb && <UpgradeAction game={game} map={map} b={b} now={now} t={t} />}
         </div>
       )}
       {b.type !== 'nest' && b.type !== 'monument' && (
@@ -490,6 +459,65 @@ function BuildingSection({
         </button>
       )}
     </div>
+  );
+}
+
+/** True when the building sheet offers an upgrade (not a camp, not busy, not at the top). */
+function canOfferUpgrade(game: GameState, b: Building): boolean {
+  return b.type !== 'camp' && !pendingUpgrade(game, b.id) && !isMaxLevel(b);
+}
+
+/** The upgrade cost, its button and why it is refused. */
+function UpgradeAction({
+  game,
+  map,
+  b,
+  now,
+  t,
+}: {
+  game: GameState;
+  map: FaceMap;
+  b: Building;
+  now: number;
+  t: Translate;
+}) {
+  const target = b.level + 1;
+  const upgradeError = validateCommand(game, { type: 'upgrade', buildingId: b.id }, { now, map });
+  const nextDef = levelDef(b.type, target);
+  return (
+    <>
+      <Cost
+        cost={upgradeCost(b.type, target)}
+        have={game.resources}
+        stardust={levelDef(b.type, target)?.stardust}
+        haveDust={stardustOf(game)}
+        durationMs={constructionDuration(game, b.type, target, false, nearRay(map, b.q, b.r))}
+      />
+      <button
+        class="btn btn-primary"
+        disabled={upgradeError !== null}
+        title={upgradeError ? t(`errors.${upgradeError}`) : undefined}
+        onClick={() => actions.dispatch({ type: 'upgrade', buildingId: b.id })}
+      >
+        <HammerIcon size={18} /> {t('building.upgrade', { level: target })}
+      </button>
+      {upgradeError === 'nestLevelTooLow' && nextDef && (
+        <span class="small warn">
+          {t('building.needsNest', { level: nextDef.requiresNestLevel })}
+        </span>
+      )}
+      {upgradeError === 'ageTooLow' && nextDef?.requiresAge !== undefined && (
+        <span class="small warn">
+          {t('building.needsAge', { age: `@ages.${AGE_IDS[nextDef.requiresAge]!}` })}
+        </span>
+      )}
+      {upgradeError &&
+        upgradeError !== 'nestLevelTooLow' &&
+        upgradeError !== 'ageTooLow' &&
+        upgradeError !== 'notEnoughResources' && (
+          <span class="small warn">{t(`errors.${upgradeError}`)}</span>
+        )}
+    </>
   );
 }
 
@@ -691,6 +719,7 @@ export function TilePanel() {
   const game = useUi((s) => s.game);
   const map = useUi((s) => s.map);
   const now = useUi((s) => s.now);
+  const thumb = useThumbLayout();
   if (!tile || !game || !map) return null;
 
   const building = buildingAt(game, tile.q, tile.r);
@@ -774,6 +803,11 @@ export function TilePanel() {
         {!building && !site && <TitanWorks game={game} map={map} tile={tile} now={now} />}
         {free && options.length === 0 && <p class="small">{t('tile.nothing')}</p>}
       </div>
+      {thumb && building && canOfferUpgrade(game, building) && (
+        <footer class="sheet-foot">
+          <UpgradeAction game={game} map={map} b={building} now={now} t={t} />
+        </footer>
+      )}
     </aside>
   );
 }

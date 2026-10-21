@@ -404,6 +404,7 @@ export const fr: Dict = {
       'Œuf étoilé : {dust} poussières d’étoiles en plus, 1 chance sur {odds} d’un shiny doré',
   },
   objectives: {
+    fold: 'Replier les objectifs',
     title: 'Objectifs',
     claim: 'Récupérer',
     reward: 'Récompense',

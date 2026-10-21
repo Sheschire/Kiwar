@@ -1,3 +1,4 @@
+import { FoldSection } from './FoldSection';
 import {
   getBuilding,
   kiwiRhythm,
@@ -26,8 +27,7 @@ export function RestSection({ v }: { v: Villager }) {
   const { rhythm, fatigue } = kiwiRhythm(game, v, now);
   const share = presence(game, v, bed);
   return (
-    <section class="field rest-section">
-      <h3>{t('needs.rest.title')}</h3>
+    <FoldSection class="rest-section" title={t('needs.rest.title')}>
       <div class="stat-row">
         <span class="stat-label">{t('needs.rest.fatigue')}</span>
         <div class={`fatigue-bar ${fatigue > 0.75 ? 'high' : ''}`} aria-hidden="true">
@@ -49,7 +49,7 @@ export function RestSection({ v }: { v: Villager }) {
       )}
       <p class="small muted">{t('needs.rest.presence', { percent: Math.round(share * 100) })}</p>
       <p class="small muted">{t('needs.rest.hint')}</p>
-    </section>
+    </FoldSection>
   );
 }
 

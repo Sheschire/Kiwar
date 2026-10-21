@@ -163,7 +163,7 @@ export function App() {
       class={`hud ${hasSheet ? 'has-sheet' : ''} ${pathMode || placing ? 'path-mode' : ''} ${thumb ? 'thumb' : ''}`}
     >
       <TopBar buttons={!thumb} />
-      <ObjectivesPanel />
+      <ObjectivesPanel compact={thumb} />
       {!thumb && (
         <>
           <QueuePanel />

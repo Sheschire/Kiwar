@@ -1,3 +1,4 @@
+import { FoldSection } from './FoldSection';
 import { useRef, useState } from 'preact/hooks';
 import {
   builderSpeed,
@@ -503,8 +504,7 @@ function KiwiSheet({ v }: { v: Villager }) {
 
       <ClassSection v={v} />
 
-      <section class="field">
-        <h3>{t('kiwi.trait')}</h3>
+      <FoldSection title={t('kiwi.trait')}>
         {v.trait ? (
           <p class="small">
             <strong>{t(`traits.${v.trait}.name`)}</strong> — {t(`traits.${v.trait}.desc`)}
@@ -512,10 +512,9 @@ function KiwiSheet({ v }: { v: Villager }) {
         ) : (
           <p class="small muted">{t('kiwi.noTrait')}</p>
         )}
-      </section>
+      </FoldSection>
 
-      <section class="field">
-        <h3>{t('kiwi.masteries')}</h3>
+      <FoldSection title={t('kiwi.masteries')}>
         <ul class="mastery-list">
           {MASTERY_IDS.map((id) => {
             const m = masteryProgress(v, id);
@@ -541,10 +540,9 @@ function KiwiSheet({ v }: { v: Villager }) {
             );
           })}
         </ul>
-      </section>
+      </FoldSection>
 
-      <section class="field">
-        <h3>{t('kiwi.story')}</h3>
+      <FoldSection title={t('kiwi.story')}>
         <p class="small">
           {t('kiwi.born', { ago: formatDuration(lang, Math.max(0, now - v.bornAt)) })}
           <br />
@@ -555,7 +553,7 @@ function KiwiSheet({ v }: { v: Villager }) {
             victories: v.history.victories,
           })}
         </p>
-      </section>
+      </FoldSection>
     </div>
   );
 }
@@ -669,8 +667,7 @@ function GuardSection({ game, v }: { game: GameState; v: Villager }) {
   const power = guardPower(v, game);
   const fmt = (x: number) => formatNumber(lang, Math.round(x * 10) / 10);
   return (
-    <section class="field guard-section">
-      <h3>{t('garrison.title')}</h3>
+    <FoldSection class="guard-section" title={t('garrison.title')}>
       <p class="small">{t('garrison.power', { ground: fmt(power.ground), air: fmt(power.air) })}</p>
       <p class="small muted">{t('garrison.hint')}</p>
       <button
@@ -684,7 +681,7 @@ function GuardSection({ game, v }: { game: GameState; v: Villager }) {
       >
         {guard ? t(v.kikiwiwi ? 'garrison.standDown' : 'garrison.relieve') : t('garrison.post')}
       </button>
-    </section>
+    </FoldSection>
   );
 }
 

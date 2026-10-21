@@ -1596,10 +1596,6 @@ button.chip:focus-visible {
     padding: 8px 12px 10px;
   }
 
-  .objectives .objective p {
-    display: none;
-  }
-
   .has-sheet .objectives {
     display: none;
   }
@@ -4409,4 +4405,109 @@ button.chip:focus-visible {
   .hud.thumb .topbar {
     padding-right: 0;
   }
+}
+
+/* The folded objectives: one line under the resources (the tutorial stays in sight). */
+.objective-pill {
+  position: absolute;
+  z-index: 9;
+  left: calc(var(--gap) + var(--safe-left));
+  top: calc(66px + var(--safe-top));
+  max-width: calc(100% - 2 * var(--gap) - var(--safe-left) - var(--safe-right));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 4px 12px 4px 10px;
+  border-radius: 999px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.objective-pill:active {
+  transform: scale(0.96);
+}
+
+.objective-pill-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.objective-pill.is-done {
+  border-color: var(--leaf);
+  color: var(--leaf-dark);
+}
+
+.path-mode .objective-pill,
+.has-sheet .objective-pill {
+  display: none;
+}
+
+.objectives h3 .fold-btn {
+  margin-left: 4px;
+}
+
+/* Chantier 21: on phones the upgrade stays in the sheet footer, its details folded. */
+.sheet-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+  padding: 8px 16px 10px;
+  border-top: 1px dashed rgba(138, 95, 56, 0.35);
+  background: var(--paper);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+.sheet-foot .btn-primary {
+  flex: 1 1 auto;
+  min-height: var(--tap);
+}
+
+.sheet-foot .warn {
+  flex-basis: 100%;
+}
+
+.fold-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.fold-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fold-details > summary::before {
+  content: '▸';
+  transition: transform 0.12s ease;
+}
+
+.fold-details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+/* Immediate feedback on every touch button: no double-tap zoom delay. */
+.thumb button {
+  touch-action: manipulation;
+}
+
+@media (max-width: 760px) and (orientation: portrait) {
+  /* Room for the raised egg below the footer. */
+  .thumb .sheet-foot {
+    padding-bottom: 18px;
+  }
+}
+
+.fold-details > summary h3 {
+  margin: 0;
 }

@@ -1,3 +1,4 @@
+import { THUMB_QUERY } from './layout';
 import { createStore } from 'zustand/vanilla';
 import { useEffect, useReducer, useRef } from 'preact/hooks';
 import type { BuildingType, Face, FaceMap, GameState, StatId, Tile } from '@kiwar/shared';
@@ -177,8 +178,12 @@ export function setPanelOpen(panel: 'queue' | 'threat', open: boolean): void {
   uiStore.setState(panel === 'queue' ? { queueOpen: open } : { threatOpen: open });
 }
 
+// Chantier 21: the objectives start open on wide mouse screens; with the thumb bar they start
+// folded into a one-line pill.
 const wideScreen =
-  typeof window !== 'undefined' && window.matchMedia?.('(min-width: 900px)').matches;
+  typeof window !== 'undefined' &&
+  !!window.matchMedia?.('(min-width: 900px)').matches &&
+  !window.matchMedia(THUMB_QUERY).matches;
 
 export const uiStore = createStore<UiState>(() => ({
   lang: detectLang(),
