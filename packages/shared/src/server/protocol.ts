@@ -163,6 +163,8 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
 /** 'solo' (default) or the id of a shared universe the player belongs to. */
 const universe = z.string().min(1).max(64).optional();
 const displayName = z.string().trim().min(1).max(24);
+/** Chantier 19: the home colony (0, default) or the sister colony on the twin face (1). */
+const colony = z.union([z.literal(0), z.literal(1)]).optional();
 
 export const requestSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('listUniverses') }),
@@ -190,12 +192,13 @@ export const requestSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('load'),
     universe,
+    colony,
     /** World to create if the player has none yet (e.g. from a shared link). */
     create: z
       .object({ seed: z.string().min(1).max(64).optional(), face: z.enum(FACES) })
       .optional(),
   }),
-  z.object({ action: z.literal('command'), universe, command: commandSchema }),
+  z.object({ action: z.literal('command'), universe, colony, command: commandSchema }),
   z.object({
     action: z.literal('newWorld'),
     seed: z.string().min(1).max(64).optional(),
@@ -266,6 +269,8 @@ export type GameResponse =
       twin?: TwinSnapshot | null;
       /** Shared universe: the other players' colonies, on kiwis far away (layout only). */
       allies?: AllySnapshot[];
+      /** Chantier 19: the player's other colony (layout only; null: none founded). */
+      sister?: TwinSnapshot | null;
       /** `guestTransfer` without `keep`. */
       transfer?: GuestTransferPreview;
     }

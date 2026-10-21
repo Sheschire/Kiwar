@@ -49,13 +49,36 @@ begin
 end $$;
 reset role;
 
--- One game per player and universe.
+-- One game per player, universe and colony (chantier 19: home 0, sister 1).
 do $$ begin
   insert into public.games (user_id, universe_id, face, state)
     values ('11111111-1111-1111-1111-111111111111', 'solo-1', 'kiwisu', '{}');
   raise exception 'duplicate game allowed';
 exception when unique_violation then null;
 end $$;
+insert into public.games (user_id, universe_id, face, state, colony)
+  values ('11111111-1111-1111-1111-111111111111', 'solo-1', 'kiwino', '{}', 1);
+do $$ begin
+  insert into public.games (user_id, universe_id, face, state, colony)
+    values ('11111111-1111-1111-1111-111111111111', 'solo-1', 'kiwino', '{}', 1);
+  raise exception 'duplicate sister colony allowed';
+exception when unique_violation then null;
+end $$;
+do $$ begin
+  insert into public.games (user_id, universe_id, face, state, colony)
+    values ('11111111-1111-1111-1111-111111111111', 'solo-1', 'kiwino', '{}', 2);
+  raise exception 'third colony allowed';
+exception when check_violation then null;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare n int;
+begin
+  select count(*) into n from public.games;
+  if n <> 0 then raise exception 'player should not read their sister colony, saw %', n; end if;
+end $$;
+reset role;
 
 -- Audio (chantier 02): everyone reads, only admins write (tables and Storage bucket).
 insert into auth.users (id) values ('33333333-3333-3333-3333-333333333333');

@@ -1,7 +1,7 @@
 import type { ObstacleKind } from '../data/obstacles';
 import type { TerraformKind } from '../data/titan';
 import { alienDefOf } from '../data/expeditions';
-import type { ExpeditionTarget, Friend } from '../sim/state';
+import type { ExpeditionTarget, Friend, GameState } from '../sim/state';
 import type { Resources } from '../data/resources';
 import type { BuildingType } from '../data/buildings';
 import type { FaceParams } from '../worldgen/generateFace';
@@ -76,6 +76,12 @@ export interface TwinSnapshot {
   at: number;
 }
 
+/** Chantier 19: what we see of a colony on the twin face of an ally (their sister colony). */
+export interface SisterSnapshot extends TwinSnapshot {
+  friendId?: string;
+  room?: Resources;
+}
+
 /** An ally's colony on another kiwi of the universe (what we see of it from afar). */
 export interface AllySnapshot extends TwinSnapshot {
   kiwiIndex: number;
@@ -87,6 +93,22 @@ export interface AllySnapshot extends TwinSnapshot {
   room?: Resources;
   /** Age, Nest, kiwis and defense (chantier 14; absent in older snapshots). */
   power?: ColonyPower;
+  /** Chantier 19: their colony on the other half of their kiwi, once founded. */
+  sister?: SisterSnapshot;
+}
+
+/** The layout of a colony as others see it (never its stocks). */
+export function layoutSnapshot(s: GameState, owner: string, at: number): TwinSnapshot {
+  return {
+    owner,
+    face: s.face,
+    params: s.params,
+    buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
+    paths: s.paths,
+    obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
+    terraform: s.terraform,
+    at,
+  };
 }
 
 /**
@@ -168,8 +190,11 @@ export function universeFriends(
     .sort((a, b) => a.distance - b.distance || a.kiwiIndex - b.kiwiIndex);
 }
 
-export const friendId = (userId: string) => `ally:${userId}`;
-export const userOfFriend = (id: string) => id.replace(/^ally:/, '');
+/** Friend id of an ally's colony (chantier 19: `:1` for their sister colony). */
+export const friendId = (userId: string, colony: 0 | 1 = 0) =>
+  colony === 1 ? `ally:${userId}:1` : `ally:${userId}`;
+export const userOfFriend = (id: string) => id.replace(/^ally:/, '').replace(/:1$/, '');
+export const colonyOfFriend = (id: string): 0 | 1 => (/^ally:.+:1$/.test(id) ? 1 : 0);
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 

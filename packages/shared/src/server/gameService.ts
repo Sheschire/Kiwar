@@ -32,7 +32,26 @@ import {
   turretCount,
   turretLimit,
 } from '../sim/selectors';
-import { cloneAliens, newGame, type GameState, type Shipment, type Villager } from '../sim/state';
+import {
+  cloneAliens,
+  cloneState,
+  newColonyLink,
+  newGame,
+  type Friend,
+  type GameState,
+  type Shipment,
+  type Villager,
+} from '../sim/state';
+import { alienDefOf } from '../data/expeditions';
+import {
+  deliverToSister,
+  hasSister,
+  isSister,
+  SISTER_FRIEND,
+  sisterFriend,
+  syncColonies,
+  takeFounding,
+} from '../sim/colonies';
 import { deliveryOf } from '../sim/deliveries';
 import { ensureAliens, hiddenDue, publicState } from '../sim/aliens';
 import { resetSiege } from '../sim/siege';
@@ -47,12 +66,15 @@ import {
   MAX_PLAYERS,
   universeFriends,
   universeTargets,
+  colonyOfFriend,
   friendId,
+  layoutSnapshot,
   userOfFriend,
   type UniverseInfo,
   type UniverseMember,
   type AllySnapshot,
   type ColonyPower,
+  type SisterSnapshot,
   type TwinSnapshot,
   type UniverseSummary,
 } from './universes';
@@ -61,6 +83,8 @@ export interface StoredGame {
   id: string;
   userId: string;
   universeId: string;
+  /** Chantier 19: 0 the home colony, 1 the sister colony on the twin face (absent: 0). */
+  colony?: 0 | 1;
   state: GameState;
   /** Optimistic concurrency token, incremented on every write. */
   version: number;
@@ -82,8 +106,9 @@ export interface UniverseRow {
 
 /** Persistence port, implemented with Postgres in the edge function and in memory in tests. */
 export interface GameRepository {
-  findGame(userId: string, universeId: string): Promise<StoredGame | null>;
-  create(userId: string, universeId: string, state: GameState): Promise<StoredGame>;
+  /** Chantier 19: `colony` 1 is the sister colony (default 0, the home colony). */
+  findGame(userId: string, universeId: string, colony?: 0 | 1): Promise<StoredGame | null>;
+  create(userId: string, universeId: string, state: GameState, colony?: 0 | 1): Promise<StoredGame>;
   /** Writes if the stored version still equals `expectedVersion`; returns null on conflict. */
   update(gameId: string, state: GameState, expectedVersion: number): Promise<StoredGame | null>;
   /** Number of commands this user sent since `sinceMs` (rate limiting). */
@@ -223,6 +248,13 @@ async function guestTransfer(
     ? soloFor(mine.state, guestId)
     : freshGame(ctx, ctx.randomSeed(), 'kiwisu', guestId);
   await repo.update(guest.id, left, guest.version);
+  // Chantier 19: the sister colonies follow their home colony.
+  const guestSister = await repo.findGame(guestId, soloOf(guestId), 1);
+  const mySister = await repo.findGame(ctx.userId, soloId(ctx), 1);
+  const put = async (row: StoredGame | null, userId: string, state: GameState) =>
+    row ? repo.update(row.id, state, row.version) : repo.create(userId, soloOf(userId), state, 1);
+  if (guestSister) await put(mySister, ctx.userId, soloFor(guestSister.state, ctx.userId));
+  if (mySister) await put(guestSister, guestId, soloFor(mySister.state, guestId));
   return reply(ctx, saved.state);
 }
 
@@ -295,6 +327,9 @@ function withScopeTargets(
             : calendarStartFor(scope.shared.info.createdAt),
       }
     : { ...state, friends: [] };
+  // Chantier 19: our other colony is a delivery target; a sister colony has no alien target.
+  if (hasSister(state) || isSister(state)) next.friends = [...next.friends, sisterFriend(state)];
+  if (isSister(state)) next.targets = [];
   if (state.aliens) next.aliens = cloneAliens(state.aliens);
   const changed = ensureAliens(next, ctx.randomSeed());
   return { state: next, changed };
@@ -332,18 +367,12 @@ async function neighboursOf(
       const game = await repo.findGame(m.userId, info.id);
       if (!game) return null;
       const s = game.state;
-      const cap = capacity(s);
       return {
         owner: m.displayName,
         kiwiIndex: m.kiwiIndex,
         friendId: friendId(m.userId),
-        room: Object.fromEntries(
-          RESOURCE_IDS.map((r) => {
-            // Gifts already on their way take their room too.
-            const coming = s.incoming.reduce((sum, d) => sum + d.resources[r], 0);
-            return [r, Math.max(0, Math.floor(cap[r] - s.resources[r] - coming))];
-          }),
-        ) as Resources,
+        // Gifts already on their way take their room too.
+        room: roomOf(s),
         seed: s.seed,
         face: s.face,
         params: s.params,
@@ -353,12 +382,65 @@ async function neighboursOf(
         terraform: s.terraform,
         power: colonyPower(s),
         at: now,
+        ...(await allySister(repo, info.id, m, s, now)),
       };
     }),
   );
   const all = snapshots.filter((x): x is AllySnapshot => x !== null);
   const twin = all.find((a) => a.kiwiIndex === me.kiwiIndex && a.face !== me.face) ?? null;
   return { twin, allies: all.filter((a) => a !== twin) };
+}
+
+/** Free storage per resource, minus the gifts already on their way. */
+function roomOf(s: GameState): Resources {
+  const cap = capacity(s);
+  return Object.fromEntries(
+    RESOURCE_IDS.map((r) => {
+      const coming = s.incoming.reduce((sum, d) => sum + d.resources[r], 0);
+      return [r, Math.max(0, Math.floor(cap[r] - s.resources[r] - coming))];
+    }),
+  ) as Resources;
+}
+
+/** Chantier 19: an ally's sister colony, once founded (we see it, we may deliver to it). */
+async function allySister(
+  repo: GameRepository,
+  universeId: string,
+  m: UniverseMember,
+  home: GameState,
+  now: number,
+): Promise<{ sister?: SisterSnapshot }> {
+  if (home.colony.foundedAt <= 0) return {};
+  const game = await repo.findGame(m.userId, universeId, 1);
+  if (!game || !isSister(game.state)) return {};
+  return {
+    sister: {
+      ...layoutSnapshot(game.state, m.displayName, now),
+      friendId: friendId(m.userId, 1),
+      room: roomOf(game.state),
+    },
+  };
+}
+
+/** Chantier 19: an ally's sister colony as a delivery target (looked up when we deliver). */
+async function allySisterFriend(
+  repo: GameRepository,
+  scope: Scope,
+  id: string,
+): Promise<Friend | null> {
+  if (!scope.shared || colonyOfFriend(id) !== 1) return null;
+  const home = scope.shared.info.members.find((m) => friendId(m.userId) === id.replace(/:1$/, ''));
+  if (!home || home.userId === scope.shared.me.userId) return null;
+  const game = await repo.findGame(home.userId, scope.universeId, 1);
+  if (!game || !isSister(game.state)) return null;
+  const distance = Math.abs(home.kiwiIndex - scope.shared.me.kiwiIndex);
+  return {
+    id,
+    owner: home.displayName,
+    kiwiIndex: home.kiwiIndex,
+    distance,
+    travelMs: alienDefOf(distance).travelMs,
+  };
 }
 
 /** Writes a gift into the ally's game: it lands there at the same time as our ship. */
@@ -370,13 +452,87 @@ async function deliver(
 ): Promise<void> {
   const delivery = deliveryOf(shipment, me.displayName, me.userId);
   for (let attempt = 0; attempt < 4; attempt++) {
-    const game = await repo.findGame(userOfFriend(shipment.friendId), universeId);
+    const game = await repo.findGame(
+      userOfFriend(shipment.friendId),
+      universeId,
+      colonyOfFriend(shipment.friendId),
+    );
     if (!game) return;
     const s = game.state;
     if (s.incoming.some((d) => d.id === delivery.id)) return;
     const next = { ...s, incoming: [...s.incoming, delivery] };
     if (await repo.update(game.id, next, game.version)) return;
   }
+}
+
+/** Chantier 19: the player's two colonies on this kiwi (the sister once founded). */
+interface ColonyPair {
+  home: StoredGame | null;
+  sister: StoredGame | null;
+}
+
+function needsSync(home: GameState, sister: GameState): boolean {
+  const a = home.research;
+  const b = sister.research;
+  return b.outbox > 0 || a.current !== b.current || a.done.length !== b.done.length;
+}
+
+/**
+ * Keeps the two colonies of a player linked (chantier 19): creates the sister colony from a
+ * landed founding, hands the ships between the two faces over, sends the sister's research
+ * points home and teaches it what home knows. Writes the sister first (its points leave it
+ * once), then home. Returns the pair as stored.
+ */
+async function linkColonies(
+  ctx: ServiceContext,
+  repo: GameRepository,
+  scope: Scope,
+): Promise<ColonyPair> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const home = await repo.findGame(ctx.userId, scope.universeId, 0);
+    if (!home || !hasSister(home.state)) return { home, sister: null };
+    const row = await repo.findGame(ctx.userId, scope.universeId, 1);
+    // A row left from an earlier world (new world, colony moved) is not this colony's sister.
+    const linked = row && isSister(row.state) && home.state.colony.foundedAt > 0 ? row : null;
+    const h = cloneState(home.state);
+    let s = linked ? cloneState(linked.state) : null;
+    let dirty = false;
+    let created = false;
+    const f = h.colony.founding;
+    if (f && !s) {
+      s = takeFounding(h);
+      created = dirty = true;
+    } else if (f) {
+      h.colony = { ...h.colony, founding: null, foundedAt: f.at };
+      dirty = true;
+    }
+    if (!s) return { home, sister: null };
+    if (deliverToSister(h, s) > 0) dirty = true;
+    if (deliverToSister(s, h) > 0) dirty = true;
+    if (needsSync(h, s)) {
+      syncColonies(h, s);
+      dirty = true;
+    }
+    if (!dirty) return { home, sister: linked };
+    const savedSister = created
+      ? row
+        ? await repo.update(row.id, s, row.version)
+        : await repo.create(ctx.userId, scope.universeId, s, 1)
+      : await repo.update(linked!.id, s, linked!.version);
+    if (!savedSister) continue;
+    const savedHome = await repo.update(home.id, h, home.version);
+    if (savedHome) return { home: savedHome, sister: savedSister };
+  }
+  const home = await repo.findGame(ctx.userId, scope.universeId, 0);
+  const sister =
+    home && hasSister(home.state) ? await repo.findGame(ctx.userId, scope.universeId, 1) : null;
+  return { home, sister: sister && isSister(sister.state) ? sister : null };
+}
+
+/** The layout of the player's other colony, for the planet at the twin's place. */
+function sisterOf(pair: ColonyPair, colony: 0 | 1, now: number): TwinSnapshot | null {
+  const other = colony === 0 ? pair.sister : pair.home;
+  return other && pair.sister ? layoutSnapshot(other.state, '', now) : null;
 }
 
 /** A game with no player progress can be replaced by an import without loss. */
@@ -715,12 +871,23 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
     case 'load': {
       const scope = await resolveScope(ctx, repo, req.universe);
       if (!scope) return fail('forbidden');
-      const existing = await repo.findGame(ctx.userId, scope.universeId);
-      // The stored state is returned as is: the client advances it to the server time,
-      // which lets it show the "while you were away" summary.
       const near = scope.shared
         ? await neighboursOf(repo, scope.shared.info, scope.shared.me, ctx.now())
         : {};
+      if (req.colony === 1) {
+        // Chantier 19: the sister colony (no hidden garrison there: nothing to resolve).
+        const pair = await linkColonies(ctx, repo, scope);
+        if (!pair.sister) return fail('invalidRequest');
+        return {
+          ...reply(ctx, withScopeTargets(ctx, pair.sister.state, scope).state),
+          universe: scope.shared?.info,
+          ...near,
+          sister: sisterOf(pair, 1, ctx.now()),
+        };
+      }
+      const existing = await repo.findGame(ctx.userId, scope.universeId);
+      // The stored state is returned as is: the client advances it to the server time,
+      // which lets it show the "while you were away" summary.
       if (existing) {
         const scoped = withScopeTargets(ctx, existing.state, scope);
         let state = scoped.state;
@@ -738,7 +905,15 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
           // Another request wrote in between: it resolved everything as well.
           if (!saved) state = (await repo.findGame(ctx.userId, scope.universeId))?.state ?? state;
         }
-        return { ...reply(ctx, state, events), universe: scope.shared?.info, ...near };
+        // Chantier 19: a landed founding, ships between the faces, the shared research.
+        const pair = hasSister(state) ? await linkColonies(ctx, repo, scope) : null;
+        if (pair?.home) state = withScopeTargets(ctx, pair.home.state, scope).state;
+        return {
+          ...reply(ctx, state, events),
+          universe: scope.shared?.info,
+          ...near,
+          sister: pair ? sisterOf(pair, 0, ctx.now()) : null,
+        };
       }
       const state = scope.shared
         ? universeGame(ctx, scope.shared.info, scope.shared.me)
@@ -771,6 +946,8 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
         friends: [],
         shipments: [],
         incoming: [],
+        // Chantier 19: a local second colony cannot be checked (nor its conquest).
+        colony: newColonyLink(),
       };
       // A local save carries its own garrisons: never trust them, draw secret ones.
       delete imported.aliens;
@@ -790,11 +967,18 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
       if (req.command.type === 'debugGrant' && !ctx.isAdmin) return fail('forbidden');
       const scope = await resolveScope(ctx, repo, req.universe);
       if (!scope) return fail('forbidden');
+      const colony = req.colony ?? 0;
+      // Chantier 19: the shared research is chosen at home, whichever colony asks.
+      const target: 0 | 1 = req.command.type === 'setResearch' ? 0 : colony;
+      const cmd = req.command;
+      const allySister =
+        cmd.type === 'sendCargo' ? await allySisterFriend(repo, scope, cmd.friendId) : null;
       // Optimistic concurrency: retry once if another request wrote in between.
       for (let attempt = 0; attempt < 2; attempt++) {
-        const game = await repo.findGame(ctx.userId, scope.universeId);
-        if (!game) return fail('invalidRequest');
+        const game = await repo.findGame(ctx.userId, scope.universeId, target);
+        if (!game || (target === 1 && !isSister(game.state))) return fail('invalidRequest');
         const current = withScopeTargets(ctx, game.state, scope).state;
+        if (allySister) current.friends = [...current.friends, allySister];
         const result = applyCommand(current, req.command, { now: ctx.now(), map: mapFor(current) });
         await repo.logCommand({
           userId: ctx.userId,
@@ -811,9 +995,24 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
             const sent = saved.state.shipments.find(
               (x) => !current.shipments.some((y) => y.id === x.id),
             );
-            if (sent) await deliver(repo, scope.shared.info.id, scope.shared.me, sent);
+            if (sent && sent.friendId !== SISTER_FRIEND)
+              await deliver(repo, scope.shared.info.id, scope.shared.me, sent);
           }
-          return { ok: true, state: saved.state, events: result.events, serverTime: ctx.now() };
+          const linked = hasSister(saved.state) || isSister(saved.state);
+          const pair = linked ? await linkColonies(ctx, repo, scope) : null;
+          const mine =
+            (colony === 0 ? pair?.home : pair?.sister) ?? (target === colony ? saved : null);
+          const state = mine
+            ? withScopeTargets(ctx, mine.state, scope).state
+            : (await repo.findGame(ctx.userId, scope.universeId, colony))?.state;
+          if (!state) return fail('invalidRequest');
+          return {
+            ok: true,
+            state,
+            events: target === colony ? result.events : [],
+            serverTime: ctx.now(),
+            ...(pair ? { sister: sisterOf(pair, colony, ctx.now()) } : {}),
+          };
         }
       }
       return fail('conflict');
@@ -896,6 +1095,21 @@ async function moveSoloInto(
   if (joining) shieldArrival(moved, now);
   const scope: Scope = { universeId: row.id, shared: { info, me } };
   const game = await repo.create(ctx.userId, row.id, withScopeTargets(ctx, moved, scope).state);
+  // Chantier 19: the sister colony moves along (the solo row left behind is unlinked).
+  const sister =
+    solo.state.colony.foundedAt > 0 ? await repo.findGame(ctx.userId, solo.universeId, 1) : null;
+  if (sister && isSister(sister.state)) {
+    const next: GameState = {
+      ...advance(sister.state, now).state,
+      universeId: row.id as UniverseId,
+      kiwiId: `k${me.kiwiIndex}` as KiwiId,
+      friends: [],
+      shipments: [],
+      incoming: [],
+    };
+    if (joining) shieldArrival(next, now);
+    await repo.create(ctx.userId, row.id, withScopeTargets(ctx, next, scope).state, 1);
+  }
   // The solo slot starts over (a new world, drawn by the server).
   await repo.update(solo.id, freshGame(ctx, ctx.randomSeed(), 'kiwisu'), solo.version);
   return {
@@ -934,8 +1148,8 @@ export function shieldArrival(state: GameState, now: number): void {
 function migrating(repo: GameRepository): GameRepository {
   return {
     ...repo,
-    async findGame(userId, universeId) {
-      const game = await repo.findGame(userId, universeId);
+    async findGame(userId, universeId, colony) {
+      const game = await repo.findGame(userId, universeId, colony);
       if (!game) return null;
       const migrated = migrateState(game.state);
       if (!migrated.ok)
@@ -959,13 +1173,24 @@ export function createMemoryRepository(): GameRepository & {
   return {
     games,
     log,
-    async findGame(userId, universeId) {
+    async findGame(userId, universeId, colony = 0) {
       for (const g of games.values())
-        if (g.userId === userId && g.universeId === universeId) return clone(g);
+        if (g.userId === userId && g.universeId === universeId && (g.colony ?? 0) === colony)
+          return clone(g);
       return null;
     },
-    async create(userId, universeId, state) {
-      const g: StoredGame = { id: `g${next++}`, userId, universeId, state, version: 1 };
+    async create(userId, universeId, state, colony = 0) {
+      for (const g of games.values())
+        if (g.userId === userId && g.universeId === universeId && (g.colony ?? 0) === colony)
+          throw new Error('duplicate game');
+      const g: StoredGame = {
+        id: `g${next++}`,
+        userId,
+        universeId,
+        ...(colony ? { colony } : {}),
+        state,
+        version: 1,
+      };
       games.set(g.id, clone(g));
       return clone(g);
     },

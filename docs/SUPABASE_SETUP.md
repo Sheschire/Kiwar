@@ -60,7 +60,8 @@ puis cliquez sur **Run**.
 `supabase/migrations/` et Claude vous donne son SQL prêt à coller. Exécutez seulement les
 nouvelles migrations, dans l'ordre (jamais `setup.sql` une seconde fois).
 
-Ces tables sont créées : `games` (états de jeu), `command_log` (journal anti-triche), `admins`,
+Ces tables sont créées : `games` (états de jeu ; depuis le chantier 19, jusqu'à deux par
+joueur·euse et univers : la colonie d'origine `colony = 0` et la colonie sœur `colony = 1`), `command_log` (journal anti-triche), `admins`,
 `universes`, `universe_members`, `chat_messages`, `chat_reports`, `audio_assets` et
 `audio_bindings`, ainsi que le bucket Storage **`audio`** (lecture publique, 2 Mo par fichier).
 Les joueurs peuvent seulement **lire** leur partie. Toute écriture passe par la fonction serveur.
@@ -80,6 +81,7 @@ Migrations, dans l'ordre :
 | `20261024000000_hide_game_state.sql`    | parties illisibles par les joueurs (garnisons cachées)     |
 | `20261025000000_member_planet_seed.sql` | graine du kiwi d'une colonie solo emportée dans un univers |
 | `20261026000000_universe_imports.sql`   | réglage « colonies importées » de l'hôte, membre importé   |
+| `20261027000000_linked_colonies.sql`    | seconde colonie : deux parties liées par joueur et univers |
 
 ## 4. Fonction serveur `game`
 

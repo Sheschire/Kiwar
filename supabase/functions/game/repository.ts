@@ -5,6 +5,7 @@ interface GameRow {
   id: string;
   user_id: string;
   universe_id: string;
+  colony?: number;
   state: unknown;
   version: number;
 }
@@ -32,7 +33,7 @@ interface MemberRowDb {
 // deno-lint-ignore no-explicit-any
 type State = any;
 
-const GAME_COLUMNS = 'id, user_id, universe_id, state, version';
+const LEGACY_GAME_COLUMNS = 'id, user_id, universe_id, state, version';
 const LEGACY_UNIVERSE_COLUMNS = 'id, name, code, seed, max_players, created_at';
 const LEGACY_MEMBER_COLUMNS = 'user_id, display_name, kiwi_index, face, planet_seed';
 
@@ -51,6 +52,16 @@ export function createSupabaseRepository(db: SupabaseClient) {
     legacy ? LEGACY_UNIVERSE_COLUMNS : `${LEGACY_UNIVERSE_COLUMNS}, created_by, allow_imports`;
   const memberColumns = () =>
     legacy ? LEGACY_MEMBER_COLUMNS : `${LEGACY_MEMBER_COLUMNS}, imported_at`;
+  // Until the owner runs `20261027000000_linked_colonies.sql`, games have no `colony` column:
+  // only home colonies exist (a founding waits in the home colony until then).
+  let legacyGames = false;
+  const gameColumns = () => (legacyGames ? LEGACY_GAME_COLUMNS : `${LEGACY_GAME_COLUMNS}, colony`);
+  const tolerantGames = async (run: () => Query) => {
+    const res = await run();
+    if (legacyGames || !isMissingColumn(res.error)) return res;
+    legacyGames = true;
+    return await run();
+  };
   const tolerant = async (run: () => Query) => {
     const res = await run();
     if (legacy || !isMissingColumn(res.error)) return res;
@@ -61,6 +72,7 @@ export function createSupabaseRepository(db: SupabaseClient) {
     id: r.id,
     userId: r.user_id,
     universeId: r.universe_id,
+    ...(r.colony === 1 ? { colony: 1 as const } : {}),
     state: r.state as State,
     version: r.version,
   });
@@ -87,22 +99,36 @@ export function createSupabaseRepository(db: SupabaseClient) {
   };
 
   return {
-    async findGame(userId: string, universeId: string) {
-      const { data, error } = await db
-        .from('games')
-        .select(GAME_COLUMNS)
-        .eq('user_id', userId)
-        .eq('universe_id', universeId)
-        .maybeSingle();
+    async findGame(userId: string, universeId: string, colony: 0 | 1 = 0) {
+      const { data, error } = await tolerantGames(() => {
+        const q = db
+          .from('games')
+          .select(gameColumns())
+          .eq('user_id', userId)
+          .eq('universe_id', universeId);
+        return (legacyGames ? q : q.eq('colony', colony)).maybeSingle();
+      });
       if (error) fail('findGame', error);
+      if (legacyGames && colony === 1) return null;
       return data ? toGame(data as GameRow) : null;
     },
-    async create(userId: string, universeId: string, state: State) {
-      const { data, error } = await db
-        .from('games')
-        .insert({ user_id: userId, universe_id: universeId, face: state.face, state })
-        .select(GAME_COLUMNS)
-        .single();
+    async create(userId: string, universeId: string, state: State, colony: 0 | 1 = 0) {
+      const insert = () =>
+        db
+          .from('games')
+          .insert({
+            user_id: userId,
+            universe_id: universeId,
+            face: state.face,
+            state,
+            ...(legacyGames ? {} : { colony }),
+          })
+          .select(gameColumns())
+          .single();
+      // A sister colony needs the column: never retry it as a home colony.
+      if (colony === 1 && legacyGames) fail('create', 'the colony column is missing (migration)');
+      const { data, error } = colony === 1 ? await insert() : await tolerantGames(insert);
+      if (colony === 1 && isMissingColumn(error)) legacyGames = true;
       if (error) fail('create', error);
       return toGame(data as GameRow);
     },
@@ -117,7 +143,7 @@ export function createSupabaseRepository(db: SupabaseClient) {
         })
         .eq('id', gameId)
         .eq('version', expectedVersion)
-        .select(GAME_COLUMNS)
+        .select(gameColumns())
         .maybeSingle();
       if (error) fail('update', error);
       return data ? toGame(data as GameRow) : null;

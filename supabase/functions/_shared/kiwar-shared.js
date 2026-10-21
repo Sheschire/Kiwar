@@ -2446,6 +2446,18 @@ function tileAt(map, q, r) {
 
 // packages/shared/src/server/universes.ts
 var MAX_PLAYERS = 8;
+function layoutSnapshot(s, owner, at) {
+  return {
+    owner,
+    face: s.face,
+    params: s.params,
+    buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
+    paths: s.paths,
+    obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
+    terraform: s.terraform,
+    at
+  };
+}
 function kiwiCount(members) {
   const used = members.reduce((n, m) => Math.max(n, m.kiwiIndex + 1), 0);
   return members.length >= used * FACES.length ? used + 1 : used;
@@ -2494,8 +2506,9 @@ function universeFriends(members, me) {
     };
   }).sort((a, b) => a.distance - b.distance || a.kiwiIndex - b.kiwiIndex);
 }
-var friendId = (userId) => `ally:${userId}`;
-var userOfFriend = (id3) => id3.replace(/^ally:/, "");
+var friendId = (userId, colony2 = 0) => colony2 === 1 ? `ally:${userId}:1` : `ally:${userId}`;
+var userOfFriend = (id3) => id3.replace(/^ally:/, "").replace(/:1$/, "");
+var colonyOfFriend = (id3) => /^ally:.+:1$/.test(id3) ? 1 : 0;
 var CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 function inviteCode(bytes) {
   return Array.from(bytes.slice(0, 8), (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
@@ -13430,6 +13443,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
 ]);
 var universe = external_exports.string().min(1).max(64).optional();
 var displayName = external_exports.string().trim().min(1).max(24);
+var colony = external_exports.union([external_exports.literal(0), external_exports.literal(1)]).optional();
 var requestSchema = external_exports.discriminatedUnion("action", [
   external_exports.object({ action: external_exports.literal("listUniverses") }),
   external_exports.object({
@@ -13456,10 +13470,11 @@ var requestSchema = external_exports.discriminatedUnion("action", [
   external_exports.object({
     action: external_exports.literal("load"),
     universe,
+    colony,
     /** World to create if the player has none yet (e.g. from a shared link). */
     create: external_exports.object({ seed: external_exports.string().min(1).max(64).optional(), face: external_exports.enum(FACES) }).optional()
   }),
-  external_exports.object({ action: external_exports.literal("command"), universe, command: commandSchema }),
+  external_exports.object({ action: external_exports.literal("command"), universe, colony, command: commandSchema }),
   external_exports.object({
     action: external_exports.literal("newWorld"),
     seed: external_exports.string().min(1).max(64).optional(),
@@ -13564,6 +13579,11 @@ async function guestTransfer(ctx, repo, guestToken, keep) {
   if (!saved) return fail2("conflict");
   const left = mine ? soloFor(mine.state, guestId) : freshGame(ctx, ctx.randomSeed(), "kiwisu", guestId);
   await repo.update(guest.id, left, guest.version);
+  const guestSister = await repo.findGame(guestId, soloOf(guestId), 1);
+  const mySister = await repo.findGame(ctx.userId, soloId(ctx), 1);
+  const put = async (row, userId, state) => row ? repo.update(row.id, state, row.version) : repo.create(userId, soloOf(userId), state, 1);
+  if (guestSister) await put(mySister, ctx.userId, soloFor(guestSister.state, ctx.userId));
+  if (mySister) await put(guestSister, guestId, soloFor(mySister.state, guestId));
   return reply(ctx, saved.state);
 }
 async function resolveScope(ctx, repo, universe2) {
@@ -13606,6 +13626,8 @@ function withScopeTargets(ctx, state, scope) {
     friends: universeFriends(scope.shared.info.members, scope.shared.me),
     calendarStart: scope.shared.info.createdAt === void 0 ? state.calendarStart : calendarStartFor(scope.shared.info.createdAt)
   } : { ...state, friends: [] };
+  if (hasSister(state) || isSister(state)) next.friends = [...next.friends, sisterFriend(state)];
+  if (isSister(state)) next.targets = [];
   if (state.aliens) next.aliens = cloneAliens(state.aliens);
   const changed = ensureAliens(next, ctx.randomSeed());
   return { state: next, changed };
@@ -13631,17 +13653,12 @@ async function neighboursOf(repo, info, me, now) {
       const game = await repo.findGame(m.userId, info.id);
       if (!game) return null;
       const s = game.state;
-      const cap = capacity(s);
       return {
         owner: m.displayName,
         kiwiIndex: m.kiwiIndex,
         friendId: friendId(m.userId),
-        room: Object.fromEntries(
-          RESOURCE_IDS.map((r) => {
-            const coming = s.incoming.reduce((sum, d) => sum + d.resources[r], 0);
-            return [r, Math.max(0, Math.floor(cap[r] - s.resources[r] - coming))];
-          })
-        ),
+        // Gifts already on their way take their room too.
+        room: roomOf(s),
         seed: s.seed,
         face: s.face,
         params: s.params,
@@ -13650,7 +13667,8 @@ async function neighboursOf(repo, info, me, now) {
         obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
         terraform: s.terraform,
         power: colonyPower(s),
-        at: now
+        at: now,
+        ...await allySister(repo, info.id, m, s, now)
       };
     })
   );
@@ -13658,16 +13676,100 @@ async function neighboursOf(repo, info, me, now) {
   const twin = all.find((a) => a.kiwiIndex === me.kiwiIndex && a.face !== me.face) ?? null;
   return { twin, allies: all.filter((a) => a !== twin) };
 }
+function roomOf(s) {
+  const cap = capacity(s);
+  return Object.fromEntries(
+    RESOURCE_IDS.map((r) => {
+      const coming = s.incoming.reduce((sum, d) => sum + d.resources[r], 0);
+      return [r, Math.max(0, Math.floor(cap[r] - s.resources[r] - coming))];
+    })
+  );
+}
+async function allySister(repo, universeId, m, home, now) {
+  if (home.colony.foundedAt <= 0) return {};
+  const game = await repo.findGame(m.userId, universeId, 1);
+  if (!game || !isSister(game.state)) return {};
+  return {
+    sister: {
+      ...layoutSnapshot(game.state, m.displayName, now),
+      friendId: friendId(m.userId, 1),
+      room: roomOf(game.state)
+    }
+  };
+}
+async function allySisterFriend(repo, scope, id3) {
+  if (!scope.shared || colonyOfFriend(id3) !== 1) return null;
+  const home = scope.shared.info.members.find((m) => friendId(m.userId) === id3.replace(/:1$/, ""));
+  if (!home || home.userId === scope.shared.me.userId) return null;
+  const game = await repo.findGame(home.userId, scope.universeId, 1);
+  if (!game || !isSister(game.state)) return null;
+  const distance = Math.abs(home.kiwiIndex - scope.shared.me.kiwiIndex);
+  return {
+    id: id3,
+    owner: home.displayName,
+    kiwiIndex: home.kiwiIndex,
+    distance,
+    travelMs: alienDefOf(distance).travelMs
+  };
+}
 async function deliver(repo, universeId, me, shipment) {
   const delivery = deliveryOf(shipment, me.displayName, me.userId);
   for (let attempt = 0; attempt < 4; attempt++) {
-    const game = await repo.findGame(userOfFriend(shipment.friendId), universeId);
+    const game = await repo.findGame(
+      userOfFriend(shipment.friendId),
+      universeId,
+      colonyOfFriend(shipment.friendId)
+    );
     if (!game) return;
     const s = game.state;
     if (s.incoming.some((d) => d.id === delivery.id)) return;
     const next = { ...s, incoming: [...s.incoming, delivery] };
     if (await repo.update(game.id, next, game.version)) return;
   }
+}
+function needsSync(home, sister) {
+  const a = home.research;
+  const b = sister.research;
+  return b.outbox > 0 || a.current !== b.current || a.done.length !== b.done.length;
+}
+async function linkColonies(ctx, repo, scope) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const home2 = await repo.findGame(ctx.userId, scope.universeId, 0);
+    if (!home2 || !hasSister(home2.state)) return { home: home2, sister: null };
+    const row = await repo.findGame(ctx.userId, scope.universeId, 1);
+    const linked = row && isSister(row.state) && home2.state.colony.foundedAt > 0 ? row : null;
+    const h = cloneState(home2.state);
+    let s = linked ? cloneState(linked.state) : null;
+    let dirty = false;
+    let created = false;
+    const f = h.colony.founding;
+    if (f && !s) {
+      s = takeFounding(h);
+      created = dirty = true;
+    } else if (f) {
+      h.colony = { ...h.colony, founding: null, foundedAt: f.at };
+      dirty = true;
+    }
+    if (!s) return { home: home2, sister: null };
+    if (deliverToSister(h, s) > 0) dirty = true;
+    if (deliverToSister(s, h) > 0) dirty = true;
+    if (needsSync(h, s)) {
+      syncColonies(h, s);
+      dirty = true;
+    }
+    if (!dirty) return { home: home2, sister: linked };
+    const savedSister = created ? row ? await repo.update(row.id, s, row.version) : await repo.create(ctx.userId, scope.universeId, s, 1) : await repo.update(linked.id, s, linked.version);
+    if (!savedSister) continue;
+    const savedHome = await repo.update(home2.id, h, home2.version);
+    if (savedHome) return { home: savedHome, sister: savedSister };
+  }
+  const home = await repo.findGame(ctx.userId, scope.universeId, 0);
+  const sister = home && hasSister(home.state) ? await repo.findGame(ctx.userId, scope.universeId, 1) : null;
+  return { home, sister: sister && isSister(sister.state) ? sister : null };
+}
+function sisterOf(pair, colony2, now) {
+  const other = colony2 === 0 ? pair.sister : pair.home;
+  return other && pair.sister ? layoutSnapshot(other.state, "", now) : null;
 }
 function isPristine(state) {
   return state.stats.constructionsCompleted === 0 && state.queue.length === 0 && state.objectiveIndex === 0;
@@ -13927,8 +14029,18 @@ async function handle(ctx, body) {
     case "load": {
       const scope = await resolveScope(ctx, repo, req.universe);
       if (!scope) return fail2("forbidden");
-      const existing = await repo.findGame(ctx.userId, scope.universeId);
       const near = scope.shared ? await neighboursOf(repo, scope.shared.info, scope.shared.me, ctx.now()) : {};
+      if (req.colony === 1) {
+        const pair = await linkColonies(ctx, repo, scope);
+        if (!pair.sister) return fail2("invalidRequest");
+        return {
+          ...reply(ctx, withScopeTargets(ctx, pair.sister.state, scope).state),
+          universe: scope.shared?.info,
+          ...near,
+          sister: sisterOf(pair, 1, ctx.now())
+        };
+      }
+      const existing = await repo.findGame(ctx.userId, scope.universeId);
       if (existing) {
         const scoped = withScopeTargets(ctx, existing.state, scope);
         let state2 = scoped.state;
@@ -13943,7 +14055,14 @@ async function handle(ctx, body) {
           const saved = await repo.update(existing.id, state2, existing.version);
           if (!saved) state2 = (await repo.findGame(ctx.userId, scope.universeId))?.state ?? state2;
         }
-        return { ...reply(ctx, state2, events), universe: scope.shared?.info, ...near };
+        const pair = hasSister(state2) ? await linkColonies(ctx, repo, scope) : null;
+        if (pair?.home) state2 = withScopeTargets(ctx, pair.home.state, scope).state;
+        return {
+          ...reply(ctx, state2, events),
+          universe: scope.shared?.info,
+          ...near,
+          sister: pair ? sisterOf(pair, 0, ctx.now()) : null
+        };
       }
       const state = scope.shared ? universeGame(ctx, scope.shared.info, scope.shared.me) : freshGame(ctx, req.create?.seed ?? ctx.randomSeed(), req.create?.face ?? "kiwisu");
       const created = await repo.create(ctx.userId, scope.universeId, state);
@@ -13970,7 +14089,9 @@ async function handle(ctx, body) {
         universeId: soloId(ctx),
         friends: [],
         shipments: [],
-        incoming: []
+        incoming: [],
+        // Chantier 19: a local second colony cannot be checked (nor its conquest).
+        colony: newColonyLink()
       };
       delete imported.aliens;
       resetSiege(imported);
@@ -13986,10 +14107,15 @@ async function handle(ctx, body) {
       if (req.command.type === "debugGrant" && !ctx.isAdmin) return fail2("forbidden");
       const scope = await resolveScope(ctx, repo, req.universe);
       if (!scope) return fail2("forbidden");
+      const colony2 = req.colony ?? 0;
+      const target = req.command.type === "setResearch" ? 0 : colony2;
+      const cmd = req.command;
+      const allySister2 = cmd.type === "sendCargo" ? await allySisterFriend(repo, scope, cmd.friendId) : null;
       for (let attempt = 0; attempt < 2; attempt++) {
-        const game = await repo.findGame(ctx.userId, scope.universeId);
-        if (!game) return fail2("invalidRequest");
+        const game = await repo.findGame(ctx.userId, scope.universeId, target);
+        if (!game || target === 1 && !isSister(game.state)) return fail2("invalidRequest");
         const current = withScopeTargets(ctx, game.state, scope).state;
+        if (allySister2) current.friends = [...current.friends, allySister2];
         const result2 = applyCommand(current, req.command, { now: ctx.now(), map: mapFor(current) });
         await repo.logCommand({
           userId: ctx.userId,
@@ -14006,9 +14132,21 @@ async function handle(ctx, body) {
             const sent = saved.state.shipments.find(
               (x) => !current.shipments.some((y) => y.id === x.id)
             );
-            if (sent) await deliver(repo, scope.shared.info.id, scope.shared.me, sent);
+            if (sent && sent.friendId !== SISTER_FRIEND)
+              await deliver(repo, scope.shared.info.id, scope.shared.me, sent);
           }
-          return { ok: true, state: saved.state, events: result2.events, serverTime: ctx.now() };
+          const linked = hasSister(saved.state) || isSister(saved.state);
+          const pair = linked ? await linkColonies(ctx, repo, scope) : null;
+          const mine = (colony2 === 0 ? pair?.home : pair?.sister) ?? (target === colony2 ? saved : null);
+          const state = mine ? withScopeTargets(ctx, mine.state, scope).state : (await repo.findGame(ctx.userId, scope.universeId, colony2))?.state;
+          if (!state) return fail2("invalidRequest");
+          return {
+            ok: true,
+            state,
+            events: target === colony2 ? result2.events : [],
+            serverTime: ctx.now(),
+            ...pair ? { sister: sisterOf(pair, colony2, ctx.now()) } : {}
+          };
         }
       }
       return fail2("conflict");
@@ -14067,6 +14205,19 @@ async function moveSoloInto(ctx, repo, row, solo, displayName2, members = []) {
   if (joining) shieldArrival(moved, now);
   const scope = { universeId: row.id, shared: { info, me } };
   const game = await repo.create(ctx.userId, row.id, withScopeTargets(ctx, moved, scope).state);
+  const sister = solo.state.colony.foundedAt > 0 ? await repo.findGame(ctx.userId, solo.universeId, 1) : null;
+  if (sister && isSister(sister.state)) {
+    const next = {
+      ...advance(sister.state, now).state,
+      universeId: row.id,
+      kiwiId: `k${me.kiwiIndex}`,
+      friends: [],
+      shipments: [],
+      incoming: []
+    };
+    if (joining) shieldArrival(next, now);
+    await repo.create(ctx.userId, row.id, withScopeTargets(ctx, next, scope).state, 1);
+  }
   await repo.update(solo.id, freshGame(ctx, ctx.randomSeed(), "kiwisu"), solo.version);
   return {
     ok: true,
@@ -14097,8 +14248,8 @@ function shieldArrival(state, now) {
 function migrating(repo) {
   return {
     ...repo,
-    async findGame(userId, universeId) {
-      const game = await repo.findGame(userId, universeId);
+    async findGame(userId, universeId, colony2) {
+      const game = await repo.findGame(userId, universeId, colony2);
       if (!game) return null;
       const migrated = migrateState(game.state);
       if (!migrated.ok)
@@ -14117,13 +14268,24 @@ function createMemoryRepository() {
   return {
     games,
     log,
-    async findGame(userId, universeId) {
+    async findGame(userId, universeId, colony2 = 0) {
       for (const g of games.values())
-        if (g.userId === userId && g.universeId === universeId) return clone(g);
+        if (g.userId === userId && g.universeId === universeId && (g.colony ?? 0) === colony2)
+          return clone(g);
       return null;
     },
-    async create(userId, universeId, state) {
-      const g = { id: `g${next++}`, userId, universeId, state, version: 1 };
+    async create(userId, universeId, state, colony2 = 0) {
+      for (const g2 of games.values())
+        if (g2.userId === userId && g2.universeId === universeId && (g2.colony ?? 0) === colony2)
+          throw new Error("duplicate game");
+      const g = {
+        id: `g${next++}`,
+        userId,
+        universeId,
+        ...colony2 ? { colony: colony2 } : {},
+        state,
+        version: 1
+      };
       games.set(g.id, clone(g));
       return clone(g);
     },
@@ -14387,6 +14549,7 @@ export {
   cloneThreats,
   cloneVillager,
   colonyBonus,
+  colonyOfFriend,
   colonyPower,
   cometStock,
   cometTick,
@@ -14543,6 +14706,7 @@ export {
   landTileNear,
   launch,
   launchpadOf,
+  layoutSnapshot,
   leaveWreck,
   levelDef,
   levelForXp,

@@ -4,6 +4,10 @@ import {
   applyCommand,
   capacity,
   COLONY,
+  createMemoryRepository,
+  handleGameRequest,
+  type GameResponse,
+  type ServiceContext,
   deliverToSister,
   denRaidForecast,
   faceMapOf,
@@ -34,7 +38,17 @@ function conquered(seed = 'colony') {
   s.buildings[0]!.level = 4;
   const pad = findTile(map, 'flesh', 2);
   const mon = findTile(map, 'flesh', 6);
+  const lib = findTile(map, 'flesh', 9);
   s.buildings.push(
+    {
+      id: 'blib0' as BuildingId,
+      type: 'library',
+      q: lib.q,
+      r: lib.r,
+      level: 3,
+      richness: 1,
+      builtAt: T0,
+    },
     { id: PAD, type: 'launchpad', q: pad.q, r: pad.r, level: 3, richness: 1, builtAt: T0 },
     {
       id: 'bmon' as BuildingId,
@@ -189,6 +203,8 @@ describe('shared research', () => {
     const { home } = landed('colony-research');
     const h = structuredClone(home);
     const sister = takeFounding(h)!;
+    // Only the sister's Library works on it here.
+    h.buildings = h.buildings.filter((b) => b.type !== 'library');
     h.research.current = 'masonry';
     syncColonies(h, sister);
     expect(sister.research.current).toBe('masonry');
@@ -356,6 +372,201 @@ describe('links between the two faces', () => {
     expect(validateCommand(ally, toAlly, { now: home.now, map })).toBe('invalidCrew');
     const everyone = { ...cmd, villagerIds: sister.villagers.map((k) => k.id) };
     expect(validateCommand(sister, everyone, { now: sister.now, map: sMap })).toBe('crewTooLarge');
+  });
+});
+
+describe('online: two linked game rows', () => {
+  function ctxFor() {
+    const repo = createMemoryRepository();
+    let now = T0;
+    let seeds = 0;
+    const ctx: ServiceContext = {
+      repo,
+      userId: 'u1',
+      now: () => now,
+      randomSeed: () => `secret-${++seeds}`,
+      randomBytes: (n) => Uint8Array.from({ length: n }, (_, i) => (i * 37 + seeds) % 256),
+    };
+    return { ctx, repo, at: (t: number) => (now = t) };
+  }
+  const hidden = (r: GameResponse) => {
+    const text = JSON.stringify(r);
+    expect(text).not.toMatch(/"aliens":\{/);
+    expect(text).not.toMatch(/secret-\d+\/aliens:/);
+    return r;
+  };
+  const rows = (repo: ReturnType<typeof createMemoryRepository>) => [...repo.games.values()];
+
+  async function founded() {
+    const { ctx, repo, at } = ctxFor();
+    await handleGameRequest(ctx, { action: 'load' });
+    const game = rows(repo)[0]!;
+    const { s } = conquered('colony-online');
+    repo.games.set(game.id, { ...game, state: s });
+    const crew = settlers(s);
+    const r = hidden(
+      await handleGameRequest(ctx, { action: 'command', command: foundCmd(s, crew) }),
+    );
+    expect(r.ok).toBe(true);
+    const e = r.ok ? r.state!.expeditions.find((x) => x.mission === 'found')! : null;
+    at(e!.arriveAt + HOUR_MS);
+    return { ctx, repo, at, e: e! };
+  }
+
+  it('creates the sister row when the settlers land, and loads either colony', async () => {
+    const { ctx, repo } = await founded();
+    const home = hidden(await handleGameRequest(ctx, { action: 'load' }));
+    expect(home.ok).toBe(true);
+    if (!home.ok) return;
+    expect(home.state!.colony.foundedAt).toBeGreaterThan(0);
+    expect(home.state!.colony.founding).toBeNull();
+    expect(home.sister?.face).toBe('kiwino');
+    expect(home.state!.friends.map((f) => f.id)).toContain(SISTER_FRIEND);
+    expect(rows(repo).filter((g) => g.colony === 1)).toHaveLength(1);
+    const sister = hidden(await handleGameRequest(ctx, { action: 'load', colony: 1 }));
+    expect(sister.ok && sister.state!.face).toBe('kiwino');
+    expect(sister.ok && sister.state!.colony.index).toBe(1);
+    expect(sister.ok && sister.state!.targets).toEqual([]);
+    expect(sister.ok && sister.sister?.face).toBe('kiwisu');
+    // Loading again changes nothing (no second sister).
+    await handleGameRequest(ctx, { action: 'load' });
+    expect(rows(repo).filter((g) => g.colony === 1)).toHaveLength(1);
+  });
+
+  it('refuses the sister colony before it exists', async () => {
+    const { ctx } = ctxFor();
+    await handleGameRequest(ctx, { action: 'load' });
+    const r = await handleGameRequest(ctx, { action: 'load', colony: 1 });
+    expect(r.ok).toBe(false);
+  });
+
+  it('chooses the research at home and sends the sister points there', async () => {
+    const { ctx, repo } = await founded();
+    await handleGameRequest(ctx, { action: 'load' });
+    const r = await handleGameRequest(ctx, {
+      action: 'command',
+      colony: 1,
+      command: { type: 'setResearch', tech: 'masonry' },
+    });
+    expect(r.ok && r.state!.colony.index).toBe(1);
+    expect(r.ok && r.state!.research.current).toBe('masonry');
+    const homeRow = rows(repo).find((g) => !g.colony)!;
+    expect(homeRow.state.research.current).toBe('masonry');
+    const sisterRow = rows(repo).find((g) => g.colony === 1)!;
+    repo.games.set(sisterRow.id, {
+      ...sisterRow,
+      state: {
+        ...sisterRow.state,
+        research: { ...sisterRow.state.research, outbox: 5 * RESEARCH_SCALE },
+      },
+    });
+    const before = rows(repo).find((g) => !g.colony)!.state.research.points;
+    await handleGameRequest(ctx, { action: 'load' });
+    expect(rows(repo).find((g) => !g.colony)!.state.research.points).toBe(
+      before + 5 * RESEARCH_SCALE,
+    );
+    expect(rows(repo).find((g) => g.colony === 1)!.state.research.outbox).toBe(0);
+  });
+
+  it('writes a ship to the sister into its row', async () => {
+    const { ctx, repo, e } = await founded();
+    await handleGameRequest(ctx, { action: 'load' });
+    const homeRow = rows(repo).find((g) => !g.colony)!;
+    // Once the settlers' ship is back.
+    const { at } = { at: (t: number) => t };
+    void at;
+    const back = advance(homeRow.state, e.returnAt).state;
+    repo.games.set(homeRow.id, { ...homeRow, state: back });
+    (ctx as { now: () => number }).now = () => e.returnAt + 1;
+    const mover = back.villagers.find((v) => v.job.kind !== 'expedition')!;
+    const r = await handleGameRequest(ctx, {
+      action: 'command',
+      command: {
+        type: 'sendCargo',
+        launchpadId: PAD,
+        friendId: SISTER_FRIEND,
+        resources: { seeds: 50 },
+        villagerIds: [mover.id],
+      },
+    });
+    expect(r.ok).toBe(true);
+    const sister = rows(repo).find((g) => g.colony === 1)!.state;
+    expect(sister.incoming).toHaveLength(1);
+    expect(sister.incoming[0]!.villagers?.[0]?.name).toBe(mover.name);
+    expect(r.ok && r.state!.shipments[0]!.delivered).toBe(true);
+  });
+});
+
+describe('online: allies and the sister colony', () => {
+  it('an ally sees the sister colony and can deliver to it', async () => {
+    const repo = createMemoryRepository();
+    let n = 0;
+    const as = (userId: string): ServiceContext => ({
+      repo,
+      userId,
+      now: () => T0,
+      randomSeed: () => `seed-${++n}`,
+      randomBytes: (len) => Uint8Array.from({ length: len }, (_, i) => (n * 31 + i * 17) % 256),
+    });
+    const created = await handleGameRequest(as('alice'), {
+      action: 'createUniverse',
+      name: 'Kiwis',
+      displayName: 'Alice',
+    });
+    if (!created.ok) throw new Error(created.error);
+    const u = created.universe!;
+    await handleGameRequest(as('bob'), {
+      action: 'joinUniverse',
+      code: u.code,
+      displayName: 'Bob',
+    });
+    // Bob founded his sister colony.
+    const bobHome = [...repo.games.values()].find((g) => g.userId === 'bob')!;
+    const f = {
+      at: T0,
+      settlers: bobHome.state.villagers.slice(0, 5),
+      resources: bobHome.state.resources,
+    };
+    const sister = newSister(bobHome.state, f);
+    repo.games.set(bobHome.id, {
+      ...bobHome,
+      state: { ...bobHome.state, colony: { index: 0, founding: null, foundedAt: T0 } },
+    });
+    await repo.create('bob', u.id, sister, 1);
+    // Alice has a launchpad.
+    const alice = [...repo.games.values()].find((g) => g.userId === 'alice')!;
+    const map = faceMapOf(alice.state);
+    const site = findTile(map, 'flesh', 2);
+    repo.games.set(alice.id, {
+      ...alice,
+      state: {
+        ...rich(alice.state),
+        buildings: [
+          ...alice.state.buildings,
+          { id: PAD, type: 'launchpad', q: site.q, r: site.r, level: 1, richness: 1, builtAt: T0 },
+        ],
+      },
+    });
+    const load = await handleGameRequest(as('alice'), { action: 'load', universe: u.id });
+    if (!load.ok) throw new Error(load.error);
+    const bobSnap = load.allies!.find((a) => a.owner === 'Bob')!;
+    expect(bobSnap.sister).toMatchObject({ face: 'kiwino', friendId: 'ally:bob:1' });
+    expect(bobSnap.sister).not.toHaveProperty('resources');
+    const sent = await handleGameRequest(as('alice'), {
+      action: 'command',
+      universe: u.id,
+      command: {
+        type: 'sendCargo',
+        launchpadId: PAD,
+        friendId: 'ally:bob:1',
+        resources: { seeds: 40 },
+      },
+    });
+    expect(sent.ok).toBe(true);
+    const bobSister = [...repo.games.values()].find((g) => g.userId === 'bob' && g.colony === 1)!;
+    expect(bobSister.state.incoming.map((d) => d.resources.seeds)).toEqual([40]);
+    const bobHomeAfter = [...repo.games.values()].find((g) => g.userId === 'bob' && !g.colony)!;
+    expect(bobHomeAfter.state.incoming).toEqual([]);
   });
 });
 
