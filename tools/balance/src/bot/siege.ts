@@ -279,12 +279,21 @@ export function siegeOrder(state: GameState, map: FaceMap): Command | null {
   if (!pad) return null;
   const view = siegeView(state, state.now);
   const scouting = inFlight(state, 'recon');
-  // Old intel widens every estimate: look again before a counter-attack and the final.
+  // The final assault as soon as it is allowed and likely.
+  if (finalLock(state) === null && !inFlight(state, 'final')) {
+    const final = finalAssault(state, map, pad, twin.id);
+    if (final) return final;
+  }
+  // Old intel widens every estimate: look again before a counter-attack and the final, at
+  // most twice a day (scouts do not always see the sector again).
   const c = state.siege.counter;
   const holdOld = c && c.announced && view.holds[c.sector]?.freshness !== 'fresh';
   const queenOld =
     finalLock(state) === null && view.queen !== null && view.queen.ground.freshness !== 'fresh';
-  if ((holdOld || queenOld) && !scouting) {
+  const lookedLately = state.expeditions.some(
+    (e) => e.mission === 'recon' && state.now - e.departedAt < 12 * 3_600_000,
+  );
+  if ((holdOld || queenOld) && !scouting && !lookedLately) {
     const look = recon(state, map, pad, twin.id);
     if (look) return look;
   }
@@ -294,11 +303,6 @@ export function siegeOrder(state: GameState, map: FaceMap): Command | null {
   const assaults = state.expeditions.filter(
     (e) => e.mission === 'assault' && e.status === 'outbound',
   );
-  // The final assault as soon as it is allowed and likely.
-  if (finalLock(state) === null && !inFlight(state, 'final')) {
-    const final = finalAssault(state, map, pad, twin.id);
-    if (final) return final;
-  }
   // The Kikiwiwi goes to a bridgehead to fortify it (one is enough).
   const fortified = heads.some((b) => b.fortified || b.fortifyUntil !== undefined);
   const titanPosted = state.villagers.some((v) => v.kikiwiwi && v.job.kind === 'outpost');
