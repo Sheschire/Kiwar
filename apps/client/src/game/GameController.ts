@@ -29,6 +29,14 @@ import {
   universeFriends,
   universeTargets,
   stardustOf,
+  colonyNeedsSync,
+  deliverToSister,
+  hasSister,
+  isSister,
+  layoutSnapshot,
+  sisterFriend,
+  syncColonies,
+  takeFounding,
 } from '@kiwar/shared';
 import type { Account, OnlineBackend } from './onlineBackend';
 import {
@@ -40,6 +48,10 @@ import {
 import { NetworkError, onlineConfig, type OnlineConfig } from './onlineConfig';
 
 const SAVE_KEY = 'kiwar.save.v1';
+/** Chantier 19: the local sister colony (the home colony stays under SAVE_KEY). */
+const SISTER_KEY = 'kiwar.save.v1.sister';
+/** Chantier 19: the colony on screen per universe ('solo' or an id → 0 home, 1 sister). */
+const COLONY_KEY = 'kiwar.colony';
 const IMPORTED_KEY = 'kiwar.save.v1.imported';
 const CACHE_KEY = 'kiwar.online.cache';
 const CLOCK_KEY = 'kiwar.clockOffset';
@@ -93,6 +105,8 @@ export interface ControllerListener {
   onTwin(twin: TwinSnapshot | null): void;
   /** The other players of the universe, on kiwis far away (shared universes). */
   onAllies(allies: AllySnapshot[]): void;
+  /** Chantier 19: the colony on screen and the layout of the other one (null: no sister). */
+  onColony(colony: 0 | 1, sister: TwinSnapshot | null): void;
   /** An auth error came back on the redirect URL (shown once). */
   onAuthError(error: AuthRedirectError | null): void;
   /** The guest's colony may follow into this account: which one to keep? (null: done). */
@@ -138,6 +152,16 @@ export class GameController {
   private userId: string | null = null;
   /** 'solo' or the id of the shared universe being played. */
   universe = safeStorage(() => localStorage.getItem(UNIVERSE_KEY), null) ?? 'solo';
+  /** Chantier 19: the colony on screen (0 home, 1 the sister on the twin face). */
+  colony: 0 | 1 = coloniesSeen()[this.universe] === 1 ? 1 : 0;
+  /** Local mode: the colony not on screen (advanced every few seconds)… */
+  private other: GameState | null = null;
+  /** …as it was when it left the screen, and what happened to it since (the summary). */
+  private otherFrom: GameState | null = null;
+  private otherEvents: GameEvent[] = [];
+  /** Layout of the other colony as last shown (the planet at the twin's place). */
+  private sister: TwinSnapshot | null = null;
+  private sisterKey = '';
   private tickTimer: number | undefined;
   private reportPolledAt = 0;
   private saveTimer: number | undefined;
@@ -192,7 +216,7 @@ export class GameController {
     } else {
       this.listener.onSync('local');
       const loaded = deserializeSave(safeStorage(() => localStorage.getItem(SAVE_KEY), null));
-      if (loaded.ok && !world) this.loadState(loaded.save.state);
+      if (loaded.ok && !world) this.loadLocal(loaded.save.state);
       else this.newLocalWorld(world?.seed ?? fallbackSeed(), world?.face ?? 'kiwisu');
     }
     // The renderer drives the ticks right after its frames (`tickIfDue`); this timer only
@@ -201,11 +225,138 @@ export class GameController {
       if (performance.now() - this.lastTickAt >= TICK_MS * 1.5) this.tick();
     }, TICK_MS);
     this.saveTimer = window.setInterval(() => {
+      this.advanceOther();
       this.saveSoon();
       if (document.visibilityState === 'visible') this.markSeen();
     }, AUTOSAVE_MS);
     document.addEventListener('visibilitychange', this.onVisibility);
     window.addEventListener('pagehide', this.onPageHide);
+  }
+
+  /** Local mode: the home colony and, once founded, its sister (the one on screen is loaded). */
+  private loadLocal(home: GameState): void {
+    const raw = deserializeSave(safeStorage(() => localStorage.getItem(SISTER_KEY), null));
+    const sister =
+      raw.ok && isSister(raw.save.state) && hasSister(home) && home.colony.foundedAt > 0
+        ? raw.save.state
+        : null;
+    if (this.colony === 1 && sister) {
+      this.other = home;
+      this.loadState(sister);
+    } else {
+      this.setColony(0);
+      this.other = sister;
+      this.loadState(home);
+    }
+    this.otherFrom = this.other;
+    this.otherEvents = [];
+    this.linkLocal();
+    this.emitColony(true);
+  }
+
+  /** The colony on screen, remembered per universe. */
+  private setColony(colony: 0 | 1): void {
+    this.colony = colony;
+    const seen = coloniesSeen();
+    seen[this.universe] = colony;
+    safeStorage(() => localStorage.setItem(COLONY_KEY, JSON.stringify(seen)), undefined);
+  }
+
+  /** Tells the UI which colony is on screen and how the other one looks (when it changed). */
+  private emitColony(force = false, snapshot?: TwinSnapshot | null): void {
+    if (snapshot !== undefined) this.sister = snapshot;
+    else if (!this.config) {
+      const o = this.other;
+      const key = o
+        ? JSON.stringify([
+            o.buildings.map((b) => [b.type, b.level, b.q, b.r]),
+            o.paths,
+            o.obstacles.length,
+            o.terraform,
+          ])
+        : '';
+      if (key !== this.sisterKey || force) {
+        this.sisterKey = key;
+        this.sister = o ? layoutSnapshot(o, '', this.now()) : null;
+      } else return;
+    }
+    this.listener.onColony(this.colony, this.sister);
+  }
+
+  /**
+   * Local mode (chantier 19): creates the sister colony when the settlers land, hands the
+   * ships between the two faces over and shares the research (the server does it online).
+   */
+  private linkLocal(): void {
+    if (this.config || !this.state) return;
+    const home = this.colony === 0 ? this.state : this.other;
+    let sister = this.colony === 0 ? this.other : this.state;
+    if (!home) return;
+    let changed = false;
+    const f = home.colony.founding;
+    if (f && !sister) {
+      sister = takeFounding(home);
+      this.otherFrom = sister;
+      changed = true;
+    } else if (f) home.colony = { ...home.colony, founding: null, foundedAt: f.at };
+    if (!sister) return;
+    if (deliverToSister(home, sister) + deliverToSister(sister, home) > 0) changed = true;
+    if (colonyNeedsSync(home, sister)) syncColonies(home, sister);
+    if (this.colony === 0) this.other = sister;
+    else this.other = home;
+    if (changed) {
+      this.emitColony();
+      this.saveSoon();
+    }
+  }
+
+  /** Local mode: the colony off screen lives on (its events wait for the switch summary). */
+  private advanceOther(): void {
+    if (this.config || !this.other) return;
+    const { state, events } = advance(this.other, this.now());
+    this.other = state;
+    this.otherEvents = [...this.otherEvents, ...events].slice(-500);
+    // A technology learnt at home is news on both faces.
+    const shared = events.filter((e) => e.type === 'researchDone');
+    if (shared.length) this.listener.onEvents(shared);
+    this.linkLocal();
+    this.emitColony();
+  }
+
+  /** Chantier 19: plays the other colony (home or the sister on the twin face). */
+  async switchColony(colony: 0 | 1): Promise<boolean> {
+    if (colony === this.colony) return false;
+    if (this.config) {
+      if (!(await this.drainPending())) return false;
+      const previous = this.colony;
+      this.setColony(colony);
+      try {
+        await this.loadFromServer(null);
+        return true;
+      } catch {
+        this.setColony(previous);
+        return false;
+      }
+    }
+    if (!this.other) return false;
+    const now = this.now();
+    const from = this.otherFrom ?? this.other;
+    const { state, events } = advance(this.other, now);
+    const happened = [...this.otherEvents, ...events];
+    this.other = this.state;
+    this.otherFrom = this.state;
+    this.otherEvents = [];
+    this.setColony(colony);
+    this.state = state;
+    this.map = faceMapOf(state);
+    this.listener.onWorld(this.map, this.state);
+    this.emitState(now);
+    this.emitColony(true);
+    const away = now - from.now;
+    if (away >= OFFLINE_SUMMARY_MIN_MS)
+      this.listener.onOfflineSummary(summarize(from, state, happened, away));
+    this.save();
+    return true;
   }
 
   /** True when the player has a colony worth protecting (asks before replacing it). */
@@ -222,7 +373,7 @@ export class GameController {
     // Online, the stored state dates from the last server write: the player may have watched
     // the colony long after it. The summary only covers the time they were really away.
     const seenAt = this.config
-      ? Math.min(now, Math.max(saved.now, seenTimes()[saved.universeId] ?? 0))
+      ? Math.min(now, Math.max(saved.now, seenTimes()[seenKey(saved)] ?? 0))
       : saved.now;
     const before = seenAt > saved.now ? advance(saved, seenAt).state : saved;
     const { state, events } = advance(before, now);
@@ -241,7 +392,7 @@ export class GameController {
   private markSeen(): void {
     if (!this.config || !this.state) return;
     const seen = seenTimes();
-    seen[this.state.universeId] = this.now();
+    seen[seenKey(this.state)] = this.now();
     safeStorage(() => localStorage.setItem(SEEN_KEY, JSON.stringify(seen)), undefined);
   }
 
@@ -257,7 +408,13 @@ export class GameController {
     this.scaleAnchor = { real: Date.now(), virtual: Date.now() };
     this.persistClock();
     this.state = newGame({ seed, face, now: this.now() });
+    this.other = null;
+    this.otherFrom = null;
+    this.otherEvents = [];
+    safeStorage(() => localStorage.removeItem(SISTER_KEY), undefined);
+    this.setColony(0);
     this.setWorld(this.state);
+    this.emitColony(true);
     this.save();
   }
 
@@ -282,6 +439,8 @@ export class GameController {
   }
 
   dispatch(cmd: Command): boolean {
+    if (cmd.type === 'setResearch' && this.state && isSister(this.state))
+      return this.dispatchHomeResearch(cmd);
     const now = this.now();
     let result: ReturnType<typeof applyCommand>;
     try {
@@ -293,6 +452,7 @@ export class GameController {
       return false;
     }
     this.state = result.state;
+    if (result.ok) this.linkLocal();
     if (result.events.length) this.listener.onEvents(result.events);
     this.emitState(now);
     if (!result.ok) {
@@ -305,6 +465,36 @@ export class GameController {
     } else {
       this.saveSoon();
     }
+    return true;
+  }
+
+  /**
+   * Chantier 19: the shared research is chosen at home. Local mode applies the choice to the
+   * home colony; online, the server does (the sister shows it at once).
+   */
+  private dispatchHomeResearch(cmd: Extract<Command, { type: 'setResearch' }>): boolean {
+    const now = this.now();
+    if (this.config) {
+      this.state = {
+        ...this.state,
+        research: { ...this.state.research, current: cmd.tech },
+      };
+      this.emitState(now);
+      this.pending.push(cmd);
+      void this.flush();
+      return true;
+    }
+    if (!this.other) return false;
+    const home = advance(this.other, now).state;
+    const result = applyCommand(home, cmd, { now, map: faceMapOf(home) });
+    if (!result.ok) {
+      this.listener.onError(result.error);
+      return false;
+    }
+    this.other = result.state;
+    this.linkLocal();
+    this.emitState(now);
+    this.saveSoon();
     return true;
   }
 
@@ -342,18 +532,20 @@ export class GameController {
     const { state, events } = advance(this.state, now);
     this.lastAdvanceMs = performance.now() - start;
     this.state = state;
+    this.linkLocal();
     if (events.length) {
       this.listener.onEvents(events);
       this.saveSoon();
     }
     this.emitState(now);
     // A ship landed or a counter-attack struck: only the server knows (hidden garrisons).
+    // Chantier 19: settlers landed, the server creates the sister colony.
     if (
       this.online &&
       !this.flushing &&
       this.pending.length === 0 &&
       Date.now() - this.reportPolledAt > REPORT_POLL_MS &&
-      awaitingServer(this.state, now)
+      (awaitingServer(this.state, now) || this.state.colony.founding !== null)
     ) {
       this.reportPolledAt = Date.now();
       void this.fetchReports();
@@ -363,9 +555,14 @@ export class GameController {
   /** Asks the server for the outcome of landed ships, then rebases on its answer. */
   private async fetchReports(): Promise<void> {
     try {
-      const res = await this.online!.call({ action: 'load', universe: this.universe });
+      const res = await this.online!.call({
+        action: 'load',
+        universe: this.universe,
+        colony: this.colony,
+      });
       if (this.pending.length > 0) return;
       this.acceptServer(res);
+      if (res.ok) this.emitColony(false, res.sister ?? null);
       if (res.ok && res.events.length) this.listener.onEvents(res.events);
       this.rebase();
     } catch {
@@ -394,10 +591,13 @@ export class GameController {
 
   save(): void {
     if (!this.state || this.config) return;
-    safeStorage(
-      () => localStorage.setItem(SAVE_KEY, serializeSave(this.state, this.now())),
-      undefined,
-    );
+    const now = this.now();
+    const home = this.colony === 0 ? this.state : this.other;
+    const sister = this.colony === 0 ? this.other : this.state;
+    safeStorage(() => {
+      if (home) localStorage.setItem(SAVE_KEY, serializeSave(home, now));
+      if (sister) localStorage.setItem(SISTER_KEY, serializeSave(sister, now));
+    }, undefined);
     this.persistClock();
   }
 
@@ -491,9 +691,15 @@ export class GameController {
     const res = await this.online!.call({
       action: 'load',
       universe: this.universe,
-      ...(world && this.universe === 'solo' ? { create: world } : {}),
+      colony: this.colony,
+      ...(world && this.universe === 'solo' && this.colony === 0 ? { create: world } : {}),
     });
     this.acceptServer(res);
+    if (!res.ok && res.error === 'invalidRequest' && this.colony === 1) {
+      // No sister colony there (yet): the home colony.
+      this.setColony(0);
+      return this.loadFromServer(world);
+    }
     if (!res.ok && res.error === 'forbidden' && this.universe !== 'solo') {
       // No longer a member (or unknown universe): back to the solo colony.
       this.setUniverse('solo', null);
@@ -505,11 +711,13 @@ export class GameController {
     this.listener.onUniverse(res.universe ?? null);
     this.listener.onTwin(res.twin ?? null);
     this.listener.onAllies(res.allies ?? []);
+    this.emitColony(true, res.sister ?? null);
     this.listener.onSync('online');
   }
 
   private setUniverse(id: string, info: UniverseInfo | null): void {
     this.universe = id;
+    this.colony = coloniesSeen()[id] === 1 ? 1 : 0;
     safeStorage(() => localStorage.setItem(UNIVERSE_KEY, id), undefined);
     this.listener.onUniverse(info);
   }
@@ -592,10 +800,14 @@ export class GameController {
       const me = res.universe.members.find((m) => m.userId === this.userId);
       if (me && this.state) {
         // Same pure helper as the server, so the planner shows exactly the server's targets.
+        const linked = hasSister(this.state) || isSister(this.state);
         this.state = {
           ...this.state,
-          targets: universeTargets(res.universe.members, me),
-          friends: universeFriends(res.universe.members, me),
+          targets: isSister(this.state) ? [] : universeTargets(res.universe.members, me),
+          friends: [
+            ...universeFriends(res.universe.members, me),
+            ...(linked ? [sisterFriend(this.state)] : []),
+          ],
         };
         this.emitState(this.now());
       }
@@ -699,7 +911,12 @@ export class GameController {
         const command = this.pending[0]!;
         let res: GameResponse;
         try {
-          res = await this.online.call({ action: 'command', universe: this.universe, command });
+          res = await this.online.call({
+            action: 'command',
+            universe: this.universe,
+            colony: this.colony,
+            command,
+          });
         } catch {
           this.listener.onSync('offline');
           this.scheduleRetry(() => void this.flush());
@@ -716,6 +933,7 @@ export class GameController {
         }
         this.pending.shift();
         if (!res.ok) this.listener.onError(res.error);
+        else if (res.sister !== undefined) this.emitColony(false, res.sister);
         this.rebase();
       }
       this.retryDelay = 2000;
@@ -830,6 +1048,18 @@ export class GameController {
     document.removeEventListener('visibilitychange', this.onVisibility);
     window.removeEventListener('pagehide', this.onPageHide);
   }
+}
+
+/** The key of a colony in `kiwar.lastSeen` (the sister colony has its own). */
+function seenKey(state: GameState): string {
+  return isSister(state) ? `${state.universeId}#1` : state.universeId;
+}
+
+function coloniesSeen(): Record<string, 0 | 1> {
+  return safeStorage(() => {
+    const parsed: unknown = JSON.parse(localStorage.getItem(COLONY_KEY) ?? '{}');
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, 0 | 1>) : {};
+  }, {});
 }
 
 function seenTimes(): Record<string, number> {

@@ -55,9 +55,11 @@ export function ExpeditionsPanel() {
                       ? t('siege.missions.reinforce')
                       : e.mission === 'retreat'
                         ? t('siege.report.retreat')
-                        : e.result?.victory
-                          ? t('expedition.victory')
-                          : t('expedition.defeat')}{' '}
+                        : e.mission === 'found'
+                          ? t('siege.missions.found')
+                          : e.result?.victory
+                            ? t('expedition.victory')
+                            : t('expedition.defeat')}{' '}
                   · {t('expedition.report')}
                 </button>
               ) : (

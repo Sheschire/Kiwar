@@ -5,7 +5,13 @@
 // Games are kept in memory and run through the real shared game service.
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { createMemoryRepository, handleGameRequest } from '../packages/shared/src/index';
+import {
+  createMemoryRepository,
+  faceMapOf,
+  handleGameRequest,
+  type BuildingId,
+  type VillagerId,
+} from '../packages/shared/src/index';
 
 const PORT = Number(process.env.PORT ?? 54321);
 const repo = createMemoryRepository();
@@ -230,6 +236,52 @@ createServer(async (req, res) => {
   if (url.pathname === '/__mock/clock') {
     clockSkew += Number(url.searchParams.get('ms') ?? 0);
     return send(res, 200, { clockSkew });
+  }
+  // Test hook (chantier 19): every home colony gets a conquered twin, the Iron age, a big
+  // launchpad, more kiwis and full stocks, to try the founding of the second colony.
+  if (url.pathname === '/__mock/conquer') {
+    let n = 0;
+    for (const g of repo.games.values()) {
+      if (g.colony === 1) continue;
+      const s = g.state;
+      const used = new Set(s.buildings.map((b) => `${b.q},${b.r}`));
+      const free = faceMapOf(s)
+        .tiles.filter((t) => t.type === 'flesh' && t.rho > 0.15 && t.rho < 0.5)
+        .filter((t) => !used.has(`${t.q},${t.r}`))
+        .filter((t) => !s.obstacles.some((o) => o.q === t.q && o.r === t.r));
+      const nest = s.buildings[0]!;
+      nest.level = 4;
+      s.buildings.push(
+        {
+          ...nest,
+          id: 'bpad' as BuildingId,
+          type: 'launchpad',
+          level: 3,
+          q: free[0]!.q,
+          r: free[0]!.r,
+        },
+        {
+          ...nest,
+          id: 'bmon' as BuildingId,
+          type: 'monument',
+          level: 2,
+          q: free[3]!.q,
+          r: free[3]!.r,
+        },
+      );
+      for (let i = 0; i < 12; i++)
+        s.villagers.push({
+          ...structuredClone(s.villagers[0]!),
+          id: `vx${i}` as VillagerId,
+          name: `Colon${i}`,
+        });
+      s.research.done = ['foraging', 'stoneAge', 'ironAge'];
+      s.siege.conqueredAt = s.now;
+      s.resources = { pulp: 3000, fiber: 3000, seeds: 3000, juice: 3000 };
+      g.version++;
+      n++;
+    }
+    return send(res, 200, { conquered: n });
   }
   // Test hook: change the artificial latency.
   if (url.pathname === '/__mock/delay') {

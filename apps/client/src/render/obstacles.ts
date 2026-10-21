@@ -1,5 +1,7 @@
 import type { BufferGeometry } from 'three';
 import {
+  BoxGeometry,
+  CircleGeometry,
   Color,
   CylinderGeometry,
   DodecahedronGeometry,
@@ -7,6 +9,7 @@ import {
   IcosahedronGeometry,
   Mesh,
   MeshStandardMaterial,
+  SphereGeometry,
   TetrahedronGeometry,
 } from 'three';
 import {
@@ -47,6 +50,11 @@ export class ObstaclesView {
     rock: new DodecahedronGeometry(0.22, 0),
     wreck: new IcosahedronGeometry(0.24, 0),
     shard: new TetrahedronGeometry(0.11, 0),
+    block: new BoxGeometry(0.22, 0.16, 0.16),
+    pillar: new CylinderGeometry(0.06, 0.08, 0.42, 6),
+    mound: new SphereGeometry(0.3, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+    hole: new CircleGeometry(0.11, 10),
+    bone: new CylinderGeometry(0.018, 0.018, 0.2, 4),
   } satisfies Record<string, BufferGeometry>;
   private readonly mat = {
     bark: new MeshStandardMaterial({ color: '#6e4a2c', roughness: 1, flatShading: true }),
@@ -61,6 +69,11 @@ export class ObstaclesView {
       roughness: 0.6,
       flatShading: true,
     }),
+    // Chantier 19: alien ruins (violet stone) and ferret dens (dark earth).
+    alien: new MeshStandardMaterial({ color: '#7d6a8f', roughness: 0.95, flatShading: true }),
+    earth: new MeshStandardMaterial({ color: '#5a4030', roughness: 1, flatShading: true }),
+    pit: new MeshStandardMaterial({ color: '#160f0b', roughness: 1 }),
+    bone: new MeshStandardMaterial({ color: '#e8dfc8', roughness: 0.8, flatShading: true }),
     metal: new MeshStandardMaterial({
       color: '#6d7480',
       metalness: 0.7,
@@ -148,6 +161,45 @@ export class ObstaclesView {
       const moss = this.part(g, this.geo.rock, this.mat.moss);
       moss.scale.set(0.5, 0.12, 0.45);
       moss.position.set(-0.05, 0.38, 0.02);
+      return;
+    }
+    if (kind === 'ruin') {
+      // Fallen blocks around a broken pillar of the aliens' outpost.
+      const pillar = this.part(g, this.geo.pillar, this.mat.alien);
+      const h = 0.6 + noise(o, 2) * 0.5;
+      pillar.scale.set(1, h, 1);
+      pillar.position.set(-0.08, 0.21 * h, 0.02);
+      pillar.rotation.z = 0.12;
+      for (let i = 0; i < 4; i++) {
+        const block = this.part(g, this.geo.block, this.mat.alien);
+        const a = (i / 4) * Math.PI * 2 + noise(o, 20 + i);
+        const d = 0.18 + noise(o, 30 + i) * 0.12;
+        block.position.set(Math.cos(a) * d, 0.07, Math.sin(a) * d);
+        block.rotation.set(noise(o, 40 + i) * 0.6, a, noise(o, 50 + i) * 0.5);
+      }
+      const moss = this.part(g, this.geo.rock, this.mat.moss);
+      moss.scale.set(0.3, 0.1, 0.3);
+      moss.position.set(0.14, 0.15, -0.1);
+      return;
+    }
+    if (kind === 'den') {
+      // An earth mound with two dark holes and a few bones.
+      const mound = this.part(g, this.geo.mound, this.mat.earth);
+      mound.scale.set(1, 0.55, 0.85);
+      for (const [x, z, a] of [
+        [0.2, 0.05, 1.2],
+        [-0.12, -0.17, -2.1],
+      ] as const) {
+        const hole = this.part(g, this.geo.hole, this.mat.pit);
+        hole.position.set(x, 0.09, z);
+        hole.rotation.set(-0.9, a, 0);
+      }
+      for (let i = 0; i < 3; i++) {
+        const bone = this.part(g, this.geo.bone, this.mat.bone);
+        const a = noise(o, 60 + i) * Math.PI * 2;
+        bone.position.set(Math.cos(a) * 0.36, 0.02, Math.sin(a) * 0.36);
+        bone.rotation.set(Math.PI / 2, 0, a);
+      }
       return;
     }
     // Wreck: the cracked core, half sunk, with metal shards around it.

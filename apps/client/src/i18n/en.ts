@@ -683,6 +683,7 @@ export const en = {
       assault: 'Assault',
       reinforce: 'Reinforcement',
       final: 'Final assault',
+      found: 'Found the colony',
     },
     deepHint:
       'During the siege, scouts estimate the strength of every sector they see and look for the queen’s lair.',
@@ -740,7 +741,6 @@ export const en = {
     conquered: 'The twin face is yours!',
     conqueredBody: 'The queen fell and the fog lifted. No alien holds the twin any more.',
     found: 'Found the colony',
-    foundSoon: 'Soon: the conquered face will become your second colony.',
   },
   offline: {
     title: 'While you were away…',
@@ -1040,6 +1040,37 @@ export const en = {
     buildings: '{count} buildings',
     next: 'See {name}',
     home: 'Back home',
+  },
+  colony: {
+    named: 'your {face} colony',
+    title: 'Your {face} colony',
+    hint: 'The other half of your kiwi, colonised',
+    switchTo: 'Go to {face}',
+    switchHint: 'Play your other colony ({face})',
+    play: 'Play this colony',
+    founded: 'The {face} colony is founded!',
+    foundedBody:
+      'Your second colony lives on {face}: same calendar, shared research, its own age and monument. The ship and the bird link both faces.',
+    foundFlying: 'The settlers are on their way to the conquered face.',
+    foundHint:
+      'Pick the settlers (at least {min}) and what they carry: the colony is born at the landing, with a level 1 Nest.',
+    freight: 'Settlers’ freight',
+    freightHint:
+      'The new colony’s level 1 Nest keeps at most {cap} of each resource: the surplus is lost.',
+    noFight: 'No fight: the settlers stay for good, the ship flies back empty.',
+    settled: 'Settled there',
+    settlersArrived: 'Arrived from your other colony: {names}.',
+    kiwis: 'Kiwis moving',
+    kiwisHint:
+      'They leave this colony for good and arrive resting over there (one kiwi always stays here).',
+    sharedResearch:
+      'Shared research: it is chosen from {face}. Your Library sends its points there.',
+    outbox: '{points} points on their way to the shared research.',
+    lastAliens: 'Last aliens: waves at {pct}% of their power, {dens} ferret den(s) standing.',
+    raid: 'Guards’ raid',
+    raidLine: 'Guards {strength} against the den {power}',
+    raidWounded: '≈ {count} guard(s) wounded ({duration} of rest).',
+    raidNeed: 'Post more guards (or warriors) to beat this den.',
   },
   planets: {
     title: 'Planets',

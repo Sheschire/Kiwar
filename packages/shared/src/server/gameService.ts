@@ -44,6 +44,7 @@ import {
 } from '../sim/state';
 import { alienDefOf } from '../data/expeditions';
 import {
+  colonyNeedsSync,
   deliverToSister,
   hasSister,
   isSister,
@@ -471,12 +472,6 @@ interface ColonyPair {
   sister: StoredGame | null;
 }
 
-function needsSync(home: GameState, sister: GameState): boolean {
-  const a = home.research;
-  const b = sister.research;
-  return b.outbox > 0 || a.current !== b.current || a.done.length !== b.done.length;
-}
-
 /**
  * Keeps the two colonies of a player linked (chantier 19): creates the sister colony from a
  * landed founding, hands the ships between the two faces over, sends the sister's research
@@ -509,7 +504,7 @@ async function linkColonies(
     if (!s) return { home, sister: null };
     if (deliverToSister(h, s) > 0) dirty = true;
     if (deliverToSister(s, h) > 0) dirty = true;
-    if (needsSync(h, s)) {
+    if (colonyNeedsSync(h, s)) {
       syncColonies(h, s);
       dirty = true;
     }

@@ -1,4 +1,4 @@
-import { isSiegeMission, RESOURCE_IDS, type Expedition } from '@kiwar/shared';
+import { isSiegeMission, otherFace, RESOURCE_IDS, type Expedition } from '@kiwar/shared';
 import { fmtRange, sectorName } from './SiegeParts';
 import { uiStore, useT, useUi } from '../store';
 import { Cost } from './Cost';
@@ -21,6 +21,8 @@ export function ReportModal() {
   const looted = RESOURCE_IDS.some((k) => r.loot[k] > 0);
   const recon = e.mission === 'recon';
   const siege = isSiegeMission(e.mission);
+  // Chantier 19: the settlers stayed on the twin face, alive.
+  const founded = e.mission === 'found';
   const intel = game.intel[e.targetId];
   const injured = (r.injured ?? []).map((id) => e.roster.find((m) => m.id === id)?.name ?? id);
   return (
@@ -37,6 +39,11 @@ export function ReportModal() {
         <>
           <h2 class="warn">{t('expedition.defeat')}</h2>
           <p class="small warn">{t('ship.reportBroken')}</p>
+        </>
+      ) : founded ? (
+        <>
+          <h2 class="bonus">{t('colony.founded', { face: t(`faces.${otherFace(game.face)}`) })}</h2>
+          <p class="small">{t('colony.noFight')}</p>
         </>
       ) : siege ? (
         <SiegeReport e={e} />
@@ -101,7 +108,8 @@ export function ReportModal() {
           {e.roster.map((m) => {
             const back = e.crew.includes(m.id);
             // Chantier 19: kiwis who stayed on a bridgehead are alive.
-            const stayed = !back && siege && game.villagers.some((v) => v.id === m.id);
+            const stayed =
+              !back && ((siege && game.villagers.some((v) => v.id === m.id)) || founded);
             const lost = !back && !stayed;
             return (
               <li key={m.id} class={lost ? 'is-lost' : ''}>
@@ -114,7 +122,7 @@ export function ReportModal() {
                   {lost
                     ? t('expedition.lost')
                     : stayed
-                      ? t('siege.report.stayed')
+                      ? t(founded ? 'colony.settled' : 'siege.report.stayed')
                       : t('expedition.survived')}
                 </span>
               </li>
@@ -122,7 +130,7 @@ export function ReportModal() {
           })}
         </ul>
       </section>
-      {!recon && !siege && !r.broken && (
+      {!recon && !siege && !founded && !r.broken && (
         <p>
           <strong>{t('expedition.loot')}</strong>
           {looted ? <Cost cost={r.loot} /> : t('expedition.nothing')}

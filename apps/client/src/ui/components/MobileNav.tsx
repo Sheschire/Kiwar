@@ -25,6 +25,7 @@ import { uiStore, useT, useUi } from '../store';
 import { CompassNeedle } from './Compass';
 import { EggButton } from './EggButton';
 import { siegeVisible } from './SiegeModal';
+import { useOtherColony } from './ColonySwitch';
 
 const closeMenu = () => uiStore.setState({ menuOpen: false });
 
@@ -211,6 +212,7 @@ function NavMenu() {
   const objectiveReady = useObjectiveReady();
   const siege = useUi((s) => (s.slowGame ? siegeVisible(s.slowGame) : false));
   const counter = useUi((s) => !!s.slowGame?.siege.counter?.announced);
+  const other = useOtherColony();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeMenu();
@@ -247,6 +249,14 @@ function NavMenu() {
           >
             <ScrollIcon size={28} />
           </Entry>
+          {other && (
+            <Entry
+              label={t('colony.switchTo', { face: other.face })}
+              onClick={go(() => void actions.switchColony(other.colony))}
+            >
+              <PlanetsIcon size={28} />
+            </Entry>
+          )}
           {siege && (
             <Entry
               label={t('siege.button')}

@@ -23,6 +23,11 @@ import {
   FUEL,
   stardustOf,
   twinTarget,
+  BUILDINGS,
+  emptyResources,
+  RESOURCE_IDS,
+  type ResourceId,
+  type Resources,
 } from '@kiwar/shared';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
@@ -111,6 +116,57 @@ function candidates(game: GameState, mission: MissionKind = 'raid') {
   return availableCrew(game)
     .map((v) => ({ v, strength: kiwiStrength(v), score: score(v) }))
     .sort((a, b) => b.score - a.score || a.v.name.localeCompare(b.v.name));
+}
+
+function cargoTotal(r: Resources): number {
+  return RESOURCE_IDS.reduce((sum, id) => sum + r[id], 0);
+}
+
+/** Chantier 19: the settlers' freight (sliders within the hold and the stocks). */
+function FreightPicker(props: {
+  game: GameState;
+  freight: Resources;
+  room: number;
+  onChange(freight: Resources): void;
+}) {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const total = cargoTotal(props.freight);
+  const cap = BUILDINGS.nest.levels[0]?.storage ?? 0;
+  const maxOf = (id: ResourceId) =>
+    Math.max(
+      0,
+      Math.floor(
+        Math.min(
+          props.game.resources[id],
+          cap,
+          props.freight[id] + props.room / EXPEDITIONS.resourceWeight,
+        ),
+      ),
+    );
+  return (
+    <section class="field">
+      <div class="title-row">
+        <h3>{t('colony.freight')}</h3>
+        <span class="stepper-value">{formatNumber(lang, total)}</span>
+      </div>
+      {RESOURCE_IDS.map((id) => (
+        <div class="provision-row" key={id}>
+          <ResourceIcon id={id} size={20} />
+          <Slider
+            label={t(`resources.${id}`)}
+            value={props.freight[id]}
+            min={0}
+            max={maxOf(id)}
+            step={5}
+            onChange={(v) => props.onChange({ ...props.freight, [id]: v })}
+          />
+          <span class="provision-value">{formatNumber(lang, props.freight[id])}</span>
+        </div>
+      ))}
+      <p class="small muted">{t('colony.freightHint', { cap: formatNumber(lang, cap) })}</p>
+    </section>
+  );
 }
 
 function CrewPicker(props: {
@@ -301,6 +357,8 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
   );
   // Chantier 13: stardust burnt as fuel, once the colony has seen some.
   const [fuel, setFuel] = useState(false);
+  // Chantier 19: what the settlers carry to found the colony.
+  const [freight, setFreight] = useState<Resources>(emptyResources);
   if (!pad || !target || !map) return null;
 
   const showFuel = game.stardust > 0 || game.comets.passes > 0;
@@ -312,6 +370,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
     mission,
     ...extra(),
     ...(fuel ? { fuel: true } : {}),
+    ...(mission === 'found' ? { freight } : {}),
   };
   const switchTo = (m: MissionKind) => {
     if (m === mission) return;
@@ -334,7 +393,10 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
   const fmt = (v: number) => formatNumber(lang, Math.round(v));
   const pct = (v: number) => `${Math.max(0, Math.min(100, (v / f.cargo) * 100))}%`;
   const kiwisWeight = crewWeight(f.crew);
-  const foodWeight = (food.pulp + food.juice) * EXPEDITIONS.resourceWeight;
+  const foodWeight =
+    (food.pulp + food.juice + (mission === 'found' ? cargoTotal(freight) : 0)) *
+    EXPEDITIONS.resourceWeight;
+  const founding = mission === 'found';
   const outShort = {
     pulp: Math.max(0, f.needOneWay.pulp - food.pulp),
     juice: Math.max(0, f.needOneWay.juice - food.juice),
@@ -419,7 +481,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
               ))}
         </div>
         {siege ? (
-          <SiegeMap game={game} selected={sector} size={170} />
+          mission !== 'found' && <SiegeMap game={game} selected={sector} size={170} />
         ) : (
           <IntelMap game={game} target={target} intel={intel} size={180} />
         )}
@@ -472,6 +534,15 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             setBringBack(b);
             setFood(fresh(crew, b));
           }}
+        />
+      )}
+
+      {founding && (
+        <FreightPicker
+          game={game}
+          freight={freight}
+          room={Math.max(0, f.cargo - f.weight + cargoTotal(freight) * EXPEDITIONS.resourceWeight)}
+          onChange={setFreight}
         />
       )}
 
@@ -544,14 +615,16 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             </span>
           )}
         </p>
-        <p class="small">
-          {t('expedition.rationsBack')}{' '}
-          {backOk ? (
-            <span class="bonus">✔ {t('expedition.enough')}</span>
-          ) : (
-            <span class="warn">⚠ {t('expedition.shortBack')}</span>
-          )}
-        </p>
+        {!founding && (
+          <p class="small">
+            {t('expedition.rationsBack')}{' '}
+            {backOk ? (
+              <span class="bonus">✔ {t('expedition.enough')}</span>
+            ) : (
+              <span class="warn">⚠ {t('expedition.shortBack')}</span>
+            )}
+          </p>
+        )}
         {f.recon ? (
           <p class="small">
             {t('recon.quality', {
@@ -564,6 +637,8 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
           <FinalLines forecast={f.final} />
         ) : mission === 'reinforce' ? (
           <p class="small">{t('siege.noFight')}</p>
+        ) : founding ? (
+          <p class="small">{t('colony.noFight')}</p>
         ) : (
           <p class="small">
             {t('expedition.strength', {
@@ -573,7 +648,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             })}
           </p>
         )}
-        {!f.recon && mission !== 'reinforce' && f.crew.length > 0 && (
+        {!f.recon && mission !== 'reinforce' && !founding && f.crew.length > 0 && (
           <p class="small">
             {t(f.woundsOnly ? 'expedition.expectedWounds' : 'expedition.expectedLosses', {
               count: Math.round(f.expectedLosses * 10) / 10,

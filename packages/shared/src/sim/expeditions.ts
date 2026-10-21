@@ -349,7 +349,7 @@ export function forecastExpedition(
   const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
   const odds: Odds = final
     ? final.odds
-    : mission === 'reinforce'
+    : mission === 'reinforce' || mission === 'found'
       ? 'likely'
       : !defense
         ? 'unknown'

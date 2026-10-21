@@ -11,6 +11,8 @@ import { ms } from './curves';
 export const COLONY = {
   /** Settlers needed on the founding ship. */
   minSettlers: 5,
+  /** Huts the settlers raise beside the Nest for those it cannot house (level 1, at most). */
+  maxHuts: 2,
   /** No wave strikes the new colony before this long after its founding. */
   shieldMs: ms.h(48),
   /** Waves start at this share of their power and reach full power after `rampMs`. */

@@ -21,7 +21,7 @@ import { App } from './ui/App';
 import { Guard } from './ui/components/Guard';
 import { GameRenderer } from './render/GameRenderer';
 import { GameController } from './game/GameController';
-import { persistLang } from './i18n/i18n';
+import { persistLang, translate } from './i18n/i18n';
 import { pushToast, uiStore } from './ui/store';
 import { gpuTipDismissed } from './ui/components/GpuTip';
 import { actions, bindActions } from './ui/actions';
@@ -91,10 +91,19 @@ renderer.setFpsCap(fpsCap);
 let friend: TwinSnapshot | null = null;
 let twinKey = '';
 
-/** The other half of our kiwi above us: a friend's colony, or aliens under fog. */
+/** The other half of our kiwi above us: our sister colony, a friend's, or aliens under fog. */
 function showTwin(state: GameState): void {
   const twinFace = otherFace(state.face);
-  const f = friend?.face === twinFace ? friend : null;
+  // Chantier 19: once colonised, our other colony sits at the twin's place, lit.
+  const { sister, lang } = uiStore.getState();
+  const own =
+    sister?.face === twinFace
+      ? {
+          ...sister,
+          owner: translate(lang, 'colony.title', { face: translate(lang, `faces.${twinFace}`) }),
+        }
+      : null;
+  const f = own ?? (friend?.face === twinFace ? friend : null);
   const params = f?.params ?? twinParams(state.seed, state.face, state.params);
   // Alien twin: the clouds part where our scouts went (chantier 07).
   const target = state.targets.find((t) => t.distance === 0 && t.face === twinFace);
@@ -240,6 +249,10 @@ controller = new GameController({
   },
   onTwin: (twin) => {
     friend = twin;
+    if (controller.state) showTwin(controller.state);
+  },
+  onColony: (colony, sister) => {
+    uiStore.setState({ colony, sister });
     if (controller.state) showTwin(controller.state);
   },
 });

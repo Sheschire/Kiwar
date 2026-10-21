@@ -13,6 +13,7 @@ import {
   faceMapOf,
   foundLock,
   HOUR_MS,
+  housing,
   migrateState,
   newSister,
   RESEARCH_SCALE,
@@ -152,7 +153,12 @@ describe('founding the second colony', () => {
     expect(a.calendarStart).toBe(home.calendarStart);
     expect(a.createdAt).toBe(f.at);
     expect(a.colony).toEqual({ index: 1, founding: null, foundedAt: f.at });
-    expect(a.buildings.map((b) => [b.type, b.level])).toEqual([['nest', 1]]);
+    // The settlers raise a hut for those the Nest cannot house.
+    expect(a.buildings.map((b) => [b.type, b.level])).toEqual([
+      ['nest', 1],
+      ['hut', 1],
+    ]);
+    expect(housing(a)).toBeGreaterThanOrEqual(a.villagers.length);
     expect(a.villagers.map((v) => v.name)).toEqual(f.settlers.map((v) => v.name));
     expect(new Set(a.villagers.map((v) => v.id)).size).toBe(a.villagers.length);
     const cap = capacity(a);

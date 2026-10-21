@@ -1,6 +1,13 @@
 import { useState } from 'preact/hooks';
 import {
+  availableCrew,
   cargoLimit,
+  crewOf,
+  crewWeight,
+  EXPEDITIONS,
+  SISTER_FRIEND,
+  type Friend,
+  type VillagerId,
   deliveryTime,
   emptyResources,
   launchpadOf,
@@ -14,7 +21,13 @@ import {
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { ResourceIcon, ShipIcon } from '../icons';
-import { uiStore, useT, useUi } from '../store';
+import { uiStore, useT, useUi, type Translate } from '../store';
+
+/** Who a delivery goes to: an ally by name, or our other colony (chantier 19). */
+export function friendName(t: Translate, owner: string): string {
+  const face = /^colony:(kiwisu|kiwino)$/.exec(owner)?.[1] as 'kiwisu' | 'kiwino' | undefined;
+  return face ? t('colony.title', { face: t(`faces.${face}`) }) : owner;
+}
 
 /**
  * A free gift to an ally (multiplayer): pick who, load the ship (sliders per resource, within
@@ -39,15 +52,27 @@ export function DeliveryPlanner({
     () => game.friends.find((f) => f.id === initialFriend)?.id ?? game.friends[0]?.id ?? '',
   );
   const [load, setLoad] = useState<Resources>(emptyResources);
+  // Chantier 19: kiwis may move to our other colony.
+  const [movers, setMovers] = useState<VillagerId[]>([]);
   const friend = game.friends.find((f) => f.id === friendId);
   if (!pad || !map) return null;
   if (!friend) return <p class="muted">{t('delivery.noFriend')}</p>;
 
+  const toSister = friend.id === SISTER_FRIEND;
+  const kiwis = toSister ? movers : [];
+  const kiwiLoad = crewWeight(crewOf(game, kiwis) ?? []) / EXPEDITIONS.resourceWeight;
   const limit = cargoLimit(pad);
-  const total = RESOURCE_IDS.reduce((sum, r) => sum + load[r], 0);
+  const total = RESOURCE_IDS.reduce((sum, r) => sum + load[r], 0) + kiwiLoad;
   const room = allies.find((a) => a.friendId === friend.id)?.room;
   const travel = deliveryTime(game, friend, pad);
-  const cmd = { type: 'sendCargo' as const, launchpadId: padId, friendId, resources: load };
+  const cmd = {
+    type: 'sendCargo' as const,
+    launchpadId: padId,
+    friendId,
+    resources: load,
+    ...(kiwis.length ? { villagerIds: kiwis } : {}),
+  };
+  const nameOf = (f: Friend) => friendName(t, f.owner);
   const error = validateCommand(game, cmd, { now, map });
   const fmt = (v: number) => formatNumber(lang, Math.floor(v));
   const set = (r: ResourceId, v: number) => setLoad((l) => ({ ...l, [r]: v }));
@@ -66,9 +91,12 @@ export function DeliveryPlanner({
               aria-pressed={f.id === friendId}
               onClick={() => setFriendId(f.id)}
             >
-              <strong>{f.owner}</strong>
+              <strong>{nameOf(f)}</strong>
               <span class="small muted">
-                {t('delivery.kiwi', { index: f.kiwiIndex + 1 })} ·{' '}
+                {f.id === SISTER_FRIEND
+                  ? t('colony.hint')
+                  : t('delivery.kiwi', { index: f.kiwiIndex + 1 })}{' '}
+                ·{' '}
                 {t('expedition.travel', {
                   duration: formatDuration(lang, deliveryTime(game, f, pad)),
                 })}
@@ -110,6 +138,32 @@ export function DeliveryPlanner({
         <p class="small muted">{t('delivery.hint')}</p>
       </section>
 
+      {toSister && (
+        <section class="field">
+          <div class="title-row">
+            <h3>{t('colony.kiwis')}</h3>
+            <span class="stepper-value">{movers.length}</span>
+          </div>
+          <p class="small muted">{t('colony.kiwisHint')}</p>
+          <div class="chip-picks">
+            {availableCrew(game).map((v) => (
+              <label key={v.id} class={`chip-pick ${movers.includes(v.id) ? 'is-on' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={movers.includes(v.id)}
+                  onChange={() =>
+                    setMovers((m) =>
+                      m.includes(v.id) ? m.filter((id) => id !== v.id) : [...m, v.id],
+                    )
+                  }
+                />
+                {v.name}
+              </label>
+            ))}
+          </div>
+        </section>
+      )}
+
       <button
         class="btn btn-primary launch"
         disabled={error !== null}
@@ -117,7 +171,7 @@ export function DeliveryPlanner({
           if (actions.dispatch(cmd)) uiStore.setState({ modal: 'none', expeditionPad: null });
         }}
       >
-        <ShipIcon size={20} /> {t('delivery.send', { name: friend.owner })} ·{' '}
+        <ShipIcon size={20} /> {t('delivery.send', { name: nameOf(friend) })} ·{' '}
         {formatDuration(lang, travel * 2)}
       </button>
       {error && error !== 'emptyCargo' && <p class="small warn">{t(`errors.${error}`)}</p>}

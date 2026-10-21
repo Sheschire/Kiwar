@@ -2122,6 +2122,8 @@ var SIEGE = {
 var COLONY = {
   /** Settlers needed on the founding ship. */
   minSettlers: 5,
+  /** Huts the settlers raise beside the Nest for those it cannot house (level 1, at most). */
+  maxHuts: 2,
   /** No wave strikes the new colony before this long after its founding. */
   shieldMs: ms.h(48),
   /** Waves start at this share of their power and reach full power after `rampMs`. */
@@ -3237,7 +3239,7 @@ var SISTER_FRIEND = "sister";
 function sisterFriend(state) {
   return {
     id: SISTER_FRIEND,
-    owner: otherFace(state.face),
+    owner: `colony:${otherFace(state.face)}`,
     kiwiIndex: 0,
     distance: 0,
     travelMs: alienDefOf(0).travelMs
@@ -3334,6 +3336,7 @@ function newSister(home, f) {
   s.villagers = f.settlers.map((v) => ({ ...settle(v), id: nextId(s, "v") }));
   const cap = capacity(s);
   for (const id3 of RESOURCE_IDS) s.resources[id3] = Math.min(cap[id3], f.resources[id3]);
+  raiseHuts(s, f.at);
   s.objectiveIndex = OBJECTIVES.length;
   s.colony = { index: 1, founding: null, foundedAt: f.at };
   s.threats.shieldUntil = f.at + COLONY.shieldMs;
@@ -3343,10 +3346,36 @@ function newSister(home, f) {
     done: [...home.research.done],
     outbox: 0
   };
-  const taken = /* @__PURE__ */ new Set([hexKey(HEART), ...s.obstacles.map((o) => hexKey(o))]);
+  const taken = /* @__PURE__ */ new Set([
+    hexKey(HEART),
+    ...s.obstacles.map((o) => hexKey(o)),
+    ...s.buildings.map((b) => hexKey(b))
+  ]);
   s.obstacles = [...s.obstacles, ...generateTraces(faceMapOf(s), taken)];
   linkSister(s);
   return s;
+}
+function raiseHuts(s, at) {
+  const per = levelDef("hut", 1)?.housing ?? 2;
+  const want = Math.min(
+    COLONY.maxHuts,
+    Math.ceil(Math.max(0, s.villagers.length - housing(s)) / per)
+  );
+  if (want <= 0) return;
+  const map = faceMapOf(s);
+  const spots = map.tiles.filter(
+    (t) => hexDistance(t, HEART) === 2 && BUILDINGS.hut.allowedTiles.includes(t.type) && !t.flood && !s.obstacles.some((o) => o.q === t.q && o.r === t.r)
+  ).sort((a, b) => a.q - b.q || a.r - b.r);
+  for (const t of spots.slice(0, want))
+    s.buildings.push({
+      id: nextId(s, "b"),
+      type: "hut",
+      q: t.q,
+      r: t.r,
+      level: 1,
+      richness: t.richness,
+      builtAt: at
+    });
 }
 function takeFounding(home) {
   const f = home.colony.founding;
@@ -3355,6 +3384,11 @@ function takeFounding(home) {
   home.colony = { ...home.colony, founding: null, foundedAt: f.at };
   linkSister(home);
   return sister;
+}
+function colonyNeedsSync(home, sister) {
+  const a = home.research;
+  const b = sister.research;
+  return b.outbox > 0 || a.current !== b.current || a.done.length !== b.done.length;
 }
 function syncColonies(home, sister) {
   receiveResearch(home, sister.research.outbox);
@@ -6245,7 +6279,7 @@ function forecastExpedition(state, plan) {
   const final = mission === "final" ? finalForecast(state, crew, fed, state.now) : null;
   const defense = mission === "assault" ? plan.sector === void 0 ? null : assaultEnemy(state, plan.sector, state.now) : mission === "raid" || mission === "recon" ? intelView(state, target.id, state.now)?.defense ?? null : null;
   const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
-  const odds = final ? final.odds : mission === "reinforce" ? "likely" : !defense ? "unknown" : strength.min >= defense.max ? "likely" : strength.max >= defense.min ? "uncertain" : "unlikely";
+  const odds = final ? final.odds : mission === "reinforce" || mission === "found" ? "likely" : !defense ? "unknown" : strength.min >= defense.max ? "likely" : strength.max >= defense.min ? "uncertain" : "unlikely";
   const mid = (r) => (r.min + r.max) / 2;
   const guess = final ? final.queen ? base * Math.max(
     mid(final.queen.ground) / Math.max(mid(final.strength.ground), 1e-6),
@@ -13727,11 +13761,6 @@ async function deliver(repo, universeId, me, shipment) {
     if (await repo.update(game.id, next, game.version)) return;
   }
 }
-function needsSync(home, sister) {
-  const a = home.research;
-  const b = sister.research;
-  return b.outbox > 0 || a.current !== b.current || a.done.length !== b.done.length;
-}
 async function linkColonies(ctx, repo, scope) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const home2 = await repo.findGame(ctx.userId, scope.universeId, 0);
@@ -13753,7 +13782,7 @@ async function linkColonies(ctx, repo, scope) {
     if (!s) return { home: home2, sister: null };
     if (deliverToSister(h, s) > 0) dirty = true;
     if (deliverToSister(s, h) > 0) dirty = true;
-    if (needsSync(h, s)) {
+    if (colonyNeedsSync(h, s)) {
       syncColonies(h, s);
       dirty = true;
     }
@@ -14549,6 +14578,7 @@ export {
   cloneThreats,
   cloneVillager,
   colonyBonus,
+  colonyNeedsSync,
   colonyOfFriend,
   colonyPower,
   cometStock,

@@ -1,11 +1,12 @@
 import { COLONY } from '../data/colonies';
 import { GARRISON } from '../data/threats';
 import { OBJECTIVES } from '../data/objectives';
+import { BUILDINGS, levelDef } from '../data/buildings';
 import { OBSTACLES } from '../data/obstacles';
 import { emptyResources, RESOURCE_IDS } from '../data/resources';
-import { hexKey, type HexKey } from '../hex/hex';
+import { hexDistance, hexKey, type HexKey } from '../hex/hex';
 import { createRng } from '../rng/rng';
-import { otherFace, type TimeMs, type VillagerId } from '../types/ids';
+import { otherFace, type BuildingId, type TimeMs, type VillagerId } from '../types/ids';
 import { HEART, twinParams, type FaceMap } from '../worldgen/generateFace';
 import type { GameEvent } from './advance';
 import { alienDefOf } from '../data/expeditions';
@@ -13,7 +14,7 @@ import { deliveryOf } from './deliveries';
 import { crewMembers, lossShare } from './expeditions';
 import { obstacleAt, obstacleId, removeObstacle } from './obstacles';
 import { receiveResearch } from './research';
-import { capacity } from './selectors';
+import { capacity, housing } from './selectors';
 import { twinTarget } from './siege';
 import {
   cloneVillager,
@@ -43,7 +44,7 @@ export const SISTER_FRIEND = 'sister';
 export function sisterFriend(state: Pick<GameState, 'playerId' | 'targets' | 'face'>): Friend {
   return {
     id: SISTER_FRIEND,
-    owner: otherFace(state.face),
+    owner: `colony:${otherFace(state.face)}`,
     kiwiIndex: 0,
     distance: 0,
     travelMs: alienDefOf(0).travelMs,
@@ -166,6 +167,7 @@ export function newSister(home: GameState, f: Founding): GameState {
   s.villagers = f.settlers.map((v) => ({ ...settle(v), id: nextId(s, 'v') as VillagerId }));
   const cap = capacity(s);
   for (const id of RESOURCE_IDS) s.resources[id] = Math.min(cap[id], f.resources[id]);
+  raiseHuts(s, f.at);
   s.objectiveIndex = OBJECTIVES.length;
   s.colony = { index: 1, founding: null, foundedAt: f.at };
   s.threats.shieldUntil = f.at + COLONY.shieldMs;
@@ -175,10 +177,44 @@ export function newSister(home: GameState, f: Founding): GameState {
     done: [...home.research.done],
     outbox: 0,
   };
-  const taken = new Set<string>([hexKey(HEART), ...s.obstacles.map((o) => hexKey(o))]);
+  const taken = new Set<string>([
+    hexKey(HEART),
+    ...s.obstacles.map((o) => hexKey(o)),
+    ...s.buildings.map((b) => hexKey(b)),
+  ]);
   s.obstacles = [...s.obstacles, ...generateTraces(faceMapOf(s), taken)];
   linkSister(s);
   return s;
+}
+
+/** The settlers raise level-1 huts beside the Nest for those it cannot house. */
+function raiseHuts(s: GameState, at: TimeMs): void {
+  const per = levelDef('hut', 1)?.housing ?? 2;
+  const want = Math.min(
+    COLONY.maxHuts,
+    Math.ceil(Math.max(0, s.villagers.length - housing(s)) / per),
+  );
+  if (want <= 0) return;
+  const map = faceMapOf(s);
+  const spots = map.tiles
+    .filter(
+      (t) =>
+        hexDistance(t, HEART) === 2 &&
+        BUILDINGS.hut.allowedTiles.includes(t.type) &&
+        !t.flood &&
+        !s.obstacles.some((o) => o.q === t.q && o.r === t.r),
+    )
+    .sort((a, b) => a.q - b.q || a.r - b.r);
+  for (const t of spots.slice(0, want))
+    s.buildings.push({
+      id: nextId(s, 'b') as BuildingId,
+      type: 'hut',
+      q: t.q,
+      r: t.r,
+      level: 1,
+      richness: t.richness,
+      builtAt: at,
+    });
 }
 
 /**
@@ -194,9 +230,17 @@ export function takeFounding(home: GameState): GameState | null {
   return sister;
 }
 
+/** The sister has points to send home, or does not know what home knows yet. */
+export function colonyNeedsSync(home: GameState, sister: GameState): boolean {
+  const a = home.research;
+  const b = sister.research;
+  return b.outbox > 0 || a.current !== b.current || a.done.length !== b.done.length;
+}
+
 /**
- * Shared research (both states advanced to the same time first): the sister's points join the
- * home colony's research, and the sister learns what home knows and works on.
+ * Shared research: the sister's points join the home colony's research, and the sister learns
+ * what home knows and works on. Each state stays at its own time (the points were earned; a
+ * technology reaches the sister at the next sync, as with the server's two game rows).
  */
 export function syncColonies(home: GameState, sister: GameState): void {
   receiveResearch(home, sister.research.outbox);

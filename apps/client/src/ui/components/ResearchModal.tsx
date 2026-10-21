@@ -3,6 +3,8 @@ import {
   ageOf,
   describeTech,
   hasTech,
+  isSister,
+  otherFace,
   MAX_AGE,
   PASSAGE_TECHS,
   shipIdForAge,
@@ -35,6 +37,26 @@ export function ResearchSummary({ game, t }: { game: GameState; t: Translate }) 
   const points = researchPoints(game);
   const current = game.research.current;
   const fmt = (v: number) => formatNumber(lang, Math.floor(v));
+  if (isSister(game))
+    return (
+      <div class="research-summary">
+        <p class="small">
+          {t('colony.sharedResearch', { face: t(`faces.${otherFace(game.face)}`) })}
+        </p>
+        {current && (
+          <p class="small">
+            <strong>{t('research.current', { tech: `@techs.${current}.name` })}</strong>
+          </p>
+        )}
+        {libraryLevel(game) > 0 && (
+          <p class="small muted">
+            {t('colony.outbox', { points: fmt(game.research.outbox / RESEARCH_SCALE) })}
+            {rate > 0 &&
+              ` · ${t('research.rate', { rate: formatNumber(lang, Math.round(rate * 10) / 10) })}`}
+          </p>
+        )}
+      </div>
+    );
   if (libraryLevel(game) === 0) return <p class="small muted">{t('research.noLibrary')}</p>;
   const eta = researchEta(game);
   return (

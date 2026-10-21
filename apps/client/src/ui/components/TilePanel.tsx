@@ -1,5 +1,7 @@
 import {
   AGE_IDS,
+  COLONY,
+  denRaidForecast,
   BUILDABLE_TYPES,
   BUILDINGS,
   buildCost,
@@ -78,6 +80,7 @@ import {
   KiwiIcon,
   ResourceIcon,
   SeasonIcon,
+  ShieldIcon,
   ShipIcon,
   TargetIcon,
 } from '../icons';
@@ -872,9 +875,58 @@ function ObstacleSection({
           </button>
           {error && <span class="small warn">{t(`errors.${error}`)}</span>}
         </div>
+      ) : o.kind === 'den' ? (
+        <DenRaid game={game} map={map} o={o} now={now} t={t} />
       ) : game.villagers.some((v) => v.kikiwiwi) ? null : (
         <p class="small warn">{t('obstacles.needsTitan')}</p>
       )}
+    </div>
+  );
+}
+
+/** Chantier 19: the guards raid a ferret den (the outcome is foreseen, no luck). */
+function DenRaid({
+  game,
+  map,
+  o,
+  now,
+  t,
+}: {
+  game: GameState;
+  map: FaceMap;
+  o: Obstacle;
+  now: number;
+  t: Translate;
+}) {
+  const lang = useUi((s) => s.lang);
+  const f = denRaidForecast(game);
+  const cmd = { type: 'raidDen', q: o.q, r: o.r } as const;
+  const error = validateCommand(game, cmd, { now, map });
+  const fmt = (v: number) => formatNumber(lang, Math.round(v * 10) / 10);
+  return (
+    <div class="upgrade-box">
+      <span class="small">
+        {t('colony.raidLine', { strength: fmt(f.strength), power: fmt(f.power) })}
+      </span>
+      {f.strength >= f.power ? (
+        <span class="small muted">
+          {t('colony.raidWounded', {
+            count: f.wounded,
+            duration: formatDuration(lang, COLONY.denInjuryMs),
+          })}
+        </span>
+      ) : (
+        f.strength > 0 && <span class="small warn">{t('colony.raidNeed')}</span>
+      )}
+      <button
+        class="btn btn-primary"
+        disabled={error !== null}
+        title={error ? t(`errors.${error}`) : undefined}
+        onClick={() => actions.dispatch(cmd)}
+      >
+        <ShieldIcon size={18} /> {t('colony.raid')}
+      </button>
+      {error && error !== 'tooStrong' && <span class="small warn">{t(`errors.${error}`)}</span>}
     </div>
   );
 }

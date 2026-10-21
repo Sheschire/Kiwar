@@ -15,6 +15,8 @@ export function VisitBanner() {
   const allies = useUi((s) => s.allies);
   const game = useUi((s) => s.game);
   const twinOwner = useUi((s) => s.twinOwner);
+  const sister = useUi((s) => s.sister);
+  const colony = useUi((s) => s.colony);
   if (visit === null || !game) return null;
   const label = planetLabel(visit, t, game, allies, twinOwner);
   if (!label) return null;
@@ -34,6 +36,11 @@ export function VisitBanner() {
         </span>
       </div>
       <div class="row visit-actions">
+        {visit === 'twin' && sister && (
+          <button class="btn" onClick={() => void actions.switchColony(colony === 0 ? 1 : 0)}>
+            {t('colony.play')}
+          </button>
+        )}
         {visit === 'twin' && !twinOwner && siegeVisible(game) && (
           <button
             class="btn"

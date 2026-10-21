@@ -183,7 +183,9 @@ export function SiegeHeader(props: { game: GameState; mission: MissionKind; sect
   return (
     <section class="field siege-header">
       <h3>
-        {t(`siege.missions.${props.mission as 'recon' | 'assault' | 'reinforce' | 'final'}`)}
+        {t(
+          `siege.missions.${props.mission as 'recon' | 'assault' | 'reinforce' | 'final' | 'found'}`,
+        )}
         {props.sector !== undefined && ` · ${sectorName(t, props.sector)}`}
       </h3>
       <p class="small muted">

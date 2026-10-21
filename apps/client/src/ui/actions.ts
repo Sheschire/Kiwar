@@ -355,6 +355,13 @@ export const actions = {
   refreshUniverse(): void {
     void controller?.refreshUniverse();
   },
+  /** Chantier 19: plays the other colony (home or the sister on the twin face). */
+  async switchColony(colony: 0 | 1): Promise<boolean> {
+    actions.travelTo(null);
+    const ok = (await controller?.switchColony(colony)) ?? false;
+    if (ok) uiStore.setState({ modal: 'none', selectedTile: null, visit: null });
+    return ok;
+  },
   async switchUniverse(id: string): Promise<boolean> {
     const ok = (await controller?.switchUniverse(id)) ?? false;
     if (ok) uiStore.setState({ modal: 'none', selectedTile: null });

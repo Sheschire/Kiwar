@@ -18,6 +18,7 @@ import type {
   AllySnapshot,
   GuestTransferPreview,
   LogisticsChange,
+  TwinSnapshot,
   UniverseInfo,
 } from '@kiwar/shared';
 import type { QualityChoice, QualityPreset } from '../render/quality';
@@ -53,7 +54,7 @@ export type SiegeShowKind = 'taken' | 'repelled' | 'held' | 'fell' | 'queen' | '
 
 /** Chantier 19: a siege mission prepared from the Siege screen (the planner opens on it). */
 export interface SiegePlan {
-  mission: 'recon' | 'assault' | 'reinforce' | 'final';
+  mission: 'recon' | 'assault' | 'reinforce' | 'final' | 'found';
   sector?: number;
 }
 
@@ -155,6 +156,10 @@ export interface UiState {
   allies: AllySnapshot[];
   /** A friend living on our twin face (older shared universes), by name; null: aliens. */
   twinOwner: string | null;
+  /** Chantier 19: the colony on screen (0 home, 1 the sister on the twin face). */
+  colony: 0 | 1;
+  /** Chantier 19: the layout of our other colony (null: no sister yet). */
+  sister: TwinSnapshot | null;
   /** Far planet the camera is visiting (chantier 24: the twin or a member's; null: home). */
   visit: PlanetRef | null;
   /** Chantier 24: the card of a tapped planet ("Go there"). */
@@ -268,6 +273,8 @@ export const uiStore = createStore<UiState>(() => ({
   bootError: null,
   allies: [],
   twinOwner: null,
+  colony: 0,
+  sister: null,
   visit: null,
   planetCard: null,
   planetsOpen: false,

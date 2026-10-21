@@ -39,6 +39,7 @@ import { chatActions } from '../chatActions';
 import { uiStore, useT, useUi } from '../store';
 import { SyncBadge } from './SyncBadge';
 import { siegeVisible } from './SiegeModal';
+import { ColonySwitch } from './ColonySwitch';
 import { ClockChip, ClockTip } from './ClockChip';
 import { MoraleLine } from './NeedsWidgets';
 
@@ -376,6 +377,7 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
           >
             <ShieldIcon />
           </button>
+          <ColonySwitch />
           {siege && (
             <button
               class={`btn btn-icon parchment-btn ${modal === 'siege' ? 'btn-active' : ''}`}

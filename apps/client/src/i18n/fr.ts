@@ -717,6 +717,7 @@ export const fr: Dict = {
       assault: 'Assaut',
       reinforce: 'Renfort',
       final: 'Assaut final',
+      found: 'Fonder la colonie',
     },
     deepHint:
       'Pendant le siège, les éclaireur·euses estiment la force de chaque secteur vu et cherchent l’antre de la reine.',
@@ -776,7 +777,6 @@ export const fr: Dict = {
     conqueredBody:
       'La reine est tombée et le brouillard s’est levé. Plus aucun alien ne tient la jumelle.',
     found: 'Fonder la colonie',
-    foundSoon: 'Bientôt : la face conquise deviendra votre seconde colonie.',
   },
   offline: {
     title: 'Pendant votre absence…',
@@ -1077,6 +1077,37 @@ export const fr: Dict = {
     buildings: '{count} bâtiments',
     next: 'Voir {name}',
     home: 'Retour chez moi',
+  },
+  colony: {
+    named: 'votre colonie de {face}',
+    title: 'Votre colonie de {face}',
+    hint: 'L’autre moitié de votre kiwi, colonisée',
+    switchTo: 'Aller sur {face}',
+    switchHint: 'Jouer votre autre colonie ({face})',
+    play: 'Jouer cette colonie',
+    founded: 'La colonie de {face} est fondée !',
+    foundedBody:
+      'Votre seconde colonie vit sur {face} : même calendrier, recherche commune, âge et monument propres. Le vaisseau et l’oiseau relient les deux faces.',
+    foundFlying: 'Les colons sont en route vers la face conquise.',
+    foundHint:
+      'Choisissez les colons (au moins {min}) et ce qu’ils emportent : la colonie naît à l’atterrissage, avec un Nid de niveau 1.',
+    freight: 'Cargaison des colons',
+    freightHint:
+      'Le Nid 1 de la nouvelle colonie garde au plus {cap} de chaque ressource : le surplus est perdu.',
+    noFight: 'Pas de combat : les colons s’installent pour de bon, le vaisseau revient à vide.',
+    settled: 'Installé·e là-bas',
+    settlersArrived: 'Arrivé·es de votre autre colonie : {names}.',
+    kiwis: 'Kiwis qui partent',
+    kiwisHint:
+      'Ils quittent cette colonie pour de bon et arrivent au repos là-bas (un kiwi reste toujours ici).',
+    sharedResearch:
+      'Recherche commune : elle se choisit depuis {face}. Votre Bibliothèque y envoie ses points.',
+    outbox: '{points} points en route vers la recherche commune.',
+    lastAliens: 'Derniers aliens : vagues à {pct} % de leur force, {dens} nid(s) de furets debout.',
+    raid: 'Raid des gardes',
+    raidLine: 'Gardes {strength} contre le nid {power}',
+    raidWounded: '≈ {count} garde(s) blessé·e(s) ({duration} de repos).',
+    raidNeed: 'Postez plus de gardes (ou des guerrier·ères) pour vaincre ce nid.',
   },
   planets: {
     title: 'Planètes',

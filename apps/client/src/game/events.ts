@@ -1,5 +1,6 @@
 import {
   AGE_IDS,
+  otherFace,
   RESOURCE_IDS,
   type GameEvent,
   type MissionKind,
@@ -8,6 +9,7 @@ import {
 import type { GameRenderer } from '../render/GameRenderer';
 import { pushToast, uiStore, type SiegeShowKind } from '../ui/store';
 import { playGameEventSounds } from '../audio/sounds';
+import { friendName } from '../ui/components/DeliveryPlanner';
 import { formatDuration, formatNumber, translate, type TKey } from '../i18n/i18n';
 
 const SLICE_KEYS = ['bark', 'dew', 'moss', 'twig', 'down', 'seeds'] as const;
@@ -22,6 +24,12 @@ const SIEGE_TOASTS: Partial<Record<MissionKind, readonly [TKey, TKey]>> = {
 };
 
 let showId = 0;
+
+/** An ally's name, or our other colony (chantier 19). */
+function nameOf(owner: string): string {
+  const lang = uiStore.getState().lang;
+  return friendName((k, p) => translate(lang, k, p), owner);
+}
 
 /** Chantier 19: a siege fight seen live (not an offline catch-up) gets its short show. */
 function showSiege(e: GameEvent): void {
@@ -128,7 +136,11 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         break;
       case 'expeditionArrived':
         if (e.broken) pushToast('error', 'ship.brokeDown');
-        else if (e.mission && SIEGE_TOASTS[e.mission])
+        else if (e.mission === 'found') {
+          const game = uiStore.getState().game;
+          const face = game ? `@faces.${otherFace(game.face)}` : '';
+          pushToast('success', 'colony.founded', { face });
+        } else if (e.mission && SIEGE_TOASTS[e.mission])
           pushToast(
             e.victory || e.mission === 'reinforce' ? 'success' : 'error',
             SIEGE_TOASTS[e.mission]![e.victory || e.mission === 'reinforce' ? 0 : 1],
@@ -151,7 +163,10 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         }));
         break;
       case 'cargoDelivered':
-        pushToast('success', 'delivery.delivered', { name: e.to });
+        pushToast('success', 'delivery.delivered', { name: nameOf(e.to) });
+        break;
+      case 'settlersArrived':
+        pushToast('success', 'colony.settlersArrived', { names: e.names.join(', ') });
         break;
       case 'shipmentReturned':
         pushToast('info', 'delivery.back');
@@ -164,7 +179,7 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
               `${formatNumber(lang, Math.floor(e.received[r]))} ${translate(lang, `resources.${r}`)}`,
           )
           .join(', ');
-        pushToast('success', 'delivery.received', { name: e.from, list });
+        if (list) pushToast('success', 'delivery.received', { name: nameOf(e.from), list });
         if (RESOURCE_IDS.some((r) => e.lost[r] >= 1)) pushToast('info', 'delivery.lostSome');
         break;
       }
