@@ -49,6 +49,8 @@ export interface UiState {
   modal: Modal;
   debugOpen: boolean;
   objectivesOpen: boolean;
+  /** Chantier 21: the named menu of the thumb bar (phones and touch screens). */
+  menuOpen: boolean;
   /** Chantier 20: the construction queue and the wave alert can fold (remembered). */
   queueOpen: boolean;
   threatOpen: boolean;
@@ -183,6 +185,7 @@ export const uiStore = createStore<UiState>(() => ({
   modal: 'none',
   debugOpen: false,
   objectivesOpen: wideScreen,
+  menuOpen: false,
   queueOpen: loadFlag(QUEUE_OPEN_KEY, true),
   threatOpen: loadFlag(THREAT_OPEN_KEY, true),
   game: null,

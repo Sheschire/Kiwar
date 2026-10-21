@@ -13,8 +13,11 @@ import { EggIcon, StardustIcon } from '../icons';
 import { useT, useUi } from '../store';
 import { Cost } from './Cost';
 
-/** Floating egg button: hatch a new kiwi (cost + incubation), capped by housing. */
-export function EggButton() {
+/**
+ * Floating egg button: hatch a new kiwi (cost + incubation), capped by housing. Chantier 21:
+ * `inBar` draws it raised in the middle of the thumb bar, with a short label under it.
+ */
+export function EggButton({ inBar = false }: { inBar?: boolean }) {
   const t = useT();
   const lang = useUi((s) => s.lang);
   const game = useUi((s) => s.game);
@@ -26,7 +29,7 @@ export function EggButton() {
   if (egg) {
     const progress = Math.min(1, (now - egg.startedAt) / (egg.readyAt - egg.startedAt));
     return (
-      <div class="egg-wrap pe">
+      <div class={inBar ? 'thumb-egg' : 'egg-wrap pe'}>
         <div
           class={`egg-btn hatching ${egg.star ? 'is-star' : ''}`}
           style={{ '--p': `${progress * 360}deg` }}
@@ -35,8 +38,9 @@ export function EggButton() {
         >
           <EggIcon size={34} class="wobble" />
         </div>
-        <span class="egg-label parchment">
-          {t('egg.hatching')} {formatDuration(lang, egg.readyAt - now)}
+        <span class={inBar ? 'thumb-egg-label' : 'egg-label parchment'}>
+          {inBar ? '' : `${t('egg.hatching')} `}
+          {formatDuration(lang, egg.readyAt - now)}
         </span>
       </div>
     );
@@ -50,7 +54,7 @@ export function EggButton() {
     ? 'housingFull'
     : validateCommand(game, { type: 'hatchEgg', star: true }, { now, map });
   return (
-    <div class="egg-wrap pe">
+    <div class={inBar ? 'thumb-egg' : 'egg-wrap pe'}>
       {showStar && (
         <button
           class={`egg-star parchment-btn ${starError ? '' : 'ready'}`}
@@ -77,11 +81,15 @@ export function EggButton() {
       >
         <EggIcon size={34} />
       </button>
-      <span class="egg-label parchment">
+      <span class={inBar ? 'thumb-egg-label' : 'egg-label parchment'}>
         {full ? (
-          <span class="small">{t('egg.housingFull')}</span>
+          <span class="small">{inBar ? t('nav.eggFull') : t('egg.housingFull')}</span>
         ) : (
-          <Cost cost={eggCost(game)} have={game.resources} durationMs={eggDuration(game)} />
+          <Cost
+            cost={eggCost(game)}
+            have={game.resources}
+            durationMs={inBar ? undefined : eggDuration(game)}
+          />
         )}
       </span>
     </div>

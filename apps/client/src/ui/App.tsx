@@ -34,6 +34,8 @@ import { foodLeftMs, NEEDS, SKILLS } from '@kiwar/shared';
 import { consumption, hungerStage, netRates } from './derived';
 import { ResourceIcon } from './icons';
 import { formatDuration } from '../i18n/i18n';
+import { useThumbLayout } from './layout';
+import { ThumbBar } from './components/MobileNav';
 
 /** The mayor's speech is running: a small badge under the top bar. */
 function SpeechBadge() {
@@ -85,6 +87,18 @@ function HungerBadge() {
   );
 }
 
+/** Alerts of the HUD: the wave, the comet, the speech, hunger. */
+function Badges() {
+  return (
+    <div class="badge-stack">
+      <ThreatBadge />
+      <CometBadge />
+      <SpeechBadge />
+      <HungerBadge />
+    </div>
+  );
+}
+
 /** Keys typed in a text field are not shortcuts. */
 function isTyping(e: KeyboardEvent): boolean {
   const el = e.target as HTMLElement | null;
@@ -100,6 +114,7 @@ export function App() {
   const placing = useUi((s) => s.placing !== null);
   const intro = useUi((s) => s.intro !== null);
   const visiting = useUi((s) => s.visit !== null);
+  const thumb = useThumbLayout();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -144,31 +159,49 @@ export function App() {
       </div>
     );
   return (
-    <div class={`hud ${hasSheet ? 'has-sheet' : ''} ${pathMode || placing ? 'path-mode' : ''}`}>
-      <TopBar />
+    <div
+      class={`hud ${hasSheet ? 'has-sheet' : ''} ${pathMode || placing ? 'path-mode' : ''} ${thumb ? 'thumb' : ''}`}
+    >
+      <TopBar buttons={!thumb} />
       <ObjectivesPanel />
-      <QueuePanel />
-      <ExpeditionsPanel />
-      <SaveNudge />
-      <AuthErrorBanner />
+      {!thumb && (
+        <>
+          <QueuePanel />
+          <ExpeditionsPanel />
+          <SaveNudge />
+          <AuthErrorBanner />
+        </>
+      )}
       <RecapBubble />
-      <EggButton />
-      <PathButton />
-      <Compass />
+      {thumb ? (
+        <ThumbBar />
+      ) : (
+        <>
+          <EggButton />
+          <PathButton />
+          <Compass />
+          <LevelsButton />
+          <LogisticsButton />
+        </>
+      )}
       <PathToolbar />
       <PlacingBanner />
-      <LevelsButton />
-      <LogisticsButton />
       <Guard>
         <TilePanel />
       </Guard>
       <FollowBadge />
-      <div class="badge-stack">
-        <ThreatBadge />
-        <CometBadge />
-        <SpeechBadge />
-        <HungerBadge />
-      </div>
+      {thumb ? (
+        // Chantier 21: everything that floats above the thumb bar, stacked from the bottom.
+        <div class="thumb-stack">
+          <SaveNudge />
+          <AuthErrorBanner />
+          <ExpeditionsPanel />
+          <Badges />
+          <QueuePanel />
+        </div>
+      ) : (
+        <Badges />
+      )}
       <Toasts />
       <Guard>
         {debugOpen && <DebugPanel />}

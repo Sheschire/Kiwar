@@ -220,7 +220,8 @@ function TipContent({ id }: { id: TipId }) {
   );
 }
 
-export function TopBar() {
+/** The resource bar; `buttons` adds the column of round buttons (not with the thumb bar). */
+export function TopBar({ buttons = true }: { buttons?: boolean }) {
   const t = useT();
   const pop = useUi((s) => (s.game ? population(s.game) : 0));
   const house = useUi((s) => (s.game ? housing(s.game) : 0));
@@ -347,82 +348,87 @@ export function TopBar() {
           </div>
         )}
       </div>
-      <div class="topbar-buttons">
-        <SyncBadge />
-        <button
-          class={`btn btn-icon parchment-btn village-btn ${villageOpen ? 'btn-active' : ''}`}
-          aria-label={t('village.button')}
-          title={t('village.button')}
-          onClick={() => (villageOpen ? actions.closeVillage() : actions.openVillage())}
-        >
-          <KiwiIcon />
-          {points > 0 && <span class="count">{points > 9 ? '9+' : points}</span>}
-        </button>
-        <button
-          class={`btn btn-icon parchment-btn ${modal === 'defense' ? 'btn-active' : ''}`}
-          aria-label={t('defense.button')}
-          title={t('defense.button')}
-          onClick={() =>
-            uiStore.setState({ modal: modal === 'defense' ? 'none' : 'defense', unreadWave: null })
-          }
-        >
-          <ShieldIcon />
-        </button>
-        <button
-          class={`btn btn-icon parchment-btn ${modal === 'plans' ? 'btn-active' : ''}`}
-          aria-label={t('plans.button')}
-          title={t('plans.button')}
-          onClick={() => uiStore.setState({ modal: modal === 'plans' ? 'none' : 'plans' })}
-        >
-          <BookIcon />
-        </button>
-        <button
-          class="btn btn-icon parchment-btn"
-          aria-label={t('universe.button')}
-          title={t('universe.button')}
-          onClick={() => uiStore.setState({ modal: 'universe' })}
-        >
-          <GlobeIcon />
-        </button>
-        {inUniverse && (
+      {buttons && (
+        <div class="topbar-buttons">
+          <SyncBadge />
           <button
-            class={`btn btn-icon parchment-btn chat-btn ${chatOpen ? 'btn-active' : ''}`}
-            aria-label={t('chat.button')}
-            title={t('chat.button')}
-            onClick={() => chatActions.open(!chatOpen)}
+            class={`btn btn-icon parchment-btn village-btn ${villageOpen ? 'btn-active' : ''}`}
+            aria-label={t('village.button')}
+            title={t('village.button')}
+            onClick={() => (villageOpen ? actions.closeVillage() : actions.openVillage())}
           >
-            <ChatIcon />
-            {chatUnread > 0 && <span class="count">{chatUnread > 9 ? '9+' : chatUnread}</span>}
+            <KiwiIcon />
+            {points > 0 && <span class="count">{points > 9 ? '9+' : points}</span>}
           </button>
-        )}
-        <button
-          class={`btn btn-icon parchment-btn ${objectivesOpen ? 'btn-active' : ''}`}
-          aria-label={t('hud.objectives')}
-          aria-pressed={objectivesOpen}
-          title={t('hud.objectives')}
-          onClick={() => uiStore.setState((s) => ({ objectivesOpen: !s.objectivesOpen }))}
-        >
-          <ScrollIcon />
-        </button>
-        <button
-          class={`btn btn-icon parchment-btn sound-btn ${muted ? 'is-muted' : ''}`}
-          aria-label={muted ? t('audio.unmute') : t('audio.mute')}
-          aria-pressed={muted}
-          title={muted ? t('audio.unmute') : t('audio.mute')}
-          data-silent
-          onClick={() => actions.setAudio({ muted: !muted })}
-        >
-          <SpeakerIcon muted={muted} />
-        </button>
-        <button
-          class="btn btn-icon parchment-btn"
-          aria-label={t('hud.settings')}
-          title={t('hud.settings')}
-          onClick={() => uiStore.setState({ modal: 'settings' })}
-        >
-          <GearIcon />
-        </button>
-      </div>
+          <button
+            class={`btn btn-icon parchment-btn ${modal === 'defense' ? 'btn-active' : ''}`}
+            aria-label={t('defense.button')}
+            title={t('defense.button')}
+            onClick={() =>
+              uiStore.setState({
+                modal: modal === 'defense' ? 'none' : 'defense',
+                unreadWave: null,
+              })
+            }
+          >
+            <ShieldIcon />
+          </button>
+          <button
+            class={`btn btn-icon parchment-btn ${modal === 'plans' ? 'btn-active' : ''}`}
+            aria-label={t('plans.button')}
+            title={t('plans.button')}
+            onClick={() => uiStore.setState({ modal: modal === 'plans' ? 'none' : 'plans' })}
+          >
+            <BookIcon />
+          </button>
+          <button
+            class="btn btn-icon parchment-btn"
+            aria-label={t('universe.button')}
+            title={t('universe.button')}
+            onClick={() => uiStore.setState({ modal: 'universe' })}
+          >
+            <GlobeIcon />
+          </button>
+          {inUniverse && (
+            <button
+              class={`btn btn-icon parchment-btn chat-btn ${chatOpen ? 'btn-active' : ''}`}
+              aria-label={t('chat.button')}
+              title={t('chat.button')}
+              onClick={() => chatActions.open(!chatOpen)}
+            >
+              <ChatIcon />
+              {chatUnread > 0 && <span class="count">{chatUnread > 9 ? '9+' : chatUnread}</span>}
+            </button>
+          )}
+          <button
+            class={`btn btn-icon parchment-btn ${objectivesOpen ? 'btn-active' : ''}`}
+            aria-label={t('hud.objectives')}
+            aria-pressed={objectivesOpen}
+            title={t('hud.objectives')}
+            onClick={() => uiStore.setState((s) => ({ objectivesOpen: !s.objectivesOpen }))}
+          >
+            <ScrollIcon />
+          </button>
+          <button
+            class={`btn btn-icon parchment-btn sound-btn ${muted ? 'is-muted' : ''}`}
+            aria-label={muted ? t('audio.unmute') : t('audio.mute')}
+            aria-pressed={muted}
+            title={muted ? t('audio.unmute') : t('audio.mute')}
+            data-silent
+            onClick={() => actions.setAudio({ muted: !muted })}
+          >
+            <SpeakerIcon muted={muted} />
+          </button>
+          <button
+            class="btn btn-icon parchment-btn"
+            aria-label={t('hud.settings')}
+            title={t('hud.settings')}
+            onClick={() => uiStore.setState({ modal: 'settings' })}
+          >
+            <GearIcon />
+          </button>
+        </div>
+      )}
     </header>
   );
 }

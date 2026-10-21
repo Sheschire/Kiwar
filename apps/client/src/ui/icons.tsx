@@ -596,3 +596,18 @@ export function LockIcon({ size = 22, class: cls }: IconProps) {
     </>,
   );
 }
+
+/** Chantier 21: the menu of the thumb bar (three lines). */
+export function MenuIcon({ size = 22, class: cls }: IconProps) {
+  return svg(
+    size,
+    cls,
+    <path
+      d="M7 9h18M7 16h18M7 23h18"
+      stroke="#6a4a2e"
+      stroke-width="3"
+      stroke-linecap="round"
+      fill="none"
+    />,
+  );
+}
