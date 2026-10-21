@@ -4502,6 +4502,11 @@ button.chip:focus-visible {
 }
 
 @media (max-width: 760px) and (orientation: portrait) {
+  /* Toasts below the objective pill. */
+  .thumb .toasts {
+    top: calc(112px + var(--safe-top));
+  }
+
   /* Room for the raised egg below the footer. */
   .thumb .sheet-foot {
     padding-bottom: 18px;
@@ -4510,4 +4515,12 @@ button.chip:focus-visible {
 
 .fold-details > summary h3 {
   margin: 0;
+}
+
+/* Touch tablets held upright: the drawer keeps the width of the bar. */
+@media (min-width: 761px) and (min-height: 521px) and (orientation: portrait) {
+  .nav-menu {
+    left: max(0px, calc(50% - 300px));
+    right: max(0px, calc(50% - 300px));
+  }
 }

@@ -403,7 +403,7 @@ export const en = {
     buildWell: { title: 'Build a Juice well', hint: 'Wells are built on sparkling juice pools.' },
     staffWorkers: {
       title: 'Put 4 kiwis to work',
-      hint: 'Select a building and add workers with +.',
+      hint: 'A level-1 building employs one kiwi: upgrade your Pulpery (two places at level 2), then add a worker with +.',
     },
     buildHut: { title: 'Build a Hut', hint: 'Huts house more kiwis. Build them on flesh or rays.' },
     buildQuarry: {

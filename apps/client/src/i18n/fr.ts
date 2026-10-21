@@ -432,7 +432,7 @@ export const fr: Dict = {
     },
     staffWorkers: {
       title: 'Mettre 4 kiwis au travail',
-      hint: 'Sélectionnez un bâtiment et ajoutez des ouvriers avec +.',
+      hint: 'Un bâtiment de niveau 1 n’emploie qu’un kiwi : améliorez votre Cueillerie (deux places au niveau 2), puis ajoutez un ouvrier avec +.',
     },
     buildHut: {
       title: 'Construire une Hutte',
