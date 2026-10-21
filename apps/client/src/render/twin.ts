@@ -13,8 +13,9 @@ import {
   Group,
   Mesh,
   ShaderMaterial,
+  Sphere,
   Vector3,
-  type PerspectiveCamera,
+  type Ray,
 } from 'three';
 import {
   getTile,
@@ -30,40 +31,30 @@ import { WaterView, WATER_LEVEL } from './water';
 import { PALETTE } from './palette';
 import { GLSL_NOISE } from './shaderChunks';
 import { TerrainView, worldPosition } from './terrain';
-import { FRONT_AZIMUTH } from './front';
+import { planetOrientation, type SpacePoint } from './space';
 
-/**
- * Where the twin floats: towards the front, hidden above the frame when zoomed in, half
- * showing at the top of the screen at the normal zoom (1.0) and fully in the upper sky from a
- * slight zoom out (`ZOOM_IN` → `ZOOM_OUT`, ratios of the framing distance, chantier 17).
- * `BEHIND`: extra distance beyond the target, so it hangs past our rim.
- */
-const ZOOM_IN = 0.6;
-const ZOOM_OUT = 1.15;
-const BEHIND = 34;
-const LEAN = 0.45;
 /** Seen from afar: a little smaller than our own half. */
 const SCALE = 0.68;
+/** One turn on itself every five minutes (chantier 24), a gentle bob. */
+const SPIN = (Math.PI * 2) / 300;
+const BOB = 0.5;
 export interface TwinOptions {
   fog: boolean;
   friend?: TwinSnapshot | null;
   /** Alien face: what our scouts saw (the clouds part over those sectors, chantier 07). */
   intel?: IntelReport | null;
-  /** Placed by its owner (an ally's planet far away) instead of following the camera. */
-  anchored?: boolean;
-  /** Ribbon under an alien twin ("Alien face — to colonise"), so it reads as a target. */
-  caption?: string;
 }
 
 /** Fog layers over the twin surface (local heights). */
 const FOG_LAYERS = [1.2, 1.9, 2.6];
 
 /**
- * The other half of our kiwi, floating high above the colony (chantier 05). It is only seen
- * when the camera zooms out, leans towards it so its surface shows, and turns slowly. Under
- * fog of war (alien face) only its silhouette is visible: the client never knows what happens
- * there. Rendered without shadows nor props, so it stays cheap on phones. When a friend lives
- * there (shared universe), no fog: their pools, buildings and name show instead.
+ * A far planet: the other half of our kiwi (chantier 05) or a member's face. Since chantier 24
+ * it has a fixed place in space (`place`, from `render/space.ts`), leans towards home so its
+ * surface shows, and turns slowly on itself (frozen while visited). Under fog of war (alien
+ * face) only its silhouette is visible: the client never knows what happens there. Rendered
+ * without shadows nor props, so it stays cheap on phones. When a friend lives there (shared
+ * universe), no fog: their pools, buildings and name show instead.
  */
 export class TwinView {
   readonly group = new Group();
@@ -71,23 +62,22 @@ export class TwinView {
   private readonly terrain: TerrainView;
   private readonly fogMaterial: ShaderMaterial;
   private readonly fog: Mesh[] = [];
-  private readonly lean = new Vector3();
-  private readonly tmp = new Vector3();
-  private readonly right = new Vector3();
-  /** World radius of the twin (for its apparent size). */
+  /** World radius of the planet (picking, framing a visit). */
   readonly radius: number;
-  private readonly anchored: boolean;
+  /** Resting place (the planet bobs gently around it). */
+  readonly home = new Vector3();
+  private angle = 0;
+  private readonly sphere = new Sphere();
+  private readonly hitPoint = new Vector3();
 
   private water: WaterView | null = null;
   private buildingMaterial: MeshStandardMaterial | null = null;
   private label: Sprite | null = null;
-  private caption: Sprite | null = null;
 
   private structureGeometries: (ConeGeometry | SphereGeometry)[] = [];
   private structureMaterials: MeshStandardMaterial[] = [];
 
   constructor(map: FaceMap, opts: TwinOptions) {
-    this.anchored = !!opts.anchored;
     this.terrain = new TerrainView(map);
     this.terrain.tiles.castShadow = false;
     this.terrain.tiles.receiveShadow = false;
@@ -162,62 +152,28 @@ export class TwinView {
     }
     if (opts.friend) this.showFriend(map, opts.friend);
     else if (opts.intel) this.showStructures(map, opts.intel);
-    if (opts.caption && !opts.friend && !opts.anchored) {
-      // Chantier 17: says what the half is, so it reads as a target, not a far moon.
-      this.caption = nameLabel(opts.caption, 'rgba(232, 240, 214, 0.9)', '#7d9a4a');
-      this.caption.material.transparent = true;
-      // After the fog layers, which would veil it.
-      this.caption.renderOrder = 10;
-      this.caption.scale.set(radius * 1.1, radius * 0.1375, 1);
-      this.group.add(this.caption);
-    }
     this.group.add(this.spin);
     this.group.scale.setScalar(SCALE);
   }
 
-  /**
-   * Places the twin in the sky, always towards the colony's front (`FRONT_AZIMUTH`): like the
-   * moon, it keeps its place in the sky while the camera turns (it slides off screen when the
-   * player looks the other way) and keeps the same orientation; it rises into the upper sky as
-   * the player zooms out (`zoom`: camera distance / framing distance) and turns slowly.
-   */
-  update(time: number, camera: PerspectiveCamera, target: Vector3, zoom: number): void {
-    const forward = this.tmp.subVectors(target, camera.position);
-    const distance = forward.length();
-    // The view's pitch, but facing the front whatever the camera azimuth.
-    const pitch = Math.asin(Math.min(1, Math.max(-1, -forward.y / distance)));
-    forward.set(
-      Math.sin(FRONT_AZIMUTH) * Math.cos(pitch),
-      -Math.sin(pitch),
-      Math.cos(FRONT_AZIMUTH) * Math.cos(pitch),
-    );
-    const right = this.right.crossVectors(forward, camera.up).normalize();
-    const vHalf = (camera.fov * Math.PI) / 360;
-    const along = distance + BEHIND;
-    const angularRadius = Math.atan(this.radius / along);
-    const k = smoothstep((zoom - ZOOM_IN) / (ZOOM_OUT - ZOOM_IN));
-    const hidden = vHalf + angularRadius * 1.15;
-    const shown = vHalf * 0.6;
-    const angle = hidden + (shown - hidden) * k;
-    // Tilt the front direction up by `angle` around its right axis.
-    const dir = this.lean.copy(forward).applyAxisAngle(right, angle);
-    this.group.position.copy(camera.position).addScaledVector(dir, along);
-    this.group.position.y += Math.sin(time * 0.3) * 0.6;
-    this.group.visible = k > 0.001;
-    // Fixed orientation: as seen from the side opposite the front.
+  /** Puts the planet at its place in space, turned towards home (`planetOrientation`). */
+  place(p: SpacePoint): void {
+    this.home.set(p.x, p.y, p.z);
+    this.group.position.copy(this.home);
+    const { yaw, tilt } = planetOrientation(p);
     this.group.rotation.set(0, 0, 0);
-    this.group.rotateY(FRONT_AZIMUTH - Math.PI);
-    this.group.rotateX(LEAN);
-    this.spin.rotation.y = time * 0.02;
-    this.fogMaterial.uniforms.uTime!.value = time;
-    if (this.caption && this.group.visible) {
-      // Over the visible top of the half (its bottom hides behind our rim), once in view.
-      this.group.updateMatrixWorld();
-      this.tmp.copy(this.group.position).addScaledVector(camera.up, this.radius * 0.25);
-      this.caption.position.copy(this.group.worldToLocal(this.tmp));
-      this.caption.material.opacity = smoothstep((k - 0.75) / 0.25);
-      this.caption.visible = k > 0.75;
+    this.group.rotateY(yaw);
+    this.group.rotateX(tilt);
+  }
+
+  /** Slow spin and bob; a planet being visited holds still (`frozen`). */
+  update(dt: number, time: number, frozen = false, phase = 0): void {
+    if (!frozen) {
+      this.angle += dt * SPIN;
+      this.group.position.y = this.home.y + Math.sin(time * 0.25 + phase) * BOB;
     }
+    this.spin.rotation.y = this.angle;
+    this.fogMaterial.uniforms.uTime!.value = time;
   }
 
   /** A friend's colony: pools, buildings (static models) and their name above. */
@@ -251,16 +207,9 @@ export class TwinView {
       this.terrain.group.add(this.obstacles.group);
     }
     this.label = nameLabel(friend.owner);
-    const e = this.terrain.extent();
-    if (this.anchored) {
-      // An ally's planet: the name floats high above its middle, readable from afar.
-      this.label.position.set(0, 16, 0);
-      this.label.scale.set(28, 7, 1);
-    } else {
-      // Above the far rim (the group leans towards the camera, its -Z side is up on screen).
-      this.label.position.set(0, 6, -Math.max(e.x, e.z) - 2);
-      this.label.scale.set(16, 4, 1);
-    }
+    // The name floats high above its middle, readable from afar.
+    this.label.position.set(0, 16, 0);
+    this.label.scale.set(28, 7, 1);
     this.group.add(this.label);
   }
 
@@ -282,6 +231,19 @@ export class TwinView {
     }
   }
 
+  /**
+   * Distance along the ray to the planet, or null: a sphere around it (cheap enough for every
+   * hover, and kinder to a finger than the tiles themselves).
+   */
+  rayHit(ray: Ray): number | null {
+    if (!this.group.visible) return null;
+    this.sphere.center.copy(this.group.position);
+    this.sphere.radius = this.radius;
+    return ray.intersectSphere(this.sphere, this.hitPoint)
+      ? ray.origin.distanceTo(this.hitPoint)
+      : null;
+  }
+
   setLabelVisible(visible: boolean): void {
     if (this.label) this.label.visible = visible;
   }
@@ -297,10 +259,9 @@ export class TwinView {
     this.obstacles?.dispose();
     // Building geometries are cached and shared with the colony: only the material goes.
     this.buildingMaterial?.dispose();
-    for (const sprite of [this.label, this.caption]) {
-      if (!sprite) continue;
-      sprite.material.map?.dispose();
-      sprite.material.dispose();
+    if (this.label) {
+      this.label.material.map?.dispose();
+      this.label.material.dispose();
     }
     for (const layer of this.fog) layer.geometry.dispose();
     for (const g of this.structureGeometries) g.dispose();
@@ -309,7 +270,7 @@ export class TwinView {
   }
 }
 
-/** The friend's name (or the alien face's caption), on a ribbon floating by their half. */
+/** The friend's name, on a ribbon floating above their planet. */
 function nameLabel(name: string, fill = 'rgba(246, 234, 208, 0.92)', stroke = '#b88a5a'): Sprite {
   const canvas = document.createElement('canvas');
   const wide = name.length > 18;
@@ -340,8 +301,3 @@ function seenMask(intel: IntelReport | null | undefined): number[] {
   for (const i of intel?.sectors ?? []) mask[i] = 1;
   return mask;
 }
-
-const smoothstep = (x: number) => {
-  const t = Math.min(1, Math.max(0, x));
-  return t * t * (3 - 2 * t);
-};

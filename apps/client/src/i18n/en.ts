@@ -634,7 +634,6 @@ export const en = {
   },
   compass: {
     label: 'Towards the alien planet — tap to fly back to the Nest',
-    twin: 'Alien face — to colonise',
   },
   debug: {
     title: 'Debug',
@@ -886,6 +885,17 @@ export const en = {
     buildings: '{count} buildings',
     next: 'See {name}',
     home: 'Back home',
+  },
+  planets: {
+    title: 'Planets',
+    twin: '{face} — unexplored',
+    twinSeen: '{face} — {percent} % explored',
+    twinHint: 'The other half of your kiwi',
+    allyHint: '{face} of kiwi {index}',
+    mine: 'My colony',
+    go: 'Go there',
+    home: 'Back to my colony',
+    prepare: 'Prepare an expedition',
   },
   chat: {
     title: 'Team chat',

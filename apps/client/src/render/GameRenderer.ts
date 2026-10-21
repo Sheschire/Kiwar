@@ -78,6 +78,7 @@ import { efficiencyGlow, LogisticsBadges, type PercentBadge } from './logisticsB
 import { WaterView } from './water';
 import { TwinView, type TwinOptions } from './twin';
 import { AlliesView, type AllyPlanet } from './allies';
+import { twinPlace, type PlanetRef } from './space';
 import { IntroScene, type IntroHandlers, type IntroLayout } from './intro';
 import { DayCycle } from './dayCycle';
 import { updateSeasonLook, seasonUniforms } from './seasonLook';
@@ -112,6 +113,8 @@ export interface RendererCallbacks {
   onFollowEnd?(): void;
   /** An ally's planet was tapped (shared universes). */
   onAllyTap?(kiwiIndex: number): void;
+  /** Chantier 24: the pointer is over a far planet (null: over none), at screen x/y. */
+  onPlanetHover?(planet: PlanetRef | null, x: number, y: number): void;
 }
 
 const tmpV = new Vector3();
@@ -161,7 +164,6 @@ export class GameRenderer {
   private visiting: AllyPlanet | null = null;
   private homeView: { position: Vector3; target: Vector3 } | null = null;
   private intro: IntroScene | null = null;
-  private readonly twinTarget = new Vector3();
   private props: PropsView | null = null;
   private buildings: BuildingsView | null = null;
   private kiwis: KiwisView | null = null;
@@ -277,9 +279,10 @@ export class GameRenderer {
         const tile = this.pickTile(x, y);
         if (tile) this.focusTile(tile);
       },
-      onHover: (x, y) => (this.hoverPoint = this.intro || this.visiting ? null : { x, y }),
+      onHover: (x, y) => (this.hoverPoint = this.intro ? null : { x, y }),
       onHoverEnd: () => {
         this.hoverPoint = null;
+        this.hoverPlanet(null, 0, 0);
         this.selection.setHover(null);
         if (this.hoverBuildingTile) {
           this.hoverBuildingTile = null;
@@ -467,6 +470,7 @@ export class GameRenderer {
     }
     if (!map) return;
     this.twin = new TwinView(map, opts);
+    this.twin.place(twinPlace());
     this.scene.add(this.twin.group);
   }
 
@@ -511,7 +515,7 @@ export class GameRenderer {
     this.visiting = planet;
     this.allies.setVisited(planet);
     this.selection.setHover(null);
-    this.rig.visit(planet.home, planet.view.radius);
+    this.rig.visit(planet.view.home, planet.view.radius);
     return true;
   }
 
@@ -530,7 +534,16 @@ export class GameRenderer {
 
   private allyAt(x: number, y: number): AllyPlanet | null {
     if (this.allies.planets.length === 0) return null;
-    return this.allies.pick(screenRay(this.canvas, this.camera, x, y));
+    return this.allies.pick(screenRay(this.canvas, this.camera, x, y).ray)?.planet ?? null;
+  }
+
+  /** The far planet under a screen point (chantier 24): the twin or a member's, nearest first. */
+  planetAt(x: number, y: number): PlanetRef | null {
+    const ray = screenRay(this.canvas, this.camera, x, y).ray;
+    const twin = this.twin?.rayHit(ray) ?? null;
+    const ally = this.allies.pick(ray);
+    if (ally && (twin === null || ally.distance < twin)) return ally.planet.kiwiIndex;
+    return twin !== null ? 'twin' : null;
   }
 
   /**
@@ -1151,6 +1164,14 @@ export class GameRenderer {
 
   private lastCpu = 0;
   private lastAzimuth = NaN;
+  private hoveredPlanet: PlanetRef | null = null;
+
+  /** Tells the interface which far planet is under the pointer (its name follows the pointer). */
+  private hoverPlanet(planet: PlanetRef | null, x: number, y: number): void {
+    if (planet === null && this.hoveredPlanet === null) return;
+    this.hoveredPlanet = planet;
+    this.callbacks.onPlanetHover?.(planet, x, y);
+  }
 
   private drawFrame(time: number): void {
     // The browser's frame timestamp (aligned on the display), not the clock read mid-callback:
@@ -1184,10 +1205,15 @@ export class GameRenderer {
       this.lastAzimuth = azimuth;
       this.callbacks.onAzimuth?.(azimuth);
     }
-    if (this.hoverPoint) {
-      const tile = this.pickTile(this.hoverPoint.x, this.hoverPoint.y);
+    const point = this.hoverPoint;
+    this.hoverPoint = null;
+    // Visiting is read-only: only the planets answer the pointer there.
+    const hoverTile = point && !this.visiting ? this.pickTile(point.x, point.y) : null;
+    if (point)
+      this.hoverPlanet(hoverTile ? null : this.planetAt(point.x, point.y), point.x, point.y);
+    if (point && !this.visiting) {
+      const tile = hoverTile;
       this.selection.setHover(tile);
-      this.hoverPoint = null;
       const onBuilding =
         tile && this.lastState && buildingAt(this.lastState, tile.q, tile.r) ? tile : null;
       const was = this.hoverBuildingTile;
@@ -1262,20 +1288,10 @@ export class GameRenderer {
     this.updateCycles();
     windUniforms.uWindTime.value = this.elapsed;
     this.crops?.update(dt);
-    this.environment.update(this.elapsed);
+    this.environment.update(this.elapsed, this.camera.position);
     this.water?.update(this.elapsed);
-    this.allies.update(this.elapsed);
-    // Away on an ally's planet, our own alien twin stays home.
-    if (this.twin && this.visiting) this.twin.group.visible = false;
-    else if (this.twin) {
-      const c = this.rig.controls;
-      this.twin.update(
-        this.elapsed,
-        this.camera,
-        c.getTarget(this.twinTarget),
-        c.distance / this.rig.frameDistance,
-      );
-    }
+    this.allies.update(dt, this.elapsed);
+    this.twin?.update(dt, this.elapsed);
     // The haze follows the zoom, so zooming out does not drown the colony in it.
     const fog = this.scene.fog as Fog;
     fog.near = Math.max(90, this.rig.controls.distance + 25);

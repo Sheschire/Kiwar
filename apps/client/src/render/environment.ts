@@ -11,6 +11,7 @@ import {
   ShaderMaterial,
   SphereGeometry,
   type Scene,
+  type Vector3,
 } from 'three';
 import type { SkyState } from './dayCycle';
 import { PALETTE } from './palette';
@@ -27,6 +28,9 @@ export class Environment {
   private readonly skyMaterial: ShaderMaterial;
   private readonly cloudMaterial: ShaderMaterial;
   private readonly moons: Group[] = [];
+  private readonly sky: Mesh;
+  /** The moons hang at infinity: they follow the camera (no parallax), like the sky. */
+  private readonly moonGroup = new Group();
 
   constructor(scene: Scene) {
     this.skyMaterial = new ShaderMaterial({
@@ -85,7 +89,10 @@ export class Environment {
         }
       `,
     });
-    const sky = new Mesh(new SphereGeometry(500, 32, 16), this.skyMaterial);
+    // Chantier 24: the sky follows the camera (`update`), so the camera never leaves it while
+    // flying between the planets; far enough for the farthest planet of the map of space.
+    const sky = new Mesh(new SphereGeometry(900, 32, 16), this.skyMaterial);
+    this.sky = sky;
     sky.frustumCulled = false;
     // Drawn after the opaque scene (it sits on the far plane): the depth test then skips the
     // pixels the colony covers before the noise runs, instead of shading the whole screen.
@@ -150,32 +157,35 @@ export class Environment {
             col = mix(col, mix(uFade, uShade, 0.5) * 0.72 + vec3(1.0, 0.95, 0.85) * star, hole);
           #endif
           float r = length(vWorld.xz);
-          float alpha = max(0.55 + 0.45 * puff, hole * 0.9) * (1.0 - smoothstep(120.0, 260.0, r));
+          float alpha = max(0.55 + 0.45 * puff, hole * 0.9) * (1.0 - smoothstep(220.0, 450.0, r));
           // Blend into the sky colour towards the horizon.
-          col = mix(col, uFade, smoothstep(160.0, 260.0, r));
+          col = mix(col, uFade, smoothstep(260.0, 450.0, r));
           gl_FragColor = vec4(col, alpha);
           #include <colorspace_fragment>
         }
       `,
     });
-    const clouds = new Mesh(new PlaneGeometry(600, 600, 1, 1), this.cloudMaterial);
+    // Chantier 24: wide enough to sit under the planets of the map of space.
+    const clouds = new Mesh(new PlaneGeometry(1000, 1000, 1, 1), this.cloudMaterial);
     clouds.rotation.x = -Math.PI / 2;
     clouds.position.y = -26;
     clouds.renderOrder = -5;
     this.group.add(clouds);
 
+    // Relative to the camera (`moonGroup` follows it), beyond every planet.
     const moonSpecs = [
-      { x: -140, y: 55, z: -190, s: 9, tilt: 0.6 },
-      { x: 210, y: 85, z: -120, s: 5, tilt: -0.9 },
-      { x: 60, y: 40, z: 230, s: 6.5, tilt: 2.2 },
+      { x: -350, y: 140, z: -475, s: 22, tilt: 0.6 },
+      { x: 525, y: 210, z: -300, s: 12.5, tilt: -0.9 },
+      { x: 150, y: 100, z: 575, s: 16, tilt: 2.2 },
     ];
     for (const spec of moonSpecs) {
       const moon = createKiwiMoon(spec.s);
       moon.position.set(spec.x, spec.y, spec.z);
       moon.rotation.set(spec.tilt, spec.tilt * 0.7, 0.3);
       this.moons.push(moon);
-      this.group.add(moon);
+      this.moonGroup.add(moon);
     }
+    this.group.add(this.moonGroup);
 
     scene.add(this.group);
   }
@@ -204,13 +214,15 @@ export class Environment {
     }
   }
 
-  update(time: number): void {
+  update(time: number, camera: Vector3): void {
+    this.sky.position.copy(camera);
+    this.moonGroup.position.copy(camera);
     this.skyMaterial.uniforms.uTime!.value = time;
     this.cloudMaterial.uniforms.uTime!.value = time;
     for (let i = 0; i < this.moons.length; i++) {
       const m = this.moons[i]!;
       m.rotation.y += 0.0006 * (i + 1);
-      m.position.y += Math.sin(time * 0.2 + i) * 0.004;
+      m.position.y += Math.sin(time * 0.2 + i) * 0.01;
     }
   }
 }

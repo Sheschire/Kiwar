@@ -1,31 +1,18 @@
-import { Group, Vector3, type Raycaster } from 'three';
+import { Group, type Ray } from 'three';
 import { applyTerraform, generateFace, type AllySnapshot } from '@kiwar/shared';
+import { allyPlace } from './space';
 import { TwinView } from './twin';
-
-/**
- * Directions of the ally planets around the colony (radians, 0 = +X; -π/2 is the far side in
- * the starting view), nearest kiwi first: the two far corners, then further around.
- */
-const SLOTS = [-0.68, -0.32, -0.84, -0.16, -0.5, -1.0, 0].map((x) => x * Math.PI);
-/** Distance from the heart of our face, growing with the kiwi gap. */
-const RING = 95;
-const RING_STEP = 14;
-/** Below our rim (above the sea of clouds), so they peek over the far corners when zooming out. */
-const DEPTH = -14;
-/** Tilt of each planet towards our colony, so its surface shows from afar. */
-const TILT = 0.38;
 
 export interface AllyPlanet {
   kiwiIndex: number;
   owner: string;
   view: TwinView;
-  /** Resting place (the planet bobs gently around it). */
-  home: Vector3;
 }
 
 /**
  * The other players of a shared universe, each on their own kiwi far away: their face floats at
- * a fixed place around ours (layout only, as the server last reported it). Tapping one, or the
+ * a fixed place on the outer ring of the map of space (`allyPlace`, chantier 24; layout only,
+ * as the server last reported it). Tapping one, or the
  * "visit" button, flies the camera there (`GameRenderer.visitAlly`).
  */
 export class AlliesView {
@@ -53,25 +40,18 @@ export class AlliesView {
       const base = generateFace(ally.seed, ally.face, ally.params);
       // Tiles their Kikiwiwis reshaped (chantier 08).
       const map = ally.terraform ? applyTerraform(base, ally.terraform) : base;
-      const view = new TwinView(map, { fog: false, friend: ally, anchored: true });
-      const angle = SLOTS[rank % SLOTS.length]!;
-      const distance = RING + RING_STEP * (Math.abs(ally.kiwiIndex - myKiwi) - 1);
-      const home = new Vector3(
-        Math.cos(angle) * distance,
-        DEPTH - (rank % 2) * 6,
-        Math.sin(angle) * distance,
-      );
-      view.group.position.copy(home);
-      // Face our colony, then lean the far rim up so the surface shows.
-      view.group.lookAt(0, home.y, 0);
-      view.group.rotateX(TILT);
+      const view = new TwinView(map, { fog: false, friend: ally });
+      view.place(allyPlace(rank, Math.abs(ally.kiwiIndex - myKiwi)));
       this.group.add(view.group);
-      this.planets.push({ kiwiIndex: ally.kiwiIndex, owner: ally.owner, view, home });
+      this.planets.push({ kiwiIndex: ally.kiwiIndex, owner: ally.owner, view });
     });
   }
 
-  /** The name ribbons hide on the planet being visited (they would cover it). */
+  private visited: AllyPlanet | null = null;
+
+  /** The name ribbons hide on the planet being visited (they would cover it); it holds still. */
   setVisited(planet: AllyPlanet | null): void {
+    this.visited = planet;
     for (const p of this.planets) p.view.setLabelVisible(p !== planet);
   }
 
@@ -79,21 +59,21 @@ export class AlliesView {
     return this.planets.find((p) => p.kiwiIndex === kiwiIndex) ?? null;
   }
 
-  update(time: number): void {
+  update(dt: number, time: number): void {
     for (let i = 0; i < this.planets.length; i++) {
       const p = this.planets[i]!;
-      p.view.group.position.y = p.home.y + Math.sin(time * 0.25 + i * 1.7) * 0.5;
+      p.view.update(dt, time, p === this.visited, i * 1.7);
     }
   }
 
-  /** The planet under a ray, if any. */
-  pick(ray: Raycaster): AllyPlanet | null {
+  /** The nearest planet under a ray, if any, and how far along the ray. */
+  pick(ray: Ray): { planet: AllyPlanet; distance: number } | null {
     let best: { planet: AllyPlanet; distance: number } | null = null;
     for (const planet of this.planets) {
-      const hit = ray.intersectObject(planet.view.group, true)[0];
-      if (hit && (!best || hit.distance < best.distance)) best = { planet, distance: hit.distance };
+      const distance = planet.view.rayHit(ray);
+      if (distance !== null && (!best || distance < best.distance)) best = { planet, distance };
     }
-    return best?.planet ?? null;
+    return best;
   }
 
   setSky(...args: Parameters<TwinView['setSky']>): void {

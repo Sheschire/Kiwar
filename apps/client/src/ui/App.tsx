@@ -26,6 +26,7 @@ import { PlansModal } from './components/ResearchModal';
 import { LevelsButton, LogisticsButton, PlacingBanner } from './components/BuildingTree';
 import { BootScreen, Guard } from './components/Guard';
 import { VisitBanner } from './components/VisitBanner';
+import { PlanetTag } from './components/PlanetTag';
 import { RecapBubble } from './components/RecapBubble';
 import { actions } from './actions';
 import { uiStore, useT, useUi } from './store';
@@ -155,6 +156,7 @@ export function App() {
     return (
       <div class="hud">
         <VisitBanner />
+        <PlanetTag />
         <Toasts />
       </div>
     );
@@ -202,6 +204,7 @@ export function App() {
       ) : (
         <Badges />
       )}
+      <PlanetTag />
       <Toasts />
       <Guard>
         {debugOpen && <DebugPanel />}

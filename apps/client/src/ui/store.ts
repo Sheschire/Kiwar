@@ -137,6 +137,8 @@ export interface UiState {
   bootError: string | null;
   /** The other players' colonies (shared universes). */
   allies: AllySnapshot[];
+  /** A friend living on our twin face (older shared universes), by name; null: aliens. */
+  twinOwner: string | null;
   /** Kiwi of the ally being visited by the camera (null: at home). */
   visit: number | null;
 }
@@ -242,6 +244,7 @@ export const uiStore = createStore<UiState>(() => ({
   unreadWave: null,
   bootError: null,
   allies: [],
+  twinOwner: null,
   visit: null,
 }));
 

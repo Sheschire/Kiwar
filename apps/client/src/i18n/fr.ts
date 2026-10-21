@@ -667,7 +667,6 @@ export const fr: Dict = {
   },
   compass: {
     label: 'Vers la planète alien — touchez pour revenir au Nid',
-    twin: 'Face alien — à coloniser',
   },
   debug: {
     title: 'Debug',
@@ -920,6 +919,17 @@ export const fr: Dict = {
     buildings: '{count} bâtiments',
     next: 'Voir {name}',
     home: 'Retour chez moi',
+  },
+  planets: {
+    title: 'Planètes',
+    twin: '{face} — inexplorée',
+    twinSeen: '{face} — explorée à {percent} %',
+    twinHint: 'L’autre moitié de votre kiwi',
+    allyHint: '{face} du kiwi {index}',
+    mine: 'Ma colonie',
+    go: 'Y aller',
+    home: 'Retour à ma colonie',
+    prepare: 'Préparer une expédition',
   },
   chat: {
     title: 'Chat d’équipe',

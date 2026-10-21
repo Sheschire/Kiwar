@@ -21,7 +21,7 @@ import { App } from './ui/App';
 import { Guard } from './ui/components/Guard';
 import { GameRenderer } from './render/GameRenderer';
 import { GameController } from './game/GameController';
-import { persistLang, translate } from './i18n/i18n';
+import { persistLang } from './i18n/i18n';
 import { pushToast, uiStore } from './ui/store';
 import { actions, bindActions } from './ui/actions';
 import { bindIntro, introSeen, startIntro } from './ui/intro';
@@ -67,6 +67,8 @@ const renderer = new GameRenderer(
     onAzimuth: (azimuth) => viewStore.setState({ azimuth }),
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
     onAllyTap: (kiwiIndex) => actions.visitAlly(kiwiIndex),
+    onPlanetHover: (planet, x, y) =>
+      viewStore.setState({ planetHover: planet === null ? null : { planet, x, y } }),
     onKiwiTap: (id, pos) => {
       kiwiSpeaks(id, pos);
       actions.openVillage(id);
@@ -93,16 +95,15 @@ function showTwin(state: GameState): void {
   const target = state.targets.find((t) => t.distance === 0 && t.face === twinFace);
   const intel = (!f && target && state.intel[target.id]) || null;
   const seen = intel ? `${intel.sectors.join('.')}/${intel.structures.length}` : '';
-  const lang = uiStore.getState().lang;
-  const key = `${state.seed}|${twinFace}|${params.biome}|${f ? `${f.owner}@${f.at}` : 'fog'}|${seen}|${lang}`;
+  const key = `${state.seed}|${twinFace}|${params.biome}|${f ? `${f.owner}@${f.at}` : 'fog'}|${seen}`;
   if (key === twinKey) return;
   twinKey = key;
+  uiStore.setState({ twinOwner: f?.owner ?? null });
   try {
     renderer.setTwin(generateFace(state.seed, twinFace, params), {
       fog: !f,
       friend: f,
       intel,
-      caption: translate(lang, 'compass.twin'),
     });
   } catch (e) {
     // The twin is scenery: a broken snapshot must never block the colony.
