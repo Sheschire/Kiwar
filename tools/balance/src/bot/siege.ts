@@ -48,7 +48,7 @@ import {
 /** An assault leaves only when its weakest luck beats the strongest estimate by this much. */
 const ASSAULT_MARGIN = 1.15;
 /** An uncertain final leaves when both sides beat the middle of the queen's estimate so. */
-const FINAL_MARGIN = 1.25;
+const FINAL_MARGIN = 1.15;
 /** Settlers of the founding ship, and the share of each stock (up to the Nest 1) they carry. */
 const SETTLERS = 6;
 const FREIGHT_SHARE = 0.3;

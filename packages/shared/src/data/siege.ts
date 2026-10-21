@@ -20,7 +20,7 @@ export const SIEGE = {
   /** The ferret queen: ground (ferrets) and air (bats) power, very strong. */
   queen: {
     ground: 26,
-    air: 16,
+    air: 14,
     spread: [0.85, 1.2] as const,
     /** Each bridgehead held weakens her (share of her power). */
     perBridgehead: 0.15,
