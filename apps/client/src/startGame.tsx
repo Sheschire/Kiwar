@@ -244,6 +244,12 @@ uiStore.subscribe((s, prev) => {
 // A menu over the scene: the 3D slows down to leave the main thread to the interface.
 uiStore.subscribe((s, prev) => {
   if (s.modal !== prev.modal) renderer.setBackground(s.modal !== 'none');
+  // Chantier 20: another screen ends placing and path painting (no Escape key on a phone,
+  // and a forgotten mode would turn every later tap into a build or a stroke).
+  if (s.modal !== 'none' && prev.modal === 'none') {
+    if (s.placing) actions.stopPlacing();
+    if (s.pathMode) actions.setPathMode(false);
+  }
 });
 
 // Chantier 11: level badges everywhere, or only at medium zoom.

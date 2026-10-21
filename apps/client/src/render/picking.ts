@@ -16,29 +16,59 @@ export interface TapHandlers {
   onHoverEnd(): void;
 }
 
+/** Where the detector also listens: releases outside the canvas, focus and visibility. */
+export interface TapEnvironment {
+  window: EventTarget;
+  document: EventTarget;
+}
+
+function browserEnvironment(): TapEnvironment | null {
+  return typeof window === 'undefined' ? null : { window, document };
+}
+
 /**
  * Distinguishes taps / left clicks from drags (which belong to the camera) and reports
  * hover positions for mice.
+ *
+ * Pointers are tracked by id, and released wherever the release happens (a finger lifted over
+ * a panel, a mouse let go outside the window, a gesture swallowed by the system): a pointer
+ * the canvas never saw go up must not turn every later tap into a "multi-touch gesture".
  */
 export class TapDetector {
   private down: { id: number; x: number; y: number; t: number; touch: boolean } | null = null;
-  private activePointers = 0;
+  private readonly pressed = new Set<number>();
   private lastTap: { x: number; y: number; t: number } | null = null;
+  private readonly env: TapEnvironment | null;
 
   constructor(
-    private readonly element: HTMLElement,
+    private readonly element: EventTarget,
     private readonly handlers: TapHandlers,
+    env: TapEnvironment | null = browserEnvironment(),
   ) {
-    element.addEventListener('pointerdown', this.onDown);
-    element.addEventListener('pointermove', this.onMove);
-    element.addEventListener('pointerup', this.onUp);
-    element.addEventListener('pointercancel', this.onCancel);
-    element.addEventListener('pointerleave', this.onLeave);
+    this.env = env;
+    element.addEventListener('pointerdown', this.onDown as EventListener);
+    element.addEventListener('pointermove', this.onMove as EventListener);
+    element.addEventListener('pointerup', this.onUp as EventListener);
+    element.addEventListener('pointercancel', this.onCancel as EventListener);
+    element.addEventListener('lostpointercapture', this.onCancel as EventListener);
+    element.addEventListener('pointerleave', this.onLeave as EventListener);
+    // Capture phase: a panel stopping the event's propagation must not hide the release.
+    env?.window.addEventListener('pointerup', this.onReleaseElsewhere as EventListener, true);
+    env?.window.addEventListener('pointercancel', this.onReleaseElsewhere as EventListener, true);
+    env?.window.addEventListener('blur', this.reset);
+    env?.document.addEventListener('visibilitychange', this.reset);
+  }
+
+  /** Pointers currently held down on the canvas (exposed for tests). */
+  get activePointers(): number {
+    return this.pressed.size;
   }
 
   private onDown = (e: PointerEvent) => {
-    this.activePointers++;
-    if (this.activePointers > 1) {
+    // A mouse press or the first finger of a new gesture: nothing else can still be down.
+    if (e.pointerType === 'mouse' || e.isPrimary) this.pressed.clear();
+    this.pressed.add(e.pointerId);
+    if (this.pressed.size > 1) {
       this.down = null; // multi-touch gesture: never a tap
       return;
     }
@@ -61,10 +91,10 @@ export class TapDetector {
   };
 
   private onUp = (e: PointerEvent) => {
-    this.activePointers = Math.max(0, this.activePointers - 1);
+    this.pressed.delete(e.pointerId);
     const d = this.down;
-    this.down = null;
     if (!d || d.id !== e.pointerId) return;
+    this.down = null;
     const now = performance.now();
     if (now - d.t > TAP_MAX_MS) return;
     this.handlers.onTap(e.clientX, e.clientY, d.touch);
@@ -79,21 +109,43 @@ export class TapDetector {
     } else this.lastTap = { x: e.clientX, y: e.clientY, t: now };
   };
 
-  private onCancel = () => {
-    this.activePointers = Math.max(0, this.activePointers - 1);
-    this.down = null;
+  /** The pointer is over without a tap: cancelled, or its capture was lost. */
+  private onCancel = (e: PointerEvent) => {
+    this.pressed.delete(e.pointerId);
+    if (this.down?.id === e.pointerId) this.down = null;
+  };
+
+  /** A release seen by the window; those on the canvas itself are left to `onUp`. */
+  private onReleaseElsewhere = (e: PointerEvent) => {
+    if (e.target !== this.element) this.onCancel(e);
   };
 
   private onLeave = (e: PointerEvent) => {
     if (e.pointerType === 'mouse') this.handlers.onHoverEnd();
+    // Leaving the canvas ends any tap; a finger leaves only when it is lifted.
+    this.pressed.delete(e.pointerId);
+    if (this.down?.id === e.pointerId) this.down = null;
+  };
+
+  /** Focus or page lost: whatever was held down will never report its release here. */
+  private reset = () => {
+    this.pressed.clear();
+    this.down = null;
   };
 
   dispose(): void {
-    this.element.removeEventListener('pointerdown', this.onDown);
-    this.element.removeEventListener('pointermove', this.onMove);
-    this.element.removeEventListener('pointerup', this.onUp);
-    this.element.removeEventListener('pointercancel', this.onCancel);
-    this.element.removeEventListener('pointerleave', this.onLeave);
+    const el = this.element;
+    el.removeEventListener('pointerdown', this.onDown as EventListener);
+    el.removeEventListener('pointermove', this.onMove as EventListener);
+    el.removeEventListener('pointerup', this.onUp as EventListener);
+    el.removeEventListener('pointercancel', this.onCancel as EventListener);
+    el.removeEventListener('lostpointercapture', this.onCancel as EventListener);
+    el.removeEventListener('pointerleave', this.onLeave as EventListener);
+    const win = this.env?.window;
+    win?.removeEventListener('pointerup', this.onReleaseElsewhere as EventListener, true);
+    win?.removeEventListener('pointercancel', this.onReleaseElsewhere as EventListener, true);
+    this.env?.window.removeEventListener('blur', this.reset);
+    this.env?.document.removeEventListener('visibilitychange', this.reset);
   }
 }
 
