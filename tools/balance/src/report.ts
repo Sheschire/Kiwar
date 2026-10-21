@@ -53,7 +53,17 @@ function statsOf(runs: RunResult[], milestone: Milestone): MilestoneStats {
  * when one group is more than `thresholdPercent` away, or reaches it much less often.
  */
 /** Milestones shown for information only: they depend on choices more than on the land. */
-export const INFORMATIVE: ReadonlySet<Milestone> = new Set(['recon', 'raidWon']);
+export const INFORMATIVE: ReadonlySet<Milestone> = new Set([
+  'recon',
+  'raidWon',
+  // Chantier 19: the siege depends on the bot's choices and on the hidden holds.
+  'siegeOpen',
+  'bridgehead',
+  'conquest',
+  'founded',
+  'sisterNest3',
+  'sisterWave',
+]);
 
 export function compare(groups: Group[], thresholdPercent: number): Comparison[] {
   return MILESTONES.map((milestone) => {
@@ -109,6 +119,12 @@ export const LABELS: Record<Milestone, string> = {
   kikiwiwi: 'First Kikiwiwi',
   recon: 'First reconnaissance back',
   raidWon: 'First raid won',
+  siegeOpen: 'Siege of the twin open',
+  bridgehead: 'First bridgehead',
+  conquest: 'Twin face conquered',
+  founded: 'Second colony founded',
+  sisterNest3: 'Second colony: Nest level 3',
+  sisterWave: 'Second colony: first wave',
 };
 
 export const BIOME_LABELS: Record<BiomeId, string> = {

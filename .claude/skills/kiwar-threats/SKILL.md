@@ -149,3 +149,10 @@ pickers stop during a shelter.
 The aliens of the twin strike our bridgeheads there (not the colony): announced 6 h ahead,
 strength hidden, resolved by the server — see `kiwar-colonies`. They never touch the colony's
 waves (own schedule, hash RNG).
+
+## The last aliens (chantier 19, second half)
+
+`wavePower` × `sisterThreat(state, at)`: in a sister colony waves start at ×0.5 and reach
+full power 96 h after the founding (`COLONY.rampStart`, `rampMs`), × (1 + 0.15 × ferret dens
+standing); `newSister` sets a 48 h shield. Dens fall to `raidDen` (guards, foreseen) or a
+Kikiwiwi. See `kiwar-colonies`.

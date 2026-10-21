@@ -88,6 +88,13 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   push to main touching `supabase/functions/**` (secrets `SUPABASE_ACCESS_TOKEN`,
   `SUPABASE_PROJECT_REF`; skipped when missing). The owner has no local clone: never ask them to
   run CLI commands; SQL goes through the SQL Editor, functions through this workflow.
+- **Chantier 19, second half**: `games.colony` (0 home, 1 sister; migration
+  `20261027000000_linked_colonies.sql`, unique per user, universe and colony). `findGame` /
+  `create` take the colony (the Postgres repository falls back to home colonies on a missing
+  column: `legacyGames`); `load` / `command` take `colony`; `linkColonies` keeps the two rows
+  linked (founding, deliveries, shared research; sister row written first); responses carry
+  `sister`; ally sisters (`AllySnapshot.sister`, friend `ally:<uid>:1`, `colonyOfFriend`).
+  Mock: `/__mock/conquer`. See `kiwar-colonies`.
 - **Chantier 19** (`kiwar-colonies`): `load` advances to `hiddenDue(state, now)` (landed
   ships **and** due counter-attacks of the siege), the client polls while
   `awaitingServer(state, now)`; `import` calls `resetSiege` (a local siege cannot be checked).

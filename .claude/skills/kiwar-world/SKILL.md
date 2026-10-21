@@ -55,6 +55,11 @@ biome)` (memoized), `tileDeposit(tile, biome)`, `twinParams(seed, face, params)`
   lit, with its buildings, like a friend's face). Switching to colony 2 rebuilds the scene
   with face 2 at the origin and colony 1 at the same twin place (same `FRONT_AZIMUTH`, so
   waves and compass keep their meaning). Going to look at the sister = `travelTo('twin')`.
+- **Sister colony (done, chantier 19)**: `startGame.showTwin` draws the store's `sister`
+  snapshot lit at the twin's place (owner "Your <face> colony", `twinOwner`); switching colony
+  rebuilds the scene through `onWorld` (the other face at the origin). Allies' sisters come in
+  `AllySnapshot.sister` (not drawn yet: see the chantier doc). The siege show
+  (`render/siegeFx.ts`) uses `TwinView.worldCenter` / `sectorWorld` and `setTwinApproach`.
 - **Twin half** (`render/twin.ts` `TwinView`, `GameRenderer.setTwin(map, { fog, friend,
 intel })`): placed once with `place(twinPlace())` (members: `place(allyPlace(...))`), turns
   on itself once in 5 min and bobs (`update(dt, time, eye, frozen, phase)`; a visited planet

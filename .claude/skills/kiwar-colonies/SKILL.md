@@ -1,6 +1,6 @@
 ---
 name: kiwar-colonies
-description: Kiwar colonisation of the twin face (chantier 19) — the siege (Iron age + a Kikiwiwi), the hidden holds and ferret queen drawn from the garrison's secret seed, deep reconnaissance, assault / reinforce / final / retreat missions, bridgeheads and the `outpost` job, announced counter-attacks resolved by the server, fortification by a Kikiwiwi, the final assault (ground and air), the conquered face, the Siege screen, the siege show and the flags on the twin; later the second colony. Use when touching the siege, bridgeheads, counter-attacks, the queen, the conquered twin or the second colony.
+description: Kiwar colonisation of the twin face (chantier 19) — the siege (Iron age + a Kikiwiwi), the hidden holds and ferret queen drawn from the garrison's secret seed, deep reconnaissance, assault / reinforce / final / retreat missions, bridgeheads and the `outpost` job, announced counter-attacks resolved by the server, fortification by a Kikiwiwi, the final assault (ground and air), the conquered face, the Siege screen, the 3D siege show; then the second colony — the `found` mission, two linked game states (`colony` 0/1, two `games` rows, two local saves), shared research (`outbox`, `syncColonies`), links (`sister` friend, kiwis in deliveries), the last aliens (wave ramp, ruins, ferret dens, `raidDen`), the sister planet, the colony switch, the bot's siege. Use when touching the siege, bridgeheads, counter-attacks, the queen, the conquered twin, the second colony or anything that must work in both colonies.
 ---
 
 # Kiwar colonies (chantier 19)
@@ -10,8 +10,8 @@ Load `kiwar-sim` (exact offline), `kiwar-expeditions` (anti-cheat, missions, int
 
 ## State of the chantier
 
-First half done (siege and final assault, no SQL). Second half left (second colony, links,
-its threats, 3D staging, bot): see "Reste" in `docs/chantiers/19-colonisation.md`.
+Done (two conversations): siege, final assault, second colony, links, its threats, 3D
+staging, the bot's siege. What is left: "Reste" in `docs/chantiers/19-colonisation.md`.
 
 ## The truth stays hidden
 
@@ -96,6 +96,95 @@ queenFallen`, `MISSION_KINDS` (raid, recon, assault, reinforce, final, retreat; 
 
 ## Balance
 
-`pnpm balance:siege [--seeds 2] [--days 12] [--biomes …]` (`tools/balance/src/siege.ts`):
-when the siege opens and what the colony could field (10 best for an assault, holds, army
-sides vs the queen after two bridgeheads). The bot does not play the siege yet.
+`pnpm balance:siege [--seeds 2] [--days 12] [--biomes …] [--trace]`
+(`tools/balance/src/siege.ts`): the bot plays the whole siege; one line per run with the
+hours of iron, Kikiwiwi, siege open, first bridgehead, conquest, founding, sister Nest 3 and
+Industry, plus assaults, counters, finals and the sister's kiwis (`--trace`: a line every 12
+game hours). Reference: see `kiwar-balance` "Siege".
+
+## The second colony (second half)
+
+### Two linked states
+
+- `GameState.colony: ColonyLink` (save v23) — `index` 0 (home) / 1 (sister on the twin face),
+  `founding` (home only: settlers landed, sister still to create), `foundedAt`.
+  `isSister`, `hasSister` (`sim/colonies.ts`). The sister is an ordinary `GameState`: same
+  seed, `otherFace`, `twinParams`, same `calendarStart`, `createdAt` = landing, same
+  player/universe/kiwi ids, **no targets and no `aliens`**, tutorial done
+  (`objectiveIndex = OBJECTIVES.length`), `threats.shieldUntil` = landing + 48 h.
+- **Founding**: mission `found` (`launchExpedition { mission: 'found', crew: ids, freight }`,
+  `foundLock`: unknownTarget / notConquered / alreadyFounded; `minCrew('found')` =
+  `COLONY.minSettlers` 5). `canResolveArrival` lets it through (nothing hidden).
+  `landSettlers` (from `resolveArrival`) puts `settle(v)` copies and freight + provisions left
+  into `home.colony.founding`, `emigrate`s them (no memorial, no mourning), the ship flies
+  back empty (`returnCrewOf` = []).
+- **Materialisation** is outside `advance`: `takeFounding(home)` → `newSister(home, f)` (pure:
+  Nest 1, settlers with new ids, freight up to the storage, up to `COLONY.maxHuts` level-1 huts
+  at distance 2 for the settlers the Nest cannot house, traces) and `home.colony.foundedAt`.
+  Callers: the server's `linkColonies`, `GameController.linkLocal`, the bot's `runBot`.
+- **Shared research**: in a sister `accrueResearch` fills `research.outbox`,
+  `nextResearchEvent`/`researchTick` do nothing; `setResearch` fails `sharedResearch` (the
+  client/server apply it at home). `syncColonies(home, sister)`: `receiveResearch(home,
+outbox)` (current tech or bank), the sister copies `done`/`current`. Each state keeps its own
+  time (a tech reaches the sister at the next sync). `colonyNeedsSync`. Ages stay per colony.
+- **Links**: `SISTER_FRIEND` ('sister', owner `colony:<face>`, twin flight) is in `friends`
+  of both (`linkSister`; the server's `withScopeTargets` adds it). `sendCargo { villagerIds }`
+  (sister only, available kiwis, one kept home, one Kikiwiwi, `crewWeight` in the hold): kiwis
+  leave (`emigrate`), travel in `Shipment/Delivery.villagers`, land idle with new ids
+  (`settlersArrived`). `deliverToSister(sender, receiver)` hands over once (`delivered` flag),
+  landing at `max(arriveAt, receiver.now)`. Delivery ids `c<colony>:<shipment>`.
+- **Last aliens**: `sisterThreat(state, at)` in `wavePower` (ramp `COLONY.rampStart` 0.5 → 1
+  over `rampMs` 96 h, × (1 + 0.15 × dens standing)). Obstacles `ruin` (kiwis clear it, loot)
+  and `den` (titan smash, or `raidDen { q, r }`: the guards' ground power ≥ `COLONY.denPower`
+  × `GARRISON.power`, foreseen by `denRaidForecast`, the weakest guards hurt 6 h), drawn by
+  `generateTraces` from `<seed>/<face>/traces` (public: the face is ours).
+
+### Online
+
+- Migration `20261027000000_linked_colonies.sql`: `games.colony` 0/1, unique (user, universe,
+  colony). `GameRepository.findGame/create(…, colony)`; the Postgres repository falls back to
+  home colonies until the column exists (`legacyGames`).
+- `load`/`command` take `colony`; `linkColonies(ctx, repo, scope)` (after hidden landings on
+  load, after every command when linked): creates the sister row from a founding (re-using a
+  stale row), hands ships over both ways, syncs research, writes the **sister first** (points
+  never counted twice; a conflict may lose one batch). Responses carry `sister` (layout).
+  `setResearch` from colony 1 is applied to the home row. A sister row with `foundedAt` 0 at
+  home is stale (new world, moved colony) and ignored.
+- Allies: `AllySnapshot.sister` (layout + `friendId` `ally:<uid>:1` + `room`); a delivery to
+  `ally:<uid>:1` is looked up (`allySisterFriend`) and written to colony 1
+  (`colonyOfFriend`). `moveSoloInto` and `guestTransfer` move the sister row too; `import`
+  drops any local sister (`colony` reset).
+- Mock: `GET /__mock/conquer` gives every home colony a conquered twin, Iron age, a launchpad
+  and kiwis (online visual checks).
+
+### Client
+
+- `GameController`: `colony` per universe (`kiwar.colony`), local saves `kiwar.save.v1` (home)
+  - `kiwar.save.v1.sister`; the colony off screen (`other`) is advanced every 5 s (its events
+    wait for the switch summary, only `researchDone` is shown), `linkLocal` after every tick and
+    command; `switchColony(i)`; online polls `load` while a founding is pending;
+    `listener.onColony(colony, sisterSnapshot)` → store `colony`, `sister`.
+- `startGame.showTwin`: the sister snapshot is drawn lit at the twin's place, named "Your
+  <face> colony" (`twinOwner`); `VisitBanner` "Play this colony"; `ColonySwitch` (top bar),
+  menu entry; `SiegeModal` `FoundSection`; planner `found` (`FreightPicker`, no map, no
+  rations back); `DeliveryPlanner` kiwi picker for the sister, `friendName`; ruins and dens
+  in `render/obstacles.ts`, `DenRaid` in the tile sheet; the research summary of a sister.
+- **3D siege show** (`render/siegeFx.ts`, `GameRenderer.playSiege(kind, sector)` from
+  `game/events.ts`): camera up to 2.4 × the framing, twin approach 1, bolts / flashes / crown /
+  clouds / smoke, back at 5 s; `SiegeShow` becomes a caption (`in3d`); while visiting a
+  planet the 2D card plays alone. `TwinView.worldCenter` / `sectorWorld`.
+- Screenshots: see the scratch scenario in the chantier doc: push a monument level 2, a
+  launchpad level 3, kiwis and `siege.conqueredAt` on `controller.state`, `debugGrant`, then
+  dispatch the `found` launch and `setTimeScale(20000)` until `uiStore.sister`.
+
+### Bot
+
+- `tools/balance/src/bot/siege.ts` `siegeOrder` (in `decide` before expeditions; raids pause
+  while besieging): fortify, shore up a bridgehead before a counter it would lose, final when
+  `likely`, post the Kikiwiwi, assaults on the weakest known holds (× 1.15 margin, holders all
+  but a quarter), the third bridgehead beside the queen, deep recon until the queen and 3
+  holds are known; then `found` (6 weakest non-key kiwis, 30 % of stocks up to the Nest 1).
+- `runBot` plays the sister with the same `decide` (no siege, no expeditions; `ageDecision`
+  never picks research in a sister), `linkOrder` (`bot/colonies.ts`) sends home's surplus,
+  `deliverToSister` + `syncColonies` each round. Milestones `siegeOpen`, `bridgehead`,
+  `conquest`, `founded`, `sisterNest3`, `sisterWave` (informative).

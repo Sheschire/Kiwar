@@ -112,6 +112,13 @@ The bot waits for it and for the next monument's stardust.
   182–208 h for the active bot (2 seeds × 6 biomes × 12 days). Tune `KIKIWIWI.cost`, the bot's
   `JUICE_RESERVE`, lab costs and the `unnatural` tech costs.
 
+## Alien traces (chantier 19, second half)
+
+Obstacle kinds `ruin` (cleared by kiwis, loot) and `den` (`clearedBy: 'titan'`: a Kikiwiwi's
+smash, or the guards' `raidDen`) are placed only on a sister colony (`generateTraces`, count 0
+in `OBSTACLES`); `SMASH` has their costs. Each den standing makes the sister's waves 15 %
+stronger. See `kiwar-colonies`.
+
 ## Fortifying a bridgehead (chantier 19)
 
 A Kikiwiwi posted on a bridgehead of the twin (job `outpost`, sent by a reinforcement)

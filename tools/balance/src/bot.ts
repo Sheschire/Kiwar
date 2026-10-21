@@ -37,6 +37,11 @@ import {
   type GameState,
   STARDUST_SCALE,
   stardustOf,
+  deliverToSister,
+  siegeLock,
+  syncColonies,
+  takeFounding,
+  twinTarget,
 } from '@kiwar/shared';
 import { ageDecision } from './bot/ages';
 import { campOrder } from './bot/camps';
@@ -54,6 +59,8 @@ import {
 import { rpgDecision } from './bot/rpg';
 import { cometOrders } from './bot/sky';
 import { titanOrders, labDecision } from './bot/titans';
+import { siegeOrder } from './bot/siege';
+import { linkOrder } from './bot/colonies';
 
 export const MILESTONES = [
   'tutorial',
@@ -72,6 +79,13 @@ export const MILESTONES = [
   'kikiwiwi',
   'recon',
   'raidWon',
+  // Chantier 19: the siege and the second colony.
+  'siegeOpen',
+  'bridgehead',
+  'conquest',
+  'founded',
+  'sisterNest3',
+  'sisterWave',
 ] as const;
 export type Milestone = (typeof MILESTONES)[number];
 
@@ -107,6 +121,14 @@ export interface RunResult {
     raidsWon?: number;
     expeditionDeaths?: number;
     loot?: number;
+    /** Chantier 19: assaults launched and won, final assaults, counter-attacks held (last 5
+     *  reports), kiwis of the second colony at the end. */
+    assaults?: number;
+    assaultsWon?: number;
+    finals?: number;
+    counters?: number;
+    countersHeld?: number;
+    sisterKiwis?: number;
   };
 }
 
@@ -149,9 +171,20 @@ export function decide(state: GameState, map: FaceMap, play: Play): Command[] {
   // stardust, the researchers, the miners of the craters, the garrison and the repairs.
   cmds.push(...cometOrders(state));
 
+  // Chantier 19: the siege of the twin, then the settlers' ship (checked every half hour,
+  // or at once while a step leads to the next: standing down, then boarding).
+  const besieging =
+    play.siege && twinTarget(state) && (siegeLock(state) === null || state.siege.conqueredAt > 0);
+  if (besieging && state.now >= play.siegeAt) {
+    const siege = siegeOrder(state, map);
+    if (siege) cmds.push(siege);
+    else play.siegeAt = state.now + HOUR_MS / 2;
+  }
+
   // Chantier 18: reconnaissance and raids (before the Kikiwiwi goes back to the rampart).
-  // Looked at every half hour of game time (the plans are costly to weigh).
-  if (play.expeditions && state.now >= play.expeditionsAt) {
+  // Looked at every half hour of game time (the plans are costly to weigh). The siege keeps
+  // the launchpad for itself.
+  if (play.expeditions && !besieging && state.now >= play.expeditionsAt) {
     const expedition = expeditionOrder(state, map);
     if (expedition) cmds.push(expedition);
     else play.expeditionsAt = state.now + HOUR_MS / 2;
@@ -346,6 +379,9 @@ function checkMilestones(
     'library',
     state.buildings.some((b) => b.type === 'library'),
   );
+  set('siegeOpen', !!twinTarget(state) && siegeLock(state) === null);
+  set('bridgehead', state.siege.bridgeheads.length > 0);
+  set('conquest', state.siege.conqueredAt > 0);
   set('stone', ageOf(state) >= 1);
   set('iron', ageOf(state) >= 2);
   set('industry', ageOf(state) >= 3);
@@ -373,6 +409,9 @@ export interface Play extends Record<Mechanic, boolean> {
   /** Next look at the paths and at the expeditions. */
   pathsAt: number;
   expeditionsAt: number;
+  /** Chantier 19: the bot besieges the twin and founds the second colony. */
+  siege: boolean;
+  siegeAt: number;
 }
 
 export interface RunOptions {
@@ -395,6 +434,10 @@ export interface RunOptions {
    */
   activeMs?: number;
   sessionEveryMs?: number;
+  /** Chantier 19: leave the siege aside (default: besiege the twin once it opens). */
+  noSiege?: boolean;
+  /** Chantier 19: called after each round with the second colony, once founded. */
+  onSister?(sister: GameState, home: GameState): void;
 }
 
 export function runBot(opts: RunOptions): RunResult {
@@ -409,7 +452,15 @@ export function runBot(opts: RunOptions): RunResult {
     >),
     pathsAt: 0,
     expeditionsAt: 0,
+    siege: !opts.noSiege,
+    siegeAt: 0,
   };
+  // Chantier 19: the second colony, played with the same rules once founded.
+  let sister: GameState | null = null;
+  let sisterMap: FaceMap | null = null;
+  const sisterPlay: Play = { ...play, siege: false, expeditions: false };
+  let sisterWavesSeen = 0;
+  const siegeStats = { assaults: 0, assaultsWon: 0, finals: 0 };
   const times = Object.fromEntries(MILESTONES.map((m) => [m, null])) as Record<
     Milestone,
     number | null
@@ -438,6 +489,13 @@ export function runBot(opts: RunOptions): RunResult {
         if (times.recon === null) times.recon = e.returnAt - start;
         continue;
       }
+      if (e.mission === 'assault') {
+        siegeStats.assaults++;
+        if (e.result.bridgehead) siegeStats.assaultsWon++;
+        continue;
+      }
+      if (e.mission === 'final') siegeStats.finals++;
+      if (e.mission !== 'raid') continue;
       trips.raids++;
       if (e.result.victory) {
         trips.raidsWon++;
@@ -467,6 +525,42 @@ export function runBot(opts: RunOptions): RunResult {
         }
       }
       if (!applied) break;
+    }
+    // Chantier 19: the settlers landed; the sister colony lives from then on.
+    if (!sister && state.colony.founding) {
+      sister = takeFounding(state);
+      if (times.founded === null && sister) times.founded = sister.createdAt - start;
+    }
+    if (sister) {
+      sister = advance(sister, now).state;
+      sisterMap = faceMapOf(sister);
+      for (let guard = 0; guard < 12; guard++) {
+        const cmds = decide(sister, sisterMap, sisterPlay);
+        let applied = false;
+        for (const cmd of cmds) {
+          const next = try_(sister, sisterMap, now, cmd);
+          if (next) {
+            sister = next;
+            applied = true;
+            break;
+          }
+        }
+        if (!applied) break;
+      }
+      const link = linkOrder(state, sister);
+      if (link) {
+        const next = try_(state, map, now, link);
+        if (next) state = next;
+      }
+      deliverToSister(state, sister);
+      deliverToSister(sister, state);
+      syncColonies(state, sister);
+      if (times.sisterNest3 === null && nest(sister).level >= 3) times.sisterNest3 = now - start;
+      if (sister.threats.waves > sisterWavesSeen) {
+        sisterWavesSeen = sister.threats.waves;
+        if (times.sisterWave === null) times.sisterWave = now - start;
+      }
+      opts.onSister?.(sister, state);
     }
     checkMilestones(state, start, times);
     opts.onStep?.(state, map);
@@ -504,6 +598,10 @@ export function runBot(opts: RunOptions): RunResult {
       paths: state.paths.length,
       camps: campsSet,
       ...trips,
+      ...siegeStats,
+      counters: state.siege.counters,
+      countersHeld: state.siege.reports.filter((r) => r.victory).length,
+      sisterKiwis: sister?.villagers.length,
       expeditionDeaths: state.memorial.filter(
         (m) => m.cause === 'battle' || m.cause === 'starvation',
       ).length,

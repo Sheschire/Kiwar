@@ -105,6 +105,16 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 
 ## Gotchas
 
+- **Chantier 19, second half (`kiwar-colonies`)**: a player may have **two linked states**
+  (`state.colony.index` 0 home / 1 sister on the twin face). Anything that reads the research
+  must remember a sister never completes a technology (`research.outbox`, `syncColonies`),
+  `setResearch` fails there (`sharedResearch`). A sister has no `targets` and no `aliens`.
+  Kiwis can leave a colony alive (`emigrate`, `settle`: founding, deliveries to the sister):
+  never through `removeVillagers` (memorial, mourning). Obstacles `ruin` / `den` exist only on
+  a sister; `wavePower` × `sisterThreat`. Stocks are floats: a stock running dry may shift the
+  hunger gauge by a millisecond between one big step and many (compare closely, like
+  `test/advance.test.ts`).
+
 - Chantier 19 (`kiwar-colonies`, `sim/siege.ts`): job `outpost` (posted on a bridgehead of the
   twin: away but fed from the colony stock); anything that lists kiwis "at home" must treat it
   like `expedition` (beds, mayor, skills), consumption keeps it. `removeVillagers` also

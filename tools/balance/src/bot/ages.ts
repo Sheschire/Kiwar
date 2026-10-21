@@ -6,6 +6,7 @@ import {
   capacity,
   ageOf,
   hasTech,
+  isSister,
   PASSAGE_TECHS,
   techStatus,
   type TechId,
@@ -68,7 +69,8 @@ export function ageDecision(
   // The next wanted technology, in order; while it waits for a Library level, the points go to
   // the bank (chantier 18: starting a lesser technology meanwhile delayed the passages).
   const wanted = TECH_ORDER.find((id) => !hasTech(state, id) && techStatus(state, id) !== 'age');
-  if (!state.research.current) {
+  // Chantier 19: a sister colony's research is chosen at home.
+  if (!state.research.current && !isSister(state)) {
     const bankFull = state.research.points >= researchBank(state);
     const next =
       wanted && techStatus(state, wanted) === 'available'

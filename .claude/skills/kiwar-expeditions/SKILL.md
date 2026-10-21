@@ -142,6 +142,10 @@ expeditionPad })` or `{ modal: 'report', reportId }`; zoom out (`dollyTo(frameDi
 
 ## The siege of the twin (chantier 19, `kiwar-colonies`)
 
+Mission `found` (second half): the settlers' ship to the conquered twin (`freight`, no
+fight, `landSettlers`, back empty). Deliveries to our own sister colony (friend `sister`) may
+carry kiwis (`villagerIds`).
+
 Missions `assault`, `reinforce`, `final` (and the simulated `retreat`) are resolved by
 `resolveSiegeLanding` (`sim/siege.ts`); `canResolveArrival` lets reinforcements through
 (nothing hidden). A reconnaissance of the twin while the siege is open is a deep one
