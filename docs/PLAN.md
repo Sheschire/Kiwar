@@ -52,7 +52,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 16  | Pose et terrain lisibles (modèle fantôme, zones, gains au dépôt)        | ✅      |
 | 17  | Identité visuelle : bâtiments distincts, planète alien, ciel vivant     | ✅      |
 | 18  | Bot d'équilibrage complet : chemins, camps, expéditions                 | ✅      |
-| 19  | Colonisation de la face alien jumelle (siège, seconde colonie)          | à faire |
+| 19  | Colonisation de la face alien jumelle (siège, seconde colonie)          | 1/2 ✅  |
 | 20  | Correctifs et confort (tap qui se bloque, tri, file repliable, inertie) | ✅      |
 | 21  | Interface mobile : barre au pouce, menu nommé                           | ✅      |
 | 22  | Premières impressions : écran de chargement animé, intro interactive    | ✅      |
@@ -75,9 +75,20 @@ pouce + menu nommé, skill `kiwar-client`) : tout nouveau bouton du HUD y prend 
 Le chantier 23 a ajouté un limiteur d'images/s et un ralenti au repos (`render/frameLimiter.ts`) :
 une nouvelle animation visible importante (spectacle, outil en main) doit réveiller la boucle
 (`renderer.wake()` ou la liste des signes de vie de `drawFrame`).
+Le chantier 19 (1re moitié : siège et assaut final) a ouvert le skill `kiwar-colonies` ; la
+**2e conversation** du 19 fait la seconde colonie (état lié, colons, sélecteur, planète sœur,
+migration SQL), les liaisons, les menaces de la seconde face, le bot et l'équilibrage : voir
+« Reste » dans `docs/chantiers/19-colonisation.md`. Idéalement après le chantier 24 (planète
+sœur à sa place fixe, `twinPlace(approach)` pour rapprocher la jumelle pendant les assauts).
 
 ## Dette et idées en attente
 
+- Chantier 19 (1re moitié) : la mise en scène est un spectacle 2D par-dessus la scène (la
+  jumelle ne se rapproche pas encore : `twinPlace(approach)` du chantier 24 attend) ; le bot
+  ne mène pas de siège (sonde `pnpm balance:siege` seulement : chiffres réglés sur 1 graine
+  × 4 biomes) ; le résumé « pendant votre absence » ne cite pas les contre-attaques ; les
+  kiwis qui rentrent d'une tête de pont tombée volent sans vaisseau visible ; « Fonder la
+  colonie » est grisé jusqu'à la 2e moitié.
 - Le bot d'équilibrage n'utilise ni camps, ni chemins, ni expéditions.
 - Chantier 20 : l'inertie (τ 0,6 s, rotation à deux doigts) et le blocage du tap n'ont été
   vérifiés qu'en Chromium headless (évènements tactiles CDP) : à confirmer sur un vrai

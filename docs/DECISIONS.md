@@ -1658,3 +1658,66 @@ tile looks cultivated as soon as its building is placed (whole zone).
   dusk golden-orange, noon neutral, blue hour violet, nights lit where kiwis live. Triangles
   of the perf save: 137 k → 148 k (paths), +2 draw calls for windows, ~11 for crops (only
   kinds in use draw).
+
+## Chantier 19 (first half) — Siege of the twin face
+
+Owner's answers (October 2026): the siege opens at the **Iron age with one Kikiwiwi**; **3
+bridgeheads at most, 2 needed** for the final assault; counter-attacks **announced, about
+one a day**; bridgeheads are held by **kiwis posted there** (away, fed from the colony
+stock); a bridgehead taken by a counter-attack loses **50–90 % of its holders** (owner:
+heavy losses, not the recommended "wounded, one death at most"); a **Kikiwiwi fortifies** a
+bridgehead (12 h, juice) before the final assault; after the queen falls the face is
+"conquered" and waits for the second half (the "Found the colony" button is greyed). For the
+second half: research shared, monument (age) per colony; a conquered colony **never** turns
+alien again; only the twin is ever colonised (other alien faces stay raid targets).
+
+- **Hidden truth**: the holds of the six outer sectors (`SIEGE.hold` 9 × 0.75–1.3), the
+  queen's inner sector and her ground / air power (26 / 16 × 0.85–1.2) are drawn from the
+  garrison's **secret seed** (`siegeTruth`, memoized, never stored); everything grows like the
+  garrison (same rate, ×2 cap — reached by the Iron age since game days are short). So the
+  anti-cheat rule holds without new hidden state: the client cannot compute them.
+- **Deep reconnaissance** = an ordinary reconnaissance of the twin while the siege is open:
+  sectors never deep-seen come first, each outer one gets a hold range (same spread as the
+  report), the queen is located when her inner sector is seen. Plain reconnaissance draws are
+  unchanged (the deep branch draws only when the siege is open).
+- **Missions** (`launchExpedition.mission`): `assault { sector, holders }` (the sector must be
+  scouted; bridgeheads + assaults in flight ≤ 3), `reinforce { sector, bringBack }` (no fight:
+  resolved on the client too; may fly empty; a bridgehead left empty is abandoned), `final`
+  (queen located, 2 bridgeheads, 1 fortified). `retreat` is created by the simulation for the
+  survivors of a fallen bridgehead (no launchpad, rations given so nobody starves).
+- **Assault**: one fight like a raid against the hold; a victory wounds the non-holders hit,
+  the holders stay unhurt on the new post (job `outpost`), no loot.
+- **Holders**: job `outpost { sector }` — away (no bed, no work, no garrison, no mayor), but
+  they eat from the colony stock (consumption counts them; a posted Kikiwiwi drinks its
+  juice). Defense = strength × 1.2 (cover) × 1.5 if fortified, luck ±10 %.
+- **Counter-attacks**: the time and the target are **public** (hashed from the face seed and
+  the count: 20–30 h after the last one or the first bridgehead, announced 6 h ahead, event
+  `counterAnnounced`), the strength hidden (hold × 0.5–0.9 × (1 + 0.1 × counters, ≤ 2)). The
+  strike is an `advance` event only where the garrison is; the client shows "waiting for
+  news" and polls `load` (`awaitingServer`), which advances to `hiddenDue` (landings and due
+  counter-attacks).
+- **Final assault**: the ship's crew and **every posted kiwi** fight; sides use the garrison
+  affinities (`guardPower / GARRISON.power`: warriors ground, mages and scouts air, Kikiwiwis
+  both); victory needs both sides ≥ the queen's, who loses 15 % per bridgehead and 10 % more
+  with one beside her lair (≤ 90 %). Losses by the weaker side's ratio; a defeat kills
+  50–90 %, bridgeheads with survivors stay. Victory: `siege.conqueredAt`, every holder flies
+  home with the ship, all 12 sectors seen; any mission to the twin then fails `conquered`.
+- **Imports** (`import` action): a local save's siege cannot be checked — `resetSiege`
+  brings the holders and siege crews home and drops the siege intel.
+- **Balance probe** (`pnpm balance:siege`, 1 seed × 4 biomes, 11 days): the siege opens at
+  143–171 h; holds 17.6–23.4 against 23–27 for the 10 best kiwis; the queen weakened by two
+  bridgeheads 33–37 ground / 22–25 air against 35–41 / 21–23 for an army of 12–14 kiwis +
+  the Kikiwiwi (before the posted kiwis join): an uncertain fight that wants the third
+  bridgehead, the one beside her lair or more mages.
+- **Client**: `SiegeModal` (conditions, four steps, the 12-sector `SiegeMap`, counter card,
+  selected sector: assault / reinforce / fortify, reports), the planner follows
+  `uiStore.siegePlan` (`actions.planSiege`: holders and bring-back pickers, both sides
+  against the queen, crew flying back), `CounterBadge` in the badge stack, entries in the top
+  bar, the named menu and the launchpad sheet.
+- **Staging kept simple** (owner: chantier 24 fixes the twin in space): a 2D `SiegeShow`
+  over the scene for fights seen live (< 20 s), flags on the twin's bridgeheads (gold with a
+  wall once fortified), no dens once conquered. Chantier 24's `twinPlace(approach)` is the
+  hook for a later 3D approach of the twin.
+- Sounds `siege.warning|victory|defeat|queen` reuse synthesized voices (warning, victory,
+  defeat, fanfare), replaceable from `/admin`.
+- No SQL migration: everything lives in the game state (JSON).

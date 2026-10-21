@@ -107,3 +107,6 @@ Migration `20261022000000_audio.sql`: `public.is_admin()` (security definer), `a
 - Keep `synth` fallbacks for events with file sources (test enforced, music excepted).
 - Day/night and season conditions exist but the client always reports day / spring until
   chantier 04 sets `audio.context.timeOfDay` / `season`.
+- Chantier 19: `siege.warning` (counter-attack announced), `siege.victory`, `siege.defeat`,
+  `siege.queen` (fanfare), wired in `audio/sounds.ts` (`counterAnnounced`, `counterStruck`,
+  assault / final landings); labels in `admin/strings.ts`.

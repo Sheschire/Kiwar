@@ -105,6 +105,10 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 
 ## Gotchas
 
+- Chantier 19 (`kiwar-colonies`, `sim/siege.ts`): job `outpost` (posted on a bridgehead of the
+  twin: away but fed from the colony stock); anything that lists kiwis "at home" must treat it
+  like `expedition` (beds, mayor, skills), consumption keeps it. `removeVillagers` also
+  forgets holders. Counter-attacks are an `advance` event only where the garrison is.
 - **Replace `state.paths` and `state.terraform`, never mutate them in place** (`s.paths = [...]`,
   `s.terraform = { ...s.terraform, [k]: kind }`): `pathsKey` / `terraformKey` (territory.ts)
   cache their key strings on the object (perf pass of October 2026). `modifiers(v)` returns a

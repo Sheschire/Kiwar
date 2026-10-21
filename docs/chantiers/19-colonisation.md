@@ -33,6 +33,52 @@ porteur (fin octobre 2026).
    l'assaut final contre la reine des furets. Chaque assaut est résolu en une fois, avec une
    mise en scène.
 
+## Réponses du porteur aux questions ouvertes (octobre 2026, 1re conversation)
+
+1. Ouverture : **âge du Fer + un Kikiwiwi** (vaisseau de l'âge).
+2. **3 têtes de pont au plus, 2 exigées** pour l'assaut final ; contre-attaques **annoncées,
+   environ une par jour** (20–30 h, 6 h de préavis). On tient une tête de pont avec **des kiwis
+   postés** (absents, nourris sur les stocks). Une tête de pont prise par une contre-attaque
+   perd **50 à 90 % de ses kiwis** (pertes lourdes).
+3. Seconde colonie : **recherche partagée, monument (âge) propre**.
+4. Une colonie conquise ne redevient **jamais** alien.
+5. On ne colonise **que la jumelle** (les autres faces aliens restent des cibles de raid).
+6. L'aménagement : **un Kikiwiwi posté** sur la tête de pont l'aménage (12 h, du jus) ; il faut
+   une tête de pont aménagée pour l'assaut final.
+7. À la victoire (1re moitié) : face conquise, brouillard levé, « Fonder la colonie » grisé.
+
+## Fait (1re conversation)
+
+- **Simulation** (`data/siege.ts`, `sim/siege.ts`, sauvegarde v22) : verrou du siège, vérité
+  cachée tirée de la graine secrète de la garnison (forces des 6 secteurs extérieurs, secteur
+  et puissance sol / air de la reine), reconnaissance approfondie, missions `assault`,
+  `reinforce`, `final` (et `retreat` des survivant·es), poste `outpost`, contre-attaques à
+  heure et cible publiques et force cachée, aménagement, assaut final, face conquise. Le
+  serveur résout les contre-attaques à `load` (`hiddenDue`), l'import d'une sauvegarde locale
+  remet le siège à zéro (`resetSiege`). Tests `test/siege.test.ts`.
+- **Client** : écran Siège (`SiegeModal`, carte des 12 secteurs `SiegeMap`), planificateur
+  réglé par `actions.planSiege` (qui reste, qui rentre, sol et air contre la reine), badge de
+  contre-attaque, entrées barre du haut / menu du téléphone / aire d'envol, rapports, toasts,
+  sons, spectacle 2D `SiegeShow`, fanions des têtes de pont sur la jumelle.
+- **Sonde** : `pnpm balance:siege` (siège ouvert à 143–171 h ; voir `DECISIONS.md`).
+- Pas de migration SQL (tout est dans l'état de jeu).
+
+## Reste (2e conversation)
+
+- **Seconde colonie** : « Fonder la colonie » crée un état lié (même calendrier, carte de la
+  jumelle, survivant·es comme colons, Nid niveau 1, ressources débarquées), recherche
+  partagée, monument propre, sélecteur de colonies, planète sœur éclairée dans le ciel
+  (position du chantier 24), **migration SQL** (lignes `games` liées, RLS) et mode local (deux
+  sauvegardes liées).
+- **Liaisons** entre les deux faces (vaisseau, oiseau ; réutiliser les livraisons) et
+  **menaces** de la seconde colonie (vagues plus faibles au début) ; traces des aliens
+  (ruines, nids) en tuiles spéciales.
+- **Mise en scène 3D** : la jumelle se rapproche pendant les assauts (`twinPlace(approach)`),
+  combat, chute de la reine, brouillard qui se lève sur la vraie planète.
+- **Bot** : mener un siège (reconnaissance, assauts, renforts, aménagement, assaut final) et
+  mesurer quand la colonisation arrive (visée : âge du Fer avancé) ; ajuster `SIEGE`.
+- Univers partagé : les allié·es voient la seconde colonie, lui livrent, renforts plus tard.
+
 ## Proposition
 
 ### Le siège

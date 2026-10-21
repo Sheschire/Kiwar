@@ -117,3 +117,11 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   (2 seeds × 12 days): Stone ≈ 29 h, Iron ≈ 74 h, Industry ≈ 159 h (−9 to −14 % from the
   automation). The bot relies on the automation (`kiwar-tasks`) and **saves up for the Nest**
   after the tutorial (no stump meanwhile): without it the Nest 3 was a chaotic race (±30 %).
+
+## Siege probe (chantier 19)
+
+`pnpm balance:siege` (`tools/balance/src/siege.ts`) measures, when the siege opens (Iron age +
+a Kikiwiwi), the 10 best kiwis against the holds and an army against the queen after two
+bridgeheads. Reference (1 seed × orchard / tundra / seedCrown / lagoons, 11 days): opens at
+143–171 h, holds 17.6–23.4 vs 23–27, queen 33–37 / 22–25 vs 35–41 / 21–23. The bot does not
+besiege yet (second half of chantier 19).

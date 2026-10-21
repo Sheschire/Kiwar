@@ -303,3 +303,6 @@ compact`). Long sheets on touch: `FoldSection` (a `<details>` there, a plain sec
    A short video: step 1/30 s per frame, a screenshot each, then
    `ffmpeg -framerate 30 -i f%04d.png -c:v libx264 -pix_fmt yuv420p out.mp4` (installed).
    Touch swipes: CDP `Input.dispatchTouchEvent`.
+
+- Chantier 19: the Siege screen (`SiegeModal`, `SiegeParts`, `SiegeShow`, `CounterBadge`,
+  `uiStore.siegePlan` / `siegeShow`, `actions.planSiege`) — see `kiwar-colonies`.

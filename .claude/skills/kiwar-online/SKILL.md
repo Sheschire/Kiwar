@@ -88,3 +88,7 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   push to main touching `supabase/functions/**` (secrets `SUPABASE_ACCESS_TOKEN`,
   `SUPABASE_PROJECT_REF`; skipped when missing). The owner has no local clone: never ask them to
   run CLI commands; SQL goes through the SQL Editor, functions through this workflow.
+- **Chantier 19** (`kiwar-colonies`): `load` advances to `hiddenDue(state, now)` (landed
+  ships **and** due counter-attacks of the siege), the client polls while
+  `awaitingServer(state, now)`; `import` calls `resetSiege` (a local siege cannot be checked).
+  The siege truth is derived from the garrison seed: nothing new to strip. No SQL change.

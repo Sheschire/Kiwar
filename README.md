@@ -9,6 +9,19 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 19 (1re moitié)** — la **face jumelle se conquiert** : dès l'**âge du Fer** et un
+> **Kikiwiwi**, l'écran **Siège** (bouton cible, menu du téléphone, aire d'envol) guide en
+> quatre étapes. Une **reconnaissance approfondie** estime la force des aliens de chaque
+> secteur et cherche l'**antre de la reine des furets** ; un **assaut** prend un secteur
+> extérieur et y laisse des kiwis choisis qui **tiennent la tête de pont** (absents, nourris
+> sur vos stocks) ; les aliens **contre-attaquent** environ une fois par jour, annoncés 6 h
+> avant (une tête de pont qui tombe perd de 50 à 90 % de ses kiwis) ; un **renfort** amène ou
+> ramène des kiwis ; le Kikiwiwi **aménage** une tête de pont (12 h, 400 jus). Avec deux têtes
+> de pont dont une aménagée, l'**assaut final** affronte la reine **au sol et dans les airs** :
+> chaque tête de pont l'affaiblit et tous les kiwis postés se joignent au combat. Victoire :
+> la face est conquise et le brouillard se lève (la seconde colonie arrive à la 2e moitié du
+> chantier). Les forces réelles restent **cachées côté serveur**.
+>
 > **Chantier 23** — le PC **chauffe moins** : la scène se limite à **60 images/s** (réglage
 > 30 / 60 / illimité) et **ralentit au repos** (30 puis 20 images/s quand rien ne bouge,
 > reprise immédiate au moindre geste) ; en Auto, la qualité Haute ne se choisit plus que si

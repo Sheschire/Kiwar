@@ -143,3 +143,9 @@ pickers stop during a shelter.
   has `waves`, `wavesLost`, `predatorDeaths`, `meteors`; the report adds a table per biome.
 - To retune: `THREATS.basePower`/`perDay`/`nestFactor` (pressure), turret `defense`/`ammo`,
   `GARRISON.power`, `METEORS.stock`. Check the milestones stay within ±10 % between biomes.
+
+## Counter-attacks of the siege (chantier 19)
+
+The aliens of the twin strike our bridgeheads there (not the colony): announced 6 h ahead,
+strength hidden, resolved by the server — see `kiwar-colonies`. They never touch the colony's
+waves (own schedule, hash RNG).

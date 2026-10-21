@@ -111,3 +111,9 @@ The bot waits for it and for the next monument's stardust.
 - Reference (end of chantier 08): laboratory 123–134 h, first Kikiwiwi 144–166 h, Industry
   182–208 h for the active bot (2 seeds × 6 biomes × 12 days). Tune `KIKIWIWI.cost`, the bot's
   `JUICE_RESERVE`, lab costs and the `unnatural` tech costs.
+
+## Fortifying a bridgehead (chantier 19)
+
+A Kikiwiwi posted on a bridgehead of the twin (job `outpost`, sent by a reinforcement)
+fortifies it: `fortifyBridgehead { sector }` (12 h, 400 juice, no terraform quota). The final
+assault needs one fortified bridgehead. See `kiwar-colonies`.

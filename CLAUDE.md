@@ -31,6 +31,9 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
   - `kiwar-tasks` — the automation: tasks filled with the best kiwis (constructions in
     parallel, research, meteorite posts and the drill, stardust, repairs, garrison), borrowing
     and sending back, the dispatcher's exactness rules, the Automation panel.
+  - `kiwar-colonies` — the siege of the twin face: hidden holds and queen, deep reconnaissance,
+    assaults, bridgeheads and counter-attacks, fortification, the final assault, the Siege
+    screen; later the second colony.
   - `kiwar-sky` — comets and stardust: pickers, blessings, the star egg, the Stars research
     branch, ship fuel, stardust costs of the ages and the Kikiwiwis.
 

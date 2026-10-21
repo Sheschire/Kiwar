@@ -139,3 +139,12 @@ expeditionPad })` or `{ modal: 'report', reportId }`; zoom out (`dollyTo(frameDi
   launchpad level (reliability follows the age since chantier 08), informed raids 100 % won,
   0 % fallen, ~17 % wounded. The colony bot sends reconnaissances and raids (`bot/expeditions.ts`,
   see `kiwar-balance`).
+
+## The siege of the twin (chantier 19, `kiwar-colonies`)
+
+Missions `assault`, `reinforce`, `final` (and the simulated `retreat`) are resolved by
+`resolveSiegeLanding` (`sim/siege.ts`); `canResolveArrival` lets reinforcements through
+(nothing hidden). A reconnaissance of the twin while the siege is open is a deep one
+(`deepRecon`: holds and the queen's lair, `IntelReport.siege`). `recordIntel` keeps the siege
+intel. Missions to a conquered twin fail `conquered`. The forecast has `returnCrew`,
+`returnWeight` (checked against the hold) and `final`.
