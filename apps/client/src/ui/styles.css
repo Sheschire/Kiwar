@@ -1552,12 +1552,6 @@ button.chip:focus-visible {
     font-size: 0.95rem;
   }
 
-  .topbar-buttons {
-    position: static;
-    align-self: flex-end;
-    flex-direction: column;
-  }
-
   .toasts {
     top: calc(64px + var(--safe-top));
   }
@@ -1606,32 +1600,8 @@ button.chip:focus-visible {
     display: none;
   }
 
-  .queue {
-    width: auto;
-    right: calc(var(--gap) + 96px);
-  }
-
-  .egg-label {
+  .has-sheet .objectives {
     display: none;
-  }
-
-  .egg-btn {
-    width: 60px;
-    height: 60px;
-  }
-
-  .has-sheet .queue,
-  .has-sheet .egg-wrap,
-  .has-sheet .objectives,
-  .has-sheet .nudge,
-  .has-sheet .expeditions {
-    display: none;
-  }
-
-  .expeditions {
-    width: auto;
-    right: calc(var(--gap) + 96px);
-    bottom: calc(var(--gap) + var(--safe-bottom) + 140px);
   }
 
   .chat {
@@ -1645,14 +1615,6 @@ button.chip:focus-visible {
     padding-bottom: var(--safe-bottom);
     z-index: 25;
     animation: slide-in-up 0.25s cubic-bezier(0.2, 1.2, 0.4, 1);
-  }
-
-  .nudge {
-    left: var(--gap);
-    right: calc(var(--gap) + 76px);
-    transform: none;
-    max-width: none;
-    bottom: calc(var(--gap) + var(--safe-bottom) + 70px);
   }
 }
 
@@ -1680,11 +1642,6 @@ button.chip:focus-visible {
     top: calc(64px + var(--safe-top));
   }
 
-  .has-sheet .queue,
-  .has-sheet .egg-wrap {
-    display: none;
-  }
-
   .resources {
     width: auto;
     flex: 1;
@@ -1692,11 +1649,6 @@ button.chip:focus-visible {
 
   .chip-cap {
     display: inline;
-  }
-
-  .topbar-buttons {
-    flex-direction: row;
-    align-self: flex-start;
   }
 }
 
@@ -1843,27 +1795,6 @@ button.chip:focus-visible {
 .path-mode .nudge,
 .path-mode .sheet {
   display: none;
-}
-
-@media (max-width: 760px) {
-  .paths-fab {
-    width: 48px;
-    height: 48px;
-    right: calc(var(--gap) + var(--safe-right) + 6px);
-    bottom: calc(var(--gap) + var(--safe-bottom) + 72px);
-  }
-
-  .has-sheet .paths-fab,
-  .has-sheet .compass-fab {
-    display: none;
-  }
-
-  .compass-fab {
-    width: 42px;
-    height: 42px;
-    right: calc(var(--gap) + var(--safe-right) + 9px);
-    bottom: calc(var(--gap) + var(--safe-bottom) + 130px);
-  }
 }
 
 /* ---------- Demolition ---------- */
@@ -3127,15 +3058,6 @@ button.chip:focus-visible {
   pointer-events: auto;
 }
 
-@media (max-width: 760px) {
-  .badge-stack {
-    top: calc(var(--safe-top) + 118px);
-  }
-  .has-sheet .badge-stack {
-    display: none;
-  }
-}
-
 .threat-wrap {
   display: inline-flex;
   align-items: center;
@@ -3844,27 +3766,6 @@ button.chip:focus-visible {
     0 0 0 3px rgba(111, 174, 44, 0.35);
 }
 
-@media (max-width: 760px) {
-  .levels-fab {
-    width: 42px;
-    height: 42px;
-    right: calc(var(--gap) + var(--safe-right) + 9px);
-    bottom: calc(var(--gap) + var(--safe-bottom) + 182px);
-  }
-
-  .logistics-fab {
-    width: 42px;
-    height: 42px;
-    right: calc(var(--gap) + var(--safe-right) + 9px);
-    bottom: calc(var(--gap) + var(--safe-bottom) + 232px);
-  }
-
-  .has-sheet .levels-fab,
-  .has-sheet .logistics-fab {
-    display: none;
-  }
-}
-
 /* Chantier 13: stardust chip (a small separate stock) and comet badge. */
 .chip-dust .chip-amount {
   color: #9a6a12;
@@ -4428,6 +4329,84 @@ button.chip:focus-visible {
   right: calc(var(--gap) + var(--safe-right));
 }
 
-.thumb .sheet {
-  bottom: var(--thumb-h);
+/* Portrait phones: the tile sheet rises from the top of the bar. */
+@media (max-width: 760px) and (orientation: portrait) {
+  .thumb .sheet {
+    bottom: var(--thumb-h);
+  }
+}
+
+/* Landscape phones: the bar stands on the right edge (the right thumb), under the resources. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .hud.thumb {
+    --thumb-h: 0px;
+    --thumb-w: calc(80px + var(--safe-right));
+  }
+
+  .thumb-bar {
+    left: auto;
+    top: calc(var(--safe-top) + 74px);
+    right: calc(6px + var(--safe-right));
+    bottom: calc(6px + var(--safe-bottom));
+    width: 72px;
+    height: auto;
+    flex-direction: column;
+    padding: 2px 0;
+  }
+
+  .thumb-item {
+    margin: 0 3px;
+  }
+
+  .thumb-egg-slot {
+    flex: 1.35;
+  }
+
+  .thumb-egg {
+    position: static;
+    height: 100%;
+    justify-content: center;
+    transform: none;
+  }
+
+  .thumb-egg .egg-btn {
+    width: 54px;
+    height: 54px;
+  }
+
+  .thumb-egg .egg-star {
+    top: 50%;
+    right: auto;
+    left: -48px;
+    transform: translateY(-50%);
+  }
+
+  .thumb-stack {
+    right: calc(var(--thumb-w) + var(--gap));
+    bottom: calc(var(--gap) + var(--safe-bottom));
+    max-height: calc(100% - 84px - var(--safe-top));
+  }
+
+  .thumb .sheet,
+  .thumb .objectives {
+    right: calc(var(--thumb-w) + var(--gap));
+  }
+
+  .thumb .follow-badge {
+    bottom: calc(var(--gap) + var(--safe-bottom));
+  }
+}
+
+/* Touch tablets: the bar stays at the bottom, centred and no wider than a hand span. */
+@media (min-width: 761px) and (min-height: 521px) {
+  .thumb-bar {
+    left: 50%;
+    right: auto;
+    width: min(560px, calc(100% - 20px));
+    transform: translateX(-50%);
+  }
+
+  .hud.thumb .topbar {
+    padding-right: 0;
+  }
 }
