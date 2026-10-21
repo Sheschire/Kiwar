@@ -63,24 +63,68 @@ porteur (fin octobre 2026).
 - **Sonde** : `pnpm balance:siege` (siège ouvert à 143–171 h ; voir `DECISIONS.md`).
 - Pas de migration SQL (tout est dans l'état de jeu).
 
-## Reste (2e conversation)
+## Réponses du porteur (2e conversation)
 
-- **Seconde colonie** : « Fonder la colonie » crée un état lié (même calendrier, carte de la
-  jumelle, survivant·es comme colons, Nid niveau 1, ressources débarquées), recherche
-  partagée, monument propre, sélecteur de colonies, planète sœur éclairée dans le ciel
-  (position du chantier 24 : l'autre moitié du kiwi est toujours à `twinPlace()`, dessinée
-  avec `setTwin(map, { fog: false, friend })` ; voir le skill `kiwar-world`), **migration SQL** (lignes `games` liées, RLS) et mode local (deux
-  sauvegardes liées).
-- **Liaisons** entre les deux faces (vaisseau, oiseau ; réutiliser les livraisons) et
-  **menaces** de la seconde colonie (vagues plus faibles au début) ; traces des aliens
-  (ruines, nids) en tuiles spéciales.
-- **Mise en scène 3D** : la jumelle se rapproche pendant les assauts
-  (`renderer.setTwinApproach(t)`, chantier 24 ; à jouer depuis chez soi, `travelTo('twin')`
-  pour aller la voir),
-  combat, chute de la reine, brouillard qui se lève sur la vraie planète.
-- **Bot** : mener un siège (reconnaissance, assauts, renforts, aménagement, assaut final) et
-  mesurer quand la colonisation arrive (visée : âge du Fer avancé) ; ajuster `SIEGE`.
-- Univers partagé : les allié·es voient la seconde colonie, lui livrent, renforts plus tard.
+1. Recherche partagée : **une seule recherche**, tenue par la colonie d'origine ; la
+   Bibliothèque de la sœur accumule des points versés à la recherche commune à chaque synchro.
+2. Fondation : un **vaisseau de colons** (au moins 5 kiwis, Kikiwiwi permis, et la cargaison
+   choisie) ; l'atterrissage crée la colonie (Nid 1).
+3. Liaisons : **ressources et kiwis**, depuis l'aire d'envol de l'une ou l'autre face, sans
+   risque, en un trajet de jumelle.
+4. Menaces : 48 h de répit, vagues à ×0,5 remontant à ×1 en 4 jours ; **ruines** (butin) et
+   **nids de furets** (+ force des vagues tant qu'ils tiennent).
+5. Mise en scène : depuis chez soi, la jumelle s'approche, combat léger, couronne qui tombe,
+   nuages qui se lèvent ; la carte 2D reste comme légende.
+6. Univers : les allié·es **voient** la colonie sœur et **lui livrent**.
+7. Équilibrage : conquête vers **8–10 jours** pour le bot actif.
+8. Le bot joue **les deux colonies**.
+
+## Fait (2e conversation)
+
+- **Simulation** (`data/colonies.ts`, `sim/colonies.ts`, sauvegarde v23) : lien
+  `state.colony` (0 origine, 1 sœur, fondation en attente), mission `found` (colons +
+  cargaison, sans combat, le vaisseau revient à vide), `newSister` (carte de la jumelle, même
+  calendrier, Nid 1 + jusqu'à 2 huttes pour loger les colons, cargaison jusqu'au stockage,
+  tutoriel sauté, 48 h de répit, pas de cible d'expédition), recherche partagée
+  (`research.outbox`, `syncColonies`, `setResearch` refusé dans la sœur), vagues
+  `sisterThreat`, obstacles `ruin` / `den`, commande `raidDen` (prévue, sans hasard).
+- **Liaisons** : ami `sister` des deux côtés, `sendCargo { villagerIds }` (kiwis vers la sœur
+  seulement), `deliverToSister` (une fois, drapeau `delivered`).
+- **En ligne** : migration `20261027000000_linked_colonies.sql` (`games.colony`, unicité par
+  joueur·euse, univers et colonie), `colony` sur `load` / `command`, `linkColonies`
+  (création de la sœur, livraisons, recherche ; la sœur est écrite d'abord), `sister` dans
+  les réponses, sœurs des allié·es (`AllySnapshot.sister`, livraisons `ally:<id>:1`), colonie
+  solo emportée et transfert d'invité·e avec leur sœur, import local sans sœur. Mock :
+  `/__mock/conquer`.
+- **Client** : « Fonder la colonie » (planificateur `found`, cargaison), bascule (bouton
+  planète, menu, bannière de visite), planète sœur éclairée à la place de la jumelle, deux
+  sauvegardes locales (la colonie hors écran vit toutes les 5 s, résumé au retour),
+  livraisons avec kiwis, ruines et nids en 3D, raid des gardes, recherche commune affichée
+  dans la sœur, contre-attaques dans le résumé « pendant votre absence ».
+- **Mise en scène 3D** (`render/siegeFx.ts`, `GameRenderer.playSiege`) : la caméra monte vers
+  l'espace, la jumelle s'approche, traits, éclairs, couronne qui tombe, nuages chassés,
+  fumée ; légende 2D compacte (carte entière pendant une visite).
+- **Règle ajustée** : une reconnaissance approfondie repasse toujours par l'antre connu de la
+  reine (son estimation ne vieillit plus pendant un long siège).
+- **Bot** (`bot/siege.ts`, `bot/colonies.ts`) : siège complet, puis la colonie sœur jouée avec
+  les mêmes décisions ; jalons informatifs. `pnpm balance:siege` mène tout le siège.
+- **Équilibrage** : reine 24 au sol / 14 dans les airs (au lieu de 26 / 16) ; voir
+  `DECISIONS.md` pour les chiffres.
+
+## Reste
+
+- Les allié·es reçoivent `AllySnapshot.sister` mais la planète sœur d'un·e membre n'est **pas
+  encore dessinée** dans l'espace (seulement les livraisons) ; pas de renforts en kiwis entre
+  allié·es.
+- La colonie sœur n'a **pas de cibles d'expédition** (raids et reconnaissances depuis la
+  maison seulement).
+- `UniverseModal` ne liste pas la colonie sœur (bascule par le bouton planète et le menu).
+- En ligne, un conflit d'écriture pendant une synchro peut perdre un lot de points de
+  recherche de la sœur (jamais les compter deux fois).
+- Le bot gagne la conquête dans environ deux tiers des parties en 12 jours (finales perdues
+  ou jamais tentées dans le delta et les lagunes) : à suivre avec plus de graines.
+- La sœur grandit vite (technologies de l'âge industriel, cargaisons de la maison) :
+  Nid 3 en quelques heures. À observer en vraie partie.
 
 ## Proposition
 

@@ -1722,6 +1722,62 @@ alien again; only the twin is ever colonised (other alien faces stay raid target
   defeat, fanfare), replaceable from `/admin`.
 - No SQL migration: everything lives in the game state (JSON).
 
+## Chantier 19 (second half) — The second colony
+
+Owner's answers (this conversation): one **shared research** held by the home colony, the
+sister's Library sending its points over; founding by a **settlers' ship** (≥ 5 kiwis,
+Kikiwiwi allowed, a chosen freight); links carry **resources and kiwis**, no risk; the
+**last aliens**: 48 h of quiet, waves ×0.5 rising to ×1 in 4 days, **ruins** and **ferret
+dens**; a **light 3D staging** from home; allies **see** the sister and **deliver** to it;
+conquest around **8–10 days** for the active bot; the bot **plays both colonies**.
+
+- **Two linked game states**, not one state with two faces: the sister is an ordinary
+  `GameState` (twin map, same seed and calendar, its own `createdAt`), so `advance`, the
+  renderer ("the face on show at the origin") and every view stay unchanged. The link is
+  `state.colony` (save v23). Online: two `games` rows (`colony` 0/1, migration
+  `20261027000000_linked_colonies.sql`); locally: two saves.
+- **Founding** is a mission `found` (no fight, nothing hidden: resolved on the client too);
+  the settlers leave home alive (`emigrate`: no memorial, no mourning) and the landing writes
+  `home.colony.founding`; the sister is created outside `advance` (`takeFounding`) by
+  whoever holds both states (server, client, bot). The Nest 1 houses 4: the settlers raise up
+  to **two level-1 huts** for the others (an over-housed start felt broken).
+- **Shared research**: a sister never completes a technology; its points pile up in
+  `research.outbox` and go home at each sync (current technology, or the bank). Each state
+  stays at its own time (no forced advance of the colony off screen, which would empty the
+  "while you were away" summary): a technology reaches the sister at the next sync. Ages and
+  monuments stay per colony; technologies of a later age still apply in a younger sister
+  (their buildings stay locked by the age). `setResearch` from the sister is applied at home.
+- **Sync points**: the server's `linkColonies` after hidden landings on `load` and after every
+  command of a linked player (founding, ships between the faces, research), the **sister row
+  first** (a write conflict can lose one batch of points, never count it twice); the client's
+  `linkLocal` after every tick and command (local mode); the bot every round.
+- **Links**: the other colony is a delivery target (`sister`) on both sides, with the twin's
+  flight time; deliveries may carry kiwis to it (never to an ally), one Kikiwiwi per ship, one
+  kiwi always kept home; they land idle with new ids. A ship is handed over once (`delivered`).
+- **Last aliens**: `sisterThreat` multiplies the wave power (×0.5 → ×1 over 96 h, ×(1 + 0.15
+  per den standing)); 3 dens and 4–6 ruins drawn from `<seed>/<face>/traces` (public: the face
+  is ours). A den falls to the guards' **raid** (ground power ≥ 10 × the garrison power,
+  foreseen, no luck: the weakest guards are hurt 6 h) or a Kikiwiwi's smash.
+- **Allies**: they see the sister's layout and free storage (`AllySnapshot.sister`) and may
+  deliver to `ally:<id>:1`; its planet is not drawn yet (debt). A solo colony moved into a
+  universe and a guest transfer take the sister along; an imported local save loses it (its
+  conquest cannot be checked).
+- **3D staging**: the camera rises towards space (2.4 × the framing), the twin comes closer,
+  bolts, flashes, the queen's crown tumbling, clouds blown away, smoke; the 2D card becomes a
+  caption. Played from home only; while visiting a planet the 2D card plays alone.
+- **Rule fix found by the bot**: a deep reconnaissance always passes over the queen's lair
+  once known (her place is public): her estimate widened ±40 % after a few days and no final
+  assault was ever "likely". Planner: the default final crew leaves seats for the holders
+  flying back (the return must fit the hold).
+- **Bot** (`bot/siege.ts`): deep recon until the queen and 3 holds are known; assaults with
+  ×1.15 margin on the weakest known holds (the Kikiwiwi leads the first and stays to fortify;
+  holders the strongest half); reinforcements only before a likely loss, at most half of who
+  could leave; a refresh recon twice a day at most; the final when likely, or uncertain with
+  both sides ≥ 1.15 × the middle of the queen's estimate; then 6 settlers and 30 % of each
+  stock. It plays the sister with the same decisions (`linkOrder` sends home's surplus).
+- **Balance** (`pnpm balance:siege`, 2 seeds × 6 biomes × 12 days): the queen went from 26 /
+  16 to **24 / 14** (ground / air). BALANCE_PLACEHOLDER
+
 ## Chantier 24 — Free camera and planets fixed in space
 
 Owner's answers: the twin hides at the default zoom and shows when zooming out, the camera

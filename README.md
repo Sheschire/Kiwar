@@ -9,6 +9,20 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 19 (2e moitié)** — la face conquise devient votre **seconde colonie** : « Fonder la
+> colonie » envoie un **vaisseau de colons** (au moins 5 kiwis, Kikiwiwi permis, et la
+> cargaison choisie) ; à l'atterrissage naît une colonie avec un Nid 1 et des abris. Elle
+> partage le **calendrier** et la **recherche** (sa Bibliothèque envoie ses points à la
+> recherche commune), mais garde **son âge et son monument**. On **bascule** d'une face à
+> l'autre (bouton planète, menu du téléphone, « Jouer cette colonie » en visite) ; l'autre
+> moitié du kiwi brille dans le ciel, **éclairée et bâtie**. Le vaisseau relie les deux faces
+> (**ressources et kiwis**, sans risque). Les **derniers aliens** y lancent des vagues plus
+> faibles au début, renforcées par les **nids de furets** encore debout (raid des gardes ou
+> Kikiwiwi) ; des **ruines** se fouillent pour du butin. En univers, les allié·es voient votre
+> colonie sœur et peuvent lui livrer. Les combats du siège se jouent **en 3D** depuis chez
+> soi : la jumelle s'approche, éclairs, couronne de la reine qui tombe, nuages qui se
+> dissipent. Le bot mène tout le siège (conquête vers 9–10 jours de jeu).
+>
 > **Chantier 19 (1re moitié)** — la **face jumelle se conquiert** : dès l'**âge du Fer** et un
 > **Kikiwiwi**, l'écran **Siège** (bouton cible, menu du téléphone, aire d'envol) guide en
 > quatre étapes. Une **reconnaissance approfondie** estime la force des aliens de chaque

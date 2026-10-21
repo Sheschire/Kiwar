@@ -52,7 +52,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 16  | Pose et terrain lisibles (modèle fantôme, zones, gains au dépôt)        | ✅      |
 | 17  | Identité visuelle : bâtiments distincts, planète alien, ciel vivant     | ✅      |
 | 18  | Bot d'équilibrage complet : chemins, camps, expéditions                 | ✅      |
-| 19  | Colonisation de la face alien jumelle (siège, seconde colonie)          | 1/2 ✅  |
+| 19  | Colonisation de la face alien jumelle (siège, seconde colonie)          | ✅      |
 | 20  | Correctifs et confort (tap qui se bloque, tri, file repliable, inertie) | ✅      |
 | 21  | Interface mobile : barre au pouce, menu nommé                           | ✅      |
 | 22  | Premières impressions : écran de chargement animé, intro interactive    | ✅      |
@@ -65,7 +65,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 29  | Canaux de jus (creuser la chair dès l'Éden)                             | à faire |
 | —   | Plus tard : ligues (classement), JcJ optionnel, colonisation, échanges  | idées   |
 
-**Prochaine conversation** : retours de fin octobre 2026 → chantiers 20 à 29. Ordre choisi
+**Prochaine conversation** : chantier 25 (classes), puis 26, 27, 28, 29. Ordre choisi
 par le porteur : **les correctifs client d'abord** (20, puis 21 ; 22 et 23 en parallèle ; 24 à
 coordonner avec le 19), **le 19 (colonisation) en parallèle** dès que le 18 est fini, puis les
 chantiers de simulation après le 19 : 25 → 26 → 27, et 28, 29. Le chantier 15 a ouvert le skill
@@ -75,10 +75,13 @@ pouce + menu nommé, skill `kiwar-client`) : tout nouveau bouton du HUD y prend 
 Le chantier 23 a ajouté un limiteur d'images/s et un ralenti au repos (`render/frameLimiter.ts`) :
 une nouvelle animation visible importante (spectacle, outil en main) doit réveiller la boucle
 (`renderer.wake()` ou la liste des signes de vie de `drawFrame`).
-Le chantier 19 (1re moitié : siège et assaut final) a ouvert le skill `kiwar-colonies` ; la
-**2e conversation** du 19 fait la seconde colonie (état lié, colons, sélecteur, planète sœur,
-migration SQL), les liaisons, les menaces de la seconde face, le bot et l'équilibrage : voir
-« Reste » dans `docs/chantiers/19-colonisation.md`. Le chantier 24 est fait : les planètes ont
+Le chantier 19 est fini (skill `kiwar-colonies`) : siège, conquête, puis la **seconde
+colonie** sur la face conquise — deux états liés (`state.colony`, deux lignes `games`, deux
+sauvegardes locales), recherche commune, liaisons (ressources et kiwis), derniers aliens
+(ruines, nids de furets), planète sœur éclairée, bascule, combats en 3D, bot qui mène le
+siège. **Tout ce qui touche un état de jeu doit marcher dans les deux colonies** (une sœur n'a
+ni cibles ni `aliens`, ne termine jamais une technologie). Le porteur doit exécuter la
+migration `20261027000000_linked_colonies.sql`. Prochains : 25 → 26 → 27, puis 28, 29. Le chantier 24 est fait : les planètes ont
 une place fixe (`render/space.ts`), la planète sœur prend la place de la jumelle et
 `renderer.setTwinApproach(t)` la rapproche pendant les assauts (skill `kiwar-world`, « Map of
 space »).
@@ -91,12 +94,12 @@ space »).
   se rapproche pendant une visite ; les faces aliens inconnues de l'univers ne sont pas
   dessinées (seulement la carte des cibles).
 
-- Chantier 19 (1re moitié) : la mise en scène est un spectacle 2D par-dessus la scène (la
-  jumelle ne se rapproche pas encore : `renderer.setTwinApproach(t)` du chantier 24 est prêt) ; le bot
-  ne mène pas de siège (sonde `pnpm balance:siege` seulement : chiffres réglés sur 1 graine
-  × 4 biomes) ; le résumé « pendant votre absence » ne cite pas les contre-attaques ; les
-  kiwis qui rentrent d'une tête de pont tombée volent sans vaisseau visible ; « Fonder la
-  colonie » est grisé jusqu'à la 2e moitié.
+- Chantier 19 : les kiwis qui rentrent d'une tête de pont tombée volent sans vaisseau
+  visible ; la planète sœur d'un·e allié·e n'est pas dessinée (les livraisons marchent) ; la
+  sœur n'a pas de cibles d'expédition ; `UniverseModal` ne liste pas la sœur ; le bot ne
+  conquiert qu'environ deux tiers des parties en 12 jours ; la sœur grandit très vite
+  (technologies partagées, cargaisons) ; mise en scène 3D vérifiée en Chromium sans GPU
+  seulement. Voir « Reste » dans `docs/chantiers/19-colonisation.md`.
 - Le bot d'équilibrage n'utilise ni camps, ni chemins, ni expéditions.
 - Chantier 20 : l'inertie (τ 0,6 s, rotation à deux doigts) et le blocage du tap n'ont été
   vérifiés qu'en Chromium headless (évènements tactiles CDP) : à confirmer sur un vrai
