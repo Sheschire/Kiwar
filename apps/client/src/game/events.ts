@@ -1,8 +1,25 @@
-import { AGE_IDS, RESOURCE_IDS, type GameEvent, type ResourceId } from '@kiwar/shared';
+import {
+  AGE_IDS,
+  RESOURCE_IDS,
+  type GameEvent,
+  type MissionKind,
+  type ResourceId,
+} from '@kiwar/shared';
 import type { GameRenderer } from '../render/GameRenderer';
 import { pushToast, uiStore } from '../ui/store';
 import { playGameEventSounds } from '../audio/sounds';
-import { formatDuration, formatNumber, translate } from '../i18n/i18n';
+import { formatDuration, formatNumber, translate, type TKey } from '../i18n/i18n';
+
+const SLICE_KEYS = ['bark', 'dew', 'moss', 'twig', 'down', 'seeds'] as const;
+/** The name of a sector's slice, as a translated parameter. */
+const sliceKey = (sector: number) => `@siege.slices.${SLICE_KEYS[sector % 6]!}`;
+
+/** Chantier 19: toasts of the siege missions (won, lost). */
+const SIEGE_TOASTS: Partial<Record<MissionKind, readonly [TKey, TKey]>> = {
+  assault: ['siege.toast.taken', 'siege.toast.repelled'],
+  reinforce: ['siege.toast.reinforced', 'siege.toast.reinforced'],
+  final: ['siege.toast.queenFell', 'siege.toast.queenHeld'],
+};
 
 /** Turns simulation events into toasts and visual effects. */
 export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): void {
@@ -96,6 +113,11 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         break;
       case 'expeditionArrived':
         if (e.broken) pushToast('error', 'ship.brokeDown');
+        else if (e.mission && SIEGE_TOASTS[e.mission])
+          pushToast(
+            e.victory || e.mission === 'reinforce' ? 'success' : 'error',
+            SIEGE_TOASTS[e.mission]![e.victory || e.mission === 'reinforce' ? 0 : 1],
+          );
         else if (e.mission === 'recon')
           pushToast(
             e.spotted ? 'error' : 'info',
@@ -133,6 +155,21 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
       }
       case 'repaired':
         pushToast('success', 'events.repaired', { name: `@buildings.${e.buildingType}.name` });
+        break;
+      case 'counterAnnounced':
+        pushToast('error', 'siege.toast.counterAnnounced', {
+          name: sliceKey(e.sector),
+          duration: formatDuration(uiStore.getState().lang, e.strikeAt - e.at),
+        });
+        break;
+      case 'counterStruck':
+        if (e.victory)
+          pushToast('success', 'siege.toast.counterHeld', { name: sliceKey(e.sector) });
+        else
+          pushToast('error', 'siege.toast.counterFell', { name: sliceKey(e.sector), dead: e.dead });
+        break;
+      case 'bridgeheadFortified':
+        pushToast('success', 'siege.toast.fortified', { name: sliceKey(e.sector) });
         break;
       case 'waveAnnounced':
         pushToast('error', 'threats.announced', {

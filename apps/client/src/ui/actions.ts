@@ -20,7 +20,7 @@ import type { GameController } from '../game/GameController';
 import type { GameRenderer } from '../render/GameRenderer';
 import { saveQualityChoice, type QualityChoice } from '../render/quality';
 import { saveFpsCap, type FpsCap } from '../render/frameLimiter';
-import { pushToast, saveShowLevels, uiStore } from './store';
+import { pushToast, saveShowLevels, uiStore, type SiegePlan } from './store';
 import { startIntro } from './intro';
 import { audio } from '../audio/engine';
 import { playCommandSound } from '../audio/sounds';
@@ -292,6 +292,24 @@ export const actions = {
     if (!pad) return false;
     actions.visitAlly(null);
     uiStore.setState({ modal: 'expedition', expeditionPad: pad.id, deliverTo: friendId });
+    return true;
+  },
+  /** Chantier 19: the planner of a free launchpad, set to a siege mission. */
+  planSiege(plan: SiegePlan): boolean {
+    const game = uiStore.getState().game;
+    const pad = game?.buildings.find(
+      (b) => b.type === 'launchpad' && !b.damaged && !isLaunchpadBusy(game, b.id),
+    );
+    if (!pad) {
+      pushToast('error', 'siege.noShip');
+      return false;
+    }
+    uiStore.setState({
+      modal: 'expedition',
+      expeditionPad: pad.id,
+      deliverTo: null,
+      siegePlan: plan,
+    });
     return true;
   },
   /** Flies the camera to an ally's planet (read-only), or back home with null. */

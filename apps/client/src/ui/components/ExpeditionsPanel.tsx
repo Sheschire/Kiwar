@@ -51,9 +51,13 @@ export function ExpeditionsPanel() {
                 >
                   {e.mission === 'recon'
                     ? t('recon.done')
-                    : e.result?.victory
-                      ? t('expedition.victory')
-                      : t('expedition.defeat')}{' '}
+                    : e.mission === 'reinforce'
+                      ? t('siege.missions.reinforce')
+                      : e.mission === 'retreat'
+                        ? t('siege.report.retreat')
+                        : e.result?.victory
+                          ? t('expedition.victory')
+                          : t('expedition.defeat')}{' '}
                   · {t('expedition.report')}
                 </button>
               ) : (

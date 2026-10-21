@@ -44,7 +44,14 @@ export type Modal =
   | 'demolish'
   | 'village'
   | 'defense'
-  | 'plans';
+  | 'plans'
+  | 'siege';
+
+/** Chantier 19: a siege mission prepared from the Siege screen (the planner opens on it). */
+export interface SiegePlan {
+  mission: 'recon' | 'assault' | 'reinforce' | 'final';
+  sector?: number;
+}
 
 export interface UiState {
   lang: Lang;
@@ -88,6 +95,8 @@ export interface UiState {
   expeditionPad: string | null;
   /** The expedition modal opens on a delivery to this ally (`Friend.id`). */
   deliverTo: string | null;
+  /** Chantier 19: the siege mission the expedition planner is set to (null: free choice). */
+  siegePlan: SiegePlan | null;
   /** Expedition whose report is shown. */
   reportId: string | null;
   /** Building waiting for demolition confirmation. */
@@ -218,6 +227,7 @@ export const uiStore = createStore<UiState>(() => ({
   guestTransfer: null,
   expeditionPad: null,
   deliverTo: null,
+  siegePlan: null,
   reportId: null,
   demolishId: null,
   unreadReports: [],

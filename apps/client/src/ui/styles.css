@@ -4536,3 +4536,218 @@ button.chip:focus-visible {
     right: max(0px, calc(50% - 300px));
   }
 }
+
+/* ---------- Siege of the twin face (chantier 19) ---------- */
+.siege-layout {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.siege-layout .siege-map {
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 240px;
+}
+
+.siege-wedge {
+  fill: transparent;
+  stroke: rgba(246, 234, 208, 0.85);
+  stroke-width: 0.25;
+}
+
+.siege-wedge.is-inner {
+  fill: rgba(43, 29, 18, 0.12);
+}
+
+.siege-wedge.is-clickable {
+  cursor: pointer;
+}
+
+.siege-wedge.is-clickable:hover {
+  fill: rgba(246, 215, 107, 0.22);
+}
+
+.siege-wedge.is-held {
+  fill: rgba(111, 154, 44, 0.28);
+}
+
+.siege-wedge.is-threatened {
+  stroke: var(--berry);
+  stroke-width: 0.6;
+  stroke-dasharray: 1 0.6;
+}
+
+.siege-wedge.is-selected {
+  fill: rgba(246, 215, 107, 0.35);
+  stroke: #f6d76b;
+  stroke-width: 0.6;
+}
+
+.siege-mark {
+  pointer-events: none;
+}
+
+.siege-hold {
+  font-size: 2px;
+  font-weight: 700;
+  fill: var(--paper-light);
+  paint-order: stroke;
+  stroke: rgba(43, 29, 18, 0.75);
+  stroke-width: 0.45;
+}
+
+.siege-flag path {
+  fill: var(--leaf);
+  stroke: var(--paper-light);
+  stroke-width: 0.2;
+}
+
+.siege-flag .siege-pole {
+  fill: none;
+  stroke: #4a3324;
+  stroke-width: 0.35;
+}
+
+.siege-flag.is-fortified path:not(.siege-pole) {
+  fill: var(--gold);
+}
+
+.siege-shield {
+  fill: #8a5f38;
+  stroke: var(--gold);
+  stroke-width: 0.3;
+}
+
+.siege-queen path {
+  fill: var(--gold);
+  stroke: #4a3324;
+  stroke-width: 0.3;
+}
+
+.siege-key-flag {
+  color: var(--leaf-dark);
+}
+
+.siege-key-queen {
+  color: var(--gold);
+}
+
+.siege-steps {
+  flex: 1;
+  min-width: 220px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.siege-step {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.siege-step p {
+  margin: 2px 0 4px;
+}
+
+.siege-step-n {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  background: var(--paper-dark);
+  border: 1px solid var(--edge);
+}
+
+.siege-step.is-done .siege-step-n {
+  background: var(--leaf);
+  color: var(--paper-light);
+  border-color: var(--leaf-dark);
+}
+
+.siege-counter {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--edge);
+  background: var(--paper-light);
+}
+
+.siege-counter p {
+  margin: 4px 0 0;
+}
+
+.siege-counter.odds-unlikely,
+.siege-counter.odds-unknown {
+  border-color: var(--berry);
+}
+
+.siege-sector .row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.siege-checks {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+}
+
+.siege-won {
+  text-align: center;
+  padding: 8px 0 4px;
+}
+
+.siege-reports {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.chip-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.chip-pick {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 2px 10px 2px 4px;
+  border-radius: 999px;
+  border: 1px solid var(--edge);
+  background: var(--paper-light);
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.chip-pick input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chip-pick.is-on {
+  background: #e4efc9;
+  border-color: var(--leaf-dark);
+}
+
+@media (max-width: 760px) {
+  .siege-layout .siege-map {
+    max-width: none;
+    width: 100%;
+    align-items: center;
+  }
+}

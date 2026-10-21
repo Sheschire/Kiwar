@@ -23,6 +23,7 @@ import { IntroOverlay } from './components/IntroOverlay';
 import { FollowBadge, VillageModal } from './components/VillageModal';
 import { DefenseModal, ThreatBadge } from './components/DefenseModal';
 import { PlansModal } from './components/ResearchModal';
+import { CounterBadge, SiegeModal } from './components/SiegeModal';
 import { LevelsButton, LogisticsButton, PlacingBanner } from './components/BuildingTree';
 import { BootScreen, Guard } from './components/Guard';
 import { VisitBanner } from './components/VisitBanner';
@@ -93,6 +94,7 @@ function Badges() {
   return (
     <div class="badge-stack">
       <ThreatBadge />
+      <CounterBadge />
       <CometBadge />
       <SpeechBadge />
       <HungerBadge />
@@ -216,6 +218,7 @@ export function App() {
         {modal === 'village' && <VillageModal />}
         {modal === 'defense' && <DefenseModal />}
         {modal === 'plans' && <PlansModal />}
+        {modal === 'siege' && <SiegeModal />}
         <JoinModal />
         <ChatPanel />
         <OfflineModal />

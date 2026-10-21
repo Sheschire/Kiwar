@@ -79,12 +79,14 @@ import {
   ResourceIcon,
   SeasonIcon,
   ShipIcon,
+  TargetIcon,
 } from '../icons';
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
 import { LevelStats, UpgradePreview } from './StatChanges';
 import { buildingIcon, Icon, type IconName } from '../iconSet';
 import { LabInfo } from './LabInfo';
+import { siegeVisible } from './SiegeModal';
 import { TitanWorks } from './TitanWorks';
 import { DustSection } from './DustSection';
 import { MeteorSection } from './MeteorSection';
@@ -373,6 +375,11 @@ function BuildingSection({
             <ShipIcon size={18} />{' '}
             {isLaunchpadBusy(game, b.id) ? t('building.shipAway') : t('building.prepare')}
           </button>
+          {siegeVisible(game) && (
+            <button class="btn" onClick={() => uiStore.setState({ modal: 'siege' })}>
+              <TargetIcon size={18} /> {t('siege.button')}
+            </button>
+          )}
         </>
       )}
       {b.type === 'school' && <SchoolInfo game={game} b={b} now={now} t={t} />}

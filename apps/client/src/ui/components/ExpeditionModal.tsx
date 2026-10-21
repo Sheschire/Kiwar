@@ -14,6 +14,7 @@ import {
   techEffects,
   validateCommand,
   type BuildingId,
+  type ExpeditionPlan,
   type ExpeditionTarget,
   type GameState,
   type MissionKind,
@@ -21,11 +22,14 @@ import {
   type VillagerId,
   FUEL,
   stardustOf,
+  twinTarget,
 } from '@kiwar/shared';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { KiwiIcon, ResourceIcon, ShipIcon, StardustIcon } from '../icons';
 import { uiStore, useT, useUi, type Translate } from '../store';
+import type { TKey } from '../../i18n/i18n';
+import { BringBackPicker, FinalLines, HoldersPicker, SiegeHeader, SiegeMap } from './SiegeParts';
 import { Cost } from './Cost';
 import { IntelMap } from './IntelMap';
 import { KiwiPortrait } from './KiwiPortrait';
@@ -83,15 +87,21 @@ export function EnemyLine(props: { game: GameState; targetId: string }) {
   );
 }
 
+type PlanBase = Omit<ExpeditionPlan, 'provisions' | 'crew'> & {
+  crew: VillagerId[];
+  mission: MissionKind;
+};
+
 /** Exact round-trip rations for a crew, with a 10 % safety margin, rounded up to 5. */
-function suggestedProvisions(
-  game: GameState,
-  plan: { launchpadId: BuildingId; targetId: string; crew: VillagerId[]; mission: MissionKind },
-): { pulp: number; juice: number } {
+function suggestedProvisions(game: GameState, plan: PlanBase): { pulp: number; juice: number } {
   const f = forecastExpedition(game, { ...plan, provisions: { pulp: 0, juice: 0 } });
   if (!f) return { pulp: 0, juice: 0 };
-  const up5 = (v: number) => Math.ceil((v * 2 * 1.1) / 5) * 5;
-  return { pulp: up5(f.needOneWay.pulp), juice: up5(f.needOneWay.juice) };
+  // With nothing aboard, the shortfall of the way back is what the returning kiwis eat.
+  const up5 = (out: number, back: number) => Math.ceil(((out - back) * 1.1) / 5) * 5;
+  return {
+    pulp: up5(f.needOneWay.pulp, f.returnSurplus.pulp),
+    juice: up5(f.needOneWay.juice, f.returnSurplus.juice),
+  };
 }
 
 /** Available kiwis, strongest first (most discreet first for a reconnaissance). */
@@ -175,7 +185,7 @@ function CrewPicker(props: {
                       })}
                     </span>
                   )}
-                  {props.mission === 'raid' && on && risk !== undefined && (
+                  {props.mission !== 'recon' && on && risk !== undefined && (
                     <span class={risk > 0.5 ? 'warn' : 'muted'}>
                       {t('expedition.risk', { pct: Math.round(risk * 100) })}
                     </span>
@@ -195,6 +205,29 @@ export function targetLabel(t: Translate, target: ExpeditionTarget): string {
   return target.distance === 0
     ? t('expedition.twin', { face })
     : t('expedition.face', { face, index: target.kiwiIndex + 1 });
+}
+
+const DEFAULT_CREW: Record<MissionKind, number> = {
+  raid: 6,
+  recon: 1,
+  assault: 8,
+  reinforce: 2,
+  final: 0,
+  retreat: 0,
+};
+
+const LAUNCH_LABEL = {
+  raid: 'expedition.launch',
+  recon: 'recon.launch',
+  assault: 'siege.launch.assault',
+  reinforce: 'siege.launch.reinforce',
+  final: 'siege.launch.final',
+  retreat: 'expedition.launch',
+} as const satisfies Record<MissionKind, TKey>;
+
+/** Chantier 19: a face whose queen fell takes no more missions. */
+function conquered(game: GameState, target: ExpeditionTarget): boolean {
+  return game.siege.conqueredAt > 0 && twinTarget(game)?.id === target.id;
 }
 
 function Slider(props: {
@@ -225,21 +258,43 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
   const map = useUi((s) => s.map);
   const now = useUi((s) => s.now);
   const pad = launchpadOf(game, padId);
-  const [targetId, setTargetId] = useState(game.targets[0]?.id ?? '');
+  // Chantier 19: a siege mission prepared from the Siege screen sticks to the twin face.
+  const siege = useUi((s) => s.siegePlan);
+  const twin = twinTarget(game);
+  const [targetId, setTargetId] = useState(
+    (siege ? twin?.id : undefined) ?? game.targets.find((x) => !conquered(game, x))?.id ?? '',
+  );
   // Nothing known yet about the twin face: suggest scouting it first.
   const [mission, setMission] = useState<MissionKind>(() =>
-    game.targets[0] && !game.intel[game.targets[0].id] ? 'recon' : 'raid',
+    siege ? siege.mission : game.targets[0] && !game.intel[game.targets[0].id] ? 'recon' : 'raid',
   );
+  const sector = siege?.sector;
   const max = pad ? maxCrew(game, pad, mission) : 0;
   const target = game.targets.find((x) => x.id === targetId);
-  const pick = (m: MissionKind) =>
-    candidates(game, m)
-      .slice(0, Math.min(m === 'recon' ? 1 : 6, pad ? maxCrew(game, pad, m) : 0))
+  const pick = (m: MissionKind) => {
+    const room = pad ? maxCrew(game, pad, m) : 0;
+    // The final assault takes as many as the hold allows (with room for the rations).
+    const n = m === 'final' ? Math.floor(room * 0.75) : Math.min(DEFAULT_CREW[m], room);
+    let titans = 0;
+    return candidates(game, m)
+      .filter((c) => !c.v.kikiwiwi || titans++ < 1)
+      .slice(0, n)
       .map((c) => c.v.id);
+  };
   const [crew, setCrew] = useState<VillagerId[]>(() => pick(mission));
+  // Assault: who stays on the bridgehead (the strongest third by default).
+  const [holders, setHolders] = useState<VillagerId[]>(() =>
+    crew.slice(0, Math.max(1, Math.round(crew.length / 3))),
+  );
+  const [bringBack, setBringBack] = useState<VillagerId[]>([]);
+  const extra = (c: VillagerId[] = crew) => ({
+    ...(sector !== undefined ? { sector } : {}),
+    ...(mission === 'assault' ? { holders: holders.filter((id) => c.includes(id)) } : {}),
+    ...(mission === 'reinforce' ? { bringBack } : {}),
+  });
   const [food, setFood] = useState(() =>
     target
-      ? suggestedProvisions(game, { launchpadId: padId, targetId, crew, mission })
+      ? suggestedProvisions(game, { launchpadId: padId, targetId, crew, mission, ...extra() })
       : { pulp: 0, juice: 0 },
   );
   // Chantier 13: stardust burnt as fuel, once the colony has seen some.
@@ -253,6 +308,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
     crew,
     provisions: food,
     mission,
+    ...extra(),
     ...(fuel ? { fuel: true } : {}),
   };
   const switchTo = (m: MissionKind) => {
@@ -262,6 +318,15 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
     setCrew(c);
     setFood(suggestedProvisions(game, { launchpadId: padId, targetId, crew: c, mission: m }));
   };
+  const fresh = (c: VillagerId[], back = bringBack) =>
+    suggestedProvisions(game, {
+      launchpadId: padId,
+      targetId,
+      crew: c,
+      mission,
+      ...extra(c),
+      ...(mission === 'reinforce' ? { bringBack: back } : {}),
+    });
   const f = forecastExpedition(game, plan)!;
   const error = validateCommand(game, { type: 'launchExpedition', ...plan }, { now, map });
   const fmt = (v: number) => formatNumber(lang, Math.round(v));
@@ -275,67 +340,88 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
   const backOk = f.returnSurplus.pulp >= -1e-6 && f.returnSurplus.juice >= -1e-6;
   const setCrewAndFood = (c: VillagerId[]) => {
     setCrew(c);
-    setFood(suggestedProvisions(game, { launchpadId: padId, targetId, crew: c, mission }));
+    setFood(fresh(c));
   };
   const intel = game.intel[targetId];
 
   return (
     <div class="expedition">
-      <section class="field">
-        <h3>{t('recon.mission')}</h3>
-        <div class="segmented mission-switch" role="group" aria-label={t('recon.mission')}>
-          {(['recon', 'raid'] as const).map((m) => (
-            <button
-              key={m}
-              class={`btn ${m === mission ? 'btn-active' : ''}`}
-              aria-pressed={m === mission}
-              onClick={() => switchTo(m)}
-            >
-              {t(`recon.kinds.${m}`)}
-            </button>
-          ))}
-        </div>
-        <p class="small muted">{t(`recon.hints.${mission}`)}</p>
-      </section>
+      {siege ? (
+        <SiegeHeader game={game} mission={mission} sector={sector} />
+      ) : (
+        <section class="field">
+          <h3>{t('recon.mission')}</h3>
+          <div class="segmented mission-switch" role="group" aria-label={t('recon.mission')}>
+            {(['recon', 'raid'] as const).map((m) => (
+              <button
+                key={m}
+                class={`btn ${m === mission ? 'btn-active' : ''}`}
+                aria-pressed={m === mission}
+                onClick={() => switchTo(m)}
+              >
+                {t(`recon.kinds.${m}`)}
+              </button>
+            ))}
+          </div>
+          <p class="small muted">{t(`recon.hints.${mission}`)}</p>
+        </section>
+      )}
 
       <section class="field">
-        <h3>{t('expedition.target')}</h3>
+        {!siege && <h3>{t('expedition.target')}</h3>}
         <div class="targets">
-          {game.targets.map((x) => (
-            <button
-              key={x.id}
-              class={`target-card ${x.id === targetId ? 'is-selected' : ''}`}
-              aria-pressed={x.id === targetId}
-              onClick={() => {
-                setTargetId(x.id);
-                setFood(
-                  suggestedProvisions(game, { launchpadId: padId, targetId: x.id, crew, mission }),
-                );
-              }}
-            >
-              <strong>{targetLabel(t, x)}</strong>
-              <span class="small muted">
-                {t('expedition.aliens')} · <IntelLine game={game} target={x} />
-              </span>
-              <span class="small muted">
-                {t('expedition.travel', {
-                  duration: formatDuration(
-                    lang,
-                    travelTime(x, pad, [], mission, techEffects(game).travel),
-                  ),
-                })}{' '}
-                · {t('recon.mapLabel', { seen: game.intel[x.id]?.sectors.length ?? 0, total: 12 })}
-              </span>
-              {mission === 'raid' && (
-                <span class="small">
-                  {t('expedition.potentialLoot')} <Cost cost={potentialLoot(game, x.distance)} />
-                </span>
-              )}
-            </button>
-          ))}
+          {!siege &&
+            game.targets
+              .filter((x) => !conquered(game, x))
+              .map((x) => (
+                <button
+                  key={x.id}
+                  class={`target-card ${x.id === targetId ? 'is-selected' : ''}`}
+                  aria-pressed={x.id === targetId}
+                  onClick={() => {
+                    setTargetId(x.id);
+                    setFood(
+                      suggestedProvisions(game, {
+                        launchpadId: padId,
+                        targetId: x.id,
+                        crew,
+                        mission,
+                      }),
+                    );
+                  }}
+                >
+                  <strong>{targetLabel(t, x)}</strong>
+                  <span class="small muted">
+                    {t('expedition.aliens')} · <IntelLine game={game} target={x} />
+                  </span>
+                  <span class="small muted">
+                    {t('expedition.travel', {
+                      duration: formatDuration(
+                        lang,
+                        travelTime(x, pad, [], mission, techEffects(game).travel),
+                      ),
+                    })}{' '}
+                    ·{' '}
+                    {t('recon.mapLabel', {
+                      seen: game.intel[x.id]?.sectors.length ?? 0,
+                      total: 12,
+                    })}
+                  </span>
+                  {mission === 'raid' && (
+                    <span class="small">
+                      {t('expedition.potentialLoot')}{' '}
+                      <Cost cost={potentialLoot(game, x.distance)} />
+                    </span>
+                  )}
+                </button>
+              ))}
         </div>
-        <IntelMap game={game} target={target} intel={intel} size={180} />
-        {intel && <EnemyLine game={game} targetId={targetId} />}
+        {siege ? (
+          <SiegeMap game={game} selected={sector} size={170} />
+        ) : (
+          <IntelMap game={game} target={target} intel={intel} size={180} />
+        )}
+        {intel && !siege && <EnemyLine game={game} targetId={targetId} />}
       </section>
 
       <section class="field">
@@ -354,6 +440,38 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
           onChange={setCrewAndFood}
         />
       </section>
+
+      {mission === 'assault' && (
+        <HoldersPicker
+          game={game}
+          crew={crew}
+          chosen={holders}
+          onChange={(h) => {
+            setHolders(h);
+            setFood(
+              suggestedProvisions(game, {
+                launchpadId: padId,
+                targetId,
+                crew,
+                mission,
+                ...(sector !== undefined ? { sector } : {}),
+                holders: h,
+              }),
+            );
+          }}
+        />
+      )}
+      {mission === 'reinforce' && sector !== undefined && (
+        <BringBackPicker
+          game={game}
+          sector={sector}
+          chosen={bringBack}
+          onChange={(b) => {
+            setBringBack(b);
+            setFood(fresh(crew, b));
+          }}
+        />
+      )}
 
       <section class="field">
         <div class="title-row">
@@ -405,10 +523,13 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
           <span>
             <i class="dot seg-food" /> {t('expedition.cargoFood')} {fmt(foodWeight)}
           </span>
-          {!f.recon && (
+          {mission === 'raid' && (
             <span>
               <i class="dot seg-loot" /> {t('expedition.cargoLoot')} {fmt(f.lootRoom)}
             </span>
+          )}
+          {f.returnCrew.length !== f.crew.length && (
+            <span>{t('siege.returning', { count: f.returnCrew.length })}</span>
           )}
         </div>
         <p class="small">
@@ -437,6 +558,10 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
               spread: Math.round(f.recon.spread * 100),
             })}
           </p>
+        ) : f.final ? (
+          <FinalLines forecast={f.final} />
+        ) : mission === 'reinforce' ? (
+          <p class="small">{t('siege.noFight')}</p>
         ) : (
           <p class="small">
             {t('expedition.strength', {
@@ -446,7 +571,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             })}
           </p>
         )}
-        {!f.recon && f.crew.length > 0 && (
+        {!f.recon && mission !== 'reinforce' && f.crew.length > 0 && (
           <p class="small">
             {t(f.woundsOnly ? 'expedition.expectedWounds' : 'expedition.expectedLosses', {
               count: Math.round(f.expectedLosses * 10) / 10,
@@ -488,11 +613,10 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
         disabled={error !== null}
         onClick={() => {
           if (actions.dispatch({ type: 'launchExpedition', ...plan }))
-            uiStore.setState({ modal: 'none', expeditionPad: null });
+            uiStore.setState({ modal: 'none', expeditionPad: null, siegePlan: null });
         }}
       >
-        <ShipIcon size={20} /> {t(mission === 'recon' ? 'recon.launch' : 'expedition.launch')} ·{' '}
-        {formatDuration(lang, f.travelMs * 2)}
+        <ShipIcon size={20} /> {t(LAUNCH_LABEL[mission])} · {formatDuration(lang, f.travelMs * 2)}
       </button>
       {error && <p class="small warn">{t(`errors.${error}`)}</p>}
     </div>
@@ -507,16 +631,20 @@ export function ExpeditionModal() {
   const padId = useUi((s) => s.expeditionPad);
   const deliverTo = useUi((s) => s.deliverTo);
   const [deliver, setDeliver] = useState(() => deliverTo !== null);
+  const siege = useUi((s) => s.siegePlan);
   if (!game || !padId) return null;
-  const close = () => uiStore.setState({ modal: 'none', expeditionPad: null, deliverTo: null });
+  const close = () =>
+    uiStore.setState({ modal: 'none', expeditionPad: null, deliverTo: null, siegePlan: null });
   const friends = game.friends.length > 0;
   return (
     <Modal
-      title={t(deliver && friends ? 'delivery.title' : 'expedition.title')}
+      title={t(
+        siege ? 'siege.planTitle' : deliver && friends ? 'delivery.title' : 'expedition.title',
+      )}
       onClose={close}
       class="modal-wide"
     >
-      {friends && (
+      {friends && !siege && (
         <div class="segmented mission-switch" role="group" aria-label={t('delivery.kind')}>
           {[false, true].map((d) => (
             <button
@@ -530,7 +658,7 @@ export function ExpeditionModal() {
           ))}
         </div>
       )}
-      {deliver && friends ? (
+      {deliver && friends && !siege ? (
         <DeliveryPlanner game={game} padId={padId as BuildingId} initialFriend={deliverTo} />
       ) : (
         <Planner game={game} padId={padId as BuildingId} />

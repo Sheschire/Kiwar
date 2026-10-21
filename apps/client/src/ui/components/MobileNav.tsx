@@ -17,11 +17,13 @@ import {
   ScrollIcon,
   ShieldIcon,
   SpeakerIcon,
+  TargetIcon,
 } from '../icons';
 import { Icon } from '../iconSet';
 import { uiStore, useT, useUi } from '../store';
 import { CompassNeedle } from './Compass';
 import { EggButton } from './EggButton';
+import { siegeVisible } from './SiegeModal';
 
 const closeMenu = () => uiStore.setState({ menuOpen: false });
 
@@ -206,6 +208,8 @@ function NavMenu() {
   const sync = useUi((s) => s.sync);
   const guest = useUi((s) => s.account?.isAnonymous ?? false);
   const objectiveReady = useObjectiveReady();
+  const siege = useUi((s) => (s.slowGame ? siegeVisible(s.slowGame) : false));
+  const counter = useUi((s) => !!s.slowGame?.siege.counter?.announced);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeMenu();
@@ -242,6 +246,15 @@ function NavMenu() {
           >
             <ScrollIcon size={28} />
           </Entry>
+          {siege && (
+            <Entry
+              label={t('siege.button')}
+              badge={counter ? '!' : undefined}
+              onClick={go(() => uiStore.setState({ modal: 'siege' }))}
+            >
+              <TargetIcon size={28} />
+            </Entry>
+          )}
           <Entry
             label={t('plans.research')}
             onClick={go(() => uiStore.setState({ modal: 'plans', plansTab: 'research' }))}

@@ -32,11 +32,13 @@ import {
   BookIcon,
   SpeakerIcon,
   StardustIcon,
+  TargetIcon,
 } from '../icons';
 import { actions } from '../actions';
 import { chatActions } from '../chatActions';
 import { uiStore, useT, useUi } from '../store';
 import { SyncBadge } from './SyncBadge';
+import { siegeVisible } from './SiegeModal';
 import { ClockChip, ClockTip } from './ClockChip';
 import { MoraleLine } from './NeedsWidgets';
 
@@ -232,6 +234,7 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
   const muted = useUi((s) => s.audio.muted);
   const villageOpen = useUi((s) => s.modal === 'village');
   const modal = useUi((s) => s.modal);
+  const siege = useUi((s) => (s.slowGame ? siegeVisible(s.slowGame) : false));
   const points = useUi((s) => s.game?.villagers.reduce((n, v) => n + v.statPoints, 0) ?? 0);
   const unassigned = useUi((s) => (s.game ? staffing(s.game).unassigned : 0));
   const freeSlots = useUi((s) => (s.game ? staffing(s.game).freeSlots : 0));
@@ -373,6 +376,16 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
           >
             <ShieldIcon />
           </button>
+          {siege && (
+            <button
+              class={`btn btn-icon parchment-btn ${modal === 'siege' ? 'btn-active' : ''}`}
+              aria-label={t('siege.button')}
+              title={t('siege.button')}
+              onClick={() => uiStore.setState({ modal: modal === 'siege' ? 'none' : 'siege' })}
+            >
+              <TargetIcon />
+            </button>
+          )}
           <button
             class={`btn btn-icon parchment-btn ${modal === 'plans' ? 'btn-active' : ''}`}
             aria-label={t('plans.button')}

@@ -1,4 +1,5 @@
-import { RESOURCE_IDS } from '@kiwar/shared';
+import { isSiegeMission, RESOURCE_IDS, type Expedition } from '@kiwar/shared';
+import { fmtRange, sectorName } from './SiegeParts';
 import { uiStore, useT, useUi } from '../store';
 import { Cost } from './Cost';
 import { KiwiPortrait } from './KiwiPortrait';
@@ -19,6 +20,7 @@ export function ReportModal() {
   const close = () => uiStore.setState({ modal: 'none', reportId: null });
   const looted = RESOURCE_IDS.some((k) => r.loot[k] > 0);
   const recon = e.mission === 'recon';
+  const siege = isSiegeMission(e.mission);
   const intel = game.intel[e.targetId];
   const injured = (r.injured ?? []).map((id) => e.roster.find((m) => m.id === id)?.name ?? id);
   return (
@@ -36,6 +38,8 @@ export function ReportModal() {
           <h2 class="warn">{t('expedition.defeat')}</h2>
           <p class="small warn">{t('ship.reportBroken')}</p>
         </>
+      ) : siege ? (
+        <SiegeReport e={e} />
       ) : recon ? (
         <>
           <h2>{t('recon.reportTitle')}</h2>
@@ -96,7 +100,9 @@ export function ReportModal() {
         <ul class="report-roster">
           {e.roster.map((m) => {
             const back = e.crew.includes(m.id);
-            const lost = !back;
+            // Chantier 19: kiwis who stayed on a bridgehead are alive.
+            const stayed = !back && siege && game.villagers.some((v) => v.id === m.id);
+            const lost = !back && !stayed;
             return (
               <li key={m.id} class={lost ? 'is-lost' : ''}>
                 <KiwiPortrait shiny={m.shiny ?? null} classId={m.classId} seed={m.id} size={36} />
@@ -105,19 +111,104 @@ export function ReportModal() {
                   {m.level !== undefined && ` · ${t('common.levelShort', { level: m.level })}`}
                 </span>
                 <span class={`small ${lost ? 'warn' : 'bonus'}`}>
-                  {lost ? t('expedition.lost') : t('expedition.survived')}
+                  {lost
+                    ? t('expedition.lost')
+                    : stayed
+                      ? t('siege.report.stayed')
+                      : t('expedition.survived')}
                 </span>
               </li>
             );
           })}
         </ul>
       </section>
-      {!recon && !r.broken && (
+      {!recon && !siege && !r.broken && (
         <p>
           <strong>{t('expedition.loot')}</strong>
           {looted ? <Cost cost={r.loot} /> : t('expedition.nothing')}
         </p>
       )}
     </Modal>
+  );
+}
+
+/** Chantier 19: what an assault, a reinforcement, the final assault or a retreat came to. */
+function SiegeReport({ e }: { e: Expedition }) {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const r = e.result!;
+  const where = e.sector !== undefined ? sectorName(t, e.sector) : '';
+  const fmt = (v: number) => formatNumber(lang, Math.round(v * 10) / 10);
+  if (e.mission === 'retreat')
+    return (
+      <>
+        <h2 class="warn">{t('siege.report.retreat')}</h2>
+        <p class="small">{t('siege.report.retreatBody', { sector: where })}</p>
+      </>
+    );
+  if (e.mission === 'reinforce')
+    return (
+      <>
+        <h2>{t(r.aborted ? 'siege.report.reinforceLate' : 'siege.report.reinforced')}</h2>
+        <p class="small">
+          {t(r.aborted ? 'siege.report.reinforceLateBody' : 'siege.report.reinforcedBody', {
+            sector: where,
+          })}
+        </p>
+      </>
+    );
+  if (e.mission === 'final')
+    return (
+      <>
+        <h2 class={r.victory ? 'bonus' : 'warn'}>
+          {t(r.victory ? 'siege.report.queenFell' : 'siege.report.queenHeld')}
+        </h2>
+        {r.sides && (
+          <>
+            <p class="small">
+              {t('siege.sideGround', {
+                strength: fmt(r.sides.strength.ground),
+                queen: fmt(r.sides.queen.ground),
+              })}
+            </p>
+            <p class="small">
+              {t('siege.sideAir', {
+                strength: fmt(r.sides.strength.air),
+                queen: fmt(r.sides.queen.air),
+              })}
+            </p>
+          </>
+        )}
+        {r.victory && <p class="small bonus">{t('siege.conqueredBody')}</p>}
+      </>
+    );
+  return (
+    <>
+      <h2 class={r.victory ? 'bonus' : 'warn'}>
+        {t(
+          r.bridgehead
+            ? 'siege.report.taken'
+            : r.victory
+              ? 'expedition.victory'
+              : 'siege.report.repelled',
+          {
+            sector: where,
+          },
+        )}
+      </h2>
+      <p class="small">
+        {t('siege.report.fight', {
+          strength: fmt(r.strength),
+          defense: fmtRange(lang, { min: r.defense, max: r.defense }),
+        })}
+      </p>
+      {r.bridgehead && (
+        <p class="small">
+          {t('siege.report.holding', {
+            count: (e.holders ?? []).filter((id) => !e.crew.includes(id)).length,
+          })}
+        </p>
+      )}
+    </>
   );
 }
