@@ -54,7 +54,7 @@ remplacent les anciens jalons 5 à 8 de `VISION.md`.
 | 18  | Bot d'équilibrage complet : chemins, camps, expéditions                 | ✅      |
 | 19  | Colonisation de la face alien jumelle (siège, seconde colonie)          | à faire |
 | 20  | Correctifs et confort (tap qui se bloque, tri, file repliable, inertie) | ✅      |
-| 21  | Interface mobile : barre au pouce, menu nommé                           | à faire |
+| 21  | Interface mobile : barre au pouce, menu nommé                           | ✅      |
 | 22  | Premières impressions : écran de chargement animé, intro interactive    | ✅      |
 | 23  | Lumières HD, tuiles exploitées vivantes, chemins pavés, sobriété        | à faire |
 | 24  | Caméra libre et planètes fixes dans l'espace                            | à faire |
@@ -70,6 +70,8 @@ par le porteur : **les correctifs client d'abord** (20, puis 21 ; 22 et 23 en pa
 coordonner avec le 19), **le 19 (colonisation) en parallèle** dès que le 18 est fini, puis les
 chantiers de simulation après le 19 : 25 → 26 → 27, et 28, 29. Le chantier 15 a ouvert le skill
 `kiwar-tasks` : toute tâche qui déplace des kiwis d'elle-même passe par `sim/tasks.ts`.
+Le chantier 21 a mis le HUD des téléphones et écrans tactiles dans `MobileNav.tsx` (barre au
+pouce + menu nommé, skill `kiwar-client`) : tout nouveau bouton du HUD y prend une entrée.
 
 ## Dette et idées en attente
 
@@ -180,6 +182,12 @@ chantiers de simulation après le 19 : 25 → 26 → 27, et 28, 29. Le chantier 
 - Chantier 13 : ramassage automatisé depuis le chantier 15 ; comète propre à chaque face, non
   montrée sur les planètes alliées ; pas de son dédié aux bénédictions ; la sonde `pnpm balance:ages` vérifie que les
   âges n'attendent pas une comète de trop.
+- Chantier 21 : barre au pouce et menu vérifiés en Chromium headless (tactile émulé) sur
+  375×667, 393×852, 915×412 et 820×1180 ; à essayer sur un vrai téléphone (zones de geste du
+  système, encoche). `scripts/tutorial-mobile.mjs` rejoue le tutoriel au doigt (serveur de dev
+  lancé) : à relancer après tout changement du HUD mobile. Pas de « Expéditions » dans le
+  menu (on part de l'aire d'envol). Les autres écrans (Plans, Défense, Village) ne sont pas
+  repensés pour le pouce (boutons d'action en haut).
 - Chantier 22 : l'intro n'a été vue qu'en rendu logiciel (images pas à pas) ; la fluidité sur
   un vrai téléphone moyen (60 images/s visées) reste à confirmer par le porteur ; les sons
   `intro.slice` et `intro.juice` sont synthétisés, choisis sans écoute (remplaçables depuis

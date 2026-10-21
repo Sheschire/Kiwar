@@ -1400,6 +1400,48 @@ false`), so night only darkens the ground around them.
   binding volume 0.35 (0.6), and `nightChorus`: level 1 for the first third of the night,
   fading to 0 by its middle (the night bed goes with them).
 
+## Chantier 21 — Mobile interface: thumb bar, named menu
+
+Owner's answers: the bar holds Build, Village, Egg, Defense, Menu; the menu is a drawer from
+the bottom (a side panel in landscape); desktop keeps its column (names in tooltips, as
+before); the bar shows on width **or** touch. Mock-up validated before coding. During the
+tutorial check: the "Put 4 kiwis to work" hint now says to upgrade the Pulpery (owner chose a
+clearer hint over changing the objective).
+
+- **When**: `ui/layout.ts` `THUMB_QUERY` = `(max-width: 760px), (max-height: 520px),
+  (pointer: coarse) and (max-width: 1500px)`; `useThumbLayout()` follows rotations; the HUD
+  gets `.thumb`. Phones always match, so the old phone offsets of the round buttons, the egg
+  and the panels were removed instead of overridden.
+- **Bar** (`MobileNav.tsx` `ThumbBar`): five slots, the egg raised in the middle
+  (`EggButton inBar`: progress ring, star egg as a chip beside it, short cost or "No room"
+  under it), Defense with the wave (or shelter) countdown coloured by the odds and a "!" for
+  an unread report, Menu with the chat unread count or "!" for a reward to collect. Hidden
+  while placing or painting paths (the banner takes the bottom).
+- **Menu** (`NavMenu`): mounted only while open (`menuOpen` in the store, not persisted),
+  `transform`/`opacity` animation, a veil closes it, Escape too. Groups Colony (Objectives,
+  Research), Map (Paths, Logistics, Levels, Recenter), Social (Universes, Chat when in a
+  universe), Settings (Sound, Settings with the save status). Entries fold the menu away
+  except Sound. "Expeditions" was left out: they start from the launchpad and the in-flight
+  panel already shows them. Two taps at most for everything.
+- **Layout**: `--thumb-h` (portrait: 72 px + safe area) and `--thumb-w` (landscape phones:
+  80 px + safe area). `.thumb-stack` holds, bottom up, the queue, the alerts
+  (`.badge-stack`), the expeditions and the nudges above the bar (bottom-left corner in
+  landscape) — no hand-placed offsets. Portrait sheet stops at the bar; landscape sheet and
+  objectives stop left of it. Tablets: bar centred, ≤ 560 px; upright, the drawer too.
+- **Tutorial in sight**: with the bar, objectives start folded into `.objective-pill` under
+  the resources (title and progress; when complete, "Collect" + reward, claimed in one tap);
+  the open panel has a fold button and shows its hint again.
+- **Busy sheets** (phones and touch): the tile sheet keeps the upgrade cost and button in a
+  `.sheet-foot` always in view (`UpgradeAction`), the "level N → N+1" table folds
+  (`UpgradePreview foldable`); the kiwi sheet folds garrison, rest, trait, masteries and story
+  (`FoldSection`, a `<details>` only in the thumb layout).
+- **Check**: `scripts/tutorial-mobile.mjs` plays the ten objectives by taps (bar, menu, Place,
+  the canvas through `renderer.pickTile`, "Build here", +, the pill) with time ×300 and
+  resources granted; passes on 375×667, 393×852 and 915×412. Pitfalls met: selecting a tile
+  pans the camera (wait for rest before the next tap), a tap beside a building can select a
+  kiwi standing there, and `text=Build here` also matches the hut's banner hint (target the
+  button).
+
 ## Chantier 22 — First impressions: loading screen and interactive intro
 
 - **Owner's answers**: a flat drawing for the loading screen (the style of the game's icons);

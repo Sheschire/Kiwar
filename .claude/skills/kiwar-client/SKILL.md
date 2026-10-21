@@ -204,8 +204,9 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   Expedition planner, reports, the target map (`IntelMap`) and the flying bird (`render/ship.ts`):
   see `kiwar-expeditions`.
 - Styles in `ui/styles.css`: parchment look, CSS variables (`--paper`, `--edge`, `--leaf`,
-  `--berry`, `--gap`, `--safe-*`). Phone breakpoint `max-width: 760px`; when a tile sheet is
-  open the HUD has `.has-sheet` (bottom sheet covers half the screen; other floating panels hide).
+  `--berry`, `--gap`, `--safe-*`). Phone breakpoint `max-width: 760px` (landscape phones:
+  `max-height: 520px`), and `.hud.thumb` for the thumb bar (chantier 21); when a tile sheet
+  is open the HUD has `.has-sheet` (bottom sheet down to the bar; other floating panels hide).
 - Icons are inline SVG: named components in `ui/icons.tsx`, and the `<Icon name>` registry of
   `ui/iconSet.tsx` (chantier 11) for buildings, effects and branches.
 - Safety nets: `Guard` (error boundary) wraps the tile sheet, the modals and the whole app;
@@ -225,6 +226,22 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   mode (`startGame`). `TrainingBar.tsx`; `VillageSort` (+ the six stats); sticky
   `.kiwi-nav`; `queueOpen`/`threatOpen` + `setPanelOpen` (persisted); hover zone
   (`hoverBuildingTile` → `refreshCatchment`, `setCatchment(…, faint)`); `plannedRim`.
+- **Chantier 21 (thumb layout)**: `ui/layout.ts` `THUMB_QUERY` (≤ 760 px wide, ≤ 520 px
+  high, or a coarse pointer up to 1500 px) / `useThumbLayout()`; the HUD gets `.thumb` and
+  `App` mounts `MobileNav.tsx` `ThumbBar` (Build → plans, Village, `EggButton inBar`,
+  Defense with the wave countdown, Menu) instead of the topbar column (`TopBar buttons`),
+  the round fabs and the floating egg. The named menu (`NavMenu`, store `menuOpen`, mounted
+  only while open) lists everything else by group: **a new HUD button needs an entry there**
+  (and keeps its round button/column button on desktop). Above the bar, `.thumb-stack`
+  stacks nudges, expeditions, `.badge-stack` and the queue (static children): never place
+  a floating panel with a hand-made bottom offset; use `--thumb-h` (portrait) /
+  `--thumb-w` (landscape phones). Objectives fold into `.objective-pill` (`ObjectivesPanel
+compact`). Long sheets on touch: `FoldSection` (a `<details>` there, a plain section on
+  desktop), `UpgradePreview foldable`, the tile sheet's `.sheet-foot` (`UpgradeAction`).
+  Check the whole tutorial by taps with `node scripts/tutorial-mobile.mjs <outDir> 375 667`
+  (dev server running; also 393 852 and 915 412): it needs `window.__kiwar`, imports the
+  shared module the page loaded, waits for the camera to rest (a selection pans it) and
+  targets buttons with `button:has-text(...)` (banner hints quote button names).
 - Taps: an ally planet (no tile hit) → visit; a building or construction site wins over a
   kiwi standing on it (`GameRenderer.hasStructure`); otherwise a kiwi near the pointer wins.
 - Camera: `onWorld` rebuilds the scene only when seed/face/params change (`startGame.worldKey`),
@@ -241,7 +258,9 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
 
 1. `pnpm dev --port 5173` in the background (log to the scratchpad).
 2. `node scripts/shot.mjs "http://localhost:5173/?seed=demo" /tmp/…/desk.png 1280 800 3000`
-   and a phone shot `… 390 844 3000 1`. Use `ACTIONS=./file.mjs` to script the page (grant
+   and a phone shot `… 390 844 3000 1` (the last argument turns on touch: the thumb bar),
+   plus landscape `… 844 390 … 1` for HUD changes. Running many shots in parallel starves
+   the frames: an animated element may not be there yet. Use `ACTIONS=./file.mjs` to script the page (grant
    resources, dispatch commands, select a tile, click buttons), then look at the PNG with Read.
 3. Check both desktop and phone, and the console output printed by the script.
 4. Headless Chromium auto-detects the **low** preset (no building animations): call

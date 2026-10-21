@@ -1,5 +1,7 @@
 # Chantier 21 — Interface mobile
 
+**État : fait** (octobre 2026). Réponses du porteur et bilan en fin de document.
+
 Retours de partie de fin octobre 2026. **Client seulement**, à lancer **après le chantier 20**
 (mêmes fichiers de style).
 
@@ -89,3 +91,41 @@ Chemins sous `apps/client/src/`.
 2. Menu : tiroir qui monte du bas (proposé, plus facile au pouce) ou liste déroulante en haut à
    droite (comme demandé au départ) ?
 3. Desktop : garder la colonne actuelle, ou prendre les mêmes groupes nommés ?
+
+## Réponses du porteur
+
+1. Barre : **Construire, Village, Œuf, Défense, Menu**.
+2. Menu : **tiroir qui monte du bas** (panneau latéral en paysage).
+3. Desktop : **colonne gardée**, noms en infobulle (déjà là).
+4. La barre s'affiche selon la largeur **ou** un écran tactile (tablettes).
+5. (Pendant la vérification du tutoriel) « Mettre 4 kiwis au travail » : **consigne plus
+   claire** plutôt que changer l'objectif.
+
+## Ce qui a été fait
+
+0. **Maquette** en capture (portrait et paysage, fermé et ouvert), validée avant de coder.
+1. **Barre au pouce et menu nommé** (`MobileNav.tsx`, `ui/layout.ts`) : Œuf en relief au
+   centre (anneau d'éclosion, œuf étoile, coût), compte à rebours de vague sur Défense,
+   pastilles (points de stat, discussion, récompense à prendre) ; tiroir en quatre groupes
+   nommés, monté seulement quand il est ouvert. File, alertes, expéditions et rappels empilés
+   au-dessus de la barre (`.thumb-stack`), fiche de tuile arrêtée à la barre.
+2. **Paysage** (barre verticale à droite, menu en panneau latéral), **tablette** (barre
+   centrée), décalages faits à la main supprimés.
+3. **Fiches** : bouton Améliorer toujours visible en pied de fiche, détail du niveau suivant
+   replié ; fiche de kiwi aux sections secondaires repliées ; **objectif du tutoriel** en une
+   ligne sous les ressources (récompense d'un appui).
+4. **Tutoriel joué au doigt** (`scripts/tutorial-mobile.mjs`) sur 375×667, 393×852 et
+   915×412 : tout passe. Consigne « Mettre 4 kiwis au travail » corrigée (un bâtiment de
+   niveau 1 n'emploie qu'un kiwi : améliorer la Cueillerie). Captures sur iPhone SE,
+   iPhone 15, Android paysage, tablette et desktop (inchangé).
+
+Critères : toutes les fonctions en deux touches au plus ; Construire, Village et Œuf au pouce ;
+plus rien sur le bord droit de la carte en portrait ; le tutoriel se termine sur téléphone.
+
+## Ce qui reste
+
+- Essai sur un **vrai téléphone** (zone de geste du système, encoche, ressenti des appuis).
+- Les écrans pleins (Plans, Défense, Village) gardent leurs actions en haut : à repenser pour
+  le pouce si le porteur le demande.
+- Pas d'entrée « Expéditions » dans le menu (on part de l'aire d'envol, le panneau des vols
+  est au-dessus de la barre).

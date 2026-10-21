@@ -9,6 +9,15 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 21** — sur téléphone, **une barre au pouce** remplace la colonne d'icônes :
+> **Construire**, **Village**, l'**Œuf** au centre (son coût dessous), **Défense** (avec le
+> compte à rebours de la vague) et **Menu**, un tiroir aux entrées **nommées** et rangées
+> (Colonie, Carte, Social, Réglages). En paysage la barre passe sur le bord droit ; sur
+> tablette tactile elle reste en bas. La file et les alertes se rangent au-dessus de la
+> barre, l'objectif du tutoriel reste visible en une ligne (la récompense se récupère d'un
+> appui), et les fiches gardent leur bouton principal en vue. Le tutoriel a été joué en
+> entier au doigt sur trois tailles de téléphone.
+>
 > **Chantier 20** — plus besoin de **recharger la page** : un appui sur la carte relâché sur
 > un panneau ne bloque plus les taps. La fiche d'un kiwi garde sa barre ◀ ▶ (avec le nom et
 > la classe) **collée en haut** ; le Village se **trie par stat** (les meilleur·es d'abord) ;
