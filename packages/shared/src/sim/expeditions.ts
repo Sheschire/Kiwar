@@ -690,6 +690,7 @@ function resolveRecon(
           spread,
           e.arriveAt,
           rng,
+          state.intel[e.targetId]?.siege?.queen?.sector ?? null,
         )
       : null;
     // Unseen sectors first, so that every mission adds to the map.

@@ -404,8 +404,9 @@ export function mergeSiegeIntel(
 
 /**
  * Deep reconnaissance (siege open): order of the sectors to look at (never deep-seen first),
- * then what the scouts learn there (ranges around the truth). Draws from `rng` only when the
- * siege is open, so plain reconnaissance is unchanged.
+ * then what the scouts learn there (ranges around the truth). Once her lair is known (public),
+ * the scouts always pass over it again: the queen's estimate does not go stale. Draws from
+ * `rng` only when the siege is open, so plain reconnaissance is unchanged.
  */
 export function deepRecon(
   g: AlienGarrison,
@@ -414,13 +415,15 @@ export function deepRecon(
   spread: number,
   at: TimeMs,
   rng: { shuffle<T>(a: T[]): T[]; next(): number },
+  lair: number | null = null,
 ): { sectors: number[]; siege: Partial<SiegeIntel> } {
   const seen = new Set(known);
   const all = Array.from({ length: INTEL.sectors }, (_, i) => i);
-  const order = [
+  const shuffled = [
     ...rng.shuffle(all.filter((i) => !seen.has(i))),
     ...rng.shuffle(all.filter((i) => seen.has(i))),
   ];
+  const order = lair === null ? shuffled : [lair, ...shuffled.filter((i) => i !== lair)];
   const sectors = order.slice(0, count).sort((a, b) => a - b);
   const around = (value: number): DatedRange => {
     const width = 2 * spread * value;

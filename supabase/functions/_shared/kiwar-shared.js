@@ -6536,7 +6536,8 @@ function resolveRecon(state, e, garrison, defense, members, fed) {
       count,
       spread,
       e.arriveAt,
-      rng
+      rng,
+      state.intel[e.targetId]?.siege?.queen?.sector ?? null
     ) : null;
     const order = [
       ...rng.shuffle(
@@ -6881,13 +6882,14 @@ function mergeSiegeIntel(prev, next) {
     ...queen ? { queen } : {}
   };
 }
-function deepRecon(g, known, count, spread, at, rng) {
+function deepRecon(g, known, count, spread, at, rng, lair = null) {
   const seen = new Set(known);
   const all = Array.from({ length: INTEL.sectors }, (_, i) => i);
-  const order = [
+  const shuffled = [
     ...rng.shuffle(all.filter((i) => !seen.has(i))),
     ...rng.shuffle(all.filter((i) => seen.has(i)))
   ];
+  const order = lair === null ? shuffled : [lair, ...shuffled.filter((i) => i !== lair)];
   const sectors = order.slice(0, count).sort((a, b) => a - b);
   const around = (value) => {
     const width = 2 * spread * value;

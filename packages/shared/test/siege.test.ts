@@ -8,6 +8,8 @@ import {
   cloneState,
   consumption,
   counterAwaited,
+  createRng,
+  deepRecon,
   counterForecast,
   createMemoryRepository,
   finalForecast,
@@ -156,6 +158,19 @@ describe('the siege opens at the Iron age with a Kikiwiwi (chantier 19)', () => 
 });
 
 describe('deep reconnaissance', () => {
+  it('passes over the known lair of the queen every time', () => {
+    const { s } = siegeColony('lair');
+    const g = s.aliens![s.targets[0]!.id]!;
+    const lair = siegeTruth(g).queenSector;
+    const all = Array.from({ length: INTEL.sectors }, (_, i) => i);
+    for (let i = 0; i < 6; i++) {
+      const rng = createRng(`lair-${i}`);
+      const look = deepRecon(g, all, 3, 0.2, s.now, rng, lair);
+      expect(look.sectors).toContain(lair);
+      expect(look.siege.queen?.sector).toBe(lair);
+    }
+  });
+
   it('reports the holds of the outer sectors seen and finds the queen, truth inside', () => {
     const { s } = siegeColony('deep');
     let state = s;

@@ -47,6 +47,8 @@ import {
 
 /** An assault leaves only when its weakest luck beats the strongest estimate by this much. */
 const ASSAULT_MARGIN = 1.15;
+/** An uncertain final leaves when both sides beat the middle of the queen's estimate so. */
+const FINAL_MARGIN = 1.25;
 /** Settlers of the founding ship, and the share of each stock (up to the Nest 1) they carry. */
 const SETTLERS = 6;
 const FREIGHT_SHARE = 0.3;
@@ -192,7 +194,8 @@ function reinforce(
 /** Before a counter-attack the holders would lose: the strongest kiwis that tip it. */
 function shoreUp(state: GameState, map: FaceMap, pad: Building, targetId: string): Command | null {
   const c = counterForecast(state, state.now);
-  if (!c || !c.announced || !c.enemy || c.odds === 'likely') return null;
+  // Uncertain odds come from old, wide estimates: only a likely loss is worth more kiwis.
+  if (!c || !c.announced || !c.enemy || c.odds !== 'unlikely') return null;
   if (inFlight(state, 'reinforce')) return null;
   const b = state.siege.bridgeheads.find((x) => x.sector === c.sector);
   if (!b) return null;
@@ -208,6 +211,17 @@ function shoreUp(state: GameState, map: FaceMap, pad: Building, targetId: string
     crew.push(v);
   }
   return reinforce(state, map, pad, targetId, c.sector, crew);
+}
+
+/** Likely, or uncertain with a clear margin between the middles of both estimates. */
+function worthIt(f: NonNullable<ExpeditionForecast['final']>): boolean {
+  if (f.odds === 'likely') return true;
+  if (f.odds !== 'uncertain' || !f.queen) return false;
+  const mid = (r: { min: number; max: number }) => (r.min + r.max) / 2;
+  return (
+    mid(f.strength.ground) >= FINAL_MARGIN * mid(f.queen.ground) &&
+    mid(f.strength.air) >= FINAL_MARGIN * mid(f.queen.air)
+  );
 }
 
 /** The final assault: as many as the hold takes, the Kikiwiwi if at home, when likely. */
@@ -229,7 +243,7 @@ function finalAssault(
     mission: 'final',
   };
   const f = forecastExpedition(state, plan);
-  if (!f || f.odds !== 'likely') return null;
+  if (!f?.final || !worthIt(f.final)) return null;
   if (titan && titan.job.kind === 'guard') return standDown(state, titan);
   return launchable(state, map, plan);
 }
