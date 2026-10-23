@@ -70,6 +70,7 @@ import {
   universeTargets,
   colonyOfFriend,
   friendId,
+  layoutBuilding,
   layoutSnapshot,
   userOfFriend,
   type UniverseInfo,
@@ -80,6 +81,7 @@ import {
   type TwinSnapshot,
   type UniverseSummary,
 } from './universes';
+import { footprintTiles } from '../sim/footprint';
 
 export interface StoredGame {
   id: string;
@@ -378,7 +380,7 @@ async function neighboursOf(
         seed: s.seed,
         face: s.face,
         params: s.params,
-        buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
+        buildings: s.buildings.map(layoutBuilding),
         paths: s.paths,
         obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
         terraform: s.terraform,
@@ -604,6 +606,15 @@ export function isPlausible(state: GameState, now: number): boolean {
     }
   }
   const map = mapFor(state);
+  // Chantier 35: every covered tile is allowed and covered once.
+  const covered = new Set<string>();
+  for (const b of state.buildings)
+    for (const h of footprintTiles(b)) {
+      const key = `${h.q},${h.r}` as const;
+      const t = map.tiles[map.index.get(key) ?? -1];
+      if (!t || !BUILDINGS[b.type].allowedTiles.includes(t.type) || covered.has(key)) return false;
+      covered.add(key);
+    }
   for (const b of state.buildings) {
     const tile = map.tiles[map.index.get(`${b.q},${b.r}`) ?? -1];
     if (!tile || !BUILDINGS[b.type].allowedTiles.includes(tile.type)) return false;

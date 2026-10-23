@@ -8,6 +8,7 @@ import { hexDisk, hexKey, hexNeighbors, parseHexKey, type Hex, type HexKey } fro
 import { generateFace, getTile, type FaceMap, type Tile } from '../worldgen/generateFace';
 import type { BuildingId, TimeMs } from '../types/ids';
 import type { Building, GameState } from './state';
+import { coveredKeys, occupancy } from './footprint';
 import { seasonEffects, seasonHarvest, seasonRegen, type Season } from '../data/cycles';
 import { calendarAt, isNight, seasonOf } from './calendar';
 import { TITAN, type TerraformKind } from '../data/titan';
@@ -192,7 +193,8 @@ export function catchmentRadius(b: Building): number {
  */
 export function computeClaims(state: GameState, map: FaceMap): Map<BuildingId, string[]> {
   const season = seasonOf(state);
-  const occupied = new Set(state.buildings.map((b) => hexKey(b)));
+  // Chantier 35: every tile of a footprint is built over.
+  const occupied = coveredKeys(state);
   const claimed = new Set<string>();
   const out = new Map<BuildingId, string[]>();
   for (const b of state.buildings) {
@@ -334,9 +336,12 @@ export function walkCost(
   paths: ReadonlySet<string>,
   h: Hex,
   season: Season = 'spring',
+  blocked?: ReadonlySet<string>,
 ): number {
   const tile = getTile(map, h);
   if (!tile) return Infinity;
+  // Chantier 35: kiwis walk around big buildings (they go in by the anchor).
+  if (blocked?.has(hexKey(h))) return Infinity;
   const biome = map.params.biome;
   return tileWalkCost(
     tile.type,
@@ -375,7 +380,8 @@ export function walkDistances(
   sources: readonly string[],
 ): Map<string, number> {
   const season = seasonOf(state);
-  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}|${terraformKey(state)}|${season}|${sources.join(';')}|${pathsKey(state.paths)}`;
+  const occ = occupancy(state);
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}|${terraformKey(state)}|${season}|${sources.join(';')}|${pathsKey(state.paths)}|${occ.blockedKey}`;
   const cached = distanceCache.get(key);
   if (cached) return cached;
   const paths = pathSet(state);
@@ -398,7 +404,7 @@ export function walkDistances(
     for (const n of hexNeighbors(h)) {
       const nk = hexKey(n);
       if (dist.has(nk)) continue;
-      const c = walkCost(map, paths, n, season);
+      const c = walkCost(map, paths, n, season, occ.blocked);
       if (c === Infinity) continue;
       const nd = best + (here + c) / 2;
       if (nd < (open.get(nk) ?? Infinity)) open.set(nk, nd);
@@ -666,7 +672,8 @@ export function catchmentPlan(
   const own = new Set(tiles);
   const claimedBy = new Map<string, BuildingId>();
   for (const [id, keys] of claims) if (id !== probe.id) for (const k of keys) claimedBy.set(k, id);
-  const standing = new Map(state.buildings.map((b) => [hexKey(b), b.id]));
+  const standing = new Map<string, BuildingId>();
+  for (const [k, o] of occupancy(state).tiles) if (!o.site) standing.set(k, o.id as BuildingId);
   const season = seasonOf(state);
   const taken: TakenTile[] = [];
   for (const x of hexDisk(h, catchmentRadius(probe))) {

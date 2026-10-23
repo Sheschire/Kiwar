@@ -18,7 +18,7 @@ import {
   type GameState,
   type TechId,
 } from '../src';
-import { findTile, rich, run, setup, T0 } from './helpers';
+import { findTile, rich, run, setup, T0, siteFor } from './helpers';
 
 /** A colony with a Nest 3 and a pulpery, nothing researched. */
 function nest3() {
@@ -68,11 +68,17 @@ describe('ages', () => {
     const { map, s } = nest3();
     const site = findTile(map, 'flesh', 4);
     const other = findTile(map, 'flesh', 5);
-    const build: Command = { type: 'build', buildingType: 'monument', q: site.q, r: site.r };
+    const build: Command = {
+      type: 'build',
+      buildingType: 'monument',
+      ...siteFor(s, map, 'monument', site),
+    };
     expect(errorOf(s, build, map)).toBe('passageMissing');
     const ready = knowing(s, 'stoneAge');
     const ordered = run(ready, build, ready.now, map);
-    expect(errorOf(ordered, { ...build, q: other.q, r: other.r }, map)).toBe('monumentExists');
+    expect(errorOf(ordered, { ...build, ...siteFor(ordered, map, 'monument', other) }, map)).toBe(
+      'monumentExists',
+    );
     const { state: after, events } = advance(
       ordered,
       ordered.now + BUILDINGS.monument.levels[0]!.durationMs * 2,
@@ -103,7 +109,12 @@ describe('ages', () => {
     expect(maxLevelNow(t, 'pulpery')).toBe(3);
     const site = findTile(map, 'flesh', 4);
     t = knowing(rich(t), 'stoneAge');
-    t = run(t, { type: 'build', buildingType: 'monument', q: site.q, r: site.r }, t.now, map);
+    t = run(
+      t,
+      { type: 'build', buildingType: 'monument', ...siteFor(t, map, 'monument', site) },
+      t.now,
+      map,
+    );
     t = advance(t, t.now + 8 * HOUR_MS).state;
     expect(maxLevelNow(t, 'pulpery')).toBe(6);
     expect(errorOf(rich(t), { type: 'upgrade', buildingId: pulpery.id }, map)).toBe(

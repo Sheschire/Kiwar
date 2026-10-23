@@ -28,7 +28,7 @@ import {
   type GameState,
   type ResourceCost,
 } from '../src';
-import { findTile, rich, run, setup, T0 } from './helpers';
+import { findTile, rich, run, setup, T0, siteFor } from './helpers';
 
 const round5 = (v: number) => Math.round(v / 5) * 5;
 
@@ -108,7 +108,12 @@ describe('demolition', () => {
     let s = rich(state);
     const flesh = findTile(map, 'flesh');
     const site = findTile(map, 'flesh', 8);
-    s = run(s, { type: 'build', buildingType: 'warehouse', q: site.q, r: site.r }, T0, map);
+    s = run(
+      s,
+      { type: 'build', buildingType: 'warehouse', ...siteFor(s, map, 'warehouse', site) },
+      T0,
+      map,
+    );
     s = run(s, { type: 'build', buildingType: 'pulpery', q: flesh.q, r: flesh.r }, T0, map);
     s = advance(s, T0 + HOUR_MS).state;
     const pulpery = s.buildings.find((x) => x.type === 'pulpery')!;

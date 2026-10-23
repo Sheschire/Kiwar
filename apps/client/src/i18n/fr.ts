@@ -806,6 +806,8 @@ export const fr: Dict = {
     noDen: 'Aucun nid de furets sur cette tuile.',
     noGuards: 'Postez d’abord des gardes sur le rempart.',
     tooStrong: 'Les gardes ne sont pas assez fort·es pour ce nid.',
+    cutsLand: 'Cela couperait le village en deux : les kiwis contournent les grands bâtiments.',
+    cramped: 'À l’étroit : libérez les tuiles autour pour qu’il s’étende avant de grandir.',
   },
   siege: {
     show: {

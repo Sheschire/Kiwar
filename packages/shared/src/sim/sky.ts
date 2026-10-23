@@ -1,3 +1,4 @@
+import { takenKeys } from './footprint';
 import type { ResourceId } from '../data/resources';
 import { METEORS, THREATS } from '../data/threats';
 import { hexKey } from '../hex/hex';
@@ -143,8 +144,7 @@ export function skyTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
       const map = faceMapOf(s);
       const season = seasonOf(s);
       const taken = new Set([
-        ...s.buildings.map((b) => hexKey(b)),
-        ...s.queue.filter((i) => i.kind === 'build').map((i) => hexKey(i)),
+        ...takenKeys(s),
         ...sky.meteors.map((m) => hexKey(m)),
         ...s.obstacles.map((o) => hexKey(o)),
       ]);

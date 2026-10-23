@@ -30,7 +30,7 @@ import {
   type GameState,
   type TechId,
 } from '../src';
-import { findTile, rich, run, setup, T0 } from './helpers';
+import { findTile, rich, run, setup, T0, siteFor } from './helpers';
 
 const HOUR = 3_600_000;
 
@@ -169,7 +169,12 @@ function libraryColony() {
   const flesh = findTile(map, 'flesh');
   const site = findTile(map, 'flesh', 3);
   s = run(s, { type: 'build', buildingType: 'pulpery', q: flesh.q, r: flesh.r }, s.now, map);
-  s = run(s, { type: 'build', buildingType: 'library', q: site.q, r: site.r }, s.now, map);
+  s = run(
+    s,
+    { type: 'build', buildingType: 'library', ...siteFor(s, map, 'library', site) },
+    s.now,
+    map,
+  );
   s = advance(s, s.now + HOUR).state;
   const library = s.buildings.find((b) => b.type === 'library')!;
   s = run(rich(s), { type: 'upgrade', buildingId: library.id }, s.now, map);

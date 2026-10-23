@@ -591,6 +591,17 @@ var BUILDING_TYPES = [
   "seedTurret",
   "skyTurret"
 ];
+var FOOTPRINTS = {
+  warehouse: 3,
+  launchpad: 3,
+  school: 3,
+  library: 3,
+  lab: 3,
+  monument: 7
+};
+function footprintOf(type) {
+  return FOOTPRINTS[type] ?? 1;
+}
 var MAX_LEVEL = 12;
 var BASE = {
   nest: {
@@ -2717,12 +2728,22 @@ function tileAt(map, q, r) {
 
 // packages/shared/src/server/universes.ts
 var MAX_PLAYERS = 8;
+function layoutBuilding(b) {
+  return {
+    type: b.type,
+    level: b.level,
+    q: b.q,
+    r: b.r,
+    ...b.rot !== void 0 ? { rot: b.rot } : {},
+    ...b.cramped ? { cramped: true } : {}
+  };
+}
 function layoutSnapshot(s, owner, at) {
   return {
     owner,
     face: s.face,
     params: s.params,
-    buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
+    buildings: s.buildings.map(layoutBuilding),
     paths: s.paths,
     obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
     terraform: s.terraform,
@@ -2786,6 +2807,139 @@ function inviteCode(bytes) {
 }
 function isInviteCode(code) {
   return /^[A-HJ-NP-Z2-9]{8}$/.test(code);
+}
+
+// packages/shared/src/sim/footprint.ts
+function rotationsOf(type) {
+  return footprintOf(type) === 3 ? [0, 1, 2, 3, 4, 5] : [0];
+}
+function normalRot(rot) {
+  return ((rot ?? 0) % 6 + 6) % 6;
+}
+function footprintHexes(type, q, r, rot = 0) {
+  const anchor = { q, r };
+  const size = footprintOf(type);
+  if (size === 7) return hexDisk(anchor, 1);
+  if (size === 3) {
+    const d = normalRot(rot);
+    return [anchor, hexNeighbor(anchor, d), hexNeighbor(anchor, d + 1)];
+  }
+  return [anchor];
+}
+function wallsOf(tiles) {
+  return tiles.length >= 7 ? [...tiles] : tiles.slice(1);
+}
+function footprintTiles(b) {
+  return b.cramped ? [{ q: b.q, r: b.r }] : footprintHexes(b.type, b.q, b.r, b.rot);
+}
+function siteTiles(item) {
+  if (item.kind === "build")
+    return item.rot === void 0 ? [{ q: item.q, r: item.r }] : footprintHexes(item.buildingType, item.q, item.r, item.rot);
+  if (item.kind === "upgrade" && item.rot !== void 0)
+    return footprintHexes(item.buildingType, item.q, item.r, item.rot);
+  return [];
+}
+var cache = /* @__PURE__ */ new WeakMap();
+function mix(h, v) {
+  return Math.imul(h ^ (v | 0), 16777619) >>> 0;
+}
+function mixId(h, id3) {
+  for (let i = 0; i < id3.length; i++) h = mix(h, id3.charCodeAt(i));
+  return h;
+}
+function layoutHash(state) {
+  let h = mix(2166136261, state.buildings.length);
+  for (const b of state.buildings) {
+    h = mix(h, b.q * 977 + b.r);
+    h = mix(h, (b.rot ?? 0) + (b.cramped ? 8 : 0) + footprintOf(b.type) * 16);
+    h = mixId(h, b.id);
+  }
+  h = mix(h, state.queue.length);
+  for (const i of state.queue) {
+    if (i.kind !== "build" && i.rot === void 0) continue;
+    h = mix(h, i.q * 977 + i.r);
+    h = mix(h, (i.rot ?? 0) + footprintOf(i.buildingType) * 16 + (i.kind === "build" ? 128 : 0));
+    h = mixId(h, i.id);
+  }
+  return h;
+}
+function occupancy(state) {
+  const hash = layoutHash(state);
+  const hit = cache.get(state.buildings);
+  if (hit && hit.hash === hash) return hit.occupancy;
+  const tiles = /* @__PURE__ */ new Map();
+  const blocked = /* @__PURE__ */ new Set();
+  for (const b of state.buildings) {
+    const covered = footprintTiles(b);
+    covered.forEach((h, i) => tiles.set(hexKey(h), { id: b.id, site: false, anchor: i === 0 }));
+    for (const h of wallsOf(covered)) blocked.add(hexKey(h));
+  }
+  for (const item of state.queue) {
+    siteTiles(item).forEach((h, i) => {
+      const key = hexKey(h);
+      if (!tiles.has(key)) tiles.set(key, { id: item.id, site: true, anchor: i === 0 });
+    });
+  }
+  const occ = { tiles, blocked, blockedKey: [...blocked].sort().join(";") };
+  cache.set(state.buildings, { hash, occupancy: occ });
+  return occ;
+}
+function coveredKeys(state) {
+  const out = /* @__PURE__ */ new Set();
+  for (const [k, o] of occupancy(state).tiles) if (!o.site) out.add(k);
+  return out;
+}
+function takenKeys(state) {
+  return new Set(occupancy(state).tiles.keys());
+}
+function footprintCentre(tiles) {
+  let q = 0;
+  let r = 0;
+  for (const h of tiles) {
+    q += h.q;
+    r += h.r;
+  }
+  return { q: q / tiles.length, r: r / tiles.length };
+}
+function cutsLand(map, removed, blocked = /* @__PURE__ */ new Set()) {
+  const gone = new Set(removed);
+  const open = (k) => {
+    if (gone.has(k) || blocked.has(k)) return false;
+    const t = getTile(map, parseHexKey(k));
+    return !!t && TILES[t.type].walkable;
+  };
+  const border = /* @__PURE__ */ new Set();
+  for (const k of gone)
+    for (const n of hexNeighbors(parseHexKey(k))) {
+      const nk = hexKey(n);
+      if (open(nk)) border.add(nk);
+    }
+  if (border.size <= 1) return false;
+  const [start] = border;
+  const seen = /* @__PURE__ */ new Set([start]);
+  const stack = [start];
+  let found = 1;
+  while (stack.length > 0) {
+    const h = parseHexKey(stack.pop());
+    for (const n of hexNeighbors(h)) {
+      const k = hexKey(n);
+      if (seen.has(k) || !open(k)) continue;
+      seen.add(k);
+      if (border.has(k) && ++found === border.size) return false;
+      stack.push(k);
+    }
+  }
+  return true;
+}
+function clearPathsUnder(s, tiles) {
+  const keys = tiles.map((h) => hexKey(h));
+  const paved = new Set(s.paths);
+  if (!keys.some((k) => paved.has(k))) return;
+  const refunded = keys.slice(1).filter((k) => paved.has(k)).length;
+  const gone = new Set(keys);
+  s.paths = s.paths.filter((k) => !gone.has(k));
+  const cost = PATHS.cost;
+  for (const id3 of RESOURCE_IDS) s.resources[id3] += (cost[id3] ?? 0) * refunded;
 }
 
 // packages/shared/src/sim/calendar.ts
@@ -2906,10 +3060,10 @@ function coveredRampart(map, type, level, h) {
 }
 var coverageCache = /* @__PURE__ */ new WeakMap();
 function turretCoverage(map, type, level, h) {
-  let cache = coverageCache.get(map);
-  if (!cache) coverageCache.set(map, cache = /* @__PURE__ */ new Map());
+  let cache2 = coverageCache.get(map);
+  if (!cache2) coverageCache.set(map, cache2 = /* @__PURE__ */ new Map());
   const key = `${type}|${level}|${h.q},${h.r}`;
-  let c = cache.get(key);
+  let c = cache2.get(key);
   if (!c) {
     const counts = perSector(() => 0);
     const covered = coveredRampart(map, type, level, h);
@@ -2917,7 +3071,7 @@ function turretCoverage(map, type, level, h) {
     if (covered.length === 0) counts[rampartSectorOf(h)] = 1;
     const total = counts.front + counts.left + counts.right;
     c = perSector((s) => counts[s] / total);
-    cache.set(key, c);
+    cache2.set(key, c);
   }
   return c;
 }
@@ -3179,11 +3333,11 @@ function threatTick(s, at, events) {
 }
 var tenth = (x) => Math.round(x * 10) / 10;
 function announce(s, wave, events) {
-  const mix = waveMix(s, wavePower(s, wave.announceAt), wave.at);
+  const mix2 = waveMix(s, wavePower(s, wave.announceAt), wave.at);
   withThreatRng(s, (rng) => {
     const S = THREATS.spread;
-    wave.ground = tenth(mix.ground * (1 + rng.range(-S, S)));
-    wave.air = tenth(mix.air * (1 + rng.range(-S, S)));
+    wave.ground = tenth(mix2.ground * (1 + rng.range(-S, S)));
+    wave.air = tenth(mix2.air * (1 + rng.range(-S, S)));
   });
   wave.announced = true;
   events.push({
@@ -3354,7 +3508,7 @@ function clearDuration(s) {
 function leaveWreck(s, m, at, events) {
   if (s.obstacles.filter((o) => o.kind === "wreck").length >= OBSTACLE_RULES.maxWrecks) return;
   if (obstacleAt(s, m.q, m.r)) return;
-  if (s.buildings.some((b) => b.q === m.q && b.r === m.r)) return;
+  if (occupancy(s).tiles.has(`${m.q},${m.r}`)) return;
   if (s.queue.some((i) => i.q === m.q && i.r === m.r)) return;
   const k = METEORS.ageFactor[ageOf(s)] ?? 1;
   const loot = {};
@@ -3462,8 +3616,7 @@ function skyTick(s, at, events) {
       const map = faceMapOf(s);
       const season = seasonOf(s);
       const taken = /* @__PURE__ */ new Set([
-        ...s.buildings.map((b) => hexKey(b)),
-        ...s.queue.filter((i) => i.kind === "build").map((i) => hexKey(i)),
+        ...takenKeys(s),
         ...sky.meteors.map((m) => hexKey(m)),
         ...s.obstacles.map((o) => hexKey(o))
       ]);
@@ -3651,7 +3804,7 @@ function newSister(home, f) {
   const taken = /* @__PURE__ */ new Set([
     hexKey(HEART),
     ...s.obstacles.map((o) => hexKey(o)),
-    ...s.buildings.map((b) => hexKey(b))
+    ...takenKeys(s)
   ]);
   s.obstacles = [...s.obstacles, ...generateTraces(faceMapOf(s), taken)];
   linkSister(s);
@@ -3857,32 +4010,14 @@ function canReshape(state, map, kind, q, r) {
   const fits = def.tiles === "flood" ? !!tile.flood : def.tiles.includes(tile.type);
   if (!fits) return false;
   if (q === HEART.q && r === HEART.r) return false;
-  if (state.buildings.some((b) => b.q === q && b.r === r)) return false;
+  if (occupancy(state).tiles.has(hexKey({ q, r }))) return false;
   if (state.queue.some((i) => i.q === q && i.r === r)) return false;
   if (obstacleAt(state, q, r) || meteorAt(state, q, r)) return false;
-  if (kind === "spring" && splitsLand(map, q, r)) return false;
+  if (kind === "spring" && splitsLand(map, q, r, state)) return false;
   return true;
 }
-function splitsLand(map, q, r) {
-  const walkable = (t) => TILES[t.type].walkable;
-  const removed = hexKey({ q, r });
-  const count = (skip) => {
-    const seen = /* @__PURE__ */ new Set([hexKey(HEART)]);
-    const stack = [HEART];
-    while (stack.length > 0) {
-      const h = stack.pop();
-      for (const n of hexNeighbors(h)) {
-        const k = hexKey(n);
-        if (k === skip || seen.has(k)) continue;
-        const t = getTile(map, n);
-        if (!t || !walkable(t)) continue;
-        seen.add(k);
-        stack.push(n);
-      }
-    }
-    return seen.size;
-  };
-  return count(removed) < count(null) - 1;
+function splitsLand(map, q, r, state) {
+  return cutsLand(map, [hexKey({ q, r })], state ? occupancy(state).blocked : void 0);
 }
 function nextTitanEnd(state) {
   let next = Infinity;
@@ -4464,12 +4599,19 @@ function completeConstruction(s, item, at, events) {
       r: item.r,
       level: 1,
       richness: item.richness,
-      builtAt: at
+      builtAt: at,
+      ...item.rot !== void 0 ? { rot: item.rot } : {},
+      // A big site from an older save without room comes out cramped (chantier 35).
+      ...item.rot === void 0 && footprintOf(item.buildingType) > 1 ? { cramped: true } : {}
     });
   } else {
     const b = getBuilding(s, item.buildingId);
     if (!b) return releaseBuilder(s, item.id, false);
     b.level = item.targetLevel;
+    if (b.cramped && item.rot !== void 0) {
+      delete b.cramped;
+      b.rot = item.rot;
+    }
     delete b.damaged;
     buildingId = b.id;
   }
@@ -4949,8 +5091,7 @@ function freeTiles(s) {
   const map = faceMapOf(s);
   const season = seasonOf(s);
   const taken = /* @__PURE__ */ new Set([
-    ...s.buildings.map((b) => hexKey(b)),
-    ...s.queue.filter((i) => i.kind === "build").map((i) => hexKey(i)),
+    ...takenKeys(s),
     ...s.sky.meteors.map((m) => hexKey(m)),
     ...s.obstacles.map((o) => hexKey(o)),
     ...s.comets.patches.map((p) => hexKey(p))
@@ -5885,7 +6026,7 @@ function catchmentRadius(b) {
 }
 function computeClaims(state, map) {
   const season = seasonOf(state);
-  const occupied = new Set(state.buildings.map((b) => hexKey(b)));
+  const occupied = coveredKeys(state);
   const claimed = /* @__PURE__ */ new Set();
   const out = /* @__PURE__ */ new Map();
   for (const b of state.buildings) {
@@ -5983,9 +6124,10 @@ function tileWalkCost(type, path, season, biome = "classic", flooded = false) {
   if (fx.blocked.includes(type)) return Infinity;
   return def.walkCost * fx.walk;
 }
-function walkCost(map, paths, h, season = "spring") {
+function walkCost(map, paths, h, season = "spring", blocked) {
   const tile = getTile(map, h);
   if (!tile) return Infinity;
+  if (blocked?.has(hexKey(h))) return Infinity;
   const biome = map.params.biome;
   return tileWalkCost(
     tile.type,
@@ -6008,7 +6150,8 @@ function depotDistances(state, map) {
 }
 function walkDistances(state, map, sources) {
   const season = seasonOf(state);
-  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}|${terraformKey(state)}|${season}|${sources.join(";")}|${pathsKey(state.paths)}`;
+  const occ = occupancy(state);
+  const key = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}|${terraformKey(state)}|${season}|${sources.join(";")}|${pathsKey(state.paths)}|${occ.blockedKey}`;
   const cached = distanceCache.get(key);
   if (cached) return cached;
   const paths = pathSet(state);
@@ -6031,7 +6174,7 @@ function walkDistances(state, map, sources) {
     for (const n of hexNeighbors(h)) {
       const nk = hexKey(n);
       if (dist.has(nk)) continue;
-      const c = walkCost(map, paths, n, season);
+      const c = walkCost(map, paths, n, season, occ.blocked);
       if (c === Infinity) continue;
       const nd = best + (here + c) / 2;
       if (nd < (open.get(nk) ?? Infinity)) open.set(nk, nd);
@@ -6184,7 +6327,8 @@ function catchmentPlan(state, map, type, h, level = 1) {
   const own = new Set(tiles);
   const claimedBy = /* @__PURE__ */ new Map();
   for (const [id3, keys] of claims) if (id3 !== probe.id) for (const k of keys) claimedBy.set(k, id3);
-  const standing = new Map(state.buildings.map((b) => [hexKey(b), b.id]));
+  const standing = /* @__PURE__ */ new Map();
+  for (const [k, o] of occupancy(state).tiles) if (!o.site) standing.set(k, o.id);
   const season = seasonOf(state);
   const taken = [];
   for (const x of hexDisk(h, catchmentRadius(probe))) {
@@ -6221,10 +6365,12 @@ function getBuilding(state, id3) {
   return state.buildings.find((b) => b.id === id3);
 }
 function buildingAt(state, q, r) {
-  return state.buildings.find((b) => b.q === q && b.r === r);
+  const o = occupancy(state).tiles.get(`${q},${r}`);
+  return o && !o.site ? state.buildings.find((b) => b.id === o.id) : void 0;
 }
 function queuedBuildAt(state, q, r) {
-  return state.queue.find((i) => i.kind === "build" && i.q === q && i.r === r);
+  const o = occupancy(state).tiles.get(`${q},${r}`);
+  return o?.site ? state.queue.find((i) => i.id === o.id) : void 0;
 }
 function nest(state) {
   const n = state.buildings.find((b) => b.type === "nest");
@@ -7725,7 +7871,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 26;
+var SCHEMA_VERSION = 27;
 var MISSION_KINDS = [
   "raid",
   "recon",
@@ -8364,28 +8510,76 @@ function buildLock(state, type) {
   } else if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return "buildingLimit";
   return null;
 }
-function siteError(state, map, type, tile) {
-  if (!BUILDINGS[type].allowedTiles.includes(tile.type)) return "tileNotAllowed";
-  if (buildingAt(state, tile.q, tile.r) || queuedBuildAt(state, tile.q, tile.r))
-    return "tileOccupied";
-  if (obstacleAt(state, tile.q, tile.r)) return "obstacle";
-  if (titanAt(state, tile.q, tile.r)) return "titanAtWork";
-  if (meteorAt(state, tile.q, tile.r)) return "onCrater";
+function tileError(state, map, type, h, self) {
+  const tile = getTile(map, h);
+  if (!tile || !BUILDINGS[type].allowedTiles.includes(tile.type)) return "tileNotAllowed";
+  const here = occupancy(state).tiles.get(hexKey(h));
+  if (here && here.id !== self) return "tileOccupied";
+  if (obstacleAt(state, h.q, h.r)) return "obstacle";
+  if (titanAt(state, h.q, h.r)) return "titanAtWork";
+  if (meteorAt(state, h.q, h.r)) return "onCrater";
   if (isFlooded(tile, map.params.biome, seasonOf(state))) return "flooded";
-  if (isTurret(type) && !isRampart(map, tile.q, tile.r)) return "notOnRampart";
   return null;
 }
-function buildableTiles(state, map, type) {
-  if (buildLock(state, type)) return [];
-  return map.tiles.filter((t) => siteError(state, map, type, t) === null);
+function siteError(state, map, type, tile, rot = 0, self = null) {
+  const tiles = footprintHexes(type, tile.q, tile.r, rot);
+  for (const h of tiles) {
+    const error = tileError(state, map, type, h, self);
+    if (error) return error;
+  }
+  if (isTurret(type) && !isRampart(map, tile.q, tile.r)) return "notOnRampart";
+  if (tiles.length > 1) {
+    const walls = wallsOf(tiles).map((h) => hexKey(h));
+    if (cutsLand(map, walls, occupancy(state).blocked)) return "cutsLand";
+  }
+  return null;
 }
-function upgradeLock(state, b) {
+function buildableTiles(state, map, type, rot = 0) {
+  if (buildLock(state, type)) return [];
+  return map.tiles.filter((t) => siteError(state, map, type, t, rot) === null);
+}
+function coveredHarvest(state, type, q, r, rot = 0) {
+  const keys = new Set(footprintHexes(type, q, r, rot).map((h) => hexKey(h)));
+  const out = [];
+  for (const b of state.buildings)
+    for (const k of b.pool?.tiles ?? []) if (keys.has(k)) out.push({ key: k, owner: b.id });
+  return out;
+}
+function extensionFor(state, map, b) {
+  const anchor = getTile(map, b);
+  if (!anchor) return null;
+  let best = null;
+  for (const rot of rotationsOf(b.type)) {
+    if (siteError(state, map, b.type, anchor, rot, b.id)) continue;
+    const lost = coveredHarvest(state, b.type, b.q, b.r, rot).filter(
+      (c) => c.owner !== b.id
+    ).length;
+    if (!best || lost < best.lost) best = { rot, lost };
+  }
+  return best?.rot ?? null;
+}
+function crampedBlockers(state, map, b) {
+  let best = null;
+  for (const rot of rotationsOf(b.type)) {
+    const all = footprintHexes(b.type, b.q, b.r, rot);
+    const tiles = all.slice(1);
+    const failing = tiles.filter((h) => tileError(state, map, b.type, h, b.id) !== null);
+    const keys = failing.map((h) => hexKey(h));
+    const walls = wallsOf(all).map((h) => hexKey(h));
+    if (failing.length === 0 && cutsLand(map, walls, occupancy(state).blocked))
+      keys.push(...tiles.map((h) => hexKey(h)));
+    if (!best || keys.length < best.length) best = keys;
+  }
+  return best ?? [];
+}
+function upgradeLock(state, b, map) {
   if (b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type))) return "maxLevel";
   if ((levelDef(b.type, b.level + 1).requiresAge ?? 0) > ageOf(state)) return "ageTooLow";
   if (b.type === "monument" && !hasTech(state, PASSAGE_TECHS[b.level + 1]))
     return "passageMissing";
   const pending = pendingUpgrade(state, b.id);
   if (pending) return pending.kind === "repair" ? "alreadyRepairing" : "alreadyUpgrading";
+  if (b.cramped && map && extensionFor(state, map, b) === null) return "cramped";
   const def = levelDef(b.type, b.level + 1);
   if (b.type !== "nest" && nest(state).level < def.requiresNestLevel) return "nestLevelTooLow";
   if (state.queue.length >= (nestDef(state).queueSize ?? 1)) return "queueFull";
@@ -8509,6 +8703,9 @@ var COMMAND_ERRORS = [
   "notConquered",
   "alreadyFounded",
   "sharedResearch",
+  // Chantier 35: buildings on several tiles.
+  "cutsLand",
+  "cramped",
   "noDen",
   "noGuards",
   "tooStrong"
@@ -8594,7 +8791,8 @@ function execute(s, cmd, ctx, events) {
       if (!def || !def.buildable) fail("notBuildable");
       const tile = getTile(ctx.map, { q: cmd.q, r: cmd.r });
       if (!tile) return fail("unknownTile");
-      const site = siteError(s, ctx.map, cmd.buildingType, tile);
+      const rot = normalRot(cmd.rot);
+      const site = siteError(s, ctx.map, cmd.buildingType, tile, rot);
       if (site) fail(site);
       const lock = buildLock(s, cmd.buildingType);
       if (lock) fail(lock);
@@ -8620,16 +8818,18 @@ function execute(s, cmd, ctx, events) {
         durationMs,
         startedAt: null,
         paid: cost,
-        orderedAt: now
+        orderedAt: now,
+        ...footprintOf(cmd.buildingType) > 1 ? { rot } : {}
       });
-      s.paths = s.paths.filter((k) => k !== hexKey(cmd));
+      clearPathsUnder(s, footprintHexes(cmd.buildingType, cmd.q, cmd.r, rot));
       return;
     }
     case "upgrade": {
       const b = getBuilding(s, cmd.buildingId);
       if (!b) return fail("unknownBuilding");
-      const lock = upgradeLock(s, b);
+      const lock = upgradeLock(s, b, ctx.map);
       if (lock) fail(lock);
+      const spread = b.cramped ? extensionFor(s, ctx.map, b) : null;
       const target = b.level + 1;
       const cost = upgradeCost(b.type, target);
       const durationMs = constructionDuration(s, b.type, target, false, nearRay(ctx.map, b.q, b.r));
@@ -8649,8 +8849,10 @@ function execute(s, cmd, ctx, events) {
         startedAt: null,
         paid: cost,
         ...dust > 0 ? { paidDust: dust } : {},
-        orderedAt: now
+        orderedAt: now,
+        ...spread !== null ? { rot: spread } : {}
       });
+      if (spread !== null) clearPathsUnder(s, footprintHexes(b.type, b.q, b.r, spread).slice(1));
       return;
     }
     case "cancel": {
@@ -13496,7 +13698,9 @@ var gameStateSchema = external_exports.object({
       builtAt: external_exports.number(),
       pool: external_exports.object({ stock: external_exports.number().min(0), tiles: external_exports.array(external_exports.string()).max(64) }).optional(),
       damaged: external_exports.boolean().optional(),
-      reserve: resources.optional()
+      reserve: resources.optional(),
+      rot: external_exports.number().int().min(0).max(5).optional(),
+      cramped: external_exports.literal(true).optional()
     })
   ),
   villagers: external_exports.array(villager),
@@ -13529,7 +13733,8 @@ var gameStateSchema = external_exports.object({
       startedAt: external_exports.number().nullable(),
       paid: partialResources,
       paidDust: external_exports.number().int().min(0).optional(),
-      orderedAt: external_exports.number()
+      orderedAt: external_exports.number(),
+      rot: external_exports.number().int().min(0).max(5).optional()
     })
   ),
   egg: external_exports.object({ startedAt: external_exports.number(), readyAt: external_exports.number(), star: external_exports.boolean().optional() }).nullable(),
@@ -13878,8 +14083,38 @@ var MIGRATIONS = {
       objectives: { claimed: [], giftEggs: 0 },
       stats: { ...raw.stats, collects: 0, wavesHeld: held }
     };
-  }
+  },
+  // v26 → v27 (chantier 35): big buildings start cramped on their anchor; `spreadOldBuildings`
+  // gives each one room after the parse (it needs the whole state).
+  26: (raw) => ({
+    ...raw,
+    buildings: (Array.isArray(raw.buildings) ? raw.buildings : []).map((b) => footprintOf(b.type) > 1 ? { ...b, cramped: true } : b)
+  })
 };
+function spreadOldBuildings(state) {
+  const map = faceMapOf(state);
+  for (const b of state.buildings) {
+    if (!b.cramped) continue;
+    const rot = extensionFor(state, map, b);
+    if (rot === null) continue;
+    delete b.cramped;
+    b.rot = rot;
+    clearPathsUnder(state, footprintHexes(b.type, b.q, b.r, rot));
+  }
+  for (const item of state.queue) {
+    if (item.kind !== "build" || item.rot !== void 0 || footprintOf(item.buildingType) === 1)
+      continue;
+    const tile = getTile(map, item);
+    const rot = tile ? rotationsOf(item.buildingType).find(
+      (r) => siteError(state, map, item.buildingType, tile, r, item.id) === null
+    ) : void 0;
+    if (rot === void 0) continue;
+    item.rot = rot;
+    clearPathsUnder(state, footprintHexes(item.buildingType, item.q, item.r, rot));
+  }
+  state.buildings = [...state.buildings];
+  syncPools(state, map, state.now);
+}
 function newLevel(level) {
   return level <= 4 ? level : level === 5 ? 7 : 10;
 }
@@ -13933,6 +14168,7 @@ function migrateState(input) {
   let raw = input;
   let version = typeof raw.schemaVersion === "number" ? raw.schemaVersion : 0;
   if (version > SCHEMA_VERSION) return { ok: false, reason: "tooNew" };
+  const from = version;
   while (version < SCHEMA_VERSION) {
     const migrate = MIGRATIONS[version];
     if (!migrate) return { ok: false, reason: "corrupt" };
@@ -13941,7 +14177,10 @@ function migrateState(input) {
     raw.schemaVersion = version;
   }
   const result2 = gameStateSchema.safeParse(raw);
-  return result2.success ? { ok: true, state: result2.data } : { ok: false, reason: "corrupt" };
+  if (!result2.success) return { ok: false, reason: "corrupt" };
+  const state = result2.data;
+  if (from < 27) spreadOldBuildings(state);
+  return { ok: true, state };
 }
 function serializeSave(state, savedAt) {
   const file = { format: "kiwar-save", savedAt, state };
@@ -13972,7 +14211,13 @@ function deserializeSave(text) {
 var id2 = external_exports.string().min(1).max(64);
 var int = external_exports.number().int();
 var commandSchema = external_exports.discriminatedUnion("type", [
-  external_exports.object({ type: external_exports.literal("build"), buildingType: external_exports.enum(BUILDING_TYPES), q: int, r: int }),
+  external_exports.object({
+    type: external_exports.literal("build"),
+    buildingType: external_exports.enum(BUILDING_TYPES),
+    q: int,
+    r: int,
+    rot: int.min(0).max(5).optional()
+  }),
   external_exports.object({ type: external_exports.literal("upgrade"), buildingId: id2 }),
   external_exports.object({ type: external_exports.literal("cancel"), queueItemId: id2 }),
   external_exports.object({ type: external_exports.literal("assignWorkers"), buildingId: id2, count: int.min(0).max(100) }),
@@ -14310,7 +14555,7 @@ async function neighboursOf(repo, info, me, now) {
         seed: s.seed,
         face: s.face,
         params: s.params,
-        buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
+        buildings: s.buildings.map(layoutBuilding),
         paths: s.paths,
         obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
         terraform: s.terraform,
@@ -14465,6 +14710,14 @@ function isPlausible(state, now) {
     }
   }
   const map = mapFor(state);
+  const covered = /* @__PURE__ */ new Set();
+  for (const b of state.buildings)
+    for (const h of footprintTiles(b)) {
+      const key = `${h.q},${h.r}`;
+      const t = map.tiles[map.index.get(key) ?? -1];
+      if (!t || !BUILDINGS[b.type].allowedTiles.includes(t.type) || covered.has(key)) return false;
+      covered.add(key);
+    }
   for (const b of state.buildings) {
     const tile = map.tiles[map.index.get(`${b.q},${b.r}`) ?? -1];
     if (!tile || !BUILDINGS[b.type].allowedTiles.includes(tile.type)) return false;
@@ -15039,6 +15292,7 @@ export {
   EXPEDITIONS,
   FACES,
   FACE_PROFILES,
+  FOOTPRINTS,
   FRONT_AZIMUTH,
   FUEL,
   GARRISON,
@@ -15203,6 +15457,7 @@ export {
   cleanFreight,
   cleanKiwiName,
   clearDuration,
+  clearPathsUnder,
   climateOf,
   cloneAliens,
   cloneColonyLink,
@@ -15229,7 +15484,10 @@ export {
   counterAwaited,
   counterEscalation,
   counterForecast,
+  coveredHarvest,
+  coveredKeys,
   coveredRampart,
+  crampedBlockers,
   createMemoryRepository,
   createRng,
   crewMembers,
@@ -15237,6 +15495,7 @@ export {
   crewWeight,
   crewWork,
   currentObjective,
+  cutsLand,
   cycleHarvest,
   deepRecon,
   defaultAutomation,
@@ -15272,6 +15531,7 @@ export {
   emptyResources,
   ensureAliens,
   exposedKiwis,
+  extensionFor,
   faceMapOf,
   fighterSides,
   fillCraters,
@@ -15283,6 +15543,10 @@ export {
   finishInfusions,
   finishTitanWorks,
   foodLeftMs,
+  footprintCentre,
+  footprintHexes,
+  footprintOf,
+  footprintTiles,
   forecastExpedition,
   forecastWave,
   forgetHolders,
@@ -15373,6 +15637,7 @@ export {
   launch,
   launchCost,
   launchpadOf,
+  layoutBuilding,
   layoutSnapshot,
   leaveWreck,
   levelDef,
@@ -15432,11 +15697,13 @@ export {
   nextThreatEvent,
   nextTitanEnd,
   nightWork,
+  normalRot,
   notebookCount,
   notebookOpen,
   objectiveProgress,
   obstacleAt,
   obstacleId,
+  occupancy,
   orderRepairs,
   otherFace,
   outerOf,
@@ -15509,6 +15776,7 @@ export {
   returnHome,
   rollKiwi,
   rollShiny,
+  rotationsOf,
   scaleCost,
   seasonEffects,
   seasonHarvest,
@@ -15535,9 +15803,11 @@ export {
   sisterFriend,
   sisterThreat,
   siteError,
+  siteTiles,
   skyTick,
   soloTargets,
   splitsLand,
+  spreadOldBuildings,
   staffing,
   stageOf,
   stardustOf,
@@ -15551,6 +15821,7 @@ export {
   syncColonies,
   syncPools,
   takeFounding,
+  takenKeys,
   targetFaceParams,
   taskLevel,
   taskNeeds,
@@ -15588,6 +15859,7 @@ export {
   waitingForBuilder,
   walkCost,
   walkDistances,
+  wallsOf,
   waveMix,
   waveOutcome,
   wavePower,

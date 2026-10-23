@@ -13,7 +13,7 @@ import {
   type Friend,
   type GameState,
 } from '../src';
-import { findTile, rich, run, setup, T0 } from './helpers';
+import { findTile, rich, run, setup, T0, siteFor } from './helpers';
 
 const bob: Friend = {
   id: 'ally:bob',
@@ -32,7 +32,12 @@ function colony() {
   t += HOUR_MS;
   s = advance(s, t).state;
   const flesh = findTile(map, 'flesh');
-  s = run(s, { type: 'build', buildingType: 'launchpad', q: flesh.q, r: flesh.r }, t, map);
+  s = run(
+    s,
+    { type: 'build', buildingType: 'launchpad', ...siteFor(s, map, 'launchpad', flesh) },
+    t,
+    map,
+  );
   t += HOUR_MS;
   s = advance(s, t).state;
   s = { ...s, resources: { pulp: 500, fiber: 500, seeds: 500, juice: 500 }, friends: [bob] };

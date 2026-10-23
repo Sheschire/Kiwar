@@ -22,7 +22,7 @@ import {
   type GameState,
   type Defense,
 } from '../src';
-import { findTile, kiwi, rich, run, setup, T0 } from './helpers';
+import { findTile, kiwi, rich, run, setup, T0, siteFor } from './helpers';
 
 /** A colony with a Nest 2, a pulpery and a Library (nobody researching yet). */
 function libraryColony(level = 1) {
@@ -33,7 +33,12 @@ function libraryColony(level = 1) {
   const flesh = findTile(map, 'flesh');
   const site = findTile(map, 'flesh', 3);
   s = run(s, { type: 'build', buildingType: 'pulpery', q: flesh.q, r: flesh.r }, s.now, map);
-  s = run(s, { type: 'build', buildingType: 'library', q: site.q, r: site.r }, s.now, map);
+  s = run(
+    s,
+    { type: 'build', buildingType: 'library', ...siteFor(s, map, 'library', site) },
+    s.now,
+    map,
+  );
   s = advance(s, s.now + HOUR_MS).state;
   const library = s.buildings.find((b) => b.type === 'library')!;
   for (let l = 1; l < level; l++) {

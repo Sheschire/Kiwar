@@ -3,6 +3,7 @@
  * kiwis: how often ships break down, scouts are spotted or fall, how much of the map a report
  * reveals, and how raids fare blind versus informed.
  */
+import { bestTile } from './bot/economy';
 import {
   advance,
   applyCommand,
@@ -43,9 +44,13 @@ function colony(seed: string, padLevel: number) {
   s = run(s, { type: 'upgrade', buildingId: s.buildings[0]!.id }, t, map);
   t += 3 * HOUR_MS;
   s = advance(s, t).state;
-  const flesh = map.tiles.filter((x) => x.type === 'flesh').sort((a, b) => a.rho - b.rho)[2]!;
   s = run(s, grant, t, map);
-  s = run(s, { type: 'build', buildingType: 'launchpad', q: flesh.q, r: flesh.r }, t, map);
+  s = run(
+    s,
+    { type: 'build', buildingType: 'launchpad', ...bestTile(s, map, 'launchpad')! },
+    t,
+    map,
+  );
   t += 3 * HOUR_MS;
   s = advance(s, t).state;
   const rng = createRng(`${seed}/probe`);

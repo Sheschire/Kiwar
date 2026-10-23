@@ -1,3 +1,4 @@
+import { takenKeys } from './footprint';
 import { createRng, type Rng } from '../rng/rng';
 import { COMETS, STARDUST, STARDUST_SCALE, dustPoints } from '../data/comets';
 import { KIWI } from '../data/kiwis';
@@ -115,8 +116,7 @@ function freeTiles(s: GameState): Hex[] {
   const map = faceMapOf(s);
   const season = seasonOf(s);
   const taken = new Set([
-    ...s.buildings.map((b) => hexKey(b)),
-    ...s.queue.filter((i) => i.kind === 'build').map((i) => hexKey(i)),
+    ...takenKeys(s),
     ...s.sky.meteors.map((m) => hexKey(m)),
     ...s.obstacles.map((o) => hexKey(o)),
     ...s.comets.patches.map((p) => hexKey(p)),

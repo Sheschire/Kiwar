@@ -25,6 +25,7 @@ import { hexNeighbors } from '../hex/hex';
 import { getTile, type FaceMap } from '../worldgen/generateFace';
 import type { BuildingId } from '../types/ids';
 import type { Building, GameState, QueueItem, Villager } from './state';
+import { occupancy } from './footprint';
 import { faceMapOf, harvestOf, type Harvest } from './territory';
 import { regenBonus, workforce } from './kiwis';
 import { seasonEffects } from '../data/cycles';
@@ -39,12 +40,19 @@ export function getBuilding(state: GameState, id: BuildingId | string): Building
   return state.buildings.find((b) => b.id === id);
 }
 
+/** The building covering a tile (chantier 35: any tile of its footprint), if any. */
 export function buildingAt(state: GameState, q: number, r: number): Building | undefined {
-  return state.buildings.find((b) => b.q === q && b.r === r);
+  const o = occupancy(state).tiles.get(`${q},${r}`);
+  return o && !o.site ? state.buildings.find((b) => b.id === o.id) : undefined;
 }
 
+/**
+ * The construction site holding a tile (a new building's footprint, or the room a cramped
+ * building takes for its upgrade), if any.
+ */
 export function queuedBuildAt(state: GameState, q: number, r: number): QueueItem | undefined {
-  return state.queue.find((i) => i.kind === 'build' && i.q === q && i.r === r);
+  const o = occupancy(state).tiles.get(`${q},${r}`);
+  return o?.site ? state.queue.find((i) => i.id === o.id) : undefined;
 }
 
 export function nest(state: GameState): Building {

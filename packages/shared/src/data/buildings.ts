@@ -72,6 +72,25 @@ export interface BuildingDef {
   copyGrowth: number;
 }
 
+/**
+ * Chantier 35: tiles a building covers — 1, a triangle of 3 (anchor + two neighbours, turned by
+ * `Building.rot`) or a full hexagon of 7 (anchor + its six neighbours). Missing types cover one.
+ */
+export type FootprintSize = 1 | 3 | 7;
+
+export const FOOTPRINTS: Partial<Record<BuildingType, FootprintSize>> = {
+  warehouse: 3,
+  launchpad: 3,
+  school: 3,
+  library: 3,
+  lab: 3,
+  monument: 7,
+};
+
+export function footprintOf(type: BuildingType): FootprintSize {
+  return FOOTPRINTS[type] ?? 1;
+}
+
 /** Highest level of any building (the last age, chantier 30). */
 export const MAX_LEVEL = 12;
 

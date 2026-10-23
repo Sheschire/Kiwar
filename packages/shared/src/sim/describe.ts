@@ -14,7 +14,6 @@ import { RESOURCE_IDS, type ResourceId } from '../data/resources';
 import type { CommandError } from './commands';
 import { ageOf, hasTech, techEffects } from './research';
 import {
-  buildingAt,
   buildingCount,
   canAfford,
   copiesOf,
@@ -22,13 +21,15 @@ import {
   nest,
   nestDef,
   pendingUpgrade,
-  queuedBuildAt,
   turretCount,
   turretLimit,
   upgradeCost,
 } from './selectors';
 import type { Building, GameState } from './state';
-import type { FaceMap, Tile } from '../worldgen/generateFace';
+import { getTile, type FaceMap, type Tile } from '../worldgen/generateFace';
+import type { BuildingId } from '../types/ids';
+import { hexKey } from '../hex/hex';
+import { cutsLand, footprintHexes, occupancy, rotationsOf, wallsOf } from './footprint';
 import { isFlooded } from './territory';
 import { seasonOf } from './calendar';
 import { obstacleAt } from './obstacles';
@@ -238,36 +239,120 @@ export function buildLock(state: GameState, type: BuildingType): CommandError | 
   return null;
 }
 
-/** Why this tile cannot take this building (type of tile, taken, obstacle, flood…), or null. */
+/** Why one tile of a footprint cannot take this building, or null (`self` may stand on it). */
+function tileError(
+  state: GameState,
+  map: FaceMap,
+  type: BuildingType,
+  h: { q: number; r: number },
+  self: string | null,
+): CommandError | null {
+  const tile = getTile(map, h);
+  if (!tile || !BUILDINGS[type].allowedTiles.includes(tile.type)) return 'tileNotAllowed';
+  const here = occupancy(state).tiles.get(hexKey(h));
+  if (here && here.id !== self) return 'tileOccupied';
+  if (obstacleAt(state, h.q, h.r)) return 'obstacle';
+  if (titanAt(state, h.q, h.r)) return 'titanAtWork';
+  // Chantier 15: a crater is a temporary post, nothing is built on it.
+  if (meteorAt(state, h.q, h.r)) return 'onCrater';
+  if (isFlooded(tile, map.params.biome, seasonOf(state))) return 'flooded';
+  return null;
+}
+
+/**
+ * Why this tile cannot take this building (type of tile, taken, obstacle, flood…), or null.
+ * Chantier 35: every tile of the footprint turned by `rot` is checked, and the covered tiles
+ * must not cut the walkable land in two. `self`: a building spreading from its anchor.
+ */
 export function siteError(
   state: GameState,
   map: FaceMap,
   type: BuildingType,
   tile: Tile,
+  rot = 0,
+  self: string | null = null,
 ): CommandError | null {
-  if (!BUILDINGS[type].allowedTiles.includes(tile.type)) return 'tileNotAllowed';
-  if (buildingAt(state, tile.q, tile.r) || queuedBuildAt(state, tile.q, tile.r))
-    return 'tileOccupied';
-  if (obstacleAt(state, tile.q, tile.r)) return 'obstacle';
-  if (titanAt(state, tile.q, tile.r)) return 'titanAtWork';
-  // Chantier 15: a crater is a temporary post, nothing is built on it.
-  if (meteorAt(state, tile.q, tile.r)) return 'onCrater';
-  if (isFlooded(tile, map.params.biome, seasonOf(state))) return 'flooded';
+  const tiles = footprintHexes(type, tile.q, tile.r, rot);
+  for (const h of tiles) {
+    const error = tileError(state, map, type, h, self);
+    if (error) return error;
+  }
   if (isTurret(type) && !isRampart(map, tile.q, tile.r)) return 'notOnRampart';
+  if (tiles.length > 1) {
+    const walls = wallsOf(tiles).map((h) => hexKey(h));
+    if (cutsLand(map, walls, occupancy(state).blocked)) return 'cutsLand';
+  }
   return null;
 }
 
-/** Tiles where `type` can be built right now (the building tree's placement mode). */
-export function buildableTiles(state: GameState, map: FaceMap, type: BuildingType): Tile[] {
+/** Tiles where `type` can be built right now with this orientation (the placement mode). */
+export function buildableTiles(
+  state: GameState,
+  map: FaceMap,
+  type: BuildingType,
+  rot = 0,
+): Tile[] {
   if (buildLock(state, type)) return [];
-  return map.tiles.filter((t) => siteError(state, map, type, t) === null);
+  return map.tiles.filter((t) => siteError(state, map, type, t, rot) === null);
+}
+
+/** Covered tiles of a footprint that a producer harvests now (chantier 35: that harvest is lost). */
+export function coveredHarvest(
+  state: GameState,
+  type: BuildingType,
+  q: number,
+  r: number,
+  rot = 0,
+): { key: string; owner: BuildingId }[] {
+  const keys = new Set<string>(footprintHexes(type, q, r, rot).map((h) => hexKey(h)));
+  const out: { key: string; owner: BuildingId }[] = [];
+  for (const b of state.buildings)
+    for (const k of b.pool?.tiles ?? []) if (keys.has(k)) out.push({ key: k, owner: b.id });
+  return out;
+}
+
+/**
+ * Chantier 35: the orientation a cramped building spreads to at its next upgrade — the free
+ * one that covers the least harvest — or null when none has room.
+ */
+export function extensionFor(state: GameState, map: FaceMap, b: Building): number | null {
+  const anchor = getTile(map, b);
+  if (!anchor) return null;
+  let best: { rot: number; lost: number } | null = null;
+  for (const rot of rotationsOf(b.type)) {
+    if (siteError(state, map, b.type, anchor, rot, b.id)) continue;
+    const lost = coveredHarvest(state, b.type, b.q, b.r, rot).filter(
+      (c) => c.owner !== b.id,
+    ).length;
+    if (!best || lost < best.lost) best = { rot, lost };
+  }
+  return best?.rot ?? null;
+}
+
+/**
+ * Chantier 35: what keeps a cramped building from spreading — the covered tiles that fail, for
+ * the orientation with the fewest of them (the sheet lights them up).
+ */
+export function crampedBlockers(state: GameState, map: FaceMap, b: Building): string[] {
+  let best: string[] | null = null;
+  for (const rot of rotationsOf(b.type)) {
+    const all = footprintHexes(b.type, b.q, b.r, rot);
+    const tiles = all.slice(1);
+    const failing = tiles.filter((h) => tileError(state, map, b.type, h, b.id) !== null);
+    const keys = failing.map((h) => hexKey(h));
+    const walls = wallsOf(all).map((h) => hexKey(h));
+    if (failing.length === 0 && cutsLand(map, walls, occupancy(state).blocked))
+      keys.push(...tiles.map((h) => hexKey(h)));
+    if (!best || keys.length < best.length) best = keys;
+  }
+  return best ?? [];
 }
 
 /**
  * Why this building cannot be upgraded right now, or null (the `upgrade` command and the
  * "upgradable" arrow of the level badges).
  */
-export function upgradeLock(state: GameState, b: Building): CommandError | null {
+export function upgradeLock(state: GameState, b: Building, map?: FaceMap): CommandError | null {
   if (b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type))) return 'maxLevel';
   // Levels 4–6 wait for the ages; each monument level for its passage technology.
   if ((levelDef(b.type, b.level + 1)!.requiresAge ?? 0) > ageOf(state)) return 'ageTooLow';
@@ -275,6 +360,8 @@ export function upgradeLock(state: GameState, b: Building): CommandError | null 
     return 'passageMissing';
   const pending = pendingUpgrade(state, b.id);
   if (pending) return pending.kind === 'repair' ? 'alreadyRepairing' : 'alreadyUpgrading';
+  // Chantier 35: a cramped building needs room to spread before it grows.
+  if (b.cramped && map && extensionFor(state, map, b) === null) return 'cramped';
   const def = levelDef(b.type, b.level + 1)!;
   // The Nest gates the others; the Nest itself only needs its current level.
   if (b.type !== 'nest' && nest(state).level < def.requiresNestLevel) return 'nestLevelTooLow';

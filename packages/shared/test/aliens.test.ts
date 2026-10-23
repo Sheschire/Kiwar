@@ -30,7 +30,7 @@ import {
   type GameState,
   type ServiceContext,
 } from '../src';
-import { findTile, kiwi, knowTruth, rich, run, setup, T0 } from './helpers';
+import { findTile, kiwi, knowTruth, rich, run, setup, T0, siteFor } from './helpers';
 
 /** Nest 2, a launchpad, a crowd of kiwis and full stocks: ready to raid the twin face. */
 function readyColony() {
@@ -41,7 +41,12 @@ function readyColony() {
   t += HOUR_MS;
   s = advance(s, t).state;
   const flesh = findTile(map, 'flesh');
-  s = run(s, { type: 'build', buildingType: 'launchpad', q: flesh.q, r: flesh.r }, t, map);
+  s = run(
+    s,
+    { type: 'build', buildingType: 'launchpad', ...siteFor(s, map, 'launchpad', flesh) },
+    t,
+    map,
+  );
   t += HOUR_MS;
   s = advance(s, t).state;
   s = reliable({

@@ -1,6 +1,6 @@
-import { TILES } from '../data/tiles';
 import { SMASH, TERRAFORM, TITAN, type TerraformKind, type TitanWork } from '../data/titan';
-import { hexKey, hexNeighbors } from '../hex/hex';
+import { hexKey } from '../hex/hex';
+import { cutsLand, occupancy } from './footprint';
 import type { TimeMs } from '../types/ids';
 import { getTile, HEART, type FaceMap } from '../worldgen/generateFace';
 import type { GameEvent } from './advance';
@@ -58,35 +58,20 @@ export function canReshape(
   const fits = def.tiles === 'flood' ? !!tile.flood : def.tiles.includes(tile.type);
   if (!fits) return false;
   if (q === HEART.q && r === HEART.r) return false;
-  if (state.buildings.some((b) => b.q === q && b.r === r)) return false;
+  if (occupancy(state).tiles.has(hexKey({ q, r }))) return false;
   if (state.queue.some((i) => i.q === q && i.r === r)) return false;
   if (obstacleAt(state, q, r) || meteorAt(state, q, r)) return false;
   // A spring must not cut the walkable land in two.
-  if (kind === 'spring' && splitsLand(map, q, r)) return false;
+  if (kind === 'spring' && splitsLand(map, q, r, state)) return false;
   return true;
 }
 
-/** True when turning this tile into juice leaves some walkable land out of reach of the heart. */
-export function splitsLand(map: FaceMap, q: number, r: number): boolean {
-  const walkable = (t: { type: keyof typeof TILES }) => TILES[t.type].walkable;
-  const removed = hexKey({ q, r });
-  const count = (skip: string | null) => {
-    const seen = new Set<string>([hexKey(HEART)]);
-    const stack = [HEART];
-    while (stack.length > 0) {
-      const h = stack.pop()!;
-      for (const n of hexNeighbors(h)) {
-        const k = hexKey(n);
-        if (k === skip || seen.has(k)) continue;
-        const t = getTile(map, n);
-        if (!t || !walkable(t)) continue;
-        seen.add(k);
-        stack.push(n);
-      }
-    }
-    return seen.size;
-  };
-  return count(removed) < count(null) - 1;
+/**
+ * True when turning this tile into juice leaves some walkable land cut off (chantier 35: big
+ * buildings' covered tiles are walls too).
+ */
+export function splitsLand(map: FaceMap, q: number, r: number, state?: GameState): boolean {
+  return cutsLand(map, [hexKey({ q, r })], state ? occupancy(state).blocked : undefined);
 }
 
 export function nextTitanEnd(state: GameState): TimeMs {

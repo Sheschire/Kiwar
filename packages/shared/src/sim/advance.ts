@@ -1,5 +1,5 @@
 import { accrueStardust, cometTick, nextCometEvent, planComet } from './comets';
-import { isManualWorkplace, isProducer, type BuildingType } from '../data/buildings';
+import { footprintOf, isManualWorkplace, isProducer, type BuildingType } from '../data/buildings';
 import type { TechId } from '../data/research';
 import { RESOURCE_IDS, emptyResources, type ResourceId, type Resources } from '../data/resources';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
@@ -619,11 +619,21 @@ function completeConstruction(
       level: 1,
       richness: item.richness,
       builtAt: at,
+      ...(item.rot !== undefined ? { rot: item.rot } : {}),
+      // A big site from an older save without room comes out cramped (chantier 35).
+      ...(item.rot === undefined && footprintOf(item.buildingType) > 1
+        ? { cramped: true as const }
+        : {}),
     });
   } else {
     const b = getBuilding(s, item.buildingId!);
     if (!b) return releaseBuilder(s, item.id, false);
     b.level = item.targetLevel;
+    // Chantier 35: a cramped building spreads over the room its upgrade reserved.
+    if (b.cramped && item.rot !== undefined) {
+      delete b.cramped;
+      b.rot = item.rot;
+    }
     // A new level comes out as good as new.
     delete b.damaged;
     buildingId = b.id;

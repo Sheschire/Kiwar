@@ -1,6 +1,8 @@
 import { BIOME_IDS } from '../data/biomes';
 import { z } from 'zod';
-import { BUILDING_TYPES, MAX_LEVEL } from '../data/buildings';
+import { BUILDING_TYPES, footprintOf, MAX_LEVEL, type BuildingType } from '../data/buildings';
+import { clearPathsUnder, footprintHexes, rotationsOf } from '../sim/footprint';
+import { extensionFor, siteError } from '../sim/describe';
 import { FACES } from '../types/ids';
 import {
   defaultAutomation,
@@ -39,9 +41,9 @@ import { newKiwi, rollKiwi } from '../sim/kiwis';
 import { OBSTACLE_KINDS } from '../data/obstacles';
 import { TERRAFORM_KINDS, TITAN_WORK_IDS } from '../data/titan';
 import { generateObstacles } from '../sim/obstacles';
-import { faceMapOf } from '../sim/territory';
+import { faceMapOf, syncPools } from '../sim/territory';
 import { hexKey } from '../hex/hex';
-import { HEART, type FaceParams } from '../worldgen/generateFace';
+import { getTile, HEART, type FaceParams } from '../worldgen/generateFace';
 import { AUTO_TASKS, type AutoTask } from '../data/jobs';
 import type { Obstacle } from '../sim/state';
 
@@ -215,6 +217,8 @@ export const gameStateSchema = z.object({
       pool: z.object({ stock: z.number().min(0), tiles: z.array(z.string()).max(64) }).optional(),
       damaged: z.boolean().optional(),
       reserve: resources.optional(),
+      rot: z.number().int().min(0).max(5).optional(),
+      cramped: z.literal(true).optional(),
     }),
   ),
   villagers: z.array(villager),
@@ -250,6 +254,7 @@ export const gameStateSchema = z.object({
       paid: partialResources,
       paidDust: z.number().int().min(0).optional(),
       orderedAt: z.number(),
+      rot: z.number().int().min(0).max(5).optional(),
     }),
   ),
   egg: z
@@ -657,7 +662,49 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
       stats: { ...(raw.stats as object), collects: 0, wavesHeld: held },
     };
   },
+  // v26 → v27 (chantier 35): big buildings start cramped on their anchor; `spreadOldBuildings`
+  // gives each one room after the parse (it needs the whole state).
+  26: (raw) => ({
+    ...raw,
+    buildings: (Array.isArray(raw.buildings)
+      ? (raw.buildings as Record<string, unknown>[])
+      : []
+    ).map((b) => (footprintOf(b.type as BuildingType) > 1 ? { ...b, cramped: true } : b)),
+  }),
 };
+
+/**
+ * Chantier 35: after loading an older save, each big building (oldest first) spreads over the
+ * free orientation that covers the least harvest, or stays cramped; big sites in the queue get
+ * an orientation too (none: they stay cramped and finish so). Paths under the new covered tiles
+ * are refunded. No building is lost.
+ */
+export function spreadOldBuildings(state: GameState): void {
+  const map = faceMapOf(state);
+  for (const b of state.buildings) {
+    if (!b.cramped) continue;
+    const rot = extensionFor(state, map, b);
+    if (rot === null) continue;
+    delete b.cramped;
+    b.rot = rot;
+    clearPathsUnder(state, footprintHexes(b.type, b.q, b.r, rot));
+  }
+  for (const item of state.queue) {
+    if (item.kind !== 'build' || item.rot !== undefined || footprintOf(item.buildingType) === 1)
+      continue;
+    const tile = getTile(map, item);
+    const rot = tile
+      ? rotationsOf(item.buildingType).find(
+          (r) => siteError(state, map, item.buildingType, tile, r, item.id) === null,
+        )
+      : undefined;
+    if (rot === undefined) continue;
+    item.rot = rot;
+    clearPathsUnder(state, footprintHexes(item.buildingType, item.q, item.r, rot));
+  }
+  state.buildings = [...state.buildings];
+  syncPools(state, map, state.now);
+}
 
 /** Chantier 30: old level of a building → its new level (each level keeps its age). */
 function newLevel(level: number): number {
@@ -728,6 +775,7 @@ export function migrateState(input: unknown): MigrateResult {
   let raw = input as Record<string, unknown>;
   let version = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : 0;
   if (version > SCHEMA_VERSION) return { ok: false, reason: 'tooNew' };
+  const from = version;
   while (version < SCHEMA_VERSION) {
     const migrate = MIGRATIONS[version];
     if (!migrate) return { ok: false, reason: 'corrupt' };
@@ -736,9 +784,10 @@ export function migrateState(input: unknown): MigrateResult {
     raw.schemaVersion = version;
   }
   const result = gameStateSchema.safeParse(raw);
-  return result.success
-    ? { ok: true, state: result.data as GameState }
-    : { ok: false, reason: 'corrupt' };
+  if (!result.success) return { ok: false, reason: 'corrupt' };
+  const state = result.data as GameState;
+  if (from < 27) spreadOldBuildings(state);
+  return { ok: true, state };
 }
 
 export function serializeSave(state: GameState, savedAt: number): string {

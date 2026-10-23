@@ -10,7 +10,7 @@ import {
 } from './tasks';
 import { AUTO_TASKS, type AutoTask } from '../data/jobs';
 import { canMine, meteorAt, minersOf } from './sky';
-import { BUILDINGS, levelDef, type BuildingType } from '../data/buildings';
+import { BUILDINGS, footprintOf, levelDef, type BuildingType } from '../data/buildings';
 import { CAMPS, PATHS } from '../data/territory';
 import { TILES } from '../data/tiles';
 import { hexKey } from '../hex/hex';
@@ -24,7 +24,8 @@ import { CLASSES, SKILLS, type ClassId, type SkillId } from '../data/classes';
 import { faceMapOf, isFlooded, releasePool, syncPools, terraformKey } from './territory';
 import { seasonOf } from './calendar';
 import { ageObjectives, currentObjective, isObjectiveComplete } from './objectives';
-import { buildLock, siteError, upgradeLock } from './describe';
+import { buildLock, extensionFor, siteError, upgradeLock } from './describe';
+import { clearPathsUnder, footprintHexes, normalRot } from './footprint';
 import {
   buildCost,
   buildingAt,
@@ -111,7 +112,8 @@ import { TITAN_WORK_IDS, type TitanWork } from '../data/titan';
 import { canReshape, terraformLeft, titanAt, titanCost } from './titan';
 
 export type Command =
-  | { type: 'build'; buildingType: BuildingType; q: number; r: number }
+  /** Chantier 35: `rot` (0–5) turns a 3-tile footprint (`footprintHexes`); default 0. */
+  | { type: 'build'; buildingType: BuildingType; q: number; r: number; rot?: number }
   | { type: 'upgrade'; buildingId: BuildingId }
   | { type: 'cancel'; queueItemId: QueueItemId }
   | { type: 'assignWorkers'; buildingId: BuildingId; count: number }
@@ -328,6 +330,9 @@ export const COMMAND_ERRORS = [
   'notConquered',
   'alreadyFounded',
   'sharedResearch',
+  // Chantier 35: buildings on several tiles.
+  'cutsLand',
+  'cramped',
   'noDen',
   'noGuards',
   'tooStrong',
@@ -459,7 +464,8 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const tile = getTile(ctx.map, { q: cmd.q, r: cmd.r });
       if (!tile) return fail('unknownTile');
       // The tile, then everything that does not depend on it (shared with the building tree).
-      const site = siteError(s, ctx.map, cmd.buildingType, tile);
+      const rot = normalRot(cmd.rot);
+      const site = siteError(s, ctx.map, cmd.buildingType, tile, rot);
       if (site) fail(site);
       const lock = buildLock(s, cmd.buildingType);
       if (lock) fail(lock);
@@ -486,17 +492,20 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         startedAt: null,
         paid: cost,
         orderedAt: now,
+        ...(footprintOf(cmd.buildingType) > 1 ? { rot } : {}),
       });
-      // The site replaces any path on the tile.
-      s.paths = s.paths.filter((k) => k !== hexKey(cmd));
+      // The site replaces any path on its tiles (the covered ones are refunded, chantier 35).
+      clearPathsUnder(s, footprintHexes(cmd.buildingType, cmd.q, cmd.r, rot));
       return;
     }
     case 'upgrade': {
       const b = getBuilding(s, cmd.buildingId);
       if (!b) return fail('unknownBuilding');
       // Shared with the level badges (chantier 11).
-      const lock = upgradeLock(s, b);
+      const lock = upgradeLock(s, b, ctx.map);
       if (lock) fail(lock);
+      // Chantier 35: a cramped building takes its room now (reserved until the upgrade ends).
+      const spread = b.cramped ? extensionFor(s, ctx.map, b) : null;
       const target = b.level + 1;
       const cost = upgradeCost(b.type, target);
       const durationMs = constructionDuration(s, b.type, target, false, nearRay(ctx.map, b.q, b.r));
@@ -517,7 +526,9 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         paid: cost,
         ...(dust > 0 ? { paidDust: dust } : {}),
         orderedAt: now,
+        ...(spread !== null ? { rot: spread } : {}),
       });
+      if (spread !== null) clearPathsUnder(s, footprintHexes(b.type, b.q, b.r, spread).slice(1));
       return;
     }
     case 'cancel': {

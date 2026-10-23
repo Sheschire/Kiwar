@@ -1,3 +1,4 @@
+import { takenKeys } from './footprint';
 import { COLONY } from '../data/colonies';
 import { GARRISON } from '../data/threats';
 import { OBJECTIVES } from '../data/objectives';
@@ -180,7 +181,7 @@ export function newSister(home: GameState, f: Founding): GameState {
   const taken = new Set<string>([
     hexKey(HEART),
     ...s.obstacles.map((o) => hexKey(o)),
-    ...s.buildings.map((b) => hexKey(b)),
+    ...takenKeys(s),
   ]);
   s.obstacles = [...s.obstacles, ...generateTraces(faceMapOf(s), taken)];
   linkSister(s);

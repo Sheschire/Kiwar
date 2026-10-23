@@ -31,7 +31,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 26;
+export const SCHEMA_VERSION = 27;
 
 export type Job =
   | { kind: 'idle' }
@@ -154,6 +154,13 @@ export interface Building {
   damaged?: boolean;
   /** Chantier 30, warehouses only: the stock kept in reserve (see `reserveCapOf`). */
   reserve?: Resources;
+  /** Chantier 35: orientation (0–5) of a 3-tile footprint (`footprintTiles`). */
+  rot?: number;
+  /**
+   * Chantier 35: a big building from an older save that found no room to spread: it covers
+   * only its anchor until its next upgrade, which needs the room (`extensionFor`).
+   */
+  cramped?: true;
 }
 
 export interface Pool {
@@ -189,6 +196,11 @@ export interface QueueItem {
   /** Chantier 13: stardust points paid when ordered (refunded on cancel). */
   paidDust?: number;
   orderedAt: TimeMs;
+  /**
+   * Chantier 35: orientation of a big building's footprint — for a `build`, the site; for the
+   * `upgrade` of a cramped building, the room it takes (reserved until done).
+   */
+  rot?: number;
 }
 
 /** An ally of the universe our ship can fly to. */

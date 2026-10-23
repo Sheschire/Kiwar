@@ -27,8 +27,13 @@ import {
   type FaceMap,
   type GameState,
   type ResourceId,
-  type Tile,
   capacity,
+  coveredHarvest,
+  footprintHexes,
+  footprintOf,
+  getTile,
+  rotationsOf,
+  siteError,
 } from '@kiwar/shared';
 
 export const PRODUCERS: Record<ResourceId, BuildingType> = {
@@ -54,9 +59,10 @@ export const BUILD_ORDER: BuildingType[] = [
  * level 3), weighted by logistics. Others: rays and the heart first (no deposit lost), close
  * to the producers for warehouses, close to the heart otherwise.
  */
-export function bestTile(state: GameState, map: FaceMap, type: BuildingType): Tile | null {
-  let best: Tile | null = null;
+export function bestTile(state: GameState, map: FaceMap, type: BuildingType): Site | null {
+  let best: Site | null = null;
   let bestScore = -Infinity;
+  const big = footprintOf(type) > 1;
   const producers = state.buildings.filter((b) => HARVESTS[b.type]);
   // Huts: each producer's walk to its nearest home today.
   const homes = state.buildings.filter((b) => b.type === 'hut' || b.type === 'nest');
@@ -97,12 +103,39 @@ export function bestTile(state: GameState, map: FaceMap, type: BuildingType): Ti
           : -t.rho * 5;
       score = spare + near * 0.3;
     }
-    if (score > bestScore) {
-      bestScore = score;
-      best = t;
+    if (!big) {
+      if (score > bestScore) {
+        bestScore = score;
+        best = { q: t.q, r: t.r, rot: 0 };
+      }
+      continue;
+    }
+    // Chantier 35: a big building turns to fit and to cover the fewest deposits.
+    for (const rot of rotationsOf(type)) {
+      if (score <= bestScore) break;
+      if (siteError(state, map, type, t, rot)) continue;
+      const lost = footprintHexes(type, t.q, t.r, rot)
+        .slice(1)
+        .reduce((sum, h) => {
+          const tile = getTile(map, h);
+          return sum + (tile && tile.type !== 'ray' && tile.type !== 'heart' ? 1 : 0);
+        }, 0);
+      const taken = coveredHarvest(state, type, t.q, t.r, rot).length;
+      const total = score - 0.3 * lost - 2 * taken;
+      if (total > bestScore) {
+        bestScore = total;
+        best = { q: t.q, r: t.r, rot };
+      }
     }
   }
   return best;
+}
+
+/** Chantier 35: where and how a building goes (`rot` turns a 3-tile footprint). */
+export interface Site {
+  q: number;
+  r: number;
+  rot: number;
 }
 
 /** The next level exists in this age and the Nest allows it. */

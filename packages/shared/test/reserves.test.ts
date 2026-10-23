@@ -17,7 +17,7 @@ import {
   type Command,
   type GameState,
 } from '../src';
-import { findTile, run, setup } from './helpers';
+import { findTile, run, setup, siteFor } from './helpers';
 
 /** A young colony with `count` level-1 warehouses, its stock just full. */
 function withWarehouses(count: number) {
@@ -28,7 +28,12 @@ function withWarehouses(count: number) {
   };
   for (let i = 0; i < count; i++) {
     const t = findTile(map, 'flesh', 3 + i);
-    s = run(s, { type: 'build', buildingType: 'warehouse', q: t.q, r: t.r }, s.now, map);
+    s = run(
+      s,
+      { type: 'build', buildingType: 'warehouse', ...siteFor(s, map, 'warehouse', t) },
+      s.now,
+      map,
+    );
     s = advance(s, s.now + 10 * 60_000).state;
   }
   const cap = capacity(s);

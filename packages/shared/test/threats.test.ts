@@ -33,7 +33,7 @@ import {
   type GameEvent,
   type GameState,
 } from '../src';
-import { findTile, kiwi, rich, run, setup, T0 } from './helpers';
+import { findTile, kiwi, rich, run, setup, T0, siteFor } from './helpers';
 
 const DAY = 24 * HOUR_MS;
 
@@ -246,7 +246,12 @@ describe('waves awakened (chantier 31)', () => {
     const { map, state } = colony();
     const flesh = findTile(map, 'flesh', 3);
     let s = rich(state);
-    s = run(s, { type: 'build', buildingType: 'warehouse', q: flesh.q, r: flesh.r }, s.now, map);
+    s = run(
+      s,
+      { type: 'build', buildingType: 'warehouse', ...siteFor(s, map, 'warehouse', flesh) },
+      s.now,
+      map,
+    );
     s = advance(s, s.now + HOUR_MS).state;
     const w = s.buildings.find((b) => b.type === 'warehouse')!;
     const cap = reserveCapOf(s, w);

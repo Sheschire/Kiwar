@@ -16,6 +16,10 @@ import {
   type GameState,
   type TileType,
   type Tile,
+  type BuildingType,
+  hexDistance,
+  rotationsOf,
+  siteError,
 } from '../src';
 
 export const T0 = 1_700_000_000_000;
@@ -73,4 +77,23 @@ export function knowTruth(state: GameState, at: number): GameState {
     });
   }
   return s;
+}
+
+/**
+ * Chantier 35: a site (anchor and orientation) where a building of `type` fits, `from` first,
+ * then the tiles nearest to it.
+ */
+export function siteFor(
+  state: GameState,
+  map: FaceMap,
+  type: BuildingType,
+  from: { q: number; r: number } = { q: 0, r: 0 },
+): { q: number; r: number; rot: number } {
+  const tiles = [...map.tiles].sort(
+    (a, b) => hexDistance(a, from) - hexDistance(b, from) || a.q - b.q || a.r - b.r,
+  );
+  for (const t of tiles)
+    for (const rot of rotationsOf(type))
+      if (siteError(state, map, type, t, rot) === null) return { q: t.q, r: t.r, rot };
+  throw new Error(`no site for ${type}`);
 }

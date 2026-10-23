@@ -1,3 +1,4 @@
+import { occupancy } from './footprint';
 import { OBSTACLES, OBSTACLE_KINDS, OBSTACLE_RULES, type ObstacleKind } from '../data/obstacles';
 import { METEORS } from '../data/threats';
 import { RESOURCE_IDS, type Resources } from '../data/resources';
@@ -68,7 +69,7 @@ export function leaveWreck(
 ): void {
   if (s.obstacles.filter((o) => o.kind === 'wreck').length >= OBSTACLE_RULES.maxWrecks) return;
   if (obstacleAt(s, m.q, m.r)) return;
-  if (s.buildings.some((b) => b.q === m.q && b.r === m.r)) return;
+  if (occupancy(s).tiles.has(`${m.q},${m.r}`)) return;
   if (s.queue.some((i) => i.q === m.q && i.r === m.r)) return;
   const k = METEORS.ageFactor[ageOf(s)] ?? 1;
   const loot: Partial<Resources> = {};

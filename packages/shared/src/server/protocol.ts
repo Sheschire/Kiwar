@@ -30,7 +30,13 @@ const id = z.string().min(1).max(64);
 const int = z.number().int();
 
 export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('build'), buildingType: z.enum(BUILDING_TYPES), q: int, r: int }),
+  z.object({
+    type: z.literal('build'),
+    buildingType: z.enum(BUILDING_TYPES),
+    q: int,
+    r: int,
+    rot: int.min(0).max(5).optional(),
+  }),
   z.object({ type: z.literal('upgrade'), buildingId: id }),
   z.object({ type: z.literal('cancel'), queueItemId: id }),
   z.object({ type: z.literal('assignWorkers'), buildingId: id, count: int.min(0).max(100) }),

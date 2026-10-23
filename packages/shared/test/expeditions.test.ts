@@ -18,7 +18,7 @@ import {
   type Command,
   type GameState,
 } from '../src';
-import { findTile, kiwi, knowTruth, rich, run, setup, T0 } from './helpers';
+import { findTile, kiwi, knowTruth, rich, run, setup, T0, siteFor } from './helpers';
 
 /** A colony with a Nest 2, a launchpad and plenty of kiwis, ready to launch. */
 function readyColony(extraKiwis = 8) {
@@ -29,7 +29,12 @@ function readyColony(extraKiwis = 8) {
   t += HOUR_MS;
   s = advance(s, t).state;
   const flesh = findTile(map, 'flesh');
-  s = run(s, { type: 'build', buildingType: 'launchpad', q: flesh.q, r: flesh.r }, t, map);
+  s = run(
+    s,
+    { type: 'build', buildingType: 'launchpad', ...siteFor(s, map, 'launchpad', flesh) },
+    t,
+    map,
+  );
   t += HOUR_MS;
   s = advance(s, t).state;
   // Fast-forward population (hatching is tested elsewhere).

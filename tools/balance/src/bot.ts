@@ -283,8 +283,8 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
     state.buildings.some((b) => b.type === type) ||
     state.queue.some((i) => i.buildingType === type);
   const build = (type: BuildingType): Command | null => {
-    const tile = bestTile(state, map, type);
-    return tile ? { type: 'build', buildingType: type, q: tile.q, r: tile.r } : null;
+    const site = bestTile(state, map, type);
+    return site ? { type: 'build', buildingType: type, ...site } : null;
   };
 
   // 0. Chantier 30: the monument as soon as its passage is known (it saves up for it).

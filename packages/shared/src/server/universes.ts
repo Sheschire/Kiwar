@@ -1,7 +1,7 @@
 import type { ObstacleKind } from '../data/obstacles';
 import type { TerraformKind } from '../data/titan';
 import { alienDefOf } from '../data/expeditions';
-import type { ExpeditionTarget, Friend, GameState } from '../sim/state';
+import type { Building, ExpeditionTarget, Friend, GameState } from '../sim/state';
 import type { Resources } from '../data/resources';
 import type { BuildingType } from '../data/buildings';
 import type { FaceParams } from '../worldgen/generateFace';
@@ -66,7 +66,8 @@ export interface TwinSnapshot {
   owner: string;
   face: Face;
   params: FaceParams;
-  buildings: { type: BuildingType; level: number; q: number; r: number }[];
+  /** Chantier 35: `rot` and `cramped` give the footprint (absent in older snapshots). */
+  buildings: LayoutBuilding[];
   paths: string[];
   /** Rocks, stumps and wrecks (chantier 08; absent in older snapshots). */
   obstacles?: { kind: ObstacleKind; q: number; r: number }[];
@@ -97,13 +98,34 @@ export interface AllySnapshot extends TwinSnapshot {
   sister?: SisterSnapshot;
 }
 
+export interface LayoutBuilding {
+  type: BuildingType;
+  level: number;
+  q: number;
+  r: number;
+  rot?: number;
+  cramped?: true;
+}
+
+/** A building as others see it. */
+export function layoutBuilding(b: Building): LayoutBuilding {
+  return {
+    type: b.type,
+    level: b.level,
+    q: b.q,
+    r: b.r,
+    ...(b.rot !== undefined ? { rot: b.rot } : {}),
+    ...(b.cramped ? { cramped: true as const } : {}),
+  };
+}
+
 /** The layout of a colony as others see it (never its stocks). */
 export function layoutSnapshot(s: GameState, owner: string, at: number): TwinSnapshot {
   return {
     owner,
     face: s.face,
     params: s.params,
-    buildings: s.buildings.map((b) => ({ type: b.type, level: b.level, q: b.q, r: b.r })),
+    buildings: s.buildings.map(layoutBuilding),
     paths: s.paths,
     obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
     terraform: s.terraform,

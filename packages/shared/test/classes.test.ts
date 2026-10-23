@@ -21,7 +21,7 @@ import {
   type GameState,
   type Villager,
 } from '../src';
-import { findTile, rich, run, setup, T0 } from './helpers';
+import { findTile, rich, run, setup, T0, siteFor } from './helpers';
 
 const at = (v: Villager, level: number): Villager => ({
   ...v,
@@ -38,7 +38,12 @@ function schoolColony(schoolLevel = 1) {
   const flesh = findTile(map, 'flesh');
   const site = findTile(map, 'flesh', 3);
   s = run(s, { type: 'build', buildingType: 'pulpery', q: flesh.q, r: flesh.r }, s.now, map);
-  s = run(s, { type: 'build', buildingType: 'school', q: site.q, r: site.r }, s.now, map);
+  s = run(
+    s,
+    { type: 'build', buildingType: 'school', ...siteFor(s, map, 'school', site) },
+    s.now,
+    map,
+  );
   s = advance(s, s.now + HOUR_MS).state;
   const school = s.buildings.find((b) => b.type === 'school')!;
   for (let l = 1; l < schoolLevel; l++) {

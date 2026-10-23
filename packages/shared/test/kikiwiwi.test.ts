@@ -24,7 +24,7 @@ import {
   type TechId,
   STARDUST_SCALE,
 } from '../src';
-import { findTile, rich, run, setup, T0 } from './helpers';
+import { findTile, rich, run, setup, T0, siteFor } from './helpers';
 
 /** An Iron-age colony (Nest 4, monument 2) knowing juice infusion, with a level-6 kiwi. */
 export function ironColony(techs: TechId[] = ['stoneAge', 'ironAge', 'juiceInfusion']) {
@@ -74,7 +74,7 @@ describe('laboratory against nature', () => {
   it('needs the Iron age, its technology, and is unique', () => {
     const { map, s } = ironColony(['stoneAge', 'ironAge']);
     const site = findTile(map, 'flesh', 8);
-    const build: Command = { type: 'build', buildingType: 'lab', q: site.q, r: site.r };
+    const build: Command = { type: 'build', buildingType: 'lab', ...siteFor(s, map, 'lab', site) };
     expect(errorOf(s, build, map)).toBe('techMissing');
     const young = structuredClone(s);
     young.buildings = young.buildings.filter((b) => b.type !== 'monument');
@@ -85,7 +85,9 @@ describe('laboratory against nature', () => {
     };
     const ordered = run(knows, build, s.now, map);
     const other = findTile(map, 'flesh', 9);
-    expect(errorOf(ordered, { ...build, q: other.q, r: other.r }, map)).toBe('labExists');
+    expect(errorOf(ordered, { ...build, ...siteFor(ordered, map, 'lab', other) }, map)).toBe(
+      'labExists',
+    );
   });
 
   it('caps the Kikiwiwis by age: none before Iron, one at Iron, two at Industry', () => {

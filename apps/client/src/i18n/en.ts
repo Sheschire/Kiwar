@@ -736,6 +736,8 @@ export const en = {
     noDen: 'No ferret den on this tile.',
     noGuards: 'Post guards on the rampart first.',
     tooStrong: 'The guards are not strong enough for this den.',
+    cutsLand: 'This would cut the village in two: kiwis walk around big buildings.',
+    cramped: 'Cramped: free the tiles around it so it can spread before it grows.',
   },
   siege: {
     show: {
