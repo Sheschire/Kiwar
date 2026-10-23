@@ -2170,3 +2170,13 @@ launch cost applies to **every mission but the founding**; the bot's dead time a
   the other tiles from the kit (wings, training field, shed and crates, lit runway and hangar,
   juice vats, the monument's plaza). The monument keeps a multiple of 60° so its slabs sit on
   the tiles.
+
+### Measured (probe `--seeds 4 --hours 24 --ages 2`, before → after, same seeds)
+
+- Attentive ages unchanged: Stone 12.9 → 12.7 h, Iron 2.8 → 2.8 days, Industry 8.7 → 8.7
+  days; Kiwisu / Kiwino within 1.7 % (Stone); dead time 64–86 → 68–81 min (chantier 31's
+  wait, unchanged).
+- Nest 3 / Library: lagoons +11–17 % against the other biomes after (flood shores and juice
+  leave fewer roomy sites; 2–4 seeds, the baseline had orchard/highlands ±11 % instead): to
+  watch in the full report at the end of the act, no retune now.
+- Occasional profile: same spread as before (its Stone age depends on the visit times).
