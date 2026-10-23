@@ -31,7 +31,7 @@ dans l'historique.
 | --- | ---------------------------------------------------- | ------- |
 |     | **Acte I — Le rythme**                               |         |
 | 30  | Paliers, âges et réserves                            | fait    |
-| 31  | Objectifs et menaces réveillées                      | à faire |
+| 31  | Objectifs et menaces réveillées                      | fait    |
 | 32  | Correctifs et ciel (client)                          | fait    |
 | 33  | Bâtiments par âge et icônes 3D (client)              | fait    |
 | 34  | Kiwis et créatures vivants (client)                  | fait    |
@@ -50,10 +50,11 @@ dans l'historique.
 | 45  | Rives fertiles et canaux de jus                      | à faire |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
-**Prochaine conversation** : le chantier **31** (objectifs et menaces) s'il n'est pas fini ;
-le **33** est fait (puis le **35**, bâtiments sur plusieurs tuiles, qui part de son kit). Le 30 a laissé deux points au 31 : le
-pillage des réserves (elles ne sont pas encore pillées) et le temps mort du début de la Pierre
-(~80–110 min mesurés par le bot, cible ~45 min : les objectifs et les vagues doivent le remplir).
+**Prochaine conversation** : l'**acte I est fini** ; l'acte II commence par le chantier **35**
+(bâtiments sur plusieurs tuiles, qui part du kit du 33), puis le **36** (moteur de bataille :
+les vagues du 31 jouées pour de vrai, mêmes leviers). Point laissé par le 31 : le temps mort du
+début de la Pierre reste ~70–90 min au bot (attente de la ressource la plus rare pendant
+qu'une autre déborde ; voir `DECISIONS.md`, chantier 31) — à rediscuter avec le porteur.
 
 ## Règles transverses à retenir
 
@@ -77,6 +78,10 @@ pillage des réserves (elles ne sont pas encore pillées) et le temps mort du d�
 - **Niveaux et réserves** (chantier 30) : niveaux 1–12, trois par âge ; toute table indexée par
   le niveau du Nid ou d'un bâtiment a 13 cases (skill `kiwar-sim`). Les réserves d'entrepôt ne se
   rapatrient **que** par le joueur (`collect`, `collectAll`), jamais par l'automatisation.
+- **Objectifs** (chantier 31) : un nouveau système ou âge prend ses objectifs dans
+  `AGE_OBJECTIVES` (une condition = un cas de `objectiveProgress`) ; la prochaine étape
+  (`nextStep`) suit les urgences (skill `kiwar-sim`). Toute menace reste annoncée avec au moins
+  deux parades, et les réserves sont pillées en premier (skill `kiwar-threats`).
 - **Planètes** : elles ont une place fixe (`render/space.ts`) ; `renderer.setTwinApproach(t)`
   rapproche la jumelle (skill `kiwar-world`).
 

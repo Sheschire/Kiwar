@@ -39,8 +39,14 @@ after one tech), expeditions, class training, speech/rain skills, objective rewa
   Nest 6), 20000/20000/5000/7000 + 25 stardust (12 h, Nest 9).
 - Food: 30 pulp + 10 juice per kiwi per hour (summer ×0.8, winter ×1.3).
 - Eggs: pulp 25·1.3^n, juice 10·1.35^n, time min(2 h, 20 s·1.55^n), n = population − 3.
-- Expedition rations: crew × (4 p + 2 j)/h × round trip (`sim/expeditions.ts:213-224`) — tiny.
-- Wave loot: 35 % × severity of stock above the protected share (Nest 30 %, warehouse 60 %).
+- Expedition rations: crew × (4 p + 2 j)/h × round trip (`sim/expeditions.ts` `rations`), plus
+  (chantier 31) a launch cost of 40 fibre + 25 juice per kiwi × ship (1 / 2 / 5 / 12 by age),
+  Kikiwiwi × 3, nothing for the settlers (`launchCost`).
+- Wave loot (chantier 31): 35 % × severity of (warehouse reserves + stock above the protected
+  share: Nest 30 %, warehouse 60 % of their storage); the reserves are taken first.
+- Objective rewards (chantier 31): tutorial 15–100 per step; age notebook (`AGE_OBJECTIVES`)
+  ~150–500 in Eden, 1 200–2 500 in Stone, 2 000–12 000 in Iron, 8 000–40 000 in Industry,
+  3–10 stardust and four free eggs over the four ages.
 
 ## Caps
 
@@ -70,12 +76,16 @@ player collects reserves (`collect`, `collectAll`).
 
 ## Threats
 
-- First wave ≥ 24 h of play and Nest 2; every 20–28 h; notice 8–12 h (+4 h starWatch); 24 h
-  shield after a defeat (`sim/threats.ts` `planWave` 509-531).
-- Power = 6 × Nest factor [0, 0.6, 1, 1.6, 2.2, 2.9, 3.6] × age [1, 1.15, 1.3, 1.5] × (1 + 0.25
-  × days, ≤ 14) × (1 + 0.08 × raid victories, ≤ +0.8) — **no link to wealth or population**.
-- Outcome (`waveOutcome` 379-436): loot, 1–4 damaged buildings, injuries, at most one death.
-  The bot loses nothing (turrets L2 take 4 min against 8–12 h of notice).
+- Chantier 31: first wave ≥ 7 h of play and Nest 2; every 12–18 h; notice 3–6 h (+2 h
+  starWatch); 24 h shield after a defeat (`sim/threats.ts` `planWave`).
+- Power = 6 × Nest factor [0, 0.5, 0.7, 1, 1.5, 1.9, 2.3, 2.6, 2.9, 3.2, 3.5, 3.8, 4.1] × age
+  [1, 1.15, 1.3, 1.5] × (1 + 0.12 × days, ≤ 14) × (1 + 0.08 × raid victories, ≤ +0.8) ×
+  wealth (1 + 0.4 × storage filled above half + 0.25 ln(1 + levels / 40) + 0.15 ln(1 +
+  kiwis / 10): ~1.2 young, ~2 rich), at the announcement.
+- Outcome (`waveOutcome`): any leak in a sector is a defeat (≥ 1 damaged building); loot
+  (reserves first), 1–4 damaged buildings, injuries, at most one death (threat > 2× defense).
+- Answers during the notice: bring the reserves back, seeds for the turrets, guards (also
+  automatic 40 min before), a turret more, repairs, shelter (45 min before).
 
 ## Morale, rest, hunger
 

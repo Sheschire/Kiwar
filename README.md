@@ -10,6 +10,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 31** — le village **a besoin de vous** : le carnet d'**objectifs** montre toujours
+> une **prochaine étape** (une vague à préparer, un bâtiment à réparer, des réserves à rapatrier,
+> une recherche à choisir…), **trois objectifs de l'âge** à réclamer (ressources, poussière
+> d'étoile, parfois un **œuf offert**) et la **progression vers l'âge suivant**. Les **vagues**
+> arrivent dès le **premier jour** (vers 7 h de jeu), puis toutes les 12 à 18 h, annoncées 3 à
+> 6 h avant ; elles grossissent avec la **richesse** de la colonie et **pillent d'abord les
+> réserves** des entrepôts : la fenêtre de défense liste les parades (« Rapatrier », graines des
+> tourelles, gardes, une tourelle de plus, réparations). Une **expédition coûte** désormais
+> fibre et jus par kiwi embarqué, affichés avant le départ.
+
 > **Chantier 30** — le **rythme** change : la Pierre arrive vers **12 h** de jeu attentif, le
 > Fer vers **3 jours**, l'Industrie vers **10 jours**. Chaque âge ouvre **trois niveaux** de
 > bâtiments (Éden 1–3, Pierre 4–6, Fer 7–9, Industrie 10–12) et le Nid suit. Le stock tient
