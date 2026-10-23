@@ -194,3 +194,12 @@ The probe (`probe.ts`) places its launchpad with `bestTile`.
   `uncoveredGates` just before the strike; then trace a battle with `decodeEvents` (moves,
   shots by turret, falls) — escaping scouts and bats, and turrets that fire twice, were the
   causes found in chantier 36.
+
+## Chantier 37: classes
+
+Mechanic `classes` (`bot/rpg.ts`: gatherers, mages, the camp, drills, promotions; `--impact`
+shows "without the classes of chantier 37"). Always filter with `trainLock` / `canAfford`
+before `applyCommand` in a decision (each dry run copies the colony). Reference (`--seeds 4
+--hours 72 --impact 2`, 51 min): faces within 4.3 %, Stone ≈ 13.3 h, Iron ≈ 2.3–2.6 d; without
+classes Iron +16.6 %; rhythm "at the cap" 32–63 % in highlands, lagoons and tundra (to
+decide with the owner, see `DECISIONS.md` chantier 37).

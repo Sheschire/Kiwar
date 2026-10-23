@@ -2359,3 +2359,22 @@ launch cost applies to **every mission but the founding**; the bot's dead time a
 - Outfits: a higher tier wears its first ancestor's outfit with a cape and a mantle collar in
   its own colour (a gold circlet at tier 3); portraits get the cape. The `?kiwis` sheet shows
   a Champion (joy) and an Oracle (dance).
+
+### Part 5 — Bot and balance
+
+- Bot (mechanic `classes`, also in `--impact`): two gatherers, two mages once the Library
+  stands, the training camp from the Stone age with one kiwi in drill (the mages' line first),
+  every promotion it qualifies for (archmage first); stat points go to the class's stat (the
+  lower of two for a master). The bot checks `trainLock` and the price before a dry run (a
+  dry run copies the colony: the bot had become 40 % slower).
+- Measured (`pnpm balance --seeds 4 --hours 72 --impact 2`, 51 min): Kiwisu / Kiwino within
+  4.3 %; tutorial 1.3 h, Nest 3 ≈ 4.5 h, Library ≈ 4.7 h, mayor ≈ 13.5 h, Stone ≈ 13.3 h,
+  **Iron ≈ 2.3–2.6 days** (lagoons +11.8 % on 4 seeds); no kiwi killed by predators.
+- **Impact of the classes**: without them the Iron age comes **16.6 % later** (2.7 days
+  instead of 2.3); research per hour with two mages, then an archmage, ~145 vs ~80 points in
+  the same colony at 72 h. Earlier milestones unchanged (the camp costs a little early on).
+- ⚠️ To decide with the owner: (1) the Iron age now comes ~0.5 day before the 3-day target
+  of the charter (the mages "noticeably faster" asked by the owner); (2) the rhythm table got
+  worse where the harvest saturates — at the cap 63 % (highlands), 41 % (lagoons), 32 %
+  (tundra), dead time up to 180 min — the gatherers harvest 30 % more than the bot spends.
+  Not retuned in this chantier; 4 seeds per biome only (noisy).
