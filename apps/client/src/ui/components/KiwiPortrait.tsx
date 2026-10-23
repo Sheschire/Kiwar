@@ -193,6 +193,12 @@ const CAPES: Partial<Record<ClassId, string>> = {
   archmage: '#6a4fb3',
   herbalist: '#5d8a3a',
   minstrel: '#3e7fbf',
+  engineer: '#b87333',
+  paladin: '#f4e6c4',
+  druid: '#3f6b2a',
+  ranger: '#4a6b3a',
+  titan: '#7a5233',
+  oracle: '#2b2f6b',
 };
 
 function hash(s: string): number {

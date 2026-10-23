@@ -5,6 +5,10 @@ import {
   buildLock,
   CAMP,
   CLASSES,
+  classSkills,
+  planWave,
+  shipReliability,
+  SHIPS,
   classRank,
   consumption,
   grantClassXp,
@@ -181,6 +185,56 @@ describe('training camp (chantier 37)', () => {
     const none = structuredClone(s.villagers[2]!);
     grantClassXp(none, 10, s.now, events);
     expect(none.classXp).toBe(0);
+  });
+
+  it('masters need two stats, the Iron age and a camp of level 3, and keep both lines', () => {
+    const { map, s: s0 } = campColony(3);
+    const s = structuredClone(s0);
+    const v = s.villagers[0]!;
+    v.classId = 'archmage';
+    v.level = 20;
+    v.xp = xpForLevel(20) * XP_SCALE;
+    v.classXp = CAMP.rankHours[3]! * PRACTICE_SCALE;
+    v.stats = { ...STRONG, spirit: 13, charisma: 11 };
+    expect(errorOf(s, promote(v, 'oracle'), map)).toBe('statTooLow');
+    v.stats.charisma = 12;
+    expect(errorOf(s, promote(v, 'oracle'), map)).toBeNull();
+    expect(errorOf(s, promote(v, 'titan'), map)).toBe('wrongClass');
+    const low = structuredClone(s);
+    low.buildings.find((b) => b.id === 'bcamp')!.level = 2;
+    expect(errorOf(low, promote(low.villagers[0]!, 'oracle'), map)).toBe('classLocked');
+    const stone = structuredClone(s);
+    stone.buildings.find((b) => b.id === 'bmon')!.level = 1;
+    expect(errorOf(stone, promote(stone.villagers[0]!, 'oracle'), map)).toBe('classLocked');
+    const done = advance(run(s, promote(v, 'oracle'), s.now, map), s.now + 9 * HOUR_MS).state;
+    const oracle = done.villagers[0]!;
+    expect(oracle.classId).toBe('oracle');
+    // Skills of both lines: the mage's Rain and the bard's Ballad.
+    expect(hasSkill(oracle, 'rain')).toBe(true);
+    expect(hasSkill(oracle, 'ballad')).toBe(true);
+    expect(classSkills('oracle').length).toBe(6);
+  });
+
+  it('gives each master its own trade', () => {
+    const { s } = campColony(3);
+    const v = { ...s.villagers[0]!, trait: null, level: 20 };
+    const as = (classId: Villager['classId']): Villager => ({ ...v, classId });
+    // The engineer mends the ship, the oracle sees the waves coming.
+    const ship = SHIPS.wood;
+    expect(shipReliability(ship, [as('engineer')])).toBeCloseTo(
+      Math.min(1, shipReliability(ship, [as('builder')]) + SKILLS.engineerMend),
+    );
+    const quiet = structuredClone(s);
+    quiet.threats.shieldUntil = 0;
+    quiet.threats.next = null;
+    const seer = structuredClone(quiet);
+    seer.villagers[0]!.classId = 'oracle';
+    planWave(quiet);
+    planWave(seer);
+    const lead = (x: GameState) => x.threats.next!.at - x.threats.next!.announceAt;
+    expect(lead(seer) - lead(quiet)).toBe(SKILLS.oracleNotice);
+    expect(modifiers(as('titan')).fight).toBeGreaterThan(modifiers(as('champion')).fight);
+    expect(modifiers(as('oracle')).research).toBeGreaterThan(modifiers(as('mage')).research);
   });
 
   it('migrates v29 saves: every class at rank 1', () => {

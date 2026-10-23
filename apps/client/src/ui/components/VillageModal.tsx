@@ -40,6 +40,7 @@ import { AutomationPanel, manualNeeds } from './AutomationPanel';
 import { StatRadar } from './StatRadar';
 import { TrainingBar } from './TrainingBar';
 import { ClassCourses, ClassRank } from './ClassCourses';
+import { ClassTree } from './ClassTree';
 import { KiwiNeedsLine, MoraleCard, RestSection } from './NeedsWidgets';
 
 type Sort = VillageSort;
@@ -439,6 +440,7 @@ function KiwiSheet({ v }: { v: Villager }) {
       <BlessingSection game={game} v={v} />
 
       <ClassSection v={v} />
+      {!v.kikiwiwi && <ClassTree v={v} />}
 
       <FoldSection title={t('kiwi.trait')}>
         {v.trait ? (

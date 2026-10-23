@@ -23,6 +23,13 @@ export const CLASS_IDS = [
   'archmage',
   'herbalist',
   'minstrel',
+  // Chantier 37, tier 3 (two stats, Iron age).
+  'engineer',
+  'paladin',
+  'druid',
+  'ranger',
+  'titan',
+  'oracle',
 ] as const;
 export type ClassId = (typeof CLASS_IDS)[number];
 
@@ -239,6 +246,34 @@ const advanced = (
   skills: [],
 });
 
+/**
+ * Chantier 37, tier 3: the master classes (Iron age, camp level 3, kiwi level 20, both stats
+ * ≥ 12, rank 3), each reached from either of the two advanced classes of its stats. A master
+ * keeps the skills of both lines. Its bonus grows with the lower of its two stats.
+ */
+const MASTER_COST = { pulp: 5000, fiber: 5000, seeds: 1200, juice: 2000 };
+const master = (
+  id: ClassId,
+  parents: readonly [ClassId, ClassId],
+  stats: readonly [StatId, StatId],
+  grows: keyof KiwiModifiers | undefined,
+  modifiers: KiwiModifiers,
+): ClassDef => ({
+  id,
+  stat: stats[0],
+  stat2: stats[1],
+  tier: 3,
+  age: 2,
+  parents,
+  ...(grows ? { grows } : {}),
+  schoolLevel: 3,
+  minLevel: 20,
+  cost: MASTER_COST,
+  trainingMs: ms.h(8),
+  modifiers,
+  skills: [],
+});
+
 /** Chantier 37: rules shared by every class. */
 export const CLASS_RULES = {
   /** A class is taught to a kiwi whose class stat(s) reach this, by tier (index = tier). */
@@ -294,8 +329,17 @@ export const SKILLS = {
   /** Chantier 37: a minstrel counts as this many bards; a navigator's crew travels faster. */
   minstrelMorale: 2,
   navigatorTravel: 0.8,
-  /** Herbalist: its Green thumb counts this many times. */
+  /** Herbalist: its Green thumb counts this many times (a druid: `druidRegen`). */
   herbalistRegen: 2,
+  druidRegen: 3,
+  /** Druid: its Rain refills this share of the deposits (instead of `rainRefill`). */
+  druidRain: 0.5,
+  /** Engineer: ship reliability added (once per crew). */
+  engineerMend: 0.1,
+  /** Ranger: raid loot multiplier (once per crew). */
+  rangerLoot: 1.25,
+  /** Oracle at home: waves are announced this much earlier. */
+  oracleNotice: ms.h(1),
   /** Changing class costs this many times the price. */
   retrainCost: 2,
 } as const;
@@ -320,6 +364,41 @@ export const CLASSES: Record<ClassId, ClassDef> = {
   herbalist: advanced('herbalist', 'gatherer', 'harvest', { harvest: 1.5, fight: 1.2 }),
   // Its morale share is the bard's, doubled (`SKILLS.minstrelMorale`).
   minstrel: advanced('minstrel', 'bard', undefined, { fight: 1.1 }),
+  // Builds and researches; mends the ship on the way (`SKILLS.engineerMend`).
+  engineer: master('engineer', ['architect', 'archmage'], ['strength', 'spirit'], 'build', {
+    build: 1.7,
+    research: 1.7,
+    fight: 1.4,
+  }),
+  // Holds the rampart: strong on guard, and its aura lifts the garrison.
+  paladin: master('paladin', ['champion', 'minstrel'], ['endurance', 'charisma'], 'fight', {
+    fight: 2,
+    repair: 1.5,
+    exposure: 0.7,
+  }),
+  // Regrowth and a stronger Rain (`SKILLS.druidRain`), Green thumb × 3.
+  druid: master('druid', ['archmage', 'herbalist'], ['spirit', 'dexterity'], 'harvest', {
+    harvest: 1.5,
+    research: 1.4,
+    fight: 1.5,
+  }),
+  // Landings and loot (`SKILLS.rangerLoot`), light aboard.
+  ranger: master('ranger', ['navigator', 'herbalist'], ['agility', 'dexterity'], 'fight', {
+    fight: 1.8,
+    weight: 0.4,
+    harvest: 1.2,
+  }),
+  // Heavy fighting and heavy work.
+  titan: master('titan', ['architect', 'champion'], ['strength', 'endurance'], 'build', {
+    fight: 2.2,
+    build: 1.6,
+    repair: 1.6,
+  }),
+  // Researches and sees the waves coming earlier (`SKILLS.oracleNotice`).
+  oracle: master('oracle', ['archmage', 'minstrel'], ['spirit', 'charisma'], 'research', {
+    research: 2,
+    fight: 1.3,
+  }),
 };
 
 const skillCache = new Map<ClassId, readonly SkillDef[]>();

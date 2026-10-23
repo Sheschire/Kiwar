@@ -23,6 +23,12 @@ export const WEAPON_IDS = [
   'greatsword',
   'meteor',
   'thornSling',
+  'bomb',
+  'holyBlade',
+  'thornstorm',
+  'longbow',
+  'maul',
+  'starfall',
   'claw',
   'bite',
   'slam',
@@ -91,6 +97,46 @@ export const WEAPONS: Record<WeaponId, Weapon> = {
     reload: 1.1,
     style: 'ranged',
     accuracy: 0.8,
+    hitsGround: true,
+    hitsAir: true,
+  },
+  // Chantier 37, tier 3: the masters' weapons.
+  bomb: {
+    damage: 3.4,
+    range: 3,
+    reload: 2.4,
+    style: 'area',
+    accuracy: 0.8,
+    hitsGround: true,
+    hitsAir: false,
+  },
+  holyBlade: melee(4.2, 1.1, true),
+  thornstorm: {
+    damage: 2.8,
+    range: 3,
+    reload: 2,
+    style: 'area',
+    accuracy: 0.85,
+    hitsGround: true,
+    hitsAir: true,
+  },
+  longbow: {
+    damage: 3,
+    range: 4,
+    reload: 1.2,
+    style: 'ranged',
+    accuracy: 0.85,
+    hitsGround: true,
+    hitsAir: true,
+    hunts: true,
+  },
+  maul: { ...melee(6, 2), style: 'area' },
+  starfall: {
+    damage: 3.4,
+    range: 4,
+    reload: 2.6,
+    style: 'area',
+    accuracy: 0.85,
     hitsGround: true,
     hitsAir: true,
   },
@@ -275,6 +321,12 @@ export const CLASS_WEAPONS: Record<ClassId | 'none', WeaponId> = {
   archmage: 'meteor',
   herbalist: 'thornSling',
   minstrel: 'song',
+  engineer: 'bomb',
+  paladin: 'holyBlade',
+  druid: 'thornstorm',
+  ranger: 'longbow',
+  titan: 'maul',
+  oracle: 'starfall',
 };
 
 /** How the stats of a kiwi become a fighter (5 is an average stat). */
@@ -301,13 +353,22 @@ export const KIWI_UNIT = {
   militiaFlee: 0.4,
   militiaDamage: 0.8,
   /** Chantier 37: warriors hold the front line (more hit points), scouts dodge. */
-  classHp: { warrior: 1.4, champion: 1.7, architect: 1.2 } as Partial<Record<ClassId, number>>,
-  classDodge: { scout: 0.12, navigator: 0.18 } as Partial<Record<ClassId, number>>,
+  classHp: {
+    warrior: 1.4,
+    champion: 1.7,
+    architect: 1.2,
+    paladin: 1.8,
+    titan: 2,
+    engineer: 1.2,
+  } as Partial<Record<ClassId, number>>,
+  classDodge: { scout: 0.12, navigator: 0.18, ranger: 0.18 } as Partial<Record<ClassId, number>>,
   /**
    * Chantier 37: a bard's song lifts the damage of its side's fighters this close (the best
    * aura counts, never several); Chorus widens and strengthens it.
    */
   aura: { range: 2, boost: 0.2, chorusRange: 3, chorusBoost: 0.3, minstrel: 0.1 },
+  /** Chantier 37: a paladin's aura (the garrison's morale), whatever its line. */
+  paladinAura: { range: 2, boost: 0.25 },
 } as const;
 
 export const POSTURES = ['cautious', 'bold'] as const;

@@ -23,7 +23,7 @@ import { calendarAt } from './calendar';
 import type { Odds } from './expeditions';
 import { removeVillagers } from './expeditions';
 import { grantClassXp, kiwiStrength } from './kiwis';
-import { CAMP } from '../data/classes';
+import { CAMP, SKILLS } from '../data/classes';
 import { capacity, isRampart, nest, reserves } from './selectors';
 import { faceMapOf, pathsKey, terraformKey } from './territory';
 import { seasonOf } from './calendar';
@@ -624,8 +624,16 @@ export function planWave(s: GameState): void {
   if (t.next || nest(s).level < THREATS.protectionNestLevel) return;
   withThreatRng(s, (rng) => {
     const gap = Math.round(rng.range(THREATS.intervalMs[0], THREATS.intervalMs[1]));
+    // Chantier 37: an oracle at home sees the wave coming earlier.
+    const oracle = s.villagers.some(
+      (v) => v.classId === 'oracle' && v.job.kind !== 'expedition' && v.job.kind !== 'outpost',
+    )
+      ? SKILLS.oracleNotice
+      : 0;
     const notice =
-      Math.round(rng.range(THREATS.noticeMs[0], THREATS.noticeMs[1])) + techEffects(s).waveNotice;
+      Math.round(rng.range(THREATS.noticeMs[0], THREATS.noticeMs[1])) +
+      techEffects(s).waveNotice +
+      oracle;
     const earliest = Math.max(
       s.createdAt + THREATS.protectionMs,
       t.lastWaveAt > 0 ? t.lastWaveAt + gap : 0,

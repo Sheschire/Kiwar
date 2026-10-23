@@ -84,6 +84,12 @@ const KIWI_CLIPS: Record<WeaponId, ClipId> = {
   greatsword: 'sword',
   meteor: 'spell',
   thornSling: 'sling',
+  bomb: 'sling',
+  holyBlade: 'sword',
+  thornstorm: 'spell',
+  longbow: 'sling',
+  maul: 'mace',
+  starfall: 'spell',
   claw: 'peck',
   bite: 'peck',
   slam: 'peck',
@@ -101,6 +107,10 @@ const SHOTS: Partial<Record<WeaponId, { color: string; size: number; arc: number
   song: { color: '#ffd36b', size: 0.9, arc: 0.4 },
   meteor: { color: '#ff5a2b', size: 3, arc: 0.9 },
   thornSling: { color: '#5d8a3a', size: 0.9, arc: 0.5 },
+  bomb: { color: '#2b2522', size: 1.8, arc: 1 },
+  thornstorm: { color: '#5d8a3a', size: 2, arc: 0.5 },
+  longbow: { color: '#a07a4c', size: 0.7, arc: 0.4 },
+  starfall: { color: '#fff1a8', size: 2.4, arc: 1.1 },
   musket: { color: '#1d1d1d', size: 0.6, arc: 0.1 },
   fireball: { color: '#ff8a2b', size: 2.2, arc: 0.5 },
   spit: { color: '#b6f04a', size: 1.2, arc: 0.3 },
@@ -604,7 +614,10 @@ export class BattleShow {
           if (actor.kind === 'turret') this.onShot?.(at.x, at.z);
           if (s.damage <= 0) break;
           const effect =
-            actor.weapon === 'fireball' || actor.weapon === 'meteor'
+            actor.weapon === 'fireball' ||
+            actor.weapon === 'meteor' ||
+            actor.weapon === 'starfall' ||
+            actor.weapon === 'bomb'
               ? 'fireball'
               : building
                 ? 'sparks'

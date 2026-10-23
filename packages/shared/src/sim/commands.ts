@@ -27,7 +27,7 @@ import {
   trainLock,
   workerPower,
 } from './kiwis';
-import { CLASSES, SKILLS, type ClassId, type SkillId } from '../data/classes';
+import { CLASSES, classSkills, SKILLS, type ClassId, type SkillId } from '../data/classes';
 import { faceMapOf, isFlooded, releasePool, syncPools, terraformKey } from './territory';
 import { seasonOf } from './calendar';
 import { ageObjectives, currentObjective, isObjectiveComplete } from './objectives';
@@ -1020,7 +1020,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
     case 'useSkill': {
       const v = s.villagers.find((x) => x.id === cmd.villagerId);
       if (!v) return fail('unknownVillager');
-      const def = v.classId ? CLASSES[v.classId].skills.find((x) => x.id === cmd.skill) : undefined;
+      const def = v.classId ? classSkills(v.classId).find((x) => x.id === cmd.skill) : undefined;
       if (!def?.cooldownMs || !hasSkill(v, cmd.skill)) return fail('skillLocked');
       if ((v.skillReadyAt[cmd.skill] ?? 0) > now) fail('skillCooling');
       if (
@@ -1034,7 +1034,9 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         const b = v.job.kind === 'work' ? getBuilding(s, v.job.buildingId) : undefined;
         const h = b?.pool ? buildingHarvest(s, b) : null;
         if (!b?.pool || !h) return fail('notHere');
-        b.pool.stock = Math.min(h.cap, h.stock + SKILLS.rainRefill * h.cap);
+        // Chantier 37: a druid's Rain is stronger.
+        const refill = v.classId === 'druid' ? SKILLS.druidRain : SKILLS.rainRefill;
+        b.pool.stock = Math.min(h.cap, h.stock + refill * h.cap);
       } else if (cmd.skill === 'speech') {
         const k = hasSkill(v, 'festival') ? SKILLS.festivalMultiplier : 1;
         s.speechUntil = now + SKILLS.speechMs * k;

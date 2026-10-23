@@ -50,6 +50,9 @@ const CLIP_CLASS: Partial<Record<ClipId, ClassId>> = {
   sing: 'bard',
   teach: 'mayor',
   look: 'scout',
+  // Chantier 37: a tier-2 and a tier-3 outfit (the parent's, a cape, a circlet).
+  joy: 'champion',
+  dance: 'oracle',
 };
 
 const TINT = new Color(1, 1, 1);

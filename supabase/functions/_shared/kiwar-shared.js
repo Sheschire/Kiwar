@@ -472,7 +472,14 @@ var CLASS_IDS = [
   "champion",
   "archmage",
   "herbalist",
-  "minstrel"
+  "minstrel",
+  // Chantier 37, tier 3 (two stats, Iron age).
+  "engineer",
+  "paladin",
+  "druid",
+  "ranger",
+  "titan",
+  "oracle"
 ];
 var SKILL_IDS = [
   "scaffold",
@@ -632,6 +639,22 @@ var advanced = (id3, parent, grows, modifiers2) => ({
   modifiers: modifiers2,
   skills: []
 });
+var MASTER_COST = { pulp: 5e3, fiber: 5e3, seeds: 1200, juice: 2e3 };
+var master = (id3, parents, stats2, grows, modifiers2) => ({
+  id: id3,
+  stat: stats2[0],
+  stat2: stats2[1],
+  tier: 3,
+  age: 2,
+  parents,
+  ...grows ? { grows } : {},
+  schoolLevel: 3,
+  minLevel: 20,
+  cost: MASTER_COST,
+  trainingMs: ms.h(8),
+  modifiers: modifiers2,
+  skills: []
+});
 var CLASS_RULES = {
   /** A class is taught to a kiwi whose class stat(s) reach this, by tier (index = tier). */
   statMin: [0, 6, 10, 12],
@@ -682,8 +705,17 @@ var SKILLS = {
   /** Chantier 37: a minstrel counts as this many bards; a navigator's crew travels faster. */
   minstrelMorale: 2,
   navigatorTravel: 0.8,
-  /** Herbalist: its Green thumb counts this many times. */
+  /** Herbalist: its Green thumb counts this many times (a druid: `druidRegen`). */
   herbalistRegen: 2,
+  druidRegen: 3,
+  /** Druid: its Rain refills this share of the deposits (instead of `rainRefill`). */
+  druidRain: 0.5,
+  /** Engineer: ship reliability added (once per crew). */
+  engineerMend: 0.1,
+  /** Ranger: raid loot multiplier (once per crew). */
+  rangerLoot: 1.25,
+  /** Oracle at home: waves are announced this much earlier. */
+  oracleNotice: ms.h(1),
   /** Changing class costs this many times the price. */
   retrainCost: 2
 };
@@ -704,7 +736,42 @@ var CLASSES = {
   archmage: advanced("archmage", "mage", "research", { fight: 1.5, build: 0.9, research: 2 }),
   herbalist: advanced("herbalist", "gatherer", "harvest", { harvest: 1.5, fight: 1.2 }),
   // Its morale share is the bard's, doubled (`SKILLS.minstrelMorale`).
-  minstrel: advanced("minstrel", "bard", void 0, { fight: 1.1 })
+  minstrel: advanced("minstrel", "bard", void 0, { fight: 1.1 }),
+  // Builds and researches; mends the ship on the way (`SKILLS.engineerMend`).
+  engineer: master("engineer", ["architect", "archmage"], ["strength", "spirit"], "build", {
+    build: 1.7,
+    research: 1.7,
+    fight: 1.4
+  }),
+  // Holds the rampart: strong on guard, and its aura lifts the garrison.
+  paladin: master("paladin", ["champion", "minstrel"], ["endurance", "charisma"], "fight", {
+    fight: 2,
+    repair: 1.5,
+    exposure: 0.7
+  }),
+  // Regrowth and a stronger Rain (`SKILLS.druidRain`), Green thumb × 3.
+  druid: master("druid", ["archmage", "herbalist"], ["spirit", "dexterity"], "harvest", {
+    harvest: 1.5,
+    research: 1.4,
+    fight: 1.5
+  }),
+  // Landings and loot (`SKILLS.rangerLoot`), light aboard.
+  ranger: master("ranger", ["navigator", "herbalist"], ["agility", "dexterity"], "fight", {
+    fight: 1.8,
+    weight: 0.4,
+    harvest: 1.2
+  }),
+  // Heavy fighting and heavy work.
+  titan: master("titan", ["architect", "champion"], ["strength", "endurance"], "build", {
+    fight: 2.2,
+    build: 1.6,
+    repair: 1.6
+  }),
+  // Researches and sees the waves coming earlier (`SKILLS.oracleNotice`).
+  oracle: master("oracle", ["archmage", "minstrel"], ["spirit", "charisma"], "research", {
+    research: 2,
+    fight: 1.3
+  })
 };
 var skillCache = /* @__PURE__ */ new Map();
 function classSkills(id3) {
@@ -2078,7 +2145,14 @@ var GARRISON = {
     champion: { ground: 1.2, air: 0 },
     archmage: { ground: 1, air: 1.2 },
     herbalist: { ground: 0.7, air: 1.1 },
-    minstrel: { ground: 0.7, air: 0.4 }
+    minstrel: { ground: 0.7, air: 0.4 },
+    // Tier 3.
+    engineer: { ground: 0.9, air: 0.6 },
+    paladin: { ground: 1.4, air: 0.5 },
+    druid: { ground: 0.9, air: 1.1 },
+    ranger: { ground: 1, air: 1.2 },
+    titan: { ground: 1.5, air: 0.2 },
+    oracle: { ground: 0.9, air: 1 }
   },
   /** Chantier 08: with firearms, warriors shoot the bats too. */
   firearmsAir: 0.8,
@@ -3211,6 +3285,12 @@ var WEAPON_IDS = [
   "greatsword",
   "meteor",
   "thornSling",
+  "bomb",
+  "holyBlade",
+  "thornstorm",
+  "longbow",
+  "maul",
+  "starfall",
   "claw",
   "bite",
   "slam",
@@ -3255,6 +3335,46 @@ var WEAPONS = {
     reload: 1.1,
     style: "ranged",
     accuracy: 0.8,
+    hitsGround: true,
+    hitsAir: true
+  },
+  // Chantier 37, tier 3: the masters' weapons.
+  bomb: {
+    damage: 3.4,
+    range: 3,
+    reload: 2.4,
+    style: "area",
+    accuracy: 0.8,
+    hitsGround: true,
+    hitsAir: false
+  },
+  holyBlade: melee(4.2, 1.1, true),
+  thornstorm: {
+    damage: 2.8,
+    range: 3,
+    reload: 2,
+    style: "area",
+    accuracy: 0.85,
+    hitsGround: true,
+    hitsAir: true
+  },
+  longbow: {
+    damage: 3,
+    range: 4,
+    reload: 1.2,
+    style: "ranged",
+    accuracy: 0.85,
+    hitsGround: true,
+    hitsAir: true,
+    hunts: true
+  },
+  maul: { ...melee(6, 2), style: "area" },
+  starfall: {
+    damage: 3.4,
+    range: 4,
+    reload: 2.6,
+    style: "area",
+    accuracy: 0.85,
     hitsGround: true,
     hitsAir: true
   },
@@ -3412,7 +3532,13 @@ var CLASS_WEAPONS = {
   champion: "greatsword",
   archmage: "meteor",
   herbalist: "thornSling",
-  minstrel: "song"
+  minstrel: "song",
+  engineer: "bomb",
+  paladin: "holyBlade",
+  druid: "thornstorm",
+  ranger: "longbow",
+  titan: "maul",
+  oracle: "starfall"
 };
 var KIWI_UNIT = {
   hp: 14,
@@ -3437,13 +3563,22 @@ var KIWI_UNIT = {
   militiaFlee: 0.4,
   militiaDamage: 0.8,
   /** Chantier 37: warriors hold the front line (more hit points), scouts dodge. */
-  classHp: { warrior: 1.4, champion: 1.7, architect: 1.2 },
-  classDodge: { scout: 0.12, navigator: 0.18 },
+  classHp: {
+    warrior: 1.4,
+    champion: 1.7,
+    architect: 1.2,
+    paladin: 1.8,
+    titan: 2,
+    engineer: 1.2
+  },
+  classDodge: { scout: 0.12, navigator: 0.18, ranger: 0.18 },
   /**
    * Chantier 37: a bard's song lifts the damage of its side's fighters this close (the best
    * aura counts, never several); Chorus widens and strengthens it.
    */
-  aura: { range: 2, boost: 0.2, chorusRange: 3, chorusBoost: 0.3, minstrel: 0.1 }
+  aura: { range: 2, boost: 0.2, chorusRange: 3, chorusBoost: 0.3, minstrel: 0.1 },
+  /** Chantier 37: a paladin's aura (the garrison's morale), whatever its line. */
+  paladinAura: { range: 2, boost: 0.25 }
 };
 var POSTURES = ["cautious", "bold"];
 var BATTLE = {
@@ -4166,11 +4301,16 @@ function kiwiUnit(v, state, role, at, sector, side = 0) {
   const hp = K.hp * Math.max(0.5, 1 + K.enduranceHp * (st.endurance - avg)) * level * fight * (v.kikiwiwi ? K.titanHp / 2 : 1) * (v.classId ? K.classHp[v.classId] ?? 1 : 1);
   const extraDodge = v.classId ? K.classDodge[v.classId] ?? 0 : 0;
   const chorus = hasSkill(v, "chorus");
-  const aura = inLine(v.classId, "bard") && role === "guard" ? {
+  let aura = inLine(v.classId, "bard") && role === "guard" ? {
     range: chorus ? K.aura.chorusRange : K.aura.range,
     // Chantier 37: a minstrel sings louder.
     boost: (chorus ? K.aura.chorusBoost : K.aura.boost) + (inLine(v.classId, "minstrel") ? K.aura.minstrel : 0)
   } : void 0;
+  if (v.classId === "paladin" && role === "guard")
+    aura = {
+      range: Math.max(aura?.range ?? 0, K.paladinAura.range),
+      boost: Math.max(aura?.boost ?? 0, K.paladinAura.boost)
+    };
   return {
     ref: v.id,
     side,
@@ -4921,7 +5061,10 @@ function planWave(s) {
   if (t.next || nest(s).level < THREATS.protectionNestLevel) return;
   withThreatRng(s, (rng) => {
     const gap = Math.round(rng.range(THREATS.intervalMs[0], THREATS.intervalMs[1]));
-    const notice = Math.round(rng.range(THREATS.noticeMs[0], THREATS.noticeMs[1])) + techEffects(s).waveNotice;
+    const oracle = s.villagers.some(
+      (v) => v.classId === "oracle" && v.job.kind !== "expedition" && v.job.kind !== "outpost"
+    ) ? SKILLS.oracleNotice : 0;
+    const notice = Math.round(rng.range(THREATS.noticeMs[0], THREATS.noticeMs[1])) + techEffects(s).waveNotice + oracle;
     const earliest = Math.max(
       s.createdAt + THREATS.protectionMs,
       t.lastWaveAt > 0 ? t.lastWaveAt + gap : 0,
@@ -7316,7 +7459,7 @@ function regenBonus(workers) {
   let gatherers = 0;
   for (const v of workers)
     if (hasSkill(v, "greenThumb"))
-      gatherers += inLine(v.classId, "herbalist") ? SKILLS.herbalistRegen : 1;
+      gatherers += v.classId === "druid" ? SKILLS.druidRegen : inLine(v.classId, "herbalist") ? SKILLS.herbalistRegen : 1;
   return 1 + SKILLS.greenThumbRegen * gatherers;
 }
 function repairSpeed(v) {
@@ -8383,7 +8526,8 @@ function shipReliability(ship, crew, fuel = false) {
   const dex = Math.max(KIWI.stat.average, ...crew.map((v) => v.stats.dexterity));
   const mend = Math.min(SHIP_REPAIR.max, SHIP_REPAIR.perDexterity * (dex - KIWI.stat.average));
   const dust = fuel ? FUEL.reliability : 0;
-  return round22(Math.min(1, ship.reliability + mend + dust));
+  const engineer = crew.some((v) => v.classId === "engineer") ? SKILLS.engineerMend : 0;
+  return round22(Math.min(1, ship.reliability + mend + dust + engineer));
 }
 function travelFactor(state, plan) {
   return techEffects(state).travel * (plan.fuel ? FUEL.travel : 1);
@@ -8732,7 +8876,8 @@ function resolveArrival(state, e) {
   const loot = emptyResources();
   if (victory) {
     state.victories[target.id] = (state.victories[target.id] ?? 0) + 1;
-    const bonus = Math.min(2, 1 + 0.25 * (strength / Math.max(defense, 1) - 1));
+    const ranger = members.some((v) => v.classId === "ranger") ? SKILLS.rangerLoot : 1;
+    const bonus = Math.min(2, 1 + 0.25 * (strength / Math.max(defense, 1) - 1)) * ranger;
     const w = EXPEDITIONS.resourceWeight;
     let room = e.cargo - crewWeight(crewMembers(state, e.crew)) - RESOURCE_IDS.reduce((sum, id3) => sum + e.provisions[id3], 0) * w;
     for (const id3 of ["seeds", "juice", "fiber", "pulp"]) {
@@ -11045,7 +11190,7 @@ function execute(s, cmd, ctx, events) {
     case "useSkill": {
       const v = s.villagers.find((x) => x.id === cmd.villagerId);
       if (!v) return fail("unknownVillager");
-      const def = v.classId ? CLASSES[v.classId].skills.find((x) => x.id === cmd.skill) : void 0;
+      const def = v.classId ? classSkills(v.classId).find((x) => x.id === cmd.skill) : void 0;
       if (!def?.cooldownMs || !hasSkill(v, cmd.skill)) return fail("skillLocked");
       if ((v.skillReadyAt[cmd.skill] ?? 0) > now) fail("skillCooling");
       if (v.job.kind === "expedition" || v.job.kind === "outpost" || v.job.kind === "train" || v.job.kind === "transform")
@@ -11054,7 +11199,8 @@ function execute(s, cmd, ctx, events) {
         const b = v.job.kind === "work" ? getBuilding(s, v.job.buildingId) : void 0;
         const h = b?.pool ? buildingHarvest(s, b) : null;
         if (!b?.pool || !h) return fail("notHere");
-        b.pool.stock = Math.min(h.cap, h.stock + SKILLS.rainRefill * h.cap);
+        const refill = v.classId === "druid" ? SKILLS.druidRain : SKILLS.rainRefill;
+        b.pool.stock = Math.min(h.cap, h.stock + refill * h.cap);
       } else if (cmd.skill === "speech") {
         const k = hasSkill(v, "festival") ? SKILLS.festivalMultiplier : 1;
         s.speechUntil = now + SKILLS.speechMs * k;

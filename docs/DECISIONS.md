@@ -2333,3 +2333,29 @@ launch cost applies to **every mission but the founding**; the bot's dead time a
   for kiwis that already have one; the rank starts over, the kiwi level stays.
 - The builder's level-20 skill is now shown as "Master builder" (it shared the name of the
   new class).
+
+### Part 4 — Masters (tier 3), the class tree, outfits
+
+- **Tier 3** at a camp of level 3, Iron age, kiwi level 20, **both** stats ≥ 12, rank 3 in
+  either parent; 5 000 pulp and fiber, 1 200 seeds, 2 000 juice, 8 h. Its growing bonus takes
+  the lower of the two stats. A master keeps the skills of **both** lines (`classSkills`:
+  an Oracle has the mage's Rain and the bard's Ballad) and `inLine` sees both (an Oracle or a
+  Paladin counts as two bards for morale).
+  - Engineer (Strength + Spirit; Architect / Archmage): build and research × 1.7, +0.1 ship
+    reliability in its crew, bombs.
+  - Paladin (Endurance + Charisma; Champion / Minstrel): fight × 2, × 1.8 hit points, an aura
+    of +25 % for the garrison around it, holy blade.
+  - Druid (Spirit + Dexterity; Archmage / Herbalist): harvest × 1.5, research × 1.4, Green
+    thumb × 3, Rain refills 50 %, thorn storm.
+  - Ranger (Agility + Dexterity; Navigator / Herbalist): raid loot × 1.25 (once per crew),
+    weight × 0.4, longbow (range 4, hunts thieves and spitters). Landings come with chantier 40.
+  - Titan (Strength + Endurance; Architect / Champion): fight × 2.2, build and repair × 1.6,
+    × 2 hit points, maul (area).
+  - Oracle (Spirit + Charisma; Archmage / Minstrel): research × 2; an oracle at home when a
+    wave is planned announces it 1 h earlier; starfall.
+- **Class tree** in the kiwi sheet (folded): the three tiers, its class and the path walked,
+  and for every other class each condition in green or red (stats with the kiwi's values,
+  level, parents, rank, age, School or camp level).
+- Outfits: a higher tier wears its first ancestor's outfit with a cape and a mantle collar in
+  its own colour (a gold circlet at tier 3); portraits get the cape. The `?kiwis` sheet shows
+  a Champion (joy) and an Oracle (dance).

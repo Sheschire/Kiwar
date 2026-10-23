@@ -333,7 +333,12 @@ export function regenBonus(workers: Villager[]): number {
   let gatherers = 0;
   for (const v of workers)
     if (hasSkill(v, 'greenThumb'))
-      gatherers += inLine(v.classId, 'herbalist') ? SKILLS.herbalistRegen : 1;
+      gatherers +=
+        v.classId === 'druid'
+          ? SKILLS.druidRegen
+          : inLine(v.classId, 'herbalist')
+            ? SKILLS.herbalistRegen
+            : 1;
   return 1 + SKILLS.greenThumbRegen * gatherers;
 }
 

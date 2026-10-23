@@ -80,6 +80,12 @@ const CLASS_CLIP: Record<ClassId, ClipId> = {
   archmage: 'spell',
   herbalist: 'sling',
   minstrel: 'sing',
+  engineer: 'hammer',
+  paladin: 'sword',
+  druid: 'spell',
+  ranger: 'sling',
+  titan: 'mace',
+  oracle: 'spell',
 };
 /** Guards' sectors (shared `defenseOf`), once per state. */
 const guardSectors = perGame((state) => defenseOf(state));

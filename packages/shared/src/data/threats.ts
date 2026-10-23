@@ -157,6 +157,13 @@ export const GARRISON = {
     archmage: { ground: 1, air: 1.2 },
     herbalist: { ground: 0.7, air: 1.1 },
     minstrel: { ground: 0.7, air: 0.4 },
+    // Tier 3.
+    engineer: { ground: 0.9, air: 0.6 },
+    paladin: { ground: 1.4, air: 0.5 },
+    druid: { ground: 0.9, air: 1.1 },
+    ranger: { ground: 1, air: 1.2 },
+    titan: { ground: 1.5, air: 0.2 },
+    oracle: { ground: 0.9, air: 1 },
   } satisfies Record<ClassId | 'none', { ground: number; air: number }>,
   /** Chantier 08: with firearms, warriors shoot the bats too. */
   firearmsAir: 0.8,

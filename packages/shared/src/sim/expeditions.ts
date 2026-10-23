@@ -146,7 +146,9 @@ export function shipReliability(ship: ShipDef, crew: readonly Villager[], fuel =
   const dex = Math.max(KIWI.stat.average, ...crew.map((v) => v.stats.dexterity));
   const mend = Math.min(SHIP_REPAIR.max, SHIP_REPAIR.perDexterity * (dex - KIWI.stat.average));
   const dust = fuel ? FUEL.reliability : 0;
-  return round2(Math.min(1, ship.reliability + mend + dust));
+  // Chantier 37: an engineer aboard mends the ship.
+  const engineer = crew.some((v) => v.classId === 'engineer') ? SKILLS.engineerMend : 0;
+  return round2(Math.min(1, ship.reliability + mend + dust + engineer));
 }
 
 /** Technologies and stardust fuel (chantier 13) on the travel time. */
@@ -649,7 +651,9 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   if (victory) {
     state.victories[target.id] = (state.victories[target.id] ?? 0) + 1;
     // Richer loot for crushing victories, limited by the room left in the hold.
-    const bonus = Math.min(2, 1 + 0.25 * (strength / Math.max(defense, 1) - 1));
+    // Chantier 37: a ranger in the crew brings back more.
+    const ranger = members.some((v) => v.classId === 'ranger') ? SKILLS.rangerLoot : 1;
+    const bonus = Math.min(2, 1 + 0.25 * (strength / Math.max(defense, 1) - 1)) * ranger;
     const w = EXPEDITIONS.resourceWeight;
     let room =
       e.cargo -

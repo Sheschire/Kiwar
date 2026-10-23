@@ -76,7 +76,7 @@ export function kiwiUnit(
     (v.classId ? (K.classHp[v.classId] ?? 1) : 1);
   const extraDodge = v.classId ? (K.classDodge[v.classId] ?? 0) : 0;
   const chorus = hasSkill(v, 'chorus');
-  const aura =
+  let aura: { range: number; boost: number } | undefined =
     inLine(v.classId, 'bard') && role === 'guard'
       ? {
           range: chorus ? K.aura.chorusRange : K.aura.range,
@@ -86,6 +86,12 @@ export function kiwiUnit(
             (inLine(v.classId, 'minstrel') ? K.aura.minstrel : 0),
         }
       : undefined;
+  // A paladin lifts the garrison around it.
+  if (v.classId === 'paladin' && role === 'guard')
+    aura = {
+      range: Math.max(aura?.range ?? 0, K.paladinAura.range),
+      boost: Math.max(aura?.boost ?? 0, K.paladinAura.boost),
+    };
   return {
     ref: v.id,
     side,

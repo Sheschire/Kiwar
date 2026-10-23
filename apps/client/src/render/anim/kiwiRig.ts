@@ -79,6 +79,12 @@ const CAPES: Partial<Record<ClassId, string>> = {
   archmage: '#6a4fb3',
   herbalist: '#5d8a3a',
   minstrel: '#3e7fbf',
+  engineer: '#b87333',
+  paladin: '#f4e6c4',
+  druid: '#3f6b2a',
+  ranger: '#4a6b3a',
+  titan: '#7a5233',
+  oracle: '#2b2f6b',
 };
 
 /**
@@ -87,17 +93,16 @@ const CAPES: Partial<Record<ClassId, string>> = {
  */
 function tierParts(cls: ClassId): OutfitPart[] {
   const def = CLASSES[cls];
+  const cape = CAPES[cls] ?? '#8a6440';
   const parts: OutfitPart[] = [
+    // A cape down the back and a mantle collar over the shoulders, in the class's colour.
     [
-      colored(
-        new BoxGeometry(1, 1, 1),
-        CAPES[cls] ?? '#8a6440',
-        mat(0, 0.17, -0.13, 0.2, 0.24, 0.02, 0.35, 0, 0),
-      ),
+      colored(new BoxGeometry(1, 1, 1), cape, mat(0, 0.16, -0.21, 0.24, 0.26, 0.02, 0.45, 0, 0)),
       false,
     ],
+    [colored(new CylinderGeometry(1, 1, 1, 12), cape, mat(0, 0.25, 0.02, 0.205, 0.04, 0.2)), false],
     [
-      colored(new SphereGeometry(1, 6, 5), '#f2c14e', mat(0, 0.27, 0.05, 0.025, 0.025, 0.02)),
+      colored(new SphereGeometry(1, 6, 5), '#f2c14e', mat(0, 0.25, 0.22, 0.028, 0.028, 0.02)),
       false,
     ],
   ];

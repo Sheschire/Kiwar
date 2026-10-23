@@ -5533,3 +5533,58 @@ h3 .building-thumb {
   margin: 2px 0 6px 44px;
   max-width: 180px;
 }
+
+/* Chantier 37: the class tree. */
+.class-tree > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.class-tree > summary h3 {
+  display: inline;
+}
+.class-tree > summary::before {
+  content: '▸ ';
+}
+.class-tree[open] > summary::before {
+  content: '▾ ';
+}
+.class-tree .tree-nodes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 6px;
+}
+.tree-node {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.35);
+  opacity: 0.75;
+}
+.tree-node.is-open {
+  opacity: 1;
+  border-color: var(--leaf);
+}
+.tree-node.is-current {
+  opacity: 1;
+  border: 2px solid var(--leaf);
+  background: rgba(168, 214, 90, 0.18);
+}
+.tree-node.is-past {
+  opacity: 0.9;
+  border-style: dashed;
+}
+.tree-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tree-head > span {
+  display: flex;
+  flex-direction: column;
+}
