@@ -214,6 +214,7 @@ export const gameStateSchema = z.object({
       builtAt: z.number(),
       pool: z.object({ stock: z.number().min(0), tiles: z.array(z.string()).max(64) }).optional(),
       damaged: z.boolean().optional(),
+      reserve: resources.optional(),
     }),
   ),
   villagers: z.array(villager),
@@ -637,6 +638,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   }),
   // v23 → v24 (chantier 30): three levels per age; the old age levels 4/5/6 become 4/7/10.
   23: migrateLevels,
+  // v24 → v25 (chantier 30): warehouse reserves (optional, empty).
+  24: (raw) => raw,
 };
 
 /** Chantier 30: old level of a building → its new level (each level keeps its age). */

@@ -41,6 +41,11 @@ export interface BuildingLevelDef {
   housing?: number;
   /** Storage capacity added for every resource. */
   storage?: number;
+  /**
+   * Chantier 30, warehouses only: what the warehouse keeps in reserve for every resource once
+   * the stock is full (the player brings it back with a tap).
+   */
+  reserve?: number;
   /** Launchpad only: ship cargo (cargo units) and travel time multiplier. */
   cargo?: number;
   travelTime?: number;
@@ -85,7 +90,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
         // A little spring by the Nest: the first kiwis can drink before the first Juice well.
         passiveProduction: { pulp: 340, fiber: 290, juice: 40 },
         housing: 4,
-        storage: 400,
+        storage: 600,
         maxBuildings: 6,
         queueSize: 2,
       },
@@ -95,7 +100,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
         requiresNestLevel: 1,
         passiveProduction: { pulp: 450, fiber: 300, juice: 60 },
         housing: 6,
-        storage: 1000,
+        storage: 1500,
         maxBuildings: 11,
         queueSize: 3,
       },
@@ -248,24 +253,34 @@ const BASE: Record<BuildingType, BuildingDef> = {
       },
     ],
   },
+  // Chantier 30: a small bonus to the stock, and a reserve the overflow fills once the stock is
+  // full (~8 h of a young colony's production); the player brings it back with a tap.
   warehouse: {
     id: 'warehouse',
     allowedTiles: ['flesh', 'ray', 'heart'],
     buildable: true,
     copyGrowth: 1.4,
     levels: [
-      { cost: { pulp: 60, fiber: 80 }, durationMs: ms.s(40), requiresNestLevel: 1, storage: 500 },
+      {
+        cost: { pulp: 60, fiber: 80 },
+        durationMs: ms.s(40),
+        requiresNestLevel: 1,
+        storage: 60,
+        reserve: 1500,
+      },
       {
         cost: { pulp: 200, fiber: 260, seeds: 20 },
         durationMs: ms.min(4),
         requiresNestLevel: 1,
-        storage: 1200,
+        storage: 150,
+        reserve: 3500,
       },
       {
         cost: { pulp: 700, fiber: 900, seeds: 80, juice: 150 },
         durationMs: ms.min(20),
         requiresNestLevel: 2,
-        storage: 3000,
+        storage: 250,
+        reserve: 7000,
       },
     ],
   },
@@ -511,6 +526,9 @@ interface AgeGrowth {
   /** Added at every level. */
   housing?: number;
   storage?: number;
+  /** Storage factor of the first level of an age (instead of `storage`). */
+  ageStorage?: number;
+  reserve?: number;
   cargo?: number;
   travelTime?: number;
   ammo?: number;
@@ -530,7 +548,9 @@ const AGE_GROWTH: Partial<Record<BuildingType, AgeGrowth>> = {
     ...DEFAULT_GROWTH,
     output: 1.1,
     housing: 1,
-    storage: 1.6,
+    // The stock grows like the costs: the biggest ones keep fitting (never a blocked game).
+    storage: 1.7,
+    ageStorage: 2,
     maxBuildings: 3,
     queueSize: 1,
   },
@@ -539,7 +559,7 @@ const AGE_GROWTH: Partial<Record<BuildingType, AgeGrowth>> = {
   juiceWell: { ...DEFAULT_GROWTH, workerSlots: 1 },
   seedQuarry: { ...DEFAULT_GROWTH, workerSlots: 1 },
   hut: { ...DEFAULT_GROWTH, housing: 1 },
-  warehouse: { ...DEFAULT_GROWTH, storage: 1.6 },
+  warehouse: { ...DEFAULT_GROWTH, storage: 1.7, ageStorage: 2, reserve: 1.5 },
   launchpad: { ...DEFAULT_GROWTH, cargo: 70, travelTime: 0.965 },
   school: { ...DEFAULT_GROWTH, trainingSlots: 1, trainingTime: 0.965 },
   library: { ...DEFAULT_GROWTH, research: 1.07, workerSlots: 1 },
@@ -582,7 +602,11 @@ function withAgeLevels(def: BuildingDef): BuildingDef {
       next.passiveProduction = scaled(prev.passiveProduction, g.output, 10);
     if (prev.workerSlots) next.workerSlots = prev.workerSlots + extra(g.workerSlots);
     if (prev.housing !== undefined) next.housing = prev.housing + (g.housing ?? 0);
-    if (prev.storage !== undefined) next.storage = round(prev.storage * (g.storage ?? 1), 50);
+    if (prev.storage !== undefined) {
+      const k = first ? (g.ageStorage ?? g.storage ?? 1) : (g.storage ?? 1);
+      next.storage = round(prev.storage * k, prev.storage < 1000 ? 10 : 50);
+    }
+    if (prev.reserve !== undefined) next.reserve = round(prev.reserve * (g.reserve ?? 1), 50);
     if (prev.cargo !== undefined) next.cargo = prev.cargo + (g.cargo ?? 0);
     if (prev.travelTime !== undefined)
       next.travelTime = Math.round(prev.travelTime * (g.travelTime ?? 1) * 1000) / 1000;

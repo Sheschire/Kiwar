@@ -30,6 +30,7 @@ import {
   buildingHarvest,
   canAfford,
   canHatch,
+  capacity,
   constructionDuration,
   currentObjective,
   demolitionRefund,
@@ -46,11 +47,20 @@ import {
   queuedBuildAt,
   repairCost,
   repairDuration,
+  reserveCapOf,
+  reserveHolders,
   upgradeCost,
   workerSlots,
   workersOf,
 } from './selectors';
-import { cloneState, nextId, type GameState, type MissionKind, type Villager } from './state';
+import {
+  cloneState,
+  nextId,
+  type Building,
+  type GameState,
+  type MissionKind,
+  type Villager,
+} from './state';
 import {
   assaultLock,
   bridgeheadAt,
@@ -161,6 +171,10 @@ export type Command =
    */
   | { type: 'demolish'; buildingId: BuildingId }
   | { type: 'dismantle'; buildingId: BuildingId }
+  /** Chantier 30: brings a warehouse's reserve back into the stock (as much as fits). */
+  | { type: 'collect'; buildingId: BuildingId }
+  /** Chantier 30: `collect` on every warehouse. */
+  | { type: 'collectAll' }
   /** Give a kiwi a new name (trimmed, 1–KIWI_NAME_MAX characters). */
   | { type: 'renameVillager'; villagerId: VillagerId; name: string }
   /** Place a stat point earned on an even level. */
@@ -232,6 +246,8 @@ export const COMMAND_ERRORS = [
   'pathLimit',
   'campLimit',
   'notDemolishable',
+  'notWarehouse',
+  'nothingToCollect',
   'upgradeInProgress',
   'housingNeeded',
   'unknownVillager',
@@ -360,6 +376,24 @@ export function payStardust(s: GameState, points: number): void {
 function pay(s: GameState, cost: ResourceCost): void {
   if (!canAfford(s.resources, cost)) fail('notEnoughResources');
   for (const id of RESOURCE_IDS) s.resources[id] -= cost[id] ?? 0;
+}
+
+/**
+ * Chantier 30: moves a warehouse's reserve into the stock, as much as fits under the cap (the
+ * rest stays in reserve). Returns the amount moved.
+ */
+export function collectReserve(s: GameState, b: Building): number {
+  if (!b.reserve) return 0;
+  const cap = capacity(s);
+  let moved = 0;
+  for (const id of RESOURCE_IDS) {
+    const take = Math.min(b.reserve[id], Math.max(0, cap[id] - s.resources[id]));
+    if (take <= 0) continue;
+    s.resources[id] += take;
+    b.reserve[id] = b.reserve[id] - take < 1e-6 ? 0 : b.reserve[id] - take;
+    moved += take;
+  }
+  return moved;
 }
 
 function refund(s: GameState, cost: ResourceCost): void {
@@ -801,6 +835,19 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (idle) idle.job = { kind: 'work', buildingId: id };
       return;
     }
+    case 'collect': {
+      const b = getBuilding(s, cmd.buildingId);
+      if (!b) return fail('unknownBuilding');
+      if (reserveCapOf(s, b) <= 0) fail('notWarehouse');
+      if (collectReserve(s, b) <= 0) fail('nothingToCollect');
+      break;
+    }
+    case 'collectAll': {
+      let moved = 0;
+      for (const b of reserveHolders(s)) moved += collectReserve(s, b);
+      if (moved <= 0) fail('nothingToCollect');
+      break;
+    }
     case 'demolish':
     case 'dismantle': {
       const b = getBuilding(s, cmd.buildingId);
@@ -811,6 +858,8 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const housingLeft = housing(s) - (levelDef(b.type, b.level)?.housing ?? 0);
       if (housingLeft < population(s)) fail('housingNeeded');
       refund(s, demolitionRefund(s, b));
+      // Chantier 30: its reserve goes back into the stock, even above the cap (nothing lost).
+      if (b.reserve) refund(s, b.reserve);
       releasePool(s, ctx.map, b, now);
       s.buildings = s.buildings.filter((x) => x.id !== b.id);
       syncPools(s, ctx.map, now);

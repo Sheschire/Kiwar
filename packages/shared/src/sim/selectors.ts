@@ -96,9 +96,56 @@ export function capacity(state: GameState): Resources {
   return { pulp: cap, fiber: cap, seeds: cap, juice: cap };
 }
 
+// ---------------------------------------------------------------------------------------------
+// Chantier 30: warehouse reserves. Once the stock of a resource is full, what the colony keeps
+// harvesting goes into the warehouses' reserves, one warehouse after another (oldest first);
+// only the player brings it back (`collect`). With every reserve full, harvesting pauses.
+
+/** What a warehouse can keep in reserve, for each resource. */
+export function reserveCapOf(state: GameState, b: Building): number {
+  return (levelDef(b.type, b.level)?.reserve ?? 0) * techEffects(state).storage;
+}
+
+/** What a warehouse keeps in reserve right now. */
+export function reserveOf(b: Building): Resources {
+  return b.reserve ?? emptyResources();
+}
+
+/** Buildings that keep a reserve. */
+export function reserveHolders(state: GameState): Building[] {
+  return state.buildings.filter((b) => (levelDef(b.type, b.level)?.reserve ?? 0) > 0);
+}
+
+/** Every reserve together, and their caps. */
+export function reserves(state: GameState): { stock: Resources; cap: Resources } {
+  const stock = emptyResources();
+  const cap = emptyResources();
+  for (const b of reserveHolders(state)) {
+    const c = reserveCapOf(state, b);
+    for (const id of RESOURCE_IDS) {
+      stock[id] += b.reserve?.[id] ?? 0;
+      cap[id] += c;
+    }
+  }
+  return { stock, cap };
+}
+
+/** The warehouse the overflow of a resource goes to (the first one with room), or null. */
+export function reserveTarget(
+  state: GameState,
+  id: ResourceId,
+): { b: Building; room: number } | null {
+  for (const b of reserveHolders(state)) {
+    const room = reserveCapOf(state, b) - (b.reserve?.[id] ?? 0);
+    if (room > 1e-6) return { b, room };
+  }
+  return null;
+}
+
 /**
- * Whether the colony storage of a resource is full (harvesting then pauses). A full stock the
- * kiwis eat faster than it is produced is not full: harvesting goes on and the stock shrinks.
+ * Whether the colony storage of a resource is full (harvesting then pauses): the stock and
+ * every reserve. A full stock the kiwis eat faster than it is produced is not full: harvesting
+ * goes on and the stock shrinks.
  */
 export function storageFullCheck(
   state: GameState,
@@ -110,6 +157,7 @@ export function storageFullCheck(
   let gross: Resources | null = known ?? null;
   return (id) => {
     if (state.resources[id] < cap[id] - 1e-6) return false;
+    if (reserveTarget(state, id)) return false;
     if (eaten[id] <= 0) return true;
     gross ??= grossRates(state);
     return gross[id] >= eaten[id];

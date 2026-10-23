@@ -6,6 +6,7 @@ import {
   applyCommand,
   BUILDINGS,
   buildingHarvest,
+  capacity,
   CAMPS,
   DEPOSITS,
   depotDistance,
@@ -100,7 +101,7 @@ describe('deposits', () => {
     const { s: start, camp } = withCamp();
     const s: GameState = {
       ...start,
-      resources: { ...start.resources, pulp: 400 },
+      resources: { ...start.resources, pulp: capacity(start).pulp },
       buildings: start.buildings.map((b) =>
         b.id === camp.id ? { ...b, pool: { ...b.pool!, stock: 0 } } : b,
       ),

@@ -11,6 +11,10 @@ import {
   getBuilding,
   HOUR_MS,
   idleVillagers,
+  reserveCapOf,
+  reserveHolders,
+  reserves,
+  reserveTarget,
   storageFullCheck,
   workerSlots,
   workersOf,
@@ -474,6 +478,13 @@ function computeFlows(s: GameState): Flows {
     if (rates[id] > 0 && s.resources[id] < cap[id]) {
       const fill = ((cap[id] - s.resources[id]) / rates[id]) * HOUR_MS;
       next = Math.min(next, s.now + Math.max(1, Math.ceil(fill)));
+    } else if (rates[id] > 0) {
+      // Chantier 30: the warehouse taking the overflow fills up.
+      const target = reserveTarget(s, id);
+      if (target) {
+        const fill = (target.room / rates[id]) * HOUR_MS;
+        next = Math.min(next, s.now + Math.max(1, Math.ceil(fill)));
+      }
     } else if (rates[id] < 0) {
       const empty = (s.resources[id] / -rates[id]) * HOUR_MS;
       next = Math.min(next, s.now + Math.max(1, Math.ceil(empty)));
@@ -520,7 +531,18 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
     if (after < cap[id] && cap[id] - after < 1e-6) after = cap[id];
     s.resources[id] = after;
     s.stats.produced[id] += after - before;
-    if (before < cap[id] && after >= cap[id]) {
+    // Chantier 30: the overflow goes into the warehouses' reserves.
+    const overflow = before >= cap[id] ? gain : Math.max(0, before + gain - cap[id]);
+    if (overflow > 0) {
+      const room = reserves(s);
+      const free = room.cap[id] - room.stock[id];
+      s.stats.produced[id] += pourReserve(s, id, overflow);
+      if (free > 1e-6 && !reserveTarget(s, id)) {
+        const fillMs = (free / rates[id]) * HOUR_MS;
+        events.push({ type: 'storageFull', at: Math.round(at - dtMs + fillMs), resource: id });
+      }
+    }
+    if (before < cap[id] && after >= cap[id] && !reserveTarget(s, id)) {
       // Exact time the storage filled up (for the "while you were away" summary).
       const fillMs = ((cap[id] - before) / rates[id]) * HOUR_MS;
       events.push({ type: 'storageFull', at: Math.round(at - dtMs + fillMs), resource: id });
@@ -540,6 +562,21 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
   accrueResearch(s, dtMs);
   accrueStardust(s, dtMs);
   accrueKiwis(s, dtMs, at, events);
+}
+
+/** Pours an overflow into the reserves, one warehouse after another; returns what fitted. */
+function pourReserve(s: GameState, id: ResourceId, amount: number): number {
+  let left = amount;
+  for (const b of reserveHolders(s)) {
+    if (left <= 0) break;
+    const reserve = (b.reserve ??= emptyResources());
+    const room = reserveCapOf(s, b) - reserve[id];
+    if (room <= 1e-6) continue;
+    const put = Math.min(room, left);
+    reserve[id] = room - put < 1e-6 ? reserve[id] + room : reserve[id] + put;
+    left -= put;
+  }
+  return amount - Math.max(0, left);
 }
 
 function completeConstruction(

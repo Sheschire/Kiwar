@@ -565,6 +565,8 @@ export const fr: Dict = {
     pathLimit: 'Limite de chemins atteinte. Améliorez le Nid.',
     campLimit: 'Trop de camps. Démontez-en un d’abord.',
     notDemolishable: 'Le Nid ne peut pas être démoli.',
+    notWarehouse: 'Seul un entrepôt garde une réserve.',
+    nothingToCollect: 'Rien à rapatrier : la réserve est vide ou le stock est plein.',
     upgradeInProgress: 'Une amélioration est en cours : annulez-la d’abord.',
     housingNeeded: 'Des kiwis vivent encore ici. Construisez un autre logement d’abord.',
     unknownVillager: 'Ce kiwi n’est plus là.',

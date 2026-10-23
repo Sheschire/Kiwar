@@ -606,7 +606,7 @@ var BASE = {
         // A little spring by the Nest: the first kiwis can drink before the first Juice well.
         passiveProduction: { pulp: 340, fiber: 290, juice: 40 },
         housing: 4,
-        storage: 400,
+        storage: 600,
         maxBuildings: 6,
         queueSize: 2
       },
@@ -616,7 +616,7 @@ var BASE = {
         requiresNestLevel: 1,
         passiveProduction: { pulp: 450, fiber: 300, juice: 60 },
         housing: 6,
-        storage: 1e3,
+        storage: 1500,
         maxBuildings: 11,
         queueSize: 3
       },
@@ -769,24 +769,34 @@ var BASE = {
       }
     ]
   },
+  // Chantier 30: a small bonus to the stock, and a reserve the overflow fills once the stock is
+  // full (~8 h of a young colony's production); the player brings it back with a tap.
   warehouse: {
     id: "warehouse",
     allowedTiles: ["flesh", "ray", "heart"],
     buildable: true,
     copyGrowth: 1.4,
     levels: [
-      { cost: { pulp: 60, fiber: 80 }, durationMs: ms.s(40), requiresNestLevel: 1, storage: 500 },
+      {
+        cost: { pulp: 60, fiber: 80 },
+        durationMs: ms.s(40),
+        requiresNestLevel: 1,
+        storage: 60,
+        reserve: 1500
+      },
       {
         cost: { pulp: 200, fiber: 260, seeds: 20 },
         durationMs: ms.min(4),
         requiresNestLevel: 1,
-        storage: 1200
+        storage: 150,
+        reserve: 3500
       },
       {
         cost: { pulp: 700, fiber: 900, seeds: 80, juice: 150 },
         durationMs: ms.min(20),
         requiresNestLevel: 2,
-        storage: 3e3
+        storage: 250,
+        reserve: 7e3
       }
     ]
   },
@@ -1015,7 +1025,9 @@ var AGE_GROWTH = {
     ...DEFAULT_GROWTH,
     output: 1.1,
     housing: 1,
-    storage: 1.6,
+    // The stock grows like the costs: the biggest ones keep fitting (never a blocked game).
+    storage: 1.7,
+    ageStorage: 2,
     maxBuildings: 3,
     queueSize: 1
   },
@@ -1024,7 +1036,7 @@ var AGE_GROWTH = {
   juiceWell: { ...DEFAULT_GROWTH, workerSlots: 1 },
   seedQuarry: { ...DEFAULT_GROWTH, workerSlots: 1 },
   hut: { ...DEFAULT_GROWTH, housing: 1 },
-  warehouse: { ...DEFAULT_GROWTH, storage: 1.6 },
+  warehouse: { ...DEFAULT_GROWTH, storage: 1.7, ageStorage: 2, reserve: 1.5 },
   launchpad: { ...DEFAULT_GROWTH, cargo: 70, travelTime: 0.965 },
   school: { ...DEFAULT_GROWTH, trainingSlots: 1, trainingTime: 0.965 },
   library: { ...DEFAULT_GROWTH, research: 1.07, workerSlots: 1 },
@@ -1058,7 +1070,11 @@ function withAgeLevels(def) {
       next.passiveProduction = scaled(prev.passiveProduction, g.output, 10);
     if (prev.workerSlots) next.workerSlots = prev.workerSlots + extra(g.workerSlots);
     if (prev.housing !== void 0) next.housing = prev.housing + (g.housing ?? 0);
-    if (prev.storage !== void 0) next.storage = round(prev.storage * (g.storage ?? 1), 50);
+    if (prev.storage !== void 0) {
+      const k = first ? g.ageStorage ?? g.storage ?? 1 : g.storage ?? 1;
+      next.storage = round(prev.storage * k, prev.storage < 1e3 ? 10 : 50);
+    }
+    if (prev.reserve !== void 0) next.reserve = round(prev.reserve * (g.reserve ?? 1), 50);
     if (prev.cargo !== void 0) next.cargo = prev.cargo + (g.cargo ?? 0);
     if (prev.travelTime !== void 0)
       next.travelTime = Math.round(prev.travelTime * (g.travelTime ?? 1) * 1e3) / 1e3;
@@ -4052,6 +4068,12 @@ function computeFlows(s) {
     if (rates[id3] > 0 && s.resources[id3] < cap[id3]) {
       const fill = (cap[id3] - s.resources[id3]) / rates[id3] * HOUR_MS;
       next = Math.min(next, s.now + Math.max(1, Math.ceil(fill)));
+    } else if (rates[id3] > 0) {
+      const target = reserveTarget(s, id3);
+      if (target) {
+        const fill = target.room / rates[id3] * HOUR_MS;
+        next = Math.min(next, s.now + Math.max(1, Math.ceil(fill)));
+      }
     } else if (rates[id3] < 0) {
       const empty = s.resources[id3] / -rates[id3] * HOUR_MS;
       next = Math.min(next, s.now + Math.max(1, Math.ceil(empty)));
@@ -4094,7 +4116,17 @@ function accrue(s, flows, dtMs, at, events) {
     if (after < cap[id3] && cap[id3] - after < 1e-6) after = cap[id3];
     s.resources[id3] = after;
     s.stats.produced[id3] += after - before;
-    if (before < cap[id3] && after >= cap[id3]) {
+    const overflow = before >= cap[id3] ? gain : Math.max(0, before + gain - cap[id3]);
+    if (overflow > 0) {
+      const room = reserves(s);
+      const free = room.cap[id3] - room.stock[id3];
+      s.stats.produced[id3] += pourReserve(s, id3, overflow);
+      if (free > 1e-6 && !reserveTarget(s, id3)) {
+        const fillMs = free / rates[id3] * HOUR_MS;
+        events.push({ type: "storageFull", at: Math.round(at - dtMs + fillMs), resource: id3 });
+      }
+    }
+    if (before < cap[id3] && after >= cap[id3] && !reserveTarget(s, id3)) {
       const fillMs = (cap[id3] - before) / rates[id3] * HOUR_MS;
       events.push({ type: "storageFull", at: Math.round(at - dtMs + fillMs), resource: id3 });
     }
@@ -4112,6 +4144,19 @@ function accrue(s, flows, dtMs, at, events) {
   accrueResearch(s, dtMs);
   accrueStardust(s, dtMs);
   accrueKiwis(s, dtMs, at, events);
+}
+function pourReserve(s, id3, amount) {
+  let left = amount;
+  for (const b of reserveHolders(s)) {
+    if (left <= 0) break;
+    const reserve = b.reserve ??= emptyResources();
+    const room = reserveCapOf(s, b) - reserve[id3];
+    if (room <= 1e-6) continue;
+    const put = Math.min(room, left);
+    reserve[id3] = room - put < 1e-6 ? reserve[id3] + room : reserve[id3] + put;
+    left -= put;
+  }
+  return amount - Math.max(0, left);
 }
 function completeConstruction(s, item, at, events) {
   s.queue = s.queue.filter((i) => i.id !== item.id);
@@ -5947,12 +5992,41 @@ function capacity(state) {
   const cap = storage * techEffects(state).storage;
   return { pulp: cap, fiber: cap, seeds: cap, juice: cap };
 }
+function reserveCapOf(state, b) {
+  return (levelDef(b.type, b.level)?.reserve ?? 0) * techEffects(state).storage;
+}
+function reserveOf(b) {
+  return b.reserve ?? emptyResources();
+}
+function reserveHolders(state) {
+  return state.buildings.filter((b) => (levelDef(b.type, b.level)?.reserve ?? 0) > 0);
+}
+function reserves(state) {
+  const stock = emptyResources();
+  const cap = emptyResources();
+  for (const b of reserveHolders(state)) {
+    const c = reserveCapOf(state, b);
+    for (const id3 of RESOURCE_IDS) {
+      stock[id3] += b.reserve?.[id3] ?? 0;
+      cap[id3] += c;
+    }
+  }
+  return { stock, cap };
+}
+function reserveTarget(state, id3) {
+  for (const b of reserveHolders(state)) {
+    const room = reserveCapOf(state, b) - (b.reserve?.[id3] ?? 0);
+    if (room > 1e-6) return { b, room };
+  }
+  return null;
+}
 function storageFullCheck(state, known) {
   const cap = capacity(state);
   const eaten = consumption(state);
   let gross = known ?? null;
   return (id3) => {
     if (state.resources[id3] < cap[id3] - 1e-6) return false;
+    if (reserveTarget(state, id3)) return false;
     if (eaten[id3] <= 0) return true;
     gross ??= grossRates(state);
     return gross[id3] >= eaten[id3];
@@ -7385,7 +7459,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 24;
+var SCHEMA_VERSION = 25;
 var MISSION_KINDS = [
   "raid",
   "recon",
@@ -7604,9 +7678,12 @@ function cloneState(state) {
     ...state,
     params: { ...state.params },
     resources: { ...state.resources },
-    buildings: state.buildings.map(
-      (b) => b.pool ? { ...b, pool: { stock: b.pool.stock, tiles: [...b.pool.tiles] } } : { ...b }
-    ),
+    buildings: state.buildings.map((b) => {
+      const c = { ...b };
+      if (b.pool) c.pool = { stock: b.pool.stock, tiles: [...b.pool.tiles] };
+      if (b.reserve) c.reserve = { ...b.reserve };
+      return c;
+    }),
     villagers: state.villagers.map(cloneVillager),
     memorial: state.memorial.map((m) => ({ ...m })),
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
@@ -7937,6 +8014,8 @@ var COMMAND_ERRORS = [
   "pathLimit",
   "campLimit",
   "notDemolishable",
+  "notWarehouse",
+  "nothingToCollect",
   "upgradeInProgress",
   "housingNeeded",
   "unknownVillager",
@@ -8044,6 +8123,19 @@ function payStardust(s, points) {
 function pay(s, cost) {
   if (!canAfford(s.resources, cost)) fail("notEnoughResources");
   for (const id3 of RESOURCE_IDS) s.resources[id3] -= cost[id3] ?? 0;
+}
+function collectReserve(s, b) {
+  if (!b.reserve) return 0;
+  const cap = capacity(s);
+  let moved = 0;
+  for (const id3 of RESOURCE_IDS) {
+    const take = Math.min(b.reserve[id3], Math.max(0, cap[id3] - s.resources[id3]));
+    if (take <= 0) continue;
+    s.resources[id3] += take;
+    b.reserve[id3] = b.reserve[id3] - take < 1e-6 ? 0 : b.reserve[id3] - take;
+    moved += take;
+  }
+  return moved;
 }
 function refund(s, cost) {
   for (const id3 of RESOURCE_IDS) s.resources[id3] += cost[id3] ?? 0;
@@ -8437,6 +8529,19 @@ function execute(s, cmd, ctx, events) {
       if (idle) idle.job = { kind: "work", buildingId: id3 };
       return;
     }
+    case "collect": {
+      const b = getBuilding(s, cmd.buildingId);
+      if (!b) return fail("unknownBuilding");
+      if (reserveCapOf(s, b) <= 0) fail("notWarehouse");
+      if (collectReserve(s, b) <= 0) fail("nothingToCollect");
+      break;
+    }
+    case "collectAll": {
+      let moved = 0;
+      for (const b of reserveHolders(s)) moved += collectReserve(s, b);
+      if (moved <= 0) fail("nothingToCollect");
+      break;
+    }
     case "demolish":
     case "dismantle": {
       const b = getBuilding(s, cmd.buildingId);
@@ -8447,6 +8552,7 @@ function execute(s, cmd, ctx, events) {
       const housingLeft = housing(s) - (levelDef(b.type, b.level)?.housing ?? 0);
       if (housingLeft < population(s)) fail("housingNeeded");
       refund(s, demolitionRefund(s, b));
+      if (b.reserve) refund(s, b.reserve);
       releasePool(s, ctx.map, b, now);
       s.buildings = s.buildings.filter((x) => x.id !== b.id);
       syncPools(s, ctx.map, now);
@@ -12956,7 +13062,8 @@ var gameStateSchema = external_exports.object({
       richness: external_exports.number(),
       builtAt: external_exports.number(),
       pool: external_exports.object({ stock: external_exports.number().min(0), tiles: external_exports.array(external_exports.string()).max(64) }).optional(),
-      damaged: external_exports.boolean().optional()
+      damaged: external_exports.boolean().optional(),
+      reserve: resources.optional()
     })
   ),
   villagers: external_exports.array(villager),
@@ -13319,7 +13426,9 @@ var MIGRATIONS = {
     research: { ...raw.research, outbox: 0 }
   }),
   // v23 → v24 (chantier 30): three levels per age; the old age levels 4/5/6 become 4/7/10.
-  23: migrateLevels
+  23: migrateLevels,
+  // v24 → v25 (chantier 30): warehouse reserves (optional, empty).
+  24: (raw) => raw
 };
 function newLevel(level) {
   return level <= 4 ? level : level === 5 ? 7 : 10;
@@ -13474,6 +13583,8 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("gather"), q: int, r: int }),
   external_exports.object({ type: external_exports.literal("demolish"), buildingId: id2 }),
   external_exports.object({ type: external_exports.literal("dismantle"), buildingId: id2 }),
+  external_exports.object({ type: external_exports.literal("collect"), buildingId: id2 }),
+  external_exports.object({ type: external_exports.literal("collectAll") }),
   external_exports.object({
     type: external_exports.literal("renameVillager"),
     villagerId: id2,
@@ -13890,6 +14001,13 @@ function isPlausible(state, now) {
     if (b.type !== "nest" && b.level >= 3 && n.level < (BUILDINGS[b.type].levels[2]?.requiresNestLevel ?? 1))
       return false;
     if (b.richness < 0.8 || b.richness > 1.25) return false;
+    if (b.reserve) {
+      const cap2 = reserveCapOf(state, b);
+      for (const id3 of RESOURCE_IDS) {
+        const v = b.reserve[id3];
+        if (!Number.isFinite(v) || v < 0 || v > cap2 + 1e-6) return false;
+      }
+    }
   }
   const map = mapFor(state);
   for (const b of state.buildings) {
@@ -14632,6 +14750,7 @@ export {
   cloneState,
   cloneThreats,
   cloneVillager,
+  collectReserve,
   colonyBonus,
   colonyNeedsSync,
   colonyOfFriend,
@@ -14911,6 +15030,11 @@ export {
   researchPower,
   researchRate,
   researchTick,
+  reserveCapOf,
+  reserveHolders,
+  reserveOf,
+  reserveTarget,
+  reserves,
   resetSiege,
   resolveArrival,
   resolveReturn,

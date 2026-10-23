@@ -31,7 +31,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 24;
+export const SCHEMA_VERSION = 25;
 
 export type Job =
   | { kind: 'idle' }
@@ -152,6 +152,8 @@ export interface Building {
   pool?: Pool;
   /** Hit by predators: works at `THREATS.damagedWork` until repaired. */
   damaged?: boolean;
+  /** Chantier 30, warehouses only: the stock kept in reserve (see `reserveCapOf`). */
+  reserve?: Resources;
 }
 
 export interface Pool {
@@ -933,9 +935,12 @@ export function cloneState(state: GameState): GameState {
     ...state,
     params: { ...state.params },
     resources: { ...state.resources },
-    buildings: state.buildings.map((b) =>
-      b.pool ? { ...b, pool: { stock: b.pool.stock, tiles: [...b.pool.tiles] } } : { ...b },
-    ),
+    buildings: state.buildings.map((b) => {
+      const c = { ...b };
+      if (b.pool) c.pool = { stock: b.pool.stock, tiles: [...b.pool.tiles] };
+      if (b.reserve) c.reserve = { ...b.reserve };
+      return c;
+    }),
     villagers: state.villagers.map(cloneVillager),
     memorial: state.memorial.map((m) => ({ ...m })),
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),

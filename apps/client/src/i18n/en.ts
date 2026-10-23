@@ -533,6 +533,8 @@ export const en = {
     pathLimit: 'Path limit reached. Upgrade the Nest for more.',
     campLimit: 'Too many camps. Dismantle one first.',
     notDemolishable: 'The Nest cannot be demolished.',
+    notWarehouse: 'Only a warehouse keeps a reserve.',
+    nothingToCollect: 'Nothing to bring back: the reserve is empty or the stock is full.',
     upgradeInProgress: 'An upgrade is under way: cancel it first.',
     housingNeeded: 'Your kiwis still live here. Build another home first.',
     unknownVillager: 'This kiwi is no longer here.',

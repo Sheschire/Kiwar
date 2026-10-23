@@ -102,6 +102,8 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('gather'), q: int, r: int }),
   z.object({ type: z.literal('demolish'), buildingId: id }),
   z.object({ type: z.literal('dismantle'), buildingId: id }),
+  z.object({ type: z.literal('collect'), buildingId: id }),
+  z.object({ type: z.literal('collectAll') }),
   z.object({
     type: z.literal('renameVillager'),
     villagerId: id,

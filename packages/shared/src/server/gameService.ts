@@ -31,6 +31,7 @@ import {
   pathLimit,
   turretCount,
   turretLimit,
+  reserveCapOf,
 } from '../sim/selectors';
 import {
   cloneAliens,
@@ -587,6 +588,14 @@ export function isPlausible(state: GameState, now: number): boolean {
     )
       return false;
     if (b.richness < 0.8 || b.richness > 1.25) return false;
+    // Chantier 30: a reserve never exceeds what its warehouse holds.
+    if (b.reserve) {
+      const cap = reserveCapOf(state, b);
+      for (const id of RESOURCE_IDS) {
+        const v = b.reserve[id];
+        if (!Number.isFinite(v) || v < 0 || v > cap + 1e-6) return false;
+      }
+    }
   }
   const map = mapFor(state);
   for (const b of state.buildings) {
