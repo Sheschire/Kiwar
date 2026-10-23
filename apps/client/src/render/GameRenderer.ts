@@ -86,6 +86,7 @@ import { updateSeasonLook, seasonUniforms } from './seasonLook';
 import { WeatherView } from './weather';
 import { PlacementGhost } from './placementGhost';
 import { TileWaves } from './tileWave';
+import { bootMark } from '../game/bootTimes';
 
 export interface RendererCallbacks {
   /** Current simulation time (for smooth progress animations between ticks). */
@@ -232,6 +233,8 @@ export class GameRenderer {
       stencil: false,
     });
     this.renderer.outputColorSpace = SRGBColorSpace;
+    // Chantier 32: no forced read-back of every shader's log outside development.
+    this.renderer.debug.checkShaderErrors = import.meta.env.DEV;
     // Post-processing renders several passes: count the whole frame.
     this.renderer.info.autoReset = false;
     this.renderer.shadowMap.enabled = true;
@@ -1175,6 +1178,10 @@ export class GameRenderer {
       }
       this.backgroundFrames--;
     }
+    if (!this.intro && !this.firstDrawn && this.lastState && !this.warmed()) {
+      this.runAfterFrame();
+      return;
+    }
     const target = this.intro ? this.fpsCap : this.idle.target(time, this.fpsCap);
     if (target !== this.drawTarget) {
       this.drawTarget = target;
@@ -1212,6 +1219,43 @@ export class GameRenderer {
   }
 
   private lastCpu = 0;
+  /** Chantier 32: the first frame of the colony was drawn (boot measures, loader). */
+  private firstDrawn = false;
+  private warming: 'no' | 'busy' | 'done' = 'no';
+
+  /**
+   * Chantier 32: before the first frame, the shaders compile with `compileAsync` (in parallel
+   * where the browser has KHR_parallel_shader_compile), so the loader keeps moving instead of
+   * one long frozen first frame. Gives up waiting after 4 s.
+   */
+  private warmed(): boolean {
+    if (this.warming === 'no') {
+      this.warming = 'busy';
+      bootMark('compile');
+      const done = () => {
+        if (this.warming === 'done') return;
+        this.warming = 'done';
+        bootMark('compiled');
+      };
+      // Without the extension compiling ahead gains nothing (the first frame waits anyway).
+      if (!this.renderer.extensions.has('KHR_parallel_shader_compile')) {
+        done();
+        return true;
+      }
+      window.setTimeout(done, 4000);
+      try {
+        this.renderer.compileAsync(this.scene, this.camera).then(done, done);
+      } catch {
+        done();
+      }
+    }
+    return this.warming === 'done';
+  }
+
+  /** The colony's first frame is on screen, or the intro plays (the loader may go). */
+  get ready(): boolean {
+    return this.firstDrawn || this.intro !== null;
+  }
   private lastAzimuth = NaN;
   private hoveredPlanet: PlanetRef | null = null;
 
@@ -1285,16 +1329,23 @@ export class GameRenderer {
         if (this.placingGhost) this.callbacks.onPlacementHover?.(tile);
       }
     }
+    const first = !this.firstDrawn && this.lastState !== null;
+    if (first) bootMark('scene');
     try {
       this.updateScene(dt);
     } catch (e) {
       // One broken view must not leave the screen empty: keep drawing the rest.
       this.reportFrameError(e);
     }
+    if (first) bootMark('updated');
     this.gpuTimer.begin();
     if (this.postfx) this.postfx.render(dt);
     else this.renderer.render(this.scene, this.camera);
     this.gpuTimer.end();
+    if (first) {
+      this.firstDrawn = true;
+      bootMark('drawn');
+    }
 
     this.fpsReportTimer += dt;
     if (this.fpsReportTimer > 0.5) {

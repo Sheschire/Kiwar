@@ -526,6 +526,7 @@ export const fr: Dict = {
     missingBeds: '{count} kiwi(s) sans lit : −{percent} % de présence. Bâtissez une Hutte.',
   },
   errors: {
+    syncing: 'Synchronisation avec le serveur, réessayez dans un instant.',
     unknownTile: 'Il n’y a pas de tuile ici.',
     tileNotAllowed: 'Ce bâtiment ne peut pas être placé sur cette tuile.',
     tileOccupied: 'Cette tuile est déjà occupée.',
@@ -815,6 +816,7 @@ export const fr: Dict = {
     label: 'Vers la planète alien — touchez pour revenir au Nid',
   },
   debug: {
+    boot: 'Chargement (ms) : {steps}',
     title: 'Debug',
     timeScale: 'Vitesse du temps',
     grant: '+500 de tout',

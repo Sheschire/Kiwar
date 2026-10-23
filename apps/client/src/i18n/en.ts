@@ -494,6 +494,7 @@ export const en = {
     missingBeds: '{count} kiwi(s) without a bed: −{percent} % presence. Build a Hut.',
   },
   errors: {
+    syncing: 'Syncing with the server, try again in a moment.',
     unknownTile: 'There is no tile here.',
     tileNotAllowed: 'This building cannot be placed on this tile.',
     tileOccupied: 'This tile is already taken.',
@@ -779,6 +780,7 @@ export const en = {
     label: 'Towards the alien planet — tap to fly back to the Nest',
   },
   debug: {
+    boot: 'Load (ms): {steps}',
     title: 'Debug',
     timeScale: 'Time speed',
     grant: '+500 of everything',

@@ -549,6 +549,10 @@ button.chip:focus-visible {
   flex: 1;
 }
 
+.debug-boot {
+  overflow-wrap: anywhere;
+}
+
 .debug .fps {
   font-variant-numeric: tabular-nums;
   font-size: 0.85rem;

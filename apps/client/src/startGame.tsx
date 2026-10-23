@@ -37,6 +37,9 @@ import { setChannel } from './ui/chatActions';
 import { audio } from './audio/engine';
 import { installGameAudio } from './audio/gameAudio';
 import { kiwiSpeaks } from './audio/sounds';
+import { bootMark, bootSummary } from './game/bootTimes';
+
+bootMark('script');
 
 persistLang(uiStore.getState().lang);
 
@@ -48,6 +51,7 @@ installPerfProbe(gpuRendererName());
 // `?debug` opens the debug panel (frame timing to share when the game feels slow).
 if (new URLSearchParams(window.location.search).has('debug')) uiStore.setState({ debugOpen: true });
 
+bootMark('setup');
 // eslint-disable-next-line prefer-const -- assigned right after the renderer (circular wiring)
 let controller: GameController;
 const renderer = new GameRenderer(
@@ -181,6 +185,7 @@ function afterFrame(): void {
   controller.tickIfDue();
 }
 
+bootMark('renderer');
 controller = new GameController({
   onWorld: (map, state) => {
     const key = `${map.seed}|${map.face}|${JSON.stringify(map.params)}`;
@@ -420,10 +425,22 @@ render(
 const loaderDone = (s: ReturnType<typeof uiStore.getState>) =>
   s.game !== null || s.intro !== null || s.bootError !== null;
 function fadeLoader(): void {
+  // Chantier 32: once the first frame is really drawn (the shaders compile before it).
+  const until = performance.now() + 10_000;
+  const wait = () => {
+    if (!renderer.ready && !uiStore.getState().bootError && performance.now() < until)
+      requestAnimationFrame(wait);
+    else hideLoader();
+  };
+  wait();
+}
+function hideLoader(): void {
   requestAnimationFrame(() =>
     requestAnimationFrame(() => {
       const loader = document.getElementById('loader');
       loader?.classList.add('done');
+      bootMark('firstFrame');
+      if (uiStore.getState().debugOpen) console.info(`[boot] ${bootSummary()}`);
       window.setTimeout(() => loader?.remove(), 700);
     }),
   );

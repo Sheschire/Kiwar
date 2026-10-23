@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'preact/hooks';
 import { otherFace } from '@kiwar/shared';
 import { randomSeed } from '../../game/urlParams';
 import { actions } from '../actions';
@@ -5,6 +6,7 @@ import { CloseIcon } from '../icons';
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { usePerf } from '../perfProbe';
 import { isIntegratedGpu } from '../../render/quality';
+import { bootSummary } from '../../game/bootTimes';
 
 const SCALES = [1, 10, 100];
 
@@ -32,6 +34,7 @@ export function DebugPanel() {
         </button>
       </header>
       <PerfLines t={t} />
+      <BootLine t={t} />
       <div class="field">
         <span class="small muted">{t('debug.timeScale')}</span>
         {online ? (
@@ -74,6 +77,16 @@ export function DebugPanel() {
       <p class="small muted">{t('debug.shortcut')}</p>
     </aside>
   );
+}
+
+/** Chantier 32: the load milestones (they keep coming in while the panel is open). */
+function BootLine({ t }: { t: Translate }) {
+  const [steps, setSteps] = useState(bootSummary);
+  useEffect(() => {
+    const id = window.setInterval(() => setSteps(bootSummary()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return <p class="small muted debug-boot">{t('debug.boot', { steps })}</p>;
 }
 
 const round = (n: number, digits = 0) => {

@@ -46,6 +46,7 @@ import {
   type AuthRedirectError,
 } from './authRedirect';
 import { NetworkError, onlineConfig, type OnlineConfig } from './onlineConfig';
+import { bootMark } from './bootTimes';
 
 const SAVE_KEY = 'kiwar.save.v1';
 /** Chantier 19: the local sister colony (the home colony stays under SAVE_KEY). */
@@ -70,7 +71,7 @@ const REPORT_POLL_MS = 5_000;
 export type SyncStatus = 'local' | 'connecting' | 'online' | 'syncing' | 'offline';
 
 /** Everything that can go wrong for a player action (rules, server, network). */
-export type ClientError = CommandError | ServerError | 'network';
+export type ClientError = CommandError | ServerError | 'network' | 'syncing';
 
 export interface OfflineSummary {
   awayMs: number;
@@ -158,6 +159,8 @@ export class GameController {
   colony: 0 | 1 = coloniesSeen()[this.universe] === 1 ? 1 : 0;
   /** Local mode: the colony not on screen (advanced every few seconds)… */
   private other: GameState | null = null;
+  /** Chantier 32: the cached colony is on screen while the first server answer comes. */
+  private previewing = false;
   /** …as it was when it left the screen, and what happened to it since (the summary). */
   private otherFrom: GameState | null = null;
   private otherEvents: GameEvent[] = [];
@@ -211,8 +214,10 @@ export class GameController {
     world: { seed: string; face: Face } | null,
     fallbackSeed: () => string,
   ): Promise<void> {
+    bootMark('start');
     if (this.config) {
       const { OnlineBackend } = await import('./onlineBackend');
+      bootMark('backend');
       this.online = new OnlineBackend(this.config, (a) => this.onAccountChange(a));
       await this.startOnline(world, fallbackSeed);
     } else {
@@ -367,7 +372,12 @@ export class GameController {
     return deserializeSave(safeStorage(() => localStorage.getItem(SAVE_KEY), null)).ok;
   }
 
-  private loadState(saved: GameState): void {
+  /**
+   * Shows a stored colony, advanced to now. `preview` (chantier 32): the online cache shown
+   * while the server answers — no summary, nothing remembered, read-only until the real state.
+   */
+  private loadState(saved: GameState, preview = false): void {
+    this.previewing = preview;
     // Local games hold their alien garrisons (online, only the server does: chantier 07).
     if (!this.config) ensureAliens(saved, localAlienSeed(saved));
     this.map = faceMapOf(saved);
@@ -378,10 +388,14 @@ export class GameController {
       ? Math.min(now, Math.max(saved.now, seenTimes()[seenKey(saved)] ?? 0))
       : saved.now;
     const before = seenAt > saved.now ? advance(saved, seenAt).state : saved;
+    bootMark('loaded');
     const { state, events } = advance(before, now);
+    bootMark('advanced');
     this.state = state;
     this.listener.onWorld(this.map, this.state);
     this.emitState(now);
+    bootMark(preview ? 'cacheShown' : 'shown');
+    if (preview) return;
     const away = now - before.now;
     if (away >= OFFLINE_SUMMARY_MIN_MS) {
       this.listener.onOfflineSummary(summarize(before, state, events, away));
@@ -441,6 +455,11 @@ export class GameController {
   }
 
   dispatch(cmd: Command): boolean {
+    // Chantier 32: the cached colony shown during the first sync is read-only.
+    if (this.previewing) {
+      this.listener.onError('syncing');
+      return false;
+    }
     if (cmd.type === 'setResearch' && this.state && isSister(this.state))
       return this.dispatchHomeResearch(cmd);
     const now = this.now();
@@ -610,8 +629,12 @@ export class GameController {
     fallbackSeed: () => string,
   ): Promise<void> {
     this.listener.onSync('connecting');
+    // Chantier 32: the last known colony shows at once (read-only) while the sign-in and the
+    // server's answer come; the server's state replaces it.
+    const cacheShown = !world && this.showCache();
     try {
       const account = await this.online!.init();
+      bootMark('account');
       this.userId = account.userId;
       this.listener.onAccount(account);
       const redirect = this.online!.redirectError;
@@ -620,14 +643,17 @@ export class GameController {
         void this.online!.signInWithGoogle().catch(() => this.listener.onAuthError(redirect));
       } else if (redirect) this.listener.onAuthError(redirect);
       await this.loadFromServer(world);
-      await this.importLocalSaveOnce();
-      await this.offerGuestTransfer();
+      // After the colony is on screen: neither of them holds the first display back.
+      void this.importLocalSaveOnce()
+        .then(() => this.offerGuestTransfer())
+        .catch((e: unknown) => console.error(e));
     } catch (e) {
       if (!(e instanceof NetworkError)) console.error(e);
       // Show the last known colony (if any) and keep trying to reconnect.
+      this.previewing = false;
+      let shown = cacheShown;
       const cached = deserializeSave(safeStorage(() => localStorage.getItem(CACHE_KEY), null));
-      let shown = false;
-      if (cached.ok) {
+      if (!shown && cached.ok) {
         try {
           this.loadState(cached.save.state);
           shown = true;
@@ -649,6 +675,29 @@ export class GameController {
         );
       this.listener.onSync('offline');
       this.scheduleRetry(() => this.reconnect(world));
+    }
+  }
+
+  /** Chantier 32: the cached colony of this universe and colony, shown before the server's. */
+  private showCache(): boolean {
+    const cached = deserializeSave(safeStorage(() => localStorage.getItem(CACHE_KEY), null));
+    if (!cached.ok) return false;
+    const state = cached.save.state;
+    // The solo colony's id holds the account (`solo-<user>`), unknown before the sign-in: the
+    // cache is this browser's last colony, and the server's answer replaces it anyway.
+    const universe =
+      this.universe === 'solo'
+        ? state.universeId.startsWith('solo-')
+        : state.universeId === this.universe;
+    if (!universe || isSister(state) !== (this.colony === 1)) return false;
+    try {
+      this.loadState(state, true);
+      return true;
+    } catch (e) {
+      console.error(e);
+      this.previewing = false;
+      safeStorage(() => localStorage.removeItem(CACHE_KEY), undefined);
+      return false;
     }
   }
 
@@ -690,6 +739,7 @@ export class GameController {
   }
 
   private async loadFromServer(world: { seed: string; face: Face } | null): Promise<void> {
+    bootMark('loadCall');
     const res = await this.online!.call({
       action: 'load',
       universe: this.universe,
