@@ -1,6 +1,7 @@
 import { HARVESTS, hexToPixel, isTurret, type Command, type GameEvent } from '@kiwar/shared';
 import { audio, type SoundPosition } from './engine';
 import { uiStore } from '../ui/store';
+import { isLiveWave } from '../ui/battleStore';
 
 /** Same as the renderer's wave: constructions of an offline catch-up stay silent. */
 const AWAKEN_RECENT_MS = 15_000;
@@ -115,7 +116,9 @@ export function playGameEventSounds(events: GameEvent[]): void {
         break;
       case 'waveStruck':
         audio.play('threat.strike');
-        window.setTimeout(() => audio.play(e.victory ? 'threat.victory' : 'threat.defeat'), 1800);
+        // Chantier 36: a live wave tells its outcome at the end of its show (battleOutcome).
+        if (!isLiveWave(e.at, uiStore.getState().now))
+          window.setTimeout(() => audio.play(e.victory ? 'threat.victory' : 'threat.defeat'), 1800);
         break;
       case 'meteorLanded':
         audio.play('meteor.fall', { pos: at(e.q, e.r) });

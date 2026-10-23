@@ -31,6 +31,8 @@ import { SiegeShow } from './components/SiegeShow';
 import { LevelsButton, LogisticsButton, PlacingBanner } from './components/BuildingTree';
 import { BootScreen, Guard } from './components/Guard';
 import { VisitBanner } from './components/VisitBanner';
+import { BattleBar } from './components/BattleBar';
+import { useBattle } from './battleStore';
 import { PlanetTag } from './components/PlanetTag';
 import { PlanetCard, PlanetsButton, PlanetsPanel } from './components/PlanetCard';
 import { RecapBubble } from './components/RecapBubble';
@@ -119,6 +121,7 @@ export function App() {
   const debugOpen = useUi((s) => s.debugOpen);
   const ready = useUi((s) => s.game !== null);
   const hasSheet = useUi((s) => s.selectedTile !== null);
+  const battle = useBattle((s) => s.reportId !== null);
   const pathMode = useUi((s) => s.pathMode);
   const placing = useUi((s) => s.placing !== null);
   const intro = useUi((s) => s.intro !== null);
@@ -178,7 +181,7 @@ export function App() {
     );
   return (
     <div
-      class={`hud ${hasSheet ? 'has-sheet' : ''} ${pathMode || placing ? 'path-mode' : ''} ${thumb ? 'thumb' : ''}`}
+      class={`hud ${hasSheet ? 'has-sheet' : ''} ${pathMode || placing ? 'path-mode' : ''} ${thumb ? 'thumb' : ''} ${battle ? 'in-battle' : ''}`}
     >
       <TopBar buttons={!thumb} />
       <ObjectivesPanel compact={thumb} />
@@ -210,6 +213,7 @@ export function App() {
       )}
       <PathToolbar />
       <PlacingBanner />
+      <BattleBar />
       <Guard>
         <TilePanel />
       </Guard>

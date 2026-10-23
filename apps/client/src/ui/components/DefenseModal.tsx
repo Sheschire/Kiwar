@@ -335,7 +335,7 @@ function ReportItem({ r, now, t }: { r: WaveReport; now: number; t: Translate })
       {r.ammoUsed > 0 && (
         <p class="small muted">{t('defense.reportAmmo', { count: Math.round(r.ammoUsed) })}</p>
       )}
-      {!r.victory && (
+      {Object.values(r.loot).some((x) => x >= 1) && (
         <p class="small">{t('defense.reportLoot', { list: lootList(t, lang, r.loot) })}</p>
       )}
       {r.damaged.length > 0 && (
@@ -355,6 +355,11 @@ function ReportItem({ r, now, t }: { r: WaveReport; now: number; t: Translate })
         <p class="small warn">
           {t('defense.reportDead', { names: r.dead.map((k) => k.name).join(', ') })}
         </p>
+      )}
+      {r.log && (
+        <button class="btn-small" onClick={() => actions.replayBattle(r.id)}>
+          {t('battle.watch')}
+        </button>
       )}
     </li>
   );

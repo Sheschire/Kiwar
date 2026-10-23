@@ -213,6 +213,11 @@ function NavMenu() {
   const siege = useUi((s) => (s.slowGame ? siegeVisible(s.slowGame) : false));
   const counter = useUi((s) => !!s.slowGame?.siege.counter?.announced);
   const other = useOtherColony();
+  // Chantier 36: replay the last battle.
+  const lastBattle = useUi((s) => {
+    const r = s.slowGame?.threats.reports.at(-1);
+    return r?.log ? r.id : null;
+  });
   // Chantier 30: bring every warehouse reserve back from the menu (phones).
   const collectable = useUi((s) =>
     s.slowGame ? reserveHolders(s.slowGame).some((b) => canCollect(s.slowGame!, b)) : false,
@@ -268,6 +273,11 @@ function NavMenu() {
               onClick={go(() => uiStore.setState({ modal: 'siege' }))}
             >
               <TargetIcon size={28} />
+            </Entry>
+          )}
+          {lastBattle && (
+            <Entry label={t('battle.watch')} onClick={go(() => actions.replayBattle(lastBattle))}>
+              <ShieldIcon size={28} />
             </Entry>
           )}
           {collectable && (

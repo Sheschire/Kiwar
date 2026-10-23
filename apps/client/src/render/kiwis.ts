@@ -147,13 +147,13 @@ export const SHINY_HEX: Record<ShinyColor, string> = {
 };
 const BODY_BROWN = new Color('#8a6440');
 
-function shinyTint(color: ShinyColor): Color {
+export function shinyTint(color: ShinyColor): Color {
   const c = new Color(SHINY_HEX[color]);
   return new Color(c.r / BODY_BROWN.r, c.g / BODY_BROWN.g, c.b / BODY_BROWN.b);
 }
 
 /** Sturdier kiwis look a little bigger. */
-function sizeOf(v: Villager, jitter: number): number {
+export function sizeOf(v: Villager, jitter: number): number {
   return (0.9 + (v.stats.strength + v.stats.endurance) * 0.008) * jitter;
 }
 
@@ -272,6 +272,13 @@ export class KiwisView {
       this.turretsKey = turrets;
       this.posts.clear();
     }
+  }
+
+  /** Chantier 36: kiwis drawn by the battle show meanwhile (not here). */
+  private hidden: ReadonlySet<string> = new Set();
+
+  setHidden(ids: Iterable<string> | null): void {
+    this.hidden = new Set(ids ?? []);
   }
 
   /** Shows a pulsing ring under one kiwi (null hides it). */
@@ -1006,7 +1013,12 @@ export class KiwisView {
     for (const agent of this.agents.values()) {
       const villager = villagers.get(agent.id);
       // Kiwis away on an expedition or posted on the twin (chantier 19) are not on the map.
-      if (!villager || villager.job.kind === 'expedition' || villager.job.kind === 'outpost') {
+      if (
+        !villager ||
+        villager.job.kind === 'expedition' ||
+        villager.job.kind === 'outpost' ||
+        this.hidden.has(agent.id)
+      ) {
         this.titans.hide(agent.id);
         continue;
       }

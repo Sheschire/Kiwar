@@ -9,6 +9,8 @@ import {
 } from '@kiwar/shared';
 import type { GameRenderer } from '../render/GameRenderer';
 import { pushToast, uiStore, type SiegeShowKind } from '../ui/store';
+import { isLiveWave } from '../ui/battleStore';
+import { holdOutcome } from './battleOutcome';
 import { playGameEventSounds } from '../audio/sounds';
 import { friendName } from '../ui/components/DeliveryPlanner';
 import { formatDuration, formatNumber, translate, type TKey } from '../i18n/i18n';
@@ -229,8 +231,12 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         });
         break;
       case 'waveStruck':
-        pushToast(e.victory ? 'success' : 'error', e.victory ? 'threats.won' : 'threats.lost');
-        uiStore.setState({ unreadWave: e.waveId });
+        // Chantier 36: watched live, the outcome is told at the end of the battle show.
+        if (isLiveWave(e.at, uiStore.getState().now)) holdOutcome(e.waveId, e.victory);
+        else {
+          pushToast(e.victory ? 'success' : 'error', e.victory ? 'threats.won' : 'threats.lost');
+          uiStore.setState({ unreadWave: e.waveId });
+        }
         break;
       case 'shelterOver':
         pushToast('info', 'threats.shelterOver');

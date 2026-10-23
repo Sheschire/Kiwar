@@ -43,6 +43,7 @@ import {
   footprintOf,
   footprintTiles,
   type Building,
+  type WaveReport,
 } from '@kiwar/shared';
 import { BuildingsView } from './buildings';
 import { KiwisView } from './kiwis';
@@ -64,7 +65,7 @@ import { MeteorsView } from './meteors';
 import { CometsView, type CometArrow } from './comets';
 import { ObstaclesView } from './obstacles';
 import { ShipsView } from './ship';
-import { PredatorShow } from './predators';
+import { BattleShow, type UnitInfo } from './battle/BattleShow';
 import { PostFx } from './postfx';
 import { PropsView } from './props';
 import {
@@ -128,6 +129,14 @@ export interface RendererCallbacks {
   onPlanetHover?(planet: PlanetRef | null, x: number, y: number): void;
   /** Chantier 32: where the arrow towards an off-screen comet goes (null: none). */
   onCometArrow?(arrow: CometArrow | null): void;
+  /** Chantier 36: a battle show starts (`live`: as it happens). */
+  onBattleStart?(report: WaveReport, live: boolean, duration: number): void;
+  /** The show's clock, four times a second. */
+  onBattleTick?(time: number, duration: number): void;
+  /** The show ended or was skipped. */
+  onBattleEnd?(report: WaveReport): void;
+  /** A unit of the battle was tapped (null: deselected). */
+  onBattleUnit?(unit: UnitInfo | null): void;
 }
 
 const tmpV = new Vector3();
@@ -197,11 +206,13 @@ export class GameRenderer {
   private lastCometArrow: CometArrow | null = null;
   private obstacles: ObstaclesView | null = null;
   private ships: ShipsView | null = null;
-  private predators: PredatorShow | null = null;
+  private battle: BattleShow | null = null;
   /** Turret shots of the wave show (wired to the audio by `installGameAudio`). */
   onTurretShot: ((x: number, z: number) => void) | null = null;
   /** Wave whose show starts as soon as its report is in the state. */
-  private pendingShow: string | null = null;
+  /** Chantier 36: a wave struck live: its battle starts at this point of the show. */
+  private pendingShow: { waveId: string; from: number } | null = null;
+  private battleClock = 0;
   private weather: WeatherView | null = null;
   private readonly dayCycle = new DayCycle();
   private readonly lastLightDir = new Vector3();
@@ -281,6 +292,16 @@ export class GameRenderer {
           // Visiting is read-only: only another planet can be tapped.
           if (planet !== null && planet !== this.visiting) this.callbacks.onPlanetTap?.(planet);
           return;
+        }
+        // Chantier 36: during a battle, a unit under the finger opens its card.
+        if (this.battle?.report) {
+          const rect = this.canvas.getBoundingClientRect();
+          const reach = window.matchMedia?.('(pointer: coarse)').matches ? 30 : 22;
+          const unit = this.battle.pick(x, y, this.camera, rect, reach);
+          if (unit !== null) {
+            this.battleSelect(unit);
+            return;
+          }
         }
         const tile = this.pickTile(x, y);
         if (planet !== null && !tile) {
@@ -393,7 +414,7 @@ export class GameRenderer {
     windUniforms.uWindAmount.value = preset === 'low' ? 0 : 1;
     this.weather?.setDensity(q.particles ? 1 : 0.35);
     this.ships?.setParticles(q.particles);
-    this.predators?.setParticles(q.particles);
+    this.battle?.setParticles(q.particles);
     this.resize();
     this.renderer.shadowMap.needsUpdate = true;
     this.fpsMeter.reset();
@@ -429,7 +450,7 @@ export class GameRenderer {
       this.meteors,
       this.comets,
       this.obstacles,
-      this.predators,
+      this.battle,
       this.ships,
       this.waves,
     ]) {
@@ -464,10 +485,16 @@ export class GameRenderer {
     this.ships = new ShipsView(map);
     this.ships.setParticles(QUALITY[this.preset].particles);
     this.scene.add(this.ships.group);
-    this.predators = new PredatorShow(map);
-    this.predators.onShot = (x, z) => this.onTurretShot?.(x, z);
-    this.predators.setParticles(QUALITY[this.preset].particles);
-    this.scene.add(this.predators.group);
+    this.battle = new BattleShow(map);
+    this.battle.onShot = (x, z) => this.onTurretShot?.(x, z);
+    this.battle.onDamaged = (id) => this.buildings?.unmask(id);
+    this.battle.onEnd = (report) => {
+      this.kiwis?.setHidden(null);
+      this.buildings?.maskDamaged(null);
+      this.callbacks.onBattleEnd?.(report);
+    };
+    this.battle.setParticles(QUALITY[this.preset].particles);
+    this.scene.add(this.battle.group);
     this.water = new WaterView(map, this.lighting.sun.position);
     this.scene.add(this.water.mesh);
     this.rebuildProps();
@@ -779,7 +806,10 @@ export class GameRenderer {
       }
       // A wave that strikes while the player watches gets its show (not offline catch-ups).
       if (e.type === 'waveStruck' && Math.abs(this.callbacks.now() - e.at) < 20_000)
-        this.pendingShow = e.waveId;
+        this.pendingShow = {
+          waveId: e.waveId,
+          from: Math.max(0, (this.callbacks.now() - e.at) / 1000),
+        };
       // The rock reaches the ground at the end of its fall animation.
       if (e.type === 'meteorLanded') window.setTimeout(() => this.buildings?.burst(e.q, e.r), 1300);
       if (e.type === 'hatched') {
@@ -1138,6 +1168,53 @@ export class GameRenderer {
   }
 
   /** The kiwi drawn closest to a screen point (generous radius: kiwis are small). */
+  /**
+   * Chantier 36: plays the battle of a wave report from `from` seconds (`live`: it is
+   * happening now, its outcome is told at the end). False when the report has no journal.
+   */
+  playBattle(reportId: string, from = 0, live = false): boolean {
+    const report = this.lastState?.threats.reports.find((r) => r.id === reportId);
+    if (!report || !this.battle || !this.lastState) return false;
+    if (!this.battle.play(this.lastState, report, from)) return false;
+    this.kiwis?.setHidden(this.battle.kiwiIds());
+    this.buildings?.maskDamaged(
+      [...this.battle.damagedAt()].filter(([, t]) => t > from).map(([id]) => id),
+    );
+    this.battleClock = 0;
+    this.callbacks.onBattleStart?.(report, live, this.battle.duration);
+    this.callbacks.onBattleTick?.(this.battle.time, this.battle.duration);
+    this.wake();
+    return true;
+  }
+
+  battleSeek(t: number): void {
+    this.battle?.seek(t);
+    if (this.battle?.report) this.callbacks.onBattleTick?.(this.battle.time, this.battle.duration);
+    this.wake();
+  }
+
+  battleSpeed(speed: number): void {
+    if (this.battle) this.battle.speed = speed;
+  }
+
+  /** Ends the battle on screen now. */
+  battleSkip(): void {
+    this.battle?.skip();
+  }
+
+  /** Selects a unit of the battle (its card), or none. */
+  battleSelect(index: number | null): void {
+    if (!this.battle) return;
+    this.battle.selected = index;
+    this.callbacks.onBattleUnit?.(index === null ? null : this.battle.info(index));
+  }
+
+  /** The selected unit as it is now (the card refreshes it). */
+  battleUnit(): UnitInfo | null {
+    const b = this.battle;
+    return b && b.selected !== null ? b.info(b.selected) : null;
+  }
+
   kiwiAt(clientX: number, clientY: number): { id: string; pos: { x: number; z: number } } | null {
     const kiwis = this.kiwis?.visible();
     if (!kiwis?.length) return null;
@@ -1352,7 +1429,7 @@ export class GameRenderer {
       this.painter.enabled ||
       this.placingGhost ||
       this.waves?.active ||
-      this.predators?.playing ||
+      this.battle?.playing ||
       this.pendingShow ||
       this.siegeFx.playing ||
       this.twinApproach !== this.twinApproachTarget
@@ -1519,14 +1596,26 @@ export class GameRenderer {
           a.kiwiIndex === null ? p.owner === a.owner : p.kiwiIndex === a.kiwiIndex,
         )?.view.group.position ?? null,
     );
-    if (this.pendingShow && this.lastState && this.predators) {
-      const report = this.lastState.threats.reports.find((r) => r.id === this.pendingShow);
+    if (this.pendingShow && this.lastState && this.battle) {
+      const report = this.lastState.threats.reports.find((r) => r.id === this.pendingShow!.waveId);
       if (report) {
-        this.predators.play(this.lastState, report);
+        // No journal (an older wave): the outcome is told at once.
+        if (!this.playBattle(report.id, this.pendingShow.from, true))
+          this.callbacks.onBattleEnd?.(report);
         this.pendingShow = null;
       }
     }
-    this.predators?.update(dt);
+    if (this.battle) {
+      this.battle.update(dt, this.camera);
+      const b = this.battle;
+      if (b.report) {
+        this.battleClock += dt;
+        if (this.battleClock >= 0.25) {
+          this.battleClock = 0;
+          this.callbacks.onBattleTick?.(b.time, b.duration);
+        }
+      }
+    }
     this.kiwis?.update(dt, this.elapsed, this.callbacks.now());
     this.updateFollow(dt);
     this.selection.update(this.elapsed);

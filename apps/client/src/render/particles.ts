@@ -204,6 +204,14 @@ export const EFFECTS = {
   ],
   /** The smoke above a fire (call it about twice a second). */
   soot: [['soot', 1]],
+  /** Chantier 36: a fireball bursting. */
+  fireball: [
+    ['flame', 6],
+    ['ember', 4],
+    ['dust', 2],
+  ],
+  /** Chantier 36: loot snatched from a store. */
+  loot: [['gold', 6]],
 } as const satisfies Record<string, readonly (readonly [ParticleKind, number])[]>;
 export type EffectId = keyof typeof EFFECTS;
 

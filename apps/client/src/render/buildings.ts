@@ -185,10 +185,34 @@ export class BuildingsView {
     obj.rotation.y = f.angle;
   }
 
+  /**
+   * Chantier 36: buildings whose damage the battle show has not reached yet (their smoke would
+   * tell the outcome too early).
+   */
+  private masked = new Set<string>();
+
+  /** Hides the damage of these buildings until `unmask` (null: shows everything again). */
+  maskDamaged(ids: Iterable<string> | null): void {
+    this.masked = new Set(ids ?? []);
+    if (this.state) for (const b of this.state.buildings) this.refreshActivity(b);
+  }
+
+  unmask(id: string): void {
+    if (!this.masked.delete(id)) return;
+    const b = this.state?.buildings.find((x) => x.id === id);
+    if (b) this.refreshActivity(b);
+  }
+
+  private refreshActivity(b: GameState['buildings'][number]): void {
+    if (!this.state) return;
+    const look = this.masked.has(b.id) ? { ...b, damaged: false } : b;
+    this.life.setActivity(b.id, activityOf(this.state, look));
+  }
+
   /** Synchronises meshes with the game state (cheap when nothing changed). */
   sync(state: GameState): void {
     this.state = state;
-    for (const b of state.buildings) this.life.setActivity(b.id, activityOf(state, b));
+    for (const b of state.buildings) this.refreshActivity(b);
     const away = (id: string) =>
       state.expeditions.some((e) => e.launchpadId === id && e.status !== 'done');
     const sig =
@@ -279,7 +303,7 @@ export class BuildingsView {
         this.life.detach(b.id);
       }
       this.addBuildingMesh(b, shipAway, age);
-      this.life.setActivity(b.id, activityOf(state, b));
+      this.refreshActivity(b);
     }
     for (const [id, mesh] of this.meshes) {
       if (!seen.has(id)) {

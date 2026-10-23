@@ -5389,3 +5389,117 @@ h3 .building-thumb {
     animation-delay: 0s !important;
   }
 }
+
+/* ---------- Chantier 36: the battle bar and the unit card ---------- */
+
+.battle-dock {
+  position: absolute;
+  z-index: 13;
+  left: 50%;
+  bottom: calc(var(--thumb-h, 0px) + var(--gap) + var(--safe-bottom));
+  transform: translateX(-50%);
+  width: min(460px, calc(100vw - 2 * var(--gap)));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.thumb .battle-dock {
+  /* Above the thumb bar and the egg that rises out of it. */
+  bottom: calc(var(--thumb-h) + 28px);
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .thumb .battle-dock {
+    bottom: calc(var(--gap) + var(--safe-bottom));
+    left: calc(50% - var(--thumb-w, 0px) / 2);
+    width: min(440px, calc(100vw - var(--thumb-w, 0px) - 2 * var(--gap)));
+  }
+}
+
+.in-battle .thumb-stack,
+.in-battle .path-toolbar {
+  display: none;
+}
+
+.battle-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 18px;
+}
+
+.battle-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.battle-progress,
+.unit-hp {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(43, 26, 36, 0.18);
+  overflow: hidden;
+}
+
+.battle-progress span,
+.unit-hp span {
+  display: block;
+  height: 100%;
+  background: var(--berry);
+}
+
+.unit-hp span {
+  background: #7ccf5a;
+}
+
+.is-enemy .unit-hp span {
+  background: #e8673c;
+}
+
+.battle-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.battle-speed {
+  display: flex;
+  gap: 4px;
+}
+
+.battle-speed .is-on {
+  background: var(--leaf);
+  color: #fff;
+}
+
+.battle-hint {
+  text-align: center;
+}
+
+.unit-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  align-self: center;
+  width: min(300px, 100%);
+}
+
+.unit-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.unit-card-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

@@ -1,3 +1,4 @@
+import { battleStore } from './battleStore';
 import {
   footprintOf,
   buildingAt,
@@ -261,6 +262,25 @@ export const actions = {
     uiStore.setState({ pathGains: pathLogisticsChanges(game, map, keys, erase) });
   },
   /** Opens the village screen, on a kiwi's sheet if given. */
+  /** Chantier 36: replays the battle of a wave from its report (the window closes). */
+  replayBattle(reportId: string): void {
+    if (!renderer?.playBattle(reportId, 0)) return;
+    uiStore.setState({ modal: 'none' });
+  },
+  battleRewind(): void {
+    renderer?.battleSeek(0);
+  },
+  battleSpeed(speed: 1 | 2 | 4): void {
+    renderer?.battleSpeed(speed);
+    battleStore.setState({ speed });
+  },
+  /** Ends the show now (a live wave's outcome is told). */
+  battleSkip(): void {
+    renderer?.battleSkip();
+  },
+  battleUnit(index: number | null): void {
+    renderer?.battleSelect(index);
+  },
   openVillage(kiwiId: string | null = null): void {
     uiStore.setState({ modal: 'village', kiwiId, villageTab: 'kiwis', selectedTile: null });
     renderer?.highlightKiwi(kiwiId);

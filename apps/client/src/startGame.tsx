@@ -33,6 +33,8 @@ import { loadFpsCap } from './render/frameLimiter';
 import { installPerfProbe, perfStore, recordTick } from './ui/perfProbe';
 import { viewStore } from './ui/viewStore';
 import { handleGameEvents } from './game/events';
+import { tellOutcome } from './game/battleOutcome';
+import { battleStore } from './ui/battleStore';
 import { ChatChannel, mutedUsers } from './game/chat';
 import { setChannel } from './ui/chatActions';
 import { audio } from './audio/engine';
@@ -90,6 +92,16 @@ const renderer = new GameRenderer(
       uiStore.setState({ followId: null });
       renderer.highlightKiwi(null);
     },
+    // Chantier 36: the battle show and its bar.
+    onBattleStart: (report, live, duration) =>
+      battleStore.setState({ reportId: report.id, live, time: 0, duration, speed: 1, unit: null }),
+    onBattleTick: (time, duration) =>
+      battleStore.setState({ time, duration, unit: renderer.battleUnit() }),
+    onBattleEnd: (report) => {
+      battleStore.setState({ reportId: null, live: false, unit: null });
+      tellOutcome(report.id);
+    },
+    onBattleUnit: (unit) => battleStore.setState({ unit }),
   },
   qualityChoice,
 );
