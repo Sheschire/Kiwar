@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect } from 'preact/hooks';
-import { canCollect, currentObjective, isObjectiveComplete, reserveHolders } from '@kiwar/shared';
+import { canCollect, reserveHolders } from '@kiwar/shared';
+import { claimableObjective } from '../derived';
 import { formatDuration } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { chatActions } from '../chatActions';
@@ -34,8 +35,7 @@ function useObjectiveReady(): boolean {
   return useUi((s) => {
     const game = s.slowGame;
     if (!game) return false;
-    const obj = currentObjective(game);
-    return !!obj && isObjectiveComplete(game, obj);
+    return claimableObjective(game) !== null;
   });
 }
 

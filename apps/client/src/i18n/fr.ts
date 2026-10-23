@@ -418,6 +418,147 @@ export const fr: Dict = {
     claim: 'Récupérer',
     reward: 'Récompense',
     allDone: 'Tous les objectifs sont remplis. Continuez à faire grandir la colonie !',
+    nextLabel: 'Prochaine étape',
+    egg: '+ un œuf offert',
+    ready: 'Objectif rempli : récupérez sa récompense !',
+    toAge: 'Prochain âge : {age}',
+    lastAge: 'Le dernier âge est atteint.',
+    steps: {
+      library: 'Bibliothèque niveau {level}',
+      research: '« {tech} »',
+      monument: 'Monument niveau {level}',
+    },
+    next: {
+      prepareWave: 'Une vague peut percer : préparez la défense.',
+      repair: 'Un bâtiment est abîmé : réparez-le.',
+      collect: '{resource} est plein : rapatriez les réserves.',
+      full: '{resource} est plein partout : dépensez ou agrandissez un Entrepôt.',
+      claim: 'Un objectif est rempli : récupérez la récompense.',
+      monument: 'Le passage est connu : élevez le monument.',
+      research: 'La Bibliothèque est au repos : choisissez une recherche.',
+      staff: 'Des kiwis n’ont rien à faire : donnez-leur un poste.',
+      hatch: 'Il reste de la place dans les huttes : faites éclore un œuf.',
+      upgrade: '{resource} manque : améliorez un producteur.',
+      wait: 'Tout va bien : la colonie grandit.',
+    },
+    go: {
+      prepareWave: 'Défense',
+      repair: 'Voir',
+      collect: 'Rapatrier',
+      full: 'Voir',
+      claim: 'Récupérer',
+      monument: 'Plans',
+      research: 'Recherche',
+      staff: 'Postes',
+      hatch: 'Éclore',
+      upgrade: 'Voir',
+      wait: 'Voir',
+    },
+    edenTurrets: {
+      title: 'Poser deux tourelles',
+      hint: 'Arbalètes à pépins et frondes célestes vont sur le rempart : la première vague arrive dans la journée.',
+    },
+    edenLibrary: {
+      title: 'Construire une Bibliothèque',
+      hint: 'La recherche ouvre la voie vers l’âge de pierre.',
+    },
+    edenCollect: {
+      title: 'Rapatrier une réserve',
+      hint: 'Touchez un Entrepôt dont le tas grossit : sa réserve rejoint le stock.',
+    },
+    edenSchool: {
+      title: 'Construire une École',
+      hint: 'Les kiwis expérimentés y apprennent une classe.',
+    },
+    edenProducer3: {
+      title: 'Un producteur au niveau 3',
+      hint: 'Montez une Cueillerie, un Atelier à fibre, une Carrière ou un Puits au niveau 3.',
+    },
+    edenWave: {
+      title: 'Repousser une vague',
+      hint: 'Des tourelles garnies de graines, une garnison où la prévision fuit : rien ne doit passer.',
+    },
+    edenMayor: {
+      title: 'Former un ou une maire',
+      hint: 'Un kiwi charismatique de niveau 5 se forme à l’École ; ses discours dopent la récolte.',
+    },
+    edenNest3: {
+      title: 'Le Nid au niveau 3',
+      hint: 'Plus de bâtiments, plus de chantiers à la fois.',
+    },
+    edenRecon: {
+      title: 'Explorer la face jumelle',
+      hint: 'Depuis une Aire d’envol, envoyez un ou deux kiwis en reconnaissance.',
+    },
+    stoneWarehouse: {
+      title: 'Un Entrepôt au niveau 4',
+      hint: 'De plus grandes réserves couvrent de plus longues absences.',
+    },
+    stoneTechs: {
+      title: 'Deux techniques de la pierre',
+      hint: 'Recherchez deux technologies de l’âge.',
+    },
+    stoneWarriors: {
+      title: 'Deux guerrier·ères',
+      hint: 'Ils tiennent le sol face aux furets et mènent les raids.',
+    },
+    stoneWaves: {
+      title: 'Repousser trois vagues',
+      hint: 'Des vagues repoussées sans aucune perte.',
+    },
+    stoneRaid: {
+      title: 'Gagner un raid',
+      hint: 'Explorez d’abord, frappez quand la prévision dit « probable ».',
+    },
+    stoneTurret4: {
+      title: 'Une tourelle au niveau 4',
+      hint: 'Les tourelles de pierre portent plus loin et frappent plus fort.',
+    },
+    stoneProducer6: {
+      title: 'Un producteur au niveau 6',
+      hint: 'Le dernier niveau de l’âge de pierre.',
+    },
+    stoneKiwi10: {
+      title: 'Un kiwi au niveau 10',
+      hint: 'Le travail, l’École et les expéditions donnent de l’expérience.',
+    },
+    ironTechs: { title: 'Deux techniques du fer', hint: 'Recherchez deux technologies de l’âge.' },
+    ironPaths: {
+      title: 'Trente tuiles de chemin',
+      hint: 'Les chemins rapportent la récolte plus vite.',
+    },
+    ironLab: {
+      title: 'Construire le laboratoire',
+      hint: 'Le laboratoire contre nature fait naître les Kikiwiwis.',
+    },
+    ironMage: { title: 'Former un ou une mage', hint: 'Les mages atteignent les chauves-souris.' },
+    ironWaves: { title: 'Repousser six vagues', hint: 'Des vagues repoussées sans aucune perte.' },
+    ironKikiwiwi: {
+      title: 'Un Kikiwiwi',
+      hint: 'Infusez un kiwi au laboratoire (l’infusion peut échouer).',
+    },
+    ironRaids: {
+      title: 'Cinq raids gagnés',
+      hint: 'Chaque victoire rend les aliens plus forts.',
+    },
+    ironProducer9: {
+      title: 'Un producteur au niveau 9',
+      hint: 'Le dernier niveau de l’âge du fer.',
+    },
+    industryTechs: {
+      title: 'Deux techniques de l’industrie',
+      hint: 'Recherchez deux technologies de l’âge.',
+    },
+    industryKiwi20: { title: 'Un kiwi au niveau 20', hint: 'Un vétéran pour le siège.' },
+    industryWaves: {
+      title: 'Repousser dix vagues',
+      hint: 'Des vagues repoussées sans aucune perte.',
+    },
+    industryBridgehead: {
+      title: 'Une tête de pont sur la jumelle',
+      hint: 'Ouvrez le siège et posez une première tête de pont.',
+    },
+    industryProducer12: { title: 'Un producteur au niveau 12', hint: 'Le tout dernier niveau.' },
     buildPulpery: {
       title: 'Construire une Cueillerie',
       hint: 'Touchez une tuile de chair verte et construisez une Cueillerie.',

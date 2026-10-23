@@ -1005,6 +1005,89 @@ button.chip:focus-visible {
   margin-left: auto;
 }
 
+/* Chantier 31: three horizons — the next step, the age notebook, the next age. */
+.next-step {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px dashed var(--edge);
+}
+
+.next-step-label {
+  flex-basis: 100%;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.7rem;
+}
+
+.next-step-text {
+  flex: 1;
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+
+.next-step.next-prepareWave,
+.next-step.next-repair {
+  border-color: var(--berry);
+  background: rgba(196, 72, 72, 0.08);
+}
+
+.objective-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.objective.is-age {
+  padding-top: 6px;
+  border-top: 1px solid rgba(138, 95, 56, 0.18);
+}
+
+.objective.is-age p {
+  margin: 0;
+}
+
+.objective-egg {
+  color: var(--leaf-dark);
+  font-weight: 700;
+}
+
+.age-line {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(138, 95, 56, 0.25);
+}
+
+.age-line-head {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+}
+
+.age-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.age-step {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: rgba(138, 95, 56, 0.12);
+}
+
+.age-step.is-done {
+  background: rgba(98, 160, 70, 0.22);
+  color: var(--leaf-dark);
+}
+
 @keyframes slide-in-left {
   from {
     opacity: 0;

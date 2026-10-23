@@ -2,7 +2,11 @@
 // tick (and never mutates a state it has emitted), so a WeakMap keyed on it computes each
 // number once per tick, however many components and selectors ask for it.
 import {
+  ageObjectives as sharedAgeObjectives,
+  ageProgress as sharedAgeProgress,
   capacity as sharedCapacity,
+  claimableObjective as sharedClaimableObjective,
+  nextStep as sharedNextStep,
   forecastWave as sharedForecastWave,
   defenseOf as sharedDefenseOf,
   homeKiwis as sharedHomeKiwis,
@@ -37,6 +41,10 @@ export const hungerStage = perGame(sharedHungerStage);
 export const homeKiwis = perGame(sharedHomeKiwis);
 export const idleVillagers = perGame(sharedIdleVillagers);
 export const forecastWave = perGame(sharedForecastWave);
+export const nextStep = perGame(sharedNextStep);
+export const ageObjectives = perGame(sharedAgeObjectives);
+export const ageProgress = perGame(sharedAgeProgress);
+export const claimableObjective = perGame(sharedClaimableObjective);
 /** Defense without a wave (chantier 12: by sector, for the defense screen). */
 export const defenseNow = perGame((state) => sharedDefenseOf(state));
 export const researchPerHour = perGame(sharedResearchPerHour);

@@ -9,7 +9,7 @@ import { ExpeditionsPanel } from './components/ExpeditionsPanel';
 import { ReportModal } from './components/ReportModal';
 import { ChatPanel } from './components/ChatPanel';
 import { JoinModal, UniverseModal } from './components/UniverseModal';
-import { ObjectivesPanel } from './components/ObjectivesPanel';
+import { ObjectivesPanel, ObjectiveWatcher } from './components/ObjectivesPanel';
 import { QueuePanel } from './components/QueuePanel';
 import { SaveNudge } from './components/SaveNudge';
 import { AuthErrorBanner, GuestTransferModal } from './components/AccountNotices';
@@ -179,6 +179,7 @@ export function App() {
     >
       <TopBar buttons={!thumb} />
       <ObjectivesPanel compact={thumb} />
+      <ObjectiveWatcher />
       {!thumb && (
         <>
           {/* Chantier 32: one column, so a tall queue pushes the expeditions up. */}
