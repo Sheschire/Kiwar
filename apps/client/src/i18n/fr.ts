@@ -1108,6 +1108,7 @@ export const fr: Dict = {
     travel: 'Voyage {duration} par trajet',
     potentialLoot: 'Butin habituel',
     crew: 'Équipage',
+    launchCost: 'Lancement ({count} à bord) :',
     provisions: 'Provisions',
     suggest: 'Rations exactes + 10 %',
     cargo: 'Soute {used} / {max}',

@@ -1428,6 +1428,14 @@ button.chip:focus-visible {
   touch-action: pan-y;
 }
 
+.launch-cost {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 4px 0 0;
+}
+
 .provision-row {
   display: flex;
   align-items: center;

@@ -1038,6 +1038,7 @@ export const en = {
     travel: 'Travel {duration} each way',
     potentialLoot: 'Usual loot',
     crew: 'Crew',
+    launchCost: 'Launch ({count} aboard):',
     provisions: 'Provisions',
     suggest: 'Exact rations + 10 %',
     cargo: 'Cargo {used} / {max}',

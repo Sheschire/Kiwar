@@ -1430,7 +1430,17 @@ var EXPEDITIONS = {
   /** Share of survivors lost per missing share of rations on the way back. */
   starvationLossRate: 0.5,
   /** Chantier 18: loot multiplier by age (index = age): later ages raid richer stores. */
-  lootByAge: [1, 1.5, 2, 3]
+  lootByAge: [1, 1.5, 2, 3],
+  /**
+   * Chantier 31: launching costs fibre and juice per kiwi aboard (on top of the rations),
+   * × the ship of the age; a Kikiwiwi counts `kikiwiwi` times. The settlers' ship
+   * (`found`) pays nothing more. Chantier 40 will replace it.
+   */
+  launchCost: {
+    perKiwi: { fiber: 40, juice: 25 },
+    ship: { wood: 1, logs: 2, iron: 5, jet: 12 },
+    kikiwiwi: 3
+  }
 };
 var ALIEN_TWIN_FACE = {
   defense: 6,
@@ -6657,8 +6667,19 @@ function forecastExpedition(state, plan) {
     reliability: shipReliability(ship, crew, !!plan.fuel),
     returnCrew,
     returnWeight,
-    final
+    final,
+    launchCost: launchCost(state, crew, mission)
   };
+}
+function launchCost(state, crew, mission = "raid") {
+  const out = emptyResources();
+  if (mission === "found") return out;
+  const L = EXPEDITIONS.launchCost;
+  const seats = crew.reduce((sum, v) => sum + (v.kikiwiwi ? L.kikiwiwi : 1), 0);
+  const k = seats * L.ship[shipIdForAge(ageOf(state))];
+  out.fiber = Math.round(L.perKiwi.fiber * k);
+  out.juice = Math.round(L.perKiwi.juice * k);
+  return out;
 }
 function returnCrewOf(state, plan, crew, mission) {
   if (mission === "assault") return crew.filter((v) => !(plan.holders ?? []).includes(v.id));
@@ -8829,9 +8850,16 @@ function execute(s, cmd, ctx, events) {
       if (forecast.weight > forecast.cargo + 1e-9) fail("overloaded");
       if (forecast.returnWeight > forecast.cargo + 1e-9) fail("overloaded");
       const freight = cleanFreight(cmd.freight ?? {});
-      const need = { ...freight, pulp: freight.pulp + pulp, juice: freight.juice + juice };
+      const fee = forecast.launchCost;
+      const need = {
+        ...freight,
+        pulp: freight.pulp + pulp,
+        fiber: freight.fiber + fee.fiber,
+        juice: freight.juice + juice + fee.juice
+      };
       if (!canAfford(s.resources, need)) fail("notEnoughResources");
       if (cmd.fuel) payStardust(s, FUEL.stardust);
+      pay(s, fee);
       launch(s, cmd, now, nextId(s, "x"));
       return;
     }
@@ -15333,6 +15361,7 @@ export {
   landSettlers,
   landTileNear,
   launch,
+  launchCost,
   launchpadOf,
   layoutSnapshot,
   leaveWreck,

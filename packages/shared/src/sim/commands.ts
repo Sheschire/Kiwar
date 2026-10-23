@@ -753,9 +753,17 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (forecast.weight > forecast.cargo + 1e-9) fail('overloaded');
       if (forecast.returnWeight > forecast.cargo + 1e-9) fail('overloaded');
       const freight = cleanFreight(cmd.freight ?? {});
-      const need = { ...freight, pulp: freight.pulp + pulp, juice: freight.juice + juice };
+      // Chantier 31: the launch costs fibre and juice per kiwi aboard.
+      const fee = forecast.launchCost;
+      const need = {
+        ...freight,
+        pulp: freight.pulp + pulp,
+        fiber: freight.fiber + fee.fiber,
+        juice: freight.juice + juice + fee.juice,
+      };
       if (!canAfford(s.resources, need)) fail('notEnoughResources');
       if (cmd.fuel) payStardust(s, FUEL.stardust);
+      pay(s, fee);
       launch(s, cmd, now, nextId(s, 'x'));
       return;
     }

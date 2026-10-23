@@ -33,6 +33,16 @@ export const EXPEDITIONS = {
   starvationLossRate: 0.5,
   /** Chantier 18: loot multiplier by age (index = age): later ages raid richer stores. */
   lootByAge: [1, 1.5, 2, 3] as readonly number[],
+  /**
+   * Chantier 31: launching costs fibre and juice per kiwi aboard (on top of the rations),
+   * × the ship of the age; a Kikiwiwi counts `kikiwiwi` times. The settlers' ship
+   * (`found`) pays nothing more. Chantier 40 will replace it.
+   */
+  launchCost: {
+    perKiwi: { fiber: 40, juice: 25 },
+    ship: { wood: 1, logs: 2, iron: 5, jet: 12 },
+    kikiwiwi: 3,
+  },
 } as const;
 
 export interface ExpeditionTargetDef {

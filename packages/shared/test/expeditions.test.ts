@@ -8,6 +8,7 @@ import {
   deserializeSave,
   EXPEDITIONS,
   forecastExpedition,
+  launchCost,
   hashSeed,
   HOUR_MS,
   migrateState,
@@ -376,5 +377,46 @@ describe('stardust fuel (chantier 13)', () => {
     expect(e.arriveAt - after.now).toBeLessThanOrEqual(fueled.travelMs);
     const r = applyCommand(after, { ...cmd, fuel: true }, { now: after.now, map });
     expect(r.ok).toBe(false);
+  });
+});
+
+describe('launch cost (chantier 31)', () => {
+  it('charges fibre and juice per kiwi aboard, shown before the launch', () => {
+    const { map, s, t, padId, targetId } = readyColony();
+    const f = forecastExpedition(s, {
+      launchpadId: padId as never,
+      targetId,
+      crew: 6,
+      provisions: { pulp: 60, juice: 30 },
+    })!;
+    const L = EXPEDITIONS.launchCost;
+    expect(f.launchCost.fiber).toBe(6 * L.perKiwi.fiber * L.ship.wood);
+    expect(f.launchCost.juice).toBe(6 * L.perKiwi.juice * L.ship.wood);
+    const after = run(s, plan(padId, targetId, 6, 60, 30), t, map);
+    expect(after.resources.fiber).toBe(s.resources.fiber - f.launchCost.fiber);
+    expect(after.resources.juice).toBe(s.resources.juice - 30 - f.launchCost.juice);
+  });
+
+  it('refuses a launch the colony cannot pay', () => {
+    const { map, s, t, padId, targetId } = readyColony();
+    const poor = { ...s, resources: { ...s.resources, fiber: 10 } };
+    const r = applyCommand(poor, plan(padId, targetId, 6, 60, 30), { now: t, map });
+    expect(r).toMatchObject({ ok: false, error: 'notEnoughResources' });
+  });
+
+  it('grows with the ship of the age; the settlers fly for free', () => {
+    const { s } = readyColony();
+    const crew = s.villagers.slice(0, 4);
+    const iron = {
+      ...s,
+      buildings: [
+        ...s.buildings,
+        { ...s.buildings[0]!, id: 'bm' as never, type: 'monument' as const, q: 3, r: 0, level: 2 },
+      ],
+    };
+    expect(launchCost(iron, crew).fiber).toBe(
+      launchCost(s, crew).fiber * EXPEDITIONS.launchCost.ship.iron,
+    );
+    expect(launchCost(s, crew, 'found')).toEqual({ pulp: 0, fiber: 0, seeds: 0, juice: 0 });
   });
 });

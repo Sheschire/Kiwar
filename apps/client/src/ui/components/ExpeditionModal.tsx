@@ -577,6 +577,15 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             <span class="provision-value">{fmt(food[id])}</span>
           </div>
         ))}
+        {(f.launchCost.fiber > 0 || f.launchCost.juice > 0) && (
+          <p class="launch-cost small">
+            <span>{t('expedition.launchCost', { count: f.crew.length })}</span>
+            <Cost
+              cost={f.launchCost}
+              have={{ ...game.resources, juice: game.resources.juice - food.juice }}
+            />
+          </p>
+        )}
       </section>
 
       <section class="forecast">

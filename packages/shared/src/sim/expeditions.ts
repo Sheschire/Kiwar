@@ -122,6 +122,8 @@ export interface ExpeditionForecast {
   returnWeight: number;
   /** Chantier 19: final assault (both sides, the queen as estimated). */
   final: FinalForecast | null;
+  /** Chantier 31: paid at launch, on top of the provisions. */
+  launchCost: Resources;
 }
 
 export function launchpadOf(state: GameState, id: BuildingId): Building | undefined {
@@ -423,7 +425,27 @@ export function forecastExpedition(
     returnCrew,
     returnWeight,
     final,
+    launchCost: launchCost(state, crew, mission),
   };
+}
+
+/**
+ * Chantier 31: what launching costs on top of the provisions — fibre and juice per kiwi
+ * aboard, by the ship of the age (the settlers' ship pays nothing more).
+ */
+export function launchCost(
+  state: GameState,
+  crew: readonly Villager[],
+  mission: MissionKind = 'raid',
+): Resources {
+  const out = emptyResources();
+  if (mission === 'found') return out;
+  const L = EXPEDITIONS.launchCost;
+  const seats = crew.reduce((sum, v) => sum + (v.kikiwiwi ? L.kikiwiwi : 1), 0);
+  const k = seats * L.ship[shipIdForAge(ageOf(state))];
+  out.fiber = Math.round(L.perKiwi.fiber * k);
+  out.juice = Math.round(L.perKiwi.juice * k);
+  return out;
 }
 
 /** Who flies back with the ship if nobody is lost (chantier 19 missions change it). */
