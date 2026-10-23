@@ -10,6 +10,7 @@ import {
   guardPower,
   kiwiStrength,
   modifiers,
+  trainLock,
   HOUR_MS,
   infusionRisk,
   isPlausible,
@@ -165,8 +166,29 @@ describe('laboratory against nature', () => {
     expect(lost.stats.endurance).toBe(Math.max(1, v.stats.endurance - 1));
     const blessed = structuredClone(s);
     (blessed.villagers[0]!.job as { risk: number }).risk = 0;
+    blessed.villagers[0]!.classId = 'warrior';
+    blessed.villagers[0]!.skillReadyAt = { rain: 1 };
     const r = advance(blessed, job.until);
     expect(r.state.villagers[0]!.kikiwiwi).toBeDefined();
+    // Chantier 37: the Kikiwiwi loses its class and skills, and cannot learn one again.
+    expect(r.state.villagers[0]!.classId).toBeNull();
+    expect(r.state.villagers[0]!.skillReadyAt).toEqual({});
+    expect(
+      errorOf(
+        r.state,
+        {
+          type: 'train',
+          villagerId: v.id,
+          schoolId: lab.id,
+          classId: 'warrior',
+        },
+        map,
+      ),
+    ).not.toBeNull();
+    expect(trainLock(r.state, r.state.villagers[0]!, 'warrior', lab)).toBe('kikiwiwiNoWork');
+    const classy = structuredClone(r.state);
+    classy.villagers[0]!.classId = 'warrior';
+    expect(isPlausible(classy, classy.now)).toBe(false);
     // The cap is reached: no second one at the Iron age.
     const other = r.state.villagers[1]!;
     other.level = 6;
@@ -187,6 +209,9 @@ describe('laboratory against nature', () => {
     expect(infusionRisk(s, v, l3)).toBeLessThan(base);
     const tough = { ...v, stats: { ...v.stats, endurance: v.stats.endurance + 3 } };
     expect(infusionRisk(s, tough, l1)).toBeCloseTo(base - 0.06, 6);
+    // Chantier 37: Strength counts as much as Endurance.
+    const strong = { ...v, stats: { ...v.stats, strength: v.stats.strength + 3 } };
+    expect(infusionRisk(s, strong, l1)).toBeCloseTo(base - 0.06, 6);
     const green = {
       ...s,
       research: { ...s.research, done: [...s.research.done, 'greenBlood' as TechId] },
@@ -220,6 +245,19 @@ describe('the Kikiwiwi', () => {
     t.villagers[0]!.kikiwiwi = { since: T0 };
     return { map, s: t, k: t.villagers[0]!, plain: { ...t.villagers[0]!, kikiwiwi: undefined } };
   }
+
+  it('migrates v28 saves: a Kikiwiwi loses its class (chantier 37)', () => {
+    const { s } = ironColony();
+    const old = JSON.parse(JSON.stringify({ ...s, schemaVersion: 28 })) as GameState;
+    old.villagers[0]!.kikiwiwi = { since: T0 };
+    old.villagers[0]!.classId = 'mage';
+    old.villagers[1]!.classId = 'mage';
+    const m = migrateState(old);
+    expect(m.ok).toBe(true);
+    if (!m.ok) return;
+    expect(m.state.villagers[0]!.classId).toBeNull();
+    expect(m.state.villagers[1]!.classId).toBe('mage');
+  });
 
   it('guards against ferrets and bats alike, four times as strong', () => {
     const { s, k, plain } = titan();

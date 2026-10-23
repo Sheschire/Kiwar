@@ -106,6 +106,9 @@ function UnitCard({ unit }: { unit: UnitInfo }) {
       <span class="small">
         {t('battle.unit.weapon', { weapon: t(`battle.weapons.${unit.weapon}`) })}
       </span>
+      {unit.side === 0 && unit.classId && (
+        <span class="small muted">{t(`classes.${unit.classId as 'warrior'}.combat`)}</span>
+      )}
       {unit.side === 0 && unit.body !== 'turret' && (
         <span class="small muted">{t('battle.unit.gear')}</span>
       )}

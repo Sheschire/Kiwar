@@ -709,6 +709,14 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
     ...raw,
     threats: { ...(raw.threats as object), posture: 'cautious', pins: {} },
   }),
+  // v28 → v29 (chantier 37): a Kikiwiwi loses its class (and its class skills).
+  28: (raw) => ({
+    ...raw,
+    villagers: (Array.isArray(raw.villagers)
+      ? (raw.villagers as Record<string, unknown>[])
+      : []
+    ).map((v) => (v.kikiwiwi ? { ...v, classId: null, skillReadyAt: {} } : v)),
+  }),
 };
 
 /**

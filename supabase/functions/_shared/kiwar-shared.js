@@ -2304,8 +2304,12 @@ var KIKIWIWI = {
   durationMs: [ms.h(16), ms.h(12), ms.h(8)],
   risk: {
     base: 0.4,
-    /** Less risk per point of Endurance above average, per kiwi level above the first. */
+    /**
+     * Less risk per point of Endurance and of Strength above average (chantier 37), per kiwi
+     * level above the first.
+     */
     endurance: 0.02,
+    strength: 0.02,
     level: 0.01,
     /** Less risk by laboratory level (index = level − 1). */
     lab: [0, 0.08, 0.16],
@@ -2331,7 +2335,9 @@ var KIKIWIWI = {
   /** Power while the colony has no juice left. */
   weakPower: 0.5,
   /** Kikiwiwis on one ship. */
-  perShip: 1
+  perShip: 1,
+  /** Chantier 37: a Kikiwiwi loses its class and its class skills (no trade any more). */
+  losesClass: true
 };
 
 // packages/shared/src/data/titan.ts
@@ -6658,7 +6664,7 @@ function kikiwiwiCount(state) {
 }
 function infusionRisk(state, v, lab) {
   const r = KIKIWIWI.risk;
-  const risk = r.base - r.endurance * (v.stats.endurance - KIWI.stat.average) - r.level * (v.level - 1) - (r.lab[lab.level - 1] ?? 0) - techEffects(state).infusionRisk;
+  const risk = r.base - r.endurance * (v.stats.endurance - KIWI.stat.average) - r.strength * (v.stats.strength - KIWI.stat.average) - r.level * (v.level - 1) - (r.lab[lab.level - 1] ?? 0) - techEffects(state).infusionRisk;
   return Math.round(Math.min(r.max, Math.max(r.min, risk)) * 1e3) / 1e3;
 }
 function infusionDuration(lab) {
@@ -6686,6 +6692,8 @@ function finishInfusions(s, at, events) {
     } else {
       v.kikiwiwi = { since: at };
       v.job = { kind: "idle" };
+      v.classId = null;
+      v.skillReadyAt = {};
       events.push({ type: "kikiwiwiBorn", at, villagerId: v.id, name: v.name });
     }
   }
@@ -7233,6 +7241,7 @@ function pickStat(rng, v) {
 }
 function trainLock(state, v, classId, school) {
   const def = CLASSES[classId];
+  if (v.kikiwiwi) return "kikiwiwiNoWork";
   if (!def || def.tier !== 1) return "classLocked";
   if (school.level < def.schoolLevel || ageOf(state) < (def.age ?? 0)) return "classLocked";
   if (v.level < def.minLevel) return "levelTooLow";
@@ -9367,7 +9376,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 28;
+var SCHEMA_VERSION = 29;
 var MISSION_KINDS = [
   "raid",
   "recon",
@@ -15634,6 +15643,11 @@ var MIGRATIONS = {
   27: (raw) => ({
     ...raw,
     threats: { ...raw.threats, posture: "cautious", pins: {} }
+  }),
+  // v28 → v29 (chantier 37): a Kikiwiwi loses its class (and its class skills).
+  28: (raw) => ({
+    ...raw,
+    villagers: (Array.isArray(raw.villagers) ? raw.villagers : []).map((v) => v.kikiwiwi ? { ...v, classId: null, skillReadyAt: {} } : v)
   })
 };
 function spreadOldBuildings(state) {
@@ -16370,6 +16384,7 @@ function plausibleKiwi(v, now) {
   const practice = MASTERY_IDS.reduce((s, id3) => s + v.mastery[id3], 0);
   if (practice > MAX_PRACTICE_PER_MS * age) return false;
   if (v.classId && v.level < CLASSES[v.classId].minLevel) return false;
+  if (v.kikiwiwi && v.classId) return false;
   return v.history.expeditions === 0 && v.history.victories === 0;
 }
 function reply(ctx, state, events = []) {

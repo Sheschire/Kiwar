@@ -474,8 +474,9 @@ export function trainLock(
   v: Villager,
   classId: ClassId,
   school: Building,
-): 'classLocked' | 'levelTooLow' | 'statTooLow' | 'alreadyThisClass' | null {
+): 'classLocked' | 'levelTooLow' | 'statTooLow' | 'alreadyThisClass' | 'kikiwiwiNoWork' | null {
   const def = CLASSES[classId];
+  if (v.kikiwiwi) return 'kikiwiwiNoWork';
   if (!def || def.tier !== 1) return 'classLocked';
   if (school.level < def.schoolLevel || ageOf(state) < (def.age ?? 0)) return 'classLocked';
   if (v.level < def.minLevel) return 'levelTooLow';

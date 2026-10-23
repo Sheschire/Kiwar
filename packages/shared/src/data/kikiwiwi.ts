@@ -17,8 +17,12 @@ export const KIKIWIWI = {
   durationMs: [ms.h(16), ms.h(12), ms.h(8)] as readonly number[],
   risk: {
     base: 0.4,
-    /** Less risk per point of Endurance above average, per kiwi level above the first. */
+    /**
+     * Less risk per point of Endurance and of Strength above average (chantier 37), per kiwi
+     * level above the first.
+     */
     endurance: 0.02,
+    strength: 0.02,
     level: 0.01,
     /** Less risk by laboratory level (index = level − 1). */
     lab: [0, 0.08, 0.16] as readonly number[],
@@ -45,4 +49,6 @@ export const KIKIWIWI = {
   weakPower: 0.5,
   /** Kikiwiwis on one ship. */
   perShip: 1,
+  /** Chantier 37: a Kikiwiwi loses its class and its class skills (no trade any more). */
+  losesClass: true,
 } as const;

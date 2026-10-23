@@ -749,6 +749,8 @@ function plausibleKiwi(v: Villager, now: number): boolean {
   if (practice > MAX_PRACTICE_PER_MS * age) return false;
   // A class needs the level it is taught at.
   if (v.classId && v.level < CLASSES[v.classId].minLevel) return false;
+  // Chantier 37: a Kikiwiwi has no class.
+  if (v.kikiwiwi && v.classId) return false;
   return v.history.expeditions === 0 && v.history.victories === 0;
 }
 

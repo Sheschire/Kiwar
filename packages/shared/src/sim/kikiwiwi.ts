@@ -49,12 +49,13 @@ export function kikiwiwiCount(state: GameState): number {
   return state.villagers.filter((v) => isKikiwiwi(v) || v.job.kind === 'transform').length;
 }
 
-/** Chance that the infusion fails: Endurance, level and a better laboratory lower it. */
+/** Chance that the infusion fails: Endurance, Strength, level and a better laboratory lower it. */
 export function infusionRisk(state: GameState, v: Villager, lab: Building): number {
   const r = KIKIWIWI.risk;
   const risk =
     r.base -
     r.endurance * (v.stats.endurance - KIWI.stat.average) -
+    r.strength * (v.stats.strength - KIWI.stat.average) -
     r.level * (v.level - 1) -
     (r.lab[lab.level - 1] ?? 0) -
     techEffects(state).infusionRisk;
@@ -75,7 +76,7 @@ export function nextInfusionEnd(state: GameState): TimeMs {
 
 /**
  * Infusions ending at `at`: the colony RNG decides (in villager order). Success: a Kikiwiwi
- * (idle, never joins a workplace by itself). Failure: the juice is lost (the stardust comes back,
+ * (idle, never joins a workplace by itself) without its class. Failure: the juice is lost (the stardust comes back,
  * chantier 13), the kiwi rests a day and loses a point of Strength and Endurance.
  */
 export function finishInfusions(s: GameState, at: TimeMs, events: GameEvent[]): void {
@@ -93,6 +94,9 @@ export function finishInfusions(s: GameState, at: TimeMs, events: GameEvent[]): 
     } else {
       v.kikiwiwi = { since: at };
       v.job = { kind: 'idle' };
+      // Chantier 37: the juice washes the trade away (class and skills).
+      v.classId = null;
+      v.skillReadyAt = {};
       events.push({ type: 'kikiwiwiBorn', at, villagerId: v.id, name: v.name });
     }
   }

@@ -1425,7 +1425,8 @@ export const fr: Dict = {
     none: 'Aucun kiwi de niveau {level} ou plus n’est libre.',
     riskValue: 'Risque d’échec : {pct} %',
     riskHint:
-      'L’Endurance, le niveau et le niveau du laboratoire le réduisent. En cas d’échec, le kiwi survit, blessé un jour et affaibli (−1 Force, −1 Endurance).',
+      'L’Endurance, la Force, le niveau et le niveau du laboratoire le réduisent. En cas d’échec, le kiwi survit, blessé un jour et affaibli (−1 Force, −1 Endurance).',
+    losesClass: 'Un Kikiwiwi perd sa classe ({class}) et ses compétences : il n’a plus de métier.',
     start: 'Lancer l’infusion',
     inVat: '{name} est dans la cuve',
     cap: 'Kikiwiwis : {count}/{cap} (un par âge dès le Fer)',

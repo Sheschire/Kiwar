@@ -108,6 +108,11 @@ export function LabInfo(props: { game: GameState; map: FaceMap; b: Building; now
             ))}
           </ul>
           <p class="small muted">{t('lab.riskHint')}</p>
+          {chosen?.v.classId && (
+            <p class="small warn">
+              {t('lab.losesClass', { class: `@classes.${chosen.v.classId}.name` })}
+            </p>
+          )}
         </>
       )}
       <div class="upgrade-box">

@@ -1351,7 +1351,8 @@ export const en = {
     none: 'No kiwi of level {level} or more is free.',
     riskValue: 'Risk of failure: {pct} %',
     riskHint:
-      'Endurance, level and the laboratory level lower it. On a failure the kiwi survives, hurt for a day and weakened (−1 Strength, −1 Endurance).',
+      'Endurance, Strength, level and the laboratory level lower it. On a failure the kiwi survives, hurt for a day and weakened (−1 Strength, −1 Endurance).',
+    losesClass: 'A Kikiwiwi loses its class ({class}) and its skills: it no longer has a trade.',
     start: 'Start the infusion',
     inVat: '{name} is in the vat',
     cap: 'Kikiwiwis: {count}/{cap} (one per age from the Iron age)',

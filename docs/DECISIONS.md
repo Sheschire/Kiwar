@@ -2293,3 +2293,14 @@ launch cost applies to **every mission but the founding**; the bot's dead time a
   2 tiles hit 20 % harder (the best aura counts, guards only).
 - Garrison affinities (sums of the window): gatherer 0.6 / 0.9, bard 0.6 / 0.3, scout
   0.7 / 0.6 (dagger instead of sling).
+
+### Part 2 — Kikiwiwi
+
+- Infusion risk: −0.02 per point of Endurance **and** −0.02 per point of Strength above 5, on
+  top of the level, the laboratory and green blood, same bounds 0.05–0.6.
+- A successful infusion removes the class and the class skills (`classId` null,
+  `skillReadyAt` emptied); a Kikiwiwi cannot learn a class again (`trainLock` →
+  `kikiwiwiNoWork`); `isPlausible` refuses a Kikiwiwi with a class. Save v29: existing
+  Kikiwiwis lose theirs. The laboratory sheet warns before the infusion when the chosen kiwi
+  has a class. In battle it stays the giant unit of chantier 36 (stomp, ×2 hit points, two
+  places), shown as "Kikiwiwi" on the unit card.
