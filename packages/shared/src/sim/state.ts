@@ -31,7 +31,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 25;
+export const SCHEMA_VERSION = 26;
 
 export type Job =
   | { kind: 'idle' }
@@ -601,6 +601,18 @@ export interface GameStats {
   produced: Resources;
   constructionsCompleted: number;
   eggsHatched: number;
+  /** Chantier 31: reserves brought back by the player (collect / collectAll). */
+  collects: number;
+  /** Chantier 31: waves repelled (nothing lost). */
+  wavesHeld: number;
+}
+
+/** Chantier 31: the notebook of the age objectives. */
+export interface ObjectiveBook {
+  /** Age objectives claimed (ids of `AGE_OBJECTIVES`). */
+  claimed: string[];
+  /** Eggs offered by objectives: the next eggs cost nothing. */
+  giftEggs: number;
 }
 
 export interface GameState {
@@ -633,6 +645,8 @@ export interface GameState {
   egg: Egg | null;
   /** Index of the current tutorial objective in OBJECTIVES. */
   objectiveIndex: number;
+  /** Chantier 31: age objectives claimed and gifts waiting. */
+  objectives: ObjectiveBook;
   stats: GameStats;
   /** Faces reachable by expeditions (set by the universe the game belongs to). */
   targets: ExpeditionTarget[];
@@ -743,10 +757,13 @@ export function newGame(opts: NewGameOptions): GameState {
     queue: [],
     egg: null,
     objectiveIndex: 0,
+    objectives: { claimed: [], giftEggs: 0 },
     stats: {
       produced: { pulp: 0, fiber: 0, seeds: 0, juice: 0 },
       constructionsCompleted: 0,
       eggsHatched: 0,
+      collects: 0,
+      wavesHeld: 0,
     },
     targets: opts.targets ?? soloTargets(opts.face),
     victories: {},
@@ -945,6 +962,7 @@ export function cloneState(state: GameState): GameState {
     memorial: state.memorial.map((m) => ({ ...m })),
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
     egg: state.egg ? { ...state.egg } : null,
+    objectives: { ...state.objectives, claimed: [...state.objectives.claimed] },
     stats: { ...state.stats, produced: { ...state.stats.produced } },
     targets: state.targets.map((t) => ({ ...t })),
     victories: { ...state.victories },

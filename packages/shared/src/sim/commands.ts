@@ -23,6 +23,7 @@ import { buildingResource, hasSkill, trainingCost, trainingDuration, workerPower
 import { CLASSES, SKILLS, type ClassId, type SkillId } from '../data/classes';
 import { faceMapOf, isFlooded, releasePool, syncPools, terraformKey } from './territory';
 import { seasonOf } from './calendar';
+import { ageObjectives, currentObjective, isObjectiveComplete } from './objectives';
 import { buildLock, siteError, upgradeLock } from './describe';
 import {
   buildCost,
@@ -32,12 +33,10 @@ import {
   canHatch,
   capacity,
   constructionDuration,
-  currentObjective,
   demolitionRefund,
   eggCost,
   eggDuration,
   getBuilding,
-  isObjectiveComplete,
   nearRay,
   nestDef,
   pathLimit,
@@ -130,7 +129,8 @@ export type Command =
   | { type: 'setKiwiFlags'; villagerId: VillagerId; locked?: boolean; builderPriority?: boolean }
   /** Chantier 13: `star` pays stardust on top for a likely golden shiny. */
   | { type: 'hatchEgg'; star?: boolean }
-  | { type: 'claimObjective' }
+  /** Without `id`: the tutorial step; with it, an age objective shown in the notebook. */
+  | { type: 'claimObjective'; id?: string }
   | {
       type: 'launchExpedition';
       launchpadId: BuildingId;
@@ -684,7 +684,9 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (s.egg) fail('eggInProgress');
       if (!canHatch(s) || population(s) >= housing(s)) fail('housingFull');
       if (cmd.star) payStardust(s, BLESSINGS.starEgg);
-      pay(s, eggCost(s));
+      // Chantier 31: an egg offered by an objective costs nothing.
+      if (s.objectives.giftEggs > 0) s.objectives.giftEggs--;
+      else pay(s, eggCost(s));
       s.egg = {
         startedAt: now,
         readyAt: now + eggDuration(s),
@@ -693,11 +695,22 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       return;
     }
     case 'claimObjective': {
-      const obj = currentObjective(s);
+      if (cmd.id === undefined) {
+        const obj = currentObjective(s);
+        if (!obj) return fail('noObjective');
+        if (!isObjectiveComplete(s, obj)) fail('objectiveIncomplete');
+        refund(s, obj.reward);
+        s.objectiveIndex++;
+        return;
+      }
+      // Chantier 31: an age objective, only while it is shown.
+      const obj = ageObjectives(s).find((o) => o.id === cmd.id);
       if (!obj) return fail('noObjective');
       if (!isObjectiveComplete(s, obj)) fail('objectiveIncomplete');
       refund(s, obj.reward);
-      s.objectiveIndex++;
+      refundStardust(s, obj.stardust ?? 0);
+      if (obj.egg) s.objectives.giftEggs++;
+      s.objectives.claimed.push(obj.id);
       return;
     }
     case 'launchExpedition': {
@@ -840,12 +853,14 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (!b) return fail('unknownBuilding');
       if (reserveCapOf(s, b) <= 0) fail('notWarehouse');
       if (collectReserve(s, b) <= 0) fail('nothingToCollect');
+      s.stats.collects++;
       break;
     }
     case 'collectAll': {
       let moved = 0;
       for (const b of reserveHolders(s)) moved += collectReserve(s, b);
       if (moved <= 0) fail('nothingToCollect');
+      s.stats.collects++;
       break;
     }
     case 'demolish':

@@ -29,6 +29,7 @@ export * from './data/colonies';
 export * from './worldgen/generateFace';
 export * from './sim/state';
 export * from './sim/selectors';
+export * from './sim/objectives';
 export * from './sim/advance';
 export * from './sim/commands';
 export * from './sim/expeditions';

@@ -14,7 +14,6 @@ import { PATHS } from '../data/territory';
 import { THREATS, TURRETS } from '../data/threats';
 import { TILES } from '../data/tiles';
 import { HATCHING } from '../data/hatching';
-import { OBJECTIVES, type ObjectiveDef } from '../data/objectives';
 import {
   RESOURCE_IDS,
   emptyResources,
@@ -422,32 +421,4 @@ export function eggDuration(state: GameState): number {
 
 export function canHatch(state: GameState): boolean {
   return state.egg === null && population(state) < housing(state);
-}
-
-export function currentObjective(state: GameState): ObjectiveDef | undefined {
-  return OBJECTIVES[state.objectiveIndex];
-}
-
-export function objectiveProgress(
-  state: GameState,
-  def: ObjectiveDef,
-): { current: number; target: number } {
-  const c = def.condition;
-  switch (c.kind) {
-    case 'building': {
-      const n = state.buildings.filter(
-        (b) => b.type === c.building && b.level >= c.minLevel,
-      ).length;
-      return { current: Math.min(n, c.count), target: c.count };
-    }
-    case 'population':
-      return { current: Math.min(population(state), c.count), target: c.count };
-    case 'workers':
-      return { current: Math.min(totalWorkers(state), c.count), target: c.count };
-  }
-}
-
-export function isObjectiveComplete(state: GameState, def: ObjectiveDef): boolean {
-  const p = objectiveProgress(state, def);
-  return p.current >= p.target;
 }

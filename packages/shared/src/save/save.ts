@@ -256,10 +256,16 @@ export const gameStateSchema = z.object({
     .object({ startedAt: z.number(), readyAt: z.number(), star: z.boolean().optional() })
     .nullable(),
   objectiveIndex: z.number().int().min(0),
+  objectives: z.object({
+    claimed: z.array(z.string()),
+    giftEggs: z.number().int().min(0),
+  }),
   stats: z.object({
     produced: resources,
     constructionsCompleted: z.number().int(),
     eggsHatched: z.number().int(),
+    collects: z.number().int().min(0),
+    wavesHeld: z.number().int().min(0),
   }),
   targets: z.array(
     z.object({
@@ -640,6 +646,17 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   23: migrateLevels,
   // v24 → v25 (chantier 30): warehouse reserves (optional, empty).
   24: (raw) => raw,
+  // v25 → v26 (chantier 31): the age objectives notebook; the waves held so far are the
+  // victories still in the reports.
+  25: (raw) => {
+    const threats = raw.threats as { reports?: { victory?: boolean }[] } | undefined;
+    const held = (threats?.reports ?? []).filter((r) => r.victory).length;
+    return {
+      ...raw,
+      objectives: { claimed: [], giftEggs: 0 },
+      stats: { ...(raw.stats as object), collects: 0, wavesHeld: held },
+    };
+  },
 };
 
 /** Chantier 30: old level of a building → its new level (each level keeps its age). */

@@ -639,6 +639,7 @@ function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
       at,
     );
   if (!out.victory) t.shieldUntil = at + THREATS.shieldMs;
+  else s.stats.wavesHeld++;
   t.lastWaveAt = at;
   t.waves++;
   t.next = null;

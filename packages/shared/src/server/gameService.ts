@@ -10,7 +10,7 @@ import { generateObstacles, obstacleId } from '../sim/obstacles';
 import { drawBiomes } from '../data/biomes';
 import { CALENDAR, calendarStartFor } from '../data/cycles';
 import { BUILDINGS, levelDef, MAX_LEVEL } from '../data/buildings';
-import { OBJECTIVES } from '../data/objectives';
+import { AGE_OBJECTIVES, OBJECTIVES, type ObjectiveDef } from '../data/objectives';
 import { START } from '../data/start';
 import { CAMPS } from '../data/territory';
 import { RESOURCE_IDS, type Resources } from '../data/resources';
@@ -565,9 +565,15 @@ export function isPlausible(state: GameState, now: number): boolean {
   const biome = state.params.biome;
   if (biome !== 'classic' && biome !== drawBiomes(state.seed)[state.face]) return false;
   const cap = capacity(state);
+  // Chantier 31: claimed age objectives exist, once each; gift eggs come from them.
+  const claimed = state.objectives.claimed.map((c) => AGE_OBJECTIVES.find((o) => o.id === c));
+  if (claimed.some((o) => !o) || new Set(state.objectives.claimed).size !== claimed.length)
+    return false;
+  if (state.objectives.giftEggs > claimed.filter((o) => o!.egg).length) return false;
+  const rewarded = [...OBJECTIVES, ...(claimed as ObjectiveDef[])];
   for (const id of RESOURCE_IDS) {
     // Stock may exceed storage only by what objective rewards can add on top of it.
-    const rewards = OBJECTIVES.reduce((sum, o) => sum + (o.reward[id] ?? 0), 0);
+    const rewards = rewarded.reduce((sum, o) => sum + (o.reward[id] ?? 0), 0);
     const v = state.resources[id];
     if (!Number.isFinite(v) || v < 0 || v > cap[id] + rewards) return false;
   }

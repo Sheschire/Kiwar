@@ -1177,6 +1177,204 @@ var OBJECTIVES = [
     reward: { seeds: 50, juice: 100 }
   }
 ];
+var PRODUCERS = ["pulpery", "fiberWorkshop", "seedQuarry", "juiceWell"];
+var TURRETS = ["seedTurret", "skyTurret"];
+var OBJECTIVES_SHOWN = 3;
+var AGE_OBJECTIVES = [
+  // Eden: the evening of the first day.
+  {
+    id: "edenTurrets",
+    age: 0,
+    condition: { kind: "building", building: TURRETS, count: 2, minLevel: 1 },
+    reward: { seeds: 120, fiber: 150 }
+  },
+  {
+    id: "edenLibrary",
+    age: 0,
+    condition: { kind: "building", building: "library", count: 1, minLevel: 1 },
+    reward: { pulp: 250, fiber: 250 }
+  },
+  {
+    id: "edenCollect",
+    age: 0,
+    condition: { kind: "stat", stat: "collects", count: 1 },
+    reward: { juice: 150 }
+  },
+  {
+    id: "edenSchool",
+    age: 0,
+    condition: { kind: "building", building: "school", count: 1, minLevel: 1 },
+    reward: { pulp: 200, juice: 120 }
+  },
+  {
+    id: "edenProducer3",
+    age: 0,
+    condition: { kind: "building", building: PRODUCERS, count: 1, minLevel: 3 },
+    reward: { pulp: 400, fiber: 400 }
+  },
+  {
+    id: "edenWave",
+    age: 0,
+    condition: { kind: "stat", stat: "wavesHeld", count: 1 },
+    reward: { seeds: 150 },
+    stardust: 3
+  },
+  {
+    id: "edenMayor",
+    age: 0,
+    condition: { kind: "class", classId: "mayor", count: 1 },
+    reward: {},
+    egg: true
+  },
+  {
+    id: "edenNest3",
+    age: 0,
+    condition: { kind: "building", building: "nest", count: 1, minLevel: 3 },
+    reward: { seeds: 200, juice: 300 }
+  },
+  {
+    id: "edenRecon",
+    age: 0,
+    condition: { kind: "intel", count: 1 },
+    reward: { pulp: 300, juice: 200 }
+  },
+  // Stone: levels 4–6, the first raids.
+  {
+    id: "stoneWarehouse",
+    age: 1,
+    condition: { kind: "building", building: "warehouse", count: 1, minLevel: 4 },
+    reward: { pulp: 1200, fiber: 1200 }
+  },
+  {
+    id: "stoneTechs",
+    age: 1,
+    condition: { kind: "techs", age: 1, count: 2 },
+    reward: { seeds: 400, juice: 600 }
+  },
+  {
+    id: "stoneWarriors",
+    age: 1,
+    condition: { kind: "class", classId: "warrior", count: 2 },
+    reward: { pulp: 800, juice: 400 }
+  },
+  {
+    id: "stoneWaves",
+    age: 1,
+    condition: { kind: "stat", stat: "wavesHeld", count: 3 },
+    reward: { seeds: 600 },
+    stardust: 5
+  },
+  {
+    id: "stoneRaid",
+    age: 1,
+    condition: { kind: "stat", stat: "raidsWon", count: 1 },
+    reward: { fiber: 1500 },
+    egg: true
+  },
+  {
+    id: "stoneTurret4",
+    age: 1,
+    condition: { kind: "building", building: TURRETS, count: 1, minLevel: 4 },
+    reward: { pulp: 1500, seeds: 500 }
+  },
+  {
+    id: "stoneProducer6",
+    age: 1,
+    condition: { kind: "building", building: PRODUCERS, count: 1, minLevel: 6 },
+    reward: { pulp: 2500, fiber: 2500 }
+  },
+  {
+    id: "stoneKiwi10",
+    age: 1,
+    condition: { kind: "kiwiLevel", level: 10 },
+    reward: { juice: 1500 },
+    stardust: 5
+  },
+  // Iron: the laboratory and the Kikiwiwis, the first siege steps.
+  {
+    id: "ironTechs",
+    age: 2,
+    condition: { kind: "techs", age: 2, count: 2 },
+    reward: { seeds: 1500, juice: 2e3 }
+  },
+  {
+    id: "ironPaths",
+    age: 2,
+    condition: { kind: "paths", count: 30 },
+    reward: { fiber: 4e3 }
+  },
+  {
+    id: "ironLab",
+    age: 2,
+    condition: { kind: "building", building: "lab", count: 1, minLevel: 1 },
+    reward: { pulp: 4e3, juice: 2e3 }
+  },
+  {
+    id: "ironMage",
+    age: 2,
+    condition: { kind: "class", classId: "mage", count: 1 },
+    reward: { juice: 3e3 },
+    egg: true
+  },
+  {
+    id: "ironWaves",
+    age: 2,
+    condition: { kind: "stat", stat: "wavesHeld", count: 6 },
+    reward: { seeds: 2500 },
+    stardust: 8
+  },
+  {
+    id: "ironKikiwiwi",
+    age: 2,
+    condition: { kind: "class", classId: "kikiwiwi", count: 1 },
+    reward: { pulp: 6e3, fiber: 6e3 }
+  },
+  {
+    id: "ironRaids",
+    age: 2,
+    condition: { kind: "stat", stat: "raidsWon", count: 5 },
+    reward: { seeds: 3e3, juice: 3e3 }
+  },
+  {
+    id: "ironProducer9",
+    age: 2,
+    condition: { kind: "building", building: PRODUCERS, count: 1, minLevel: 9 },
+    reward: { pulp: 12e3, fiber: 12e3 }
+  },
+  // Industry: machines, firearms, the siege.
+  {
+    id: "industryTechs",
+    age: 3,
+    condition: { kind: "techs", age: 3, count: 2 },
+    reward: { seeds: 6e3, juice: 8e3 }
+  },
+  {
+    id: "industryKiwi20",
+    age: 3,
+    condition: { kind: "kiwiLevel", level: 20 },
+    reward: { juice: 1e4 },
+    stardust: 10
+  },
+  {
+    id: "industryWaves",
+    age: 3,
+    condition: { kind: "stat", stat: "wavesHeld", count: 10 },
+    reward: { seeds: 1e4 },
+    egg: true
+  },
+  {
+    id: "industryBridgehead",
+    age: 3,
+    condition: { kind: "bridgeheads", count: 1 },
+    reward: { pulp: 2e4, fiber: 2e4 }
+  },
+  {
+    id: "industryProducer12",
+    age: 3,
+    condition: { kind: "building", building: PRODUCERS, count: 1, minLevel: 12 },
+    reward: { pulp: 4e4, fiber: 4e4, seeds: 8e3, juice: 15e3 }
+  }
+];
 
 // packages/shared/src/data/start.ts
 var START = {
@@ -1608,7 +1806,7 @@ var SECTORS = {
   range: [0, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
   skyRangeBonus: 1
 };
-var TURRETS = {
+var TURRETS2 = {
   max: [0, 2, 4, 6, 7, 7, 8, 8, 8, 9, 9, 9, 9]
 };
 var GARRISON = {
@@ -3006,6 +3204,7 @@ function strike(s, wave, events) {
       at
     );
   if (!out.victory) t.shieldUntil = at + THREATS.shieldMs;
+  else s.stats.wavesHeld++;
   t.lastWaveAt = at;
   t.waves++;
   t.next = null;
@@ -6124,7 +6323,7 @@ function turretCount(state) {
   return state.buildings.filter((b) => isTurret(b.type)).length + state.queue.filter((i) => i.kind === "build" && isTurret(i.buildingType)).length;
 }
 function turretLimit(state) {
-  const max = TURRETS.max;
+  const max = TURRETS2.max;
   return max[Math.min(nest(state).level, max.length - 1)] ?? 0;
 }
 function isRampart(map, q, r) {
@@ -6204,28 +6403,6 @@ function eggDuration(state) {
 }
 function canHatch(state) {
   return state.egg === null && population(state) < housing(state);
-}
-function currentObjective(state) {
-  return OBJECTIVES[state.objectiveIndex];
-}
-function objectiveProgress(state, def) {
-  const c = def.condition;
-  switch (c.kind) {
-    case "building": {
-      const n = state.buildings.filter(
-        (b) => b.type === c.building && b.level >= c.minLevel
-      ).length;
-      return { current: Math.min(n, c.count), target: c.count };
-    }
-    case "population":
-      return { current: Math.min(population(state), c.count), target: c.count };
-    case "workers":
-      return { current: Math.min(totalWorkers(state), c.count), target: c.count };
-  }
-}
-function isObjectiveComplete(state, def) {
-  const p = objectiveProgress(state, def);
-  return p.current >= p.target;
 }
 
 // packages/shared/src/sim/expeditions.ts
@@ -7464,7 +7641,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 25;
+var SCHEMA_VERSION = 26;
 var MISSION_KINDS = [
   "raid",
   "recon",
@@ -7518,10 +7695,13 @@ function newGame(opts) {
     queue: [],
     egg: null,
     objectiveIndex: 0,
+    objectives: { claimed: [], giftEggs: 0 },
     stats: {
       produced: { pulp: 0, fiber: 0, seeds: 0, juice: 0 },
       constructionsCompleted: 0,
-      eggsHatched: 0
+      eggsHatched: 0,
+      collects: 0,
+      wavesHeld: 0
     },
     targets: opts.targets ?? soloTargets(opts.face),
     victories: {},
@@ -7693,6 +7873,7 @@ function cloneState(state) {
     memorial: state.memorial.map((m) => ({ ...m })),
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
     egg: state.egg ? { ...state.egg } : null,
+    objectives: { ...state.objectives, claimed: [...state.objectives.claimed] },
     stats: { ...state.stats, produced: { ...state.stats.produced } },
     targets: state.targets.map((t) => ({ ...t })),
     victories: { ...state.victories },
@@ -7809,6 +7990,147 @@ function cloneVillager(v) {
     mastery: { ...v.mastery },
     history: { ...v.history }
   };
+}
+
+// packages/shared/src/sim/objectives.ts
+function currentObjective(state) {
+  return OBJECTIVES[state.objectiveIndex];
+}
+function objectiveProgress(state, def) {
+  const c = def.condition;
+  const of = (n, target) => ({ current: Math.min(n, target), target });
+  switch (c.kind) {
+    case "building": {
+      const types = typeof c.building === "string" ? [c.building] : c.building;
+      const n = state.buildings.filter(
+        (b) => types.includes(b.type) && b.level >= c.minLevel
+      ).length;
+      return of(n, c.count);
+    }
+    case "population":
+      return of(population(state), c.count);
+    case "workers":
+      return of(totalWorkers(state), c.count);
+    case "stat":
+      return of(
+        c.stat === "raidsWon" ? Object.values(state.victories).reduce((a, b) => a + b, 0) : state.stats[c.stat],
+        c.count
+      );
+    case "class":
+      return of(
+        state.villagers.filter(
+          (v) => c.classId === "kikiwiwi" ? v.kikiwiwi : v.classId === c.classId
+        ).length,
+        c.count
+      );
+    case "kiwiLevel": {
+      const best = state.villagers.reduce((m, v) => Math.max(m, v.level), 0);
+      return of(best, c.level);
+    }
+    case "techs":
+      return of(
+        techsOfAge(c.age).filter((id3) => TECHS[id3].branch !== "passage" && hasTech(state, id3)).length,
+        c.count
+      );
+    case "paths":
+      return of(state.paths.length, c.count);
+    case "intel":
+      return of(Object.keys(state.intel).length, c.count);
+    case "bridgeheads":
+      return of(state.siege.bridgeheads.length, c.count);
+  }
+}
+function isObjectiveComplete(state, def) {
+  const p = objectiveProgress(state, def);
+  return p.current >= p.target;
+}
+function notebookOpen(state) {
+  return state.objectiveIndex >= OBJECTIVES.length && state.colony.index === 0;
+}
+function ageObjectives(state) {
+  if (!notebookOpen(state)) return [];
+  const age = ageOf(state);
+  const claimed = new Set(state.objectives.claimed);
+  return AGE_OBJECTIVES.filter((o) => o.age <= age && !claimed.has(o.id)).slice(
+    0,
+    OBJECTIVES_SHOWN
+  );
+}
+function notebookCount(state, age) {
+  const all = AGE_OBJECTIVES.filter((o) => o.age === age);
+  const claimed = new Set(state.objectives.claimed);
+  return { claimed: all.filter((o) => claimed.has(o.id)).length, total: all.length };
+}
+function claimableObjective(state) {
+  const tutorial = currentObjective(state);
+  if (tutorial) return isObjectiveComplete(state, tutorial) ? tutorial : null;
+  return ageObjectives(state).find((o) => isObjectiveComplete(state, o)) ?? null;
+}
+var STEP_WEIGHT = { library: 0.2, research: 0.5, monument: 0.3 };
+function ageProgress(state) {
+  const age = ageOf(state) + 1;
+  if (age > MAX_AGE) return null;
+  const tech = PASSAGE_TECHS[age];
+  const def = TECHS[tech];
+  const researched = hasTech(state, tech);
+  const lib = libraryLevel(state);
+  const libDone = researched || lib >= def.libraryLevel;
+  const points = state.research.current === tech ? state.research.points / RESEARCH_SCALE / def.cost : 0;
+  const monument = state.buildings.find((b) => b.type === "monument");
+  const monumentDone = (monument?.level ?? 0) >= age;
+  const site = state.queue.find(
+    (i) => i.buildingType === "monument" && i.targetLevel === age && i.startedAt !== null
+  );
+  const built = site ? Math.min(1, (state.now - site.startedAt) / Math.max(1, site.durationMs)) : 0;
+  const steps = [
+    {
+      id: "library",
+      done: libDone,
+      progress: libDone ? 1 : lib / def.libraryLevel,
+      level: def.libraryLevel
+    },
+    { id: "research", done: researched, progress: researched ? 1 : Math.min(1, points), level: 0 },
+    { id: "monument", done: monumentDone, progress: monumentDone ? 1 : built, level: age }
+  ];
+  const progress = steps.reduce((sum, s) => sum + STEP_WEIGHT[s.id] * s.progress, 0);
+  return { age, steps, progress };
+}
+function nextStep(state) {
+  const wave = forecastWave(state);
+  if (wave && wave.odds !== "likely") return { id: "prepareWave" };
+  const broken = state.buildings.find((b) => b.damaged && !pendingUpgrade(state, b.id));
+  if (broken) return { id: "repair", buildingId: broken.id };
+  const stopped = RESOURCE_IDS.find(storageFullCheck(state));
+  if (stopped)
+    return reserveHolders(state).some((b) => canCollect(state, b)) ? { id: "collect", resource: stopped } : { id: "full", resource: stopped };
+  const claim = claimableObjective(state);
+  if (claim) return { id: "claim", objectiveId: claim.id };
+  const next = ageProgress(state);
+  if (next && next.steps[1].done && !next.steps[2].done && !state.queue.some((i) => i.buildingType === "monument"))
+    return { id: "monument" };
+  if (libraryLevel(state) > 0 && !state.research.current && anyResearchAvailable(state))
+    return { id: "research" };
+  const idle = state.villagers.filter((v) => v.job.kind === "idle" && !v.kikiwiwi).length;
+  const slots = state.buildings.reduce((sum, b) => sum + workerSlots(b), 0);
+  if (idle > 0 && totalWorkers(state) < slots) return { id: "staff" };
+  if (canHatch(state) && (state.objectives.giftEggs > 0 || canAfford(state.resources, eggCost(state))))
+    return { id: "hatch" };
+  const cap = capacity(state);
+  let scarce = null;
+  let low = Infinity;
+  for (const id3 of RESOURCE_IDS) {
+    const r = state.resources[id3] / Math.max(1, cap[id3]);
+    if (r < low) {
+      low = r;
+      scarce = id3;
+    }
+  }
+  return scarce && low < 0.5 ? { id: "upgrade", resource: scarce } : { id: "wait" };
+}
+function anyResearchAvailable(state) {
+  for (let age = 0; age <= ageOf(state); age++)
+    if (techsOfAge(age).some((id3) => techStatus(state, id3) === "available")) return true;
+  return false;
 }
 
 // packages/shared/src/sim/describe.ts
@@ -8390,7 +8712,8 @@ function execute(s, cmd, ctx, events) {
       if (s.egg) fail("eggInProgress");
       if (!canHatch(s) || population(s) >= housing(s)) fail("housingFull");
       if (cmd.star) payStardust(s, BLESSINGS.starEgg);
-      pay(s, eggCost(s));
+      if (s.objectives.giftEggs > 0) s.objectives.giftEggs--;
+      else pay(s, eggCost(s));
       s.egg = {
         startedAt: now,
         readyAt: now + eggDuration(s),
@@ -8399,11 +8722,21 @@ function execute(s, cmd, ctx, events) {
       return;
     }
     case "claimObjective": {
-      const obj = currentObjective(s);
+      if (cmd.id === void 0) {
+        const obj2 = currentObjective(s);
+        if (!obj2) return fail("noObjective");
+        if (!isObjectiveComplete(s, obj2)) fail("objectiveIncomplete");
+        refund(s, obj2.reward);
+        s.objectiveIndex++;
+        return;
+      }
+      const obj = ageObjectives(s).find((o) => o.id === cmd.id);
       if (!obj) return fail("noObjective");
       if (!isObjectiveComplete(s, obj)) fail("objectiveIncomplete");
       refund(s, obj.reward);
-      s.objectiveIndex++;
+      refundStardust(s, obj.stardust ?? 0);
+      if (obj.egg) s.objectives.giftEggs++;
+      s.objectives.claimed.push(obj.id);
       return;
     }
     case "launchExpedition": {
@@ -8541,12 +8874,14 @@ function execute(s, cmd, ctx, events) {
       if (!b) return fail("unknownBuilding");
       if (reserveCapOf(s, b) <= 0) fail("notWarehouse");
       if (collectReserve(s, b) <= 0) fail("nothingToCollect");
+      s.stats.collects++;
       break;
     }
     case "collectAll": {
       let moved = 0;
       for (const b of reserveHolders(s)) moved += collectReserve(s, b);
       if (moved <= 0) fail("nothingToCollect");
+      s.stats.collects++;
       break;
     }
     case "demolish":
@@ -13108,10 +13443,16 @@ var gameStateSchema = external_exports.object({
   ),
   egg: external_exports.object({ startedAt: external_exports.number(), readyAt: external_exports.number(), star: external_exports.boolean().optional() }).nullable(),
   objectiveIndex: external_exports.number().int().min(0),
+  objectives: external_exports.object({
+    claimed: external_exports.array(external_exports.string()),
+    giftEggs: external_exports.number().int().min(0)
+  }),
   stats: external_exports.object({
     produced: resources,
     constructionsCompleted: external_exports.number().int(),
-    eggsHatched: external_exports.number().int()
+    eggsHatched: external_exports.number().int(),
+    collects: external_exports.number().int().min(0),
+    wavesHeld: external_exports.number().int().min(0)
   }),
   targets: external_exports.array(
     external_exports.object({
@@ -13435,7 +13776,18 @@ var MIGRATIONS = {
   // v23 → v24 (chantier 30): three levels per age; the old age levels 4/5/6 become 4/7/10.
   23: migrateLevels,
   // v24 → v25 (chantier 30): warehouse reserves (optional, empty).
-  24: (raw) => raw
+  24: (raw) => raw,
+  // v25 → v26 (chantier 31): the age objectives notebook; the waves held so far are the
+  // victories still in the reports.
+  25: (raw) => {
+    const threats2 = raw.threats;
+    const held = (threats2?.reports ?? []).filter((r) => r.victory).length;
+    return {
+      ...raw,
+      objectives: { claimed: [], giftEggs: 0 },
+      stats: { ...raw.stats, collects: 0, wavesHeld: held }
+    };
+  }
 };
 function newLevel(level) {
   return level <= 4 ? level : level === 5 ? 7 : 10;
@@ -13546,7 +13898,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     builderPriority: external_exports.boolean().optional()
   }),
   external_exports.object({ type: external_exports.literal("hatchEgg"), star: external_exports.boolean().optional() }),
-  external_exports.object({ type: external_exports.literal("claimObjective") }),
+  external_exports.object({ type: external_exports.literal("claimObjective"), id: external_exports.string().max(64).optional() }),
   external_exports.object({
     type: external_exports.literal("launchExpedition"),
     launchpadId: id2,
@@ -13990,8 +14342,13 @@ function isPlausible(state, now) {
   const biome = state.params.biome;
   if (biome !== "classic" && biome !== drawBiomes(state.seed)[state.face]) return false;
   const cap = capacity(state);
+  const claimed = state.objectives.claimed.map((c) => AGE_OBJECTIVES.find((o) => o.id === c));
+  if (claimed.some((o) => !o) || new Set(state.objectives.claimed).size !== claimed.length)
+    return false;
+  if (state.objectives.giftEggs > claimed.filter((o) => o.egg).length) return false;
+  const rewarded = [...OBJECTIVES, ...claimed];
   for (const id3 of RESOURCE_IDS) {
-    const rewards = OBJECTIVES.reduce((sum, o) => sum + (o.reward[id3] ?? 0), 0);
+    const rewards = rewarded.reduce((sum, o) => sum + (o.reward[id3] ?? 0), 0);
     const v = state.resources[id3];
     if (!Number.isFinite(v) || v < 0 || v > cap[id3] + rewards) return false;
   }
@@ -14566,6 +14923,7 @@ function createMemoryRepository() {
 }
 export {
   AGE_IDS,
+  AGE_OBJECTIVES,
   ALIENS,
   ALIEN_TWIN_FACE,
   AUTO_TASKS,
@@ -14622,12 +14980,14 @@ export {
   NAME_SYLLABLES,
   NEEDS,
   OBJECTIVES,
+  OBJECTIVES_SHOWN,
   OBSTACLES,
   OBSTACLE_KINDS,
   OBSTACLE_RULES,
   PASSAGE_TECHS,
   PATHS,
   PRACTICE_SCALE,
+  PRODUCERS,
   RATE_LIMIT,
   RAY_BUILD_SPEEDUP,
   RECON,
@@ -14673,7 +15033,7 @@ export {
   TITAN_WORK_IDS,
   TRAITS,
   TRAIT_IDS,
-  TURRETS,
+  TURRETS2 as TURRETS,
   TURRET_TYPES,
   XP_SCALE,
   YEAR_MS,
@@ -14685,8 +15045,10 @@ export {
   advance,
   advanceInPlace,
   affinity,
+  ageObjectives,
   ageOf,
   ageOfLevel,
+  ageProgress,
   ageRange,
   alienDefOf,
   alienDefense,
@@ -14746,6 +15108,7 @@ export {
   catchmentPlan,
   catchmentPreview,
   catchmentRadius,
+  claimableObjective,
   cleanFreight,
   cleanKiwiName,
   clearDuration,
@@ -14973,9 +15336,12 @@ export {
   nextResearchEvent,
   nextSiegeEvent,
   nextSkyEvent,
+  nextStep,
   nextThreatEvent,
   nextTitanEnd,
   nightWork,
+  notebookCount,
+  notebookOpen,
   objectiveProgress,
   obstacleAt,
   obstacleId,
