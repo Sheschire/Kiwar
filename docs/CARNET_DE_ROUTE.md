@@ -139,7 +139,8 @@ Points de détail choisis par Claude (modifiables) :
 ## 6. Les actes et les chantiers
 
 Une session neuve par chantier, de 4 à 6 commits. « Parallèle » : deux sessions peuvent tourner
-en même temps sans toucher les mêmes fichiers.
+en même temps sans toucher les mêmes fichiers. Jamais deux chantiers de simulation en même
+temps : chacun régénère le bundle de la fonction serveur et ajoute une version de sauvegarde.
 
 | #   | Chantier                                                                        | Domaine           | Après  | Parallèle     | Skills à charger                       |
 | --- | ------------------------------------------------------------------------------- | ----------------- | ------ | ------------- | -------------------------------------- |
@@ -160,8 +161,8 @@ en même temps sans toucher les mêmes fichiers.
 | 42  | [La reine des furets](chantiers/42-reine-des-furets.md)                         | sim, client, bot  | 41     | —             | colonies, expeditions, battle, balance |
 |     | **Acte III — Le village vivant**                                                |                   |        |               |                                        |
 | 43  | [Moral par kiwi, Mairie, feu de camp](chantiers/43-moral-mairie-feu-de-camp.md) | sim, client, bot  | 35     | —             | cycles, rpg, tasks, design             |
-| 44  | [Loisirs et décor](chantiers/44-loisirs-decor.md)                               | sim, client       | 43     | 45            | cycles, client                         |
-| 45  | [Rives fertiles et canaux](chantiers/45-rives-canaux.md)                        | sim, client, bot  | 35     | 44            | titans, world                          |
+| 44  | [Loisirs et décor](chantiers/44-loisirs-decor.md)                               | sim, client       | 43     | —             | cycles, client                         |
+| 45  | [Rives fertiles et canaux](chantiers/45-rives-canaux.md)                        | sim, client, bot  | 35     | —             | titans, world                          |
 |     | **Acte IV — Au-delà** (section 9, pas encore de chantier)                       |                   |        |               |                                        |
 
 Les skills sont nommés sans le préfixe `kiwar-` ; `battle` (`kiwar-battle`) est créé au chantier 36.

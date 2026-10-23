@@ -27,14 +27,16 @@ d'acceptation et les **skills à charger**. La direction d'ensemble est dans le
 | 42  | [La reine des furets](42-reine-des-furets.md)                                         | 41        | non                   |
 |     | **Acte III — Le village vivant** (fiches courtes, détaillées en début de session)     |           |                       |
 | 43  | [Moral par kiwi, Mairie et feu de camp](43-moral-mairie-feu-de-camp.md)               | 35        | non                   |
-| 44  | [Loisirs et décor](44-loisirs-decor.md)                                               | 43        | avec 45               |
-| 45  | [Rives fertiles et canaux de jus](45-rives-canaux.md)                                 | 35        | avec 44               |
+| 44  | [Loisirs et décor](44-loisirs-decor.md)                                               | 43        | non                   |
+| 45  | [Rives fertiles et canaux de jus](45-rives-canaux.md)                                 | 35        | non                   |
 
 L'acte IV (Tréfonds, kiwaïs, Verger cosmique) n'a pas encore de chantier : voir le carnet. Les
 anciens chantiers 25 à 29, jamais commencés, sont devenus 37, 35, 43, 38 et 45.
 
 « En parallèle possible » : deux conversations peuvent tourner en même temps sans se marcher
-dessus (fichiers différents). Sinon, attendre que le chantier précédent soit poussé sur `main`.
+dessus (fichiers différents). Jamais deux chantiers de simulation en même temps : chacun
+régénère le bundle de la fonction serveur (`pnpm build:functions`) et ajoute une version de
+sauvegarde. Sinon, attendre que le chantier précédent soit poussé sur `main`.
 
 ## Faits (01 à 24)
 

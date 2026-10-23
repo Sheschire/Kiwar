@@ -1,8 +1,8 @@
 # Chantier 45 — Rives fertiles et canaux de jus
 
 Acte III « Le village vivant » du [carnet de route](../CARNET_DE_ROUTE.md) (ex-chantier 29,
-élargi aux rives). **Simulation + client + bot.** Après le **35** (mêmes règles de carte). Il
-peut tourner en parallèle du 44.
+élargi aux rives). **Simulation + client + bot.** Après le **35** (mêmes règles de carte). Après le
+44 (pas en parallèle : deux chantiers de simulation se gênent).
 
 **Skills à charger** : `kiwar-titans`, `kiwar-world`, `kiwar-tasks` (+ `kiwar-balance` à la fin).
 
