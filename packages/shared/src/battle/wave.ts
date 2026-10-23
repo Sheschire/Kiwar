@@ -92,24 +92,47 @@ export function waveSquads(state: GameState, threat: Sides): Squad[] {
  * the announcement: turrets and guards there make the difference.
  */
 export function waveGates(state: GameState, waveId: string): Record<SectorId, Hex> {
-  const map = faceMapOf(state);
-  const rampart = rampartSectors(map);
   const rng = createRng(`${state.seed}/${state.face}/${state.colony.index}/${waveId}/gates`);
   const out = {} as Record<SectorId, Hex>;
   for (const s of SECTOR_IDS) {
-    const tiles = rampart.tiles
-      .filter((_, i) => rampart.sectors[i] === s)
-      .map((t) => ({
-        t,
-        a: angleGap(angleOf(t), SECTOR_MIDDLE[s]) * Math.sign(angleOf(t) - SECTOR_MIDDLE[s] || 1),
-      }))
-      .sort((x, y) => x.a - y.a || x.t.q - y.t.q || x.t.r - y.t.r);
-    // A triangular draw: the middle of the sector more often than its edges.
-    const u = (rng.next() + rng.next()) / 2;
+    const tiles = gateTiles(state, s);
+    // The middle of the sector more often than its edges (mean of three draws).
+    const u = (rng.next() + rng.next() + rng.next()) / 3;
     const pick = tiles[Math.min(tiles.length - 1, Math.floor(u * tiles.length))];
-    out[s] = pick ? { q: pick.t.q, r: pick.t.r } : { q: 0, r: 0 };
+    out[s] = pick ? { q: pick.q, r: pick.r } : { q: 0, r: 0 };
   }
   return out;
+}
+
+/** Rampart tiles of a sector, from one edge to the other (where its gate may be). */
+export function gateTiles(state: GameState, sector: SectorId): Hex[] {
+  const rampart = rampartSectors(faceMapOf(state));
+  const signed = (t: Hex) => {
+    const d = angleOf(t) - SECTOR_MIDDLE[sector];
+    return Math.atan2(Math.sin(d), Math.cos(d));
+  };
+  return rampart.tiles
+    .filter((_, i) => rampart.sectors[i] === sector)
+    .map((t) => ({ t, a: signed(t) }))
+    .sort((x, y) => x.a - y.a || x.t.q - y.t.q || x.t.r - y.t.r)
+    .map((x) => ({ q: x.t.q, r: x.t.r }));
+}
+
+/**
+ * Chance of each rampart tile of a sector to be its next gate (the same law as `waveGates`:
+ * the mean of three uniform draws), for planning turrets.
+ */
+export function gateOdds(state: GameState, sector: SectorId): { tile: Hex; p: number }[] {
+  const tiles = gateTiles(state, sector);
+  const n = tiles.length;
+  // CDF of the mean of three uniforms (Irwin–Hall, n = 3, scaled).
+  const cdf = (x: number) => {
+    const y = Math.max(0, Math.min(3, 3 * x));
+    if (y <= 1) return y ** 3 / 6;
+    if (y <= 2) return (-2 * y ** 3 + 9 * y ** 2 - 9 * y + 3) / 6;
+    return 1 - (3 - y) ** 3 / 6;
+  };
+  return tiles.map((tile, i) => ({ tile, p: cdf((i + 1) / n) - cdf(i / n) }));
 }
 
 /** Power multiplier of each predator so that the squads weigh what the wave announced. */
@@ -261,6 +284,9 @@ export function waveSetup(
         units.push(u);
       }
     }
+    // The pack gathers at its gate until its last member is in, then charges.
+    const hold = Math.max(0, j - 1) * BATTLE.enterGap + BATTLE.gather;
+    for (const u of units) if (u.side === 1 && u.sector === sector) u.hold = hold;
   }
   const exitList = SECTOR_IDS.flatMap((s) => exits[s].map((e) => e.i));
 

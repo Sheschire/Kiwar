@@ -547,6 +547,12 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     const s = u.s;
     if (s.role === 'raider') {
       if (u.fleeing || u.carried >= s.carry - 1e-9) return goHome(u, t);
+      // The pack gathers at its gate; it only answers blows meanwhile.
+      if (t < (s.hold ?? 0) - 1e-9) {
+        const blow = s.fightsBack ? raiderTarget(u) : null;
+        if (blow?.unit && inRange(u, blow) && t >= u.readyAt - 1e-9) strike(u, blow, t);
+        return;
+      }
       if (!valid(u, u.target) || t >= u.retargetAt) {
         u.target = raiderTarget(u);
         u.retargetAt = t + BATTLE.retarget;

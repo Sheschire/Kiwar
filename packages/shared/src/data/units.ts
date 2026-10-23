@@ -149,7 +149,7 @@ export const ENEMIES: Record<EnemyKind, EnemyProfile> = {
     body: 'ferret',
     hp: 10,
     armor: 0,
-    speed: 1.2,
+    speed: 0.8,
     dodge: 0.05,
     size: 1,
     weapon: 'claw',
@@ -162,7 +162,7 @@ export const ENEMIES: Record<EnemyKind, EnemyProfile> = {
     body: 'ferret',
     hp: 6,
     armor: 0,
-    speed: 2,
+    speed: 1.3,
     dodge: 0.15,
     size: 1,
     weapon: 'bite',
@@ -175,7 +175,7 @@ export const ENEMIES: Record<EnemyKind, EnemyProfile> = {
     body: 'ferret',
     hp: 28,
     armor: 0.2,
-    speed: 0.8,
+    speed: 0.55,
     dodge: 0,
     size: 2,
     weapon: 'slam',
@@ -188,7 +188,7 @@ export const ENEMIES: Record<EnemyKind, EnemyProfile> = {
     body: 'bat',
     hp: 7,
     armor: 0,
-    speed: 2.2,
+    speed: 1.4,
     dodge: 0.15,
     size: 0,
     weapon: 'dive',
@@ -201,7 +201,7 @@ export const ENEMIES: Record<EnemyKind, EnemyProfile> = {
     body: 'bat',
     hp: 6,
     armor: 0,
-    speed: 1.8,
+    speed: 1.2,
     dodge: 0.1,
     size: 0,
     weapon: 'spit',
@@ -264,10 +264,10 @@ export const BATTLE = {
   /** Damage drawn in ± this share. */
   spread: 0.15,
   /**
-   * A pack can carry this many times what lies in the open: two thirds of it empty the
-   * stores, the others break the buildings.
+   * A pack can carry this many times what lies in the open: most of it empties the stores,
+   * the others break the buildings.
    */
-  carry: 1.5,
+  carry: 1.2,
   /** A raider takes this share of its load in one hit on a store. */
   grab: 1 / 3,
   /** Attackers run away when their side has less than this share of its power left. */
@@ -283,6 +283,8 @@ export const BATTLE = {
   maxAir: 24,
   /** A pack comes in over the rampart tiles this far from its gate. */
   packWidth: 1,
+  /** A pack waits this long at its gate after its last member came in. */
+  gather: 1,
   /** Seconds between two attackers entering by the same sector. */
   enterGap: 0.5,
   /** Tiles of the attackers' trail kept for the trampled paths. */

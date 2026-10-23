@@ -30,6 +30,8 @@ import {
   wealthFactor,
   hexDistance,
   waveGates,
+  waveBattle,
+  uncoveredGates,
   reserveCapOf,
   RESOURCE_IDS,
   type GameEvent,
@@ -429,8 +431,7 @@ describe('defenses', () => {
     const { map, state } = colony();
     let s = rich(state);
     s.buildings[0]!.level = 3;
-    // Chantier 36: once the wave is announced, a turret on each gate where a pack comes in (the
-    // bats by the front and the left), two at the front.
+    // Chantier 36: once the wave is announced, turrets where the packs come in.
     while (!s.threats.next?.announced) s = advance(s, s.now + HOUR_MS).state;
     const gates = s.threats.next!.gates!;
     const near = (sector: SectorId, k: number) => {
@@ -439,25 +440,24 @@ describe('defenses', () => {
         .filter((t) => !s.buildings.some((b) => b.q === t.q && b.r === t.r))
         .sort((a, b) => hexDistance(a, gates[sector]!) - hexDistance(b, gates[sector]!))[k]!;
     };
-    const plan = [
-      ['seedTurret', 'front'],
-      ['seedTurret', 'front'],
-      ['seedTurret', 'left'],
-      ['seedTurret', 'right'],
-      ['skyTurret', 'front'],
-      ['skyTurret', 'left'],
-    ] as const;
+    // Every uncovered gate gets a turret of the right model (six at most at a Nest 3).
+    const plan: ['seedTurret' | 'skyTurret', SectorId][] = [
+      ...uncoveredGates(s, s.threats.next!).map((g): ['seedTurret' | 'skyTurret', SectorId] => [
+        g.side === 'air' ? 'skyTurret' : 'seedTurret',
+        g.sector,
+      ]),
+    ];
     for (const [type, sector] of plan) {
       const t = near(sector, 0);
       s = run(s, { type: 'build', buildingType: type, q: t.q, r: t.r }, s.now, map);
       s = advance(s, s.now + 10 * 60_000).state;
     }
     s = { ...s, resources: { pulp: 1500, fiber: 1500, seeds: 1500, juice: 1500 } };
-    // …and three warriors posted (they stand at the gates).
-    for (const v of s.villagers.slice(0, 3)) v.classId = 'warrior';
+    // …and five warriors posted (they stand at the gates).
+    for (const v of s.villagers.slice(0, 5)) v.classId = 'warrior';
     s = run(
       s,
-      { type: 'setGarrison', villagerIds: s.villagers.slice(0, 3).map((v) => v.id) },
+      { type: 'setGarrison', villagerIds: s.villagers.slice(0, 5).map((v) => v.id) },
       s.now,
       map,
     );
@@ -556,7 +556,9 @@ describe('sectors and range (chantier 12)', () => {
     expect(atFront.defense.sectors.front.ground).toBeGreaterThan(
       onFlank.defense.sectors.front.ground,
     );
-    expect(onFlank.expected.severity).toBeGreaterThan(atFront.expected.severity);
+    // Chantier 36: with turrets at the front gate, less of the pack reaches the buildings.
+    const reached = (st: GameState) => waveBattle(st, st.threats.next!, 1, 'probe').result.reached;
+    expect(reached(build('front'))).toBeLessThan(reached(build('right')));
     // A guard goes where defense is missing (the front, for the misplaced turrets).
     let s = build('right');
     const id = s.villagers.find((v) => v.job.kind === 'idle' || v.job.kind === 'work')!.id;

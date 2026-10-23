@@ -10,6 +10,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 36** — les **vagues se jouent pour de vrai** : à l'annonce, chaque meute (furets
+> soldats, éclaireurs, brutes ; chauves-souris plongeuses et cracheuses) reçoit sa **brèche** sur
+> le rempart, qui pulse sur la carte. Elle s'y rassemble puis charge : les tourelles à portée
+> tirent leurs graines, les gardes frappent à l'épée, les mages lancent des **boules de feu**, les
+> kiwis au travail donnent des coups de bec. On regarde la bataille **en direct** (ou en replay
+> depuis le rapport), ×1/×2/×4, et on touche un combattant pour voir sa fiche. Avant l'impact :
+> la **posture** de la garnison (prudente ou offensive), le **secteur** de chaque garde, et la
+> liste des brèches qu'aucune tourelle n'atteint. Les kiwis tombés sont blessés ; une mort
+> seulement sur une vraie défaite.
+
 > **Chantier 35** — les **grands bâtiments prennent de la place** : l'aire d'envol, la
 > Bibliothèque, l'École, le labo et l'entrepôt couvrent **trois tuiles** (touche **R** ou
 > « Tourner » pour les orienter), le **monument sept**. Ils se voient de loin (ailes, piste

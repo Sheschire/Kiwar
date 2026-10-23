@@ -71,6 +71,8 @@ export interface BattleUnitSetup {
   at: Hex;
   /** Seconds before it enters the battle. */
   delay: number;
+  /** A raider waits at its gate until then (its pack gathers before charging). */
+  hold?: number;
   /** Building a turret stands on (index in `buildings`): it fires slower once damaged. */
   building: number | null;
   fightsBack: boolean;

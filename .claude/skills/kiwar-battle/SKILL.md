@@ -40,8 +40,8 @@ the landings on the twin (chantier 40).
   Dexterity → aim of ranged weapons, Spirit → fireball damage; per level; √`modifiers.fight`;
   militia (kiwis at work) peck at ×0.8, stay within 1 tile and run home under 40 % hp.
 - `BATTLE`: dt 0.5 s, maxS 240, tileCap 3, leash by posture (`cautious` 3 tiles from the post,
-  `bold` anywhere), splash, grab, carry (a pack carries 1.5 × what lies in the open), retreat
-  under 30 % power, unstick 2 s, maxGround 36 / maxAir 24, building hp 30 + 10 × level.
+  `bold` anywhere), splash, grab, carry (a pack carries 1.2 × what lies in the open), retreat
+  under 30 % power, unstick 2 s, gather 2 s (a pack waits at its gate), maxGround 36 / maxAir 24, building hp 30 + 10 × level.
 
 ## Engine (`battle/`)
 
@@ -66,16 +66,18 @@ the landings on the twin (chantier 40).
 
 - At the announcement (`announce`): `wave.squads = waveSquads(state, sides)` (no draw) and
   `wave.gates = waveGates(state, wave.id)` (hash of the wave: one rampart tile per sector,
-  triangular around its middle; no draw from the colony's streams). Migrated waves get both at
+  the mean of three draws around its middle, `gateOdds` gives the law; no draw from the colony's streams). Migrated waves get both at
   the strike.
 - `waveSetup(state, wave, announced, { luck, sheltered, roughLoot })`: every face tile (rampart
   tiles walkable at cost 3 for the climb down), all buildings (`state.buildings` order = setup
   order), loot = `lootShare` × (warehouse reserve + its share of the unprotected stock), packs
   round-robin over the free rampart tiles near their gate (`packWidth`), staggered entries,
+  `hold` (the pack gathers at its gate until its last member is in + `gather`: the turrets and
+  guards there get their chance),
   turrets facing the threat, guards at posts in their sector (pin, else `defenseOf().guards`)
   sorted by distance to the gate, militia next to their workplace (none during a shelter).
 - `strike`: luck and a seed drawn from `withThreatRng`, `waveBattle`, `battleOutcome` (victory =
-  nothing damaged and loot ≤ `THREATS.holdLoot` (25 %) of `lootable`; severity = `reached`),
+  nothing damaged and loot ≤ `THREATS.holdLoot` (35 %) of `lootable`; severity = `reached`),
   then loot per building (reserve first), damage, trampled paths (struck tiles that were paths,
   ≤ `maxPathsLost`), fallen → injured / one death, seeds = shots fired, report with `log`.
 - `forecastWave`: three practice battles at luck 1.15 / 1 / 0.85 with seeds `wave.id/trial/i`
@@ -117,6 +119,8 @@ the landings on the twin (chantier 40).
 
 ## Bot
 
+- `bot/economy.ts` `bestTile` places turrets where the gates fall most often and no turret of
+  that model reaches yet (`gateOdds`).
 - `bot/defense.ts`: a prepared bot builds the missing turret next to an uncovered gate (any
   rampart tile within level-1 range), switches the posture to bold while a ground gate stays
   open, reads `waveAhead` for ammo and turrets and the full forecast only when it may shelter.

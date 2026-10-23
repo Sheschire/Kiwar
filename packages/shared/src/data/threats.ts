@@ -88,7 +88,7 @@ export const THREATS = {
    * Chantier 36: a wave is repelled when nothing was damaged and the predators carried away
    * at most this share of what they could have taken.
    */
-  holdLoot: 0.25,
+  holdLoot: 0.35,
   /** Path tiles trampled by ferrets at full ground severity. */
   maxPathsLost: 4,
   /** Damaged buildings work at this rate until repaired. */

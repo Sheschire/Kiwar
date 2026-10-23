@@ -135,3 +135,34 @@ Chemins sous `packages/shared/src/`.
 - Le placement et la préparation changent l'issue (test et sonde du bot).
 - Un même `setup` et une même graine donnent le même journal ; le budget de calcul est tenu.
 - Aucune mort hors vraie défaite à la maison ; images/s acceptables pendant le spectacle.
+
+## Bilan (fait le 23 octobre 2026)
+
+Réponses du porteur en début de chantier : bataille sur **toute la face** (une meute par
+secteur), pronostic par **trois batailles d'essai**, gardes **automatiques ou épinglés** à un
+secteur.
+
+Fait, en six parties (détails dans `DECISIONS.md` et le skill `kiwar-battle`) :
+
+1. Moteur pur `simulateBattle` (`packages/shared/src/battle/`), données `data/units.ts`, IA par
+   rôle, journal compact ; 60 contre 60 ≈ 16 ms, ≈ 15 ko.
+2. Les vagues passent par le moteur : composition et **brèche** par secteur à l'annonce, la
+   meute s'y **rassemble** puis charge ; butin pris là où les prédateurs sont arrivés (réserves
+   d'abord), bâtiments abîmés (4 au plus), chemins piétinés, kiwis tombés blessés, une mort au
+   plus sur une vraie défaite ; save v28.
+3. Spectacle 3D (`render/battle/`) : direct depuis l'impact, replay des 5 derniers rapports,
+   ×1/×2/×4, rembobiner, passer, fiche d'unité ; l'issue d'une vague regardée en direct n'est
+   annoncée qu'à la fin.
+4. Préparation : posture, secteur des gardes, meutes annoncées, brèches non couvertes, brèches
+   sur la carte.
+5. Bot : tourelles placées selon les chances de brèche, tourelle ajoutée face à une brèche
+   découverte, posture ; réglage (vitesses, rassemblement, butin, seuil de victoire).
+6. Skill `kiwar-battle`, docs.
+
+Reste / à surveiller :
+
+- La réparation automatique se met en file dès l'impact (petite fuite de l'issue en direct).
+- Les sommes « menace / défense » de la fenêtre sont une estimation ; seule la bataille décide.
+- Pas encore de sons propres aux coups (seul le tir des tourelles a le sien) : à ajouter avec le
+  skill `kiwar-audio` si le porteur le souhaite.
+- À jouer par le porteur : le plaisir du spectacle, la lisibilité des brèches, la sévérité.

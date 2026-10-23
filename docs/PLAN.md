@@ -37,7 +37,7 @@ dans l'historique.
 | 34  | Kiwis et créatures vivants (client)                  | fait    |
 |     | **Acte II — La guerre des faces**                    |         |
 | 35  | Bâtiments sur plusieurs tuiles                       | fait    |
-| 36  | Moteur de bataille : les vagues jouées pour de vrai  | à faire |
+| 36  | Moteur de bataille : les vagues jouées pour de vrai  | fait    |
 | 37  | Classes, rôles de combat, camp d'entraînement        | à faire |
 | 38  | Forge, équipement et fer météorique                  | à faire |
 | 39  | La civilisation alien                                | à faire |
@@ -50,13 +50,12 @@ dans l'historique.
 | 45  | Rives fertiles et canaux de jus                      | à faire |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
-**Prochaine conversation** : le chantier **36** (moteur de bataille : les vagues du 31 jouées
-pour de vrai, mêmes leviers ; il part des empreintes du 35 — `occupancy(state)` et ses murs —
-pour la marche et les positions, et des poses du 34). Point laissé par le 31 : le temps mort du
-début de la Pierre reste ~70–90 min au bot (attente de la ressource la plus rare pendant
-qu'une autre déborde ; voir `DECISIONS.md`, chantier 31) — à rediscuter avec le porteur.
-Mesuré à la fin de l'acte I : Pierre 12,9 h, Fer 2,8 j, Industrie 8,7 j ; vagues perdues 8 %
-(attentif) / 59 % (occasionnel), aucun mort (`BALANCE_REPORT.md`).
+**Prochaine conversation** : le chantier **37** (classes, rôles de combat, camp
+d'entraînement) : il part du moteur de bataille du 36 (skill `kiwar-battle` : armes par classe
+dans `data/units.ts`, `kiwiUnit`, rôles de l'IA). Points laissés par le 36 : la réparation
+automatique se met en file dès l'impact et trahit un peu l'issue d'une vague regardée en
+direct ; les chiffres d'équilibrage des vagues sont dans `DECISIONS.md` (chantier 36). Point
+toujours ouvert du 31 : le temps mort du début de la Pierre (~70–90 min au bot).
 
 ## Règles transverses à retenir
 
@@ -89,6 +88,11 @@ Mesuré à la fin de l'acte I : Pierre 12,9 h, Fer 2,8 j, Industrie 8,7 j ; vagu
   `occupancy(state)` (`sim/footprint.ts`), jamais par `b.q === q && b.r === r` ; les murs
   (`occupancy.blocked`) se contournent à pied ; un nouveau gros bâtiment prend une entrée dans
   `FOOTPRINTS` et une garniture dans `render/models/spread.ts` (skill `kiwar-sim`, `kiwar-client`).
+- **Batailles** (chantier 36) : une vague est une bataille calculée d'un coup par
+  `simulateBattle` (pur, graine) ; le **journal fait foi**, le client le rejoue sans jamais
+  recalculer. Une nouvelle unité, arme ou règle de combat va dans `data/units.ts` / `battle/` ;
+  le pronostic joue trois batailles d'essai (en cache), `waveAhead` en donne la partie bon
+  marché (skill `kiwar-battle`).
 - **Planètes** : elles ont une place fixe (`render/space.ts`) ; `renderer.setTwinApproach(t)`
   rapproche la jumelle (skill `kiwar-world`).
 

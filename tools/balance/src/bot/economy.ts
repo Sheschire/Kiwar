@@ -18,9 +18,10 @@ import {
   queuedBuildAt,
   RESOURCE_IDS,
   defenseOf,
+  gateOdds,
+  turretRange,
   SECTOR_IDS,
   SECTORS,
-  turretCoverage,
   isRampart,
   isTurret,
   type BuildingType,
@@ -71,6 +72,19 @@ export function bestTile(state: GameState, map: FaceMap, type: BuildingType): Si
   const side = type === 'skyTurret' ? 'air' : 'ground';
   const sectors = isTurret(type) ? defenseOf(state).sectors : null;
   const unit = isTurret(type) ? (levelDef(type, 1)?.defense?.[side] ?? 1) : 1;
+  const odds = isTurret(type)
+    ? Object.fromEntries(
+        SECTOR_IDS.map((s) => [
+          s,
+          gateOdds(state, s).map((o) => ({
+            ...o,
+            covered: state.buildings.some(
+              (b) => b.type === type && hexDistance(b, o.tile) <= turretRange(b.type, b.level),
+            ),
+          })),
+        ]),
+      )
+    : null;
   for (const t of map.tiles) {
     if (!BUILDINGS[type].allowedTiles.includes(t.type)) continue;
     if (buildingAt(state, t.q, t.r) || queuedBuildAt(state, t.q, t.r)) continue;
@@ -80,11 +94,15 @@ export function bestTile(state: GameState, map: FaceMap, type: BuildingType): Si
     // A sensible player keeps clear of the floodable shores (lagoons).
     if (t.flood) continue;
     let score: number;
-    if (sectors) {
-      const cover = turretCoverage(map, type, 1, t);
+    if (sectors && odds) {
+      // Chantier 36: the chance that a gate falls within reach and no turret of this model
+      // covers it yet, weighted by the sector's share of the wave.
+      const range = turretRange(type, 1);
       score = 0;
       for (const s of SECTOR_IDS)
-        score += (cover[s] * SECTORS.share[side][s]) / (1 + sectors[s][side] / unit);
+        for (const o of odds[s] ?? [])
+          if (!o.covered && hexDistance(o.tile, t) <= range) score += o.p * SECTORS.share[side][s];
+      score += 1e-3 / (1 + sectors.front[side] / unit);
     } else if (HARVESTS[type]) {
       const now = catchmentPreview(state, map, type, t, 1).regen;
       const later = catchmentPreview(state, map, type, t, 3).regen;

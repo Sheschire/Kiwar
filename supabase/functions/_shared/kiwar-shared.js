@@ -1836,7 +1836,7 @@ var THREATS = {
    * Chantier 36: a wave is repelled when nothing was damaged and the predators carried away
    * at most this share of what they could have taken.
    */
-  holdLoot: 0.25,
+  holdLoot: 0.35,
   /** Path tiles trampled by ferrets at full ground severity. */
   maxPathsLost: 4,
   /** Damaged buildings work at this rate until repaired. */
@@ -3085,7 +3085,7 @@ var ENEMIES = {
     body: "ferret",
     hp: 10,
     armor: 0,
-    speed: 1.2,
+    speed: 0.8,
     dodge: 0.05,
     size: 1,
     weapon: "claw",
@@ -3098,7 +3098,7 @@ var ENEMIES = {
     body: "ferret",
     hp: 6,
     armor: 0,
-    speed: 2,
+    speed: 1.3,
     dodge: 0.15,
     size: 1,
     weapon: "bite",
@@ -3111,7 +3111,7 @@ var ENEMIES = {
     body: "ferret",
     hp: 28,
     armor: 0.2,
-    speed: 0.8,
+    speed: 0.55,
     dodge: 0,
     size: 2,
     weapon: "slam",
@@ -3124,7 +3124,7 @@ var ENEMIES = {
     body: "bat",
     hp: 7,
     armor: 0,
-    speed: 2.2,
+    speed: 1.4,
     dodge: 0.15,
     size: 0,
     weapon: "dive",
@@ -3137,7 +3137,7 @@ var ENEMIES = {
     body: "bat",
     hp: 6,
     armor: 0,
-    speed: 1.8,
+    speed: 1.2,
     dodge: 0.1,
     size: 0,
     weapon: "spit",
@@ -3193,10 +3193,10 @@ var BATTLE = {
   /** Damage drawn in ± this share. */
   spread: 0.15,
   /**
-   * A pack can carry this many times what lies in the open: two thirds of it empty the
-   * stores, the others break the buildings.
+   * A pack can carry this many times what lies in the open: most of it empties the stores,
+   * the others break the buildings.
    */
-  carry: 1.5,
+  carry: 1.2,
   /** A raider takes this share of its load in one hit on a store. */
   grab: 1 / 3,
   /** Attackers run away when their side has less than this share of its power left. */
@@ -3212,6 +3212,8 @@ var BATTLE = {
   maxAir: 24,
   /** A pack comes in over the rampart tiles this far from its gate. */
   packWidth: 1,
+  /** A pack waits this long at its gate after its last member came in. */
+  gather: 1,
   /** Seconds between two attackers entering by the same sector. */
   enterGap: 0.5,
   /** Tiles of the attackers' trail kept for the trampled paths. */
@@ -3747,6 +3749,11 @@ function simulateBattle(setup, seed) {
     const s = u.s;
     if (s.role === "raider") {
       if (u.fleeing || u.carried >= s.carry - 1e-9) return goHome(u, t);
+      if (t < (s.hold ?? 0) - 1e-9) {
+        const blow = s.fightsBack ? raiderTarget(u) : null;
+        if (blow?.unit && inRange(u, blow) && t >= u.readyAt - 1e-9) strike2(u, blow, t);
+        return;
+      }
       if (!valid(u, u.target) || t >= u.retargetAt) {
         u.target = raiderTarget(u);
         u.retargetAt = t + BATTLE.retarget;
@@ -4038,20 +4045,34 @@ function waveSquads(state, threat) {
   return out;
 }
 function waveGates(state, waveId) {
-  const map = faceMapOf(state);
-  const rampart = rampartSectors(map);
   const rng = createRng(`${state.seed}/${state.face}/${state.colony.index}/${waveId}/gates`);
   const out = {};
   for (const s of SECTOR_IDS) {
-    const tiles = rampart.tiles.filter((_, i) => rampart.sectors[i] === s).map((t) => ({
-      t,
-      a: angleGap(angleOf(t), SECTOR_MIDDLE[s]) * Math.sign(angleOf(t) - SECTOR_MIDDLE[s] || 1)
-    })).sort((x, y) => x.a - y.a || x.t.q - y.t.q || x.t.r - y.t.r);
-    const u = (rng.next() + rng.next()) / 2;
+    const tiles = gateTiles(state, s);
+    const u = (rng.next() + rng.next() + rng.next()) / 3;
     const pick = tiles[Math.min(tiles.length - 1, Math.floor(u * tiles.length))];
-    out[s] = pick ? { q: pick.t.q, r: pick.t.r } : { q: 0, r: 0 };
+    out[s] = pick ? { q: pick.q, r: pick.r } : { q: 0, r: 0 };
   }
   return out;
+}
+function gateTiles(state, sector) {
+  const rampart = rampartSectors(faceMapOf(state));
+  const signed = (t) => {
+    const d = angleOf(t) - SECTOR_MIDDLE[sector];
+    return Math.atan2(Math.sin(d), Math.cos(d));
+  };
+  return rampart.tiles.filter((_, i) => rampart.sectors[i] === sector).map((t) => ({ t, a: signed(t) })).sort((x, y) => x.a - y.a || x.t.q - y.t.q || x.t.r - y.t.r).map((x) => ({ q: x.t.q, r: x.t.r }));
+}
+function gateOdds(state, sector) {
+  const tiles = gateTiles(state, sector);
+  const n = tiles.length;
+  const cdf = (x) => {
+    const y = Math.max(0, Math.min(3, 3 * x));
+    if (y <= 1) return y ** 3 / 6;
+    if (y <= 2) return (-2 * y ** 3 + 9 * y ** 2 - 9 * y + 3) / 6;
+    return 1 - (3 - y) ** 3 / 6;
+  };
+  return tiles.map((tile, i) => ({ tile, p: cdf((i + 1) / n) - cdf(i / n) }));
 }
 function squadScale(squads, threat) {
   const nominal = { ground: 0, air: 0 };
@@ -4165,6 +4186,8 @@ function waveSetup(state, wave, threat, opts) {
         units.push(u);
       }
     }
+    const hold = Math.max(0, j - 1) * BATTLE.enterGap + BATTLE.gather;
+    for (const u of units) if (u.side === 1 && u.sector === sector) u.hold = hold;
   }
   const exitList = SECTOR_IDS.flatMap((s) => exits[s].map((e) => e.i));
   const defense = defenseOf(state, threat);
@@ -16928,6 +16951,8 @@ export {
   gameStateSchema,
   garrisonOf,
   gateCoverage,
+  gateOdds,
+  gateTiles,
   generateFace,
   generateObstacles,
   generateTraces,

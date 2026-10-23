@@ -2207,17 +2207,21 @@ launch cost applies to **every mission but the founding**; the bot's dead time a
 
 - **Packs and gates**: at the announcement each sector gets its squads (soldiers, scouts,
   brutes; divers and spitters; brutes and spitters grow with the age) and a **gate**, a rampart
-  tile drawn from the wave's hash around the middle of the sector. Packs come in there, the
+  tile drawn from the wave's hash around the middle of the sector (mean of three draws).
+  Each pack **gathers at its gate** until its last member is in, plus 2 s, then charges: without
+  it predators crossed a turret's reach in 2–3 s and the turrets fired twice. Packs come in there, the
   gates pulse on the map and the defense window lists the gates no turret reaches. Without
   gates the predators entered all along the rampart and turrets fired twice: placement did not
   matter. With them a turret (or a guard) where the pack comes in decides the wave.
 - Against an announced wave, `defenseOf` counts a turret only for the sectors whose gate it
   reaches, so the sums of the window, the automatic garrison and the bot follow the battle.
-- **Victory**: nothing damaged and at most a quarter of what lay in the open carried away
+- **Victory**: nothing damaged and at most 35 % of what lay in the open carried away
   (`THREATS.holdLoot`): a repelled pack may still leave with a few scraps. Defeat → shield, as
   before. At most `maxDamaged` buildings break (the engine spares the others), never the Nest.
-- A pack can carry 1.5 × what lies in the open (`lootShare` of the reserves and the
-  unprotected stock): two thirds of it empty the stores, the others break things.
+- A pack can carry 1.2 × what lies in the open (`lootShare` of the reserves and the
+  unprotected stock): most of it empties the stores, the others break things.
+- Predators walk slower than first drafted (soldier 0.8 tile/s, scout 1.3, brute 0.55, bats
+  1.4 and 1.2) so guards and turrets can catch them.
 - Deaths: unchanged rule (threat > 2 × the defense sums, not sheltered, > 4 kiwis, at most
   one); the kiwi who dies is the first one that fell. During a shelter, guards still fight and
   may be hurt; nobody else is in the battle.
@@ -2231,5 +2235,6 @@ launch cost applies to **every mission but the founding**; the bot's dead time a
   blow. Known leak: the automation may queue the repair at once (left as is).
 - Replay from each report ("Watch the battle", the last five), ×1/×2/×4, rewind, skip, a tap
   on a fighter opens its card (level, health, weapon; equipment comes with chantier 38).
-- Posture (cautious / bold) and pins in the defense window; the bot builds the missing turret
-  next to an uncovered gate and turns bold while a ground gate stays open.
+- Posture (cautious / bold) and pins in the defense window; the bot places its turrets where
+  the gates fall most often (`gateOdds`), builds the missing turret next to an uncovered gate
+  and turns bold while a ground gate stays open.
