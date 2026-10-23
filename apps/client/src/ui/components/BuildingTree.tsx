@@ -18,7 +18,8 @@ import {
   type GameState,
 } from '@kiwar/shared';
 import { actions } from '../actions';
-import { buildingIcon, Icon } from '../iconSet';
+import { Icon } from '../iconSet';
+import { BuildingThumb } from './BuildingThumb';
 import { useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
 import { LevelStats } from './StatChanges';
@@ -74,6 +75,7 @@ function Levels({ game, type, t }: { game: GameState; type: BuildingType; t: Tra
           const last = all.filter((l) => laterAge(game, type, l) === later).pop() ?? level;
           return (
             <li key={level} class="tree-level is-hidden">
+              <BuildingThumb type={type} level={level} locked size={34} />
               <span class="badge">
                 {last > level
                   ? t('plans.levelRange', { from: level, to: last })
@@ -87,6 +89,7 @@ function Levels({ game, type, t }: { game: GameState; type: BuildingType; t: Tra
         }
         return (
           <li key={level} class="tree-level">
+            <BuildingThumb type={type} level={level} size={34} />
             <span class="badge">{t('plans.level', { level })}</span>
             <LevelStats stats={describeLevel(type, level, game)} />
             {def.requiresNestLevel > 1 && (
@@ -105,9 +108,7 @@ function TreeCard({ game, type, t }: { game: GameState; type: BuildingType; t: T
     return (
       <li class="tree-card is-hidden">
         <div class="tree-head">
-          <span class="tree-silhouette" aria-hidden="true">
-            <Icon name={buildingIcon(type)} size={30} />
-          </span>
+          <BuildingThumb type={type} locked size={52} />
           <strong>{t('plans.unknown')}</strong>
         </div>
         <p class="small muted">{t('plans.later', { age: `@ages.${AGE_IDS[later]!}` })}</p>
@@ -117,10 +118,12 @@ function TreeCard({ game, type, t }: { game: GameState; type: BuildingType; t: T
   const placeable = BUILDINGS[type].buildable;
   const reason = placeable ? lockReason(game, type, t) : null;
   const locked = placeable && buildLock(game, type) !== null;
+  // Chantier 33: the real building, at the highest level the colony has (black while locked).
+  const shown = Math.max(1, ...game.buildings.filter((b) => b.type === type).map((b) => b.level));
   return (
     <li class={`tree-card ${locked ? 'is-locked' : ''}`}>
       <div class="tree-head">
-        <Icon name={buildingIcon(type)} size={30} />
+        <BuildingThumb type={type} level={shown} locked={locked && count === 0} size={52} />
         <div class="tree-title">
           <strong>{t(`buildings.${type}.name`)}</strong>
           <span class="small muted">
@@ -197,7 +200,7 @@ export function PlacingBanner() {
       role="dialog"
       aria-label={t('plans.placingHint')}
     >
-      <Icon name={buildingIcon(placing)} size={30} />
+      <BuildingThumb type={placing} size={44} />
       <div class="path-toolbar-text">
         <strong>{t('plans.placing', { name: `@buildings.${placing}.name` })}</strong>
         {error === 'tileNotAllowed' ? (

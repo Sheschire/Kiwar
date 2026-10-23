@@ -12,6 +12,7 @@ import { useState } from 'preact/hooks';
 import { formatDuration } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { CloseIcon, HammerIcon } from '../icons';
+import { BuildingThumb } from './BuildingThumb';
 import { setPanelOpen, useT, useUi } from '../store';
 
 function QueueRow({
@@ -52,7 +53,16 @@ function QueueRow({
   return (
     <li class={`queue-row ${item.startedAt !== null ? 'active' : ''}`}>
       <button class="queue-main" onClick={focus}>
-        <span class="queue-label">{label}</span>
+        <span class="queue-label">
+          {item.kind !== 'clear' && (
+            <BuildingThumb
+              type={item.buildingType}
+              level={Math.max(1, item.targetLevel)}
+              size={26}
+            />
+          )}
+          {label}
+        </span>
         {item.startedAt !== null ? (
           <>
             <span class="progress">

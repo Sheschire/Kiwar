@@ -4046,12 +4046,42 @@ button.chip:focus-visible {
 }
 
 .tree-card.is-hidden {
-  opacity: 0.6;
   border-style: dashed;
 }
 
-.tree-silhouette .icon {
-  filter: brightness(0) opacity(0.45);
+/* Chantier 33: the silhouette stays black, the words fade. */
+.tree-card.is-hidden > p,
+.tree-card.is-hidden strong {
+  opacity: 0.6;
+}
+
+/* Chantier 33: the real buildings as pictures (render/thumbnails.ts). */
+.building-thumb {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.building-thumb.is-locked .icon {
+  filter: brightness(0) opacity(0.6);
+}
+
+.tree-level .building-thumb {
+  margin-right: 2px;
+}
+
+.queue-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+h3 .building-thumb {
+  margin: -6px 0;
 }
 
 .tree-head {

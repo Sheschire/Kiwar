@@ -88,7 +88,8 @@ import {
 import { uiStore, useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
 import { LevelStats, UpgradePreview } from './StatChanges';
-import { buildingIcon, Icon, type IconName } from '../iconSet';
+import { Icon, type IconName } from '../iconSet';
+import { BuildingThumb } from './BuildingThumb';
 import { LabInfo } from './LabInfo';
 import { siegeVisible } from './SiegeModal';
 import { TitanWorks } from './TitanWorks';
@@ -302,7 +303,7 @@ function BuildingSection({
     <div class="section">
       <div class="title-row">
         <h3>
-          <Icon name={buildingIcon(b.type)} size={22} /> {t(`buildings.${b.type}.name`)}
+          <BuildingThumb type={b.type} level={b.level} size={34} /> {t(`buildings.${b.type}.name`)}
         </h3>
         <span class="badge">{t('common.levelShort', { level: b.level })}</span>
       </div>
@@ -604,7 +605,7 @@ function BuildOption({
     <div class="build-option">
       <div class="build-option-head">
         <strong>
-          <Icon name={buildingIcon(type)} size={22} /> {t(`buildings.${type}.name`)}
+          <BuildingThumb type={type} size={34} /> {t(`buildings.${type}.name`)}
         </strong>
         <Rates rates={preview} />
         <LevelStats stats={describeLevel(type, 1, game).filter((x) => x.stat !== 'production')} />

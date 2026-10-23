@@ -93,11 +93,17 @@ export function lookOf(type: BuildingType, level: number, colonyAge = 0, docked 
 const cache = new Map<string, BufferGeometry>();
 const models = new Map<string, BuildingModel>();
 
-function partsOf(type: BuildingType, level: number, shipAway: boolean, colonyAge: number): Parts {
+function partsOf(
+  type: BuildingType,
+  level: number,
+  shipAway: boolean,
+  colonyAge: number,
+  sign = true,
+): Parts {
   const look = lookOf(type, level, colonyAge, !shipAway);
   const p = BUILDERS[type](look);
   p.doors = p.filter((part) => part[1] === C.door && !part[3]);
-  if (type !== 'camp') signPost(p, type);
+  if (type !== 'camp' && sign) signPost(p, type);
   if (level > 3 && type !== 'monument' && type !== 'lab') {
     if (look.tier >= 2 && !OWN_ANNEX.has(type))
       annex(p, look.age, ...(ANNEX_SPOTS[type] ?? [-0.5, -0.5]));
@@ -283,6 +289,17 @@ export function buildingModel(
   let model = models.get(key);
   if (!model) {
     model = modelOf(partsOf(type, level, shipAway, age));
+    models.set(key, model);
+  }
+  return model;
+}
+
+/** Chantier 33: the model without its sign post, for the interface's pictures. */
+export function buildingPicture(type: BuildingType, level: number, colonyAge = 0): BuildingModel {
+  const key = `${type}:${level}:${colonyAge}:picture`;
+  let model = models.get(key);
+  if (!model) {
+    model = modelOf(partsOf(type, level, false, colonyAge, false));
     models.set(key, model);
   }
   return model;

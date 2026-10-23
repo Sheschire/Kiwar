@@ -20,6 +20,7 @@ import { placementError, placementPlan } from './game/placement';
 import { App } from './ui/App';
 import { Guard } from './ui/components/Guard';
 import { GameRenderer } from './render/GameRenderer';
+import { setThumbnailRenderer } from './render/thumbnails';
 import { GameController } from './game/GameController';
 import { persistLang, translate } from './i18n/i18n';
 import { pushToast, uiStore } from './ui/store';
@@ -265,6 +266,7 @@ controller = new GameController({
   },
 });
 bindActions(controller, renderer);
+setThumbnailRenderer(renderer.renderer);
 bindIntro(renderer);
 // Shared universes: refresh friends (and the friend on the twin face) every few minutes.
 window.setInterval(() => {
