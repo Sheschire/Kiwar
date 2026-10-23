@@ -86,12 +86,12 @@ describe('star technologies', () => {
     expect(meteorStock(withTech(s, 'starIron'), s.now)).toBe(
       Math.round(meteorStock(s, s.now) * 1.3),
     );
-    // Waves: announced 4 hours earlier than the plain draw.
+    // Waves: announced 2 hours earlier than the plain draw.
     const unplanned: GameState = { ...s, threats: { ...s.threats, next: null } };
     const plain = advance(unplanned, s.now + 1).state.threats.next!;
     const watched = advance(withTech(unplanned, 'starWatch'), s.now + 1).state.threats.next!;
-    expect(watched.at - watched.announceAt).toBe(plain.at - plain.announceAt + 4 * HOUR);
-    expect(watched.at - watched.announceAt).toBeLessThanOrEqual(THREATS.noticeMs[1] + 4 * HOUR);
+    expect(watched.at - watched.announceAt).toBe(plain.at - plain.announceAt + 2 * HOUR);
+    expect(watched.at - watched.announceAt).toBeLessThanOrEqual(THREATS.noticeMs[1] + 2 * HOUR);
     // Comets: the gap after a passage is 20 % shorter.
     const after = (st: GameState) => {
       const x = advance(st, T0 + COMETS.firstMs).state;

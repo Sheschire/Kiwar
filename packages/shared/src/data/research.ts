@@ -256,7 +256,7 @@ export const TECHS: Record<TechId, TechDef> = {
     cost: 300,
     libraryLevel: 2,
     stardust: 8,
-    effects: { waveNotice: 4 * 3_600_000 },
+    effects: { waveNotice: 2 * 3_600_000 },
   },
   cometLure: {
     id: 'cometLure',

@@ -23,7 +23,7 @@ import { calendarAt } from './calendar';
 import type { Odds } from './expeditions';
 import { removeVillagers } from './expeditions';
 import { kiwiExposure, kiwiStrength } from './kiwis';
-import { isRampart, nest } from './selectors';
+import { capacity, isRampart, nest, reserveHolders, reserves } from './selectors';
 import { faceMapOf } from './territory';
 import { ageOf, techEffects } from './research';
 import {
@@ -45,7 +45,34 @@ export interface Sides {
 // ---------------------------------------------------------------------------------------------
 // Threat
 
-/** Total power of a wave announced at `at`: colony size × play time × provocation. */
+/**
+ * Chantier 31: the predators smell a rich colony — a full storage (stock and reserves), many
+ * building levels and many kiwis make the waves stronger.
+ */
+export function wealthFactor(state: GameState): number {
+  const W = THREATS.wealth;
+  const cap = capacity(state);
+  const kept = reserves(state);
+  let stored = 0;
+  let room = 0;
+  for (const id of RESOURCE_IDS) {
+    stored += state.resources[id] + kept.stock[id];
+    room += cap[id];
+  }
+  const fill = Math.min(W.maxFill, room > 0 ? stored / room : 0);
+  const levels = state.buildings.reduce(
+    (sum, b) => sum + (b.type === 'nest' || b.type === 'camp' ? 0 : b.level),
+    0,
+  );
+  return (
+    1 +
+    W.stock * fill +
+    W.levels * Math.log(1 + levels / W.levelsRef) +
+    W.population * Math.log(1 + state.villagers.length / W.populationRef)
+  );
+}
+
+/** Total power of a wave announced at `at`: colony size × play time × provocation × wealth. */
 export function wavePower(state: GameState, at: TimeMs): number {
   const level = nest(state).level;
   const factor = THREATS.nestFactor[level] ?? THREATS.nestFactor[THREATS.nestFactor.length - 1]!;
@@ -59,6 +86,7 @@ export function wavePower(state: GameState, at: TimeMs): number {
     age *
     (1 + THREATS.perDay * days) *
     (1 + provocation) *
+    wealthFactor(state) *
     sisterThreat(state, at)
   );
 }
@@ -370,7 +398,10 @@ export interface WaveOutcome {
   /** Part of the severity due to the ferrets (they trample the paths). */
   groundSeverity: number;
   damaged: number;
+  /** Everything carried away (chantier 31: reserves first)… */
   loot: Resources;
+  /** …of which this much from the warehouse reserves. */
+  lootReserve: Resources;
   injured: number;
   deaths: number;
   pathsLost: number;
@@ -389,6 +420,7 @@ export function waveOutcome(
   const severity = total > 0 ? Math.min(1, excess / total) : 0;
   const groundSeverity = total > 0 ? Math.min(1, groundExcess / total) : 0;
   const loot = emptyResources();
+  const lootReserve = emptyResources();
   if (excess <= 1e-9) {
     return {
       victory: true,
@@ -397,15 +429,19 @@ export function waveOutcome(
       groundSeverity: 0,
       damaged: 0,
       loot,
+      lootReserve,
       injured: 0,
       deaths: 0,
       pathsLost: 0,
     };
   }
+  // Chantier 31: the reserves lie in the open; the stock is kept safe up to its protected share.
   const safe = protectedStock(state);
+  const kept = reserves(state).stock;
   for (const id of RESOURCE_IDS) {
-    const exposed = Math.max(0, state.resources[id] - safe[id]);
+    const exposed = kept[id] + Math.max(0, state.resources[id] - safe[id]);
     loot[id] = Math.floor(exposed * THREATS.lootShare * severity);
+    lootReserve[id] = Math.min(loot[id], Math.floor(kept[id]));
   }
   const candidates = damageable(state).length;
   const damaged = Math.min(candidates, Math.max(1, Math.round(severity * THREATS.maxDamaged)));
@@ -429,6 +465,7 @@ export function waveOutcome(
     groundSeverity,
     damaged,
     loot,
+    lootReserve,
     injured,
     deaths,
     pathsLost,
@@ -610,7 +647,18 @@ function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
     dead: [],
     pathsLost: 0,
   };
-  for (const id of RESOURCE_IDS) s.resources[id] = Math.max(0, s.resources[id] - out.loot[id]);
+  // Chantier 31: the reserves are looted first, warehouse after warehouse, then the stock.
+  for (const id of RESOURCE_IDS) {
+    let left = out.lootReserve[id];
+    for (const b of reserveHolders(s)) {
+      if (left <= 0) break;
+      const take = Math.min(left, b.reserve?.[id] ?? 0);
+      if (take <= 0) continue;
+      b.reserve = { ...b.reserve!, [id]: b.reserve![id] - take };
+      left -= take;
+    }
+    s.resources[id] = Math.max(0, s.resources[id] - (out.loot[id] - out.lootReserve[id] + left));
+  }
   // Bigger buildings attract more predators.
   for (const b of drawWeighted(s, damageable(s), (b) => b.level, out.damaged)) {
     b.damaged = true;

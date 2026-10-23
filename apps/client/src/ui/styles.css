@@ -3376,6 +3376,42 @@ button.chip:focus-visible {
   gap: 2px 12px;
 }
 
+/* Chantier 31: what can still be done before the strike. */
+.wave-actions {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px dashed var(--edge);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.wave-actions h4 {
+  margin: 0 0 4px;
+}
+
+.wave-actions ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wave-actions li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wave-actions li span {
+  flex: 1;
+}
+
+.wave-actions li span::before {
+  content: '• ';
+  color: var(--berry);
+}
+
 .shelter-box {
   display: flex;
   flex-direction: column;

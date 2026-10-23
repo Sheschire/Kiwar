@@ -1295,6 +1295,17 @@ export const fr: Dict = {
     noGain: 'Ce tracé n’accélère aucun producteur.',
   },
   defense: {
+    actions: {
+      title: 'Avant l’assaut',
+      collect: 'Rapatriez les réserves : une part du stock est à l’abri dans le Nid.',
+      collectLoot: 'Les réserves sont à découvert ({list} seraient perdus) : rapatriez-les.',
+      collectGo: 'Rapatrier',
+      ammo: 'Il manque {missing} graines aux tourelles pour tirer à pleine puissance.',
+      guard: 'Postez des gardes là où la prévision fuit (garnison plus bas).',
+      turret: 'Posez une tourelle sur le rempart (encore {count} possible·s).',
+      turretGo: 'Plans',
+      repair: '{count} bâtiment(s) abîmé(s) travaillent à moitié : réparez-les.',
+    },
     fold: 'Replier l’alerte de vague',
     unfold: 'Afficher l’alerte de vague',
     button: 'Défense',
@@ -1303,7 +1314,7 @@ export const fr: Dict = {
     badgeShelter: 'Tout le monde au Nid · {duration}',
     badgeReport: 'Rapport de vague',
     strikesIn: 'Une vague frappe dans {duration}.',
-    noWave: 'Aucune vague annoncée. Les guetteurs verront la prochaine 8 à 12 h à l’avance.',
+    noWave: 'Aucune vague annoncée. Les guetteurs verront la prochaine 3 à 6 h à l’avance.',
     protected:
       'Protection des débutants : aucune grosse vague avant un Nid niveau 2 et 24 h de jeu.',
     shield: 'Bouclier après la dernière attaque : aucune vague avant {duration}.',
@@ -1873,7 +1884,7 @@ export const fr: Dict = {
       name: 'Nuits claires',
       desc: 'La poussière d’étoiles éclaire les nuits : travail de nuit +15 %.',
     },
-    starWatch: { name: 'Guet des étoiles', desc: 'Les vagues sont annoncées 4 heures plus tôt.' },
+    starWatch: { name: 'Guet des étoiles', desc: 'Les vagues sont annoncées 2 heures plus tôt.' },
     cometLure: { name: 'Appel des comètes', desc: 'Les comètes reviennent 20 % plus tôt.' },
     starIron: { name: 'Fer d’étoile', desc: 'Les météorites apportent 30 % de plus.' },
     meteorDrill: {

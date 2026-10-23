@@ -1,4 +1,9 @@
 import {
+  canCollect,
+  reserveHolders,
+  turretCount,
+  turretLimit,
+  type WaveForecast,
   SECTOR_IDS,
   type SectorClash,
   type SectorId,
@@ -355,6 +360,65 @@ function ReportItem({ r, now, t }: { r: WaveReport; now: number; t: Translate })
   );
 }
 
+/**
+ * Chantier 31: what can still be done before the strike — every wave has several answers.
+ * Shelter has its own box below.
+ */
+function WaveActions({ game, f }: { game: GameState; f: WaveForecast }) {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const leaks = !f.expected.victory;
+  const fromReserves = RESOURCE_IDS.some((id) => f.expected.lootReserve[id] > 0);
+  const collectable = reserveHolders(game).some((b) => canCollect(game, b));
+  const damaged = game.buildings.filter((b) => b.damaged).length;
+  const room = turretLimit(game) - turretCount(game);
+  const items: { key: string; text: string; act?: () => void; label?: string }[] = [];
+  if (collectable && (fromReserves || leaks))
+    items.push({
+      key: 'collect',
+      text: fromReserves
+        ? t('defense.actions.collectLoot', { list: lootList(t, lang, f.expected.lootReserve) })
+        : t('defense.actions.collect'),
+      act: () => actions.collect(null),
+      label: t('defense.actions.collectGo'),
+    });
+  if (f.defense.ammo.share < 1)
+    items.push({
+      key: 'ammo',
+      text: t('defense.actions.ammo', {
+        missing: Math.ceil(f.defense.ammo.need - f.defense.ammo.have),
+      }),
+    });
+  if (leaks) items.push({ key: 'guard', text: t('defense.actions.guard') });
+  if (leaks && room > 0)
+    items.push({
+      key: 'turret',
+      text: t('defense.actions.turret', { count: room }),
+      act: () => uiStore.setState({ modal: 'plans', plansTab: 'buildings' }),
+      label: t('defense.actions.turretGo'),
+    });
+  if (damaged > 0)
+    items.push({ key: 'repair', text: t('defense.actions.repair', { count: damaged }) });
+  if (items.length === 0) return null;
+  return (
+    <section class="wave-actions">
+      <h4>{t('defense.actions.title')}</h4>
+      <ul>
+        {items.map((i) => (
+          <li key={i.key} class="small">
+            <span>{i.text}</span>
+            {i.act && (
+              <button type="button" class="btn btn-small" onClick={i.act}>
+                {i.label}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function DefenseModal() {
   const t = useT();
   const lang = useUi((s) => s.lang);
@@ -421,6 +485,7 @@ export function DefenseModal() {
             {t('defense.expected')}{' '}
             {expected?.victory ? t('defense.expectedWin') : consequences.join(' · ')}
           </p>
+          <WaveActions game={game} f={f} />
           <div class="shelter-box">
             <button
               class="btn btn-primary"

@@ -60,6 +60,9 @@ describe('research', () => {
 
   it('researchers bank points, capped without a chosen technology', () => {
     const { map, s, libraryId } = libraryColony();
+    // No wave meanwhile (chantier 31: an injured researcher stops the research).
+    s.threats.shieldUntil = s.now + 1000 * HOUR_MS;
+    s.threats.next = null;
     const staffed = run(s, { type: 'assignWorkers', buildingId: libraryId, count: 1 }, s.now, map);
     expect(researchPerHour(staffed)).toBeGreaterThan(0);
     const later = advance(staffed, staffed.now + 200 * HOUR_MS).state;

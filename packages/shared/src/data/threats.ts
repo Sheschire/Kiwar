@@ -9,29 +9,47 @@ import type { Season } from './cycles';
  * resolved at once in `advance` (exact offline); the colony is never razed.
  */
 export const THREATS = {
-  /** No big wave before this much play time… */
-  protectionMs: ms.h(24),
+  /** No big wave before this much play time… (chantier 31: within the first day) */
+  protectionMs: ms.h(7),
   /** …nor before the Nest reaches this level. */
   protectionNestLevel: 2,
   /** Time between two waves (drawn in this range). */
-  intervalMs: [ms.h(20), ms.h(28)],
-  /** How long before the strike a wave is announced (drawn in this range). */
-  noticeMs: [ms.h(8), ms.h(12)],
+  intervalMs: [ms.h(12), ms.h(18)],
+  /** How long before the strike a wave is announced (drawn in this range): enough to act
+   * within a session, not hours under alert (chantier 31). */
+  noticeMs: [ms.h(3), ms.h(6)],
   /** No wave strikes until this long after a defeat. */
   shieldMs: ms.h(24),
   /** Chantier 14: no wave for a solo colony that just joined a universe. */
   importShieldMs: ms.h(48),
-  /** Total wave power: base × Nest level factor × play time × provocation. */
+  /**
+   * Total wave power: base × Nest level factor × age × play time × provocation × wealth
+   * (chantier 31: the predators smell a rich colony).
+   */
   basePower: 6,
   nestFactor: [0, 0.6, 1, 1.6, 2.2, 2.4, 2.65, 2.9, 3.1, 3.35, 3.6, 3.85, 4.1] as readonly number[],
   /** Chantier 08: the predators grow with the age of the colony (index = age). */
   ageFactor: [1, 1.15, 1.3, 1.5] as readonly number[],
-  /** Power gained per day of play, up to `maxDays`. */
-  perDay: 0.25,
+  /** Power gained per day of play, up to `maxDays` (softened in chantier 31; chantier 39
+   * replaces it by the alien civilisation). */
+  perDay: 0.12,
   maxDays: 14,
   /** Power gained per expedition victory (the aliens strike back), up to `maxProvocation`. */
   perVictory: 0.08,
   maxProvocation: 0.8,
+  /**
+   * Chantier 31, wealth: + `stock` × the share of the storage filled (stock and reserves
+   * together, up to `maxFill`), + `levels` × ln(1 + levels of the buildings / `levelsRef`),
+   * + `population` × ln(1 + kiwis / `populationRef`).
+   */
+  wealth: {
+    stock: 0.4,
+    maxFill: 2,
+    levels: 0.25,
+    levelsRef: 10,
+    population: 0.15,
+    populationRef: 5,
+  },
   /** Share of the power that flies (bats) at night and by day. */
   airShare: { night: 0.7, day: 0.25 },
   /** Hungry ferrets in winter, thirsty bats in summer. */
@@ -54,7 +72,10 @@ export const THREATS = {
   /** Share of the kiwis at home hurt at full severity, and how long they rest. */
   injuryShare: 0.4,
   injuryMs: [ms.h(2), ms.h(6)],
-  /** Share of the unprotected stock carried away at full severity. */
+  /**
+   * Share of the unprotected stock carried away at full severity. Chantier 31: the warehouse
+   * reserves are not protected and are looted first.
+   */
   lootShare: 0.35,
   /** Share of their storage that the Nest and the Warehouses keep safe from looting. */
   protectedShare: { nest: 0.3, warehouse: 0.6 } as Partial<Record<string, number>>,

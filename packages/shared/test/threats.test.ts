@@ -26,6 +26,10 @@ import {
   THREATS,
   workforce,
   workersOf,
+  wavePower,
+  wealthFactor,
+  reserveCapOf,
+  RESOURCE_IDS,
   type GameEvent,
   type GameState,
 } from '../src';
@@ -85,7 +89,7 @@ describe('predator waves', () => {
     expect(after.threats.waves).toBe(0);
   });
 
-  it('strikes after the protection, announced 8–12 h ahead, about once a day', () => {
+  it('strikes after the protection, announced 3–6 h ahead, twice a day or so', () => {
     const { state } = colony();
     const { state: after, events } = eventsUntil(state, T0 + 6 * DAY);
     const announced = events.filter((e) => e.type === 'waveAnnounced');
@@ -214,6 +218,89 @@ describe('predator waves', () => {
     const { state: after, events } = advance(s, s.now + 2 * HOUR_MS);
     expect(events.some((e) => e.type === 'injuryHealed')).toBe(true);
     expect(after.villagers.find((x) => x.id === v.id)!.job.kind).not.toBe('injured');
+  });
+});
+
+describe('waves awakened (chantier 31)', () => {
+  it('the first wave strikes within the first day', () => {
+    const { state } = colony();
+    const { events } = advance(state, T0 + DAY);
+    const struck = events.filter((e) => e.type === 'waveStruck');
+    expect(struck.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('a rich colony draws stronger waves', () => {
+    const { state } = colony();
+    const poor = { ...state, resources: { pulp: 0, fiber: 0, seeds: 0, juice: 0 } };
+    expect(wealthFactor(state)).toBeGreaterThan(wealthFactor(poor));
+    expect(wavePower(state, T0)).toBeGreaterThan(wavePower(poor, T0));
+    const crowded = { ...poor, villagers: [...poor.villagers, kiwi('x1'), kiwi('x2'), kiwi('x3')] };
+    expect(wealthFactor(crowded)).toBeGreaterThan(wealthFactor(poor));
+  });
+
+  /** An undefended colony with a warehouse full of reserves, a wave about to strike. */
+  function looted() {
+    const { map, state } = colony();
+    const flesh = findTile(map, 'flesh', 3);
+    let s = rich(state);
+    s = run(s, { type: 'build', buildingType: 'warehouse', q: flesh.q, r: flesh.r }, s.now, map);
+    s = advance(s, s.now + HOUR_MS).state;
+    const w = s.buildings.find((b) => b.type === 'warehouse')!;
+    const cap = reserveCapOf(s, w);
+    w.reserve = { pulp: cap, fiber: cap, seeds: cap, juice: cap };
+    s = { ...s, resources: { pulp: 200, fiber: 200, seeds: 0, juice: 200 } };
+    s.threats.next = {
+      id: 'w9',
+      announceAt: s.now - 1,
+      at: s.now + 10 * 60_000,
+      announced: true,
+      ground: 400,
+      air: 400,
+    };
+    return { map, s, warehouseId: w.id, cap };
+  }
+
+  it('loots the reserves first, then the stock above its protected share', () => {
+    const { s, warehouseId, cap } = looted();
+    const f = forecastWave(s)!;
+    expect(f.expected.victory).toBe(false);
+    expect(f.expected.lootReserve.pulp).toBeGreaterThan(0);
+    // The stock (200) lies under the Nest's protected share: only the reserves are taken.
+    expect(f.expected.loot.pulp).toBe(f.expected.lootReserve.pulp);
+    const after = advance(s, s.threats.next!.at + 1).state;
+    const report = after.threats.reports.at(-1)!;
+    expect(report.loot.pulp).toBeGreaterThan(0);
+    const w = after.buildings.find((b) => b.id === warehouseId)!;
+    expect(w.reserve!.pulp).toBeLessThan(cap);
+    expect(after.resources.pulp).toBeGreaterThanOrEqual(200);
+  });
+
+  it('bringing the reserves back before the strike saves part of them', () => {
+    const { map, s } = looted();
+    const kept = run(s, { type: 'collectAll' }, s.now, map);
+    const lost = (x: GameState) => {
+      const f = forecastWave(x)!;
+      return RESOURCE_IDS.reduce((sum, id) => sum + f.expected.loot[id], 0);
+    };
+    expect(lost(kept)).toBeLessThan(lost(s));
+  });
+
+  it('never kills without a real defeat', () => {
+    for (const seed of ['a', 'b', 'c', 'd']) {
+      const { map, state } = setup('kiwisu', seed);
+      void map;
+      let s = rich(state);
+      s.buildings[0]!.level = 2;
+      for (let i = 0; i < 6; i++) s.villagers.push(kiwi(`${seed}${i}`));
+      s = advance(s, T0 + 5 * DAY).state;
+      for (const r of s.threats.reports) {
+        if (r.dead.length === 0) continue;
+        expect(r.victory).toBe(false);
+        expect(r.threat.ground + r.threat.air).toBeGreaterThan(
+          THREATS.deathRatio * (r.defense.ground + r.defense.air),
+        );
+      }
+    }
   });
 });
 
@@ -356,7 +443,9 @@ describe('defenses', () => {
     expect(report.victory).toBe(true);
     expect(report.ammoUsed).toBeGreaterThan(0);
     expect(report.ammoUsed).toBeLessThanOrEqual(f.defense.ammo.need);
-    expect(after.resources.seeds).toBeLessThan(seeds);
+    // The harvest goes on until the strike (chantier 31: a shorter notice).
+    const harvested = after.stats.produced.seeds - s.stats.produced.seeds;
+    expect(after.resources.seeds).toBeLessThanOrEqual(seeds + harvested - report.ammoUsed + 1e-6);
     expect(after.threats.shieldUntil).toBe(0);
   });
 });

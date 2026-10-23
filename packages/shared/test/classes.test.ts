@@ -158,6 +158,9 @@ describe('school and classes', () => {
 
   it('lets a mage make it rain on the deposits of their workplace', () => {
     const { map, s: start, schoolId } = schoolColony(2);
+    // No wave meanwhile (chantier 31: the first one comes within the day).
+    start.threats.shieldUntil = start.now + 1000 * HOUR_MS;
+    start.threats.next = null;
     let s = advance(
       run(start, train(start, 0, schoolId, 'mage'), start.now, map),
       start.now + 4 * HOUR_MS,

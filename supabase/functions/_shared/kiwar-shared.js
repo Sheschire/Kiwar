@@ -1729,29 +1729,47 @@ var MORALE = {
 
 // packages/shared/src/data/threats.ts
 var THREATS = {
-  /** No big wave before this much play time… */
-  protectionMs: ms.h(24),
+  /** No big wave before this much play time… (chantier 31: within the first day) */
+  protectionMs: ms.h(7),
   /** …nor before the Nest reaches this level. */
   protectionNestLevel: 2,
   /** Time between two waves (drawn in this range). */
-  intervalMs: [ms.h(20), ms.h(28)],
-  /** How long before the strike a wave is announced (drawn in this range). */
-  noticeMs: [ms.h(8), ms.h(12)],
+  intervalMs: [ms.h(12), ms.h(18)],
+  /** How long before the strike a wave is announced (drawn in this range): enough to act
+   * within a session, not hours under alert (chantier 31). */
+  noticeMs: [ms.h(3), ms.h(6)],
   /** No wave strikes until this long after a defeat. */
   shieldMs: ms.h(24),
   /** Chantier 14: no wave for a solo colony that just joined a universe. */
   importShieldMs: ms.h(48),
-  /** Total wave power: base × Nest level factor × play time × provocation. */
+  /**
+   * Total wave power: base × Nest level factor × age × play time × provocation × wealth
+   * (chantier 31: the predators smell a rich colony).
+   */
   basePower: 6,
   nestFactor: [0, 0.6, 1, 1.6, 2.2, 2.4, 2.65, 2.9, 3.1, 3.35, 3.6, 3.85, 4.1],
   /** Chantier 08: the predators grow with the age of the colony (index = age). */
   ageFactor: [1, 1.15, 1.3, 1.5],
-  /** Power gained per day of play, up to `maxDays`. */
-  perDay: 0.25,
+  /** Power gained per day of play, up to `maxDays` (softened in chantier 31; chantier 39
+   * replaces it by the alien civilisation). */
+  perDay: 0.12,
   maxDays: 14,
   /** Power gained per expedition victory (the aliens strike back), up to `maxProvocation`. */
   perVictory: 0.08,
   maxProvocation: 0.8,
+  /**
+   * Chantier 31, wealth: + `stock` × the share of the storage filled (stock and reserves
+   * together, up to `maxFill`), + `levels` × ln(1 + levels of the buildings / `levelsRef`),
+   * + `population` × ln(1 + kiwis / `populationRef`).
+   */
+  wealth: {
+    stock: 0.4,
+    maxFill: 2,
+    levels: 0.25,
+    levelsRef: 10,
+    population: 0.15,
+    populationRef: 5
+  },
   /** Share of the power that flies (bats) at night and by day. */
   airShare: { night: 0.7, day: 0.25 },
   /** Hungry ferrets in winter, thirsty bats in summer. */
@@ -1774,7 +1792,10 @@ var THREATS = {
   /** Share of the kiwis at home hurt at full severity, and how long they rest. */
   injuryShare: 0.4,
   injuryMs: [ms.h(2), ms.h(6)],
-  /** Share of the unprotected stock carried away at full severity. */
+  /**
+   * Share of the unprotected stock carried away at full severity. Chantier 31: the warehouse
+   * reserves are not protected and are looted first.
+   */
   lootShare: 0.35,
   /** Share of their storage that the Nest and the Warehouses keep safe from looting. */
   protectedShare: { nest: 0.3, warehouse: 0.6 },
@@ -2077,7 +2098,7 @@ var TECHS = {
     cost: 300,
     libraryLevel: 2,
     stardust: 8,
-    effects: { waveNotice: 4 * 36e5 }
+    effects: { waveNotice: 2 * 36e5 }
   },
   cometLure: {
     id: "cometLure",
@@ -2789,6 +2810,23 @@ function isNight(state) {
 // packages/shared/src/sim/threats.ts
 var HOUR2 = 36e5;
 var DAY = 24 * HOUR2;
+function wealthFactor(state) {
+  const W = THREATS.wealth;
+  const cap = capacity(state);
+  const kept = reserves(state);
+  let stored = 0;
+  let room = 0;
+  for (const id3 of RESOURCE_IDS) {
+    stored += state.resources[id3] + kept.stock[id3];
+    room += cap[id3];
+  }
+  const fill = Math.min(W.maxFill, room > 0 ? stored / room : 0);
+  const levels = state.buildings.reduce(
+    (sum, b) => sum + (b.type === "nest" || b.type === "camp" ? 0 : b.level),
+    0
+  );
+  return 1 + W.stock * fill + W.levels * Math.log(1 + levels / W.levelsRef) + W.population * Math.log(1 + state.villagers.length / W.populationRef);
+}
 function wavePower(state, at) {
   const level = nest(state).level;
   const factor = THREATS.nestFactor[level] ?? THREATS.nestFactor[THREATS.nestFactor.length - 1];
@@ -2796,7 +2834,7 @@ function wavePower(state, at) {
   const victories = Object.values(state.victories).reduce((a, b) => a + b, 0);
   const provocation = Math.min(THREATS.maxProvocation, THREATS.perVictory * victories);
   const age = THREATS.ageFactor[ageOf(state)] ?? 1;
-  return THREATS.basePower * factor * age * (1 + THREATS.perDay * days) * (1 + provocation) * sisterThreat(state, at);
+  return THREATS.basePower * factor * age * (1 + THREATS.perDay * days) * (1 + provocation) * wealthFactor(state) * sisterThreat(state, at);
 }
 function sisterThreat(state, at) {
   if (state.colony.index !== 1) return 1;
@@ -3006,6 +3044,7 @@ function waveOutcome(state, threat, defense, sheltered) {
   const severity = total > 0 ? Math.min(1, excess / total) : 0;
   const groundSeverity = total > 0 ? Math.min(1, groundExcess / total) : 0;
   const loot = emptyResources();
+  const lootReserve = emptyResources();
   if (excess <= 1e-9) {
     return {
       victory: true,
@@ -3014,15 +3053,18 @@ function waveOutcome(state, threat, defense, sheltered) {
       groundSeverity: 0,
       damaged: 0,
       loot,
+      lootReserve,
       injured: 0,
       deaths: 0,
       pathsLost: 0
     };
   }
   const safe = protectedStock(state);
+  const kept = reserves(state).stock;
   for (const id3 of RESOURCE_IDS) {
-    const exposed2 = Math.max(0, state.resources[id3] - safe[id3]);
+    const exposed2 = kept[id3] + Math.max(0, state.resources[id3] - safe[id3]);
     loot[id3] = Math.floor(exposed2 * THREATS.lootShare * severity);
+    lootReserve[id3] = Math.min(loot[id3], Math.floor(kept[id3]));
   }
   const candidates = damageable(state).length;
   const damaged = Math.min(candidates, Math.max(1, Math.round(severity * THREATS.maxDamaged)));
@@ -3041,6 +3083,7 @@ function waveOutcome(state, threat, defense, sheltered) {
     groundSeverity,
     damaged,
     loot,
+    lootReserve,
     injured,
     deaths,
     pathsLost
@@ -3175,7 +3218,17 @@ function strike(s, wave, events) {
     dead: [],
     pathsLost: 0
   };
-  for (const id3 of RESOURCE_IDS) s.resources[id3] = Math.max(0, s.resources[id3] - out.loot[id3]);
+  for (const id3 of RESOURCE_IDS) {
+    let left = out.lootReserve[id3];
+    for (const b of reserveHolders(s)) {
+      if (left <= 0) break;
+      const take = Math.min(left, b.reserve?.[id3] ?? 0);
+      if (take <= 0) continue;
+      b.reserve = { ...b.reserve, [id3]: b.reserve[id3] - take };
+      left -= take;
+    }
+    s.resources[id3] = Math.max(0, s.resources[id3] - (out.loot[id3] - out.lootReserve[id3] + left));
+  }
   for (const b of drawWeighted(s, damageable(s), (b2) => b2.level, out.damaged)) {
     b.damaged = true;
     report.damaged.push({ id: b.id, type: b.type });
@@ -15500,6 +15553,7 @@ export {
   waveOutcome,
   wavePower,
   weakestWorker,
+  wealthFactor,
   withRng,
   withThreatRng,
   workSite,
