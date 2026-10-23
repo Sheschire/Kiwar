@@ -49,13 +49,13 @@ Larger choices were validated with the project owner (marked ✅).
 - **Static shadows**: the shadow map is rendered only when the scene changes (buildings), not every frame. Moving kiwis will use cheap blob shadows.
 - **Post-processing** (`postprocessing` + `n8ao`): N8AO (half resolution) → one merged EffectPass with bloom, tilt-shift, slight saturation/contrast, **Khronos Neutral tone mapping** (ACES greyed out the pastel palette) and vignette.
 - **Quality presets**:
-  | | Low | Medium | High |
+  |                  | Low               | Medium | High                    |
   | ---------------- | ----------------- | ------ | ----------------------- |
-  | Pixel ratio cap | 1.25 | 1.5 | 2 |
-  | Shadows (static) | 1024 | 2048 | 2048 |
-  | Post-processing | — (direct render) | bloom | AO + bloom + tilt-shift |
-  | MSAA | browser AA | 2× | 4× |
-  | Props density | 45 % | 75 % | 100 % |
+  | Pixel ratio cap  | 1.25              | 1.5    | 2                       |
+  | Shadows (static) | 1024              | 2048   | 2048                    |
+  | Post-processing  | — (direct render) | bloom  | AO + bloom + tilt-shift |
+  | MSAA             | browser AA        | 2×     | 4×                      |
+  | Props density    | 45 %              | 75 %   | 100 %                   |
 - **Auto preset**: GPU name (WEBGL_debug_renderer_info), device memory, cores, coarse pointer + small screen. Desktop discrete / Apple Silicon → High, phones → Medium, weak GPUs / software rendering → Low. In Auto, if the average fps stays under 40 for ~4 s the preset steps down. `?quality=low|medium|high` forces a preset (handy for testing).
 
 ### Simulation (step 4)
@@ -1956,3 +1956,67 @@ real; corrections: Ryan et al. 2006 pages 344–360, BANGS is IJHCS 188:103289, 
   at both ends, plain on the 40 % nearest the centre where the segments cross), flat details
   per age, hubs as wobbly patches. **Seed fields**: ridges with stalks and pods of varied
   size and lean. Cost on the 72 h colony: +6 % triangles, +2 draw calls.
+
+## Chantier 30 — Levels, ages and reserves
+
+Decisions of the owner (23 October 2026, chantier document): pacing Stone ~12 h / Iron ~3 days /
+Industry ~10 days (attentive), three levels per age, warehouse reserves filled by overflow and
+collected by a tap, warehouses add little usable storage, reserves looted first (chantier 31).
+
+### Levels 1–12
+
+- Level n needs the age ⌊(n−1)/3⌋ and the Nest n (the Nest: n−1); `MAX_LEVEL` 12,
+  `ageOfLevel`, `LEVELS_PER_AGE`. Levels 4–12 grow per level: cost ×1.7 (×2 on the first level
+  of an age), time ×1.35, output ×1.25 (Nest passive ×1.1, turret defense ×1.15, research
+  ×1.07 per researcher); the first level of an age adds a worker (producers, Library), a queue
+  slot (Nest), a School seat; beds +1 per level (Nest, huts). Monument and laboratory keep 3
+  levels: monument Nest 3 / 6 / 9, laboratory Nest 7 / 7 / 10.
+- Nest-indexed tables extended to 12 (old values 4/5/6 now at 4/7/10, steps between): building
+  cap 6/11/18 then +3 per level (45 at Nest 12), build slots, turrets, wave and meteorite
+  factors, catchment radius, research bank, path limit (+8 per level above 3).
+- Tech Library levels: 5 → 7, 6 → 10. Save v24: old levels 4/5/6 become 4/7/10 (queued
+  upgrades aim at the next level, skipped levels count as completed constructions for
+  `isPlausible`).
+- Client: models of levels 4–12 grow with the age of the level (studs = age, pennants = rank in
+  the age), level badges ring in the age's colour, the building tree folds a later age's
+  levels into one line.
+
+### Stock and reserves
+
+- The Nest holds the stock: 600 / 1500 / 3000, then like the costs (×1.7, ×2 at the first level
+  of an age) so the biggest costs keep fitting. A warehouse adds 60 / 150 / 250 (same growth).
+- **Reserve** per warehouse and resource: 3000 / 7000 / 14000, ×1.5 per level. The chantier
+  suggested 1500 / 3500 / 7000 for "~8 h of production"; the bot measured an Eden colony at
+  2000–9000 per hour by day, so the reserves were doubled (an L3 warehouse now holds a few
+  hours of the scarce resources; more warehouses, more hours).
+- Overflow **one warehouse after another** (oldest first) rather than a common pool with shares:
+  a tap empties that very heap, offline stays exact (each warehouse filling up is an event).
+  Harvesting stops only when the stock and every reserve are full (`storageFull` now means
+  that). `collect` / `collectAll` move as much as fits; never automated. A demolished
+  warehouse gives its reserve back to the stock, even above the cap (nothing lost).
+- Not looted yet: chantier 31 decides the looting rules (reserves first).
+- Test: no level costs more than the stock of the Nest it needs plus **one** warehouse (the
+  first tuning needed two: a Nest 3 with one warehouse could not afford the Nest 4).
+
+### Ages
+
+- Passages: Stone 120 points (Library 1), Iron 2900, Industry 11500; Eden techs 25–40 points
+  (foraging was 60 and delayed the Stone passage by hours at 8 points per hour); Stone
+  monument 2000 / 2000 / 400 / 600 in 1 h.
+- Bot: collects every reserve at each visit, upgrades a warehouse when the reserves fill up,
+  orders the monument before anything else once its passage is known. Ages are dated by their
+  `ageReached` event (an occasional player only sees them at the next visit).
+
+### Measured (4 seeds per biome, `docs/BALANCE_REPORT.md`)
+
+- Attentive: Stone 12.0 h, Iron 2.8 days, Industry 9.2 days (targets ±15 % ✅); biomes and faces
+  within ±10 % on the first 24 h milestones.
+- Occasional (visits every 8 h): Stone 20.5 h (×1.7, within the ±15 % of ×1.5, but on the visit
+  grid: 14.5 h or 22.5 h depending on the seed), Iron 3.8 days (×1.36), Industry 10.0 days
+  (×1.09). ⚠️ To discuss with the owner: research runs offline, so an occasional player is only
+  a little slower in the long ages; slowing them down would mean punishing absence.
+- New measures: dead time over the first 24 h 77–108 min (target ~45 min ⚠️: the bot saves fiber
+  for the first Stone levels between 15 h and 22 h; chantier 31's objectives and waves are meant
+  to fill it), most capped resource 0–11 % of the run, production lost 0.2–5 %.
+- "To test" with people (charter rule 8): does tapping heaps feel rewarding or like a chore?
+  Is the Eden still long enough to learn (Stone at 12 h)?

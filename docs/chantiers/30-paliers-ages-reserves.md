@@ -1,7 +1,9 @@
 # Chantier 30 — Paliers, âges et réserves
 
 Acte I « Le rythme » du [carnet de route](../CARNET_DE_ROUTE.md). **Simulation + client + bot.**
-Premier chantier à lancer ; le 32 et le 34 peuvent tourner en parallèle (client seul).
+
+> **Fait** (octobre 2026) : voir « Bilan » en fin de document et `docs/DECISIONS.md`.
+> Premier chantier à lancer ; le 32 et le 34 peuvent tourner en parallèle (client seul).
 
 **Skills à charger** : `kiwar-design`, `kiwar-sim`, `kiwar-ages`, `kiwar-balance` (+ `kiwar-client`
 pour la partie 4).
@@ -148,3 +150,21 @@ Chemins sous `packages/shared/src/`. Détail des chiffres : skill `kiwar-design`
 
 - Si le recalage des âges vide l'Éden de sens (trop court pour apprendre), proposer au porteur
   une Pierre à ~16 h plutôt que de raboter le tutoriel.
+
+## Bilan (fait)
+
+- Parties 1 à 6 poussées sur `main` (niveaux 1–12, âges recalés, réserves, client, bot, docs).
+- Écarts au document :
+  - réserves doublées (3000 / 7000 / 14000) : une colonie de l'Éden produit bien plus que prévu ;
+  - remplissage **un entrepôt après l'autre** (plutôt qu'une réserve commune répartie) : un
+    toucher vide vraiment le tas touché ;
+  - passage de la Pierre à 120 points avec la Bibliothèque 1, technologies de l'Éden à 25–40
+    points, monument de la Pierre en 1 h ; Industrie à 11 500 points.
+- Mesuré (bot, 4 graines par biome) : attentif Pierre 12,0 h, Fer 2,8 j, Industrie 9,2 j ;
+  occasionnel 20,5 h, 3,8 j, 10,0 j.
+- Reste (pour le 31 ou le porteur) :
+  - pillage des réserves (règles du 31) ;
+  - temps mort ~80–110 min au début de la Pierre (cible ~45 min) ;
+  - l'occasionnel·le n'est que ×1,1 à ×1,4 plus lent·e dans les longs âges (la recherche
+    avance hors ligne) : à discuter ;
+  - à tester par des personnes : le geste de rapatrier, la durée de l'Éden.

@@ -30,7 +30,7 @@ dans l'historique.
 | #   | Chantier                                             | État    |
 | --- | ---------------------------------------------------- | ------- |
 |     | **Acte I — Le rythme**                               |         |
-| 30  | Paliers, âges et réserves                            | à faire |
+| 30  | Paliers, âges et réserves                            | fait    |
 | 31  | Objectifs et menaces réveillées                      | à faire |
 | 32  | Correctifs et ciel (client)                          | fait    |
 | 33  | Bâtiments par âge et icônes 3D (client)              | à faire |
@@ -50,8 +50,10 @@ dans l'historique.
 | 45  | Rives fertiles et canaux de jus                      | à faire |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
-**Prochaine conversation** : le chantier **30** s'il n'est pas fini, puis le 31 et le 33 (le 32
-et le 34 sont faits).
+**Prochaine conversation** : le chantier **31** (objectifs et menaces), avec le **33** en
+parallèle si le porteur le souhaite (client seul). Le 30 a laissé deux points au 31 : le
+pillage des réserves (elles ne sont pas encore pillées) et le temps mort du début de la Pierre
+(~80–110 min mesurés par le bot, cible ~45 min : les objectifs et les vagues doivent le remplir).
 
 ## Règles transverses à retenir
 
@@ -67,6 +69,9 @@ et le 34 sont faits).
 - **Kiwis et créatures** (chantier 34) : poses, extraits et accessoires dans `render/anim/`,
   effets groupés dans `particles.ts` (`EFFECTS`) ; tout se vérifie sur la planche `?kiwis`
   (skill `kiwar-client`). Le moteur de bataille (36) part de là.
+- **Niveaux et réserves** (chantier 30) : niveaux 1–12, trois par âge ; toute table indexée par
+  le niveau du Nid ou d'un bâtiment a 13 cases (skill `kiwar-sim`). Les réserves d'entrepôt ne se
+  rapatrient **que** par le joueur (`collect`, `collectAll`), jamais par l'automatisation.
 - **Planètes** : elles ont une place fixe (`render/space.ts`) ; `renderer.setTwinApproach(t)`
   rapproche la jumelle (skill `kiwar-world`).
 

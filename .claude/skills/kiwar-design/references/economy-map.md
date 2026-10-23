@@ -1,7 +1,7 @@
-# Economy map (state at the start of chantier 30, October 2026)
+# Economy map (state at the end of chantier 30, October 2026)
 
 Paths under `packages/shared/src/` unless stated. Costs are pulp/fiber/seeds/juice (p/f/s/j);
-"N" = Nest level. **Update this file when chantiers 30–31 change the numbers.**
+"N" = Nest level. **Update this file when a chantier changes the numbers (31 next).**
 
 ## Loops
 
@@ -32,11 +32,11 @@ after one tech), expeditions, class training, speech/rain skills, objective rewa
 
 ## Sinks
 
-- Building costs: L1→L3 explicit tables; L4–6 = previous ×2.4 cost, ×1.6 time, ×1.5 output
-  (`data/buildings.ts:503-571`); copies × growth^copies (1.3–2), upgrades not scaled by copies
-  (`sim/selectors.ts:259-266`).
-- Monument L1/L2/L3: 3000/3000/600/900 (3 h), 9000/9000/2000/3000 + 15 stardust (6 h),
-  20000/20000/5000/7000 + 25 stardust (12 h).
+- Building costs: L1→L3 explicit tables; L4–12 (chantier 30, `withAgeLevels`) = previous ×1.7
+  cost (×2 at the first level of an age), ×1.35 time, ×1.25 output; copies × growth^copies
+  (1.3–2), upgrades not scaled by copies (`sim/selectors.ts` `buildCost`).
+- Monument L1/L2/L3: 2000/2000/400/600 (1 h, Nest 3), 9000/9000/2000/3000 + 15 stardust (6 h,
+  Nest 6), 20000/20000/5000/7000 + 25 stardust (12 h, Nest 9).
 - Food: 30 pulp + 10 juice per kiwi per hour (summer ×0.8, winter ×1.3).
 - Eggs: pulp 25·1.3^n, juice 10·1.35^n, time min(2 h, 20 s·1.55^n), n = population − 3.
 - Expedition rations: crew × (4 p + 2 j)/h × round trip (`sim/expeditions.ts:213-224`) — tiny.
@@ -44,24 +44,27 @@ after one tech), expeditions, class training, speech/rain skills, objective rewa
 
 ## Caps
 
-| Cap                    | Values (Nest level 1→6)                                                                           | Where                                    |
-| ---------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| Buildings in the cap   | 6 / 11 / 18 / 22 / 26 / 30                                                                        | `sim/selectors.ts:228-235`               |
-| Queue / parallel sites | 2/3/4/5/5/6 · 1/1/2/2/3/3                                                                         | `sim/commands.ts:381`, `data/jobs.ts:32` |
-| Storage (per resource) | Nest 400/1000/2500/4750/9050/17200 + warehouse 500/1200/3000/5700/10850/20600 each (masonry ×1.2) | `sim/selectors.ts:90-97`                 |
-| Level gate             | level n needs age n−3 and Nest ≥ n; **Nest 4 needs Stone**                                        | `data/buildings.ts:545`                  |
-| Turrets                | 2/4/6/7/8/9                                                                                       | `data/threats.ts:104-106`                |
-| Research bank          | 100/200/400/800/1500/2500 points without a chosen tech                                            | `data/research.ts:301`                   |
+| Cap                    | Values (Nest level 1→12)                                                                             | Where                |
+| ---------------------- | ---------------------------------------------------------------------------------------------------- | -------------------- |
+| Buildings in the cap   | 6 / 11 / 18, then +3 per level (45 at Nest 12)                                                       | Nest `maxBuildings`  |
+| Queue / parallel sites | 2/3/4, +1 at the first level of each age (5 / 6 / 7) · 1/1/2/2/2/2/3…                                | Nest, `data/jobs.ts` |
+| Storage (per resource) | Nest 600/1500/3000/6000/10200/17350/34700/… + warehouse 60/150/250/500/… each (masonry ×1.2)         | `capacity`           |
+| Reserve (per resource) | warehouse 3000/7000/14000, ×1.5 per level, filled one warehouse after another once the stock is full | `reserves`, `accrue` |
+| Level gate             | level n needs age ⌊(n−1)/3⌋ and Nest ≥ n (Nest: n−1)                                                 | `withAgeLevels`      |
+| Turrets                | 2/4/6/7/7/8/8/8/9…                                                                                   | `data/threats.ts`    |
+| Research bank          | 100/200/400/800/1000/1200/1500/1800/2100/2500/2800/3100 points without a chosen tech                 | `data/research.ts`   |
 
-At the cap a resource stops being harvested (`sim/territory.ts:554-556`); stock above the cap
-(rewards) is kept.
+Once the stock of a resource is full the harvest overflows into the reserves; with every
+reserve full it stops (`storageFullCheck`); stock above the cap (rewards) is kept. Only the
+player collects reserves (`collect`, `collectAll`).
 
 ## Research and ages
 
-- Points/h per researcher 8/10/12/14/17/20 (Library L1→L6, 1→6 researchers) × (1 + 6 % Spirit
-  above 5) × mastery × mage 1.2 × presence × night × hunger × morale (`sim/research.ts:129-153`).
-- Passage techs: stoneAge 1000 (Library 2), ironAge 2900 (L4), industryAge 5800 (L5); then the
-  monument level. Stone at ~36 h because of research points (one Library), not resources.
+- Points/h per researcher 8/10/12 (Library L1→L3), then ×1.07 per level (1→6 researchers, +1
+  at the first level of an age) × (1 + 6 % Spirit above 5) × mastery × mage 1.2 × presence ×
+  night × hunger × morale (`sim/research.ts`).
+- Passage techs: stoneAge 120 (Library 1), ironAge 2900 (Library 4), industryAge 11500
+  (Library 7); then the monument level. Eden techs 25–40 points.
 - Targets were set at chantier 08 (Stone 1.5 d, Iron 4 d, Industry 8 d) and re-tuned at chantier
   18 (`docs/DECISIONS.md:578-588, 1110-1173`).
 
@@ -83,6 +86,7 @@ At the cap a resource stops being harvested (`sim/territory.ts:554-556`); stock 
 
 ## Measured pacing (bot, `docs/BALANCE_REPORT.md`)
 
-Tutorial 1.3 h · Nest 3 3.6 h · Library 3.8 h · every economy building L3 7.4 h · Stone 36 h ·
-Iron 4.1 d · Industry 7.8 d · occasional player Stone 2.3 d, Industry 9.8 d · 2.5 waves per
-72 h, 0 losses · raids 100 % won.
+End of chantier 30 (4 seeds per biome): tutorial 1.3 h · Nest 3 3.6 h · Library 3.8 h · every
+economy building L3 ~8 h · Stone 12.0 h · Iron 2.8 d · Industry 9.2 d · occasional player Stone
+20.5 h, Iron 3.8 d, Industry 10.0 d · dead time over the first 24 h 77–108 min · most capped
+resource 0–11 % of the run.

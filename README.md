@@ -10,6 +10,15 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 30** — le **rythme** change : la Pierre arrive vers **12 h** de jeu attentif, le
+> Fer vers **3 jours**, l'Industrie vers **10 jours**. Chaque âge ouvre **trois niveaux** de
+> bâtiments (Éden 1–3, Pierre 4–6, Fer 7–9, Industrie 10–12) et le Nid suit. Le stock tient
+> surtout au **Nid** ; les **entrepôts** ajoutent peu de place mais gardent une **réserve** :
+> quand le stock est plein, la récolte continue dedans. Un **toucher sur l'entrepôt** la
+> rapatrie (« +1 250 », un petit carillon), le Nid et le menu proposent « Tout rapatrier ». Des
+> **tas** montrent les réserves à côté des entrepôts ; réserves pleines, la récolte s'arrête
+> (rien n'est perdu). Les anciennes parties gardent leurs niveaux (4/5/6 deviennent 4/7/10).
+
 > **Chantier 32** — la caméra **s'incline librement à tout zoom** ; après un rafraîchissement
 > en ligne, la colonie **s'affiche tout de suite** depuis le cache (lecture seule le temps de
 > la synchronisation) et le chargement se mesure avec `?debug`. La carte d'expédition ne

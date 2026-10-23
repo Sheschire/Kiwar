@@ -118,6 +118,26 @@ description: Kiwar balance tooling — the bot player, the Kiwisu vs Kiwino repo
   automation). The bot relies on the automation (`kiwar-tasks`) and **saves up for the Nest**
   after the tutorial (no stump meanwhile): without it the Nest 3 was a chaotic race (±30 %).
 
+## Chantier 30: rhythm measures and new targets
+
+- Age targets 12 h / 72 h / 240 h (`AGE_TARGETS_H`), `--ages-days` 12 by default (casual × 1.4).
+  Ages are dated by their `ageReached` event, not by the visit that sees them.
+- `RunResult.final.deadMaxMin` (longest stretch of the first 24 h without a build, upgrade,
+  research, egg or expedition), `capShare` (share of the run the most capped resource spent
+  with its stock and reserves full, from `storageFull` events to the decision that frees it),
+  `lostShare` (production lost meanwhile / produced); the report's **Rhythm** table (targets
+  `DEAD_TARGET_MIN` 45, `CAP_TARGET` 20 %).
+- The bot collects every reserve at each visit (`collectAll` first in `decide`), upgrades a
+  warehouse when its reserves fill up, and orders the monument first once its passage is
+  known (`monumentDecision`).
+- Reference (end of chantier 30, `--seeds 4 --hours 24 --ages 4`, ~22 min on 4 cores): biomes
+  and faces within ±10 %; attentive Stone 12.0 h, Iron 2.8 d, Industry 9.2 d; occasional
+  20.5 h, 3.8 d, 10.0 d; dead time 77–108 min (fiber saved for the first Stone levels).
+- Quick diagnostics used in chantier 30 (scratch scripts, not committed): a `runBot` with
+  `onStep` printing a signature of levels / queue / research and the gaps longer than 30 min
+  finds dead time fast; printing `productionRates(s, () => false)` minus `consumption` gives
+  the real income to size reserves.
+
 ## Siege probe (chantier 19)
 
 The bot plays the whole siege and the sister colony (`bot/siege.ts`, `bot/colonies.ts`, see
