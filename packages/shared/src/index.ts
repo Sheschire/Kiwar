@@ -57,3 +57,8 @@ export * from './save/save';
 export * from './server/protocol';
 export * from './server/gameService';
 export * from './server/universes';
+export * from './data/units';
+export * from './battle/types';
+export * from './battle/codec';
+export * from './battle/simulate';
+export * from './battle/units';
