@@ -2238,3 +2238,19 @@ launch cost applies to **every mission but the founding**; the bot's dead time a
 - Posture (cautious / bold) and pins in the defense window; the bot places its turrets where
   the gates fall most often (`gateOdds`), builds the missing turret next to an uncovered gate
   and turns bold while a ground gate stays open.
+
+### Measured (probe `--seeds 2 --hours 72`, both profiles)
+
+| Setting                     | Lost attentive | With losses attentive | Lost occasional | With losses occasional |
+| --------------------------- | -------------- | --------------------- | --------------- | ---------------------- |
+| End of act I (formula)      | 8 %            | —                     | 59 %            | —                      |
+| Battles, no gathering       | ~32 %          | ~85 %                 | ~87 %           | 100 %                  |
+| Packs gather 2 s            | ~2 %           | ~10 %                 | ~27 %           | ~80 %                  |
+| **Packs gather 1 s (kept)** | **0 %**        | **~20 %**             | **~27 %**       | **~87 %**              |
+
+- No kiwi killed by predators in any run. Milestones unchanged (Stone 13.0 / 13.3 h, Iron
+  2.7–2.8 days), Kiwisu / Kiwino within 7.5 %.
+- Reading: a prepared player (turrets where the gates fall, the missing one built after the
+  announcement) almost always holds and loses a few scraps one wave in five; a player who
+  never prepares loses loot nearly every wave (~5 000 a wave) and a quarter of the waves. To
+  test with the owner (feeling of the show, severity) — "to test".

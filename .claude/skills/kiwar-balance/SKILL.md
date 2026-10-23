@@ -178,3 +178,19 @@ biomes): siege open 137–172 h, conquest in 9/12 runs, 162–272 h, median 240 
 `siteError` and lose points for each covered non-ray tile and more for a harvested deposit
 covered (`coveredHarvest`). `bot/paths.ts` routes around the walls (`occupancy(state).blocked`).
 The probe (`probe.ts`) places its launchpad with `bestTile`.
+
+## Chantier 36: waves as battles
+
+- Waves are battles (`kiwar-battle`): the attentive bot places turrets by `gateOdds`, builds the
+  missing turret next to an uncovered gate after the announcement and turns bold while a
+  ground gate stays open; it reads `waveAhead` (cheap) and runs the forecast's practice battles
+  only when it may shelter (the full forecast in every decision made the bot 3× slower).
+- Reference (`--seeds 2 --hours 72`, gather 1 s): waves lost attentive 0 % (with losses
+  ~20 %), occasional ~27 % (with losses ~87 %, ~5 000 loot a wave), no death; milestones as at
+  the end of act I. Levers: `BATTLE.gather`, enemy speeds and carry, `THREATS.holdLoot`,
+  `TURRET_SHOT` and turret reload, `KIWI_UNIT`.
+- Diagnosing a lost wave: a scratch `runBot({ onStep })` printing each new report's
+  `log.result` (attackers fallen / escaped, loot / lootable, damaged, shots) and
+  `uncoveredGates` just before the strike; then trace a battle with `decodeEvents` (moves,
+  shots by turret, falls) — escaping scouts and bats, and turrets that fire twice, were the
+  causes found in chantier 36.
