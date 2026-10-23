@@ -15,16 +15,20 @@ import {
   type IncidentKind,
   type SectorId,
 } from '../data/threats';
-import { hexDistance, hexToPixel, type Hex } from '../hex/hex';
+import { hexDistance, hexKey, hexToPixel, type Hex } from '../hex/hex';
 import type { FaceMap, Tile } from '../worldgen/generateFace';
 import type { TimeMs, VillagerId } from '../types/ids';
 import type { GameEvent } from './advance';
 import { calendarAt } from './calendar';
 import type { Odds } from './expeditions';
 import { removeVillagers } from './expeditions';
-import { kiwiExposure, kiwiStrength } from './kiwis';
-import { capacity, isRampart, nest, reserveHolders, reserves } from './selectors';
-import { faceMapOf } from './territory';
+import { kiwiStrength } from './kiwis';
+import { capacity, isRampart, nest, reserves } from './selectors';
+import { faceMapOf, pathsKey, terraformKey } from './territory';
+import { seasonOf } from './calendar';
+import type { BattleLog } from '../battle/types';
+import { simulateBattle } from '../battle/simulate';
+import { waveGates, waveSetup, waveSquads } from '../battle/wave';
 import { ageOf, techEffects } from './research';
 import {
   withThreatRng,
@@ -333,7 +337,21 @@ export function defenseOf(state: GameState, threat?: Sides): Defense {
   // Then each guard goes where the defense is missing most, one kiwi at a time.
   const garrison = { ground: 0, air: 0 };
   const guards: { id: VillagerId; sector: SectorId }[] = [];
-  for (const v of garrisonOf(state)) {
+  // Chantier 36: pinned guards first, at their sector.
+  const posted = garrisonOf(state);
+  const pins = state.threats.pins;
+  for (const v of posted) {
+    const pin = pins[v.id];
+    if (!pin) continue;
+    const p = guardPower(v, state);
+    garrison.ground += p.ground;
+    garrison.air += p.air;
+    sectors[pin].ground += p.ground;
+    sectors[pin].air += p.air;
+    guards.push({ id: v.id as VillagerId, sector: pin });
+  }
+  for (const v of posted) {
+    if (pins[v.id]) continue;
     const p = guardPower(v, state);
     garrison.ground += p.ground;
     garrison.air += p.air;
@@ -371,11 +389,6 @@ export function defenseOf(state: GameState, threat?: Sides): Defense {
   };
 }
 
-/** Chance of each kiwi to be hurt: posted kiwis stand in the front line. */
-function hurtWeight(v: Villager): number {
-  return kiwiExposure(v) * (v.job.kind === 'guard' ? GARRISON.exposure : 1);
-}
-
 /** Stock the Nest and the Warehouses keep safe from looting. */
 export function protectedStock(state: GameState): Resources {
   let safe = 0;
@@ -387,16 +400,15 @@ export function protectedStock(state: GameState): Resources {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Outcome (shared by the forecast and the resolution)
+// Outcome (chantier 36: read from a battle, for the forecast and the resolution alike)
 
 export interface WaveOutcome {
   victory: boolean;
-  /** Chantier 12: threat, defense and what breaks through, sector by sector. */
+  /** Chantier 12: threat, defense and what breaks through, sector by sector (an estimate by
+   * sums: the battle decides). */
   sectors: PerSector<SectorClash>;
-  /** 0 (repelled) to 1 (nothing stood in the way). */
+  /** 0 (repelled) to 1 (every predator reached a building). */
   severity: number;
-  /** Part of the severity due to the ferrets (they trample the paths). */
-  groundSeverity: number;
   damaged: number;
   /** Everything carried away (chantier 31: reserves first)… */
   loot: Resources;
@@ -407,88 +419,97 @@ export interface WaveOutcome {
   pathsLost: number;
 }
 
-export function waveOutcome(
+/** A real defeat may cost a life: a threat far above the defense, outside a shelter. */
+export function lethalWave(
   state: GameState,
   threat: Sides,
   defense: Defense,
   sheltered: boolean,
+): boolean {
+  return (
+    !sheltered &&
+    state.villagers.length > THREATS.minKiwis &&
+    threat.ground + threat.air > THREATS.deathRatio * (defense.ground + defense.air)
+  );
+}
+
+/**
+ * What a wave's battle does to the colony (the strike applies it, the forecast shows it). The
+ * buildings of the setup are `state.buildings` in order.
+ */
+export function battleOutcome(
+  state: GameState,
+  threat: Sides,
+  defense: Defense,
+  sheltered: boolean,
+  log: BattleLog,
 ): WaveOutcome {
-  const total = threat.ground + threat.air;
-  const clash = sectorClash(threat, defense.sectors);
-  const groundExcess = clash.through.ground;
-  const excess = groundExcess + clash.through.air;
-  const severity = total > 0 ? Math.min(1, excess / total) : 0;
-  const groundSeverity = total > 0 ? Math.min(1, groundExcess / total) : 0;
+  const r = log.result;
   const loot = emptyResources();
   const lootReserve = emptyResources();
-  if (excess <= 1e-9) {
-    return {
-      victory: true,
-      sectors: clash.sectors,
-      severity: 0,
-      groundSeverity: 0,
-      damaged: 0,
-      loot,
-      lootReserve,
-      injured: 0,
-      deaths: 0,
-      pathsLost: 0,
-    };
+  for (const l of r.loot) {
+    const b = state.buildings[l.building];
+    RESOURCE_IDS.forEach((id, k) => {
+      const amount = l.amounts[k]!;
+      loot[id] += amount;
+      lootReserve[id] += Math.min(amount, b?.reserve?.[id] ?? 0);
+    });
   }
-  // Chantier 31: the reserves lie in the open; the stock is kept safe up to its protected share.
-  const safe = protectedStock(state);
-  const kept = reserves(state).stock;
   for (const id of RESOURCE_IDS) {
-    const exposed = kept[id] + Math.max(0, state.resources[id] - safe[id]);
-    loot[id] = Math.floor(exposed * THREATS.lootShare * severity);
-    lootReserve[id] = Math.min(loot[id], Math.floor(kept[id]));
+    loot[id] = Math.floor(loot[id]);
+    lootReserve[id] = Math.min(loot[id], Math.floor(lootReserve[id]));
   }
-  const candidates = damageable(state).length;
-  const damaged = Math.min(candidates, Math.max(1, Math.round(severity * THREATS.maxDamaged)));
-  const exposed = exposedKiwis(state).length;
-  const lethal = total > THREATS.deathRatio * (defense.ground + defense.air);
+  const paths = new Set(state.paths);
+  const pathsLost = Math.min(
+    THREATS.maxPathsLost,
+    r.struck.filter((h) => paths.has(hexKey(h))).length,
+  );
+  // Repelled: nothing broken, and only a few scraps carried away.
+  const taken = RESOURCE_IDS.reduce((sum, id) => sum + loot[id], 0);
+  const victory = r.damaged.length === 0 && taken <= THREATS.holdLoot * r.lootable + 1e-9;
+  // The kiwis who fell are hurt; on a real defeat, one of them may not get up.
+  const fallen = r.fallen.filter((id) => state.villagers.some((v) => v.id === id));
   const deaths =
-    !sheltered && lethal && state.villagers.length > THREATS.minKiwis && exposed > 0
-      ? THREATS.maxDeaths
+    !victory && fallen.length > 0 && lethalWave(state, threat, defense, sheltered)
+      ? Math.min(THREATS.maxDeaths, fallen.length)
       : 0;
-  const injured = sheltered
-    ? 0
-    : Math.min(
-        exposed - deaths,
-        Math.round(severity * THREATS.injuryShare * techEffects(state).injuries * exposed),
-      );
-  const pathsLost = Math.min(state.paths.length, Math.round(groundSeverity * THREATS.maxPathsLost));
   return {
-    victory: false,
-    sectors: clash.sectors,
-    severity,
-    groundSeverity,
-    damaged,
+    victory,
+    sectors: sectorClash(threat, defense.sectors).sectors,
+    severity: r.held ? 0 : Math.max(0.01, Math.min(1, r.reached)),
+    damaged: r.damaged.length,
     loot,
     lootReserve,
-    injured,
+    injured: fallen.length - deaths,
     deaths,
     pathsLost,
   };
 }
 
-/** Buildings predators can damage (never the Nest, nor camps, nor what is already broken). */
-function damageable(state: GameState) {
-  return state.buildings.filter(
-    (b) => b.type !== 'nest' && b.type !== 'camp' && b.type !== 'monument' && !b.damaged,
+/** The battle of a wave against the colony as it is now (`luck` scales the predators). */
+export function waveBattle(
+  state: GameState,
+  wave: PlannedWave,
+  luck: number,
+  seed: string,
+  rough = false,
+): BattleLog {
+  const announced = { ground: wave.ground, air: wave.air };
+  const sheltered = state.threats.shelterUntil >= wave.at;
+  return simulateBattle(
+    waveSetup(state, wave, announced, { luck, sheltered, roughLoot: rough }),
+    seed,
   );
 }
 
 // ---------------------------------------------------------------------------------------------
 // Forecast
 
-export interface WaveForecast {
+/** The announced wave and the defense it would meet, without its battles (cheap). */
+export interface WaveAhead {
   wave: PlannedWave;
   threat: Sides;
   defense: Defense;
-  odds: Exclude<Odds, 'unknown'>;
-  /** At average luck, with the colony as it is now. */
-  expected: WaveOutcome;
   sheltered: boolean;
   /** The shelter can be ordered now. */
   canShelter: boolean;
@@ -496,38 +517,68 @@ export interface WaveForecast {
   shelterFrom: TimeMs;
 }
 
-/** What the HUD shows about the coming wave; the same maths resolve it. */
-export function forecastWave(state: GameState): WaveForecast | null {
+export interface WaveForecast extends WaveAhead {
+  odds: Exclude<Odds, 'unknown'>;
+  /** At average luck, with the colony as it is now. */
+  expected: WaveOutcome;
+}
+
+/** The announced wave without its practice battles (the shelter, the ammo, the threat). */
+export function waveAhead(state: GameState): WaveAhead | null {
   const wave = state.threats.next;
   if (!wave || !wave.announced) return null;
   const threat = { ground: wave.ground, air: wave.air };
-  const defense = defenseOf(state, threat);
-  const L = THREATS.luck;
-  // Same sector maths as the strike: the wave holds when nothing breaks through anywhere.
-  const holds = (k: number) => {
-    const through = sectorClash(
-      { ground: threat.ground * k, air: threat.air * k },
-      defense.sectors,
-    ).through;
-    return through.ground + through.air <= 1e-9;
-  };
-  const odds: Exclude<Odds, 'unknown'> = holds(1 + L)
-    ? 'likely'
-    : holds(1 - L)
-      ? 'uncertain'
-      : 'unlikely';
   const sheltered = state.threats.shelterUntil >= wave.at;
   const shelterFrom = wave.at - SHELTER.beforeMs;
   return {
     wave,
     threat,
-    defense,
-    odds,
-    expected: waveOutcome(state, threat, defense, sheltered),
+    defense: defenseOf(state, threat),
     sheltered,
     canShelter: !sheltered && state.now >= shelterFrom && state.now < wave.at,
     shelterFrom,
   };
+}
+
+const forecastCache = new Map<string, WaveOutcome[]>();
+
+/**
+ * What the HUD shows about the coming wave (chantier 36): three practice battles at bad,
+ * average and good luck, with practice seeds (never the one of the day). Odds: held even at bad
+ * luck → likely; held at average or good luck → uncertain; else unlikely. Expected: the average
+ * battle. Cached on the setup (the stock moves every second: the loot is rounded).
+ */
+export function forecastWave(state: GameState): WaveForecast | null {
+  const ahead = waveAhead(state);
+  if (!ahead) return null;
+  const { wave, threat, defense, sheltered } = ahead;
+  const L = THREATS.luck;
+  const lucks = [1 + L, 1, 1 - L];
+  const setupAt = (luck: number) =>
+    waveSetup(state, wave, threat, { luck, sheltered, roughLoot: true });
+  const average = setupAt(1);
+  const { tiles: _tiles, ...rest } = average;
+  const key = `${wave.id}|${state.seed}|${state.face}|${terraformKey(state)}|${pathsKey(state.paths)}|${seasonOf(state)}|${JSON.stringify(rest)}`;
+  let trials = forecastCache.get(key);
+  if (!trials) {
+    trials = lucks.map((luck, i) =>
+      battleOutcome(
+        state,
+        threat,
+        defense,
+        sheltered,
+        simulateBattle(luck === 1 ? average : setupAt(luck), `${wave.id}/trial/${i}`),
+      ),
+    );
+    forecastCache.set(key, trials);
+    if (forecastCache.size > 16) forecastCache.delete(forecastCache.keys().next().value!);
+  }
+  const odds: Exclude<Odds, 'unknown'> = trials[0]!.victory
+    ? 'likely'
+    : trials[1]!.victory || trials[2]!.victory
+      ? 'uncertain'
+      : 'unlikely';
+  return { ...ahead, odds, expected: trials[1]! };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -585,6 +636,8 @@ function announce(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
     wave.ground = tenth(mix.ground * (1 + rng.range(-S, S)));
     wave.air = tenth(mix.air * (1 + rng.range(-S, S)));
   });
+  wave.squads = waveSquads(s, { ground: wave.ground, air: wave.air });
+  wave.gates = waveGates(s, wave.id);
   wave.announced = true;
   events.push({
     type: 'waveAnnounced',
@@ -596,41 +649,21 @@ function announce(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
   });
 }
 
-/** Weighted draw without replacement (heavier weights first, more often). */
-function drawWeighted<T>(
-  s: GameState,
-  items: readonly T[],
-  weight: (x: T) => number,
-  count: number,
-): T[] {
-  if (count <= 0) return [];
-  return withThreatRng(s, (rng) => {
-    const pool = items.map((x) => ({ x, w: Math.max(1e-6, weight(x)) }));
-    const out: T[] = [];
-    while (out.length < count && pool.length > 0) {
-      let roll = rng.next() * pool.reduce((sum, p) => sum + p.w, 0);
-      let i = 0;
-      for (; i < pool.length - 1; i++) {
-        roll -= pool[i]!.w;
-        if (roll < 0) break;
-      }
-      out.push(pool[i]!.x);
-      pool.splice(i, 1);
-    }
-    return out;
-  });
-}
-
 function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
   const t = s.threats;
   const at = wave.at;
   const luck = withThreatRng(s, (rng) => 1 + rng.range(-THREATS.luck, THREATS.luck));
+  const seed = withThreatRng(s, (rng) => `${wave.id}/${Math.floor(rng.next() * 2 ** 32)}`);
   const threat = { ground: wave.ground * luck, air: wave.air * luck };
-  const defense = defenseOf(s, threat);
+  const announced = { ground: wave.ground, air: wave.air };
+  const defense = defenseOf(s, announced);
   const sheltered = t.shelterUntil >= at;
-  const out = waveOutcome(s, threat, defense, sheltered);
-  // The turrets fire first (the loot is taken from what is left).
-  const ammoUsed = Math.min(s.resources.seeds, defense.ammo.need);
+  // Chantier 36: the wave is a battle; its journal says what happened.
+  const log = waveBattle(s, wave, luck, seed);
+  const out = battleOutcome(s, threat, defense, sheltered, log);
+  // The turrets fired these seeds (the loot is taken from what is left).
+  const shots = Object.values(log.result.shots).reduce((a, b) => a + b, 0);
+  const ammoUsed = Math.min(s.resources.seeds, shots);
   s.resources.seeds -= ammoUsed;
   const report: WaveReport = {
     id: wave.id,
@@ -646,32 +679,45 @@ function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
     injured: [],
     dead: [],
     pathsLost: 0,
+    log,
   };
-  // Chantier 31: the reserves are looted first, warehouse after warehouse, then the stock.
-  for (const id of RESOURCE_IDS) {
-    let left = out.lootReserve[id];
-    for (const b of reserveHolders(s)) {
-      if (left <= 0) break;
-      const take = Math.min(left, b.reserve?.[id] ?? 0);
-      if (take <= 0) continue;
-      b.reserve = { ...b.reserve!, [id]: b.reserve![id] - take };
-      left -= take;
-    }
-    s.resources[id] = Math.max(0, s.resources[id] - (out.loot[id] - out.lootReserve[id] + left));
+  // Loot where the predators took it: a warehouse's reserve first, then the stock.
+  const buildings = [...s.buildings];
+  for (const l of log.result.loot) {
+    const b = buildings[l.building];
+    RESOURCE_IDS.forEach((id, k) => {
+      let left = Math.floor(l.amounts[k]!);
+      const fromReserve = Math.min(left, Math.floor(b?.reserve?.[id] ?? 0));
+      if (b && fromReserve > 0) {
+        b.reserve = { ...b.reserve!, [id]: b.reserve![id] - fromReserve };
+        left -= fromReserve;
+      }
+      s.resources[id] = Math.max(0, s.resources[id] - left);
+    });
   }
-  // Bigger buildings attract more predators.
-  for (const b of drawWeighted(s, damageable(s), (b) => b.level, out.damaged)) {
+  for (const i of log.result.damaged) {
+    const b = buildings[i];
+    if (!b || b.damaged) continue;
     b.damaged = true;
     report.damaged.push({ id: b.id, type: b.type });
   }
   if (out.pathsLost > 0) {
-    const lost = new Set(drawWeighted(s, s.paths, () => 1, out.pathsLost));
+    const paths = new Set(s.paths);
+    const lost = new Set(
+      log.result.struck
+        .map((h) => hexKey(h) as string)
+        .filter((k) => paths.has(k))
+        .slice(0, out.pathsLost),
+    );
     s.paths = s.paths.filter((k) => !lost.has(k));
     report.pathsLost = lost.size;
   }
-  const hurt = drawWeighted(s, exposedKiwis(s), hurtWeight, out.deaths + out.injured);
-  const dead = hurt.slice(0, out.deaths);
-  for (const v of hurt.slice(out.deaths)) {
+  // The kiwis who fell are hurt; on a real defeat, the first one may not get up.
+  const fallen = log.result.fallen
+    .map((id) => s.villagers.find((v) => v.id === id))
+    .filter((v): v is Villager => !!v);
+  const dead = fallen.slice(0, out.deaths);
+  for (const v of fallen.slice(out.deaths)) {
     const until = withThreatRng(s, (rng) =>
       Math.round(at + rng.range(THREATS.injuryMs[0], THREATS.injuryMs[1])),
     );
@@ -686,6 +732,9 @@ function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
       'predator',
       at,
     );
+  // Pins stay with the kiwis still on guard.
+  const guards = new Set(garrisonOf(s).map((v) => v.id as string));
+  t.pins = Object.fromEntries(Object.entries(t.pins).filter(([id]) => guards.has(id)));
   if (!out.victory) t.shieldUntil = at + THREATS.shieldMs;
   else s.stats.wavesHeld++;
   t.lastWaveAt = at;

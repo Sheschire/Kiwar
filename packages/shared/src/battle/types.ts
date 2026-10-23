@@ -91,6 +91,8 @@ export interface BattleSetup {
   buildings: BattleBuilding[];
   units: BattleUnitSetup[];
   orders: [SideOrders, SideOrders];
+  /** Buildings damaged at most (then the others are spared: a colony is never razed). */
+  maxDamaged?: number;
   /** Longest battle in seconds (`BATTLE.maxS` by default). */
   maxS?: number;
 }
@@ -101,6 +103,8 @@ export interface BattleResult {
   duration: number;
   /** The home side kept everything and nothing was damaged. */
   held: boolean;
+  /** Everything the attackers could have carried away at the start. */
+  lootable: number;
   /** Resources carried away, by building (index in `buildings`). */
   loot: { building: number; amounts: [number, number, number, number] }[];
   /** Buildings whose hit points reached zero (indices). */

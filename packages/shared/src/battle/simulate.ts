@@ -49,6 +49,8 @@ interface Unit {
   fleeing: boolean;
   reached: boolean;
   leash: number;
+  /** Waiting for a free tile since then (a long wait lets it squeeze through). */
+  stuckSince: number;
 }
 
 interface Building {
@@ -210,6 +212,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
       carried: 0,
       fleeing: false,
       reached: false,
+      stuckSince: -1,
       leash:
         s.role === 'militia'
           ? KIWI_UNIT.militiaLeash
@@ -219,6 +222,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     };
   });
   const attackers = units.filter((u) => u.side === 1);
+  const lootLeft0 = (b: Building) => b.loot[0] + b.loot[1] + b.loot[2] + b.loot[3];
   const totalPower = attackers.reduce((sum, u) => sum + u.s.power, 0);
 
   // --- Journal --------------------------------------------------------------------------------
@@ -237,6 +241,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
   const result: BattleResult = {
     duration: 0,
     held: true,
+    lootable: buildings.reduce((sum, b) => sum + (b.b.side === 0 ? lootLeft0(b) : 0), 0),
     loot: [],
     damaged: [],
     fallen: [],
@@ -257,30 +262,52 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     }
     u.tile = to;
   };
-  const free = (u: Unit, j: number) =>
-    u.s.flying ||
-    (Number.isFinite(cost[j]!) && (occupied[j] ?? 0) + u.s.size <= BATTLE.tileCap + 1e-9);
+  /** A tile a unit may step on (squeezing past the others after a long wait). */
+  const free = (u: Unit, j: number, t: number) => {
+    if (u.s.flying) return true;
+    if (!Number.isFinite(cost[j]!)) return false;
+    const squeeze = u.stuckSince >= 0 && t - u.stuckSince >= BATTLE.unstick - 1e-9;
+    return (occupied[j] ?? 0) + u.s.size <= BATTLE.tileCap + (squeeze ? 2 : 0) + 1e-9;
+  };
 
   const moveTo = (u: Unit, j: number, t: number) => {
     const c = u.s.flying ? 1 : Math.max(0.3, cost[j]!);
     const dur = c / Math.max(0.1, u.s.speed);
     place(u, j);
     u.busyUntil = t + dur;
+    u.stuckSince = -1;
     log(EV.move, u.i, tileCode(tiles[j]!), tenths(dur));
   };
 
-  /** One step down a distance field (ground) — false when nothing is free and closer. */
+  /**
+   * One step down a distance field (ground) — false when nothing is free and closer. After a
+   * long wait, a step aside (same distance) or squeezing past is allowed.
+   */
   const stepDown = (u: Unit, field: Float64Array, t: number): boolean => {
+    const here = field[u.tile]!;
     let best = -1;
-    let bestD = field[u.tile]!;
+    let bestD = here;
     for (const j of neighbors[u.tile]!) {
       const d = field[j]!;
-      if (d < bestD - 1e-9 && free(u, j)) {
+      if (d < bestD - 1e-9 && free(u, j, t)) {
         best = j;
         bestD = d;
       }
     }
-    if (best < 0) return false;
+    if (best < 0 && u.stuckSince >= 0 && t - u.stuckSince >= BATTLE.unstick - 1e-9) {
+      bestD = Infinity;
+      for (const j of neighbors[u.tile]!) {
+        const d = field[j]!;
+        if (d <= here + 1e-9 && d < bestD - 1e-9 && free(u, j, t)) {
+          best = j;
+          bestD = d;
+        }
+      }
+    }
+    if (best < 0) {
+      if (u.stuckSince < 0) u.stuckSince = t;
+      return false;
+    }
     moveTo(u, best, t);
     return true;
   };
@@ -294,12 +321,15 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     for (const j of neighbors[u.tile]!) {
       const h = tiles[j]!;
       const d = hexDistance(h, goal);
-      if (d >= bestD || !free(u, j)) continue;
+      if (d >= bestD || !free(u, j, t)) continue;
       if (u.leash > 0 && hexDistance(h, home) > u.leash) continue;
       best = j;
       bestD = d;
     }
-    if (best < 0) return false;
+    if (best < 0) {
+      if (u.stuckSince < 0) u.stuckSince = t;
+      return false;
+    }
     moveTo(u, best, t);
     return true;
   };
@@ -385,6 +415,9 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
           b.damaged = true;
           result.damaged.push(b.i);
           log(EV.damaged, b.i);
+          // Never razed: past the limit, the other buildings are spared.
+          if (result.damaged.length >= (setup.maxDamaged ?? Infinity))
+            for (const o of buildings) if (!o.damaged) o.hp = 0;
         }
       }
       return;

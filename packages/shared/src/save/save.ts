@@ -16,7 +16,8 @@ import {
   soloTargets,
   type GameState,
 } from '../sim/state';
-import { INCIDENT_KINDS, INCIDENTS, METEORS, THREATS } from '../data/threats';
+import { INCIDENT_KINDS, INCIDENTS, METEORS, SECTOR_IDS, THREATS } from '../data/threats';
+import { BATTLE, ENEMY_KINDS, POSTURES } from '../data/units';
 import { RESOURCE_IDS } from '../data/resources';
 import { BLESSINGS, COMETS, STARDUST, STARDUST_SCALE } from '../data/comets';
 import { INTEL } from '../data/expeditions';
@@ -102,6 +103,19 @@ const job = z.discriminatedUnion('kind', [
 
 const sides = z.object({ ground: z.number().min(0), air: z.number().min(0) });
 const named = z.array(z.object({ id, name: z.string().max(4 * KIWI_NAME_MAX) }));
+const hexSchema = z.object({ q: z.number().int(), r: z.number().int() });
+
+/** Chantier 36: a battle journal (a replay only: the game never reads it back). */
+const battleLog = z.object({
+  v: z.literal(1),
+  dt: z.number().positive(),
+  steps: z.number().int().min(0).max(10_000),
+  units: z.array(z.array(z.unknown())).max(BATTLE.maxGround + BATTLE.maxAir + 200),
+  buildings: z.array(z.array(z.unknown())).max(400),
+  events: z.string().max(400_000),
+  result: z.record(z.string(), z.unknown()),
+});
+
 const threats = z.object({
   rng: z.tuple([z.number(), z.number(), z.number(), z.number()]),
   next: z
@@ -112,6 +126,21 @@ const threats = z.object({
       announced: z.boolean(),
       ground: z.number().min(0),
       air: z.number().min(0),
+      squads: z
+        .array(
+          z.object({
+            kind: z.enum(ENEMY_KINDS),
+            sector: z.enum(SECTOR_IDS),
+            count: z
+              .number()
+              .int()
+              .min(0)
+              .max(BATTLE.maxGround + BATTLE.maxAir),
+          }),
+        )
+        .max(ENEMY_KINDS.length * SECTOR_IDS.length)
+        .optional(),
+      gates: z.object({ front: hexSchema, left: hexSchema, right: hexSchema }).partial().optional(),
     })
     .nullable(),
   lastWaveAt: z.number().min(0),
@@ -135,9 +164,12 @@ const threats = z.object({
         injured: named,
         dead: named,
         pathsLost: z.number().int().min(0),
+        log: battleLog.optional(),
       }),
     )
     .max(THREATS.history),
+  posture: z.enum(POSTURES),
+  pins: z.record(z.string(), z.enum(SECTOR_IDS)),
   incidents: z
     .array(
       z.object({
@@ -670,6 +702,12 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
       ? (raw.buildings as Record<string, unknown>[])
       : []
     ).map((b) => (footprintOf(b.type as BuildingType) > 1 ? { ...b, cramped: true } : b)),
+  }),
+  // v27 → v28 (chantier 36): a cautious garrison, no pinned guard (squads and battle logs are
+  // optional: an announced wave gets its squads at the strike).
+  27: (raw) => ({
+    ...raw,
+    threats: { ...(raw.threats as object), posture: 'cautious', pins: {} },
   }),
 };
 

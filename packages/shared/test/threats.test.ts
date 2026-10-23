@@ -28,6 +28,8 @@ import {
   workersOf,
   wavePower,
   wealthFactor,
+  hexDistance,
+  waveGates,
   reserveCapOf,
   RESOURCE_IDS,
   type GameEvent,
@@ -157,7 +159,9 @@ describe('predator waves', () => {
     expect(f.defense.air).toBe(0);
     expect(f.odds).toBe('unlikely');
     expect(f.expected.victory).toBe(false);
-    expect(f.expected.damaged).toBeGreaterThanOrEqual(1);
+    // Chantier 36: the battle says what is lost (loot first, broken buildings).
+    const lost = RESOURCE_IDS.reduce((sum, id) => sum + f.expected.loot[id], 0);
+    expect(lost + f.expected.damaged).toBeGreaterThan(0);
   });
 
   it('shelters everyone in the Nest: nobody hurt, no harvest meanwhile', () => {
@@ -425,24 +429,38 @@ describe('defenses', () => {
     const { map, state } = colony();
     let s = rich(state);
     s.buildings[0]!.level = 3;
-    // Chantier 12: turrets where the predators come (mostly by the front).
-    // Ferrets: two turrets at the front, one on each flank; bats: two turrets where the front
-    // meets a flank (each covers both).
-    const edge = SECTORS.frontHalfAngle;
+    // Chantier 36: once the wave is announced, a turret on each gate where a pack comes in (the
+    // bats by the front and the left), two at the front.
+    while (!s.threats.next?.announced) s = advance(s, s.now + HOUR_MS).state;
+    const gates = s.threats.next!.gates!;
+    const near = (sector: SectorId, k: number) => {
+      const r = rampartSectors(map);
+      return r.tiles
+        .filter((t) => !s.buildings.some((b) => b.q === t.q && b.r === t.r))
+        .sort((a, b) => hexDistance(a, gates[sector]!) - hexDistance(b, gates[sector]!))[k]!;
+    };
     const plan = [
-      ['seedTurret', middleOf(map, 'front', 0)],
-      ['seedTurret', middleOf(map, 'front', 1)],
-      ['seedTurret', middleOf(map, 'left', 0)],
-      ['seedTurret', middleOf(map, 'right', 0)],
-      ['skyTurret', rampartAt(map, edge, 'front')],
-      ['skyTurret', rampartAt(map, -edge, 'front')],
+      ['seedTurret', 'front'],
+      ['seedTurret', 'front'],
+      ['seedTurret', 'left'],
+      ['seedTurret', 'right'],
+      ['skyTurret', 'front'],
+      ['skyTurret', 'left'],
     ] as const;
-    for (const [type, t] of plan) {
+    for (const [type, sector] of plan) {
+      const t = near(sector, 0);
       s = run(s, { type: 'build', buildingType: type, q: t.q, r: t.r }, s.now, map);
       s = advance(s, s.now + 10 * 60_000).state;
     }
     s = { ...s, resources: { pulp: 1500, fiber: 1500, seeds: 1500, juice: 1500 } };
-    while (!s.threats.next?.announced) s = advance(s, s.now + HOUR_MS).state;
+    // …and three warriors posted (they stand at the gates).
+    for (const v of s.villagers.slice(0, 3)) v.classId = 'warrior';
+    s = run(
+      s,
+      { type: 'setGarrison', villagerIds: s.villagers.slice(0, 3).map((v) => v.id) },
+      s.now,
+      map,
+    );
     const f = forecastWave(s)!;
     expect(f.odds).toBe('likely');
     const seeds = s.resources.seeds;
@@ -507,11 +525,17 @@ describe('sectors and range (chantier 12)', () => {
 
   it('turrets far from the front show in the forecast, the garrison fills the gap', () => {
     const { map, state } = colony();
+    const gate = waveGates(state, 'w1').front;
     const build = (sector: SectorId) => {
       let s = rich(state);
       s.buildings[0]!.level = 3;
+      // Chantier 36: at the front, around the gate of its pack; or far away on a flank.
+      const r = rampartSectors(map);
+      const byGate = r.tiles
+        .filter((_, i) => r.sectors[i] === 'front')
+        .sort((a, b) => hexDistance(a, gate) - hexDistance(b, gate));
       for (const k of [0, 1, 2]) {
-        const t = middleOf(map, sector, k);
+        const t = sector === 'front' ? byGate[k * 2]! : middleOf(map, sector, k);
         s = run(s, { type: 'build', buildingType: 'seedTurret', q: t.q, r: t.r }, s.now, map);
         s = advance(s, s.now + 10 * 60_000).state;
       }

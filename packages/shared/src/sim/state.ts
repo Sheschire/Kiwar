@@ -5,7 +5,10 @@ import { drawBiomes, type BiomeId } from '../data/biomes';
 import { drawGarrison } from './aliens';
 import { alienDefOf } from '../data/expeditions';
 import type { ResourceId, Resources } from '../data/resources';
-import { INCIDENTS, METEORS, type IncidentKind } from '../data/threats';
+import { INCIDENTS, METEORS, type IncidentKind, type SectorId } from '../data/threats';
+import type { EnemyKind, Posture } from '../data/units';
+import type { Hex } from '../hex/hex';
+import type { BattleLog } from '../battle/types';
 import { BLESSINGS, COMETS } from '../data/comets';
 import { DEFAULT_FACE_PARAMS, HEART, type FaceParams } from '../worldgen/generateFace';
 import { hexKey } from '../hex/hex';
@@ -31,7 +34,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 27;
+export const SCHEMA_VERSION = 28;
 
 export type Job =
   | { kind: 'idle' }
@@ -469,6 +472,17 @@ export interface PlannedWave {
   /** Ferret (ground) and bat (air) power, drawn at the announcement (0 before). */
   ground: number;
   air: number;
+  /** Chantier 36: the predators that come, by kind and sector (set at the announcement). */
+  squads?: Squad[];
+  /** Chantier 36: the rampart tile where each sector's pack comes in (set at the announcement). */
+  gates?: Partial<Record<SectorId, Hex>>;
+}
+
+/** Chantier 36: a group of predators of one kind entering by one sector. */
+export interface Squad {
+  kind: EnemyKind;
+  sector: SectorId;
+  count: number;
 }
 
 export interface WaveReport {
@@ -488,6 +502,8 @@ export interface WaveReport {
   injured: { id: VillagerId; name: string }[];
   dead: { id: VillagerId; name: string }[];
   pathsLost: number;
+  /** Chantier 36: the journal of the battle (absent for older waves); never changed. */
+  log?: BattleLog;
 }
 
 export interface IncidentReport {
@@ -514,6 +530,10 @@ export interface ThreatState {
   waves: number;
   reports: WaveReport[];
   incidents: IncidentReport[];
+  /** Chantier 36: how the garrison fights (cautious: near its post; bold: it charges). */
+  posture: Posture;
+  /** Chantier 36: guards the player pinned to a sector (the others go where they are needed). */
+  pins: Partial<Record<VillagerId, SectorId>>;
 }
 
 /** A meteorite: a short-lived deposit on a land tile (chantier 06). */
@@ -873,6 +893,8 @@ export function newThreats(seed: string, face: Face, now: TimeMs): ThreatState {
     waves: 0,
     reports: [],
     incidents: [],
+    posture: 'cautious',
+    pins: {},
   };
 }
 
@@ -1078,7 +1100,14 @@ export function cloneThreats(t: ThreatState): ThreatState {
   return {
     ...t,
     rng: [...t.rng] as RngState,
-    next: t.next ? { ...t.next } : null,
+    next: t.next
+      ? {
+          ...t.next,
+          ...(t.next.squads ? { squads: t.next.squads.map((q) => ({ ...q })) } : {}),
+          ...(t.next.gates ? { gates: { ...t.next.gates } } : {}),
+        }
+      : null,
+    pins: { ...t.pins },
     reports: t.reports.map((r) => ({
       ...r,
       threat: { ...r.threat },

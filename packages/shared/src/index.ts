@@ -62,3 +62,4 @@ export * from './battle/types';
 export * from './battle/codec';
 export * from './battle/simulate';
 export * from './battle/units';
+export * from './battle/wave';

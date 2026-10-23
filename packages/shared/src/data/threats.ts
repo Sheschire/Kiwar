@@ -84,6 +84,11 @@ export const THREATS = {
   protectedShare: { nest: 0.3, warehouse: 0.6 } as Partial<Record<string, number>>,
   /** Buildings damaged at full severity (at least one on any defeat; never the Nest). */
   maxDamaged: 4,
+  /**
+   * Chantier 36: a wave is repelled when nothing was damaged and the predators carried away
+   * at most this share of what they could have taken.
+   */
+  holdLoot: 0.25,
   /** Path tiles trampled by ferrets at full ground severity. */
   maxPathsLost: 4,
   /** Damaged buildings work at this rate until repaired. */

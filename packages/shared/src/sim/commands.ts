@@ -83,7 +83,7 @@ import {
   kikiwiwiWeak,
 } from './kikiwiwi';
 import { METEORS, SHELTER } from '../data/threats';
-import { forecastWave } from './threats';
+import { waveAhead } from './threats';
 import {
   availableCrew,
   cleanFreight,
@@ -1024,7 +1024,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       return;
     }
     case 'shelter': {
-      const f = forecastWave(s);
+      const f = waveAhead(s);
       if (!f) return fail('noWaveSoon');
       if (f.sheltered) fail('alreadySheltered');
       if (!f.canShelter) fail('noWaveSoon');

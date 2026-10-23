@@ -9,7 +9,7 @@ import {
   eggCost,
   EXPEDITIONS,
   forecastExpedition,
-  forecastWave,
+  waveAhead,
   intelView,
   isLaunchpadBusy,
   kikiwiwiWeak,
@@ -78,7 +78,7 @@ function provisionsFor(f: ExpeditionForecast): { pulp: number; juice: number } {
 
 /** A wave strikes before the ship would be back (the crew would miss the defense). */
 function waveBefore(state: GameState, returnAt: number): boolean {
-  const w = forecastWave(state);
+  const w = waveAhead(state);
   return !!w && w.wave.at < returnAt;
 }
 
@@ -137,7 +137,7 @@ function raidOrder(
   const titan = state.villagers.find(
     (v) =>
       v.kikiwiwi &&
-      (v.job.kind === 'idle' || (v.job.kind === 'guard' && !forecastWave(state))) &&
+      (v.job.kind === 'idle' || (v.job.kind === 'guard' && !waveAhead(state))) &&
       !kikiwiwiWeak(state),
   );
   // Plans are weighed as if the Kikiwiwi had already stood down from the rampart.

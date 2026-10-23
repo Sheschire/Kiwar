@@ -7,7 +7,7 @@ import {
   constructionDuration,
   defenseOf,
   guardPower,
-  waveOutcome,
+  kiwiUnit,
   HOUR_MS,
   migrateState,
   RESEARCH,
@@ -20,7 +20,6 @@ import {
   type Command,
   type GameEvent,
   type GameState,
-  type Defense,
 } from '../src';
 import { findTile, kiwi, rich, run, setup, T0, siteFor } from './helpers';
 
@@ -173,20 +172,14 @@ describe('research', () => {
       guardPower(warrior, s).ground * 1.25,
       6,
     );
-    const crowd = (st: GameState): GameState => ({
-      ...st,
-      villagers: Array.from({ length: 10 }, (_, i) => kiwi(`c${i}`)),
-    });
-    const threat = { ground: 400, air: 400 };
-    const zero = { ground: 0, air: 0 };
-    const hurt = (st: GameState) =>
-      waveOutcome(
-        crowd(st),
-        threat,
-        { ...zero, sectors: { front: zero, left: zero, right: zero } } as Defense,
-        false,
-      ).injured;
-    expect(hurt(known('armor'))).toBeLessThan(hurt(s));
+    // Chantier 36: armour spares the kiwis in battle; firearms give warriors a musket.
+    const k = kiwi('c');
+    expect(kiwiUnit(k, known('armor'), 'militia', { q: 0, r: 0 }, null).armor).toBeGreaterThan(
+      kiwiUnit(k, s, 'militia', { q: 0, r: 0 }, null).armor,
+    );
+    expect(kiwiUnit(warrior, known('firearms'), 'guard', { q: 0, r: 0 }, null).weaponId).toBe(
+      'musket',
+    );
   });
 
   it('migrates v12 saves with an empty research and no practice', () => {

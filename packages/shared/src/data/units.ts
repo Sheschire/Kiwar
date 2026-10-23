@@ -103,7 +103,7 @@ export const WEAPONS: Record<WeaponId, Weapon> = {
   seedShot: {
     damage: 1,
     range: 3,
-    reload: 1.5,
+    reload: 0.8,
     style: 'ranged',
     accuracy: 0.85,
     hitsGround: true,
@@ -112,7 +112,7 @@ export const WEAPONS: Record<WeaponId, Weapon> = {
   skyShot: {
     damage: 1,
     range: 4,
-    reload: 1.5,
+    reload: 0.8,
     style: 'ranged',
     accuracy: 0.85,
     hitsGround: false,
@@ -263,21 +263,39 @@ export const BATTLE = {
   splash: 0.6,
   /** Damage drawn in ± this share. */
   spread: 0.15,
+  /**
+   * A pack can carry this many times what lies in the open: two thirds of it empty the
+   * stores, the others break the buildings.
+   */
+  carry: 1.5,
   /** A raider takes this share of its load in one hit on a store. */
   grab: 1 / 3,
   /** Attackers run away when their side has less than this share of its power left. */
   retreatBelow: 0.3,
   /** Bats spot kiwis this far away. */
   huntRange: 4,
+  /** A unit waiting this long for a free tile squeezes through (seconds). */
+  unstick: 2,
   /** Units retarget at most this often (seconds). */
   retarget: 1,
   /** Units of a wave at most (more power makes them stronger, not more numerous). */
   maxGround: 36,
   maxAir: 24,
+  /** A pack comes in over the rampart tiles this far from its gate. */
+  packWidth: 1,
   /** Seconds between two attackers entering by the same sector. */
   enterGap: 0.5,
   /** Tiles of the attackers' trail kept for the trampled paths. */
   struckTiles: 12,
+  /** Hit points of a building before it is damaged (Nest, camps and monument never are). */
+  buildingHp: { base: 30, perLevel: 10 },
+} as const;
+
+/** How a wave spends its power on kinds (shares of the power, by age). */
+export const WAVE_UNITS = {
+  brute: [0.08, 0.15, 0.22, 0.3] as readonly number[],
+  scout: 0.2,
+  spitter: [0.15, 0.25, 0.3, 0.35] as readonly number[],
 } as const;
 
 /** A turret shot deals its defense × this (the ammo bounds how long it fires). */

@@ -5,6 +5,7 @@ import {
   nest,
   pendingUpgrade,
   forecastWave,
+  waveAhead,
   defenseOf,
   sectorClash,
   SECTOR_IDS,
@@ -28,7 +29,8 @@ export const GUARD_LEAD_MS = 40 * 60_000;
  * through) shortly before the strike and relieves it afterwards.
  */
 export function defenseOrders(state: GameState): Command[] {
-  const f = forecastWave(state);
+  // Chantier 36: the practice battles only when the shelter can be taken.
+  const f = waveAhead(state)?.canShelter ? forecastWave(state) : null;
   const out: Command[] = [];
   if (f?.canShelter && !f.expected.victory && (f.expected.deaths > 0 || f.expected.injured >= 2))
     out.push({ type: 'shelter' });
@@ -68,7 +70,7 @@ export function turretDecision(
   // Strengthen the side that breaks through (sector by sector, chantier 12): the announced
   // wave at bad luck (turrets only: guards come later), else the last lost one.
   // Chantier 31: an occasional player does not read the forecast, only the last report.
-  const f = prepared ? forecastWave(state) : null;
+  const f = prepared ? waveAhead(state) : null;
   const last = state.threats.reports.at(-1);
   const threat = f
     ? { ground: f.threat.ground * 1.15, air: f.threat.air * 1.15 }
@@ -109,7 +111,7 @@ export function sectorWithout(state: GameState, type: 'seedTurret' | 'skyTurret'
  */
 export function keepsAmmo(state: GameState, cmd: Command): boolean {
   if (cmd.type !== 'build' && cmd.type !== 'upgrade') return true;
-  const f = forecastWave(state);
+  const f = waveAhead(state);
   if (!f) return true;
   const cost =
     cmd.type === 'build'

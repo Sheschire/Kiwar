@@ -1832,6 +1832,11 @@ var THREATS = {
   protectedShare: { nest: 0.3, warehouse: 0.6 },
   /** Buildings damaged at full severity (at least one on any defeat; never the Nest). */
   maxDamaged: 4,
+  /**
+   * Chantier 36: a wave is repelled when nothing was damaged and the predators carried away
+   * at most this share of what they could have taken.
+   */
+  holdLoot: 0.25,
   /** Path tiles trampled by ferrets at full ground severity. */
   maxPathsLost: 4,
   /** Damaged buildings work at this rate until repaired. */
@@ -2981,6 +2986,1256 @@ function isNight(state) {
   return calendarAt(state.calendarStart, state.now).night;
 }
 
+// packages/shared/src/data/units.ts
+var WEAPON_IDS = [
+  "beak",
+  "mace",
+  "sword",
+  "fireball",
+  "sling",
+  "musket",
+  "stomp",
+  "claw",
+  "bite",
+  "slam",
+  "dive",
+  "spit",
+  "seedShot",
+  "skyShot"
+];
+var melee = (damage, reload, hitsAir = false) => ({
+  damage,
+  range: 1,
+  reload,
+  style: "melee",
+  accuracy: 0.9,
+  hitsGround: true,
+  hitsAir
+});
+var WEAPONS = {
+  // Kiwis: a peck for everybody, then the weapon of the class.
+  beak: melee(1, 1.5),
+  mace: melee(2.4, 1.6),
+  sword: melee(3.2, 1.1),
+  fireball: {
+    damage: 2.6,
+    range: 3,
+    reload: 2.2,
+    style: "area",
+    accuracy: 0.8,
+    hitsGround: true,
+    hitsAir: true
+  },
+  sling: {
+    damage: 1.6,
+    range: 2,
+    reload: 1.2,
+    style: "ranged",
+    accuracy: 0.75,
+    hitsGround: true,
+    hitsAir: true
+  },
+  musket: {
+    damage: 4,
+    range: 3,
+    reload: 2.4,
+    style: "ranged",
+    accuracy: 0.75,
+    hitsGround: true,
+    hitsAir: true
+  },
+  stomp: { ...melee(6, 1.6, true), style: "area" },
+  // Predators.
+  claw: melee(2, 1.2),
+  bite: melee(1.5, 1),
+  slam: melee(5, 1.8),
+  dive: melee(2, 1.4),
+  spit: {
+    damage: 1.6,
+    range: 2,
+    reload: 1.6,
+    style: "ranged",
+    accuracy: 0.8,
+    hitsGround: true,
+    hitsAir: false
+  },
+  // Turrets: the damage of a shot is set from the turret's defense (`TURRET_SHOT`).
+  seedShot: {
+    damage: 1,
+    range: 3,
+    reload: 0.8,
+    style: "ranged",
+    accuracy: 0.85,
+    hitsGround: true,
+    hitsAir: false
+  },
+  skyShot: {
+    damage: 1,
+    range: 4,
+    reload: 0.8,
+    style: "ranged",
+    accuracy: 0.85,
+    hitsGround: false,
+    hitsAir: true
+  }
+};
+var ENEMY_KINDS = ["soldier", "scout", "brute", "diver", "spitter"];
+var ENEMIES = {
+  soldier: {
+    body: "ferret",
+    hp: 10,
+    armor: 0,
+    speed: 1.2,
+    dodge: 0.05,
+    size: 1,
+    weapon: "claw",
+    power: 1,
+    carry: 1,
+    fightsBack: true,
+    huntsKiwis: false
+  },
+  scout: {
+    body: "ferret",
+    hp: 6,
+    armor: 0,
+    speed: 2,
+    dodge: 0.15,
+    size: 1,
+    weapon: "bite",
+    power: 0.6,
+    carry: 1.5,
+    fightsBack: false,
+    huntsKiwis: false
+  },
+  brute: {
+    body: "ferret",
+    hp: 28,
+    armor: 0.2,
+    speed: 0.8,
+    dodge: 0,
+    size: 2,
+    weapon: "slam",
+    power: 2.5,
+    carry: 0.5,
+    fightsBack: true,
+    huntsKiwis: false
+  },
+  diver: {
+    body: "bat",
+    hp: 7,
+    armor: 0,
+    speed: 2.2,
+    dodge: 0.15,
+    size: 0,
+    weapon: "dive",
+    power: 1,
+    carry: 0.8,
+    fightsBack: true,
+    huntsKiwis: false
+  },
+  spitter: {
+    body: "bat",
+    hp: 6,
+    armor: 0,
+    speed: 1.8,
+    dodge: 0.1,
+    size: 0,
+    weapon: "spit",
+    power: 1.1,
+    carry: 0.4,
+    fightsBack: false,
+    huntsKiwis: true
+  }
+};
+var CLASS_WEAPONS = {
+  none: "beak",
+  builder: "mace",
+  warrior: "sword",
+  mage: "fireball",
+  scout: "sling",
+  mayor: "beak"
+};
+var KIWI_UNIT = {
+  hp: 14,
+  /** Per stat point above or below the average. */
+  enduranceHp: 0.06,
+  strengthDamage: 0.06,
+  spiritDamage: 0.06,
+  dexterityAccuracy: 0.03,
+  agilitySpeed: 0.04,
+  agilityDodge: 0.015,
+  /** Per level above 1, on hit points and damage. */
+  perLevel: 0.04,
+  speed: 1.3,
+  dodge: 0.05,
+  maxDodge: 0.35,
+  accuracy: [0.4, 0.97],
+  /** A Kikiwiwi: this many times the hit points, two places on a tile, stomps (chantier 08). */
+  titanHp: 4,
+  titanSize: 2,
+  /** Kiwis at home who were not posted fight only near their workplace, and run home hurt. */
+  militiaLeash: 1,
+  militiaFlee: 0.4,
+  militiaDamage: 0.8
+};
+var POSTURES = ["cautious", "bold"];
+var BATTLE = {
+  /** Length of a step, in seconds. */
+  dt: 0.5,
+  /** A battle never lasts longer (the attackers left run away). */
+  maxS: 240,
+  /** Places on a tile (a ferret takes 1, a brute or a Kikiwiwi 2; bats fly over). */
+  tileCap: 3,
+  /** Guards stay this close to their post when cautious; bold, they chase anywhere. */
+  leash: { cautious: 3, bold: 99 },
+  /** Splash of an area attack: share of the damage dealt to the others around the target. */
+  splash: 0.6,
+  /** Damage drawn in ± this share. */
+  spread: 0.15,
+  /**
+   * A pack can carry this many times what lies in the open: two thirds of it empty the
+   * stores, the others break the buildings.
+   */
+  carry: 1.5,
+  /** A raider takes this share of its load in one hit on a store. */
+  grab: 1 / 3,
+  /** Attackers run away when their side has less than this share of its power left. */
+  retreatBelow: 0.3,
+  /** Bats spot kiwis this far away. */
+  huntRange: 4,
+  /** A unit waiting this long for a free tile squeezes through (seconds). */
+  unstick: 2,
+  /** Units retarget at most this often (seconds). */
+  retarget: 1,
+  /** Units of a wave at most (more power makes them stronger, not more numerous). */
+  maxGround: 36,
+  maxAir: 24,
+  /** A pack comes in over the rampart tiles this far from its gate. */
+  packWidth: 1,
+  /** Seconds between two attackers entering by the same sector. */
+  enterGap: 0.5,
+  /** Tiles of the attackers' trail kept for the trampled paths. */
+  struckTiles: 12,
+  /** Hit points of a building before it is damaged (Nest, camps and monument never are). */
+  buildingHp: { base: 30, perLevel: 10 }
+};
+var WAVE_UNITS = {
+  brute: [0.08, 0.15, 0.22, 0.3],
+  scout: 0.2,
+  spitter: [0.15, 0.25, 0.3, 0.35]
+};
+var TURRET_SHOT = 0.8;
+
+// packages/shared/src/battle/types.ts
+var EV = {
+  /** n: the next events happen n steps later. */
+  step: 0,
+  /** unit, tile key, duration in tenths of a second: starts walking (or flying) there. */
+  move: 1,
+  /** unit, target (unit × 2, or building × 2 + 1), damage in tenths (0: missed). */
+  attack: 2,
+  /** unit, target unit, damage in tenths: caught in the splash of an area attack. */
+  splash: 3,
+  /** unit: falls. */
+  fall: 4,
+  /** unit, building, amount: takes loot. */
+  loot: 5,
+  /** building: damaged. */
+  damaged: 6,
+  /** unit: leaves the field (an attacker with its loot, a hurt kiwi running home). */
+  gone: 7,
+  /** unit: runs away. */
+  flee: 8,
+  /** unit: comes in. */
+  enter: 9
+};
+var EV_ARGS = [1, 3, 3, 3, 1, 3, 1, 1, 1, 1];
+var TILE_OFFSET = 32;
+var tileCode = (h) => (h.q + TILE_OFFSET) * 64 + (h.r + TILE_OFFSET);
+var tileOfCode = (c) => ({
+  q: Math.floor(c / 64) - TILE_OFFSET,
+  r: c % 64 - TILE_OFFSET
+});
+
+// packages/shared/src/battle/codec.ts
+var ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+var INDEX = new Map([...ALPHABET].map((c, i) => [c, i]));
+function encodeInts(values) {
+  let out = "";
+  for (const raw of values) {
+    let v = Math.max(0, Math.round(raw));
+    while (v >= 32) {
+      out += ALPHABET[32 + (v & 31)];
+      v = Math.floor(v / 32);
+    }
+    out += ALPHABET[v];
+  }
+  return out;
+}
+function decodeInts(text) {
+  const out = [];
+  let v = 0;
+  let mul = 1;
+  for (const c of text) {
+    const d = INDEX.get(c);
+    if (d === void 0) throw new Error("bad battle log");
+    if (d >= 32) {
+      v += (d - 32) * mul;
+      mul *= 32;
+    } else {
+      out.push(v + d * mul);
+      v = 0;
+      mul = 1;
+    }
+  }
+  return out;
+}
+function decodeEvents(events, dt) {
+  const ints = decodeInts(events);
+  const out = [];
+  let step = 0;
+  for (let i = 0; i < ints.length; ) {
+    const code = ints[i++];
+    const n = EV_ARGS[code];
+    if (n === void 0) throw new Error("bad battle log");
+    const args = ints.slice(i, i + n);
+    i += n;
+    if (code === 0) step += args[0];
+    else out.push({ t: step * dt, code, args });
+  }
+  return out;
+}
+
+// packages/shared/src/battle/simulate.ts
+var State = { Waiting: 0, Active: 1, Fallen: 2, Gone: 3 };
+var Heap = class {
+  keys = [];
+  vals = [];
+  get size() {
+    return this.keys.length;
+  }
+  push(key, val) {
+    const k = this.keys;
+    const v = this.vals;
+    let i = k.length;
+    k.push(key);
+    v.push(val);
+    while (i > 0) {
+      const p = i - 1 >> 1;
+      if (k[p] <= key) break;
+      k[i] = k[p];
+      v[i] = v[p];
+      i = p;
+    }
+    k[i] = key;
+    v[i] = val;
+  }
+  pop() {
+    const k = this.keys;
+    const v = this.vals;
+    const top = [k[0], v[0]];
+    const lk = k.pop();
+    const lv = v.pop();
+    if (k.length > 0) {
+      let i = 0;
+      const n = k.length;
+      for (; ; ) {
+        const l = 2 * i + 1;
+        if (l >= n) break;
+        const r = l + 1;
+        const c = r < n && k[r] < k[l] ? r : l;
+        if (k[c] >= lk) break;
+        k[i] = k[c];
+        v[i] = v[c];
+        i = c;
+      }
+      k[i] = lk;
+      v[i] = lv;
+    }
+    return top;
+  }
+};
+var canHit = (w, target) => target.s.flying ? w.hitsAir : w.hitsGround;
+function simulateBattle(setup, seed) {
+  const rng = createRng(`battle/${seed}`);
+  const dt = BATTLE.dt;
+  const maxS = setup.maxS ?? BATTLE.maxS;
+  const maxSteps = Math.ceil(maxS / dt);
+  const tiles = setup.tiles;
+  const n = tiles.length;
+  const index = /* @__PURE__ */ new Map();
+  tiles.forEach((t, i) => index.set(tileCode(t), i));
+  const idx = (h) => index.get(tileCode(h)) ?? -1;
+  const cost = new Float64Array(n);
+  for (let i = 0; i < n; i++) cost[i] = tiles[i].cost;
+  for (const b of setup.buildings)
+    for (const h of b.tiles) {
+      const i = idx(h);
+      if (i >= 0) cost[i] = Infinity;
+    }
+  const neighbors = tiles.map(
+    (t) => hexNeighbors(t).map(idx).filter((i) => i >= 0)
+  );
+  const occupied = new Float64Array(n);
+  const exits = new Set(setup.exits);
+  const dijkstra = (sources) => {
+    const dist = new Float64Array(n).fill(Infinity);
+    const heap = new Heap();
+    for (const s of sources) {
+      dist[s] = 0;
+      heap.push(0, s);
+    }
+    while (heap.size > 0) {
+      const [d, i] = heap.pop();
+      if (d > dist[i]) continue;
+      for (const j of neighbors[i]) {
+        const c = cost[j];
+        if (!Number.isFinite(c)) continue;
+        const nd = d + c;
+        if (nd < dist[j]) {
+          dist[j] = nd;
+          heap.push(nd, j);
+        }
+      }
+    }
+    return dist;
+  };
+  const buildings = setup.buildings.map((b, i) => ({
+    i,
+    b,
+    hp: b.hp,
+    loot: [...b.loot],
+    field: null,
+    damaged: false
+  }));
+  const fieldOf = (b) => {
+    if (!b.field) {
+      const sources = /* @__PURE__ */ new Set();
+      for (const h of b.b.tiles)
+        for (const nb of hexNeighbors(h)) {
+          const j = idx(nb);
+          if (j >= 0 && Number.isFinite(cost[j])) sources.add(j);
+        }
+      b.field = dijkstra([...sources]);
+    }
+    return b.field;
+  };
+  let exitFieldCache = null;
+  const exitField = () => exitFieldCache ??= dijkstra([...exits]);
+  const buildingDistance = (b, h) => {
+    let d = Infinity;
+    for (const t of b.b.tiles) d = Math.min(d, hexDistance(t, h));
+    return d;
+  };
+  const units = setup.units.map((s, i) => {
+    let tile = idx(s.at);
+    if (tile < 0) tile = 0;
+    return {
+      i,
+      s,
+      side: s.side,
+      hp: s.hp,
+      tile,
+      home: tile,
+      state: State.Waiting,
+      busyUntil: 0,
+      readyAt: 0,
+      target: null,
+      retargetAt: 0,
+      ammo: s.ammo,
+      carrying: s.role === "raider" ? /* @__PURE__ */ new Map() : null,
+      carried: 0,
+      fleeing: false,
+      reached: false,
+      stuckSince: -1,
+      leash: s.role === "militia" ? KIWI_UNIT.militiaLeash : s.role === "guard" ? BATTLE.leash[setup.orders[s.side].posture] : 0
+    };
+  });
+  const attackers = units.filter((u) => u.side === 1);
+  const lootLeft0 = (b) => b.loot[0] + b.loot[1] + b.loot[2] + b.loot[3];
+  const totalPower = attackers.reduce((sum, u) => sum + u.s.power, 0);
+  const ints = [];
+  let step = 0;
+  let loggedStep = 0;
+  const log = (code, ...args) => {
+    if (step > loggedStep) {
+      ints.push(EV.step, step - loggedStep);
+      loggedStep = step;
+    }
+    ints.push(code, ...args);
+  };
+  const tenths = (x) => Math.max(0, Math.round(x * 10));
+  const result2 = {
+    duration: 0,
+    held: true,
+    lootable: buildings.reduce((sum, b) => sum + (b.b.side === 0 ? lootLeft0(b) : 0), 0),
+    loot: [],
+    damaged: [],
+    fallen: [],
+    fled: [],
+    attackers: { total: attackers.length, fallen: 0, escaped: 0 },
+    reached: 0,
+    struck: [],
+    shots: {}
+  };
+  const taken = /* @__PURE__ */ new Map();
+  const struck = /* @__PURE__ */ new Set();
+  const place = (u, to) => {
+    if (!u.s.flying) {
+      occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
+      occupied[to] = (occupied[to] ?? 0) + u.s.size;
+    }
+    u.tile = to;
+  };
+  const free = (u, j, t) => {
+    if (u.s.flying) return true;
+    if (!Number.isFinite(cost[j])) return false;
+    const squeeze = u.stuckSince >= 0 && t - u.stuckSince >= BATTLE.unstick - 1e-9;
+    return (occupied[j] ?? 0) + u.s.size <= BATTLE.tileCap + (squeeze ? 2 : 0) + 1e-9;
+  };
+  const moveTo = (u, j, t) => {
+    const c = u.s.flying ? 1 : Math.max(0.3, cost[j]);
+    const dur = c / Math.max(0.1, u.s.speed);
+    place(u, j);
+    u.busyUntil = t + dur;
+    u.stuckSince = -1;
+    log(EV.move, u.i, tileCode(tiles[j]), tenths(dur));
+  };
+  const stepDown = (u, field, t) => {
+    const here = field[u.tile];
+    let best = -1;
+    let bestD = here;
+    for (const j of neighbors[u.tile]) {
+      const d = field[j];
+      if (d < bestD - 1e-9 && free(u, j, t)) {
+        best = j;
+        bestD = d;
+      }
+    }
+    if (best < 0 && u.stuckSince >= 0 && t - u.stuckSince >= BATTLE.unstick - 1e-9) {
+      bestD = Infinity;
+      for (const j of neighbors[u.tile]) {
+        const d = field[j];
+        if (d <= here + 1e-9 && d < bestD - 1e-9 && free(u, j, t)) {
+          best = j;
+          bestD = d;
+        }
+      }
+    }
+    if (best < 0) {
+      if (u.stuckSince < 0) u.stuckSince = t;
+      return false;
+    }
+    moveTo(u, best, t);
+    return true;
+  };
+  const stepToward = (u, goal, t) => {
+    const here = tiles[u.tile];
+    let best = -1;
+    let bestD = hexDistance(here, goal);
+    const home = tiles[u.home];
+    for (const j of neighbors[u.tile]) {
+      const h = tiles[j];
+      const d = hexDistance(h, goal);
+      if (d >= bestD || !free(u, j, t)) continue;
+      if (u.leash > 0 && hexDistance(h, home) > u.leash) continue;
+      best = j;
+      bestD = d;
+    }
+    if (best < 0) {
+      if (u.stuckSince < 0) u.stuckSince = t;
+      return false;
+    }
+    moveTo(u, best, t);
+    return true;
+  };
+  const lootLeft = (b) => b.loot[0] + b.loot[1] + b.loot[2] + b.loot[3];
+  const fall = (u) => {
+    u.state = State.Fallen;
+    if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
+    log(EV.fall, u.i);
+    if (u.side === 0) result2.fallen.push(u.s.ref);
+    else result2.attackers.fallen++;
+    if (u.carrying)
+      for (const [bi, l] of u.carrying) {
+        const b = buildings[bi];
+        for (let k = 0; k < 4; k++) b.loot[k] += l[k];
+      }
+    u.carrying?.clear();
+    u.carried = 0;
+  };
+  const leave2 = (u) => {
+    u.state = State.Gone;
+    if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
+    log(EV.gone, u.i);
+    if (u.side === 1) {
+      result2.attackers.escaped++;
+      if (u.carrying)
+        for (const [bi, l] of u.carrying) {
+          const sum = taken.get(bi) ?? [0, 0, 0, 0];
+          for (let k = 0; k < 4; k++) sum[k] += l[k];
+          taken.set(bi, sum);
+        }
+    } else result2.fled.push(u.s.ref);
+  };
+  const hurt = (target, dmg) => {
+    target.hp -= dmg;
+    if (target.hp <= 1e-9) fall(target);
+  };
+  const strike2 = (u, target, t) => {
+    const w = u.s.weapon;
+    const slow = u.s.building !== null && buildings[u.s.building]?.damaged ? 2 : 1;
+    u.readyAt = t + w.reload * slow;
+    if (u.ammo !== null) {
+      u.ammo--;
+      result2.shots[u.s.ref] = (result2.shots[u.s.ref] ?? 0) + 1;
+    }
+    const roll = rng.next();
+    const swing = 1 + rng.range(-BATTLE.spread, BATTLE.spread);
+    if (target.building) {
+      const b = target.building;
+      const hit2 = roll < w.accuracy;
+      const dmg2 = hit2 ? w.damage * swing : 0;
+      log(EV.attack, u.i, b.i * 2 + 1, tenths(dmg2));
+      if (!hit2) return;
+      if (!u.reached && u.side === 1) {
+        u.reached = true;
+        result2.reached += u.s.power;
+      }
+      if (!u.s.flying && u.side === 1 && struck.size < BATTLE.struckTiles) struck.add(u.tile);
+      if (u.carrying && lootLeft(b) > 1e-6 && u.carried < u.s.carry - 1e-9) {
+        const want = Math.min(u.s.carry - u.carried, u.s.carry * BATTLE.grab);
+        const share = Math.min(1, want / lootLeft(b));
+        const got = u.carrying.get(b.i) ?? [0, 0, 0, 0];
+        let sum = 0;
+        for (let k = 0; k < 4; k++) {
+          const x = b.loot[k] * share;
+          b.loot[k] -= x;
+          got[k] += x;
+          sum += x;
+        }
+        u.carrying.set(b.i, got);
+        u.carried += sum;
+        log(EV.loot, u.i, b.i, Math.round(sum));
+      }
+      if (b.hp > 0 && !b.damaged) {
+        b.hp -= dmg2;
+        if (b.hp <= 1e-9) {
+          b.damaged = true;
+          result2.damaged.push(b.i);
+          log(EV.damaged, b.i);
+          if (result2.damaged.length >= (setup.maxDamaged ?? Infinity)) {
+            for (const o of buildings) if (!o.damaged) o.hp = 0;
+          }
+        }
+      }
+      return;
+    }
+    const e = target.unit;
+    const hit = roll < w.accuracy * (1 - e.s.dodge);
+    const dmg = hit ? w.damage * swing * (1 - e.s.armor) : 0;
+    log(EV.attack, u.i, e.i * 2, tenths(dmg));
+    if (hit) hurt(e, dmg);
+    if (w.style === "area" && hit) {
+      const at = tiles[e.tile];
+      for (const o of units) {
+        if (o === e || o.side === u.side || o.state !== State.Active || !canHit(w, o)) continue;
+        if (hexDistance(tiles[o.tile], at) > 1) continue;
+        const d = w.damage * BATTLE.splash * swing * (1 - o.s.armor);
+        log(EV.splash, u.i, o.i, tenths(d));
+        hurt(o, d);
+      }
+    }
+  };
+  const inRange = (u, target) => {
+    const here = tiles[u.tile];
+    if (target.building) return buildingDistance(target.building, here) <= u.s.weapon.range;
+    return hexDistance(here, tiles[target.unit.tile]) <= u.s.weapon.range;
+  };
+  const valid = (u, target) => {
+    if (!target) return false;
+    if (target.unit) return target.unit.state === State.Active;
+    const b = target.building;
+    const room = !!u.carrying && u.carried < u.s.carry - 1e-9 && lootLeft(b) > 1e-6;
+    return room || b.hp > 0 && !b.damaged;
+  };
+  const raiderTarget = (u) => {
+    const here = tiles[u.tile];
+    if (u.s.fightsBack) {
+      let best2 = null;
+      for (const e of units) {
+        if (e.side === u.side || e.state !== State.Active || e.s.role === "turret") continue;
+        if (e.target?.unit !== u || !canHit(u.s.weapon, e)) continue;
+        if (hexDistance(here, tiles[e.tile]) > u.s.weapon.range) continue;
+        if (!best2 || e.i < best2.i) best2 = e;
+      }
+      if (best2) return { unit: best2 };
+    }
+    if (u.s.huntsKiwis) {
+      let best2 = null;
+      let bestD = BATTLE.huntRange + 1;
+      for (const e of units) {
+        if (e.side === u.side || e.state !== State.Active || e.s.role === "turret") continue;
+        if (!canHit(u.s.weapon, e)) continue;
+        const d = hexDistance(here, tiles[e.tile]);
+        if (d < bestD) {
+          best2 = e;
+          bestD = d;
+        }
+      }
+      if (best2) return { unit: best2 };
+    }
+    let best = null;
+    let bestScore = 0;
+    const room = u.carried < u.s.carry - 1e-9;
+    for (const b of buildings) {
+      if (b.b.side === u.side) continue;
+      const canLoot = room && lootLeft(b) > 1e-6;
+      const canBreak = b.hp > 0 && !b.damaged;
+      if (!canLoot && !canBreak) continue;
+      const d = u.s.flying ? buildingDistance(b, here) : fieldOf(b)[u.tile];
+      if (!Number.isFinite(d)) continue;
+      const want = (canLoot ? 3 + b.b.priority : 0) + (canBreak ? b.b.priority : 0);
+      const score = want / (1 + d / 4);
+      if (score > bestScore + 1e-9) {
+        best = b;
+        bestScore = score;
+      }
+    }
+    return best ? { building: best } : null;
+  };
+  const defenderTarget = (u) => {
+    const here = tiles[u.tile];
+    const home = tiles[u.home];
+    const w = u.s.weapon;
+    const shoots = w.style !== "melee";
+    let best = null;
+    let bestScore = Infinity;
+    for (const e of units) {
+      if (e.side === u.side || e.state !== State.Active || !canHit(w, e)) continue;
+      const at = tiles[e.tile];
+      const d = hexDistance(here, at);
+      if (u.s.fixed) {
+        if (d > w.range) continue;
+      } else if (hexDistance(home, at) > u.leash + w.range) continue;
+      const score = d - (shoots && e.s.flying ? 3 : 0);
+      if (score < bestScore - 1e-9) {
+        best = e;
+        bestScore = score;
+      }
+    }
+    return best ? { unit: best } : null;
+  };
+  const goHome = (u, t) => {
+    if (u.s.flying || exits.has(u.tile)) {
+      if (exits.has(u.tile)) return leave2(u);
+      let goal = -1;
+      let d = Infinity;
+      for (const x of exits) {
+        const dx = hexDistance(tiles[x], tiles[u.tile]);
+        if (dx < d) {
+          d = dx;
+          goal = x;
+        }
+      }
+      if (goal < 0 || !stepToward(u, tiles[goal], t)) leave2(u);
+      return;
+    }
+    stepDown(u, exitField(), t);
+  };
+  const act = (u, t) => {
+    const s = u.s;
+    if (s.role === "raider") {
+      if (u.fleeing || u.carried >= s.carry - 1e-9) return goHome(u, t);
+      if (!valid(u, u.target) || t >= u.retargetAt) {
+        u.target = raiderTarget(u);
+        u.retargetAt = t + BATTLE.retarget;
+      }
+      const target2 = u.target;
+      if (!target2) return goHome(u, t);
+      if (inRange(u, target2)) {
+        if (t >= u.readyAt - 1e-9) strike2(u, target2, t);
+        return;
+      }
+      if (target2.building && !s.flying) {
+        if (!stepDown(u, fieldOf(target2.building), t)) u.retargetAt = t;
+      } else {
+        const goal = target2.building ? target2.building.b.tiles[0] : tiles[target2.unit.tile];
+        stepToward(u, goal, t);
+      }
+      return;
+    }
+    if (s.role === "militia" && u.hp < s.hp * KIWI_UNIT.militiaFlee) {
+      log(EV.flee, u.i);
+      return leave2(u);
+    }
+    if (u.ammo !== null && u.ammo <= 0) return;
+    if (!valid(u, u.target) || t >= u.retargetAt) {
+      u.target = defenderTarget(u);
+      u.retargetAt = t + BATTLE.retarget;
+    }
+    const target = u.target;
+    if (target && inRange(u, target)) {
+      if (t >= u.readyAt - 1e-9) strike2(u, target, t);
+      return;
+    }
+    if (s.fixed) return;
+    if (target?.unit) {
+      if (!stepToward(u, tiles[target.unit.tile], t)) u.retargetAt = t;
+      return;
+    }
+    if (u.tile !== u.home) stepToward(u, tiles[u.home], t);
+  };
+  let retreating = false;
+  for (step = 0; step < maxSteps; step++) {
+    const t = step * dt;
+    for (const u of units) {
+      if (u.state !== State.Waiting || u.s.delay > t + 1e-9) continue;
+      u.state = State.Active;
+      if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) + u.s.size;
+      if (u.s.delay > 0 || u.side === 1) log(EV.enter, u.i);
+    }
+    for (const u of units) {
+      if (u.state !== State.Active || t < u.busyUntil - 1e-9) continue;
+      act(u, t);
+    }
+    let alive = 0;
+    let left = 0;
+    for (const u of attackers)
+      if (u.state === State.Active || u.state === State.Waiting) {
+        left++;
+        alive += u.s.power;
+      }
+    if (left === 0) break;
+    if (!retreating && totalPower > 0 && alive / totalPower < setup.orders[1].retreatBelow) {
+      retreating = true;
+      for (const u of attackers)
+        if (u.state === State.Active && !u.fleeing) {
+          u.fleeing = true;
+          log(EV.flee, u.i);
+        }
+    }
+  }
+  step = Math.min(step + 1, maxSteps);
+  for (const u of attackers) if (u.state === State.Active) leave2(u);
+  for (const u of attackers) if (u.state === State.Waiting) u.state = State.Gone;
+  result2.duration = step * dt;
+  for (const [building, amounts] of [...taken].sort((a, b) => a[0] - b[0]))
+    if (amounts.some((x) => x > 1e-9)) result2.loot.push({ building, amounts });
+  result2.reached = totalPower > 0 ? result2.reached / totalPower : 0;
+  result2.struck = [...struck].map((i) => ({ q: tiles[i].q, r: tiles[i].r }));
+  result2.held = result2.loot.length === 0 && result2.damaged.length === 0;
+  const logUnits = setup.units.map((s) => [
+    s.ref,
+    s.side,
+    s.body,
+    s.kind,
+    s.name,
+    s.level,
+    s.classId,
+    tenths(s.hp),
+    s.at.q,
+    s.at.r,
+    s.weaponId
+  ]);
+  const logBuildings = setup.buildings.map((b) => [
+    b.ref,
+    b.type,
+    b.tiles[0].q,
+    b.tiles[0].r,
+    tenths(b.hp)
+  ]);
+  return {
+    v: 1,
+    dt,
+    steps: step,
+    units: logUnits,
+    buildings: logBuildings,
+    events: encodeInts(ints),
+    result: result2
+  };
+}
+
+// packages/shared/src/battle/units.ts
+var clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+function kiwiWeapon(v, state) {
+  if (v.kikiwiwi) return "stomp";
+  if (v.classId === "warrior" && techEffects(state).firearms) return "musket";
+  return CLASS_WEAPONS[v.classId ?? "none"];
+}
+function kiwiUnit(v, state, role, at, sector, side = 0) {
+  const K = KIWI_UNIT;
+  const avg = KIWI.stat.average;
+  const st = v.stats;
+  const tech = techEffects(state);
+  const weaponId = role === "militia" && !v.kikiwiwi ? "beak" : kiwiWeapon(v, state);
+  const base = WEAPONS[weaponId];
+  const level = 1 + K.perLevel * (v.level - 1);
+  const fight = Math.sqrt(modifiers(v).fight);
+  const titan = titanPower(state, v);
+  const spell = weaponId === "fireball";
+  const power = spell ? 1 + K.spiritDamage * (st.spirit - avg) : 1 + K.strengthDamage * (st.strength - avg);
+  const damage = base.damage * Math.max(0.5, power) * level * fight * titan * (role === "guard" ? tech.guard : K.militiaDamage);
+  const aim = base.style === "melee" ? base.accuracy : clamp(base.accuracy + K.dexterityAccuracy * (st.dexterity - avg), ...K.accuracy);
+  const hp = K.hp * Math.max(0.5, 1 + K.enduranceHp * (st.endurance - avg)) * level * fight * (v.kikiwiwi ? K.titanHp / 2 : 1);
+  return {
+    ref: v.id,
+    side,
+    body: v.kikiwiwi ? "kikiwiwi" : "kiwi",
+    role,
+    kind: v.classId ?? "none",
+    name: v.name,
+    level: v.level,
+    classId: v.classId,
+    hp,
+    // Armour (technology) spares the kiwis.
+    armor: clamp(1 - tech.injuries, 0, 0.6),
+    speed: K.speed * Math.max(0.5, 1 + K.agilitySpeed * (st.agility - avg)),
+    dodge: clamp(K.dodge + K.agilityDodge * (st.agility - avg), 0, K.maxDodge),
+    size: v.kikiwiwi ? K.titanSize : 1,
+    flying: false,
+    fixed: false,
+    weaponId,
+    weapon: { ...base, damage, accuracy: aim },
+    ammo: null,
+    carry: 0,
+    power: 0,
+    at,
+    delay: 0,
+    building: null,
+    fightsBack: true,
+    huntsKiwis: false,
+    sector
+  };
+}
+function enemyUnit(kind, k, ref, at, delay, sector, level) {
+  const p = ENEMIES[kind];
+  const s = Math.sqrt(Math.max(0.05, k));
+  const weapon = WEAPONS[p.weapon];
+  return {
+    ref,
+    side: 1,
+    body: p.body,
+    role: "raider",
+    kind,
+    name: "",
+    level,
+    classId: null,
+    hp: p.hp * s,
+    armor: p.armor,
+    speed: p.speed,
+    dodge: p.dodge,
+    size: p.body === "bat" ? 0 : p.size,
+    flying: p.body === "bat",
+    fixed: false,
+    weaponId: p.weapon,
+    weapon: { ...weapon, damage: weapon.damage * s },
+    ammo: null,
+    carry: p.carry,
+    power: p.power * k,
+    at,
+    delay,
+    building: null,
+    fightsBack: p.fightsBack,
+    huntsKiwis: p.huntsKiwis,
+    sector
+  };
+}
+function turretUnit(b, state, ammoShare, buildingIndex) {
+  const def = levelDef(b.type, b.level);
+  if (!def?.defense) return null;
+  const air = (def.defense.air ?? 0) > 0;
+  const defense = (air ? def.defense.air : def.defense.ground) ?? 0;
+  const weaponId = air ? "skyShot" : "seedShot";
+  const w = WEAPONS[weaponId];
+  return {
+    ref: b.id,
+    side: 0,
+    body: "turret",
+    role: "turret",
+    kind: b.type,
+    name: "",
+    level: b.level,
+    classId: null,
+    hp: 1,
+    armor: 0,
+    speed: 0,
+    dodge: 0,
+    size: 0,
+    flying: false,
+    fixed: true,
+    weaponId,
+    weapon: {
+      ...w,
+      damage: defense * TURRET_SHOT * techEffects(state).turretDefense,
+      range: turretRange(b.type, b.level)
+    },
+    ammo: Math.floor((def.ammo ?? 0) * ammoShare + 1e-9),
+    carry: 0,
+    power: 0,
+    at: { q: b.q, r: b.r },
+    delay: 0,
+    building: buildingIndex,
+    fightsBack: false,
+    huntsKiwis: false,
+    sector: null
+  };
+}
+
+// packages/shared/src/battle/wave.ts
+function waveSquads(state, threat) {
+  const age = Math.min(ageOf(state), 3);
+  const out = [];
+  const add = (kind, count, side) => {
+    if (count <= 0) return;
+    const shares = SECTORS.share[side];
+    const raw = SECTOR_IDS.map((s) => count * shares[s]);
+    const counts = raw.map(Math.floor);
+    let left = count - counts.reduce((a, b) => a + b, 0);
+    const order = SECTOR_IDS.map((_, i) => i).sort(
+      (a, b) => raw[b] - counts[b] - (raw[a] - counts[a]) || a - b
+    );
+    for (const i of order) if (left-- > 0) counts[i]++;
+    SECTOR_IDS.forEach((sector, i) => {
+      if (counts[i] > 0) out.push({ kind, sector, count: counts[i] });
+    });
+  };
+  const fit = (counts, cap) => {
+    const total = counts.reduce((sum, [, n]) => sum + n, 0);
+    if (total <= cap) return counts;
+    return counts.map(([k, n]) => [k, Math.round(n * cap / total)]);
+  };
+  const G = threat.ground;
+  if (G > 0) {
+    const brutes = Math.round(G * WAVE_UNITS.brute[age] / ENEMIES.brute.power);
+    const scouts = Math.round(G * WAVE_UNITS.scout / ENEMIES.scout.power);
+    const rest = G - brutes * ENEMIES.brute.power - scouts * ENEMIES.scout.power;
+    const soldiers = Math.max(1, Math.round(rest / ENEMIES.soldier.power));
+    for (const [k, n] of fit(
+      [
+        ["soldier", soldiers],
+        ["scout", scouts],
+        ["brute", brutes]
+      ],
+      BATTLE.maxGround
+    ))
+      add(k, n, "ground");
+  }
+  const A = threat.air;
+  if (A > 0) {
+    const spitters = Math.round(A * WAVE_UNITS.spitter[age] / ENEMIES.spitter.power);
+    const rest = A - spitters * ENEMIES.spitter.power;
+    const divers = Math.max(1, Math.round(rest / ENEMIES.diver.power));
+    for (const [k, n] of fit(
+      [
+        ["diver", divers],
+        ["spitter", spitters]
+      ],
+      BATTLE.maxAir
+    ))
+      add(k, n, "air");
+  }
+  return out;
+}
+function waveGates(state, waveId) {
+  const map = faceMapOf(state);
+  const rampart = rampartSectors(map);
+  const rng = createRng(`${state.seed}/${state.face}/${state.colony.index}/${waveId}/gates`);
+  const out = {};
+  for (const s of SECTOR_IDS) {
+    const tiles = rampart.tiles.filter((_, i) => rampart.sectors[i] === s).map((t) => ({
+      t,
+      a: angleGap(angleOf(t), SECTOR_MIDDLE[s]) * Math.sign(angleOf(t) - SECTOR_MIDDLE[s] || 1)
+    })).sort((x, y) => x.a - y.a || x.t.q - y.t.q || x.t.r - y.t.r);
+    const u = (rng.next() + rng.next()) / 2;
+    const pick = tiles[Math.min(tiles.length - 1, Math.floor(u * tiles.length))];
+    out[s] = pick ? { q: pick.t.q, r: pick.t.r } : { q: 0, r: 0 };
+  }
+  return out;
+}
+function squadScale(squads, threat) {
+  const nominal = { ground: 0, air: 0 };
+  for (const q of squads) {
+    const p = ENEMIES[q.kind];
+    nominal[p.body === "bat" ? "air" : "ground"] += q.count * p.power;
+  }
+  return {
+    ground: nominal.ground > 0 ? threat.ground / nominal.ground : 1,
+    air: nominal.air > 0 ? threat.air / nominal.air : 1
+  };
+}
+function enemyLevel(age, k) {
+  const extra = Math.max(0, Math.min(2, Math.round(2 * Math.log2(Math.max(1, k)))));
+  return Math.min(30, 1 + 3 * age + extra);
+}
+var SECTOR_MIDDLE = {
+  front: FRONT_AZIMUTH,
+  left: FRONT_AZIMUTH + 2 * Math.PI / 3,
+  right: FRONT_AZIMUTH - 2 * Math.PI / 3
+};
+var angleOf = (h) => {
+  const p = hexToPixel(h);
+  return Math.atan2(p.x, p.y);
+};
+var angleGap = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+var RAMPART_COST = 3;
+function waveSetup(state, wave, threat, opts) {
+  const map = faceMapOf(state);
+  const season = seasonOf(state);
+  const paths = pathSet(state);
+  const age = ageOf(state);
+  const covered = /* @__PURE__ */ new Set();
+  const footprints = state.buildings.map((b) => {
+    const tiles2 = footprintTiles(b);
+    for (const h of tiles2) covered.add(hexKey(h));
+    return tiles2;
+  });
+  const tiles = [];
+  const exits = { front: [], left: [], right: [] };
+  for (const t of map.tiles) {
+    const rampart = isRampart(map, t.q, t.r);
+    const cost = rampart ? RAMPART_COST : walkCost(map, paths, t, season);
+    if (rampart && !covered.has(hexKey(t)))
+      exits[rampartSectorOf(t)].push({ i: tiles.length, a: angleOf(t) });
+    tiles.push({ q: t.q, r: t.r, cost });
+  }
+  for (const s of SECTOR_IDS) exits[s].sort((x, y) => x.a - y.a || x.i - y.i);
+  const walkable = (k, i) => Number.isFinite(tiles[i].cost) && !covered.has(k);
+  const tileIndex = new Map(tiles.map((t, i) => [hexKey(t), i]));
+  const safe = protectedStock(state);
+  const depots = state.buildings.filter((b) => b.type === "nest" || b.type === "warehouse");
+  const depotStorage = depots.map((b) => levelDef(b.type, b.level)?.storage ?? 0);
+  const storageSum = depotStorage.reduce((a, b) => a + b, 0);
+  const rough = (x) => {
+    if (x <= 0) return 0;
+    if (!opts.roughLoot) return Math.floor(x);
+    const p = 10 ** Math.max(0, Math.floor(Math.log10(x)) - 1);
+    return Math.round(x / p) * p;
+  };
+  const damageable = (b) => b.type !== "nest" && b.type !== "camp" && b.type !== "monument" && !b.damaged;
+  const buildings = state.buildings.map((b, i) => {
+    const d = depots.indexOf(b);
+    const loot = [0, 0, 0, 0];
+    RESOURCE_IDS.forEach((r, k) => {
+      const stock = d >= 0 && storageSum > 0 ? Math.max(0, state.resources[r] - safe[r]) * depotStorage[d] / storageSum : 0;
+      loot[k] = rough(THREATS.lootShare * (stock + (b.reserve?.[r] ?? 0)));
+    });
+    const reserve = RESOURCE_IDS.some((r) => (b.reserve?.[r] ?? 0) > 0);
+    const turret = !!levelDef(b.type, b.level)?.defense;
+    return {
+      ref: b.id,
+      type: b.type,
+      side: 0,
+      tiles: footprints[i],
+      hp: damageable(b) ? BATTLE.buildingHp.base + BATTLE.buildingHp.perLevel * b.level : 0,
+      loot,
+      priority: reserve ? 1.2 : d >= 0 ? 1 : turret ? 0.4 : 0.6 + 0.05 * Math.min(b.level, 12)
+    };
+  });
+  const lootTotal = buildings.reduce((sum, b) => sum + b.loot.reduce((a, x) => a + x, 0), 0);
+  const squads = wave.squads ?? waveSquads(state, threat);
+  const gates = { ...waveGates(state, wave.id), ...wave.gates };
+  const scale = squadScale(squads, threat);
+  const units = [];
+  let carrySum = 0;
+  for (const q of squads) carrySum += q.count * ENEMIES[q.kind].carry;
+  const carryUnit = carrySum > 0 ? BATTLE.carry * lootTotal / carrySum : 0;
+  for (const sector of SECTOR_IDS) {
+    const all = SECTOR_IDS.flatMap((s) => exits[s]);
+    const gate = gates[sector];
+    const byGate = (exits[sector].length > 0 ? exits[sector] : all).map((e) => ({ e, d: hexDistance(tiles[e.i], gate) })).sort((x, y) => x.d - y.d || x.e.i - y.e.i);
+    const pack = byGate.filter((x) => x.d <= byGate[0].d + BATTLE.packWidth).map((x) => x.e);
+    const inSector = squads.filter((q) => q.sector === sector);
+    let j = 0;
+    for (const q of inSector) {
+      const air = ENEMIES[q.kind].body === "bat";
+      const k = (air ? scale.air : scale.ground) * opts.luck;
+      for (let c = 0; c < q.count; c++, j++) {
+        const at = tiles[pack[j % pack.length].i];
+        const u = enemyUnit(
+          q.kind,
+          k,
+          `${wave.id}-${units.length + 1}`,
+          { q: at.q, r: at.r },
+          j * BATTLE.enterGap,
+          sector,
+          enemyLevel(age, k)
+        );
+        u.carry = ENEMIES[q.kind].carry * carryUnit;
+        units.push(u);
+      }
+    }
+  }
+  const exitList = SECTOR_IDS.flatMap((s) => exits[s].map((e) => e.i));
+  const defense = defenseOf(state, threat);
+  state.buildings.forEach((b, i) => {
+    const t = turretUnit(b, state, defense.ammo.share, i);
+    if (!t) return;
+    const def = levelDef(b.type, b.level).defense;
+    if (!((def.ground ?? 0) > 0 && threat.ground > 0) && !((def.air ?? 0) > 0 && threat.air > 0))
+      return;
+    units.push(t);
+  });
+  const taken = /* @__PURE__ */ new Map();
+  const room = (i, size) => (taken.get(i) ?? 0) + size <= BATTLE.tileCap;
+  const take = (i, size) => taken.set(i, (taken.get(i) ?? 0) + size);
+  const near = (h, size) => {
+    for (let r = 0; r <= 3; r++)
+      for (const x of hexDisk(h, r)) {
+        const k = hexKey(x);
+        const i = tileIndex.get(k);
+        if (i === void 0 || !walkable(k, i) || !room(i, size)) continue;
+        take(i, size);
+        return x;
+      }
+    return null;
+  };
+  const sectorOf2 = new Map(defense.guards.map((g) => [g.id, g.sector]));
+  const posts = { front: [], left: [], right: [] };
+  map.tiles.forEach((t, i) => {
+    const k = hexKey(t);
+    if (t.rho < 0.6 || t.rho > 0.85 || !walkable(k, i)) return;
+    posts[rampartSectorOf(t)].push(i);
+  });
+  for (const s of SECTOR_IDS)
+    posts[s].sort(
+      (a, b) => hexDistance(tiles[a], gates[s]) - hexDistance(tiles[b], gates[s]) || angleGap(angleOf(tiles[a]), SECTOR_MIDDLE[s]) - angleGap(angleOf(tiles[b]), SECTOR_MIDDLE[s]) || a - b
+    );
+  for (const v of garrisonOf(state)) {
+    const sector = state.threats.pins[v.id] ?? sectorOf2.get(v.id) ?? "front";
+    const size = v.kikiwiwi ? 2 : 1;
+    const post = posts[sector].find((i) => room(i, size) && (taken.get(i) ?? 0) === 0);
+    let at = null;
+    if (post !== void 0) {
+      take(post, size);
+      at = tiles[post];
+    } else at = near(state.buildings[0] ?? { q: 0, r: 0 }, size);
+    if (at) units.push(kiwiUnit(v, state, "guard", { q: at.q, r: at.r }, sector));
+  }
+  if (!opts.sheltered) {
+    const nestB = state.buildings.find((b) => b.type === "nest");
+    for (const v of state.villagers) {
+      if (v.job.kind !== "work" && v.job.kind !== "idle") continue;
+      const job2 = v.job;
+      const place = job2.kind === "work" ? state.buildings.find((b) => b.id === job2.buildingId) : nestB;
+      if (!place) continue;
+      const at = near(place, v.kikiwiwi ? 2 : 1);
+      if (at) units.push(kiwiUnit(v, state, "militia", at, rampartSectorOf(at)));
+    }
+  }
+  return {
+    tiles,
+    exits: exitList,
+    maxDamaged: THREATS.maxDamaged,
+    buildings,
+    units,
+    orders: [
+      { posture: state.threats.posture, retreatBelow: 0 },
+      { posture: "bold", retreatBelow: BATTLE.retreatBelow }
+    ]
+  };
+}
+
 // packages/shared/src/sim/threats.ts
 var HOUR2 = 36e5;
 var DAY = 24 * HOUR2;
@@ -3164,7 +4419,20 @@ function defenseOf(state, threat) {
   }
   const garrison = { ground: 0, air: 0 };
   const guards = [];
-  for (const v of garrisonOf(state)) {
+  const posted = garrisonOf(state);
+  const pins = state.threats.pins;
+  for (const v of posted) {
+    const pin = pins[v.id];
+    if (!pin) continue;
+    const p = guardPower(v, state);
+    garrison.ground += p.ground;
+    garrison.air += p.air;
+    sectors[pin].ground += p.ground;
+    sectors[pin].air += p.air;
+    guards.push({ id: v.id, sector: pin });
+  }
+  for (const v of posted) {
+    if (pins[v.id]) continue;
     const p = guardPower(v, state);
     garrison.ground += p.ground;
     garrison.air += p.air;
@@ -3199,9 +4467,6 @@ function defenseOf(state, threat) {
     ammo: { need, have, share }
   };
 }
-function hurtWeight(v) {
-  return kiwiExposure(v) * (v.job.kind === "guard" ? GARRISON.exposure : 1);
-}
 function protectedStock(state) {
   let safe = 0;
   for (const b of state.buildings) {
@@ -3210,90 +4475,96 @@ function protectedStock(state) {
   }
   return { pulp: safe, fiber: safe, seeds: safe, juice: safe };
 }
-function waveOutcome(state, threat, defense, sheltered) {
-  const total = threat.ground + threat.air;
-  const clash = sectorClash(threat, defense.sectors);
-  const groundExcess = clash.through.ground;
-  const excess = groundExcess + clash.through.air;
-  const severity = total > 0 ? Math.min(1, excess / total) : 0;
-  const groundSeverity = total > 0 ? Math.min(1, groundExcess / total) : 0;
+function lethalWave(state, threat, defense, sheltered) {
+  return !sheltered && state.villagers.length > THREATS.minKiwis && threat.ground + threat.air > THREATS.deathRatio * (defense.ground + defense.air);
+}
+function battleOutcome(state, threat, defense, sheltered, log) {
+  const r = log.result;
   const loot = emptyResources();
   const lootReserve = emptyResources();
-  if (excess <= 1e-9) {
-    return {
-      victory: true,
-      sectors: clash.sectors,
-      severity: 0,
-      groundSeverity: 0,
-      damaged: 0,
-      loot,
-      lootReserve,
-      injured: 0,
-      deaths: 0,
-      pathsLost: 0
-    };
+  for (const l of r.loot) {
+    const b = state.buildings[l.building];
+    RESOURCE_IDS.forEach((id3, k) => {
+      const amount = l.amounts[k];
+      loot[id3] += amount;
+      lootReserve[id3] += Math.min(amount, b?.reserve?.[id3] ?? 0);
+    });
   }
-  const safe = protectedStock(state);
-  const kept = reserves(state).stock;
   for (const id3 of RESOURCE_IDS) {
-    const exposed2 = kept[id3] + Math.max(0, state.resources[id3] - safe[id3]);
-    loot[id3] = Math.floor(exposed2 * THREATS.lootShare * severity);
-    lootReserve[id3] = Math.min(loot[id3], Math.floor(kept[id3]));
+    loot[id3] = Math.floor(loot[id3]);
+    lootReserve[id3] = Math.min(loot[id3], Math.floor(lootReserve[id3]));
   }
-  const candidates = damageable(state).length;
-  const damaged = Math.min(candidates, Math.max(1, Math.round(severity * THREATS.maxDamaged)));
-  const exposed = exposedKiwis(state).length;
-  const lethal = total > THREATS.deathRatio * (defense.ground + defense.air);
-  const deaths = !sheltered && lethal && state.villagers.length > THREATS.minKiwis && exposed > 0 ? THREATS.maxDeaths : 0;
-  const injured = sheltered ? 0 : Math.min(
-    exposed - deaths,
-    Math.round(severity * THREATS.injuryShare * techEffects(state).injuries * exposed)
+  const paths = new Set(state.paths);
+  const pathsLost = Math.min(
+    THREATS.maxPathsLost,
+    r.struck.filter((h) => paths.has(hexKey(h))).length
   );
-  const pathsLost = Math.min(state.paths.length, Math.round(groundSeverity * THREATS.maxPathsLost));
+  const taken = RESOURCE_IDS.reduce((sum, id3) => sum + loot[id3], 0);
+  const victory = r.damaged.length === 0 && taken <= THREATS.holdLoot * r.lootable + 1e-9;
+  const fallen = r.fallen.filter((id3) => state.villagers.some((v) => v.id === id3));
+  const deaths = !victory && fallen.length > 0 && lethalWave(state, threat, defense, sheltered) ? Math.min(THREATS.maxDeaths, fallen.length) : 0;
   return {
-    victory: false,
-    sectors: clash.sectors,
-    severity,
-    groundSeverity,
-    damaged,
+    victory,
+    sectors: sectorClash(threat, defense.sectors).sectors,
+    severity: r.held ? 0 : Math.max(0.01, Math.min(1, r.reached)),
+    damaged: r.damaged.length,
     loot,
     lootReserve,
-    injured,
+    injured: fallen.length - deaths,
     deaths,
     pathsLost
   };
 }
-function damageable(state) {
-  return state.buildings.filter(
-    (b) => b.type !== "nest" && b.type !== "camp" && b.type !== "monument" && !b.damaged
+function waveBattle(state, wave, luck, seed, rough = false) {
+  const announced = { ground: wave.ground, air: wave.air };
+  const sheltered = state.threats.shelterUntil >= wave.at;
+  return simulateBattle(
+    waveSetup(state, wave, announced, { luck, sheltered, roughLoot: rough }),
+    seed
   );
 }
-function forecastWave(state) {
+function waveAhead(state) {
   const wave = state.threats.next;
   if (!wave || !wave.announced) return null;
   const threat = { ground: wave.ground, air: wave.air };
-  const defense = defenseOf(state, threat);
-  const L = THREATS.luck;
-  const holds = (k) => {
-    const through = sectorClash(
-      { ground: threat.ground * k, air: threat.air * k },
-      defense.sectors
-    ).through;
-    return through.ground + through.air <= 1e-9;
-  };
-  const odds = holds(1 + L) ? "likely" : holds(1 - L) ? "uncertain" : "unlikely";
   const sheltered = state.threats.shelterUntil >= wave.at;
   const shelterFrom = wave.at - SHELTER.beforeMs;
   return {
     wave,
     threat,
-    defense,
-    odds,
-    expected: waveOutcome(state, threat, defense, sheltered),
+    defense: defenseOf(state, threat),
     sheltered,
     canShelter: !sheltered && state.now >= shelterFrom && state.now < wave.at,
     shelterFrom
   };
+}
+var forecastCache = /* @__PURE__ */ new Map();
+function forecastWave(state) {
+  const ahead = waveAhead(state);
+  if (!ahead) return null;
+  const { wave, threat, defense, sheltered } = ahead;
+  const L = THREATS.luck;
+  const lucks = [1 + L, 1, 1 - L];
+  const setupAt = (luck) => waveSetup(state, wave, threat, { luck, sheltered, roughLoot: true });
+  const average = setupAt(1);
+  const { tiles: _tiles, ...rest } = average;
+  const key = `${wave.id}|${state.seed}|${state.face}|${terraformKey(state)}|${pathsKey(state.paths)}|${seasonOf(state)}|${JSON.stringify(rest)}`;
+  let trials = forecastCache.get(key);
+  if (!trials) {
+    trials = lucks.map(
+      (luck, i) => battleOutcome(
+        state,
+        threat,
+        defense,
+        sheltered,
+        simulateBattle(luck === 1 ? average : setupAt(luck), `${wave.id}/trial/${i}`)
+      )
+    );
+    forecastCache.set(key, trials);
+    if (forecastCache.size > 16) forecastCache.delete(forecastCache.keys().next().value);
+  }
+  const odds = trials[0].victory ? "likely" : trials[1].victory || trials[2].victory ? "uncertain" : "unlikely";
+  return { ...ahead, odds, expected: trials[1] };
 }
 function nextThreatEvent(state) {
   const t = state.threats;
@@ -3339,6 +4610,8 @@ function announce(s, wave, events) {
     wave.ground = tenth(mix2.ground * (1 + rng.range(-S, S)));
     wave.air = tenth(mix2.air * (1 + rng.range(-S, S)));
   });
+  wave.squads = waveSquads(s, { ground: wave.ground, air: wave.air });
+  wave.gates = waveGates(s, wave.id);
   wave.announced = true;
   events.push({
     type: "waveAnnounced",
@@ -3349,33 +4622,19 @@ function announce(s, wave, events) {
     air: wave.air
   });
 }
-function drawWeighted(s, items, weight, count) {
-  if (count <= 0) return [];
-  return withThreatRng(s, (rng) => {
-    const pool = items.map((x) => ({ x, w: Math.max(1e-6, weight(x)) }));
-    const out = [];
-    while (out.length < count && pool.length > 0) {
-      let roll = rng.next() * pool.reduce((sum, p) => sum + p.w, 0);
-      let i = 0;
-      for (; i < pool.length - 1; i++) {
-        roll -= pool[i].w;
-        if (roll < 0) break;
-      }
-      out.push(pool[i].x);
-      pool.splice(i, 1);
-    }
-    return out;
-  });
-}
 function strike(s, wave, events) {
   const t = s.threats;
   const at = wave.at;
   const luck = withThreatRng(s, (rng) => 1 + rng.range(-THREATS.luck, THREATS.luck));
+  const seed = withThreatRng(s, (rng) => `${wave.id}/${Math.floor(rng.next() * 2 ** 32)}`);
   const threat = { ground: wave.ground * luck, air: wave.air * luck };
-  const defense = defenseOf(s, threat);
+  const announced = { ground: wave.ground, air: wave.air };
+  const defense = defenseOf(s, announced);
   const sheltered = t.shelterUntil >= at;
-  const out = waveOutcome(s, threat, defense, sheltered);
-  const ammoUsed = Math.min(s.resources.seeds, defense.ammo.need);
+  const log = waveBattle(s, wave, luck, seed);
+  const out = battleOutcome(s, threat, defense, sheltered, log);
+  const shots = Object.values(log.result.shots).reduce((a, b) => a + b, 0);
+  const ammoUsed = Math.min(s.resources.seeds, shots);
   s.resources.seeds -= ammoUsed;
   const report = {
     id: wave.id,
@@ -3390,31 +4649,39 @@ function strike(s, wave, events) {
     loot: out.loot,
     injured: [],
     dead: [],
-    pathsLost: 0
+    pathsLost: 0,
+    log
   };
-  for (const id3 of RESOURCE_IDS) {
-    let left = out.lootReserve[id3];
-    for (const b of reserveHolders(s)) {
-      if (left <= 0) break;
-      const take = Math.min(left, b.reserve?.[id3] ?? 0);
-      if (take <= 0) continue;
-      b.reserve = { ...b.reserve, [id3]: b.reserve[id3] - take };
-      left -= take;
-    }
-    s.resources[id3] = Math.max(0, s.resources[id3] - (out.loot[id3] - out.lootReserve[id3] + left));
+  const buildings = [...s.buildings];
+  for (const l of log.result.loot) {
+    const b = buildings[l.building];
+    RESOURCE_IDS.forEach((id3, k) => {
+      let left = Math.floor(l.amounts[k]);
+      const fromReserve = Math.min(left, Math.floor(b?.reserve?.[id3] ?? 0));
+      if (b && fromReserve > 0) {
+        b.reserve = { ...b.reserve, [id3]: b.reserve[id3] - fromReserve };
+        left -= fromReserve;
+      }
+      s.resources[id3] = Math.max(0, s.resources[id3] - left);
+    });
   }
-  for (const b of drawWeighted(s, damageable(s), (b2) => b2.level, out.damaged)) {
+  for (const i of log.result.damaged) {
+    const b = buildings[i];
+    if (!b || b.damaged) continue;
     b.damaged = true;
     report.damaged.push({ id: b.id, type: b.type });
   }
   if (out.pathsLost > 0) {
-    const lost = new Set(drawWeighted(s, s.paths, () => 1, out.pathsLost));
+    const paths = new Set(s.paths);
+    const lost = new Set(
+      log.result.struck.map((h) => hexKey(h)).filter((k) => paths.has(k)).slice(0, out.pathsLost)
+    );
     s.paths = s.paths.filter((k) => !lost.has(k));
     report.pathsLost = lost.size;
   }
-  const hurt = drawWeighted(s, exposedKiwis(s), hurtWeight, out.deaths + out.injured);
-  const dead = hurt.slice(0, out.deaths);
-  for (const v of hurt.slice(out.deaths)) {
+  const fallen = log.result.fallen.map((id3) => s.villagers.find((v) => v.id === id3)).filter((v) => !!v);
+  const dead = fallen.slice(0, out.deaths);
+  for (const v of fallen.slice(out.deaths)) {
     const until = withThreatRng(
       s,
       (rng) => Math.round(at + rng.range(THREATS.injuryMs[0], THREATS.injuryMs[1]))
@@ -3430,6 +4697,8 @@ function strike(s, wave, events) {
       "predator",
       at
     );
+  const guards = new Set(garrisonOf(s).map((v) => v.id));
+  t.pins = Object.fromEntries(Object.entries(t.pins).filter(([id3]) => guards.has(id3)));
   if (!out.victory) t.shieldUntil = at + THREATS.shieldMs;
   else s.stats.wavesHeld++;
   t.lastWaveAt = at;
@@ -6652,13 +7921,13 @@ function travelTime(target, launchpad, crew = [], mission = "raid", tech = 1) {
   const light = mission === "recon" ? RECON.travel : 1;
   return Math.round(target.travelMs * pad * wind * light * tech / 1e3) * 1e3;
 }
-var clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+var clamp2 = (v, min, max) => Math.max(min, Math.min(max, v));
 var mean = (crew, f) => crew.length ? crew.reduce((sum, v) => sum + f(v), 0) / crew.length : 0;
 function reconForecast(crew, ship) {
   const q = RECON.quality;
   const avg = KIWI.stat.average;
   const scouting = crew.some((v) => hasSkill(v, "scouting"));
-  const quality = clamp(
+  const quality = clamp2(
     q.base + mean(
       crew,
       (v) => q.perStat * ((v.stats.agility + v.stats.spirit) / 2 - avg) + q.perLevel * (v.level - 1)
@@ -6667,7 +7936,7 @@ function reconForecast(crew, ship) {
     1
   );
   const sp = RECON.spot;
-  const spotChance = clamp(
+  const spotChance = clamp2(
     sp.base + sp.perExtraKiwi * Math.max(0, crew.length - 1) - sp.perAgility * mean(crew, (v) => v.stats.agility - avg) - (scouting ? sp.scouting : 0),
     sp.min,
     sp.max
@@ -7871,7 +9140,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 27;
+var SCHEMA_VERSION = 28;
 var MISSION_KINDS = [
   "raid",
   "recon",
@@ -8016,7 +9285,9 @@ function newThreats(seed, face, now) {
     nextIncidentAt: now + INCIDENTS.firstMs,
     waves: 0,
     reports: [],
-    incidents: []
+    incidents: [],
+    posture: "cautious",
+    pins: {}
   };
 }
 function newSky(now) {
@@ -8197,7 +9468,12 @@ function cloneThreats(t) {
   return {
     ...t,
     rng: [...t.rng],
-    next: t.next ? { ...t.next } : null,
+    next: t.next ? {
+      ...t.next,
+      ...t.next.squads ? { squads: t.next.squads.map((q) => ({ ...q })) } : {},
+      ...t.next.gates ? { gates: { ...t.next.gates } } : {}
+    } : null,
+    pins: { ...t.pins },
     reports: t.reports.map((r) => ({
       ...r,
       threat: { ...r.threat },
@@ -9303,7 +10579,7 @@ function execute(s, cmd, ctx, events) {
       return;
     }
     case "shelter": {
-      const f = forecastWave(s);
+      const f = waveAhead(s);
       if (!f) return fail("noWaveSoon");
       if (f.sheltered) fail("alreadySheltered");
       if (!f.canShelter) fail("noWaveSoon");
@@ -13596,6 +14872,16 @@ var job = external_exports.discriminatedUnion("kind", [
 ]);
 var sides = external_exports.object({ ground: external_exports.number().min(0), air: external_exports.number().min(0) });
 var named = external_exports.array(external_exports.object({ id, name: external_exports.string().max(4 * KIWI_NAME_MAX) }));
+var hexSchema = external_exports.object({ q: external_exports.number().int(), r: external_exports.number().int() });
+var battleLog = external_exports.object({
+  v: external_exports.literal(1),
+  dt: external_exports.number().positive(),
+  steps: external_exports.number().int().min(0).max(1e4),
+  units: external_exports.array(external_exports.array(external_exports.unknown())).max(BATTLE.maxGround + BATTLE.maxAir + 200),
+  buildings: external_exports.array(external_exports.array(external_exports.unknown())).max(400),
+  events: external_exports.string().max(4e5),
+  result: external_exports.record(external_exports.string(), external_exports.unknown())
+});
 var threats = external_exports.object({
   rng: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number(), external_exports.number()]),
   next: external_exports.object({
@@ -13604,7 +14890,15 @@ var threats = external_exports.object({
     at: external_exports.number(),
     announced: external_exports.boolean(),
     ground: external_exports.number().min(0),
-    air: external_exports.number().min(0)
+    air: external_exports.number().min(0),
+    squads: external_exports.array(
+      external_exports.object({
+        kind: external_exports.enum(ENEMY_KINDS),
+        sector: external_exports.enum(SECTOR_IDS),
+        count: external_exports.number().int().min(0).max(BATTLE.maxGround + BATTLE.maxAir)
+      })
+    ).max(ENEMY_KINDS.length * SECTOR_IDS.length).optional(),
+    gates: external_exports.object({ front: hexSchema, left: hexSchema, right: hexSchema }).partial().optional()
   }).nullable(),
   lastWaveAt: external_exports.number().min(0),
   shieldUntil: external_exports.number().min(0),
@@ -13625,9 +14919,12 @@ var threats = external_exports.object({
       loot: resources,
       injured: named,
       dead: named,
-      pathsLost: external_exports.number().int().min(0)
+      pathsLost: external_exports.number().int().min(0),
+      log: battleLog.optional()
     })
   ).max(THREATS.history),
+  posture: external_exports.enum(POSTURES),
+  pins: external_exports.record(external_exports.string(), external_exports.enum(SECTOR_IDS)),
   incidents: external_exports.array(
     external_exports.object({
       at: external_exports.number(),
@@ -14089,6 +15386,12 @@ var MIGRATIONS = {
   26: (raw) => ({
     ...raw,
     buildings: (Array.isArray(raw.buildings) ? raw.buildings : []).map((b) => footprintOf(b.type) > 1 ? { ...b, cramped: true } : b)
+  }),
+  // v27 → v28 (chantier 36): a cautious garrison, no pinned guard (squads and battle logs are
+  // optional: an announced wave gets its squads at the strike).
+  27: (raw) => ({
+    ...raw,
+    threats: { ...raw.threats, posture: "cautious", pins: {} }
   })
 };
 function spreadOldBuildings(state) {
@@ -15265,957 +16568,6 @@ function createMemoryRepository() {
     }
   };
 }
-
-// packages/shared/src/data/units.ts
-var WEAPON_IDS = [
-  "beak",
-  "mace",
-  "sword",
-  "fireball",
-  "sling",
-  "musket",
-  "stomp",
-  "claw",
-  "bite",
-  "slam",
-  "dive",
-  "spit",
-  "seedShot",
-  "skyShot"
-];
-var melee = (damage, reload, hitsAir = false) => ({
-  damage,
-  range: 1,
-  reload,
-  style: "melee",
-  accuracy: 0.9,
-  hitsGround: true,
-  hitsAir
-});
-var WEAPONS = {
-  // Kiwis: a peck for everybody, then the weapon of the class.
-  beak: melee(1, 1.5),
-  mace: melee(2.4, 1.6),
-  sword: melee(3.2, 1.1),
-  fireball: {
-    damage: 2.6,
-    range: 3,
-    reload: 2.2,
-    style: "area",
-    accuracy: 0.8,
-    hitsGround: true,
-    hitsAir: true
-  },
-  sling: {
-    damage: 1.6,
-    range: 2,
-    reload: 1.2,
-    style: "ranged",
-    accuracy: 0.75,
-    hitsGround: true,
-    hitsAir: true
-  },
-  musket: {
-    damage: 4,
-    range: 3,
-    reload: 2.4,
-    style: "ranged",
-    accuracy: 0.75,
-    hitsGround: true,
-    hitsAir: true
-  },
-  stomp: { ...melee(6, 1.6, true), style: "area" },
-  // Predators.
-  claw: melee(2, 1.2),
-  bite: melee(1.5, 1),
-  slam: melee(5, 1.8),
-  dive: melee(2, 1.4),
-  spit: {
-    damage: 1.6,
-    range: 2,
-    reload: 1.6,
-    style: "ranged",
-    accuracy: 0.8,
-    hitsGround: true,
-    hitsAir: false
-  },
-  // Turrets: the damage of a shot is set from the turret's defense (`TURRET_SHOT`).
-  seedShot: {
-    damage: 1,
-    range: 3,
-    reload: 1.5,
-    style: "ranged",
-    accuracy: 0.85,
-    hitsGround: true,
-    hitsAir: false
-  },
-  skyShot: {
-    damage: 1,
-    range: 4,
-    reload: 1.5,
-    style: "ranged",
-    accuracy: 0.85,
-    hitsGround: false,
-    hitsAir: true
-  }
-};
-var ENEMY_KINDS = ["soldier", "scout", "brute", "diver", "spitter"];
-var ENEMIES = {
-  soldier: {
-    body: "ferret",
-    hp: 10,
-    armor: 0,
-    speed: 1.2,
-    dodge: 0.05,
-    size: 1,
-    weapon: "claw",
-    power: 1,
-    carry: 1,
-    fightsBack: true,
-    huntsKiwis: false
-  },
-  scout: {
-    body: "ferret",
-    hp: 6,
-    armor: 0,
-    speed: 2,
-    dodge: 0.15,
-    size: 1,
-    weapon: "bite",
-    power: 0.6,
-    carry: 1.5,
-    fightsBack: false,
-    huntsKiwis: false
-  },
-  brute: {
-    body: "ferret",
-    hp: 28,
-    armor: 0.2,
-    speed: 0.8,
-    dodge: 0,
-    size: 2,
-    weapon: "slam",
-    power: 2.5,
-    carry: 0.5,
-    fightsBack: true,
-    huntsKiwis: false
-  },
-  diver: {
-    body: "bat",
-    hp: 7,
-    armor: 0,
-    speed: 2.2,
-    dodge: 0.15,
-    size: 0,
-    weapon: "dive",
-    power: 1,
-    carry: 0.8,
-    fightsBack: true,
-    huntsKiwis: false
-  },
-  spitter: {
-    body: "bat",
-    hp: 6,
-    armor: 0,
-    speed: 1.8,
-    dodge: 0.1,
-    size: 0,
-    weapon: "spit",
-    power: 1.1,
-    carry: 0.4,
-    fightsBack: false,
-    huntsKiwis: true
-  }
-};
-var CLASS_WEAPONS = {
-  none: "beak",
-  builder: "mace",
-  warrior: "sword",
-  mage: "fireball",
-  scout: "sling",
-  mayor: "beak"
-};
-var KIWI_UNIT = {
-  hp: 14,
-  /** Per stat point above or below the average. */
-  enduranceHp: 0.06,
-  strengthDamage: 0.06,
-  spiritDamage: 0.06,
-  dexterityAccuracy: 0.03,
-  agilitySpeed: 0.04,
-  agilityDodge: 0.015,
-  /** Per level above 1, on hit points and damage. */
-  perLevel: 0.04,
-  speed: 1.3,
-  dodge: 0.05,
-  maxDodge: 0.35,
-  accuracy: [0.4, 0.97],
-  /** A Kikiwiwi: this many times the hit points, two places on a tile, stomps (chantier 08). */
-  titanHp: 4,
-  titanSize: 2,
-  /** Kiwis at home who were not posted fight only near their workplace, and run home hurt. */
-  militiaLeash: 1,
-  militiaFlee: 0.4,
-  militiaDamage: 0.8
-};
-var POSTURES = ["cautious", "bold"];
-var BATTLE = {
-  /** Length of a step, in seconds. */
-  dt: 0.5,
-  /** A battle never lasts longer (the attackers left run away). */
-  maxS: 240,
-  /** Places on a tile (a ferret takes 1, a brute or a Kikiwiwi 2; bats fly over). */
-  tileCap: 3,
-  /** Guards stay this close to their post when cautious; bold, they chase anywhere. */
-  leash: { cautious: 3, bold: 99 },
-  /** Splash of an area attack: share of the damage dealt to the others around the target. */
-  splash: 0.6,
-  /** Damage drawn in ± this share. */
-  spread: 0.15,
-  /** A raider takes this share of its load in one hit on a store. */
-  grab: 1 / 3,
-  /** Attackers run away when their side has less than this share of its power left. */
-  retreatBelow: 0.3,
-  /** Bats spot kiwis this far away. */
-  huntRange: 4,
-  /** Units retarget at most this often (seconds). */
-  retarget: 1,
-  /** Units of a wave at most (more power makes them stronger, not more numerous). */
-  maxGround: 36,
-  maxAir: 24,
-  /** Seconds between two attackers entering by the same sector. */
-  enterGap: 0.5,
-  /** Tiles of the attackers' trail kept for the trampled paths. */
-  struckTiles: 12
-};
-var TURRET_SHOT = 0.8;
-
-// packages/shared/src/battle/types.ts
-var EV = {
-  /** n: the next events happen n steps later. */
-  step: 0,
-  /** unit, tile key, duration in tenths of a second: starts walking (or flying) there. */
-  move: 1,
-  /** unit, target (unit × 2, or building × 2 + 1), damage in tenths (0: missed). */
-  attack: 2,
-  /** unit, target unit, damage in tenths: caught in the splash of an area attack. */
-  splash: 3,
-  /** unit: falls. */
-  fall: 4,
-  /** unit, building, amount: takes loot. */
-  loot: 5,
-  /** building: damaged. */
-  damaged: 6,
-  /** unit: leaves the field (an attacker with its loot, a hurt kiwi running home). */
-  gone: 7,
-  /** unit: runs away. */
-  flee: 8,
-  /** unit: comes in. */
-  enter: 9
-};
-var EV_ARGS = [1, 3, 3, 3, 1, 3, 1, 1, 1, 1];
-var TILE_OFFSET = 32;
-var tileCode = (h) => (h.q + TILE_OFFSET) * 64 + (h.r + TILE_OFFSET);
-var tileOfCode = (c) => ({
-  q: Math.floor(c / 64) - TILE_OFFSET,
-  r: c % 64 - TILE_OFFSET
-});
-
-// packages/shared/src/battle/codec.ts
-var ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-var INDEX = new Map([...ALPHABET].map((c, i) => [c, i]));
-function encodeInts(values) {
-  let out = "";
-  for (const raw of values) {
-    let v = Math.max(0, Math.round(raw));
-    while (v >= 32) {
-      out += ALPHABET[32 + (v & 31)];
-      v = Math.floor(v / 32);
-    }
-    out += ALPHABET[v];
-  }
-  return out;
-}
-function decodeInts(text) {
-  const out = [];
-  let v = 0;
-  let mul = 1;
-  for (const c of text) {
-    const d = INDEX.get(c);
-    if (d === void 0) throw new Error("bad battle log");
-    if (d >= 32) {
-      v += (d - 32) * mul;
-      mul *= 32;
-    } else {
-      out.push(v + d * mul);
-      v = 0;
-      mul = 1;
-    }
-  }
-  return out;
-}
-function decodeEvents(events, dt) {
-  const ints = decodeInts(events);
-  const out = [];
-  let step = 0;
-  for (let i = 0; i < ints.length; ) {
-    const code = ints[i++];
-    const n = EV_ARGS[code];
-    if (n === void 0) throw new Error("bad battle log");
-    const args = ints.slice(i, i + n);
-    i += n;
-    if (code === 0) step += args[0];
-    else out.push({ t: step * dt, code, args });
-  }
-  return out;
-}
-
-// packages/shared/src/battle/simulate.ts
-var State = { Waiting: 0, Active: 1, Fallen: 2, Gone: 3 };
-var Heap = class {
-  keys = [];
-  vals = [];
-  get size() {
-    return this.keys.length;
-  }
-  push(key, val) {
-    const k = this.keys;
-    const v = this.vals;
-    let i = k.length;
-    k.push(key);
-    v.push(val);
-    while (i > 0) {
-      const p = i - 1 >> 1;
-      if (k[p] <= key) break;
-      k[i] = k[p];
-      v[i] = v[p];
-      i = p;
-    }
-    k[i] = key;
-    v[i] = val;
-  }
-  pop() {
-    const k = this.keys;
-    const v = this.vals;
-    const top = [k[0], v[0]];
-    const lk = k.pop();
-    const lv = v.pop();
-    if (k.length > 0) {
-      let i = 0;
-      const n = k.length;
-      for (; ; ) {
-        const l = 2 * i + 1;
-        if (l >= n) break;
-        const r = l + 1;
-        const c = r < n && k[r] < k[l] ? r : l;
-        if (k[c] >= lk) break;
-        k[i] = k[c];
-        v[i] = v[c];
-        i = c;
-      }
-      k[i] = lk;
-      v[i] = lv;
-    }
-    return top;
-  }
-};
-var canHit = (w, target) => target.s.flying ? w.hitsAir : w.hitsGround;
-function simulateBattle(setup, seed) {
-  const rng = createRng(`battle/${seed}`);
-  const dt = BATTLE.dt;
-  const maxS = setup.maxS ?? BATTLE.maxS;
-  const maxSteps = Math.ceil(maxS / dt);
-  const tiles = setup.tiles;
-  const n = tiles.length;
-  const index = /* @__PURE__ */ new Map();
-  tiles.forEach((t, i) => index.set(tileCode(t), i));
-  const idx = (h) => index.get(tileCode(h)) ?? -1;
-  const cost = new Float64Array(n);
-  for (let i = 0; i < n; i++) cost[i] = tiles[i].cost;
-  for (const b of setup.buildings)
-    for (const h of b.tiles) {
-      const i = idx(h);
-      if (i >= 0) cost[i] = Infinity;
-    }
-  const neighbors = tiles.map(
-    (t) => hexNeighbors(t).map(idx).filter((i) => i >= 0)
-  );
-  const occupied = new Float64Array(n);
-  const exits = new Set(setup.exits);
-  const dijkstra = (sources) => {
-    const dist = new Float64Array(n).fill(Infinity);
-    const heap = new Heap();
-    for (const s of sources) {
-      dist[s] = 0;
-      heap.push(0, s);
-    }
-    while (heap.size > 0) {
-      const [d, i] = heap.pop();
-      if (d > dist[i]) continue;
-      for (const j of neighbors[i]) {
-        const c = cost[j];
-        if (!Number.isFinite(c)) continue;
-        const nd = d + c;
-        if (nd < dist[j]) {
-          dist[j] = nd;
-          heap.push(nd, j);
-        }
-      }
-    }
-    return dist;
-  };
-  const buildings = setup.buildings.map((b, i) => ({
-    i,
-    b,
-    hp: b.hp,
-    loot: [...b.loot],
-    field: null,
-    damaged: false
-  }));
-  const fieldOf = (b) => {
-    if (!b.field) {
-      const sources = /* @__PURE__ */ new Set();
-      for (const h of b.b.tiles)
-        for (const nb of hexNeighbors(h)) {
-          const j = idx(nb);
-          if (j >= 0 && Number.isFinite(cost[j])) sources.add(j);
-        }
-      b.field = dijkstra([...sources]);
-    }
-    return b.field;
-  };
-  let exitFieldCache = null;
-  const exitField = () => exitFieldCache ??= dijkstra([...exits]);
-  const buildingDistance = (b, h) => {
-    let d = Infinity;
-    for (const t of b.b.tiles) d = Math.min(d, hexDistance(t, h));
-    return d;
-  };
-  const units = setup.units.map((s, i) => {
-    let tile = idx(s.at);
-    if (tile < 0) tile = 0;
-    return {
-      i,
-      s,
-      side: s.side,
-      hp: s.hp,
-      tile,
-      home: tile,
-      state: State.Waiting,
-      busyUntil: 0,
-      readyAt: 0,
-      target: null,
-      retargetAt: 0,
-      ammo: s.ammo,
-      carrying: s.role === "raider" ? /* @__PURE__ */ new Map() : null,
-      carried: 0,
-      fleeing: false,
-      reached: false,
-      leash: s.role === "militia" ? KIWI_UNIT.militiaLeash : s.role === "guard" ? BATTLE.leash[setup.orders[s.side].posture] : 0
-    };
-  });
-  const attackers = units.filter((u) => u.side === 1);
-  const totalPower = attackers.reduce((sum, u) => sum + u.s.power, 0);
-  const ints = [];
-  let step = 0;
-  let loggedStep = 0;
-  const log = (code, ...args) => {
-    if (step > loggedStep) {
-      ints.push(EV.step, step - loggedStep);
-      loggedStep = step;
-    }
-    ints.push(code, ...args);
-  };
-  const tenths = (x) => Math.max(0, Math.round(x * 10));
-  const result2 = {
-    duration: 0,
-    held: true,
-    loot: [],
-    damaged: [],
-    fallen: [],
-    fled: [],
-    attackers: { total: attackers.length, fallen: 0, escaped: 0 },
-    reached: 0,
-    struck: [],
-    shots: {}
-  };
-  const taken = /* @__PURE__ */ new Map();
-  const struck = /* @__PURE__ */ new Set();
-  const place = (u, to) => {
-    if (!u.s.flying) {
-      occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
-      occupied[to] = (occupied[to] ?? 0) + u.s.size;
-    }
-    u.tile = to;
-  };
-  const free = (u, j) => u.s.flying || Number.isFinite(cost[j]) && (occupied[j] ?? 0) + u.s.size <= BATTLE.tileCap + 1e-9;
-  const moveTo = (u, j, t) => {
-    const c = u.s.flying ? 1 : Math.max(0.3, cost[j]);
-    const dur = c / Math.max(0.1, u.s.speed);
-    place(u, j);
-    u.busyUntil = t + dur;
-    log(EV.move, u.i, tileCode(tiles[j]), tenths(dur));
-  };
-  const stepDown = (u, field, t) => {
-    let best = -1;
-    let bestD = field[u.tile];
-    for (const j of neighbors[u.tile]) {
-      const d = field[j];
-      if (d < bestD - 1e-9 && free(u, j)) {
-        best = j;
-        bestD = d;
-      }
-    }
-    if (best < 0) return false;
-    moveTo(u, best, t);
-    return true;
-  };
-  const stepToward = (u, goal, t) => {
-    const here = tiles[u.tile];
-    let best = -1;
-    let bestD = hexDistance(here, goal);
-    const home = tiles[u.home];
-    for (const j of neighbors[u.tile]) {
-      const h = tiles[j];
-      const d = hexDistance(h, goal);
-      if (d >= bestD || !free(u, j)) continue;
-      if (u.leash > 0 && hexDistance(h, home) > u.leash) continue;
-      best = j;
-      bestD = d;
-    }
-    if (best < 0) return false;
-    moveTo(u, best, t);
-    return true;
-  };
-  const lootLeft = (b) => b.loot[0] + b.loot[1] + b.loot[2] + b.loot[3];
-  const fall = (u) => {
-    u.state = State.Fallen;
-    if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
-    log(EV.fall, u.i);
-    if (u.side === 0) result2.fallen.push(u.s.ref);
-    else result2.attackers.fallen++;
-    if (u.carrying)
-      for (const [bi, l] of u.carrying) {
-        const b = buildings[bi];
-        for (let k = 0; k < 4; k++) b.loot[k] += l[k];
-      }
-    u.carrying?.clear();
-    u.carried = 0;
-  };
-  const leave2 = (u) => {
-    u.state = State.Gone;
-    if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
-    log(EV.gone, u.i);
-    if (u.side === 1) {
-      result2.attackers.escaped++;
-      if (u.carrying)
-        for (const [bi, l] of u.carrying) {
-          const sum = taken.get(bi) ?? [0, 0, 0, 0];
-          for (let k = 0; k < 4; k++) sum[k] += l[k];
-          taken.set(bi, sum);
-        }
-    } else result2.fled.push(u.s.ref);
-  };
-  const hurt = (target, dmg) => {
-    target.hp -= dmg;
-    if (target.hp <= 1e-9) fall(target);
-  };
-  const strike2 = (u, target, t) => {
-    const w = u.s.weapon;
-    const slow = u.s.building !== null && buildings[u.s.building]?.damaged ? 2 : 1;
-    u.readyAt = t + w.reload * slow;
-    if (u.ammo !== null) {
-      u.ammo--;
-      result2.shots[u.s.ref] = (result2.shots[u.s.ref] ?? 0) + 1;
-    }
-    const roll = rng.next();
-    const swing = 1 + rng.range(-BATTLE.spread, BATTLE.spread);
-    if (target.building) {
-      const b = target.building;
-      const hit2 = roll < w.accuracy;
-      const dmg2 = hit2 ? w.damage * swing : 0;
-      log(EV.attack, u.i, b.i * 2 + 1, tenths(dmg2));
-      if (!hit2) return;
-      if (!u.reached && u.side === 1) {
-        u.reached = true;
-        result2.reached += u.s.power;
-      }
-      if (!u.s.flying && u.side === 1 && struck.size < BATTLE.struckTiles) struck.add(u.tile);
-      if (u.carrying && lootLeft(b) > 1e-6 && u.carried < u.s.carry - 1e-9) {
-        const want = Math.min(u.s.carry - u.carried, u.s.carry * BATTLE.grab);
-        const share = Math.min(1, want / lootLeft(b));
-        const got = u.carrying.get(b.i) ?? [0, 0, 0, 0];
-        let sum = 0;
-        for (let k = 0; k < 4; k++) {
-          const x = b.loot[k] * share;
-          b.loot[k] -= x;
-          got[k] += x;
-          sum += x;
-        }
-        u.carrying.set(b.i, got);
-        u.carried += sum;
-        log(EV.loot, u.i, b.i, Math.round(sum));
-      }
-      if (b.hp > 0 && !b.damaged) {
-        b.hp -= dmg2;
-        if (b.hp <= 1e-9) {
-          b.damaged = true;
-          result2.damaged.push(b.i);
-          log(EV.damaged, b.i);
-        }
-      }
-      return;
-    }
-    const e = target.unit;
-    const hit = roll < w.accuracy * (1 - e.s.dodge);
-    const dmg = hit ? w.damage * swing * (1 - e.s.armor) : 0;
-    log(EV.attack, u.i, e.i * 2, tenths(dmg));
-    if (hit) hurt(e, dmg);
-    if (w.style === "area" && hit) {
-      const at = tiles[e.tile];
-      for (const o of units) {
-        if (o === e || o.side === u.side || o.state !== State.Active || !canHit(w, o)) continue;
-        if (hexDistance(tiles[o.tile], at) > 1) continue;
-        const d = w.damage * BATTLE.splash * swing * (1 - o.s.armor);
-        log(EV.splash, u.i, o.i, tenths(d));
-        hurt(o, d);
-      }
-    }
-  };
-  const inRange = (u, target) => {
-    const here = tiles[u.tile];
-    if (target.building) return buildingDistance(target.building, here) <= u.s.weapon.range;
-    return hexDistance(here, tiles[target.unit.tile]) <= u.s.weapon.range;
-  };
-  const valid = (u, target) => {
-    if (!target) return false;
-    if (target.unit) return target.unit.state === State.Active;
-    const b = target.building;
-    const room = !!u.carrying && u.carried < u.s.carry - 1e-9 && lootLeft(b) > 1e-6;
-    return room || b.hp > 0 && !b.damaged;
-  };
-  const raiderTarget = (u) => {
-    const here = tiles[u.tile];
-    if (u.s.fightsBack) {
-      let best2 = null;
-      for (const e of units) {
-        if (e.side === u.side || e.state !== State.Active || e.s.role === "turret") continue;
-        if (e.target?.unit !== u || !canHit(u.s.weapon, e)) continue;
-        if (hexDistance(here, tiles[e.tile]) > u.s.weapon.range) continue;
-        if (!best2 || e.i < best2.i) best2 = e;
-      }
-      if (best2) return { unit: best2 };
-    }
-    if (u.s.huntsKiwis) {
-      let best2 = null;
-      let bestD = BATTLE.huntRange + 1;
-      for (const e of units) {
-        if (e.side === u.side || e.state !== State.Active || e.s.role === "turret") continue;
-        if (!canHit(u.s.weapon, e)) continue;
-        const d = hexDistance(here, tiles[e.tile]);
-        if (d < bestD) {
-          best2 = e;
-          bestD = d;
-        }
-      }
-      if (best2) return { unit: best2 };
-    }
-    let best = null;
-    let bestScore = 0;
-    const room = u.carried < u.s.carry - 1e-9;
-    for (const b of buildings) {
-      if (b.b.side === u.side) continue;
-      const canLoot = room && lootLeft(b) > 1e-6;
-      const canBreak = b.hp > 0 && !b.damaged;
-      if (!canLoot && !canBreak) continue;
-      const d = u.s.flying ? buildingDistance(b, here) : fieldOf(b)[u.tile];
-      if (!Number.isFinite(d)) continue;
-      const want = (canLoot ? 3 + b.b.priority : 0) + (canBreak ? b.b.priority : 0);
-      const score = want / (1 + d / 4);
-      if (score > bestScore + 1e-9) {
-        best = b;
-        bestScore = score;
-      }
-    }
-    return best ? { building: best } : null;
-  };
-  const defenderTarget = (u) => {
-    const here = tiles[u.tile];
-    const home = tiles[u.home];
-    const w = u.s.weapon;
-    const shoots = w.style !== "melee";
-    let best = null;
-    let bestScore = Infinity;
-    for (const e of units) {
-      if (e.side === u.side || e.state !== State.Active || !canHit(w, e)) continue;
-      const at = tiles[e.tile];
-      const d = hexDistance(here, at);
-      if (u.s.fixed) {
-        if (d > w.range) continue;
-      } else if (hexDistance(home, at) > u.leash + w.range) continue;
-      const score = d - (shoots && e.s.flying ? 3 : 0);
-      if (score < bestScore - 1e-9) {
-        best = e;
-        bestScore = score;
-      }
-    }
-    return best ? { unit: best } : null;
-  };
-  const goHome = (u, t) => {
-    if (u.s.flying || exits.has(u.tile)) {
-      if (exits.has(u.tile)) return leave2(u);
-      let goal = -1;
-      let d = Infinity;
-      for (const x of exits) {
-        const dx = hexDistance(tiles[x], tiles[u.tile]);
-        if (dx < d) {
-          d = dx;
-          goal = x;
-        }
-      }
-      if (goal < 0 || !stepToward(u, tiles[goal], t)) leave2(u);
-      return;
-    }
-    stepDown(u, exitField(), t);
-  };
-  const act = (u, t) => {
-    const s = u.s;
-    if (s.role === "raider") {
-      if (u.fleeing || u.carried >= s.carry - 1e-9) return goHome(u, t);
-      if (!valid(u, u.target) || t >= u.retargetAt) {
-        u.target = raiderTarget(u);
-        u.retargetAt = t + BATTLE.retarget;
-      }
-      const target2 = u.target;
-      if (!target2) return goHome(u, t);
-      if (inRange(u, target2)) {
-        if (t >= u.readyAt - 1e-9) strike2(u, target2, t);
-        return;
-      }
-      if (target2.building && !s.flying) {
-        if (!stepDown(u, fieldOf(target2.building), t)) u.retargetAt = t;
-      } else {
-        const goal = target2.building ? target2.building.b.tiles[0] : tiles[target2.unit.tile];
-        stepToward(u, goal, t);
-      }
-      return;
-    }
-    if (s.role === "militia" && u.hp < s.hp * KIWI_UNIT.militiaFlee) {
-      log(EV.flee, u.i);
-      return leave2(u);
-    }
-    if (u.ammo !== null && u.ammo <= 0) return;
-    if (!valid(u, u.target) || t >= u.retargetAt) {
-      u.target = defenderTarget(u);
-      u.retargetAt = t + BATTLE.retarget;
-    }
-    const target = u.target;
-    if (target && inRange(u, target)) {
-      if (t >= u.readyAt - 1e-9) strike2(u, target, t);
-      return;
-    }
-    if (s.fixed) return;
-    if (target?.unit) {
-      if (!stepToward(u, tiles[target.unit.tile], t)) u.retargetAt = t;
-      return;
-    }
-    if (u.tile !== u.home) stepToward(u, tiles[u.home], t);
-  };
-  let retreating = false;
-  for (step = 0; step < maxSteps; step++) {
-    const t = step * dt;
-    for (const u of units) {
-      if (u.state !== State.Waiting || u.s.delay > t + 1e-9) continue;
-      u.state = State.Active;
-      if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) + u.s.size;
-      if (u.s.delay > 0 || u.side === 1) log(EV.enter, u.i);
-    }
-    for (const u of units) {
-      if (u.state !== State.Active || t < u.busyUntil - 1e-9) continue;
-      act(u, t);
-    }
-    let alive = 0;
-    let left = 0;
-    for (const u of attackers)
-      if (u.state === State.Active || u.state === State.Waiting) {
-        left++;
-        alive += u.s.power;
-      }
-    if (left === 0) break;
-    if (!retreating && totalPower > 0 && alive / totalPower < setup.orders[1].retreatBelow) {
-      retreating = true;
-      for (const u of attackers)
-        if (u.state === State.Active && !u.fleeing) {
-          u.fleeing = true;
-          log(EV.flee, u.i);
-        }
-    }
-  }
-  step = Math.min(step + 1, maxSteps);
-  for (const u of attackers) if (u.state === State.Active) leave2(u);
-  for (const u of attackers) if (u.state === State.Waiting) u.state = State.Gone;
-  result2.duration = step * dt;
-  for (const [building, amounts] of [...taken].sort((a, b) => a[0] - b[0]))
-    if (amounts.some((x) => x > 1e-9)) result2.loot.push({ building, amounts });
-  result2.reached = totalPower > 0 ? result2.reached / totalPower : 0;
-  result2.struck = [...struck].map((i) => ({ q: tiles[i].q, r: tiles[i].r }));
-  result2.held = result2.loot.length === 0 && result2.damaged.length === 0;
-  const logUnits = setup.units.map((s) => [
-    s.ref,
-    s.side,
-    s.body,
-    s.kind,
-    s.name,
-    s.level,
-    s.classId,
-    tenths(s.hp),
-    s.at.q,
-    s.at.r,
-    s.weaponId
-  ]);
-  const logBuildings = setup.buildings.map((b) => [
-    b.ref,
-    b.type,
-    b.tiles[0].q,
-    b.tiles[0].r,
-    tenths(b.hp)
-  ]);
-  return {
-    v: 1,
-    dt,
-    steps: step,
-    units: logUnits,
-    buildings: logBuildings,
-    events: encodeInts(ints),
-    result: result2
-  };
-}
-
-// packages/shared/src/battle/units.ts
-var clamp2 = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
-function kiwiWeapon(v, state) {
-  if (v.kikiwiwi) return "stomp";
-  if (v.classId === "warrior" && techEffects(state).firearms) return "musket";
-  return CLASS_WEAPONS[v.classId ?? "none"];
-}
-function kiwiUnit(v, state, role, at, sector, side = 0) {
-  const K = KIWI_UNIT;
-  const avg = KIWI.stat.average;
-  const st = v.stats;
-  const tech = techEffects(state);
-  const weaponId = role === "militia" && !v.kikiwiwi ? "beak" : kiwiWeapon(v, state);
-  const base = WEAPONS[weaponId];
-  const level = 1 + K.perLevel * (v.level - 1);
-  const fight = Math.sqrt(modifiers(v).fight);
-  const titan = titanPower(state, v);
-  const spell = weaponId === "fireball";
-  const power = spell ? 1 + K.spiritDamage * (st.spirit - avg) : 1 + K.strengthDamage * (st.strength - avg);
-  const damage = base.damage * Math.max(0.5, power) * level * fight * titan * (role === "guard" ? tech.guard : K.militiaDamage);
-  const aim = base.style === "melee" ? base.accuracy : clamp2(base.accuracy + K.dexterityAccuracy * (st.dexterity - avg), ...K.accuracy);
-  const hp = K.hp * Math.max(0.5, 1 + K.enduranceHp * (st.endurance - avg)) * level * fight * (v.kikiwiwi ? K.titanHp / 2 : 1);
-  return {
-    ref: v.id,
-    side,
-    body: v.kikiwiwi ? "kikiwiwi" : "kiwi",
-    role,
-    kind: v.classId ?? "none",
-    name: v.name,
-    level: v.level,
-    classId: v.classId,
-    hp,
-    // Armour (technology) spares the kiwis.
-    armor: clamp2(1 - tech.injuries, 0, 0.6),
-    speed: K.speed * Math.max(0.5, 1 + K.agilitySpeed * (st.agility - avg)),
-    dodge: clamp2(K.dodge + K.agilityDodge * (st.agility - avg), 0, K.maxDodge),
-    size: v.kikiwiwi ? K.titanSize : 1,
-    flying: false,
-    fixed: false,
-    weaponId,
-    weapon: { ...base, damage, accuracy: aim },
-    ammo: null,
-    carry: 0,
-    power: 0,
-    at,
-    delay: 0,
-    building: null,
-    fightsBack: true,
-    huntsKiwis: false,
-    sector
-  };
-}
-function enemyUnit(kind, k, ref, at, delay, sector, level) {
-  const p = ENEMIES[kind];
-  const s = Math.sqrt(Math.max(0.05, k));
-  const weapon = WEAPONS[p.weapon];
-  return {
-    ref,
-    side: 1,
-    body: p.body,
-    role: "raider",
-    kind,
-    name: "",
-    level,
-    classId: null,
-    hp: p.hp * s,
-    armor: p.armor,
-    speed: p.speed,
-    dodge: p.dodge,
-    size: p.body === "bat" ? 0 : p.size,
-    flying: p.body === "bat",
-    fixed: false,
-    weaponId: p.weapon,
-    weapon: { ...weapon, damage: weapon.damage * s },
-    ammo: null,
-    carry: p.carry,
-    power: p.power * k,
-    at,
-    delay,
-    building: null,
-    fightsBack: p.fightsBack,
-    huntsKiwis: p.huntsKiwis,
-    sector
-  };
-}
-function turretUnit(b, state, ammoShare, buildingIndex) {
-  const def = levelDef(b.type, b.level);
-  if (!def?.defense) return null;
-  const air = (def.defense.air ?? 0) > 0;
-  const defense = (air ? def.defense.air : def.defense.ground) ?? 0;
-  const weaponId = air ? "skyShot" : "seedShot";
-  const w = WEAPONS[weaponId];
-  return {
-    ref: b.id,
-    side: 0,
-    body: "turret",
-    role: "turret",
-    kind: b.type,
-    name: "",
-    level: b.level,
-    classId: null,
-    hp: 1,
-    armor: 0,
-    speed: 0,
-    dodge: 0,
-    size: 0,
-    flying: false,
-    fixed: true,
-    weaponId,
-    weapon: {
-      ...w,
-      damage: defense * TURRET_SHOT * techEffects(state).turretDefense,
-      range: turretRange(b.type, b.level)
-    },
-    ammo: Math.floor((def.ammo ?? 0) * ammoShare + 1e-9),
-    carry: 0,
-    power: 0,
-    at: { q: b.q, r: b.r },
-    delay: 0,
-    building: buildingIndex,
-    fightsBack: false,
-    huntsKiwis: false,
-    sector: null
-  };
-}
 export {
   AGE_IDS,
   AGE_OBJECTIVES,
@@ -16341,6 +16693,7 @@ export {
   TURRETS2 as TURRETS,
   TURRET_SHOT,
   TURRET_TYPES,
+  WAVE_UNITS,
   WEAPONS,
   WEAPON_IDS,
   XP_SCALE,
@@ -16378,6 +16731,7 @@ export {
   awaitingReport,
   awaitingServer,
   baseHarvest,
+  battleOutcome,
   bedsOf,
   belowReturn,
   bestDustCrew,
@@ -16609,6 +16963,7 @@ export {
   layoutBuilding,
   layoutSnapshot,
   leaveWreck,
+  lethalWave,
   levelDef,
   levelForXp,
   levelProgress,
@@ -16833,9 +17188,13 @@ export {
   walkCost,
   walkDistances,
   wallsOf,
+  waveAhead,
+  waveBattle,
+  waveGates,
   waveMix,
-  waveOutcome,
   wavePower,
+  waveSetup,
+  waveSquads,
   weakestWorker,
   wealthFactor,
   withRng,
