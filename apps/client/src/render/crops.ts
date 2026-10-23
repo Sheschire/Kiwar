@@ -42,8 +42,9 @@ type PieceKind =
   | 'bulb'
   | 'tuft'
   | 'bale'
-  | 'furrow'
-  | 'seed'
+  | 'ridge'
+  | 'stalk'
+  | 'pod'
   | 'plank'
   | 'post'
   | 'bucket'
@@ -99,17 +100,29 @@ const PIECES: Record<PieceKind, PieceDef> = {
     season: { tint: 0, snow: 0.9 },
     shadow: true,
   },
-  furrow: {
-    geometry: new BoxGeometry(1, 1, 1),
+  // Chantier 32: seed fields are rows of plants on soft ridges, not furrows with beads.
+  ridge: {
+    geometry: new SphereGeometry(0.5, 8, 3, 0, Math.PI * 2, 0, Math.PI / 2),
     grows: 'none',
-    fresh: '#8a7058',
-    season: { tint: 0, snow: 0.7 },
+    fresh: '#9a7a54',
+    season: { tint: 0, snow: 0.9 },
   },
-  seed: {
-    geometry: new SphereGeometry(0.5, 6, 4),
-    grows: 'none',
-    fresh: '#1f1612',
-    season: { tint: 0, snow: 0.3 },
+  stalk: {
+    geometry: new ConeGeometry(0.035, 1, 4, 1).translate(0, 0.5, 0),
+    grows: 'y',
+    fresh: '#8cb046',
+    dry: '#b9a46a',
+    wind: 1,
+    season: { tint: 0.8, snow: 0.4 },
+  },
+  pod: {
+    // A seed pod: a plump spindle, hung at the top of its stalk.
+    geometry: new SphereGeometry(0.5, 5, 4).scale(0.55, 1, 0.55),
+    grows: 'all',
+    fresh: '#d8b04e',
+    dry: '#9a7444',
+    season: { tint: 0.4, snow: 0.6 },
+    shadow: true,
   },
   plank: {
     geometry: new BoxGeometry(1, 1, 1),
@@ -408,16 +421,40 @@ function layoutOf(tile: Tile, type: Tile['type'], density: number): Piece[] {
       break;
     }
     case 'seedRing': {
-      // Two dark furrows with the seeds laid along them.
-      for (const v of [-0.17, 0.17]) {
-        add('furrow', at(0, v, 0.012), new Vector3(0.95, 0.025, 0.14));
-        for (let i = 0; i < 5; i++) {
-          if (!keep(0.75)) continue;
-          const u = -0.36 + i * 0.18 + rng.range(-0.03, 0.03);
-          add('seed', at(u, v + rng.range(-0.02, 0.02), 0.04), new Vector3(0.15, 0.07, 0.09), {
-            yaw: -angle + rng.range(-0.4, 0.4),
-            above: rng.next() * 0.9,
-          });
+      // Rows of seed plants on soft ridges: stalks of every height, leaning a little, each
+      // with one or two pods of its own size and angle.
+      for (const v of [-0.27, 0, 0.27]) {
+        const span = 0.82 - Math.abs(v) * 0.9;
+        add('ridge', at(rng.range(-0.03, 0.03), v, -0.01), new Vector3(span, 0.07, 0.15));
+        const n = Math.round(span / 0.16);
+        for (let i = 0; i < n; i++) {
+          if (!keep(0.7)) continue;
+          const u = -span / 2 + (i + 0.5) * (span / n) + rng.range(-0.035, 0.035);
+          const base = at(u, v + rng.range(-0.035, 0.035), 0.03);
+          const rank = rng.next();
+          const h = rng.range(0.16, 0.34);
+          const lean = new Euler(rng.range(-0.25, 0.25), 0, rng.range(-0.25, 0.25));
+          const yaw = rng.range(0, 6);
+          add('stalk', base.clone(), new Vector3(1, h, 1), { yaw, tilt: lean, above: rank * 0.5 });
+          // The top of the leaning stalk, where its pods hang.
+          const turn = new Quaternion()
+            .setFromAxisAngle(UP, yaw)
+            .multiply(new Quaternion().setFromEuler(lean));
+          const top = base.clone().add(new Vector3(0, h * 0.95, 0).applyQuaternion(turn));
+          const pods = rng.chance(0.45) ? 2 : 1;
+          for (let k = 0; k < pods; k++) {
+            const size = rng.range(0.06, 0.1);
+            add(
+              'pod',
+              top.clone().add(new Vector3(0, -k * 0.05, 0)),
+              new Vector3(size, size * 1.7, size),
+              {
+                yaw: rng.range(0, 6),
+                tilt: new Euler(rng.range(0.4, 1.1) * (k ? -1 : 1), 0, rng.range(-0.3, 0.3)),
+                above: 0.2 + rank * 0.75,
+              },
+            );
+          }
         }
       }
       break;

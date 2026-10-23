@@ -1,5 +1,6 @@
-import type { BufferGeometry, Material } from 'three';
+import type { Material } from 'three';
 import {
+  BufferGeometry,
   BoxGeometry,
   Color,
   CircleGeometry,
@@ -36,18 +37,25 @@ const VARIANTS = 2;
 
 /**
  * Chantier 23: the material of the paths follows the ages, and each path tile reaches towards
- * its path and building neighbours so that the paths join up. Eden: wooden planks laid across
- * a dirt track; Stone: irregular cobbles; Iron: cut pavers between curbs; Industry: a smooth
- * road with a dashed line and curbs. From the Stone age, lanterns along the way light up at
- * night (an emissive lamp, the bloom makes the halo; no real light).
+ * its path and building neighbours so that the paths join up. From the Stone age, lanterns
+ * along the way light up at night (an emissive lamp, the bloom makes the halo; no real light).
+ *
+ * Chantier 32: the paths lie in the ground instead of standing on it like tubes: the track is
+ * a flat ribbon just above the tile, with irregular edges (wider and narrower along the way,
+ * a darker trodden rim), and its details are flat too. Eden: packed earth with a few pebbles;
+ * Stone: flat stepping stones of every size on the earth; Iron: cut pavers bordered by small
+ * stones; Industry: a smooth road with a dashed line and low curbs.
  *
  * Every segment (centre of a tile → edge towards a neighbour) has the same length on the hex
  * grid: one merged geometry per age and variant holds the track, its details and its curbs,
- * and is instanced once per segment (a few hundred instances, a handful of draw calls).
+ * and is instanced once per segment (a few hundred instances, a handful of draw calls). The
+ * ribbon keeps its exact width at both ends, so the segments of two tiles always meet.
  */
 interface PathStyle {
-  /** Colour of the track (hub and strips). */
+  /** Colour of the track (hub and ribbon). */
   bed: string;
+  /** Its trodden rim. */
+  rim: string;
   /** Half width of the track. */
   width: number;
   detail: string;
@@ -56,37 +64,58 @@ interface PathStyle {
 }
 
 const STYLES: readonly PathStyle[] = [
-  { bed: '#c9ad7a', width: 0.2, detail: '#a7774a', curb: null, lanterns: false },
-  { bed: '#bfb29a', width: 0.22, detail: '#a39a88', curb: null, lanterns: true },
-  { bed: '#b8b0a2', width: 0.25, detail: '#cfc6b6', curb: '#7d7770', lanterns: true },
-  { bed: '#5f5c5a', width: 0.26, detail: '#f4efe2', curb: '#9d9893', lanterns: true },
+  { bed: '#a68459', rim: '#86663f', width: 0.2, detail: '#d8c7a4', curb: null, lanterns: false },
+  { bed: '#a38d6a', rim: '#857052', width: 0.22, detail: '#c9c0ae', curb: null, lanterns: true },
+  {
+    bed: '#9c9282',
+    rim: '#7e766a',
+    width: 0.25,
+    detail: '#d3cabb',
+    curb: '#8d877e',
+    lanterns: true,
+  },
+  {
+    bed: '#6a6662',
+    rim: '#57534f',
+    width: 0.26,
+    detail: '#f4efe2',
+    curb: '#aaa59f',
+    lanterns: true,
+  },
 ];
 
 type Part = [BufferGeometry, Color, Matrix4];
 
-const box = new BoxGeometry(1, 1, 1);
 /*
- * Pavers and cobbles are only their top face (2 and 5 triangles instead of 12 and 20): seen
- * from above, the track between them reads as the joints. A whole Iron path costs about as
- * many triangles as the old slabs and pebbles.
+ * Pavers, stones and pebbles are only their top face (2 and 5 triangles instead of 12 and
+ * 20): seen from above, the track between them reads as the joints.
  */
 const slab = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 const stone = new CircleGeometry(1, 5).rotateX(-Math.PI / 2);
+const pebble = new CircleGeometry(1, 4).rotateX(-Math.PI / 2);
 const UP = new Vector3(0, 1, 0);
 const tmpM = new Matrix4();
 const tmpQ = new Quaternion();
 const tmpS = new Vector3();
 const tmpP = new Vector3();
+/** Height of the ribbon and of its details above the tile (flat: no sides to see). */
+const BED_Y = 0.004;
+/** Share of a segment, from the centre, where it crosses the others of its tile. */
+const CROSSING = 0.4;
+const DETAIL_Y = 0.01;
 
 function bakeParts(parts: Part[]): BufferGeometry {
   const prepared = parts.map(([geo, color, matrix]) => {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     g.applyMatrix4(matrix);
-    g.deleteAttribute('uv');
+    if (g.getAttribute('uv')) g.deleteAttribute('uv');
     const n = g.getAttribute('position').count;
-    const colors = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) colors.set([color.r, color.g, color.b], i * 3);
-    g.setAttribute('color', new Float32BufferAttribute(colors, 3));
+    if (!g.getAttribute('color')) {
+      const colors = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) colors.set([color.r, color.g, color.b], i * 3);
+      g.setAttribute('color', new Float32BufferAttribute(colors, 3));
+    }
+    if (!g.getAttribute('normal')) g.computeVertexNormals();
     return g;
   });
   const merged = mergeGeometries(prepared, false);
@@ -102,68 +131,204 @@ const at = (u: number, v: number, y: number, rot: number, sx: number, sy: number
     new Vector3(sx, sy, sz),
   );
 
+/**
+ * The flat track of one segment: from the tile centre (u = 0) to the edge (u = `len`), its
+ * half width wandering inside, exactly `w` at both ends. Three vertices across (rim, middle,
+ * rim): the rim is darker, like trodden ground.
+ */
+function ribbon(len: number, w: number, bed: Color, rim: Color, rng: Rng): BufferGeometry {
+  const steps = 6;
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const rows: { u: number; l: number; r: number; m: number }[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const u = (i / steps) * len;
+    // Near the centre the segments of a tile overlap: plain there (no rim, no wobble), so
+    // crossings never show stripes.
+    const inner = i > 0 && i < steps && u > len * CROSSING;
+    const l = w * (inner ? rng.range(0.8, 1.22) : 1);
+    const r = w * (inner ? rng.range(0.8, 1.22) : 1);
+    rows.push({ u, l, r, m: inner ? rng.range(-0.03, 0.03) : 0 });
+  }
+  const push = (u: number, v: number, c: Color) => {
+    positions.push(u, BED_Y, v);
+    colors.push(c.r, c.g, c.b);
+  };
+  for (let i = 0; i < steps; i++) {
+    const a = rows[i]!;
+    const b = rows[i + 1]!;
+    const rimA = a.u > len * CROSSING ? rim : bed;
+    const rimB = b.u > len * CROSSING ? rim : bed;
+    // Two strips: rim → middle on each side (winding: counter-clockwise seen from above).
+    for (const side of [-1, 1] as const) {
+      const ea = side < 0 ? -a.l : a.r;
+      const eb = side < 0 ? -b.l : b.r;
+      const quad: [
+        [number, number, Color],
+        [number, number, Color],
+        [number, number, Color],
+        [number, number, Color],
+      ] =
+        side < 0
+          ? [
+              [a.u, ea, rimA],
+              [a.u, a.m, bed],
+              [b.u, b.m, bed],
+              [b.u, eb, rimB],
+            ]
+          : [
+              [a.u, a.m, bed],
+              [a.u, ea, rimA],
+              [b.u, eb, rimB],
+              [b.u, b.m, bed],
+            ];
+      const [p0, p1, p2, p3] = quad;
+      for (const [u, v, c] of [p0, p1, p2, p0, p2, p3]) push(u, v, c);
+    }
+  }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  g.setAttribute('color', new Float32BufferAttribute(colors, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
 /** One segment of `len` along +x from the tile centre, track centred on z = 0. */
 function segmentGeometry(age: number, len: number, rng: Rng): BufferGeometry {
   const style = STYLES[age]!;
   const w = style.width;
-  const bed = new Color(style.bed);
   const shade = (base: string, k: number) => new Color(base).multiplyScalar(1 + rng.range(-k, k));
-  const p: Part[] = [[box, bed, at(len / 2, 0, 0, 0, len, 0.04, w * 2)]];
+  const p: Part[] = [
+    [ribbon(len, w, new Color(style.bed), new Color(style.rim), rng), new Color(), new Matrix4()],
+  ];
   switch (age) {
     case 0:
-      // Planks across the track, a little crooked.
-      for (let u = 0.12; u < len + 0.02; u += 0.13)
+      // Packed earth: a few pebbles and lighter dusty patches.
+      for (let u = 0.08; u < len; u += 0.11) {
+        if (rng.chance(0.45)) continue;
+        const s = rng.range(0.018, 0.035);
         p.push([
-          box,
+          pebble,
           shade(style.detail, 0.12),
-          at(u, rng.range(-0.02, 0.02), 0.03, rng.range(-0.12, 0.12), 0.09, 0.025, w * 2.1),
+          at(u, rng.range(-w * 0.7, w * 0.7), DETAIL_Y, rng.range(0, 3), s, 1, s * 0.8),
         ]);
+      }
+      for (let i = 0; i < 2; i++) {
+        const s = rng.range(0.05, 0.08);
+        p.push([
+          stone,
+          shade(style.bed, 0.05).lerp(new Color(style.detail), 0.35),
+          at(
+            rng.range(0.1, len - 0.05),
+            rng.range(-w * 0.4, w * 0.4),
+            BED_Y + 0.002,
+            rng.range(0, 3),
+            s * 1.6,
+            1,
+            s,
+          ),
+        ]);
+      }
       break;
     case 1:
-      // Irregular cobbles, two or three abreast.
-      for (let u = 0.1; u < len; u += 0.15)
-        for (const v of [-w * 0.55, w * 0.05, w * 0.6]) {
-          if (rng.chance(0.2)) continue;
-          const s = rng.range(0.055, 0.08);
+      // Flat stepping stones of every size, set in the earth.
+      for (let u = 0.07; u < len; u += rng.range(0.1, 0.15))
+        for (const v of [-w * 0.45, w * 0.4]) {
+          if (rng.chance(0.25)) continue;
+          const s = rng.range(0.05, 0.1);
           p.push([
             stone,
-            shade(style.detail, 0.15),
+            shade(style.detail, 0.14),
             at(
               u + rng.range(-0.03, 0.03),
-              v + rng.range(-0.02, 0.02),
-              0.023 + rng.range(0, 0.002),
+              v + rng.range(-0.04, 0.04),
+              DETAIL_Y,
               rng.range(0, 3),
               s,
-              s * 0.35,
-              s * 0.85,
+              1,
+              s * rng.range(0.7, 0.95),
             ),
           ]);
         }
       break;
     case 2: {
-      // Cut pavers in a running bond.
+      // Cut pavers in a running bond, flush with the ground.
       let row = 0;
       for (let u = 0.08; u < len; u += 0.14, row++)
         for (const v of row % 2 === 0 ? [-w * 0.5, w * 0.5] : [-w * 0.75, 0, w * 0.75])
           p.push([
             slab,
             shade(style.detail, 0.06),
-            at(u, v, 0.022, 0, 0.12, 0.022, row % 2 === 0 ? w * 0.92 : w * 0.66),
+            at(u, v, DETAIL_Y, 0, 0.12, 1, row % 2 === 0 ? w * 0.92 : w * 0.66),
           ]);
       break;
     }
     default:
       // A smooth road with a dashed centre line.
-      for (let u = 0.14; u < len - 0.05; u += 0.26)
-        p.push([slab, new Color(style.detail), at(u, 0, 0.022, 0, 0.13, 1, 0.03)]);
+      for (let u = len * CROSSING + 0.06; u < len - 0.05; u += 0.26)
+        p.push([slab, new Color(style.detail), at(u, 0, DETAIL_Y, 0, 0.13, 1, 0.03)]);
       break;
   }
   if (style.curb) {
     const curb = new Color(style.curb);
-    for (const k of [-1, 1])
-      p.push([box, curb, at(len / 2, k * (w + 0.02), 0.025, 0, len, 0.05, 0.035)]);
+    if (age === 2)
+      // Small border stones along both edges.
+      for (const k of [-1, 1])
+        for (let u = len * CROSSING; u < len; u += 0.07) {
+          const s = rng.range(0.022, 0.034);
+          p.push([
+            stone,
+            shade(style.curb, 0.12),
+            at(u, k * (w + 0.015), DETAIL_Y, rng.range(0, 3), s, 1, s),
+          ]);
+        }
+    else
+      for (const k of [-1, 1])
+        p.push([
+          slab,
+          curb,
+          at(
+            (len * (1 + CROSSING)) / 2,
+            k * (w + 0.015),
+            DETAIL_Y,
+            0,
+            len * (1 - CROSSING),
+            1,
+            0.03,
+          ),
+        ]);
   }
   return bakeParts(p);
+}
+
+/**
+ * Chantier 32: the hub of a path tile, a flat patch with a wobbly outline (turned at random
+ * per tile, so no two look alike), its rim darker like the ribbon's.
+ */
+function hubGeometry(): BufferGeometry {
+  const rng = createRng('path-hub');
+  const n = 12;
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const rim = 0.82;
+  const pts: [number, number][] = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const r = rng.range(0.86, 1.12);
+    pts.push([Math.cos(a) * r, Math.sin(a) * r]);
+  }
+  for (let i = 0; i < n; i++) {
+    const [x0, z0] = pts[i]!;
+    const [x1, z1] = pts[(i + 1) % n]!;
+    // Centre (full colour) then two rim points (darker): counter-clockwise from above.
+    positions.push(0, 0, 0, x0, 0, -z0, x1, 0, -z1);
+    colors.push(1, 1, 1, rim, rim, rim, rim, rim, rim);
+  }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  g.setAttribute('color', new Float32BufferAttribute(colors, 3));
+  g.computeVertexNormals();
+  return g;
 }
 
 /** One instanced mesh, its capacity grown on demand. */
@@ -228,7 +393,7 @@ export class PathsView {
   readonly group = new Group();
   private readonly material: MeshStandardMaterial;
   private readonly hubs: Batch;
-  private readonly hubGeometry = new CylinderGeometry(1, 1, 1, 8);
+  private readonly hubGeometry = hubGeometry();
   /** Segment meshes of the current age (one per variant). */
   private segments: Batch[] = [];
   private segmentAge = -1;
@@ -256,7 +421,11 @@ export class PathsView {
       metalness: 0.3,
     });
     withSeasonLook(this.postMaterial, { tint: 0, snow: 0.3 });
-    const hubMaterial = new MeshStandardMaterial({ roughness: 0.95, flatShading: true });
+    const hubMaterial = new MeshStandardMaterial({
+      roughness: 0.95,
+      flatShading: true,
+      vertexColors: true,
+    });
     withSeasonLook(hubMaterial, { tint: 0, snow: 0.5 });
     this.hubs = new Batch(this.group, this.hubGeometry, hubMaterial);
     this.posts = new Batch(
@@ -265,7 +434,7 @@ export class PathsView {
       this.postMaterial,
       true,
     );
-    this.lamps = new Batch(this.group, box, this.lampMaterial);
+    this.lamps = new Batch(this.group, new BoxGeometry(1, 1, 1), this.lampMaterial);
     const a = worldPosition({ q: 0, r: 0 });
     const b = worldPosition({ q: 1, r: 0 });
     this.len = Math.hypot(b.x - a.x, b.z - a.z) / 2;
@@ -350,9 +519,13 @@ export class PathsView {
           tmpM.compose(tmpP.set(c.x, y, c.z), tmpQ.setFromAxisAngle(UP, yaw), tmpS.set(1, 1, 1)),
         );
       }
-      const hubR = first === null ? w * 1.9 : w * 1.12;
+      const hubR = (first === null ? w * 1.9 : w * 1.15) * rng.range(0.95, 1.1);
       this.hubs.push(
-        tmpM.compose(tmpP.set(c.x, y, c.z), tmpQ.identity(), tmpS.set(hubR, 0.04, hubR)),
+        tmpM.compose(
+          tmpP.set(c.x, y + BED_Y + 0.001, c.z),
+          tmpQ.setFromAxisAngle(UP, rng.range(0, Math.PI * 2)),
+          tmpS.set(hubR, 1, hubR),
+        ),
       );
       // A lantern on some path tiles from the Stone age, beside the track.
       if (style.lanterns && rng.chance(0.34)) {
