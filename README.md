@@ -10,6 +10,14 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 35** — les **grands bâtiments prennent de la place** : l'aire d'envol, la
+> Bibliothèque, l'École, le labo et l'entrepôt couvrent **trois tuiles** (touche **R** ou
+> « Tourner » pour les orienter), le **monument sept**. Ils se voient de loin (ailes, piste
+> éclairée, cuves, place aux obélisques), les kiwis **les contournent** et un gisement couvert
+> ne se récolte plus : le fantôme prévient avant. Une pose qui couperait le village en deux est
+> refusée. Une vieille partie garde tous ses bâtiments : chacun s'étend où il peut, sinon il
+> reste « à l'étroit » jusqu'à sa prochaine amélioration.
+
 > **Chantier 31** — le village **a besoin de vous** : le carnet d'**objectifs** montre toujours
 > une **prochaine étape** (une vague à préparer, un bâtiment à réparer, des réserves à rapatrier,
 > une recherche à choisir…), **trois objectifs de l'âge** à réclamer (ressources, poussière

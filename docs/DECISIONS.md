@@ -2128,3 +2128,45 @@ launch cost applies to **every mission but the founding**; the bot's dead time a
   highlands (2–7 % over 24 h, the window of chantier 30's measure).
 - "To test" with people: does an announced wave make you want to act? Is the notebook
   readable on a phone?
+
+## Chantier 35 — Buildings on several tiles
+
+### Footprints
+
+- `FOOTPRINTS` (data/buildings.ts): warehouse, launchpad, School, Library and lab cover a
+  triangle of 3 tiles (anchor + neighbours `rot` and `rot + 1`, `Building.rot` 0–5); the
+  monument a hexagon of 7 (anchor at the centre). Everything else stays on one tile. The
+  future training camp (37), Forge (38), Mairie (43) and cabaret (44) take a 3 in the table.
+- The anchor is the door: kiwis go in there and it stays walkable; the other covered tiles are
+  walls (the 7-tile monument is walled entirely, its centre is enclosed). Covered tiles are not
+  harvested and carry no path.
+- `sim/footprint.ts`: the occupancy index (`occupancy(state)`: tile → building or site,
+  `blocked` walls and their key) cached per buildings array and a numeric fingerprint of the
+  layout (no string per call); `buildingAt` / `queuedBuildAt` read it and see every covered
+  tile. The battle engine (36) walks on it.
+
+### Placement rules (owner's answers, this chantier)
+
+- Every tile of the footprint passes the old tile checks (type allowed, free, no obstacle,
+  titan, crater or flood). A site that would cut the walkable land in two is refused
+  (`cutsLand`: the walkable neighbours of the new walls must still reach one another).
+- Paths under a site are removed; those under covered tiles (not the anchor) are refunded.
+- A covered deposit is allowed and lost; the ghost tells how many harvested tiles it covers.
+
+### Older saves (v27)
+
+- Each big building (oldest first) spreads over the free orientation that covers the least
+  harvested deposit, or stays **cramped** (`Building.cramped`, anchor only). A cramped
+  building's upgrade picks its orientation automatically (`extensionFor`) and reserves the
+  room until it ends; without room the upgrade is refused (`cramped`) and the sheet rings the
+  tiles in the way (`crampedBlockers`). No building is lost or refunded. Queued big sites get
+  an orientation too (none: they finish cramped).
+
+### Client
+
+- R or "Turn" rotates the triangle; a big building chosen in a tile's sheet opens the ghost
+  there. The ghost stands at the footprint's centre with a pad per tile.
+- Models: the one-tile recipe grows at the centre (×1.3, monument ×1.85) and each type dresses
+  the other tiles from the kit (wings, training field, shed and crates, lit runway and hangar,
+  juice vats, the monument's plaza). The monument keeps a multiple of 60° so its slabs sit on
+  the tiles.

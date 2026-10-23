@@ -21,6 +21,7 @@ import {
   type FaceMap,
   type GameState,
   type Hex,
+  occupancy,
 } from '@kiwar/shared';
 
 /** A path must pay back its fiber in this many hours of extra harvest (all resources alike). */
@@ -55,11 +56,14 @@ function route(state: GameState, map: FaceMap, from: Hex, to: Hex): string[] {
   const season = seasonOf(state);
   const paved = new Set(state.paths);
   const goal = hexKey(to);
+  // Chantier 35: kiwis walk around big buildings.
+  const walls = occupancy(state).blocked;
   const cost = (h: Hex): number => {
     const tile = getTile(map, h);
     if (!tile) return Infinity;
     const k = hexKey(h);
     if (k === goal) return PATHS.walkCost;
+    if (walls.has(k)) return Infinity;
     const flooded = isFlooded(tile, map.params.biome, season);
     if (paved.has(k)) return PATHS.walkCost * 0.9;
     if (pavable(state, map, h)) return PATHS.walkCost;

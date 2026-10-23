@@ -63,7 +63,8 @@ taken)` draws them from `<seed>/<face>/obstacles` (never the colony RNG), always
   juice, duration), `SMASH` by obstacle kind, `TITAN.maxTerraform` [0, 0, 4, 8], terrace rise.
 - `titanWork { villagerId, q, r, work }`: Kikiwiwi idle or on guard, not weak
   (`kikiwiwiWeak`), the tile free (`titanAt` blocks build/gather/path/clear), `canReshape`
-  (land type, nothing on it, no crater, a spring never cuts the land: `splitsLand` BFS),
+  (land type, nothing on it, no crater, a spring never cuts the land: `splitsLand`, which
+  since chantier 35 calls the shared `cutsLand` with the big buildings' walls),
   `terraformLeft`. Job `titan { work, q, r, until }` (XP like a guard), event in `advance`
   (`finishTitanWorks`: `titanDone`, `terraformed`). Errors: notAKikiwiwi, kikiwiwiWeak,
   notReshapable, terraformLimit, titanAtWork, techMissing, noObstacle.

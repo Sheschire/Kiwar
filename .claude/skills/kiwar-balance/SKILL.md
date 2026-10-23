@@ -171,3 +171,10 @@ biomes): siege open 137–172 h, conquest in 9/12 runs, 162–272 h, median 240 
   ~5 waves per 72 h run, none lost; ages attentive 12.9 h / 2.8 d / 8.7 d, occasional
   14.6 h / 3.7 d / 10.0 d; waves lost attentive 8 %, occasional 59 %, no death; dead time
   70–90 min from ~16–18 h ⚠️.
+
+## Chantier 35: big buildings
+
+`bestTile` returns a site `{ q, r, rot }`: big buildings try the six orientations with
+`siteError` and lose points for each covered non-ray tile and more for a harvested deposit
+covered (`coveredHarvest`). `bot/paths.ts` routes around the walls (`occupancy(state).blocked`).
+The probe (`probe.ts`) places its launchpad with `bestTile`.

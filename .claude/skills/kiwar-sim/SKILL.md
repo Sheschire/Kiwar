@@ -108,6 +108,29 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
   badges follow. `buildableTiles` lists where a type can go. `test/describe.test.ts` checks them
   against `validateCommand`.
 
+## Footprints (chantier 35)
+
+- `FOOTPRINTS` (data/buildings.ts, `footprintOf`): warehouse, launchpad, School, Library, lab
+  cover 3 tiles (anchor + `hexNeighbor(rot)` + `hexNeighbor(rot + 1)`, `Building.rot` 0–5),
+  the monument 7 (`hexDisk(anchor, 1)`). `sim/footprint.ts`: `footprintHexes`, `footprintTiles`
+  (a `cramped` building: its anchor only), `siteTiles` (a build site; the room a cramped
+  building's upgrade reserves via `QueueItem.rot`), `occupancy(state)` (tile → building/site,
+  `blocked` walls, `blockedKey`), `wallsOf` (all but the anchor; all 7 for the monument),
+  `cutsLand`, `clearPathsUnder`, `coveredKeys` / `takenKeys`.
+- **Never compare `b.q === q && b.r === r` to find what stands on a tile**: use `buildingAt`,
+  `queuedBuildAt` or `occupancy(state).tiles`. The occupancy cache is keyed on the
+  `state.buildings` array and a numeric fingerprint of ids, anchors, `rot`, `cramped` and
+  the queued sites: in-place changes of those fields are seen.
+- `siteError(state, map, type, tile, rot = 0, self = null)` checks every tile, then
+  `cutsLand`; `buildableTiles(…, rot)`; `build { rot? }`. Walk costs take the walls
+  (`walkCost(…, blocked)`; `walkDistances` keys on `blockedKey`): a new walk computation must
+  pass them too. Depots, beds and producers are reached at their anchor.
+- Save v27: `MIGRATIONS[26]` marks big buildings `cramped`, then `spreadOldBuildings` (after
+  the parse, in `migrateState`) spreads each where it fits. `upgradeLock(state, b, map?)`
+  returns `cramped` when no orientation has room (`extensionFor`, `crampedBlockers`).
+- Tests: `test/helpers.ts` `siteFor(state, map, type, near)` gives a valid `{ q, r, rot }`
+  for any building — use it instead of a bare tile for big types.
+
 ## Gotchas
 
 - **Chantier 30 (levels and reserves)**: building levels go 1–12, three per age

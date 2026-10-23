@@ -1,4 +1,4 @@
-# Chantier 35 — Bâtiments sur plusieurs tuiles
+# Chantier 35 — Bâtiments sur plusieurs tuiles — **fait**
 
 Acte II « La guerre des faces » du [carnet de route](../CARNET_DE_ROUTE.md) (ex-chantier 26,
 adapté). **Simulation + client + bot**, gros changement de la carte. À lancer **après le 30**
@@ -97,3 +97,33 @@ adapté). **Simulation + client + bot**, gros changement de la carte. À lancer 
 - On ne peut pas poser un gros bâtiment à cheval sur un obstacle, le jus ou un chantier. Le
   fantôme avertit avant de couvrir un gisement.
 - Le rapport d'équilibrage reste à ±10 % entre Kiwisu et Kiwino.
+
+## Fait (octobre 2026)
+
+- **Partie 1 (simulation)** : `FOOTPRINTS`, `sim/footprint.ts` (tuiles d'une empreinte, index
+  d'occupation en cache, murs, `cutsLand`), `siteError` sur toute l'empreinte et l'orientation,
+  `build { rot }`, chemins retirés (remboursés sous les tuiles couvertes), marche qui contourne,
+  récolte, météorites, comètes, épaves, terraformation, instantanés, contrôle des imports ;
+  sauvegarde v27 (étendu ou « à l'étroit », `extensionFor`, erreur `cramped`) ; tests
+  `test/footprint.test.ts`.
+- **Partie 2 (client)** : rotation (R, « Tourner »), fantôme centré avec une dalle par tuile,
+  bandeau (tuiles prises, récolte couverte, chemins), pose depuis la fiche d'une tuile, toute
+  tuile couverte sélectionne le bâtiment, empreinte cerclée (et ce qui gêne en rouge), A* des
+  kiwis, faces d'ami·es.
+- **Partie 3 (modèles)** : `render/models/spread.ts` (ailes de la Bibliothèque, classe et terrain
+  d'entraînement de l'École, hangar et caisses de l'entrepôt, piste éclairée et hangar de l'aire
+  d'envol, cuves du labo, place du monument sur 7 tuiles), planche `?sheet` élargie.
+- **Partie 4** : le bot tourne les gros bâtiments pour couvrir le moins de gisements et ses
+  chemins contournent les murs ; sondes d'équilibrage (voir `DECISIONS.md`).
+
+Décisions nouvelles du porteur : pose refusée si elle coupe la terre ; chemins sous les tuiles
+couvertes retirés et remboursés ; orientation automatique à l'amélioration d'un bâtiment à
+l'étroit.
+
+## Reste
+
+- La flèche « améliorable » des badges de niveau ignore « à l'étroit » (la fiche, elle,
+  l'affiche) ; un kiwi envoyé au centre du monument y va en ligne droite (centre muré).
+- Une tuile couverte qui s'inonde à la saison des crues n'est pas re-vérifiée (comme avant
+  pour la tuile d'ancrage).
+- Vérifier sur un vrai téléphone et sur le MacBook (rotation au pouce, lisibilité du fantôme).

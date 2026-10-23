@@ -239,6 +239,18 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   defense window's `WaveActions` lists the answers to a wave; the planner shows the launch
   cost (`.launch-cost`).
 
+- **Chantier 35 (big buildings)**: `render/footprintFrame.ts` `footprintFrame(map, type, b)`
+  (centre, height of the highest covered tile, `angle`: a triangle's door +z faces its anchor,
+  the monument a multiple of 60°) places buildings, sites, the ghost and the twin's
+  buildings. Models: `render/models/spread.ts` grows the recipe at the centre and dresses the
+  other tiles (`TRIANGLE` / `HEXAGON` tile centres in model units); a new big building needs
+  an entry in `DRESS`. Placement: store `placingRot`, `actions.rotatePlacement` (key R,
+  "Turn" in `PlacingBanner`), `actions.placeFrom(type, tile, rot)` (tile sheet), the ghost's
+  pads (`PlacementGhost.setTile(tile, valid, map, rot)`), `placementCover` (harvest and
+  paths covered), `firstRotation`. Selection rings the footprint (`SelectionView.setFootprint`,
+  red blockers for a cramped building). Kiwis' `findPath(…, blocked)` takes the shared walls.
+  The `?sheet` widens its cells for big models.
+
 ## Performance (chantier 10)
 
 - **The UI store is the usual suspect.** The controller emits a new `game` and `now` 5 times

@@ -36,7 +36,7 @@ dans l'historique.
 | 33  | Bâtiments par âge et icônes 3D (client)              | fait    |
 | 34  | Kiwis et créatures vivants (client)                  | fait    |
 |     | **Acte II — La guerre des faces**                    |         |
-| 35  | Bâtiments sur plusieurs tuiles                       | à faire |
+| 35  | Bâtiments sur plusieurs tuiles                       | fait    |
 | 36  | Moteur de bataille : les vagues jouées pour de vrai  | à faire |
 | 37  | Classes, rôles de combat, camp d'entraînement        | à faire |
 | 38  | Forge, équipement et fer météorique                  | à faire |
@@ -50,9 +50,9 @@ dans l'historique.
 | 45  | Rives fertiles et canaux de jus                      | à faire |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
-**Prochaine conversation** : l'**acte I est fini** ; l'acte II commence par le chantier **35**
-(bâtiments sur plusieurs tuiles, qui part du kit du 33), puis le **36** (moteur de bataille :
-les vagues du 31 jouées pour de vrai, mêmes leviers). Point laissé par le 31 : le temps mort du
+**Prochaine conversation** : le chantier **36** (moteur de bataille : les vagues du 31 jouées
+pour de vrai, mêmes leviers ; il part des empreintes du 35 — `occupancy(state)` et ses murs —
+pour la marche et les positions, et des poses du 34). Point laissé par le 31 : le temps mort du
 début de la Pierre reste ~70–90 min au bot (attente de la ressource la plus rare pendant
 qu'une autre déborde ; voir `DECISIONS.md`, chantier 31) — à rediscuter avec le porteur.
 Mesuré à la fin de l'acte I : Pierre 12,9 h, Fer 2,8 j, Industrie 8,7 j ; vagues perdues 8 %
@@ -84,6 +84,11 @@ Mesuré à la fin de l'acte I : Pierre 12,9 h, Fer 2,8 j, Industrie 8,7 j ; vagu
   `AGE_OBJECTIVES` (une condition = un cas de `objectiveProgress`) ; la prochaine étape
   (`nextStep`) suit les urgences (skill `kiwar-sim`). Toute menace reste annoncée avec au moins
   deux parades, et les réserves sont pillées en premier (skill `kiwar-threats`).
+- **Empreintes** (chantier 35) : un bâtiment couvre 1, 3 ou 7 tuiles (`FOOTPRINTS`,
+  `Building.rot`) ; tout ce qui cherche « ce qui est sur une tuile » passe par `buildingAt` /
+  `occupancy(state)` (`sim/footprint.ts`), jamais par `b.q === q && b.r === r` ; les murs
+  (`occupancy.blocked`) se contournent à pied ; un nouveau gros bâtiment prend une entrée dans
+  `FOOTPRINTS` et une garniture dans `render/models/spread.ts` (skill `kiwar-sim`, `kiwar-client`).
 - **Planètes** : elles ont une place fixe (`render/space.ts`) ; `renderer.setTwinApproach(t)`
   rapproche la jumelle (skill `kiwar-world`).
 

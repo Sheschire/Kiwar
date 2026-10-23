@@ -11,12 +11,15 @@
 
 ## Des chantiers précédents
 
+- Chantier 35 : la flèche « améliorable » des badges ignore un bâtiment « à l'étroit » ; un
+  kiwi envoyé au centre muré du monument y va en ligne droite ; une tuile couverte qui
+  s'inonde n'est pas re-vérifiée ; rotation au pouce à confirmer sur un vrai téléphone.
+
 - Chantier 33 : looks par âge vérifiés en Chromium sans GPU (planche `?sheet`, captures) ;
   images/s à confirmer avec `?debug` sur le MacBook et un vrai téléphone (rendu logiciel :
   +4 % par image pour un village industriel complet). Le monument et le labo gardent leurs
   modèles (déjà un par niveau / habillés en Fer) ; le camp de cueillette n'a qu'un look. Les
-  empreintes de 3 et 7 tuiles (chantier 35) ne sont pas encore dans les recettes : le kit pose
-  ses pièces en coordonnées d'une tuile, une recette multi-tuile devra les décaler (`under`).
+  empreintes de 3 et 7 tuiles sont faites au chantier 35 (`render/models/spread.ts`).
   Les enseignes 3D (`signs.ts`) restent des icônes SVG. La face d'un·e ami·e montre aussi les
   looks par âge (ils suivent le niveau), sans les vignettes.
 
