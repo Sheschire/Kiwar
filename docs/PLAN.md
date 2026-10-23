@@ -55,6 +55,8 @@ dans l'historique.
 les vagues du 31 jouées pour de vrai, mêmes leviers). Point laissé par le 31 : le temps mort du
 début de la Pierre reste ~70–90 min au bot (attente de la ressource la plus rare pendant
 qu'une autre déborde ; voir `DECISIONS.md`, chantier 31) — à rediscuter avec le porteur.
+Mesuré à la fin de l'acte I : Pierre 12,9 h, Fer 2,8 j, Industrie 8,7 j ; vagues perdues 8 %
+(attentif) / 59 % (occasionnel), aucun mort (`BALANCE_REPORT.md`).
 
 ## Règles transverses à retenir
 

@@ -149,3 +149,25 @@ as six background processes (each 2 seeds × 12 days ≈ 15 min; the 4 cores are
 vitest's bot test may time out meanwhile). Reference (end of chantier 19, 2 seeds × 6
 biomes): siege open 137–172 h, conquest in 9/12 runs, 162–272 h, median 240 h; tune
 `SIEGE.queen`, the bot's `ASSAULT_MARGIN` / `FINAL_MARGIN`.
+
+## Chantier 31: waves, objectives and the profiles
+
+- `Play.prepared` (attentive = no `sessionEveryMs`): reads the forecast (turrets, shelter),
+  covers every sector with each turret model first (`turretDecision`), keeps the seeds its
+  turrets will fire (`keepsAmmo`); the occasional profile reacts only to a lost wave. The bot
+  claims age objectives (`claimableObjective`).
+- `RunResult.final.wavesHurt`, `waveLoot`, `deadAtH`; report: "With losses" and "Loot per
+  wave" in the predators table, "Starting at" in the rhythm table, "Waves by profile" in the
+  ages section. Dead time counts `claimObjective`, `shelter`, and collecting / garrison while
+  a wave is announced.
+- Diagnosing the first waves: a scratch `runBot` with `onStep` printing turrets, the
+  announced wave, `forecastWave` odds and `expected.sectors` (per-sector through) found that
+  a leak on one flank (no sky turret there) loses the wave whatever the total defense.
+- The rhythm measures depend on the horizon: "At the cap" is 2–7 % over 24 h but ~24 % over
+  72 h (orchard, highlands). Compare like with like.
+- **Reference (end of chantier 31, `pnpm balance --seeds 30 --ages 6 --impact 6 --probe
+100`, 98 min on 4 cores)**: faces within 1.4 %; tutorial 1.3 h, Nest 3 ≈ 3.7 h (orchard
+  4.3 h ⚠️), Library ≈ 3.9 h, mayor ≈ 13.3 h, level 10 ≈ 2.4 d, Stone ≈ 12.9 h, Iron ≈ 2.8 d;
+  ~5 waves per 72 h run, none lost; ages attentive 12.9 h / 2.8 d / 8.7 d, occasional
+  14.6 h / 3.7 d / 10.0 d; waves lost attentive 8 %, occasional 59 %, no death; dead time
+  70–90 min from ~16–18 h ⚠️.

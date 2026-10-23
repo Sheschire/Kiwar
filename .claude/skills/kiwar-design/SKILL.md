@@ -51,13 +51,13 @@ worth protecting.
 
 ## Tempo targets (attentive player; to verify with the bot)
 
-| Milestone                      | Target                    | Before chantier 30 | End of chantier 30 |
-| ------------------------------ | ------------------------- | ------------------ | ------------------ |
-| Tutorial done                  | ~1–1.5 h                  | 1.3 h              | 1.3 h              |
-| Stone age                      | ~12 h                     | 36 h               | 12.0 h             |
-| Iron age                       | ~3 days                   | 4.1 days           | 2.8 days           |
-| Industrial age                 | ~10 days                  | 7.8 days           | 9.2 days           |
-| Occasional player (8 h visits) | ~×1.5 the attentive times | ×1.5 / ×1.3        | ×1.7 / ×1.4 / ×1.1 |
+| Milestone                      | Target                    | Before chantier 30 | End of chantier 30 | End of chantier 31 |
+| ------------------------------ | ------------------------- | ------------------ | ------------------ | ------------------ |
+| Tutorial done                  | ~1–1.5 h                  | 1.3 h              | 1.3 h              | 1.3 h              |
+| Stone age                      | ~12 h                     | 36 h               | 12.0 h             | 12.9 h             |
+| Iron age                       | ~3 days                   | 4.1 days           | 2.8 days           | 2.8 days           |
+| Industrial age                 | ~10 days                  | 7.8 days           | 9.2 days           | 8.7 days           |
+| Occasional player (8 h visits) | ~×1.5 the attentive times | ×1.5 / ×1.3        | ×1.7 / ×1.4 / ×1.1 | ×1.1 / ×1.3 / ×1.1 |
 
 Levels: 3 per age (Eden 1–3, Stone 4–6, Iron 7–9, Industry 10–12), the Nest follows.
 

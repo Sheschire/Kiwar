@@ -2113,3 +2113,18 @@ launch cost applies to **every mission but the founding**; the bot's dead time a
   model first); the occasional one never reads the forecast (it reacts to a lost wave only).
 - New measures: waves with losses and loot per wave, by profile (report section "Waves by
   profile").
+
+### Measured (`docs/BALANCE_REPORT.md`, 30 seeds per biome × 72 h, ages 6 seeds)
+
+- Attentive: Stone 12.9 h, Iron 2.8 days, Industry 8.7 days (targets ±15 % ✅); faces within
+  1.4 %; Nest 3 and Library +13–14 % in the orchard (more ferrets: more turrets before the
+  first wave), every other line within ±10 %.
+- Waves: the attentive bot loses 8 % of them (~970 looted per wave), the occasional one 59 %
+  (~9 400); no predator death; over 72 h the attentive bot loses none.
+- ⚠️ Dead time still 70–90 min around 16–18 h: the wait for the scarcest resource (pulp or
+  fibre by biome) while another sits full. Tilting the Stone costs toward pulp barely moved
+  it; to discuss with the owner (a sink for the surplus, or accept the wait).
+- Over 72 h the most capped resource stays full ~24 % of the time in the orchard and the
+  highlands (2–7 % over 24 h, the window of chantier 30's measure).
+- "To test" with people: does an announced wave make you want to act? Is the notebook
+  readable on a phone?

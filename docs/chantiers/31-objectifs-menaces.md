@@ -115,3 +115,42 @@ Chemins sous `packages/shared/src/`.
   pertes faibles ; aucune mort hors vraie défaite.
 - Une expédition coûte un prix sensible, visible avant le départ.
 - Rapport à ±10 % entre Kiwisu et Kiwino.
+
+## Bilan (fait)
+
+- Parties 1 à 5 poussées sur `main` : carnet d'objectifs (données, sélecteurs, sauvegarde v26),
+  panneau à trois horizons, vagues réveillées et pillage des réserves, coût de lancement, bot et
+  réglage ; rapport complet `docs/BALANCE_REPORT.md` (30 graines par biome × 72 h, âges sur
+  6 graines, impact, sonde).
+- Décisions nouvelles demandées au porteur : objectifs d'un âge passé gardés ; coût de
+  lancement pour toutes les missions sauf la fondation ; le temps mort compte les objectifs
+  réclamés et la préparation d'une vague.
+- Écarts au document :
+  - première vague à 7 h, intervalle 12–18 h, préavis 3–6 h (+2 h Guetteur) comme prévu ;
+    facteurs du Nid **abaissés** aux niveaux 2–5 (les premières vagues rencontrent des
+    tourelles niveau 1 qui portent à 3 tuiles) ;
+  - richesse : seule la part du stockage **au-dessus de la moitié** compte, niveaux et kiwis
+    en logarithme (×1,2 jeune colonie, ×2 riche) ;
+  - objectifs : 9 / 9 / 8 / 6 par âge ; un œuf offert = le prochain œuf gratuit ; pas de
+    carnet dans une colonie sœur ;
+  - coût de lancement : 40 fibre + 25 jus par kiwi × vaisseau (1 / 2 / 5 / 12), Kikiwiwi × 3.
+- Mesuré (rapport complet) :
+  - attentif : Pierre 12,9 h, Fer 2,8 j, Industrie 8,7 j (cibles ±15 % ✅) ; Kiwisu / Kiwino
+    à ±1,4 % ;
+  - vagues : l'attentif (préparé) en perd 8 %, ~970 pillés par vague ; l'occasionnel (jamais
+    préparé) 59 %, ~9 400 par vague ; **aucun mort** ; sur 72 h le bot attentif n'en perd
+    aucune ;
+  - occasionnel : Pierre 14,6 h, Fer 3,7 j, Industrie 10,0 j (plus rapide que ×1,5 : la
+    recherche avance hors ligne, point déjà ouvert au 30).
+- Reste (pour le porteur ou un chantier suivant) :
+  - temps mort ~70–90 min vers 16–18 h (début de la Pierre) : attente de la ressource la plus
+    rare (pulpe ou fibre selon le biome) pendant qu'une autre déborde ; les objectifs et les
+    vagues tombent ailleurs ; une retouche des coûts de la Pierre (plus de pulpe, moins de
+    fibre) n'y changeait presque rien. Pistes : un puits pour la ressource en trop (décor 44,
+    canaux 45, échange), ou accepter cette attente ;
+  - Nid 3 et Bibliothèque +13–14 % en Verger (plus de furets : le bot y dépense plus en
+    tourelles avant la première vague) ;
+  - sur 72 h, la ressource la plus pleine reste au plafond ~24 % du temps en Verger et
+    Hauts-plateaux (2–7 % sur 24 h) ;
+  - à tester par des personnes : l'annonce d'une vague donne-t-elle envie d'agir ? Le carnet
+    est-il lisible sur téléphone ?
