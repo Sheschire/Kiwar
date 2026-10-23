@@ -199,6 +199,25 @@ export function turretCoverage(
   return c;
 }
 
+/**
+ * Chantier 36: share of a turret's fire for each sector against an announced wave — the
+ * sectors whose gate it reaches, evenly (none: it fires at nothing).
+ */
+export function gateCoverage(
+  gates: Partial<Record<SectorId, Hex>>,
+  type: BuildingType,
+  level: number,
+  h: Hex,
+): PerSector<number> {
+  const range = turretRange(type, level);
+  const reach = perSector((s) => {
+    const g = gates[s];
+    return g && hexDistance(g, h) <= range ? 1 : 0;
+  });
+  const n = reach.front + reach.left + reach.right;
+  return n > 0 ? perSector((s) => reach[s] / n) : reach;
+}
+
 /** How a threat spreads over the sectors. */
 export function sectorThreat(threat: Sides): PerSector<Sides> {
   return perSector((s) => ({
@@ -291,6 +310,9 @@ export interface Defense extends Sides {
  */
 export function defenseOf(state: GameState, threat?: Sides): Defense {
   const map = faceMapOf(state);
+  // Chantier 36: against an announced wave, a turret defends the sectors whose gate it reaches.
+  const next = state.threats.next;
+  const gates = threat && next?.announced && next.gates ? next.gates : null;
   const turrets = { ground: 0, air: 0 };
   const sectors = perSector(() => ({ ground: 0, air: 0 }));
   let need = 0;
@@ -304,7 +326,9 @@ export function defenseOf(state: GameState, threat?: Sides): Defense {
     turrets.ground += g * k;
     turrets.air += a * k;
     need += def.ammo ?? 0;
-    const cover = turretCoverage(map, b.type, b.level, b);
+    const cover = gates
+      ? gateCoverage(gates, b.type, b.level, b)
+      : turretCoverage(map, b.type, b.level, b);
     for (const s of SECTOR_IDS) {
       sectors[s].ground += g * k * cover[s];
       sectors[s].air += a * k * cover[s];

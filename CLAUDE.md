@@ -39,6 +39,8 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
   - `kiwar-colonies` — the siege of the twin face: hidden holds and queen, deep reconnaissance,
     assaults, bridgeheads and counter-attacks, fortification, the final assault, the Siege
     screen; later the second colony.
+  - `kiwar-battle` — the battle engine: unit data, AI, journal, waves played as battles, the 3D
+    show and its UI, the forecast's practice battles (and the landings of chantier 40).
   - `kiwar-sky` — comets and stardust: pickers, blessings, the star egg, the Stars research
     branch, ship fuel, stardust costs of the ages and the Kikiwiwis.
 

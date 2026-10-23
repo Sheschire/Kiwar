@@ -6,6 +6,12 @@ import {
   pendingUpgrade,
   forecastWave,
   waveAhead,
+  uncoveredGates,
+  rampartSectors,
+  hexDistance,
+  turretRange,
+  siteError,
+  buildLock,
   defenseOf,
   sectorClash,
   SECTOR_IDS,
@@ -30,8 +36,16 @@ export const GUARD_LEAD_MS = 40 * 60_000;
  */
 export function defenseOrders(state: GameState): Command[] {
   // Chantier 36: the practice battles only when the shelter can be taken.
-  const f = waveAhead(state)?.canShelter ? forecastWave(state) : null;
+  const ahead = waveAhead(state);
+  const f = ahead?.canShelter ? forecastWave(state) : null;
   const out: Command[] = [];
+  // Chantier 36: guards charge when a pack comes in where no turret reaches, else they hold
+  // near the turrets.
+  if (ahead) {
+    const open = uncoveredGates(state, ahead.wave).some((g) => g.side === 'ground');
+    const posture = open ? 'bold' : 'cautious';
+    if (state.threats.posture !== posture) out.push({ type: 'setPosture', posture });
+  }
   if (f?.canShelter && !f.expected.victory && (f.expected.deaths > 0 || f.expected.injured >= 2))
     out.push({ type: 'shelter' });
   return out;
@@ -60,6 +74,22 @@ export function turretDecision(
   for (const type of ['seedTurret', 'skyTurret'] as const) {
     if (!turrets.some((b) => b.type === type) && turretCount(state) < turretLimit(state))
       return affordable(build(type));
+  }
+  // Chantier 36: an announced pack whose gate no turret reaches gets one next to its gate.
+  const ahead = prepared ? waveAhead(state) : null;
+  if (ahead && turretCount(state) < turretLimit(state)) {
+    const map = faceMapOf(state);
+    for (const g of uncoveredGates(state, ahead.wave)) {
+      const type = g.side === 'air' ? 'skyTurret' : 'seedTurret';
+      const gate = ahead.wave.gates?.[g.sector];
+      if (!gate) continue;
+      const range = turretRange(type, 1);
+      const spot = rampartSectors(map)
+        .tiles.filter((t) => hexDistance(t, gate) <= range)
+        .sort((a, b) => hexDistance(a, gate) - hexDistance(b, gate))
+        .find((t) => !buildLock(state, type) && siteError(state, map, type, t) === null);
+      if (spot) return affordable({ type: 'build', buildingType: type, q: spot.q, r: spot.r });
+    }
   }
   // Chantier 31: then every sector gets a turret of each model before any second one (an
   // uncovered sector always leaks a little, and a leak is a lost wave).

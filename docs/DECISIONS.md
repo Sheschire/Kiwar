@@ -2180,3 +2180,56 @@ launch cost applies to **every mission but the founding**; the bot's dead time a
   leave fewer roomy sites; 2–4 seeds, the baseline had orchard/highlands ±11 % instead): to
   watch in the full report at the end of the act, no retune now.
 - Occasional profile: same spread as before (its Stone age depends on the visit times).
+
+## Chantier 36 — Battle engine: the waves played for real
+
+### Owner's answers (this chantier)
+
+- The battle covers **the whole face**: each sector's pack comes in by its own rampart, with
+  the shares of chantier 12.
+- The **forecast runs three practice battles** (bad, average, good luck, practice seeds, never
+  the strike's): held at bad luck → likely, held at average or good luck → uncertain, else
+  unlikely; the expected losses are the average battle's.
+- Guards go **where they are needed, or where the player pins them** (`pinGuard`).
+
+### Engine
+
+- `simulateBattle(setup, seed)` in `packages/shared/src/battle/`: pure, 0.5 s steps, at most
+  240 s, hex grid with the walls of chantier 35, 3 places per tile, bats fly over. Units from
+  `data/units.ts` (weapons, predator profiles, kiwi stat factors). AI by role: raiders loot
+  (reserves, then the stock), break buildings, answer the defenders who engage them, run away
+  full or under 30 % of their power; guards intercept within a leash (cautious 3 tiles from
+  their post, bold anywhere); kiwis at work peck around their workplace and run home hurt;
+  turrets fire their ammo. The journal is a compact string of events; 60 vs 60 ≈ 16 ms, 15 kB.
+- A stuck unit squeezes through after 2 s (packs jammed in single file otherwise).
+
+### Waves (Claude's choices, to test)
+
+- **Packs and gates**: at the announcement each sector gets its squads (soldiers, scouts,
+  brutes; divers and spitters; brutes and spitters grow with the age) and a **gate**, a rampart
+  tile drawn from the wave's hash around the middle of the sector. Packs come in there, the
+  gates pulse on the map and the defense window lists the gates no turret reaches. Without
+  gates the predators entered all along the rampart and turrets fired twice: placement did not
+  matter. With them a turret (or a guard) where the pack comes in decides the wave.
+- Against an announced wave, `defenseOf` counts a turret only for the sectors whose gate it
+  reaches, so the sums of the window, the automatic garrison and the bot follow the battle.
+- **Victory**: nothing damaged and at most a quarter of what lay in the open carried away
+  (`THREATS.holdLoot`): a repelled pack may still leave with a few scraps. Defeat → shield, as
+  before. At most `maxDamaged` buildings break (the engine spares the others), never the Nest.
+- A pack can carry 1.5 × what lies in the open (`lootShare` of the reserves and the
+  unprotected stock): two thirds of it empty the stores, the others break things.
+- Deaths: unchanged rule (threat > 2 × the defense sums, not sheltered, > 4 kiwis, at most
+  one); the kiwi who dies is the first one that fell. During a shelter, guards still fight and
+  may be hurt; nobody else is in the battle.
+- Turret shots: defense × 0.8 per shot, 0.8 s reload, as many shots as the ammo (× seed share);
+  seeds spent = shots fired. Rampart tiles cost 3 to climb down.
+
+### Show and preparation
+
+- A wave that strikes while the player watches plays from that instant; its toast, badge and
+  sound wait for the end of the show; damaged buildings smoke only once the show reaches their
+  blow. Known leak: the automation may queue the repair at once (left as is).
+- Replay from each report ("Watch the battle", the last five), ×1/×2/×4, rewind, skip, a tap
+  on a fighter opens its card (level, health, weapon; equipment comes with chantier 38).
+- Posture (cautious / bold) and pins in the defense window; the bot builds the missing turret
+  next to an uncovered gate and turns bold while a ground gate stays open.

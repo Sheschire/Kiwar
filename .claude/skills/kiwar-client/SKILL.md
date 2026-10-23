@@ -251,6 +251,12 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   red blockers for a cramped building). Kiwis' `findPath(…, blocked)` takes the shared walls.
   The `?sheet` widens its cells for big models.
 
+- **Chantier 36 (battles)**: `render/battle/` (`timeline.ts`, `BattleShow.ts` replacing
+  `predators.ts`, `gates.ts`), `ui/battleStore.ts` (out of the main store), `BattleBar.tsx`
+  (bar and unit card), `game/battleOutcome.ts` (a live wave's outcome waits for the end of its
+  show); a tap picks a battle unit before a tile; `KiwisView.setHidden`,
+  `BuildingsView.maskDamaged`. See `kiwar-battle`.
+
 ## Performance (chantier 10)
 
 - **The UI store is the usual suspect.** The controller emits a new `game` and `now` 5 times

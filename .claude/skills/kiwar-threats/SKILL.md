@@ -72,9 +72,8 @@ colony × play time (× expedition victories: the aliens strike back), beginners
 
 - `sim/threats.ts`: `wavePower`, `waveMix`, `defenseOf(state, threat?)` (turrets × ammo share,
   damaged at half; garrison `guardPower`; militia of working/idle kiwis; with a threat only the
-  turrets facing it count and need seeds), `protectedStock`, **`waveOutcome`** (severity =
-  unstopped threat / total; damage, loot, injuries, deaths, trampled paths) used by both
-  **`forecastWave`** (UI, average luck, odds likely/uncertain/unlikely) and the strike.
+  turrets facing it count and need seeds), `protectedStock`. Since chantier 36 the outcome
+  comes from a battle (`battleOutcome`, `forecastWave`, `waveAhead`: see `kiwar-battle`).
 - `advance.ts` loop: `planWave(s)` and `planMeteor(s)` at the top of every iteration (they act
   only when nothing is planned, which changes only at events, so big step = small steps);
   `nextThreatEvent` / `threatTick` (announce, strike, incident, shelter end), `nextInjuryEnd` /
@@ -170,6 +169,20 @@ pickers stop during a shelter.
   has `waves`, `wavesLost`, `predatorDeaths`, `meteors`; the report adds a table per biome.
 - To retune: `THREATS.basePower`/`perDay`/`nestFactor` (pressure), turret `defense`/`ammo`,
   `GARRISON.power`, `METEORS.stock`. Check the milestones stay within ±10 % between biomes.
+
+## Waves played as battles (chantier 36)
+
+Since chantier 36 the strike and the forecast go through the battle engine — see the
+`kiwar-battle` skill. In short: `waveOutcome` is gone; `battleOutcome(state, threat, defense,
+sheltered, log)` reads a journal; `strike` applies `log.result` (loot where it was taken,
+damaged buildings, trampled struck paths, fallen kiwis hurt, one death at most on a real
+defeat via `lethalWave`); `forecastWave` runs three practice battles (cached) and `waveAhead`
+is its cheap part. At the announcement a wave gets `squads` and `gates` (one rampart tile per
+sector where its pack comes in); with an announced wave `defenseOf` counts a turret only for
+the sectors whose gate it reaches (`gateCoverage`), pinned guards (`threats.pins`) first. The
+old `PredatorShow` is replaced by `render/battle/BattleShow.ts`. Victory = nothing damaged and
+at most `THREATS.holdLoot` of what lay in the open carried away. During a shelter the guards
+still fight (and may be hurt); the other kiwis are not in the battle.
 
 ## Counter-attacks of the siege (chantier 19)
 

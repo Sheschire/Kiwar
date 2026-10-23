@@ -4348,6 +4348,15 @@ function turretCoverage(map, type, level, h) {
   }
   return c;
 }
+function gateCoverage(gates, type, level, h) {
+  const range2 = turretRange(type, level);
+  const reach = perSector((s) => {
+    const g = gates[s];
+    return g && hexDistance(g, h) <= range2 ? 1 : 0;
+  });
+  const n = reach.front + reach.left + reach.right;
+  return n > 0 ? perSector((s) => reach[s] / n) : reach;
+}
 function sectorThreat(threat) {
   return perSector((s) => ({
     ground: threat.ground * SECTORS.share.ground[s],
@@ -4395,6 +4404,8 @@ function guardPower(v, state) {
 }
 function defenseOf(state, threat) {
   const map = faceMapOf(state);
+  const next = state.threats.next;
+  const gates = threat && next?.announced && next.gates ? next.gates : null;
   const turrets = { ground: 0, air: 0 };
   const sectors = perSector(() => ({ ground: 0, air: 0 }));
   let need = 0;
@@ -4408,7 +4419,7 @@ function defenseOf(state, threat) {
     turrets.ground += g * k;
     turrets.air += a * k;
     need += def.ammo ?? 0;
-    const cover = turretCoverage(map, b.type, b.level, b);
+    const cover = gates ? gateCoverage(gates, b.type, b.level, b) : turretCoverage(map, b.type, b.level, b);
     for (const s of SECTOR_IDS) {
       sectors[s].ground += g * k * cover[s];
       sectors[s].air += a * k * cover[s];
@@ -16916,6 +16927,7 @@ export {
   friendId,
   gameStateSchema,
   garrisonOf,
+  gateCoverage,
   generateFace,
   generateObstacles,
   generateTraces,

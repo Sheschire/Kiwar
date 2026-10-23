@@ -62,6 +62,8 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 - `data/threats.ts`, `sim/threats.ts`, `sim/sky.ts` — chantier 06 (predator waves, incidents,
   turrets, garrison, shelter, repairs, meteorites): see the `kiwar-threats` skill. Threat and
   sky draws use `withThreatRng` (their own stream), never the colony RNG.
+- `data/units.ts`, `battle/` — chantier 36, the battle engine (pure `simulateBattle`, unit
+  data, wave setups, journals): see the `kiwar-battle` skill. A battle reads only its setup.
 - `data/comets.ts`, `sim/comets.ts` — chantier 13 (comets, stardust in `state.stardust` as raw
   integer units apart from `resources`, job `stardust`, blessings, star techs, fuel): see the
   `kiwar-sky` skill. Anything paid in stardust uses `payStardust` / `refundStardust`.
