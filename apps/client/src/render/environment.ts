@@ -14,6 +14,7 @@ import {
   type Vector3,
 } from 'three';
 import type { SkyState } from './dayCycle';
+import { Cosmos } from './cosmos';
 import { PALETTE } from './palette';
 import { GLSL_NOISE } from './shaderChunks';
 
@@ -31,6 +32,8 @@ export class Environment {
   private readonly sky: Mesh;
   /** The moons hang at infinity: they follow the camera (no parallax), like the sky. */
   private readonly moonGroup = new Group();
+  /** Chantier 32: stars and nebulae around the face. */
+  readonly cosmos = new Cosmos();
 
   constructor(scene: Scene) {
     this.skyMaterial = new ShaderMaterial({
@@ -64,6 +67,9 @@ export class Environment {
           vec3 col = mix(uHorizon, uMid, smoothstep(0.0, 0.35, h));
           col = mix(col, uZenith, smoothstep(0.3, 0.95, h));
           col = mix(col, uBelow, smoothstep(0.0, -0.4, h));
+          // Chantier 32: the cosmos shows through above the horizon glow (deeper by day too,
+          // so the stars and nebulae read on the pastel sky).
+          col = mix(col, uZenith * 0.6, smoothstep(0.02, 0.24, h) * 0.6);
           // Soft nebula swirls.
           vec2 uv = vec2(atan(d.z, d.x), h * 2.0);
           vec2 nebUv = uv * vec2(2.2, 2.6) + vec2(uTime * 0.004, 0.0);
@@ -186,6 +192,7 @@ export class Environment {
       this.moonGroup.add(moon);
     }
     this.group.add(this.moonGroup);
+    this.group.add(this.cosmos.group);
 
     scene.add(this.group);
   }
@@ -198,6 +205,7 @@ export class Environment {
     (u.uHorizon!.value as Color).copy(sky.horizon);
     (u.uBelow!.value as Color).copy(sky.below);
     u.uStars!.value = 1 + sky.night * 0.8;
+    this.cosmos.setNight(sky.night);
     const c = this.cloudMaterial.uniforms;
     (c.uCloud!.value as Color).copy(sky.cloud);
     (c.uShade!.value as Color).copy(sky.cloudShade);
@@ -206,6 +214,7 @@ export class Environment {
 
   /** Low quality: lighter sky and cloud noise (integrated GPUs pay for every pixel). */
   setLite(lite: boolean): void {
+    this.cosmos.setLite(lite);
     for (const m of [this.skyMaterial, this.cloudMaterial]) {
       if ('KIWAR_LITE' in m.defines === lite) continue;
       if (lite) m.defines.KIWAR_LITE = '';
@@ -217,6 +226,7 @@ export class Environment {
   update(time: number, camera: Vector3): void {
     this.sky.position.copy(camera);
     this.moonGroup.position.copy(camera);
+    this.cosmos.update(time, camera);
     this.skyMaterial.uniforms.uTime!.value = time;
     this.cloudMaterial.uniforms.uTime!.value = time;
     for (let i = 0; i < this.moons.length; i++) {

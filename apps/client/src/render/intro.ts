@@ -35,11 +35,17 @@ import {
 
 /**
  * Intro timeline (seconds since the player asked for the cut): the fruit settles with its seam
- * on the diagonal, the blade, the halves part.
+ * on the diagonal, the blade, the halves part; chantier 32: the cut flesh stays a while to be
+ * looked at (the camera drifts closer, a grazing light runs over it), then melts into the
+ * faces.
  */
 const T_SLICE = 0.4;
 const T_PART = T_SLICE + 0.3;
-const T_CHOICE = T_PART + 1.4;
+const T_PARTED = T_PART + 1.4;
+const CONTEMPLATE_S = 2.6;
+const T_MELT = T_PARTED + CONTEMPLATE_S;
+const MELT_S = 1.1;
+const T_CHOICE = T_MELT + MELT_S;
 const LEAVE_S = 1.3;
 /** Slow motion when the blade bites (real seconds, at `SLOW` speed). */
 const SLOW_S = 0.3;
@@ -86,6 +92,13 @@ interface Half {
   /** Side of the screen: -1 left (Kiwisu), +1 right (Kiwino). */
   side: number;
   scale: number;
+}
+
+/** 0 at the ends of [0, 1], 1 in the middle, smooth (0 outside). */
+function bump(t: number): number {
+  if (t <= 0 || t >= 1) return 0;
+  const s = Math.sin(Math.PI * t);
+  return s * s;
 }
 
 const X = new Vector3(1, 0, 0);
@@ -271,7 +284,7 @@ export class IntroScene {
     this.strands.clear();
     furShiver.value = 0;
     this.slowLeft = 0;
-    for (const h of this.halves) h.veil.set(0, 1);
+    for (const h of this.halves) h.veil.set(0, 1, 0);
     this.setPhase('choice');
     this.placeCamera(1);
   }
@@ -358,13 +371,15 @@ export class IntroScene {
       this.blade.set(ease(b * 0.9) * 1.45, 1 - ease((b - 1) * 1.2));
     } else this.blade.mesh.visible = false;
     if (c >= T_PART) {
-      const k = ease((c - T_PART) / (T_CHOICE - T_PART));
-      // The fresh cut glows warm for a moment, then the flesh melts into the colony's face.
+      const k = ease((c - T_PART) / (T_PARTED - T_PART));
+      // The fresh cut glows warm for a moment, stays to be looked at under a grazing light,
+      // then the flesh melts into the colony's face.
       const after = c - T_PART;
       const glow = Math.max(0, 1 - after / 0.4) ** 2;
-      const melt = ease((after - 0.35) / 0.9);
+      const melt = ease((c - T_MELT) / MELT_S);
+      const sheen = Math.min(1, Math.max(0, (c - T_PARTED + 0.6) / (CONTEMPLATE_S + 0.6)));
       for (const h of this.halves) {
-        h.veil.set(glow, melt);
+        h.veil.set(glow, melt, sheen);
         h.dome.scale.y = this.skinRadius * 1.04 + (h.domeDepth - this.skinRadius * 1.04) * k;
         const from = h.pivot.userData.from as Quaternion;
         // The halves first slide apart along the fruit's axis, then take their places.
@@ -392,7 +407,7 @@ export class IntroScene {
       this.reveal(h);
       // Cut from the round fruit: as deep as it, settling into the game's dome as it parts.
       h.dome.scale.y = this.skinRadius * 1.04;
-      h.veil.set(1, 0);
+      h.veil.set(1, 0, 0);
     }
     this.whole.visible = false;
     // Strands of juice from one cut to the other, anchored on the flesh.
@@ -521,7 +536,20 @@ export class IntroScene {
     this.target.set(right * hw, -bottom * hh, 0);
     const k = Math.min(1, damp(3, dt));
     this.lookAt.lerp(this.target, k);
-    this.camera.position.lerp(this.tmpV.set(this.target.x, this.target.y + d * 0.12, d), k);
+    // Chantier 32: while the cut flesh is looked at, the camera drifts slowly closer and
+    // across, then eases back for the reveal.
+    const c = this.phase === 'playing' ? (this.cut ?? 0) : 0;
+    const look = bump((c - T_PARTED + 0.8) / (T_CHOICE - T_PARTED + 0.8));
+    const across = (c - T_PARTED) / (T_MELT - T_PARTED) - 0.5;
+    this.camera.position.lerp(
+      this.tmpV.set(
+        this.target.x + d * 0.12 * look * across,
+        this.target.y + d * (0.12 - 0.05 * look),
+        // Closer on wide screens only: in portrait the halves already fill the width.
+        d * (1 - 0.16 * look * Math.min(1, this.camera.aspect)),
+      ),
+      k,
+    );
     this.camera.lookAt(this.lookAt);
   }
 

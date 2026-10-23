@@ -595,6 +595,7 @@ export class FleshVeil {
   readonly mesh: Mesh;
   private readonly material: MeshStandardMaterial;
   private readonly melt = { value: 0 };
+  private readonly sheen = { value: 0 };
 
   constructor(radius: number) {
     this.material = new MeshStandardMaterial({
@@ -607,8 +608,12 @@ export class FleshVeil {
     });
     this.material.onBeforeCompile = (shader) => {
       shader.uniforms.uMelt = this.melt;
+      shader.uniforms.uSheen = this.sheen;
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', `#include <common>\nuniform float uMelt;\n${GLSL_NOISE}`)
+        .replace(
+          '#include <common>',
+          `#include <common>\nuniform float uMelt;\nuniform float uSheen;\n${GLSL_NOISE}`,
+        )
         .replace(
           '#include <map_fragment>',
           `#include <map_fragment>
@@ -622,6 +627,13 @@ export class FleshVeil {
             // Wet glints: thin bright streaks across the flesh.
             float band = abs(dot(q, vec2(0.6, 0.8)) - 0.12 - 0.06 * kNoise(q * 14.0));
             diffuseColor.rgb += vec3(0.32) * pow(max(0.0, 1.0 - band * 7.0), 8.0);
+            // Chantier 32: a grazing light sweeps slowly across while the cut is looked at,
+            // catching the seeds' ring and the fibres.
+            if (uSheen > 0.0) {
+              float sweep = dot(q, vec2(0.8, -0.6)) - (uSheen * 1.3 - 0.65);
+              float fade = sin(uSheen * 3.14159);
+              diffuseColor.rgb += vec3(0.3, 0.27, 0.14) * exp(-sweep * sweep * 30.0) * fade;
+            }
           }`,
         )
         .replace(
@@ -635,10 +647,14 @@ export class FleshVeil {
     this.mesh.visible = false;
   }
 
-  /** `glow` 0 → 1 (warm light on the fresh cut), `melt` 0 (whole) → 1 (gone). */
-  set(glow: number, melt: number): void {
+  /**
+   * `glow` 0 → 1 (warm light on the fresh cut), `melt` 0 (whole) → 1 (gone), `sheen` 0 → 1
+   * (the grazing light's sweep across the flesh; 0 = none).
+   */
+  set(glow: number, melt: number, sheen: number): void {
     this.material.emissiveIntensity = glow * 0.35;
     this.melt.value = melt;
+    this.sheen.value = sheen;
     this.mesh.visible = melt < 1;
   }
 

@@ -1136,6 +1136,7 @@ export class GameRenderer {
     const size = this.renderer.getSize(tmpSize);
     const changed = ratio !== this.renderer.getPixelRatio() || size.x !== w || size.y !== h;
     if (ratio !== this.renderer.getPixelRatio()) this.renderer.setPixelRatio(ratio);
+    this.environment.cosmos.setPixelRatio(ratio);
     // Reallocating the buffers is costly: only when the size or the ratio changed (a new
     // post-processing chain always needs its size).
     if (changed) this.renderer.setSize(w, h, false);
