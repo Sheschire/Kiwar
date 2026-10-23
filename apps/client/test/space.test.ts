@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { liftPolar, MAX_POLAR, MAX_ZOOM, SPACE_POLAR } from '../src/camera/CameraRig';
+import {
+  liftOffset,
+  liftPolar,
+  MAX_POLAR,
+  MAX_ZOOM,
+  MIN_POLAR,
+  polarRange,
+  SPACE_POLAR,
+} from '../src/camera/CameraRig';
 import { FRONT_AZIMUTH } from '../src/render/front';
 import {
   ALLY_RING,
@@ -65,5 +73,23 @@ describe('space view (chantier 24)', () => {
     expect(liftPolar(MAX_ZOOM)).toBeCloseTo(SPACE_POLAR, 6);
     for (let k = 1; k < MAX_ZOOM; k += 0.1)
       expect(liftPolar(k + 0.1)).toBeGreaterThanOrEqual(liftPolar(k));
+  });
+});
+
+describe('free tilt (chantier 32)', () => {
+  it('keeps a wide tilt range at every zoom', () => {
+    for (let k = 0.5; k <= MAX_ZOOM; k += 0.1) {
+      const [min, max] = polarRange(k);
+      expect(min).toBe(MIN_POLAR);
+      expect(max - min).toBeGreaterThan(MAX_POLAR - MIN_POLAR - 1e-9);
+      // The lifted default view always fits in the range.
+      expect(liftPolar(k)).toBeLessThanOrEqual(max);
+    }
+  });
+
+  it('adds no lift up to the framing', () => {
+    expect(liftOffset(0.5)).toBe(0);
+    expect(liftOffset(1)).toBe(0);
+    expect(liftOffset(MAX_ZOOM)).toBeGreaterThan(0.5);
   });
 });

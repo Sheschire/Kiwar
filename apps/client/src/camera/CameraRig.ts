@@ -38,6 +38,8 @@ export const MAX_ZOOM = 3;
 /** Polar angle the camera rises to at the farthest zoom: almost level, the planets in view. */
 export const SPACE_POLAR = 1.42;
 const DEFAULT_POLAR = 0.78;
+/** Chantier 32: the highest tilt allowed, at the farthest zoom (just below the horizon). */
+export const TOP_POLAR = 1.5;
 
 /**
  * Chantier 24, "space view": the lowest the camera may look at zoom `k` (distance / framing
@@ -49,6 +51,19 @@ export function liftPolar(k: number): number {
   const t = Math.min(1, Math.max(0, (k - 1) / (MAX_ZOOM - 1.4)));
   // Eased out: the first steps of the zoom-out already raise the view (the twin peeks in).
   return DEFAULT_POLAR + (SPACE_POLAR - DEFAULT_POLAR) * (1 - (1 - t) * (1 - t));
+}
+
+/**
+ * Chantier 32: how far the zoom-out has raised the camera at zoom `k` (0 up to the framing).
+ * Added to the player's own tilt, so the lift never locks it: they can tilt freely at any zoom.
+ */
+export function liftOffset(k: number): number {
+  return liftPolar(k) - DEFAULT_POLAR;
+}
+
+/** Chantier 32: the tilt range at zoom `k` (the top of it rises with the lift). */
+export function polarRange(k: number): [number, number] {
+  return [MIN_POLAR, Math.min(TOP_POLAR, MAX_POLAR + liftOffset(k))];
 }
 
 function loadAzimuth(): number {
@@ -88,12 +103,10 @@ export class CameraRig {
   /** A one-finger pan is under way (no second finger since it started). */
   private panning = false;
   /**
-   * Chantier 24: the zoom-out has raised the camera (`liftPolar`); `playerPolar` is the tilt
-   * the player had before, given back when zooming in again.
+   * Chantier 32: the lift (`liftOffset`) already added to the tilt; NaN = take the current one
+   * without moving (after a frame or a return home).
    */
-  private lifted = false;
-  private playerPolar = DEFAULT_POLAR;
-  private lastLift = 0;
+  private lastOffset = Number.NaN;
   /** Chantier 24: a flight between planets (`flyTo`), stepped in `update`. */
   private flight: {
     t: number;
@@ -167,7 +180,7 @@ export class CameraRig {
     this.frameDistance = distance;
     // Zooming out far enough shows the planets of the map of space (chantier 24).
     this.controls.maxDistance = distance * MAX_ZOOM;
-    this.lifted = false;
+    this.lastOffset = Number.NaN;
     const { position, target } = this.framing(r);
     void this.controls.setLookAt(
       position.x,
@@ -231,7 +244,7 @@ export class CameraRig {
     const home = view ?? this.framing(Math.max(extentX, extentZ));
     this.flyTo(home.position.clone(), home.target.clone(), () => {
       this.away = false;
-      this.lifted = false;
+      this.lastOffset = Number.NaN;
       const c = this.controls;
       c.minDistance = 11;
       c.maxDistance = this.frameDistance * MAX_ZOOM;
@@ -392,24 +405,23 @@ export class CameraRig {
 
   /**
    * Chantier 24: zooming out raises the camera towards the horizon (`liftPolar`), zooming back
-   * in gives the player's own tilt back. Read on the end values, so the tilt eases along with
-   * the zoom.
+   * in lowers it again. Chantier 32: the lift is only a change added to the tilt while the zoom
+   * changes, never a floor — the player tilts freely at any zoom (the old floor left them
+   * 0.04 rad of play far out). Read on the end values, so the tilt eases along with the zoom.
    */
   private updateLift(): void {
     const c = this.controls;
     const end = c.getSpherical(tmpSpherical, true);
-    const lift = liftPolar(end.radius / this.frameDistance);
-    c.maxPolarAngle = Math.max(MAX_POLAR, lift + 0.04);
-    // The player tilted up past the lift by hand: that tilt is theirs now.
-    if (this.lifted && end.phi > this.lastLift + 0.01) this.lifted = false;
-    if (lift > end.phi + 1e-3) {
-      if (!this.lifted) this.playerPolar = end.phi;
-      this.lifted = true;
-    } else if (!this.lifted) return;
-    const want = Math.max(this.playerPolar, lift);
-    if (lift <= this.playerPolar) this.lifted = false;
-    this.lastLift = want;
-    if (Math.abs(want - end.phi) > 1e-3) void c.rotatePolarTo(want, true);
+    const k = end.radius / this.frameDistance;
+    const [min, max] = polarRange(k);
+    c.minPolarAngle = min;
+    c.maxPolarAngle = max;
+    const offset = liftOffset(k);
+    const delta = offset - this.lastOffset;
+    this.lastOffset = offset;
+    if (!(Math.abs(delta) > 1e-4)) return;
+    const want = Math.min(max, Math.max(min, end.phi + delta));
+    if (Math.abs(want - end.phi) > 1e-4) void c.rotatePolarTo(want, true);
   }
 
   private updateGlide(dt: number): void {
