@@ -27,7 +27,8 @@ export const THREATS = {
    * (chantier 31: the predators smell a rich colony).
    */
   basePower: 6,
-  nestFactor: [0, 0.6, 1, 1.6, 2.2, 2.4, 2.65, 2.9, 3.1, 3.35, 3.6, 3.85, 4.1] as readonly number[],
+  // Chantier 31: lower at Nest 2–5, the waves now come in the first day (L1 turrets reach 3 tiles).
+  nestFactor: [0, 0.5, 0.7, 1, 1.5, 1.9, 2.3, 2.6, 2.9, 3.2, 3.5, 3.8, 4.1] as readonly number[],
   /** Chantier 08: the predators grow with the age of the colony (index = age). */
   ageFactor: [1, 1.15, 1.3, 1.5] as readonly number[],
   /** Power gained per day of play, up to `maxDays` (softened in chantier 31; chantier 39
@@ -38,17 +39,19 @@ export const THREATS = {
   perVictory: 0.08,
   maxProvocation: 0.8,
   /**
-   * Chantier 31, wealth: + `stock` × the share of the storage filled (stock and reserves
-   * together, up to `maxFill`), + `levels` × ln(1 + levels of the buildings / `levelsRef`),
-   * + `population` × ln(1 + kiwis / `populationRef`).
+   * Chantier 31, wealth: + `stock` × the share of the storage filled above `fillFree` (stock
+   * and reserves together, up to `maxFill`), + `levels` × ln(1 + levels of the buildings /
+   * `levelsRef`), + `population` × ln(1 + kiwis / `populationRef`). About ×1.2 for a young
+   * colony, ×2 for a rich industrial one.
    */
   wealth: {
     stock: 0.4,
+    fillFree: 0.5,
     maxFill: 2,
     levels: 0.25,
-    levelsRef: 10,
+    levelsRef: 40,
     population: 0.15,
-    populationRef: 5,
+    populationRef: 10,
   },
   /** Share of the power that flies (bats) at night and by day. */
   airShare: { night: 0.7, day: 0.25 },

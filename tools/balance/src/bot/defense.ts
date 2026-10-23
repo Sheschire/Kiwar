@@ -39,6 +39,7 @@ export function defenseOrders(state: GameState): Command[] {
 export function turretDecision(
   state: GameState,
   build: (type: BuildingType) => Command | null,
+  prepared = true,
 ): Command | null {
   if (nest(state).level < 2) return null;
   const turrets = state.buildings.filter((b) => isTurret(b.type));
@@ -58,9 +59,16 @@ export function turretDecision(
     if (!turrets.some((b) => b.type === type) && turretCount(state) < turretLimit(state))
       return affordable(build(type));
   }
+  // Chantier 31: then every sector gets a turret of each model before any second one (an
+  // uncovered sector always leaks a little, and a leak is a lost wave).
+  for (const type of ['skyTurret', 'seedTurret'] as const) {
+    if (prepared && sectorWithout(state, type) && turretCount(state) < turretLimit(state))
+      return affordable(build(type));
+  }
   // Strengthen the side that breaks through (sector by sector, chantier 12): the announced
   // wave at bad luck (turrets only: guards come later), else the last lost one.
-  const f = forecastWave(state);
+  // Chantier 31: an occasional player does not read the forecast, only the last report.
+  const f = prepared ? forecastWave(state) : null;
   const last = state.threats.reports.at(-1);
   const threat = f
     ? { ground: f.threat.ground * 1.15, air: f.threat.air * 1.15 }
@@ -93,4 +101,22 @@ export function sectorWithout(state: GameState, type: 'seedTurret' | 'skyTurret'
     for (const sec of SECTOR_IDS) cover[sec] += c[sec];
   }
   return SECTOR_IDS.some((sec) => cover[sec] < 0.05);
+}
+
+/**
+ * Chantier 31: an attentive player keeps the seeds the turrets will fire at the announced
+ * wave (builds and upgrades that would eat into them wait).
+ */
+export function keepsAmmo(state: GameState, cmd: Command): boolean {
+  if (cmd.type !== 'build' && cmd.type !== 'upgrade') return true;
+  const f = forecastWave(state);
+  if (!f) return true;
+  const cost =
+    cmd.type === 'build'
+      ? buildCost(state, cmd.buildingType)
+      : (() => {
+          const b = state.buildings.find((x) => x.id === cmd.buildingId);
+          return b ? upgradeCost(b.type, b.level + 1) : {};
+        })();
+  return state.resources.seeds - (cost.seeds ?? 0) >= f.defense.ammo.need;
 }

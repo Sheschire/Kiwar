@@ -232,8 +232,11 @@ describe('waves awakened (chantier 31)', () => {
   it('a rich colony draws stronger waves', () => {
     const { state } = colony();
     const poor = { ...state, resources: { pulp: 0, fiber: 0, seeds: 0, juice: 0 } };
-    expect(wealthFactor(state)).toBeGreaterThan(wealthFactor(poor));
-    expect(wavePower(state, T0)).toBeGreaterThan(wavePower(poor, T0));
+    // Only the storage filled above half counts.
+    expect(wealthFactor(state)).toBe(wealthFactor(poor));
+    const full = rich(state);
+    expect(wealthFactor(full)).toBeGreaterThan(wealthFactor(poor));
+    expect(wavePower(full, T0)).toBeGreaterThan(wavePower(poor, T0));
     const crowded = { ...poor, villagers: [...poor.villagers, kiwi('x1'), kiwi('x2'), kiwi('x3')] };
     expect(wealthFactor(crowded)).toBeGreaterThan(wealthFactor(poor));
   });

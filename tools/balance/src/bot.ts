@@ -17,6 +17,7 @@ import {
   reserves,
   hasSkill,
   KIWI,
+  claimableObjective,
   currentObjective,
   HUNGER_SCALE,
   eggCost,
@@ -53,7 +54,7 @@ import { ageDecision, monumentDecision } from './bot/ages';
 import { campOrder } from './bot/camps';
 import { expeditionOrder, launchpadOrder } from './bot/expeditions';
 import { pathOrder } from './bot/paths';
-import { defenseOrders, turretDecision } from './bot/defense';
+import { defenseOrders, keepsAmmo, turretDecision } from './bot/defense';
 import {
   PRODUCERS,
   BUILD_ORDER,
@@ -111,6 +112,9 @@ export interface RunResult {
     /** Chantier 06: predator waves met and lost, kiwis killed by them, meteorites fallen. */
     waves?: number;
     wavesLost?: number;
+    /** Chantier 31: waves that cost anything (loot, damage, wounds, deaths), loot in all. */
+    wavesHurt?: number;
+    waveLoot?: number;
     predatorDeaths?: number;
     meteors?: number;
     /** Chantier 13: comets passed, stardust picked in all and left at the end. */
@@ -142,6 +146,8 @@ export interface RunResult {
      * what was produced.
      */
     deadMaxMin?: number;
+    /** Chantier 31: when that stretch began (hours of play), for diagnostics. */
+    deadAtH?: number;
     capShare?: number;
     lostShare?: number;
   };
@@ -154,7 +160,12 @@ const USEFUL = new Set<Command['type']>([
   'setResearch',
   'hatchEgg',
   'launchExpedition',
+  // Chantier 31: claiming an objective, sheltering.
+  'claimObjective',
+  'shelter',
 ]);
+/** Chantier 31: preparing an announced wave is a decision too (bringing the reserves back). */
+const WAVE_PREP = new Set<Command['type']>(['collect', 'collectAll', 'setGarrison']);
 
 function try_(state: GameState, map: FaceMap, now: number, cmd: Command): GameState | null {
   const r = applyCommand(state, cmd, { now, map });
@@ -168,11 +179,19 @@ function try_(state: GameState, map: FaceMap, now: number, cmd: Command): GameSt
  */
 /** One decision round (exported for diagnostics: what the bot wants to do right now). */
 export function decide(state: GameState, map: FaceMap, play: Play): Command[] {
+  const cmds = decideAll(state, map, play);
+  return play.prepared ? cmds.filter((c) => keepsAmmo(state, c)) : cmds;
+}
+
+function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
   const cmds: Command[] = [];
   // Chantier 30: bring the warehouse reserves back at every visit (only the player can).
   if (reserveHolders(state).some((b) => canCollect(state, b))) cmds.push({ type: 'collectAll' });
   const obj = currentObjective(state);
   if (obj && isObjectiveComplete(state, obj)) cmds.push({ type: 'claimObjective' });
+  // Chantier 31: the age objectives, as soon as one is fulfilled.
+  const ready = obj ? null : claimableObjective(state);
+  if (ready) cmds.push({ type: 'claimObjective', id: ready.id });
 
   // Place earned stat points: Dexterity for everyone (harvest), Charisma for the mayor.
   for (const v of state.villagers) {
@@ -241,8 +260,9 @@ export function decide(state: GameState, map: FaceMap, play: Play): Command[] {
     if (camp) cmds.push(camp);
   }
 
-  // Chantier 06: post guards just before a wave, shelter from a heavy defeat.
-  cmds.push(...defenseOrders(state));
+  // Chantier 06: post guards just before a wave, shelter from a heavy defeat (chantier 31:
+  // only an attentive player prepares).
+  if (play.prepared) cmds.push(...defenseOrders(state));
 
   // Hatch only kiwis the colony can feed (chantier 04).
   if (canHatch(state) && canAfford(state.resources, eggCost(state)) && canFeedOneMore(state))
@@ -300,7 +320,7 @@ export function decide(state: GameState, map: FaceMap, play: Play): Command[] {
   }
 
   // 2a. Turrets (chantier 06) once the Nest is level 2.
-  const turret = turretDecision(state, build);
+  const turret = turretDecision(state, build, play.prepared);
   if (turret) return [...cmds, turret];
 
   // 2b. RPG (chantier 03): a School once the Nest is level 2, then a mayor and a builder.
@@ -446,6 +466,8 @@ export interface Play extends Record<Mechanic, boolean> {
   /** Chantier 19: the bot besieges the twin and founds the second colony. */
   siege: boolean;
   siegeAt: number;
+  /** Chantier 31: an attentive player prepares the announced waves; an occasional one not. */
+  prepared: boolean;
 }
 
 export interface RunOptions {
@@ -488,6 +510,7 @@ export function runBot(opts: RunOptions): RunResult {
     expeditionsAt: 0,
     siege: !opts.noSiege,
     siegeAt: 0,
+    prepared: !opts.sessionEveryMs,
   };
   // Chantier 19: the second colony, played with the same rules once founded.
   let sister: GameState | null = null;
@@ -504,6 +527,8 @@ export function runBot(opts: RunOptions): RunResult {
   let maxHunger = 0;
   let wavesLost = 0;
   let wavesSeen = 0;
+  let wavesHurt = 0;
+  let waveLoot = 0;
   let dustPicked = 0;
   let campsSet = 0;
   const trips = { recons: 0, raids: 0, raidsWon: 0, loot: 0 };
@@ -512,6 +537,7 @@ export function runBot(opts: RunOptions): RunResult {
   const DAY_MS = 24 * HOUR_MS;
   let lastUseful = start;
   let deadMax = 0;
+  let deadAt = start;
   const capped = Object.fromEntries(RESOURCE_IDS.map((id) => [id, null])) as Record<
     (typeof RESOURCE_IDS)[number],
     { since: number; rate: number } | null
@@ -567,6 +593,13 @@ export function runBot(opts: RunOptions): RunResult {
     if (state.threats.waves > wavesSeen) {
       const fresh = state.threats.reports.slice(-(state.threats.waves - wavesSeen));
       wavesLost += fresh.filter((r) => !r.victory).length;
+      // Chantier 31: what each wave cost (loot, damage, wounds, deaths).
+      for (const r of fresh) {
+        const loot = RESOURCE_IDS.reduce((sum, id) => sum + r.loot[id], 0);
+        waveLoot += loot;
+        if (loot > 0 || r.damaged.length > 0 || r.injured.length > 0 || r.dead.length > 0)
+          wavesHurt++;
+      }
       wavesSeen = state.threats.waves;
     }
     // Apply every possible decision at this instant (first one wins per category).
@@ -579,7 +612,9 @@ export function runBot(opts: RunOptions): RunResult {
         const next = try_(state, map, now, cmd);
         if (next) {
           if (cmd.type === 'gather') campsSet++;
-          if (USEFUL.has(cmd.type) && now - start <= DAY_MS) {
+          const prep = WAVE_PREP.has(cmd.type) && !!state.threats.next?.announced;
+          if ((USEFUL.has(cmd.type) || prep) && now - start <= DAY_MS) {
+            if (now - lastUseful > deadMax) deadAt = lastUseful;
             deadMax = Math.max(deadMax, now - lastUseful);
             lastUseful = now;
           }
@@ -656,7 +691,10 @@ export function runBot(opts: RunOptions): RunResult {
     cappedMs[id] += now - c.since;
     lost += (c.rate * (now - c.since)) / HOUR_MS;
   }
-  if (now - start >= DAY_MS) deadMax = Math.max(deadMax, start + DAY_MS - lastUseful);
+  if (now - start >= DAY_MS && start + DAY_MS - lastUseful > deadMax) {
+    deadAt = lastUseful;
+    deadMax = start + DAY_MS - lastUseful;
+  }
   const elapsed = Math.max(1, now - start);
   const produced = RESOURCE_IDS.reduce((s, id) => s + state.stats.produced[id], 0);
   return {
@@ -672,6 +710,8 @@ export function runBot(opts: RunOptions): RunResult {
       maxHungerH: Math.round((maxHunger / HUNGER_SCALE / 3_600_000) * 10) / 10,
       waves: state.threats.waves,
       wavesLost,
+      wavesHurt,
+      waveLoot: Math.round(waveLoot),
       predatorDeaths: state.memorial.filter((m) => m.cause === 'predator').length,
       meteors: state.sky.falls,
       comets: state.comets.passes,
@@ -688,6 +728,7 @@ export function runBot(opts: RunOptions): RunResult {
         (m) => m.cause === 'battle' || m.cause === 'starvation',
       ).length,
       deadMaxMin: Math.round(deadMax / 60_000),
+      deadAtH: Math.round(((deadAt - start) / HOUR_MS) * 10) / 10,
       capShare: Math.max(...RESOURCE_IDS.map((id) => cappedMs[id])) / elapsed,
       lostShare: produced > 0 ? lost / produced : 0,
     },

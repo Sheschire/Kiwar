@@ -6,7 +6,7 @@ description: Kiwar threats and gifts from the sky (chantier 06) — predator wav
 # Kiwar threats (chantier 06)
 
 Load `kiwar-sim` too: everything is deterministic and exact offline. Owner's rules: big waves
-are announced 8–12 h ahead, incidents come without notice but stay minor, power grows with the
+are announced 3–6 h ahead (chantier 31; 8–12 h before), incidents come without notice but stay minor, power grows with the
 colony × play time (× expedition victories: the aliens strike back), beginners are protected,
 **a colony is never razed**.
 
@@ -131,6 +131,26 @@ colony × play time (× expedition victories: the aliens strike back), beginners
 - Screenshots: force a wave with `controller.state.threats.next = { id, announceAt: now - 1,
 at: now + 3000, announced: true, ground, air }` then a `debugGrant` dispatch; the show plays
   when it strikes. A crater: push into `controller.state.sky.meteors`.
+
+## Waves awakened (chantier 31)
+
+- `THREATS`: protection 7 h of play (+ Nest 2), interval 12–18 h, notice 3–6 h (`starWatch`
+  +2 h), `perDay` 0.12. `wealthFactor(state)` (`THREATS.wealth`): 1 + 0.4 × storage filled
+  (stock + reserves over the capacity, ≤ 2) + 0.25 × ln(1 + building levels / 10) + 0.15 ×
+  ln(1 + kiwis / 5), read at the announcement (exact offline: an event).
+- Loot: `WaveOutcome.lootReserve` — the warehouse reserves are not protected and are taken
+  first (warehouse after warehouse, `reserveHolders` order), then the stock above
+  `protectedStock`. Bringing the reserves back (`collectAll`) before the strike moves them
+  into the stock, partly protected: the main answer of the notice.
+- `stats.wavesHeld` counts the waves repelled (objectives of chantier 31).
+- Defense window: `WaveActions` ("Before the strike": bring back, seeds short, guards, a
+  turret more, repairs) above the shelter box; the next step of the objectives panel points
+  to the defense when the forecast is not `likely`.
+- Bot: `play.prepared` (attentive) reads the forecast for turrets and shelter; the occasional
+  profile only reacts to a lost wave. `RunResult.final.wavesHurt` / `waveLoot`, table
+  "Waves by profile" in the ages section of the report.
+- Long tests that are not about waves: clear `threats.next` and set `shieldUntil` far ahead
+  (the first wave now comes at 7 h).
 
 ## Comets (chantier 13)
 

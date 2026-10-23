@@ -27,6 +27,11 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 
 ## Map of the code
 
+- Chantier 31: `data/objectives.ts` (tutorial `OBJECTIVES` + `AGE_OBJECTIVES` by age, conditions
+  as data) and `sim/objectives.ts` (progress, `ageObjectives`, `claimableObjective`,
+  `ageProgress`, `nextStep`): objective selectors live there, not in `selectors.ts`.
+  `state.objectives` (claimed ids, gift eggs), `stats.collects` / `stats.wavesHeld` (save v26).
+  A new objective condition needs a case in `objectiveProgress` and FR + EN texts.
 - `data/` — tunable tables: `kiwis.ts` and `classes.ts` (chantier 03), `buildings.ts` (levels, costs, production, `maxLevelOf`),
   `territory.ts` (DEPOSITS, HARVESTS, CATCHMENT_RADIUS, LOGISTICS, PATHS, CAMPS),
   `expeditions.ts`, `hatching.ts`, `objectives.ts` (tutorial), `faceProfiles.ts` (face biases,

@@ -176,13 +176,18 @@ function threatTable(groups: Group[], lines: string[]): void {
   const avg = (runs: RunResult[], f: (r: RunResult) => number) =>
     runs.length ? runs.reduce((s, r) => s + f(r), 0) / runs.length : 0;
   lines.push('## Predators and gifts from the sky (average per run)', '');
-  lines.push('| Biome | Waves | Lost | Kiwis killed | Meteorites | Comets | Stardust picked |');
-  lines.push('|---|---|---|---|---|---|---|');
+  lines.push(
+    '| Biome | Waves | Lost | With losses | Loot per wave | Kiwis killed | Meteorites | Comets | Stardust picked |',
+  );
+  lines.push('|---|---|---|---|---|---|---|---|---|');
   for (const g of groups) {
     const waves = avg(g.runs, (r) => r.final.waves ?? 0);
     const lost = avg(g.runs, (r) => r.final.wavesLost ?? 0);
+    const hurt = avg(g.runs, (r) => r.final.wavesHurt ?? 0);
+    const loot = avg(g.runs, (r) => r.final.waveLoot ?? 0);
+    const pct = (x: number) => (waves > 0 ? Math.round((x / waves) * 100) : 0);
     lines.push(
-      `| ${g.label} | ${waves.toFixed(1)} | ${lost.toFixed(1)} (${waves > 0 ? Math.round((lost / waves) * 100) : 0} %) | ${avg(g.runs, (r) => r.final.predatorDeaths ?? 0).toFixed(2)} | ${avg(g.runs, (r) => r.final.meteors ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.comets ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.dustPicked ?? 0).toFixed(0)} |`,
+      `| ${g.label} | ${waves.toFixed(1)} | ${lost.toFixed(1)} (${pct(lost)} %) | ${pct(hurt)} % | ${waves > 0 ? Math.round(loot / waves) : 0} | ${avg(g.runs, (r) => r.final.predatorDeaths ?? 0).toFixed(2)} | ${avg(g.runs, (r) => r.final.meteors ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.comets ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.dustPicked ?? 0).toFixed(0)} |`,
     );
   }
   lines.push('');
@@ -199,14 +204,14 @@ function rhythmTable(groups: Group[], lines: string[]): void {
     `Dead time: the longest stretch of the first 24 h without a useful decision (target ≤ ${DEAD_TARGET_MIN} min). At the cap: share of the run the most capped resource spent with its stock and reserves full (target < ${CAP_TARGET} %). Lost: production lost meanwhile, share of what was produced.`,
     '',
   );
-  lines.push('| Biome | Dead time | At the cap | Lost |');
-  lines.push('|---|---|---|---|');
+  lines.push('| Biome | Dead time | Starting at | At the cap | Lost |');
+  lines.push('|---|---|---|---|---|');
   for (const g of groups) {
     const dead = med(g.runs, (r) => r.final.deadMaxMin ?? 0);
     const cap = med(g.runs, (r) => r.final.capShare ?? 0) * 100;
     const lost = med(g.runs, (r) => r.final.lostShare ?? 0) * 100;
     lines.push(
-      `| ${g.label} | ${dead} min${dead > DEAD_TARGET_MIN ? ' ⚠️' : ''} | ${cap.toFixed(0)} %${cap >= CAP_TARGET ? ' ⚠️' : ''} | ${lost.toFixed(1)} % |`,
+      `| ${g.label} | ${dead} min${dead > DEAD_TARGET_MIN ? ' ⚠️' : ''} | ${med(g.runs, (r) => r.final.deadAtH ?? 0).toFixed(1)} h | ${cap.toFixed(0)} %${cap >= CAP_TARGET ? ' ⚠️' : ''} | ${lost.toFixed(1)} % |`,
     );
   }
   lines.push('');
@@ -421,5 +426,31 @@ export function agesMarkdown(
     `Targets: Stone ≈ ${AGE_TARGETS_H.stone} h, Iron ≈ ${AGE_TARGETS_H.iron} h, Industry ≈ ${AGE_TARGETS_H.industry} h for the attentive player, × ${CASUAL_PACE.stone} / ${CASUAL_PACE.iron} / ${CASUAL_PACE.industry} for the occasional one (the late game runs on research, which goes on offline) (±${AGE_TOLERANCE} %); biomes within ±${threshold} % of each other. \`[n/N]\`: runs that reached it.`,
     '',
   );
+  return lines;
+}
+
+/**
+ * Chantier 31: what the waves cost each profile (averages per run over the long horizon):
+ * an occasional player who never prepares should lose something on most waves, an attentive
+ * one little; nobody dies without a real defeat.
+ */
+export function wavesMarkdown(profiles: { label: string; runs: RunResult[] }[]): string[] {
+  const avg = (runs: RunResult[], f: (r: RunResult) => number) =>
+    runs.length ? runs.reduce((s, r) => s + f(r), 0) / runs.length : 0;
+  const lines = [
+    '| Profile | Waves | Lost | With losses | Loot per wave | Kiwis killed |',
+    '|---|---|---|---|---|---|',
+  ];
+  for (const p of profiles) {
+    const waves = avg(p.runs, (r) => r.final.waves ?? 0);
+    const pct = (x: number) => (waves > 0 ? Math.round((x / waves) * 100) : 0);
+    const lost = avg(p.runs, (r) => r.final.wavesLost ?? 0);
+    const hurt = avg(p.runs, (r) => r.final.wavesHurt ?? 0);
+    const loot = avg(p.runs, (r) => r.final.waveLoot ?? 0);
+    lines.push(
+      `| ${p.label} | ${waves.toFixed(1)} | ${pct(lost)} % | ${pct(hurt)} % | ${waves > 0 ? Math.round(loot / waves) : 0} | ${avg(p.runs, (r) => r.final.predatorDeaths ?? 0).toFixed(2)} |`,
+    );
+  }
+  lines.push('');
   return lines;
 }

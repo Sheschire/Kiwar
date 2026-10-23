@@ -71,6 +71,14 @@ Crew strength, exposure and weighted losses come from `kiwar-rpg`.
   1 / 1.5 / 2 / 3), applied at resolution; `potentialLoot(state, distance)` for the target
   cards. Garrisons drawn earlier keep their old loot (× the age).
 
+## Launch cost (chantier 31)
+
+`EXPEDITIONS.launchCost`: 40 fibre + 25 juice per kiwi aboard × the ship of the age (wood 1,
+logs 2, iron 5, jet 12), a Kikiwiwi counts 3; `found` pays nothing. `launchCost(state, crew,
+mission)` → `ExpeditionForecast.launchCost`; `launchExpedition` pays it with the provisions
+(`notEnoughResources`). Planner line `.launch-cost` under the provisions. The bot adds it to
+the cost of a raid. Chantier 40 (landings) will replace it.
+
 ## Kikiwiwis aboard (chantier 08, `kiwar-titans`)
 
 - One per crew (`oneKikiwiwi`), boarded by name only (a head count skips them); weight ×5,

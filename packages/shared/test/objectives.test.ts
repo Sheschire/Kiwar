@@ -38,7 +38,7 @@ describe('age objectives (chantier 31)', () => {
     expect(ids.size).toBe(AGE_OBJECTIVES.length);
     for (const age of [0, 1, 2, 3]) {
       const n = AGE_OBJECTIVES.filter((o) => o.age === age).length;
-      expect(n, `age ${age}`).toBeGreaterThanOrEqual(5);
+      expect(n, `age ${age}`).toBeGreaterThanOrEqual(6);
       expect(n).toBeLessThanOrEqual(10);
     }
   });

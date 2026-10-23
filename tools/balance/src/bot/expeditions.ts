@@ -175,7 +175,9 @@ function raidOrder(
     const xpHours = (KIWI.expeditionXp.base + KIWI.expeditionXp.victory) / KIWI.xpPerHour.work;
     const awayHours = Math.max(0, (2 * f.travelMs) / HOUR_MS - xpHours * XP_WORTH);
     const away = f.crew.length * awayHours * workPerKiwiHour(state);
-    const cost = f.needOneWay.pulp * 2 + f.needOneWay.juice * 2 + lost + away;
+    // Chantier 31: the launch costs fibre and juice per kiwi aboard.
+    const fee = f.launchCost.fiber + f.launchCost.juice;
+    const cost = f.needOneWay.pulp * 2 + f.needOneWay.juice * 2 + lost + away + fee;
     if (!best || value - cost > best.value - best.cost)
       best = { cmd: { type: 'launchExpedition', ...plan, provisions }, value, cost };
   }

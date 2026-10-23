@@ -1238,7 +1238,20 @@ var AGE_OBJECTIVES = [
     condition: { kind: "intel", count: 1 },
     reward: { pulp: 300, juice: 200 }
   },
-  // Stone: levels 4–6, the first raids.
+  // Stone: levels 4–6, the first raids. Fibre is the scarce resource of the first Stone
+  // levels: the first rewards bring it.
+  {
+    id: "stoneTechs",
+    age: 1,
+    condition: { kind: "techs", age: 1, count: 2 },
+    reward: { fiber: 1500, seeds: 300 }
+  },
+  {
+    id: "stoneWarriors",
+    age: 1,
+    condition: { kind: "class", classId: "warrior", count: 2 },
+    reward: { fiber: 1200, juice: 400 }
+  },
   {
     id: "stoneWarehouse",
     age: 1,
@@ -1246,16 +1259,11 @@ var AGE_OBJECTIVES = [
     reward: { pulp: 1200, fiber: 1200 }
   },
   {
-    id: "stoneTechs",
+    id: "stoneRaid",
     age: 1,
-    condition: { kind: "techs", age: 1, count: 2 },
-    reward: { seeds: 400, juice: 600 }
-  },
-  {
-    id: "stoneWarriors",
-    age: 1,
-    condition: { kind: "class", classId: "warrior", count: 2 },
-    reward: { pulp: 800, juice: 400 }
+    condition: { kind: "stat", stat: "raidsWon", count: 1 },
+    reward: { fiber: 1500 },
+    egg: true
   },
   {
     id: "stoneWaves",
@@ -1263,13 +1271,6 @@ var AGE_OBJECTIVES = [
     condition: { kind: "stat", stat: "wavesHeld", count: 3 },
     reward: { seeds: 600 },
     stardust: 5
-  },
-  {
-    id: "stoneRaid",
-    age: 1,
-    condition: { kind: "stat", stat: "raidsWon", count: 1 },
-    reward: { fiber: 1500 },
-    egg: true
   },
   {
     id: "stoneTurret4",
@@ -1361,6 +1362,12 @@ var AGE_OBJECTIVES = [
     condition: { kind: "stat", stat: "wavesHeld", count: 10 },
     reward: { seeds: 1e4 },
     egg: true
+  },
+  {
+    id: "industryRaids",
+    age: 3,
+    condition: { kind: "stat", stat: "raidsWon", count: 12 },
+    reward: { seeds: 8e3, juice: 8e3 }
   },
   {
     id: "industryBridgehead",
@@ -1757,7 +1764,8 @@ var THREATS = {
    * (chantier 31: the predators smell a rich colony).
    */
   basePower: 6,
-  nestFactor: [0, 0.6, 1, 1.6, 2.2, 2.4, 2.65, 2.9, 3.1, 3.35, 3.6, 3.85, 4.1],
+  // Chantier 31: lower at Nest 2–5, the waves now come in the first day (L1 turrets reach 3 tiles).
+  nestFactor: [0, 0.5, 0.7, 1, 1.5, 1.9, 2.3, 2.6, 2.9, 3.2, 3.5, 3.8, 4.1],
   /** Chantier 08: the predators grow with the age of the colony (index = age). */
   ageFactor: [1, 1.15, 1.3, 1.5],
   /** Power gained per day of play, up to `maxDays` (softened in chantier 31; chantier 39
@@ -1768,17 +1776,19 @@ var THREATS = {
   perVictory: 0.08,
   maxProvocation: 0.8,
   /**
-   * Chantier 31, wealth: + `stock` × the share of the storage filled (stock and reserves
-   * together, up to `maxFill`), + `levels` × ln(1 + levels of the buildings / `levelsRef`),
-   * + `population` × ln(1 + kiwis / `populationRef`).
+   * Chantier 31, wealth: + `stock` × the share of the storage filled above `fillFree` (stock
+   * and reserves together, up to `maxFill`), + `levels` × ln(1 + levels of the buildings /
+   * `levelsRef`), + `population` × ln(1 + kiwis / `populationRef`). About ×1.2 for a young
+   * colony, ×2 for a rich industrial one.
    */
   wealth: {
     stock: 0.4,
+    fillFree: 0.5,
     maxFill: 2,
     levels: 0.25,
-    levelsRef: 10,
+    levelsRef: 40,
     population: 0.15,
-    populationRef: 5
+    populationRef: 10
   },
   /** Share of the power that flies (bats) at night and by day. */
   airShare: { night: 0.7, day: 0.25 },
@@ -2830,7 +2840,7 @@ function wealthFactor(state) {
     stored += state.resources[id3] + kept.stock[id3];
     room += cap[id3];
   }
-  const fill = Math.min(W.maxFill, room > 0 ? stored / room : 0);
+  const fill = Math.max(0, Math.min(W.maxFill, room > 0 ? stored / room : 0) - W.fillFree);
   const levels = state.buildings.reduce(
     (sum, b) => sum + (b.type === "nest" || b.type === "camp" ? 0 : b.level),
     0

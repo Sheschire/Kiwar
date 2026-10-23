@@ -15,6 +15,7 @@ import {
   BIOME_LABELS,
   toMarkdown,
   agesMarkdown,
+  wavesMarkdown,
   ACTIVE_PACE,
   CASUAL_PACE,
   impactMarkdown,
@@ -160,6 +161,14 @@ const args = parseArgs(process.argv.slice(2));
         BIOME_LABELS,
         args.threshold,
       ),
+    );
+    extra.push(
+      '### Waves by profile (chantier 31)',
+      '',
+      ...wavesMarkdown([
+        { label: 'Attentive (prepares)', runs: agesOut.slice(0, n).flat() },
+        { label: 'Occasional (never prepares)', runs: agesOut.slice(n).flat() },
+      ]),
     );
   }
   if (impact.length) {

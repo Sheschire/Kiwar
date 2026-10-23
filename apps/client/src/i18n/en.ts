@@ -501,6 +501,7 @@ export const en = {
     },
     industryKiwi20: { title: 'A kiwi at level 20', hint: 'A veteran for the siege.' },
     industryWaves: { title: 'Hold off ten waves', hint: 'Waves held without any loss.' },
+    industryRaids: { title: 'Twelve raids won', hint: 'Keep the aliens busy on their own face.' },
     industryBridgehead: {
       title: 'A bridgehead on the twin',
       hint: 'Open the siege and land a first bridgehead.',

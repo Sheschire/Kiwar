@@ -554,6 +554,10 @@ export const fr: Dict = {
       title: 'Repousser dix vagues',
       hint: 'Des vagues repoussées sans aucune perte.',
     },
+    industryRaids: {
+      title: 'Douze raids gagnés',
+      hint: 'Occupez les aliens sur leur propre face.',
+    },
     industryBridgehead: {
       title: 'Une tête de pont sur la jumelle',
       hint: 'Ouvrez le siège et posez une première tête de pont.',

@@ -2054,3 +2054,62 @@ collected by a tap, warehouses add little usable storage, reserves looted first 
   to fill it), most capped resource 0–11 % of the run, production lost 0.2–5 %.
 - "To test" with people (charter rule 8): does tapping heaps feel rewarding or like a chore?
   Is the Eden still long enough to learn (Stone at 12 h)?
+
+## Chantier 31 — Objectives and threats awakened
+
+Owner's decisions of 23 October 2026 (chantier document) plus three new points asked at the
+start: unclaimed objectives of an older age are **kept** (shown first, nothing lost); the
+launch cost applies to **every mission but the founding**; the bot's dead time also counts
+**claiming an objective and preparing an announced wave** (shelter, bringing reserves back).
+
+### Objectives in three horizons
+
+- Next step (`nextStep`, computed): an announced wave that may break through, a damaged
+  building, a stopped harvest (bring the reserves back, else spend), a reward to claim, the
+  monument once its passage is known, an idle Library, idle kiwis, room for an egg, the
+  scarcest resource. Hidden during the tutorial (its step is the next step).
+- Age notebook (`AGE_OBJECTIVES`): 9 / 9 / 8 / 6 objectives for Eden / Stone / Iron /
+  Industry, three shown at a time in data order, older ages first; they teach the systems of
+  the age (turrets, Library, a reserve brought back, a wave held, a mayor, a recon, a raid,
+  classes, techniques, the laboratory, a Kikiwiwi, a bridgehead). Rewards: resources, a few
+  stardust points, sometimes a free egg (`objectives.giftEggs`: the next egg costs nothing,
+  so a gift never blocks on housing). The tutorial stays the first part of the Eden notebook.
+  A sister colony has no notebook (tutorial skipped, next step and age progress only).
+- Grand objective (`ageProgress`): Library level, passage research, monument level, weighted
+  0.2 / 0.5 / 0.3 in one bar.
+- Save v26: `objectives { claimed, giftEggs }`, `stats.collects`, `stats.wavesHeld`
+  (migration counts the victories still in the reports). The import check accepts the
+  rewards of the claimed objectives above the cap and refuses unknown or repeated ids.
+
+### Waves awakened
+
+- First wave after 7 h of play (Nest 2), then every 12–18 h, announced 3–6 h ahead (+2 h with
+  the star watch, was +4 h). Days term 0.12 per day (was 0.25), still capped at 14 days.
+- Wealth: × (1 + 0.4 × storage filled above half (stock + reserves, ≤ 2) + 0.25 × ln(1 +
+  levels / 40) + 0.15 × ln(1 + kiwis / 10)), read at the announcement: about ×1.2 for a young
+  colony, ×2 for a rich industrial one.
+- Nest factors lowered at Nest 2–5 (0.7 / 1 / 1.5 / 1.9, were 1 / 1.6 / 2.2 / 2.4): the first
+  waves come with level-1 turrets reaching 3 tiles; at Nest 3 a colony with one turret of
+  each model per sector (6, the cap) and its garrison holds, one that skipped a model on a
+  flank leaks there and loses a little (a leak is a defeat: at least one damaged building).
+- Looting: the warehouse reserves are not protected and are looted first, then the stock
+  above its protected share (Nest 30 %, warehouses 60 % of their storage). Bringing the
+  reserves back before the strike is the main new answer; the defense window lists the
+  answers ("Before the strike").
+- Unchanged: at most one death, only on a real defeat (threat > 2× the defense), shield 24 h
+  after a defeat, the colony is never razed.
+
+### Launch cost (until chantier 40)
+
+- 40 fibre + 25 juice per kiwi aboard × the ship of the age (wood 1, logs 2, iron 5, jet 12);
+  a Kikiwiwi counts 3; the settlers' ship pays nothing more. A Stone crew of 20 costs
+  ~2 600 (was ~180 of rations), an Industry crew of 30 ~23 000. Shown under the provisions
+  in the planner, paid with them.
+
+### Bot
+
+- Claims the age objectives; the attentive profile prepares the waves (reads the forecast for
+  turrets and shelter, keeps the seeds its turrets will fire, covers every sector with each
+  model first); the occasional one never reads the forecast (it reacts to a lost wave only).
+- New measures: waves with losses and loot per wave, by profile (report section "Waves by
+  profile").

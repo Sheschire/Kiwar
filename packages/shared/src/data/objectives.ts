@@ -163,7 +163,20 @@ export const AGE_OBJECTIVES: readonly AgeObjectiveDef[] = [
     condition: { kind: 'intel', count: 1 },
     reward: { pulp: 300, juice: 200 },
   },
-  // Stone: levels 4–6, the first raids.
+  // Stone: levels 4–6, the first raids. Fibre is the scarce resource of the first Stone
+  // levels: the first rewards bring it.
+  {
+    id: 'stoneTechs',
+    age: 1,
+    condition: { kind: 'techs', age: 1, count: 2 },
+    reward: { fiber: 1500, seeds: 300 },
+  },
+  {
+    id: 'stoneWarriors',
+    age: 1,
+    condition: { kind: 'class', classId: 'warrior', count: 2 },
+    reward: { fiber: 1200, juice: 400 },
+  },
   {
     id: 'stoneWarehouse',
     age: 1,
@@ -171,16 +184,11 @@ export const AGE_OBJECTIVES: readonly AgeObjectiveDef[] = [
     reward: { pulp: 1200, fiber: 1200 },
   },
   {
-    id: 'stoneTechs',
+    id: 'stoneRaid',
     age: 1,
-    condition: { kind: 'techs', age: 1, count: 2 },
-    reward: { seeds: 400, juice: 600 },
-  },
-  {
-    id: 'stoneWarriors',
-    age: 1,
-    condition: { kind: 'class', classId: 'warrior', count: 2 },
-    reward: { pulp: 800, juice: 400 },
+    condition: { kind: 'stat', stat: 'raidsWon', count: 1 },
+    reward: { fiber: 1500 },
+    egg: true,
   },
   {
     id: 'stoneWaves',
@@ -188,13 +196,6 @@ export const AGE_OBJECTIVES: readonly AgeObjectiveDef[] = [
     condition: { kind: 'stat', stat: 'wavesHeld', count: 3 },
     reward: { seeds: 600 },
     stardust: 5,
-  },
-  {
-    id: 'stoneRaid',
-    age: 1,
-    condition: { kind: 'stat', stat: 'raidsWon', count: 1 },
-    reward: { fiber: 1500 },
-    egg: true,
   },
   {
     id: 'stoneTurret4',
@@ -286,6 +287,12 @@ export const AGE_OBJECTIVES: readonly AgeObjectiveDef[] = [
     condition: { kind: 'stat', stat: 'wavesHeld', count: 10 },
     reward: { seeds: 10000 },
     egg: true,
+  },
+  {
+    id: 'industryRaids',
+    age: 3,
+    condition: { kind: 'stat', stat: 'raidsWon', count: 12 },
+    reward: { seeds: 8000, juice: 8000 },
   },
   {
     id: 'industryBridgehead',

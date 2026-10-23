@@ -229,6 +229,16 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   the stock overflows (`is-reserving`) and show a thin reserve line (`.chip-reserve`).
   `BuildingTree` folds the hidden levels of a later age into one line (`plans.levelRange`).
 
+- **Chantier 31 (objectives in three horizons)**: `ObjectivesPanel.tsx` — `NextStepLine`
+  (shared `nextStep`, a button per step id: defense, repair tile, `collect(null)`, plans,
+  research, posts, hatch; hidden during the tutorial and when the step is a claim), the
+  tutorial row or three age objectives (`ObjectiveRow`, hints folded on phones), `AgeLine`
+  (shared `ageProgress`); the thumb pill shows a reward to claim or the next step;
+  `ObjectiveWatcher` (mounted in `App`) toasts once per fulfilled objective. Memos in
+  `ui/derived.ts` (`nextStep`, `ageObjectives`, `ageProgress`, `claimableObjective`). The
+  defense window's `WaveActions` lists the answers to a wave; the planner shows the launch
+  cost (`.launch-cost`).
+
 ## Performance (chantier 10)
 
 - **The UI store is the usual suspect.** The controller emits a new `game` and `now` 5 times

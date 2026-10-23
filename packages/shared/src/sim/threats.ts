@@ -59,7 +59,7 @@ export function wealthFactor(state: GameState): number {
     stored += state.resources[id] + kept.stock[id];
     room += cap[id];
   }
-  const fill = Math.min(W.maxFill, room > 0 ? stored / room : 0);
+  const fill = Math.max(0, Math.min(W.maxFill, room > 0 ? stored / room : 0) - W.fillFree);
   const levels = state.buildings.reduce(
     (sum, b) => sum + (b.type === 'nest' || b.type === 'camp' ? 0 : b.level),
     0,
