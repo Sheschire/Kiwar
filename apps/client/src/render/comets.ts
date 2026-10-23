@@ -4,7 +4,12 @@ import {
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
+  DoubleSide,
   Group,
+  Matrix4,
+  Mesh,
+  MeshBasicMaterial,
+  PlaneGeometry,
   Points,
   PointsMaterial,
   SRGBColorSpace,
@@ -14,11 +19,21 @@ import {
   type PerspectiveCamera,
 } from 'three';
 import { COMETS, getTile, type DustPatch, type FaceMap, type GameState } from '@kiwar/shared';
+import { cometPath, edgeArrow } from './space';
 import { worldPosition } from './terrain';
 
-/** Comet in the sky: distance from the planet, height and tail. */
-/** How far behind the planet the comet flies (world units beyond the camera target). */
-const BEHIND = 160;
+/** Chantier 32: size of the comet's head and length of its tail (world units, far away). */
+const HEAD_SIZE = 16;
+const TAIL_LENGTH = 120;
+/** Screen margins the off-screen arrow keeps (px): clear of the top bar, the badges and the
+ * thumb bar. */
+const ARROW_INSET = { top: 150, right: 64, bottom: 128, left: 64 };
+
+export interface CometArrow {
+  x: number;
+  y: number;
+  angle: number;
+}
 const SPARKS = 28;
 const FALL_S = 1.6;
 
@@ -122,8 +137,12 @@ export class CometsView {
   private readonly sparkTexture = sparkTexture();
   private readonly head: Sprite;
   private readonly cometTexture = cometTexture();
-  private readonly body: Sprite;
+  private readonly body: Mesh;
   private readonly tailEnd = new Vector3();
+  private readonly flight = new Vector3();
+  private readonly basis = new Matrix4();
+  private readonly side = new Vector3();
+  private readonly normal = new Vector3();
   private readonly patches = new Map<string, Patch>();
   private comet: { from: number; to: number; at: number } | null = null;
   private readonly dir = new Vector3();
@@ -134,11 +153,14 @@ export class CometsView {
   constructor(private readonly map: FaceMap) {
     this.head = this.sprite('#ffe9a0', 1);
     this.head.renderOrder = 2;
-    this.body = new Sprite(
-      new SpriteMaterial({
+    // The tail: a long quad along the flight, turned towards the camera around that line.
+    this.body = new Mesh(
+      new PlaneGeometry(1, 1),
+      new MeshBasicMaterial({
         map: this.cometTexture,
         transparent: true,
         depthWrite: false,
+        side: DoubleSide,
         fog: false,
       }),
     );
@@ -238,9 +260,9 @@ export class CometsView {
     (p.glow.material as SpriteMaterial).dispose();
   }
 
-  update(dt: number, now: number, camera: PerspectiveCamera, target: Vector3): void {
+  update(dt: number, now: number, camera: PerspectiveCamera): void {
     this.time += dt;
-    this.updateComet(now, camera, target);
+    this.updateComet(now, camera);
     for (const p of this.patches.values()) {
       const attr = p.points.geometry.getAttribute('position') as BufferAttribute;
       const arr = attr.array as Float32Array;
@@ -268,11 +290,12 @@ export class CometsView {
   }
 
   /**
-   * The comet lives in the view's sky: between its announcement and a while after its passage
-   * it crosses the band of sky above the planet, left to right, far behind it (placed in screen
-   * coordinates, so it stays in sight whatever the camera azimuth or zoom).
+   * Chantier 32: the comet is an object of the map of space (`cometPath`): between its
+   * announcement and a while after its passage it travels a wide arc round home, far beyond
+   * the planets, and stays there when the camera turns (the player looks for it; an arrow on
+   * the edge of the screen shows where, `arrow`).
    */
-  private updateComet(now: number, camera: PerspectiveCamera, target: Vector3): void {
+  private updateComet(now: number, camera: PerspectiveCamera): void {
     const c = this.comet;
     if (!c || now < c.from || now > c.to) {
       this.setCometVisible(false);
@@ -280,42 +303,52 @@ export class CometsView {
     }
     this.setCometVisible(true);
     const k = (now - c.from) / Math.max(1, c.to - c.from);
-    const along = camera.position.distanceTo(target) + BEHIND;
-    const x = -1.05 + 2.1 * k;
-    // Portrait screens (phones) show a tall sky above the planet: lower and longer there.
-    const portrait = Math.min(1, camera.aspect);
-    const y = (portrait < 1 ? 0.56 : 0.76) + 0.03 * Math.sin(k * Math.PI);
-    this.place(this.head.position, camera, x, y, along);
+    const { head, dir } = cometPath(c.at, k);
+    this.head.position.set(head.x, head.y, head.z);
+    this.flight.set(dir.x, dir.y, dir.z);
     // Fades in when first seen, out once gone (over a quarter of an hour of game time).
     const fade = Math.min(1, (now - c.from) / 900_000, (c.to - now) / 900_000);
     const bright = (0.8 + 0.2 * this.night) * fade;
-    const size = (along * 0.03) / Math.sqrt(portrait);
     const pulse = 1 + Math.sin(this.time * 3) * 0.08;
-    this.head.scale.setScalar(size * pulse);
+    this.head.scale.setScalar(HEAD_SIZE * pulse);
     (this.head.material as SpriteMaterial).opacity = bright * 0.8;
-    // The body: from the end of the tail (to the left, slightly up) to the head.
-    const tx = x - 0.34 / portrait;
-    const ty = y + 0.05;
-    this.place(this.tailEnd, camera, tx, ty, along);
-    const length = this.tailEnd.distanceTo(this.head.position);
+    // The body: from the end of the tail, behind the head along its flight, to the head.
+    this.tailEnd.copy(this.head.position).addScaledVector(this.flight, -TAIL_LENGTH);
     this.body.position.addVectors(this.tailEnd, this.head.position).multiplyScalar(0.5);
-    this.body.scale.set(length * 1.08, length * 0.19, 1);
-    const m = this.body.material as SpriteMaterial;
-    m.opacity = bright;
-    m.rotation = Math.atan2(y - ty, (x - tx) * camera.aspect);
+    // Local X along the flight (the texture's head is on the right), local Z towards the
+    // camera as much as the line allows.
+    this.normal.copy(camera.position).sub(this.body.position).normalize();
+    this.side.crossVectors(this.normal, this.flight).normalize();
+    this.normal.crossVectors(this.flight, this.side);
+    this.basis.makeBasis(this.flight, this.side, this.normal);
+    this.body.quaternion.setFromRotationMatrix(this.basis);
+    this.body.scale.set(TAIL_LENGTH * 1.08, TAIL_LENGTH * 0.19, 1);
+    (this.body.material as MeshBasicMaterial).opacity = bright;
   }
 
-  /** World point `along` units from the camera, seen at (x, y) in normalized screen space. */
-  private place(out: Vector3, camera: PerspectiveCamera, x: number, y: number, along: number) {
-    const dir = this.dir.set(x, y, 0.5).unproject(camera).sub(camera.position).normalize();
-    out.copy(camera.position).addScaledVector(dir, along);
+  /** The comet's head while it is in the sky (null otherwise). */
+  headPosition(): Vector3 | null {
+    return this.head.visible ? this.head.position : null;
+  }
+
+  /**
+   * Chantier 32: where the off-screen arrow points to the comet (client pixels of a `width` ×
+   * `height` canvas), or null when the comet is on screen or not in the sky.
+   */
+  arrow(camera: PerspectiveCamera, width: number, height: number): CometArrow | null {
+    if (!this.head.visible) return null;
+    const v = this.dir.copy(this.head.position).applyMatrix4(camera.matrixWorldInverse);
+    const behind = v.z > 0;
+    v.applyMatrix4(camera.projectionMatrix);
+    return edgeArrow(v, behind, width, height, ARROW_INSET);
   }
 
   dispose(): void {
     for (const p of this.patches.values()) this.removePatch(p);
     this.patches.clear();
     (this.head.material as SpriteMaterial).dispose();
-    (this.body.material as SpriteMaterial).dispose();
+    (this.body.material as MeshBasicMaterial).dispose();
+    this.body.geometry.dispose();
     this.cometTexture.dispose();
     this.texture.dispose();
     this.sparkTexture.dispose();

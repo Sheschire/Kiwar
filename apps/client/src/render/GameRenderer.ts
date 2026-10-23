@@ -56,7 +56,7 @@ import { pick, screenRay, TapDetector } from './picking';
 import { PathPainter } from './pathPainter';
 import { PathsView } from './paths';
 import { MeteorsView } from './meteors';
-import { CometsView } from './comets';
+import { CometsView, type CometArrow } from './comets';
 import { ObstaclesView } from './obstacles';
 import { ShipsView } from './ship';
 import { PredatorShow } from './predators';
@@ -121,6 +121,8 @@ export interface RendererCallbacks {
   onPlanetTap?(planet: PlanetRef): void;
   /** Chantier 24: the pointer is over a far planet (null: over none), at screen x/y. */
   onPlanetHover?(planet: PlanetRef | null, x: number, y: number): void;
+  /** Chantier 32: where the arrow towards an off-screen comet goes (null: none). */
+  onCometArrow?(arrow: CometArrow | null): void;
 }
 
 const tmpV = new Vector3();
@@ -187,7 +189,7 @@ export class GameRenderer {
   private waves: TileWaves | null = null;
   private pendingWaves: string[] = [];
   private comets: CometsView | null = null;
-  private readonly cometTarget = new Vector3();
+  private lastCometArrow: CometArrow | null = null;
   private obstacles: ObstaclesView | null = null;
   private ships: ShipsView | null = null;
   private predators: PredatorShow | null = null;
@@ -1002,6 +1004,37 @@ export class GameRenderer {
   }
 
   /** Flies to the Nest (compass). */
+  /** Chantier 32: tells the interface where the comet is when it is off screen. */
+  private reportCometArrow(): void {
+    const canvas = this.renderer.domElement;
+    const away = this.visiting !== null || this.rig.flying;
+    const arrow = away
+      ? null
+      : (this.comets?.arrow(this.camera, canvas.clientWidth, canvas.clientHeight) ?? null);
+    const was = this.lastCometArrow;
+    if (
+      arrow === was ||
+      (arrow &&
+        was &&
+        Math.abs(arrow.x - was.x) < 2 &&
+        Math.abs(arrow.y - was.y) < 2 &&
+        Math.abs(arrow.angle - was.angle) < 0.03)
+    )
+      return;
+    this.lastCometArrow = arrow;
+    this.callbacks.onCometArrow?.(arrow);
+  }
+
+  /**
+   * Chantier 32: turns the camera towards the comet and zooms out (the space view rises to
+   * the horizon), so the player sees it in its place among the planets.
+   */
+  lookAtComet(): void {
+    const head = this.comets?.headPosition();
+    if (!head || this.visiting !== null) return;
+    this.rig.lookToward(head.x, head.z);
+  }
+
   focusNest(): void {
     const nest = this.lastState?.buildings.find((b) => b.type === 'nest');
     const tile = nest && this.map ? getTile(this.map, nest) : undefined;
@@ -1453,12 +1486,8 @@ export class GameRenderer {
         (this.levelBadges || this.rig.controls.distance < this.rig.frameDistance * BADGE_ZOOM),
     );
     this.meteors?.update(dt, this.callbacks.now());
-    this.comets?.update(
-      dt,
-      this.callbacks.now(),
-      this.camera,
-      this.rig.controls.getTarget(this.cometTarget),
-    );
+    this.comets?.update(dt, this.callbacks.now(), this.camera);
+    this.reportCometArrow();
     this.obstacles?.update(dt);
     this.ships?.update(
       dt,

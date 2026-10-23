@@ -332,6 +332,28 @@ export class CameraRig {
     f.land();
   }
 
+  /**
+   * Chantier 32: turns to look towards a far point of the map of space (a comet) from the
+   * colony, zoomed far out: the lift raises the view to the horizon, where it flies.
+   */
+  lookToward(x: number, z: number): void {
+    if (this.away || this.flight) return;
+    this.stopGlide();
+    const c = this.controls;
+    // The camera stands on the other side of the target (camera-controls: sin a, cos a).
+    const want = Math.atan2(-x, -z);
+    const now = c.azimuthAngle;
+    const turn = Math.atan2(Math.sin(want - now), Math.cos(want - now));
+    void c.rotateAzimuthTo(now + turn, true);
+    void c.moveTo(0, 0.4, 0, true);
+    // Ends at the space view's tilt, whatever the player's: the lift adds the rest as the
+    // zoom goes out (`updateLift`).
+    const from = c.getSpherical(tmpSpherical, true).radius / this.frameDistance;
+    const to = (c.maxDistance * 0.95) / this.frameDistance;
+    void c.rotatePolarTo(SPACE_POLAR + 0.04 - (liftOffset(to) - liftOffset(from)), true);
+    void c.dollyTo(c.maxDistance * 0.95, true);
+  }
+
   /** A camera flight between planets is under way. */
   get flying(): boolean {
     return this.flight !== null;

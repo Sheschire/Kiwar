@@ -265,6 +265,10 @@ export const actions = {
   focusNest(): void {
     renderer?.focusNest();
   },
+  /** Chantier 32: turns the camera towards the comet in the sky. */
+  lookAtComet(): void {
+    renderer?.lookAtComet();
+  },
   setQuality(choice: QualityChoice): void {
     saveQualityChoice(choice);
     renderer?.setQuality(choice);

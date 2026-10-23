@@ -1325,6 +1325,7 @@ export const fr: Dict = {
     statHint: '{used}/{max} bénédictions de ce genre utilisées.',
   },
   comet: {
+    look: 'Regarder la comète',
     name: 'Poussière d’étoiles',
     tip: 'Apportée par les comètes, gardée à part du stockage (au plus {cap}). Elle paie les bénédictions, la recherche des étoiles, le carburant du vaisseau, les âges du Fer et de l’Industrie et les Kikiwiwis.',
     perHour: '+{rate}/h en cours de ramassage',

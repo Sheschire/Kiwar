@@ -75,3 +75,79 @@ export function planetOrientation(place: SpacePoint): { yaw: number; tilt: numbe
 
 /** A far planet the camera can go to: our twin, or a member's planet by kiwi index. */
 export type PlanetRef = 'twin' | number;
+
+/** Chantier 32: comets fly on a wide arc around home, far beyond the members' ring. */
+export const COMET_DISTANCE = 340;
+/** How far round the sky a comet travels during its whole stay (rad). */
+export const COMET_SPAN = (140 * Math.PI) / 180;
+/** Its height: rising from `COMET_LOW` to `COMET_LOW + COMET_RISE` mid-way, then setting. */
+export const COMET_LOW = 20;
+export const COMET_RISE = 26;
+
+/** Stable [0, 1) from a comet's time (its arc must not change between two frames or visits). */
+function unit(seed: number): number {
+  let h = Math.imul(Math.floor(seed / 1000) ^ 0x9e3779b9, 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+/**
+ * Chantier 32: where a comet is in the map of space at `k` (0 = first seen, 1 = gone), and the
+ * direction it flies (unit vector): an arc round home, starting at an azimuth drawn from
+ * `seed` (its passage time), rising then setting. Fixed in space: the camera looks at it.
+ */
+export function cometPath(seed: number, k: number): { head: SpacePoint; dir: SpacePoint } {
+  const at = (t: number): SpacePoint => {
+    const a = unit(seed) * Math.PI * 2 + COMET_SPAN * t;
+    const r = COMET_DISTANCE * (1 + 0.06 * Math.sin(Math.PI * t));
+    return along(a, r, COMET_LOW + COMET_RISE * Math.sin(Math.PI * Math.min(1, Math.max(0, t))));
+  };
+  const head = at(k);
+  const next = at(k + 0.01);
+  const dx = next.x - head.x;
+  const dy = next.y - head.y;
+  const dz = next.z - head.z;
+  const len = Math.hypot(dx, dy, dz) || 1;
+  return { head, dir: { x: dx / len, y: dy / len, z: dz / len } };
+}
+
+/**
+ * Chantier 32: where to draw the arrow towards something off screen. `ndc` is its projected
+ * point (x, y in -1..1 when on screen), `behind` true when it is behind the camera. Returns
+ * null when it is on screen (inside the margins), else the point on the inset rectangle of a
+ * `width` × `height` screen (pixels, y down) and the arrow's angle (rad, screen convention).
+ */
+export function edgeArrow(
+  ndc: { x: number; y: number },
+  behind: boolean,
+  width: number,
+  height: number,
+  inset: { top: number; right: number; bottom: number; left: number },
+): { x: number; y: number; angle: number } | null {
+  let x = ndc.x;
+  let y = ndc.y;
+  if (behind) {
+    x = -x;
+    y = -y;
+  }
+  const px = ((x + 1) / 2) * width;
+  const py = ((1 - y) / 2) * height;
+  const inside =
+    !behind &&
+    px >= inset.left &&
+    px <= width - inset.right &&
+    py >= inset.top &&
+    py <= height - inset.bottom;
+  if (inside) return null;
+  const cx = (inset.left + width - inset.right) / 2;
+  const cy = (inset.top + height - inset.bottom) / 2;
+  let dx = px - cx;
+  let dy = py - cy;
+  if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) dy = -1;
+  const hx = (width - inset.left - inset.right) / 2;
+  const hy = (height - inset.top - inset.bottom) / 2;
+  const t = 1 / Math.max(Math.abs(dx) / hx, Math.abs(dy) / hy);
+  dx *= t;
+  dy *= t;
+  return { x: cx + dx, y: cy + dy, angle: Math.atan2(dy, dx) };
+}

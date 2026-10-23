@@ -3585,6 +3585,45 @@ button.chip:focus-visible {
   white-space: nowrap;
 }
 
+/* Chantier 32: the arrow towards the comet when it is in the sky but off screen. */
+.comet-arrow {
+  position: fixed;
+  z-index: 14;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid #e0a83a;
+  background: var(--paper);
+  color: #b07a1a;
+  box-shadow: 0 2px 8px rgba(60, 30, 10, 0.25);
+  cursor: pointer;
+}
+
+.comet-arrow-tip {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.comet-arrow-tip::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -11px;
+  margin-top: -7px;
+  border-style: solid;
+  border-width: 7px 0 7px 10px;
+  border-color: transparent transparent transparent #e0a83a;
+}
+
+.path-mode .comet-arrow {
+  display: none;
+}
+
 /* Chantier 24: a tapped planet ("Go there"), at the top like the visit banner. */
 .planet-card {
   position: absolute;

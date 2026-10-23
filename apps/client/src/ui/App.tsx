@@ -4,6 +4,7 @@ import { DebugPanel } from './components/DebugPanel';
 import { EggButton } from './components/EggButton';
 import { DemolishModal } from './components/DemolishModal';
 import { ExpeditionModal } from './components/ExpeditionModal';
+import { CometArrow } from './components/CometArrow';
 import { ExpeditionsPanel } from './components/ExpeditionsPanel';
 import { ReportModal } from './components/ReportModal';
 import { ChatPanel } from './components/ChatPanel';
@@ -221,6 +222,7 @@ export function App() {
       ) : (
         <Badges />
       )}
+      <CometArrow />
       <PlanetCard />
       <PlanetsPanel />
       <PlanetTag />

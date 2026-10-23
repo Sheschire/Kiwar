@@ -1287,6 +1287,7 @@ export const en = {
     statHint: '{used}/{max} blessings of this kind used.',
   },
   comet: {
+    look: 'Look at the comet',
     name: 'Stardust',
     tip: 'Dropped by comets, kept apart from the storage (at most {cap}). It pays for blessings, star research, ship fuel, the Iron and Industry ages and the Kikiwiwis.',
     perHour: '+{rate}/h being picked',

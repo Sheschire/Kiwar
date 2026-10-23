@@ -78,6 +78,7 @@ const renderer = new GameRenderer(
       const tip = slowFramesTip(gpuRendererName(), fps, uiStore.getState().qualityChoice);
       if (tip && !gpuTipDismissed(tip)) uiStore.setState({ gpuTip: tip });
     },
+    onCometArrow: (cometArrow) => viewStore.setState({ cometArrow }),
     onPlanetHover: (planet, x, y) =>
       viewStore.setState({ planetHover: planet === null ? null : { planet, x, y } }),
     onKiwiTap: (id, pos) => {

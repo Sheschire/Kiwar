@@ -11,6 +11,10 @@ import {
 import { FRONT_AZIMUTH } from '../src/render/front';
 import {
   ALLY_RING,
+  COMET_DISTANCE,
+  COMET_LOW,
+  cometPath,
+  edgeArrow,
   ALLY_SLOTS,
   FRONT_CLEARANCE,
   allyPlace,
@@ -91,5 +95,35 @@ describe('free tilt (chantier 32)', () => {
     expect(liftOffset(0.5)).toBe(0);
     expect(liftOffset(1)).toBe(0);
     expect(liftOffset(MAX_ZOOM)).toBeGreaterThan(0.5);
+  });
+});
+
+describe('comets in space (chantier 32)', () => {
+  it('flies a fixed arc far beyond the planets, above the horizon', () => {
+    const seed = 1_792_000_000_000;
+    for (let k = 0; k <= 1; k += 0.1) {
+      const { head, dir } = cometPath(seed, k);
+      expect(Math.hypot(head.x, head.z)).toBeGreaterThan(COMET_DISTANCE * 0.99);
+      expect(Math.hypot(head.x, head.z)).toBeGreaterThan(ALLY_RING + 100);
+      expect(head.y).toBeGreaterThanOrEqual(COMET_LOW - 1e-9);
+      expect(Math.hypot(dir.x, dir.y, dir.z)).toBeCloseTo(1, 6);
+    }
+    // The same comet is at the same place every time (no camera in the path).
+    expect(cometPath(seed, 0.4)).toEqual(cometPath(seed, 0.4));
+    expect(cometPath(seed, 0)).not.toEqual(cometPath(seed + 86_400_000, 0));
+  });
+
+  it('points an arrow from the edge only when off screen', () => {
+    const inset = { top: 90, right: 60, bottom: 110, left: 60 };
+    expect(edgeArrow({ x: 0.1, y: 0.2 }, false, 1280, 800, inset)).toBeNull();
+    const up = edgeArrow({ x: 0, y: 3 }, false, 1280, 800, inset)!;
+    expect(up.y).toBeCloseTo(90, 6);
+    expect(up.angle).toBeCloseTo(-Math.PI / 2, 6);
+    const right = edgeArrow({ x: 4, y: 0 }, false, 1280, 800, inset)!;
+    expect(right.x).toBeCloseTo(1280 - 60, 6);
+    // Behind the camera: never "on screen", and the arrow points the other way.
+    const behind = edgeArrow({ x: 0.2, y: 0.1 }, true, 1280, 800, inset)!;
+    expect(behind).not.toBeNull();
+    expect(behind.x).toBeLessThan(640);
   });
 });
