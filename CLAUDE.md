@@ -5,7 +5,10 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
 
 ## Read first
 
-- `docs/PLAN.md` — **roadmap and current state** (start every conversation here).
+- `docs/PLAN.md` — **current state and next chantier** (start every conversation here).
+- `docs/CARNET_DE_ROUTE.md` — **the direction** (October 2026): why, target pacing, the acts
+  and chantiers 30–45, the unlock table per age, act IV ideas. Read it when an act starts, not
+  every session. `docs/DETTE.md` holds the debt of finished chantiers (read when referenced).
 - `docs/chantiers/` — one design document per upcoming workstream ("chantier"): owner's intent,
   proposals, technical impact, breakdown, open questions. `docs/chantiers/README.md` lists the
   rules shared by every chantier.
@@ -13,6 +16,8 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
   and answers), `docs/DECISIONS.md` (every design/tech decision, per milestone).
 - Skills in `.claude/skills/` hold the codebase know-how — load the matching one before working:
   - `kiwar-workflow` — checks, commits, pushing, environment pitfalls (always).
+  - `kiwar-design` — game design charter, target pacing, decision grid, guard rails, verified
+    bibliography (any change to costs, durations, rewards, threats, or a new mechanic).
   - `kiwar-sim` — adding a mechanic to the shared deterministic simulation.
   - `kiwar-client` — rendering, UI, i18n, mobile, visual checks with screenshots.
   - `kiwar-online` — Supabase backend, edge function bundle, mock server, RLS tests.
@@ -56,7 +61,7 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
 
 ## Working in plan mode
 
-Conversations usually start in plan mode with a chantier document. First ask the owner the open
-questions (interactive questions, with a recommended option), then propose a plan split into
+Conversations usually start in plan mode with a chantier document. First ask the owner only the
+questions the chantier does not already decide (interactive questions, with a recommended option), then propose a plan split into
 playable parts (one commit each). After approval, implement part by part, verify (tests +
 desktop and phone screenshots), push to `main`, and finish with the docs/skills updates above.

@@ -178,3 +178,14 @@ Le porteur a précisé sa vision ; chaque sujet a son document dans `docs/chanti
   jamais au client) : un pilotage ne peut pas changer le résultat du combat, il faudrait un
   mini-jeu à part (par exemple moins de pannes), coûteux pour peu de gestion. Une caméra
   embarquée sans pilotage pourrait venir avec le chantier 24 (caméra libre).
+
+## Carnet de route d'octobre 2026
+
+Les retours de partie d'octobre 2026 ont donné une direction complète, rangée dans
+[`CARNET_DE_ROUTE.md`](CARNET_DE_ROUTE.md) : un rythme idle (Pierre ~12 h, Fer ~3 j, Industrie
+~10 j), la guerre des faces en débarquements sur 12 parcelles avec une civilisation alien qui vit
+de son côté, le village vivant (moral par kiwi, Mairie, loisirs, décor), puis l'**acte IV** :
+
+- les **Tréfonds**, sous la surface de notre moitié de kiwi ;
+- les **kiwaïs**, petites planètes artificielles en orbite ;
+- le **Verger cosmique**, d'autres planètes-fruits par des trous de ver.

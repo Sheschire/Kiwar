@@ -7,6 +7,7 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Journal des décisions : [`docs/DECISIONS.md`](docs/DECISIONS.md)
 - Dernier rapport d'équilibrage : [`docs/BALANCE_REPORT.md`](docs/BALANCE_REPORT.md)
 - Plan de route et reprise dans une nouvelle conversation : [`docs/PLAN.md`](docs/PLAN.md)
+- Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
 > **Chantier 19 (2e moitié)** — la face conquise devient votre **seconde colonie** : « Fonder la

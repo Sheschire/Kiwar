@@ -49,13 +49,13 @@ Larger choices were validated with the project owner (marked ✅).
 - **Static shadows**: the shadow map is rendered only when the scene changes (buildings), not every frame. Moving kiwis will use cheap blob shadows.
 - **Post-processing** (`postprocessing` + `n8ao`): N8AO (half resolution) → one merged EffectPass with bloom, tilt-shift, slight saturation/contrast, **Khronos Neutral tone mapping** (ACES greyed out the pastel palette) and vignette.
 - **Quality presets**:
-  |                  | Low               | Medium | High                    |
+  | | Low | Medium | High |
   | ---------------- | ----------------- | ------ | ----------------------- |
-  | Pixel ratio cap  | 1.25              | 1.5    | 2                       |
-  | Shadows (static) | 1024              | 2048   | 2048                    |
-  | Post-processing  | — (direct render) | bloom  | AO + bloom + tilt-shift |
-  | MSAA             | browser AA        | 2×     | 4×                      |
-  | Props density    | 45 %              | 75 %   | 100 %                   |
+  | Pixel ratio cap | 1.25 | 1.5 | 2 |
+  | Shadows (static) | 1024 | 2048 | 2048 |
+  | Post-processing | — (direct render) | bloom | AO + bloom + tilt-shift |
+  | MSAA | browser AA | 2× | 4× |
+  | Props density | 45 % | 75 % | 100 % |
 - **Auto preset**: GPU name (WEBGL_debug_renderer_info), device memory, cores, coarse pointer + small screen. Desktop discrete / Apple Silicon → High, phones → Medium, weak GPUs / software rendering → Low. In Auto, if the average fps stays under 40 for ~4 s the preset steps down. `?quality=low|medium|high` forces a preset (handy for testing).
 
 ### Simulation (step 4)
@@ -98,7 +98,7 @@ Larger choices were validated with the project owner (marked ✅).
 
 - Kiwis are **cosmetic agents** mirroring `state.villagers` and their `job`; positions are never saved.
 - Behaviour per job: _idle_ → potter around the heart ring; _work_ → loop Nest ↔ workplace (walk, peck for 3.5–7 s, carry a resource-coloured load back, drop it); _build_ → walk to the site and do a hopping hammer dance until it completes.
-- Paths: A* over hex tiles (`walkCost` from tile data; rays cost 0.5 so kiwis prefer them, and walk 1.6× faster on them). Juice pools and skin are not walkable, except as a destination (wells).
+- Paths: A\* over hex tiles (`walkCost` from tile data; rays cost 0.5 so kiwis prefer them, and walk 1.6× faster on them). Juice pools and skin are not walkable, except as a destination (wells).
 - Rendering: 4 instanced meshes for all kiwis (merged body+head+beak+eyes, legs, blob shadows, carried loads) → constant draw calls whatever the population. Waddle = roll + bob + alternating legs; spawn with an ease-out-back pop and a sparkle burst at the Nest.
 - Moving kiwis use blob shadows instead of the (static) shadow map.
 
@@ -1842,3 +1842,50 @@ chantier 19) once there.
 - Measures (software WebGL, 1280×800, Medium, facing the front): default zoom 86 draw calls /
   62.5 k triangles → 79 / 46.8 k (the twin is out of the frame there now); space view 82 /
   48.4 k; phone 82 / 62.9 k → 75 / 46.7 k. Scene JS unchanged (< 0.1 ms per frame).
+
+## Roadmap of October 2026 (carnet de route) — design charter and chantiers 30–45
+
+The owner played the game and found it too passive (long waits for the ages, nothing new in
+between, unexciting reconnaissance and waves, no reason to optimise kiwis or placement). Audit:
+every economy building at level 3 by ~7.4 h but the Stone age at ~36 h (research points), one
+level per age after Eden, no Stone-age building, 0 losses to waves, raids won 100 %, expedition
+cost = rations only. A ChatGPT bibliography was cross-checked against primary sources (10/10
+real; corrections: Ryan et al. 2006 pages 344–360, BANGS is IJHCS 188:103289, Cutting 2019's
+"habit" is a proposal; Larche & Dixon 2020 confirm hard games frustrate more). Details:
+`docs/CARNET_DE_ROUTE.md`, skill `kiwar-design` (`references/science.md`, `references/charter.md`).
+
+### Validated with the owner
+
+- ✅ **Pacing** (attentive player): Stone ~12 h, Iron ~3 days, Industry ~10 days; occasional
+  player about ×1.5. Eden in one evening, waits that grow later (idle curve).
+- ✅ **Three building levels per age** (Eden 1–3, Stone 4–6, Iron 7–9, Industry 10–12), the
+  Nest follows.
+- ✅ **Reserves in warehouses**, collected by a tap; warehouses add little usable storage.
+- ✅ **Repairable losses**: morale, full reserves stop production, stronger waves loot and damage;
+  a kiwi dies only on a real defeat; never a blocked game.
+- ✅ **Battles**: orders before departure (posture, priorities, retreat threshold); the server
+  computes the whole battle at landing; the client plays it live, clickable; replay when absent.
+- ✅ **Landing defeat**: retreat at the chosen threshold (survivors and ship come back, no
+  beacon); otherwise the crew dies forever, the ship is lost, the aliens gain, the fog returns.
+- ✅ **Alien civilisation on its own clock** (fixed dates for everyone), slowed by our burns, fed
+  by our defeats; its waves follow its power. No hidden per-player difficulty.
+- ✅ **One victory conquers a sector** (beacon, burnt buildings, permanent view); later in the
+  game the aliens may attack a beacon (announced, defendable).
+- ✅ **One morale gauge per kiwi**.
+- ✅ **Rouge-Gorge** becomes a Moulin-Rouge-style cabaret (show and red lights), not an escort
+  house.
+- ✅ **Order**: Rhythm (30–34) → War of the faces (35–42) → Living village (43–45) → Beyond (act
+  IV: the Depths, kiwiberry satellites, the cosmic orchard).
+- ✅ **Documents**: roadmap + skill + detailed chantiers for acts I–II, short sheets for act III,
+  act IV in the roadmap only. Old chantiers 25–29 (never started) became 37, 35, 43, 38, 45.
+
+### Defaults chosen by Claude (changeable)
+
+- Reserves use an **overflow** model: production goes into warehouse reserves only when the stock
+  of that resource is full (no tap needed while playing below the cap).
+- A beacon also lights the edge of neighbouring sectors; a "burn or loot" order at departure;
+  retreat survivors bring back a dated snapshot; a breakdown delays the trip instead of aborting.
+- Decorations are outside the building cap with a growing cost per copy; the second colony of
+  chantier 19 is kept; one battle engine serves home waves and landings (chantier 36).
+- `docs/PLAN.md` shortened; the debt of chantiers 01–24 moved to `docs/DETTE.md` to save tokens
+  in every session.
