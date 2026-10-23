@@ -31,12 +31,16 @@ import {
   HOUR_MS,
   meteorRate,
   minersOf,
+  defenseOf,
+  rampartSectorOf,
+  rampartSectors,
+  type SectorId,
 } from '@kiwar/shared';
 import { findPath } from './pathfinding';
 import { TitansView } from './kikiwiwi';
 import { DropLabels } from './dropLabels';
 import { WATER_LEVEL } from './water';
-import { bedsOf, harvestOf } from '../game/perState';
+import { bedsOf, harvestOf, perGame } from '../game/perState';
 import { ClipPlayer, type ClipId } from './anim/clips';
 import { KiwiRig } from './anim/kiwiRig';
 
@@ -50,6 +54,26 @@ const WALK_SPEED = 1.15; // world units per second
 function stepSpeed(cost: number): number {
   return Number.isFinite(cost) ? Math.min(1.8, Math.max(0.6, 1 / Math.sqrt(cost))) : 1;
 }
+
+/** Chantier 34: where builders stand, from the centre of the site's tile. */
+const FOOT = 0.72;
+/** Researchers' places around the Library (shelves, desks) and their distance. */
+const LIBRARY_SPOTS = 6;
+const LIBRARY_RING = 0.78;
+/** The lesson at the School: the leader stands this far out, the class around them. */
+const SCHOOL_FRONT = 0.95;
+const SCHOOL_RADIUS = 0.62;
+const SCHOOL_ARC = 2.6;
+/** The move each class practises (School, guards' drills). */
+const CLASS_CLIP: Record<ClassId, ClipId> = {
+  builder: 'hammer',
+  warrior: 'sword',
+  mage: 'spell',
+  scout: 'sling',
+  mayor: 'teach',
+};
+/** Guards' sectors (shared `defenseOf`), once per state. */
+const guardSectors = perGame((state) => defenseOf(state));
 
 /** A drop never counts more than this much game time (after a pause or a long jump). */
 const MAX_LOAD_MS = 10 * 60_000;
@@ -95,6 +119,14 @@ interface Agent {
   inside: boolean;
   /** Chantier 34: the clips it plays. */
   player: ClipPlayer;
+  /** Clip played while standing (null: the activity's default). */
+  clip: ClipId | null;
+  /** Heading to turn to while standing (null: keep). */
+  face: number | null;
+  /** Place in a round (Library shelves, guard posts). */
+  spot: number;
+  /** The kiwi it chats with. */
+  partner: VillagerId | null;
 }
 
 /** "+12", "+3.4", "+0,4" in French (one decimal below 10, never below 0.1). */
@@ -155,6 +187,15 @@ export class KiwisView {
   private drawn: Agent[] = [];
   private state: GameState | null = null;
   private paths = new Set<string>();
+  /**
+   * Chantier 34: each kiwi's place in its group, from the last state — a researcher's
+   * shelf, "index/count" at the School (0 leads), a guard's sector. Part of the plan
+   * signature, so a change of group sends the kiwi to its new place.
+   */
+  private readonly roles = new Map<VillagerId, string>();
+  /** Guard posts by sector, rebuilt when the turrets change. */
+  private readonly posts = new Map<string, { point: Vector3; face: number }[]>();
+  private turretsKey = '';
 
   constructor(private readonly map: FaceMap) {
     this.group.add(this.rig.group);
@@ -182,6 +223,7 @@ export class KiwisView {
     this.villagers = new Map(state.villagers.map((v) => [v.id, v]));
     for (const id of this.agents.keys()) if (!this.villagers.has(id)) this.agents.delete(id);
     this.titans.keep(new Set(state.villagers.filter((v) => v.kikiwiwi).map((v) => v.id)));
+    this.assignRoles(state);
     this.classOf.clear();
     for (const v of state.villagers) {
       this.classOf.set(v.id, v.classId);
@@ -190,6 +232,44 @@ export class KiwisView {
         agent.scale = sizeOf(v, agent.jitter) * (v.kikiwiwi ? TITAN_SIZE : 1);
         if (v.shiny) agent.tint.copy(shinyTint(v.shiny));
       } else if (this.agents.size < MAX_KIWIS) this.agents.set(v.id, this.spawn(v));
+    }
+  }
+
+  private assignRoles(state: GameState): void {
+    this.roles.clear();
+    const groups = new Map<string, Villager[]>();
+    const join = (key: string, v: Villager) => {
+      const list = groups.get(key);
+      if (list) list.push(v);
+      else groups.set(key, [v]);
+    };
+    for (const v of state.villagers) {
+      if (v.job.kind === 'work') join(`w:${v.job.buildingId}`, v);
+      else if (v.job.kind === 'train') join(`t:${v.job.schoolId}`, v);
+    }
+    for (const [key, list] of groups) {
+      if (key.startsWith('t:')) {
+        // The student closest to the end of the class leads the lesson.
+        const until = (v: Villager) => (v.job.kind === 'train' ? v.job.until : 0);
+        list.sort((a, b) => until(a) - until(b) || a.id.localeCompare(b.id));
+        list.forEach((v, i) => this.roles.set(v.id, `${i}/${list.length}`));
+      } else {
+        list.sort((a, b) => a.id.localeCompare(b.id));
+        // Researchers spread around the Library (every other shelf first).
+        list.forEach((v, i) =>
+          this.roles.set(v.id, String((i * 2 + (i >= 3 ? 1 : 0)) % LIBRARY_SPOTS)),
+        );
+      }
+    }
+    if (state.villagers.some((v) => v.job.kind === 'guard'))
+      for (const g of guardSectors(state).guards) this.roles.set(g.id, g.sector);
+    const turrets = state.buildings
+      .filter((b) => isTurret(b.type))
+      .map((b) => `${b.q},${b.r}`)
+      .join(';');
+    if (turrets !== this.turretsKey) {
+      this.turretsKey = turrets;
+      this.posts.clear();
     }
   }
 
@@ -227,6 +307,10 @@ export class KiwisView {
       rhythmTimer: rng.range(0, 1),
       inside: false,
       player: new ClipPlayer(rng.range(0, 10)),
+      clip: null,
+      face: null,
+      spot: 0,
+      partner: null,
     };
   }
 
@@ -284,6 +368,7 @@ export class KiwisView {
     agent.path = pts;
     agent.stepSpeed = speeds;
     agent.activity = 'walk';
+    agent.clip = null;
   }
 
   private workTile(villager: Villager): { hex: Hex; resource: ResourceId | null } | null {
@@ -414,6 +499,7 @@ export class KiwisView {
       if (home) this.walkTo(agent, home, 0.2);
       else {
         agent.activity = 'sleep';
+        agent.clip = job.kind === 'injured' ? 'hurt' : null;
         agent.timer = 1e9;
       }
       return true;
@@ -430,15 +516,16 @@ export class KiwisView {
   private think(agent: Agent, villager: Villager): void {
     if (this.thinkRest(agent, villager)) return;
     const job = villager.job;
+    const role = this.roles.get(villager.id) ?? '';
     const sig =
       job.kind === 'work'
-        ? `w:${job.buildingId}`
+        ? `w:${job.buildingId}:${role}`
         : job.kind === 'build'
           ? `b:${job.queueItemId}`
           : job.kind === 'train'
-            ? `t:${job.schoolId}`
+            ? `t:${role}`
             : job.kind === 'guard'
-              ? 'g'
+              ? `g:${role}`
               : job.kind === 'transform'
                 ? `x:${job.labId}`
                 : job.kind === 'titan'
@@ -449,8 +536,10 @@ export class KiwisView {
                       ? `m:${job.meteorId}`
                       : 'idle';
     const changed = sig !== agent.plan;
+    if (changed) this.leavePartner(agent);
     agent.plan = sig;
     const work = this.workTile(villager);
+    const arrived = agent.activity === 'walk' && agent.path.length === 0;
 
     // In the vat: walks to the laboratory and floats inside until the infusion ends.
     if (job.kind === 'transform' && work) {
@@ -458,7 +547,7 @@ export class KiwisView {
         agent.carrying = null;
         agent.inside = false;
         this.walkTo(agent, work.hex, 0.2);
-      } else if (agent.activity === 'walk' && agent.path.length === 0) {
+      } else if (arrived) {
         agent.activity = 'sleep';
         agent.timer = 1e9;
         agent.inside = true;
@@ -466,20 +555,49 @@ export class KiwisView {
       return;
     }
 
-    if (
-      (job.kind === 'build' ||
-        job.kind === 'train' ||
-        job.kind === 'titan' ||
-        job.kind === 'stardust') &&
-      work
-    ) {
+    // Chantier 34: researchers live around the Library — reading, writing, changing shelves.
+    if (job.kind === 'work' && work && !work.resource) {
+      this.thinkLibrary(agent, work.hex, role, changed, arrived);
+      return;
+    }
+
+    // Chantier 34: a class at the School — the most advanced student leads the lesson.
+    if (job.kind === 'train' && work) {
+      this.thinkSchool(agent, villager, work.hex, role, changed, arrived);
+      return;
+    }
+
+    // Chantier 34: builders and repairers hammer at the foot of the site.
+    if (job.kind === 'build' && work) {
+      if (changed || (agent.activity !== 'walk' && agent.activity !== 'build')) {
+        agent.carrying = null;
+        const site = hexToPixel(work.hex);
+        let dx = agent.pos.x - site.x;
+        let dz = agent.pos.z - site.y;
+        const d = Math.hypot(dx, dz);
+        const a =
+          (d > 1e-3 ? Math.atan2(dx, dz) : agent.rng.range(0, Math.PI * 2)) +
+          agent.rng.range(-0.6, 0.6);
+        dx = Math.sin(a);
+        dz = Math.cos(a);
+        const spot = new Vector3(site.x + dx * FOOT, 0, site.y + dz * FOOT);
+        this.walkToPoint(agent, spot);
+        agent.face = Math.atan2(-dx, -dz);
+        agent.leg = 'toWork';
+      } else if (arrived) {
+        this.settle(agent, 'build', 'hammer', 1e9);
+      }
+      return;
+    }
+
+    if ((job.kind === 'titan' || job.kind === 'stardust') && work) {
       if (changed || (agent.activity !== 'walk' && agent.activity !== 'build')) {
         agent.carrying = null;
         this.walkTo(agent, work.hex, 0.55);
         agent.leg = 'toWork';
-      } else if (agent.activity === 'walk' && agent.path.length === 0) {
-        agent.activity = 'build';
-        agent.timer = 1e9;
+      } else if (arrived) {
+        // Stardust is picked up grain by grain; titans stomp.
+        this.settle(agent, 'build', job.kind === 'stardust' ? 'peck' : 'hammer', 1e9);
       }
       return;
     }
@@ -492,13 +610,11 @@ export class KiwisView {
         agent.leg = 'toWork';
         return;
       }
-      if (agent.activity === 'walk' && agent.path.length === 0) {
+      if (arrived) {
         if (agent.leg === 'toWork') {
-          agent.activity = 'work';
-          agent.timer = agent.rng.range(3.5, 7);
+          this.settle(agent, 'work', 'peck', agent.rng.range(3.5, 7));
         } else {
-          agent.activity = 'drop';
-          agent.timer = agent.rng.range(0.6, 1.4);
+          this.settle(agent, 'drop', 'idle', agent.rng.range(0.6, 1.4));
           if (agent.carrying) this.showDrop(agent, villager);
           agent.carrying = null;
         }
@@ -519,45 +635,345 @@ export class KiwisView {
       return;
     }
 
-    // On guard: stand at the foot of a turret (or around the Nest) and watch.
+    // Chantier 34: on guard, a round between the posts of the kiwi's own sector.
     if (job.kind === 'guard') {
-      if (changed) {
-        agent.carrying = null;
-        agent.leg = 'toWork';
-        this.walkTo(agent, this.guardPost(agent), 0.45);
-      } else if (agent.activity === 'walk' && agent.path.length === 0) {
-        agent.activity = 'idle';
-        agent.timer = 1e9;
-      }
+      this.thinkGuard(agent, villager, role, changed, arrived);
       return;
     }
 
-    // Idle: potter around the Nest.
+    this.thinkIdle(agent, changed, arrived);
+  }
+
+  /** Stops walking and plays a clip in place for `timer` seconds. */
+  private settle(agent: Agent, activity: Activity, clip: ClipId, timer: number): void {
+    agent.activity = activity;
+    agent.clip = clip;
+    agent.timer = timer;
+  }
+
+  /** Walks to an exact point (A* to its tile, then straight to the point). */
+  private walkToPoint(agent: Agent, point: Vector3): void {
+    point.y = this.surfaceY(point);
+    this.walkTo(agent, this.hexAt(point), 0);
+    agent.path[agent.path.length - 1] = point;
+  }
+
+  /** A point at `dist` from the centre of a tile, in direction `angle` (world azimuth). */
+  private around(h: Hex, angle: number, dist: number): Vector3 {
+    const c = hexToPixel(h);
+    return new Vector3(c.x + Math.sin(angle) * dist, 0, c.y + Math.cos(angle) * dist);
+  }
+
+  private thinkLibrary(
+    agent: Agent,
+    library: Hex,
+    role: string,
+    changed: boolean,
+    arrived: boolean,
+  ): void {
+    const go = (spot: number) => {
+      agent.spot = spot;
+      const angle = (spot / LIBRARY_SPOTS) * Math.PI * 2 + 0.3;
+      this.walkToPoint(agent, this.around(library, angle, LIBRARY_RING));
+      // Back to the shelves, the book towards the light.
+      agent.face = angle + agent.rng.range(-0.5, 0.5);
+    };
+    if (changed) {
+      agent.carrying = null;
+      agent.leg = 'toWork';
+      go(Number(role) % LIBRARY_SPOTS || 0);
+      return;
+    }
+    if (arrived) {
+      this.settle(agent, 'work', agent.rng.chance(0.55) ? 'read' : 'write', agent.rng.range(6, 12));
+      return;
+    }
+    if (agent.activity === 'work' && agent.timer <= 0) {
+      if (agent.rng.chance(0.3)) {
+        // Another shelf: one or two places along.
+        const step = agent.rng.chance(0.5) ? 1 : 2;
+        go((agent.spot + (agent.rng.chance(0.5) ? step : LIBRARY_SPOTS - step)) % LIBRARY_SPOTS);
+      } else {
+        this.settle(
+          agent,
+          'work',
+          agent.clip === 'read' ? 'write' : 'read',
+          agent.rng.range(6, 12),
+        );
+      }
+    }
+  }
+
+  private thinkSchool(
+    agent: Agent,
+    villager: Villager,
+    school: Hex,
+    role: string,
+    changed: boolean,
+    arrived: boolean,
+  ): void {
+    // role = "index/count": index 0 leads, the others sit in a half circle facing them.
+    const [index = 0, count = 1] = role.split('/').map(Number);
+    const demo = villager.job.kind === 'train' ? CLASS_CLIP[villager.job.classId] : 'teach';
+    if (changed) {
+      const out = this.lessonSide(school);
+      const front = this.around(school, out, SCHOOL_FRONT);
+      agent.carrying = null;
+      agent.leg = 'toWork';
+      if (index === 0) {
+        this.walkToPoint(agent, front.clone());
+        agent.face = out;
+      } else {
+        const students = count - 1;
+        const t = students === 1 ? 0 : (index - 1) / (students - 1) - 0.5;
+        const a = out + t * SCHOOL_ARC;
+        const seat = new Vector3(
+          front.x + Math.sin(a) * SCHOOL_RADIUS,
+          0,
+          front.z + Math.cos(a) * SCHOOL_RADIUS,
+        );
+        this.walkToPoint(agent, seat);
+        agent.face = a + Math.PI;
+      }
+      return;
+    }
+    const lead = index === 0;
+    if (arrived) {
+      this.settle(agent, 'work', lead ? (count > 1 ? 'teach' : demo) : 'listen', 3);
+      return;
+    }
+    if (agent.activity === 'work' && agent.timer <= 0) {
+      if (lead) {
+        // Explains, then shows the move.
+        const next = agent.clip === 'teach' || count === 1 ? demo : 'teach';
+        this.settle(
+          agent,
+          'work',
+          next,
+          next === 'teach' ? agent.rng.range(5, 8) : agent.rng.range(3, 5),
+        );
+        if (count === 1 && agent.clip === demo && agent.rng.chance(0.4))
+          this.settle(agent, 'work', 'read', agent.rng.range(4, 7));
+      } else {
+        // Listens, and now and then tries the move.
+        const practise = agent.clip === 'listen' && agent.rng.chance(0.35);
+        this.settle(
+          agent,
+          'work',
+          practise ? demo : 'listen',
+          practise ? agent.rng.range(3, 5) : agent.rng.range(5, 10),
+        );
+      }
+    }
+  }
+
+  /**
+   * The side of the School where the lesson is given: towards a free neighbouring tile
+   * (walkable, no building), the one closest to the heart of the village.
+   */
+  private lessonSide(school: Hex): number {
+    const c = hexToPixel(school);
+    let best = Math.hypot(c.x, c.y) > 1e-3 ? Math.atan2(-c.x, -c.y) : 0;
+    let bestD = Infinity;
+    const taken = new Set((this.state?.buildings ?? []).map((b) => hexKey(b)));
+    for (const h of hexRing(school, 1)) {
+      const t = getTile(this.map, h);
+      if (!t || !TILES[t.type].walkable || taken.has(hexKey(h))) continue;
+      const p = hexToPixel(h);
+      const d = Math.hypot(p.x, p.y);
+      if (d < bestD) {
+        bestD = d;
+        best = Math.atan2(p.x - c.x, p.y - c.y);
+      }
+    }
+    return best;
+  }
+
+  private thinkGuard(
+    agent: Agent,
+    villager: Villager,
+    role: string,
+    changed: boolean,
+    arrived: boolean,
+  ): void {
+    const posts = this.guardPosts(role as SectorId);
+    const go = () => {
+      agent.spot = (agent.spot + 1) % Math.max(1, posts.length);
+      const post = posts[agent.spot];
+      if (!post) {
+        this.walkTo(agent, this.nestRing(agent), 0.45);
+        agent.face = null;
+        return;
+      }
+      // Several guards at one post stand side by side.
+      const a = agent.rng.range(0, Math.PI * 2);
+      const d = agent.rng.range(0.1, 0.3);
+      this.walkToPoint(
+        agent,
+        new Vector3(post.point.x + Math.sin(a) * d, 0, post.point.z + Math.cos(a) * d),
+      );
+      agent.face = post.face + agent.rng.range(-0.4, 0.4);
+    };
+    if (changed) {
+      agent.carrying = null;
+      agent.leg = 'toWork';
+      agent.spot = agent.rng.int(0, Math.max(1, posts.length) - 1);
+      go();
+      return;
+    }
+    if (arrived) {
+      this.settle(agent, 'idle', 'look', agent.rng.range(5, 10));
+      return;
+    }
+    if (agent.activity === 'idle' && agent.timer <= 0) {
+      const drill = villager.classId ? CLASS_CLIP[villager.classId] : null;
+      if (agent.clip === 'look' && drill && drill !== 'teach' && agent.rng.chance(0.25)) {
+        this.settle(agent, 'idle', drill, agent.rng.range(2.5, 4));
+      } else if (posts.length > 1 && agent.rng.chance(0.6)) {
+        go();
+      } else {
+        this.settle(agent, 'idle', 'look', agent.rng.range(5, 10));
+      }
+    }
+  }
+
+  /**
+   * Posts of a sector's round: beside its turrets (on the village side), or on its rampart
+   * without turrets; each with the direction the guard watches (outwards).
+   */
+  private guardPosts(sector: SectorId | ''): { point: Vector3; face: number }[] {
+    if (!this.state || !sector) return [];
+    const key = `${sector}`;
+    const cached = this.posts.get(key);
+    if (cached) return cached;
+    const walkable = (p: Vector3) => {
+      const t = getTile(this.map, this.hexAt(p));
+      return !!t && TILES[t.type].walkable;
+    };
+    const posts: { point: Vector3; face: number }[] = [];
+    for (const b of this.state.buildings) {
+      if (!isTurret(b.type) || rampartSectorOf(b) !== sector) continue;
+      const c = hexToPixel(b);
+      const outward = Math.atan2(c.x, c.y);
+      // Turrets stand on the rampart: the guard stands just inside, on the walkable side.
+      for (const turn of [0, 0.5, -0.5, 1, -1]) {
+        const p = this.around(b, outward + Math.PI + turn, 1.15);
+        if (walkable(p)) {
+          posts.push({ point: p, face: outward });
+          break;
+        }
+      }
+    }
+    if (posts.length === 0) {
+      const ramparts = rampartSectors(this.map);
+      const tiles = ramparts.tiles.filter((_, i) => ramparts.sectors[i] === sector);
+      // Three spots spread along the sector's rampart (angles from its middle: no wrap).
+      const angles = tiles.map((t) => Math.atan2(hexToPixel(t).x, hexToPixel(t).y));
+      const mid = Math.atan2(
+        angles.reduce((sum, a) => sum + Math.sin(a), 0),
+        angles.reduce((sum, a) => sum + Math.cos(a), 0),
+      );
+      const sorted = tiles
+        .map((t, i) => ({
+          t,
+          a: angles[i]!,
+          d: Math.atan2(Math.sin(angles[i]! - mid), Math.cos(angles[i]! - mid)),
+        }))
+        .sort((x, y) => x.d - y.d);
+      for (const k of [0.2, 0.5, 0.8]) {
+        const pick = sorted[Math.floor(k * sorted.length)];
+        if (!pick) continue;
+        const p = this.around(pick.t, pick.a + Math.PI, 1.15);
+        if (walkable(p)) posts.push({ point: p, face: pick.a });
+      }
+    }
+    this.posts.set(key, posts);
+    return posts;
+  }
+
+  /** Idle kiwis potter about the Nest: peck, stretch, sit, look around, chat in pairs. */
+  private thinkIdle(agent: Agent, changed: boolean, arrived: boolean): void {
     if (changed) {
       agent.carrying = null;
       agent.leg = 'none';
+      agent.face = null;
       this.walkTo(agent, this.nestRing(agent), 0.45);
       return;
     }
-    if (agent.activity === 'walk' && agent.path.length === 0) {
-      agent.activity = 'idle';
-      agent.timer = agent.rng.range(2, 6);
-    } else if (agent.activity === 'idle' && agent.timer <= 0) {
+    if (arrived) {
+      const partner = agent.partner ? this.agents.get(agent.partner) : undefined;
+      if (partner && partner.partner === agent.id) {
+        // Reached the friend: both chat, facing each other.
+        const t = agent.rng.range(6, 11);
+        this.settle(agent, 'idle', 'chat', t);
+        this.settle(partner, 'idle', 'chat', t);
+        agent.face = Math.atan2(partner.pos.x - agent.pos.x, partner.pos.z - agent.pos.z);
+        partner.face = agent.face + Math.PI;
+        return;
+      }
+      agent.partner = null;
+      this.settle(agent, 'idle', this.pastime(agent), agent.rng.range(4, 9));
+      return;
+    }
+    if (agent.activity === 'idle' && agent.timer <= 0) {
+      this.leavePartner(agent);
+      const roll = agent.rng.next();
+      if (roll < 0.25 && this.startChat(agent)) return;
+      if (roll < 0.6) {
+        this.settle(agent, 'idle', this.pastime(agent), agent.rng.range(4, 9));
+        return;
+      }
+      agent.face = null;
       const target = agent.rng.chance(0.7) ? this.nestRing(agent) : this.randomNear(agent);
       this.walkTo(agent, target, 0.45);
     }
   }
 
-  /** Land next to a turret (one picked per kiwi), or the Nest ring without turrets. */
-  private guardPost(agent: Agent): Hex {
-    const turrets = (this.state?.buildings ?? []).filter((b) => isTurret(b.type));
-    if (turrets.length === 0) return this.nestRing(agent);
-    const t = agent.rng.pick(turrets);
-    const land = hexRing(t, 1).filter((h) => {
-      const tile = getTile(this.map, h);
-      return !!tile && TILES[tile.type].walkable;
-    });
-    return land.length ? agent.rng.pick(land) : this.nestRing(agent);
+  private pastime(agent: Agent): ClipId {
+    const roll = agent.rng.next();
+    agent.face = agent.heading + agent.rng.range(-1, 1);
+    return roll < 0.3
+      ? 'peck'
+      : roll < 0.45
+        ? 'stretch'
+        : roll < 0.6
+          ? 'sit'
+          : roll < 0.65
+            ? 'dance'
+            : 'idle';
+  }
+
+  /** Walks over to another idle kiwi nearby for a chat; false if nobody is free. */
+  private startChat(agent: Agent): boolean {
+    for (const other of this.drawn) {
+      if (other === agent || other.partner || other.activity !== 'idle' || other.plan !== 'idle')
+        continue;
+      const dx = agent.pos.x - other.pos.x;
+      const dz = agent.pos.z - other.pos.z;
+      const d = Math.hypot(dx, dz);
+      if (d > 2.5 || d < 1e-3) continue;
+      agent.partner = other.id;
+      other.partner = agent.id;
+      // The friend waits, looking our way.
+      this.settle(other, 'idle', 'idle', 30);
+      other.face = Math.atan2(dx, dz);
+      this.walkToPoint(
+        agent,
+        new Vector3(other.pos.x + (dx / d) * 0.36, 0, other.pos.z + (dz / d) * 0.36),
+      );
+      return true;
+    }
+    return false;
+  }
+
+  /** Ends a chat: the friend goes back to its own pastimes. */
+  private leavePartner(agent: Agent): void {
+    const partner = agent.partner ? this.agents.get(agent.partner) : undefined;
+    agent.partner = null;
+    if (partner && partner.partner === agent.id) {
+      partner.partner = null;
+      if (partner.activity === 'idle') partner.timer = Math.min(partner.timer, 0.5);
+    }
   }
 
   /** A tile of the heart ring around the Nest (the Nest itself fills the centre). */
@@ -587,8 +1003,8 @@ export class KiwisView {
     this.drawn.length = 0;
     for (const agent of this.agents.values()) {
       const villager = villagers.get(agent.id);
-      // Kiwis away on an expedition are not on the map.
-      if (!villager || villager.job.kind === 'expedition') {
+      // Kiwis away on an expedition or posted on the twin (chantier 19) are not on the map.
+      if (!villager || villager.job.kind === 'expedition' || villager.job.kind === 'outpost') {
         this.titans.hide(agent.id);
         continue;
       }
@@ -660,7 +1076,15 @@ export class KiwisView {
         );
         continue;
       }
-      agent.player.play(clipOf(agent.activity, moving));
+      if (!moving && agent.face !== null) {
+        // Standing: turn smoothly towards what it is busy with.
+        const diff = Math.atan2(
+          Math.sin(agent.face - agent.heading),
+          Math.cos(agent.face - agent.heading),
+        );
+        agent.heading += diff * Math.min(1, dt * 5);
+      }
+      agent.player.play(moving ? 'walk' : (agent.clip ?? clipOf(agent.activity)));
       const pose = agent.player.pose(dt, moving ? speed / WALK_SPEED : 1);
       this.rig.draw({
         x: agent.pos.x,
@@ -695,8 +1119,7 @@ export class KiwisView {
 }
 
 /** The clip that shows an activity. */
-function clipOf(activity: Activity, moving: boolean): ClipId {
-  if (moving) return 'walk';
+function clipOf(activity: Activity): ClipId {
   switch (activity) {
     case 'work':
       return 'peck';
