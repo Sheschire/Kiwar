@@ -74,9 +74,17 @@ intel })`): placed once with `place(twinPlace())` (members: `place(allyPlace(...
   snapshot time, intel) changes and sets the store's `twinOwner`.
 - **Space view** (`camera/CameraRig.ts`): zoom out to `MAX_ZOOM` 3 × `frameDistance`; past
   the framing `liftPolar(k)` raises the camera towards the horizon (0.78 → `SPACE_POLAR` 1.42
-  at k ≈ 2.6, eased out) so the planets come into view (the twin peeks in from k ≈ 1.4);
-  zooming back in gives the player's own tilt back (`playerPolar`). Sky sphere (radius 900)
-  and moons follow the camera (at infinity); the cloud sea is 1000 wide, fading 220–450.
+  at k ≈ 2.6, eased out) so the planets come into view (the twin peeks in from k ≈ 1.4).
+  Chantier 32: the lift is an **offset** (`liftOffset`) added to the tilt while the zoom
+  changes (`updateLift`, `lastOffset`; NaN after `frame`/`returnHome` = resync without
+  moving), never a floor: the tilt stays free in `polarRange(k)` (`MIN_POLAR` … min(`TOP_POLAR`
+  1.5, `MAX_POLAR` + offset)). `lookToward(x, z)` turns the camera to a far point and zooms
+  out (the comet). Sky sphere (radius 900), moons and the **cosmos** (`render/cosmos.ts`,
+  owned by `Environment.cosmos`: 5000 stars in one `Points`, six nebula quads, drawn just
+  before the far plane with renderOrder −10/−11 so the cloud sea veils them; `setNight`,
+  `setLite` hides the nebulae, `setPixelRatio`) follow the camera (at infinity); the cloud
+  sea is 1000 wide, fading 220–450. The sky shader deepens above the horizon glow
+  (`uZenith × 0.6`). **Comets** fly in this map too (`cometPath`, see `kiwar-sky`).
 - **Closed planet**: the skin dome (`createKiwiDome`, `FrontSide`, radius `domeRadius(map)`:
   its rim stays under the rim tiles, no ledge) carries a dark cut disc child that closes the
   gaps between tiles. Anything sized on the skin (dome fur props) uses `domeRadius`. The intro finds the dome as the terrain
@@ -96,7 +104,10 @@ intel })`): placed once with `place(twinPlace())` (members: `place(allyPlace(...
   0.7 s `split()` swaps the fruit for the halves (deep as the fruit, settling into the game
   dome while parting until 2.1 s, first along the axis), each covered by a `FleshVeil` (wet
   flesh canvas texture, warm glow, noise dissolve `melt`) and joined by `JuiceStrands`
-  (break → `drip` + `onJuice`) → choice (focus: hover on desktop, taps, tabs) → `choose` →
+  (break → `drip` + `onJuice`); chantier 32: the halves part with the flesh intact by
+  `T_PARTED`, stay `CONTEMPLATE_S` 2.6 s (`placeCamera` drifts closer — only on wide screens —
+  and across with `bump`, `FleshVeil.set(glow, melt, sheen)` sweeps a grazing light), then
+  melt over `MELT_S` → choice (focus: hover on desktop, taps, tabs) → `choose` →
   1.3 s dive → `onDone`. Taps during the cut do nothing (Skip button). Check it frame by frame
   (see `kiwar-client`, Verify visually). Layout: `setIntroLayout` frees the right panel (desktop) or the bottom
   48 % (phone). The terrain shaders share `seasonUniforms`: the intro sets a neutral look.

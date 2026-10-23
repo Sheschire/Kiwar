@@ -62,11 +62,17 @@ heal | respec | stat, stat? }` (notInjured, blessingLimit, statMaxed, notEnoughS
 
 ## Client
 
-- `render/comets.ts` `CometsView`: the comet is placed **in screen space** (`place()` unprojects
-  NDC x/y at a distance behind the planet) so it crosses the band of sky above the planet
-  whatever the camera (lower and longer in portrait); one sprite drawn from a canvas (blue-gold
-  tail, golden head, normal blending: additive glows vanish on the pale day sky) plus a pulsing
-  head; brighter at night (`setNight`). Dust tiles: `Points` of golden four-point stars (dark
+- `render/comets.ts` `CometsView`: chantier 32 — the comet is an **object of the map of
+  space**, never placed from the screen: `cometPath(at, k)` (`render/space.ts`, pure, tested)
+  gives its head and flight direction (an arc of `COMET_SPAN` 140° round home at
+  `COMET_DISTANCE` 340, height `COMET_LOW` 20 + `COMET_RISE` 26 mid-way, start azimuth drawn
+  from its passage time), k from its announcement to `at + passMs`. Head: a sprite
+  (`HEAD_SIZE` 16 world units); tail: a quad of `TAIL_LENGTH` 120 along the flight, turned
+  towards the camera around that line (`makeBasis`). Brighter at night (`setNight`). While it
+  is in the sky and off screen, `arrow()` (`edgeArrow`, insets clear of the top bar, badges
+  and thumb bar) → `onCometArrow` → viewStore `cometArrow` → `CometArrow.tsx` (golden arrow
+  on the edge); a tap calls `actions.lookAtComet` → `CameraRig.lookToward` (turn + zoom out
+  to the space view, where comets fly). Dust tiles: `Points` of golden four-point stars (dark
   edge, readable by day) that rain down when they land, thin out with the stock, and a glow.
 - UI: `StardustChip` in the top bar (shown once a comet passed), `CometBadge` in the badge stack
   (countdown, then dust left; a tap selects the richest tile with room), `DustSection` in the
@@ -78,7 +84,9 @@ heal | respec | stat, stat? }` (notInjured, blessingLimit, statMaxed, notEnoughS
 - Toasts (`comet.*`), offline summary (`comets`, `stardust`), sounds `comet.seen` (synth
   `cometSeen`) and `comet.pass` (synth `comet`).
 - Screenshots: set `controller.state.comets.next = { id, announceAt: now − 6 h, at: now + 1 h,
-announced: true }` (the comet fades in over 15 min of game time after `announceAt`), push
+announced: true }` (the comet fades in over 15 min of game time after `announceAt`; at the
+  default zoom it is off screen: click `.comet-arrow` and wait ~30 s headless for the camera),
+  push
   patches (`stock`/`max` in raw units: `180000000` per point), set `stardust`, then a
   `debugGrant` dispatch. Night: move `calendarStart` so `(now − start) mod 2 h ≈ 1 h 50`.
 

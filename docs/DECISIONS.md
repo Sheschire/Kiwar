@@ -1913,3 +1913,46 @@ real; corrections: Ryan et al. 2006 pages 344–360, BANGS is IJHCS 188:103289, 
   (additive washed out to white on the light ground).
 - `?kiwis` is the review sheet of every clip, creature and grouped effect (`&t=` freezes the
   time in 1/30 s steps for screenshots).
+
+## Chantier 32 — Fixes and sky (client)
+
+- **Free tilt at every zoom.** The zoom-out lift of chantier 24 is an offset added to the tilt
+  while the zoom changes (`liftOffset`), never a floor; the tilt range at zoom k is
+  `MIN_POLAR`..min(`TOP_POLAR` 1.5, `MAX_POLAR` + lift) (`polarRange`). The player may look
+  straight down from afar; zooming in removes what zooming out added.
+- **Boot measured, then cached first.** `game/bootTimes.ts` marks the load (shown with
+  `?debug`). Headless measures (production build, 72 h colony, CPU ×1): page script at
+  ~250 ms, colony state shown at ~0.7–1 s, then the **first frame waits 3–4 s on shader
+  linking** (39 programs, software WebGL; × 4 CPU throttle: 4.6–9 s). A 48 h absence costs
+  ~0.3 s of `advance` (1.2 s at CPU ×4): kept before the first display (the summary needs
+  it). Online (mock server, +400 ms per request): before, the colony showed after the backend
+  import, the sign-in and the load (~1.7 s after the script); now the **cached colony shows
+  ~0.36 s after the script**, read-only (`errors.syncing`) until the server answers, and the
+  guest import and transfer run after the display.
+- **Shaders compile before the first frame** with `compileAsync` where the browser has
+  `KHR_parallel_shader_compile` (real GPUs; not in headless Chromium, where it is skipped);
+  the loader waits for the first drawn frame (`renderer.ready`). `checkShaderErrors` only in
+  development.
+- **One column at the bottom left** (desktop): `.left-stack` holds the expeditions card above
+  the queue; the thumb layout already had `.thumb-stack`.
+- **Objectives remembered** like the queue and the wave alert (`kiwar.objectivesOpen`).
+- **Ages not reached are secret**: their technologies are small "???" tiles (no name, effect
+  or cost) with "N technologies to discover once this age is reached"; the passage to the
+  next age (in the current age's row) stays readable.
+- **Intro**: the halves part with their flesh intact, stay 2.6 s (camera drifting closer and
+  across on wide screens, a grazing light over the flesh), then melt as before (`T_PARTED`,
+  `CONTEMPLATE_S`, `T_MELT`, `MELT_S`). Skip unchanged.
+- **Cosmos at infinity**: 5000 coloured stars (one `Points`) and six soft nebulae follow the
+  camera like the sky (coherent with the planets' fixed places), drawn just before the far
+  plane and before the cloud sea (which veils them). By day only the brightest stars and pale
+  nebulae, at night all of them; nebulae off in low quality. The sky deepens above the
+  horizon glow so they read on the pastel day.
+- **Comets are objects of space**: `cometPath(at, k)` (an arc of 140° round home at 340
+  units, height 20–46, start azimuth drawn from the passage time), the tail a quad along the
+  flight turned to the camera. Off screen while in the sky → a golden arrow on the edge
+  (`edgeArrow`, clear of the top bar/badges and the thumb bar); a tap turns the camera to it
+  and zooms out to the space view (`CameraRig.lookToward`). The comet calendar is unchanged.
+- **Paths lie in the ground**: a flat ribbon with wandering edges and a darker rim (exact width
+  at both ends, plain on the 40 % nearest the centre where the segments cross), flat details
+  per age, hubs as wobbly patches. **Seed fields**: ridges with stalks and pods of varied
+  size and lean. Cost on the 72 h colony: +6 % triangles, +2 draw calls.

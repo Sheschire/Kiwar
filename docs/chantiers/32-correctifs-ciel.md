@@ -1,5 +1,8 @@
 # Chantier 32 — Correctifs et ciel
 
+> **Fait** (octobre 2026, six commits « Chantier 32 (part 1–6) »). Ce qui a été fait et ce qui
+> reste : en bas du document.
+
 Acte I « Le rythme » du [carnet de route](../CARNET_DE_ROUTE.md). **Client seul** : peut tourner
 en parallèle des chantiers 30 et 31.
 
@@ -94,3 +97,43 @@ en parallèle des chantiers 30 et 31.
 - Les âges futurs sont en « ??? ».
 - La comète reste à sa place dans l'espace quand on tourne la caméra.
 - Captures desktop + téléphone : ciel, chemins, champs ; images/s au repos inchangées.
+
+## Fait
+
+1. **Caméra** (`camera/CameraRig.ts`) : la montée vers la vue espace est un **décalage**
+   ajouté à l'inclinaison quand le zoom change (`liftOffset`), plus un plancher ; plage
+   `polarRange(k)` = `MIN_POLAR` … min(1,5, `MAX_POLAR` + montée). On incline à tout zoom
+   (vérifié : au zoom maximal, de 1,42 à 0,44 au clic droit, puis retour au zoom proche).
+2. **Chargement** : `game/bootTimes.ts` (ligne « Chargement » du panneau `?debug`, console
+   avec `?debug`). Mesures headless, build de production, colonie de 72 h :
+   - local : script ≈ 250 ms, colonie prête ≈ 0,7–1 s, puis **3–4 s de liaison des shaders**
+     avant la première image (rendu logiciel, 39 programmes) ; une absence de 48 h coûte
+     0,3 s d'`advance` ;
+   - en ligne (serveur simulé, +400 ms par requête) : **avant** la colonie s'affichait
+     ≈ 1,7 s après le script (import du backend, connexion, `load`) ; **après** la colonie en
+     cache s'affiche ≈ 0,36 s après le script, en lecture seule (`errors.syncing`), et
+     l'import d'une sauvegarde locale et le transfert d'invité passent après l'affichage ;
+   - `compileAsync` avant la première image là où `KHR_parallel_shader_compile` existe (vrais
+     GPU) ; le loader attend la première image dessinée ; `checkShaderErrors` seulement en
+     développement.
+3. **Interface** : `.left-stack` (expéditions au-dessus de la file, une seule colonne) ;
+   `setPanelOpen('objectives')` mémorisé ; âges futurs en petites tuiles « ??? » avec le
+   nombre de technologies à découvrir.
+4. **Intro** : 2,6 s de contemplation de la chair (caméra qui s'approche et glisse sur grand
+   écran, lumière rasante `sheen` du `FleshVeil`), puis la fonte d'avant. **Cosmos**
+   (`render/cosmos.ts`) : 5000 étoiles colorées (un `Points`), six nébuleuses, à l'infini
+   comme le ciel ; peu d'étoiles de jour, toutes la nuit ; nébuleuses coupées en qualité basse.
+5. **Comètes** : `cometPath` dans `render/space.ts` (arc de 140° à 340 unités, hauteur
+   20–46) ; queue orientée le long du vol ; flèche `CometArrow` au bord de l'écran
+   (`edgeArrow`), un toucher tourne la caméra vers elle (`lookToward`).
+6. **Chemins** posés dans le sol (ruban plat, bords irréguliers, liseré sombre, détails plats
+   par âge, carrefours en galettes) et **champs de graines** en buttes avec tiges et cosses
+   variées. Coût : +6 % de triangles, +2 appels de dessin sur la colonie de 72 h.
+
+## Reste
+
+- Mesurer le chargement sur le MacBook et un vrai téléphone (`?debug`) : ce que
+  `compileAsync` gagne avec un vrai GPU (voir `DETTE.md`).
+- De jour, le cosmos reste discret sur le ciel pastel ; à renforcer si le porteur le souhaite.
+- Les images/s au repos n'ont pas pu être mesurées sur un vrai GPU (le cosmos ajoute 7 appels
+  de dessin, les nébuleuses sont coupées en qualité basse).

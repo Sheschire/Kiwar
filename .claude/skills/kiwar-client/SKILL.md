@@ -181,7 +181,12 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   are cleared like under a building; one instanced mesh per piece kind). **Paths**:
   `render/paths.ts` — one merged segment geometry per age × 2 variants instanced per
   segment (all segments have the same length), hub per tile, `sync(paths, age, ends)` with
-  building/site keys as ends.
+  building/site keys as ends. Chantier 32: the track is a flat `ribbon` (y +0.004, wandering
+  edges, darker rim, exact width at both ends, plain on the `CROSSING` 40 % near the centre
+  where the segments of a tile overlap), flat details per age (top faces only), hubs a wobbly
+  flat patch (`hubGeometry`, vertex colours × the age's bed colour, turned per tile). Crops:
+  seed fields are `ridge` + `stalk` + `pod` pieces (the pod hangs at the stalk's top computed
+  from the same yaw × tilt quaternion).
 
 - **Chantier 34 (living kiwis and creatures)**: `render/anim/` — `pose.ts` (`Pose`: body
   bob/squash/pitch/roll/yaw/sit, head, wings raise + forward swing, legs, `prop`, `propSwing`,
@@ -290,6 +295,18 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   mode (`startGame`). `TrainingBar.tsx`; `VillageSort` (+ the six stats); sticky
   `.kiwi-nav`; `queueOpen`/`threatOpen` + `setPanelOpen` (persisted); hover zone
   (`hoverBuildingTile` → `refreshCatchment`, `setCatchment(…, faint)`); `plannedRim`.
+- **Chantier 32 (fixes and sky)**: boot milestones `game/bootTimes.ts` (`bootMark`; shown in
+  the debug panel `BootLine` and the console with `?debug`); online, `GameController.showCache`
+  displays the cached colony read-only (`previewing`: `dispatch` answers `errors.syncing`)
+  before `init`/`load`, and the guest import/transfer run after the display. The renderer
+  waits for `compileAsync` (only with `KHR_parallel_shader_compile`, ≤ 4 s) before its first
+  colony frame; `renderer.ready` gates the loader fade. Desktop bottom-left column
+  `.left-stack` (expeditions above the queue: never a hand-made offset between them).
+  `setPanelOpen('objectives' | 'queue' | 'threat')` persists the panels. Research rows of an
+  age not reached show `tech-hidden` "???" tiles (`isSecret`; the next passage stays
+  readable). Comet arrow and cosmos: see `kiwar-sky` and `kiwar-world`. Headless boot
+  measures: `vite preview` of a production build + a seeded save; the first frame is
+  dominated by software shader linking (3–4 s), not by the game.
 - **Chantier 21 (thumb layout)**: `ui/layout.ts` `THUMB_QUERY` (≤ 760 px wide, ≤ 520 px
   high, or a coarse pointer up to 1500 px) / `useThumbLayout()`; the HUD gets `.thumb` and
   `App` mounts `MobileNav.tsx` `ThumbBar` (Build → plans, Village, `EggButton inBar`,
@@ -335,7 +352,13 @@ compact`). Long sheets on touch: `FoldSection` (a `<details>` there, a plain sec
    `renderer.rig.focus(x, y, z)` + `renderer.rig.controls.dollyTo(d, false)`.
 5. Confirmations: `uiStore.setState({ modal: 'demolish', demolishId })`; the `.modal-confirm`
    class turns a modal into a bottom sheet on phones.
-6. Gestures and animations at real speed: headless frames take ~0.5 s, so pointer events
+6. A seeded colony: write a save with `pnpm --filter @kiwar/balance exec tsx src/perfSave.ts
+<out.json> 72` and inject it with `addInitScript` (`kiwar.save.v1`, `kiwar.clockOffset` =
+   savedAt − now, `kiwar.introSeen`; guard with a `sessionStorage` flag so a reload keeps the
+   game). To force a look, wrap the view's `sync` (e.g. `renderer.paths.sync` with another
+   age) — the next state update overrides a direct call. Spring: `calendarStart = now − 0.4 h`;
+   night: `now − 1.83 h`, then a `debugGrant` dispatch.
+7. Gestures and animations at real speed: headless frames take ~0.5 s, so pointer events
    arrive far apart. Stop the loop (`renderer.renderer.setAnimationLoop(null)`) and drive
    `rig.update(1/60)` from a `setInterval`, or step an animation by hand (`intro.update(1/60)`
    up to a time, then `renderer.renderer.render(intro.scene, intro.camera)`) before the shot.

@@ -10,6 +10,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 32** — la caméra **s'incline librement à tout zoom** ; après un rafraîchissement
+> en ligne, la colonie **s'affiche tout de suite** depuis le cache (lecture seule le temps de
+> la synchronisation) et le chargement se mesure avec `?debug`. La carte d'expédition ne
+> passe plus sous la file, le panneau d'objectifs garde son état et les âges futurs gardent
+> leurs technologies en « ??? ». L'intro laisse **contempler la chair coupée** avant la
+> révélation ; le ciel devient un **cosmos étoilé** avec des nébuleuses, plus dense la nuit ;
+> les **comètes** volent dans l'espace (une flèche au bord de l'écran les montre, un toucher
+> y tourne la caméra). Les **chemins** sont posés dans le sol selon l'âge et les **champs de
+> graines** poussent en rangs de tiges et de cosses.
+
 > **Chantier 34** — les kiwis **vivent sur place** : à la Bibliothèque, les chercheur·euses
 > lisent et écrivent autour du bâtiment au lieu de faire la navette les mains vides ; à
 > l'École, la classe s'assoit en demi-cercle face à l'élève le·la plus avancé·e et essaie le

@@ -13,7 +13,7 @@ d'acceptation et les **skills à charger**. La direction d'ensemble est dans le
 |     | **Acte I — Le rythme**                                                                |           |                       |
 | 30  | [Paliers, âges et réserves](30-paliers-ages-reserves.md)                              | —         | avec 32, 34           |
 | 31  | [Objectifs et menaces réveillées](31-objectifs-menaces.md)                            | 30        | avec 32, 33, 34       |
-| 32  | [Correctifs et ciel](32-correctifs-ciel.md)                                           | —         | oui (client seul)     |
+| 32  | [Correctifs et ciel](32-correctifs-ciel.md) — **fait**                                | —         | oui (client seul)     |
 | 33  | [Atelier de contenu : bâtiments par âge et icônes 3D](33-batiments-par-age-icones.md) | 30        | oui (client seul)     |
 | 34  | [Kiwis et créatures vivants](34-kiwis-creatures-vivants.md)                           | —         | oui (client seul)     |
 |     | **Acte II — La guerre des faces**                                                     |           |                       |

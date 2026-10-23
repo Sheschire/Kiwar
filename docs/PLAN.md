@@ -32,7 +32,7 @@ dans l'historique.
 |     | **Acte I — Le rythme**                               |         |
 | 30  | Paliers, âges et réserves                            | à faire |
 | 31  | Objectifs et menaces réveillées                      | à faire |
-| 32  | Correctifs et ciel (client)                          | à faire |
+| 32  | Correctifs et ciel (client)                          | fait    |
 | 33  | Bâtiments par âge et icônes 3D (client)              | à faire |
 | 34  | Kiwis et créatures vivants (client)                  | fait    |
 |     | **Acte II — La guerre des faces**                    |         |
@@ -50,8 +50,8 @@ dans l'historique.
 | 45  | Rives fertiles et canaux de jus                      | à faire |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
-**Prochaine conversation** : le chantier **30**, avec le **32** en parallèle dans une autre
-conversation si le porteur le souhaite (client seul). Ensuite viennent le 31, puis le 33 (le 34 est fait).
+**Prochaine conversation** : le chantier **30** s'il n'est pas fini, puis le 31 et le 33 (le 32
+et le 34 sont faits).
 
 ## Règles transverses à retenir
 

@@ -11,6 +11,13 @@
 
 ## Des chantiers précédents
 
+- Chantier 32 : mesures du chargement en Chromium sans GPU seulement (la compilation des
+  shaders y domine, 3–4 s) ; à mesurer sur le MacBook et un vrai téléphone avec `?debug`
+  (ligne « Chargement ») pour savoir ce que `compileAsync` gagne vraiment. Hors ligne, une
+  longue absence coûte encore son `advance` avant l'affichage (0,3 s pour 48 h sur desktop).
+  De jour, peu d'étoiles se voient sur le ciel pastel (voulu, à revoir si le porteur veut un
+  cosmos plus présent). Le carrefour des routes de l'âge industriel reste chargé.
+
 - Chantier 34 : animations vérifiées en Chromium sans GPU seulement (captures et planche
   `?kiwis`), pas encore sur un vrai téléphone ni sur le MacBook avec `?debug` ; les Kikiwiwis
   gardent leur propre modèle (`kikiwiwi.ts`, pas les extraits) ; les extraits de combat
