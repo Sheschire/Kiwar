@@ -11,16 +11,25 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import { AGE_IDS, type BuildingType } from '@kiwar/shared';
+import { AGE_IDS, LEVELS_PER_AGE, maxLevelOf, type BuildingType } from '@kiwar/shared';
 import { buildingModel } from '../render/buildingModels';
 import { Lighting } from '../render/lighting';
 import { SignsView, type SignSpot } from '../render/signs';
 
 /**
- * Chantier 17: a contact sheet of every building, levels 1 to 3, for one age
- * (`?sheet&age=0..3`), lit like the game and seen from its default camera pitch. A tool to
+ * Chantier 17: a contact sheet of every building for one age (`?sheet&age=0..3`): the three
+ * levels of that age (chantier 33: 1–3 Eden, 4–6 Stone…; the monument, the laboratory and the
+ * camp show their own levels), lit like the game and seen from its default camera pitch.
+ * `&levels=3,4` shows those levels instead (the passage from an age to the next). A tool to
  * check that each building reads at a glance; it never touches a game.
  */
+
+function levelsOf(type: BuildingType, age: number, forced: number[] | null): number[] {
+  const max = maxLevelOf(type);
+  if (forced) return forced.map((l) => Math.min(max, l));
+  if (max < 12) return [1, 2, 3].map((l) => Math.min(max, l));
+  return [1, 2, 3].map((t) => age * LEVELS_PER_AGE + t);
+}
 
 const TYPES: readonly BuildingType[] = [
   'nest',
@@ -49,6 +58,8 @@ function start(): void {
   // `&types=a,b` shows only those, bigger (close-up checks).
   const only = params.get('types')?.split(',');
   const types = only ? TYPES.filter((t) => only.includes(t)) : TYPES;
+  const forced = params.get('levels')?.split(',').map(Number) ?? null;
+  const zoom = Number(params.get('zoom') ?? 1) || 1;
   const PER_ROW = Math.min(PER_ROW_MAX, types.length);
   document.getElementById('loader')?.remove();
   const canvas = document.getElementById('scene') as HTMLCanvasElement;
@@ -80,7 +91,8 @@ function start(): void {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  const cellWidth = 3 * STEP + 0.8;
+  const count = forced?.length ?? 3;
+  const cellWidth = count * STEP + 0.8;
   const rows = Math.ceil(types.length / PER_ROW);
   const labels: { text: string; at: Vector3 }[] = [];
   const signs = new SignsView();
@@ -89,9 +101,9 @@ function start(): void {
   types.forEach((type, i) => {
     const cx = ((i % PER_ROW) - (PER_ROW - 1) / 2) * cellWidth;
     const cz = (Math.floor(i / PER_ROW) - (rows - 1) / 2) * ROW;
-    for (let level = 1; level <= 3; level++) {
+    levelsOf(type, age, forced).forEach((level, k) => {
       const model = buildingModel(type, level, false, age);
-      const x = cx + (level - 2) * STEP;
+      const x = cx + (k - (count - 1) / 2) * STEP;
       const mesh = new Mesh(model.geometry, material);
       mesh.position.set(x, 0, cz);
       mesh.castShadow = true;
@@ -103,7 +115,7 @@ function start(): void {
         part.castShadow = true;
         scene.add(part);
       }
-    }
+    });
     labels.push({ text: type, at: new Vector3(cx, 0, cz + 1.05) });
   });
 
@@ -134,7 +146,7 @@ function start(): void {
     const halfWidth = (PER_ROW * cellWidth) / 2 + 0.6;
     const halfDepth = (rows * ROW) / 2 + 1;
     const tanV = Math.tan((camera.fov * Math.PI) / 360);
-    const distance = Math.max(halfWidth / (tanV * camera.aspect), halfDepth / tanV) + 2.5;
+    const distance = (Math.max(halfWidth / (tanV * camera.aspect), halfDepth / tanV) + 2.5) / zoom;
     camera.position.set(0, Math.cos(polar) * distance, Math.sin(polar) * distance);
     camera.lookAt(0, 0, 0.6);
     camera.updateProjectionMatrix();

@@ -11,7 +11,6 @@ import {
   ico,
   m,
   MODEL_SCALE,
-  rig,
   sphere,
   type BuildingModel,
   type Part,
@@ -24,6 +23,7 @@ import { bird, launchpad } from './models/travel';
 import { lab, library, school } from './models/knowledge';
 import { seedTurret, skyTurret } from './models/defense';
 import { monument } from './models/monument';
+import { A, annex, crown, lamp, type Look } from './models/ageKit';
 
 export type { BuildingEmitter, BuildingModel, BuildingRig, RigMotion } from './models/kit';
 
@@ -32,9 +32,10 @@ export type { BuildingEmitter, BuildingModel, BuildingRig, RigMotion } from './m
  * per-age dressing, signs, night lights and the caches.
  */
 
-const BUILDERS: Record<BuildingType, (level: number, age: number) => Parts> = {
-  camp,
-  launchpad,
+/** Chantier 33: each builder is a recipe of the building's look (age, tier). */
+const BUILDERS: Record<BuildingType, (look: Look) => Parts> = {
+  camp: () => camp(),
+  launchpad: (l) => launchpad(Math.min(3, l.level), l.colonyAge, l.docked),
   nest,
   pulpery,
   fiberWorkshop,
@@ -42,27 +43,58 @@ const BUILDERS: Record<BuildingType, (level: number, age: number) => Parts> = {
   juiceWell,
   hut,
   warehouse,
-  school,
-  library,
-  monument,
-  lab,
-  seedTurret,
-  skyTurret,
+  school: (l) => school(Math.min(3, l.level)),
+  library: (l) => library(l.level),
+  monument: (l) => monument(l.level),
+  lab: (l) => lab(l.level),
+  seedTurret: (l) => seedTurret(Math.min(3, l.level)),
+  skyTurret: (l) => skyTurret(Math.min(3, l.level)),
 };
+
+/** Recipes that draw their own crown (tier 3 of the later ages) instead of the kit's. */
+const CROWNED: ReadonlySet<BuildingType> = new Set(['nest', 'hut']);
+
+/** Where the annex (tier 2) and the crown (tier 3) of the later ages stand (x, z). */
+const ANNEX_SPOTS: Partial<Record<BuildingType, [number, number]>> = {};
+const CROWN_SPOTS: Partial<Record<BuildingType, [number, number]>> = {};
+
+/**
+ * The look of a building: the age of its level (levels 1–3 Eden, 4–6 Stone…). The monument has
+ * one level per age, the laboratory belongs to the Iron age (its last level to the Industry).
+ */
+export function lookOf(type: BuildingType, level: number, colonyAge = 0, docked = true): Look {
+  const age =
+    type === 'monument'
+      ? Math.min(3, level)
+      : type === 'lab'
+        ? level >= 3
+          ? 3
+          : 2
+        : type === 'camp'
+          ? 0
+          : ageOfLevel(level);
+  const tier =
+    type === 'monument' || type === 'lab' || type === 'camp'
+      ? Math.min(3, level)
+      : ((level - 1) % LEVELS_PER_AGE) + 1;
+  return { age, tier, level, colonyAge, docked };
+}
 
 const cache = new Map<string, BufferGeometry>();
 const models = new Map<string, BuildingModel>();
 
-function partsOf(type: BuildingType, level: number, shipAway: boolean, age: number): Parts {
-  const lvl = Math.max(1, Math.min(3, level));
-  const p =
-    type === 'launchpad' && shipAway
-      ? launchpad(lvl, age, false)
-      : BUILDERS[type](type === 'library' ? level : lvl, age);
+function partsOf(type: BuildingType, level: number, shipAway: boolean, colonyAge: number): Parts {
+  const look = lookOf(type, level, colonyAge, !shipAway);
+  const p = BUILDERS[type](look);
   p.doors = p.filter((part) => part[1] === C.door && !part[3]);
   if (type !== 'camp') signPost(p, type);
-  if (level > 3) grow(p, level);
-  if (type !== 'camp' && type !== 'monument') dress(p, type, age);
+  if (level > 3 && type !== 'monument' && type !== 'lab') {
+    if (look.tier >= 2) annex(p, look.age, ...(ANNEX_SPOTS[type] ?? [-0.5, -0.5]));
+    if (look.tier >= 3 && !CROWNED.has(type))
+      crown(p, look.age, ...(CROWN_SPOTS[type] ?? [0.52, -0.48]));
+    grow(p, look);
+  }
+  if (type !== 'camp' && type !== 'monument') dress(p, type, look.age);
   return p;
 }
 
@@ -95,37 +127,16 @@ function signPost(p: Parts, type: BuildingType): void {
 }
 
 /**
- * Levels 4–12 (chantiers 08 and 30): the level-3 model, a little bigger with each age, one gold
- * stud per age above Eden and one pennant per level within the age.
+ * Levels 4–12 (chantiers 08, 30 and 33): the recipe of the age, a little bigger with each age
+ * and each tier.
  */
-function grow(p: Parts, level: number): void {
-  const age = ageOfLevel(level);
-  const rank = (level - 1) % LEVELS_PER_AGE;
-  const k = 1 + 0.08 * age + 0.02 * rank;
+function grow(p: Parts, look: Look): void {
+  const k = 1 + 0.05 * look.age + 0.015 * (look.tier - 1);
   const scale = new Matrix4().makeScale(k, k, k);
   for (const part of p) part[2] = part[2].clone().premultiply(scale);
   for (const r of p.rigs ?? []) r.pivot.multiplyScalar(k);
   for (const e of p.emitters ?? []) e.at = [e.at[0] * k, e.at[1] * k, e.at[2] * k];
   p.sign?.multiplyScalar(k);
-  for (let i = 0; i < age; i++) {
-    const a = Math.PI * 0.75 + i * 0.35;
-    p.push([
-      sphere(6, 4),
-      C.flagGold,
-      m(Math.sin(a) * 0.52, 0.06, Math.cos(a) * 0.52, 0.04, 0.04, 0.04),
-    ]);
-  }
-  // Chantier 11: a banner pole with golden pennants (one per level within the age), seen from afar.
-  const x = 0.5;
-  const z = -0.45;
-  p.push([cyl(5), C.woodDark, m(x, 0.55, z, 0.02, 1.1, 0.02)]);
-  p.push([sphere(6, 4), C.flagGold, m(x, 1.12, z, 0.035, 0.035, 0.035)]);
-  for (let i = 0; i <= rank; i++)
-    p.push([
-      cone(4),
-      C.flagGold,
-      m(x + 0.09, 1.0 - i * 0.16, z, 0.05, 0.16, 0.02, 0, 0, -Math.PI / 2),
-    ]);
 }
 
 /**
@@ -187,16 +198,9 @@ function dress(p: Parts, type: BuildingType, age: number): void {
   if (age <= 0) return;
   for (const part of p) part[1] = ageColor(part[1], age);
   const turret = type === 'seedTurret' || type === 'skyTurret';
-  p.push([cyl(6), C.stoneDark, m(0, 0.012, 0, 0.6, 0.024, 0.6)]);
-  if (age >= 2 && !turret) {
-    const x = -0.5;
-    const z = 0.38;
-    p.push([cyl(5), C.ironDark, m(x, 0.2, z, 0.018, 0.4, 0.018)]);
-    p.push([box(), C.iron, m(x, 0.42, z, 0.07, 0.07, 0.07)]);
-    rig(p, `lamp${age}`, [x, 0.42, z], { kind: 'flicker', amount: 0.15, speed: 3, ambient: true });
-    p.push([sphere(5, 4), C.fire, m(x, 0.42, z, 0.035, 0.035, 0.035), `lamp${age}`]);
-  }
-  if (age >= 3 && !turret && type !== 'nest') {
+  p.push([cyl(6), PLINTHS[age]!, m(0, 0.012, 0, 0.6, 0.024, 0.6)]);
+  if (age >= 2 && !turret && type !== 'nest') lamp(p, age, -0.5, 0.38, `lamp${age}`);
+  if (age >= 3 && !turret && !OWN_CHIMNEY.has(type)) {
     const x = -0.38;
     const z = -0.42;
     p.push([box(), C.brick, m(x, 0.3, z, 0.1, 0.6, 0.1)]);
@@ -204,6 +208,20 @@ function dress(p: Parts, type: BuildingType, age: number): void {
     emitter(p, { kind: 'smoke', at: [x, 0.66, z], rate: 0.7, ambient: true });
   }
 }
+
+/** The ground under a building, by age (dry stones, paving, a steel-edged slab). */
+const PLINTHS = ['', A.drystoneDark, C.stoneDark, '#8f918d'];
+
+/** Recipes that place their own chimney (or need none). */
+const OWN_CHIMNEY: ReadonlySet<BuildingType> = new Set([
+  'nest',
+  'hut',
+  'warehouse',
+  'pulpery',
+  'fiberWorkshop',
+  'seedQuarry',
+  'juiceWell',
+]);
 
 /**
  * Chantier 30: the reserve heaped by a warehouse (sacks, crates, a pulp mound, a seed pile, a
