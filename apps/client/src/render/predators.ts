@@ -27,6 +27,7 @@ import {
   ageOf,
 } from '@kiwar/shared';
 import { worldPosition } from './terrain';
+import { Particles } from './particles';
 import {
   CreatureRig,
   restCreaturePose,
@@ -56,6 +57,9 @@ interface Actor {
   hitAt: number;
   phase: number;
   pose: CreaturePose;
+  /** Chantier 34: the hit's stars were shown; next puff of feathers while biting. */
+  hitShown: boolean;
+  nextFx: number;
 }
 
 interface Shot {
@@ -81,6 +85,9 @@ export class PredatorShow {
   /** Chantier 34: the predators, posed by their clips. */
   private readonly creatures = new CreatureRig(MAX * 2);
   private readonly shots: InstancedMesh;
+  /** Chantier 34: impacts (stars, feathers, sparks). */
+  readonly particles = new Particles();
+  private readonly fx = new Vector3();
   /** Look of the predators: the colony's age. */
   private age = 0;
   private actors: Actor[] = [];
@@ -101,6 +108,7 @@ export class PredatorShow {
 
   constructor(private readonly map: FaceMap) {
     this.group.add(this.creatures.group);
+    this.group.add(this.particles.mesh);
     this.shots = new InstancedMesh(
       new SphereGeometry(0.06, 6, 4),
       new MeshStandardMaterial({
@@ -119,7 +127,11 @@ export class PredatorShow {
   }
 
   get playing(): boolean {
-    return this.time < SHOW_S;
+    return this.time < SHOW_S || this.particles.active;
+  }
+
+  setParticles(on: boolean): void {
+    this.particles.setEnabled(on);
   }
 
   private top(x: number, z: number): number {
@@ -187,6 +199,8 @@ export class PredatorShow {
           hitAt: stopped ? rng.range(2.2, 4.6) : Infinity,
           phase: rng.range(0, Math.PI * 2),
           pose: restCreaturePose(),
+          hitShown: false,
+          nextFx: 0,
         });
       }
     };
@@ -257,7 +271,8 @@ export class PredatorShow {
   }
 
   update(dt: number): void {
-    if (!this.playing) {
+    this.particles.update(dt);
+    if (this.time >= SHOW_S) {
       if (this.shown) {
         this.shown = false;
         this.creatures.end();
@@ -275,6 +290,16 @@ export class PredatorShow {
       const k = this.place(a, t, p, act);
       positions.push(k > 0.02 && t < a.hitAt ? p : null);
       if (k <= 0.02) continue;
+      // Chantier 34: stars where a predator is hit, feathers where one bites.
+      if (t >= a.hitAt && !a.hitShown) {
+        a.hitShown = true;
+        this.particles.effect('hit', this.fx.set(p.x, p.y + 0.25, p.z));
+      }
+      if ((act.clip === 'bite' || act.clip === 'hit' || act.clip === 'spit') && t >= a.nextFx) {
+        a.nextFx = t + 0.7;
+        const ground = a.kind === 'bat' ? this.top(p.x, p.z) + 0.2 : p.y + 0.15;
+        this.particles.effect('feathers', this.fx.set(a.to.x, ground, a.to.z), 0.6);
+      }
       // Face the direction of travel (back home when leaving).
       let heading = Math.atan2(a.to.x - a.from.x, a.to.z - a.from.z);
       if (act.back) heading += Math.PI;
@@ -310,7 +335,11 @@ export class PredatorShow {
     this.shotsLive = this.shotsLive.filter((s) => {
       s.t += dt / 0.6;
       const target = positions[s.actor];
-      if (!target || s.t >= 1) return false;
+      if (!target) return false;
+      if (s.t >= 1) {
+        this.particles.effect('sparks', this.fx.set(target.x, target.y + 0.25, target.z), 0.5);
+        return false;
+      }
       // Aim at the body, not the feet.
       this.v.copy(target);
       this.v.y += 0.25;

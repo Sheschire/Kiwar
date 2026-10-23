@@ -386,6 +386,7 @@ export class GameRenderer {
     windUniforms.uWindAmount.value = preset === 'low' ? 0 : 1;
     this.weather?.setDensity(q.particles ? 1 : 0.35);
     this.ships?.setParticles(q.particles);
+    this.predators?.setParticles(q.particles);
     this.resize();
     this.renderer.shadowMap.needsUpdate = true;
     this.fpsMeter.reset();
@@ -458,6 +459,7 @@ export class GameRenderer {
     this.scene.add(this.ships.group);
     this.predators = new PredatorShow(map);
     this.predators.onShot = (x, z) => this.onTurretShot?.(x, z);
+    this.predators.setParticles(QUALITY[this.preset].particles);
     this.scene.add(this.predators.group);
     this.water = new WaterView(map, this.lighting.sun.position);
     this.scene.add(this.water.mesh);

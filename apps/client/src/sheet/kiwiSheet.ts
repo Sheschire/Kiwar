@@ -23,6 +23,7 @@ import {
   type CreatureKind,
 } from '../render/anim/creatures';
 import { Lighting } from '../render/lighting';
+import { EFFECTS, Particles, type EffectId } from '../render/particles';
 
 /**
  * Chantier 34: the review sheet of the living kiwis (`?kiwis`): every clip of the animation
@@ -120,6 +121,27 @@ function creatureCells(rig: CreatureRig, only: string[] | null): SheetCell[] {
   return cells;
 }
 
+/** The grouped effects of `particles.ts`, replayed in a loop (fire burns on). */
+function effectCells(particles: Particles, only: string[] | null): SheetCell[] {
+  const at = new Vector3();
+  return (Object.keys(EFFECTS) as EffectId[])
+    .filter((id) => !only || only.includes(`fx ${id}`))
+    .map((id) => {
+      const every = id === 'fire' ? 0.12 : id === 'soot' ? 0.5 : 1.2;
+      let wait = 0;
+      return {
+        label: `fx ${id}`,
+        group: 'effect',
+        update(dt, _t, x, z) {
+          wait -= dt;
+          if (wait > 0) return;
+          wait += every;
+          particles.effect(id, at.set(x, id === 'fire' || id === 'soot' ? 0.05 : 0.3, z));
+        },
+      };
+    });
+}
+
 function start(): void {
   const params = new URLSearchParams(window.location.search);
   const frozen = params.has('t') ? Number(params.get('t')) : null;
@@ -155,7 +177,13 @@ function start(): void {
   const creatures = new CreatureRig(32);
   for (const m of creatures.group.children) m.castShadow = true;
   scene.add(creatures.group);
-  const cells: SheetCell[] = [...kiwiCells(rig, only), ...creatureCells(creatures, only)];
+  const particles = new Particles();
+  scene.add(particles.mesh);
+  const cells: SheetCell[] = [
+    ...kiwiCells(rig, only),
+    ...creatureCells(creatures, only),
+    ...effectCells(particles, only),
+  ];
 
   // Columns follow the screen's shape (three on a phone held upright).
   const aspect = window.innerWidth / Math.max(1, window.innerHeight);
@@ -180,7 +208,7 @@ function start(): void {
     return { el, at: new Vector3(spots[i]!.x, 0, spots[i]!.z + 0.42) };
   });
   const title = document.createElement('div');
-  title.textContent = 'Kiwis and creatures — clips';
+  title.textContent = 'Kiwis, creatures and effects';
   title.style.cssText =
     'position:fixed;z-index:5;top:8px;left:12px;font:600 20px Georgia,serif;color:#4a3324';
   document.body.append(title);
@@ -212,16 +240,20 @@ function start(): void {
   let last = performance.now();
   let time = 0;
   const frame = (now: number) => {
-    let dt = Math.min(0.1, (now - last) / 1000);
+    const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    if (frozen !== null) {
-      // Frozen: play up to the asked time once, then hold.
-      dt = time < frozen ? frozen - time : 0;
+    // Frozen: play up to the asked time in small steps (particles too), then hold.
+    const steps = frozen === null ? [dt] : [];
+    if (frozen !== null)
+      for (let t = time; t < frozen; t += 1 / 30) steps.push(Math.min(1 / 30, frozen - t));
+    if (frozen !== null && steps.length === 0) steps.push(0);
+    for (const step of steps) {
+      time += step;
+      cells.forEach((c, i) => c.update(step, time, spots[i]!.x, spots[i]!.z));
+      rig.end();
+      creatures.end();
+      particles.update(step);
     }
-    time += dt;
-    cells.forEach((c, i) => c.update(dt, time, spots[i]!.x, spots[i]!.z));
-    rig.end();
-    creatures.end();
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   };
