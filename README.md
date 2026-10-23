@@ -19,6 +19,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 > **tas** montrent les réserves à côté des entrepôts ; réserves pleines, la récolte s'arrête
 > (rien n'est perdu). Les anciennes parties gardent leurs niveaux (4/5/6 deviennent 4/7/10).
 
+> **Chantier 33** — on **reconnaît l'âge d'un bâtiment d'un coup d'œil** : au niveau 4, la
+> hutte devient une case de pierres sèches sous le chaume, au 7 une maison à colombages sous
+> les tuiles, au 10 une maison de brique au toit de tôle avec sa cheminée. Chaque bâtiment a
+> ses quatre looks (le Nid sur son socle avec ses arches, la pulperie et sa cuve de cuivre,
+> l'atelier et sa machine à vapeur…) ; dans chaque âge, le 2e niveau ajoute une annexe et le
+> 3e un couronnement (totem, girouette, mât à éclairs). Les **tourelles** sont redessinées :
+> arbalète, baliste, canon à graines puis canon double ; fronde, mortier puis trois tubes. Les
+> menus montrent les **vrais bâtiments** en petites images, et une **silhouette noire** pour
+> ce qui n'est pas encore débloqué.
+
 > **Chantier 32** — la caméra **s'incline librement à tout zoom** ; après un rafraîchissement
 > en ligne, la colonie **s'affiche tout de suite** depuis le cache (lecture seule le temps de
 > la synchronisation) et le chargement se mesure avec `?debug`. La carte d'expédition ne

@@ -1890,6 +1890,40 @@ real; corrections: Ryan et al. 2006 pages 344–360, BANGS is IJHCS 188:103289, 
 - `docs/PLAN.md` shortened; the debt of chantiers 01–24 moved to `docs/DETTE.md` to save tokens
   in every session.
 
+## Chantier 33 — Buildings by age and 3D icons (client)
+
+- **The look follows the building's level, not the colony's age.** Levels 1–3 are Eden, 4–6
+  Stone, 7–9 Iron, 10–12 Industry (`lookOf`); a level-2 hut in an Industry colony keeps its
+  Eden look — it shows what is left to upgrade. The monument has one level per age, the
+  laboratory belongs to the Iron age (its last level, which needs Nest 10, to the Industry);
+  the colony's age only picks the ship on the pad. The old dressing by the colony's age (gold
+  studs, pennant pole) is gone.
+- **A recipe of (age, tier).** Later ages keep every Eden piece in the level-3 form, redrawn in
+  the materials of the age (dry stones and thatch, half-timbering and tiles, brick, sheet metal
+  and glass — `models/ageKit.ts`), so level 4 is never poorer than level 3; tier 2 adds the
+  age's annex (a stone store, a covered cart, a steam tank), tier 3 its crown (a carved totem,
+  a weathervane, a lightning mast). The Nest (arches), the hut (an upper floor) and the turrets
+  (armour and spikes) draw their own. Each building also swaps its signature piece by age
+  (stone basin, iron harness, copper vat, steam engine, gantry, cannon…).
+- **Family colours survive the thatch**: a Stone roof is thatch mixed 55 % with the family
+  colour, with a ridge in the family colour.
+- **Eden untouched**: at age 0 every kit piece draws exactly the old primitive (checked by
+  hashing the geometry of every Eden model before and after); only the turrets (redrawn) and
+  the laboratory (dressed as Iron) changed there.
+- **Turrets**: one weapon per age shown in profile (rest heading 0.9 rad) and 25–30 % bigger,
+  so the bow or the barrel reads from the default zoom: crossbow, ballista, seed cannon,
+  twin-barrelled gun; sling, counterweighted sling, mortar, three barrels.
+- **Thumbnails** (`render/thumbnails.ts`): drawn with the game's WebGL context into an MSAA
+  render target (192 px, scaled to 96), the renderer's target, clear colour and pending shadow
+  update restored; two per frame; object URLs kept for the session; the model without its sign
+  post (`buildingPicture`). Locked = same picture, every pixel in the interface's dark ink.
+  The Plans cards show the colony's highest level of the type; every level row has its picture
+  ("???" rows in silhouette). The SVG icon remains the fallback and the sign atlas.
+- **Measured** (village of every building, software rendering, same placements, medium): Eden
+  464 ms vs 488 ms per frame before (noise), Industry 586 ms vs 561 ms (+4 %), draw calls
+  +1.5 %, triangles +16 % (models 1,400–1,650 triangles at the later ages vs 950–1,070, fewer
+  animated parts). To confirm with `?debug` on a real GPU.
+
 ## Chantier 34 — Living kiwis and creatures (client)
 
 - **Procedural clips, instanced parts.** A kiwi is drawn as instanced parts (body, head, two

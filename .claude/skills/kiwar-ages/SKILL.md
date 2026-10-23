@@ -62,11 +62,14 @@ half of chantier 08: see the `kiwar-titans` skill. Their techs (`juiceInfusion`,
   (age, next step, what it opens), `ResearchTab` (tree by age) inside `PlansModal` (chantier
   11: store `modal: 'plans'`, `plansTab: 'research'`, `BookIcon` button in `TopBar`; each
   `TechCard` lists `describeTech` before → after). `TilePanel`: Library and monument sheets, `needsAge` hint.
-- `render/buildingModels.ts`: `library`, `monument`; `partsOf` → `grow` (levels 4–6 = level 3
-  scaled + gold studs + a banner pole with one pennant per level above 3; the Library gets the real level for its laboratory) → `dress` (age
-  colours `ageColor` since chantier 17 — family hues stay, wood and walls change material —,
-  plinth, lantern, chimney). Models are cached per type:level:age;
-  `BuildingsView` rebuilds meshes when the age changes. `PathsView.sync(paths, age)`.
+- Models (chantier 33, details in `kiwar-client`): **the look follows the building's level**
+  (`lookOf`: levels 1–3 Eden, 4–6 Stone, 7–9 Iron, 10–12 Industry; tier = rank in the age);
+  recipes in `render/models/` built from `ageKit.ts` (dry stones and thatch, half-timbering
+  and tiles, brick, sheet metal and glass; tier 2 annex, tier 3 crown); `dress` recolours with
+  `ageColor` (family hues stay) by the look's age. The colony's age only picks the docked ship
+  (`buildingModel(type, level, shipAway, colonyAge)`); the Library's laboratory vat comes with
+  its Iron levels. Models are cached per type:level:colonyAge; `BuildingsView` rebuilds
+  meshes when the colony's age changes. `PathsView.sync(paths, age)`.
   `ship.ts` and the docked bird use `shipIdForAge(ageOf(state))`.
 - Events: toasts `events.researchDone` / `events.ageReached`, sounds `research.done`,
   `age.reached`, fireworks over the monument (`GameRenderer.onGameEvents`).

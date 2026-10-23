@@ -11,6 +11,15 @@
 
 ## Des chantiers précédents
 
+- Chantier 33 : looks par âge vérifiés en Chromium sans GPU (planche `?sheet`, captures) ;
+  images/s à confirmer avec `?debug` sur le MacBook et un vrai téléphone (rendu logiciel :
+  +4 % par image pour un village industriel complet). Le monument et le labo gardent leurs
+  modèles (déjà un par niveau / habillés en Fer) ; le camp de cueillette n'a qu'un look. Les
+  empreintes de 3 et 7 tuiles (chantier 35) ne sont pas encore dans les recettes : le kit pose
+  ses pièces en coordonnées d'une tuile, une recette multi-tuile devra les décaler (`under`).
+  Les enseignes 3D (`signs.ts`) restent des icônes SVG. La face d'un·e ami·e montre aussi les
+  looks par âge (ils suivent le niveau), sans les vignettes.
+
 - Chantier 32 : mesures du chargement en Chromium sans GPU seulement (la compilation des
   shaders y domine, 3–4 s) ; à mesurer sur le MacBook et un vrai téléphone avec `?debug`
   (ligne « Chargement ») pour savoir ce que `compileAsync` gagne vraiment. Hors ligne, une
@@ -53,8 +62,7 @@
   corrigée au chantier 12 : le bot ne déracinait les souches qu'avec 400 pulpe).
 - Chantier 12 : les rapports de vague ne gardent que les totaux ; le bot n'utilise toujours pas
   les chemins (le gain logistique n'est pas mesuré par l'équilibrage).
-- Chantier 17 : les niveaux 4 à 6 gardent la silhouette du niveau 3 (plus grand, fanions
-  dorés) ; la nuance de la planète alien (Kiwino pâle sous le brouillard) n'est pas retouchée ;
+- Chantier 17 : ~~les niveaux 4 à 6 gardent la silhouette du niveau 3~~ (réglé au chantier 33) ; la nuance de la planète alien (Kiwino pâle sous le brouillard) n'est pas retouchée ;
   mesures d'images/s en rendu logiciel seulement (à confirmer avec `?debug` sur un vrai GPU,
   la planète alien n'est plus dessinée au zoom par défaut depuis le chantier 24) ; les
   enseignes ne sont pas dans la face d'un·e ami·e (modèles statiques).
@@ -94,8 +102,8 @@
   ligne interroge le serveur toutes les 5 s quand un vaisseau a atterri (pas de Realtime) ; pas
   encore de colonisation ni de caravanes entre faces alliées ; le porteur doit exécuter la
   migration `20261024000000_hide_game_state.sql`.
-- Chantier 08 (1re moitié) : les niveaux 4 à 6 réutilisent le modèle du niveau 3 agrandi (avec
-  l'habillage de l'âge) ; pas encore de nouvelles unités ni d'arme à feu visible sur les
+- Chantier 08 (1re moitié) : ~~les niveaux 4 à 6 réutilisent le modèle du niveau 3 agrandi~~
+  (réglé au chantier 33) ; pas encore de nouvelles unités ni d'arme à feu visible sur les
   guerrier·ères ; l'âge d'un·e ami·e n'est pas montré sur la face jumelle ; le rapport
   d'équilibrage sur 72 h n'atteint que l'âge de pierre (sonde longue `pnpm balance:ages`).
 - Chantier 08 (2e moitié) : pas encore de colonisation (là où les Kikiwiwis serviront le plus) ;

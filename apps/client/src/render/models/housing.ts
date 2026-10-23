@@ -97,8 +97,8 @@ export function nest(look: Look): Parts {
     p.push([new TorusGeometry(0.28, 0.1, 6, 12), C.straw, m(0, 0.5 + y0, 0, 1, 1, 1, Math.PI / 2)]);
   }
   if (look.tier >= 3 && age > 0) {
-    // The crown: an arch behind the nest.
-    const z = -0.78 * s;
+    // The crown: an arch behind the nest (the Nest at the heart turns its -z to the camera).
+    const z = 0.78 * s;
     const x = 0.46 * s;
     const h = 0.95;
     if (age === 1) {

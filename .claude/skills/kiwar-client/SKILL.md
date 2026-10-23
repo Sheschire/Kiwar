@@ -31,8 +31,8 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
 - Views follow one pattern: built from the `FaceMap` in `setFace`, then `sync(state)` called on
   every state update, **cheap when nothing changed** (signature string). Instanced meshes
   everywhere (terrain, props, kiwis, paths); building models are procedural merged geometries
-  with vertex colours (`buildingModels.ts`, one `BUILDERS` entry per building type, MODEL_SCALE
-  1.3).
+  with vertex colours (`buildingModels.ts` + the families in `render/models/`, one `BUILDERS`
+  recipe per building type, MODEL_SCALE 1.3; see **Chantier 33** below).
 - **Living buildings.** A builder pushes parts `[geometry, colour, matrix, rigName?]` and
   declares rigs with `rig(p, name, pivot, motion)` (spin, swing, pump, pound, bob, breathe,
   flicker; `ambient` = moves even when idle) and particle emitters with `emitter(p, …)` (steady
@@ -76,8 +76,8 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   the shared `buildableTiles` lit by `renderer.setPlacement` (`SelectionView`), `PlacingBanner`.
   Level badges: `render/levelBadges.ts` (owned by `BuildingsView.badges`, constant screen size,
   green arrow when `upgradeLock` is null, visible below 0.6 × `frameDistance` or with
-  `showLevels` — `LevelsButton`, key L, `kiwar.levels`). Each level 2/3 of a model adds a
-  silhouette piece: keep that rule when touching `buildingModels.ts`. Visual check of levels:
+  `showLevels` — `LevelsButton`, key L, `kiwar.levels`). Each tier 2/3 of a model adds a
+  silhouette piece (chantier 33: in every age): keep that rule when touching the recipes. Visual check of levels:
   push copies of the Nest with another `type`/`level`/`q`/`r` into `controller.state.buildings`,
   then dispatch a `debugGrant` to resync (no need to build them).
 - Chantier 06 (`kiwar-threats`): `meteors.ts` (shooting star, craters), `predators.ts` (wave
@@ -216,9 +216,8 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   object is replaced) and step `renderer.kiwis.update(0.1, …)` a few hundred times so the
   kiwis reach their places before the shot.
 
-- **Chantier 30 (levels 1–12, reserves)**: `grow` (buildingModels.ts) scales by the age of
-  the level and adds one pennant per level within the age (studs = age); level badges ring in
-  the age's colour (`AGE_RINGS`) and shrink the font for two digits. Warehouse heaps:
+- **Chantier 30 (levels 1–12, reserves)**: level badges ring in the age's colour
+  (`AGE_RINGS`) and shrink the font for two digits (the model of a level: chantier 33). Warehouse heaps:
   `reserveHeapGeometry(1|2|3)` added as a `heap` child of the warehouse group
   (`BuildingsView.syncHeaps`, size from the reserve fill); `renderer.showCollected` floats
   "+1 250" (`DropLabels`, never picked) and wakes the loop. `actions.collect(id | null)`
@@ -382,3 +381,36 @@ compact`). Long sheets on touch: `FoldSection` (a `<details>` there, a plain sec
 
 - Chantier 19: the Siege screen (`SiegeModal`, `SiegeParts`, `SiegeShow`, `CounterBadge`,
   `uiStore.siegePlan` / `siegeShow`, `actions.planSiege`) — see `kiwar-colonies`.
+
+- **Chantier 33 (buildings by age, 3D thumbnails)**: models live in `render/models/` —
+  `kit.ts` (palette `C`, `Part`/`Parts`, `rig`, `emitter`, primitives, `bake`), `ageKit.ts`
+  (the `Look` {age, tier, level, colonyAge, docked}, materials `A` of the later ages, pieces
+  `wall`, `round`, `gable` (the lean-to prism: ridge at the back at y + 0.87a, eave at z + d),
+  `cap`, `door` (always a `C.door` leaf: night lights), `chimney`, `pipe`, `lamp`, `banner`,
+  `annex`, `crown`; helpers `byAge`, `frameColor`, `mix`, `shade`, `beam` (box or cylinder
+  between two points, optionally in a rig), `under` (moves the parts a draw adds; `rigs` true
+  only for a turn/scale that keeps the pivots)), then one file per family. **A recipe is
+  `(look) => Parts`**; `lookOf(type, level)` gives the age of the level (monument: its level,
+  lab: Iron then Industry, camp: Eden). At age 0 every piece draws exactly the old primitive;
+  later ages use `const level = age > 0 ? 3 : look.tier` for the Eden pieces (never poorer
+  than level 3), and `partsOf` adds the kit's `annex` (tier 2) and `crown` (tier 3) at
+  `ANNEX_SPOTS` / `CROWN_SPOTS` unless the type is in `OWN_ANNEX` / `CROWNED`; `grow` scales
+  levels 4–12 (1 + 0.05 age + 0.015 (tier − 1)); `dress` recolours by `ageColor` (look age),
+  lays the plinth (`PLINTHS`) and the Iron lamp, and a chimney only for types not in
+  `OWN_CHIMNEY`. A new building: a recipe from the kit, its sign spot, then check it with
+  `?sheet&age=N[&levels=3,4][&types=a,b][&zoom=2]` (the levels of an age, a passage, a
+  close-up). Turrets: the weapon is authored along +z then turned by `AIM` (profile) inside
+  `under(…, true)`. **Thumbnails**: `render/thumbnails.ts` (`setThumbnailRenderer` from
+  `startGame`; `thumbnailUrl(key)` queues and returns null until drawn; `onThumbnail`
+  listeners; drawn with the game's context into an MSAA target, state restored, object URLs,
+  two per frame; `buildingPicture` = the model without its sign post; locked = silhouette in
+  the dark ink) and `ui/components/BuildingThumb.tsx` (`type`, `level`, `locked`, `size`; the
+  SVG icon while drawing), used in `BuildingTree` (cards, level rows, placing banner),
+  `TilePanel` (sheet header, build options) and `QueuePanel`. Headless Chromium draws ~1
+  frame/s: allow 20–40 s for a screen of thumbnails. In-game check of every building at an
+  age: push copies of the Nest at `age × 3 + tier` on free `buildableTiles` (≥ 2 apart), set
+  the monument's level to the age, dispatch a `debugGrant`; keep the **low** preset for a full
+  village (medium jams the software renderer for > 30 s per frame). Geometry checks without a
+  browser: tsx imports `render/buildingModels.ts` in Node (hash the position and colour arrays
+  to prove a refactor changes nothing); `test/buildingModels.test.ts` checks every model, the
+  look of a level, new materials at each age and more pieces with the tiers.

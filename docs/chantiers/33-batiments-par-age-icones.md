@@ -5,6 +5,31 @@ Acte I « Le rythme » du [carnet de route](../CARNET_DE_ROUTE.md). **Client seu
 
 **Skills à charger** : `kiwar-client`, `kiwar-ages` (habillage par âge).
 
+## Fait (octobre 2026)
+
+- **Familles et kit** : `render/models/` (`kit.ts`, `ageKit.ts`, `housing.ts`, `production.ts`,
+  `storage.ts`, `knowledge.ts`, `defense.ts`, `travel.ts`, `monument.ts`) ;
+  `buildingModels.ts` garde les entrées publiques, l'habillage, les enseignes et les lumières.
+- **Le look suit le niveau du bâtiment** (`lookOf` : âge du niveau, palier 1–3), pas l'âge de
+  la colonie (qui ne choisit plus que l'oiseau du vaisseau). Les âges suivants gardent toutes
+  les pièces de l'Éden (forme du niveau 3) refaites dans leurs matériaux ; le palier 2 ajoute
+  l'annexe de l'âge, le palier 3 son couronnement. Les quatre looks pour le Nid, la pulperie,
+  l'atelier à fibre, le puits, la carrière, la hutte, l'entrepôt, la Bibliothèque, l'École et
+  l'aire d'envol ; le monument garde un modèle par niveau (= par âge), le labo est habillé en
+  Fer.
+- **Tourelles redessinées** : une arme par âge, de profil, plus grande (arbalète, baliste,
+  canon à graines, canon double ; fronde, fronde à contrepoids, mortier, trois tubes).
+- **Vignettes 3D** (`render/thumbnails.ts`, `BuildingThumb`) dans les Plans (cartes et lignes
+  de niveaux), la bannière de placement, les options de construction, la fiche et la file ;
+  silhouette noire pour ce qui est verrouillé ou caché.
+- **Planche** : `?sheet&age=N` montre les trois niveaux de l'âge, `&levels=3,4` un passage,
+  `&zoom=`.
+- **Mesures** (rendu logiciel, village complet) : Éden inchangé, Industrie +4 % par image,
+  +1,5 % d'appels de dessin (détail dans `DECISIONS.md`).
+
+**Reste** (dans `DETTE.md`) : confirmer les images/s sur un vrai GPU ; empreintes 3 et 7
+tuiles pour le chantier 35 ; enseignes toujours en SVG.
+
 ## Intention du porteur
 
 - « Peu d'amélioration visuelle sur les bâtiments au niveau 4 (par exemple le nid). Visuellement

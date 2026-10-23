@@ -33,7 +33,7 @@ dans l'historique.
 | 30  | Paliers, âges et réserves                            | fait    |
 | 31  | Objectifs et menaces réveillées                      | à faire |
 | 32  | Correctifs et ciel (client)                          | fait    |
-| 33  | Bâtiments par âge et icônes 3D (client)              | à faire |
+| 33  | Bâtiments par âge et icônes 3D (client)              | fait    |
 | 34  | Kiwis et créatures vivants (client)                  | fait    |
 |     | **Acte II — La guerre des faces**                    |         |
 | 35  | Bâtiments sur plusieurs tuiles                       | à faire |
@@ -50,8 +50,8 @@ dans l'historique.
 | 45  | Rives fertiles et canaux de jus                      | à faire |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
-**Prochaine conversation** : le chantier **31** (objectifs et menaces), avec le **33** en
-parallèle si le porteur le souhaite (client seul). Le 30 a laissé deux points au 31 : le
+**Prochaine conversation** : le chantier **31** (objectifs et menaces) s'il n'est pas fini ;
+le **33** est fait (puis le **35**, bâtiments sur plusieurs tuiles, qui part de son kit). Le 30 a laissé deux points au 31 : le
 pillage des réserves (elles ne sont pas encore pillées) et le temps mort du début de la Pierre
 (~80–110 min mesurés par le bot, cible ~45 min : les objectifs et les vagues doivent le remplir).
 
@@ -69,6 +69,11 @@ pillage des réserves (elles ne sont pas encore pillées) et le temps mort du d�
 - **Kiwis et créatures** (chantier 34) : poses, extraits et accessoires dans `render/anim/`,
   effets groupés dans `particles.ts` (`EFFECTS`) ; tout se vérifie sur la planche `?kiwis`
   (skill `kiwar-client`). Le moteur de bataille (36) part de là.
+- **Bâtiments par âge** (chantier 33) : le look suit le **niveau** du bâtiment (`lookOf` : âge
+  du niveau, palier 1–3). Un nouveau bâtiment est une recette `(look) => Parts` faite des pièces
+  de `render/models/ageKit.ts` (murs, toits, portes, cheminées… dans les matériaux de l'âge) ;
+  il se vérifie sur la planche `?sheet&age=N` (ou `&levels=3,4`) et reçoit sa vignette 3D
+  (`BuildingThumb`) sans rien ajouter (skill `kiwar-client`).
 - **Niveaux et réserves** (chantier 30) : niveaux 1–12, trois par âge ; toute table indexée par
   le niveau du Nid ou d'un bâtiment a 13 cases (skill `kiwar-sim`). Les réserves d'entrepôt ne se
   rapatrient **que** par le joueur (`collect`, `collectAll`), jamais par l'automatisation.
