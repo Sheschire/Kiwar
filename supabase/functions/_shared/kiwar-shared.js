@@ -2210,6 +2210,8 @@ var METEORS = {
    * places, filled by the kiwis with the most Dexterity.
    */
   slots: 3,
+  /** Chantier 38: the automation sends at most this share of the colony to the craters. */
+  autoShare: 0.25,
   /** Harvest per hour of one average kiwi at a crater (a level-1 workplace's rate). */
   rates: { pulp: 750, fiber: 600, seeds: 190, juice: 450 },
   /** Meteorite drill (technology `meteorDrill`): harvest multiplier by age (index = age). */
@@ -2619,6 +2621,26 @@ var FUEL = {
 var STARDUST_SCALE = 100 * STARDUST.pickMs;
 function dustPoints(raw) {
   return Math.floor(raw / STARDUST_SCALE + 1e-9);
+}
+
+// packages/shared/src/data/iron.ts
+var IRON = {
+  /** Stock cap (units) by Nest level (index 0–12). */
+  cap: [20, 20, 30, 40, 60, 90, 120, 160, 220, 300, 400, 500, 600],
+  /** Iron in a crater (units), × `METEORS.ageFactor` and the `starIron` technology. */
+  crater: 12,
+  /** An average kiwi digs this many units per hour (× the crater's usual multipliers). */
+  perHour: 0.2,
+  /** Share of the old meteorite stock (seeds, juice or fiber) a crater still gives. */
+  resourceShare: 0.2,
+  /** A smashed wreck gives this many units (× `METEORS.ageFactor`). */
+  wreck: 3,
+  /** Anti-blocking guarantee: never longer than this without a fall. */
+  guaranteeMs: ms.h(72)
+};
+var IRON_SCALE = 1e3 * 36e5;
+function ironUnits(raw) {
+  return Math.floor(raw / IRON_SCALE + 1e-9);
 }
 
 // packages/shared/src/data/jobs.ts
@@ -5236,6 +5258,21 @@ function incident(s, at, events) {
   events.push({ type: "incident", ...report });
 }
 
+// packages/shared/src/sim/iron.ts
+function ironCap(state) {
+  const c = IRON.cap;
+  return (c[Math.min(nest(state).level, c.length - 1)] ?? 0) * IRON_SCALE;
+}
+function meteorIronOf(state) {
+  return ironUnits(state.meteorIron);
+}
+function addIron(s, units) {
+  const room = Math.max(0, ironCap(s) - s.meteorIron);
+  const got = Math.min(units * IRON_SCALE, room);
+  s.meteorIron += got;
+  return ironUnits(got);
+}
+
 // packages/shared/src/sim/obstacles.ts
 function obstacleId(kind, q, r) {
   return `${kind}:${q},${r}`;
@@ -5282,7 +5319,15 @@ function leaveWreck(s, m, at, events) {
     const v = OBSTACLES.wreck.loot[id3];
     if (v) loot[id3] = Math.round(v * k);
   }
-  s.obstacles.push({ id: obstacleId("wreck", m.q, m.r), kind: "wreck", q: m.q, r: m.r, loot });
+  const iron = Math.round(IRON.wreck * k);
+  s.obstacles.push({
+    id: obstacleId("wreck", m.q, m.r),
+    kind: "wreck",
+    q: m.q,
+    r: m.r,
+    loot,
+    iron
+  });
   s.paths = s.paths.filter((p) => p !== hexKey(m));
   events.push({ type: "wreckLeft", at, q: m.q, r: m.r });
 }
@@ -5298,7 +5343,17 @@ function removeObstacle(s, o, at, events, by) {
     s.resources[id3] += got;
     if (got > 0) loot[id3] = got;
   }
-  events.push({ type: "obstacleCleared", at, q: o.q, r: o.r, kind: o.kind, loot, by });
+  const iron = o.iron ? addIron(s, o.iron) : 0;
+  events.push({
+    type: "obstacleCleared",
+    at,
+    q: o.q,
+    r: o.r,
+    kind: o.kind,
+    loot,
+    by,
+    ...iron > 0 ? { iron } : {}
+  });
 }
 
 // packages/shared/src/sim/sky.ts
@@ -5311,6 +5366,41 @@ function meteorStock(state, at) {
   const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY2));
   const tech = techEffects(state).meteorStock;
   return Math.round(METEORS.stock * factor * age * tech * (1 + METEORS.perDay * days));
+}
+function craterIron(state) {
+  const age = METEORS.ageFactor[ageOf(state)] ?? 1;
+  return Math.round(IRON.crater * age * techEffects(state).meteorStock) * IRON_SCALE;
+}
+function meteorIronRate(state, m) {
+  if (m.iron <= 0 || state.meteorIron >= ironCap(state)) return 0;
+  const miners = minersOf(state, m.id);
+  if (miners.length === 0) return 0;
+  const work = crewWork(state, miners, m.resource);
+  if (work <= 0) return 0;
+  const map = faceMapOf(state);
+  const f = work * logisticsEfficiency(depotDistance(state, map, m)) * cycleHarvest(state, m.resource) * drillFactor(state);
+  if (f <= 0) return 0;
+  return Math.max(1, Math.round(1e3 * IRON.perHour * f));
+}
+function meteorIronPerHour(state) {
+  let rate = 0;
+  for (const m of state.sky.meteors) rate += meteorIronRate(state, m);
+  return rate * 36e5 / IRON_SCALE;
+}
+function craterWorth(state, m, cap = capacity(state)) {
+  if (m.iron > 0 && state.meteorIron < ironCap(state)) return true;
+  return m.stock > EPS && state.resources[m.resource] < cap[m.resource] - EPS;
+}
+function accrueIron(s, rates, dtMs, at, events) {
+  const cap = ironCap(s);
+  const before = s.meteorIron;
+  for (const { m, rate } of rates) {
+    const take = Math.min(rate * dtMs, m.iron, cap - s.meteorIron);
+    if (take <= 0) continue;
+    m.iron -= take;
+    s.meteorIron += take;
+  }
+  if (before < cap && s.meteorIron >= cap) events.push({ type: "ironFull", at });
 }
 function minersOf(state, meteorId) {
   return state.villagers.filter((v) => v.job.kind === "meteor" && v.job.meteorId === meteorId);
@@ -5352,7 +5442,18 @@ function nextSkyEvent(state) {
   const sky = state.sky;
   let next = Infinity;
   if (sky.next) next = sky.next.announced ? sky.next.at : sky.next.announceAt;
-  for (const m of sky.meteors) next = Math.min(next, m.expiresAt);
+  let total = 0;
+  for (const m of sky.meteors) {
+    next = Math.min(next, m.expiresAt);
+    const rate = meteorIronRate(state, m);
+    if (rate <= 0) continue;
+    total += rate;
+    next = Math.min(next, state.now + Math.max(1, Math.ceil(m.iron / rate)));
+  }
+  if (total > 0) {
+    const room = ironCap(state) - state.meteorIron;
+    next = Math.min(next, state.now + Math.max(1, Math.ceil(room / total)));
+  }
   return next;
 }
 function planMeteor(s) {
@@ -5370,7 +5471,8 @@ function planMeteor(s) {
       q: 0,
       r: 0,
       resource: "seeds",
-      stock: 0
+      stock: 0,
+      iron: 0
     };
   });
 }
@@ -5386,9 +5488,11 @@ function skyTick(s, at, events) {
         ...sky.meteors.map((m) => hexKey(m)),
         ...s.obstacles.map((o) => hexKey(o))
       ]);
-      const free = map.tiles.filter(
-        (t) => METEORS.tiles.includes(t.type) && t.rho >= 0.25 && t.rho <= 0.92 && !taken.has(hexKey(t)) && !isFlooded(t, s.params.biome, season)
+      const open = map.tiles.filter(
+        (t) => t.rho >= 0.25 && t.rho <= 0.92 && !taken.has(hexKey(t)) && !isFlooded(t, s.params.biome, season)
       );
+      const preferred = open.filter((t) => METEORS.tiles.includes(t.type));
+      const free = preferred.length > 0 ? preferred : open.filter((t) => t.type !== "heart");
       const weights = Object.entries(METEORS.resources);
       let roll = rng.next() * weights.reduce((sum, [, w]) => sum + w, 0);
       let resource = weights[0][0];
@@ -5410,7 +5514,8 @@ function skyTick(s, at, events) {
     next.q = spot.tile.q;
     next.r = spot.tile.r;
     next.resource = spot.resource;
-    next.stock = meteorStock(s, next.at);
+    next.stock = Math.round(meteorStock(s, next.at) * IRON.resourceShare);
+    next.iron = craterIron(s);
     events.push({
       type: "meteorAnnounced",
       at,
@@ -5432,6 +5537,8 @@ function skyTick(s, at, events) {
       resource: next.resource,
       stock: next.stock,
       max: next.stock,
+      iron: next.iron,
+      ironMax: next.iron,
       landedAt: at,
       expiresAt: at + METEORS.lifeMs
     });
@@ -5444,7 +5551,8 @@ function skyTick(s, at, events) {
       q: next.q,
       r: next.r,
       resource: next.resource,
-      stock: next.stock
+      stock: next.stock,
+      iron: ironUnits(next.iron)
     });
   }
   for (const m of sky.meteors) {
@@ -6150,7 +6258,7 @@ function advanceInPlace(s, now, events) {
       const e = events[i];
       if (e.type === "storageFull") filled.add(e.resource);
     }
-    if (filled.size > 0) releaseFullCraters(s, filled);
+    if (filled.size > 0) releaseFullCraters(s);
     if (s.automation.redirect) {
       if (constructionEnd === nextEvent) redirectFull(s, nextEvent, events);
       else if (filled.size > 0) redirectFull(s, nextEvent, events, filled);
@@ -6197,6 +6305,11 @@ function computeFlows(s) {
     production[m.resource] += rate;
     harvested[m.resource] += rate;
     picked.push({ m, rate });
+  }
+  const iron = [];
+  for (const m of s.sky.meteors) {
+    const rate = meteorIronRate(s, m);
+    if (rate > 0) iron.push({ m, rate });
   }
   const full = storageFullCheck(s, production);
   const eaten = consumption(s);
@@ -6264,6 +6377,7 @@ function computeFlows(s) {
     rates,
     pools,
     meteors,
+    iron,
     hunger,
     nextChange: next,
     hungerAt: nextHungerEvent(s, hunger)
@@ -6316,6 +6430,7 @@ function accrue(s, flows, dtMs, at, events) {
     s.hunger = Math.min(hungerCap(s), Math.max(0, s.hunger + flows.hunger * dtMs));
   accrueResearch(s, dtMs);
   accrueStardust(s, dtMs);
+  accrueIron(s, flows.iron, dtMs, at, events);
   accrueKiwis(s, dtMs, at, events);
 }
 function pourReserve(s, id3, amount) {
@@ -6633,35 +6748,32 @@ function forgetLent(state) {
   }
 }
 function fillCraters(state) {
-  const done = [];
-  for (const v of state.villagers) {
-    if (v.job.kind !== "meteor") continue;
-    const id3 = v.job.meteorId;
-    const m = state.sky.meteors.find((x) => x.id === id3);
-    if (!m || m.stock <= 0) done.push([v, v.job.returnTo]);
-  }
-  sendBackAll(state, done);
-  if (!state.automation.meteor) return;
   const cap = capacity(state);
+  releaseCraters(state, cap);
+  if (!state.automation.meteor) return;
+  let budget = Math.floor(state.villagers.length * METEORS.autoShare) - state.villagers.filter((v) => v.job.kind === "meteor").length;
   for (const m of state.sky.meteors) {
-    if (m.stock <= 0 || state.resources[m.resource] >= cap[m.resource] - 1e-6) continue;
+    if (!craterWorth(state, m, cap)) continue;
     let free = METEORS.slots - minersOf(state, m.id).length;
-    while (free-- > 0) {
+    while (free-- > 0 && budget-- > 0) {
       const v = bestFor(state, "pick", (x) => workerPower(x, m.resource));
       if (!v) return;
       v.job = { kind: "meteor", meteorId: m.id, returnTo: borrow(v) };
     }
   }
 }
-function releaseFullCraters(state, filled) {
+function releaseCraters(state, cap = capacity(state)) {
   const done = [];
   for (const v of state.villagers) {
     if (v.job.kind !== "meteor") continue;
     const id3 = v.job.meteorId;
     const m = state.sky.meteors.find((x) => x.id === id3);
-    if (m && filled.has(m.resource)) done.push([v, v.job.returnTo]);
+    if (!m || !craterWorth(state, m, cap)) done.push([v, v.job.returnTo]);
   }
   sendBackAll(state, done);
+}
+function releaseFullCraters(state) {
+  releaseCraters(state);
 }
 function fillStardust(state) {
   if (!state.automation.stardust || state.stardust >= STARDUST_CAP) return;
@@ -6781,7 +6893,9 @@ function taskNeeds(state) {
   return {
     build: waitingForBuilder(state).length,
     research: state.research.current && libraries2.length > 0 && libraries2.every((b) => workersOf(state, b.id).length === 0) ? 1 : 0,
-    meteor: state.sky.meteors.filter((m) => m.stock > 0 && minersOf(state, m.id).length === 0).length,
+    meteor: state.sky.meteors.filter(
+      (m) => craterWorth(state, m) && minersOf(state, m.id).length === 0
+    ).length,
     stardust: state.stardust >= STARDUST_CAP ? 0 : state.comets.patches.filter((p) => p.stock > 0 && dustPickers(state, p.id).length === 0).length,
     repair: state.buildings.filter((b) => b.damaged && !pendingUpgrade(state, b.id)).length,
     garrison: soon && !state.villagers.some((v) => v.job.kind === "guard") ? 1 : 0,
@@ -9766,7 +9880,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 30;
+var SCHEMA_VERSION = 31;
 var MISSION_KINDS = [
   "raid",
   "recon",
@@ -9843,6 +9957,7 @@ function newGame(opts) {
     sky: newSky(opts.now),
     comets: newComets(opts.now),
     stardust: 0,
+    meteorIron: 0,
     research: { points: 0, current: null, done: [], outbox: 0 },
     automation: defaultAutomation(),
     siege: newSiege(),
@@ -9927,7 +10042,8 @@ function newSky(now) {
       q: 0,
       r: 0,
       resource: "seeds",
-      stock: 0
+      stock: 0,
+      iron: 0
     },
     lastFallAt: 0,
     falls: 0,
@@ -15829,7 +15945,8 @@ var gameStateSchema = external_exports.object({
       kind: external_exports.enum(OBSTACLE_KINDS),
       q: external_exports.number().int(),
       r: external_exports.number().int(),
-      loot: partialResources
+      loot: partialResources,
+      iron: external_exports.number().int().min(0).optional()
     })
   ).max(64),
   terraform: external_exports.record(external_exports.string().max(16), external_exports.enum(TERRAFORM_KINDS)),
@@ -15843,7 +15960,8 @@ var gameStateSchema = external_exports.object({
       q: external_exports.number().int(),
       r: external_exports.number().int(),
       resource: external_exports.enum(RESOURCE_IDS),
-      stock: external_exports.number().min(0)
+      stock: external_exports.number().min(0),
+      iron: external_exports.number().int().min(0)
     }).nullable(),
     lastFallAt: external_exports.number().min(0),
     falls: external_exports.number().int().min(0),
@@ -15855,6 +15973,8 @@ var gameStateSchema = external_exports.object({
         resource: external_exports.enum(RESOURCE_IDS),
         stock: external_exports.number().min(0),
         max: external_exports.number().min(0),
+        iron: external_exports.number().int().min(0),
+        ironMax: external_exports.number().int().min(0),
         landedAt: external_exports.number(),
         expiresAt: external_exports.number()
       })
@@ -15877,6 +15997,7 @@ var gameStateSchema = external_exports.object({
     ).max(COMETS.tiles[1] * 2)
   }),
   stardust: external_exports.number().int().min(0).max(STARDUST.cap * STARDUST_SCALE),
+  meteorIron: external_exports.number().int().min(0).max(Math.max(...IRON.cap) * IRON_SCALE),
   research: external_exports.object({
     points: external_exports.number().int().min(0),
     current: external_exports.enum(TECH_IDS).nullable(),
@@ -16049,7 +16170,23 @@ var MIGRATIONS = {
   29: (raw) => ({
     ...raw,
     villagers: (Array.isArray(raw.villagers) ? raw.villagers : []).map((v) => ({ ...v, classXp: 0 }))
-  })
+  }),
+  // v30 → v31 (chantier 38): meteoric iron. Craters already on the ground keep their old gift.
+  30: (raw) => {
+    const sky = raw.sky ?? {};
+    const next = sky.next;
+    return {
+      ...raw,
+      meteorIron: 0,
+      sky: {
+        ...sky,
+        next: next ? { ...next, iron: 0 } : null,
+        meteors: (Array.isArray(sky.meteors) ? sky.meteors : []).map(
+          (m) => ({ ...m, iron: 0, ironMax: 0 })
+        )
+      }
+    };
+  }
 };
 function spreadOldBuildings(state) {
   const map = faceMapOf(state);
@@ -16638,6 +16775,12 @@ function plausibleStardust(state) {
   if (c.next && c.next.at < state.createdAt + COMETS.firstMs) return false;
   return c.patches.every((p) => p.stock <= p.max && p.max <= richest);
 }
+function plausibleIron(state) {
+  if (state.meteorIron > ironCap(state)) return false;
+  const richest = Math.max(...METEORS.ageFactor) * IRON.crater * 1.5 * IRON_SCALE;
+  if (state.meteorIron > 0 && state.sky.falls === 0) return false;
+  return state.sky.meteors.every((m) => m.iron <= m.ironMax && m.ironMax <= richest);
+}
 function isPlausible(state, now) {
   if (state.now > now + 6e4 || state.createdAt > state.now) return false;
   if (state.calendarStart !== calendarStartFor(state.createdAt)) return false;
@@ -16655,6 +16798,7 @@ function isPlausible(state, now) {
     if (!Number.isFinite(v) || v < 0 || v > cap[id3] + rewards) return false;
   }
   if (!plausibleStardust(state)) return false;
+  if (!plausibleIron(state)) return false;
   if (state.buildings.filter((b) => b.type === "nest").length !== 1) return false;
   const n = nest(state);
   if (n.q !== 0 || n.r !== 0) return false;
@@ -17280,6 +17424,8 @@ export {
   INCIDENTS,
   INCIDENT_KINDS,
   INTEL,
+  IRON,
+  IRON_SCALE,
   JOBS,
   KIKIWIWI,
   KIWI,
@@ -17364,10 +17510,12 @@ export {
   WEAPON_IDS,
   XP_SCALE,
   YEAR_MS,
+  accrueIron,
   accrueKiwis,
   accrueResearch,
   accrueStardust,
   activeItem,
+  addIron,
   addVillager,
   advance,
   advanceInPlace,
@@ -17476,6 +17624,8 @@ export {
   coveredKeys,
   coveredRampart,
   crampedBlockers,
+  craterIron,
+  craterWorth,
   createMemoryRepository,
   createRng,
   crewMembers,
@@ -17600,6 +17750,8 @@ export {
   infusionRisk,
   intelView,
   inviteCode,
+  ironCap,
+  ironUnits,
   isDepot,
   isFace,
   isFlooded,
@@ -17662,6 +17814,9 @@ export {
   mayorOf,
   mergeSiegeIntel,
   meteorAt,
+  meteorIronOf,
+  meteorIronPerHour,
+  meteorIronRate,
   meteorRate,
   meteorStock,
   migrateState,

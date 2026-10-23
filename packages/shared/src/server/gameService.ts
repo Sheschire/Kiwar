@@ -1,4 +1,6 @@
 import { COMETS, STARDUST_SCALE } from '../data/comets';
+import { IRON, IRON_SCALE } from '../data/iron';
+import { ironCap } from '../sim/iron';
 import type { HexKey } from '../hex/hex';
 import { faceMapOf } from '../sim/territory';
 import { TITAN } from '../data/titan';
@@ -559,6 +561,14 @@ function plausibleStardust(state: GameState): boolean {
   return c.patches.every((p) => p.stock <= p.max && p.max <= richest);
 }
 
+/** Chantier 38: meteoric iron within its cap, craters holding no more than they could. */
+function plausibleIron(state: GameState): boolean {
+  if (state.meteorIron > ironCap(state)) return false;
+  const richest = Math.max(...METEORS.ageFactor) * IRON.crater * 1.5 * IRON_SCALE;
+  if (state.meteorIron > 0 && state.sky.falls === 0) return false;
+  return state.sky.meteors.every((m) => m.iron <= m.ironMax && m.ironMax <= richest);
+}
+
 export function isPlausible(state: GameState, now: number): boolean {
   if (state.now > now + 60_000 || state.createdAt > state.now) return false;
   // Solo games follow their own calendar (no skipping winter).
@@ -580,6 +590,7 @@ export function isPlausible(state: GameState, now: number): boolean {
     if (!Number.isFinite(v) || v < 0 || v > cap[id] + rewards) return false;
   }
   if (!plausibleStardust(state)) return false;
+  if (!plausibleIron(state)) return false;
   if (state.buildings.filter((b) => b.type === 'nest').length !== 1) return false;
   const n = nest(state);
   if (n.q !== 0 || n.r !== 0) return false;

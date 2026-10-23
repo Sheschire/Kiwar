@@ -20,6 +20,7 @@ import { INCIDENT_KINDS, INCIDENTS, METEORS, SECTOR_IDS, THREATS } from '../data
 import { BATTLE, ENEMY_KINDS, POSTURES } from '../data/units';
 import { RESOURCE_IDS } from '../data/resources';
 import { BLESSINGS, COMETS, STARDUST, STARDUST_SCALE } from '../data/comets';
+import { IRON, IRON_SCALE } from '../data/iron';
 import { INTEL } from '../data/expeditions';
 import { SIEGE } from '../data/siege';
 import type { Face } from '../types/ids';
@@ -460,6 +461,7 @@ export const gameStateSchema = z.object({
         q: z.number().int(),
         r: z.number().int(),
         loot: partialResources,
+        iron: z.number().int().min(0).optional(),
       }),
     )
     .max(64),
@@ -476,6 +478,7 @@ export const gameStateSchema = z.object({
         r: z.number().int(),
         resource: z.enum(RESOURCE_IDS),
         stock: z.number().min(0),
+        iron: z.number().int().min(0),
       })
       .nullable(),
     lastFallAt: z.number().min(0),
@@ -489,6 +492,8 @@ export const gameStateSchema = z.object({
           resource: z.enum(RESOURCE_IDS),
           stock: z.number().min(0),
           max: z.number().min(0),
+          iron: z.number().int().min(0),
+          ironMax: z.number().int().min(0),
           landedAt: z.number(),
           expiresAt: z.number(),
         }),
@@ -520,6 +525,11 @@ export const gameStateSchema = z.object({
     .int()
     .min(0)
     .max(STARDUST.cap * STARDUST_SCALE),
+  meteorIron: z
+    .number()
+    .int()
+    .min(0)
+    .max(Math.max(...IRON.cap) * IRON_SCALE),
   research: z.object({
     points: z.number().int().min(0),
     current: z.enum(TECH_IDS).nullable(),
@@ -726,6 +736,22 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
       : []
     ).map((v) => ({ ...v, classXp: 0 })),
   }),
+  // v30 → v31 (chantier 38): meteoric iron. Craters already on the ground keep their old gift.
+  30: (raw) => {
+    const sky = (raw.sky ?? {}) as Record<string, unknown>;
+    const next = sky.next as Record<string, unknown> | null | undefined;
+    return {
+      ...raw,
+      meteorIron: 0,
+      sky: {
+        ...sky,
+        next: next ? { ...next, iron: 0 } : null,
+        meteors: (Array.isArray(sky.meteors) ? (sky.meteors as Record<string, unknown>[]) : []).map(
+          (m) => ({ ...m, iron: 0, ironMax: 0 }),
+        ),
+      },
+    };
+  },
 };
 
 /**

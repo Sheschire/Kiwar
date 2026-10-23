@@ -34,7 +34,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 30;
+export const SCHEMA_VERSION = 31;
 
 export type Job =
   | { kind: 'idle' }
@@ -549,6 +549,9 @@ export interface Meteor {
   resource: ResourceId;
   stock: number;
   max: number;
+  /** Chantier 38: meteoric iron left and at the impact, in raw units (`IRON_SCALE`). */
+  iron: number;
+  ironMax: number;
   landedAt: TimeMs;
   expiresAt: TimeMs;
 }
@@ -565,6 +568,8 @@ export interface SkyState {
     r: number;
     resource: ResourceId;
     stock: number;
+    /** Chantier 38: raw iron units. */
+    iron: number;
   } | null;
   lastFallAt: TimeMs;
   falls: number;
@@ -601,6 +606,8 @@ export interface Obstacle {
   r: number;
   /** What removing it yields. */
   loot: Partial<Resources>;
+  /** Chantier 38: whole units of meteoric iron (wrecks). */
+  iron?: number;
 }
 
 /** Research (chantier 08): points in raw units (`RESEARCH_SCALE` per point). */
@@ -717,6 +724,8 @@ export interface GameState {
   comets: CometState;
   /** Stardust in raw units (`STARDUST_SCALE` per point), apart from the shared storage. */
   stardust: number;
+  /** Chantier 38: meteoric iron in raw units (`IRON_SCALE` per unit), apart from the storage. */
+  meteorIron: number;
   research: ResearchState;
   /** Chantier 15: which tasks the automation fills on its own (all on by default). */
   automation: Record<AutoTask, boolean>;
@@ -817,6 +826,7 @@ export function newGame(opts: NewGameOptions): GameState {
     sky: newSky(opts.now),
     comets: newComets(opts.now),
     stardust: 0,
+    meteorIron: 0,
     research: { points: 0, current: null, done: [], outbox: 0 },
     automation: defaultAutomation(),
     siege: newSiege(),
@@ -916,6 +926,7 @@ export function newSky(now: TimeMs): SkyState {
       r: 0,
       resource: 'seeds',
       stock: 0,
+      iron: 0,
     },
     lastFallAt: 0,
     falls: 0,

@@ -233,6 +233,8 @@ export const METEORS = {
    * places, filled by the kiwis with the most Dexterity.
    */
   slots: 3,
+  /** Chantier 38: the automation sends at most this share of the colony to the craters. */
+  autoShare: 0.25,
   /** Harvest per hour of one average kiwi at a crater (a level-1 workplace's rate). */
   rates: { pulp: 750, fiber: 600, seeds: 190, juice: 450 } satisfies Resources,
   /** Meteorite drill (technology `meteorDrill`): harvest multiplier by age (index = age). */

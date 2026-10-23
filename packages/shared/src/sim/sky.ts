@@ -1,11 +1,13 @@
 import { takenKeys } from './footprint';
 import type { ResourceId } from '../data/resources';
+import { IRON, IRON_SCALE, ironUnits } from '../data/iron';
 import { METEORS, THREATS } from '../data/threats';
 import { hexKey } from '../hex/hex';
 import type { TimeMs, VillagerId } from '../types/ids';
 import type { GameEvent } from './advance';
 import { seasonOf } from './calendar';
-import { nest } from './selectors';
+import { capacity, nest } from './selectors';
+import { ironCap } from './iron';
 import { ageOf, techEffects } from './research';
 import { leaveWreck } from './obstacles';
 import { withThreatRng, type GameState, type Meteor, type Villager } from './state';
@@ -29,6 +31,71 @@ export function meteorStock(state: GameState, at: TimeMs): number {
   const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY));
   const tech = techEffects(state).meteorStock;
   return Math.round(METEORS.stock * factor * age * tech * (1 + METEORS.perDay * days));
+}
+
+/** Iron in a crater falling now (raw units, whole units × the age and `starIron`). */
+export function craterIron(state: GameState): number {
+  const age = METEORS.ageFactor[ageOf(state)] ?? 1;
+  return Math.round(IRON.crater * age * techEffects(state).meteorStock) * IRON_SCALE;
+}
+
+/**
+ * Raw iron units per ms dug from a crater: an integer (small steps add up exactly like a big
+ * one), with the same multipliers as its resource (miners' work, walk to the depot, hour and
+ * season, drill). 0 once empty or when the iron stock is full.
+ */
+export function meteorIronRate(state: GameState, m: Meteor): number {
+  if (m.iron <= 0 || state.meteorIron >= ironCap(state)) return 0;
+  const miners = minersOf(state, m.id);
+  if (miners.length === 0) return 0;
+  const work = crewWork(state, miners, m.resource);
+  if (work <= 0) return 0;
+  const map = faceMapOf(state);
+  const f =
+    work *
+    logisticsEfficiency(depotDistance(state, map, m)) *
+    cycleHarvest(state, m.resource) *
+    drillFactor(state);
+  if (f <= 0) return 0;
+  return Math.max(1, Math.round(1000 * IRON.perHour * f));
+}
+
+/** Iron per hour dug by the whole colony right now (units, for the UI). */
+export function meteorIronPerHour(state: GameState): number {
+  let rate = 0;
+  for (const m of state.sky.meteors) rate += meteorIronRate(state, m);
+  return (rate * 3_600_000) / IRON_SCALE;
+}
+
+/**
+ * Whether a crater is worth its miners: iron left with room in the iron stock, or some of its
+ * resource left below the storage cap ("at the cap" changes only at events: exact offline).
+ */
+export function craterWorth(state: GameState, m: Meteor, cap = capacity(state)): boolean {
+  if (m.iron > 0 && state.meteorIron < ironCap(state)) return true;
+  return m.stock > EPS && state.resources[m.resource] < cap[m.resource] - EPS;
+}
+
+/**
+ * Digs `dtMs` of iron from the craters at the rates of the interval's start (read before any
+ * stock moved: integer units, clamped by each crater's stock and the cap).
+ */
+export function accrueIron(
+  s: GameState,
+  rates: readonly { m: Meteor; rate: number }[],
+  dtMs: number,
+  at: TimeMs,
+  events: GameEvent[],
+): void {
+  const cap = ironCap(s);
+  const before = s.meteorIron;
+  for (const { m, rate } of rates) {
+    const take = Math.min(rate * dtMs, m.iron, cap - s.meteorIron);
+    if (take <= 0) continue;
+    m.iron -= take;
+    s.meteorIron += take;
+  }
+  if (before < cap && s.meteorIron >= cap) events.push({ type: 'ironFull', at });
 }
 
 /** Kiwis harvesting a crater (chantier 15). */
@@ -110,7 +177,19 @@ export function nextSkyEvent(state: GameState): TimeMs {
   const sky = state.sky;
   let next = Infinity;
   if (sky.next) next = sky.next.announced ? sky.next.at : sky.next.announceAt;
-  for (const m of sky.meteors) next = Math.min(next, m.expiresAt);
+  let total = 0;
+  for (const m of sky.meteors) {
+    next = Math.min(next, m.expiresAt);
+    // Chantier 38: a crater running out of iron, the iron stock filling up.
+    const rate = meteorIronRate(state, m);
+    if (rate <= 0) continue;
+    total += rate;
+    next = Math.min(next, state.now + Math.max(1, Math.ceil(m.iron / rate)));
+  }
+  if (total > 0) {
+    const room = ironCap(state) - state.meteorIron;
+    next = Math.min(next, state.now + Math.max(1, Math.ceil(room / total)));
+  }
   return next;
 }
 
@@ -131,6 +210,7 @@ export function planMeteor(s: GameState): void {
       r: 0,
       resource: 'seeds',
       stock: 0,
+      iron: 0,
     };
   });
 }
@@ -148,14 +228,16 @@ export function skyTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
         ...sky.meteors.map((m) => hexKey(m)),
         ...s.obstacles.map((o) => hexKey(o)),
       ]);
-      const free = map.tiles.filter(
+      const open = map.tiles.filter(
         (t) =>
-          (METEORS.tiles as readonly string[]).includes(t.type) &&
           t.rho >= 0.25 &&
           t.rho <= 0.92 &&
           !taken.has(hexKey(t)) &&
           !isFlooded(t, s.params.biome, season),
       );
+      // Chantier 38 (no blocked game): a crowded colony still gets its iron on any free tile.
+      const preferred = open.filter((t) => (METEORS.tiles as readonly string[]).includes(t.type));
+      const free = preferred.length > 0 ? preferred : open.filter((t) => t.type !== 'heart');
       const weights = Object.entries(METEORS.resources) as [ResourceId, number][];
       let roll = rng.next() * weights.reduce((sum, [, w]) => sum + w, 0);
       let resource = weights[0]![0];
@@ -178,7 +260,8 @@ export function skyTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
     next.q = spot.tile.q;
     next.r = spot.tile.r;
     next.resource = spot.resource;
-    next.stock = meteorStock(s, next.at);
+    next.stock = Math.round(meteorStock(s, next.at) * IRON.resourceShare);
+    next.iron = craterIron(s);
     events.push({
       type: 'meteorAnnounced',
       at,
@@ -200,6 +283,8 @@ export function skyTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
       resource: next.resource,
       stock: next.stock,
       max: next.stock,
+      iron: next.iron,
+      ironMax: next.iron,
       landedAt: at,
       expiresAt: at + METEORS.lifeMs,
     });
@@ -213,6 +298,7 @@ export function skyTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
       r: next.r,
       resource: next.resource,
       stock: next.stock,
+      iron: ironUnits(next.iron),
     });
   }
   for (const m of sky.meteors) {

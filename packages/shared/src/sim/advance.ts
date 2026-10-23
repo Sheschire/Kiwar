@@ -43,7 +43,7 @@ import {
 import { removeVillagers } from './expeditions';
 import type { IncidentKind } from '../data/threats';
 import { nextThreatEvent, planWave, threatTick } from './threats';
-import { meteorRate, nextSkyEvent, planMeteor, skyTick } from './sky';
+import { accrueIron, meteorIronRate, meteorRate, nextSkyEvent, planMeteor, skyTick } from './sky';
 import { obstacleAt, removeObstacle } from './obstacles';
 import { finishInfusions, nextInfusionEnd } from './kikiwiwi';
 import { finishTitanWorks, nextTitanEnd } from './titan';
@@ -123,6 +123,8 @@ export type GameEvent =
       kind: ObstacleKind;
       loot: Partial<Resources>;
       by: 'kiwis' | 'titan';
+      /** Chantier 38: whole units of meteoric iron (wrecks). */
+      iron?: number;
     }
   | { type: 'wreckLeft'; at: TimeMs; q: number; r: number }
   /** Chantier 08: an infusion ended (a Kikiwiwi, or a failure: hurt and weakened). */
@@ -195,7 +197,18 @@ export type GameEvent =
       r: number;
       resource: ResourceId;
     }
-  | { type: 'meteorLanded'; at: TimeMs; q: number; r: number; resource: ResourceId; stock: number }
+  | {
+      type: 'meteorLanded';
+      at: TimeMs;
+      q: number;
+      r: number;
+      resource: ResourceId;
+      stock: number;
+      /** Chantier 38: whole units of meteoric iron in the crater. */
+      iron: number;
+    }
+  /** Chantier 38: the meteoric iron stock is full (the craters' miners go back to work). */
+  | { type: 'ironFull'; at: TimeMs }
   | { type: 'meteorFaded'; at: TimeMs; q: number; r: number; resource: ResourceId }
   /** Chantier 13: a comet is seen in the sky, then drops stardust on a few tiles. */
   | { type: 'cometAnnounced'; at: TimeMs; passAt: TimeMs }
@@ -363,7 +376,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
       const e = events[i]!;
       if (e.type === 'storageFull') filled.add(e.resource);
     }
-    if (filled.size > 0) releaseFullCraters(s, filled);
+    if (filled.size > 0) releaseFullCraters(s);
     if (s.automation.redirect) {
       if (constructionEnd === nextEvent) redirectFull(s, nextEvent, events);
       else if (filled.size > 0) redirectFull(s, nextEvent, events, filled);
@@ -401,6 +414,8 @@ interface Flows {
   pools: { b: Building; delta: number; cap: number }[];
   /** Meteorite craters being picked (stock change per hour, negative). */
   meteors: { m: Meteor; delta: number }[];
+  /** Chantier 38: craters giving iron (raw units per ms, integers). */
+  iron: { m: Meteor; rate: number }[];
   /** Hunger gauge change in raw units per ms. */
   hunger: number;
   /** Next time a rate changes on its own (a deposit runs dry, a storage fills or empties). */
@@ -433,6 +448,11 @@ function computeFlows(s: GameState): Flows {
     production[m.resource] += rate;
     harvested[m.resource] += rate;
     picked.push({ m, rate });
+  }
+  const iron: Flows['iron'] = [];
+  for (const m of s.sky.meteors) {
+    const rate = meteorIronRate(s, m);
+    if (rate > 0) iron.push({ m, rate });
   }
   const full = storageFullCheck(s, production);
   const eaten = consumption(s);
@@ -505,6 +525,7 @@ function computeFlows(s: GameState): Flows {
     rates,
     pools,
     meteors,
+    iron,
     hunger,
     nextChange: next,
     hungerAt: nextHungerEvent(s, hunger),
@@ -563,6 +584,7 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
   // Research first: its rate depends on the kiwis as they were during the interval.
   accrueResearch(s, dtMs);
   accrueStardust(s, dtMs);
+  accrueIron(s, flows.iron, dtMs, at, events);
   accrueKiwis(s, dtMs, at, events);
 }
 

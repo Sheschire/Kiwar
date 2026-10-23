@@ -121,6 +121,8 @@ describe('obstacles', () => {
       resource: 'seeds',
       stock: 0,
       max: 300,
+      iron: 0,
+      ironMax: 0,
       landedAt: T0,
       expiresAt: T0 + HOUR_MS,
     });

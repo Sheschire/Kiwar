@@ -586,6 +586,9 @@ describe('gifts from the sky', () => {
 
   it('kiwis sent to the crater pick it, exact offline (chantier 15: a post, no camp)', () => {
     const { map, state } = setup();
+    // Chantier 38: the automation sends one kiwi in four to the craters.
+    for (const id of ['k1', 'k2', 'k3', 'k4', 'k5', 'k6', 'k7', 'k8'])
+      state.villagers.push(kiwi(id));
     let s = advance(state, T0 + METEORS.firstMs + 1).state;
     const m = s.sky.meteors[0]!;
     expect(m).toBeDefined();

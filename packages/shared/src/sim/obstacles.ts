@@ -1,5 +1,6 @@
 import { occupancy } from './footprint';
 import { OBSTACLES, OBSTACLE_KINDS, OBSTACLE_RULES, type ObstacleKind } from '../data/obstacles';
+import { IRON } from '../data/iron';
 import { METEORS } from '../data/threats';
 import { RESOURCE_IDS, type Resources } from '../data/resources';
 import { hexKey, type HexKey } from '../hex/hex';
@@ -7,6 +8,7 @@ import { createRng } from '../rng/rng';
 import type { TimeMs } from '../types/ids';
 import type { FaceMap } from '../worldgen/generateFace';
 import type { GameEvent } from './advance';
+import { addIron } from './iron';
 import { capacity } from './selectors';
 import { ageOf, techEffects } from './research';
 import type { GameState, Obstacle } from './state';
@@ -77,7 +79,15 @@ export function leaveWreck(
     const v = OBSTACLES.wreck.loot[id];
     if (v) loot[id] = Math.round(v * k);
   }
-  s.obstacles.push({ id: obstacleId('wreck', m.q, m.r), kind: 'wreck', q: m.q, r: m.r, loot });
+  const iron = Math.round(IRON.wreck * k);
+  s.obstacles.push({
+    id: obstacleId('wreck', m.q, m.r),
+    kind: 'wreck',
+    q: m.q,
+    r: m.r,
+    loot,
+    iron,
+  });
   s.paths = s.paths.filter((p) => p !== hexKey(m));
   events.push({ type: 'wreckLeft', at, q: m.q, r: m.r });
 }
@@ -101,5 +111,16 @@ export function removeObstacle(
     s.resources[id] += got;
     if (got > 0) loot[id] = got;
   }
-  events.push({ type: 'obstacleCleared', at, q: o.q, r: o.r, kind: o.kind, loot, by });
+  // Chantier 38: a wreck gives a little meteoric iron (up to its cap).
+  const iron = o.iron ? addIron(s, o.iron) : 0;
+  events.push({
+    type: 'obstacleCleared',
+    at,
+    q: o.q,
+    r: o.r,
+    kind: o.kind,
+    loot,
+    by,
+    ...(iron > 0 ? { iron } : {}),
+  });
 }

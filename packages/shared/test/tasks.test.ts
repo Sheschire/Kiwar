@@ -30,7 +30,7 @@ import {
   type GameState,
   type TechId,
 } from '../src';
-import { findTile, rich, run, setup, T0, siteFor } from './helpers';
+import { findTile, kiwi, rich, run, setup, T0, siteFor } from './helpers';
 
 const HOUR = 3_600_000;
 
@@ -264,10 +264,28 @@ function withCrater(stock = 400) {
     resource: 'seeds',
     stock,
     max: stock,
+    iron: 0,
+    ironMax: 0,
     landedAt: s.now,
     expiresAt: s.now + METEORS.lifeMs,
   });
   s.resources = { pulp: 500, fiber: 500, seeds: 0, juice: 500 };
+  // Chantier 38: enough kiwis for a full crater (the automation sends one in four).
+  for (let i = s.villagers.length; i < 12; i++) s.villagers.push(kiwi(`k${i}`));
+  // No other meteorite during the test.
+  const far = s.now + 1000 * HOUR;
+  s.sky.next = {
+    id: 'mf',
+    announceAt: far,
+    at: far,
+    announced: false,
+    q: 0,
+    r: 0,
+    resource: 'seeds',
+    stock: 0,
+    iron: 0,
+  };
+  s.sky.meteors = s.sky.meteors.filter((m) => m.id === 'mx');
   return { map, s, pulpery, workshop, tile };
 }
 
@@ -296,10 +314,8 @@ describe('the meteorite post (chantier 15)', () => {
     s = advance(s, s.now + 24 * HOUR).state;
     expect(s.sky.meteors[0]!.stock).toBe(0);
     expect(minersOf(s, 'mx')).toHaveLength(0);
-    expect(s.villagers.find((v) => v.id === worker.id)!.job).toEqual({
-      kind: 'work',
-      buildingId: pulpery.id,
-    });
+    // Back at work (the pulpery, or wherever a full stock sent it since).
+    expect(s.villagers.find((v) => v.id === worker.id)!.job.kind).toBe('work');
   });
 
   it('sends its miners back when the stock fills up, and waits while it is full', () => {

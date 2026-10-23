@@ -4,7 +4,7 @@ import { GARRISON, METEORS, THREATS } from '../data/threats';
 import { RESOURCE_IDS } from '../data/resources';
 import { defenseOf, guardPower, sectorClash } from './threats';
 import { dustPickers, pickRate, STARDUST_CAP } from './comets';
-import { minersOf } from './sky';
+import { craterWorth, minersOf } from './sky';
 import type { BuildingId, QueueItemId, TimeMs } from '../types/ids';
 import { autoAssign, type GameEvent } from './advance';
 import { builderSpeed, repairSpeed, workerPower } from './kiwis';
@@ -21,7 +21,6 @@ import {
   workerSlots,
   workersOf,
 } from './selectors';
-import type { ResourceId } from '../data/resources';
 import { nextId, type GameState, type QueueItem, type Villager } from './state';
 
 /**
@@ -275,25 +274,24 @@ function forgetLent(state: GameState): void {
 
 /**
  * Chantier 15: a meteorite crater is a temporary post. Its miners go back to their workplace
- * when it is empty or gone (and when its resource's storage fills up: `releaseFullCraters`, at
- * that event); in automatic mode the free places of a crater whose stock is below its cap take
- * the kiwis with the most power for its resource (Dexterity, mastery).
+ * when it is gone or no longer worth it (chantier 38: no iron left or the iron stock full, and
+ * its resource empty or at the storage cap: `craterWorth`); in automatic mode the free places
+ * of a crater worth it take the kiwis with the most power for its resource (Dexterity,
+ * mastery).
  */
 export function fillCraters(state: GameState): void {
-  const done: [Villager, BuildingId | null][] = [];
-  for (const v of state.villagers) {
-    if (v.job.kind !== 'meteor') continue;
-    const id = v.job.meteorId;
-    const m = state.sky.meteors.find((x) => x.id === id);
-    if (!m || m.stock <= 0) done.push([v, v.job.returnTo]);
-  }
-  sendBackAll(state, done);
-  if (!state.automation.meteor) return;
   const cap = capacity(state);
+  releaseCraters(state, cap);
+  if (!state.automation.meteor) return;
+  // Chantier 38: craters always hold iron, so the automation sends at most one kiwi in
+  // `METEORS.autoShare` there (the harvest of a small colony comes first).
+  let budget =
+    Math.floor(state.villagers.length * METEORS.autoShare) -
+    state.villagers.filter((v) => v.job.kind === 'meteor').length;
   for (const m of state.sky.meteors) {
-    if (m.stock <= 0 || state.resources[m.resource] >= cap[m.resource] - 1e-6) continue;
+    if (!craterWorth(state, m, cap)) continue;
     let free = METEORS.slots - minersOf(state, m.id).length;
-    while (free-- > 0) {
+    while (free-- > 0 && budget-- > 0) {
       const v = bestFor(state, 'pick', (x) => workerPower(x, m.resource));
       if (!v) return;
       v.job = { kind: 'meteor', meteorId: m.id, returnTo: borrow(v) };
@@ -301,16 +299,21 @@ export function fillCraters(state: GameState): void {
   }
 }
 
-/** A storage just filled up: the miners of its craters go back to work (an `advance` event). */
-export function releaseFullCraters(state: GameState, filled: ReadonlySet<ResourceId>): void {
+/** The miners of a crater gone or no longer worth it go back to work. */
+function releaseCraters(state: GameState, cap = capacity(state)): void {
   const done: [Villager, BuildingId | null][] = [];
   for (const v of state.villagers) {
     if (v.job.kind !== 'meteor') continue;
     const id = v.job.meteorId;
     const m = state.sky.meteors.find((x) => x.id === id);
-    if (m && filled.has(m.resource)) done.push([v, v.job.returnTo]);
+    if (!m || !craterWorth(state, m, cap)) done.push([v, v.job.returnTo]);
   }
   sendBackAll(state, done);
+}
+
+/** A storage just filled up: the miners of the craters left without a use go back to work. */
+export function releaseFullCraters(state: GameState): void {
+  releaseCraters(state);
 }
 
 /** Chantier 15: stardust tiles take the kiwis with the most Dexterity (until the stock is full). */
@@ -475,8 +478,9 @@ export function taskNeeds(state: GameState): Record<AutoTask, number> {
       libraries.every((b) => workersOf(state, b.id).length === 0)
         ? 1
         : 0,
-    meteor: state.sky.meteors.filter((m) => m.stock > 0 && minersOf(state, m.id).length === 0)
-      .length,
+    meteor: state.sky.meteors.filter(
+      (m) => craterWorth(state, m) && minersOf(state, m.id).length === 0,
+    ).length,
     stardust:
       state.stardust >= STARDUST_CAP
         ? 0

@@ -339,6 +339,7 @@ describe('redirection when a stock is full (chantier 09)', () => {
     kiwi.homeJob = well.id;
     // A few more mouths to feed.
     for (const id of ['k1', 'k2', 'k3', 'k4', 'k5', 'k6']) s.villagers.push(testKiwi(id));
+    s.automation.meteor = false;
     const cap = capacity(s).juice;
     s.resources = { pulp: cap, fiber: 0, seeds: 0, juice: cap * 0.92 };
     s = advance(s, s.now).state;
