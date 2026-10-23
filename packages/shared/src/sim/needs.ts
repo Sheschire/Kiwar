@@ -1,3 +1,4 @@
+import { CAMP } from '../data/classes';
 import { HUNGER_SCALE, NEEDS, type HungerStage } from '../data/needs';
 import { emptyResources, type Resources } from '../data/resources';
 import type { TimeMs } from '../types/ids';
@@ -12,11 +13,24 @@ export function homeKiwis(state: GameState): Villager[] {
 }
 
 /** Food eaten by the colony per hour (season appetite included, Kikiwiwis' juice too). */
+/** Kiwis drilling at a training camp (chantier 37). */
+export function drillingKiwis(state: GameState): number {
+  let n = 0;
+  for (const v of state.villagers) {
+    if (v.job.kind !== 'work') continue;
+    const id = v.job.buildingId;
+    if (state.buildings.some((b) => b.id === id && b.type === 'trainingCamp')) n++;
+  }
+  return n;
+}
+
 export function consumption(state: GameState): Resources {
   const out = emptyResources();
   // Gluttons count for more mouths.
   let mouths = 0;
   for (const v of homeKiwis(state)) mouths += modifiers(v).appetite;
+  // Chantier 37: kiwis drilling at the training camp eat more.
+  mouths += CAMP.drillAppetite * drillingKiwis(state);
   if (mouths === 0) return out;
   const appetite = NEEDS.appetite[seasonOf(state)];
   out.pulp = NEEDS.eat.pulp * mouths * appetite;

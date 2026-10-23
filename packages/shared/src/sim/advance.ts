@@ -24,7 +24,7 @@ import { deliveryTick, nextDeliveryEvent } from './deliveries';
 import { canResolveArrival } from './aliens';
 import { nextSiegeEvent, planCounter, siegeTick } from './siege';
 import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
-import type { ClassId } from '../data/classes';
+import { inLine, type ClassId } from '../data/classes';
 import { accrueKiwis, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
 import { BIOMES } from '../data/biomes';
 import { faceMapOf, rebaseFreeDeposits, syncPools, type Harvest } from './territory';
@@ -108,6 +108,8 @@ export type GameEvent =
       mastery: MasteryId;
       rank: number;
     }
+  /** Chantier 37: a kiwi reached a new rank in its class. */
+  | { type: 'classRankUp'; at: TimeMs; villagerId: VillagerId; name: string; rank: number }
   | { type: 'storageFull'; at: TimeMs; resource: ResourceId }
   /** Chantier 09: harvesters of a full stock went elsewhere, or came back to it. */
   | { type: 'kiwisRedirected'; at: TimeMs; resource: ResourceId; count: number }
@@ -711,7 +713,10 @@ export function bestIdleFor(s: GameState, b: Building): Villager | undefined {
 /** Idle kiwis, best workers for this building first (stable on ties). */
 export function idleByPower(s: GameState, b: Building): Villager[] {
   const resource = buildingResource(s, b);
-  const idle = idleVillagers(s).filter((v) => !v.kikiwiwi);
+  const idle = idleVillagers(s).filter(
+    // Chantier 37: only kiwis with a class drill at the training camp.
+    (v) => !v.kikiwiwi && (b.type !== 'trainingCamp' || v.classId !== null),
+  );
   // Chantier 15: the Library takes the kiwis with the most Spirit first.
   const power =
     b.type === 'library'
@@ -752,8 +757,11 @@ function nextTrainingEnd(s: GameState): TimeMs {
 function finishTrainings(s: GameState, at: TimeMs, events: GameEvent[]): void {
   for (const v of s.villagers) {
     if (v.job.kind !== 'train' || v.job.until !== at) continue;
+    // Chantier 37: a promotion keeps the skills (and their cooldowns); any new class starts
+    // at rank 1.
+    if (!inLine(v.job.classId, v.classId ?? v.job.classId) || !v.classId) v.skillReadyAt = {};
     v.classId = v.job.classId;
-    v.skillReadyAt = {};
+    v.classXp = 0;
     v.job = { kind: 'idle' };
     events.push({ type: 'trained', at, villagerId: v.id, name: v.name, classId: v.classId });
     autoAssign(s, v);

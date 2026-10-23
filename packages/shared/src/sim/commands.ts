@@ -274,6 +274,8 @@ export const COMMAND_ERRORS = [
   'classLocked',
   'levelTooLow',
   'statTooLow',
+  'rankTooLow',
+  'wrongClass',
   'alreadyThisClass',
   'kiwiBusy',
   'mayorExists',
@@ -671,6 +673,8 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (!b) return fail('unknownBuilding');
       const slots = workerSlots(b);
       if (slots === 0) fail('notAProducer');
+      // Chantier 37: the training camp drills kiwis that have a class.
+      if (b.type === 'trainingCamp' && !v.classId) fail('wrongClass');
       if (v.job.kind === 'work' && v.job.buildingId === b.id) return;
       let other: (typeof s.villagers)[number] | undefined;
       if (cmd.replace !== undefined) {
@@ -954,7 +958,9 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const v = s.villagers.find((x) => x.id === cmd.villagerId);
       if (!v) return fail('unknownVillager');
       const school = getBuilding(s, cmd.schoolId);
-      if (!school || school.type !== 'school') return fail('notASchool');
+      // Chantier 37: the training camp promotes and changes classes too.
+      if (!school || (school.type !== 'school' && school.type !== 'trainingCamp'))
+        return fail('notASchool');
       const def = CLASSES[cmd.classId];
       if (!def) return fail('classLocked');
       const lock = trainLock(s, v, cmd.classId, school);
@@ -971,12 +977,12 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       ) {
         fail('mayorExists');
       }
-      const lvl = levelDef('school', school.level)!;
+      const lvl = levelDef(school.type, school.level)!;
       const trainees = s.villagers.filter(
         (x) => x.job.kind === 'train' && x.job.schoolId === school.id,
       ).length;
       if (trainees >= (lvl.trainingSlots ?? 0)) fail('schoolFull');
-      const cost = trainingCost(v, cmd.classId);
+      const cost = trainingCost(v, cmd.classId, school);
       pay(s, cost);
       v.job = {
         kind: 'train',

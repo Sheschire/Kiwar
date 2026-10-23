@@ -30,8 +30,8 @@ import {
 import { KIWI, MEMORIAL_MAX } from '../data/kiwis';
 import { MORALE } from '../data/needs';
 import type { GameEvent } from './advance';
-import { grantXp, hasSkill, kiwiExposure, kiwiStrength, modifiers } from './kiwis';
-import { SKILLS } from '../data/classes';
+import { grantClassXp, grantXp, hasSkill, kiwiExposure, kiwiStrength, modifiers } from './kiwis';
+import { CAMP, inLine, SKILLS } from '../data/classes';
 import { alienDefense, alienEnemies, intelView, recordIntel, sectorOf } from './aliens';
 import { landSettlers } from './colonies';
 import {
@@ -169,7 +169,12 @@ export function travelTime(
 ): number {
   const pad = levelDef('launchpad', launchpad.level)?.travelTime ?? 1;
   const wind = crew.some((v) => hasSkill(v, 'tailwind')) ? SKILLS.tailwindTravel : 1;
-  const scout = crew.some((v) => v.classId === 'scout') ? SKILLS.scoutTravel : 1;
+  // Chantier 37: a scout speeds the crew up, a navigator more.
+  const scout = crew.some((v) => inLine(v.classId, 'navigator'))
+    ? SKILLS.navigatorTravel
+    : crew.some((v) => inLine(v.classId, 'scout'))
+      ? SKILLS.scoutTravel
+      : 1;
   const light = mission === 'recon' ? RECON.travel : 1;
   return Math.round((target.travelMs * pad * wind * scout * light * tech) / 1000) * 1000;
 }
@@ -793,6 +798,9 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
       if (result.victory) v.history.victories++;
     }
     grantXp(state, v, result.aborted ? xp / 2 : xp, e.returnAt, events);
+    // Chantier 37: class practice too.
+    const drill = CAMP.expeditionHours.base + (result.victory ? CAMP.expeditionHours.victory : 0);
+    grantClassXp(v, result.aborted ? drill / 2 : drill, e.returnAt, events);
   }
 
   // Everything left in the hold is unloaded (storage limits are not applied to a homecoming).

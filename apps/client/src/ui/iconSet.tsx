@@ -128,6 +128,14 @@ const GLYPHS = {
       <circle cx="16" cy="19" r="3" {...GOLD} />
     </>
   ),
+  trainingCamp: (
+    <>
+      <circle cx="16" cy="17" r="10" fill="#fbf6ea" stroke="#5a3e26" stroke-width="1.8" />
+      <circle cx="16" cy="17" r="6" fill="#c0504a" />
+      <circle cx="16" cy="17" r="2.4" fill="#ffd95a" />
+      <path d="M5 5l22 22M27 5L5 27" stroke="#50575d" stroke-width="2.6" stroke-linecap="round" />
+    </>
+  ),
   lab: (
     <>
       <path d="M12 4h8M13 4v8l-7 13a2 2 0 0 0 2 3h16a2 2 0 0 0 2-3l-7-13V4" {...PAPER} />

@@ -20,6 +20,7 @@ export const BUILDING_TYPES = [
   'camp',
   'seedTurret',
   'skyTurret',
+  'trainingCamp',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
@@ -85,6 +86,7 @@ export const FOOTPRINTS: Partial<Record<BuildingType, FootprintSize>> = {
   library: 3,
   lab: 3,
   monument: 7,
+  trainingCamp: 3,
 };
 
 export function footprintOf(type: BuildingType): FootprintSize {
@@ -458,6 +460,44 @@ const BASE: Record<BuildingType, BuildingDef> = {
       },
     ],
   },
+  // Chantier 37: the training camp (Stone age) drills classed kiwis (class rank), promotes them
+  // to tier 2 (tier 3 at level 3, Iron age) and changes their class for less than the School.
+  // Its trainees are placed by the player only.
+  trainingCamp: {
+    id: 'trainingCamp',
+    allowedTiles: ['flesh', 'ray', 'heart'],
+    buildable: true,
+    copyGrowth: 2,
+    levels: [
+      {
+        cost: { pulp: 2500, fiber: 3000, seeds: 500, juice: 600 },
+        durationMs: ms.h(1),
+        requiresNestLevel: 4,
+        requiresAge: 1,
+        workerSlots: 2,
+        trainingSlots: 1,
+        trainingTime: 1,
+      },
+      {
+        cost: { pulp: 5000, fiber: 6000, seeds: 1000, juice: 1200 },
+        durationMs: ms.h(2),
+        requiresNestLevel: 5,
+        requiresAge: 1,
+        workerSlots: 3,
+        trainingSlots: 1,
+        trainingTime: 0.85,
+      },
+      {
+        cost: { pulp: 12000, fiber: 14000, seeds: 2500, juice: 3000 },
+        durationMs: ms.h(4),
+        requiresNestLevel: 7,
+        requiresAge: 2,
+        workerSlots: 4,
+        trainingSlots: 2,
+        trainingTime: 0.7,
+      },
+    ],
+  },
   seedTurret: {
     id: 'seedTurret',
     allowedTiles: ['skin'],
@@ -677,7 +717,7 @@ export function isProducer(type: BuildingType): boolean {
 
 /** Workplaces the kiwis never join on their own: the player picks who goes (researchers). */
 export function isManualWorkplace(type: BuildingType): boolean {
-  return type === 'library';
+  return type === 'library' || type === 'trainingCamp';
 }
 
 /** Construction time multiplier for sites next to (or on) a ray: rays speed up the builders. */

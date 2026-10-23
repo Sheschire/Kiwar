@@ -1,6 +1,7 @@
 import type { Color } from 'three';
 import {
   BoxGeometry,
+  TorusGeometry,
   AdditiveBlending,
   CircleGeometry,
   ConeGeometry,
@@ -17,7 +18,7 @@ import {
   type BufferGeometry,
   type Material,
 } from 'three';
-import { CLASS_IDS, type ClassId } from '@kiwar/shared';
+import { CLASS_IDS, CLASSES, type ClassId } from '@kiwar/shared';
 import { colored, mat, merged } from './geometry';
 import { PROP_IDS, type Pose, type PropId } from './pose';
 import { PROPS } from './props';
@@ -70,9 +71,53 @@ function wingGeometry(): BufferGeometry {
 
 type OutfitPart = [geometry: BufferGeometry, onHead: boolean];
 
+/** Chantier 37: the cape colour of each advanced or master class. */
+const CAPES: Partial<Record<ClassId, string>> = {
+  architect: '#d9a82e',
+  navigator: '#5fa8c9',
+  champion: '#c0504a',
+  archmage: '#6a4fb3',
+  herbalist: '#5d8a3a',
+  minstrel: '#3e7fbf',
+};
+
+/**
+ * Chantier 37: a higher tier wears its parent's outfit with a cape down the back and a golden
+ * clasp (a gold circlet too at tier 3).
+ */
+function tierParts(cls: ClassId): OutfitPart[] {
+  const def = CLASSES[cls];
+  const parts: OutfitPart[] = [
+    [
+      colored(
+        new BoxGeometry(1, 1, 1),
+        CAPES[cls] ?? '#8a6440',
+        mat(0, 0.17, -0.13, 0.2, 0.24, 0.02, 0.35, 0, 0),
+      ),
+      false,
+    ],
+    [
+      colored(new SphereGeometry(1, 6, 5), '#f2c14e', mat(0, 0.27, 0.05, 0.025, 0.025, 0.02)),
+      false,
+    ],
+  ];
+  if (def.tier >= 3)
+    parts.push([
+      colored(
+        new TorusGeometry(1, 0.15, 4, 14),
+        '#f2c14e',
+        mat(0, 0.36, 0.17, 0.1, 0.1, 0.1, Math.PI / 2),
+      ),
+      true,
+    ]);
+  return parts;
+}
+
 /** Class outfits, authored in the body frame; `onHead` parts follow the head. */
 function outfitParts(cls: ClassId): OutfitPart[] {
   const halfSphere = () => new SphereGeometry(1, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2);
+  const def = CLASSES[cls];
+  if (def.tier > 1) return [...outfitParts(def.parents![0]!), ...tierParts(cls)];
   switch (cls) {
     case 'builder':
       return [
@@ -242,6 +287,7 @@ function outfitParts(cls: ClassId): OutfitPart[] {
         ],
       ];
   }
+  return [];
 }
 
 function outfitGeometry(cls: ClassId, onHead: boolean): BufferGeometry | null {

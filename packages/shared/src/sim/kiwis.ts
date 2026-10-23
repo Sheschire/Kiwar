@@ -20,7 +20,16 @@ import {
   type TraitId,
 } from '../data/kiwis';
 import type { ResourceId } from '../data/resources';
-import { CLASSES, CLASS_RULES, SKILLS, type ClassId, type SkillId } from '../data/classes';
+import {
+  CAMP,
+  CLASSES,
+  CLASS_RULES,
+  classSkills,
+  inLine,
+  SKILLS,
+  type ClassId,
+  type SkillId,
+} from '../data/classes';
 import { levelDef } from '../data/buildings';
 import { RESOURCE_IDS, type ResourceCost } from '../data/resources';
 import { DEPOSITS } from '../data/territory';
@@ -79,6 +88,7 @@ export function newKiwi(roll: KiwiRoll): Omit<Villager, 'id' | 'name' | 'bornAt'
     mastery: emptyMasteries(),
     history: { expeditions: 0, victories: 0, built: 0 },
     classId: null,
+    classXp: 0,
     skillReadyAt: {},
   };
 }
@@ -113,18 +123,50 @@ const LOWER_IS_BETTER = new Set<keyof KiwiModifiers>([
   'appetite',
 ]);
 
-/** Chantier 37: how much a class's colony bonus grows with its stat (1 at 5 or below). */
+/** Chantier 37: the class stat of a kiwi (the lower of two for a master class). */
+function classStat(v: Villager): number {
+  if (!v.classId) return 0;
+  const c = CLASSES[v.classId];
+  return c.stat2 ? Math.min(v.stats[c.stat], v.stats[c.stat2]) : v.stats[c.stat];
+}
+
+/** Chantier 37: rank in the current class, 1–5 (0: no class). */
+export function classRank(v: Pick<Villager, 'classId' | 'classXp'>): number {
+  if (!v.classId) return 0;
+  let rank = 1;
+  while (rank < CAMP.maxRank && v.classXp >= CAMP.rankHours[rank + 1]! * PRACTICE_SCALE) rank++;
+  return rank;
+}
+
+/** Class rank and hours of practice towards the next one (for the UI). */
+export function classRankProgress(v: Villager): {
+  rank: number;
+  hours: number;
+  next: number | null;
+} {
+  const rank = classRank(v);
+  return {
+    rank,
+    hours: v.classXp / PRACTICE_SCALE,
+    next: rank > 0 && rank < CAMP.maxRank ? CAMP.rankHours[rank + 1]! : null,
+  };
+}
+
+/**
+ * Chantier 37: how much a class's colony bonus grows with its stat (+2 % per point above 5)
+ * and its rank (+3 % per rank above the first); 1 without a class.
+ */
 export function classGrowth(v: Villager): number {
   if (!v.classId) return 1;
-  const stat = v.stats[CLASSES[v.classId].stat];
-  return 1 + CLASS_RULES.growth * Math.max(0, stat - KIWI.stat.average);
+  const stat = 1 + CLASS_RULES.growth * Math.max(0, classStat(v) - KIWI.stat.average);
+  return stat * (1 + CLASS_RULES.rankBonus * (classRank(v) - 1));
 }
 
 export function modifiers(v: Villager): Readonly<Required<KiwiModifiers>> {
-  // Only the trait, the Kikiwiwi infusion, the class with its level and stat matter (asked per
-  // worker, many times per tick).
+  // Only the trait, the Kikiwiwi infusion, the class with its level, stat and rank matter
+  // (asked per worker, many times per tick).
   const c = v.classId ? CLASSES[v.classId] : null;
-  const key = `${v.trait ?? ''}|${v.kikiwiwi ? 1 : 0}|${v.classId ?? ''}|${c ? v.level : 0}|${c ? v.stats[c.stat] : 0}`;
+  const key = `${v.trait ?? ''}|${v.kikiwiwi ? 1 : 0}|${v.classId ?? ''}|${c ? v.level : 0}|${c ? classStat(v) : 0}|${c ? classRank(v) : 0}`;
   const cached = modifierCache.get(key);
   if (cached) return cached;
   const out = Object.fromEntries(MODIFIER_KEYS.map((k) => [k, 1])) as Required<KiwiModifiers>;
@@ -135,7 +177,7 @@ export function modifiers(v: Villager): Readonly<Required<KiwiModifiers>> {
   if (v.kikiwiwi) apply(KIKIWIWI.modifiers);
   if (c) {
     apply(c.modifiers);
-    for (const skill of c.skills) if (v.level >= skill.level) apply(skill.modifiers);
+    for (const skill of classSkills(c.id)) if (v.level >= skill.level) apply(skill.modifiers);
     if (c.grows) {
       const g = classGrowth(v);
       out[c.grows] = LOWER_IS_BETTER.has(c.grows) ? out[c.grows] / g : out[c.grows] * g;
@@ -148,7 +190,7 @@ export function modifiers(v: Villager): Readonly<Required<KiwiModifiers>> {
 /** Whether a kiwi has unlocked a skill (its class and level). */
 export function hasSkill(v: Villager, skill: SkillId): boolean {
   if (!v.classId) return false;
-  const def = CLASSES[v.classId].skills.find((x) => x.id === skill);
+  const def = classSkills(v.classId).find((x) => x.id === skill);
   return !!def && v.level >= def.level;
 }
 
@@ -288,7 +330,10 @@ export function mayorMorale(state: GameState): number {
 
 /** Regrowth multiplier of a building's deposits (gatherers with Green thumb working there). */
 export function regenBonus(workers: Villager[]): number {
-  const gatherers = workers.filter((v) => hasSkill(v, 'greenThumb')).length;
+  let gatherers = 0;
+  for (const v of workers)
+    if (hasSkill(v, 'greenThumb'))
+      gatherers += inLine(v.classId, 'herbalist') ? SKILLS.herbalistRegen : 1;
   return 1 + SKILLS.greenThumbRegen * gatherers;
 }
 
@@ -304,9 +349,11 @@ export function repairSpeed(v: Villager): number {
 export function bardMorale(state: GameState): number {
   let sum = 0;
   for (const v of state.villagers) {
-    if (v.classId !== 'bard' || v.job.kind === 'expedition' || v.job.kind === 'outpost') continue;
+    if (!inLine(v.classId, 'bard') || v.job.kind === 'expedition' || v.job.kind === 'outpost')
+      continue;
     const ballad = hasSkill(v, 'ballad') ? SKILLS.balladBonus : 1;
-    sum += SKILLS.bardMorale * classGrowth(v) * ballad;
+    const minstrel = inLine(v.classId, 'minstrel') ? SKILLS.minstrelMorale : 1;
+    sum += SKILLS.bardMorale * classGrowth(v) * ballad * minstrel;
   }
   return Math.min(SKILLS.bardMax, sum);
 }
@@ -318,6 +365,15 @@ interface KiwiRates {
   xp: number;
   practice: number;
   mastery: MasteryId | null;
+  /** Chantier 37: class practice (drill at the training camp). */
+  drill: number;
+}
+
+/** Chantier 37: class practice per ms of a kiwi drilling at a camp of this level (an integer). */
+export function drillRate(v: Villager, campLevel: number): number {
+  if (!v.classId || classRank(v) >= CAMP.maxRank) return 0;
+  const k = CAMP.drill[Math.min(campLevel, CAMP.drill.length) - 1] ?? 1;
+  return Math.max(1, Math.round(100 * k * modifiers(v).practice));
 }
 
 /** Mastery practised at a workplace: its resource, or research at the Library. */
@@ -336,7 +392,10 @@ function ratesOf(
   const job = v.job;
   let perHour = 0;
   let mastery: MasteryId | null = null;
+  let drill = 0;
   if (job.kind === 'work') {
+    const camp = state.buildings.find((x) => x.id === job.buildingId);
+    if (camp?.type === 'trainingCamp') drill = drillRate(v, camp.level);
     perHour = KIWI.xpPerHour.work;
     let m = masteries.get(job.buildingId);
     if (m === undefined) {
@@ -360,7 +419,7 @@ function ratesOf(
   } else if (job.kind === 'guard' || job.kind === 'titan' || job.kind === 'stardust') {
     perHour = KIWI.xpPerHour.guard;
   }
-  if (perHour === 0) return { xp: 0, practice: 0, mastery: null };
+  if (perHour === 0) return { xp: 0, practice: 0, mastery: null, drill };
   const m = modifiers(v);
   const spirit = 1 + KIWI.spiritXp * (v.stats.spirit - KIWI.stat.average);
   // Raw units per ms are integers, so accrued amounts stay exact whatever the step size.
@@ -369,7 +428,7 @@ function ratesOf(
     mastery && rankOf(v.mastery[mastery]) < KIWI.maxRank
       ? Math.max(1, Math.round(100 * m.practice))
       : 0;
-  return { xp, practice, mastery: practice > 0 ? mastery : null };
+  return { xp, practice, mastery: practice > 0 ? mastery : null, drill };
 }
 
 /** Next time a kiwi levels up or gains a mastery rank (a rate change for the colony). */
@@ -386,6 +445,10 @@ export function nextKiwiEvent(state: GameState): TimeMs {
       const rank = rankOf(v.mastery[r.mastery]);
       const need = masteryHours(rank + 1) * PRACTICE_SCALE - v.mastery[r.mastery];
       next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.practice)));
+    }
+    if (r.drill > 0) {
+      const need = CAMP.rankHours[classRank(v) + 1]! * PRACTICE_SCALE - v.classXp;
+      next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.drill)));
     }
   }
   return next;
@@ -411,11 +474,26 @@ export function accrueKiwis(state: GameState, dtMs: number, at: TimeMs, events: 
         });
       }
     }
+    if (r.drill > 0) addClassXp(v, r.drill * dtMs, at, events);
     if (r.xp > 0) {
       v.xp += r.xp * dtMs;
       levelUps(state, v, at, events);
     }
   }
+}
+
+function addClassXp(v: Villager, raw: number, at: TimeMs, events: GameEvent[]): void {
+  const before = classRank(v);
+  v.classXp += raw;
+  const after = classRank(v);
+  if (after > before)
+    events.push({ type: 'classRankUp', at, villagerId: v.id, name: v.name, rank: after });
+}
+
+/** Chantier 37: a lump of class practice (a wave fought, an expedition), in hours. */
+export function grantClassXp(v: Villager, hours: number, at: TimeMs, events: GameEvent[]): void {
+  if (!v.classId || v.kikiwiwi || classRank(v) >= CAMP.maxRank) return;
+  addClassXp(v, Math.round(hours * modifiers(v).practice * 100) * 3_600_000, at, events);
 }
 
 /** A lump of experience (expedition), in experience points. */
@@ -465,36 +543,61 @@ function pickStat(rng: Rng, v: Villager): StatId | null {
 }
 
 /** Price of a class for this kiwi (changing class costs more). */
+export type TrainLock =
+  | 'classLocked'
+  | 'levelTooLow'
+  | 'statTooLow'
+  | 'rankTooLow'
+  | 'wrongClass'
+  | 'alreadyThisClass'
+  | 'kikiwiwiNoWork';
+
 /**
- * Why a kiwi cannot start this class at this School (null: it can, cost aside). Chantier 37:
- * the class's stat must reach `CLASS_RULES.statMin`, and some classes wait for an age.
+ * Why a kiwi cannot start this class at this School or training camp (null: it can, cost and
+ * room aside). Chantier 37: the School teaches tier 1 (its stat ≥ 6); the camp changes a class
+ * for another tier 1 and promotes: tier 2 from its parent (level 10, stat ≥ 10, rank 3), tier 3
+ * from either parent (Iron age, level 20, both stats ≥ 12, rank 3).
  */
 export function trainLock(
   state: GameState,
   v: Villager,
   classId: ClassId,
-  school: Building,
-): 'classLocked' | 'levelTooLow' | 'statTooLow' | 'alreadyThisClass' | 'kikiwiwiNoWork' | null {
+  place: Building,
+): TrainLock | null {
   const def = CLASSES[classId];
+  if (!def) return 'classLocked';
   if (v.kikiwiwi) return 'kikiwiwiNoWork';
-  if (!def || def.tier !== 1) return 'classLocked';
-  if (school.level < def.schoolLevel || ageOf(state) < (def.age ?? 0)) return 'classLocked';
-  if (v.level < def.minLevel) return 'levelTooLow';
-  if (v.stats[def.stat] < CLASS_RULES.statMin) return 'statTooLow';
+  const camp = place.type === 'trainingCamp';
+  if (!camp && def.tier !== 1) return 'classLocked';
+  // The camp only works with kiwis that already have a trade.
+  if (camp && !v.classId) return 'wrongClass';
+  if (place.level < (camp && def.tier === 1 ? 1 : def.schoolLevel)) return 'classLocked';
+  if (ageOf(state) < (def.age ?? 0)) return 'classLocked';
   if (v.classId === classId) return 'alreadyThisClass';
+  if (def.tier > 1 && !def.parents?.includes(v.classId!)) return 'wrongClass';
+  if (v.level < def.minLevel) return 'levelTooLow';
+  const min = CLASS_RULES.statMin[def.tier]!;
+  if (v.stats[def.stat] < min || (def.stat2 && v.stats[def.stat2] < min)) return 'statTooLow';
+  if (def.tier > 1 && classRank(v) < CLASS_RULES.promoteRank) return 'rankTooLow';
   return null;
 }
 
-export function trainingCost(v: Villager, classId: ClassId): ResourceCost {
-  const k = v.classId ? SKILLS.retrainCost : 1;
+/**
+ * Price of a class: the School charges a change of class twice; the camp a quarter more, and a
+ * promotion its price.
+ */
+export function trainingCost(v: Villager, classId: ClassId, place?: Building): ResourceCost {
+  const camp = place?.type === 'trainingCamp';
+  const promotion = CLASSES[classId].tier > 1;
+  const k = !v.classId || promotion ? 1 : camp ? CAMP.retrainCost : SKILLS.retrainCost;
   const out: ResourceCost = {};
   const cost = CLASSES[classId].cost;
-  for (const id of RESOURCE_IDS) if (cost[id]) out[id] = cost[id]! * k;
+  for (const id of RESOURCE_IDS) if (cost[id]) out[id] = Math.round(cost[id]! * k);
   return out;
 }
 
-/** Training time of a class at a School (faster at level 3). */
-export function trainingDuration(school: Building, classId: ClassId): number {
-  const speed = levelDef('school', school.level)?.trainingTime ?? 1;
+/** Training time of a class at a School or a camp (faster at higher levels). */
+export function trainingDuration(place: Building, classId: ClassId): number {
+  const speed = levelDef(place.type, place.level)?.trainingTime ?? 1;
   return Math.round(CLASSES[classId].trainingMs * speed);
 }

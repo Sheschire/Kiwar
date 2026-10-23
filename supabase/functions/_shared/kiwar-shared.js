@@ -465,7 +465,14 @@ var CLASS_IDS = [
   "scout",
   "mayor",
   "gatherer",
-  "bard"
+  "bard",
+  // Chantier 37, tier 2 (training camp).
+  "architect",
+  "navigator",
+  "champion",
+  "archmage",
+  "herbalist",
+  "minstrel"
 ];
 var SKILL_IDS = [
   "scaffold",
@@ -490,7 +497,7 @@ var SKILL_IDS = [
   "chorus",
   "anthem"
 ];
-var CLASSES = {
+var CLASSES_T1 = {
   // Builds much faster (and learns construction faster).
   builder: {
     id: "builder",
@@ -611,11 +618,43 @@ var CLASSES = {
     ]
   }
 };
+var ADVANCED_COST = { pulp: 1500, fiber: 1500, seeds: 300, juice: 600 };
+var advanced = (id3, parent, grows, modifiers2) => ({
+  id: id3,
+  stat: CLASSES_T1[parent].stat,
+  tier: 2,
+  parents: [parent],
+  ...grows ? { grows } : {},
+  schoolLevel: 1,
+  minLevel: 10,
+  cost: ADVANCED_COST,
+  trainingMs: ms.h(4),
+  modifiers: modifiers2,
+  skills: []
+});
 var CLASS_RULES = {
-  /** The School teaches a class to a kiwi whose class stat reaches this. */
-  statMin: 6,
+  /** A class is taught to a kiwi whose class stat(s) reach this, by tier (index = tier). */
+  statMin: [0, 6, 10, 12],
   /** The class's colony bonus: +2 % per point of its stat above average (5). */
-  growth: 0.02
+  growth: 0.02,
+  /** Class rank needed in the current class to move up a tier. */
+  promoteRank: 3,
+  /** Colony bonus per class rank above the first (+3 %). */
+  rankBonus: 0.03
+};
+var CAMP = {
+  maxRank: 5,
+  /** Hours of practice to reach each rank (index = rank; rank 1 from the start). */
+  rankHours: [0, 0, 6, 18, 40, 80],
+  /** Practice per hour of drill at the camp, by camp level (index = level − 1). */
+  drill: [1, 1.25, 1.5],
+  /** Practice granted for a wave fought on guard (militia: less), and an expedition. */
+  waveHours: { guard: 1.5, militia: 0.5 },
+  expeditionHours: { base: 2, victory: 1 },
+  /** A kiwi in drill eats this much more (in mouths). */
+  drillAppetite: 0.5,
+  /** Changing class at the camp costs this many times the price (the School: `retrainCost`). */
+  retrainCost: 1.25
 };
 var SKILLS = {
   /** Gatherer: regrowth bonus of the deposits harvested by the building it works in. */
@@ -640,6 +679,11 @@ var SKILLS = {
   bardMax: 0.05,
   /** Bard: Ballad multiplies its own share. */
   balladBonus: 1.5,
+  /** Chantier 37: a minstrel counts as this many bards; a navigator's crew travels faster. */
+  minstrelMorale: 2,
+  navigatorTravel: 0.8,
+  /** Herbalist: its Green thumb counts this many times. */
+  herbalistRegen: 2,
   /** Changing class costs this many times the price. */
   retrainCost: 2
 };
@@ -647,6 +691,39 @@ var SCHOOL = {
   slots: [1, 1, 2],
   trainingTime: [1, 1, 0.7]
 };
+var CLASSES = {
+  ...CLASSES_T1,
+  architect: advanced("architect", "builder", "build", { build: 1.6, practice: 1.2 }),
+  navigator: advanced("navigator", "scout", "weight", { fight: 1.3, weight: 0.35 }),
+  champion: advanced("champion", "warrior", "repair", {
+    fight: 1.8,
+    build: 1.1,
+    repair: 1.8,
+    exposure: 0.8
+  }),
+  archmage: advanced("archmage", "mage", "research", { fight: 1.5, build: 0.9, research: 2 }),
+  herbalist: advanced("herbalist", "gatherer", "harvest", { harvest: 1.5, fight: 1.2 }),
+  // Its morale share is the bard's, doubled (`SKILLS.minstrelMorale`).
+  minstrel: advanced("minstrel", "bard", void 0, { fight: 1.1 })
+};
+var skillCache = /* @__PURE__ */ new Map();
+function classSkills(id3) {
+  const cached = skillCache.get(id3);
+  if (cached) return cached;
+  const def = CLASSES[id3];
+  const out = [];
+  for (const parent of def.parents ?? [])
+    for (const skill of classSkills(parent))
+      if (!out.some((x) => x.id === skill.id)) out.push(skill);
+  for (const skill of def.skills) if (!out.some((x) => x.id === skill.id)) out.push(skill);
+  skillCache.set(id3, out);
+  return out;
+}
+function inLine(id3, root) {
+  if (!id3) return false;
+  if (id3 === root) return true;
+  return (CLASSES[id3].parents ?? []).some((p) => inLine(p, root));
+}
 
 // packages/shared/src/data/buildings.ts
 var BUILDING_TYPES = [
@@ -664,7 +741,8 @@ var BUILDING_TYPES = [
   "lab",
   "camp",
   "seedTurret",
-  "skyTurret"
+  "skyTurret",
+  "trainingCamp"
 ];
 var FOOTPRINTS = {
   warehouse: 3,
@@ -672,7 +750,8 @@ var FOOTPRINTS = {
   school: 3,
   library: 3,
   lab: 3,
-  monument: 7
+  monument: 7,
+  trainingCamp: 3
 };
 function footprintOf(type) {
   return FOOTPRINTS[type] ?? 1;
@@ -1041,6 +1120,44 @@ var BASE = {
       }
     ]
   },
+  // Chantier 37: the training camp (Stone age) drills classed kiwis (class rank), promotes them
+  // to tier 2 (tier 3 at level 3, Iron age) and changes their class for less than the School.
+  // Its trainees are placed by the player only.
+  trainingCamp: {
+    id: "trainingCamp",
+    allowedTiles: ["flesh", "ray", "heart"],
+    buildable: true,
+    copyGrowth: 2,
+    levels: [
+      {
+        cost: { pulp: 2500, fiber: 3e3, seeds: 500, juice: 600 },
+        durationMs: ms.h(1),
+        requiresNestLevel: 4,
+        requiresAge: 1,
+        workerSlots: 2,
+        trainingSlots: 1,
+        trainingTime: 1
+      },
+      {
+        cost: { pulp: 5e3, fiber: 6e3, seeds: 1e3, juice: 1200 },
+        durationMs: ms.h(2),
+        requiresNestLevel: 5,
+        requiresAge: 1,
+        workerSlots: 3,
+        trainingSlots: 1,
+        trainingTime: 0.85
+      },
+      {
+        cost: { pulp: 12e3, fiber: 14e3, seeds: 2500, juice: 3e3 },
+        durationMs: ms.h(4),
+        requiresNestLevel: 7,
+        requiresAge: 2,
+        workerSlots: 4,
+        trainingSlots: 2,
+        trainingTime: 0.7
+      }
+    ]
+  },
   seedTurret: {
     id: "seedTurret",
     allowedTiles: ["skin"],
@@ -1197,7 +1314,7 @@ function isProducer(type) {
   return BUILDINGS[type].levels.some((l) => (l.workerSlots ?? 0) > 0);
 }
 function isManualWorkplace(type) {
-  return type === "library";
+  return type === "library" || type === "trainingCamp";
 }
 var RAY_BUILD_SPEEDUP = 0.85;
 var DEMOLITION = {
@@ -1954,7 +2071,14 @@ var GARRISON = {
     scout: { ground: 0.7, air: 0.6 },
     mayor: { ground: 0.4, air: 0 },
     gatherer: { ground: 0.6, air: 0.9 },
-    bard: { ground: 0.6, air: 0.3 }
+    bard: { ground: 0.6, air: 0.3 },
+    // Chantier 37, tier 2.
+    architect: { ground: 0.7, air: 0 },
+    navigator: { ground: 0.8, air: 0.8 },
+    champion: { ground: 1.2, air: 0 },
+    archmage: { ground: 1, air: 1.2 },
+    herbalist: { ground: 0.7, air: 1.1 },
+    minstrel: { ground: 0.7, air: 0.4 }
   },
   /** Chantier 08: with firearms, warriors shoot the bats too. */
   firearmsAir: 0.8,
@@ -3082,6 +3206,11 @@ var WEAPON_IDS = [
   "stomp",
   "dagger",
   "song",
+  "warhammer",
+  "twinDaggers",
+  "greatsword",
+  "meteor",
+  "thornSling",
   "claw",
   "bite",
   "slam",
@@ -3107,6 +3236,28 @@ var WEAPONS = {
   sword: melee(3.2, 1.1),
   // Chantier 37: a quick dagger that leaps at bats and goes for thieves and spitters.
   dagger: { ...melee(1.2, 0.6, true), accuracy: 0.95, hunts: true },
+  // Chantier 37, tier 2: each advanced class fights with a stronger weapon.
+  warhammer: { ...melee(4.4, 2.2), style: "area" },
+  twinDaggers: { ...melee(1.3, 0.45, true), accuracy: 0.97, hunts: true },
+  greatsword: melee(4.4, 1.2),
+  meteor: {
+    damage: 3.6,
+    range: 4,
+    reload: 2.4,
+    style: "area",
+    accuracy: 0.82,
+    hitsGround: true,
+    hitsAir: true
+  },
+  thornSling: {
+    damage: 2.2,
+    range: 3,
+    reload: 1.1,
+    style: "ranged",
+    accuracy: 0.8,
+    hitsGround: true,
+    hitsAir: true
+  },
   // Chantier 37: the bard's song stings a little; its real gift is its aura (`KIWI_UNIT.aura`).
   song: {
     damage: 0.8,
@@ -3255,7 +3406,13 @@ var CLASS_WEAPONS = {
   scout: "dagger",
   mayor: "beak",
   gatherer: "sling",
-  bard: "song"
+  bard: "song",
+  architect: "warhammer",
+  navigator: "twinDaggers",
+  champion: "greatsword",
+  archmage: "meteor",
+  herbalist: "thornSling",
+  minstrel: "song"
 };
 var KIWI_UNIT = {
   hp: 14,
@@ -3280,13 +3437,13 @@ var KIWI_UNIT = {
   militiaFlee: 0.4,
   militiaDamage: 0.8,
   /** Chantier 37: warriors hold the front line (more hit points), scouts dodge. */
-  classHp: { warrior: 1.4 },
-  classDodge: { scout: 0.12 },
+  classHp: { warrior: 1.4, champion: 1.7, architect: 1.2 },
+  classDodge: { scout: 0.12, navigator: 0.18 },
   /**
    * Chantier 37: a bard's song lifts the damage of its side's fighters this close (the best
    * aura counts, never several); Chorus widens and strengthens it.
    */
-  aura: { range: 2, boost: 0.2, chorusRange: 3, chorusBoost: 0.3 }
+  aura: { range: 2, boost: 0.2, chorusRange: 3, chorusBoost: 0.3, minstrel: 0.1 }
 };
 var POSTURES = ["cautious", "bold"];
 var BATTLE = {
@@ -4009,9 +4166,10 @@ function kiwiUnit(v, state, role, at, sector, side = 0) {
   const hp = K.hp * Math.max(0.5, 1 + K.enduranceHp * (st.endurance - avg)) * level * fight * (v.kikiwiwi ? K.titanHp / 2 : 1) * (v.classId ? K.classHp[v.classId] ?? 1 : 1);
   const extraDodge = v.classId ? K.classDodge[v.classId] ?? 0 : 0;
   const chorus = hasSkill(v, "chorus");
-  const aura = v.classId === "bard" && role === "guard" ? {
+  const aura = inLine(v.classId, "bard") && role === "guard" ? {
     range: chorus ? K.aura.chorusRange : K.aura.range,
-    boost: chorus ? K.aura.chorusBoost : K.aura.boost
+    // Chantier 37: a minstrel sings louder.
+    boost: (chorus ? K.aura.chorusBoost : K.aura.boost) + (inLine(v.classId, "minstrel") ? K.aura.minstrel : 0)
   } : void 0;
   return {
     ref: v.id,
@@ -4863,6 +5021,17 @@ function strike(s, wave, events) {
     );
     s.paths = s.paths.filter((k) => !lost.has(k));
     report.pathsLost = lost.size;
+  }
+  for (const u of log.units) {
+    if (u[1] !== 0 || u[2] === "turret") continue;
+    const v = s.villagers.find((x) => x.id === u[0]);
+    if (!v) continue;
+    grantClassXp(
+      v,
+      v.job.kind === "guard" ? CAMP.waveHours.guard : CAMP.waveHours.militia,
+      at,
+      events
+    );
   }
   const fallen = log.result.fallen.map((id3) => s.villagers.find((v) => v.id === id3)).filter((v) => !!v);
   const dead = fallen.slice(0, out.deaths);
@@ -6118,7 +6287,10 @@ function bestIdleFor(s, b) {
 }
 function idleByPower(s, b) {
   const resource = buildingResource(s, b);
-  const idle = idleVillagers(s).filter((v) => !v.kikiwiwi);
+  const idle = idleVillagers(s).filter(
+    // Chantier 37: only kiwis with a class drill at the training camp.
+    (v) => !v.kikiwiwi && (b.type !== "trainingCamp" || v.classId !== null)
+  );
   const power = b.type === "library" ? researchPower : resource ? (v) => workerPower(v, resource) : null;
   if (!power) return idle;
   return idle.map((v, i) => ({ v, i, p: power(v) })).sort((a, c) => c.p - a.p || a.i - c.i).map((x) => x.v);
@@ -6144,8 +6316,9 @@ function nextTrainingEnd(s) {
 function finishTrainings(s, at, events) {
   for (const v of s.villagers) {
     if (v.job.kind !== "train" || v.job.until !== at) continue;
+    if (!inLine(v.job.classId, v.classId ?? v.job.classId) || !v.classId) v.skillReadyAt = {};
     v.classId = v.job.classId;
-    v.skillReadyAt = {};
+    v.classXp = 0;
     v.job = { kind: "idle" };
     events.push({ type: "trained", at, villagerId: v.id, name: v.name, classId: v.classId });
     autoAssign(s, v);
@@ -6703,10 +6876,20 @@ function finishInfusions(s, at, events) {
 function homeKiwis(state) {
   return state.villagers.filter((v) => v.job.kind !== "expedition");
 }
+function drillingKiwis(state) {
+  let n = 0;
+  for (const v of state.villagers) {
+    if (v.job.kind !== "work") continue;
+    const id3 = v.job.buildingId;
+    if (state.buildings.some((b) => b.id === id3 && b.type === "trainingCamp")) n++;
+  }
+  return n;
+}
 function consumption(state) {
   const out = emptyResources();
   let mouths = 0;
   for (const v of homeKiwis(state)) mouths += modifiers(v).appetite;
+  mouths += CAMP.drillAppetite * drillingKiwis(state);
   if (mouths === 0) return out;
   const appetite = NEEDS.appetite[seasonOf(state)];
   out.pulp = NEEDS.eat.pulp * mouths * appetite;
@@ -6965,6 +7148,7 @@ function newKiwi(roll) {
     mastery: emptyMasteries(),
     history: { expeditions: 0, victories: 0, built: 0 },
     classId: null,
+    classXp: 0,
     skillReadyAt: {}
   };
 }
@@ -6990,14 +7174,33 @@ var LOWER_IS_BETTER = /* @__PURE__ */ new Set([
   "rest",
   "appetite"
 ]);
+function classStat(v) {
+  if (!v.classId) return 0;
+  const c = CLASSES[v.classId];
+  return c.stat2 ? Math.min(v.stats[c.stat], v.stats[c.stat2]) : v.stats[c.stat];
+}
+function classRank(v) {
+  if (!v.classId) return 0;
+  let rank = 1;
+  while (rank < CAMP.maxRank && v.classXp >= CAMP.rankHours[rank + 1] * PRACTICE_SCALE) rank++;
+  return rank;
+}
+function classRankProgress(v) {
+  const rank = classRank(v);
+  return {
+    rank,
+    hours: v.classXp / PRACTICE_SCALE,
+    next: rank > 0 && rank < CAMP.maxRank ? CAMP.rankHours[rank + 1] : null
+  };
+}
 function classGrowth(v) {
   if (!v.classId) return 1;
-  const stat = v.stats[CLASSES[v.classId].stat];
-  return 1 + CLASS_RULES.growth * Math.max(0, stat - KIWI.stat.average);
+  const stat = 1 + CLASS_RULES.growth * Math.max(0, classStat(v) - KIWI.stat.average);
+  return stat * (1 + CLASS_RULES.rankBonus * (classRank(v) - 1));
 }
 function modifiers(v) {
   const c = v.classId ? CLASSES[v.classId] : null;
-  const key = `${v.trait ?? ""}|${v.kikiwiwi ? 1 : 0}|${v.classId ?? ""}|${c ? v.level : 0}|${c ? v.stats[c.stat] : 0}`;
+  const key = `${v.trait ?? ""}|${v.kikiwiwi ? 1 : 0}|${v.classId ?? ""}|${c ? v.level : 0}|${c ? classStat(v) : 0}|${c ? classRank(v) : 0}`;
   const cached = modifierCache.get(key);
   if (cached) return cached;
   const out = Object.fromEntries(MODIFIER_KEYS.map((k) => [k, 1]));
@@ -7008,7 +7211,7 @@ function modifiers(v) {
   if (v.kikiwiwi) apply(KIKIWIWI.modifiers);
   if (c) {
     apply(c.modifiers);
-    for (const skill of c.skills) if (v.level >= skill.level) apply(skill.modifiers);
+    for (const skill of classSkills(c.id)) if (v.level >= skill.level) apply(skill.modifiers);
     if (c.grows) {
       const g = classGrowth(v);
       out[c.grows] = LOWER_IS_BETTER.has(c.grows) ? out[c.grows] / g : out[c.grows] * g;
@@ -7019,7 +7222,7 @@ function modifiers(v) {
 }
 function hasSkill(v, skill) {
   if (!v.classId) return false;
-  const def = CLASSES[v.classId].skills.find((x) => x.id === skill);
+  const def = classSkills(v.classId).find((x) => x.id === skill);
   return !!def && v.level >= def.level;
 }
 function levelForXp(xp) {
@@ -7110,7 +7313,10 @@ function mayorMorale(state) {
   return bonus;
 }
 function regenBonus(workers) {
-  const gatherers = workers.filter((v) => hasSkill(v, "greenThumb")).length;
+  let gatherers = 0;
+  for (const v of workers)
+    if (hasSkill(v, "greenThumb"))
+      gatherers += inLine(v.classId, "herbalist") ? SKILLS.herbalistRegen : 1;
   return 1 + SKILLS.greenThumbRegen * gatherers;
 }
 function repairSpeed(v) {
@@ -7119,11 +7325,18 @@ function repairSpeed(v) {
 function bardMorale(state) {
   let sum = 0;
   for (const v of state.villagers) {
-    if (v.classId !== "bard" || v.job.kind === "expedition" || v.job.kind === "outpost") continue;
+    if (!inLine(v.classId, "bard") || v.job.kind === "expedition" || v.job.kind === "outpost")
+      continue;
     const ballad = hasSkill(v, "ballad") ? SKILLS.balladBonus : 1;
-    sum += SKILLS.bardMorale * classGrowth(v) * ballad;
+    const minstrel = inLine(v.classId, "minstrel") ? SKILLS.minstrelMorale : 1;
+    sum += SKILLS.bardMorale * classGrowth(v) * ballad * minstrel;
   }
   return Math.min(SKILLS.bardMax, sum);
+}
+function drillRate(v, campLevel) {
+  if (!v.classId || classRank(v) >= CAMP.maxRank) return 0;
+  const k = CAMP.drill[Math.min(campLevel, CAMP.drill.length) - 1] ?? 1;
+  return Math.max(1, Math.round(100 * k * modifiers(v).practice));
 }
 function workMastery(state, b) {
   if (!b) return null;
@@ -7135,7 +7348,10 @@ function ratesOf(state, v, masteries) {
   const job2 = v.job;
   let perHour = 0;
   let mastery = null;
+  let drill = 0;
   if (job2.kind === "work") {
+    const camp = state.buildings.find((x) => x.id === job2.buildingId);
+    if (camp?.type === "trainingCamp") drill = drillRate(v, camp.level);
     perHour = KIWI.xpPerHour.work;
     let m2 = masteries.get(job2.buildingId);
     if (m2 === void 0) {
@@ -7158,12 +7374,12 @@ function ratesOf(state, v, masteries) {
   } else if (job2.kind === "guard" || job2.kind === "titan" || job2.kind === "stardust") {
     perHour = KIWI.xpPerHour.guard;
   }
-  if (perHour === 0) return { xp: 0, practice: 0, mastery: null };
+  if (perHour === 0) return { xp: 0, practice: 0, mastery: null, drill };
   const m = modifiers(v);
   const spirit = 1 + KIWI.spiritXp * (v.stats.spirit - KIWI.stat.average);
   const xp = v.level >= KIWI.maxLevel ? 0 : Math.max(1, Math.round(perHour * 100 * spirit * m.xp));
   const practice = mastery && rankOf(v.mastery[mastery]) < KIWI.maxRank ? Math.max(1, Math.round(100 * m.practice)) : 0;
-  return { xp, practice, mastery: practice > 0 ? mastery : null };
+  return { xp, practice, mastery: practice > 0 ? mastery : null, drill };
 }
 function nextKiwiEvent(state) {
   let next = Infinity;
@@ -7178,6 +7394,10 @@ function nextKiwiEvent(state) {
       const rank = rankOf(v.mastery[r.mastery]);
       const need = masteryHours(rank + 1) * PRACTICE_SCALE - v.mastery[r.mastery];
       next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.practice)));
+    }
+    if (r.drill > 0) {
+      const need = CAMP.rankHours[classRank(v) + 1] * PRACTICE_SCALE - v.classXp;
+      next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.drill)));
     }
   }
   return next;
@@ -7201,11 +7421,23 @@ function accrueKiwis(state, dtMs, at, events) {
         });
       }
     }
+    if (r.drill > 0) addClassXp(v, r.drill * dtMs, at, events);
     if (r.xp > 0) {
       v.xp += r.xp * dtMs;
       levelUps(state, v, at, events);
     }
   }
+}
+function addClassXp(v, raw, at, events) {
+  const before = classRank(v);
+  v.classXp += raw;
+  const after = classRank(v);
+  if (after > before)
+    events.push({ type: "classRankUp", at, villagerId: v.id, name: v.name, rank: after });
+}
+function grantClassXp(v, hours, at, events) {
+  if (!v.classId || v.kikiwiwi || classRank(v) >= CAMP.maxRank) return;
+  addClassXp(v, Math.round(hours * modifiers(v).practice * 100) * 36e5, at, events);
 }
 function grantXp(state, v, points, at, events) {
   if (v.level >= KIWI.maxLevel) return;
@@ -7239,25 +7471,34 @@ function pickStat(rng, v) {
   }
   return open[open.length - 1];
 }
-function trainLock(state, v, classId, school) {
+function trainLock(state, v, classId, place) {
   const def = CLASSES[classId];
+  if (!def) return "classLocked";
   if (v.kikiwiwi) return "kikiwiwiNoWork";
-  if (!def || def.tier !== 1) return "classLocked";
-  if (school.level < def.schoolLevel || ageOf(state) < (def.age ?? 0)) return "classLocked";
-  if (v.level < def.minLevel) return "levelTooLow";
-  if (v.stats[def.stat] < CLASS_RULES.statMin) return "statTooLow";
+  const camp = place.type === "trainingCamp";
+  if (!camp && def.tier !== 1) return "classLocked";
+  if (camp && !v.classId) return "wrongClass";
+  if (place.level < (camp && def.tier === 1 ? 1 : def.schoolLevel)) return "classLocked";
+  if (ageOf(state) < (def.age ?? 0)) return "classLocked";
   if (v.classId === classId) return "alreadyThisClass";
+  if (def.tier > 1 && !def.parents?.includes(v.classId)) return "wrongClass";
+  if (v.level < def.minLevel) return "levelTooLow";
+  const min = CLASS_RULES.statMin[def.tier];
+  if (v.stats[def.stat] < min || def.stat2 && v.stats[def.stat2] < min) return "statTooLow";
+  if (def.tier > 1 && classRank(v) < CLASS_RULES.promoteRank) return "rankTooLow";
   return null;
 }
-function trainingCost(v, classId) {
-  const k = v.classId ? SKILLS.retrainCost : 1;
+function trainingCost(v, classId, place) {
+  const camp = place?.type === "trainingCamp";
+  const promotion = CLASSES[classId].tier > 1;
+  const k = !v.classId || promotion ? 1 : camp ? CAMP.retrainCost : SKILLS.retrainCost;
   const out = {};
   const cost = CLASSES[classId].cost;
-  for (const id3 of RESOURCE_IDS) if (cost[id3]) out[id3] = cost[id3] * k;
+  for (const id3 of RESOURCE_IDS) if (cost[id3]) out[id3] = Math.round(cost[id3] * k);
   return out;
 }
-function trainingDuration(school, classId) {
-  const speed = levelDef("school", school.level)?.trainingTime ?? 1;
+function trainingDuration(place, classId) {
+  const speed = levelDef(place.type, place.level)?.trainingTime ?? 1;
   return Math.round(CLASSES[classId].trainingMs * speed);
 }
 
@@ -8153,7 +8394,7 @@ function shipCargo(launchpad) {
 function travelTime(target, launchpad, crew = [], mission = "raid", tech = 1) {
   const pad = levelDef("launchpad", launchpad.level)?.travelTime ?? 1;
   const wind = crew.some((v) => hasSkill(v, "tailwind")) ? SKILLS.tailwindTravel : 1;
-  const scout = crew.some((v) => v.classId === "scout") ? SKILLS.scoutTravel : 1;
+  const scout = crew.some((v) => inLine(v.classId, "navigator")) ? SKILLS.navigatorTravel : crew.some((v) => inLine(v.classId, "scout")) ? SKILLS.scoutTravel : 1;
   const light = mission === "recon" ? RECON.travel : 1;
   return Math.round(target.travelMs * pad * wind * scout * light * tech / 1e3) * 1e3;
 }
@@ -8614,6 +8855,8 @@ function resolveReturn(state, e, events = []) {
       if (result2.victory) v.history.victories++;
     }
     grantXp(state, v, result2.aborted ? xp / 2 : xp, e.returnAt, events);
+    const drill = CAMP.expeditionHours.base + (result2.victory ? CAMP.expeditionHours.victory : 0);
+    grantClassXp(v, result2.aborted ? drill / 2 : drill, e.returnAt, events);
   }
   const unloaded = {
     pulp: Math.max(0, pantry.pulp - need.pulp),
@@ -9376,7 +9619,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 29;
+var SCHEMA_VERSION = 30;
 var MISSION_KINDS = [
   "raid",
   "recon",
@@ -10147,6 +10390,8 @@ var COMMAND_ERRORS = [
   "classLocked",
   "levelTooLow",
   "statTooLow",
+  "rankTooLow",
+  "wrongClass",
   "alreadyThisClass",
   "kiwiBusy",
   "mayorExists",
@@ -10281,7 +10526,7 @@ function applyCommand(state, cmd, ctx) {
   const s = cloneState(state);
   const events = [];
   advanceInPlace(s, ctx.now, events);
-  const advanced = cloneState(s);
+  const advanced2 = cloneState(s);
   if (terraformKey(s)) ctx = { ...ctx, map: faceMapOf(s) };
   try {
     execute(s, cmd, ctx, events);
@@ -10289,7 +10534,7 @@ function applyCommand(state, cmd, ctx) {
     dispatchTasks(s, ctx.now, events);
     return { ok: true, state: s, events };
   } catch (e) {
-    if (e instanceof CommandFailure) return { ok: false, error: e.code, state: advanced, events };
+    if (e instanceof CommandFailure) return { ok: false, error: e.code, state: advanced2, events };
     throw e;
   }
 }
@@ -10476,6 +10721,7 @@ function execute(s, cmd, ctx, events) {
       if (!b) return fail("unknownBuilding");
       const slots = workerSlots(b);
       if (slots === 0) fail("notAProducer");
+      if (b.type === "trainingCamp" && !v.classId) fail("wrongClass");
       if (v.job.kind === "work" && v.job.buildingId === b.id) return;
       let other;
       if (cmd.replace !== void 0) {
@@ -10744,7 +10990,8 @@ function execute(s, cmd, ctx, events) {
       const v = s.villagers.find((x) => x.id === cmd.villagerId);
       if (!v) return fail("unknownVillager");
       const school = getBuilding(s, cmd.schoolId);
-      if (!school || school.type !== "school") return fail("notASchool");
+      if (!school || school.type !== "school" && school.type !== "trainingCamp")
+        return fail("notASchool");
       const def = CLASSES[cmd.classId];
       if (!def) return fail("classLocked");
       const lock = trainLock(s, v, cmd.classId, school);
@@ -10755,12 +11002,12 @@ function execute(s, cmd, ctx, events) {
       )) {
         fail("mayorExists");
       }
-      const lvl = levelDef("school", school.level);
+      const lvl = levelDef(school.type, school.level);
       const trainees = s.villagers.filter(
         (x) => x.job.kind === "train" && x.job.schoolId === school.id
       ).length;
       if (trainees >= (lvl.trainingSlots ?? 0)) fail("schoolFull");
-      const cost = trainingCost(v, cmd.classId);
+      const cost = trainingCost(v, cmd.classId, school);
       pay(s, cost);
       v.job = {
         kind: "train",
@@ -15215,6 +15462,7 @@ var villager = external_exports.object({
     built: external_exports.number().int().min(0)
   }),
   classId: external_exports.enum(CLASS_IDS).nullable(),
+  classXp: external_exports.number().int().min(0),
   skillReadyAt: external_exports.record(external_exports.enum(SKILL_IDS), external_exports.number()),
   kikiwiwi: external_exports.object({ since: external_exports.number() }).optional(),
   locked: external_exports.literal(true).optional(),
@@ -15648,6 +15896,11 @@ var MIGRATIONS = {
   28: (raw) => ({
     ...raw,
     villagers: (Array.isArray(raw.villagers) ? raw.villagers : []).map((v) => v.kikiwiwi ? { ...v, classId: null, skillReadyAt: {} } : v)
+  }),
+  // v29 → v30 (chantier 37): every class starts at rank 1.
+  29: (raw) => ({
+    ...raw,
+    villagers: (Array.isArray(raw.villagers) ? raw.villagers : []).map((v) => ({ ...v, classXp: 0 }))
   })
 };
 function spreadOldBuildings(state) {
@@ -16845,6 +17098,7 @@ export {
   BUILDINGS,
   BUILDING_TYPES,
   CALENDAR,
+  CAMP,
   CAMPS,
   CATCHMENT_RADIUS,
   CLASSES,
@@ -17037,6 +17291,9 @@ export {
   catchmentRadius,
   claimableObjective,
   classGrowth,
+  classRank,
+  classRankProgress,
+  classSkills,
   cleanFreight,
   cleanKiwiName,
   clearDuration,
@@ -17106,6 +17363,8 @@ export {
   drawGarrison,
   drawLosses,
   drillFactor,
+  drillRate,
+  drillingKiwis,
   dustAt,
   dustPickers,
   dustPoints,
@@ -17152,6 +17411,7 @@ export {
   geometric,
   getBuilding,
   getTile,
+  grantClassXp,
   grantXp,
   guardPower,
   handleGameRequest,
@@ -17187,6 +17447,7 @@ export {
   hungerWork,
   idleByPower,
   idleVillagers,
+  inLine,
   infusionDuration,
   infusionRisk,
   intelView,

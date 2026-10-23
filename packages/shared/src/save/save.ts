@@ -216,6 +216,7 @@ const villager = z.object({
     built: z.number().int().min(0),
   }),
   classId: z.enum(CLASS_IDS).nullable(),
+  classXp: z.number().int().min(0),
   skillReadyAt: z.record(z.enum(SKILL_IDS), z.number()),
   kikiwiwi: z.object({ since: z.number() }).optional(),
   locked: z.literal(true).optional(),
@@ -716,6 +717,14 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
       ? (raw.villagers as Record<string, unknown>[])
       : []
     ).map((v) => (v.kikiwiwi ? { ...v, classId: null, skillReadyAt: {} } : v)),
+  }),
+  // v29 → v30 (chantier 37): every class starts at rank 1.
+  29: (raw) => ({
+    ...raw,
+    villagers: (Array.isArray(raw.villagers)
+      ? (raw.villagers as Record<string, unknown>[])
+      : []
+    ).map((v) => ({ ...v, classXp: 0 })),
   }),
 };
 

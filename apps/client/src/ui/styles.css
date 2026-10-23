@@ -2818,6 +2818,12 @@ button.chip:focus-visible {
   opacity: 0.6;
 }
 
+.req-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 10px;
+}
+
 .skill-main,
 .course-main {
   flex: 1;

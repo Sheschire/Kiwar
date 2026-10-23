@@ -238,7 +238,7 @@ describe('school and classes', () => {
     const weak = {
       ...s,
       villagers: s.villagers.map((v, i) =>
-        i === 1 ? { ...v, stats: { ...v.stats, spirit: CLASS_RULES.statMin - 1 } } : v,
+        i === 1 ? { ...v, stats: { ...v.stats, spirit: CLASS_RULES.statMin[1]! - 1 } } : v,
       ),
     };
     expect(errorOf(weak, train(weak, 1, schoolId, 'mage'), map)).toBe('statTooLow');

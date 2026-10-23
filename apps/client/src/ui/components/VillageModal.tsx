@@ -15,16 +15,9 @@ import {
   KIKIWIWI,
   kikiwiwiWeak,
   techEffects,
-  AGE_IDS,
-  ageOf,
-  CLASS_IDS,
   CLASS_RULES,
   CLASSES,
-  trainingCost,
-  trainingDuration,
-  validateCommand,
-  type ClassId,
-  type Command,
+  classSkills,
   type GameState,
   kiwiPosts,
   JOBS,
@@ -40,13 +33,13 @@ import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { pushToast, useT, useUi, uiStore, type VillageSort } from '../store';
 import { BookIcon, HammerIcon, LockIcon, ResourceIcon } from '../icons';
-import { Cost } from './Cost';
 import { KiwiPortrait } from './KiwiPortrait';
 import { BlessingSection } from './BlessingSection';
 import { Modal } from './Modal';
 import { AutomationPanel, manualNeeds } from './AutomationPanel';
 import { StatRadar } from './StatRadar';
 import { TrainingBar } from './TrainingBar';
+import { ClassCourses, ClassRank } from './ClassCourses';
 import { KiwiNeedsLine, MoraleCard, RestSection } from './NeedsWidgets';
 
 type Sort = VillageSort;
@@ -255,23 +248,8 @@ function ClassSection({ v }: { v: Villager }) {
   const t = useT();
   const lang = useUi((s) => s.lang);
   const game = useUi((s) => s.game)!;
-  const map = useUi((s) => s.map);
   const now = useUi((s) => s.now);
-  const [showCourses, setShowCourses] = useState(false);
-  const schools = game.buildings.filter((b) => b.type === 'school');
   const job = v.job;
-  const ctx = map ? { now, map } : null;
-  const trainCmd = (classId: ClassId): Command | null => {
-    // The School that can take this kiwi (the highest level first).
-    const sorted = [...schools].sort((a, b) => b.level - a.level);
-    let fallback: Command | null = null;
-    for (const school of sorted) {
-      const cmd: Command = { type: 'train', villagerId: v.id, schoolId: school.id, classId };
-      fallback ??= cmd;
-      if (ctx && validateCommand(game, cmd, ctx) === null) return cmd;
-    }
-    return fallback;
-  };
   return (
     <section class="field">
       <h3>{t('kiwi.class')}</h3>
@@ -290,6 +268,7 @@ function ClassSection({ v }: { v: Villager }) {
             <strong>{t(`classes.${v.classId}.name`)}</strong> — {t(`classes.${v.classId}.desc`)}
           </p>
           <p class="small muted">{t(`classes.${v.classId}.combat`)}</p>
+          <ClassRank v={v} />
           {CLASSES[v.classId].grows && (
             <p class="small muted">
               {t('classInfo.growth', {
@@ -300,7 +279,7 @@ function ClassSection({ v }: { v: Villager }) {
           )}
           <h4 class="small-title">{t('kiwi.skills')}</h4>
           <ul class="skill-list">
-            {CLASSES[v.classId].skills.map((sk) => {
+            {classSkills(v.classId).map((sk) => {
               const unlocked = v.level >= sk.level;
               const ready = v.skillReadyAt[sk.id] ?? 0;
               return (
@@ -340,77 +319,7 @@ function ClassSection({ v }: { v: Villager }) {
       ) : (
         job.kind !== 'train' && <p class="small muted">{t('kiwi.noClass')}</p>
       )}
-      {job.kind !== 'train' &&
-        (schools.length === 0 ? (
-          <p class="small muted">{t('kiwi.needsSchool')}</p>
-        ) : (
-          <>
-            {v.classId && !showCourses ? (
-              <button class="btn btn-small" onClick={() => setShowCourses(true)}>
-                {t('kiwi.retrain')}
-              </button>
-            ) : (
-              <ul class="course-list">
-                {CLASS_IDS.filter((c) => c !== v.classId && CLASSES[c].tier === 1).map((c) => {
-                  const def = CLASSES[c];
-                  const statOk = v.stats[def.stat] >= CLASS_RULES.statMin;
-                  const cmd = trainCmd(c);
-                  const error = cmd && ctx ? validateCommand(game, cmd, ctx) : 'notASchool';
-                  const maxSchool = Math.max(...schools.map((b) => b.level));
-                  const lock =
-                    ageOf(game) < (def.age ?? 0)
-                      ? t('classInfo.age', { age: `@ages.${AGE_IDS[def.age ?? 0]!}` })
-                      : maxSchool < def.schoolLevel
-                        ? t('kiwi.needsSchoolLevel', { level: def.schoolLevel })
-                        : v.level < def.minLevel
-                          ? t('kiwi.needsKiwiLevel', { level: def.minLevel })
-                          : null;
-                  return (
-                    <li key={c} class={`course ${lock ? 'is-locked' : ''}`}>
-                      <KiwiPortrait shiny={v.shiny} classId={c} seed={v.id} size={40} />
-                      <span class="course-main">
-                        <strong>{t(`classes.${c}.name`)}</strong>
-                        <span class="small muted">{t(`classes.${c}.desc`)}</span>
-                        <span class="small muted">{t(`classes.${c}.combat`)}</span>
-                        <span class={`small ${statOk ? 'bonus' : 'warn'}`}>
-                          {t('classInfo.stat', {
-                            stat: `@stats.${def.stat}`,
-                            min: CLASS_RULES.statMin,
-                          })}{' '}
-                          ({v.stats[def.stat]})
-                        </span>
-                        {lock ? (
-                          <span class="small warn">{lock}</span>
-                        ) : (
-                          <Cost
-                            cost={trainingCost(v, c)}
-                            have={game.resources}
-                            durationMs={
-                              schools[0] ? trainingDuration(schools[0], c) : def.trainingMs
-                            }
-                          />
-                        )}
-                        {!lock &&
-                          error &&
-                          error !== 'notEnoughResources' &&
-                          error !== 'statTooLow' && (
-                            <span class="small warn">{t(`errors.${error}`)}</span>
-                          )}
-                      </span>
-                      <button
-                        class="btn btn-small btn-primary"
-                        disabled={error !== null}
-                        onClick={() => cmd && actions.dispatch(cmd)}
-                      >
-                        {t('kiwi.trainAs')}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </>
-        ))}
+      {job.kind !== 'train' && <ClassCourses v={v} />}
     </section>
   );
 }

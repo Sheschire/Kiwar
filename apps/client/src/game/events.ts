@@ -131,6 +131,9 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
           rank: e.rank,
         });
         break;
+      case 'classRankUp':
+        pushToast('success', 'events.classRankUp', { name: e.name, rank: e.rank });
+        break;
       case 'storageFull':
         pushToast('info', 'events.storageFull', { resource: `@resources.${e.resource}` });
         break;

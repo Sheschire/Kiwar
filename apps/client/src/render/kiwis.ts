@@ -74,6 +74,12 @@ const CLASS_CLIP: Record<ClassId, ClipId> = {
   mayor: 'teach',
   gatherer: 'sling',
   bard: 'sing',
+  architect: 'mace',
+  navigator: 'dagger',
+  champion: 'sword',
+  archmage: 'spell',
+  herbalist: 'sling',
+  minstrel: 'sing',
 };
 /** Guards' sectors (shared `defenseOf`), once per state. */
 const guardSectors = perGame((state) => defenseOf(state));
@@ -566,6 +572,16 @@ export class KiwisView {
       return;
     }
 
+    // Chantier 37: trainees drill their class's move around the training camp.
+    if (
+      job.kind === 'work' &&
+      work &&
+      getBuilding(this.state!, job.buildingId)?.type === 'trainingCamp'
+    ) {
+      this.thinkCamp(agent, villager, work.hex, role, changed, arrived);
+      return;
+    }
+
     // Chantier 34: researchers live around the Library — reading, writing, changing shelves.
     if (job.kind === 'work' && work && !work.resource) {
       this.thinkLibrary(agent, work.hex, role, changed, arrived);
@@ -673,6 +689,30 @@ export class KiwisView {
   private around(h: Hex, angle: number, dist: number): Vector3 {
     const c = hexToPixel(h);
     return new Vector3(c.x + Math.sin(angle) * dist, 0, c.y + Math.cos(angle) * dist);
+  }
+
+  private thinkCamp(
+    agent: Agent,
+    villager: Villager,
+    camp: Hex,
+    role: string,
+    changed: boolean,
+    arrived: boolean,
+  ): void {
+    const drill = villager.classId ? CLASS_CLIP[villager.classId] : 'peck';
+    if (changed) {
+      agent.carrying = null;
+      agent.leg = 'toWork';
+      const angle = ((Number(role) || 0) / LIBRARY_SPOTS) * Math.PI * 2 + 0.8;
+      this.walkToPoint(agent, this.around(camp, angle, LIBRARY_RING));
+      agent.face = angle + Math.PI;
+      return;
+    }
+    if (arrived || (agent.activity === 'work' && agent.timer <= 0)) {
+      // Drills, with a breather now and then.
+      const rest = agent.clip === drill && agent.rng.chance(0.3);
+      this.settle(agent, 'work', rest ? 'idle' : drill, agent.rng.range(4, 9));
+    }
   }
 
   private thinkLibrary(

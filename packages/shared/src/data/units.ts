@@ -18,6 +18,11 @@ export const WEAPON_IDS = [
   'stomp',
   'dagger',
   'song',
+  'warhammer',
+  'twinDaggers',
+  'greatsword',
+  'meteor',
+  'thornSling',
   'claw',
   'bite',
   'slam',
@@ -67,6 +72,28 @@ export const WEAPONS: Record<WeaponId, Weapon> = {
   sword: melee(3.2, 1.1),
   // Chantier 37: a quick dagger that leaps at bats and goes for thieves and spitters.
   dagger: { ...melee(1.2, 0.6, true), accuracy: 0.95, hunts: true },
+  // Chantier 37, tier 2: each advanced class fights with a stronger weapon.
+  warhammer: { ...melee(4.4, 2.2), style: 'area' },
+  twinDaggers: { ...melee(1.3, 0.45, true), accuracy: 0.97, hunts: true },
+  greatsword: melee(4.4, 1.2),
+  meteor: {
+    damage: 3.6,
+    range: 4,
+    reload: 2.4,
+    style: 'area',
+    accuracy: 0.82,
+    hitsGround: true,
+    hitsAir: true,
+  },
+  thornSling: {
+    damage: 2.2,
+    range: 3,
+    reload: 1.1,
+    style: 'ranged',
+    accuracy: 0.8,
+    hitsGround: true,
+    hitsAir: true,
+  },
   // Chantier 37: the bard's song stings a little; its real gift is its aura (`KIWI_UNIT.aura`).
   song: {
     damage: 0.8,
@@ -242,6 +269,12 @@ export const CLASS_WEAPONS: Record<ClassId | 'none', WeaponId> = {
   mayor: 'beak',
   gatherer: 'sling',
   bard: 'song',
+  architect: 'warhammer',
+  navigator: 'twinDaggers',
+  champion: 'greatsword',
+  archmage: 'meteor',
+  herbalist: 'thornSling',
+  minstrel: 'song',
 };
 
 /** How the stats of a kiwi become a fighter (5 is an average stat). */
@@ -268,13 +301,13 @@ export const KIWI_UNIT = {
   militiaFlee: 0.4,
   militiaDamage: 0.8,
   /** Chantier 37: warriors hold the front line (more hit points), scouts dodge. */
-  classHp: { warrior: 1.4 } as Partial<Record<ClassId, number>>,
-  classDodge: { scout: 0.12 } as Partial<Record<ClassId, number>>,
+  classHp: { warrior: 1.4, champion: 1.7, architect: 1.2 } as Partial<Record<ClassId, number>>,
+  classDodge: { scout: 0.12, navigator: 0.18 } as Partial<Record<ClassId, number>>,
   /**
    * Chantier 37: a bard's song lifts the damage of its side's fighters this close (the best
    * aura counts, never several); Chorus widens and strengthens it.
    */
-  aura: { range: 2, boost: 0.2, chorusRange: 3, chorusBoost: 0.3 },
+  aura: { range: 2, boost: 0.2, chorusRange: 3, chorusBoost: 0.3, minstrel: 0.1 },
 } as const;
 
 export const POSTURES = ['cautious', 'bold'] as const;

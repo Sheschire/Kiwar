@@ -10,6 +10,7 @@ import {
   type WeaponId,
 } from '../data/units';
 import { KIWI } from '../data/kiwis';
+import { inLine } from '../data/classes';
 import type { Building, GameState, Villager } from '../sim/state';
 import { hasSkill, modifiers } from '../sim/kiwis';
 import { techEffects } from '../sim/research';
@@ -76,10 +77,13 @@ export function kiwiUnit(
   const extraDodge = v.classId ? (K.classDodge[v.classId] ?? 0) : 0;
   const chorus = hasSkill(v, 'chorus');
   const aura =
-    v.classId === 'bard' && role === 'guard'
+    inLine(v.classId, 'bard') && role === 'guard'
       ? {
           range: chorus ? K.aura.chorusRange : K.aura.range,
-          boost: chorus ? K.aura.chorusBoost : K.aura.boost,
+          // Chantier 37: a minstrel sings louder.
+          boost:
+            (chorus ? K.aura.chorusBoost : K.aura.boost) +
+            (inLine(v.classId, 'minstrel') ? K.aura.minstrel : 0),
         }
       : undefined;
   return {

@@ -34,7 +34,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 29;
+export const SCHEMA_VERSION = 30;
 
 export type Job =
   | { kind: 'idle' }
@@ -106,6 +106,11 @@ export interface Villager {
   history: KiwiHistory;
   /** Class taught at the School (null: none yet). */
   classId: ClassId | null;
+  /**
+   * Chantier 37: practice in the current class (raw units, `PRACTICE_SCALE` per hour), the
+   * class rank; back to 0 with a new class.
+   */
+  classXp: number;
   /** When each active skill can be used again. */
   skillReadyAt: Partial<Record<SkillId, TimeMs>>;
   /** Chantier 08: transformed by juice into a Kikiwiwi (absent for ordinary kiwis). */

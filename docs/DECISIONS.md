@@ -2304,3 +2304,32 @@ launch cost applies to **every mission but the founding**; the bot's dead time a
   Kikiwiwis lose theirs. The laboratory sheet warns before the infusion when the chosen kiwi
   has a class. In battle it stays the giant unit of chantier 36 (stomp, ×2 hit points, two
   places), shown as "Kikiwiwi" on the unit card.
+
+### Part 3 — Training camp, class rank, tier 2
+
+- **Training camp** (`trainingCamp`, 3 tiles, inside the building cap): three levels of its
+  own like the laboratory — 1 and 2 from the Stone age (Nest 4 / 5), 3 at the Iron age
+  (Nest 7); drill places 2 / 3 / 4, courses 1 / 1 / 2, course time × 1 / 0.85 / 0.7.
+  Defense family colours; the archery range and the circle of spells dress its two other tiles.
+- Trainees are ordinary workers of the camp (`work` job, like the Library), placed by the
+  player only (`isManualWorkplace`); only kiwis with a class (`wrongClass`). They eat half a
+  ration more each (`CAMP.drillAppetite`, in `consumption`). Drawn drilling their class's
+  move around the camp.
+- **Class rank 1–5** (`Villager.classXp`, raw practice units, save v30): rank 2 at 6 h of
+  practice, 3 at 18 h, 4 at 40 h, 5 at 80 h. Drill gives 1 / 1.25 / 1.5 h per hour by camp
+  level (× the practice modifier); a wave fought gives 1.5 h on guard, 0.5 h in the militia;
+  an expedition 2 h (+1 on a victory, half when aborted). A rank-up is an `advance` event
+  (`classRankUp` toast). Each rank above 1 adds 3 % to the class's growing bonus.
+- Any new class starts at rank 1 (a promotion too: the rank measures the current class).
+- **Tier 2** at the camp: kiwi level 10, the class stat ≥ 10, rank 3 in the parent class;
+  1 500 pulp and fiber, 300 seeds, 600 juice, 4 h. It replaces the parent's bonuses, keeps its
+  skills (`classSkills`, cooldowns kept on a promotion) and gets a new weapon: Architect
+  (build × 1.6, war hammer: area), Navigator (weight × 0.35, crew travel × 0.8, twin
+  daggers), Champion (fight × 1.8, repair × 1.8, × 1.7 hit points, great sword), Archmage
+  (research × 2, meteors: range 4, area), Herbalist (harvest × 1.5, Green thumb × 2, thorn
+  sling: range 3), Minstrel (counts as two bards, aura +10 %). `inLine` keeps every rule of a
+  base class (bard morale, scout travel, auras) for its descendants.
+- **Change of class at the camp**: any tier-1 class for 1.25 × its price (the School: 2 ×),
+  for kiwis that already have one; the rank starts over, the kiwi level stays.
+- The builder's level-20 skill is now shown as "Master builder" (it shared the name of the
+  new class).

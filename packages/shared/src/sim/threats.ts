@@ -22,7 +22,8 @@ import type { GameEvent } from './advance';
 import { calendarAt } from './calendar';
 import type { Odds } from './expeditions';
 import { removeVillagers } from './expeditions';
-import { kiwiStrength } from './kiwis';
+import { grantClassXp, kiwiStrength } from './kiwis';
+import { CAMP } from '../data/classes';
 import { capacity, isRampart, nest, reserves } from './selectors';
 import { faceMapOf, pathsKey, terraformKey } from './territory';
 import { seasonOf } from './calendar';
@@ -735,6 +736,18 @@ function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
     );
     s.paths = s.paths.filter((k) => !lost.has(k));
     report.pathsLost = lost.size;
+  }
+  // Chantier 37: the kiwis who fought gain class practice (guards more than the militia).
+  for (const u of log.units) {
+    if (u[1] !== 0 || u[2] === 'turret') continue;
+    const v = s.villagers.find((x) => x.id === u[0]);
+    if (!v) continue;
+    grantClassXp(
+      v,
+      v.job.kind === 'guard' ? CAMP.waveHours.guard : CAMP.waveHours.militia,
+      at,
+      events,
+    );
   }
   // The kiwis who fell are hurt; on a real defeat, the first one may not get up.
   const fallen = log.result.fallen

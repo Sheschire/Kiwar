@@ -94,6 +94,7 @@ import { LevelStats, UpgradePreview } from './StatChanges';
 import { Icon, type IconName } from '../iconSet';
 import { BuildingThumb } from './BuildingThumb';
 import { LabInfo } from './LabInfo';
+import { CampInfo } from './CampInfo';
 import { siegeVisible } from './SiegeModal';
 import { TitanWorks } from './TitanWorks';
 import { DustSection } from './DustSection';
@@ -393,6 +394,7 @@ function BuildingSection({
       )}
       {b.type === 'school' && <SchoolInfo game={game} b={b} now={now} t={t} />}
       {b.type === 'lab' && <LabInfo game={game} map={map} b={b} now={now} />}
+      {b.type === 'trainingCamp' && <CampInfo game={game} b={b} now={now} />}
       {b.type === 'monument' && <AgeInfo game={game} t={t} />}
       {b.type === 'library' && (
         <>

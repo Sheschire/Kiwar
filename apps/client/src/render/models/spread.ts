@@ -2,6 +2,7 @@ import { Matrix4 } from 'three';
 import { footprintOf, type BuildingType } from '@kiwar/shared';
 import { C, box, cone, cyl, emitter, m, MODEL_SCALE, rig, sphere, type Parts } from './kit';
 import { A, banner, byAge, door, gable, lamp, pipe, under, wall, type Look } from './ageKit';
+import { trainingGrounds } from './training';
 
 /**
  * Chantier 35: big buildings drawn at the scale of their footprint. The recipe of the building
@@ -255,7 +256,15 @@ function monument(p: Parts, look: Look): void {
     for (const k of [1, 4]) lamp(p, age, HEXAGON[k]![0] * 0.4, HEXAGON[k]![1] * 0.4, `plaza${k}`);
 }
 
+/** Chantier 37: the archery range behind on the left, the circle of spells on the right. */
+function trainingCamp(p: Parts, look: Look): void {
+  const out = (i: number) => [TRIANGLE[i]![0] * 1.12, TRIANGLE[i]![1] * 1.12] as const;
+  trainingGrounds(p, look, out(1), out(2));
+  walk(p, look.age);
+}
+
 const DRESS: Partial<Record<BuildingType, (p: Parts, look: Look) => void>> = {
+  trainingCamp,
   library,
   school,
   warehouse,

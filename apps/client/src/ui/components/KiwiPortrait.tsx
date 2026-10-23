@@ -1,5 +1,5 @@
 import { memo } from 'preact/compat';
-import type { ClassId, ShinyColor } from '@kiwar/shared';
+import { CLASSES, type ClassId, type ShinyColor } from '@kiwar/shared';
 
 const SHINY_FILL: Record<ShinyColor, { body: string; head: string }> = {
   red: { body: '#e0503c', head: '#c5402f' },
@@ -19,7 +19,11 @@ export const KiwiPortrait = memo(function KiwiPortrait(props: {
   /** A Kikiwiwi (chantier 08): darker, green veins, glowing eye. */
   titan?: boolean;
 }) {
-  const cls = props.classId ?? null;
+  // Chantier 37: a higher tier wears its first ancestor's outfit, with a cape.
+  const own = props.classId ?? null;
+  let cls = own;
+  while (cls && CLASSES[cls].parents) cls = CLASSES[cls].parents![0]!;
+  const tier = own ? CLASSES[own].tier : 1;
   const size = props.size ?? 40;
   const titan = !!props.titan;
   const fill = props.shiny
@@ -52,6 +56,14 @@ export const KiwiPortrait = memo(function KiwiPortrait(props: {
           fill="#c9c0ae"
           stroke="#7a5233"
           stroke-width="1.2"
+        />
+      )}
+      {tier > 1 && (
+        <path
+          d="M18 28 Q8 40 12 54 L30 50 Z"
+          fill={CAPES[own!] ?? '#8a6440'}
+          stroke="#5a3e26"
+          stroke-width="1"
         />
       )}
       <ellipse cx="30" cy="38" rx="20" ry="15" fill={fill.body} />
@@ -172,6 +184,16 @@ export const KiwiPortrait = memo(function KiwiPortrait(props: {
     </svg>
   );
 });
+
+/** Chantier 37: cape colours of the higher tiers (same as the 3D outfits). */
+const CAPES: Partial<Record<ClassId, string>> = {
+  architect: '#d9a82e',
+  navigator: '#5fa8c9',
+  champion: '#c0504a',
+  archmage: '#6a4fb3',
+  herbalist: '#5d8a3a',
+  minstrel: '#3e7fbf',
+};
 
 function hash(s: string): number {
   let h = 2166136261;

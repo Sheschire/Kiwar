@@ -150,6 +150,13 @@ export const GARRISON = {
     mayor: { ground: 0.4, air: 0 },
     gatherer: { ground: 0.6, air: 0.9 },
     bard: { ground: 0.6, air: 0.3 },
+    // Chantier 37, tier 2.
+    architect: { ground: 0.7, air: 0 },
+    navigator: { ground: 0.8, air: 0.8 },
+    champion: { ground: 1.2, air: 0 },
+    archmage: { ground: 1, air: 1.2 },
+    herbalist: { ground: 0.7, air: 1.1 },
+    minstrel: { ground: 0.7, air: 0.4 },
   } satisfies Record<ClassId | 'none', { ground: number; air: number }>,
   /** Chantier 08: with firearms, warriors shoot the bats too. */
   firearmsAir: 0.8,

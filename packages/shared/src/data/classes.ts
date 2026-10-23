@@ -16,6 +16,13 @@ export const CLASS_IDS = [
   'mayor',
   'gatherer',
   'bard',
+  // Chantier 37, tier 2 (training camp).
+  'architect',
+  'navigator',
+  'champion',
+  'archmage',
+  'herbalist',
+  'minstrel',
 ] as const;
 export type ClassId = (typeof CLASS_IDS)[number];
 
@@ -56,10 +63,14 @@ export interface SkillDef {
 
 export interface ClassDef {
   id: ClassId;
-  /** Stat the class asks for (≥ `CLASS_RULES.statMin` at the School) and grows with. */
+  /** Stat the class asks for (≥ `CLASS_RULES.statMin[tier]`) and grows with. */
   stat: StatId;
-  /** 1: taught at the School (chantier 37: 2 and 3 at the training camp). */
+  /** Tier 3: a second stat asked for too (the growth takes the lower of the two). */
+  stat2?: StatId;
+  /** 1: taught at the School; 2 and 3 at the training camp (chantier 37). */
   tier: 1 | 2 | 3;
+  /** Tiers 2 and 3: the classes a kiwi may come from (it keeps their skills). */
+  parents?: readonly ClassId[];
   /** Age of the colony needed to teach it (0: from the start). */
   age?: number;
   /**
@@ -67,7 +78,7 @@ export interface ClassDef {
    * average). Lower is better for `weight`.
    */
   grows?: keyof KiwiModifiers;
-  /** School level needed to teach it. */
+  /** Level of the School (tier 1) or the training camp (tiers 2–3) needed to teach it. */
   schoolLevel: number;
   /** Kiwi level needed to start the training. */
   minLevel: number;
@@ -76,10 +87,12 @@ export interface ClassDef {
   /** Only one kiwi of this class at a time. */
   unique?: boolean;
   modifiers: KiwiModifiers;
-  skills: readonly [SkillDef, SkillDef, SkillDef];
+  /** Its own skills; a higher tier also keeps those of its parents (`classSkills`). */
+  skills: readonly SkillDef[];
 }
 
-export const CLASSES: Record<ClassId, ClassDef> = {
+type TierOne = 'builder' | 'warrior' | 'mage' | 'scout' | 'mayor' | 'gatherer' | 'bard';
+const CLASSES_T1: Record<TierOne, ClassDef> = {
   // Builds much faster (and learns construction faster).
   builder: {
     id: 'builder',
@@ -201,12 +214,57 @@ export const CLASSES: Record<ClassId, ClassDef> = {
   },
 };
 
+/**
+ * Chantier 37, tier 2: the advanced classes of the training camp (kiwi level 10, the class
+ * stat ≥ 10, class rank 3). Each replaces its parent's bonuses with stronger ones, keeps its
+ * parent's skills and fights with a new weapon.
+ */
+const ADVANCED_COST = { pulp: 1500, fiber: 1500, seeds: 300, juice: 600 };
+const advanced = (
+  id: ClassId,
+  parent: TierOne,
+  grows: keyof KiwiModifiers | undefined,
+  modifiers: KiwiModifiers,
+): ClassDef => ({
+  id,
+  stat: CLASSES_T1[parent].stat,
+  tier: 2,
+  parents: [parent],
+  ...(grows ? { grows } : {}),
+  schoolLevel: 1,
+  minLevel: 10,
+  cost: ADVANCED_COST,
+  trainingMs: ms.h(4),
+  modifiers,
+  skills: [],
+});
+
 /** Chantier 37: rules shared by every class. */
 export const CLASS_RULES = {
-  /** The School teaches a class to a kiwi whose class stat reaches this. */
-  statMin: 6,
+  /** A class is taught to a kiwi whose class stat(s) reach this, by tier (index = tier). */
+  statMin: [0, 6, 10, 12] as readonly number[],
   /** The class's colony bonus: +2 % per point of its stat above average (5). */
   growth: 0.02,
+  /** Class rank needed in the current class to move up a tier. */
+  promoteRank: 3,
+  /** Colony bonus per class rank above the first (+3 %). */
+  rankBonus: 0.03,
+} as const;
+
+/** The training camp (chantier 37): class ranks, drills, class changes. */
+export const CAMP = {
+  maxRank: 5,
+  /** Hours of practice to reach each rank (index = rank; rank 1 from the start). */
+  rankHours: [0, 0, 6, 18, 40, 80] as readonly number[],
+  /** Practice per hour of drill at the camp, by camp level (index = level − 1). */
+  drill: [1, 1.25, 1.5] as readonly number[],
+  /** Practice granted for a wave fought on guard (militia: less), and an expedition. */
+  waveHours: { guard: 1.5, militia: 0.5 },
+  expeditionHours: { base: 2, victory: 1 },
+  /** A kiwi in drill eats this much more (in mouths). */
+  drillAppetite: 0.5,
+  /** Changing class at the camp costs this many times the price (the School: `retrainCost`). */
+  retrainCost: 1.25,
 } as const;
 
 /** Numbers of the skills with a colony-wide or crew-wide effect. */
@@ -233,6 +291,11 @@ export const SKILLS = {
   bardMax: 0.05,
   /** Bard: Ballad multiplies its own share. */
   balladBonus: 1.5,
+  /** Chantier 37: a minstrel counts as this many bards; a navigator's crew travels faster. */
+  minstrelMorale: 2,
+  navigatorTravel: 0.8,
+  /** Herbalist: its Green thumb counts this many times. */
+  herbalistRegen: 2,
   /** Changing class costs this many times the price. */
   retrainCost: 2,
 } as const;
@@ -242,3 +305,42 @@ export const SCHOOL = {
   slots: [1, 1, 2],
   trainingTime: [1, 1, 0.7],
 } as const;
+
+export const CLASSES: Record<ClassId, ClassDef> = {
+  ...CLASSES_T1,
+  architect: advanced('architect', 'builder', 'build', { build: 1.6, practice: 1.2 }),
+  navigator: advanced('navigator', 'scout', 'weight', { fight: 1.3, weight: 0.35 }),
+  champion: advanced('champion', 'warrior', 'repair', {
+    fight: 1.8,
+    build: 1.1,
+    repair: 1.8,
+    exposure: 0.8,
+  }),
+  archmage: advanced('archmage', 'mage', 'research', { fight: 1.5, build: 0.9, research: 2 }),
+  herbalist: advanced('herbalist', 'gatherer', 'harvest', { harvest: 1.5, fight: 1.2 }),
+  // Its morale share is the bard's, doubled (`SKILLS.minstrelMorale`).
+  minstrel: advanced('minstrel', 'bard', undefined, { fight: 1.1 }),
+};
+
+const skillCache = new Map<ClassId, readonly SkillDef[]>();
+
+/** Skills of a class: its own and those of the classes it comes from (chantier 37). */
+export function classSkills(id: ClassId): readonly SkillDef[] {
+  const cached = skillCache.get(id);
+  if (cached) return cached;
+  const def = CLASSES[id];
+  const out: SkillDef[] = [];
+  for (const parent of def.parents ?? [])
+    for (const skill of classSkills(parent))
+      if (!out.some((x) => x.id === skill.id)) out.push(skill);
+  for (const skill of def.skills) if (!out.some((x) => x.id === skill.id)) out.push(skill);
+  skillCache.set(id, out);
+  return out;
+}
+
+/** Whether a class is this one or comes from it (a champion is of the warrior line). */
+export function inLine(id: ClassId | null, root: ClassId): boolean {
+  if (!id) return false;
+  if (id === root) return true;
+  return (CLASSES[id].parents ?? []).some((p) => inLine(p, root));
+}
