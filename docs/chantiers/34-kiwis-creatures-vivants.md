@@ -111,3 +111,42 @@ Revue de chaque métier, avec le skill `kiwar-tasks` :
 - Aucun kiwi en poste sur la jumelle n'est dessiné chez nous.
 - La planche `?kiwis` montre tous les extraits et les créatures.
 - Images/s inchangées à 10 % près.
+
+## Fait (octobre 2026)
+
+1. **Bibliothèque d'animations** (`apps/client/src/render/anim/`) : `pose.ts` (corps, tête,
+   ailes, pattes, accessoire, lueur ; `blendPoses`), `clips.ts` (24 extraits : `idle`, `walk`,
+   `sleep` ; `peck`, `hammer`, `read`, `write`, `sit`, `listen`, `teach` ; `joy`, `dance`,
+   `clap`, `eat`, `stretch`, `chat`, `look` ; `sword`, `spell`, `sling`, `mace` ; `hurt`,
+   `fall`, `getUp` ; `ClipPlayer` avec fondu de 0,22 s), `props.ts` (livre, plume et
+   registre, marteau, épée, bâton, fronde, masse, panier), `kiwiRig.ts` (`KiwiRig` : une
+   pièce instanciée par sorte, tenues de classe coupées tête/corps, pièces inutilisées
+   cachées), `part.ts`. Planche `?kiwis` (`sheet/kiwiSheet.ts`, `&t=` fige le temps,
+   `&clips=` filtre, `&zoom=`).
+2. **Vivre sur place** (`render/kiwis.ts`) : Bibliothèque (six places autour du bâtiment,
+   lecture et écriture, changement d'étagère, plus de navette) ; École (l'élève le·la plus
+   avancé·e mène la leçon du côté libre de l'École, les autres en demi-cercle écoutent et
+   essaient le geste de leur classe) ; gardes en ronde entre les postes de **leur secteur**
+   (`defenseOf`), au pied intérieur des tourelles ou sur le rempart du secteur ; chantiers et
+   réparations au marteau au pied du bâtiment ; inactif·ves qui picorent, s'étirent,
+   s'assoient, dansent ou vont discuter à deux ; kiwis `outpost` plus dessiné·es chez nous ;
+   blessé·es sans lit en extrait `hurt`.
+3. **Furets et chauves-souris** (`render/anim/creatures.ts`, `CreatureRig`) : furet (corps,
+   tête, mâchoire, queue, quatre pattes), chauve-souris (corps, tête, ailes membranes) ;
+   extraits `run`, `bite`, `hit`, `hurt`, `fall` et `flap`, `dive`, `spit`, `hurt`, `fall` ;
+   éclair blanc quand ils sont touchés ; un look par âge (écharpe, casque, lunettes et
+   épaulière) prêt pour le chantier 38. Le spectacle des vagues s'en sert.
+4. **Effets de base** (`render/particles.ts`) : formes boule, plume, étoile ; rendus éclairé,
+   doux (translucide) et lumineux ; nouvelles sortes `flame`, `ember`, `soot`, `feather`,
+   `star`, `dust` ; effets groupés `EFFECTS` (`hit`, `feathers`, `sparks`, `puff`, `fire`,
+   `soot`) par `particles.effect(id, at)`. Étoiles sur un prédateur touché, plumes où il mord,
+   étincelles où la graine tombe.
+5. **Mesures** (Chromium logiciel, même page, 60 kiwis, avant/après) : mise à jour des kiwis
+   0,044 → 0,060 ms par image, temps de rendu identique au bruit près, appels de dessin des
+   kiwis 4 → 5 (+1 par accessoire réellement tenu), triangles des kiwis +29 % (≈ 670 par kiwi).
+
+## Reste
+
+Voir `docs/DETTE.md` (chantier 34) : vrai GPU et vrai téléphone, Kikiwiwis sur leur propre
+modèle, extraits de combat en attente du moteur de bataille, feu et suie en attente des
+incendies.

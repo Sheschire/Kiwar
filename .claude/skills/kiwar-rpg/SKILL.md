@@ -117,8 +117,11 @@ builderPriority?}`. `assignWorkers` (−/+) still exists (bot, building sheet, j
 - `KiwiPortrait.tsx` — SVG portrait (shiny colours, class outfits). `ExpeditionModal.tsx` —
   `CrewPicker`. `ReportModal.tsx` — roster. `TilePanel.tsx` — `SchoolInfo`. `App.tsx` —
   `SpeechBadge`.
-- `render/kiwis.ts` — shiny tint (instance colour), size from Strength + Endurance, one
-  instanced outfit mesh per class, highlight ring (`setHighlight`), trainees walk to the School.
+- `render/kiwis.ts` — shiny tint (instance colour), size from Strength + Endurance, highlight
+  ring (`setHighlight`), trainees hold a lesson at the School (chantier 34, see
+  `kiwar-client`). Outfits: `outfitParts` in `render/anim/kiwiRig.ts` (pieces flagged head or
+  body, one instanced mesh each per class); each class has a move in `CLASS_CLIP`
+  (`kiwis.ts`).
   `GameRenderer.followKiwi` / `highlightKiwi`; any camera gesture (`controlstart`) ends a follow.
 - Actions: `openVillage(kiwiId?)`, `showKiwi`, `closeVillage`, `followKiwi`. Store: `kiwiId`,
   `villageTab`, `followId`. Tapping a kiwi in 3D opens its sheet (and it speaks).
@@ -134,7 +137,7 @@ builderPriority?}`. `assignWorkers` (−/+) still exists (bot, building sheet, j
 2. Passive effect → `modifiers`; anything else → where it applies (colony: `colonyBonus`; crew:
    `strengthOf` / `travelTime`; active: `useSkill` + `cooldownMs`; timed effects need an
    `advance` event).
-3. FR + EN in `classes`, `skills`, `traits`; outfit in `createOutfitGeometry` and
-   `KiwiPortrait`.
+3. FR + EN in `classes`, `skills`, `traits`; outfit in `outfitParts` (`render/anim/kiwiRig.ts`), its
+   move in `CLASS_CLIP` (`render/kiwis.ts`) and `KiwiPortrait`.
 4. Tests in `test/kiwis.test.ts`, `test/classes.test.ts`, `test/expeditions.test.ts` (always
    one big step vs small steps), then `kiwar-balance` (milestones kiwi5, kiwi10, mayor).

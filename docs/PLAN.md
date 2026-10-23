@@ -34,7 +34,7 @@ dans l'historique.
 | 31  | Objectifs et menaces réveillées                      | à faire |
 | 32  | Correctifs et ciel (client)                          | à faire |
 | 33  | Bâtiments par âge et icônes 3D (client)              | à faire |
-| 34  | Kiwis et créatures vivants (client)                  | à faire |
+| 34  | Kiwis et créatures vivants (client)                  | fait    |
 |     | **Acte II — La guerre des faces**                    |         |
 | 35  | Bâtiments sur plusieurs tuiles                       | à faire |
 | 36  | Moteur de bataille : les vagues jouées pour de vrai  | à faire |
@@ -51,7 +51,7 @@ dans l'historique.
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
 **Prochaine conversation** : le chantier **30**, avec le **32** en parallèle dans une autre
-conversation si le porteur le souhaite (client seul). Ensuite viennent le 31, puis le 33 et le 34.
+conversation si le porteur le souhaite (client seul). Ensuite viennent le 31, puis le 33 (le 34 est fait).
 
 ## Règles transverses à retenir
 
@@ -64,6 +64,9 @@ conversation si le porteur le souhaite (client seul). Ensuite viennent le 31, pu
   `kiwar-client`).
 - **Animations** : une nouvelle animation visible importante doit réveiller la boucle
   (`renderer.wake()` ou les signes de vie de `drawFrame`, `render/frameLimiter.ts`).
+- **Kiwis et créatures** (chantier 34) : poses, extraits et accessoires dans `render/anim/`,
+  effets groupés dans `particles.ts` (`EFFECTS`) ; tout se vérifie sur la planche `?kiwis`
+  (skill `kiwar-client`). Le moteur de bataille (36) part de là.
 - **Planètes** : elles ont une place fixe (`render/space.ts`) ; `renderer.setTwinApproach(t)`
   rapproche la jumelle (skill `kiwar-world`).
 

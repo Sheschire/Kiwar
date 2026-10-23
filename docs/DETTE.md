@@ -6,14 +6,18 @@
 
 ## Trouvé par l'audit du carnet de route (octobre 2026)
 
-- Les kiwis `outpost` (postés sur la jumelle) sont dessinés en train de flâner autour du Nid
-  (`apps/client/src/render/kiwis.ts:635-652, 796`) : chantier 34.
-- Les chercheur·euses de la Bibliothèque font des allers-retours à vide vers le dépôt (pas de
-  tuile de récolte) : chantier 34.
 - La recherche s'arrête hors ligne après une technologie (rien n'est choisi ensuite) : voulu
   (une décision au retour), à revoir si le chantier 30 le juge trop punitif.
 
 ## Des chantiers précédents
+
+- Chantier 34 : animations vérifiées en Chromium sans GPU seulement (captures et planche
+  `?kiwis`), pas encore sur un vrai téléphone ni sur le MacBook avec `?debug` ; les Kikiwiwis
+  gardent leur propre modèle (`kikiwiwi.ts`, pas les extraits) ; les extraits de combat
+  (épée, sort, fronde, masse) ne servent qu'aux leçons de l'École et aux exercices des gardes
+  en attendant le moteur de bataille (36) ; les effets feu et suie attendent les incendies ;
+  les élèves d'une École voisine du Nid se serrent parfois sur un chemin ; plusieurs gardes
+  d'un secteur à une seule tourelle se partagent le même poste (écartés de 0,1 à 0,3).
 
 - Chantier 24 : vue espace et vol entre planètes vérifiés en Chromium sans GPU seulement (à
   essayer sur un vrai téléphone et sur le MacBook avec `?debug` en dézoom) ; la jumelle passe
@@ -40,8 +44,7 @@
   avant comme après le chantier) signale le Nid 3 et la Bibliothèque ~45 % plus lents en couronne
   de pépins et en lagunes (Kiwino +21 %), contre ±5,6 % à la fin du chantier 08 (cause trouvée et
   corrigée au chantier 12 : le bot ne déracinait les souches qu'avec 400 pulpe).
-- Chantier 12 : les gardes 3D se postent au pied d'une tourelle au hasard (pas dans leur
-  secteur) ; les rapports de vague ne gardent que les totaux ; le bot n'utilise toujours pas
+- Chantier 12 : les rapports de vague ne gardent que les totaux ; le bot n'utilise toujours pas
   les chemins (le gain logistique n'est pas mesuré par l'équilibrage).
 - Chantier 17 : les niveaux 4 à 6 gardent la silhouette du niveau 3 (plus grand, fanions
   dorés) ; la nuance de la planète alien (Kiwino pâle sous le brouillard) n'est pas retouchée ;

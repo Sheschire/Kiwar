@@ -183,6 +183,34 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   segment (all segments have the same length), hub per tile, `sync(paths, age, ends)` with
   building/site keys as ends.
 
+- **Chantier 34 (living kiwis and creatures)**: `render/anim/` — `pose.ts` (`Pose`: body
+  bob/squash/pitch/roll/yaw/sit, head, wings raise + forward swing, legs, `prop`, `propSwing`,
+  `glow`; `blendPoses`), `clips.ts` (`CLIPS`: procedural clips by group move/work/life/
+  combat/state, one-shots hold after `once`; `ClipPlayer.play(clip, at)` + `pose(dt, rate)`
+  crossfades), `props.ts` (accessories anchored to the right wing tip — authored along +Z,
+  a forward wing swing raises them —, the body front or the ground; `companion`),
+  `kiwiRig.ts` (`KiwiRig.draw(KiwiDraw)` then `end()` once a frame), `part.ts` (`Part`: one
+  instanced part kind, hidden when unused), `creatures.ts` (`CreatureRig`, ferret and bat
+  clips, gear by age). `KiwisView` keeps its agents (cosmetic, A*) and draws through the rig:
+  `agent.clip` (null = the activity's default via `clipOf`), `agent.face` (heading to turn to
+  while standing), `walkToPoint` (exact spot), `settle(agent, activity, clip, timer)`. Roles
+  per state in `assignRoles` (Library place, School "index/count", guard sector) are part of
+  the plan signature. Library: `thinkLibrary`; School: `thinkSchool` + `lessonSide`; guards:
+  `thinkGuard` + `guardPosts` (cached until the turrets change); idle: `thinkIdle`,
+  `pastime`, `startChat`/`leavePartner`; builders at `FOOT` from the site. `outpost` kiwis
+  are not drawn. `particles.ts`: pools per shape × look (`lit`, `soft`, `glow` unlit),
+  `EFFECTS` + `particles.effect(id, at, scale)`; `particles.mesh` is a `Group`.
+  **Review sheet** `?kiwis[&t=1.5][&clips=read,ferret run,fx fire][&zoom=1.5]`
+  (`sheet/kiwiSheet.ts`): every clip, creature (and age look) and effect; check it after any
+  change in `render/anim/` or `particles.ts`. In-game checks of a lived colony: generate a
+  save (`tools/balance/src/perfSave.ts`), load it with an init script (as `scripts/perf.mjs`;
+  `kiwar.clockOffset` + N hours lands in daytime), close the offline summary with
+  `uiStore.setState({ modal: 'none', offlineSummary: null })` (**`modal: 'none'`, not null**:
+  any other value pauses the drawing), set `rig.controls.minDistance` lower and
+  `moveTo/dollyTo(…, false)` (no transition), mutate jobs **after** any `dispatch` (the state
+  object is replaced) and step `renderer.kiwis.update(0.1, …)` a few hundred times so the
+  kiwis reach their places before the shot.
+
 ## Performance (chantier 10)
 
 - **The UI store is the usual suspect.** The controller emits a new `game` and `now` 5 times

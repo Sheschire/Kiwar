@@ -109,12 +109,19 @@ colony × play time (× expedition victories: the aliens strike back), beginners
 - Kiwi sheet: Garrison section (`VillageModal.tsx`). Tile sheet: turret defense/ammo/cap,
   rampart-only build options, `RepairBox`, `MeteorLine` (crater or incoming star).
 - Render: turret models (`buildingModels.ts`), damaged badge + smoke (`buildingLife.ts`),
-  guards stand by a turret and everybody hides in the Nest during a shelter (`render/kiwis.ts`),
+  guards patrol their sector and everybody hides in the Nest during a shelter (`render/kiwis.ts`),
   `render/meteors.ts` (star over a target ring, crater with glowing rock), `render/predators.ts`
   (`PredatorShow`: played by `GameRenderer` when a `waveStruck` arrives live, from the report).
 - Toasts in `game/events.ts`, offline summary lines (waves, meteorites, incidents), sounds
   `threat.warning|strike|victory|defeat`, `turret.fire` (via `renderer.onTurretShot`),
   `meteor.fall`. i18n: `threats`, `defense`, `garrison`, `sky`, `buildings.seedTurret|skyTurret`.
+- Chantier 34: the wave show poses ferrets and bats with `CreatureRig`
+  (`render/anim/creatures.ts`: clips run/bite/hit/hurt/fall and flap/dive/spit/hurt/fall,
+  look by `ageOf`), stars where one is hit, feathers where one bites (`particles.effect`);
+  `PredatorShow.playing` stays true while its particles live. 3D guards make a round in
+  their own sector (`defenseOf(state).guards`, see `kiwar-client`). Quick look without a
+  wave: `renderer.predators.play(state, { id, victory: false, severity: 0.45, threat:
+{ ground: 7, air: 5 } })` then `predators.update(0.05)` × N.
 - Chantier 12: `SectorTable` in the defense modal (also without a wave, via
   `ui/derived.ts` `defenseNow`), the badge names the weak sector, `TurretReach` (range and
   sectors) in the turret sheet and build option, `render/sectors.ts` colours (front orange,

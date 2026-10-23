@@ -10,6 +10,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 34** — les kiwis **vivent sur place** : à la Bibliothèque, les chercheur·euses
+> lisent et écrivent autour du bâtiment au lieu de faire la navette les mains vides ; à
+> l'École, la classe s'assoit en demi-cercle face à l'élève le·la plus avancé·e et essaie le
+> geste de sa classe (épée, sort, fronde, marteau) ; les gardes font leur ronde dans **leur
+> secteur** ; les bâtisseur·euses martèlent au pied du chantier ; les kiwis sans poste
+> picorent, s'étirent, dansent ou discutent à deux. Les **furets et chauves-souris** sont
+> redessinés et animés (course, morsure, coup de patte, piqué, crachat, chute) avec un look
+> par âge, et les vagues font voler **étoiles et plumes**. Tout se revoit sur la planche
+> `?kiwis`.
+
 > **Chantier 19 (2e moitié)** — la face conquise devient votre **seconde colonie** : « Fonder la
 > colonie » envoie un **vaisseau de colons** (au moins 5 kiwis, Kikiwiwi permis, et la
 > cargaison choisie) ; à l'atterrissage naît une colonie avec un Nid 1 et des abris. Elle

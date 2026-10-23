@@ -51,8 +51,8 @@ const CLIP_CLASS: Partial<Record<ClipId, ClassId>> = {
 };
 
 const TINT = new Color(1, 1, 1);
-const STEP = 1.7;
-const ROW = 1.7;
+const STEP = 1.9;
+const ROW = 2.1;
 
 function kiwiCells(rig: KiwiRig, only: string[] | null): SheetCell[] {
   return CLIP_IDS.filter((id) => !only || only.includes(id)).map((id, i) => {
@@ -106,7 +106,7 @@ function creatureCells(rig: CreatureRig, only: string[] | null): SheetCell[] {
           y: kind === 'bat' ? 0.55 : 0,
           z,
           heading: 0.6,
-          scale: 1.7,
+          scale: 1.3,
           pose: sampleCreature(kind, clip, t, pose),
           age,
         });
@@ -205,7 +205,7 @@ function start(): void {
       'position:fixed;z-index:5;transform:translate(-50%,0);font:12px Georgia,serif;color:#4a3324;' +
       'background:rgba(255,248,230,.85);padding:1px 6px;border-radius:8px;white-space:nowrap';
     document.body.append(el);
-    return { el, at: new Vector3(spots[i]!.x, 0, spots[i]!.z + 0.42) };
+    return { el, at: new Vector3(spots[i]!.x, 0, spots[i]!.z + 0.6) };
   });
   const title = document.createElement('div');
   title.textContent = 'Kiwis, creatures and effects';

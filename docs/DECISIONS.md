@@ -1889,3 +1889,27 @@ real; corrections: Ryan et al. 2006 pages 344–360, BANGS is IJHCS 188:103289, 
   chantier 19 is kept; one battle engine serves home waves and landings (chantier 36).
 - `docs/PLAN.md` shortened; the debt of chantiers 01–24 moved to `docs/DETTE.md` to save tokens
   in every session.
+
+## Chantier 34 — Living kiwis and creatures (client)
+
+- **Procedural clips, instanced parts.** A kiwi is drawn as instanced parts (body, head, two
+  wings, two legs, outfit head/body pieces, held accessory, load, glow, shadow) posed from a
+  `Pose`; clips write poses and a `ClipPlayer` crossfades them (0.22 s). No skeleton, no
+  per-kiwi mesh: one draw call per part kind in use, so 60 kiwis cost 5 draws (+1 per kind of
+  accessory held). Same approach for ferrets and bats (`CreatureRig`).
+- **Who leads a lesson at the School**: there is no teacher in the simulation, so the student
+  closest to the end of the class leads (front, `teach` then the class's move); the others sit
+  in a half circle on the free side of the School nearest the heart of the village. Cosmetic
+  only, never a new villager.
+- **Guards keep their sector**: the sector comes from the shared `defenseOf(state).guards`
+  (memoized per state); the round goes between posts just inside the rampart by the sector's
+  turrets (or three points of its rampart without turrets).
+- **Researchers stay at the Library**: six places around it, no carry; the drop label is for
+  producers and miners only.
+- **The creatures' look follows the colony's age** (`ageOf`): scarf (Stone), helmet (Iron),
+  goggles and shoulder plate (Industry). Real weapons and armour come with chantier 38.
+- **Impacts are cute**: stars and a puff where a predator is hit, feathers where one bites,
+  sparks where a seed lands; never blood. Glowing particles are unlit with normal blending
+  (additive washed out to white on the light ground).
+- `?kiwis` is the review sheet of every clip, creature and grouped effect (`&t=` freezes the
+  time in 1/30 s steps for screenshots).
