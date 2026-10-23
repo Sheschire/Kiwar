@@ -1499,6 +1499,7 @@ export const en = {
     noReplacement: 'No other kiwi can come.',
   },
   research: {
+    secret: '{count} technologies to discover once this age is reached.',
     button: 'Research',
     title: 'Research',
     points: 'Research points',

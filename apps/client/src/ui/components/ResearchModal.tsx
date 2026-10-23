@@ -102,6 +102,15 @@ export function ResearchSummary({ game, t }: { game: GameState; t: Translate }) 
 
 function TechCard({ game, id, t }: { game: GameState; id: TechId; t: Translate }) {
   const def = TECHS[id];
+  // Chantier 32: an age not reached keeps its technologies secret (name, effect and cost);
+  // only the passage to the next age stays readable, as a goal.
+  if (isSecret(game, id))
+    return (
+      <li class="tech-card tech-hidden" aria-label={t('plans.unknown')}>
+        <Icon name="research" size={16} />
+        <strong>{t('plans.unknown')}</strong>
+      </li>
+    );
   const status = techStatus(game, id);
   const current = game.research.current;
   return (
@@ -183,6 +192,12 @@ export function AgeInfo({ game, t }: { game: GameState; t: Translate }) {
   );
 }
 
+/** Chantier 32: a technology of an age not reached yet (not the next passage). */
+function isSecret(game: GameState, id: TechId): boolean {
+  const age = ageOf(game);
+  return TECHS[id].age > age && id !== PASSAGE_TECHS[age + 1];
+}
+
 /** Chantier 08: the technology tree, one row per age. */
 function ResearchTab({ game, t }: { game: GameState; t: Translate }) {
   const age = ageOf(game);
@@ -196,7 +211,10 @@ function ResearchTab({ game, t }: { game: GameState; t: Translate }) {
             {t(`ages.${id}`)}
             {i === age && <span class="badge">●</span>}
           </h3>
-          <ul class="tech-grid">
+          {i > age && (
+            <p class="small muted">{t('research.secret', { count: techsOfAge(i).length })}</p>
+          )}
+          <ul class={`tech-grid ${i > age ? 'tech-grid-hidden' : ''}`}>
             {techsOfAge(i).map((tech) => (
               <TechCard key={tech} game={game} id={tech} t={t} />
             ))}

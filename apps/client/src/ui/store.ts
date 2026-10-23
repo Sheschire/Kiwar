@@ -189,6 +189,8 @@ export function saveShowLevels(on: boolean): void {
 
 const QUEUE_OPEN_KEY = 'kiwar.queueOpen';
 const THREAT_OPEN_KEY = 'kiwar.threatOpen';
+/** Chantier 32: the objectives panel keeps its state across reloads. */
+const OBJECTIVES_OPEN_KEY = 'kiwar.objectivesOpen';
 
 function loadFlag(key: string, fallback: boolean): boolean {
   try {
@@ -199,14 +201,24 @@ function loadFlag(key: string, fallback: boolean): boolean {
   }
 }
 
-/** Chantier 20: fold or unfold the construction queue / the wave alert, remembered. */
-export function setPanelOpen(panel: 'queue' | 'threat', open: boolean): void {
+/** Chantier 20: fold or unfold the construction queue / the wave alert, remembered (and the
+ * objectives, chantier 32). */
+export function setPanelOpen(panel: 'queue' | 'threat' | 'objectives', open: boolean): void {
+  const key = { queue: QUEUE_OPEN_KEY, threat: THREAT_OPEN_KEY, objectives: OBJECTIVES_OPEN_KEY }[
+    panel
+  ];
   try {
-    localStorage.setItem(panel === 'queue' ? QUEUE_OPEN_KEY : THREAT_OPEN_KEY, open ? '1' : '0');
+    localStorage.setItem(key, open ? '1' : '0');
   } catch {
     // ignore
   }
-  uiStore.setState(panel === 'queue' ? { queueOpen: open } : { threatOpen: open });
+  uiStore.setState(
+    panel === 'queue'
+      ? { queueOpen: open }
+      : panel === 'threat'
+        ? { threatOpen: open }
+        : { objectivesOpen: open },
+  );
 }
 
 // Chantier 21: the objectives start open on wide mouse screens; with the thumb bar they start
@@ -220,7 +232,7 @@ export const uiStore = createStore<UiState>(() => ({
   lang: detectLang(),
   modal: 'none',
   debugOpen: false,
-  objectivesOpen: wideScreen,
+  objectivesOpen: loadFlag(OBJECTIVES_OPEN_KEY, wideScreen),
   menuOpen: false,
   queueOpen: loadFlag(QUEUE_OPEN_KEY, true),
   threatOpen: loadFlag(THREAT_OPEN_KEY, true),

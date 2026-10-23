@@ -21,7 +21,7 @@ import {
   TargetIcon,
 } from '../icons';
 import { Icon } from '../iconSet';
-import { uiStore, useT, useUi } from '../store';
+import { setPanelOpen, uiStore, useT, useUi } from '../store';
 import { CompassNeedle } from './Compass';
 import { EggButton } from './EggButton';
 import { siegeVisible } from './SiegeModal';
@@ -245,7 +245,7 @@ function NavMenu() {
             label={t('hud.objectives')}
             on={objectivesOpen}
             badge={objectiveReady ? '!' : undefined}
-            onClick={go(() => uiStore.setState({ objectivesOpen: !objectivesOpen }))}
+            onClick={go(() => setPanelOpen('objectives', !objectivesOpen))}
           >
             <ScrollIcon size={28} />
           </Entry>

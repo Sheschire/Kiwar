@@ -6,7 +6,7 @@ import {
 } from '@kiwar/shared';
 import { actions } from '../actions';
 import { ScrollIcon } from '../icons';
-import { pushToast, uiStore, useT, useUi } from '../store';
+import { pushToast, setPanelOpen, useT, useUi } from '../store';
 import { Cost } from './Cost';
 import type { TKey } from '../../i18n/i18n';
 
@@ -33,7 +33,7 @@ export function ObjectivesPanel({ compact = false }: { compact?: boolean }) {
         type="button"
         class={`objective-pill parchment pe ${done ? 'is-done glow' : ''}`}
         aria-label={`${t('objectives.title')}: ${t(`objectives.${obj.id}.title` as TKey)}`}
-        onClick={() => (done ? claim() : uiStore.setState({ objectivesOpen: true }))}
+        onClick={() => (done ? claim() : setPanelOpen('objectives', true))}
       >
         <ScrollIcon size={18} />
         <span class="objective-pill-name">
@@ -62,7 +62,7 @@ export function ObjectivesPanel({ compact = false }: { compact?: boolean }) {
             class="btn btn-icon btn-small fold-btn"
             aria-label={t('objectives.fold')}
             aria-expanded={true}
-            onClick={() => uiStore.setState({ objectivesOpen: false })}
+            onClick={() => setPanelOpen('objectives', false)}
           >
             ▴
           </button>

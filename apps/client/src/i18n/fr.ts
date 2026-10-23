@@ -1542,6 +1542,7 @@ export const fr: Dict = {
     noReplacement: 'Aucun autre kiwi ne peut venir.',
   },
   research: {
+    secret: '{count} technologies à découvrir une fois cet âge atteint.',
     button: 'Recherche',
     title: 'Recherche',
     points: 'Points de recherche',

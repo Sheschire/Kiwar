@@ -36,7 +36,7 @@ import {
 } from '../icons';
 import { actions } from '../actions';
 import { chatActions } from '../chatActions';
-import { uiStore, useT, useUi } from '../store';
+import { setPanelOpen, uiStore, useT, useUi } from '../store';
 import { SyncBadge } from './SyncBadge';
 import { siegeVisible } from './SiegeModal';
 import { ColonySwitch } from './ColonySwitch';
@@ -420,7 +420,7 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
             aria-label={t('hud.objectives')}
             aria-pressed={objectivesOpen}
             title={t('hud.objectives')}
-            onClick={() => uiStore.setState((s) => ({ objectivesOpen: !s.objectivesOpen }))}
+            onClick={() => setPanelOpen('objectives', !objectivesOpen)}
           >
             <ScrollIcon />
           </button>

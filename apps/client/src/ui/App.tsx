@@ -178,8 +178,11 @@ export function App() {
       <ObjectivesPanel compact={thumb} />
       {!thumb && (
         <>
-          <QueuePanel />
-          <ExpeditionsPanel />
+          {/* Chantier 32: one column, so a tall queue pushes the expeditions up. */}
+          <div class="left-stack">
+            <ExpeditionsPanel />
+            <QueuePanel />
+          </div>
           <SaveNudge />
           <AuthErrorBanner />
           <GpuTip />

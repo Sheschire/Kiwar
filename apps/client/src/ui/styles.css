@@ -936,10 +936,36 @@ button.chip:focus-visible {
 
 /* ---------- Queue ---------- */
 
-.queue {
+/* Chantier 32: the expeditions and the queue share one column at the bottom left (desktop;
+   the thumb layout has .thumb-stack). Never a hand-made bottom offset between them. */
+.left-stack {
   position: absolute;
   left: calc(var(--gap) + var(--safe-left));
   bottom: calc(var(--gap) + var(--safe-bottom));
+  width: 300px;
+  max-height: calc(100% - 220px - var(--safe-top));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.left-stack > * {
+  flex-shrink: 0;
+}
+
+.left-stack .queue:not(.queue-pill) {
+  flex-shrink: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.left-stack .queue-pill {
+  align-self: flex-start;
+}
+
+.queue {
   width: 300px;
   padding: 10px 10px 8px 14px;
   display: flex;
@@ -1331,9 +1357,6 @@ button.chip:focus-visible {
 }
 
 .expeditions {
-  position: absolute;
-  left: calc(var(--gap) + var(--safe-left));
-  bottom: calc(var(--gap) + var(--safe-bottom) + 150px);
   width: 300px;
   padding: 8px 12px 10px;
   display: flex;
@@ -3395,6 +3418,22 @@ button.chip:focus-visible {
 
 .tech-card.tech-soon {
   opacity: 0.7;
+}
+
+/* Chantier 32: the technologies of an age not reached yet, small "???" tiles. */
+.modal-body ul.tech-grid.tech-grid-hidden {
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.tech-card.tech-hidden {
+  border-style: dashed;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 6px;
+  color: var(--ink-soft);
 }
 
 @media (max-width: 760px) {
