@@ -382,8 +382,8 @@ const BASE: Record<BuildingType, BuildingDef> = {
     copyGrowth: 1,
     levels: [
       {
-        cost: { pulp: 3000, fiber: 3000, seeds: 600, juice: 900 },
-        durationMs: ms.h(3),
+        cost: { pulp: 2000, fiber: 2000, seeds: 400, juice: 600 },
+        durationMs: ms.h(2),
         requiresNestLevel: 3,
       },
       {

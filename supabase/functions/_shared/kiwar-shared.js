@@ -898,8 +898,8 @@ var BASE = {
     copyGrowth: 1,
     levels: [
       {
-        cost: { pulp: 3e3, fiber: 3e3, seeds: 600, juice: 900 },
-        durationMs: ms.h(3),
+        cost: { pulp: 2e3, fiber: 2e3, seeds: 400, juice: 600 },
+        durationMs: ms.h(2),
         requiresNestLevel: 3
       },
       {
@@ -1756,7 +1756,7 @@ var TECHS = {
     libraryLevel: 1,
     effects: { travel: 0.9 }
   },
-  stoneAge: { id: "stoneAge", age: 0, branch: "passage", cost: 1e3, libraryLevel: 2, effects: {} },
+  stoneAge: { id: "stoneAge", age: 0, branch: "passage", cost: 250, libraryLevel: 2, effects: {} },
   masonry: {
     id: "masonry",
     age: 1,
@@ -1810,8 +1810,8 @@ var TECHS = {
     id: "industryAge",
     age: 2,
     branch: "passage",
-    // Chantier 18: passages retuned for the complete bot (Stone ≈ 36 h, Iron ≈ 4 d, Industry ≈ 8 d).
-    cost: 5800,
+    // Chantier 30: passages for Stone ≈ 12 h, Iron ≈ 3 d, Industry ≈ 10 d (see the balance report).
+    cost: 8e3,
     libraryLevel: 7,
     effects: {}
   },

@@ -133,7 +133,7 @@ export const TECHS: Record<TechId, TechDef> = {
     libraryLevel: 1,
     effects: { travel: 0.9 },
   },
-  stoneAge: { id: 'stoneAge', age: 0, branch: 'passage', cost: 1000, libraryLevel: 2, effects: {} },
+  stoneAge: { id: 'stoneAge', age: 0, branch: 'passage', cost: 250, libraryLevel: 2, effects: {} },
   masonry: {
     id: 'masonry',
     age: 1,
@@ -187,8 +187,8 @@ export const TECHS: Record<TechId, TechDef> = {
     id: 'industryAge',
     age: 2,
     branch: 'passage',
-    // Chantier 18: passages retuned for the complete bot (Stone ≈ 36 h, Iron ≈ 4 d, Industry ≈ 8 d).
-    cost: 5800,
+    // Chantier 30: passages for Stone ≈ 12 h, Iron ≈ 3 d, Industry ≈ 10 d (see the balance report).
+    cost: 8000,
     libraryLevel: 7,
     effects: {},
   },
