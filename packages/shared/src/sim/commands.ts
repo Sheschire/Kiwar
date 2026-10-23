@@ -1,3 +1,5 @@
+import { GEAR_SLOTS, ITEMS, type GearSlot, type ItemId } from '../data/gear';
+import { cancelOrder, equip, forgeLock, orderItem, unequip, wearLock } from './forge';
 import { BLESSINGS, FUEL, STARDUST, STARDUST_SCALE } from '../data/comets';
 import { canPickDust, STARDUST_CAP, stardustOf } from './comets';
 import {
@@ -226,6 +228,11 @@ export type Command =
   | { type: 'assignBuilder'; queueItemId: QueueItemId; villagerId: VillagerId }
   /** Chantier 15: exactly these kiwis harvest a meteorite crater (others there go back). */
   | { type: 'collectMeteor'; meteorId: string; villagerIds: VillagerId[] }
+  /** Chantier 38: orders a piece at the Forge (paid at once), or cancels an order (refunded). */
+  | { type: 'forgeItem'; item: ItemId }
+  | { type: 'cancelForge'; orderId: string }
+  /** Chantier 38: puts a piece of the armory on a kiwi, or takes it off (`item: null`). */
+  | { type: 'equip'; villagerId: VillagerId; slot: GearSlot; item: ItemId | null }
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
 export const COMMAND_ERRORS = [
@@ -352,6 +359,16 @@ export const COMMAND_ERRORS = [
   'noDen',
   'noGuards',
   'tooStrong',
+  // Chantier 38: meteoric iron, the Forge and the gear.
+  'notEnoughIron',
+  'unknownItem',
+  'noForge',
+  'forgeExists',
+  'forgeQueueFull',
+  'unknownOrder',
+  'notInArmory',
+  'wrongFamily',
+  'wrongSlot',
 ] as const;
 export type BlessingKind = 'heal' | 'respec' | 'stat';
 
@@ -912,6 +929,8 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       refund(s, demolitionRefund(s, b));
       // Chantier 30: its reserve goes back into the stock, even above the cap (nothing lost).
       if (b.reserve) refund(s, b.reserve);
+      // Chantier 38: the Forge's orders are refunded (the armory stays).
+      if (b.type === 'forge') while (s.forge.orders.length > 0) cancelOrder(s, 0);
       releasePool(s, ctx.map, b, now);
       s.buildings = s.buildings.filter((x) => x.id !== b.id);
       syncPools(s, ctx.map, now);
@@ -1156,9 +1175,41 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       startItem(s, item, v, now, events);
       return;
     }
+    case 'forgeItem': {
+      const lock = forgeLock(s, cmd.item);
+      if (lock) fail(lock);
+      orderItem(s, cmd.item, nextId(s, 'f'));
+      return;
+    }
+    case 'cancelForge': {
+      const index = s.forge.orders.findIndex((o) => o.id === cmd.orderId);
+      if (index < 0) return fail('unknownOrder');
+      cancelOrder(s, index);
+      return;
+    }
+    case 'equip': {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail('unknownVillager');
+      if (!GEAR_SLOTS.includes(cmd.slot)) fail('wrongSlot');
+      if (v.job.kind === 'expedition' || v.job.kind === 'outpost') fail('kiwiBusy');
+      if (cmd.item === null) {
+        unequip(s, v, cmd.slot);
+        // Taken off by hand: the automation leaves this kiwi alone.
+        if (v.gear) v.gear.kept = true;
+        else v.gear = { kept: true };
+        return;
+      }
+      if (!ITEMS[cmd.item]) return fail('unknownItem');
+      if (ITEMS[cmd.item].slot !== cmd.slot) fail('wrongSlot');
+      if (!s.forge.armory[cmd.item]) fail('notInArmory');
+      const lock = wearLock(v, cmd.item);
+      if (lock) fail(lock);
+      equip(s, v, cmd.item, true);
+      return;
+    }
     case 'collectMeteor': {
       const m = s.sky.meteors.find((x) => x.id === cmd.meteorId);
-      if (!m || m.stock <= 0) return fail('unknownCrater');
+      if (!m || (m.stock <= 0 && m.iron <= 0)) return fail('unknownCrater');
       const ids = new Set(cmd.villagerIds);
       if (ids.size !== cmd.villagerIds.length) fail('invalidCrew');
       if (ids.size > METEORS.slots) fail('craterFull');

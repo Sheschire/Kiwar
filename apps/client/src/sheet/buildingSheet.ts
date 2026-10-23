@@ -47,6 +47,7 @@ const TYPES: readonly BuildingType[] = [
   'seedTurret',
   'skyTurret',
   'trainingCamp',
+  'forge',
   'camp',
 ];
 const PER_ROW_MAX = 4;

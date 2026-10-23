@@ -385,6 +385,8 @@ export function drillRate(v: Villager, campLevel: number): number {
 function workMastery(state: GameState, b: Building | undefined): MasteryId | null {
   if (!b) return null;
   if (b.type === 'library') return 'research';
+  // Chantier 38: smiths practise handiwork.
+  if (b.type === 'forge') return 'build';
   const resource = buildingResource(state, b);
   return resource ? RESOURCE_MASTERY[resource] : null;
 }

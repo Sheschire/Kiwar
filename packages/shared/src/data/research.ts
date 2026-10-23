@@ -47,6 +47,8 @@ export const TECH_IDS = [
   'starIron',
   // Chantier 15
   'meteorDrill',
+  // Chantier 38
+  'forge',
 ] as const;
 export type TechId = (typeof TECH_IDS)[number];
 
@@ -92,6 +94,8 @@ export interface TechEffects {
   meteorStock?: number;
   /** Chantier 15: a drill on every worked crater (`METEORS.drill` by age). */
   meteorDrill?: boolean;
+  /** Chantier 38: opens the Forge and its wood and stone gear. */
+  forge?: boolean;
 }
 
 export interface TechDef {
@@ -283,6 +287,14 @@ export const TECHS: Record<TechId, TechDef> = {
     cost: 300,
     libraryLevel: 2,
     effects: { meteorDrill: true },
+  }, // Chantier 38: the Forge (Stone age), wood and stone weapons and armours.
+  forge: {
+    id: 'forge',
+    age: 1,
+    branch: 'defense',
+    cost: 250,
+    libraryLevel: 2,
+    effects: { forge: true },
   },
 };
 

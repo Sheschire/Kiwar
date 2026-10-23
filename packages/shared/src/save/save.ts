@@ -21,6 +21,7 @@ import { BATTLE, ENEMY_KINDS, POSTURES } from '../data/units';
 import { RESOURCE_IDS } from '../data/resources';
 import { BLESSINGS, COMETS, STARDUST, STARDUST_SCALE } from '../data/comets';
 import { IRON, IRON_SCALE } from '../data/iron';
+import { FORGE, ITEM_IDS } from '../data/gear';
 import { INTEL } from '../data/expeditions';
 import { SIEGE } from '../data/siege';
 import type { Face } from '../types/ids';
@@ -224,6 +225,13 @@ const villager = z.object({
   builderPriority: z.literal(true).optional(),
   homeJob: id.optional(),
   lent: id.nullable().optional(),
+  gear: z
+    .object({
+      weapon: z.enum(ITEM_IDS).optional(),
+      armor: z.enum(ITEM_IDS).optional(),
+      kept: z.literal(true).optional(),
+    })
+    .optional(),
 });
 
 export const gameStateSchema = z.object({
@@ -530,6 +538,20 @@ export const gameStateSchema = z.object({
     .int()
     .min(0)
     .max(Math.max(...IRON.cap) * IRON_SCALE),
+  forge: z.object({
+    orders: z
+      .array(
+        z.object({
+          id,
+          item: z.enum(ITEM_IDS),
+          progress: z.number().int().min(0),
+          paid: partialResources,
+          iron: z.number().int().min(0),
+        }),
+      )
+      .max(16),
+    armory: z.record(z.enum(ITEM_IDS), z.number().int().min(0).max(FORGE.armoryMax)),
+  }),
   research: z.object({
     points: z.number().int().min(0),
     current: z.enum(TECH_IDS).nullable(),
@@ -752,6 +774,12 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
       },
     };
   },
+  // v31 → v32 (chantier 38): the Forge's queue and armory, two new automatic tasks.
+  31: (raw) => ({
+    ...raw,
+    forge: { orders: [], armory: {} },
+    automation: { ...(raw.automation as Record<string, boolean>), forge: true, equip: true },
+  }),
 };
 
 /**

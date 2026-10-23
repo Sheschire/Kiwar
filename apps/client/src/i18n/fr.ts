@@ -257,6 +257,10 @@ export const fr: Dict = {
       name: 'Camp d’entraînement',
       desc: 'Mannequins, cibles et cercle de sorts : les kiwis qui ont une classe s’y entraînent pour gagner des rangs, passer à une classe avancée ou changer de classe.',
     },
+    forge: {
+      name: 'Forge',
+      desc: 'Foyer, enclume et soufflet : les forgeron·nes y fabriquent armes et armures, de bois et de pierre, puis de fer météorique et d’acier.',
+    },
     lab: {
       name: 'Laboratoire contre nature',
       desc: 'Des cuves de jus luminescent où un kiwi aguerri devient un Kikiwiwi. Long, coûteux, et ça peut rater.',
@@ -819,6 +823,15 @@ export const fr: Dict = {
     noGuards: 'Postez d’abord des gardes sur le rempart.',
     notGuard: 'Ce kiwi n’est pas de garde.',
     tooStrong: 'Les gardes ne sont pas assez fort·es pour ce nid.',
+    notEnoughIron: 'Pas assez de fer météorique.',
+    unknownItem: 'Pièce d’équipement inconnue.',
+    noForge: 'Construis d’abord une Forge.',
+    forgeExists: 'La colonie a déjà sa Forge.',
+    forgeQueueFull: 'La file de la Forge est pleine.',
+    unknownOrder: 'Cette commande n’est plus dans la file.',
+    notInArmory: 'Cette pièce n’est pas dans l’armurerie.',
+    wrongFamily: 'Cette arme ne convient pas à la classe de ce kiwi.',
+    wrongSlot: 'Cette pièce ne va pas à cet emplacement.',
     cutsLand: 'Cela couperait le village en deux : les kiwis contournent les grands bâtiments.',
     cramped: 'À l’étroit : libérez les tuiles autour pour qu’il s’étende avant de grandir.',
   },
@@ -1670,6 +1683,16 @@ export const fr: Dict = {
         auto: 'Quand un stock est plein, ses récolteur·euses vont travailler ailleurs, puis reviennent.',
         manual: 'Les récolteur·euses restent à leur poste quand son stock est plein.',
       },
+      forge: {
+        name: 'Forge',
+        auto: 'Tant qu’une commande attend, les kiwis les plus fort·es et adroit·es travaillent à la Forge, puis retournent à leur poste.',
+        manual: 'Place toi-même les forgeron·nes depuis la fiche de la Forge.',
+      },
+      equip: {
+        name: 'Équipement',
+        auto: 'Les gardes d’abord, puis les kiwis les plus fort·es prennent les meilleures pièces de l’armurerie.',
+        manual: 'Équipe toi-même les kiwis depuis leur fiche.',
+      },
     },
   },
   village: {
@@ -1996,6 +2019,10 @@ export const fr: Dict = {
     starWatch: { name: 'Guet des étoiles', desc: 'Les vagues sont annoncées 2 heures plus tôt.' },
     cometLure: { name: 'Appel des comètes', desc: 'Les comètes reviennent 20 % plus tôt.' },
     starIron: { name: 'Fer d’étoile', desc: 'Les météorites apportent 30 % de plus.' },
+    forge: {
+      name: 'Forge',
+      desc: 'Ouvre la Forge : armes et armures de bois et de pierre pour les kiwis.',
+    },
     meteorDrill: {
       name: 'Foreuse à météorite',
       desc: 'Une foreuse sur chaque cratère exploité : ×1,5 à l’âge de pierre, ×2 à l’âge du fer, ×2,5 à l’âge industriel.',

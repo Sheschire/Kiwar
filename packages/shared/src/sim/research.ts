@@ -55,6 +55,7 @@ export interface Effects {
   cometInterval: number;
   meteorStock: number;
   meteorDrill: boolean;
+  forge: boolean;
 }
 
 const effectsCache = new Map<string, Effects>();
@@ -86,6 +87,7 @@ export function techEffects(state: GameState): Effects {
     cometInterval: 1,
     meteorStock: 1,
     meteorDrill: false,
+    forge: false,
   };
   for (const id of state.research.done) {
     const e: TechEffects = TECHS[id].effects;
@@ -110,6 +112,7 @@ export function techEffects(state: GameState): Effects {
     out.cometInterval *= e.cometInterval ?? 1;
     out.meteorStock *= e.meteorStock ?? 1;
     out.meteorDrill ||= e.meteorDrill ?? false;
+    out.forge ||= e.forge ?? false;
   }
   if (effectsCache.size > 64) effectsCache.clear();
   effectsCache.set(key, out);

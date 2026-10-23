@@ -15,6 +15,7 @@ import type { Building, GameState, Villager } from '../sim/state';
 import { hasSkill, modifiers } from '../sim/kiwis';
 import { techEffects } from '../sim/research';
 import { titanPower } from '../sim/kikiwiwi';
+import { gearEffect } from '../sim/forge';
 import { levelDef } from '../data/buildings';
 import { turretRange } from '../sim/threats';
 import type { BattleSide, BattleUnitSetup, UnitRole } from './types';
@@ -52,6 +53,8 @@ export function kiwiUnit(
   const level = 1 + K.perLevel * (v.level - 1);
   const fight = Math.sqrt(modifiers(v).fight);
   const titan = titanPower(state, v);
+  // Chantier 38: the gear (a guard wields its weapon; the militia pecks, armour counts for all).
+  const gear = gearEffect(v);
   const spell = weaponId === 'fireball';
   const power = spell
     ? 1 + K.spiritDamage * (st.spirit - avg)
@@ -62,7 +65,7 @@ export function kiwiUnit(
     level *
     fight *
     titan *
-    (role === 'guard' ? tech.guard : K.militiaDamage);
+    (role === 'guard' ? tech.guard * gear.damage : K.militiaDamage);
   const aim =
     base.style === 'melee'
       ? base.accuracy
@@ -73,7 +76,8 @@ export function kiwiUnit(
     level *
     fight *
     (v.kikiwiwi ? K.titanHp / 2 : 1) *
-    (v.classId ? (K.classHp[v.classId] ?? 1) : 1);
+    (v.classId ? (K.classHp[v.classId] ?? 1) : 1) *
+    gear.hp;
   const extraDodge = v.classId ? (K.classDodge[v.classId] ?? 0) : 0;
   const chorus = hasSkill(v, 'chorus');
   let aura: { range: number; boost: number } | undefined =
@@ -102,9 +106,9 @@ export function kiwiUnit(
     level: v.level,
     classId: v.classId,
     hp,
-    // Armour (technology) spares the kiwis.
-    armor: clamp(1 - tech.injuries, 0, 0.6),
-    speed: K.speed * Math.max(0.5, 1 + K.agilitySpeed * (st.agility - avg)),
+    // Armour (technology and the piece it wears) spares the kiwis.
+    armor: clamp(1 - tech.injuries + gear.armor, 0, 0.6),
+    speed: K.speed * Math.max(0.5, 1 + K.agilitySpeed * (st.agility - avg)) * gear.speed,
     dodge: clamp(
       K.dodge + extraDodge + K.agilityDodge * (st.agility - avg),
       0,

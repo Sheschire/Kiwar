@@ -5,6 +5,7 @@ import { METEORS, SECTOR_IDS } from '../data/threats';
 import { POSTURES } from '../data/units';
 import { AUTO_TASKS } from '../data/jobs';
 import { z } from 'zod';
+import { GEAR_SLOTS, ITEM_IDS } from '../data/gear';
 import { BUILDING_TYPES } from '../data/buildings';
 import type { COMMAND_ERRORS } from '../sim/commands';
 import { KIWI_NAME_MAX, STAT_IDS } from '../data/kiwis';
@@ -153,6 +154,14 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     type: z.literal('collectMeteor'),
     meteorId: id,
     villagerIds: z.array(id).max(METEORS.slots),
+  }),
+  z.object({ type: z.literal('forgeItem'), item: z.enum(ITEM_IDS) }),
+  z.object({ type: z.literal('cancelForge'), orderId: id }),
+  z.object({
+    type: z.literal('equip'),
+    villagerId: id,
+    slot: z.enum(GEAR_SLOTS),
+    item: z.enum(ITEM_IDS).nullable(),
   }),
   z.object({ type: z.literal('setResearch'), tech: z.enum(TECH_IDS).nullable() }),
   z.object({ type: z.literal('clearObstacle'), q: z.number().int(), r: z.number().int() }),

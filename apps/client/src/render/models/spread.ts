@@ -3,6 +3,7 @@ import { footprintOf, type BuildingType } from '@kiwar/shared';
 import { C, box, cone, cyl, emitter, m, MODEL_SCALE, rig, sphere, type Parts } from './kit';
 import { A, banner, byAge, door, gable, lamp, pipe, under, wall, type Look } from './ageKit';
 import { trainingGrounds } from './training';
+import { forgeYard } from './forge';
 
 /**
  * Chantier 35: big buildings drawn at the scale of their footprint. The recipe of the building
@@ -263,8 +264,16 @@ function trainingCamp(p: Parts, look: Look): void {
   walk(p, look.age);
 }
 
+/** Chantier 38: the coal pile behind on the left, the meteoric iron heap on the right. */
+function forge(p: Parts, look: Look): void {
+  const out = (i: number) => [TRIANGLE[i]![0] * 1.05, TRIANGLE[i]![1] * 1.05] as const;
+  forgeYard(p, look, out(1), out(2));
+  walk(p, look.age);
+}
+
 const DRESS: Partial<Record<BuildingType, (p: Parts, look: Look) => void>> = {
   trainingCamp,
+  forge,
   library,
   school,
   warehouse,

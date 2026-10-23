@@ -128,6 +128,30 @@ const GLYPHS = {
       <circle cx="16" cy="19" r="3" {...GOLD} />
     </>
   ),
+  forge: (
+    <>
+      <path
+        d="M5 11h17c0 3-2 5-5 5h-1l2 6h3v4H10v-4h3l2-6h-2C8 16 5 14 5 11z"
+        fill="#50575d"
+        stroke="#2f3336"
+        stroke-width="1.4"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M22 11h4l-4 3z"
+        fill="#50575d"
+        stroke="#2f3336"
+        stroke-width="1.2"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M20 4l3 3M24 3l-1 3M17 5l2 2"
+        stroke="#ffb347"
+        stroke-width="1.6"
+        stroke-linecap="round"
+      />
+    </>
+  ),
   trainingCamp: (
     <>
       <circle cx="16" cy="17" r="10" fill="#fbf6ea" stroke="#5a3e26" stroke-width="1.8" />
@@ -305,6 +329,25 @@ const GLYPHS = {
         stroke-width="1.8"
       />
       <path d="M13 13l6 6M19 13l-6 6" stroke="#b5475b" stroke-width="2" stroke-linecap="round" />
+    </>
+  ),
+  iron: (
+    <>
+      <path
+        d="M6 20l4-9 7-4 8 4 2 8-6 6H11z"
+        fill="#4c5560"
+        stroke="#2c3238"
+        stroke-width="1.6"
+        stroke-linejoin="round"
+      />
+      <path d="M12 12l5-2 4 3-3 3z" fill="#9fb4c8" />
+      <path
+        d="M19 19l3-1 1 3"
+        stroke="#c9d8e6"
+        stroke-width="1.4"
+        stroke-linecap="round"
+        fill="none"
+      />
     </>
   ),
   armor: (

@@ -1,3 +1,4 @@
+import { gearEffect } from './forge';
 import { KIKIWIWI } from '../data/kikiwiwi';
 import { titanPower } from './kikiwiwi';
 import { BIOMES } from '../data/biomes';
@@ -285,7 +286,15 @@ export function guardPower(v: Villager, state?: GameState): Sides {
   const a = v.kikiwiwi ? KIKIWIWI.affinity : GARRISON.affinity[v.classId ?? 'none'];
   const tech = state ? techEffects(state) : null;
   const titan = state ? titanPower(state, v) : 1;
-  const p = kiwiStrength(v) * GARRISON.power * (tech?.guard ?? 1) * titan;
+  // Chantier 38: the weapon hits harder, the armour lasts longer.
+  const gear = gearEffect(v);
+  const p =
+    kiwiStrength(v) *
+    GARRISON.power *
+    (tech?.guard ?? 1) *
+    titan *
+    gear.damage *
+    Math.sqrt(gear.hp);
   // Firearms (Industrial age): warriors reach the bats.
   const air =
     v.classId === 'warrior' && tech?.firearms ? Math.max(a.air, GARRISON.firearmsAir) : a.air;

@@ -20,6 +20,7 @@ import { createRng, type Rng, type RngState } from '../rng/rng';
 import type { Masteries, ShinyColor, Stats, TraitId } from '../data/kiwis';
 import type { ClassId, SkillId } from '../data/classes';
 import type { TechId } from '../data/research';
+import type { ItemId } from '../data/gear';
 import { AUTO_TASKS, type AutoTask } from '../data/jobs';
 import { newKiwi, rollKiwi } from './kiwis';
 import type {
@@ -34,7 +35,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 31;
+export const SCHEMA_VERSION = 32;
 
 export type Job =
   | { kind: 'idle' }
@@ -126,6 +127,31 @@ export interface Villager {
    * Library, the garrison): the workplace to go back to when it ends (null: none).
    */
   lent?: BuildingId | null;
+  /** Chantier 38: the weapon and the armour it wears (pieces taken from the armory). */
+  gear?: Gear;
+}
+
+/** Chantier 38: a kiwi's two slots; `kept`: chosen by the player (the automation leaves it). */
+export interface Gear {
+  weapon?: ItemId;
+  armor?: ItemId;
+  kept?: true;
+}
+
+/** Chantier 38: a piece ordered at the Forge (work in raw units, `orderWork`). */
+export interface ForgeOrder {
+  id: string;
+  item: ItemId;
+  progress: number;
+  /** What was paid (refunded on cancel). */
+  paid: Partial<Resources>;
+  iron: number;
+}
+
+/** Chantier 38: the Forge's queue (the first order is worked) and the pieces in store. */
+export interface ForgeState {
+  orders: ForgeOrder[];
+  armory: Partial<Record<ItemId, number>>;
 }
 
 /** A kiwi lost for good (expeditions), remembered in the village screen. */
@@ -726,6 +752,8 @@ export interface GameState {
   stardust: number;
   /** Chantier 38: meteoric iron in raw units (`IRON_SCALE` per unit), apart from the storage. */
   meteorIron: number;
+  /** Chantier 38: the Forge's orders and the armory. */
+  forge: ForgeState;
   research: ResearchState;
   /** Chantier 15: which tasks the automation fills on its own (all on by default). */
   automation: Record<AutoTask, boolean>;
@@ -827,6 +855,7 @@ export function newGame(opts: NewGameOptions): GameState {
     comets: newComets(opts.now),
     stardust: 0,
     meteorIron: 0,
+    forge: { orders: [], armory: {} },
     research: { points: 0, current: null, done: [], outbox: 0 },
     automation: defaultAutomation(),
     siege: newSiege(),
@@ -1033,6 +1062,10 @@ export function cloneState(state: GameState): GameState {
       next: state.comets.next ? { ...state.comets.next } : null,
       patches: state.comets.patches.map((p) => ({ ...p })),
     },
+    forge: {
+      orders: state.forge.orders.map((o) => ({ ...o, paid: { ...o.paid } })),
+      armory: { ...state.forge.armory },
+    },
     research: { ...state.research, done: [...state.research.done] },
     automation: { ...state.automation },
     siege: cloneSiege(state.siege),
@@ -1149,5 +1182,6 @@ export function cloneVillager(v: Villager): Villager {
     skillReadyAt: { ...v.skillReadyAt },
     mastery: { ...v.mastery },
     history: { ...v.history },
+    ...(v.gear ? { gear: { ...v.gear } } : {}),
   };
 }

@@ -239,6 +239,10 @@ export const en = {
       name: 'Training camp',
       desc: 'Dummies, targets and a circle of spells: kiwis with a class drill here to gain class ranks, move up to an advanced class or change class.',
     },
+    forge: {
+      name: 'Forge',
+      desc: 'Hearth, anvil and bellows: smiths make weapons and armours here, of wood and stone, then of meteoric iron and steel.',
+    },
     lab: {
       name: 'Laboratory against nature',
       desc: 'Vats of glowing juice where a seasoned kiwi becomes a Kikiwiwi. Long, costly, and it can fail.',
@@ -749,6 +753,15 @@ export const en = {
     noGuards: 'Post guards on the rampart first.',
     notGuard: 'This kiwi is not on guard.',
     tooStrong: 'The guards are not strong enough for this den.',
+    notEnoughIron: 'Not enough meteoric iron.',
+    unknownItem: 'Unknown piece of gear.',
+    noForge: 'Build a Forge first.',
+    forgeExists: 'The colony already has its Forge.',
+    forgeQueueFull: 'The Forge’s queue is full.',
+    unknownOrder: 'This order is no longer in the queue.',
+    notInArmory: 'This piece is not in the armory.',
+    wrongFamily: 'This weapon does not suit this kiwi’s class.',
+    wrongSlot: 'This piece does not go in that slot.',
     cutsLand: 'This would cut the village in two: kiwis walk around big buildings.',
     cramped: 'Cramped: free the tiles around it so it can spread before it grows.',
   },
@@ -1592,6 +1605,16 @@ export const en = {
         auto: 'When a stock is full, its harvesters go and work elsewhere, then come back.',
         manual: 'Harvesters stay at their post when its stock is full.',
       },
+      forge: {
+        name: 'Forge',
+        auto: 'While an order waits, the strongest and most dexterous kiwis work at the Forge, then go back.',
+        manual: 'Place the smiths yourself from the Forge’s sheet.',
+      },
+      equip: {
+        name: 'Gear',
+        auto: 'The guards first, then the strongest kiwis take the best pieces of the armory.',
+        manual: 'Equip the kiwis yourself from their sheet.',
+      },
     },
   },
   village: {
@@ -1904,6 +1927,10 @@ export const en = {
     starWatch: { name: 'Star watch', desc: 'Waves are announced 2 hours earlier.' },
     cometLure: { name: 'Comet lure', desc: 'Comets come back 20 % sooner.' },
     starIron: { name: 'Star iron', desc: 'Meteorites carry 30 % more.' },
+    forge: {
+      name: 'Forge',
+      desc: 'Opens the Forge: wood and stone weapons and armours for the kiwis.',
+    },
     meteorDrill: {
       name: 'Meteorite drill',
       desc: 'A drill on every crater being worked: ×1.5 in the Stone age, ×2 in the Iron age, ×2.5 in the Industry age.',

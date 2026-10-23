@@ -1,3 +1,5 @@
+import { accrueForge, forgePower, forgeRate, forgeTick, nextForgeEvent } from './forge';
+import type { ItemId } from '../data/gear';
 import { accrueStardust, cometTick, nextCometEvent, planComet } from './comets';
 import { footprintOf, isManualWorkplace, isProducer, type BuildingType } from '../data/buildings';
 import type { TechId } from '../data/research';
@@ -207,6 +209,8 @@ export type GameEvent =
       /** Chantier 38: whole units of meteoric iron in the crater. */
       iron: number;
     }
+  /** Chantier 38: a piece left the Forge for the armory. */
+  | { type: 'itemForged'; at: TimeMs; item: ItemId }
   /** Chantier 38: the meteoric iron stock is full (the craters' miners go back to work). */
   | { type: 'ironFull'; at: TimeMs }
   | { type: 'meteorFaded'; at: TimeMs; q: number; r: number; resource: ResourceId }
@@ -281,6 +285,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const cometAt = nextCometEvent(s);
     const injuryEnd = nextInjuryEnd(s);
     const researchAt = nextResearchEvent(s);
+    const forgeAt = nextForgeEvent(s);
     const deliveryAt = nextDeliveryEvent(s);
     const infusionEnd = nextInfusionEnd(s);
     const titanEnd = nextTitanEnd(s);
@@ -293,6 +298,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
       infusionEnd,
       titanEnd,
       researchAt,
+      forgeAt,
       deliveryAt,
       threatAt,
       skyAt,
@@ -342,6 +348,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     if (skyAt === nextEvent) skyTick(s, skyAt, events);
     if (cometAt === nextEvent) cometTick(s, cometAt, events);
     if (researchAt === nextEvent) researchTick(s, researchAt, events);
+    if (forgeAt === nextEvent) forgeTick(s, forgeAt, events);
     if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
     if (siegeAt === nextEvent) siegeTick(s, siegeAt, events);
     const st = hungerStage(s);
@@ -416,6 +423,8 @@ interface Flows {
   meteors: { m: Meteor; delta: number }[];
   /** Chantier 38: craters giving iron (raw units per ms, integers). */
   iron: { m: Meteor; rate: number }[];
+  /** Chantier 38: work on the Forge's first order (raw units per ms). */
+  forge: number;
   /** Hunger gauge change in raw units per ms. */
   hunger: number;
   /** Next time a rate changes on its own (a deposit runs dry, a storage fills or empties). */
@@ -526,6 +535,7 @@ function computeFlows(s: GameState): Flows {
     pools,
     meteors,
     iron,
+    forge: forgeRate(s),
     hunger,
     nextChange: next,
     hungerAt: nextHungerEvent(s, hunger),
@@ -585,6 +595,7 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
   accrueResearch(s, dtMs);
   accrueStardust(s, dtMs);
   accrueIron(s, flows.iron, dtMs, at, events);
+  accrueForge(s, flows.forge, dtMs);
   accrueKiwis(s, dtMs, at, events);
 }
 
@@ -739,13 +750,15 @@ export function idleByPower(s: GameState, b: Building): Villager[] {
     // Chantier 37: only kiwis with a class drill at the training camp.
     (v) => !v.kikiwiwi && (b.type !== 'trainingCamp' || v.classId !== null),
   );
-  // Chantier 15: the Library takes the kiwis with the most Spirit first.
+  // Chantier 15: the Library takes the kiwis with the most Spirit first (38: the Forge, its smiths).
   const power =
     b.type === 'library'
       ? researchPower
-      : resource
-        ? (v: Villager) => workerPower(v, resource)
-        : null;
+      : b.type === 'forge'
+        ? forgePower
+        : resource
+          ? (v: Villager) => workerPower(v, resource)
+          : null;
   if (!power) return idle;
   return idle
     .map((v, i) => ({ v, i, p: power(v) }))

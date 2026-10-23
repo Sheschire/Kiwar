@@ -30,6 +30,7 @@ import { lab, library, school } from './models/knowledge';
 import { seedTurret, skyTurret } from './models/defense';
 import { monument } from './models/monument';
 import { trainingCamp } from './models/training';
+import { forge } from './models/forge';
 import { A, annex, crown, lamp, type Look } from './models/ageKit';
 import { bigSignSpot, spread } from './models/spread';
 
@@ -58,6 +59,7 @@ const BUILDERS: Record<BuildingType, (look: Look) => Parts> = {
   seedTurret,
   skyTurret,
   trainingCamp,
+  forge,
 };
 
 /**
@@ -83,7 +85,7 @@ export function lookOf(type: BuildingType, level: number, colonyAge = 0, docked 
         ? level >= 3
           ? 3
           : 2
-        : type === 'trainingCamp'
+        : type === 'trainingCamp' || type === 'forge'
           ? level >= 3
             ? 2
             : 1
@@ -91,7 +93,11 @@ export function lookOf(type: BuildingType, level: number, colonyAge = 0, docked 
             ? 0
             : ageOfLevel(level);
   const tier =
-    type === 'monument' || type === 'lab' || type === 'camp' || type === 'trainingCamp'
+    type === 'monument' ||
+    type === 'lab' ||
+    type === 'camp' ||
+    type === 'trainingCamp' ||
+    type === 'forge'
       ? Math.min(3, level)
       : ((level - 1) % LEVELS_PER_AGE) + 1;
   return { age, tier, level, colonyAge, docked };
@@ -148,6 +154,7 @@ const SIGN_SPOTS: Partial<Record<BuildingType, [number, number]>> = {
   skyTurret: [-0.4, 0.3],
   lab: [0.6, -0.3],
   trainingCamp: [0.62, 0.3],
+  forge: [0.55, 0.35],
   monument: [-0.68, -0.1],
 };
 const SIGN_HEIGHT = 0.5;

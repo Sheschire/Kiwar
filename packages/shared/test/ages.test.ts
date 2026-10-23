@@ -48,9 +48,9 @@ const errorOf = (s: GameState, cmd: Command, map: ReturnType<typeof setup>['map'
 describe('ages', () => {
   it('extends every building but camps and the monument to twelve levels, three per age', () => {
     for (const type of BUILDING_TYPES) {
-      // Chantier 37: the training camp has its own three levels (Stone, Stone, Iron), like the lab.
-      if (type === 'camp' || type === 'monument' || type === 'lab' || type === 'trainingCamp')
-        continue;
+      // Chantier 37: the training camp has its own three levels (Stone, Stone, Iron), like the lab
+      // and the Forge (chantier 38).
+      if (['camp', 'monument', 'lab', 'trainingCamp', 'forge'].includes(type)) continue;
       expect(maxLevelOf(type)).toBe(12);
       for (let level = 4; level <= 12; level++) {
         const def = levelDef(type, level)!;

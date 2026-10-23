@@ -809,7 +809,8 @@ var BUILDING_TYPES = [
   "camp",
   "seedTurret",
   "skyTurret",
-  "trainingCamp"
+  "trainingCamp",
+  "forge"
 ];
 var FOOTPRINTS = {
   warehouse: 3,
@@ -818,7 +819,8 @@ var FOOTPRINTS = {
   library: 3,
   lab: 3,
   monument: 7,
-  trainingCamp: 3
+  trainingCamp: 3,
+  forge: 3
 };
 function footprintOf(type) {
   return FOOTPRINTS[type] ?? 1;
@@ -1225,6 +1227,43 @@ var BASE = {
       }
     ]
   },
+  // Chantier 38: the Forge (Stone age, technology `forge`) makes weapons and armours; its smiths
+  // are placed by the automation (Strength and Dexterity) or by the player.
+  forge: {
+    id: "forge",
+    allowedTiles: ["flesh", "ray", "heart"],
+    buildable: true,
+    copyGrowth: 2,
+    levels: [
+      {
+        cost: { pulp: 2e3, fiber: 2500, seeds: 600, juice: 400 },
+        durationMs: ms.h(1),
+        requiresNestLevel: 4,
+        requiresAge: 1,
+        workerSlots: 2,
+        forgeQueue: 2,
+        forging: 1
+      },
+      {
+        cost: { pulp: 4500, fiber: 5500, seeds: 1200, juice: 900 },
+        durationMs: ms.h(2),
+        requiresNestLevel: 5,
+        requiresAge: 1,
+        workerSlots: 3,
+        forgeQueue: 3,
+        forging: 1.2
+      },
+      {
+        cost: { pulp: 11e3, fiber: 13e3, seeds: 2800, juice: 2500 },
+        durationMs: ms.h(4),
+        requiresNestLevel: 7,
+        requiresAge: 2,
+        workerSlots: 4,
+        forgeQueue: 4,
+        forging: 1.45
+      }
+    ]
+  },
   seedTurret: {
     id: "seedTurret",
     allowedTiles: ["skin"],
@@ -1381,7 +1420,7 @@ function isProducer(type) {
   return BUILDINGS[type].levels.some((l) => (l.workerSlots ?? 0) > 0);
 }
 function isManualWorkplace(type) {
-  return type === "library" || type === "trainingCamp";
+  return type === "library" || type === "trainingCamp" || type === "forge";
 }
 var RAY_BUILD_SPEEDUP = 0.85;
 var DEMOLITION = {
@@ -2263,7 +2302,9 @@ var TECH_IDS = [
   "cometLure",
   "starIron",
   // Chantier 15
-  "meteorDrill"
+  "meteorDrill",
+  // Chantier 38
+  "forge"
 ];
 var TECHS = {
   foraging: {
@@ -2440,6 +2481,15 @@ var TECHS = {
     cost: 300,
     libraryLevel: 2,
     effects: { meteorDrill: true }
+  },
+  // Chantier 38: the Forge (Stone age), wood and stone weapons and armours.
+  forge: {
+    id: "forge",
+    age: 1,
+    branch: "defense",
+    cost: 250,
+    libraryLevel: 2,
+    effects: { forge: true }
   }
 };
 var PASSAGE_TECHS = [
@@ -2643,6 +2693,121 @@ function ironUnits(raw) {
   return Math.floor(raw / IRON_SCALE + 1e-9);
 }
 
+// packages/shared/src/data/gear.ts
+var WEAPON_FAMILIES = ["blade", "mace", "bow", "staff"];
+var ARMOR_KINDS = ["light", "heavy"];
+var GEAR_KINDS = [...WEAPON_FAMILIES, ...ARMOR_KINDS];
+var GEAR_TIERS = ["stone", "iron", "steel"];
+var GEAR_SLOTS = ["weapon", "armor"];
+var ITEM_IDS = [
+  "blade-stone",
+  "blade-iron",
+  "blade-steel",
+  "mace-stone",
+  "mace-iron",
+  "mace-steel",
+  "bow-stone",
+  "bow-iron",
+  "bow-steel",
+  "staff-stone",
+  "staff-iron",
+  "staff-steel",
+  "light-stone",
+  "light-iron",
+  "light-steel",
+  "heavy-stone",
+  "heavy-iron",
+  "heavy-steel"
+];
+var CLASS_FAMILY = {
+  none: null,
+  builder: "mace",
+  warrior: "blade",
+  mage: "staff",
+  scout: "blade",
+  mayor: null,
+  gatherer: "bow",
+  bard: "staff",
+  architect: "mace",
+  navigator: "blade",
+  champion: "blade",
+  archmage: "staff",
+  herbalist: "bow",
+  minstrel: "staff",
+  engineer: "mace",
+  paladin: "blade",
+  druid: "staff",
+  ranger: "bow",
+  titan: "mace",
+  oracle: "staff"
+};
+function tierIndex(tier) {
+  return GEAR_TIERS.indexOf(tier);
+}
+var WEAPON = {
+  damage: [1.25, 1.5, 1.8],
+  cost: [{ pulp: 300, fiber: 400, seeds: 150 }, { fiber: 800, seeds: 300 }, { seeds: 1500 }],
+  iron: [0, 6, 12],
+  workH: [1, 2, 3],
+  tech: ["forge", "smelting", "firearms"]
+};
+var ARMOR = {
+  light: { hp: [1.15, 1.3, 1.45], armor: [0, 0, 0], speed: 1, iron: [0, 5, 10] },
+  heavy: { hp: [1.3, 1.55, 1.8], armor: [0.05, 0.1, 0.15], speed: 0.85, iron: [0, 8, 15] },
+  cost: [{ pulp: 200, fiber: 500, seeds: 100 }, { fiber: 1e3, juice: 300 }, { seeds: 1500 }],
+  workH: [1, 2, 3],
+  tech: ["forge", "armor", "machines"]
+};
+function item(kind, tier) {
+  const t = tierIndex(tier);
+  const id3 = `${kind}-${tier}`;
+  if (kind === "light" || kind === "heavy") {
+    const a = ARMOR[kind];
+    return {
+      id: id3,
+      kind,
+      slot: "armor",
+      tier,
+      cost: ARMOR.cost[t],
+      iron: a.iron[t],
+      workH: ARMOR.workH[t],
+      tech: ARMOR.tech[t],
+      hp: a.hp[t],
+      armor: a.armor[t],
+      speed: a.speed
+    };
+  }
+  return {
+    id: id3,
+    kind,
+    slot: "weapon",
+    tier,
+    cost: WEAPON.cost[t],
+    iron: WEAPON.iron[t],
+    workH: WEAPON.workH[t],
+    tech: WEAPON.tech[t],
+    damage: WEAPON.damage[t]
+  };
+}
+var ITEMS = Object.fromEntries(
+  ITEM_IDS.map((id3) => {
+    const [kind, tier] = id3.split("-");
+    return [id3, item(kind, tier)];
+  })
+);
+var FORGE = {
+  /** A smith's power: +4 % per point of Strength and of Dexterity above the average. */
+  strength: 0.04,
+  dexterity: 0.04,
+  /** Work of a smith in raw units per ms (one average smith: `rate`, an integer). */
+  rate: 100,
+  /** Pieces kept at most in the armory (per piece). */
+  armoryMax: 99
+};
+function orderWork(id3) {
+  return Math.round(ITEMS[id3].workH * 36e5 * FORGE.rate);
+}
+
 // packages/shared/src/data/jobs.ts
 var JOBS = {
   /**
@@ -2663,7 +2828,10 @@ var AUTO_TASKS = [
   "stardust",
   "repair",
   "garrison",
-  "redirect"
+  "redirect",
+  // Chantier 38: smiths at the Forge, gear from the armory.
+  "forge",
+  "equip"
 ];
 var TASKS = {
   /** Constructions under way at once, by Nest level (index = level). */
@@ -3119,6 +3287,45 @@ function isInviteCode(code) {
   return /^[A-HJ-NP-Z2-9]{8}$/.test(code);
 }
 
+// packages/shared/src/sim/calendar.ts
+var mod = (a, n) => (a % n + n) % n;
+function calendarAt(start, t) {
+  const elapsed = t - start;
+  const inYear = mod(elapsed, YEAR_MS);
+  const seasonIndex = Math.floor(inYear / SEASON_MS);
+  const season = SEASONS[seasonIndex];
+  const inSeason = inYear - seasonIndex * SEASON_MS;
+  const day = Math.floor(inSeason / CALENDAR.dayMs);
+  const sinceDawn = inSeason - day * CALENDAR.dayMs;
+  const dawn = t - sinceDawn;
+  const nightStart = CALENDAR.dayMs - CALENDAR.nightMs[season];
+  return {
+    season,
+    year: Math.floor((elapsed - inYear) / YEAR_MS),
+    day,
+    sinceDawn,
+    dayProgress: sinceDawn / CALENDAR.dayMs,
+    night: sinceDawn >= nightStart,
+    nightAt: dawn + nightStart,
+    dawnAt: dawn + CALENDAR.dayMs,
+    seasonEndsAt: t - inSeason + SEASON_MS,
+    next: SEASONS[(seasonIndex + 1) % SEASONS.length]
+  };
+}
+function calendarOf(state, t = state.now) {
+  return calendarAt(state.calendarStart, t);
+}
+function nextCalendarChange(start, t) {
+  const c = calendarAt(start, t);
+  return c.night ? c.dawnAt : c.nightAt;
+}
+function seasonOf(state) {
+  return calendarAt(state.calendarStart, state.now).season;
+}
+function isNight(state) {
+  return calendarAt(state.calendarStart, state.now).night;
+}
+
 // packages/shared/src/sim/footprint.ts
 function rotationsOf(type) {
   return footprintOf(type) === 3 ? [0, 1, 2, 3, 4, 5] : [0];
@@ -3142,11 +3349,11 @@ function wallsOf(tiles) {
 function footprintTiles(b) {
   return b.cramped ? [{ q: b.q, r: b.r }] : footprintHexes(b.type, b.q, b.r, b.rot);
 }
-function siteTiles(item) {
-  if (item.kind === "build")
-    return item.rot === void 0 ? [{ q: item.q, r: item.r }] : footprintHexes(item.buildingType, item.q, item.r, item.rot);
-  if (item.kind === "upgrade" && item.rot !== void 0)
-    return footprintHexes(item.buildingType, item.q, item.r, item.rot);
+function siteTiles(item2) {
+  if (item2.kind === "build")
+    return item2.rot === void 0 ? [{ q: item2.q, r: item2.r }] : footprintHexes(item2.buildingType, item2.q, item2.r, item2.rot);
+  if (item2.kind === "upgrade" && item2.rot !== void 0)
+    return footprintHexes(item2.buildingType, item2.q, item2.r, item2.rot);
   return [];
 }
 var cache = /* @__PURE__ */ new WeakMap();
@@ -3184,10 +3391,10 @@ function occupancy(state) {
     covered.forEach((h, i) => tiles.set(hexKey(h), { id: b.id, site: false, anchor: i === 0 }));
     for (const h of wallsOf(covered)) blocked.add(hexKey(h));
   }
-  for (const item of state.queue) {
-    siteTiles(item).forEach((h, i) => {
+  for (const item2 of state.queue) {
+    siteTiles(item2).forEach((h, i) => {
       const key = hexKey(h);
-      if (!tiles.has(key)) tiles.set(key, { id: item.id, site: true, anchor: i === 0 });
+      if (!tiles.has(key)) tiles.set(key, { id: item2.id, site: true, anchor: i === 0 });
     });
   }
   const occ = { tiles, blocked, blockedKey: [...blocked].sort().join(";") };
@@ -3250,45 +3457,6 @@ function clearPathsUnder(s, tiles) {
   s.paths = s.paths.filter((k) => !gone.has(k));
   const cost = PATHS.cost;
   for (const id3 of RESOURCE_IDS) s.resources[id3] += (cost[id3] ?? 0) * refunded;
-}
-
-// packages/shared/src/sim/calendar.ts
-var mod = (a, n) => (a % n + n) % n;
-function calendarAt(start, t) {
-  const elapsed = t - start;
-  const inYear = mod(elapsed, YEAR_MS);
-  const seasonIndex = Math.floor(inYear / SEASON_MS);
-  const season = SEASONS[seasonIndex];
-  const inSeason = inYear - seasonIndex * SEASON_MS;
-  const day = Math.floor(inSeason / CALENDAR.dayMs);
-  const sinceDawn = inSeason - day * CALENDAR.dayMs;
-  const dawn = t - sinceDawn;
-  const nightStart = CALENDAR.dayMs - CALENDAR.nightMs[season];
-  return {
-    season,
-    year: Math.floor((elapsed - inYear) / YEAR_MS),
-    day,
-    sinceDawn,
-    dayProgress: sinceDawn / CALENDAR.dayMs,
-    night: sinceDawn >= nightStart,
-    nightAt: dawn + nightStart,
-    dawnAt: dawn + CALENDAR.dayMs,
-    seasonEndsAt: t - inSeason + SEASON_MS,
-    next: SEASONS[(seasonIndex + 1) % SEASONS.length]
-  };
-}
-function calendarOf(state, t = state.now) {
-  return calendarAt(state.calendarStart, t);
-}
-function nextCalendarChange(start, t) {
-  const c = calendarAt(start, t);
-  return c.night ? c.dawnAt : c.nightAt;
-}
-function seasonOf(state) {
-  return calendarAt(state.calendarStart, state.now).season;
-}
-function isNight(state) {
-  return calendarAt(state.calendarStart, state.now).night;
 }
 
 // packages/shared/src/data/units.ts
@@ -4316,11 +4484,12 @@ function kiwiUnit(v, state, role, at, sector, side = 0) {
   const level = 1 + K.perLevel * (v.level - 1);
   const fight = Math.sqrt(modifiers(v).fight);
   const titan = titanPower(state, v);
+  const gear = gearEffect(v);
   const spell = weaponId === "fireball";
   const power = spell ? 1 + K.spiritDamage * (st.spirit - avg) : 1 + K.strengthDamage * (st.strength - avg);
-  const damage = base.damage * Math.max(0.5, power) * level * fight * titan * (role === "guard" ? tech.guard : K.militiaDamage);
+  const damage = base.damage * Math.max(0.5, power) * level * fight * titan * (role === "guard" ? tech.guard * gear.damage : K.militiaDamage);
   const aim = base.style === "melee" ? base.accuracy : clamp(base.accuracy + K.dexterityAccuracy * (st.dexterity - avg), ...K.accuracy);
-  const hp = K.hp * Math.max(0.5, 1 + K.enduranceHp * (st.endurance - avg)) * level * fight * (v.kikiwiwi ? K.titanHp / 2 : 1) * (v.classId ? K.classHp[v.classId] ?? 1 : 1);
+  const hp = K.hp * Math.max(0.5, 1 + K.enduranceHp * (st.endurance - avg)) * level * fight * (v.kikiwiwi ? K.titanHp / 2 : 1) * (v.classId ? K.classHp[v.classId] ?? 1 : 1) * gear.hp;
   const extraDodge = v.classId ? K.classDodge[v.classId] ?? 0 : 0;
   const chorus = hasSkill(v, "chorus");
   let aura = inLine(v.classId, "bard") && role === "guard" ? {
@@ -4343,9 +4512,9 @@ function kiwiUnit(v, state, role, at, sector, side = 0) {
     level: v.level,
     classId: v.classId,
     hp,
-    // Armour (technology) spares the kiwis.
-    armor: clamp(1 - tech.injuries, 0, 0.6),
-    speed: K.speed * Math.max(0.5, 1 + K.agilitySpeed * (st.agility - avg)),
+    // Armour (technology and the piece it wears) spares the kiwis.
+    armor: clamp(1 - tech.injuries + gear.armor, 0, 0.6),
+    speed: K.speed * Math.max(0.5, 1 + K.agilitySpeed * (st.agility - avg)) * gear.speed,
     dodge: clamp(
       K.dodge + extraDodge + K.agilityDodge * (st.agility - avg),
       0,
@@ -4874,7 +5043,8 @@ function guardPower(v, state) {
   const a = v.kikiwiwi ? KIKIWIWI.affinity : GARRISON.affinity[v.classId ?? "none"];
   const tech = state ? techEffects(state) : null;
   const titan = state ? titanPower(state, v) : 1;
-  const p = kiwiStrength(v) * GARRISON.power * (tech?.guard ?? 1) * titan;
+  const gear = gearEffect(v);
+  const p = kiwiStrength(v) * GARRISON.power * (tech?.guard ?? 1) * titan * gear.damage * Math.sqrt(gear.hp);
   const air = v.classId === "warrior" && tech?.firearms ? Math.max(a.air, GARRISON.firearmsAir) : a.air;
   return { ground: p * a.ground, air: p * air };
 }
@@ -5256,21 +5426,6 @@ function incident(s, at, events) {
     (rng) => Math.round(rng.range(INCIDENTS.intervalMs[0], INCIDENTS.intervalMs[1]))
   );
   events.push({ type: "incident", ...report });
-}
-
-// packages/shared/src/sim/iron.ts
-function ironCap(state) {
-  const c = IRON.cap;
-  return (c[Math.min(nest(state).level, c.length - 1)] ?? 0) * IRON_SCALE;
-}
-function meteorIronOf(state) {
-  return ironUnits(state.meteorIron);
-}
-function addIron(s, units) {
-  const room = Math.max(0, ironCap(s) - s.meteorIron);
-  const got = Math.min(units * IRON_SCALE, room);
-  s.meteorIron += got;
-  return ironUnits(got);
 }
 
 // packages/shared/src/sim/obstacles.ts
@@ -6166,6 +6321,7 @@ function advanceInPlace(s, now, events) {
     const cometAt = nextCometEvent(s);
     const injuryEnd = nextInjuryEnd(s);
     const researchAt = nextResearchEvent(s);
+    const forgeAt = nextForgeEvent(s);
     const deliveryAt = nextDeliveryEvent(s);
     const infusionEnd = nextInfusionEnd(s);
     const titanEnd = nextTitanEnd(s);
@@ -6177,6 +6333,7 @@ function advanceInPlace(s, now, events) {
       infusionEnd,
       titanEnd,
       researchAt,
+      forgeAt,
       deliveryAt,
       threatAt,
       skyAt,
@@ -6201,10 +6358,10 @@ function advanceInPlace(s, now, events) {
     }
     if (nextEvent > now) break;
     if (constructionEnd === nextEvent) {
-      for (const item of s.queue.filter(
+      for (const item2 of s.queue.filter(
         (i) => i.startedAt !== null && i.startedAt + i.durationMs === constructionEnd
       ))
-        completeConstruction(s, item, constructionEnd, events);
+        completeConstruction(s, item2, constructionEnd, events);
       syncPools(s, map, constructionEnd);
     }
     if (s.egg && s.egg.readyAt <= now && s.egg.readyAt === nextEvent) {
@@ -6225,6 +6382,7 @@ function advanceInPlace(s, now, events) {
     if (skyAt === nextEvent) skyTick(s, skyAt, events);
     if (cometAt === nextEvent) cometTick(s, cometAt, events);
     if (researchAt === nextEvent) researchTick(s, researchAt, events);
+    if (forgeAt === nextEvent) forgeTick(s, forgeAt, events);
     if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
     if (siegeAt === nextEvent) siegeTick(s, siegeAt, events);
     const st = hungerStage(s);
@@ -6378,6 +6536,7 @@ function computeFlows(s) {
     pools,
     meteors,
     iron,
+    forge: forgeRate(s),
     hunger,
     nextChange: next,
     hungerAt: nextHungerEvent(s, hunger)
@@ -6431,6 +6590,7 @@ function accrue(s, flows, dtMs, at, events) {
   accrueResearch(s, dtMs);
   accrueStardust(s, dtMs);
   accrueIron(s, flows.iron, dtMs, at, events);
+  accrueForge(s, flows.forge, dtMs);
   accrueKiwis(s, dtMs, at, events);
 }
 function pourReserve(s, id3, amount) {
@@ -6446,11 +6606,11 @@ function pourReserve(s, id3, amount) {
   }
   return amount - Math.max(0, left);
 }
-function completeConstruction(s, item, at, events) {
-  s.queue = s.queue.filter((i) => i.id !== item.id);
+function completeConstruction(s, item2, at, events) {
+  s.queue = s.queue.filter((i) => i.id !== item2.id);
   let buildingId;
-  if (item.kind === "repair") {
-    const b = getBuilding(s, item.buildingId);
+  if (item2.kind === "repair") {
+    const b = getBuilding(s, item2.buildingId);
     if (b) {
       delete b.damaged;
       events.push({
@@ -6462,36 +6622,36 @@ function completeConstruction(s, item, at, events) {
         r: b.r
       });
     }
-    releaseBuilder(s, item.id, false);
+    releaseBuilder(s, item2.id, false);
     return;
   }
-  if (item.kind === "clear") {
-    const o = obstacleAt(s, item.q, item.r);
+  if (item2.kind === "clear") {
+    const o = obstacleAt(s, item2.q, item2.r);
     if (o) removeObstacle(s, o, at, events, "kiwis");
-    releaseBuilder(s, item.id, false);
+    releaseBuilder(s, item2.id, false);
     return;
   }
-  if (item.kind === "build") {
+  if (item2.kind === "build") {
     buildingId = nextId(s, "b");
     s.buildings.push({
       id: buildingId,
-      type: item.buildingType,
-      q: item.q,
-      r: item.r,
+      type: item2.buildingType,
+      q: item2.q,
+      r: item2.r,
       level: 1,
-      richness: item.richness,
+      richness: item2.richness,
       builtAt: at,
-      ...item.rot !== void 0 ? { rot: item.rot } : {},
+      ...item2.rot !== void 0 ? { rot: item2.rot } : {},
       // A big site from an older save without room comes out cramped (chantier 35).
-      ...item.rot === void 0 && footprintOf(item.buildingType) > 1 ? { cramped: true } : {}
+      ...item2.rot === void 0 && footprintOf(item2.buildingType) > 1 ? { cramped: true } : {}
     });
   } else {
-    const b = getBuilding(s, item.buildingId);
-    if (!b) return releaseBuilder(s, item.id, false);
-    b.level = item.targetLevel;
-    if (b.cramped && item.rot !== void 0) {
+    const b = getBuilding(s, item2.buildingId);
+    if (!b) return releaseBuilder(s, item2.id, false);
+    b.level = item2.targetLevel;
+    if (b.cramped && item2.rot !== void 0) {
       delete b.cramped;
-      b.rot = item.rot;
+      b.rot = item2.rot;
     }
     delete b.damaged;
     buildingId = b.id;
@@ -6501,18 +6661,18 @@ function completeConstruction(s, item, at, events) {
     type: "constructionComplete",
     at,
     buildingId,
-    buildingType: item.buildingType,
-    level: item.targetLevel,
-    q: item.q,
-    r: item.r
+    buildingType: item2.buildingType,
+    level: item2.targetLevel,
+    q: item2.q,
+    r: item2.r
   });
-  if (item.buildingType === "monument")
-    events.push({ type: "ageReached", at, age: item.targetLevel });
-  if (item.kind === "build" && isProducer(item.buildingType) && !isManualWorkplace(item.buildingType)) {
+  if (item2.buildingType === "monument")
+    events.push({ type: "ageReached", at, age: item2.targetLevel });
+  if (item2.kind === "build" && isProducer(item2.buildingType) && !isManualWorkplace(item2.buildingType)) {
     const idle = bestIdleFor(s, getBuilding(s, buildingId));
     if (idle) idle.job = { kind: "work", buildingId };
   }
-  releaseBuilder(s, item.id, true);
+  releaseBuilder(s, item2.id, true);
 }
 function releaseBuilder(s, itemId, built) {
   for (const v of s.villagers) {
@@ -6549,7 +6709,7 @@ function idleByPower(s, b) {
     // Chantier 37: only kiwis with a class drill at the training camp.
     (v) => !v.kikiwiwi && (b.type !== "trainingCamp" || v.classId !== null)
   );
-  const power = b.type === "library" ? researchPower : resource ? (v) => workerPower(v, resource) : null;
+  const power = b.type === "library" ? researchPower : b.type === "forge" ? forgePower : resource ? (v) => workerPower(v, resource) : null;
   if (!power) return idle;
   return idle.map((v, i) => ({ v, i, p: power(v) })).sort((a, c) => c.p - a.p || a.i - c.i).map((x) => x.v);
 }
@@ -6608,8 +6768,10 @@ function taskLevel(state, v) {
   switch (v.job.kind) {
     case "idle":
       return "idle";
-    case "work":
-      return getBuilding(state, v.job.buildingId)?.type === "library" ? "research" : "harvest";
+    case "work": {
+      const type = getBuilding(state, v.job.buildingId)?.type;
+      return type === "library" || type === "forge" ? "research" : "harvest";
+    }
     case "stardust":
     case "meteor":
       return "pick";
@@ -6654,16 +6816,16 @@ function waitingForBuilder(state) {
   if (free <= 0) return [];
   return state.queue.filter((i) => i.startedAt === null).slice(0, free);
 }
-function itemSpeed(v, item) {
-  return item?.kind === "repair" ? repairSpeed(v) : builderSpeed(v);
+function itemSpeed(v, item2) {
+  return item2?.kind === "repair" ? repairSpeed(v) : builderSpeed(v);
 }
-function pickBuilder(state, item) {
+function pickBuilder(state, item2) {
   let priority;
   let prioritySpeed = 0;
   let best;
   for (const v of state.villagers) {
     if (v.kikiwiwi) continue;
-    const speed = itemSpeed(v, item);
+    const speed = itemSpeed(v, item2);
     if (v.builderPriority && (v.job.kind === "idle" || v.job.kind === "work")) {
       if (!priority || speed > prioritySpeed) {
         priority = v;
@@ -6677,19 +6839,19 @@ function pickBuilder(state, item) {
   }
   return priority ?? best?.v;
 }
-function startItem(state, item, builder, at, events) {
+function startItem(state, item2, builder, at, events) {
   const returnTo = borrow(builder);
-  builder.job = { kind: "build", queueItemId: item.id, returnTo };
-  item.startedAt = at;
-  item.durationMs = Math.max(1e3, Math.round(item.durationMs / itemSpeed(builder, item)));
-  events.push({ type: "constructionStarted", at, queueItemId: item.id, builderId: builder.id });
+  builder.job = { kind: "build", queueItemId: item2.id, returnTo };
+  item2.startedAt = at;
+  item2.durationMs = Math.max(1e3, Math.round(item2.durationMs / itemSpeed(builder, item2)));
+  events.push({ type: "constructionStarted", at, queueItemId: item2.id, builderId: builder.id });
 }
 function startConstructions(state, at, events) {
   if (!state.automation.build) return;
-  for (const item of waitingForBuilder(state)) {
-    const builder = pickBuilder(state, item);
+  for (const item2 of waitingForBuilder(state)) {
+    const builder = pickBuilder(state, item2);
     if (!builder) return;
-    startItem(state, item, builder, at, events);
+    startItem(state, item2, builder, at, events);
   }
 }
 function sendBack(state, v, home) {
@@ -6740,11 +6902,31 @@ function fillResearch(state) {
     }
   }
 }
+function fillForge(state) {
+  if (!state.automation.forge) return;
+  const b = forgeOf(state);
+  if (!b) return;
+  if (state.forge.orders.length === 0) {
+    sendBackAll(
+      state,
+      smithsOf(state).filter((v) => v.lent !== void 0).map((v) => [v, v.lent ?? null])
+    );
+    return;
+  }
+  let free = workerSlots(b) - workersOf(state, b.id).length;
+  while (free-- > 0) {
+    const v = bestFor(state, "research", forgePower);
+    if (!v) return;
+    const home = borrow(v);
+    v.job = { kind: "work", buildingId: b.id };
+    v.lent = home;
+  }
+}
 function forgetLent(state) {
   for (const v of state.villagers) {
     if (v.lent === void 0) continue;
-    const atLibrary = v.job.kind === "work" && getBuilding(state, v.job.buildingId)?.type === "library";
-    if (!atLibrary && v.job.kind !== "guard") delete v.lent;
+    const type = v.job.kind === "work" ? getBuilding(state, v.job.buildingId)?.type : void 0;
+    if (type !== "library" && type !== "forge" && v.job.kind !== "guard") delete v.lent;
   }
 }
 function fillCraters(state) {
@@ -6795,7 +6977,7 @@ function orderRepairs(state, at) {
     const cost = repairCost(b);
     if (!canAfford(state.resources, cost)) continue;
     for (const id3 of RESOURCE_IDS) state.resources[id3] -= cost[id3] ?? 0;
-    const item = {
+    const item2 = {
       id: nextId(state, "q"),
       kind: "repair",
       buildingType: b.type,
@@ -6810,8 +6992,8 @@ function orderRepairs(state, at) {
       orderedAt: at
     };
     const waiting = state.queue.findIndex((i) => i.startedAt === null && i.kind !== "repair");
-    if (waiting < 0) state.queue.push(item);
-    else state.queue.splice(waiting, 0, item);
+    if (waiting < 0) state.queue.push(item2);
+    else state.queue.splice(waiting, 0, item2);
   }
 }
 function autoGarrisonAt(state) {
@@ -6883,8 +7065,10 @@ function dispatchTasks(state, at, events) {
   orderRepairs(state, at);
   startConstructions(state, at, events);
   fillResearch(state);
+  fillForge(state);
   fillCraters(state);
   fillStardust(state);
+  equipGear(state);
 }
 function taskNeeds(state) {
   const libraries2 = state.buildings.filter((b) => b.type === "library");
@@ -6899,7 +7083,9 @@ function taskNeeds(state) {
     stardust: state.stardust >= STARDUST_CAP ? 0 : state.comets.patches.filter((p) => p.stock > 0 && dustPickers(state, p.id).length === 0).length,
     repair: state.buildings.filter((b) => b.damaged && !pendingUpgrade(state, b.id)).length,
     garrison: soon && !state.villagers.some((v) => v.job.kind === "guard") ? 1 : 0,
-    redirect: 0
+    redirect: 0,
+    forge: forgeOf(state) && state.forge.orders.length > 0 && smithsOf(state).length === 0 ? 1 : 0,
+    equip: armoryCount(state)
   };
 }
 
@@ -7600,6 +7786,7 @@ function drillRate(v, campLevel) {
 function workMastery(state, b) {
   if (!b) return null;
   if (b.type === "library") return "research";
+  if (b.type === "forge") return "build";
   const resource = buildingResource(state, b);
   return resource ? RESOURCE_MASTERY[resource] : null;
 }
@@ -7797,7 +7984,8 @@ function techEffects(state) {
     waveNotice: 0,
     cometInterval: 1,
     meteorStock: 1,
-    meteorDrill: false
+    meteorDrill: false,
+    forge: false
   };
   for (const id3 of state.research.done) {
     const e = TECHS[id3].effects;
@@ -7822,6 +8010,7 @@ function techEffects(state) {
     out.cometInterval *= e.cometInterval ?? 1;
     out.meteorStock *= e.meteorStock ?? 1;
     out.meteorDrill ||= e.meteorDrill ?? false;
+    out.forge ||= e.forge ?? false;
   }
   if (effectsCache2.size > 64) effectsCache2.clear();
   effectsCache2.set(key, out);
@@ -8628,6 +8817,202 @@ function canHatch(state) {
   return state.egg === null && population(state) < housing(state);
 }
 
+// packages/shared/src/sim/iron.ts
+function ironCap(state) {
+  const c = IRON.cap;
+  return (c[Math.min(nest(state).level, c.length - 1)] ?? 0) * IRON_SCALE;
+}
+function meteorIronOf(state) {
+  return ironUnits(state.meteorIron);
+}
+function addIron(s, units) {
+  const room = Math.max(0, ironCap(s) - s.meteorIron);
+  const got = Math.min(units * IRON_SCALE, room);
+  s.meteorIron += got;
+  return ironUnits(got);
+}
+
+// packages/shared/src/sim/forge.ts
+function forgeOf(state) {
+  return state.buildings.find((b) => b.type === "forge");
+}
+function forgePower(v) {
+  const avg = KIWI.stat.average;
+  const p = 1 + FORGE.strength * (v.stats.strength - avg) + FORGE.dexterity * (v.stats.dexterity - avg);
+  return Math.max(KIWI.minPower, p);
+}
+function smithsOf(state) {
+  const b = forgeOf(state);
+  if (!b) return [];
+  return state.villagers.filter((v) => v.job.kind === "work" && v.job.buildingId === b.id);
+}
+function forgeRate(state) {
+  const b = forgeOf(state);
+  if (!b || state.forge.orders.length === 0) return 0;
+  if (state.threats.shelterUntil > state.now) return 0;
+  const beds = bedsOf(state);
+  let work = 0;
+  for (const v of smithsOf(state)) work += forgePower(v) * presence(state, v, beds.get(v.id));
+  if (work <= 0) return 0;
+  const speed = levelDef(b.type, b.level)?.forging ?? 1;
+  const damaged = b.damaged ? THREATS.damagedWork : 1;
+  const night = isNight(state) ? nightWork(state) : 1;
+  const f = work * speed * damaged * night * hungerWork(state) * moraleWork(state, beds);
+  return f > 0 ? Math.max(1, Math.round(FORGE.rate * f)) : 0;
+}
+function forgeQueueSize(state) {
+  const b = forgeOf(state);
+  return b ? levelDef(b.type, b.level)?.forgeQueue ?? 0 : 0;
+}
+function forgeLock(state, id3) {
+  const def = ITEMS[id3];
+  if (!def) return "unknownItem";
+  if (!forgeOf(state)) return "noForge";
+  if (!state.research.done.includes(def.tech)) return "techMissing";
+  if (state.forge.orders.length >= forgeQueueSize(state)) return "forgeQueueFull";
+  if (meteorIronOf(state) < def.iron) return "notEnoughIron";
+  if (!canAfford(state.resources, def.cost)) return "notEnoughResources";
+  return null;
+}
+function orderItem(state, id3, orderId) {
+  const def = ITEMS[id3];
+  for (const r of RESOURCE_IDS) state.resources[r] -= def.cost[r] ?? 0;
+  state.meteorIron -= def.iron * IRON_SCALE;
+  state.forge.orders.push({
+    id: orderId,
+    item: id3,
+    progress: 0,
+    paid: { ...def.cost },
+    iron: def.iron
+  });
+}
+function cancelOrder(state, index) {
+  const [order] = state.forge.orders.splice(index, 1);
+  if (!order) return;
+  for (const r of RESOURCE_IDS) state.resources[r] += order.paid[r] ?? 0;
+  addIron(state, order.iron);
+}
+function nextForgeEvent(state) {
+  const order = state.forge.orders[0];
+  if (!order) return Infinity;
+  const need = orderWork(order.item) - order.progress;
+  if (need <= 0) return state.now;
+  const rate = forgeRate(state);
+  if (rate <= 0) return Infinity;
+  return state.now + Math.max(1, Math.ceil(need / rate));
+}
+function forgeEta(state) {
+  const at = nextForgeEvent(state);
+  return Number.isFinite(at) ? at - state.now : null;
+}
+function accrueForge(state, rate, dtMs) {
+  const order = state.forge.orders[0];
+  if (!order || rate <= 0) return;
+  order.progress = Math.min(orderWork(order.item), order.progress + rate * dtMs);
+}
+function forgeTick(state, at, events) {
+  const orders = state.forge.orders;
+  while (orders[0] && orders[0].progress >= orderWork(orders[0].item)) {
+    const done = orders.shift();
+    storeItem(state, done.item);
+    events.push({ type: "itemForged", at, item: done.item });
+  }
+}
+function storeItem(state, id3) {
+  const armory = state.forge.armory;
+  armory[id3] = Math.min(FORGE.armoryMax, (armory[id3] ?? 0) + 1);
+}
+function takeItem(state, id3) {
+  const armory = state.forge.armory;
+  const left = (armory[id3] ?? 0) - 1;
+  if (left > 0) armory[id3] = left;
+  else delete armory[id3];
+}
+function familyOf(v) {
+  if (v.kikiwiwi) return null;
+  return CLASS_FAMILY[v.classId ?? "none"];
+}
+function wearLock(v, id3) {
+  const def = ITEMS[id3];
+  if (v.kikiwiwi) return "kikiwiwiNoWork";
+  if (def.slot === "weapon" && familyOf(v) !== def.kind) return "wrongFamily";
+  return null;
+}
+function unequip(state, v, slot) {
+  const id3 = v.gear?.[slot];
+  if (!id3 || !v.gear) return;
+  storeItem(state, id3);
+  delete v.gear[slot];
+  if (!v.gear.weapon && !v.gear.armor) delete v.gear;
+}
+function equip(state, v, id3, kept) {
+  const slot = ITEMS[id3].slot;
+  unequip(state, v, slot);
+  takeItem(state, id3);
+  v.gear = { ...v.gear, [slot]: id3 };
+  if (kept) v.gear.kept = true;
+  else delete v.gear.kept;
+}
+function returnGear(state, v) {
+  unequip(state, v, "weapon");
+  unequip(state, v, "armor");
+}
+function armorKind(v) {
+  const f = familyOf(v);
+  return f === "bow" || f === "staff" ? "light" : "heavy";
+}
+function betterPiece(state, v, slot) {
+  const worn = v.gear?.[slot];
+  let best = null;
+  let score = worn ? tierIndex(ITEMS[worn].tier) * 2 + (ITEMS[worn].kind === armorKind(v) ? 1 : 0) : -1;
+  for (const id3 of ITEM_IDS) {
+    const def = ITEMS[id3];
+    if (def.slot !== slot || !state.forge.armory[id3] || wearLock(v, id3)) continue;
+    const s = tierIndex(def.tier) * 2 + (slot === "armor" && def.kind === armorKind(v) ? 1 : 0);
+    if (s > score) {
+      score = s;
+      best = id3;
+    }
+  }
+  return best;
+}
+function equipGear(state) {
+  for (const v of state.villagers) {
+    const w = v.gear?.weapon;
+    if (w && wearLock(v, w)) unequip(state, v, "weapon");
+    if (v.gear?.armor && v.kikiwiwi) unequip(state, v, "armor");
+  }
+  if (!state.automation.equip || Object.keys(state.forge.armory).length === 0) return;
+  const away = (v) => v.job.kind === "expedition" || v.job.kind === "outpost";
+  const order = state.villagers.map((v, i) => ({ v, i })).filter(({ v }) => !v.kikiwiwi && !v.gear?.kept && !away(v)).sort(
+    (a, b) => Number(b.v.job.kind === "guard") - Number(a.v.job.kind === "guard") || kiwiStrength(b.v) - kiwiStrength(a.v) || a.i - b.i
+  );
+  for (const { v } of order) {
+    for (const slot of ["weapon", "armor"]) {
+      const id3 = betterPiece(state, v, slot);
+      if (id3) equip(state, v, id3, false);
+    }
+  }
+}
+var NO_GEAR = { damage: 1, hp: 1, armor: 0, speed: 1 };
+function gearEffect(v) {
+  if (!v.gear) return NO_GEAR;
+  const w = v.gear.weapon ? ITEMS[v.gear.weapon] : null;
+  const a = v.gear.armor ? ITEMS[v.gear.armor] : null;
+  return {
+    damage: w?.damage ?? 1,
+    hp: a?.hp ?? 1,
+    armor: a?.armor ?? 0,
+    speed: a?.speed ?? 1
+  };
+}
+function armoryCount(state) {
+  return Object.values(state.forge.armory).reduce((sum, n) => sum + (n ?? 0), 0);
+}
+function itemOpen(state, id3) {
+  return techEffects(state).forge && state.research.done.includes(ITEMS[id3].tech);
+}
+
 // packages/shared/src/sim/expeditions.ts
 function launchpadOf(state, id3) {
   const b = getBuilding(state, id3);
@@ -9159,6 +9544,7 @@ function removeVillagers(state, ids, cause, at) {
   }
   if (state.memorial.length > MEMORIAL_MAX)
     state.memorial.splice(0, state.memorial.length - MEMORIAL_MAX);
+  for (const v of state.villagers) if (ids.includes(v.id)) returnGear(state, v);
   state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
   forgetHolders(state, ids);
   if (ids.length > 0) state.mourningUntil = Math.max(state.mourningUntil, at + MORALE.mourningMs);
@@ -9880,7 +10266,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 31;
+var SCHEMA_VERSION = 32;
 var MISSION_KINDS = [
   "raid",
   "recon",
@@ -9958,6 +10344,7 @@ function newGame(opts) {
     comets: newComets(opts.now),
     stardust: 0,
     meteorIron: 0,
+    forge: { orders: [], armory: {} },
     research: { points: 0, current: null, done: [], outbox: 0 },
     automation: defaultAutomation(),
     siege: newSiege(),
@@ -10137,6 +10524,10 @@ function cloneState(state) {
       next: state.comets.next ? { ...state.comets.next } : null,
       patches: state.comets.patches.map((p) => ({ ...p }))
     },
+    forge: {
+      orders: state.forge.orders.map((o) => ({ ...o, paid: { ...o.paid } })),
+      armory: { ...state.forge.armory }
+    },
     research: { ...state.research, done: [...state.research.done] },
     automation: { ...state.automation },
     siege: cloneSiege(state.siege),
@@ -10236,7 +10627,8 @@ function cloneVillager(v) {
     stats: { ...v.stats },
     skillReadyAt: { ...v.skillReadyAt },
     mastery: { ...v.mastery },
-    history: { ...v.history }
+    history: { ...v.history },
+    ...v.gear ? { gear: { ...v.gear } } : {}
   };
 }
 
@@ -10520,6 +10912,10 @@ function buildLock(state, type) {
   if (type === "lab") {
     if (copiesOf(state, "lab") > 0) return "labExists";
     if (!techEffects(state).laboratory) return "techMissing";
+  } else if (type === "forge") {
+    if (copiesOf(state, "forge") > 0) return "forgeExists";
+    if (!techEffects(state).forge) return "techMissing";
+    if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return "buildingLimit";
   } else if (type === "monument") {
     if (copiesOf(state, "monument") > 0) return "monumentExists";
     if (!hasTech(state, PASSAGE_TECHS[1])) return "passageMissing";
@@ -10730,7 +11126,17 @@ var COMMAND_ERRORS = [
   "cramped",
   "noDen",
   "noGuards",
-  "tooStrong"
+  "tooStrong",
+  // Chantier 38: meteoric iron, the Forge and the gear.
+  "notEnoughIron",
+  "unknownItem",
+  "noForge",
+  "forgeExists",
+  "forgeQueueFull",
+  "unknownOrder",
+  "notInArmory",
+  "wrongFamily",
+  "wrongSlot"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -10880,11 +11286,11 @@ function execute(s, cmd, ctx, events) {
     case "cancel": {
       const index = s.queue.findIndex((i) => i.id === cmd.queueItemId);
       if (index < 0) return fail("unknownQueueItem");
-      const [item] = s.queue.splice(index, 1);
-      refund(s, item.paid);
-      refundStardust(s, item.paidDust ?? 0);
+      const [item2] = s.queue.splice(index, 1);
+      refund(s, item2.paid);
+      refundStardust(s, item2.paidDust ?? 0);
       for (const v of s.villagers) {
-        if (v.job.kind === "build" && v.job.queueItemId === item.id) {
+        if (v.job.kind === "build" && v.job.queueItemId === item2.id) {
           const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : void 0;
           v.job = back && workersOf(s, back.id).length < workerSlots(back) ? { kind: "work", buildingId: back.id } : { kind: "idle" };
         }
@@ -11211,6 +11617,7 @@ function execute(s, cmd, ctx, events) {
       if (housingLeft < population(s)) fail("housingNeeded");
       refund(s, demolitionRefund(s, b));
       if (b.reserve) refund(s, b.reserve);
+      if (b.type === "forge") while (s.forge.orders.length > 0) cancelOrder(s, 0);
       releasePool(s, ctx.map, b, now);
       s.buildings = s.buildings.filter((x) => x.id !== b.id);
       syncPools(s, ctx.map, now);
@@ -11420,21 +11827,52 @@ function execute(s, cmd, ctx, events) {
       return;
     }
     case "assignBuilder": {
-      const item = s.queue.find((i) => i.id === cmd.queueItemId);
-      if (!item) return fail("unknownQueueItem");
-      if (item.startedAt !== null) fail("alreadyStarted");
-      if (!waitingForBuilder(s).includes(item)) fail("noBuildSlot");
+      const item2 = s.queue.find((i) => i.id === cmd.queueItemId);
+      if (!item2) return fail("unknownQueueItem");
+      if (item2.startedAt !== null) fail("alreadyStarted");
+      if (!waitingForBuilder(s).includes(item2)) fail("noBuildSlot");
       const v = s.villagers.find((x) => x.id === cmd.villagerId);
       if (!v) return fail("unknownVillager");
       if (v.kikiwiwi) fail("kikiwiwiNoWork");
       if (v.job.kind !== "idle" && !canBorrow(s, { ...v, locked: void 0 }, "build"))
         fail("kiwiBusy");
-      startItem(s, item, v, now, events);
+      startItem(s, item2, v, now, events);
+      return;
+    }
+    case "forgeItem": {
+      const lock = forgeLock(s, cmd.item);
+      if (lock) fail(lock);
+      orderItem(s, cmd.item, nextId(s, "f"));
+      return;
+    }
+    case "cancelForge": {
+      const index = s.forge.orders.findIndex((o) => o.id === cmd.orderId);
+      if (index < 0) return fail("unknownOrder");
+      cancelOrder(s, index);
+      return;
+    }
+    case "equip": {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail("unknownVillager");
+      if (!GEAR_SLOTS.includes(cmd.slot)) fail("wrongSlot");
+      if (v.job.kind === "expedition" || v.job.kind === "outpost") fail("kiwiBusy");
+      if (cmd.item === null) {
+        unequip(s, v, cmd.slot);
+        if (v.gear) v.gear.kept = true;
+        else v.gear = { kept: true };
+        return;
+      }
+      if (!ITEMS[cmd.item]) return fail("unknownItem");
+      if (ITEMS[cmd.item].slot !== cmd.slot) fail("wrongSlot");
+      if (!s.forge.armory[cmd.item]) fail("notInArmory");
+      const lock = wearLock(v, cmd.item);
+      if (lock) fail(lock);
+      equip(s, v, cmd.item, true);
       return;
     }
     case "collectMeteor": {
       const m = s.sky.meteors.find((x) => x.id === cmd.meteorId);
-      if (!m || m.stock <= 0) return fail("unknownCrater");
+      if (!m || m.stock <= 0 && m.iron <= 0) return fail("unknownCrater");
       const ids = new Set(cmd.villagerIds);
       if (ids.size !== cmd.villagerIds.length) fail("invalidCrew");
       if (ids.size > METEORS.slots) fail("craterFull");
@@ -11669,8 +12107,8 @@ var util;
   util2.assertNever = assertNever;
   util2.arrayToEnum = (items) => {
     const obj = {};
-    for (const item of items) {
-      obj[item] = item;
+    for (const item2 of items) {
+      obj[item2] = item2;
     }
     return obj;
   };
@@ -11697,9 +12135,9 @@ var util;
     return keys;
   };
   util2.find = (arr, checker) => {
-    for (const item of arr) {
-      if (checker(item))
-        return item;
+    for (const item2 of arr) {
+      if (checker(item2))
+        return item2;
     }
     return void 0;
   };
@@ -13839,14 +14277,14 @@ var ZodArray = class _ZodArray extends ZodType {
       }
     }
     if (ctx.common.async) {
-      return Promise.all([...ctx.data].map((item, i) => {
-        return def.type._parseAsync(new ParseInputLazyPath(ctx, item, ctx.path, i));
+      return Promise.all([...ctx.data].map((item2, i) => {
+        return def.type._parseAsync(new ParseInputLazyPath(ctx, item2, ctx.path, i));
       })).then((result3) => {
         return ParseStatus.mergeArray(status, result3);
       });
     }
-    const result2 = [...ctx.data].map((item, i) => {
-      return def.type._parseSync(new ParseInputLazyPath(ctx, item, ctx.path, i));
+    const result2 = [...ctx.data].map((item2, i) => {
+      return def.type._parseSync(new ParseInputLazyPath(ctx, item2, ctx.path, i));
     });
     return ParseStatus.mergeArray(status, result2);
   }
@@ -13906,7 +14344,7 @@ function deepPartialify(schema) {
   } else if (schema instanceof ZodNullable) {
     return ZodNullable.create(deepPartialify(schema.unwrap()));
   } else if (schema instanceof ZodTuple) {
-    return ZodTuple.create(schema.items.map((item) => deepPartialify(item)));
+    return ZodTuple.create(schema.items.map((item2) => deepPartialify(item2)));
   } else {
     return schema;
   }
@@ -14570,11 +15008,11 @@ var ZodTuple = class _ZodTuple extends ZodType {
       });
       status.dirty();
     }
-    const items = [...ctx.data].map((item, itemIndex) => {
+    const items = [...ctx.data].map((item2, itemIndex) => {
       const schema = this._def.items[itemIndex] || this._def.rest;
       if (!schema)
         return null;
-      return schema._parse(new ParseInputLazyPath(ctx, item, ctx.path, itemIndex));
+      return schema._parse(new ParseInputLazyPath(ctx, item2, ctx.path, itemIndex));
     }).filter((x) => !!x);
     if (ctx.common.async) {
       return Promise.all(items).then((results) => {
@@ -14774,7 +15212,7 @@ var ZodSet = class _ZodSet extends ZodType {
       }
       return { status: status.value, value: parsedSet };
     }
-    const elements = [...ctx.data.values()].map((item, i) => valueType._parse(new ParseInputLazyPath(ctx, item, ctx.path, i)));
+    const elements = [...ctx.data.values()].map((item2, i) => valueType._parse(new ParseInputLazyPath(ctx, item2, ctx.path, i)));
     if (ctx.common.async) {
       return Promise.all(elements).then((elements2) => finalizeSet(elements2));
     } else {
@@ -15732,7 +16170,12 @@ var villager = external_exports.object({
   locked: external_exports.literal(true).optional(),
   builderPriority: external_exports.literal(true).optional(),
   homeJob: id.optional(),
-  lent: id.nullable().optional()
+  lent: id.nullable().optional(),
+  gear: external_exports.object({
+    weapon: external_exports.enum(ITEM_IDS).optional(),
+    armor: external_exports.enum(ITEM_IDS).optional(),
+    kept: external_exports.literal(true).optional()
+  }).optional()
 });
 var gameStateSchema = external_exports.object({
   schemaVersion: external_exports.number().int(),
@@ -15998,6 +16441,18 @@ var gameStateSchema = external_exports.object({
   }),
   stardust: external_exports.number().int().min(0).max(STARDUST.cap * STARDUST_SCALE),
   meteorIron: external_exports.number().int().min(0).max(Math.max(...IRON.cap) * IRON_SCALE),
+  forge: external_exports.object({
+    orders: external_exports.array(
+      external_exports.object({
+        id,
+        item: external_exports.enum(ITEM_IDS),
+        progress: external_exports.number().int().min(0),
+        paid: partialResources,
+        iron: external_exports.number().int().min(0)
+      })
+    ).max(16),
+    armory: external_exports.record(external_exports.enum(ITEM_IDS), external_exports.number().int().min(0).max(FORGE.armoryMax))
+  }),
   research: external_exports.object({
     points: external_exports.number().int().min(0),
     current: external_exports.enum(TECH_IDS).nullable(),
@@ -16186,7 +16641,13 @@ var MIGRATIONS = {
         )
       }
     };
-  }
+  },
+  // v31 → v32 (chantier 38): the Forge's queue and armory, two new automatic tasks.
+  31: (raw) => ({
+    ...raw,
+    forge: { orders: [], armory: {} },
+    automation: { ...raw.automation, forge: true, equip: true }
+  })
 };
 function spreadOldBuildings(state) {
   const map = faceMapOf(state);
@@ -16198,16 +16659,16 @@ function spreadOldBuildings(state) {
     b.rot = rot;
     clearPathsUnder(state, footprintHexes(b.type, b.q, b.r, rot));
   }
-  for (const item of state.queue) {
-    if (item.kind !== "build" || item.rot !== void 0 || footprintOf(item.buildingType) === 1)
+  for (const item2 of state.queue) {
+    if (item2.kind !== "build" || item2.rot !== void 0 || footprintOf(item2.buildingType) === 1)
       continue;
-    const tile = getTile(map, item);
-    const rot = tile ? rotationsOf(item.buildingType).find(
-      (r) => siteError(state, map, item.buildingType, tile, r, item.id) === null
+    const tile = getTile(map, item2);
+    const rot = tile ? rotationsOf(item2.buildingType).find(
+      (r) => siteError(state, map, item2.buildingType, tile, r, item2.id) === null
     ) : void 0;
     if (rot === void 0) continue;
-    item.rot = rot;
-    clearPathsUnder(state, footprintHexes(item.buildingType, item.q, item.r, rot));
+    item2.rot = rot;
+    clearPathsUnder(state, footprintHexes(item2.buildingType, item2.q, item2.r, rot));
   }
   state.buildings = [...state.buildings];
   syncPools(state, map, state.now);
@@ -16416,6 +16877,14 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     type: external_exports.literal("collectMeteor"),
     meteorId: id2,
     villagerIds: external_exports.array(id2).max(METEORS.slots)
+  }),
+  external_exports.object({ type: external_exports.literal("forgeItem"), item: external_exports.enum(ITEM_IDS) }),
+  external_exports.object({ type: external_exports.literal("cancelForge"), orderId: id2 }),
+  external_exports.object({
+    type: external_exports.literal("equip"),
+    villagerId: id2,
+    slot: external_exports.enum(GEAR_SLOTS),
+    item: external_exports.enum(ITEM_IDS).nullable()
   }),
   external_exports.object({ type: external_exports.literal("setResearch"), tech: external_exports.enum(TECH_IDS).nullable() }),
   external_exports.object({ type: external_exports.literal("clearObstacle"), q: external_exports.number().int(), r: external_exports.number().int() }),
@@ -16781,6 +17250,15 @@ function plausibleIron(state) {
   if (state.meteorIron > 0 && state.sky.falls === 0) return false;
   return state.sky.meteors.every((m) => m.iron <= m.ironMax && m.ironMax <= richest);
 }
+function plausibleGear(state) {
+  const opened = (id3) => state.research.done.includes(ITEMS[id3].tech);
+  if (state.forge.orders.length > forgeQueueSize(state)) return false;
+  if (!state.forge.orders.every((o) => opened(o.item))) return false;
+  if (!Object.keys(state.forge.armory).every(opened)) return false;
+  return state.villagers.every(
+    (v) => (!v.gear?.weapon || opened(v.gear.weapon)) && (!v.gear?.armor || opened(v.gear.armor))
+  );
+}
 function isPlausible(state, now) {
   if (state.now > now + 6e4 || state.createdAt > state.now) return false;
   if (state.calendarStart !== calendarStartFor(state.createdAt)) return false;
@@ -16799,6 +17277,7 @@ function isPlausible(state, now) {
   }
   if (!plausibleStardust(state)) return false;
   if (!plausibleIron(state)) return false;
+  if (!plausibleGear(state)) return false;
   if (state.buildings.filter((b) => b.type === "nest").length !== 1) return false;
   const n = nest(state);
   if (n.q !== 0 || n.r !== 0) return false;
@@ -17381,6 +17860,7 @@ export {
   AGE_OBJECTIVES,
   ALIENS,
   ALIEN_TWIN_FACE,
+  ARMOR_KINDS,
   AUTO_TASKS,
   BATTLE,
   BIOMES,
@@ -17394,6 +17874,7 @@ export {
   CAMPS,
   CATCHMENT_RADIUS,
   CLASSES,
+  CLASS_FAMILY,
   CLASS_IDS,
   CLASS_RULES,
   CLASS_WEAPONS,
@@ -17412,9 +17893,13 @@ export {
   FACES,
   FACE_PROFILES,
   FOOTPRINTS,
+  FORGE,
   FRONT_AZIMUTH,
   FUEL,
   GARRISON,
+  GEAR_KINDS,
+  GEAR_SLOTS,
+  GEAR_TIERS,
   HARVESTS,
   HATCHING,
   HEART,
@@ -17426,6 +17911,8 @@ export {
   INTEL,
   IRON,
   IRON_SCALE,
+  ITEMS,
+  ITEM_IDS,
   JOBS,
   KIKIWIWI,
   KIWI,
@@ -17507,9 +17994,11 @@ export {
   TURRET_TYPES,
   WAVE_UNITS,
   WEAPONS,
+  WEAPON_FAMILIES,
   WEAPON_IDS,
   XP_SCALE,
   YEAR_MS,
+  accrueForge,
   accrueIron,
   accrueKiwis,
   accrueResearch,
@@ -17532,6 +18021,7 @@ export {
   allHolders,
   applyCommand,
   applyTerraform,
+  armoryCount,
   assaultEnemy,
   assaultLock,
   assaultSides,
@@ -17579,6 +18069,7 @@ export {
   canReshape,
   canResolveArrival,
   canStarve,
+  cancelOrder,
   capacity,
   cargoLimit,
   cargoWeight,
@@ -17674,11 +18165,15 @@ export {
   encodeInts,
   enemyUnit,
   ensureAliens,
+  equip,
+  equipGear,
   exposedKiwis,
   extensionFor,
   faceMapOf,
+  familyOf,
   fighterSides,
   fillCraters,
+  fillForge,
   fillGarrison,
   fillResearch,
   fillStardust,
@@ -17693,6 +18188,13 @@ export {
   footprintTiles,
   forecastExpedition,
   forecastWave,
+  forgeEta,
+  forgeLock,
+  forgeOf,
+  forgePower,
+  forgeQueueSize,
+  forgeRate,
+  forgeTick,
   forgetHolders,
   fortifyLock,
   foundLock,
@@ -17703,6 +18205,7 @@ export {
   gateCoverage,
   gateOdds,
   gateTiles,
+  gearEffect,
   generateFace,
   generateObstacles,
   generateTraces,
@@ -17770,6 +18273,7 @@ export {
   isSiegeMission,
   isSister,
   isTurret,
+  itemOpen,
   itemSpeed,
   jobBoard,
   kikiwiwiCap,
@@ -17844,6 +18348,7 @@ export {
   nextCometEvent,
   nextConstructionEnd,
   nextDeliveryEvent,
+  nextForgeEvent,
   nextHungerEvent,
   nextId,
   nextInfusionEnd,
@@ -17862,7 +18367,9 @@ export {
   obstacleAt,
   obstacleId,
   occupancy,
+  orderItem,
   orderRepairs,
+  orderWork,
   otherFace,
   outerOf,
   parseHexKey,
@@ -17932,6 +18439,7 @@ export {
   resolveReturn,
   resolveSiegeLanding,
   restNeed,
+  returnGear,
   returnHome,
   rollKiwi,
   rollShiny,
@@ -17965,6 +18473,7 @@ export {
   siteError,
   siteTiles,
   skyTick,
+  smithsOf,
   soloTargets,
   splitsLand,
   spreadOldBuildings,
@@ -17977,6 +18486,7 @@ export {
   startItem,
   startedItems,
   storageFullCheck,
+  storeItem,
   strengthOf,
   syncColonies,
   syncPools,
@@ -17991,6 +18501,7 @@ export {
   terraformKey,
   terraformLeft,
   threatTick,
+  tierIndex,
   tileAt,
   tileCode,
   tileDeposit,
@@ -18015,6 +18526,7 @@ export {
   twinParams,
   twinTarget,
   uncoveredGates,
+  unequip,
   universeFriends,
   universeTargets,
   upgradeCost,
@@ -18034,6 +18546,7 @@ export {
   waveSquads,
   weakestWorker,
   wealthFactor,
+  wearLock,
   withRng,
   withThreatRng,
   workSite,

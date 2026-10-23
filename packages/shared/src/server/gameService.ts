@@ -1,5 +1,7 @@
 import { COMETS, STARDUST_SCALE } from '../data/comets';
 import { IRON, IRON_SCALE } from '../data/iron';
+import { ITEMS, type ItemId } from '../data/gear';
+import { forgeQueueSize } from '../sim/forge';
 import { ironCap } from '../sim/iron';
 import type { HexKey } from '../hex/hex';
 import { faceMapOf } from '../sim/territory';
@@ -569,6 +571,17 @@ function plausibleIron(state: GameState): boolean {
   return state.sky.meteors.every((m) => m.iron <= m.ironMax && m.ironMax <= richest);
 }
 
+/** Chantier 38: pieces only of researched tiers, an order queue within the Forge's size. */
+function plausibleGear(state: GameState): boolean {
+  const opened = (id: ItemId) => state.research.done.includes(ITEMS[id].tech);
+  if (state.forge.orders.length > forgeQueueSize(state)) return false;
+  if (!state.forge.orders.every((o) => opened(o.item))) return false;
+  if (!(Object.keys(state.forge.armory) as ItemId[]).every(opened)) return false;
+  return state.villagers.every(
+    (v) => (!v.gear?.weapon || opened(v.gear.weapon)) && (!v.gear?.armor || opened(v.gear.armor)),
+  );
+}
+
 export function isPlausible(state: GameState, now: number): boolean {
   if (state.now > now + 60_000 || state.createdAt > state.now) return false;
   // Solo games follow their own calendar (no skipping winter).
@@ -591,6 +604,7 @@ export function isPlausible(state: GameState, now: number): boolean {
   }
   if (!plausibleStardust(state)) return false;
   if (!plausibleIron(state)) return false;
+  if (!plausibleGear(state)) return false;
   if (state.buildings.filter((b) => b.type === 'nest').length !== 1) return false;
   const n = nest(state);
   if (n.q !== 0 || n.r !== 0) return false;

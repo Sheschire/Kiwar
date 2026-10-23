@@ -12,6 +12,8 @@ const TASK_ICONS: Record<AutoTask, IconName> = {
   repair: 'defenseGround',
   garrison: 'guard',
   redirect: 'storage',
+  forge: 'forge',
+  equip: 'guard',
 };
 
 /** How many tasks wait for the player (manual tasks with nobody on them). */

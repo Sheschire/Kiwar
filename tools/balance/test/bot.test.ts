@@ -9,8 +9,9 @@ describe('balance bot', () => {
     expect(a).toEqual(b);
     expect(a.times.tutorial).not.toBeNull();
     expect(a.times.nest2).not.toBeNull();
-    // Two 24 h runs take ~30 s alone: more while the other suites run.
-  }, 90_000);
+    // Two 24 h runs take ~30 s alone on a fast machine, ~95 s on a slow one: more while the
+    // other suites run.
+  }, 180_000);
 
   it('a player who comes twice a day crosses the first (harsh) winter without losing a kiwi', () => {
     // Attentive for the first day, then two visits a day until the spring after the winter.

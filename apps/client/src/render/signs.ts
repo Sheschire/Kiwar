@@ -36,6 +36,7 @@ const SIGNED: readonly BuildingType[] = [
   'seedTurret',
   'skyTurret',
   'trainingCamp',
+  'forge',
 ];
 const GRID = 4;
 const CELL = 128;

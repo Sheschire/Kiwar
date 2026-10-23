@@ -21,6 +21,7 @@ export const BUILDING_TYPES = [
   'seedTurret',
   'skyTurret',
   'trainingCamp',
+  'forge',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
@@ -58,6 +59,9 @@ export interface BuildingLevelDef {
   /** Turrets only: defense against ferrets (ground) and bats (air), and seeds fired per wave. */
   defense?: { ground?: number; air?: number };
   ammo?: number;
+  /** Chantier 38, Forge only: orders kept in its queue and work speed multiplier. */
+  forgeQueue?: number;
+  forging?: number;
   /** Nest only: building cap (Nest excluded) and construction queue length. */
   maxBuildings?: number;
   queueSize?: number;
@@ -87,6 +91,7 @@ export const FOOTPRINTS: Partial<Record<BuildingType, FootprintSize>> = {
   lab: 3,
   monument: 7,
   trainingCamp: 3,
+  forge: 3,
 };
 
 export function footprintOf(type: BuildingType): FootprintSize {
@@ -498,6 +503,43 @@ const BASE: Record<BuildingType, BuildingDef> = {
       },
     ],
   },
+  // Chantier 38: the Forge (Stone age, technology `forge`) makes weapons and armours; its smiths
+  // are placed by the automation (Strength and Dexterity) or by the player.
+  forge: {
+    id: 'forge',
+    allowedTiles: ['flesh', 'ray', 'heart'],
+    buildable: true,
+    copyGrowth: 2,
+    levels: [
+      {
+        cost: { pulp: 2000, fiber: 2500, seeds: 600, juice: 400 },
+        durationMs: ms.h(1),
+        requiresNestLevel: 4,
+        requiresAge: 1,
+        workerSlots: 2,
+        forgeQueue: 2,
+        forging: 1,
+      },
+      {
+        cost: { pulp: 4500, fiber: 5500, seeds: 1200, juice: 900 },
+        durationMs: ms.h(2),
+        requiresNestLevel: 5,
+        requiresAge: 1,
+        workerSlots: 3,
+        forgeQueue: 3,
+        forging: 1.2,
+      },
+      {
+        cost: { pulp: 11000, fiber: 13000, seeds: 2800, juice: 2500 },
+        durationMs: ms.h(4),
+        requiresNestLevel: 7,
+        requiresAge: 2,
+        workerSlots: 4,
+        forgeQueue: 4,
+        forging: 1.45,
+      },
+    ],
+  },
   seedTurret: {
     id: 'seedTurret',
     allowedTiles: ['skin'],
@@ -717,7 +759,7 @@ export function isProducer(type: BuildingType): boolean {
 
 /** Workplaces the kiwis never join on their own: the player picks who goes (researchers). */
 export function isManualWorkplace(type: BuildingType): boolean {
-  return type === 'library' || type === 'trainingCamp';
+  return type === 'library' || type === 'trainingCamp' || type === 'forge';
 }
 
 /** Construction time multiplier for sites next to (or on) a ray: rays speed up the builders. */

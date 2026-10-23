@@ -1,3 +1,4 @@
+import { returnGear } from './forge';
 import { FUEL } from '../data/comets';
 import { COLONY } from '../data/colonies';
 import { levelDef } from '../data/buildings';
@@ -860,6 +861,8 @@ export function removeVillagers(
   }
   if (state.memorial.length > MEMORIAL_MAX)
     state.memorial.splice(0, state.memorial.length - MEMORIAL_MAX);
+  // Chantier 38: their gear goes back to the armory (lost on the twin with chantier 40).
+  for (const v of state.villagers) if (ids.includes(v.id)) returnGear(state, v);
   state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
   forgetHolders(state, ids);
   // The colony mourns its lost kiwis (morale).

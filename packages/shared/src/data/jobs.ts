@@ -24,6 +24,9 @@ export const AUTO_TASKS = [
   'repair',
   'garrison',
   'redirect',
+  // Chantier 38: smiths at the Forge, gear from the armory.
+  'forge',
+  'equip',
 ] as const;
 export type AutoTask = (typeof AUTO_TASKS)[number];
 

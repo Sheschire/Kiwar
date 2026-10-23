@@ -9,6 +9,7 @@ import type { BuildingId, QueueItemId, TimeMs } from '../types/ids';
 import { autoAssign, type GameEvent } from './advance';
 import { builderSpeed, repairSpeed, workerPower } from './kiwis';
 import { researchPower } from './research';
+import { armoryCount, equipGear, forgeOf, forgePower, smithsOf } from './forge';
 import {
   canAfford,
   capacity,
@@ -50,8 +51,11 @@ export function taskLevel(state: GameState, v: Villager): TaskLevel | null {
   switch (v.job.kind) {
     case 'idle':
       return 'idle';
-    case 'work':
-      return getBuilding(state, v.job.buildingId)?.type === 'library' ? 'research' : 'harvest';
+    case 'work': {
+      // The Library's researchers and the Forge's smiths (chantier 38) are both a task.
+      const type = getBuilding(state, v.job.buildingId)?.type;
+      return type === 'library' || type === 'forge' ? 'research' : 'harvest';
+    }
     case 'stardust':
     case 'meteor':
       return 'pick';
@@ -260,15 +264,41 @@ export function fillResearch(state: GameState): void {
 }
 
 /**
+ * Chantier 38: with an order in the queue, the Forge's free places take the best smiths
+ * (Strength and Dexterity, lent); with an empty queue, lent smiths go back.
+ */
+export function fillForge(state: GameState): void {
+  if (!state.automation.forge) return;
+  const b = forgeOf(state);
+  if (!b) return;
+  if (state.forge.orders.length === 0) {
+    sendBackAll(
+      state,
+      smithsOf(state)
+        .filter((v) => v.lent !== undefined)
+        .map((v) => [v, v.lent ?? null]),
+    );
+    return;
+  }
+  let free = workerSlots(b) - workersOf(state, b.id).length;
+  while (free-- > 0) {
+    const v = bestFor(state, 'research', forgePower);
+    if (!v) return;
+    const home = borrow(v);
+    v.job = { kind: 'work', buildingId: b.id };
+    v.lent = home;
+  }
+}
+
+/**
  * A kiwi keeps `lent` only while it does the task it was borrowed for (research at the Library,
  * the garrison): moved by the player or by anything else, it forgets it.
  */
 function forgetLent(state: GameState): void {
   for (const v of state.villagers) {
     if (v.lent === undefined) continue;
-    const atLibrary =
-      v.job.kind === 'work' && getBuilding(state, v.job.buildingId)?.type === 'library';
-    if (!atLibrary && v.job.kind !== 'guard') delete v.lent;
+    const type = v.job.kind === 'work' ? getBuilding(state, v.job.buildingId)?.type : undefined;
+    if (type !== 'library' && type !== 'forge' && v.job.kind !== 'guard') delete v.lent;
   }
 }
 
@@ -453,8 +483,10 @@ export function dispatchTasks(state: GameState, at: TimeMs, events: GameEvent[])
   orderRepairs(state, at);
   startConstructions(state, at, events);
   fillResearch(state);
+  fillForge(state);
   fillCraters(state);
   fillStardust(state);
+  equipGear(state);
 }
 
 /**
@@ -489,5 +521,7 @@ export function taskNeeds(state: GameState): Record<AutoTask, number> {
     repair: state.buildings.filter((b) => b.damaged && !pendingUpgrade(state, b.id)).length,
     garrison: soon && !state.villagers.some((v) => v.job.kind === 'guard') ? 1 : 0,
     redirect: 0,
+    forge: forgeOf(state) && state.forge.orders.length > 0 && smithsOf(state).length === 0 ? 1 : 0,
+    equip: armoryCount(state),
   };
 }

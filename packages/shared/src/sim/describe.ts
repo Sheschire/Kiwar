@@ -230,6 +230,10 @@ export function buildLock(state: GameState, type: BuildingType): CommandError | 
   if (type === 'lab') {
     if (copiesOf(state, 'lab') > 0) return 'labExists';
     if (!techEffects(state).laboratory) return 'techMissing';
+  } else if (type === 'forge') {
+    if (copiesOf(state, 'forge') > 0) return 'forgeExists';
+    if (!techEffects(state).forge) return 'techMissing';
+    if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return 'buildingLimit';
   } else if (type === 'monument') {
     if (copiesOf(state, 'monument') > 0) return 'monumentExists';
     if (!hasTech(state, PASSAGE_TECHS[1]!)) return 'passageMissing';
