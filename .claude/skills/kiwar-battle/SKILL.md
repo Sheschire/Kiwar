@@ -43,6 +43,20 @@ the landings on the twin (chantier 40).
   `bold` anywhere), splash, grab, carry (a pack carries 1.2 × what lies in the open), retreat
   under 30 % power, unstick 2 s, gather 2 s (a pack waits at its gate), maxGround 36 / maxAir 24, building hp 30 + 10 × level.
 
+## Chantier 37 (a weapon per class)
+
+- `CLASS_WEAPONS` covers the 19 classes: tier 1 mace (heavy, slow), sword, fireball, **dagger**
+  (scout: quick, reaches bats, `hunts`), **sling** (gatherer), **song** (bard: weak ranged);
+  tier 2 warhammer (area), twinDaggers, greatsword, meteor, thornSling, song; tier 3 bomb,
+  holyBlade, thornstorm, longbow (`hunts`), maul, starfall. `Weapon.hunts`: the guard scores
+  thieves and spitters (`!fightsBack || huntsKiwis`) 3 tiles closer.
+- `KIWI_UNIT.classHp` (warrior 1.4, champion 1.7, paladin 1.8, titan 2…), `classDodge`
+  (scout, navigator, ranger), `aura` / `paladinAura`: `BattleUnitSetup.aura {range, boost}`
+  for bards' line (Chorus widens it, a minstrel +10 %) and paladins, guards only; in
+  `simulateBattle` a blow is × (1 + the best aura of its side within range) (`singers`).
+- `GARRISON.affinity` has every class. Guards and militia of a wave gain class practice
+  (`grantClassXp` in `strike`). The unit card shows the class's attack (`classes.*.combat`).
+
 ## Engine (`battle/`)
 
 - `types.ts`: `BattleSetup` (tiles with walk cost, exits, buildings with hp / loot / priority,

@@ -7020,11 +7020,13 @@ function homeKiwis(state) {
   return state.villagers.filter((v) => v.job.kind !== "expedition");
 }
 function drillingKiwis(state) {
+  const camps = state.buildings.filter((b) => b.type === "trainingCamp");
+  if (camps.length === 0) return 0;
   let n = 0;
   for (const v of state.villagers) {
     if (v.job.kind !== "work") continue;
     const id3 = v.job.buildingId;
-    if (state.buildings.some((b) => b.id === id3 && b.type === "trainingCamp")) n++;
+    if (camps.some((b) => b.id === id3)) n++;
   }
   return n;
 }

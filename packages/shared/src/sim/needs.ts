@@ -15,11 +15,13 @@ export function homeKiwis(state: GameState): Villager[] {
 /** Food eaten by the colony per hour (season appetite included, Kikiwiwis' juice too). */
 /** Kiwis drilling at a training camp (chantier 37). */
 export function drillingKiwis(state: GameState): number {
+  const camps = state.buildings.filter((b) => b.type === 'trainingCamp');
+  if (camps.length === 0) return 0;
   let n = 0;
   for (const v of state.villagers) {
     if (v.job.kind !== 'work') continue;
     const id = v.job.buildingId;
-    if (state.buildings.some((b) => b.id === id && b.type === 'trainingCamp')) n++;
+    if (camps.some((b) => b.id === id)) n++;
   }
   return n;
 }

@@ -13,9 +13,10 @@ Load `kiwar-sim` too: everything here lives in the deterministic shared simulati
   bounds, shiny 1/512, trait 30 %, XP per hour by activity, expedition XP, rank bonus, Dexterity /
   Strength bonuses, fight and exposure coefficients, auto-stat weights), `xpForLevel`,
   `masteryHours`, `XP_SCALE` / `PRACTICE_SCALE`, `MEMORIAL_MAX`, `KIWI_NAME_MAX`.
-- `classes.ts` — `CLASSES` (school level, min kiwi level, cost, training time, unique, modifiers,
-  three skills at 5 / 10 / 20), `SKILLS` (numbers of colony / crew / active effects, retrain ×2),
-  `SCHOOL` (slots, speed). The School itself is in `buildings.ts`.
+- `classes.ts` — `CLASSES` (stat, tier, parents, school level, min kiwi level, cost, training
+  time, unique, modifiers, its own skills), `SKILLS` (numbers of colony / crew / active effects,
+  retrain ×2), `SCHOOL` (slots, speed), `CLASS_RULES`, `CAMP` (chantier 37, see below). The
+  School itself is in `buildings.ts`.
 
 ## Simulation (`sim/kiwis.ts` and friends)
 
@@ -103,6 +104,43 @@ builderPriority?}`. `assignWorkers` (−/+) still exists (bot, building sheet, j
   `pickBuilder` moved to `sim/tasks.ts`; `builderPriority` still wins; `locked` kiwis at work are
   never borrowed. `assignKiwi` also moves miners and pickers and drops `lent`.
 - Events `kiwisRedirected` / `kiwisReturned {resource, count}` (toasts).
+
+## Chantier 37 (classes by stat, training camp, tiers)
+
+- `data/classes.ts`: `ClassDef.stat` (+ `stat2` for tier 3), `tier` 1–3, `parents`, `age`,
+  `grows` (the modifier that grows with the stat: +2 % per point above 5 and +3 % per class
+  rank above 1, `classGrowth`; lower-is-better keys divide), `schoolLevel` = level of the
+  School (tier 1) or the camp (tiers 2–3). 19 classes: tier 1 builder, scout, warrior, mage,
+  gatherer, bard, mayor; tier 2 (`advanced(...)`) architect, navigator, champion, archmage,
+  herbalist, minstrel; tier 3 (`master(...)`) engineer, paladin, druid, ranger, titan, oracle.
+  `CLASS_RULES` (statMin by tier 6 / 10 / 12, growth, promoteRank 3, rankBonus), `CAMP`
+  (rank hours, drill speed by camp level, wave / expedition practice, drill appetite, camp
+  retrain × 1.25). **`classSkills(id)`** = own + parents' skills (a master keeps both lines);
+  **`inLine(id, root)`** = the class is `root` or comes from it — use it, never
+  `classId === 'bard'`, for any rule of a base class (morale, travel, aura).
+- `Villager.classXp` (raw practice, `PRACTICE_SCALE`/h; save v30), `classRank(v)` 1–5,
+  `classRankProgress`, `drillRate`; drill = a `work` job at a `trainingCamp` (manual
+  workplace, classed kiwis only: `wrongClass`), accrued in `accrueKiwis`, rank-ups are
+  `nextKiwiEvent` times (`classRankUp` event); `grantClassXp` for waves (in `strike`, guards
+  1.5 h, militia 0.5 h) and expeditions (`resolveReturn`). A new class (or promotion) resets
+  `classXp`; a promotion keeps the skill cooldowns.
+- `trainLock(state, v, classId, place)` (School or camp) → `classLocked`, `levelTooLow`,
+  `statTooLow`, `rankTooLow`, `wrongClass`, `alreadyThisClass`, `kikiwiwiNoWork`;
+  `trainingCost(v, classId, place)`, `trainingDuration(place, classId)`. The `train` command
+  takes a School or a camp in `schoolId`.
+- Effects: mage research × 1.5, gatherer harvest × 1.3 (Green thumb moved to it), warrior
+  `repair` × 1.5 (`repairSpeed`, `itemSpeed`, `pickBuilder(state, item)`), scout crew travel
+  × 0.9 (navigator 0.8), Agility +1 % harvest (`KIWI.agilityCarry`), bards' morale
+  (`bardMorale`, `moraleOf().bards`, cap 5 %), engineer ship mending, ranger raid loot, druid
+  Rain 50 % and Green thumb × 3, oracle notice + 1 h (`planWave`). Kikiwiwi: no class
+  (cleared at the infusion, save v29), risk lowered by Strength too.
+- Client: `ClassCourses.tsx` (`classRequirements` green/red, `ClassRank`, School courses,
+  camp promotions and changes), `ClassTree.tsx` (folded tree in the kiwi sheet),
+  `CampInfo.tsx` (camp sheet), `render/models/training.ts` (camp model + `trainingGrounds`
+  in `spread.ts`), tier outfits = first ancestor's + cape/collar (`tierParts`, `CAPES` in
+  `kiwiRig.ts` and `KiwiPortrait.tsx`), clips `dagger` / `sing`, props `dagger` / `lute`;
+  drilling kiwis `thinkCamp` (`render/kiwis.ts`). `?kiwis` shows a Champion (joy) and an
+  Oracle (dance).
 
 ## Client
 

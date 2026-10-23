@@ -10,6 +10,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 37** — **chaque stat a sa classe** : bâtisseur·euse (Force), éclaireur·euse
+> (Agilité, dague), guerrier·ère (Endurance, répare 50 % plus vite), mage (Esprit, recherche
+> 50 % plus vite), **cueilleur·euse** (Dextérité, récolte 30 % de plus) et **barde** (Charisme,
+> moral et chant qui renforce ses voisin·es en bataille) ; leur bonus grandit avec leur stat.
+> Dès l'âge de pierre, le **camp d'entraînement** fait monter les **rangs de classe**, ouvre les
+> **classes avancées** (Architecte, Navigateur·rice, Champion·ne, Archimage, Herboriste,
+> Ménestrel) puis, au Fer, les **classes de maître à deux stats** (Ingénieur·e, Paladin·e,
+> Druide, Rôdeur·euse, Titan·e, Oracle), chacune avec son arme. L'**arbre des classes** de la
+> fiche montre en vert et en rouge ce qui manque à un kiwi. Le Kikiwiwi perd sa classe.
+
 > **Chantier 36** — les **vagues se jouent pour de vrai** : à l'annonce, chaque meute (furets
 > soldats, éclaireurs, brutes ; chauves-souris plongeuses et cracheuses) reçoit sa **brèche** sur
 > le rempart, qui pulse sur la carte. Elle s'y rassemble puis charge : les tourelles à portée

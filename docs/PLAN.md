@@ -38,7 +38,7 @@ dans l'historique.
 |     | **Acte II — La guerre des faces**                    |         |
 | 35  | Bâtiments sur plusieurs tuiles                       | fait    |
 | 36  | Moteur de bataille : les vagues jouées pour de vrai  | fait    |
-| 37  | Classes, rôles de combat, camp d'entraînement        | à faire |
+| 37  | Classes, rôles de combat, camp d'entraînement        | fait    |
 | 38  | Forge, équipement et fer météorique                  | à faire |
 | 39  | La civilisation alien                                | à faire |
 | 40  | Le débarquement                                      | à faire |
@@ -50,12 +50,13 @@ dans l'historique.
 | 45  | Rives fertiles et canaux de jus                      | à faire |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
-**Prochaine conversation** : le chantier **37** (classes, rôles de combat, camp
-d'entraînement) : il part du moteur de bataille du 36 (skill `kiwar-battle` : armes par classe
-dans `data/units.ts`, `kiwiUnit`, rôles de l'IA). Points laissés par le 36 : la réparation
-automatique se met en file dès l'impact et trahit un peu l'issue d'une vague regardée en
-direct ; les chiffres d'équilibrage des vagues sont dans `DECISIONS.md` (chantier 36). Point
-toujours ouvert du 31 : le temps mort du début de la Pierre (~70–90 min au bot).
+**Prochaine conversation** : le chantier **38** (forge, équipement et fer météorique) : la
+carte d'unité de la bataille annonce déjà l'équipement ; chaque classe a son arme
+(`CLASS_WEAPONS`, skill `kiwar-battle`), l'équipement s'y ajoutera. Points laissés par le 37 :
+les classes de maître liées aux débarquements (Rôdeur·euse) n'auront tout leur sens qu'au 40 ;
+le ressenti des rangs et du camp est « à tester » avec le porteur. Toujours ouverts : la
+réparation automatique qui trahit l'issue d'une vague regardée en direct (36) et le temps mort
+du début de la Pierre (31).
 
 ## Règles transverses à retenir
 
@@ -88,6 +89,10 @@ toujours ouvert du 31 : le temps mort du début de la Pierre (~70–90 min au bo
   `occupancy(state)` (`sim/footprint.ts`), jamais par `b.q === q && b.r === r` ; les murs
   (`occupancy.blocked`) se contournent à pied ; un nouveau gros bâtiment prend une entrée dans
   `FOOTPRINTS` et une garniture dans `render/models/spread.ts` (skill `kiwar-sim`, `kiwar-client`).
+- **Classes** (chantier 37) : une classe par stat, trois paliers (École, puis camp
+  d'entraînement) ; une règle d'une classe de base passe par `inLine(classId, racine)` (ses
+  descendantes en héritent), les compétences par `classSkills` ; tout gain de rang de classe
+  est un événement (`classXp` entier). Skill `kiwar-rpg`.
 - **Batailles** (chantier 36) : une vague est une bataille calculée d'un coup par
   `simulateBattle` (pur, graine) ; le **journal fait foi**, le client le rejoue sans jamais
   recalculer. Une nouvelle unité, arme ou règle de combat va dans `data/units.ts` / `battle/` ;

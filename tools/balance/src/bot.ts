@@ -1,4 +1,5 @@
 import {
+  CLASSES,
   nextConstructionEnd,
   HOUR_MS,
   advance,
@@ -193,17 +194,16 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
   const ready = obj ? null : claimableObjective(state);
   if (ready) cmds.push({ type: 'claimObjective', id: ready.id });
 
-  // Place earned stat points: Dexterity for everyone (harvest), Charisma for the mayor.
+  // Place earned stat points: Dexterity for everyone (harvest), the class's stat for a classed
+  // kiwi (chantier 37: the lower of two for a master).
   for (const v of state.villagers) {
     if (v.statPoints <= 0) continue;
-    const stat =
-      v.classId === 'mayor'
-        ? 'charisma'
-        : v.classId === 'builder' || v.classId === 'warrior'
-          ? 'strength'
-          : v.classId === 'scout'
-            ? 'agility'
-            : 'dexterity';
+    const c = v.classId ? CLASSES[v.classId] : null;
+    const stat = !c
+      ? 'dexterity'
+      : c.stat2 && v.stats[c.stat2] < v.stats[c.stat]
+        ? c.stat2
+        : c.stat;
     if (v.stats[stat] < KIWI.stat.cap)
       cmds.push({ type: 'spendStatPoint', villagerId: v.id, stat });
   }
@@ -324,7 +324,7 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
   if (turret) return [...cmds, turret];
 
   // 2b. RPG (chantier 03): a School once the Nest is level 2, then a mayor and a builder.
-  const rpg = rpgDecision(state, map, build, has, play.expeditions);
+  const rpg = rpgDecision(state, map, build, has, play.expeditions, play.classes);
   if (rpg) return [...cmds, rpg];
 
   // 2c. Research and ages (chantier 08): Library, researchers, technologies, the monument.
@@ -457,7 +457,7 @@ function checkMilestones(
 }
 
 /** Mechanics the bot can be told to leave aside, to measure what each one brings. */
-export const MECHANICS = ['paths', 'camps', 'expeditions'] as const;
+export const MECHANICS = ['paths', 'camps', 'expeditions', 'classes'] as const;
 export type Mechanic = (typeof MECHANICS)[number];
 export interface Play extends Record<Mechanic, boolean> {
   /** Next look at the paths and at the expeditions. */
