@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   advance,
+  applyCommand,
+  defenseOf,
+  rampartSectors,
+  uncoveredGates,
   decodeEvents,
   EV,
   forecastWave,
@@ -142,6 +146,50 @@ describe('waves as battles (chantier 36)', () => {
     }
     expect(s.threats.reports.length).toBe(THREATS.history);
     expect(JSON.stringify(s.threats).length).toBeLessThan(150_000);
+  });
+
+  it('the player sets the posture and pins a guard to a sector', () => {
+    const { map, state } = colony();
+    let s = run(state, { type: 'setPosture', posture: 'bold' }, state.now, map);
+    expect(s.threats.posture).toBe('bold');
+    const id = s.villagers[1]!.id;
+    const notYet = applyCommand(
+      s,
+      { type: 'pinGuard', villagerId: id, sector: 'left' },
+      { now: s.now, map },
+    );
+    expect(!notYet.ok && notYet.error).toBe('notGuard');
+    s = run(s, { type: 'setGarrison', villagerIds: [id] }, s.now, map);
+    s = run(s, { type: 'pinGuard', villagerId: id, sector: 'right' }, s.now, map);
+    expect(defenseOf(s, { ground: 10, air: 0 }).guards).toEqual([{ id, sector: 'right' }]);
+    // The battle posts it near the right gate, and its leash follows the posture.
+    const w = wave(s, 10, 0);
+    const guard = waveSetup(s, w, { ground: 10, air: 0 }, { luck: 1, sheltered: false }).units.find(
+      (u) => u.ref === id,
+    )!;
+    expect(guard.sector).toBe('right');
+    expect(guard.role).toBe('guard');
+    s = run(s, { type: 'pinGuard', villagerId: id, sector: null }, s.now, map);
+    expect(s.threats.pins).toEqual({});
+  });
+
+  it('names the gates no turret reaches', () => {
+    const { map, state } = colony();
+    let s = state;
+    const w = wave(s, 10, 0);
+    expect(
+      uncoveredGates(s, w)
+        .map((g) => g.sector)
+        .sort(),
+    ).toEqual(['front', 'left', 'right']);
+    // A seed turret on the rampart next to the front gate covers it.
+    const gate = w.gates!.front!;
+    const spot = rampartSectors(map)
+      .tiles.filter((t) => !(t.q === gate.q && t.r === gate.r))
+      .sort((a, b) => hexDistance(a, gate) - hexDistance(b, gate))[0]!;
+    s = run(s, { type: 'build', buildingType: 'seedTurret', q: spot.q, r: spot.r }, s.now, map);
+    s = advance(s, s.now + HOUR_MS).state;
+    expect(uncoveredGates(s, w).some((g) => g.sector === 'front')).toBe(false);
   });
 
   it('migrates v27 saves: a cautious garrison, no pin', () => {

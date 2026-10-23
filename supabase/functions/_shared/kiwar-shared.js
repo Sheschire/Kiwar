@@ -4235,6 +4235,24 @@ function waveSetup(state, wave, threat, opts) {
     ]
   };
 }
+function uncoveredGates(state, wave) {
+  const gates = { ...waveGates(state, wave.id), ...wave.gates };
+  const squads = wave.squads ?? waveSquads(state, { ground: wave.ground, air: wave.air });
+  const out = [];
+  for (const sector of SECTOR_IDS)
+    for (const side of ["ground", "air"]) {
+      const comes = squads.some(
+        (q) => q.sector === sector && ENEMIES[q.kind].body === "bat" === (side === "air")
+      );
+      if (!comes) continue;
+      const type = side === "air" ? "skyTurret" : "seedTurret";
+      const reached = state.buildings.some(
+        (b) => b.type === type && hexDistance(b, gates[sector]) <= turretRange(b.type, b.level)
+      );
+      if (!reached) out.push({ sector, side });
+    }
+  return out;
+}
 
 // packages/shared/src/sim/threats.ts
 var HOUR2 = 36e5;
@@ -9866,6 +9884,7 @@ function upgradeLock(state, b, map) {
 
 // packages/shared/src/sim/commands.ts
 var COMMAND_ERRORS = [
+  "notGuard",
   "unknownTile",
   "tileNotAllowed",
   "tileOccupied",
@@ -10722,6 +10741,20 @@ function execute(s, cmd, ctx, events) {
           autoAssign(s, v);
         }
       }
+      return;
+    }
+    case "setPosture": {
+      s.threats.posture = cmd.posture;
+      return;
+    }
+    case "pinGuard": {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail("unknownVillager");
+      if (v.job.kind !== "guard") fail("notGuard");
+      const pins = { ...s.threats.pins };
+      if (cmd.sector) pins[v.id] = cmd.sector;
+      else delete pins[v.id];
+      s.threats.pins = pins;
       return;
     }
     case "setResearch": {
@@ -15599,6 +15632,12 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("shelter") }),
   external_exports.object({ type: external_exports.literal("repair"), buildingId: id2 }),
   external_exports.object({ type: external_exports.literal("setGarrison"), villagerIds: external_exports.array(id2).max(200) }),
+  external_exports.object({ type: external_exports.literal("setPosture"), posture: external_exports.enum(POSTURES) }),
+  external_exports.object({
+    type: external_exports.literal("pinGuard"),
+    villagerId: id2,
+    sector: external_exports.enum(SECTOR_IDS).nullable()
+  }),
   external_exports.object({
     type: external_exports.literal("bless"),
     villagerId: id2,
@@ -17178,6 +17217,7 @@ export {
   turretUnit,
   twinParams,
   twinTarget,
+  uncoveredGates,
   universeFriends,
   universeTargets,
   upgradeCost,

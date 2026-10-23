@@ -808,6 +808,7 @@ export const fr: Dict = {
     sharedResearch: 'La recherche est commune : on la choisit depuis la colonie d’origine.',
     noDen: 'Aucun nid de furets sur cette tuile.',
     noGuards: 'Postez d’abord des gardes sur le rempart.',
+    notGuard: 'Ce kiwi n’est pas de garde.',
     tooStrong: 'Les gardes ne sont pas assez fort·es pour ce nid.',
     cutsLand: 'Cela couperait le village en deux : les kiwis contournent les grands bâtiments.',
     cramped: 'À l’étroit : libérez les tuiles autour pour qu’il s’étende avant de grandir.',
@@ -1521,6 +1522,24 @@ export const fr: Dict = {
     power: 'De garde : furets {ground} · chauves-souris {air}',
   },
   battle: {
+    plan: {
+      title: 'Les meutes',
+      hint: 'Chaque meute entre par sa brèche, marquée sur la carte : des tourelles à portée et des gardes postés là font la différence.',
+      squad: '{count} × {name}',
+    },
+    posture: {
+      title: 'Posture de la garnison',
+      cautious: 'Prudente',
+      cautiousHint: 'Les gardes tiennent près de leurs postes, sous le feu des tourelles.',
+      bold: 'Offensive',
+      boldHint: 'Les gardes chargent chaque prédateur, où qu’il coure.',
+    },
+    pin: 'Secteur de {name}',
+    pinAuto: 'Là où il faut',
+    gateGround:
+      'Aucune tourelle à graines n’atteint la brèche du {sector} : les furets entreront sans peine.',
+    gateAir:
+      'Aucune tourelle du ciel n’atteint la brèche du {sector} : les chauves-souris passeront.',
     live: 'Bataille en cours',
     replay: 'Revoir la bataille',
     clock: '{time} / {duration}',

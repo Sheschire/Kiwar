@@ -82,7 +82,8 @@ import {
   kikiwiwiCount,
   kikiwiwiWeak,
 } from './kikiwiwi';
-import { METEORS, SHELTER } from '../data/threats';
+import { METEORS, SHELTER, type SectorId } from '../data/threats';
+import type { Posture } from '../data/units';
 import { waveAhead } from './threats';
 import {
   availableCrew,
@@ -192,6 +193,10 @@ export type Command =
   | { type: 'repair'; buildingId: BuildingId }
   /** Posts exactly these kiwis on the rampart (the others go back to work). */
   | { type: 'setGarrison'; villagerIds: VillagerId[] }
+  /** Chantier 36: how the garrison fights (cautious near its posts, or bold). */
+  | { type: 'setPosture'; posture: Posture }
+  /** Chantier 36: a guard defends this sector (null: where it is needed). */
+  | { type: 'pinGuard'; villagerId: VillagerId; sector: SectorId | null }
   /** Chantier 08: a kiwi goes into the vat of the laboratory against nature. */
   | { type: 'transform'; villagerId: VillagerId; labId: BuildingId }
   /** Chantier 08: a Kikiwiwi smashes the obstacle on a tile, or reshapes it. */
@@ -217,6 +222,7 @@ export type Command =
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
 export const COMMAND_ERRORS = [
+  'notGuard',
   'unknownTile',
   'tileNotAllowed',
   'tileOccupied',
@@ -1177,6 +1183,20 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
           autoAssign(s, v);
         }
       }
+      return;
+    }
+    case 'setPosture': {
+      s.threats.posture = cmd.posture;
+      return;
+    }
+    case 'pinGuard': {
+      const v = s.villagers.find((x) => x.id === cmd.villagerId);
+      if (!v) return fail('unknownVillager');
+      if (v.job.kind !== 'guard') fail('notGuard');
+      const pins = { ...s.threats.pins };
+      if (cmd.sector) pins[v.id] = cmd.sector;
+      else delete pins[v.id];
+      s.threats.pins = pins;
       return;
     }
     case 'setResearch': {

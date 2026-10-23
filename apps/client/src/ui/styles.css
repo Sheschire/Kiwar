@@ -5503,3 +5503,27 @@ h3 .building-thumb {
   flex-direction: column;
   gap: 2px;
 }
+
+.wave-packs {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.posture-choice {
+  display: flex;
+  gap: 6px;
+}
+
+.posture-choice .is-on {
+  background: var(--leaf);
+  color: #fff;
+}
+
+.pin-select {
+  margin: 2px 0 6px 44px;
+  max-width: 180px;
+}

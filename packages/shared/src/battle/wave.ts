@@ -12,6 +12,7 @@ import {
   protectedStock,
   rampartSectorOf,
   rampartSectors,
+  turretRange,
 } from '../sim/threats';
 import { faceMapOf, pathSet, walkCost } from '../sim/territory';
 import { footprintTiles } from '../sim/footprint';
@@ -342,4 +343,30 @@ export function waveSetup(
       { posture: 'bold', retreatBelow: BATTLE.retreatBelow },
     ],
   };
+}
+
+/**
+ * The gates of an announced wave that no turret of the right model reaches (a pack of ferrets
+ * needs a seed turret, a flight of bats a sky turret, within range of its gate).
+ */
+export function uncoveredGates(
+  state: GameState,
+  wave: PlannedWave,
+): { sector: SectorId; side: 'ground' | 'air' }[] {
+  const gates = { ...waveGates(state, wave.id), ...wave.gates };
+  const squads = wave.squads ?? waveSquads(state, { ground: wave.ground, air: wave.air });
+  const out: { sector: SectorId; side: 'ground' | 'air' }[] = [];
+  for (const sector of SECTOR_IDS)
+    for (const side of ['ground', 'air'] as const) {
+      const comes = squads.some(
+        (q) => q.sector === sector && (ENEMIES[q.kind].body === 'bat') === (side === 'air'),
+      );
+      if (!comes) continue;
+      const type = side === 'air' ? 'skyTurret' : 'seedTurret';
+      const reached = state.buildings.some(
+        (b) => b.type === type && hexDistance(b, gates[sector]) <= turretRange(b.type, b.level),
+      );
+      if (!reached) out.push({ sector, side });
+    }
+  return out;
 }

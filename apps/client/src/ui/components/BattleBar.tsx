@@ -36,14 +36,14 @@ export function BattleBar() {
           <span style={{ width: `${duration > 0 ? (100 * time) / duration : 0}%` }} />
         </div>
         <div class="battle-actions">
-          <button class="btn-small" onClick={() => actions.battleRewind()}>
+          <button class="btn btn-small" onClick={() => actions.battleRewind()}>
             {t('battle.rewind')}
           </button>
           <div class="battle-speed" role="group" aria-label={t('battle.speed')}>
             {([1, 2, 4] as const).map((k) => (
               <button
                 key={k}
-                class={`btn-small ${speed === k ? 'is-on' : ''}`}
+                class={`btn btn-small ${speed === k ? 'is-on' : ''}`}
                 aria-pressed={speed === k}
                 onClick={() => actions.battleSpeed(k)}
               >
@@ -51,7 +51,7 @@ export function BattleBar() {
               </button>
             ))}
           </div>
-          <button class="btn-small" onClick={() => actions.battleSkip()}>
+          <button class="btn btn-small" onClick={() => actions.battleSkip()}>
             {t('battle.skip')}
           </button>
         </div>
@@ -88,7 +88,7 @@ function UnitCard({ unit }: { unit: UnitInfo }) {
           </span>
         </div>
         <button
-          class="btn-small"
+          class="btn btn-small"
           aria-label={t('battle.unit.close')}
           onClick={() => actions.battleUnit(null)}
         >

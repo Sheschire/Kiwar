@@ -5,6 +5,8 @@ import {
   turretLimit,
   type WaveForecast,
   SECTOR_IDS,
+  POSTURES,
+  uncoveredGates,
   type SectorClash,
   type SectorId,
   garrisonOf,
@@ -308,10 +310,86 @@ function GarrisonPicker({ game }: { game: GameState }) {
                   </span>
                 </span>
               </label>
+              {on && (
+                <select
+                  class="pin-select small"
+                  aria-label={t('battle.pin', { name: v.name })}
+                  value={game.threats.pins[v.id] ?? ''}
+                  onChange={(e) => {
+                    const value = (e.target as HTMLSelectElement).value;
+                    actions.dispatch({
+                      type: 'pinGuard',
+                      villagerId: v.id,
+                      sector: value === '' ? null : (value as SectorId),
+                    });
+                  }}
+                >
+                  <option value="">{t('battle.pinAuto')}</option>
+                  {SECTOR_IDS.map((sec) => (
+                    <option key={sec} value={sec}>
+                      {t(`defense.sectors.${sec}`)}
+                    </option>
+                  ))}
+                </select>
+              )}
             </li>
           );
         })}
       </ul>
+    </section>
+  );
+}
+
+/** Chantier 36: the predators announced, pack by pack (sector), and where they come in. */
+function WavePlan({ f }: { f: WaveForecast }) {
+  const t = useT();
+  const squads = f.wave.squads ?? [];
+  if (squads.length === 0) return null;
+  return (
+    <section class="field wave-plan">
+      <h3>{t('battle.plan.title')}</h3>
+      <p class="small muted">{t('battle.plan.hint')}</p>
+      <ul class="wave-packs">
+        {SECTOR_IDS.map((sec) => {
+          const here = squads.filter((q) => q.sector === sec);
+          if (here.length === 0) return null;
+          return (
+            <li key={sec} class="small">
+              <strong>{t(`defense.sectors.${sec}`)}</strong>{' '}
+              {here
+                .map((q) =>
+                  t('battle.plan.squad', { count: q.count, name: t(`battle.enemies.${q.kind}`) }),
+                )
+                .join(', ')}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/** Chantier 36: how the garrison fights. */
+function PostureChoice({ game }: { game: GameState }) {
+  const t = useT();
+  const posture = game.threats.posture;
+  return (
+    <section class="field">
+      <h3>{t('battle.posture.title')}</h3>
+      <div class="posture-choice" role="radiogroup" aria-label={t('battle.posture.title')}>
+        {POSTURES.map((p) => (
+          <button
+            key={p}
+            role="radio"
+            aria-checked={posture === p}
+            class={`btn btn-small ${posture === p ? 'is-on' : ''}`}
+            onClick={() => actions.dispatch({ type: 'setPosture', posture: p })}
+          >
+            {t(`battle.posture.${p}`)}
+          </button>
+        ))}
+      </div>
+      <p class="small muted">{t(`battle.posture.${posture}Hint`)}</p>
     </section>
   );
 }
@@ -357,7 +435,7 @@ function ReportItem({ r, now, t }: { r: WaveReport; now: number; t: Translate })
         </p>
       )}
       {r.log && (
-        <button class="btn-small" onClick={() => actions.replayBattle(r.id)}>
+        <button class="btn btn-small" onClick={() => actions.replayBattle(r.id)}>
           {t('battle.watch')}
         </button>
       )}
@@ -393,6 +471,16 @@ function WaveActions({ game, f }: { game: GameState; f: WaveForecast }) {
       text: t('defense.actions.ammo', {
         missing: Math.ceil(f.defense.ammo.need - f.defense.ammo.have),
       }),
+    });
+  // Chantier 36: a pack whose gate no turret reaches runs in unopposed.
+  for (const g of uncoveredGates(game, f.wave))
+    items.push({
+      key: `gate-${g.sector}-${g.side}`,
+      text: t(g.side === 'air' ? 'battle.gateAir' : 'battle.gateGround', {
+        sector: t(`defense.sectors.${g.sector}`).toLowerCase(),
+      }),
+      act: () => uiStore.setState({ modal: 'plans', plansTab: 'buildings' }),
+      label: t('defense.actions.turretGo'),
     });
   if (leaks) items.push({ key: 'guard', text: t('defense.actions.guard') });
   if (leaks && room > 0)
@@ -458,7 +546,7 @@ export function DefenseModal() {
               side="ground"
               threat={f.threat.ground}
               defense={f.defense.ground}
-              holds={SECTOR_IDS.every((s) => f.expected.sectors[s].through.ground <= 1e-9)}
+              holds={f.expected.victory}
               parts={[
                 t('defense.turrets', { value: n(f.defense.turrets.ground) }),
                 t('defense.garrison', { value: n(f.defense.garrison.ground) }),
@@ -469,7 +557,7 @@ export function DefenseModal() {
               side="air"
               threat={f.threat.air}
               defense={f.defense.air}
-              holds={SECTOR_IDS.every((s) => f.expected.sectors[s].through.air <= 1e-9)}
+              holds={f.expected.victory}
               parts={[
                 t('defense.turrets', { value: n(f.defense.turrets.air) }),
                 t('defense.garrison', { value: n(f.defense.garrison.air) }),
@@ -490,6 +578,7 @@ export function DefenseModal() {
             {t('defense.expected')}{' '}
             {expected?.victory ? t('defense.expectedWin') : consequences.join(' · ')}
           </p>
+          <WavePlan f={f} />
           <WaveActions game={game} f={f} />
           <div class="shelter-box">
             <button
@@ -516,6 +605,7 @@ export function DefenseModal() {
         </p>
       )}
       <SectorTable game={game} />
+      <PostureChoice game={game} />
       <GarrisonPicker game={game} />
       <section class="field">
         <h3>{t('defense.reports')}</h3>

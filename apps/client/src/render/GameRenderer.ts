@@ -66,6 +66,7 @@ import { CometsView, type CometArrow } from './comets';
 import { ObstaclesView } from './obstacles';
 import { ShipsView } from './ship';
 import { BattleShow, type UnitInfo } from './battle/BattleShow';
+import { GateMarkers } from './battle/gates';
 import { PostFx } from './postfx';
 import { PropsView } from './props';
 import {
@@ -207,6 +208,7 @@ export class GameRenderer {
   private obstacles: ObstaclesView | null = null;
   private ships: ShipsView | null = null;
   private battle: BattleShow | null = null;
+  private gates: GateMarkers | null = null;
   /** Turret shots of the wave show (wired to the audio by `installGameAudio`). */
   onTurretShot: ((x: number, z: number) => void) | null = null;
   /** Wave whose show starts as soon as its report is in the state. */
@@ -448,6 +450,7 @@ export class GameRenderer {
       this.paths,
       this.weather,
       this.meteors,
+      this.gates,
       this.comets,
       this.obstacles,
       this.battle,
@@ -478,6 +481,8 @@ export class GameRenderer {
     this.scene.add(this.paths.group);
     this.meteors = new MeteorsView(map);
     this.scene.add(this.meteors.group);
+    this.gates = new GateMarkers(map);
+    this.scene.add(this.gates.group);
     this.comets = new CometsView(map);
     this.scene.add(this.comets.group);
     this.obstacles = new ObstaclesView(map, () => (this.renderer.shadowMap.needsUpdate = true));
@@ -750,6 +755,7 @@ export class GameRenderer {
       new Set([...state.buildings.map(hexKey), ...state.queue.map(hexKey)]),
     );
     this.meteors?.sync(state);
+    this.gates?.sync(state);
     this.comets?.sync(state);
     this.obstacles?.sync(state);
     this.ships?.sync(state);
@@ -1583,6 +1589,7 @@ export class GameRenderer {
         (this.levelBadges || this.rig.controls.distance < this.rig.frameDistance * BADGE_ZOOM),
     );
     this.meteors?.update(dt, this.callbacks.now());
+    this.gates?.update(this.elapsed);
     this.comets?.update(dt, this.callbacks.now(), this.camera);
     this.reportCometArrow();
     this.obstacles?.update(dt);

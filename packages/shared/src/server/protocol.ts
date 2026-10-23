@@ -1,7 +1,8 @@
 import { INTEL } from '../data/expeditions';
 import { STARDUST } from '../data/comets';
 import { TITAN_WORK_IDS } from '../data/titan';
-import { METEORS } from '../data/threats';
+import { METEORS, SECTOR_IDS } from '../data/threats';
+import { POSTURES } from '../data/units';
 import { AUTO_TASKS } from '../data/jobs';
 import { z } from 'zod';
 import { BUILDING_TYPES } from '../data/buildings';
@@ -129,6 +130,12 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('shelter') }),
   z.object({ type: z.literal('repair'), buildingId: id }),
   z.object({ type: z.literal('setGarrison'), villagerIds: z.array(id).max(200) }),
+  z.object({ type: z.literal('setPosture'), posture: z.enum(POSTURES) }),
+  z.object({
+    type: z.literal('pinGuard'),
+    villagerId: id,
+    sector: z.enum(SECTOR_IDS).nullable(),
+  }),
   z.object({
     type: z.literal('bless'),
     villagerId: id,
