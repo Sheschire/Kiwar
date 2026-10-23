@@ -22,7 +22,8 @@ export function groundY(map: FaceMap, h: Hex): number {
 /**
  * Chantier 35: the frame of a building on its footprint. One tile: on the tile, facing the
  * heart (with `variant` jitter). A triangle: at its centre, the door towards the anchor. The
- * monument: on its central anchor, facing the heart. Stands on the highest covered tile.
+ * monument: on its central anchor, roughly facing the heart. Stands on the highest covered
+ * tile.
  */
 export function footprintFrame(
   map: FaceMap,
@@ -43,9 +44,11 @@ export function footprintFrame(
   }
   x /= tiles.length;
   z /= tiles.length;
-  const angle =
-    tiles.length === 3
-      ? Math.atan2(anchor.x - x, anchor.z - z)
-      : Math.atan2(anchor.x, anchor.z) + Math.PI + (tiles.length === 1 ? (variant - 0.5) * 0.5 : 0);
+  const facingHeart = Math.atan2(anchor.x, anchor.z) + Math.PI;
+  let angle = facingHeart + (variant - 0.5) * 0.5;
+  // A triangle turns its door towards the anchor; the monument's plaza keeps its slabs on the
+  // tiles (a multiple of 60°).
+  if (tiles.length === 3) angle = Math.atan2(anchor.x - x, anchor.z - z);
+  else if (tiles.length === 7) angle = Math.round(facingHeart / (Math.PI / 3)) * (Math.PI / 3);
   return { x, y, z, angle, tiles };
 }

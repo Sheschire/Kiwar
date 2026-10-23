@@ -24,6 +24,7 @@ import {
   type GameState,
   type QueueItem,
   type ResourceId,
+  footprintOf,
 } from '@kiwar/shared';
 import type { Particles } from './particles';
 import {
@@ -397,6 +398,9 @@ export class BuildingsView {
     } else {
       const scaffold = new Mesh(scaffoldGeometry(), this.material);
       scaffold.castShadow = true;
+      // Chantier 35: a big site's scaffold spans its footprint.
+      const size = item.kind === 'build' ? footprintOf(item.buildingType) : 1;
+      scaffold.scale.setScalar(size === 7 ? 1.9 : size === 3 ? 1.35 : 1);
       g.add(scaffold);
       if (item.kind === 'build') {
         const ghost = new Mesh(buildingGeometry(item.buildingType, 1), this.ghostMaterial);

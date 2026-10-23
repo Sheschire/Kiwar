@@ -11,7 +11,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import { AGE_IDS, LEVELS_PER_AGE, maxLevelOf, type BuildingType } from '@kiwar/shared';
+import { AGE_IDS, footprintOf, LEVELS_PER_AGE, maxLevelOf, type BuildingType } from '@kiwar/shared';
 import { buildingModel } from '../render/buildingModels';
 import { Lighting } from '../render/lighting';
 import { SignsView, type SignSpot } from '../render/signs';
@@ -49,8 +49,8 @@ const TYPES: readonly BuildingType[] = [
   'camp',
 ];
 const PER_ROW_MAX = 4;
-const STEP = 1.9;
-const ROW = 3.3;
+const BASE_STEP = 1.9;
+const BASE_ROW = 3.3;
 
 function start(): void {
   const params = new URLSearchParams(window.location.search);
@@ -61,6 +61,11 @@ function start(): void {
   const forced = params.get('levels')?.split(',').map(Number) ?? null;
   const zoom = Number(params.get('zoom') ?? 1) || 1;
   const PER_ROW = Math.min(PER_ROW_MAX, types.length);
+  // Chantier 35: big buildings need room (a triangle of 3 tiles, the monument's hexagon).
+  const widest = Math.max(...types.map((t) => footprintOf(t)));
+  const room = widest === 7 ? 2.4 : widest === 3 ? 1.75 : 1;
+  const STEP = BASE_STEP * room;
+  const ROW = BASE_ROW * room;
   document.getElementById('loader')?.remove();
   const canvas = document.getElementById('scene') as HTMLCanvasElement;
   const renderer = new WebGLRenderer({ canvas, antialias: true });

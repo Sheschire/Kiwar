@@ -30,6 +30,7 @@ import { lab, library, school } from './models/knowledge';
 import { seedTurret, skyTurret } from './models/defense';
 import { monument } from './models/monument';
 import { A, annex, crown, lamp, type Look } from './models/ageKit';
+import { bigSignSpot, spread } from './models/spread';
 
 export type { BuildingEmitter, BuildingModel, BuildingRig, RigMotion } from './models/kit';
 
@@ -102,14 +103,21 @@ function partsOf(
 ): Parts {
   const look = lookOf(type, level, colonyAge, !shipAway);
   const p = BUILDERS[type](look);
+  // Chantier 35: big buildings get their sign once spread over their footprint.
+  const big = bigSignSpot(type);
   p.doors = p.filter((part) => part[1] === C.door && !part[3]);
-  if (type !== 'camp' && sign) signPost(p, type);
+  if (type !== 'camp' && sign && !big) signPost(p, type);
   if (level > 3 && type !== 'monument' && type !== 'lab') {
     if (look.tier >= 2 && !OWN_ANNEX.has(type))
       annex(p, look.age, ...(ANNEX_SPOTS[type] ?? [-0.5, -0.5]));
     if (look.tier >= 3 && !CROWNED.has(type))
       crown(p, look.age, ...(CROWN_SPOTS[type] ?? [0.52, -0.48]));
     grow(p, look);
+  }
+  if (big) {
+    spread(p, type, look);
+    p.doors = p.filter((part) => part[1] === C.door && !part[3]);
+    if (sign) signPost(p, type, big);
   }
   if (type !== 'camp' && type !== 'monument') dress(p, type, look.age);
   return p;
@@ -137,8 +145,8 @@ const SIGN_SPOTS: Partial<Record<BuildingType, [number, number]>> = {
 };
 const SIGN_HEIGHT = 0.5;
 
-function signPost(p: Parts, type: BuildingType): void {
-  const [x, z] = SIGN_SPOTS[type] ?? [0.55, 0.4];
+function signPost(p: Parts, type: BuildingType, spot?: [number, number]): void {
+  const [x, z] = spot ?? SIGN_SPOTS[type] ?? [0.55, 0.4];
   p.push([cyl(5), C.woodDark, m(x, SIGN_HEIGHT / 2, z, 0.022, SIGN_HEIGHT, 0.022)]);
   p.sign = new Vector3(x, SIGN_HEIGHT + 0.16, z);
 }

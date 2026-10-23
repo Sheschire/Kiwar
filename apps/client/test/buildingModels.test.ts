@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDING_TYPES, maxLevelOf } from '@kiwar/shared';
+import { BUILDING_TYPES, footprintOf, maxLevelOf } from '@kiwar/shared';
 import { buildingModel, lookOf } from '../src/render/buildingModels';
 
 /** The set of vertex colours of a model (its materials). */
@@ -51,5 +51,23 @@ describe('building models (chantier 33)', () => {
         const { lights } = buildingModel(type, level);
         if (type !== 'nest') expect(lights.doors.length, `${type} ${level}`).toBeGreaterThan(0);
       }
+  });
+});
+
+describe('big buildings (chantier 35)', () => {
+  /** Width of a model's footprint on the ground (world units). */
+  const width = (type: (typeof BUILDING_TYPES)[number], level = 1) => {
+    const box = buildingModel(type, level).geometry.boundingBox!;
+    return Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+  };
+
+  it('spreads over its footprint: one tile, a triangle, the hexagon', () => {
+    const hut = width('hut');
+    for (const type of BUILDING_TYPES) {
+      const size = footprintOf(type);
+      if (size === 1) expect(width(type), type).toBeLessThan(2.2);
+      else expect(width(type), type).toBeGreaterThan(size === 7 ? 4.5 : 2.8);
+    }
+    expect(width('monument')).toBeGreaterThan(2 * hut);
   });
 });
