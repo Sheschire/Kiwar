@@ -176,6 +176,12 @@ export const SOUND_EVENTS = {
       conditions: { zoomMax: 0.45 },
     },
   },
+  'warehouse.collect': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'collect',
+    default: { sources: ['synth:collect'], cooldownMs: 150, spatial: true },
+  },
   'storage.full': {
     bus: 'sfx',
     group: 'colony',

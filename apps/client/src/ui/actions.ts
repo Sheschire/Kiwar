@@ -1,6 +1,11 @@
 import {
   buildableTiles,
   buildingAt,
+  canCollect,
+  hexToPixel,
+  reserveHolders,
+  RESOURCE_IDS,
+  type BuildingId,
   obstacleAt,
   hexKey,
   isLaunchpadBusy,
@@ -19,6 +24,7 @@ import {
 import type { GameController } from '../game/GameController';
 import type { GameRenderer } from '../render/GameRenderer';
 import { saveQualityChoice, type QualityChoice } from '../render/quality';
+import { formatNumber } from '../i18n/i18n';
 import { saveFpsCap, type FpsCap } from '../render/frameLimiter';
 import type { PlanetRef } from '../render/space';
 import { pushToast, saveShowLevels, uiStore, type SiegePlan } from './store';
@@ -98,6 +104,39 @@ export const actions = {
     const ok = controller?.dispatch(cmd) ?? false;
     if (ok) playCommandSound(cmd);
     return ok;
+  },
+  /**
+   * Chantier 30: brings a warehouse's reserve back (null: every warehouse), with "+1 250"
+   * labels over each warehouse and a little cascade of notes.
+   */
+  collect(buildingId: BuildingId | null): boolean {
+    const before = controller?.state;
+    if (!before) return false;
+    const ok = controller!.dispatch(
+      buildingId ? { type: 'collect', buildingId } : { type: 'collectAll' },
+    );
+    const after = controller!.state;
+    if (!ok) return false;
+    const lang = uiStore.getState().lang;
+    for (const b of reserveHolders(before)) {
+      const now = after.buildings.find((x) => x.id === b.id);
+      if (!now) continue;
+      const labels = RESOURCE_IDS.flatMap((id) => {
+        const moved = Math.floor((b.reserve?.[id] ?? 0) - (now.reserve?.[id] ?? 0));
+        return moved >= 1 ? [{ resource: id, text: `+${formatNumber(lang, moved)}` }] : [];
+      });
+      if (labels.length === 0) continue;
+      renderer?.showCollected(b.id, labels);
+      const p = hexToPixel(b);
+      audio.play('warehouse.collect', { pos: { x: p.x, z: p.y } });
+    }
+    return true;
+  },
+  /** Chantier 30: a tap on a warehouse with something to bring back collects it at once. */
+  collectAt(tile: Tile): void {
+    const game = controller?.state;
+    const b = game ? buildingAt(game, tile.q, tile.r) : undefined;
+    if (game && b && canCollect(game, b)) actions.collect(b.id);
   },
   setAudio(patch: Partial<AudioSettings>): void {
     audio.setSettings(patch);

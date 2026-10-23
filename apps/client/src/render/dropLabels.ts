@@ -118,6 +118,8 @@ export class DropLabels {
       );
       sprite.scale.set(HEIGHT * ASPECT, HEIGHT, 1);
       sprite.renderOrder = 12;
+      // Never picked: a tap goes through to the building or tile below.
+      sprite.raycast = () => {};
       this.group.add(sprite);
       label = { sprite, age: LIFE_S };
       this.labels.push(label);

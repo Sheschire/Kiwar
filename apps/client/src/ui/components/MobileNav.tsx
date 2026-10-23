@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect } from 'preact/hooks';
-import { currentObjective, isObjectiveComplete } from '@kiwar/shared';
+import { canCollect, currentObjective, isObjectiveComplete, reserveHolders } from '@kiwar/shared';
 import { formatDuration } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { chatActions } from '../chatActions';
@@ -213,6 +213,10 @@ function NavMenu() {
   const siege = useUi((s) => (s.slowGame ? siegeVisible(s.slowGame) : false));
   const counter = useUi((s) => !!s.slowGame?.siege.counter?.announced);
   const other = useOtherColony();
+  // Chantier 30: bring every warehouse reserve back from the menu (phones).
+  const collectable = useUi((s) =>
+    s.slowGame ? reserveHolders(s.slowGame).some((b) => canCollect(s.slowGame!, b)) : false,
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeMenu();
@@ -264,6 +268,11 @@ function NavMenu() {
               onClick={go(() => uiStore.setState({ modal: 'siege' }))}
             >
               <TargetIcon size={28} />
+            </Entry>
+          )}
+          {collectable && (
+            <Entry label={t('reserve.collectAll')} onClick={go(() => actions.collect(null))}>
+              <Icon name="storage" size={28} />
             </Entry>
           )}
           <Entry

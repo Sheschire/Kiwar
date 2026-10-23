@@ -61,8 +61,10 @@ const renderer = new GameRenderer(
     afterFrame: () => afterFrame(),
     // Chantier 16: placing with a finger takes two steps (tap moves the ghost, then confirm).
     onTileTap: (tile, touch) => {
-      if (!uiStore.getState().placing || !tile) actions.selectTile(tile);
-      else if (touch) actions.pinPlacement(tile);
+      if (!uiStore.getState().placing || !tile) {
+        actions.selectTile(tile);
+        if (tile && !uiStore.getState().pathMode) actions.collectAt(tile);
+      } else if (touch) actions.pinPlacement(tile);
       else actions.placeAt(tile);
     },
     onPlacementHover: (tile) => actions.pointPlacement(tile),

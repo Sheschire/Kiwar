@@ -130,6 +130,13 @@ export function reserves(state: GameState): { stock: Resources; cap: Resources }
   return { stock, cap };
 }
 
+/** Whether `collect` would bring anything back from this warehouse right now. */
+export function canCollect(state: GameState, b: Building): boolean {
+  if (!b.reserve) return false;
+  const cap = capacity(state);
+  return RESOURCE_IDS.some((id) => b.reserve![id] > 1e-6 && state.resources[id] < cap[id] - 1e-6);
+}
+
 /** The warehouse the overflow of a resource goes to (the first one with room), or null. */
 export function reserveTarget(
   state: GameState,

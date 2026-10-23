@@ -12,6 +12,7 @@ const LEVEL_ICONS: Record<LevelStatId, IconName> = {
   workers: 'workers',
   housing: 'housing',
   storage: 'storage',
+  reserve: 'storage',
   defenseGround: 'defenseGround',
   defenseAir: 'defenseAir',
   ammo: 'ammo',

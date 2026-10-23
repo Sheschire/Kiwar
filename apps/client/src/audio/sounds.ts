@@ -163,6 +163,7 @@ export function playCommandSound(cmd: Command): void {
     case 'useSkill':
       audio.play('kiwi.levelUp');
       break;
+    // Chantier 30: `actions.collect` plays the collect sound over each warehouse.
     default:
       break;
   }

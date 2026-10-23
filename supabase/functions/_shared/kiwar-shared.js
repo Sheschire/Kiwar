@@ -6013,6 +6013,11 @@ function reserves(state) {
   }
   return { stock, cap };
 }
+function canCollect(state, b) {
+  if (!b.reserve) return false;
+  const cap = capacity(state);
+  return RESOURCE_IDS.some((id3) => b.reserve[id3] > 1e-6 && state.resources[id3] < cap[id3] - 1e-6);
+}
 function reserveTarget(state, id3) {
   for (const b of reserveHolders(state)) {
     const room = reserveCapOf(state, b) - (b.reserve?.[id3] ?? 0);
@@ -7813,6 +7818,7 @@ var LEVEL_STATS = [
   "workers",
   "housing",
   "storage",
+  "reserve",
   "defenseGround",
   "defenseAir",
   "ammo",
@@ -7846,6 +7852,7 @@ function describeLevel(type, level, state) {
   push("workers", def.workerSlots || void 0);
   push("housing", def.housing);
   push("storage", def.storage === void 0 ? void 0 : def.storage * (tech?.storage ?? 1));
+  push("reserve", def.reserve === void 0 ? void 0 : def.reserve * (tech?.storage ?? 1));
   const k = tech?.turretDefense ?? 1;
   push("defenseGround", def.defense?.ground === void 0 ? void 0 : def.defense.ground * k);
   push("defenseAir", def.defense?.air === void 0 ? void 0 : def.defense.air * k);
@@ -14726,6 +14733,7 @@ export {
   calendarStartFor,
   canAfford,
   canBorrow,
+  canCollect,
   canHatch,
   canMine,
   canPickDust,

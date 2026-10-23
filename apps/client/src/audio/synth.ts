@@ -483,6 +483,16 @@ export const SYNTH_PRESETS = {
     ],
     peak: 0.45,
   },
+  // Chantier 30: a warehouse reserve poured back into the stock (a rising little cascade).
+  collect: {
+    tones: [
+      { wave: 'pluck', freq: C5, attack: 0.001, decay: 0.2 },
+      { wave: 'pluck', freq: E5, start: 0.06, attack: 0.001, decay: 0.22 },
+      { wave: 'pluck', freq: G5, start: 0.12, attack: 0.001, decay: 0.26 },
+      { wave: 'pluck', freq: C6, start: 0.18, attack: 0.001, decay: 0.4 },
+    ],
+    peak: 0.45,
+  },
   full: {
     tones: [
       { wave: 'triangle', freq: 330, attack: 0.005, decay: 0.15 },

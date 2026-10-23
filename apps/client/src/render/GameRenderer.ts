@@ -36,6 +36,7 @@ import {
   type FaceMap,
   type GameEvent,
   type GameState,
+  type ResourceId,
   type Tile,
 } from '@kiwar/shared';
 import { BuildingsView } from './buildings';
@@ -1045,6 +1046,12 @@ export class GameRenderer {
   }
 
   /** A ring under a kiwi (its sheet is open or it is followed). */
+  /** Chantier 30: "+1 250" over a warehouse whose reserve was just brought back. */
+  showCollected(buildingId: string, labels: { resource: ResourceId; text: string }[]): void {
+    this.buildings?.showCollected(buildingId, labels);
+    this.wake();
+  }
+
   highlightKiwi(id: string | null): void {
     this.kiwis?.setHighlight(id);
   }

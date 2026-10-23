@@ -23,6 +23,7 @@ import { WorldModal } from './components/WorldModal';
 import { IntroOverlay } from './components/IntroOverlay';
 import { FollowBadge, VillageModal } from './components/VillageModal';
 import { DefenseModal, ThreatBadge } from './components/DefenseModal';
+import { ReserveBadge } from './components/ReserveInfo';
 import { PlansModal } from './components/ResearchModal';
 import { CounterBadge, SiegeModal } from './components/SiegeModal';
 import { SiegeShow } from './components/SiegeShow';
@@ -101,6 +102,7 @@ function Badges() {
       <CometBadge />
       <SpeechBadge />
       <HungerBadge />
+      <ReserveBadge />
     </div>
   );
 }

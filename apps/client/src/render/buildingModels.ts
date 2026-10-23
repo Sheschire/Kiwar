@@ -1360,6 +1360,36 @@ function dress(p: Parts, type: BuildingType, age: number): void {
   }
 }
 
+/**
+ * Chantier 30: the reserve heaped by a warehouse (sacks, crates, a pulp mound, a seed pile, a
+ * juice barrel), in three sizes; drawn beside the warehouse, in its local space.
+ */
+export function reserveHeapGeometry(size: 1 | 2 | 3): BufferGeometry {
+  const key = `heap:${size}`;
+  let g = cache.get(key);
+  if (!g) {
+    const x = 0.5;
+    const z = 0.48;
+    const p: Parts = [];
+    p.push([sphere(7, 5), C.cream, m(x, 0.07, z, 0.11, 0.09, 0.1)]);
+    p.push([box(), C.storeWood, m(x - 0.16, 0.06, z + 0.04, 0.12, 0.12, 0.12, 0, 0.4)]);
+    if (size >= 2) {
+      p.push([sphere(7, 5), C.pulp, m(x + 0.08, 0.03, z - 0.17, 0.14, 0.09, 0.12)]);
+      p.push([cyl(8), C.juice, m(x + 0.17, 0.08, z + 0.06, 0.07, 0.16, 0.07)]);
+      p.push([cyl(8), C.woodDark, m(x + 0.17, 0.165, z + 0.06, 0.075, 0.015, 0.075)]);
+    }
+    if (size >= 3) {
+      p.push([box(), C.storeWood, m(x - 0.15, 0.18, z + 0.03, 0.1, 0.1, 0.1, 0, 0.9)]);
+      p.push([cone(7), C.seed, m(x - 0.06, 0.06, z - 0.2, 0.1, 0.12, 0.1)]);
+      p.push([sphere(7, 5), C.cream, m(x - 0.02, 0.15, z + 0.12, 0.09, 0.08, 0.08)]);
+      p.push([sphere(7, 5), C.fur, m(x + 0.02, 0.06, z + 0.2, 0.1, 0.08, 0.09)]);
+    }
+    g = bake(p);
+    cache.set(key, g);
+  }
+  return g;
+}
+
 /** The whole model merged in its rest pose (construction ghosts). */
 export function buildingGeometry(
   type: BuildingType,

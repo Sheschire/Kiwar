@@ -13,6 +13,7 @@ import {
   moraleOf as sharedMoraleOf,
   population as sharedPopulation,
   researchPerHour as sharedResearchPerHour,
+  reserves as sharedReserves,
   staffing as sharedStaffing,
 } from '@kiwar/shared';
 
@@ -39,6 +40,8 @@ export const forecastWave = perGame(sharedForecastWave);
 /** Defense without a wave (chantier 12: by sector, for the defense screen). */
 export const defenseNow = perGame((state) => sharedDefenseOf(state));
 export const researchPerHour = perGame(sharedResearchPerHour);
+/** Chantier 30: every warehouse reserve together, and their caps. */
+export const reserves = perGame(sharedReserves);
 /** Workers by kind of post, kiwis without a post, free places (chantier 09). */
 export const staffing = perGame(sharedStaffing);
 export const moraleOf = perGame((state) => sharedMoraleOf(state, bedsOf(state)));

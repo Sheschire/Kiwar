@@ -331,6 +331,84 @@ p {
   background: linear-gradient(90deg, #e3a64a, #c0504a);
 }
 
+.chip.is-reserving .chip-bar > span {
+  background: linear-gradient(90deg, #f2c14e, #c99a1e);
+}
+
+/* Chantier 30: the warehouses' reserve of this resource, a thin line under the stock. */
+.chip-reserve {
+  height: 2px;
+  margin: 0 0 1px;
+  border-radius: 2px;
+  background: rgba(122, 90, 64, 0.12);
+  overflow: hidden;
+}
+
+.chip-reserve > span {
+  display: block;
+  height: 100%;
+  background: #c99a1e;
+}
+
+.chip.is-full .chip-reserve > span {
+  background: #c0504a;
+}
+
+/* Chantier 30: warehouse and Nest sheets, and the HUD alert. */
+.reserve-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(201, 154, 30, 0.1);
+}
+
+.reserve-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reserve-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(122, 90, 64, 0.18);
+  overflow: hidden;
+}
+
+.reserve-bar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #f2c14e, #c99a1e);
+}
+
+.reserve-amount {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+.reserve-box .btn {
+  align-self: flex-start;
+}
+
+.reserve-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+.reserve-badge .row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .chip.is-full .chip-amount {
   color: var(--berry);
 }

@@ -59,28 +59,38 @@ function lockReason(game: GameState, type: BuildingType, t: Translate): string |
 }
 
 function Levels({ game, type, t }: { game: GameState; type: BuildingType; t: Translate }) {
-  const levels = Array.from({ length: maxLevelOf(type) }, (_, i) => i + 1);
+  const all = Array.from({ length: maxLevelOf(type) }, (_, i) => i + 1);
+  // Chantier 30: three levels per age; a later age shows one "???" line for all of its levels.
+  const levels = all.filter((level) => {
+    const later = laterAge(game, type, level);
+    return later === null || laterAge(game, type, level - 1) !== later;
+  });
   return (
     <ul class="tree-levels">
       {levels.map((level) => {
         const def = BUILDINGS[type].levels[level - 1]!;
         const later = laterAge(game, type, level);
-        return (
-          <li key={level} class={`tree-level ${later !== null ? 'is-hidden' : ''}`}>
-            <span class="badge">{t('plans.level', { level })}</span>
-            {later !== null ? (
+        if (later !== null) {
+          const last = all.filter((l) => laterAge(game, type, l) === later).pop() ?? level;
+          return (
+            <li key={level} class="tree-level is-hidden">
+              <span class="badge">
+                {last > level
+                  ? t('plans.levelRange', { from: level, to: last })
+                  : t('plans.level', { level })}
+              </span>
               <span class="small muted">
                 {t('plans.unknown')} · {t('plans.later', { age: `@ages.${AGE_IDS[later]!}` })}
               </span>
-            ) : (
-              <>
-                <LevelStats stats={describeLevel(type, level, game)} />
-                {def.requiresNestLevel > 1 && (
-                  <span class="small muted">
-                    {t('plans.nest', { level: def.requiresNestLevel })}
-                  </span>
-                )}
-              </>
+            </li>
+          );
+        }
+        return (
+          <li key={level} class="tree-level">
+            <span class="badge">{t('plans.level', { level })}</span>
+            <LevelStats stats={describeLevel(type, level, game)} />
+            {def.requiresNestLevel > 1 && (
+              <span class="small muted">{t('plans.nest', { level: def.requiresNestLevel })}</span>
             )}
           </li>
         );

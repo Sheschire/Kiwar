@@ -46,6 +46,7 @@ export const LEVEL_STATS = [
   'workers',
   'housing',
   'storage',
+  'reserve',
   'defenseGround',
   'defenseAir',
   'ammo',
@@ -99,6 +100,7 @@ export function describeLevel(type: BuildingType, level: number, state?: GameSta
   push('workers', def.workerSlots || undefined);
   push('housing', def.housing);
   push('storage', def.storage === undefined ? undefined : def.storage * (tech?.storage ?? 1));
+  push('reserve', def.reserve === undefined ? undefined : def.reserve * (tech?.storage ?? 1));
   const k = tech?.turretDefense ?? 1;
   push('defenseGround', def.defense?.ground === undefined ? undefined : def.defense.ground * k);
   push('defenseAir', def.defense?.air === undefined ? undefined : def.defense.air * k);

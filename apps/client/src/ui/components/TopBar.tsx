@@ -18,7 +18,9 @@ import {
   idleVillagers,
   netRates,
   population,
+  reserves,
   staffing,
+  storageFull,
 } from '../derived';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import {
@@ -67,12 +69,20 @@ function ResourceChip({ id, h }: { id: ResourceId; h: ChipHandlers }) {
   });
   const staff = useUi((s) => (s.game ? (staffing(s.game).byKind[id]?.workers ?? 0) : 0));
   const fill = cap > 0 ? Math.min(1, amount / cap) : 0;
-  const full = fill >= 0.999;
+  // Chantier 30: a full stock overflows into the warehouses; "full" once the harvest stops.
+  const stopped = useUi((s) => (s.game ? storageFull(s.game)(id) : false));
+  const reserve = useUi((s) => {
+    if (!s.game) return 0;
+    const r = reserves(s.game);
+    return r.cap[id] > 0 ? Math.min(1, r.stock[id] / r.cap[id]) : -1;
+  });
+  const full = fill >= 0.999 && stopped;
+  const reserving = fill >= 0.999 && !stopped;
   return (
     <button
       type="button"
       data-tip={id}
-      class={`chip res-${id} ${full ? 'is-full' : ''} ${low ? 'is-low' : ''} ${h.open ? 'is-open' : ''}`}
+      class={`chip res-${id} ${full ? 'is-full' : ''} ${reserving ? 'is-reserving' : ''} ${low ? 'is-low' : ''} ${h.open ? 'is-open' : ''}`}
       aria-label={`${t(`resources.${id}`)} ${formatNumber(lang, amount)} / ${formatNumber(lang, cap)}`}
       aria-expanded={h.open}
       onPointerEnter={h.onEnter}
@@ -88,6 +98,11 @@ function ResourceChip({ id, h }: { id: ResourceId; h: ChipHandlers }) {
         <div class="chip-bar">
           <span style={{ width: `${fill * 100}%` }} />
         </div>
+        {reserve >= 0 && (
+          <div class="chip-reserve">
+            <span style={{ width: `${reserve * 100}%` }} />
+          </div>
+        )}
         <div class={`chip-rate ${rate < 0 ? 'is-negative' : ''}`}>
           {rate < 0 ? '−' : '+'}
           {formatNumber(lang, Math.abs(rate))}/h
@@ -184,6 +199,8 @@ function TipContent({ id }: { id: TipId }) {
   const rate = netRates(game)[id];
   const eaten = consumption(game)[id];
   const full = amount >= cap - 1e-6;
+  const stopped = full && storageFull(game)(id);
+  const r = reserves(game);
   const left = foodLeftMs(amount, rate);
   return (
     <>
@@ -208,8 +225,18 @@ function TipContent({ id }: { id: TipId }) {
           {t('needs.emptyIn', { duration: formatDuration(lang, left) })}
         </p>
       )}
+      {r.cap[id] > 0 && (
+        <p class="tip-line">
+          {t('reserve.inReserve', {
+            amount: formatNumber(lang, Math.floor(r.stock[id])),
+            cap: formatNumber(lang, Math.round(r.cap[id])),
+          })}
+        </p>
+      )}
       {full ? (
-        <p class="tip-line warn">{t('tips.full')}</p>
+        <p class={`tip-line ${stopped ? 'warn' : 'muted'}`}>
+          {t(stopped ? 'tips.full' : 'tips.reserving')}
+        </p>
       ) : (
         rate > 0 && (
           <p class="tip-line muted">

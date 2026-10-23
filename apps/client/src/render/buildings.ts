@@ -16,14 +16,24 @@ import {
 import {
   ageOf,
   getTile,
+  reserveCapOf,
+  RESOURCE_IDS,
   type Building,
   type BuildingType,
   type FaceMap,
   type GameState,
   type QueueItem,
+  type ResourceId,
 } from '@kiwar/shared';
 import type { Particles } from './particles';
-import { buildingGeometry, buildingModel, scaffoldGeometry, stakeGeometry } from './buildingModels';
+import {
+  buildingGeometry,
+  buildingModel,
+  reserveHeapGeometry,
+  scaffoldGeometry,
+  stakeGeometry,
+} from './buildingModels';
+import { DropLabels } from './dropLabels';
 import { activityOf, BuildingLife } from './buildingLife';
 import { worldPosition } from './terrain';
 import { WATER_LEVEL } from './water';
@@ -59,6 +69,15 @@ interface Collapse {
 }
 
 const COLLAPSE_S = 1.6;
+
+/** Chantier 30: heap size by a warehouse (0 none, 1–3), from how full its reserve is. */
+function heapSize(state: GameState, b: Building): 0 | 1 | 2 | 3 {
+  if (!b.reserve) return 0;
+  const cap = reserveCapOf(state, b) * RESOURCE_IDS.length;
+  if (cap <= 0) return 0;
+  const fill = RESOURCE_IDS.reduce((sum, id) => sum + b.reserve![id], 0) / cap;
+  return fill < 0.02 ? 0 : fill < 0.34 ? 1 : fill < 0.67 ? 2 : 3;
+}
 const UP = new Vector3(0, 1, 0);
 
 /**
@@ -88,6 +107,8 @@ export class BuildingsView {
   readonly signs = new SignsView();
   /** Chantier 23: doorways and windows lit at night where kiwis sleep or work. */
   readonly windows = new WindowsView();
+  /** Chantier 30: "+1 250" rising over a warehouse whose reserve is brought back. */
+  private readonly collected = new DropLabels();
   /** Buildings with someone home or at work (their windows light up at night). */
   lit: ReadonlySet<string> = new Set();
   private litSig = '';
@@ -137,6 +158,7 @@ export class BuildingsView {
     this.group.add(this.badges.group);
     this.group.add(this.signs.mesh);
     this.group.add(this.windows.group);
+    this.group.add(this.collected.group);
   }
 
   /** Ground height for a building on this tile (wells stand in the juice). */
@@ -176,6 +198,40 @@ export class BuildingsView {
       this.syncWindows();
     }
     this.badges.sync(state, (id) => this.anchorOf(id));
+    this.syncHeaps(state);
+  }
+
+  /** Chantier 30: the reserve heaped by each warehouse (three sizes). */
+  private syncHeaps(state: GameState): void {
+    let changed = false;
+    for (const b of state.buildings) {
+      if (b.type !== 'warehouse') continue;
+      const g = this.meshes.get(b.id);
+      if (!g) continue;
+      const size = heapSize(state, b);
+      if (size === ((g.userData.heap as number | undefined) ?? 0)) continue;
+      const old = g.getObjectByName('heap');
+      if (old) g.remove(old);
+      if (size !== 0) {
+        const heap = new Mesh(reserveHeapGeometry(size), this.material);
+        heap.name = 'heap';
+        heap.castShadow = true;
+        heap.receiveShadow = true;
+        g.add(heap);
+      }
+      g.userData.heap = size;
+      changed = true;
+    }
+    if (changed) this.onChanged();
+  }
+
+  /** Chantier 30: what a tap brought back from a warehouse, rising above it. */
+  showCollected(buildingId: string, labels: { resource: ResourceId; text: string }[]): void {
+    const a = this.anchorOf(buildingId);
+    if (!a) return;
+    labels.forEach((l, i) =>
+      this.collected.spawn(a.x, a.y - 0.25 + i * 0.22, a.z, l.text, l.resource, '#fff4c2'),
+    );
   }
 
   /** Where a badge floats above a building (level, logistics). */
@@ -381,6 +437,7 @@ export class BuildingsView {
 
   update(dt: number, now: number): void {
     this.life.update(dt);
+    this.collected.update(dt);
     // Rising ghost on active construction sites.
     if (this.state) {
       for (const site of this.sites.values()) {
@@ -469,6 +526,7 @@ export class BuildingsView {
     this.badges.dispose();
     this.signs.dispose();
     this.windows.dispose();
+    this.collected.dispose();
     this.sparks.geometry.dispose();
     this.dust.geometry.dispose();
     (this.dust.material as MeshStandardMaterial).dispose();

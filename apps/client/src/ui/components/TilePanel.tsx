@@ -69,6 +69,7 @@ import {
   meteorAt,
 } from '@kiwar/shared';
 import { bedsOf, harvestOf, idleVillagers } from '../derived';
+import { NestReserves, ReserveSection } from './ReserveInfo';
 import { MissingBedsLine } from './NeedsWidgets';
 import { formatDuration, formatNumber, type Lang } from '../../i18n/i18n';
 import { actions } from '../actions';
@@ -430,6 +431,8 @@ function BuildingSection({
           <span>{def.storage}</span>
         </div>
       )}
+      {b.type === 'warehouse' && <ReserveSection game={game} b={b} t={t} />}
+      {b.type === 'nest' && <NestReserves game={game} t={t} />}
       {b.type === 'nest' && (
         <p class="small muted">
           {t('building.limits', {
