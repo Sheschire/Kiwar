@@ -30,16 +30,8 @@ describe('building models (chantier 33)', () => {
   });
 
   it('changes the materials at each age and adds pieces with the tiers', () => {
-    const recipes = [
-      'nest',
-      'hut',
-      'warehouse',
-      'pulpery',
-      'fiberWorkshop',
-      'seedQuarry',
-      'juiceWell',
-    ] as const;
-    for (const type of recipes) {
+    for (const type of BUILDING_TYPES) {
+      if (maxLevelOf(type) < 12) continue;
       for (const level of [3, 6, 9]) {
         const before = colours(type, level);
         const after = colours(type, level + 1);

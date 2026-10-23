@@ -1,42 +1,47 @@
 import { TorusGeometry } from 'three';
+import { C, box, cyl, cone, sphere, ico, m, rig, emitter, type Parts } from './kit';
 import {
-  C,
-  box,
-  cyl,
-  cone,
-  sphere,
-  ico,
-  roofPrism,
-  m,
-  rig,
-  emitter,
-  flag,
-  type Parts,
-} from './kit';
+  A,
+  banner,
+  byAge,
+  cap,
+  chimney,
+  door,
+  frameColor,
+  gable,
+  round,
+  wall,
+  type Look,
+} from './ageKit';
 
 /**
  * School: a cream schoolhouse under a blue roof with a tall blue bell tower whose bell swings,
  * and its yard with a straw dummy (chantier 17). Level 2 adds an archery target, level 3 a
- * mage's tower with a twinkling crystal.
+ * mage's tower with a twinkling crystal. Chantier 33: a stone training block (Stone), a rack
+ * of practice spears (Iron), a clock on the tower (Industry).
  */
-export function school(level: number): Parts {
+export function school(look: Look): Parts {
+  const { age } = look;
+  const level = age > 0 ? 3 : look.tier;
   const p: Parts = [];
   const s = 0.85 + level * 0.08;
-  p.push([box(), C.stone, m(-0.08, 0.03, 0, 0.66 * s, 0.06, 0.52 * s)]);
-  p.push([box(), C.cream, m(-0.08, 0.22 * s, 0, 0.56 * s, 0.36 * s, 0.4 * s)]);
+  const lift = age > 0 ? 0.012 : 0;
   p.push([
-    roofPrism(),
-    C.blueRoof,
-    m(-0.08, 0.5 * s, 0, 0.26 * s, 0.64 * s, 0.28 * s, 0, 0, Math.PI / 2),
+    box(),
+    age === 1 ? A.drystoneDark : C.stone,
+    m(-0.08, 0.03, 0, 0.66 * s, 0.06, 0.52 * s),
   ]);
-  p.push([box(), C.door, m(-0.08, 0.13 * s, 0.205 * s, 0.13, 0.22 * s, 0.02)]);
-  for (const x of [-0.26, 0.1]) {
-    p.push([box(), C.flagBlue, m(x * s, 0.25 * s, 0.205 * s, 0.1, 0.1, 0.015)]);
-    p.push([box(), C.white, m(x * s, 0.25 * s, 0.21 * s, 0.11, 0.015, 0.015)]);
-  }
+  wall(p, age, -0.08, 0.22 * s, 0, 0.56 * s, 0.36 * s, 0.4 * s, C.cream);
+  gable(p, age, -0.08, 0.5 * s, 0, 0.26 * s, 0.64 * s, 0.28 * s, C.blueRoof);
+  door(p, age, -0.08, 0.13 * s, 0.205 * s + lift, 0.13, 0.22 * s);
+  if (age !== 3)
+    for (const x of [-0.26, 0.1]) {
+      p.push([box(), C.flagBlue, m(x * s, 0.25 * s, 0.205 * s + lift, 0.1, 0.1, 0.015)]);
+      p.push([box(), C.white, m(x * s, 0.25 * s, 0.21 * s + lift, 0.11, 0.015, 0.015)]);
+    }
   // The bell tower: a tall cream tower with an open belfry and a blue spire.
   const tx = 0.2 * s;
-  p.push([box(), C.cream, m(tx, 0.4 * s, -0.04, 0.17, 0.8 * s, 0.17)]);
+  wall(p, age, tx, 0.4 * s, -0.04, 0.17, 0.8 * s, 0.17, C.cream);
   p.push([box(), C.blueRoofDark, m(tx, 0.81 * s, -0.04, 0.2, 0.03, 0.2)]);
   for (const [dx, dz] of [
     [-1, -1],
@@ -44,11 +49,21 @@ export function school(level: number): Parts {
     [-1, 1],
     [1, 1],
   ] as const)
-    p.push([box(), C.wood, m(tx + dx * 0.07, 0.9 * s, -0.04 + dz * 0.07, 0.025, 0.16, 0.025)]);
-  p.push([cone(4), C.blueRoof, m(tx, 1.12 * s, -0.04, 0.15, 0.3, 0.15, 0, Math.PI / 4, 0)]);
-  p.push([sphere(5, 4), C.flagGold, m(tx, 1.28 * s, -0.04, 0.025, 0.025, 0.025)]);
+    p.push([
+      box(),
+      byAge(age, [C.wood, C.wood, A.beam, A.steel]),
+      m(tx + dx * 0.07, 0.9 * s, -0.04 + dz * 0.07, 0.025, 0.16, 0.025),
+    ]);
+  cap(p, age, tx, 1.12 * s, -0.04, 0.15, 0.3, C.blueRoof, 4, Math.PI / 4);
+  if (age === 0) p.push([sphere(5, 4), C.flagGold, m(tx, 1.28 * s, -0.04, 0.025, 0.025, 0.025)]);
   rig(p, 'bell', [tx, 0.97 * s, -0.04], { kind: 'swing', axis: 'z', amount: 0.45, speed: 2.4 });
   p.push([cone(8), C.flagGold, m(tx, 0.91 * s, -0.04, 0.055, 0.09, 0.055), 'bell']);
+  if (age >= 3) {
+    // A clock on the tower.
+    p.push([cyl(14), A.brass, m(tx, 0.62 * s, 0.05, 0.075, 0.02, 0.075, Math.PI / 2)]);
+    p.push([cyl(14), C.white, m(tx, 0.62 * s, 0.058, 0.06, 0.02, 0.06, Math.PI / 2)]);
+    p.push([box(), C.seed, m(tx + 0.015, 0.63 * s, 0.07, 0.04, 0.008, 0.006, 0, 0, 0.7)]);
+  }
   // The yard: a beaten-earth patch, a fence and the straw training dummy.
   const yx = 0.5 * s;
   const yz = 0.24;
@@ -57,12 +72,22 @@ export function school(level: number): Parts {
   p.push([cyl(8), C.straw, m(yx, 0.26, yz, 0.07, 0.16, 0.07)]);
   p.push([sphere(6, 4), C.strawDark, m(yx, 0.39, yz, 0.06, 0.06, 0.06)]);
   p.push([cyl(5), C.woodDark, m(yx, 0.28, yz, 0.015, 0.22, 0.015, 0, 0, Math.PI / 2)]);
+  const fence = byAge(age, [C.wood, C.wood, A.beam, A.steel]);
   for (let i = 0; i < 4; i++)
-    p.push([box(), C.wood, m(yx - 0.21 + i * 0.14, 0.07, yz + 0.24, 0.02, 0.14, 0.02)]);
-  p.push([box(), C.wood, m(yx, 0.11, yz + 0.24, 0.44, 0.02, 0.015)]);
+    p.push([box(), fence, m(yx - 0.21 + i * 0.14, 0.07, yz + 0.24, 0.02, 0.14, 0.02)]);
+  p.push([box(), fence, m(yx, 0.11, yz + 0.24, 0.44, 0.02, 0.015)]);
+  if (age === 1) {
+    // A stone block to lift.
+    p.push([ico(), A.drystone, m(yx - 0.16, 0.06, yz - 0.04, 0.07, 0.06, 0.07)]);
+  } else if (age === 2) {
+    // A rack of practice spears.
+    p.push([box(), A.beam, m(yx + 0.2, 0.2, yz - 0.1, 0.03, 0.03, 0.2)]);
+    for (const dz of [-0.07, 0, 0.07])
+      p.push([cyl(5), C.wood, m(yx + 0.2, 0.2, yz - 0.1 + dz, 0.012, 0.4, 0.012, 0, 0, 0.15)]);
+  }
   // Chalkboard by the door.
   p.push([box(), C.leafDark, m(-0.5 * s, 0.2, 0.22, 0.2, 0.16, 0.02, 0, 0.5, 0)]);
-  p.push([box(), C.woodDark, m(-0.5 * s, 0.08, 0.22, 0.02, 0.16, 0.02, 0, 0.5, 0)]);
+  p.push([box(), frameColor(age), m(-0.5 * s, 0.08, 0.22, 0.02, 0.16, 0.02, 0, 0.5, 0)]);
   if (level >= 2) {
     // Chantier 11: a big archery target, readable from afar.
     p.push([box(), C.woodDark, m(0.52 * s, 0.22, -0.3, 0.03, 0.44, 0.03, 0.2, 0, 0)]);
@@ -72,46 +97,66 @@ export function school(level: number): Parts {
   }
   if (level >= 3) {
     // Mage's tower with a floating crystal.
-    p.push([cyl(8), C.stoneDark, m(-0.46 * s, 0.4, -0.24, 0.11, 0.8, 0.11)]);
-    p.push([cone(8), C.blueRoof, m(-0.46 * s, 0.9, -0.24, 0.15, 0.24, 0.15)]);
-    rig(p, 'crystal', [-0.46 * s, 1.1, -0.24], {
+    round(p, age, -0.46 * s, 0.4, -0.24, 0.11, 0.8, C.stoneDark, 8);
+    cap(p, age, -0.46 * s, 0.9, -0.24, 0.15, 0.24, C.blueRoof, 8);
+    const cy = age > 0 ? 1.18 : 1.1;
+    rig(p, 'crystal', [-0.46 * s, cy, -0.24], {
       kind: 'bob',
       amount: 0.03,
       speed: 2,
       ambient: true,
     });
-    p.push([ico(), C.juice, m(-0.46 * s, 1.1, -0.24, 0.05, 0.08, 0.05), 'crystal']);
-    emitter(p, { kind: 'gold', at: [-0.46 * s, 1.12, -0.24], rate: 1.2, ambient: true });
+    p.push([ico(), C.juice, m(-0.46 * s, cy, -0.24, 0.05, 0.08, 0.05), 'crystal']);
+    emitter(p, { kind: 'gold', at: [-0.46 * s, cy + 0.02, -0.24], rate: 1.2, ambient: true });
   }
-  flag(p, level, -0.42, 0.06, 0.3);
+  if (age >= 3) chimney(p, age, -0.1, -0.34, 0.85);
+  banner(p, look, -0.42, 0.06, 0.3);
   return p;
 }
 
 /**
  * Library (chantier 08): a round stone tower full of books. A star globe turns on its lectern
  * while the researchers work; level 2 adds a floor, level 3 an observatory dome and a telescope.
+ * Chantier 33: carved stone tablets (Stone), the vat of glowing juice of the laboratory and its
+ * flasks (Iron), a lightning rod and a glass dome (Industry).
  */
-export function library(fullLevel: number): Parts {
+export function library(look: Look): Parts {
+  const { age } = look;
+  const level = age > 0 ? 3 : look.tier;
   const p: Parts = [];
-  const level = Math.min(3, fullLevel);
   const s = 0.85 + level * 0.08;
   const h = level >= 2 ? 0.62 : 0.42;
-  p.push([cyl(12), C.stoneDark, m(0, 0.03, 0, 0.42 * s, 0.06, 0.42 * s)]);
-  p.push([cyl(12), C.stone, m(0, h / 2 + 0.05, 0, 0.32 * s, h, 0.32 * s)]);
-  if (level >= 2) p.push([cyl(12), C.stoneDark, m(0, 0.34, 0, 0.335 * s, 0.035, 0.335 * s)]);
-  p.push([box(), C.door, m(0, 0.13, 0.3 * s, 0.12, 0.2, 0.03)]);
+  p.push([
+    cyl(12),
+    age === 1 ? A.drystoneDark : C.stoneDark,
+    m(0, 0.03, 0, 0.42 * s, 0.06, 0.42 * s),
+  ]);
+  round(p, age, 0, h / 2 + 0.05, 0, 0.32 * s, h, C.stone, 12);
+  if (level >= 2 && age === 0)
+    p.push([cyl(12), C.stoneDark, m(0, 0.34, 0, 0.335 * s, 0.035, 0.335 * s)]);
+  door(p, age, 0, 0.13, 0.3 * s + (age > 0 ? 0.02 : 0), 0.12, 0.2, 0.03);
   // Arched windows with warm lamplight.
+  const pane = age >= 3 ? A.glass : C.goldEgg;
   for (const a of [0.9, -0.9, Math.PI]) {
-    const wx = Math.sin(a) * 0.31 * s;
-    const wz = Math.cos(a) * 0.31 * s;
-    p.push([box(), C.goldEgg, m(wx, h * 0.62 + 0.05, wz, 0.07, 0.11, 0.02, 0, a, 0)]);
+    const wx = Math.sin(a) * (0.31 * s + (age > 0 ? 0.02 : 0));
+    const wz = Math.cos(a) * (0.31 * s + (age > 0 ? 0.02 : 0));
+    p.push([box(), pane, m(wx, h * 0.62 + 0.05, wz, 0.07, 0.11, 0.02, 0, a, 0)]);
   }
   const top = h + 0.05;
   if (level >= 3) {
-    p.push([sphere(12, 6), C.flagBlue, m(0, top, 0, 0.3 * s, 0.22 * s, 0.3 * s)]);
+    const dome = byAge(age, [C.flagBlue, C.flagBlue, C.blueRoof, A.glass]);
+    p.push([sphere(12, 6), dome, m(0, top, 0, 0.3 * s, 0.22 * s, 0.3 * s)]);
+    if (age >= 2)
+      for (const r of [0, Math.PI / 2])
+        p.push([
+          new TorusGeometry(1, 0.03, 4, 16, Math.PI),
+          age >= 3 ? A.brass : C.ironDark,
+          m(0, top, 0, 0.305 * s, 0.225 * s, 0.305 * s, 0, r),
+        ]);
     // Telescope sweeping the sky.
     rig(p, 'scope', [0, top + 0.12, 0], { kind: 'swing', axis: 'y', amount: 0.8, speed: 0.6 });
-    p.push([cyl(8), C.woodDark, m(0.1, top + 0.2, 0, 0.035, 0.32, 0.035, 0, 0, -0.9), 'scope']);
+    const tube = age >= 3 ? A.brass : C.woodDark;
+    p.push([cyl(8), tube, m(0.1, top + 0.2, 0, 0.035, 0.32, 0.035, 0, 0, -0.9), 'scope']);
     p.push([cyl(8), C.flagGold, m(0.22, top + 0.29, 0, 0.045, 0.05, 0.045, 0, 0, -0.9), 'scope']);
   } else {
     p.push([cone(12), C.blueRoof, m(0, top + 0.16, 0, 0.38 * s, 0.32, 0.38 * s)]);
@@ -128,7 +173,7 @@ export function library(fullLevel: number): Parts {
   // Star globe on a lectern: turns while the kiwis study.
   const gx = -0.4 * s;
   const gz = 0.2;
-  p.push([cyl(6), C.woodDark, m(gx, 0.12, gz, 0.025, 0.24, 0.025)]);
+  p.push([cyl(6), frameColor(age), m(gx, 0.12, gz, 0.025, 0.24, 0.025)]);
   rig(p, 'globe', [gx, 0.3, gz], { kind: 'spin', axis: 'y', amount: 1, speed: 1.2 });
   p.push([sphere(8, 6), C.flagBlue, m(gx, 0.3, gz, 0.08, 0.08, 0.08), 'globe']);
   p.push([
@@ -138,27 +183,35 @@ export function library(fullLevel: number): Parts {
     'globe',
   ]);
   emitter(p, { kind: 'gold', at: [gx, 0.4, gz], rate: 0.8 });
-  flag(p, level, 0.3, top - 0.05, -0.25);
-  if (fullLevel >= 4) {
+  banner(p, look, 0.3, top - 0.05, -0.25);
+  if (age === 1) {
+    // Carved tablets leaning on the tower.
+    for (const [x, ry] of [
+      [-0.2, 0.3],
+      [0.18, -0.4],
+    ] as const) {
+      p.push([box(), A.drystoneLight, m(x, 0.16, -0.38, 0.14, 0.3, 0.04, -0.15, ry, 0)]);
+      p.push([box(), A.drystoneDark, m(x, 0.18, -0.36, 0.08, 0.015, 0.045, -0.15, ry, 0)]);
+    }
+  }
+  if (age >= 2) {
     // The laboratory: a vat of glowing juice bubbling away, fed by copper pipes.
     const vx = 0.05;
     const vz = -0.42;
     p.push([cyl(10), C.ironDark, m(vx, 0.12, vz, 0.17, 0.24, 0.17)]);
     p.push([cyl(10), C.juice, m(vx, 0.25, vz, 0.15, 0.03, 0.15)]);
-    p.push([cyl(6), C.fire, m(vx + 0.18, 0.35, vz + 0.1, 0.02, 0.5, 0.02, 0, 0, 0.5)]);
+    p.push([cyl(6), C.copper, m(vx + 0.18, 0.35, vz + 0.1, 0.02, 0.5, 0.02, 0, 0, 0.5)]);
     rig(p, 'brew', [vx, 0.3, vz], { kind: 'bob', amount: 0.02, speed: 3 });
     p.push([sphere(6, 4), C.juice, m(vx + 0.04, 0.3, vz, 0.04, 0.04, 0.04), 'brew']);
     emitter(p, { kind: 'juice', at: [vx, 0.32, vz], rate: 2 });
-    if (fullLevel >= 5) {
-      // Glass flasks on a shelf.
-      for (let i = 0; i < 3; i++)
-        p.push([sphere(6, 5), C.juice, m(-0.2 + i * 0.09, 0.08, -0.4, 0.04, 0.05, 0.04)]);
-    }
-    if (fullLevel >= 6) {
-      // A lightning rod: the juice crackles.
-      p.push([cyl(6), C.iron, m(0, top + 0.35, 0, 0.015, 0.5, 0.015)]);
-      emitter(p, { kind: 'spark', at: [0, top + 0.6, 0], rate: 1.5, ambient: true });
-    }
+    // Glass flasks on a shelf.
+    for (let i = 0; i < 3; i++)
+      p.push([sphere(6, 5), C.juice, m(-0.2 + i * 0.09, 0.08, -0.4, 0.04, 0.05, 0.04)]);
+  }
+  if (age >= 3) {
+    // A lightning rod: the juice crackles.
+    p.push([cyl(6), A.steel, m(0, top + 0.35, 0, 0.015, 0.5, 0.015)]);
+    emitter(p, { kind: 'spark', at: [0, top + 0.6, 0], rate: 1.5, ambient: true });
   }
   return p;
 }
@@ -166,7 +219,7 @@ export function library(fullLevel: number): Parts {
 /**
  * Laboratory against nature (chantier 08): glass vats of glowing juice on an iron platform,
  * copper pipes, a crackling lightning rod; a dark shape floats in the main vat. More vats and a
- * taller coil with each level.
+ * taller coil with each level. Chantier 33: an Iron-age building (its last level Industry).
  */
 export function lab(level: number): Parts {
   const p: Parts = [];

@@ -91,11 +91,15 @@ export function jit(a: number, b: number): number {
   return s - Math.floor(s);
 }
 
-/** Runs `draw` and moves every static part it added by `base` (rigs are not moved). */
-export function under(p: Parts, base: Matrix4, draw: () => void): void {
+/**
+ * Runs `draw` and moves every part it added by `base`. Rig pivots are not moved: a base that
+ * moves rig parts (`rigs`) must keep their pivots in place (a turn around the pivot's axis).
+ */
+export function under(p: Parts, base: Matrix4, draw: () => void, rigs = false): void {
   const n = p.length;
   draw();
-  for (let i = n; i < p.length; i++) p[i]![2] = p[i]![2].clone().premultiply(base);
+  for (let i = n; i < p.length; i++)
+    if (rigs || !p[i]![3]) p[i]![2] = p[i]![2].clone().premultiply(base);
 }
 
 const UP = new Vector3(0, 1, 0);
@@ -107,6 +111,7 @@ export function beam(
   b: [number, number, number],
   thick: number,
   round = false,
+  rigName?: string,
 ): void {
   const from = new Vector3(...a);
   const dir = new Vector3(...b).sub(from);
@@ -117,6 +122,7 @@ export function beam(
     round ? cyl(5) : box(),
     color,
     new Matrix4().compose(mid, q, new Vector3(thick, length, thick)),
+    rigName,
   ]);
 }
 

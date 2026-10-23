@@ -1,6 +1,12 @@
 import type { BufferGeometry } from 'three';
 import { Color, Matrix4, Mesh, Quaternion, Raycaster, Vector3 } from 'three';
-import { ageOfLevel, LEVELS_PER_AGE, type BuildingType, type ShipId } from '@kiwar/shared';
+import {
+  ageOfLevel,
+  BUILDING_TYPES,
+  LEVELS_PER_AGE,
+  type BuildingType,
+  type ShipId,
+} from '@kiwar/shared';
 import {
   bake,
   box,
@@ -35,7 +41,7 @@ export type { BuildingEmitter, BuildingModel, BuildingRig, RigMotion } from './m
 /** Chantier 33: each builder is a recipe of the building's look (age, tier). */
 const BUILDERS: Record<BuildingType, (look: Look) => Parts> = {
   camp: () => camp(),
-  launchpad: (l) => launchpad(Math.min(3, l.level), l.colonyAge, l.docked),
+  launchpad,
   nest,
   pulpery,
   fiberWorkshop,
@@ -43,16 +49,20 @@ const BUILDERS: Record<BuildingType, (look: Look) => Parts> = {
   juiceWell,
   hut,
   warehouse,
-  school: (l) => school(Math.min(3, l.level)),
-  library: (l) => library(l.level),
+  school,
+  library,
   monument: (l) => monument(l.level),
   lab: (l) => lab(l.level),
-  seedTurret: (l) => seedTurret(Math.min(3, l.level)),
-  skyTurret: (l) => skyTurret(Math.min(3, l.level)),
+  seedTurret,
+  skyTurret,
 };
 
-/** Recipes that draw their own crown (tier 3 of the later ages) instead of the kit's. */
-const CROWNED: ReadonlySet<BuildingType> = new Set(['nest', 'hut']);
+/**
+ * Recipes that draw their own annex and crown (tiers 2 and 3 of the later ages) instead of the
+ * kit's: the Nest's arch, the hut's upper floor, the turrets' armour and spikes.
+ */
+const CROWNED: ReadonlySet<BuildingType> = new Set(['nest', 'hut', 'seedTurret', 'skyTurret']);
+const OWN_ANNEX: ReadonlySet<BuildingType> = new Set(['seedTurret', 'skyTurret']);
 
 /** Where the annex (tier 2) and the crown (tier 3) of the later ages stand (x, z). */
 const ANNEX_SPOTS: Partial<Record<BuildingType, [number, number]>> = {};
@@ -89,7 +99,8 @@ function partsOf(type: BuildingType, level: number, shipAway: boolean, colonyAge
   p.doors = p.filter((part) => part[1] === C.door && !part[3]);
   if (type !== 'camp') signPost(p, type);
   if (level > 3 && type !== 'monument' && type !== 'lab') {
-    if (look.tier >= 2) annex(p, look.age, ...(ANNEX_SPOTS[type] ?? [-0.5, -0.5]));
+    if (look.tier >= 2 && !OWN_ANNEX.has(type))
+      annex(p, look.age, ...(ANNEX_SPOTS[type] ?? [-0.5, -0.5]));
     if (look.tier >= 3 && !CROWNED.has(type))
       crown(p, look.age, ...(CROWN_SPOTS[type] ?? [0.52, -0.48]));
     grow(p, look);
@@ -213,15 +224,7 @@ function dress(p: Parts, type: BuildingType, age: number): void {
 const PLINTHS = ['', A.drystoneDark, C.stoneDark, '#8f918d'];
 
 /** Recipes that place their own chimney (or need none). */
-const OWN_CHIMNEY: ReadonlySet<BuildingType> = new Set([
-  'nest',
-  'hut',
-  'warehouse',
-  'pulpery',
-  'fiberWorkshop',
-  'seedQuarry',
-  'juiceWell',
-]);
+const OWN_CHIMNEY: ReadonlySet<BuildingType> = new Set(BUILDING_TYPES.filter((t) => t !== 'lab'));
 
 /**
  * Chantier 30: the reserve heaped by a warehouse (sacks, crates, a pulp mound, a seed pile, a

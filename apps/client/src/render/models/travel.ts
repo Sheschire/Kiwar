@@ -1,6 +1,7 @@
 import { TorusGeometry } from 'three';
 import { shipIdForAge, type ShipId } from '@kiwar/shared';
-import { C, box, cyl, cone, sphere, m, rig, emitter, flag, type Parts } from './kit';
+import { C, box, cyl, cone, sphere, m, rig, emitter, type Parts } from './kit';
+import { A, banner, beam, byAge, pipe, round, type Look } from './ageKit';
 
 /** Colours of each ship generation (chantier 07): hull, trim, wings. */
 export const SHIP_LOOKS: Record<ShipId, { hull: string; trim: string; wing: string }> = {
@@ -95,22 +96,55 @@ export function bird(p: Parts, gen: ShipId, docked: boolean): void {
   }
 }
 
-/** Launch platform; the mechanical kiwi bird is drawn only while it is docked. */
-export function launchpad(level: number, age = 0, docked = true): Parts {
+/**
+ * Launch platform; the mechanical kiwi bird is drawn only while it is docked (its generation
+ * follows the colony's age). Chantier 33: a dry-stone ring (Stone), iron deck plates and a
+ * riveted tower (Iron), a steel deck, brass rails and a fuel tank (Industry).
+ */
+export function launchpad(look: Look): Parts {
+  const { age } = look;
+  const level = age > 0 ? 3 : look.tier;
   const p: Parts = [];
   const s = 0.9 + level * 0.08;
-  p.push([cyl(14), C.lightWood, m(0, 0.06, 0, 0.62 * s, 0.12, 0.62 * s)]);
-  p.push([cyl(14), C.copper, m(0, 0.115, 0, 0.6 * s, 0.03, 0.6 * s)]);
-  p.push([cyl(14), C.straw, m(0, 0.13, 0, 0.5 * s, 0.02, 0.5 * s)]);
+  if (age === 1) round(p, age, 0, 0.05, 0, 0.66 * s, 0.1, C.stone, 14);
+  p.push([
+    cyl(14),
+    byAge(age, [C.lightWood, C.lightWood, C.ironDark, A.steel]),
+    m(0, 0.06, 0, 0.62 * s, 0.12, 0.62 * s),
+  ]);
+  p.push([cyl(14), age >= 3 ? A.brass : C.copper, m(0, 0.115, 0, 0.6 * s, 0.03, 0.6 * s)]);
+  p.push([
+    cyl(14),
+    byAge(age, [C.straw, C.straw, C.iron, '#8d969c']),
+    m(0, 0.13, 0, 0.5 * s, 0.02, 0.5 * s),
+  ]);
+  if (age >= 2)
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      p.push([
+        sphere(4, 3),
+        age >= 3 ? A.brass : C.ironDark,
+        m(Math.cos(a) * 0.42 * s, 0.14, Math.sin(a) * 0.42 * s, 0.025, 0.02, 0.025),
+      ]);
+    }
   // Launch tower.
-  p.push([box(), C.woodDark, m(-0.5 * s, 0.55, -0.1, 0.06, 1.0, 0.06)]);
-  p.push([box(), C.woodDark, m(-0.5 * s, 0.55, 0.12, 0.06, 1.0, 0.06)]);
+  const post = byAge(age, [C.woodDark, C.woodDark, C.ironDark, A.steel]);
+  p.push([box(), post, m(-0.5 * s, 0.55, -0.1, 0.06, 1.0, 0.06)]);
+  p.push([box(), post, m(-0.5 * s, 0.55, 0.12, 0.06, 1.0, 0.06)]);
   for (const y of [0.35, 0.7]) p.push([box(), C.copper, m(-0.42 * s, y, 0.01, 0.2, 0.04, 0.26)]);
+  if (age >= 2)
+    for (const [a, b] of [
+      [0.15, 0.5],
+      [0.5, 0.95],
+    ] as const) {
+      beam(p, post, [-0.5 * s, a, -0.1], [-0.5 * s, b, 0.12], 0.025);
+      beam(p, post, [-0.5 * s, a, 0.12], [-0.5 * s, b, -0.1], 0.025);
+    }
   p.push([cone(6), C.copper, m(-0.5 * s, 1.1, 0.01, 0.07, 0.12, 0.17)]);
-  if (docked) bird(p, shipIdForAge(age), true);
+  if (look.docked) bird(p, shipIdForAge(look.colonyAge), true);
   if (level >= 2) {
     // Chantier 11: a striped windsock for the pilots.
-    p.push([cyl(5), C.woodDark, m(0.52, 0.45, -0.38, 0.02, 0.9, 0.02)]);
+    p.push([cyl(5), post, m(0.52, 0.45, -0.38, 0.02, 0.9, 0.02)]);
     rig(p, 'sock', [0.52, 0.86, -0.38], {
       kind: 'swing',
       axis: 'y',
@@ -132,6 +166,13 @@ export function launchpad(level: number, age = 0, docked = true): Parts {
         m(0.3 + i * 0.13, 0.2, 0.5, 0.06, 0.16, 0.06),
       ]);
   }
-  flag(p, level, 0.5, 0.12, 0.35);
+  if (age >= 3) {
+    // The fuel tank, piped to the deck.
+    p.push([cyl(12), C.copper, m(-0.15, 0.3, -0.62, 0.1, 0.3, 0.1)]);
+    p.push([sphere(8, 5), C.copper, m(-0.15, 0.45, -0.62, 0.1, 0.05, 0.1)]);
+    for (const y of [0.2, 0.4]) p.push([cyl(12), A.brass, m(-0.15, y, -0.62, 0.105, 0.02, 0.105)]);
+    pipe(p, [-0.12, 0.18, -0.53], [-0.08, 0.13, -0.4], A.steel, 0.02);
+  }
+  banner(p, look, 0.5, 0.12, 0.35);
   return p;
 }
