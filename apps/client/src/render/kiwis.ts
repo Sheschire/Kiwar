@@ -1,25 +1,4 @@
-import {
-  CircleGeometry,
-  Color,
-  ConeGeometry,
-  CylinderGeometry,
-  DynamicDrawUsage,
-  Float32BufferAttribute,
-  Euler,
-  Group,
-  IcosahedronGeometry,
-  InstancedMesh,
-  Matrix4,
-  Mesh,
-  RingGeometry,
-  MeshBasicMaterial,
-  MeshStandardMaterial,
-  Quaternion,
-  SphereGeometry,
-  Vector3,
-  type BufferGeometry,
-} from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { Color, Group, Mesh, RingGeometry, MeshBasicMaterial, Vector3 } from 'three';
 import {
   createRng,
   DEPOSITS,
@@ -40,7 +19,6 @@ import {
   type Rng,
   type ShinyColor,
   type ClassId,
-  CLASS_IDS,
   type Villager,
   type VillagerId,
   seasonOf,
@@ -59,6 +37,8 @@ import { TitansView } from './kikiwiwi';
 import { DropLabels } from './dropLabels';
 import { WATER_LEVEL } from './water';
 import { bedsOf, harvestOf } from '../game/perState';
+import { ClipPlayer, type ClipId } from './anim/clips';
+import { KiwiRig } from './anim/kiwiRig';
 
 const MAX_KIWIS = 64;
 /** Path searches (A*) per frame; the other kiwis decide on the next frames. */
@@ -113,6 +93,8 @@ interface Agent {
   rhythmTimer: number;
   /** Asleep inside its home (not drawn). */
   inside: boolean;
+  /** Chantier 34: the clips it plays. */
+  player: ClipPlayer;
 }
 
 /** "+12", "+3.4", "+0,4" in French (one decimal below 10, never below 0.1). */
@@ -149,137 +131,6 @@ const RESOURCE_COLORS: Record<ResourceId, Color> = {
   juice: new Color('#d6e43a'),
 };
 
-function colored(geo: BufferGeometry, color: string, matrix: Matrix4): BufferGeometry {
-  const g = (geo.index ? geo.toNonIndexed() : geo).applyMatrix4(matrix);
-  g.deleteAttribute('uv');
-  const c = new Color(color);
-  const n = g.getAttribute('position').count;
-  const arr = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) arr.set([c.r, c.g, c.b], i * 3);
-  g.setAttribute('color', new Float32BufferAttribute(arr, 3));
-  return g;
-}
-
-const mat = (x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) =>
-  new Matrix4().compose(
-    new Vector3(x, y, z),
-    new Quaternion().setFromEuler(new Euler(rx, ry, rz)),
-    new Vector3(sx, sy, sz),
-  );
-
-/** Kiwi bird body (body + head + beak + eyes), facing +Z, feet at y = 0. */
-function createBodyGeometry(): BufferGeometry {
-  const parts = [
-    colored(new SphereGeometry(1, 12, 9), '#8a6440', mat(0, 0.2, 0, 0.19, 0.16, 0.23)),
-    colored(new SphereGeometry(1, 10, 8), '#7d5a39', mat(0, 0.27, 0.17, 0.1, 0.095, 0.1)),
-    colored(
-      new ConeGeometry(1, 1, 6),
-      '#e3c07a',
-      mat(0, 0.2, 0.36, 0.022, 0.26, 0.022, Math.PI / 2 + 0.55),
-    ),
-    colored(new SphereGeometry(1, 6, 5), '#1a120e', mat(0.06, 0.3, 0.24, 0.018, 0.018, 0.018)),
-    colored(new SphereGeometry(1, 6, 5), '#1a120e', mat(-0.06, 0.3, 0.24, 0.018, 0.018, 0.018)),
-  ];
-  const g = mergeGeometries(parts, false)!;
-  g.computeVertexNormals();
-  return g;
-}
-
-/** Class outfits, in the body's frame (merged with vertex colours, one instanced mesh each). */
-function createOutfitGeometry(cls: ClassId): BufferGeometry {
-  const halfSphere = () => new SphereGeometry(1, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2);
-  const parts: BufferGeometry[] = [];
-  switch (cls) {
-    case 'builder':
-      parts.push(colored(halfSphere(), '#f2c14e', mat(0, 0.33, 0.17, 0.105, 0.08, 0.105)));
-      parts.push(
-        colored(new CylinderGeometry(1, 1, 1, 12), '#d9a82e', mat(0, 0.335, 0.2, 0.12, 0.01, 0.13)),
-      );
-      break;
-    case 'warrior':
-      parts.push(colored(halfSphere(), '#a8a296', mat(0, 0.32, 0.17, 0.108, 0.09, 0.108)));
-      parts.push(
-        colored(new ConeGeometry(1, 1, 4), '#c0504a', mat(0, 0.43, 0.16, 0.02, 0.06, 0.02)),
-      );
-      parts.push(
-        colored(
-          new CylinderGeometry(1, 1, 1, 4),
-          '#e6e6e6',
-          mat(0.2, 0.2, 0.02, 0.012, 0.3, 0.012, 0.5, 0, 0),
-        ),
-      );
-      parts.push(
-        colored(
-          new CylinderGeometry(1, 1, 1, 4),
-          '#7a5233',
-          mat(0.2, 0.08, -0.05, 0.01, 0.08, 0.04, 0.5, 0, 0),
-        ),
-      );
-      break;
-    case 'mage':
-      parts.push(
-        colored(
-          new ConeGeometry(1, 1, 8),
-          '#6a4fb3',
-          mat(0, 0.45, 0.15, 0.075, 0.24, 0.075, -0.2, 0, 0),
-        ),
-      );
-      parts.push(
-        colored(
-          new CylinderGeometry(1, 1, 1, 12),
-          '#4a3590',
-          mat(0, 0.34, 0.17, 0.13, 0.012, 0.13),
-        ),
-      );
-      parts.push(
-        colored(new IcosahedronGeometry(1, 0), '#f2c14e', mat(0, 0.45, 0.205, 0.016, 0.016, 0.016)),
-      );
-      break;
-    case 'scout':
-      for (const side of [-1, 1]) {
-        parts.push(
-          colored(
-            new CylinderGeometry(1, 1, 1, 3),
-            '#c9c0ae',
-            mat(side * 0.2, 0.27, -0.05, 0.1, 0.012, 0.16, 0, 0, side * 0.5),
-          ),
-        );
-      }
-      parts.push(
-        colored(new SphereGeometry(1, 6, 5), '#bfe3ff', mat(0.05, 0.31, 0.24, 0.03, 0.03, 0.02)),
-      );
-      parts.push(
-        colored(new SphereGeometry(1, 6, 5), '#bfe3ff', mat(-0.05, 0.31, 0.24, 0.03, 0.03, 0.02)),
-      );
-      break;
-    case 'mayor':
-      parts.push(
-        colored(new CylinderGeometry(1, 1, 1, 12), '#2b2522', mat(0, 0.42, 0.16, 0.06, 0.13, 0.06)),
-      );
-      parts.push(
-        colored(new CylinderGeometry(1, 1, 1, 12), '#2b2522', mat(0, 0.36, 0.16, 0.1, 0.012, 0.1)),
-      );
-      parts.push(
-        colored(
-          new CylinderGeometry(1, 1, 1, 12),
-          '#c0504a',
-          mat(0, 0.38, 0.16, 0.062, 0.02, 0.062),
-        ),
-      );
-      parts.push(
-        colored(
-          new CylinderGeometry(1, 1, 1, 6),
-          '#c0504a',
-          mat(0, 0.2, 0.02, 0.2, 0.025, 0.035, 0, 0.7, 0.9),
-        ),
-      );
-      break;
-  }
-  const g = mergeGeometries(parts, false)!;
-  g.computeVertexNormals();
-  return g;
-}
-
 /**
  * The villagers: round kiwi birds that waddle between the Nest and their workplace.
  * Their positions are cosmetic (not part of the game state). All kiwis are drawn with four
@@ -287,17 +138,12 @@ function createOutfitGeometry(cls: ClassId): BufferGeometry {
  */
 export class KiwisView {
   readonly group = new Group();
-  private readonly bodies: InstancedMesh;
-  private readonly legs: InstancedMesh;
-  private readonly shadows: InstancedMesh;
-  private readonly loads: InstancedMesh;
+  /** Chantier 34: every part of every kiwi, posed from the clips. */
+  private readonly rig = new KiwiRig(MAX_KIWIS);
   private readonly agents = new Map<VillagerId, Agent>();
-  private readonly outfits = new Map<ClassId, InstancedMesh>();
   private readonly classOf = new Map<VillagerId, ClassId | null>();
   /** Villagers of the last state by id (rebuilt by `sync`, read every frame). */
   private villagers = new Map<VillagerId, Villager>();
-  /** Instances used per outfit mesh this frame (reused, not reallocated). */
-  private readonly outfitCount = new Map<InstancedMesh, number>();
   /** Path searches started this frame (`walkTo`), capped so a nightfall spreads its replans. */
   private pathsThisFrame = 0;
   private readonly ring: Mesh;
@@ -309,58 +155,9 @@ export class KiwisView {
   private drawn: Agent[] = [];
   private state: GameState | null = null;
   private paths = new Set<string>();
-  private readonly m = new Matrix4();
-  private readonly q = new Quaternion();
-  private readonly e = new Euler();
-  private readonly v = new Vector3();
-  private readonly s = new Vector3();
 
   constructor(private readonly map: FaceMap) {
-    this.bodies = new InstancedMesh(
-      createBodyGeometry(),
-      new MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: true }),
-      MAX_KIWIS,
-    );
-    this.legs = new InstancedMesh(
-      new CylinderGeometry(0.014, 0.012, 0.13, 5).translate(0, -0.065, 0),
-      new MeshStandardMaterial({ color: '#d9a35f', roughness: 0.8 }),
-      MAX_KIWIS * 2,
-    );
-    this.shadows = new InstancedMesh(
-      new CircleGeometry(0.2, 16).rotateX(-Math.PI / 2),
-      new MeshBasicMaterial({
-        color: '#2b1a24',
-        transparent: true,
-        opacity: 0.22,
-        depthWrite: false,
-      }),
-      MAX_KIWIS,
-    );
-    this.loads = new InstancedMesh(
-      new IcosahedronGeometry(0.075, 0),
-      new MeshStandardMaterial({ roughness: 0.6 }),
-      MAX_KIWIS,
-    );
-    for (const mesh of [this.bodies, this.legs, this.shadows, this.loads]) {
-      mesh.instanceMatrix.setUsage(DynamicDrawUsage);
-      mesh.frustumCulled = false;
-      mesh.count = 0;
-      this.group.add(mesh);
-    }
-    this.shadows.renderOrder = 1;
-    const outfitMaterial = new MeshStandardMaterial({
-      vertexColors: true,
-      roughness: 0.8,
-      flatShading: true,
-    });
-    for (const cls of CLASS_IDS) {
-      const mesh = new InstancedMesh(createOutfitGeometry(cls), outfitMaterial, MAX_KIWIS);
-      mesh.instanceMatrix.setUsage(DynamicDrawUsage);
-      mesh.frustumCulled = false;
-      mesh.count = 0;
-      this.outfits.set(cls, mesh);
-      this.group.add(mesh);
-    }
+    this.group.add(this.rig.group);
     this.ring = new Mesh(
       new RingGeometry(0.3, 0.4, 32).rotateX(-Math.PI / 2),
       new MeshBasicMaterial({
@@ -429,6 +226,7 @@ export class KiwisView {
       // Spread over a second, so all the kiwis do not reconsider their rhythm in one frame.
       rhythmTimer: rng.range(0, 1),
       inside: false,
+      player: new ClipPlayer(rng.range(0, 10)),
     };
   }
 
@@ -781,14 +579,11 @@ export class KiwisView {
   update(dt: number, time: number, now: number): void {
     if (!this.state) return;
     const villagers = this.villagers;
-    const outfitCount = this.outfitCount;
-    for (const mesh of this.outfits.values()) outfitCount.set(mesh, 0);
     const weak = this.state.resources.juice <= 1e-6;
     const beds = bedsOf(this.state);
     this.pathsThisFrame = 0;
     this.titans.update(dt, weak);
     this.drops.update(dt);
-    let i = 0;
     this.drawn.length = 0;
     for (const agent of this.agents.values()) {
       const villager = villagers.get(agent.id);
@@ -865,93 +660,21 @@ export class KiwisView {
         );
         continue;
       }
-      let bob = 0;
-      let roll = 0;
-      let pitch = 0;
-      let yawWobble = 0;
-      if (moving) {
-        bob = Math.abs(Math.sin(ph)) * 0.045;
-        roll = Math.sin(ph) * 0.18;
-      } else if (agent.activity === 'work') {
-        pitch = Math.max(0, Math.sin(ph * 1.6)) * 0.55; // pecking
-      } else if (agent.activity === 'build') {
-        bob = Math.abs(Math.sin(ph)) * 0.07; // hopping hammer dance
-        pitch = Math.max(0, Math.sin(ph)) * 0.35;
-      } else if (agent.activity === 'sleep') {
-        // Asleep outside: curled up, breathing.
-        roll = 1.2;
-        bob = -0.05 + Math.sin(time * 1.5 + agent.phase) * 0.008;
-      } else {
-        yawWobble = Math.sin(time * 0.8 + agent.scale * 20) * 0.5;
-        bob = Math.max(0, Math.sin(ph * 0.5)) * 0.01;
-      }
-
-      const sc = agent.scale * (0.4 + 0.6 * easeOutBack(agent.spawn));
-      const legLift = 0.13 * sc;
-      const cosH = Math.cos(agent.heading);
-      const sinH = Math.sin(agent.heading);
-      this.e.set(pitch, agent.heading + yawWobble, roll, 'YXZ');
-      this.q.setFromEuler(this.e);
-      this.v.set(agent.pos.x, agent.pos.y + legLift * 0.85 + bob, agent.pos.z);
-      this.s.set(sc, sc, sc);
-      this.m.compose(this.v, this.q, this.s);
-      this.bodies.setMatrixAt(i, this.m);
-      this.bodies.setColorAt(i, agent.tint);
-      const cls = this.classOf.get(agent.id);
-      const outfit = cls ? this.outfits.get(cls) : undefined;
-      if (outfit) {
-        const n = outfitCount.get(outfit) ?? 0;
-        outfit.setMatrixAt(n, this.m);
-        outfitCount.set(outfit, n + 1);
-      }
-
-      // Legs swing alternately.
-      for (let l = 0; l < 2; l++) {
-        const side = l === 0 ? 1 : -1;
-        const swing = moving ? Math.sin(ph + l * Math.PI) * 0.7 : 0;
-        // The hip offset turned with the heading (a rotation about Y, without allocating).
-        const hip = 0.06 * side * sc;
-        this.e.set(swing, agent.heading, 0, 'YXZ');
-        this.q.setFromEuler(this.e);
-        this.v.set(
-          agent.pos.x + hip * cosH,
-          agent.pos.y + legLift * 0.9 + bob,
-          agent.pos.z - hip * sinH,
-        );
-        this.m.compose(this.v, this.q, this.s);
-        this.legs.setMatrixAt(i * 2 + l, this.m);
-      }
-
-      // Blob shadow.
-      this.q.identity();
-      this.v.set(agent.pos.x, agent.pos.y + 0.012, agent.pos.z);
-      this.s.set(sc * (1 - bob * 2), 1, sc * (1 - bob * 2));
-      this.m.compose(this.v, this.q, this.s);
-      this.shadows.setMatrixAt(i, this.m);
-
-      // Load carried on the back.
-      if (agent.carrying) {
-        const back = -0.06 * sc;
-        this.m.compose(
-          this.v.set(
-            agent.pos.x + back * sinH,
-            agent.pos.y + 0.36 * sc + legLift * 0.85 + bob,
-            agent.pos.z + back * cosH,
-          ),
-          this.q.identity(),
-          this.s.set(sc, sc, sc),
-        );
-        this.loads.setColorAt(i, RESOURCE_COLORS[agent.carrying]);
-      } else {
-        this.m.makeScale(0, 0, 0);
-      }
-      this.loads.setMatrixAt(i, this.m);
-      i++;
+      agent.player.play(clipOf(agent.activity, moving));
+      const pose = agent.player.pose(dt, moving ? speed / WALK_SPEED : 1);
+      this.rig.draw({
+        x: agent.pos.x,
+        y: agent.pos.y,
+        z: agent.pos.z,
+        heading: agent.heading,
+        scale: agent.scale * (0.4 + 0.6 * easeOutBack(agent.spawn)),
+        pose,
+        tint: agent.tint,
+        classId: this.classOf.get(agent.id) ?? null,
+        load: agent.carrying ? RESOURCE_COLORS[agent.carrying] : null,
+      });
     }
-    for (const [mesh, n] of outfitCount) {
-      mesh.count = n;
-      mesh.instanceMatrix.needsUpdate = true;
-    }
+    this.rig.end();
     const lit = this.highlightId ? this.agents.get(this.highlightId as VillagerId) : undefined;
     const shown = !!lit && this.drawn.includes(lit);
     this.ring.visible = shown;
@@ -960,25 +683,29 @@ export class KiwisView {
       this.ring.position.set(lit.pos.x, lit.pos.y + 0.02, lit.pos.z);
       this.ring.scale.setScalar(lit.scale * pulse);
     }
-    for (const mesh of [this.bodies, this.shadows, this.loads]) {
-      mesh.count = i;
-      mesh.instanceMatrix.needsUpdate = true;
-    }
-    this.legs.count = i * 2;
-    this.legs.instanceMatrix.needsUpdate = true;
-    if (this.bodies.instanceColor) this.bodies.instanceColor.needsUpdate = true;
-    if (this.loads.instanceColor) this.loads.instanceColor.needsUpdate = true;
   }
 
   dispose(): void {
-    for (const mesh of [this.bodies, this.legs, this.shadows, this.loads, this.ring]) {
-      mesh.geometry.dispose();
-      (mesh.material as MeshStandardMaterial).dispose();
-    }
-    for (const mesh of this.outfits.values()) mesh.geometry.dispose();
+    this.rig.dispose();
+    this.ring.geometry.dispose();
+    (this.ring.material as MeshBasicMaterial).dispose();
     this.titans.dispose();
     this.drops.dispose();
-    (this.outfits.get('builder')?.material as MeshStandardMaterial | undefined)?.dispose();
+  }
+}
+
+/** The clip that shows an activity. */
+function clipOf(activity: Activity, moving: boolean): ClipId {
+  if (moving) return 'walk';
+  switch (activity) {
+    case 'work':
+      return 'peck';
+    case 'build':
+      return 'hammer';
+    case 'sleep':
+      return 'sleep';
+    default:
+      return 'idle';
   }
 }
 

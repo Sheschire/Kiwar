@@ -13,7 +13,10 @@ const isAdmin = path.endsWith('/admin') || new URLSearchParams(window.location.s
 
 /** `?sheet` (chantier 17): every building side by side, levels 1–3, for one age (`&age=`). */
 const isSheet = new URLSearchParams(window.location.search).has('sheet');
+/** `?kiwis` (chantier 34): the review sheet of the kiwis' clips, creatures and effects. */
+const isKiwiSheet = new URLSearchParams(window.location.search).has('kiwis');
 
 if (isAdmin) void import('./admin/startAdmin').then((m) => m.startAdmin());
 else if (isSheet) void import('./sheet/buildingSheet');
+else if (isKiwiSheet) void import('./sheet/kiwiSheet');
 else void import('./startGame');
