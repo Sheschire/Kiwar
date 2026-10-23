@@ -14,6 +14,14 @@ import {
 import type { ClassId } from '@kiwar/shared';
 import { CLIP_IDS, CLIPS, ClipPlayer, type ClipId } from '../render/anim/clips';
 import { KiwiRig } from '../render/anim/kiwiRig';
+import {
+  CREATURE_CLIPS,
+  CreatureRig,
+  restCreaturePose,
+  sampleCreature,
+  type CreatureClip,
+  type CreatureKind,
+} from '../render/anim/creatures';
 import { Lighting } from '../render/lighting';
 
 /**
@@ -77,6 +85,41 @@ function kiwiCells(rig: KiwiRig, only: string[] | null): SheetCell[] {
   });
 }
 
+/** Ferrets and bats: every clip at the age of Eden, then each age's look. */
+function creatureCells(rig: CreatureRig, only: string[] | null): SheetCell[] {
+  const cells: SheetCell[] = [];
+  const add = (kind: CreatureKind, clip: CreatureClip, age: number, label: string) => {
+    if (only && !only.includes(label)) return;
+    const pose = restCreaturePose();
+    let t = cells.length * 0.29;
+    cells.push({
+      label,
+      group: kind,
+      update(dt, _time, x, z) {
+        t += dt;
+        // One-shot clips replay every 2.5 s.
+        if ((clip === 'fall' || clip === 'hurt') && t > 2.5) t = 0;
+        rig.draw({
+          kind,
+          x,
+          y: kind === 'bat' ? 0.55 : 0,
+          z,
+          heading: 0.6,
+          scale: 1.7,
+          pose: sampleCreature(kind, clip, t, pose),
+          age,
+        });
+      },
+    });
+  };
+  for (const kind of ['ferret', 'bat'] as const)
+    for (const clip of CREATURE_CLIPS[kind]) add(kind, clip, 0, `${kind} ${clip}`);
+  for (const kind of ['ferret', 'bat'] as const)
+    for (let age = 1; age <= 3; age++)
+      add(kind, kind === 'ferret' ? 'run' : 'flap', age, `${kind} age ${age}`);
+  return cells;
+}
+
 function start(): void {
   const params = new URLSearchParams(window.location.search);
   const frozen = params.has('t') ? Number(params.get('t')) : null;
@@ -109,7 +152,10 @@ function start(): void {
   const rig = new KiwiRig(64);
   for (const m of rig.group.children) m.castShadow = true;
   scene.add(rig.group);
-  const cells: SheetCell[] = [...kiwiCells(rig, only)];
+  const creatures = new CreatureRig(32);
+  for (const m of creatures.group.children) m.castShadow = true;
+  scene.add(creatures.group);
+  const cells: SheetCell[] = [...kiwiCells(rig, only), ...creatureCells(creatures, only)];
 
   // Columns follow the screen's shape (three on a phone held upright).
   const aspect = window.innerWidth / Math.max(1, window.innerHeight);
@@ -134,7 +180,7 @@ function start(): void {
     return { el, at: new Vector3(spots[i]!.x, 0, spots[i]!.z + 0.42) };
   });
   const title = document.createElement('div');
-  title.textContent = 'Kiwis — clips';
+  title.textContent = 'Kiwis and creatures — clips';
   title.style.cssText =
     'position:fixed;z-index:5;top:8px;left:12px;font:600 20px Georgia,serif;color:#4a3324';
   document.body.append(title);
@@ -175,6 +221,7 @@ function start(): void {
     time += dt;
     cells.forEach((c, i) => c.update(dt, time, spots[i]!.x, spots[i]!.z));
     rig.end();
+    creatures.end();
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   };

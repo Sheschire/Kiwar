@@ -1,14 +1,12 @@
+import type { Color } from 'three';
 import {
   AdditiveBlending,
   CircleGeometry,
-  Color,
   ConeGeometry,
   CylinderGeometry,
-  DynamicDrawUsage,
   Euler,
   Group,
   IcosahedronGeometry,
-  InstancedMesh,
   Matrix4,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -22,6 +20,7 @@ import { CLASS_IDS, type ClassId } from '@kiwar/shared';
 import { colored, mat, merged } from './geometry';
 import { PROP_IDS, type Pose, type PropId } from './pose';
 import { PROPS } from './props';
+import { Part } from './part';
 
 /**
  * Chantier 34: the kiwi bird as a set of instanced parts — body, head, two wings, two legs,
@@ -205,32 +204,6 @@ export interface KiwiDraw {
   classId: ClassId | null;
   /** Colour of the load on the back, or none. */
   load: Color | null;
-}
-
-class Part {
-  readonly mesh: InstancedMesh;
-  count = 0;
-  constructor(geometry: BufferGeometry, material: Material, max: number, colors = false) {
-    this.mesh = new InstancedMesh(geometry, material, max);
-    this.mesh.instanceMatrix.setUsage(DynamicDrawUsage);
-    this.mesh.frustumCulled = false;
-    this.mesh.count = 0;
-    this.mesh.visible = false;
-    if (colors) this.mesh.setColorAt(0, new Color(1, 1, 1));
-  }
-  push(m: Matrix4, color?: Color): void {
-    if (this.count >= this.mesh.instanceMatrix.count) return;
-    this.mesh.setMatrixAt(this.count, m);
-    if (color) this.mesh.setColorAt(this.count, color);
-    this.count++;
-  }
-  end(): void {
-    this.mesh.count = this.count;
-    this.mesh.visible = this.count > 0;
-    this.mesh.instanceMatrix.needsUpdate = true;
-    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
-    this.count = 0;
-  }
 }
 
 export class KiwiRig {

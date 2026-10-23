@@ -1,7 +1,5 @@
-import type { BufferGeometry } from 'three';
 import {
   Color,
-  ConeGeometry,
   DynamicDrawUsage,
   Group,
   InstancedMesh,
@@ -11,7 +9,6 @@ import {
   SphereGeometry,
   Vector3,
 } from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   createRng,
   getTile,
@@ -27,18 +24,30 @@ import {
   type GameState,
   type Rng,
   type WaveReport,
+  ageOf,
 } from '@kiwar/shared';
 import { worldPosition } from './terrain';
+import {
+  CreatureRig,
+  restCreaturePose,
+  sampleCreature,
+  type CreatureClip,
+  type CreatureKind,
+  type CreaturePose,
+} from './anim/creatures';
 
 const MAX = 14;
 const MAX_SHOTS = 24;
 /** Length of the show, in seconds. */
 const SHOW_S = 9;
 /** Predators are bigger than kiwis. */
-const SIZE = 1.9;
+const SIZE = 1.5;
+/** Seconds of the approach, then of mischief at the building for those who got through. */
+const RUN = 4.2;
+const LINGER = 1.6;
 
 interface Actor {
-  kind: 'ferret' | 'bat';
+  kind: CreatureKind;
   from: Vector3;
   to: Vector3;
   /** Start delay (s). */
@@ -46,41 +55,13 @@ interface Actor {
   /** Driven off by the defenders at this time (s), or never. */
   hitAt: number;
   phase: number;
+  pose: CreaturePose;
 }
 
 interface Shot {
   from: Vector3;
   actor: number;
   t: number;
-}
-
-function ferretGeometry(): BufferGeometry {
-  const body = new SphereGeometry(1, 8, 6);
-  body.scale(0.32, 0.11, 0.11);
-  const head = new SphereGeometry(1, 8, 6);
-  head.scale(0.1, 0.09, 0.09);
-  head.translate(0.34, 0.04, 0);
-  const tail = new ConeGeometry(0.05, 0.3, 6);
-  tail.rotateZ(Math.PI / 2);
-  tail.translate(-0.42, 0.03, 0);
-  const g = mergeGeometries([body.toNonIndexed(), head.toNonIndexed(), tail.toNonIndexed()])!;
-  g.translate(0, 0.11, 0);
-  return g;
-}
-
-function batGeometry(): BufferGeometry {
-  const body = new SphereGeometry(1, 8, 6);
-  body.scale(0.09, 0.08, 0.13);
-  const wing = new ConeGeometry(0.14, 0.42, 3);
-  const left = wing.clone();
-  left.rotateZ(Math.PI / 2);
-  left.scale(1, 1, 0.25);
-  left.translate(-0.24, 0, 0);
-  const right = wing.clone();
-  right.rotateZ(-Math.PI / 2);
-  right.scale(1, 1, 0.25);
-  right.translate(0.24, 0, 0);
-  return mergeGeometries([body.toNonIndexed(), left.toNonIndexed(), right.toNonIndexed()])!;
 }
 
 /** Middle of each sector, as an azimuth from the front. */
@@ -97,14 +78,18 @@ const SECTOR_AZIMUTH: Record<SectorId, number> = {
  */
 export class PredatorShow {
   readonly group = new Group();
-  private readonly ferrets: InstancedMesh;
-  private readonly bats: InstancedMesh;
+  /** Chantier 34: the predators, posed by their clips. */
+  private readonly creatures = new CreatureRig(MAX * 2);
   private readonly shots: InstancedMesh;
+  /** Look of the predators: the colony's age. */
+  private age = 0;
   private actors: Actor[] = [];
   private shotsLive: Shot[] = [];
   private turrets: { pos: Vector3; air: boolean }[] = [];
   private time = Infinity;
   private shotTimer = 0;
+  /** Creatures were drawn last frame (to clear them once the show ends). */
+  private shown = false;
   private rng: Rng = createRng('show');
   private readonly m = new Matrix4();
   private readonly q = new Quaternion();
@@ -115,16 +100,7 @@ export class PredatorShow {
   onShot: ((x: number, z: number) => void) | null = null;
 
   constructor(private readonly map: FaceMap) {
-    this.ferrets = new InstancedMesh(
-      ferretGeometry(),
-      new MeshStandardMaterial({ color: '#7a5a3c', roughness: 0.9, flatShading: true }),
-      MAX,
-    );
-    this.bats = new InstancedMesh(
-      batGeometry(),
-      new MeshStandardMaterial({ color: '#3b2f3f', roughness: 0.8, flatShading: true }),
-      MAX,
-    );
+    this.group.add(this.creatures.group);
     this.shots = new InstancedMesh(
       new SphereGeometry(0.06, 6, 4),
       new MeshStandardMaterial({
@@ -134,7 +110,7 @@ export class PredatorShow {
       }),
       MAX_SHOTS,
     );
-    for (const mesh of [this.ferrets, this.bats, this.shots]) {
+    for (const mesh of [this.shots]) {
       mesh.instanceMatrix.setUsage(DynamicDrawUsage);
       mesh.count = 0;
       mesh.frustumCulled = false;
@@ -153,6 +129,7 @@ export class PredatorShow {
   /** Starts the show of a wave that has just struck. */
   play(state: GameState, report: WaveReport): void {
     this.rng = createRng(`show/${report.id}`);
+    this.age = ageOf(state);
     const rng = this.rng;
     // Chantier 12: they come by sector, mostly from the alien planet (the front).
     const ramparts = rampartSectors(this.map);
@@ -209,6 +186,7 @@ export class PredatorShow {
           delay: rng.range(0, 1.6),
           hitAt: stopped ? rng.range(2.2, 4.6) : Infinity,
           phase: rng.range(0, Math.PI * 2),
+          pose: restCreaturePose(),
         });
       }
     };
@@ -219,31 +197,60 @@ export class PredatorShow {
     this.shotTimer = 0;
   }
 
-  /** Where an actor is at time `t` (s since the start); returns its visibility (0–1). */
-  private place(a: Actor, t: number, out: Vector3): number {
-    const RUN = 4.2;
+  /**
+   * Where an actor is at time `t` (s since the start), which way it faces and what it does;
+   * returns its visibility (0–1).
+   */
+  private place(
+    a: Actor,
+    t: number,
+    out: Vector3,
+    act: { clip: CreatureClip; at: number; back: boolean },
+  ): number {
     const local = t - a.delay;
     if (local < 0) return 0;
     const approach = (x: number) => Math.min(1, Math.max(0, x / RUN));
+    const run: CreatureClip = a.kind === 'ferret' ? 'run' : 'flap';
     let u: number;
     let fade = 1;
+    let lift = 1;
+    act.back = false;
+    act.at = local + a.phase;
     if (t < a.hitAt) {
       u = approach(local);
-      // Those who got through linger, then run off with their loot.
-      if (local > RUN + 1.5) u = Math.max(0, 1 - (local - RUN - 1.5) / 2.5);
+      act.clip = run;
+      if (a.kind === 'bat' && u > 0.45) act.clip = 'dive';
+      if (local > RUN) {
+        // Got through: a moment of mischief at the building, then off with the loot.
+        const since = local - RUN;
+        act.clip = a.kind === 'ferret' ? (a.phase > Math.PI ? 'bite' : 'hit') : 'spit';
+        act.at = since;
+        if (since > LINGER) {
+          u = Math.max(0, 1 - (since - LINGER) / 2.5);
+          act.clip = run;
+          act.back = true;
+          act.at = local + a.phase;
+        }
+      }
     } else {
-      // Driven off: they turn tail and fade.
+      // Hit by the defenders: flinches, falls and fades where it stands.
       const since = t - a.hitAt;
-      u = approach(a.hitAt - a.delay) * (1 - Math.min(1, since / 1.5));
-      fade = 1 - Math.min(1, since / 1.2);
+      u = approach(a.hitAt - a.delay);
+      act.clip = since < 0.45 ? 'hurt' : 'fall';
+      act.at = since < 0.45 ? since : since - 0.45;
+      fade = 1 - Math.min(1, Math.max(0, since - 0.9) / 1);
+      // Bats drop to the ground.
+      lift = 1 - Math.min(1, Math.max(0, since - 0.3) / 0.7);
     }
     out.lerpVectors(a.from, a.to, u);
+    const ground = this.top(out.x, out.z);
     if (a.kind === 'ferret') {
-      out.y = this.top(out.x, out.z) + Math.abs(Math.sin(t * 14 + a.phase)) * 0.05;
+      out.y = ground;
     } else {
-      // Bats glide high, then dive at the target.
-      const dive = Math.sin(u * Math.PI * 0.5);
-      out.y = this.top(out.x, out.z) + 4.5 - dive * 3.6 + Math.sin(t * 3 + a.phase) * 0.2;
+      // Bats glide high, then dive at the target, then hover over it.
+      const dive = Math.sin(Math.min(1, u) * Math.PI * 0.5);
+      const hover = 4.5 - dive * 3.6 + Math.sin(t * 3 + a.phase) * 0.2;
+      out.y = ground + 0.15 + (hover - 0.15) * lift;
     }
     const end = Math.min(1, Math.max(0, SHOW_S - t));
     return Math.max(0, Math.min(fade, end));
@@ -251,40 +258,39 @@ export class PredatorShow {
 
   update(dt: number): void {
     if (!this.playing) {
-      if (this.ferrets.count || this.bats.count || this.shots.count) {
-        this.ferrets.count = this.bats.count = this.shots.count = 0;
+      if (this.shown) {
+        this.shown = false;
+        this.creatures.end();
+        this.shots.count = 0;
       }
       return;
     }
+    this.shown = true;
     this.time += dt;
     const t = this.time;
-    let nf = 0;
-    let nb = 0;
     const positions: (Vector3 | null)[] = [];
+    const act = { clip: 'run' as CreatureClip, at: 0, back: false };
     for (const a of this.actors) {
       const p = new Vector3();
-      const k = this.place(a, t, p);
-      positions.push(k > 0.02 ? p : null);
+      const k = this.place(a, t, p, act);
+      positions.push(k > 0.02 && t < a.hitAt ? p : null);
       if (k <= 0.02) continue;
-      // Face the direction of travel.
-      const dir = this.v.subVectors(a.to, a.from).setY(0).normalize();
-      const angle = Math.atan2(-dir.z, dir.x);
-      this.q.setFromAxisAngle(this.up, angle);
-      if (a.kind === 'ferret') {
-        this.s.setScalar(k * SIZE);
-        this.m.compose(p, this.q, this.s);
-        this.ferrets.setMatrixAt(nf++, this.m);
-      } else {
-        const flap = 0.5 + 0.5 * Math.abs(Math.sin(t * 16 + a.phase));
-        this.s.set(k * SIZE * (0.6 + 0.5 * flap), k * SIZE, k * SIZE);
-        this.m.compose(p, this.q, this.s);
-        this.bats.setMatrixAt(nb++, this.m);
-      }
+      // Face the direction of travel (back home when leaving).
+      let heading = Math.atan2(a.to.x - a.from.x, a.to.z - a.from.z);
+      if (act.back) heading += Math.PI;
+      this.creatures.draw({
+        kind: a.kind,
+        x: p.x,
+        y: p.y,
+        z: p.z,
+        heading,
+        scale: SIZE * (0.6 + 0.4 * k),
+        pose: sampleCreature(a.kind, act.clip, act.at, a.pose),
+        age: this.age,
+        fade: k,
+      });
     }
-    this.ferrets.count = nf;
-    this.bats.count = nb;
-    this.ferrets.instanceMatrix.needsUpdate = true;
-    this.bats.instanceMatrix.needsUpdate = true;
+    this.creatures.end();
 
     // The turrets fire at the predators they can reach.
     this.shotTimer -= dt;
@@ -305,7 +311,10 @@ export class PredatorShow {
       s.t += dt / 0.6;
       const target = positions[s.actor];
       if (!target || s.t >= 1) return false;
-      this.v.lerpVectors(s.from, target, s.t);
+      // Aim at the body, not the feet.
+      this.v.copy(target);
+      this.v.y += 0.25;
+      this.v.lerpVectors(s.from, this.v, s.t);
       this.v.y += Math.sin(s.t * Math.PI) * 0.8;
       this.m.makeTranslation(this.v.x, this.v.y, this.v.z);
       this.shots.setMatrixAt(ns++, this.m);
@@ -316,7 +325,7 @@ export class PredatorShow {
   }
 
   dispose(): void {
-    for (const mesh of [this.ferrets, this.bats, this.shots]) {
+    for (const mesh of [this.shots]) {
       mesh.geometry.dispose();
       (mesh.material as MeshStandardMaterial).dispose();
     }
