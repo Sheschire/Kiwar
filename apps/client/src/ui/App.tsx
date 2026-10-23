@@ -133,6 +133,9 @@ export function App() {
         actions.toggleLevels();
       } else if ((e.key === 'o' || e.key === 'O') && !isTyping(e)) {
         actions.toggleLogistics();
+      } else if ((e.key === 'r' || e.key === 'R') && !isTyping(e)) {
+        // Chantier 35: turns the big building being placed.
+        actions.rotatePlacement();
       } else if (e.key === 'Escape') {
         const ui = uiStore.getState();
         if (ui.planetCard !== null) actions.showPlanetCard(null);

@@ -25,7 +25,7 @@ export class AlliesView {
       .map(
         (a) =>
           `${a.owner}|${a.kiwiIndex}|${a.face}|${a.params.biome}|` +
-          a.buildings.map((b) => `${b.type}${b.level}@${b.q},${b.r}`).join(','),
+          a.buildings.map((b) => `${b.type}${b.level}@${b.q},${b.r}/${b.rot ?? ''}`).join(','),
       )
       .join(';');
     if (key === this.key) return;

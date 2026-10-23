@@ -54,7 +54,8 @@ class MinHeap<T> {
 
 /**
  * A* over the hex tiles for the (purely cosmetic) villager movement. Rays and player paths are
- * cheaper so kiwis naturally use them. The goal tile is always enterable (wells stand in juice pools).
+ * cheaper so kiwis naturally use them. The goal tile is always enterable (wells stand in juice pools,
+ * the monument in its walls).
  */
 export function findPath(
   map: FaceMap,
@@ -62,6 +63,7 @@ export function findPath(
   to: Hex,
   paths: ReadonlySet<string> = new Set(),
   season: Season = 'spring',
+  blocked?: ReadonlySet<string>,
 ): Hex[] | null {
   const goal = hexKey(to);
   const start = hexKey(from);
@@ -91,13 +93,10 @@ export function findPath(
       const nk = hexKey(n);
       // Same costs as the simulation (snow, buried groves); an unwalkable goal is reached anyway.
       const biome = map.params.biome;
-      const walk = tileWalkCost(
-        tile.type,
-        paths.has(nk),
-        season,
-        biome,
-        isFlooded(tile, biome, season),
-      );
+      // Chantier 35: big buildings are walked around (the shared occupancy's walls).
+      const walk = blocked?.has(nk)
+        ? Infinity
+        : tileWalkCost(tile.type, paths.has(nk), season, biome, isFlooded(tile, biome, season));
       if (walk === Infinity && nk !== goal) continue;
       const step = walk === Infinity ? 1 : walk;
       const g = cost.get(ck)! + step;

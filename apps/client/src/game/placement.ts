@@ -1,6 +1,11 @@
 import {
+  buildableTiles,
   buildLock,
   catchmentPlan,
+  coveredHarvest,
+  footprintHexes,
+  footprintOf,
+  rotationsOf,
   getTile,
   HARVESTS,
   hexKey,
@@ -20,8 +25,35 @@ export function placementError(
   map: FaceMap,
   type: BuildingType,
   tile: Tile,
+  rot = 0,
 ): CommandError | null {
-  return buildLock(game, type) ?? siteError(game, map, type, tile);
+  return buildLock(game, type) ?? siteError(game, map, type, tile, rot);
+}
+
+/**
+ * Chantier 35: what a big building placed there would take away — the harvested deposits it
+ * covers (their harvest is lost) and the paths under its covered tiles (refunded).
+ */
+export function placementCover(
+  game: GameState,
+  type: BuildingType,
+  tile: Tile,
+  rot: number,
+): { harvested: number; paths: number } {
+  if (footprintOf(type) === 1) return { harvested: 0, paths: 0 };
+  const paved = new Set(game.paths);
+  const covered = footprintHexes(type, tile.q, tile.r, rot).slice(1);
+  return {
+    harvested: coveredHarvest(game, type, tile.q, tile.r, rot).length,
+    paths: covered.filter((h) => paved.has(hexKey(h))).length,
+  };
+}
+
+/** Chantier 35: the first orientation with somewhere to go (the placement starts there). */
+export function firstRotation(game: GameState, map: FaceMap, type: BuildingType): number | null {
+  for (const rot of rotationsOf(type))
+    if (buildableTiles(game, map, type, rot).length > 0) return rot;
+  return null;
 }
 
 export interface PlacementPlan {

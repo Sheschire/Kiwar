@@ -172,6 +172,9 @@ export class SelectionView {
     MAX_ZONES,
   );
   private readonly contested = plannedMesh('#3b3632', 0.8, MAX_ZONES, 0.62);
+  /** Chantier 35: the selected building's covered tiles, and a cramped one's blockers. */
+  private readonly footprint = plannedMesh('#ffd24a', 0.55, 7, 0.78, 0.9);
+  private readonly blockers = plannedMesh('#ff5a4a', 0.7, 6, 0, 0.84);
 
   constructor() {
     this.zones.count = 0;
@@ -206,6 +209,8 @@ export class SelectionView {
       this.plannedRim,
       this.zones,
       this.contested,
+      this.footprint,
+      this.blockers,
     );
   }
 
@@ -261,6 +266,12 @@ export class SelectionView {
     for (let i = 0; i < this.zones.count; i++) this.zones.setColorAt(i, c.set(colors[i]!));
     if (this.zones.instanceColor) this.zones.instanceColor.needsUpdate = true;
     placeTiles(this.contested, contested, 0.045);
+  }
+
+  /** Chantier 35: the footprint of the selected big building, and what blocks it (red). */
+  setFootprint(tiles: readonly Tile[], blockers: readonly Tile[]): void {
+    placeTiles(this.footprint, tiles, 0.03);
+    placeTiles(this.blockers, blockers, 0.032);
   }
 
   setHover(tile: Tile | null): void {

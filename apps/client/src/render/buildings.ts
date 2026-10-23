@@ -36,6 +36,7 @@ import {
 import { DropLabels } from './dropLabels';
 import { activityOf, BuildingLife } from './buildingLife';
 import { worldPosition } from './terrain';
+import { footprintFrame } from './footprintFrame';
 import { WATER_LEVEL } from './water';
 import { LevelBadges } from './levelBadges';
 import { SignsView, type SignSpot } from './signs';
@@ -168,11 +169,19 @@ export class BuildingsView {
     return tile.type === 'juice' ? tile.height + WATER_LEVEL - 0.08 : tile.height;
   }
 
-  private placeAt(obj: Object3D, q: number, r: number, variant = 0): void {
-    const p = worldPosition({ q, r });
-    obj.position.set(p.x, this.baseY(q, r), p.z);
-    // Buildings face roughly towards the heart, with a little variation.
-    obj.rotation.y = Math.atan2(p.x, p.z) + Math.PI + (variant - 0.5) * 0.5;
+  /**
+   * Buildings face roughly towards the heart, with a little variation; chantier 35: a big one
+   * stands at the centre of its footprint (`footprintFrame`).
+   */
+  private placeAt(
+    obj: Object3D,
+    type: BuildingType,
+    at: { q: number; r: number; rot?: number; cramped?: true },
+    variant = 0,
+  ): void {
+    const f = footprintFrame(this.map, type, at, variant);
+    obj.position.set(f.x, f.y, f.z);
+    obj.rotation.y = f.angle;
   }
 
   /** Synchronises meshes with the game state (cheap when nothing changed). */
@@ -182,7 +191,11 @@ export class BuildingsView {
     const away = (id: string) =>
       state.expeditions.some((e) => e.launchpadId === id && e.status !== 'done');
     const sig =
-      state.buildings.map((b) => `${b.id}:${b.level}:${away(b.id) ? 1 : 0}`).join(',') +
+      state.buildings
+        .map(
+          (b) => `${b.id}:${b.level}:${away(b.id) ? 1 : 0}:${b.rot ?? ''}${b.cramped ? 'c' : ''}`,
+        )
+        .join(',') +
       '|' +
       state.queue.map((i) => `${i.id}:${i.startedAt ?? '-'}`).join(',');
     const lit = litBuildings(state);
@@ -316,7 +329,7 @@ export class BuildingsView {
     g.add(mesh);
     this.life.attach(b.id, g, model, this.material);
     const tile = getTile(this.map, b);
-    this.placeAt(g, b.q, b.r, tile?.variant ?? 0.5);
+    this.placeAt(g, b.type, b, tile?.variant ?? 0.5);
     this.meshes.set(b.id, g);
     this.group.add(g);
     return g;
@@ -360,7 +373,21 @@ export class BuildingsView {
     const g = new Group();
     g.userData = { started, item, q: item.q, r: item.r };
     const tile = getTile(this.map, item);
-    this.placeAt(g, item.q, item.r, tile?.variant ?? 0.5);
+    // A new building's site covers its footprint; other works stand on their building.
+    const on =
+      item.kind === 'build'
+        ? {
+            q: item.q,
+            r: item.r,
+            rot: item.rot,
+            ...(item.rot === undefined ? { cramped: true as const } : {}),
+          }
+        : (this.state?.buildings.find((b) => b.id === item.buildingId) ?? {
+            q: item.q,
+            r: item.r,
+            cramped: true as const,
+          });
+    this.placeAt(g, item.buildingType, on, tile?.variant ?? 0.5);
     // Clearing a stump: only the stake, the stump itself is the site.
     if (!started || item.kind === 'clear') {
       const stake = new Mesh(stakeGeometry(), this.material);

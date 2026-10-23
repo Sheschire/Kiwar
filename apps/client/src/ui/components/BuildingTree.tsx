@@ -16,6 +16,7 @@ import {
   nestDef,
   type BuildingType,
   type GameState,
+  footprintOf,
 } from '@kiwar/shared';
 import { actions } from '../actions';
 import { Icon } from '../iconSet';
@@ -23,7 +24,12 @@ import { BuildingThumb } from './BuildingThumb';
 import { useT, useUi, type Translate } from '../store';
 import { Cost } from './Cost';
 import { LevelStats } from './StatChanges';
-import { placementError, placementPlan, type PlacementPlan } from '../../game/placement';
+import {
+  placementCover,
+  placementError,
+  placementPlan,
+  type PlacementPlan,
+} from '../../game/placement';
 import { formatNumber } from '../../i18n/i18n';
 
 /** Chantier 11: every building by family, its levels, what unlocks it, and "Place". */
@@ -189,10 +195,14 @@ export function PlacingBanner() {
   const pinned = useUi((s) => s.placingPinned);
   const game = useUi((s) => (s.placing && s.placingTile ? s.slowGame : null));
   const map = useUi((s) => s.map);
+  const rot = useUi((s) => s.placingRot);
   if (!placing) return null;
   // Chantier 16: what the ghost's tile would give, or why it cannot go there.
-  const error = tile && game && map ? placementError(game, map, placing, tile) : null;
+  const error = tile && game && map ? placementError(game, map, placing, tile, rot) : null;
   const plan = tile && game && map && !error ? placementPlan(game, map, placing, tile) : null;
+  // Chantier 35: a big building turns, and says what it covers.
+  const turns = footprintOf(placing) === 3;
+  const cover = tile && game && !error ? placementCover(game, placing, tile, rot) : null;
   const touch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
   return (
     <div
@@ -215,6 +225,15 @@ export function PlacingBanner() {
           <span class="small warn">{t(`errors.${error}`)}</span>
         ) : plan ? (
           <PlanSummary plan={plan} type={placing} game={game!} />
+        ) : cover && (cover.harvested > 0 || cover.paths > 0) ? (
+          <>
+            {cover.harvested > 0 && (
+              <span class="small warn">{t('plans.coversHarvest', { count: cover.harvested })}</span>
+            )}
+            {cover.paths > 0 && (
+              <span class="small muted">{t('plans.coversPaths', { count: cover.paths })}</span>
+            )}
+          </>
         ) : (
           <>
             <span class="small muted">
@@ -222,10 +241,27 @@ export function PlacingBanner() {
             </span>
             {HARVESTS[placing] && <span class="small muted">{t('plans.placingLogistics')}</span>}
             {isTurret(placing) && <span class="small muted">{t('plans.placingTurret')}</span>}
+            {footprintOf(placing) > 1 && (
+              <span class="small muted">
+                {t(turns ? 'plans.placingBig' : 'plans.placingHuge', {
+                  count: footprintOf(placing),
+                })}
+              </span>
+            )}
           </>
         )}
       </div>
       <div class="placing-actions">
+        {turns && (
+          <button
+            class="btn"
+            title={t('plans.turnHint')}
+            aria-label={t('plans.turnHint')}
+            onClick={() => actions.rotatePlacement()}
+          >
+            {t('plans.turn')}
+          </button>
+        )}
         {pinned && tile && !error && (
           <button class="btn btn-primary" onClick={() => actions.confirmPlacement()}>
             {t('plans.buildHere')}

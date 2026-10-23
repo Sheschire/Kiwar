@@ -1,5 +1,5 @@
 import {
-  buildableTiles,
+  footprintOf,
   buildingAt,
   canCollect,
   hexToPixel,
@@ -22,6 +22,7 @@ import {
   type Tile,
 } from '@kiwar/shared';
 import type { GameController } from '../game/GameController';
+import { firstRotation, placementError } from '../game/placement';
 import type { GameRenderer } from '../render/GameRenderer';
 import { saveQualityChoice, type QualityChoice } from '../render/quality';
 import { formatNumber } from '../i18n/i18n';
@@ -148,7 +149,9 @@ export const actions = {
   startPlacing(type: BuildingType): void {
     const { game, map } = uiStore.getState();
     if (!game || !map) return;
-    if (buildableTiles(game, map, type).length === 0) {
+    // Chantier 35: a big building starts with an orientation that fits somewhere.
+    const rot = firstRotation(game, map, type);
+    if (rot === null) {
       pushToast('info', 'plans.noTile');
       return;
     }
@@ -157,6 +160,7 @@ export const actions = {
       placing: type,
       placingTile: null,
       placingPinned: false,
+      placingRot: rot,
       modal: 'none',
       selectedTile: null,
     });
@@ -168,6 +172,24 @@ export const actions = {
   },
   toggleLogistics(): void {
     uiStore.setState((s) => ({ showLogistics: !s.showLogistics }));
+  },
+  /** Chantier 35: a big building chosen in a tile's sheet — the ghost waits there to turn. */
+  placeFrom(type: BuildingType, tile: Tile, rot: number): void {
+    if (uiStore.getState().pathMode) actions.setPathMode(false);
+    uiStore.setState({
+      placing: type,
+      placingTile: tile,
+      placingPinned: true,
+      placingRot: rot,
+      modal: 'none',
+      selectedTile: null,
+    });
+  },
+  /** Chantier 35: turns the triangle being placed (key R, "Turn" button). */
+  rotatePlacement(): void {
+    const s = uiStore.getState();
+    if (!s.placing || footprintOf(s.placing) !== 3) return;
+    uiStore.setState({ placingRot: (s.placingRot + 1) % 6 });
   },
   stopPlacing(): void {
     uiStore.setState({ placing: null, placingTile: null, placingPinned: false });
@@ -187,10 +209,16 @@ export const actions = {
   },
   /** A tap while placing: builds on a valid tile (then shows its site), ignores the others. */
   placeAt(tile: Tile): void {
-    const { game, map, placing } = uiStore.getState();
+    const { game, map, placing, placingRot: rot } = uiStore.getState();
     if (!game || !map || !placing) return;
-    if (!buildableTiles(game, map, placing).some((t) => t.q === tile.q && t.r === tile.r)) return;
-    const ok = actions.dispatch({ type: 'build', buildingType: placing, q: tile.q, r: tile.r });
+    if (placementError(game, map, placing, tile, rot) !== null) return;
+    const ok = actions.dispatch({
+      type: 'build',
+      buildingType: placing,
+      q: tile.q,
+      r: tile.r,
+      ...(footprintOf(placing) === 3 ? { rot } : {}),
+    });
     const done = { placing: null, placingTile: null, placingPinned: false };
     uiStore.setState(ok ? { ...done, selectedTile: tile } : done);
   },

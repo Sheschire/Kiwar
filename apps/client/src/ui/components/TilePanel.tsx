@@ -67,6 +67,9 @@ import {
   stardustOf,
   waitingForBuilder,
   meteorAt,
+  footprintOf,
+  getBuilding,
+  rotationsOf,
 } from '@kiwar/shared';
 import { bedsOf, harvestOf, idleVillagers } from '../derived';
 import { NestReserves, ReserveSection } from './ReserveInfo';
@@ -308,6 +311,7 @@ function BuildingSection({
         <span class="badge">{t('common.levelShort', { level: b.level })}</span>
       </div>
       <p class="muted small">{t(`buildings.${b.type}.desc`)}</p>
+      {b.cramped && <p class="small warn">{t('building.cramped')}</p>}
       {b.damaged && <RepairBox game={game} map={map} b={b} now={now} t={t} />}
 
       {slots > 0 && (
@@ -596,11 +600,18 @@ function BuildOption({
   const preview: Record<string, number> = {};
   for (const id of RESOURCE_IDS)
     preview[id] = (lvl1.production?.[id] ?? 0) * efficiency * climate[id];
-  const error = validateCommand(
-    game,
-    { type: 'build', buildingType: type, q: tile.q, r: tile.r },
-    { now, map },
-  );
+  // Chantier 35: a big building takes the first orientation that fits here.
+  const tries = rotationsOf(type).map((rot) => ({
+    rot,
+    error: validateCommand(
+      game,
+      { type: 'build', buildingType: type, q: tile.q, r: tile.r, rot },
+      { now, map },
+    ),
+  }));
+  const fit = tries.find((x) => x.error === null);
+  const error = fit ? null : tries[0]!.error;
+  const big = footprintOf(type) > 1;
   return (
     <div class="build-option">
       <div class="build-option-head">
@@ -632,10 +643,12 @@ function BuildOption({
           disabled={error !== null}
           title={error ? t(`errors.${error}`) : undefined}
           onClick={() =>
-            actions.dispatch({ type: 'build', buildingType: type, q: tile.q, r: tile.r })
+            big
+              ? actions.placeFrom(type, tile, fit?.rot ?? 0)
+              : actions.dispatch({ type: 'build', buildingType: type, q: tile.q, r: tile.r })
           }
         >
-          <HammerIcon size={18} /> {t('tile.build')}
+          <HammerIcon size={18} /> {t(big ? 'tile.place' : 'tile.build')}
         </button>
       </div>
       {error && error !== 'notEnoughResources' && (
@@ -736,8 +749,14 @@ export function TilePanel() {
   const thumb = useThumbLayout();
   if (!tile || !game || !map) return null;
 
-  const building = buildingAt(game, tile.q, tile.r);
-  const site = queuedBuildAt(game, tile.q, tile.r);
+  // Chantier 35: the room a cramped building reserved for its upgrade shows that building.
+  const held = queuedBuildAt(game, tile.q, tile.r);
+  const building =
+    buildingAt(game, tile.q, tile.r) ??
+    (held && held.kind !== 'build' && held.buildingId
+      ? getBuilding(game, held.buildingId)
+      : undefined);
+  const site = held?.kind === 'build' ? held : undefined;
   const obstacle = obstacleAt(game, tile.q, tile.r);
   // Chantier 15: nothing is built on a meteorite crater (a post of its own).
   const free = !building && !site && !obstacle && !meteorAt(game, tile.q, tile.r);

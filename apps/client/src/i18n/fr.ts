@@ -188,6 +188,7 @@ export const fr: Dict = {
     goodFor: 'Idéal pour',
     nothing: 'Rien ne peut être construit ici.',
     build: 'Construire',
+    place: 'Placer…',
     rayBonus: 'Près d’un rayon : −15 % de durée',
     underConstruction: 'En construction',
     queued: 'En attente dans la file',
@@ -263,6 +264,8 @@ export const fr: Dict = {
   },
   building: {
     trainees: 'En formation',
+    cramped:
+      'À l’étroit : il n’occupe qu’une tuile. Sa prochaine amélioration l’étend sur les tuiles libres autour (en rouge : ce qui gêne).',
     noTrainee: 'Personne en cours. Ouvrez la fiche d’un kiwi pour le former.',
     chooseKiwi: 'Choisir un kiwi',
     workers: 'Ouvriers',
@@ -1758,6 +1761,13 @@ export const fr: Dict = {
       'Orange : le front, face à la planète alien (la plupart des prédateurs) · jaune : les flancs.',
     placingLogistics:
       'Vert : trajets courts jusqu’à un dépôt (récolte rapide) · orange : trajets longs.',
+    placingBig:
+      'Prend {count} tuiles — R ou « Tourner » pour le pivoter. Les kiwis le contournent.',
+    placingHuge: 'Prend {count} tuiles : les kiwis le contournent.',
+    turn: 'Tourner',
+    turnHint: 'Tourner le bâtiment (R)',
+    coversHarvest: 'Couvre {count} tuile(s) de gisement récoltée(s) : cette récolte est perdue.',
+    coversPaths: 'Recouvre {count} tuile(s) de chemin (fibre rendue).',
     button: 'Plans : bâtiments et recherche',
     title: 'Plans',
     buildings: 'Bâtiments',

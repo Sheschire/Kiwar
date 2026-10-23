@@ -132,6 +132,8 @@ export interface UiState {
    */
   placingTile: Tile | null;
   placingPinned: boolean;
+  /** Chantier 35: orientation (0–5) of a 3-tile footprint being placed (R or "Turn"). */
+  placingRot: number;
   /** Level badges above every building, whatever the zoom. */
   showLevels: boolean;
   /** Chantier 12: logistics overlay (efficiency above every producer). */
@@ -273,6 +275,7 @@ export const uiStore = createStore<UiState>(() => ({
   placing: null,
   placingTile: null,
   placingPinned: false,
+  placingRot: 0,
   showLevels: loadShowLevels(),
   showLogistics: false,
   audio: DEFAULT_SETTINGS,

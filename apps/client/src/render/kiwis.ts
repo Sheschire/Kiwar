@@ -35,6 +35,7 @@ import {
   rampartSectorOf,
   rampartSectors,
   type SectorId,
+  occupancy,
 } from '@kiwar/shared';
 import { findPath } from './pathfinding';
 import { TitansView } from './kikiwiwi';
@@ -351,7 +352,8 @@ export class KiwisView {
     const from = this.hexAt(agent.pos);
     const season = this.state ? seasonOf(this.state) : 'spring';
     this.pathsThisFrame++;
-    const hexes = findPath(this.map, from, target, this.paths, season) ?? [from, target];
+    const blocked = this.state ? occupancy(this.state).blocked : undefined;
+    const hexes = findPath(this.map, from, target, this.paths, season, blocked) ?? [from, target];
     const pts: Vector3[] = [];
     const speeds: number[] = [];
     const biome = this.map.params.biome;

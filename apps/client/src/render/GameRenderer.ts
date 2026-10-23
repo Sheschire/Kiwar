@@ -38,6 +38,11 @@ import {
   type GameState,
   type ResourceId,
   type Tile,
+  occupancy,
+  crampedBlockers,
+  footprintOf,
+  footprintTiles,
+  type Building,
 } from '@kiwar/shared';
 import { BuildingsView } from './buildings';
 import { KiwisView } from './kiwis';
@@ -588,10 +593,8 @@ export class GameRenderer {
   private hasStructure(tile: Tile): boolean {
     const s = this.lastState;
     if (!s) return false;
-    return (
-      !!buildingAt(s, tile.q, tile.r) ||
-      s.queue.some((i) => i.kind === 'build' && i.q === tile.q && i.r === tile.r)
-    );
+    // Chantier 35: any tile of a footprint or a site.
+    return occupancy(s).tiles.has(hexKey(tile));
   }
 
   /** The far planet under a screen point (chantier 24): the twin or a member's, nearest first. */
@@ -731,7 +734,7 @@ export class GameRenderer {
     this.refreshLogistics();
     // Clear decorative props under buildings, construction sites and paths.
     const occupied = new Set<string>(state.paths);
-    for (const b of state.buildings) occupied.add(hexKey(b));
+    for (const key of occupancy(state).tiles.keys()) occupied.add(key);
     for (const i of state.queue) occupied.add(hexKey(i));
     for (const o of state.obstacles) occupied.add(hexKey(o));
     // Chantier 23: cultivated tiles trade their wild props for crops.
@@ -823,8 +826,8 @@ export class GameRenderer {
   }
 
   /** Chantier 16: where the ghost hovers (the pointed or tapped tile) and if it can go there. */
-  setGhostTile(tile: Tile | null, valid: boolean): void {
-    this.ghost.setTile(tile, valid);
+  setGhostTile(tile: Tile | null, valid: boolean, rot = 0): void {
+    this.ghost.setTile(tile, valid, this.map, rot);
     // On a phone (no hover) the tapped tile also shows its logistics % or turret range.
     const key = tile ? `t${tile.q},${tile.r}` : '';
     if (tile && key !== this.placementHover) {
@@ -970,6 +973,7 @@ export class GameRenderer {
         : undefined;
     const b = selected ?? hoveredBuilding;
     const faint = !selected && !!hoveredBuilding;
+    this.refreshFootprint(selected);
     // Chantier 12: the rampart a turret defends (selected, or hovered while placing one).
     const hovered = this.placingTurret && this.placementHover ? this.placementHoverTile : null;
     if (this.map && (hovered || (b && isTurret(b.type)))) {
@@ -991,6 +995,22 @@ export class GameRenderer {
       }
     }
     this.selection.setCatchment(tiles, undefined, faint);
+  }
+
+  /**
+   * Chantier 35: the tiles a selected big building covers, and for a cramped one the tiles
+   * that keep it from spreading (red).
+   */
+  private refreshFootprint(b: Building | undefined): void {
+    const map = this.map;
+    const state = this.lastState;
+    if (!map || !state || !b || (footprintOf(b.type) === 1 && !b.cramped)) {
+      this.selection.setFootprint([], []);
+      return;
+    }
+    const at = (keys: readonly string[]) => keys.flatMap((k) => getTile(map, parseHexKey(k)) ?? []);
+    const covered = footprintTiles(b).flatMap((h) => getTile(map, h) ?? []);
+    this.selection.setFootprint(covered, b.cramped ? at(crampedBlockers(state, map, b)) : []);
   }
 
   setBottomInset(fraction: number): void {

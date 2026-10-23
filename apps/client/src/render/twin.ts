@@ -1,3 +1,4 @@
+import { footprintFrame } from './footprintFrame';
 import { ObstaclesView } from './obstacles';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
@@ -35,7 +36,7 @@ import {
   type TwinSnapshot,
 } from '@kiwar/shared';
 import { buildingGeometry } from './buildingModels';
-import { WaterView, WATER_LEVEL } from './water';
+import { WaterView } from './water';
 import { PALETTE } from './palette';
 import { GLSL_NOISE } from './shaderChunks';
 import { TerrainView, tileTopColor, worldPosition } from './terrain';
@@ -250,11 +251,10 @@ export class TwinView {
     const parts: BufferGeometry[] = [];
     const m = new Matrix4();
     for (const b of friend.buildings) {
-      const tile = getTile(map, b);
-      if (!tile) continue;
-      const p = worldPosition(b);
-      const y = tile.type === 'juice' ? tile.height + WATER_LEVEL - 0.08 : tile.height;
-      m.makeRotationY(Math.atan2(p.x, p.z) + Math.PI).setPosition(p.x, y, p.z);
+      if (!getTile(map, b)) continue;
+      // Chantier 35: big buildings stand over their footprint.
+      const f = footprintFrame(map, b.type, b);
+      m.makeRotationY(f.angle).setPosition(f.x, f.y, f.z);
       parts.push(buildingGeometry(b.type, b.level).clone().applyMatrix4(m));
     }
     if (parts.length > 0) {

@@ -174,6 +174,7 @@ export const en = {
     goodFor: 'Good for',
     nothing: 'Nothing can be built here.',
     build: 'Build',
+    place: 'Place…',
     rayBonus: 'Near a ray: −15 % build time',
     underConstruction: 'Under construction',
     queued: 'Waiting in the queue',
@@ -245,6 +246,8 @@ export const en = {
   },
   building: {
     trainees: 'Trainees',
+    cramped:
+      'Cramped: it covers a single tile. Its next upgrade spreads it over the free tiles around (red: in the way).',
     noTrainee: 'Nobody in class. Open a kiwi’s sheet to train it.',
     chooseKiwi: 'Choose a kiwi',
     workers: 'Workers',
@@ -1678,6 +1681,12 @@ export const en = {
     placingTurret:
       'Orange: the front, facing the alien planet (most predators) · yellow: the flanks.',
     placingLogistics: 'Green: short trips to a depot (fast harvest) · orange: long trips.',
+    placingBig: 'Takes {count} tiles — R or “Turn” to rotate it. Kiwis walk around it.',
+    placingHuge: 'Takes {count} tiles: kiwis walk around it.',
+    turn: 'Turn',
+    turnHint: 'Turn the building (R)',
+    coversHarvest: 'Covers {count} harvested deposit tile(s): that harvest is lost.',
+    coversPaths: 'Takes up {count} path tile(s) (fibre refunded).',
     button: 'Plans: buildings and research',
     title: 'Plans',
     buildings: 'Buildings',
