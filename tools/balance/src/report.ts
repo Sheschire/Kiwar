@@ -188,6 +188,34 @@ function threatTable(groups: Group[], lines: string[]): void {
   lines.push('');
 }
 
+/** Chantier 30: rhythm measures (medians of the runs; dead time over the first 24 h). */
+function rhythmTable(groups: Group[], lines: string[]): void {
+  const med = (runs: RunResult[], f: (r: RunResult) => number) => {
+    const v = runs.map(f).sort((a, b) => a - b);
+    return v.length ? v[Math.floor(v.length / 2)]! : 0;
+  };
+  lines.push('## Rhythm (median per run)', '');
+  lines.push(
+    `Dead time: the longest stretch of the first 24 h without a useful decision (target ≤ ${DEAD_TARGET_MIN} min). At the cap: share of the run the most capped resource spent with its stock and reserves full (target < ${CAP_TARGET} %). Lost: production lost meanwhile, share of what was produced.`,
+    '',
+  );
+  lines.push('| Biome | Dead time | At the cap | Lost |');
+  lines.push('|---|---|---|---|');
+  for (const g of groups) {
+    const dead = med(g.runs, (r) => r.final.deadMaxMin ?? 0);
+    const cap = med(g.runs, (r) => r.final.capShare ?? 0) * 100;
+    const lost = med(g.runs, (r) => r.final.lostShare ?? 0) * 100;
+    lines.push(
+      `| ${g.label} | ${dead} min${dead > DEAD_TARGET_MIN ? ' ⚠️' : ''} | ${cap.toFixed(0)} %${cap >= CAP_TARGET ? ' ⚠️' : ''} | ${lost.toFixed(1)} % |`,
+    );
+  }
+  lines.push('');
+}
+
+/** Chantier 30 working hypotheses (`kiwar-design`): not laws, but flagged in the report. */
+export const DEAD_TARGET_MIN = 45;
+export const CAP_TARGET = 20;
+
 /** Chantier 18: paths, camps and expeditions played by the bot (averages per run). */
 function mechanicsTable(groups: Group[], horizonHours: number, lines: string[]): void {
   const avg = (runs: RunResult[], f: (r: RunResult) => number) =>
@@ -229,6 +257,7 @@ export function toMarkdown(
   table(faces.groups, faces.comparisons, lines);
   threatTable(biomes.groups, lines);
   mechanicsTable(biomes.groups, meta.horizonHours, lines);
+  rhythmTable(biomes.groups, lines);
   const flagged = [...biomes.comparisons, ...faces.comparisons].filter((c) => c.flagged);
   lines.push(
     flagged.length === 0
@@ -311,8 +340,8 @@ export function impactMarkdown(
   return lines;
 }
 
-/** Chantier 18: age targets of the attentive player (the occasional one: × `CASUAL_PACE`). */
-export const AGE_TARGETS_H = { stone: 36, iron: 96, industry: 192 } as const;
+/** Chantier 30: age targets of the attentive player (the occasional one: × `CASUAL_PACE`). */
+export const AGE_TARGETS_H = { stone: 12, iron: 72, industry: 240 } as const;
 /**
  * Occasional player: about 2/3 of the attentive pace (owner), the late game more lenient: the
  * research that paces it runs offline (owner: accepted, Industry × 1.25).

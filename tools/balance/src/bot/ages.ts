@@ -89,7 +89,18 @@ export function ageDecision(
     ok({ type: 'upgrade', buildingId: library.id })
   )
     return { type: 'upgrade', buildingId: library.id };
-  // The monument once the passage is known.
+  return null;
+}
+
+/**
+ * The monument once the passage is known (chantier 30: looked at before anything else in the
+ * queue, like a player coming back to open the next age).
+ */
+export function monumentDecision(
+  state: GameState,
+  map: FaceMap,
+  build: (type: BuildingType) => Command | null,
+): Command | 'save' | null {
   const age = ageOf(state);
   const passage = PASSAGE_TECHS[age + 1];
   if (!passage || !hasTech(state, passage)) return null;

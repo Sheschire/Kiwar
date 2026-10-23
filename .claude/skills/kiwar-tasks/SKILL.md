@@ -13,7 +13,8 @@ but can switch any automatism off to optimise by hand".
 
 - `data/jobs.ts`: `AUTO_TASKS` (build, research, meteor, stardust, repair, garrison,
   redirect — the chantier 09 move away from a full stock), `TASKS.buildSlots` (constructions
-  at once by Nest level: 1/1/2/2/3/3).
+  at once by Nest level 0–12: 1/1/2 in the Eden, 2 in the Stone age, then 3; chantier 30). The
+  reserves of the warehouses are never collected by the automation (player only).
 - `data/threats.ts`: `METEORS.slots` (3), `METEORS.rates` (per average kiwi per hour, a
   level-1 workplace's rate), `METEORS.drill` (×1 / 1.5 / 2 / 2.5 by age);
   `GARRISON.autoLeadMs` (40 min), `GARRISON.autoShare` (at most half the colony).

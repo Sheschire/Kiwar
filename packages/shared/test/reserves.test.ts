@@ -50,9 +50,9 @@ const reserveOf = (s: GameState, b: Building) =>
 
 describe('warehouse reserves (chantier 30)', () => {
   it('never asks for more than the stock a colony can hold at the Nest it needs', () => {
-    // The Nest of that level and two warehouses of the same level, no technology.
+    // The Nest of that level and a single warehouse of the same level, no technology.
     const stock = (nest: number) =>
-      levelDef('nest', nest)!.storage! + 2 * levelDef('warehouse', nest)!.storage!;
+      levelDef('nest', nest)!.storage! + levelDef('warehouse', nest)!.storage!;
     for (const type of BUILDING_TYPES) {
       for (let level = 1; level <= maxLevelOf(type); level++) {
         const def = levelDef(type, level)!;

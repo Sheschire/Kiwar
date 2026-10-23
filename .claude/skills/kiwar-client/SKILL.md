@@ -216,6 +216,20 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   object is replaced) and step `renderer.kiwis.update(0.1, …)` a few hundred times so the
   kiwis reach their places before the shot.
 
+- **Chantier 30 (levels 1–12, reserves)**: `grow` (buildingModels.ts) scales by the age of
+  the level and adds one pennant per level within the age (studs = age); level badges ring in
+  the age's colour (`AGE_RINGS`) and shrink the font for two digits. Warehouse heaps:
+  `reserveHeapGeometry(1|2|3)` added as a `heap` child of the warehouse group
+  (`BuildingsView.syncHeaps`, size from the reserve fill); `renderer.showCollected` floats
+  "+1 250" (`DropLabels`, never picked) and wakes the loop. `actions.collect(id | null)`
+  dispatches `collect` / `collectAll`, diffs the reserves for the labels and plays
+  `warehouse.collect` over each warehouse; a tap on a warehouse calls `actions.collectAt`
+  (`startGame` `onTileTap`, not in path mode). UI in `ReserveInfo.tsx`: `ReserveSection`
+  (warehouse sheet), `NestReserves` (Nest sheet), `ReserveBadge` (`.badge-stack`: reserves full,
+  the harvest stops); phone menu entry "Bring back all reserves"; resource chips turn gold while
+  the stock overflows (`is-reserving`) and show a thin reserve line (`.chip-reserve`).
+  `BuildingTree` folds the hidden levels of a later age into one line (`plans.levelRange`).
+
 ## Performance (chantier 10)
 
 - **The UI store is the usual suspect.** The controller emits a new `game` and `now` 5 times

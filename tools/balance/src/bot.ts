@@ -7,8 +7,14 @@ import {
   buildingHarvest,
   buildingCount,
   canAfford,
+  canCollect,
   canHatch,
+  consumption,
+  productionRates,
+  storageFullCheck,
   capacity,
+  reserveHolders,
+  reserves,
   hasSkill,
   KIWI,
   currentObjective,
@@ -43,7 +49,7 @@ import {
   takeFounding,
   twinTarget,
 } from '@kiwar/shared';
-import { ageDecision } from './bot/ages';
+import { ageDecision, monumentDecision } from './bot/ages';
 import { campOrder } from './bot/camps';
 import { expeditionOrder, launchpadOrder } from './bot/expeditions';
 import { pathOrder } from './bot/paths';
@@ -129,8 +135,26 @@ export interface RunResult {
     counters?: number;
     countersHeld?: number;
     sisterKiwis?: number;
+    /**
+     * Chantier 30: the longest stretch of the first 24 h without a useful decision (build,
+     * upgrade, research, egg, expedition), in minutes; the share of the run the most capped
+     * resource spent with its stock and reserves full; production lost meanwhile, as a share of
+     * what was produced.
+     */
+    deadMaxMin?: number;
+    capShare?: number;
+    lostShare?: number;
   };
 }
+
+/** Commands that are a real decision (dead time is the longest stretch without one). */
+const USEFUL = new Set<Command['type']>([
+  'build',
+  'upgrade',
+  'setResearch',
+  'hatchEgg',
+  'launchExpedition',
+]);
 
 function try_(state: GameState, map: FaceMap, now: number, cmd: Command): GameState | null {
   const r = applyCommand(state, cmd, { now, map });
@@ -145,6 +169,8 @@ function try_(state: GameState, map: FaceMap, now: number, cmd: Command): GameSt
 /** One decision round (exported for diagnostics: what the bot wants to do right now). */
 export function decide(state: GameState, map: FaceMap, play: Play): Command[] {
   const cmds: Command[] = [];
+  // Chantier 30: bring the warehouse reserves back at every visit (only the player can).
+  if (reserveHolders(state).some((b) => canCollect(state, b))) cmds.push({ type: 'collectAll' });
   const obj = currentObjective(state);
   if (obj && isObjectiveComplete(state, obj)) cmds.push({ type: 'claimObjective' });
 
@@ -241,6 +267,11 @@ export function decide(state: GameState, map: FaceMap, play: Play): Command[] {
     return tile ? { type: 'build', buildingType: type, q: tile.q, r: tile.r } : null;
   };
 
+  // 0. Chantier 30: the monument as soon as its passage is known (it saves up for it).
+  const monument = monumentDecision(state, map, build);
+  if (monument === 'save') return cmds;
+  if (monument) return [...cmds, monument];
+
   // 1. One of each building, in order.
   for (const type of BUILD_ORDER) {
     if (!has(type)) {
@@ -305,9 +336,12 @@ export function decide(state: GameState, map: FaceMap, play: Play): Command[] {
   // won or lost by chance: ±30 % between biomes). After the tutorial, which has its own goals.
   if (!currentObjective(state) && upgradeOk(state, n) && !pendingUpgrade(state, n.id)) return cmds;
 
-  // 4. Storage when something is nearly full.
+  // 4. Storage when something is nearly full (chantier 30: the warehouses' reserves).
   const cap = capacity(state);
-  const nearlyFull = RESOURCE_IDS.some((id) => state.resources[id] > cap[id] * 0.9);
+  const r = reserves(state);
+  const nearlyFull = RESOURCE_IDS.some(
+    (id) => state.resources[id] > cap[id] * 0.9 && r.stock[id] > r.cap[id] * 0.75,
+  );
   if (nearlyFull && !state.queue.some((i) => i.buildingType === 'warehouse')) {
     const wh = state.buildings
       .filter((b) => b.type === 'warehouse')
@@ -474,9 +508,35 @@ export function runBot(opts: RunOptions): RunResult {
   let campsSet = 0;
   const trips = { recons: 0, raids: 0, raidsWon: 0, loot: 0 };
   const counted = new Set<string>();
+  // Chantier 30: dead time, time at the cap, production lost to full reserves.
+  const DAY_MS = 24 * HOUR_MS;
+  let lastUseful = start;
+  let deadMax = 0;
+  const capped = Object.fromEntries(RESOURCE_IDS.map((id) => [id, null])) as Record<
+    (typeof RESOURCE_IDS)[number],
+    { since: number; rate: number } | null
+  >;
+  const cappedMs = Object.fromEntries(RESOURCE_IDS.map((id) => [id, 0])) as Record<
+    (typeof RESOURCE_IDS)[number],
+    number
+  >;
+  let lost = 0;
   while (now - start < opts.horizonMs) {
     const dustBefore = state.stardust;
-    state = advance(state, now).state;
+    const stepped = advance(state, now);
+    state = stepped.state;
+    for (const e of stepped.events) {
+      // Chantier 30: an age is dated by its event (an occasional player sees it at the next
+      // visit, but it happened while away).
+      if (e.type === 'ageReached') {
+        const m = (['stone', 'iron', 'industry'] as const)[e.age - 1];
+        if (m && times[m] === null) times[m] = e.at - start;
+      }
+      if (e.type !== 'storageFull' || capped[e.resource]) continue;
+      const gross = productionRates(state, () => false)[e.resource];
+      const rate = Math.max(0, gross - consumption(state)[e.resource]);
+      capped[e.resource] = { since: e.at, rate };
+    }
     dustPicked += Math.max(0, state.stardust - dustBefore);
     map = faceMapOf(state);
     maxHunger = Math.max(maxHunger, state.hunger);
@@ -519,6 +579,10 @@ export function runBot(opts: RunOptions): RunResult {
         const next = try_(state, map, now, cmd);
         if (next) {
           if (cmd.type === 'gather') campsSet++;
+          if (USEFUL.has(cmd.type) && now - start <= DAY_MS) {
+            deadMax = Math.max(deadMax, now - lastUseful);
+            lastUseful = now;
+          }
           state = next;
           applied = true;
           break;
@@ -562,6 +626,15 @@ export function runBot(opts: RunOptions): RunResult {
       }
       opts.onSister?.(sister, state);
     }
+    // A resource leaves the cap once the player spends or brings a reserve back.
+    const full = storageFullCheck(state);
+    for (const id of RESOURCE_IDS) {
+      const c = capped[id];
+      if (!c || full(id)) continue;
+      cappedMs[id] += now - c.since;
+      lost += (c.rate * (now - c.since)) / HOUR_MS;
+      capped[id] = null;
+    }
     checkMilestones(state, start, times);
     opts.onStep?.(state, map);
     if (!opts.fullHorizon && MILESTONES.every((m) => times[m] !== null)) break;
@@ -577,6 +650,15 @@ export function runBot(opts: RunOptions): RunResult {
     );
     now = Math.min(now + step, Math.max(now + 1000, nextEvent));
   }
+  for (const id of RESOURCE_IDS) {
+    const c = capped[id];
+    if (!c) continue;
+    cappedMs[id] += now - c.since;
+    lost += (c.rate * (now - c.since)) / HOUR_MS;
+  }
+  if (now - start >= DAY_MS) deadMax = Math.max(deadMax, start + DAY_MS - lastUseful);
+  const elapsed = Math.max(1, now - start);
+  const produced = RESOURCE_IDS.reduce((s, id) => s + state.stats.produced[id], 0);
   return {
     seed: opts.seed,
     face: opts.face,
@@ -605,6 +687,9 @@ export function runBot(opts: RunOptions): RunResult {
       expeditionDeaths: state.memorial.filter(
         (m) => m.cause === 'battle' || m.cause === 'starvation',
       ).length,
+      deadMaxMin: Math.round(deadMax / 60_000),
+      capShare: Math.max(...RESOURCE_IDS.map((id) => cappedMs[id])) / elapsed,
+      lostShare: produced > 0 ? lost / produced : 0,
     },
   };
 }

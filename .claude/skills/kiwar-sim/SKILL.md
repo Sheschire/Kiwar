@@ -105,6 +105,23 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 
 ## Gotchas
 
+- **Chantier 30 (levels and reserves)**: building levels go 1–12, three per age
+  (`ageOfLevel`, `LEVELS_PER_AGE`, `MAX_LEVEL` 12; levels 4–12 grown by `withAgeLevels` from
+  `AGE_GROWTH`, factors per level plus `age*` extras on the first level of an age). Tables
+  indexed by the Nest or a building level (`TASKS.buildSlots`, `TURRETS.max`, `SECTORS.range`,
+  `THREATS.nestFactor`, `METEORS.nestFactor`, `CATCHMENT_RADIUS`, `RESEARCH.bank`, `PATHS`)
+  have 13 entries (index 0–12): **extend them all** if the level count ever changes. Save v24
+  remaps old levels 4/5/6 → 4/7/10. **Reserves**: `Building.reserve` (warehouses, save v25);
+  once a stock is full its overflow fills the warehouses **one after another** (oldest first,
+  `reserveTarget`, `pourReserve` in `accrue`); a warehouse filling up is an event in
+  `computeFlows`; `storageFullCheck` is true only when the stock **and** every reserve are full
+  (so `storageFull` events, `redirectFull` and the `storageFull` harvest status mean "the
+  harvest stops"). Only the player brings reserves back: `collect { buildingId }` /
+  `collectAll` (`collectReserve`, up to the free room; errors `notWarehouse`,
+  `nothingToCollect`), never the automation. A demolished warehouse gives its reserve back to
+  the stock, even above the cap. Test `test/reserves.test.ts` checks that no level costs more
+  than the stock of the Nest it needs plus one warehouse: keep it passing when tuning costs.
+
 - **Chantier 19, second half (`kiwar-colonies`)**: a player may have **two linked states**
   (`state.colony.index` 0 home / 1 sister on the twin face). Anything that reads the research
   must remember a sister never completes a technology (`research.outbox`, `syncColonies`),

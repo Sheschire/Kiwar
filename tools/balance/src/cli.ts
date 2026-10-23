@@ -52,7 +52,7 @@ function parseArgs(argv: string[]): Args {
     without: [],
     profile: 'active',
     ages: 0,
-    agesDays: 10,
+    agesDays: 12,
     impact: 0,
     probe: 0,
   };

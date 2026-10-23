@@ -116,8 +116,8 @@ describe('research', () => {
   it('refuses locked or known technologies', () => {
     const { map, s } = libraryColony();
     expect(errorOf(s, { type: 'setResearch', tech: 'masonry' }, map)).toBe('techAgeLocked');
-    expect(errorOf(s, { type: 'setResearch', tech: 'stoneAge' }, map)).toBe('libraryTooLow');
-    expect(techStatus(s, 'stoneAge')).toBe('library');
+    // Chantier 30: the Stone passage needs only the first Library.
+    expect(techStatus(s, 'stoneAge')).toBe('available');
     const known = { ...s, research: { ...s.research, done: ['foraging' as const] } };
     expect(errorOf(known, { type: 'setResearch', tech: 'foraging' }, map)).toBe('techDone');
     const { map: m2, state } = setup();

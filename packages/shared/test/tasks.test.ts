@@ -186,6 +186,8 @@ describe('research as a task (chantier 15)', () => {
   it('a chosen technology sends the kiwis with the most Spirit, who go back once it is done', () => {
     const { map, s: start, library, pulpery } = libraryColony();
     const s0 = cloneState(start);
+    // A stock below its cap: a full one would send the pulpery's kiwis elsewhere.
+    s0.resources = { pulp: 100, fiber: 100, seeds: 100, juice: 100 };
     const worker = workersOf(s0, pulpery.id)[0]!;
     worker.stats.spirit = 10;
     expect(workersOf(s0, library.id)).toHaveLength(0);
@@ -194,7 +196,7 @@ describe('research as a task (chantier 15)', () => {
     expect(researchers).toHaveLength(2);
     expect(researchers[0]!.id).toBe(worker.id);
     expect(researchers[0]!.lent).toBe(pulpery.id);
-    s = advance(s, s.now + 48 * HOUR).state;
+    s = advance(s, s.now + 6 * HOUR).state;
     expect(s.research.done).toContain(firstTech);
     expect(workersOf(s, library.id)).toHaveLength(0);
     expect(s.villagers.find((v) => v.id === worker.id)!.job).toEqual({

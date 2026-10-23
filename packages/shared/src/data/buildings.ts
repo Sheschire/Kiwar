@@ -110,7 +110,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
         requiresNestLevel: 2,
         passiveProduction: { pulp: 600, fiber: 380, juice: 80 },
         housing: 8,
-        storage: 2500,
+        storage: 3000,
         maxBuildings: 18,
         queueSize: 4,
       },
@@ -266,21 +266,21 @@ const BASE: Record<BuildingType, BuildingDef> = {
         durationMs: ms.s(40),
         requiresNestLevel: 1,
         storage: 60,
-        reserve: 1500,
+        reserve: 3000,
       },
       {
         cost: { pulp: 200, fiber: 260, seeds: 20 },
         durationMs: ms.min(4),
         requiresNestLevel: 1,
         storage: 150,
-        reserve: 3500,
+        reserve: 7000,
       },
       {
         cost: { pulp: 700, fiber: 900, seeds: 80, juice: 150 },
         durationMs: ms.min(20),
         requiresNestLevel: 2,
         storage: 250,
-        reserve: 7000,
+        reserve: 14000,
       },
     ],
   },
@@ -383,7 +383,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
     levels: [
       {
         cost: { pulp: 2000, fiber: 2000, seeds: 400, juice: 600 },
-        durationMs: ms.h(2),
+        durationMs: ms.h(1),
         requiresNestLevel: 3,
       },
       {

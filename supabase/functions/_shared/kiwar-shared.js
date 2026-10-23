@@ -626,7 +626,7 @@ var BASE = {
         requiresNestLevel: 2,
         passiveProduction: { pulp: 600, fiber: 380, juice: 80 },
         housing: 8,
-        storage: 2500,
+        storage: 3e3,
         maxBuildings: 18,
         queueSize: 4
       }
@@ -782,21 +782,21 @@ var BASE = {
         durationMs: ms.s(40),
         requiresNestLevel: 1,
         storage: 60,
-        reserve: 1500
+        reserve: 3e3
       },
       {
         cost: { pulp: 200, fiber: 260, seeds: 20 },
         durationMs: ms.min(4),
         requiresNestLevel: 1,
         storage: 150,
-        reserve: 3500
+        reserve: 7e3
       },
       {
         cost: { pulp: 700, fiber: 900, seeds: 80, juice: 150 },
         durationMs: ms.min(20),
         requiresNestLevel: 2,
         storage: 250,
-        reserve: 7e3
+        reserve: 14e3
       }
     ]
   },
@@ -899,7 +899,7 @@ var BASE = {
     levels: [
       {
         cost: { pulp: 2e3, fiber: 2e3, seeds: 400, juice: 600 },
-        durationMs: ms.h(2),
+        durationMs: ms.h(1),
         requiresNestLevel: 3
       },
       {
@@ -1736,7 +1736,7 @@ var TECHS = {
     id: "foraging",
     age: 0,
     branch: "economy",
-    cost: 60,
+    cost: 25,
     libraryLevel: 1,
     effects: { harvest: { pulp: 1.1, fiber: 1.1 } }
   },
@@ -1744,7 +1744,7 @@ var TECHS = {
     id: "palisade",
     age: 0,
     branch: "defense",
-    cost: 80,
+    cost: 40,
     libraryLevel: 1,
     effects: { turretDefense: 1.15 }
   },
@@ -1752,11 +1752,11 @@ var TECHS = {
     id: "starCharts",
     age: 0,
     branch: "exploration",
-    cost: 80,
+    cost: 40,
     libraryLevel: 1,
     effects: { travel: 0.9 }
   },
-  stoneAge: { id: "stoneAge", age: 0, branch: "passage", cost: 250, libraryLevel: 2, effects: {} },
+  stoneAge: { id: "stoneAge", age: 0, branch: "passage", cost: 120, libraryLevel: 1, effects: {} },
   masonry: {
     id: "masonry",
     age: 1,
@@ -1811,7 +1811,7 @@ var TECHS = {
     age: 2,
     branch: "passage",
     // Chantier 30: passages for Stone ≈ 12 h, Iron ≈ 3 d, Industry ≈ 10 d (see the balance report).
-    cost: 8e3,
+    cost: 11500,
     libraryLevel: 7,
     effects: {}
   },
