@@ -7,6 +7,23 @@ prennent leur attaque) ; le camp d'entraînement occupe trois tuiles (35).
 **Skills à charger** : `kiwar-rpg`, `kiwar-battle` (créé au 36), `kiwar-design` (+ `kiwar-tasks`
 pour les postes, `kiwar-balance` à la fin).
 
+## État : fait (octobre 2026)
+
+Réalisé en cinq parties (commits « Chantier 37 (part 1…5) ») ; détails et chiffres dans
+`DECISIONS.md` (chantier 37), savoir-faire dans les skills `kiwar-rpg` et `kiwar-battle`.
+
+- Réponses du porteur au début du chantier : le palier 3 s'atteint depuis **l'une des deux**
+  classes avancées de ses stats ; l'éclaireur·euse se bat à la **dague** ; les compétences
+  restent liées au **niveau du kiwi** (le rang de classe donne un petit bonus et ouvre le
+  palier 2) ; le·la **Maire** reste une classe d'École (Charisme ≥ 6).
+- Fait : une classe par stat (Cueilleur·euse, Barde), bonus qui grandit avec la stat et le
+  rang, mage × 1,5, réparations du·de la guerrier·ère, une arme par classe (dague, chant et
+  aura…) ; Kikiwiwi (Force + Endurance, perd sa classe) ; camp d'entraînement (rangs de classe,
+  changement de classe, palier 2) ; palier 3 (six maîtres à deux stats), arbre des classes,
+  tenues ; bot (`classes` dans `--impact`).
+- Laissé : la Rôdeur·euse prendra tout son sens avec les débarquements (40) ; l'équipement
+  s'ajoute à l'arme de classe au 38 ; ressenti des rangs et du camp « à tester ».
+
 ## Intention du porteur
 
 - « Une **classe dédiée pour récolter plus vite** (comme bâtisseur pour la construction). »
