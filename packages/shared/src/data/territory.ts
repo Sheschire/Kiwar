@@ -32,7 +32,7 @@ export const HARVESTS: Partial<Record<BuildingType, TileType>> = {
 };
 
 /** Catchment radius (in hexes) of a producer, by level. Camps only use their own tile. */
-export const CATCHMENT_RADIUS = [1, 1, 2, 2, 2, 3] as const;
+export const CATCHMENT_RADIUS = [1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3] as const;
 
 /**
  * Logistics: kiwis carry the harvest to the nearest depot (Nest or Warehouse). A trip takes
@@ -53,9 +53,10 @@ export const PATHS = {
   /** Walking cost of a tile with a path (rays cost 0.5, flesh 1, groves 1.5). */
   walkCost: 0.35,
   cost: { fiber: 4 } satisfies Partial<Resources>,
-  /** Max path tiles: base + perNestLevel × Nest level. */
+  /** Max path tiles: base + perNestLevel × Nest level up to 3, then perAgeLevel per level. */
   base: 20,
   perNestLevel: 15,
+  perAgeLevel: 8,
   /** Max tiles per command (one painting gesture). */
   maxPerCommand: 40,
 } as const;

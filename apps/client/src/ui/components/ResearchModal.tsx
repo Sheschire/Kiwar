@@ -1,4 +1,5 @@
 import {
+  LEVELS_PER_AGE,
   AGE_IDS,
   ageOf,
   describeTech,
@@ -171,7 +172,8 @@ export function AgeInfo({ game, t }: { game: GameState; t: Translate }) {
           </p>
           <p class="small muted">
             {t('ages.opens', {
-              level: next + 3,
+              from: next * LEVELS_PER_AGE + 1,
+              to: (next + 1) * LEVELS_PER_AGE,
               ship: `@ages.ships.${shipIdForAge(next)}`,
             })}
           </p>

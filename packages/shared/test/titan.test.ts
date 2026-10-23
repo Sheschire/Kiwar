@@ -26,7 +26,7 @@ function titanColony(techs: TechId[] = ['stoneAge', 'ironAge', 'juiceInfusion', 
   const state = newGame({ seed: 'titan-seed', face: 'kiwisu', now: T0 });
   const s: GameState = rich(state);
   const map0 = faceMapOf(s);
-  s.buildings[0]!.level = 4;
+  s.buildings[0]!.level = 7;
   const mon = map0.tiles.find((t) => t.type === 'flesh' && t.rho < 0.3 && t.rho > 0.1)!;
   s.buildings.push({
     id: 'bmon' as BuildingId,

@@ -16,7 +16,13 @@ import {
   Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { shipIdForAge, type BuildingType, type ShipId } from '@kiwar/shared';
+import {
+  ageOfLevel,
+  LEVELS_PER_AGE,
+  shipIdForAge,
+  type BuildingType,
+  type ShipId,
+} from '@kiwar/shared';
 import type { ParticleKind } from './particles';
 
 /**
@@ -1243,15 +1249,20 @@ function signPost(p: Parts, type: BuildingType): void {
   p.sign = new Vector3(x, SIGN_HEIGHT + 0.16, z);
 }
 
-/** Levels 4–6 (chantier 08): the level-3 model, a little bigger, with gold studs. */
+/**
+ * Levels 4–12 (chantiers 08 and 30): the level-3 model, a little bigger with each age, one gold
+ * stud per age above Eden and one pennant per level within the age.
+ */
 function grow(p: Parts, level: number): void {
-  const k = 1 + 0.08 * (level - 3);
+  const age = ageOfLevel(level);
+  const rank = (level - 1) % LEVELS_PER_AGE;
+  const k = 1 + 0.08 * age + 0.02 * rank;
   const scale = new Matrix4().makeScale(k, k, k);
   for (const part of p) part[2] = part[2].clone().premultiply(scale);
   for (const r of p.rigs ?? []) r.pivot.multiplyScalar(k);
   for (const e of p.emitters ?? []) e.at = [e.at[0] * k, e.at[1] * k, e.at[2] * k];
   p.sign?.multiplyScalar(k);
-  for (let i = 0; i < level - 3; i++) {
+  for (let i = 0; i < age; i++) {
     const a = Math.PI * 0.75 + i * 0.35;
     p.push([
       sphere(6, 4),
@@ -1259,12 +1270,12 @@ function grow(p: Parts, level: number): void {
       m(Math.sin(a) * 0.52, 0.06, Math.cos(a) * 0.52, 0.04, 0.04, 0.04),
     ]);
   }
-  // Chantier 11: a banner pole with one golden pennant per level above 3, seen from afar.
+  // Chantier 11: a banner pole with golden pennants (one per level within the age), seen from afar.
   const x = 0.5;
   const z = -0.45;
   p.push([cyl(5), C.woodDark, m(x, 0.55, z, 0.02, 1.1, 0.02)]);
   p.push([sphere(6, 4), C.flagGold, m(x, 1.12, z, 0.035, 0.035, 0.035)]);
-  for (let i = 0; i < level - 3; i++)
+  for (let i = 0; i <= rank; i++)
     p.push([
       cone(4),
       C.flagGold,

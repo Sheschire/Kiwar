@@ -31,7 +31,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 23;
+export const SCHEMA_VERSION = 24;
 
 export type Job =
   | { kind: 'idle' }

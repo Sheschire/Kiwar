@@ -42,7 +42,7 @@ const PAD = 'bpad' as BuildingId;
 function siegeColony(seed = 'siege') {
   const { map, state } = setup('kiwisu', seed);
   const s: GameState = rich(state);
-  s.buildings[0]!.level = 4;
+  s.buildings[0]!.level = 7;
   const pad = findTile(map, 'flesh', 2);
   const mon = findTile(map, 'flesh', 6);
   s.buildings.push(

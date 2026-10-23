@@ -452,7 +452,7 @@ export const fr: Dict = {
     },
     upgradeNest: {
       title: 'Améliorer le Nid au niveau 2',
-      hint: 'Un Nid plus grand débloque plus de bâtiments et le niveau 3.',
+      hint: 'Un Nid plus grand débloque plus de bâtiments et des niveaux plus hauts.',
     },
   },
   events: {
@@ -1577,7 +1577,7 @@ export const fr: Dict = {
     steps: 'Recherchez « {tech} » à la Bibliothèque, puis élevez le monument.',
     passageDone: '« {tech} » est acquise : le monument peut être élevé.',
     opens:
-      'Ouvre le niveau {level} des bâtiments, le vaisseau {ship} et des cadeaux plus riches — et des prédateurs plus forts.',
+      'Ouvre les niveaux {from} à {to} des bâtiments, le vaisseau {ship} et des cadeaux plus riches — et des prédateurs plus forts.',
     last: 'La colonie a atteint le dernier âge pour l’instant.',
     ships: { wood: 'en bois', logs: 'en rondins', iron: 'en fer', jet: 'à réaction' },
   },

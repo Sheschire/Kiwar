@@ -427,7 +427,7 @@ var HARVESTS = {
   seedQuarry: "seedRing",
   juiceWell: "juice"
 };
-var CATCHMENT_RADIUS = [1, 1, 2, 2, 2, 3];
+var CATCHMENT_RADIUS = [1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3];
 var LOGISTICS = {
   cycleS: 30,
   stepS: 4,
@@ -441,9 +441,10 @@ var PATHS = {
   /** Walking cost of a tile with a path (rays cost 0.5, flesh 1, groves 1.5). */
   walkCost: 0.35,
   cost: { fiber: 4 },
-  /** Max path tiles: base + perNestLevel × Nest level. */
+  /** Max path tiles: base + perNestLevel × Nest level up to 3, then perAgeLevel per level. */
   base: 20,
   perNestLevel: 15,
+  perAgeLevel: 8,
   /** Max tiles per command (one painting gesture). */
   maxPerCommand: 40
 };
@@ -590,6 +591,7 @@ var BUILDING_TYPES = [
   "seedTurret",
   "skyTurret"
 ];
+var MAX_LEVEL = 12;
 var BASE = {
   nest: {
     id: "nest",
@@ -893,13 +895,13 @@ var BASE = {
       {
         cost: { pulp: 9e3, fiber: 9e3, seeds: 2e3, juice: 3e3 },
         durationMs: ms.h(6),
-        requiresNestLevel: 4,
+        requiresNestLevel: 6,
         stardust: 15
       },
       {
         cost: { pulp: 2e4, fiber: 2e4, seeds: 5e3, juice: 7e3 },
         durationMs: ms.h(12),
-        requiresNestLevel: 5,
+        requiresNestLevel: 9,
         stardust: 25
       }
     ]
@@ -926,19 +928,19 @@ var BASE = {
       {
         cost: { pulp: 4e3, fiber: 4e3, seeds: 800, juice: 1500 },
         durationMs: ms.h(2),
-        requiresNestLevel: 4,
+        requiresNestLevel: 7,
         requiresAge: 2
       },
       {
         cost: { pulp: 8e3, fiber: 8e3, seeds: 1600, juice: 3e3 },
         durationMs: ms.h(4),
-        requiresNestLevel: 4,
+        requiresNestLevel: 7,
         requiresAge: 2
       },
       {
         cost: { pulp: 16e3, fiber: 16e3, seeds: 3200, juice: 6e3 },
         durationMs: ms.h(8),
-        requiresNestLevel: 5,
+        requiresNestLevel: 10,
         requiresAge: 3
       }
     ]
@@ -1003,20 +1005,31 @@ var BASE = {
     ]
   }
 };
-var DEFAULT_GROWTH = { cost: 2.4, time: 1.6, output: 1.5 };
+var LEVELS_PER_AGE = 3;
+function ageOfLevel(level) {
+  return Math.floor((Math.max(1, level) - 1) / LEVELS_PER_AGE);
+}
+var DEFAULT_GROWTH = { cost: 1.7, ageCost: 2, time: 1.35, output: 1.25 };
 var AGE_GROWTH = {
-  nest: { ...DEFAULT_GROWTH, output: 1.3, housing: 2, storage: 1.9, maxBuildings: 4, queueSize: 1 },
+  nest: {
+    ...DEFAULT_GROWTH,
+    output: 1.1,
+    housing: 1,
+    storage: 1.6,
+    maxBuildings: 3,
+    queueSize: 1
+  },
   pulpery: { ...DEFAULT_GROWTH, workerSlots: 1 },
   fiberWorkshop: { ...DEFAULT_GROWTH, workerSlots: 1 },
   juiceWell: { ...DEFAULT_GROWTH, workerSlots: 1 },
   seedQuarry: { ...DEFAULT_GROWTH, workerSlots: 1 },
-  hut: { ...DEFAULT_GROWTH, housing: 2 },
-  warehouse: { ...DEFAULT_GROWTH, storage: 1.9 },
-  launchpad: { ...DEFAULT_GROWTH, cargo: 200, travelTime: 0.9 },
-  school: { ...DEFAULT_GROWTH, trainingSlots: 1, trainingTime: 0.9 },
-  library: { ...DEFAULT_GROWTH, output: 1.2, workerSlots: 1 },
-  seedTurret: { ...DEFAULT_GROWTH, ammo: 1.4 },
-  skyTurret: { ...DEFAULT_GROWTH, ammo: 1.4 }
+  hut: { ...DEFAULT_GROWTH, housing: 1 },
+  warehouse: { ...DEFAULT_GROWTH, storage: 1.6 },
+  launchpad: { ...DEFAULT_GROWTH, cargo: 70, travelTime: 0.965 },
+  school: { ...DEFAULT_GROWTH, trainingSlots: 1, trainingTime: 0.965 },
+  library: { ...DEFAULT_GROWTH, research: 1.07, workerSlots: 1 },
+  seedTurret: { ...DEFAULT_GROWTH, output: 1.15, ammo: 1.12 },
+  skyTurret: { ...DEFAULT_GROWTH, output: 1.15, ammo: 1.12 }
 };
 var round = (v, step) => Math.round(v / step) * step;
 function scaled(values, k, step) {
@@ -1029,35 +1042,37 @@ function withAgeLevels(def) {
   const g = AGE_GROWTH[def.id];
   if (!g) return def;
   const levels = [...def.levels];
-  for (let age = 1; age <= 3; age++) {
+  for (let level = levels.length + 1; level <= MAX_LEVEL; level++) {
     const prev = levels[levels.length - 1];
-    const level = levels.length + 1;
+    const age = ageOfLevel(level);
+    const first = (level - 1) % LEVELS_PER_AGE === 0;
     const next = {
-      cost: scaled(prev.cost, g.cost, 10),
+      cost: scaled(prev.cost, first ? g.ageCost : g.cost, 10),
       durationMs: round(prev.durationMs * g.time, 1e3),
       requiresNestLevel: def.id === "nest" ? level - 1 : level,
       requiresAge: age
     };
+    const extra = (n) => first ? n ?? 0 : 0;
     if (prev.production) next.production = scaled(prev.production, g.output, 10);
     if (prev.passiveProduction)
       next.passiveProduction = scaled(prev.passiveProduction, g.output, 10);
-    if (prev.workerSlots) next.workerSlots = prev.workerSlots + (g.workerSlots ?? 0);
+    if (prev.workerSlots) next.workerSlots = prev.workerSlots + extra(g.workerSlots);
     if (prev.housing !== void 0) next.housing = prev.housing + (g.housing ?? 0);
     if (prev.storage !== void 0) next.storage = round(prev.storage * (g.storage ?? 1), 50);
     if (prev.cargo !== void 0) next.cargo = prev.cargo + (g.cargo ?? 0);
     if (prev.travelTime !== void 0)
-      next.travelTime = Math.round(prev.travelTime * (g.travelTime ?? 1) * 100) / 100;
+      next.travelTime = Math.round(prev.travelTime * (g.travelTime ?? 1) * 1e3) / 1e3;
     if (prev.trainingSlots !== void 0)
-      next.trainingSlots = prev.trainingSlots + (g.trainingSlots ?? 0);
+      next.trainingSlots = prev.trainingSlots + extra(g.trainingSlots);
     if (prev.trainingTime !== void 0)
-      next.trainingTime = Math.round(prev.trainingTime * (g.trainingTime ?? 1) * 100) / 100;
-    if (prev.research !== void 0) next.research = round(prev.research * g.output, 1);
+      next.trainingTime = Math.round(prev.trainingTime * (g.trainingTime ?? 1) * 1e3) / 1e3;
+    if (prev.research !== void 0)
+      next.research = round(prev.research * (g.research ?? g.output), 1);
     if (prev.defense) next.defense = scaled(prev.defense, g.output, 1);
     if (prev.ammo !== void 0) next.ammo = round(prev.ammo * (g.ammo ?? 1), 5);
     if (prev.maxBuildings !== void 0)
       next.maxBuildings = prev.maxBuildings + (g.maxBuildings ?? 0);
-    if (prev.queueSize !== void 0)
-      next.queueSize = prev.queueSize + (age === 2 ? 0 : g.queueSize ?? 0);
+    if (prev.queueSize !== void 0) next.queueSize = prev.queueSize + extra(g.queueSize);
     levels.push(next);
   }
   return { ...def, levels };
@@ -1069,7 +1084,6 @@ var TURRET_TYPES = ["seedTurret", "skyTurret"];
 function isTurret(type) {
   return TURRET_TYPES.includes(type);
 }
-var MAX_LEVEL = 6;
 function maxLevelOf(type) {
   return BUILDINGS[type].levels.length;
 }
@@ -1515,7 +1529,7 @@ var THREATS = {
   importShieldMs: ms.h(48),
   /** Total wave power: base × Nest level factor × play time × provocation. */
   basePower: 6,
-  nestFactor: [0, 0.6, 1, 1.6, 2.2, 2.9, 3.6],
+  nestFactor: [0, 0.6, 1, 1.6, 2.2, 2.4, 2.65, 2.9, 3.1, 3.35, 3.6, 3.85, 4.1],
   /** Chantier 08: the predators grow with the age of the colony (index = age). */
   ageFactor: [1, 1.15, 1.3, 1.5],
   /** Power gained per day of play, up to `maxDays`. */
@@ -1575,11 +1589,11 @@ var SECTORS = {
   /** Share of what breaks through a sector that turns to the least defended flank instead. */
   overflow: 0.5,
   /** Range of the turrets in tiles (index = level); sky turrets reach one tile further. */
-  range: [0, 3, 4, 5, 5, 5, 5],
+  range: [0, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
   skyRangeBonus: 1
 };
 var TURRETS = {
-  max: [0, 2, 4, 6, 7, 8, 9]
+  max: [0, 2, 4, 6, 7, 7, 8, 8, 8, 9, 9, 9, 9]
 };
 var GARRISON = {
   /** Defense of a posted kiwi: its fighting strength × this × its class affinity. */
@@ -1635,7 +1649,7 @@ var METEORS = {
   lifeMs: ms.h(48),
   /** Stock: base × Nest level factor × (1 + perDay × days played, capped like the threats). */
   stock: 300,
-  nestFactor: [0, 1, 1.5, 2.2, 3, 3.8, 4.6],
+  nestFactor: [0, 1, 1.5, 2.2, 3, 3.25, 3.5, 3.8, 4.05, 4.3, 4.6, 4.85, 5.1],
   /** Chantier 08: richer gifts in later ages (index = age). */
   ageFactor: [1, 1.3, 1.7, 2.2],
   perDay: 0.15,
@@ -1782,7 +1796,7 @@ var TECHS = {
     branch: "passage",
     // Chantier 18: passages retuned for the complete bot (Stone ≈ 36 h, Iron ≈ 4 d, Industry ≈ 8 d).
     cost: 5800,
-    libraryLevel: 5,
+    libraryLevel: 7,
     effects: {}
   },
   machines: {
@@ -1790,7 +1804,7 @@ var TECHS = {
     age: 3,
     branch: "economy",
     cost: 2e3,
-    libraryLevel: 5,
+    libraryLevel: 7,
     effects: { harvest: { pulp: 1.15, fiber: 1.15, seeds: 1.15, juice: 1.15 } }
   },
   firearms: {
@@ -1798,7 +1812,7 @@ var TECHS = {
     age: 3,
     branch: "defense",
     cost: 2400,
-    libraryLevel: 6,
+    libraryLevel: 10,
     effects: { firearms: true }
   },
   steamEngines: {
@@ -1806,7 +1820,7 @@ var TECHS = {
     age: 3,
     branch: "exploration",
     cost: 2e3,
-    libraryLevel: 5,
+    libraryLevel: 7,
     effects: { travel: 0.85 }
   },
   juiceInfusion: {
@@ -1822,7 +1836,7 @@ var TECHS = {
     age: 2,
     branch: "unnatural",
     cost: 1500,
-    libraryLevel: 5,
+    libraryLevel: 7,
     effects: { terraform: true }
   },
   greenBlood: {
@@ -1830,7 +1844,7 @@ var TECHS = {
     age: 3,
     branch: "unnatural",
     cost: 2500,
-    libraryLevel: 6,
+    libraryLevel: 10,
     effects: { kikiwiwiPower: 1.25, kikiwiwiUpkeep: 0.75, infusionRisk: 0.1 }
   },
   clearNights: {
@@ -1888,7 +1902,7 @@ var RESEARCH = {
   /** Research bonus per point of Spirit above average (+6 %). */
   spirit: 0.06,
   /** Bank when no technology is chosen: points kept by Library level (index = level − 1). */
-  bank: [100, 200, 400, 800, 1500, 2500]
+  bank: [100, 200, 400, 800, 1e3, 1200, 1500, 1800, 2100, 2500, 2800, 3100]
 };
 var RESEARCH_SCALE = 100 * 36e5;
 
@@ -2077,7 +2091,7 @@ var AUTO_TASKS = [
 ];
 var TASKS = {
   /** Constructions under way at once, by Nest level (index = level). */
-  buildSlots: [0, 1, 1, 2, 2, 3, 3]
+  buildSlots: [0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3]
 };
 
 // packages/shared/src/data/siege.ts
@@ -6020,7 +6034,8 @@ function copiesOf(state, type) {
   return state.buildings.filter((b) => b.type === type).length + state.queue.filter((i) => i.kind === "build" && i.buildingType === type).length;
 }
 function pathLimit(state) {
-  return PATHS.base + PATHS.perNestLevel * nest(state).level;
+  const level = nest(state).level;
+  return PATHS.base + PATHS.perNestLevel * Math.min(level, 3) + PATHS.perAgeLevel * Math.max(0, level - 3);
 }
 function buildingCount(state) {
   const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && !isTurret(t);
@@ -7370,7 +7385,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 23;
+var SCHEMA_VERSION = 24;
 var MISSION_KINDS = [
   "raid",
   "recon",
@@ -13302,8 +13317,44 @@ var MIGRATIONS = {
     ...raw,
     colony: newColonyLink(),
     research: { ...raw.research, outbox: 0 }
-  })
+  }),
+  // v23 → v24 (chantier 30): three levels per age; the old age levels 4/5/6 become 4/7/10.
+  23: migrateLevels
 };
+function newLevel(level) {
+  return level <= 4 ? level : level === 5 ? 7 : 10;
+}
+function migrateLevels(raw) {
+  const buildings = Array.isArray(raw.buildings) ? raw.buildings : [];
+  const fixed = (type) => type === "monument" || type === "lab";
+  let added = 0;
+  const levelOf = /* @__PURE__ */ new Map();
+  const nextBuildings = buildings.map((b) => {
+    const level = Number(b.level);
+    if (fixed(b.type) || !(level > 4)) return b;
+    const after = newLevel(level);
+    added += after - level;
+    levelOf.set(b.id, after);
+    return { ...b, level: after };
+  });
+  const queue = Array.isArray(raw.queue) ? raw.queue : [];
+  const nextQueue = queue.map((i) => {
+    const target = Number(i.targetLevel);
+    if (i.kind === "repair" && levelOf.has(i.buildingId))
+      return { ...i, targetLevel: levelOf.get(i.buildingId) };
+    if (i.kind !== "upgrade" || fixed(i.buildingType) || !(target > 4)) return i;
+    const from = levelOf.get(i.buildingId) ?? newLevel(target - 1);
+    return { ...i, targetLevel: from + 1 };
+  });
+  const stats2 = raw.stats;
+  return {
+    ...raw,
+    buildings: nextBuildings,
+    queue: nextQueue,
+    // The levels skipped count as earned constructions (`isPlausible`).
+    stats: stats2 ? { ...stats2, constructionsCompleted: Number(stats2.constructionsCompleted) + added } : stats2
+  };
+}
 function obstaclesForOldGame(raw) {
   const face = raw.face === "kiwino" ? "kiwino" : "kiwisu";
   const params = raw.params;
@@ -14431,6 +14482,7 @@ export {
   KIWI,
   KIWI_COLORS,
   KIWI_NAME_MAX,
+  LEVELS_PER_AGE,
   LEVEL_STATS,
   LOGISTICS,
   MASTERY_IDS,
@@ -14509,6 +14561,7 @@ export {
   advanceInPlace,
   affinity,
   ageOf,
+  ageOfLevel,
   ageRange,
   alienDefOf,
   alienDefense,

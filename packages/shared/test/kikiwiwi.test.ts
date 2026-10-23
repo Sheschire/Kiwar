@@ -30,7 +30,7 @@ import { findTile, rich, run, setup, T0 } from './helpers';
 export function ironColony(techs: TechId[] = ['stoneAge', 'ironAge', 'juiceInfusion']) {
   const { map, state } = setup('kiwisu', 'kikiwiwi');
   const s: GameState = rich(state);
-  s.buildings[0]!.level = 4;
+  s.buildings[0]!.level = 7;
   const mon = findTile(map, 'flesh', 6);
   s.buildings.push({
     id: 'bmon' as BuildingId,

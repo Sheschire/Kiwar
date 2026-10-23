@@ -11,6 +11,7 @@ import {
   maxLevelNow,
   maxLevelOf,
   meteorStock,
+  migrateState,
   shipOf,
   wavePower,
   type Command,
@@ -45,13 +46,14 @@ const errorOf = (s: GameState, cmd: Command, map: ReturnType<typeof setup>['map'
 };
 
 describe('ages', () => {
-  it('extends every building but camps and the monument to six levels, one per age', () => {
+  it('extends every building but camps and the monument to twelve levels, three per age', () => {
     for (const type of BUILDING_TYPES) {
       if (type === 'camp' || type === 'monument' || type === 'lab') continue;
-      expect(maxLevelOf(type)).toBe(6);
-      for (let level = 4; level <= 6; level++) {
+      expect(maxLevelOf(type)).toBe(12);
+      for (let level = 4; level <= 12; level++) {
         const def = levelDef(type, level)!;
-        expect(def.requiresAge).toBe(level - 3);
+        expect(def.requiresAge).toBe(Math.floor((level - 1) / 3));
+        expect(def.requiresNestLevel).toBe(type === 'nest' ? level - 1 : level);
         const prev = levelDef(type, level - 1)!;
         expect(def.durationMs).toBeGreaterThan(prev.durationMs);
         for (const [id, v] of Object.entries(prev.cost))
@@ -87,7 +89,7 @@ describe('ages', () => {
     );
   });
 
-  it('opens level 4 with the Stone age, behind a Nest of level 4', () => {
+  it('opens levels 4–6 with the Stone age, each behind a Nest of the same level', () => {
     const { map, s, nestId } = nest3();
     const pulpery = s.buildings.find((b) => b.type === 'pulpery')!;
     // Pulpery to level 3 first.
@@ -103,16 +105,56 @@ describe('ages', () => {
     t = knowing(rich(t), 'stoneAge');
     t = run(t, { type: 'build', buildingType: 'monument', q: site.q, r: site.r }, t.now, map);
     t = advance(t, t.now + 8 * HOUR_MS).state;
-    expect(maxLevelNow(t, 'pulpery')).toBe(4);
+    expect(maxLevelNow(t, 'pulpery')).toBe(6);
     expect(errorOf(rich(t), { type: 'upgrade', buildingId: pulpery.id }, map)).toBe(
       'nestLevelTooLow',
     );
-    t = run(rich(t), { type: 'upgrade', buildingId: nestId }, t.now, map);
-    t = advance(t, t.now + 3 * HOUR_MS).state;
-    expect(t.buildings[0]!.level).toBe(4);
-    t = run(rich(t), { type: 'upgrade', buildingId: pulpery.id }, t.now, map);
-    t = advance(t, t.now + 3 * HOUR_MS).state;
-    expect(t.buildings.find((b) => b.id === pulpery.id)!.level).toBe(4);
+    // Three levels in the Stone age, then the Iron age is needed.
+    for (let level = 4; level <= 6; level++) {
+      t = run(rich(t), { type: 'upgrade', buildingId: nestId }, t.now, map);
+      t = advance(t, t.now + 12 * HOUR_MS).state;
+      expect(t.buildings[0]!.level).toBe(level);
+      t = run(rich(t), { type: 'upgrade', buildingId: pulpery.id }, t.now, map);
+      t = advance(t, t.now + 12 * HOUR_MS).state;
+      expect(t.buildings.find((b) => b.id === pulpery.id)!.level).toBe(level);
+    }
+    expect(errorOf(rich(t), { type: 'upgrade', buildingId: nestId }, map)).toBe('ageTooLow');
+    expect(errorOf(rich(t), { type: 'upgrade', buildingId: pulpery.id }, map)).toBe('ageTooLow');
+  });
+
+  it('migrates the old age levels 4/5/6 to 4/7/10 (chantier 30)', () => {
+    const { s } = nest3();
+    const raw = structuredClone(s) as unknown as Record<string, unknown>;
+    raw.schemaVersion = 23;
+    const buildings = raw.buildings as { id: string; type: string; level: number }[];
+    buildings[0]!.level = 6;
+    const pulpery = buildings.find((b) => b.type === 'pulpery')!;
+    pulpery.level = 5;
+    const stats = raw.stats as { constructionsCompleted: number };
+    const before = stats.constructionsCompleted;
+    raw.queue = [
+      {
+        id: 'q-old',
+        kind: 'upgrade',
+        buildingType: 'pulpery',
+        q: 0,
+        r: 0,
+        buildingId: pulpery.id,
+        targetLevel: 6,
+        richness: 1,
+        durationMs: HOUR_MS,
+        startedAt: null,
+        paid: {},
+        orderedAt: s.now,
+      },
+    ];
+    const m = migrateState(raw);
+    expect(m.ok).toBe(true);
+    if (!m.ok) return;
+    expect(m.state.buildings[0]!.level).toBe(10);
+    expect(m.state.buildings.find((b) => b.id === pulpery.id)!.level).toBe(7);
+    expect(m.state.queue[0]!.targetLevel).toBe(8);
+    expect(m.state.stats.constructionsCompleted).toBe(before + 4 + 2);
   });
 
   it('makes predators and gifts from the sky grow with the age', () => {

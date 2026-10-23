@@ -70,7 +70,7 @@ function orderHuts(s: GameState, map: ReturnType<typeof setup>['map'], count: nu
 }
 
 describe('constructions as tasks (chantier 15)', () => {
-  it('builds in parallel according to the Nest level (1/1/2/2/3/3)', () => {
+  it('builds in parallel according to the Nest level (TASKS.buildSlots)', () => {
     const { map, s: start } = colony();
     expect(buildSlots(start)).toBe(1);
     let s = orderHuts(start, map, 2);
@@ -132,7 +132,7 @@ describe('constructions as tasks (chantier 15)', () => {
 
   it('gives the same result in one big step or many small ones', () => {
     const { map, s: start } = colony();
-    const s0 = orderHuts(withNest(start, 5), map, 4);
+    const s0 = orderHuts(withNest(start, 7), map, 4);
     expect(startedItems(s0)).toHaveLength(3);
     const end = s0.now + 12 * HOUR;
     const big = advance(s0, end).state;

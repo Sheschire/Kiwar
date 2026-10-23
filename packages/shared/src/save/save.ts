@@ -635,7 +635,51 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
     colony: newColonyLink(),
     research: { ...(raw.research as object), outbox: 0 },
   }),
+  // v23 → v24 (chantier 30): three levels per age; the old age levels 4/5/6 become 4/7/10.
+  23: migrateLevels,
 };
+
+/** Chantier 30: old level of a building → its new level (each level keeps its age). */
+function newLevel(level: number): number {
+  return level <= 4 ? level : level === 5 ? 7 : 10;
+}
+
+function migrateLevels(raw: Record<string, unknown>): Record<string, unknown> {
+  const buildings = Array.isArray(raw.buildings)
+    ? (raw.buildings as Record<string, unknown>[])
+    : [];
+  const fixed = (type: unknown) => type === 'monument' || type === 'lab';
+  let added = 0;
+  const levelOf = new Map<unknown, number>();
+  const nextBuildings = buildings.map((b) => {
+    const level = Number(b.level);
+    if (fixed(b.type) || !(level > 4)) return b;
+    const after = newLevel(level);
+    added += after - level;
+    levelOf.set(b.id, after);
+    return { ...b, level: after };
+  });
+  // A queued upgrade aims at the level after the building's new one.
+  const queue = Array.isArray(raw.queue) ? (raw.queue as Record<string, unknown>[]) : [];
+  const nextQueue = queue.map((i) => {
+    const target = Number(i.targetLevel);
+    if (i.kind === 'repair' && levelOf.has(i.buildingId))
+      return { ...i, targetLevel: levelOf.get(i.buildingId) };
+    if (i.kind !== 'upgrade' || fixed(i.buildingType) || !(target > 4)) return i;
+    const from = levelOf.get(i.buildingId) ?? newLevel(target - 1);
+    return { ...i, targetLevel: from + 1 };
+  });
+  const stats = raw.stats as Record<string, unknown> | undefined;
+  return {
+    ...raw,
+    buildings: nextBuildings,
+    queue: nextQueue,
+    // The levels skipped count as earned constructions (`isPlausible`).
+    stats: stats
+      ? { ...stats, constructionsCompleted: Number(stats.constructionsCompleted) + added }
+      : stats,
+  };
+}
 
 function obstaclesForOldGame(raw: Record<string, unknown>): Obstacle[] {
   const face: Face = raw.face === 'kiwino' ? 'kiwino' : 'kiwisu';

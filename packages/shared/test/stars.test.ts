@@ -107,7 +107,7 @@ describe('stardust for the ages', () => {
   it('the Iron age monument needs stardust, given back on cancel', () => {
     const { map, s: base } = starColony(0);
     const s = structuredClone(base) as GameState;
-    s.buildings[0]!.level = 4;
+    s.buildings[0]!.level = 6;
     s.research.done.push('stoneAge', 'ironAge');
     s.queue = [];
     const monument = s.buildings.find((b) => b.type === 'monument')!;

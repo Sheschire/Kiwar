@@ -23,7 +23,7 @@ export const THREATS = {
   importShieldMs: ms.h(48),
   /** Total wave power: base × Nest level factor × play time × provocation. */
   basePower: 6,
-  nestFactor: [0, 0.6, 1, 1.6, 2.2, 2.9, 3.6] as readonly number[],
+  nestFactor: [0, 0.6, 1, 1.6, 2.2, 2.4, 2.65, 2.9, 3.1, 3.35, 3.6, 3.85, 4.1] as readonly number[],
   /** Chantier 08: the predators grow with the age of the colony (index = age). */
   ageFactor: [1, 1.15, 1.3, 1.5] as readonly number[],
   /** Power gained per day of play, up to `maxDays`. */
@@ -96,13 +96,13 @@ export const SECTORS = {
   /** Share of what breaks through a sector that turns to the least defended flank instead. */
   overflow: 0.5,
   /** Range of the turrets in tiles (index = level); sky turrets reach one tile further. */
-  range: [0, 3, 4, 5, 5, 5, 5] as readonly number[],
+  range: [0, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5] as readonly number[],
   skyRangeBonus: 1,
 } as const;
 
 /** Turrets (both models together) allowed by Nest level (index = level). */
 export const TURRETS = {
-  max: [0, 2, 4, 6, 7, 8, 9] as readonly number[],
+  max: [0, 2, 4, 6, 7, 7, 8, 8, 8, 9, 9, 9, 9] as readonly number[],
 } as const;
 
 /**
@@ -175,7 +175,7 @@ export const METEORS = {
   lifeMs: ms.h(48),
   /** Stock: base × Nest level factor × (1 + perDay × days played, capped like the threats). */
   stock: 300,
-  nestFactor: [0, 1, 1.5, 2.2, 3, 3.8, 4.6] as readonly number[],
+  nestFactor: [0, 1, 1.5, 2.2, 3, 3.25, 3.5, 3.8, 4.05, 4.3, 4.6, 4.85, 5.1] as readonly number[],
   /** Chantier 08: richer gifts in later ages (index = age). */
   ageFactor: [1, 1.3, 1.7, 2.2] as readonly number[],
   perDay: 0.15,

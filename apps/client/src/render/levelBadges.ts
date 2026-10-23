@@ -1,5 +1,5 @@
 import { CanvasTexture, Group, SRGBColorSpace, Sprite, SpriteMaterial } from 'three';
-import { upgradeLock, type GameState } from '@kiwar/shared';
+import { ageOfLevel, upgradeLock, type GameState } from '@kiwar/shared';
 
 /**
  * Chantier 11: a small level badge above every building, with a green arrow when it can be
@@ -7,6 +7,9 @@ import { upgradeLock, type GameState } from '@kiwar/shared';
  */
 
 const TAU = Math.PI * 2;
+/** Ring colour of a level badge, by the age of the level. */
+const AGE_RINGS = ['#7a5233', '#c99a1e', '#6f8394', '#b8673a'];
+
 /** Share of the screen height. */
 const BADGE_SIZE = 0.03;
 
@@ -20,10 +23,11 @@ function badgeTexture(level: number, upgradable: boolean): CanvasTexture {
   g.fillStyle = '#fbf3df';
   g.fill();
   g.lineWidth = 4;
-  g.strokeStyle = level >= 4 ? '#c99a1e' : '#7a5233';
+  // Chantier 30: one ring colour per age (Eden wood, Stone gold, Iron steel, Industry copper).
+  g.strokeStyle = AGE_RINGS[ageOfLevel(level)] ?? '#7a5233';
   g.stroke();
   g.fillStyle = '#4a3324';
-  g.font = 'bold 28px Georgia, serif';
+  g.font = level >= 10 ? 'bold 23px Georgia, serif' : 'bold 28px Georgia, serif';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.fillText(String(level), 28, 38);

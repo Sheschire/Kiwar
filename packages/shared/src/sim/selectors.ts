@@ -221,7 +221,12 @@ export function copiesOf(state: GameState, type: BuildingType): number {
 
 /** Max number of path tiles (grows with the Nest). */
 export function pathLimit(state: GameState): number {
-  return PATHS.base + PATHS.perNestLevel * nest(state).level;
+  const level = nest(state).level;
+  return (
+    PATHS.base +
+    PATHS.perNestLevel * Math.min(level, 3) +
+    PATHS.perAgeLevel * Math.max(0, level - 3)
+  );
 }
 
 /** Buildings counted against the Nest cap (camps and turrets are outside it). */

@@ -189,7 +189,7 @@ export const TECHS: Record<TechId, TechDef> = {
     branch: 'passage',
     // Chantier 18: passages retuned for the complete bot (Stone ≈ 36 h, Iron ≈ 4 d, Industry ≈ 8 d).
     cost: 5800,
-    libraryLevel: 5,
+    libraryLevel: 7,
     effects: {},
   },
   machines: {
@@ -197,7 +197,7 @@ export const TECHS: Record<TechId, TechDef> = {
     age: 3,
     branch: 'economy',
     cost: 2000,
-    libraryLevel: 5,
+    libraryLevel: 7,
     effects: { harvest: { pulp: 1.15, fiber: 1.15, seeds: 1.15, juice: 1.15 } },
   },
   firearms: {
@@ -205,7 +205,7 @@ export const TECHS: Record<TechId, TechDef> = {
     age: 3,
     branch: 'defense',
     cost: 2400,
-    libraryLevel: 6,
+    libraryLevel: 10,
     effects: { firearms: true },
   },
   steamEngines: {
@@ -213,7 +213,7 @@ export const TECHS: Record<TechId, TechDef> = {
     age: 3,
     branch: 'exploration',
     cost: 2000,
-    libraryLevel: 5,
+    libraryLevel: 7,
     effects: { travel: 0.85 },
   },
   juiceInfusion: {
@@ -229,7 +229,7 @@ export const TECHS: Record<TechId, TechDef> = {
     age: 2,
     branch: 'unnatural',
     cost: 1500,
-    libraryLevel: 5,
+    libraryLevel: 7,
     effects: { terraform: true },
   },
   greenBlood: {
@@ -237,7 +237,7 @@ export const TECHS: Record<TechId, TechDef> = {
     age: 3,
     branch: 'unnatural',
     cost: 2500,
-    libraryLevel: 6,
+    libraryLevel: 10,
     effects: { kikiwiwiPower: 1.25, kikiwiwiUpkeep: 0.75, infusionRisk: 0.1 },
   },
   clearNights: {
@@ -298,7 +298,7 @@ export const RESEARCH = {
   /** Research bonus per point of Spirit above average (+6 %). */
   spirit: 0.06,
   /** Bank when no technology is chosen: points kept by Library level (index = level − 1). */
-  bank: [100, 200, 400, 800, 1500, 2500] as readonly number[],
+  bank: [100, 200, 400, 800, 1000, 1200, 1500, 1800, 2100, 2500, 2800, 3100] as readonly number[],
 } as const;
 
 /** Raw research units per research point (integers keep offline progress exact). */

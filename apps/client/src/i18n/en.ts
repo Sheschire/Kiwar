@@ -420,7 +420,7 @@ export const en = {
     },
     upgradeNest: {
       title: 'Upgrade the Nest to level 2',
-      hint: 'A bigger Nest unlocks more buildings and level 3.',
+      hint: 'A bigger Nest unlocks more buildings and higher levels.',
     },
   },
   events: {
@@ -1533,7 +1533,8 @@ export const en = {
     next: 'Next: {age}',
     steps: 'Research “{tech}” at the Library, then raise the monument.',
     passageDone: '“{tech}” is known: the monument can be raised.',
-    opens: 'Opens building level {level}, the {ship} ship and stronger gifts — and predators.',
+    opens:
+      'Opens building levels {from} to {to}, the {ship} ship and stronger gifts — and predators.',
     last: 'The colony has reached the last age for now.',
     ships: { wood: 'wooden', logs: 'log', iron: 'iron', jet: 'jet' },
   },
