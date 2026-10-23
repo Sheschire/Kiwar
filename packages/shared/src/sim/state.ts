@@ -229,6 +229,8 @@ export interface QueueItem {
   paid: Partial<Resources>;
   /** Chantier 13: stardust points paid when ordered (refunded on cancel). */
   paidDust?: number;
+  /** Chantier 38: whole units of meteoric iron paid when ordered (refunded on cancel). */
+  paidIron?: number;
   orderedAt: TimeMs;
   /**
    * Chantier 35: orientation of a big building's footprint — for a `build`, the site; for the

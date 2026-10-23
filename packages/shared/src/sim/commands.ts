@@ -1,3 +1,5 @@
+import { IRON_SCALE } from '../data/iron';
+import { addIron, meteorIronOf } from './iron';
 import { GEAR_SLOTS, ITEMS, type GearSlot, type ItemId } from '../data/gear';
 import { cancelOrder, equip, forgeLock, orderItem, unequip, wearLock } from './forge';
 import { BLESSINGS, FUEL, STARDUST, STARDUST_SCALE } from '../data/comets';
@@ -103,6 +105,7 @@ import {
   isLaunchpadBusy,
   launch,
   launchpadOf,
+  launchIron,
   maxCrew,
   minCrew,
   shipCargo,
@@ -394,9 +397,20 @@ const fail = (code: CommandError): never => {
   throw new CommandFailure(code);
 };
 
-/** Chantier 13: the stardust of an abandoned star technology comes back (up to the cap). */
+/**
+ * Chantier 13: the stardust of an abandoned star technology comes back (up to the cap), and
+ * (chantier 38) its meteoric iron.
+ */
 function refundTechDust(s: GameState, tech: TechId | null): void {
   refundStardust(s, tech ? (TECHS[tech].stardust ?? 0) : 0);
+  addIron(s, tech ? (TECHS[tech].iron ?? 0) : 0);
+}
+
+/** Chantier 38: spends whole units of meteoric iron (`notEnoughIron` otherwise). */
+function payIron(s: GameState, units: number): void {
+  if (units <= 0) return;
+  if (meteorIronOf(s) < units) fail('notEnoughIron');
+  s.meteorIron -= units * IRON_SCALE;
 }
 
 /** Stardust points given back (up to the cap). */
@@ -543,7 +557,9 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const cost = upgradeCost(b.type, target);
       const durationMs = constructionDuration(s, b.type, target, false, nearRay(ctx.map, b.q, b.r));
       const dust = levelDef(b.type, target)?.stardust ?? 0;
+      const iron = levelDef(b.type, target)?.iron ?? 0;
       payStardust(s, dust);
+      payIron(s, iron);
       pay(s, cost);
       s.queue.push({
         id: nextId(s, 'q') as QueueItemId,
@@ -558,6 +574,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         startedAt: null,
         paid: cost,
         ...(dust > 0 ? { paidDust: dust } : {}),
+        ...(iron > 0 ? { paidIron: iron } : {}),
         orderedAt: now,
         ...(spread !== null ? { rot: spread } : {}),
       });
@@ -570,6 +587,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const [item] = s.queue.splice(index, 1);
       refund(s, item!.paid);
       refundStardust(s, item!.paidDust ?? 0);
+      addIron(s, item!.paidIron ?? 0);
       for (const v of s.villagers) {
         if (v.job.kind === 'build' && v.job.queueItemId === item!.id) {
           const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : undefined;
@@ -809,6 +827,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       };
       if (!canAfford(s.resources, need)) fail('notEnoughResources');
       if (cmd.fuel) payStardust(s, FUEL.stardust);
+      payIron(s, launchIron(s));
       pay(s, fee);
       launch(s, cmd, now, nextId(s, 'x'));
       return;
@@ -1282,6 +1301,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (before !== cmd.tech) {
         refundTechDust(s, before);
         payStardust(s, TECHS[cmd.tech].stardust ?? 0);
+        payIron(s, TECHS[cmd.tech].iron ?? 0);
       }
       s.research.current = cmd.tech;
       // Banked points may already pay for it.

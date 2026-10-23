@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  IRON,
+  IRON_SCALE,
+  launchIron,
   ALIENS,
   CALENDAR,
   HOUR_MS,
@@ -318,6 +321,19 @@ describe('reconnaissance missions', () => {
     crew: crew as never,
     provisions: { pulp: 40, juice: 20 },
     mission: 'recon' as const,
+  });
+
+  it('an iron ship spends meteoric iron at each launch (chantier 38)', () => {
+    const { s, t, map, padId, targetId } = readyColony();
+    expect(launchIron(reliable(s, 1))).toBe(0);
+    const iron = reliable(s, 2);
+    expect(launchIron(iron)).toBe(IRON.ship.iron);
+    const launched = run(iron, recon(padId, targetId, 1), t, map);
+    expect(launched.meteorIron).toBe(iron.meteorIron - IRON.ship.iron! * IRON_SCALE);
+    const broke = { ...iron, meteorIron: 0 };
+    expect(validateCommand(broke, recon(padId, targetId, 1), { now: t, map })).toBe(
+      'notEnoughIron',
+    );
   });
 
   it('takes one or two kiwis, flies faster, and brings back a partial map with ranges', () => {

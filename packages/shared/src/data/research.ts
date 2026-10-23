@@ -109,6 +109,8 @@ export interface TechDef {
   libraryLevel: number;
   /** Chantier 13: stardust paid when it is chosen (refunded if abandoned). */
   stardust?: number;
+  /** Chantier 38: meteoric iron paid when it is chosen (refunded if abandoned). */
+  iron?: number;
   effects: TechEffects;
 }
 
@@ -177,6 +179,7 @@ export const TECHS: Record<TechId, TechDef> = {
     branch: 'defense',
     cost: 900,
     libraryLevel: 4,
+    iron: 10,
     effects: { injuries: 0.7, armor: 0.1 },
   },
   compass: {
@@ -202,6 +205,7 @@ export const TECHS: Record<TechId, TechDef> = {
     branch: 'economy',
     cost: 2000,
     libraryLevel: 7,
+    iron: 20,
     effects: { harvest: { pulp: 1.15, fiber: 1.15, seeds: 1.15, juice: 1.15 } },
   },
   firearms: {
@@ -210,6 +214,7 @@ export const TECHS: Record<TechId, TechDef> = {
     branch: 'defense',
     cost: 2400,
     libraryLevel: 10,
+    iron: 25,
     effects: { firearms: true },
   },
   steamEngines: {

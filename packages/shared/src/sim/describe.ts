@@ -1,3 +1,4 @@
+import { meteorIronOf } from './iron';
 import { TASKS } from '../data/jobs';
 import { stardustOf } from './comets';
 import { climateOf } from '../data/biomes';
@@ -372,5 +373,6 @@ export function upgradeLock(state: GameState, b: Building, map?: FaceMap): Comma
   if (state.queue.length >= (nestDef(state).queueSize ?? 1)) return 'queueFull';
   if (!canAfford(state.resources, upgradeCost(b.type, b.level + 1))) return 'notEnoughResources';
   if (stardustOf(state) < (def.stardust ?? 0)) return 'notEnoughStardust';
+  if (meteorIronOf(state) < (def.iron ?? 0)) return 'notEnoughIron';
   return null;
 }

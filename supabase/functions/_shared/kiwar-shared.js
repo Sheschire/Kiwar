@@ -412,6 +412,41 @@ function climateOf(face, biome) {
   };
 }
 
+// packages/shared/src/data/iron.ts
+var IRON = {
+  /** Stock cap (units) by Nest level (index 0–12). */
+  cap: [20, 20, 30, 40, 60, 90, 120, 160, 220, 300, 400, 500, 600],
+  /** Iron in a crater (units), × `METEORS.ageFactor` and the `starIron` technology. */
+  crater: 12,
+  /** An average kiwi digs this many units per hour (× the crater's usual multipliers). */
+  perHour: 0.2,
+  /** Share of the old meteorite stock (seeds, juice or fiber) a crater still gives. */
+  resourceShare: 0.2,
+  /** A smashed wreck gives this many units (× `METEORS.ageFactor`). */
+  wreck: 3,
+  /** Anti-blocking guarantee: never longer than this without a fall. */
+  guaranteeMs: ms.h(72),
+  /** Iron paid by building levels 7+ (index = level; turrets and the monument have their own). */
+  levels: [0, 0, 0, 0, 0, 0, 0, 4, 6, 9, 14, 20, 28],
+  /** Iron paid by turret levels 3+ (index = level). */
+  turret: [0, 0, 0, 2, 2, 3, 3, 4, 5, 6, 8, 10, 12],
+  /** Iron of the levels with their own number (the monument's ages, the Iron levels of the
+   * camp and the Forge; index = level). */
+  own: {
+    monument: [0, 0, 30, 80],
+    trainingCamp: [0, 0, 0, 6],
+    forge: [0, 0, 0, 8],
+    lab: [0, 0, 0, 0],
+    camp: [0, 0]
+  },
+  /** Iron spent by each launch of the iron and jet ships (rivets, a new hull plate). */
+  ship: { wood: 0, logs: 0, iron: 2, jet: 3 }
+};
+var IRON_SCALE = 1e3 * 36e5;
+function ironUnits(raw) {
+  return Math.floor(raw / IRON_SCALE + 1e-9);
+}
+
 // packages/shared/src/data/territory.ts
 var DEPOSITS = {
   // Regrowth is sized so that a well-placed producer is sustainable at level 1 (2 tiles),
@@ -1403,8 +1438,18 @@ function withAgeLevels(def) {
   return { ...def, levels };
 }
 var BUILDINGS = Object.fromEntries(
-  Object.entries(BASE).map(([id3, def]) => [id3, withAgeLevels(def)])
+  Object.entries(BASE).map(([id3, def]) => [id3, withIron(withAgeLevels(def))])
 );
+function withIron(def) {
+  const table = IRON.own[def.id] ?? (def.id === "seedTurret" || def.id === "skyTurret" ? IRON.turret : IRON.levels);
+  return {
+    ...def,
+    levels: def.levels.map((l, i) => {
+      const iron = table[i + 1] ?? 0;
+      return iron > 0 ? { ...l, iron } : l;
+    })
+  };
+}
 var TURRET_TYPES = ["seedTurret", "skyTurret"];
 function isTurret(type) {
   return TURRET_TYPES.includes(type);
@@ -2371,6 +2416,7 @@ var TECHS = {
     branch: "defense",
     cost: 900,
     libraryLevel: 4,
+    iron: 10,
     effects: { injuries: 0.7, armor: 0.1 }
   },
   compass: {
@@ -2396,6 +2442,7 @@ var TECHS = {
     branch: "economy",
     cost: 2e3,
     libraryLevel: 7,
+    iron: 20,
     effects: { harvest: { pulp: 1.15, fiber: 1.15, seeds: 1.15, juice: 1.15 } }
   },
   firearms: {
@@ -2404,6 +2451,7 @@ var TECHS = {
     branch: "defense",
     cost: 2400,
     libraryLevel: 10,
+    iron: 25,
     effects: { firearms: true }
   },
   steamEngines: {
@@ -2671,26 +2719,6 @@ var FUEL = {
 var STARDUST_SCALE = 100 * STARDUST.pickMs;
 function dustPoints(raw) {
   return Math.floor(raw / STARDUST_SCALE + 1e-9);
-}
-
-// packages/shared/src/data/iron.ts
-var IRON = {
-  /** Stock cap (units) by Nest level (index 0–12). */
-  cap: [20, 20, 30, 40, 60, 90, 120, 160, 220, 300, 400, 500, 600],
-  /** Iron in a crater (units), × `METEORS.ageFactor` and the `starIron` technology. */
-  crater: 12,
-  /** An average kiwi digs this many units per hour (× the crater's usual multipliers). */
-  perHour: 0.2,
-  /** Share of the old meteorite stock (seeds, juice or fiber) a crater still gives. */
-  resourceShare: 0.2,
-  /** A smashed wreck gives this many units (× `METEORS.ageFactor`). */
-  wreck: 3,
-  /** Anti-blocking guarantee: never longer than this without a fall. */
-  guaranteeMs: ms.h(72)
-};
-var IRON_SCALE = 1e3 * 36e5;
-function ironUnits(raw) {
-  return Math.floor(raw / IRON_SCALE + 1e-9);
 }
 
 // packages/shared/src/data/gear.ts
@@ -9023,6 +9051,9 @@ function shipOf(state) {
   const tech = techEffects(state);
   return { ...ship, armor: ship.armor + tech.armor, recon: ship.recon + tech.recon };
 }
+function launchIron(state) {
+  return IRON.ship[shipOf(state).id] ?? 0;
+}
 function shipReliability(ship, crew, fuel = false) {
   const dex = Math.max(KIWI.stat.average, ...crew.map((v) => v.stats.dexterity));
   const mend = Math.min(SHIP_REPAIR.max, SHIP_REPAIR.perDexterity * (dex - KIWI.stat.average));
@@ -10999,6 +11030,7 @@ function upgradeLock(state, b, map) {
   if (state.queue.length >= (nestDef(state).queueSize ?? 1)) return "queueFull";
   if (!canAfford(state.resources, upgradeCost(b.type, b.level + 1))) return "notEnoughResources";
   if (stardustOf(state) < (def.stardust ?? 0)) return "notEnoughStardust";
+  if (meteorIronOf(state) < (def.iron ?? 0)) return "notEnoughIron";
   return null;
 }
 
@@ -11149,6 +11181,12 @@ var fail = (code) => {
 };
 function refundTechDust(s, tech) {
   refundStardust(s, tech ? TECHS[tech].stardust ?? 0 : 0);
+  addIron(s, tech ? TECHS[tech].iron ?? 0 : 0);
+}
+function payIron(s, units) {
+  if (units <= 0) return;
+  if (meteorIronOf(s) < units) fail("notEnoughIron");
+  s.meteorIron -= units * IRON_SCALE;
 }
 function refundStardust(s, points) {
   if (points > 0) s.stardust = Math.min(STARDUST_CAP, s.stardust + points * STARDUST_SCALE);
@@ -11262,7 +11300,9 @@ function execute(s, cmd, ctx, events) {
       const cost = upgradeCost(b.type, target);
       const durationMs = constructionDuration(s, b.type, target, false, nearRay(ctx.map, b.q, b.r));
       const dust = levelDef(b.type, target)?.stardust ?? 0;
+      const iron = levelDef(b.type, target)?.iron ?? 0;
       payStardust(s, dust);
+      payIron(s, iron);
       pay(s, cost);
       s.queue.push({
         id: nextId(s, "q"),
@@ -11277,6 +11317,7 @@ function execute(s, cmd, ctx, events) {
         startedAt: null,
         paid: cost,
         ...dust > 0 ? { paidDust: dust } : {},
+        ...iron > 0 ? { paidIron: iron } : {},
         orderedAt: now,
         ...spread !== null ? { rot: spread } : {}
       });
@@ -11289,6 +11330,7 @@ function execute(s, cmd, ctx, events) {
       const [item2] = s.queue.splice(index, 1);
       refund(s, item2.paid);
       refundStardust(s, item2.paidDust ?? 0);
+      addIron(s, item2.paidIron ?? 0);
       for (const v of s.villagers) {
         if (v.job.kind === "build" && v.job.queueItemId === item2.id) {
           const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : void 0;
@@ -11500,6 +11542,7 @@ function execute(s, cmd, ctx, events) {
       };
       if (!canAfford(s.resources, need)) fail("notEnoughResources");
       if (cmd.fuel) payStardust(s, FUEL.stardust);
+      payIron(s, launchIron(s));
       pay(s, fee);
       launch(s, cmd, now, nextId(s, "x"));
       return;
@@ -11940,6 +11983,7 @@ function execute(s, cmd, ctx, events) {
       if (before !== cmd.tech) {
         refundTechDust(s, before);
         payStardust(s, TECHS[cmd.tech].stardust ?? 0);
+        payIron(s, TECHS[cmd.tech].iron ?? 0);
       }
       s.research.current = cmd.tech;
       researchTick(s, now, events);
@@ -16236,6 +16280,7 @@ var gameStateSchema = external_exports.object({
       startedAt: external_exports.number().nullable(),
       paid: partialResources,
       paidDust: external_exports.number().int().min(0).optional(),
+      paidIron: external_exports.number().int().min(0).optional(),
       orderedAt: external_exports.number(),
       rot: external_exports.number().int().min(0).max(5).optional()
     })
@@ -18294,6 +18339,7 @@ export {
   landTileNear,
   launch,
   launchCost,
+  launchIron,
   launchpadOf,
   layoutBuilding,
   layoutSnapshot,

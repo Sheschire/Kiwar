@@ -17,8 +17,14 @@ import {
   isPlausible,
   type GameEvent,
   type GameState,
+  levelDef,
+  TECHS,
+  BUILDING_TYPES,
+  BUILDINGS,
+  applyCommand,
+  type BuildingId,
 } from '../src';
-import { kiwi, run, setup, T0 } from './helpers';
+import { kiwi, rich, run, setup, T0 } from './helpers';
 
 const HOUR = 3_600_000;
 
@@ -137,5 +143,81 @@ describe('meteoric iron (chantier 38)', () => {
     const cheat = cloneState(plain);
     cheat.meteorIron = ironCap(plain) + IRON_SCALE;
     expect(isPlausible(cheat, plain.now)).toBe(false);
+  });
+});
+
+describe('what meteoric iron pays for (chantier 38)', () => {
+  it('levels 7+, the monuments of the Iron and Industry ages, turrets 3+, a few techs', () => {
+    expect(levelDef('pulpery', 6)!.iron).toBeUndefined();
+    expect(levelDef('pulpery', 7)!.iron).toBe(IRON.levels[7]);
+    expect(levelDef('nest', 12)!.iron).toBe(IRON.levels[12]);
+    expect(levelDef('monument', 1)!.iron).toBeUndefined();
+    expect(levelDef('monument', 2)!.iron).toBe(IRON.own.monument![2]);
+    expect(levelDef('monument', 3)!.iron).toBe(IRON.own.monument![3]);
+    expect(levelDef('seedTurret', 2)!.iron).toBeUndefined();
+    expect(levelDef('seedTurret', 3)!.iron).toBe(IRON.turret[3]);
+    expect(levelDef('forge', 3)!.iron).toBe(IRON.own.forge![3]);
+    expect(TECHS.armor.iron).toBeGreaterThan(0);
+    expect(TECHS.firearms.iron).toBeGreaterThan(0);
+  });
+
+  it('never costs more than the iron the Nest it needs can hold (no blocked game)', () => {
+    for (const type of BUILDING_TYPES)
+      BUILDINGS[type].levels.forEach((l, i) => {
+        if (!l.iron) return;
+        const nest = type === 'nest' ? i : l.requiresNestLevel;
+        expect(l.iron, `${type} ${i + 1}`).toBeLessThanOrEqual(IRON.cap[nest]!);
+      });
+  });
+
+  it('an upgrade pays its iron and gets it back when cancelled', () => {
+    const { map, state } = setup();
+    const s = rich(state);
+    const turret = {
+      ...s.buildings[0]!,
+      id: 'bt' as BuildingId,
+      type: 'seedTurret' as const,
+      level: 2,
+    };
+    s.buildings = [...s.buildings, turret];
+    s.buildings[0] = { ...s.buildings[0]!, level: 3 };
+    // Refunds fill up to the cap: start from it.
+    s.meteorIron = ironCap(s);
+    const before = s.meteorIron;
+    const poor = cloneState(s);
+    poor.meteorIron = 0;
+    const r = applyCommand(poor, { type: 'upgrade', buildingId: turret.id }, { now: s.now, map });
+    expect(!r.ok && r.error).toBe('notEnoughIron');
+    let after = run(s, { type: 'upgrade', buildingId: turret.id }, s.now, map);
+    expect(after.meteorIron).toBe(before - IRON.turret[3]! * IRON_SCALE);
+    after = run(after, { type: 'cancel', queueItemId: after.queue[0]!.id }, after.now, map);
+    expect(after.meteorIron).toBe(before);
+  });
+
+  it('a technology pays its iron when chosen and gets it back when abandoned', () => {
+    const { map, state } = setup();
+    const s = rich(state);
+    s.buildings.push({
+      ...s.buildings[0]!,
+      id: 'bm' as BuildingId,
+      type: 'monument',
+      level: 2,
+      q: 99,
+      r: 99,
+    });
+    s.buildings.push({
+      ...s.buildings[0]!,
+      id: 'bl' as BuildingId,
+      type: 'library',
+      level: 4,
+      q: 98,
+      r: 98,
+    });
+    s.meteorIron = ironCap(s);
+    const before = s.meteorIron;
+    let after = run(s, { type: 'setResearch', tech: 'armor' }, s.now, map);
+    expect(after.meteorIron).toBe(before - TECHS.armor.iron! * IRON_SCALE);
+    after = run(after, { type: 'setResearch', tech: null }, after.now, map);
+    expect(after.meteorIron).toBe(before);
   });
 });

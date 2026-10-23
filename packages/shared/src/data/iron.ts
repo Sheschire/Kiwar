@@ -20,6 +20,21 @@ export const IRON = {
   wreck: 3,
   /** Anti-blocking guarantee: never longer than this without a fall. */
   guaranteeMs: ms.h(72),
+  /** Iron paid by building levels 7+ (index = level; turrets and the monument have their own). */
+  levels: [0, 0, 0, 0, 0, 0, 0, 4, 6, 9, 14, 20, 28] as readonly number[],
+  /** Iron paid by turret levels 3+ (index = level). */
+  turret: [0, 0, 0, 2, 2, 3, 3, 4, 5, 6, 8, 10, 12] as readonly number[],
+  /** Iron of the levels with their own number (the monument's ages, the Iron levels of the
+   * camp and the Forge; index = level). */
+  own: {
+    monument: [0, 0, 30, 80],
+    trainingCamp: [0, 0, 0, 6],
+    forge: [0, 0, 0, 8],
+    lab: [0, 0, 0, 0],
+    camp: [0, 0],
+  } as Partial<Record<string, readonly number[]>>,
+  /** Iron spent by each launch of the iron and jet ships (rivets, a new hull plate). */
+  ship: { wood: 0, logs: 0, iron: 2, jet: 3 } as Record<string, number>,
 } as const;
 
 /** Raw iron units per unit. A crater's rate is `1000 × perHour × factors` raw units per ms. */

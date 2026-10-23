@@ -20,6 +20,7 @@ import {
   hexDistance,
   rotationsOf,
   siteError,
+  IRON_SCALE,
 } from '../src';
 
 export const T0 = 1_700_000_000_000;
@@ -47,7 +48,12 @@ export function run(state: GameState, cmd: Command, now: number, map: FaceMap): 
 }
 
 export function rich(state: GameState): GameState {
-  return { ...state, resources: { pulp: 1e5, fiber: 1e5, seeds: 1e5, juice: 1e5 } };
+  return {
+    ...state,
+    resources: { pulp: 1e5, fiber: 1e5, seeds: 1e5, juice: 1e5 },
+    // Chantier 38: and the meteoric iron of later levels, ships and technologies.
+    meteorIron: 200 * IRON_SCALE,
+  };
 }
 
 /** A test kiwi with stats drawn from its id (idle). */

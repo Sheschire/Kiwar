@@ -295,6 +295,7 @@ export const gameStateSchema = z.object({
       startedAt: z.number().nullable(),
       paid: partialResources,
       paidDust: z.number().int().min(0).optional(),
+      paidIron: z.number().int().min(0).optional(),
       orderedAt: z.number(),
       rot: z.number().int().min(0).max(5).optional(),
     }),

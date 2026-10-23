@@ -1,4 +1,5 @@
 import { ms } from './curves';
+import { IRON } from './iron';
 import type { ResourceCost, Resources } from './resources';
 import { CAMPS } from './territory';
 import { SCHOOL } from './classes';
@@ -35,6 +36,8 @@ export interface BuildingLevelDef {
   requiresAge?: number;
   /** Chantier 13: stardust paid on top of the resources (the monument of the Iron and Industry ages). */
   stardust?: number;
+  /** Chantier 38: whole units of meteoric iron paid on top (levels 7+, monuments, turrets 3+). */
+  iron?: number;
   /** Output per hour at full staffing, before tile richness and face multipliers. */
   production?: Partial<Resources>;
   /** Output per hour that needs no workers (the Nest). */
@@ -732,8 +735,22 @@ function withAgeLevels(def: BuildingDef): BuildingDef {
  * levels 4–12 come with the ages, three per age (hours). Tune the economy here (check with `pnpm balance`).
  */
 export const BUILDINGS: Record<BuildingType, BuildingDef> = Object.fromEntries(
-  Object.entries(BASE).map(([id, def]) => [id, withAgeLevels(def)]),
+  Object.entries(BASE).map(([id, def]) => [id, withIron(withAgeLevels(def))]),
 ) as Record<BuildingType, BuildingDef>;
+
+/** Chantier 38: the meteoric iron of each level (`IRON.levels`, `IRON.turret`, `IRON.own`). */
+function withIron(def: BuildingDef): BuildingDef {
+  const table =
+    IRON.own[def.id] ??
+    (def.id === 'seedTurret' || def.id === 'skyTurret' ? IRON.turret : IRON.levels);
+  return {
+    ...def,
+    levels: def.levels.map((l, i) => {
+      const iron = table[i + 1] ?? 0;
+      return iron > 0 ? { ...l, iron } : l;
+    }),
+  };
+}
 
 export const TURRET_TYPES = ['seedTurret', 'skyTurret'] as const satisfies readonly BuildingType[];
 
