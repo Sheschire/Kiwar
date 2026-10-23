@@ -7,7 +7,7 @@ import { dustPickers, pickRate, STARDUST_CAP } from './comets';
 import { minersOf } from './sky';
 import type { BuildingId, QueueItemId, TimeMs } from '../types/ids';
 import { autoAssign, type GameEvent } from './advance';
-import { builderSpeed, workerPower } from './kiwis';
+import { builderSpeed, repairSpeed, workerPower } from './kiwis';
 import { researchPower } from './research';
 import {
   canAfford,
@@ -119,18 +119,30 @@ export function waitingForBuilder(state: GameState): QueueItem[] {
   return state.queue.filter((i) => i.startedAt === null).slice(0, free);
 }
 
+/** How fast a kiwi works on a queue item (chantier 37: warriors mend faster). */
+export function itemSpeed(v: Villager, item?: Pick<QueueItem, 'kind'>): number {
+  return item?.kind === 'repair' ? repairSpeed(v) : builderSpeed(v);
+}
+
 /**
  * The builder the automation sends: the fastest "priority builder" at home or at work, else the
- * strongest kiwi it may borrow (idle ones first on ties).
+ * strongest kiwi it may borrow (idle ones first on ties), fastest for this item.
  */
-export function pickBuilder(state: GameState): Villager | undefined {
+export function pickBuilder(
+  state: GameState,
+  item?: Pick<QueueItem, 'kind'>,
+): Villager | undefined {
   let priority: Villager | undefined;
+  let prioritySpeed = 0;
   let best: { v: Villager; speed: number; idle: boolean } | undefined;
   for (const v of state.villagers) {
     if (v.kikiwiwi) continue;
-    const speed = builderSpeed(v);
+    const speed = itemSpeed(v, item);
     if (v.builderPriority && (v.job.kind === 'idle' || v.job.kind === 'work')) {
-      if (!priority || speed > builderSpeed(priority)) priority = v;
+      if (!priority || speed > prioritySpeed) {
+        priority = v;
+        prioritySpeed = speed;
+      }
     }
     if (!canBorrow(state, v, 'build')) continue;
     const idle = v.job.kind === 'idle';
@@ -155,7 +167,7 @@ export function startItem(
   const returnTo = borrow(builder);
   builder.job = { kind: 'build', queueItemId: item.id, returnTo };
   item.startedAt = at;
-  item.durationMs = Math.max(1000, Math.round(item.durationMs / builderSpeed(builder)));
+  item.durationMs = Math.max(1000, Math.round(item.durationMs / itemSpeed(builder, item)));
   events.push({ type: 'constructionStarted', at, queueItemId: item.id, builderId: builder.id });
 }
 
@@ -163,7 +175,7 @@ export function startItem(
 export function startConstructions(state: GameState, at: TimeMs, events: GameEvent[]): void {
   if (!state.automation.build) return;
   for (const item of waitingForBuilder(state)) {
-    const builder = pickBuilder(state);
+    const builder = pickBuilder(state, item);
     if (!builder) return;
     startItem(state, item, builder, at, events);
   }

@@ -222,6 +222,18 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     };
   });
   const attackers = units.filter((u) => u.side === 1);
+  // Chantier 37: the bards singing on the field.
+  const singers = units.filter((u) => u.s.aura);
+  /** Damage multiplier of a unit's blows: the best aura of a bard of its side close enough. */
+  const auraOf = (u: Unit): number => {
+    let best = 0;
+    for (const b of singers) {
+      if (b === u || b.side !== u.side || b.state !== State.Active) continue;
+      const a = b.s.aura!;
+      if (a.boost > best && hexDistance(tiles[b.tile]!, tiles[u.tile]!) <= a.range) best = a.boost;
+    }
+    return 1 + best;
+  };
   const lootLeft0 = (b: Building) => b.loot[0] + b.loot[1] + b.loot[2] + b.loot[3];
   const totalPower = attackers.reduce((sum, u) => sum + u.s.power, 0);
 
@@ -381,7 +393,8 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
       result.shots[u.s.ref] = (result.shots[u.s.ref] ?? 0) + 1;
     }
     const roll = rng.next();
-    const swing = 1 + rng.range(-BATTLE.spread, BATTLE.spread);
+    const swing =
+      (1 + rng.range(-BATTLE.spread, BATTLE.spread)) * (singers.length > 0 ? auraOf(u) : 1);
     if (target.building) {
       const b = target.building;
       const hit = roll < w.accuracy;
@@ -506,6 +519,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     const home = tiles[u.home]!;
     const w = u.s.weapon;
     const shoots = w.style !== 'melee';
+    const hunter = !!w.hunts;
     let best: Unit | null = null;
     let bestScore = Infinity;
     for (const e of units) {
@@ -515,8 +529,9 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
       if (u.s.fixed) {
         if (d > w.range) continue;
       } else if (hexDistance(home, at) > u.leash + w.range) continue;
-      // Shooters take down the bats first.
-      const score = d - (shoots && e.s.flying ? 3 : 0);
+      // Shooters take down the bats first; daggers go for the thieves and the spitters.
+      const prey = hunter && (!e.s.fightsBack || e.s.huntsKiwis);
+      const score = d - (shoots && e.s.flying ? 3 : 0) - (prey ? 3 : 0);
       if (score < bestScore - 1e-9) {
         best = e;
         bestScore = score;

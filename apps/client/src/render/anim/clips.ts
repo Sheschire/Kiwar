@@ -33,6 +33,8 @@ export const CLIP_IDS = [
   'spell',
   'sling',
   'mace',
+  'dagger',
+  'sing',
   // States.
   'hurt',
   'fall',
@@ -331,6 +333,38 @@ export const CLIPS: Record<ClipId, Clip> = {
       p.pitch = -up * 0.25 + hit * 0.35;
       p.squash = hit ? 0.9 : 1 + up * 0.05;
       p.bob = up * 0.03;
+    },
+  },
+  // Chantier 37: quick stabs, hopping in and out.
+  dagger: {
+    group: 'combat',
+    prop: 'dagger',
+    apply(t, p) {
+      const u = frac(t / 0.6);
+      const stab = u < 0.35 ? smooth(u / 0.35) : 1 - smooth((u - 0.35) / 0.65);
+      p.wingRF = 0.4 + stab * 1.3;
+      p.wingR = 0.4;
+      p.wingL = 0.6;
+      p.pitch = stab * 0.3;
+      p.bob = Math.abs(s(t * 5.2)) * 0.04;
+      p.legL = stab * 0.4;
+      p.yaw = s(t * 2.6) * 0.25;
+      p.headPitch = -0.05;
+    },
+  },
+  // Chantier 37: the bard strums its lute, head up, swaying.
+  sing: {
+    group: 'combat',
+    prop: 'lute',
+    apply(t, p) {
+      p.wingRF = 0.9 + s(t * 9) * 0.25;
+      p.wingR = 0.35;
+      p.wingLF = 1.1;
+      p.wingL = 0.25;
+      p.headPitch = -0.35 + s(t * 2) * 0.1;
+      p.headRoll = s(t * 1.5) * 0.15;
+      p.roll = s(t * 1.5) * 0.06;
+      p.bob = Math.abs(s(t * 3)) * 0.02;
     },
   },
 

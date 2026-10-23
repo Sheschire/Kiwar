@@ -146,8 +146,10 @@ export const GARRISON = {
     builder: { ground: 0.5, air: 0 },
     warrior: { ground: 1, air: 0 },
     mage: { ground: 0.8, air: 1 },
-    scout: { ground: 0.5, air: 0.8 },
+    scout: { ground: 0.7, air: 0.6 },
     mayor: { ground: 0.4, air: 0 },
+    gatherer: { ground: 0.6, air: 0.9 },
+    bard: { ground: 0.6, air: 0.3 },
   } satisfies Record<ClassId | 'none', { ground: number; air: number }>,
   /** Chantier 08: with firearms, warriors shoot the bats too. */
   firearmsAir: 0.8,

@@ -78,6 +78,8 @@ export interface BattleUnitSetup {
   fightsBack: boolean;
   huntsKiwis: boolean;
   sector: SectorId | null;
+  /** Chantier 37: a bard's aura, damage boost of its side within `range` tiles. */
+  aura?: { range: number; boost: number };
 }
 
 export interface SideOrders {

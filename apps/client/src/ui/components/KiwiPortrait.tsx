@@ -81,6 +81,19 @@ export const KiwiPortrait = memo(function KiwiPortrait(props: {
         </g>
       )}
       {cls === 'builder' && <rect x="16" y="40" width="14" height="5" rx="1" fill="#7a5233" />}
+      {cls === 'gatherer' && (
+        <g>
+          <path d="M20 28 L36 48" stroke="#5e3d24" stroke-width="2" />
+          <rect x="30" y="42" width="11" height="9" rx="2" fill="#8a5a35" />
+        </g>
+      )}
+      {cls === 'bard' && (
+        <g>
+          <path d="M20 46 L36 30" stroke="#5e3d24" stroke-width="3" stroke-linecap="round" />
+          <ellipse cx="18" cy="46" rx="7" ry="5.5" fill="#b9773f" />
+          <circle cx="18.5" cy="45.5" r="1.6" fill="#3a2a20" />
+        </g>
+      )}
       <g transform={`rotate(${tilt} 44 26)`}>
         <circle cx="44" cy="26" r="10" fill={fill.head} />
         <path
@@ -114,6 +127,25 @@ export const KiwiPortrait = memo(function KiwiPortrait(props: {
           <g>
             <path d="M36 21 L54 21" stroke="#4a3324" stroke-width="2" />
             <circle cx="47" cy="23" r="3.6" fill="#bfe3ff" stroke="#7a5233" stroke-width="1.6" />
+          </g>
+        )}
+        {cls === 'gatherer' && (
+          <g>
+            <ellipse cx="44" cy="19" rx="15" ry="3" fill="#e2c47a" stroke="#b08a48" />
+            <path d="M37 18 Q44 8 51 18 Z" fill="#d4b061" />
+            <path d="M37.5 16.5 L50.5 16.5" stroke="#7aa64a" stroke-width="2" />
+          </g>
+        )}
+        {cls === 'bard' && (
+          <g>
+            <path d="M33 20 Q38 9 52 13 Q57 17 54 21 Z" fill="#3e7fbf" />
+            <path
+              d="M37 13 Q30 4 26 2"
+              stroke="#f2c14e"
+              stroke-width="2.4"
+              stroke-linecap="round"
+              fill="none"
+            />
           </g>
         )}
         {cls === 'mayor' && (

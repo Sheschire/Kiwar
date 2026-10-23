@@ -15,7 +15,10 @@ import {
   KIKIWIWI,
   kikiwiwiWeak,
   techEffects,
+  AGE_IDS,
+  ageOf,
   CLASS_IDS,
+  CLASS_RULES,
   CLASSES,
   trainingCost,
   trainingDuration,
@@ -286,6 +289,15 @@ function ClassSection({ v }: { v: Villager }) {
           <p class="small">
             <strong>{t(`classes.${v.classId}.name`)}</strong> — {t(`classes.${v.classId}.desc`)}
           </p>
+          <p class="small muted">{t(`classes.${v.classId}.combat`)}</p>
+          {CLASSES[v.classId].grows && (
+            <p class="small muted">
+              {t('classInfo.growth', {
+                percent: Math.round(CLASS_RULES.growth * 100),
+                stat: `@stats.${CLASSES[v.classId].stat}`,
+              })}
+            </p>
+          )}
           <h4 class="small-title">{t('kiwi.skills')}</h4>
           <ul class="skill-list">
             {CLASSES[v.classId].skills.map((sk) => {
@@ -339,23 +351,34 @@ function ClassSection({ v }: { v: Villager }) {
               </button>
             ) : (
               <ul class="course-list">
-                {CLASS_IDS.filter((c) => c !== v.classId).map((c) => {
+                {CLASS_IDS.filter((c) => c !== v.classId && CLASSES[c].tier === 1).map((c) => {
                   const def = CLASSES[c];
+                  const statOk = v.stats[def.stat] >= CLASS_RULES.statMin;
                   const cmd = trainCmd(c);
                   const error = cmd && ctx ? validateCommand(game, cmd, ctx) : 'notASchool';
                   const maxSchool = Math.max(...schools.map((b) => b.level));
                   const lock =
-                    maxSchool < def.schoolLevel
-                      ? t('kiwi.needsSchoolLevel', { level: def.schoolLevel })
-                      : v.level < def.minLevel
-                        ? t('kiwi.needsKiwiLevel', { level: def.minLevel })
-                        : null;
+                    ageOf(game) < (def.age ?? 0)
+                      ? t('classInfo.age', { age: `@ages.${AGE_IDS[def.age ?? 0]!}` })
+                      : maxSchool < def.schoolLevel
+                        ? t('kiwi.needsSchoolLevel', { level: def.schoolLevel })
+                        : v.level < def.minLevel
+                          ? t('kiwi.needsKiwiLevel', { level: def.minLevel })
+                          : null;
                   return (
                     <li key={c} class={`course ${lock ? 'is-locked' : ''}`}>
                       <KiwiPortrait shiny={v.shiny} classId={c} seed={v.id} size={40} />
                       <span class="course-main">
                         <strong>{t(`classes.${c}.name`)}</strong>
                         <span class="small muted">{t(`classes.${c}.desc`)}</span>
+                        <span class="small muted">{t(`classes.${c}.combat`)}</span>
+                        <span class={`small ${statOk ? 'bonus' : 'warn'}`}>
+                          {t('classInfo.stat', {
+                            stat: `@stats.${def.stat}`,
+                            min: CLASS_RULES.statMin,
+                          })}{' '}
+                          ({v.stats[def.stat]})
+                        </span>
                         {lock ? (
                           <span class="small warn">{lock}</span>
                         ) : (
@@ -367,9 +390,12 @@ function ClassSection({ v }: { v: Villager }) {
                             }
                           />
                         )}
-                        {!lock && error && error !== 'notEnoughResources' && (
-                          <span class="small warn">{t(`errors.${error}`)}</span>
-                        )}
+                        {!lock &&
+                          error &&
+                          error !== 'notEnoughResources' &&
+                          error !== 'statTooLow' && (
+                            <span class="small warn">{t(`errors.${error}`)}</span>
+                          )}
                       </span>
                       <button
                         class="btn btn-small btn-primary"

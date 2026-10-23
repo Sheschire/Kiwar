@@ -20,7 +20,7 @@ import {
   type TraitId,
 } from '../data/kiwis';
 import type { ResourceId } from '../data/resources';
-import { CLASSES, SKILLS, type ClassId, type SkillId } from '../data/classes';
+import { CLASSES, CLASS_RULES, SKILLS, type ClassId, type SkillId } from '../data/classes';
 import { levelDef } from '../data/buildings';
 import { RESOURCE_IDS, type ResourceCost } from '../data/resources';
 import { DEPOSITS } from '../data/territory';
@@ -32,6 +32,7 @@ import { faceMapOf, harvestedTileType } from './territory';
 import { hungerWork } from './needs';
 import { bedsOf, moraleWork, presence } from './rest';
 import { withRng, type Building, type GameState, type Villager } from './state';
+import { ageOf } from './research';
 
 // ---------------------------------------------------------------------------------------------
 // Birth
@@ -97,15 +98,33 @@ const MODIFIER_KEYS = [
   'rest',
   'appetite',
   'research',
+  'repair',
 ] as const satisfies readonly (keyof KiwiModifiers)[];
 
-/** Trait × class × unlocked passive skills. */
+/** Trait × class (grown by its stat) × unlocked passive skills. */
 const modifierCache = new Map<string, Readonly<Required<KiwiModifiers>>>();
 
+/** Modifiers where less is better (a class bonus grows by going down). */
+const LOWER_IS_BETTER = new Set<keyof KiwiModifiers>([
+  'exposure',
+  'rations',
+  'weight',
+  'rest',
+  'appetite',
+]);
+
+/** Chantier 37: how much a class's colony bonus grows with its stat (1 at 5 or below). */
+export function classGrowth(v: Villager): number {
+  if (!v.classId) return 1;
+  const stat = v.stats[CLASSES[v.classId].stat];
+  return 1 + CLASS_RULES.growth * Math.max(0, stat - KIWI.stat.average);
+}
+
 export function modifiers(v: Villager): Readonly<Required<KiwiModifiers>> {
-  // Only the trait, the Kikiwiwi infusion, the class and its level matter (asked per worker,
-  // many times per tick).
-  const key = `${v.trait ?? ''}|${v.kikiwiwi ? 1 : 0}|${v.classId ?? ''}|${v.classId ? v.level : 0}`;
+  // Only the trait, the Kikiwiwi infusion, the class with its level and stat matter (asked per
+  // worker, many times per tick).
+  const c = v.classId ? CLASSES[v.classId] : null;
+  const key = `${v.trait ?? ''}|${v.kikiwiwi ? 1 : 0}|${v.classId ?? ''}|${c ? v.level : 0}|${c ? v.stats[c.stat] : 0}`;
   const cached = modifierCache.get(key);
   if (cached) return cached;
   const out = Object.fromEntries(MODIFIER_KEYS.map((k) => [k, 1])) as Required<KiwiModifiers>;
@@ -114,10 +133,13 @@ export function modifiers(v: Villager): Readonly<Required<KiwiModifiers>> {
   };
   apply(v.trait ? TRAITS[v.trait] : undefined);
   if (v.kikiwiwi) apply(KIKIWIWI.modifiers);
-  if (v.classId) {
-    const c = CLASSES[v.classId];
+  if (c) {
     apply(c.modifiers);
     for (const skill of c.skills) if (v.level >= skill.level) apply(skill.modifiers);
+    if (c.grows) {
+      const g = classGrowth(v);
+      out[c.grows] = LOWER_IS_BETTER.has(c.grows) ? out[c.grows] / g : out[c.grows] * g;
+    }
   }
   modifierCache.set(key, Object.freeze(out));
   return out;
@@ -177,8 +199,9 @@ export function buildingResource(state: GameState, b: Building): ResourceId | nu
 export function workerPower(v: Villager, resource: ResourceId): number {
   const m = modifiers(v);
   const dex = 1 + KIWI.dexterityBonus * (v.stats.dexterity - KIWI.stat.average);
+  const carry = 1 + KIWI.agilityCarry * (v.stats.agility - KIWI.stat.average);
   const rank = 1 + KIWI.rankBonus * rankOf(v.mastery[RESOURCE_MASTERY[resource]]);
-  return Math.max(KIWI.minPower, dex * rank * m.harvest);
+  return Math.max(KIWI.minPower, dex * carry * rank * m.harvest);
 }
 
 /** Construction speed of a builder (1 for an average newborn). */
@@ -263,10 +286,29 @@ export function mayorMorale(state: GameState): number {
   return bonus;
 }
 
-/** Regrowth multiplier of a building's deposits (mages with Green thumb working there). */
+/** Regrowth multiplier of a building's deposits (gatherers with Green thumb working there). */
 export function regenBonus(workers: Villager[]): number {
-  const mages = workers.filter((v) => hasSkill(v, 'greenThumb')).length;
-  return 1 + SKILLS.greenThumbRegen * mages;
+  const gatherers = workers.filter((v) => hasSkill(v, 'greenThumb')).length;
+  return 1 + SKILLS.greenThumbRegen * gatherers;
+}
+
+/** Chantier 37: repair speed of a builder (construction speed × the repair bonus). */
+export function repairSpeed(v: Villager): number {
+  return builderSpeed(v) * modifiers(v).repair;
+}
+
+/**
+ * Chantier 37: the bards' lasting effect on morale, +1 % each (grown by Charisma, Ballad × 1.5),
+ * at most 5 % (bards at home only).
+ */
+export function bardMorale(state: GameState): number {
+  let sum = 0;
+  for (const v of state.villagers) {
+    if (v.classId !== 'bard' || v.job.kind === 'expedition' || v.job.kind === 'outpost') continue;
+    const ballad = hasSkill(v, 'ballad') ? SKILLS.balladBonus : 1;
+    sum += SKILLS.bardMorale * classGrowth(v) * ballad;
+  }
+  return Math.min(SKILLS.bardMax, sum);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -423,6 +465,25 @@ function pickStat(rng: Rng, v: Villager): StatId | null {
 }
 
 /** Price of a class for this kiwi (changing class costs more). */
+/**
+ * Why a kiwi cannot start this class at this School (null: it can, cost aside). Chantier 37:
+ * the class's stat must reach `CLASS_RULES.statMin`, and some classes wait for an age.
+ */
+export function trainLock(
+  state: GameState,
+  v: Villager,
+  classId: ClassId,
+  school: Building,
+): 'classLocked' | 'levelTooLow' | 'statTooLow' | 'alreadyThisClass' | null {
+  const def = CLASSES[classId];
+  if (!def || def.tier !== 1) return 'classLocked';
+  if (school.level < def.schoolLevel || ageOf(state) < (def.age ?? 0)) return 'classLocked';
+  if (v.level < def.minLevel) return 'levelTooLow';
+  if (v.stats[def.stat] < CLASS_RULES.statMin) return 'statTooLow';
+  if (v.classId === classId) return 'alreadyThisClass';
+  return null;
+}
+
 export function trainingCost(v: Villager, classId: ClassId): ResourceCost {
   const k = v.classId ? SKILLS.retrainCost : 1;
   const out: ResourceCost = {};

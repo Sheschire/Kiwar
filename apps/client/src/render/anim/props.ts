@@ -184,6 +184,48 @@ export const PROPS: Record<PropId, PropDef> = {
       return merged(parts);
     },
   },
+  // Chantier 37: the scout's dagger and the bard's lute.
+  dagger: {
+    anchor: 'wing',
+    tip: new Vector3(0, 0, 0.2),
+    geometry: () =>
+      merged([
+        colored(
+          new CylinderGeometry(1, 1, 1, 6),
+          DARK_WOOD,
+          mat(0, 0, 0, 0.011, 0.05, 0.011, along),
+        ),
+        colored(new BoxGeometry(1, 1, 1), '#d4a640', mat(0, 0, 0.03, 0.06, 0.012, 0.012)),
+        colored(
+          new ConeGeometry(1, 1, 4),
+          '#e8e8ee',
+          mat(0, 0, 0.11, 0.028, 0.15, 0.007, along, Math.PI / 4),
+        ),
+      ]),
+  },
+  lute: {
+    anchor: 'front',
+    tip: new Vector3(0, 0.2, 0.4),
+    geometry: () =>
+      merged([
+        // A round body held across the chest, its neck up to the right.
+        colored(
+          new SphereGeometry(1, 10, 6),
+          '#b9773f',
+          mat(-0.04, 0.12, 0.3, 0.1, 0.1, 0.045, 0, 0, 0.5),
+        ),
+        colored(
+          new CylinderGeometry(1, 1, 1, 8),
+          '#3a2a20',
+          mat(-0.035, 0.125, 0.345, 0.025, 0.004, 0.025, along),
+        ),
+        colored(
+          new BoxGeometry(1, 1, 1),
+          DARK_WOOD,
+          mat(0.08, 0.22, 0.31, 0.03, 0.2, 0.016, 0, 0, -0.9),
+        ),
+      ]),
+  },
   basket: {
     anchor: 'ground',
     tip: new Vector3(0, 0.1, 0.3),

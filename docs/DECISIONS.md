@@ -2254,3 +2254,42 @@ launch cost applies to **every mission but the founding**; the bot's dead time a
   announcement) almost always holds and loses a few scraps one wave in five; a player who
   never prepares loses loot nearly every wave (~5 000 a wave) and a quarter of the waves. To
   test with the owner (feeling of the show, severity) — "to test".
+
+## Chantier 37 — Classes, combat roles, training camp
+
+### Owner's answers (October 2026)
+
+- Master classes (tier 3) are reached from **either of the two advanced classes** of their two
+  stats (Engineer from Architect or Archmage, Oracle from Archmage or Minstrel…).
+- The scout's attack is a **quick dagger** (the sling goes to the gatherer): fast weak blows,
+  a big dodge, it goes for the thieves and the spitters first.
+- Skills stay tied to the **kiwi's level** (5 / 10 / 20); each tier adds a combat skill; the
+  class rank (1–5) gives a small bonus and opens tier 2 at rank 3.
+- The **mayor stays a School class** (Charisma ≥ 6, unique, no tree); the bard is the combat
+  class of Charisma.
+
+### Part 1 — one class per stat
+
+- Every class has a stat (builder Strength, scout Agility, warrior Endurance, mage Spirit,
+  gatherer Dexterity, bard and mayor Charisma); the School asks for it ≥ 6 (`statTooLow`).
+  Kiwis already trained keep their class whatever their stats (no migration).
+- The colony bonus of a class (`ClassDef.grows`) grows by 2 % per point of its stat above 5
+  (`classGrowth`, inside `modifiers`; the cache key carries the stat): build, repair, research,
+  weight (going down), harvest.
+- Mage: research × 1.5 (was 1.2), no more harvest bonus; its level-5 skill is now Insight
+  (research × 1.15). Green thumb moves to the new **gatherer** (harvest × 1.3, craters too via
+  `workerPower`; skills Green thumb, Quick picking, Eagle eye). Existing mages above level 5
+  lose Green thumb (accepted: the decision moves the harvest to the gatherer).
+- Warrior: repairs × 1.5 (`modifiers.repair`, `itemSpeed` / `pickBuilder(state, item)`: a
+  repair goes to the fastest mender, a construction to the fastest builder).
+- Scout: weight × 0.5 (less with Agility), a crew with a scout travels × 0.9; no more harvest
+  bonus. Agility: +1 % harvest per point (loads carried faster, `KIWI.agilityCarry`).
+- **Bard** (School 2, from the Stone age, as in the unlock table): +1 % colony morale per bard
+  at home (grown by Charisma, Ballad × 1.5), at most 5 % (`bardMorale`, `moraleOf().bards`).
+  Skills Ballad, Chorus (song 3 tiles, +30 %), Anthem.
+- Battle: mace 3.6 / 2.2 s (heavy, slow), warriors × 1.4 hit points, scouts +0.12 dodge and
+  the dagger (1.2 dmg / 0.6 s, reaches bats, `hunts`: thieves and spitters first), gatherers
+  the sling, bards a weak song (0.8, range 2) and an **aura**: their side's fighters within
+  2 tiles hit 20 % harder (the best aura counts, guards only).
+- Garrison affinities (sums of the window): gatherer 0.6 / 0.9, bard 0.6 / 0.3, scout
+  0.7 / 0.6 (dagger instead of sling).

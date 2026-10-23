@@ -458,7 +458,15 @@ var CAMPS = {
 };
 
 // packages/shared/src/data/classes.ts
-var CLASS_IDS = ["builder", "warrior", "mage", "scout", "mayor"];
+var CLASS_IDS = [
+  "builder",
+  "warrior",
+  "mage",
+  "scout",
+  "mayor",
+  "gatherer",
+  "bard"
+];
 var SKILL_IDS = [
   "scaffold",
   "quickHands",
@@ -474,12 +482,21 @@ var SKILL_IDS = [
   "tailwind",
   "organisation",
   "speech",
-  "festival"
+  "festival",
+  "insight",
+  "quickPick",
+  "eagleEye",
+  "ballad",
+  "chorus",
+  "anthem"
 ];
 var CLASSES = {
   // Builds much faster (and learns construction faster).
   builder: {
     id: "builder",
+    stat: "strength",
+    tier: 1,
+    grows: "build",
     schoolLevel: 1,
     minLevel: 3,
     cost: { pulp: 150, fiber: 150 },
@@ -491,42 +508,51 @@ var CLASSES = {
       { id: "architect", level: 20, modifiers: { build: 1.25 } }
     ]
   },
-  // Sword fighter: strong in expeditions, helps with manual work.
+  // Sword fighter on the front line: strong in expeditions, mends what the waves broke.
   warrior: {
     id: "warrior",
+    stat: "endurance",
+    tier: 1,
+    grows: "repair",
     schoolLevel: 1,
     minLevel: 3,
     cost: { pulp: 200, fiber: 100, seeds: 30 },
     trainingMs: ms.h(2),
-    modifiers: { fight: 1.5, build: 1.1, harvest: 0.95 },
+    modifiers: { fight: 1.5, build: 1.1, harvest: 0.95, repair: 1.5 },
     skills: [
       { id: "charge", level: 5, modifiers: { fight: 1.2 } },
       { id: "shield", level: 10, modifiers: { exposure: 0.6 } },
       { id: "champion", level: 20, modifiers: { fight: 1.3 } }
     ]
   },
-  // Ranged fighter who helps the harvest and the regrowth, and can make it rain.
+  // Scholar of the Library, throws fireballs (reaching bats) and can make it rain.
   mage: {
     id: "mage",
+    stat: "spirit",
+    tier: 1,
+    grows: "research",
     schoolLevel: 2,
     minLevel: 3,
     cost: { fiber: 150, seeds: 60, juice: 120 },
     trainingMs: ms.h(3),
-    modifiers: { fight: 1.3, harvest: 1.15, build: 0.9, research: 1.2 },
+    modifiers: { fight: 1.3, build: 0.9, research: 1.5 },
     skills: [
-      { id: "greenThumb", level: 5 },
+      { id: "insight", level: 5, modifiers: { research: 1.15 } },
       { id: "rain", level: 10, cooldownMs: ms.h(12) },
       { id: "lightning", level: 20, modifiers: { fight: 1.3 } }
     ]
   },
-  // Flying scout: light on board, hard to hit; speeds up the whole expedition.
+  // Agile scout: light on board, hard to hit, speeds up the whole expedition; a quick dagger.
   scout: {
     id: "scout",
+    stat: "agility",
+    tier: 1,
+    grows: "weight",
     schoolLevel: 2,
     minLevel: 3,
     cost: { fiber: 200, seeds: 40, juice: 80 },
     trainingMs: ms.h(2),
-    modifiers: { fight: 1.1, weight: 0.5, harvest: 1.05 },
+    modifiers: { fight: 1.1, weight: 0.5 },
     skills: [
       { id: "glide", level: 5, modifiers: { exposure: 0.7 } },
       { id: "scouting", level: 10 },
@@ -536,6 +562,8 @@ var CLASSES = {
   // The one mayor organises the colony (production bonus from Charisma) and gives speeches.
   mayor: {
     id: "mayor",
+    stat: "charisma",
+    tier: 1,
     schoolLevel: 1,
     minLevel: 5,
     cost: { pulp: 300, fiber: 300, seeds: 80, juice: 150 },
@@ -547,10 +575,50 @@ var CLASSES = {
       { id: "speech", level: 10, cooldownMs: ms.h(12) },
       { id: "festival", level: 20 }
     ]
+  },
+  // Chantier 37: deft harvester (and crater miner), slings stones at the bats.
+  gatherer: {
+    id: "gatherer",
+    stat: "dexterity",
+    tier: 1,
+    grows: "harvest",
+    schoolLevel: 1,
+    minLevel: 3,
+    cost: { pulp: 150, fiber: 120, seeds: 20 },
+    trainingMs: ms.h(1.5),
+    modifiers: { harvest: 1.3, fight: 1.1 },
+    skills: [
+      { id: "greenThumb", level: 5 },
+      { id: "quickPick", level: 10, modifiers: { harvest: 1.1, practice: 1.25 } },
+      { id: "eagleEye", level: 20, modifiers: { fight: 1.3 } }
+    ]
+  },
+  // Chantier 37: lifts the colony's morale, and sings to its neighbours in a battle.
+  bard: {
+    id: "bard",
+    stat: "charisma",
+    tier: 1,
+    age: 1,
+    schoolLevel: 2,
+    minLevel: 3,
+    cost: { fiber: 150, seeds: 50, juice: 100 },
+    trainingMs: ms.h(2),
+    modifiers: { fight: 0.9, harvest: 0.95 },
+    skills: [
+      { id: "ballad", level: 5 },
+      { id: "chorus", level: 10 },
+      { id: "anthem", level: 20, modifiers: { fight: 1.3 } }
+    ]
   }
 };
+var CLASS_RULES = {
+  /** The School teaches a class to a kiwi whose class stat reaches this. */
+  statMin: 6,
+  /** The class's colony bonus: +2 % per point of its stat above average (5). */
+  growth: 0.02
+};
 var SKILLS = {
-  /** Mage: regrowth bonus of the deposits harvested by the building the mage works in. */
+  /** Gatherer: regrowth bonus of the deposits harvested by the building it works in. */
   greenThumbRegen: 0.15,
   /** Mage: refills this share of its workplace's deposits. */
   rainRefill: 0.3,
@@ -565,6 +633,13 @@ var SKILLS = {
   speechBonus: 0.15,
   speechMs: ms.h(1),
   festivalMultiplier: 2,
+  /** Scout: travel time multiplier of a crew with a scout (once per crew, chantier 37). */
+  scoutTravel: 0.9,
+  /** Bard: colony morale per bard at home (Charisma growth), at most `bardMax` in all. */
+  bardMorale: 0.01,
+  bardMax: 0.05,
+  /** Bard: Ballad multiplies its own share. */
+  balladBonus: 1.5,
   /** Changing class costs this many times the price. */
   retrainCost: 2
 };
@@ -1597,6 +1672,8 @@ var KIWI = {
   dexterityBonus: 0.03,
   /** Construction speed bonus per point of Strength above average (+2 %). */
   strengthBuild: 0.02,
+  /** Chantier 37: agile kiwis carry their loads faster (+1 % harvest per Agility point). */
+  agilityCarry: 0.01,
   /** Expedition strength of a kiwi: +6 % per Strength point and +3 % per Endurance point above
    * average, ×(1 + 4 % per level above 1), × trait (and later class). */
   fight: { strength: 0.06, endurance: 0.03, perLevel: 0.04 },
@@ -1874,8 +1951,10 @@ var GARRISON = {
     builder: { ground: 0.5, air: 0 },
     warrior: { ground: 1, air: 0 },
     mage: { ground: 0.8, air: 1 },
-    scout: { ground: 0.5, air: 0.8 },
-    mayor: { ground: 0.4, air: 0 }
+    scout: { ground: 0.7, air: 0.6 },
+    mayor: { ground: 0.4, air: 0 },
+    gatherer: { ground: 0.6, air: 0.9 },
+    bard: { ground: 0.6, air: 0.3 }
   },
   /** Chantier 08: with firearms, warriors shoot the bats too. */
   firearmsAir: 0.8,
@@ -2995,6 +3074,8 @@ var WEAPON_IDS = [
   "sling",
   "musket",
   "stomp",
+  "dagger",
+  "song",
   "claw",
   "bite",
   "slam",
@@ -3015,8 +3096,21 @@ var melee = (damage, reload, hitsAir = false) => ({
 var WEAPONS = {
   // Kiwis: a peck for everybody, then the weapon of the class.
   beak: melee(1, 1.5),
-  mace: melee(2.4, 1.6),
+  // Chantier 37: the mace hits hard and slowly, the sword holds the front line.
+  mace: melee(3.6, 2.2),
   sword: melee(3.2, 1.1),
+  // Chantier 37: a quick dagger that leaps at bats and goes for thieves and spitters.
+  dagger: { ...melee(1.2, 0.6, true), accuracy: 0.95, hunts: true },
+  // Chantier 37: the bard's song stings a little; its real gift is its aura (`KIWI_UNIT.aura`).
+  song: {
+    damage: 0.8,
+    range: 2,
+    reload: 1.4,
+    style: "ranged",
+    accuracy: 0.9,
+    hitsGround: true,
+    hitsAir: true
+  },
   fireball: {
     damage: 2.6,
     range: 3,
@@ -3152,8 +3246,10 @@ var CLASS_WEAPONS = {
   builder: "mace",
   warrior: "sword",
   mage: "fireball",
-  scout: "sling",
-  mayor: "beak"
+  scout: "dagger",
+  mayor: "beak",
+  gatherer: "sling",
+  bard: "song"
 };
 var KIWI_UNIT = {
   hp: 14,
@@ -3176,7 +3272,15 @@ var KIWI_UNIT = {
   /** Kiwis at home who were not posted fight only near their workplace, and run home hurt. */
   militiaLeash: 1,
   militiaFlee: 0.4,
-  militiaDamage: 0.8
+  militiaDamage: 0.8,
+  /** Chantier 37: warriors hold the front line (more hit points), scouts dodge. */
+  classHp: { warrior: 1.4 },
+  classDodge: { scout: 0.12 },
+  /**
+   * Chantier 37: a bard's song lifts the damage of its side's fighters this close (the best
+   * aura counts, never several); Chorus widens and strengthens it.
+   */
+  aura: { range: 2, boost: 0.2, chorusRange: 3, chorusBoost: 0.3 }
 };
 var POSTURES = ["cautious", "bold"];
 var BATTLE = {
@@ -3454,6 +3558,16 @@ function simulateBattle(setup, seed) {
     };
   });
   const attackers = units.filter((u) => u.side === 1);
+  const singers = units.filter((u) => u.s.aura);
+  const auraOf = (u) => {
+    let best = 0;
+    for (const b of singers) {
+      if (b === u || b.side !== u.side || b.state !== State.Active) continue;
+      const a = b.s.aura;
+      if (a.boost > best && hexDistance(tiles[b.tile], tiles[u.tile]) <= a.range) best = a.boost;
+    }
+    return 1 + best;
+  };
   const lootLeft0 = (b) => b.loot[0] + b.loot[1] + b.loot[2] + b.loot[3];
   const totalPower = attackers.reduce((sum, u) => sum + u.s.power, 0);
   const ints = [];
@@ -3593,7 +3707,7 @@ function simulateBattle(setup, seed) {
       result2.shots[u.s.ref] = (result2.shots[u.s.ref] ?? 0) + 1;
     }
     const roll = rng.next();
-    const swing = 1 + rng.range(-BATTLE.spread, BATTLE.spread);
+    const swing = (1 + rng.range(-BATTLE.spread, BATTLE.spread)) * (singers.length > 0 ? auraOf(u) : 1);
     if (target.building) {
       const b = target.building;
       const hit2 = roll < w.accuracy;
@@ -3711,6 +3825,7 @@ function simulateBattle(setup, seed) {
     const home = tiles[u.home];
     const w = u.s.weapon;
     const shoots = w.style !== "melee";
+    const hunter = !!w.hunts;
     let best = null;
     let bestScore = Infinity;
     for (const e of units) {
@@ -3720,7 +3835,8 @@ function simulateBattle(setup, seed) {
       if (u.s.fixed) {
         if (d > w.range) continue;
       } else if (hexDistance(home, at) > u.leash + w.range) continue;
-      const score = d - (shoots && e.s.flying ? 3 : 0);
+      const prey = hunter && (!e.s.fightsBack || e.s.huntsKiwis);
+      const score = d - (shoots && e.s.flying ? 3 : 0) - (prey ? 3 : 0);
       if (score < bestScore - 1e-9) {
         best = e;
         bestScore = score;
@@ -3884,7 +4000,13 @@ function kiwiUnit(v, state, role, at, sector, side = 0) {
   const power = spell ? 1 + K.spiritDamage * (st.spirit - avg) : 1 + K.strengthDamage * (st.strength - avg);
   const damage = base.damage * Math.max(0.5, power) * level * fight * titan * (role === "guard" ? tech.guard : K.militiaDamage);
   const aim = base.style === "melee" ? base.accuracy : clamp(base.accuracy + K.dexterityAccuracy * (st.dexterity - avg), ...K.accuracy);
-  const hp = K.hp * Math.max(0.5, 1 + K.enduranceHp * (st.endurance - avg)) * level * fight * (v.kikiwiwi ? K.titanHp / 2 : 1);
+  const hp = K.hp * Math.max(0.5, 1 + K.enduranceHp * (st.endurance - avg)) * level * fight * (v.kikiwiwi ? K.titanHp / 2 : 1) * (v.classId ? K.classHp[v.classId] ?? 1 : 1);
+  const extraDodge = v.classId ? K.classDodge[v.classId] ?? 0 : 0;
+  const chorus = hasSkill(v, "chorus");
+  const aura = v.classId === "bard" && role === "guard" ? {
+    range: chorus ? K.aura.chorusRange : K.aura.range,
+    boost: chorus ? K.aura.chorusBoost : K.aura.boost
+  } : void 0;
   return {
     ref: v.id,
     side,
@@ -3898,7 +4020,11 @@ function kiwiUnit(v, state, role, at, sector, side = 0) {
     // Armour (technology) spares the kiwis.
     armor: clamp(1 - tech.injuries, 0, 0.6),
     speed: K.speed * Math.max(0.5, 1 + K.agilitySpeed * (st.agility - avg)),
-    dodge: clamp(K.dodge + K.agilityDodge * (st.agility - avg), 0, K.maxDodge),
+    dodge: clamp(
+      K.dodge + extraDodge + K.agilityDodge * (st.agility - avg),
+      0,
+      K.maxDodge + extraDodge
+    ),
     size: v.kikiwiwi ? K.titanSize : 1,
     flying: false,
     fixed: false,
@@ -3912,7 +4038,8 @@ function kiwiUnit(v, state, role, at, sector, side = 0) {
     building: null,
     fightsBack: true,
     huntsKiwis: false,
-    sector
+    sector,
+    ...aura ? { aura } : {}
   };
 }
 function enemyUnit(kind, k, ref, at, delay, sector, level) {
@@ -6090,14 +6217,21 @@ function waitingForBuilder(state) {
   if (free <= 0) return [];
   return state.queue.filter((i) => i.startedAt === null).slice(0, free);
 }
-function pickBuilder(state) {
+function itemSpeed(v, item) {
+  return item?.kind === "repair" ? repairSpeed(v) : builderSpeed(v);
+}
+function pickBuilder(state, item) {
   let priority;
+  let prioritySpeed = 0;
   let best;
   for (const v of state.villagers) {
     if (v.kikiwiwi) continue;
-    const speed = builderSpeed(v);
+    const speed = itemSpeed(v, item);
     if (v.builderPriority && (v.job.kind === "idle" || v.job.kind === "work")) {
-      if (!priority || speed > builderSpeed(priority)) priority = v;
+      if (!priority || speed > prioritySpeed) {
+        priority = v;
+        prioritySpeed = speed;
+      }
     }
     if (!canBorrow(state, v, "build")) continue;
     const idle = v.job.kind === "idle";
@@ -6110,13 +6244,13 @@ function startItem(state, item, builder, at, events) {
   const returnTo = borrow(builder);
   builder.job = { kind: "build", queueItemId: item.id, returnTo };
   item.startedAt = at;
-  item.durationMs = Math.max(1e3, Math.round(item.durationMs / builderSpeed(builder)));
+  item.durationMs = Math.max(1e3, Math.round(item.durationMs / itemSpeed(builder, item)));
   events.push({ type: "constructionStarted", at, queueItemId: item.id, builderId: builder.id });
 }
 function startConstructions(state, at, events) {
   if (!state.automation.build) return;
   for (const item of waitingForBuilder(state)) {
-    const builder = pickBuilder(state);
+    const builder = pickBuilder(state, item);
     if (!builder) return;
     startItem(state, item, builder, at, events);
   }
@@ -6727,9 +6861,10 @@ function moraleOf(state, beds = bedsOf(state)) {
   const mourning = state.mourningUntil > state.now ? MORALE.mourning : 0;
   const season = MORALE.season[seasonOf(state)];
   const mayor = mayorMorale(state);
-  const sum = food + comfort + mayor + speech + mourning + season;
+  const bards = bardMorale(state);
+  const sum = food + comfort + mayor + bards + speech + mourning + season;
   const total = Math.max(-MORALE.max, Math.min(MORALE.max, sum));
-  return { total, food, comfort, mayor, speech, mourning, season };
+  return { total, food, comfort, mayor, bards, speech, mourning, season };
 }
 var comfortCache = /* @__PURE__ */ new WeakMap();
 function comfortOf(state, beds) {
@@ -6836,11 +6971,25 @@ var MODIFIER_KEYS = [
   "weight",
   "rest",
   "appetite",
-  "research"
+  "research",
+  "repair"
 ];
 var modifierCache = /* @__PURE__ */ new Map();
+var LOWER_IS_BETTER = /* @__PURE__ */ new Set([
+  "exposure",
+  "rations",
+  "weight",
+  "rest",
+  "appetite"
+]);
+function classGrowth(v) {
+  if (!v.classId) return 1;
+  const stat = v.stats[CLASSES[v.classId].stat];
+  return 1 + CLASS_RULES.growth * Math.max(0, stat - KIWI.stat.average);
+}
 function modifiers(v) {
-  const key = `${v.trait ?? ""}|${v.kikiwiwi ? 1 : 0}|${v.classId ?? ""}|${v.classId ? v.level : 0}`;
+  const c = v.classId ? CLASSES[v.classId] : null;
+  const key = `${v.trait ?? ""}|${v.kikiwiwi ? 1 : 0}|${v.classId ?? ""}|${c ? v.level : 0}|${c ? v.stats[c.stat] : 0}`;
   const cached = modifierCache.get(key);
   if (cached) return cached;
   const out = Object.fromEntries(MODIFIER_KEYS.map((k) => [k, 1]));
@@ -6849,10 +6998,13 @@ function modifiers(v) {
   };
   apply(v.trait ? TRAITS[v.trait] : void 0);
   if (v.kikiwiwi) apply(KIKIWIWI.modifiers);
-  if (v.classId) {
-    const c = CLASSES[v.classId];
+  if (c) {
     apply(c.modifiers);
     for (const skill of c.skills) if (v.level >= skill.level) apply(skill.modifiers);
+    if (c.grows) {
+      const g = classGrowth(v);
+      out[c.grows] = LOWER_IS_BETTER.has(c.grows) ? out[c.grows] / g : out[c.grows] * g;
+    }
   }
   modifierCache.set(key, Object.freeze(out));
   return out;
@@ -6894,8 +7046,9 @@ function buildingResource(state, b) {
 function workerPower(v, resource) {
   const m = modifiers(v);
   const dex = 1 + KIWI.dexterityBonus * (v.stats.dexterity - KIWI.stat.average);
+  const carry = 1 + KIWI.agilityCarry * (v.stats.agility - KIWI.stat.average);
   const rank = 1 + KIWI.rankBonus * rankOf(v.mastery[RESOURCE_MASTERY[resource]]);
-  return Math.max(KIWI.minPower, dex * rank * m.harvest);
+  return Math.max(KIWI.minPower, dex * carry * rank * m.harvest);
 }
 function builderSpeed(v) {
   const m = modifiers(v);
@@ -6949,8 +7102,20 @@ function mayorMorale(state) {
   return bonus;
 }
 function regenBonus(workers) {
-  const mages = workers.filter((v) => hasSkill(v, "greenThumb")).length;
-  return 1 + SKILLS.greenThumbRegen * mages;
+  const gatherers = workers.filter((v) => hasSkill(v, "greenThumb")).length;
+  return 1 + SKILLS.greenThumbRegen * gatherers;
+}
+function repairSpeed(v) {
+  return builderSpeed(v) * modifiers(v).repair;
+}
+function bardMorale(state) {
+  let sum = 0;
+  for (const v of state.villagers) {
+    if (v.classId !== "bard" || v.job.kind === "expedition" || v.job.kind === "outpost") continue;
+    const ballad = hasSkill(v, "ballad") ? SKILLS.balladBonus : 1;
+    sum += SKILLS.bardMorale * classGrowth(v) * ballad;
+  }
+  return Math.min(SKILLS.bardMax, sum);
 }
 function workMastery(state, b) {
   if (!b) return null;
@@ -7065,6 +7230,15 @@ function pickStat(rng, v) {
     if (roll < 0) return id3;
   }
   return open[open.length - 1];
+}
+function trainLock(state, v, classId, school) {
+  const def = CLASSES[classId];
+  if (!def || def.tier !== 1) return "classLocked";
+  if (school.level < def.schoolLevel || ageOf(state) < (def.age ?? 0)) return "classLocked";
+  if (v.level < def.minLevel) return "levelTooLow";
+  if (v.stats[def.stat] < CLASS_RULES.statMin) return "statTooLow";
+  if (v.classId === classId) return "alreadyThisClass";
+  return null;
 }
 function trainingCost(v, classId) {
   const k = v.classId ? SKILLS.retrainCost : 1;
@@ -7970,8 +8144,9 @@ function shipCargo(launchpad) {
 function travelTime(target, launchpad, crew = [], mission = "raid", tech = 1) {
   const pad = levelDef("launchpad", launchpad.level)?.travelTime ?? 1;
   const wind = crew.some((v) => hasSkill(v, "tailwind")) ? SKILLS.tailwindTravel : 1;
+  const scout = crew.some((v) => v.classId === "scout") ? SKILLS.scoutTravel : 1;
   const light = mission === "recon" ? RECON.travel : 1;
-  return Math.round(target.travelMs * pad * wind * light * tech / 1e3) * 1e3;
+  return Math.round(target.travelMs * pad * wind * scout * light * tech / 1e3) * 1e3;
 }
 var clamp2 = (v, min, max) => Math.max(min, Math.min(max, v));
 var mean = (crew, f) => crew.length ? crew.reduce((sum, v) => sum + f(v), 0) / crew.length : 0;
@@ -9962,6 +10137,7 @@ var COMMAND_ERRORS = [
   "notASchool",
   "classLocked",
   "levelTooLow",
+  "statTooLow",
   "alreadyThisClass",
   "kiwiBusy",
   "mayorExists",
@@ -10562,9 +10738,8 @@ function execute(s, cmd, ctx, events) {
       if (!school || school.type !== "school") return fail("notASchool");
       const def = CLASSES[cmd.classId];
       if (!def) return fail("classLocked");
-      if (school.level < def.schoolLevel) fail("classLocked");
-      if (v.level < def.minLevel) fail("levelTooLow");
-      if (v.classId === cmd.classId) fail("alreadyThisClass");
+      const lock = trainLock(s, v, cmd.classId, school);
+      if (lock) fail(lock);
       if (v.job.kind !== "idle" && v.job.kind !== "work") fail("kiwiBusy");
       if (def.unique && s.villagers.some(
         (x) => x.id !== v.id && (x.classId === cmd.classId || x.job.kind === "train" && x.job.classId === cmd.classId)
@@ -16659,6 +16834,7 @@ export {
   CATCHMENT_RADIUS,
   CLASSES,
   CLASS_IDS,
+  CLASS_RULES,
   CLASS_WEAPONS,
   COLONY,
   COMETS,
@@ -16803,6 +16979,7 @@ export {
   awaitedResources,
   awaitingReport,
   awaitingServer,
+  bardMorale,
   baseHarvest,
   battleOutcome,
   bedsOf,
@@ -16844,6 +17021,7 @@ export {
   catchmentPreview,
   catchmentRadius,
   claimableObjective,
+  classGrowth,
   cleanFreight,
   cleanKiwiName,
   clearDuration,
@@ -17016,6 +17194,7 @@ export {
   isSiegeMission,
   isSister,
   isTurret,
+  itemSpeed,
   jobBoard,
   kikiwiwiCap,
   kikiwiwiCount,
@@ -17155,6 +17334,7 @@ export {
   removeVillagers,
   repairCost,
   repairDuration,
+  repairSpeed,
   requestSchema,
   researchBank,
   researchEta,
@@ -17243,6 +17423,7 @@ export {
   titanCost,
   titanPower,
   totalWorkers,
+  trainLock,
   trainingCost,
   trainingDuration,
   travelFactor,

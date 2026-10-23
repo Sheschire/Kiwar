@@ -57,6 +57,7 @@ const PARTS = [
   'food',
   'comfort',
   'mayor',
+  'bards',
   'speech',
   'mourning',
   'season',

@@ -1,5 +1,6 @@
 import type { Color } from 'three';
 import {
+  BoxGeometry,
   AdditiveBlending,
   CircleGeometry,
   ConeGeometry,
@@ -176,6 +177,66 @@ function outfitParts(cls: ClassId): OutfitPart[] {
             new CylinderGeometry(1, 1, 1, 6),
             '#c0504a',
             mat(0, 0.2, 0.02, 0.2, 0.025, 0.035, 0, 0.7, 0.9),
+          ),
+          false,
+        ],
+      ];
+    // Chantier 37: a wide straw hat and a satchel across the body.
+    case 'gatherer':
+      return [
+        [
+          colored(
+            new CylinderGeometry(1, 1, 1, 14),
+            '#e2c47a',
+            mat(0, 0.34, 0.17, 0.17, 0.01, 0.17),
+          ),
+          true,
+        ],
+        [
+          colored(
+            new CylinderGeometry(0.8, 1, 1, 12),
+            '#d4b061',
+            mat(0, 0.37, 0.17, 0.085, 0.06, 0.085),
+          ),
+          true,
+        ],
+        [
+          colored(
+            new CylinderGeometry(1, 1, 1, 12),
+            '#7aa64a',
+            mat(0, 0.352, 0.17, 0.088, 0.012, 0.088),
+          ),
+          true,
+        ],
+        [
+          colored(new BoxGeometry(1, 1, 1), '#8a5a35', mat(0.17, 0.12, 0.02, 0.06, 0.07, 0.09)),
+          false,
+        ],
+      ];
+    // Chantier 37: a soft beret with a long feather.
+    case 'bard':
+      return [
+        [
+          colored(
+            new SphereGeometry(1, 10, 6),
+            '#3e7fbf',
+            mat(0.02, 0.35, 0.15, 0.115, 0.04, 0.11, 0, 0, -0.2),
+          ),
+          true,
+        ],
+        [
+          colored(
+            new ConeGeometry(1, 1, 4),
+            '#f2c14e',
+            mat(-0.07, 0.42, 0.11, 0.012, 0.16, 0.006, -0.6, 0, 0.5),
+          ),
+          true,
+        ],
+        [
+          colored(
+            new CylinderGeometry(1, 1, 1, 6),
+            '#c0504a',
+            mat(0, 0.2, 0.02, 0.2, 0.02, 0.03, 0, -0.7, 0.9),
           ),
           false,
         ],

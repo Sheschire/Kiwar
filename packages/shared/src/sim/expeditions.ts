@@ -169,8 +169,9 @@ export function travelTime(
 ): number {
   const pad = levelDef('launchpad', launchpad.level)?.travelTime ?? 1;
   const wind = crew.some((v) => hasSkill(v, 'tailwind')) ? SKILLS.tailwindTravel : 1;
+  const scout = crew.some((v) => v.classId === 'scout') ? SKILLS.scoutTravel : 1;
   const light = mission === 'recon' ? RECON.travel : 1;
-  return Math.round((target.travelMs * pad * wind * light * tech) / 1000) * 1000;
+  return Math.round((target.travelMs * pad * wind * scout * light * tech) / 1000) * 1000;
 }
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));

@@ -11,7 +11,7 @@ import {
 } from '../data/units';
 import { KIWI } from '../data/kiwis';
 import type { Building, GameState, Villager } from '../sim/state';
-import { modifiers } from '../sim/kiwis';
+import { hasSkill, modifiers } from '../sim/kiwis';
 import { techEffects } from '../sim/research';
 import { titanPower } from '../sim/kikiwiwi';
 import { levelDef } from '../data/buildings';
@@ -21,7 +21,7 @@ import type { BattleSide, BattleUnitSetup, UnitRole } from './types';
 /**
  * Chantier 36: fighters from the game. A kiwi's profile comes from its stats (Strength → hits,
  * Endurance → hit points, Agility → speed and dodge, Dexterity → aim, Spirit → spells), its
- * level, its class (beak, mace, sword, fireball, sling) and the technologies; a predator from
+ * level, its class (beak, mace, sword, fireball, sling, dagger, song) and the technologies; a predator from
  * its kind, scaled to the wave; a turret from its level and the seeds it can fire.
  */
 
@@ -71,7 +71,17 @@ export function kiwiUnit(
     Math.max(0.5, 1 + K.enduranceHp * (st.endurance - avg)) *
     level *
     fight *
-    (v.kikiwiwi ? K.titanHp / 2 : 1);
+    (v.kikiwiwi ? K.titanHp / 2 : 1) *
+    (v.classId ? (K.classHp[v.classId] ?? 1) : 1);
+  const extraDodge = v.classId ? (K.classDodge[v.classId] ?? 0) : 0;
+  const chorus = hasSkill(v, 'chorus');
+  const aura =
+    v.classId === 'bard' && role === 'guard'
+      ? {
+          range: chorus ? K.aura.chorusRange : K.aura.range,
+          boost: chorus ? K.aura.chorusBoost : K.aura.boost,
+        }
+      : undefined;
   return {
     ref: v.id,
     side,
@@ -85,7 +95,11 @@ export function kiwiUnit(
     // Armour (technology) spares the kiwis.
     armor: clamp(1 - tech.injuries, 0, 0.6),
     speed: K.speed * Math.max(0.5, 1 + K.agilitySpeed * (st.agility - avg)),
-    dodge: clamp(K.dodge + K.agilityDodge * (st.agility - avg), 0, K.maxDodge),
+    dodge: clamp(
+      K.dodge + extraDodge + K.agilityDodge * (st.agility - avg),
+      0,
+      K.maxDodge + extraDodge,
+    ),
     size: v.kikiwiwi ? K.titanSize : 1,
     flying: false,
     fixed: false,
@@ -100,6 +114,7 @@ export function kiwiUnit(
     fightsBack: true,
     huntsKiwis: false,
     sector,
+    ...(aura ? { aura } : {}),
   };
 }
 

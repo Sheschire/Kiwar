@@ -62,6 +62,8 @@ export interface KiwiModifiers {
   appetite?: number;
   /** Research points produced at the Library (chantier 08). */
   research?: number;
+  /** Repair speed, on top of the construction speed (chantier 37). */
+  repair?: number;
 }
 
 /** A small advantage and a small drawback each. */
@@ -96,6 +98,8 @@ export const KIWI = {
   dexterityBonus: 0.03,
   /** Construction speed bonus per point of Strength above average (+2 %). */
   strengthBuild: 0.02,
+  /** Chantier 37: agile kiwis carry their loads faster (+1 % harvest per Agility point). */
+  agilityCarry: 0.01,
   /** Expedition strength of a kiwi: +6 % per Strength point and +3 % per Endurance point above
    * average, ×(1 + 4 % per level above 1), × trait (and later class). */
   fight: { strength: 0.06, endurance: 0.03, perLevel: 0.04 },

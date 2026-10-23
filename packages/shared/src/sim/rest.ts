@@ -7,7 +7,7 @@ import type { FaceMap } from '../worldgen/generateFace';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
 import { calendarAt, seasonOf } from './calendar';
 import { hungerStage } from './needs';
-import { mayorMorale, modifiers } from './kiwis';
+import { bardMorale, mayorMorale, modifiers } from './kiwis';
 import type { Building, GameState, Villager } from './state';
 import { terraformKey, distanceIn, faceMapOf, pathsKey, walkDistances } from './territory';
 
@@ -142,6 +142,8 @@ export interface Morale {
   comfort: number;
   /** The mayor's Charisma and Organisation. */
   mayor: number;
+  /** Chantier 37: the bards at home. */
+  bards: number;
   speech: number;
   mourning: number;
   season: number;
@@ -155,9 +157,10 @@ export function moraleOf(state: GameState, beds = bedsOf(state)): Morale {
   const mourning = state.mourningUntil > state.now ? MORALE.mourning : 0;
   const season = MORALE.season[seasonOf(state)];
   const mayor = mayorMorale(state);
-  const sum = food + comfort + mayor + speech + mourning + season;
+  const bards = bardMorale(state);
+  const sum = food + comfort + mayor + bards + speech + mourning + season;
   const total = Math.max(-MORALE.max, Math.min(MORALE.max, sum));
-  return { total, food, comfort, mayor, speech, mourning, season };
+  return { total, food, comfort, mayor, bards, speech, mourning, season };
 }
 
 const comfortCache = new WeakMap<Map<VillagerId, Bed>, number>();

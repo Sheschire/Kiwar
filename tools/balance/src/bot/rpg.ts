@@ -52,8 +52,8 @@ export function rpgDecision(
   if (civil || !fighters || !has('launchpad')) return civil;
   // Two warriors (the strongest) for the raids, a scout (the most agile) for the reports.
   return (
-    pick('warrior', (v) => v.stats.strength + v.stats.endurance, 2) ??
-    pick('scout', (v) => v.stats.agility + v.stats.spirit) ??
+    pick('warrior', (v) => v.stats.endurance + v.stats.strength / 10, 2) ??
+    pick('scout', (v) => v.stats.agility + v.stats.spirit / 10) ??
     null
   );
 }

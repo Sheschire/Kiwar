@@ -70,8 +70,10 @@ const CLASS_CLIP: Record<ClassId, ClipId> = {
   builder: 'hammer',
   warrior: 'sword',
   mage: 'spell',
-  scout: 'sling',
+  scout: 'dagger',
   mayor: 'teach',
+  gatherer: 'sling',
+  bard: 'sing',
 };
 /** Guards' sectors (shared `defenseOf`), once per state. */
 const guardSectors = perGame((state) => defenseOf(state));

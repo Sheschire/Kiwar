@@ -16,6 +16,8 @@ export const PROP_IDS = [
   'sling',
   'mace',
   'basket',
+  'dagger',
+  'lute',
 ] as const;
 export type PropId = (typeof PROP_IDS)[number];
 

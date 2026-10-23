@@ -177,6 +177,64 @@ describe('battle engine', () => {
     expect(sky.result.attackers.fallen).toBeGreaterThan(0);
   });
 
+  it('a bard sings: the fighters around it hit harder (chantier 37)', () => {
+    const units = (aura: boolean) => [
+      guard('g1', { q: 3, r: -3 }),
+      {
+        ...guard('bard', { q: 2, r: -2 }, 'song'),
+        kind: 'bard',
+        classId: 'bard' as const,
+        ...(aura ? { aura: { range: 2, boost: 0.2 } } : {}),
+      },
+      ...raiders('soldier', 3, EDGE),
+    ];
+    const blows = (aura: boolean) => {
+      const log = simulateBattle(setup(units(aura), [store('w1', { q: 0, r: 0 })]), 's');
+      const hits = decodeEvents(log.events, log.dt).filter(
+        (e) => e.code === EV.attack && e.args[0] === 0 && e.args[2]! > 0,
+      );
+      return hits.reduce((sum, e) => sum + e.args[2]!, 0) / Math.max(1, hits.length);
+    };
+    expect(blows(true)).toBeGreaterThan(blows(false) * 1.1);
+  });
+
+  it('a dagger goes for the thieves first (chantier 37)', () => {
+    const pack = [
+      ...raiders('soldier', 3, EDGE),
+      ...raiders('scout', 2, EDGE).map((u) => ({ ...u, ref: `t${u.ref}` })),
+    ];
+    const log = simulateBattle(
+      setup([guard('g1', { q: 7, r: -7 }, 'dagger'), ...pack], [store('w1', { q: 0, r: 0 })]),
+      's',
+    );
+    const first = decodeEvents(log.events, log.dt).find(
+      (e) => e.code === EV.attack && e.args[0] === 0,
+    );
+    expect(first).toBeDefined();
+    const target = (first!.args[1]! >> 1) - 1;
+    expect(pack[target]!.kind).toBe('scout');
+  });
+
+  it('two teams of the same size but other classes fight differently (chantier 37)', () => {
+    const team = (w: keyof typeof WEAPONS) =>
+      [0, 1, 2, 3].map((i) => guard(`g${i}`, { q: 4, r: -4 + (i % 2) }, w));
+    const bats = raiders('diver', 3, EDGE).map((u) => ({ ...u, ref: `b${u.ref}` }));
+    const fight = (w: keyof typeof WEAPONS) =>
+      simulateBattle(
+        setup([...team(w), ...raiders('soldier', 4, EDGE), ...bats], [store('w1', { q: 0, r: 0 })]),
+        's',
+      );
+    // Units 0–3 are the kiwis, 4–7 the ferrets, 8–10 the bats.
+    const batsDown = (w: keyof typeof WEAPONS) => {
+      const log = fight(w);
+      return decodeEvents(log.events, log.dt).filter((e) => e.code === EV.fall && e.args[0]! >= 8)
+        .length;
+    };
+    expect(JSON.stringify(fight('sword').result)).not.toBe(JSON.stringify(fight('sling').result));
+    expect(batsDown('sword')).toBe(0);
+    expect(batsDown('sling')).toBeGreaterThan(0);
+  });
+
   it('a turret only fires within its range', () => {
     const t = turret('t1', { q: -6, r: 6 }, 1, false);
     const log = simulateBattle(

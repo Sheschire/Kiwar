@@ -43,9 +43,11 @@ export interface SheetCell {
 const CLIP_CLASS: Partial<Record<ClipId, ClassId>> = {
   hammer: 'builder',
   sword: 'warrior',
-  mace: 'warrior',
+  mace: 'builder',
   spell: 'mage',
-  sling: 'scout',
+  sling: 'gatherer',
+  dagger: 'scout',
+  sing: 'bard',
   teach: 'mayor',
   look: 'scout',
 };

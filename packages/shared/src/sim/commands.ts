@@ -19,7 +19,14 @@ import { getTile, type FaceMap } from '../worldgen/generateFace';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
 import { KIWI, KIWI_NAME_MAX, STAT_IDS, type StatId } from '../data/kiwis';
 import { advanceInPlace, autoAssign, bestIdleFor, idleByPower, type GameEvent } from './advance';
-import { buildingResource, hasSkill, trainingCost, trainingDuration, workerPower } from './kiwis';
+import {
+  buildingResource,
+  hasSkill,
+  trainingCost,
+  trainingDuration,
+  trainLock,
+  workerPower,
+} from './kiwis';
 import { CLASSES, SKILLS, type ClassId, type SkillId } from '../data/classes';
 import { faceMapOf, isFlooded, releasePool, syncPools, terraformKey } from './territory';
 import { seasonOf } from './calendar';
@@ -266,6 +273,7 @@ export const COMMAND_ERRORS = [
   'notASchool',
   'classLocked',
   'levelTooLow',
+  'statTooLow',
   'alreadyThisClass',
   'kiwiBusy',
   'mayorExists',
@@ -949,9 +957,8 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (!school || school.type !== 'school') return fail('notASchool');
       const def = CLASSES[cmd.classId];
       if (!def) return fail('classLocked');
-      if (school.level < def.schoolLevel) fail('classLocked');
-      if (v.level < def.minLevel) fail('levelTooLow');
-      if (v.classId === cmd.classId) fail('alreadyThisClass');
+      const lock = trainLock(s, v, cmd.classId, school);
+      if (lock) fail(lock);
       if (v.job.kind !== 'idle' && v.job.kind !== 'work') fail('kiwiBusy');
       if (
         def.unique &&

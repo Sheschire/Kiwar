@@ -2,9 +2,19 @@ import { describe, expect, it } from 'vitest';
 import {
   advance,
   applyCommand,
+  bardMorale,
   builderSpeed,
   buildingHarvest,
+  CLASS_IDS,
+  CLASS_RULES,
   CLASSES,
+  classGrowth,
+  itemSpeed,
+  modifiers,
+  pickBuilder,
+  researchPower,
+  STAT_IDS,
+  workerPower,
   colonyBonus,
   mayorMorale,
   moraleOf,
@@ -53,7 +63,11 @@ function schoolColony(schoolLevel = 1) {
   s = {
     ...s,
     resources: { pulp: 5000, fiber: 5000, seeds: 5000, juice: 5000 },
-    villagers: s.villagers.map((v, i) => at(v, i === 0 ? 12 : 6)),
+    // Chantier 37: every class asks for its stat ≥ 6.
+    villagers: s.villagers.map((v, i) => ({
+      ...at(v, i === 0 ? 12 : 6),
+      stats: { strength: 7, agility: 7, endurance: 7, spirit: 7, dexterity: 7, charisma: 7 },
+    })),
   };
   return { map, s, schoolId: school.id };
 }
@@ -182,7 +196,7 @@ describe('school and classes', () => {
     expect(errorOf(s, { type: 'useSkill', villagerId: mage.id, skill: 'rain' }, map)).toBe(
       'notHere',
     );
-    s = run(s, { type: 'assignWorkers', buildingId: pulpery.id, count: 1 }, s.now, map);
+    s = run(s, { type: 'assignKiwi', villagerId: mage.id, buildingId: pulpery.id }, s.now, map);
     expect(s.villagers[0]!.job).toMatchObject({ kind: 'work', buildingId: pulpery.id });
     const wet = run(s, { type: 'useSkill', villagerId: mage.id, skill: 'rain' }, s.now, map);
     const h = buildingHarvest(
@@ -196,7 +210,7 @@ describe('school and classes', () => {
     const { s } = schoolColony();
     const v = s.villagers[0]!;
     const scout = { ...v, classId: 'scout' as const };
-    expect(crewWeight([scout])).toBeCloseTo(crewWeight([v]) / 2);
+    expect(crewWeight([scout])).toBeCloseTo(crewWeight([v]) / 2 / classGrowth(scout));
     const target = s.targets[0]!;
     const pad = { ...s.buildings[0]!, type: 'launchpad' as const, level: 1 };
     expect(travelTime(target, pad, [at(scout, 20)])).toBeLessThan(travelTime(target, pad, [v]));
@@ -217,6 +231,88 @@ describe('school and classes', () => {
     expect(small.buildings).toEqual(big.buildings);
     for (const id of ['pulp', 'fiber', 'seeds', 'juice'] as const)
       expect(small.resources[id]).toBeCloseTo(big.resources[id], 4);
+  });
+
+  it('asks for the class stat, and teaches the bard from the Stone age (chantier 37)', () => {
+    const { map, s, schoolId } = schoolColony(2);
+    const weak = {
+      ...s,
+      villagers: s.villagers.map((v, i) =>
+        i === 1 ? { ...v, stats: { ...v.stats, spirit: CLASS_RULES.statMin - 1 } } : v,
+      ),
+    };
+    expect(errorOf(weak, train(weak, 1, schoolId, 'mage'), map)).toBe('statTooLow');
+    expect(errorOf(weak, train(weak, 1, schoolId, 'gatherer'), map)).toBeNull();
+    expect(errorOf(s, train(s, 1, schoolId, 'bard'), map)).toBe('classLocked');
+    for (const c of CLASS_IDS) expect(STAT_IDS).toContain(CLASSES[c].stat);
+  });
+
+  it('gives each class a colony bonus that grows with its stat (chantier 37)', () => {
+    const { s } = schoolColony();
+    const v: Villager = { ...s.villagers[1]!, trait: null };
+    const as = (classId: ClassId, stat = 5): Villager => ({
+      ...v,
+      classId,
+      stats: { ...v.stats, [CLASSES[classId].stat]: stat },
+    });
+    // Mages research 50 % faster (more with Spirit), gatherers harvest 30 % more.
+    expect(researchPower(as('mage')) / researchPower({ ...as('mage'), classId: null })).toBeCloseTo(
+      1.5 * 1.15,
+    );
+    expect(modifiers(as('mage', 10)).research).toBeCloseTo(
+      modifiers(as('mage', 5)).research * (1 + 5 * CLASS_RULES.growth),
+    );
+    expect(workerPower(as('gatherer'), 'pulp')).toBeGreaterThan(workerPower(as('mage'), 'pulp'));
+    expect(modifiers(as('mage')).harvest).toBe(1);
+    // Warriors mend faster than they build, builders build faster.
+    expect(itemSpeed(as('warrior'), { kind: 'repair' })).toBeCloseTo(
+      builderSpeed(as('warrior')) * 1.5,
+    );
+    expect(itemSpeed(as('builder'), { kind: 'build' })).toBeGreaterThan(
+      itemSpeed(as('warrior'), { kind: 'build' }),
+    );
+    // Scouts carry less as their Agility grows.
+    expect(modifiers(as('scout', 10)).weight).toBeLessThan(modifiers(as('scout', 5)).weight);
+  });
+
+  it('sends the builder to build and the warrior to repair (chantier 37)', () => {
+    const { s } = schoolColony();
+    const x: GameState = {
+      ...s,
+      villagers: s.villagers.map((v, i) => ({
+        ...v,
+        trait: null,
+        job: { kind: 'idle' as const },
+        classId: i === 1 ? ('builder' as const) : i === 2 ? ('warrior' as const) : null,
+      })),
+    };
+    expect(pickBuilder(x, { kind: 'build' })?.classId).toBe('builder');
+    expect(pickBuilder(x, { kind: 'repair' })?.classId).toBe('warrior');
+  });
+
+  it('lets the bards lift morale, at most 5 % (chantier 37)', () => {
+    const { s } = schoolColony();
+    const bards = (n: number): GameState => ({
+      ...s,
+      villagers: s.villagers.map((v, i) =>
+        i < n ? { ...at(v, 3), classId: 'bard' as const, stats: { ...v.stats, charisma: 5 } } : v,
+      ),
+    });
+    expect(bardMorale(bards(0))).toBe(0);
+    expect(bardMorale(bards(1))).toBeCloseTo(SKILLS.bardMorale);
+    expect(moraleOf(bards(2)).bards).toBeCloseTo(2 * SKILLS.bardMorale);
+    expect(bardMorale(bards(s.villagers.length))).toBeLessThanOrEqual(SKILLS.bardMax + 1e-9);
+  });
+
+  it('a scout speeds the crew up (chantier 37)', () => {
+    const { s } = schoolColony();
+    const v = s.villagers[0]!;
+    const target = s.targets[0]!;
+    const pad = { ...s.buildings[0]!, type: 'launchpad' as const, level: 1 };
+    const scout = { ...v, classId: 'scout' as const };
+    expect(travelTime(target, pad, [v, scout])).toBe(
+      Math.round((travelTime(target, pad, [v]) * SKILLS.scoutTravel) / 1000) * 1000,
+    );
   });
 
   it('migrates v4 saves (no classes yet)', () => {
