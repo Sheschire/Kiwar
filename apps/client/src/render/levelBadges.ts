@@ -1,5 +1,5 @@
 import { CanvasTexture, Group, SRGBColorSpace, Sprite, SpriteMaterial } from 'three';
-import { ageOfLevel, upgradeLock, type GameState } from '@kiwar/shared';
+import { ageOfLevel, maxLevelOf, upgradeLock, type GameState } from '@kiwar/shared';
 
 /**
  * Chantier 11: a small level badge above every building, with a green arrow when it can be
@@ -87,7 +87,7 @@ export class LevelBadges {
   /** Cheap when nothing changed: levels, upgradability and positions make the signature. */
   sync(state: GameState, anchorOf: (id: string) => BadgeAnchor | null): void {
     const rows = state.buildings
-      .filter((b) => b.type !== 'camp')
+      .filter((b) => b.type !== 'camp' && maxLevelOf(b.type) > 1)
       .map((b) => ({ b, a: anchorOf(b.id), up: upgradeLock(state, b) === null }));
     const sig = rows
       .map(({ b, a, up }) => `${b.id}:${b.level}:${up ? 1 : 0}:${a ? a.y.toFixed(2) : '-'}`)

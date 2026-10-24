@@ -361,6 +361,7 @@ export const COMMAND_ERRORS = [
   'noForge',
   'forgeExists',
   'townHallExists',
+  'statueExists',
   'noTownHall',
   'noMayor',
   'speechCooling',

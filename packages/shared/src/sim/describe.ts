@@ -1,4 +1,4 @@
-import { LEISURE, speechCooldownMs, speechEffectMs } from '../data/needs';
+import { BEAUTY, isDecor, LEISURE, speechCooldownMs, speechEffectMs } from '../data/needs';
 import { meteorIronOf } from './iron';
 import { TASKS } from '../data/jobs';
 import { stardustOf } from './comets';
@@ -64,6 +64,7 @@ export const LEVEL_STATS = [
   'speechMemory',
   'speechCooldown',
   'leisureRange',
+  'beauty',
 ] as const;
 export type LevelStatId = (typeof LEVEL_STATS)[number];
 
@@ -123,6 +124,7 @@ export function describeLevel(type: BuildingType, level: number, state?: GameSta
     push('buildSlots', TASKS.buildSlots[Math.min(level, TASKS.buildSlots.length - 1)]);
   // Chantier 43: how long a speech is remembered, and the rest between two (hours).
   push('leisureRange', LEISURE[type]?.radius);
+  push('beauty', BEAUTY[type]);
   if (type === 'townHall') {
     push('speechMemory', speechEffectMs(level) / 3_600_000);
     push('speechCooldown', speechCooldownMs(level) / 3_600_000);
@@ -249,6 +251,10 @@ export function buildLock(state: GameState, type: BuildingType): CommandError | 
     if (copiesOf(state, 'townHall') > 0) return 'townHallExists';
   } else if (type === 'campfire') {
     // Chantier 43: outside the building cap, as many as the player pays for.
+  } else if (type === 'mayorStatue') {
+    if (copiesOf(state, 'mayorStatue') > 0) return 'statueExists';
+  } else if (isDecor(type)) {
+    // Chantier 44: decorations too.
   } else if (type === 'monument') {
     if (copiesOf(state, 'monument') > 0) return 'monumentExists';
     if (!hasTech(state, PASSAGE_TECHS[1]!)) return 'passageMissing';

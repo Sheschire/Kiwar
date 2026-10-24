@@ -34,15 +34,20 @@ import { formatNumber } from '../../i18n/i18n';
 
 /** Chantier 11: every building by family, its levels, what unlocks it, and "Place". */
 
-type FamilyId = 'production' | 'housing' | 'storage' | 'defense' | 'knowledge' | 'ship';
+type FamilyId = 'production' | 'housing' | 'storage' | 'defense' | 'knowledge' | 'ship' | 'village';
 
 const FAMILIES: readonly { id: FamilyId; types: readonly BuildingType[] }[] = [
-  { id: 'production', types: ['pulpery', 'fiberWorkshop', 'juiceWell', 'seedQuarry'] },
+  { id: 'production', types: ['pulpery', 'fiberWorkshop', 'juiceWell', 'seedQuarry', 'forge'] },
   { id: 'housing', types: ['nest', 'hut'] },
   { id: 'storage', types: ['warehouse'] },
-  { id: 'defense', types: ['seedTurret', 'skyTurret'] },
+  { id: 'defense', types: ['seedTurret', 'skyTurret', 'trainingCamp'] },
   { id: 'knowledge', types: ['school', 'library', 'monument', 'lab'] },
   { id: 'ship', types: ['launchpad'] },
+  // Chantier 44: the village's life (outside the building cap but the Town Hall).
+  {
+    id: 'village',
+    types: ['townHall', 'campfire', 'lanterns', 'flowerBed', 'vineArch', 'fountain', 'mayorStatue'],
+  },
 ];
 
 /** The age a level waits for, when it is not reached yet (shown as "???"). */

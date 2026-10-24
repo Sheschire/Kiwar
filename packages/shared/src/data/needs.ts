@@ -100,6 +100,8 @@ export const MORALE = {
   bard: 5,
   /** A leisure (`LEISURE`) within reach of its bed. */
   leisure: 8,
+  /** Chantier 44: the village's beauty (`BEAUTY`, summed over the decorations), at most. */
+  beauty: 8,
   /**
    * Memories: the colony mourns a lost kiwi, its hut mates or crew mates grieve harder; a fine
    * speech (`SPEECH`). `ms`: the longest it lasts, `best`: the highest value it can have.
@@ -150,6 +152,23 @@ export function speechCooldownMs(level: number): number {
 export const LEISURE: Partial<Record<BuildingType, { radius: number }>> = {
   campfire: { radius: 3 },
 };
+
+/**
+ * Chantier 44: the decorations' beauty, common to the whole village (`colonyMood`), summed and
+ * capped by `MORALE.beauty`.
+ */
+export const BEAUTY: Partial<Record<BuildingType, number>> = {
+  lanterns: 1,
+  flowerBed: 1,
+  vineArch: 1,
+  fountain: 1,
+  mayorStatue: 3,
+};
+
+/** Chantier 44: decorations and leisures stand outside the building cap. */
+export function isDecor(type: BuildingType): boolean {
+  return BEAUTY[type] !== undefined;
+}
 
 /**
  * Chantier 43: the campfire. At nightfall the free kiwis sleeping within its reach sup there

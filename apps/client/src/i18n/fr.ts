@@ -261,6 +261,26 @@ export const fr: Dict = {
       name: 'Feu de camp',
       desc: 'Au crépuscule, les kiwis qui dorment tout près s’y retrouvent pour souper ensemble : du moral jusqu’au lendemain soir et des repas de nuit plus légers. Un loisir pour les huttes voisines.',
     },
+    lanterns: {
+      name: 'Lampions',
+      desc: 'Une guirlande de lampions de feuille, un lampadaire de fer à l’âge du Fer, un réverbère de laiton à l’Industrie. Il éclaire les chemins la nuit. De la beauté pour tout le village.',
+    },
+    flowerBed: {
+      name: 'Massif de fleurs',
+      desc: 'Un massif de fleurs qui suit les saisons. De la beauté pour tout le village.',
+    },
+    vineArch: {
+      name: 'Arche de liane',
+      desc: 'Une arche de lianes tressées et fleuries, où l’on passe dessous. De la beauté pour tout le village.',
+    },
+    fountain: {
+      name: 'Fontaine à jus',
+      desc: 'Une vasque de pierre où jaillit un jet de jus de kiwi, qui luit doucement la nuit. De la beauté pour tout le village.',
+    },
+    mayorStatue: {
+      name: 'Statue du maire',
+      desc: 'Le ou la maire en pierre, son nom sur le socle. Une par colonie : la plus belle décoration (beauté ×3).',
+    },
     townHall: {
       name: 'Mairie',
       desc: 'Le·la maire y siège et y prononce le Discours : toute la colonie s’y rassemble, puis garde le moral pendant des heures.',
@@ -692,6 +712,7 @@ export const fr: Dict = {
         temper: 'Caractères (moyenne)',
         memories: 'Souvenirs, deuils (moyenne)',
         season: 'Saison',
+        beauty: 'Décorations',
       },
       low: '{count} kiwi(s) au moral très bas : ils boudent.',
       gauge: 'Moral {value}/100',
@@ -699,7 +720,7 @@ export const fr: Dict = {
       sulk: 'Ce kiwi boude : il travaille quand même, mais lentement. Lit, repas, loisir ou discours le remonteront.',
       sulking: 'boude',
       kiwiParts: {
-        colony: 'Colonie (âge, repas, saison, maire, bardes)',
+        colony: 'Colonie (âge, repas, saison, maire, bardes, décorations)',
         bed: 'Lit',
         leisure: 'Loisir près de son lit',
         temper: 'Caractère',
@@ -852,6 +873,7 @@ export const fr: Dict = {
     noForge: 'Construis d’abord une Forge.',
     forgeExists: 'La colonie a déjà sa Forge.',
     townHallExists: 'La colonie a déjà sa Mairie.',
+    statueExists: 'La colonie a déjà sa statue du maire.',
     noTownHall: 'Il faut une Mairie pour prononcer un discours.',
     noMayor: 'Aucun·e maire à la colonie : formez-en un·e à l’École.',
     speechCooling: 'Le·la maire prépare son prochain discours.',
@@ -2128,6 +2150,7 @@ export const fr: Dict = {
       defense: 'Défense',
       knowledge: 'Savoir',
       ship: 'Vaisseau',
+      village: 'Vie du village',
     },
     built: '{count} construit(s)',
     notBuilt: 'Pas encore construit',
@@ -2185,6 +2208,7 @@ export const fr: Dict = {
     speechCooldown: 'Repos entre deux discours',
     hours: '{value} h',
     leisureRange: 'Portée du loisir (cases autour des huttes)',
+    beauty: 'Beauté (tout le village)',
     perHour: '{value}/h',
     times: '×{value}',
     fullStaff: 'Avec toutes les places occupées, sur cette face.',

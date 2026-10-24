@@ -1,7 +1,7 @@
 import { levelDef } from '../data/buildings';
 import { CYCLES } from '../data/cycles';
 import { KIWI } from '../data/kiwis';
-import { LEISURE, MORALE, REST, type MemoryKind } from '../data/needs';
+import { BEAUTY, LEISURE, MORALE, REST, type MemoryKind } from '../data/needs';
 import { hexDistance, hexKey, type Hex } from '../hex/hex';
 import type { FaceMap } from '../worldgen/generateFace';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
@@ -148,6 +148,8 @@ export interface ColonyMood {
   /** Chantier 37: the bards at home. */
   bards: number;
   speech: number;
+  /** Chantier 44: the decorations (`beautyOf`). */
+  beauty: number;
   /** Sum of the parts above. */
   sum: number;
   /** Homes within reach of a leisure (their sleepers get `MORALE.leisure`). */
@@ -173,6 +175,13 @@ function homesNear(
   return out;
 }
 
+/** Chantier 44: the village's beauty, summed over its decorations and capped. */
+export function beautyOf(state: GameState): number {
+  let sum = 0;
+  for (const b of state.buildings) sum += BEAUTY[b.type] ?? 0;
+  return Math.min(MORALE.beauty, sum);
+}
+
 /** The colony's common morale points (constant between two events). */
 export function colonyMood(state: GameState): ColonyMood {
   const base = MORALE.base[Math.min(MORALE.base.length - 1, ageOf(state))]!;
@@ -182,6 +191,7 @@ export function colonyMood(state: GameState): ColonyMood {
   const bards = bardMorale(state) * MORALE.points;
   const speech = state.speechUntil > state.now ? MORALE.speech : 0;
   const leisureHomes = homesNear(state, (type) => LEISURE[type]?.radius);
+  const beauty = beautyOf(state);
   return {
     base,
     food,
@@ -189,7 +199,8 @@ export function colonyMood(state: GameState): ColonyMood {
     mayor,
     bards,
     speech,
-    sum: base + food + season + mayor + bards + speech,
+    beauty,
+    sum: base + food + season + mayor + bards + speech + beauty,
     leisureHomes,
   };
 }

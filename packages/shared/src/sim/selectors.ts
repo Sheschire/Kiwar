@@ -15,6 +15,7 @@ import { THREATS, TURRETS } from '../data/threats';
 import { LANDING } from '../data/landing';
 import { TILES } from '../data/tiles';
 import { HATCHING } from '../data/hatching';
+import { isDecor } from '../data/needs';
 import {
   RESOURCE_IDS,
   emptyResources,
@@ -301,6 +302,7 @@ export function buildingCount(state: GameState): number {
     t !== 'lab' &&
     t !== 'townHall' &&
     t !== 'campfire' &&
+    !isDecor(t) &&
     !isTurret(t);
   return (
     state.buildings.filter((b) => counted(b.type)).length +

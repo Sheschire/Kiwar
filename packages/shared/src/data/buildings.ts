@@ -25,6 +25,11 @@ export const BUILDING_TYPES = [
   'forge',
   'townHall',
   'campfire',
+  'lanterns',
+  'flowerBed',
+  'vineArch',
+  'fountain',
+  'mayorStatue',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
@@ -103,6 +108,9 @@ export const FOOTPRINTS: Partial<Record<BuildingType, FootprintSize>> = {
 export function footprintOf(type: BuildingType): FootprintSize {
   return FOOTPRINTS[type] ?? 1;
 }
+
+/** Chantier 44: where a decoration or a game may stand (also on the skin rampart). */
+const DECOR_TILES: readonly TileType[] = ['flesh', 'ray', 'heart', 'skin'];
 
 /** Highest level of any building (the last age, chantier 30). */
 export const MAX_LEVEL = 12;
@@ -583,6 +591,64 @@ const BASE: Record<BuildingType, BuildingDef> = {
         cost: { pulp: 150, fiber: 250, seeds: 40 },
         durationMs: ms.min(5),
         requiresNestLevel: 3,
+      },
+    ],
+  },
+  // Chantier 44: decorations, one tile each, outside the building cap, each copy dearer. They
+  // give beauty to the whole village (`BEAUTY`); lanterns and the fountain glow at night.
+  lanterns: {
+    id: 'lanterns',
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.4,
+    levels: [
+      { cost: { pulp: 80, fiber: 120, seeds: 20 }, durationMs: ms.min(2), requiresNestLevel: 2 },
+    ],
+  },
+  flowerBed: {
+    id: 'flowerBed',
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.4,
+    levels: [
+      { cost: { pulp: 120, fiber: 60, seeds: 60 }, durationMs: ms.min(2), requiresNestLevel: 2 },
+    ],
+  },
+  vineArch: {
+    id: 'vineArch',
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.4,
+    levels: [
+      { cost: { pulp: 60, fiber: 220, seeds: 30 }, durationMs: ms.min(3), requiresNestLevel: 3 },
+    ],
+  },
+  fountain: {
+    id: 'fountain',
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.4,
+    levels: [
+      {
+        cost: { pulp: 600, fiber: 400, seeds: 300, juice: 300 },
+        durationMs: ms.min(15),
+        requiresNestLevel: 4,
+        requiresAge: 1,
+      },
+    ],
+  },
+  // One per colony: the mayor in stone (its name on the plinth).
+  mayorStatue: {
+    id: 'mayorStatue',
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 900, fiber: 600, seeds: 700, juice: 250 },
+        durationMs: ms.min(25),
+        requiresNestLevel: 4,
+        requiresAge: 1,
       },
     ],
   },

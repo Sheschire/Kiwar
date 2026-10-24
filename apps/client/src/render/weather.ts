@@ -11,7 +11,14 @@ import {
   Sprite,
   SpriteMaterial,
 } from 'three';
-import { getTile, hashSeed, type CalendarView, type FaceMap, type GameState } from '@kiwar/shared';
+import {
+  getTile,
+  hashSeed,
+  type BuildingType,
+  type CalendarView,
+  type FaceMap,
+  type GameState,
+} from '@kiwar/shared';
 import { worldPosition } from './terrain';
 
 type WeatherKind = 'rain' | 'snow' | 'leaves' | 'fireflies';
@@ -73,6 +80,13 @@ const KINDS: Record<WeatherKind, KindDef> = {
  * work per particle); the weather of a day is drawn from a hash of the date, so every player of
  * a universe sees the same sky.
  */
+/** Buildings whose halo shines every night, and its size (chantiers 43–44). */
+const ALWAYS_LIT: Partial<Record<BuildingType, number>> = {
+  campfire: 0.6,
+  lanterns: 0.45,
+  fountain: 0.4,
+};
+
 export class WeatherView {
   readonly group = new Group();
   private readonly layers = new Map<WeatherKind, { points: Points; material: ShaderMaterial }>();
@@ -195,8 +209,9 @@ export class WeatherView {
   sync(state: GameState, lit: ReadonlySet<string> | null): void {
     const glowing = state.buildings.filter(
       (b) =>
-        // Chantier 43: a campfire always glows at night.
-        b.type === 'campfire' || (lit ? lit.has(b.id) : b.type === 'nest' || b.type === 'hut'),
+        // Chantiers 43–44: a campfire, lanterns and fountains always glow at night.
+        ALWAYS_LIT[b.type] !== undefined ||
+        (lit ? lit.has(b.id) : b.type === 'nest' || b.type === 'hut'),
     );
     const sig = glowing.map((b) => `${b.q},${b.r},${b.level}`).join(';');
     if (sig === this.glowSig) return;
@@ -207,8 +222,7 @@ export class WeatherView {
       const tile = getTile(this.map, b);
       const p = worldPosition(b);
       const s = new Sprite(this.glowMaterial);
-      const big =
-        b.type === 'nest' ? 1.6 : b.type === 'hut' ? 1 : b.type === 'campfire' ? 0.6 : 0.85;
+      const big = b.type === 'nest' ? 1.6 : b.type === 'hut' ? 1 : (ALWAYS_LIT[b.type] ?? 0.85);
       s.position.set(p.x, (tile?.height ?? 0) + 0.7 * big, p.z);
       s.scale.setScalar(2.2 * big);
       s.renderOrder = 6;

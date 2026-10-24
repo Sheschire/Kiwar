@@ -243,6 +243,26 @@ export const en = {
       name: 'Campfire',
       desc: 'At dusk the kiwis sleeping nearby gather here to sup together: morale until the next evening and lighter meals at night. A leisure for the huts around.',
     },
+    lanterns: {
+      name: 'Lanterns',
+      desc: 'A string of leaf lanterns, an iron street lamp in the Iron age, a brass lamp post in the Industry. It lights the paths at night. Beauty for the whole village.',
+    },
+    flowerBed: {
+      name: 'Flower bed',
+      desc: 'A bed of flowers that follows the seasons. Beauty for the whole village.',
+    },
+    vineArch: {
+      name: 'Vine arch',
+      desc: 'An arch of woven vines in bloom, to walk under. Beauty for the whole village.',
+    },
+    fountain: {
+      name: 'Juice fountain',
+      desc: 'A stone basin where a jet of kiwi juice springs and glows softly at night. Beauty for the whole village.',
+    },
+    mayorStatue: {
+      name: 'Mayor’s statue',
+      desc: 'The mayor in stone, its name on the plinth. One per colony: the finest decoration (beauty ×3).',
+    },
     townHall: {
       name: 'Town Hall',
       desc: 'The mayor sits here and gives the Speech: the whole colony gathers, then keeps its spirits up for hours.',
@@ -624,6 +644,7 @@ export const en = {
         temper: 'Tempers (average)',
         memories: 'Memories, mourning (average)',
         season: 'Season',
+        beauty: 'Decorations',
       },
       low: '{count} kiwi(s) with very low morale: they sulk.',
       gauge: 'Morale {value}/100',
@@ -631,7 +652,7 @@ export const en = {
       sulk: 'This kiwi sulks: it still works, but slowly. A bed, meals, a leisure or a speech will cheer it up.',
       sulking: 'sulks',
       kiwiParts: {
-        colony: 'Colony (age, meals, season, mayor, bards)',
+        colony: 'Colony (age, meals, season, mayor, bards, decorations)',
         bed: 'Bed',
         leisure: 'Leisure near its bed',
         temper: 'Temper',
@@ -782,6 +803,7 @@ export const en = {
     noForge: 'Build a Forge first.',
     forgeExists: 'The colony already has its Forge.',
     townHallExists: 'The colony already has its Town Hall.',
+    statueExists: 'The colony already has its mayor’s statue.',
     noTownHall: 'A speech needs a Town Hall.',
     noMayor: 'No mayor in the colony: train one at the School.',
     speechCooling: 'The mayor is preparing the next speech.',
@@ -2041,6 +2063,7 @@ export const en = {
       defense: 'Defense',
       knowledge: 'Knowledge',
       ship: 'Ship',
+      village: 'Village life',
     },
     built: '{count} built',
     notBuilt: 'Not built yet',
@@ -2098,6 +2121,7 @@ export const en = {
     speechCooldown: 'Rest between two speeches',
     hours: '{value} h',
     leisureRange: 'Leisure reach (tiles to the huts)',
+    beauty: 'Beauty (whole village)',
     perHour: '{value}/h',
     times: '×{value}',
     fullStaff: 'With every worker, on this face.',

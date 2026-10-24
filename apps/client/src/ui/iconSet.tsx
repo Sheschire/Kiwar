@@ -541,6 +541,69 @@ const GLYPHS = {
       />
     </>
   ),
+  // Chantier 44: decorations.
+  lanterns: (
+    <>
+      <path d="M3 8c6 5 20 5 26 0" stroke="#5a3e26" stroke-width="1.4" fill="none" />
+      <path d="M8 11h4v6c0 2-4 2-4 0z" fill="#ffb347" stroke="#a8461f" stroke-width="1.2" />
+      <path d="M14 12h4v7c0 2-4 2-4 0z" fill="#ff6f5e" stroke="#9a2f28" stroke-width="1.2" />
+      <path d="M20 11h4v6c0 2-4 2-4 0z" fill="#ffd95a" stroke="#a87a1f" stroke-width="1.2" />
+      <path
+        d="M10 22v3M16 24v3M22 22v3"
+        stroke="#a8461f"
+        stroke-width="1.2"
+        stroke-linecap="round"
+      />
+    </>
+  ),
+  flowerBed: (
+    <>
+      <path d="M4 26c2-5 22-5 24 0z" fill="#6e4a2c" stroke="#3f2a19" stroke-width="1.2" />
+      <path d="M10 22v-6M16 21v-8M22 22v-6" stroke="#4f8a3a" stroke-width="1.6" />
+      <circle cx="10" cy="14" r="3" fill="#ff7fa8" stroke="#a8365c" stroke-width="1.2" />
+      <circle cx="16" cy="11" r="3.4" fill="#ffd95a" stroke="#a87a1f" stroke-width="1.2" />
+      <circle cx="22" cy="14" r="3" fill="#b48cff" stroke="#5f3ea8" stroke-width="1.2" />
+    </>
+  ),
+  vineArch: (
+    <>
+      <path d="M7 28V15a9 9 0 0118 0v13" fill="none" stroke="#4f8a3a" stroke-width="3.2" />
+      <path d="M7 28V15a9 9 0 0118 0v13" fill="none" stroke="#2f5a22" stroke-width="1" />
+      <circle cx="9" cy="10" r="2" fill="#ff7fa8" />
+      <circle cx="16" cy="6" r="2.2" fill="#ffd95a" />
+      <circle cx="23" cy="10" r="2" fill="#ff7fa8" />
+      <circle cx="25" cy="19" r="1.8" fill="#ffd95a" />
+      <circle cx="7" cy="20" r="1.8" fill="#ffd95a" />
+    </>
+  ),
+  fountain: (
+    <>
+      <path
+        d="M16 18c0-6 0-10 0-12M16 8c-3 1-5 4-6 8M16 8c3 1 5 4 6 8"
+        stroke="#8bd14a"
+        stroke-width="1.8"
+        fill="none"
+        stroke-linecap="round"
+      />
+      <path
+        d="M4 19h24l-3 7H7z"
+        fill="#b9b2a3"
+        stroke="#5f5a50"
+        stroke-width="1.4"
+        stroke-linejoin="round"
+      />
+      <path d="M7 19c3 2 15 2 18 0" fill="#8bd14a" stroke="#4f8a3a" stroke-width="1" />
+    </>
+  ),
+  mayorStatue: (
+    <>
+      <rect x="9" y="22" width="14" height="6" fill="#b9b2a3" stroke="#5f5a50" stroke-width="1.4" />
+      <ellipse cx="16" cy="15" rx="6" ry="6.5" fill="#d3ccbc" stroke="#5f5a50" stroke-width="1.4" />
+      <circle cx="19" cy="8" r="3.4" fill="#d3ccbc" stroke="#5f5a50" stroke-width="1.4" />
+      <path d="M22 8l5 1.5" stroke="#5f5a50" stroke-width="1.6" stroke-linecap="round" />
+      <path d="M15 5l2-3 2 3 2-3 1 4" fill="#ffd95a" stroke="#a87a1f" stroke-width="1" />
+    </>
+  ),
 } satisfies Record<string, ComponentChildren>;
 
 export type IconName = keyof typeof GLYPHS;

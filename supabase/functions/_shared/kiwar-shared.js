@@ -848,7 +848,12 @@ var BUILDING_TYPES = [
   "trainingCamp",
   "forge",
   "townHall",
-  "campfire"
+  "campfire",
+  "lanterns",
+  "flowerBed",
+  "vineArch",
+  "fountain",
+  "mayorStatue"
 ];
 var FOOTPRINTS = {
   warehouse: 3,
@@ -864,6 +869,7 @@ var FOOTPRINTS = {
 function footprintOf(type) {
   return FOOTPRINTS[type] ?? 1;
 }
+var DECOR_TILES = ["flesh", "ray", "heart", "skin"];
 var MAX_LEVEL = 12;
 var BASE = {
   nest: {
@@ -1340,6 +1346,64 @@ var BASE = {
         cost: { pulp: 150, fiber: 250, seeds: 40 },
         durationMs: ms.min(5),
         requiresNestLevel: 3
+      }
+    ]
+  },
+  // Chantier 44: decorations, one tile each, outside the building cap, each copy dearer. They
+  // give beauty to the whole village (`BEAUTY`); lanterns and the fountain glow at night.
+  lanterns: {
+    id: "lanterns",
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.4,
+    levels: [
+      { cost: { pulp: 80, fiber: 120, seeds: 20 }, durationMs: ms.min(2), requiresNestLevel: 2 }
+    ]
+  },
+  flowerBed: {
+    id: "flowerBed",
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.4,
+    levels: [
+      { cost: { pulp: 120, fiber: 60, seeds: 60 }, durationMs: ms.min(2), requiresNestLevel: 2 }
+    ]
+  },
+  vineArch: {
+    id: "vineArch",
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.4,
+    levels: [
+      { cost: { pulp: 60, fiber: 220, seeds: 30 }, durationMs: ms.min(3), requiresNestLevel: 3 }
+    ]
+  },
+  fountain: {
+    id: "fountain",
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.4,
+    levels: [
+      {
+        cost: { pulp: 600, fiber: 400, seeds: 300, juice: 300 },
+        durationMs: ms.min(15),
+        requiresNestLevel: 4,
+        requiresAge: 1
+      }
+    ]
+  },
+  // One per colony: the mayor in stone (its name on the plinth).
+  mayorStatue: {
+    id: "mayorStatue",
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 900, fiber: 600, seeds: 700, juice: 250 },
+        durationMs: ms.min(25),
+        requiresNestLevel: 4,
+        requiresAge: 1
       }
     ]
   },
@@ -2157,6 +2221,8 @@ var MORALE = {
   bard: 5,
   /** A leisure (`LEISURE`) within reach of its bed. */
   leisure: 8,
+  /** Chantier 44: the village's beauty (`BEAUTY`, summed over the decorations), at most. */
+  beauty: 8,
   /**
    * Memories: the colony mourns a lost kiwi, its hut mates or crew mates grieve harder; a fine
    * speech (`SPEECH`). `ms`: the longest it lasts, `best`: the highest value it can have.
@@ -2194,6 +2260,16 @@ function speechCooldownMs(level) {
 var LEISURE = {
   campfire: { radius: 3 }
 };
+var BEAUTY = {
+  lanterns: 1,
+  flowerBed: 1,
+  vineArch: 1,
+  fountain: 1,
+  mayorStatue: 3
+};
+function isDecor(type) {
+  return BEAUTY[type] !== void 0;
+}
 var CAMPFIRE = {
   meals: 0.9
 };
@@ -5171,7 +5247,7 @@ function pathLimit(state) {
   return PATHS.base + PATHS.perNestLevel * Math.min(level, 3) + PATHS.perAgeLevel * Math.max(0, level - 3);
 }
 function buildingCount(state) {
-  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && t !== "townHall" && t !== "campfire" && !isTurret(t);
+  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && t !== "townHall" && t !== "campfire" && !isDecor(t) && !isTurret(t);
   return state.buildings.filter((b) => counted(b.type)).length + state.queue.filter((i) => i.kind === "build" && counted(i.buildingType)).length;
 }
 function turretCount(state) {
@@ -10431,6 +10507,11 @@ function homesNear(state, reach) {
   }
   return out;
 }
+function beautyOf(state) {
+  let sum = 0;
+  for (const b of state.buildings) sum += BEAUTY[b.type] ?? 0;
+  return Math.min(MORALE.beauty, sum);
+}
 function colonyMood(state) {
   const base = MORALE.base[Math.min(MORALE.base.length - 1, ageOf(state))];
   const food = hungerStage(state) === "fed" ? MORALE.fed : MORALE.hungry;
@@ -10439,6 +10520,7 @@ function colonyMood(state) {
   const bards = bardMorale(state) * MORALE.points;
   const speech = state.speechUntil > state.now ? MORALE.speech : 0;
   const leisureHomes = homesNear(state, (type) => LEISURE[type]?.radius);
+  const beauty = beautyOf(state);
   return {
     base,
     food,
@@ -10446,7 +10528,8 @@ function colonyMood(state) {
     mayor,
     bards,
     speech,
-    sum: base + food + season + mayor + bards + speech,
+    beauty,
+    sum: base + food + season + mayor + bards + speech + beauty,
     leisureHomes
   };
 }
@@ -12509,7 +12592,8 @@ var LEVEL_STATS = [
   "buildSlots",
   "speechMemory",
   "speechCooldown",
-  "leisureRange"
+  "leisureRange",
+  "beauty"
 ];
 function describeLevel(type, level, state) {
   const def = levelDef(type, level);
@@ -12547,6 +12631,7 @@ function describeLevel(type, level, state) {
   if (type === "nest")
     push("buildSlots", TASKS.buildSlots[Math.min(level, TASKS.buildSlots.length - 1)]);
   push("leisureRange", LEISURE[type]?.radius);
+  push("beauty", BEAUTY[type]);
   if (type === "townHall") {
     push("speechMemory", speechEffectMs(level) / 36e5);
     push("speechCooldown", speechCooldownMs(level) / 36e5);
@@ -12642,6 +12727,9 @@ function buildLock(state, type) {
   } else if (type === "townHall") {
     if (copiesOf(state, "townHall") > 0) return "townHallExists";
   } else if (type === "campfire") {
+  } else if (type === "mayorStatue") {
+    if (copiesOf(state, "mayorStatue") > 0) return "statueExists";
+  } else if (isDecor(type)) {
   } else if (type === "monument") {
     if (copiesOf(state, "monument") > 0) return "monumentExists";
     if (!hasTech(state, PASSAGE_TECHS[1])) return "passageMissing";
@@ -12855,6 +12943,7 @@ var COMMAND_ERRORS = [
   "noForge",
   "forgeExists",
   "townHallExists",
+  "statueExists",
   "noTownHall",
   "noMayor",
   "speechCooling",
@@ -19810,6 +19899,7 @@ export {
   AUTO_TASKS,
   BATTLE,
   BEACONS,
+  BEAUTY,
   BIOMES,
   BIOME_IDS,
   BLESSINGS,
@@ -20005,6 +20095,7 @@ export {
   beaconTick,
   beaconsDue,
   beaconsOf,
+  beautyOf,
   bedsOf,
   belowReturn,
   bestDustCrew,
@@ -20249,6 +20340,7 @@ export {
   ironCap,
   ironUnits,
   isConquered,
+  isDecor,
   isDepot,
   isFace,
   isFlooded,

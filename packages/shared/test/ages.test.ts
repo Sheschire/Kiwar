@@ -17,6 +17,7 @@ import {
   type Command,
   type GameState,
   type TechId,
+  isDecor,
 } from '../src';
 import { findTile, rich, run, setup, T0, siteFor } from './helpers';
 
@@ -49,8 +50,10 @@ describe('ages', () => {
   it('extends every building but camps and the monument to twelve levels, three per age', () => {
     for (const type of BUILDING_TYPES) {
       // Chantier 37: the training camp has its own three levels (Stone, Stone, Iron), like the lab
-      // and the Forge (chantier 38); the campfire has a single level (chantier 43).
+      // and the Forge (chantier 38); the campfire (chantier 43) and the decorations (chantier
+      // 44) have a single level.
       if (['camp', 'monument', 'lab', 'trainingCamp', 'forge', 'campfire'].includes(type)) continue;
+      if (isDecor(type)) continue;
       expect(maxLevelOf(type)).toBe(12);
       for (let level = 4; level <= 12; level++) {
         const def = levelDef(type, level)!;

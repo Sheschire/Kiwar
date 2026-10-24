@@ -167,3 +167,235 @@ export function townHallGarden(
     ]);
   }
 }
+
+/** Chantier 44: kiwi juice, green (the palette's `juice` is the yellow well). */
+const JUICE = '#7fb236';
+const JUICE_LIGHT = '#c6e86a';
+
+/** Chantier 44: petals of the flower beds and arches (vertex colours, like the palette). */
+const PETALS = ['#ff7fa8', '#ffd95a', '#b48cff', '#ff8a5c', '#fff4dc'] as const;
+
+/** A flower on its stalk at (x, z), `h` high, in the rig `name` if any. */
+function flower(p: Parts, x: number, z: number, h: number, i: number, name?: string): void {
+  p.push([cyl(4), C.leafDark, m(x, h / 2, z, 0.008, h, 0.008), name]);
+  p.push([sphere(5, 3), PETALS[i % PETALS.length]!, m(x, h, z, 0.042, 0.03, 0.042), name]);
+}
+
+/**
+ * Chantier 44: lanterns. In the Eden and the Stone age two posts with a vine strung between
+ * them and three leaf lanterns that sway; an iron street lamp in the Iron age, a brass lamp
+ * post in the Industry (the look follows the colony's age, not a level).
+ */
+export function lanterns(look: Look): Parts {
+  const p: Parts = [];
+  const age = look.colonyAge;
+  if (age >= 2) {
+    const metal = age >= 3 ? A.brass : C.ironDark;
+    p.push([cyl(8), age >= 3 ? A.steel : C.stoneDark, m(0, 0.03, 0, 0.09, 0.06, 0.09)]);
+    p.push([cyl(6), metal, m(0, 0.32, 0, 0.022, 0.6, 0.022)]);
+    // A crook carrying the lantern, and a second lower one in the Industry.
+    p.push([box(), metal, m(0.07, 0.6, 0, 0.16, 0.018, 0.018)]);
+    p.push([cone(4), metal, m(0.14, 0.6, 0, 0.06, 0.05, 0.06)]);
+    rig(p, 'light', [0.14, 0.53, 0], { kind: 'flicker', amount: 0.08, speed: 3, ambient: true });
+    p.push([box(), C.fire, m(0.14, 0.53, 0, 0.06, 0.08, 0.06), 'light']);
+    p.push([box(), C.door, m(0.14, 0.53, 0, 0.012, 0.012, 0.012)]);
+    if (age >= 3) {
+      p.push([box(), metal, m(-0.07, 0.48, 0, 0.16, 0.018, 0.018)]);
+      p.push([cone(4), metal, m(-0.14, 0.48, 0, 0.06, 0.05, 0.06)]);
+      p.push([box(), C.fire, m(-0.14, 0.41, 0, 0.06, 0.08, 0.06), 'light']);
+    }
+    return p;
+  }
+  const post = age >= 1 ? C.stone : C.twig;
+  for (const x of [-0.32, 0.32]) {
+    p.push([cyl(5), post, m(x, 0.22, 0, 0.025, 0.44, 0.025)]);
+    p.push([sphere(5, 3), C.leaf, m(x, 0.44, 0, 0.04, 0.03, 0.04)]);
+  }
+  // The vine: three short segments sagging in the middle.
+  const ys = [0.42, 0.36, 0.36, 0.42];
+  const xs = [-0.32, -0.11, 0.11, 0.32];
+  for (let i = 0; i < 3; i++) {
+    const dx = xs[i + 1]! - xs[i]!;
+    const dy = ys[i + 1]! - ys[i]!;
+    p.push([
+      cyl(4),
+      C.leafDark,
+      m(
+        (xs[i]! + xs[i + 1]!) / 2,
+        (ys[i]! + ys[i + 1]!) / 2,
+        0,
+        0.008,
+        Math.hypot(dx, dy),
+        0.008,
+        0,
+        0,
+        Math.atan2(dx, -dy),
+      ),
+    ]);
+  }
+  const colours = ['#ffb347', '#ff6f5e', '#ffd95a'];
+  [-0.21, 0, 0.21].forEach((x, i) => {
+    const name = `lantern${i}`;
+    const top = i === 1 ? 0.355 : 0.38;
+    rig(p, name, [x, top, 0], {
+      kind: 'swing',
+      axis: 'x',
+      amount: 0.18,
+      speed: 1.2 + i * 0.3,
+      ambient: true,
+    });
+    p.push([cyl(6), colours[i]!, m(x, top - 0.06, 0, 0.04, 0.08, 0.04), name]);
+    p.push([cone(6), C.leafDark, m(x, top - 0.01, 0, 0.045, 0.03, 0.045), name]);
+    p.push([box(), C.door, m(x, top - 0.06, 0, 0.01, 0.01, 0.01), name]);
+  });
+  return p;
+}
+
+/** Chantier 44: a flower bed in a ring of pebbles, the flowers sway in the breeze. */
+export function flowerBed(): Parts {
+  const p: Parts = [];
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    p.push([
+      ico(),
+      i % 3 ? C.stone : C.stoneDark,
+      m(Math.cos(a) * 0.33, 0.025, Math.sin(a) * 0.33, 0.05, 0.035, 0.05),
+    ]);
+  }
+  p.push([cyl(12), C.woodDark, m(0, 0.025, 0, 0.3, 0.05, 0.3)]);
+  rig(p, 'flowers', [0, 0.05, 0], {
+    kind: 'swing',
+    axis: 'z',
+    amount: 0.05,
+    speed: 0.8,
+    ambient: true,
+  });
+  let i = 0;
+  for (const [r, n] of [
+    [0.08, 4],
+    [0.2, 8],
+  ] as const) {
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2 + r * 7;
+      flower(p, Math.cos(a) * r, Math.sin(a) * r, 0.1 + ((k * 7 + i) % 3) * 0.03, i++, 'flowers');
+    }
+  }
+  for (const a of [0.6, 2.7, 4.6])
+    p.push([ico(), C.leaf, m(Math.cos(a) * 0.14, 0.07, Math.sin(a) * 0.14, 0.06, 0.05, 0.06)]);
+  return p;
+}
+
+/** Chantier 44: an arch of woven vines in bloom over a short path of flat stones. */
+export function vineArch(): Parts {
+  const p: Parts = [];
+  for (const z of [-0.24, -0.08, 0.08, 0.24])
+    p.push([cyl(6), C.stone, m(0, 0.012, z, 0.09, 0.02, 0.07)]);
+  const R = 0.28;
+  // Two vines twisted together along the half circle.
+  for (const [dz, col] of [
+    [-0.02, C.leafDark],
+    [0.02, C.twig],
+  ] as const) {
+    p.push([new TorusGeometry(R, 0.022, 5, 14, Math.PI), col, m(0, 0.12, dz, 1, 1, 1)]);
+    for (const x of [-R, R]) p.push([cyl(5), col, m(x, 0.06, dz, 0.022, 0.12, 0.022)]);
+  }
+  rig(p, 'bloom', [0, 0.4, 0], {
+    kind: 'swing',
+    axis: 'z',
+    amount: 0.03,
+    speed: 0.6,
+    ambient: true,
+  });
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 8) * Math.PI;
+    const x = Math.cos(a) * R;
+    const y = 0.12 + Math.sin(a) * R;
+    p.push([ico(), C.leaf, m(x, y, 0.03 * (i % 2 ? 1 : -1), 0.045, 0.035, 0.04), 'bloom']);
+    if (i % 2 === 0)
+      p.push([
+        sphere(5, 3),
+        PETALS[i % PETALS.length]!,
+        m(x, y + 0.03, 0.04, 0.028, 0.022, 0.028),
+        'bloom',
+      ]);
+  }
+  return p;
+}
+
+/**
+ * Chantier 44: the juice fountain — a stone basin full of kiwi juice, a pillar with a small bowl
+ * and a jet that springs and falls in drops (it glows softly at night).
+ */
+export function fountain(look: Look): Parts {
+  const p: Parts = [];
+  const stone = look.colonyAge >= 2 ? A.drystoneLight : C.stone;
+  p.push([cyl(14), stone, m(0, 0.06, 0, 0.36, 0.12, 0.36)]);
+  p.push([cyl(14), JUICE, m(0, 0.11, 0, 0.31, 0.03, 0.31)]);
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    p.push([
+      box(),
+      C.stoneDark,
+      m(Math.cos(a) * 0.35, 0.125, Math.sin(a) * 0.35, 0.07, 0.02, 0.05, 0, -a, 0),
+    ]);
+  }
+  p.push([cyl(8), stone, m(0, 0.2, 0, 0.05, 0.2, 0.05)]);
+  p.push([cyl(10), stone, m(0, 0.3, 0, 0.13, 0.04, 0.13)]);
+  p.push([cyl(10), JUICE, m(0, 0.322, 0, 0.11, 0.008, 0.11)]);
+  // The light under the jet (night lights) and the jet itself.
+  p.push([box(), C.door, m(0, 0.33, 0, 0.012, 0.012, 0.012)]);
+  rig(p, 'jet', [0, 0.32, 0], { kind: 'pump', amount: 0.025, speed: 1.6, ambient: true });
+  p.push([cyl(6), JUICE_LIGHT, m(0, 0.42, 0, 0.022, 0.2, 0.022), 'jet']);
+  p.push([sphere(7, 5), JUICE_LIGHT, m(0, 0.53, 0, 0.06, 0.04, 0.06), 'jet']);
+  // Drops falling back into the bowl.
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    const y = 0.38 + (i % 2) * 0.06;
+    p.push([
+      sphere(4, 3),
+      JUICE,
+      m(Math.cos(a) * 0.08, y, Math.sin(a) * 0.08, 0.016, 0.022, 0.016),
+      'jet',
+    ]);
+  }
+  emitter(p, { kind: 'juice', at: [0, 0.47, 0], rate: 4, ambient: true });
+  return p;
+}
+
+/**
+ * Chantier 44: the mayor's statue — a kiwi in stone on a plinth, its beak raised towards the
+ * horizon and its sash of office, a gold chain, flowers at its feet.
+ */
+export function mayorStatue(look: Look): Parts {
+  const p: Parts = [];
+  const plinth = look.colonyAge >= 2 ? A.drystone : C.guardStone;
+  const stone = '#cfc8b8';
+  p.push([box(), C.guardStoneDark, m(0, 0.025, 0, 0.42, 0.05, 0.42)]);
+  p.push([box(), plinth, m(0, 0.13, 0, 0.28, 0.16, 0.28)]);
+  p.push([box(), C.flagGold, m(0, 0.14, 0.141, 0.16, 0.04, 0.004)]);
+  // The kiwi: body, legs, head, long beak.
+  p.push([cyl(4), stone, m(-0.04, 0.24, 0, 0.018, 0.06, 0.018)]);
+  p.push([cyl(4), stone, m(0.04, 0.24, 0, 0.018, 0.06, 0.018)]);
+  p.push([sphere(10, 7), stone, m(0, 0.36, 0, 0.13, 0.13, 0.15)]);
+  p.push([sphere(8, 6), stone, m(0, 0.5, 0.1, 0.07, 0.07, 0.07)]);
+  p.push([cone(6), stone, m(0, 0.5, 0.24, 0.02, 0.2, 0.02, Math.PI / 2 + 0.25, 0, 0)]);
+  // The sash across the chest and the chain of office.
+  p.push([
+    new TorusGeometry(0.135, 0.018, 4, 16),
+    C.flagBlue,
+    m(0, 0.36, 0.005, 1, 1, 1.1, 0, Math.PI / 2, 0.7),
+  ]);
+  p.push([
+    new TorusGeometry(0.07, 0.012, 4, 12),
+    C.flagGold,
+    m(0, 0.43, 0.075, 1, 1, 1, 1.1, 0, 0),
+  ]);
+  for (const [x, z, i] of [
+    [-0.17, 0.17, 0],
+    [0.17, 0.17, 1],
+    [-0.17, -0.17, 2],
+    [0.17, -0.17, 3],
+  ] as const)
+    flower(p, x, z, 0.08, i);
+  return p;
+}

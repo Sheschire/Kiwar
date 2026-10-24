@@ -61,6 +61,7 @@ const PARTS = [
   'mayor',
   'bards',
   'speech',
+  'beauty',
   'leisure',
   'temper',
   'memories',
