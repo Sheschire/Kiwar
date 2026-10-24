@@ -10,6 +10,17 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 40** — le **débarquement** remplace les reconnaissances, les raids et le siège :
+> on choisit une des **12 parcelles** de la face adverse, l'équipage et ses **ordres** (prudent
+> ou offensif, qui viser d'abord, seuil de retraite, brûler ou piller), avec une **prévision
+> honnête** (trois batailles d'essai d'après ce qu'on sait ; le centre jamais vu est
+> « redoutable »). À l'atterrissage, la **bataille** se joue vraiment. **Victoire** : une
+> **balise** montre la parcelle pour de bon (et le bord des voisines), la parcelle brûle ou se
+> fait piller, les survivant·es deviennent vétéranes et vétérans. **Retraite** : un aperçu daté.
+> **Défaite** : l'équipage, son équipement et le vaisseau sont perdus, le brouillard revient.
+> Tout kiwi tombé meurt pour toujours. Le rapport rejoue la bataille en 2D ; un **bestiaire**
+> retient les ennemis rencontrés. La conquête de la jumelle reviendra avec la reine (42).
+
 > **Chantier 39** — la **civilisation alien** de la face jumelle vit à **son propre rythme** :
 > elle passe ses âges à dates fixes depuis le début de la colonie (la Pierre au jour 1, le Fer
 > au jour 4, l'Industrie au jour 12), la même règle pour tout le monde. Ses **12 parcelles**

@@ -1,7 +1,7 @@
 /**
- * Expedition probe (chantier 07): plays reconnaissance and raids on many seeds with average
- * kiwis: how often ships break down, scouts are spotted or fall, how much of the map a report
- * reveals, and how raids fare blind versus informed.
+ * Landing probe (chantier 40; the expedition probe of chantier 07 before): lands on the edge
+ * and in the centre of the twin with a crew typical of each age, against a civilisation of the
+ * same age: how often the crew wins, retreats or is lost, how many kiwis die.
  */
 import { bestTile } from './bot/economy';
 import {
@@ -9,9 +9,8 @@ import {
   applyCommand,
   generateFace,
   HOUR_MS,
-  intelView,
-  maxCrew,
-  shipCargo,
+  CIV,
+  LANDING,
   newGame,
   rollKiwi,
   createRng,
@@ -86,92 +85,127 @@ function fly(
 
 const pct = (n: number, d: number) => `${d ? Math.round((n / d) * 100) : 0} %`;
 
+/** A crew typical of an age: levels, classes (one that hits the bats), gear. */
+const CREWS = [
+  { size: 6, level: 5, classes: ['warrior', 'mage', 'scout', 'warrior', null, null], gear: null },
+  {
+    size: 8,
+    level: 10,
+    classes: ['warrior', 'mage', 'scout', 'warrior', 'gatherer', 'mage', 'warrior', 'bard'],
+    gear: 'stone',
+  },
+  {
+    size: 10,
+    level: 16,
+    classes: [
+      'champion',
+      'archmage',
+      'navigator',
+      'champion',
+      'herbalist',
+      'archmage',
+      'warrior',
+      'minstrel',
+      'paladin',
+      'mage',
+    ],
+    gear: 'iron',
+  },
+] as const;
+
+/** The colony and its twin's civilisation at an age (monument, clock pushed back). */
+function atAge(c: ReturnType<typeof colony>, age: number): GameState {
+  const s = structuredClone(c.s);
+  if (age > 0) {
+    const nest = s.buildings[0]!;
+    s.buildings.push({ ...nest, id: 'bmon' as never, type: 'monument', q: 99, r: 99, level: age });
+  }
+  const g = s.aliens![c.targetId]!;
+  // The civilisation as old as its age's start plus half a day.
+  g.since = c.t - (CIV.ageAtH[age]! + 12) * HOUR_MS;
+  // The crew stays home until the launch (no crater, no task borrows it).
+  s.automation = Object.fromEntries(
+    Object.keys(s.automation).map((k) => [k, false]),
+  ) as GameState['automation'];
+  const spec = CREWS[age]!;
+  const pad = s.buildings.find((b) => b.type === 'launchpad')!;
+  pad.level = Math.max(pad.level, 1 + 3 * age);
+  s.villagers = s.villagers.map((v, i) => {
+    if (!v.id.startsWith('p') || i >= s.villagers.length) return v;
+    const k = Number(v.id.slice(1));
+    if (k >= spec.size) return v;
+    const classId = spec.classes[k] ?? null;
+    const family =
+      classId === null
+        ? null
+        : classId.includes('mage') ||
+            classId === 'bard' ||
+            classId === 'minstrel' ||
+            classId === 'archmage'
+          ? 'staff'
+          : classId === 'gatherer' || classId === 'herbalist'
+            ? 'bow'
+            : 'blade';
+    return {
+      ...v,
+      level: spec.level,
+      classId,
+      ...(spec.gear
+        ? {
+            gear: {
+              ...(family ? { weapon: `${family}-${spec.gear}` as never } : {}),
+              armor: `light-${spec.gear}` as never,
+            },
+          }
+        : {}),
+    };
+  });
+  return s;
+}
+
 /**
- * Expedition probe (chantier 07, a report section since chantier 18): the mechanics in
- * isolation, as markdown table rows.
+ * Landing probe (a report section): the edge and the centre at each age, as markdown rows.
  */
 export function expeditionProbe(seeds: number): string[] {
   const lines = [
-    `Probe: ${seeds} seeds per launchpad level, 10 average kiwis, a fresh colony.`,
+    `Probe: ${seeds} seeds per age and ring, a crew typical of the age (6 kiwis level 5, 8 level 10 with stone gear, 10 level 16 with iron gear), cautious, retreat at 50 %, against a civilisation of the same age.`,
     '',
-    '| Launchpad | Breakdowns | Recon spotted | Scouts fallen | Scouts wounded | Sectors seen | Defense range | Blind ×6 raids won | Informed raids won | Informed: fallen | Informed: wounded |',
-    '|---|---|---|---|---|---|---|---|---|---|---|',
+    '| Age | Ring | Won | Retreat | Lost | Dead per crew | Delayed |',
+    '|---|---|---|---|---|---|---|',
   ];
-  for (const padLevel of [1, 2, 3]) {
-    let broken = 0;
-    let spotted = 0;
-    let fell = 0;
-    let hurt = 0;
-    let recons = 0;
-    let sectors = 0;
-    let width = 0;
-    let blindWins = 0;
-    let blind = 0;
-    let informedWins = 0;
-    let informed = 0;
-    let informedLosses = 0;
-    let informedWounds = 0;
-    let crewSent = 0;
-    for (let i = 0; i < seeds; i++) {
-      const c = colony(`probe-${i}`, padLevel);
-      const recon = fly(c.s, c.t, c.map, {
-        type: 'launchExpedition',
-        launchpadId: c.padId,
-        targetId: c.targetId,
-        crew: 1,
-        provisions: { pulp: 40, juice: 20 },
-        mission: 'recon',
-      });
-      const r = recon.e.result!;
-      if (r.broken) broken++;
-      else {
-        recons++;
-        if (r.spotted) spotted++;
-        fell += r.lostInBattle.length;
-        hurt += r.injured?.length ?? 0;
-        sectors += r.sectors?.length ?? 0;
-        const intel = recon.back.intel[c.targetId]!;
-        width += (intel.defense.max - intel.defense.min) / Math.max(1, intel.defense.max);
-      }
-      // A raid with 6 kiwis: blind on a fresh colony, informed after the reconnaissance.
-      const raid = (s: GameState, t: number, crew = 6) =>
-        fly(s, t, c.map, {
-          type: 'launchExpedition',
-          launchpadId: c.padId,
-          targetId: c.targetId,
-          crew,
-          provisions: { pulp: 30 * crew, juice: 15 * crew },
-        });
-      const b = raid(c.s, c.t);
-      if (!b.e.result!.broken) {
-        blind++;
-        if (b.e.result!.victory) blindWins++;
-      }
-      const known = recon.back;
-      const view = intelView(known, c.targetId, recon.t);
-      if (view && !known.buildings.find((x) => x.id === c.padId)!.damaged) {
-        const back = { ...known, resources: { pulp: 3000, fiber: 3000, seeds: 3000, juice: 3000 } };
-        // Informed: enough kiwis to beat the top of the estimate (about 1 strength each).
-        const pad = back.buildings.find((x) => x.id === c.padId)!;
-        const room = Math.floor(shipCargo(pad) / 14.5);
-        const n = Math.max(
-          2,
-          Math.min(maxCrew(back, pad), room, Math.ceil(view.defense.max * 1.15)),
+  for (const age of [0, 1, 2]) {
+    for (const ring of ['edge', 'centre'] as const) {
+      const n = { victory: 0, retreat: 0, defeat: 0, dead: 0, crew: 0, delayed: 0 };
+      for (let i = 0; i < seeds; i++) {
+        const c = colony(`probe-${i}`, 1);
+        const s = atAge(c, age);
+        const crew = s.villagers.filter((v) => v.id.startsWith('p')).slice(0, CREWS[age]!.size);
+        const sector = ring === 'edge' ? 6 + (i % 6) : i % 6;
+        const flown = fly(
+          { ...s, resources: { pulp: 9000, fiber: 9000, seeds: 3000, juice: 9000 } },
+          c.t,
+          c.map,
+          {
+            type: 'launchExpedition',
+            launchpadId: c.padId,
+            targetId: c.targetId,
+            crew: crew.map((v) => v.id),
+            provisions: { pulp: 400, juice: 200 },
+            mission: 'land',
+            sector,
+            orders: { ...LANDING.defaultOrders },
+          },
         );
-        const f = raid(back, recon.t, n);
-        if (!f.e.result!.broken) {
-          informed++;
-          crewSent += n;
-          if (f.e.result!.victory) informedWins++;
-          informedLosses += f.e.result!.lostInBattle.length;
-          informedWounds += f.e.result!.injured?.length ?? 0;
-        }
+        const r = flown.e.result!;
+        n[r.outcome ?? 'defeat']++;
+        n.dead += r.lostInBattle.length;
+        n.crew += crew.length;
+        if (flown.e.delayed) n.delayed++;
       }
+      lines.push(
+        `| ${age} | ${ring} | ${pct(n.victory, seeds)} | ${pct(n.retreat, seeds)} | ${pct(n.defeat, seeds)} | ${pct(n.dead, n.crew)} | ${pct(n.delayed, seeds)} |`,
+      );
     }
-    lines.push(
-      `| ${padLevel} | ${pct(broken, seeds)} | ${pct(spotted, recons)} | ${pct(fell, recons)} | ${pct(hurt, recons)} | ${(sectors / Math.max(1, recons)).toFixed(1)} | ±${Math.round((width / Math.max(1, recons)) * 50)} % | ${pct(blindWins, blind)} | ${pct(informedWins, informed)} | ${pct(informedLosses, crewSent)} | ${pct(informedWounds, crewSent)} |`,
-    );
   }
-  lines.push('');
   return lines;
 }

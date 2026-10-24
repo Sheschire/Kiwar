@@ -2528,3 +2528,50 @@ Choices made in the chantier (to revisit with chantier 40):
   beyond ±10 % between biomes on 2 seeds, as in chantier 38 (before any alien).
 - ⚠️ To test with the owner: the dates of the alien ages (day 1 / 4 / 12), the weight of a
   burn and of a defeat, and whether the card "The enemy civilisation" makes the race legible.
+
+## Chantier 40 — The landing
+
+Decisions of the chantier document (23 October 2026) applied as written (orders before the
+departure, live battle on the server; retreat past the threshold, else everything lost; a
+victory plants a beacon; the beacon lights the edge of the neighbours; burn or loot chosen at
+the departure; a retreat brings back a dated glimpse; a breakdown delays the trip). New
+points asked at the start:
+
+- **Every kiwi who falls dies, victory included** (the owner's choice: no wounded kiwis on a
+  landing; the field held keeps the gear of the fallen, a retreat or a defeat leaves it).
+- **The conquest of the twin is closed until chantier 42** (the queen): a face already
+  conquered stays conquered and the settlers' ship still flies; no temporary final assault.
+
+Choices made in the chantier (to revisit with the owner):
+
+- **One mission** `land` (+ `found`); raids, reconnaissance, assaults, reinforcements and
+  finals are refused; counter-attacks are unplugged; any face with a civilisation can be
+  landed on (other faces of a universe too). Save v33 (`faceViews`, `bestiary`) and v34
+  (migration: ships in flight turn back, bridgeheads → beacons, reports → dated views with the
+  centre × 2–3 of the edge's defense, conquest kept). An imported save loses its beacons.
+- **Orders**: posture cautious (hold around the ship) / bold (charge); priority nearest / bats
+  / spitters and shooters / weakest (the document's "buildings" priority is covered by the
+  burn goal: the battle ends when the field is cleared); retreat threshold 30–80 % (default
+  50 %), the survivors run back to the ship; timeout = retreat; burn (parcel −24 h, small loot
+  25 %) or loot (100 % of the stores, the centre × 2). The aliens fight to the last (bold).
+- **Help**: a neighbouring parcel with a standing barracks sends 25 % of its garrison after
+  25 s. Units capped at 24 ground / 16 air (stronger, not more numerous).
+- **Ship**: lost on a defeat; the launchpad is damaged and its repair rebuilds the ship
+  (fibre 400 + juice 250 × the ship of the age; 4 / 6 / 10 / 16 h) — the automation orders it
+  like any repair. A breakdown delays the trip × 1.5 and the ship lands with 60 % of its hold.
+- **Defeat feeds** the civilisation: 4 h + 2 h per kiwi (as before) + 4 h for the ship + 1 h
+  per piece of gear left behind (cap 120 h).
+- **Victory**: XP × 2 of the expedition victory lump, `veteran` count on the kiwi; the beacon
+  refreshes once a game day (with the edge of its neighbours: buildings + garrison ± 25 %);
+  a beacon over a barracks parcel takes that barracks out of the waves' count.
+- **Forecast**: three practice battles (garrison × 0.85 / 1 / 1.15 of what we know, grown on
+  the public schedule; an edge parcel never seen is guessed from the public numbers × 0.75–1.25;
+  an unseen centre parcel is "formidable", no number); "likely" = won at the strongest guess.
+  Melee weapons never hit bats (rule of chantier 36): the planner warns when nobody in the crew
+  can — a crew needs a mage, scout, gatherer, bard (or firearms).
+- **Objectives** (same ids): a first look at the twin (any parcel seen), 1 / 5 / 8 landings
+  won (12 raids before), a beacon in the centre (a bridgehead before).
+- Client: the planner is the landing screen (map of the 12 parcels, parcel sheet, orders,
+  forecast), the report replays the journal in 2D (3D in chantier 41), bestiary, the twin's
+  clouds part over the parcels we see, sounds `landing.*`.
+- No SQL: everything lives in the `games` row.

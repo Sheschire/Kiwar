@@ -148,6 +148,18 @@ battle. The unit card reads the gear from the colony (`UnitGear`), the show draw
 
 ## Chantier 40 (landings)
 
-Reuse the engine with the attackers as side 1 = our crew and the aliens' buildings as side 0
-(or swap the roles of `raider` / `guard`); the retreat threshold is already an order of each
-side; keep the journal in the expedition report and replay it with `BattleShow`.
+- Role `assault` (side 1, our crew): targets defenders by `SideOrders.priority` (`nearest`,
+  `air` −6, `casters` −6 for non-melee, `weakest` d/2 + hp/4) within leash + range of its
+  landing tile (posture leash), chases with `stepToward`, runs to the exits (around the ship)
+  once fleeing; power 1 per kiwi so `retreatBelow` = 1 − retreatAt (+1e-6: "once this share
+  has fallen"). The aliens are `guard`s of side 0, posture bold (they charge, never flee).
+- `setup.clearEnds`: the battle stops when side 0 has nobody active or waiting (help with a
+  delay counts); a cleared field leaves the survivors on it (no `gone`). Result: `lost`
+  (attackers' refs fallen) and `defendersLeft`.
+- `battle/landing.ts`: `parcelTiles`, `landingTile`, `landingSetup(state, crew, input)` (the
+  parcel + a 2-tile margin, alien buildings as walls with hp 0, aliens by `AlienUnit` × level
+  factor × gear items, counts capped by `LANDING.maxGround/maxAir` with `k` scaling, help from a
+  neighbour entering from its side after 25 s, crew around the ship, hunger on damage),
+  `landingOutcome(log)`. The same builder serves the truth and the forecast.
+- Melee weapons never hit bats (`hitsAir`): a crew without a mage, scout, gatherer, bard or
+  firearms loses to bats by attrition — the planner warns.

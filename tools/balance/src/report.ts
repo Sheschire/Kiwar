@@ -54,11 +54,10 @@ function statsOf(runs: RunResult[], milestone: Milestone): MilestoneStats {
  */
 /** Milestones shown for information only: they depend on choices more than on the land. */
 export const INFORMATIVE: ReadonlySet<Milestone> = new Set([
-  'recon',
-  'raidWon',
-  // Chantier 19: the siege depends on the bot's choices and on the hidden holds.
-  'siegeOpen',
-  'bridgehead',
+  'glimpse',
+  'landingWon',
+  'centreWon',
+  // Chantier 19: the conquest (back with chantier 42) and the second colony.
   'conquest',
   'founded',
   'sisterNest3',
@@ -117,10 +116,9 @@ export const LABELS: Record<Milestone, string> = {
   industry: 'Industrial age',
   lab: 'Laboratory against nature',
   kikiwiwi: 'First Kikiwiwi',
-  recon: 'First reconnaissance back',
-  raidWon: 'First raid won',
-  siegeOpen: 'Siege of the twin open',
-  bridgehead: 'First bridgehead',
+  glimpse: 'First landing back (a glimpse)',
+  landingWon: 'First landing won (a beacon)',
+  centreWon: 'First beacon in the centre',
   conquest: 'Twin face conquered',
   founded: 'Second colony founded',
   sisterNest3: 'Second colony: Nest level 3',
@@ -228,14 +226,14 @@ function mechanicsTable(groups: Group[], horizonHours: number, lines: string[]):
   const days = horizonHours / 24;
   lines.push('## Paths, camps and expeditions (average per run)', '');
   lines.push(
-    '| Biome | Path tiles | Camps set up | Reconnaissances | Raids | Won | Loot per day | Kiwis lost on expeditions |',
+    '| Biome | Path tiles | Camps set up | Landings | Won | Retreats | Ships lost | Loot per day | Kiwis lost on expeditions |',
   );
-  lines.push('|---|---|---|---|---|---|---|---|');
+  lines.push('|---|---|---|---|---|---|---|---|---|');
   for (const g of groups) {
-    const raids = avg(g.runs, (r) => r.final.raids ?? 0);
-    const won = avg(g.runs, (r) => r.final.raidsWon ?? 0);
+    const landings = avg(g.runs, (r) => r.final.landings ?? 0);
+    const won = avg(g.runs, (r) => r.final.landingsWon ?? 0);
     lines.push(
-      `| ${g.label} | ${avg(g.runs, (r) => r.final.paths ?? 0).toFixed(0)} | ${avg(g.runs, (r) => r.final.camps ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.recons ?? 0).toFixed(1)} | ${raids.toFixed(1)} | ${raids > 0 ? Math.round((won / raids) * 100) : 0} % | ${(avg(g.runs, (r) => r.final.loot ?? 0) / days).toFixed(0)} | ${avg(g.runs, (r) => r.final.expeditionDeaths ?? 0).toFixed(2)} |`,
+      `| ${g.label} | ${avg(g.runs, (r) => r.final.paths ?? 0).toFixed(0)} | ${avg(g.runs, (r) => r.final.camps ?? 0).toFixed(1)} | ${landings.toFixed(1)} | ${landings > 0 ? Math.round((won / landings) * 100) : 0} % | ${avg(g.runs, (r) => r.final.retreats ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.shipsLost ?? 0).toFixed(1)} | ${(avg(g.runs, (r) => r.final.loot ?? 0) / days).toFixed(0)} | ${avg(g.runs, (r) => r.final.expeditionDeaths ?? 0).toFixed(2)} |`,
     );
   }
   lines.push('');

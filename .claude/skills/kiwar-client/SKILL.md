@@ -412,8 +412,16 @@ compact`). Long sheets on touch: `FoldSection` (a `<details>` there, a plain sec
    `ffmpeg -framerate 30 -i f%04d.png -c:v libx264 -pix_fmt yuv420p out.mp4` (installed).
    Touch swipes: CDP `Input.dispatchTouchEvent`.
 
-- Chantier 19: the Siege screen (`SiegeModal`, `SiegeParts`, `SiegeShow`, `CounterBadge`,
-  `uiStore.siegePlan` / `siegeShow`, `actions.planSiege`) — see `kiwar-colonies`.
+- Chantier 19: the Siege screen — since chantier 40 only the conquered face and the settlers'
+  ship (`SiegeModal`, `actions.planSiege({ mission: 'found' })`); see `kiwar-colonies`.
+- **Chantier 40 (landing)**: `ExpeditionModal` (landing screen), `LandingParts.tsx`
+  (`LandingMap`, `ParcelPanel`, `OrdersPicker`, `LandingForecastLines`, `UnitList`,
+  `BestiaryList`, `LandingReplay`, `sectorName`, `fmtRange`), `ReportModal` (`LandingReport`),
+  `BestiaryModal` (`bestiaryOpen`, over any modal), twin fog from `faceViews` in
+  `startGame.showTwin`. Visual checks: push a level-3 launchpad, classed kiwis,
+  `faceViews` and `bestiary` on `controller.state`, `debugGrant`, then
+  `uiStore.setState({ modal: 'expedition', expeditionPad, siegePlan: { mission: 'land',
+  sector } })`; a real landing in solo: dispatch the launch and `setTimeScale(20000)` ~4 s.
 
 - **Chantier 33 (buildings by age, 3D thumbnails)**: models live in `render/models/` —
   `kit.ts` (palette `C`, `Part`/`Parts`, `rig`, `emitter`, primitives, `bake`), `ageKit.ts`

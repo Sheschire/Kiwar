@@ -11,6 +11,14 @@
 
 ## Des chantiers précédents
 
+- Chantier 40 : le code du siège reste dans `sim/siege.ts` (contre-attaques, têtes de pont,
+  assaut final, reconnaissance profonde) pour le 42, débranché ; les champs `siege.counter`,
+  `siegeShow`, `renderer.playSiege`, les textes `siege.*` et `recon.*` et les anciens rapports
+  `intel` restent jusqu'au 42 (nettoyage annoncé). `shipOf().armor` (blindage du vaisseau et
+  sa technologie) ne sert plus : à réaffecter (par exemple aux pertes d'une défaite) ou à
+  retirer. Le replay 2D est simple (le 3D au 41). Le bot n'embarque pas son Kikiwiwi et ne
+  pille jamais. Fraction de l'évolution vue par une balise : une mise à jour par jour de jeu.
+
 - Chantier 38 : le bot ouvre beaucoup de nouveaux sites (jusqu'à 16 ateliers de fibre) pendant
   l'âge du Fer, ses niveaux 7+ attendant le fer ; ses décisions coûtent ~0,3 s à 200 h (sites
   cherchés à chaque tour) : les sondes longues sont lentes. Il économise pour le monument sans

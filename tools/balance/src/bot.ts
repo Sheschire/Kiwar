@@ -48,7 +48,6 @@ import {
   STARDUST_SCALE,
   stardustOf,
   deliverToSister,
-  siegeLock,
   syncColonies,
   takeFounding,
   twinTarget,
@@ -88,11 +87,11 @@ export const MILESTONES = [
   'industry',
   'lab',
   'kikiwiwi',
-  'recon',
-  'raidWon',
-  // Chantier 19: the siege and the second colony.
-  'siegeOpen',
-  'bridgehead',
+  // Chantier 40: the first glimpse (a landing back home), the first beacon, one in the centre.
+  'glimpse',
+  'landingWon',
+  'centreWon',
+  // Chantier 19: the conquest (chantier 42) and the second colony.
   'conquest',
   'founded',
   'sisterNest3',
@@ -128,20 +127,15 @@ export interface RunResult {
     /** Chantier 18: path tiles at the end, camps set up during the run. */
     paths?: number;
     camps?: number;
-    /** Chantier 18: reconnaissance missions and raids back home, raids won, kiwis lost on
-     *  expeditions, loot brought back (all resources, raw units). */
-    recons?: number;
-    raids?: number;
-    raidsWon?: number;
+    /** Chantier 40: landings, landings won, retreats, ships lost; kiwis lost on expeditions,
+     *  loot brought back (all resources, raw units). */
+    landings?: number;
+    landingsWon?: number;
+    retreats?: number;
+    shipsLost?: number;
     expeditionDeaths?: number;
     loot?: number;
-    /** Chantier 19: assaults launched and won, final assaults, counter-attacks held (last 5
-     *  reports), kiwis of the second colony at the end. */
-    assaults?: number;
-    assaultsWon?: number;
-    finals?: number;
-    counters?: number;
-    countersHeld?: number;
+    /** Chantier 19: kiwis of the second colony at the end. */
     sisterKiwis?: number;
     /**
      * Chantier 30: the longest stretch of the first 24 h without a useful decision (build,
@@ -228,8 +222,7 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
 
   // Chantier 19: the siege of the twin, then the settlers' ship (checked every half hour,
   // or at once while a step leads to the next: standing down, then boarding).
-  const besieging =
-    play.siege && twinTarget(state) && (siegeLock(state) === null || state.siege.conqueredAt > 0);
+  const besieging = play.siege && !!twinTarget(state) && state.siege.conqueredAt > 0;
   if (besieging && state.now >= play.siegeAt) {
     const siege = siegeOrder(state, map);
     if (siege) cmds.push(siege);
@@ -456,8 +449,6 @@ function checkMilestones(
     'library',
     state.buildings.some((b) => b.type === 'library'),
   );
-  set('siegeOpen', !!twinTarget(state) && siegeLock(state) === null);
-  set('bridgehead', state.siege.bridgeheads.length > 0);
   set('conquest', state.siege.conqueredAt > 0);
   set('stone', ageOf(state) >= 1);
   set('iron', ageOf(state) >= 2);
@@ -542,7 +533,6 @@ export function runBot(opts: RunOptions): RunResult {
   let sisterMap: FaceMap | null = null;
   const sisterPlay: Play = { ...play, siege: false, expeditions: false };
   let sisterWavesSeen = 0;
-  const siegeStats = { assaults: 0, assaultsWon: 0, finals: 0 };
   const times = Object.fromEntries(MILESTONES.map((m) => [m, null])) as Record<
     Milestone,
     number | null
@@ -556,7 +546,7 @@ export function runBot(opts: RunOptions): RunResult {
   let waveLoot = 0;
   let dustPicked = 0;
   let campsSet = 0;
-  const trips = { recons: 0, raids: 0, raidsWon: 0, loot: 0 };
+  const trips = { landings: 0, landingsWon: 0, retreats: 0, shipsLost: 0, loot: 0 };
   const counted = new Set<string>();
   // Chantier 30: dead time, time at the cap, production lost to full reserves.
   const DAY_MS = 24 * HOUR_MS;
@@ -598,23 +588,17 @@ export function runBot(opts: RunOptions): RunResult {
     for (const e of state.expeditions) {
       if (e.status !== 'done' || counted.has(e.id) || !e.result) continue;
       counted.add(e.id);
-      if (e.result.aborted) continue;
-      if (e.mission === 'recon') {
-        trips.recons++;
-        if (times.recon === null) times.recon = e.returnAt - start;
-        continue;
-      }
-      if (e.mission === 'assault') {
-        siegeStats.assaults++;
-        if (e.result.bridgehead) siegeStats.assaultsWon++;
-        continue;
-      }
-      if (e.mission === 'final') siegeStats.finals++;
-      if (e.mission !== 'raid') continue;
-      trips.raids++;
-      if (e.result.victory) {
-        trips.raidsWon++;
-        if (times.raidWon === null) times.raidWon = e.returnAt - start;
+      if (e.result.aborted || e.mission !== 'land') continue;
+      trips.landings++;
+      if (times.glimpse === null && e.result.outcome !== 'defeat')
+        times.glimpse = e.arriveAt - start;
+      if (e.result.outcome === 'retreat') trips.retreats++;
+      if (e.result.outcome === 'defeat') trips.shipsLost++;
+      if (e.result.outcome === 'victory') {
+        trips.landingsWon++;
+        if (times.landingWon === null) times.landingWon = e.arriveAt - start;
+        if (times.centreWon === null && e.sector !== undefined && e.sector < 6)
+          times.centreWon = e.arriveAt - start;
       }
       trips.loot += RESOURCE_IDS.reduce((sum, id) => sum + e.result!.loot[id], 0);
     }
@@ -749,9 +733,6 @@ export function runBot(opts: RunOptions): RunResult {
       paths: state.paths.length,
       camps: campsSet,
       ...trips,
-      ...siegeStats,
-      counters: state.siege.counters,
-      countersHeld: state.siege.reports.filter((r) => r.victory).length,
       sisterKiwis: sister?.villagers.length,
       expeditionDeaths: state.memorial.filter(
         (m) => m.cause === 'battle' || m.cause === 'starvation',

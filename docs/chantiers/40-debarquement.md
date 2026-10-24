@@ -1,4 +1,7 @@
-# Chantier 40 — Le débarquement
+# Chantier 40 — Le débarquement — **fait**
+
+> **Fait le 24 octobre 2026** (cinq commits). Voir « Ce qui a été fait » en fin de document et
+> la section du chantier 40 dans `DECISIONS.md`.
 
 Acte II « La guerre des faces » du [carnet de route](../CARNET_DE_ROUTE.md). **Simulation +
 serveur + interface.** Après le **39** (civilisation alien). Remplace les reconnaissances, les
@@ -169,3 +172,35 @@ Chemins sous `packages/shared/src/`.
 - Le centre tue l'imprudent·e, le bord se gagne avec de la préparation (mesure du bot).
 - Les anciennes sauvegardes se chargent : têtes de pont → balises, face conquise intacte.
 - Aucune donnée de garnison n'arrive au client avant l'atterrissage (test).
+
+## Ce qui a été fait
+
+Questions nouvelles posées au départ :
+
+- **Les kiwis tombés pendant une victoire meurent aussi** (choix du porteur ; pas de blessés).
+- **La conquête de la jumelle est fermée jusqu'au 42** (une face déjà conquise le reste,
+  `found` marche toujours).
+
+1. Mission `land` (parcelle, ordres, coût, panne qui retarde, vaisseau à reconstruire par une
+   réparation de l'aire d'envol) ; moteur de bataille : rôle `assault`, `clearEnds`.
+2. Atterrissage où la vérité est tenue, bataille, issues (balise, brûler / piller, retraite et
+   aperçu daté, défaite et brouillard), impacts sur la civilisation, bestiaire, vétéran·es,
+   prévision par trois batailles d'essai ; sauvegarde v33 ; tests (fuites, serveur, issues).
+3. Retrait des anciennes missions ; migration v34 (vols rentrés, têtes de pont → balises,
+   rapports → aperçus datés, conquête gardée) ; import sans balises ; objectifs revus.
+4. Écran de débarquement (carte des 12 parcelles, fiche de parcelle, ordres, prévision),
+   rapport avec replay 2D, bestiaire, brouillard 3D levé par parcelle, sons, FR + EN ; captures
+   desktop et téléphone.
+5. Bot (bord d'abord, puis le centre une fois son bord éclairé, équipage avec un·e
+   anti-volants, plus petit équipage qui gagne les trois essais), sonde de débarquement par âge
+   et par anneau, docs et skills.
+
+## Reste
+
+- ⚠️ À tester avec le porteur : le ressenti des ordres (le seuil de retraite surtout), la
+  lisibilité de la prévision, la cruauté des morts en victoire, le replay 2D.
+- La reconnaissance « sans balise » n'existe plus : seule une retraite rapporte un aperçu. Si
+  le jeu manque d'un moyen prudent de voir avant de frapper, une sonde légère (un kiwi, pas de
+  combat, aperçu flou) pourrait revenir.
+- Les attaques de balises, la reine et la conquête : chantier 42 (le code du siège y sera
+  retiré, voir `DETTE.md`). Le spectacle 3D : chantier 41.

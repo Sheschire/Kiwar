@@ -41,7 +41,7 @@ dans l'historique.
 | 37  | Classes, rôles de combat, camp d'entraînement        | fait    |
 | 38  | Forge, équipement et fer météorique                  | fait    |
 | 39  | La civilisation alien                                | fait    |
-| 40  | Le débarquement                                      | à faire |
+| 40  | Le débarquement                                      | fait    |
 | 41  | La bataille en direct sur la jumelle (client)        | à faire |
 | 42  | La reine des furets                                  | à faire |
 |     | **Acte III — Le village vivant**                     |         |
@@ -50,16 +50,14 @@ dans l'historique.
 | 45  | Rives fertiles et canaux de jus                      | à faire |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
-**Prochaine conversation** : le chantier **40** (le débarquement) : une mission unique contre
-une parcelle de la civilisation du 39 (skill `kiwar-civ` : `civAt`, `sectorUnits`,
-`recordBurn` / `recordDefeat`, `civEyes` où les balises remplacent les têtes de pont), jouée
-avec le moteur de bataille du 36 et l'équipement du 38. Points laissés par le 39 : les balises
-et la vue détaillée des parcelles, la perte de l'équipement des morts au profit des aliens ;
-le ressenti de l'horloge alien (dates des âges, poids des bûchers et des défaites) est « à
-tester » avec le porteur. Toujours ouverts : le ressenti du combat équipé et les prix des
-pièces (38), la Rôdeur·euse au 40, le ressenti des rangs et du camp (37), la réparation
-automatique qui trahit l'issue d'une vague regardée en direct (36) et le temps mort du début
-de la Pierre (31).
+**Prochaine conversation** : le chantier **41** (la bataille en direct sur la jumelle) : le
+journal d'un débarquement (`ExpeditionResult.log`, skill `kiwar-battle` « Chantier 40 ») joué
+en 3D sur la face jumelle, à la place du replay 2D (`LandingReplay`). Points laissés par le
+40 : « à tester » (ordres, seuil de retraite, prévision, morts en victoire), le blindage du
+vaisseau sans usage, le code du siège débranché à retirer au 42 (`DETTE.md`). Toujours
+ouverts : le ressenti de l'horloge alien (39), du combat équipé et des prix des pièces (38),
+des rangs et du camp (37), la réparation automatique qui trahit l'issue d'une vague regardée
+en direct (36) et le temps mort du début de la Pierre (31).
 
 ## Règles transverses à retenir
 
@@ -106,6 +104,11 @@ de la Pierre (31).
   `LevelDef.iron`, `TechDef.iron`, `payIron` / `addIron` et se rembourse jusqu'au plafond ; un
   débit cumulé dans `accrue` se calcule dans `computeFlows` (début de l'intervalle). Une
   nouvelle classe prend une famille d'arme dans `CLASS_FAMILY` (skill `kiwar-forge`).
+- **Débarquement** (chantier 40) : la seule mission vers une face alien est `land` (plus
+  `found`) ; tout ce que nos kiwis voient devient public dans `state.faceViews` (balises,
+  aperçus datés, bords) et `state.bestiary` ; la bataille ne se résout que là où la vérité est
+  tenue (`resolveLanding`), la prévision ne lit que le public (`landingForecast`). Un nouvel
+  effet d'un débarquement passe par `sim/landing.ts` (skill `kiwar-expeditions`).
 - **Civilisation alien** (chantier 39) : tout ce qui dépend de la vraie civilisation vit dans
   `state.aliens[*].civ` (caché) et ne se résout qu'où la vérité est tenue (serveur en ligne,
   client en solo) ; une annonce de vague l'attend aussi. Un nouvel effet de nos actions sur

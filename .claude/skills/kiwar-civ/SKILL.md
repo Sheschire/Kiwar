@@ -101,9 +101,13 @@ the raid report says which parcel burnt or fed them (`civ.burnt` / `civ.fed`). i
 `RunResult.final.civAge`, `civAtAges` (its age when we reached Stone / Iron / Industry),
 `civWave`; the waves table of the ages section adds a civilisation table by profile.
 
-## Chantier 40
+## Chantier 40 (landings, done)
 
-Landings fight `sectorUnits` of one parcel with the battle engine (gear via `ALIEN_GEAR`),
-burn or loot with `recordBurn`, plant beacons (replace the bridgeheads in `civEyes`), lose
-crews with `recordDefeat` (the gear of the dead goes to them). The village is drawn from
-`civBuildings` (chantier 41).
+Landings fight `sectorUnits` of one parcel (and 25 % of a neighbouring standing barracks)
+with the battle engine; a victory burns (`recordBurn`) or loots (`recordFight` only) and plants
+a beacon (`state.faceViews`, read by `civEyes`: key buildings flee beacons, parcels seen count
+as seen); a beacon over a barracks parcel takes it out of `standingBarracks` (weaker waves);
+defeats call `recordDefeat(civ, at, dead, sector, extraH)` (ship 4 h, 1 h per piece of gear).
+`civTick` refreshes the beacons' views daily (`refreshBeacons`). `civEstimate` reads the latest
+parcel view before the old report. The old raid / recon / siege paths of "The old missions"
+above are no longer reachable.

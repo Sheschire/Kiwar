@@ -5,6 +5,11 @@ description: Kiwar expeditions and the alien faces (chantier 07) — raids and r
 
 # Kiwar expeditions (chantier 07)
 
+**Since chantier 40 the only missions are `land` (the landing) and `found` (the settlers'
+ship).** Raids, reconnaissance, assaults, reinforcements and finals are refused
+(`invalidMission`); their sections below describe history and the code paths still used by
+older saves and reports. Read "Chantier 40: the landing" first.
+
 Load `kiwar-sim` (deterministic rules), `kiwar-online` (server) and `kiwar-client` (UI) too.
 Crew strength, exposure and weighted losses come from `kiwar-rpg`.
 
@@ -169,3 +174,53 @@ musters: without it the bot farmed 8–18 raids a run); `g.growth` is no longer 
 (`raidSector`) and burns it on a victory (`result.sector`, `burnt`), feeds the civilisation on
 a defeat. Reconnaissance reports the civilisation's dens and roosts (`seenStructures`) and its
 age (`IntelReport.civAge`). `intelView` ages reports with `scheduleGrowth` (public schedule).
+
+## Chantier 40: the landing (`land`)
+
+- **Data** `data/landing.ts` `LANDING`: retreat bounds 0.3–0.8 (default 0.5), default orders,
+  breakdown (delay × 1.5, hold × 0.6), ship rebuild (cost × ship, hours 4/6/10/16 by
+  generation), unit caps 24 ground / 16 air, help from a neighbouring standing barracks (25 %,
+  25 s), loot shares (burn 0.25, loot 1, centre × 2), victory XP × 2, edge spread 25 %, landing
+  inset, practice luck 0.85/1/1.15, guess spread, freshness days, defeat hours (ship 4, gear 1
+  per piece). `LandingOrders` { posture, priority (`nearest|air|casters|weakest`), retreatAt,
+  goal (`burn|loot`) }.
+- **Command** `launchExpedition { mission: 'land', sector, orders }` (default mission
+  `land`): `landingLock` (`notASector`, `beaconHere`, `landingThere`, `invalidOrders`); the
+  twin conquered → `conquered`; any target with a civilisation (other faces of a universe too).
+- **Launch** (`launch`): the fee of chantier 31 + rations; a breakdown sets `delayed` (late,
+  smaller `cargo`), never `broken`; the launchpad is damaged at the return as before.
+- **Resolution** `resolveLanding` (`sim/landing.ts`, only where `state.aliens` is): the
+  parcel's truth (`parcelTruth`: `sectorUnits`, every `civBuildings`, help from neighbours with
+  a standing barracks), `landingSetup` + `simulateBattle(setup, '<garrison seed>/land/<id>')`,
+  `landingOutcome` (victory = field cleared with a survivor; else retreat if someone reached
+  the ship; else defeat). **Every fallen kiwi dies** (memorial, mourning), victory included;
+  their gear goes back to the armory only on a victory (`removeVillagers(…, gearLost)`).
+  - victory: `recordFight` (0.6), burn → `recordBurn`, a beacon (`faceViews[t].beacons`),
+    `refreshBeacons`, bestiary, loot (stores × age × goal × ring × ranger, hold-limited),
+    `victories[t]++`; survivors get XP × 2 and `veteran++` at the return;
+  - retreat: a `retreat` parcel view (units seen), bestiary, `recordDefeat` for the dead;
+  - defeat: parcel view deleted (fog), `recordDefeat(…, extraH ship + gear)`, launchpad
+    `damaged` + `shipLost` (the repair rebuilds the ship: `repairCost` / `repairDuration`),
+    expedition `done` at once.
+  - `ExpeditionResult`: `outcome`, `log` (the journal), `beacon`, `seen`, `shipLost`, `burnt`.
+- **Public views** `state.faceViews[targetId]` = { beacons, parcels } (save v33): `ParcelView`
+  { at, source `beacon|landing|retreat|edge|report`, age, power range, units, buildings }.
+  Beacons refresh every game day in `civTick` (`refreshBeacons`, truth needed) with the edge
+  of their neighbours (buildings + power ± 25 %). `state.bestiary` (kind → level, best gear,
+  seen, first/last). `viewFreshness`. `civEyes` reads the beacons and the parcels seen.
+- **Forecast** `landingForecast` (in `forecastExpedition().landing`, public only): `seen`
+  (units of a view × `scheduleGrowth`), `edge`, `guess` (public base × growth × 0.75–1.25),
+  `formidable` (an unseen centre parcel: no number, odds `unknown`). Three practice battles
+  (cached, public seeds `target/trial/sector/i`): likely = won at the strongest guess.
+- **Server**: `load` resolves landed ships (`hiddenDue`), `import` calls `resetLandings`
+  (beacons and landings in flight dropped). Tests in `test/landing.test.ts` (outcomes, ship,
+  breakdown, leak, server, save, migration v34, import).
+- **Migration v34**: old missions in flight turn back with their crew, bridgeheads → beacons
+  (holders idle), reports → `report` views (inner sectors × 2–3), conquest kept.
+- **Client**: `ExpeditionModal` is the landing screen (`LandingMap`, `ParcelPanel`,
+  `OrdersPicker`, `LandingForecastLines` with the "nobody hits the bats" warning,
+  `CrewPicker` with veterans) and still the settlers' planner (`siegePlan { mission: 'found' }`;
+  `siegePlan { mission: 'land', sector, targetId }` presets a landing). `ReportModal`
+  `LandingReport` + `LandingReplay` (2D SVG of the journal through `render/battle/timeline`).
+  `BestiaryModal` (store `bestiaryOpen`, phone menu entry). The twin's fog (`TwinIntel`) parts
+  over parcels with a view, flags on beacons. Sounds `landing.victory|retreat|defeat`.

@@ -5,6 +5,15 @@ description: Kiwar colonisation of the twin face (chantier 19) — the siege (Ir
 
 # Kiwar colonies (chantier 19)
 
+**Chantier 40 retired the siege**: no deep reconnaissance, assault, reinforcement, final,
+counter-attack or bridgehead any more (commands refused, `planCounter` / `siegeTick` unplugged
+from `advance`, bridgeheads migrated into beacons, see `kiwar-expeditions`). The conquest is
+closed until chantier 42 (the queen); a face already conquered stays so and `found` works.
+`sim/siege.ts` keeps its code for chantier 42 (counters to reuse for beacon attacks). The
+Siege screen only shows the conquered face and the settlers' ship (`siegeVisible` = conquered);
+`SiegeParts` and `SiegeShow` are gone (`sectorName`, `fmtRange` live in `LandingParts`). The
+bot only founds (`bot/siege.ts`), `pnpm balance:siege` is gone.
+
 Load `kiwar-sim` (exact offline), `kiwar-expeditions` (anti-cheat, missions, intel),
 `kiwar-online` (server), `kiwar-titans` (Kikiwiwis) and `kiwar-client` (UI) too.
 
