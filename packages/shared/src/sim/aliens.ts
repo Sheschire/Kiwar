@@ -15,7 +15,7 @@ import {
 } from '../worldgen/generateFace';
 import type { TimeMs } from '../types/ids';
 import { counterAwaited, mergeSiegeIntel } from './siege';
-import { newCiv } from './civ';
+import { civDay, newCiv } from './civ';
 import type {
   AlienGarrison,
   AlienStructure,
@@ -87,8 +87,9 @@ export function ensureAliens(state: GameState, seed: string): boolean {
   for (const t of state.targets) {
     const g = aliens[t.id];
     if (g && !g.civ) {
-      // Chantier 39: garrisons drawn before the civilisation get theirs from their own seed.
-      g.civ = newCiv(g.seed, t.distance);
+      // Chantier 39: garrisons drawn before the civilisation get theirs from their own seed
+      // (its first daily look comes after the current time).
+      g.civ = { ...newCiv(g.seed, t.distance), day: civDay(g, state.now) };
       changed = true;
     }
     if (g) continue;

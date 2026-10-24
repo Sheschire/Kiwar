@@ -7,7 +7,7 @@ import { hexDistance } from '../hex/hex';
 import { createRng, hashSeed } from '../rng/rng';
 import type { TimeMs } from '../types/ids';
 import { siegeTruth } from './siege';
-import type { AlienGarrison, CivImpact, CivKey, CivState } from './state';
+import type { AlienGarrison, CivImpact, CivKey, CivState, GameState } from './state';
 
 /**
  * Chantier 39: the alien civilisation. Everything is a pure function of the garrison's secret
@@ -421,4 +421,79 @@ export function standingBarracks(civ: CivState, at: TimeMs, beacons: readonly nu
       (k.readyAt === undefined || k.readyAt <= at) &&
       !beacons.includes(k.sector),
   );
+}
+
+// --- The AI that hides (chantier 39, part 2) --------------------------------------------------
+
+/** Index of the game day of a time, counted from the civilisation's start. */
+export function civDay(g: AlienGarrison, at: TimeMs): number {
+  return Math.max(0, Math.floor((at - g.since) / CIV.tickMs));
+}
+
+/**
+ * What the AI sees of us on a face: our beacons (the bridgeheads of the twin until chantier 40)
+ * and the parcels our scouts have seen.
+ */
+export function civEyes(
+  state: Pick<GameState, 'targets' | 'intel' | 'siege'>,
+  targetId: string,
+): { beacons: number[]; seen: number[]; royalSeen: boolean } {
+  const twin = state.targets.find((t) => t.distance === 0)?.id === targetId;
+  const intel = state.intel[targetId];
+  return {
+    beacons: twin ? state.siege.bridgeheads.map((b) => b.sector) : [],
+    seen: intel?.sectors ?? [],
+    royalSeen: !!intel?.siege?.queen,
+  };
+}
+
+/**
+ * The daily look at the map: key buildings exposed by a beacon (on it or next to it) move to a
+ * hidden free parcel when there is one; burnt ones are rebuilt in the best place; new ones come
+ * with the age, where we have seen least. The royal burrow stays put once seen.
+ */
+export function planCiv(
+  g: AlienGarrison,
+  civ: CivState,
+  at: TimeMs,
+  eyes: { beacons: readonly number[]; seen: readonly number[]; royalSeen: boolean },
+): void {
+  const day = civDay(g, at);
+  civ.day = day;
+  if (eyes.royalSeen) civ.royalSeen = true;
+  const exposure = exposureOf(eyes.beacons, eyes.seen);
+  const salt = `d${day}`;
+  for (const k of civ.keys) {
+    if (k.kind === 'royal' && civ.royalSeen) continue;
+    const burnt = k.readyAt !== undefined && k.readyAt > at;
+    if (exposure[k.sector]! < 2 && !burnt) continue;
+    const others = civ.keys.filter((x) => x !== k);
+    const to = bestSector(g.seed, k.kind, others, exposure, eyes.beacons, `${salt}/move`);
+    if (to === null || to === k.sector) continue;
+    if (!burnt && exposure[to]! >= exposure[k.sector]!) continue;
+    k.sector = to;
+  }
+  addMissingKeys(g.seed, civ.keys, civAt(g, at, civ).age, exposure, eyes.beacons, salt);
+}
+
+/** Next daily look of any civilisation of the state (Infinity without the truth). */
+export function nextCivEvent(s: GameState): TimeMs {
+  let next = Infinity;
+  if (!s.aliens) return next;
+  for (const t of s.targets) {
+    const g = s.aliens[t.id];
+    if (!g?.civ || (t.distance === 0 && s.siege.conqueredAt > 0)) continue;
+    next = Math.min(next, g.since + (g.civ.day + 1) * CIV.tickMs);
+  }
+  return Math.max(s.now, next);
+}
+
+export function civTick(s: GameState, at: TimeMs): void {
+  if (!s.aliens) return;
+  for (const t of s.targets) {
+    const g = s.aliens[t.id];
+    if (!g?.civ || (t.distance === 0 && s.siege.conqueredAt > 0)) continue;
+    if (g.since + (g.civ.day + 1) * CIV.tickMs > at) continue;
+    planCiv(g, g.civ, at, civEyes(s, t.id));
+  }
 }

@@ -19,6 +19,11 @@ import {
   sectorOf,
   siegeTruth,
   standingBarracks,
+  advance,
+  civDay,
+  exposureOf,
+  planCiv,
+  publicState,
   type AlienGarrison,
 } from '../src';
 import { setup, T0 } from './helpers';
@@ -191,5 +196,111 @@ describe('alien civilisation (chantier 39)', () => {
   it('knows the neighbours of a parcel', () => {
     expect(neighbourSectors(0).sort((a, b) => a - b)).toEqual([1, 5, 6]);
     expect(neighbourSectors(11).sort((a, b) => a - b)).toEqual([5, 6, 10]);
+  });
+});
+
+describe('the AI that hides (chantier 39)', () => {
+  const eyes = (beacons: number[] = [], seen: number[] = [], royalSeen = false) => ({
+    beacons,
+    seen,
+    royalSeen,
+  });
+
+  it('moves the key buildings away from a new beacon, to a hidden free parcel', () => {
+    const { g } = twin('hide');
+    const civ = structuredClone(civOf(g));
+    // Put a barracks on the edge, then plant a beacon right next to it.
+    const b = civ.keys.find((k) => k.kind === 'barracks')!;
+    b.sector = 7;
+    const beacon = 8;
+    planCiv(g, civ, T0 + CIV.tickMs, eyes([beacon], [beacon]));
+    const exposure = exposureOf([beacon], [beacon]);
+    expect(b.sector).not.toBe(7);
+    expect(exposure[b.sector]).toBe(0);
+    for (const k of civ.keys) if (k.kind !== 'royal') expect(exposure[k.sector]).toBeLessThan(2);
+  });
+
+  it('keeps the royal burrow where it is once seen', () => {
+    const { g } = twin('royal');
+    const civ = structuredClone(civOf(g));
+    const royal = civ.keys.find((k) => k.kind === 'royal')!;
+    const lair = royal.sector;
+    const beacon = lair + 6;
+    const seen = structuredClone(civ);
+    planCiv(g, seen, T0 + CIV.tickMs, eyes([beacon], [], true));
+    expect(seen.keys.find((k) => k.kind === 'royal')!.sector).toBe(lair);
+    expect(seen.royalSeen).toBe(true);
+    planCiv(g, civ, T0 + CIV.tickMs, eyes([beacon]));
+    const moved = civ.keys.find((k) => k.kind === 'royal')!.sector;
+    expect(moved).not.toBe(lair);
+    expect(moved).toBeLessThan(INTEL.sectors / 2);
+  });
+
+  it('builds the new key buildings of an age where our scouts have looked least', () => {
+    const { g } = twin('grow');
+    const civ = structuredClone(civOf(g));
+    const seen = [0, 1, 2, 3, 4, 5, 6, 7];
+    const at = T0 + CIV.ageAtH[3]! * H;
+    planCiv(g, civ, at, eyes([], seen));
+    const wanted = keysWanted(3);
+    expect(civ.keys.filter((k) => k.kind === 'barracks')).toHaveLength(wanted.barracks);
+    expect(civ.keys.filter((k) => k.kind === 'store')).toHaveLength(wanted.store);
+    const added = civ.keys.slice(civOf(g).keys.length);
+    // The four parcels never seen fill first.
+    const hidden = new Set([8, 9, 10, 11]);
+    expect(added.slice(0, 4).every((k) => hidden.has(k.sector))).toBe(true);
+  });
+
+  it('stays put when no hidden parcel is left', () => {
+    const { g } = twin('full');
+    const civ = structuredClone(civOf(g));
+    const all = Array.from({ length: INTEL.sectors }, (_, i) => i);
+    const before = civ.keys.map((k) => k.sector);
+    planCiv(g, civ, T0 + CIV.tickMs, eyes([6, 8, 10], all));
+    // Every parcel is seen or exposed: only those under or beside a beacon could move, and
+    // only towards a less exposed one.
+    const exposure = exposureOf([6, 8, 10], all);
+    civ.keys.forEach((k, i) => {
+      if (k.sector !== before[i]) expect(exposure[k.sector]).toBeLessThan(exposure[before[i]!]!);
+    });
+  });
+
+  it('rebuilds a burnt barracks in a better place', () => {
+    const { g } = twin('rebuild');
+    const civ = structuredClone(civOf(g));
+    const b = civ.keys.find((k) => k.kind === 'barracks')!;
+    b.sector = 9;
+    recordBurn(civ, 9, T0);
+    planCiv(g, civ, T0 + CIV.tickMs, eyes([], [9]));
+    expect(b.sector).not.toBe(9);
+  });
+
+  it('looks once a game day in advance, the same in one step or many', () => {
+    const { state } = setup('kiwisu', 'tick');
+    const s = cloneState(state);
+    s.threats.next = null;
+    s.threats.shieldUntil = T0 + 100 * DAY;
+    const id = s.targets[0]!.id;
+    s.siege.bridgeheads = [{ sector: 7, since: T0, holders: [], fortified: false }];
+    s.intel[id] = {
+      at: T0,
+      source: 'recon',
+      defense: { min: 1, max: 2 },
+      ferrets: { min: 1, max: 1 },
+      bats: { min: 1, max: 1 },
+      victoriesAt: 0,
+      sectors: [0, 1, 7],
+      structures: [],
+    };
+    const end = T0 + 3 * DAY;
+    const big = advance(cloneState(s), end).state;
+    let small = cloneState(s);
+    for (let t = T0; t < end; t += 37 * 60_000) small = advance(small, t).state;
+    small = advance(small, end).state;
+    expect(big.aliens![id]!.civ).toEqual(small.aliens![id]!.civ);
+    expect(big.aliens![id]!.civ!.day).toBe(civDay(big.aliens![id]!, end));
+    // The client without the truth never looks.
+    const blind = advance(publicState(cloneState(s)), end).state;
+    expect(blind.aliens).toBeUndefined();
   });
 });
