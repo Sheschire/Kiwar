@@ -14,7 +14,7 @@ import {
   type Tile,
 } from '../worldgen/generateFace';
 import type { TimeMs } from '../types/ids';
-import { counterAwaited, mergeSiegeIntel } from './siege';
+import { mergeSiegeIntel } from './siege';
 import { canAnnounceWave, civAt, civDay, newCiv, outerPower, scheduleGrowth } from './civ';
 import type {
   AlienGarrison,
@@ -133,20 +133,16 @@ export function alienEnemies(
 export function canResolveArrival(state: GameState, e: Expedition): boolean {
   return (
     !!e.broken ||
-    // Chantier 19: a reinforcement meets no alien on its bridgehead.
-    e.mission === 'reinforce' ||
-    // …nor does a settlers' ship on a conquered face.
+    // Chantier 19: a settlers' ship meets no alien on a conquered face.
     e.mission === 'found' ||
     !!state.aliens?.[e.targetId] ||
     !state.targets.some((t) => t.id === e.targetId)
   );
 }
 
-/** Chantier 19: something happened that only the server can tell (a landing, a counter-attack). */
+/** Something happened that only the server can tell (a landing, a wave's announcement). */
 export function awaitingServer(state: GameState, now: TimeMs): boolean {
-  return (
-    awaitingReport(state, now).length > 0 || counterAwaited(state, now) || waveAwaited(state, now)
-  );
+  return awaitingReport(state, now).length > 0 || waveAwaited(state, now);
 }
 
 /** Chantier 39: a wave is due to be announced and only the server knows the civilisation. */
@@ -160,8 +156,6 @@ export function hiddenDue(state: GameState, now: TimeMs): TimeMs[] {
   const out = state.expeditions
     .filter((e) => e.status === 'outbound' && e.arriveAt <= now)
     .map((e) => e.arriveAt);
-  const c = state.siege.counter;
-  if (c && c.at <= now) out.push(c.at);
   const w = state.threats.next;
   if (w && !w.announced && w.announceAt <= now) out.push(w.announceAt);
   return out;

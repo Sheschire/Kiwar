@@ -24,7 +24,6 @@ import {
 import { resolveArrival, resolveReturn } from './expeditions';
 import { deliveryTick, nextDeliveryEvent } from './deliveries';
 import { canResolveArrival } from './aliens';
-import { nextSiegeEvent, planCounter, siegeTick } from './siege';
 import { civTick, nextCivEvent } from './civ';
 import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
 import { inLine, type ClassId } from '../data/classes';
@@ -273,7 +272,6 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     planWave(s);
     planMeteor(s);
     planComet(s);
-    planCounter(s);
     const constructionEnd = nextConstructionEnd(s);
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
@@ -292,14 +290,12 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const deliveryAt = nextDeliveryEvent(s);
     const infusionEnd = nextInfusionEnd(s);
     const titanEnd = nextTitanEnd(s);
-    const siegeAt = nextSiegeEvent(s);
     // Chantier 39: the alien civilisation looks at the map once a game day (truth only).
     const civAt = nextCivEvent(s);
     // Chantier 15: the automatic garrison posts its guards a little before a strike.
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
       garrisonAt,
-      siegeAt,
       civAt,
       infusionEnd,
       titanEnd,
@@ -356,7 +352,6 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     if (researchAt === nextEvent) researchTick(s, researchAt, events);
     if (forgeAt === nextEvent) forgeTick(s, forgeAt, events);
     if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
-    if (siegeAt === nextEvent) siegeTick(s, siegeAt, events);
     if (civAt === nextEvent) civTick(s, civAt);
     const st = hungerStage(s);
     if (st !== stage) {

@@ -1,3 +1,4 @@
+import { isInner } from './civ';
 import { MAX_AGE } from '../data/ages';
 import {
   AGE_OBJECTIVES,
@@ -81,9 +82,19 @@ export function objectiveProgress(
     case 'paths':
       return of(state.paths.length, c.count);
     case 'intel':
-      return of(Object.keys(state.intel).length, c.count);
-    case 'bridgeheads':
-      return of(state.siege.bridgeheads.length, c.count);
+      return of(
+        Object.values(state.faceViews).reduce((n, f) => n + Object.keys(f.parcels).length, 0) ||
+          Object.keys(state.intel).length,
+        c.count,
+      );
+    case 'beacons':
+      return of(
+        Object.values(state.faceViews).reduce(
+          (n, f) => n + f.beacons.filter((b) => !c.inner || isInner(b.sector)).length,
+          0,
+        ),
+        c.count,
+      );
   }
 }
 

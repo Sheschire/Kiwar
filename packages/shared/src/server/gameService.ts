@@ -61,6 +61,7 @@ import {
 import { deliveryOf } from '../sim/deliveries';
 import { ensureAliens, hiddenDue, publicState } from '../sim/aliens';
 import { resetSiege } from '../sim/siege';
+import { resetLandings } from '../sim/landing';
 import { generateFace, type FaceMap } from '../worldgen/generateFace';
 import type { Face, KiwiId, PlayerId, UniverseId } from '../types/ids';
 import { requestSchema, type ColonySummary, type GameResponse, type ServerError } from './protocol';
@@ -1000,6 +1001,8 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
       // A local save carries its own garrisons: never trust them, draw secret ones.
       delete imported.aliens;
       resetSiege(imported);
+      // Chantier 40: beacons and landings in flight cannot be checked either.
+      resetLandings(imported);
       ensureAliens(imported, ctx.randomSeed());
       const state = advance(imported, now).state;
       const saved = existing

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ALIEN_TWIN_FACE,
   FUEL,
   STARDUST_SCALE,
   advance,
@@ -9,9 +8,9 @@ import {
   EXPEDITIONS,
   forecastExpedition,
   launchCost,
-  hashSeed,
   HOUR_MS,
   migrateState,
+  LANDING,
   population,
   serializeSave,
   validateCommand,
@@ -63,6 +62,10 @@ const plan = (
   targetId,
   crew,
   provisions: { pulp, juice },
+  // Chantier 40: every expedition to an alien face is a landing.
+  mission: 'land',
+  sector: 8,
+  orders: LANDING.defaultOrders,
 });
 
 describe('expeditions', () => {
@@ -85,7 +88,6 @@ describe('expeditions', () => {
     // 90 min trip: 10 kiwis × 4 pulp/h × 1.5 h.
     expect(f.needOneWay.pulp).toBeCloseTo(60);
     expect(f.fed).toBe(1);
-    expect(f.odds).toBe('likely');
     const hungry = forecastExpedition(s, {
       launchpadId: padId as never,
       targetId,
@@ -110,80 +112,6 @@ describe('expeditions', () => {
     expect(validateCommand(poor, plan(padId, targetId, 4, 10, 10), ctx)).toBe('notEnoughResources');
     const launched = run(s, plan(padId, targetId, 4, 30, 15), t, map);
     expect(validateCommand(launched, plan(padId, targetId, 4, 30, 15), ctx)).toBe('launchpadBusy');
-  });
-
-  it('a well-fed crew wins, brings loot home, burns a parcel and the edge musters', () => {
-    const { s, t, map, padId, targetId } = readyColony();
-    const before = population(s);
-    const launched = run(s, plan(padId, targetId, 10, 120, 60), t, map);
-    expect(launched.resources.pulp).toBe(s.resources.pulp - 120);
-    expect(launched.villagers.filter((v) => v.job.kind === 'expedition')).toHaveLength(10);
-
-    const { state: back, events } = advance(launched, t + 4 * HOUR_MS);
-    expect(events.map((e) => e.type)).toEqual(
-      expect.arrayContaining(['expeditionArrived', 'expeditionReturned']),
-    );
-    const e = back.expeditions[0]!;
-    expect(e.status).toBe('done');
-    expect(e.result!.victory).toBe(true);
-    expect(e.result!.loot.seeds).toBeGreaterThan(0);
-    expect(back.victories[targetId]).toBe(1);
-    expect(population(back)).toBe(
-      before - e.result!.lostInBattle.length - e.result!.lostOnReturn.length,
-    );
-    expect(back.villagers.some((v) => v.job.kind === 'expedition')).toBe(false);
-    expect(
-      forecastExpedition(back, {
-        launchpadId: padId as never,
-        targetId,
-        crew: 10,
-        provisions: { pulp: 120, juice: 60 },
-      })!.defense,
-    ).toMatchObject({ min: e.result!.defense + ALIEN_TWIN_FACE.reinforce });
-    // Chantier 39: the parcel it landed on burnt.
-    expect(e.result!.burnt).toBe(true);
-    expect(back.aliens![targetId]!.civ!.log.at(-1)).toMatchObject({
-      kind: 'burn',
-      sector: e.result!.sector,
-    });
-    // The battle itself is the report: the defense faced, exactly.
-    expect(back.intel[targetId]).toMatchObject({
-      source: 'raid',
-      defense: { min: e.result!.defense, max: e.result!.defense },
-      victoriesAt: 0,
-    });
-  });
-
-  it('an unfed crew is weaker and can lose', () => {
-    const { s, t, map, padId, targetId } = readyColony();
-    const launched = run(s, plan(padId, targetId, 9, 0, 0), t, map);
-    const back = advance(launched, t + 4 * HOUR_MS).state;
-    const r = back.expeditions[0]!.result!;
-    expect(r.fed).toBe(0);
-    expect(r.victory).toBe(false);
-    expect(r.lostInBattle.length).toBeGreaterThanOrEqual(
-      Math.round(9 * EXPEDITIONS.defeatLosses.min),
-    );
-    expect(r.loot.seeds).toBe(0);
-  });
-
-  it('provisions take the room of the loot', () => {
-    const { s, t, map, padId, targetId } = readyColony();
-    // Same crew; the heavy ship still carries ~40 cargo units of food after the outbound leg.
-    const light = advance(
-      run(s, plan(padId, targetId, 10, 120, 60), t, map),
-      t + 4 * HOUR_MS,
-    ).state;
-    const heavy = advance(
-      run(s, plan(padId, targetId, 10, 330, 160), t, map),
-      t + 4 * HOUR_MS,
-    ).state;
-    expect(light.expeditions[0]!.result!.victory && heavy.expeditions[0]!.result!.victory).toBe(
-      true,
-    );
-    const lootOf = (x: GameState) =>
-      Object.values(x.expeditions[0]!.result!.loot).reduce((a, b) => a + b, 0);
-    expect(lootOf(heavy)).toBeLessThan(lootOf(light));
   });
 
   it('gives the same outcome offline in one step or many', () => {
@@ -238,6 +166,9 @@ describe('expeditions', () => {
       targetId,
       crew: chosen,
       provisions: { pulp: 60, juice: 30 },
+      mission: 'land',
+      sector: 8,
+      orders: LANDING.defaultOrders,
     };
     const launched = run(s, cmd, t, map);
     const aboard = launched.villagers.filter((v) => v.job.kind === 'expedition').map((v) => v.id);
@@ -271,82 +202,9 @@ describe('expeditions', () => {
     const rookies = forecastExpedition(s, p)!;
     const veterans = forecastExpedition(veteran, p)!;
     expect(veterans.strength.min).toBeGreaterThan(rookies.strength.min * 1.8);
-    expect(veterans.expectedLosses).toBeLessThan(rookies.expectedLosses);
     // Each kiwi's risk is shown, and adds up to the expected losses.
     const sum = ids.reduce((a, id) => a + rookies.risk[id]!, 0);
     expect(sum).toBeCloseTo(rookies.expectedLosses, 6);
-  });
-
-  it('loses the weakest kiwis more often, and remembers the fallen', () => {
-    const { s, t, map, padId, targetId } = readyColony();
-    const ids = s.villagers.slice(-6).map((v) => v.id);
-    const strong = new Set(ids.slice(0, 3));
-    const base: GameState = {
-      ...s,
-      villagers: s.villagers.map((v) =>
-        strong.has(v.id)
-          ? {
-              ...v,
-              level: 12,
-              stats: { ...v.stats, strength: 12, agility: 10, endurance: 12 },
-            }
-          : v,
-      ),
-    };
-    let strongLost = 0;
-    let weakLost = 0;
-    for (let i = 0; i < 60; i++) {
-      const seeded: GameState = { ...base, rng: hashSeed(`losses-${i}`) };
-      // A lost fight (chantier 18: victories only wound): about half the crew falls.
-      const cmd: Command = {
-        type: 'launchExpedition',
-        launchpadId: padId as never,
-        targetId,
-        crew: ids,
-        provisions: { pulp: 0, juice: 0 },
-      };
-      const launched = run(
-        { ...seeded, targets: seeded.targets.map((x) => ({ ...x, defense: 11 })) },
-        cmd,
-        t,
-        map,
-      );
-      const back = advance(launched, t + 4 * HOUR_MS).state;
-      for (const id of ids) {
-        if (back.villagers.some((v) => v.id === id)) continue;
-        if (strong.has(id)) strongLost++;
-        else weakLost++;
-      }
-      if (i === 0) {
-        const lost = ids.filter((id) => !back.villagers.some((v) => v.id === id));
-        expect(back.memorial.map((m) => m.id).sort()).toEqual([...lost].sort());
-        expect(back.memorial.every((m) => m.diedAt > t)).toBe(true);
-      }
-    }
-    expect(weakLost).toBeGreaterThan(strongLost * 1.5);
-    expect(strongLost).toBeGreaterThan(0);
-  });
-
-  it('a victory wounds the kiwis hit instead of killing them (chantier 18)', () => {
-    const { s, t, map, padId, targetId } = readyColony();
-    let wounded = 0;
-    for (let i = 0; i < 20; i++) {
-      const seeded: GameState = { ...s, rng: hashSeed(`wounds-${i}`) };
-      const launched = run(seeded, plan(padId, targetId, 8, 120, 60), t, map);
-      const back = advance(launched, t + 4 * HOUR_MS).state;
-      const e = back.expeditions[0]!;
-      if (!e.result!.victory) continue;
-      expect(e.result!.lostInBattle).toEqual([]);
-      for (const id of e.result!.injured ?? []) {
-        const v = back.villagers.find((x) => x.id === id)!;
-        expect(v.job).toEqual({
-          kind: 'injured',
-          until: e.returnAt + EXPEDITIONS.victoryInjuryMs,
-        });
-        wounded++;
-      }
-    }
-    expect(wounded).toBeGreaterThan(0);
   });
 
   it('gives survivors experience and a story', () => {
@@ -354,13 +212,13 @@ describe('expeditions', () => {
     const launched = run(s, plan(padId, targetId, 10, 120, 60), t, map);
     const { state: back, events } = advance(launched, t + 4 * HOUR_MS);
     const e = back.expeditions[0]!;
-    expect(e.result!.victory).toBe(true);
+    expect(e.status).toBe('done');
     for (const id of e.crew) {
       const v = back.villagers.find((x) => x.id === id)!;
-      expect(v.history).toMatchObject({ expeditions: 1, victories: 1 });
-      expect(v.level).toBeGreaterThan(1);
+      expect(v.history.expeditions).toBe(1);
+      expect(v.xp).toBeGreaterThan(0);
     }
-    expect(events.some((x) => x.type === 'levelUp')).toBe(true);
+    expect(events.some((x) => x.type === 'expeditionReturned')).toBe(true);
     // Exact offline: the same in one step or many.
     let small = launched;
     for (let now = t; now < t + 4 * HOUR_MS; now += 333_331) small = advance(small, now).state;

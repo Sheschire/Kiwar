@@ -25,10 +25,10 @@ export type ObjectiveCondition =
   | { kind: 'techs'; age: number; count: number }
   /** Path tiles laid. */
   | { kind: 'paths'; count: number }
-  /** Targets the colony has a report on. */
+  /** Parcels of alien faces seen (a landing's glimpse, a beacon, an old report). */
   | { kind: 'intel'; count: number }
-  /** Bridgeheads held on the twin (chantier 19). */
-  | { kind: 'bridgeheads'; count: number };
+  /** Chantier 40: beacons planted (`inner`: in a centre parcel). */
+  | { kind: 'beacons'; count: number; inner?: boolean };
 
 export interface ObjectiveDef {
   /** Translation key suffix: `objectives.<id>`. */
@@ -291,13 +291,13 @@ export const AGE_OBJECTIVES: readonly AgeObjectiveDef[] = [
   {
     id: 'industryRaids',
     age: 3,
-    condition: { kind: 'stat', stat: 'raidsWon', count: 12 },
+    condition: { kind: 'stat', stat: 'raidsWon', count: 8 },
     reward: { seeds: 8000, juice: 8000 },
   },
   {
     id: 'industryBridgehead',
     age: 3,
-    condition: { kind: 'bridgeheads', count: 1 },
+    condition: { kind: 'beacons', count: 1, inner: true },
     reward: { pulp: 20000, fiber: 20000 },
   },
   {

@@ -472,8 +472,8 @@ export const en = {
     },
     edenNest3: { title: 'Nest at level 3', hint: 'More buildings, more sites at once.' },
     edenRecon: {
-      title: 'Scout the twin face',
-      hint: 'From a Launchpad, send one or two kiwis on a reconnaissance.',
+      title: 'A first look at the twin',
+      hint: 'Land on an edge parcel: even a retreat brings back a glimpse.',
     },
     stoneWarehouse: {
       title: 'A Warehouse at level 4',
@@ -486,8 +486,8 @@ export const en = {
     },
     stoneWaves: { title: 'Hold off three waves', hint: 'Waves held without any loss.' },
     stoneRaid: {
-      title: 'Win a raid',
-      hint: 'Scout first, then strike when the forecast says “likely”.',
+      title: 'Win a landing',
+      hint: 'A first beacon on the edge: bring kiwis who can hit the bats.',
     },
     stoneTurret4: {
       title: 'A turret at level 4',
@@ -504,7 +504,7 @@ export const en = {
     ironMage: { title: 'Train a mage', hint: 'Mages reach the bats from the rampart.' },
     ironWaves: { title: 'Hold off six waves', hint: 'Waves held without any loss.' },
     ironKikiwiwi: { title: 'A Kikiwiwi', hint: 'Infuse a kiwi in the laboratory (it may fail).' },
-    ironRaids: { title: 'Five raids won', hint: 'Each victory makes the aliens stronger.' },
+    ironRaids: { title: 'Five landings won', hint: 'Each beacon shows a little more of them.' },
     ironProducer9: { title: 'A producer at level 9', hint: 'The last level of the Iron age.' },
     industryTechs: {
       title: 'Two Industry techniques',
@@ -512,10 +512,10 @@ export const en = {
     },
     industryKiwi20: { title: 'A kiwi at level 20', hint: 'A veteran for the siege.' },
     industryWaves: { title: 'Hold off ten waves', hint: 'Waves held without any loss.' },
-    industryRaids: { title: 'Twelve raids won', hint: 'Keep the aliens busy on their own face.' },
+    industryRaids: { title: 'Eight landings won', hint: 'Light up their face, parcel by parcel.' },
     industryBridgehead: {
-      title: 'A bridgehead on the twin',
-      hint: 'Open the siege and land a first bridgehead.',
+      title: 'A beacon in the centre',
+      hint: 'The centre is formidable: land there with your best kiwis.',
     },
     industryProducer12: { title: 'A producer at level 12', hint: 'The very last level.' },
     buildPulpery: { title: 'Build a Pulpery', hint: 'Tap a green flesh tile and build a Pulpery.' },

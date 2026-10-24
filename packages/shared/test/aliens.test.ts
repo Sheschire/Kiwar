@@ -9,15 +9,9 @@ import {
   alienDefense,
   alienEnemies,
   awaitingReport,
-  createRng,
-  INTEL,
-  RECON,
-  reconForecast,
-  validateCommand,
   shipOf,
   shipReliability,
   SHIPS,
-  travelTime,
   createMemoryRepository,
   forecastExpedition,
   handleGameRequest,
@@ -30,8 +24,9 @@ import {
   type GameResponse,
   type GameState,
   type ServiceContext,
+  LANDING,
 } from '../src';
-import { findTile, kiwi, knowTruth, rich, run, setup, T0, siteFor } from './helpers';
+import { findTile, kiwi, rich, run, setup, T0, siteFor } from './helpers';
 
 /** Nest 2, a launchpad, a crowd of kiwis and full stocks: ready to raid the twin face. */
 function readyColony() {
@@ -58,6 +53,9 @@ function readyColony() {
   const padId = s.buildings.find((b) => b.type === 'launchpad')!.id;
   return { map, s, t, padId, targetId: s.targets[0]!.id };
 }
+
+/** Chantier 40: every mission to an alien face is a landing (on an edge parcel here). */
+const LAND = { mission: 'land' as const, sector: 8, orders: LANDING.defaultOrders };
 
 /** The Iron age (iron ship) and handy crews: reliability 100 %, no breakdown in these tests. */
 function reliable(s: GameState, age = 2): GameState {
@@ -179,6 +177,7 @@ describe('hidden alien garrisons (chantier 07)', () => {
         targetId,
         crew: 6,
         provisions: { pulp: 200, juice: 100 },
+        ...LAND,
       },
       t,
       map,
@@ -307,6 +306,7 @@ describe('the server never sends a garrison', () => {
         targetId,
         crew: 6,
         provisions: { pulp: 200, juice: 100 },
+        ...LAND,
       },
       t,
       map,
@@ -315,118 +315,9 @@ describe('the server never sends a garrison', () => {
     tick(launched.expeditions[0]!.arriveAt - T0 + 1000);
     const r = hidden(await handleGameRequest(ctx, { action: 'load' }));
     expect(r.state!.expeditions[0]!.status).toBe('returning');
-    expect(r.state!.intel[targetId]?.source).toBe('raid');
+    expect(r.state!.expeditions[0]!.result?.outcome).toBeDefined();
     expect(r.ok && r.events.some((e) => e.type === 'expeditionArrived')).toBe(true);
     expect([...repo.games.values()][0]!.state.expeditions[0]!.status).toBe('returning');
-  });
-});
-
-describe('reconnaissance missions', () => {
-  const recon = (padId: string, targetId: string, crew: number | string[]) => ({
-    type: 'launchExpedition' as const,
-    launchpadId: padId as never,
-    targetId,
-    crew: crew as never,
-    provisions: { pulp: 40, juice: 20 },
-    mission: 'recon' as const,
-  });
-
-  it('takes one or two kiwis, flies faster, and brings back a partial map with ranges', () => {
-    const { s, t, map, padId, targetId } = readyColony();
-    const ctx = { now: t, map };
-    expect(validateCommand(s, recon(padId, targetId, 3), ctx)).toBe('crewTooLarge');
-    expect(validateCommand(s, recon(padId, targetId, 0), ctx)).toBe('crewTooSmall');
-    const launched = run(s, recon(padId, targetId, 1), t, map);
-    const e = launched.expeditions[0]!;
-    expect(e.mission).toBe('recon');
-    const pad = launched.buildings.find((b) => b.id === padId)!;
-    expect(e.arriveAt - t).toBe(travelTime(launched.targets[0]!, pad, [], 'recon'));
-    expect(e.arriveAt - t).toBeLessThan(travelTime(launched.targets[0]!, pad, [], 'raid'));
-    const back = advance(launched, e.returnAt).state;
-    const done = back.expeditions[0]!;
-    expect(done.status).toBe('done');
-    const intel = back.intel[targetId]!;
-    expect(intel.source).toBe('recon');
-    expect(intel.sectors.length).toBeGreaterThanOrEqual(1);
-    expect(intel.sectors.length).toBeLessThan(INTEL.sectors);
-    // The truth is always inside the reported range.
-    const truth = alienDefense(back, targetId, e.arriveAt)!;
-    expect(intel.defense.min).toBeLessThanOrEqual(truth);
-    expect(intel.defense.max).toBeGreaterThanOrEqual(truth);
-    // Only structures of the seen sectors are reported.
-    const seen = new Set(intel.sectors);
-    expect(intel.structures.every((x) => seen.has(sectorOf(x.q, x.r)))).toBe(true);
-    // No loot, no provocation.
-    expect(done.result!.loot).toEqual({ pulp: 0, fiber: 0, seeds: 0, juice: 0 });
-    expect(back.victories[targetId] ?? 0).toBe(0);
-  });
-
-  it('reveals more sectors and tighter ranges with better scouts, cumulatively', () => {
-    const rookie = reconForecast([kiwi('a')]);
-    const ace = {
-      ...kiwi('b'),
-      level: 12,
-      classId: 'scout' as const,
-      stats: { ...kiwi('b').stats, agility: 12, spirit: 10 },
-    };
-    const best = reconForecast([ace]);
-    expect(best.quality).toBeGreaterThan(rookie.quality);
-    expect(best.sectors).toBeGreaterThan(rookie.sectors);
-    expect(best.spread).toBeLessThan(rookie.spread);
-    expect(best.spotChance).toBeLessThan(rookie.spotChance);
-    expect(reconForecast([kiwi('c'), kiwi('d')]).spotChance).toBeGreaterThan(rookie.spotChance);
-
-    const { s, t, map, padId, targetId } = readyColony();
-    let state = s;
-    let time = t;
-    let before = 0;
-    for (let i = 0; i < 3; i++) {
-      state = run(state, recon(padId, targetId, 1), time, map);
-      time = state.expeditions.at(-1)!.returnAt + RECON.injuryMs;
-      state = advance(state, time).state;
-      const now = state.intel[targetId]!.sectors.length;
-      expect(now).toBeGreaterThan(before);
-      before = now;
-    }
-  });
-
-  it('spotted scouts skirmish: one may fall or come home hurt, and the report is worse', () => {
-    let spottedOnce = false;
-    for (let seed = 0; seed < 40 && !spottedOnce; seed++) {
-      const { s, t, map, padId, targetId } = readyColony();
-      const launched = run(
-        { ...s, rng: createRng(`spot-${seed}`).state() },
-        recon(padId, targetId, 2),
-        t,
-        map,
-      );
-      const e = launched.expeditions[0]!;
-      const arrived = advance(launched, e.arriveAt).state;
-      const r = arrived.expeditions[0]!.result!;
-      if (!r.spotted) continue;
-      spottedOnce = true;
-      expect(arrived.intel[targetId]!.spotted).toBe(true);
-      expect(r.lostInBattle.length + (r.injured?.length ?? 0)).toBe(1);
-      const back = advance(arrived, e.returnAt).state;
-      if (r.injured?.length) {
-        const hurt = back.villagers.find((v) => v.id === r.injured![0]);
-        expect(hurt?.job).toEqual({ kind: 'injured', until: e.returnAt + RECON.injuryMs });
-      }
-    }
-    expect(spottedOnce).toBe(true);
-  });
-
-  it('is the same in one big step or many small ones', () => {
-    const { s, t, map, padId, targetId } = readyColony();
-    const launched = run(s, recon(padId, targetId, 2), t, map);
-    const end = launched.expeditions[0]!.returnAt + HOUR_MS;
-    const big = advance(launched, end).state;
-    let small = launched;
-    for (let at = t; at < end; at += 7 * 60_000) small = advance(small, at).state;
-    small = advance(small, end).state;
-    expect(small.intel).toEqual(big.intel);
-    expect(small.villagers).toEqual(big.villagers);
-    expect(small.rng).toEqual(big.rng);
   });
 });
 
@@ -452,69 +343,5 @@ describe('ship generations and breakdowns', () => {
     expect(
       shipReliability(SHIPS.iron, [handy, { ...handy, stats: { ...handy.stats, dexterity: 20 } }]),
     ).toBe(1);
-  });
-
-  it('a broken ship turns back half-way, empty, and its launchpad needs mending', () => {
-    let found = false;
-    for (let seed = 0; seed < 60 && !found; seed++) {
-      const ready = readyColony();
-      const { t, map, padId, targetId } = ready;
-      // A wooden ship and plain crews.
-      const s: GameState = {
-        ...ready.s,
-        rng: createRng(`break-${seed}`).state(),
-        buildings: ready.s.buildings.filter((b) => b.type !== 'monument'),
-        villagers: ready.s.villagers.map((v) => ({ ...v, stats: { ...v.stats, dexterity: 5 } })),
-      };
-      const launched = run(
-        s,
-        {
-          type: 'launchExpedition',
-          launchpadId: padId,
-          targetId,
-          crew: 4,
-          provisions: { pulp: 200, juice: 100 },
-        },
-        t,
-        map,
-      );
-      const e = launched.expeditions[0]!;
-      if (!e.broken) continue;
-      found = true;
-      const pad = launched.buildings.find((b) => b.id === padId)!;
-      expect(e.arriveAt - t).toBe(Math.round(travelTime(launched.targets[0]!, pad) / 2000) * 1000);
-      // No garrison needed to know a breakdown: the client plays it alone.
-      const back = advance(publicState(launched), e.returnAt).state;
-      const done = back.expeditions[0]!;
-      expect(done.status).toBe('done');
-      expect(done.result).toMatchObject({ broken: true, victory: false, lostInBattle: [] });
-      expect(done.result!.loot).toEqual({ pulp: 0, fiber: 0, seeds: 0, juice: 0 });
-      expect(back.intel[targetId]).toBeUndefined();
-      expect(back.buildings.find((b) => b.id === padId)!.damaged).toBe(true);
-      const again = {
-        type: 'launchExpedition' as const,
-        launchpadId: padId,
-        targetId,
-        crew: 2,
-        provisions: { pulp: 60, juice: 30 },
-      };
-      expect(validateCommand(back, again, { now: back.now, map })).toBe('launchpadDamaged');
-      // Chantier 15: the repairs were ordered on their own.
-      expect(back.queue.some((i) => i.kind === 'repair' && i.buildingId === padId)).toBe(true);
-      const mended = advance(back, back.now + 3 * HOUR_MS).state;
-      expect(mended.buildings.find((b) => b.id === padId)!.damaged).toBeFalsy();
-      expect(validateCommand(mended, again, { now: mended.now, map })).toBeNull();
-    }
-    expect(found).toBe(true);
-  });
-
-  it('armour lowers raid losses', () => {
-    const { s, padId, targetId } = readyColony();
-    const known = knowTruth(s, s.now);
-    const plan = { launchpadId: padId, targetId, crew: 3, provisions: { pulp: 60, juice: 30 } };
-    const iron = forecastExpedition(known, plan)!;
-    const logs = forecastExpedition(reliable(known, 1), plan)!;
-    expect(iron.ship.armor).toBeGreaterThan(0);
-    expect(iron.expectedLosses).toBeLessThan(logs.expectedLosses);
   });
 });

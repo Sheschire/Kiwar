@@ -498,8 +498,8 @@ export const fr: Dict = {
       hint: 'Plus de bâtiments, plus de chantiers à la fois.',
     },
     edenRecon: {
-      title: 'Explorer la face jumelle',
-      hint: 'Depuis une Aire d’envol, envoyez un ou deux kiwis en reconnaissance.',
+      title: 'Un premier regard sur la jumelle',
+      hint: 'Débarquez sur une parcelle du bord : même une retraite rapporte un aperçu.',
     },
     stoneWarehouse: {
       title: 'Un Entrepôt au niveau 4',
@@ -518,8 +518,8 @@ export const fr: Dict = {
       hint: 'Des vagues repoussées sans aucune perte.',
     },
     stoneRaid: {
-      title: 'Gagner un raid',
-      hint: 'Explorez d’abord, frappez quand la prévision dit « probable ».',
+      title: 'Gagner un débarquement',
+      hint: 'Une première balise au bord : emmenez des kiwis capables de toucher les chauves-souris.',
     },
     stoneTurret4: {
       title: 'Une tourelle au niveau 4',
@@ -549,8 +549,8 @@ export const fr: Dict = {
       hint: 'Infusez un kiwi au laboratoire (l’infusion peut échouer).',
     },
     ironRaids: {
-      title: 'Cinq raids gagnés',
-      hint: 'Chaque victoire rend les aliens plus forts.',
+      title: 'Cinq débarquements gagnés',
+      hint: 'Chaque balise en montre un peu plus.',
     },
     ironProducer9: {
       title: 'Un producteur au niveau 9',
@@ -566,12 +566,12 @@ export const fr: Dict = {
       hint: 'Des vagues repoussées sans aucune perte.',
     },
     industryRaids: {
-      title: 'Douze raids gagnés',
-      hint: 'Occupez les aliens sur leur propre face.',
+      title: 'Huit débarquements gagnés',
+      hint: 'Éclairez leur face, parcelle après parcelle.',
     },
     industryBridgehead: {
-      title: 'Une tête de pont sur la jumelle',
-      hint: 'Ouvrez le siège et posez une première tête de pont.',
+      title: 'Une balise au centre',
+      hint: 'Le centre est redoutable : débarquez-y avec vos meilleurs kiwis.',
     },
     industryProducer12: { title: 'Un producteur au niveau 12', hint: 'Le tout dernier niveau.' },
     buildPulpery: {

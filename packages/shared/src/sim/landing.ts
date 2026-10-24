@@ -129,6 +129,20 @@ export function landingLock(
   return null;
 }
 
+/**
+ * A local save imported online: nobody can check its beacons and glimpses, nor the landings in
+ * flight (their crews come home at once).
+ */
+export function resetLandings(s: GameState): void {
+  const flying = new Set(
+    s.expeditions.filter((e) => e.mission === 'land' && e.status !== 'done').map((e) => e.id),
+  );
+  for (const v of s.villagers)
+    if (v.job.kind === 'expedition' && flying.has(v.job.expeditionId)) v.job = { kind: 'idle' };
+  s.expeditions = s.expeditions.filter((e) => !flying.has(e.id));
+  s.faceViews = {};
+}
+
 // --- The truth (only where it is held) ---------------------------------------------------------
 
 export interface ParcelTruth {

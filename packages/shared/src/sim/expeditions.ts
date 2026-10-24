@@ -5,7 +5,6 @@ import { levelDef } from '../data/buildings';
 import {
   alienDefOf,
   EXPEDITIONS,
-  INTEL,
   RECON,
   SHIP_REPAIR,
   SHIPS,
@@ -20,7 +19,6 @@ import {
   withRng,
   type Building,
   type Expedition,
-  type AlienGarrison,
   type ExpeditionTarget,
   type GameState,
   type MissionKind,
@@ -33,17 +31,7 @@ import { MORALE } from '../data/needs';
 import type { GameEvent } from './advance';
 import { grantClassXp, grantXp, hasSkill, kiwiExposure, kiwiStrength, modifiers } from './kiwis';
 import { CAMP, inLine, SKILLS } from '../data/classes';
-import { alienDefense, alienEnemies, intelView, recordIntel } from './aliens';
-import {
-  civAt,
-  liveCiv,
-  raidSector,
-  recordBurn,
-  recordDefeat,
-  recordFight,
-  seenStructures,
-} from './civ';
-import { CIV } from '../data/aliens';
+import { intelView } from './aliens';
 import { landSettlers } from './colonies';
 import { landingForecast, resolveLanding, type LandingForecast } from './landing';
 import { LANDING, type LandingOrders } from '../data/landing';
@@ -51,14 +39,8 @@ import {
   allHolders,
   assaultEnemy,
   bridgeheadAt,
-  deepRecon,
   finalForecast,
   forgetHolders,
-  isSiegeMission,
-  recordSiegeIntel,
-  resolveSiegeLanding,
-  siegeLock,
-  twinTarget,
   type FinalForecast,
 } from './siege';
 
@@ -667,183 +649,18 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   }
   if (e.mission === 'found') return landSettlers(state, e, members, fed);
   if (e.mission === 'land') return resolveLanding(state, e, members, fed);
-  if (isSiegeMission(e.mission)) return resolveSiegeLanding(state, e, members, fed);
-  const garrison = state.aliens?.[target.id];
-  const defense = alienDefense(state, target.id, e.arriveAt);
-  if (!garrison || defense === null) throw new Error('resolveArrival: hidden garrison');
-  if (e.mission === 'recon') return resolveRecon(state, e, garrison, defense, members, fed);
-  const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
-  const strength = strengthOf(state, members, fed) * luck;
-  const victory = strength >= defense;
-  const pad = launchpadOf(state, e.launchpadId);
-  const armor = pad ? shipOf(state).armor : 0;
-  const losses = Math.min(
-    e.crew.length,
-    Math.round(e.crew.length * lossShare(strength, defense) * (1 - armor)),
-  );
-  // Chantier 18: a victory only wounds the kiwis hit; a defeat kills them.
-  const hit = drawLosses(state, members, losses);
-  const lost = victory ? [] : hit;
-  removeVillagers(state, lost, 'battle', e.arriveAt);
-  e.crew = e.crew.filter((id) => !lost.includes(id));
-
-  // The crew saw the whole garrison: the battle is the most precise report there is.
-  const seen = alienEnemies(garrison, defense);
-  const civAge = civAt(garrison, e.arriveAt).age;
-  recordIntel(state, target.id, {
-    at: e.arriveAt,
-    source: 'raid',
-    defense: { min: defense, max: defense },
-    ferrets: { min: seen.ferrets, max: seen.ferrets },
-    bats: { min: seen.bats, max: seen.bats },
-    victoriesAt: state.victories[target.id] ?? 0,
-    civAge,
-  });
-  // Chantier 39: the raid lands on an outer parcel: a victory burns it, a defeat feeds them.
-  const held =
-    twinTarget(state)?.id === target.id ? state.siege.bridgeheads.map((b) => b.sector) : [];
-  const sector = raidSector(garrison, e.id, held);
-  const civ = liveCiv(garrison);
-  const close = Math.min(1, strength / Math.max(defense, 1e-6));
-  recordFight(
-    civ,
-    sector,
-    e.arriveAt,
-    victory ? CIV.fightLoss.victory : CIV.fightLoss.defeat * close,
-  );
-  if (victory) recordBurn(civ, sector, e.arriveAt);
-  else recordDefeat(civ, e.arriveAt, lost.length, sector);
-  const loot = emptyResources();
-  if (victory) {
-    state.victories[target.id] = (state.victories[target.id] ?? 0) + 1;
-    // Richer loot for crushing victories, limited by the room left in the hold.
-    // Chantier 37: a ranger in the crew brings back more.
-    const ranger = members.some((v) => v.classId === 'ranger') ? SKILLS.rangerLoot : 1;
-    const bonus = Math.min(2, 1 + 0.25 * (strength / Math.max(defense, 1) - 1)) * ranger;
-    const w = EXPEDITIONS.resourceWeight;
-    let room =
-      e.cargo -
-      crewWeight(crewMembers(state, e.crew)) -
-      RESOURCE_IDS.reduce((sum, id) => sum + e.provisions[id], 0) * w;
-    // Most precious first: seeds, juice, fibre, pulp.
-    for (const id of ['seeds', 'juice', 'fiber', 'pulp'] as const) {
-      const wanted = Math.floor(garrison.loot[id] * bonus * lootByAge(state));
-      const take = Math.max(0, Math.min(wanted, Math.floor(room / w + 1e-9)));
-      loot[id] = take;
-      room -= take * w;
-    }
-  }
-  e.status = 'returning';
-  e.result = {
-    victory,
-    strength: round2(strength),
-    defense,
-    fed: round2(fed),
-    lostInBattle: lost.map((id) => nameOf(e, id)),
-    lostOnReturn: [],
-    loot,
-    ...(victory && hit.length > 0 ? { injured: hit } : {}),
-    sector,
-    ...(victory ? { burnt: true } : {}),
-  };
-}
-
-/** Scouts look around: a partial map and ranges; spotted, they skirmish and see less. */
-function resolveRecon(
-  state: GameState,
-  e: Expedition,
-  garrison: AlienGarrison,
-  defense: number,
-  members: Villager[],
-  fed: number,
-): void {
-  const f = reconForecast(members, shipOf(state));
-  const spotted = withRng(state, (rng) => rng.chance(f.spotChance));
-  let strength = 0;
-  let lost: VillagerId[] = [];
-  const injured: VillagerId[] = [];
-  if (spotted) {
-    // A skirmish with the sentries: outmatched scouts lose one of theirs, the others get away
-    // with a wound.
-    const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
-    strength = strengthOf(state, members, fed) * luck;
-    if (strength < defense * RECON.skirmishShare) {
-      lost = drawLosses(state, members, 1);
-      removeVillagers(state, lost, 'battle', e.arriveAt);
-      e.crew = e.crew.filter((id) => !lost.includes(id));
-      // Chantier 39: a scout lost feeds the civilisation a little.
-      recordDefeat(liveCiv(garrison), e.arriveAt, lost.length);
-    } else {
-      injured.push(drawLosses(state, members, 1)[0]!);
-    }
-  }
-  const quality = spotted ? f.quality * RECON.spottedQuality : f.quality;
-  const spread = RECON.spread.worst - (RECON.spread.worst - RECON.spread.best) * quality;
-  const count = RECON.sectors.base + Math.round(RECON.sectors.perQuality * quality);
-  const known = new Set(state.intel[e.targetId]?.sectors ?? []);
-  // Chantier 19: while the siege is open, scouts on the twin look at the holds and the queen.
-  const deep = !siegeLock(state) && twinTarget(state)?.id === e.targetId;
-  const { sectors, ranges, siege } = withRng(state, (rng) => {
-    const look = deep
-      ? deepRecon(
-          garrison,
-          state.intel[e.targetId]?.siege?.seen ?? [],
-          count,
-          spread,
-          e.arriveAt,
-          rng,
-          state.intel[e.targetId]?.siege?.queen?.sector ?? null,
-        )
-      : null;
-    // Unseen sectors first, so that every mission adds to the map.
-    const order = [
-      ...rng.shuffle(
-        Array.from({ length: INTEL.sectors }, (_, i) => i).filter((i) => !known.has(i)),
-      ),
-      ...rng.shuffle([...known]),
-    ];
-    // Ranges always hold the truth, at a random place inside.
-    const around = (value: number, digits: number): IntelRange => {
-      const width = 2 * spread * value;
-      const min = Math.max(0, value - width * rng.next());
-      const k = 10 ** digits;
-      return { min: Math.floor(min * k) / k, max: Math.ceil((min + width) * k) / k };
-    };
-    const seen = alienEnemies(garrison, defense);
-    return {
-      siege: look?.siege ?? null,
-      sectors: look ? look.sectors : order.slice(0, count).sort((a, b) => a - b),
-      ranges: {
-        defense: around(defense, 1),
-        ferrets: around(seen.ferrets, 0),
-        bats: around(seen.bats, 0),
-      },
-    };
-  });
-  recordIntel(state, e.targetId, {
-    at: e.arriveAt,
-    source: 'recon',
-    ...ranges,
-    victoriesAt: state.victories[e.targetId] ?? 0,
-    sectors,
-    // Chantier 39: the dens and roosts of the civilisation's parcels seen.
-    structures: seenStructures(garrison, e.arriveAt, sectors),
-    ...(spotted ? { spotted: true } : {}),
-    civAge: civAt(garrison, e.arriveAt).age,
-  });
-  if (siege) recordSiegeIntel(state, e.targetId, siege);
+  // Chantier 40: the raids, the reconnaissance and the siege are gone (migrated saves turned
+  // them back); anything else turns back without a fight.
   e.status = 'returning';
   e.result = {
     victory: false,
-    strength: round2(strength),
+    aborted: true,
+    strength: 0,
     defense: 0,
     fed: round2(fed),
-    lostInBattle: lost.map((id) => nameOf(e, id)),
+    lostInBattle: [],
     lostOnReturn: [],
     loot: emptyResources(),
-    spotted,
-    sectors: sectors.filter((i) => !known.has(i)),
-    injured,
   };
 }
 

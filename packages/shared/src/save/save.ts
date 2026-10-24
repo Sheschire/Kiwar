@@ -25,6 +25,7 @@ import { FORGE, ITEM_IDS } from '../data/gear';
 import { INTEL } from '../data/expeditions';
 import { SIEGE } from '../data/siege';
 import { ALIEN_BUILDINGS, CIV_KEYS } from '../data/aliens';
+import { sectorOf } from '../sim/aliens';
 import { LANDING_GOALS, LANDING_PRIORITIES } from '../data/landing';
 import { SHIP_IDS } from '../data/expeditions';
 import type { Face } from '../types/ids';
@@ -879,7 +880,82 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   }),
   // v32 → v33 (chantier 40): beacons and parcels seen, the bestiary.
   32: (raw) => ({ ...raw, faceViews: {}, bestiary: {} }),
+  // v33 → v34 (chantier 40): the landing replaces the raids, the reconnaissance and the siege.
+  33: migrateToLandings,
 };
+
+const OLD_MISSIONS = ['raid', 'recon', 'assault', 'reinforce', 'final', 'retreat'];
+
+/**
+ * Chantier 40: ships of the old missions in flight turn back with their crew; bridgeheads
+ * become beacons (their holders come home at once); the old reports become dated views of the
+ * parcels they saw. A conquered face stays conquered.
+ */
+function migrateToLandings(raw: Record<string, unknown>): Record<string, unknown> {
+  type Raw = Record<string, unknown>;
+  const list = (v: unknown) => (Array.isArray(v) ? (v as Raw[]) : []);
+  const targets = list(raw.targets);
+  const twinId = targets.find((t) => t.distance === 0)?.id as string | undefined;
+  const faceViews = { ...((raw.faceViews ?? {}) as Record<string, Raw>) };
+  const viewOf = (id: string) => {
+    const v = (faceViews[id] ??= { beacons: [], parcels: {} });
+    return v as { beacons: Raw[]; parcels: Record<string, Raw> };
+  };
+  const expeditions = list(raw.expeditions).map((e) => {
+    if (!OLD_MISSIONS.includes(String(e.mission)) || e.status !== 'outbound') return e;
+    return {
+      ...e,
+      status: 'returning',
+      result: {
+        victory: false,
+        aborted: true,
+        strength: 0,
+        defense: 0,
+        fed: 1,
+        lostInBattle: [],
+        lostOnReturn: [],
+        loot: { pulp: 0, fiber: 0, seeds: 0, juice: 0 },
+      },
+    };
+  });
+  const siege = { ...((raw.siege ?? {}) as Raw) };
+  if (twinId)
+    for (const b of list(siege.bridgeheads))
+      viewOf(twinId).beacons.push({ sector: b.sector, since: b.since });
+  siege.bridgeheads = [];
+  siege.counter = null;
+  const villagers = list(raw.villagers).map((v) =>
+    (v.job as Raw | undefined)?.kind === 'outpost' ? { ...v, job: { kind: 'idle' } } : v,
+  );
+  for (const [id, report] of Object.entries((raw.intel ?? {}) as Record<string, Raw>)) {
+    const view = viewOf(id);
+    const lit = new Set(view.beacons.map((b) => b.sector));
+    const defense = (report.defense ?? { min: 0, max: 0 }) as { min: number; max: number };
+    const structures = list(report.structures);
+    for (const sector of (report.sectors ?? []) as number[]) {
+      if (lit.has(sector) || view.parcels[String(sector)]) continue;
+      const inner = sector < INTEL.sectors / 2;
+      view.parcels[String(sector)] = {
+        at: report.at,
+        source: 'report',
+        age: typeof report.civAge === 'number' ? report.civAge : 0,
+        power: inner ? { min: defense.min * 2, max: defense.max * 3 } : { ...defense },
+        units: [],
+        buildings: structures
+          .filter((x) => sectorOf(Number(x.q), Number(x.r)) === sector)
+          .map((x) => ({
+            kind: x.kind === 'den' ? 'burrow' : 'roost',
+            sector,
+            q: x.q,
+            r: x.r,
+          })),
+      };
+    }
+  }
+  for (const v of Object.values(faceViews))
+    (v.beacons as Raw[]).sort((a, b) => Number(a.sector) - Number(b.sector));
+  return { ...raw, expeditions, siege, villagers, faceViews };
+}
 
 /**
  * Chantier 35: after loading an older save, each big building (oldest first) spreads over the

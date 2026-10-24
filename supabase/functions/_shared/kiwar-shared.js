@@ -1721,13 +1721,13 @@ var AGE_OBJECTIVES = [
   {
     id: "industryRaids",
     age: 3,
-    condition: { kind: "stat", stat: "raidsWon", count: 12 },
+    condition: { kind: "stat", stat: "raidsWon", count: 8 },
     reward: { seeds: 8e3, juice: 8e3 }
   },
   {
     id: "industryBridgehead",
     age: 3,
-    condition: { kind: "bridgeheads", count: 1 },
+    condition: { kind: "beacons", count: 1, inner: true },
     reward: { pulp: 2e4, fiber: 2e4 }
   },
   {
@@ -5018,6 +5018,15 @@ function landingLock(state, targetId, sector, orders) {
   if (!validOrders(orders)) return "invalidOrders";
   return null;
 }
+function resetLandings(s) {
+  const flying = new Set(
+    s.expeditions.filter((e) => e.mission === "land" && e.status !== "done").map((e) => e.id)
+  );
+  for (const v of s.villagers)
+    if (v.job.kind === "expedition" && flying.has(v.job.expeditionId)) v.job = { kind: "idle" };
+  s.expeditions = s.expeditions.filter((e) => !flying.has(e.id));
+  s.faceViews = {};
+}
 function parcelTruth(state, g, targetId, sector, at) {
   const civ = civOf(g);
   const view = civAt(g, at, civ);
@@ -7411,7 +7420,6 @@ function advanceInPlace(s, now, events) {
     planWave(s);
     planMeteor(s);
     planComet(s);
-    planCounter(s);
     const constructionEnd = nextConstructionEnd(s);
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
@@ -7429,12 +7437,10 @@ function advanceInPlace(s, now, events) {
     const deliveryAt = nextDeliveryEvent(s);
     const infusionEnd = nextInfusionEnd(s);
     const titanEnd = nextTitanEnd(s);
-    const siegeAt = nextSiegeEvent(s);
     const civAt2 = nextCivEvent(s);
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
       garrisonAt,
-      siegeAt,
       civAt2,
       infusionEnd,
       titanEnd,
@@ -7490,7 +7496,6 @@ function advanceInPlace(s, now, events) {
     if (researchAt === nextEvent) researchTick(s, researchAt, events);
     if (forgeAt === nextEvent) forgeTick(s, forgeAt, events);
     if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
-    if (siegeAt === nextEvent) siegeTick(s, siegeAt, events);
     if (civAt2 === nextEvent) civTick(s, civAt2);
     const st = hungerStage(s);
     if (st !== stage) {
@@ -10475,155 +10480,16 @@ function resolveArrival(state, e) {
   }
   if (e.mission === "found") return landSettlers(state, e, members, fed);
   if (e.mission === "land") return resolveLanding(state, e, members, fed);
-  if (isSiegeMission(e.mission)) return resolveSiegeLanding(state, e, members, fed);
-  const garrison = state.aliens?.[target.id];
-  const defense = alienDefense(state, target.id, e.arriveAt);
-  if (!garrison || defense === null) throw new Error("resolveArrival: hidden garrison");
-  if (e.mission === "recon") return resolveRecon(state, e, garrison, defense, members, fed);
-  const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
-  const strength = strengthOf(state, members, fed) * luck;
-  const victory = strength >= defense;
-  const pad = launchpadOf(state, e.launchpadId);
-  const armor = pad ? shipOf(state).armor : 0;
-  const losses = Math.min(
-    e.crew.length,
-    Math.round(e.crew.length * lossShare(strength, defense) * (1 - armor))
-  );
-  const hit = drawLosses(state, members, losses);
-  const lost = victory ? [] : hit;
-  removeVillagers(state, lost, "battle", e.arriveAt);
-  e.crew = e.crew.filter((id3) => !lost.includes(id3));
-  const seen = alienEnemies(garrison, defense);
-  const civAge = civAt(garrison, e.arriveAt).age;
-  recordIntel(state, target.id, {
-    at: e.arriveAt,
-    source: "raid",
-    defense: { min: defense, max: defense },
-    ferrets: { min: seen.ferrets, max: seen.ferrets },
-    bats: { min: seen.bats, max: seen.bats },
-    victoriesAt: state.victories[target.id] ?? 0,
-    civAge
-  });
-  const held = twinTarget(state)?.id === target.id ? state.siege.bridgeheads.map((b) => b.sector) : [];
-  const sector = raidSector(garrison, e.id, held);
-  const civ = liveCiv(garrison);
-  const close = Math.min(1, strength / Math.max(defense, 1e-6));
-  recordFight(
-    civ,
-    sector,
-    e.arriveAt,
-    victory ? CIV.fightLoss.victory : CIV.fightLoss.defeat * close
-  );
-  if (victory) recordBurn(civ, sector, e.arriveAt);
-  else recordDefeat(civ, e.arriveAt, lost.length, sector);
-  const loot = emptyResources();
-  if (victory) {
-    state.victories[target.id] = (state.victories[target.id] ?? 0) + 1;
-    const ranger = members.some((v) => v.classId === "ranger") ? SKILLS.rangerLoot : 1;
-    const bonus = Math.min(2, 1 + 0.25 * (strength / Math.max(defense, 1) - 1)) * ranger;
-    const w = EXPEDITIONS.resourceWeight;
-    let room = e.cargo - crewWeight(crewMembers(state, e.crew)) - RESOURCE_IDS.reduce((sum, id3) => sum + e.provisions[id3], 0) * w;
-    for (const id3 of ["seeds", "juice", "fiber", "pulp"]) {
-      const wanted = Math.floor(garrison.loot[id3] * bonus * lootByAge(state));
-      const take = Math.max(0, Math.min(wanted, Math.floor(room / w + 1e-9)));
-      loot[id3] = take;
-      room -= take * w;
-    }
-  }
-  e.status = "returning";
-  e.result = {
-    victory,
-    strength: round22(strength),
-    defense,
-    fed: round22(fed),
-    lostInBattle: lost.map((id3) => nameOf(e, id3)),
-    lostOnReturn: [],
-    loot,
-    ...victory && hit.length > 0 ? { injured: hit } : {},
-    sector,
-    ...victory ? { burnt: true } : {}
-  };
-}
-function resolveRecon(state, e, garrison, defense, members, fed) {
-  const f = reconForecast(members, shipOf(state));
-  const spotted = withRng(state, (rng) => rng.chance(f.spotChance));
-  let strength = 0;
-  let lost = [];
-  const injured = [];
-  if (spotted) {
-    const luck = withRng(state, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
-    strength = strengthOf(state, members, fed) * luck;
-    if (strength < defense * RECON.skirmishShare) {
-      lost = drawLosses(state, members, 1);
-      removeVillagers(state, lost, "battle", e.arriveAt);
-      e.crew = e.crew.filter((id3) => !lost.includes(id3));
-      recordDefeat(liveCiv(garrison), e.arriveAt, lost.length);
-    } else {
-      injured.push(drawLosses(state, members, 1)[0]);
-    }
-  }
-  const quality = spotted ? f.quality * RECON.spottedQuality : f.quality;
-  const spread = RECON.spread.worst - (RECON.spread.worst - RECON.spread.best) * quality;
-  const count = RECON.sectors.base + Math.round(RECON.sectors.perQuality * quality);
-  const known = new Set(state.intel[e.targetId]?.sectors ?? []);
-  const deep = !siegeLock(state) && twinTarget(state)?.id === e.targetId;
-  const { sectors, ranges, siege } = withRng(state, (rng) => {
-    const look = deep ? deepRecon(
-      garrison,
-      state.intel[e.targetId]?.siege?.seen ?? [],
-      count,
-      spread,
-      e.arriveAt,
-      rng,
-      state.intel[e.targetId]?.siege?.queen?.sector ?? null
-    ) : null;
-    const order = [
-      ...rng.shuffle(
-        Array.from({ length: INTEL.sectors }, (_, i) => i).filter((i) => !known.has(i))
-      ),
-      ...rng.shuffle([...known])
-    ];
-    const around = (value, digits) => {
-      const width = 2 * spread * value;
-      const min = Math.max(0, value - width * rng.next());
-      const k = 10 ** digits;
-      return { min: Math.floor(min * k) / k, max: Math.ceil((min + width) * k) / k };
-    };
-    const seen = alienEnemies(garrison, defense);
-    return {
-      siege: look?.siege ?? null,
-      sectors: look ? look.sectors : order.slice(0, count).sort((a, b) => a - b),
-      ranges: {
-        defense: around(defense, 1),
-        ferrets: around(seen.ferrets, 0),
-        bats: around(seen.bats, 0)
-      }
-    };
-  });
-  recordIntel(state, e.targetId, {
-    at: e.arriveAt,
-    source: "recon",
-    ...ranges,
-    victoriesAt: state.victories[e.targetId] ?? 0,
-    sectors,
-    // Chantier 39: the dens and roosts of the civilisation's parcels seen.
-    structures: seenStructures(garrison, e.arriveAt, sectors),
-    ...spotted ? { spotted: true } : {},
-    civAge: civAt(garrison, e.arriveAt).age
-  });
-  if (siege) recordSiegeIntel(state, e.targetId, siege);
   e.status = "returning";
   e.result = {
     victory: false,
-    strength: round22(strength),
+    aborted: true,
+    strength: 0,
     defense: 0,
     fed: round22(fed),
-    lostInBattle: lost.map((id3) => nameOf(e, id3)),
+    lostInBattle: [],
     lostOnReturn: [],
-    loot: emptyResources(),
-    spotted,
-    sectors: sectors.filter((i) => !known.has(i)),
-    injured
+    loot: emptyResources()
   };
 }
 function resolveReturn(state, e, events = []) {
@@ -11354,12 +11220,11 @@ function alienEnemies(g, defense) {
   return { ferrets, bats: total - ferrets };
 }
 function canResolveArrival(state, e) {
-  return !!e.broken || // Chantier 19: a reinforcement meets no alien on its bridgehead.
-  e.mission === "reinforce" || // …nor does a settlers' ship on a conquered face.
+  return !!e.broken || // Chantier 19: a settlers' ship meets no alien on a conquered face.
   e.mission === "found" || !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
 }
 function awaitingServer(state, now) {
-  return awaitingReport(state, now).length > 0 || counterAwaited(state, now) || waveAwaited(state, now);
+  return awaitingReport(state, now).length > 0 || waveAwaited(state, now);
 }
 function waveAwaited(state, now) {
   const w = state.threats.next;
@@ -11367,8 +11232,6 @@ function waveAwaited(state, now) {
 }
 function hiddenDue(state, now) {
   const out = state.expeditions.filter((e) => e.status === "outbound" && e.arriveAt <= now).map((e) => e.arriveAt);
-  const c = state.siege.counter;
-  if (c && c.at <= now) out.push(c.at);
   const w = state.threats.next;
   if (w && !w.announced && w.announceAt <= now) out.push(w.announceAt);
   return out;
@@ -11439,7 +11302,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 33;
+var SCHEMA_VERSION = 34;
 var MISSION_KINDS = [
   "land",
   "raid",
@@ -11887,9 +11750,18 @@ function objectiveProgress(state, def) {
     case "paths":
       return of(state.paths.length, c.count);
     case "intel":
-      return of(Object.keys(state.intel).length, c.count);
-    case "bridgeheads":
-      return of(state.siege.bridgeheads.length, c.count);
+      return of(
+        Object.values(state.faceViews).reduce((n, f) => n + Object.keys(f.parcels).length, 0) || Object.keys(state.intel).length,
+        c.count
+      );
+    case "beacons":
+      return of(
+        Object.values(state.faceViews).reduce(
+          (n, f) => n + f.beacons.filter((b) => !c.inner || isInner(b.sector)).length,
+          0
+        ),
+        c.count
+      );
   }
 }
 function isObjectiveComplete(state, def) {
@@ -12687,8 +12559,8 @@ function execute(s, cmd, ctx, events) {
       if (isLaunchpadBusy(s, pad.id)) fail("launchpadBusy");
       if (pad.damaged) fail("launchpadDamaged");
       if (!s.targets.some((t) => t.id === cmd.targetId)) fail("unknownTarget");
-      const mission = cmd.mission ?? "raid";
-      if (mission === "retreat") fail("invalidMission");
+      const mission = cmd.mission ?? "land";
+      if (mission !== "land" && mission !== "found") fail("invalidMission");
       const onTwin = twinTarget(s)?.id === cmd.targetId;
       if (mission === "found") {
         const lock = foundLock(s);
@@ -12696,7 +12568,6 @@ function execute(s, cmd, ctx, events) {
         if (!onTwin) fail("unknownTarget");
       } else if (onTwin && s.siege.conqueredAt > 0) fail("conquered");
       if (mission !== "found" && cmd.freight) fail("invalidMission");
-      if (isSiegeMission(mission) && !onTwin) fail("unknownTarget");
       if (mission === "land") {
         const lock = landingLock(s, cmd.targetId, cmd.sector, cmd.orders);
         if (lock) fail(lock);
@@ -12708,16 +12579,16 @@ function execute(s, cmd, ctx, events) {
       const crew = crewOf(s, cmd.crew);
       if (!crew) return fail("invalidCrew");
       const size = typeof cmd.crew === "number" ? cmd.crew : crew.length;
-      if (size < minCrew(cmd.mission)) fail("crewTooSmall");
+      if (size < minCrew(mission)) fail("crewTooSmall");
       if (cmd.freight) {
         for (const r of RESOURCE_IDS) {
           const v = cmd.freight[r] ?? 0;
           if (!Number.isFinite(v) || v < 0) fail("invalidCount");
         }
       }
-      if (size > maxCrew(s, pad, cmd.mission)) fail("crewTooLarge");
+      if (size > maxCrew(s, pad, mission)) fail("crewTooLarge");
       if (crew.filter((v) => v.kikiwiwi).length > KIKIWIWI.perShip) fail("oneKikiwiwi");
-      siegeLaunchCheck(s, cmd, crew);
+      if (cmd.holders?.length || cmd.bringBack?.length) fail("invalidHolders");
       const forecast = forecastExpedition(s, cmd);
       if (forecast.weight > forecast.cargo + 1e-9) fail("overloaded");
       if (forecast.returnWeight > forecast.cargo + 1e-9) fail("overloaded");
@@ -13187,30 +13058,6 @@ function cleanKiwiName(raw) {
   const name = raw.replace(/\p{Cc}/gu, "").replace(/\s+/g, " ").trim();
   if (name.length === 0 || [...name].length > KIWI_NAME_MAX) return null;
   return name;
-}
-function siegeLaunchCheck(s, cmd, crew) {
-  const mission = cmd.mission ?? "raid";
-  const ids = new Set(crew.map((v) => v.id));
-  if (mission === "assault") {
-    if (cmd.sector === void 0) return fail("notASector");
-    const lock = assaultLock(s, cmd.sector);
-    if (lock) fail(lock);
-    const holders = cmd.holders ?? [];
-    if (holders.length === 0 || new Set(holders).size !== holders.length || holders.some((id3) => !ids.has(id3)))
-      fail("invalidHolders");
-  } else if (mission === "reinforce") {
-    const b = cmd.sector === void 0 ? void 0 : bridgeheadAt(s, cmd.sector);
-    if (!b) return fail("noBridgehead");
-    const back = cmd.bringBack ?? [];
-    if (new Set(back).size !== back.length || back.some((id3) => !b.holders.includes(id3)))
-      fail("invalidHolders");
-    if (crew.length + back.length === 0) fail("crewTooSmall");
-  } else if (mission === "final") {
-    const lock = finalLock(s);
-    if (lock) fail(lock);
-  }
-  if (mission !== "assault" && cmd.holders?.length) fail("invalidHolders");
-  if (mission !== "reinforce" && cmd.bringBack?.length) fail("invalidHolders");
 }
 
 // node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
@@ -17964,8 +17811,73 @@ var MIGRATIONS = {
     automation: { ...raw.automation, forge: true, equip: true }
   }),
   // v32 → v33 (chantier 40): beacons and parcels seen, the bestiary.
-  32: (raw) => ({ ...raw, faceViews: {}, bestiary: {} })
+  32: (raw) => ({ ...raw, faceViews: {}, bestiary: {} }),
+  // v33 → v34 (chantier 40): the landing replaces the raids, the reconnaissance and the siege.
+  33: migrateToLandings
 };
+var OLD_MISSIONS = ["raid", "recon", "assault", "reinforce", "final", "retreat"];
+function migrateToLandings(raw) {
+  const list = (v) => Array.isArray(v) ? v : [];
+  const targets = list(raw.targets);
+  const twinId = targets.find((t) => t.distance === 0)?.id;
+  const faceViews = { ...raw.faceViews ?? {} };
+  const viewOf = (id3) => {
+    const v = faceViews[id3] ??= { beacons: [], parcels: {} };
+    return v;
+  };
+  const expeditions = list(raw.expeditions).map((e) => {
+    if (!OLD_MISSIONS.includes(String(e.mission)) || e.status !== "outbound") return e;
+    return {
+      ...e,
+      status: "returning",
+      result: {
+        victory: false,
+        aborted: true,
+        strength: 0,
+        defense: 0,
+        fed: 1,
+        lostInBattle: [],
+        lostOnReturn: [],
+        loot: { pulp: 0, fiber: 0, seeds: 0, juice: 0 }
+      }
+    };
+  });
+  const siege = { ...raw.siege ?? {} };
+  if (twinId)
+    for (const b of list(siege.bridgeheads))
+      viewOf(twinId).beacons.push({ sector: b.sector, since: b.since });
+  siege.bridgeheads = [];
+  siege.counter = null;
+  const villagers = list(raw.villagers).map(
+    (v) => v.job?.kind === "outpost" ? { ...v, job: { kind: "idle" } } : v
+  );
+  for (const [id3, report] of Object.entries(raw.intel ?? {})) {
+    const view = viewOf(id3);
+    const lit = new Set(view.beacons.map((b) => b.sector));
+    const defense = report.defense ?? { min: 0, max: 0 };
+    const structures = list(report.structures);
+    for (const sector of report.sectors ?? []) {
+      if (lit.has(sector) || view.parcels[String(sector)]) continue;
+      const inner = sector < INTEL.sectors / 2;
+      view.parcels[String(sector)] = {
+        at: report.at,
+        source: "report",
+        age: typeof report.civAge === "number" ? report.civAge : 0,
+        power: inner ? { min: defense.min * 2, max: defense.max * 3 } : { ...defense },
+        units: [],
+        buildings: structures.filter((x) => sectorOf(Number(x.q), Number(x.r)) === sector).map((x) => ({
+          kind: x.kind === "den" ? "burrow" : "roost",
+          sector,
+          q: x.q,
+          r: x.r
+        }))
+      };
+    }
+  }
+  for (const v of Object.values(faceViews))
+    v.beacons.sort((a, b) => Number(a.sector) - Number(b.sector));
+  return { ...raw, expeditions, siege, villagers, faceViews };
+}
 function spreadOldBuildings(state) {
   const map = faceMapOf(state);
   for (const b of state.buildings) {
@@ -18116,7 +18028,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     targetId: id2,
     crew: external_exports.union([int.min(0).max(1e3), external_exports.array(id2).max(200)]),
     provisions: external_exports.object({ pulp: external_exports.number().min(0).max(1e7), juice: external_exports.number().min(0).max(1e7) }),
-    mission: external_exports.enum(["land", "raid", "recon", "assault", "reinforce", "final", "found"]).optional(),
+    mission: external_exports.enum(["land", "found"]).optional(),
     orders: external_exports.object({
       posture: external_exports.enum(POSTURES),
       priority: external_exports.enum(["nearest", "air", "casters", "weakest"]),
@@ -18916,6 +18828,7 @@ async function handle(ctx, body) {
       };
       delete imported.aliens;
       resetSiege(imported);
+      resetLandings(imported);
       ensureAliens(imported, ctx.randomSeed());
       const state = advance(imported, now).state;
       const saved = existing ? await repo.update(existing.id, state, existing.version) : await repo.create(ctx.userId, soloId(ctx), state);
@@ -19814,6 +19727,7 @@ export {
   reserveOf,
   reserveTarget,
   reserves,
+  resetLandings,
   resetSiege,
   resolveArrival,
   resolveLanding,

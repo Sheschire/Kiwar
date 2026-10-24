@@ -74,15 +74,7 @@ import {
   type MissionKind,
   type Villager,
 } from './state';
-import {
-  assaultLock,
-  bridgeheadAt,
-  finalLock,
-  fortifyLock,
-  isSiegeMission,
-  startFortify,
-  twinTarget,
-} from './siege';
+import { fortifyLock, startFortify, twinTarget } from './siege';
 import { returnHome, weakestWorker } from './posts';
 import { TECHS, type TechId } from '../data/research';
 import { researchTick, techEffects, techStatus } from './research';
@@ -790,8 +782,10 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (isLaunchpadBusy(s, pad.id)) fail('launchpadBusy');
       if (pad.damaged) fail('launchpadDamaged');
       if (!s.targets.some((t) => t.id === cmd.targetId)) fail('unknownTarget');
-      const mission = cmd.mission ?? 'raid';
-      if (mission === 'retreat') fail('invalidMission');
+      // Chantier 40: the landing replaces the raids, the reconnaissance and the siege; the
+      // settlers' ship stays.
+      const mission = cmd.mission ?? 'land';
+      if (mission !== 'land' && mission !== 'found') fail('invalidMission');
       const onTwin = twinTarget(s)?.id === cmd.targetId;
       if (mission === 'found') {
         const lock = foundLock(s);
@@ -799,7 +793,6 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         if (!onTwin) fail('unknownTarget');
       } else if (onTwin && s.siege.conqueredAt > 0) fail('conquered');
       if (mission !== 'found' && cmd.freight) fail('invalidMission');
-      if (isSiegeMission(mission) && !onTwin) fail('unknownTarget');
       if (mission === 'land') {
         const lock = landingLock(s, cmd.targetId, cmd.sector, cmd.orders);
         if (lock) fail(lock);
@@ -814,16 +807,16 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const crew = crewOf(s, cmd.crew);
       if (!crew) return fail('invalidCrew');
       const size = typeof cmd.crew === 'number' ? cmd.crew : crew.length;
-      if (size < minCrew(cmd.mission)) fail('crewTooSmall');
+      if (size < minCrew(mission)) fail('crewTooSmall');
       if (cmd.freight) {
         for (const r of RESOURCE_IDS) {
           const v = cmd.freight[r] ?? 0;
           if (!Number.isFinite(v) || v < 0) fail('invalidCount');
         }
       }
-      if (size > maxCrew(s, pad, cmd.mission)) fail('crewTooLarge');
+      if (size > maxCrew(s, pad, mission)) fail('crewTooLarge');
       if (crew.filter((v) => v.kikiwiwi).length > KIKIWIWI.perShip) fail('oneKikiwiwi');
-      siegeLaunchCheck(s, cmd, crew);
+      if (cmd.holders?.length || cmd.bringBack?.length) fail('invalidHolders');
       const forecast = forecastExpedition(s, cmd)!;
       if (forecast.weight > forecast.cargo + 1e-9) fail('overloaded');
       if (forecast.returnWeight > forecast.cargo + 1e-9) fail('overloaded');
@@ -1333,38 +1326,4 @@ export function cleanKiwiName(raw: string): string | null {
     .trim();
   if (name.length === 0 || [...name].length > KIWI_NAME_MAX) return null;
   return name;
-}
-
-/** Chantier 19: what an assault, a reinforcement or the final assault needs at take-off. */
-function siegeLaunchCheck(
-  s: GameState,
-  cmd: Extract<Command, { type: 'launchExpedition' }>,
-  crew: Villager[],
-): void {
-  const mission = cmd.mission ?? 'raid';
-  const ids = new Set(crew.map((v) => v.id));
-  if (mission === 'assault') {
-    if (cmd.sector === undefined) return fail('notASector');
-    const lock = assaultLock(s, cmd.sector);
-    if (lock) fail(lock);
-    const holders = cmd.holders ?? [];
-    if (
-      holders.length === 0 ||
-      new Set(holders).size !== holders.length ||
-      holders.some((id) => !ids.has(id))
-    )
-      fail('invalidHolders');
-  } else if (mission === 'reinforce') {
-    const b = cmd.sector === undefined ? undefined : bridgeheadAt(s, cmd.sector);
-    if (!b) return fail('noBridgehead');
-    const back = cmd.bringBack ?? [];
-    if (new Set(back).size !== back.length || back.some((id) => !b.holders.includes(id)))
-      fail('invalidHolders');
-    if (crew.length + back.length === 0) fail('crewTooSmall');
-  } else if (mission === 'final') {
-    const lock = finalLock(s);
-    if (lock) fail(lock);
-  }
-  if (mission !== 'assault' && cmd.holders?.length) fail('invalidHolders');
-  if (mission !== 'reinforce' && cmd.bringBack?.length) fail('invalidHolders');
 }

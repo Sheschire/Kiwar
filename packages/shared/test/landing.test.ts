@@ -8,6 +8,8 @@ import {
   hashSeed,
   HOUR_MS,
   LANDING,
+  migrateState,
+  resetLandings,
   landingOutcome,
   landingSetup,
   parcelTruth,
@@ -348,5 +350,95 @@ describe('the landing (chantier 40)', () => {
     expect(r.ok && r.events.some((x) => x.type === 'expeditionArrived')).toBe(true);
     if (e.result!.outcome !== 'defeat')
       expect(r.state!.faceViews[base.targetId]!.parcels['8']).toBeDefined();
+  });
+
+  it('migrates v33 saves: ships turn back, bridgeheads become beacons, reports dated views', () => {
+    const base = landingColony();
+    const s = base.s;
+    const raw = JSON.parse(JSON.stringify(s)) as Record<string, unknown>;
+    raw.schemaVersion = 33;
+    const holder = s.villagers[s.villagers.length - 1]!.id;
+    const flyer = s.villagers[s.villagers.length - 2]!.id;
+    raw.villagers = (raw.villagers as Record<string, unknown>[]).map((v) =>
+      v.id === holder
+        ? { ...v, job: { kind: 'outpost', sector: 9 } }
+        : v.id === flyer
+          ? { ...v, job: { kind: 'expedition', expeditionId: 'x9' } }
+          : v,
+    );
+    raw.expeditions = [
+      {
+        id: 'x9',
+        mission: 'raid',
+        targetId: base.targetId,
+        launchpadId: base.padId,
+        crew: [flyer],
+        roster: [{ id: flyer, name: 'F' }],
+        provisions: { pulp: 10, juice: 5, fiber: 0, seeds: 0 },
+        cargo: 150,
+        departedAt: s.now,
+        arriveAt: s.now + HOUR_MS,
+        returnAt: s.now + 2 * HOUR_MS,
+        status: 'outbound',
+        result: null,
+      },
+    ];
+    raw.siege = {
+      ...(raw.siege as object),
+      bridgeheads: [{ sector: 9, since: s.now - HOUR_MS, holders: [holder], fortified: false }],
+      conqueredAt: 0,
+    };
+    raw.intel = {
+      [base.targetId]: {
+        at: s.now - HOUR_MS,
+        source: 'recon',
+        defense: { min: 5, max: 8 },
+        ferrets: { min: 3, max: 5 },
+        bats: { min: 2, max: 3 },
+        victoriesAt: 0,
+        sectors: [1, 7, 9],
+        structures: [],
+        civAge: 0,
+      },
+    };
+    delete raw.faceViews;
+    delete raw.bestiary;
+    raw.schemaVersion = 32;
+    const m = migrateState(raw);
+    expect(m.ok).toBe(true);
+    if (!m.ok) return;
+    const st = m.state;
+    expect(st.expeditions[0]).toMatchObject({ status: 'returning', result: { aborted: true } });
+    expect(st.siege.bridgeheads).toEqual([]);
+    expect(st.villagers.find((v) => v.id === holder)!.job.kind).toBe('idle');
+    const face = st.faceViews[base.targetId]!;
+    expect(face.beacons.map((b) => b.sector)).toEqual([9]);
+    expect(face.parcels['7']).toMatchObject({ source: 'report', power: { min: 5, max: 8 } });
+    expect(face.parcels['1']).toMatchObject({ source: 'report', power: { min: 10, max: 24 } });
+    expect(face.parcels['9']).toBeUndefined();
+    // The flyer comes home with the ship, as planned.
+    const home = advance(st, st.now + 3 * HOUR_MS).state;
+    expect(home.villagers.find((v) => v.id === flyer)!.job.kind).not.toBe('expedition');
+  });
+
+  it('keeps a conquered face conquered through the migration', () => {
+    const { s } = landingColony();
+    const raw = JSON.parse(JSON.stringify(s)) as Record<string, unknown>;
+    raw.schemaVersion = 33;
+    raw.siege = { ...(raw.siege as object), conqueredAt: s.now };
+    const m = migrateState(raw);
+    expect(m.ok && m.state.siege.conqueredAt).toBe(s.now);
+  });
+
+  it('an imported save loses its beacons and its landings in flight', () => {
+    const base = landingColony();
+    const ids = base.s.villagers.slice(-3).map((v) => v.id);
+    const launched = run(base.s, land(base.padId, base.targetId, ids, 8), base.t, base.map);
+    launched.faceViews[base.targetId] = { beacons: [{ sector: 7, since: base.t }], parcels: {} };
+    const imported = cloneState(launched);
+    resetLandings(imported);
+    expect(imported.faceViews).toEqual({});
+    expect(imported.expeditions).toHaveLength(0);
+    expect(imported.villagers.some((v) => v.job.kind === 'expedition')).toBe(false);
   });
 });

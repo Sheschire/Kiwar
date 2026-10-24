@@ -24,6 +24,7 @@ import {
   type GameState,
   type TechId,
   STARDUST_SCALE,
+  LANDING,
 } from '../src';
 import { findTile, rich, run, setup, T0, siteFor } from './helpers';
 
@@ -326,6 +327,9 @@ describe('the Kikiwiwi', () => {
       targetId: t.targets[0]!.id,
       crew: [k.id, second.id],
       provisions: { pulp: 200, juice: 200 },
+      mission: 'land',
+      sector: 8,
+      orders: LANDING.defaultOrders,
     };
     expect(errorOf(t, launch, map)).toBe('oneKikiwiwi');
   });

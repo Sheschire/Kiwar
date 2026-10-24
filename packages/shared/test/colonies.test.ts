@@ -27,6 +27,7 @@ import {
   type Command,
   type GameState,
   type VillagerId,
+  LANDING,
 } from '../src';
 import { findTile, kiwi, rich, setup, T0 } from './helpers';
 
@@ -78,7 +79,11 @@ const settlers = (s: GameState, n = 6) =>
     .slice(0, n)
     .map((v) => v.id);
 
-function foundCmd(s: GameState, crew: VillagerId[], freight = { fiber: 300, seeds: 300 }): Command {
+function foundCmd(
+  s: GameState,
+  crew: VillagerId[],
+  freight = { fiber: 300, seeds: 300 },
+): Extract<Command, { type: 'launchExpedition' }> {
   return {
     type: 'launchExpedition',
     launchpadId: PAD,
@@ -116,7 +121,13 @@ describe('founding the second colony', () => {
     });
     expect(few).toBe('crewTooSmall');
     // Any other mission to the conquered face is refused, and freight is for settlers only.
-    const raid = { ...foundCmd(s, settlers(s)), mission: 'raid' as const, freight: undefined };
+    const raid = {
+      ...foundCmd(s, settlers(s)),
+      mission: 'land' as const,
+      freight: undefined,
+      sector: 8,
+      orders: LANDING.defaultOrders,
+    };
     expect(validateCommand(s, raid, { now: T0, map })).toBe('conquered');
     const r = applyCommand(s, foundCmd(s, settlers(s)), { now: T0, map });
     expect(r.ok).toBe(true);
