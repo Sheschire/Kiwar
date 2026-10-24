@@ -94,6 +94,13 @@ but can switch any automatism off to optimise by hand".
   `releaseFullCraters(state)` releases the craters no longer worth it; the automation sends at
   most `METEORS.autoShare` (a quarter) of the colony to the craters.
 
+## Chantier 43
+
+- The Speech's gathering (`gathered(state)` in `sim/speech.ts`: the shelter or
+  `state.speech.until`) stops every rate the tasks feed (harvest, research, forge, craters,
+  stardust) but moves nobody: the dispatcher is unchanged, the crowd is drawn by the client.
+- Each kiwi works at its own morale (`kiwiMoraleWork`): `bestFor` still compares raw powers.
+
 ## Commands
 
 `setAutomation { task, on }`, `assignBuilder { queueItemId, villagerId }` (manual builder;

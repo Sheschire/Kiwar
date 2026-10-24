@@ -247,6 +247,8 @@ export function buildLock(state: GameState, type: BuildingType): CommandError | 
     if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return 'buildingLimit';
   } else if (type === 'townHall') {
     if (copiesOf(state, 'townHall') > 0) return 'townHallExists';
+  } else if (type === 'campfire') {
+    // Chantier 43: outside the building cap, as many as the player pays for.
   } else if (type === 'monument') {
     if (copiesOf(state, 'monument') > 0) return 'monumentExists';
     if (!hasTech(state, PASSAGE_TECHS[1]!)) return 'passageMissing';

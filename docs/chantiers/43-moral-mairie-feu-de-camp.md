@@ -1,7 +1,7 @@
 # Chantier 43 — Moral par kiwi, Mairie et feu de camp
 
 Acte III « Le village vivant » du [carnet de route](../CARNET_DE_ROUTE.md) (ex-chantier 27,
-élargi au moral). **Simulation + client + bot.** Après le **35** (la Mairie occupe 3 tuiles) et
+élargi au moral). **Simulation + client + bot.** — **Fait** (octobre 2026, voir en bas). Après le **35** (la Mairie occupe 3 tuiles) et
 l'acte II. **Fiche courte** : on la détaille au début de sa session, avec l'acte II joué.
 
 **Skills à charger** : `kiwar-cycles`, `kiwar-rpg`, `kiwar-tasks`, `kiwar-design`.
@@ -97,3 +97,32 @@ Chemins sous `packages/shared/src/`.
   net est positif au bon moment, négatif si on le répète trop.
 - Les kiwis se réunissent vraiment au feu de camp au crépuscule.
 - Hors ligne, le calcul est exact.
+
+## Fait (octobre 2026)
+
+Décisions du porteur en début de session : jauge = besoins + souvenirs datés (par paliers) ;
+travail ×0,7 à 0, ×1 à 50, ×1,15 à 100, un kiwi sous 20 boude mais travaille ; pas d'effet au
+combat ; attentes qui montent avec l'âge ; loisir = un loisir à portée du lit ; Discours =
+moral seul ; plusieurs feux de camp ; pas de lien avec les blessures ; pas de nuisances au 43.
+
+1. **Jauge par kiwi** (0–100) : base de l'âge 46/36/31/26, repas, saison, maire et bardes
+   (communs), lit, loisir, caractère (propres), souvenirs (deuil −15, chagrin −25 pour les
+   colocataires et l'équipage, discours, veillée). Chaque kiwi travaille à son moral.
+   Sauvegarde v36 (le deuil de colonie devient un souvenir).
+2. **Mairie et Discours** : 3 tuiles, unique, hors quota, Nid 3, niveaux 1–12 ; 20 min de
+   rassemblement sans travail, puis +12 (+ Charisme, Fête ×2) pendant 8 à 12 h ; recharge
+   24/18/12 h ; refusé dans l'heure qui précède une vague. L'ancienne compétence disparaît.
+   Sauvegarde v37.
+3. **Feu de camp** : 1 tuile, hors quota, copies ×1,6 ; loisir à 3 cases des huttes ; au
+   crépuscule, souper (+8 jusqu'au soir suivant, repas de nuit −10 %).
+4. **Client** : jauge et souvenirs dans la fiche du kiwi, mini-jauge et « boude » dans la
+   liste, carte Moral, fiches de la Mairie et du feu de camp, modèles (Mairie, jardin,
+   feu), rassemblement en 3D devant la Mairie, son `speech.crowd`.
+5. **Veillée** : les kiwis qui ont soupé s'assoient en cercle autour du feu la première
+   moitié de la nuit (mangent, chantent, applaudissent, dansent), halo du feu la nuit.
+6. **Bot et équilibrage** : Mairie après la Bibliothèque, jusqu'à quatre feux, discours de
+   nuit ; mécanique `village` dans `--impact`. Mesures dans `DECISIONS.md`.
+
+**Reste** (voir `DETTE.md`) : visites de jour aux loisirs, nuisances et beauté (44), son de la
+veillée. **À tester avec le porteur** : la difficulté du moral par âge, le poids du deuil
+avec l'usure des débarquements, la valeur d'un discours (gain net selon l'heure).

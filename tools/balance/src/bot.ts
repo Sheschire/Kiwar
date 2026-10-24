@@ -68,6 +68,7 @@ import {
 } from './bot/economy';
 import { rpgDecision } from './bot/rpg';
 import { forgeBuildDecision, forgeOrder } from './bot/forge';
+import { villageDecision } from './bot/village';
 import { cometOrders } from './bot/sky';
 import { titanOrders, labDecision } from './bot/titans';
 import { siegeOrder } from './bot/siege';
@@ -220,7 +221,7 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
       cmds.push({ type: 'spendStatPoint', villagerId: v.id, stat });
   }
   // Chantier 43: the mayor speaks at the Town Hall at night (the gathering costs little then).
-  if (isNight(state) && !speechLock(state)) cmds.push({ type: 'giveSpeech' });
+  if (play.village && isNight(state) && !speechLock(state)) cmds.push({ type: 'giveSpeech' });
 
   // Chantier 13: blessings. Since chantier 15 the automation sends the pickers of the
   // stardust, the researchers, the miners of the craters, the garrison and the repairs.
@@ -348,6 +349,12 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
   // 2b. RPG (chantier 03): a School once the Nest is level 2, then a mayor and a builder.
   const rpg = rpgDecision(state, map, build, has, play.expeditions, play.classes);
   if (rpg) return [...cmds, rpg];
+
+  // 2b'. Chantier 43: the Town Hall, then campfires near the huts.
+  if (play.village) {
+    const village = villageDecision(state, map, build, has);
+    if (village) return [...cmds, village];
+  }
 
   // 2c. Research and ages (chantier 08): Library, researchers, technologies, the monument.
   const ages = ageDecision(state, map, build, has);
@@ -484,7 +491,7 @@ function checkMilestones(
 }
 
 /** Mechanics the bot can be told to leave aside, to measure what each one brings. */
-export const MECHANICS = ['paths', 'camps', 'expeditions', 'classes', 'forge'] as const;
+export const MECHANICS = ['paths', 'camps', 'expeditions', 'classes', 'forge', 'village'] as const;
 export type Mechanic = (typeof MECHANICS)[number];
 export interface Play extends Record<Mechanic, boolean> {
   /** Next look at the paths, the expeditions and the Forge's orders. */

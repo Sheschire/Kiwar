@@ -14,6 +14,7 @@ import {
   kiwiMorale,
   LEISURE,
   MORALE,
+  nestDef,
   type GameState,
 } from '../src';
 import { rich, setup } from './helpers';
@@ -61,6 +62,15 @@ describe('the campfire (chantier 43)', () => {
     const { s: one } = withFire(2);
     one.buildings.find((b) => b.type === 'nest')!.level = 3;
     expect(buildCost(one, 'campfire').fiber).toBeGreaterThan(first.fiber!);
+    // Even at the building cap (and the Town Hall too).
+    const full = cloneState(s);
+    full.buildings.find((b) => b.type === 'nest')!.level = 3;
+    const cap = nestDef(full).maxBuildings!;
+    for (let i = 0; i < cap; i++)
+      full.buildings.push({ ...full.buildings[0]!, id: `bx${i}` as never, type: 'hut', level: 1 });
+    expect(buildLock(full, 'hut')).toBe('buildingLimit');
+    expect(buildLock(full, 'campfire')).toBeNull();
+    expect(buildLock(full, 'townHall')).toBeNull();
   });
 
   it('is a leisure for the kiwis sleeping within its reach', () => {

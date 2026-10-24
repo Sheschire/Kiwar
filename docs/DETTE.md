@@ -11,6 +11,13 @@
 
 ## Des chantiers précédents
 
+- Chantier 43 : les kiwis au moral bas ne partent pas « d'eux-mêmes » vers un loisir en
+  journée ; le loisir est une portée autour de leur lit, et seule la veillée du feu de camp
+  se voit (première moitié de la nuit). Pas de nuisances de voisinage ni de beauté (le 44).
+  Le feu de camp garde son badge de niveau « 1 » (un seul niveau). Pas de son propre à la
+  veillée ni à la fin d'un discours. La bulle de retour (`RecapBubble`) ne parle pas du moral.
+  Le moral ne touche ni les batailles ni les soins (choix du porteur).
+
 - Chantier 41 : spectacle du débarquement vérifié en Chromium sans GPU seulement (images/s à
   confirmer sur un vrai téléphone avec `?debug`) ; pas de son propre au débarquement regardé ;
   une vague qui frappe pendant qu'on regarde un débarquement est racontée tout de suite (pas

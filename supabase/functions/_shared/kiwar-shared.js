@@ -2135,9 +2135,10 @@ var MORALE = {
   work: { low: 0.7, high: 1.15 },
   /** Below this, a kiwi sulks (it still works). */
   sulk: 20,
-  /** Base of a kiwi by age (Eden, Stone, Iron, Industry): a fed and housed colony sits a bit
-   * above neutral in the Eden, at neutral in the Stone age, a bit below later on. */
-  base: [60, 50, 45, 40],
+  /** Base of a kiwi by age (Eden, Stone, Iron, Industry): a fed colony sleeping near its work
+   * (+10, +5) sits a bit above neutral in the Eden, at neutral in the Stone age, below later
+   * on; the mayor, the leisures and the speeches lift it. */
+  base: [46, 36, 31, 26],
   /** Fed colony vs hungry colony. */
   fed: 10,
   hungry: -20,
@@ -12640,6 +12641,7 @@ function buildLock(state, type) {
     if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return "buildingLimit";
   } else if (type === "townHall") {
     if (copiesOf(state, "townHall") > 0) return "townHallExists";
+  } else if (type === "campfire") {
   } else if (type === "monument") {
     if (copiesOf(state, "monument") > 0) return "monumentExists";
     if (!hasTech(state, PASSAGE_TECHS[1])) return "passageMissing";

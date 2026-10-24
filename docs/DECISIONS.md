@@ -2707,3 +2707,57 @@ Small decisions taken along the way:
 - ⚠️ **A new face gap on the twin**: Kiwino lights its 12 parcels within 72 h in 5 of 18 runs
   (centre beacon 35 h), Kiwisu never (2.8 days for the centre, 3 of 18): to diagnose first (the
   bot's landings or the civilisation of each face).
+
+## Chantier 43 — Morale per kiwi, the Town Hall and the campfire
+
+Owner's answers at the start of the session (interactive questions):
+
+- **Gauge**: needs + dated memories, a step function changed only at events (not a gauge
+  drifting towards its target).
+- **Effects**: work ×0.7 at 0, ×1 at 50, ×1.15 at 100; under 20 the kiwi sulks (visible) but
+  still works; no death, no departure; **no effect on battles**.
+- **Expectations by age**: a fed colony sleeping near its work sits a bit above neutral in the
+  Eden, at neutral in the Stone age, below later on (bases 46 / 36 / 31 / 26): the Town Hall,
+  the campfires, the mayor and the leisures of chantier 44 lift it.
+- **Leisure**: a leisure within reach of a kiwi's bed (`LEISURE`, the campfire now, the games
+  of 44 next); the visits are drawn by the client, they cost no work.
+- **The Speech** gives morale only (the +15 % harvest skill is gone). **Several campfires**,
+  dearer each copy, each a supper at nightfall. **No link with battles** (wounds,
+  defeats) and **no neighbourhood nuisances** in this chantier (44 brings beauty).
+
+Numbers (to test with the owner):
+
+- **Gauge parts** (points): age base 46/36/31/26; fed +10 / hungry −20; season ±5; the mayor
+  +1 per Charisma point, Organisation +5 (×100 of the old shares); bards up to +5; bed within 4
+  steps of its work +5, sleeping outside −10; a leisure within reach +8; temper: dreamer and
+  lucky +5, glutton −5, bard line +5; memories: mourning −15 / grief −25 (hut mates and crew
+  mates) for 24 h, speech +12 (+1 per mayor Charisma above 5, Festival ×2) for 8–12 h, vigil
+  +8 until the next nightfall.
+- **Town Hall**: Nest 3, 3 tiles, unique, outside the building cap, levels 1–12 (800/1000/
+  200/250 for level 1). The Speech: 20 min of gathering (no harvest, research, forging or
+  crater work, like the shelter; constructions go on), cooldown 24 h (18 h from level 7, 12 h
+  from level 10), refused within the hour before a wave (20 min + the garrison's 40 min).
+  Measured in the tests: a speech at nightfall pays (the gathering costs a night's slow
+  work); by day it is about even above neutral and clearly positive below it.
+- **Campfire**: Nest 3, 1 tile, one level, outside the cap, each copy ×1.6 (150/250/40 for
+  the first), reach 3 tiles from a home's anchor; at nightfall the free kiwis sleeping in reach
+  sup there (memory until the next nightfall) and their meals of the night cost 10 % less.
+- **Bug found by the bot**: the campfire went through the generic `buildLock` branch, which
+  checks the building cap: at the cap its command always failed and froze every later
+  decision of the bot (no more eggs: the colony stayed at 20 kiwis). A building outside the
+  cap needs its own branch.
+- The bot builds the Town Hall after the Library, up to four campfires where beds lack a
+  leisure, and speaks at night.
+
+### Measures (`--seeds 2 --hours 72`, 6 biomes, before the chantier / after, 17 min each)
+
+- Faces within ±3 % on the economy (Nest 3 4.6 h both; Stone 13.7 / 14.5 h; Iron 2.9 / 2.8
+  days, reached in 10 runs of 12 against 8 before). Against the run before the chantier:
+  Nest 3 +5 %, Library +4 %, Stone +4 to +8 %, Iron about the same: within the noise of two
+  seeds, the morale's harder later ages balanced by the Town Hall, the campfires and the
+  speeches. Waves: 1 lost in 12 runs (2 before), no death. Dead time and "at the cap" as
+  before (92–155 min, 19–40 %: known since act I). Level 10 still differs by face (18 %).
+- Probes (`runBot` with the morale every 6 h, before the new bases): Town Hall at 12–18 h,
+  3–4 campfires by 24–60 h, a speech a night when ready; the mourning of the landings weighs
+  −6 to −27 points on average for hours. ⚠️ With the attrition of chantier 40 (5–14 kiwis dead
+  per run) the colony mourns often: to play with the owner.

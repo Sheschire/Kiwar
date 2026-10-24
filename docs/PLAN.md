@@ -45,22 +45,20 @@ dans l'historique.
 | 41  | La bataille en direct sur la jumelle (client)        | fait    |
 | 42  | La reine des furets                                  | fait    |
 |     | **Acte III — Le village vivant**                     |         |
-| 43  | Moral par kiwi, Mairie et feu de camp                | à faire |
+| 43  | Moral par kiwi, Mairie et feu de camp                | fait    |
 | 44  | Loisirs et décor                                     | à faire |
 | 45  | Rives fertiles et canaux de jus                      | à faire |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
-**L'acte II est terminé** (bilan dans le carnet de route, section 8 bis ; rapport
-d'équilibrage complet dans [`BALANCE_REPORT.md`](BALANCE_REPORT.md)). **Prochaine
-conversation** : le chantier **43** (moral par kiwi, Mairie, feu de camp), début de l'acte III.
-Le 42 laisse : les attaques de balises (`sim/beacons.ts`, skill `kiwar-colonies`), la reine et
-sa bataille finale (`sim/queen.ts`, `battle/queen.ts`), l'écran Conquête ; à tester avec le
-porteur (coût de la fortification, difficulté et durée de la bataille finale, rythme de la
-conquête : le bot va de J7 à « jamais » en 21 jours, voir `DECISIONS.md`). Toujours ouverts :
-l'usure des kiwis sur les débarquements (le bot en perd 30 à 80 en trois semaines, 40), le
-ressenti de l'horloge alien (39), du combat équipé et des prix des pièces (38), des rangs et du
-camp (37), la réparation automatique qui trahit l'issue d'une vague regardée en direct (36) et
-le temps mort du début de la Pierre (31).
+**L'acte III a commencé** avec le chantier **43** (moral par kiwi, Mairie, feu de camp :
+`sim/rest.ts`, `sim/speech.ts`, skill `kiwar-cycles`). **Prochaine conversation** : le
+chantier **44** (loisirs et décor) : ses jeux entrent dans `LEISURE` (data/needs.ts) et sa
+beauté devient une part de `kiwiMorale`. À tester avec le porteur : l'exigence du moral par
+âge, le poids des deuils avec l'usure des débarquements (40), la valeur d'un discours.
+Toujours ouverts : l'usure des kiwis sur les débarquements (40), la conquête qui va de J7 à
+« jamais » (42), le ressenti de l'horloge alien (39), du combat équipé (38), des rangs et du
+camp (37), la réparation automatique qui trahit l'issue d'une vague regardée (36) et le temps
+mort du début de la Pierre (31).
 
 ## Règles transverses à retenir
 
@@ -126,6 +124,11 @@ from, opts)` (`ShowSource` : une vague ou un débarquement ; notre camp, avance,
   `state.aliens[*].civ` (caché) et ne se résout qu'où la vérité est tenue (serveur en ligne,
   client en solo) ; une annonce de vague l'attend aussi. Un nouvel effet de nos actions sur
   elle passe par `recordBurn` / `recordDefeat` / `recordFight` (skill `kiwar-civ`).
+- **Moral** (chantier 43) : une jauge par kiwi (0–100) ; une nouvelle source de moral est une
+  part de `colonyMood` (commune) ou de `kiwiMorale` (propre), ou un souvenir daté
+  (`addMemory`, `MEMORY_KINDS` avec `value`, `ms`, `best`) ; un nouveau loisir entre dans
+  `LEISURE` ; un nouveau rassemblement qui arrête le travail passe par `gathered(state)`. Un
+  bâtiment hors quota a sa branche dans `buildLock` (skill `kiwar-cycles`).
 - **Planètes** : elles ont une place fixe (`render/space.ts`) ; `renderer.setTwinApproach(t)`
   rapproche la jumelle (skill `kiwar-world`).
 

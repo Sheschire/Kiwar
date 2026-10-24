@@ -55,6 +55,9 @@ Chantier 16: `build.awaken` (synth `awaken`, spatial), fired from `audio/sounds.
 after the completion of a producer or a turret, only for events less than 15 s old (the same
 rule as the renderer's wave).
 
+Chantier 43: `speech.crowd` (synth `crowd`: a murmuring crowd, the Town Hall's bell, happy
+chirps), played on the `giveSpeech` command.
+
 Chantier 13: `comet.seen` (synth `cometSeen`, a comet is announced) and `comet.pass` (synth
 `comet`, a cascade when the stardust falls).
 

@@ -262,6 +262,15 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   `SHARDS` in `meteors.ts`), gear parts in `kiwiRig.ts` (`KiwiDraw.weapon` / `armor`), `?kiwis`
   gear cells. `.icon` is `display: block`: inside a paragraph give it an inline rule.
 
+- **Chantier 43 (village life)**: `render/models/village.ts` (`campfire`, `townHall`,
+  `townHallGarden` dressed in `spread.ts`); the campfire has no sign and no `dress`
+  (`partsOf`); the sign atlas is now 5×5 (`SIGNED` in `signs.ts`, 17 types). Crowd and
+  evening scenes in `render/kiwis.ts` (`thinkSpeech`, `thinkVigil`), see `kiwar-cycles`.
+  Screens: `TownHallInfo.tsx`, `NeedsWidgets.tsx`. Visual checks: push a `townHall` on a
+  `buildableTiles` site and a mayor, dispatch `debugGrant` then `giveSpeech`, step
+  `renderer.kiwis.update(0.1, t, state.now)` ×400; for the evening, `calendarStart = now −
+1.72 h` and `vigil` memories on the kiwis.
+
 - **Chantier 41 (the live battle on the twin)**: `LandingInvite` (desktop under the top bar,
   phones docked first in `.thumb-stack`), `VisitBanner` while watching (`watchingLanding`),
   `BattleBar` in the visiting HUD too (landing title, framing buttons `.battle-frames`), the

@@ -10,6 +10,15 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 43** — le **moral par kiwi**, début de l'acte III. Chaque kiwi a sa jauge
+> (0–100) : repas, lit proche du travail, loisir près de sa hutte, caractère, deuils (plus
+> lourds pour ses colocataires et son équipage) ; elle règle son travail (de −30 % à +15 %) et
+> l'âge la rend plus exigeante. La **Mairie** (Nid 3) accueille le·la maire et son
+> **Discours** : toute la colonie s'y rassemble 20 minutes, puis garde le moral pendant des
+> heures (mieux vaut parler le soir). Les **feux de camp** réunissent au crépuscule les kiwis
+> qui dorment tout près : ils soupent ensemble, chantent et dansent, et mangent un peu moins
+> la nuit.
+
 > **Chantier 42** — **la reine des furets**, fin de l'acte II. À partir de son âge du Fer, la
 > civilisation **attaque nos balises**, annoncé 6 h à l'avance : on peut **fortifier** la balise
 > depuis chez soi (deux tourelles de notre âge et une tour solide, payées en ressources et en

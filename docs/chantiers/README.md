@@ -26,7 +26,7 @@ d'acceptation et les **skills à charger**. La direction d'ensemble est dans le
 | 41  | [La bataille en direct sur la jumelle](41-bataille-en-direct.md)                           | 40        | avec 43 (prudence)    |
 | 42  | [La reine des furets](42-reine-des-furets.md)                                              | 41        | non                   |
 |     | **Acte III — Le village vivant** (fiches courtes, détaillées en début de session)          |           |                       |
-| 43  | [Moral par kiwi, Mairie et feu de camp](43-moral-mairie-feu-de-camp.md)                    | 35        | non                   |
+| 43  | [Moral par kiwi, Mairie et feu de camp](43-moral-mairie-feu-de-camp.md) — **fait**         | 35        | non                   |
 | 44  | [Loisirs et décor](44-loisirs-decor.md)                                                    | 43        | non                   |
 | 45  | [Rives fertiles et canaux de jus](45-rives-canaux.md)                                      | 35        | non                   |
 

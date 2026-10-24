@@ -238,6 +238,14 @@ centre at each age, a crew typical of the age, automation off so no crater borro
 Reference (`--seeds 2 --hours 96`, 15 min): Stone ≈ 13.5 h, Iron ≈ 2.8 d, first beacon ≈ 12 h,
 centre ≈ 1.3–3.8 d, 5.5–12 landings, 5–14 kiwis dead per run (⚠️ to discuss with the owner).
 
+## Chantier 43: the village
+
+Mechanic `village` (`bot/village.ts`, `--impact` "without the Town Hall and campfires"): the
+Town Hall once the Library stands, then up to four campfires on the tile whose reach covers
+the most beds without a leisure (twice the price in stock, `buildLock` checked first); the
+mayor speaks at night (`speechLock`). The decision sits before the ages (their savings
+starved it). Probe: a scratch `runBot` with `onStep` printing `moraleOf(s)` parts every 6 h.
+
 ## Chantier 42: the conquest (end of act II)
 
 - `bot/beacons.ts` (`beaconOrder`, `finalOrder`, see `kiwar-colonies`); the landing bot
@@ -256,7 +264,7 @@ centre ≈ 1.3–3.8 d, 5.5–12 landings, 5–14 kiwis dead per run (⚠️ to 
   20-minute run. Killing scratch processes: never `pkill -f` / `grep | kill` a pattern that
   appears in your own command line (exit 144 kills your shell); write PIDs to a file first.
 - **Reference (end of act II)**: `pnpm balance --seeds 6 --hours 72 --ages 2 --impact 2 --probe
-  50 --out ../../docs/BALANCE_REPORT.md` (nohup, 81 min on 4 cores; the report's conquest
+50 --out ../../docs/BALANCE_REPORT.md` (nohup, 81 min on 4 cores; the report's conquest
   table is pasted from the 21-day probe). Biomes ±10 % on the economy, Stone 13.6 h, Iron
   2.8 d, Industry 8.7 d (occasional 18.5 h / 4.0 d / 10.9 d), waves 0 % / 9 % lost; ⚠️ level 10
   and the twin differ by face (Kiwino lights its 12 parcels in < 3 days in 5 of 18 runs,

@@ -37,17 +37,47 @@ sources)` is the memoized season-aware Dijkstra (`depotDistances` uses it), `dis
   − meals = net `rates`; a full stock the meals do not outpace stays full and its producers
   harvest only what is eaten (`share`, pools drain); an empty stock with a negative net is pinned
   at 0 and its missing share feeds the gauge. Events: fill, empty (`foodRanOut`), deposit dry,
-  hunger stage (`hungerChanged`), death (`starved`, cause `famine`), mourning end.
+  hunger stage (`hungerChanged`), death (`starved`, cause `famine`), a memory's end.
   `storageFullCheck(state, gross?)` is consumption-aware; `netRates` for the UI.
 - `sim/rest.ts` — `bedsOf` (greedy nearest free bed to `workSite`, memoized on a cheap key:
-  homes, jobs, paths, season), `presence` (rest share × walk), `moraleOf` / `moraleWork`
-  (food stage, comfort, mayor's Charisma/Organisation, speech, mourning, season; cap ±20 %;
-  a kiwi without a bed is never "near its work"), `missingBeds` (kiwis sleeping outside and
+  homes, jobs, paths, season), `presence` (rest share × walk), morale per kiwi (chantier
+  43, see below), `missingBeds` (kiwis sleeping outside and
   the presence lost, chantier 12: village morale card and home sheets, `MissingBedsLine`), `kiwiRhythm` (cosmetic: sleep at night for
   60 % of kiwis, work/rest by day, fatigue 0–1). `workforce` = Σ power × presence × colony bonus
   × hunger work × morale.
 - Any new factor of work must change only at an event (or a command); if it depends on a stock
   level, use a threshold that is an event (see the hunger stage), never "stock > 0".
+
+## Chantier 43: morale per kiwi, the Town Hall, the campfire
+
+- **Gauge 0–100 per kiwi** (neutral 50, `MORALE` in `data/needs.ts`): `colonyMood(state)`
+  (age base 60/50/45/40, fed +10 / hungry −20, season ±5, mayor and bards in points ×100,
+  old speech +3, `leisureHomes`) + per kiwi (`kiwiMorale(state, v, beds, mood)`): bed near
+  its work +5 / outside −10, leisure within reach of its bed +8 (`LEISURE`, hex distance from
+  the home's anchor), temper (`MORALE.trait`, bard line +5), memories. Clamped 0–100.
+  `moraleFactor(points)`: ×0.7 at 0, ×1 at 50, ×1.15 at 100 (linear on each side);
+  `kiwiMoraleWork` multiplies **each kiwi's** power in `crewWork`, `researchPerHour` and
+  `forgeRate` (pass one `colonyMood` per loop; never per kiwi). `moraleOf(state)` is the
+  colony summary (average, work, `low` = sulking below `MORALE.sulk` 20, average parts).
+- **Memories** (`Villager.memories`, one per kind, `addMemory` keeps the stronger value and
+  the later end): `mourning` −15 / `grief` −25 (hut mates or crew mates of a dead kiwi, from
+  `removeVillagers` → `closeMates`), `speech`, `vigil`. Each kind has `value`, `ms` (longest)
+  and `best` (anti-cheat `plausibleKiwi`). `nextMemoryEnd` is an `advance` event,
+  `fadeMemories` prunes. `state.mourningUntil` is gone (save v36).
+- **Speech** (`sim/speech.ts`, `SPEECH`): `giveSpeech` (Town Hall + mayor at home, cooldown
+  `speechCooldownMs(level)` 24/18/12 h, refused within `gatherMs + GARRISON.autoLeadMs` of a
+  wave: `waveSoon`); `state.speech = { until, readyAt }` (save v37); while gathering,
+  `gathered(state)` (also the shelter) stops harvest, research, forge, craters, stardust.
+  Every kiwi at home gets a `speech` memory (+12, +1 per mayor Charisma above 5, Festival ×2)
+  for `speechEffectMs(level)` (8 h → 12 h). The mayor's `speech` skill is gone; the old
+  `speechUntil` still ends normally.
+- **Campfire** (`CAMPFIRE`, 1 tile, Nest 3, outside the cap, copies ×1.6, one level): a
+  leisure; at nightfall (`calendarTick`) `holdVigils` gives the free kiwis sleeping within
+  reach a `vigil` memory (+8) until the next nightfall (event `vigil`); `consumption` counts
+  their meals ×0.9 at night (`suppedTonight`).
+- **Town Hall** (`townHall`, 3 tiles, unique, outside the cap, levels 1–12, level stats
+  `speechMemory`, `speechCooldown`). A new building outside the cap needs its branch in
+  `buildLock` (the generic branch checks the cap) and `buildingCount`.
 
 ## Client
 
@@ -64,6 +94,12 @@ sources)` is the memoized season-aware Dijkstra (`depotDistances` uses it), `dis
   daylight 0.85 → 0.35 (`updateCycles`).
 - 3D kiwis (`render/kiwis.ts`): `thinkRest` sends resting / sleeping kiwis to their bed and hides
   them inside (`agent.inside`); the A* takes the season.
+- Chantier 43 client: `NeedsWidgets.tsx` `MoraleGauge`, `KiwiMoraleSection` (kiwi sheet),
+  mini gauge and "sulks" in `KiwiNeedsLine`, `MoraleCard` (average and parts);
+  `TownHallInfo.tsx` (`TownHallInfo`, `CampfireInfo`); memo `kiwiMorales` (ui/derived);
+  3D: `KiwisView.thinkSpeech` (rows before the hall's door, `crowdSpot`), `thinkVigil` +
+  `assignCampers` (first half of the night, a circle round the fire); campfire halo in
+  `weather.sync`; models in `render/models/village.ts`; sound `speech.crowd`.
 - UI: `ClockChip.tsx` (dial, season, countdown, effects tooltip), `TopBar` (net rates, low-food
   pulse, meals in tooltips, morale line), `App.tsx` `HungerBadge`, `TilePanel` (cycle notes,
   beds used), `NeedsWidgets.tsx` (`RestSection` in the kiwi sheet, `MoraleCard` in the village),
