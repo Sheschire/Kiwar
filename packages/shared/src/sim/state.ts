@@ -22,6 +22,7 @@ import type { ClassId, SkillId } from '../data/classes';
 import type { TechId } from '../data/research';
 import type { ItemId } from '../data/gear';
 import { AUTO_TASKS, type AutoTask } from '../data/jobs';
+import type { CivKeyKind } from '../data/aliens';
 import { newKiwi, rollKiwi } from './kiwis';
 import type {
   BuildingId,
@@ -324,9 +325,48 @@ export interface AlienGarrison {
   loot: Resources;
   /** Share of ferrets among the enemies (the rest are bats). */
   ferretShare: number;
-  /** The garrison grows from this time on. */
+  /** The garrison grows from this time on (chantier 39: the civilisation's clock starts here). */
   since: TimeMs;
   structures: AlienStructure[];
+  /** Chantier 39: the civilisation of the face (added by `ensureAliens`). */
+  civ?: CivState;
+}
+
+/** Chantier 39: something we did to an alien civilisation (kept for reports and the bot). */
+export interface CivImpact {
+  at: TimeMs;
+  kind: 'burn' | 'defeat' | 'fight';
+  sector?: number;
+  /** Hours of development given (> 0) or taken (< 0) to the civilisation. */
+  hours: number;
+}
+
+/** Chantier 39: a key building of the civilisation (the AI hides them). */
+export interface CivKey {
+  kind: CivKeyKind;
+  sector: number;
+  /** Burnt: standing again at this time. */
+  readyAt?: TimeMs;
+}
+
+/** Chantier 39: the hidden state of an alien civilisation (inside its `AlienGarrison`). */
+export interface CivState {
+  /** Hours ahead of the common schedule (faces further away in a universe). */
+  lead: number;
+  /** Hours of development given by our defeats, taken by our burns (whole civilisation). */
+  hours: number;
+  /** Same, per parcel (12, `INTEL.sectors`). */
+  sectors: number[];
+  /** Recent fights: share of the parcel's garrison lost, regrowing over `CIV.rebuildMs`. */
+  fights: { sector: number; at: TimeMs; share: number }[];
+  /** Where the key buildings stand. */
+  keys: CivKey[];
+  /** Index of the last game day the AI looked at the map (`CIV.tickMs` since `since`). */
+  day: number;
+  /** The royal burrow was seen: it never moves again. */
+  royalSeen?: boolean;
+  /** Last impacts (newest last). */
+  log: CivImpact[];
 }
 
 export interface IntelRange {
@@ -509,6 +549,8 @@ export interface PlannedWave {
   squads?: Squad[];
   /** Chantier 36: the rampart tile where each sector's pack comes in (set at the announcement). */
   gates?: Partial<Record<SectorId, Hex>>;
+  /** Chantier 39: the parcel of the twin face the wave comes from (set at the announcement). */
+  origin?: number;
 }
 
 /** Chantier 36: a group of predators of one kind entering by one sector. */
@@ -1118,9 +1160,24 @@ export function cloneAliens(a: Record<string, AlienGarrison>): Record<string, Al
   return Object.fromEntries(
     Object.entries(a).map(([k, g]) => [
       k,
-      { ...g, loot: { ...g.loot }, structures: g.structures.map((x) => ({ ...x })) },
+      {
+        ...g,
+        loot: { ...g.loot },
+        structures: g.structures.map((x) => ({ ...x })),
+        ...(g.civ ? { civ: cloneCiv(g.civ) } : {}),
+      },
     ]),
   );
+}
+
+export function cloneCiv(c: CivState): CivState {
+  return {
+    ...c,
+    sectors: [...c.sectors],
+    fights: c.fights.map((f) => ({ ...f })),
+    keys: c.keys.map((k) => ({ ...k })),
+    log: c.log.map((l) => ({ ...l })),
+  };
 }
 
 export function cloneIntel(i: IntelReport): IntelReport {

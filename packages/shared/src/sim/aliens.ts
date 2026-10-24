@@ -15,6 +15,7 @@ import {
 } from '../worldgen/generateFace';
 import type { TimeMs } from '../types/ids';
 import { counterAwaited, mergeSiegeIntel } from './siege';
+import { newCiv } from './civ';
 import type {
   AlienGarrison,
   AlienStructure,
@@ -75,6 +76,7 @@ export function drawGarrison(target: ExpeditionTarget, seed: string, since: Time
     ferretShare,
     since,
     structures,
+    civ: newCiv(seed, target.distance),
   };
 }
 
@@ -83,7 +85,13 @@ export function ensureAliens(state: GameState, seed: string): boolean {
   const aliens = state.aliens ?? {};
   let changed = !state.aliens;
   for (const t of state.targets) {
-    if (aliens[t.id]) continue;
+    const g = aliens[t.id];
+    if (g && !g.civ) {
+      // Chantier 39: garrisons drawn before the civilisation get theirs from their own seed.
+      g.civ = newCiv(g.seed, t.distance);
+      changed = true;
+    }
+    if (g) continue;
     aliens[t.id] = drawGarrison(t, `${seed}/${t.id}`, state.createdAt);
     changed = true;
   }

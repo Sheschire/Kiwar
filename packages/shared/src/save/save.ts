@@ -24,6 +24,7 @@ import { IRON, IRON_SCALE } from '../data/iron';
 import { FORGE, ITEM_IDS } from '../data/gear';
 import { INTEL } from '../data/expeditions';
 import { SIEGE } from '../data/siege';
+import { CIV_KEYS } from '../data/aliens';
 import type { Face } from '../types/ids';
 import {
   KIWI,
@@ -143,6 +144,7 @@ const threats = z.object({
         .max(ENEMY_KINDS.length * SECTOR_IDS.length)
         .optional(),
       gates: z.object({ front: hexSchema, left: hexSchema, right: hexSchema }).partial().optional(),
+      origin: sectorId.optional(),
     })
     .nullable(),
   lastWaveAt: z.number().min(0),
@@ -338,6 +340,39 @@ export const gameStateSchema = z.object({
         ferretShare: z.number().min(0).max(1),
         since: z.number(),
         structures: z.array(structure).max(64),
+        civ: z
+          .object({
+            lead: z.number(),
+            hours: z.number(),
+            sectors: z.array(z.number()).length(INTEL.sectors),
+            fights: z
+              .array(
+                z.object({ sector: sectorId, at: z.number(), share: z.number().min(0).max(1) }),
+              )
+              .max(64),
+            keys: z
+              .array(
+                z.object({
+                  kind: z.enum(CIV_KEYS),
+                  sector: sectorId,
+                  readyAt: z.number().optional(),
+                }),
+              )
+              .max(INTEL.sectors),
+            day: z.number().int().min(0),
+            royalSeen: z.boolean().optional(),
+            log: z
+              .array(
+                z.object({
+                  at: z.number(),
+                  kind: z.enum(['burn', 'defeat', 'fight']),
+                  sector: sectorId.optional(),
+                  hours: z.number(),
+                }),
+              )
+              .max(32),
+          })
+          .optional(),
       }),
     )
     .optional(),
