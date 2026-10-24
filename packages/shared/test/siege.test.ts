@@ -25,6 +25,9 @@ import {
   SIEGE,
   siegeLock,
   siegeTruth,
+  civAt,
+  holdStrength,
+  queenLair,
   siegeView,
   validateCommand,
   type BuildingId,
@@ -76,15 +79,16 @@ function knowSiege(state: GameState, at: number): GameState {
   const s = knowTruth(state, at);
   const id = s.targets[0]!.id;
   const g = s.aliens![id]!;
-  const truth = siegeTruth(g);
   const report = s.intel[id]!;
   report.sectors = Array.from({ length: INTEL.sectors }, (_, i) => i);
   const exact = (v: number) => ({ at, min: v, max: v });
   const q = queenPower({ ...s, siege: { ...s.siege, bridgeheads: [] } }, g, at);
   report.siege = {
     seen: [...report.sectors],
-    holds: Object.fromEntries(SIEGE.outerSectors.map((x) => [x, exact(truth.holds[x]! * 1.2)])),
-    queen: { sector: truth.queenSector, ground: exact(q.ground), air: exact(q.air) },
+    holds: Object.fromEntries(
+      SIEGE.outerSectors.map((x) => [x, exact(holdStrength(g, x, at) * 1.2)]),
+    ),
+    queen: { sector: queenLair(g), ground: exact(q.ground), air: exact(q.air) },
   };
   return s;
 }
@@ -148,9 +152,10 @@ describe('the siege opens at the Iron age with a Kikiwiwi (chantier 19)', () => 
     expect(siegeTruth({ seed: `${g.seed}x` })).not.toEqual(a);
     expect(a.queenSector).toBeGreaterThanOrEqual(0);
     expect(a.queenSector).toBeLessThan(6);
+    // Chantier 39: the holds are the outer parcels' garrisons, dug in.
     for (const x of SIEGE.outerSectors) {
-      expect(a.holds[x]).toBeGreaterThanOrEqual(SIEGE.hold.base * SIEGE.hold.spread[0] - 0.1);
-      expect(a.holds[x]).toBeLessThanOrEqual(SIEGE.hold.base * SIEGE.hold.spread[1] + 0.1);
+      const parcel = civAt(g, s.now).sectors[x]!.power;
+      expect(holdStrength(g, x, s.now)).toBeCloseTo(parcel * SIEGE.hold.share, 0);
     }
     // Nothing of it is in the state a client receives.
     expect(JSON.stringify(publicState(s))).not.toContain(g.seed);
@@ -182,13 +187,13 @@ describe('deep reconnaissance', () => {
     }
     const view = siegeView(state, state.now);
     const g = state.aliens![id]!;
-    const truth = siegeTruth(g);
+    const truth = { queenSector: queenLair(g) };
     expect(view.queen?.sector).toBe(truth.queenSector);
     const holds = Object.entries(state.intel[id]!.siege!.holds);
     expect(holds.length).toBeGreaterThan(0);
     for (const [k, r] of holds) {
       expect(SIEGE.outerSectors).toContain(Number(k));
-      const real = truth.holds[Number(k)]!;
+      const real = holdStrength(g, Number(k), r.at);
       // The truth grew a little since: it lies inside the range at the time of the report.
       expect(r.min).toBeLessThanOrEqual(real * 2);
       expect(r.max).toBeGreaterThanOrEqual(real);
@@ -498,6 +503,8 @@ describe('the final assault on the queen', () => {
 
   it('a weak army is crushed, but the bridgeheads stay with their survivors', () => {
     const state = besieged();
+    // Chantier 39: two days of growth for the queen (the bridgeheads' burns set her back).
+    state.aliens![state.targets[0]!.id]!.civ!.hours += 48;
     const holders = state.siege.bridgeheads.flatMap((b) => b.holders);
     const weak = state.villagers
       .filter((v) => !v.id.startsWith('vs') && !v.kikiwiwi)

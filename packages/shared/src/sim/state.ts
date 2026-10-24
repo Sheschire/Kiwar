@@ -382,7 +382,7 @@ export interface IntelReport {
   defense: IntelRange;
   ferrets: IntelRange;
   bats: IntelRange;
-  /** Our victories against the target at that time (it reinforces after each). */
+  /** Our victories against the target at that time. */
   victoriesAt: number;
   /** Sectors of the face seen so far (cumulative, see `INTEL.sectors`). */
   sectors: number[];
@@ -392,6 +392,8 @@ export interface IntelReport {
   spotted?: boolean;
   /** Chantier 19: what deep reconnaissance and assaults told about the siege. */
   siege?: SiegeIntel;
+  /** Chantier 39: age of the alien civilisation seen then. */
+  civAge?: number;
 }
 
 /** A range seen at a time (it ages like the defense of the face). */
@@ -430,6 +432,9 @@ export interface ExpeditionResult {
   injured?: VillagerId[];
   /** Chantier 19: assault won, a bridgehead stands (the holders stayed on it). */
   bridgehead?: boolean;
+  /** Chantier 39: parcel of the face the raid landed on, and it was burnt (a victory). */
+  sector?: number;
+  burnt?: boolean;
   /** Chantier 19: final assault, both sides of the fight (luck included). */
   sides?: { strength: { ground: number; air: number }; queen: { ground: number; air: number } };
   /** Chantier 19: the queen fell (final assault won). */

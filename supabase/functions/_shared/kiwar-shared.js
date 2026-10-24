@@ -2876,8 +2876,8 @@ var SIEGE = {
   neededBridgeheads: 2,
   /** Bridgeheads stand on the outer sectors (`INTEL` sectors 6–11); the queen in an inner one. */
   outerSectors: [6, 7, 8, 9, 10, 11],
-  /** Real strength of the aliens holding an outer sector (× spread, × the garrison's growth). */
-  hold: { base: 9, spread: [0.75, 1.3] },
+  /** Chantier 39: the aliens holding an outer sector are its garrison × this (dug in). */
+  hold: { share: 1.5 },
   /** The ferret queen: ground (ferrets) and air (bats) power, very strong. */
   queen: {
     ground: 24,
@@ -4254,6 +4254,39 @@ function civWave(state, at, waveId) {
     ).sector;
   }
   return { factor: time * barracks * (CIV.waveAge[view.age] ?? 1), origin };
+}
+function liveCiv(g) {
+  g.civ ??= newCiv(g.seed, 0);
+  return g.civ;
+}
+function royalSector(g) {
+  return civOf(g).keys.find((k) => k.kind === "royal")?.sector ?? siegeTruth(g).queenSector;
+}
+function sectorGrowth(g, sector, at) {
+  return growthOfHours(sectorHours(g, civOf(g), sector, at));
+}
+function scheduleHours(state, distance, at) {
+  return Math.max(0, (at - state.createdAt) / HOUR2) + distance * CIV.leadPerDistanceH;
+}
+function scheduleGrowth(state, distance, from, to) {
+  const a = growthOfHours(scheduleHours(state, distance, from));
+  const b = growthOfHours(scheduleHours(state, distance, Math.max(from, to)));
+  return b / a;
+}
+function raidSector(g, salt, held) {
+  const outer = Array.from({ length: HALF }, (_, i) => HALF + i);
+  const free = outer.filter((s) => !held.includes(s));
+  const pool = free.length > 0 ? free : outer;
+  return pool[Math.floor(civHash(g.seed, `raid/${salt}`) * pool.length)];
+}
+function seenStructures(g, at, sectors) {
+  const visible = new Set(sectors);
+  const civ = civOf(g);
+  return civBuildings(g, civ, civAt(g, at, civ), at).filter((b) => visible.has(b.sector) && (b.kind === "burrow" || b.kind === "roost")).map((b) => ({
+    kind: b.kind === "burrow" ? "den" : "roost",
+    q: b.q,
+    r: b.r
+  }));
 }
 
 // packages/shared/src/battle/types.ts
@@ -9804,14 +9837,28 @@ function resolveArrival(state, e) {
   removeVillagers(state, lost, "battle", e.arriveAt);
   e.crew = e.crew.filter((id3) => !lost.includes(id3));
   const seen = alienEnemies(garrison, defense);
+  const civAge = civAt(garrison, e.arriveAt).age;
   recordIntel(state, target.id, {
     at: e.arriveAt,
     source: "raid",
     defense: { min: defense, max: defense },
     ferrets: { min: seen.ferrets, max: seen.ferrets },
     bats: { min: seen.bats, max: seen.bats },
-    victoriesAt: state.victories[target.id] ?? 0
+    victoriesAt: state.victories[target.id] ?? 0,
+    civAge
   });
+  const held = twinTarget(state)?.id === target.id ? state.siege.bridgeheads.map((b) => b.sector) : [];
+  const sector = raidSector(garrison, e.id, held);
+  const civ = liveCiv(garrison);
+  const close = Math.min(1, strength / Math.max(defense, 1e-6));
+  recordFight(
+    civ,
+    sector,
+    e.arriveAt,
+    victory ? CIV.fightLoss.victory : CIV.fightLoss.defeat * close
+  );
+  if (victory) recordBurn(civ, sector, e.arriveAt);
+  else recordDefeat(civ, e.arriveAt, lost.length, sector);
   const loot = emptyResources();
   if (victory) {
     state.victories[target.id] = (state.victories[target.id] ?? 0) + 1;
@@ -9835,7 +9882,9 @@ function resolveArrival(state, e) {
     lostInBattle: lost.map((id3) => nameOf(e, id3)),
     lostOnReturn: [],
     loot,
-    ...victory && hit.length > 0 ? { injured: hit } : {}
+    ...victory && hit.length > 0 ? { injured: hit } : {},
+    sector,
+    ...victory ? { burnt: true } : {}
   };
 }
 function resolveRecon(state, e, garrison, defense, members, fed) {
@@ -9851,6 +9900,7 @@ function resolveRecon(state, e, garrison, defense, members, fed) {
       lost = drawLosses(state, members, 1);
       removeVillagers(state, lost, "battle", e.arriveAt);
       e.crew = e.crew.filter((id3) => !lost.includes(id3));
+      recordDefeat(liveCiv(garrison), e.arriveAt, lost.length);
     } else {
       injured.push(drawLosses(state, members, 1)[0]);
     }
@@ -9893,15 +9943,16 @@ function resolveRecon(state, e, garrison, defense, members, fed) {
       }
     };
   });
-  const visible = new Set(sectors);
   recordIntel(state, e.targetId, {
     at: e.arriveAt,
     source: "recon",
     ...ranges,
     victoriesAt: state.victories[e.targetId] ?? 0,
     sectors,
-    structures: garrison.structures.filter((x) => visible.has(sectorOf(x.q, x.r))),
-    ...spotted ? { spotted: true } : {}
+    // Chantier 39: the dens and roosts of the civilisation's parcels seen.
+    structures: seenStructures(garrison, e.arriveAt, sectors),
+    ...spotted ? { spotted: true } : {},
+    civAge: civAt(garrison, e.arriveAt).age
   });
   if (siege) recordSiegeIntel(state, e.targetId, siege);
   e.status = "returning";
@@ -10019,13 +10070,10 @@ function siegeTruth(g) {
   const cached = truths.get(g.seed);
   if (cached) return cached;
   const rng = createRng(`${g.seed}/siege`);
-  const holds = {};
-  for (const s of SIEGE.outerSectors)
-    holds[s] = round12(SIEGE.hold.base * rng.range(...SIEGE.hold.spread));
+  for (let i = 0; i < SIEGE.outerSectors.length; i++) rng.next();
   const queenSector = rng.int(0, INTEL.sectors / 2 - 1);
   const q = SIEGE.queen;
   const truth = {
-    holds,
     queenSector,
     queen: {
       ground: round12(q.ground * rng.range(...q.spread)),
@@ -10036,13 +10084,15 @@ function siegeTruth(g) {
   truths.set(g.seed, truth);
   return truth;
 }
+function queenLair(g) {
+  return royalSector(g);
+}
 function siegeGrowth(g, at) {
-  const days = Math.max(0, at - g.since) / CALENDAR.dayMs;
-  const rate = g.defense > 0 ? g.growth / g.defense : 0;
-  return 1 + Math.min(rate * days, ALIENS.maxGrowth - 1);
+  return sectorGrowth(g, queenLair(g), at);
 }
 function holdStrength(g, sector, at) {
-  return round12((siegeTruth(g).holds[sector] ?? 0) * siegeGrowth(g, at));
+  const view = civAt(g, at);
+  return round12((view.sectors[sector]?.power ?? 0) * SIEGE.hold.share);
 }
 function queenReduction(bridgeheads, queenSector) {
   const q = SIEGE.queen;
@@ -10051,7 +10101,7 @@ function queenReduction(bridgeheads, queenSector) {
 }
 function queenPower(state, g, at) {
   const t = siegeTruth(g);
-  const k = siegeGrowth(g, at) * (1 - queenReduction(state.siege.bridgeheads, t.queenSector));
+  const k = siegeGrowth(g, at) * (1 - queenReduction(state.siege.bridgeheads, queenLair(g)));
   return { ground: round12(t.queen.ground * k), air: round12(t.queen.air * k) };
 }
 function counterEscalation(counters) {
@@ -10231,13 +10281,14 @@ function deepRecon(g, known, count, spread, at, rng, lair = null) {
     return { at, min: Math.floor(min * 10) / 10, max: Math.ceil((min + width) * 10) / 10 };
   };
   const truth = siegeTruth(g);
+  const queenAt = queenLair(g);
   const holds = {};
   for (const s of sectors) if (isOuterSector(s)) holds[s] = around(holdStrength(g, s, at));
   const out = { seen: sectors, holds };
-  if (sectors.includes(truth.queenSector)) {
+  if (sectors.includes(queenAt)) {
     const k = siegeGrowth(g, at);
     out.queen = {
-      sector: truth.queenSector,
+      sector: queenAt,
       ground: around(round12(truth.queen.ground * k)),
       air: around(round12(truth.queen.air * k))
     };
@@ -10315,6 +10366,7 @@ function strikeCounter(s, at, events) {
     dead = drawLosses(s, holders, Math.round(holders.length * lost));
     const names = new Map(holders.map((v) => [v.id, v.name]));
     removeVillagers(s, dead, "battle", at);
+    recordDefeat(liveCiv(g), at, dead.length, b.sector);
     const survivors = b.holders.filter((id3) => !dead.includes(id3));
     s.siege.bridgeheads = s.siege.bridgeheads.filter((x) => x !== b);
     if (survivors.length > 0) sendHome(s, survivors, at, b.sector);
@@ -10330,6 +10382,7 @@ function strikeCounter(s, at, events) {
       retreating
     });
   } else {
+    recordFight(liveCiv(g), b.sector, at, CIV.fightLoss.defeat);
     s.siege.reports.push({
       id: c.id,
       at,
@@ -10471,6 +10524,16 @@ function landAssault(s, e, g, members, fed) {
     e.crew = e.crew.filter((id3) => !stay.includes(id3));
   }
   const injured = victory ? hit.filter((id3) => !stay.includes(id3)) : [];
+  const civ = liveCiv(g);
+  const close = Math.min(1, strength / Math.max(enemy, 1e-6));
+  recordFight(
+    civ,
+    sector,
+    e.arriveAt,
+    victory ? CIV.fightLoss.victory : CIV.fightLoss.defeat * close
+  );
+  if (victory && room) recordBurn(civ, sector, e.arriveAt);
+  if (!victory) recordDefeat(civ, e.arriveAt, lost.length, sector);
   e.status = "returning";
   e.result = result(fed, {
     victory,
@@ -10506,13 +10569,15 @@ function landFinal(s, e, g, members, fed) {
   removeVillagers(s, lost, "battle", e.arriveAt);
   e.crew = e.crew.filter((id3) => !lost.includes(id3));
   forgetHolders(s, lost);
+  if (!victory) recordDefeat(liveCiv(g), e.arriveAt, lost.length, queenLair(g));
   const t = siegeTruth(g);
+  const lair = queenLair(g);
   const k = siegeGrowth(g, e.arriveAt);
   const exact = (v) => ({ at: e.arriveAt, min: round12(v), max: round12(v) });
   recordSiegeIntel(s, e.targetId, {
-    seen: [t.queenSector],
+    seen: [lair],
     queen: {
-      sector: t.queenSector,
+      sector: lair,
       ground: exact(t.queen.ground * k),
       air: exact(t.queen.air * k)
     }
@@ -10621,9 +10686,7 @@ function publicState(state) {
 function alienDefense(state, targetId, at) {
   const g = state.aliens?.[targetId];
   if (!g) return null;
-  const days = Math.max(0, at - g.since) / CALENDAR.dayMs;
-  const growth = Math.min(g.growth * days, (ALIENS.maxGrowth - 1) * g.defense);
-  return round13(g.defense + g.reinforce * (state.victories[targetId] ?? 0) + growth);
+  return outerPower(civAt(g, at));
 }
 function alienEnemies(g, defense) {
   const total = Math.max(0, Math.round(defense / ALIENS.defensePerEnemy));
@@ -10661,12 +10724,10 @@ function intelView(state, targetId, now) {
   if (!report || !target) return null;
   const age = Math.max(0, now - report.at);
   const days = age / CALENDAR.dayMs;
-  const wins = Math.max(0, (state.victories[targetId] ?? 0) - report.victoriesAt);
-  const reinforced = alienDefOf(target.distance).reinforce * wins;
-  const grow = Math.min(1 + ALIENS.growthPerDay[1] * days, ALIENS.maxGrowth);
+  const grow = scheduleGrowth(state, target.distance, report.at, now);
   const defense = {
-    min: round13(report.defense.min + reinforced),
-    max: round13(report.defense.max * grow + reinforced)
+    min: round13(report.defense.min),
+    max: round13(report.defense.max * grow)
   };
   const scale = report.defense.max > 0 ? defense.max / report.defense.max : 1;
   const widen = (r) => ({ min: r.min, max: Math.round(r.max * scale) });
@@ -16798,7 +16859,8 @@ var gameStateSchema = external_exports.object({
         seen: external_exports.array(sectorId).max(INTEL.sectors),
         holds: external_exports.record(external_exports.string().max(4), datedRange),
         queen: external_exports.object({ sector: sectorId, ground: datedRange, air: datedRange }).optional()
-      }).optional()
+      }).optional(),
+      civAge: external_exports.number().int().min(0).max(3).optional()
     })
   ),
   expeditions: external_exports.array(
@@ -16843,6 +16905,8 @@ var gameStateSchema = external_exports.object({
         injured: external_exports.array(id).optional(),
         bridgehead: external_exports.boolean().optional(),
         queenFallen: external_exports.boolean().optional(),
+        sector: sectorId.optional(),
+        burnt: external_exports.boolean().optional(),
         founded: external_exports.boolean().optional(),
         sides: external_exports.object({ strength: groundAir, queen: groundAir }).optional()
       }).nullable()
@@ -18835,6 +18899,7 @@ export {
   libraries,
   libraryLevel,
   linkSister,
+  liveCiv,
   localAlienSeed,
   logisticsEfficiency,
   lootByAge,
@@ -18935,10 +19000,12 @@ export {
   productionRates,
   protectedStock,
   publicState,
+  queenLair,
   queenPower,
   queenReduction,
   queuedBuildAt,
   raidDen,
+  raidSector,
   rampartSectorOf,
   rampartSectors,
   rankOf,
@@ -18983,16 +19050,21 @@ export {
   rollKiwi,
   rollShiny,
   rotationsOf,
+  royalSector,
   scaleCost,
+  scheduleGrowth,
+  scheduleHours,
   seasonEffects,
   seasonHarvest,
   seasonOf,
   seasonRegen,
   sectorClash,
+  sectorGrowth,
   sectorHours,
   sectorOf,
   sectorThreat,
   sectorUnits,
+  seenStructures,
   sendBack,
   sendBackAll,
   sendShipment,

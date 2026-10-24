@@ -32,6 +32,16 @@ import {
   type Villager,
 } from './state';
 import { guardPower, type Sides } from './threats';
+import {
+  civAt,
+  liveCiv,
+  recordBurn,
+  recordDefeat,
+  recordFight,
+  royalSector,
+  sectorGrowth,
+} from './civ';
+import { CIV } from '../data/aliens';
 import type { Freshness } from './aliens';
 
 /**
@@ -76,9 +86,7 @@ export function siegeLock(state: GameState): SiegeLock | null {
 // --- The truth (hidden) ---------------------------------------------------------------------
 
 export interface SiegeTruth {
-  /** Base strength of the aliens holding each outer sector. */
-  holds: Record<number, number>;
-  /** Inner sector of the queen's lair. */
+  /** Inner sector of the queen's lair at the start (the royal burrow, chantier 39). */
   queenSector: number;
   queen: Sides;
 }
@@ -90,13 +98,11 @@ export function siegeTruth(g: Pick<AlienGarrison, 'seed'>): SiegeTruth {
   const cached = truths.get(g.seed);
   if (cached) return cached;
   const rng = createRng(`${g.seed}/siege`);
-  const holds: Record<number, number> = {};
-  for (const s of SIEGE.outerSectors)
-    holds[s] = round1(SIEGE.hold.base * rng.range(...SIEGE.hold.spread));
+  // The old holds' draws are kept so that the queen stays where older games found her.
+  for (let i = 0; i < SIEGE.outerSectors.length; i++) rng.next();
   const queenSector = rng.int(0, INTEL.sectors / 2 - 1);
   const q = SIEGE.queen;
   const truth = {
-    holds,
     queenSector,
     queen: {
       ground: round1(q.ground * rng.range(...q.spread)),
@@ -108,15 +114,20 @@ export function siegeTruth(g: Pick<AlienGarrison, 'seed'>): SiegeTruth {
   return truth;
 }
 
-/** The face's aliens grow like its garrison (same rate, same cap). */
-export function siegeGrowth(g: AlienGarrison, at: TimeMs): number {
-  const days = Math.max(0, at - g.since) / CALENDAR.dayMs;
-  const rate = g.defense > 0 ? g.growth / g.defense : 0;
-  return 1 + Math.min(rate * days, ALIENS.maxGrowth - 1);
+/** Chantier 39: the queen lives in the royal burrow of the civilisation (it may move unseen). */
+export function queenLair(g: AlienGarrison): number {
+  return royalSector(g);
 }
 
+/** Chantier 39: the queen grows with the parcel of her royal burrow. */
+export function siegeGrowth(g: AlienGarrison, at: TimeMs): number {
+  return sectorGrowth(g, queenLair(g), at);
+}
+
+/** Chantier 39: the aliens holding an outer parcel are its garrison, dug in. */
 export function holdStrength(g: AlienGarrison, sector: number, at: TimeMs): number {
-  return round1((siegeTruth(g).holds[sector] ?? 0) * siegeGrowth(g, at));
+  const view = civAt(g, at);
+  return round1((view.sectors[sector]?.power ?? 0) * SIEGE.hold.share);
 }
 
 /** Share of the queen's power the bridgeheads take away. */
@@ -132,7 +143,7 @@ export function queenReduction(
 /** The queen's real power at a time, weakened by the bridgeheads held. */
 export function queenPower(state: GameState, g: AlienGarrison, at: TimeMs): Sides {
   const t = siegeTruth(g);
-  const k = siegeGrowth(g, at) * (1 - queenReduction(state.siege.bridgeheads, t.queenSector));
+  const k = siegeGrowth(g, at) * (1 - queenReduction(state.siege.bridgeheads, queenLair(g)));
   return { ground: round1(t.queen.ground * k), air: round1(t.queen.air * k) };
 }
 
@@ -431,13 +442,14 @@ export function deepRecon(
     return { at, min: Math.floor(min * 10) / 10, max: Math.ceil((min + width) * 10) / 10 };
   };
   const truth = siegeTruth(g);
+  const queenAt = queenLair(g);
   const holds: Record<string, DatedRange> = {};
   for (const s of sectors) if (isOuterSector(s)) holds[s] = around(holdStrength(g, s, at));
   const out: Partial<SiegeIntel> = { seen: sectors, holds };
-  if (sectors.includes(truth.queenSector)) {
+  if (sectors.includes(queenAt)) {
     const k = siegeGrowth(g, at);
     out.queen = {
-      sector: truth.queenSector,
+      sector: queenAt,
       ground: around(round1(truth.queen.ground * k)),
       air: around(round1(truth.queen.air * k)),
     };
@@ -526,6 +538,8 @@ function strikeCounter(s: GameState, at: TimeMs, events: GameEvent[]): void {
     dead = drawLosses(s, holders, Math.round(holders.length * lost));
     const names = new Map(holders.map((v) => [v.id, v.name]));
     removeVillagers(s, dead, 'battle', at);
+    // Chantier 39: a fallen bridgehead feeds the civilisation.
+    recordDefeat(liveCiv(g), at, dead.length, b.sector);
     const survivors = b.holders.filter((id) => !dead.includes(id));
     s.siege.bridgeheads = s.siege.bridgeheads.filter((x) => x !== b);
     if (survivors.length > 0) sendHome(s, survivors, at, b.sector);
@@ -541,6 +555,8 @@ function strikeCounter(s: GameState, at: TimeMs, events: GameEvent[]): void {
       retreating,
     });
   } else {
+    // The attackers broke on the bridgehead: the parcel's garrison has to fill up again.
+    recordFight(liveCiv(g), b.sector, at, CIV.fightLoss.defeat);
     s.siege.reports.push({
       id: c.id,
       at,
@@ -711,6 +727,17 @@ function landAssault(
     e.crew = e.crew.filter((id) => !stay.includes(id));
   }
   const injured = victory ? hit.filter((id) => !stay.includes(id)) : [];
+  // Chantier 39: the parcel's garrison suffers; a bridgehead burns it, a defeat feeds the aliens.
+  const civ = liveCiv(g);
+  const close = Math.min(1, strength / Math.max(enemy, 1e-6));
+  recordFight(
+    civ,
+    sector,
+    e.arriveAt,
+    victory ? CIV.fightLoss.victory : CIV.fightLoss.defeat * close,
+  );
+  if (victory && room) recordBurn(civ, sector, e.arriveAt);
+  if (!victory) recordDefeat(civ, e.arriveAt, lost.length, sector);
   e.status = 'returning';
   e.result = result(fed, {
     victory,
@@ -754,13 +781,15 @@ function landFinal(
   removeVillagers(s, lost, 'battle', e.arriveAt);
   e.crew = e.crew.filter((id) => !lost.includes(id));
   forgetHolders(s, lost);
+  if (!victory) recordDefeat(liveCiv(g), e.arriveAt, lost.length, queenLair(g));
   const t = siegeTruth(g);
+  const lair = queenLair(g);
   const k = siegeGrowth(g, e.arriveAt);
   const exact = (v: number): DatedRange => ({ at: e.arriveAt, min: round1(v), max: round1(v) });
   recordSiegeIntel(s, e.targetId, {
-    seen: [t.queenSector],
+    seen: [lair],
     queen: {
-      sector: t.queenSector,
+      sector: lair,
       ground: exact(t.queen.ground * k),
       air: exact(t.queen.air * k),
     },

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALIENS,
+  CIV,
   CALENDAR,
   HOUR_MS,
   advance,
@@ -87,17 +88,19 @@ describe('hidden alien garrisons (chantier 07)', () => {
     expect(setup('kiwisu', 'g2').state.aliens![id]).not.toEqual(g);
   });
 
-  it('grows slowly every day, up to a cap, and reinforces after victories', () => {
+  it('grows with the civilisation, up to a cap; victories no longer reinforce it', () => {
     const { state } = setup('kiwisu', 'grow');
     const id = state.targets[0]!.id;
     const g = state.aliens![id]!;
-    expect(alienDefense(state, id, state.createdAt)).toBeCloseTo(g.defense, 1);
-    const day = alienDefense(state, id, state.createdAt + CALENDAR.dayMs)!;
-    expect(day).toBeCloseTo(g.defense + g.growth, 1);
-    const late = alienDefense(state, id, state.createdAt + 1000 * CALENDAR.dayMs)!;
-    expect(late).toBeCloseTo(g.defense * ALIENS.maxGrowth, 1);
+    expect(alienDefense(state, id, state.createdAt)).toBeCloseTo(g.defense, 0);
+    const day = alienDefense(state, id, state.createdAt + 24 * HOUR_MS)!;
+    expect(day).toBeGreaterThan(g.defense);
+    const top = CIV.ageMultiple[3]! * (1 + CIV.perDay * CIV.maxDays);
+    const late = alienDefense(state, id, state.createdAt + 1000 * 24 * HOUR_MS)!;
+    expect(late).toBeCloseTo(g.defense * top, 0);
+    // Chantier 39: victories burn the civilisation instead of reinforcing it.
     const won = { ...state, victories: { [id]: 2 } };
-    expect(alienDefense(won, id, state.createdAt)).toBeCloseTo(g.defense + 2 * g.reinforce, 1);
+    expect(alienDefense(won, id, state.createdAt)).toBe(alienDefense(state, id, state.createdAt));
     const e = alienEnemies(g, 10);
     expect(e.ferrets + e.bats).toBe(10);
   });
@@ -131,9 +134,9 @@ describe('hidden alien garrisons (chantier 07)', () => {
     expect(old.defense.min).toBe(5);
     expect(old.defense.max).toBeGreaterThan(7);
     expect(old.ferrets.max).toBeGreaterThanOrEqual(4);
-    // We know we won since: the aliens reinforced.
+    // Chantier 39: a victory since no longer reinforces them.
     const won = { ...s, victories: { [targetId]: 1 } };
-    expect(intelView(won, targetId, s.now)!.defense.min).toBe(5 + alienDefOf(0).reinforce);
+    expect(intelView(won, targetId, s.now)!.defense.min).toBe(5);
   });
 
   it('accumulates sectors and structures over reports', () => {
@@ -236,6 +239,8 @@ describe('the server never sends a garrison', () => {
     expect(text).not.toMatch(/"aliens":\{/);
     // No garrison seed (drawn as `<seed>/<target id>`) either.
     expect(text).not.toMatch(/secret-\d+\/aliens:/);
+    // Chantier 39: nor anything of the civilisation (its parcels, key buildings, impacts).
+    expect(text).not.toMatch(/"civ":\{|"keys":\[|"royalSeen"|"fights":\[/);
     return r;
   };
 

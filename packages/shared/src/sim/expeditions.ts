@@ -33,7 +33,17 @@ import { MORALE } from '../data/needs';
 import type { GameEvent } from './advance';
 import { grantClassXp, grantXp, hasSkill, kiwiExposure, kiwiStrength, modifiers } from './kiwis';
 import { CAMP, inLine, SKILLS } from '../data/classes';
-import { alienDefense, alienEnemies, intelView, recordIntel, sectorOf } from './aliens';
+import { alienDefense, alienEnemies, intelView, recordIntel } from './aliens';
+import {
+  civAt,
+  liveCiv,
+  raidSector,
+  recordBurn,
+  recordDefeat,
+  recordFight,
+  seenStructures,
+} from './civ';
+import { CIV } from '../data/aliens';
 import { landSettlers } from './colonies';
 import {
   allHolders,
@@ -640,6 +650,7 @@ export function resolveArrival(state: GameState, e: Expedition): void {
 
   // The crew saw the whole garrison: the battle is the most precise report there is.
   const seen = alienEnemies(garrison, defense);
+  const civAge = civAt(garrison, e.arriveAt).age;
   recordIntel(state, target.id, {
     at: e.arriveAt,
     source: 'raid',
@@ -647,7 +658,22 @@ export function resolveArrival(state: GameState, e: Expedition): void {
     ferrets: { min: seen.ferrets, max: seen.ferrets },
     bats: { min: seen.bats, max: seen.bats },
     victoriesAt: state.victories[target.id] ?? 0,
+    civAge,
   });
+  // Chantier 39: the raid lands on an outer parcel: a victory burns it, a defeat feeds them.
+  const held =
+    twinTarget(state)?.id === target.id ? state.siege.bridgeheads.map((b) => b.sector) : [];
+  const sector = raidSector(garrison, e.id, held);
+  const civ = liveCiv(garrison);
+  const close = Math.min(1, strength / Math.max(defense, 1e-6));
+  recordFight(
+    civ,
+    sector,
+    e.arriveAt,
+    victory ? CIV.fightLoss.victory : CIV.fightLoss.defeat * close,
+  );
+  if (victory) recordBurn(civ, sector, e.arriveAt);
+  else recordDefeat(civ, e.arriveAt, lost.length, sector);
   const loot = emptyResources();
   if (victory) {
     state.victories[target.id] = (state.victories[target.id] ?? 0) + 1;
@@ -678,6 +704,8 @@ export function resolveArrival(state: GameState, e: Expedition): void {
     lostOnReturn: [],
     loot,
     ...(victory && hit.length > 0 ? { injured: hit } : {}),
+    sector,
+    ...(victory ? { burnt: true } : {}),
   };
 }
 
@@ -704,6 +732,8 @@ function resolveRecon(
       lost = drawLosses(state, members, 1);
       removeVillagers(state, lost, 'battle', e.arriveAt);
       e.crew = e.crew.filter((id) => !lost.includes(id));
+      // Chantier 39: a scout lost feeds the civilisation a little.
+      recordDefeat(liveCiv(garrison), e.arriveAt, lost.length);
     } else {
       injured.push(drawLosses(state, members, 1)[0]!);
     }
@@ -751,15 +781,16 @@ function resolveRecon(
       },
     };
   });
-  const visible = new Set(sectors);
   recordIntel(state, e.targetId, {
     at: e.arriveAt,
     source: 'recon',
     ...ranges,
     victoriesAt: state.victories[e.targetId] ?? 0,
     sectors,
-    structures: garrison.structures.filter((x) => visible.has(sectorOf(x.q, x.r))),
+    // Chantier 39: the dens and roosts of the civilisation's parcels seen.
+    structures: seenStructures(garrison, e.arriveAt, sectors),
     ...(spotted ? { spotted: true } : {}),
+    civAge: civAt(garrison, e.arriveAt).age,
   });
   if (siege) recordSiegeIntel(state, e.targetId, siege);
   e.status = 'returning';

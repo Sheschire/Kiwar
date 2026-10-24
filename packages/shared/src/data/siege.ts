@@ -15,8 +15,8 @@ export const SIEGE = {
   neededBridgeheads: 2,
   /** Bridgeheads stand on the outer sectors (`INTEL` sectors 6–11); the queen in an inner one. */
   outerSectors: [6, 7, 8, 9, 10, 11] as readonly number[],
-  /** Real strength of the aliens holding an outer sector (× spread, × the garrison's growth). */
-  hold: { base: 9, spread: [0.75, 1.3] as const },
+  /** Chantier 39: the aliens holding an outer sector are its garrison × this (dug in). */
+  hold: { share: 1.5 },
   /** The ferret queen: ground (ferrets) and air (bats) power, very strong. */
   queen: {
     ground: 24,

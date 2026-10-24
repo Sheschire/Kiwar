@@ -15,7 +15,7 @@ import {
 } from '../worldgen/generateFace';
 import type { TimeMs } from '../types/ids';
 import { counterAwaited, mergeSiegeIntel } from './siege';
-import { canAnnounceWave, civDay, newCiv } from './civ';
+import { canAnnounceWave, civAt, civDay, newCiv, outerPower, scheduleGrowth } from './civ';
 import type {
   AlienGarrison,
   AlienStructure,
@@ -108,13 +108,14 @@ export function publicState(state: GameState): GameState {
   return copy;
 }
 
-/** Real defense of a garrison at a time (null when hidden from us). */
+/**
+ * Real defense of a garrison at a time (null when hidden from us). Chantier 39: the garrison of
+ * the civilisation's outer ring (the old raids fight the edge until chantier 40).
+ */
 export function alienDefense(state: GameState, targetId: string, at: TimeMs): number | null {
   const g = state.aliens?.[targetId];
   if (!g) return null;
-  const days = Math.max(0, at - g.since) / CALENDAR.dayMs;
-  const growth = Math.min(g.growth * days, (ALIENS.maxGrowth - 1) * g.defense);
-  return round1(g.defense + g.reinforce * (state.victories[targetId] ?? 0) + growth);
+  return outerPower(civAt(g, at));
 }
 
 /** Ferrets and bats behind a defense value. */
@@ -193,12 +194,12 @@ export function intelView(state: GameState, targetId: string, now: TimeMs): Inte
   if (!report || !target) return null;
   const age = Math.max(0, now - report.at);
   const days = age / CALENDAR.dayMs;
-  const wins = Math.max(0, (state.victories[targetId] ?? 0) - report.victoriesAt);
-  const reinforced = alienDefOf(target.distance).reinforce * wins;
-  const grow = Math.min(1 + ALIENS.growthPerDay[1] * days, ALIENS.maxGrowth);
+  // Chantier 39: the civilisation grows on a common schedule (our victories no longer
+  // reinforce it: they burn it down).
+  const grow = scheduleGrowth(state, target.distance, report.at, now);
   const defense = {
-    min: round1(report.defense.min + reinforced),
-    max: round1(report.defense.max * grow + reinforced),
+    min: round1(report.defense.min),
+    max: round1(report.defense.max * grow),
   };
   const scale = report.defense.max > 0 ? defense.max / report.defense.max : 1;
   const widen = (r: IntelRange): IntelRange => ({ min: r.min, max: Math.round(r.max * scale) });

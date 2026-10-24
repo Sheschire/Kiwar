@@ -553,3 +553,70 @@ export function civWave(state: GameState, at: TimeMs, waveId: string): CivWave {
   }
   return { factor: time * barracks * (CIV.waveAge[view.age] ?? 1), origin };
 }
+
+// --- The old missions on the civilisation (chantier 39, part 4; chantier 40 replaces them) ---
+
+/** The civilisation of a garrison, created in place when missing (for recording impacts). */
+export function liveCiv(g: AlienGarrison): CivState {
+  g.civ ??= newCiv(g.seed, 0);
+  return g.civ;
+}
+
+/** Parcel of the royal burrow (the queen's lair of the siege). */
+export function royalSector(g: AlienGarrison): number {
+  return civOf(g).keys.find((k) => k.kind === 'royal')?.sector ?? siegeTruth(g).queenSector;
+}
+
+/** Growth of a parcel's garrison since the start (age step × days). */
+export function sectorGrowth(g: AlienGarrison, sector: number, at: TimeMs): number {
+  return growthOfHours(sectorHours(g, civOf(g), sector, at));
+}
+
+/**
+ * Hours of development on the common schedule, without our impacts: what anybody can work out
+ * from the public rule (used to age our reports).
+ */
+export function scheduleHours(
+  state: Pick<GameState, 'createdAt'>,
+  distance: number,
+  at: TimeMs,
+): number {
+  return Math.max(0, (at - state.createdAt) / HOUR) + distance * CIV.leadPerDistanceH;
+}
+
+/** How much a garrison may have grown between two times, on the common schedule. */
+export function scheduleGrowth(
+  state: Pick<GameState, 'createdAt'>,
+  distance: number,
+  from: TimeMs,
+  to: TimeMs,
+): number {
+  const a = growthOfHours(scheduleHours(state, distance, from));
+  const b = growthOfHours(scheduleHours(state, distance, Math.max(from, to)));
+  return b / a;
+}
+
+/** The outer parcel a raid lands on (one we do not hold), from a secret tie-breaker. */
+export function raidSector(g: AlienGarrison, salt: string, held: readonly number[]): number {
+  const outer = Array.from({ length: HALF }, (_, i) => HALF + i);
+  const free = outer.filter((s) => !held.includes(s));
+  const pool = free.length > 0 ? free : outer;
+  return pool[Math.floor(civHash(g.seed, `raid/${salt}`) * pool.length)]!;
+}
+
+/** Dens and roosts seen in some parcels (the twin's 3D shows them, chantier 07). */
+export function seenStructures(
+  g: AlienGarrison,
+  at: TimeMs,
+  sectors: readonly number[],
+): { kind: 'den' | 'roost'; q: number; r: number }[] {
+  const visible = new Set(sectors);
+  const civ = civOf(g);
+  return civBuildings(g, civ, civAt(g, at, civ), at)
+    .filter((b) => visible.has(b.sector) && (b.kind === 'burrow' || b.kind === 'roost'))
+    .map((b) => ({
+      kind: b.kind === 'burrow' ? ('den' as const) : ('roost' as const),
+      q: b.q,
+      r: b.r,
+    }));
+}

@@ -403,6 +403,7 @@ export const gameStateSchema = z.object({
           queen: z.object({ sector: sectorId, ground: datedRange, air: datedRange }).optional(),
         })
         .optional(),
+      civAge: z.number().int().min(0).max(3).optional(),
     }),
   ),
   expeditions: z.array(
@@ -448,6 +449,8 @@ export const gameStateSchema = z.object({
           injured: z.array(id).optional(),
           bridgehead: z.boolean().optional(),
           queenFallen: z.boolean().optional(),
+          sector: sectorId.optional(),
+          burnt: z.boolean().optional(),
           founded: z.boolean().optional(),
           sides: z.object({ strength: groundAir, queen: groundAir }).optional(),
         })

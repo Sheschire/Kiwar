@@ -3,7 +3,6 @@ import {
   FUEL,
   STARDUST_SCALE,
   advance,
-  ALIEN_TWIN_FACE,
   applyCommand,
   deserializeSave,
   EXPEDITIONS,
@@ -112,7 +111,7 @@ describe('expeditions', () => {
     expect(validateCommand(launched, plan(padId, targetId, 4, 30, 15), ctx)).toBe('launchpadBusy');
   });
 
-  it('a well-fed crew wins, brings loot home and the aliens reinforce', () => {
+  it('a well-fed crew wins, brings loot home and burns a parcel', () => {
     const { s, t, map, padId, targetId } = readyColony();
     const before = population(s);
     const launched = run(s, plan(padId, targetId, 10, 120, 60), t, map);
@@ -139,7 +138,13 @@ describe('expeditions', () => {
         crew: 10,
         provisions: { pulp: 120, juice: 60 },
       })!.defense,
-    ).toMatchObject({ min: e.result!.defense + ALIEN_TWIN_FACE.reinforce });
+    ).toMatchObject({ min: e.result!.defense });
+    // Chantier 39: the parcel it landed on burnt.
+    expect(e.result!.burnt).toBe(true);
+    expect(back.aliens![targetId]!.civ!.log.at(-1)).toMatchObject({
+      kind: 'burn',
+      sector: e.result!.sector,
+    });
     // The battle itself is the report: the defense faced, exactly.
     expect(back.intel[targetId]).toMatchObject({
       source: 'raid',

@@ -27,7 +27,11 @@ import {
   hiddenDue,
   waveAwaited,
   wavePower,
+  createMemoryRepository,
+  handleGameRequest,
+  type GameResponse,
   type GameState,
+  type ServiceContext,
   exposureOf,
   planCiv,
   publicState,
@@ -416,5 +420,71 @@ describe('its waves against us (chantier 39)', () => {
     expect(civWave(slow, at + 6 * DAY, 'w1').factor).toBeGreaterThan(
       civWave(slow, at, 'w1').factor,
     );
+  });
+});
+
+describe('the server keeps the civilisation (chantier 39)', () => {
+  function ctxFor() {
+    const repo = createMemoryRepository();
+    let now = T0;
+    let seeds = 0;
+    const ctx: ServiceContext = {
+      repo,
+      userId: 'u1',
+      now: () => now,
+      randomSeed: () => `secret-${++seeds}`,
+      randomBytes: (n) => Uint8Array.from({ length: n }, (_, i) => (i * 37 + seeds) % 256),
+    };
+    return { ctx, repo, at: (t: number) => (now = t) };
+  }
+  const hidden = (r: GameResponse) => {
+    const text = JSON.stringify(r);
+    expect(text).not.toMatch(/"aliens":\{|"civ":\{|"keys":\[|"royalSeen"|"fights":\[/);
+    expect(text).not.toMatch(/secret-\d+\/aliens:/);
+    return r;
+  };
+
+  it('announces a wave due while away on load, from a parcel, nothing hidden sent', async () => {
+    const { ctx, repo, at } = ctxFor();
+    hidden(await handleGameRequest(ctx, { action: 'load' }));
+    const game = [...repo.games.values()][0]!;
+    const s = cloneState(game.state);
+    s.buildings[0]!.level = 2;
+    s.threats.next = {
+      id: 'w1',
+      announceAt: T0 + 8 * H,
+      at: T0 + 12 * H,
+      announced: false,
+      ground: 0,
+      air: 0,
+    };
+    s.threats.nextIncidentAt = T0 + 100 * DAY;
+    repo.games.set(game.id, { ...game, state: s });
+    at(T0 + 9 * H);
+    const r = hidden(await handleGameRequest(ctx, { action: 'load' }));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const w = r.state!.threats.next!;
+    expect(w.announced).toBe(true);
+    expect(w.origin).toBeGreaterThanOrEqual(0);
+    expect(r.events.some((e) => e.type === 'waveAnnounced')).toBe(true);
+    // The stored truth lives on, looked at every game day.
+    const stored = [...repo.games.values()][0]!.state;
+    const g = Object.values(stored.aliens!)[0]!;
+    expect(g.civ!.day).toBe(civDay(g, T0 + 8 * H));
+  });
+
+  it('is exact after ten days away', () => {
+    const { state } = setup('kiwisu', 'away');
+    const s = cloneState(state);
+    s.buildings[0]!.level = 2;
+    const end = T0 + 10 * DAY;
+    const big = advance(cloneState(s), end).state;
+    let small = cloneState(s);
+    for (let t = T0; t < end; t += 5 * H + 7 * 60_000) small = advance(small, t).state;
+    small = advance(small, end).state;
+    expect(big.aliens).toEqual(small.aliens);
+    expect(big.threats).toEqual(small.threats);
+    expect(big.threats.waves).toBeGreaterThan(5);
   });
 });
