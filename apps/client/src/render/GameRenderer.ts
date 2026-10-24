@@ -1313,6 +1313,33 @@ export class GameRenderer {
     return true;
   }
 
+  /**
+   * Chantier 41: preset framings of a landing on show (big buttons on phones): the whole field,
+   * the melee (the middle of the fighters now), or the ship.
+   */
+  battleFrame(kind: 'field' | 'melee' | 'ship'): void {
+    const show = this.landing;
+    const twin = this.twin;
+    if (!show?.battle.source || !twin || this.visiting !== 'twin' || this.rig.flying) return;
+    const target = new Vector3();
+    let radius: number;
+    if (kind === 'field') {
+      const f = twin.parcelFrame(show.sector);
+      target.copy(f.center);
+      radius = f.radius;
+    } else {
+      const spread = kind === 'melee' ? show.battle.fighters(target) : null;
+      if (spread === null) target.copy(show.shipSpot);
+      show.group.updateWorldMatrix(true, false);
+      target.applyMatrix4(show.group.matrixWorld);
+      radius = Math.max(3.6, (spread ?? 1.5) * 0.68 + 1.4);
+    }
+    const c = this.rig.controls;
+    void c.moveTo(target.x, target.y, target.z, true);
+    void c.dollyTo(Math.max(c.minDistance, this.rig.fitDistance(radius) * 1.1), true);
+    this.wake();
+  }
+
   /** The show on screen: a landing on the twin, else a wave at home. */
   private get show(): BattleShow | null {
     if (this.landing?.battle.source) return this.landing.battle;

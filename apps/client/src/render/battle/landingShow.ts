@@ -91,9 +91,14 @@ export class LandingShow {
     const blocked = new Set(log.buildings.map((b) => hexKey({ q: b[2], r: b[3] })));
     const tile = landingTile(e.sector, blocked);
     const p = worldPosition(tile);
-    this.pad.set(p.x, (getTile(this.map, tile)?.height ?? 0) + 0.2, p.z);
-    // It comes down from above the rim of the face, over its parcel.
+    // It stands a little outwards of its tile, so the crew stepping out stays in sight.
     const out = Math.hypot(p.x, p.z) || 1;
+    this.pad.set(
+      p.x + (p.x / out) * 0.8,
+      (getTile(this.map, tile)?.height ?? 0) + 0.2,
+      p.z + (p.z / out) * 0.8,
+    );
+    // It comes down from above the rim of the face, over its parcel.
     this.sky.set(p.x + (p.x / out) * 9, this.pad.y + 11, p.z + (p.z / out) * 9);
     this.fires = log.buildings.map((b) => {
       const w = worldPosition({ q: b[2], r: b[3] });
@@ -129,7 +134,12 @@ export class LandingShow {
       this.ship.add(w);
       return w;
     });
-    this.ship.scale.setScalar(0.95);
+    this.ship.scale.setScalar(0.8);
+  }
+
+  /** Chantier 41 (framings): where the ship stands, in the face's frame. */
+  get shipSpot(): Vector3 {
+    return this.pad;
   }
 
   /** Ends the show now. */

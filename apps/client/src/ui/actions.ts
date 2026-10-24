@@ -279,6 +279,10 @@ export const actions = {
   battleSkip(): void {
     renderer?.battleSkip();
   },
+  /** Chantier 41: a preset framing of a landing on show. */
+  battleFrame(kind: 'field' | 'melee' | 'ship'): void {
+    renderer?.battleFrame(kind);
+  },
   battleUnit(index: number | null): void {
     renderer?.battleSelect(index);
   },

@@ -81,3 +81,58 @@ describe('battle timeline (chantier 36)', () => {
     }
   });
 });
+
+/** Chantier 41: a landing's journal (a crew on side 1, the field cleared ends it). */
+function landing() {
+  const tiles = hexDisk({ q: 0, r: 0 }, 6).map((h) => ({ ...h, cost: 1 }));
+  const ship = { q: 0, r: 5 };
+  const exits = tiles.map((t, i) => (hexDistance(t, ship) <= 1 ? i : -1)).filter((i) => i >= 0);
+  const kiwi = (i: number): BattleUnitSetup => ({
+    ...enemyUnit('soldier', 1, `k${i}`, { q: i - 1, r: 5 }, 0, null, 1),
+    side: 1,
+    body: 'kiwi',
+    role: 'assault',
+    kind: 'warrior',
+    name: `Kiwi${i}`,
+    hp: 16,
+    weaponId: 'sword',
+    weapon: WEAPONS.sword,
+    carry: 0,
+    power: 1,
+  });
+  const alien = (i: number): BattleUnitSetup => ({
+    ...enemyUnit('soldier', 1, `a${i}`, { q: i - 1, r: -2 }, 0, null, 3),
+    side: 0,
+    role: 'guard',
+    carry: 0,
+  });
+  const setup: BattleSetup = {
+    tiles,
+    exits,
+    buildings: [],
+    units: [0, 1, 2].map(kiwi).concat([0, 1, 2, 3].map(alien)),
+    orders: [
+      { posture: 'bold', retreatBelow: 0 },
+      { posture: 'bold', retreatBelow: 0.5 + 1e-6, priority: 'nearest' },
+    ],
+    clearEnds: true,
+  };
+  return simulateBattle(setup, 'landing-timeline');
+}
+
+describe('landing timeline (chantier 41)', () => {
+  it('replays exactly what the journal says: who fell on each side, when it ended', () => {
+    const log = landing();
+    const tl = buildTimeline(log);
+    expect(tl.fight).toBeCloseTo(log.result.duration, 6);
+    const fallen = (side: 0 | 1) =>
+      tl.tracks.filter((t) => t.side === side && t.endKind === 'fall').map((t) => t.unit[0]);
+    // Our crew lost: the journal's own list.
+    expect(fallen(1).sort()).toEqual([...(log.result.lost ?? [])].sort());
+    // The aliens left standing (or not) at the end.
+    const standing = tl.tracks.filter((t) => t.side === 0 && t.endKind !== 'fall').length;
+    expect(standing).toBe(log.result.defendersLeft ?? standing);
+    // Twice the same journal, twice the same show.
+    expect(buildTimeline(log)).toEqual(tl);
+  });
+});

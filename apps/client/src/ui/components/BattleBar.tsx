@@ -22,13 +22,24 @@ export function BattleBar() {
   const duration = useBattle((s) => s.duration);
   const speed = useBattle((s) => s.speed);
   const unit = useBattle((s) => s.unit);
+  const kind = useBattle((s) => s.kind);
   if (!reportId) return null;
   return (
     <div class="battle-dock pe">
       {unit && <UnitCard unit={unit} />}
       <div class="battle-bar parchment" role="toolbar" aria-label={t('battle.live')}>
         <div class="battle-title">
-          <strong>{t(live ? 'battle.live' : 'battle.replay')}</strong>
+          <strong>
+            {t(
+              kind === 'landing'
+                ? live
+                  ? 'battle.landingLive'
+                  : 'battle.landingReplay'
+                : live
+                  ? 'battle.live'
+                  : 'battle.replay',
+            )}
+          </strong>
           <span class="small muted">
             {t('battle.clock', { time: clock(time), duration: clock(duration) })}
           </span>
@@ -56,6 +67,16 @@ export function BattleBar() {
             {t('battle.skip')}
           </button>
         </div>
+        {kind === 'landing' && (
+          // Chantier 41: preset framings (the fighters are small on the twin).
+          <div class="battle-frames" role="group" aria-label={t('battle.frame.title')}>
+            {(['field', 'melee', 'ship'] as const).map((k) => (
+              <button key={k} class="btn btn-small" onClick={() => actions.battleFrame(k)}>
+                {t(`battle.frame.${k}`)}
+              </button>
+            ))}
+          </div>
+        )}
         {!unit && <span class="small muted battle-hint">{t('battle.tapHint')}</span>}
       </div>
     </div>

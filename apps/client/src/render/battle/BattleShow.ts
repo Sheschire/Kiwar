@@ -462,6 +462,20 @@ export class BattleShow {
     return best;
   }
 
+  /**
+   * Chantier 41: the middle of the fighters on the field now (in the group's frame, in `out`)
+   * and how far they spread; null when nobody is drawn.
+   */
+  fighters(out: Vector3): number | null {
+    if (this.drawnPos.length === 0) return null;
+    out.set(0, 0, 0);
+    for (const d of this.drawnPos) out.add(d.pos);
+    out.multiplyScalar(1 / this.drawnPos.length);
+    let spread = 0;
+    for (const d of this.drawnPos) spread = Math.max(spread, d.pos.distanceTo(out));
+    return spread;
+  }
+
   /** World position of a unit at `t` (body height), in `out`. */
   private positionOf(a: Actor, t: number, out: Vector3): Vector3 {
     const place = placeAt(a.track, t);

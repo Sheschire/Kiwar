@@ -5987,3 +5987,22 @@ h3 .building-thumb {
   flex: 1;
   min-height: 44px;
 }
+
+/* Chantier 41: preset framings of a landing. */
+.battle-frames {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.battle-frames .btn {
+  flex: 1;
+  max-width: 120px;
+}
+
+@media (pointer: coarse) {
+  .battle-frames .btn,
+  .battle-actions .btn {
+    min-height: 40px;
+  }
+}
