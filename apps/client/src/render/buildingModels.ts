@@ -1,4 +1,4 @@
-import { campfire } from './models/village';
+import { campfire, townHall } from './models/village';
 import type { BufferGeometry } from 'three';
 import { Color, Matrix4, Mesh, Quaternion, Raycaster, Vector3 } from 'three';
 import {
@@ -61,8 +61,7 @@ const BUILDERS: Record<BuildingType, (look: Look) => Parts> = {
   skyTurret,
   trainingCamp,
   forge,
-  // Chantier 43: drawn like the School until its own model (part 4).
-  townHall: school,
+  townHall,
   campfire: () => campfire(),
 };
 
@@ -122,7 +121,7 @@ function partsOf(
   // Chantier 35: big buildings get their sign once spread over their footprint.
   const big = bigSignSpot(type);
   p.doors = p.filter((part) => part[1] === C.door && !part[3]);
-  if (type !== 'camp' && sign && !big) signPost(p, type);
+  if (type !== 'camp' && type !== 'campfire' && sign && !big) signPost(p, type);
   if (level > 3 && type !== 'monument' && type !== 'lab') {
     if (look.tier >= 2 && !OWN_ANNEX.has(type))
       annex(p, look.age, ...(ANNEX_SPOTS[type] ?? [-0.5, -0.5]));
@@ -135,7 +134,7 @@ function partsOf(
     p.doors = p.filter((part) => part[1] === C.door && !part[3]);
     if (sign) signPost(p, type, big);
   }
-  if (type !== 'camp' && type !== 'monument') dress(p, type, look.age);
+  if (type !== 'camp' && type !== 'monument' && type !== 'campfire') dress(p, type, look.age);
   return p;
 }
 

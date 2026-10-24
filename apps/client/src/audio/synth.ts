@@ -597,6 +597,53 @@ export const SYNTH_PRESETS = {
     ],
     peak: 0.5,
   },
+  // Chantier 43: the colony gathers for the speech — a murmuring crowd, the Town Hall's bell,
+  // then a few happy chirps.
+  crowd: {
+    tones: [
+      {
+        wave: 'noise',
+        freq: 0,
+        attack: 0.3,
+        hold: 0.6,
+        decay: 0.6,
+        gain: 0.35,
+        lowpass: 900,
+        lowpassEnd: 600,
+        tremolo: [7, 0.5],
+      },
+      { wave: 'sine', freq: 784, start: 0.15, attack: 0.005, decay: 0.9, gain: 0.35 },
+      { wave: 'sine', freq: 1568, start: 0.15, attack: 0.005, decay: 0.5, gain: 0.12 },
+      {
+        wave: 'triangle',
+        freq: 880,
+        freqEnd: 1180,
+        start: 0.9,
+        attack: 0.01,
+        decay: 0.09,
+        gain: 0.3,
+      },
+      {
+        wave: 'triangle',
+        freq: 990,
+        freqEnd: 1320,
+        start: 1.02,
+        attack: 0.01,
+        decay: 0.08,
+        gain: 0.25,
+      },
+      {
+        wave: 'triangle',
+        freq: 820,
+        freqEnd: 1100,
+        start: 1.12,
+        attack: 0.01,
+        decay: 0.1,
+        gain: 0.25,
+      },
+    ],
+    peak: 0.4,
+  },
   victory: {
     tones: [
       { wave: 'triangle', freq: 523, attack: 0.01, hold: 0.08, decay: 0.2 },

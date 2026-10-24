@@ -15,6 +15,9 @@ import {
   idleVillagers as sharedIdleVillagers,
   missingBeds as sharedMissingBeds,
   moraleOf as sharedMoraleOf,
+  colonyMood as sharedColonyMood,
+  kiwiMorale as sharedKiwiMorale,
+  type KiwiMorale,
   population as sharedPopulation,
   researchPerHour as sharedResearchPerHour,
   reserves as sharedReserves,
@@ -59,3 +62,9 @@ export const reserves = perGame(sharedReserves);
 export const staffing = perGame(sharedStaffing);
 export const moraleOf = perGame((state) => sharedMoraleOf(state, bedsOf(state)));
 export const missingBeds = perGame((state) => sharedMissingBeds(state, bedsOf(state)));
+/** Chantier 43: every kiwi's morale (gauge and parts), once per state. */
+export const kiwiMorales = perGame((state): Map<string, KiwiMorale> => {
+  const beds = bedsOf(state);
+  const mood = sharedColonyMood(state);
+  return new Map(state.villagers.map((v) => [v.id, sharedKiwiMorale(state, v, beds, mood)]));
+});

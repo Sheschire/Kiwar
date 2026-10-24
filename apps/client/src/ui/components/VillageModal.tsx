@@ -42,7 +42,7 @@ import { StatRadar } from './StatRadar';
 import { TrainingBar } from './TrainingBar';
 import { ClassCourses, ClassRank } from './ClassCourses';
 import { ClassTree } from './ClassTree';
-import { KiwiNeedsLine, MoraleCard, RestSection } from './NeedsWidgets';
+import { KiwiMoraleSection, KiwiNeedsLine, MoraleCard, RestSection } from './NeedsWidgets';
 
 type Sort = VillageSort;
 const SORTS = ['level', 'name', 'job', 'born'] as const;
@@ -418,6 +418,7 @@ function KiwiSheet({ v }: { v: Villager }) {
       {v.kikiwiwi && <TitanSection game={game} />}
       <GuardSection game={game} v={v} />
 
+      <KiwiMoraleSection v={v} />
       <RestSection v={v} />
 
       <section class="field">

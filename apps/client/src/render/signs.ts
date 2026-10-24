@@ -37,8 +37,9 @@ const SIGNED: readonly BuildingType[] = [
   'skyTurret',
   'trainingCamp',
   'forge',
+  'townHall',
 ];
-const GRID = 4;
+const GRID = 5;
 const CELL = 128;
 /** Width of a sign in world units. */
 const SIZE = 0.46;

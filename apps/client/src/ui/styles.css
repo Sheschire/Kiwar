@@ -3035,6 +3035,40 @@ button.chip:focus-visible {
   height: 5px;
 }
 
+/* Chantier 43: a morale gauge per kiwi. */
+.morale-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 99px;
+  background: rgba(138, 95, 56, 0.18);
+  overflow: hidden;
+}
+
+.morale-bar span {
+  display: block;
+  height: 100%;
+  background: var(--leaf);
+}
+
+.morale-bar.is-meh span {
+  background: #e0a63a;
+}
+
+.morale-bar.is-low span {
+  background: var(--berry);
+}
+
+.morale-bar.mini {
+  flex: 0 0 40px;
+  height: 5px;
+}
+
+.morale-memories {
+  margin: 2px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+
 /* ---------- Intro: the sliced kiwi and the choice of a face (chantier 05) ---------- */
 
 .intro {

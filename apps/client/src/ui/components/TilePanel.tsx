@@ -97,6 +97,7 @@ import { BuildingThumb } from './BuildingThumb';
 import { LabInfo } from './LabInfo';
 import { CampInfo } from './CampInfo';
 import { ForgeInfo } from './ForgeInfo';
+import { CampfireInfo, TownHallInfo } from './TownHallInfo';
 import { siegeVisible } from './SiegeModal';
 import { TitanWorks } from './TitanWorks';
 import { DustSection } from './DustSection';
@@ -398,6 +399,8 @@ function BuildingSection({
       {b.type === 'lab' && <LabInfo game={game} map={map} b={b} now={now} />}
       {b.type === 'trainingCamp' && <CampInfo game={game} b={b} now={now} />}
       {b.type === 'forge' && <ForgeInfo game={game} b={b} />}
+      {b.type === 'townHall' && <TownHallInfo game={game} b={b} now={now} />}
+      {b.type === 'campfire' && <CampfireInfo game={game} b={b} />}
       {b.type === 'monument' && <AgeInfo game={game} t={t} />}
       {b.type === 'library' && (
         <>

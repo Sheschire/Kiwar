@@ -3,12 +3,13 @@ import {
   getBuilding,
   kiwiRhythm,
   MORALE,
+  moraleFactor,
   presence,
   type Morale,
   type Villager,
 } from '@kiwar/shared';
-import { bedsOf, hungerStage, missingBeds, moraleOf } from '../derived';
-import { formatNumber } from '../../i18n/i18n';
+import { bedsOf, hungerStage, kiwiMorales, missingBeds, moraleOf } from '../derived';
+import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { useT, useUi } from '../store';
 
 const signed = (lang: 'fr' | 'en', share: number) => {
@@ -60,6 +61,7 @@ const PARTS = [
   'mayor',
   'bards',
   'speech',
+  'leisure',
   'temper',
   'memories',
   'season',
@@ -104,6 +106,75 @@ export function MoraleCard() {
   );
 }
 
+/** Chantier 43: the colour step of a morale gauge. */
+function moraleTone(points: number): 'low' | 'meh' | 'good' {
+  return points < MORALE.sulk ? 'low' : points < MORALE.neutral ? 'meh' : 'good';
+}
+
+/** Chantier 43: a morale gauge (0–100). */
+export function MoraleGauge({ points, mini = false }: { points: number; mini?: boolean }) {
+  const t = useT();
+  return (
+    <span
+      class={`morale-bar ${mini ? 'mini' : ''} is-${moraleTone(points)}`}
+      title={t('needs.morale.gauge', { value: Math.round(points) })}
+      aria-label={t('needs.morale.gauge', { value: Math.round(points) })}
+    >
+      <span style={{ width: `${Math.round(points)}%` }} />
+    </span>
+  );
+}
+
+/** Chantier 43: one kiwi's morale gauge, its work and what makes it (kiwi sheet). */
+export function KiwiMoraleSection({ v }: { v: Villager }) {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const game = useUi((s) => s.game)!;
+  if (v.job.kind === 'expedition' || v.job.kind === 'outpost') return null;
+  const m = kiwiMorales(game).get(v.id);
+  if (!m) return null;
+  const work = moraleFactor(m.total) - 1;
+  const parts = [
+    ['colony', m.colony],
+    ['bed', m.bed],
+    ['leisure', m.leisure],
+    ['temper', m.temper],
+  ] as const;
+  const memories = (v.memories ?? []).filter((x) => x.until > game.now);
+  return (
+    <FoldSection class="morale-section" title={t('needs.morale.title')}>
+      <div class="stat-row">
+        <span class="stat-label">{Math.round(m.total)}/100</span>
+        <MoraleGauge points={m.total} />
+        <span class={`small ${work < 0 ? 'warn' : 'bonus'}`}>
+          {t('needs.morale.work', { value: signed(lang, work) })}
+        </span>
+      </div>
+      {m.total < MORALE.sulk && <p class="small warn">{t('needs.morale.sulk')}</p>}
+      <ul class="morale-parts">
+        {parts
+          .filter(([k, x]) => k === 'colony' || Math.abs(x) >= 0.5)
+          .map(([k, x]) => (
+            <li key={k} class={k === 'colony' ? '' : x < 0 ? 'warn' : 'bonus'}>
+              {t(`needs.morale.kiwiParts.${k}`)} {k === 'colony' ? Math.round(x) : points(lang, x)}
+            </li>
+          ))}
+      </ul>
+      {memories.length > 0 && (
+        <ul class="morale-memories small">
+          {memories.map((x) => (
+            <li key={x.kind} class={x.value < 0 ? 'warn' : 'bonus'}>
+              {t(`needs.morale.memories.${x.kind}`)} {points(lang, x.value)} ·{' '}
+              {formatDuration(lang, x.until - game.now)}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p class="small muted">{t('needs.morale.kiwiHint')}</p>
+    </FoldSection>
+  );
+}
+
 /** Compact needs of a kiwi for the village list: fatigue gauge, what it does, colony hunger. */
 export function KiwiNeedsLine({ v }: { v: Villager }) {
   const t = useT();
@@ -112,8 +183,10 @@ export function KiwiNeedsLine({ v }: { v: Villager }) {
   if (v.job.kind === 'expedition') return null;
   const { rhythm, fatigue } = kiwiRhythm(game, v, now);
   const stage = hungerStage(game);
+  const morale = kiwiMorales(game).get(v.id)?.total;
   return (
     <span class="kiwi-needs small">
+      {morale !== undefined && <MoraleGauge points={morale} mini />}
       <span
         class={`fatigue-bar mini ${fatigue > 0.75 ? 'high' : ''}`}
         title={t('needs.rest.fatigue')}
@@ -125,6 +198,9 @@ export function KiwiNeedsLine({ v }: { v: Villager }) {
         <span class="muted">{t(`needs.rest.rhythm.${rhythm}`)}</span>
       )}
       {stage !== 'fed' && <span class="warn">{t(`needs.stages.${stage}`)}</span>}
+      {morale !== undefined && morale < MORALE.sulk && (
+        <span class="warn">{t('needs.morale.sulking')}</span>
+      )}
     </span>
   );
 }

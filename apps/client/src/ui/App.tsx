@@ -52,6 +52,14 @@ function SpeechBadge() {
   const t = useT();
   const lang = useUi((s) => s.lang);
   const left = useUi((s) => (s.slowGame ? s.slowGame.speechUntil - s.slowNow : 0));
+  // Chantier 43: the colony gathered at the Town Hall.
+  const gathering = useUi((s) => (s.slowGame ? s.slowGame.speech.until - s.slowNow : 0));
+  if (gathering > 0)
+    return (
+      <div class="buff-badge parchment pe">
+        {t('townHall.gathering', { duration: formatDuration(lang, gathering) })}
+      </div>
+    );
   if (left <= 0) return null;
   return (
     <div class="buff-badge parchment pe">

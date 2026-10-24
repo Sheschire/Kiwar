@@ -194,6 +194,13 @@ export const SOUND_EVENTS = {
     synth: 'full',
     default: { sources: ['builtin:colony/full'], cooldownMs: 5000, volume: 0.7 },
   },
+  // Chantier 43: the colony gathers at the Town Hall for the speech.
+  'speech.crowd': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'crowd',
+    default: { sources: ['synth:crowd'], cooldownMs: 4000 },
+  },
   'colony.hunger': {
     bus: 'sfx',
     group: 'colony',

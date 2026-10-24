@@ -36,6 +36,8 @@ import {
   rampartSectors,
   type SectorId,
   occupancy,
+  footprintTiles,
+  type Building,
 } from '@kiwar/shared';
 import { findPath } from './pathfinding';
 import { TitansView } from './kikiwiwi';
@@ -58,6 +60,40 @@ function stepSpeed(cost: number): number {
 
 /** Chantier 34: where builders stand, from the centre of the site's tile. */
 const FOOT = 0.72;
+
+/** Chantier 43: kiwis who go and listen to a speech (at home, not hurt or in a vat). */
+function gathers(v: Villager): boolean {
+  const k = v.job.kind;
+  return k !== 'expedition' && k !== 'outpost' && k !== 'injured' && k !== 'transform';
+}
+
+/**
+ * Chantier 43: where a listener stands before the Town Hall — rows of six in front of the door
+ * (the anchor, away from the hall's other tiles), facing it; `-1` is the mayor on the steps.
+ */
+function crowdSpot(hall: Building, place: number): { point: Vector3; face: number } {
+  const tiles = footprintTiles(hall).map((h) => hexToPixel(h));
+  const cx = tiles.reduce((sum, p) => sum + p.x, 0) / tiles.length;
+  const cz = tiles.reduce((sum, p) => sum + p.y, 0) / tiles.length;
+  const door = hexToPixel(hall);
+  let dx = door.x - cx;
+  let dz = door.y - cz;
+  const len = Math.hypot(dx, dz) || 1;
+  dx /= len;
+  dz /= len;
+  if (place < 0)
+    return {
+      point: new Vector3(door.x + dx * 0.6, 0, door.y + dz * 0.6),
+      face: Math.atan2(dx, dz),
+    };
+  const row = Math.floor(place / 6);
+  const col = (place % 6) - 2.5 + (row % 2 ? 0.5 : 0);
+  const out = 1.25 + row * 0.42;
+  return {
+    point: new Vector3(door.x + dx * out - dz * col * 0.38, 0, door.y + dz * out + dx * col * 0.38),
+    face: Math.atan2(-dx, -dz),
+  };
+}
 /** Researchers' places around the Library (shelves, desks) and their distance. */
 const LIBRARY_SPOTS = 6;
 const LIBRARY_RING = 0.78;
@@ -208,6 +244,8 @@ export class KiwisView {
    * signature, so a change of group sends the kiwi to its new place.
    */
   private readonly roles = new Map<VillagerId, string>();
+  /** Chantier 43: each listener's place in the crowd before the Town Hall during a speech. */
+  private readonly crowd = new Map<VillagerId, number>();
   /** Guard posts by sector, rebuilt when the turrets change. */
   private readonly posts = new Map<string, { point: Vector3; face: number }[]>();
   private turretsKey = '';
@@ -276,6 +314,13 @@ export class KiwisView {
         );
       }
     }
+    this.crowd.clear();
+    if (state.speech.until > state.now)
+      state.villagers
+        .filter((v) => gathers(v))
+        .map((v) => v.id)
+        .sort((a, b) => a.localeCompare(b))
+        .forEach((id, i) => this.crowd.set(id, i));
     if (state.villagers.some((v) => v.job.kind === 'guard'))
       for (const g of guardSectors(state).guards) this.roles.set(g.id, g.sector);
     const turrets = state.buildings
@@ -537,6 +582,7 @@ export class KiwisView {
 
   /** Decides what an agent does next, according to its villager's job. */
   private think(agent: Agent, villager: Villager): void {
+    if (this.thinkSpeech(agent, villager)) return;
     if (this.thinkRest(agent, villager)) return;
     const job = villager.job;
     const role = this.roles.get(villager.id) ?? '';
@@ -675,6 +721,43 @@ export class KiwisView {
     }
 
     this.thinkIdle(agent, changed, arrived);
+  }
+
+  /**
+   * Chantier 43: during a speech every kiwi at home stands in rows before the Town Hall's door
+   * and listens (now and then it claps); the mayor speaks from the steps.
+   */
+  private thinkSpeech(agent: Agent, villager: Villager): boolean {
+    const s = this.state;
+    const place = this.crowd.get(villager.id);
+    if (!s || place === undefined) return false;
+    const hall = s.buildings.find((b) => b.type === 'townHall');
+    if (!hall) return false;
+    const mayor = villager.classId === 'mayor';
+    const sig = `speech:${hall.id}:${place}`;
+    if (agent.plan !== sig) {
+      agent.plan = sig;
+      agent.carrying = null;
+      agent.leg = 'none';
+      agent.inside = false;
+      this.leavePartner(agent);
+      const { point, face } = crowdSpot(hall, mayor ? -1 : place);
+      this.walkToPoint(agent, point);
+      agent.face = face;
+      return true;
+    }
+    const arrived = agent.activity === 'walk' && agent.path.length === 0;
+    if (arrived || (agent.activity !== 'walk' && agent.timer <= 0)) {
+      const clip: ClipId = mayor
+        ? agent.rng.chance(0.3)
+          ? 'joy'
+          : 'teach'
+        : agent.clip === 'listen' && agent.rng.chance(0.35)
+          ? 'clap'
+          : 'listen';
+      this.settle(agent, 'idle', clip, agent.rng.range(2.5, 6));
+    }
+    return true;
   }
 
   /** Stops walking and plays a clip in place for `timer` seconds. */
