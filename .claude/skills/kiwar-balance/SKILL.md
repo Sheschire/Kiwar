@@ -255,5 +255,9 @@ centre ≈ 1.3–3.8 d, 5.5–12 landings, 5–14 kiwis dead per run (⚠️ to 
   run time (`as const` objects are plain at run time): seconds per variant instead of a
   20-minute run. Killing scratch processes: never `pkill -f` / `grep | kill` a pattern that
   appears in your own command line (exit 144 kills your shell); write PIDs to a file first.
-- Official report at the end of act II: `pnpm balance --seeds 6 --hours 72 --ages 2 --impact 2
---probe 50 --out ../../docs/BALANCE_REPORT.md` (nohup, ≈ 2 h on 4 cores).
+- **Reference (end of act II)**: `pnpm balance --seeds 6 --hours 72 --ages 2 --impact 2 --probe
+  50 --out ../../docs/BALANCE_REPORT.md` (nohup, 81 min on 4 cores; the report's conquest
+  table is pasted from the 21-day probe). Biomes ±10 % on the economy, Stone 13.6 h, Iron
+  2.8 d, Industry 8.7 d (occasional 18.5 h / 4.0 d / 10.9 d), waves 0 % / 9 % lost; ⚠️ level 10
+  and the twin differ by face (Kiwino lights its 12 parcels in < 3 days in 5 of 18 runs,
+  Kiwisu never), dead time 96 min.

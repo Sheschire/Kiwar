@@ -2695,3 +2695,15 @@ Small decisions taken along the way:
   (too early or never). Levers: the deaths of a held landing (wounds instead), the growth of
   the centre's parcels at Industry (`CIV.innerMultiple`, `ageMultiple`), the queen's numbers
   (`SIEGE.final`), the fortification's price (`BEACONS.fortify.costFactor`).
+
+### End-of-act report (`pnpm balance --seeds 6 --hours 72 --ages 2 --impact 2 --probe 50`, 81 min)
+
+- Biomes within ±10 % on the economy (Nest 3 4.1–4.7 h, Library 4.4–4.9 h, Stone 13.3–13.9 h,
+  Iron 2.6–2.9 days) but the first kiwi at level 10 (27 h–2.3 days) and the mayor (highlands
+  +10 %); Kiwisu / Kiwino within 5.2 % except level 10 (19.7 %). Long runs: attentive Stone
+  13.9 h, Iron 2.8 d, Industry 8.7 d; occasional 18.5 h, 4.0 d, 10.9 d. Waves: attentive 0 %
+  lost, occasional 9 %, no death. Dead time 96 min in every biome, "at the cap" 28–41 % in the
+  delta, highlands and tundra (both known since act I).
+- ⚠️ **A new face gap on the twin**: Kiwino lights its 12 parcels within 72 h in 5 of 18 runs
+  (centre beacon 35 h), Kiwisu never (2.8 days for the centre, 3 of 18): to diagnose first (the
+  bot's landings or the civilisation of each face).

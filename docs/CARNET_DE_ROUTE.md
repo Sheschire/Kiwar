@@ -231,6 +231,104 @@ apporte du neuf**.
   - l'horloge alien crée l'urgence sans forcer la connexion ;
   - l'imprudent·e qui vise le centre sans préparation y laisse son équipe.
 
+## 8 bis. Bilan de l'acte II (24 octobre 2026)
+
+L'acte II « La guerre des faces » est terminé : huit chantiers (35 à 42), du 23 au 24 octobre 2026. Mesures : [`BALANCE_REPORT.md`](BALANCE_REPORT.md) (rapport complet de fin d'acte) et
+la section du chantier 42 dans `DECISIONS.md` (sonde de conquête sur 21 jours).
+
+### Ce qui a été livré
+
+| #   | Chantier                | Ce que le jeu y gagne                                                                                 |
+| --- | ----------------------- | ----------------------------------------------------------------------------------------------------- |
+| 35  | Bâtiments multi-tuiles  | entrepôt, aire d'envol, École, Bibliothèque, labo sur 3 tuiles, monument sur 7 ; murs contournés      |
+| 36  | Moteur de bataille      | un seul moteur pur et déterministe ; les vagues jouées pour de vrai, rejouées depuis leur journal     |
+| 37  | Classes, rôles, camp    | une arme par classe, trois paliers, auras des bardes et paladins, camp d'entraînement                 |
+| 38  | Forge et fer météorique | un stock de fer à part, la Forge et ses pièces par famille et palier, l'équipement qui pèse au combat |
+| 39  | Civilisation alien      | sa propre horloge (âges aux jours 1, 4, 12), 12 parcelles, une IA qui cache ses bâtiments clés        |
+| 40  | Le débarquement         | une seule mission tendue (parcelle, équipage, ordres, prévision honnête), balises, bestiaire          |
+| 41  | La bataille en direct   | le débarquement regardé sur la jumelle : village alien, combattants, balise plantée                   |
+| 42  | La reine des furets     | attaques de balises (fortifier, garder), la reine et sa bataille finale à phases, la conquête         |
+
+### Ce que ça change au jeu (au regard de la charte)
+
+- **L'optimisation paie** (charte 5) : stats, classes, équipement, posture et placement des
+  tourelles décident de batailles qu'on voit. C'est le plus grand pas de l'acte.
+- **Une tension avec information** (charte 6) : chaque bataille a sa prévision par batailles
+  d'essai ; on perd par un choix (ordres, équipage, cible), pas par un tirage caché. Le
+  journal fait foi partout (serveur, téléphone, bot).
+- **Un monde qui a son horloge** (charte 7) : la civilisation passe ses âges à dates fixes,
+  nos incendies la freinent, nos défaites la nourrissent, ses vagues et ses attaques de balises
+  partent de ses casernes.
+- **Des buts lisibles** (charte 8) : la carte des 12 parcelles est le but multi-sessions, la
+  reine le but long ; l'écran Conquête les rassemble.
+- **Juste et exact** (charte 10) : tout ce qui dépend de la vérité alien ne se résout que là où
+  elle est tenue ; les tests le vérifient à chaque chantier.
+
+### Les mesures de fin d'acte
+
+Rapport complet (`pnpm balance --seeds 6 --hours 72 --ages 2 --impact 2 --probe 50`, 81 min)
+et sonde de conquête (6 parties × 21 jours) :
+
+| Mesure (joueur·euse attentif·ve)        | Cible               | Fin de l'acte I (31)  | Fin de l'acte II (42)           |
+| --------------------------------------- | ------------------- | --------------------- | ------------------------------- |
+| Tutoriel                                | 1–1,5 h             | 1,3 h                 | 1,3 h                           |
+| Nid 3 / Bibliothèque                    | —                   | 3,7 h / 3,9 h         | 4,5 h / 4,7 h                   |
+| Âge de la Pierre                        | ~12 h               | 12,9 h                | 13,6 h (longues : 13,9 h)       |
+| Âge du Fer                              | ~3 jours            | 2,8 j                 | 2,8 j                           |
+| Âge industriel                          | ~10 jours           | 8,7 j                 | 8,7 j                           |
+| Occasionnel·le (Pierre / Fer / Ind.)    | ×1,5 / ×1,5 / ×1,25 | 14,6 h / 3,7 j / 10 j | 18,5 h / 4,0 j / 10,9 j         |
+| Kiwisu / Kiwino (économie)              | ±10 %               | 1,4 %                 | ≤ 5,2 % (niveau 10 : 19,7 % ⚠️) |
+| Vagues perdues (attentif / occasionnel) | —                   | 8 % / 59 %            | 0 % / 9 %, aucune mort          |
+| Temps mort des premières 24 h           | ≤ 45 min            | 70–90 min ⚠️          | 96 min ⚠️                       |
+| Première balise / balise du centre      | —                   | —                     | 14–16 h / 35 h–2,9 j            |
+| Reine sortie / conquête                 | 2–3 semaines        | —                     | 3/6 (J2,3–J5,4) / 1/6 (J6,8) ⚠️ |
+| Kiwis morts au combat en 21 jours       | —                   | —                     | 9 à 99 ⚠️                       |
+
+Ce qui tient : l'économie et les âges (biomes et faces dans ±10 %, sauf le premier kiwi de
+niveau 10), les vagues (aucune perdue par le bot attentif, aucune mort de prédateur), les
+débarquements du bord (86 à 100 % gagnés par un équipage de l'âge). Ce qui ne tient pas : le
+rythme de la conquête, l'usure des kiwis, le temps mort du début de la Pierre (déjà signalé à
+l'acte I), un écart de face nouveau sur la jumelle (Kiwino allume ses 12 parcelles en moins de
+3 jours dans 5 parties sur 18, Kiwisu jamais en 72 h), et « au plafond » 28 à 41 % du temps en
+deltas, hauts plateaux et toundra.
+
+### Ce qui n'a pas marché, ou pas encore
+
+- ⚠️ **Le rythme de la conquête** (cible : 2 à 3 semaines). Le bot conquiert trop tôt (J6,8)
+  ou jamais : sur 6 parties de 21 jours, la reine sort dans 3, tombe dans 1 ; trois parties
+  restent bloquées à 3–11 balises. La cible est une hypothèse : à jouer.
+- ⚠️ **L'usure des kiwis** : « tout kiwi tombé meurt » (40) coûte au bot 9 à 99 kiwis en trois
+  semaines ; ses équipages restent jeunes (niveaux 5 à 20) et le centre de la jumelle grandit
+  plus vite qu'eux. C'est la première chose à jouer avec le porteur (levier proposé : des
+  blessés au lieu de morts quand le terrain est tenu).
+- **Le ressenti** n'est validé par personne : horloge alien, prix des pièces, rangs de classe,
+  durée et lisibilité des batailles, scène de la reine, images/s sur un vrai téléphone (les
+  vérifications visuelles se sont faites en Chromium sans GPU).
+- **Dette** listée dans `DETTE.md` : pas de spectacle 3D des attaques de balises, garde non
+  dessinée, réparation automatique qui trahit l'issue d'une vague regardée, blindage du
+  vaisseau sans usage.
+
+### Leçons pour l'acte III
+
+- **Mesurer tôt sur la durée** : les effets d'un chantier de l'acte II n'apparaissent qu'au
+  bout de deux à trois semaines de jeu (l'usure du 40 a bloqué la conquête du 42). Une sonde
+  longue (`pnpm --filter @kiwar/balance conquest`) dès qu'un chantier touche aux pertes.
+- **Calibrer une bataille sur des armées réelles** : sauvegarder l'état du bot à quelques
+  jours et rejouer des variantes en secondes plutôt que des parties de 20 minutes.
+- **Un seul moteur** a payé : vagues, débarquements, balises et reine partagent le même
+  journal, la même prévision et le même spectacle.
+- **L'acte III (le village vivant)** gagne à adoucir l'usure par le moral et les soins
+  (Mairie, feu de camp) : les kiwis qui reviennent blessés d'une bataille sont un sujet tout
+  trouvé pour le chantier 43.
+
+### Décisions à prendre avec le porteur avant d'aller plus loin
+
+1. Morts ou blessés quand le terrain est tenu (débarquement gagné, balise tenue) ?
+2. Le rythme de la conquête : accélérer les joueurs·euses prudent·es (centre moins fort à
+   l'Industrie) ou freiner les rapides (reine plus solide) ?
+3. Le prix de la fortification (la moitié de deux tourelles du premier niveau de l'âge).
+4. L'écart Kiwisu / Kiwino sur la jumelle (à diagnostiquer d'abord : bot ou civilisation).
+
 ## 9. Acte IV — Au-delà (intentions, pas encore de chantier)
 
 ### Les Tréfonds
