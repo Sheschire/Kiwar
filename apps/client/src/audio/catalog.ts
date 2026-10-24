@@ -274,6 +274,25 @@ export const SOUND_EVENTS = {
     synth: 'defeat',
     default: { sources: ['synth:defeat'], cooldownMs: 3000 },
   },
+  // Chantier 40: how a landing ended.
+  'landing.victory': {
+    bus: 'sfx',
+    group: 'expedition',
+    synth: 'fanfare',
+    default: { sources: ['synth:fanfare'], cooldownMs: 3000 },
+  },
+  'landing.retreat': {
+    bus: 'sfx',
+    group: 'expedition',
+    synth: 'warning',
+    default: { sources: ['synth:warning'], cooldownMs: 3000, volume: 0.7 },
+  },
+  'landing.defeat': {
+    bus: 'sfx',
+    group: 'expedition',
+    synth: 'defeat',
+    default: { sources: ['synth:defeat'], cooldownMs: 3000 },
+  },
   'siege.queen': {
     bus: 'sfx',
     group: 'expedition',

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'preact/hooks';
 import {
-  potentialLoot,
   availableCrew,
-  intelView,
-  reconForecast,
+  beaconsOf,
   crewWeight,
   EXPEDITIONS,
+  faceViewOf,
   forecastExpedition,
   kiwiStrength,
+  LANDING,
   launchpadOf,
   maxCrew,
   travelTime,
@@ -17,13 +17,12 @@ import {
   type ExpeditionPlan,
   type ExpeditionTarget,
   type GameState,
+  type LandingOrders,
   type MissionKind,
-  type Villager,
   type VillagerId,
   FUEL,
   stardustOf,
   twinTarget,
-  allHolders,
   BUILDINGS,
   emptyResources,
   RESOURCE_IDS,
@@ -34,65 +33,13 @@ import { formatDuration, formatNumber } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { KiwiIcon, ResourceIcon, ShipIcon, StardustIcon } from '../icons';
 import { uiStore, useT, useUi, type Translate } from '../store';
-import type { TKey } from '../../i18n/i18n';
-import { BringBackPicker, FinalLines, HoldersPicker, SiegeHeader, SiegeMap } from './SiegeParts';
 import { Cost } from './Cost';
-import { IntelMap } from './IntelMap';
 import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
 import { CivCard } from './CivCard';
 import { DeliveryPlanner } from './DeliveryPlanner';
 import { useJobLabel } from './VillageModal';
-
-const range = (lang: Parameters<typeof formatNumber>[0], r: { min: number; max: number }) =>
-  r.min === r.max
-    ? formatNumber(lang, r.min)
-    : `${formatNumber(lang, r.min)}–${formatNumber(lang, r.max)}`;
-
-/** What the latest report says about a target (aged), or that nothing is known. */
-export function IntelLine(props: { game: GameState; target: ExpeditionTarget }) {
-  const t = useT();
-  const lang = useUi((s) => s.lang);
-  const now = useUi((s) => s.now);
-  const view = intelView(props.game, props.target.id, now);
-  if (!view)
-    return (
-      <>
-        {t('expedition.defenseUnknown')} · {t('expedition.neverSeen')}
-      </>
-    );
-  return (
-    <>
-      {view.defense.min === view.defense.max
-        ? t('expedition.defense', { value: formatNumber(lang, view.defense.min) })
-        : t('expedition.defenseRange', {
-            min: formatNumber(lang, view.defense.min),
-            max: formatNumber(lang, view.defense.max),
-          })}{' '}
-      ·{' '}
-      <span class={`freshness-${view.freshness}`}>
-        {t('expedition.seen', { ago: formatDuration(lang, view.age) })}
-      </span>
-    </>
-  );
-}
-
-export const qualityLabel = (q: number) => (q >= 0.6 ? 'sharp' : q >= 0.35 ? 'fair' : 'rough');
-
-/** Ferrets and bats as the latest report tells (aged). */
-export function EnemyLine(props: { game: GameState; targetId: string }) {
-  const t = useT();
-  const lang = useUi((s) => s.lang);
-  const now = useUi((s) => s.now);
-  const view = intelView(props.game, props.targetId, now);
-  if (!view) return null;
-  return (
-    <p class="small">
-      {t('recon.enemies', { ferrets: range(lang, view.ferrets), bats: range(lang, view.bats) })}
-      {view.report.spotted ? ` · ${t('recon.spottedShort')}` : ''}
-    </p>
-  );
-}
+import { LandingForecastLines, LandingMap, OrdersPicker, ParcelPanel } from './LandingParts';
 
 type PlanBase = Omit<ExpeditionPlan, 'provisions' | 'crew'> & {
   crew: VillagerId[];
@@ -111,13 +58,11 @@ function suggestedProvisions(game: GameState, plan: PlanBase): { pulp: number; j
   };
 }
 
-/** Available kiwis, strongest first (most discreet first for a reconnaissance). */
-function candidates(game: GameState, mission: MissionKind = 'raid') {
-  const score = (v: Villager) =>
-    mission === 'recon' ? reconForecast([v]).quality : kiwiStrength(v);
+/** Available kiwis, strongest first. */
+function candidates(game: GameState) {
   return availableCrew(game)
-    .map((v) => ({ v, strength: kiwiStrength(v), score: score(v) }))
-    .sort((a, b) => b.score - a.score || a.v.name.localeCompare(b.v.name));
+    .map((v) => ({ v, strength: kiwiStrength(v) }))
+    .sort((a, b) => b.strength - a.strength || a.v.name.localeCompare(b.v.name));
 }
 
 function cargoTotal(r: Resources): number {
@@ -176,13 +121,12 @@ function CrewPicker(props: {
   crew: VillagerId[];
   max: number;
   risk: Record<string, number>;
-  mission: MissionKind;
   onChange(crew: VillagerId[]): void;
 }) {
   const t = useT();
   const lang = useUi((s) => s.lang);
   const jobLabel = useJobLabel();
-  const list = candidates(props.game, props.mission);
+  const list = candidates(props.game);
   const chosen = new Set(props.crew);
   const full = props.crew.length >= props.max;
   return (
@@ -193,7 +137,7 @@ function CrewPicker(props: {
           class="btn btn-small"
           onClick={() => props.onChange(list.slice(0, props.max).map((c) => c.v.id))}
         >
-          {t(props.mission === 'recon' ? 'recon.bestScouts' : 'expedition.strongest')}
+          {t('expedition.strongest')}
         </button>
         <button class="btn btn-small" onClick={() => props.onChange([])}>
           {t('expedition.clearCrew')}
@@ -227,6 +171,12 @@ function CrewPicker(props: {
                   <span class="kiwi-row-name">
                     {v.name}{' '}
                     <span class="small muted">{t('common.levelShort', { level: v.level })}</span>
+                    {(v.veteran ?? 0) > 0 && (
+                      <span class="small bonus">
+                        {' '}
+                        · {t('landing.veteran', { count: v.veteran! })}
+                      </span>
+                    )}
                   </span>
                   <span class="small muted">{jobLabel(props.game, v)}</span>
                 </span>
@@ -236,14 +186,7 @@ function CrewPicker(props: {
                       value: formatNumber(lang, Math.round(strength * 10) / 10),
                     })}
                   </span>
-                  {props.mission === 'recon' && (
-                    <span class="muted">
-                      {t('recon.stealth', {
-                        value: formatNumber(lang, v.stats.agility + v.stats.spirit),
-                      })}
-                    </span>
-                  )}
-                  {props.mission !== 'recon' && on && risk !== undefined && (
+                  {on && risk !== undefined && risk > 0 && (
                     <span class={risk > 0.5 ? 'warn' : 'muted'}>
                       {t('expedition.risk', { pct: Math.round(risk * 100) })}
                     </span>
@@ -265,31 +208,17 @@ export function targetLabel(t: Translate, target: ExpeditionTarget): string {
     : t('expedition.face', { face, index: target.kiwiIndex + 1 });
 }
 
-const DEFAULT_CREW: Record<MissionKind, number> = {
-  land: 6,
-  raid: 6,
-  recon: 1,
-  assault: 8,
-  reinforce: 2,
-  final: 0,
-  retreat: 0,
-  found: 6,
-};
-
-const LAUNCH_LABEL = {
-  land: 'expedition.launch',
-  raid: 'expedition.launch',
-  recon: 'recon.launch',
-  assault: 'siege.launch.assault',
-  reinforce: 'siege.launch.reinforce',
-  final: 'siege.launch.final',
-  retreat: 'expedition.launch',
-  found: 'siege.launch.found',
-} as const satisfies Record<MissionKind, TKey>;
-
 /** Chantier 19: a face whose queen fell takes no more missions. */
 function conquered(game: GameState, target: ExpeditionTarget): boolean {
   return game.siege.conqueredAt > 0 && twinTarget(game)?.id === target.id;
+}
+
+/** The parcel a landing is aimed at by default: the first edge parcel without our beacon. */
+function defaultSector(game: GameState, targetId: string): number {
+  const lit = new Set(beaconsOf(game, targetId));
+  for (let s = 6; s < 12; s++) if (!lit.has(s)) return s;
+  for (let s = 0; s < 6; s++) if (!lit.has(s)) return s;
+  return 6;
 }
 
 function Slider(props: {
@@ -320,47 +249,36 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
   const map = useUi((s) => s.map);
   const now = useUi((s) => s.now);
   const pad = launchpadOf(game, padId);
-  // Chantier 19: a siege mission prepared from the Siege screen sticks to the twin face.
-  const siege = useUi((s) => s.siegePlan);
+  // Chantier 19: the settlers' ship is prepared from the colony screen; chantier 40: a
+  // landing may come with its parcel (picked on the twin).
+  const preset = useUi((s) => s.siegePlan);
+  const founding = preset?.mission === 'found';
+  const mission: MissionKind = founding ? 'found' : 'land';
   const twin = twinTarget(game);
   const [targetId, setTargetId] = useState(
-    (siege ? twin?.id : undefined) ?? game.targets.find((x) => !conquered(game, x))?.id ?? '',
+    (founding ? twin?.id : preset?.targetId) ??
+      game.targets.find((x) => !conquered(game, x))?.id ??
+      '',
   );
-  // Nothing known yet about the twin face: suggest scouting it first.
-  const [mission, setMission] = useState<MissionKind>(() =>
-    siege ? siege.mission : game.targets[0] && !game.intel[game.targets[0].id] ? 'recon' : 'raid',
+  const [sector, setSector] = useState<number>(
+    () => preset?.sector ?? defaultSector(game, targetId),
   );
-  const sector = siege?.sector;
+  const [orders, setOrders] = useState<LandingOrders>(() => ({ ...LANDING.defaultOrders }));
   const max = pad ? maxCrew(game, pad, mission) : 0;
   const target = game.targets.find((x) => x.id === targetId);
-  const pick = (m: MissionKind) => {
-    const room = pad ? maxCrew(game, pad, m) : 0;
-    // The final assault takes as many as the hold allows (with room for the rations).
-    // The posted kiwis fly back with it: they need their seats too.
-    const n =
-      m === 'final'
-        ? Math.max(1, Math.floor(room * 0.75) - allHolders(game).length)
-        : Math.min(DEFAULT_CREW[m], room);
+  const pick = () => {
+    const n = Math.min(6, max);
     let titans = 0;
-    return candidates(game, m)
+    return candidates(game)
       .filter((c) => !c.v.kikiwiwi || titans++ < 1)
       .slice(0, n)
       .map((c) => c.v.id);
   };
-  const [crew, setCrew] = useState<VillagerId[]>(() => pick(mission));
-  // Assault: who stays on the bridgehead (the strongest third by default).
-  const [holders, setHolders] = useState<VillagerId[]>(() =>
-    crew.slice(0, Math.max(1, Math.round(crew.length / 3))),
-  );
-  const [bringBack, setBringBack] = useState<VillagerId[]>([]);
-  const extra = (c: VillagerId[] = crew) => ({
-    ...(sector !== undefined ? { sector } : {}),
-    ...(mission === 'assault' ? { holders: holders.filter((id) => c.includes(id)) } : {}),
-    ...(mission === 'reinforce' ? { bringBack } : {}),
-  });
+  const [crew, setCrew] = useState<VillagerId[]>(pick);
+  const landing = (s = sector) => (founding ? {} : { sector: s, orders });
   const [food, setFood] = useState(() =>
     target
-      ? suggestedProvisions(game, { launchpadId: padId, targetId, crew, mission, ...extra() })
+      ? suggestedProvisions(game, { launchpadId: padId, targetId, crew, mission, ...landing() })
       : { pulp: 0, juice: 0 },
   );
   // Chantier 13: stardust burnt as fuel, once the colony has seen some.
@@ -376,35 +294,19 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
     crew,
     provisions: food,
     mission,
-    ...extra(),
+    ...landing(),
     ...(fuel ? { fuel: true } : {}),
-    ...(mission === 'found' ? { freight } : {}),
+    ...(founding ? { freight } : {}),
   };
-  const switchTo = (m: MissionKind) => {
-    if (m === mission) return;
-    const c = pick(m);
-    setMission(m);
-    setCrew(c);
-    setFood(suggestedProvisions(game, { launchpadId: padId, targetId, crew: c, mission: m }));
-  };
-  const fresh = (c: VillagerId[], back = bringBack) =>
-    suggestedProvisions(game, {
-      launchpadId: padId,
-      targetId,
-      crew: c,
-      mission,
-      ...extra(c),
-      ...(mission === 'reinforce' ? { bringBack: back } : {}),
-    });
+  const fresh = (c: VillagerId[], id = targetId) =>
+    suggestedProvisions(game, { launchpadId: padId, targetId: id, crew: c, mission, ...landing() });
   const f = forecastExpedition(game, plan)!;
   const error = validateCommand(game, { type: 'launchExpedition', ...plan }, { now, map });
   const fmt = (v: number) => formatNumber(lang, Math.round(v));
   const pct = (v: number) => `${Math.max(0, Math.min(100, (v / f.cargo) * 100))}%`;
   const kiwisWeight = crewWeight(f.crew);
   const foodWeight =
-    (food.pulp + food.juice + (mission === 'found' ? cargoTotal(freight) : 0)) *
-    EXPEDITIONS.resourceWeight;
-  const founding = mission === 'found';
+    (food.pulp + food.juice + (founding ? cargoTotal(freight) : 0)) * EXPEDITIONS.resourceWeight;
   const outShort = {
     pulp: Math.max(0, f.needOneWay.pulp - food.pulp),
     juice: Math.max(0, f.needOneWay.juice - food.juice),
@@ -414,88 +316,74 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
     setCrew(c);
     setFood(fresh(c));
   };
-  const intel = game.intel[targetId];
+  const targets = game.targets.filter((x) => !conquered(game, x));
 
   return (
     <div class="expedition">
-      {siege ? (
-        <SiegeHeader game={game} mission={mission} sector={sector} />
-      ) : (
+      {!founding && (
         <section class="field">
-          <h3>{t('recon.mission')}</h3>
-          <div class="segmented mission-switch" role="group" aria-label={t('recon.mission')}>
-            {(['recon', 'raid'] as const).map((m) => (
-              <button
-                key={m}
-                class={`btn ${m === mission ? 'btn-active' : ''}`}
-                aria-pressed={m === mission}
-                onClick={() => switchTo(m)}
-              >
-                {t(`recon.kinds.${m}`)}
-              </button>
-            ))}
-          </div>
-          <p class="small muted">{t(`recon.hints.${mission}`)}</p>
-        </section>
-      )}
-
-      <section class="field">
-        {!siege && <h3>{t('expedition.target')}</h3>}
-        <div class="targets">
-          {!siege &&
-            game.targets
-              .filter((x) => !conquered(game, x))
-              .map((x) => (
+          <p class="small muted">{t('recon.hints.land')}</p>
+          {targets.length > 1 && (
+            <div class="targets">
+              {targets.map((x) => (
                 <button
                   key={x.id}
                   class={`target-card ${x.id === targetId ? 'is-selected' : ''}`}
                   aria-pressed={x.id === targetId}
                   onClick={() => {
                     setTargetId(x.id);
-                    setFood(
-                      suggestedProvisions(game, {
-                        launchpadId: padId,
-                        targetId: x.id,
-                        crew,
-                        mission,
-                      }),
-                    );
+                    setSector(defaultSector(game, x.id));
+                    setFood(fresh(crew, x.id));
                   }}
                 >
                   <strong>{targetLabel(t, x)}</strong>
                   <span class="small muted">
-                    {t('expedition.aliens')} · <IntelLine game={game} target={x} />
-                  </span>
-                  <span class="small muted">
                     {t('expedition.travel', {
                       duration: formatDuration(
                         lang,
-                        travelTime(x, pad, [], mission, techEffects(game).travel),
+                        travelTime(x, pad, [], 'land', techEffects(game).travel),
                       ),
                     })}{' '}
                     ·{' '}
-                    {t('recon.mapLabel', {
-                      seen: game.intel[x.id]?.sectors.length ?? 0,
-                      total: 12,
+                    {t('landing.mapLabel', {
+                      beacons: beaconsOf(game, x.id).length,
+                      seen: Object.keys(faceViewOf(game, x.id).parcels).length,
                     })}
                   </span>
-                  {mission === 'raid' && (
-                    <span class="small">
-                      {t('expedition.potentialLoot')}{' '}
-                      <Cost cost={potentialLoot(game, x.distance)} />
-                    </span>
-                  )}
                 </button>
               ))}
-        </div>
-        {siege ? (
-          mission !== 'found' && <SiegeMap game={game} selected={sector} size={170} />
-        ) : (
-          <IntelMap game={game} target={target} intel={intel} size={180} />
-        )}
-        {intel && !siege && <EnemyLine game={game} targetId={targetId} />}
-      </section>
-      {target?.distance === 0 && mission !== 'found' && <CivCard game={game} />}
+            </div>
+          )}
+          <h3>{t('landing.plan')}</h3>
+          <div class="landing-layout">
+            <LandingMap
+              game={game}
+              target={target}
+              selected={sector}
+              onSelect={(s) => {
+                setSector(s);
+                setFood(
+                  suggestedProvisions(game, {
+                    launchpadId: padId,
+                    targetId,
+                    crew,
+                    mission,
+                    ...landing(s),
+                  }),
+                );
+              }}
+              size={230}
+            />
+            <ParcelPanel game={game} target={target} sector={sector} />
+          </div>
+          <div class="row">
+            <button class="btn btn-small" onClick={() => uiStore.setState({ bestiaryOpen: true })}>
+              {t('landing.bestiary.open')}
+            </button>
+          </div>
+        </section>
+      )}
+      {target.distance === 0 && !founding && <CivCard game={game} />}
 
       <section class="field">
         <div class="title-row">
@@ -504,47 +392,10 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             <KiwiIcon size={18} /> {crew.length} / {max}
           </span>
         </div>
-        <CrewPicker
-          game={game}
-          crew={crew}
-          max={max}
-          risk={f.risk}
-          mission={mission}
-          onChange={setCrewAndFood}
-        />
+        <CrewPicker game={game} crew={crew} max={max} risk={f.risk} onChange={setCrewAndFood} />
       </section>
 
-      {mission === 'assault' && (
-        <HoldersPicker
-          game={game}
-          crew={crew}
-          chosen={holders}
-          onChange={(h) => {
-            setHolders(h);
-            setFood(
-              suggestedProvisions(game, {
-                launchpadId: padId,
-                targetId,
-                crew,
-                mission,
-                ...(sector !== undefined ? { sector } : {}),
-                holders: h,
-              }),
-            );
-          }}
-        />
-      )}
-      {mission === 'reinforce' && sector !== undefined && (
-        <BringBackPicker
-          game={game}
-          sector={sector}
-          chosen={bringBack}
-          onChange={(b) => {
-            setBringBack(b);
-            setFood(fresh(crew, b));
-          }}
-        />
-      )}
+      {!founding && <OrdersPicker orders={orders} onChange={setOrders} />}
 
       {founding && (
         <FreightPicker
@@ -558,12 +409,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
       <section class="field">
         <div class="title-row">
           <h3>{t('expedition.provisions')}</h3>
-          <button
-            class="btn btn-small"
-            onClick={() =>
-              setFood(suggestedProvisions(game, { launchpadId: padId, targetId, crew, mission }))
-            }
-          >
+          <button class="btn btn-small" onClick={() => setFood(fresh(crew))}>
             {t('expedition.suggest')}
           </button>
         </div>
@@ -595,13 +441,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
       <section class="forecast">
         <div class="title-row">
           <span class="small">{t('expedition.cargo', { used: fmt(f.weight), max: f.cargo })}</span>
-          {f.recon ? (
-            <span class={`odds ${f.recon.spotChance > 0.3 ? 'odds-uncertain' : 'odds-likely'}`}>
-              {t('recon.spotChance', { pct: Math.round(f.recon.spotChance * 100) })}
-            </span>
-          ) : (
-            <span class={`odds odds-${f.odds}`}>{t(`expedition.odds.${f.odds}`)}</span>
-          )}
+          {!founding && <span class={`odds odds-${f.odds}`}>{t(`expedition.odds.${f.odds}`)}</span>}
         </div>
         <div class={`cargo-bar ${f.weight > f.cargo ? 'overloaded' : ''}`} aria-hidden="true">
           <span class="seg-crew" style={{ width: pct(kiwisWeight) }} />
@@ -614,13 +454,10 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
           <span>
             <i class="dot seg-food" /> {t('expedition.cargoFood')} {fmt(foodWeight)}
           </span>
-          {mission === 'raid' && (
+          {!founding && (
             <span>
               <i class="dot seg-loot" /> {t('expedition.cargoLoot')} {fmt(f.lootRoom)}
             </span>
-          )}
-          {f.returnCrew.length !== f.crew.length && (
-            <span>{t('siege.returning', { count: f.returnCrew.length })}</span>
           )}
         </div>
         <p class="small">
@@ -643,35 +480,10 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             )}
           </p>
         )}
-        {f.recon ? (
-          <p class="small">
-            {t('recon.quality', {
-              quality: t(`recon.qualities.${qualityLabel(f.recon.quality)}`),
-              sectors: f.recon.sectors,
-              spread: Math.round(f.recon.spread * 100),
-            })}
-          </p>
-        ) : f.final ? (
-          <FinalLines forecast={f.final} />
-        ) : mission === 'reinforce' ? (
-          <p class="small">{t('siege.noFight')}</p>
-        ) : founding ? (
+        {founding ? (
           <p class="small">{t('colony.noFight')}</p>
         ) : (
-          <p class="small">
-            {t('expedition.strength', {
-              min: formatNumber(lang, Math.round(f.strength.min * 10) / 10),
-              max: formatNumber(lang, Math.round(f.strength.max * 10) / 10),
-              defense: f.defense ? range(lang, f.defense) : '?',
-            })}
-          </p>
-        )}
-        {!f.recon && mission !== 'reinforce' && !founding && f.crew.length > 0 && (
-          <p class="small">
-            {t(f.woundsOnly ? 'expedition.expectedWounds' : 'expedition.expectedLosses', {
-              count: Math.round(f.expectedLosses * 10) / 10,
-            })}
-          </p>
+          f.landing && <LandingForecastLines forecast={f.landing} crew={f.crew} game={game} />
         )}
         {f.fed < 1 && <p class="small muted">{t('expedition.hungry')}</p>}
         <p class="small ship-line">
@@ -680,9 +492,6 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             name: t(`ship.names.${f.ship.id}`),
             pct: Math.round(f.reliability * 100),
           })}
-          {f.ship.armor > 0 &&
-            !f.recon &&
-            ` · ${t('ship.armor', { pct: Math.round(f.ship.armor * 100) })}`}
         </p>
         {showFuel && (
           <label class={`fuel-toggle small ${stardustOf(game) < FUEL.stardust ? 'is-short' : ''}`}>
@@ -700,7 +509,9 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             })}
           </label>
         )}
-        {pad.damaged && <p class="small warn">{t('ship.damaged')}</p>}
+        {pad.damaged && (
+          <p class="small warn">{t(pad.shipLost ? 'landing.report.shipLost' : 'ship.damaged')}</p>
+        )}
       </section>
 
       <button
@@ -711,7 +522,8 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             uiStore.setState({ modal: 'none', expeditionPad: null, siegePlan: null });
         }}
       >
-        <ShipIcon size={20} /> {t(LAUNCH_LABEL[mission])} · {formatDuration(lang, f.travelMs * 2)}
+        <ShipIcon size={20} /> {t(founding ? 'siege.launch.found' : 'landing.launch')} ·{' '}
+        {formatDuration(lang, f.travelMs * 2)}
       </button>
       {error && <p class="small warn">{t(`errors.${error}`)}</p>}
     </div>
@@ -726,20 +538,21 @@ export function ExpeditionModal() {
   const padId = useUi((s) => s.expeditionPad);
   const deliverTo = useUi((s) => s.deliverTo);
   const [deliver, setDeliver] = useState(() => deliverTo !== null);
-  const siege = useUi((s) => s.siegePlan);
+  const preset = useUi((s) => s.siegePlan);
   if (!game || !padId) return null;
   const close = () =>
     uiStore.setState({ modal: 'none', expeditionPad: null, deliverTo: null, siegePlan: null });
   const friends = game.friends.length > 0;
+  const founding = preset?.mission === 'found';
   return (
     <Modal
       title={t(
-        siege ? 'siege.planTitle' : deliver && friends ? 'delivery.title' : 'expedition.title',
+        founding ? 'siege.planTitle' : deliver && friends ? 'delivery.title' : 'landing.title',
       )}
       onClose={close}
       class="modal-wide"
     >
-      {friends && !siege && (
+      {friends && !founding && (
         <div class="segmented mission-switch" role="group" aria-label={t('delivery.kind')}>
           {[false, true].map((d) => (
             <button
@@ -753,7 +566,7 @@ export function ExpeditionModal() {
           ))}
         </div>
       )}
-      {deliver && friends && !siege ? (
+      {deliver && friends && !founding ? (
         <DeliveryPlanner game={game} padId={padId as BuildingId} initialFriend={deliverTo} />
       ) : (
         <Planner game={game} padId={padId as BuildingId} />

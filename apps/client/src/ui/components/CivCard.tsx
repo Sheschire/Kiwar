@@ -1,7 +1,7 @@
 import { AGE_IDS, ageOf, civEstimate, waveAwaited, type GameState } from '@kiwar/shared';
 import { formatDuration } from '../../i18n/i18n';
 import { useT, useUi } from '../store';
-import { sectorName } from './SiegeParts';
+import { sectorName } from './LandingParts';
 
 /**
  * Chantier 39: what we can tell of the alien civilisation of our twin — the age our scouts

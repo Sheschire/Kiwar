@@ -211,7 +211,8 @@ function NavMenu() {
   const guest = useUi((s) => s.account?.isAnonymous ?? false);
   const objectiveReady = useObjectiveReady();
   const siege = useUi((s) => (s.slowGame ? siegeVisible(s.slowGame) : false));
-  const counter = useUi((s) => !!s.slowGame?.siege.counter?.announced);
+  // Chantier 40: the enemies met in landings.
+  const bestiary = useUi((s) => Object.keys(s.slowGame?.bestiary ?? {}).length > 0);
   const other = useOtherColony();
   // Chantier 36: replay the last battle.
   const lastBattle = useUi((s) => {
@@ -269,8 +270,15 @@ function NavMenu() {
           {siege && (
             <Entry
               label={t('siege.button')}
-              badge={counter ? '!' : undefined}
               onClick={go(() => uiStore.setState({ modal: 'siege' }))}
+            >
+              <TargetIcon size={28} />
+            </Entry>
+          )}
+          {bestiary && (
+            <Entry
+              label={t('landing.bestiary.open')}
+              onClick={go(() => uiStore.setState({ bestiaryOpen: true }))}
             >
               <TargetIcon size={28} />
             </Entry>

@@ -52,12 +52,18 @@ const BOB = 0.5;
  * pools, fog layers and dens give way to one painted disc on the dome.
  */
 const NEAR_RADII = 8;
+/** What the twin shows of an alien face. */
+export type TwinIntel = Pick<IntelReport, 'sectors' | 'structures'>;
+
 export interface TwinOptions {
   fog: boolean;
   friend?: TwinSnapshot | null;
-  /** Alien face: what our scouts saw (the clouds part over those sectors, chantier 07). */
-  intel?: IntelReport | null;
-  /** Chantier 19: our bridgeheads (flags), and whether the queen fell (no aliens left). */
+  /**
+   * Alien face: the parcels we have eyes on (chantier 40: beacons, glimpses, edges; the clouds
+   * part over them) and the dens and roosts seen there.
+   */
+  intel?: TwinIntel | null;
+  /** Our beacons (flags; chantier 19's bridgeheads), and whether the queen fell (no aliens left). */
   siege?: { heads: { sector: number; fortified: boolean }[]; conquered: boolean } | null;
 }
 
@@ -329,7 +335,7 @@ export class TwinView {
   }
 
   /** Dens and roosts seen by the scouts, frozen as they were reported. */
-  private showStructures(map: FaceMap, intel: IntelReport): void {
+  private showStructures(map: FaceMap, intel: TwinIntel): void {
     const den = new SphereGeometry(0.42, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2);
     const roost = new ConeGeometry(0.28, 1.3, 6);
     const denMat = new MeshStandardMaterial({ color: 0x6b4a2e, flatShading: true, fog: false });
@@ -479,7 +485,7 @@ function farDisc(map: FaceMap, radius: number, fog: boolean): Mesh {
 }
 
 /** 1 for each sector seen (the order of `sectorOf`). */
-function seenMask(intel: IntelReport | null | undefined): number[] {
+function seenMask(intel: TwinIntel | null | undefined): number[] {
   const mask = new Array<number>(INTEL.sectors).fill(0);
   for (const i of intel?.sectors ?? []) mask[i] = 1;
   return mask;

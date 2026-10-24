@@ -89,13 +89,9 @@ export function playGameEventSounds(events: GameEvent[]): void {
         break;
       case 'expeditionArrived':
         audio.play('ship.arrive');
-        if (e.mission === 'assault' || e.mission === 'final') {
-          const id =
-            e.mission === 'final' && e.victory
-              ? 'siege.queen'
-              : e.victory
-                ? 'siege.victory'
-                : 'siege.defeat';
+        // Chantier 40: the landing's outcome after the touchdown.
+        if (e.outcome) {
+          const id = `landing.${e.outcome}` as const;
           window.setTimeout(() => audio.play(id), 1200);
         }
         break;

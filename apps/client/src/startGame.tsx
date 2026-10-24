@@ -125,15 +125,31 @@ function showTwin(state: GameState): void {
       : null;
   const f = own ?? (friend?.face === twinFace ? friend : null);
   const params = f?.params ?? twinParams(state.seed, state.face, state.params);
-  // Alien twin: the clouds part where our scouts went (chantier 07).
+  // Alien twin: the clouds part over the parcels we have eyes on (chantier 40).
   const target = state.targets.find((t) => t.distance === 0 && t.face === twinFace);
-  const intel = (!f && target && state.intel[target.id]) || null;
+  const view = !f && target ? state.faceViews[target.id] : undefined;
+  const intel = view
+    ? {
+        sectors: Object.keys(view.parcels)
+          .map(Number)
+          .concat(view.beacons.map((b) => b.sector)),
+        structures: Object.values(view.parcels).flatMap((p) =>
+          p.buildings
+            .filter((b) => b.kind === 'burrow' || b.kind === 'roost')
+            .map((b) => ({
+              kind: b.kind === 'burrow' ? ('den' as const) : ('roost' as const),
+              q: b.q,
+              r: b.r,
+            })),
+        ),
+      }
+    : null;
   const seen = intel ? `${intel.sectors.join('.')}/${intel.structures.length}` : '';
-  // Chantier 19: bridgehead flags, and no aliens left once the queen fell.
+  // Our beacons as flags, and no aliens left once the queen fell.
   const siege = f
     ? null
     : {
-        heads: state.siege.bridgeheads.map((b) => ({ sector: b.sector, fortified: b.fortified })),
+        heads: (view?.beacons ?? []).map((b) => ({ sector: b.sector, fortified: false })),
         conquered: state.siege.conqueredAt > 0,
       };
   const flags = siege

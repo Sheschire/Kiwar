@@ -1,32 +1,15 @@
-import {
-  AGE_IDS,
-  otherFace,
-  twinTarget,
-  RESOURCE_IDS,
-  type GameEvent,
-  type MissionKind,
-  type ResourceId,
-} from '@kiwar/shared';
+import { AGE_IDS, otherFace, RESOURCE_IDS, type GameEvent, type ResourceId } from '@kiwar/shared';
 import type { GameRenderer } from '../render/GameRenderer';
-import { pushToast, uiStore, type SiegeShowKind } from '../ui/store';
+import { pushToast, uiStore } from '../ui/store';
 import { isLiveWave } from '../ui/battleStore';
 import { holdOutcome } from './battleOutcome';
 import { playGameEventSounds } from '../audio/sounds';
 import { friendName } from '../ui/components/DeliveryPlanner';
-import { formatDuration, formatNumber, translate, type TKey } from '../i18n/i18n';
+import { formatDuration, formatNumber, translate } from '../i18n/i18n';
 
 const SLICE_KEYS = ['bark', 'dew', 'moss', 'twig', 'down', 'seeds'] as const;
 /** The name of a sector's slice, as a translated parameter. */
 const sliceKey = (sector: number) => `@siege.slices.${SLICE_KEYS[sector % 6]!}`;
-
-/** Chantier 19: toasts of the siege missions (won, lost). */
-const SIEGE_TOASTS: Partial<Record<MissionKind, readonly [TKey, TKey]>> = {
-  assault: ['siege.toast.taken', 'siege.toast.repelled'],
-  reinforce: ['siege.toast.reinforced', 'siege.toast.reinforced'],
-  final: ['siege.toast.queenFell', 'siege.toast.queenHeld'],
-};
-
-let showId = 0;
 
 /** An ally's name, or our other colony (chantier 19). */
 function nameOf(owner: string): string {
@@ -34,45 +17,11 @@ function nameOf(owner: string): string {
   return friendName((k, p) => translate(lang, k, p), owner);
 }
 
-/** Chantier 19: a siege fight seen live (not an offline catch-up) gets its short show. */
-function showSiege(e: GameEvent, renderer: GameRenderer): void {
-  if (Math.abs(uiStore.getState().now - e.at) > 20_000) return;
-  let kind: SiegeShowKind | null = null;
-  let sector: number | null = null;
-  if (e.type === 'counterStruck') {
-    kind = e.victory ? 'held' : 'fell';
-    sector = e.sector;
-  } else if (e.type === 'expeditionArrived' && !e.broken && e.mission === 'assault') {
-    kind = e.victory ? 'taken' : 'repelled';
-    sector = expeditionSector(e.expeditionId);
-  } else if (e.type === 'expeditionArrived' && !e.broken && e.mission === 'final') {
-    kind = e.victory ? 'queen' : 'queenHeld';
-    sector = queenSector();
-  }
-  if (!kind) return;
-  // Chantier 19: from home the fight plays in 3D, the card shrinks to a caption.
-  const in3d = renderer.playSiege(kind, sector);
-  uiStore.setState({ siegeShow: { kind, id: ++showId, sector, in3d } });
-}
-
-function expeditionSector(id: string): number | null {
-  return uiStore.getState().game?.expeditions.find((x) => x.id === id)?.sector ?? null;
-}
-
-/** Where the queen's lair is, as far as our scouts know (the middle when unknown). */
-function queenSector(): number | null {
-  const game = uiStore.getState().game;
-  if (!game) return null;
-  const twin = twinTarget(game);
-  return (twin && game.intel[twin.id]?.siege?.queen?.sector) ?? null;
-}
-
 /** Turns simulation events into toasts and visual effects. */
 export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): void {
   renderer.onGameEvents(events);
   playGameEventSounds(events);
   for (const e of events) {
-    showSiege(e, renderer);
     switch (e.type) {
       case 'constructionComplete':
         if (e.level === 1)
@@ -167,16 +116,9 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
           const game = uiStore.getState().game;
           const face = game ? `@faces.${otherFace(game.face)}` : '';
           pushToast('success', 'colony.founded', { face });
-        } else if (e.mission && SIEGE_TOASTS[e.mission])
-          pushToast(
-            e.victory || e.mission === 'reinforce' ? 'success' : 'error',
-            SIEGE_TOASTS[e.mission]![e.victory || e.mission === 'reinforce' ? 0 : 1],
-          );
-        else if (e.mission === 'recon')
-          pushToast(
-            e.spotted ? 'error' : 'info',
-            e.spotted ? 'recon.toastSpotted' : 'recon.toastLanded',
-          );
+        } else if (e.outcome)
+          // Chantier 40: how the landing ended.
+          pushToast(e.outcome === 'victory' ? 'success' : 'error', `landing.toast.${e.outcome}`);
         else
           pushToast(
             e.victory ? 'success' : 'error',

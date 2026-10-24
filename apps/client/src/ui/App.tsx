@@ -26,8 +26,8 @@ import { FollowBadge, VillageModal } from './components/VillageModal';
 import { DefenseModal, ThreatBadge } from './components/DefenseModal';
 import { ReserveBadge } from './components/ReserveInfo';
 import { PlansModal } from './components/ResearchModal';
-import { CounterBadge, SiegeModal } from './components/SiegeModal';
-import { SiegeShow } from './components/SiegeShow';
+import { SiegeModal } from './components/SiegeModal';
+import { BestiaryModal } from './components/BestiaryModal';
 import { LevelsButton, LogisticsButton, PlacingBanner } from './components/BuildingTree';
 import { BootScreen, Guard } from './components/Guard';
 import { VisitBanner } from './components/VisitBanner';
@@ -101,7 +101,6 @@ function Badges() {
   return (
     <div class="badge-stack">
       <ThreatBadge />
-      <CounterBadge />
       <CometBadge />
       <SpeechBadge />
       <HungerBadge />
@@ -118,6 +117,7 @@ function isTyping(e: KeyboardEvent): boolean {
 
 export function App() {
   const modal = useUi((s) => s.modal);
+  const bestiaryOpen = useUi((s) => s.bestiaryOpen);
   const debugOpen = useUi((s) => s.debugOpen);
   const ready = useUi((s) => s.game !== null);
   const hasSheet = useUi((s) => s.selectedTile !== null);
@@ -234,7 +234,6 @@ export function App() {
       <PlanetCard />
       <PlanetsPanel />
       <PlanetTag />
-      <SiegeShow />
       <Toasts />
       <Guard>
         {debugOpen && <DebugPanel />}
@@ -247,6 +246,7 @@ export function App() {
         {modal === 'defense' && <DefenseModal />}
         {modal === 'plans' && <PlansModal />}
         {modal === 'siege' && <SiegeModal />}
+        {bestiaryOpen && <BestiaryModal />}
         <JoinModal />
         <ChatPanel />
         <OfflineModal />

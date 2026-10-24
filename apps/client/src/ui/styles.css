@@ -5747,3 +5747,191 @@ h3 .building-thumb {
   display: inline-block;
   vertical-align: -0.2em;
 }
+
+/* ---------- The landing (chantier 40) ---------- */
+.landing-layout {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.landing-layout .landing-map {
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 250px;
+}
+
+.landing-layout .parcel-panel {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.landing-mark,
+.landing-flag,
+.landing-flying {
+  pointer-events: none;
+  text-anchor: middle;
+  dominant-baseline: central;
+  paint-order: stroke;
+  stroke: rgba(246, 234, 208, 0.9);
+  stroke-width: 0.3;
+}
+
+.landing-mark {
+  font-size: 1.5px;
+  fill: #4a3324;
+}
+
+.landing-mark.mark-roost {
+  fill: #4b3a63;
+}
+
+.landing-mark.mark-barracks,
+.landing-mark.mark-royal {
+  fill: var(--berry);
+}
+
+.landing-flag {
+  font-size: 3.4px;
+  fill: var(--leaf-dark);
+}
+
+.landing-flying {
+  font-size: 2.6px;
+  fill: var(--gold);
+}
+
+.landing-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
+.landing-legend .legend-beacon {
+  color: var(--leaf-dark);
+}
+
+.landing-orders .segmented {
+  margin: 6px 0;
+}
+
+.order-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 6px 0;
+}
+
+.order-row select {
+  font: inherit;
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--edge);
+  background: var(--paper-light);
+}
+
+.order-retreat .slider {
+  flex: 1 1 160px;
+}
+
+.landing-units {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.unit-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #6b4a2e;
+  vertical-align: middle;
+}
+
+.unit-dot.bat {
+  border-radius: 2px;
+  background: #4b3a63;
+  transform: rotate(45deg);
+}
+
+.unit-dot.big {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 4px;
+}
+
+.bestiary {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.bestiary-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.bestiary-row p {
+  margin: 2px 0;
+}
+
+.replay-field {
+  width: 100%;
+  max-height: 260px;
+  background: rgba(111, 154, 44, 0.12);
+  border-radius: 10px;
+  border: 1px solid var(--edge);
+}
+
+.replay-building {
+  fill: #9a8a74;
+}
+
+.replay-ship {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 0.25;
+}
+
+.replay-unit.ours {
+  fill: var(--leaf);
+}
+
+.replay-unit.theirs {
+  fill: var(--berry);
+}
+
+.replay-unit.down {
+  opacity: 0.3;
+}
+
+.replay-key.ours {
+  color: var(--leaf);
+}
+
+.replay-key.theirs {
+  color: var(--berry);
+}
+
+.replay-key.ship {
+  color: var(--gold);
+}
+
+@media (max-width: 760px) {
+  .landing-layout .landing-map {
+    max-width: none;
+    width: 100%;
+    align-items: center;
+  }
+}
