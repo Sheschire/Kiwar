@@ -152,8 +152,11 @@ export interface ColonyMood {
   beauty: number;
   /** Sum of the parts above. */
   sum: number;
-  /** Homes within reach of a leisure (their sleepers get `MORALE.leisure`). */
-  leisureHomes: ReadonlySet<BuildingId>;
+  /**
+   * Homes within reach of a leisure and the points their sleepers get (`MORALE.leisure`, then
+   * `leisureMore` for each other kind within reach, up to `leisureMax`; chantier 44).
+   */
+  leisureHomes: ReadonlyMap<BuildingId, number>;
 }
 
 /** Homes standing within `radius` of a building of these types (by anchor). */
@@ -175,6 +178,24 @@ function homesNear(
   return out;
 }
 
+/** Chantier 44: the leisure points of each home (kinds of leisure within reach). */
+function leisurePoints(state: GameState): Map<BuildingId, number> {
+  const spots = state.buildings.filter((b) => LEISURE[b.type] !== undefined);
+  const out = new Map<BuildingId, number>();
+  if (spots.length === 0) return out;
+  for (const h of state.buildings) {
+    if (!(levelDef(h.type, h.level)?.housing ?? 0)) continue;
+    const kinds = new Set<string>();
+    for (const s of spots) if (hexDistance(s, h) <= LEISURE[s.type]!.radius) kinds.add(s.type);
+    if (kinds.size === 0) continue;
+    out.set(
+      h.id,
+      Math.min(MORALE.leisureMax, MORALE.leisure + MORALE.leisureMore * (kinds.size - 1)),
+    );
+  }
+  return out;
+}
+
 /** Chantier 44: the village's beauty, summed over its decorations and capped. */
 export function beautyOf(state: GameState): number {
   let sum = 0;
@@ -190,7 +211,7 @@ export function colonyMood(state: GameState): ColonyMood {
   const mayor = mayorMorale(state) * MORALE.points;
   const bards = bardMorale(state) * MORALE.points;
   const speech = state.speechUntil > state.now ? MORALE.speech : 0;
-  const leisureHomes = homesNear(state, (type) => LEISURE[type]?.radius);
+  const leisureHomes = leisurePoints(state);
   const beauty = beautyOf(state);
   return {
     base,
@@ -243,8 +264,7 @@ export function kiwiMorale(
 ): KiwiMorale {
   const where = beds.get(v.id);
   const bed = bedPoints(where);
-  const leisure =
-    where?.buildingId && colony.leisureHomes.has(where.buildingId) ? MORALE.leisure : 0;
+  const leisure = (where?.buildingId && colony.leisureHomes.get(where.buildingId)) || 0;
   const trait = v.trait ? ((MORALE.trait as Partial<Record<string, number>>)[v.trait] ?? 0) : 0;
   const temper = trait + (inLine(v.classId, 'bard') ? MORALE.bard : 0);
   const memories = memoryPoints(v, state.now);

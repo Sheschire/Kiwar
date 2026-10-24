@@ -4,6 +4,10 @@ import {
   fountain,
   lanterns,
   mayorStatue,
+  skipPond,
+  skittles,
+  slide,
+  swing,
   townHall,
   vineArch,
 } from './models/village';
@@ -12,7 +16,7 @@ import { Color, Matrix4, Mesh, Quaternion, Raycaster, Vector3 } from 'three';
 import {
   ageOfLevel,
   BUILDING_TYPES,
-  isDecor,
+  isVillageLife,
   LEVELS_PER_AGE,
   type BuildingType,
   type ShipId,
@@ -77,6 +81,10 @@ const BUILDERS: Record<BuildingType, (look: Look) => Parts> = {
   vineArch: () => vineArch(),
   fountain,
   mayorStatue,
+  swing: () => swing(),
+  skittles: () => skittles(),
+  skipPond: () => skipPond(),
+  slide: () => slide(),
 };
 
 /**
@@ -135,7 +143,8 @@ function partsOf(
   // Chantier 35: big buildings get their sign once spread over their footprint.
   const big = bigSignSpot(type);
   p.doors = p.filter((part) => part[1] === C.door && !part[3]);
-  if (type !== 'camp' && type !== 'campfire' && !isDecor(type) && sign && !big) signPost(p, type);
+  if (type !== 'camp' && type !== 'campfire' && !isVillageLife(type) && sign && !big)
+    signPost(p, type);
   if (level > 3 && type !== 'monument' && type !== 'lab') {
     if (look.tier >= 2 && !OWN_ANNEX.has(type))
       annex(p, look.age, ...(ANNEX_SPOTS[type] ?? [-0.5, -0.5]));
@@ -148,7 +157,7 @@ function partsOf(
     p.doors = p.filter((part) => part[1] === C.door && !part[3]);
     if (sign) signPost(p, type, big);
   }
-  if (type !== 'camp' && type !== 'monument' && type !== 'campfire' && !isDecor(type))
+  if (type !== 'camp' && type !== 'monument' && type !== 'campfire' && !isVillageLife(type))
     dress(p, type, look.age);
   return p;
 }

@@ -30,6 +30,10 @@ export const BUILDING_TYPES = [
   'vineArch',
   'fountain',
   'mayorStatue',
+  'swing',
+  'skittles',
+  'skipPond',
+  'slide',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
@@ -647,6 +651,59 @@ const BASE: Record<BuildingType, BuildingDef> = {
       {
         cost: { pulp: 900, fiber: 600, seeds: 700, juice: 250 },
         durationMs: ms.min(25),
+        requiresNestLevel: 4,
+        requiresAge: 1,
+      },
+    ],
+  },
+  // Chantier 44: games, leisures like the campfire (`LEISURE`): one tile, outside the cap, each
+  // copy dearer. Different games within reach of a bed add up (`MORALE.leisureMore`).
+  swing: {
+    id: 'swing',
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.6,
+    levels: [
+      { cost: { pulp: 100, fiber: 220, seeds: 30 }, durationMs: ms.min(4), requiresNestLevel: 2 },
+    ],
+  },
+  skittles: {
+    id: 'skittles',
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.6,
+    levels: [
+      {
+        cost: { pulp: 500, fiber: 450, seeds: 400 },
+        durationMs: ms.min(12),
+        requiresNestLevel: 4,
+        requiresAge: 1,
+      },
+    ],
+  },
+  skipPond: {
+    id: 'skipPond',
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.6,
+    levels: [
+      {
+        cost: { pulp: 650, fiber: 300, seeds: 300, juice: 200 },
+        durationMs: ms.min(12),
+        requiresNestLevel: 4,
+        requiresAge: 1,
+      },
+    ],
+  },
+  slide: {
+    id: 'slide',
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.6,
+    levels: [
+      {
+        cost: { pulp: 400, fiber: 800, seeds: 200 },
+        durationMs: ms.min(12),
         requiresNestLevel: 4,
         requiresAge: 1,
       },

@@ -46,7 +46,19 @@ const FAMILIES: readonly { id: FamilyId; types: readonly BuildingType[] }[] = [
   // Chantier 44: the village's life (outside the building cap but the Town Hall).
   {
     id: 'village',
-    types: ['townHall', 'campfire', 'lanterns', 'flowerBed', 'vineArch', 'fountain', 'mayorStatue'],
+    types: [
+      'townHall',
+      'campfire',
+      'swing',
+      'skittles',
+      'skipPond',
+      'slide',
+      'lanterns',
+      'flowerBed',
+      'vineArch',
+      'fountain',
+      'mayorStatue',
+    ],
   },
 ];
 

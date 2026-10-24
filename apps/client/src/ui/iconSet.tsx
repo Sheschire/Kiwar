@@ -604,6 +604,71 @@ const GLYPHS = {
       <path d="M15 5l2-3 2 3 2-3 1 4" fill="#ffd95a" stroke="#a87a1f" stroke-width="1" />
     </>
   ),
+  // Chantier 44: games.
+  swing: (
+    <>
+      <path
+        d="M5 28L9 5M27 28L23 5M7 5h18"
+        stroke="#7a5233"
+        stroke-width="2.4"
+        stroke-linecap="round"
+      />
+      <path d="M13 5l-2 15M19 5l2 15" stroke="#4f8a3a" stroke-width="1.4" />
+      <rect
+        x="9"
+        y="19"
+        width="14"
+        height="3"
+        rx="1"
+        fill="#c79a5c"
+        stroke="#5a3e26"
+        stroke-width="1.2"
+      />
+    </>
+  ),
+  skittles: (
+    <>
+      <circle cx="7" cy="23" r="4" fill="#d9e86a" stroke="#6f8a1d" stroke-width="1.4" />
+      <path
+        d="M16 27c-2 0-2-4-1-7-1-2 0-5 1-5s2 3 1 5c1 3 1 7-1 7zM24 27c-2 0-2-4-1-7-1-2 0-5 1-5s2 3 1 5c1 3 1 7-1 7zM20 22c-2 0-2-4-1-7-1-2 0-5 1-5s2 3 1 5c1 3 1 7-1 7z"
+        fill="#b8862f"
+        stroke="#5a3e26"
+        stroke-width="1.2"
+      />
+    </>
+  ),
+  skipPond: (
+    <>
+      <ellipse cx="16" cy="21" rx="12" ry="6" fill="#6fb4d8" stroke="#2f6e8f" stroke-width="1.4" />
+      <ellipse cx="18" cy="21" rx="4" ry="1.8" fill="none" stroke="#fff" stroke-width="1.1" />
+      <path
+        d="M4 10c4-3 8-3 11 0M10 13c3-2 6-2 9 0"
+        stroke="#5a3e26"
+        stroke-width="1.3"
+        fill="none"
+        stroke-dasharray="2 2"
+      />
+      <ellipse cx="22" cy="12" rx="2.4" ry="1.4" fill="#b8862f" stroke="#5a3e26" stroke-width="1" />
+    </>
+  ),
+  slide: (
+    <>
+      <path
+        d="M3 28c2-10 8-14 13-14s9 6 13 14z"
+        fill="#8fb07a"
+        stroke="#4f6a3a"
+        stroke-width="1.4"
+      />
+      <path
+        d="M14 9h5c1 9 5 14 10 16"
+        stroke="#7a5233"
+        stroke-width="3"
+        fill="none"
+        stroke-linecap="round"
+      />
+      <path d="M12 9v14M15 9v14" stroke="#5a3e26" stroke-width="1.2" />
+    </>
+  ),
 } satisfies Record<string, ComponentChildren>;
 
 export type IconName = keyof typeof GLYPHS;

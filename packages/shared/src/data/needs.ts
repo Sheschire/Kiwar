@@ -100,6 +100,9 @@ export const MORALE = {
   bard: 5,
   /** A leisure (`LEISURE`) within reach of its bed. */
   leisure: 8,
+  /** Chantier 44: each other kind of leisure within reach adds this, up to `leisureMax`. */
+  leisureMore: 3,
+  leisureMax: 14,
   /** Chantier 44: the village's beauty (`BEAUTY`, summed over the decorations), at most. */
   beauty: 8,
   /**
@@ -151,6 +154,10 @@ export function speechCooldownMs(level: number): number {
  */
 export const LEISURE: Partial<Record<BuildingType, { radius: number }>> = {
   campfire: { radius: 3 },
+  swing: { radius: 3 },
+  skittles: { radius: 3 },
+  skipPond: { radius: 3 },
+  slide: { radius: 3 },
 };
 
 /**
@@ -165,9 +172,17 @@ export const BEAUTY: Partial<Record<BuildingType, number>> = {
   mayorStatue: 3,
 };
 
-/** Chantier 44: decorations and leisures stand outside the building cap. */
+/** Chantier 44: a decoration (it gives beauty). */
 export function isDecor(type: BuildingType): boolean {
   return BEAUTY[type] !== undefined;
+}
+
+/**
+ * Chantier 44: the village's life — decorations and leisures (the campfire, the games). They
+ * stand outside the building cap, have one level, no sign and no age dressing.
+ */
+export function isVillageLife(type: BuildingType): boolean {
+  return BEAUTY[type] !== undefined || LEISURE[type] !== undefined;
 }
 
 /**

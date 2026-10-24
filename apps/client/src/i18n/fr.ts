@@ -261,6 +261,22 @@ export const fr: Dict = {
       name: 'Feu de camp',
       desc: 'Au crépuscule, les kiwis qui dorment tout près s’y retrouvent pour souper ensemble : du moral jusqu’au lendemain soir et des repas de nuit plus légers. Un loisir pour les huttes voisines.',
     },
+    swing: {
+      name: 'Balançoire en liane',
+      desc: 'Deux lianes et un siège d’écorce sous une branche : un jeu pour les kiwis qui se reposent tout près. Un loisir pour les huttes voisines ; des jeux différents s’additionnent.',
+    },
+    skittles: {
+      name: 'Quilles de pépins',
+      desc: 'Une piste, six quilles de pépins et une boule de pulpe. Un loisir pour les huttes voisines ; des jeux différents s’additionnent.',
+    },
+    skipPond: {
+      name: 'Mare aux ricochets',
+      desc: 'Une mare ronde où les kiwis font ricocher des pépins. Un loisir pour les huttes voisines ; des jeux différents s’additionnent.',
+    },
+    slide: {
+      name: 'Toboggan d’écorce',
+      desc: 'Une butte d’herbe, une échelle et une glissière d’écorce. Un loisir pour les huttes voisines ; des jeux différents s’additionnent.',
+    },
     lanterns: {
       name: 'Lampions',
       desc: 'Une guirlande de lampions de feuille, un lampadaire de fer à l’âge du Fer, un réverbère de laiton à l’Industrie. Il éclaire les chemins la nuit. De la beauté pour tout le village.',
@@ -1605,6 +1621,9 @@ export const fr: Dict = {
   campfire: {
     sleepers: '{count} kiwi(s) dorment à {radius} cases ou moins',
     hint: 'Au crépuscule, ils viennent souper ici : du moral jusqu’au lendemain soir et des repas de nuit 10 % plus légers. Le feu compte aussi comme loisir pour leurs huttes.',
+  },
+  games: {
+    hint: 'Quand ils se reposent le jour, certains viennent jouer ici. Chaque type de loisir à portée d’un lit s’ajoute au premier ({first} de moral, +{more} par autre type, {max} au plus).',
   },
   camp: {
     hint: 'Les kiwis qui ont une classe s’entraînent ici (placés par vous, jamais d’eux-mêmes) : ils gagnent des rangs de classe (vitesse {speed} %) et mangent une demi-ration de plus. Promotions et changements de classe se choisissent dans la fiche d’un kiwi.',

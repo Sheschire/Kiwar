@@ -42,6 +42,7 @@ import {
   LEISURE,
   suppedTonight,
   type Building,
+  type BuildingType,
 } from '@kiwar/shared';
 import { findPath } from './pathfinding';
 import { TitansView } from './kikiwiwi';
@@ -99,6 +100,14 @@ function crowdSpot(hall: Building, place: number): { point: Vector3; face: numbe
   };
 }
 /** Researchers' places around the Library (shelves, desks) and their distance. */
+/** Chantier 44: what a kiwi does at each game (the game's own rig moves on its own). */
+const PLAY_CLIPS: Partial<Record<BuildingType, readonly ClipId[]>> = {
+  swing: ['joy', 'clap', 'sit', 'dance'],
+  skittles: ['sling', 'sling', 'joy', 'clap'],
+  skipPond: ['sling', 'look', 'joy', 'sit'],
+  slide: ['joy', 'dance', 'clap', 'stretch'],
+};
+
 const LIBRARY_SPOTS = 6;
 const LIBRARY_RING = 0.78;
 /** The lesson at the School: the leader stands this far out, the class around them. */
@@ -252,6 +261,8 @@ export class KiwisView {
   private readonly crowd = new Map<VillagerId, number>();
   /** Chantier 43: who sits at which campfire tonight, and its place in the circle. */
   private readonly campers = new Map<VillagerId, { fire: Hex; place: number; count: number }>();
+  /** Chantier 44: who plays at which game while resting by day, and its spot around it. */
+  private readonly players = new Map<VillagerId, { game: Building; angle: number }>();
   /** Guard posts by sector, rebuilt when the turrets change. */
   private readonly posts = new Map<string, { point: Vector3; face: number }[]>();
   private turretsKey = '';
@@ -321,6 +332,7 @@ export class KiwisView {
       }
     }
     this.assignCampers(state);
+    this.assignPlayers(state);
     this.crowd.clear();
     if (state.speech.until > state.now)
       state.villagers
@@ -591,6 +603,7 @@ export class KiwisView {
   private think(agent: Agent, villager: Villager): void {
     if (this.thinkSpeech(agent, villager)) return;
     if (this.thinkVigil(agent, villager)) return;
+    if (this.thinkPlay(agent, villager)) return;
     if (this.thinkRest(agent, villager)) return;
     const job = villager.job;
     const role = this.roles.get(villager.id) ?? '';
@@ -802,6 +815,59 @@ export class KiwisView {
         this.campers.set(id, { fire: { q: fire.q, r: fire.r }, place, count: ids.length }),
       );
     }
+  }
+
+  /**
+   * Chantier 44: about half of the kiwis whose bed lies within reach of a game play there when
+   * they rest by day (instead of going to bed) or have no post (always the same game for a
+   * kiwi).
+   */
+  private assignPlayers(state: GameState): void {
+    this.players.clear();
+    const games = state.buildings.filter((b) => b.type !== 'campfire' && LEISURE[b.type]);
+    if (games.length === 0) return;
+    const beds = bedsOf(state);
+    const homes = new Map(state.buildings.map((b) => [b.id, b]));
+    for (const v of state.villagers) {
+      const hash = createRng(`play/${v.id}`).next();
+      if (hash < 0.5) continue;
+      const hutId = beds.get(v.id)?.buildingId;
+      const hut = hutId ? homes.get(hutId) : undefined;
+      if (!hut) continue;
+      const near = games.filter((g) => hexDistance(g, hut) <= LEISURE[g.type]!.radius);
+      if (near.length === 0) continue;
+      const game = near[Math.floor(hash * 2 * near.length) % near.length]!;
+      this.players.set(v.id, { game, angle: hash * 97 });
+    }
+  }
+
+  private thinkPlay(agent: Agent, villager: Villager): boolean {
+    const spot = this.players.get(villager.id);
+    const state = this.state;
+    const job = villager.job;
+    if (!spot || !state || (agent.rhythm !== 'rest' && job.kind !== 'idle')) return false;
+    if (job.kind === 'injured' || job.kind === 'guard' || state.threats.shelterUntil > state.now)
+      return false;
+    if (calendarAt(state.calendarStart, state.now).night) return false;
+    const { game, angle } = spot;
+    const sig = `play:${game.id}`;
+    if (agent.plan !== sig) {
+      agent.plan = sig;
+      agent.carrying = null;
+      agent.leg = 'none';
+      agent.inside = false;
+      this.leavePartner(agent);
+      this.walkToPoint(agent, this.around(game, angle, 0.55));
+      agent.face = angle + Math.PI;
+      return true;
+    }
+    const arrived = agent.activity === 'walk' && agent.path.length === 0;
+    if (arrived || (agent.activity !== 'walk' && agent.timer <= 0)) {
+      const clips = PLAY_CLIPS[game.type] ?? PLAY_CLIPS.swing!;
+      this.settle(agent, 'idle', agent.rng.pick(clips), agent.rng.range(3, 7));
+      agent.face = angle + Math.PI;
+    }
+    return true;
   }
 
   private thinkVigil(agent: Agent, villager: Villager): boolean {

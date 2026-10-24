@@ -1,6 +1,7 @@
 import {
   hexDistance,
   LEISURE,
+  MORALE,
   levelDef,
   mayorOf,
   SPEECH,
@@ -82,10 +83,13 @@ export function TownHallInfo({ game, b, now }: { game: GameState; b: Building; n
   );
 }
 
-/** Chantier 43: the campfire's sheet — who sleeps within its reach and sups here at dusk. */
+/**
+ * Chantier 43: the campfire's sheet — who sleeps within its reach and sups here at dusk; also
+ * the games' sheet (chantier 44).
+ */
 export function CampfireInfo({ game, b }: { game: GameState; b: Building }) {
   const t = useT();
-  const radius = LEISURE.campfire?.radius ?? 0;
+  const radius = LEISURE[b.type]?.radius ?? 0;
   const beds = bedsOf(game);
   const homes = new Set(
     game.buildings
@@ -102,7 +106,15 @@ export function CampfireInfo({ game, b }: { game: GameState; b: Building }) {
       <p class="small">
         <strong>{t('campfire.sleepers', { count: sleepers, radius })}</strong>
       </p>
-      <p class="small muted">{t('campfire.hint')}</p>
+      <p class="small muted">
+        {b.type === 'campfire'
+          ? t('campfire.hint')
+          : t('games.hint', {
+              first: MORALE.leisure,
+              more: MORALE.leisureMore,
+              max: MORALE.leisureMax,
+            })}
+      </p>
     </div>
   );
 }

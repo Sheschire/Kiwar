@@ -399,3 +399,144 @@ export function mayorStatue(look: Look): Parts {
     flower(p, x, z, 0.08, i);
   return p;
 }
+
+/** Chantier 44: water of the skipping pond. */
+const POND = '#6fb4d8';
+
+/**
+ * Chantier 44: the vine swing — an A-frame of branches, a crossbar, two vines and a bark seat
+ * that keeps swinging.
+ */
+export function swing(): Parts {
+  const p: Parts = [];
+  const top = 0.5;
+  for (const x of [-0.28, 0.28])
+    for (const dz of [-0.12, 0.12])
+      p.push([cyl(5), C.twig, m(x, top / 2, dz / 2, 0.022, top + 0.04, 0.022, dz, 0, 0)]);
+  p.push([cyl(6), C.woodDark, m(0, top, 0, 0.025, 0.64, 0.025, 0, 0, Math.PI / 2)]);
+  for (const x of [-0.28, 0.28])
+    p.push([sphere(5, 3), C.leaf, m(x, top + 0.02, 0, 0.05, 0.035, 0.05)]);
+  rig(p, 'seat', [0, top, 0], {
+    kind: 'swing',
+    axis: 'x',
+    amount: 0.45,
+    speed: 1.1,
+    ambient: true,
+  });
+  for (const x of [-0.1, 0.1])
+    p.push([cyl(4), C.leafDark, m(x, top - 0.17, 0, 0.008, 0.34, 0.008), 'seat']);
+  p.push([box(), C.wood, m(0, top - 0.34, 0, 0.26, 0.025, 0.1), 'seat']);
+  // Worn grass under the seat.
+  p.push([cyl(10), C.straw, m(0, 0.006, 0, 0.14, 0.01, 0.2)]);
+  return p;
+}
+
+/** Chantier 44: seed skittles — a lane of light wood, six seed pins at its end, a pulp ball. */
+export function skittles(): Parts {
+  const p: Parts = [];
+  p.push([box(), C.lightWood, m(0, 0.02, 0, 0.22, 0.04, 0.78)]);
+  for (const x of [-0.12, 0.12]) p.push([box(), C.woodDark, m(x, 0.035, 0, 0.025, 0.05, 0.78)]);
+  rig(p, 'pins', [0, 0.04, -0.28], { kind: 'pound', amount: 0.03, speed: 0.5, ambient: true });
+  const rows = [[0], [-0.045, 0.045], [-0.09, 0, 0.09]];
+  rows.forEach((row, i) =>
+    row.forEach((x) => {
+      const z = -0.22 - i * 0.06;
+      p.push([sphere(6, 5), C.cream, m(x, 0.08, z, 0.022, 0.05, 0.022), 'pins']);
+      p.push([cyl(6), C.roof, m(x, 0.095, z, 0.02, 0.01, 0.02), 'pins']);
+    }),
+  );
+  rig(p, 'ball', [0, 0.07, 0.24], { kind: 'spin', axis: 'x', amount: 1, speed: 2, ambient: true });
+  p.push([sphere(7, 5), C.pulp, m(0, 0.07, 0.24, 0.04, 0.04, 0.04), 'ball']);
+  // The rack of spare balls and the score board on its post.
+  p.push([box(), C.woodDark, m(0.2, 0.05, 0.3, 0.1, 0.06, 0.08)]);
+  p.push([cyl(4), C.twig, m(0.2, 0.14, -0.3, 0.012, 0.28, 0.012)]);
+  p.push([box(), C.lightWood, m(0.2, 0.26, -0.3, 0.02, 0.08, 0.12)]);
+  for (const z of [-0.33, -0.3, -0.27])
+    p.push([box(), C.woodDark, m(0.211, 0.26, z, 0.004, 0.05, 0.008)]);
+  return p;
+}
+
+/** Chantier 44: the skipping pond — a round pond in a ring of pebbles, reeds and a heap of seeds. */
+export function skipPond(): Parts {
+  const p: Parts = [];
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    p.push([
+      ico(),
+      i % 2 ? C.stone : C.stoneDark,
+      m(Math.cos(a) * 0.36, 0.025, Math.sin(a) * 0.36, 0.055, 0.035, 0.05),
+    ]);
+  }
+  p.push([cyl(16), POND, m(0, 0.02, 0, 0.33, 0.02, 0.33)]);
+  rig(p, 'ripple', [0.06, 0.035, -0.05], {
+    kind: 'breathe',
+    amount: 0.35,
+    speed: 1.4,
+    ambient: true,
+  });
+  p.push([
+    new TorusGeometry(0.08, 0.006, 3, 16),
+    C.white,
+    m(0.06, 0.035, -0.05, 1, 1, 1, Math.PI / 2),
+    'ripple',
+  ]);
+  p.push([
+    new TorusGeometry(0.14, 0.005, 3, 18),
+    C.white,
+    m(0.06, 0.035, -0.05, 1, 1, 1, Math.PI / 2),
+    'ripple',
+  ]);
+  for (const [x, z] of [
+    [-0.3, -0.2],
+    [-0.26, -0.27],
+    [-0.33, -0.12],
+  ] as const)
+    p.push([cyl(4), C.leafDark, m(x, 0.1, z, 0.01, 0.2, 0.01)]);
+  p.push([cone(5), C.twig, m(-0.3, 0.2, -0.2, 0.02, 0.05, 0.02)]);
+  for (const [x, z] of [
+    [0.3, 0.26],
+    [0.34, 0.2],
+    [0.27, 0.31],
+    [0.31, 0.29],
+  ] as const)
+    p.push([sphere(5, 3), C.seed, m(x, 0.04, z, 0.03, 0.02, 0.03)]);
+  return p;
+}
+
+/** Chantier 44: the bark slide — a grassy mound, a ladder behind, a bark chute down the front. */
+export function slide(): Parts {
+  const p: Parts = [];
+  p.push([sphere(10, 6), C.leaf, m(0, 0, -0.12, 0.3, 0.32, 0.26)]);
+  p.push([cyl(8), C.wood, m(0, 0.33, -0.12, 0.1, 0.03, 0.1)]);
+  // The ladder at the back.
+  for (const x of [-0.06, 0.06])
+    p.push([cyl(4), C.twig, m(x, 0.18, -0.36, 0.012, 0.38, 0.012, -0.35, 0, 0)]);
+  for (let i = 0; i < 4; i++)
+    p.push([
+      cyl(4),
+      C.twig,
+      m(0, 0.07 + i * 0.08, -0.4 + i * 0.03, 0.01, 0.12, 0.01, 0, 0, Math.PI / 2),
+    ]);
+  // The chute: three pieces of bark from the top down to the front, steep then flat, with low
+  // sides (each piece joins the next).
+  const points: [number, number][] = [
+    [0.35, -0.06],
+    [0.2, 0.13],
+    [0.08, 0.3],
+    [0.035, 0.42],
+  ];
+  for (let i = 0; i < 3; i++) {
+    const [y1, z1] = points[i]!;
+    const [y2, z2] = points[i + 1]!;
+    const len = Math.hypot(y2 - y1, z2 - z1) + 0.02;
+    const tilt = Math.atan2(y1 - y2, z2 - z1);
+    const y = (y1 + y2) / 2;
+    const z = (z1 + z2) / 2;
+    p.push([box(), C.woodDark, m(0, y, z, 0.14, 0.02, len, tilt, 0, 0)]);
+    for (const x of [-0.07, 0.07])
+      p.push([box(), C.twig, m(x, y + 0.02, z, 0.015, 0.04, len, tilt, 0, 0)]);
+  }
+  // Soft sand where they land.
+  p.push([cyl(10), C.straw, m(0, 0.008, 0.42, 0.14, 0.015, 0.1)]);
+  return p;
+}

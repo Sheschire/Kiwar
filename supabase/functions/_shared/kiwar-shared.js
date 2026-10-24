@@ -853,7 +853,11 @@ var BUILDING_TYPES = [
   "flowerBed",
   "vineArch",
   "fountain",
-  "mayorStatue"
+  "mayorStatue",
+  "swing",
+  "skittles",
+  "skipPond",
+  "slide"
 ];
 var FOOTPRINTS = {
   warehouse: 3,
@@ -1402,6 +1406,59 @@ var BASE = {
       {
         cost: { pulp: 900, fiber: 600, seeds: 700, juice: 250 },
         durationMs: ms.min(25),
+        requiresNestLevel: 4,
+        requiresAge: 1
+      }
+    ]
+  },
+  // Chantier 44: games, leisures like the campfire (`LEISURE`): one tile, outside the cap, each
+  // copy dearer. Different games within reach of a bed add up (`MORALE.leisureMore`).
+  swing: {
+    id: "swing",
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.6,
+    levels: [
+      { cost: { pulp: 100, fiber: 220, seeds: 30 }, durationMs: ms.min(4), requiresNestLevel: 2 }
+    ]
+  },
+  skittles: {
+    id: "skittles",
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.6,
+    levels: [
+      {
+        cost: { pulp: 500, fiber: 450, seeds: 400 },
+        durationMs: ms.min(12),
+        requiresNestLevel: 4,
+        requiresAge: 1
+      }
+    ]
+  },
+  skipPond: {
+    id: "skipPond",
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.6,
+    levels: [
+      {
+        cost: { pulp: 650, fiber: 300, seeds: 300, juice: 200 },
+        durationMs: ms.min(12),
+        requiresNestLevel: 4,
+        requiresAge: 1
+      }
+    ]
+  },
+  slide: {
+    id: "slide",
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1.6,
+    levels: [
+      {
+        cost: { pulp: 400, fiber: 800, seeds: 200 },
+        durationMs: ms.min(12),
         requiresNestLevel: 4,
         requiresAge: 1
       }
@@ -2221,6 +2278,9 @@ var MORALE = {
   bard: 5,
   /** A leisure (`LEISURE`) within reach of its bed. */
   leisure: 8,
+  /** Chantier 44: each other kind of leisure within reach adds this, up to `leisureMax`. */
+  leisureMore: 3,
+  leisureMax: 14,
   /** Chantier 44: the village's beauty (`BEAUTY`, summed over the decorations), at most. */
   beauty: 8,
   /**
@@ -2258,7 +2318,11 @@ function speechCooldownMs(level) {
   return SPEECH.cooldownMs.find((c) => level >= c.level)?.ms ?? SPEECH.cooldownMs[2].ms;
 }
 var LEISURE = {
-  campfire: { radius: 3 }
+  campfire: { radius: 3 },
+  swing: { radius: 3 },
+  skittles: { radius: 3 },
+  skipPond: { radius: 3 },
+  slide: { radius: 3 }
 };
 var BEAUTY = {
   lanterns: 1,
@@ -2269,6 +2333,9 @@ var BEAUTY = {
 };
 function isDecor(type) {
   return BEAUTY[type] !== void 0;
+}
+function isVillageLife(type) {
+  return BEAUTY[type] !== void 0 || LEISURE[type] !== void 0;
 }
 var CAMPFIRE = {
   meals: 0.9
@@ -5247,7 +5314,7 @@ function pathLimit(state) {
   return PATHS.base + PATHS.perNestLevel * Math.min(level, 3) + PATHS.perAgeLevel * Math.max(0, level - 3);
 }
 function buildingCount(state) {
-  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && t !== "townHall" && t !== "campfire" && !isDecor(t) && !isTurret(t);
+  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && t !== "townHall" && !isVillageLife(t) && !isTurret(t);
   return state.buildings.filter((b) => counted(b.type)).length + state.queue.filter((i) => i.kind === "build" && counted(i.buildingType)).length;
 }
 function turretCount(state) {
@@ -10507,6 +10574,22 @@ function homesNear(state, reach) {
   }
   return out;
 }
+function leisurePoints(state) {
+  const spots = state.buildings.filter((b) => LEISURE[b.type] !== void 0);
+  const out = /* @__PURE__ */ new Map();
+  if (spots.length === 0) return out;
+  for (const h of state.buildings) {
+    if (!(levelDef(h.type, h.level)?.housing ?? 0)) continue;
+    const kinds = /* @__PURE__ */ new Set();
+    for (const s of spots) if (hexDistance(s, h) <= LEISURE[s.type].radius) kinds.add(s.type);
+    if (kinds.size === 0) continue;
+    out.set(
+      h.id,
+      Math.min(MORALE.leisureMax, MORALE.leisure + MORALE.leisureMore * (kinds.size - 1))
+    );
+  }
+  return out;
+}
 function beautyOf(state) {
   let sum = 0;
   for (const b of state.buildings) sum += BEAUTY[b.type] ?? 0;
@@ -10519,7 +10602,7 @@ function colonyMood(state) {
   const mayor = mayorMorale(state) * MORALE.points;
   const bards = bardMorale(state) * MORALE.points;
   const speech = state.speechUntil > state.now ? MORALE.speech : 0;
-  const leisureHomes = homesNear(state, (type) => LEISURE[type]?.radius);
+  const leisureHomes = leisurePoints(state);
   const beauty = beautyOf(state);
   return {
     base,
@@ -10546,7 +10629,7 @@ function memoryPoints(v, now) {
 function kiwiMorale(state, v, beds = bedsOf(state), colony2 = colonyMood(state)) {
   const where = beds.get(v.id);
   const bed = bedPoints(where);
-  const leisure = where?.buildingId && colony2.leisureHomes.has(where.buildingId) ? MORALE.leisure : 0;
+  const leisure = where?.buildingId && colony2.leisureHomes.get(where.buildingId) || 0;
   const trait = v.trait ? MORALE.trait[v.trait] ?? 0 : 0;
   const temper = trait + (inLine(v.classId, "bard") ? MORALE.bard : 0);
   const memories = memoryPoints(v, state.now);
@@ -12726,10 +12809,9 @@ function buildLock(state, type) {
     if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return "buildingLimit";
   } else if (type === "townHall") {
     if (copiesOf(state, "townHall") > 0) return "townHallExists";
-  } else if (type === "campfire") {
   } else if (type === "mayorStatue") {
     if (copiesOf(state, "mayorStatue") > 0) return "statueExists";
-  } else if (isDecor(type)) {
+  } else if (isVillageLife(type)) {
   } else if (type === "monument") {
     if (copiesOf(state, "monument") > 0) return "monumentExists";
     if (!hasTech(state, PASSAGE_TECHS[1])) return "passageMissing";
@@ -20358,6 +20440,7 @@ export {
   isRampart,
   isSister,
   isTurret,
+  isVillageLife,
   itemOpen,
   itemSpeed,
   jobBoard,

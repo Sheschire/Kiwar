@@ -71,6 +71,7 @@ import {
   footprintOf,
   getBuilding,
   rotationsOf,
+  LEISURE,
 } from '@kiwar/shared';
 import { bedsOf, harvestOf, idleVillagers } from '../derived';
 import { NestReserves, ReserveSection } from './ReserveInfo';
@@ -400,7 +401,7 @@ function BuildingSection({
       {b.type === 'trainingCamp' && <CampInfo game={game} b={b} now={now} />}
       {b.type === 'forge' && <ForgeInfo game={game} b={b} />}
       {b.type === 'townHall' && <TownHallInfo game={game} b={b} now={now} />}
-      {b.type === 'campfire' && <CampfireInfo game={game} b={b} />}
+      {LEISURE[b.type] && <CampfireInfo game={game} b={b} />}
       {b.type === 'monument' && <AgeInfo game={game} t={t} />}
       {b.type === 'library' && (
         <>

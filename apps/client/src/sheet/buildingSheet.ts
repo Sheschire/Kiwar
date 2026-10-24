@@ -64,6 +64,10 @@ const TYPES: readonly BuildingType[] = [
   'vineArch',
   'fountain',
   'mayorStatue',
+  'swing',
+  'skittles',
+  'skipPond',
+  'slide',
   'camp',
 ];
 const PER_ROW_MAX = 4;

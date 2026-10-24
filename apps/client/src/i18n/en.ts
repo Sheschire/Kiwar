@@ -243,6 +243,22 @@ export const en = {
       name: 'Campfire',
       desc: 'At dusk the kiwis sleeping nearby gather here to sup together: morale until the next evening and lighter meals at night. A leisure for the huts around.',
     },
+    swing: {
+      name: 'Vine swing',
+      desc: 'Two vines and a bark seat under a branch: a game for the kiwis resting nearby. A leisure for the huts around; different games add up.',
+    },
+    skittles: {
+      name: 'Seed skittles',
+      desc: 'A lane, six seed pins and a ball of pulp. A leisure for the huts around; different games add up.',
+    },
+    skipPond: {
+      name: 'Skipping pond',
+      desc: 'A round pond where the kiwis skip seeds on the water. A leisure for the huts around; different games add up.',
+    },
+    slide: {
+      name: 'Bark slide',
+      desc: 'A grassy mound, a ladder and a chute of bark. A leisure for the huts around; different games add up.',
+    },
     lanterns: {
       name: 'Lanterns',
       desc: 'A string of leaf lanterns, an iron street lamp in the Iron age, a brass lamp post in the Industry. It lights the paths at night. Beauty for the whole village.',
@@ -1530,6 +1546,9 @@ export const en = {
   campfire: {
     sleepers: '{count} kiwi(s) sleep {radius} tiles away or closer',
     hint: 'At dusk they come and sup here: morale until the next evening and night meals 10 % lighter. The fire also counts as a leisure for their huts.',
+  },
+  games: {
+    hint: 'When they rest by day, some of them come and play here. Each kind of leisure within reach of a bed adds to the first ({first} morale, +{more} per other kind, {max} at most).',
   },
   camp: {
     hint: 'Kiwis with a class drill here (placed by you, never on their own): they gain class ranks ({speed} % speed) and eat half a ration more. Promotions and changes of class are chosen in a kiwi’s sheet.',
