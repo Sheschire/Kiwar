@@ -36,6 +36,7 @@ import { landSettlers } from './colonies';
 import { landingForecast, resolveLanding, type LandingForecast } from './landing';
 import { LANDING, type LandingOrders } from '../data/landing';
 import { beaconOf, forgetGuards, landGuard } from './beacons';
+import { finalForecast, queenOf, resolveFinal } from './queen';
 
 export interface ExpeditionPlan {
   launchpadId: BuildingId;
@@ -336,17 +337,19 @@ export function forecastExpedition(
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(state, crew, fed);
   const landing =
-    mission === 'land' && plan.sector !== undefined
-      ? landingForecast(
-          state,
-          target.id,
-          plan.sector,
-          crew,
-          plan.orders ?? LANDING.defaultOrders,
-          fed,
-          state.now,
-        )
-      : null;
+    mission === 'final'
+      ? finalForecast(state, target.id, crew, plan.orders ?? LANDING.defaultOrders, fed, state.now)
+      : mission === 'land' && plan.sector !== undefined
+        ? landingForecast(
+            state,
+            target.id,
+            plan.sector,
+            crew,
+            plan.orders ?? LANDING.defaultOrders,
+            fed,
+            state.now,
+          )
+        : null;
   const defense =
     mission === 'raid' || mission === 'recon'
       ? (intelView(state, target.id, state.now)?.defense ?? null)
@@ -354,7 +357,7 @@ export function forecastExpedition(
   const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
   const odds: Odds = landing
     ? landing.odds
-    : mission === 'land'
+    : mission === 'land' || mission === 'final'
       ? 'unknown'
       : mission === 'found' || mission === 'guard'
         ? 'likely'
@@ -377,7 +380,7 @@ export function forecastExpedition(
   const ship = shipOf(state);
   const expectedLosses = landing
     ? landing.expectedDead
-    : guess === null || mission === 'land'
+    : guess === null || mission === 'land' || mission === 'final'
       ? 0
       : Math.min(fighters, fighters * lossShare(base, guess) * (1 - ship.armor));
   const exposure = crew.map((v) => kiwiExposure(v));
@@ -567,7 +570,10 @@ export function launch(
     ...(plan.sector !== undefined && (mission === 'land' || mission === 'guard')
       ? { sector: plan.sector }
       : {}),
-    ...(mission === 'land' ? { orders: { ...(plan.orders ?? LANDING.defaultOrders) } } : {}),
+    ...(mission === 'land' || mission === 'final'
+      ? { orders: { ...(plan.orders ?? LANDING.defaultOrders) } }
+      : {}),
+    ...(mission === 'final' ? { sector: queenOf(state, target.id)?.sector ?? 0 } : {}),
     ...(mission === 'guard' && plan.orders ? { orders: { ...plan.orders } } : {}),
     ...(mission === 'guard' && plan.bringBack?.length ? { bringBack: [...plan.bringBack] } : {}),
     ...(delayed ? { delayed: true } : {}),
@@ -621,6 +627,7 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   if (e.mission === 'found') return landSettlers(state, e, members, fed);
   if (e.mission === 'land') return resolveLanding(state, e, members, fed);
   if (e.mission === 'guard') return landGuard(state, e, members, fed);
+  if (e.mission === 'final') return resolveFinal(state, e, members, fed);
   // Chantier 40: the raids, the reconnaissance and the siege are gone (migrated saves turned
   // them back); anything else turns back without a fight.
   e.status = 'returning';
@@ -656,7 +663,8 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
   const xp =
     (KIWI.expeditionXp.base +
       (result.victory
-        ? KIWI.expeditionXp.victory * (e.mission === 'land' ? LANDING.victoryXp : 1)
+        ? KIWI.expeditionXp.victory *
+          (e.mission === 'land' || e.mission === 'final' ? LANDING.victoryXp : 1)
         : 0)) *
     (e.mission === 'recon' ? RECON.xp : 1);
   for (const v of crewMembers(state, e.crew)) {
@@ -664,7 +672,8 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
       v.history.expeditions++;
       if (result.victory) v.history.victories++;
       // Chantier 40: the survivors of a landing won are veterans.
-      if (result.victory && e.mission === 'land') v.veteran = (v.veteran ?? 0) + 1;
+      if (result.victory && (e.mission === 'land' || e.mission === 'final'))
+        v.veteran = (v.veteran ?? 0) + 1;
     }
     grantXp(state, v, result.aborted ? xp / 2 : xp, e.returnAt, events);
     // Chantier 37: class practice too.

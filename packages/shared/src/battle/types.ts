@@ -11,7 +11,8 @@ import type { SectorId } from '../data/threats';
 /** 0: the side at home (buildings, turrets, kiwis); 1: the attackers. */
 export type BattleSide = 0 | 1;
 
-export type UnitBody = 'kiwi' | 'kikiwiwi' | 'ferret' | 'bat' | 'turret';
+/** Chantier 42: `queen`, the giant ferret queen of the twin face. */
+export type UnitBody = 'kiwi' | 'kikiwiwi' | 'ferret' | 'bat' | 'turret' | 'queen';
 
 /**
  * What a unit does in the battle (its AI). Chantier 40: `assault` is a kiwi of a landing crew
@@ -86,6 +87,13 @@ export interface BattleUnitSetup {
   sector: SectorId | null;
   /** Chantier 37: a bard's aura, damage boost of its side within `range` tiles. */
   aura?: { range: number; boost: number };
+  /**
+   * Chantier 42: comes in only once the unit `ref` has fallen under this share of its hit points
+   * (`delay` counts from then); never if that unit fell first.
+   */
+  wake?: { ref: string; below: number };
+  /** Chantier 42: under this share of its hit points it rages (blows and speed ×). */
+  rage?: { below: number; damage: number; speed: number };
 }
 
 export interface SideOrders {
@@ -112,6 +120,8 @@ export interface BattleSetup {
   maxS?: number;
   /** Chantier 40: the battle ends when the home side has nobody left (a landing won). */
   clearEnds?: boolean;
+  /** Chantier 42: the home side's leader (the queen): when it falls, the others run away. */
+  leader?: string;
 }
 
 /** What happened, read by the game (the wave) and by the reports. */
@@ -135,6 +145,8 @@ export interface BattleResult {
   lost?: string[];
   /** Chantier 40: home units still standing at the end (0: the field is cleared). */
   defendersLeft?: number;
+  /** Chantier 42: share of its hit points the leader still has at the end (0: fallen). */
+  leaderLeft?: number;
   /** Share of the attackers' power that reached a building. */
   reached: number;
   /** Tiles the ground attackers fought from (the paths there are trampled). */

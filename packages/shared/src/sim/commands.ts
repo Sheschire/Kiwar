@@ -76,6 +76,7 @@ import {
 } from './state';
 import { twinTarget } from './siege';
 import { fortifyCost, fortifyLock, guardLock, startFortify } from './beacons';
+import { finalLock } from './queen';
 import { returnHome, weakestWorker } from './posts';
 import { TECHS, type TechId } from '../data/research';
 import { researchTick, techEffects, techStatus } from './research';
@@ -340,6 +341,7 @@ export const COMMAND_ERRORS = [
   'noBeacon',
   'fortifying',
   'alreadyFortified',
+  'queenHidden',
   // Chantier 19 (second half): the second colony.
   'notConquered',
   'alreadyFounded',
@@ -778,7 +780,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       // Chantier 40: the landing replaces the raids, the reconnaissance and the siege; the
       // settlers' ship stays.
       const mission = cmd.mission ?? 'land';
-      if (mission !== 'land' && mission !== 'found' && mission !== 'guard') fail('invalidMission');
+      if (!['land', 'found', 'guard', 'final'].includes(mission)) fail('invalidMission');
       const onTwin = twinTarget(s)?.id === cmd.targetId;
       if (mission === 'found') {
         const lock = foundLock(s);
@@ -788,6 +790,11 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (mission !== 'found' && cmd.freight) fail('invalidMission');
       if (mission === 'land') {
         const lock = landingLock(s, cmd.targetId, cmd.sector, cmd.orders);
+        if (lock) fail(lock);
+      } else if (mission === 'final') {
+        // Chantier 42: the final battle against the queen, once she is out.
+        if (!onTwin) fail('unknownTarget');
+        const lock = finalLock(s, cmd.targetId, cmd.orders);
         if (lock) fail(lock);
       } else if (mission === 'guard') {
         const size = typeof cmd.crew === 'number' ? cmd.crew : cmd.crew.length;

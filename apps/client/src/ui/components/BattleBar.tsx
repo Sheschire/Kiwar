@@ -103,7 +103,7 @@ function UnitGear({ ref_ }: { ref_: string }) {
 function UnitCard({ unit }: { unit: UnitInfo }) {
   const t = useT();
   const title =
-    unit.body === 'ferret' || unit.body === 'bat'
+    unit.body === 'ferret' || unit.body === 'bat' || unit.body === 'queen'
       ? t(`battle.enemies.${unit.kind as 'soldier'}`)
       : unit.body === 'turret'
         ? t(`buildings.${unit.kind as 'seedTurret'}.name`)

@@ -72,6 +72,9 @@ const SWING = 0.55;
 /** A fallen unit stays this long, fading at the end. */
 const LINGER = 1.8;
 
+/** Chantier 42: how much bigger the ferret queen is than a soldier. */
+export const QUEEN_SIZE = 2.6;
+
 const KIWI_CLIPS: Record<WeaponId, ClipId> = {
   beak: 'peck',
   mace: 'mace',
@@ -98,6 +101,7 @@ const KIWI_CLIPS: Record<WeaponId, ClipId> = {
   slam: 'peck',
   dive: 'peck',
   spit: 'peck',
+  royalSlam: 'mace',
   seedShot: 'peck',
   skyShot: 'peck',
 };
@@ -341,12 +345,19 @@ export class BattleShow {
         scale = (v ? sizeOf(v, jitter) : jitter) * (body === 'kikiwiwi' ? 1.6 : 1);
       } else if (body === 'ferret' || body === 'bat') {
         scale = CREATURE_SIZE * (u[3] === 'brute' ? 1.3 : u[3] === 'scout' ? 0.85 : 1);
+      } else if (body === 'queen') {
+        // Chantier 42: the ferret queen, a giant.
+        scale = CREATURE_SIZE * QUEEN_SIZE;
       }
       return {
         track,
         weapon: u[10],
         kind:
-          body === 'turret' ? 'turret' : body === 'ferret' || body === 'bat' ? 'creature' : 'kiwi',
+          body === 'turret'
+            ? 'turret'
+            : body === 'ferret' || body === 'bat' || body === 'queen'
+              ? 'creature'
+              : 'kiwi',
         creature: body === 'bat' ? 'bat' : 'ferret',
         scale,
         tint,

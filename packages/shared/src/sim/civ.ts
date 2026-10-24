@@ -9,6 +9,7 @@ import { createRng, hashSeed } from '../rng/rng';
 import type { TimeMs } from '../types/ids';
 import { queenTruth } from './siege';
 import { refreshBeacons } from './landing';
+import { refreshQueen } from './queen';
 import type { AlienGarrison, CivImpact, CivKey, CivState, GameState } from './state';
 
 /**
@@ -508,8 +509,9 @@ export function civTick(s: GameState, at: TimeMs): void {
     if (!g?.civ || (t.distance === 0 && s.siege.conqueredAt > 0)) continue;
     if (g.since + (g.civ.day + 1) * CIV.tickMs > at) continue;
     planCiv(g, g.civ, at, civEyes(s, t.id));
-    // Chantier 40: our beacons see the day's changes.
+    // Chantier 40: our beacons see the day's changes (chantier 42: and the queen once out).
     refreshBeacons(s, t.id, at);
+    refreshQueen(s, t.id, at);
   }
 }
 

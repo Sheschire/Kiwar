@@ -736,6 +736,7 @@ export const en = {
     conquered: 'The twin face is already yours: nothing left to conquer there.',
     notASector: 'Pick an outer sector of the twin face.',
     noBeacon: 'No beacon shines on this parcel.',
+    queenHidden: 'The queen still hides: first light a beacon on each of the 12 parcels.',
     alreadyFortified: 'This beacon is already fortified as well as your age allows.',
     fortifying: 'This beacon is already being fortified.',
     invalidMission: 'Unknown mission.',
@@ -1642,6 +1643,7 @@ export const en = {
       brute: 'Ferret brute',
       diver: 'Diving bat',
       spitter: 'Spitting bat',
+      queen: 'The ferret queen',
     },
     weapons: {
       beak: 'beak',
@@ -1667,6 +1669,7 @@ export const en = {
       claw: 'claws',
       bite: 'bite',
       slam: 'slam',
+      royalSlam: 'royal sweep',
       dive: 'dive',
       spit: 'spit',
       seedShot: 'seeds',

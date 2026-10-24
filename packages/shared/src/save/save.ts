@@ -462,6 +462,18 @@ export const gameStateSchema = z.object({
         .optional(),
       attacks: z.number().int().min(0).optional(),
       lastAttackAt: z.number().optional(),
+      queen: z
+        .object({
+          sector: sectorId,
+          since: z.number(),
+          at: z.number(),
+          age: z.number().int().min(0).max(3),
+          ground: z.number().min(0),
+          air: z.number().min(0),
+          escort: z.array(alienUnit).max(16),
+          wounds: z.object({ share: z.number().min(0).max(1), at: z.number() }).optional(),
+        })
+        .optional(),
       reports: z
         .array(
           z.object({
@@ -535,6 +547,7 @@ export const gameStateSchema = z.object({
           sectors: z.array(z.number().int().min(0)).optional(),
           injured: z.array(id).optional(),
           queenFallen: z.boolean().optional(),
+          queenOut: z.boolean().optional(),
           sector: sectorId.optional(),
           burnt: z.boolean().optional(),
           founded: z.boolean().optional(),

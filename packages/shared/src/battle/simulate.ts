@@ -51,6 +51,10 @@ interface Unit {
   leash: number;
   /** Waiting for a free tile since then (a long wait lets it squeeze through). */
   stuckSince: number;
+  /** Chantier 42: woken (its `wake` condition met) at this time. */
+  wokeAt: number;
+  /** Chantier 42: raging (blows and speed × its `rage`). */
+  raging: boolean;
 }
 
 interface Building {
@@ -213,6 +217,8 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
       fleeing: false,
       reached: false,
       stuckSince: -1,
+      wokeAt: -1,
+      raging: false,
       leash:
         s.role === 'militia'
           ? KIWI_UNIT.militiaLeash
@@ -285,7 +291,8 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
 
   const moveTo = (u: Unit, j: number, t: number) => {
     const c = u.s.flying ? 1 : Math.max(0.3, cost[j]!);
-    const dur = c / Math.max(0.1, u.s.speed);
+    const speed = u.s.speed * (u.raging ? u.s.rage!.speed : 1);
+    const dur = c / Math.max(0.1, speed);
     place(u, j);
     u.busyUntil = t + dur;
     u.stuckSince = -1;
@@ -353,6 +360,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     u.state = State.Fallen;
     if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
     log(EV.fall, u.i);
+    if (u.s.ref === setup.leader && u.side === 0) leaderFell = true;
     if (u.side === 0) result.fallen.push(u.s.ref);
     else {
       result.attackers.fallen++;
@@ -386,6 +394,8 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
   const hurt = (target: Unit, dmg: number) => {
     target.hp -= dmg;
     if (target.hp <= 1e-9) fall(target);
+    else if (target.s.rage && !target.raging && target.hp <= target.s.hp * target.s.rage.below)
+      target.raging = true;
   };
 
   const strike = (u: Unit, target: Target, t: number) => {
@@ -398,7 +408,9 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     }
     const roll = rng.next();
     const swing =
-      (1 + rng.range(-BATTLE.spread, BATTLE.spread)) * (singers.length > 0 ? auraOf(u) : 1);
+      (1 + rng.range(-BATTLE.spread, BATTLE.spread)) *
+      (singers.length > 0 ? auraOf(u) : 1) *
+      (u.raging ? u.s.rage!.damage : 1);
     if (target.building) {
       const b = target.building;
       const hit = roll < w.accuracy;
@@ -665,6 +677,10 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
   // Chantier 42: the home side may run away too (the guard of a beacon, by its orders).
   let homeRetreating = false;
   const homeTotal = units.filter((u) => u.side === 0 && u.s.role !== 'turret').length;
+  // Chantier 42: the leader of the home side, and the units waiting for its wounds.
+  let leaderFell = false;
+  let routed = false;
+  const byRef = new Map(units.map((u) => [u.s.ref, u]));
   /** Home units still in the battle (or still to come in). */
   const homeLeft = () => {
     let n = 0;
@@ -676,14 +692,39 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
   for (step = 0; step < maxSteps; step++) {
     const t = step * dt;
     for (const u of units) {
-      if (u.state !== State.Waiting || u.s.delay > t + 1e-9) continue;
+      if (u.state !== State.Waiting) continue;
+      if (u.s.wake) {
+        const w = byRef.get(u.s.wake.ref);
+        if (!w || w.state === State.Fallen) {
+          // The one it waited for fell first: it never comes.
+          u.state = State.Gone;
+          continue;
+        }
+        if (u.wokeAt < 0) {
+          if (w.hp > w.s.hp * u.s.wake.below) continue;
+          u.wokeAt = t;
+        }
+        if (u.wokeAt + u.s.delay > t + 1e-9) continue;
+      } else if (u.s.delay > t + 1e-9) continue;
       u.state = State.Active;
       if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) + u.s.size;
-      if (u.s.delay > 0 || u.side === 1) log(EV.enter, u.i);
+      if (u.s.delay > 0 || u.side === 1 || u.s.wake) log(EV.enter, u.i);
     }
     for (const u of units) {
       if (u.state !== State.Active || t < u.busyUntil - 1e-9) continue;
       act(u, t);
+    }
+    // Chantier 42: the leader fell, the others run away.
+    if (leaderFell && !routed) {
+      routed = true;
+      for (const u of units) {
+        if (u.side !== 0 || u.s.role === 'turret') continue;
+        if (u.state === State.Waiting) u.state = State.Gone;
+        else if (u.state === State.Active) {
+          log(EV.flee, u.i);
+          leave(u);
+        }
+      }
     }
     let alive = 0;
     let left = 0;
@@ -727,6 +768,11 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     for (const u of attackers) if (u.state === State.Waiting) u.state = State.Gone;
   }
   if (setup.clearEnds) result.defendersLeft = homeLeft();
+  if (setup.leader) {
+    const l = byRef.get(setup.leader);
+    result.leaderLeft =
+      l && l.state !== State.Fallen ? Math.round((l.hp / l.s.hp) * 1000) / 1000 : 0;
+  }
 
   result.duration = step * dt;
   for (const [building, amounts] of [...taken].sort((a, b) => a[0] - b[0]))

@@ -44,6 +44,7 @@ import type {
 } from './state';
 import { crewMembers, crewWeight, lootByAge, removeVillagers, type Odds } from './expeditions';
 import { getBuilding } from './selectors';
+import { emergeQueen } from './queen';
 
 /**
  * Chantier 40: the landing on a parcel of an alien face. The battle is played where the truth is
@@ -61,7 +62,7 @@ export function faceViewOf(state: Pick<GameState, 'faceViews'>, targetId: string
   return state.faceViews[targetId] ?? NO_VIEW;
 }
 
-function liveFaceView(state: GameState, targetId: string): FaceView {
+export function liveFaceView(state: GameState, targetId: string): FaceView {
   state.faceViews[targetId] ??= { beacons: [], parcels: {} };
   return state.faceViews[targetId];
 }
@@ -190,7 +191,7 @@ export function parcelTruth(
   };
 }
 
-function viewOfTruth(
+export function viewOfTruth(
   truth: Pick<ParcelTruth, 'age' | 'power' | 'units' | 'buildings'>,
   sector: number,
   at: TimeMs,
@@ -265,7 +266,7 @@ export function recordBestiary(state: GameState, units: readonly AlienUnit[], at
 }
 
 /** Units of several groups merged by kind, level and gear (what the report shows). */
-function mergeUnits(groups: readonly AlienUnit[][]): AlienUnit[] {
+export function mergeUnits(groups: readonly AlienUnit[][]): AlienUnit[] {
   const out: AlienUnit[] = [];
   for (const g of groups)
     for (const u of g) {
@@ -328,6 +329,7 @@ export function resolveLanding(
   const goal = e.orders.goal;
   const loot = emptyResources();
   let burnt = false;
+  let queenOut = false;
   if (outcome === 'victory') {
     state.victories[e.targetId] = (state.victories[e.targetId] ?? 0) + 1;
     if (goal === 'burn') {
@@ -337,6 +339,8 @@ export function resolveLanding(
     face.beacons.push({ sector, since: at });
     face.beacons.sort((a, b) => a.sector - b.sector);
     refreshBeacons(state, e.targetId, at);
+    // Chantier 42: the twin's last beacon brings the queen out of the depths.
+    queenOut = emergeQueen(state, e.targetId, at);
     recordBestiary(state, seen, at);
     // Loot: the face's stores × the age, the centre richer, much more when looting.
     const survivors = crewMembers(state, e.crew);
@@ -386,6 +390,7 @@ export function resolveLanding(
     sector,
     log,
     ...(burnt ? { burnt: true } : {}),
+    ...(queenOut ? { queenOut: true } : {}),
     ...(outcome === 'victory' ? { beacon: true } : {}),
     ...(outcome !== 'defeat' ? { seen } : { shipLost: true }),
   };

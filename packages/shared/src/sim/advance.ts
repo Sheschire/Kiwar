@@ -247,6 +247,8 @@ export type GameEvent =
       dead: number;
     }
   | { type: 'beaconFortified'; at: TimeMs; targetId: string; sector: number }
+  /** Chantier 42: the twin's last beacon brought the queen out of the depths. */
+  | { type: 'queenEmerged'; at: TimeMs; targetId: string; sector: number }
   | {
       type: 'repaired';
       at: TimeMs;
@@ -392,6 +394,14 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
           ...(e.result!.broken ? { broken: true } : {}),
           ...(e.result!.outcome ? { outcome: e.result!.outcome } : {}),
         });
+        const queen = s.faceViews[e.targetId]?.queen;
+        if (e.result!.queenOut && queen)
+          events.push({
+            type: 'queenEmerged',
+            at: e.arriveAt,
+            targetId: e.targetId,
+            sector: queen.sector,
+          });
       } else {
         resolveReturn(s, e, events);
         for (const v of s.villagers)

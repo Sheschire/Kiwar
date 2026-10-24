@@ -34,6 +34,7 @@ export const WEAPON_IDS = [
   'slam',
   'dive',
   'spit',
+  'royalSlam',
   'seedShot',
   'skyShot',
 ] as const;
@@ -183,6 +184,8 @@ export const WEAPONS: Record<WeaponId, Weapon> = {
   bite: melee(1.5, 1),
   slam: melee(5, 1.8),
   dive: melee(2, 1.4),
+  // Chantier 42: the ferret queen's blow sweeps everybody around her.
+  royalSlam: { ...melee(4, 2.4), style: 'area' },
   spit: {
     damage: 1.6,
     range: 2,

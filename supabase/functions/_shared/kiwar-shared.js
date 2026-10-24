@@ -2876,7 +2876,33 @@ var SIEGE = {
     spread: [0.85, 1.2]
   },
   /** Old bridgeheads drawn before the queen in the seed's stream (kept for older games). */
-  oldHolds: 6
+  oldHolds: 6,
+  /**
+   * Chantier 42: the final battle. Once our 12 beacons light the twin, the queen comes out of
+   * the depths at its centre. She is one giant unit; her hit points and blows grow with her
+   * ground power (× her parcel's growth) by √(power / `ground`), like the predators of a wave.
+   */
+  final: {
+    hp: 900,
+    armor: 0.3,
+    speed: 0.55,
+    size: 3,
+    dodge: 0,
+    /** Share of her parcel's garrison standing beside her at the start. */
+    escort: 0.3,
+    /** Under 75 % of her hit points she calls the bats (× her air power). */
+    swarm: { below: 0.75, share: 1, delayS: 2 },
+    /** Under 50 % elite ferrets come out of the tunnels (× her ground power, an age ahead). */
+    tunnels: { below: 0.5, share: 0.6, delayS: 3, tiles: 2 },
+    /** Under 25 % the last stand: she rages. */
+    rage: { below: 0.25, damage: 1.6, speed: 1.4 },
+    /** The final battle lasts at most this long. */
+    maxS: 480,
+    /** Her wounds of a lost battle heal over this long. */
+    healMs: ms.h(72),
+    /** The queen's treasure: the face's loot × the age × this (hold-limited). */
+    loot: 4
+  }
 };
 
 // packages/shared/src/data/aliens.ts
@@ -3457,6 +3483,7 @@ var WEAPON_IDS = [
   "slam",
   "dive",
   "spit",
+  "royalSlam",
   "seedShot",
   "skyShot"
 ];
@@ -3582,6 +3609,8 @@ var WEAPONS = {
   bite: melee(1.5, 1),
   slam: melee(5, 1.8),
   dive: melee(2, 1.4),
+  // Chantier 42: the ferret queen's blow sweeps everybody around her.
+  royalSlam: { ...melee(4, 2.4), style: "area" },
   spit: {
     damage: 1.6,
     range: 2,
@@ -5119,6 +5148,8 @@ function simulateBattle(setup, seed) {
       fleeing: false,
       reached: false,
       stuckSince: -1,
+      wokeAt: -1,
+      raging: false,
       leash: s.role === "militia" ? KIWI_UNIT.militiaLeash : s.role === "guard" || s.role === "assault" ? BATTLE.leash[setup.orders[s.side].posture] : 0
     };
   });
@@ -5177,7 +5208,8 @@ function simulateBattle(setup, seed) {
   };
   const moveTo = (u, j, t) => {
     const c = u.s.flying ? 1 : Math.max(0.3, cost[j]);
-    const dur = c / Math.max(0.1, u.s.speed);
+    const speed = u.s.speed * (u.raging ? u.s.rage.speed : 1);
+    const dur = c / Math.max(0.1, speed);
     place(u, j);
     u.busyUntil = t + dur;
     u.stuckSince = -1;
@@ -5236,6 +5268,7 @@ function simulateBattle(setup, seed) {
     u.state = State.Fallen;
     if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
     log2(EV.fall, u.i);
+    if (u.s.ref === setup.leader && u.side === 0) leaderFell = true;
     if (u.side === 0) result.fallen.push(u.s.ref);
     else {
       result.attackers.fallen++;
@@ -5266,6 +5299,8 @@ function simulateBattle(setup, seed) {
   const hurt = (target, dmg) => {
     target.hp -= dmg;
     if (target.hp <= 1e-9) fall(target);
+    else if (target.s.rage && !target.raging && target.hp <= target.s.hp * target.s.rage.below)
+      target.raging = true;
   };
   const strike3 = (u, target, t) => {
     const w = u.s.weapon;
@@ -5276,7 +5311,7 @@ function simulateBattle(setup, seed) {
       result.shots[u.s.ref] = (result.shots[u.s.ref] ?? 0) + 1;
     }
     const roll = rng.next();
-    const swing = (1 + rng.range(-BATTLE.spread, BATTLE.spread)) * (singers.length > 0 ? auraOf(u) : 1);
+    const swing = (1 + rng.range(-BATTLE.spread, BATTLE.spread)) * (singers.length > 0 ? auraOf(u) : 1) * (u.raging ? u.s.rage.damage : 1);
     if (target.building) {
       const b = target.building;
       const hit2 = roll < w.accuracy;
@@ -5290,11 +5325,11 @@ function simulateBattle(setup, seed) {
       if (!u.s.flying && u.side === 1 && struck.size < BATTLE.struckTiles) struck.add(u.tile);
       if (u.carrying && lootLeft(b) > 1e-6 && u.carried < u.s.carry - 1e-9) {
         const want = Math.min(u.s.carry - u.carried, u.s.carry * BATTLE.grab);
-        const share = Math.min(1, want / lootLeft(b));
+        const share2 = Math.min(1, want / lootLeft(b));
         const got = u.carrying.get(b.i) ?? [0, 0, 0, 0];
         let sum = 0;
         for (let k = 0; k < 4; k++) {
-          const x = b.loot[k] * share;
+          const x = b.loot[k] * share2;
           b.loot[k] -= x;
           got[k] += x;
           sum += x;
@@ -5520,6 +5555,9 @@ function simulateBattle(setup, seed) {
   let cleared = false;
   let homeRetreating = false;
   const homeTotal = units.filter((u) => u.side === 0 && u.s.role !== "turret").length;
+  let leaderFell = false;
+  let routed = false;
+  const byRef = new Map(units.map((u) => [u.s.ref, u]));
   const homeLeft = () => {
     let n2 = 0;
     for (const u of units)
@@ -5531,14 +5569,37 @@ function simulateBattle(setup, seed) {
   for (step = 0; step < maxSteps; step++) {
     const t = step * dt;
     for (const u of units) {
-      if (u.state !== State.Waiting || u.s.delay > t + 1e-9) continue;
+      if (u.state !== State.Waiting) continue;
+      if (u.s.wake) {
+        const w = byRef.get(u.s.wake.ref);
+        if (!w || w.state === State.Fallen) {
+          u.state = State.Gone;
+          continue;
+        }
+        if (u.wokeAt < 0) {
+          if (w.hp > w.s.hp * u.s.wake.below) continue;
+          u.wokeAt = t;
+        }
+        if (u.wokeAt + u.s.delay > t + 1e-9) continue;
+      } else if (u.s.delay > t + 1e-9) continue;
       u.state = State.Active;
       if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) + u.s.size;
-      if (u.s.delay > 0 || u.side === 1) log2(EV.enter, u.i);
+      if (u.s.delay > 0 || u.side === 1 || u.s.wake) log2(EV.enter, u.i);
     }
     for (const u of units) {
       if (u.state !== State.Active || t < u.busyUntil - 1e-9) continue;
       act(u, t);
+    }
+    if (leaderFell && !routed) {
+      routed = true;
+      for (const u of units) {
+        if (u.side !== 0 || u.s.role === "turret") continue;
+        if (u.state === State.Waiting) u.state = State.Gone;
+        else if (u.state === State.Active) {
+          log2(EV.flee, u.i);
+          leave(u);
+        }
+      }
     }
     let alive = 0;
     let left = 0;
@@ -5575,6 +5636,10 @@ function simulateBattle(setup, seed) {
     for (const u of attackers) if (u.state === State.Waiting) u.state = State.Gone;
   }
   if (setup.clearEnds) result.defendersLeft = homeLeft();
+  if (setup.leader) {
+    const l = byRef.get(setup.leader);
+    result.leaderLeft = l && l.state !== State.Fallen ? Math.round(l.hp / l.s.hp * 1e3) / 1e3 : 0;
+  }
   result.duration = step * dt;
   for (const [building, amounts] of [...taken].sort((a, b) => a[0] - b[0]))
     if (amounts.some((x) => x > 1e-9)) result.loot.push({ building, amounts });
@@ -5905,6 +5970,353 @@ function raidDen(state, q, r, now, events) {
   removeObstacle(state, den, now, events, "kiwis");
 }
 
+// packages/shared/src/battle/queen.ts
+var QUEEN_REF = "queen";
+var CENTRE = { q: 0, r: 0 };
+function queenUnit(input) {
+  const F = SIEGE.final;
+  const k = Math.sqrt(Math.max(0.05, input.ground / SIEGE.queen.ground));
+  const w = WEAPONS.royalSlam;
+  const level = 10 + 5 * input.age;
+  const lv = 1 + KIWI_UNIT.perLevel * (level - 1);
+  return {
+    ref: QUEEN_REF,
+    side: 0,
+    body: "queen",
+    role: "guard",
+    kind: "queen",
+    name: "",
+    level,
+    classId: null,
+    hp: Math.max(1, F.hp * k * Math.sqrt(lv) * (1 - Math.min(0.9, input.wounds))),
+    armor: F.armor,
+    speed: F.speed,
+    dodge: F.dodge,
+    size: F.size,
+    flying: false,
+    fixed: false,
+    weaponId: "royalSlam",
+    weapon: { ...w, damage: w.damage * k * Math.sqrt(lv) },
+    ammo: null,
+    carry: 0,
+    power: 0,
+    at: CENTRE,
+    delay: 0,
+    building: null,
+    fightsBack: true,
+    huntsKiwis: false,
+    sector: null,
+    rage: { ...F.rage }
+  };
+}
+function share(units, k) {
+  return units.map((u) => ({ ...u, count: Math.round(u.count * k) })).filter((u) => u.count > 0);
+}
+function queenSetup(state, crew, input) {
+  const F = SIEGE.final;
+  const radius = INTEL.innerRadius + 1;
+  const field = hexDisk(CENTRE, radius);
+  const tiles = [...field].sort((a, b) => a.q - b.q || a.r - b.r).map((h) => ({ q: h.q, r: h.r, cost: 1 }));
+  const ship = landingTile(input.sector);
+  const shipKey = hexKey(ship);
+  const exits = tiles.map((t, i) => ({ t, i })).filter(({ t }) => hexDistance(t, ship) <= 1).map(({ i }) => i);
+  const units = [];
+  const around = [...tiles].sort(
+    (a, b) => hexDistance(a, ship) - hexDistance(b, ship) || (hexKey(a) === shipKey ? -1 : 0) || a.q - b.q || a.r - b.r
+  );
+  const hunger = 0.5 + 0.5 * Math.max(0, Math.min(1, input.fed));
+  crew.forEach((v, i) => {
+    const at = around[Math.floor(i / 2) % around.length] ?? ship;
+    const u = kiwiUnit(v, state, "guard", at, null, 1);
+    units.push({
+      ...u,
+      role: "assault",
+      power: 1,
+      weapon: { ...u.weapon, damage: u.weapon.damage * hunger }
+    });
+  });
+  units.push(queenUnit(input));
+  const guardTiles = [...hexRing(CENTRE, 1), ...hexRing(CENTRE, 2)];
+  let n = 0;
+  for (const { unit, count, k } of capped(share(input.escort, F.escort)))
+    for (let i = 0; i < count; i++, n++)
+      units.push(alienUnit(unit, k, `e${n}`, guardTiles[n % guardTiles.length], 0));
+  const rim = hexRing(CENTRE, radius);
+  const swarm = sectorUnits(
+    { sector: input.sector, inner: true, age: input.age, power: input.air * F.swarm.share },
+    0
+  );
+  let j = 0;
+  for (const { unit, count, k } of capped(swarm))
+    for (let i = 0; i < count; i++, j++, n++)
+      units.push({
+        ...alienUnit(unit, k, `s${n}`, rim[j * 5 % rim.length], F.swarm.delayS + j * 0.25),
+        wake: { ref: QUEEN_REF, below: F.swarm.below }
+      });
+  const tunnels = hexRing(CENTRE, F.tunnels.tiles);
+  const elite = sectorUnits(
+    {
+      sector: input.sector,
+      inner: true,
+      age: Math.min(3, input.age + 1),
+      power: input.ground * F.tunnels.share
+    },
+    1
+  ).filter((u) => ENEMIES[u.kind].body !== "bat");
+  j = 0;
+  for (const { unit, count, k } of capped(elite))
+    for (let i = 0; i < count; i++, j++, n++)
+      units.push({
+        ...alienUnit(
+          unit,
+          k,
+          `t${n}`,
+          tunnels[j * 7 % tunnels.length],
+          F.tunnels.delayS + j * BATTLE.enterGap
+        ),
+        wake: { ref: QUEEN_REF, below: F.tunnels.below }
+      });
+  return {
+    tiles,
+    exits,
+    buildings: [],
+    units,
+    orders: [
+      { posture: "bold", retreatBelow: 0 },
+      {
+        posture: input.orders.posture,
+        retreatBelow: 1 - input.orders.retreatAt + 1e-6,
+        priority: input.orders.priority
+      }
+    ],
+    clearEnds: true,
+    leader: QUEEN_REF,
+    maxS: F.maxS
+  };
+}
+
+// packages/shared/src/sim/queen.ts
+var round12 = (v) => Math.round(v * 10) / 10;
+function queenOf(state, targetId) {
+  return state.faceViews[targetId]?.queen ?? null;
+}
+function queenWounds(q, now) {
+  const w = q.wounds;
+  if (!w) return 0;
+  return Math.max(0, w.share * (1 - (now - w.at) / SIEGE.final.healMs));
+}
+function queenNow(g, at) {
+  const sector = royalSector(g);
+  const view = civAt(g, at);
+  const parcel = view.sectors[sector];
+  const growth = sectorGrowth(g, sector, at);
+  const base = queenTruth(g).power;
+  return {
+    sector,
+    age: parcel.age,
+    ground: round12(base.ground * growth),
+    air: round12(base.air * growth),
+    escort: sectorUnits(parcel, g.ferretShare)
+  };
+}
+function emergeQueen(state, targetId, at) {
+  const face = state.faceViews[targetId];
+  const g = state.aliens?.[targetId];
+  if (!face || !g || face.queen || twinTarget(state)?.id !== targetId) return false;
+  if (state.siege.conqueredAt > 0 || face.beacons.length < INTEL.sectors) return false;
+  liveCiv(g).royalSeen = true;
+  const q = queenNow(g, at);
+  face.queen = { ...q, since: at, at };
+  return true;
+}
+function refreshQueen(state, targetId, at) {
+  const face = state.faceViews[targetId];
+  const g = state.aliens?.[targetId];
+  if (!face?.queen || !g) return;
+  const q = queenNow(g, at);
+  face.queen = { ...face.queen, ...q, at };
+}
+function finalLock(state, targetId, orders) {
+  if (!queenOf(state, targetId)) return "queenHidden";
+  if (state.expeditions.some(
+    (e) => e.mission === "final" && e.status === "outbound" && e.targetId === targetId
+  ))
+    return "landingThere";
+  if (!validOrders(orders)) return "invalidOrders";
+  return null;
+}
+function resolveFinal(state, e, members, fed) {
+  const g = state.aliens?.[e.targetId];
+  if (!g || !e.orders) throw new Error("resolveFinal: hidden garrison");
+  const at = e.arriveAt;
+  const face = liveFaceView(state, e.targetId);
+  const q = queenNow(g, at);
+  const wounds = face.queen ? queenWounds(face.queen, at) : 0;
+  const setup = queenSetup(state, members, { ...q, wounds, orders: e.orders, fed });
+  const log2 = simulateBattle(setup, `${g.seed}/final/${e.id}`);
+  const outcome = landingOutcome(log2);
+  const crewIds = new Set(members.map((v) => v.id));
+  const dead = (log2.result.lost ?? []).filter((ref) => crewIds.has(ref));
+  const gearPieces = crewMembers(state, dead).reduce(
+    (n, v) => n + (v.gear?.weapon ? 1 : 0) + (v.gear?.armor ? 1 : 0),
+    0
+  );
+  removeVillagers(state, dead, "battle", at, outcome !== "victory");
+  e.crew = e.crew.filter((id3) => !dead.includes(id3));
+  const civ = liveCiv(g);
+  const seen = mergeUnits([q.escort]);
+  recordBestiary(state, seen, at);
+  const loot = emptyResources();
+  if (outcome === "victory") {
+    state.siege.conqueredAt = at;
+    state.victories[e.targetId] = (state.victories[e.targetId] ?? 0) + 1;
+    face.attack = null;
+    for (const b of face.beacons) {
+      for (const v of crewMembers(state, b.guards ?? [])) {
+        v.job = { kind: "expedition", expeditionId: e.id };
+        e.crew.push(v.id);
+        if (!e.roster.some((r) => r.id === v.id))
+          e.roster.push({
+            id: v.id,
+            name: v.name,
+            level: v.level,
+            shiny: v.shiny,
+            classId: v.classId
+          });
+      }
+      delete b.guards;
+      delete b.fortifying;
+    }
+    revealAll(state, g, e.targetId, at);
+    if (face.queen) face.queen = { ...face.queen, ...q, at, wounds: { share: 1, at } };
+    const survivors = crewMembers(state, e.crew);
+    const k = SIEGE.final.loot * lootByAge(state);
+    const w = EXPEDITIONS.resourceWeight;
+    let room = e.cargo - crewWeight(survivors) - RESOURCE_IDS.reduce((sum, id3) => sum + e.provisions[id3], 0) * w;
+    for (const id3 of ["seeds", "juice", "fiber", "pulp"]) {
+      const take = Math.max(0, Math.min(Math.floor(g.loot[id3] * k), Math.floor(room / w + 1e-9)));
+      loot[id3] = take;
+      room -= take * w;
+    }
+  } else {
+    const left = (1 - wounds) * (log2.result.leaderLeft ?? 1);
+    if (face.queen)
+      face.queen = { ...face.queen, ...q, at, wounds: { share: round12(1 - left) || 0, at } };
+    if (face.queen?.wounds && face.queen.wounds.share <= 0) delete face.queen.wounds;
+    recordDefeat(
+      civ,
+      at,
+      dead.length,
+      q.sector,
+      (outcome === "defeat" ? LANDING.defeat.shipH : 0) + gearPieces * LANDING.defeat.gearH
+    );
+    if (outcome === "defeat") {
+      const pad = getBuilding(state, e.launchpadId);
+      if (pad) {
+        pad.damaged = true;
+        pad.shipLost = shipIdForAge(ageOf(state));
+      }
+    }
+  }
+  e.result = {
+    victory: outcome === "victory",
+    outcome,
+    strength: members.length,
+    defense: round12(q.ground + q.air),
+    fed: Math.round(fed * 100) / 100,
+    lostInBattle: dead.map((id3) => e.roster.find((r) => r.id === id3)?.name ?? id3),
+    lostOnReturn: [],
+    loot,
+    sector: q.sector,
+    log: log2,
+    seen,
+    ...outcome === "victory" ? { queenFallen: true } : {},
+    ...outcome === "defeat" ? { shipLost: true } : {}
+  };
+  if (outcome === "defeat") {
+    e.status = "done";
+    e.provisions = emptyResources();
+    const done = state.expeditions.filter((x) => x.status === "done");
+    if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
+  } else e.status = "returning";
+}
+function revealAll(state, g, targetId, at) {
+  const face = liveFaceView(state, targetId);
+  for (let sector = 0; sector < INTEL.sectors; sector++) {
+    if (!face.beacons.some((b) => b.sector === sector)) face.beacons.push({ sector, since: at });
+    face.parcels[String(sector)] = viewOfTruth(
+      parcelTruth(state, g, targetId, sector, at),
+      sector,
+      at,
+      "beacon"
+    );
+  }
+  face.beacons.sort((a, b) => a.sector - b.sector);
+}
+var trialCache = /* @__PURE__ */ new Map();
+function finalInput(state, targetId, orders, fed, now, luck = 1) {
+  const q = queenOf(state, targetId);
+  if (!q) return null;
+  const growth = scheduleGrowth(state, 0, q.at, now) * luck;
+  return {
+    sector: q.sector,
+    age: q.age,
+    ground: round12(q.ground * growth),
+    air: round12(q.air * growth),
+    escort: q.escort.map((u) => ({
+      ...u,
+      count: Math.max(1, Math.round(u.count * growth))
+    })),
+    wounds: queenWounds(q, now),
+    orders,
+    fed
+  };
+}
+function finalForecast(state, targetId, crew, orders, fed, now) {
+  const mid = finalInput(state, targetId, orders, fed, now);
+  const none = {
+    knowledge: "formidable",
+    view: null,
+    power: null,
+    age: null,
+    odds: "unknown",
+    expectedDead: 0,
+    trials: []
+  };
+  if (!mid) return none;
+  const total = mid.ground + mid.air;
+  const power = {
+    min: round12(total * LANDING.trials[0]),
+    max: round12(total * LANDING.trials[2])
+  };
+  if (crew.length === 0) return { ...none, knowledge: "seen", power, age: mid.age };
+  const runs = LANDING.trials.map((luck, i) => {
+    const input = finalInput(state, targetId, orders, fed, now, luck);
+    const setup = queenSetup(state, crew, input);
+    const seed = `${targetId}/final-trial/${i}`;
+    const key = JSON.stringify([setup.units, seed]);
+    let hit = trialCache.get(key);
+    if (!hit) {
+      const log2 = simulateBattle(setup, seed);
+      hit = { outcome: landingOutcome(log2), dead: log2.result.lost?.length ?? 0 };
+      if (trialCache.size > 16) trialCache.delete(trialCache.keys().next().value);
+      trialCache.set(key, hit);
+    }
+    return hit;
+  });
+  const won = runs.map((r) => r.outcome === "victory");
+  const odds = won[2] ? "likely" : won[1] || won[0] ? "uncertain" : "unlikely";
+  return {
+    knowledge: "seen",
+    view: null,
+    power,
+    age: mid.age,
+    odds,
+    expectedDead: runs[1].dead,
+    trials: runs.map((r) => r.outcome)
+  };
+}
+
 // packages/shared/src/sim/expeditions.ts
 function launchpadOf(state, id3) {
   const b = getBuilding(state, id3);
@@ -6049,7 +6461,7 @@ function forecastExpedition(state, plan) {
   const need = rations(state, crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(state, crew, fed);
-  const landing = mission === "land" && plan.sector !== void 0 ? landingForecast(
+  const landing = mission === "final" ? finalForecast(state, target.id, crew, plan.orders ?? LANDING.defaultOrders, fed, state.now) : mission === "land" && plan.sector !== void 0 ? landingForecast(
     state,
     target.id,
     plan.sector,
@@ -6060,7 +6472,7 @@ function forecastExpedition(state, plan) {
   ) : null;
   const defense = mission === "raid" || mission === "recon" ? intelView(state, target.id, state.now)?.defense ?? null : null;
   const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
-  const odds = landing ? landing.odds : mission === "land" ? "unknown" : mission === "found" || mission === "guard" ? "likely" : !defense ? "unknown" : strength.min >= defense.max ? "likely" : strength.max >= defense.min ? "uncertain" : "unlikely";
+  const odds = landing ? landing.odds : mission === "land" || mission === "final" ? "unknown" : mission === "found" || mission === "guard" ? "likely" : !defense ? "unknown" : strength.min >= defense.max ? "likely" : strength.max >= defense.min ? "uncertain" : "unlikely";
   const mid = (r) => (r.min + r.max) / 2;
   const guess = defense ? mid(defense) : null;
   const fighters = crew.length;
@@ -6068,7 +6480,7 @@ function forecastExpedition(state, plan) {
   const freight = RESOURCE_IDS.reduce((sum, id3) => sum + (plan.freight?.[id3] ?? 0), 0);
   const weight = kiwisWeight + (plan.provisions.pulp + plan.provisions.juice + freight) * EXPEDITIONS.resourceWeight;
   const ship = shipOf(state);
-  const expectedLosses = landing ? landing.expectedDead : guess === null || mission === "land" ? 0 : Math.min(fighters, fighters * lossShare(base, guess) * (1 - ship.armor));
+  const expectedLosses = landing ? landing.expectedDead : guess === null || mission === "land" || mission === "final" ? 0 : Math.min(fighters, fighters * lossShare(base, guess) * (1 - ship.armor));
   const exposure = crew.map((v) => kiwiExposure(v));
   const totalExposure = exposure.reduce((a, b) => a + b, 0) || 1;
   const risk = {};
@@ -6202,7 +6614,8 @@ function launch(state, plan, now, id3) {
     result: null,
     ...broken ? { broken: true } : {},
     ...plan.sector !== void 0 && (mission === "land" || mission === "guard") ? { sector: plan.sector } : {},
-    ...mission === "land" ? { orders: { ...plan.orders ?? LANDING.defaultOrders } } : {},
+    ...mission === "land" || mission === "final" ? { orders: { ...plan.orders ?? LANDING.defaultOrders } } : {},
+    ...mission === "final" ? { sector: queenOf(state, target.id)?.sector ?? 0 } : {},
     ...mission === "guard" && plan.orders ? { orders: { ...plan.orders } } : {},
     ...mission === "guard" && plan.bringBack?.length ? { bringBack: [...plan.bringBack] } : {},
     ...delayed ? { delayed: true } : {},
@@ -6251,6 +6664,7 @@ function resolveArrival(state, e) {
   if (e.mission === "found") return landSettlers(state, e, members, fed);
   if (e.mission === "land") return resolveLanding(state, e, members, fed);
   if (e.mission === "guard") return landGuard(state, e, members, fed);
+  if (e.mission === "final") return resolveFinal(state, e, members, fed);
   e.status = "returning";
   e.result = {
     victory: false,
@@ -6277,12 +6691,13 @@ function resolveReturn(state, e, events = []) {
   removeVillagers(state, lost, "starvation", e.returnAt);
   e.crew = e.crew.filter((id3) => !lost.includes(id3));
   result.lostOnReturn = lost.map((id3) => nameOf(e, id3));
-  const xp = (KIWI.expeditionXp.base + (result.victory ? KIWI.expeditionXp.victory * (e.mission === "land" ? LANDING.victoryXp : 1) : 0)) * (e.mission === "recon" ? RECON.xp : 1);
+  const xp = (KIWI.expeditionXp.base + (result.victory ? KIWI.expeditionXp.victory * (e.mission === "land" || e.mission === "final" ? LANDING.victoryXp : 1) : 0)) * (e.mission === "recon" ? RECON.xp : 1);
   for (const v of crewMembers(state, e.crew)) {
     if (!result.aborted) {
       v.history.expeditions++;
       if (result.victory) v.history.victories++;
-      if (result.victory && e.mission === "land") v.veteran = (v.veteran ?? 0) + 1;
+      if (result.victory && (e.mission === "land" || e.mission === "final"))
+        v.veteran = (v.veteran ?? 0) + 1;
     }
     grantXp(state, v, result.aborted ? xp / 2 : xp, e.returnAt, events);
     const drill = CAMP.expeditionHours.base + (result.victory ? CAMP.expeditionHours.victory : 0);
@@ -6341,7 +6756,7 @@ function nameOf(e, id3) {
 var round22 = (v) => Math.round(v * 100) / 100;
 
 // packages/shared/src/sim/landing.ts
-var round12 = (v) => Math.round(v * 10) / 10;
+var round13 = (v) => Math.round(v * 10) / 10;
 var NO_VIEW = { beacons: [], parcels: {} };
 function faceViewOf(state, targetId) {
   return state.faceViews[targetId] ?? NO_VIEW;
@@ -6450,7 +6865,7 @@ function refreshBeacons(state, targetId, at) {
         at,
         source: "edge",
         age: s.age,
-        power: { min: round12(s.power * (1 - spread)), max: round12(s.power * (1 + spread)) },
+        power: { min: round13(s.power * (1 - spread)), max: round13(s.power * (1 + spread)) },
         units: [],
         buildings: buildings.filter((x) => x.sector === n).map((x) => ({ ...x }))
       };
@@ -6521,6 +6936,7 @@ function resolveLanding(state, e, members, fed) {
   const goal = e.orders.goal;
   const loot = emptyResources();
   let burnt = false;
+  let queenOut = false;
   if (outcome === "victory") {
     state.victories[e.targetId] = (state.victories[e.targetId] ?? 0) + 1;
     if (goal === "burn") {
@@ -6530,6 +6946,7 @@ function resolveLanding(state, e, members, fed) {
     face.beacons.push({ sector, since: at });
     face.beacons.sort((a, b) => a.sector - b.sector);
     refreshBeacons(state, e.targetId, at);
+    queenOut = emergeQueen(state, e.targetId, at);
     recordBestiary(state, seen, at);
     const survivors = crewMembers(state, e.crew);
     const ranger = survivors.some((v) => v.classId === "ranger") ? SKILLS.rangerLoot : 1;
@@ -6573,6 +6990,7 @@ function resolveLanding(state, e, members, fed) {
     sector,
     log: log2,
     ...burnt ? { burnt: true } : {},
+    ...queenOut ? { queenOut: true } : {},
     ...outcome === "victory" ? { beacon: true } : {},
     ...outcome !== "defeat" ? { seen } : { shipLost: true }
   };
@@ -6583,16 +7001,16 @@ function resolveLanding(state, e, members, fed) {
     if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
   } else e.status = "returning";
 }
-var trialCache = /* @__PURE__ */ new Map();
+var trialCache2 = /* @__PURE__ */ new Map();
 function practice(state, crew, sector, units, buildings, orders, fed, seed) {
   const setup = landingSetup(state, crew, { sector, units, help: [], buildings, orders, fed });
   const key = JSON.stringify([setup.units, setup.buildings, setup.orders, seed]);
-  const hit = trialCache.get(key);
+  const hit = trialCache2.get(key);
   if (hit) return hit;
   const log2 = simulateBattle(setup, seed);
   const out = { outcome: landingOutcome(log2), dead: log2.result.lost?.length ?? 0 };
-  if (trialCache.size > 32) trialCache.delete(trialCache.keys().next().value);
-  trialCache.set(key, out);
+  if (trialCache2.size > 32) trialCache2.delete(trialCache2.keys().next().value);
+  trialCache2.set(key, out);
   return out;
 }
 function scaled2(units, k) {
@@ -6622,7 +7040,7 @@ function landingForecast(state, targetId, sector, crew, orders, fed, now) {
   if (view && view.units.length > 0) {
     knowledge = "seen";
     const p = view.power.max * growth;
-    power = { min: round12(p * LANDING.trials[0]), max: round12(p * LANDING.trials[2]) };
+    power = { min: round13(p * LANDING.trials[0]), max: round13(p * LANDING.trials[2]) };
     age = view.age;
     armies = LANDING.trials.map((k) => scaled2(view.units, growth * k));
   } else {
@@ -6630,11 +7048,11 @@ function landingForecast(state, targetId, sector, crew, orders, fed, now) {
     age = view ? view.age : civAgeOfHours(hours);
     if (view) {
       knowledge = "edge";
-      power = { min: round12(view.power.min * growth), max: round12(view.power.max * growth) };
+      power = { min: round13(view.power.min * growth), max: round13(view.power.max * growth) };
     } else {
       knowledge = "guess";
       const base = alienDefOf(distance).defense * growthOfHours(hours);
-      power = { min: round12(base * LANDING.guess[0]), max: round12(base * LANDING.guess[1]) };
+      power = { min: round13(base * LANDING.guess[0]), max: round13(base * LANDING.guess[1]) };
     }
     const at = [power.min, (power.min + power.max) / 2, power.max];
     armies = at.map((p) => sectorUnits({ sector, inner, age, power: p }, 0.5));
@@ -6671,7 +7089,7 @@ var HOUR2 = 36e5;
 var DAY_H = 24;
 var SECTORS2 = INTEL.sectors;
 var HALF = SECTORS2 / 2;
-var round13 = (v) => Math.round(v * 10) / 10;
+var round14 = (v) => Math.round(v * 10) / 10;
 var isInner = (sector) => sector < HALF;
 var sliceOf = (sector) => sector % HALF;
 var otherRing = (sector) => (sector + HALF) % SECTORS2;
@@ -6793,7 +7211,7 @@ function civAt(g, at, civ = civOf(g)) {
       sector: s,
       inner: isInner(s),
       age: civAgeOfHours(h),
-      power: round13(
+      power: round14(
         g.defense * shape.weight[s] * growthOfHours(h) * (1 - fightLossAt(civ, s, at))
       )
     });
@@ -6802,7 +7220,7 @@ function civAt(g, at, civ = civOf(g)) {
 }
 function outerPower(view) {
   const outer = view.sectors.filter((s) => !s.inner);
-  return round13(outer.reduce((a, s) => a + s.power, 0) / outer.length);
+  return round14(outer.reduce((a, s) => a + s.power, 0) / outer.length);
 }
 function gearTierOf(age, inner) {
   return Math.min(GEAR_TIERS.length - 1, inner ? age : age - 1);
@@ -6824,10 +7242,10 @@ function sectorUnits(sector, ferretShare) {
     });
   };
   const ground = sector.power * ferretShare;
-  for (const [kind, share] of Object.entries(ALIEN_MIX.ground))
-    add(kind, ground * share);
+  for (const [kind, share2] of Object.entries(ALIEN_MIX.ground))
+    add(kind, ground * share2);
   const air = sector.power - ground;
-  for (const [kind, share] of Object.entries(ALIEN_MIX.air)) add(kind, air * share);
+  for (const [kind, share2] of Object.entries(ALIEN_MIX.air)) add(kind, air * share2);
   return out;
 }
 function spotIn(seed, sector, salt, taken) {
@@ -6897,10 +7315,10 @@ function log(civ, impact) {
 function pruneFights(civ, at) {
   civ.fights = civ.fights.filter((f) => f.at + CIV.rebuildMs > at);
 }
-function recordFight(civ, sector, at, share) {
+function recordFight(civ, sector, at, share2) {
   pruneFights(civ, at);
-  if (share <= 0) return;
-  civ.fights.push({ sector, at, share: Math.round(Math.min(1, share) * 100) / 100 });
+  if (share2 <= 0) return;
+  civ.fights.push({ sector, at, share: Math.round(Math.min(1, share2) * 100) / 100 });
 }
 function recordBurn(civ, sector, at) {
   const b = CIV.burn;
@@ -6976,6 +7394,7 @@ function civTick(s, at) {
     if (g.since + (g.civ.day + 1) * CIV.tickMs > at) continue;
     planCiv(g, g.civ, at, civEyes(s, t.id));
     refreshBeacons(s, t.id, at);
+    refreshQueen(s, t.id, at);
   }
 }
 function waveCivTarget(state) {
@@ -7538,13 +7957,13 @@ function defenseOf(state, threat) {
     }
   }
   const have = state.resources.seeds;
-  const share = need > 0 ? Math.min(1, have / need) : 1;
+  const share2 = need > 0 ? Math.min(1, have / need) : 1;
   const tech = techEffects(state).turretDefense;
-  turrets.ground *= share * tech;
-  turrets.air *= share * tech;
+  turrets.ground *= share2 * tech;
+  turrets.air *= share2 * tech;
   for (const s of SECTOR_IDS) {
-    sectors[s].ground *= share * tech;
-    sectors[s].air *= share * tech;
+    sectors[s].ground *= share2 * tech;
+    sectors[s].air *= share2 * tech;
   }
   let militia = 0;
   for (const v of state.villagers)
@@ -7605,14 +8024,14 @@ function defenseOf(state, threat) {
     turrets,
     garrison,
     militia,
-    ammo: { need, have, share }
+    ammo: { need, have, share: share2 }
   };
 }
 function protectedStock(state) {
   let safe = 0;
   for (const b of state.buildings) {
-    const share = THREATS.protectedShare[b.type];
-    if (share) safe += (levelDef(b.type, b.level)?.storage ?? 0) * share;
+    const share2 = THREATS.protectedShare[b.type];
+    if (share2) safe += (levelDef(b.type, b.level)?.storage ?? 0) * share2;
   }
   return { pulp: safe, fiber: safe, seeds: safe, juice: safe };
 }
@@ -7881,9 +8300,9 @@ function incident(s, at, events) {
     }
     const resource = kind === "bat" ? "juice" : rng.pick(["pulp", "fiber"]);
     const [lo, hi] = kind === "bat" ? INCIDENTS.batShare : INCIDENTS.thiefShare;
-    const share = rng.range(lo, hi);
+    const share2 = rng.range(lo, hi);
     const blocked = rng.chance(block(kind === "bat" ? defense.air : defense.ground));
-    const amount = blocked ? 0 : Math.floor(s.resources[resource] * share);
+    const amount = blocked ? 0 : Math.floor(s.resources[resource] * share2);
     s.resources[resource] -= amount;
     return { at, kind, blocked, resource, amount };
   });
@@ -8293,6 +8712,14 @@ function advanceInPlace(s, now, events) {
           ...e.result.broken ? { broken: true } : {},
           ...e.result.outcome ? { outcome: e.result.outcome } : {}
         });
+        const queen = s.faceViews[e.targetId]?.queen;
+        if (e.result.queenOut && queen)
+          events.push({
+            type: "queenEmerged",
+            at: e.arriveAt,
+            targetId: e.targetId,
+            sector: queen.sector
+          });
       } else {
         resolveReturn(s, e, events);
         for (const v of s.villagers)
@@ -8361,18 +8788,18 @@ function computeFlows(s) {
   }
   const full = storageFullCheck(s, production);
   const eaten = consumption(s);
-  const share = emptyResources();
+  const share2 = emptyResources();
   for (const id3 of RESOURCE_IDS) {
-    if (!full(id3)) share[id3] = 1;
+    if (!full(id3)) share2[id3] = 1;
     else if (harvested[id3] > 0) {
       const passive = production[id3] - harvested[id3];
-      share[id3] = Math.min(1, Math.max(0, (eaten[id3] - passive) / harvested[id3]));
+      share2[id3] = Math.min(1, Math.max(0, (eaten[id3] - passive) / harvested[id3]));
     }
   }
   const pools = [];
   let next = Infinity;
   for (const { b, h } of harvests) {
-    const harvest = h.harvest * share[h.resource];
+    const harvest = h.harvest * share2[h.resource];
     pools.push({ b, delta: h.regen - harvest, cap: h.cap });
     if (h.status === "ok" && harvest > h.regen) {
       const dry = h.stock / (harvest - h.regen) * HOUR_MS;
@@ -8381,7 +8808,7 @@ function computeFlows(s) {
   }
   const meteors = [];
   for (const { m, rate } of picked) {
-    const take = rate * share[m.resource];
+    const take = rate * share2[m.resource];
     if (take <= 0) continue;
     meteors.push({ m, delta: -take });
     next = Math.min(next, s.now + Math.max(1, Math.ceil(m.stock / take * HOUR_MS)));
@@ -9256,8 +9683,8 @@ function canStarve(state) {
   return state.villagers.length > NEEDS.minSurvivors && (nest2?.level ?? 0) >= NEEDS.protectedBelowNest && homeKiwis(state).length > 0;
 }
 function hungerRate(state, deficit) {
-  const share = NEEDS.weight.pulp * deficit.pulp + NEEDS.weight.juice * deficit.juice;
-  if (share > 0) return Math.max(1, Math.round(HUNGER_SCALE * share));
+  const share2 = NEEDS.weight.pulp * deficit.pulp + NEEDS.weight.juice * deficit.juice;
+  if (share2 > 0) return Math.max(1, Math.round(HUNGER_SCALE * share2));
   return state.hunger > 0 ? -HUNGER_SCALE * NEEDS.recovery : 0;
 }
 function hungerCap(state) {
@@ -10696,7 +11123,7 @@ var GUARD_ORDERS = { ...LANDING.defaultOrders };
 
 // packages/shared/src/sim/beacons.ts
 var HOUR3 = 36e5;
-var round14 = (v) => Math.round(v * 10) / 10;
+var round15 = (v) => Math.round(v * 10) / 10;
 function beaconAt(face, sector) {
   return face?.beacons.find((b) => b.sector === sector);
 }
@@ -10802,8 +11229,8 @@ function attackArmy(g, face, a, at) {
   const view = civAt(g, at);
   const parcel = view.sectors[a.origin];
   const [lo, hi] = BEACONS.attack.share;
-  const share = lo + (hi - lo) * civHash(g.seed, `beacon/${a.id}/share/${face.attacks ?? 0}`);
-  const power = round14(parcel.power * share * escalation(face.attacks ?? 0));
+  const share2 = lo + (hi - lo) * civHash(g.seed, `beacon/${a.id}/share/${face.attacks ?? 0}`);
+  const power = round15(parcel.power * share2 * escalation(face.attacks ?? 0));
   return { units: sectorUnits({ ...parcel, power }, g.ferretShare), power };
 }
 function escalation(attacks) {
@@ -11001,7 +11428,7 @@ function landGuard(state, e, members, fed) {
   e.crew = back;
   e.result = base;
 }
-var trialCache2 = /* @__PURE__ */ new Map();
+var trialCache3 = /* @__PURE__ */ new Map();
 function beaconForecast(state, targetId, sector, origin, now, guards) {
   const face = state.faceViews[targetId];
   const b = beaconAt(face, sector);
@@ -11017,7 +11444,7 @@ function beaconForecast(state, targetId, sector, origin, now, guards) {
   })();
   const esc = escalation(face.attacks ?? 0);
   const [lo, hi] = BEACONS.attack.share;
-  const power = { min: round14(base.min * lo * esc), max: round14(base.max * hi * esc) };
+  const power = { min: round15(base.min * lo * esc), max: round15(base.max * hi * esc) };
   if (crew.length === 0 && fort === 0)
     return { power, odds: "unlikely", trials: [false, false, false], expectedDead: 0, bare: true };
   const age = view?.age ?? civAgeOfHours(scheduleHours(state, target.distance, now));
@@ -11035,7 +11462,7 @@ function beaconForecast(state, targetId, sector, origin, now, guards) {
     });
     const seed = `${targetId}/beacon-trial/${sector}/${i}`;
     const key = JSON.stringify([setup.units, setup.buildings, seed]);
-    let hit = trialCache2.get(key);
+    let hit = trialCache3.get(key);
     if (!hit) {
       const log2 = simulateBattle(setup, seed);
       const ids = new Set(crew.map((v) => v.id));
@@ -11043,8 +11470,8 @@ function beaconForecast(state, targetId, sector, origin, now, guards) {
         held: beaconHeld(log2),
         dead: log2.result.fallen.filter((ref) => ids.has(ref)).length
       };
-      if (trialCache2.size > 32) trialCache2.delete(trialCache2.keys().next().value);
-      trialCache2.set(key, hit);
+      if (trialCache3.size > 32) trialCache3.delete(trialCache3.keys().next().value);
+      trialCache3.set(key, hit);
     }
     return hit;
   });
@@ -11058,7 +11485,7 @@ function scaleTo(units, from, to) {
 }
 
 // packages/shared/src/sim/aliens.ts
-var round15 = (v) => Math.round(v * 10) / 10;
+var round16 = (v) => Math.round(v * 10) / 10;
 var round3 = (v) => Math.round(v * 1e3) / 1e3;
 var fromHeart = (q, r) => hexDistance({ q, r }, { q: 0, r: 0 });
 function sectorOf(q, r) {
@@ -11071,7 +11498,7 @@ function sectorOf(q, r) {
 function drawGarrison(target, seed, since) {
   const rng = createRng(seed);
   const def = alienDefOf(target.distance);
-  const defense = round15(def.defense * rng.range(...ALIENS.defenseSpread));
+  const defense = round16(def.defense * rng.range(...ALIENS.defenseSpread));
   const growth = round3(defense * rng.range(...ALIENS.growthPerDay));
   const loot = emptyResources();
   for (const id3 of RESOURCE_IDS)
@@ -11126,7 +11553,7 @@ function publicState(state) {
 function alienDefense(state, targetId, at) {
   const g = state.aliens?.[targetId];
   if (!g) return null;
-  return round15(outerPower(civAt(g, at)) + g.reinforce * (state.victories[targetId] ?? 0));
+  return round16(outerPower(civAt(g, at)) + g.reinforce * (state.victories[targetId] ?? 0));
 }
 function alienEnemies(g, defense) {
   const total = Math.max(0, Math.round(defense / ALIENS.defensePerEnemy));
@@ -11167,8 +11594,8 @@ function intelView(state, targetId, now) {
   const reinforced = alienDefOf(target.distance).reinforce * wins;
   const grow = scheduleGrowth(state, target.distance, report.at, now);
   const defense = {
-    min: round15(report.defense.min + reinforced),
-    max: round15(report.defense.max * grow + reinforced)
+    min: round16(report.defense.min + reinforced),
+    max: round16(report.defense.max * grow + reinforced)
   };
   const scale = report.defense.max > 0 ? defense.max / report.defense.max : 1;
   const widen = (r) => ({ min: r.min, max: Math.round(r.max * scale) });
@@ -11592,6 +12019,13 @@ function cloneFaceView(f) {
       ...b.fortifying ? { fortifying: { ...b.fortifying } } : {}
     })),
     ...f.attack ? { attack: { ...f.attack } } : {},
+    ...f.queen ? {
+      queen: {
+        ...f.queen,
+        escort: f.queen.escort.map((u) => ({ ...u })),
+        ...f.queen.wounds ? { wounds: { ...f.queen.wounds } } : {}
+      }
+    } : {},
     ...f.reports ? { reports: f.reports.map((r) => ({ ...r, dead: [...r.dead] })) } : {},
     parcels: Object.fromEntries(Object.entries(f.parcels).map(([k, p]) => [k, cloneParcelView(p)]))
   };
@@ -12086,6 +12520,7 @@ var COMMAND_ERRORS = [
   "noBeacon",
   "fortifying",
   "alreadyFortified",
+  "queenHidden",
   // Chantier 19 (second half): the second colony.
   "notConquered",
   "alreadyFounded",
@@ -12444,7 +12879,7 @@ function execute(s, cmd, ctx, events) {
       if (pad.damaged) fail("launchpadDamaged");
       if (!s.targets.some((t) => t.id === cmd.targetId)) fail("unknownTarget");
       const mission = cmd.mission ?? "land";
-      if (mission !== "land" && mission !== "found" && mission !== "guard") fail("invalidMission");
+      if (!["land", "found", "guard", "final"].includes(mission)) fail("invalidMission");
       const onTwin = twinTarget(s)?.id === cmd.targetId;
       if (mission === "found") {
         const lock = foundLock(s);
@@ -12454,6 +12889,10 @@ function execute(s, cmd, ctx, events) {
       if (mission !== "found" && cmd.freight) fail("invalidMission");
       if (mission === "land") {
         const lock = landingLock(s, cmd.targetId, cmd.sector, cmd.orders);
+        if (lock) fail(lock);
+      } else if (mission === "final") {
+        if (!onTwin) fail("unknownTarget");
+        const lock = finalLock(s, cmd.targetId, cmd.orders);
         if (lock) fail(lock);
       } else if (mission === "guard") {
         const size2 = typeof cmd.crew === "number" ? cmd.crew : cmd.crew.length;
@@ -17343,6 +17782,16 @@ var gameStateSchema = external_exports.object({
       }).nullable().optional(),
       attacks: external_exports.number().int().min(0).optional(),
       lastAttackAt: external_exports.number().optional(),
+      queen: external_exports.object({
+        sector: sectorId,
+        since: external_exports.number(),
+        at: external_exports.number(),
+        age: external_exports.number().int().min(0).max(3),
+        ground: external_exports.number().min(0),
+        air: external_exports.number().min(0),
+        escort: external_exports.array(alienUnit2).max(16),
+        wounds: external_exports.object({ share: external_exports.number().min(0).max(1), at: external_exports.number() }).optional()
+      }).optional(),
       reports: external_exports.array(
         external_exports.object({
           id,
@@ -17412,6 +17861,7 @@ var gameStateSchema = external_exports.object({
         sectors: external_exports.array(external_exports.number().int().min(0)).optional(),
         injured: external_exports.array(id).optional(),
         queenFallen: external_exports.boolean().optional(),
+        queenOut: external_exports.boolean().optional(),
         sector: sectorId.optional(),
         burnt: external_exports.boolean().optional(),
         founded: external_exports.boolean().optional(),
@@ -17925,7 +18375,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     targetId: id2,
     crew: external_exports.union([int.min(0).max(1e3), external_exports.array(id2).max(200)]),
     provisions: external_exports.object({ pulp: external_exports.number().min(0).max(1e7), juice: external_exports.number().min(0).max(1e7) }),
-    mission: external_exports.enum(["land", "found", "guard"]).optional(),
+    mission: external_exports.enum(["land", "found", "guard", "final"]).optional(),
     bringBack: external_exports.array(id2).max(200).optional(),
     orders: external_exports.object({
       posture: external_exports.enum(POSTURES),
@@ -19093,6 +19543,7 @@ export {
   POSTURES,
   PRACTICE_SCALE,
   PRODUCERS,
+  QUEEN_REF,
   RATE_LIMIT,
   RAY_BUILD_SPEEDUP,
   RECON,
@@ -19329,6 +19780,7 @@ export {
   dustPoints,
   eggCost,
   eggDuration,
+  emergeQueen,
   emigrate,
   emptyMasteries,
   emptyResources,
@@ -19350,6 +19802,9 @@ export {
   fillGarrison,
   fillResearch,
   fillStardust,
+  finalForecast,
+  finalInput,
+  finalLock,
   finishInfusions,
   finishTitanWorks,
   foodLeftMs,
@@ -19487,6 +19942,7 @@ export {
   libraryLevel,
   linkSister,
   liveCiv,
+  liveFaceView,
   localAlienSeed,
   logisticsEfficiency,
   lootByAge,
@@ -19498,6 +19954,7 @@ export {
   maxLevelOf,
   mayorMorale,
   mayorOf,
+  mergeUnits,
   meteorAt,
   meteorIronOf,
   meteorIronPerHour,
@@ -19589,7 +20046,10 @@ export {
   productionRates,
   protectedStock,
   publicState,
+  queenOf,
+  queenSetup,
   queenTruth,
+  queenWounds,
   queuedBuildAt,
   raidDen,
   raidSector,
@@ -19607,6 +20067,7 @@ export {
   recordIntel,
   redirectFull,
   refreshBeacons,
+  refreshQueen,
   regenBonus,
   releaseFullCraters,
   releasePool,
@@ -19631,6 +20092,7 @@ export {
   resetLandings,
   resetSiege,
   resolveArrival,
+  resolveFinal,
   resolveLanding,
   resolveReturn,
   restNeed,
@@ -19735,6 +20197,7 @@ export {
   validOrders,
   validateCommand,
   viewFreshness,
+  viewOfTruth,
   waitingForBuilder,
   walkCost,
   walkDistances,

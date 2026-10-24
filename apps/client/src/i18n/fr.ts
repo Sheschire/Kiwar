@@ -805,6 +805,8 @@ export const fr: Dict = {
     conquered: 'La face jumelle est déjà à vous : plus rien à y conquérir.',
     notASector: 'Choisis un secteur extérieur de la face jumelle.',
     noBeacon: 'Aucune balise ne brille sur cette parcelle.',
+    queenHidden:
+      'La reine se cache encore : il faut d’abord une balise sur chacune des 12 parcelles.',
     alreadyFortified: 'Cette balise est déjà fortifiée au mieux de votre âge.',
     fortifying: 'Cette balise est déjà en cours de fortification.',
     invalidMission: 'Mission inconnue.',
@@ -1724,6 +1726,7 @@ export const fr: Dict = {
       brute: 'Furet brute',
       diver: 'Chauve-souris plongeuse',
       spitter: 'Chauve-souris cracheuse',
+      queen: 'La reine des furets',
     },
     weapons: {
       beak: 'bec',
@@ -1749,6 +1752,7 @@ export const fr: Dict = {
       claw: 'griffes',
       bite: 'morsure',
       slam: 'coup de tête',
+      royalSlam: 'balayage royal',
       dive: 'piqué',
       spit: 'crachat',
       seedShot: 'graines',

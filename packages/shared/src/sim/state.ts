@@ -436,6 +436,8 @@ export interface ExpeditionResult {
   burnt?: boolean;
   /** Chantier 19: the queen fell (final assault won). */
   queenFallen?: boolean;
+  /** Chantier 42: this landing lit the twin's last beacon and the queen came out. */
+  queenOut?: boolean;
   /** Chantier 19: the settlers landed and the second colony is founded. */
   founded?: boolean;
   /** Chantier 40: how the landing ended. */
@@ -569,6 +571,24 @@ export interface BeaconReport {
   log?: BattleLog;
 }
 
+/**
+ * Chantier 42: the ferret queen, out of the depths once our 12 beacons light the twin (public:
+ * the beacons see her). Her power and guard as seen then; the wounds of our last battle.
+ */
+export interface QueenView {
+  /** Her parcel (the royal burrow). */
+  sector: number;
+  /** Out since then; seen then (refreshed every game day). */
+  since: TimeMs;
+  at: TimeMs;
+  age: number;
+  ground: number;
+  air: number;
+  escort: AlienUnit[];
+  /** Share of her hit points lost in our last battle, then (they heal over `healMs`). */
+  wounds?: { share: number; at: TimeMs };
+}
+
 /** Chantier 40: our eyes on an alien face (beacons and what each parcel showed). */
 export interface FaceView {
   beacons: Beacon[];
@@ -579,6 +599,8 @@ export interface FaceView {
   attacks?: number;
   lastAttackAt?: TimeMs;
   reports?: BeaconReport[];
+  /** Chantier 42: the queen, once out. */
+  queen?: QueenView;
 }
 
 /** Chantier 40: an enemy kind as we met it (the bestiary). */
@@ -1307,6 +1329,15 @@ export function cloneFaceView(f: FaceView): FaceView {
       ...(b.fortifying ? { fortifying: { ...b.fortifying } } : {}),
     })),
     ...(f.attack ? { attack: { ...f.attack } } : {}),
+    ...(f.queen
+      ? {
+          queen: {
+            ...f.queen,
+            escort: f.queen.escort.map((u) => ({ ...u })),
+            ...(f.queen.wounds ? { wounds: { ...f.queen.wounds } } : {}),
+          },
+        }
+      : {}),
     ...(f.reports ? { reports: f.reports.map((r) => ({ ...r, dead: [...r.dead] })) } : {}),
     parcels: Object.fromEntries(Object.entries(f.parcels).map(([k, p]) => [k, cloneParcelView(p)])),
   };
