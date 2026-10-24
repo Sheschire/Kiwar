@@ -762,6 +762,9 @@ export const en = {
     notInArmory: 'This piece is not in the armory.',
     wrongFamily: 'This weapon does not suit this kiwi’s class.',
     wrongSlot: 'This piece does not go in that slot.',
+    beaconHere: 'Our beacon already watches this parcel.',
+    invalidOrders: 'The landing orders are incomplete.',
+    landingThere: 'A landing is already on its way to this parcel.',
     cutsLand: 'This would cut the village in two: kiwis walk around big buildings.',
     cramped: 'Cramped: free the tiles around it so it can spread before it grows.',
   },
@@ -1046,6 +1049,7 @@ export const en = {
       final:
         'The assault on the ferret queen. Every kiwi posted on a bridgehead joins the crew. You must match her on the ground and in the air.',
       retreat: 'The survivors of a fallen bridgehead fly home.',
+      land: 'Land on a parcel of the face and fight its garrison, by the orders given before leaving.',
       found:
         'The settlers move to the conquered face for good, with the freight: the second colony is born at the landing. The ship flies back empty.',
     },

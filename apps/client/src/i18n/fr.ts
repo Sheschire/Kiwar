@@ -832,6 +832,9 @@ export const fr: Dict = {
     notInArmory: 'Cette pièce n’est pas dans l’armurerie.',
     wrongFamily: 'Cette arme ne convient pas à la classe de ce kiwi.',
     wrongSlot: 'Cette pièce ne va pas à cet emplacement.',
+    beaconHere: 'Notre balise surveille déjà cette parcelle.',
+    invalidOrders: 'Les ordres du débarquement sont incomplets.',
+    landingThere: 'Un débarquement vole déjà vers cette parcelle.',
     cutsLand: 'Cela couperait le village en deux : les kiwis contournent les grands bâtiments.',
     cramped: 'À l’étroit : libérez les tuiles autour pour qu’il s’étende avant de grandir.',
   },
@@ -1120,6 +1123,7 @@ export const fr: Dict = {
       final:
         'L’assaut contre la reine des furets. Tous les kiwis postés sur les têtes de pont se joignent à l’équipage. Il faut tenir tête au sol et dans les airs.',
       retreat: 'Les survivant·es d’une tête de pont tombée rentrent.',
+      land: 'Débarquer sur une parcelle de la face et combattre sa garnison, selon les ordres donnés au départ.',
       found:
         'Les colons s’installent pour de bon sur la face conquise, avec la cargaison : la seconde colonie naît à l’atterrissage. Le vaisseau revient à vide.',
     },

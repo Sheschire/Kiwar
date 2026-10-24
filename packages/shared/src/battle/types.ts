@@ -13,8 +13,14 @@ export type BattleSide = 0 | 1;
 
 export type UnitBody = 'kiwi' | 'kikiwiwi' | 'ferret' | 'bat' | 'turret';
 
-/** What a unit does in the battle (its AI). */
-export type UnitRole = 'guard' | 'militia' | 'turret' | 'raider';
+/**
+ * What a unit does in the battle (its AI). Chantier 40: `assault` is a kiwi of a landing crew
+ * (side 1): it hunts the defenders by its side's priority and runs back to the ship on the retreat.
+ */
+export type UnitRole = 'guard' | 'militia' | 'turret' | 'raider' | 'assault';
+
+/** Chantier 40: which defenders a landing crew goes for first. */
+export type AssaultPriority = 'nearest' | 'air' | 'casters' | 'weakest';
 
 export interface BattleTile extends Hex {
   /** Walk cost for the ground units (Infinity: nobody walks there). */
@@ -86,6 +92,8 @@ export interface SideOrders {
   posture: Posture;
   /** The side runs away under this share of its power (0: never). */
   retreatBelow: number;
+  /** Chantier 40: targets of the `assault` units of this side. */
+  priority?: AssaultPriority;
 }
 
 export interface BattleSetup {
@@ -99,6 +107,8 @@ export interface BattleSetup {
   maxDamaged?: number;
   /** Longest battle in seconds (`BATTLE.maxS` by default). */
   maxS?: number;
+  /** Chantier 40: the battle ends when the home side has nobody left (a landing won). */
+  clearEnds?: boolean;
 }
 
 /** What happened, read by the game (the wave) and by the reports. */
@@ -118,6 +128,10 @@ export interface BattleResult {
   /** Units of the home side that ran home hurt (refs). */
   fled: string[];
   attackers: { total: number; fallen: number; escaped: number };
+  /** Chantier 40: attackers that fell, in order (refs). */
+  lost?: string[];
+  /** Chantier 40: home units still standing at the end (0: the field is cleared). */
+  defendersLeft?: number;
   /** Share of the attackers' power that reached a building. */
   reached: number;
   /** Tiles the ground attackers fought from (the paths there are trampled). */

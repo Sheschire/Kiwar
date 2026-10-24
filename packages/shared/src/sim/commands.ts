@@ -1,3 +1,5 @@
+import { landingLock } from './landing';
+import type { LandingOrders } from '../data/landing';
 import { IRON_SCALE } from '../data/iron';
 import { addIron, meteorIronOf } from './iron';
 import { GEAR_SLOTS, ITEMS, type GearSlot, type ItemId } from '../data/gear';
@@ -164,6 +166,8 @@ export type Command =
       bringBack?: VillagerId[];
       /** Chantier 19: resources the settlers carry to found the colony (mission `found`). */
       freight?: Partial<Resources>;
+      /** Chantier 40: the orders of a landing (mission `land`, parcel in `sector`). */
+      orders?: LandingOrders;
     }
   /** Multiplayer: the launchpad's ship carries a free gift of resources to an ally. */
   | {
@@ -371,6 +375,10 @@ export const COMMAND_ERRORS = [
   'notInArmory',
   'wrongFamily',
   'wrongSlot',
+  // Chantier 40: the landing.
+  'beaconHere',
+  'invalidOrders',
+  'landingThere',
 ] as const;
 export type BlessingKind = 'heal' | 'respec' | 'stat';
 
@@ -792,6 +800,10 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       } else if (onTwin && s.siege.conqueredAt > 0) fail('conquered');
       if (mission !== 'found' && cmd.freight) fail('invalidMission');
       if (isSiegeMission(mission) && !onTwin) fail('unknownTarget');
+      if (mission === 'land') {
+        const lock = landingLock(s, cmd.targetId, cmd.sector, cmd.orders);
+        if (lock) fail(lock);
+      } else if (cmd.orders) fail('invalidMission');
       const { pulp, juice } = cmd.provisions;
       if (
         (typeof cmd.crew === 'number' && !Number.isInteger(cmd.crew)) ||

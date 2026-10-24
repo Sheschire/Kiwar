@@ -266,6 +266,7 @@ export function targetLabel(t: Translate, target: ExpeditionTarget): string {
 }
 
 const DEFAULT_CREW: Record<MissionKind, number> = {
+  land: 6,
   raid: 6,
   recon: 1,
   assault: 8,
@@ -276,6 +277,7 @@ const DEFAULT_CREW: Record<MissionKind, number> = {
 };
 
 const LAUNCH_LABEL = {
+  land: 'expedition.launch',
   raid: 'expedition.launch',
   recon: 'recon.launch',
   assault: 'siege.launch.assault',

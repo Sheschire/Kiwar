@@ -8,6 +8,7 @@ import { hexDistance } from '../hex/hex';
 import { createRng, hashSeed } from '../rng/rng';
 import type { TimeMs } from '../types/ids';
 import { siegeTruth } from './siege';
+import { refreshBeacons } from './landing';
 import type { AlienGarrison, CivImpact, CivKey, CivState, GameState } from './state';
 
 /**
@@ -403,11 +404,20 @@ export function recordBurn(civ: CivState, sector: number, at: TimeMs): number {
   return hours;
 }
 
-/** One of our crews lost: the civilisation feeds on it (food, ship parts, gear). */
-export function recordDefeat(civ: CivState, at: TimeMs, dead: number, sector?: number): number {
+/**
+ * One of our crews lost: the civilisation feeds on it (food, ship parts, gear). Chantier 40:
+ * `extraH` for a ship and the gear of the dead left on its ground.
+ */
+export function recordDefeat(
+  civ: CivState,
+  at: TimeMs,
+  dead: number,
+  sector?: number,
+  extraH = 0,
+): number {
   const d = CIV.defeat;
   const before = civ.hours;
-  const gain = d.civH + d.perKiwiH * Math.max(0, dead);
+  const gain = d.civH + d.perKiwiH * Math.max(0, dead) + Math.max(0, extraH);
   civ.hours = Math.max(before, Math.min(d.maxCivH, before + gain));
   const hours = civ.hours - before;
   log(civ, { at, kind: 'defeat', ...(sector !== undefined ? { sector } : {}), hours });
@@ -432,18 +442,23 @@ export function civDay(g: AlienGarrison, at: TimeMs): number {
 }
 
 /**
- * What the AI sees of us on a face: our beacons (the bridgeheads of the twin until chantier 40)
- * and the parcels our scouts have seen.
+ * What the AI sees of us on a face: our beacons (chantier 40; the twin's old bridgeheads count
+ * too) and the parcels our scouts and landings have seen.
  */
 export function civEyes(
-  state: Pick<GameState, 'targets' | 'intel' | 'siege'>,
+  state: Pick<GameState, 'targets' | 'intel' | 'siege' | 'faceViews'>,
   targetId: string,
 ): { beacons: number[]; seen: number[]; royalSeen: boolean } {
   const twin = state.targets.find((t) => t.distance === 0)?.id === targetId;
   const intel = state.intel[targetId];
+  const view = state.faceViews[targetId];
+  const beacons = new Set(view?.beacons.map((b) => b.sector) ?? []);
+  if (twin) for (const b of state.siege.bridgeheads) beacons.add(b.sector);
+  const seen = new Set(intel?.sectors ?? []);
+  for (const k of Object.keys(view?.parcels ?? {})) seen.add(Number(k));
   return {
-    beacons: twin ? state.siege.bridgeheads.map((b) => b.sector) : [],
-    seen: intel?.sectors ?? [],
+    beacons: [...beacons].sort((a, b) => a - b),
+    seen: [...seen].sort((a, b) => a - b),
     royalSeen: !!intel?.siege?.queen,
   };
 }
@@ -496,6 +511,8 @@ export function civTick(s: GameState, at: TimeMs): void {
     if (!g?.civ || (t.distance === 0 && s.siege.conqueredAt > 0)) continue;
     if (g.since + (g.civ.day + 1) * CIV.tickMs > at) continue;
     planCiv(g, g.civ, at, civEyes(s, t.id));
+    // Chantier 40: our beacons see the day's changes.
+    refreshBeacons(s, t.id, at);
   }
 }
 
@@ -645,8 +662,17 @@ export function civEstimate(state: GameState, now: TimeMs): CivEstimate | null {
   if (id === null) return null;
   const target = state.targets.find((t) => t.id === id)!;
   const report = state.intel[id];
-  const seenAge = report?.civAge ?? null;
-  const seenAt = seenAge !== null ? report!.at : null;
+  // Chantier 40: what our landings and beacons saw is the latest look at it.
+  const views = Object.values(state.faceViews[id]?.parcels ?? {}).filter(
+    (v) => v.source !== 'report',
+  );
+  const latest = views.reduce<(typeof views)[number] | null>(
+    (best, v) => (!best || v.at > best.at ? v : best),
+    null,
+  );
+  const fromView = latest && (!report || latest.at >= report.at);
+  const seenAge = fromView ? latest.age : (report?.civAge ?? null);
+  const seenAt = fromView ? latest.at : seenAge !== null ? report!.at : null;
   // A civilisation seen younger than the schedule says was held back by that much at least.
   let delay = 0;
   if (seenAge !== null && seenAt !== null) {

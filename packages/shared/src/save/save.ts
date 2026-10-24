@@ -24,7 +24,9 @@ import { IRON, IRON_SCALE } from '../data/iron';
 import { FORGE, ITEM_IDS } from '../data/gear';
 import { INTEL } from '../data/expeditions';
 import { SIEGE } from '../data/siege';
-import { CIV_KEYS } from '../data/aliens';
+import { ALIEN_BUILDINGS, CIV_KEYS } from '../data/aliens';
+import { LANDING_GOALS, LANDING_PRIORITIES } from '../data/landing';
+import { SHIP_IDS } from '../data/expeditions';
 import type { Face } from '../types/ids';
 import {
   KIWI,
@@ -188,6 +190,28 @@ const threats = z.object({
 });
 
 const range = z.object({ min: z.number().min(0), max: z.number().min(0) });
+/** Chantier 40: aliens and buildings of a parcel as we saw them. */
+const alienUnit = z.object({
+  kind: z.enum(ENEMY_KINDS),
+  count: z.number().int().min(0).max(1000),
+  level: z.number().int().min(0).max(100),
+  weapon: z.enum(ITEM_IDS).optional(),
+  armor: z.enum(ITEM_IDS).optional(),
+});
+const alienBuilding = z.object({
+  kind: z.enum(ALIEN_BUILDINGS),
+  sector: sectorId,
+  q: z.number().int(),
+  r: z.number().int(),
+});
+const parcelView = z.object({
+  at: z.number(),
+  source: z.enum(['beacon', 'landing', 'retreat', 'edge', 'report']),
+  age: z.number().int().min(0).max(3),
+  power: range,
+  units: z.array(alienUnit).max(16),
+  buildings: z.array(alienBuilding).max(64),
+});
 const datedRange = range.extend({ at: z.number() });
 const groundAir = z.object({ ground: z.number(), air: z.number() });
 const structure = z.object({
@@ -234,6 +258,7 @@ const villager = z.object({
       kept: z.literal(true).optional(),
     })
     .optional(),
+  veteran: z.number().int().min(0).optional(),
 });
 
 export const gameStateSchema = z.object({
@@ -260,6 +285,7 @@ export const gameStateSchema = z.object({
       builtAt: z.number(),
       pool: z.object({ stock: z.number().min(0), tiles: z.array(z.string()).max(64) }).optional(),
       damaged: z.boolean().optional(),
+      shipLost: z.enum(SHIP_IDS).optional(),
       reserve: resources.optional(),
       rot: z.number().int().min(0).max(5).optional(),
       cramped: z.literal(true).optional(),
@@ -406,6 +432,24 @@ export const gameStateSchema = z.object({
       civAge: z.number().int().min(0).max(3).optional(),
     }),
   ),
+  faceViews: z.record(
+    z.string(),
+    z.object({
+      beacons: z.array(z.object({ sector: sectorId, since: z.number() })).max(INTEL.sectors),
+      parcels: z.record(z.string().max(2), parcelView),
+    }),
+  ),
+  bestiary: z.record(
+    z.enum(ENEMY_KINDS),
+    z.object({
+      level: z.number().int().min(0).max(100),
+      weapon: z.enum(ITEM_IDS).optional(),
+      armor: z.enum(ITEM_IDS).optional(),
+      seen: z.number().int().min(0),
+      firstAt: z.number(),
+      lastAt: z.number(),
+    }),
+  ),
   expeditions: z.array(
     z.object({
       id,
@@ -433,6 +477,15 @@ export const gameStateSchema = z.object({
       holders: z.array(id).max(200).optional(),
       bringBack: z.array(id).max(200).optional(),
       freight: resources.optional(),
+      orders: z
+        .object({
+          posture: z.enum(POSTURES),
+          priority: z.enum(LANDING_PRIORITIES as [string, ...string[]]),
+          retreatAt: z.number().min(0).max(1),
+          goal: z.enum(LANDING_GOALS),
+        })
+        .optional(),
+      delayed: z.boolean().optional(),
       result: z
         .object({
           victory: z.boolean(),
@@ -453,6 +506,11 @@ export const gameStateSchema = z.object({
           burnt: z.boolean().optional(),
           founded: z.boolean().optional(),
           sides: z.object({ strength: groundAir, queen: groundAir }).optional(),
+          outcome: z.enum(['victory', 'retreat', 'defeat']).optional(),
+          log: battleLog.optional(),
+          beacon: z.boolean().optional(),
+          seen: z.array(alienUnit).max(16).optional(),
+          shipLost: z.boolean().optional(),
         })
         .nullable(),
     }),
@@ -819,6 +877,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
     forge: { orders: [], armory: {} },
     automation: { ...(raw.automation as Record<string, boolean>), forge: true, equip: true },
   }),
+  // v32 → v33 (chantier 40): beacons and parcels seen, the bestiary.
+  32: (raw) => ({ ...raw, faceViews: {}, bestiary: {} }),
 };
 
 /**

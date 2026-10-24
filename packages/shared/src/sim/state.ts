@@ -23,6 +23,9 @@ import type { TechId } from '../data/research';
 import type { ItemId } from '../data/gear';
 import { AUTO_TASKS, type AutoTask } from '../data/jobs';
 import type { CivKeyKind } from '../data/aliens';
+import type { LandingOrders } from '../data/landing';
+import type { ShipId } from '../data/expeditions';
+import type { AlienBuilding, AlienUnit } from './civ';
 import { newKiwi, rollKiwi } from './kiwis';
 import type {
   BuildingId,
@@ -36,7 +39,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 32;
+export const SCHEMA_VERSION = 33;
 
 export type Job =
   | { kind: 'idle' }
@@ -130,6 +133,8 @@ export interface Villager {
   lent?: BuildingId | null;
   /** Chantier 38: the weapon and the armour it wears (pieces taken from the armory). */
   gear?: Gear;
+  /** Chantier 40: landings won (a veteran from the first one). */
+  veteran?: number;
 }
 
 /** Chantier 38: a kiwi's two slots; `kept`: chosen by the player (the automation leaves it). */
@@ -187,6 +192,11 @@ export interface Building {
   pool?: Pool;
   /** Hit by predators: works at `THREATS.damagedWork` until repaired. */
   damaged?: boolean;
+  /**
+   * Chantier 40, launchpads only: the ship was lost on a landing (the generation it was); the
+   * launchpad is damaged and its repair rebuilds the ship.
+   */
+  shipLost?: ShipId;
   /** Chantier 30, warehouses only: the stock kept in reserve (see `reserveCapOf`). */
   reserve?: Resources;
   /** Chantier 35: orientation (0–5) of a 3-tile footprint (`footprintTiles`). */
@@ -441,6 +451,16 @@ export interface ExpeditionResult {
   queenFallen?: boolean;
   /** Chantier 19: the settlers landed and the second colony is founded. */
   founded?: boolean;
+  /** Chantier 40: how the landing ended. */
+  outcome?: 'victory' | 'retreat' | 'defeat';
+  /** Chantier 40: the journal of the landing's battle (never changed). */
+  log?: BattleLog;
+  /** Chantier 40: a beacon was planted. */
+  beacon?: boolean;
+  /** Chantier 40: the aliens met (by kind). */
+  seen?: AlienUnit[];
+  /** Chantier 40: the ship was lost with its crew. */
+  shipLost?: boolean;
 }
 
 /**
@@ -449,6 +469,7 @@ export interface ExpeditionResult {
  * of a fallen bridgehead; then the settlers' ship that founds the second colony.
  */
 export const MISSION_KINDS = [
+  'land',
   'raid',
   'recon',
   'assault',
@@ -493,6 +514,52 @@ export interface Expedition {
   bringBack?: VillagerId[];
   /** Chantier 19: resources the settlers' ship carries to the new colony (mission `found`). */
   freight?: Resources;
+  /** Chantier 40: the orders of a landing (mission `land`, parcel in `sector`). */
+  orders?: LandingOrders;
+  /** Chantier 40: a breakdown delayed the landing (the ship lands with less hold). */
+  delayed?: boolean;
+}
+
+/** Chantier 40: what we saw of a parcel of an alien face (public: it is what we saw). */
+export interface ParcelView {
+  at: TimeMs;
+  /**
+   * `beacon`: under our beacon (refreshed every game day); `landing`: seen in the battle;
+   * `retreat`: what the survivors of a retreat saw; `edge`: the edge of a parcel next to a
+   * beacon (buildings, the garrison within a range); `report`: an old reconnaissance.
+   */
+  source: 'beacon' | 'landing' | 'retreat' | 'edge' | 'report';
+  /** Age of the parcel then. */
+  age: number;
+  /** Garrison power then (exact when the units were seen). */
+  power: IntelRange;
+  /** The aliens seen, by kind (empty when only the edge was seen). */
+  units: AlienUnit[];
+  buildings: AlienBuilding[];
+}
+
+export interface Beacon {
+  sector: number;
+  since: TimeMs;
+}
+
+/** Chantier 40: our eyes on an alien face (beacons and what each parcel showed). */
+export interface FaceView {
+  beacons: Beacon[];
+  /** Key: the parcel (0–11). */
+  parcels: Record<string, ParcelView>;
+}
+
+/** Chantier 40: an enemy kind as we met it (the bestiary). */
+export interface BestiaryEntry {
+  /** Highest level met, and the best gear seen on it. */
+  level: number;
+  weapon?: ItemId;
+  armor?: ItemId;
+  /** How many we saw in battles. */
+  seen: number;
+  firstAt: TimeMs;
+  lastAt: TimeMs;
 }
 
 /** Chantier 19: a bridgehead on an outer sector of the twin face. */
@@ -778,6 +845,10 @@ export interface GameState {
   aliens?: Record<string, AlienGarrison>;
   /** What missions reported, per target. */
   intel: Record<string, IntelReport>;
+  /** Chantier 40: beacons and parcels seen, per target. */
+  faceViews: Record<string, FaceView>;
+  /** Chantier 40: the enemies met in landings. */
+  bestiary: Partial<Record<EnemyKind, BestiaryEntry>>;
   /** In flight and recent expeditions (the last few finished ones are kept for reports). */
   expeditions: Expedition[];
   /** Allies the ship can deliver to (set by the server from the universe; empty solo). */
@@ -891,6 +962,8 @@ export function newGame(opts: NewGameOptions): GameState {
     targets: opts.targets ?? soloTargets(opts.face),
     victories: {},
     intel: {},
+    faceViews: {},
+    bestiary: {},
     expeditions: [],
     friends: [],
     shipments: [],
@@ -1143,6 +1216,7 @@ export function cloneState(state: GameState): GameState {
             loot: { ...e.result.loot },
             ...(e.result.sectors ? { sectors: [...e.result.sectors] } : {}),
             ...(e.result.injured ? { injured: [...e.result.injured] } : {}),
+            ...(e.result.seen ? { seen: e.result.seen.map((u) => ({ ...u })) } : {}),
             ...(e.result.sides
               ? {
                   sides: {
@@ -1156,7 +1230,14 @@ export function cloneState(state: GameState): GameState {
       ...(e.holders ? { holders: [...e.holders] } : {}),
       ...(e.bringBack ? { bringBack: [...e.bringBack] } : {}),
       ...(e.freight ? { freight: { ...e.freight } } : {}),
+      ...(e.orders ? { orders: { ...e.orders } } : {}),
     })),
+    faceViews: Object.fromEntries(
+      Object.entries(state.faceViews).map(([k, f]) => [k, cloneFaceView(f)]),
+    ),
+    bestiary: Object.fromEntries(
+      Object.entries(state.bestiary).map(([k, b]) => [k, { ...b }]),
+    ) as GameState['bestiary'],
     rng: [...state.rng] as RngState,
   };
 }
@@ -1247,5 +1328,21 @@ export function cloneVillager(v: Villager): Villager {
     mastery: { ...v.mastery },
     history: { ...v.history },
     ...(v.gear ? { gear: { ...v.gear } } : {}),
+  };
+}
+
+export function cloneParcelView(p: ParcelView): ParcelView {
+  return {
+    ...p,
+    power: { ...p.power },
+    units: p.units.map((u) => ({ ...u })),
+    buildings: p.buildings.map((b) => ({ ...b })),
+  };
+}
+
+export function cloneFaceView(f: FaceView): FaceView {
+  return {
+    beacons: f.beacons.map((b) => ({ ...b })),
+    parcels: Object.fromEntries(Object.entries(f.parcels).map(([k, p]) => [k, cloneParcelView(p)])),
   };
 }

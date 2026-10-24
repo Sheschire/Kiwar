@@ -45,6 +45,8 @@ import {
 } from './civ';
 import { CIV } from '../data/aliens';
 import { landSettlers } from './colonies';
+import { landingForecast, resolveLanding, type LandingForecast } from './landing';
+import { LANDING, type LandingOrders } from '../data/landing';
 import {
   allHolders,
   assaultEnemy,
@@ -79,6 +81,8 @@ export interface ExpeditionPlan {
   bringBack?: readonly VillagerId[];
   /** Chantier 19: what the settlers' ship carries to found the colony (mission `found`). */
   freight?: Partial<Resources>;
+  /** Chantier 40: the orders of a landing (mission `land`; the parcel is `sector`). */
+  orders?: LandingOrders;
 }
 
 /** What a reconnaissance crew can expect (chantier 07). */
@@ -135,6 +139,8 @@ export interface ExpeditionForecast {
   final: FinalForecast | null;
   /** Chantier 31: paid at launch, on top of the provisions. */
   launchCost: Resources;
+  /** Chantier 40: the landing's practice battles and what they rest on. */
+  landing: LandingForecast | null;
 }
 
 export function launchpadOf(state: GameState, id: BuildingId): Building | undefined {
@@ -359,6 +365,18 @@ export function forecastExpedition(
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(state, crew, fed);
   const final = mission === 'final' ? finalForecast(state, crew, fed, state.now) : null;
+  const landing =
+    mission === 'land' && plan.sector !== undefined
+      ? landingForecast(
+          state,
+          target.id,
+          plan.sector,
+          crew,
+          plan.orders ?? LANDING.defaultOrders,
+          fed,
+          state.now,
+        )
+      : null;
   const defense =
     mission === 'assault'
       ? plan.sector === undefined
@@ -368,17 +386,21 @@ export function forecastExpedition(
         ? (intelView(state, target.id, state.now)?.defense ?? null)
         : null;
   const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
-  const odds: Odds = final
-    ? final.odds
-    : mission === 'reinforce' || mission === 'found'
-      ? 'likely'
-      : !defense
-        ? 'unknown'
-        : strength.min >= defense.max
+  const odds: Odds = landing
+    ? landing.odds
+    : mission === 'land'
+      ? 'unknown'
+      : final
+        ? final.odds
+        : mission === 'reinforce' || mission === 'found'
           ? 'likely'
-          : strength.max >= defense.min
-            ? 'uncertain'
-            : 'unlikely';
+          : !defense
+            ? 'unknown'
+            : strength.min >= defense.max
+              ? 'likely'
+              : strength.max >= defense.min
+                ? 'uncertain'
+                : 'unlikely';
   // Expected losses against the middle of the estimate (none can be told without a report).
   const mid = (r: IntelRange) => (r.min + r.max) / 2;
   const guess = final
@@ -399,8 +421,11 @@ export function forecastExpedition(
     kiwisWeight +
     (plan.provisions.pulp + plan.provisions.juice + freight) * EXPEDITIONS.resourceWeight;
   const ship = shipOf(state);
-  const expectedLosses =
-    guess === null ? 0 : Math.min(fighters, fighters * lossShare(base, guess) * (1 - ship.armor));
+  const expectedLosses = landing
+    ? landing.expectedDead
+    : guess === null || mission === 'land'
+      ? 0
+      : Math.min(fighters, fighters * lossShare(base, guess) * (1 - ship.armor));
   const exposure = crew.map((v) => kiwiExposure(v));
   const totalExposure = exposure.reduce((a, b) => a + b, 0) || 1;
   const risk: Record<string, number> = {};
@@ -430,12 +455,12 @@ export function forecastExpedition(
     fed,
     returnSurplus,
     strength,
-    defense,
+    defense: landing ? landing.power : defense,
     odds,
     lootRoom,
     crew,
     expectedLosses,
-    woundsOnly: guess !== null && base >= guess,
+    woundsOnly: mission !== 'land' && guess !== null && base >= guess,
     risk,
     mission,
     recon: mission === 'recon' ? reconForecast(crew, ship) : null,
@@ -445,6 +470,7 @@ export function forecastExpedition(
     returnWeight,
     final,
     launchCost: launchCost(state, crew, mission),
+    landing,
   };
 }
 
@@ -548,12 +574,21 @@ export function launch(
   const freight = mission === 'found' && plan.freight ? cleanFreight(plan.freight) : null;
   if (freight) for (const r of RESOURCE_IDS) state.resources[r] -= freight[r];
   const travelMs = travelTime(target, pad, crew, mission, travelFactor(state, plan));
-  // A breakdown is drawn at take-off: the ship turns back half-way.
-  const broken = withRng(
+  // A breakdown is drawn at take-off: the ship turns back half-way. Chantier 40: a landing goes
+  // on, late and with less hold.
+  const failed = withRng(
     state,
     (rng) => !rng.chance(shipReliability(shipOf(state), crew, !!plan.fuel)),
   );
-  const outMs = broken ? Math.round(travelMs / 2000) * 1000 : travelMs;
+  const delayed = failed && mission === 'land';
+  const broken = failed && !delayed;
+  const outMs = broken
+    ? Math.round(travelMs / 2000) * 1000
+    : delayed
+      ? Math.round((travelMs * LANDING.breakdown.delay) / 1000) * 1000
+      : travelMs;
+  const cargo = delayed ? Math.floor(shipCargo(pad) * LANDING.breakdown.cargo) : shipCargo(pad);
+  const returnMs = delayed ? travelMs : outMs;
   const expedition: Expedition = {
     id,
     mission,
@@ -568,16 +603,19 @@ export function launch(
       classId: v.classId,
     })),
     provisions: { ...emptyResources(), pulp: plan.provisions.pulp, juice: plan.provisions.juice },
-    cargo: shipCargo(pad),
+    cargo,
     departedAt: now,
     arriveAt: now + outMs,
-    returnAt: now + 2 * outMs,
+    returnAt: now + outMs + returnMs,
     status: 'outbound',
     result: null,
     ...(broken ? { broken: true } : {}),
-    ...(plan.sector !== undefined && (mission === 'assault' || mission === 'reinforce')
+    ...(plan.sector !== undefined &&
+    (mission === 'assault' || mission === 'reinforce' || mission === 'land')
       ? { sector: plan.sector }
       : {}),
+    ...(mission === 'land' ? { orders: { ...(plan.orders ?? LANDING.defaultOrders) } } : {}),
+    ...(delayed ? { delayed: true } : {}),
     ...(mission === 'assault' && plan.holders ? { holders: [...plan.holders] } : {}),
     ...(mission === 'reinforce' && plan.bringBack ? { bringBack: [...plan.bringBack] } : {}),
     ...(freight ? { freight } : {}),
@@ -628,6 +666,7 @@ export function resolveArrival(state: GameState, e: Expedition): void {
     return;
   }
   if (e.mission === 'found') return landSettlers(state, e, members, fed);
+  if (e.mission === 'land') return resolveLanding(state, e, members, fed);
   if (isSiegeMission(e.mission)) return resolveSiegeLanding(state, e, members, fed);
   const garrison = state.aliens?.[target.id];
   const defense = alienDefense(state, target.id, e.arriveAt);
@@ -826,12 +865,17 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
 
   // Survivors come home wiser: a lump of experience, more after a victory.
   const xp =
-    (KIWI.expeditionXp.base + (result.victory ? KIWI.expeditionXp.victory : 0)) *
+    (KIWI.expeditionXp.base +
+      (result.victory
+        ? KIWI.expeditionXp.victory * (e.mission === 'land' ? LANDING.victoryXp : 1)
+        : 0)) *
     (e.mission === 'recon' ? RECON.xp : 1);
   for (const v of crewMembers(state, e.crew)) {
     if (!result.aborted) {
       v.history.expeditions++;
       if (result.victory) v.history.victories++;
+      // Chantier 40: the survivors of a landing won are veterans.
+      if (result.victory && e.mission === 'land') v.veteran = (v.veteran ?? 0) + 1;
     }
     grantXp(state, v, result.aborted ? xp / 2 : xp, e.returnAt, events);
     // Chantier 37: class practice too.
@@ -861,7 +905,7 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
   e.provisions = emptyResources();
   e.status = 'done';
   // A broken ship lands, but the launchpad needs mending before the next take-off.
-  if (e.broken) {
+  if (e.broken || e.delayed) {
     const pad = launchpadOf(state, e.launchpadId);
     if (pad) pad.damaged = true;
   }
@@ -876,6 +920,8 @@ export function removeVillagers(
   ids: VillagerId[],
   cause: Memorial['cause'],
   at: TimeMs,
+  /** Chantier 40: their gear stays on the alien face (a landing lost or abandoned). */
+  gearLost = false,
 ): void {
   for (const v of state.villagers) {
     if (!ids.includes(v.id)) continue;
@@ -892,8 +938,8 @@ export function removeVillagers(
   }
   if (state.memorial.length > MEMORIAL_MAX)
     state.memorial.splice(0, state.memorial.length - MEMORIAL_MAX);
-  // Chantier 38: their gear goes back to the armory (lost on the twin with chantier 40).
-  for (const v of state.villagers) if (ids.includes(v.id)) returnGear(state, v);
+  // Chantier 38: their gear goes back to the armory, unless it was left on the alien face.
+  if (!gearLost) for (const v of state.villagers) if (ids.includes(v.id)) returnGear(state, v);
   state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
   forgetHolders(state, ids);
   // The colony mourns its lost kiwis (morale).

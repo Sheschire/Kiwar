@@ -216,7 +216,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
       leash:
         s.role === 'militia'
           ? KIWI_UNIT.militiaLeash
-          : s.role === 'guard'
+          : s.role === 'guard' || s.role === 'assault'
             ? BATTLE.leash[setup.orders[s.side].posture]
             : 0,
     };
@@ -259,6 +259,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     fallen: [],
     fled: [],
     attackers: { total: attackers.length, fallen: 0, escaped: 0 },
+    ...(setup.clearEnds ? { lost: [] as string[], defendersLeft: 0 } : {}),
     reached: 0,
     struck: [],
     shots: {},
@@ -353,7 +354,10 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
     log(EV.fall, u.i);
     if (u.side === 0) result.fallen.push(u.s.ref);
-    else result.attackers.fallen++;
+    else {
+      result.attackers.fallen++;
+      result.lost?.push(u.s.ref);
+    }
     // What a fallen raider carried stays at home.
     if (u.carrying)
       for (const [bi, l] of u.carrying) {
@@ -540,6 +544,35 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     return best ? { unit: best } : null;
   };
 
+  /** Chantier 40: the defender a landing kiwi goes for (its side's priority, within its leash). */
+  const assaultTarget = (u: Unit): Target | null => {
+    const here = tiles[u.tile]!;
+    const home = tiles[u.home]!;
+    const w = u.s.weapon;
+    const priority = setup.orders[u.side].priority ?? 'nearest';
+    let best: Unit | null = null;
+    let bestScore = Infinity;
+    for (const e of units) {
+      if (e.side === u.side || e.state !== State.Active || !canHit(w, e)) continue;
+      const at = tiles[e.tile]!;
+      if (hexDistance(home, at) > u.leash + w.range) continue;
+      const d = hexDistance(here, at);
+      const score =
+        priority === 'air'
+          ? d - (e.s.flying ? 6 : 0)
+          : priority === 'casters'
+            ? d - (e.s.weapon.style !== 'melee' ? 6 : 0)
+            : priority === 'weakest'
+              ? d / 2 + e.hp / 4
+              : d;
+      if (score < bestScore - 1e-9) {
+        best = e;
+        bestScore = score;
+      }
+    }
+    return best ? { unit: best } : null;
+  };
+
   const goHome = (u: Unit, t: number) => {
     if (u.s.flying || exits.has(u.tile)) {
       if (exits.has(u.tile)) return leave(u);
@@ -586,6 +619,24 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
       }
       return;
     }
+    if (s.role === 'assault') {
+      if (u.fleeing) return goHome(u, t);
+      if (!valid(u, u.target) || t >= u.retargetAt) {
+        u.target = assaultTarget(u);
+        u.retargetAt = t + BATTLE.retarget;
+      }
+      const target = u.target;
+      if (target && inRange(u, target)) {
+        if (t >= u.readyAt - 1e-9) strike(u, target, t);
+        return;
+      }
+      if (target?.unit) {
+        if (!stepToward(u, tiles[target.unit.tile]!, t)) u.retargetAt = t;
+        return;
+      }
+      if (u.tile !== u.home) stepToward(u, tiles[u.home]!, t);
+      return;
+    }
     if (s.role === 'militia' && u.hp < s.hp * KIWI_UNIT.militiaFlee) {
       log(EV.flee, u.i);
       return leave(u);
@@ -610,6 +661,15 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
 
   // --- Loop -----------------------------------------------------------------------------------
   let retreating = false;
+  let cleared = false;
+  /** Home units still in the battle (or still to come in). */
+  const homeLeft = () => {
+    let n = 0;
+    for (const u of units)
+      if (u.side === 0 && u.s.role !== 'turret')
+        if (u.state === State.Active || u.state === State.Waiting) n++;
+    return n;
+  };
   for (step = 0; step < maxSteps; step++) {
     const t = step * dt;
     for (const u of units) {
@@ -630,6 +690,10 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
         alive += u.s.power;
       }
     if (left === 0) break;
+    if (setup.clearEnds && homeLeft() === 0) {
+      cleared = true;
+      break;
+    }
     if (!retreating && totalPower > 0 && alive / totalPower < setup.orders[1].retreatBelow) {
       retreating = true;
       for (const u of attackers)
@@ -640,9 +704,13 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     }
   }
   step = Math.min(step + 1, maxSteps);
-  // Time is up: whoever is still there runs away with what it carries.
-  for (const u of attackers) if (u.state === State.Active) leave(u);
-  for (const u of attackers) if (u.state === State.Waiting) u.state = State.Gone;
+  // Time is up: whoever is still there runs away with what it carries (a landing that cleared
+  // the field stays on it).
+  if (!cleared) {
+    for (const u of attackers) if (u.state === State.Active) leave(u);
+    for (const u of attackers) if (u.state === State.Waiting) u.state = State.Gone;
+  }
+  if (setup.clearEnds) result.defendersLeft = homeLeft();
 
   result.duration = step * dt;
   for (const [building, amounts] of [...taken].sort((a, b) => a[0] - b[0]))

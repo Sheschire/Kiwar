@@ -12,6 +12,7 @@ import {
 import { climateOf } from '../data/biomes';
 import { PATHS } from '../data/territory';
 import { THREATS, TURRETS } from '../data/threats';
+import { LANDING } from '../data/landing';
 import { TILES } from '../data/tiles';
 import { HATCHING } from '../data/hatching';
 import {
@@ -394,12 +395,17 @@ export function pendingUpgrade(state: GameState, buildingId: BuildingId): QueueI
   return state.queue.find((i) => i.kind !== 'build' && i.buildingId === buildingId);
 }
 
-/** Price of mending a damaged building: a share of its current level. */
+/**
+ * Price of mending a damaged building: a share of its current level. Chantier 40: a launchpad
+ * whose ship was lost rebuilds the ship of that generation.
+ */
 export function repairCost(b: Building): ResourceCost {
+  if (b.shipLost) return scaleCost(LANDING.rebuild.cost, LANDING.rebuild.ship[b.shipLost]);
   return scaleCost(levelDef(b.type, b.level)?.cost ?? {}, THREATS.repairCost);
 }
 
 export function repairDuration(b: Building): number {
+  if (b.shipLost) return LANDING.rebuild.hours[b.shipLost] * 3_600_000;
   const base = levelDef(b.type, b.level)?.durationMs ?? 0;
   return Math.max(5000, Math.round((base * THREATS.repairTime) / 1000) * 1000);
 }

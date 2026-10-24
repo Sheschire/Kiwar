@@ -156,6 +156,8 @@ export type GameEvent =
       mission?: MissionKind;
       spotted?: boolean;
       broken?: boolean;
+      /** Chantier 40: how a landing ended. */
+      outcome?: 'victory' | 'retreat' | 'defeat';
     }
   | { type: 'expeditionReturned'; at: TimeMs; expeditionId: string }
   /** Deliveries between allies: our ship reached the ally, came back; a gift landed here. */
@@ -373,6 +375,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
           mission: e.mission,
           ...(e.result!.spotted ? { spotted: true } : {}),
           ...(e.result!.broken ? { broken: true } : {}),
+          ...(e.result!.outcome ? { outcome: e.result!.outcome } : {}),
         });
       } else {
         resolveReturn(s, e, events);
@@ -631,6 +634,8 @@ function completeConstruction(
     const b = getBuilding(s, item.buildingId!);
     if (b) {
       delete b.damaged;
+      // Chantier 40: the repair of a launchpad rebuilt its lost ship.
+      delete b.shipLost;
       events.push({
         type: 'repaired',
         at,
