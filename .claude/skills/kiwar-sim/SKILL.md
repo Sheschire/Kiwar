@@ -135,6 +135,13 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 
 ## Gotchas
 
+- **Chantier 38 (`kiwar-forge`)**: rates of anything accrued in `accrue` after the hunger
+  update (iron, the Forge) must be computed in `computeFlows` (at the interval's start) and
+  passed through `Flows`: read inside `accrue` they see the hunger stage of the interval's
+  end, and small steps differ from one big step. (`accrueResearch` still reads its rate there:
+  a latent case, harmless so far.) New stocks apart from `resources`: `meteorIron` (like the
+  stardust). The test helper `rich()` gives iron.
+
 - **Chantier 30 (levels and reserves)**: building levels go 1–12, three per age
   (`ageOfLevel`, `LEVELS_PER_AGE`, `MAX_LEVEL` 12; levels 4–12 grown by `withAgeLevels` from
   `AGE_GROWTH`, factors per level plus `age*` extras on the first level of an age). Tables

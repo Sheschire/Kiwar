@@ -142,6 +142,13 @@ builderPriority?}`. `assignWorkers` (−/+) still exists (bot, building sheet, j
   drilling kiwis `thinkCamp` (`render/kiwis.ts`). `?kiwis` shows a Champion (joy) and an
   Oracle (dance).
 
+## Chantier 38 (gear, skill `kiwar-forge`)
+
+- `Villager.gear` (weapon, armour, `kept`): `cloneVillager` copies it; a new line gives the
+  weapon back (`equipGear`), a death at home gives everything back (`removeVillagers` →
+  `returnGear`). Weapons by family (`CLASS_FAMILY`): a new class needs an entry there.
+  `GearSection.tsx` in the kiwi sheet; gear parts in `kiwiRig.ts`.
+
 ## Client
 
 - Chantier 09: `VillageModal.tsx` tabs kiwis / posts (`JobBoardView`, `BoardLine`,

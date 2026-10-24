@@ -151,6 +151,13 @@ at: now + 3000, announced: true, ground, air }` then a `debugGrant` dispatch; th
 - Long tests that are not about waves: clear `threats.next` and set `shieldUntil` far ahead
   (the first wave now comes at 7 h).
 
+## Meteoric iron (chantier 38)
+
+Craters now hold mostly **meteoric iron** (skill `kiwar-forge`): `Meteor.iron` / `ironMax`,
+`meteorStock` × `IRON.resourceShare` for the old gift, iron rates read in `computeFlows`,
+`craterWorth`, at most a quarter of the colony sent by the automation, wrecks give iron, a
+star always lands on a free tile when one exists. Turrets from level 3 cost iron.
+
 ## Comets (chantier 13)
 
 The other gift from the sky, comets and their stardust, is in the `kiwar-sky` skill (their

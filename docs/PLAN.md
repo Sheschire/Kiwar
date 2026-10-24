@@ -39,7 +39,7 @@ dans l'historique.
 | 35  | Bâtiments sur plusieurs tuiles                       | fait    |
 | 36  | Moteur de bataille : les vagues jouées pour de vrai  | fait    |
 | 37  | Classes, rôles de combat, camp d'entraînement        | fait    |
-| 38  | Forge, équipement et fer météorique                  | à faire |
+| 38  | Forge, équipement et fer météorique                  | fait    |
 | 39  | La civilisation alien                                | à faire |
 | 40  | Le débarquement                                      | à faire |
 | 41  | La bataille en direct sur la jumelle (client)        | à faire |
@@ -50,13 +50,14 @@ dans l'historique.
 | 45  | Rives fertiles et canaux de jus                      | à faire |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
-**Prochaine conversation** : le chantier **38** (forge, équipement et fer météorique) : la
-carte d'unité de la bataille annonce déjà l'équipement ; chaque classe a son arme
-(`CLASS_WEAPONS`, skill `kiwar-battle`), l'équipement s'y ajoutera. Points laissés par le 37 :
-les classes de maître liées aux débarquements (Rôdeur·euse) n'auront tout leur sens qu'au 40 ;
-le ressenti des rangs et du camp est « à tester » avec le porteur. Toujours ouverts : la
-réparation automatique qui trahit l'issue d'une vague regardée en direct (36) et le temps mort
-du début de la Pierre (31).
+**Prochaine conversation** : le chantier **39** (la civilisation alien) : ses parcelles
+alignent des unités par rôle, niveau et **équipement** — les pièces du 38 (`ITEMS`,
+`gearEffect`, skill `kiwar-forge`) servent aussi aux aliens. Points laissés par le 38 : la
+perte de l'équipement d'un kiwi mort sur la jumelle viendra au 40 ; le ressenti du combat
+équipé et les prix des pièces sont « à tester » avec le porteur. Toujours ouverts : la
+Rôdeur·euse prend son sens au 40, le ressenti des rangs et du camp (37), la réparation
+automatique qui trahit l'issue d'une vague regardée en direct (36) et le temps mort du début
+de la Pierre (31).
 
 ## Règles transverses à retenir
 
@@ -98,6 +99,11 @@ du début de la Pierre (31).
   recalculer. Une nouvelle unité, arme ou règle de combat va dans `data/units.ts` / `battle/` ;
   le pronostic joue trois batailles d'essai (en cache), `waveAhead` en donne la partie bon
   marché (skill `kiwar-battle`).
+- **Fer et équipement** (chantier 38) : le fer météorique est un stock à part
+  (`state.meteorIron`, unités brutes entières) ; tout ce qui se paie en fer passe par
+  `LevelDef.iron`, `TechDef.iron`, `payIron` / `addIron` et se rembourse jusqu'au plafond ; un
+  débit cumulé dans `accrue` se calcule dans `computeFlows` (début de l'intervalle). Une
+  nouvelle classe prend une famille d'arme dans `CLASS_FAMILY` (skill `kiwar-forge`).
 - **Planètes** : elles ont une place fixe (`render/space.ts`) ; `renderer.setTwinApproach(t)`
   rapproche la jumelle (skill `kiwar-world`).
 

@@ -1,5 +1,6 @@
 import { nextMonumentDust } from './sky';
 import {
+  buildLock,
   applyCommand,
   buildCost,
   canAfford,
@@ -86,7 +87,9 @@ export function labDecision(
   build: (type: BuildingType) => Command | null,
   has: (type: BuildingType) => boolean,
 ): Command | null {
-  if (techEffects(state).laboratory && !has('lab')) {
+  // Chantier 38: only once it can be built (the lab needs the Nest 7: an order that always
+  // failed froze the bot before the Nest's own upgrade).
+  if (techEffects(state).laboratory && !has('lab') && buildLock(state, 'lab') === null) {
     if (canAfford(state.resources, buildCost(state, 'lab'))) return build('lab');
   }
   // A stump costs a few meals (40 pulp): any colony can afford it (chantier 12: a 400 pulp

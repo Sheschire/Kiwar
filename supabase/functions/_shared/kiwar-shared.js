@@ -426,21 +426,22 @@ var IRON = {
   wreck: 3,
   /** Anti-blocking guarantee: never longer than this without a fall. */
   guaranteeMs: ms.h(72),
-  /** Iron paid by building levels 7+ (index = level; turrets and the monument have their own). */
+  /**
+   * Iron paid by building levels 7+ (index = level; turrets and the monument have their own).
+   * The launchpad's levels 7+ pay the iron hull, then the jet, of the ship generations.
+   */
   levels: [0, 0, 0, 0, 0, 0, 0, 4, 6, 9, 14, 20, 28],
   /** Iron paid by turret levels 3+ (index = level). */
   turret: [0, 0, 0, 2, 2, 3, 3, 4, 5, 6, 8, 10, 12],
   /** Iron of the levels with their own number (the monument's ages, the Iron levels of the
    * camp and the Forge; index = level). */
   own: {
-    monument: [0, 0, 30, 80],
+    monument: [0, 0, 30, 60],
     trainingCamp: [0, 0, 0, 6],
     forge: [0, 0, 0, 8],
     lab: [0, 0, 0, 0],
     camp: [0, 0]
-  },
-  /** Iron spent by each launch of the iron and jet ships (rivets, a new hull plate). */
-  ship: { wood: 0, logs: 0, iron: 2, jet: 3 }
+  }
 };
 var IRON_SCALE = 1e3 * 36e5;
 function ironUnits(raw) {
@@ -9051,9 +9052,6 @@ function shipOf(state) {
   const tech = techEffects(state);
   return { ...ship, armor: ship.armor + tech.armor, recon: ship.recon + tech.recon };
 }
-function launchIron(state) {
-  return IRON.ship[shipOf(state).id] ?? 0;
-}
 function shipReliability(ship, crew, fuel = false) {
   const dex = Math.max(KIWI.stat.average, ...crew.map((v) => v.stats.dexterity));
   const mend = Math.min(SHIP_REPAIR.max, SHIP_REPAIR.perDexterity * (dex - KIWI.stat.average));
@@ -11542,7 +11540,6 @@ function execute(s, cmd, ctx, events) {
       };
       if (!canAfford(s.resources, need)) fail("notEnoughResources");
       if (cmd.fuel) payStardust(s, FUEL.stardust);
-      payIron(s, launchIron(s));
       pay(s, fee);
       launch(s, cmd, now, nextId(s, "x"));
       return;
@@ -18339,7 +18336,6 @@ export {
   landTileNear,
   launch,
   launchCost,
-  launchIron,
   launchpadOf,
   layoutBuilding,
   layoutSnapshot,

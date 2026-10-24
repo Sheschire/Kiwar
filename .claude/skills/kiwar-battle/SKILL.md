@@ -139,6 +139,13 @@ the landings on the twin (chantier 40).
   rampart tile within level-1 range), switches the posture to bold while a ground gate stays
   open, reads `waveAhead` for ammo and turrets and the full forecast only when it may shelter.
 
+## Chantier 38 (gear, skill `kiwar-forge`)
+
+`kiwiUnit` applies `gearEffect(v)`: a guard's weapon multiplies its damage (the militia still
+pecks), the armour multiplies hit points and adds armour (cap 0.6), heavy armour slows;
+`guardPower` follows (× damage × √hp) so `waveAhead` and the automatic garrison agree with the
+battle. The unit card reads the gear from the colony (`UnitGear`), the show draws the armour.
+
 ## Chantier 40 (landings)
 
 Reuse the engine with the attackers as side 1 = our crew and the aliens' buildings as side 0

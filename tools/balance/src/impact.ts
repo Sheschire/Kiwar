@@ -29,6 +29,7 @@ const NAMES: Record<Mechanic, string> = {
   camps: 'without camps',
   expeditions: 'without expeditions',
   classes: 'without the classes of chantier 37',
+  forge: 'without the Forge of chantier 38',
 };
 const variants: { label: string; without: Mechanic[] }[] = [
   { label: 'full bot', without: [] },

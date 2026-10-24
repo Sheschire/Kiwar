@@ -105,7 +105,6 @@ import {
   isLaunchpadBusy,
   launch,
   launchpadOf,
-  launchIron,
   maxCrew,
   minCrew,
   shipCargo,
@@ -827,7 +826,6 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       };
       if (!canAfford(s.resources, need)) fail('notEnoughResources');
       if (cmd.fuel) payStardust(s, FUEL.stardust);
-      payIron(s, launchIron(s));
       pay(s, fee);
       launch(s, cmd, now, nextId(s, 'x'));
       return;

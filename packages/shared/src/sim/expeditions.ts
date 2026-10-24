@@ -1,4 +1,3 @@
-import { IRON } from '../data/iron';
 import { returnGear } from './forge';
 import { FUEL } from '../data/comets';
 import { COLONY } from '../data/colonies';
@@ -141,11 +140,6 @@ export function shipOf(state: GameState): ShipDef {
   const ship = SHIPS[shipIdForAge(ageOf(state))];
   const tech = techEffects(state);
   return { ...ship, armor: ship.armor + tech.armor, recon: ship.recon + tech.recon };
-}
-
-/** Chantier 38: whole units of meteoric iron each launch of the colony's ship spends. */
-export function launchIron(state: GameState): number {
-  return IRON.ship[shipOf(state).id] ?? 0;
 }
 
 /** Ship reliability, mended on the way by the crew's best Dexterity. */

@@ -7,6 +7,29 @@ les cueilleur·euses minent les cratères).
 **Skills à charger** : `kiwar-rpg`, `kiwar-battle`, `kiwar-threats` (météorites), `kiwar-ages`
 (+ `kiwar-sky` comme modèle de ressource à part, `kiwar-balance` à la fin).
 
+## État : fait (octobre 2026)
+
+Réalisé en cinq parties (commits « Chantier 38 (part 1…5) ») ; détails et chiffres dans
+`DECISIONS.md` (chantier 38), savoir-faire dans le nouveau skill `kiwar-forge`.
+
+- Réponses du porteur au début du chantier : une **armurerie commune** et une tâche automatique
+  « Équipement » (désactivable, équipement à la main depuis la fiche du kiwi) ; des **armes par
+  famille** de classes (lames, masses, frondes et arcs, bâtons et instruments) ; **le joueur
+  commande** à la Forge, l'automatisation y place les forgeron·nes.
+- Fait : fer météorique (stock à part, plafond par Nid, cratères et épaves, garantie de
+  chute) ; Forge (technologie, file, forgeron·nes), 18 pièces en trois paliers, armurerie, deux
+  emplacements, effet en bataille et dans le pronostic ; coûts en fer (niveaux 7+, monuments,
+  tourelles 3+, armure, machines, armes à feu ; la coque des vaisseaux passe par les niveaux
+  7+ de la rampe) ; client
+  (compteur, fiche de la Forge, section Équipement, cratères de fer, équipement visible, son
+  d'enclume) ; bot (mécanique `forge`).
+- Choix faits en route : l'automatisation n'envoie qu'**un kiwi sur quatre** aux cratères (le
+  fer y est toujours, une petite colonie y envoyait tout le monde) ; le **vaisseau** se paie par
+  les niveaux 7+ de la rampe (un coût par vol mangeait tout le fer) ; le monument de
+  l'Industrie coûte 60 fer ; un kiwi mort au village rend son équipement.
+- Laissé : la perte de l'équipement sur la jumelle (40) ; le ressenti du combat équipé et des
+  prix « à tester » avec le porteur.
+
 ## Intention du porteur
 
 - « Bâtiment **Forge** pour construire des **armes plus fortes, et des armures**. Recherches

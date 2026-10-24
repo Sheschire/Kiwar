@@ -195,6 +195,21 @@ The probe (`probe.ts`) places its launchpad with `bestTile`.
   shots by turret, falls) — escaping scouts and bats, and turrets that fire twice, were the
   causes found in chantier 36.
 
+## Chantier 38: the Forge and iron
+
+Mechanic `forge` (`bot/forge.ts`, `--impact` "without the Forge"): the Forge after the camp,
+then an order per game hour for the fighters (best open tier, the next monument's iron kept,
+twice the price in stock). `upgradeOk` waits for a level's iron and keeps `ironReserve`
+(the monument's, the Nest's and the Library's next iron, except for those three: see
+`kiwar-forge`), `labDecision` checks `buildLock`, `ageDecision` skips a tech
+whose iron is missing (a command that always fails freezes the bot). The bot test's timeout
+is 180 s (two 24 h runs take ~95 s on a slow machine). Reference (`--seeds 2 --hours 72`,
+19 min): faces within 3.6 %, Stone ≈ 13 h, Iron ≈ 2.5–2.8 d; 13-day probes Industry 8.7–9.0 d.
+On a slow machine the full `--ages 4 --impact 2` exceeds the 2 h limit of a background task:
+run the pieces (`src/ages.ts --seeds 1 --days 10 --biomes X` per biome with `nohup`, a
+scratch `runBot` probe saving `JSON.stringify(state)` at a given hour to replay `decide`).
+Never `pkill -f` a pattern in your own command line (it kills the shell).
+
 ## Chantier 37: classes
 
 Mechanic `classes` (`bot/rpg.ts`: gatherers, mages, the camp, drills, promotions; `--impact`

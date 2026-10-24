@@ -65,6 +65,7 @@ import {
   canFeedOneMore,
 } from './bot/economy';
 import { rpgDecision } from './bot/rpg';
+import { forgeBuildDecision, forgeOrder } from './bot/forge';
 import { cometOrders } from './bot/sky';
 import { titanOrders, labDecision } from './bot/titans';
 import { siegeOrder } from './bot/siege';
@@ -276,6 +277,13 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
     else play.pathsAt = state.now + HOUR_MS;
   }
 
+  // Chantier 38: pieces for the fighters (no construction queue), looked at once per game hour.
+  if (play.forge && state.now >= play.forgeAt) {
+    const piece = forgeOrder(state);
+    if (piece) cmds.push(piece);
+    else play.forgeAt = state.now + HOUR_MS;
+  }
+
   const queueRoom = state.queue.length < (nestDef(state).queueSize ?? 1);
   if (!queueRoom) return cmds;
 
@@ -331,6 +339,12 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
   const ages = ageDecision(state, map, build, has);
   if (ages === 'save') return cmds;
   if (ages) return [...cmds, ages];
+
+  // 2c''. Chantier 38: the Forge once its technology is known.
+  if (play.forge) {
+    const forge = forgeBuildDecision(state, build, has);
+    if (forge) return [...cmds, forge];
+  }
 
   // 2c'. Chantier 18: a launchpad once the Library stands.
   if (play.expeditions) {
@@ -457,12 +471,13 @@ function checkMilestones(
 }
 
 /** Mechanics the bot can be told to leave aside, to measure what each one brings. */
-export const MECHANICS = ['paths', 'camps', 'expeditions', 'classes'] as const;
+export const MECHANICS = ['paths', 'camps', 'expeditions', 'classes', 'forge'] as const;
 export type Mechanic = (typeof MECHANICS)[number];
 export interface Play extends Record<Mechanic, boolean> {
-  /** Next look at the paths and at the expeditions. */
+  /** Next look at the paths, the expeditions and the Forge's orders. */
   pathsAt: number;
   expeditionsAt: number;
+  forgeAt: number;
   /** Chantier 19: the bot besieges the twin and founds the second colony. */
   siege: boolean;
   siegeAt: number;
@@ -508,6 +523,7 @@ export function runBot(opts: RunOptions): RunResult {
     >),
     pathsAt: 0,
     expeditionsAt: 0,
+    forgeAt: 0,
     siege: !opts.noSiege,
     siegeAt: 0,
     prepared: !opts.sessionEveryMs,

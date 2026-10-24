@@ -1,4 +1,6 @@
 import {
+  meteorIronOf,
+  PASSAGE_TECHS,
   BUILDINGS,
   buildingAt,
   buildingRates,
@@ -157,9 +159,42 @@ export interface Site {
 }
 
 /** The next level exists in this age and the Nest allows it. */
+/**
+ * Chantier 38: the meteoric iron kept for the next monument level — through the Stone age
+ * (the Iron monument is the age's goal) and from the research of a passage on.
+ */
+export function monumentIron(state: GameState): number {
+  const age = ageOf(state);
+  const passage = PASSAGE_TECHS[age + 1];
+  const known =
+    !!passage && (state.research.done.includes(passage) || state.research.current === passage);
+  if (age !== 1 && !known) return 0;
+  const monument = state.buildings.find((x) => x.type === 'monument');
+  return levelDef('monument', (monument?.level ?? 0) + 1)?.iron ?? 0;
+}
+
+/**
+ * Iron a level must leave in stock: the monument, the Nest and the Library take what they
+ * need (the monument waits for the Nest, the passages for the Library: reserving the
+ * monument's iron there held the Nest 9 the Industry monument needs); anything else leaves
+ * the next monument's and the next Nest and Library levels' (turrets 3+ had eaten the iron
+ * of the Nest 7, hence of the Library 7 that the Industry passage needs).
+ */
+export function ironReserve(state: GameState, b: Building): number {
+  if (b.type === 'monument' || b.type === 'nest' || b.type === 'library') return 0;
+  const monument = monumentIron(state);
+  const next = (type: BuildingType) => {
+    const x = state.buildings.find((y) => y.type === type);
+    return x ? (levelDef(type, x.level + 1)?.iron ?? 0) : 0;
+  };
+  return monument + next('nest') + next('library');
+}
+
 export function upgradeOk(state: GameState, b: Building): boolean {
   const def = levelDef(b.type, b.level + 1);
   if (!def || (def.requiresAge ?? 0) > ageOf(state)) return false;
+  // Chantier 38: levels 7+ wait for their meteoric iron and leave what the ages need.
+  if (def.iron && meteorIronOf(state) - def.iron < ironReserve(state, b)) return false;
   return b.type === 'nest' || nest(state).level >= def.requiresNestLevel;
 }
 

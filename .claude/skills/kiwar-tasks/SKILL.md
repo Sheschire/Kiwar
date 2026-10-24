@@ -85,6 +85,15 @@ but can switch any automatism off to optimise by hand".
   `grossRates` / `productionRates` (and the client's `perState`) include the craters.
 - `jobBoard(state).meteors` (Posts tab line "Meteorite").
 
+## Chantier 38 (skill `kiwar-forge`)
+
+- Tasks `forge` (`fillForge`: smiths by `forgePower`, lent, level `research` like the Library;
+  back when the queue empties) and `equip` (`equipGear`, last in `dispatchTasks`; the weapon
+  of another line goes back even in manual mode).
+- Craters: `craterWorth` (iron with room, or the resource below its cap) replaces "stock > 0";
+  `releaseFullCraters(state)` releases the craters no longer worth it; the automation sends at
+  most `METEORS.autoShare` (a quarter) of the colony to the craters.
+
 ## Commands
 
 `setAutomation { task, on }`, `assignBuilder { queueItemId, villagerId }` (manual builder;

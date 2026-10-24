@@ -1437,11 +1437,10 @@ export const en = {
   },
   iron: {
     name: 'Meteoric iron',
-    tip: 'Dug from the meteorite craters (and smashed wrecks), kept apart from the storage (at most {cap}, more with the Nest). It pays for iron and steel gear, levels 7+, the Iron and Industry monuments, turrets 3+, a few technologies and each flight of the iron ship.',
+    tip: 'Dug from the meteorite craters (and smashed wrecks), kept apart from the storage (at most {cap}, more with the Nest). It pays for iron and steel gear, levels 7+, the Iron and Industry monuments, turrets 3+ and a few technologies.',
     perHour: '+{rate}/h being dug',
     full: 'The meteoric iron stock is full: the miners go back to work.',
     wreck: '+{iron} meteoric iron from the wreck.',
-    launch: 'Each flight of this ship spends {iron} meteoric iron.',
   },
   forge: {
     title: 'Forge',

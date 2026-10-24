@@ -1,4 +1,6 @@
 import {
+  meteorIronOf,
+  TECHS,
   applyCommand,
   buildCost,
   buildingCount,
@@ -27,6 +29,7 @@ export const TECH_ORDER: TechId[] = [
   'foraging',
   'stoneAge',
   'masonry',
+  'forge',
   'ironAge',
   'smelting',
   'juiceInfusion',
@@ -72,12 +75,11 @@ export function ageDecision(
   // Chantier 19: a sister colony's research is chosen at home.
   if (!state.research.current && !isSister(state)) {
     const bankFull = state.research.points >= researchBank(state);
+    // Chantier 38: a technology paid in meteoric iron waits for it.
+    const open = (id: TechId) =>
+      techStatus(state, id) === 'available' && (TECHS[id].iron ?? 0) <= meteorIronOf(state);
     const next =
-      wanted && techStatus(state, wanted) === 'available'
-        ? wanted
-        : bankFull
-          ? TECH_ORDER.find((id) => techStatus(state, id) === 'available')
-          : undefined;
+      wanted && open(wanted) ? wanted : bankFull ? TECH_ORDER.find((id) => open(id)) : undefined;
     if (next) return { type: 'setResearch', tech: next };
   }
   // A Library level the next wanted technology needs, or (chantier 18) one that follows the Nest

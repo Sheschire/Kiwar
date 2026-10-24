@@ -10,6 +10,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 38** — les météorites apportent surtout du **fer météorique**, un stock à part dont
+> le plafond suit le Nid (les épaves fracassées en donnent aussi, et il en tombe au moins une
+> tous les 3 jours). À l'âge de pierre, la technologie « Forge » ouvre la **Forge** : on y
+> commande des **armes** (lames, masses, frondes et arcs, bâtons et instruments, chacune pour sa
+> lignée de classes) et des **armures** légères ou lourdes, de bois et de pierre, puis de fer et
+> d'acier. Les forgeron·nes (Force et Dextérité) viennent d'eux-mêmes, et l'armurerie équipe
+> d'abord les gardes ; on voit l'équipement sur les kiwis et il compte en bataille. Le fer paie
+> aussi les niveaux 7 et plus, les monuments du Fer et de l'Industrie, les tourelles de
+> niveau 3 et plus (et la coque des vaisseaux de fer) et quelques technologies.
+
 > **Chantier 37** — **chaque stat a sa classe** : bâtisseur·euse (Force), éclaireur·euse
 > (Agilité, dague), guerrier·ère (Endurance, répare 50 % plus vite), mage (Esprit, recherche
 > 50 % plus vite), **cueilleur·euse** (Dextérité, récolte 30 % de plus) et **barde** (Charisme,

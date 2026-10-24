@@ -257,6 +257,11 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   show); a tap picks a battle unit before a tile; `KiwisView.setHidden`,
   `BuildingsView.maskDamaged`. See `kiwar-battle`.
 
+- **Chantier 38 (forge, skill `kiwar-forge`)**: `IronChip`, `ForgeInfo`, `GearSection`,
+  `render/models/forge.ts` (+ `forgeYard` in `spread.ts`), iron craters (`IRON_GLOW`,
+  `SHARDS` in `meteors.ts`), gear parts in `kiwiRig.ts` (`KiwiDraw.weapon` / `armor`), `?kiwis`
+  gear cells. `.icon` is `display: block`: inside a paragraph give it an inline rule.
+
 ## Performance (chantier 10)
 
 - **The UI store is the usual suspect.** The controller emits a new `game` and `now` 5 times

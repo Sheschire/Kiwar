@@ -20,7 +20,7 @@ d'acceptation et les **skills à charger**. La direction d'ensemble est dans le
 | 35  | [Bâtiments sur plusieurs tuiles](35-batiments-multi-tuiles.md) — **fait**                  | 30, 33    | non                   |
 | 36  | [Moteur de bataille : les vagues jouées pour de vrai](36-moteur-de-bataille.md) — **fait** | 34, 35    | non                   |
 | 37  | [Classes, rôles de combat, camp d’entraînement](37-classes-roles-camp.md) — **fait**       | 36        | non                   |
-| 38  | [Forge, équipement et fer météorique](38-forge-equipement-fer.md)                          | 37        | non                   |
+| 38  | [Forge, équipement et fer météorique](38-forge-equipement-fer.md) — **fait**               | 37        | non                   |
 | 39  | [La civilisation alien](39-civilisation-alien.md)                                          | 36        | non                   |
 | 40  | [Le débarquement](40-debarquement.md)                                                      | 39        | non                   |
 | 41  | [La bataille en direct sur la jumelle](41-bataille-en-direct.md)                           | 40        | avec 43 (prudence)    |

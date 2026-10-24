@@ -11,6 +11,16 @@
 
 ## Des chantiers précédents
 
+- Chantier 38 : le bot ouvre beaucoup de nouveaux sites (jusqu'à 16 ateliers de fibre) pendant
+  l'âge du Fer, ses niveaux 7+ attendant le fer ; ses décisions coûtent ~0,3 s à 200 h (sites
+  cherchés à chaque tour) : les sondes longues sont lentes. Il économise pour le monument sans
+  relancer une production à sec (une toundra à 0 jus a attendu le Fer jusqu'à 102 h). Le
+  piège des tourelles 3+ qui mangent le fer du monument existe aussi pour le joueur : à
+  surveiller (« à tester »). `accrueResearch` lit encore son débit dans `accrue`, après la
+  faim (cas latent, voir `kiwar-sim`). Les mesures de ce chantier n'ont tenu qu'en morceaux
+  (la mesure complète `--ages 4 --impact 2` dépasse 2 h sur cette machine) : pas d'impact
+  « sans la Forge » mesuré.
+
 - Chantier 35 : la flèche « améliorable » des badges ignore un bâtiment « à l'étroit » ; un
   kiwi envoyé au centre muré du monument y va en ligne droite ; une tuile couverte qui
   s'inonde n'est pas re-vérifiée ; rotation au pouce à confirmer sur un vrai téléphone.

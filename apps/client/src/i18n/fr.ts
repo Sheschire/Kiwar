@@ -1514,11 +1514,10 @@ export const fr: Dict = {
   },
   iron: {
     name: 'Fer météorique',
-    tip: 'Extrait des cratères de météorite (et des épaves fracassées), gardé à part des stocks (au plus {cap}, plus avec le Nid). Il paie l’équipement de fer et d’acier, les niveaux 7 et plus, les monuments du Fer et de l’Industrie, les tourelles de niveau 3 et plus, quelques technologies et chaque vol du vaisseau de fer.',
+    tip: 'Extrait des cratères de météorite (et des épaves fracassées), gardé à part des stocks (au plus {cap}, plus avec le Nid). Il paie l’équipement de fer et d’acier, les niveaux 7 et plus, les monuments du Fer et de l’Industrie, les tourelles de niveau 3 et plus et quelques technologies.',
     perHour: '+{rate}/h en extraction',
     full: 'La réserve de fer météorique est pleine : les mineur·euses retournent au travail.',
     wreck: '+{iron} fer météorique tiré de l’épave.',
-    launch: 'Chaque vol de ce vaisseau dépense {iron} fer météorique.',
   },
   forge: {
     title: 'Forge',

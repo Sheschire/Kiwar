@@ -2378,3 +2378,104 @@ launch cost applies to **every mission but the founding**; the bot's dead time a
   worse where the harvest saturates — at the cap 63 % (highlands), 41 % (lagoons), 32 %
   (tundra), dead time up to 180 min — the gatherers harvest 30 % more than the bot spends.
   Not retuned in this chantier; 4 seeds per biome only (noisy).
+
+## Chantier 38 — Forge, gear and meteoric iron
+
+Owner's answers at the start (October 2026), on top of the chantier document's decisions:
+
+- **Armory + automation**: the Forge fills a shared armory; a new automatic task "Gear"
+  (switchable) hands the best pieces out, guards first, then the strongest kiwis; the player
+  can equip or take off a piece by hand from the kiwi sheet (that kiwi is then left alone).
+- **Weapons by family**: blades (warrior and scout lines: Champion, Paladin, Navigator), maces
+  (builder line, Titan, Engineer), slings and bows (gatherer line, Ranger), staves and
+  instruments (mage and bard lines, Druid, Oracle). The mayor and kiwis without a class carry
+  no weapon. A kiwi who takes another line gives its weapon back to the armory.
+- **The player orders**: nothing is forged without an order; the price is paid at the order
+  and refunded on cancel (or when the Forge is demolished). The smiths are borrowed by the
+  automation (Strength + Dexterity) like the researchers.
+
+### Part 1 — Meteoric iron
+
+- A separate stock (`state.meteorIron`, raw integer units like the stardust), capped by the
+  Nest: 20 / 20 / 30 / 40 / 60 / 90 / 120 / 160 / 220 / 300 / 400 / 500 / 600 (Nest 0–12).
+  Not looted, not carried, not refunded by demolition. The counter shows once a meteorite fell.
+- A crater holds 12 iron (× the age factor 1 / 1.3 / 1.7 / 2.2 × Star iron) plus 20 % of
+  its old gift (seeds, juice or fiber); an average kiwi digs 0.2 iron an hour with the
+  crater's usual multipliers (walk to the depot, hour and season, drill, Dexterity and the
+  gatherers' harvest bonus). The rate is an integer read when the interval starts (the hunger
+  stage changed at the end of an interval broke "one big step = small steps" when read later).
+- A crater is worked while it has iron and the iron stock has room, or some of its resource
+  below the storage cap (`craterWorth`). **New guard rail**: the automation sends at most one
+  kiwi in four to the craters (`METEORS.autoShare`): with iron always there, a small colony
+  sent everybody mining instead of harvesting food.
+- Smashing a wreck gives 3 iron (× the age factor). No-blocking guarantee: falls come every
+  18–30 h and a crowded colony still gets its meteorite on any free tile (it used to burn up),
+  so never more than 72 h without one (test).
+- Craters do not attract predators (default of the old chantier 28, unchanged).
+
+### Part 2 — The Forge and the gear
+
+- Technology `forge` (Stone age, defense, 250 points, Library 2) opens the Forge: one per
+  colony, three tiles, levels Stone / Stone / Iron (Nest 4 / 5 / 7), 2 / 3 / 4 smiths, a
+  queue of 2 / 3 / 4 orders, speed × 1 / 1.2 / 1.45.
+- Tiers: wood and stone (`forge`), iron (`smelting` for weapons, `armor` for armours), steel
+  (`firearms` for weapons, `machines` for armours). Weapons multiply damage × 1.25 / 1.5 /
+  1.8; light armours hit points × 1.15 / 1.3 / 1.45; heavy ones × 1.3 / 1.55 / 1.8, armour
+  +5 / 10 / 15 %, speed × 0.85. Prices: stone pieces ~300 pulp, 400 fiber, 150 seeds, 1 h;
+  iron pieces fiber, seeds or juice + 5–8 iron, 2 h; steel 1 500 seeds + 10–15 iron, 3 h (an
+  average smith at a level-1 Forge).
+- In battle a guard strikes with its weapon (the militia still pecks); armour counts for
+  everybody. `guardPower` takes the gear too, so the cheap forecast and the automatic
+  garrison see what the battle will do.
+- A kiwi who dies at home gives its gear back to the armory (on the twin, chantier 40 will
+  lose it). A kiwi away (expedition, outpost) keeps its gear.
+- Smiths practise the handiwork mastery (`build`).
+
+### Part 3 — What iron pays for
+
+- Building levels 7+: 4 / 6 / 9 (Iron), 14 / 20 / 28 (Industry); the monument 30 (Iron age)
+  and 60 (Industry age); turrets from level 3: 2 → 12; the Iron levels of the training camp
+  (6) and of the Forge (8). Refunded on cancel. Test: no level costs more iron than the cap
+  of the Nest it needs.
+- Technologies: armour 10, machines 20, firearms 25 (paid when chosen, refunded if abandoned).
+- **Ship**: the generations still follow the age; their iron is paid by the launchpad's levels
+  7+ (the iron hull, then the jet). A first try charged 2–3 iron per flight: the bot's
+  reconnaissances and raids then spent nearly all the iron income (part 5), dropped.
+
+### Part 4 — Client
+
+- Iron chip in the top bar (and on phones), `Cost` with iron, the Forge's sheet (queue,
+  catalogue by family and tier with effects, armory), a Gear section in the kiwi sheet, the
+  gear on the battle unit card, iron craters glowing blue-white with metal shards, gear drawn
+  on the kiwis (vest or breastplate by tier, the weapon on the back; armour in the battle
+  show), anvil sound `forge.item`, toasts and offline lines.
+- Model of the Forge (Stone, Iron at level 3): a lean-to over the hearth and its chimney, the
+  anvil outside with a falling hammer throwing sparks, a quench barrel, a rack; the coal pile
+  and the meteoric iron heap on its two other tiles.
+
+### Part 5 — Bot, balance
+
+- Bot (mechanic `forge`): `forge` researched after masonry, the Forge after the training
+  camp, then once per game hour an order for the fighters (a weapon of its line and an armour
+  per classed kiwi, the best open tier, never the next monument's iron, twice the price in
+  stock). The automation equips them.
+- Iron traps found by the long probes, fixed in the bot (the rules stay): the turrets 3+ ate
+  the Iron monument's 30 iron (the Iron age never came), then the Nest 7 iron (hence the
+  Library 7 the Industry passage needs); reserving the monument's iron on the Nest held the
+  Nest 9 the Industry monument needs. Now `ironReserve`: the monument, Nest and Library take
+  what they need; anything else leaves the next monument's iron (Stone age, and from the
+  research of a passage on) plus the next Nest and Library levels'. A latent bot bug surfaced
+  too: the lab was ordered before the Nest 7 allowed it (an order that always failed froze
+  the bot) — `labDecision` checks `buildLock`.
+- Retuned in this part: **no iron per flight** (2–3 per flight of the iron ship drained the
+  income: the bot flies several times a day); the Industry monument **60 iron** (was 80:
+  ~3 days of Iron-age falls).
+- Measured (`--seeds 2 --hours 72`, 18.7 min): Kiwisu / Kiwino within 3.6 %; tutorial 1.3 h,
+  Nest 3 ≈ 4.4 h, Library ≈ 4.5 h, mayor ≈ 14 h, Stone ≈ 13 h, **Iron ≈ 2.5–2.8 days**, no
+  predator death; "Population 10" (lagoons +15 %) and "Nest 3" (orchard −12.8 %) beyond ±10 %
+  on 2 seeds (before any iron). Ages probes (1 seed, 10 days): Iron 61–73 h in five biomes,
+  tundra 102 h (a juice shortage, not iron); 13 days: Industry 208 h (orchard) and 217 h
+  (tundra), i.e. 8.7–9.0 days (target 10 days; 8.7–9.2 before this chantier).
+- ⚠️ To test with the owner: the feel of equipped fights and the piece prices; whether 30 / 60
+  iron for the monuments and the turrets 3+ eating the same iron is a fair trade-off for a
+  player (no reserve shown in the UI).
