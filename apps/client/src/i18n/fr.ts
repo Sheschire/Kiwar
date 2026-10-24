@@ -1211,42 +1211,13 @@ export const fr: Dict = {
       'Le vaisseau est tombé en panne et a fait demi-tour à mi-chemin. L’équipage est sauf, les provisions mangées, l’aire d’envol est à réparer.',
   },
   recon: {
-    mission: 'Mission',
-    kinds: { recon: 'Reconnaissance', raid: 'Raid' },
     hints: {
-      recon:
-        '1 ou 2 kiwis discrets : pas de combat recherché, pas de butin. Ils cartographient une partie de la face et estiment sa garnison. L’Agilité et l’Esprit donnent de meilleurs rapports.',
-      raid: 'Affronter la garnison et rapporter du butin. Reconnaître d’abord pour savoir à quoi s’attendre.',
-      assault:
-        'Prendre un secteur extérieur de la jumelle. À la victoire, les kiwis choisis restent sur place et tiennent la tête de pont (nourris sur vos stocks).',
-      reinforce:
-        'Amener des kiwis sur une tête de pont et en ramener d’autres. Pas de combat. Une tête de pont vidée est abandonnée.',
-      final:
-        'L’assaut contre la reine des furets. Tous les kiwis postés sur les têtes de pont se joignent à l’équipage. Il faut tenir tête au sol et dans les airs.',
-      retreat: 'Les survivant·es d’une tête de pont tombée rentrent.',
       land: 'Débarquer sur une parcelle de la face et combattre sa garnison, selon les ordres donnés au départ.',
-      found:
-        'Les colons s’installent pour de bon sur la face conquise, avec la cargaison : la seconde colonie naît à l’atterrissage. Le vaisseau revient à vide.',
     },
-    launch: 'Envoyer les éclaireurs',
-    spotChance: 'Repérage {pct} %',
-    quality: 'Rapport : {quality} · jusqu’à {sectors} secteurs · ±{spread} %',
-    qualities: { sharp: 'précis', fair: 'correct', rough: 'approximatif' },
     mapLabel: 'carte {seen}/{total}',
     dens: 'terriers de furets',
     roosts: 'perchoirs de chauves-souris',
-    enemies: 'Furets {ferrets} · chauves-souris {bats}',
-    spottedShort: 'éclaireurs repérés',
-    reportTitle: 'Reconnaissance',
-    reportSeen: '{count} nouveau(x) secteur(s) cartographié(s). Défense {defense}.',
-    reportSpotted: 'Repérés par les sentinelles : une escarmouche, et un rapport plus hâtif.',
-    reportQuiet: 'Personne ne les a vus.',
-    injured: '{names} rentre blessé·e.',
     done: 'Reconnaissance',
-    bestScouts: 'Meilleurs éclaireurs',
-    stealth: 'Agilité + Esprit {value}',
-    toastLanded: 'Les éclaireurs observent la face adverse.',
-    toastSpotted: 'Les éclaireurs ont été repérés !',
   },
   expedition: {
     title: 'Expédition',

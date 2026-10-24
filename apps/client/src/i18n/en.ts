@@ -1137,42 +1137,13 @@ export const en = {
       'The ship broke down on the way and turned back half-way. The crew is safe, the provisions eaten, the launchpad needs repairs.',
   },
   recon: {
-    mission: 'Mission',
-    kinds: { recon: 'Reconnaissance', raid: 'Raid' },
     hints: {
-      recon:
-        '1 or 2 discreet kiwis: no fight sought, no loot. They map part of the face and estimate its garrison. Agility and Spirit make better reports.',
-      raid: 'Fight the garrison and bring back loot. Scout first to know what you are up against.',
-      assault:
-        'Take an outer sector of the twin. If you win, the chosen kiwis stay there and hold the bridgehead (fed from your stocks).',
-      reinforce:
-        'Bring kiwis to a bridgehead and bring others home. No fight. A bridgehead left empty is abandoned.',
-      final:
-        'The assault on the ferret queen. Every kiwi posted on a bridgehead joins the crew. You must match her on the ground and in the air.',
-      retreat: 'The survivors of a fallen bridgehead fly home.',
       land: 'Land on a parcel of the face and fight its garrison, by the orders given before leaving.',
-      found:
-        'The settlers move to the conquered face for good, with the freight: the second colony is born at the landing. The ship flies back empty.',
     },
-    launch: 'Send the scouts',
-    spotChance: 'Spotted {pct} %',
-    quality: 'Report: {quality} · up to {sectors} sectors · ±{spread} %',
-    qualities: { sharp: 'sharp', fair: 'fair', rough: 'rough' },
     mapLabel: 'map {seen}/{total}',
     dens: 'ferret dens',
     roosts: 'bat roosts',
-    enemies: 'Ferrets {ferrets} · bats {bats}',
-    spottedShort: 'scouts were spotted',
-    reportTitle: 'Reconnaissance',
-    reportSeen: '{count} new sector(s) mapped. Defense {defense}.',
-    reportSpotted: 'Spotted by the sentries: a skirmish, and a hastier report.',
-    reportQuiet: 'Nobody saw them.',
-    injured: '{names} came back wounded.',
     done: 'Reconnaissance',
-    bestScouts: 'Best scouts',
-    stealth: 'Agility + Spirit {value}',
-    toastLanded: 'The scouts are surveying the alien face.',
-    toastSpotted: 'The scouts have been spotted!',
   },
   expedition: {
     title: 'Expedition',
