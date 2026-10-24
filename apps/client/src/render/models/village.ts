@@ -25,7 +25,7 @@ export function campfire(): Parts {
   // The fire.
   rig(p, 'fire', [0, 0.04, 0], { kind: 'flicker', amount: 0.28, speed: 9, ambient: true });
   p.push([cone(6), C.roof, m(0, 0.17, 0, 0.13, 0.3, 0.13), 'fire']);
-  p.push([cone(5), C.flagGold, m(0, 0.14, 0, 0.085, 0.22, 0.085), 'fire']);
+  p.push([cone(5), C.fire, m(0, 0.14, 0, 0.085, 0.22, 0.085), 'fire']);
   emitter(p, { kind: 'spark', at: [0, 0.22, 0], rate: 3, ambient: true });
   emitter(p, { kind: 'smoke', at: [0, 0.32, 0], rate: 0.6, ambient: true });
   // Three log benches around it (along the circle).

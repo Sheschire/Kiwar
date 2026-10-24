@@ -193,8 +193,10 @@ export class WeatherView {
    * first sync of the buildings) the Nest and the huts glow.
    */
   sync(state: GameState, lit: ReadonlySet<string> | null): void {
-    const glowing = state.buildings.filter((b) =>
-      lit ? lit.has(b.id) : b.type === 'nest' || b.type === 'hut',
+    const glowing = state.buildings.filter(
+      (b) =>
+        // Chantier 43: a campfire always glows at night.
+        b.type === 'campfire' || (lit ? lit.has(b.id) : b.type === 'nest' || b.type === 'hut'),
     );
     const sig = glowing.map((b) => `${b.q},${b.r},${b.level}`).join(';');
     if (sig === this.glowSig) return;
@@ -205,7 +207,8 @@ export class WeatherView {
       const tile = getTile(this.map, b);
       const p = worldPosition(b);
       const s = new Sprite(this.glowMaterial);
-      const big = b.type === 'nest' ? 1.6 : b.type === 'hut' ? 1 : 0.85;
+      const big =
+        b.type === 'nest' ? 1.6 : b.type === 'hut' ? 1 : b.type === 'campfire' ? 0.6 : 0.85;
       s.position.set(p.x, (tile?.height ?? 0) + 0.7 * big, p.z);
       s.scale.setScalar(2.2 * big);
       s.renderOrder = 6;

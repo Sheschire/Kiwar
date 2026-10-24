@@ -37,6 +37,10 @@ import {
   type SectorId,
   occupancy,
   footprintTiles,
+  calendarAt,
+  hexDistance,
+  LEISURE,
+  suppedTonight,
   type Building,
 } from '@kiwar/shared';
 import { findPath } from './pathfinding';
@@ -246,6 +250,8 @@ export class KiwisView {
   private readonly roles = new Map<VillagerId, string>();
   /** Chantier 43: each listener's place in the crowd before the Town Hall during a speech. */
   private readonly crowd = new Map<VillagerId, number>();
+  /** Chantier 43: who sits at which campfire tonight, and its place in the circle. */
+  private readonly campers = new Map<VillagerId, { fire: Hex; place: number; count: number }>();
   /** Guard posts by sector, rebuilt when the turrets change. */
   private readonly posts = new Map<string, { point: Vector3; face: number }[]>();
   private turretsKey = '';
@@ -314,6 +320,7 @@ export class KiwisView {
         );
       }
     }
+    this.assignCampers(state);
     this.crowd.clear();
     if (state.speech.until > state.now)
       state.villagers
@@ -583,6 +590,7 @@ export class KiwisView {
   /** Decides what an agent does next, according to its villager's job. */
   private think(agent: Agent, villager: Villager): void {
     if (this.thinkSpeech(agent, villager)) return;
+    if (this.thinkVigil(agent, villager)) return;
     if (this.thinkRest(agent, villager)) return;
     const job = villager.job;
     const role = this.roles.get(villager.id) ?? '';
@@ -756,6 +764,82 @@ export class KiwisView {
           ? 'clap'
           : 'listen';
       this.settle(agent, 'idle', clip, agent.rng.range(2.5, 6));
+    }
+    return true;
+  }
+
+  /**
+   * Chantier 43: in the first half of the night, the kiwis who supped at a campfire sit in a
+   * circle around it — eating from the basket, singing, clapping, dancing — then go to bed.
+   */
+  private assignCampers(state: GameState): void {
+    this.campers.clear();
+    const fires = state.buildings.filter((b) => b.type === 'campfire');
+    if (fires.length === 0) return;
+    const c = calendarAt(state.calendarStart, state.now);
+    if (!c.night || state.now > c.nightAt + (c.dawnAt - c.nightAt) / 2) return;
+    const radius = LEISURE.campfire?.radius ?? 0;
+    const beds = bedsOf(state);
+    const circles = new Map<Building, VillagerId[]>();
+    for (const v of state.villagers) {
+      if (!suppedTonight(state, v) || v.job.kind === 'injured' || v.job.kind === 'guard') continue;
+      const hutId = beds.get(v.id)?.buildingId;
+      const hut = hutId ? state.buildings.find((b) => b.id === hutId) : undefined;
+      if (!hut) continue;
+      let best: Building | null = null;
+      for (const f of fires) {
+        const d = hexDistance(f, hut);
+        if (d <= radius && (!best || d < hexDistance(best, hut))) best = f;
+      }
+      if (!best) continue;
+      const list = circles.get(best) ?? [];
+      list.push(v.id);
+      circles.set(best, list);
+    }
+    for (const [fire, ids] of circles) {
+      ids.sort((a, b) => a.localeCompare(b));
+      ids.forEach((id, place) =>
+        this.campers.set(id, { fire: { q: fire.q, r: fire.r }, place, count: ids.length }),
+      );
+    }
+  }
+
+  private thinkVigil(agent: Agent, villager: Villager): boolean {
+    const seat = this.campers.get(villager.id);
+    if (!seat) return false;
+    // Two rings when the circle is crowded.
+    const inner = Math.min(seat.count, 8);
+    const ring = seat.place < inner ? 0 : 1;
+    const n = ring ? seat.count - inner : inner;
+    const k = ring ? seat.place - inner : seat.place;
+    const angle = (k / Math.max(1, n)) * Math.PI * 2 + ring * 0.4;
+    const sig = `vigil:${seat.fire.q},${seat.fire.r}:${seat.place}:${seat.count}`;
+    if (agent.plan !== sig) {
+      agent.plan = sig;
+      agent.carrying = null;
+      agent.leg = 'none';
+      agent.inside = false;
+      this.leavePartner(agent);
+      this.walkToPoint(agent, this.around(seat.fire, angle, 0.78 + ring * 0.4));
+      agent.face = angle + Math.PI;
+      return true;
+    }
+    const arrived = agent.activity === 'walk' && agent.path.length === 0;
+    if (arrived || (agent.activity !== 'walk' && agent.timer <= 0)) {
+      const roll = agent.rng.next();
+      const clip: ClipId =
+        roll < 0.3
+          ? 'eat'
+          : roll < 0.5
+            ? 'sing'
+            : roll < 0.65
+              ? 'clap'
+              : roll < 0.75
+                ? 'dance'
+                : roll < 0.85
+                  ? 'joy'
+                  : 'sit';
+      this.settle(agent, 'idle', clip, agent.rng.range(3, 7));
     }
     return true;
   }
