@@ -70,6 +70,7 @@ import { forgeBuildDecision, forgeOrder } from './bot/forge';
 import { cometOrders } from './bot/sky';
 import { titanOrders, labDecision } from './bot/titans';
 import { siegeOrder } from './bot/siege';
+import { beaconOrder, finalOrder } from './bot/beacons';
 import { linkOrder } from './bot/colonies';
 
 export const MILESTONES = [
@@ -91,7 +92,8 @@ export const MILESTONES = [
   'glimpse',
   'landingWon',
   'centreWon',
-  // Chantier 19: the conquest (chantier 42) and the second colony.
+  // Chantier 42: the queen out of the depths (12 beacons), the conquest; then the second colony.
+  'queenOut',
   'conquest',
   'founded',
   'sisterNest3',
@@ -135,6 +137,11 @@ export interface RunResult {
     shipsLost?: number;
     expeditionDeaths?: number;
     loot?: number;
+    /** Chantier 42: final battles fought, attacks on our beacons, those held, guards lost. */
+    finals?: number;
+    beaconAttacks?: number;
+    beaconsHeld?: number;
+    guardDeaths?: number;
     /** Chantier 19: kiwis of the second colony at the end. */
     sisterKiwis?: number;
     /**
@@ -227,6 +234,12 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
     const siege = siegeOrder(state, map);
     if (siege) cmds.push(siege);
     else play.siegeAt = state.now + HOUR_MS / 2;
+  }
+
+  // Chantier 42: the defence of the beacons and the final battle come before new landings.
+  if (play.expeditions && !besieging) {
+    const defend = beaconOrder(state, map) ?? finalOrder(state, map);
+    if (defend) cmds.push(defend);
   }
 
   // Chantier 18: reconnaissance and raids (before the Kikiwiwi goes back to the rampart).
@@ -450,6 +463,7 @@ function checkMilestones(
     state.buildings.some((b) => b.type === 'library'),
   );
   set('conquest', state.siege.conqueredAt > 0);
+  set('queenOut', !!state.faceViews[twinTarget(state)?.id ?? '']?.queen);
   set('stone', ageOf(state) >= 1);
   set('iron', ageOf(state) >= 2);
   set('industry', ageOf(state) >= 3);
@@ -546,7 +560,9 @@ export function runBot(opts: RunOptions): RunResult {
   let waveLoot = 0;
   let dustPicked = 0;
   let campsSet = 0;
-  const trips = { landings: 0, landingsWon: 0, retreats: 0, shipsLost: 0, loot: 0 };
+  const trips = { landings: 0, landingsWon: 0, retreats: 0, shipsLost: 0, loot: 0, finals: 0 };
+  // Chantier 42: attacks on the beacons (held, fallen, guards lost).
+  const attacks = { total: 0, held: 0, dead: 0 };
   const counted = new Set<string>();
   // Chantier 30: dead time, time at the cap, production lost to full reserves.
   const DAY_MS = 24 * HOUR_MS;
@@ -568,6 +584,11 @@ export function runBot(opts: RunOptions): RunResult {
     const stepped = advance(state, now);
     state = stepped.state;
     for (const e of stepped.events) {
+      if (e.type === 'beaconAttacked') {
+        attacks.total++;
+        if (e.held) attacks.held++;
+        attacks.dead += e.dead;
+      }
       // Chantier 30: an age is dated by its event (an occasional player sees it at the next
       // visit, but it happened while away).
       if (e.type === 'ageReached') {
@@ -588,6 +609,7 @@ export function runBot(opts: RunOptions): RunResult {
     for (const e of state.expeditions) {
       if (e.status !== 'done' || counted.has(e.id) || !e.result) continue;
       counted.add(e.id);
+      if (e.mission === 'final' && !e.result.aborted) trips.finals++;
       if (e.result.aborted || e.mission !== 'land') continue;
       trips.landings++;
       if (times.glimpse === null && e.result.outcome !== 'defeat')
@@ -733,6 +755,9 @@ export function runBot(opts: RunOptions): RunResult {
       paths: state.paths.length,
       camps: campsSet,
       ...trips,
+      beaconAttacks: attacks.total,
+      beaconsHeld: attacks.held,
+      guardDeaths: attacks.dead,
       sisterKiwis: sister?.villagers.length,
       expeditionDeaths: state.memorial.filter(
         (m) => m.cause === 'battle' || m.cause === 'starvation',

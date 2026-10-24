@@ -31,6 +31,7 @@ import { tileTopColor } from '../../render/terrain';
 import { buildTimeline, hpAt, placeAt, shownAt } from '../../render/battle/timeline';
 import { useT, useUi, type Translate } from '../store';
 import { targetFaceMap } from './IntelMap';
+import { BeaconDefense } from './BeaconParts';
 
 /**
  * Chantier 40: the landing screen's pieces. The 12 parcels of an alien face (beacons, glimpses,
@@ -170,6 +171,7 @@ export function LandingMap(props: {
             'siege-wedge',
             outer ? 'is-outer' : 'is-inner',
             lit.has(sector) ? 'is-held' : '',
+            face.attack?.announced && face.attack.sector === sector ? 'is-threatened' : '',
             props.selected === sector ? 'is-selected' : '',
             props.onSelect ? 'is-clickable' : '',
           ].join(' ');
@@ -244,7 +246,13 @@ export function UnitList({ units }: { units: readonly AlienUnit[] }) {
 }
 
 /** What we know of one parcel: its freshness, age, garrison, units and buildings. */
-export function ParcelPanel(props: { game: GameState; target: ExpeditionTarget; sector: number }) {
+export function ParcelPanel(props: {
+  game: GameState;
+  target: ExpeditionTarget;
+  sector: number;
+  /** Chantier 42: inside the planner (the beacon's defence shows no buttons). */
+  planning?: boolean;
+}) {
   const t = useT();
   const lang = useUi((s) => s.lang);
   const now = useUi((s) => s.slowNow);
@@ -300,12 +308,25 @@ export function ParcelPanel(props: { game: GameState; target: ExpeditionTarget; 
           {list ? t('landing.buildings', { list }) : t('landing.noBuildings')}
         </p>
       )}
+      {beacon && (
+        <BeaconDefense
+          game={props.game}
+          target={props.target}
+          sector={props.sector}
+          planning={props.planning}
+        />
+      )}
     </section>
   );
 }
 
 /** Orders given before leaving: posture, priority, retreat threshold, burn or loot. */
-export function OrdersPicker(props: { orders: LandingOrders; onChange(o: LandingOrders): void }) {
+export function OrdersPicker(props: {
+  orders: LandingOrders;
+  onChange(o: LandingOrders): void;
+  /** Chantier 42: a beacon's guard (posture and retreat only). */
+  guard?: boolean;
+}) {
   const t = useT();
   const o = props.orders;
   const set = (patch: Partial<LandingOrders>) => props.onChange({ ...o, ...patch });
@@ -313,7 +334,7 @@ export function OrdersPicker(props: { orders: LandingOrders; onChange(o: Landing
   return (
     <section class="field landing-orders">
       <h3>{t('landing.orders')}</h3>
-      <p class="small muted">{t('landing.ordersHint')}</p>
+      <p class="small muted">{t(props.guard ? 'beacons.ordersHint' : 'landing.ordersHint')}</p>
       <div class="segmented" role="group" aria-label={t('landing.orders')}>
         {POSTURES.map((p) => (
           <button
@@ -326,7 +347,7 @@ export function OrdersPicker(props: { orders: LandingOrders; onChange(o: Landing
           </button>
         ))}
       </div>
-      <label class="small order-row">
+      <label class="small order-row" hidden={props.guard}>
         <span>{t('landing.priority')}</span>
         <select
           value={o.priority}
@@ -358,19 +379,21 @@ export function OrdersPicker(props: { orders: LandingOrders; onChange(o: Landing
         />
       </label>
       <p class="small muted">{t('landing.retreatHint')}</p>
-      <div class="segmented" role="group" aria-label={t('landing.goal.burn')}>
-        {LANDING_GOALS.map((g) => (
-          <button
-            key={g}
-            class={`btn btn-small ${o.goal === g ? 'btn-active' : ''}`}
-            aria-pressed={o.goal === g}
-            onClick={() => set({ goal: g })}
-          >
-            {t(`landing.goal.${g}`)}
-          </button>
-        ))}
-      </div>
-      <p class="small muted">{t(`landing.goalHints.${o.goal}`)}</p>
+      {!props.guard && (
+        <div class="segmented" role="group" aria-label={t('landing.goal.burn')}>
+          {LANDING_GOALS.map((g) => (
+            <button
+              key={g}
+              class={`btn btn-small ${o.goal === g ? 'btn-active' : ''}`}
+              aria-pressed={o.goal === g}
+              onClick={() => set({ goal: g })}
+            >
+              {t(`landing.goal.${g}`)}
+            </button>
+          ))}
+        </div>
+      )}
+      {!props.guard && <p class="small muted">{t(`landing.goalHints.${o.goal}`)}</p>}
     </section>
   );
 }
@@ -450,7 +473,8 @@ export function BestiaryList({ game }: { game: GameState }) {
  * 41 plays the others in 3D on the twin): kiwis in green, aliens in red (bats as triangles),
  * buildings as grey squares; health shown by size.
  */
-export function LandingReplay({ log }: { log: BattleLog }) {
+/** Chantier 42: `ours` is our side in the journal (0 for the defence of a beacon). */
+export function LandingReplay({ log, ours = 1 }: { log: BattleLog; ours?: 0 | 1 }) {
   const t = useT();
   const timeline = useMemo(() => buildTimeline(log), [log]);
   const [time, setTime] = useState(0);
@@ -488,7 +512,7 @@ export function LandingReplay({ log }: { log: BattleLog }) {
     w: Math.max(...xs) - Math.min(...xs) + 2 * pad,
     h: Math.max(...ys) - Math.min(...ys) + 2 * pad,
   };
-  const ship = log.units.find((u) => u[1] === 1);
+  const ship = ours === 1 ? log.units.find((u) => u[1] === 1) : undefined;
   const shipAt = ship ? hexToPixel({ q: ship[8], r: ship[9] }) : null;
   return (
     <section class="field landing-replay">
@@ -529,7 +553,7 @@ export function LandingReplay({ log }: { log: BattleLog }) {
           const hp = hpAt(track, time) / Math.max(1e-6, track.maxHp);
           const down = track.end !== null && time >= track.end && track.endKind === 'fall';
           const r = 0.25 + 0.3 * Math.max(0, hp);
-          const cls = `replay-unit ${track.side === 1 ? 'ours' : 'theirs'} ${down ? 'down' : ''}`;
+          const cls = `replay-unit ${track.side === ours ? 'ours' : 'theirs'} ${down ? 'down' : ''}`;
           return track.unit[2] === 'bat' ? (
             <path
               key={track.index}

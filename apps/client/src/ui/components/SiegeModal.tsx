@@ -1,14 +1,77 @@
-import { COLONY, foundLock, otherFace, twinTarget, type GameState } from '@kiwar/shared';
+import { useState } from 'preact/hooks';
+import {
+  COLONY,
+  faceViewOf,
+  foundLock,
+  INTEL,
+  otherFace,
+  twinTarget,
+  type ExpeditionTarget,
+  type GameState,
+} from '@kiwar/shared';
 import { actions } from '../actions';
 import { uiStore, useT, useUi } from '../store';
+import { AttackLine, BeaconReports, QueenPanel } from './BeaconParts';
+import { LandingMap, ParcelPanel } from './LandingParts';
 import { Modal } from './Modal';
 
 /**
- * Chantier 19, after chantier 40: the siege screen keeps only the conquered face and the
- * settlers' ship (the landing replaced the siege; the conquest returns with chantier 42).
+ * Chantier 42: the conquest of the twin face — our beacons and their defence, the next attack,
+ * the queen and her final battle; once she falls, the settlers' ship and the second colony
+ * (chantier 19). Shown once a beacon shines on the twin.
  */
 export function siegeVisible(game: GameState): boolean {
-  return !!twinTarget(game) && game.siege.conqueredAt > 0;
+  const twin = twinTarget(game);
+  if (!twin) return false;
+  return game.siege.conqueredAt > 0 || faceViewOf(game, twin.id).beacons.length > 0;
+}
+
+/** An attack is announced on one of the twin's beacons (the top bar's warning). */
+export function attackAnnounced(game: GameState): boolean {
+  const twin = twinTarget(game);
+  const a = twin ? faceViewOf(game, twin.id).attack : null;
+  return !!a?.announced && game.siege.conqueredAt === 0;
+}
+
+function ConquestSection({ game, target }: { game: GameState; target: ExpeditionTarget }) {
+  const t = useT();
+  const face = faceViewOf(game, target.id);
+  const announced = face.attack?.announced ? face.attack.sector : null;
+  const [sector, setSector] = useState<number>(
+    () => announced ?? face.beacons[0]?.sector ?? INTEL.sectors / 2,
+  );
+  return (
+    <>
+      <p class="small">{t('conquest.intro')}</p>
+      <section class="field">
+        <div class="title-row">
+          <h3>{t('conquest.beacons', { count: face.beacons.length, total: INTEL.sectors })}</h3>
+        </div>
+        <AttackLine game={game} target={target} />
+        <div class="landing-layout">
+          <LandingMap
+            game={game}
+            target={target}
+            selected={sector}
+            onSelect={setSector}
+            size={230}
+          />
+          <ParcelPanel game={game} target={target} sector={sector} />
+        </div>
+        <div class="row">
+          <button
+            class="btn btn-small"
+            onClick={() => actions.planSiege({ mission: 'land', targetId: target.id, sector })}
+            disabled={face.beacons.some((b) => b.sector === sector)}
+          >
+            {t('conquest.land')}
+          </button>
+        </div>
+      </section>
+      <QueenPanel game={game} target={target} />
+      <BeaconReports game={game} target={target} />
+    </>
+  );
 }
 
 /** Chantier 19: after the queen's fall, the settlers' ship and then the sister colony. */
@@ -53,9 +116,14 @@ export function SiegeModal() {
   const game = useUi((s) => s.slowGame);
   if (!game) return null;
   const close = () => uiStore.setState({ modal: 'none' });
+  const twin = twinTarget(game);
   return (
     <Modal title={t('siege.title')} onClose={close} class="modal-wide siege-modal">
-      {game.siege.conqueredAt > 0 && <FoundSection game={game} />}
+      {game.siege.conqueredAt > 0 ? (
+        <FoundSection game={game} />
+      ) : (
+        twin && <ConquestSection game={game} target={twin} />
+      )}
     </Modal>
   );
 }

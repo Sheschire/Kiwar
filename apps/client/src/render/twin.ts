@@ -40,6 +40,7 @@ import {
   type AlienBuildingKind,
 } from '@kiwar/shared';
 import { alienGeometry } from './models/alien';
+import { CreatureRig, restCreaturePose } from './anim/creatures';
 import { buildingGeometry } from './buildingModels';
 import { WaterView } from './water';
 import { PALETTE } from './palette';
@@ -90,7 +91,15 @@ export interface TwinOptions {
   intel?: TwinIntel | null;
   /** Our beacons (flags; chantier 19's bridgeheads), and whether the queen fell (no aliens left). */
   siege?: { heads: { sector: number; fortified: boolean }[]; conquered: boolean } | null;
+  /** Chantier 42: the ferret queen is out, at the centre of the face. */
+  queen?: boolean;
 }
+
+/** Chantier 42: seconds of the queen's rise out of the depths. */
+const QUEEN_RISE_S = 4.5;
+
+/** Chantier 42: size of the queen drawn on the twin (world units of a creature's scale). */
+const QUEEN_SCALE = 5;
 
 /** Fog layers over the twin surface (local heights). */
 const FOG_LAYERS = [1.2, 1.9, 2.6];
@@ -135,7 +144,7 @@ export class TwinView {
   fading = false;
 
   private structureGeometries: BufferGeometry[] = [];
-  private structureMaterials: MeshStandardMaterial[] = [];
+  private structureMaterials: (MeshStandardMaterial | MeshBasicMaterial)[] = [];
   /** Chantier 41: the glowing kiwis of our beacons (they bob and glow). */
   private readonly beaconKiwis: Group[] = [];
   /** Beacons by parcel, and when each was planted on screen (a pop). */
@@ -225,6 +234,7 @@ export class TwinView {
     else if (opts.intel && !opts.siege?.conquered) this.showVillage(map, opts.intel.village);
     if (!opts.friend && opts.siege?.heads.length)
       this.showBeacons(map, opts.siege.heads, opts.intel?.village ?? []);
+    if (!opts.friend && opts.queen && !opts.siege?.conquered) this.showQueen(map);
     this.far = farDisc(map, radius, opts.fog);
     this.spin.add(this.far);
     this.near.push(this.terrain.tiles, ...this.fog);
@@ -273,6 +283,16 @@ export class TwinView {
     }
     this.spin.rotation.y = this.angle;
     this.fogMaterial.uniforms.uTime!.value = time;
+    if (this.queen && this.queen.rise < 1) {
+      // Chantier 42: she climbs out of the depths, the ground trembling around her.
+      const q = this.queen;
+      q.rise = Math.min(1, q.rise + dt / QUEEN_RISE_S);
+      const k = 1 - (1 - q.rise) ** 3;
+      q.group.position.y = q.base - (1 - k) * 2.6;
+      q.hole.scale.setScalar(0.4 + 0.8 * Math.min(1, q.rise * 2));
+      q.group.rotation.y = q.yaw + Math.sin(time * 30) * 0.04 * (1 - q.rise);
+      this.fading = true;
+    }
     for (const b of this.beacons.values()) {
       if (b.pop >= 1) continue;
       // A beacon just planted springs up.
@@ -356,6 +376,18 @@ export class TwinView {
    * Chantier 41: hides the beacon of a parcel (a landing on show plants it later), or plants
    * it with a pop.
    */
+  /** Chantier 42: plays the queen's rise (false when she is not drawn). */
+  riseQueen(): boolean {
+    if (!this.queen) return false;
+    this.queen.rise = 0;
+    this.queen.group.position.y = this.queen.base - 2.6;
+    return true;
+  }
+
+  get hasQueen(): boolean {
+    return this.queen !== null;
+  }
+
   setBeaconHidden(sector: number, hidden: boolean): void {
     const b = this.beacons.get(sector);
     if (!b) return;
@@ -452,6 +484,75 @@ export class TwinView {
    * Chantier 41: a beacon on each parcel we hold — a glowing kiwi on a pole, planted where the
    * ship landed (gold, on a low wall, once fortified: chantier 19).
    */
+  private queen: {
+    group: Group;
+    hole: Mesh;
+    rig: CreatureRig;
+    base: number;
+    yaw: number;
+    rise: number;
+  } | null = null;
+
+  /** Chantier 42: the ferret queen at the centre of the face, crowned, above her opened lair. */
+  private showQueen(map: FaceMap): void {
+    const tile = getTile(map, { q: 0, r: 0 });
+    if (!tile) return;
+    const rig = new CreatureRig(1);
+    const group = new Group();
+    const yaw = 0.6;
+    rig.draw({
+      kind: 'ferret',
+      x: 0,
+      y: 0,
+      z: 0,
+      heading: 0,
+      scale: QUEEN_SCALE,
+      pose: restCreaturePose(),
+      age: 3,
+    });
+    rig.end();
+    const crownGeometry = new CylinderGeometry(0.32, 0.38, 0.28, 8, 1, true);
+    const spike = new ConeGeometry(0.08, 0.26, 4);
+    const gold = new MeshStandardMaterial({
+      color: 0xf2c14e,
+      emissive: 0x6b4a00,
+      metalness: 0.6,
+      roughness: 0.35,
+      flatShading: true,
+      side: DoubleSide,
+      fog: false,
+    });
+    const crown = new Group();
+    crown.add(new Mesh(crownGeometry, gold));
+    for (let i = 0; i < 5; i++) {
+      const s = new Mesh(spike, gold);
+      const a = (i / 5) * Math.PI * 2;
+      s.position.set(Math.cos(a) * 0.33, 0.24, Math.sin(a) * 0.33);
+      crown.add(s);
+    }
+    // Over her head (the ferret's head stands forward of its body).
+    crown.position.set(0, QUEEN_SCALE * 0.62, QUEEN_SCALE * 0.42);
+    crown.scale.setScalar(QUEEN_SCALE / 2.2);
+    const holeGeometry = new CircleGeometry(1.9, 18).rotateX(-Math.PI / 2);
+    const dark = new MeshBasicMaterial({ color: 0x1c1012, transparent: true, opacity: 0.7 });
+    const hole = new Mesh(holeGeometry, dark);
+    hole.position.set(0, tile.height + 0.03, 0);
+    group.add(rig.group, crown);
+    group.rotation.y = yaw;
+    const base = tile.height;
+    group.position.set(0, base, 0);
+    this.structureGeometries.push(crownGeometry, spike, holeGeometry);
+    this.structureMaterials.push(gold, dark);
+    this.queenRig = rig;
+    this.queen = { group, hole, rig, base, yaw, rise: 1 };
+    const holder = new Group();
+    holder.add(group, hole);
+    this.terrain.group.add(holder);
+    this.near.push(holder);
+  }
+
+  private queenRig: CreatureRig | null = null;
+
   private showBeacons(
     map: FaceMap,
     heads: { sector: number; fortified: boolean }[],
@@ -607,6 +708,7 @@ export class TwinView {
     for (const g of this.structureGeometries) g.dispose();
     for (const m of this.structureMaterials) m.dispose();
     this.beaconAura?.dispose();
+    this.queenRig?.dispose();
     this.fogMaterial.dispose();
   }
 }

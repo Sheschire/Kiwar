@@ -57,7 +57,8 @@ export const INFORMATIVE: ReadonlySet<Milestone> = new Set([
   'glimpse',
   'landingWon',
   'centreWon',
-  // Chantier 19: the conquest (back with chantier 42) and the second colony.
+  // Chantier 42: the queen and the conquest; chantier 19: the second colony.
+  'queenOut',
   'conquest',
   'founded',
   'sisterNest3',
@@ -119,6 +120,7 @@ export const LABELS: Record<Milestone, string> = {
   glimpse: 'First landing back (a glimpse)',
   landingWon: 'First landing won (a beacon)',
   centreWon: 'First beacon in the centre',
+  queenOut: 'The queen out (12 beacons)',
   conquest: 'Twin face conquered',
   founded: 'Second colony founded',
   sisterNest3: 'Second colony: Nest level 3',

@@ -51,9 +51,11 @@ export type Modal =
 
 /** A planner opened on a mission: the settlers' ship, or a landing on a given parcel (chantier 40). */
 export interface SiegePlan {
-  mission: 'land' | 'found';
+  /** Chantier 42: also a guard for a beacon (`bringBack`: guards to relieve) and the queen. */
+  mission: 'land' | 'found' | 'guard' | 'final';
   sector?: number;
   targetId?: string;
+  bringBack?: string[];
 }
 
 export interface UiState {

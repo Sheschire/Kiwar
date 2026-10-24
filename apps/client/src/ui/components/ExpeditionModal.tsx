@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'preact/hooks';
 import {
   availableCrew,
+  beaconForecast,
+  beaconOf,
   beaconsOf,
+  BEACONS,
   crewWeight,
   EXPEDITIONS,
   faceViewOf,
@@ -40,6 +43,7 @@ import { CivCard } from './CivCard';
 import { DeliveryPlanner } from './DeliveryPlanner';
 import { useJobLabel } from './VillageModal';
 import { LandingForecastLines, LandingMap, OrdersPicker, ParcelPanel } from './LandingParts';
+import { QueenPanel } from './BeaconParts';
 
 type PlanBase = Omit<ExpeditionPlan, 'provisions' | 'crew'> & {
   crew: VillagerId[];
@@ -201,6 +205,89 @@ function CrewPicker(props: {
   );
 }
 
+/** Chantier 42: the guards of a beacon the ship brings back home. */
+function BringBackPicker(props: {
+  game: GameState;
+  guards: readonly VillagerId[];
+  chosen: VillagerId[];
+  onChange(ids: VillagerId[]): void;
+}) {
+  const t = useT();
+  const on = new Set(props.chosen);
+  const guards = props.guards
+    .map((id) => props.game.villagers.find((v) => v.id === id))
+    .filter((v) => !!v);
+  return (
+    <section class="field">
+      <h3>{t('beacons.bringBackTitle')}</h3>
+      <p class="small muted">{t('beacons.bringBackHint')}</p>
+      <ul class="crew-list">
+        {guards.map((v) => (
+          <li key={v.id}>
+            <label class={`crew-row ${on.has(v.id) ? 'is-on' : ''}`}>
+              <input
+                type="checkbox"
+                checked={on.has(v.id)}
+                onChange={() =>
+                  props.onChange(
+                    on.has(v.id) ? props.chosen.filter((x) => x !== v.id) : [...props.chosen, v.id],
+                  )
+                }
+              />
+              <KiwiPortrait
+                shiny={v.shiny}
+                classId={v.classId}
+                titan={!!v.kikiwiwi}
+                seed={v.id}
+                size={34}
+              />
+              <span class="kiwi-row-main">
+                <span class="kiwi-row-name">
+                  {v.name}{' '}
+                  <span class="small muted">{t('common.levelShort', { level: v.level })}</span>
+                </span>
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Chantier 42: no fight on arrival; the announced attack against the guard to come. */
+function GuardForecast(props: {
+  game: GameState;
+  targetId: string;
+  sector: number;
+  crew: VillagerId[];
+  bringBack: VillagerId[];
+}) {
+  const t = useT();
+  const now = useUi((s) => s.slowNow);
+  const face = props.game.faceViews[props.targetId];
+  const b = beaconOf(props.game, props.targetId, props.sector);
+  const a = face?.attack;
+  const ids = [...(b?.guards ?? []).filter((id) => !props.bringBack.includes(id)), ...props.crew];
+  const guards = ids.map((id) => props.game.villagers.find((v) => v.id === id)).filter((v) => !!v);
+  const f =
+    a?.announced && a.sector === props.sector && a.origin !== null
+      ? beaconForecast(props.game, props.targetId, props.sector, a.origin, now, guards)
+      : null;
+  return (
+    <>
+      <p class="small">{t('beacons.noFight')}</p>
+      {f && !f.bare && (
+        <p class="small">
+          <span class={`odds odds-${f.odds}`}>{t(`beacons.odds.${f.odds}`)}</span>{' '}
+          {t('beacons.withGuard', { held: f.trials.filter(Boolean).length })}
+        </p>
+      )}
+      <p class="small muted">{t('beacons.guardRisk')}</p>
+    </>
+  );
+}
+
 export function targetLabel(t: Translate, target: ExpeditionTarget): string {
   const face = t(`faces.${target.face}`);
   return target.distance === 0
@@ -252,22 +339,38 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
   // Chantier 19: the settlers' ship is prepared from the colony screen; chantier 40: a
   // landing may come with its parcel (picked on the twin).
   const preset = useUi((s) => s.siegePlan);
-  const founding = preset?.mission === 'found';
-  const mission: MissionKind = founding ? 'found' : 'land';
+  // Chantier 42: a guard for a beacon, or the final battle against the queen.
+  const mission: MissionKind = preset?.mission ?? 'land';
+  const founding = mission === 'found';
+  const guarding = mission === 'guard';
+  const finale = mission === 'final';
   const twin = twinTarget(game);
   const [targetId, setTargetId] = useState(
-    (founding ? twin?.id : preset?.targetId) ??
+    (founding || finale ? twin?.id : preset?.targetId) ??
       game.targets.find((x) => !conquered(game, x))?.id ??
       '',
   );
   const [sector, setSector] = useState<number>(
     () => preset?.sector ?? defaultSector(game, targetId),
   );
-  const [orders, setOrders] = useState<LandingOrders>(() => ({ ...LANDING.defaultOrders }));
-  const max = pad ? maxCrew(game, pad, mission) : 0;
+  const [bringBack, setBringBack] = useState<VillagerId[]>(
+    () => (preset?.bringBack ?? []) as VillagerId[],
+  );
+  const beacon = guarding ? beaconOf(game, targetId, sector) : undefined;
+  const [orders, setOrders] = useState<LandingOrders>(() => ({
+    ...(beacon?.orders ?? LANDING.defaultOrders),
+  }));
+  const seats = pad ? maxCrew(game, pad, mission) : 0;
+  const max = guarding
+    ? Math.max(
+        0,
+        Math.min(seats, BEACONS.maxGuards - (beacon?.guards?.length ?? 0) + bringBack.length),
+      )
+    : seats;
   const target = game.targets.find((x) => x.id === targetId);
   const pick = () => {
-    const n = Math.min(6, max);
+    if (guarding && (preset?.bringBack?.length ?? 0) > 0) return [];
+    const n = Math.min(finale ? max : guarding ? 3 : 6, max);
     let titans = 0;
     return candidates(game)
       .filter((c) => !c.v.kikiwiwi || titans++ < 1)
@@ -275,7 +378,14 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
       .map((c) => c.v.id);
   };
   const [crew, setCrew] = useState<VillagerId[]>(pick);
-  const landing = (s = sector) => (founding ? {} : { sector: s, orders });
+  const landing = (s = sector) =>
+    founding
+      ? {}
+      : finale
+        ? { orders }
+        : guarding
+          ? { sector: s, orders, ...(bringBack.length > 0 ? { bringBack } : {}) }
+          : { sector: s, orders };
   const [food, setFood] = useState(() =>
     target
       ? suggestedProvisions(game, { launchpadId: padId, targetId, crew, mission, ...landing() })
@@ -320,10 +430,11 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
 
   return (
     <div class="expedition">
-      {!founding && (
+      {finale && <QueenPanel game={game} target={target} planning />}
+      {(mission === 'land' || guarding) && (
         <section class="field">
-          <p class="small muted">{t('recon.hints.land')}</p>
-          {targets.length > 1 && (
+          <p class="small muted">{t(guarding ? 'beacons.planHint' : 'recon.hints.land')}</p>
+          {targets.length > 1 && !guarding && (
             <div class="targets">
               {targets.map((x) => (
                 <button
@@ -361,7 +472,9 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
               target={target}
               selected={sector}
               onSelect={(s) => {
+                if (guarding && !beaconOf(game, targetId, s)) return;
                 setSector(s);
+                if (guarding) setBringBack([]);
                 setFood(
                   suggestedProvisions(game, {
                     launchpadId: padId,
@@ -374,7 +487,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
               }}
               size={230}
             />
-            <ParcelPanel game={game} target={target} sector={sector} />
+            <ParcelPanel game={game} target={target} sector={sector} planning={guarding} />
           </div>
           <div class="row">
             <button class="btn btn-small" onClick={() => uiStore.setState({ bestiaryOpen: true })}>
@@ -383,7 +496,15 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
           </div>
         </section>
       )}
-      {target.distance === 0 && !founding && <CivCard game={game} />}
+      {target.distance === 0 && mission === 'land' && <CivCard game={game} />}
+      {guarding && (beacon?.guards?.length ?? 0) > 0 && (
+        <BringBackPicker
+          game={game}
+          guards={beacon!.guards!}
+          chosen={bringBack}
+          onChange={setBringBack}
+        />
+      )}
 
       <section class="field">
         <div class="title-row">
@@ -395,7 +516,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
         <CrewPicker game={game} crew={crew} max={max} risk={f.risk} onChange={setCrewAndFood} />
       </section>
 
-      {!founding && <OrdersPicker orders={orders} onChange={setOrders} />}
+      {!founding && <OrdersPicker orders={orders} onChange={setOrders} guard={guarding} />}
 
       {founding && (
         <FreightPicker
@@ -441,7 +562,9 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
       <section class="forecast">
         <div class="title-row">
           <span class="small">{t('expedition.cargo', { used: fmt(f.weight), max: f.cargo })}</span>
-          {!founding && <span class={`odds odds-${f.odds}`}>{t(`expedition.odds.${f.odds}`)}</span>}
+          {!founding && !guarding && (
+            <span class={`odds odds-${f.odds}`}>{t(`expedition.odds.${f.odds}`)}</span>
+          )}
         </div>
         <div class={`cargo-bar ${f.weight > f.cargo ? 'overloaded' : ''}`} aria-hidden="true">
           <span class="seg-crew" style={{ width: pct(kiwisWeight) }} />
@@ -454,7 +577,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
           <span>
             <i class="dot seg-food" /> {t('expedition.cargoFood')} {fmt(foodWeight)}
           </span>
-          {!founding && (
+          {!founding && !guarding && (
             <span>
               <i class="dot seg-loot" /> {t('expedition.cargoLoot')} {fmt(f.lootRoom)}
             </span>
@@ -482,6 +605,14 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
         )}
         {founding ? (
           <p class="small">{t('colony.noFight')}</p>
+        ) : guarding ? (
+          <GuardForecast
+            game={game}
+            targetId={targetId}
+            sector={sector}
+            crew={crew}
+            bringBack={bringBack}
+          />
         ) : (
           f.landing && <LandingForecastLines forecast={f.landing} crew={f.crew} game={game} />
         )}
@@ -522,8 +653,17 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
             uiStore.setState({ modal: 'none', expeditionPad: null, siegePlan: null });
         }}
       >
-        <ShipIcon size={20} /> {t(founding ? 'siege.launch.found' : 'landing.launch')} ·{' '}
-        {formatDuration(lang, f.travelMs * 2)}
+        <ShipIcon size={20} />{' '}
+        {t(
+          founding
+            ? 'siege.launch.found'
+            : guarding
+              ? 'beacons.launch'
+              : finale
+                ? 'queen.launch'
+                : 'landing.launch',
+        )}{' '}
+        · {formatDuration(lang, f.travelMs * 2)}
       </button>
       {error && <p class="small warn">{t(`errors.${error}`)}</p>}
     </div>
@@ -544,15 +684,24 @@ export function ExpeditionModal() {
     uiStore.setState({ modal: 'none', expeditionPad: null, deliverTo: null, siegePlan: null });
   const friends = game.friends.length > 0;
   const founding = preset?.mission === 'found';
+  const special = !!preset && preset.mission !== 'land';
   return (
     <Modal
       title={t(
-        founding ? 'siege.planTitle' : deliver && friends ? 'delivery.title' : 'landing.title',
+        founding
+          ? 'siege.planTitle'
+          : preset?.mission === 'guard'
+            ? 'beacons.planTitle'
+            : preset?.mission === 'final'
+              ? 'queen.planTitle'
+              : deliver && friends
+                ? 'delivery.title'
+                : 'landing.title',
       )}
       onClose={close}
       class="modal-wide"
     >
-      {friends && !founding && (
+      {friends && !special && (
         <div class="segmented mission-switch" role="group" aria-label={t('delivery.kind')}>
           {[false, true].map((d) => (
             <button
@@ -566,7 +715,7 @@ export function ExpeditionModal() {
           ))}
         </div>
       )}
-      {deliver && friends && !founding ? (
+      {deliver && friends && !special ? (
         <DeliveryPlanner game={game} padId={padId as BuildingId} initialFriend={deliverTo} />
       ) : (
         <Planner game={game} padId={padId as BuildingId} />

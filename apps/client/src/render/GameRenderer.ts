@@ -560,6 +560,15 @@ export class GameRenderer {
     this.twinApproachTarget = Math.min(1, Math.max(0, approach));
   }
 
+  /** Chantier 42: the queen's rise waits for the end of a landing on show. */
+  private queenRisePending = false;
+
+  /** Chantier 42: plays the short scene of the queen coming out of the twin's depths. */
+  playQueenRise(): void {
+    this.queenRisePending = true;
+    this.wake();
+  }
+
   /** The other players' colonies, far away (shared universes). */
   setAllies(allies: AllySnapshot[], myKiwi: number): void {
     this.allies.set(allies, myKiwi);
@@ -1277,7 +1286,8 @@ export class GameRenderer {
     // A beacon this landing planted waits for its moment.
     this.landingPlanted = !e.result.beacon;
     if (e.result.beacon) twin.setBeaconHidden(e.sector, true);
-    twin.setFog(e.sector, 'closed');
+    // Chantier 42: the queen's battle is fought in full view (every parcel is lit).
+    if (e.mission !== 'final') twin.setFog(e.sector, 'closed');
     this.battleClock = 0;
     const b = show.battle;
     this.callbacks.onBattleStart?.(b.source!, live, b.length);
@@ -1570,6 +1580,7 @@ export class GameRenderer {
       this.battle?.playing ||
       this.landing?.playing ||
       this.pendingShow ||
+      this.queenRisePending ||
       this.twin?.fading ||
       this.twinApproach !== this.twinApproachTarget
     )
@@ -1696,6 +1707,10 @@ export class GameRenderer {
       this.twin?.place(twinPlace(this.twinApproach));
     }
     this.allies.update(dt, this.elapsed, this.camera.position);
+    if (this.queenRisePending && this.twin && !this.landing?.playing) {
+      this.queenRisePending = false;
+      this.twin.riseQueen();
+    }
     this.twin?.update(dt, this.elapsed, this.camera.position, this.visiting === 'twin');
     this.followTwin();
     // The haze follows the zoom, so zooming out does not drown the colony in it.

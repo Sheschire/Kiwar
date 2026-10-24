@@ -162,8 +162,10 @@ function showTwin(state: GameState): void {
         })),
         conquered: state.siege.conqueredAt > 0,
       };
+  // Chantier 42: the queen out of the depths, at the centre.
+  const queen = !f && !!view?.queen && state.siege.conqueredAt === 0;
   const flags = siege
-    ? `${siege.heads.map((h) => `${h.sector}${h.fortified ? '+' : ''}`).join('.')}/${siege.conquered}`
+    ? `${siege.heads.map((h) => `${h.sector}${h.fortified ? '+' : ''}`).join('.')}/${siege.conquered}/${queen}`
     : '';
   const key = `${state.seed}|${twinFace}|${params.biome}|${f ? `${f.owner}@${f.at}` : 'fog'}|${seen}|${flags}`;
   if (key === twinKey) return;
@@ -175,6 +177,7 @@ function showTwin(state: GameState): void {
       friend: f,
       intel,
       siege,
+      queen,
     });
   } catch (e) {
     // The twin is scenery: a broken snapshot must never block the colony.

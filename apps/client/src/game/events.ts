@@ -3,8 +3,15 @@ import type { GameRenderer } from '../render/GameRenderer';
 import { pushToast, uiStore } from '../ui/store';
 import { isLiveWave } from '../ui/battleStore';
 import { holdOutcome } from './battleOutcome';
-import { holdLanding, LIVE_LANDING_MS, tellLanding, watchableTarget } from './landingWatch';
+import {
+  holdLanding,
+  LIVE_LANDING_MS,
+  tellLanding,
+  tellOutcome,
+  watchableTarget,
+} from './landingWatch';
 import { playGameEventSounds } from '../audio/sounds';
+import { actions } from '../ui/actions';
 import { friendName } from '../ui/components/DeliveryPlanner';
 import { formatDuration, formatNumber, translate } from '../i18n/i18n';
 
@@ -128,11 +135,11 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
           const fresh = Math.abs(s.now - e.at) < LIVE_LANDING_MS;
           if (fresh && exp && s.game && watchableTarget(s.game, exp) && s.visit === null) {
             tellLanding(s.landingInvite);
-            holdLanding(e.expeditionId, e.outcome);
+            holdLanding(e.expeditionId, e.outcome, e.mission ?? 'land');
             uiStore.setState({ landingInvite: e.expeditionId });
           } else
             // Chantier 40: how the landing ended.
-            pushToast(e.outcome === 'victory' ? 'success' : 'error', `landing.toast.${e.outcome}`);
+            tellOutcome(e.mission ?? 'land', e.outcome);
         } else
           pushToast(
             e.victory ? 'success' : 'error',
@@ -180,6 +187,15 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         else if (e.fought)
           pushToast('error', 'beacons.toast.fell', { name: sectorKey(e.sector), dead: e.dead });
         else pushToast('error', 'beacons.toast.fellBare', { name: sectorKey(e.sector) });
+        break;
+      case 'queenEmerged':
+        pushToast('error', 'queen.toast.out');
+        // Chantier 42: the short scene of her rise on the twin (after the landing on show).
+        if (Math.abs(uiStore.getState().now - e.at) < LIVE_LANDING_MS) {
+          if (!uiStore.getState().landingInvite && uiStore.getState().visit === null)
+            actions.travelTo('twin');
+          renderer.playQueenRise();
+        }
         break;
       case 'beaconFortified':
         pushToast('success', 'beacons.toast.fortified', { name: sectorKey(e.sector) });

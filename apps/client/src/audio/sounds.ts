@@ -93,7 +93,13 @@ export function playGameEventSounds(events: GameEvent[]): void {
         if (e.outcome) {
           const id = `landing.${e.outcome}` as const;
           window.setTimeout(() => audio.play(id), 1200);
+          // Chantier 42: the queen's fall rings out over the whole planet.
+          if (e.mission === 'final' && e.outcome === 'victory')
+            window.setTimeout(() => audio.play('siege.queen'), 2600);
         }
+        break;
+      case 'queenEmerged':
+        audio.play('siege.queen');
         break;
       case 'beaconAttackAnnounced':
         audio.play('siege.warning');

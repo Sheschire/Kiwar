@@ -44,7 +44,7 @@ import { actions } from '../actions';
 import { chatActions } from '../chatActions';
 import { setPanelOpen, uiStore, useT, useUi } from '../store';
 import { SyncBadge } from './SyncBadge';
-import { siegeVisible } from './SiegeModal';
+import { attackAnnounced, siegeVisible } from './SiegeModal';
 import { ColonySwitch } from './ColonySwitch';
 import { ClockChip, ClockTip } from './ClockChip';
 import { MoraleLine } from './NeedsWidgets';
@@ -313,6 +313,8 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
   const villageOpen = useUi((s) => s.modal === 'village');
   const modal = useUi((s) => s.modal);
   const siege = useUi((s) => (s.slowGame ? siegeVisible(s.slowGame) : false));
+  // Chantier 42: an attack announced on a beacon of the twin.
+  const alarm = useUi((s) => (s.slowGame ? attackAnnounced(s.slowGame) : false));
   const points = useUi((s) => s.game?.villagers.reduce((n, v) => n + v.statPoints, 0) ?? 0);
   const unassigned = useUi((s) => (s.game ? staffing(s.game).unassigned : 0));
   const freeSlots = useUi((s) => (s.game ? staffing(s.game).freeSlots : 0));
@@ -459,7 +461,7 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
           <ColonySwitch />
           {siege && (
             <button
-              class={`btn btn-icon parchment-btn ${modal === 'siege' ? 'btn-active' : ''}`}
+              class={`btn btn-icon parchment-btn ${modal === 'siege' ? 'btn-active' : ''} ${alarm ? 'has-alarm' : ''}`}
               aria-label={t('siege.button')}
               title={t('siege.button')}
               onClick={() => uiStore.setState({ modal: modal === 'siege' ? 'none' : 'siege' })}
