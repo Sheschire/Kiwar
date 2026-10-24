@@ -262,6 +262,13 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   `SHARDS` in `meteors.ts`), gear parts in `kiwiRig.ts` (`KiwiDraw.weapon` / `armor`), `?kiwis`
   gear cells. `.icon` is `display: block`: inside a paragraph give it an inline rule.
 
+- **Chantier 41 (the live battle on the twin)**: `LandingInvite` (desktop under the top bar,
+  phones docked first in `.thumb-stack`), `VisitBanner` while watching (`watchingLanding`),
+  `BattleBar` in the visiting HUD too (landing title, framing buttons `.battle-frames`), the
+  report's "Watch the battle again"; store `landingInvite`, `watchingLanding`; the alien
+  village's models in `render/models/alien.ts` (`?sheet&aliens`: kinds × ages). See
+  `kiwar-battle` (show) and `kiwar-world` (twin, camera).
+
 ## Performance (chantier 10)
 
 - **The UI store is the usual suspect.** The controller emits a new `game` and `now` 5 times
@@ -421,7 +428,7 @@ compact`). Long sheets on touch: `FoldSection` (a `<details>` there, a plain sec
   `startGame.showTwin`. Visual checks: push a level-3 launchpad, classed kiwis,
   `faceViews` and `bestiary` on `controller.state`, `debugGrant`, then
   `uiStore.setState({ modal: 'expedition', expeditionPad, siegePlan: { mission: 'land',
-  sector } })`; a real landing in solo: dispatch the launch and `setTimeScale(20000)` ~4 s.
+sector } })`; a real landing in solo: dispatch the launch and `setTimeScale(20000)` ~4 s.
 
 - **Chantier 33 (buildings by age, 3D thumbnails)**: models live in `render/models/` —
   `kit.ts` (palette `C`, `Part`/`Parts`, `rig`, `emitter`, primitives, `bake`), `ageKit.ts`

@@ -32,7 +32,7 @@ the Forge and hands pieces out (switchable); craters give mostly iron; never a b
 - `state.meteorIron` (raw), `Meteor.iron` / `ironMax` (raw), `sky.next.iron`, `Obstacle.iron`
   (whole units, wrecks), `QueueItem.paidIron`.
 - `state.forge = { orders: ForgeOrder[] (id, item, progress raw, paid, iron), armory:
-  Partial<Record<ItemId, number>> }`; `Villager.gear?: { weapon?, armor?, kept? }`
+Partial<Record<ItemId, number>> }`; `Villager.gear?: { weapon?, armor?, kept? }`
   (`cloneVillager` copies it). Automation tasks `forge` and `equip`.
 
 ## Simulation
@@ -59,7 +59,7 @@ the Forge and hands pieces out (switchable); craters give mostly iron; never a b
   `dispatchTasks`; `taskNeeds.forge` / `equip`. Craters: `METEORS.autoShare` (a quarter of
   the colony at most).
 - Commands: `forgeItem { item }`, `cancelForge { orderId }` (unknownOrder), `equip {
-  villagerId, slot, item | null }` (wrongSlot, notInArmory, wrongFamily, kiwiBusy when away;
+villagerId, slot, item | null }` (wrongSlot, notInArmory, wrongFamily, kiwiBusy when away;
   taking off by hand sets `kept`). Iron paid by `upgrade` (`payIron`, `upgradeLock` →
   `notEnoughIron`), `setResearch` (refunded with `refundTechDust`). `buildLock('forge')`: forgeExists, techMissing. Demolishing the
   Forge refunds its orders. `removeVillagers` returns the gear to the armory.

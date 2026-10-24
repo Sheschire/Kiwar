@@ -1,6 +1,6 @@
 ---
 name: kiwar-battle
-description: Kiwar battle engine (chantier 36) — the pure deterministic engine (`simulateBattle(setup, seed) → BattleLog`), unit data (weapons, predators, kiwi stat factors, postures), the AI by roles (raider, guard, militia, turret), the compact journal and its codec, waves played as battles (squads and gates at the announcement, `waveSetup`, `battleOutcome`, the strike, the three practice battles of the forecast), the 3D show (`render/battle/`: timeline, BattleShow, gate markers), the battle bar and unit card, the held outcome of a live wave. Use when touching battles, waves' resolution or forecast, unit profiles, the show or its UI, and for the landings of chantier 40.
+description: Kiwar battle engine (chantier 36) — the pure deterministic engine (`simulateBattle(setup, seed) → BattleLog`), unit data (weapons, predators, kiwi stat factors, postures), the AI by roles (raider, guard, militia, turret), the compact journal and its codec, waves played as battles (squads and gates at the announcement, `waveSetup`, `battleOutcome`, the strike, the three practice battles of the forecast), the 3D show (`render/battle/`: timeline, BattleShow, gate markers), the battle bar and unit card, the held outcome of a live wave. Use when touching battles, waves' resolution or forecast, unit profiles, the show or its UI, and for the landings of chantier 40 and their 3D show on the twin (chantier 41: `LandingShow`, `playLanding`, framings).
 ---
 
 # Kiwar battle (chantier 36)
@@ -163,3 +163,36 @@ battle. The unit card reads the gear from the colony (`UnitGear`), the show draw
   `landingOutcome(log)`. The same builder serves the truth and the forecast.
 - Melee weapons never hit bats (`hitsAir`): a crew without a mage, scout, gatherer, bard or
   firearms loses to bats by attrition — the planner warns.
+
+## Chantier 41 (the landing played on the twin)
+
+- `BattleShow.play(state, source, from, opts)`: `ShowSource` = `{ id, kind: 'wave' | 'landing',
+log }`; `ShowOptions` = `ours` (our side: 0 at home, 1 for a crew), `age` (enemies' look),
+  `lead` (negative show times: nothing on the field), `tail` (after the journal's own 2 s),
+  `boardAt` (our side vanishes), `roster` (looks of kiwis lost), `seen` (alien gear for the
+  card). `clock` / `length` / `lead` / `fightEnd` feed the bar; `seek` takes show time
+  (`GameRenderer.battleSeek` takes the bar's clock). Bars face the camera through a turned
+  parent; `pick` projects through `group.matrixWorld`; `fighters(out)` gives the middle and
+  spread of who is drawn. `UnitInfo.enemy` (not `side`) decides the card; `gear` for aliens.
+- `render/battle/landingShow.ts` `LandingShow` (one per twin map): the bird (`shipModel`)
+  comes down for `LANDING_LEAD` 3.5 s onto `landingTile(sector, journal buildings)` (drawn 0.8
+  outwards), `onTouchdown` (the clouds part), the fight, fires on every building after a
+  burning victory, `onPlant` 1 s after the fight (the twin's beacon springs up), the crew
+  boards at +2.2 s and the ship lifts off at +2.6 s (a defeat leaves it). Drawn in the twin's
+  local frame (`TwinView.attach`), re-attached when the twin is rebuilt.
+- `GameRenderer.playLanding(id, live)`, `battleFrame('field' | 'melee' | 'ship')`, the active
+  `show` getter routes seek / speed / skip / select / unit; a tap on the visited twin picks a
+  fighter first; `ShipsView.hide(id)` hides the watched expedition's bird. `onBattleStart/End`
+  carry the `ShowSource` (`battleStore.kind`); a landing's end calls `tellLanding`.
+- Client flow: `game/landingWatch.ts` (`LIVE_LANDING_MS` 60 s, `watchableTarget` /
+  `watchable`, `holdLanding` / `tellLanding`), `LandingInvite`, `actions.watchLanding(id,
+live)` (travel + play), the report's "Watch the battle again"; far faces keep
+  `LandingReplay` (2D).
+- Visual checks: seed a colony (`perfSave.ts` 120 h has a level-3 launchpad), remove a beacon
+  and its parcel view in the save, launch `{ mission: 'land', sector, crew: n, orders }`, set
+  the expedition's `arriveAt` to now + 2 s (and `returnAt` after it), wait for
+  `uiStore.landingInvite`, `actions.watchLanding(id)`, wait ~8 s (flight), then
+  `renderer.battleSeek(clock)`, `renderer.landing.battle.speed = 0`, `battleSelect(i)`,
+  `battleFrame('melee')`. **Do not edit client files while a headless run is going**: Vite
+  reloads the page and `window.__kiwar` disappears. Measures: `renderer.renderer.info` with and
+  without `renderer.landing.group.visible`, `landing.update(1/60, camera)` × 300.

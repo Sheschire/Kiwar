@@ -11,12 +11,18 @@
 
 ## Des chantiers précédents
 
+- Chantier 41 : spectacle du débarquement vérifié en Chromium sans GPU seulement (images/s à
+  confirmer sur un vrai téléphone avec `?debug`) ; pas de son propre au débarquement regardé ;
+  une vague qui frappe pendant qu'on regarde un débarquement est racontée tout de suite (pas
+  de spectacle) ; les combattants traversent les mares de jus de la jumelle (le champ du
+  journal ne connaît pas l'eau) ; le spectacle du siège (`siegeFx.ts`) part au 42.
+
 - Chantier 40 : le code du siège reste dans `sim/siege.ts` (contre-attaques, têtes de pont,
   assaut final, reconnaissance profonde) pour le 42, débranché ; les champs `siege.counter`,
   `siegeShow`, `renderer.playSiege`, les textes `siege.*` et `recon.*` et les anciens rapports
   `intel` restent jusqu'au 42 (nettoyage annoncé). `shipOf().armor` (blindage du vaisseau et
   sa technologie) ne sert plus : à réaffecter (par exemple aux pertes d'une défaite) ou à
-  retirer. Le replay 2D est simple (le 3D au 41). Le bot n'embarque pas son Kikiwiwi et ne
+  retirer. Le bot n'embarque pas son Kikiwiwi et ne
   pille jamais. Fraction de l'évolution vue par une balise : une mise à jour par jour de jeu.
 
 - Chantier 38 : le bot ouvre beaucoup de nouveaux sites (jusqu'à 16 ateliers de fibre) pendant
@@ -57,10 +63,10 @@
   d'un secteur à une seule tourelle se partagent le même poste (écartés de 0,1 à 0,3).
 
 - Chantier 24 : vue espace et vol entre planètes vérifiés en Chromium sans GPU seulement (à
-  essayer sur un vrai téléphone et sur le MacBook avec `?debug` en dézoom) ; la jumelle passe
-  d'un coup du disque peint au détail pendant le vol ; la caméra ne suit pas une jumelle qui
-  se rapproche pendant une visite ; les faces aliens inconnues de l'univers ne sont pas
-  dessinées (seulement la carte des cibles).
+  essayer sur un vrai téléphone et sur le MacBook avec `?debug` en dézoom) ; les faces aliens
+  inconnues de l'univers ne sont pas dessinées (seulement la carte des cibles : leurs
+  débarquements gardent le replay 2D). Le fondu du disque peint et la caméra qui suit une
+  jumelle en mouvement sont réglés au chantier 41.
 - Chantier 19 : les kiwis qui rentrent d'une tête de pont tombée volent sans vaisseau
   visible ; la planète sœur d'un·e allié·e n'est pas dessinée (les livraisons marchent) ; la
   sœur n'a pas de cibles d'expédition ; `UniverseModal` ne liste pas la sœur ; le bot ne

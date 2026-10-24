@@ -2589,3 +2589,32 @@ Choices made in the chantier (to revisit with the owner):
   `KIWI_UNIT` hit points, the aliens' level factor, or wounds instead of deaths when the field
   is held), the retreat threshold, the forecast's legibility, the 2D replay.
 
+## Chantier 41 — The live battle on the twin
+
+No new question for the owner: the chantier document decided everything that mattered. Small
+decisions taken along the way:
+
+- **Who is "there"**: the news of the landing (`expeditionArrived` with an outcome) is less than
+  **60 s** old and the camera is home (`LIVE_LANDING_MS`, wider than the waves' 20 s: online,
+  the server resolves the landing and the client learns it at its next load). Only a landing on
+  the twin drawn in our sky (the other face of our own kiwi, still alien) is offered; a far face
+  of the universe keeps the 2D replay in its report.
+- **The invitation** ("Watch the landing" / "Later", gone by itself after 90 s) holds the
+  outcome's toast until the end of the show, "Later", or the way back home.
+- **The show always starts from the ship coming down** (3.5 s of lead), even if the battle
+  began a little earlier: the journal is replayed from its start, never recomputed.
+- **The village** is drawn for every parcel we have eyes on, each building at the age its
+  parcel had when we saw it (`ParcelView.age`); a building over juice stands on a mound (the
+  battle's tiles stay where the journal put them). One merged geometry for the whole village.
+- **The beacon** is a glowing kiwi on a pole, where the ship landed (`landingTile`); a beacon
+  planted by the landing on show stays hidden until its moment (1 s after the field is
+  cleared), then springs up.
+- **An alien's gear** on the unit card is read from `result.seen` (same kind and level): the
+  journal keeps no gear, the shared code is unchanged.
+- **Fires**: a burning victory sets every building of the field alight once the field is
+  cleared (flames and soot, cute, no damage shown on the models).
+- **Framings**: three preset buttons in the battle bar during a landing (parcel, melee =
+  middle of the fighters now, ship); the camera follows a visited twin that moves (`shift`).
+- Measured (headless Chromium, software WebGL, medium, 28 units): the landing adds 26 draw
+  calls and ≈ 19 k triangles to the twin view (94 calls in all) and ≈ 0.24 ms of JS per frame
+  (≈ 1 ms on a phone four times slower). ⚠️ To confirm on a real phone with `?debug`.

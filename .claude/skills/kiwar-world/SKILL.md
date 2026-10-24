@@ -149,3 +149,20 @@ null`; the HUD shrinks to `VisitBanner` (twin: "Siege" when `siegeVisible`, "Pre
 - Visual check of a universe: `pnpm mock:supabase` + `pnpm dev:online`, two Playwright contexts
   (`actions.enterUniverse({ create }, 'Alice')`, then join with the code). Headless phones play
   the intro slowly: click `.intro-skip`.
+
+## Chantier 41 (the twin up close)
+
+- `travelTo('twin', parcel)` (a landing watched): `setTwinApproach(1)`, the camera visits the
+  twin framed on the battle field (`TwinView.parcelFrame(sector)`: middle and radius of
+  `parcelTiles` in world space; `CameraRig.visit(center, radius, { target, distance })`, closer
+  `minDistance`), and `followTwin` shifts the camera (`CameraRig.shift`: flight, bounds and
+  view) whenever the visited twin moves; leaving (`endWatch`) sends it back.
+- Clouds per parcel ease (`FOG_FADE_S` 1.6 s) towards what we know, or an override
+  (`setFog(sector, 'open' | 'closed' | null)`); `fading` is a sign of life; a rebuilt twin
+  `takeOver`s the old one's position, turn and clouds. The far disc fades over the tiles in a
+  band of ±1 radius around `NEAR_RADII` (no depth test while fading).
+- `TwinIntel` is now `{ sectors, village: AlienHouse[] }` (kind, q, r, age of the parcel's
+  view), drawn by `showVillage` (alien models of `render/models/alien.ts`, merged, a mound
+  over juice); beacons (`showBeacons`) are glowing kiwis on poles at `landingTile`, in one
+  holder for the level of detail, `setBeaconHidden(sector, hidden)` (a pop when shown).
+  `startGame.showTwin` keys the twin on the village too.

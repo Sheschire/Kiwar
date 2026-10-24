@@ -40,7 +40,8 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
     assaults, bridgeheads and counter-attacks, fortification, the final assault, the Siege
     screen; later the second colony.
   - `kiwar-battle` — the battle engine: unit data, AI, journal, waves played as battles, the 3D
-    show and its UI, the forecast's practice battles (and the landings of chantier 40).
+    show and its UI, the forecast's practice battles, the landings of chantier 40 and their
+    live show on the twin (chantier 41).
   - `kiwar-forge` — meteoric iron (craters, wrecks, what it pays for), the Forge, items by
     family and tier, the armory, kiwis' gear and its weight in battle.
   - `kiwar-civ` — the alien civilisation: its own clock and ages, 12 parcels with buildings

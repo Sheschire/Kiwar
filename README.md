@@ -10,6 +10,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 41** — la **bataille en direct** : quand notre vaisseau se pose sur la jumelle,
+> une invitation propose de **regarder le débarquement**. La caméra vole jusqu'à la jumelle,
+> qui se rapproche ; le brouillard se lève sur la parcelle quand l'oiseau mécanique touche le
+> sol, l'équipage en sort et se bat (bec, épée, boules de feu, fronde…), les chauves-souris
+> plongent, la parcelle **brûle** après une victoire incendiaire et la **balise** (un kiwi
+> lumineux) est plantée avant que le vaisseau reparte. On **touche un furet** pour voir son
+> niveau, ses PV et son équipement ; trois cadrages (parcelle, mêlée, vaisseau), ×1/×2/×4,
+> rembobiner, passer. Le **village alien** se dessine sur les parcelles vues, selon leur âge.
+> Le rapport propose « Revoir la bataille ».
+
 > **Chantier 40** — le **débarquement** remplace les reconnaissances, les raids et le siège :
 > on choisit une des **12 parcelles** de la face adverse, l'équipage et ses **ordres** (prudent
 > ou offensif, qui viser d'abord, seuil de retraite, brûler ou piller), avec une **prévision
@@ -18,7 +28,7 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 > **balise** montre la parcelle pour de bon (et le bord des voisines), la parcelle brûle ou se
 > fait piller, les survivant·es deviennent vétéranes et vétérans. **Retraite** : un aperçu daté.
 > **Défaite** : l'équipage, son équipement et le vaisseau sont perdus, le brouillard revient.
-> Tout kiwi tombé meurt pour toujours. Le rapport rejoue la bataille en 2D ; un **bestiaire**
+> Tout kiwi tombé meurt pour toujours. Un **bestiaire**
 > retient les ennemis rencontrés. La conquête de la jumelle reviendra avec la reine (42).
 
 > **Chantier 39** — la **civilisation alien** de la face jumelle vit à **son propre rythme** :

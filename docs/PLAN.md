@@ -42,7 +42,7 @@ dans l'historique.
 | 38  | Forge, équipement et fer météorique                  | fait    |
 | 39  | La civilisation alien                                | fait    |
 | 40  | Le débarquement                                      | fait    |
-| 41  | La bataille en direct sur la jumelle (client)        | à faire |
+| 41  | La bataille en direct sur la jumelle (client)        | fait    |
 | 42  | La reine des furets                                  | à faire |
 |     | **Acte III — Le village vivant**                     |         |
 | 43  | Moral par kiwi, Mairie et feu de camp                | à faire |
@@ -50,14 +50,16 @@ dans l'historique.
 | 45  | Rives fertiles et canaux de jus                      | à faire |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
-**Prochaine conversation** : le chantier **41** (la bataille en direct sur la jumelle) : le
-journal d'un débarquement (`ExpeditionResult.log`, skill `kiwar-battle` « Chantier 40 ») joué
-en 3D sur la face jumelle, à la place du replay 2D (`LandingReplay`). Points laissés par le
+**Prochaine conversation** : le chantier **42** (la reine des furets) — ou le **43** s'il
+avance déjà en parallèle. Le 41 laisse : le spectacle d'un débarquement sur la jumelle
+(`render/battle/landingShow.ts`, `GameRenderer.playLanding`, skill `kiwar-battle` « Chantier
+41 »), le village alien (`render/models/alien.ts`), les balises lumineuses ; à tester avec le
+porteur (rythme, taille des combattants sur téléphone, images/s réelles). Points laissés par le
 40 : « à tester » (ordres, seuil de retraite, prévision, morts en victoire), le blindage du
-vaisseau sans usage, le code du siège débranché à retirer au 42 (`DETTE.md`). Toujours
-ouverts : le ressenti de l'horloge alien (39), du combat équipé et des prix des pièces (38),
-des rangs et du camp (37), la réparation automatique qui trahit l'issue d'une vague regardée
-en direct (36) et le temps mort du début de la Pierre (31).
+vaisseau sans usage, le code du siège débranché à retirer au 42 (`DETTE.md`, avec
+`siegeFx.ts`). Toujours ouverts : le ressenti de l'horloge alien (39), du combat équipé et des
+prix des pièces (38), des rangs et du camp (37), la réparation automatique qui trahit l'issue
+d'une vague regardée en direct (36) et le temps mort du début de la Pierre (31).
 
 ## Règles transverses à retenir
 
@@ -104,6 +106,11 @@ en direct (36) et le temps mort du début de la Pierre (31).
   `LevelDef.iron`, `TechDef.iron`, `payIron` / `addIron` et se rembourse jusqu'au plafond ; un
   débit cumulé dans `accrue` se calcule dans `computeFlows` (début de l'intervalle). Une
   nouvelle classe prend une famille d'arme dans `CLASS_FAMILY` (skill `kiwar-forge`).
+- **Spectacles** (chantier 41) : un journal se rejoue par `BattleShow.play(state, source,
+from, opts)` (`ShowSource` : une vague ou un débarquement ; notre camp, avance, traîne) ;
+  sur la jumelle, tout se dessine dans son repère (`TwinView.attach`) et la caméra la suit
+  (`CameraRig.shift`). Un nouveau spectacle réveille la boucle (`drawFrame`) et passe par le
+  `show` actif de `GameRenderer` (skill `kiwar-battle`).
 - **Débarquement** (chantier 40) : la seule mission vers une face alien est `land` (plus
   `found`) ; tout ce que nos kiwis voient devient public dans `state.faceViews` (balises,
   aperçus datés, bords) et `state.bestiary` ; la bataille ne se résout que là où la vérité est

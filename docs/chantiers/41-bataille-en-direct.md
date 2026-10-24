@@ -1,4 +1,7 @@
-# Chantier 41 — La bataille en direct sur la jumelle
+# Chantier 41 — La bataille en direct sur la jumelle — **fait**
+
+> **Fait le 24 octobre 2026** (quatre commits). Voir « Ce qui a été fait » en fin de document
+> et la section du chantier 41 dans `DECISIONS.md`.
 
 Acte II « La guerre des faces » du [carnet de route](../CARNET_DE_ROUTE.md). **Client seul.** Après
 le **40** (mission, journal, aperçus). Il peut tourner en parallèle du 43, avec prudence (le 43
@@ -77,3 +80,35 @@ civilisation au moment de la découverte. »
 - Une parcelle balisée montre son village alien, qui change avec l'âge de la civilisation.
 - Le replay rejoue exactement le journal.
 - Images/s acceptables sur téléphone pendant la bataille.
+
+## Ce qui a été fait
+
+Aucune question nouvelle au porteur. Petites décisions : `DECISIONS.md` (présent·e = nouvelle
+de moins de 60 s, le spectacle part toujours du vaisseau qui descend, l'équipement des aliens
+lu dans `result.seen`, les faces lointaines gardent le replay 2D).
+
+1. **Voyage et cadrage** : invitation `LandingInvite` (l'issue attend la fin du spectacle,
+   `game/landingWatch.ts`), `travelTo('twin', parcelle)` rapproche la jumelle et cadre le
+   champ de bataille (`TwinView.parcelFrame`), la caméra suit une jumelle qui bouge
+   (`CameraRig.shift`) ; brouillard par parcelle en fondu (`TwinView.setFog`, gardé quand la
+   jumelle est reconstruite), disque lointain en fondu sur les tuiles.
+2. **Village alien** (`render/models/alien.ts`, planche `?sheet&aliens`) : sept bâtiments par
+   âge, une géométrie fusionnée ; balises = kiwis lumineux là où le vaisseau s'est posé.
+3. **Bataille sur la jumelle** (`render/battle/landingShow.ts`) : vaisseau qui descend, se pose,
+   brouillard levé au contact, combat par le spectacle du 36 (généralisé : `ShowSource`, notre
+   camp, avance et traîne), incendies, balise plantée, embarquement et départ ; « Revoir la
+   bataille » dans le rapport.
+4. **Fiches, replay, téléphone** : fiche d'unité (ennemi, équipement des aliens), cadrages
+   préréglés (parcelle, mêlée, vaisseau), grandes zones à toucher, test « le replay rejoue
+   exactement le journal ».
+5. Mesures (+26 appels de dessin, ≈ 19 k triangles, ≈ 0,24 ms de JS par image pour 28 unités
+   en rendu logiciel), captures desktop et téléphone, docs et skills.
+
+## Reste
+
+- ⚠️ À tester avec le porteur : le rythme (3,5 s de descente, 4,5 s de fin), la taille des
+  combattants sur téléphone, les incendies, les images/s sur un vrai téléphone (`?debug`).
+- Pas de son propre au débarquement regardé (les sons `landing.*` du 40 jouent à l'arrivée).
+- Les combattants restent ceux de la planche `?kiwis` : pas d'effet propre au vaisseau
+  (fumée d'une panne, blindage).
+- Le spectacle du siège (`siegeFx.ts`) reste jusqu'au 42 avec le reste du siège.

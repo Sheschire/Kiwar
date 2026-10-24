@@ -446,8 +446,9 @@ export function BestiaryList({ game }: { game: GameState }) {
 }
 
 /**
- * A simple 2D replay of a landing's journal (the 3D show comes with chantier 41): kiwis in
- * green, aliens in red (bats as triangles), buildings as grey squares; health shown by size.
+ * A simple 2D replay of a landing's journal, kept for the faces not drawn in our sky (chantier
+ * 41 plays the others in 3D on the twin): kiwis in green, aliens in red (bats as triangles),
+ * buildings as grey squares; health shown by size.
  */
 export function LandingReplay({ log }: { log: BattleLog }) {
   const t = useT();
