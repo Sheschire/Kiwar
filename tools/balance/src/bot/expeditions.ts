@@ -31,8 +31,8 @@ import {
 /**
  * Chantier 40: the bot lands on the twin. It starts from the edge (the parcel it knows best,
  * the weakest first), then the centre once a beacon lights its edge; a crew is the strongest
- * kiwis with at least one who hits the bats, the smallest that wins all three practice
- * battles with few dead expected; cautious, back to the ship at half the crew, burning.
+ * kiwis with at least one who hits the bats, the one that wins all three practice battles
+ * with the fewest dead expected; cautious, back to the ship at half the crew, burning.
  */
 
 const DAY_MS = 24 * 3_600_000;
@@ -40,6 +40,8 @@ const DAY_MS = 24 * 3_600_000;
 const BAD_LANDING = 2;
 /** Parcels weighed per look (each costs a few practice battles per crew size). */
 const CANDIDATES = 2;
+/** Kiwis the bot accepts to lose in the middle practice battle. */
+const MAX_DEAD = 1;
 
 const ORDERS: LandingOrders = { ...LANDING.defaultOrders, retreatAt: 0.5, goal: 'burn' };
 
@@ -135,8 +137,11 @@ export function expeditionOrder(state: GameState, map: FaceMap): Command | null 
   if (!pad || recentBadLanding(state)) return null;
   const pool = crewPool(state);
   const most = Math.min(maxCrew(state, pad, 'land'), pool.length);
+  // The crew that wins all three practice battles with the fewest dead expected (a fallen
+  // kiwi dies, even in a victory), the smaller one on a tie; one expected death at most.
+  let best: { cmd: Command; dead: number; n: number } | null = null;
   for (const sector of candidates(state, target.id)) {
-    for (let n = Math.max(minCrew('land'), 3); n <= most; n += 2) {
+    for (let n = Math.max(minCrew('land'), 3); n <= most; n++) {
       const plan = {
         launchpadId: pad.id,
         targetId: target.id,
@@ -151,11 +156,19 @@ export function expeditionOrder(state: GameState, map: FaceMap): Command | null 
       const f = forecastExpedition(state, { ...plan, provisions: provisionsFor(dry) })!;
       if (f.weight > f.cargo) break;
       const l = f.landing;
-      if (!l || l.odds !== 'likely' || l.expectedDead > Math.max(1, Math.floor(n / 5))) continue;
-      if (waveBefore(state, state.now + 2 * f.travelMs)) return null;
+      if (!l || l.odds !== 'likely' || l.expectedDead > MAX_DEAD) continue;
+      if (best && (l.expectedDead > best.dead || (l.expectedDead === best.dead && n >= best.n)))
+        continue;
       const cmd: Command = { type: 'launchExpedition', ...plan, provisions: provisionsFor(dry) };
-      if (applyCommand(state, cmd, { now: state.now, map }).ok) return cmd;
+      if (applyCommand(state, cmd, { now: state.now, map }).ok)
+        best = { cmd, dead: l.expectedDead, n };
+      if (l.expectedDead === 0) break;
     }
+    if (best?.dead === 0) break;
   }
-  return null;
+  if (!best) return null;
+  const launch = best.cmd as Extract<Command, { type: 'launchExpedition' }>;
+  const f = forecastExpedition(state, launch)!;
+  if (waveBefore(state, state.now + 2 * f.travelMs)) return null;
+  return best.cmd;
 }
