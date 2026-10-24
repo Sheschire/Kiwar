@@ -225,3 +225,15 @@ decide with the owner, see `DECISIONS.md` chantier 37).
 Industry), `civWave` (its wave factor at the end); `wavesMarkdown` adds a civilisation table
 by profile (ages section). Raids now burn parcels (they slow the civilisation and its waves)
 instead of provoking. See `kiwar-civ`.
+
+## Chantier 40: landings
+
+`bot/expeditions.ts` lands from the edge (weakest known parcel first, the centre once a beacon
+lit its edge), crew = strongest kiwis with a bat-hitter first, the one that wins all three
+practice battles (`forecastExpedition().landing`) with the fewest dead expected (≤ 1); a day off
+after a landing costing 2 kiwis. Milestones `glimpse`, `landingWon`, `centreWon`
+(informative); `RunResult.final.landings`, `landingsWon`, `retreats`, `shipsLost`. The siege
+bot only founds; `pnpm balance:siege` is gone. `--probe` is now the landing probe (edge and
+centre at each age, a crew typical of the age, automation off so no crater borrows it).
+Reference (`--seeds 2 --hours 96`, 15 min): Stone ≈ 13.5 h, Iron ≈ 2.8 d, first beacon ≈ 12 h,
+centre ≈ 1.3–3.8 d, 5.5–12 landings, 5–14 kiwis dead per run (⚠️ to discuss with the owner).

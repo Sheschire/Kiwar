@@ -2575,3 +2575,17 @@ Choices made in the chantier (to revisit with the owner):
   forecast), the report replays the journal in 2D (3D in chantier 41), bestiary, the twin's
   clouds part over the parcels we see, sounds `landing.*`.
 - No SQL: everything lives in the `games` row.
+- Measured (`--seeds 2 --hours 96`, the bot with the fewest dead expected): Stone ≈ 13.1–14.0 h,
+  Iron ≈ 2.8–2.9 days (unchanged, Kiwisu / Kiwino within 1 %), 5.5–7 waves per run, one lost in
+  twelve runs; first landing back ≈ 9–15 h, first beacon ≈ 11–15 h (one lagoon run 35 h), first
+  beacon in the centre ≈ 1.3–3.8 days (8 of 12 runs within 96 h); 5.5–12 landings per run,
+  55–100 % won, no ship lost, 1 700–9 000 loot a day. ⚠️ **5–14 kiwis die per run** on the
+  landings (the rule "every fallen kiwi dies", the retreats at half the crew, the forecast's
+  guess of the edge's mix): the first bot (smallest likely crew, ≤ 1 dead per 5 kiwis) lost
+  8–17. Landing probe (12 seeds, a crew typical of each age): edge won 75 % in Eden (17 % of the
+  crew dead), 100 % from Stone; centre 0 % in Eden (all retreats), 33 % in Stone, 100 % at Iron
+  (17 % dead).
+- ⚠️ To test with the owner: whether the deaths per landing feel right (the main lever:
+  `KIWI_UNIT` hit points, the aliens' level factor, or wounds instead of deaths when the field
+  is held), the retreat threshold, the forecast's legibility, the 2D replay.
+
