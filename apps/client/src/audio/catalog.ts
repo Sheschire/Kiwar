@@ -318,6 +318,19 @@ export const SOUND_EVENTS = {
       spatial: true,
     },
   },
+  // Chantier 44: each burst of a fireworks show.
+  'fireworks.burst': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'burst',
+    default: {
+      sources: ['synth:burst'],
+      volume: 0.7,
+      pitchVariation: 4,
+      maxVoices: 4,
+      spatial: true,
+    },
+  },
   'meteor.fall': {
     bus: 'sfx',
     group: 'colony',

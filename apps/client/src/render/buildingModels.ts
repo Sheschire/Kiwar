@@ -1,6 +1,7 @@
 import {
   cabaret,
   campfire,
+  fireworks,
   flowerBed,
   fountain,
   lanterns,
@@ -87,6 +88,7 @@ const BUILDERS: Record<BuildingType, (look: Look) => Parts> = {
   skipPond: () => skipPond(),
   slide: () => slide(),
   cabaret,
+  fireworks,
 };
 
 /**
@@ -147,7 +149,14 @@ function partsOf(
   // Chantier 35: big buildings get their sign once spread over their footprint.
   const big = bigSignSpot(type);
   p.doors = p.filter((part) => part[1] === C.door && !part[3]);
-  if (type !== 'camp' && type !== 'campfire' && !isVillageLife(type) && sign && !big)
+  if (
+    type !== 'camp' &&
+    type !== 'campfire' &&
+    type !== 'fireworks' &&
+    !isVillageLife(type) &&
+    sign &&
+    !big
+  )
     signPost(p, type);
   if (level > 3 && type !== 'monument' && type !== 'lab') {
     if (look.tier >= 2 && !OWN_ANNEX.has(type))
@@ -161,7 +170,13 @@ function partsOf(
     p.doors = p.filter((part) => part[1] === C.door && !part[3]);
     if (sign) signPost(p, type, big);
   }
-  if (type !== 'camp' && type !== 'monument' && type !== 'campfire' && !isVillageLife(type))
+  if (
+    type !== 'camp' &&
+    type !== 'monument' &&
+    type !== 'campfire' &&
+    type !== 'fireworks' &&
+    !isVillageLife(type)
+  )
     dress(p, type, look.age);
   return p;
 }

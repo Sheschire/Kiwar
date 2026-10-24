@@ -24,7 +24,7 @@ import { IRON, IRON_SCALE } from '../data/iron';
 import { FORGE, ITEM_IDS } from '../data/gear';
 import { BEACONS } from '../data/beacons';
 import { INTEL } from '../data/expeditions';
-import { MEMORY_KINDS, MORALE } from '../data/needs';
+import { FIREWORKS_PATTERNS, MEMORY_KINDS, MORALE } from '../data/needs';
 import { ALIEN_BUILDINGS, CIV_KEYS } from '../data/aliens';
 import { sectorOf } from '../sim/aliens';
 import { LANDING_GOALS, LANDING_PRIORITIES } from '../data/landing';
@@ -325,7 +325,11 @@ export const gameStateSchema = z.object({
     .max(MEMORIAL_MAX),
   speechUntil: z.number().min(0),
   speech: z.object({ until: z.number().min(0), readyAt: z.number().min(0) }),
-  village: z.object({ cabaretOpen: z.boolean(), fireworksNight: z.number().min(0) }),
+  village: z.object({
+    cabaretOpen: z.boolean(),
+    fireworksNight: z.number().min(0),
+    lastShow: z.object({ at: z.number().min(0), pattern: z.enum(FIREWORKS_PATTERNS) }).optional(),
+  }),
   hunger: z.number().int().min(0),
   queue: z.array(
     z.object({

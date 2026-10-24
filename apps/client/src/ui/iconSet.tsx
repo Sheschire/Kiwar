@@ -701,6 +701,20 @@ const GLYPHS = {
       <circle cx="24.5" cy="11" r="1.4" fill="#5a3e26" />
     </>
   ),
+  // Chantier 44: the fireworks cannon (a barrel raised to a burst).
+  fireworks: (
+    <>
+      <path d="M6 26l10-10" stroke="#50575d" stroke-width="5" stroke-linecap="round" />
+      <circle cx="9" cy="25" r="3.5" fill="#c79a5c" stroke="#5a3e26" stroke-width="1.2" />
+      <path
+        d="M22 4v4M22 14v4M15 11h4M25 11h4M17 6l2.5 2.5M24.5 13.5L27 16M27 6l-2.5 2.5M19.5 13.5L17 16"
+        stroke="#ff5a5a"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
+      <circle cx="22" cy="11" r="1.8" fill="#ffd95a" />
+    </>
+  ),
 } satisfies Record<string, ComponentChildren>;
 
 export type IconName = keyof typeof GLYPHS;

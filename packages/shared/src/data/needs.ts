@@ -207,6 +207,23 @@ export const CABARET = {
 } as const;
 
 /**
+ * Chantier 44: the fireworks — a show the player fires at night, once a night for the whole
+ * village. Each pattern costs resources (the big ones stardust too) and gives every kiwi at home
+ * a `fireworks` memory (the stronger one is kept).
+ */
+export const FIREWORKS_PATTERNS = ['bouquet', 'kiwiFruit', 'kiwiBird'] as const;
+export type FireworksPattern = (typeof FIREWORKS_PATTERNS)[number];
+
+export const FIREWORKS: Record<
+  FireworksPattern,
+  { cost: { seeds: number; juice: number }; stardust: number; value: number; ms: number }
+> = {
+  bouquet: { cost: { seeds: 150, juice: 100 }, stardust: 0, value: 6, ms: ms.h(6) },
+  kiwiFruit: { cost: { seeds: 150, juice: 100 }, stardust: 3, value: 10, ms: ms.h(8) },
+  kiwiBird: { cost: { seeds: 150, juice: 100 }, stardust: 8, value: 15, ms: ms.h(12) },
+};
+
+/**
  * Chantier 43: the campfire. At nightfall the free kiwis sleeping within its reach sup there
  * together (a `vigil` memory until the next nightfall) and their meals of the night cost less.
  */

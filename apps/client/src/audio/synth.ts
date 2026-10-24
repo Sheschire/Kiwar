@@ -729,6 +729,23 @@ export const SYNTH_PRESETS = {
     ],
     peak: 0.3,
   },
+  // Chantier 44: a fireworks burst — a soft boom, then a crackle of tiny sparks.
+  burst: {
+    tones: [
+      { wave: 'sine', freq: 120, freqEnd: 45, attack: 0.004, decay: 0.5, gain: 0.6 },
+      { wave: 'noise', freq: 0, attack: 0.003, decay: 0.25, gain: 0.45, lowpass: 1200 },
+      ...Array.from({ length: 14 }, (_, i) => ({
+        wave: 'noise' as const,
+        freq: 0,
+        start: 0.25 + ((i * 37) % 23) * 0.045,
+        attack: 0.002,
+        decay: 0.03,
+        gain: 0.25,
+        lowpass: 6000,
+      })),
+    ],
+    peak: 0.45,
+  },
   meteor: {
     tones: [
       {

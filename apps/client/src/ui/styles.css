@@ -6123,3 +6123,24 @@ h3 .building-thumb {
   margin: 0.3rem 0 0.5rem 1.1rem;
   padding: 0;
 }
+
+/* Chantier 44: the fireworks cannon's shows. */
+.fireworks-list {
+  list-style: none;
+  margin: 0.4rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.fireworks-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+}
+.fireworks-row p {
+  margin: 0.1rem 0;
+}

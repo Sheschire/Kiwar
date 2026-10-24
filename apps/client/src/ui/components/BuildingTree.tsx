@@ -50,6 +50,7 @@ const FAMILIES: readonly { id: FamilyId; types: readonly BuildingType[] }[] = [
       'townHall',
       'campfire',
       'cabaret',
+      'fireworks',
       'swing',
       'skittles',
       'skipPond',

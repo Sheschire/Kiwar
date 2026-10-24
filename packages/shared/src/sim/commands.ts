@@ -1,5 +1,6 @@
 import { giveSpeech, speechLock } from './speech';
-import { cabaretOf } from './village';
+import { cabaretOf, fireFireworks, fireworksLock } from './village';
+import { FIREWORKS, type FireworksPattern } from '../data/needs';
 import { landingLock } from './landing';
 import type { LandingOrders } from '../data/landing';
 import { IRON_SCALE } from '../data/iron';
@@ -202,6 +203,8 @@ export type Command =
   | { type: 'giveSpeech' }
   /** Chantier 44: open or close the cabaret (it opens at nightfall when open and paid). */
   | { type: 'setCabaret'; open: boolean }
+  /** Chantier 44: fire the fireworks (at night, once a night). */
+  | { type: 'fireFireworks'; pattern: FireworksPattern }
   /** Mends a building damaged by predators (queued like a construction). */
   | { type: 'repair'; buildingId: BuildingId }
   /** Posts exactly these kiwis on the rampart (the others go back to work). */
@@ -367,6 +370,10 @@ export const COMMAND_ERRORS = [
   'statueExists',
   'cabaretExists',
   'noCabaret',
+  'fireworksExists',
+  'noFireworks',
+  'notNight',
+  'fireworksDone',
   'noTownHall',
   'noMayor',
   'speechCooling',
@@ -1108,6 +1115,15 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const lock = speechLock(s);
       if (lock) return fail(lock);
       giveSpeech(s, now);
+      return;
+    }
+    case 'fireFireworks': {
+      const lock = fireworksLock(s, cmd.pattern);
+      if (lock) return fail(lock);
+      const def = FIREWORKS[cmd.pattern];
+      pay(s, def.cost);
+      payStardust(s, def.stardust);
+      fireFireworks(s, cmd.pattern, now);
       return;
     }
     case 'setCabaret': {

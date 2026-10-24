@@ -29,6 +29,7 @@ const LEVEL_ICONS: Record<LevelStatId, IconName> = {
   leisureRange: 'campfire',
   beauty: 'flowerBed',
   eveningMorale: 'morale',
+  showMorale: 'fireworks',
 };
 
 const TECH_ICONS: Record<TechStatId, IconName> = {

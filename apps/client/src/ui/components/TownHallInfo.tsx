@@ -1,4 +1,9 @@
 import {
+  calendarAt,
+  FIREWORKS,
+  FIREWORKS_PATTERNS,
+  fireworksLock,
+  stardustOf,
   atCabaretTonight,
   CABARET,
   cabaretGuests,
@@ -21,6 +26,7 @@ import { bedsOf, moraleOf } from '../derived';
 import { useT, useUi } from '../store';
 import { KiwiPortrait } from './KiwiPortrait';
 import { MoraleGauge } from './NeedsWidgets';
+import { Cost } from './Cost';
 
 /**
  * Chantier 43: the Town Hall's sheet — the mayor, the colony's morale, the Speech (what it
@@ -153,6 +159,53 @@ export function CabaretInfo({ game, b }: { game: GameState; b: Building }) {
         <p class="small warn">{t('cabaret.noJuice')}</p>
       ) : null}
       <p class="small muted">{t('cabaret.hint', { value: CABARET.value })}</p>
+    </div>
+  );
+}
+
+/**
+ * Chantier 44: the fireworks cannon's sheet — the three shows, what each costs and gives, and
+ * why it cannot be fired now (by day, already tonight).
+ */
+export function FireworksInfo({ game }: { game: GameState }) {
+  const t = useT();
+  const night = calendarAt(game.calendarStart, game.now);
+  const done = night.night && game.village.fireworksNight === night.nightAt;
+  return (
+    <div class="section fireworks-section">
+      {!night.night && <p class="small muted">{t('fireworks.day')}</p>}
+      {done && <p class="small bonus">{t('fireworks.done')}</p>}
+      <ul class="fireworks-list">
+        {FIREWORKS_PATTERNS.map((pattern) => {
+          const def = FIREWORKS[pattern];
+          const lock = fireworksLock(game, pattern);
+          return (
+            <li key={pattern} class="fireworks-row">
+              <div>
+                <strong>{t(`fireworks.patterns.${pattern}`)}</strong>
+                <p class="small">
+                  {t('fireworks.effect', { value: def.value, hours: def.ms / 3_600_000 })}
+                </p>
+                <Cost
+                  cost={def.cost}
+                  have={game.resources}
+                  stardust={def.stardust || undefined}
+                  haveDust={stardustOf(game)}
+                />
+              </div>
+              <button
+                class="btn primary"
+                disabled={lock !== null}
+                title={lock ? t(`errors.${lock}`) : undefined}
+                onClick={() => actions.dispatch({ type: 'fireFireworks', pattern })}
+              >
+                {t('fireworks.fire')}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <p class="small muted">{t('fireworks.hint')}</p>
     </div>
   );
 }

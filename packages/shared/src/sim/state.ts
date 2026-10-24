@@ -1,4 +1,4 @@
-import type { MemoryKind } from '../data/needs';
+import type { FireworksPattern, MemoryKind } from '../data/needs';
 import type { BuildingType } from '../data/buildings';
 import { NAME_SYLLABLES, START } from '../data/start';
 import { calendarStartFor } from '../data/cycles';
@@ -852,7 +852,12 @@ export interface GameState {
    * Chantier 44: the evenings of the village — the cabaret opened by the player (it still needs
    * its juice), the last night a fireworks show was fired (its nightfall).
    */
-  village: { cabaretOpen: boolean; fireworksNight: TimeMs };
+  village: {
+    cabaretOpen: boolean;
+    fireworksNight: TimeMs;
+    /** The last fireworks show (the client plays it when it is recent). */
+    lastShow?: { at: TimeMs; pattern: FireworksPattern };
+  };
   /** Colony hunger gauge in raw units (HUNGER_SCALE per ms of full privation). */
   hunger: number;
   queue: QueueItem[];
@@ -1179,7 +1184,10 @@ export function cloneState(state: GameState): GameState {
     villagers: state.villagers.map(cloneVillager),
     memorial: state.memorial.map((m) => ({ ...m })),
     speech: { ...state.speech },
-    village: { ...state.village },
+    village: {
+      ...state.village,
+      ...(state.village.lastShow ? { lastShow: { ...state.village.lastShow } } : {}),
+    },
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
     egg: state.egg ? { ...state.egg } : null,
     objectives: { ...state.objectives, claimed: [...state.objectives.claimed] },

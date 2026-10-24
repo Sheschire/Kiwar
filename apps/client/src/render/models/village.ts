@@ -705,3 +705,35 @@ export function cabaretTerrace(
       ),
     ]);
 }
+
+/**
+ * Chantier 44: the fireworks cannon — a short iron barrel raised to the sky on a wooden cart,
+ * crates of rockets in the colours of the shows and a coiled fuse; a thin smoke wisps out.
+ */
+export function fireworks(look: Look): Parts {
+  const p: Parts = [];
+  const metal = look.colonyAge >= 3 ? A.brass : C.ironDark;
+  // The cart and its wheels.
+  p.push([box(), C.woodDark, m(0, 0.09, 0, 0.3, 0.05, 0.2)]);
+  for (const x of [-0.16, 0.16])
+    p.push([cyl(10), C.wood, m(x, 0.09, 0.02, 0.085, 0.03, 0.085, 0, 0, Math.PI / 2)]);
+  // The barrel, raised towards the sky, its muzzle ring and a fuse.
+  p.push([cyl(10), metal, m(0, 0.24, -0.02, 0.065, 0.3, 0.065, -0.45, 0, 0)]);
+  p.push([cyl(10), C.iron, m(0, 0.37, -0.085, 0.075, 0.03, 0.075, -0.45, 0, 0)]);
+  p.push([cyl(4), C.straw, m(0.04, 0.15, 0.09, 0.008, 0.08, 0.008, 0.6, 0, 0.3)]);
+  emitter(p, { kind: 'smoke', at: [0, 0.4, -0.1], rate: 0.25, ambient: true });
+  // Crates of rockets.
+  const colours = ['#ff5a5a', '#ffd95a', '#6bc8ff', '#7cff6b'];
+  for (const [x, z, k] of [
+    [-0.28, -0.22, 0],
+    [0.28, -0.2, 1],
+  ] as const) {
+    p.push([box(), C.wood, m(x, 0.06, z, 0.16, 0.12, 0.12)]);
+    for (let i = 0; i < 3; i++) {
+      const rx = x - 0.05 + i * 0.05;
+      p.push([cyl(5), colours[(k + i) % 4]!, m(rx, 0.17, z, 0.014, 0.12, 0.014)]);
+      p.push([cone(5), C.white, m(rx, 0.24, z, 0.016, 0.03, 0.016)]);
+    }
+  }
+  return p;
+}

@@ -1,4 +1,7 @@
-import { CABARET } from '../data/needs';
+import { CABARET, FIREWORKS, type FireworksPattern } from '../data/needs';
+import type { CommandError } from './commands';
+import { stardustOf } from './comets';
+import { canAfford } from './selectors';
 import { hexDistance } from '../hex/hex';
 import { calendarAt } from './calendar';
 import { addMemory, bedsOf, canSup } from './rest';
@@ -55,4 +58,35 @@ export function atCabaretTonight(
   v: { memories?: { kind: string; until: number }[] },
 ): boolean {
   return v.memories?.some((m) => m.kind === 'cabaret' && m.until > state.now) ?? false;
+}
+
+/** Chantier 44: the fireworks cannon. */
+export function fireworksOf(state: GameState): Building | undefined {
+  return state.buildings.find((b) => b.type === 'fireworks');
+}
+
+/** Why the fireworks cannot be fired now (no cannon, by day, already tonight, cost), or null. */
+export function fireworksLock(state: GameState, pattern: FireworksPattern): CommandError | null {
+  if (!fireworksOf(state)) return 'noFireworks';
+  const c = calendarAt(state.calendarStart, state.now);
+  if (!c.night) return 'notNight';
+  if (state.village.fireworksNight === c.nightAt) return 'fireworksDone';
+  const def = FIREWORKS[pattern];
+  if (!canAfford(state.resources, def.cost)) return 'notEnoughResources';
+  if (stardustOf(state) < def.stardust) return 'notEnoughStardust';
+  return null;
+}
+
+/**
+ * Fires the show (already paid): every kiwi at home remembers it, the night is used up and the
+ * client is told what to play.
+ */
+export function fireFireworks(state: GameState, pattern: FireworksPattern, at: TimeMs): void {
+  const def = FIREWORKS[pattern];
+  const c = calendarAt(state.calendarStart, at);
+  state.village = { ...state.village, fireworksNight: c.nightAt, lastShow: { at, pattern } };
+  for (const v of state.villagers) {
+    if (v.job.kind === 'expedition' || v.job.kind === 'outpost') continue;
+    addMemory(v, 'fireworks', def.value, at + def.ms);
+  }
 }

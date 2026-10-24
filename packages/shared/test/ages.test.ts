@@ -53,7 +53,16 @@ describe('ages', () => {
       // and the Forge (chantier 38); the campfire (chantier 43) and the decorations and games
       // (chantier 44) have a single level.
       if (
-        ['camp', 'monument', 'lab', 'trainingCamp', 'forge', 'campfire', 'cabaret'].includes(type)
+        [
+          'camp',
+          'monument',
+          'lab',
+          'trainingCamp',
+          'forge',
+          'campfire',
+          'cabaret',
+          'fireworks',
+        ].includes(type)
       )
         continue;
       if (isVillageLife(type)) continue;

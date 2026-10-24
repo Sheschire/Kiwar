@@ -858,7 +858,8 @@ var BUILDING_TYPES = [
   "skittles",
   "skipPond",
   "slide",
-  "cabaret"
+  "cabaret",
+  "fireworks"
 ];
 var FOOTPRINTS = {
   warehouse: 3,
@@ -1477,6 +1478,22 @@ var BASE = {
       {
         cost: { pulp: 7e3, fiber: 8e3, seeds: 2e3, juice: 2500 },
         durationMs: ms.h(2),
+        requiresNestLevel: 7,
+        requiresAge: 2
+      }
+    ]
+  },
+  // Chantier 44: the fireworks cannon (Iron age), one per colony, outside the building cap,
+  // also on the skin rampart. The player fires it at night (`FIREWORKS`, `fireFireworks`).
+  fireworks: {
+    id: "fireworks",
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 3e3, fiber: 4e3, seeds: 2500, juice: 1500 },
+        durationMs: ms.h(1),
         requiresNestLevel: 7,
         requiresAge: 2
       }
@@ -2369,6 +2386,12 @@ var CABARET = {
   juice: 60,
   radius: 6,
   value: MORALE.memories.cabaret.value
+};
+var FIREWORKS_PATTERNS = ["bouquet", "kiwiFruit", "kiwiBird"];
+var FIREWORKS = {
+  bouquet: { cost: { seeds: 150, juice: 100 }, stardust: 0, value: 6, ms: ms.h(6) },
+  kiwiFruit: { cost: { seeds: 150, juice: 100 }, stardust: 3, value: 10, ms: ms.h(8) },
+  kiwiBird: { cost: { seeds: 150, juice: 100 }, stardust: 8, value: 15, ms: ms.h(12) }
 };
 var CAMPFIRE = {
   meals: 0.9
@@ -5347,7 +5370,7 @@ function pathLimit(state) {
   return PATHS.base + PATHS.perNestLevel * Math.min(level, 3) + PATHS.perAgeLevel * Math.max(0, level - 3);
 }
 function buildingCount(state) {
-  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && t !== "townHall" && !isVillageLife(t) && t !== "cabaret" && !isTurret(t);
+  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && t !== "townHall" && !isVillageLife(t) && t !== "cabaret" && t !== "fireworks" && !isTurret(t);
   return state.buildings.filter((b) => counted(b.type)).length + state.queue.filter((i) => i.kind === "build" && counted(i.buildingType)).length;
 }
 function turretCount(state) {
@@ -9407,6 +9430,28 @@ function openCabaret(state, at) {
 function atCabaretTonight(state, v) {
   return v.memories?.some((m) => m.kind === "cabaret" && m.until > state.now) ?? false;
 }
+function fireworksOf(state) {
+  return state.buildings.find((b) => b.type === "fireworks");
+}
+function fireworksLock(state, pattern) {
+  if (!fireworksOf(state)) return "noFireworks";
+  const c = calendarAt(state.calendarStart, state.now);
+  if (!c.night) return "notNight";
+  if (state.village.fireworksNight === c.nightAt) return "fireworksDone";
+  const def = FIREWORKS[pattern];
+  if (!canAfford(state.resources, def.cost)) return "notEnoughResources";
+  if (stardustOf(state) < def.stardust) return "notEnoughStardust";
+  return null;
+}
+function fireFireworks(state, pattern, at) {
+  const def = FIREWORKS[pattern];
+  const c = calendarAt(state.calendarStart, at);
+  state.village = { ...state.village, fireworksNight: c.nightAt, lastShow: { at, pattern } };
+  for (const v of state.villagers) {
+    if (v.job.kind === "expedition" || v.job.kind === "outpost") continue;
+    addMemory(v, "fireworks", def.value, at + def.ms);
+  }
+}
 
 // packages/shared/src/sim/advance.ts
 function advance(state, now) {
@@ -12408,7 +12453,10 @@ function cloneState(state) {
     villagers: state.villagers.map(cloneVillager),
     memorial: state.memorial.map((m) => ({ ...m })),
     speech: { ...state.speech },
-    village: { ...state.village },
+    village: {
+      ...state.village,
+      ...state.village.lastShow ? { lastShow: { ...state.village.lastShow } } : {}
+    },
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
     egg: state.egg ? { ...state.egg } : null,
     objectives: { ...state.objectives, claimed: [...state.objectives.claimed] },
@@ -12748,7 +12796,8 @@ var LEVEL_STATS = [
   "speechCooldown",
   "leisureRange",
   "beauty",
-  "eveningMorale"
+  "eveningMorale",
+  "showMorale"
 ];
 function describeLevel(type, level, state) {
   const def = levelDef(type, level);
@@ -12791,6 +12840,7 @@ function describeLevel(type, level, state) {
     push("leisureRange", CABARET.radius);
     push("eveningMorale", CABARET.value);
   }
+  if (type === "fireworks") push("showMorale", FIREWORKS.kiwiBird.value);
   if (type === "townHall") {
     push("speechMemory", speechEffectMs(level) / 36e5);
     push("speechCooldown", speechCooldownMs(level) / 36e5);
@@ -12887,6 +12937,8 @@ function buildLock(state, type) {
     if (copiesOf(state, "townHall") > 0) return "townHallExists";
   } else if (type === "cabaret") {
     if (copiesOf(state, "cabaret") > 0) return "cabaretExists";
+  } else if (type === "fireworks") {
+    if (copiesOf(state, "fireworks") > 0) return "fireworksExists";
   } else if (type === "mayorStatue") {
     if (copiesOf(state, "mayorStatue") > 0) return "statueExists";
   } else if (isVillageLife(type)) {
@@ -13106,6 +13158,10 @@ var COMMAND_ERRORS = [
   "statueExists",
   "cabaretExists",
   "noCabaret",
+  "fireworksExists",
+  "noFireworks",
+  "notNight",
+  "fireworksDone",
   "noTownHall",
   "noMayor",
   "speechCooling",
@@ -13741,6 +13797,15 @@ function execute(s, cmd, ctx, events) {
       const lock = speechLock(s);
       if (lock) return fail(lock);
       giveSpeech(s, now);
+      return;
+    }
+    case "fireFireworks": {
+      const lock = fireworksLock(s, cmd.pattern);
+      if (lock) return fail(lock);
+      const def = FIREWORKS[cmd.pattern];
+      pay(s, def.cost);
+      payStardust(s, def.stardust);
+      fireFireworks(s, cmd.pattern, now);
       return;
     }
     case "setCabaret": {
@@ -18248,7 +18313,11 @@ var gameStateSchema = external_exports.object({
   ).max(MEMORIAL_MAX),
   speechUntil: external_exports.number().min(0),
   speech: external_exports.object({ until: external_exports.number().min(0), readyAt: external_exports.number().min(0) }),
-  village: external_exports.object({ cabaretOpen: external_exports.boolean(), fireworksNight: external_exports.number().min(0) }),
+  village: external_exports.object({
+    cabaretOpen: external_exports.boolean(),
+    fireworksNight: external_exports.number().min(0),
+    lastShow: external_exports.object({ at: external_exports.number().min(0), pattern: external_exports.enum(FIREWORKS_PATTERNS) }).optional()
+  }),
   hunger: external_exports.number().int().min(0),
   queue: external_exports.array(
     external_exports.object({
@@ -19044,6 +19113,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("useSkill"), villagerId: id2, skill: external_exports.enum(SKILL_IDS) }),
   external_exports.object({ type: external_exports.literal("giveSpeech") }),
   external_exports.object({ type: external_exports.literal("setCabaret"), open: external_exports.boolean() }),
+  external_exports.object({ type: external_exports.literal("fireFireworks"), pattern: external_exports.enum(FIREWORKS_PATTERNS) }),
   external_exports.object({ type: external_exports.literal("shelter") }),
   external_exports.object({ type: external_exports.literal("repair"), buildingId: id2 }),
   external_exports.object({ type: external_exports.literal("setGarrison"), villagerIds: external_exports.array(id2).max(200) }),
@@ -20105,6 +20175,8 @@ export {
   EXPEDITIONS,
   FACES,
   FACE_PROFILES,
+  FIREWORKS,
+  FIREWORKS_PATTERNS,
   FOOTPRINTS,
   FORGE,
   FRONT_AZIMUTH,
@@ -20435,6 +20507,9 @@ export {
   finalLock,
   finishInfusions,
   finishTitanWorks,
+  fireFireworks,
+  fireworksLock,
+  fireworksOf,
   foodLeftMs,
   footprintCentre,
   footprintHexes,

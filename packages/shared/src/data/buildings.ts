@@ -35,6 +35,7 @@ export const BUILDING_TYPES = [
   'skipPond',
   'slide',
   'cabaret',
+  'fireworks',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
@@ -722,6 +723,22 @@ const BASE: Record<BuildingType, BuildingDef> = {
       {
         cost: { pulp: 7000, fiber: 8000, seeds: 2000, juice: 2500 },
         durationMs: ms.h(2),
+        requiresNestLevel: 7,
+        requiresAge: 2,
+      },
+    ],
+  },
+  // Chantier 44: the fireworks cannon (Iron age), one per colony, outside the building cap,
+  // also on the skin rampart. The player fires it at night (`FIREWORKS`, `fireFireworks`).
+  fireworks: {
+    id: 'fireworks',
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 3000, fiber: 4000, seeds: 2500, juice: 1500 },
+        durationMs: ms.h(1),
         requiresNestLevel: 7,
         requiresAge: 2,
       },

@@ -62,6 +62,7 @@ import { PathPainter } from './pathPainter';
 import { PathsView } from './paths';
 import { MeteorsView } from './meteors';
 import { CometsView, type CometArrow } from './comets';
+import { FireworksView } from './fireworks';
 import { ObstaclesView } from './obstacles';
 import { ShipsView } from './ship';
 import { BattleShow, type ShowSource, type UnitInfo } from './battle/BattleShow';
@@ -200,6 +201,11 @@ export class GameRenderer {
   private waves: TileWaves | null = null;
   private pendingWaves: string[] = [];
   private comets: CometsView | null = null;
+  /** Chantier 44: the fireworks show, and the last one started. */
+  private fireworks: FireworksView | null = null;
+  private lastShowAt: number | null = null;
+  /** Chantier 44: a fireworks burst opened (its sound). */
+  onFireworksBurst: ((x: number, z: number) => void) | null = null;
   private lastCometArrow: CometArrow | null = null;
   private obstacles: ObstaclesView | null = null;
   private ships: ShipsView | null = null;
@@ -457,6 +463,7 @@ export class GameRenderer {
       this.meteors,
       this.gates,
       this.comets,
+      this.fireworks,
       this.obstacles,
       this.battle,
       this.ships,
@@ -490,6 +497,9 @@ export class GameRenderer {
     this.scene.add(this.gates.group);
     this.comets = new CometsView(map);
     this.scene.add(this.comets.group);
+    this.fireworks = new FireworksView();
+    this.fireworks.onBurst = (x, z) => this.onFireworksBurst?.(x, z);
+    this.scene.add(this.fireworks.group);
     this.obstacles = new ObstaclesView(map, () => (this.renderer.shadowMap.needsUpdate = true));
     this.scene.add(this.obstacles.group);
     this.ships = new ShipsView(map);
@@ -797,6 +807,20 @@ export class GameRenderer {
   }
 
   /** Mirrors the game state (buildings, construction sites). Cheap when nothing changed. */
+  /** Chantier 44: plays a fireworks show fired less than 20 s ago (once). */
+  private syncFireworks(state: GameState): void {
+    const show = state.village.lastShow;
+    if (!show || show.at === this.lastShowAt || !this.fireworks || !this.map) return;
+    this.lastShowAt = show.at;
+    if (this.callbacks.now() - show.at > 20_000) return;
+    const cannon = state.buildings.find((b) => b.type === 'fireworks');
+    if (!cannon) return;
+    const p = worldPosition(cannon);
+    const y = getTile(this.map, cannon)?.height ?? 0;
+    this.fireworks.play(show.pattern, new Vector3(p.x, y + 0.5, p.z), this.camera, String(show.at));
+    this.idle.wake(performance.now());
+  }
+
   setGameState(state: GameState): void {
     if (state === this.lastState) return;
     this.lastState = state;
@@ -811,6 +835,7 @@ export class GameRenderer {
     this.meteors?.sync(state);
     this.gates?.sync(state);
     this.comets?.sync(state);
+    this.syncFireworks(state);
     this.obstacles?.sync(state);
     this.ships?.sync(state);
     this.weather?.sync(state, this.buildings?.lit ?? null);
@@ -1577,6 +1602,7 @@ export class GameRenderer {
       this.painter.enabled ||
       this.placingGhost ||
       this.waves?.active ||
+      this.fireworks?.playing ||
       this.battle?.playing ||
       this.landing?.playing ||
       this.pendingShow ||
@@ -1719,6 +1745,7 @@ export class GameRenderer {
     fog.far = fog.near + 170;
     this.buildings?.update(dt, this.callbacks.now());
     this.waves?.update(dt);
+    this.fireworks?.update(dt);
     this.logistics.group.visible = this.visiting === null;
     this.buildings?.badges.setVisible(
       this.visiting === null &&

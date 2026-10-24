@@ -1,6 +1,7 @@
 import {
   BEAUTY,
   CABARET,
+  FIREWORKS,
   isVillageLife,
   LEISURE,
   speechCooldownMs,
@@ -73,6 +74,7 @@ export const LEVEL_STATS = [
   'leisureRange',
   'beauty',
   'eveningMorale',
+  'showMorale',
 ] as const;
 export type LevelStatId = (typeof LEVEL_STATS)[number];
 
@@ -138,6 +140,7 @@ export function describeLevel(type: BuildingType, level: number, state?: GameSta
     push('leisureRange', CABARET.radius);
     push('eveningMorale', CABARET.value);
   }
+  if (type === 'fireworks') push('showMorale', FIREWORKS.kiwiBird.value);
   if (type === 'townHall') {
     push('speechMemory', speechEffectMs(level) / 3_600_000);
     push('speechCooldown', speechCooldownMs(level) / 3_600_000);
@@ -264,6 +267,8 @@ export function buildLock(state: GameState, type: BuildingType): CommandError | 
     if (copiesOf(state, 'townHall') > 0) return 'townHallExists';
   } else if (type === 'cabaret') {
     if (copiesOf(state, 'cabaret') > 0) return 'cabaretExists';
+  } else if (type === 'fireworks') {
+    if (copiesOf(state, 'fireworks') > 0) return 'fireworksExists';
   } else if (type === 'mayorStatue') {
     if (copiesOf(state, 'mayorStatue') > 0) return 'statueExists';
   } else if (isVillageLife(type)) {
