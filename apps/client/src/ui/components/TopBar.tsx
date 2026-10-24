@@ -6,6 +6,9 @@ import {
   RESOURCE_IDS,
   STARDUST,
   stardustOf,
+  ironCap,
+  IRON_SCALE,
+  meteorIronOf,
   stardustPerHour,
   type ResourceId,
 } from '@kiwar/shared';
@@ -21,6 +24,7 @@ import {
   reserves,
   staffing,
   storageFull,
+  meteorIronPerHour,
 } from '../derived';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
 import {
@@ -44,8 +48,9 @@ import { siegeVisible } from './SiegeModal';
 import { ColonySwitch } from './ColonySwitch';
 import { ClockChip, ClockTip } from './ClockChip';
 import { MoraleLine } from './NeedsWidgets';
+import { Icon } from '../iconSet';
 
-type TipId = ResourceId | 'population' | 'clock' | 'stardust';
+type TipId = ResourceId | 'population' | 'clock' | 'stardust' | 'iron';
 
 export interface ChipHandlers {
   open: boolean;
@@ -144,6 +149,34 @@ function StardustChip({ h }: { h: ChipHandlers }) {
   );
 }
 
+/** Chantier 38: meteoric iron, a separate stock (shown once a meteorite has fallen). */
+function IronChip({ h }: { h: ChipHandlers }) {
+  const t = useT();
+  const amount = useUi((s) => (s.game ? meteorIronOf(s.game) : 0));
+  const cap = useUi((s) => (s.game ? ironCap(s.game) / IRON_SCALE : 0));
+  const digging = useUi((s) => (s.game ? meteorIronPerHour(s.game) > 0 : false));
+  return (
+    <button
+      type="button"
+      data-tip="iron"
+      class={`chip chip-iron ${digging ? 'is-picking' : ''} ${h.open ? 'is-open' : ''}`}
+      aria-label={`${t('iron.name')} ${amount} / ${cap}`}
+      aria-expanded={h.open}
+      onPointerEnter={h.onEnter}
+      onPointerLeave={h.onLeave}
+      onClick={h.onToggle}
+    >
+      <Icon name="iron" size={24} />
+      <div class="chip-body">
+        <div class="chip-line">
+          <span class="chip-amount">{amount}</span>
+          <span class="chip-cap">/{cap}</span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 /** Concise explanation of a resource (or of the population) with live numbers. */
 function TipContent({ id }: { id: TipId }) {
   const t = useT();
@@ -162,6 +195,23 @@ function TipContent({ id }: { id: TipId }) {
         {rate > 0 && (
           <p class="tip-line bonus">
             {t('comet.perHour', { rate: formatNumber(lang, Math.round(rate * 10) / 10) })}
+          </p>
+        )}
+      </>
+    );
+  }
+  if (id === 'iron') {
+    const rate = meteorIronPerHour(game);
+    const cap = ironCap(game) / IRON_SCALE;
+    return (
+      <>
+        <strong class="tip-title">
+          <Icon name="iron" size={18} /> {t('iron.name')} {meteorIronOf(game)}/{cap}
+        </strong>
+        <p>{t('iron.tip', { cap })}</p>
+        {rate > 0 && (
+          <p class="tip-line bonus">
+            {t('iron.perHour', { rate: formatNumber(lang, Math.round(rate * 10) / 10) })}
           </p>
         )}
       </>
@@ -327,6 +377,7 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
       !!s.game &&
       (s.game.stardust > 0 || s.game.comets.passes > 0 || s.game.comets.patches.length > 0),
   );
+  const showIron = useUi((s) => !!s.game && (s.game.meteorIron > 0 || s.game.sky.falls > 0));
   return (
     <header class="topbar pe">
       <div class="resources parchment" ref={barRef}>
@@ -372,6 +423,7 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
           )}
         </span>
         {showDust && <StardustChip h={handlers('stardust')} />}
+        {showIron && <IronChip h={handlers('iron')} />}
         <ClockChip h={handlers('clock')} />
         {tip && (
           <div class="tip parchment" role="tooltip" ref={tipRef} style={{ left: `${tipLeft}px` }}>

@@ -137,6 +137,12 @@ export const SOUND_EVENTS = {
     synth: 'discovery',
     default: { sources: ['synth:discovery'], cooldownMs: 1500, volume: 0.7 },
   },
+  'forge.item': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'anvil',
+    default: { sources: ['synth:anvil'], cooldownMs: 1200, volume: 0.7 },
+  },
   'age.reached': {
     bus: 'sfx',
     group: 'colony',

@@ -17,16 +17,10 @@ export function forge(look: Look): Parts {
   // Floor of beaten earth and flagstones.
   p.push([cyl(10), C.strawDark, m(0, 0.015, 0, 0.5, 0.03, 0.5)]);
   p.push([box(), stoneDark, m(-0.12, 0.035, -0.05, 0.6, 0.02, 0.44)]);
-  // Back wall and the lean roof on four posts.
-  wall(p, age, -0.12, 0.16, -0.3, 0.62, 0.32, 0.06, C.stone);
-  for (const [x, z] of [
-    [-0.42, -0.3],
-    [0.18, -0.3],
-    [-0.42, 0.18],
-    [0.18, 0.18],
-  ] as const)
-    p.push([cyl(6), post, m(x, 0.2, z, 0.025, 0.4, 0.025)]);
-  gable(p, age, -0.12, 0.44, -0.06, 0.14, 0.7, 0.32, C.slate);
+  // Back wall and a lean-to roof over the hearth, on two front posts: the anvil stands outside.
+  wall(p, age, -0.12, 0.16, -0.32, 0.62, 0.32, 0.06, C.stone);
+  for (const x of [-0.42, 0.18]) p.push([cyl(6), post, m(x, 0.19, -0.04, 0.025, 0.38, 0.025)]);
+  gable(p, age, -0.12, 0.36, -0.34, 0.12, 0.7, 0.3, C.slate);
   // The hearth: a block of stones, embers that flicker, the chimney behind.
   p.push([box(), stone, m(-0.3, 0.1, -0.16, 0.22, 0.2, 0.2)]);
   p.push([box(), stoneDark, m(-0.3, 0.205, -0.16, 0.24, 0.03, 0.22)]);
@@ -41,7 +35,7 @@ export function forge(look: Look): Parts {
   }
   // The anvil on its stump, the hammer falling on it (sparks at each blow).
   const ax = 0.02;
-  const az = 0.0;
+  const az = 0.14;
   p.push([cyl(8), C.woodDark, m(ax, 0.06, az, 0.07, 0.12, 0.07)]);
   p.push([box(), C.ironDark, m(ax, 0.14, az, 0.13, 0.05, 0.06)]);
   p.push([cone(4), C.ironDark, m(ax + 0.09, 0.15, az, 0.03, 0.06, 0.03, 0, 0, -Math.PI / 2)]);

@@ -58,6 +58,9 @@ export function playGameEventSounds(events: GameEvent[]): void {
       case 'researchDone':
         audio.play('research.done');
         break;
+      case 'itemForged':
+        audio.play('forge.item');
+        break;
       case 'ageReached':
       case 'kikiwiwiBorn':
         audio.play('age.reached');

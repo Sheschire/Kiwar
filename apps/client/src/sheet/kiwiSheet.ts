@@ -11,7 +11,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import type { ClassId } from '@kiwar/shared';
+import type { ClassId, ItemId } from '@kiwar/shared';
 import { CLIP_IDS, CLIPS, ClipPlayer, type ClipId } from '../render/anim/clips';
 import { KiwiRig } from '../render/anim/kiwiRig';
 import {
@@ -89,6 +89,44 @@ function kiwiCells(rig: KiwiRig, only: string[] | null): SheetCell[] {
       },
     };
   });
+}
+
+/** Chantier 38: kiwis in their gear (each tier, light and heavy armours, weapons on the back). */
+const GEARED: readonly [ClassId, ItemId, ItemId][] = [
+  ['warrior', 'blade-stone', 'heavy-stone'],
+  ['warrior', 'blade-iron', 'heavy-iron'],
+  ['champion', 'blade-steel', 'heavy-steel'],
+  ['builder', 'mace-iron', 'light-stone'],
+  ['mage', 'staff-iron', 'light-iron'],
+  ['gatherer', 'bow-steel', 'light-steel'],
+];
+
+function gearCells(rig: KiwiRig, only: string[] | null): SheetCell[] {
+  return GEARED.filter(([, w]) => !only || only.includes(`gear ${w}`)).map(
+    ([cls, weapon, armor], i) => {
+      const player = new ClipPlayer();
+      player.play('idle', i * 0.41);
+      return {
+        label: `gear ${weapon}`,
+        group: 'gear',
+        update(dt, _t, x, z) {
+          rig.draw({
+            x,
+            y: 0,
+            z,
+            heading: -0.7,
+            scale: 1.3,
+            pose: player.pose(dt),
+            tint: TINT,
+            classId: cls,
+            load: null,
+            weapon,
+            armor,
+          });
+        },
+      };
+    },
+  );
 }
 
 /** Ferrets and bats: every clip at the age of Eden, then each age's look. */
@@ -186,6 +224,7 @@ function start(): void {
   scene.add(particles.mesh);
   const cells: SheetCell[] = [
     ...kiwiCells(rig, only),
+    ...gearCells(rig, only),
     ...creatureCells(creatures, only),
     ...effectCells(particles, only),
   ];

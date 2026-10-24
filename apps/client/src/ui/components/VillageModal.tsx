@@ -35,6 +35,7 @@ import { pushToast, useT, useUi, uiStore, type VillageSort } from '../store';
 import { BookIcon, HammerIcon, LockIcon, ResourceIcon } from '../icons';
 import { KiwiPortrait } from './KiwiPortrait';
 import { BlessingSection } from './BlessingSection';
+import { GearSection } from './GearSection';
 import { Modal } from './Modal';
 import { AutomationPanel, manualNeeds } from './AutomationPanel';
 import { StatRadar } from './StatRadar';
@@ -440,6 +441,7 @@ function KiwiSheet({ v }: { v: Villager }) {
       <BlessingSection game={game} v={v} />
 
       <ClassSection v={v} />
+      <GearSection game={game} v={v} />
       {!v.kikiwiwi && <ClassTree v={v} />}
 
       <FoldSection title={t('kiwi.trait')}>

@@ -20,6 +20,7 @@ import {
   type GameState,
   type TechId,
   stardustOf,
+  meteorIronOf,
 } from '@kiwar/shared';
 import { researchPerHour } from '../derived';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
@@ -137,11 +138,20 @@ function TechCard({ game, id, t }: { game: GameState; id: TechId; t: Translate }
               {def.stardust}
             </span>
           )}
+          {def.iron && status !== 'done' && status !== 'current' && (
+            <span class={`dust-price cost-iron ${meteorIronOf(game) < def.iron ? 'missing' : ''}`}>
+              {'\u00a0·\u00a0'}
+              <Icon name="iron" size={14} />
+              {def.iron}
+            </span>
+          )}
         </span>
         {status === 'available' && (
           <button
             class="btn btn-small btn-primary"
-            disabled={(def.stardust ?? 0) > stardustOf(game)}
+            disabled={
+              (def.stardust ?? 0) > stardustOf(game) || (def.iron ?? 0) > meteorIronOf(game)
+            }
             onClick={() => actions.dispatch({ type: 'setResearch', tech: id })}
           >
             {current ? t('research.switch') : t('research.choose')}

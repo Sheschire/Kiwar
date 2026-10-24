@@ -29,6 +29,7 @@ import {
   universeFriends,
   universeTargets,
   stardustOf,
+  meteorIronOf,
   colonyNeedsSync,
   deliverToSister,
   hasSister,
@@ -89,6 +90,9 @@ export interface OfflineSummary {
   meteors: number;
   comets: number;
   stardust: number;
+  /** Chantier 38: meteoric iron dug, pieces forged. */
+  iron: number;
+  forged: number;
   incidents: number;
   /** Allies whose gifts landed meanwhile (one entry per delivery). */
   gifts: string[];
@@ -1153,6 +1157,8 @@ function summarize(
     meteors: events.filter((e) => e.type === 'meteorLanded').length,
     comets: events.filter((e) => e.type === 'cometPassed').length,
     stardust: Math.max(0, stardustOf(after) - stardustOf(before)),
+    iron: Math.max(0, meteorIronOf(after) - meteorIronOf(before)),
+    forged: events.filter((e) => e.type === 'itemForged').length,
     incidents: events.filter((e) => e.type === 'incident').length,
     gifts: events.flatMap((e) => (e.type === 'cargoReceived' ? [e.from] : [])),
   };

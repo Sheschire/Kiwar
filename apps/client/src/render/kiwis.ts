@@ -1158,6 +1158,8 @@ export class KiwisView {
         tint: agent.tint,
         classId: this.classOf.get(agent.id) ?? null,
         load: agent.carrying ? RESOURCE_COLORS[agent.carrying] : null,
+        weapon: this.villagers.get(agent.id)?.gear?.weapon ?? null,
+        armor: this.villagers.get(agent.id)?.gear?.armor ?? null,
       });
     }
     this.rig.end();

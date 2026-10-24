@@ -1,6 +1,7 @@
 import { actions } from '../actions';
 import { useBattle } from '../battleStore';
-import { useT } from '../store';
+import type { ItemId } from '@kiwar/shared';
+import { useT, useUi } from '../store';
 import type { UnitInfo } from '../../render/battle/BattleShow';
 
 /** m:ss */
@@ -61,6 +62,23 @@ export function BattleBar() {
   );
 }
 
+/** Chantier 38: what the kiwi wears (read from the colony: the journal keeps no gear). */
+function UnitGear({ ref_ }: { ref_: string }) {
+  const t = useT();
+  const worn = useUi((s) => {
+    const gear = s.game?.villagers.find((v) => v.id === ref_)?.gear;
+    return [gear?.weapon, gear?.armor].filter(Boolean).join(',');
+  });
+  const items = worn ? (worn.split(',') as ItemId[]) : [];
+  return (
+    <span class="small muted">
+      {items.length > 0
+        ? t('battle.unit.gear', { items: items.map((id) => t(`gear.items.${id}`)).join(', ') })
+        : t('battle.unit.noGear')}
+    </span>
+  );
+}
+
 function UnitCard({ unit }: { unit: UnitInfo }) {
   const t = useT();
   const title =
@@ -109,9 +127,7 @@ function UnitCard({ unit }: { unit: UnitInfo }) {
       {unit.side === 0 && unit.classId && (
         <span class="small muted">{t(`classes.${unit.classId as 'warrior'}.combat`)}</span>
       )}
-      {unit.side === 0 && unit.body !== 'turret' && (
-        <span class="small muted">{t('battle.unit.gear')}</span>
-      )}
+      {unit.side === 0 && unit.body !== 'turret' && <UnitGear ref_={unit.ref} />}
     </div>
   );
 }

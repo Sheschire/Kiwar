@@ -57,9 +57,21 @@ function glowTexture(): CanvasTexture {
 const DRILL_FRAME = ['#8a6a44', '#8a6a44', '#5f646b', '#9a7a3a'];
 const DRILL_BIT = ['#b8b0a0', '#b8b0a0', '#c9ced6', '#d8b04a'];
 
+/** Chantier 38: meteoric iron glows a cold blue-white; shards of metal stick out of the crater. */
+const IRON_GLOW = '#a9d4ff';
+const SHARDS: readonly [number, number, number, number][] = [
+  [0.3, 0.04, 0.6, 0.18],
+  [-0.28, 0.1, 2.1, 0.15],
+  [0.05, -0.32, 3.6, 0.17],
+  [-0.14, 0.32, 4.6, 0.13],
+  [0.34, -0.18, 5.4, 0.12],
+];
+
 interface Crater {
   group: Group;
   rock: Mesh;
+  /** Chantier 38: metal shards around the rock (fewer as the iron is dug). */
+  shards: Mesh[];
   glow: Sprite;
   /** The drill over the crater (shown once researched, while kiwis work it). */
   drill: Group;
@@ -79,6 +91,15 @@ export class MeteorsView {
   readonly group = new Group();
   private readonly craters = new Map<string, Crater>();
   private readonly rockGeometry = new IcosahedronGeometry(0.3, 0);
+  private readonly shardGeometry = new ConeGeometry(0.5, 1.6, 4);
+  private readonly shardMaterial = new MeshStandardMaterial({
+    color: '#5f6f7e',
+    emissive: new Color(IRON_GLOW),
+    emissiveIntensity: 0.15,
+    roughness: 0.35,
+    metalness: 0.7,
+    flatShading: true,
+  });
   private readonly ringGeometry = new TorusGeometry(0.5, 0.09, 5, 12);
   private readonly ringMaterial = new MeshStandardMaterial({
     color: '#6b4a2e',
@@ -138,9 +159,13 @@ export class MeteorsView {
     const next = sky.next?.announced ? sky.next : null;
     const drill = techEffects(state).meteorDrill;
     const age = Math.min(ageOf(state), DRILL_FRAME.length - 1);
-    const worked = (m: Meteor) => drill && m.stock > 0 && minersOf(state, m.id).length > 0;
+    const worked = (m: Meteor) =>
+      drill && (m.stock > 0 || m.iron > 0) && minersOf(state, m.id).length > 0;
     const sig = `${next ? `${next.id}@${next.q},${next.r}` : '-'}|${age}|${sky.meteors
-      .map((m) => `${m.id}:${Math.round((m.stock / Math.max(1, m.max)) * 20)}:${worked(m) ? 1 : 0}`)
+      .map(
+        (m) =>
+          `${m.id}:${Math.round((m.stock / Math.max(1, m.max)) * 20)}:${Math.round((m.iron / Math.max(1, m.ironMax)) * 20)}:${worked(m) ? 1 : 0}`,
+      )
       .join(';')}`;
     if (sig === this.signature) return;
     this.signature = sig;
@@ -164,11 +189,15 @@ export class MeteorsView {
     }
     for (const m of sky.meteors) {
       const c = this.craters.get(m.id) ?? this.add(m, state.now - m.landedAt > FALL_S * 1000);
-      const k = m.max > 0 ? m.stock / m.max : 0;
-      const s = m.stock > 0 ? 0.45 + 0.55 * k : 0.3;
-      c.rock.scale.setScalar(s);
-      c.glow.visible = m.stock > 0;
+      // Chantier 38: the iron sizes the rock and its shards; the old gift only its glow.
+      const iron = m.ironMax > 0;
+      const k = iron ? m.iron / m.ironMax : m.max > 0 ? m.stock / m.max : 0;
+      const left = iron ? m.iron > 0 : m.stock > 0;
+      c.rock.scale.setScalar(left ? 0.45 + 0.55 * k : 0.3);
+      c.glow.visible = left;
       c.glow.scale.setScalar(1.1 + 1.2 * k);
+      const shown = iron ? Math.ceil(k * c.shards.length) : 0;
+      c.shards.forEach((sh, i) => (sh.visible = i < shown));
       c.drilling = worked(m);
       c.drill.visible = c.drilling;
       for (const leg of c.drill.children.filter((x) => x !== c.bit))
@@ -186,11 +215,12 @@ export class MeteorsView {
     ring.rotation.x = Math.PI / 2;
     ring.position.y = 0.02;
     ring.scale.set(1, 1, 0.5);
-    const color = new Color(GLOW[m.resource]);
+    const color = new Color(m.ironMax > 0 ? IRON_GLOW : GLOW[m.resource]);
     const rock = new Mesh(
       this.rockGeometry,
       new MeshStandardMaterial({
-        color: '#4a3a30',
+        color: m.ironMax > 0 ? '#4c5560' : '#4a3a30',
+        metalness: m.ironMax > 0 ? 0.45 : 0,
         emissive: color,
         emissiveIntensity: 0.55,
         roughness: 0.8,
@@ -223,11 +253,19 @@ export class MeteorsView {
     bit.position.y = 0.5;
     drill.add(bit);
     drill.visible = false;
-    group.add(ring, rock, glow, drill);
+    const shards = SHARDS.map(([x, z, a, size]) => {
+      const sh = new Mesh(this.shardGeometry, this.shardMaterial);
+      sh.position.set(x, size * 0.5, z);
+      sh.rotation.set(Math.cos(a) * 0.5, a, Math.sin(a) * 0.5);
+      sh.scale.setScalar(size);
+      return sh;
+    });
+    group.add(ring, rock, glow, drill, ...shards);
     this.group.add(group);
     const c: Crater = {
       group,
       rock,
+      shards,
       glow,
       drill,
       bit,
@@ -279,6 +317,8 @@ export class MeteorsView {
     }
     this.craters.clear();
     this.rockGeometry.dispose();
+    this.shardGeometry.dispose();
+    this.shardMaterial.dispose();
     this.ringGeometry.dispose();
     this.legGeometry.dispose();
     this.bitGeometry.dispose();

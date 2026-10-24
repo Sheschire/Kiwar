@@ -65,6 +65,7 @@ import {
   postKind,
   type Villager,
   stardustOf,
+  meteorIronOf,
   waitingForBuilder,
   meteorAt,
   footprintOf,
@@ -95,6 +96,7 @@ import { Icon, type IconName } from '../iconSet';
 import { BuildingThumb } from './BuildingThumb';
 import { LabInfo } from './LabInfo';
 import { CampInfo } from './CampInfo';
+import { ForgeInfo } from './ForgeInfo';
 import { siegeVisible } from './SiegeModal';
 import { TitanWorks } from './TitanWorks';
 import { DustSection } from './DustSection';
@@ -395,6 +397,7 @@ function BuildingSection({
       {b.type === 'school' && <SchoolInfo game={game} b={b} now={now} t={t} />}
       {b.type === 'lab' && <LabInfo game={game} map={map} b={b} now={now} />}
       {b.type === 'trainingCamp' && <CampInfo game={game} b={b} now={now} />}
+      {b.type === 'forge' && <ForgeInfo game={game} b={b} />}
       {b.type === 'monument' && <AgeInfo game={game} t={t} />}
       {b.type === 'library' && (
         <>
@@ -511,6 +514,8 @@ function UpgradeAction({
         have={game.resources}
         stardust={levelDef(b.type, target)?.stardust}
         haveDust={stardustOf(game)}
+        iron={levelDef(b.type, target)?.iron}
+        haveIron={meteorIronOf(game)}
         durationMs={constructionDuration(game, b.type, target, false, nearRay(map, b.q, b.r))}
       />
       <button

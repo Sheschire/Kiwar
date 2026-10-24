@@ -18,7 +18,15 @@ import {
   type BufferGeometry,
   type Material,
 } from 'three';
-import { CLASS_IDS, CLASSES, type ClassId } from '@kiwar/shared';
+import {
+  CLASS_IDS,
+  CLASSES,
+  ITEM_IDS,
+  ITEMS,
+  type ClassId,
+  type GearTier,
+  type ItemId,
+} from '@kiwar/shared';
 import { colored, mat, merged } from './geometry';
 import { PROP_IDS, type Pose, type PropId } from './pose';
 import { PROPS } from './props';
@@ -304,6 +312,104 @@ function outfitGeometry(cls: ClassId, onHead: boolean): BufferGeometry | null {
   return onHead ? g.translate(-NECK.x, -NECK.y, -NECK.z) : g;
 }
 
+/**
+ * Chantier 38: the gear a kiwi wears — an armour over the body (a quilted vest or a band of
+ * mail for light ones, a breastplate and pauldrons for heavy ones) and its weapon slung on the
+ * back, in the colours of its tier (wood and stone, iron, steel).
+ */
+const TIER_METAL: Record<GearTier, string> = {
+  stone: '#9a8f80',
+  iron: '#8e99a3',
+  steel: '#d3dbe2',
+};
+const LIGHT_CLOTH: Record<GearTier, string> = {
+  stone: '#cdb98e',
+  iron: '#9aa4ad',
+  steel: '#d8e0e6',
+};
+const HEAVY_PLATE: Record<GearTier, string> = {
+  stone: '#b8925c',
+  iron: '#7f8b95',
+  steel: '#c4ccd3',
+};
+const HANDLE = '#6b4a2e';
+
+function gearGeometry(id: ItemId): BufferGeometry {
+  const def = ITEMS[id];
+  const metal = TIER_METAL[def.tier];
+  const wood = def.tier === 'stone' ? '#8a6a44' : HANDLE;
+  switch (def.kind) {
+    case 'light':
+      // A vest around the belly, a belt under it.
+      return merged([
+        colored(
+          new CylinderGeometry(0.92, 1, 1, 14),
+          LIGHT_CLOTH[def.tier],
+          mat(0, 0.2, 0.0, 0.192, 0.085, 0.232),
+        ),
+        colored(new CylinderGeometry(1, 1, 1, 14), HANDLE, mat(0, 0.155, 0.0, 0.19, 0.014, 0.228)),
+      ]);
+    case 'heavy':
+      return merged([
+        colored(
+          new SphereGeometry(1, 12, 7, 0, Math.PI * 2, 0, Math.PI * 0.6),
+          HEAVY_PLATE[def.tier],
+          mat(0, 0.2, 0.04, 0.2, 0.17, 0.2, Math.PI / 2 - 0.1),
+        ),
+        ...[-1, 1].map((side) =>
+          colored(
+            new SphereGeometry(1, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2),
+            HEAVY_PLATE[def.tier],
+            mat(side * 0.15, 0.26, 0.0, 0.07, 0.05, 0.08, 0, 0, side * -0.5),
+          ),
+        ),
+      ]);
+    case 'blade':
+      return merged([
+        colored(
+          new BoxGeometry(1, 1, 1),
+          metal,
+          mat(0.04, 0.3, -0.22, 0.022, 0.3, 0.008, 0, 0, 0.6),
+        ),
+        colored(
+          new BoxGeometry(1, 1, 1),
+          wood,
+          mat(-0.06, 0.17, -0.22, 0.07, 0.016, 0.016, 0, 0, 0.6),
+        ),
+      ]);
+    case 'mace':
+      return merged([
+        colored(
+          new CylinderGeometry(1, 1, 1, 5),
+          wood,
+          mat(0.02, 0.26, -0.22, 0.012, 0.28, 0.012, 0, 0, 0.6),
+        ),
+        colored(new IcosahedronGeometry(1, 0), metal, mat(-0.06, 0.38, -0.22, 0.045, 0.045, 0.045)),
+      ]);
+    case 'bow':
+      return merged([
+        colored(
+          new TorusGeometry(1, 0.06, 4, 12, Math.PI),
+          def.tier === 'steel' ? metal : wood,
+          mat(0, 0.27, -0.22, 0.16, 0.16, 0.16, 0, 0, 0.3 + Math.PI / 2),
+        ),
+      ]);
+    case 'staff':
+      return merged([
+        colored(
+          new CylinderGeometry(1, 1, 1, 5),
+          wood,
+          mat(0.02, 0.28, -0.22, 0.012, 0.42, 0.012, 0, 0, 0.5),
+        ),
+        colored(
+          new IcosahedronGeometry(1, 0),
+          def.tier === 'stone' ? '#9b7cf2' : metal,
+          mat(-0.08, 0.47, -0.22, 0.035, 0.035, 0.035),
+        ),
+      ]);
+  }
+}
+
 /** One kiwi to draw this frame. */
 export interface KiwiDraw {
   x: number;
@@ -316,6 +422,9 @@ export interface KiwiDraw {
   classId: ClassId | null;
   /** Colour of the load on the back, or none. */
   load: Color | null;
+  /** Chantier 38: the pieces it wears. */
+  weapon?: ItemId | null;
+  armor?: ItemId | null;
 }
 
 export class KiwiRig {
@@ -330,6 +439,7 @@ export class KiwiRig {
   private readonly outfitHead = new Map<ClassId, Part>();
   private readonly outfitBody = new Map<ClassId, Part>();
   private readonly props = new Map<PropId, Part>();
+  private readonly gear = new Map<ItemId, Part>();
   private readonly parts: Part[] = [];
   private readonly materials: Material[] = [];
   private readonly root = new Matrix4();
@@ -392,6 +502,7 @@ export class KiwiRig {
       if (b) this.outfitBody.set(cls, add(new Part(b, cloth, max)));
     }
     for (const id of PROP_IDS) this.props.set(id, add(new Part(PROPS[id].geometry(), cloth, max)));
+    for (const id of ITEM_IDS) this.gear.set(id, add(new Part(gearGeometry(id), cloth, max)));
   }
 
   /** Draws one kiwi; call between frames' `end()`s, in any order. */
@@ -410,6 +521,8 @@ export class KiwiRig {
     this.bodyM.multiplyMatrices(this.root, this.local);
     this.body.push(this.bodyM, k.tint);
     if (k.classId) this.outfitBody.get(k.classId)?.push(this.bodyM);
+    if (k.armor) this.gear.get(k.armor)?.push(this.bodyM);
+    if (k.weapon && !k.load) this.gear.get(k.weapon)?.push(this.bodyM);
 
     // Head.
     this.e.set(p.headPitch, p.headYaw, p.headRoll, 'YXZ');

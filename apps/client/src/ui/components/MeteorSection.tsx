@@ -6,6 +6,10 @@ import {
   METEORS,
   minersOf,
   storageFullCheck,
+  ironCap,
+  ironUnits,
+  IRON_SCALE,
+  meteorIronRate,
   techEffects,
   type GameState,
   type Tile,
@@ -15,6 +19,7 @@ import { actions } from '../actions';
 import { ResourceIcon } from '../icons';
 import { useUi, type Translate } from '../store';
 import { KiwiChips } from './VillageModal';
+import { Icon } from '../iconSet';
 
 /**
  * Chantier 15: a meteorite crater is a temporary post — what is left, when it fades, who
@@ -47,8 +52,11 @@ export function MeteorSection({
       </p>
     );
   }
-  if (m.stock <= 0) return <p class="small muted meteor-line">{t('sky.empty')}</p>;
+  if (m.stock <= 0 && m.iron <= 0) return <p class="small muted meteor-line">{t('sky.empty')}</p>;
   const miners = minersOf(game, m.id);
+  // Chantier 38: the crater's iron first, then its small share of the old gift.
+  const ironRate = (meteorIronRate(game, m) * 3_600_000) / IRON_SCALE;
+  const ironFull = game.meteorIron >= ironCap(game);
   const full = storageFullCheck(game)(m.resource);
   const rate = full ? 0 : meteorRate(game, m);
   const auto = game.automation.meteor;
@@ -60,10 +68,20 @@ export function MeteorSection({
     <div class="section meteor-section">
       <div class="title-row">
         <h3>
-          <ResourceIcon id={m.resource} size={20} /> {t('sky.post')}
+          <Icon name="iron" size={20} /> {t('sky.post')}
         </h3>
-        {rate > 0 && <span class="badge">{t('sky.rate', { rate: fmt(rate) })}</span>}
+        {ironRate > 0 && <span class="badge">{t('sky.ironRate', { rate: fmt(ironRate) })}</span>}
       </div>
+      {m.ironMax > 0 && (
+        <p class="small bonus">
+          <Icon name="iron" size={14} />{' '}
+          {t('sky.iron', { stock: ironUnits(m.iron), max: ironUnits(m.ironMax) })}
+        </p>
+      )}
+      {ironFull && m.iron > 0 && (
+        <p class="small warn">{t('sky.ironFull', { cap: ironCap(game) / IRON_SCALE })}</p>
+      )}
+      {rate > 0 && <p class="small muted">{t('sky.rate', { rate: fmt(rate) })}</p>}
       <p class="small bonus">
         ✦{' '}
         {t('sky.meteor', {
@@ -85,7 +103,7 @@ export function MeteorSection({
       <p class="small muted">{auto ? t('sky.auto') : t('sky.manual')}</p>
       {!auto && (
         <div class="dust-actions">
-          {!full && better && (
+          {(!full || (m.iron > 0 && !ironFull)) && better && (
             <button
               class="btn btn-primary"
               onClick={() =>

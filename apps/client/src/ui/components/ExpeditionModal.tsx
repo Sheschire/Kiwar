@@ -22,6 +22,8 @@ import {
   type VillagerId,
   FUEL,
   stardustOf,
+  launchIron,
+  meteorIronOf,
   twinTarget,
   allHolders,
   BUILDINGS,
@@ -584,6 +586,12 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
               cost={f.launchCost}
               have={{ ...game.resources, juice: game.resources.juice - food.juice }}
             />
+          </p>
+        )}
+        {launchIron(game) > 0 && (
+          <p class="launch-cost small">
+            <span>{t('iron.launch', { iron: launchIron(game) })}</span>
+            <Cost cost={{}} iron={launchIron(game)} haveIron={meteorIronOf(game)} />
           </p>
         )}
       </section>

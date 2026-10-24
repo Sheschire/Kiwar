@@ -25,6 +25,8 @@ export function OfflineModal() {
     summary.meteors === 0 &&
     summary.comets === 0 &&
     summary.stardust === 0 &&
+    summary.iron === 0 &&
+    summary.forged === 0 &&
     summary.gifts.length === 0;
   return (
     <Modal
@@ -112,6 +114,8 @@ export function OfflineModal() {
         <p class="bonus">{t('offline.meteors', { count: summary.meteors })}</p>
       )}
       {summary.comets > 0 && <p class="bonus">{t('offline.comets', { count: summary.comets })}</p>}
+      {summary.iron > 0 && <p class="bonus">{t('offline.iron', { count: summary.iron })}</p>}
+      {summary.forged > 0 && <p class="bonus">{t('offline.forged', { count: summary.forged })}</p>}
       {summary.stardust > 0 && (
         <p class="bonus">{t('offline.stardust', { count: summary.stardust })}</p>
       )}

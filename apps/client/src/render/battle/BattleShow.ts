@@ -1,3 +1,4 @@
+import type { ItemId } from '@kiwar/shared';
 import type { Camera } from 'three';
 import {
   Color,
@@ -124,6 +125,8 @@ interface Actor {
   scale: number;
   tint: Color;
   classId: Track['unit'][6];
+  /** Chantier 38: the armour it wears (its weapon is the one it strikes with). */
+  armor: ItemId | null;
   player: ClipPlayer | null;
   pose: CreaturePose;
   heading: number;
@@ -278,6 +281,7 @@ export class BattleShow {
         scale,
         tint,
         classId: u[6],
+        armor: villagers.get(u[0])?.gear?.armor ?? null,
         player: body === 'kiwi' || body === 'kikiwiwi' ? new ClipPlayer(track.index * 0.37) : null,
         pose: restCreaturePose(),
         heading: 0,
@@ -462,6 +466,7 @@ export class BattleShow {
             tint: a.tint,
             classId: a.classId,
             load: null,
+            armor: a.armor,
           });
           nb++;
         }

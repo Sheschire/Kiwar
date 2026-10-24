@@ -255,6 +255,7 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         break;
       case 'meteorLanded':
         pushToast('success', 'sky.landed', {
+          iron: e.iron,
           stock: e.stock,
           resource: `@resources.${e.resource}`,
         });
@@ -284,6 +285,12 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
       case 'stardustFull':
         pushToast('info', 'comet.full');
         break;
+      case 'ironFull':
+        pushToast('info', 'iron.full');
+        break;
+      case 'itemForged':
+        pushToast('success', 'forge.forged', { item: `@gear.items.${e.item}` });
+        break;
       case 'obstacleCleared': {
         // The main part of the loot (what did not fit in the storage is lost).
         const best = RESOURCE_IDS.reduce<ResourceId | null>(
@@ -297,6 +304,7 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
             resource: `@resources.${best}`,
           });
         else pushToast('info', 'obstacles.clearedEmpty', { name: `@obstacles.${e.kind}.name` });
+        if (e.iron) pushToast('success', 'iron.wreck', { iron: e.iron });
         break;
       }
       case 'wreckLeft':

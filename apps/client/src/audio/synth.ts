@@ -317,6 +317,18 @@ export const SYNTH_PRESETS = {
     ],
     peak: 0.4,
   },
+  // Chantier 38: a piece leaves the Forge — two hammer strikes on an anvil, a bright ring.
+  anvil: {
+    tones: [
+      { wave: 'noise', freq: 0, attack: 0.001, decay: 0.04, gain: 0.5, lowpass: 7000 },
+      { wave: 'sine', freq: 1870, attack: 0.001, decay: 0.35, gain: 0.5 },
+      { wave: 'sine', freq: 2630, attack: 0.001, decay: 0.25, gain: 0.3 },
+      { wave: 'noise', freq: 0, start: 0.22, attack: 0.001, decay: 0.04, gain: 0.5, lowpass: 7000 },
+      { wave: 'sine', freq: 1870, start: 0.22, attack: 0.001, decay: 0.7, gain: 0.55 },
+      { wave: 'sine', freq: 3410, start: 0.22, attack: 0.001, decay: 0.4, gain: 0.2 },
+    ],
+    peak: 0.4,
+  },
   // Chantier 08: a technology is researched — a bright rising idea with a soft shimmer.
   discovery: {
     tones: [
