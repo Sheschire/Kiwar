@@ -1,8 +1,9 @@
 import { CAMP } from '../data/classes';
-import { HUNGER_SCALE, NEEDS, type HungerStage } from '../data/needs';
+import { CAMPFIRE, HUNGER_SCALE, NEEDS, type HungerStage } from '../data/needs';
 import { emptyResources, type Resources } from '../data/resources';
 import type { TimeMs } from '../types/ids';
-import { seasonOf } from './calendar';
+import { isNight, seasonOf } from './calendar';
+import { suppedTonight } from './rest';
 import { withRng, type GameState, type Villager } from './state';
 import { modifiers } from './kiwis';
 import { kikiwiwiUpkeep } from './kikiwiwi';
@@ -30,7 +31,10 @@ export function consumption(state: GameState): Resources {
   const out = emptyResources();
   // Gluttons count for more mouths.
   let mouths = 0;
-  for (const v of homeKiwis(state)) mouths += modifiers(v).appetite;
+  // Chantier 43: who supped at the campfire eats less during the night.
+  const night = isNight(state);
+  for (const v of homeKiwis(state))
+    mouths += modifiers(v).appetite * (night && suppedTonight(state, v) ? CAMPFIRE.meals : 1);
   // Chantier 37: kiwis drilling at the training camp eat more.
   mouths += CAMP.drillAppetite * drillingKiwis(state);
   if (mouths === 0) return out;

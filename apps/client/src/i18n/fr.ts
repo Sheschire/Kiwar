@@ -257,6 +257,10 @@ export const fr: Dict = {
       name: 'Camp d’entraînement',
       desc: 'Mannequins, cibles et cercle de sorts : les kiwis qui ont une classe s’y entraînent pour gagner des rangs, passer à une classe avancée ou changer de classe.',
     },
+    campfire: {
+      name: 'Feu de camp',
+      desc: 'Au crépuscule, les kiwis qui dorment tout près s’y retrouvent pour souper ensemble : du moral jusqu’au lendemain soir et des repas de nuit plus légers. Un loisir pour les huttes voisines.',
+    },
     townHall: {
       name: 'Mairie',
       desc: 'Le·la maire y siège et y prononce le Discours : toute la colonie s’y rassemble, puis garde le moral pendant des heures.',
@@ -2146,6 +2150,7 @@ export const fr: Dict = {
     speechMemory: 'Durée du moral d’un discours',
     speechCooldown: 'Repos entre deux discours',
     hours: '{value} h',
+    leisureRange: 'Portée du loisir (cases autour des huttes)',
     perHour: '{value}/h',
     times: '×{value}',
     fullStaff: 'Avec toutes les places occupées, sur cette face.',

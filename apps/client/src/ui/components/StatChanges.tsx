@@ -26,6 +26,7 @@ const LEVEL_ICONS: Record<LevelStatId, IconName> = {
   buildSlots: 'queue',
   speechMemory: 'morale',
   speechCooldown: 'time',
+  leisureRange: 'campfire',
 };
 
 const TECH_ICONS: Record<TechStatId, IconName> = {

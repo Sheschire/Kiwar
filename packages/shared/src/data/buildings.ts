@@ -24,6 +24,7 @@ export const BUILDING_TYPES = [
   'trainingCamp',
   'forge',
   'townHall',
+  'campfire',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
@@ -566,6 +567,21 @@ const BASE: Record<BuildingType, BuildingDef> = {
       {
         cost: { pulp: 2000, fiber: 2000, seeds: 450, juice: 600 },
         durationMs: ms.h(1),
+        requiresNestLevel: 3,
+      },
+    ],
+  },
+  // Chantier 43: the campfire (Nest 3), outside the building cap, each copy dearer: leisure for
+  // the kiwis sleeping near it and a supper together at nightfall (`CAMPFIRE`).
+  campfire: {
+    id: 'campfire',
+    allowedTiles: ['flesh', 'ray', 'heart'],
+    buildable: true,
+    copyGrowth: 1.6,
+    levels: [
+      {
+        cost: { pulp: 150, fiber: 250, seeds: 40 },
+        durationMs: ms.min(5),
         requiresNestLevel: 3,
       },
     ],

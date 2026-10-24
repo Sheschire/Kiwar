@@ -300,6 +300,7 @@ export function buildingCount(state: GameState): number {
     t !== 'monument' &&
     t !== 'lab' &&
     t !== 'townHall' &&
+    t !== 'campfire' &&
     !isTurret(t);
   return (
     state.buildings.filter((b) => counted(b.type)).length +

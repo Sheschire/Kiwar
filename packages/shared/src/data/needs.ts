@@ -1,5 +1,6 @@
 import { ms } from './curves';
 import type { Season } from './cycles';
+import type { BuildingType } from './buildings';
 import type { TraitId } from './kiwis';
 import type { Resources } from './resources';
 
@@ -61,7 +62,7 @@ export const REST = {
 } as const;
 
 /** Chantier 43: what a kiwi remembers for a while (its morale moves until `until`). */
-export const MEMORY_KINDS = ['mourning', 'grief', 'speech'] as const;
+export const MEMORY_KINDS = ['mourning', 'grief', 'speech', 'vigil'] as const;
 export type MemoryKind = (typeof MEMORY_KINDS)[number];
 
 /**
@@ -96,6 +97,8 @@ export const MORALE = {
   trait: { dreamer: 5, lucky: 5, glutton: -5 } satisfies Partial<Record<TraitId, number>>,
   /** A kiwi of the bard line sings for itself too. */
   bard: 5,
+  /** A leisure (`LEISURE`) within reach of its bed. */
+  leisure: 8,
   /**
    * Memories: the colony mourns a lost kiwi, its hut mates or crew mates grieve harder; a fine
    * speech (`SPEECH`). `ms`: the longest it lasts, `best`: the highest value it can have.
@@ -104,6 +107,8 @@ export const MORALE = {
     mourning: { value: -15, ms: ms.h(24), best: -15 },
     grief: { value: -25, ms: ms.h(24), best: -25 },
     speech: { value: 12, ms: ms.h(12), best: 2 * (12 + 15) },
+    // Supper at the campfire: until the next nightfall (a game day is 2 h).
+    vigil: { value: 8, ms: ms.h(2), best: 8 },
   } satisfies Record<MemoryKind, { value: number; ms: number; best: number }>,
 } as const;
 
@@ -136,3 +141,19 @@ export function speechEffectMs(level: number): number {
 export function speechCooldownMs(level: number): number {
   return SPEECH.cooldownMs.find((c) => level >= c.level)?.ms ?? SPEECH.cooldownMs[2].ms;
 }
+
+/**
+ * Chantier 43: buildings that give leisure to the kiwis whose bed stands within `radius` hex
+ * steps (the campfire; the games of chantier 44 join the list).
+ */
+export const LEISURE: Partial<Record<BuildingType, { radius: number }>> = {
+  campfire: { radius: 3 },
+};
+
+/**
+ * Chantier 43: the campfire. At nightfall the free kiwis sleeping within its reach sup there
+ * together (a `vigil` memory until the next nightfall) and their meals of the night cost less.
+ */
+export const CAMPFIRE = {
+  meals: 0.9,
+} as const;

@@ -1,8 +1,8 @@
 import { levelDef } from '../data/buildings';
 import { CYCLES } from '../data/cycles';
 import { KIWI } from '../data/kiwis';
-import { MORALE, REST, type MemoryKind } from '../data/needs';
-import { hexKey, type Hex } from '../hex/hex';
+import { LEISURE, MORALE, REST, type MemoryKind } from '../data/needs';
+import { hexDistance, hexKey, type Hex } from '../hex/hex';
 import type { FaceMap } from '../worldgen/generateFace';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
 import { calendarAt, seasonOf } from './calendar';
@@ -150,6 +150,27 @@ export interface ColonyMood {
   speech: number;
   /** Sum of the parts above. */
   sum: number;
+  /** Homes within reach of a leisure (their sleepers get `MORALE.leisure`). */
+  leisureHomes: ReadonlySet<BuildingId>;
+}
+
+/** Homes standing within `radius` of a building of these types (by anchor). */
+function homesNear(
+  state: GameState,
+  reach: (type: Building['type']) => number | undefined,
+): Set<BuildingId> {
+  const spots: { b: Building; radius: number }[] = [];
+  for (const b of state.buildings) {
+    const radius = reach(b.type);
+    if (radius !== undefined) spots.push({ b, radius });
+  }
+  const out = new Set<BuildingId>();
+  if (spots.length === 0) return out;
+  for (const h of state.buildings) {
+    if (!(levelDef(h.type, h.level)?.housing ?? 0)) continue;
+    if (spots.some((s) => hexDistance(s.b, h) <= s.radius)) out.add(h.id);
+  }
+  return out;
 }
 
 /** The colony's common morale points (constant between two events). */
@@ -160,6 +181,7 @@ export function colonyMood(state: GameState): ColonyMood {
   const mayor = mayorMorale(state) * MORALE.points;
   const bards = bardMorale(state) * MORALE.points;
   const speech = state.speechUntil > state.now ? MORALE.speech : 0;
+  const leisureHomes = homesNear(state, (type) => LEISURE[type]?.radius);
   return {
     base,
     food,
@@ -168,6 +190,7 @@ export function colonyMood(state: GameState): ColonyMood {
     bards,
     speech,
     sum: base + food + season + mayor + bards + speech,
+    leisureHomes,
   };
 }
 
@@ -178,6 +201,8 @@ export interface KiwiMorale {
   colony: number;
   /** Its bed: near its work, or none. */
   bed: number;
+  /** A leisure within reach of its bed. */
+  leisure: number;
   /** Its trait and its class. */
   temper: number;
   /** Its memories (mourning…). */
@@ -205,12 +230,15 @@ export function kiwiMorale(
   beds: ReadonlyMap<VillagerId, Bed> = bedsOf(state),
   colony: ColonyMood = colonyMood(state),
 ): KiwiMorale {
-  const bed = bedPoints(beds.get(v.id));
+  const where = beds.get(v.id);
+  const bed = bedPoints(where);
+  const leisure =
+    where?.buildingId && colony.leisureHomes.has(where.buildingId) ? MORALE.leisure : 0;
   const trait = v.trait ? ((MORALE.trait as Partial<Record<string, number>>)[v.trait] ?? 0) : 0;
   const temper = trait + (inLine(v.classId, 'bard') ? MORALE.bard : 0);
   const memories = memoryPoints(v, state.now);
-  const total = Math.max(0, Math.min(MORALE.max, colony.sum + bed + temper + memories));
-  return { total, colony: colony.sum, bed, temper, memories };
+  const total = Math.max(0, Math.min(MORALE.max, colony.sum + bed + leisure + temper + memories));
+  return { total, colony: colony.sum, bed, leisure, temper, memories };
 }
 
 /** Work multiplier of a morale (×`work.low` at 0, ×1 at neutral, ×`work.high` at the top). */
@@ -238,8 +266,9 @@ export interface Morale extends ColonyMood {
   work: number;
   /** Kiwis sulking (below `MORALE.sulk`). */
   low: number;
-  /** Average points of the beds, the tempers and the memories. */
+  /** Average points of the beds, the leisures, the tempers and the memories. */
   comfort: number;
+  leisure: number;
   temper: number;
   memories: number;
 }
@@ -251,6 +280,7 @@ export function moraleOf(state: GameState, beds = bedsOf(state)): Morale {
   let work = 0;
   let low = 0;
   let comfort = 0;
+  let leisure = 0;
   let temper = 0;
   let memories = 0;
   for (const v of state.villagers) {
@@ -261,6 +291,7 @@ export function moraleOf(state: GameState, beds = bedsOf(state)): Morale {
     work += moraleFactor(m.total) - 1;
     if (m.total < MORALE.sulk) low++;
     comfort += m.bed;
+    leisure += m.leisure;
     temper += m.temper;
     memories += m.memories;
   }
@@ -271,6 +302,7 @@ export function moraleOf(state: GameState, beds = bedsOf(state)): Morale {
     work: avg(work),
     low,
     comfort: avg(comfort),
+    leisure: avg(leisure),
     temper: avg(temper),
     memories: avg(memories),
   };
@@ -303,6 +335,42 @@ export function fadeMemories(state: GameState, at: TimeMs): void {
     if (kept.length > 0) v.memories = kept;
     else delete v.memories;
   }
+}
+
+/** Chantier 43: who may sup at the campfire (at home and free: not guarding, away, changing). */
+function canSup(v: Villager): boolean {
+  const k = v.job.kind;
+  return (
+    k !== 'expedition' && k !== 'outpost' && k !== 'guard' && k !== 'transform' && k !== 'titan'
+  );
+}
+
+/**
+ * Chantier 43, at nightfall (an `advance` event): the free kiwis sleeping within reach of a
+ * campfire sup there together and remember it until the next nightfall.
+ */
+export function holdVigils(state: GameState, at: TimeMs): number {
+  const fires = homesNear(state, (type) =>
+    type === 'campfire' ? LEISURE.campfire?.radius : undefined,
+  );
+  if (fires.size === 0) return 0;
+  const c = calendarAt(state.calendarStart, at);
+  const until = calendarAt(state.calendarStart, c.dawnAt).nightAt;
+  const beds = bedsOf(state);
+  const memory = MORALE.memories.vigil;
+  let count = 0;
+  for (const v of state.villagers) {
+    const hut = beds.get(v.id)?.buildingId;
+    if (!hut || !fires.has(hut) || !canSup(v)) continue;
+    addMemory(v, 'vigil', memory.value, until);
+    count++;
+  }
+  return count;
+}
+
+/** Chantier 43: the kiwi supped at the campfire tonight (its meals of the night cost less). */
+export function suppedTonight(state: GameState, v: Villager): boolean {
+  return v.memories?.some((m) => m.kind === 'vigil' && m.until > state.now) ?? false;
 }
 
 export interface MissingBeds {

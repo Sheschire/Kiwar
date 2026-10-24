@@ -847,7 +847,8 @@ var BUILDING_TYPES = [
   "skyTurret",
   "trainingCamp",
   "forge",
-  "townHall"
+  "townHall",
+  "campfire"
 ];
 var FOOTPRINTS = {
   warehouse: 3,
@@ -1323,6 +1324,21 @@ var BASE = {
       {
         cost: { pulp: 2e3, fiber: 2e3, seeds: 450, juice: 600 },
         durationMs: ms.h(1),
+        requiresNestLevel: 3
+      }
+    ]
+  },
+  // Chantier 43: the campfire (Nest 3), outside the building cap, each copy dearer: leisure for
+  // the kiwis sleeping near it and a supper together at nightfall (`CAMPFIRE`).
+  campfire: {
+    id: "campfire",
+    allowedTiles: ["flesh", "ray", "heart"],
+    buildable: true,
+    copyGrowth: 1.6,
+    levels: [
+      {
+        cost: { pulp: 150, fiber: 250, seeds: 40 },
+        durationMs: ms.min(5),
         requiresNestLevel: 3
       }
     ]
@@ -2111,7 +2127,7 @@ var REST = {
   /** Cosmetic work/rest cycle length (fatigue gauge, kiwis going to bed in 3D). */
   cycleMs: ms.min(45)
 };
-var MEMORY_KINDS = ["mourning", "grief", "speech"];
+var MEMORY_KINDS = ["mourning", "grief", "speech", "vigil"];
 var MORALE = {
   max: 100,
   neutral: 50,
@@ -2138,6 +2154,8 @@ var MORALE = {
   trait: { dreamer: 5, lucky: 5, glutton: -5 },
   /** A kiwi of the bard line sings for itself too. */
   bard: 5,
+  /** A leisure (`LEISURE`) within reach of its bed. */
+  leisure: 8,
   /**
    * Memories: the colony mourns a lost kiwi, its hut mates or crew mates grieve harder; a fine
    * speech (`SPEECH`). `ms`: the longest it lasts, `best`: the highest value it can have.
@@ -2145,7 +2163,9 @@ var MORALE = {
   memories: {
     mourning: { value: -15, ms: ms.h(24), best: -15 },
     grief: { value: -25, ms: ms.h(24), best: -25 },
-    speech: { value: 12, ms: ms.h(12), best: 2 * (12 + 15) }
+    speech: { value: 12, ms: ms.h(12), best: 2 * (12 + 15) },
+    // Supper at the campfire: until the next nightfall (a game day is 2 h).
+    vigil: { value: 8, ms: ms.h(2), best: 8 }
   }
 };
 var SPEECH = {
@@ -2170,6 +2190,12 @@ function speechEffectMs(level) {
 function speechCooldownMs(level) {
   return SPEECH.cooldownMs.find((c) => level >= c.level)?.ms ?? SPEECH.cooldownMs[2].ms;
 }
+var LEISURE = {
+  campfire: { radius: 3 }
+};
+var CAMPFIRE = {
+  meals: 0.9
+};
 
 // packages/shared/src/data/threats.ts
 var THREATS = {
@@ -5144,7 +5170,7 @@ function pathLimit(state) {
   return PATHS.base + PATHS.perNestLevel * Math.min(level, 3) + PATHS.perAgeLevel * Math.max(0, level - 3);
 }
 function buildingCount(state) {
-  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && t !== "townHall" && !isTurret(t);
+  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && t !== "townHall" && t !== "campfire" && !isTurret(t);
   return state.buildings.filter((b) => counted(b.type)).length + state.queue.filter((i) => i.kind === "build" && counted(i.buildingType)).length;
 }
 function turretCount(state) {
@@ -9320,6 +9346,10 @@ function advanceInPlace(s, now, events) {
 }
 function calendarTick(s, at, events) {
   const c = calendarAt(s.calendarStart, at);
+  if (c.night && c.nightAt === at) {
+    const count = holdVigils(s, at);
+    if (count > 0) events.push({ type: "vigil", at, count });
+  }
   if (!c.night && c.day === 0 && c.sinceDawn === 0) {
     const map = faceMapOf(s);
     rebaseFreeDeposits(s, map, at);
@@ -10227,7 +10257,9 @@ function drillingKiwis(state) {
 function consumption(state) {
   const out = emptyResources();
   let mouths = 0;
-  for (const v of homeKiwis(state)) mouths += modifiers(v).appetite;
+  const night = isNight(state);
+  for (const v of homeKiwis(state))
+    mouths += modifiers(v).appetite * (night && suppedTonight(state, v) ? CAMPFIRE.meals : 1);
   mouths += CAMP.drillAppetite * drillingKiwis(state);
   if (mouths === 0) return out;
   const appetite = NEEDS.appetite[seasonOf(state)];
@@ -10384,6 +10416,20 @@ function presence(state, v, bed = bedsOf(state).get(v.id)) {
   const walk = 1 + REST.commute * (bed?.distance ?? 0);
   return Math.max(REST.minPresence, 1 - restNeed(state, v, bed) * walk);
 }
+function homesNear(state, reach) {
+  const spots = [];
+  for (const b of state.buildings) {
+    const radius = reach(b.type);
+    if (radius !== void 0) spots.push({ b, radius });
+  }
+  const out = /* @__PURE__ */ new Set();
+  if (spots.length === 0) return out;
+  for (const h of state.buildings) {
+    if (!(levelDef(h.type, h.level)?.housing ?? 0)) continue;
+    if (spots.some((s) => hexDistance(s.b, h) <= s.radius)) out.add(h.id);
+  }
+  return out;
+}
 function colonyMood(state) {
   const base = MORALE.base[Math.min(MORALE.base.length - 1, ageOf(state))];
   const food = hungerStage(state) === "fed" ? MORALE.fed : MORALE.hungry;
@@ -10391,6 +10437,7 @@ function colonyMood(state) {
   const mayor = mayorMorale(state) * MORALE.points;
   const bards = bardMorale(state) * MORALE.points;
   const speech = state.speechUntil > state.now ? MORALE.speech : 0;
+  const leisureHomes = homesNear(state, (type) => LEISURE[type]?.radius);
   return {
     base,
     food,
@@ -10398,7 +10445,8 @@ function colonyMood(state) {
     mayor,
     bards,
     speech,
-    sum: base + food + season + mayor + bards + speech
+    sum: base + food + season + mayor + bards + speech,
+    leisureHomes
   };
 }
 function bedPoints(bed) {
@@ -10412,12 +10460,14 @@ function memoryPoints(v, now) {
   return sum;
 }
 function kiwiMorale(state, v, beds = bedsOf(state), colony2 = colonyMood(state)) {
-  const bed = bedPoints(beds.get(v.id));
+  const where = beds.get(v.id);
+  const bed = bedPoints(where);
+  const leisure = where?.buildingId && colony2.leisureHomes.has(where.buildingId) ? MORALE.leisure : 0;
   const trait = v.trait ? MORALE.trait[v.trait] ?? 0 : 0;
   const temper = trait + (inLine(v.classId, "bard") ? MORALE.bard : 0);
   const memories = memoryPoints(v, state.now);
-  const total = Math.max(0, Math.min(MORALE.max, colony2.sum + bed + temper + memories));
-  return { total, colony: colony2.sum, bed, temper, memories };
+  const total = Math.max(0, Math.min(MORALE.max, colony2.sum + bed + leisure + temper + memories));
+  return { total, colony: colony2.sum, bed, leisure, temper, memories };
 }
 function moraleFactor(points) {
   const n = MORALE.neutral;
@@ -10434,6 +10484,7 @@ function moraleOf(state, beds = bedsOf(state)) {
   let work = 0;
   let low = 0;
   let comfort = 0;
+  let leisure = 0;
   let temper = 0;
   let memories = 0;
   for (const v of state.villagers) {
@@ -10444,6 +10495,7 @@ function moraleOf(state, beds = bedsOf(state)) {
     work += moraleFactor(m.total) - 1;
     if (m.total < MORALE.sulk) low++;
     comfort += m.bed;
+    leisure += m.leisure;
     temper += m.temper;
     memories += m.memories;
   }
@@ -10454,6 +10506,7 @@ function moraleOf(state, beds = bedsOf(state)) {
     work: avg(work),
     low,
     comfort: avg(comfort),
+    leisure: avg(leisure),
     temper: avg(temper),
     memories: avg(memories)
   };
@@ -10480,6 +10533,32 @@ function fadeMemories(state, at) {
     if (kept.length > 0) v.memories = kept;
     else delete v.memories;
   }
+}
+function canSup(v) {
+  const k = v.job.kind;
+  return k !== "expedition" && k !== "outpost" && k !== "guard" && k !== "transform" && k !== "titan";
+}
+function holdVigils(state, at) {
+  const fires = homesNear(
+    state,
+    (type) => type === "campfire" ? LEISURE.campfire?.radius : void 0
+  );
+  if (fires.size === 0) return 0;
+  const c = calendarAt(state.calendarStart, at);
+  const until = calendarAt(state.calendarStart, c.dawnAt).nightAt;
+  const beds = bedsOf(state);
+  const memory = MORALE.memories.vigil;
+  let count = 0;
+  for (const v of state.villagers) {
+    const hut = beds.get(v.id)?.buildingId;
+    if (!hut || !fires.has(hut) || !canSup(v)) continue;
+    addMemory(v, "vigil", memory.value, until);
+    count++;
+  }
+  return count;
+}
+function suppedTonight(state, v) {
+  return v.memories?.some((m) => m.kind === "vigil" && m.until > state.now) ?? false;
 }
 function missingBeds(state, beds = bedsOf(state)) {
   let count = 0;
@@ -12428,7 +12507,8 @@ var LEVEL_STATS = [
   "queueSize",
   "buildSlots",
   "speechMemory",
-  "speechCooldown"
+  "speechCooldown",
+  "leisureRange"
 ];
 function describeLevel(type, level, state) {
   const def = levelDef(type, level);
@@ -12465,6 +12545,7 @@ function describeLevel(type, level, state) {
   push("queueSize", def.queueSize);
   if (type === "nest")
     push("buildSlots", TASKS.buildSlots[Math.min(level, TASKS.buildSlots.length - 1)]);
+  push("leisureRange", LEISURE[type]?.radius);
   if (type === "townHall") {
     push("speechMemory", speechEffectMs(level) / 36e5);
     push("speechCooldown", speechCooldownMs(level) / 36e5);
@@ -19735,6 +19816,7 @@ export {
   BUILDING_TYPES,
   CALENDAR,
   CAMP,
+  CAMPFIRE,
   CAMPS,
   CATCHMENT_RADIUS,
   CIV,
@@ -19790,6 +19872,7 @@ export {
   LANDING,
   LANDING_GOALS,
   LANDING_PRIORITIES,
+  LEISURE,
   LEVELS_PER_AGE,
   LEVEL_STATS,
   LOGISTICS,
@@ -20146,6 +20229,7 @@ export {
   hexScale,
   hexToPixel,
   hiddenDue,
+  holdVigils,
   homeKiwis,
   housing,
   hungerCap,
@@ -20437,6 +20521,7 @@ export {
   storageFullCheck,
   storeItem,
   strengthOf,
+  suppedTonight,
   syncColonies,
   syncPools,
   takeFounding,

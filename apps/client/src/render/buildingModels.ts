@@ -1,3 +1,4 @@
+import { campfire } from './models/village';
 import type { BufferGeometry } from 'three';
 import { Color, Matrix4, Mesh, Quaternion, Raycaster, Vector3 } from 'three';
 import {
@@ -62,6 +63,7 @@ const BUILDERS: Record<BuildingType, (look: Look) => Parts> = {
   forge,
   // Chantier 43: drawn like the School until its own model (part 4).
   townHall: school,
+  campfire: () => campfire(),
 };
 
 /**

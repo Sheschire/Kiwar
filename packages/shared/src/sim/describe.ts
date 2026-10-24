@@ -1,4 +1,4 @@
-import { speechCooldownMs, speechEffectMs } from '../data/needs';
+import { LEISURE, speechCooldownMs, speechEffectMs } from '../data/needs';
 import { meteorIronOf } from './iron';
 import { TASKS } from '../data/jobs';
 import { stardustOf } from './comets';
@@ -63,6 +63,7 @@ export const LEVEL_STATS = [
   'buildSlots',
   'speechMemory',
   'speechCooldown',
+  'leisureRange',
 ] as const;
 export type LevelStatId = (typeof LEVEL_STATS)[number];
 
@@ -121,6 +122,7 @@ export function describeLevel(type: BuildingType, level: number, state?: GameSta
   if (type === 'nest')
     push('buildSlots', TASKS.buildSlots[Math.min(level, TASKS.buildSlots.length - 1)]);
   // Chantier 43: how long a speech is remembered, and the rest between two (hours).
+  push('leisureRange', LEISURE[type]?.radius);
   if (type === 'townHall') {
     push('speechMemory', speechEffectMs(level) / 3_600_000);
     push('speechCooldown', speechCooldownMs(level) / 3_600_000);

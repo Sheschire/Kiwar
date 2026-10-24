@@ -55,7 +55,7 @@ import type { ObstacleKind } from '../data/obstacles';
 import { accrueResearch, nextResearchEvent, researchPower, researchTick } from './research';
 import { autoPlace, awaitedResources, belowReturn, redirectFull, returnHome } from './posts';
 import { JOBS } from '../data/jobs';
-import { fadeMemories, nextMemoryEnd } from './rest';
+import { fadeMemories, holdVigils, nextMemoryEnd } from './rest';
 import { nextSpeechEnd } from './speech';
 import {
   addVillager,
@@ -104,6 +104,8 @@ export type GameEvent =
     }
   | { type: 'trained'; at: TimeMs; villagerId: VillagerId; name: string; classId: ClassId }
   | { type: 'speechOver'; at: TimeMs }
+  /** Chantier 43: kiwis supping around the campfires at nightfall. */
+  | { type: 'vigil'; at: TimeMs; count: number }
   | {
       type: 'masteryUp';
       at: TimeMs;
@@ -432,6 +434,11 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
 /** Dawn or nightfall: a new season starts at the first dawn of its first day. */
 function calendarTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
   const c = calendarAt(s.calendarStart, at);
+  // Chantier 43: at nightfall, supper around the campfires.
+  if (c.night && c.nightAt === at) {
+    const count = holdVigils(s, at);
+    if (count > 0) events.push({ type: 'vigil', at, count });
+  }
   if (!c.night && c.day === 0 && c.sinceDawn === 0) {
     const map = faceMapOf(s);
     rebaseFreeDeposits(s, map, at);

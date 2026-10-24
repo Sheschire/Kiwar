@@ -239,6 +239,10 @@ export const en = {
       name: 'Training camp',
       desc: 'Dummies, targets and a circle of spells: kiwis with a class drill here to gain class ranks, move up to an advanced class or change class.',
     },
+    campfire: {
+      name: 'Campfire',
+      desc: 'At dusk the kiwis sleeping nearby gather here to sup together: morale until the next evening and lighter meals at night. A leisure for the huts around.',
+    },
     townHall: {
       name: 'Town Hall',
       desc: 'The mayor sits here and gives the Speech: the whole colony gathers, then keeps its spirits up for hours.',
@@ -2059,6 +2063,7 @@ export const en = {
     speechMemory: 'How long a speech lifts morale',
     speechCooldown: 'Rest between two speeches',
     hours: '{value} h',
+    leisureRange: 'Leisure reach (tiles to the huts)',
     perHour: '{value}/h',
     times: '×{value}',
     fullStaff: 'With every worker, on this face.',

@@ -152,6 +152,20 @@ const GLYPHS = {
       />
     </>
   ),
+  // Chantier 43: the campfire (crossed logs and a flame).
+  campfire: (
+    <>
+      <path d="M6 27l20-6M26 27L6 21" stroke="#7a5233" stroke-width="3" stroke-linecap="round" />
+      <path
+        d="M16 23c-5 0-7-4-5-8 1 2 2 2 3 1-1-4 1-8 4-10 0 4 5 6 5 11 0 4-3 6-7 6z"
+        fill="#ff8a3d"
+        stroke="#a8461f"
+        stroke-width="1.4"
+        stroke-linejoin="round"
+      />
+      <path d="M16 22c-2 0-3-2-2-4 1 1 2 0 2-2 2 1 3 3 2 5-1 1-1 1-2 1z" fill="#ffd95a" />
+    </>
+  ),
   // Chantier 43: the Town Hall (a gabled hall with a balcony and a flag).
   townHall: (
     <>
