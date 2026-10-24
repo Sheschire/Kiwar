@@ -941,15 +941,20 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
         const scoped = withScopeTargets(ctx, existing.state, scope);
         let state = scoped.state;
         let events: GameEvent[] = [];
-        // Ships that landed and counter-attacks that struck meanwhile are resolved here: the
-        // client cannot (hidden garrison, chantier 19 siege).
-        const landed = hiddenDue(state, ctx.now());
-        if (landed.length > 0) {
-          const result = advance(state, Math.max(...landed));
+        // Ships that landed and alien moves due meanwhile are resolved here: the client
+        // cannot (hidden garrison).
+        // Chantier 42: one resolved move may make the next one due (an attack announced, then
+        // struck), so this runs until nothing hidden is due.
+        let resolved = false;
+        for (let pass = 0; pass < 16; pass++) {
+          const due = hiddenDue(state, ctx.now()).filter((at) => pass === 0 || at > state.now);
+          if (due.length === 0) break;
+          const result = advance(state, Math.max(state.now, ...due));
           state = result.state;
-          events = result.events;
+          events = [...events, ...result.events];
+          resolved = true;
         }
-        if (scoped.changed || landed.length > 0) {
+        if (scoped.changed || resolved) {
           const saved = await repo.update(existing.id, state, existing.version);
           // Another request wrote in between: it resolved everything as well.
           if (!saved) state = (await repo.findGame(ctx.userId, scope.universeId))?.state ?? state;

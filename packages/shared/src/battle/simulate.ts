@@ -662,6 +662,9 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
   // --- Loop -----------------------------------------------------------------------------------
   let retreating = false;
   let cleared = false;
+  // Chantier 42: the home side may run away too (the guard of a beacon, by its orders).
+  let homeRetreating = false;
+  const homeTotal = units.filter((u) => u.side === 0 && u.s.role !== 'turret').length;
   /** Home units still in the battle (or still to come in). */
   const homeLeft = () => {
     let n = 0;
@@ -693,6 +696,19 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     if (setup.clearEnds && homeLeft() === 0) {
       cleared = true;
       break;
+    }
+    if (
+      !homeRetreating &&
+      homeTotal > 0 &&
+      setup.orders[0].retreatBelow > 0 &&
+      homeLeft() / homeTotal < setup.orders[0].retreatBelow
+    ) {
+      homeRetreating = true;
+      for (const u of units)
+        if (u.side === 0 && u.s.role !== 'turret' && u.state === State.Active) {
+          log(EV.flee, u.i);
+          leave(u);
+        }
     }
     if (!retreating && totalPower > 0 && alive / totalPower < setup.orders[1].retreatBelow) {
       retreating = true;

@@ -35,14 +35,7 @@ import { intelView } from './aliens';
 import { landSettlers } from './colonies';
 import { landingForecast, resolveLanding, type LandingForecast } from './landing';
 import { LANDING, type LandingOrders } from '../data/landing';
-import {
-  allHolders,
-  assaultEnemy,
-  bridgeheadAt,
-  finalForecast,
-  forgetHolders,
-  type FinalForecast,
-} from './siege';
+import { beaconOf, forgetGuards, landGuard } from './beacons';
 
 export interface ExpeditionPlan {
   launchpadId: BuildingId;
@@ -55,11 +48,9 @@ export interface ExpeditionPlan {
   mission?: MissionKind;
   /** Chantier 13: stardust burnt as fuel (faster, fewer breakdowns). */
   fuel?: boolean;
-  /** Chantier 19: outer sector of an assault or a reinforcement. */
+  /** Chantier 40: the parcel of a landing (chantier 42: or of the beacon a guard goes to). */
   sector?: number;
-  /** Chantier 19: assault crew members who stay on the bridgehead if it is taken. */
-  holders?: readonly VillagerId[];
-  /** Chantier 19: posted kiwis a reinforcement brings back home. */
+  /** Chantier 42: guards of the beacon the guard ship brings back home. */
   bringBack?: readonly VillagerId[];
   /** Chantier 19: what the settlers' ship carries to found the colony (mission `found`). */
   freight?: Partial<Resources>;
@@ -113,12 +104,10 @@ export interface ExpeditionForecast {
   ship: ShipDef;
   /** Chance to make the trip without breaking down (ship and crew Dexterity). */
   reliability: number;
-  /** Chantier 19: kiwis flying back (assault: without the holders; reinforcement: relieved). */
+  /** Kiwis flying back if nobody is lost (none for the settlers). */
   returnCrew: Villager[];
   /** Cargo used on the way back by the kiwis aboard. */
   returnWeight: number;
-  /** Chantier 19: final assault (both sides, the queen as estimated). */
-  final: FinalForecast | null;
   /** Chantier 31: paid at launch, on top of the provisions. */
   launchCost: Resources;
   /** Chantier 40: the landing's practice battles and what they rest on. */
@@ -346,7 +335,6 @@ export function forecastExpedition(
   const need = rations(state, crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const base = strengthOf(state, crew, fed);
-  const final = mission === 'final' ? finalForecast(state, crew, fed, state.now) : null;
   const landing =
     mission === 'land' && plan.sector !== undefined
       ? landingForecast(
@@ -360,43 +348,27 @@ export function forecastExpedition(
         )
       : null;
   const defense =
-    mission === 'assault'
-      ? plan.sector === undefined
-        ? null
-        : assaultEnemy(state, plan.sector, state.now)
-      : mission === 'raid' || mission === 'recon'
-        ? (intelView(state, target.id, state.now)?.defense ?? null)
-        : null;
+    mission === 'raid' || mission === 'recon'
+      ? (intelView(state, target.id, state.now)?.defense ?? null)
+      : null;
   const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
   const odds: Odds = landing
     ? landing.odds
     : mission === 'land'
       ? 'unknown'
-      : final
-        ? final.odds
-        : mission === 'reinforce' || mission === 'found'
-          ? 'likely'
-          : !defense
-            ? 'unknown'
-            : strength.min >= defense.max
-              ? 'likely'
-              : strength.max >= defense.min
-                ? 'uncertain'
-                : 'unlikely';
+      : mission === 'found' || mission === 'guard'
+        ? 'likely'
+        : !defense
+          ? 'unknown'
+          : strength.min >= defense.max
+            ? 'likely'
+            : strength.max >= defense.min
+              ? 'uncertain'
+              : 'unlikely';
   // Expected losses against the middle of the estimate (none can be told without a report).
   const mid = (r: IntelRange) => (r.min + r.max) / 2;
-  const guess = final
-    ? final.queen
-      ? base *
-        Math.max(
-          mid(final.queen.ground) / Math.max(mid(final.strength.ground), 1e-6),
-          mid(final.queen.air) / Math.max(mid(final.strength.air), 1e-6),
-        )
-      : null
-    : defense
-      ? mid(defense)
-      : null;
-  const fighters = final ? crew.length + allHolders(state).length : crew.length;
+  const guess = defense ? mid(defense) : null;
+  const fighters = crew.length;
   const kiwisWeight = crewWeight(crew);
   const freight = RESOURCE_IDS.reduce((sum, id) => sum + (plan.freight?.[id] ?? 0), 0);
   const weight =
@@ -450,7 +422,6 @@ export function forecastExpedition(
     reliability: shipReliability(ship, crew, !!plan.fuel),
     returnCrew,
     returnWeight,
-    final,
     launchCost: launchCost(state, crew, mission),
     landing,
   };
@@ -475,23 +446,22 @@ export function launchCost(
   return out;
 }
 
-/** Who flies back with the ship if nobody is lost (chantier 19 missions change it). */
+/** Who flies back with the ship if nobody is lost. */
 function returnCrewOf(
   state: GameState,
   plan: ExpeditionPlan,
   crew: Villager[],
   mission: MissionKind,
 ): Villager[] {
-  if (mission === 'assault') return crew.filter((v) => !(plan.holders ?? []).includes(v.id));
-  if (mission === 'final') return [...crew, ...allHolders(state)];
   // Chantier 19: the settlers stay on the twin face, the ship flies back empty.
   if (mission === 'found') return [];
-  if (mission === 'reinforce') {
-    const b = plan.sector === undefined ? undefined : bridgeheadAt(state, plan.sector);
+  // Chantier 42: the guard stays on its beacon, the relieved come home.
+  if (mission === 'guard') {
+    const b = plan.sector === undefined ? undefined : beaconOf(state, plan.targetId, plan.sector);
     return b
       ? crewMembers(
           state,
-          (plan.bringBack ?? []).filter((id) => b.holders.includes(id)),
+          (plan.bringBack ?? []).filter((id) => (b.guards ?? []).includes(id)),
         )
       : [];
   }
@@ -520,9 +490,10 @@ export function maxCrew(
 }
 
 export function minCrew(mission: MissionKind = 'raid'): number {
-  // A reinforcement may fly empty to bring posted kiwis home (chantier 19).
   if (mission === 'found') return COLONY.minSettlers;
-  return mission === 'recon' ? RECON.minCrew : mission === 'reinforce' ? 0 : EXPEDITIONS.minCrew;
+  // Chantier 42: a guard ship may fly empty to bring guards home.
+  if (mission === 'guard') return 0;
+  return mission === 'recon' ? RECON.minCrew : EXPEDITIONS.minCrew;
 }
 
 export function isLaunchpadBusy(state: GameState, id: BuildingId): boolean {
@@ -562,7 +533,8 @@ export function launch(
     state,
     (rng) => !rng.chance(shipReliability(shipOf(state), crew, !!plan.fuel)),
   );
-  const delayed = failed && mission === 'land';
+  // Chantier 42: a guard ship too.
+  const delayed = failed && (mission === 'land' || mission === 'guard');
   const broken = failed && !delayed;
   const outMs = broken
     ? Math.round(travelMs / 2000) * 1000
@@ -592,14 +564,13 @@ export function launch(
     status: 'outbound',
     result: null,
     ...(broken ? { broken: true } : {}),
-    ...(plan.sector !== undefined &&
-    (mission === 'assault' || mission === 'reinforce' || mission === 'land')
+    ...(plan.sector !== undefined && (mission === 'land' || mission === 'guard')
       ? { sector: plan.sector }
       : {}),
     ...(mission === 'land' ? { orders: { ...(plan.orders ?? LANDING.defaultOrders) } } : {}),
+    ...(mission === 'guard' && plan.orders ? { orders: { ...plan.orders } } : {}),
+    ...(mission === 'guard' && plan.bringBack?.length ? { bringBack: [...plan.bringBack] } : {}),
     ...(delayed ? { delayed: true } : {}),
-    ...(mission === 'assault' && plan.holders ? { holders: [...plan.holders] } : {}),
-    ...(mission === 'reinforce' && plan.bringBack ? { bringBack: [...plan.bringBack] } : {}),
     ...(freight ? { freight } : {}),
   };
   state.expeditions.push(expedition);
@@ -649,6 +620,7 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   }
   if (e.mission === 'found') return landSettlers(state, e, members, fed);
   if (e.mission === 'land') return resolveLanding(state, e, members, fed);
+  if (e.mission === 'guard') return landGuard(state, e, members, fed);
   // Chantier 40: the raids, the reconnaissance and the siege are gone (migrated saves turned
   // them back); anything else turns back without a fight.
   e.status = 'returning';
@@ -758,7 +730,7 @@ export function removeVillagers(
   // Chantier 38: their gear goes back to the armory, unless it was left on the alien face.
   if (!gearLost) for (const v of state.villagers) if (ids.includes(v.id)) returnGear(state, v);
   state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
-  forgetHolders(state, ids);
+  forgetGuards(state, ids);
   // The colony mourns its lost kiwis (morale).
   if (ids.length > 0) state.mourningUntil = Math.max(state.mourningUntil, at + MORALE.mourningMs);
 }

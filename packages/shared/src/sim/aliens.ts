@@ -14,7 +14,7 @@ import {
   type Tile,
 } from '../worldgen/generateFace';
 import type { TimeMs } from '../types/ids';
-import { mergeSiegeIntel } from './siege';
+import { beaconAwaited, beaconsDue } from './beacons';
 import { canAnnounceWave, civAt, civDay, newCiv, outerPower, scheduleGrowth } from './civ';
 import type {
   AlienGarrison,
@@ -135,6 +135,8 @@ export function canResolveArrival(state: GameState, e: Expedition): boolean {
     !!e.broken ||
     // Chantier 19: a settlers' ship meets no alien on a conquered face.
     e.mission === 'found' ||
+    // Chantier 42: a guard ship meets nobody (the beacon is ours).
+    e.mission === 'guard' ||
     !!state.aliens?.[e.targetId] ||
     !state.targets.some((t) => t.id === e.targetId)
   );
@@ -142,7 +144,9 @@ export function canResolveArrival(state: GameState, e: Expedition): boolean {
 
 /** Something happened that only the server can tell (a landing, a wave's announcement). */
 export function awaitingServer(state: GameState, now: TimeMs): boolean {
-  return awaitingReport(state, now).length > 0 || waveAwaited(state, now);
+  return (
+    awaitingReport(state, now).length > 0 || waveAwaited(state, now) || beaconAwaited(state, now)
+  );
 }
 
 /** Chantier 39: a wave is due to be announced and only the server knows the civilisation. */
@@ -158,6 +162,8 @@ export function hiddenDue(state: GameState, now: TimeMs): TimeMs[] {
     .map((e) => e.arriveAt);
   const w = state.threats.next;
   if (w && !w.announced && w.announceAt <= now) out.push(w.announceAt);
+  // Chantier 42: attacks on our beacons.
+  out.push(...beaconsDue(state, now));
   return out;
 }
 
@@ -227,13 +233,7 @@ export function recordIntel(
   const seen = new Map<string, AlienStructure>();
   for (const s of [...(prev?.structures ?? []), ...(report.structures ?? [])])
     seen.set(`${s.q},${s.r}`, { ...s });
-  const siege = mergeSiegeIntel(prev?.siege, report.siege);
-  state.intel[targetId] = {
-    ...report,
-    sectors,
-    structures: [...seen.values()],
-    ...(siege ? { siege } : {}),
-  };
+  state.intel[targetId] = { ...report, sectors, structures: [...seen.values()] };
 }
 
 /** The land tile where a structure stands on screen: its own, or the nearest dry one. */

@@ -156,7 +156,10 @@ function showTwin(state: GameState): void {
   const siege = f
     ? null
     : {
-        heads: (view?.beacons ?? []).map((b) => ({ sector: b.sector, fortified: false })),
+        heads: (view?.beacons ?? []).map((b) => ({
+          sector: b.sector,
+          fortified: (b.fort ?? 0) > 0,
+        })),
         conquered: state.siege.conqueredAt > 0,
       };
   const flags = siege

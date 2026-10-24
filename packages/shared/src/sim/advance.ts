@@ -25,6 +25,7 @@ import { resolveArrival, resolveReturn } from './expeditions';
 import { deliveryTick, nextDeliveryEvent } from './deliveries';
 import { canResolveArrival } from './aliens';
 import { civTick, nextCivEvent } from './civ';
+import { beaconTick, nextBeaconEvent, planBeaconAttacks } from './beacons';
 import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
 import { inLine, type ClassId } from '../data/classes';
 import { accrueKiwis, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
@@ -228,10 +229,24 @@ export type GameEvent =
   /** Chantier 08: a technology is researched; the monument opens a new age. */
   | { type: 'researchDone'; at: TimeMs; tech: TechId }
   | { type: 'ageReached'; at: TimeMs; age: number }
-  /** Chantier 19: the siege of the twin face. */
-  | { type: 'counterAnnounced'; at: TimeMs; sector: number; strikeAt: TimeMs }
-  | { type: 'counterStruck'; at: TimeMs; sector: number; victory: boolean; dead: number }
-  | { type: 'bridgeheadFortified'; at: TimeMs; sector: number }
+  /** Chantier 42: attacks on our beacons. */
+  | {
+      type: 'beaconAttackAnnounced';
+      at: TimeMs;
+      targetId: string;
+      sector: number;
+      strikeAt: TimeMs;
+    }
+  | {
+      type: 'beaconAttacked';
+      at: TimeMs;
+      targetId: string;
+      sector: number;
+      held: boolean;
+      fought: boolean;
+      dead: number;
+    }
+  | { type: 'beaconFortified'; at: TimeMs; targetId: string; sector: number }
   | {
       type: 'repaired';
       at: TimeMs;
@@ -272,6 +287,8 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     planWave(s);
     planMeteor(s);
     planComet(s);
+    // Chantier 42: the next attack on our beacons (its time is public).
+    planBeaconAttacks(s);
     const constructionEnd = nextConstructionEnd(s);
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
@@ -292,11 +309,13 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const titanEnd = nextTitanEnd(s);
     // Chantier 39: the alien civilisation looks at the map once a game day (truth only).
     const civAt = nextCivEvent(s);
+    const beaconAt = nextBeaconEvent(s);
     // Chantier 15: the automatic garrison posts its guards a little before a strike.
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
       garrisonAt,
       civAt,
+      beaconAt,
       infusionEnd,
       titanEnd,
       researchAt,
@@ -353,6 +372,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     if (forgeAt === nextEvent) forgeTick(s, forgeAt, events);
     if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
     if (civAt === nextEvent) civTick(s, civAt);
+    if (beaconAt === nextEvent) beaconTick(s, beaconAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: 'hungerChanged', at: s.now, stage: st });

@@ -2869,40 +2869,14 @@ var TASKS = {
 
 // packages/shared/src/data/siege.ts
 var SIEGE = {
-  /** Opens at the Iron age (index 2) with at least one Kikiwiwi in the colony. */
-  minAge: 2,
-  /** Bridgeheads held at once, and how many the final assault needs. */
-  maxBridgeheads: 3,
-  neededBridgeheads: 2,
-  /** Bridgeheads stand on the outer sectors (`INTEL` sectors 6–11); the queen in an inner one. */
-  outerSectors: [6, 7, 8, 9, 10, 11],
-  /** Chantier 39: the aliens holding an outer sector are its garrison × this (dug in). */
-  hold: { share: 1.5 },
-  /** The ferret queen: ground (ferrets) and air (bats) power, very strong. */
+  /** The ferret queen: ground (ferrets) and air (bats) power, before her parcel's growth. */
   queen: {
     ground: 24,
     air: 14,
-    spread: [0.85, 1.2],
-    /** Each bridgehead held weakens her (share of her power). */
-    perBridgehead: 0.15,
-    /** A bridgehead on the outer sector of her own slice weakens her this much more. */
-    besideQueen: 0.1
+    spread: [0.85, 1.2]
   },
-  /** Kiwis posted on a bridgehead fight from cover (× their strength). */
-  holdBonus: 1.2,
-  /** Counter-attacks: one every `intervalMs`, announced `noticeMs` before the strike. */
-  counter: {
-    intervalMs: [ms.h(20), ms.h(30)],
-    noticeMs: ms.h(6),
-    /** Strength: the sector's hold × this share × (1 + `perCounter` × counters, up to `max`). */
-    share: [0.5, 0.9],
-    perCounter: 0.1,
-    maxEscalation: 2
-  },
-  /** A Kikiwiwi posted on a bridgehead fortifies it (needed by the final assault). */
-  fortify: { durationMs: ms.h(12), juice: 400, bonus: 1.5 },
-  /** Share of the posted kiwis lost when a counter-attack takes a bridgehead (owner: heavy). */
-  fallLosses: [0.5, 0.9]
+  /** Old bridgeheads drawn before the queen in the seed's stream (kept for older games). */
+  oldHolds: 6
 };
 
 // packages/shared/src/data/aliens.ts
@@ -3042,6 +3016,33 @@ var LANDING = {
   stale: 3,
   /** Hours of development a lost ship and each piece of gear left behind give the aliens. */
   defeat: { shipH: 4, gearH: 1 }
+};
+
+// packages/shared/src/data/beacons.ts
+var BEACONS = {
+  /** The civilisation attacks our beacons from its Iron age (index 2). */
+  minCivAge: 2,
+  attack: {
+    /** One attack per face every so often (public: hashed from the face), announced ahead. */
+    intervalMs: [ms.h(20), ms.h(30)],
+    noticeMs: ms.h(6),
+    /** Strength: the parcel it comes from × this share (drawn in secret at the strike)… */
+    share: [0.5, 0.9],
+    /** …× (1 + this per attack already made on the face), up to `maxEscalation`. */
+    perAttack: 0.1,
+    maxEscalation: 2
+  },
+  /** The tower of a beacon (the attackers try to bring it down): hit points, more fortified. */
+  tower: { hp: 30, fortifiedHp: 160, priority: 6 },
+  /**
+   * Fortifying from home: two turrets (ground and sky) of the best level of our age, paid like
+   * those levels (resources and iron) × `costFactor`, ready after `durationMs`.
+   */
+  fortify: { durationMs: ms.h(4), levelsPerAge: 3, costFactor: 1 },
+  /** Kiwis posted on a beacon at most. */
+  maxGuards: 12,
+  /** Reports kept per face. */
+  reports: 5
 };
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
@@ -3429,178 +3430,6 @@ function isInviteCode(code) {
   return /^[A-HJ-NP-Z2-9]{8}$/.test(code);
 }
 
-// packages/shared/src/sim/calendar.ts
-var mod = (a, n) => (a % n + n) % n;
-function calendarAt(start, t) {
-  const elapsed = t - start;
-  const inYear = mod(elapsed, YEAR_MS);
-  const seasonIndex = Math.floor(inYear / SEASON_MS);
-  const season = SEASONS[seasonIndex];
-  const inSeason = inYear - seasonIndex * SEASON_MS;
-  const day = Math.floor(inSeason / CALENDAR.dayMs);
-  const sinceDawn = inSeason - day * CALENDAR.dayMs;
-  const dawn = t - sinceDawn;
-  const nightStart = CALENDAR.dayMs - CALENDAR.nightMs[season];
-  return {
-    season,
-    year: Math.floor((elapsed - inYear) / YEAR_MS),
-    day,
-    sinceDawn,
-    dayProgress: sinceDawn / CALENDAR.dayMs,
-    night: sinceDawn >= nightStart,
-    nightAt: dawn + nightStart,
-    dawnAt: dawn + CALENDAR.dayMs,
-    seasonEndsAt: t - inSeason + SEASON_MS,
-    next: SEASONS[(seasonIndex + 1) % SEASONS.length]
-  };
-}
-function calendarOf(state, t = state.now) {
-  return calendarAt(state.calendarStart, t);
-}
-function nextCalendarChange(start, t) {
-  const c = calendarAt(start, t);
-  return c.night ? c.dawnAt : c.nightAt;
-}
-function seasonOf(state) {
-  return calendarAt(state.calendarStart, state.now).season;
-}
-function isNight(state) {
-  return calendarAt(state.calendarStart, state.now).night;
-}
-
-// packages/shared/src/sim/footprint.ts
-function rotationsOf(type) {
-  return footprintOf(type) === 3 ? [0, 1, 2, 3, 4, 5] : [0];
-}
-function normalRot(rot) {
-  return ((rot ?? 0) % 6 + 6) % 6;
-}
-function footprintHexes(type, q, r, rot = 0) {
-  const anchor = { q, r };
-  const size = footprintOf(type);
-  if (size === 7) return hexDisk(anchor, 1);
-  if (size === 3) {
-    const d = normalRot(rot);
-    return [anchor, hexNeighbor(anchor, d), hexNeighbor(anchor, d + 1)];
-  }
-  return [anchor];
-}
-function wallsOf(tiles) {
-  return tiles.length >= 7 ? [...tiles] : tiles.slice(1);
-}
-function footprintTiles(b) {
-  return b.cramped ? [{ q: b.q, r: b.r }] : footprintHexes(b.type, b.q, b.r, b.rot);
-}
-function siteTiles(item2) {
-  if (item2.kind === "build")
-    return item2.rot === void 0 ? [{ q: item2.q, r: item2.r }] : footprintHexes(item2.buildingType, item2.q, item2.r, item2.rot);
-  if (item2.kind === "upgrade" && item2.rot !== void 0)
-    return footprintHexes(item2.buildingType, item2.q, item2.r, item2.rot);
-  return [];
-}
-var cache = /* @__PURE__ */ new WeakMap();
-function mix(h, v) {
-  return Math.imul(h ^ (v | 0), 16777619) >>> 0;
-}
-function mixId(h, id3) {
-  for (let i = 0; i < id3.length; i++) h = mix(h, id3.charCodeAt(i));
-  return h;
-}
-function layoutHash(state) {
-  let h = mix(2166136261, state.buildings.length);
-  for (const b of state.buildings) {
-    h = mix(h, b.q * 977 + b.r);
-    h = mix(h, (b.rot ?? 0) + (b.cramped ? 8 : 0) + footprintOf(b.type) * 16);
-    h = mixId(h, b.id);
-  }
-  h = mix(h, state.queue.length);
-  for (const i of state.queue) {
-    if (i.kind !== "build" && i.rot === void 0) continue;
-    h = mix(h, i.q * 977 + i.r);
-    h = mix(h, (i.rot ?? 0) + footprintOf(i.buildingType) * 16 + (i.kind === "build" ? 128 : 0));
-    h = mixId(h, i.id);
-  }
-  return h;
-}
-function occupancy(state) {
-  const hash = layoutHash(state);
-  const hit = cache.get(state.buildings);
-  if (hit && hit.hash === hash) return hit.occupancy;
-  const tiles = /* @__PURE__ */ new Map();
-  const blocked = /* @__PURE__ */ new Set();
-  for (const b of state.buildings) {
-    const covered = footprintTiles(b);
-    covered.forEach((h, i) => tiles.set(hexKey(h), { id: b.id, site: false, anchor: i === 0 }));
-    for (const h of wallsOf(covered)) blocked.add(hexKey(h));
-  }
-  for (const item2 of state.queue) {
-    siteTiles(item2).forEach((h, i) => {
-      const key = hexKey(h);
-      if (!tiles.has(key)) tiles.set(key, { id: item2.id, site: true, anchor: i === 0 });
-    });
-  }
-  const occ = { tiles, blocked, blockedKey: [...blocked].sort().join(";") };
-  cache.set(state.buildings, { hash, occupancy: occ });
-  return occ;
-}
-function coveredKeys(state) {
-  const out = /* @__PURE__ */ new Set();
-  for (const [k, o] of occupancy(state).tiles) if (!o.site) out.add(k);
-  return out;
-}
-function takenKeys(state) {
-  return new Set(occupancy(state).tiles.keys());
-}
-function footprintCentre(tiles) {
-  let q = 0;
-  let r = 0;
-  for (const h of tiles) {
-    q += h.q;
-    r += h.r;
-  }
-  return { q: q / tiles.length, r: r / tiles.length };
-}
-function cutsLand(map, removed, blocked = /* @__PURE__ */ new Set()) {
-  const gone = new Set(removed);
-  const open = (k) => {
-    if (gone.has(k) || blocked.has(k)) return false;
-    const t = getTile(map, parseHexKey(k));
-    return !!t && TILES[t.type].walkable;
-  };
-  const border = /* @__PURE__ */ new Set();
-  for (const k of gone)
-    for (const n of hexNeighbors(parseHexKey(k))) {
-      const nk = hexKey(n);
-      if (open(nk)) border.add(nk);
-    }
-  if (border.size <= 1) return false;
-  const [start] = border;
-  const seen = /* @__PURE__ */ new Set([start]);
-  const stack = [start];
-  let found = 1;
-  while (stack.length > 0) {
-    const h = parseHexKey(stack.pop());
-    for (const n of hexNeighbors(h)) {
-      const k = hexKey(n);
-      if (seen.has(k) || !open(k)) continue;
-      seen.add(k);
-      if (border.has(k) && ++found === border.size) return false;
-      stack.push(k);
-    }
-  }
-  return true;
-}
-function clearPathsUnder(s, tiles) {
-  const keys = tiles.map((h) => hexKey(h));
-  const paved = new Set(s.paths);
-  if (!keys.some((k) => paved.has(k))) return;
-  const refunded = keys.slice(1).filter((k) => paved.has(k)).length;
-  const gone = new Set(keys);
-  s.paths = s.paths.filter((k) => !gone.has(k));
-  const cost = PATHS.cost;
-  for (const id3 of RESOURCE_IDS) s.resources[id3] += (cost[id3] ?? 0) * refunded;
-}
-
 // packages/shared/src/data/units.ts
 var WEAPON_IDS = [
   "beak",
@@ -3962,6 +3791,1112 @@ var WAVE_UNITS = {
 };
 var TURRET_SHOT = 0.8;
 
+// packages/shared/src/sim/calendar.ts
+var mod = (a, n) => (a % n + n) % n;
+function calendarAt(start, t) {
+  const elapsed = t - start;
+  const inYear = mod(elapsed, YEAR_MS);
+  const seasonIndex = Math.floor(inYear / SEASON_MS);
+  const season = SEASONS[seasonIndex];
+  const inSeason = inYear - seasonIndex * SEASON_MS;
+  const day = Math.floor(inSeason / CALENDAR.dayMs);
+  const sinceDawn = inSeason - day * CALENDAR.dayMs;
+  const dawn = t - sinceDawn;
+  const nightStart = CALENDAR.dayMs - CALENDAR.nightMs[season];
+  return {
+    season,
+    year: Math.floor((elapsed - inYear) / YEAR_MS),
+    day,
+    sinceDawn,
+    dayProgress: sinceDawn / CALENDAR.dayMs,
+    night: sinceDawn >= nightStart,
+    nightAt: dawn + nightStart,
+    dawnAt: dawn + CALENDAR.dayMs,
+    seasonEndsAt: t - inSeason + SEASON_MS,
+    next: SEASONS[(seasonIndex + 1) % SEASONS.length]
+  };
+}
+function calendarOf(state, t = state.now) {
+  return calendarAt(state.calendarStart, t);
+}
+function nextCalendarChange(start, t) {
+  const c = calendarAt(start, t);
+  return c.night ? c.dawnAt : c.nightAt;
+}
+function seasonOf(state) {
+  return calendarAt(state.calendarStart, state.now).season;
+}
+function isNight(state) {
+  return calendarAt(state.calendarStart, state.now).night;
+}
+
+// packages/shared/src/sim/footprint.ts
+function rotationsOf(type) {
+  return footprintOf(type) === 3 ? [0, 1, 2, 3, 4, 5] : [0];
+}
+function normalRot(rot) {
+  return ((rot ?? 0) % 6 + 6) % 6;
+}
+function footprintHexes(type, q, r, rot = 0) {
+  const anchor = { q, r };
+  const size = footprintOf(type);
+  if (size === 7) return hexDisk(anchor, 1);
+  if (size === 3) {
+    const d = normalRot(rot);
+    return [anchor, hexNeighbor(anchor, d), hexNeighbor(anchor, d + 1)];
+  }
+  return [anchor];
+}
+function wallsOf(tiles) {
+  return tiles.length >= 7 ? [...tiles] : tiles.slice(1);
+}
+function footprintTiles(b) {
+  return b.cramped ? [{ q: b.q, r: b.r }] : footprintHexes(b.type, b.q, b.r, b.rot);
+}
+function siteTiles(item2) {
+  if (item2.kind === "build")
+    return item2.rot === void 0 ? [{ q: item2.q, r: item2.r }] : footprintHexes(item2.buildingType, item2.q, item2.r, item2.rot);
+  if (item2.kind === "upgrade" && item2.rot !== void 0)
+    return footprintHexes(item2.buildingType, item2.q, item2.r, item2.rot);
+  return [];
+}
+var cache = /* @__PURE__ */ new WeakMap();
+function mix(h, v) {
+  return Math.imul(h ^ (v | 0), 16777619) >>> 0;
+}
+function mixId(h, id3) {
+  for (let i = 0; i < id3.length; i++) h = mix(h, id3.charCodeAt(i));
+  return h;
+}
+function layoutHash(state) {
+  let h = mix(2166136261, state.buildings.length);
+  for (const b of state.buildings) {
+    h = mix(h, b.q * 977 + b.r);
+    h = mix(h, (b.rot ?? 0) + (b.cramped ? 8 : 0) + footprintOf(b.type) * 16);
+    h = mixId(h, b.id);
+  }
+  h = mix(h, state.queue.length);
+  for (const i of state.queue) {
+    if (i.kind !== "build" && i.rot === void 0) continue;
+    h = mix(h, i.q * 977 + i.r);
+    h = mix(h, (i.rot ?? 0) + footprintOf(i.buildingType) * 16 + (i.kind === "build" ? 128 : 0));
+    h = mixId(h, i.id);
+  }
+  return h;
+}
+function occupancy(state) {
+  const hash = layoutHash(state);
+  const hit = cache.get(state.buildings);
+  if (hit && hit.hash === hash) return hit.occupancy;
+  const tiles = /* @__PURE__ */ new Map();
+  const blocked = /* @__PURE__ */ new Set();
+  for (const b of state.buildings) {
+    const covered = footprintTiles(b);
+    covered.forEach((h, i) => tiles.set(hexKey(h), { id: b.id, site: false, anchor: i === 0 }));
+    for (const h of wallsOf(covered)) blocked.add(hexKey(h));
+  }
+  for (const item2 of state.queue) {
+    siteTiles(item2).forEach((h, i) => {
+      const key = hexKey(h);
+      if (!tiles.has(key)) tiles.set(key, { id: item2.id, site: true, anchor: i === 0 });
+    });
+  }
+  const occ = { tiles, blocked, blockedKey: [...blocked].sort().join(";") };
+  cache.set(state.buildings, { hash, occupancy: occ });
+  return occ;
+}
+function coveredKeys(state) {
+  const out = /* @__PURE__ */ new Set();
+  for (const [k, o] of occupancy(state).tiles) if (!o.site) out.add(k);
+  return out;
+}
+function takenKeys(state) {
+  return new Set(occupancy(state).tiles.keys());
+}
+function footprintCentre(tiles) {
+  let q = 0;
+  let r = 0;
+  for (const h of tiles) {
+    q += h.q;
+    r += h.r;
+  }
+  return { q: q / tiles.length, r: r / tiles.length };
+}
+function cutsLand(map, removed, blocked = /* @__PURE__ */ new Set()) {
+  const gone = new Set(removed);
+  const open = (k) => {
+    if (gone.has(k) || blocked.has(k)) return false;
+    const t = getTile(map, parseHexKey(k));
+    return !!t && TILES[t.type].walkable;
+  };
+  const border = /* @__PURE__ */ new Set();
+  for (const k of gone)
+    for (const n of hexNeighbors(parseHexKey(k))) {
+      const nk = hexKey(n);
+      if (open(nk)) border.add(nk);
+    }
+  if (border.size <= 1) return false;
+  const [start] = border;
+  const seen = /* @__PURE__ */ new Set([start]);
+  const stack = [start];
+  let found = 1;
+  while (stack.length > 0) {
+    const h = parseHexKey(stack.pop());
+    for (const n of hexNeighbors(h)) {
+      const k = hexKey(n);
+      if (seen.has(k) || !open(k)) continue;
+      seen.add(k);
+      if (border.has(k) && ++found === border.size) return false;
+      stack.push(k);
+    }
+  }
+  return true;
+}
+function clearPathsUnder(s, tiles) {
+  const keys = tiles.map((h) => hexKey(h));
+  const paved = new Set(s.paths);
+  if (!keys.some((k) => paved.has(k))) return;
+  const refunded = keys.slice(1).filter((k) => paved.has(k)).length;
+  const gone = new Set(keys);
+  s.paths = s.paths.filter((k) => !gone.has(k));
+  const cost = PATHS.cost;
+  for (const id3 of RESOURCE_IDS) s.resources[id3] += (cost[id3] ?? 0) * refunded;
+}
+
+// packages/shared/src/sim/obstacles.ts
+function obstacleId(kind, q, r) {
+  return `${kind}:${q},${r}`;
+}
+function generateObstacles(map, taken = /* @__PURE__ */ new Set()) {
+  if (map.params.biome === "classic") return [];
+  const rng = createRng(`${map.seed}/${map.face}/obstacles`);
+  const [lo, hi] = OBSTACLE_RULES.rho;
+  const used = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const kind of OBSTACLE_KINDS) {
+    const def = OBSTACLES[kind];
+    if (def.count === 0) continue;
+    const spots = rng.shuffle(
+      map.tiles.filter((t) => def.tiles.includes(t.type) && !t.flood && t.rho >= lo && t.rho <= hi)
+    );
+    let placed = 0;
+    for (const t of spots) {
+      if (placed >= def.count) break;
+      const key = hexKey(t);
+      if (used.has(key)) continue;
+      used.add(key);
+      placed++;
+      if (taken.has(key)) continue;
+      out.push({ id: obstacleId(kind, t.q, t.r), kind, q: t.q, r: t.r, loot: { ...def.loot } });
+    }
+  }
+  return out;
+}
+function obstacleAt(state, q, r) {
+  return state.obstacles.find((o) => o.q === q && o.r === r);
+}
+function clearDuration(s) {
+  return Math.round(OBSTACLE_RULES.clearMs * techEffects(s).build);
+}
+function leaveWreck(s, m, at, events) {
+  if (s.obstacles.filter((o) => o.kind === "wreck").length >= OBSTACLE_RULES.maxWrecks) return;
+  if (obstacleAt(s, m.q, m.r)) return;
+  if (occupancy(s).tiles.has(`${m.q},${m.r}`)) return;
+  if (s.queue.some((i) => i.q === m.q && i.r === m.r)) return;
+  const k = METEORS.ageFactor[ageOf(s)] ?? 1;
+  const loot = {};
+  for (const id3 of RESOURCE_IDS) {
+    const v = OBSTACLES.wreck.loot[id3];
+    if (v) loot[id3] = Math.round(v * k);
+  }
+  const iron = Math.round(IRON.wreck * k);
+  s.obstacles.push({
+    id: obstacleId("wreck", m.q, m.r),
+    kind: "wreck",
+    q: m.q,
+    r: m.r,
+    loot,
+    iron
+  });
+  s.paths = s.paths.filter((p) => p !== hexKey(m));
+  events.push({ type: "wreckLeft", at, q: m.q, r: m.r });
+}
+function removeObstacle(s, o, at, events, by) {
+  s.obstacles = s.obstacles.filter((x) => x.id !== o.id);
+  const cap = capacity(s);
+  const loot = {};
+  for (const id3 of RESOURCE_IDS) {
+    const v = o.loot[id3] ?? 0;
+    if (v <= 0) continue;
+    const room = Math.max(0, cap[id3] - s.resources[id3]);
+    const got = Math.min(v, room);
+    s.resources[id3] += got;
+    if (got > 0) loot[id3] = got;
+  }
+  const iron = o.iron ? addIron(s, o.iron) : 0;
+  events.push({
+    type: "obstacleCleared",
+    at,
+    q: o.q,
+    r: o.r,
+    kind: o.kind,
+    loot,
+    by,
+    ...iron > 0 ? { iron } : {}
+  });
+}
+
+// packages/shared/src/sim/sky.ts
+var DAY = 24 * 36e5;
+var EPS = 1e-6;
+function meteorStock(state, at) {
+  const f = METEORS.nestFactor;
+  const factor = f[Math.min(nest(state).level, f.length - 1)] ?? 1;
+  const age = METEORS.ageFactor[ageOf(state)] ?? 1;
+  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY));
+  const tech = techEffects(state).meteorStock;
+  return Math.round(METEORS.stock * factor * age * tech * (1 + METEORS.perDay * days));
+}
+function craterIron(state) {
+  const age = METEORS.ageFactor[ageOf(state)] ?? 1;
+  return Math.round(IRON.crater * age * techEffects(state).meteorStock) * IRON_SCALE;
+}
+function meteorIronRate(state, m) {
+  if (m.iron <= 0 || state.meteorIron >= ironCap(state)) return 0;
+  const miners = minersOf(state, m.id);
+  if (miners.length === 0) return 0;
+  const work = crewWork(state, miners, m.resource);
+  if (work <= 0) return 0;
+  const map = faceMapOf(state);
+  const f = work * logisticsEfficiency(depotDistance(state, map, m)) * cycleHarvest(state, m.resource) * drillFactor(state);
+  if (f <= 0) return 0;
+  return Math.max(1, Math.round(1e3 * IRON.perHour * f));
+}
+function meteorIronPerHour(state) {
+  let rate = 0;
+  for (const m of state.sky.meteors) rate += meteorIronRate(state, m);
+  return rate * 36e5 / IRON_SCALE;
+}
+function craterWorth(state, m, cap = capacity(state)) {
+  if (m.iron > 0 && state.meteorIron < ironCap(state)) return true;
+  return m.stock > EPS && state.resources[m.resource] < cap[m.resource] - EPS;
+}
+function accrueIron(s, rates, dtMs, at, events) {
+  const cap = ironCap(s);
+  const before = s.meteorIron;
+  for (const { m, rate } of rates) {
+    const take = Math.min(rate * dtMs, m.iron, cap - s.meteorIron);
+    if (take <= 0) continue;
+    m.iron -= take;
+    s.meteorIron += take;
+  }
+  if (before < cap && s.meteorIron >= cap) events.push({ type: "ironFull", at });
+}
+function minersOf(state, meteorId) {
+  return state.villagers.filter((v) => v.job.kind === "meteor" && v.job.meteorId === meteorId);
+}
+function drillFactor(state) {
+  if (!techEffects(state).meteorDrill) return 1;
+  const d = METEORS.drill;
+  return d[Math.min(ageOf(state), d.length - 1)] ?? 1;
+}
+function meteorRate(state, m) {
+  if (m.stock <= EPS) return 0;
+  const miners = minersOf(state, m.id);
+  if (miners.length === 0) return 0;
+  const work = crewWork(state, miners, m.resource);
+  if (work <= 0) return 0;
+  const map = faceMapOf(state);
+  const efficiency = logisticsEfficiency(depotDistance(state, map, m));
+  return METEORS.rates[m.resource] * work * efficiency * cycleHarvest(state, m.resource) * drillFactor(state);
+}
+function bestMeteorCrew(state, meteorId) {
+  const m = state.sky.meteors.find((x) => x.id === meteorId);
+  if (!m) return [];
+  const here = minersOf(state, meteorId).map((v) => v.id);
+  const others = state.villagers.map((v, i) => ({ v, i })).filter(
+    ({ v }) => canMine(v) && v.job.kind !== "meteor" && (v.job.kind === "idle" || !v.locked)
+  ).sort(
+    (a, b) => workerPower(b.v, m.resource) - workerPower(a.v, m.resource) || Number(b.v.job.kind === "idle") - Number(a.v.job.kind === "idle") || a.i - b.i
+  ).map(({ v }) => v.id);
+  return [...here, ...others].slice(0, METEORS.slots);
+}
+function canMine(v) {
+  if (v.kikiwiwi) return false;
+  return v.job.kind === "idle" || v.job.kind === "work" || v.job.kind === "stardust" || v.job.kind === "meteor";
+}
+function meteorAt(state, q, r) {
+  return state.sky.meteors.find((m) => m.q === q && m.r === r);
+}
+function nextSkyEvent(state) {
+  const sky = state.sky;
+  let next = Infinity;
+  if (sky.next) next = sky.next.announced ? sky.next.at : sky.next.announceAt;
+  let total = 0;
+  for (const m of sky.meteors) {
+    next = Math.min(next, m.expiresAt);
+    const rate = meteorIronRate(state, m);
+    if (rate <= 0) continue;
+    total += rate;
+    next = Math.min(next, state.now + Math.max(1, Math.ceil(m.iron / rate)));
+  }
+  if (total > 0) {
+    const room = ironCap(state) - state.meteorIron;
+    next = Math.min(next, state.now + Math.max(1, Math.ceil(room / total)));
+  }
+  return next;
+}
+function planMeteor(s) {
+  const sky = s.sky;
+  if (sky.next) return;
+  withThreatRng(s, (rng) => {
+    const gap = Math.round(rng.range(METEORS.intervalMs[0], METEORS.intervalMs[1]));
+    const earliest = sky.falls === 0 ? s.createdAt + METEORS.firstMs : sky.lastFallAt + gap;
+    const at = Math.max(earliest, s.now + METEORS.noticeMs);
+    sky.next = {
+      id: `m${sky.falls + 1}`,
+      announceAt: at - METEORS.noticeMs,
+      at,
+      announced: false,
+      q: 0,
+      r: 0,
+      resource: "seeds",
+      stock: 0,
+      iron: 0
+    };
+  });
+}
+function skyTick(s, at, events) {
+  const sky = s.sky;
+  const next = sky.next;
+  if (next && !next.announced && next.announceAt === at) {
+    const spot = withThreatRng(s, (rng) => {
+      const map = faceMapOf(s);
+      const season = seasonOf(s);
+      const taken = /* @__PURE__ */ new Set([
+        ...takenKeys(s),
+        ...sky.meteors.map((m) => hexKey(m)),
+        ...s.obstacles.map((o) => hexKey(o))
+      ]);
+      const open = map.tiles.filter(
+        (t) => t.rho >= 0.25 && t.rho <= 0.92 && !taken.has(hexKey(t)) && !isFlooded(t, s.params.biome, season)
+      );
+      const preferred = open.filter((t) => METEORS.tiles.includes(t.type));
+      const free = preferred.length > 0 ? preferred : open.filter((t) => t.type !== "heart");
+      const weights = Object.entries(METEORS.resources);
+      let roll = rng.next() * weights.reduce((sum, [, w]) => sum + w, 0);
+      let resource = weights[0][0];
+      for (const [id3, w] of weights) {
+        roll -= w;
+        if (roll < 0) {
+          resource = id3;
+          break;
+        }
+      }
+      return { tile: free.length > 0 ? rng.pick(free) : null, resource };
+    });
+    if (!spot.tile) {
+      sky.next = null;
+      sky.lastFallAt = next.at;
+      return;
+    }
+    next.announced = true;
+    next.q = spot.tile.q;
+    next.r = spot.tile.r;
+    next.resource = spot.resource;
+    next.stock = Math.round(meteorStock(s, next.at) * IRON.resourceShare);
+    next.iron = craterIron(s);
+    events.push({
+      type: "meteorAnnounced",
+      at,
+      strikeAt: next.at,
+      q: next.q,
+      r: next.r,
+      resource: next.resource
+    });
+  }
+  if (next && next.announced && next.at === at) {
+    if (sky.meteors.length >= METEORS.max) {
+      const old = sky.meteors.shift();
+      leaveWreck(s, old, at, events);
+    }
+    sky.meteors.push({
+      id: next.id,
+      q: next.q,
+      r: next.r,
+      resource: next.resource,
+      stock: next.stock,
+      max: next.stock,
+      iron: next.iron,
+      ironMax: next.iron,
+      landedAt: at,
+      expiresAt: at + METEORS.lifeMs
+    });
+    sky.falls++;
+    sky.lastFallAt = at;
+    sky.next = null;
+    events.push({
+      type: "meteorLanded",
+      at,
+      q: next.q,
+      r: next.r,
+      resource: next.resource,
+      stock: next.stock,
+      iron: ironUnits(next.iron)
+    });
+  }
+  for (const m of sky.meteors) {
+    if (m.expiresAt !== at) continue;
+    events.push({ type: "meteorFaded", at, q: m.q, r: m.r, resource: m.resource });
+    leaveWreck(s, m, at, events);
+  }
+  sky.meteors = sky.meteors.filter((m) => m.expiresAt > at);
+}
+
+// packages/shared/src/sim/selectors.ts
+var HOUR_MS = 36e5;
+function getBuilding(state, id3) {
+  return state.buildings.find((b) => b.id === id3);
+}
+function buildingAt(state, q, r) {
+  const o = occupancy(state).tiles.get(`${q},${r}`);
+  return o && !o.site ? state.buildings.find((b) => b.id === o.id) : void 0;
+}
+function queuedBuildAt(state, q, r) {
+  const o = occupancy(state).tiles.get(`${q},${r}`);
+  return o?.site ? state.queue.find((i) => i.id === o.id) : void 0;
+}
+function nest(state) {
+  const n = state.buildings.find((b) => b.type === "nest");
+  if (!n) throw new Error("State has no nest");
+  return n;
+}
+function nestDef(state) {
+  return levelDef("nest", nest(state).level);
+}
+function activeItem(state) {
+  const first = state.queue[0];
+  return first && first.startedAt !== null ? first : void 0;
+}
+function workersOf(state, buildingId) {
+  return state.villagers.filter((v) => v.job.kind === "work" && v.job.buildingId === buildingId);
+}
+function idleVillagers(state) {
+  return state.villagers.filter((v) => v.job.kind === "idle");
+}
+function workerSlots(b) {
+  return levelDef(b.type, b.level)?.workerSlots ?? 0;
+}
+function totalWorkers(state) {
+  return state.villagers.filter((v) => v.job.kind === "work").length;
+}
+function population(state) {
+  return state.villagers.length;
+}
+function housing(state) {
+  return state.buildings.reduce((sum, b) => sum + (levelDef(b.type, b.level)?.housing ?? 0), 0);
+}
+function capacity(state) {
+  const storage = state.buildings.reduce(
+    (sum, b) => sum + (levelDef(b.type, b.level)?.storage ?? 0),
+    0
+  );
+  const cap = storage * techEffects(state).storage;
+  return { pulp: cap, fiber: cap, seeds: cap, juice: cap };
+}
+function reserveCapOf(state, b) {
+  return (levelDef(b.type, b.level)?.reserve ?? 0) * techEffects(state).storage;
+}
+function reserveOf(b) {
+  return b.reserve ?? emptyResources();
+}
+function reserveHolders(state) {
+  return state.buildings.filter((b) => (levelDef(b.type, b.level)?.reserve ?? 0) > 0);
+}
+function reserves(state) {
+  const stock = emptyResources();
+  const cap = emptyResources();
+  for (const b of reserveHolders(state)) {
+    const c = reserveCapOf(state, b);
+    for (const id3 of RESOURCE_IDS) {
+      stock[id3] += b.reserve?.[id3] ?? 0;
+      cap[id3] += c;
+    }
+  }
+  return { stock, cap };
+}
+function canCollect(state, b) {
+  if (!b.reserve) return false;
+  const cap = capacity(state);
+  return RESOURCE_IDS.some((id3) => b.reserve[id3] > 1e-6 && state.resources[id3] < cap[id3] - 1e-6);
+}
+function reserveTarget(state, id3) {
+  for (const b of reserveHolders(state)) {
+    const room = reserveCapOf(state, b) - (b.reserve?.[id3] ?? 0);
+    if (room > 1e-6) return { b, room };
+  }
+  return null;
+}
+function storageFullCheck(state, known) {
+  const cap = capacity(state);
+  const eaten = consumption(state);
+  let gross = known ?? null;
+  return (id3) => {
+    if (state.resources[id3] < cap[id3] - 1e-6) return false;
+    if (reserveTarget(state, id3)) return false;
+    if (eaten[id3] <= 0) return true;
+    gross ??= grossRates(state);
+    return gross[id3] >= eaten[id3];
+  };
+}
+function passiveRates(state, b) {
+  const def = levelDef(b.type, b.level);
+  const out = emptyResources();
+  if (!def?.passiveProduction) return out;
+  const climate = climateOf(state.face, state.params.biome);
+  for (const id3 of RESOURCE_IDS) out[id3] = (def.passiveProduction[id3] ?? 0) * climate[id3];
+  return out;
+}
+function grossRates(state) {
+  const total = emptyResources();
+  const never = () => false;
+  for (const b of state.buildings) {
+    const r = buildingRates(state, b, never);
+    for (const id3 of RESOURCE_IDS) total[id3] += r[id3];
+  }
+  for (const m of state.sky.meteors) total[m.resource] += meteorRate(state, m);
+  return total;
+}
+function netRates(state) {
+  const full = storageFullCheck(state);
+  const prod = productionRates(state, full);
+  const eaten = consumption(state);
+  const out = emptyResources();
+  for (const id3 of RESOURCE_IDS) {
+    if (full(id3)) continue;
+    const net = prod[id3] - eaten[id3];
+    out[id3] = net < 0 && state.resources[id3] <= 0 ? 0 : net;
+  }
+  return out;
+}
+function buildingHarvest(state, b, full = storageFullCheck(state)) {
+  const workers = workersOf(state, b.id);
+  return harvestOf(
+    state,
+    faceMapOf(state),
+    b,
+    workforce(state, b, workers),
+    full,
+    regenBonus(workers)
+  );
+}
+function buildingRates(state, b, full = storageFullCheck(state)) {
+  const def = levelDef(b.type, b.level);
+  const out = emptyResources();
+  if (!def) return out;
+  const climate = climateOf(state.face, state.params.biome);
+  for (const id3 of RESOURCE_IDS) out[id3] = (def.passiveProduction?.[id3] ?? 0) * climate[id3];
+  const h = buildingHarvest(state, b, full);
+  if (h) out[h.resource] += h.output;
+  return out;
+}
+function productionRates(state, full = storageFullCheck(state)) {
+  const total = emptyResources();
+  for (const b of state.buildings) {
+    const r = buildingRates(state, b, full);
+    for (const id3 of RESOURCE_IDS) total[id3] += r[id3];
+  }
+  for (const m of state.sky.meteors)
+    if (!full(m.resource)) total[m.resource] += meteorRate(state, m);
+  return total;
+}
+function canAfford(resources2, cost) {
+  return RESOURCE_IDS.every((id3) => resources2[id3] + 1e-9 >= (cost[id3] ?? 0));
+}
+function scaleCost(cost, k) {
+  const out = {};
+  for (const id3 of RESOURCE_IDS) {
+    const v = cost[id3];
+    if (v) out[id3] = Math.round(v * k / 5) * 5 || 5;
+  }
+  return out;
+}
+function copiesOf(state, type) {
+  return state.buildings.filter((b) => b.type === type).length + state.queue.filter((i) => i.kind === "build" && i.buildingType === type).length;
+}
+function pathLimit(state) {
+  const level = nest(state).level;
+  return PATHS.base + PATHS.perNestLevel * Math.min(level, 3) + PATHS.perAgeLevel * Math.max(0, level - 3);
+}
+function buildingCount(state) {
+  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && !isTurret(t);
+  return state.buildings.filter((b) => counted(b.type)).length + state.queue.filter((i) => i.kind === "build" && counted(i.buildingType)).length;
+}
+function turretCount(state) {
+  return state.buildings.filter((b) => isTurret(b.type)).length + state.queue.filter((i) => i.kind === "build" && isTurret(i.buildingType)).length;
+}
+function turretLimit(state) {
+  const max = TURRETS2.max;
+  return max[Math.min(nest(state).level, max.length - 1)] ?? 0;
+}
+function isRampart(map, q, r) {
+  if (getTile(map, { q, r })?.type !== "skin") return false;
+  return hexNeighbors({ q, r }).some((h) => {
+    const t = getTile(map, h);
+    return !!t && TILES[t.type].walkable;
+  });
+}
+function buildCost(state, type) {
+  const def = BUILDINGS[type];
+  return scaleCost(def.levels[0].cost, def.copyGrowth ** copiesOf(state, type));
+}
+function upgradeCost(type, targetLevel) {
+  return levelDef(type, targetLevel)?.cost ?? {};
+}
+function demolitionRefund(state, b) {
+  const def = BUILDINGS[b.type];
+  const copies = state.buildings.filter((x) => x.type === b.type).length;
+  const invested = emptyResources();
+  const build = scaleCost(def.levels[0].cost, def.copyGrowth ** Math.max(0, copies - 1));
+  const parts = [build, ...def.levels.slice(1, b.level).map((l) => l.cost)];
+  for (const cost of parts) for (const id3 of RESOURCE_IDS) invested[id3] += cost[id3] ?? 0;
+  const out = {};
+  for (const id3 of RESOURCE_IDS) {
+    const v = Math.round(invested[id3] * DEMOLITION.refund / 5) * 5;
+    if (v > 0) out[id3] = v;
+  }
+  return out;
+}
+function demolitionPreview(state, b) {
+  const def = levelDef(b.type, b.level);
+  return {
+    refund: demolitionRefund(state, b),
+    workers: workersOf(state, b.id).length,
+    storageLost: def?.storage ?? 0,
+    housingLost: def?.housing ?? 0
+  };
+}
+function nearRay(map, q, r) {
+  const tiles = [{ q, r }, ...hexNeighbors({ q, r })];
+  return tiles.some((h) => getTile(map, h)?.type === "ray");
+}
+function constructionDuration(state, type, level, isNewCopy, rayBonus) {
+  const def = BUILDINGS[type];
+  const base = levelDef(type, level)?.durationMs ?? 0;
+  const copies = isNewCopy ? def.copyGrowth ** copiesOf(state, type) : 1;
+  const speed = (rayBonus ? RAY_BUILD_SPEEDUP : 1) * techEffects(state).build;
+  return Math.max(1e3, Math.round(base * Math.sqrt(copies) * speed / 1e3) * 1e3);
+}
+function pendingUpgrade(state, buildingId) {
+  return state.queue.find((i) => i.kind !== "build" && i.buildingId === buildingId);
+}
+function repairCost(b) {
+  if (b.shipLost) return scaleCost(LANDING.rebuild.cost, LANDING.rebuild.ship[b.shipLost]);
+  return scaleCost(levelDef(b.type, b.level)?.cost ?? {}, THREATS.repairCost);
+}
+function repairDuration(b) {
+  if (b.shipLost) return LANDING.rebuild.hours[b.shipLost] * 36e5;
+  const base = levelDef(b.type, b.level)?.durationMs ?? 0;
+  return Math.max(5e3, Math.round(base * THREATS.repairTime / 1e3) * 1e3);
+}
+function isMaxLevel(b) {
+  return b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type));
+}
+function maxLevelNow(state, type) {
+  const age = ageOf(state);
+  const levels = BUILDINGS[type].levels;
+  let max = 0;
+  while (max < levels.length && (levels[max].requiresAge ?? 0) <= age) max++;
+  return max;
+}
+function eggCost(state) {
+  return HATCHING.cost(population(state));
+}
+function eggDuration(state) {
+  const k = seasonEffects(seasonOf(state), state.params.biome).hatching;
+  return Math.round(HATCHING.durationMs(population(state)) * k);
+}
+function canHatch(state) {
+  return state.egg === null && population(state) < housing(state);
+}
+
+// packages/shared/src/sim/iron.ts
+function ironCap(state) {
+  const c = IRON.cap;
+  return (c[Math.min(nest(state).level, c.length - 1)] ?? 0) * IRON_SCALE;
+}
+function meteorIronOf(state) {
+  return ironUnits(state.meteorIron);
+}
+function addIron(s, units) {
+  const room = Math.max(0, ironCap(s) - s.meteorIron);
+  const got = Math.min(units * IRON_SCALE, room);
+  s.meteorIron += got;
+  return ironUnits(got);
+}
+
+// packages/shared/src/sim/rest.ts
+var UNREACHABLE = 12;
+function workSite(state, v) {
+  const job2 = v.job;
+  const at = (id3) => state.buildings.find((b) => b.id === id3) ?? null;
+  if (job2.kind === "work") return at(job2.buildingId);
+  if (job2.kind === "train") return at(job2.schoolId);
+  if (job2.kind === "transform") return at(job2.labId);
+  if (job2.kind === "titan") return { q: job2.q, r: job2.r };
+  if (job2.kind === "stardust")
+    return state.comets.patches.find((p) => p.id === job2.patchId) ?? null;
+  if (job2.kind === "meteor") return state.sky.meteors.find((m) => m.id === job2.meteorId) ?? null;
+  if (job2.kind === "build") return state.queue.find((i) => i.id === job2.queueItemId) ?? null;
+  if (job2.kind === "expedition" || job2.kind === "outpost") return null;
+  return state.buildings.find((b) => b.type === "nest") ?? null;
+}
+function homes(state) {
+  return state.buildings.map((b) => ({ b, beds: levelDef(b.type, b.level)?.housing ?? 0 })).filter((h) => h.beds > 0);
+}
+var bedCache = /* @__PURE__ */ new Map();
+function bedsOf(state, map = faceMapOf(state)) {
+  let key = `${state.seed}|${state.face}|${terraformKey(state)}|${seasonOf(state)}|`;
+  for (const b of state.buildings) {
+    const beds = levelDef(b.type, b.level)?.housing ?? 0;
+    if (beds > 0) key += `${b.id}:${beds};`;
+  }
+  key += "|";
+  for (const v of state.villagers) {
+    const j = v.job;
+    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : j.kind === "transform" ? `${v.id}x${j.labId};` : j.kind === "titan" ? `${v.id}T${j.q},${j.r};` : j.kind === "stardust" ? `${v.id}d${j.patchId};` : j.kind === "meteor" ? `${v.id}m${j.meteorId};` : "";
+  }
+  key += `|${pathsKey(state.paths)}`;
+  const cached = bedCache.get(key);
+  if (cached) return cached;
+  const houses = homes(state);
+  const kiwis = state.villagers.filter(
+    (v) => v.job.kind !== "expedition" && v.job.kind !== "outpost"
+  );
+  const workers = [
+    ...kiwis.filter((v) => v.job.kind !== "idle"),
+    ...kiwis.filter((v) => v.job.kind === "idle")
+  ];
+  const sites = workers.map((v) => workSite(state, v));
+  const dists = houses.map((h) => walkDistances(state, map, [hexKey(h.b)]));
+  const free = houses.map((h) => h.beds);
+  const out = /* @__PURE__ */ new Map();
+  workers.forEach((v, i) => {
+    const site = sites[i];
+    let best = -1;
+    let bestD = Infinity;
+    for (let h = 0; h < houses.length; h++) {
+      if (free[h] <= 0) continue;
+      const d = site ? distanceIn(dists[h], site) : 0;
+      const dd = Number.isFinite(d) ? d : UNREACHABLE;
+      if (best < 0 || dd < bestD) {
+        best = h;
+        bestD = dd;
+      }
+    }
+    if (best < 0) out.set(v.id, { buildingId: null, distance: 0 });
+    else {
+      free[best]--;
+      out.set(v.id, { buildingId: houses[best].b.id, distance: bestD });
+    }
+  });
+  if (bedCache.size >= 32) bedCache.delete(bedCache.keys().next().value);
+  bedCache.set(key, out);
+  return out;
+}
+function restNeed(state, v, bed) {
+  const endurance = Math.max(0.4, 1 - REST.endurance * (v.stats.endurance - KIWI.stat.average));
+  const outside = !bed || bed.buildingId === null ? REST.noBed : 1;
+  return REST.base * REST.season[seasonOf(state)] * endurance * outside * modifiers(v).rest;
+}
+function presence(state, v, bed = bedsOf(state).get(v.id)) {
+  const walk = 1 + REST.commute * (bed?.distance ?? 0);
+  return Math.max(REST.minPresence, 1 - restNeed(state, v, bed) * walk);
+}
+function moraleOf(state, beds = bedsOf(state)) {
+  const food = hungerStage(state) === "fed" ? MORALE.fed : MORALE.hungry;
+  const comfort = comfortOf(state, beds);
+  const speech = state.speechUntil > state.now ? MORALE.speech : 0;
+  const mourning = state.mourningUntil > state.now ? MORALE.mourning : 0;
+  const season = MORALE.season[seasonOf(state)];
+  const mayor = mayorMorale(state);
+  const bards = bardMorale(state);
+  const sum = food + comfort + mayor + bards + speech + mourning + season;
+  const total = Math.max(-MORALE.max, Math.min(MORALE.max, sum));
+  return { total, food, comfort, mayor, bards, speech, mourning, season };
+}
+var comfortCache = /* @__PURE__ */ new WeakMap();
+function comfortOf(state, beds) {
+  const cached = comfortCache.get(beds);
+  if (cached !== void 0) return cached;
+  let workers = 0;
+  let near = 0;
+  for (const v of state.villagers) {
+    if (v.job.kind !== "work") continue;
+    workers++;
+    const bed = beds.get(v.id);
+    if (bed && bed.buildingId !== null && bed.distance <= MORALE.near) near++;
+  }
+  const comfort = workers > 0 ? MORALE.comfort * (2 * near / workers - 1) : 0;
+  comfortCache.set(beds, comfort);
+  return comfort;
+}
+function missingBeds(state, beds = bedsOf(state)) {
+  let count = 0;
+  let total = 0;
+  let lost = 0;
+  for (const v of state.villagers) {
+    if (v.job.kind !== "work" && v.job.kind !== "idle") continue;
+    const bed = beds.get(v.id);
+    const p = presence(state, v, bed);
+    if (bed && bed.buildingId === null) {
+      count++;
+      const housed = presence(state, v, { buildingId: "bed", distance: 0 });
+      total += housed;
+      lost += housed - p;
+    } else total += p;
+  }
+  return { count, presenceLost: total > 0 ? lost / total : 0 };
+}
+function moraleWork(state, beds = bedsOf(state)) {
+  return 1 + moraleOf(state, beds).total;
+}
+function phaseOf(id3) {
+  let h = 2166136261;
+  for (let i = 0; i < id3.length; i++) h = Math.imul(h ^ id3.charCodeAt(i), 16777619);
+  h ^= h >>> 16;
+  h = Math.imul(h, 2246822507);
+  h ^= h >>> 13;
+  h = Math.imul(h, 3266489909);
+  h ^= h >>> 16;
+  return (h >>> 0) / 2 ** 32;
+}
+function kiwiRhythm(state, v, t, beds) {
+  const seed = phaseOf(v.id);
+  const c = calendarAt(state.calendarStart, t);
+  if (c.night && (seed < 1 - CYCLES.nightWork || v.trait === "earlyBird")) {
+    const slept = (t - c.nightAt) / Math.max(1, c.dawnAt - c.nightAt);
+    return { rhythm: "sleep", fatigue: Math.max(0.05, 0.6 - 0.55 * slept) };
+  }
+  const p = presence(state, v, beds ? beds.get(v.id) : void 0);
+  const x = ((t + seed * REST.cycleMs) % REST.cycleMs + REST.cycleMs) % REST.cycleMs;
+  const k = x / REST.cycleMs;
+  if (k < p) return { rhythm: "work", fatigue: 0.15 + 0.75 * (k / p) };
+  return { rhythm: "rest", fatigue: 0.9 - 0.75 * ((k - p) / (1 - p)) };
+}
+
+// packages/shared/src/sim/forge.ts
+function forgeOf(state) {
+  return state.buildings.find((b) => b.type === "forge");
+}
+function forgePower(v) {
+  const avg = KIWI.stat.average;
+  const p = 1 + FORGE.strength * (v.stats.strength - avg) + FORGE.dexterity * (v.stats.dexterity - avg);
+  return Math.max(KIWI.minPower, p);
+}
+function smithsOf(state) {
+  const b = forgeOf(state);
+  if (!b) return [];
+  return state.villagers.filter((v) => v.job.kind === "work" && v.job.buildingId === b.id);
+}
+function forgeRate(state) {
+  const b = forgeOf(state);
+  if (!b || state.forge.orders.length === 0) return 0;
+  if (state.threats.shelterUntil > state.now) return 0;
+  const beds = bedsOf(state);
+  let work = 0;
+  for (const v of smithsOf(state)) work += forgePower(v) * presence(state, v, beds.get(v.id));
+  if (work <= 0) return 0;
+  const speed = levelDef(b.type, b.level)?.forging ?? 1;
+  const damaged = b.damaged ? THREATS.damagedWork : 1;
+  const night = isNight(state) ? nightWork(state) : 1;
+  const f = work * speed * damaged * night * hungerWork(state) * moraleWork(state, beds);
+  return f > 0 ? Math.max(1, Math.round(FORGE.rate * f)) : 0;
+}
+function forgeQueueSize(state) {
+  const b = forgeOf(state);
+  return b ? levelDef(b.type, b.level)?.forgeQueue ?? 0 : 0;
+}
+function forgeLock(state, id3) {
+  const def = ITEMS[id3];
+  if (!def) return "unknownItem";
+  if (!forgeOf(state)) return "noForge";
+  if (!state.research.done.includes(def.tech)) return "techMissing";
+  if (state.forge.orders.length >= forgeQueueSize(state)) return "forgeQueueFull";
+  if (meteorIronOf(state) < def.iron) return "notEnoughIron";
+  if (!canAfford(state.resources, def.cost)) return "notEnoughResources";
+  return null;
+}
+function orderItem(state, id3, orderId) {
+  const def = ITEMS[id3];
+  for (const r of RESOURCE_IDS) state.resources[r] -= def.cost[r] ?? 0;
+  state.meteorIron -= def.iron * IRON_SCALE;
+  state.forge.orders.push({
+    id: orderId,
+    item: id3,
+    progress: 0,
+    paid: { ...def.cost },
+    iron: def.iron
+  });
+}
+function cancelOrder(state, index) {
+  const [order] = state.forge.orders.splice(index, 1);
+  if (!order) return;
+  for (const r of RESOURCE_IDS) state.resources[r] += order.paid[r] ?? 0;
+  addIron(state, order.iron);
+}
+function nextForgeEvent(state) {
+  const order = state.forge.orders[0];
+  if (!order) return Infinity;
+  const need = orderWork(order.item) - order.progress;
+  if (need <= 0) return state.now;
+  const rate = forgeRate(state);
+  if (rate <= 0) return Infinity;
+  return state.now + Math.max(1, Math.ceil(need / rate));
+}
+function forgeEta(state) {
+  const at = nextForgeEvent(state);
+  return Number.isFinite(at) ? at - state.now : null;
+}
+function accrueForge(state, rate, dtMs) {
+  const order = state.forge.orders[0];
+  if (!order || rate <= 0) return;
+  order.progress = Math.min(orderWork(order.item), order.progress + rate * dtMs);
+}
+function forgeTick(state, at, events) {
+  const orders = state.forge.orders;
+  while (orders[0] && orders[0].progress >= orderWork(orders[0].item)) {
+    const done = orders.shift();
+    storeItem(state, done.item);
+    events.push({ type: "itemForged", at, item: done.item });
+  }
+}
+function storeItem(state, id3) {
+  const armory = state.forge.armory;
+  armory[id3] = Math.min(FORGE.armoryMax, (armory[id3] ?? 0) + 1);
+}
+function takeItem(state, id3) {
+  const armory = state.forge.armory;
+  const left = (armory[id3] ?? 0) - 1;
+  if (left > 0) armory[id3] = left;
+  else delete armory[id3];
+}
+function familyOf(v) {
+  if (v.kikiwiwi) return null;
+  return CLASS_FAMILY[v.classId ?? "none"];
+}
+function wearLock(v, id3) {
+  const def = ITEMS[id3];
+  if (v.kikiwiwi) return "kikiwiwiNoWork";
+  if (def.slot === "weapon" && familyOf(v) !== def.kind) return "wrongFamily";
+  return null;
+}
+function unequip(state, v, slot) {
+  const id3 = v.gear?.[slot];
+  if (!id3 || !v.gear) return;
+  storeItem(state, id3);
+  delete v.gear[slot];
+  if (!v.gear.weapon && !v.gear.armor) delete v.gear;
+}
+function equip(state, v, id3, kept) {
+  const slot = ITEMS[id3].slot;
+  unequip(state, v, slot);
+  takeItem(state, id3);
+  v.gear = { ...v.gear, [slot]: id3 };
+  if (kept) v.gear.kept = true;
+  else delete v.gear.kept;
+}
+function returnGear(state, v) {
+  unequip(state, v, "weapon");
+  unequip(state, v, "armor");
+}
+function armorKind(v) {
+  const f = familyOf(v);
+  return f === "bow" || f === "staff" ? "light" : "heavy";
+}
+function betterPiece(state, v, slot) {
+  const worn = v.gear?.[slot];
+  let best = null;
+  let score = worn ? tierIndex(ITEMS[worn].tier) * 2 + (ITEMS[worn].kind === armorKind(v) ? 1 : 0) : -1;
+  for (const id3 of ITEM_IDS) {
+    const def = ITEMS[id3];
+    if (def.slot !== slot || !state.forge.armory[id3] || wearLock(v, id3)) continue;
+    const s = tierIndex(def.tier) * 2 + (slot === "armor" && def.kind === armorKind(v) ? 1 : 0);
+    if (s > score) {
+      score = s;
+      best = id3;
+    }
+  }
+  return best;
+}
+function equipGear(state) {
+  for (const v of state.villagers) {
+    const w = v.gear?.weapon;
+    if (w && wearLock(v, w)) unequip(state, v, "weapon");
+    if (v.gear?.armor && v.kikiwiwi) unequip(state, v, "armor");
+  }
+  if (!state.automation.equip || Object.keys(state.forge.armory).length === 0) return;
+  const away = (v) => v.job.kind === "expedition" || v.job.kind === "outpost";
+  const order = state.villagers.map((v, i) => ({ v, i })).filter(({ v }) => !v.kikiwiwi && !v.gear?.kept && !away(v)).sort(
+    (a, b) => Number(b.v.job.kind === "guard") - Number(a.v.job.kind === "guard") || kiwiStrength(b.v) - kiwiStrength(a.v) || a.i - b.i
+  );
+  for (const { v } of order) {
+    for (const slot of ["weapon", "armor"]) {
+      const id3 = betterPiece(state, v, slot);
+      if (id3) equip(state, v, id3, false);
+    }
+  }
+}
+var NO_GEAR = { damage: 1, hp: 1, armor: 0, speed: 1 };
+function gearEffect(v) {
+  if (!v.gear) return NO_GEAR;
+  const w = v.gear.weapon ? ITEMS[v.gear.weapon] : null;
+  const a = v.gear.armor ? ITEMS[v.gear.armor] : null;
+  return {
+    damage: w?.damage ?? 1,
+    hp: a?.hp ?? 1,
+    armor: a?.armor ?? 0,
+    speed: a?.speed ?? 1
+  };
+}
+function armoryCount(state) {
+  return Object.values(state.forge.armory).reduce((sum, n) => sum + (n ?? 0), 0);
+}
+function itemOpen(state, id3) {
+  return techEffects(state).forge && state.research.done.includes(ITEMS[id3].tech);
+}
+
+// packages/shared/src/sim/siege.ts
+var round1 = (v) => Math.round(v * 10) / 10;
+function twinTarget(state) {
+  return state.targets.find((t) => t.distance === 0);
+}
+function isConquered(state) {
+  return state.siege.conqueredAt > 0;
+}
+var truths = /* @__PURE__ */ new Map();
+function queenTruth(g) {
+  const cached = truths.get(g.seed);
+  if (cached) return cached;
+  const rng = createRng(`${g.seed}/siege`);
+  for (let i = 0; i < SIEGE.oldHolds; i++) rng.next();
+  const sector = rng.int(0, INTEL.sectors / 2 - 1);
+  const q = SIEGE.queen;
+  const truth = {
+    sector,
+    power: {
+      ground: round1(q.ground * rng.range(...q.spread)),
+      air: round1(q.air * rng.range(...q.spread))
+    }
+  };
+  if (truths.size > 256) truths.clear();
+  truths.set(g.seed, truth);
+  return truth;
+}
+function resetSiege(s) {
+  s.siege = { conqueredAt: 0 };
+}
+
 // packages/shared/src/battle/types.ts
 var EV = {
   /** n: the next events happen n steps later. */
@@ -4211,7 +5146,7 @@ function simulateBattle(setup, seed) {
     ints.push(code, ...args);
   };
   const tenths = (x) => Math.max(0, Math.round(x * 10));
-  const result2 = {
+  const result = {
     duration: 0,
     held: true,
     lootable: buildings.reduce((sum, b) => sum + (b.b.side === 0 ? lootLeft0(b) : 0), 0),
@@ -4301,10 +5236,10 @@ function simulateBattle(setup, seed) {
     u.state = State.Fallen;
     if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
     log2(EV.fall, u.i);
-    if (u.side === 0) result2.fallen.push(u.s.ref);
+    if (u.side === 0) result.fallen.push(u.s.ref);
     else {
-      result2.attackers.fallen++;
-      result2.lost?.push(u.s.ref);
+      result.attackers.fallen++;
+      result.lost?.push(u.s.ref);
     }
     if (u.carrying)
       for (const [bi, l] of u.carrying) {
@@ -4314,31 +5249,31 @@ function simulateBattle(setup, seed) {
     u.carrying?.clear();
     u.carried = 0;
   };
-  const leave2 = (u) => {
+  const leave = (u) => {
     u.state = State.Gone;
     if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
     log2(EV.gone, u.i);
     if (u.side === 1) {
-      result2.attackers.escaped++;
+      result.attackers.escaped++;
       if (u.carrying)
         for (const [bi, l] of u.carrying) {
           const sum = taken.get(bi) ?? [0, 0, 0, 0];
           for (let k = 0; k < 4; k++) sum[k] += l[k];
           taken.set(bi, sum);
         }
-    } else result2.fled.push(u.s.ref);
+    } else result.fled.push(u.s.ref);
   };
   const hurt = (target, dmg) => {
     target.hp -= dmg;
     if (target.hp <= 1e-9) fall(target);
   };
-  const strike2 = (u, target, t) => {
+  const strike3 = (u, target, t) => {
     const w = u.s.weapon;
     const slow = u.s.building !== null && buildings[u.s.building]?.damaged ? 2 : 1;
     u.readyAt = t + w.reload * slow;
     if (u.ammo !== null) {
       u.ammo--;
-      result2.shots[u.s.ref] = (result2.shots[u.s.ref] ?? 0) + 1;
+      result.shots[u.s.ref] = (result.shots[u.s.ref] ?? 0) + 1;
     }
     const roll = rng.next();
     const swing = (1 + rng.range(-BATTLE.spread, BATTLE.spread)) * (singers.length > 0 ? auraOf(u) : 1);
@@ -4350,7 +5285,7 @@ function simulateBattle(setup, seed) {
       if (!hit2) return;
       if (!u.reached && u.side === 1) {
         u.reached = true;
-        result2.reached += u.s.power;
+        result.reached += u.s.power;
       }
       if (!u.s.flying && u.side === 1 && struck.size < BATTLE.struckTiles) struck.add(u.tile);
       if (u.carrying && lootLeft(b) > 1e-6 && u.carried < u.s.carry - 1e-9) {
@@ -4372,9 +5307,9 @@ function simulateBattle(setup, seed) {
         b.hp -= dmg2;
         if (b.hp <= 1e-9) {
           b.damaged = true;
-          result2.damaged.push(b.i);
+          result.damaged.push(b.i);
           log2(EV.damaged, b.i);
-          if (result2.damaged.length >= (setup.maxDamaged ?? Infinity)) {
+          if (result.damaged.length >= (setup.maxDamaged ?? Infinity)) {
             for (const o of buildings) if (!o.damaged) o.hp = 0;
           }
         }
@@ -4500,7 +5435,7 @@ function simulateBattle(setup, seed) {
   };
   const goHome = (u, t) => {
     if (u.s.flying || exits.has(u.tile)) {
-      if (exits.has(u.tile)) return leave2(u);
+      if (exits.has(u.tile)) return leave(u);
       let goal = -1;
       let d = Infinity;
       for (const x of exits) {
@@ -4510,7 +5445,7 @@ function simulateBattle(setup, seed) {
           goal = x;
         }
       }
-      if (goal < 0 || !stepToward(u, tiles[goal], t)) leave2(u);
+      if (goal < 0 || !stepToward(u, tiles[goal], t)) leave(u);
       return;
     }
     stepDown(u, exitField(), t);
@@ -4521,7 +5456,7 @@ function simulateBattle(setup, seed) {
       if (u.fleeing || u.carried >= s.carry - 1e-9) return goHome(u, t);
       if (t < (s.hold ?? 0) - 1e-9) {
         const blow = s.fightsBack ? raiderTarget(u) : null;
-        if (blow?.unit && inRange(u, blow) && t >= u.readyAt - 1e-9) strike2(u, blow, t);
+        if (blow?.unit && inRange(u, blow) && t >= u.readyAt - 1e-9) strike3(u, blow, t);
         return;
       }
       if (!valid(u, u.target) || t >= u.retargetAt) {
@@ -4531,7 +5466,7 @@ function simulateBattle(setup, seed) {
       const target2 = u.target;
       if (!target2) return goHome(u, t);
       if (inRange(u, target2)) {
-        if (t >= u.readyAt - 1e-9) strike2(u, target2, t);
+        if (t >= u.readyAt - 1e-9) strike3(u, target2, t);
         return;
       }
       if (target2.building && !s.flying) {
@@ -4550,7 +5485,7 @@ function simulateBattle(setup, seed) {
       }
       const target2 = u.target;
       if (target2 && inRange(u, target2)) {
-        if (t >= u.readyAt - 1e-9) strike2(u, target2, t);
+        if (t >= u.readyAt - 1e-9) strike3(u, target2, t);
         return;
       }
       if (target2?.unit) {
@@ -4562,7 +5497,7 @@ function simulateBattle(setup, seed) {
     }
     if (s.role === "militia" && u.hp < s.hp * KIWI_UNIT.militiaFlee) {
       log2(EV.flee, u.i);
-      return leave2(u);
+      return leave(u);
     }
     if (u.ammo !== null && u.ammo <= 0) return;
     if (!valid(u, u.target) || t >= u.retargetAt) {
@@ -4571,7 +5506,7 @@ function simulateBattle(setup, seed) {
     }
     const target = u.target;
     if (target && inRange(u, target)) {
-      if (t >= u.readyAt - 1e-9) strike2(u, target, t);
+      if (t >= u.readyAt - 1e-9) strike3(u, target, t);
       return;
     }
     if (s.fixed) return;
@@ -4583,6 +5518,8 @@ function simulateBattle(setup, seed) {
   };
   let retreating = false;
   let cleared = false;
+  let homeRetreating = false;
+  const homeTotal = units.filter((u) => u.side === 0 && u.s.role !== "turret").length;
   const homeLeft = () => {
     let n2 = 0;
     for (const u of units)
@@ -4615,6 +5552,14 @@ function simulateBattle(setup, seed) {
       cleared = true;
       break;
     }
+    if (!homeRetreating && homeTotal > 0 && setup.orders[0].retreatBelow > 0 && homeLeft() / homeTotal < setup.orders[0].retreatBelow) {
+      homeRetreating = true;
+      for (const u of units)
+        if (u.side === 0 && u.s.role !== "turret" && u.state === State.Active) {
+          log2(EV.flee, u.i);
+          leave(u);
+        }
+    }
     if (!retreating && totalPower > 0 && alive / totalPower < setup.orders[1].retreatBelow) {
       retreating = true;
       for (const u of attackers)
@@ -4626,16 +5571,16 @@ function simulateBattle(setup, seed) {
   }
   step = Math.min(step + 1, maxSteps);
   if (!cleared) {
-    for (const u of attackers) if (u.state === State.Active) leave2(u);
+    for (const u of attackers) if (u.state === State.Active) leave(u);
     for (const u of attackers) if (u.state === State.Waiting) u.state = State.Gone;
   }
-  if (setup.clearEnds) result2.defendersLeft = homeLeft();
-  result2.duration = step * dt;
+  if (setup.clearEnds) result.defendersLeft = homeLeft();
+  result.duration = step * dt;
   for (const [building, amounts] of [...taken].sort((a, b) => a[0] - b[0]))
-    if (amounts.some((x) => x > 1e-9)) result2.loot.push({ building, amounts });
-  result2.reached = totalPower > 0 ? result2.reached / totalPower : 0;
-  result2.struck = [...struck].map((i) => ({ q: tiles[i].q, r: tiles[i].r }));
-  result2.held = result2.loot.length === 0 && result2.damaged.length === 0;
+    if (amounts.some((x) => x > 1e-9)) result.loot.push({ building, amounts });
+  result.reached = totalPower > 0 ? result.reached / totalPower : 0;
+  result.struck = [...struck].map((i) => ({ q: tiles[i].q, r: tiles[i].r }));
+  result.held = result.loot.length === 0 && result.damaged.length === 0;
   const logUnits = setup.units.map((s) => [
     s.ref,
     s.side,
@@ -4663,326 +5608,740 @@ function simulateBattle(setup, seed) {
     units: logUnits,
     buildings: logBuildings,
     events: encodeInts(ints),
-    result: result2
+    result
   };
 }
 
-// packages/shared/src/battle/units.ts
-var clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
-function kiwiWeapon(v, state) {
-  if (v.kikiwiwi) return "stomp";
-  if (v.classId === "warrior" && techEffects(state).firearms) return "musket";
-  return CLASS_WEAPONS[v.classId ?? "none"];
+// packages/shared/src/sim/deliveries.ts
+function cargoWeight(resources2) {
+  return RESOURCE_IDS.reduce((sum, id3) => sum + (resources2[id3] ?? 0), 0) * EXPEDITIONS.resourceWeight;
 }
-function kiwiUnit(v, state, role, at, sector, side = 0) {
-  const K = KIWI_UNIT;
-  const avg = KIWI.stat.average;
-  const st = v.stats;
-  const tech = techEffects(state);
-  const weaponId = role === "militia" && !v.kikiwiwi ? "beak" : kiwiWeapon(v, state);
-  const base = WEAPONS[weaponId];
-  const level = 1 + K.perLevel * (v.level - 1);
-  const fight = Math.sqrt(modifiers(v).fight);
-  const titan = titanPower(state, v);
-  const gear = gearEffect(v);
-  const spell = weaponId === "fireball";
-  const power = spell ? 1 + K.spiritDamage * (st.spirit - avg) : 1 + K.strengthDamage * (st.strength - avg);
-  const damage = base.damage * Math.max(0.5, power) * level * fight * titan * (role === "guard" ? tech.guard * gear.damage : K.militiaDamage);
-  const aim = base.style === "melee" ? base.accuracy : clamp(base.accuracy + K.dexterityAccuracy * (st.dexterity - avg), ...K.accuracy);
-  const hp = K.hp * Math.max(0.5, 1 + K.enduranceHp * (st.endurance - avg)) * level * fight * (v.kikiwiwi ? K.titanHp / 2 : 1) * (v.classId ? K.classHp[v.classId] ?? 1 : 1) * gear.hp;
-  const extraDodge = v.classId ? K.classDodge[v.classId] ?? 0 : 0;
-  const chorus = hasSkill(v, "chorus");
-  let aura = inLine(v.classId, "bard") && role === "guard" ? {
-    range: chorus ? K.aura.chorusRange : K.aura.range,
-    // Chantier 37: a minstrel sings louder.
-    boost: (chorus ? K.aura.chorusBoost : K.aura.boost) + (inLine(v.classId, "minstrel") ? K.aura.minstrel : 0)
-  } : void 0;
-  if (v.classId === "paladin" && role === "guard")
-    aura = {
-      range: Math.max(aura?.range ?? 0, K.paladinAura.range),
-      boost: Math.max(aura?.boost ?? 0, K.paladinAura.boost)
-    };
-  return {
-    ref: v.id,
-    side,
-    body: v.kikiwiwi ? "kikiwiwi" : "kiwi",
-    role,
-    kind: v.classId ?? "none",
-    name: v.name,
-    level: v.level,
-    classId: v.classId,
-    hp,
-    // Armour (technology and the piece it wears) spares the kiwis.
-    armor: clamp(1 - tech.injuries + gear.armor, 0, 0.6),
-    speed: K.speed * Math.max(0.5, 1 + K.agilitySpeed * (st.agility - avg)) * gear.speed,
-    dodge: clamp(
-      K.dodge + extraDodge + K.agilityDodge * (st.agility - avg),
-      0,
-      K.maxDodge + extraDodge
-    ),
-    size: v.kikiwiwi ? K.titanSize : 1,
-    flying: false,
-    fixed: false,
-    weaponId,
-    weapon: { ...base, damage, accuracy: aim },
-    ammo: null,
-    carry: 0,
-    power: 0,
-    at,
-    delay: 0,
-    building: null,
-    fightsBack: true,
-    huntsKiwis: false,
-    sector,
-    ...aura ? { aura } : {}
+function cargoLimit(launchpad) {
+  return Math.floor(shipCargo(launchpad) / EXPEDITIONS.resourceWeight);
+}
+function deliveryTime(state, friend, launchpad) {
+  return travelTime(friend, launchpad, [], "raid", techEffects(state).travel);
+}
+function sendShipment(state, launchpadId, friend, launchpad, resources2, now, id3, villagers = []) {
+  const travelMs = deliveryTime(state, friend, launchpad);
+  for (const r of RESOURCE_IDS) state.resources[r] -= resources2[r];
+  const movers = state.villagers.filter((v) => villagers.includes(v.id)).map(settle);
+  emigrate(state, villagers);
+  const shipment = {
+    id: id3,
+    launchpadId,
+    friendId: friend.id,
+    owner: friend.owner,
+    kiwiIndex: friend.kiwiIndex,
+    resources: { ...resources2 },
+    departedAt: now,
+    arriveAt: now + travelMs,
+    returnAt: now + 2 * travelMs,
+    status: "outbound",
+    ...movers.length ? { villagers: movers } : {}
   };
+  state.shipments.push(shipment);
+  return shipment;
 }
-function enemyUnit(kind, k, ref, at, delay, sector, level) {
-  const p = ENEMIES[kind];
-  const s = Math.sqrt(Math.max(0.05, k));
-  const weapon = WEAPONS[p.weapon];
-  return {
-    ref,
-    side: 1,
-    body: p.body,
-    role: "raider",
-    kind,
-    name: "",
-    level,
-    classId: null,
-    hp: p.hp * s,
-    armor: p.armor,
-    speed: p.speed,
-    dodge: p.dodge,
-    size: p.body === "bat" ? 0 : p.size,
-    flying: p.body === "bat",
-    fixed: false,
-    weaponId: p.weapon,
-    weapon: { ...weapon, damage: weapon.damage * s },
-    ammo: null,
-    carry: p.carry,
-    power: p.power * k,
-    at,
-    delay,
-    building: null,
-    fightsBack: p.fightsBack,
-    huntsKiwis: p.huntsKiwis,
-    sector
-  };
+function nextDeliveryEvent(s) {
+  let at = Infinity;
+  for (const x of s.shipments) at = Math.min(at, x.status === "outbound" ? x.arriveAt : x.returnAt);
+  for (const d of s.incoming) at = Math.min(at, d.arriveAt);
+  return at;
 }
-function turretUnit(b, state, ammoShare, buildingIndex) {
-  const def = levelDef(b.type, b.level);
-  if (!def?.defense) return null;
-  const air = (def.defense.air ?? 0) > 0;
-  const defense = (air ? def.defense.air : def.defense.ground) ?? 0;
-  const weaponId = air ? "skyShot" : "seedShot";
-  const w = WEAPONS[weaponId];
-  return {
-    ref: b.id,
-    side: 0,
-    body: "turret",
-    role: "turret",
-    kind: b.type,
-    name: "",
-    level: b.level,
-    classId: null,
-    hp: 1,
-    armor: 0,
-    speed: 0,
-    dodge: 0,
-    size: 0,
-    flying: false,
-    fixed: true,
-    weaponId,
-    weapon: {
-      ...w,
-      damage: defense * TURRET_SHOT * techEffects(state).turretDefense,
-      range: turretRange(b.type, b.level)
-    },
-    ammo: Math.floor((def.ammo ?? 0) * ammoShare + 1e-9),
-    carry: 0,
-    power: 0,
-    at: { q: b.q, r: b.r },
-    delay: 0,
-    building: buildingIndex,
-    fightsBack: false,
-    huntsKiwis: false,
-    sector: null
-  };
-}
-
-// packages/shared/src/battle/landing.ts
-var FIELD_RADIUS = CIV.ring.max + 1;
-var SLICE = Math.PI / 3;
-function angleOf(h) {
-  const p = { x: Math.sqrt(3) * (h.q + h.r / 2), y: 1.5 * h.r };
-  return (Math.atan2(p.y, p.x) + 2 * Math.PI) % (2 * Math.PI);
-}
-function parcelTiles(sector) {
-  return hexDisk({ q: 0, r: 0 }, FIELD_RADIUS).filter(
-    (h) => hexDistance(h, { q: 0, r: 0 }) >= 1 && sectorOf(h.q, h.r) === sector
-  );
-}
-function landingTile(sector, blocked = /* @__PURE__ */ new Set()) {
-  const inner = sector < INTEL.sectors / 2;
-  const edge = (inner ? INTEL.innerRadius : FIELD_RADIUS) - LANDING.inset;
-  const mid = (sector % 6 + 0.5) * SLICE;
-  const gap = (h) => {
-    const d = angleOf(h) - mid;
-    return Math.abs(Math.atan2(Math.sin(d), Math.cos(d)));
-  };
-  const tiles = parcelTiles(sector).filter((h) => !blocked.has(hexKey(h)));
-  let best = tiles[0] ?? { q: 0, r: 0 };
-  let bestScore = Infinity;
-  for (const h of tiles) {
-    const score = Math.abs(hexDistance(h, { q: 0, r: 0 }) - edge) * 2 + gap(h);
-    if (score < bestScore - 1e-9) {
-      best = h;
-      bestScore = score;
+function deliveryTick(s, at, events) {
+  for (const x of s.shipments) {
+    if (x.status === "outbound" && x.arriveAt === at) {
+      x.status = "returning";
+      events.push({
+        type: "cargoDelivered",
+        at,
+        shipmentId: x.id,
+        to: x.owner,
+        resources: { ...x.resources }
+      });
     }
   }
-  return best;
+  const back = s.shipments.filter((x) => x.status === "returning" && x.returnAt === at);
+  if (back.length) {
+    s.shipments = s.shipments.filter((x) => !back.includes(x));
+    for (const x of back) events.push({ type: "shipmentReturned", at, shipmentId: x.id });
+  }
+  const landed = s.incoming.filter((d) => d.arriveAt === at);
+  if (!landed.length) return;
+  s.incoming = s.incoming.filter((d) => !landed.includes(d));
+  const cap = capacity(s);
+  for (const d of landed) {
+    const received = emptyResources();
+    const lost = emptyResources();
+    for (const r of RESOURCE_IDS) {
+      const room = Math.max(0, cap[r] - s.resources[r]);
+      received[r] = Math.min(room, d.resources[r]);
+      lost[r] = d.resources[r] - received[r];
+      s.resources[r] += received[r];
+    }
+    events.push({ type: "cargoReceived", at, deliveryId: d.id, from: d.from, received, lost });
+    if (d.villagers?.length) {
+      for (const v of d.villagers)
+        s.villagers.push({ ...settle(v), id: nextId(s, "v") });
+      events.push({
+        type: "settlersArrived",
+        at,
+        deliveryId: d.id,
+        names: d.villagers.map((v) => v.name)
+      });
+    }
+  }
 }
-function alienUnit(u, k, ref, at, delay) {
-  const base = enemyUnit(u.kind, k, ref, at, delay, null, u.level);
-  const level = 1 + KIWI_UNIT.perLevel * Math.max(0, u.level - 1);
-  const w = u.weapon ? ITEMS[u.weapon] : null;
-  const a = u.armor ? ITEMS[u.armor] : null;
+function deliveryOf(shipment, from, senderId) {
   return {
-    ...base,
-    side: 0,
-    role: "guard",
-    hp: base.hp * level * (a?.hp ?? 1),
-    armor: Math.min(0.6, base.armor + (a?.armor ?? 0)),
-    speed: base.speed * (a?.speed ?? 1),
-    weapon: { ...base.weapon, damage: base.weapon.damage * level * (w?.damage ?? 1) },
-    carry: 0
+    id: `${senderId}:${shipment.id}`,
+    from,
+    resources: { ...shipment.resources },
+    departedAt: shipment.departedAt,
+    arriveAt: shipment.arriveAt,
+    ...shipment.villagers?.length ? { villagers: shipment.villagers.map(cloneVillager) } : {}
   };
-}
-function capped(units) {
-  const flying = (u) => ENEMIES[u.kind].body === "bat";
-  const scale = (air) => {
-    const total = units.filter((u) => flying(u) === air).reduce((s, u) => s + u.count, 0);
-    const cap = air ? LANDING.maxAir : LANDING.maxGround;
-    return total > cap ? total / cap : 1;
-  };
-  const k = { ground: scale(false), air: scale(true) };
-  return units.filter((u) => u.count > 0).map((unit) => {
-    const f = flying(unit) ? k.air : k.ground;
-    const count = Math.max(1, Math.round(unit.count / f));
-    return { unit, count, k: unit.count / count };
-  });
-}
-function landingSetup(state, crew, input) {
-  const { sector } = input;
-  const own = parcelTiles(sector);
-  const keys = new Set(own.map((h) => hexKey(h)));
-  const field = /* @__PURE__ */ new Map();
-  for (const h of own) field.set(hexKey(h), h);
-  for (let ring = 0; ring < 2; ring++)
-    for (const h of [...field.values()])
-      for (const n2 of hexNeighbors(h)) {
-        const d = hexDistance(n2, { q: 0, r: 0 });
-        if (d < 1 || d > FIELD_RADIUS) continue;
-        field.set(hexKey(n2), n2);
-      }
-  const tiles = [...field.values()].sort((a, b) => a.q - b.q || a.r - b.r).map((h) => ({ q: h.q, r: h.r, cost: 1 }));
-  const blocked = /* @__PURE__ */ new Set();
-  const buildings = [];
-  for (const b of input.buildings) {
-    const key = hexKey(b);
-    if (!field.has(key) || blocked.has(key)) continue;
-    blocked.add(key);
-    buildings.push({
-      ref: `${b.kind}:${b.q},${b.r}`,
-      type: b.kind,
-      side: 0,
-      tiles: [{ q: b.q, r: b.r }],
-      hp: 0,
-      loot: [0, 0, 0, 0],
-      priority: 0
-    });
-  }
-  const ship = landingTile(sector, blocked);
-  const shipKey = hexKey(ship);
-  const free = (h) => field.has(hexKey(h)) && !blocked.has(hexKey(h));
-  const exits = tiles.map((t, i) => ({ t, i })).filter(({ t }) => hexDistance(t, ship) <= 1 && free(t)).map(({ i }) => i);
-  const units = [];
-  const around = tiles.filter((t) => free(t)).sort(
-    (a, b) => hexDistance(a, ship) - hexDistance(b, ship) || (hexKey(a) === shipKey ? -1 : 0) || a.q - b.q || a.r - b.r
-  );
-  const hunger = 0.5 + 0.5 * Math.max(0, Math.min(1, input.fed));
-  crew.forEach((v, i) => {
-    const at = around[Math.floor(i / 2) % Math.max(1, around.length)] ?? ship;
-    const u = kiwiUnit(v, state, "guard", at, null, 1);
-    units.push({
-      ...u,
-      role: "assault",
-      power: 1,
-      weapon: { ...u.weapon, damage: u.weapon.damage * hunger }
-    });
-  });
-  const posts = (air) => {
-    const kind = air ? "roost" : "burrow";
-    const near = input.buildings.filter((b) => b.kind === kind && field.has(hexKey(b)));
-    const from = near.length > 0 ? near : input.buildings.filter((b) => keys.has(hexKey(b)));
-    const out = [];
-    for (const b of from)
-      for (const n2 of hexNeighbors(b)) if (free(n2) && keys.has(hexKey(n2))) out.push(n2);
-    if (out.length === 0) out.push(...own.filter((h) => free(h) && hexDistance(h, ship) >= 3));
-    return out.length > 0 ? out : [ship];
-  };
-  const groundPosts = posts(false);
-  const airPosts = posts(true);
-  let n = 0;
-  for (const { unit, count, k } of capped(input.units)) {
-    const air = ENEMIES[unit.kind].body === "bat";
-    const list = air ? airPosts : groundPosts;
-    for (let i = 0; i < count; i++, n++)
-      units.push(alienUnit(unit, k, `a${n}`, list[n % list.length], 0));
-  }
-  for (const help of input.help) {
-    const gate = tiles.filter((t) => free(t) && sectorOf(t.q, t.r) === help.from);
-    const entry = gate.length > 0 ? gate : groundPosts;
-    let j = 0;
-    for (const { unit, count, k } of capped(help.units))
-      for (let i = 0; i < count; i++, j++, n++)
-        units.push(
-          alienUnit(
-            unit,
-            k,
-            `h${n}`,
-            entry[j % entry.length],
-            LANDING.reinforce.delayS + j * BATTLE.enterGap
-          )
-        );
-  }
-  return {
-    tiles,
-    exits,
-    buildings,
-    units,
-    orders: [
-      { posture: "bold", retreatBelow: 0 },
-      {
-        posture: input.orders.posture,
-        // "Once this share has fallen": the engine runs below the share left.
-        retreatBelow: 1 - input.orders.retreatAt + 1e-6,
-        priority: input.orders.priority
-      }
-    ],
-    clearEnds: true
-  };
-}
-function landingOutcome(log2) {
-  const r = log2.result;
-  const lost = r.lost?.length ?? r.attackers.fallen;
-  if ((r.defendersLeft ?? 1) === 0 && lost < r.attackers.total) return "victory";
-  return r.attackers.escaped > 0 ? "retreat" : "defeat";
 }
 
+// packages/shared/src/sim/colonies.ts
+var SISTER_FRIEND = "sister";
+function sisterFriend(state) {
+  return {
+    id: SISTER_FRIEND,
+    owner: `colony:${otherFace(state.face)}`,
+    kiwiIndex: 0,
+    distance: 0,
+    travelMs: alienDefOf(0).travelMs
+  };
+}
+function linkSister(state) {
+  state.friends = [...state.friends.filter((f) => f.id !== SISTER_FRIEND), sisterFriend(state)];
+}
+function isSister(state) {
+  return state.colony.index === 1;
+}
+function hasSister(state) {
+  return state.colony.foundedAt > 0 || state.colony.founding !== null;
+}
+function foundLock(state) {
+  if (isSister(state) || !twinTarget(state)) return "unknownTarget";
+  if (state.siege.conqueredAt <= 0) return "notConquered";
+  if (hasSister(state) || state.expeditions.some((e) => e.mission === "found" && !e.result))
+    return "alreadyFounded";
+  return null;
+}
+function settle(v) {
+  const out = cloneVillager(v);
+  out.job = { kind: "idle" };
+  delete out.locked;
+  delete out.builderPriority;
+  delete out.homeJob;
+  delete out.lent;
+  return out;
+}
+function emigrate(state, ids) {
+  if (ids.length === 0) return;
+  state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
+}
+function landSettlers(s, e, members, fed) {
+  const resources2 = emptyResources();
+  for (const id3 of RESOURCE_IDS) resources2[id3] = (e.freight?.[id3] ?? 0) + e.provisions[id3];
+  s.colony.founding = { at: e.arriveAt, settlers: members.map(settle), resources: resources2 };
+  emigrate(
+    s,
+    members.map((v) => v.id)
+  );
+  e.provisions = emptyResources();
+  e.crew = [];
+  e.status = "returning";
+  e.result = {
+    victory: true,
+    strength: 0,
+    defense: 0,
+    fed: Math.round(fed * 100) / 100,
+    lostInBattle: [],
+    lostOnReturn: [],
+    loot: emptyResources(),
+    founded: true
+  };
+}
+function generateTraces(map, taken) {
+  const rng = createRng(`${map.seed}/${map.face}/traces`);
+  const [lo, hi] = COLONY.traces.rho;
+  const used = new Set(taken);
+  const out = [];
+  const place = (kind, count) => {
+    const def = OBSTACLES[kind];
+    const spots = rng.shuffle(
+      map.tiles.filter((t) => def.tiles.includes(t.type) && !t.flood && t.rho >= lo && t.rho <= hi)
+    );
+    let placed = 0;
+    for (const t of spots) {
+      if (placed >= count) break;
+      const key = hexKey(t);
+      if (used.has(key)) continue;
+      used.add(key);
+      placed++;
+      out.push({ id: obstacleId(kind, t.q, t.r), kind, q: t.q, r: t.r, loot: { ...def.loot } });
+    }
+  };
+  place("ruin", rng.int(COLONY.traces.ruins[0], COLONY.traces.ruins[1]));
+  place("den", COLONY.traces.dens);
+  return out;
+}
+function newSister(home, f) {
+  const s = newGame({
+    seed: home.seed,
+    face: otherFace(home.face),
+    now: f.at,
+    params: twinParams(home.seed, home.face, home.params),
+    playerId: home.playerId,
+    universeId: home.universeId,
+    kiwiId: home.kiwiId,
+    calendarStart: home.calendarStart,
+    targets: []
+  });
+  delete s.aliens;
+  s.villagers = f.settlers.map((v) => ({ ...settle(v), id: nextId(s, "v") }));
+  const cap = capacity(s);
+  for (const id3 of RESOURCE_IDS) s.resources[id3] = Math.min(cap[id3], f.resources[id3]);
+  raiseHuts(s, f.at);
+  s.objectiveIndex = OBJECTIVES.length;
+  s.colony = { index: 1, founding: null, foundedAt: f.at };
+  s.threats.shieldUntil = f.at + COLONY.shieldMs;
+  s.research = {
+    points: 0,
+    current: home.research.current,
+    done: [...home.research.done],
+    outbox: 0
+  };
+  const taken = /* @__PURE__ */ new Set([
+    hexKey(HEART),
+    ...s.obstacles.map((o) => hexKey(o)),
+    ...takenKeys(s)
+  ]);
+  s.obstacles = [...s.obstacles, ...generateTraces(faceMapOf(s), taken)];
+  linkSister(s);
+  return s;
+}
+function raiseHuts(s, at) {
+  const per = levelDef("hut", 1)?.housing ?? 2;
+  const want = Math.min(
+    COLONY.maxHuts,
+    Math.ceil(Math.max(0, s.villagers.length - housing(s)) / per)
+  );
+  if (want <= 0) return;
+  const map = faceMapOf(s);
+  const spots = map.tiles.filter(
+    (t) => hexDistance(t, HEART) === 2 && BUILDINGS.hut.allowedTiles.includes(t.type) && !t.flood && !s.obstacles.some((o) => o.q === t.q && o.r === t.r)
+  ).sort((a, b) => a.q - b.q || a.r - b.r);
+  for (const t of spots.slice(0, want))
+    s.buildings.push({
+      id: nextId(s, "b"),
+      type: "hut",
+      q: t.q,
+      r: t.r,
+      level: 1,
+      richness: t.richness,
+      builtAt: at
+    });
+}
+function takeFounding(home) {
+  const f = home.colony.founding;
+  if (!f) return null;
+  const sister = newSister(home, f);
+  home.colony = { ...home.colony, founding: null, foundedAt: f.at };
+  linkSister(home);
+  return sister;
+}
+function colonyNeedsSync(home, sister) {
+  const a = home.research;
+  const b = sister.research;
+  return b.outbox > 0 || a.current !== b.current || a.done.length !== b.done.length;
+}
+function syncColonies(home, sister) {
+  receiveResearch(home, sister.research.outbox);
+  sister.research = {
+    points: 0,
+    current: home.research.current,
+    done: [...home.research.done],
+    outbox: 0
+  };
+}
+function pendingToSister(sender) {
+  return sender.shipments.filter((x) => x.friendId === SISTER_FRIEND && !x.delivered);
+}
+function deliverToSister(sender, receiver) {
+  const pending = pendingToSister(sender);
+  for (const x of pending) {
+    const d = deliveryOf(x, `colony:${sender.face}`, `c${sender.colony.index}`);
+    d.arriveAt = Math.max(d.arriveAt, receiver.now);
+    if (!receiver.incoming.some((i) => i.id === d.id))
+      receiver.incoming = [...receiver.incoming, d];
+    x.delivered = true;
+  }
+  return pending.length;
+}
+function denRaiders(state) {
+  return state.villagers.filter((v) => v.job.kind === "guard");
+}
+function denRaidForecast(state) {
+  const guards = denRaiders(state);
+  const strength = guards.reduce((sum, v) => sum + guardPower(v, state).ground, 0);
+  const power = COLONY.denPower * GARRISON.power;
+  const wounded = strength >= power ? Math.min(guards.length, Math.round(guards.length * lossShare(strength, power))) : 0;
+  return { strength, power, wounded };
+}
+function raidDen(state, q, r, now, events) {
+  const den = obstacleAt(state, q, r);
+  const { wounded } = denRaidForecast(state);
+  const hurt = [...denRaiders(state)].sort((a, b) => guardPower(a, state).ground - guardPower(b, state).ground).slice(0, wounded);
+  for (const v of crewMembers(
+    state,
+    hurt.map((v2) => v2.id)
+  ))
+    v.job = { kind: "injured", until: now + COLONY.denInjuryMs };
+  removeObstacle(state, den, now, events, "kiwis");
+}
+
+// packages/shared/src/sim/expeditions.ts
+function launchpadOf(state, id3) {
+  const b = getBuilding(state, id3);
+  return b?.type === "launchpad" ? b : void 0;
+}
+function shipOf(state) {
+  const ship = SHIPS[shipIdForAge(ageOf(state))];
+  const tech = techEffects(state);
+  return { ...ship, armor: ship.armor + tech.armor, recon: ship.recon + tech.recon };
+}
+function shipReliability(ship, crew, fuel = false) {
+  const dex = Math.max(KIWI.stat.average, ...crew.map((v) => v.stats.dexterity));
+  const mend = Math.min(SHIP_REPAIR.max, SHIP_REPAIR.perDexterity * (dex - KIWI.stat.average));
+  const dust = fuel ? FUEL.reliability : 0;
+  const engineer = crew.some((v) => v.classId === "engineer") ? SKILLS.engineerMend : 0;
+  return round22(Math.min(1, ship.reliability + mend + dust + engineer));
+}
+function travelFactor(state, plan) {
+  return techEffects(state).travel * (plan.fuel ? FUEL.travel : 1);
+}
+function shipCargo(launchpad) {
+  return levelDef("launchpad", launchpad.level)?.cargo ?? 0;
+}
+function travelTime(target, launchpad, crew = [], mission = "raid", tech = 1) {
+  const pad = levelDef("launchpad", launchpad.level)?.travelTime ?? 1;
+  const wind = crew.some((v) => hasSkill(v, "tailwind")) ? SKILLS.tailwindTravel : 1;
+  const scout = crew.some((v) => inLine(v.classId, "navigator")) ? SKILLS.navigatorTravel : crew.some((v) => inLine(v.classId, "scout")) ? SKILLS.scoutTravel : 1;
+  const light = mission === "recon" ? RECON.travel : 1;
+  return Math.round(target.travelMs * pad * wind * scout * light * tech / 1e3) * 1e3;
+}
+var clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+var mean = (crew, f) => crew.length ? crew.reduce((sum, v) => sum + f(v), 0) / crew.length : 0;
+function reconForecast(crew, ship) {
+  const q = RECON.quality;
+  const avg = KIWI.stat.average;
+  const scouting = crew.some((v) => hasSkill(v, "scouting"));
+  const quality = clamp(
+    q.base + mean(
+      crew,
+      (v) => q.perStat * ((v.stats.agility + v.stats.spirit) / 2 - avg) + q.perLevel * (v.level - 1)
+    ) + (scouting ? q.scouting : 0) + (ship?.recon ?? 0),
+    0.05,
+    1
+  );
+  const sp = RECON.spot;
+  const spotChance = clamp(
+    sp.base + sp.perExtraKiwi * Math.max(0, crew.length - 1) - sp.perAgility * mean(crew, (v) => v.stats.agility - avg) - (scouting ? sp.scouting : 0),
+    sp.min,
+    sp.max
+  );
+  return {
+    quality: round22(quality),
+    spotChance: round22(spotChance),
+    sectors: RECON.sectors.base + Math.round(RECON.sectors.perQuality * quality),
+    spread: round22(RECON.spread.worst - (RECON.spread.worst - RECON.spread.best) * quality)
+  };
+}
+function rations(state, crew, ms2) {
+  const eaters = crew.reduce((sum, v) => sum + modifiers(v).rations, 0) * techEffects(state).rations;
+  return {
+    pulp: eaters * EXPEDITIONS.hourlyRations.pulp * ms2 / HOUR_MS,
+    juice: eaters * EXPEDITIONS.hourlyRations.juice * ms2 / HOUR_MS
+  };
+}
+function crewWeight(crew) {
+  return crew.reduce((sum, v) => sum + EXPEDITIONS.kiwiWeight * modifiers(v).weight, 0);
+}
+function crewOf(state, crew) {
+  const available = availableCrew(state);
+  if (typeof crew === "number")
+    return available.filter((v) => !v.kikiwiwi).slice(0, Math.max(0, crew));
+  const free = new Map(available.map((v) => [v.id, v]));
+  const out = [];
+  for (const id3 of crew) {
+    const v = free.get(id3);
+    if (!v) return null;
+    free.delete(id3);
+    out.push(v);
+  }
+  return out;
+}
+function lossShare(strength, defense) {
+  const ratio = defense / Math.max(strength, 1e-6);
+  return strength >= defense ? Math.min(EXPEDITIONS.victoryLosses.max, EXPEDITIONS.victoryLosses.factor * ratio) : Math.min(
+    EXPEDITIONS.defeatLosses.max,
+    Math.max(EXPEDITIONS.defeatLosses.min, 0.5 + 0.3 * (ratio - 1))
+  );
+}
+function drawLosses(state, crew, count) {
+  if (count <= 0) return [];
+  return withRng(state, (rng) => {
+    const pool = crew.map((v) => ({ id: v.id, w: kiwiExposure(v) }));
+    const out = [];
+    while (out.length < count && pool.length > 0) {
+      const total = pool.reduce((sum, p) => sum + p.w, 0);
+      let roll = rng.next() * total;
+      let i = 0;
+      for (; i < pool.length - 1; i++) {
+        roll -= pool[i].w;
+        if (roll < 0) break;
+      }
+      out.push(pool[i].id);
+      pool.splice(i, 1);
+    }
+    return out;
+  });
+}
+function crewMembers(state, ids) {
+  return ids.map((id3) => state.villagers.find((v) => v.id === id3)).filter((v) => !!v);
+}
+function coverage(have, need) {
+  const p = need.pulp > 0 ? have.pulp / need.pulp : 1;
+  const j = need.juice > 0 ? have.juice / need.juice : 1;
+  return Math.max(0, Math.min(1, p, j));
+}
+function strengthOf(state, crew, fed) {
+  const hunger = EXPEDITIONS.starvingStrength + (1 - EXPEDITIONS.starvingStrength) * fed;
+  const titan = techEffects(state).kikiwiwiPower;
+  const total = crew.reduce((sum, v) => sum + kiwiStrength(v) * (v.kikiwiwi ? titan : 1), 0);
+  const scouting = crew.some((v) => hasSkill(v, "scouting")) ? 1 + SKILLS.scoutingStrength : 1;
+  return total * EXPEDITIONS.strengthPerKiwi * hunger * scouting;
+}
+function lootByAge(state) {
+  const f = EXPEDITIONS.lootByAge;
+  return f[Math.min(ageOf(state), f.length - 1)] ?? 1;
+}
+function potentialLoot(state, distance) {
+  const base = alienDefOf(distance).loot;
+  const k = lootByAge(state);
+  const out = emptyResources();
+  for (const id3 of RESOURCE_IDS) out[id3] = Math.round(base[id3] * k);
+  return out;
+}
+function forecastExpedition(state, plan) {
+  const pad = launchpadOf(state, plan.launchpadId);
+  const target = state.targets.find((t) => t.id === plan.targetId);
+  if (!pad || !target) return null;
+  const crew = crewOf(state, plan.crew) ?? [];
+  const mission = plan.mission ?? "raid";
+  const cargo = shipCargo(pad);
+  const travelMs = travelTime(target, pad, crew, mission, travelFactor(state, plan));
+  const need = rations(state, crew, travelMs);
+  const fed = coverage(plan.provisions, need);
+  const base = strengthOf(state, crew, fed);
+  const landing = mission === "land" && plan.sector !== void 0 ? landingForecast(
+    state,
+    target.id,
+    plan.sector,
+    crew,
+    plan.orders ?? LANDING.defaultOrders,
+    fed,
+    state.now
+  ) : null;
+  const defense = mission === "raid" || mission === "recon" ? intelView(state, target.id, state.now)?.defense ?? null : null;
+  const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
+  const odds = landing ? landing.odds : mission === "land" ? "unknown" : mission === "found" || mission === "guard" ? "likely" : !defense ? "unknown" : strength.min >= defense.max ? "likely" : strength.max >= defense.min ? "uncertain" : "unlikely";
+  const mid = (r) => (r.min + r.max) / 2;
+  const guess = defense ? mid(defense) : null;
+  const fighters = crew.length;
+  const kiwisWeight = crewWeight(crew);
+  const freight = RESOURCE_IDS.reduce((sum, id3) => sum + (plan.freight?.[id3] ?? 0), 0);
+  const weight = kiwisWeight + (plan.provisions.pulp + plan.provisions.juice + freight) * EXPEDITIONS.resourceWeight;
+  const ship = shipOf(state);
+  const expectedLosses = landing ? landing.expectedDead : guess === null || mission === "land" ? 0 : Math.min(fighters, fighters * lossShare(base, guess) * (1 - ship.armor));
+  const exposure = crew.map((v) => kiwiExposure(v));
+  const totalExposure = exposure.reduce((a, b) => a + b, 0) || 1;
+  const risk = {};
+  crew.forEach((v, i) => {
+    risk[v.id] = Math.min(1, expectedLosses * exposure[i] / totalExposure);
+  });
+  const left = {
+    pulp: plan.provisions.pulp - Math.min(plan.provisions.pulp, need.pulp),
+    juice: plan.provisions.juice - Math.min(plan.provisions.juice, need.juice)
+  };
+  const returnCrew = returnCrewOf(state, plan, crew, mission);
+  const returnNeed = rations(state, returnCrew, travelMs);
+  const returnSurplus = {
+    pulp: left.pulp - returnNeed.pulp,
+    juice: left.juice - returnNeed.juice
+  };
+  const returnWeight = crewWeight(returnCrew);
+  const lootRoom = Math.max(
+    0,
+    cargo - returnWeight - (left.pulp + left.juice) * EXPEDITIONS.resourceWeight
+  );
+  return {
+    cargo,
+    weight,
+    travelMs,
+    needOneWay: need,
+    fed,
+    returnSurplus,
+    strength,
+    defense: landing ? landing.power : defense,
+    odds,
+    lootRoom,
+    crew,
+    expectedLosses,
+    woundsOnly: mission !== "land" && guess !== null && base >= guess,
+    risk,
+    mission,
+    recon: mission === "recon" ? reconForecast(crew, ship) : null,
+    ship,
+    reliability: shipReliability(ship, crew, !!plan.fuel),
+    returnCrew,
+    returnWeight,
+    launchCost: launchCost(state, crew, mission),
+    landing
+  };
+}
+function launchCost(state, crew, mission = "raid") {
+  const out = emptyResources();
+  if (mission === "found") return out;
+  const L = EXPEDITIONS.launchCost;
+  const seats = crew.reduce((sum, v) => sum + (v.kikiwiwi ? L.kikiwiwi : 1), 0);
+  const k = seats * L.ship[shipIdForAge(ageOf(state))];
+  out.fiber = Math.round(L.perKiwi.fiber * k);
+  out.juice = Math.round(L.perKiwi.juice * k);
+  return out;
+}
+function returnCrewOf(state, plan, crew, mission) {
+  if (mission === "found") return [];
+  if (mission === "guard") {
+    const b = plan.sector === void 0 ? void 0 : beaconOf(state, plan.targetId, plan.sector);
+    return b ? crewMembers(
+      state,
+      (plan.bringBack ?? []).filter((id3) => (b.guards ?? []).includes(id3))
+    ) : [];
+  }
+  return crew;
+}
+function availableCrew(state) {
+  const idle = idleVillagers(state);
+  const workers = state.buildings.map((b) => workersOf(state, b.id)).sort((a, b) => b.length - a.length).flat();
+  return [...idle, ...workers];
+}
+function maxCrew(state, launchpad, mission = "raid") {
+  const byCargo = Math.floor(shipCargo(launchpad) / EXPEDITIONS.kiwiWeight);
+  const byPeople = availableCrew(state).length - EXPEDITIONS.keepHome;
+  const byMission = mission === "recon" ? RECON.maxCrew : Infinity;
+  return Math.max(0, Math.min(byCargo, byPeople, byMission));
+}
+function minCrew(mission = "raid") {
+  if (mission === "found") return COLONY.minSettlers;
+  if (mission === "guard") return 0;
+  return mission === "recon" ? RECON.minCrew : EXPEDITIONS.minCrew;
+}
+function isLaunchpadBusy(state, id3) {
+  return state.expeditions.some((e) => e.launchpadId === id3 && e.status !== "done") || state.shipments.some((x) => x.launchpadId === id3);
+}
+function cleanFreight(f) {
+  const out = emptyResources();
+  for (const r of RESOURCE_IDS) out[r] = Math.max(0, Math.floor(f[r] ?? 0));
+  return out;
+}
+function launch(state, plan, now, id3) {
+  const pad = launchpadOf(state, plan.launchpadId);
+  const target = state.targets.find((t) => t.id === plan.targetId);
+  const crew = crewOf(state, plan.crew);
+  const mission = plan.mission ?? "raid";
+  for (const v of crew) v.job = { kind: "expedition", expeditionId: id3 };
+  state.resources.pulp -= plan.provisions.pulp;
+  state.resources.juice -= plan.provisions.juice;
+  const freight = mission === "found" && plan.freight ? cleanFreight(plan.freight) : null;
+  if (freight) for (const r of RESOURCE_IDS) state.resources[r] -= freight[r];
+  const travelMs = travelTime(target, pad, crew, mission, travelFactor(state, plan));
+  const failed = withRng(
+    state,
+    (rng) => !rng.chance(shipReliability(shipOf(state), crew, !!plan.fuel))
+  );
+  const delayed = failed && (mission === "land" || mission === "guard");
+  const broken = failed && !delayed;
+  const outMs = broken ? Math.round(travelMs / 2e3) * 1e3 : delayed ? Math.round(travelMs * LANDING.breakdown.delay / 1e3) * 1e3 : travelMs;
+  const cargo = delayed ? Math.floor(shipCargo(pad) * LANDING.breakdown.cargo) : shipCargo(pad);
+  const returnMs = delayed ? travelMs : outMs;
+  const expedition = {
+    id: id3,
+    mission,
+    targetId: target.id,
+    launchpadId: pad.id,
+    crew: crew.map((v) => v.id),
+    roster: crew.map((v) => ({
+      id: v.id,
+      name: v.name,
+      level: v.level,
+      shiny: v.shiny,
+      classId: v.classId
+    })),
+    provisions: { ...emptyResources(), pulp: plan.provisions.pulp, juice: plan.provisions.juice },
+    cargo,
+    departedAt: now,
+    arriveAt: now + outMs,
+    returnAt: now + outMs + returnMs,
+    status: "outbound",
+    result: null,
+    ...broken ? { broken: true } : {},
+    ...plan.sector !== void 0 && (mission === "land" || mission === "guard") ? { sector: plan.sector } : {},
+    ...mission === "land" ? { orders: { ...plan.orders ?? LANDING.defaultOrders } } : {},
+    ...mission === "guard" && plan.orders ? { orders: { ...plan.orders } } : {},
+    ...mission === "guard" && plan.bringBack?.length ? { bringBack: [...plan.bringBack] } : {},
+    ...delayed ? { delayed: true } : {},
+    ...freight ? { freight } : {}
+  };
+  state.expeditions.push(expedition);
+  return expedition;
+}
+function resolveArrival(state, e) {
+  const target = state.targets.find((t) => t.id === e.targetId);
+  const travelMs = e.arriveAt - e.departedAt;
+  const members = crewMembers(state, e.crew);
+  const need = rations(state, members, travelMs);
+  const fed = coverage(e.provisions, need);
+  e.provisions.pulp -= Math.min(e.provisions.pulp, need.pulp);
+  e.provisions.juice -= Math.min(e.provisions.juice, need.juice);
+  if (e.broken) {
+    e.status = "returning";
+    e.result = {
+      victory: false,
+      aborted: true,
+      broken: true,
+      strength: 0,
+      defense: 0,
+      fed: round22(fed),
+      lostInBattle: [],
+      lostOnReturn: [],
+      loot: emptyResources()
+    };
+    return;
+  }
+  if (!target) {
+    e.status = "returning";
+    e.result = {
+      victory: false,
+      aborted: true,
+      strength: 0,
+      defense: 0,
+      fed: round22(fed),
+      lostInBattle: [],
+      lostOnReturn: [],
+      loot: emptyResources()
+    };
+    return;
+  }
+  if (e.mission === "found") return landSettlers(state, e, members, fed);
+  if (e.mission === "land") return resolveLanding(state, e, members, fed);
+  if (e.mission === "guard") return landGuard(state, e, members, fed);
+  e.status = "returning";
+  e.result = {
+    victory: false,
+    aborted: true,
+    strength: 0,
+    defense: 0,
+    fed: round22(fed),
+    lostInBattle: [],
+    lostOnReturn: [],
+    loot: emptyResources()
+  };
+}
+function resolveReturn(state, e, events = []) {
+  const result = e.result;
+  const members = crewMembers(state, e.crew);
+  const need = rations(state, members, e.returnAt - e.arriveAt);
+  const pantry = {
+    pulp: e.provisions.pulp + result.loot.pulp,
+    juice: e.provisions.juice + result.loot.juice
+  };
+  const fed = coverage(pantry, need);
+  const starving = Math.floor(e.crew.length * (1 - fed) * EXPEDITIONS.starvationLossRate);
+  const lost = drawLosses(state, members, starving);
+  removeVillagers(state, lost, "starvation", e.returnAt);
+  e.crew = e.crew.filter((id3) => !lost.includes(id3));
+  result.lostOnReturn = lost.map((id3) => nameOf(e, id3));
+  const xp = (KIWI.expeditionXp.base + (result.victory ? KIWI.expeditionXp.victory * (e.mission === "land" ? LANDING.victoryXp : 1) : 0)) * (e.mission === "recon" ? RECON.xp : 1);
+  for (const v of crewMembers(state, e.crew)) {
+    if (!result.aborted) {
+      v.history.expeditions++;
+      if (result.victory) v.history.victories++;
+      if (result.victory && e.mission === "land") v.veteran = (v.veteran ?? 0) + 1;
+    }
+    grantXp(state, v, result.aborted ? xp / 2 : xp, e.returnAt, events);
+    const drill = CAMP.expeditionHours.base + (result.victory ? CAMP.expeditionHours.victory : 0);
+    grantClassXp(v, result.aborted ? drill / 2 : drill, e.returnAt, events);
+  }
+  const unloaded = {
+    pulp: Math.max(0, pantry.pulp - need.pulp),
+    juice: Math.max(0, pantry.juice - need.juice),
+    fiber: e.provisions.fiber + result.loot.fiber,
+    seeds: e.provisions.seeds + result.loot.seeds
+  };
+  for (const id3 of RESOURCE_IDS) state.resources[id3] += unloaded[id3];
+  const hurt = new Set(result.injured ?? []);
+  for (const v of state.villagers) {
+    if (v.job.kind !== "expedition" || v.job.expeditionId !== e.id) continue;
+    v.job = hurt.has(v.id) ? {
+      kind: "injured",
+      until: e.returnAt + (e.mission === "recon" ? RECON.injuryMs : EXPEDITIONS.victoryInjuryMs)
+    } : { kind: "idle" };
+  }
+  e.provisions = emptyResources();
+  e.status = "done";
+  if (e.broken || e.delayed) {
+    const pad = launchpadOf(state, e.launchpadId);
+    if (pad) pad.damaged = true;
+  }
+  const done = state.expeditions.filter((x) => x.status === "done");
+  if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
+}
+function removeVillagers(state, ids, cause, at, gearLost = false) {
+  for (const v of state.villagers) {
+    if (!ids.includes(v.id)) continue;
+    state.memorial.push({
+      id: v.id,
+      name: v.name,
+      level: v.level,
+      shiny: v.shiny,
+      classId: v.classId,
+      bornAt: v.bornAt,
+      diedAt: at,
+      cause
+    });
+  }
+  if (state.memorial.length > MEMORIAL_MAX)
+    state.memorial.splice(0, state.memorial.length - MEMORIAL_MAX);
+  if (!gearLost) {
+    for (const v of state.villagers) if (ids.includes(v.id)) returnGear(state, v);
+  }
+  state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
+  forgetGuards(state, ids);
+  if (ids.length > 0) state.mourningUntil = Math.max(state.mourningUntil, at + MORALE.mourningMs);
+}
+function nameOf(e, id3) {
+  return e.roster.find((r) => r.id === id3)?.name ?? id3;
+}
+var round22 = (v) => Math.round(v * 100) / 100;
+
 // packages/shared/src/sim/landing.ts
-var round1 = (v) => Math.round(v * 10) / 10;
+var round12 = (v) => Math.round(v * 10) / 10;
 var NO_VIEW = { beacons: [], parcels: {} };
 function faceViewOf(state, targetId) {
   return state.faceViews[targetId] ?? NO_VIEW;
@@ -5020,10 +6379,11 @@ function landingLock(state, targetId, sector, orders) {
 }
 function resetLandings(s) {
   const flying = new Set(
-    s.expeditions.filter((e) => e.mission === "land" && e.status !== "done").map((e) => e.id)
+    s.expeditions.filter((e) => ["land", "guard", "retreat"].includes(e.mission) && e.status !== "done").map((e) => e.id)
   );
   for (const v of s.villagers)
-    if (v.job.kind === "expedition" && flying.has(v.job.expeditionId)) v.job = { kind: "idle" };
+    if (v.job.kind === "outpost" || v.job.kind === "expedition" && flying.has(v.job.expeditionId))
+      v.job = { kind: "idle" };
   s.expeditions = s.expeditions.filter((e) => !flying.has(e.id));
   s.faceViews = {};
 }
@@ -5090,7 +6450,7 @@ function refreshBeacons(state, targetId, at) {
         at,
         source: "edge",
         age: s.age,
-        power: { min: round1(s.power * (1 - spread)), max: round1(s.power * (1 + spread)) },
+        power: { min: round12(s.power * (1 - spread)), max: round12(s.power * (1 + spread)) },
         units: [],
         buildings: buildings.filter((x) => x.sector === n).map((x) => ({ ...x }))
       };
@@ -5262,7 +6622,7 @@ function landingForecast(state, targetId, sector, crew, orders, fed, now) {
   if (view && view.units.length > 0) {
     knowledge = "seen";
     const p = view.power.max * growth;
-    power = { min: round1(p * LANDING.trials[0]), max: round1(p * LANDING.trials[2]) };
+    power = { min: round12(p * LANDING.trials[0]), max: round12(p * LANDING.trials[2]) };
     age = view.age;
     armies = LANDING.trials.map((k) => scaled2(view.units, growth * k));
   } else {
@@ -5270,11 +6630,11 @@ function landingForecast(state, targetId, sector, crew, orders, fed, now) {
     age = view ? view.age : civAgeOfHours(hours);
     if (view) {
       knowledge = "edge";
-      power = { min: round1(view.power.min * growth), max: round1(view.power.max * growth) };
+      power = { min: round12(view.power.min * growth), max: round12(view.power.max * growth) };
     } else {
       knowledge = "guess";
       const base = alienDefOf(distance).defense * growthOfHours(hours);
-      power = { min: round1(base * LANDING.guess[0]), max: round1(base * LANDING.guess[1]) };
+      power = { min: round12(base * LANDING.guess[0]), max: round12(base * LANDING.guess[1]) };
     }
     const at = [power.min, (power.min + power.max) / 2, power.max];
     armies = at.map((p) => sectorUnits({ sector, inner, age, power: p }, 0.5));
@@ -5311,7 +6671,7 @@ var HOUR2 = 36e5;
 var DAY_H = 24;
 var SECTORS2 = INTEL.sectors;
 var HALF = SECTORS2 / 2;
-var round12 = (v) => Math.round(v * 10) / 10;
+var round13 = (v) => Math.round(v * 10) / 10;
 var isInner = (sector) => sector < HALF;
 var sliceOf = (sector) => sector % HALF;
 var otherRing = (sector) => (sector + HALF) % SECTORS2;
@@ -5384,7 +6744,7 @@ function addMissingKeys(seed, keys, age, exposure, beacons, salt) {
   }
 }
 function newCiv(seed, distance) {
-  const keys = [{ kind: "royal", sector: siegeTruth({ seed }).queenSector }];
+  const keys = [{ kind: "royal", sector: queenTruth({ seed }).sector }];
   const none = Array.from({ length: SECTORS2 }, () => 0);
   addMissingKeys(seed, keys, civAgeOfHours(distance * CIV.leadPerDistanceH), none, [], "d0");
   return {
@@ -5433,7 +6793,7 @@ function civAt(g, at, civ = civOf(g)) {
       sector: s,
       inner: isInner(s),
       age: civAgeOfHours(h),
-      power: round12(
+      power: round13(
         g.defense * shape.weight[s] * growthOfHours(h) * (1 - fightLossAt(civ, s, at))
       )
     });
@@ -5442,7 +6802,7 @@ function civAt(g, at, civ = civOf(g)) {
 }
 function outerPower(view) {
   const outer = view.sectors.filter((s) => !s.inner);
-  return round12(outer.reduce((a, s) => a + s.power, 0) / outer.length);
+  return round13(outer.reduce((a, s) => a + s.power, 0) / outer.length);
 }
 function gearTierOf(age, inner) {
   return Math.min(GEAR_TIERS.length - 1, inner ? age : age - 1);
@@ -5571,23 +6931,19 @@ function civDay(g, at) {
   return Math.max(0, Math.floor((at - g.since) / CIV.tickMs));
 }
 function civEyes(state, targetId) {
-  const twin = state.targets.find((t) => t.distance === 0)?.id === targetId;
   const intel = state.intel[targetId];
   const view = state.faceViews[targetId];
   const beacons = new Set(view?.beacons.map((b) => b.sector) ?? []);
-  if (twin) for (const b of state.siege.bridgeheads) beacons.add(b.sector);
   const seen = new Set(intel?.sectors ?? []);
   for (const k of Object.keys(view?.parcels ?? {})) seen.add(Number(k));
   return {
     beacons: [...beacons].sort((a, b) => a - b),
-    seen: [...seen].sort((a, b) => a - b),
-    royalSeen: !!intel?.siege?.queen
+    seen: [...seen].sort((a, b) => a - b)
   };
 }
 function planCiv(g, civ, at, eyes) {
   const day = civDay(g, at);
   civ.day = day;
-  if (eyes.royalSeen) civ.royalSeen = true;
   const exposure = exposureOf(eyes.beacons, eyes.seen);
   const salt = `d${day}`;
   for (const k of civ.keys) {
@@ -5641,7 +6997,7 @@ function civWave(state, at, waveId) {
   }
   const civ = civOf(g);
   const view = civAt(g, at, civ);
-  const beacons = state.siege.bridgeheads.map((b) => b.sector);
+  const beacons = (state.faceViews[id3]?.beacons ?? []).map((b) => b.sector);
   const standing = standingBarracks(civ, at, beacons);
   const wanted = keysWanted(view.age).barracks;
   const barracks = CIV.barracksFloor + (1 - CIV.barracksFloor) * Math.min(1, standing.length / wanted);
@@ -5662,7 +7018,7 @@ function liveCiv(g) {
   return g.civ;
 }
 function royalSector(g) {
-  return civOf(g).keys.find((k) => k.kind === "royal")?.sector ?? siegeTruth(g).queenSector;
+  return civOf(g).keys.find((k) => k.kind === "royal")?.sector ?? queenTruth(g).sector;
 }
 function sectorGrowth(g, sector, at) {
   return growthOfHours(sectorHours(g, civOf(g), sector, at));
@@ -5794,7 +7150,7 @@ function waveGates(state, waveId) {
 function gateTiles(state, sector) {
   const rampart = rampartSectors(faceMapOf(state));
   const signed = (t) => {
-    const d = angleOf2(t) - SECTOR_MIDDLE[sector];
+    const d = angleOf(t) - SECTOR_MIDDLE[sector];
     return Math.atan2(Math.sin(d), Math.cos(d));
   };
   return rampart.tiles.filter((_, i) => rampart.sectors[i] === sector).map((t) => ({ t, a: signed(t) })).sort((x, y) => x.a - y.a || x.t.q - y.t.q || x.t.r - y.t.r).map((x) => ({ q: x.t.q, r: x.t.r }));
@@ -5830,7 +7186,7 @@ var SECTOR_MIDDLE = {
   left: FRONT_AZIMUTH + 2 * Math.PI / 3,
   right: FRONT_AZIMUTH - 2 * Math.PI / 3
 };
-var angleOf2 = (h) => {
+var angleOf = (h) => {
   const p = hexToPixel(h);
   return Math.atan2(p.x, p.y);
 };
@@ -5853,7 +7209,7 @@ function waveSetup(state, wave, threat, opts) {
     const rampart = isRampart(map, t.q, t.r);
     const cost = rampart ? RAMPART_COST : walkCost(map, paths, t, season);
     if (rampart && !covered.has(hexKey(t)))
-      exits[rampartSectorOf(t)].push({ i: tiles.length, a: angleOf2(t) });
+      exits[rampartSectorOf(t)].push({ i: tiles.length, a: angleOf(t) });
     tiles.push({ q: t.q, r: t.r, cost });
   }
   for (const s of SECTOR_IDS) exits[s].sort((x, y) => x.a - y.a || x.i - y.i);
@@ -5958,7 +7314,7 @@ function waveSetup(state, wave, threat, opts) {
   });
   for (const s of SECTOR_IDS)
     posts[s].sort(
-      (a, b) => hexDistance(tiles[a], gates[s]) - hexDistance(tiles[b], gates[s]) || angleGap(angleOf2(tiles[a]), SECTOR_MIDDLE[s]) - angleGap(angleOf2(tiles[b]), SECTOR_MIDDLE[s]) || a - b
+      (a, b) => hexDistance(tiles[a], gates[s]) - hexDistance(tiles[b], gates[s]) || angleGap(angleOf(tiles[a]), SECTOR_MIDDLE[s]) - angleGap(angleOf(tiles[b]), SECTOR_MIDDLE[s]) || a - b
     );
   for (const v of garrisonOf(state)) {
     const sector = state.threats.pins[v.id] ?? sectorOf2.get(v.id) ?? "front";
@@ -6541,589 +7897,6 @@ function incident(s, at, events) {
   events.push({ type: "incident", ...report });
 }
 
-// packages/shared/src/sim/obstacles.ts
-function obstacleId(kind, q, r) {
-  return `${kind}:${q},${r}`;
-}
-function generateObstacles(map, taken = /* @__PURE__ */ new Set()) {
-  if (map.params.biome === "classic") return [];
-  const rng = createRng(`${map.seed}/${map.face}/obstacles`);
-  const [lo, hi] = OBSTACLE_RULES.rho;
-  const used = /* @__PURE__ */ new Set();
-  const out = [];
-  for (const kind of OBSTACLE_KINDS) {
-    const def = OBSTACLES[kind];
-    if (def.count === 0) continue;
-    const spots = rng.shuffle(
-      map.tiles.filter((t) => def.tiles.includes(t.type) && !t.flood && t.rho >= lo && t.rho <= hi)
-    );
-    let placed = 0;
-    for (const t of spots) {
-      if (placed >= def.count) break;
-      const key = hexKey(t);
-      if (used.has(key)) continue;
-      used.add(key);
-      placed++;
-      if (taken.has(key)) continue;
-      out.push({ id: obstacleId(kind, t.q, t.r), kind, q: t.q, r: t.r, loot: { ...def.loot } });
-    }
-  }
-  return out;
-}
-function obstacleAt(state, q, r) {
-  return state.obstacles.find((o) => o.q === q && o.r === r);
-}
-function clearDuration(s) {
-  return Math.round(OBSTACLE_RULES.clearMs * techEffects(s).build);
-}
-function leaveWreck(s, m, at, events) {
-  if (s.obstacles.filter((o) => o.kind === "wreck").length >= OBSTACLE_RULES.maxWrecks) return;
-  if (obstacleAt(s, m.q, m.r)) return;
-  if (occupancy(s).tiles.has(`${m.q},${m.r}`)) return;
-  if (s.queue.some((i) => i.q === m.q && i.r === m.r)) return;
-  const k = METEORS.ageFactor[ageOf(s)] ?? 1;
-  const loot = {};
-  for (const id3 of RESOURCE_IDS) {
-    const v = OBSTACLES.wreck.loot[id3];
-    if (v) loot[id3] = Math.round(v * k);
-  }
-  const iron = Math.round(IRON.wreck * k);
-  s.obstacles.push({
-    id: obstacleId("wreck", m.q, m.r),
-    kind: "wreck",
-    q: m.q,
-    r: m.r,
-    loot,
-    iron
-  });
-  s.paths = s.paths.filter((p) => p !== hexKey(m));
-  events.push({ type: "wreckLeft", at, q: m.q, r: m.r });
-}
-function removeObstacle(s, o, at, events, by) {
-  s.obstacles = s.obstacles.filter((x) => x.id !== o.id);
-  const cap = capacity(s);
-  const loot = {};
-  for (const id3 of RESOURCE_IDS) {
-    const v = o.loot[id3] ?? 0;
-    if (v <= 0) continue;
-    const room = Math.max(0, cap[id3] - s.resources[id3]);
-    const got = Math.min(v, room);
-    s.resources[id3] += got;
-    if (got > 0) loot[id3] = got;
-  }
-  const iron = o.iron ? addIron(s, o.iron) : 0;
-  events.push({
-    type: "obstacleCleared",
-    at,
-    q: o.q,
-    r: o.r,
-    kind: o.kind,
-    loot,
-    by,
-    ...iron > 0 ? { iron } : {}
-  });
-}
-
-// packages/shared/src/sim/sky.ts
-var DAY = 24 * 36e5;
-var EPS = 1e-6;
-function meteorStock(state, at) {
-  const f = METEORS.nestFactor;
-  const factor = f[Math.min(nest(state).level, f.length - 1)] ?? 1;
-  const age = METEORS.ageFactor[ageOf(state)] ?? 1;
-  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY));
-  const tech = techEffects(state).meteorStock;
-  return Math.round(METEORS.stock * factor * age * tech * (1 + METEORS.perDay * days));
-}
-function craterIron(state) {
-  const age = METEORS.ageFactor[ageOf(state)] ?? 1;
-  return Math.round(IRON.crater * age * techEffects(state).meteorStock) * IRON_SCALE;
-}
-function meteorIronRate(state, m) {
-  if (m.iron <= 0 || state.meteorIron >= ironCap(state)) return 0;
-  const miners = minersOf(state, m.id);
-  if (miners.length === 0) return 0;
-  const work = crewWork(state, miners, m.resource);
-  if (work <= 0) return 0;
-  const map = faceMapOf(state);
-  const f = work * logisticsEfficiency(depotDistance(state, map, m)) * cycleHarvest(state, m.resource) * drillFactor(state);
-  if (f <= 0) return 0;
-  return Math.max(1, Math.round(1e3 * IRON.perHour * f));
-}
-function meteorIronPerHour(state) {
-  let rate = 0;
-  for (const m of state.sky.meteors) rate += meteorIronRate(state, m);
-  return rate * 36e5 / IRON_SCALE;
-}
-function craterWorth(state, m, cap = capacity(state)) {
-  if (m.iron > 0 && state.meteorIron < ironCap(state)) return true;
-  return m.stock > EPS && state.resources[m.resource] < cap[m.resource] - EPS;
-}
-function accrueIron(s, rates, dtMs, at, events) {
-  const cap = ironCap(s);
-  const before = s.meteorIron;
-  for (const { m, rate } of rates) {
-    const take = Math.min(rate * dtMs, m.iron, cap - s.meteorIron);
-    if (take <= 0) continue;
-    m.iron -= take;
-    s.meteorIron += take;
-  }
-  if (before < cap && s.meteorIron >= cap) events.push({ type: "ironFull", at });
-}
-function minersOf(state, meteorId) {
-  return state.villagers.filter((v) => v.job.kind === "meteor" && v.job.meteorId === meteorId);
-}
-function drillFactor(state) {
-  if (!techEffects(state).meteorDrill) return 1;
-  const d = METEORS.drill;
-  return d[Math.min(ageOf(state), d.length - 1)] ?? 1;
-}
-function meteorRate(state, m) {
-  if (m.stock <= EPS) return 0;
-  const miners = minersOf(state, m.id);
-  if (miners.length === 0) return 0;
-  const work = crewWork(state, miners, m.resource);
-  if (work <= 0) return 0;
-  const map = faceMapOf(state);
-  const efficiency = logisticsEfficiency(depotDistance(state, map, m));
-  return METEORS.rates[m.resource] * work * efficiency * cycleHarvest(state, m.resource) * drillFactor(state);
-}
-function bestMeteorCrew(state, meteorId) {
-  const m = state.sky.meteors.find((x) => x.id === meteorId);
-  if (!m) return [];
-  const here = minersOf(state, meteorId).map((v) => v.id);
-  const others = state.villagers.map((v, i) => ({ v, i })).filter(
-    ({ v }) => canMine(v) && v.job.kind !== "meteor" && (v.job.kind === "idle" || !v.locked)
-  ).sort(
-    (a, b) => workerPower(b.v, m.resource) - workerPower(a.v, m.resource) || Number(b.v.job.kind === "idle") - Number(a.v.job.kind === "idle") || a.i - b.i
-  ).map(({ v }) => v.id);
-  return [...here, ...others].slice(0, METEORS.slots);
-}
-function canMine(v) {
-  if (v.kikiwiwi) return false;
-  return v.job.kind === "idle" || v.job.kind === "work" || v.job.kind === "stardust" || v.job.kind === "meteor";
-}
-function meteorAt(state, q, r) {
-  return state.sky.meteors.find((m) => m.q === q && m.r === r);
-}
-function nextSkyEvent(state) {
-  const sky = state.sky;
-  let next = Infinity;
-  if (sky.next) next = sky.next.announced ? sky.next.at : sky.next.announceAt;
-  let total = 0;
-  for (const m of sky.meteors) {
-    next = Math.min(next, m.expiresAt);
-    const rate = meteorIronRate(state, m);
-    if (rate <= 0) continue;
-    total += rate;
-    next = Math.min(next, state.now + Math.max(1, Math.ceil(m.iron / rate)));
-  }
-  if (total > 0) {
-    const room = ironCap(state) - state.meteorIron;
-    next = Math.min(next, state.now + Math.max(1, Math.ceil(room / total)));
-  }
-  return next;
-}
-function planMeteor(s) {
-  const sky = s.sky;
-  if (sky.next) return;
-  withThreatRng(s, (rng) => {
-    const gap = Math.round(rng.range(METEORS.intervalMs[0], METEORS.intervalMs[1]));
-    const earliest = sky.falls === 0 ? s.createdAt + METEORS.firstMs : sky.lastFallAt + gap;
-    const at = Math.max(earliest, s.now + METEORS.noticeMs);
-    sky.next = {
-      id: `m${sky.falls + 1}`,
-      announceAt: at - METEORS.noticeMs,
-      at,
-      announced: false,
-      q: 0,
-      r: 0,
-      resource: "seeds",
-      stock: 0,
-      iron: 0
-    };
-  });
-}
-function skyTick(s, at, events) {
-  const sky = s.sky;
-  const next = sky.next;
-  if (next && !next.announced && next.announceAt === at) {
-    const spot = withThreatRng(s, (rng) => {
-      const map = faceMapOf(s);
-      const season = seasonOf(s);
-      const taken = /* @__PURE__ */ new Set([
-        ...takenKeys(s),
-        ...sky.meteors.map((m) => hexKey(m)),
-        ...s.obstacles.map((o) => hexKey(o))
-      ]);
-      const open = map.tiles.filter(
-        (t) => t.rho >= 0.25 && t.rho <= 0.92 && !taken.has(hexKey(t)) && !isFlooded(t, s.params.biome, season)
-      );
-      const preferred = open.filter((t) => METEORS.tiles.includes(t.type));
-      const free = preferred.length > 0 ? preferred : open.filter((t) => t.type !== "heart");
-      const weights = Object.entries(METEORS.resources);
-      let roll = rng.next() * weights.reduce((sum, [, w]) => sum + w, 0);
-      let resource = weights[0][0];
-      for (const [id3, w] of weights) {
-        roll -= w;
-        if (roll < 0) {
-          resource = id3;
-          break;
-        }
-      }
-      return { tile: free.length > 0 ? rng.pick(free) : null, resource };
-    });
-    if (!spot.tile) {
-      sky.next = null;
-      sky.lastFallAt = next.at;
-      return;
-    }
-    next.announced = true;
-    next.q = spot.tile.q;
-    next.r = spot.tile.r;
-    next.resource = spot.resource;
-    next.stock = Math.round(meteorStock(s, next.at) * IRON.resourceShare);
-    next.iron = craterIron(s);
-    events.push({
-      type: "meteorAnnounced",
-      at,
-      strikeAt: next.at,
-      q: next.q,
-      r: next.r,
-      resource: next.resource
-    });
-  }
-  if (next && next.announced && next.at === at) {
-    if (sky.meteors.length >= METEORS.max) {
-      const old = sky.meteors.shift();
-      leaveWreck(s, old, at, events);
-    }
-    sky.meteors.push({
-      id: next.id,
-      q: next.q,
-      r: next.r,
-      resource: next.resource,
-      stock: next.stock,
-      max: next.stock,
-      iron: next.iron,
-      ironMax: next.iron,
-      landedAt: at,
-      expiresAt: at + METEORS.lifeMs
-    });
-    sky.falls++;
-    sky.lastFallAt = at;
-    sky.next = null;
-    events.push({
-      type: "meteorLanded",
-      at,
-      q: next.q,
-      r: next.r,
-      resource: next.resource,
-      stock: next.stock,
-      iron: ironUnits(next.iron)
-    });
-  }
-  for (const m of sky.meteors) {
-    if (m.expiresAt !== at) continue;
-    events.push({ type: "meteorFaded", at, q: m.q, r: m.r, resource: m.resource });
-    leaveWreck(s, m, at, events);
-  }
-  sky.meteors = sky.meteors.filter((m) => m.expiresAt > at);
-}
-
-// packages/shared/src/sim/colonies.ts
-var SISTER_FRIEND = "sister";
-function sisterFriend(state) {
-  return {
-    id: SISTER_FRIEND,
-    owner: `colony:${otherFace(state.face)}`,
-    kiwiIndex: 0,
-    distance: 0,
-    travelMs: alienDefOf(0).travelMs
-  };
-}
-function linkSister(state) {
-  state.friends = [...state.friends.filter((f) => f.id !== SISTER_FRIEND), sisterFriend(state)];
-}
-function isSister(state) {
-  return state.colony.index === 1;
-}
-function hasSister(state) {
-  return state.colony.foundedAt > 0 || state.colony.founding !== null;
-}
-function foundLock(state) {
-  if (isSister(state) || !twinTarget(state)) return "unknownTarget";
-  if (state.siege.conqueredAt <= 0) return "notConquered";
-  if (hasSister(state) || state.expeditions.some((e) => e.mission === "found" && !e.result))
-    return "alreadyFounded";
-  return null;
-}
-function settle(v) {
-  const out = cloneVillager(v);
-  out.job = { kind: "idle" };
-  delete out.locked;
-  delete out.builderPriority;
-  delete out.homeJob;
-  delete out.lent;
-  return out;
-}
-function emigrate(state, ids) {
-  if (ids.length === 0) return;
-  state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
-}
-function landSettlers(s, e, members, fed) {
-  const resources2 = emptyResources();
-  for (const id3 of RESOURCE_IDS) resources2[id3] = (e.freight?.[id3] ?? 0) + e.provisions[id3];
-  s.colony.founding = { at: e.arriveAt, settlers: members.map(settle), resources: resources2 };
-  emigrate(
-    s,
-    members.map((v) => v.id)
-  );
-  e.provisions = emptyResources();
-  e.crew = [];
-  e.status = "returning";
-  e.result = {
-    victory: true,
-    strength: 0,
-    defense: 0,
-    fed: Math.round(fed * 100) / 100,
-    lostInBattle: [],
-    lostOnReturn: [],
-    loot: emptyResources(),
-    founded: true
-  };
-}
-function generateTraces(map, taken) {
-  const rng = createRng(`${map.seed}/${map.face}/traces`);
-  const [lo, hi] = COLONY.traces.rho;
-  const used = new Set(taken);
-  const out = [];
-  const place = (kind, count) => {
-    const def = OBSTACLES[kind];
-    const spots = rng.shuffle(
-      map.tiles.filter((t) => def.tiles.includes(t.type) && !t.flood && t.rho >= lo && t.rho <= hi)
-    );
-    let placed = 0;
-    for (const t of spots) {
-      if (placed >= count) break;
-      const key = hexKey(t);
-      if (used.has(key)) continue;
-      used.add(key);
-      placed++;
-      out.push({ id: obstacleId(kind, t.q, t.r), kind, q: t.q, r: t.r, loot: { ...def.loot } });
-    }
-  };
-  place("ruin", rng.int(COLONY.traces.ruins[0], COLONY.traces.ruins[1]));
-  place("den", COLONY.traces.dens);
-  return out;
-}
-function newSister(home, f) {
-  const s = newGame({
-    seed: home.seed,
-    face: otherFace(home.face),
-    now: f.at,
-    params: twinParams(home.seed, home.face, home.params),
-    playerId: home.playerId,
-    universeId: home.universeId,
-    kiwiId: home.kiwiId,
-    calendarStart: home.calendarStart,
-    targets: []
-  });
-  delete s.aliens;
-  s.villagers = f.settlers.map((v) => ({ ...settle(v), id: nextId(s, "v") }));
-  const cap = capacity(s);
-  for (const id3 of RESOURCE_IDS) s.resources[id3] = Math.min(cap[id3], f.resources[id3]);
-  raiseHuts(s, f.at);
-  s.objectiveIndex = OBJECTIVES.length;
-  s.colony = { index: 1, founding: null, foundedAt: f.at };
-  s.threats.shieldUntil = f.at + COLONY.shieldMs;
-  s.research = {
-    points: 0,
-    current: home.research.current,
-    done: [...home.research.done],
-    outbox: 0
-  };
-  const taken = /* @__PURE__ */ new Set([
-    hexKey(HEART),
-    ...s.obstacles.map((o) => hexKey(o)),
-    ...takenKeys(s)
-  ]);
-  s.obstacles = [...s.obstacles, ...generateTraces(faceMapOf(s), taken)];
-  linkSister(s);
-  return s;
-}
-function raiseHuts(s, at) {
-  const per = levelDef("hut", 1)?.housing ?? 2;
-  const want = Math.min(
-    COLONY.maxHuts,
-    Math.ceil(Math.max(0, s.villagers.length - housing(s)) / per)
-  );
-  if (want <= 0) return;
-  const map = faceMapOf(s);
-  const spots = map.tiles.filter(
-    (t) => hexDistance(t, HEART) === 2 && BUILDINGS.hut.allowedTiles.includes(t.type) && !t.flood && !s.obstacles.some((o) => o.q === t.q && o.r === t.r)
-  ).sort((a, b) => a.q - b.q || a.r - b.r);
-  for (const t of spots.slice(0, want))
-    s.buildings.push({
-      id: nextId(s, "b"),
-      type: "hut",
-      q: t.q,
-      r: t.r,
-      level: 1,
-      richness: t.richness,
-      builtAt: at
-    });
-}
-function takeFounding(home) {
-  const f = home.colony.founding;
-  if (!f) return null;
-  const sister = newSister(home, f);
-  home.colony = { ...home.colony, founding: null, foundedAt: f.at };
-  linkSister(home);
-  return sister;
-}
-function colonyNeedsSync(home, sister) {
-  const a = home.research;
-  const b = sister.research;
-  return b.outbox > 0 || a.current !== b.current || a.done.length !== b.done.length;
-}
-function syncColonies(home, sister) {
-  receiveResearch(home, sister.research.outbox);
-  sister.research = {
-    points: 0,
-    current: home.research.current,
-    done: [...home.research.done],
-    outbox: 0
-  };
-}
-function pendingToSister(sender) {
-  return sender.shipments.filter((x) => x.friendId === SISTER_FRIEND && !x.delivered);
-}
-function deliverToSister(sender, receiver) {
-  const pending = pendingToSister(sender);
-  for (const x of pending) {
-    const d = deliveryOf(x, `colony:${sender.face}`, `c${sender.colony.index}`);
-    d.arriveAt = Math.max(d.arriveAt, receiver.now);
-    if (!receiver.incoming.some((i) => i.id === d.id))
-      receiver.incoming = [...receiver.incoming, d];
-    x.delivered = true;
-  }
-  return pending.length;
-}
-function denRaiders(state) {
-  return state.villagers.filter((v) => v.job.kind === "guard");
-}
-function denRaidForecast(state) {
-  const guards = denRaiders(state);
-  const strength = guards.reduce((sum, v) => sum + guardPower(v, state).ground, 0);
-  const power = COLONY.denPower * GARRISON.power;
-  const wounded = strength >= power ? Math.min(guards.length, Math.round(guards.length * lossShare(strength, power))) : 0;
-  return { strength, power, wounded };
-}
-function raidDen(state, q, r, now, events) {
-  const den = obstacleAt(state, q, r);
-  const { wounded } = denRaidForecast(state);
-  const hurt = [...denRaiders(state)].sort((a, b) => guardPower(a, state).ground - guardPower(b, state).ground).slice(0, wounded);
-  for (const v of crewMembers(
-    state,
-    hurt.map((v2) => v2.id)
-  ))
-    v.job = { kind: "injured", until: now + COLONY.denInjuryMs };
-  removeObstacle(state, den, now, events, "kiwis");
-}
-
-// packages/shared/src/sim/deliveries.ts
-function cargoWeight(resources2) {
-  return RESOURCE_IDS.reduce((sum, id3) => sum + (resources2[id3] ?? 0), 0) * EXPEDITIONS.resourceWeight;
-}
-function cargoLimit(launchpad) {
-  return Math.floor(shipCargo(launchpad) / EXPEDITIONS.resourceWeight);
-}
-function deliveryTime(state, friend, launchpad) {
-  return travelTime(friend, launchpad, [], "raid", techEffects(state).travel);
-}
-function sendShipment(state, launchpadId, friend, launchpad, resources2, now, id3, villagers = []) {
-  const travelMs = deliveryTime(state, friend, launchpad);
-  for (const r of RESOURCE_IDS) state.resources[r] -= resources2[r];
-  const movers = state.villagers.filter((v) => villagers.includes(v.id)).map(settle);
-  emigrate(state, villagers);
-  const shipment = {
-    id: id3,
-    launchpadId,
-    friendId: friend.id,
-    owner: friend.owner,
-    kiwiIndex: friend.kiwiIndex,
-    resources: { ...resources2 },
-    departedAt: now,
-    arriveAt: now + travelMs,
-    returnAt: now + 2 * travelMs,
-    status: "outbound",
-    ...movers.length ? { villagers: movers } : {}
-  };
-  state.shipments.push(shipment);
-  return shipment;
-}
-function nextDeliveryEvent(s) {
-  let at = Infinity;
-  for (const x of s.shipments) at = Math.min(at, x.status === "outbound" ? x.arriveAt : x.returnAt);
-  for (const d of s.incoming) at = Math.min(at, d.arriveAt);
-  return at;
-}
-function deliveryTick(s, at, events) {
-  for (const x of s.shipments) {
-    if (x.status === "outbound" && x.arriveAt === at) {
-      x.status = "returning";
-      events.push({
-        type: "cargoDelivered",
-        at,
-        shipmentId: x.id,
-        to: x.owner,
-        resources: { ...x.resources }
-      });
-    }
-  }
-  const back = s.shipments.filter((x) => x.status === "returning" && x.returnAt === at);
-  if (back.length) {
-    s.shipments = s.shipments.filter((x) => !back.includes(x));
-    for (const x of back) events.push({ type: "shipmentReturned", at, shipmentId: x.id });
-  }
-  const landed = s.incoming.filter((d) => d.arriveAt === at);
-  if (!landed.length) return;
-  s.incoming = s.incoming.filter((d) => !landed.includes(d));
-  const cap = capacity(s);
-  for (const d of landed) {
-    const received = emptyResources();
-    const lost = emptyResources();
-    for (const r of RESOURCE_IDS) {
-      const room = Math.max(0, cap[r] - s.resources[r]);
-      received[r] = Math.min(room, d.resources[r]);
-      lost[r] = d.resources[r] - received[r];
-      s.resources[r] += received[r];
-    }
-    events.push({ type: "cargoReceived", at, deliveryId: d.id, from: d.from, received, lost });
-    if (d.villagers?.length) {
-      for (const v of d.villagers)
-        s.villagers.push({ ...settle(v), id: nextId(s, "v") });
-      events.push({
-        type: "settlersArrived",
-        at,
-        deliveryId: d.id,
-        names: d.villagers.map((v) => v.name)
-      });
-    }
-  }
-}
-function deliveryOf(shipment, from, senderId) {
-  return {
-    id: `${senderId}:${shipment.id}`,
-    from,
-    resources: { ...shipment.resources },
-    departedAt: shipment.departedAt,
-    arriveAt: shipment.arriveAt,
-    ...shipment.villagers?.length ? { villagers: shipment.villagers.map(cloneVillager) } : {}
-  };
-}
-
 // packages/shared/src/sim/titan.ts
 function terraformLeft(state) {
   const caps = TITAN.maxTerraform;
@@ -7420,6 +8193,7 @@ function advanceInPlace(s, now, events) {
     planWave(s);
     planMeteor(s);
     planComet(s);
+    planBeaconAttacks(s);
     const constructionEnd = nextConstructionEnd(s);
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
@@ -7438,10 +8212,12 @@ function advanceInPlace(s, now, events) {
     const infusionEnd = nextInfusionEnd(s);
     const titanEnd = nextTitanEnd(s);
     const civAt2 = nextCivEvent(s);
+    const beaconAt2 = nextBeaconEvent(s);
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
       garrisonAt,
       civAt2,
+      beaconAt2,
       infusionEnd,
       titanEnd,
       researchAt,
@@ -7497,6 +8273,7 @@ function advanceInPlace(s, now, events) {
     if (forgeAt === nextEvent) forgeTick(s, forgeAt, events);
     if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
     if (civAt2 === nextEvent) civTick(s, civAt2);
+    if (beaconAt2 === nextEvent) beaconTick(s, beaconAt2, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: "hungerChanged", at: s.now, stage: st });
@@ -8526,542 +9303,6 @@ function foodLeftMs(stock, netPerHour) {
   return stock / -netPerHour * 36e5;
 }
 
-// packages/shared/src/sim/rest.ts
-var UNREACHABLE = 12;
-function workSite(state, v) {
-  const job2 = v.job;
-  const at = (id3) => state.buildings.find((b) => b.id === id3) ?? null;
-  if (job2.kind === "work") return at(job2.buildingId);
-  if (job2.kind === "train") return at(job2.schoolId);
-  if (job2.kind === "transform") return at(job2.labId);
-  if (job2.kind === "titan") return { q: job2.q, r: job2.r };
-  if (job2.kind === "stardust")
-    return state.comets.patches.find((p) => p.id === job2.patchId) ?? null;
-  if (job2.kind === "meteor") return state.sky.meteors.find((m) => m.id === job2.meteorId) ?? null;
-  if (job2.kind === "build") return state.queue.find((i) => i.id === job2.queueItemId) ?? null;
-  if (job2.kind === "expedition" || job2.kind === "outpost") return null;
-  return state.buildings.find((b) => b.type === "nest") ?? null;
-}
-function homes(state) {
-  return state.buildings.map((b) => ({ b, beds: levelDef(b.type, b.level)?.housing ?? 0 })).filter((h) => h.beds > 0);
-}
-var bedCache = /* @__PURE__ */ new Map();
-function bedsOf(state, map = faceMapOf(state)) {
-  let key = `${state.seed}|${state.face}|${terraformKey(state)}|${seasonOf(state)}|`;
-  for (const b of state.buildings) {
-    const beds = levelDef(b.type, b.level)?.housing ?? 0;
-    if (beds > 0) key += `${b.id}:${beds};`;
-  }
-  key += "|";
-  for (const v of state.villagers) {
-    const j = v.job;
-    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : j.kind === "transform" ? `${v.id}x${j.labId};` : j.kind === "titan" ? `${v.id}T${j.q},${j.r};` : j.kind === "stardust" ? `${v.id}d${j.patchId};` : j.kind === "meteor" ? `${v.id}m${j.meteorId};` : "";
-  }
-  key += `|${pathsKey(state.paths)}`;
-  const cached = bedCache.get(key);
-  if (cached) return cached;
-  const houses = homes(state);
-  const kiwis = state.villagers.filter(
-    (v) => v.job.kind !== "expedition" && v.job.kind !== "outpost"
-  );
-  const workers = [
-    ...kiwis.filter((v) => v.job.kind !== "idle"),
-    ...kiwis.filter((v) => v.job.kind === "idle")
-  ];
-  const sites = workers.map((v) => workSite(state, v));
-  const dists = houses.map((h) => walkDistances(state, map, [hexKey(h.b)]));
-  const free = houses.map((h) => h.beds);
-  const out = /* @__PURE__ */ new Map();
-  workers.forEach((v, i) => {
-    const site = sites[i];
-    let best = -1;
-    let bestD = Infinity;
-    for (let h = 0; h < houses.length; h++) {
-      if (free[h] <= 0) continue;
-      const d = site ? distanceIn(dists[h], site) : 0;
-      const dd = Number.isFinite(d) ? d : UNREACHABLE;
-      if (best < 0 || dd < bestD) {
-        best = h;
-        bestD = dd;
-      }
-    }
-    if (best < 0) out.set(v.id, { buildingId: null, distance: 0 });
-    else {
-      free[best]--;
-      out.set(v.id, { buildingId: houses[best].b.id, distance: bestD });
-    }
-  });
-  if (bedCache.size >= 32) bedCache.delete(bedCache.keys().next().value);
-  bedCache.set(key, out);
-  return out;
-}
-function restNeed(state, v, bed) {
-  const endurance = Math.max(0.4, 1 - REST.endurance * (v.stats.endurance - KIWI.stat.average));
-  const outside = !bed || bed.buildingId === null ? REST.noBed : 1;
-  return REST.base * REST.season[seasonOf(state)] * endurance * outside * modifiers(v).rest;
-}
-function presence(state, v, bed = bedsOf(state).get(v.id)) {
-  const walk = 1 + REST.commute * (bed?.distance ?? 0);
-  return Math.max(REST.minPresence, 1 - restNeed(state, v, bed) * walk);
-}
-function moraleOf(state, beds = bedsOf(state)) {
-  const food = hungerStage(state) === "fed" ? MORALE.fed : MORALE.hungry;
-  const comfort = comfortOf(state, beds);
-  const speech = state.speechUntil > state.now ? MORALE.speech : 0;
-  const mourning = state.mourningUntil > state.now ? MORALE.mourning : 0;
-  const season = MORALE.season[seasonOf(state)];
-  const mayor = mayorMorale(state);
-  const bards = bardMorale(state);
-  const sum = food + comfort + mayor + bards + speech + mourning + season;
-  const total = Math.max(-MORALE.max, Math.min(MORALE.max, sum));
-  return { total, food, comfort, mayor, bards, speech, mourning, season };
-}
-var comfortCache = /* @__PURE__ */ new WeakMap();
-function comfortOf(state, beds) {
-  const cached = comfortCache.get(beds);
-  if (cached !== void 0) return cached;
-  let workers = 0;
-  let near = 0;
-  for (const v of state.villagers) {
-    if (v.job.kind !== "work") continue;
-    workers++;
-    const bed = beds.get(v.id);
-    if (bed && bed.buildingId !== null && bed.distance <= MORALE.near) near++;
-  }
-  const comfort = workers > 0 ? MORALE.comfort * (2 * near / workers - 1) : 0;
-  comfortCache.set(beds, comfort);
-  return comfort;
-}
-function missingBeds(state, beds = bedsOf(state)) {
-  let count = 0;
-  let total = 0;
-  let lost = 0;
-  for (const v of state.villagers) {
-    if (v.job.kind !== "work" && v.job.kind !== "idle") continue;
-    const bed = beds.get(v.id);
-    const p = presence(state, v, bed);
-    if (bed && bed.buildingId === null) {
-      count++;
-      const housed = presence(state, v, { buildingId: "bed", distance: 0 });
-      total += housed;
-      lost += housed - p;
-    } else total += p;
-  }
-  return { count, presenceLost: total > 0 ? lost / total : 0 };
-}
-function moraleWork(state, beds = bedsOf(state)) {
-  return 1 + moraleOf(state, beds).total;
-}
-function phaseOf(id3) {
-  let h = 2166136261;
-  for (let i = 0; i < id3.length; i++) h = Math.imul(h ^ id3.charCodeAt(i), 16777619);
-  h ^= h >>> 16;
-  h = Math.imul(h, 2246822507);
-  h ^= h >>> 13;
-  h = Math.imul(h, 3266489909);
-  h ^= h >>> 16;
-  return (h >>> 0) / 2 ** 32;
-}
-function kiwiRhythm(state, v, t, beds) {
-  const seed = phaseOf(v.id);
-  const c = calendarAt(state.calendarStart, t);
-  if (c.night && (seed < 1 - CYCLES.nightWork || v.trait === "earlyBird")) {
-    const slept = (t - c.nightAt) / Math.max(1, c.dawnAt - c.nightAt);
-    return { rhythm: "sleep", fatigue: Math.max(0.05, 0.6 - 0.55 * slept) };
-  }
-  const p = presence(state, v, beds ? beds.get(v.id) : void 0);
-  const x = ((t + seed * REST.cycleMs) % REST.cycleMs + REST.cycleMs) % REST.cycleMs;
-  const k = x / REST.cycleMs;
-  if (k < p) return { rhythm: "work", fatigue: 0.15 + 0.75 * (k / p) };
-  return { rhythm: "rest", fatigue: 0.9 - 0.75 * ((k - p) / (1 - p)) };
-}
-
-// packages/shared/src/sim/kiwis.ts
-function rollKiwi(rng) {
-  const { min, max } = KIWI.stat;
-  const stats2 = Object.fromEntries(STAT_IDS.map((id3) => [id3, min]));
-  let points = rng.int(KIWI.statTotal.min, KIWI.statTotal.max) - min * STAT_IDS.length;
-  while (points > 0) {
-    const id3 = rng.pick(STAT_IDS);
-    if (stats2[id3] >= max) continue;
-    stats2[id3]++;
-    points--;
-  }
-  const trait = rng.chance(KIWI.traitChance) ? rng.pick(TRAIT_IDS) : null;
-  const shiny = rollShiny(rng);
-  return { stats: stats2, trait, shiny };
-}
-function rollShiny(rng) {
-  return rng.next() < KIWI.shinyChance ? rng.pick(SHINY_COLORS) : null;
-}
-function emptyMasteries() {
-  return Object.fromEntries(MASTERY_IDS.map((id3) => [id3, 0]));
-}
-function newKiwi(roll) {
-  return {
-    ...roll,
-    stats: { ...roll.stats },
-    level: 1,
-    xp: 0,
-    statPoints: 0,
-    mastery: emptyMasteries(),
-    history: { expeditions: 0, victories: 0, built: 0 },
-    classId: null,
-    classXp: 0,
-    skillReadyAt: {}
-  };
-}
-var MODIFIER_KEYS = [
-  "xp",
-  "practice",
-  "harvest",
-  "build",
-  "fight",
-  "exposure",
-  "rations",
-  "weight",
-  "rest",
-  "appetite",
-  "research",
-  "repair"
-];
-var modifierCache = /* @__PURE__ */ new Map();
-var LOWER_IS_BETTER = /* @__PURE__ */ new Set([
-  "exposure",
-  "rations",
-  "weight",
-  "rest",
-  "appetite"
-]);
-function classStat(v) {
-  if (!v.classId) return 0;
-  const c = CLASSES[v.classId];
-  return c.stat2 ? Math.min(v.stats[c.stat], v.stats[c.stat2]) : v.stats[c.stat];
-}
-function classRank(v) {
-  if (!v.classId) return 0;
-  let rank = 1;
-  while (rank < CAMP.maxRank && v.classXp >= CAMP.rankHours[rank + 1] * PRACTICE_SCALE) rank++;
-  return rank;
-}
-function classRankProgress(v) {
-  const rank = classRank(v);
-  return {
-    rank,
-    hours: v.classXp / PRACTICE_SCALE,
-    next: rank > 0 && rank < CAMP.maxRank ? CAMP.rankHours[rank + 1] : null
-  };
-}
-function classGrowth(v) {
-  if (!v.classId) return 1;
-  const stat = 1 + CLASS_RULES.growth * Math.max(0, classStat(v) - KIWI.stat.average);
-  return stat * (1 + CLASS_RULES.rankBonus * (classRank(v) - 1));
-}
-function modifiers(v) {
-  const c = v.classId ? CLASSES[v.classId] : null;
-  const key = `${v.trait ?? ""}|${v.kikiwiwi ? 1 : 0}|${v.classId ?? ""}|${c ? v.level : 0}|${c ? classStat(v) : 0}|${c ? classRank(v) : 0}`;
-  const cached = modifierCache.get(key);
-  if (cached) return cached;
-  const out = Object.fromEntries(MODIFIER_KEYS.map((k) => [k, 1]));
-  const apply = (m) => {
-    if (m) for (const k of MODIFIER_KEYS) out[k] *= m[k] ?? 1;
-  };
-  apply(v.trait ? TRAITS[v.trait] : void 0);
-  if (v.kikiwiwi) apply(KIKIWIWI.modifiers);
-  if (c) {
-    apply(c.modifiers);
-    for (const skill of classSkills(c.id)) if (v.level >= skill.level) apply(skill.modifiers);
-    if (c.grows) {
-      const g = classGrowth(v);
-      out[c.grows] = LOWER_IS_BETTER.has(c.grows) ? out[c.grows] / g : out[c.grows] * g;
-    }
-  }
-  modifierCache.set(key, Object.freeze(out));
-  return out;
-}
-function hasSkill(v, skill) {
-  if (!v.classId) return false;
-  const def = classSkills(v.classId).find((x) => x.id === skill);
-  return !!def && v.level >= def.level;
-}
-function levelForXp(xp) {
-  let level = 1;
-  while (level < KIWI.maxLevel && xp >= xpForLevel(level + 1) * XP_SCALE) level++;
-  return level;
-}
-function rankOf(practice2) {
-  let rank = 0;
-  while (rank < KIWI.maxRank && practice2 >= masteryHours(rank + 1) * PRACTICE_SCALE) rank++;
-  return rank;
-}
-function levelProgress(v) {
-  return {
-    xp: v.xp / XP_SCALE,
-    current: xpForLevel(v.level),
-    next: v.level < KIWI.maxLevel ? xpForLevel(v.level + 1) : null
-  };
-}
-function masteryProgress(v, id3) {
-  const rank = rankOf(v.mastery[id3]);
-  return {
-    rank,
-    hours: v.mastery[id3] / PRACTICE_SCALE,
-    next: rank < KIWI.maxRank ? masteryHours(rank + 1) : null
-  };
-}
-function buildingResource(state, b) {
-  const type = harvestedTileType(faceMapOf(state), b);
-  return type ? DEPOSITS[type]?.resource ?? null : null;
-}
-function workerPower(v, resource) {
-  const m = modifiers(v);
-  const dex = 1 + KIWI.dexterityBonus * (v.stats.dexterity - KIWI.stat.average);
-  const carry = 1 + KIWI.agilityCarry * (v.stats.agility - KIWI.stat.average);
-  const rank = 1 + KIWI.rankBonus * rankOf(v.mastery[RESOURCE_MASTERY[resource]]);
-  return Math.max(KIWI.minPower, dex * carry * rank * m.harvest);
-}
-function builderSpeed(v) {
-  const m = modifiers(v);
-  const str = 1 + KIWI.strengthBuild * (v.stats.strength - KIWI.stat.average);
-  const rank = 1 + KIWI.rankBonus * rankOf(v.mastery.build);
-  return Math.max(KIWI.minPower, str * rank * m.build);
-}
-function kiwiStrength(v) {
-  const f = KIWI.fight;
-  const avg = KIWI.stat.average;
-  const stats2 = 1 + f.strength * (v.stats.strength - avg) + f.endurance * (v.stats.endurance - avg);
-  return Math.max(KIWI.minPower, stats2 * (1 + f.perLevel * (v.level - 1)) * modifiers(v).fight);
-}
-function kiwiExposure(v) {
-  const e = KIWI.exposure;
-  const avg = KIWI.stat.average;
-  const dodge = Math.max(0.5, 1 + e.agility * (v.stats.agility - avg));
-  const tough = Math.max(0.5, 1 + e.endurance * (v.stats.endurance - avg));
-  return modifiers(v).exposure / (kiwiStrength(v) * dodge * tough);
-}
-function workforce(state, b, workers) {
-  if (state.threats.shelterUntil > state.now) return 0;
-  const damaged = b.damaged ? THREATS.damagedWork : 1;
-  const resource = buildingResource(state, b);
-  if (!resource) return workers.length * damaged;
-  return crewWork(state, workers, resource) * damaged;
-}
-function crewWork(state, workers, resource) {
-  if (state.threats.shelterUntil > state.now) return 0;
-  const beds = bedsOf(state);
-  const sum = workers.reduce(
-    (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)),
-    0
-  );
-  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds);
-}
-function mayorOf(state) {
-  return state.villagers.find(
-    (v) => v.classId === "mayor" && v.job.kind !== "expedition" && v.job.kind !== "outpost"
-  );
-}
-function colonyBonus(state) {
-  if (!mayorOf(state) || state.speechUntil <= state.now) return 1;
-  return 1 + SKILLS.speechBonus;
-}
-function mayorMorale(state) {
-  const mayor = mayorOf(state);
-  if (!mayor) return 0;
-  let bonus = SKILLS.mayorPerCharisma * mayor.stats.charisma;
-  if (hasSkill(mayor, "organisation")) bonus += SKILLS.organisationBonus;
-  return bonus;
-}
-function regenBonus(workers) {
-  let gatherers = 0;
-  for (const v of workers)
-    if (hasSkill(v, "greenThumb"))
-      gatherers += v.classId === "druid" ? SKILLS.druidRegen : inLine(v.classId, "herbalist") ? SKILLS.herbalistRegen : 1;
-  return 1 + SKILLS.greenThumbRegen * gatherers;
-}
-function repairSpeed(v) {
-  return builderSpeed(v) * modifiers(v).repair;
-}
-function bardMorale(state) {
-  let sum = 0;
-  for (const v of state.villagers) {
-    if (!inLine(v.classId, "bard") || v.job.kind === "expedition" || v.job.kind === "outpost")
-      continue;
-    const ballad = hasSkill(v, "ballad") ? SKILLS.balladBonus : 1;
-    const minstrel = inLine(v.classId, "minstrel") ? SKILLS.minstrelMorale : 1;
-    sum += SKILLS.bardMorale * classGrowth(v) * ballad * minstrel;
-  }
-  return Math.min(SKILLS.bardMax, sum);
-}
-function drillRate(v, campLevel) {
-  if (!v.classId || classRank(v) >= CAMP.maxRank) return 0;
-  const k = CAMP.drill[Math.min(campLevel, CAMP.drill.length) - 1] ?? 1;
-  return Math.max(1, Math.round(100 * k * modifiers(v).practice));
-}
-function workMastery(state, b) {
-  if (!b) return null;
-  if (b.type === "library") return "research";
-  if (b.type === "forge") return "build";
-  const resource = buildingResource(state, b);
-  return resource ? RESOURCE_MASTERY[resource] : null;
-}
-function ratesOf(state, v, masteries) {
-  const job2 = v.job;
-  let perHour = 0;
-  let mastery = null;
-  let drill = 0;
-  if (job2.kind === "work") {
-    const camp = state.buildings.find((x) => x.id === job2.buildingId);
-    if (camp?.type === "trainingCamp") drill = drillRate(v, camp.level);
-    perHour = KIWI.xpPerHour.work;
-    let m2 = masteries.get(job2.buildingId);
-    if (m2 === void 0) {
-      m2 = workMastery(
-        state,
-        state.buildings.find((x) => x.id === job2.buildingId)
-      );
-      masteries.set(job2.buildingId, m2);
-    }
-    mastery = m2;
-  } else if (job2.kind === "build") {
-    perHour = KIWI.xpPerHour.build;
-    mastery = "build";
-  } else if (job2.kind === "meteor") {
-    const m2 = state.sky.meteors.find((x) => x.id === job2.meteorId);
-    perHour = KIWI.xpPerHour.work;
-    mastery = m2 ? RESOURCE_MASTERY[m2.resource] : null;
-  } else if (job2.kind === "train" || job2.kind === "transform") {
-    perHour = KIWI.xpPerHour.train;
-  } else if (job2.kind === "guard" || job2.kind === "titan" || job2.kind === "stardust") {
-    perHour = KIWI.xpPerHour.guard;
-  }
-  if (perHour === 0) return { xp: 0, practice: 0, mastery: null, drill };
-  const m = modifiers(v);
-  const spirit = 1 + KIWI.spiritXp * (v.stats.spirit - KIWI.stat.average);
-  const xp = v.level >= KIWI.maxLevel ? 0 : Math.max(1, Math.round(perHour * 100 * spirit * m.xp));
-  const practice2 = mastery && rankOf(v.mastery[mastery]) < KIWI.maxRank ? Math.max(1, Math.round(100 * m.practice)) : 0;
-  return { xp, practice: practice2, mastery: practice2 > 0 ? mastery : null, drill };
-}
-function nextKiwiEvent(state) {
-  let next = Infinity;
-  const resources2 = /* @__PURE__ */ new Map();
-  for (const v of state.villagers) {
-    const r = ratesOf(state, v, resources2);
-    if (r.xp > 0) {
-      const need = xpForLevel(v.level + 1) * XP_SCALE - v.xp;
-      next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.xp)));
-    }
-    if (r.mastery) {
-      const rank = rankOf(v.mastery[r.mastery]);
-      const need = masteryHours(rank + 1) * PRACTICE_SCALE - v.mastery[r.mastery];
-      next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.practice)));
-    }
-    if (r.drill > 0) {
-      const need = CAMP.rankHours[classRank(v) + 1] * PRACTICE_SCALE - v.classXp;
-      next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.drill)));
-    }
-  }
-  return next;
-}
-function accrueKiwis(state, dtMs, at, events) {
-  const resources2 = /* @__PURE__ */ new Map();
-  for (const v of state.villagers) {
-    const r = ratesOf(state, v, resources2);
-    if (r.mastery) {
-      const before = rankOf(v.mastery[r.mastery]);
-      v.mastery[r.mastery] += r.practice * dtMs;
-      const after = rankOf(v.mastery[r.mastery]);
-      if (after > before) {
-        events.push({
-          type: "masteryUp",
-          at,
-          villagerId: v.id,
-          name: v.name,
-          mastery: r.mastery,
-          rank: after
-        });
-      }
-    }
-    if (r.drill > 0) addClassXp(v, r.drill * dtMs, at, events);
-    if (r.xp > 0) {
-      v.xp += r.xp * dtMs;
-      levelUps(state, v, at, events);
-    }
-  }
-}
-function addClassXp(v, raw, at, events) {
-  const before = classRank(v);
-  v.classXp += raw;
-  const after = classRank(v);
-  if (after > before)
-    events.push({ type: "classRankUp", at, villagerId: v.id, name: v.name, rank: after });
-}
-function grantClassXp(v, hours, at, events) {
-  if (!v.classId || v.kikiwiwi || classRank(v) >= CAMP.maxRank) return;
-  addClassXp(v, Math.round(hours * modifiers(v).practice * 100) * 36e5, at, events);
-}
-function grantXp(state, v, points, at, events) {
-  if (v.level >= KIWI.maxLevel) return;
-  v.xp += Math.round(points * modifiers(v).xp) * XP_SCALE;
-  levelUps(state, v, at, events);
-}
-function levelUps(state, v, at, events) {
-  const target = levelForXp(v.xp);
-  while (v.level < target) {
-    v.level++;
-    let stat = null;
-    if (v.level % 2 === 1) {
-      stat = withRng(state, (rng) => pickStat(rng, v));
-      if (stat) v.stats[stat]++;
-    } else {
-      v.statPoints++;
-    }
-    events.push({ type: "levelUp", at, villagerId: v.id, name: v.name, level: v.level, stat });
-  }
-}
-function pickStat(rng, v) {
-  const kind = v.job.kind === "work" || v.job.kind === "build" || v.job.kind === "expedition" ? v.job.kind : "other";
-  const weights = KIWI.autoStatWeights[kind];
-  const open = STAT_IDS.filter((id3) => v.stats[id3] < KIWI.stat.cap);
-  const total = open.reduce((sum, id3) => sum + weights[id3], 0);
-  if (total <= 0) return null;
-  let roll = rng.next() * total;
-  for (const id3 of open) {
-    roll -= weights[id3];
-    if (roll < 0) return id3;
-  }
-  return open[open.length - 1];
-}
-function trainLock(state, v, classId, place) {
-  const def = CLASSES[classId];
-  if (!def) return "classLocked";
-  if (v.kikiwiwi) return "kikiwiwiNoWork";
-  const camp = place.type === "trainingCamp";
-  if (!camp && def.tier !== 1) return "classLocked";
-  if (camp && !v.classId) return "wrongClass";
-  if (place.level < (camp && def.tier === 1 ? 1 : def.schoolLevel)) return "classLocked";
-  if (ageOf(state) < (def.age ?? 0)) return "classLocked";
-  if (v.classId === classId) return "alreadyThisClass";
-  if (def.tier > 1 && !def.parents?.includes(v.classId)) return "wrongClass";
-  if (v.level < def.minLevel) return "levelTooLow";
-  const min = CLASS_RULES.statMin[def.tier];
-  if (v.stats[def.stat] < min || def.stat2 && v.stats[def.stat2] < min) return "statTooLow";
-  if (def.tier > 1 && classRank(v) < CLASS_RULES.promoteRank) return "rankTooLow";
-  return null;
-}
-function trainingCost(v, classId, place) {
-  const camp = place?.type === "trainingCamp";
-  const promotion = CLASSES[classId].tier > 1;
-  const k = !v.classId || promotion ? 1 : camp ? CAMP.retrainCost : SKILLS.retrainCost;
-  const out = {};
-  const cost = CLASSES[classId].cost;
-  for (const id3 of RESOURCE_IDS) if (cost[id3]) out[id3] = Math.round(cost[id3] * k);
-  return out;
-}
-function trainingDuration(place, classId) {
-  const speed = levelDef(place.type, place.level)?.trainingTime ?? 1;
-  return Math.round(CLASSES[classId].trainingMs * speed);
-}
-
 // packages/shared/src/sim/research.ts
 function ageOf(state) {
   return state.buildings.find((b) => b.type === "monument")?.level ?? 0;
@@ -9666,1273 +9907,996 @@ function depletedTiles(state, map) {
   return out;
 }
 
-// packages/shared/src/sim/selectors.ts
-var HOUR_MS = 36e5;
-function getBuilding(state, id3) {
-  return state.buildings.find((b) => b.id === id3);
+// packages/shared/src/sim/kiwis.ts
+function rollKiwi(rng) {
+  const { min, max } = KIWI.stat;
+  const stats2 = Object.fromEntries(STAT_IDS.map((id3) => [id3, min]));
+  let points = rng.int(KIWI.statTotal.min, KIWI.statTotal.max) - min * STAT_IDS.length;
+  while (points > 0) {
+    const id3 = rng.pick(STAT_IDS);
+    if (stats2[id3] >= max) continue;
+    stats2[id3]++;
+    points--;
+  }
+  const trait = rng.chance(KIWI.traitChance) ? rng.pick(TRAIT_IDS) : null;
+  const shiny = rollShiny(rng);
+  return { stats: stats2, trait, shiny };
 }
-function buildingAt(state, q, r) {
-  const o = occupancy(state).tiles.get(`${q},${r}`);
-  return o && !o.site ? state.buildings.find((b) => b.id === o.id) : void 0;
+function rollShiny(rng) {
+  return rng.next() < KIWI.shinyChance ? rng.pick(SHINY_COLORS) : null;
 }
-function queuedBuildAt(state, q, r) {
-  const o = occupancy(state).tiles.get(`${q},${r}`);
-  return o?.site ? state.queue.find((i) => i.id === o.id) : void 0;
+function emptyMasteries() {
+  return Object.fromEntries(MASTERY_IDS.map((id3) => [id3, 0]));
 }
-function nest(state) {
-  const n = state.buildings.find((b) => b.type === "nest");
-  if (!n) throw new Error("State has no nest");
-  return n;
+function newKiwi(roll) {
+  return {
+    ...roll,
+    stats: { ...roll.stats },
+    level: 1,
+    xp: 0,
+    statPoints: 0,
+    mastery: emptyMasteries(),
+    history: { expeditions: 0, victories: 0, built: 0 },
+    classId: null,
+    classXp: 0,
+    skillReadyAt: {}
+  };
 }
-function nestDef(state) {
-  return levelDef("nest", nest(state).level);
+var MODIFIER_KEYS = [
+  "xp",
+  "practice",
+  "harvest",
+  "build",
+  "fight",
+  "exposure",
+  "rations",
+  "weight",
+  "rest",
+  "appetite",
+  "research",
+  "repair"
+];
+var modifierCache = /* @__PURE__ */ new Map();
+var LOWER_IS_BETTER = /* @__PURE__ */ new Set([
+  "exposure",
+  "rations",
+  "weight",
+  "rest",
+  "appetite"
+]);
+function classStat(v) {
+  if (!v.classId) return 0;
+  const c = CLASSES[v.classId];
+  return c.stat2 ? Math.min(v.stats[c.stat], v.stats[c.stat2]) : v.stats[c.stat];
 }
-function activeItem(state) {
-  const first = state.queue[0];
-  return first && first.startedAt !== null ? first : void 0;
+function classRank(v) {
+  if (!v.classId) return 0;
+  let rank = 1;
+  while (rank < CAMP.maxRank && v.classXp >= CAMP.rankHours[rank + 1] * PRACTICE_SCALE) rank++;
+  return rank;
 }
-function workersOf(state, buildingId) {
-  return state.villagers.filter((v) => v.job.kind === "work" && v.job.buildingId === buildingId);
+function classRankProgress(v) {
+  const rank = classRank(v);
+  return {
+    rank,
+    hours: v.classXp / PRACTICE_SCALE,
+    next: rank > 0 && rank < CAMP.maxRank ? CAMP.rankHours[rank + 1] : null
+  };
 }
-function idleVillagers(state) {
-  return state.villagers.filter((v) => v.job.kind === "idle");
+function classGrowth(v) {
+  if (!v.classId) return 1;
+  const stat = 1 + CLASS_RULES.growth * Math.max(0, classStat(v) - KIWI.stat.average);
+  return stat * (1 + CLASS_RULES.rankBonus * (classRank(v) - 1));
 }
-function workerSlots(b) {
-  return levelDef(b.type, b.level)?.workerSlots ?? 0;
-}
-function totalWorkers(state) {
-  return state.villagers.filter((v) => v.job.kind === "work").length;
-}
-function population(state) {
-  return state.villagers.length;
-}
-function housing(state) {
-  return state.buildings.reduce((sum, b) => sum + (levelDef(b.type, b.level)?.housing ?? 0), 0);
-}
-function capacity(state) {
-  const storage = state.buildings.reduce(
-    (sum, b) => sum + (levelDef(b.type, b.level)?.storage ?? 0),
-    0
-  );
-  const cap = storage * techEffects(state).storage;
-  return { pulp: cap, fiber: cap, seeds: cap, juice: cap };
-}
-function reserveCapOf(state, b) {
-  return (levelDef(b.type, b.level)?.reserve ?? 0) * techEffects(state).storage;
-}
-function reserveOf(b) {
-  return b.reserve ?? emptyResources();
-}
-function reserveHolders(state) {
-  return state.buildings.filter((b) => (levelDef(b.type, b.level)?.reserve ?? 0) > 0);
-}
-function reserves(state) {
-  const stock = emptyResources();
-  const cap = emptyResources();
-  for (const b of reserveHolders(state)) {
-    const c = reserveCapOf(state, b);
-    for (const id3 of RESOURCE_IDS) {
-      stock[id3] += b.reserve?.[id3] ?? 0;
-      cap[id3] += c;
+function modifiers(v) {
+  const c = v.classId ? CLASSES[v.classId] : null;
+  const key = `${v.trait ?? ""}|${v.kikiwiwi ? 1 : 0}|${v.classId ?? ""}|${c ? v.level : 0}|${c ? classStat(v) : 0}|${c ? classRank(v) : 0}`;
+  const cached = modifierCache.get(key);
+  if (cached) return cached;
+  const out = Object.fromEntries(MODIFIER_KEYS.map((k) => [k, 1]));
+  const apply = (m) => {
+    if (m) for (const k of MODIFIER_KEYS) out[k] *= m[k] ?? 1;
+  };
+  apply(v.trait ? TRAITS[v.trait] : void 0);
+  if (v.kikiwiwi) apply(KIKIWIWI.modifiers);
+  if (c) {
+    apply(c.modifiers);
+    for (const skill of classSkills(c.id)) if (v.level >= skill.level) apply(skill.modifiers);
+    if (c.grows) {
+      const g = classGrowth(v);
+      out[c.grows] = LOWER_IS_BETTER.has(c.grows) ? out[c.grows] / g : out[c.grows] * g;
     }
   }
-  return { stock, cap };
-}
-function canCollect(state, b) {
-  if (!b.reserve) return false;
-  const cap = capacity(state);
-  return RESOURCE_IDS.some((id3) => b.reserve[id3] > 1e-6 && state.resources[id3] < cap[id3] - 1e-6);
-}
-function reserveTarget(state, id3) {
-  for (const b of reserveHolders(state)) {
-    const room = reserveCapOf(state, b) - (b.reserve?.[id3] ?? 0);
-    if (room > 1e-6) return { b, room };
-  }
-  return null;
-}
-function storageFullCheck(state, known) {
-  const cap = capacity(state);
-  const eaten = consumption(state);
-  let gross = known ?? null;
-  return (id3) => {
-    if (state.resources[id3] < cap[id3] - 1e-6) return false;
-    if (reserveTarget(state, id3)) return false;
-    if (eaten[id3] <= 0) return true;
-    gross ??= grossRates(state);
-    return gross[id3] >= eaten[id3];
-  };
-}
-function passiveRates(state, b) {
-  const def = levelDef(b.type, b.level);
-  const out = emptyResources();
-  if (!def?.passiveProduction) return out;
-  const climate = climateOf(state.face, state.params.biome);
-  for (const id3 of RESOURCE_IDS) out[id3] = (def.passiveProduction[id3] ?? 0) * climate[id3];
+  modifierCache.set(key, Object.freeze(out));
   return out;
 }
-function grossRates(state) {
-  const total = emptyResources();
-  const never = () => false;
-  for (const b of state.buildings) {
-    const r = buildingRates(state, b, never);
-    for (const id3 of RESOURCE_IDS) total[id3] += r[id3];
-  }
-  for (const m of state.sky.meteors) total[m.resource] += meteorRate(state, m);
-  return total;
+function hasSkill(v, skill) {
+  if (!v.classId) return false;
+  const def = classSkills(v.classId).find((x) => x.id === skill);
+  return !!def && v.level >= def.level;
 }
-function netRates(state) {
-  const full = storageFullCheck(state);
-  const prod = productionRates(state, full);
-  const eaten = consumption(state);
-  const out = emptyResources();
-  for (const id3 of RESOURCE_IDS) {
-    if (full(id3)) continue;
-    const net = prod[id3] - eaten[id3];
-    out[id3] = net < 0 && state.resources[id3] <= 0 ? 0 : net;
-  }
-  return out;
+function levelForXp(xp) {
+  let level = 1;
+  while (level < KIWI.maxLevel && xp >= xpForLevel(level + 1) * XP_SCALE) level++;
+  return level;
 }
-function buildingHarvest(state, b, full = storageFullCheck(state)) {
-  const workers = workersOf(state, b.id);
-  return harvestOf(
-    state,
-    faceMapOf(state),
-    b,
-    workforce(state, b, workers),
-    full,
-    regenBonus(workers)
-  );
+function rankOf(practice2) {
+  let rank = 0;
+  while (rank < KIWI.maxRank && practice2 >= masteryHours(rank + 1) * PRACTICE_SCALE) rank++;
+  return rank;
 }
-function buildingRates(state, b, full = storageFullCheck(state)) {
-  const def = levelDef(b.type, b.level);
-  const out = emptyResources();
-  if (!def) return out;
-  const climate = climateOf(state.face, state.params.biome);
-  for (const id3 of RESOURCE_IDS) out[id3] = (def.passiveProduction?.[id3] ?? 0) * climate[id3];
-  const h = buildingHarvest(state, b, full);
-  if (h) out[h.resource] += h.output;
-  return out;
-}
-function productionRates(state, full = storageFullCheck(state)) {
-  const total = emptyResources();
-  for (const b of state.buildings) {
-    const r = buildingRates(state, b, full);
-    for (const id3 of RESOURCE_IDS) total[id3] += r[id3];
-  }
-  for (const m of state.sky.meteors)
-    if (!full(m.resource)) total[m.resource] += meteorRate(state, m);
-  return total;
-}
-function canAfford(resources2, cost) {
-  return RESOURCE_IDS.every((id3) => resources2[id3] + 1e-9 >= (cost[id3] ?? 0));
-}
-function scaleCost(cost, k) {
-  const out = {};
-  for (const id3 of RESOURCE_IDS) {
-    const v = cost[id3];
-    if (v) out[id3] = Math.round(v * k / 5) * 5 || 5;
-  }
-  return out;
-}
-function copiesOf(state, type) {
-  return state.buildings.filter((b) => b.type === type).length + state.queue.filter((i) => i.kind === "build" && i.buildingType === type).length;
-}
-function pathLimit(state) {
-  const level = nest(state).level;
-  return PATHS.base + PATHS.perNestLevel * Math.min(level, 3) + PATHS.perAgeLevel * Math.max(0, level - 3);
-}
-function buildingCount(state) {
-  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && !isTurret(t);
-  return state.buildings.filter((b) => counted(b.type)).length + state.queue.filter((i) => i.kind === "build" && counted(i.buildingType)).length;
-}
-function turretCount(state) {
-  return state.buildings.filter((b) => isTurret(b.type)).length + state.queue.filter((i) => i.kind === "build" && isTurret(i.buildingType)).length;
-}
-function turretLimit(state) {
-  const max = TURRETS2.max;
-  return max[Math.min(nest(state).level, max.length - 1)] ?? 0;
-}
-function isRampart(map, q, r) {
-  if (getTile(map, { q, r })?.type !== "skin") return false;
-  return hexNeighbors({ q, r }).some((h) => {
-    const t = getTile(map, h);
-    return !!t && TILES[t.type].walkable;
-  });
-}
-function buildCost(state, type) {
-  const def = BUILDINGS[type];
-  return scaleCost(def.levels[0].cost, def.copyGrowth ** copiesOf(state, type));
-}
-function upgradeCost(type, targetLevel) {
-  return levelDef(type, targetLevel)?.cost ?? {};
-}
-function demolitionRefund(state, b) {
-  const def = BUILDINGS[b.type];
-  const copies = state.buildings.filter((x) => x.type === b.type).length;
-  const invested = emptyResources();
-  const build = scaleCost(def.levels[0].cost, def.copyGrowth ** Math.max(0, copies - 1));
-  const parts = [build, ...def.levels.slice(1, b.level).map((l) => l.cost)];
-  for (const cost of parts) for (const id3 of RESOURCE_IDS) invested[id3] += cost[id3] ?? 0;
-  const out = {};
-  for (const id3 of RESOURCE_IDS) {
-    const v = Math.round(invested[id3] * DEMOLITION.refund / 5) * 5;
-    if (v > 0) out[id3] = v;
-  }
-  return out;
-}
-function demolitionPreview(state, b) {
-  const def = levelDef(b.type, b.level);
+function levelProgress(v) {
   return {
-    refund: demolitionRefund(state, b),
-    workers: workersOf(state, b.id).length,
-    storageLost: def?.storage ?? 0,
-    housingLost: def?.housing ?? 0
+    xp: v.xp / XP_SCALE,
+    current: xpForLevel(v.level),
+    next: v.level < KIWI.maxLevel ? xpForLevel(v.level + 1) : null
   };
 }
-function nearRay(map, q, r) {
-  const tiles = [{ q, r }, ...hexNeighbors({ q, r })];
-  return tiles.some((h) => getTile(map, h)?.type === "ray");
+function masteryProgress(v, id3) {
+  const rank = rankOf(v.mastery[id3]);
+  return {
+    rank,
+    hours: v.mastery[id3] / PRACTICE_SCALE,
+    next: rank < KIWI.maxRank ? masteryHours(rank + 1) : null
+  };
 }
-function constructionDuration(state, type, level, isNewCopy, rayBonus) {
-  const def = BUILDINGS[type];
-  const base = levelDef(type, level)?.durationMs ?? 0;
-  const copies = isNewCopy ? def.copyGrowth ** copiesOf(state, type) : 1;
-  const speed = (rayBonus ? RAY_BUILD_SPEEDUP : 1) * techEffects(state).build;
-  return Math.max(1e3, Math.round(base * Math.sqrt(copies) * speed / 1e3) * 1e3);
+function buildingResource(state, b) {
+  const type = harvestedTileType(faceMapOf(state), b);
+  return type ? DEPOSITS[type]?.resource ?? null : null;
 }
-function pendingUpgrade(state, buildingId) {
-  return state.queue.find((i) => i.kind !== "build" && i.buildingId === buildingId);
+function workerPower(v, resource) {
+  const m = modifiers(v);
+  const dex = 1 + KIWI.dexterityBonus * (v.stats.dexterity - KIWI.stat.average);
+  const carry = 1 + KIWI.agilityCarry * (v.stats.agility - KIWI.stat.average);
+  const rank = 1 + KIWI.rankBonus * rankOf(v.mastery[RESOURCE_MASTERY[resource]]);
+  return Math.max(KIWI.minPower, dex * carry * rank * m.harvest);
 }
-function repairCost(b) {
-  if (b.shipLost) return scaleCost(LANDING.rebuild.cost, LANDING.rebuild.ship[b.shipLost]);
-  return scaleCost(levelDef(b.type, b.level)?.cost ?? {}, THREATS.repairCost);
+function builderSpeed(v) {
+  const m = modifiers(v);
+  const str = 1 + KIWI.strengthBuild * (v.stats.strength - KIWI.stat.average);
+  const rank = 1 + KIWI.rankBonus * rankOf(v.mastery.build);
+  return Math.max(KIWI.minPower, str * rank * m.build);
 }
-function repairDuration(b) {
-  if (b.shipLost) return LANDING.rebuild.hours[b.shipLost] * 36e5;
-  const base = levelDef(b.type, b.level)?.durationMs ?? 0;
-  return Math.max(5e3, Math.round(base * THREATS.repairTime / 1e3) * 1e3);
-}
-function isMaxLevel(b) {
-  return b.level >= Math.min(MAX_LEVEL, maxLevelOf(b.type));
-}
-function maxLevelNow(state, type) {
-  const age = ageOf(state);
-  const levels = BUILDINGS[type].levels;
-  let max = 0;
-  while (max < levels.length && (levels[max].requiresAge ?? 0) <= age) max++;
-  return max;
-}
-function eggCost(state) {
-  return HATCHING.cost(population(state));
-}
-function eggDuration(state) {
-  const k = seasonEffects(seasonOf(state), state.params.biome).hatching;
-  return Math.round(HATCHING.durationMs(population(state)) * k);
-}
-function canHatch(state) {
-  return state.egg === null && population(state) < housing(state);
-}
-
-// packages/shared/src/sim/iron.ts
-function ironCap(state) {
-  const c = IRON.cap;
-  return (c[Math.min(nest(state).level, c.length - 1)] ?? 0) * IRON_SCALE;
-}
-function meteorIronOf(state) {
-  return ironUnits(state.meteorIron);
-}
-function addIron(s, units) {
-  const room = Math.max(0, ironCap(s) - s.meteorIron);
-  const got = Math.min(units * IRON_SCALE, room);
-  s.meteorIron += got;
-  return ironUnits(got);
-}
-
-// packages/shared/src/sim/forge.ts
-function forgeOf(state) {
-  return state.buildings.find((b) => b.type === "forge");
-}
-function forgePower(v) {
+function kiwiStrength(v) {
+  const f = KIWI.fight;
   const avg = KIWI.stat.average;
-  const p = 1 + FORGE.strength * (v.stats.strength - avg) + FORGE.dexterity * (v.stats.dexterity - avg);
-  return Math.max(KIWI.minPower, p);
+  const stats2 = 1 + f.strength * (v.stats.strength - avg) + f.endurance * (v.stats.endurance - avg);
+  return Math.max(KIWI.minPower, stats2 * (1 + f.perLevel * (v.level - 1)) * modifiers(v).fight);
 }
-function smithsOf(state) {
-  const b = forgeOf(state);
-  if (!b) return [];
-  return state.villagers.filter((v) => v.job.kind === "work" && v.job.buildingId === b.id);
+function kiwiExposure(v) {
+  const e = KIWI.exposure;
+  const avg = KIWI.stat.average;
+  const dodge = Math.max(0.5, 1 + e.agility * (v.stats.agility - avg));
+  const tough = Math.max(0.5, 1 + e.endurance * (v.stats.endurance - avg));
+  return modifiers(v).exposure / (kiwiStrength(v) * dodge * tough);
 }
-function forgeRate(state) {
-  const b = forgeOf(state);
-  if (!b || state.forge.orders.length === 0) return 0;
+function workforce(state, b, workers) {
+  if (state.threats.shelterUntil > state.now) return 0;
+  const damaged = b.damaged ? THREATS.damagedWork : 1;
+  const resource = buildingResource(state, b);
+  if (!resource) return workers.length * damaged;
+  return crewWork(state, workers, resource) * damaged;
+}
+function crewWork(state, workers, resource) {
   if (state.threats.shelterUntil > state.now) return 0;
   const beds = bedsOf(state);
-  let work = 0;
-  for (const v of smithsOf(state)) work += forgePower(v) * presence(state, v, beds.get(v.id));
-  if (work <= 0) return 0;
-  const speed = levelDef(b.type, b.level)?.forging ?? 1;
-  const damaged = b.damaged ? THREATS.damagedWork : 1;
-  const night = isNight(state) ? nightWork(state) : 1;
-  const f = work * speed * damaged * night * hungerWork(state) * moraleWork(state, beds);
-  return f > 0 ? Math.max(1, Math.round(FORGE.rate * f)) : 0;
+  const sum = workers.reduce(
+    (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)),
+    0
+  );
+  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds);
 }
-function forgeQueueSize(state) {
-  const b = forgeOf(state);
-  return b ? levelDef(b.type, b.level)?.forgeQueue ?? 0 : 0;
+function mayorOf(state) {
+  return state.villagers.find(
+    (v) => v.classId === "mayor" && v.job.kind !== "expedition" && v.job.kind !== "outpost"
+  );
 }
-function forgeLock(state, id3) {
-  const def = ITEMS[id3];
-  if (!def) return "unknownItem";
-  if (!forgeOf(state)) return "noForge";
-  if (!state.research.done.includes(def.tech)) return "techMissing";
-  if (state.forge.orders.length >= forgeQueueSize(state)) return "forgeQueueFull";
-  if (meteorIronOf(state) < def.iron) return "notEnoughIron";
-  if (!canAfford(state.resources, def.cost)) return "notEnoughResources";
-  return null;
+function colonyBonus(state) {
+  if (!mayorOf(state) || state.speechUntil <= state.now) return 1;
+  return 1 + SKILLS.speechBonus;
 }
-function orderItem(state, id3, orderId) {
-  const def = ITEMS[id3];
-  for (const r of RESOURCE_IDS) state.resources[r] -= def.cost[r] ?? 0;
-  state.meteorIron -= def.iron * IRON_SCALE;
-  state.forge.orders.push({
-    id: orderId,
-    item: id3,
-    progress: 0,
-    paid: { ...def.cost },
-    iron: def.iron
-  });
+function mayorMorale(state) {
+  const mayor = mayorOf(state);
+  if (!mayor) return 0;
+  let bonus = SKILLS.mayorPerCharisma * mayor.stats.charisma;
+  if (hasSkill(mayor, "organisation")) bonus += SKILLS.organisationBonus;
+  return bonus;
 }
-function cancelOrder(state, index) {
-  const [order] = state.forge.orders.splice(index, 1);
-  if (!order) return;
-  for (const r of RESOURCE_IDS) state.resources[r] += order.paid[r] ?? 0;
-  addIron(state, order.iron);
+function regenBonus(workers) {
+  let gatherers = 0;
+  for (const v of workers)
+    if (hasSkill(v, "greenThumb"))
+      gatherers += v.classId === "druid" ? SKILLS.druidRegen : inLine(v.classId, "herbalist") ? SKILLS.herbalistRegen : 1;
+  return 1 + SKILLS.greenThumbRegen * gatherers;
 }
-function nextForgeEvent(state) {
-  const order = state.forge.orders[0];
-  if (!order) return Infinity;
-  const need = orderWork(order.item) - order.progress;
-  if (need <= 0) return state.now;
-  const rate = forgeRate(state);
-  if (rate <= 0) return Infinity;
-  return state.now + Math.max(1, Math.ceil(need / rate));
+function repairSpeed(v) {
+  return builderSpeed(v) * modifiers(v).repair;
 }
-function forgeEta(state) {
-  const at = nextForgeEvent(state);
-  return Number.isFinite(at) ? at - state.now : null;
+function bardMorale(state) {
+  let sum = 0;
+  for (const v of state.villagers) {
+    if (!inLine(v.classId, "bard") || v.job.kind === "expedition" || v.job.kind === "outpost")
+      continue;
+    const ballad = hasSkill(v, "ballad") ? SKILLS.balladBonus : 1;
+    const minstrel = inLine(v.classId, "minstrel") ? SKILLS.minstrelMorale : 1;
+    sum += SKILLS.bardMorale * classGrowth(v) * ballad * minstrel;
+  }
+  return Math.min(SKILLS.bardMax, sum);
 }
-function accrueForge(state, rate, dtMs) {
-  const order = state.forge.orders[0];
-  if (!order || rate <= 0) return;
-  order.progress = Math.min(orderWork(order.item), order.progress + rate * dtMs);
+function drillRate(v, campLevel) {
+  if (!v.classId || classRank(v) >= CAMP.maxRank) return 0;
+  const k = CAMP.drill[Math.min(campLevel, CAMP.drill.length) - 1] ?? 1;
+  return Math.max(1, Math.round(100 * k * modifiers(v).practice));
 }
-function forgeTick(state, at, events) {
-  const orders = state.forge.orders;
-  while (orders[0] && orders[0].progress >= orderWork(orders[0].item)) {
-    const done = orders.shift();
-    storeItem(state, done.item);
-    events.push({ type: "itemForged", at, item: done.item });
+function workMastery(state, b) {
+  if (!b) return null;
+  if (b.type === "library") return "research";
+  if (b.type === "forge") return "build";
+  const resource = buildingResource(state, b);
+  return resource ? RESOURCE_MASTERY[resource] : null;
+}
+function ratesOf(state, v, masteries) {
+  const job2 = v.job;
+  let perHour = 0;
+  let mastery = null;
+  let drill = 0;
+  if (job2.kind === "work") {
+    const camp = state.buildings.find((x) => x.id === job2.buildingId);
+    if (camp?.type === "trainingCamp") drill = drillRate(v, camp.level);
+    perHour = KIWI.xpPerHour.work;
+    let m2 = masteries.get(job2.buildingId);
+    if (m2 === void 0) {
+      m2 = workMastery(
+        state,
+        state.buildings.find((x) => x.id === job2.buildingId)
+      );
+      masteries.set(job2.buildingId, m2);
+    }
+    mastery = m2;
+  } else if (job2.kind === "build") {
+    perHour = KIWI.xpPerHour.build;
+    mastery = "build";
+  } else if (job2.kind === "meteor") {
+    const m2 = state.sky.meteors.find((x) => x.id === job2.meteorId);
+    perHour = KIWI.xpPerHour.work;
+    mastery = m2 ? RESOURCE_MASTERY[m2.resource] : null;
+  } else if (job2.kind === "train" || job2.kind === "transform") {
+    perHour = KIWI.xpPerHour.train;
+  } else if (job2.kind === "guard" || job2.kind === "titan" || job2.kind === "stardust") {
+    perHour = KIWI.xpPerHour.guard;
+  }
+  if (perHour === 0) return { xp: 0, practice: 0, mastery: null, drill };
+  const m = modifiers(v);
+  const spirit = 1 + KIWI.spiritXp * (v.stats.spirit - KIWI.stat.average);
+  const xp = v.level >= KIWI.maxLevel ? 0 : Math.max(1, Math.round(perHour * 100 * spirit * m.xp));
+  const practice2 = mastery && rankOf(v.mastery[mastery]) < KIWI.maxRank ? Math.max(1, Math.round(100 * m.practice)) : 0;
+  return { xp, practice: practice2, mastery: practice2 > 0 ? mastery : null, drill };
+}
+function nextKiwiEvent(state) {
+  let next = Infinity;
+  const resources2 = /* @__PURE__ */ new Map();
+  for (const v of state.villagers) {
+    const r = ratesOf(state, v, resources2);
+    if (r.xp > 0) {
+      const need = xpForLevel(v.level + 1) * XP_SCALE - v.xp;
+      next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.xp)));
+    }
+    if (r.mastery) {
+      const rank = rankOf(v.mastery[r.mastery]);
+      const need = masteryHours(rank + 1) * PRACTICE_SCALE - v.mastery[r.mastery];
+      next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.practice)));
+    }
+    if (r.drill > 0) {
+      const need = CAMP.rankHours[classRank(v) + 1] * PRACTICE_SCALE - v.classXp;
+      next = Math.min(next, state.now + Math.max(1, Math.ceil(need / r.drill)));
+    }
+  }
+  return next;
+}
+function accrueKiwis(state, dtMs, at, events) {
+  const resources2 = /* @__PURE__ */ new Map();
+  for (const v of state.villagers) {
+    const r = ratesOf(state, v, resources2);
+    if (r.mastery) {
+      const before = rankOf(v.mastery[r.mastery]);
+      v.mastery[r.mastery] += r.practice * dtMs;
+      const after = rankOf(v.mastery[r.mastery]);
+      if (after > before) {
+        events.push({
+          type: "masteryUp",
+          at,
+          villagerId: v.id,
+          name: v.name,
+          mastery: r.mastery,
+          rank: after
+        });
+      }
+    }
+    if (r.drill > 0) addClassXp(v, r.drill * dtMs, at, events);
+    if (r.xp > 0) {
+      v.xp += r.xp * dtMs;
+      levelUps(state, v, at, events);
+    }
   }
 }
-function storeItem(state, id3) {
-  const armory = state.forge.armory;
-  armory[id3] = Math.min(FORGE.armoryMax, (armory[id3] ?? 0) + 1);
+function addClassXp(v, raw, at, events) {
+  const before = classRank(v);
+  v.classXp += raw;
+  const after = classRank(v);
+  if (after > before)
+    events.push({ type: "classRankUp", at, villagerId: v.id, name: v.name, rank: after });
 }
-function takeItem(state, id3) {
-  const armory = state.forge.armory;
-  const left = (armory[id3] ?? 0) - 1;
-  if (left > 0) armory[id3] = left;
-  else delete armory[id3];
+function grantClassXp(v, hours, at, events) {
+  if (!v.classId || v.kikiwiwi || classRank(v) >= CAMP.maxRank) return;
+  addClassXp(v, Math.round(hours * modifiers(v).practice * 100) * 36e5, at, events);
 }
-function familyOf(v) {
-  if (v.kikiwiwi) return null;
-  return CLASS_FAMILY[v.classId ?? "none"];
+function grantXp(state, v, points, at, events) {
+  if (v.level >= KIWI.maxLevel) return;
+  v.xp += Math.round(points * modifiers(v).xp) * XP_SCALE;
+  levelUps(state, v, at, events);
 }
-function wearLock(v, id3) {
-  const def = ITEMS[id3];
+function levelUps(state, v, at, events) {
+  const target = levelForXp(v.xp);
+  while (v.level < target) {
+    v.level++;
+    let stat = null;
+    if (v.level % 2 === 1) {
+      stat = withRng(state, (rng) => pickStat(rng, v));
+      if (stat) v.stats[stat]++;
+    } else {
+      v.statPoints++;
+    }
+    events.push({ type: "levelUp", at, villagerId: v.id, name: v.name, level: v.level, stat });
+  }
+}
+function pickStat(rng, v) {
+  const kind = v.job.kind === "work" || v.job.kind === "build" || v.job.kind === "expedition" ? v.job.kind : "other";
+  const weights = KIWI.autoStatWeights[kind];
+  const open = STAT_IDS.filter((id3) => v.stats[id3] < KIWI.stat.cap);
+  const total = open.reduce((sum, id3) => sum + weights[id3], 0);
+  if (total <= 0) return null;
+  let roll = rng.next() * total;
+  for (const id3 of open) {
+    roll -= weights[id3];
+    if (roll < 0) return id3;
+  }
+  return open[open.length - 1];
+}
+function trainLock(state, v, classId, place) {
+  const def = CLASSES[classId];
+  if (!def) return "classLocked";
   if (v.kikiwiwi) return "kikiwiwiNoWork";
-  if (def.slot === "weapon" && familyOf(v) !== def.kind) return "wrongFamily";
+  const camp = place.type === "trainingCamp";
+  if (!camp && def.tier !== 1) return "classLocked";
+  if (camp && !v.classId) return "wrongClass";
+  if (place.level < (camp && def.tier === 1 ? 1 : def.schoolLevel)) return "classLocked";
+  if (ageOf(state) < (def.age ?? 0)) return "classLocked";
+  if (v.classId === classId) return "alreadyThisClass";
+  if (def.tier > 1 && !def.parents?.includes(v.classId)) return "wrongClass";
+  if (v.level < def.minLevel) return "levelTooLow";
+  const min = CLASS_RULES.statMin[def.tier];
+  if (v.stats[def.stat] < min || def.stat2 && v.stats[def.stat2] < min) return "statTooLow";
+  if (def.tier > 1 && classRank(v) < CLASS_RULES.promoteRank) return "rankTooLow";
   return null;
 }
-function unequip(state, v, slot) {
-  const id3 = v.gear?.[slot];
-  if (!id3 || !v.gear) return;
-  storeItem(state, id3);
-  delete v.gear[slot];
-  if (!v.gear.weapon && !v.gear.armor) delete v.gear;
+function trainingCost(v, classId, place) {
+  const camp = place?.type === "trainingCamp";
+  const promotion = CLASSES[classId].tier > 1;
+  const k = !v.classId || promotion ? 1 : camp ? CAMP.retrainCost : SKILLS.retrainCost;
+  const out = {};
+  const cost = CLASSES[classId].cost;
+  for (const id3 of RESOURCE_IDS) if (cost[id3]) out[id3] = Math.round(cost[id3] * k);
+  return out;
 }
-function equip(state, v, id3, kept) {
-  const slot = ITEMS[id3].slot;
-  unequip(state, v, slot);
-  takeItem(state, id3);
-  v.gear = { ...v.gear, [slot]: id3 };
-  if (kept) v.gear.kept = true;
-  else delete v.gear.kept;
+function trainingDuration(place, classId) {
+  const speed = levelDef(place.type, place.level)?.trainingTime ?? 1;
+  return Math.round(CLASSES[classId].trainingMs * speed);
 }
-function returnGear(state, v) {
-  unequip(state, v, "weapon");
-  unequip(state, v, "armor");
+
+// packages/shared/src/battle/units.ts
+var clamp2 = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+function kiwiWeapon(v, state) {
+  if (v.kikiwiwi) return "stomp";
+  if (v.classId === "warrior" && techEffects(state).firearms) return "musket";
+  return CLASS_WEAPONS[v.classId ?? "none"];
 }
-function armorKind(v) {
-  const f = familyOf(v);
-  return f === "bow" || f === "staff" ? "light" : "heavy";
+function kiwiUnit(v, state, role, at, sector, side = 0) {
+  const K = KIWI_UNIT;
+  const avg = KIWI.stat.average;
+  const st = v.stats;
+  const tech = techEffects(state);
+  const weaponId = role === "militia" && !v.kikiwiwi ? "beak" : kiwiWeapon(v, state);
+  const base = WEAPONS[weaponId];
+  const level = 1 + K.perLevel * (v.level - 1);
+  const fight = Math.sqrt(modifiers(v).fight);
+  const titan = titanPower(state, v);
+  const gear = gearEffect(v);
+  const spell = weaponId === "fireball";
+  const power = spell ? 1 + K.spiritDamage * (st.spirit - avg) : 1 + K.strengthDamage * (st.strength - avg);
+  const damage = base.damage * Math.max(0.5, power) * level * fight * titan * (role === "guard" ? tech.guard * gear.damage : K.militiaDamage);
+  const aim = base.style === "melee" ? base.accuracy : clamp2(base.accuracy + K.dexterityAccuracy * (st.dexterity - avg), ...K.accuracy);
+  const hp = K.hp * Math.max(0.5, 1 + K.enduranceHp * (st.endurance - avg)) * level * fight * (v.kikiwiwi ? K.titanHp / 2 : 1) * (v.classId ? K.classHp[v.classId] ?? 1 : 1) * gear.hp;
+  const extraDodge = v.classId ? K.classDodge[v.classId] ?? 0 : 0;
+  const chorus = hasSkill(v, "chorus");
+  let aura = inLine(v.classId, "bard") && role === "guard" ? {
+    range: chorus ? K.aura.chorusRange : K.aura.range,
+    // Chantier 37: a minstrel sings louder.
+    boost: (chorus ? K.aura.chorusBoost : K.aura.boost) + (inLine(v.classId, "minstrel") ? K.aura.minstrel : 0)
+  } : void 0;
+  if (v.classId === "paladin" && role === "guard")
+    aura = {
+      range: Math.max(aura?.range ?? 0, K.paladinAura.range),
+      boost: Math.max(aura?.boost ?? 0, K.paladinAura.boost)
+    };
+  return {
+    ref: v.id,
+    side,
+    body: v.kikiwiwi ? "kikiwiwi" : "kiwi",
+    role,
+    kind: v.classId ?? "none",
+    name: v.name,
+    level: v.level,
+    classId: v.classId,
+    hp,
+    // Armour (technology and the piece it wears) spares the kiwis.
+    armor: clamp2(1 - tech.injuries + gear.armor, 0, 0.6),
+    speed: K.speed * Math.max(0.5, 1 + K.agilitySpeed * (st.agility - avg)) * gear.speed,
+    dodge: clamp2(
+      K.dodge + extraDodge + K.agilityDodge * (st.agility - avg),
+      0,
+      K.maxDodge + extraDodge
+    ),
+    size: v.kikiwiwi ? K.titanSize : 1,
+    flying: false,
+    fixed: false,
+    weaponId,
+    weapon: { ...base, damage, accuracy: aim },
+    ammo: null,
+    carry: 0,
+    power: 0,
+    at,
+    delay: 0,
+    building: null,
+    fightsBack: true,
+    huntsKiwis: false,
+    sector,
+    ...aura ? { aura } : {}
+  };
 }
-function betterPiece(state, v, slot) {
-  const worn = v.gear?.[slot];
-  let best = null;
-  let score = worn ? tierIndex(ITEMS[worn].tier) * 2 + (ITEMS[worn].kind === armorKind(v) ? 1 : 0) : -1;
-  for (const id3 of ITEM_IDS) {
-    const def = ITEMS[id3];
-    if (def.slot !== slot || !state.forge.armory[id3] || wearLock(v, id3)) continue;
-    const s = tierIndex(def.tier) * 2 + (slot === "armor" && def.kind === armorKind(v) ? 1 : 0);
-    if (s > score) {
-      score = s;
-      best = id3;
+function enemyUnit(kind, k, ref, at, delay, sector, level) {
+  const p = ENEMIES[kind];
+  const s = Math.sqrt(Math.max(0.05, k));
+  const weapon = WEAPONS[p.weapon];
+  return {
+    ref,
+    side: 1,
+    body: p.body,
+    role: "raider",
+    kind,
+    name: "",
+    level,
+    classId: null,
+    hp: p.hp * s,
+    armor: p.armor,
+    speed: p.speed,
+    dodge: p.dodge,
+    size: p.body === "bat" ? 0 : p.size,
+    flying: p.body === "bat",
+    fixed: false,
+    weaponId: p.weapon,
+    weapon: { ...weapon, damage: weapon.damage * s },
+    ammo: null,
+    carry: p.carry,
+    power: p.power * k,
+    at,
+    delay,
+    building: null,
+    fightsBack: p.fightsBack,
+    huntsKiwis: p.huntsKiwis,
+    sector
+  };
+}
+function turretUnit(b, state, ammoShare, buildingIndex) {
+  const def = levelDef(b.type, b.level);
+  if (!def?.defense) return null;
+  const air = (def.defense.air ?? 0) > 0;
+  const defense = (air ? def.defense.air : def.defense.ground) ?? 0;
+  const weaponId = air ? "skyShot" : "seedShot";
+  const w = WEAPONS[weaponId];
+  return {
+    ref: b.id,
+    side: 0,
+    body: "turret",
+    role: "turret",
+    kind: b.type,
+    name: "",
+    level: b.level,
+    classId: null,
+    hp: 1,
+    armor: 0,
+    speed: 0,
+    dodge: 0,
+    size: 0,
+    flying: false,
+    fixed: true,
+    weaponId,
+    weapon: {
+      ...w,
+      damage: defense * TURRET_SHOT * techEffects(state).turretDefense,
+      range: turretRange(b.type, b.level)
+    },
+    ammo: Math.floor((def.ammo ?? 0) * ammoShare + 1e-9),
+    carry: 0,
+    power: 0,
+    at: { q: b.q, r: b.r },
+    delay: 0,
+    building: buildingIndex,
+    fightsBack: false,
+    huntsKiwis: false,
+    sector: null
+  };
+}
+
+// packages/shared/src/battle/landing.ts
+var FIELD_RADIUS = CIV.ring.max + 1;
+var SLICE = Math.PI / 3;
+function angleOf2(h) {
+  const p = { x: Math.sqrt(3) * (h.q + h.r / 2), y: 1.5 * h.r };
+  return (Math.atan2(p.y, p.x) + 2 * Math.PI) % (2 * Math.PI);
+}
+function parcelTiles(sector) {
+  return hexDisk({ q: 0, r: 0 }, FIELD_RADIUS).filter(
+    (h) => hexDistance(h, { q: 0, r: 0 }) >= 1 && sectorOf(h.q, h.r) === sector
+  );
+}
+function landingTile(sector, blocked = /* @__PURE__ */ new Set()) {
+  const inner = sector < INTEL.sectors / 2;
+  const edge = (inner ? INTEL.innerRadius : FIELD_RADIUS) - LANDING.inset;
+  const mid = (sector % 6 + 0.5) * SLICE;
+  const gap = (h) => {
+    const d = angleOf2(h) - mid;
+    return Math.abs(Math.atan2(Math.sin(d), Math.cos(d)));
+  };
+  const tiles = parcelTiles(sector).filter((h) => !blocked.has(hexKey(h)));
+  let best = tiles[0] ?? { q: 0, r: 0 };
+  let bestScore = Infinity;
+  for (const h of tiles) {
+    const score = Math.abs(hexDistance(h, { q: 0, r: 0 }) - edge) * 2 + gap(h);
+    if (score < bestScore - 1e-9) {
+      best = h;
+      bestScore = score;
     }
   }
   return best;
 }
-function equipGear(state) {
-  for (const v of state.villagers) {
-    const w = v.gear?.weapon;
-    if (w && wearLock(v, w)) unequip(state, v, "weapon");
-    if (v.gear?.armor && v.kikiwiwi) unequip(state, v, "armor");
-  }
-  if (!state.automation.equip || Object.keys(state.forge.armory).length === 0) return;
-  const away = (v) => v.job.kind === "expedition" || v.job.kind === "outpost";
-  const order = state.villagers.map((v, i) => ({ v, i })).filter(({ v }) => !v.kikiwiwi && !v.gear?.kept && !away(v)).sort(
-    (a, b) => Number(b.v.job.kind === "guard") - Number(a.v.job.kind === "guard") || kiwiStrength(b.v) - kiwiStrength(a.v) || a.i - b.i
-  );
-  for (const { v } of order) {
-    for (const slot of ["weapon", "armor"]) {
-      const id3 = betterPiece(state, v, slot);
-      if (id3) equip(state, v, id3, false);
-    }
-  }
-}
-var NO_GEAR = { damage: 1, hp: 1, armor: 0, speed: 1 };
-function gearEffect(v) {
-  if (!v.gear) return NO_GEAR;
-  const w = v.gear.weapon ? ITEMS[v.gear.weapon] : null;
-  const a = v.gear.armor ? ITEMS[v.gear.armor] : null;
+function alienUnit(u, k, ref, at, delay) {
+  const base = enemyUnit(u.kind, k, ref, at, delay, null, u.level);
+  const level = 1 + KIWI_UNIT.perLevel * Math.max(0, u.level - 1);
+  const w = u.weapon ? ITEMS[u.weapon] : null;
+  const a = u.armor ? ITEMS[u.armor] : null;
   return {
-    damage: w?.damage ?? 1,
-    hp: a?.hp ?? 1,
-    armor: a?.armor ?? 0,
-    speed: a?.speed ?? 1
+    ...base,
+    side: 0,
+    role: "guard",
+    hp: base.hp * level * (a?.hp ?? 1),
+    armor: Math.min(0.6, base.armor + (a?.armor ?? 0)),
+    speed: base.speed * (a?.speed ?? 1),
+    weapon: { ...base.weapon, damage: base.weapon.damage * level * (w?.damage ?? 1) },
+    carry: 0
   };
 }
-function armoryCount(state) {
-  return Object.values(state.forge.armory).reduce((sum, n) => sum + (n ?? 0), 0);
-}
-function itemOpen(state, id3) {
-  return techEffects(state).forge && state.research.done.includes(ITEMS[id3].tech);
-}
-
-// packages/shared/src/sim/expeditions.ts
-function launchpadOf(state, id3) {
-  const b = getBuilding(state, id3);
-  return b?.type === "launchpad" ? b : void 0;
-}
-function shipOf(state) {
-  const ship = SHIPS[shipIdForAge(ageOf(state))];
-  const tech = techEffects(state);
-  return { ...ship, armor: ship.armor + tech.armor, recon: ship.recon + tech.recon };
-}
-function shipReliability(ship, crew, fuel = false) {
-  const dex = Math.max(KIWI.stat.average, ...crew.map((v) => v.stats.dexterity));
-  const mend = Math.min(SHIP_REPAIR.max, SHIP_REPAIR.perDexterity * (dex - KIWI.stat.average));
-  const dust = fuel ? FUEL.reliability : 0;
-  const engineer = crew.some((v) => v.classId === "engineer") ? SKILLS.engineerMend : 0;
-  return round22(Math.min(1, ship.reliability + mend + dust + engineer));
-}
-function travelFactor(state, plan) {
-  return techEffects(state).travel * (plan.fuel ? FUEL.travel : 1);
-}
-function shipCargo(launchpad) {
-  return levelDef("launchpad", launchpad.level)?.cargo ?? 0;
-}
-function travelTime(target, launchpad, crew = [], mission = "raid", tech = 1) {
-  const pad = levelDef("launchpad", launchpad.level)?.travelTime ?? 1;
-  const wind = crew.some((v) => hasSkill(v, "tailwind")) ? SKILLS.tailwindTravel : 1;
-  const scout = crew.some((v) => inLine(v.classId, "navigator")) ? SKILLS.navigatorTravel : crew.some((v) => inLine(v.classId, "scout")) ? SKILLS.scoutTravel : 1;
-  const light = mission === "recon" ? RECON.travel : 1;
-  return Math.round(target.travelMs * pad * wind * scout * light * tech / 1e3) * 1e3;
-}
-var clamp2 = (v, min, max) => Math.max(min, Math.min(max, v));
-var mean = (crew, f) => crew.length ? crew.reduce((sum, v) => sum + f(v), 0) / crew.length : 0;
-function reconForecast(crew, ship) {
-  const q = RECON.quality;
-  const avg = KIWI.stat.average;
-  const scouting = crew.some((v) => hasSkill(v, "scouting"));
-  const quality = clamp2(
-    q.base + mean(
-      crew,
-      (v) => q.perStat * ((v.stats.agility + v.stats.spirit) / 2 - avg) + q.perLevel * (v.level - 1)
-    ) + (scouting ? q.scouting : 0) + (ship?.recon ?? 0),
-    0.05,
-    1
-  );
-  const sp = RECON.spot;
-  const spotChance = clamp2(
-    sp.base + sp.perExtraKiwi * Math.max(0, crew.length - 1) - sp.perAgility * mean(crew, (v) => v.stats.agility - avg) - (scouting ? sp.scouting : 0),
-    sp.min,
-    sp.max
-  );
-  return {
-    quality: round22(quality),
-    spotChance: round22(spotChance),
-    sectors: RECON.sectors.base + Math.round(RECON.sectors.perQuality * quality),
-    spread: round22(RECON.spread.worst - (RECON.spread.worst - RECON.spread.best) * quality)
+function capped(units) {
+  const flying = (u) => ENEMIES[u.kind].body === "bat";
+  const scale = (air) => {
+    const total = units.filter((u) => flying(u) === air).reduce((s, u) => s + u.count, 0);
+    const cap = air ? LANDING.maxAir : LANDING.maxGround;
+    return total > cap ? total / cap : 1;
   };
+  const k = { ground: scale(false), air: scale(true) };
+  return units.filter((u) => u.count > 0).map((unit) => {
+    const f = flying(unit) ? k.air : k.ground;
+    const count = Math.max(1, Math.round(unit.count / f));
+    return { unit, count, k: unit.count / count };
+  });
 }
-function rations(state, crew, ms2) {
-  const eaters = crew.reduce((sum, v) => sum + modifiers(v).rations, 0) * techEffects(state).rations;
-  return {
-    pulp: eaters * EXPEDITIONS.hourlyRations.pulp * ms2 / HOUR_MS,
-    juice: eaters * EXPEDITIONS.hourlyRations.juice * ms2 / HOUR_MS
-  };
-}
-function crewWeight(crew) {
-  return crew.reduce((sum, v) => sum + EXPEDITIONS.kiwiWeight * modifiers(v).weight, 0);
-}
-function crewOf(state, crew) {
-  const available = availableCrew(state);
-  if (typeof crew === "number")
-    return available.filter((v) => !v.kikiwiwi).slice(0, Math.max(0, crew));
-  const free = new Map(available.map((v) => [v.id, v]));
-  const out = [];
-  for (const id3 of crew) {
-    const v = free.get(id3);
-    if (!v) return null;
-    free.delete(id3);
-    out.push(v);
-  }
-  return out;
-}
-function lossShare(strength, defense) {
-  const ratio = defense / Math.max(strength, 1e-6);
-  return strength >= defense ? Math.min(EXPEDITIONS.victoryLosses.max, EXPEDITIONS.victoryLosses.factor * ratio) : Math.min(
-    EXPEDITIONS.defeatLosses.max,
-    Math.max(EXPEDITIONS.defeatLosses.min, 0.5 + 0.3 * (ratio - 1))
-  );
-}
-function drawLosses(state, crew, count) {
-  if (count <= 0) return [];
-  return withRng(state, (rng) => {
-    const pool = crew.map((v) => ({ id: v.id, w: kiwiExposure(v) }));
-    const out = [];
-    while (out.length < count && pool.length > 0) {
-      const total = pool.reduce((sum, p) => sum + p.w, 0);
-      let roll = rng.next() * total;
-      let i = 0;
-      for (; i < pool.length - 1; i++) {
-        roll -= pool[i].w;
-        if (roll < 0) break;
+function parcelField(sector, alien, side = 0) {
+  const own = parcelTiles(sector);
+  const keys = new Set(own.map((h) => hexKey(h)));
+  const field = /* @__PURE__ */ new Map();
+  for (const h of own) field.set(hexKey(h), h);
+  for (let ring = 0; ring < 2; ring++)
+    for (const h of [...field.values()])
+      for (const n of hexNeighbors(h)) {
+        const d = hexDistance(n, { q: 0, r: 0 });
+        if (d < 1 || d > FIELD_RADIUS) continue;
+        field.set(hexKey(n), n);
       }
-      out.push(pool[i].id);
-      pool.splice(i, 1);
-    }
-    return out;
-  });
+  const tiles = [...field.values()].sort((a, b) => a.q - b.q || a.r - b.r).map((h) => ({ q: h.q, r: h.r, cost: 1 }));
+  const blocked = /* @__PURE__ */ new Set();
+  const buildings = [];
+  for (const b of alien) {
+    const key = hexKey(b);
+    if (!field.has(key) || blocked.has(key)) continue;
+    blocked.add(key);
+    buildings.push({
+      ref: `${b.kind}:${b.q},${b.r}`,
+      type: b.kind,
+      side,
+      tiles: [{ q: b.q, r: b.r }],
+      hp: 0,
+      loot: [0, 0, 0, 0],
+      priority: 0
+    });
+  }
+  return { own, keys, field, tiles, buildings, blocked };
 }
-function crewMembers(state, ids) {
-  return ids.map((id3) => state.villagers.find((v) => v.id === id3)).filter((v) => !!v);
-}
-function coverage(have, need) {
-  const p = need.pulp > 0 ? have.pulp / need.pulp : 1;
-  const j = need.juice > 0 ? have.juice / need.juice : 1;
-  return Math.max(0, Math.min(1, p, j));
-}
-function strengthOf(state, crew, fed) {
-  const hunger = EXPEDITIONS.starvingStrength + (1 - EXPEDITIONS.starvingStrength) * fed;
-  const titan = techEffects(state).kikiwiwiPower;
-  const total = crew.reduce((sum, v) => sum + kiwiStrength(v) * (v.kikiwiwi ? titan : 1), 0);
-  const scouting = crew.some((v) => hasSkill(v, "scouting")) ? 1 + SKILLS.scoutingStrength : 1;
-  return total * EXPEDITIONS.strengthPerKiwi * hunger * scouting;
-}
-function lootByAge(state) {
-  const f = EXPEDITIONS.lootByAge;
-  return f[Math.min(ageOf(state), f.length - 1)] ?? 1;
-}
-function potentialLoot(state, distance) {
-  const base = alienDefOf(distance).loot;
-  const k = lootByAge(state);
-  const out = emptyResources();
-  for (const id3 of RESOURCE_IDS) out[id3] = Math.round(base[id3] * k);
-  return out;
-}
-function forecastExpedition(state, plan) {
-  const pad = launchpadOf(state, plan.launchpadId);
-  const target = state.targets.find((t) => t.id === plan.targetId);
-  if (!pad || !target) return null;
-  const crew = crewOf(state, plan.crew) ?? [];
-  const mission = plan.mission ?? "raid";
-  const cargo = shipCargo(pad);
-  const travelMs = travelTime(target, pad, crew, mission, travelFactor(state, plan));
-  const need = rations(state, crew, travelMs);
-  const fed = coverage(plan.provisions, need);
-  const base = strengthOf(state, crew, fed);
-  const final = mission === "final" ? finalForecast(state, crew, fed, state.now) : null;
-  const landing = mission === "land" && plan.sector !== void 0 ? landingForecast(
-    state,
-    target.id,
-    plan.sector,
-    crew,
-    plan.orders ?? LANDING.defaultOrders,
-    fed,
-    state.now
-  ) : null;
-  const defense = mission === "assault" ? plan.sector === void 0 ? null : assaultEnemy(state, plan.sector, state.now) : mission === "raid" || mission === "recon" ? intelView(state, target.id, state.now)?.defense ?? null : null;
-  const strength = { min: base * (1 - EXPEDITIONS.luck), max: base * (1 + EXPEDITIONS.luck) };
-  const odds = landing ? landing.odds : mission === "land" ? "unknown" : final ? final.odds : mission === "reinforce" || mission === "found" ? "likely" : !defense ? "unknown" : strength.min >= defense.max ? "likely" : strength.max >= defense.min ? "uncertain" : "unlikely";
-  const mid = (r) => (r.min + r.max) / 2;
-  const guess = final ? final.queen ? base * Math.max(
-    mid(final.queen.ground) / Math.max(mid(final.strength.ground), 1e-6),
-    mid(final.queen.air) / Math.max(mid(final.strength.air), 1e-6)
-  ) : null : defense ? mid(defense) : null;
-  const fighters = final ? crew.length + allHolders(state).length : crew.length;
-  const kiwisWeight = crewWeight(crew);
-  const freight = RESOURCE_IDS.reduce((sum, id3) => sum + (plan.freight?.[id3] ?? 0), 0);
-  const weight = kiwisWeight + (plan.provisions.pulp + plan.provisions.juice + freight) * EXPEDITIONS.resourceWeight;
-  const ship = shipOf(state);
-  const expectedLosses = landing ? landing.expectedDead : guess === null || mission === "land" ? 0 : Math.min(fighters, fighters * lossShare(base, guess) * (1 - ship.armor));
-  const exposure = crew.map((v) => kiwiExposure(v));
-  const totalExposure = exposure.reduce((a, b) => a + b, 0) || 1;
-  const risk = {};
+function landingSetup(state, crew, input) {
+  const { sector } = input;
+  const { own, keys, field, tiles, buildings, blocked } = parcelField(sector, input.buildings);
+  const ship = landingTile(sector, blocked);
+  const shipKey = hexKey(ship);
+  const free = (h) => field.has(hexKey(h)) && !blocked.has(hexKey(h));
+  const exits = tiles.map((t, i) => ({ t, i })).filter(({ t }) => hexDistance(t, ship) <= 1 && free(t)).map(({ i }) => i);
+  const units = [];
+  const around = tiles.filter((t) => free(t)).sort(
+    (a, b) => hexDistance(a, ship) - hexDistance(b, ship) || (hexKey(a) === shipKey ? -1 : 0) || a.q - b.q || a.r - b.r
+  );
+  const hunger = 0.5 + 0.5 * Math.max(0, Math.min(1, input.fed));
   crew.forEach((v, i) => {
-    risk[v.id] = Math.min(1, expectedLosses * exposure[i] / totalExposure);
+    const at = around[Math.floor(i / 2) % Math.max(1, around.length)] ?? ship;
+    const u = kiwiUnit(v, state, "guard", at, null, 1);
+    units.push({
+      ...u,
+      role: "assault",
+      power: 1,
+      weapon: { ...u.weapon, damage: u.weapon.damage * hunger }
+    });
   });
-  const left = {
-    pulp: plan.provisions.pulp - Math.min(plan.provisions.pulp, need.pulp),
-    juice: plan.provisions.juice - Math.min(plan.provisions.juice, need.juice)
+  const posts = (air) => {
+    const kind = air ? "roost" : "burrow";
+    const near = input.buildings.filter((b) => b.kind === kind && field.has(hexKey(b)));
+    const from = near.length > 0 ? near : input.buildings.filter((b) => keys.has(hexKey(b)));
+    const out = [];
+    for (const b of from)
+      for (const n2 of hexNeighbors(b)) if (free(n2) && keys.has(hexKey(n2))) out.push(n2);
+    if (out.length === 0) out.push(...own.filter((h) => free(h) && hexDistance(h, ship) >= 3));
+    return out.length > 0 ? out : [ship];
   };
-  const returnCrew = returnCrewOf(state, plan, crew, mission);
-  const returnNeed = rations(state, returnCrew, travelMs);
-  const returnSurplus = {
-    pulp: left.pulp - returnNeed.pulp,
-    juice: left.juice - returnNeed.juice
-  };
-  const returnWeight = crewWeight(returnCrew);
-  const lootRoom = Math.max(
-    0,
-    cargo - returnWeight - (left.pulp + left.juice) * EXPEDITIONS.resourceWeight
-  );
+  const groundPosts = posts(false);
+  const airPosts = posts(true);
+  let n = 0;
+  for (const { unit, count, k } of capped(input.units)) {
+    const air = ENEMIES[unit.kind].body === "bat";
+    const list = air ? airPosts : groundPosts;
+    for (let i = 0; i < count; i++, n++)
+      units.push(alienUnit(unit, k, `a${n}`, list[n % list.length], 0));
+  }
+  for (const help of input.help) {
+    const gate = tiles.filter((t) => free(t) && sectorOf(t.q, t.r) === help.from);
+    const entry = gate.length > 0 ? gate : groundPosts;
+    let j = 0;
+    for (const { unit, count, k } of capped(help.units))
+      for (let i = 0; i < count; i++, j++, n++)
+        units.push(
+          alienUnit(
+            unit,
+            k,
+            `h${n}`,
+            entry[j % entry.length],
+            LANDING.reinforce.delayS + j * BATTLE.enterGap
+          )
+        );
+  }
   return {
-    cargo,
-    weight,
-    travelMs,
-    needOneWay: need,
-    fed,
-    returnSurplus,
-    strength,
-    defense: landing ? landing.power : defense,
-    odds,
-    lootRoom,
-    crew,
-    expectedLosses,
-    woundsOnly: mission !== "land" && guess !== null && base >= guess,
-    risk,
-    mission,
-    recon: mission === "recon" ? reconForecast(crew, ship) : null,
-    ship,
-    reliability: shipReliability(ship, crew, !!plan.fuel),
-    returnCrew,
-    returnWeight,
-    final,
-    launchCost: launchCost(state, crew, mission),
-    landing
+    tiles,
+    exits,
+    buildings,
+    units,
+    orders: [
+      { posture: "bold", retreatBelow: 0 },
+      {
+        posture: input.orders.posture,
+        // "Once this share has fallen": the engine runs below the share left.
+        retreatBelow: 1 - input.orders.retreatAt + 1e-6,
+        priority: input.orders.priority
+      }
+    ],
+    clearEnds: true
   };
 }
-function launchCost(state, crew, mission = "raid") {
-  const out = emptyResources();
-  if (mission === "found") return out;
-  const L = EXPEDITIONS.launchCost;
-  const seats = crew.reduce((sum, v) => sum + (v.kikiwiwi ? L.kikiwiwi : 1), 0);
-  const k = seats * L.ship[shipIdForAge(ageOf(state))];
-  out.fiber = Math.round(L.perKiwi.fiber * k);
-  out.juice = Math.round(L.perKiwi.juice * k);
-  return out;
+function landingOutcome(log2) {
+  const r = log2.result;
+  const lost = r.lost?.length ?? r.attackers.fallen;
+  if ((r.defendersLeft ?? 1) === 0 && lost < r.attackers.total) return "victory";
+  return r.attackers.escaped > 0 ? "retreat" : "defeat";
 }
-function returnCrewOf(state, plan, crew, mission) {
-  if (mission === "assault") return crew.filter((v) => !(plan.holders ?? []).includes(v.id));
-  if (mission === "final") return [...crew, ...allHolders(state)];
-  if (mission === "found") return [];
-  if (mission === "reinforce") {
-    const b = plan.sector === void 0 ? void 0 : bridgeheadAt(state, plan.sector);
-    return b ? crewMembers(
-      state,
-      (plan.bringBack ?? []).filter((id3) => b.holders.includes(id3))
-    ) : [];
-  }
-  return crew;
-}
-function availableCrew(state) {
-  const idle = idleVillagers(state);
-  const workers = state.buildings.map((b) => workersOf(state, b.id)).sort((a, b) => b.length - a.length).flat();
-  return [...idle, ...workers];
-}
-function maxCrew(state, launchpad, mission = "raid") {
-  const byCargo = Math.floor(shipCargo(launchpad) / EXPEDITIONS.kiwiWeight);
-  const byPeople = availableCrew(state).length - EXPEDITIONS.keepHome;
-  const byMission = mission === "recon" ? RECON.maxCrew : Infinity;
-  return Math.max(0, Math.min(byCargo, byPeople, byMission));
-}
-function minCrew(mission = "raid") {
-  if (mission === "found") return COLONY.minSettlers;
-  return mission === "recon" ? RECON.minCrew : mission === "reinforce" ? 0 : EXPEDITIONS.minCrew;
-}
-function isLaunchpadBusy(state, id3) {
-  return state.expeditions.some((e) => e.launchpadId === id3 && e.status !== "done") || state.shipments.some((x) => x.launchpadId === id3);
-}
-function cleanFreight(f) {
-  const out = emptyResources();
-  for (const r of RESOURCE_IDS) out[r] = Math.max(0, Math.floor(f[r] ?? 0));
-  return out;
-}
-function launch(state, plan, now, id3) {
-  const pad = launchpadOf(state, plan.launchpadId);
-  const target = state.targets.find((t) => t.id === plan.targetId);
-  const crew = crewOf(state, plan.crew);
-  const mission = plan.mission ?? "raid";
-  for (const v of crew) v.job = { kind: "expedition", expeditionId: id3 };
-  state.resources.pulp -= plan.provisions.pulp;
-  state.resources.juice -= plan.provisions.juice;
-  const freight = mission === "found" && plan.freight ? cleanFreight(plan.freight) : null;
-  if (freight) for (const r of RESOURCE_IDS) state.resources[r] -= freight[r];
-  const travelMs = travelTime(target, pad, crew, mission, travelFactor(state, plan));
-  const failed = withRng(
-    state,
-    (rng) => !rng.chance(shipReliability(shipOf(state), crew, !!plan.fuel))
-  );
-  const delayed = failed && mission === "land";
-  const broken = failed && !delayed;
-  const outMs = broken ? Math.round(travelMs / 2e3) * 1e3 : delayed ? Math.round(travelMs * LANDING.breakdown.delay / 1e3) * 1e3 : travelMs;
-  const cargo = delayed ? Math.floor(shipCargo(pad) * LANDING.breakdown.cargo) : shipCargo(pad);
-  const returnMs = delayed ? travelMs : outMs;
-  const expedition = {
-    id: id3,
-    mission,
-    targetId: target.id,
-    launchpadId: pad.id,
-    crew: crew.map((v) => v.id),
-    roster: crew.map((v) => ({
-      id: v.id,
-      name: v.name,
-      level: v.level,
-      shiny: v.shiny,
-      classId: v.classId
-    })),
-    provisions: { ...emptyResources(), pulp: plan.provisions.pulp, juice: plan.provisions.juice },
-    cargo,
-    departedAt: now,
-    arriveAt: now + outMs,
-    returnAt: now + outMs + returnMs,
-    status: "outbound",
-    result: null,
-    ...broken ? { broken: true } : {},
-    ...plan.sector !== void 0 && (mission === "assault" || mission === "reinforce" || mission === "land") ? { sector: plan.sector } : {},
-    ...mission === "land" ? { orders: { ...plan.orders ?? LANDING.defaultOrders } } : {},
-    ...delayed ? { delayed: true } : {},
-    ...mission === "assault" && plan.holders ? { holders: [...plan.holders] } : {},
-    ...mission === "reinforce" && plan.bringBack ? { bringBack: [...plan.bringBack] } : {},
-    ...freight ? { freight } : {}
-  };
-  state.expeditions.push(expedition);
-  return expedition;
-}
-function resolveArrival(state, e) {
-  const target = state.targets.find((t) => t.id === e.targetId);
-  const travelMs = e.arriveAt - e.departedAt;
-  const members = crewMembers(state, e.crew);
-  const need = rations(state, members, travelMs);
-  const fed = coverage(e.provisions, need);
-  e.provisions.pulp -= Math.min(e.provisions.pulp, need.pulp);
-  e.provisions.juice -= Math.min(e.provisions.juice, need.juice);
-  if (e.broken) {
-    e.status = "returning";
-    e.result = {
-      victory: false,
-      aborted: true,
-      broken: true,
-      strength: 0,
-      defense: 0,
-      fed: round22(fed),
-      lostInBattle: [],
-      lostOnReturn: [],
-      loot: emptyResources()
-    };
-    return;
-  }
-  if (!target) {
-    e.status = "returning";
-    e.result = {
-      victory: false,
-      aborted: true,
-      strength: 0,
-      defense: 0,
-      fed: round22(fed),
-      lostInBattle: [],
-      lostOnReturn: [],
-      loot: emptyResources()
-    };
-    return;
-  }
-  if (e.mission === "found") return landSettlers(state, e, members, fed);
-  if (e.mission === "land") return resolveLanding(state, e, members, fed);
-  e.status = "returning";
-  e.result = {
-    victory: false,
-    aborted: true,
-    strength: 0,
-    defense: 0,
-    fed: round22(fed),
-    lostInBattle: [],
-    lostOnReturn: [],
-    loot: emptyResources()
-  };
-}
-function resolveReturn(state, e, events = []) {
-  const result2 = e.result;
-  const members = crewMembers(state, e.crew);
-  const need = rations(state, members, e.returnAt - e.arriveAt);
-  const pantry = {
-    pulp: e.provisions.pulp + result2.loot.pulp,
-    juice: e.provisions.juice + result2.loot.juice
-  };
-  const fed = coverage(pantry, need);
-  const starving = Math.floor(e.crew.length * (1 - fed) * EXPEDITIONS.starvationLossRate);
-  const lost = drawLosses(state, members, starving);
-  removeVillagers(state, lost, "starvation", e.returnAt);
-  e.crew = e.crew.filter((id3) => !lost.includes(id3));
-  result2.lostOnReturn = lost.map((id3) => nameOf(e, id3));
-  const xp = (KIWI.expeditionXp.base + (result2.victory ? KIWI.expeditionXp.victory * (e.mission === "land" ? LANDING.victoryXp : 1) : 0)) * (e.mission === "recon" ? RECON.xp : 1);
-  for (const v of crewMembers(state, e.crew)) {
-    if (!result2.aborted) {
-      v.history.expeditions++;
-      if (result2.victory) v.history.victories++;
-      if (result2.victory && e.mission === "land") v.veteran = (v.veteran ?? 0) + 1;
-    }
-    grantXp(state, v, result2.aborted ? xp / 2 : xp, e.returnAt, events);
-    const drill = CAMP.expeditionHours.base + (result2.victory ? CAMP.expeditionHours.victory : 0);
-    grantClassXp(v, result2.aborted ? drill / 2 : drill, e.returnAt, events);
-  }
-  const unloaded = {
-    pulp: Math.max(0, pantry.pulp - need.pulp),
-    juice: Math.max(0, pantry.juice - need.juice),
-    fiber: e.provisions.fiber + result2.loot.fiber,
-    seeds: e.provisions.seeds + result2.loot.seeds
-  };
-  for (const id3 of RESOURCE_IDS) state.resources[id3] += unloaded[id3];
-  const hurt = new Set(result2.injured ?? []);
-  for (const v of state.villagers) {
-    if (v.job.kind !== "expedition" || v.job.expeditionId !== e.id) continue;
-    v.job = hurt.has(v.id) ? {
-      kind: "injured",
-      until: e.returnAt + (e.mission === "recon" ? RECON.injuryMs : EXPEDITIONS.victoryInjuryMs)
-    } : { kind: "idle" };
-  }
-  e.provisions = emptyResources();
-  e.status = "done";
-  if (e.broken || e.delayed) {
-    const pad = launchpadOf(state, e.launchpadId);
-    if (pad) pad.damaged = true;
-  }
-  const done = state.expeditions.filter((x) => x.status === "done");
-  if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
-}
-function removeVillagers(state, ids, cause, at, gearLost = false) {
-  for (const v of state.villagers) {
-    if (!ids.includes(v.id)) continue;
-    state.memorial.push({
-      id: v.id,
-      name: v.name,
-      level: v.level,
-      shiny: v.shiny,
-      classId: v.classId,
-      bornAt: v.bornAt,
-      diedAt: at,
-      cause
-    });
-  }
-  if (state.memorial.length > MEMORIAL_MAX)
-    state.memorial.splice(0, state.memorial.length - MEMORIAL_MAX);
-  if (!gearLost) {
-    for (const v of state.villagers) if (ids.includes(v.id)) returnGear(state, v);
-  }
-  state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
-  forgetHolders(state, ids);
-  if (ids.length > 0) state.mourningUntil = Math.max(state.mourningUntil, at + MORALE.mourningMs);
-}
-function nameOf(e, id3) {
-  return e.roster.find((r) => r.id === id3)?.name ?? id3;
-}
-var round22 = (v) => Math.round(v * 100) / 100;
 
-// packages/shared/src/sim/siege.ts
-var round13 = (v) => Math.round(v * 10) / 10;
-var round23 = (v) => Math.round(v * 100) / 100;
-function isSiegeMission(m) {
-  return m === "assault" || m === "reinforce" || m === "final" || m === "retreat";
-}
-function isOuterSector(sector) {
-  return SIEGE.outerSectors.includes(sector);
-}
-function outerOf(inner) {
-  return inner + INTEL.sectors / 2;
-}
-function twinTarget(state) {
-  return state.targets.find((t) => t.distance === 0);
-}
-function siegeLock(state) {
-  if (!twinTarget(state)) return "unknownTarget";
-  if (state.siege.conqueredAt > 0) return "conquered";
-  if (ageOf(state) < SIEGE.minAge) return "ageTooLow";
-  if (!state.villagers.some((v) => v.kikiwiwi)) return "needsKikiwiwi";
-  return null;
-}
-var truths = /* @__PURE__ */ new Map();
-function siegeTruth(g) {
-  const cached = truths.get(g.seed);
-  if (cached) return cached;
-  const rng = createRng(`${g.seed}/siege`);
-  for (let i = 0; i < SIEGE.outerSectors.length; i++) rng.next();
-  const queenSector = rng.int(0, INTEL.sectors / 2 - 1);
-  const q = SIEGE.queen;
-  const truth = {
-    queenSector,
-    queen: {
-      ground: round13(q.ground * rng.range(...q.spread)),
-      air: round13(q.air * rng.range(...q.spread))
+// packages/shared/src/battle/beacon.ts
+var TOWER = 0;
+var TURRETS3 = ["seedTurret", "skyTurret"];
+function beaconSetup(state, guards, input) {
+  const { sector, origin } = input;
+  const { own, field, tiles, buildings: walls, blocked } = parcelField(sector, input.buildings, 1);
+  const spot = landingTile(sector, blocked);
+  const key = hexKey(spot);
+  const free = (h) => field.has(hexKey(h)) && !blocked.has(hexKey(h)) && hexKey(h) !== key;
+  const tower = {
+    ref: `beacon:${sector}`,
+    type: "beacon",
+    side: 0,
+    tiles: [spot],
+    hp: input.fort > 0 ? BEACONS.tower.fortifiedHp : BEACONS.tower.hp,
+    loot: [0, 0, 0, 0],
+    priority: BEACONS.tower.priority
+  };
+  const buildings = [tower, ...walls];
+  blocked.add(key);
+  const units = [];
+  if (input.fort > 0) {
+    const spots = hexNeighbors(spot).filter(free);
+    TURRETS3.forEach((type, i) => {
+      const at = spots[i];
+      if (!at) return;
+      const b = {
+        id: `fort:${sector}:${i}`,
+        type,
+        q: at.q,
+        r: at.r,
+        level: input.fort,
+        richness: 1,
+        builtAt: 0
+      };
+      const u = turretUnit(b, state, 1, TOWER);
+      if (u) units.push(u);
+    });
+  }
+  const around = tiles.filter((t) => free(t) && own.some((h) => h.q === t.q && h.r === t.r)).sort((a, b) => hexDistance(a, spot) - hexDistance(b, spot) || a.q - b.q || a.r - b.r);
+  guards.forEach((v, i) => {
+    const at = around[Math.floor(i / 2) % Math.max(1, around.length)] ?? spot;
+    units.push(kiwiUnit(v, state, "guard", at, null, 0));
+  });
+  const gate = tiles.filter((t) => free(t) && sectorOf(t.q, t.r) === origin);
+  const far = [...tiles].filter((t) => free(t)).sort((a, b) => hexDistance(b, spot) - hexDistance(a, spot) || a.q - b.q || a.r - b.r).slice(0, 8);
+  const entry = gate.length > 0 ? gate : far;
+  let n = 0;
+  for (const { unit, count, k } of capped(input.attackers))
+    for (let i = 0; i < count; i++, n++) {
+      const base = alienUnit(unit, k, `a${n}`, entry[n % entry.length], n * BATTLE.enterGap);
+      units.push({
+        ...base,
+        side: 1,
+        role: "raider",
+        power: ENEMIES[unit.kind].power * k,
+        // A raider with nothing to carry heads home at once: a token load keeps it on the tower.
+        carry: 1,
+        hold: 0
+      });
     }
-  };
-  if (truths.size > 256) truths.clear();
-  truths.set(g.seed, truth);
-  return truth;
-}
-function queenLair(g) {
-  return royalSector(g);
-}
-function siegeGrowth(g, at) {
-  return sectorGrowth(g, queenLair(g), at);
-}
-function holdStrength(g, sector, at) {
-  const view = civAt(g, at);
-  return round13((view.sectors[sector]?.power ?? 0) * SIEGE.hold.share);
-}
-function queenReduction(bridgeheads, queenSector) {
-  const q = SIEGE.queen;
-  const beside = queenSector !== null && bridgeheads.some((b) => b.sector === outerOf(queenSector));
-  return Math.min(0.9, q.perBridgehead * bridgeheads.length + (beside ? q.besideQueen : 0));
-}
-function queenPower(state, g, at) {
-  const t = siegeTruth(g);
-  const k = siegeGrowth(g, at) * (1 - queenReduction(state.siege.bridgeheads, queenLair(g)));
-  return { ground: round13(t.queen.ground * k), air: round13(t.queen.air * k) };
-}
-function counterEscalation(counters) {
-  return Math.min(SIEGE.counter.maxEscalation, 1 + SIEGE.counter.perCounter * counters);
-}
-function bridgeheadAt(state, sector) {
-  return state.siege.bridgeheads.find((b) => b.sector === sector);
-}
-function holdersOf(state, b) {
-  return crewMembers(state, b.holders);
-}
-function holdDefense(state, b) {
-  const k = SIEGE.holdBonus * (b.fortified ? SIEGE.fortify.bonus : 1);
-  return strengthOf(state, holdersOf(state, b), 1) * k;
-}
-function fighterSides(state, v, fed = 1) {
-  const p = guardPower(v, state);
-  const hunger = EXPEDITIONS.starvingStrength + (1 - EXPEDITIONS.starvingStrength) * fed;
+  const last = Math.max(0, n - 1) * BATTLE.enterGap;
+  for (const u of units) if (u.side === 1) u.hold = last + BATTLE.gather;
+  const exits = tiles.map((t, i) => ({ t, i })).filter(({ t }) => entry.some((e) => e.q === t.q && e.r === t.r)).map(({ i }) => i);
   return {
-    ground: p.ground / GARRISON.power * hunger,
-    air: p.air / GARRISON.power * hunger
+    tiles,
+    exits,
+    buildings,
+    units,
+    orders: [
+      {
+        posture: input.orders.posture,
+        retreatBelow: guards.length > 0 ? 1 - input.orders.retreatAt + 1e-6 : 0
+      },
+      { posture: "bold", retreatBelow: BATTLE.retreatBelow }
+    ]
   };
 }
-function allHolders(state) {
-  return state.siege.bridgeheads.flatMap((b) => holdersOf(state, b));
+function beaconHeld(log2) {
+  return !log2.result.damaged.includes(TOWER);
 }
-function assaultSides(state, crew, fed) {
-  const out = { ground: 0, air: 0 };
-  const add = (v, f) => {
-    const s = fighterSides(state, v, f);
-    out.ground += s.ground;
-    out.air += s.air;
-  };
-  for (const v of crew) add(v, fed);
-  for (const v of allHolders(state)) add(v, 1);
-  return out;
+var GUARD_ORDERS = { ...LANDING.defaultOrders };
+
+// packages/shared/src/sim/beacons.ts
+var HOUR3 = 36e5;
+var round14 = (v) => Math.round(v * 10) / 10;
+function beaconAt(face, sector) {
+  return face?.beacons.find((b) => b.sector === sector);
 }
-function ageRange(r, now) {
-  const days = Math.max(0, now - r.at) / CALENDAR.dayMs;
-  const grow = Math.min(1 + ALIENS.growthPerDay[1] * days, ALIENS.maxGrowth);
-  return {
-    min: r.min,
-    max: round13(r.max * grow),
-    days,
-    freshness: days < INTEL.fresh ? "fresh" : days < INTEL.stale ? "stale" : "old"
-  };
+function beaconOf(state, targetId, sector) {
+  return beaconAt(state.faceViews[targetId], sector);
 }
-function siegeView(state, now) {
-  const twin = twinTarget(state);
-  const intel = twin ? state.intel[twin.id]?.siege : void 0;
-  const holds = {};
-  for (const [k, r] of Object.entries(intel?.holds ?? {})) holds[Number(k)] = ageRange(r, now);
-  const q = intel?.queen;
-  return {
-    seen: intel?.seen ?? [],
-    holds,
-    queen: q ? { sector: q.sector, ground: ageRange(q.ground, now), air: ageRange(q.air, now) } : null
-  };
+function guardsOf(state, b) {
+  return crewMembers(state, b.guards ?? []);
 }
-function inFlight(state, mission) {
-  return state.expeditions.filter((e) => e.mission === mission && e.status === "outbound");
+function allGuards(state, targetId) {
+  return (state.faceViews[targetId]?.beacons ?? []).flatMap((b) => guardsOf(state, b));
 }
-function assaultLock(state, sector) {
-  const lock = siegeLock(state);
-  if (lock) return lock;
-  if (!isOuterSector(sector)) return "notASector";
-  const twin = twinTarget(state);
-  if (!(state.intel[twin.id]?.sectors ?? []).includes(sector)) return "sectorUnseen";
-  const flying = inFlight(state, "assault");
-  if (bridgeheadAt(state, sector) || flying.some((e) => e.sector === sector))
-    return "bridgeheadHere";
-  if (state.siege.bridgeheads.length + flying.length >= SIEGE.maxBridgeheads)
-    return "bridgeheadLimit";
-  return null;
+function attackable(state, t) {
+  return !(t.distance === 0 && state.siege.conqueredAt > 0);
 }
-function finalLock(state) {
-  const lock = siegeLock(state);
-  if (lock) return lock;
-  if (!siegeView(state, state.now).queen) return "queenUnknown";
-  if (state.siege.bridgeheads.length < SIEGE.neededBridgeheads) return "needBridgeheads";
-  if (!state.siege.bridgeheads.some((b) => b.fortified)) return "needFortified";
-  return null;
+function attacksFrom(state, distance) {
+  const hours = Math.max(0, CIV.ageAtH[BEACONS.minCivAge] - distance * CIV.leadPerDistanceH);
+  return state.createdAt + hours * HOUR3;
 }
-function fortifyLock(state, sector) {
-  const b = bridgeheadAt(state, sector);
-  if (!b) return "noBridgehead";
-  if (b.fortified) return "alreadyFortified";
-  if (b.fortifyUntil !== void 0) return "fortifying";
-  if (!holdersOf(state, b).some((v) => v.kikiwiwi)) return "notAKikiwiwi";
-  if (state.resources.juice < SIEGE.fortify.juice) return "notEnoughResources";
-  return null;
-}
-function startFortify(state, sector, now) {
-  const b = bridgeheadAt(state, sector);
-  const titan = holdersOf(state, b).find((v) => v.kikiwiwi);
-  state.resources.juice -= SIEGE.fortify.juice;
-  b.fortifyUntil = now + SIEGE.fortify.durationMs;
-  b.fortifierId = titan.id;
-}
-function oddsOf(strength, enemy) {
-  if (!enemy) return "unknown";
-  if (strength.min >= enemy.max) return "likely";
-  if (strength.max >= enemy.min) return "uncertain";
-  return "unlikely";
-}
-var luckRange = (v) => ({
-  min: v * (1 - EXPEDITIONS.luck),
-  max: v * (1 + EXPEDITIONS.luck)
-});
-function counterForecast(state, now) {
-  const c = state.siege.counter;
-  if (!c) return null;
-  const b = bridgeheadAt(state, c.sector) ?? state.siege.bridgeheads[0];
-  if (!b) return null;
-  const strength = luckRange(holdDefense(state, b));
-  const hold = siegeView(state, now).holds[b.sector];
-  const k = counterEscalation(state.siege.counters);
-  const enemy = hold ? { min: hold.min * SIEGE.counter.share[0] * k, max: hold.max * SIEGE.counter.share[1] * k } : null;
-  return {
-    sector: b.sector,
-    at: c.at,
-    announced: c.announced,
-    strength,
-    enemy,
-    odds: oddsOf(strength, enemy)
-  };
-}
-function finalForecast(state, crew, fed, now) {
-  const sides2 = assaultSides(state, crew, fed);
-  const strength = { ground: luckRange(sides2.ground), air: luckRange(sides2.air) };
-  const view = siegeView(state, now).queen;
-  const reduction = queenReduction(state.siege.bridgeheads, view?.sector ?? null);
-  const k = 1 - reduction;
-  const queen = view ? {
-    ground: { min: view.ground.min * k, max: view.ground.max * k },
-    air: { min: view.air.min * k, max: view.air.max * k }
-  } : null;
-  const g = oddsOf(strength.ground, queen?.ground ?? null);
-  const a = oddsOf(strength.air, queen?.air ?? null);
-  const rank = ["unknown", "unlikely", "uncertain", "likely"];
-  const odds = rank[Math.min(rank.indexOf(g), rank.indexOf(a))];
-  return { strength, queen, reduction, odds };
-}
-function assaultEnemy(state, sector, now) {
-  const hold = siegeView(state, now).holds[sector];
-  return hold ? { min: hold.min, max: hold.max } : null;
-}
-function recordSiegeIntel(state, targetId, patch) {
-  const report = state.intel[targetId];
-  if (!report) return;
-  report.siege = mergeSiegeIntel(report.siege, patch);
-  if (patch.sectors)
-    report.sectors = [.../* @__PURE__ */ new Set([...report.sectors, ...patch.sectors])].sort((a, b) => a - b);
-}
-function mergeSiegeIntel(prev, next) {
-  if (!prev && !next) return void 0;
-  const seen = [.../* @__PURE__ */ new Set([...prev?.seen ?? [], ...next?.seen ?? []])].sort((a, b) => a - b);
-  const queen = next?.queen ?? prev?.queen;
-  return {
-    seen,
-    holds: { ...prev?.holds ?? {}, ...next?.holds ?? {} },
-    ...queen ? { queen } : {}
-  };
-}
-function deepRecon(g, known, count, spread, at, rng, lair = null) {
-  const seen = new Set(known);
-  const all = Array.from({ length: INTEL.sectors }, (_, i) => i);
-  const shuffled = [
-    ...rng.shuffle(all.filter((i) => !seen.has(i))),
-    ...rng.shuffle(all.filter((i) => seen.has(i)))
-  ];
-  const order = lair === null ? shuffled : [lair, ...shuffled.filter((i) => i !== lair)];
-  const sectors = order.slice(0, count).sort((a, b) => a - b);
-  const around = (value) => {
-    const width = 2 * spread * value;
-    const min = Math.max(0, value - width * rng.next());
-    return { at, min: Math.floor(min * 10) / 10, max: Math.ceil((min + width) * 10) / 10 };
-  };
-  const truth = siegeTruth(g);
-  const queenAt = queenLair(g);
-  const holds = {};
-  for (const s of sectors) if (isOuterSector(s)) holds[s] = around(holdStrength(g, s, at));
-  const out = { seen: sectors, holds };
-  if (sectors.includes(queenAt)) {
-    const k = siegeGrowth(g, at);
-    out.queen = {
-      sector: queenAt,
-      ground: around(round13(truth.queen.ground * k)),
-      air: around(round13(truth.queen.air * k))
+function planBeaconAttacks(s) {
+  for (const t of s.targets) {
+    const face = s.faceViews[t.id];
+    if (!face || face.beacons.length === 0 || face.attack || !attackable(s, t)) continue;
+    const n = face.attacks ?? 0;
+    const since = Math.min(...face.beacons.map((b) => b.since));
+    const base = Math.max(face.lastAttackAt ?? 0, since, attacksFrom(s, t.distance));
+    const rng = createRng(`${s.seed}/${t.id}/beacon/${n}`);
+    const [lo, hi] = BEACONS.attack.intervalMs;
+    const at = base + Math.round(rng.range(lo, hi) / 6e4) * 6e4;
+    face.attack = {
+      id: `ba${n + 1}`,
+      sector: null,
+      origin: null,
+      announceAt: at - BEACONS.attack.noticeMs,
+      at,
+      announced: false
     };
   }
-  return { sectors, siege: out };
 }
-function planCounter(s) {
-  const siege = s.siege;
-  if (siege.counter || siege.bridgeheads.length === 0 || siege.conqueredAt > 0) return;
-  const since = Math.min(...siege.bridgeheads.map((b) => b.since));
-  const base = Math.max(siege.lastCounterAt, since);
-  const rng = createRng(`${s.seed}/${s.face}/siege/${siege.counters}`);
-  const [lo, hi] = SIEGE.counter.intervalMs;
-  const at = base + Math.round(rng.range(lo, hi) / 6e4) * 6e4;
-  const target = siege.bridgeheads[rng.int(0, siege.bridgeheads.length - 1)];
-  siege.counter = {
-    id: `ca${siege.counters + 1}`,
-    sector: target.sector,
-    announceAt: at - SIEGE.counter.noticeMs,
-    at,
-    announced: false
-  };
-}
-function truthOf(s) {
-  const twin = twinTarget(s);
-  return twin ? s.aliens?.[twin.id] : void 0;
-}
-function nextSiegeEvent(s) {
+function nextBeaconEvent(s) {
   let next = Infinity;
-  const c = s.siege.counter;
-  if (c && !c.announced) next = Math.max(s.now, c.announceAt);
-  else if (c && truthOf(s)) next = Math.max(s.now, c.at);
-  for (const b of s.siege.bridgeheads)
-    if (b.fortifyUntil !== void 0) next = Math.min(next, Math.max(s.now, b.fortifyUntil));
-  return next;
-}
-function counterAwaited(s, now) {
-  const c = s.siege.counter;
-  return !!c && c.announced && c.at <= now && !truthOf(s);
-}
-function siegeTick(s, at, events) {
-  for (const b of s.siege.bridgeheads) {
-    if (b.fortifyUntil === void 0 || b.fortifyUntil > at) continue;
-    b.fortified = true;
-    delete b.fortifyUntil;
-    delete b.fortifierId;
-    events.push({ type: "bridgeheadFortified", at, sector: b.sector });
+  for (const [id3, face] of Object.entries(s.faceViews)) {
+    for (const b of face.beacons) if (b.fortifying) next = Math.min(next, b.fortifying.until);
+    const a = face.attack;
+    if (!a || !s.aliens?.[id3]) continue;
+    next = Math.min(next, a.announced ? a.at : a.announceAt);
   }
-  const c = s.siege.counter;
-  if (c && !c.announced && c.announceAt <= at) {
-    c.announced = true;
-    events.push({ type: "counterAnnounced", at, sector: c.sector, strikeAt: c.at });
-  } else if (c && c.announced && c.at <= at && truthOf(s)) strikeCounter(s, at, events);
+  return Math.max(s.now, next);
 }
-function strikeCounter(s, at, events) {
-  const c = s.siege.counter;
-  s.siege.counter = null;
-  const b = bridgeheadAt(s, c.sector) ?? s.siege.bridgeheads[0];
-  if (!b) return;
-  const g = truthOf(s);
-  const { luck, share } = withRng(s, (rng) => ({
-    luck: rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck),
-    share: rng.range(...SIEGE.counter.share)
-  }));
-  const enemy = round23(holdStrength(g, b.sector, at) * share * counterEscalation(s.siege.counters));
-  s.siege.counters++;
-  s.siege.lastCounterAt = at;
-  const holders = holdersOf(s, b);
-  const strength = round23(holdDefense(s, b) * luck);
-  const victory = strength >= enemy;
+function beaconAwaited(s, now) {
+  return Object.entries(s.faceViews).some(
+    ([id3, f]) => !!f.attack && !s.aliens?.[id3] && dueAt(f.attack) <= now
+  );
+}
+var dueAt = (a) => a.announced ? a.at : a.announceAt;
+function beaconsDue(s, now) {
+  return Object.values(s.faceViews).map((f) => f.attack ? dueAt(f.attack) : Infinity).filter((at) => at <= now);
+}
+function beaconTick(s, at, events) {
+  for (const [id3, face] of Object.entries(s.faceViews)) {
+    for (const b of face.beacons) {
+      if (!b.fortifying || b.fortifying.until > at) continue;
+      b.fort = b.fortifying.level;
+      delete b.fortifying;
+      events.push({ type: "beaconFortified", at, targetId: id3, sector: b.sector });
+    }
+    const g = s.aliens?.[id3];
+    const a = face.attack;
+    if (!g || !a) continue;
+    if (!a.announced && a.announceAt <= at) announce2(s, id3, g, face, a, at, events);
+    else if (a.announced && a.at <= at) strike2(s, id3, g, face, a, at, events);
+  }
+}
+function announce2(s, targetId, g, face, a, at, events) {
+  const civ = civOf(g);
+  const view = civAt(g, at, civ);
+  const held = face.beacons.map((b) => b.sector);
+  if (view.age < BEACONS.minCivAge || held.length === 0) {
+    face.attack = null;
+    face.lastAttackAt = at;
+    return;
+  }
+  const barracks = new Set(standingBarracks(civ, at, held).map((k) => k.sector));
+  const score = (sector2) => {
+    const free2 = neighbourSectors(sector2).filter((n) => !held.includes(n));
+    return (free2.some((n) => barracks.has(n)) ? 4 : 0) + (free2.length > 0 ? 2 : 0) + civHash(g.seed, `beacon/${targetId}/${a.id}/${sector2}`);
+  };
+  const sector = held.reduce((best, x) => score(x) > score(best) ? x : best);
+  const free = neighbourSectors(sector).filter((n) => !held.includes(n));
+  const power = (x) => view.sectors[x]?.power ?? 0;
+  let origin;
+  const near = free.filter((n) => barracks.has(n));
+  if (near.length > 0) origin = near.reduce((p, x) => power(x) > power(p) ? x : p);
+  else if (free.length > 0) origin = free.reduce((p, x) => power(x) > power(p) ? x : p);
+  else if (barracks.size > 0) origin = Math.min(...barracks);
+  else origin = royalSector(g);
+  a.sector = sector;
+  a.origin = origin;
+  a.announced = true;
+  events.push({ type: "beaconAttackAnnounced", at, targetId, sector, strikeAt: a.at });
+}
+function attackArmy(g, face, a, at) {
+  const view = civAt(g, at);
+  const parcel = view.sectors[a.origin];
+  const [lo, hi] = BEACONS.attack.share;
+  const share = lo + (hi - lo) * civHash(g.seed, `beacon/${a.id}/share/${face.attacks ?? 0}`);
+  const power = round14(parcel.power * share * escalation(face.attacks ?? 0));
+  return { units: sectorUnits({ ...parcel, power }, g.ferretShare), power };
+}
+function escalation(attacks) {
+  const A = BEACONS.attack;
+  return Math.min(A.maxEscalation, 1 + A.perAttack * attacks);
+}
+function strike2(s, targetId, g, face, a, at, events) {
+  face.attack = null;
+  face.attacks = (face.attacks ?? 0) + 1;
+  face.lastAttackAt = at;
+  const b = a.sector === null ? void 0 : beaconAt(face, a.sector);
+  if (!b || a.origin === null) return;
+  const sector = b.sector;
+  const army = attackArmy(g, face, a, at);
+  const guards = guardsOf(s, b);
+  const fort = b.fort ?? 0;
+  let held = false;
+  let fought = false;
   let dead = [];
-  let retreating = 0;
-  if (!victory) {
-    const lost = withRng(s, (rng) => rng.range(...SIEGE.fallLosses));
-    dead = drawLosses(s, holders, Math.round(holders.length * lost));
-    const names = new Map(holders.map((v) => [v.id, v.name]));
-    removeVillagers(s, dead, "battle", at);
-    recordDefeat(liveCiv(g), at, dead.length, b.sector);
-    const survivors = b.holders.filter((id3) => !dead.includes(id3));
-    s.siege.bridgeheads = s.siege.bridgeheads.filter((x) => x !== b);
-    if (survivors.length > 0) sendHome(s, survivors, at, b.sector);
-    retreating = survivors.length;
-    s.siege.reports.push({
-      id: c.id,
-      at,
-      sector: b.sector,
-      victory,
-      strength,
-      enemy,
-      dead: dead.map((id3) => names.get(id3) ?? id3),
-      retreating
+  let fled = [];
+  let log2 = void 0;
+  const civ = liveCiv(g);
+  if (guards.length > 0 || fort > 0) {
+    fought = true;
+    const setup = beaconSetup(s, guards, {
+      sector,
+      origin: a.origin,
+      attackers: army.units,
+      buildings: face.parcels[String(sector)]?.buildings ?? [],
+      orders: b.orders ?? LANDING.defaultOrders,
+      fort
     });
-  } else {
-    recordFight(liveCiv(g), b.sector, at, CIV.fightLoss.defeat);
-    s.siege.reports.push({
-      id: c.id,
+    log2 = simulateBattle(setup, `${g.seed}/beacon/${targetId}/${a.id}`);
+    held = beaconHeld(log2);
+    const ids = new Set(guards.map((v) => v.id));
+    dead = log2.result.fallen.filter((ref) => ids.has(ref));
+    fled = log2.result.fled.filter((ref) => ids.has(ref));
+    const attackers = log2.result.attackers;
+    recordFight(
+      civ,
+      a.origin,
       at,
-      sector: b.sector,
-      victory,
-      strength,
-      enemy,
-      dead: [],
-      retreating
-    });
+      CIV.fightLoss.defeat * (attackers.total > 0 ? attackers.fallen / attackers.total : 0)
+    );
   }
-  if (s.siege.reports.length > 5) s.siege.reports.splice(0, s.siege.reports.length - 5);
-  events.push({ type: "counterStruck", at, sector: b.sector, victory, dead: dead.length });
+  const names = new Map(guards.map((v) => [v.id, v.name]));
+  const gear = crewMembers(s, dead).reduce(
+    (n, v) => n + (v.gear?.weapon ? 1 : 0) + (v.gear?.armor ? 1 : 0),
+    0
+  );
+  removeVillagers(s, dead, "battle", at, !held);
+  let back = 0;
+  if (held) {
+    b.guards = (b.guards ?? []).filter((id3) => !dead.includes(id3) && !fled.includes(id3));
+    if (fled.length > 0) sendHome(s, targetId, fled, at, sector);
+    back = fled.length;
+  } else {
+    const survivors = (b.guards ?? []).filter((id3) => !dead.includes(id3));
+    face.beacons = face.beacons.filter((x) => x !== b);
+    delete face.parcels[String(sector)];
+    if (survivors.length > 0) sendHome(s, targetId, survivors, at, sector);
+    back = survivors.length;
+    if (dead.length > 0 || fought)
+      recordDefeat(civ, at, dead.length, sector, gear * LANDING.defeat.gearH);
+  }
+  face.reports = [
+    ...face.reports ?? [],
+    {
+      id: a.id,
+      at,
+      sector,
+      origin: a.origin,
+      held,
+      fought,
+      power: army.power,
+      dead: dead.map((id3) => names.get(id3) ?? id3),
+      back,
+      ...log2 ? { log: log2 } : {}
+    }
+  ].slice(-BEACONS.reports);
+  events.push({ type: "beaconAttacked", at, targetId, sector, held, fought, dead: dead.length });
 }
-function sendHome(s, ids, at, sector) {
-  const twin = twinTarget(s);
+function sendHome(s, targetId, ids, at, sector) {
+  const target = s.targets.find((t) => t.id === targetId);
+  const travelMs = target?.travelMs ?? 0;
   const members = crewMembers(s, ids);
-  const need = rations(s, members, twin.travelMs);
+  const need = rations(s, members, travelMs);
   const id3 = nextId(s, "x");
   for (const v of members) v.job = { kind: "expedition", expeditionId: id3 };
-  s.expeditions.push({
+  const e = {
     id: id3,
     mission: "retreat",
-    targetId: twin.id,
+    targetId,
     launchpadId: "none",
     crew: [...ids],
     roster: members.map((v) => ({
@@ -10946,7 +10910,7 @@ function sendHome(s, ids, at, sector) {
     cargo: 0,
     departedAt: at,
     arriveAt: at,
-    returnAt: at + twin.travelMs,
+    returnAt: at + travelMs,
     status: "returning",
     sector,
     result: {
@@ -10958,193 +10922,143 @@ function sendHome(s, ids, at, sector) {
       lostOnReturn: [],
       loot: emptyResources()
     }
-  });
+  };
+  s.expeditions.push(e);
 }
-function leave(b, id3) {
-  b.holders = b.holders.filter((x) => x !== id3);
-  if (b.fortifierId === id3) {
-    delete b.fortifyUntil;
-    delete b.fortifierId;
-  }
-}
-function dropEmpty(s) {
-  s.siege.bridgeheads = s.siege.bridgeheads.filter((b) => b.holders.length > 0);
-  if (s.siege.counter && s.siege.bridgeheads.length === 0) s.siege.counter = null;
-}
-function forgetHolders(s, ids) {
+function forgetGuards(s, ids) {
   if (ids.length === 0) return;
-  for (const b of s.siege.bridgeheads)
-    for (const id3 of ids) if (b.holders.includes(id3)) leave(b, id3);
-  dropEmpty(s);
+  for (const face of Object.values(s.faceViews))
+    for (const b of face.beacons)
+      if (b.guards?.some((id3) => ids.includes(id3)))
+        b.guards = b.guards.filter((id3) => !ids.includes(id3));
 }
-function resolveSiegeLanding(s, e, members, fed) {
-  if (e.mission === "reinforce") return landReinforcement(s, e, members, fed);
-  const g = s.aliens?.[e.targetId];
-  if (!g) throw new Error("resolveSiegeLanding: hidden garrison");
-  if (e.mission === "assault") return landAssault(s, e, g, members, fed);
-  return landFinal(s, e, g, members, fed);
+function fortLevel(state) {
+  return Math.min(12, BEACONS.fortify.levelsPerAge * (ageOf(state) + 1));
 }
-function result(fed, extra = {}) {
-  return {
+function fortifyCost(state) {
+  const level = fortLevel(state);
+  const resources2 = emptyResources();
+  let iron = 0;
+  for (const type of ["seedTurret", "skyTurret"]) {
+    const def = levelDef(type, level);
+    for (const r of RESOURCE_IDS)
+      resources2[r] += Math.round((def?.cost[r] ?? 0) * BEACONS.fortify.costFactor);
+    iron += Math.round((def?.iron ?? 0) * BEACONS.fortify.costFactor);
+  }
+  return { resources: resources2, iron };
+}
+function fortifyLock(state, targetId, sector) {
+  if (!Number.isInteger(sector) || sector < 0 || sector >= INTEL.sectors) return "notASector";
+  const b = beaconOf(state, targetId, sector);
+  if (!b) return "noBeacon";
+  if (b.fortifying) return "fortifying";
+  if ((b.fort ?? 0) >= fortLevel(state)) return "alreadyFortified";
+  return null;
+}
+function startFortify(state, targetId, sector, now) {
+  const b = beaconOf(state, targetId, sector);
+  b.fortifying = { until: now + BEACONS.fortify.durationMs, level: fortLevel(state) };
+}
+function guardLock(state, targetId, sector, crew, bringBack, orders) {
+  if (sector === void 0 || !Number.isInteger(sector) || sector < 0 || sector >= INTEL.sectors)
+    return "notASector";
+  const b = beaconOf(state, targetId, sector);
+  if (!b) return "noBeacon";
+  if (new Set(bringBack).size !== bringBack.length) return "invalidCrew";
+  if (bringBack.some((id3) => !(b.guards ?? []).includes(id3))) return "invalidCrew";
+  if (crew === 0 && bringBack.length === 0) return "invalidCrew";
+  if ((b.guards?.length ?? 0) - bringBack.length + crew > BEACONS.maxGuards) return "crewTooLarge";
+  if (orders !== void 0 && !validOrders(orders)) return "invalidOrders";
+  return null;
+}
+function landGuard(state, e, members, fed) {
+  e.status = "returning";
+  const b = e.sector === void 0 ? void 0 : beaconOf(state, e.targetId, e.sector);
+  const base = {
     victory: false,
     strength: 0,
     defense: 0,
-    fed: round23(fed),
+    fed: Math.round(fed * 100) / 100,
     lostInBattle: [],
     lostOnReturn: [],
-    loot: emptyResources(),
-    ...extra
+    loot: emptyResources()
   };
-}
-function nameIn(e, id3) {
-  return e.roster.find((r) => r.id === id3)?.name ?? id3;
-}
-function landReinforcement(s, e, members, fed) {
-  e.status = "returning";
-  const b = e.sector === void 0 ? void 0 : bridgeheadAt(s, e.sector);
   if (!b) {
-    e.result = result(fed, { aborted: true });
+    e.result = { ...base, aborted: true };
     return;
   }
-  for (const v of members) {
-    v.job = { kind: "outpost", sector: b.sector };
-    b.holders.push(v.id);
-  }
+  for (const v of members) v.job = { kind: "outpost", sector: b.sector, targetId: e.targetId };
+  b.guards = [...b.guards ?? [], ...members.map((v) => v.id)];
+  if (e.orders) b.orders = { ...e.orders };
   const back = (e.bringBack ?? []).filter(
-    (id3) => b.holders.includes(id3) && !members.some((v) => v.id === id3)
+    (id3) => b.guards.includes(id3) && !members.some((v) => v.id === id3)
   );
-  for (const v of crewMembers(s, back)) {
-    leave(b, v.id);
+  b.guards = b.guards.filter((id3) => !back.includes(id3));
+  for (const v of crewMembers(state, back)) {
     v.job = { kind: "expedition", expeditionId: e.id };
     e.roster.push({ id: v.id, name: v.name, level: v.level, shiny: v.shiny, classId: v.classId });
   }
   e.crew = back;
-  dropEmpty(s);
-  e.result = result(fed);
+  e.result = base;
 }
-function landAssault(s, e, g, members, fed) {
-  const sector = e.sector;
-  const enemy = holdStrength(g, sector, e.arriveAt);
-  const luck = withRng(s, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
-  const strength = strengthOf(s, members, fed) * luck;
-  const room = !bridgeheadAt(s, sector) && s.siege.bridgeheads.length < SIEGE.maxBridgeheads;
-  const victory = strength >= enemy;
-  const losses = Math.min(
-    e.crew.length,
-    Math.round(e.crew.length * lossShare(strength, enemy) * (1 - shipOf(s).armor))
-  );
-  const hit = drawLosses(s, members, losses);
-  const lost = victory ? [] : hit;
-  removeVillagers(s, lost, "battle", e.arriveAt);
-  e.crew = e.crew.filter((id3) => !lost.includes(id3));
-  recordSiegeIntel(s, e.targetId, {
-    seen: [sector],
-    holds: { [sector]: { at: e.arriveAt, min: enemy, max: enemy } }
-  });
-  let stay = [];
-  if (victory && room) {
-    stay = (e.holders ?? []).filter((id3) => e.crew.includes(id3));
-    if (stay.length === 0 && e.crew.length > 0) stay = [e.crew[0]];
-    for (const v of crewMembers(s, stay)) v.job = { kind: "outpost", sector };
-    s.siege.bridgeheads.push({ sector, since: e.arriveAt, holders: stay, fortified: false });
-    e.crew = e.crew.filter((id3) => !stay.includes(id3));
-  }
-  const injured = victory ? hit.filter((id3) => !stay.includes(id3)) : [];
-  const civ = liveCiv(g);
-  const close = Math.min(1, strength / Math.max(enemy, 1e-6));
-  recordFight(
-    civ,
-    sector,
-    e.arriveAt,
-    victory ? CIV.fightLoss.victory : CIV.fightLoss.defeat * close
-  );
-  if (victory && room) recordBurn(civ, sector, e.arriveAt);
-  if (!victory) recordDefeat(civ, e.arriveAt, lost.length, sector);
-  e.status = "returning";
-  e.result = result(fed, {
-    victory,
-    strength: round23(strength),
-    defense: enemy,
-    lostInBattle: lost.map((id3) => nameIn(e, id3)),
-    ...injured.length > 0 ? { injured } : {},
-    ...victory && room ? { bridgehead: true } : {}
-  });
-}
-function landFinal(s, e, g, members, fed) {
-  const queen = queenPower(s, g, e.arriveAt);
-  const luck = withRng(s, (rng) => rng.range(1 - EXPEDITIONS.luck, 1 + EXPEDITIONS.luck));
-  const base = assaultSides(s, members, fed);
-  const strength = { ground: round23(base.ground * luck), air: round23(base.air * luck) };
-  const victory = strength.ground >= queen.ground && strength.air >= queen.air;
-  const holders = allHolders(s);
-  const fighters = [...members, ...holders];
-  const ratio = Math.max(
-    queen.ground / Math.max(strength.ground, 1e-6),
-    queen.air / Math.max(strength.air, 1e-6)
-  );
-  const share = lossShare(1, Math.min(ratio, 1e6));
-  const count = Math.min(
-    fighters.length,
-    Math.round(fighters.length * share * (1 - shipOf(s).armor))
-  );
-  const hit = drawLosses(s, fighters, count);
-  for (const v of holders)
-    if (!e.roster.some((r) => r.id === v.id))
-      e.roster.push({ id: v.id, name: v.name, level: v.level, shiny: v.shiny, classId: v.classId });
-  const lost = victory ? [] : hit;
-  removeVillagers(s, lost, "battle", e.arriveAt);
-  e.crew = e.crew.filter((id3) => !lost.includes(id3));
-  forgetHolders(s, lost);
-  if (!victory) recordDefeat(liveCiv(g), e.arriveAt, lost.length, queenLair(g));
-  const t = siegeTruth(g);
-  const lair = queenLair(g);
-  const k = siegeGrowth(g, e.arriveAt);
-  const exact = (v) => ({ at: e.arriveAt, min: round13(v), max: round13(v) });
-  recordSiegeIntel(s, e.targetId, {
-    seen: [lair],
-    queen: {
-      sector: lair,
-      ground: exact(t.queen.ground * k),
-      air: exact(t.queen.air * k)
-    }
-  });
-  if (victory) {
-    for (const v of allHolders(s)) {
-      v.job = { kind: "expedition", expeditionId: e.id };
-      e.crew.push(v.id);
-    }
-    s.siege.bridgeheads = [];
-    s.siege.counter = null;
-    s.siege.conqueredAt = e.arriveAt;
-    recordSiegeIntel(s, e.targetId, {
-      sectors: Array.from({ length: INTEL.sectors }, (_, i) => i)
+var trialCache2 = /* @__PURE__ */ new Map();
+function beaconForecast(state, targetId, sector, origin, now, guards) {
+  const face = state.faceViews[targetId];
+  const b = beaconAt(face, sector);
+  const target = state.targets.find((t) => t.id === targetId);
+  if (!face || !b || !target) return null;
+  const crew = guards ?? guardsOf(state, b);
+  const fort = b.fort ?? 0;
+  const view = face.parcels[String(origin)];
+  const growth = view ? scheduleGrowth(state, target.distance, view.at, now) : 1;
+  const base = view ? { min: view.power.min * growth, max: view.power.max * growth } : (() => {
+    const p = alienDefOf(target.distance).defense * growthOfHours(scheduleHours(state, target.distance, now));
+    return { min: p * LANDING.guess[0], max: p * LANDING.guess[1] };
+  })();
+  const esc = escalation(face.attacks ?? 0);
+  const [lo, hi] = BEACONS.attack.share;
+  const power = { min: round14(base.min * lo * esc), max: round14(base.max * hi * esc) };
+  if (crew.length === 0 && fort === 0)
+    return { power, odds: "unlikely", trials: [false, false, false], expectedDead: 0, bare: true };
+  const age = view?.age ?? civAgeOfHours(scheduleHours(state, target.distance, now));
+  const inner = origin < INTEL.sectors / 2;
+  const levels = [power.min, (power.min + power.max) / 2, power.max];
+  const runs = levels.map((p, i) => {
+    const units = view?.units.length ? scaleTo(view.units, view.power.max, p) : sectorUnits({ sector: origin, inner, age, power: p }, 0.5);
+    const setup = beaconSetup(state, crew, {
+      sector,
+      origin,
+      attackers: units,
+      buildings: face.parcels[String(sector)]?.buildings ?? [],
+      orders: b.orders ?? LANDING.defaultOrders,
+      fort
     });
-  }
-  e.status = "returning";
-  e.result = result(fed, {
-    victory,
-    strength: round23(strength.ground + strength.air),
-    defense: round23(queen.ground + queen.air),
-    lostInBattle: lost.map((id3) => nameIn(e, id3)),
-    sides: { strength, queen },
-    ...victory && hit.length > 0 ? { injured: hit } : {},
-    ...victory ? { queenFallen: true } : {}
+    const seed = `${targetId}/beacon-trial/${sector}/${i}`;
+    const key = JSON.stringify([setup.units, setup.buildings, seed]);
+    let hit = trialCache2.get(key);
+    if (!hit) {
+      const log2 = simulateBattle(setup, seed);
+      const ids = new Set(crew.map((v) => v.id));
+      hit = {
+        held: beaconHeld(log2),
+        dead: log2.result.fallen.filter((ref) => ids.has(ref)).length
+      };
+      if (trialCache2.size > 32) trialCache2.delete(trialCache2.keys().next().value);
+      trialCache2.set(key, hit);
+    }
+    return hit;
   });
+  const trials = runs.map((r) => r.held);
+  const odds = trials[2] ? "likely" : trials[1] || trials[0] ? "uncertain" : "unlikely";
+  return { power, odds, trials, expectedDead: runs[1].dead, bare: false };
 }
-function resetSiege(s) {
-  const flying = new Set(
-    s.expeditions.filter((e) => isSiegeMission(e.mission) && e.status !== "done").map((e) => e.id)
-  );
-  for (const v of s.villagers)
-    if (v.job.kind === "outpost" || v.job.kind === "expedition" && flying.has(v.job.expeditionId))
-      v.job = { kind: "idle" };
-  s.expeditions = s.expeditions.filter((e) => !flying.has(e.id));
-  s.siege = { ...s.siege, bridgeheads: [], counter: null, conqueredAt: 0 };
-  for (const report of Object.values(s.intel)) delete report.siege;
+function scaleTo(units, from, to) {
+  const k = from > 0 ? to / from : 1;
+  return units.map((u) => ({ ...u, count: Math.max(1, Math.round(u.count * k)) }));
 }
 
 // packages/shared/src/sim/aliens.ts
-var round14 = (v) => Math.round(v * 10) / 10;
+var round15 = (v) => Math.round(v * 10) / 10;
 var round3 = (v) => Math.round(v * 1e3) / 1e3;
 var fromHeart = (q, r) => hexDistance({ q, r }, { q: 0, r: 0 });
 function sectorOf(q, r) {
@@ -11157,7 +11071,7 @@ function sectorOf(q, r) {
 function drawGarrison(target, seed, since) {
   const rng = createRng(seed);
   const def = alienDefOf(target.distance);
-  const defense = round14(def.defense * rng.range(...ALIENS.defenseSpread));
+  const defense = round15(def.defense * rng.range(...ALIENS.defenseSpread));
   const growth = round3(defense * rng.range(...ALIENS.growthPerDay));
   const loot = emptyResources();
   for (const id3 of RESOURCE_IDS)
@@ -11212,7 +11126,7 @@ function publicState(state) {
 function alienDefense(state, targetId, at) {
   const g = state.aliens?.[targetId];
   if (!g) return null;
-  return round14(outerPower(civAt(g, at)) + g.reinforce * (state.victories[targetId] ?? 0));
+  return round15(outerPower(civAt(g, at)) + g.reinforce * (state.victories[targetId] ?? 0));
 }
 function alienEnemies(g, defense) {
   const total = Math.max(0, Math.round(defense / ALIENS.defensePerEnemy));
@@ -11221,10 +11135,11 @@ function alienEnemies(g, defense) {
 }
 function canResolveArrival(state, e) {
   return !!e.broken || // Chantier 19: a settlers' ship meets no alien on a conquered face.
-  e.mission === "found" || !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
+  e.mission === "found" || // Chantier 42: a guard ship meets nobody (the beacon is ours).
+  e.mission === "guard" || !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
 }
 function awaitingServer(state, now) {
-  return awaitingReport(state, now).length > 0 || waveAwaited(state, now);
+  return awaitingReport(state, now).length > 0 || waveAwaited(state, now) || beaconAwaited(state, now);
 }
 function waveAwaited(state, now) {
   const w = state.threats.next;
@@ -11234,6 +11149,7 @@ function hiddenDue(state, now) {
   const out = state.expeditions.filter((e) => e.status === "outbound" && e.arriveAt <= now).map((e) => e.arriveAt);
   const w = state.threats.next;
   if (w && !w.announced && w.announceAt <= now) out.push(w.announceAt);
+  out.push(...beaconsDue(state, now));
   return out;
 }
 function awaitingReport(state, now) {
@@ -11251,8 +11167,8 @@ function intelView(state, targetId, now) {
   const reinforced = alienDefOf(target.distance).reinforce * wins;
   const grow = scheduleGrowth(state, target.distance, report.at, now);
   const defense = {
-    min: round14(report.defense.min + reinforced),
-    max: round14(report.defense.max * grow + reinforced)
+    min: round15(report.defense.min + reinforced),
+    max: round15(report.defense.max * grow + reinforced)
   };
   const scale = report.defense.max > 0 ? defense.max / report.defense.max : 1;
   const widen = (r) => ({ min: r.min, max: Math.round(r.max * scale) });
@@ -11274,13 +11190,7 @@ function recordIntel(state, targetId, report) {
   const seen = /* @__PURE__ */ new Map();
   for (const s of [...prev?.structures ?? [], ...report.structures ?? []])
     seen.set(`${s.q},${s.r}`, { ...s });
-  const siege = mergeSiegeIntel(prev?.siege, report.siege);
-  state.intel[targetId] = {
-    ...report,
-    sectors,
-    structures: [...seen.values()],
-    ...siege ? { siege } : {}
-  };
+  state.intel[targetId] = { ...report, sectors, structures: [...seen.values()] };
 }
 function landTileNear(map, q, r) {
   for (let radius = 0; radius <= 3; radius++) {
@@ -11302,7 +11212,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 34;
+var SCHEMA_VERSION = 35;
 var MISSION_KINDS = [
   "land",
   "raid",
@@ -11311,7 +11221,8 @@ var MISSION_KINDS = [
   "reinforce",
   "final",
   "retreat",
-  "found"
+  "found",
+  "guard"
 ];
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
@@ -11422,22 +11333,10 @@ function cloneColonyLink(c) {
   };
 }
 function newSiege() {
-  return {
-    bridgeheads: [],
-    counter: null,
-    counters: 0,
-    lastCounterAt: 0,
-    reports: [],
-    conqueredAt: 0
-  };
+  return { conqueredAt: 0 };
 }
 function cloneSiege(s) {
-  return {
-    ...s,
-    bridgeheads: s.bridgeheads.map((b) => ({ ...b, holders: [...b.holders] })),
-    counter: s.counter ? { ...s.counter } : null,
-    reports: s.reports.map((r) => ({ ...r, dead: [...r.dead] }))
-  };
+  return { ...s };
 }
 function defaultAutomation() {
   return Object.fromEntries(AUTO_TASKS.map((t) => [t, true]));
@@ -11594,15 +11493,8 @@ function cloneState(state) {
         loot: { ...e.result.loot },
         ...e.result.sectors ? { sectors: [...e.result.sectors] } : {},
         ...e.result.injured ? { injured: [...e.result.injured] } : {},
-        ...e.result.seen ? { seen: e.result.seen.map((u) => ({ ...u })) } : {},
-        ...e.result.sides ? {
-          sides: {
-            strength: { ...e.result.sides.strength },
-            queen: { ...e.result.sides.queen }
-          }
-        } : {}
+        ...e.result.seen ? { seen: e.result.seen.map((u) => ({ ...u })) } : {}
       } : null,
-      ...e.holders ? { holders: [...e.holders] } : {},
       ...e.bringBack ? { bringBack: [...e.bringBack] } : {},
       ...e.freight ? { freight: { ...e.freight } } : {},
       ...e.orders ? { orders: { ...e.orders } } : {}
@@ -11645,17 +11537,7 @@ function cloneIntel(i) {
     ferrets: { ...i.ferrets },
     bats: { ...i.bats },
     sectors: [...i.sectors],
-    structures: i.structures.map((x) => ({ ...x })),
-    ...i.siege ? { siege: cloneSiegeIntel(i.siege) } : {}
-  };
-}
-function cloneSiegeIntel(s) {
-  return {
-    seen: [...s.seen],
-    holds: Object.fromEntries(Object.entries(s.holds).map(([k, r]) => [k, { ...r }])),
-    ...s.queen ? {
-      queen: { sector: s.queen.sector, ground: { ...s.queen.ground }, air: { ...s.queen.air } }
-    } : {}
+    structures: i.structures.map((x) => ({ ...x }))
   };
 }
 function cloneThreats(t) {
@@ -11702,7 +11584,15 @@ function cloneParcelView(p) {
 }
 function cloneFaceView(f) {
   return {
-    beacons: f.beacons.map((b) => ({ ...b })),
+    ...f,
+    beacons: f.beacons.map((b) => ({
+      ...b,
+      ...b.guards ? { guards: [...b.guards] } : {},
+      ...b.orders ? { orders: { ...b.orders } } : {},
+      ...b.fortifying ? { fortifying: { ...b.fortifying } } : {}
+    })),
+    ...f.attack ? { attack: { ...f.attack } } : {},
+    ...f.reports ? { reports: f.reports.map((r) => ({ ...r, dead: [...r.dead] })) } : {},
     parcels: Object.fromEntries(Object.entries(f.parcels).map(([k, p]) => [k, cloneParcelView(p)]))
   };
 }
@@ -12188,20 +12078,14 @@ var COMMAND_ERRORS = [
   "craterFull",
   "alreadyStarted",
   "noBuildSlot",
-  // Chantier 19: the siege of the twin face.
+  // Chantier 19: the conquest of the twin face.
   "conquered",
   "notASector",
-  "sectorUnseen",
-  "bridgeheadHere",
-  "bridgeheadLimit",
-  "noBridgehead",
-  "queenUnknown",
-  "needBridgeheads",
-  "needFortified",
-  "invalidHolders",
-  "alreadyFortified",
-  "fortifying",
   "invalidMission",
+  // Chantier 42: the beacons' defence.
+  "noBeacon",
+  "fortifying",
+  "alreadyFortified",
   // Chantier 19 (second half): the second colony.
   "notConquered",
   "alreadyFounded",
@@ -12560,7 +12444,7 @@ function execute(s, cmd, ctx, events) {
       if (pad.damaged) fail("launchpadDamaged");
       if (!s.targets.some((t) => t.id === cmd.targetId)) fail("unknownTarget");
       const mission = cmd.mission ?? "land";
-      if (mission !== "land" && mission !== "found") fail("invalidMission");
+      if (mission !== "land" && mission !== "found" && mission !== "guard") fail("invalidMission");
       const onTwin = twinTarget(s)?.id === cmd.targetId;
       if (mission === "found") {
         const lock = foundLock(s);
@@ -12571,7 +12455,12 @@ function execute(s, cmd, ctx, events) {
       if (mission === "land") {
         const lock = landingLock(s, cmd.targetId, cmd.sector, cmd.orders);
         if (lock) fail(lock);
+      } else if (mission === "guard") {
+        const size2 = typeof cmd.crew === "number" ? cmd.crew : cmd.crew.length;
+        const lock = guardLock(s, cmd.targetId, cmd.sector, size2, cmd.bringBack ?? [], cmd.orders);
+        if (lock) fail(lock);
       } else if (cmd.orders) fail("invalidMission");
+      if (mission !== "guard" && cmd.bringBack?.length) fail("invalidMission");
       const { pulp, juice } = cmd.provisions;
       if (typeof cmd.crew === "number" && !Number.isInteger(cmd.crew) || ![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) {
         fail("invalidCount");
@@ -12588,7 +12477,6 @@ function execute(s, cmd, ctx, events) {
       }
       if (size > maxCrew(s, pad, mission)) fail("crewTooLarge");
       if (crew.filter((v) => v.kikiwiwi).length > KIKIWIWI.perShip) fail("oneKikiwiwi");
-      if (cmd.holders?.length || cmd.bringBack?.length) fail("invalidHolders");
       const forecast = forecastExpedition(s, cmd);
       if (forecast.weight > forecast.cargo + 1e-9) fail("overloaded");
       if (forecast.returnWeight > forecast.cargo + 1e-9) fail("overloaded");
@@ -12606,11 +12494,15 @@ function execute(s, cmd, ctx, events) {
       launch(s, cmd, now, nextId(s, "x"));
       return;
     }
-    case "fortifyBridgehead": {
-      const lock = fortifyLock(s, cmd.sector);
-      if (lock === "notAKikiwiwi" || lock === "noBridgehead") return fail(lock);
+    case "fortifyBeacon": {
+      if (!s.targets.some((t) => t.id === cmd.targetId)) fail("unknownTarget");
+      const lock = fortifyLock(s, cmd.targetId, cmd.sector);
       if (lock) fail(lock);
-      startFortify(s, cmd.sector, now);
+      const cost = fortifyCost(s);
+      if (!canAfford(s.resources, cost.resources)) fail("notEnoughResources");
+      payIron(s, cost.iron);
+      pay(s, cost.resources);
+      startFortify(s, cmd.targetId, cmd.sector, now);
       return;
     }
     case "sendCargo": {
@@ -13673,9 +13565,9 @@ var ParseInputLazyPath = class {
     return this._cachedPath;
   }
 };
-var handleResult = (ctx, result2) => {
-  if (isValid(result2)) {
-    return { success: true, data: result2.value };
+var handleResult = (ctx, result) => {
+  if (isValid(result)) {
+    return { success: true, data: result.value };
   } else {
     if (!ctx.common.issues.length) {
       throw new Error("Validation failed but no issues detected.");
@@ -13746,21 +13638,21 @@ var ZodType = class {
     };
   }
   _parseSync(input) {
-    const result2 = this._parse(input);
-    if (isAsync(result2)) {
+    const result = this._parse(input);
+    if (isAsync(result)) {
       throw new Error("Synchronous parse encountered promise.");
     }
-    return result2;
+    return result;
   }
   _parseAsync(input) {
-    const result2 = this._parse(input);
-    return Promise.resolve(result2);
+    const result = this._parse(input);
+    return Promise.resolve(result);
   }
   parse(data, params) {
-    const result2 = this.safeParse(data, params);
-    if (result2.success)
-      return result2.data;
-    throw result2.error;
+    const result = this.safeParse(data, params);
+    if (result.success)
+      return result.data;
+    throw result.error;
   }
   safeParse(data, params) {
     const ctx = {
@@ -13775,8 +13667,8 @@ var ZodType = class {
       data,
       parsedType: getParsedType(data)
     };
-    const result2 = this._parseSync({ data, path: ctx.path, parent: ctx });
-    return handleResult(ctx, result2);
+    const result = this._parseSync({ data, path: ctx.path, parent: ctx });
+    return handleResult(ctx, result);
   }
   "~validate"(data) {
     const ctx = {
@@ -13792,9 +13684,9 @@ var ZodType = class {
     };
     if (!this["~standard"].async) {
       try {
-        const result2 = this._parseSync({ data, path: [], parent: ctx });
-        return isValid(result2) ? {
-          value: result2.value
+        const result = this._parseSync({ data, path: [], parent: ctx });
+        return isValid(result) ? {
+          value: result.value
         } : {
           issues: ctx.common.issues
         };
@@ -13808,17 +13700,17 @@ var ZodType = class {
         };
       }
     }
-    return this._parseAsync({ data, path: [], parent: ctx }).then((result2) => isValid(result2) ? {
-      value: result2.value
+    return this._parseAsync({ data, path: [], parent: ctx }).then((result) => isValid(result) ? {
+      value: result.value
     } : {
       issues: ctx.common.issues
     });
   }
   async parseAsync(data, params) {
-    const result2 = await this.safeParseAsync(data, params);
-    if (result2.success)
-      return result2.data;
-    throw result2.error;
+    const result = await this.safeParseAsync(data, params);
+    if (result.success)
+      return result.data;
+    throw result.error;
   }
   async safeParseAsync(data, params) {
     const ctx = {
@@ -13834,8 +13726,8 @@ var ZodType = class {
       parsedType: getParsedType(data)
     };
     const maybeAsyncResult = this._parse({ data, path: ctx.path, parent: ctx });
-    const result2 = await (isAsync(maybeAsyncResult) ? maybeAsyncResult : Promise.resolve(maybeAsyncResult));
-    return handleResult(ctx, result2);
+    const result = await (isAsync(maybeAsyncResult) ? maybeAsyncResult : Promise.resolve(maybeAsyncResult));
+    return handleResult(ctx, result);
   }
   refine(check, message) {
     const getIssueProperties = (val) => {
@@ -13848,13 +13740,13 @@ var ZodType = class {
       }
     };
     return this._refinement((val, ctx) => {
-      const result2 = check(val);
+      const result = check(val);
       const setError = () => ctx.addIssue({
         code: ZodIssueCode.custom,
         ...getIssueProperties(val)
       });
-      if (typeof Promise !== "undefined" && result2 instanceof Promise) {
-        return result2.then((data) => {
+      if (typeof Promise !== "undefined" && result instanceof Promise) {
+        return result.then((data) => {
           if (!data) {
             setError();
             return false;
@@ -13863,7 +13755,7 @@ var ZodType = class {
           }
         });
       }
-      if (!result2) {
+      if (!result) {
         setError();
         return false;
       } else {
@@ -15358,14 +15250,14 @@ var ZodArray = class _ZodArray extends ZodType {
     if (ctx.common.async) {
       return Promise.all([...ctx.data].map((item2, i) => {
         return def.type._parseAsync(new ParseInputLazyPath(ctx, item2, ctx.path, i));
-      })).then((result3) => {
-        return ParseStatus.mergeArray(status, result3);
+      })).then((result2) => {
+        return ParseStatus.mergeArray(status, result2);
       });
     }
-    const result2 = [...ctx.data].map((item2, i) => {
+    const result = [...ctx.data].map((item2, i) => {
       return def.type._parseSync(new ParseInputLazyPath(ctx, item2, ctx.path, i));
     });
-    return ParseStatus.mergeArray(status, result2);
+    return ParseStatus.mergeArray(status, result);
   }
   get element() {
     return this._def.type;
@@ -15771,18 +15663,18 @@ var ZodUnion = class extends ZodType {
     const { ctx } = this._processInputParams(input);
     const options = this._def.options;
     function handleResults(results) {
-      for (const result2 of results) {
-        if (result2.result.status === "valid") {
-          return result2.result;
+      for (const result of results) {
+        if (result.result.status === "valid") {
+          return result.result;
         }
       }
-      for (const result2 of results) {
-        if (result2.result.status === "dirty") {
-          ctx.common.issues.push(...result2.ctx.common.issues);
-          return result2.result;
+      for (const result of results) {
+        if (result.result.status === "dirty") {
+          ctx.common.issues.push(...result.ctx.common.issues);
+          return result.result;
         }
       }
-      const unionErrors = results.map((result2) => new ZodError(result2.ctx.common.issues));
+      const unionErrors = results.map((result) => new ZodError(result.ctx.common.issues));
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_union,
         unionErrors
@@ -15820,15 +15712,15 @@ var ZodUnion = class extends ZodType {
           },
           parent: null
         };
-        const result2 = option._parseSync({
+        const result = option._parseSync({
           data: ctx.data,
           path: ctx.path,
           parent: childCtx
         });
-        if (result2.status === "valid") {
-          return result2;
-        } else if (result2.status === "dirty" && !dirty) {
-          dirty = { result: result2, ctx: childCtx };
+        if (result.status === "valid") {
+          return result;
+        } else if (result.status === "dirty" && !dirty) {
+          dirty = { result, ctx: childCtx };
         }
         if (childCtx.common.issues.length) {
           issues.push(childCtx.common.issues);
@@ -16373,9 +16265,9 @@ var ZodFunction = class _ZodFunction extends ZodType {
           error.addIssue(makeArgsIssue(args, e));
           throw error;
         });
-        const result2 = await Reflect.apply(fn, this, parsedArgs);
-        const parsedReturns = await me._def.returns._def.type.parseAsync(result2, params).catch((e) => {
-          error.addIssue(makeReturnsIssue(result2, e));
+        const result = await Reflect.apply(fn, this, parsedArgs);
+        const parsedReturns = await me._def.returns._def.type.parseAsync(result, params).catch((e) => {
+          error.addIssue(makeReturnsIssue(result, e));
           throw error;
         });
         return parsedReturns;
@@ -16387,10 +16279,10 @@ var ZodFunction = class _ZodFunction extends ZodType {
         if (!parsedArgs.success) {
           throw new ZodError([makeArgsIssue(args, parsedArgs.error)]);
         }
-        const result2 = Reflect.apply(fn, this, parsedArgs.data);
-        const parsedReturns = me._def.returns.safeParse(result2, params);
+        const result = Reflect.apply(fn, this, parsedArgs.data);
+        const parsedReturns = me._def.returns.safeParse(result, params);
         if (!parsedReturns.success) {
-          throw new ZodError([makeReturnsIssue(result2, parsedReturns.error)]);
+          throw new ZodError([makeReturnsIssue(result, parsedReturns.error)]);
         }
         return parsedReturns.data;
       });
@@ -16642,43 +16534,43 @@ var ZodEffects = class extends ZodType {
         return Promise.resolve(processed).then(async (processed2) => {
           if (status.value === "aborted")
             return INVALID;
-          const result2 = await this._def.schema._parseAsync({
+          const result = await this._def.schema._parseAsync({
             data: processed2,
             path: ctx.path,
             parent: ctx
           });
-          if (result2.status === "aborted")
+          if (result.status === "aborted")
             return INVALID;
-          if (result2.status === "dirty")
-            return DIRTY(result2.value);
+          if (result.status === "dirty")
+            return DIRTY(result.value);
           if (status.value === "dirty")
-            return DIRTY(result2.value);
-          return result2;
+            return DIRTY(result.value);
+          return result;
         });
       } else {
         if (status.value === "aborted")
           return INVALID;
-        const result2 = this._def.schema._parseSync({
+        const result = this._def.schema._parseSync({
           data: processed,
           path: ctx.path,
           parent: ctx
         });
-        if (result2.status === "aborted")
+        if (result.status === "aborted")
           return INVALID;
-        if (result2.status === "dirty")
-          return DIRTY(result2.value);
+        if (result.status === "dirty")
+          return DIRTY(result.value);
         if (status.value === "dirty")
-          return DIRTY(result2.value);
-        return result2;
+          return DIRTY(result.value);
+        return result;
       }
     }
     if (effect.type === "refinement") {
       const executeRefinement = (acc) => {
-        const result2 = effect.refinement(acc, checkCtx);
+        const result = effect.refinement(acc, checkCtx);
         if (ctx.common.async) {
-          return Promise.resolve(result2);
+          return Promise.resolve(result);
         }
-        if (result2 instanceof Promise) {
+        if (result instanceof Promise) {
           throw new Error("Async refinement encountered during synchronous parse operation. Use .parseAsync instead.");
         }
         return acc;
@@ -16716,18 +16608,18 @@ var ZodEffects = class extends ZodType {
         });
         if (!isValid(base))
           return INVALID;
-        const result2 = effect.transform(base.value, checkCtx);
-        if (result2 instanceof Promise) {
+        const result = effect.transform(base.value, checkCtx);
+        if (result instanceof Promise) {
           throw new Error(`Asynchronous transform encountered during synchronous parse operation. Use .parseAsync instead.`);
         }
-        return { status: status.value, value: result2 };
+        return { status: status.value, value: result };
       } else {
         return this._def.schema._parseAsync({ data: ctx.data, path: ctx.path, parent: ctx }).then((base) => {
           if (!isValid(base))
             return INVALID;
-          return Promise.resolve(effect.transform(base.value, checkCtx)).then((result2) => ({
+          return Promise.resolve(effect.transform(base.value, checkCtx)).then((result) => ({
             status: status.value,
-            value: result2
+            value: result
           }));
         });
       }
@@ -16824,18 +16716,18 @@ var ZodCatch = class extends ZodType {
         issues: []
       }
     };
-    const result2 = this._def.innerType._parse({
+    const result = this._def.innerType._parse({
       data: newCtx.data,
       path: newCtx.path,
       parent: {
         ...newCtx
       }
     });
-    if (isAsync(result2)) {
-      return result2.then((result3) => {
+    if (isAsync(result)) {
+      return result.then((result2) => {
         return {
           status: "valid",
-          value: result3.status === "valid" ? result3.value : this._def.catchValue({
+          value: result2.status === "valid" ? result2.value : this._def.catchValue({
             get error() {
               return new ZodError(newCtx.common.issues);
             },
@@ -16846,7 +16738,7 @@ var ZodCatch = class extends ZodType {
     } else {
       return {
         status: "valid",
-        value: result2.status === "valid" ? result2.value : this._def.catchValue({
+        value: result.status === "valid" ? result.value : this._def.catchValue({
           get error() {
             return new ZodError(newCtx.common.issues);
           },
@@ -16960,14 +16852,14 @@ var ZodPipeline = class _ZodPipeline extends ZodType {
 };
 var ZodReadonly = class extends ZodType {
   _parse(input) {
-    const result2 = this._def.innerType._parse(input);
+    const result = this._def.innerType._parse(input);
     const freeze = (data) => {
       if (isValid(data)) {
         data.value = Object.freeze(data.value);
       }
       return data;
     };
-    return isAsync(result2) ? result2.then((data) => freeze(data)) : freeze(result2);
+    return isAsync(result) ? result.then((data) => freeze(data)) : freeze(result);
   }
   unwrap() {
     return this._def.innerType;
@@ -17132,7 +17024,7 @@ var job = external_exports.discriminatedUnion("kind", [
   external_exports.object({ kind: external_exports.literal("injured"), until: external_exports.number() }),
   external_exports.object({ kind: external_exports.literal("stardust"), patchId: id, returnTo: id.nullable() }),
   external_exports.object({ kind: external_exports.literal("meteor"), meteorId: id, returnTo: id.nullable() }),
-  external_exports.object({ kind: external_exports.literal("outpost"), sector: sectorId }),
+  external_exports.object({ kind: external_exports.literal("outpost"), sector: sectorId, targetId: id }),
   external_exports.object({
     kind: external_exports.literal("titan"),
     work: external_exports.enum(TITAN_WORK_IDS),
@@ -17229,6 +17121,12 @@ var alienBuilding = external_exports.object({
   q: external_exports.number().int(),
   r: external_exports.number().int()
 });
+var landingOrders = external_exports.object({
+  posture: external_exports.enum(POSTURES),
+  priority: external_exports.enum(LANDING_PRIORITIES),
+  retreatAt: external_exports.number().min(0).max(1),
+  goal: external_exports.enum(LANDING_GOALS)
+});
 var parcelView2 = external_exports.object({
   at: external_exports.number(),
   source: external_exports.enum(["beacon", "landing", "retreat", "edge", "report"]),
@@ -17237,8 +17135,6 @@ var parcelView2 = external_exports.object({
   units: external_exports.array(alienUnit2).max(16),
   buildings: external_exports.array(alienBuilding).max(64)
 });
-var datedRange = range.extend({ at: external_exports.number() });
-var groundAir = external_exports.object({ ground: external_exports.number(), air: external_exports.number() });
 var structure = external_exports.object({
   kind: external_exports.enum(["den", "roost"]),
   q: external_exports.number().int(),
@@ -17420,19 +17316,47 @@ var gameStateSchema = external_exports.object({
       ).max(INTEL.sectors),
       structures: external_exports.array(structure).max(64),
       spotted: external_exports.boolean().optional(),
-      siege: external_exports.object({
-        seen: external_exports.array(sectorId).max(INTEL.sectors),
-        holds: external_exports.record(external_exports.string().max(4), datedRange),
-        queen: external_exports.object({ sector: sectorId, ground: datedRange, air: datedRange }).optional()
-      }).optional(),
       civAge: external_exports.number().int().min(0).max(3).optional()
     })
   ),
   faceViews: external_exports.record(
     external_exports.string(),
     external_exports.object({
-      beacons: external_exports.array(external_exports.object({ sector: sectorId, since: external_exports.number() })).max(INTEL.sectors),
-      parcels: external_exports.record(external_exports.string().max(2), parcelView2)
+      beacons: external_exports.array(
+        external_exports.object({
+          sector: sectorId,
+          since: external_exports.number(),
+          guards: external_exports.array(id).max(BEACONS.maxGuards).optional(),
+          orders: landingOrders.optional(),
+          fort: external_exports.number().int().min(0).max(12).optional(),
+          fortifying: external_exports.object({ until: external_exports.number(), level: external_exports.number().int().min(1).max(12) }).optional()
+        })
+      ).max(INTEL.sectors),
+      parcels: external_exports.record(external_exports.string().max(2), parcelView2),
+      attack: external_exports.object({
+        id,
+        sector: sectorId.nullable(),
+        origin: sectorId.nullable(),
+        announceAt: external_exports.number(),
+        at: external_exports.number(),
+        announced: external_exports.boolean()
+      }).nullable().optional(),
+      attacks: external_exports.number().int().min(0).optional(),
+      lastAttackAt: external_exports.number().optional(),
+      reports: external_exports.array(
+        external_exports.object({
+          id,
+          at: external_exports.number(),
+          sector: sectorId,
+          origin: sectorId,
+          held: external_exports.boolean(),
+          fought: external_exports.boolean(),
+          power: external_exports.number(),
+          dead: external_exports.array(external_exports.string()).max(BEACONS.maxGuards),
+          back: external_exports.number().int().min(0),
+          log: battleLog.optional()
+        })
+      ).max(BEACONS.reports).optional()
     })
   ),
   bestiary: external_exports.record(
@@ -17470,15 +17394,9 @@ var gameStateSchema = external_exports.object({
       status: external_exports.enum(["outbound", "returning", "done"]),
       broken: external_exports.boolean().optional(),
       sector: sectorId.optional(),
-      holders: external_exports.array(id).max(200).optional(),
       bringBack: external_exports.array(id).max(200).optional(),
       freight: resources.optional(),
-      orders: external_exports.object({
-        posture: external_exports.enum(POSTURES),
-        priority: external_exports.enum(LANDING_PRIORITIES),
-        retreatAt: external_exports.number().min(0).max(1),
-        goal: external_exports.enum(LANDING_GOALS)
-      }).optional(),
+      orders: landingOrders.optional(),
       delayed: external_exports.boolean().optional(),
       result: external_exports.object({
         victory: external_exports.boolean(),
@@ -17493,12 +17411,10 @@ var gameStateSchema = external_exports.object({
         spotted: external_exports.boolean().optional(),
         sectors: external_exports.array(external_exports.number().int().min(0)).optional(),
         injured: external_exports.array(id).optional(),
-        bridgehead: external_exports.boolean().optional(),
         queenFallen: external_exports.boolean().optional(),
         sector: sectorId.optional(),
         burnt: external_exports.boolean().optional(),
         founded: external_exports.boolean().optional(),
-        sides: external_exports.object({ strength: groundAir, queen: groundAir }).optional(),
         outcome: external_exports.enum(["victory", "retreat", "defeat"]).optional(),
         log: battleLog.optional(),
         beacon: external_exports.boolean().optional(),
@@ -17625,37 +17541,6 @@ var gameStateSchema = external_exports.object({
     Object.fromEntries(AUTO_TASKS.map((t) => [t, external_exports.boolean()]))
   ),
   siege: external_exports.object({
-    bridgeheads: external_exports.array(
-      external_exports.object({
-        sector: sectorId,
-        since: external_exports.number(),
-        holders: external_exports.array(id).max(200),
-        fortified: external_exports.boolean(),
-        fortifyUntil: external_exports.number().optional(),
-        fortifierId: id.optional()
-      })
-    ).max(SIEGE.maxBridgeheads),
-    counter: external_exports.object({
-      id,
-      sector: sectorId,
-      announceAt: external_exports.number(),
-      at: external_exports.number(),
-      announced: external_exports.boolean()
-    }).nullable(),
-    counters: external_exports.number().int().min(0),
-    lastCounterAt: external_exports.number().min(0),
-    reports: external_exports.array(
-      external_exports.object({
-        id,
-        at: external_exports.number(),
-        sector: sectorId,
-        victory: external_exports.boolean(),
-        strength: external_exports.number(),
-        enemy: external_exports.number(),
-        dead: external_exports.array(external_exports.string()),
-        retreating: external_exports.number().int().min(0)
-      })
-    ).max(5),
     conqueredAt: external_exports.number().min(0)
   }),
   colony: external_exports.object({
@@ -17813,7 +17698,19 @@ var MIGRATIONS = {
   // v32 → v33 (chantier 40): beacons and parcels seen, the bestiary.
   32: (raw) => ({ ...raw, faceViews: {}, bestiary: {} }),
   // v33 → v34 (chantier 40): the landing replaces the raids, the reconnaissance and the siege.
-  33: migrateToLandings
+  33: migrateToLandings,
+  // v34 → v35 (chantier 42): the old siege's bridgeheads, counter-attacks and reports are gone.
+  34: (raw) => {
+    const siege = raw.siege ?? {};
+    const intel = Object.fromEntries(
+      Object.entries(raw.intel ?? {}).map(([k, r]) => {
+        const rest = { ...r };
+        delete rest.siege;
+        return [k, rest];
+      })
+    );
+    return { ...raw, siege: { conqueredAt: Number(siege.conqueredAt ?? 0) }, intel };
+  }
 };
 var OLD_MISSIONS = ["raid", "recon", "assault", "reinforce", "final", "retreat"];
 function migrateToLandings(raw) {
@@ -17963,9 +17860,9 @@ function migrateState(input) {
     version++;
     raw.schemaVersion = version;
   }
-  const result2 = gameStateSchema.safeParse(raw);
-  if (!result2.success) return { ok: false, reason: "corrupt" };
-  const state = result2.data;
+  const result = gameStateSchema.safeParse(raw);
+  if (!result.success) return { ok: false, reason: "corrupt" };
+  const state = result.data;
   if (from < 27) spreadOldBuildings(state);
   return { ok: true, state };
 }
@@ -18028,7 +17925,8 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     targetId: id2,
     crew: external_exports.union([int.min(0).max(1e3), external_exports.array(id2).max(200)]),
     provisions: external_exports.object({ pulp: external_exports.number().min(0).max(1e7), juice: external_exports.number().min(0).max(1e7) }),
-    mission: external_exports.enum(["land", "found"]).optional(),
+    mission: external_exports.enum(["land", "found", "guard"]).optional(),
+    bringBack: external_exports.array(id2).max(200).optional(),
     orders: external_exports.object({
       posture: external_exports.enum(POSTURES),
       priority: external_exports.enum(["nearest", "air", "casters", "weakest"]),
@@ -18037,8 +17935,6 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     }).optional(),
     fuel: external_exports.boolean().optional(),
     sector: int.min(0).max(INTEL.sectors - 1).optional(),
-    holders: external_exports.array(id2).max(200).optional(),
-    bringBack: external_exports.array(id2).max(200).optional(),
     freight: external_exports.object({
       pulp: external_exports.number().min(0).max(1e7).optional(),
       fiber: external_exports.number().min(0).max(1e7).optional(),
@@ -18046,8 +17942,12 @@ var commandSchema = external_exports.discriminatedUnion("type", [
       juice: external_exports.number().min(0).max(1e7).optional()
     }).optional()
   }),
-  external_exports.object({ type: external_exports.literal("fortifyBridgehead"), sector: int.min(0).max(INTEL.sectors - 1) }),
   external_exports.object({ type: external_exports.literal("raidDen"), q: external_exports.number().int(), r: external_exports.number().int() }),
+  external_exports.object({
+    type: external_exports.literal("fortifyBeacon"),
+    targetId: id2,
+    sector: int.min(0).max(INTEL.sectors - 1)
+  }),
   external_exports.object({
     type: external_exports.literal("sendCargo"),
     launchpadId: id2,
@@ -18778,13 +18678,16 @@ async function handle(ctx, body) {
         const scoped = withScopeTargets(ctx, existing.state, scope);
         let state2 = scoped.state;
         let events = [];
-        const landed = hiddenDue(state2, ctx.now());
-        if (landed.length > 0) {
-          const result2 = advance(state2, Math.max(...landed));
-          state2 = result2.state;
-          events = result2.events;
+        let resolved = false;
+        for (let pass = 0; pass < 16; pass++) {
+          const due = hiddenDue(state2, ctx.now()).filter((at) => pass === 0 || at > state2.now);
+          if (due.length === 0) break;
+          const result = advance(state2, Math.max(state2.now, ...due));
+          state2 = result.state;
+          events = [...events, ...result.events];
+          resolved = true;
         }
-        if (scoped.changed || landed.length > 0) {
+        if (scoped.changed || resolved) {
           const saved = await repo.update(existing.id, state2, existing.version);
           if (!saved) state2 = (await repo.findGame(ctx.userId, scope.universeId))?.state ?? state2;
         }
@@ -18850,17 +18753,17 @@ async function handle(ctx, body) {
         if (!game || target === 1 && !isSister(game.state)) return fail2("invalidRequest");
         const current = withScopeTargets(ctx, game.state, scope).state;
         if (allySister2) current.friends = [...current.friends, allySister2];
-        const result2 = applyCommand(current, req.command, { now: ctx.now(), map: mapFor(current) });
+        const result = applyCommand(current, req.command, { now: ctx.now(), map: mapFor(current) });
         await repo.logCommand({
           userId: ctx.userId,
           gameId: game.id,
           command: req.command,
-          ok: result2.ok,
-          error: result2.ok ? void 0 : result2.error,
+          ok: result.ok,
+          error: result.ok ? void 0 : result.error,
           at: now
         });
-        if (!result2.ok) return fail2(result2.error, current);
-        const saved = await repo.update(game.id, result2.state, game.version);
+        if (!result.ok) return fail2(result.error, current);
+        const saved = await repo.update(game.id, result.state, game.version);
         if (saved) {
           if (req.command.type === "sendCargo" && scope.shared) {
             const sent = saved.state.shipments.find(
@@ -18877,7 +18780,7 @@ async function handle(ctx, body) {
           return {
             ok: true,
             state,
-            events: target === colony2 ? result2.events : [],
+            events: target === colony2 ? result.events : [],
             serverTime: ctx.now(),
             ...pair ? { sister: sisterOf(pair, colony2, ctx.now()) } : {}
           };
@@ -19102,6 +19005,7 @@ export {
   ARMOR_KINDS,
   AUTO_TASKS,
   BATTLE,
+  BEACONS,
   BIOMES,
   BIOME_IDS,
   BLESSINGS,
@@ -19142,6 +19046,7 @@ export {
   GEAR_KINDS,
   GEAR_SLOTS,
   GEAR_TIERS,
+  GUARD_ORDERS,
   HARVESTS,
   HATCHING,
   HEART,
@@ -19232,6 +19137,7 @@ export {
   TILE_TYPES,
   TITAN,
   TITAN_WORK_IDS,
+  TOWER,
   TRAITS,
   TRAIT_IDS,
   TURRETS2 as TURRETS,
@@ -19259,19 +19165,17 @@ export {
   ageOf,
   ageOfLevel,
   ageProgress,
-  ageRange,
   alienDefOf,
   alienDefense,
   alienEnemies,
   alienFaceOnKiwi,
-  allHolders,
+  alienUnit,
+  allGuards,
   applyCommand,
   applyTerraform,
   armoryCount,
-  assaultEnemy,
-  assaultLock,
-  assaultSides,
   assignFace,
+  attacksFrom,
   autoAssign,
   autoGarrisonAt,
   autoPlace,
@@ -19283,6 +19187,13 @@ export {
   bardMorale,
   baseHarvest,
   battleOutcome,
+  beaconAwaited,
+  beaconForecast,
+  beaconHeld,
+  beaconOf,
+  beaconSetup,
+  beaconTick,
+  beaconsDue,
   beaconsOf,
   bedsOf,
   belowReturn,
@@ -19294,7 +19205,6 @@ export {
   biomeProfile,
   biomesOf,
   borrow,
-  bridgeheadAt,
   buildCost,
   buildLock,
   buildSlots,
@@ -19320,6 +19230,7 @@ export {
   canStarve,
   cancelOrder,
   capacity,
+  capped,
   cargoLimit,
   cargoWeight,
   catchmentPlan,
@@ -19354,7 +19265,6 @@ export {
   cloneIntel,
   cloneParcelView,
   cloneSiege,
-  cloneSiegeIntel,
   cloneState,
   cloneThreats,
   cloneVillager,
@@ -19372,9 +19282,6 @@ export {
   consumption,
   copiesOf,
   countTiles,
-  counterAwaited,
-  counterEscalation,
-  counterForecast,
   coveredHarvest,
   coveredKeys,
   coveredRampart,
@@ -19392,7 +19299,6 @@ export {
   cycleHarvest,
   decodeEvents,
   decodeInts,
-  deepRecon,
   defaultAutomation,
   defenseOf,
   deliverToSister,
@@ -19431,6 +19337,7 @@ export {
   ensureAliens,
   equip,
   equipGear,
+  escalation,
   exposedKiwis,
   exposureOf,
   extensionFor,
@@ -19438,14 +19345,11 @@ export {
   faceViewOf,
   familyOf,
   fightLossAt,
-  fighterSides,
   fillCraters,
   fillForge,
   fillGarrison,
   fillResearch,
   fillStardust,
-  finalForecast,
-  finalLock,
   finishInfusions,
   finishTitanWorks,
   foodLeftMs,
@@ -19462,7 +19366,9 @@ export {
   forgeQueueSize,
   forgeRate,
   forgeTick,
-  forgetHolders,
+  forgetGuards,
+  fortLevel,
+  fortifyCost,
   fortifyLock,
   foundLock,
   freeDepositStock,
@@ -19483,7 +19389,9 @@ export {
   grantClassXp,
   grantXp,
   growthOfHours,
+  guardLock,
   guardPower,
+  guardsOf,
   handleGameRequest,
   harvestOf,
   harvestedTileType,
@@ -19505,9 +19413,6 @@ export {
   hexScale,
   hexToPixel,
   hiddenDue,
-  holdDefense,
-  holdStrength,
-  holdersOf,
   homeKiwis,
   housing,
   hungerCap,
@@ -19524,6 +19429,7 @@ export {
   inviteCode,
   ironCap,
   ironUnits,
+  isConquered,
   isDepot,
   isFace,
   isFlooded,
@@ -19535,12 +19441,10 @@ export {
   isMaxLevel,
   isNight,
   isObjectiveComplete,
-  isOuterSector,
   isPlausible,
   isPristine,
   isProducer,
   isRampart,
-  isSiegeMission,
   isSister,
   isTurret,
   itemOpen,
@@ -19561,6 +19465,7 @@ export {
   kiwiUnit,
   kiwiWeapon,
   laboratoryOf,
+  landGuard,
   landSettlers,
   landTileNear,
   landingForecast,
@@ -19593,7 +19498,6 @@ export {
   maxLevelOf,
   mayorMorale,
   mayorOf,
-  mergeSiegeIntel,
   meteorAt,
   meteorIronOf,
   meteorIronPerHour,
@@ -19623,6 +19527,7 @@ export {
   newSister,
   newSky,
   newThreats,
+  nextBeaconEvent,
   nextCalendarChange,
   nextCivEvent,
   nextCometEvent,
@@ -19634,7 +19539,6 @@ export {
   nextInfusionEnd,
   nextKiwiEvent,
   nextResearchEvent,
-  nextSiegeEvent,
   nextSkyEvent,
   nextStep,
   nextThreatEvent,
@@ -19652,8 +19556,8 @@ export {
   orderWork,
   otherFace,
   otherRing,
-  outerOf,
   outerPower,
+  parcelField,
   parcelTiles,
   parcelTruth,
   parcelView,
@@ -19671,9 +19575,9 @@ export {
   pickRate,
   pickStarving,
   pixelToHex,
+  planBeaconAttacks,
   planCiv,
   planComet,
-  planCounter,
   planMeteor,
   planWave,
   planetSeedOf,
@@ -19685,9 +19589,7 @@ export {
   productionRates,
   protectedStock,
   publicState,
-  queenLair,
-  queenPower,
-  queenReduction,
+  queenTruth,
   queuedBuildAt,
   raidDen,
   raidSector,
@@ -19703,7 +19605,6 @@ export {
   recordDefeat,
   recordFight,
   recordIntel,
-  recordSiegeIntel,
   redirectFull,
   refreshBeacons,
   regenBonus,
@@ -19732,7 +19633,6 @@ export {
   resolveArrival,
   resolveLanding,
   resolveReturn,
-  resolveSiegeLanding,
   restNeed,
   returnGear,
   returnHome,
@@ -19764,11 +19664,6 @@ export {
   shipIdForAge,
   shipOf,
   shipReliability,
-  siegeGrowth,
-  siegeLock,
-  siegeTick,
-  siegeTruth,
-  siegeView,
   simulateBattle,
   sisterFriend,
   sisterThreat,

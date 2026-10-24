@@ -19,7 +19,7 @@ export function RecapBubble() {
   const alarming =
     !!summary &&
     (summary.waves.lost > 0 ||
-      summary.counters.fell > 0 ||
+      summary.beacons.fell > 0 ||
       summary.starved.length > 0 ||
       summary.foodRanOut.length > 0);
   useEffect(() => {
@@ -61,9 +61,9 @@ export function RecapBubble() {
       {summary.completed.length > 0 && (
         <p class="small">{t('offline.shortCompleted', { count: summary.completed.length })}</p>
       )}
-      {summary.counters.held + summary.counters.fell > 0 && (
-        <p class={`small ${summary.counters.fell > 0 ? 'warn' : ''}`}>
-          {t('offline.counters', summary.counters)}
+      {summary.beacons.held + summary.beacons.fell > 0 && (
+        <p class={`small ${summary.beacons.fell > 0 ? 'warn' : ''}`}>
+          {t('offline.beacons', summary.beacons)}
         </p>
       )}
       {summary.waves.won + summary.waves.lost > 0 && (

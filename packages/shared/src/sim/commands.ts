@@ -74,7 +74,8 @@ import {
   type MissionKind,
   type Villager,
 } from './state';
-import { fortifyLock, startFortify, twinTarget } from './siege';
+import { twinTarget } from './siege';
+import { fortifyCost, fortifyLock, guardLock, startFortify } from './beacons';
 import { returnHome, weakestWorker } from './posts';
 import { TECHS, type TechId } from '../data/research';
 import { researchTick, techEffects, techStatus } from './research';
@@ -150,11 +151,9 @@ export type Command =
       mission?: MissionKind;
       /** Chantier 13: burn stardust for a faster, safer trip. */
       fuel?: boolean;
-      /** Chantier 19: outer sector of an assault or a reinforcement. */
+      /** Chantier 40: the parcel of a landing (chantier 42: of the beacon a guard goes to). */
       sector?: number;
-      /** Chantier 19: assault crew members who stay on the bridgehead (at least one). */
-      holders?: VillagerId[];
-      /** Chantier 19: posted kiwis a reinforcement brings back home. */
+      /** Chantier 42: guards of that beacon the guard ship brings back home. */
       bringBack?: VillagerId[];
       /** Chantier 19: resources the settlers carry to found the colony (mission `found`). */
       freight?: Partial<Resources>;
@@ -208,8 +207,8 @@ export type Command =
   | { type: 'transform'; villagerId: VillagerId; labId: BuildingId }
   /** Chantier 08: a Kikiwiwi smashes the obstacle on a tile, or reshapes it. */
   | { type: 'titanWork'; villagerId: VillagerId; q: number; r: number; work: TitanWork }
-  /** Chantier 19: a Kikiwiwi posted on this bridgehead fortifies it. */
-  | { type: 'fortifyBridgehead'; sector: number }
+  /** Chantier 42: fortify our beacon on this parcel of a face (two turrets and a stout tower). */
+  | { type: 'fortifyBeacon'; targetId: string; sector: number }
   /** Chantier 19: the guards raid the ferret den on this tile (a colonised face). */
   | { type: 'raidDen'; q: number; r: number }
   /** Chantier 08: a builder clears the stump on this tile (queued like a construction). */
@@ -333,20 +332,14 @@ export const COMMAND_ERRORS = [
   'craterFull',
   'alreadyStarted',
   'noBuildSlot',
-  // Chantier 19: the siege of the twin face.
+  // Chantier 19: the conquest of the twin face.
   'conquered',
   'notASector',
-  'sectorUnseen',
-  'bridgeheadHere',
-  'bridgeheadLimit',
-  'noBridgehead',
-  'queenUnknown',
-  'needBridgeheads',
-  'needFortified',
-  'invalidHolders',
-  'alreadyFortified',
-  'fortifying',
   'invalidMission',
+  // Chantier 42: the beacons' defence.
+  'noBeacon',
+  'fortifying',
+  'alreadyFortified',
   // Chantier 19 (second half): the second colony.
   'notConquered',
   'alreadyFounded',
@@ -785,7 +778,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       // Chantier 40: the landing replaces the raids, the reconnaissance and the siege; the
       // settlers' ship stays.
       const mission = cmd.mission ?? 'land';
-      if (mission !== 'land' && mission !== 'found') fail('invalidMission');
+      if (mission !== 'land' && mission !== 'found' && mission !== 'guard') fail('invalidMission');
       const onTwin = twinTarget(s)?.id === cmd.targetId;
       if (mission === 'found') {
         const lock = foundLock(s);
@@ -796,7 +789,12 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (mission === 'land') {
         const lock = landingLock(s, cmd.targetId, cmd.sector, cmd.orders);
         if (lock) fail(lock);
+      } else if (mission === 'guard') {
+        const size = typeof cmd.crew === 'number' ? cmd.crew : cmd.crew.length;
+        const lock = guardLock(s, cmd.targetId, cmd.sector, size, cmd.bringBack ?? [], cmd.orders);
+        if (lock) fail(lock);
       } else if (cmd.orders) fail('invalidMission');
+      if (mission !== 'guard' && cmd.bringBack?.length) fail('invalidMission');
       const { pulp, juice } = cmd.provisions;
       if (
         (typeof cmd.crew === 'number' && !Number.isInteger(cmd.crew)) ||
@@ -816,7 +814,6 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       }
       if (size > maxCrew(s, pad, mission)) fail('crewTooLarge');
       if (crew.filter((v) => v.kikiwiwi).length > KIKIWIWI.perShip) fail('oneKikiwiwi');
-      if (cmd.holders?.length || cmd.bringBack?.length) fail('invalidHolders');
       const forecast = forecastExpedition(s, cmd)!;
       if (forecast.weight > forecast.cargo + 1e-9) fail('overloaded');
       if (forecast.returnWeight > forecast.cargo + 1e-9) fail('overloaded');
@@ -835,11 +832,15 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       launch(s, cmd, now, nextId(s, 'x'));
       return;
     }
-    case 'fortifyBridgehead': {
-      const lock = fortifyLock(s, cmd.sector);
-      if (lock === 'notAKikiwiwi' || lock === 'noBridgehead') return fail(lock);
+    case 'fortifyBeacon': {
+      if (!s.targets.some((t) => t.id === cmd.targetId)) fail('unknownTarget');
+      const lock = fortifyLock(s, cmd.targetId, cmd.sector);
       if (lock) fail(lock);
-      startFortify(s, cmd.sector, now);
+      const cost = fortifyCost(s);
+      if (!canAfford(s.resources, cost.resources)) fail('notEnoughResources');
+      payIron(s, cost.iron);
+      pay(s, cost.resources);
+      startFortify(s, cmd.targetId, cmd.sector, now);
       return;
     }
     case 'sendCargo': {

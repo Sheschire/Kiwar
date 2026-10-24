@@ -90,7 +90,10 @@ export interface BattleUnitSetup {
 
 export interface SideOrders {
   posture: Posture;
-  /** The side runs away under this share of its power (0: never). */
+  /**
+   * The side runs away under this share of its power (0: never). Chantier 42: for the home side,
+   * the share of its fighters (turrets apart) still standing; they leave the field at once.
+   */
   retreatBelow: number;
   /** Chantier 40: targets of the `assault` units of this side. */
   priority?: AssaultPriority;

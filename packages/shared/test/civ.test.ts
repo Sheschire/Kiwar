@@ -17,7 +17,7 @@ import {
   recordFight,
   sectorUnits,
   sectorOf,
-  siegeTruth,
+  queenTruth,
   standingBarracks,
   advance,
   awaitingServer,
@@ -55,7 +55,7 @@ describe('alien civilisation (chantier 39)', () => {
     const civ = civOf(g);
     const royal = civ.keys.filter((k) => k.kind === 'royal');
     expect(royal).toHaveLength(1);
-    expect(royal[0]!.sector).toBe(siegeTruth(g).queenSector);
+    expect(royal[0]!.sector).toBe(queenTruth(g).sector);
     const wanted = keysWanted(0);
     expect(civ.keys.filter((k) => k.kind === 'barracks')).toHaveLength(wanted.barracks);
     // One key building per parcel, the centre first.
@@ -212,11 +212,7 @@ describe('alien civilisation (chantier 39)', () => {
 });
 
 describe('the AI that hides (chantier 39)', () => {
-  const eyes = (beacons: number[] = [], seen: number[] = [], royalSeen = false) => ({
-    beacons,
-    seen,
-    royalSeen,
-  });
+  const eyes = (beacons: number[] = [], seen: number[] = []) => ({ beacons, seen });
 
   it('moves the key buildings away from a new beacon, to a hidden free parcel', () => {
     const { g } = twin('hide');
@@ -238,10 +234,11 @@ describe('the AI that hides (chantier 39)', () => {
     const royal = civ.keys.find((k) => k.kind === 'royal')!;
     const lair = royal.sector;
     const beacon = lair + 6;
+    // Chantier 42: once the queen is out, her burrow is marked seen and stays put.
     const seen = structuredClone(civ);
-    planCiv(g, seen, T0 + CIV.tickMs, eyes([beacon], [], true));
+    seen.royalSeen = true;
+    planCiv(g, seen, T0 + CIV.tickMs, eyes([beacon]));
     expect(seen.keys.find((k) => k.kind === 'royal')!.sector).toBe(lair);
-    expect(seen.royalSeen).toBe(true);
     planCiv(g, civ, T0 + CIV.tickMs, eyes([beacon]));
     const moved = civ.keys.find((k) => k.kind === 'royal')!.sector;
     expect(moved).not.toBe(lair);
@@ -293,7 +290,7 @@ describe('the AI that hides (chantier 39)', () => {
     s.threats.next = null;
     s.threats.shieldUntil = T0 + 100 * DAY;
     const id = s.targets[0]!.id;
-    s.siege.bridgeheads = [{ sector: 7, since: T0, holders: [], fortified: false }];
+    s.faceViews[id] = { beacons: [{ sector: 7, since: T0 }], parcels: {} };
     s.intel[id] = {
       at: T0,
       source: 'recon',
@@ -373,12 +370,10 @@ describe('its waves against us (chantier 39)', () => {
     const barracks = civ.keys.filter((k) => k.kind === 'barracks');
     const before = civWave(s, at, 'w1');
     const held = cloneState(s);
-    held.siege.bridgeheads = barracks.map((b) => ({
-      sector: b.sector,
-      since: at,
-      holders: [],
-      fortified: false,
-    }));
+    held.faceViews[held.targets[0]!.id] = {
+      beacons: barracks.map((b) => ({ sector: b.sector, since: at })),
+      parcels: {},
+    };
     const after = civWave(held, at, 'w1');
     expect(after.factor).toBeCloseTo(before.factor * CIV.barracksFloor, 5);
     expect(barracks.map((b) => b.sector)).not.toContain(after.origin);

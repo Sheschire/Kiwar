@@ -409,7 +409,7 @@ describe('the landing (chantier 40)', () => {
     if (!m.ok) return;
     const st = m.state;
     expect(st.expeditions[0]).toMatchObject({ status: 'returning', result: { aborted: true } });
-    expect(st.siege.bridgeheads).toEqual([]);
+    expect(st.siege).toEqual({ conqueredAt: 0 });
     expect(st.villagers.find((v) => v.id === holder)!.job.kind).toBe('idle');
     const face = st.faceViews[base.targetId]!;
     expect(face.beacons.map((b) => b.sector)).toEqual([9]);

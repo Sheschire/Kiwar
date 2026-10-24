@@ -49,10 +49,6 @@ export type Modal =
   | 'plans'
   | 'siege';
 
-/** Chantier 19: the short show of a siege fight seen live. */
-export type SiegeShowKind = 'taken' | 'repelled' | 'held' | 'fell' | 'queen' | 'queenHeld';
-
-/** Chantier 19: a siege mission prepared from the Siege screen (the planner opens on it). */
 /** A planner opened on a mission: the settlers' ship, or a landing on a given parcel (chantier 40). */
 export interface SiegePlan {
   mission: 'land' | 'found';
@@ -106,8 +102,6 @@ export interface UiState {
   deliverTo: string | null;
   /** Chantier 19: the siege mission the expedition planner is set to (null: free choice). */
   siegePlan: SiegePlan | null;
-  /** Chantier 19: a siege fight seen live (`sector`: where; `in3d`: played in the scene). */
-  siegeShow: { kind: SiegeShowKind; id: number; sector: number | null; in3d?: boolean } | null;
   /** Expedition whose report is shown. */
   reportId: string | null;
   /** Chantier 40: the bestiary, shown over any screen. */
@@ -268,7 +262,6 @@ export const uiStore = createStore<UiState>(() => ({
   expeditionPad: null,
   deliverTo: null,
   siegePlan: null,
-  siegeShow: null,
   reportId: null,
   bestiaryOpen: false,
   demolishId: null,

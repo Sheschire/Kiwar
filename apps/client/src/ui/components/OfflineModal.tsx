@@ -21,7 +21,7 @@ export function OfflineModal() {
     summary.starved.length === 0 &&
     summary.foodRanOut.length === 0 &&
     summary.waves.won + summary.waves.lost === 0 &&
-    summary.counters.held + summary.counters.fell === 0 &&
+    summary.beacons.held + summary.beacons.fell === 0 &&
     summary.meteors === 0 &&
     summary.comets === 0 &&
     summary.stardust === 0 &&
@@ -84,9 +84,9 @@ export function OfflineModal() {
       {summary.starved.length > 0 && (
         <p class="warn">{t('offline.starved', { names: summary.starved.join(', ') })}</p>
       )}
-      {summary.counters.held + summary.counters.fell > 0 && (
-        <p class={summary.counters.fell > 0 ? 'warn' : 'bonus'}>
-          {t('offline.counters', summary.counters)}
+      {summary.beacons.held + summary.beacons.fell > 0 && (
+        <p class={summary.beacons.fell > 0 ? 'warn' : 'bonus'}>
+          {t('offline.beacons', summary.beacons)}
         </p>
       )}
       {summary.waves.won + summary.waves.lost > 0 && (

@@ -39,7 +39,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 34;
+export const SCHEMA_VERSION = 35;
 
 export type Job =
   | { kind: 'idle' }
@@ -79,8 +79,11 @@ export type Job =
   | { kind: 'stardust'; patchId: string; returnTo: BuildingId | null }
   /** Chantier 15: harvesting a meteorite crater (a temporary post). */
   | { kind: 'meteor'; meteorId: string; returnTo: BuildingId | null }
-  /** Chantier 19: posted on a bridgehead of the twin face (away, fed from the colony stock). */
-  | { kind: 'outpost'; sector: number };
+  /**
+   * Chantier 42: guarding our beacon on a parcel of an alien face (away, fed from the colony
+   * stock; chantier 19's bridgeheads before).
+   */
+  | { kind: 'outpost'; sector: number; targetId: string };
 
 export interface KiwiHistory {
   expeditions: number;
@@ -400,8 +403,6 @@ export interface IntelReport {
   structures: AlienStructure[];
   /** The scouts were spotted (incomplete report). */
   spotted?: boolean;
-  /** Chantier 19: what deep reconnaissance and assaults told about the siege. */
-  siege?: SiegeIntel;
   /** Chantier 39: age of the alien civilisation seen then. */
   civAge?: number;
 }
@@ -409,16 +410,6 @@ export interface IntelReport {
 /** A range seen at a time (it ages like the defense of the face). */
 export interface DatedRange extends IntelRange {
   at: TimeMs;
-}
-
-/** Chantier 19: the holds of the outer sectors and the queen, as far as we know. */
-export interface SiegeIntel {
-  /** Sectors looked at by a deep reconnaissance (or fought for). */
-  seen: number[];
-  /** Strength of the aliens holding an outer sector (key: sector). */
-  holds: Record<string, DatedRange>;
-  /** The queen, once a deep reconnaissance saw her lair (an inner sector). */
-  queen?: { sector: number; ground: DatedRange; air: DatedRange };
 }
 
 export interface ExpeditionResult {
@@ -440,13 +431,9 @@ export interface ExpeditionResult {
   sectors?: number[];
   /** Kiwis back home wounded (ids, see `roster` for their names). */
   injured?: VillagerId[];
-  /** Chantier 19: assault won, a bridgehead stands (the holders stayed on it). */
-  bridgehead?: boolean;
   /** Chantier 39: parcel of the face the raid landed on, and it was burnt (a victory). */
   sector?: number;
   burnt?: boolean;
-  /** Chantier 19: final assault, both sides of the fight (luck included). */
-  sides?: { strength: { ground: number; air: number }; queen: { ground: number; air: number } };
   /** Chantier 19: the queen fell (final assault won). */
   queenFallen?: boolean;
   /** Chantier 19: the settlers landed and the second colony is founded. */
@@ -477,6 +464,7 @@ export const MISSION_KINDS = [
   'final',
   'retreat',
   'found',
+  'guard',
 ] as const;
 export type MissionKind = (typeof MISSION_KINDS)[number];
 
@@ -508,8 +496,6 @@ export interface Expedition {
   broken?: boolean;
   /** Chantier 19: the outer sector aimed at (assault, reinforcement). */
   sector?: number;
-  /** Chantier 19: assault crew members who stay on the bridgehead if it is taken. */
-  holders?: VillagerId[];
   /** Chantier 19: posted kiwis the reinforcement brings back home. */
   bringBack?: VillagerId[];
   /** Chantier 19: resources the settlers' ship carries to the new colony (mission `found`). */
@@ -541,6 +527,46 @@ export interface ParcelView {
 export interface Beacon {
   sector: number;
   since: TimeMs;
+  /** Chantier 42: kiwis guarding it (job `outpost`). */
+  guards?: VillagerId[];
+  /** Chantier 42: the guard's orders (posture and retreat threshold). */
+  orders?: LandingOrders;
+  /** Chantier 42: level of its two turrets once fortified. */
+  fort?: number;
+  /** Chantier 42: a fortification under way (ready then, at this level). */
+  fortifying?: { until: TimeMs; level: number };
+}
+
+/**
+ * Chantier 42: the next attack on a beacon of a face. Its time is public (hashed from the face);
+ * the beacon and the parcel it comes from are chosen by the civilisation at the announcement
+ * (null before), its strength in secret at the strike.
+ */
+export interface BeaconAttack {
+  id: string;
+  sector: number | null;
+  origin: number | null;
+  announceAt: TimeMs;
+  at: TimeMs;
+  announced: boolean;
+}
+
+/** Chantier 42: how an attack on a beacon went. */
+export interface BeaconReport {
+  id: string;
+  at: TimeMs;
+  sector: number;
+  origin: number;
+  /** The beacon still stands. */
+  held: boolean;
+  /** A battle was fought (a beacon without guard nor fortification falls without one). */
+  fought: boolean;
+  /** Power of the attackers. */
+  power: number;
+  /** Guards fallen (names), and those who flew home after the fall. */
+  dead: string[];
+  back: number;
+  log?: BattleLog;
 }
 
 /** Chantier 40: our eyes on an alien face (beacons and what each parcel showed). */
@@ -548,6 +574,11 @@ export interface FaceView {
   beacons: Beacon[];
   /** Key: the parcel (0–11). */
   parcels: Record<string, ParcelView>;
+  /** Chantier 42: the next attack on our beacons, attacks made so far, the last one's time. */
+  attack?: BeaconAttack | null;
+  attacks?: number;
+  lastAttackAt?: TimeMs;
+  reports?: BeaconReport[];
 }
 
 /** Chantier 40: an enemy kind as we met it (the bestiary). */
@@ -562,48 +593,8 @@ export interface BestiaryEntry {
   lastAt: TimeMs;
 }
 
-/** Chantier 19: a bridgehead on an outer sector of the twin face. */
-export interface Bridgehead {
-  sector: number;
-  since: TimeMs;
-  /** Kiwis posted there (job `outpost`). */
-  holders: VillagerId[];
-  fortified: boolean;
-  /** A Kikiwiwi is fortifying it until then. */
-  fortifyUntil?: TimeMs;
-  fortifierId?: VillagerId;
-}
-
-/** Chantier 19: the next counter-attack (time and target public, strength hidden). */
-export interface CounterAttack {
-  id: string;
-  sector: number;
-  announceAt: TimeMs;
-  at: TimeMs;
-  announced: boolean;
-}
-
-export interface CounterReport {
-  id: string;
-  at: TimeMs;
-  sector: number;
-  victory: boolean;
-  /** Strength of the holders (cover, fortification and luck included) and of the aliens. */
-  strength: number;
-  enemy: number;
-  dead: string[];
-  /** Survivors flying back home when the bridgehead fell. */
-  retreating: number;
-}
-
 /** Chantier 19: the siege of the twin face (public: the truth stays in `aliens`). */
 export interface SiegeState {
-  bridgeheads: Bridgehead[];
-  counter: CounterAttack | null;
-  /** Counter-attacks struck so far (they grow stronger). */
-  counters: number;
-  lastCounterAt: TimeMs;
-  reports: CounterReport[];
   /** The queen fell then: the face is ours (0: not yet). */
   conqueredAt: TimeMs;
 }
@@ -1021,25 +1012,13 @@ export function cloneColonyLink(c: ColonyLink): ColonyLink {
   };
 }
 
-/** Chantier 19: no siege yet. */
+/** Chantier 19: the twin is not ours yet. */
 export function newSiege(): SiegeState {
-  return {
-    bridgeheads: [],
-    counter: null,
-    counters: 0,
-    lastCounterAt: 0,
-    reports: [],
-    conqueredAt: 0,
-  };
+  return { conqueredAt: 0 };
 }
 
 export function cloneSiege(s: SiegeState): SiegeState {
-  return {
-    ...s,
-    bridgeheads: s.bridgeheads.map((b) => ({ ...b, holders: [...b.holders] })),
-    counter: s.counter ? { ...s.counter } : null,
-    reports: s.reports.map((r) => ({ ...r, dead: [...r.dead] })),
-  };
+  return { ...s };
 }
 
 /** Every task in automatic mode. */
@@ -1217,17 +1196,8 @@ export function cloneState(state: GameState): GameState {
             ...(e.result.sectors ? { sectors: [...e.result.sectors] } : {}),
             ...(e.result.injured ? { injured: [...e.result.injured] } : {}),
             ...(e.result.seen ? { seen: e.result.seen.map((u) => ({ ...u })) } : {}),
-            ...(e.result.sides
-              ? {
-                  sides: {
-                    strength: { ...e.result.sides.strength },
-                    queen: { ...e.result.sides.queen },
-                  },
-                }
-              : {}),
           }
         : null,
-      ...(e.holders ? { holders: [...e.holders] } : {}),
       ...(e.bringBack ? { bringBack: [...e.bringBack] } : {}),
       ...(e.freight ? { freight: { ...e.freight } } : {}),
       ...(e.orders ? { orders: { ...e.orders } } : {}),
@@ -1274,19 +1244,6 @@ export function cloneIntel(i: IntelReport): IntelReport {
     bats: { ...i.bats },
     sectors: [...i.sectors],
     structures: i.structures.map((x) => ({ ...x })),
-    ...(i.siege ? { siege: cloneSiegeIntel(i.siege) } : {}),
-  };
-}
-
-export function cloneSiegeIntel(s: SiegeIntel): SiegeIntel {
-  return {
-    seen: [...s.seen],
-    holds: Object.fromEntries(Object.entries(s.holds).map(([k, r]) => [k, { ...r }])),
-    ...(s.queen
-      ? {
-          queen: { sector: s.queen.sector, ground: { ...s.queen.ground }, air: { ...s.queen.air } },
-        }
-      : {}),
   };
 }
 
@@ -1342,7 +1299,15 @@ export function cloneParcelView(p: ParcelView): ParcelView {
 
 export function cloneFaceView(f: FaceView): FaceView {
   return {
-    beacons: f.beacons.map((b) => ({ ...b })),
+    ...f,
+    beacons: f.beacons.map((b) => ({
+      ...b,
+      ...(b.guards ? { guards: [...b.guards] } : {}),
+      ...(b.orders ? { orders: { ...b.orders } } : {}),
+      ...(b.fortifying ? { fortifying: { ...b.fortifying } } : {}),
+    })),
+    ...(f.attack ? { attack: { ...f.attack } } : {}),
+    ...(f.reports ? { reports: f.reports.map((r) => ({ ...r, dead: [...r.dead] })) } : {}),
     parcels: Object.fromEntries(Object.entries(f.parcels).map(([k, p]) => [k, cloneParcelView(p)])),
   };
 }

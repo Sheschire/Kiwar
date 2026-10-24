@@ -7,7 +7,7 @@ import { GEAR_TIERS, type ItemId } from '../data/gear';
 import { hexDistance } from '../hex/hex';
 import { createRng, hashSeed } from '../rng/rng';
 import type { TimeMs } from '../types/ids';
-import { siegeTruth } from './siege';
+import { queenTruth } from './siege';
 import { refreshBeacons } from './landing';
 import type { AlienGarrison, CivImpact, CivKey, CivState, GameState } from './state';
 
@@ -145,7 +145,7 @@ export function addMissingKeys(
 
 /** A new civilisation (its royal burrow where the siege's queen lives, chantier 19). */
 export function newCiv(seed: string, distance: number): CivState {
-  const keys: CivKey[] = [{ kind: 'royal', sector: siegeTruth({ seed }).queenSector }];
+  const keys: CivKey[] = [{ kind: 'royal', sector: queenTruth({ seed }).sector }];
   const none = Array.from({ length: SECTORS }, () => 0);
   addMissingKeys(seed, keys, civAgeOfHours(distance * CIV.leadPerDistanceH), none, [], 'd0');
   return {
@@ -442,24 +442,22 @@ export function civDay(g: AlienGarrison, at: TimeMs): number {
 }
 
 /**
- * What the AI sees of us on a face: our beacons (chantier 40; the twin's old bridgeheads count
- * too) and the parcels our scouts and landings have seen.
+ * What the AI sees of us on a face: our beacons (chantier 40) and the parcels our scouts and
+ * landings have seen. Chantier 42: the royal burrow keeps fleeing the beacons until the last
+ * parcel (the old siege's "queen seen" is gone).
  */
 export function civEyes(
-  state: Pick<GameState, 'targets' | 'intel' | 'siege' | 'faceViews'>,
+  state: Pick<GameState, 'intel' | 'faceViews'>,
   targetId: string,
-): { beacons: number[]; seen: number[]; royalSeen: boolean } {
-  const twin = state.targets.find((t) => t.distance === 0)?.id === targetId;
+): { beacons: number[]; seen: number[] } {
   const intel = state.intel[targetId];
   const view = state.faceViews[targetId];
   const beacons = new Set(view?.beacons.map((b) => b.sector) ?? []);
-  if (twin) for (const b of state.siege.bridgeheads) beacons.add(b.sector);
   const seen = new Set(intel?.sectors ?? []);
   for (const k of Object.keys(view?.parcels ?? {})) seen.add(Number(k));
   return {
     beacons: [...beacons].sort((a, b) => a - b),
     seen: [...seen].sort((a, b) => a - b),
-    royalSeen: !!intel?.siege?.queen,
   };
 }
 
@@ -472,11 +470,10 @@ export function planCiv(
   g: AlienGarrison,
   civ: CivState,
   at: TimeMs,
-  eyes: { beacons: readonly number[]; seen: readonly number[]; royalSeen: boolean },
+  eyes: { beacons: readonly number[]; seen: readonly number[] },
 ): void {
   const day = civDay(g, at);
   civ.day = day;
-  if (eyes.royalSeen) civ.royalSeen = true;
   const exposure = exposureOf(eyes.beacons, eyes.seen);
   const salt = `d${day}`;
   for (const k of civ.keys) {
@@ -552,7 +549,8 @@ export function civWave(state: GameState, at: TimeMs, waveId: string): CivWave {
   }
   const civ = civOf(g);
   const view = civAt(g, at, civ);
-  const beacons = state.siege.bridgeheads.map((b) => b.sector);
+  // Chantier 42: the beacons (the old bridgeheads were read here, empty since chantier 40).
+  const beacons = (state.faceViews[id!]?.beacons ?? []).map((b) => b.sector);
   const standing = standingBarracks(civ, at, beacons);
   const wanted = keysWanted(view.age).barracks;
   const barracks =
@@ -581,7 +579,7 @@ export function liveCiv(g: AlienGarrison): CivState {
 
 /** Parcel of the royal burrow (the queen's lair of the siege). */
 export function royalSector(g: AlienGarrison): number {
-  return civOf(g).keys.find((k) => k.kind === 'royal')?.sector ?? siegeTruth(g).queenSector;
+  return civOf(g).keys.find((k) => k.kind === 'royal')?.sector ?? queenTruth(g).sector;
 }
 
 /** Growth of a parcel's garrison since the start (age step × days). */

@@ -134,11 +134,15 @@ export function landingLock(
  * flight (their crews come home at once).
  */
 export function resetLandings(s: GameState): void {
+  // Chantier 42: the guards of the beacons and their ships too.
   const flying = new Set(
-    s.expeditions.filter((e) => e.mission === 'land' && e.status !== 'done').map((e) => e.id),
+    s.expeditions
+      .filter((e) => ['land', 'guard', 'retreat'].includes(e.mission) && e.status !== 'done')
+      .map((e) => e.id),
   );
   for (const v of s.villagers)
-    if (v.job.kind === 'expedition' && flying.has(v.job.expeditionId)) v.job = { kind: 'idle' };
+    if (v.job.kind === 'outpost' || (v.job.kind === 'expedition' && flying.has(v.job.expeditionId)))
+      v.job = { kind: 'idle' };
   s.expeditions = s.expeditions.filter((e) => !flying.has(e.id));
   s.faceViews = {};
 }

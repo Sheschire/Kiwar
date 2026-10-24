@@ -22,8 +22,8 @@ import { RESOURCE_IDS } from '../data/resources';
 import { BLESSINGS, COMETS, STARDUST, STARDUST_SCALE } from '../data/comets';
 import { IRON, IRON_SCALE } from '../data/iron';
 import { FORGE, ITEM_IDS } from '../data/gear';
+import { BEACONS } from '../data/beacons';
 import { INTEL } from '../data/expeditions';
-import { SIEGE } from '../data/siege';
 import { ALIEN_BUILDINGS, CIV_KEYS } from '../data/aliens';
 import { sectorOf } from '../sim/aliens';
 import { LANDING_GOALS, LANDING_PRIORITIES } from '../data/landing';
@@ -89,7 +89,7 @@ const job = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('injured'), until: z.number() }),
   z.object({ kind: z.literal('stardust'), patchId: id, returnTo: id.nullable() }),
   z.object({ kind: z.literal('meteor'), meteorId: id, returnTo: id.nullable() }),
-  z.object({ kind: z.literal('outpost'), sector: sectorId }),
+  z.object({ kind: z.literal('outpost'), sector: sectorId, targetId: id }),
   z.object({
     kind: z.literal('titan'),
     work: z.enum(TITAN_WORK_IDS),
@@ -205,6 +205,13 @@ const alienBuilding = z.object({
   q: z.number().int(),
   r: z.number().int(),
 });
+const landingOrders = z.object({
+  posture: z.enum(POSTURES),
+  priority: z.enum(LANDING_PRIORITIES as [string, ...string[]]),
+  retreatAt: z.number().min(0).max(1),
+  goal: z.enum(LANDING_GOALS),
+});
+
 const parcelView = z.object({
   at: z.number(),
   source: z.enum(['beacon', 'landing', 'retreat', 'edge', 'report']),
@@ -213,8 +220,6 @@ const parcelView = z.object({
   units: z.array(alienUnit).max(16),
   buildings: z.array(alienBuilding).max(64),
 });
-const datedRange = range.extend({ at: z.number() });
-const groundAir = z.object({ ground: z.number(), air: z.number() });
 const structure = z.object({
   kind: z.enum(['den', 'roost']),
   q: z.number().int(),
@@ -423,21 +428,57 @@ export const gameStateSchema = z.object({
         .max(INTEL.sectors),
       structures: z.array(structure).max(64),
       spotted: z.boolean().optional(),
-      siege: z
-        .object({
-          seen: z.array(sectorId).max(INTEL.sectors),
-          holds: z.record(z.string().max(4), datedRange),
-          queen: z.object({ sector: sectorId, ground: datedRange, air: datedRange }).optional(),
-        })
-        .optional(),
       civAge: z.number().int().min(0).max(3).optional(),
     }),
   ),
   faceViews: z.record(
     z.string(),
     z.object({
-      beacons: z.array(z.object({ sector: sectorId, since: z.number() })).max(INTEL.sectors),
+      beacons: z
+        .array(
+          z.object({
+            sector: sectorId,
+            since: z.number(),
+            guards: z.array(id).max(BEACONS.maxGuards).optional(),
+            orders: landingOrders.optional(),
+            fort: z.number().int().min(0).max(12).optional(),
+            fortifying: z
+              .object({ until: z.number(), level: z.number().int().min(1).max(12) })
+              .optional(),
+          }),
+        )
+        .max(INTEL.sectors),
       parcels: z.record(z.string().max(2), parcelView),
+      attack: z
+        .object({
+          id,
+          sector: sectorId.nullable(),
+          origin: sectorId.nullable(),
+          announceAt: z.number(),
+          at: z.number(),
+          announced: z.boolean(),
+        })
+        .nullable()
+        .optional(),
+      attacks: z.number().int().min(0).optional(),
+      lastAttackAt: z.number().optional(),
+      reports: z
+        .array(
+          z.object({
+            id,
+            at: z.number(),
+            sector: sectorId,
+            origin: sectorId,
+            held: z.boolean(),
+            fought: z.boolean(),
+            power: z.number(),
+            dead: z.array(z.string()).max(BEACONS.maxGuards),
+            back: z.number().int().min(0),
+            log: battleLog.optional(),
+          }),
+        )
+        .max(BEACONS.reports)
+        .optional(),
     }),
   ),
   bestiary: z.record(
@@ -475,17 +516,9 @@ export const gameStateSchema = z.object({
       status: z.enum(['outbound', 'returning', 'done']),
       broken: z.boolean().optional(),
       sector: sectorId.optional(),
-      holders: z.array(id).max(200).optional(),
       bringBack: z.array(id).max(200).optional(),
       freight: resources.optional(),
-      orders: z
-        .object({
-          posture: z.enum(POSTURES),
-          priority: z.enum(LANDING_PRIORITIES as [string, ...string[]]),
-          retreatAt: z.number().min(0).max(1),
-          goal: z.enum(LANDING_GOALS),
-        })
-        .optional(),
+      orders: landingOrders.optional(),
       delayed: z.boolean().optional(),
       result: z
         .object({
@@ -501,12 +534,10 @@ export const gameStateSchema = z.object({
           spotted: z.boolean().optional(),
           sectors: z.array(z.number().int().min(0)).optional(),
           injured: z.array(id).optional(),
-          bridgehead: z.boolean().optional(),
           queenFallen: z.boolean().optional(),
           sector: sectorId.optional(),
           burnt: z.boolean().optional(),
           founded: z.boolean().optional(),
-          sides: z.object({ strength: groundAir, queen: groundAir }).optional(),
           outcome: z.enum(['victory', 'retreat', 'defeat']).optional(),
           log: battleLog.optional(),
           beacon: z.boolean().optional(),
@@ -660,43 +691,6 @@ export const gameStateSchema = z.object({
     Object.fromEntries(AUTO_TASKS.map((t) => [t, z.boolean()])) as Record<AutoTask, z.ZodBoolean>,
   ),
   siege: z.object({
-    bridgeheads: z
-      .array(
-        z.object({
-          sector: sectorId,
-          since: z.number(),
-          holders: z.array(id).max(200),
-          fortified: z.boolean(),
-          fortifyUntil: z.number().optional(),
-          fortifierId: id.optional(),
-        }),
-      )
-      .max(SIEGE.maxBridgeheads),
-    counter: z
-      .object({
-        id,
-        sector: sectorId,
-        announceAt: z.number(),
-        at: z.number(),
-        announced: z.boolean(),
-      })
-      .nullable(),
-    counters: z.number().int().min(0),
-    lastCounterAt: z.number().min(0),
-    reports: z
-      .array(
-        z.object({
-          id,
-          at: z.number(),
-          sector: sectorId,
-          victory: z.boolean(),
-          strength: z.number(),
-          enemy: z.number(),
-          dead: z.array(z.string()),
-          retreating: z.number().int().min(0),
-        }),
-      )
-      .max(5),
     conqueredAt: z.number().min(0),
   }),
   colony: z.object({
@@ -882,6 +876,19 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   32: (raw) => ({ ...raw, faceViews: {}, bestiary: {} }),
   // v33 → v34 (chantier 40): the landing replaces the raids, the reconnaissance and the siege.
   33: migrateToLandings,
+  // v34 → v35 (chantier 42): the old siege's bridgeheads, counter-attacks and reports are gone.
+  34: (raw) => {
+    type Raw = Record<string, unknown>;
+    const siege = (raw.siege ?? {}) as Raw;
+    const intel = Object.fromEntries(
+      Object.entries((raw.intel ?? {}) as Record<string, Raw>).map(([k, r]) => {
+        const rest = { ...r };
+        delete rest.siege;
+        return [k, rest];
+      }),
+    );
+    return { ...raw, siege: { conqueredAt: Number(siege.conqueredAt ?? 0) }, intel };
+  },
 };
 
 const OLD_MISSIONS = ['raid', 'recon', 'assault', 'reinforce', 'final', 'retreat'];

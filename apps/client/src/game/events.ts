@@ -9,8 +9,12 @@ import { friendName } from '../ui/components/DeliveryPlanner';
 import { formatDuration, formatNumber, translate } from '../i18n/i18n';
 
 const SLICE_KEYS = ['bark', 'dew', 'moss', 'twig', 'down', 'seeds'] as const;
-/** The name of a sector's slice, as a translated parameter. */
-const sliceKey = (sector: number) => `@siege.slices.${SLICE_KEYS[sector % 6]!}`;
+/** The name of a parcel ("Edge of the Bark"), translated. */
+function sectorKey(sector: number): string {
+  const lang = uiStore.getState().lang;
+  const name = translate(lang, `siege.slices.${SLICE_KEYS[sector % 6]!}`);
+  return translate(lang, sector < 6 ? 'siege.inner' : 'siege.outer', { name });
+}
 
 /** An ally's name, or our other colony (chantier 19). */
 function nameOf(owner: string): string {
@@ -165,20 +169,20 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
       case 'repaired':
         pushToast('success', 'events.repaired', { name: `@buildings.${e.buildingType}.name` });
         break;
-      case 'counterAnnounced':
-        pushToast('error', 'siege.toast.counterAnnounced', {
-          name: sliceKey(e.sector),
+      case 'beaconAttackAnnounced':
+        pushToast('error', 'beacons.toast.announced', {
+          name: sectorKey(e.sector),
           duration: formatDuration(uiStore.getState().lang, e.strikeAt - e.at),
         });
         break;
-      case 'counterStruck':
-        if (e.victory)
-          pushToast('success', 'siege.toast.counterHeld', { name: sliceKey(e.sector) });
-        else
-          pushToast('error', 'siege.toast.counterFell', { name: sliceKey(e.sector), dead: e.dead });
+      case 'beaconAttacked':
+        if (e.held) pushToast('success', 'beacons.toast.held', { name: sectorKey(e.sector) });
+        else if (e.fought)
+          pushToast('error', 'beacons.toast.fell', { name: sectorKey(e.sector), dead: e.dead });
+        else pushToast('error', 'beacons.toast.fellBare', { name: sectorKey(e.sector) });
         break;
-      case 'bridgeheadFortified':
-        pushToast('success', 'siege.toast.fortified', { name: sliceKey(e.sector) });
+      case 'beaconFortified':
+        pushToast('success', 'beacons.toast.fortified', { name: sectorKey(e.sector) });
         break;
       case 'waveAnnounced':
         pushToast('error', 'threats.announced', {

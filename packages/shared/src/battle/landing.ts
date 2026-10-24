@@ -78,7 +78,13 @@ export function landingTile(sector: number, blocked: ReadonlySet<string> = new S
 }
 
 /** A unit of the parcel's garrison: its kind scaled by `k`, its level, its gear. */
-function alienUnit(u: AlienUnit, k: number, ref: string, at: Hex, delay: number): BattleUnitSetup {
+export function alienUnit(
+  u: AlienUnit,
+  k: number,
+  ref: string,
+  at: Hex,
+  delay: number,
+): BattleUnitSetup {
   const base = enemyUnit(u.kind, k, ref, at, delay, null, u.level);
   const level = 1 + KIWI_UNIT.perLevel * Math.max(0, u.level - 1);
   const w = u.weapon ? ITEMS[u.weapon] : null;
@@ -96,7 +102,7 @@ function alienUnit(u: AlienUnit, k: number, ref: string, at: Hex, delay: number)
 }
 
 /** Unit counts within the caps: more power makes the aliens stronger, not more numerous. */
-function capped(units: AlienUnit[]): { unit: AlienUnit; count: number; k: number }[] {
+export function capped(units: AlienUnit[]): { unit: AlienUnit; count: number; k: number }[] {
   const flying = (u: AlienUnit) => ENEMIES[u.kind].body === 'bat';
   const scale = (air: boolean) => {
     const total = units.filter((u) => flying(u) === air).reduce((s, u) => s + u.count, 0);
@@ -113,12 +119,21 @@ function capped(units: AlienUnit[]): { unit: AlienUnit; count: number; k: number
     });
 }
 
-export function landingSetup(
-  state: GameState,
-  crew: readonly Villager[],
-  input: LandingInput,
-): BattleSetup {
-  const { sector } = input;
+/** The field of a parcel's battle: the parcel and a margin of two tiles, its alien buildings. */
+export interface ParcelField {
+  own: Hex[];
+  keys: Set<string>;
+  field: Map<string, Hex>;
+  tiles: BattleTile[];
+  buildings: BattleBuilding[];
+  blocked: Set<string>;
+}
+
+export function parcelField(
+  sector: number,
+  alien: readonly AlienBuilding[],
+  side: 0 | 1 = 0,
+): ParcelField {
   const own = parcelTiles(sector);
   const keys = new Set(own.map((h) => hexKey(h)));
   // A margin of two tiles around the parcel: help comes in from there.
@@ -136,20 +151,30 @@ export function landingSetup(
     .map((h) => ({ q: h.q, r: h.r, cost: 1 }));
   const blocked = new Set<string>();
   const buildings: BattleBuilding[] = [];
-  for (const b of input.buildings) {
+  for (const b of alien) {
     const key = hexKey(b);
     if (!field.has(key) || blocked.has(key)) continue;
     blocked.add(key);
     buildings.push({
       ref: `${b.kind}:${b.q},${b.r}`,
       type: b.kind,
-      side: 0,
+      side,
       tiles: [{ q: b.q, r: b.r }],
       hp: 0,
       loot: [0, 0, 0, 0],
       priority: 0,
     });
   }
+  return { own, keys, field, tiles, buildings, blocked };
+}
+
+export function landingSetup(
+  state: GameState,
+  crew: readonly Villager[],
+  input: LandingInput,
+): BattleSetup {
+  const { sector } = input;
+  const { own, keys, field, tiles, buildings, blocked } = parcelField(sector, input.buildings);
   const ship = landingTile(sector, blocked);
   const shipKey = hexKey(ship);
   const free = (h: Hex) => field.has(hexKey(h)) && !blocked.has(hexKey(h));
