@@ -20,23 +20,33 @@ export const SIEGE = {
    * ground power (× her parcel's growth) by √(power / `ground`), like the predators of a wave.
    */
   final: {
-    hp: 900,
+    hp: 450,
+    /** × her blows (an area sweep: it hits everybody around her). */
+    damage: 0.4,
+    /**
+     * Hours of development she has at least (the civilisation's full growth, 14 days at
+     * Industry): a queen brought out early is as strong as a late one, so the final battle
+     * waits for a seasoned crew.
+     */
+    floorH: 336,
     armor: 0.3,
     speed: 0.55,
     size: 3,
     dodge: 0,
     /** Share of her parcel's garrison standing beside her at the start. */
-    escort: 0.3,
+    escort: 0.15,
     /** Under 75 % of her hit points she calls the bats (× her air power). */
-    swarm: { below: 0.75, share: 1, delayS: 2 },
+    swarm: { below: 0.75, share: 0.3, delayS: 2 },
     /** Under 50 % elite ferrets come out of the tunnels (× her ground power, an age ahead). */
-    tunnels: { below: 0.5, share: 0.6, delayS: 3, tiles: 2 },
+    tunnels: { below: 0.5, share: 0.2, delayS: 3, tiles: 2 },
     /** Under 25 % the last stand: she rages. */
     rage: { below: 0.25, damage: 1.6, speed: 1.4 },
     /** The final battle lasts at most this long. */
     maxS: 480,
-    /** Her wounds of a lost battle heal over this long. */
+    /** Her wounds of a lost battle heal over this long… */
     healMs: ms.h(72),
+    /** …and never pass this share (she withdraws into the depths to heal the rest). */
+    maxWounds: 0.5,
     /** The queen's treasure: the face's loot × the age × this (hold-limited). */
     loot: 4,
   },

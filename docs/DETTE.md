@@ -15,15 +15,21 @@
   confirmer sur un vrai téléphone avec `?debug`) ; pas de son propre au débarquement regardé ;
   une vague qui frappe pendant qu'on regarde un débarquement est racontée tout de suite (pas
   de spectacle) ; les combattants traversent les mares de jus de la jumelle (le champ du
-  journal ne connaît pas l'eau) ; le spectacle du siège (`siegeFx.ts`) part au 42.
+  journal ne connaît pas l'eau).
 
-- Chantier 40 : le code du siège reste dans `sim/siege.ts` (contre-attaques, têtes de pont,
-  assaut final, reconnaissance profonde) pour le 42, débranché ; les champs `siege.counter`,
-  `siegeShow`, `renderer.playSiege`, les textes `siege.*` et `recon.*` et les anciens rapports
-  `intel` restent jusqu'au 42 (nettoyage annoncé). `shipOf().armor` (blindage du vaisseau et
-  sa technologie) ne sert plus : à réaffecter (par exemple aux pertes d'une défaite) ou à
-  retirer. Le bot n'embarque pas son Kikiwiwi et ne
-  pille jamais. Fraction de l'évolution vue par une balise : une mise à jour par jour de jeu.
+- Chantier 42 : le siège du 19 est retiré (code, champs, spectacle `siegeFx.ts`, textes) ; il
+  reste les anciens rapports `intel` (lus pour l'ancienne migration) et les missions `raid`,
+  `recon`, `assault`, `reinforce` dans `MISSION_KINDS` (les vieux comptes rendus). Les
+  attaques de balises ne se regardent qu'en 2D (rapport) ; la garde n'est pas dessinée sur la
+  jumelle ; le retour de la garde (mission `retreat`) vole sans aire d'envol (pas d'oiseau
+  dessiné). La reine n'a pas de modèle propre (un grand furet couronné). La garde postée ne
+  se joint pas à la bataille finale (elle rentre avec le vaisseau en cas de victoire).
+  ⚠️ L'usure : le bot perd 30 à 80 kiwis en 21 jours (débarquements, gardes), son armée reste
+  jeune (niveaux 5 à 20) — à jouer avec le porteur (levier : blessures au lieu de morts quand
+  le terrain est tenu, décision du 40).
+- Chantier 40 : `shipOf().armor` (blindage du vaisseau et sa technologie) ne sert plus : à
+  réaffecter (par exemple aux pertes d'une défaite) ou à retirer. Le bot ne pille jamais.
+  Fraction de l'évolution vue par une balise : une mise à jour par jour de jeu.
 
 - Chantier 38 : le bot ouvre beaucoup de nouveaux sites (jusqu'à 16 ateliers de fibre) pendant
   l'âge du Fer, ses niveaux 7+ attendant le fer ; ses décisions coûtent ~0,3 s à 200 h (sites

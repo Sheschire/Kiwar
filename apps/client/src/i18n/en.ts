@@ -989,6 +989,7 @@ export const en = {
       rage: 'Under {pct} %: the last stand, she rages.',
     },
     flying: 'The final battle is on its way.',
+    left: 'After the middle practice battle the queen would keep about {pct} % of her strength (her wounds stay three days).',
     prepare: 'Prepare the final battle',
     hint: 'A big crew (a Kikiwiwi advised) that can hit bats. Victory gives you the whole planet.',
     planTitle: 'The final battle',

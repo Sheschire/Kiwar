@@ -169,10 +169,11 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
   hunger gauge by a millisecond between one big step and many (compare closely, like
   `test/advance.test.ts`).
 
-- Chantier 19 (`kiwar-colonies`, `sim/siege.ts`): job `outpost` (posted on a bridgehead of the
-  twin: away but fed from the colony stock); anything that lists kiwis "at home" must treat it
-  like `expedition` (beds, mayor, skills), consumption keeps it. `removeVillagers` also
-  forgets holders. Counter-attacks are an `advance` event only where the garrison is.
+- Chantier 42 (`kiwar-colonies`, `sim/beacons.ts`): job `outpost { sector, targetId }` (a
+  guard on one of our beacons: away but fed from the colony stock); anything that lists kiwis
+  "at home" must treat it like `expedition` (beds, mayor, skills), consumption keeps it.
+  `removeVillagers` also forgets guards. Attacks on beacons are planned at the loop top
+  (public time) and announced / struck only where the garrison is.
 - **Replace `state.paths` and `state.terraform`, never mutate them in place** (`s.paths = [...]`,
   `s.terraform = { ...s.terraform, [k]: kind }`): `pathsKey` / `terraformKey` (territory.ts)
   cache their key strings on the object (perf pass of October 2026). `modifiers(v)` returns a

@@ -10,6 +10,17 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 42** — **la reine des furets**, fin de l'acte II. À partir de son âge du Fer, la
+> civilisation **attaque nos balises**, annoncé 6 h à l'avance : on peut **fortifier** la balise
+> depuis chez soi (deux tourelles de notre âge et une tour solide, payées en ressources et en
+> fer) ou y **poster une garde** par vaisseau (ses ordres, son seuil de retraite) ; une balise
+> nue tombe sans combat et le brouillard revient. Quand les **12 parcelles** sont balisées, la
+> **reine sort des tréfonds** au centre de la jumelle (une courte scène, couronnée au-dessus de
+> son terrier). La **bataille finale** se joue par phases : sa charge, ses nuées de
+> chauves-souris, ses furets d'élite sortis des tunnels, son dernier carré. Vaincue, la jumelle
+> est conquise et la **seconde colonie** peut être fondée ; victorieuse, elle garde ses blessures
+> trois jours. L'écran **Conquête de la jumelle** rassemble balises, attaques, reine et rapports.
+
 > **Chantier 41** — la **bataille en direct** : quand notre vaisseau se pose sur la jumelle,
 > une invitation propose de **regarder le débarquement**. La caméra vole jusqu'à la jumelle,
 > qui se rapproche ; le brouillard se lève sur la parcelle quand l'oiseau mécanique touche le
@@ -29,7 +40,7 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 > fait piller, les survivant·es deviennent vétéranes et vétérans. **Retraite** : un aperçu daté.
 > **Défaite** : l'équipage, son équipement et le vaisseau sont perdus, le brouillard revient.
 > Tout kiwi tombé meurt pour toujours. Un **bestiaire**
-> retient les ennemis rencontrés. La conquête de la jumelle reviendra avec la reine (42).
+> retient les ennemis rencontrés.
 
 > **Chantier 39** — la **civilisation alien** de la face jumelle vit à **son propre rythme** :
 > elle passe ses âges à dates fixes depuis le début de la colonie (la Pierre au jour 1, le Fer

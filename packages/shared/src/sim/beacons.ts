@@ -365,9 +365,9 @@ export function forgetGuards(s: GameState, ids: readonly VillagerId[]): void {
 
 // --- Fortifying (from home) --------------------------------------------------------------------
 
-/** Level of the turrets a fortification ordered now would have (the best of our age). */
+/** Level of the turrets a fortification ordered now would have (the first of our age). */
 export function fortLevel(state: GameState): number {
-  return Math.min(12, BEACONS.fortify.levelsPerAge * (ageOf(state) + 1));
+  return Math.min(12, BEACONS.fortify.levelsPerAge * ageOf(state) + 1);
 }
 
 /** What fortifying a beacon costs now (resources and iron). */

@@ -420,6 +420,9 @@ export function LandingForecastLines(props: {
         <p class="small">{t('landing.garrisonGuess', { power: fmtRange(lang, f.power) })}</p>
       )}
       {f.trials.length > 0 && <p class="small">{t('landing.trials', { won })}</p>}
+      {f.queenLeft !== undefined && f.trials.length > 0 && (
+        <p class="small">{t('queen.left', { pct: Math.round(f.queenLeft * 100) })}</p>
+      )}
       {f.trials.length > 0 && f.expectedDead > 0 && (
         <p class="small warn">{t('landing.dead', { count: f.expectedDead })}</p>
       )}

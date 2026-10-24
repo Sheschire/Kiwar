@@ -111,3 +111,15 @@ defeats call `recordDefeat(civ, at, dead, sector, extraH)` (ship 4 h, 1 h per pi
 `civTick` refreshes the beacons' views daily (`refreshBeacons`). `civEstimate` reads the latest
 parcel view before the old report. The old raid / recon / siege paths of "The old missions"
 above are no longer reachable.
+
+## Chantier 42
+
+- `civEyes` reads only the beacons (`faceViews`) and the parcels seen; the royal burrow keeps
+  fleeing the beacons until the last free inner parcel (no "queen seen" any more); once the queen
+  is out `civ.royalSeen` is set and it stays put. `civWave` reads the beacons from `faceViews`
+  (it read the old bridgeheads, always empty since chantier 40: beacons over barracks never
+  weakened the waves — fixed).
+- Attacks on our beacons are the civilisation's (see `kiwar-colonies`): chosen at the
+  announcement from its standing barracks, the strength from the origin parcel at the strike;
+  `recordFight` for the attackers' losses, `recordDefeat` for a fallen beacon. `refreshQueen`
+  runs in `civTick` after `refreshBeacons`.

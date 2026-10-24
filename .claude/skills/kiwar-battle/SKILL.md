@@ -196,3 +196,19 @@ live)` (travel + play), the report's "Watch the battle again"; far faces keep
   `battleFrame('melee')`. **Do not edit client files while a headless run is going**: Vite
   reloads the page and `window.__kiwar` disappears. Measures: `renderer.renderer.info` with and
   without `renderer.landing.group.visible`, `landing.update(1/60, camera)` × 300.
+
+## Chantier 42 (beacons attacked, the queen)
+
+- **Home-side retreat**: `orders[0].retreatBelow` > 0 makes side 0's fighters (turrets apart)
+  leave the field at once (`flee` + `gone`, in `result.fled`) when their share still standing
+  drops under it (a beacon's guard). Waves keep 0.
+- `battle/beacon.ts` `beaconSetup` / `beaconHeld` / `TOWER`: our side at home on a parcel of the
+  twin (the beacon's tower, its turrets as `turretUnit` of synthetic buildings, the guard);
+  aliens as side-1 raiders with `carry` 1 (a raider with nothing to carry goes home at once).
+  `parcelField(sector, alien, side)` and `alienUnit`, `capped` are shared with the landing.
+- `battle/queen.ts` `queenSetup`, `QUEEN_REF`: body `queen` (the show draws a giant ferret,
+  `QUEEN_SIZE` 2.6 × a soldier), weapon `royalSlam`. Engine features: `BattleUnitSetup.wake
+{ ref, below }` (enters once that unit is under that share of its hit points, `delay` counted
+  from then; never if it fell first; logged `enter`), `rage { below, damage, speed }`,
+  `BattleSetup.leader` (its fall routs its side; `result.leaderLeft` = its share left).
+- The final's journal plays through `LandingShow` like a landing (`ShowSource.kind` 'landing').

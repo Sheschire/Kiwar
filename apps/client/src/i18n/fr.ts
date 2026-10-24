@@ -1062,6 +1062,7 @@ export const fr: Dict = {
       rage: 'Sous {pct} % : le dernier carré, elle enrage.',
     },
     flying: 'La bataille finale est en route.',
+    left: 'Après la bataille d’essai du milieu, la reine garderait environ {pct} % de ses forces (ses blessures restent trois jours).',
     prepare: 'Préparer la bataille finale',
     hint: 'Un grand équipage (un Kikiwiwi conseillé), qui touche les chauves-souris. La victoire donne toute la planète.',
     planTitle: 'La bataille finale',

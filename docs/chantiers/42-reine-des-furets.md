@@ -1,4 +1,8 @@
-# Chantier 42 — La reine des furets
+# Chantier 42 — La reine des furets — **fait**
+
+> **Fait le 24 octobre 2026** (cinq commits). Voir « Ce qui a été fait » en fin de document
+> et la section du chantier 42 dans `DECISIONS.md`. Il clôt l'acte II : bilan dans le
+> [carnet de route](../CARNET_DE_ROUTE.md), section 8 bis.
 
 Acte II « La guerre des faces » du [carnet de route](../CARNET_DE_ROUTE.md). \*\*Simulation + client
 
@@ -102,3 +106,40 @@ Chemins sous `packages/shared/src/`.
 - Les 12 balises font sortir la reine ; la bataille finale est longue, lisible et difficile.
 - La victoire mène à la seconde colonie comme au chantier 19.
 - Le bot conquiert une part mesurée des parties dans l'horizon visé ; Kiwisu et Kiwino à ±10 %.
+
+## Ce qui a été fait
+
+Questions posées au porteur (toutes tranchées par l'option recommandée) : une balise nue tombe
+sans combat ; une garde vaincue meurt, avec un seuil de retraite ; cible de 2 à 3 semaines ; la
+reine reste dehors une fois sortie.
+
+1. **Attaques de balises** (et retrait de l'ancien siège) : `data/beacons.ts`,
+   `sim/beacons.ts`, `battle/beacon.ts`. Heure publique, cible et force choisies par la
+   civilisation là où la vérité est tenue ; fortification depuis chez soi (deux tourelles du
+   premier niveau de notre âge et une tour, la moitié de leur prix, 4 h) ; garde par vaisseau
+   (mission `guard`, ordres, relève) ; bataille avec retraite de la garde ; balise nue tombée
+   sans combat ; sauvegarde v35. Bug corrigé : les balises sur les casernes n'affaiblissaient
+   plus les vagues depuis le 40.
+2. **La reine** : `sim/queen.ts`, `battle/queen.ts`. Sortie quand la 12e balise s'allume,
+   vue publique suivie chaque jour, mission `final`, unité géante à phases (nuées, tunnels,
+   rage ; le moteur gagne `wake`, `rage`, `leader`), conquête, trésor, blessures (au plus
+   50 %, trois jours), puissance jamais sous le plein développement de la civilisation.
+3. **Client** : écran « Conquête de la jumelle » (balises, attaque annoncée, défense,
+   reine, rapports avec rejeu 2D), planificateur de garde et de bataille finale, alerte dans
+   la barre du haut, reine dessinée sur la jumelle et sa sortie, bataille finale jouée sur la
+   jumelle, toasts et sons.
+4. **Nettoyage** : code, champs, textes et spectacle du siège retirés.
+5. **Bot, mesures, docs** : défense des balises et bataille finale du bot, sonde
+   `pnpm --filter @kiwar/balance conquest`, rapport d'équilibrage complet, skills, bilan de
+   l'acte II.
+
+## Reste
+
+- ⚠️ **Le rythme de la conquête** n'est pas celui visé : sur 6 parties de 21 jours, la reine
+  sort dans 3 (J2 à J5) et tombe dans 1 (J6,8) ; trois restent bloquées à 3–11 balises. À
+  jouer avec le porteur (leviers dans `DECISIONS.md`).
+- ⚠️ L'usure des kiwis sur les débarquements (chantier 40) : 9 à 99 morts en trois semaines.
+- À tester : le prix de la fortification, la lisibilité de la bataille finale (8 min au plus),
+  la scène de sortie de la reine (une caméra plus proche, un son propre), la garde (non
+  dessinée sur la jumelle).
+- Pas de spectacle 3D pour une attaque de balise (rejeu 2D dans le rapport).

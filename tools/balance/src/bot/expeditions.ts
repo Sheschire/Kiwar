@@ -43,7 +43,8 @@ const CANDIDATES = 2;
 /** Kiwis the bot accepts to lose in the middle practice battle. */
 const MAX_DEAD = 1;
 
-const ORDERS: LandingOrders = { ...LANDING.defaultOrders, retreatAt: 0.5, goal: 'burn' };
+// Chantier 42: back to the ship at 30 % of the crew fallen (the veterans are the army).
+const ORDERS: LandingOrders = { ...LANDING.defaultOrders, retreatAt: 0.3, goal: 'burn' };
 
 /** Kiwis the colony cannot spare: the mayor, the builders and the best researcher. */
 function keyKiwis(state: GameState): Set<VillagerId> {
@@ -111,8 +112,10 @@ function candidates(state: GameState, targetId: string): number[] {
 /** The strongest kiwis that may leave, the best bat-hitter first. */
 function crewPool(state: GameState): Villager[] {
   const keep = keyKiwis(state);
+  // Chantier 42: one Kikiwiwi boards too (its stomp and hit points carry the centre).
+  let titans = 0;
   const pool = availableCrew(state)
-    .filter((v) => !keep.has(v.id) && !v.kikiwiwi)
+    .filter((v) => !keep.has(v.id) && (!v.kikiwiwi || titans++ < 1))
     .sort((a, b) => kiwiStrength(b) - kiwiStrength(a));
   const air = pool.find((v) => WEAPONS[kiwiWeapon(v, state)].hitsAir);
   return air ? [air, ...pool.filter((v) => v !== air)] : pool;

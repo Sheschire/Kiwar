@@ -224,3 +224,14 @@ age (`IntelReport.civAge`). `intelView` ages reports with `scheduleGrowth` (publ
   `LandingReport` + `LandingReplay` (2D SVG of the journal through `render/battle/timeline`).
   `BestiaryModal` (store `bestiaryOpen`, phone menu entry). The twin's fog (`TwinIntel`) parts
   over parcels with a view, flags on beacons. Sounds `landing.victory|retreat|defeat`.
+
+## Chantier 42: guards and the final battle (`kiwar-colonies`)
+
+- Missions now: `land`, `found`, **`guard`** (a ship takes kiwis to one of our beacons and
+  brings `bringBack` guards home; crew 0 allowed; nothing hidden: `canResolveArrival` lets it
+  through; a breakdown delays it like a landing) and **`final`** (the queen's battle on the
+  twin, once she is out; the launch sets `sector` to her parcel; resolved where the truth is).
+  `retreat` is simulated for guards flying home after a fall or a retreat.
+- `forecastExpedition` gives `final` its practice battles in `landing` (`finalForecast`) and the
+  guard's `returnCrew` (the relieved). XP × 2 and veterans for a final won too.
+- `resetLandings` (import) also idles the guards (`outpost`) and drops guard / retreat ships.

@@ -59,7 +59,7 @@ function queenUnit(input: QueenInput): BattleUnitSetup {
     flying: false,
     fixed: false,
     weaponId: 'royalSlam',
-    weapon: { ...w, damage: w.damage * k * Math.sqrt(lv) },
+    weapon: { ...w, damage: w.damage * Math.sqrt(k) * F.damage },
     ammo: null,
     carry: 0,
     power: 0,

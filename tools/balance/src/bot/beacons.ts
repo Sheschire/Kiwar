@@ -12,6 +12,10 @@ import {
   kiwiStrength,
   kiwiWeapon,
   LANDING,
+  launchCost,
+  rations,
+  techEffects,
+  travelTime,
   maxCrew,
   meteorIronOf,
   queenOf,
@@ -38,6 +42,8 @@ import {
  */
 
 const DAY_MS = 24 * 3_600_000;
+/** The bot fights the queen when the middle practice battle would leave her under this. */
+const WEAR_DOWN = 0.15;
 const GUARD_ORDERS: LandingOrders = { ...LANDING.defaultOrders, retreatAt: 0.5 };
 const FINAL_ORDERS: LandingOrders = { ...LANDING.defaultOrders, retreatAt: 0.6, posture: 'bold' };
 
@@ -154,18 +160,38 @@ export function finalOrder(state: GameState, map: FaceMap): Command | null {
   );
   if (lost) return null;
   const crewPool = pool(state, true);
-  const n = Math.min(maxCrew(state, pad, 'final'), crewPool.length);
-  if (n < 4) return null;
-  const crew = crewPool.slice(0, n).map((v) => v.id);
-  const plan = {
-    launchpadId: pad.id,
-    targetId: twin.id,
-    crew,
-    mission: 'final' as const,
-    orders: FINAL_ORDERS,
-  };
-  const f = forecastExpedition(state, { ...plan, provisions: { pulp: 0, juice: 0 } });
-  const won = f?.landing?.trials.filter((x) => x === 'victory').length ?? 0;
-  if (won === 0) return null;
-  return launchable(state, map, plan);
+  const most = Math.min(maxCrew(state, pad, 'final'), crewPool.length);
+  // The biggest crew the colony can pay for (the fee grows with every seat).
+  for (let n = most; n >= 4; n--) {
+    const crew = crewPool.slice(0, n);
+    const fee = launchCost(state, crew, 'final');
+    const travel = travelTime(twin, pad, crew, 'final', techEffects(state).travel);
+    const eat = rations(state, crew, travel);
+    const need = {
+      ...fee,
+      pulp: fee.pulp + Math.ceil(eat.pulp * 2.1),
+      juice: fee.juice + Math.ceil(eat.juice * 2.1),
+    };
+    if (!canAfford(state.resources, need)) continue;
+    const dry = forecastExpedition(state, {
+      launchpadId: pad.id,
+      targetId: twin.id,
+      crew: crew.map((v) => v.id),
+      provisions: { pulp: 0, juice: 0 },
+      mission: 'final',
+      orders: FINAL_ORDERS,
+    });
+    if (!dry) return null;
+    const won = dry.landing?.trials.filter((x) => x === 'victory').length ?? 0;
+    // A practice battle won, or one that would leave her nearly fallen (her wounds stay).
+    if (won === 0 && (dry.landing?.queenLeft ?? 1) > WEAR_DOWN) return null;
+    return launchable(state, map, {
+      launchpadId: pad.id,
+      targetId: twin.id,
+      crew: crew.map((v) => v.id),
+      mission: 'final',
+      orders: FINAL_ORDERS,
+    });
+  }
+  return null;
 }

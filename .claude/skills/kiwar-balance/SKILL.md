@@ -237,3 +237,23 @@ bot only founds; `pnpm balance:siege` is gone. `--probe` is now the landing prob
 centre at each age, a crew typical of the age, automation off so no crater borrows it).
 Reference (`--seeds 2 --hours 96`, 15 min): Stone ≈ 13.5 h, Iron ≈ 2.8 d, first beacon ≈ 12 h,
 centre ≈ 1.3–3.8 d, 5.5–12 landings, 5–14 kiwis dead per run (⚠️ to discuss with the owner).
+
+## Chantier 42: the conquest (end of act II)
+
+- `bot/beacons.ts` (`beaconOrder`, `finalOrder`, see `kiwar-colonies`); the landing bot
+  retreats at 30 % lost and boards one Kikiwiwi. Milestone `queenOut` (informative);
+  `final.finals`, `beaconAttacks`, `beaconsHeld`, `guardDeaths`; `expeditionDeaths` now counts
+  every kiwi killed in battle (the memorial keeps only 50).
+- **Conquest probe** `pnpm --filter @kiwar/balance conquest --seed s --face f --days 21`
+  (`src/conquest.ts`): a line per game day and a summary; ≈ 15–30 min per run, run four to
+  six in the background (nohup). Reference (6 seeds × 21 days): queen out in 3/6 (days
+  2.3–5.4), conquest 1/6 (day 6.8), three runs stall at 3–11 beacons; attacks 14–16 per run,
+  63–94 % held; 9–99 kiwis dead.
+- **Calibrating a battle on real armies**: save the bot's state at chosen days from
+  `onStep` (`JSON.stringify(state)`), then a scratch script loads them, builds the crew like
+  the bot and runs `simulateBattle(queenSetup(...))` for variants of `SIEGE.final` mutated at
+  run time (`as const` objects are plain at run time): seconds per variant instead of a
+  20-minute run. Killing scratch processes: never `pkill -f` / `grep | kill` a pattern that
+  appears in your own command line (exit 144 kills your shell); write PIDs to a file first.
+- Official report at the end of act II: `pnpm balance --seeds 6 --hours 72 --ages 2 --impact 2
+--probe 50 --out ../../docs/BALANCE_REPORT.md` (nohup, ≈ 2 h on 4 cores).

@@ -8,12 +8,13 @@ import { simulateBattle } from '../battle/simulate';
 import type { TimeMs, VillagerId } from '../types/ids';
 import {
   civAt,
+  growthOfHours,
   liveCiv,
   recordDefeat,
   royalSector,
   sectorGrowth,
   sectorUnits,
-  scheduleGrowth,
+  scheduleHours,
   type AlienUnit,
 } from './civ';
 import { crewMembers, crewWeight, lootByAge, removeVillagers, type Odds } from './expeditions';
@@ -57,7 +58,7 @@ function queenNow(g: AlienGarrison, at: TimeMs) {
   const sector = royalSector(g);
   const view = civAt(g, at);
   const parcel = view.sectors[sector]!;
-  const growth = sectorGrowth(g, sector, at);
+  const growth = Math.max(sectorGrowth(g, sector, at), growthOfHours(SIEGE.final.floorH));
   const base = queenTruth(g).power;
   return {
     sector,
@@ -179,7 +180,12 @@ export function resolveFinal(
     // She keeps her wounds for a while.
     const left = (1 - wounds) * (log.result.leaderLeft ?? 1);
     if (face.queen)
-      face.queen = { ...face.queen, ...q, at, wounds: { share: round1(1 - left) || 0, at } };
+      face.queen = {
+        ...face.queen,
+        ...q,
+        at,
+        wounds: { share: Math.min(SIEGE.final.maxWounds, round1(1 - left) || 0), at },
+      };
     if (face.queen?.wounds && face.queen.wounds.share <= 0) delete face.queen.wounds;
     recordDefeat(
       civ,
@@ -236,7 +242,7 @@ function revealAll(state: GameState, g: AlienGarrison, targetId: string, at: Tim
 
 // --- The forecast (public) ----------------------------------------------------------------------
 
-const trialCache = new Map<string, { outcome: LandingOutcome; dead: number }>();
+const trialCache = new Map<string, { outcome: LandingOutcome; dead: number; left: number }>();
 
 /** What the queen's battle would look like today against this crew (her public view). */
 export function finalInput(
@@ -249,7 +255,10 @@ export function finalInput(
 ): QueenInput | null {
   const q = queenOf(state, targetId);
   if (!q) return null;
-  const growth = scheduleGrowth(state, 0, q.at, now) * luck;
+  // Her growth on the public schedule since she was seen, from her floor (`SIEGE.final.floorH`).
+  const floor = growthOfHours(SIEGE.final.floorH);
+  const grown = (at: TimeMs) => Math.max(floor, growthOfHours(scheduleHours(state, 0, at)));
+  const growth = (grown(now) / grown(q.at)) * luck;
   return {
     sector: q.sector,
     age: q.age,
@@ -299,7 +308,11 @@ export function finalForecast(
     let hit = trialCache.get(key);
     if (!hit) {
       const log = simulateBattle(setup, seed);
-      hit = { outcome: landingOutcome(log), dead: log.result.lost?.length ?? 0 };
+      hit = {
+        outcome: landingOutcome(log),
+        dead: log.result.lost?.length ?? 0,
+        left: log.result.leaderLeft ?? 1,
+      };
       if (trialCache.size > 16) trialCache.delete(trialCache.keys().next().value!);
       trialCache.set(key, hit);
     }
@@ -315,5 +328,7 @@ export function finalForecast(
     odds,
     expectedDead: runs[1]!.dead,
     trials: runs.map((r) => r.outcome),
+    // What would be left of her (her wounds, ×, what she has now).
+    queenLeft: Math.round(runs[1]!.left * (1 - mid.wounds) * 100) / 100,
   };
 }

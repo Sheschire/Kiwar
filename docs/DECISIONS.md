@@ -2618,3 +2618,80 @@ decisions taken along the way:
 - Measured (headless Chromium, software WebGL, medium, 28 units): the landing adds 26 draw
   calls and ≈ 19 k triangles to the twin view (94 calls in all) and ≈ 0.24 ms of JS per frame
   (≈ 1 ms on a phone four times slower). ⚠️ To confirm on a real phone with `?debug`.
+
+## Chantier 42 — The ferret queen
+
+Questions asked to the owner (24 October 2026), all answered with the recommended option:
+
+- **A bare beacon** (no guard, no fortification) attacked **falls without a fight**: the fog
+  comes back, nobody dies; a new landing takes it back.
+- **A defeated guard dies** (the rule of a defeated crew), with a **retreat threshold** in its
+  orders: past it the survivors run to the ship and fly home.
+- **Target**: the total conquest in **2 to 3 weeks** for an attentive player.
+- **The queen stays out** once the 12 beacons brought her out, whatever happens to the beacons
+  afterwards; the attacks on the beacons go on until the conquest.
+
+Small decisions taken along the way:
+
+- **Order of the parts**: the old siege was removed with the first part (its bridgeheads and
+  counter-attacks were replaced by the beacons' defence, and both used the `outpost` job).
+- **The attack's time is public** (hashed from the face, like chantier 19's counter-attacks);
+  **which beacon, from where and how strong is the civilisation's choice**, made at the
+  announcement and the strike where the truth is held: the beacon beside a standing barracks
+  first, the origin that barracks (else the strongest free neighbour, else the royal parcel —
+  "the queen's tunnels"). Strength: the origin parcel × 0.5–0.9 × (1 + 0.1 per attack, ≤ ×2).
+- **Before the civilisation's Iron age** (public date) nothing is planned; if its real age is
+  younger at the announcement (our burns), the attack is skipped.
+- **Fortifying** = two turrets (ground and sky) of the **first level of our age** and a tower
+  of 160 hit points (30 bare), paid like those two turret levels × 0.5 (resources and meteoric
+  iron), ready in 4 h (under the 6 h notice); it can be done again at the next age. The first
+  try (the age's best level, full price: ≈ 50 000 pulp per beacon at Iron, 290 000 at
+  Industry) was far too dear.
+- **The guard** goes by ship (mission `guard`, 12 kiwis at most per beacon), stays fed by the
+  colony, follows its posture and retreat threshold; the same ship brings guards home. A guard
+  ship that breaks down is late, like a landing.
+- **The battle of a beacon**: our side at home (tower, turrets, guard), the aliens as raiders
+  from their parcel's side; the beacon holds if its tower stands at the end. The fallen guards
+  die; their gear is lost only if the beacon falls.
+- **The queen** comes out at the landing that lights the 12th beacon (an event, a short scene
+  on the twin after the landing's show); her public view (power, guard, wounds) follows her
+  daily. Her power = chantier 19's draw × her parcel's growth.
+- **The final battle**: a landing on her parcel, the centre of the twin; she is one giant unit
+  (hit points × √ her power) with 15 % of her parcel's garrison; under 75 % her bats, under
+  50 % elite ferrets an age ahead from the tunnels, under 25 % she rages (blows × 1.6); her
+  fall routs the rest. Up to 8 minutes of battle. Calibrated on the bot's real armies (states
+  saved at days 10, 14, 18): her first numbers (900 hp, full blows, 30 % escort, the phases at
+  full power) killed 60 % of any crew while losing 5–20 % of her strength.
+- **Her power never goes under the civilisation's full growth** (14 days at Industry): a
+  queen brought out early (a colony that burnt the civilisation back lit the 12 parcels by day
+  2–5 in two probes) is as strong as a late one; without this floor the bot conquered at day
+  3 to 4.
+- **Her wounds** of a lost battle stay (healing over 72 h) but **never pass 50 %** (she
+  withdraws into the depths to heal the rest): one battle must still bring down half of her.
+  Without the cap the bot wore her down every 12 h (conquest at day 4); with it, a bot that
+  fought whenever she would be left under 40 % still threw 7 finals and 99 kiwis at her: it now
+  fights only a battle won or nearly won in practice. The planner says what the middle
+  practice battle would leave of her.
+- **The bot** retreats its landings at 30 % lost (it was 50 %), boards its Kikiwiwi on
+  landings and on the final, fortifies a threatened beacon, guards it if the forecast still
+  says it falls, and fights the queen when a practice battle is won (or nearly).
+- **Victory**: the twin conquered, every parcel revealed, the guards fly home with the ship,
+  her treasure (the face's loot × the age × 4, as much as the hold takes), then the second
+  colony as in chantier 19.
+- **Bug found**: since chantier 40 `civWave` read the old bridgeheads (always empty): a beacon
+  over a barracks never weakened the waves. Fixed (the beacons).
+
+### Measures (conquest probe, `pnpm --filter @kiwar/balance conquest`, 6 seeds × 21 days)
+
+- **Queen out** in 3 runs of 6 (day 2.3, 4.7, 5.4); **conquest** in 1 of 6 (day 6.8, one final
+  battle, 9 kiwis dead in the whole run; the second colony founded a few hours later). Three
+  runs never light the 12 parcels: their beacons stall at 3, 9 and 11 (the centre's last
+  parcels grow faster than an army worn by the landings).
+- **Attacks on beacons**: 14–16 per run once the civilisation reaches Iron, 63–94 % held, 4–7
+  guards lost; 1–6 beacons fortified at the end.
+- **Kiwis dead** in battles over 21 days: 9 to 99 (median ≈ 50). ⚠️ The attrition of chantier
+  40 is the main reason the conquest stalls: the bot's crews stay young (levels 5 to 20).
+- ⚠️ **To decide with the owner**, by playing it: the target of 2–3 weeks is not met by the bot
+  (too early or never). Levers: the deaths of a held landing (wounds instead), the growth of
+  the centre's parcels at Industry (`CIV.innerMultiple`, `ageMultiple`), the queen's numbers
+  (`SIEGE.final`), the fortification's price (`BEACONS.fortify.costFactor`).

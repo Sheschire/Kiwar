@@ -418,6 +418,8 @@ export interface LandingForecast {
   expectedDead: number;
   /** Outcomes of the practice battles, weakest garrison first. */
   trials: LandingOutcome[];
+  /** Chantier 42, the final battle: share of the queen's strength left after the middle trial. */
+  queenLeft?: number;
 }
 
 const trialCache = new Map<string, { outcome: LandingOutcome; dead: number }>();

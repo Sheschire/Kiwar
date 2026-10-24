@@ -563,6 +563,7 @@ export function runBot(opts: RunOptions): RunResult {
   const trips = { landings: 0, landingsWon: 0, retreats: 0, shipsLost: 0, loot: 0, finals: 0 };
   // Chantier 42: attacks on the beacons (held, fallen, guards lost).
   const attacks = { total: 0, held: 0, dead: 0 };
+  const mourned = new Set<string>();
   const counted = new Set<string>();
   // Chantier 30: dead time, time at the cap, production lost to full reserves.
   const DAY_MS = 24 * HOUR_MS;
@@ -606,6 +607,9 @@ export function runBot(opts: RunOptions): RunResult {
     dustPicked += Math.max(0, state.stardust - dustBefore);
     map = faceMapOf(state);
     maxHunger = Math.max(maxHunger, state.hunger);
+    // Kiwis lost on expeditions and guards (the memorial keeps only the last 50).
+    for (const m of state.memorial)
+      if (m.cause === 'battle' || m.cause === 'starvation') mourned.add(m.id);
     for (const e of state.expeditions) {
       if (e.status !== 'done' || counted.has(e.id) || !e.result) continue;
       counted.add(e.id);
@@ -759,9 +763,7 @@ export function runBot(opts: RunOptions): RunResult {
       beaconsHeld: attacks.held,
       guardDeaths: attacks.dead,
       sisterKiwis: sister?.villagers.length,
-      expeditionDeaths: state.memorial.filter(
-        (m) => m.cause === 'battle' || m.cause === 'starvation',
-      ).length,
+      expeditionDeaths: mourned.size,
       deadMaxMin: Math.round(deadMax / 60_000),
       ...civFinal(state),
       civAtAges,

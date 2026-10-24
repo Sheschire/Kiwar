@@ -25,10 +25,11 @@ export const BEACONS = {
   /** The tower of a beacon (the attackers try to bring it down): hit points, more fortified. */
   tower: { hp: 30, fortifiedHp: 160, priority: 6 },
   /**
-   * Fortifying from home: two turrets (ground and sky) of the best level of our age, paid like
-   * those levels (resources and iron) × `costFactor`, ready after `durationMs`.
+   * Fortifying from home: two turrets (ground and sky) of the first level of our age, paid like
+   * those levels (resources and iron) × `costFactor`, ready after `durationMs`. A new age lets
+   * the player fortify again, stronger.
    */
-  fortify: { durationMs: ms.h(4), levelsPerAge: 3, costFactor: 1 },
+  fortify: { durationMs: ms.h(4), levelsPerAge: 3, costFactor: 0.5 },
   /** Kiwis posted on a beacon at most. */
   maxGuards: 12,
   /** Reports kept per face. */

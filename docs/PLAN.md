@@ -43,23 +43,24 @@ dans l'historique.
 | 39  | La civilisation alien                                | fait    |
 | 40  | Le débarquement                                      | fait    |
 | 41  | La bataille en direct sur la jumelle (client)        | fait    |
-| 42  | La reine des furets                                  | à faire |
+| 42  | La reine des furets                                  | fait    |
 |     | **Acte III — Le village vivant**                     |         |
 | 43  | Moral par kiwi, Mairie et feu de camp                | à faire |
 | 44  | Loisirs et décor                                     | à faire |
 | 45  | Rives fertiles et canaux de jus                      | à faire |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
-**Prochaine conversation** : le chantier **42** (la reine des furets) — ou le **43** s'il
-avance déjà en parallèle. Le 41 laisse : le spectacle d'un débarquement sur la jumelle
-(`render/battle/landingShow.ts`, `GameRenderer.playLanding`, skill `kiwar-battle` « Chantier
-41 »), le village alien (`render/models/alien.ts`), les balises lumineuses ; à tester avec le
-porteur (rythme, taille des combattants sur téléphone, images/s réelles). Points laissés par le
-40 : « à tester » (ordres, seuil de retraite, prévision, morts en victoire), le blindage du
-vaisseau sans usage, le code du siège débranché à retirer au 42 (`DETTE.md`, avec
-`siegeFx.ts`). Toujours ouverts : le ressenti de l'horloge alien (39), du combat équipé et des
-prix des pièces (38), des rangs et du camp (37), la réparation automatique qui trahit l'issue
-d'une vague regardée en direct (36) et le temps mort du début de la Pierre (31).
+**L'acte II est terminé** (bilan dans le carnet de route, section 8 bis ; rapport
+d'équilibrage complet dans [`BALANCE_REPORT.md`](BALANCE_REPORT.md)). **Prochaine
+conversation** : le chantier **43** (moral par kiwi, Mairie, feu de camp), début de l'acte III.
+Le 42 laisse : les attaques de balises (`sim/beacons.ts`, skill `kiwar-colonies`), la reine et
+sa bataille finale (`sim/queen.ts`, `battle/queen.ts`), l'écran Conquête ; à tester avec le
+porteur (coût de la fortification, difficulté et durée de la bataille finale, rythme de la
+conquête : le bot va de J7 à « jamais » en 21 jours, voir `DECISIONS.md`). Toujours ouverts :
+l'usure des kiwis sur les débarquements (le bot en perd 30 à 80 en trois semaines, 40), le
+ressenti de l'horloge alien (39), du combat équipé et des prix des pièces (38), des rangs et du
+camp (37), la réparation automatique qui trahit l'issue d'une vague regardée en direct (36) et
+le temps mort du début de la Pierre (31).
 
 ## Règles transverses à retenir
 
@@ -111,8 +112,13 @@ from, opts)` (`ShowSource` : une vague ou un débarquement ; notre camp, avance,
   sur la jumelle, tout se dessine dans son repère (`TwinView.attach`) et la caméra la suit
   (`CameraRig.shift`). Un nouveau spectacle réveille la boucle (`drawFrame`) et passe par le
   `show` actif de `GameRenderer` (skill `kiwar-battle`).
-- **Débarquement** (chantier 40) : la seule mission vers une face alien est `land` (plus
-  `found`) ; tout ce que nos kiwis voient devient public dans `state.faceViews` (balises,
+- **Conquête** (chantier 42) : les attaques de balises et la reine ne se résolvent que là où
+  la vérité est tenue (annonce et frappe, sortie de la reine, bataille finale) ; leur heure est
+  publique. Une nouvelle réponse à une attaque passe par `sim/beacons.ts`, une nouvelle phase de
+  la reine par `battle/queen.ts` (les `wake` / `rage` / `leader` du moteur). Skill
+  `kiwar-colonies`.
+- **Débarquement** (chantier 40) : les missions vers une face alien sont `land`, `guard` et
+  `final` (plus `found`) ; tout ce que nos kiwis voient devient public dans `state.faceViews` (balises,
   aperçus datés, bords) et `state.bestiary` ; la bataille ne se résout que là où la vérité est
   tenue (`resolveLanding`), la prévision ne lit que le public (`landingForecast`). Un nouvel
   effet d'un débarquement passe par `sim/landing.ts` (skill `kiwar-expeditions`).
