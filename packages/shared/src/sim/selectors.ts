@@ -295,7 +295,12 @@ export function pathLimit(state: GameState): number {
 /** Buildings counted against the Nest cap (camps and turrets are outside it). */
 export function buildingCount(state: GameState): number {
   const counted = (t: BuildingType) =>
-    t !== 'nest' && t !== 'camp' && t !== 'monument' && t !== 'lab' && !isTurret(t);
+    t !== 'nest' &&
+    t !== 'camp' &&
+    t !== 'monument' &&
+    t !== 'lab' &&
+    t !== 'townHall' &&
+    !isTurret(t);
   return (
     state.buildings.filter((b) => counted(b.type)).length +
     state.queue.filter((i) => i.kind === 'build' && counted(i.buildingType)).length

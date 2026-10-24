@@ -1,3 +1,4 @@
+import { gathered } from './speech';
 import { levelDef } from '../data/buildings';
 import {
   CLASS_FAMILY,
@@ -61,7 +62,7 @@ export function smithsOf(state: GameState): Villager[] {
 export function forgeRate(state: GameState): number {
   const b = forgeOf(state);
   if (!b || state.forge.orders.length === 0) return 0;
-  if (state.threats.shelterUntil > state.now) return 0;
+  if (gathered(state)) return 0;
   const beds = bedsOf(state);
   const mood = colonyMood(state);
   let work = 0;

@@ -1,3 +1,4 @@
+import { speechCooldownMs, speechEffectMs } from '../data/needs';
 import { meteorIronOf } from './iron';
 import { TASKS } from '../data/jobs';
 import { stardustOf } from './comets';
@@ -60,6 +61,8 @@ export const LEVEL_STATS = [
   'maxBuildings',
   'queueSize',
   'buildSlots',
+  'speechMemory',
+  'speechCooldown',
 ] as const;
 export type LevelStatId = (typeof LEVEL_STATS)[number];
 
@@ -117,6 +120,11 @@ export function describeLevel(type: BuildingType, level: number, state?: GameSta
   // Chantier 15: constructions under way at once.
   if (type === 'nest')
     push('buildSlots', TASKS.buildSlots[Math.min(level, TASKS.buildSlots.length - 1)]);
+  // Chantier 43: how long a speech is remembered, and the rest between two (hours).
+  if (type === 'townHall') {
+    push('speechMemory', speechEffectMs(level) / 3_600_000);
+    push('speechCooldown', speechCooldownMs(level) / 3_600_000);
+  }
   return out;
 }
 
@@ -235,6 +243,8 @@ export function buildLock(state: GameState, type: BuildingType): CommandError | 
     if (copiesOf(state, 'forge') > 0) return 'forgeExists';
     if (!techEffects(state).forge) return 'techMissing';
     if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return 'buildingLimit';
+  } else if (type === 'townHall') {
+    if (copiesOf(state, 'townHall') > 0) return 'townHallExists';
   } else if (type === 'monument') {
     if (copiesOf(state, 'monument') > 0) return 'monumentExists';
     if (!hasTech(state, PASSAGE_TECHS[1]!)) return 'passageMissing';

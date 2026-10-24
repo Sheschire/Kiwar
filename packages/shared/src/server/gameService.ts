@@ -1,4 +1,4 @@
-import { MORALE } from '../data/needs';
+import { MORALE, SPEECH } from '../data/needs';
 import { COMETS, STARDUST_SCALE } from '../data/comets';
 import { IRON, IRON_SCALE } from '../data/iron';
 import { ITEMS, type ItemId } from '../data/gear';
@@ -673,6 +673,9 @@ export function isPlausible(state: GameState, now: number): boolean {
     (v) => v.classId === 'mayor' || (v.job.kind === 'train' && v.job.classId === 'mayor'),
   );
   if (mayors.length > 1 || state.speechUntil > state.now + SKILLS.speechMs * 2) return false;
+  // Chantier 43: the Speech at the Town Hall.
+  if (state.speech.until > state.now + SPEECH.gatherMs) return false;
+  if (state.speech.readyAt > state.now + SPEECH.cooldownMs[2].ms) return false;
   if (!plausibleResearch(state) || !plausibleAge(state)) return false;
   if (!plausibleObstacles(state)) return false;
   // Chantier 08: one laboratory (after its technology), Kikiwiwis within the cap of the age.
@@ -778,10 +781,10 @@ function plausibleKiwi(v: Villager, now: number): boolean {
   if (v.classId && v.level < CLASSES[v.classId].minLevel) return false;
   // Chantier 37: a Kikiwiwi has no class.
   if (v.kikiwiwi && v.classId) return false;
-  // Chantier 43: no memory better or longer than the best its kind can give (Festival doubles).
+  // Chantier 43: no memory better or longer than the best its kind can give.
   for (const m of v.memories ?? []) {
     const def = MORALE.memories[m.kind];
-    if (m.value > Math.max(0, 2 * def.value) || m.until > now + 2 * def.ms) return false;
+    if (m.value > def.best || m.until > now + def.ms) return false;
   }
   return v.history.expeditions === 0 && v.history.victories === 0;
 }

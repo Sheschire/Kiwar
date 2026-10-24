@@ -38,6 +38,7 @@ export * from './sim/selectors';
 export * from './sim/objectives';
 export * from './sim/advance';
 export * from './sim/commands';
+export * from './sim/speech';
 export * from './sim/expeditions';
 export * from './sim/deliveries';
 export * from './sim/aliens';

@@ -324,6 +324,7 @@ export const gameStateSchema = z.object({
     )
     .max(MEMORIAL_MAX),
   speechUntil: z.number().min(0),
+  speech: z.object({ until: z.number().min(0), readyAt: z.number().min(0) }),
   hunger: z.number().int().min(0),
   queue: z.array(
     z.object({
@@ -924,6 +925,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
     }));
     return { ...rest, villagers };
   },
+  // v36 → v37 (chantier 43): the Speech moves to the Town Hall (an old one ends normally).
+  36: (raw) => ({ ...raw, speech: { until: 0, readyAt: 0 } }),
 };
 
 const OLD_MISSIONS = ['raid', 'recon', 'assault', 'reinforce', 'final', 'retreat'];

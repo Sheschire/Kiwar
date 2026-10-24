@@ -24,6 +24,8 @@ const LEVEL_ICONS: Record<LevelStatId, IconName> = {
   maxBuildings: 'limit',
   queueSize: 'queue',
   buildSlots: 'queue',
+  speechMemory: 'morale',
+  speechCooldown: 'time',
 };
 
 const TECH_ICONS: Record<TechStatId, IconName> = {
@@ -54,6 +56,7 @@ const TECH_ICONS: Record<TechStatId, IconName> = {
 const LOWER_IS_BETTER = new Set<string>([
   'travelTime',
   'trainingTime',
+  'speechCooldown',
   'travel',
   'rations',
   'build',
@@ -74,6 +77,8 @@ export function formatLevelStat(lang: Lang, t: Translate, stat: LevelStatId, val
   const v = formatNumber(lang, Math.round(value * 100) / 100);
   if (stat === 'production' || stat === 'passive') return t('levelStats.perHour', { value: v });
   if (stat === 'travelTime' || stat === 'trainingTime') return t('levelStats.times', { value: v });
+  if (stat === 'speechMemory' || stat === 'speechCooldown')
+    return t('levelStats.hours', { value: v });
   return v;
 }
 

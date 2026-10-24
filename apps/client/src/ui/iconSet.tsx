@@ -152,6 +152,26 @@ const GLYPHS = {
       />
     </>
   ),
+  // Chantier 43: the Town Hall (a gabled hall with a balcony and a flag).
+  townHall: (
+    <>
+      <path d="M16 3v6" stroke="#5a3e26" stroke-width="1.6" stroke-linecap="round" />
+      <path d="M16 3h7l-2 2 2 2h-7z" fill="#c0504a" stroke="#7a2e2a" stroke-width="1.2" />
+      <path d="M4 15l12-7 12 7z" fill="#b5653a" stroke="#5a3e26" stroke-width="1.6" />
+      <rect
+        x="6"
+        y="15"
+        width="20"
+        height="12"
+        fill="#f1dfb6"
+        stroke="#5a3e26"
+        stroke-width="1.6"
+      />
+      <path d="M13 27v-6a3 3 0 0 1 6 0v6" fill="#7a5233" stroke="#5a3e26" stroke-width="1.4" />
+      <path d="M10 18v3M22 18v3" stroke="#5a3e26" stroke-width="1.6" stroke-linecap="round" />
+      <path d="M3 27h26" stroke="#5a3e26" stroke-width="1.6" stroke-linecap="round" />
+    </>
+  ),
   trainingCamp: (
     <>
       <circle cx="16" cy="17" r="10" fill="#fbf6ea" stroke="#5a3e26" stroke-width="1.8" />

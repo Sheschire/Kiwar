@@ -138,7 +138,7 @@ describe('school and classes', () => {
     expect(gone.resources.seeds).toBeGreaterThanOrEqual(before);
   });
 
-  it('lets the mayor lift the harvest, more during a speech', () => {
+  it('lets the mayor lift morale; an old speech still lifts the harvest', () => {
     const { map, s, schoolId } = schoolColony();
     const empty = (x: GameState): GameState => ({
       ...x,
@@ -154,26 +154,17 @@ describe('school and classes', () => {
     expect(mayorMorale(base)).toBeCloseTo(lift);
     expect(moraleOf(base).mayor).toBeCloseTo(lift * MORALE.points);
     expect(colonyBonus(base)).toBe(1);
-    const before = productionRates(empty(base)).pulp;
-    const speaking = run(
-      base,
-      { type: 'useSkill', villagerId: mayor.id, skill: 'speech' },
-      base.now,
-      map,
+    // Chantier 43: the Speech moved to the Town Hall; an old speech still ends normally.
+    expect(errorOf(base, { type: 'useSkill', villagerId: mayor.id, skill: 'speech' }, map)).toBe(
+      'skillLocked',
     );
+    const before = productionRates(empty(base)).pulp;
+    const speaking = { ...base, speechUntil: base.now + SKILLS.speechMs };
     expect(productionRates(empty(speaking)).pulp).toBeGreaterThan(before);
-    expect(
-      errorOf(speaking, { type: 'useSkill', villagerId: mayor.id, skill: 'speech' }, map),
-    ).toBe('skillCooling');
+    expect(colonyBonus(speaking)).toBeCloseTo(1 + SKILLS.speechBonus);
     const { state: later, events } = advance(speaking, speaking.now + 2 * HOUR_MS);
     expect(events.some((e) => e.type === 'speechOver')).toBe(true);
     expect(colonyBonus(later)).toBe(1);
-    expect(colonyBonus(speaking)).toBeCloseTo(1 + SKILLS.speechBonus);
-    // A young mayor has no speech yet.
-    const young = { ...base, villagers: base.villagers.map((v, i) => (i === 0 ? at(v, 6) : v)) };
-    expect(errorOf(young, { type: 'useSkill', villagerId: mayor.id, skill: 'speech' }, map)).toBe(
-      'skillLocked',
-    );
   });
 
   it('lets a mage make it rain on the deposits of their workplace', () => {
@@ -221,7 +212,8 @@ describe('school and classes', () => {
     const { map, s, schoolId } = schoolColony();
     let x = run(s, train(s, 0, schoolId, 'mayor'), s.now, map);
     x = advance(x, s.now + 4 * HOUR_MS).state;
-    x = run(x, { type: 'useSkill', villagerId: x.villagers[0]!.id, skill: 'speech' }, x.now, map);
+    // Chantier 43: an old speech (the skill) running across the steps.
+    x = { ...x, speechUntil: x.now + SKILLS.speechMs };
     x = run(x, train(x, 1, schoolId, 'warrior'), x.now, map);
     const end = x.now + 6 * HOUR_MS;
     const big = advance(x, end).state;

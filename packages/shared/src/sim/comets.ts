@@ -1,3 +1,4 @@
+import { gathered } from './speech';
 import { takenKeys } from './footprint';
 import { createRng, type Rng } from '../rng/rng';
 import { COMETS, STARDUST, STARDUST_SCALE, dustPoints } from '../data/comets';
@@ -42,7 +43,7 @@ export function dustPickers(state: GameState, patchId: string): Villager[] {
 /** Raw units per ms taken from a patch (0 during a shelter or once the stock is full). */
 export function patchRate(state: GameState, p: DustPatch): number {
   if (p.stock <= 0 || state.stardust >= STARDUST_CAP) return 0;
-  if (state.threats.shelterUntil > state.now) return 0;
+  if (gathered(state)) return 0;
   let rate = 0;
   for (const v of dustPickers(state, p.id)) rate += pickRate(v);
   return rate;

@@ -1,3 +1,4 @@
+import { giveSpeech, speechLock } from './speech';
 import { landingLock } from './landing';
 import type { LandingOrders } from '../data/landing';
 import { IRON_SCALE } from '../data/iron';
@@ -191,11 +192,13 @@ export type Command =
   | { type: 'spendStatPoint'; villagerId: VillagerId; stat: StatId }
   /** Send a kiwi to the School to learn a class (or change class, for a higher price). */
   | { type: 'train'; villagerId: VillagerId; schoolId: BuildingId; classId: ClassId }
-  /** Use an active skill (mage's Rain, mayor's Speech). */
+  /** Use an active skill (mage's Rain). */
   | { type: 'useSkill'; villagerId: VillagerId; skill: SkillId }
   /** Debug panel only. Will be rejected by the server in milestone 2. */
   /** Chantier 06: everybody into the Nest for the coming wave (no one hurt, no harvest). */
   | { type: 'shelter' }
+  /** Chantier 43: the mayor gives a speech at the Town Hall (everybody gathers there). */
+  | { type: 'giveSpeech' }
   /** Mends a building damaged by predators (queued like a construction). */
   | { type: 'repair'; buildingId: BuildingId }
   /** Posts exactly these kiwis on the rampart (the others go back to work). */
@@ -357,6 +360,11 @@ export const COMMAND_ERRORS = [
   'unknownItem',
   'noForge',
   'forgeExists',
+  'townHallExists',
+  'noTownHall',
+  'noMayor',
+  'speechCooling',
+  'waveSoon',
   'forgeQueueFull',
   'unknownOrder',
   'notInArmory',
@@ -1086,11 +1094,14 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         // Chantier 37: a druid's Rain is stronger.
         const refill = v.classId === 'druid' ? SKILLS.druidRain : SKILLS.rainRefill;
         b.pool.stock = Math.min(h.cap, h.stock + refill * h.cap);
-      } else if (cmd.skill === 'speech') {
-        const k = hasSkill(v, 'festival') ? SKILLS.festivalMultiplier : 1;
-        s.speechUntil = now + SKILLS.speechMs * k;
       }
       v.skillReadyAt[cmd.skill] = now + def.cooldownMs;
+      return;
+    }
+    case 'giveSpeech': {
+      const lock = speechLock(s);
+      if (lock) return fail(lock);
+      giveSpeech(s, now);
       return;
     }
     case 'shelter': {

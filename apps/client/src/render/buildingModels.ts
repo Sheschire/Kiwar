@@ -60,6 +60,8 @@ const BUILDERS: Record<BuildingType, (look: Look) => Parts> = {
   skyTurret,
   trainingCamp,
   forge,
+  // Chantier 43: drawn like the School until its own model (part 4).
+  townHall: school,
 };
 
 /**

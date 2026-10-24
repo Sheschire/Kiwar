@@ -61,7 +61,7 @@ export const REST = {
 } as const;
 
 /** Chantier 43: what a kiwi remembers for a while (its morale moves until `until`). */
-export const MEMORY_KINDS = ['mourning', 'grief'] as const;
+export const MEMORY_KINDS = ['mourning', 'grief', 'speech'] as const;
 export type MemoryKind = (typeof MEMORY_KINDS)[number];
 
 /**
@@ -96,9 +96,43 @@ export const MORALE = {
   trait: { dreamer: 5, lucky: 5, glutton: -5 } satisfies Partial<Record<TraitId, number>>,
   /** A kiwi of the bard line sings for itself too. */
   bard: 5,
-  /** Memories: the colony mourns a lost kiwi; its hut mates or crew mates grieve harder. */
+  /**
+   * Memories: the colony mourns a lost kiwi, its hut mates or crew mates grieve harder; a fine
+   * speech (`SPEECH`). `ms`: the longest it lasts, `best`: the highest value it can have.
+   */
   memories: {
-    mourning: { value: -15, ms: ms.h(24) },
-    grief: { value: -25, ms: ms.h(24) },
-  } satisfies Record<MemoryKind, { value: number; ms: number }>,
+    mourning: { value: -15, ms: ms.h(24), best: -15 },
+    grief: { value: -25, ms: ms.h(24), best: -25 },
+    speech: { value: 12, ms: ms.h(12), best: 2 * (12 + 15) },
+  } satisfies Record<MemoryKind, { value: number; ms: number; best: number }>,
 } as const;
+
+/**
+ * Chantier 43: the Speech at the Town Hall. Every kiwi at home gathers there (no harvest,
+ * research or forging for `gatherMs`, walk included), then remembers it for hours.
+ */
+export const SPEECH = {
+  gatherMs: ms.min(20),
+  /** Morale points, plus per Charisma point of the mayor above average (Festival doubles). */
+  value: MORALE.memories.speech.value,
+  perCharisma: 1,
+  /** How long it is remembered: 8 h at level 1, 12 h at level 12. */
+  effectMs: { first: ms.h(8), last: ms.h(12) },
+  /** Cooldown by Town Hall level: 24 h, 18 h from level 7, 12 h from level 10. */
+  cooldownMs: [
+    { level: 10, ms: ms.h(12) },
+    { level: 7, ms: ms.h(18) },
+    { level: 1, ms: ms.h(24) },
+  ],
+} as const;
+
+/** How long a speech at this Town Hall level is remembered (whole minutes). */
+export function speechEffectMs(level: number): number {
+  const { first, last } = SPEECH.effectMs;
+  const k = Math.max(0, Math.min(1, (level - 1) / 11));
+  return Math.round((first + (last - first) * k) / 60_000) * 60_000;
+}
+
+export function speechCooldownMs(level: number): number {
+  return SPEECH.cooldownMs.find((c) => level >= c.level)?.ms ?? SPEECH.cooldownMs[2].ms;
+}

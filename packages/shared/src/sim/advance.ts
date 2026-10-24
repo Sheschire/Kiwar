@@ -56,6 +56,7 @@ import { accrueResearch, nextResearchEvent, researchPower, researchTick } from '
 import { autoPlace, awaitedResources, belowReturn, redirectFull, returnHome } from './posts';
 import { JOBS } from '../data/jobs';
 import { fadeMemories, nextMemoryEnd } from './rest';
+import { nextSpeechEnd } from './speech';
 import {
   addVillager,
   cloneState,
@@ -296,7 +297,8 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const expedition = nextExpeditionEvent(s);
     const flows = computeFlows(s);
     const trainingEnd = nextTrainingEnd(s);
-    const speechEnd = s.speechUntil > s.now ? s.speechUntil : Infinity;
+    // The old speech (a skill) and, chantier 43, the gathering at the Town Hall.
+    const speechEnd = Math.min(s.speechUntil > s.now ? s.speechUntil : Infinity, nextSpeechEnd(s));
     // Chantier 43: a kiwi's memory fades (its morale moves).
     const memoryEnd = nextMemoryEnd(s);
     // Nightfall and dawn change work rates (seasons change at dawn).

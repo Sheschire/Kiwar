@@ -1,3 +1,4 @@
+import { gathered } from './speech';
 import { KIKIWIWI } from '../data/kikiwiwi';
 import {
   KIWI,
@@ -276,8 +277,8 @@ export function kiwiExposure(v: Villager): number {
 
 /** Summed power of the workers of a building (replaces the head count in harvest maths). */
 export function workforce(state: GameState, b: Building, workers: Villager[]): number {
-  // Everybody is hiding in the Nest from a wave.
-  if (state.threats.shelterUntil > state.now) return 0;
+  // Everybody is hiding in the Nest from a wave, or listening to the mayor (chantier 43).
+  if (gathered(state)) return 0;
   const damaged = b.damaged ? THREATS.damagedWork : 1;
   const resource = buildingResource(state, b);
   if (!resource) return workers.length * damaged;
@@ -294,7 +295,7 @@ export function crewWork(
   workers: readonly Villager[],
   resource: ResourceId,
 ): number {
-  if (state.threats.shelterUntil > state.now) return 0;
+  if (gathered(state)) return 0;
   const beds = bedsOf(state);
   // Chantier 43: each kiwi works at its own morale.
   const mood = colonyMood(state);

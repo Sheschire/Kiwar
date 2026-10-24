@@ -139,6 +139,7 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     classId: z.enum(CLASS_IDS),
   }),
   z.object({ type: z.literal('useSkill'), villagerId: id, skill: z.enum(SKILL_IDS) }),
+  z.object({ type: z.literal('giveSpeech') }),
   z.object({ type: z.literal('shelter') }),
   z.object({ type: z.literal('repair'), buildingId: id }),
   z.object({ type: z.literal('setGarrison'), villagerIds: z.array(id).max(200) }),

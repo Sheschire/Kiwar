@@ -23,6 +23,7 @@ export const BUILDING_TYPES = [
   'skyTurret',
   'trainingCamp',
   'forge',
+  'townHall',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
@@ -95,6 +96,7 @@ export const FOOTPRINTS: Partial<Record<BuildingType, FootprintSize>> = {
   monument: 7,
   trainingCamp: 3,
   forge: 3,
+  townHall: 3,
 };
 
 export function footprintOf(type: BuildingType): FootprintSize {
@@ -543,6 +545,31 @@ const BASE: Record<BuildingType, BuildingDef> = {
       },
     ],
   },
+  // Chantier 43: the Town Hall (Nest 3), where the mayor gives the Speech (`SPEECH`). One per
+  // colony, outside the building cap; it does nothing without a mayor at home.
+  townHall: {
+    id: 'townHall',
+    allowedTiles: ['flesh', 'ray', 'heart'],
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 800, fiber: 1000, seeds: 200, juice: 250 },
+        durationMs: ms.min(20),
+        requiresNestLevel: 3,
+      },
+      {
+        cost: { pulp: 1400, fiber: 1600, seeds: 350, juice: 450 },
+        durationMs: ms.min(40),
+        requiresNestLevel: 3,
+      },
+      {
+        cost: { pulp: 2000, fiber: 2000, seeds: 450, juice: 600 },
+        durationMs: ms.h(1),
+        requiresNestLevel: 3,
+      },
+    ],
+  },
   seedTurret: {
     id: 'seedTurret',
     allowedTiles: ['skin'],
@@ -667,6 +694,7 @@ const AGE_GROWTH: Partial<Record<BuildingType, AgeGrowth>> = {
   launchpad: { ...DEFAULT_GROWTH, cargo: 70, travelTime: 0.965 },
   school: { ...DEFAULT_GROWTH, trainingSlots: 1, trainingTime: 0.965 },
   library: { ...DEFAULT_GROWTH, research: 1.07, workerSlots: 1 },
+  townHall: DEFAULT_GROWTH,
   seedTurret: { ...DEFAULT_GROWTH, output: 1.15, ammo: 1.12 },
   skyTurret: { ...DEFAULT_GROWTH, output: 1.15, ammo: 1.12 },
 };

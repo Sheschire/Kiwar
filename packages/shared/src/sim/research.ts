@@ -1,3 +1,4 @@
+import { gathered } from './speech';
 import { levelDef } from '../data/buildings';
 import { CYCLES } from '../data/cycles';
 import { KIWI } from '../data/kiwis';
@@ -137,7 +138,7 @@ export function researchPower(v: Villager): number {
 
 /** Research points per hour of the whole colony (constant between two events). */
 export function researchPerHour(state: GameState): number {
-  if (state.threats.shelterUntil > state.now) return 0;
+  if (gathered(state)) return 0;
   const libs = libraries(state);
   if (libs.length === 0) return 0;
   const beds = bedsOf(state);

@@ -18,7 +18,8 @@ import {
   capacity,
   reserveHolders,
   reserves,
-  hasSkill,
+  isNight,
+  speechLock,
   KIWI,
   claimableObjective,
   currentObjective,
@@ -218,10 +219,8 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
     if (v.stats[stat] < KIWI.stat.cap)
       cmds.push({ type: 'spendStatPoint', villagerId: v.id, stat });
   }
-  // The mayor speaks whenever it can.
-  const mayor = state.villagers.find((v) => v.classId === 'mayor');
-  if (mayor && hasSkill(mayor, 'speech') && (mayor.skillReadyAt.speech ?? 0) <= state.now)
-    cmds.push({ type: 'useSkill', villagerId: mayor.id, skill: 'speech' });
+  // Chantier 43: the mayor speaks at the Town Hall at night (the gathering costs little then).
+  if (isNight(state) && !speechLock(state)) cmds.push({ type: 'giveSpeech' });
 
   // Chantier 13: blessings. Since chantier 15 the automation sends the pickers of the
   // stardust, the researchers, the miners of the craters, the garrison and the repairs.

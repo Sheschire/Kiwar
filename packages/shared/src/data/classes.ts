@@ -168,7 +168,8 @@ const CLASSES_T1: Record<TierOne, ClassDef> = {
       { id: 'tailwind', level: 20 },
     ],
   },
-  // The one mayor organises the colony (production bonus from Charisma) and gives speeches.
+  // The one mayor organises the colony (morale from Charisma) and gives speeches at the Town
+  // Hall (chantier 43; the Speech was a skill before).
   mayor: {
     id: 'mayor',
     stat: 'charisma',
@@ -181,7 +182,6 @@ const CLASSES_T1: Record<TierOne, ClassDef> = {
     modifiers: {},
     skills: [
       { id: 'organisation', level: 5 },
-      { id: 'speech', level: 10, cooldownMs: ms.h(12) },
       { id: 'festival', level: 20 },
     ],
   },
