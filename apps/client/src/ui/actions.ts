@@ -24,6 +24,7 @@ import {
 } from '@kiwar/shared';
 import type { GameController } from '../game/GameController';
 import { firstRotation, placementError } from '../game/placement';
+import { tellLanding, watchable } from '../game/landingWatch';
 import type { GameRenderer } from '../render/GameRenderer';
 import { saveQualityChoice, type QualityChoice } from '../render/quality';
 import { formatNumber } from '../i18n/i18n';
@@ -424,14 +425,43 @@ export const actions = {
    */
   travelTo(planet: PlanetRef | null): void {
     if (!renderer?.travelTo(planet)) return;
+    const watched = uiStore.getState().watchingLanding;
+    if (watched) tellLanding(watched);
     uiStore.setState({
       visit: planet,
+      watchingLanding: null,
       planetCard: null,
       planetsOpen: false,
       modal: 'none',
       selectedTile: null,
     });
     audio.play('ui.click');
+  },
+  /**
+   * Chantier 41: flies to the twin and frames the parcel of a landing (its battle plays there).
+   * False when it cannot be watched (a face not drawn, no journal).
+   */
+  watchLanding(expeditionId: string): boolean {
+    const game = uiStore.getState().game;
+    const e = game?.expeditions.find((x) => x.id === expeditionId);
+    if (!game || !e || !watchable(game, e) || !renderer?.travelTo('twin', e.sector)) return false;
+    uiStore.setState({
+      visit: 'twin',
+      landingInvite: null,
+      watchingLanding: e.id,
+      planetCard: null,
+      planetsOpen: false,
+      modal: 'none',
+      selectedTile: null,
+    });
+    audio.play('ui.click');
+    return true;
+  },
+  /** Chantier 41: "Later": the landing's outcome is told now (its report keeps the replay). */
+  declineLanding(): void {
+    const id = uiStore.getState().landingInvite;
+    uiStore.setState({ landingInvite: null });
+    tellLanding(id);
   },
   /** Chantier 24: the small card of a tapped planet ("Go there"), or none. */
   showPlanetCard(planet: PlanetRef | null): void {

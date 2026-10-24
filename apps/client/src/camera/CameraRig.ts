@@ -117,6 +117,8 @@ export class CameraRig {
     fromTarget: Vector3;
     toTarget: Vector3;
     land: () => void;
+    /** Chantier 41: the planet's centre, moved by `shift` while flying (the arrival's bounds). */
+    anchor?: Vector3;
   } | null = null;
 
   constructor(camera: PerspectiveCamera, element: HTMLElement) {
@@ -211,28 +213,55 @@ export class CameraRig {
    * Chantier 24: flies to a far planet (the twin or a member's, seen from our side) along an
    * arc, then keeps the camera around it: its own bounds and zoom range until `returnHome`.
    */
-  visit(center: Vector3, radius: number): void {
+  visit(center: Vector3, radius: number, focus?: { target: Vector3; distance: number }): void {
     this.away = true;
     const distance = this.fitDistance(radius) * 1.2;
     // Seen from our side of the sky, the way the planet leans towards us.
     const toward = new Vector3(-center.x, 0, -center.z).normalize();
-    const polar = 0.7;
+    // Chantier 41: a parcel framed closer (a landing), a little more from the side.
+    const polar = focus ? 0.85 : 0.7;
+    const look = focus?.target ?? center;
+    const d = focus?.distance ?? distance;
     const position = new Vector3(
-      center.x + toward.x * Math.sin(polar) * distance,
-      center.y + Math.cos(polar) * distance,
-      center.z + toward.z * Math.sin(polar) * distance,
+      look.x + toward.x * Math.sin(polar) * d,
+      look.y + Math.cos(polar) * d,
+      look.z + toward.z * Math.sin(polar) * d,
     );
-    this.flyTo(position, center.clone(), () => {
+    const anchor = center.clone();
+    this.flyTo(position, look.clone(), () => {
       const c = this.controls;
-      c.minDistance = Math.min(8, distance * 0.4);
+      // A landing is watched up close: the fighters are small at the twin's scale.
+      c.minDistance = focus ? Math.min(3, d * 0.5) : Math.min(8, distance * 0.4);
       c.maxDistance = distance * 1.6;
       this.setBounds(
         new Box3(
-          new Vector3(center.x - radius, center.y - 4, center.z - radius),
-          new Vector3(center.x + radius, center.y + 6, center.z + radius),
+          new Vector3(anchor.x - radius, anchor.y - 4, anchor.z - radius),
+          new Vector3(anchor.x + radius, anchor.y + 6, anchor.z + radius),
         ),
       );
     });
+    this.flight!.anchor = anchor;
+  }
+
+  /**
+   * Chantier 41: the visited planet moved by `delta` (the twin coming closer): the camera, its
+   * flight and its bounds move with it, so the view stays on the same spot.
+   */
+  shift(delta: Vector3): void {
+    if (delta.lengthSq() === 0) return;
+    const f = this.flight;
+    if (f) {
+      f.to.add(delta);
+      f.toTarget.add(delta);
+      f.via.addScaledVector(delta, 0.5);
+      f.anchor?.add(delta);
+      return;
+    }
+    const c = this.controls;
+    if (this.bounds) this.setBounds(this.bounds.clone().translate(delta));
+    const p = c.getPosition(tmpEnd).add(delta);
+    const t = c.getTarget(tmpTarget).add(delta);
+    void c.setLookAt(p.x, p.y, p.z, t.x, t.y, t.z, false);
   }
 
   /** Back from a visit: the colony's bounds, and the view the player left (or the framing). */

@@ -1,8 +1,9 @@
 import { footprintFrame } from './footprintFrame';
 import { ObstaclesView } from './obstacles';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import type {
+  BufferGeometry} from 'three';
 import {
-  BufferGeometry,
   Color,
   Matrix4,
   type Object3D,
@@ -12,7 +13,9 @@ import {
   CylinderGeometry,
   Float32BufferAttribute,
   SphereGeometry,
+  AdditiveBlending,
   DoubleSide,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   SRGBColorSpace,
   Sprite,
@@ -28,13 +31,16 @@ import {
   getTile,
   hexToPixel,
   INTEL,
-  landTileNear,
+  hexKey,
+  landingTile,
+  parcelTiles,
   sectorOf,
   type FaceMap,
   type Tile,
-  type IntelReport,
   type TwinSnapshot,
+  type AlienBuildingKind,
 } from '@kiwar/shared';
+import { alienGeometry } from './models/alien';
 import { buildingGeometry } from './buildingModels';
 import { WaterView } from './water';
 import { PALETTE } from './palette';
@@ -52,8 +58,28 @@ const BOB = 0.5;
  * pools, fog layers and dens give way to one painted disc on the dome.
  */
 const NEAR_RADII = 8;
+/**
+ * Chantier 41: the painted disc fades out over this band of radii (from `NEAR_RADII` + band
+ * down to `NEAR_RADII` − band) while the tiles show under it, instead of swapping at once.
+ */
+const FADE_BAND = 1;
+/** Seconds for the clouds to part over a parcel (or close again). */
+const FOG_FADE_S = 1.6;
+/** Chantier 41: an alien building seen on a parcel, drawn at the age the parcel had then. */
+export interface AlienHouse {
+  kind: AlienBuildingKind;
+  q: number;
+  r: number;
+  age: number;
+}
+
 /** What the twin shows of an alien face. */
-export type TwinIntel = Pick<IntelReport, 'sectors' | 'structures'>;
+export interface TwinIntel {
+  /** Parcels we have eyes on (the clouds part). */
+  sectors: number[];
+  /** Chantier 41: their village, as seen. */
+  village: AlienHouse[];
+}
 
 export interface TwinOptions {
   fog: boolean;
@@ -101,9 +127,19 @@ export class TwinView {
   private readonly far: Mesh;
   private readonly near: Object3D[] = [];
   private isNear = true;
+  private farOpacity = -1;
+  /** Chantier 41: the clouds over each parcel (0 closed, 1 parted), easing to `seenGoal`. */
+  private readonly seen: number[];
+  private readonly seenIntel: number[];
+  private readonly fogOverride = new Map<number, 'open' | 'closed'>();
+  /** The clouds are moving over a parcel (a sign of life for the frame loop). */
+  fading = false;
 
   private structureGeometries: BufferGeometry[] = [];
   private structureMaterials: MeshStandardMaterial[] = [];
+  /** Chantier 41: the glowing kiwis of our beacons (they bob and glow). */
+  private readonly beaconKiwis: Group[] = [];
+  private beaconAura: MeshBasicMaterial | null = null;
 
   constructor(
     private readonly map: FaceMap,
@@ -130,7 +166,7 @@ export class TwinView {
         uRadius: { value: radius },
         uCloud: { value: PALETTE.cloud.clone() },
         uShade: { value: PALETTE.cloudShade.clone() },
-        uSeen: { value: seenMask(opts.intel) },
+        uSeen: { value: [] as number[] },
         // Inner ring of sectors (see `INTEL.innerRadius`), in local units.
         uInner: { value: Math.hypot(hexToPixel({ q: INTEL.innerRadius, r: 0 }).x, 0) + 0.8 },
       },
@@ -171,6 +207,9 @@ export class TwinView {
         }
       `,
     });
+    this.seenIntel = seenMask(opts.intel);
+    this.seen = [...this.seenIntel];
+    this.fogMaterial.uniforms.uSeen!.value = this.seen;
     if (opts.fog) {
       for (const y of FOG_LAYERS) {
         const layer = new Mesh(new CircleGeometry(radius, 40), this.fogMaterial);
@@ -182,14 +221,16 @@ export class TwinView {
       }
     }
     if (opts.friend) this.showFriend(map, opts.friend);
-    else if (opts.intel && !opts.siege?.conquered) this.showStructures(map, opts.intel);
-    if (!opts.friend && opts.siege?.heads.length) this.showBridgeheads(map, opts.siege.heads);
+    else if (opts.intel && !opts.siege?.conquered) this.showVillage(map, opts.intel.village);
+    if (!opts.friend && opts.siege?.heads.length)
+      this.showBeacons(map, opts.siege.heads, opts.intel?.village ?? []);
     this.far = farDisc(map, radius, opts.fog);
     this.spin.add(this.far);
     this.near.push(this.terrain.tiles, ...this.fog);
     if (this.water) this.near.push(this.water.mesh);
     if (this.obstacles) this.near.push(this.obstacles.group);
     this.setNear(false);
+    this.setFarOpacity(1);
     this.group.add(this.spin);
     this.group.scale.setScalar(SCALE);
   }
@@ -209,13 +250,34 @@ export class TwinView {
    * the others only when the camera (`eye`) comes near.
    */
   update(dt: number, time: number, eye: Vector3, frozen = false, phase = 0): void {
-    this.setNear(frozen || eye.distanceTo(this.group.position) < this.radius * NEAR_RADII);
+    const radii = frozen ? 0 : eye.distanceTo(this.group.position) / this.radius;
+    this.setNear(radii < NEAR_RADII + FADE_BAND);
+    this.setFarOpacity(
+      Math.min(1, Math.max(0, (radii - NEAR_RADII + FADE_BAND) / (2 * FADE_BAND))),
+    );
+    // The clouds part (or close) over the parcels, eased.
+    const step = dt / FOG_FADE_S;
+    this.fading = false;
+    for (let i = 0; i < this.seen.length; i++) {
+      const o = this.fogOverride.get(i);
+      const goal = o === 'open' ? 1 : o === 'closed' ? 0 : this.seenIntel[i]!;
+      const v = this.seen[i]!;
+      if (v === goal) continue;
+      this.fading = true;
+      this.seen[i] = v < goal ? Math.min(goal, v + step) : Math.max(goal, v - step);
+    }
     if (!frozen) {
       this.angle += dt * SPIN;
       this.group.position.y = this.home.y + Math.sin(time * 0.25 + phase) * BOB;
     }
     this.spin.rotation.y = this.angle;
     this.fogMaterial.uniforms.uTime!.value = time;
+    for (let i = 0; i < this.beaconKiwis.length; i++) {
+      const k = this.beaconKiwis[i]!;
+      k.position.y = 2.75 + Math.sin(time * 1.6 + i) * 0.12;
+      k.rotation.z = Math.sin(time * 1.1 + i) * 0.06;
+    }
+    if (this.beaconAura) this.beaconAura.opacity = 0.18 + 0.08 * Math.sin(time * 2.2);
   }
 
   /** Chantier 19 (siege show): the middle of the planet, in world space. */
@@ -233,11 +295,86 @@ export class TwinView {
     return this.spin.localToWorld(out.set(p.x, tile.height, p.z));
   }
 
+  /**
+   * Chantier 41: the field of a landing on a parcel (its tiles, `parcelTiles`), in world space:
+   * its middle and radius, to frame it.
+   */
+  parcelFrame(sector: number): { center: Vector3; radius: number } {
+    const tiles = parcelTiles(sector);
+    let x = 0;
+    let z = 0;
+    let y = 0;
+    for (const h of tiles) {
+      const p = worldPosition(h);
+      x += p.x;
+      z += p.z;
+      y += getTile(this.map, h)?.height ?? 0;
+    }
+    const n = Math.max(1, tiles.length);
+    x /= n;
+    z /= n;
+    let r = 1;
+    for (const h of tiles) {
+      const p = worldPosition(h);
+      r = Math.max(r, Math.hypot(p.x - x, p.z - z));
+    }
+    this.spin.updateWorldMatrix(true, false);
+    const center = this.spin.localToWorld(new Vector3(x, y / n, z));
+    return { center, radius: (r + 1) * SCALE };
+  }
+
   private setNear(near: boolean): void {
     if (near === this.isNear) return;
     this.isNear = near;
     for (const o of this.near) o.visible = near;
-    this.far.visible = !near;
+  }
+
+  /**
+   * Chantier 41: the painted disc over the tiles while it fades (drawn over them without the
+   * depth test, under the clouds), alone and opaque far away.
+   */
+  private setFarOpacity(opacity: number): void {
+    if (opacity === this.farOpacity) return;
+    this.farOpacity = opacity;
+    const m = this.far.material as MeshStandardMaterial;
+    m.opacity = opacity;
+    m.depthTest = opacity >= 1 || !this.isNear;
+    m.depthWrite = m.depthTest;
+    this.far.renderOrder = m.depthTest ? 0 : 1;
+    this.far.visible = opacity > 0;
+  }
+
+  /** Chantier 41: whether the tiles and details are drawn (near enough, or visited). */
+  get detailed(): boolean {
+    return this.isNear;
+  }
+
+  /**
+   * Chantier 41: forces the clouds of a parcel open (a landing watched) or closed (until the ship
+   * sets down), or back to what we know of it (null). They ease there (`FOG_FADE_S`).
+   */
+  setFog(sector: number, mode: 'open' | 'closed' | null, now = false): void {
+    if (mode) this.fogOverride.set(sector, mode);
+    else this.fogOverride.delete(sector);
+    if (now)
+      this.seen[sector] = mode === 'open' ? 1 : mode === 'closed' ? 0 : this.seenIntel[sector]!;
+  }
+
+  /** How open the clouds are over a parcel (0–1). */
+  fogOpen(sector: number): number {
+    return this.seen[sector] ?? 0;
+  }
+
+  /**
+   * A rebuilt twin takes the place of the old one: same position and turn, the clouds where
+   * they were (they ease on from there).
+   */
+  takeOver(other: TwinView): void {
+    this.group.position.copy(other.group.position);
+    this.angle = other.angle;
+    this.spin.rotation.y = this.angle;
+    for (let i = 0; i < this.seen.length; i++) this.seen[i] = other.seen[i] ?? this.seen[i]!;
+    for (const [k, v] of other.fogOverride) this.fogOverride.set(k, v);
   }
 
   /** A friend's colony: pools, buildings (static models) and their name above. */
@@ -283,74 +420,118 @@ export class TwinView {
   }
 
   /**
-   * Chantier 19: a kiwi flag on each bridgehead, on the land tile of its sector nearest to the
-   * middle of the ring (gold, with a low wall, once fortified).
+   * Chantier 41: a beacon on each parcel we hold — a glowing kiwi on a pole, planted where the
+   * ship landed (gold, on a low wall, once fortified: chantier 19).
    */
-  private showBridgeheads(map: FaceMap, heads: { sector: number; fortified: boolean }[]): void {
-    const pole = new CylinderGeometry(0.07, 0.07, 3.2, 5);
-    const cloth = new BufferGeometry();
-    cloth.setAttribute(
-      'position',
-      new Float32BufferAttribute([0, 1.5, 0, 1.5, 1.0, 0, 0, 0.5, 0], 3),
-    );
-    cloth.computeVertexNormals();
+  private showBeacons(
+    map: FaceMap,
+    heads: { sector: number; fortified: boolean }[],
+    village: AlienHouse[],
+  ): void {
+    const blocked = new Set(village.map((h) => hexKey(h)));
+    const pole = new CylinderGeometry(0.06, 0.08, 2.4, 6);
+    const body = new SphereGeometry(0.42, 10, 7);
+    const head = new SphereGeometry(0.24, 8, 6);
+    const beak = new ConeGeometry(0.06, 0.5, 5).rotateX(Math.PI / 2 + 0.5);
+    const halo = new SphereGeometry(1, 12, 8);
     const wall = new CylinderGeometry(0.75, 0.85, 0.35, 8, 1, true);
     const wood = new MeshStandardMaterial({ color: 0x5a3b22, flatShading: true, fog: false });
-    const green = new MeshStandardMaterial({
-      color: 0x7fb52e,
+    const glow = new MeshStandardMaterial({
+      color: 0xfff1b8,
+      emissive: 0xffd86b,
+      emissiveIntensity: 1.1,
       flatShading: true,
-      side: DoubleSide,
       fog: false,
-      emissive: 0x2a4a0a,
     });
-    const gold = new MeshStandardMaterial({
-      color: 0xe0a83a,
-      flatShading: true,
-      side: DoubleSide,
+    const aura = new MeshBasicMaterial({
+      color: 0xffe08a,
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+      blending: AdditiveBlending,
       fog: false,
-      emissive: 0x4a300a,
     });
     const stone = new MeshStandardMaterial({ color: 0x9a8a76, flatShading: true, fog: false });
-    this.structureGeometries.push(pole, cloth, wall);
-    this.structureMaterials.push(wood, green, gold, stone);
+    this.structureGeometries.push(pole, body, head, beak, halo, wall);
+    this.structureMaterials.push(wood, glow, stone);
+    this.beaconAura = aura;
     for (const h of heads) {
-      const tile = sectorMiddle(map, h.sector);
+      const spot = landingTile(h.sector, blocked);
+      const tile = getTile(map, spot) ?? sectorMiddle(map, h.sector);
       if (!tile) continue;
       const p = worldPosition(tile);
-      const flag = new Group();
-      flag.position.set(p.x, tile.height, p.z);
+      const beacon = new Group();
+      beacon.position.set(p.x, tile.height, p.z);
+      beacon.scale.setScalar(0.65);
       const stick = new Mesh(pole, wood);
-      stick.position.y = 1.6;
-      const banner = new Mesh(cloth, h.fortified ? gold : green);
-      banner.position.y = 1.6;
-      flag.add(stick, banner);
+      stick.position.y = 1.2;
+      const kiwi = new Group();
+      kiwi.position.y = 2.75;
+      kiwi.rotation.y = Math.atan2(-p.x, -p.z);
+      const b = new Mesh(body, glow);
+      b.scale.set(1, 0.85, 1.15);
+      const hd = new Mesh(head, glow);
+      hd.position.set(0, 0.28, 0.36);
+      const bk = new Mesh(beak, glow);
+      bk.position.set(0, 0.2, 0.68);
+      const light = new Mesh(halo, aura);
+      light.scale.setScalar(1.1);
+      kiwi.add(b, hd, bk, light);
+      beacon.add(stick, kiwi);
       if (h.fortified) {
         const ring = new Mesh(wall, stone);
         ring.position.y = 0.17;
-        flag.add(ring);
+        beacon.add(ring);
       }
-      this.terrain.group.add(flag);
-      this.near.push(flag);
+      this.beaconKiwis.push(kiwi);
+      this.terrain.group.add(beacon);
+      this.near.push(beacon);
     }
   }
 
-  /** Dens and roosts seen by the scouts, frozen as they were reported. */
-  private showStructures(map: FaceMap, intel: TwinIntel): void {
-    const den = new SphereGeometry(0.42, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2);
-    const roost = new ConeGeometry(0.28, 1.3, 6);
-    const denMat = new MeshStandardMaterial({ color: 0x6b4a2e, flatShading: true, fog: false });
-    const roostMat = new MeshStandardMaterial({ color: 0x3d2f4f, flatShading: true, fog: false });
-    this.structureGeometries.push(den, roost);
-    this.structureMaterials.push(denMat, roostMat);
-    for (const s of intel.structures) {
-      const tile = landTileNear(map, s.q, s.r);
+  /**
+   * Chantier 41: the alien village seen on the parcels we have eyes on, each building at the
+   * age its parcel had then (one merged geometry: one draw call). On a pool of juice, a building
+   * stands on a mound of earth.
+   */
+  private showVillage(map: FaceMap, village: AlienHouse[]): void {
+    if (village.length === 0) return;
+    const parts: BufferGeometry[] = [];
+    const mt = new Matrix4();
+    const mound = new CylinderGeometry(0.75, 0.95, 0.5, 8).toNonIndexed();
+    mound.deleteAttribute('uv');
+    const earth = new Color('#5a3d26');
+    const colors = new Float32Array(mound.getAttribute('position').count * 3);
+    for (let i = 0; i < colors.length; i += 3) colors.set([earth.r, earth.g, earth.b], i);
+    mound.setAttribute('color', new Float32BufferAttribute(colors, 3));
+    for (const h of village) {
+      const tile = getTile(map, h);
       if (!tile) continue;
-      const mesh = s.kind === 'den' ? new Mesh(den, denMat) : new Mesh(roost, roostMat);
       const p = worldPosition(tile);
-      mesh.position.set(p.x, tile.height + (s.kind === 'den' ? 0 : 0.6), p.z);
-      this.terrain.group.add(mesh);
-      this.near.push(mesh);
+      const wet = tile.type === 'juice';
+      const y = tile.height + (wet ? 0.25 : 0);
+      if (wet) parts.push(mound.clone().applyMatrix4(mt.makeTranslation(p.x, tile.height, p.z)));
+      // Turned by a hash of the tile, roughly facing the middle of the face.
+      const yaw = Math.atan2(-p.x, -p.z) + (((h.q * 7 + h.r * 13) % 5) - 2) * 0.35;
+      mt.makeRotationY(yaw).setPosition(p.x, y, p.z);
+      parts.push(alienGeometry(h.kind, h.age).clone().applyMatrix4(mt));
     }
+    mound.dispose();
+    if (parts.length === 0) return;
+    const merged = mergeGeometries(parts, false);
+    for (const g of parts) g.dispose();
+    if (!merged) return;
+    const material = new MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.85,
+      flatShading: true,
+      fog: false,
+    });
+    this.structureGeometries.push(merged);
+    this.structureMaterials.push(material);
+    const mesh = new Mesh(merged, material);
+    this.terrain.group.add(mesh);
+    this.near.push(mesh);
   }
 
   /**
@@ -392,6 +573,7 @@ export class TwinView {
     for (const layer of this.fog) layer.geometry.dispose();
     for (const g of this.structureGeometries) g.dispose();
     for (const m of this.structureMaterials) m.dispose();
+    this.beaconAura?.dispose();
     this.fogMaterial.dispose();
   }
 }

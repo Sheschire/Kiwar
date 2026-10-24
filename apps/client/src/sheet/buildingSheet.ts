@@ -11,8 +11,16 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import { AGE_IDS, footprintOf, LEVELS_PER_AGE, maxLevelOf, type BuildingType } from '@kiwar/shared';
+import {
+  ALIEN_BUILDINGS,
+  AGE_IDS,
+  footprintOf,
+  LEVELS_PER_AGE,
+  maxLevelOf,
+  type BuildingType,
+} from '@kiwar/shared';
 import { buildingModel } from '../render/buildingModels';
+import { alienGeometry } from '../render/models/alien';
 import { Lighting } from '../render/lighting';
 import { SignsView, type SignSpot } from '../render/signs';
 
@@ -21,7 +29,8 @@ import { SignsView, type SignSpot } from '../render/signs';
  * levels of that age (chantier 33: 1–3 Eden, 4–6 Stone…; the monument, the laboratory and the
  * camp show their own levels), lit like the game and seen from its default camera pitch.
  * `&levels=3,4` shows those levels instead (the passage from an age to the next). A tool to
- * check that each building reads at a glance; it never touches a game.
+ * check that each building reads at a glance; it never touches a game. Chantier 41:
+ * `?sheet&aliens` shows the alien civilisation's buildings instead, one column per age.
  */
 
 function levelsOf(type: BuildingType, age: number, forced: number[] | null): number[] {
@@ -59,10 +68,12 @@ function start(): void {
   const age = Math.max(0, Math.min(AGE_IDS.length - 1, Number(params.get('age') ?? 0) || 0));
   // `&types=a,b` shows only those, bigger (close-up checks).
   const only = params.get('types')?.split(',');
-  const types = only ? TYPES.filter((t) => only.includes(t)) : TYPES;
-  const forced = params.get('levels')?.split(',').map(Number) ?? null;
+  const aliens = params.has('aliens');
+  const types = only ? TYPES.filter((t) => only.includes(t)) : aliens ? [] : TYPES;
+  const forced = aliens ? [1, 2, 3, 4] : (params.get('levels')?.split(',').map(Number) ?? null);
   const zoom = Number(params.get('zoom') ?? 1) || 1;
-  const PER_ROW = Math.min(PER_ROW_MAX, types.length);
+  const kinds = aliens ? ALIEN_BUILDINGS.filter((k) => !only || only.includes(k)) : [];
+  const PER_ROW = Math.min(PER_ROW_MAX, types.length + kinds.length);
   // Chantier 35: big buildings need room (a triangle of 3 tiles, the monument's hexagon).
   const widest = Math.max(...types.map((t) => footprintOf(t)));
   const room = widest === 7 ? 2.4 : widest === 3 ? 1.75 : 1;
@@ -100,7 +111,7 @@ function start(): void {
 
   const count = forced?.length ?? 3;
   const cellWidth = count * STEP + 0.8;
-  const rows = Math.ceil(types.length / PER_ROW);
+  const rows = Math.ceil((types.length + kinds.length) / PER_ROW);
   const labels: { text: string; at: Vector3 }[] = [];
   const signs = new SignsView();
   const spots: SignSpot[] = [];
@@ -126,10 +137,21 @@ function start(): void {
     labels.push({ text: type, at: new Vector3(cx, 0, cz + 1.05) });
   });
 
+  kinds.forEach((kind, i) => {
+    const cx = ((i % PER_ROW) - (PER_ROW - 1) / 2) * cellWidth;
+    const cz = (Math.floor(i / PER_ROW) - (rows - 1) / 2) * ROW;
+    for (let a = 0; a < 4; a++) {
+      const mesh = new Mesh(alienGeometry(kind, a), material);
+      mesh.position.set(cx + (a - 1.5) * STEP, 0, cz);
+      mesh.castShadow = true;
+      scene.add(mesh);
+    }
+    labels.push({ text: kind, at: new Vector3(cx, 0, cz + 1.05) });
+  });
   signs.sync(spots);
   const camera = new PerspectiveCamera(40, 1, 0.5, 400);
   const title = document.createElement('div');
-  title.textContent = `Age ${age} — ${AGE_IDS[age]}`;
+  title.textContent = aliens ? 'Aliens — ages 0 to 3' : `Age ${age} — ${AGE_IDS[age]}`;
   title.style.cssText =
     'position:fixed;top:8px;left:12px;font:600 20px Georgia,serif;color:#4a3324';
   document.body.append(title);

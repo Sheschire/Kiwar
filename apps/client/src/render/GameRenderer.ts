@@ -142,6 +142,7 @@ export interface RendererCallbacks {
 
 const tmpV = new Vector3();
 const tmpTarget = new Vector3();
+const tmpShift = new Vector3();
 const tmpSize = new Vector2();
 /**
  * Auto steps medium up to high only if a medium frame costs the GPU less than this (high costs
@@ -518,17 +519,24 @@ export class GameRenderer {
 
   /** The other half of our kiwi, floating above (fogged unless a friend lives there). */
   setTwin(map: FaceMap | null, opts: TwinOptions = { fog: true }): void {
-    if (this.twin) {
-      this.scene.remove(this.twin.group);
-      this.twin.dispose();
+    const old = this.twin;
+    if (old) {
+      this.scene.remove(old.group);
       this.twin = null;
     }
     if (!map) {
+      old?.dispose();
       if (this.visiting === 'twin') this.travelTo(null);
       return;
     }
     this.twin = new TwinView(map, opts);
     this.twin.place(twinPlace(this.twinApproach));
+    // Chantier 41: a rebuilt twin (new beacons, a parcel seen) stays where it was, turned the
+    // same way, its clouds easing on from where they were.
+    if (old) {
+      this.twin.takeOver(old);
+      old.dispose();
+    }
     this.scene.add(this.twin.group);
   }
 
@@ -584,9 +592,10 @@ export class GameRenderer {
    * Chantier 24: flies the camera to a far planet (the twin under its fog, or a member's, read
    * only) and orbits it there, or back home (null). Returns false when that planet is not drawn.
    */
-  travelTo(planet: PlanetRef | null): boolean {
+  travelTo(planet: PlanetRef | null, parcel?: number): boolean {
     if (planet === null) {
       if (this.visiting === null && !this.homeView) return true;
+      this.endWatch();
       this.visiting = null;
       this.allies.setVisited(null);
       this.twin?.setLabelVisible(true);
@@ -613,8 +622,54 @@ export class GameRenderer {
     // The name ribbon would cover the planet being visited.
     this.twin?.setLabelVisible(planet !== 'twin');
     this.selection.setHover(null);
-    this.rig.visit(view.home, view.radius);
+    if (planet === 'twin' && parcel !== undefined && this.twin) {
+      // Chantier 41: a landing watched — the twin comes closer (the camera follows it, see
+      // `followTwin`) and the parcel is framed, its clouds still closed until the ship lands.
+      this.endWatch();
+      this.watchedParcel = parcel;
+      this.setTwinApproach(1);
+      this.twin.setFog(parcel, 'closed');
+      const field = this.twin.parcelFrame(parcel);
+      this.rig.visit(this.twin.group.position, view.radius, {
+        target: field.center,
+        distance: this.rig.fitDistance(field.radius) * 1.05,
+      });
+    } else {
+      this.endWatch();
+      this.rig.visit(view.home, view.radius);
+    }
+    this.twinFollow.copy(this.twin?.group.position ?? this.twinFollow);
     return true;
+  }
+
+  /** Chantier 41: the parcel of the twin framed for a landing (null: none). */
+  private watchedParcel: number | null = null;
+  /** Where the twin was last frame (the camera follows it while visited). */
+  private readonly twinFollow = new Vector3();
+
+  /** Chantier 41: the clouds part over the watched parcel (the ship sets down). */
+  openWatchedParcel(): void {
+    if (this.watchedParcel !== null) this.twin?.setFog(this.watchedParcel, 'open');
+  }
+
+  /** Chantier 41: the parcel watched, if any. */
+  get watching(): number | null {
+    return this.watchedParcel;
+  }
+
+  private endWatch(): void {
+    if (this.watchedParcel === null) return;
+    this.twin?.setFog(this.watchedParcel, null);
+    this.watchedParcel = null;
+    this.setTwinApproach(0);
+  }
+
+  /** Chantier 41: a visited twin moving (coming closer, going back) carries the camera along. */
+  private followTwin(): void {
+    if (!this.twin) return;
+    const p = this.twin.group.position;
+    if (this.visiting === 'twin') this.rig.shift(tmpShift.copy(p).sub(this.twinFollow));
+    this.twinFollow.copy(p);
   }
 
   /** The far planet the camera is visiting (null: at home). */
@@ -1438,6 +1493,7 @@ export class GameRenderer {
       this.battle?.playing ||
       this.pendingShow ||
       this.siegeFx.playing ||
+      this.twin?.fading ||
       this.twinApproach !== this.twinApproachTarget
     )
       this.idle.wake(time);
@@ -1564,6 +1620,14 @@ export class GameRenderer {
     }
     this.allies.update(dt, this.elapsed, this.camera.position);
     this.twin?.update(dt, this.elapsed, this.camera.position, this.visiting === 'twin');
+    this.followTwin();
+    // The camera is there and the twin has come close: the clouds part over the parcel.
+    if (
+      this.watchedParcel !== null &&
+      !this.rig.flying &&
+      this.twinApproach === this.twinApproachTarget
+    )
+      this.openWatchedParcel();
     if (this.siegeFx.playing) {
       this.siegeFx.update(dt, this.twin);
       // The fight is over: the twin goes back to its place and the camera to the player's zoom.

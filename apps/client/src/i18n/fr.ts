@@ -939,6 +939,15 @@ export const fr: Dict = {
       seen: 'Ennemis rencontrés',
       dead: 'Tombé·es pour toujours : {names}',
     },
+    watch: {
+      title: 'Notre vaisseau se pose sur {sector} !',
+      hint: 'Allez-y pour voir la bataille en direct.',
+      go: 'Regarder le débarquement',
+      later: 'Plus tard',
+      replay: 'Revoir la bataille',
+      landing: 'Débarquement sur {sector}',
+      landingHint: 'La bataille sur leur face, telle qu’elle a eu lieu.',
+    },
     replay: {
       title: 'La bataille',
       play: 'Lecture',

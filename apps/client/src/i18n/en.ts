@@ -866,6 +866,15 @@ export const en = {
       seen: 'Enemies met',
       dead: 'Fallen for good: {names}',
     },
+    watch: {
+      title: 'Our ship is landing on {sector}!',
+      hint: 'Fly over to watch the battle as it happens.',
+      go: 'Watch the landing',
+      later: 'Later',
+      replay: 'Watch the battle again',
+      landing: 'Landing on {sector}',
+      landingHint: 'The battle on their face, as it happened.',
+    },
     replay: {
       title: 'The battle',
       play: 'Play',

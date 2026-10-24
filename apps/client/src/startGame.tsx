@@ -133,18 +133,15 @@ function showTwin(state: GameState): void {
         sectors: Object.keys(view.parcels)
           .map(Number)
           .concat(view.beacons.map((b) => b.sector)),
-        structures: Object.values(view.parcels).flatMap((p) =>
-          p.buildings
-            .filter((b) => b.kind === 'burrow' || b.kind === 'roost')
-            .map((b) => ({
-              kind: b.kind === 'burrow' ? ('den' as const) : ('roost' as const),
-              q: b.q,
-              r: b.r,
-            })),
+        // Chantier 41: their village, each parcel at the age it had when we saw it.
+        village: Object.values(view.parcels).flatMap((p) =>
+          p.buildings.map((b) => ({ kind: b.kind, q: b.q, r: b.r, age: p.age })),
         ),
       }
     : null;
-  const seen = intel ? `${intel.sectors.join('.')}/${intel.structures.length}` : '';
+  const seen = intel
+    ? `${intel.sectors.join('.')}/${intel.village.map((h) => `${h.kind}${h.q},${h.r}@${h.age}`).join(';')}`
+    : '';
   // Our beacons as flags, and no aliens left once the queen fell.
   const siege = f
     ? null

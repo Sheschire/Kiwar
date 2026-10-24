@@ -169,6 +169,10 @@ export interface UiState {
   sister: TwinSnapshot | null;
   /** Far planet the camera is visiting (chantier 24: the twin or a member's; null: home). */
   visit: PlanetRef | null;
+  /** Chantier 41: a landing that just happened, offered to watch (expedition id). */
+  landingInvite: string | null;
+  /** Chantier 41: the landing watched on the twin (expedition id; null: none). */
+  watchingLanding: string | null;
   /** Chantier 24: the card of a tapped planet ("Go there"). */
   planetCard: PlanetRef | null;
   /** Chantier 24: the Planets list is open. */
@@ -297,6 +301,8 @@ export const uiStore = createStore<UiState>(() => ({
   colony: 0,
   sister: null,
   visit: null,
+  landingInvite: null,
+  watchingLanding: null,
   planetCard: null,
   planetsOpen: false,
 }));

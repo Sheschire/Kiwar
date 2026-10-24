@@ -32,6 +32,7 @@ import { LevelsButton, LogisticsButton, PlacingBanner } from './components/Build
 import { BootScreen, Guard } from './components/Guard';
 import { VisitBanner } from './components/VisitBanner';
 import { BattleBar } from './components/BattleBar';
+import { LandingInvite } from './components/LandingInvite';
 import { useBattle } from './battleStore';
 import { PlanetTag } from './components/PlanetTag';
 import { PlanetCard, PlanetsButton, PlanetsPanel } from './components/PlanetCard';
@@ -173,6 +174,7 @@ export function App() {
     return (
       <div class="hud">
         <VisitBanner />
+        <BattleBar />
         <PlanetCard />
         <PlanetsPanel />
         <PlanetTag />
@@ -196,6 +198,7 @@ export function App() {
           <SaveNudge />
           <AuthErrorBanner />
           <GpuTip />
+          <LandingInvite />
         </>
       )}
       <RecapBubble />
@@ -221,6 +224,7 @@ export function App() {
       {thumb ? (
         // Chantier 21: everything that floats above the thumb bar, stacked from the bottom.
         <div class="thumb-stack">
+          <LandingInvite docked />
           <SaveNudge />
           <AuthErrorBanner />
           <ExpeditionsPanel />

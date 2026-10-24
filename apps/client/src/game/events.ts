@@ -3,6 +3,7 @@ import type { GameRenderer } from '../render/GameRenderer';
 import { pushToast, uiStore } from '../ui/store';
 import { isLiveWave } from '../ui/battleStore';
 import { holdOutcome } from './battleOutcome';
+import { holdLanding, LIVE_LANDING_MS, tellLanding, watchableTarget } from './landingWatch';
 import { playGameEventSounds } from '../audio/sounds';
 import { friendName } from '../ui/components/DeliveryPlanner';
 import { formatDuration, formatNumber, translate } from '../i18n/i18n';
@@ -116,10 +117,19 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
           const game = uiStore.getState().game;
           const face = game ? `@faces.${otherFace(game.face)}` : '';
           pushToast('success', 'colony.founded', { face });
-        } else if (e.outcome)
-          // Chantier 40: how the landing ended.
-          pushToast(e.outcome === 'victory' ? 'success' : 'error', `landing.toast.${e.outcome}`);
-        else
+        } else if (e.outcome) {
+          // Chantier 41: there for it — the landing is offered to watch, its outcome told after.
+          const s = uiStore.getState();
+          const exp = s.game?.expeditions.find((x) => x.id === e.expeditionId);
+          const fresh = Math.abs(s.now - e.at) < LIVE_LANDING_MS;
+          if (fresh && exp && s.game && watchableTarget(s.game, exp) && s.visit === null) {
+            tellLanding(s.landingInvite);
+            holdLanding(e.expeditionId, e.outcome);
+            uiStore.setState({ landingInvite: e.expeditionId });
+          } else
+            // Chantier 40: how the landing ended.
+            pushToast(e.outcome === 'victory' ? 'success' : 'error', `landing.toast.${e.outcome}`);
+        } else
           pushToast(
             e.victory ? 'success' : 'error',
             e.victory ? 'expedition.victory' : 'expedition.defeat',

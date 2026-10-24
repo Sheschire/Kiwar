@@ -5935,3 +5935,55 @@ h3 .building-thumb {
     align-items: center;
   }
 }
+
+/* ---------- Chantier 41: watch a landing ---------- */
+
+.landing-invite {
+  position: absolute;
+  top: calc(var(--gap) + var(--safe-top, 0px) + 64px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 10px 16px;
+  max-width: min(560px, calc(100vw - 2 * var(--gap)));
+  z-index: 21;
+  animation: toast-in 0.3s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.landing-invite-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.landing-invite-text strong .icon {
+  display: inline-block;
+  vertical-align: -3px;
+}
+
+.landing-invite-actions {
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* In the thumb stack (phones): a full-width card above the bar. */
+.landing-invite.is-docked {
+  position: static;
+  transform: none;
+  flex-direction: column;
+  align-items: stretch;
+  max-width: none;
+  text-align: center;
+}
+
+.landing-invite.is-docked .landing-invite-actions {
+  justify-content: center;
+}
+
+.landing-invite.is-docked .landing-invite-actions .btn {
+  flex: 1;
+  min-height: 44px;
+}

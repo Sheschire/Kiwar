@@ -3,6 +3,7 @@ import { actions } from '../actions';
 import { ShipIcon, TargetIcon } from '../icons';
 import { siegeVisible } from './SiegeModal';
 import { planetLabel } from '../planets';
+import { sectorName } from './LandingParts';
 import { uiStore, useT, useUi } from '../store';
 
 /**
@@ -17,7 +18,27 @@ export function VisitBanner() {
   const twinOwner = useUi((s) => s.twinOwner);
   const sister = useUi((s) => s.sister);
   const colony = useUi((s) => s.colony);
+  const watching = useUi((s) =>
+    s.watchingLanding
+      ? (s.game?.expeditions.find((e) => e.id === s.watchingLanding)?.sector ?? null)
+      : null,
+  );
   if (visit === null || !game) return null;
+  if (watching !== null)
+    // Chantier 41: a landing watched on the twin — its parcel, and the way back.
+    return (
+      <aside class="visit-banner parchment pe" role="status">
+        <div class="visit-title">
+          <strong>{t('landing.watch.landing', { sector: sectorName(t, watching) })}</strong>
+          <span class="small muted">{t('landing.watch.landingHint')}</span>
+        </div>
+        <div class="row visit-actions">
+          <button class="btn btn-primary" onClick={() => actions.travelTo(null)}>
+            {t('planets.home')}
+          </button>
+        </div>
+      </aside>
+    );
   const label = planetLabel(visit, t, game, allies, twinOwner);
   if (!label) return null;
   const ally = allies.find((a) => a.kiwiIndex === visit);
