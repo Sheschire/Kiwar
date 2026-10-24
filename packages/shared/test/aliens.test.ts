@@ -178,6 +178,9 @@ describe('hidden alien garrisons (chantier 07)', () => {
       map,
     );
     const e = launched.expeditions[0]!;
+    // No wave meanwhile (chantier 39: its announcement waits for the server too).
+    launched.threats.next = null;
+    launched.threats.shieldUntil = e.returnAt + 10 * HOUR_MS;
     // What an online client holds: the public state only.
     const client = publicState(launched);
     expect(client.aliens).toBeUndefined();

@@ -1,4 +1,5 @@
 import { gearEffect } from './forge';
+import { canAnnounceWave, civWave } from './civ';
 import { KIKIWIWI } from '../data/kikiwiwi';
 import { titanPower } from './kikiwiwi';
 import { BIOMES } from '../data/biomes';
@@ -40,9 +41,6 @@ import {
   type WaveReport,
 } from './state';
 
-const HOUR = 3_600_000;
-const DAY = 24 * HOUR;
-
 export interface Sides {
   ground: number;
   air: number;
@@ -79,22 +77,14 @@ export function wealthFactor(state: GameState): number {
 }
 
 /** Total power of a wave announced at `at`: colony size × play time × provocation × wealth. */
-export function wavePower(state: GameState, at: TimeMs): number {
+export function wavePower(state: GameState, at: TimeMs, waveId = ''): number {
   const level = nest(state).level;
   const factor = THREATS.nestFactor[level] ?? THREATS.nestFactor[THREATS.nestFactor.length - 1]!;
-  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY));
-  const victories = Object.values(state.victories).reduce((a, b) => a + b, 0);
-  const provocation = Math.min(THREATS.maxProvocation, THREATS.perVictory * victories);
   const age = THREATS.ageFactor[ageOf(state)] ?? 1;
-  return (
-    THREATS.basePower *
-    factor *
-    age *
-    (1 + THREATS.perDay * days) *
-    (1 + provocation) *
-    wealthFactor(state) *
-    sisterThreat(state, at)
-  );
+  // Chantier 39: the alien civilisation's development and barracks replace the days of play
+  // and the provocation (kept for a colony without a civilisation).
+  const civ = civWave(state, at, waveId).factor;
+  return THREATS.basePower * factor * age * civ * wealthFactor(state) * sisterThreat(state, at);
 }
 
 /**
@@ -622,7 +612,9 @@ export function forecastWave(state: GameState): WaveForecast | null {
 export function nextThreatEvent(state: GameState): TimeMs {
   const t = state.threats;
   let next = t.nextIncidentAt;
-  if (t.next) next = Math.min(next, t.next.announced ? t.next.at : t.next.announceAt);
+  // Chantier 39: the announcement needs the civilisation (online, the server makes it).
+  if (t.next && (t.next.announced || canAnnounceWave(state)))
+    next = Math.min(next, t.next.announced ? t.next.at : t.next.announceAt);
   if (t.shelterUntil > state.now) next = Math.min(next, t.shelterUntil);
   return next;
 }
@@ -672,7 +664,9 @@ export function threatTick(s: GameState, at: TimeMs, events: GameEvent[]): void 
 const tenth = (x: number) => Math.round(x * 10) / 10;
 
 function announce(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
-  const mix = waveMix(s, wavePower(s, wave.announceAt), wave.at);
+  const mix = waveMix(s, wavePower(s, wave.announceAt, wave.id), wave.at);
+  const origin = civWave(s, wave.announceAt, wave.id).origin;
+  if (origin !== null) wave.origin = origin;
   withThreatRng(s, (rng) => {
     const S = THREATS.spread;
     wave.ground = tenth(mix.ground * (1 + rng.range(-S, S)));

@@ -15,7 +15,7 @@ import {
 } from '../worldgen/generateFace';
 import type { TimeMs } from '../types/ids';
 import { counterAwaited, mergeSiegeIntel } from './siege';
-import { civDay, newCiv } from './civ';
+import { canAnnounceWave, civDay, newCiv } from './civ';
 import type {
   AlienGarrison,
   AlienStructure,
@@ -142,7 +142,15 @@ export function canResolveArrival(state: GameState, e: Expedition): boolean {
 
 /** Chantier 19: something happened that only the server can tell (a landing, a counter-attack). */
 export function awaitingServer(state: GameState, now: TimeMs): boolean {
-  return awaitingReport(state, now).length > 0 || counterAwaited(state, now);
+  return (
+    awaitingReport(state, now).length > 0 || counterAwaited(state, now) || waveAwaited(state, now)
+  );
+}
+
+/** Chantier 39: a wave is due to be announced and only the server knows the civilisation. */
+export function waveAwaited(state: GameState, now: TimeMs): boolean {
+  const w = state.threats.next;
+  return !!w && !w.announced && w.announceAt <= now && !canAnnounceWave(state);
 }
 
 /** Times of the hidden events due by `now` (the server resolves them on `load`). */
@@ -152,6 +160,8 @@ export function hiddenDue(state: GameState, now: TimeMs): TimeMs[] {
     .map((e) => e.arriveAt);
   const c = state.siege.counter;
   if (c && c.at <= now) out.push(c.at);
+  const w = state.threats.next;
+  if (w && !w.announced && w.announceAt <= now) out.push(w.announceAt);
   return out;
 }
 

@@ -20,7 +20,14 @@ import {
   siegeTruth,
   standingBarracks,
   advance,
+  awaitingServer,
   civDay,
+  civEyes,
+  civWave,
+  hiddenDue,
+  waveAwaited,
+  wavePower,
+  type GameState,
   exposureOf,
   planCiv,
   publicState,
@@ -302,5 +309,112 @@ describe('the AI that hides (chantier 39)', () => {
     // The client without the truth never looks.
     const blind = advance(publicState(cloneState(s)), end).state;
     expect(blind.aliens).toBeUndefined();
+  });
+});
+
+describe('its waves against us (chantier 39)', () => {
+  /** A Nest 2 colony whose next wave is planned and due to be announced soon. */
+  function waving(seed = 'waves') {
+    const { state } = setup('kiwisu', seed);
+    const s = cloneState(state);
+    s.buildings[0]!.level = 2;
+    s.now = T0 + 2 * DAY;
+    s.threats.next = {
+      id: 'w1',
+      announceAt: s.now + H,
+      at: s.now + 5 * H,
+      announced: false,
+      ground: 0,
+      air: 0,
+    };
+    s.threats.nextIncidentAt = s.now + 100 * DAY;
+    // The civilisation has looked at the map today (its Stone-age barracks are up).
+    const g = s.aliens![s.targets[0]!.id]!;
+    planCiv(g, g.civ!, s.now, civEyes(s, s.targets[0]!.id));
+    return s;
+  }
+  const twinOf = (s: GameState) => s.aliens![s.targets[0]!.id]!;
+
+  it('comes from a parcel with barracks, announced', () => {
+    const s = advance(waving(), T0 + 2 * DAY + 2 * H).state;
+    const w = s.threats.next!;
+    expect(w.announced).toBe(true);
+    const barracks = civOf(twinOf(s))
+      .keys.filter((k) => k.kind === 'barracks')
+      .map((k) => k.sector);
+    expect(barracks).toContain(w.origin);
+  });
+
+  it('follows the civilisation: burns weaken it, defeats feed it', () => {
+    const s = waving();
+    const at = s.now;
+    const base = wavePower(s, at, 'w1');
+    const burnt = cloneState(s);
+    recordBurn(twinOf(burnt).civ!, 6, at);
+    expect(wavePower(burnt, at, 'w1')).toBeLessThan(base);
+    const fed = cloneState(s);
+    recordDefeat(twinOf(fed).civ!, at, 4);
+    expect(wavePower(fed, at, 'w1')).toBeGreaterThan(base);
+    // Without a civilisation (a sister colony): days of play and provocation, as before.
+    const sister = cloneState(s);
+    sister.colony = { ...sister.colony, index: 1 };
+    expect(civWave(sister, at, 'w1').origin).toBeNull();
+  });
+
+  it('weakens when we take the parcels of its barracks', () => {
+    const s = waving();
+    const at = s.now;
+    const civ = twinOf(s).civ!;
+    const barracks = civ.keys.filter((k) => k.kind === 'barracks');
+    const before = civWave(s, at, 'w1');
+    const held = cloneState(s);
+    held.siege.bridgeheads = barracks.map((b) => ({
+      sector: b.sector,
+      since: at,
+      holders: [],
+      fortified: false,
+    }));
+    const after = civWave(held, at, 'w1');
+    expect(after.factor).toBeCloseTo(before.factor * CIV.barracksFloor, 5);
+    expect(barracks.map((b) => b.sector)).not.toContain(after.origin);
+    // A burnt barracks counts for nothing until rebuilt.
+    const burnt = cloneState(s);
+    recordBurn(twinOf(burnt).civ!, barracks[0]!.sector, at);
+    expect(civWave(burnt, at, 'w1').factor).toBeLessThan(before.factor);
+  });
+
+  it('waits for the server to be announced when the client lacks the truth', () => {
+    const s = waving();
+    const client = publicState(s);
+    const later = advance(client, s.now + 3 * H).state;
+    expect(later.threats.next!.announced).toBe(false);
+    expect(waveAwaited(later, later.now)).toBe(true);
+    expect(awaitingServer(later, later.now)).toBe(true);
+    expect(hiddenDue(s, s.now + 3 * H)).toContain(s.threats.next!.announceAt);
+    // The server announces; rebased, the client plays the strike itself.
+    const server = advance(s, s.now + 3 * H).state;
+    expect(server.threats.next!.announced).toBe(true);
+    const rebased = publicState(server);
+    expect(waveAwaited(rebased, rebased.now)).toBe(false);
+    const end = s.now + 6 * H;
+    expect(advance(rebased, end).state.threats.reports).toEqual(
+      advance(server, end).state.threats.reports,
+    );
+    // A colony without a civilisation (a sister) announces alone.
+    const sister = publicState(cloneState(s));
+    sister.colony = { ...sister.colony, index: 1 };
+    expect(advance(sister, s.now + 3 * H).state.threats.next!.announced).toBe(true);
+  });
+
+  it('a slow colony meets a stronger civilisation for its age than a fast one', () => {
+    const fast = waving('pace');
+    const slow = waving('pace');
+    // Same seed, same dates: the same civilisation; the fast colony is one age ahead.
+    const at = fast.now;
+    expect(civWave(fast, at, 'w1')).toEqual(civWave(slow, at, 'w1'));
+    // Later on the civilisation keeps growing whoever we are.
+    expect(civWave(slow, at + 6 * DAY, 'w1').factor).toBeGreaterThan(
+      civWave(slow, at, 'w1').factor,
+    );
   });
 });

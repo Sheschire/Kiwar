@@ -3910,6 +3910,352 @@ var WAVE_UNITS = {
 };
 var TURRET_SHOT = 0.8;
 
+// packages/shared/src/sim/civ.ts
+var HOUR2 = 36e5;
+var DAY_H = 24;
+var SECTORS2 = INTEL.sectors;
+var HALF = SECTORS2 / 2;
+var round1 = (v) => Math.round(v * 10) / 10;
+var isInner = (sector) => sector < HALF;
+var sliceOf = (sector) => sector % HALF;
+var otherRing = (sector) => (sector + HALF) % SECTORS2;
+function neighbourSectors(sector) {
+  const ring = isInner(sector) ? 0 : HALF;
+  const k = sliceOf(sector);
+  return [otherRing(sector), ring + (k + 1) % HALF, ring + (k + HALF - 1) % HALF];
+}
+function sliceGap(a, b) {
+  const d = Math.abs(sliceOf(a) - sliceOf(b));
+  return Math.min(d, HALF - d);
+}
+var shapes = /* @__PURE__ */ new Map();
+function civShape(seed) {
+  const cached = shapes.get(seed);
+  if (cached) return cached;
+  const rng = createRng(`${seed}/civ`);
+  const outer = Array.from({ length: HALF }, () => rng.range(...CIV.outerSpread));
+  const mean2 = outer.reduce((a, b) => a + b, 0) / HALF;
+  const weight = [];
+  for (let s = 0; s < HALF; s++) weight[s] = outer[s] / mean2 * rng.range(...CIV.innerMultiple);
+  for (let s = 0; s < HALF; s++) weight[HALF + s] = outer[s] / mean2;
+  const shape = { weight };
+  if (shapes.size > 256) shapes.clear();
+  shapes.set(seed, shape);
+  return shape;
+}
+function civHash(seed, salt) {
+  return hashSeed(`${seed}/${salt}`)[0] / 2 ** 32;
+}
+function keysWanted(age) {
+  const a = Math.max(0, Math.min(CIV_AGE_COUNT - 1, age));
+  return { royal: 1, barracks: CIV.keys.barracks[a], store: CIV.keys.store[a] };
+}
+function exposureOf(beacons, seen) {
+  const out = Array.from({ length: SECTORS2 }, () => 0);
+  for (const s of seen) out[s] = Math.max(out[s], 1);
+  for (const b of beacons) {
+    for (const n of neighbourSectors(b)) out[n] = Math.max(out[n], 2);
+    out[b] = 3;
+  }
+  return out;
+}
+function bestSector(seed, kind, keys, exposure, beacons, salt) {
+  const taken = new Set(keys.map((k) => k.sector));
+  let best = null;
+  let bestScore = Infinity;
+  for (let s = 0; s < SECTORS2; s++) {
+    if (taken.has(s) || exposure[s] >= 3) continue;
+    if (kind === "royal" && !isInner(s)) continue;
+    const far = beacons.length > 0 ? Math.min(...beacons.map((b) => sliceGap(s, b))) : HALF;
+    const score = exposure[s] * 10 + (isInner(s) ? 0 : 4) - far + civHash(seed, `${salt}/${kind}/${s}`);
+    if (score < bestScore) {
+      bestScore = score;
+      best = s;
+    }
+  }
+  return best;
+}
+function addMissingKeys(seed, keys, age, exposure, beacons, salt) {
+  const wanted = keysWanted(age);
+  for (const kind of ["royal", "barracks", "store"]) {
+    let have = keys.filter((k) => k.kind === kind).length;
+    while (have < wanted[kind]) {
+      const s = bestSector(seed, kind, keys, exposure, beacons, `${salt}/${have}`);
+      if (s === null) break;
+      keys.push({ kind, sector: s });
+      have++;
+    }
+  }
+}
+function newCiv(seed, distance) {
+  const keys = [{ kind: "royal", sector: siegeTruth({ seed }).queenSector }];
+  const none = Array.from({ length: SECTORS2 }, () => 0);
+  addMissingKeys(seed, keys, civAgeOfHours(distance * CIV.leadPerDistanceH), none, [], "d0");
+  return {
+    lead: distance * CIV.leadPerDistanceH,
+    hours: 0,
+    sectors: [...none],
+    fights: [],
+    keys,
+    day: 0,
+    log: []
+  };
+}
+function civOf(g) {
+  return g.civ ?? newCiv(g.seed, 0);
+}
+function civAgeOfHours(hours) {
+  let age = 0;
+  for (let a = 1; a < CIV.ageAtH.length; a++) if (hours >= CIV.ageAtH[a]) age = a;
+  return age;
+}
+function civHours(g, civ, at) {
+  return Math.max(0, Math.max(0, at - g.since) / HOUR2 + civ.lead + civ.hours);
+}
+function sectorHours(g, civ, sector, at) {
+  return Math.max(0, civHours(g, civ, at) + (civ.sectors[sector] ?? 0));
+}
+function growthOfHours(hours) {
+  const age = civAgeOfHours(hours);
+  return CIV.ageMultiple[age] * (1 + CIV.perDay * Math.min(CIV.maxDays, hours / DAY_H));
+}
+function fightLossAt(civ, sector, at) {
+  let lost = 0;
+  for (const f of civ.fights) {
+    if (f.sector !== sector || f.at > at) continue;
+    lost += f.share * Math.max(0, 1 - (at - f.at) / CIV.rebuildMs);
+  }
+  return Math.min(0.9, lost);
+}
+function civAt(g, at, civ = civOf(g)) {
+  const shape = civShape(g.seed);
+  const hours = civHours(g, civ, at);
+  const sectors = [];
+  for (let s = 0; s < SECTORS2; s++) {
+    const h = sectorHours(g, civ, s, at);
+    sectors.push({
+      sector: s,
+      inner: isInner(s),
+      age: civAgeOfHours(h),
+      power: round1(
+        g.defense * shape.weight[s] * growthOfHours(h) * (1 - fightLossAt(civ, s, at))
+      )
+    });
+  }
+  return { age: civAgeOfHours(hours), hours, sectors };
+}
+function outerPower(view) {
+  const outer = view.sectors.filter((s) => !s.inner);
+  return round1(outer.reduce((a, s) => a + s.power, 0) / outer.length);
+}
+function gearTierOf(age, inner) {
+  return Math.min(GEAR_TIERS.length - 1, inner ? age : age - 1);
+}
+function sectorUnits(sector, ferretShare) {
+  const level = CIV.level.base + CIV.level.perAge * sector.age + (sector.inner ? CIV.level.inner : 0);
+  const tier = gearTierOf(sector.age, sector.inner);
+  const out = [];
+  const add = (kind, power) => {
+    const count = Math.round(power / ENEMIES[kind].power);
+    if (count <= 0) return;
+    const gear = ALIEN_GEAR[kind];
+    out.push({
+      kind,
+      count,
+      level,
+      ...tier >= 0 && gear.weapon ? { weapon: `${gear.weapon}-${GEAR_TIERS[tier]}` } : {},
+      ...tier >= 0 && gear.armor ? { armor: `${gear.armor}-${GEAR_TIERS[tier]}` } : {}
+    });
+  };
+  const ground = sector.power * ferretShare;
+  for (const [kind, share] of Object.entries(ALIEN_MIX.ground))
+    add(kind, ground * share);
+  const air = sector.power - ground;
+  for (const [kind, share] of Object.entries(ALIEN_MIX.air)) add(kind, air * share);
+  return out;
+}
+function spotIn(seed, sector, salt, taken) {
+  const rng = createRng(`${seed}/spot/${salt}`);
+  const { min, max } = CIV.ring;
+  const lo = isInner(sector) ? min : INTEL.innerRadius + 1;
+  const hi = isInner(sector) ? INTEL.innerRadius : max;
+  let last = { q: 0, r: 0 };
+  for (let tries = 0; tries < 400; tries++) {
+    const q = rng.int(-hi, hi);
+    const r = rng.int(-hi, hi);
+    const d = hexDistance({ q, r }, { q: 0, r: 0 });
+    if (d < lo || d > hi || sectorOfHex(q, r) !== sector) continue;
+    last = { q, r };
+    if (taken.has(`${q},${r}`)) continue;
+    taken.add(`${q},${r}`);
+    return last;
+  }
+  return last;
+}
+function sectorOfHex(q, r) {
+  const x = Math.sqrt(3) * (q + r / 2);
+  const y = 1.5 * r;
+  const angle = (Math.atan2(y, x) + 2 * Math.PI) % (2 * Math.PI);
+  const slice = Math.min(5, Math.floor(angle / (Math.PI / 3)));
+  return (hexDistance({ q, r }, { q: 0, r: 0 }) <= INTEL.innerRadius ? 0 : HALF) + slice;
+}
+var ORDINARY = ["burrow", "roost", "workshop", "totem"];
+function civBuildings(g, civ, view, at) {
+  const out = [];
+  const taken = /* @__PURE__ */ new Set();
+  for (const k of civ.keys) {
+    if (k.readyAt !== void 0 && k.readyAt > at) continue;
+    const index = civ.keys.filter((x) => x.kind === k.kind).indexOf(k);
+    out.push({
+      kind: k.kind,
+      sector: k.sector,
+      ...spotIn(g.seed, k.sector, `${k.kind}/${index}/${k.sector}`, taken)
+    });
+  }
+  for (const s of view.sectors) {
+    const count = CIV.buildings.base + CIV.buildings.perAge * s.age + (s.inner ? CIV.buildings.inner : 0);
+    for (let i = 0; i < count; i++) {
+      const roll = civHash(g.seed, `kind/${s.sector}/${i}`);
+      const kinds = ORDINARY.filter(
+        (k) => (k !== "workshop" || s.age >= 1) && (k !== "totem" || s.age >= 2)
+      );
+      let kind;
+      if (i === 0) kind = g.ferretShare >= 0.5 ? "burrow" : "roost";
+      else if (kinds.length > 2 && roll < 0.35)
+        kind = kinds[2 + Math.floor(roll * 10) % (kinds.length - 2)];
+      else kind = civHash(g.seed, `mix/${s.sector}/${i}`) < g.ferretShare ? "burrow" : "roost";
+      out.push({
+        kind,
+        sector: s.sector,
+        ...spotIn(g.seed, s.sector, `b/${s.sector}/${i}`, taken)
+      });
+    }
+  }
+  return out;
+}
+var LOG = 12;
+function log(civ, impact) {
+  civ.log.push(impact);
+  if (civ.log.length > LOG) civ.log.splice(0, civ.log.length - LOG);
+}
+function pruneFights(civ, at) {
+  civ.fights = civ.fights.filter((f) => f.at + CIV.rebuildMs > at);
+}
+function recordFight(civ, sector, at, share) {
+  pruneFights(civ, at);
+  if (share <= 0) return;
+  civ.fights.push({ sector, at, share: Math.round(Math.min(1, share) * 100) / 100 });
+}
+function recordBurn(civ, sector, at) {
+  const b = CIV.burn;
+  const before = civ.sectors[sector] ?? 0;
+  civ.sectors[sector] = Math.max(-b.maxSectorH, before - b.sectorH);
+  const civBefore = civ.hours;
+  civ.hours = Math.max(Math.min(civBefore, -b.maxCivH), civBefore - b.civH);
+  for (const k of civ.keys) if (k.sector === sector && k.kind !== "royal") k.readyAt = at + b.keyMs;
+  const hours = civ.sectors[sector] - before + (civ.hours - civBefore);
+  log(civ, { at, kind: "burn", sector, hours });
+  return hours;
+}
+function recordDefeat(civ, at, dead, sector) {
+  const d = CIV.defeat;
+  const before = civ.hours;
+  const gain = d.civH + d.perKiwiH * Math.max(0, dead);
+  civ.hours = Math.max(before, Math.min(d.maxCivH, before + gain));
+  const hours = civ.hours - before;
+  log(civ, { at, kind: "defeat", ...sector !== void 0 ? { sector } : {}, hours });
+  return hours;
+}
+function standingBarracks(civ, at, beacons) {
+  return civ.keys.filter(
+    (k) => k.kind === "barracks" && (k.readyAt === void 0 || k.readyAt <= at) && !beacons.includes(k.sector)
+  );
+}
+function civDay(g, at) {
+  return Math.max(0, Math.floor((at - g.since) / CIV.tickMs));
+}
+function civEyes(state, targetId) {
+  const twin = state.targets.find((t) => t.distance === 0)?.id === targetId;
+  const intel = state.intel[targetId];
+  return {
+    beacons: twin ? state.siege.bridgeheads.map((b) => b.sector) : [],
+    seen: intel?.sectors ?? [],
+    royalSeen: !!intel?.siege?.queen
+  };
+}
+function planCiv(g, civ, at, eyes) {
+  const day = civDay(g, at);
+  civ.day = day;
+  if (eyes.royalSeen) civ.royalSeen = true;
+  const exposure = exposureOf(eyes.beacons, eyes.seen);
+  const salt = `d${day}`;
+  for (const k of civ.keys) {
+    if (k.kind === "royal" && civ.royalSeen) continue;
+    const burnt = k.readyAt !== void 0 && k.readyAt > at;
+    if (exposure[k.sector] < 2 && !burnt) continue;
+    const others = civ.keys.filter((x) => x !== k);
+    const to = bestSector(g.seed, k.kind, others, exposure, eyes.beacons, `${salt}/move`);
+    if (to === null || to === k.sector) continue;
+    if (!burnt && exposure[to] >= exposure[k.sector]) continue;
+    k.sector = to;
+  }
+  addMissingKeys(g.seed, civ.keys, civAt(g, at, civ).age, exposure, eyes.beacons, salt);
+}
+function nextCivEvent(s) {
+  let next = Infinity;
+  if (!s.aliens) return next;
+  for (const t of s.targets) {
+    const g = s.aliens[t.id];
+    if (!g?.civ || t.distance === 0 && s.siege.conqueredAt > 0) continue;
+    next = Math.min(next, g.since + (g.civ.day + 1) * CIV.tickMs);
+  }
+  return Math.max(s.now, next);
+}
+function civTick(s, at) {
+  if (!s.aliens) return;
+  for (const t of s.targets) {
+    const g = s.aliens[t.id];
+    if (!g?.civ || t.distance === 0 && s.siege.conqueredAt > 0) continue;
+    if (g.since + (g.civ.day + 1) * CIV.tickMs > at) continue;
+    planCiv(g, g.civ, at, civEyes(s, t.id));
+  }
+}
+function waveCivTarget(state) {
+  if (state.colony.index !== 0 || state.siege.conqueredAt > 0) return null;
+  return state.targets.find((t) => t.distance === 0)?.id ?? null;
+}
+function canAnnounceWave(state) {
+  const id3 = waveCivTarget(state);
+  return id3 === null || !!state.aliens?.[id3];
+}
+function civWave(state, at, waveId) {
+  const id3 = waveCivTarget(state);
+  const g = id3 ? state.aliens?.[id3] : void 0;
+  if (!g) {
+    const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / (DAY_H * HOUR2)));
+    const victories = Object.values(state.victories).reduce((a, b) => a + b, 0);
+    const provocation = Math.min(THREATS.maxProvocation, THREATS.perVictory * victories);
+    return { factor: (1 + THREATS.perDay * days) * (1 + provocation), origin: null };
+  }
+  const civ = civOf(g);
+  const view = civAt(g, at, civ);
+  const beacons = state.siege.bridgeheads.map((b) => b.sector);
+  const standing = standingBarracks(civ, at, beacons);
+  const wanted = keysWanted(view.age).barracks;
+  const barracks = CIV.barracksFloor + (1 - CIV.barracksFloor) * Math.min(1, standing.length / wanted);
+  const time = 1 + THREATS.perDay * Math.min(THREATS.maxDays, view.hours / DAY_H);
+  const roll = civHash(g.seed, `wave/${waveId}`);
+  let origin;
+  if (standing.length > 0) origin = standing[Math.floor(roll * standing.length)].sector;
+  else {
+    const free = view.sectors.filter((s) => !beacons.includes(s.sector));
+    origin = (free.length > 0 ? free : view.sectors).reduce(
+      (a, b) => b.power > a.power ? b : a
+    ).sector;
+  }
+  return { factor: time * barracks * (CIV.waveAge[view.age] ?? 1), origin };
+}
+
 // packages/shared/src/battle/types.ts
 var EV = {
   /** n: the next events happen n steps later. */
@@ -4990,8 +5336,6 @@ function uncoveredGates(state, wave) {
 }
 
 // packages/shared/src/sim/threats.ts
-var HOUR2 = 36e5;
-var DAY = 24 * HOUR2;
 function wealthFactor(state) {
   const W = THREATS.wealth;
   const cap = capacity(state);
@@ -5009,14 +5353,12 @@ function wealthFactor(state) {
   );
   return 1 + W.stock * fill + W.levels * Math.log(1 + levels / W.levelsRef) + W.population * Math.log(1 + state.villagers.length / W.populationRef);
 }
-function wavePower(state, at) {
+function wavePower(state, at, waveId = "") {
   const level = nest(state).level;
   const factor = THREATS.nestFactor[level] ?? THREATS.nestFactor[THREATS.nestFactor.length - 1];
-  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY));
-  const victories = Object.values(state.victories).reduce((a, b) => a + b, 0);
-  const provocation = Math.min(THREATS.maxProvocation, THREATS.perVictory * victories);
   const age = THREATS.ageFactor[ageOf(state)] ?? 1;
-  return THREATS.basePower * factor * age * (1 + THREATS.perDay * days) * (1 + provocation) * wealthFactor(state) * sisterThreat(state, at);
+  const civ = civWave(state, at, waveId).factor;
+  return THREATS.basePower * factor * age * civ * wealthFactor(state) * sisterThreat(state, at);
 }
 function sisterThreat(state, at) {
   if (state.colony.index !== 1) return 1;
@@ -5334,7 +5676,8 @@ function forecastWave(state) {
 function nextThreatEvent(state) {
   const t = state.threats;
   let next = t.nextIncidentAt;
-  if (t.next) next = Math.min(next, t.next.announced ? t.next.at : t.next.announceAt);
+  if (t.next && (t.next.announced || canAnnounceWave(state)))
+    next = Math.min(next, t.next.announced ? t.next.at : t.next.announceAt);
   if (t.shelterUntil > state.now) next = Math.min(next, t.shelterUntil);
   return next;
 }
@@ -5372,7 +5715,9 @@ function threatTick(s, at, events) {
 }
 var tenth = (x) => Math.round(x * 10) / 10;
 function announce(s, wave, events) {
-  const mix2 = waveMix(s, wavePower(s, wave.announceAt), wave.at);
+  const mix2 = waveMix(s, wavePower(s, wave.announceAt, wave.id), wave.at);
+  const origin = civWave(s, wave.announceAt, wave.id).origin;
+  if (origin !== null) wave.origin = origin;
   withThreatRng(s, (rng) => {
     const S = THREATS.spread;
     wave.ground = tenth(mix2.ground * (1 + rng.range(-S, S)));
@@ -5602,13 +5947,13 @@ function removeObstacle(s, o, at, events, by) {
 }
 
 // packages/shared/src/sim/sky.ts
-var DAY2 = 24 * 36e5;
+var DAY = 24 * 36e5;
 var EPS = 1e-6;
 function meteorStock(state, at) {
   const f = METEORS.nestFactor;
   const factor = f[Math.min(nest(state).level, f.length - 1)] ?? 1;
   const age = METEORS.ageFactor[ageOf(state)] ?? 1;
-  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY2));
+  const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / DAY));
   const tech = techEffects(state).meteorStock;
   return Math.round(METEORS.stock * factor * age * tech * (1 + METEORS.perDay * days));
 }
@@ -6099,317 +6444,6 @@ function deliveryOf(shipment, from, senderId) {
     arriveAt: shipment.arriveAt,
     ...shipment.villagers?.length ? { villagers: shipment.villagers.map(cloneVillager) } : {}
   };
-}
-
-// packages/shared/src/sim/civ.ts
-var HOUR3 = 36e5;
-var DAY_H = 24;
-var SECTORS2 = INTEL.sectors;
-var HALF = SECTORS2 / 2;
-var round1 = (v) => Math.round(v * 10) / 10;
-var isInner = (sector) => sector < HALF;
-var sliceOf = (sector) => sector % HALF;
-var otherRing = (sector) => (sector + HALF) % SECTORS2;
-function neighbourSectors(sector) {
-  const ring = isInner(sector) ? 0 : HALF;
-  const k = sliceOf(sector);
-  return [otherRing(sector), ring + (k + 1) % HALF, ring + (k + HALF - 1) % HALF];
-}
-function sliceGap(a, b) {
-  const d = Math.abs(sliceOf(a) - sliceOf(b));
-  return Math.min(d, HALF - d);
-}
-var shapes = /* @__PURE__ */ new Map();
-function civShape(seed) {
-  const cached = shapes.get(seed);
-  if (cached) return cached;
-  const rng = createRng(`${seed}/civ`);
-  const outer = Array.from({ length: HALF }, () => rng.range(...CIV.outerSpread));
-  const mean2 = outer.reduce((a, b) => a + b, 0) / HALF;
-  const weight = [];
-  for (let s = 0; s < HALF; s++) weight[s] = outer[s] / mean2 * rng.range(...CIV.innerMultiple);
-  for (let s = 0; s < HALF; s++) weight[HALF + s] = outer[s] / mean2;
-  const shape = { weight };
-  if (shapes.size > 256) shapes.clear();
-  shapes.set(seed, shape);
-  return shape;
-}
-function civHash(seed, salt) {
-  return hashSeed(`${seed}/${salt}`)[0] / 2 ** 32;
-}
-function keysWanted(age) {
-  const a = Math.max(0, Math.min(CIV_AGE_COUNT - 1, age));
-  return { royal: 1, barracks: CIV.keys.barracks[a], store: CIV.keys.store[a] };
-}
-function exposureOf(beacons, seen) {
-  const out = Array.from({ length: SECTORS2 }, () => 0);
-  for (const s of seen) out[s] = Math.max(out[s], 1);
-  for (const b of beacons) {
-    for (const n of neighbourSectors(b)) out[n] = Math.max(out[n], 2);
-    out[b] = 3;
-  }
-  return out;
-}
-function bestSector(seed, kind, keys, exposure, beacons, salt) {
-  const taken = new Set(keys.map((k) => k.sector));
-  let best = null;
-  let bestScore = Infinity;
-  for (let s = 0; s < SECTORS2; s++) {
-    if (taken.has(s) || exposure[s] >= 3) continue;
-    if (kind === "royal" && !isInner(s)) continue;
-    const far = beacons.length > 0 ? Math.min(...beacons.map((b) => sliceGap(s, b))) : HALF;
-    const score = exposure[s] * 10 + (isInner(s) ? 0 : 4) - far + civHash(seed, `${salt}/${kind}/${s}`);
-    if (score < bestScore) {
-      bestScore = score;
-      best = s;
-    }
-  }
-  return best;
-}
-function addMissingKeys(seed, keys, age, exposure, beacons, salt) {
-  const wanted = keysWanted(age);
-  for (const kind of ["royal", "barracks", "store"]) {
-    let have = keys.filter((k) => k.kind === kind).length;
-    while (have < wanted[kind]) {
-      const s = bestSector(seed, kind, keys, exposure, beacons, `${salt}/${have}`);
-      if (s === null) break;
-      keys.push({ kind, sector: s });
-      have++;
-    }
-  }
-}
-function newCiv(seed, distance) {
-  const keys = [{ kind: "royal", sector: siegeTruth({ seed }).queenSector }];
-  const none = Array.from({ length: SECTORS2 }, () => 0);
-  addMissingKeys(seed, keys, civAgeOfHours(distance * CIV.leadPerDistanceH), none, [], "d0");
-  return {
-    lead: distance * CIV.leadPerDistanceH,
-    hours: 0,
-    sectors: [...none],
-    fights: [],
-    keys,
-    day: 0,
-    log: []
-  };
-}
-function civOf(g) {
-  return g.civ ?? newCiv(g.seed, 0);
-}
-function civAgeOfHours(hours) {
-  let age = 0;
-  for (let a = 1; a < CIV.ageAtH.length; a++) if (hours >= CIV.ageAtH[a]) age = a;
-  return age;
-}
-function civHours(g, civ, at) {
-  return Math.max(0, Math.max(0, at - g.since) / HOUR3 + civ.lead + civ.hours);
-}
-function sectorHours(g, civ, sector, at) {
-  return Math.max(0, civHours(g, civ, at) + (civ.sectors[sector] ?? 0));
-}
-function growthOfHours(hours) {
-  const age = civAgeOfHours(hours);
-  return CIV.ageMultiple[age] * (1 + CIV.perDay * Math.min(CIV.maxDays, hours / DAY_H));
-}
-function fightLossAt(civ, sector, at) {
-  let lost = 0;
-  for (const f of civ.fights) {
-    if (f.sector !== sector || f.at > at) continue;
-    lost += f.share * Math.max(0, 1 - (at - f.at) / CIV.rebuildMs);
-  }
-  return Math.min(0.9, lost);
-}
-function civAt(g, at, civ = civOf(g)) {
-  const shape = civShape(g.seed);
-  const hours = civHours(g, civ, at);
-  const sectors = [];
-  for (let s = 0; s < SECTORS2; s++) {
-    const h = sectorHours(g, civ, s, at);
-    sectors.push({
-      sector: s,
-      inner: isInner(s),
-      age: civAgeOfHours(h),
-      power: round1(
-        g.defense * shape.weight[s] * growthOfHours(h) * (1 - fightLossAt(civ, s, at))
-      )
-    });
-  }
-  return { age: civAgeOfHours(hours), hours, sectors };
-}
-function outerPower(view) {
-  const outer = view.sectors.filter((s) => !s.inner);
-  return round1(outer.reduce((a, s) => a + s.power, 0) / outer.length);
-}
-function gearTierOf(age, inner) {
-  return Math.min(GEAR_TIERS.length - 1, inner ? age : age - 1);
-}
-function sectorUnits(sector, ferretShare) {
-  const level = CIV.level.base + CIV.level.perAge * sector.age + (sector.inner ? CIV.level.inner : 0);
-  const tier = gearTierOf(sector.age, sector.inner);
-  const out = [];
-  const add = (kind, power) => {
-    const count = Math.round(power / ENEMIES[kind].power);
-    if (count <= 0) return;
-    const gear = ALIEN_GEAR[kind];
-    out.push({
-      kind,
-      count,
-      level,
-      ...tier >= 0 && gear.weapon ? { weapon: `${gear.weapon}-${GEAR_TIERS[tier]}` } : {},
-      ...tier >= 0 && gear.armor ? { armor: `${gear.armor}-${GEAR_TIERS[tier]}` } : {}
-    });
-  };
-  const ground = sector.power * ferretShare;
-  for (const [kind, share] of Object.entries(ALIEN_MIX.ground))
-    add(kind, ground * share);
-  const air = sector.power - ground;
-  for (const [kind, share] of Object.entries(ALIEN_MIX.air)) add(kind, air * share);
-  return out;
-}
-function spotIn(seed, sector, salt, taken) {
-  const rng = createRng(`${seed}/spot/${salt}`);
-  const { min, max } = CIV.ring;
-  const lo = isInner(sector) ? min : INTEL.innerRadius + 1;
-  const hi = isInner(sector) ? INTEL.innerRadius : max;
-  let last = { q: 0, r: 0 };
-  for (let tries = 0; tries < 400; tries++) {
-    const q = rng.int(-hi, hi);
-    const r = rng.int(-hi, hi);
-    const d = hexDistance({ q, r }, { q: 0, r: 0 });
-    if (d < lo || d > hi || sectorOfHex(q, r) !== sector) continue;
-    last = { q, r };
-    if (taken.has(`${q},${r}`)) continue;
-    taken.add(`${q},${r}`);
-    return last;
-  }
-  return last;
-}
-function sectorOfHex(q, r) {
-  const x = Math.sqrt(3) * (q + r / 2);
-  const y = 1.5 * r;
-  const angle = (Math.atan2(y, x) + 2 * Math.PI) % (2 * Math.PI);
-  const slice = Math.min(5, Math.floor(angle / (Math.PI / 3)));
-  return (hexDistance({ q, r }, { q: 0, r: 0 }) <= INTEL.innerRadius ? 0 : HALF) + slice;
-}
-var ORDINARY = ["burrow", "roost", "workshop", "totem"];
-function civBuildings(g, civ, view, at) {
-  const out = [];
-  const taken = /* @__PURE__ */ new Set();
-  for (const k of civ.keys) {
-    if (k.readyAt !== void 0 && k.readyAt > at) continue;
-    const index = civ.keys.filter((x) => x.kind === k.kind).indexOf(k);
-    out.push({
-      kind: k.kind,
-      sector: k.sector,
-      ...spotIn(g.seed, k.sector, `${k.kind}/${index}/${k.sector}`, taken)
-    });
-  }
-  for (const s of view.sectors) {
-    const count = CIV.buildings.base + CIV.buildings.perAge * s.age + (s.inner ? CIV.buildings.inner : 0);
-    for (let i = 0; i < count; i++) {
-      const roll = civHash(g.seed, `kind/${s.sector}/${i}`);
-      const kinds = ORDINARY.filter(
-        (k) => (k !== "workshop" || s.age >= 1) && (k !== "totem" || s.age >= 2)
-      );
-      let kind;
-      if (i === 0) kind = g.ferretShare >= 0.5 ? "burrow" : "roost";
-      else if (kinds.length > 2 && roll < 0.35)
-        kind = kinds[2 + Math.floor(roll * 10) % (kinds.length - 2)];
-      else kind = civHash(g.seed, `mix/${s.sector}/${i}`) < g.ferretShare ? "burrow" : "roost";
-      out.push({
-        kind,
-        sector: s.sector,
-        ...spotIn(g.seed, s.sector, `b/${s.sector}/${i}`, taken)
-      });
-    }
-  }
-  return out;
-}
-var LOG = 12;
-function log(civ, impact) {
-  civ.log.push(impact);
-  if (civ.log.length > LOG) civ.log.splice(0, civ.log.length - LOG);
-}
-function pruneFights(civ, at) {
-  civ.fights = civ.fights.filter((f) => f.at + CIV.rebuildMs > at);
-}
-function recordFight(civ, sector, at, share) {
-  pruneFights(civ, at);
-  if (share <= 0) return;
-  civ.fights.push({ sector, at, share: Math.round(Math.min(1, share) * 100) / 100 });
-}
-function recordBurn(civ, sector, at) {
-  const b = CIV.burn;
-  const before = civ.sectors[sector] ?? 0;
-  civ.sectors[sector] = Math.max(-b.maxSectorH, before - b.sectorH);
-  const civBefore = civ.hours;
-  civ.hours = Math.max(Math.min(civBefore, -b.maxCivH), civBefore - b.civH);
-  for (const k of civ.keys) if (k.sector === sector && k.kind !== "royal") k.readyAt = at + b.keyMs;
-  const hours = civ.sectors[sector] - before + (civ.hours - civBefore);
-  log(civ, { at, kind: "burn", sector, hours });
-  return hours;
-}
-function recordDefeat(civ, at, dead, sector) {
-  const d = CIV.defeat;
-  const before = civ.hours;
-  const gain = d.civH + d.perKiwiH * Math.max(0, dead);
-  civ.hours = Math.max(before, Math.min(d.maxCivH, before + gain));
-  const hours = civ.hours - before;
-  log(civ, { at, kind: "defeat", ...sector !== void 0 ? { sector } : {}, hours });
-  return hours;
-}
-function standingBarracks(civ, at, beacons) {
-  return civ.keys.filter(
-    (k) => k.kind === "barracks" && (k.readyAt === void 0 || k.readyAt <= at) && !beacons.includes(k.sector)
-  );
-}
-function civDay(g, at) {
-  return Math.max(0, Math.floor((at - g.since) / CIV.tickMs));
-}
-function civEyes(state, targetId) {
-  const twin = state.targets.find((t) => t.distance === 0)?.id === targetId;
-  const intel = state.intel[targetId];
-  return {
-    beacons: twin ? state.siege.bridgeheads.map((b) => b.sector) : [],
-    seen: intel?.sectors ?? [],
-    royalSeen: !!intel?.siege?.queen
-  };
-}
-function planCiv(g, civ, at, eyes) {
-  const day = civDay(g, at);
-  civ.day = day;
-  if (eyes.royalSeen) civ.royalSeen = true;
-  const exposure = exposureOf(eyes.beacons, eyes.seen);
-  const salt = `d${day}`;
-  for (const k of civ.keys) {
-    if (k.kind === "royal" && civ.royalSeen) continue;
-    const burnt = k.readyAt !== void 0 && k.readyAt > at;
-    if (exposure[k.sector] < 2 && !burnt) continue;
-    const others = civ.keys.filter((x) => x !== k);
-    const to = bestSector(g.seed, k.kind, others, exposure, eyes.beacons, `${salt}/move`);
-    if (to === null || to === k.sector) continue;
-    if (!burnt && exposure[to] >= exposure[k.sector]) continue;
-    k.sector = to;
-  }
-  addMissingKeys(g.seed, civ.keys, civAt(g, at, civ).age, exposure, eyes.beacons, salt);
-}
-function nextCivEvent(s) {
-  let next = Infinity;
-  if (!s.aliens) return next;
-  for (const t of s.targets) {
-    const g = s.aliens[t.id];
-    if (!g?.civ || t.distance === 0 && s.siege.conqueredAt > 0) continue;
-    next = Math.min(next, g.since + (g.civ.day + 1) * CIV.tickMs);
-  }
-  return Math.max(s.now, next);
-}
-function civTick(s, at) {
-  if (!s.aliens) return;
-  for (const t of s.targets) {
-    const g = s.aliens[t.id];
-    if (!g?.civ || t.distance === 0 && s.siege.conqueredAt > 0) continue;
-    if (g.since + (g.civ.day + 1) * CIV.tickMs > at) continue;
-    planCiv(g, g.civ, at, civEyes(s, t.id));
-  }
 }
 
 // packages/shared/src/sim/titan.ts
@@ -10602,12 +10636,18 @@ function canResolveArrival(state, e) {
   e.mission === "found" || !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
 }
 function awaitingServer(state, now) {
-  return awaitingReport(state, now).length > 0 || counterAwaited(state, now);
+  return awaitingReport(state, now).length > 0 || counterAwaited(state, now) || waveAwaited(state, now);
+}
+function waveAwaited(state, now) {
+  const w = state.threats.next;
+  return !!w && !w.announced && w.announceAt <= now && !canAnnounceWave(state);
 }
 function hiddenDue(state, now) {
   const out = state.expeditions.filter((e) => e.status === "outbound" && e.arriveAt <= now).map((e) => e.arriveAt);
   const c = state.siege.counter;
   if (c && c.at <= now) out.push(c.at);
+  const w = state.threats.next;
+  if (w && !w.announced && w.announceAt <= now) out.push(w.announceAt);
   return out;
 }
 function awaitingReport(state, now) {
@@ -18532,6 +18572,7 @@ export {
   calendarOf,
   calendarStartFor,
   canAfford,
+  canAnnounceWave,
   canBorrow,
   canCollect,
   canHatch,
@@ -18557,6 +18598,7 @@ export {
   civOf,
   civShape,
   civTick,
+  civWave,
   claimableObjective,
   classGrowth,
   classRank,
@@ -19040,7 +19082,9 @@ export {
   walkDistances,
   wallsOf,
   waveAhead,
+  waveAwaited,
   waveBattle,
+  waveCivTarget,
   waveGates,
   waveMix,
   wavePower,

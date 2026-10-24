@@ -1,6 +1,7 @@
 import { ALIEN_GEAR, ALIEN_MIX, CIV, CIV_AGE_COUNT, type AlienBuildingKind } from '../data/aliens';
 import type { CivKeyKind } from '../data/aliens';
 import { INTEL } from '../data/expeditions';
+import { THREATS } from '../data/threats';
 import { ENEMIES, type EnemyKind } from '../data/units';
 import { GEAR_TIERS, type ItemId } from '../data/gear';
 import { hexDistance } from '../hex/hex';
@@ -496,4 +497,59 @@ export function civTick(s: GameState, at: TimeMs): void {
     if (g.since + (g.civ.day + 1) * CIV.tickMs > at) continue;
     planCiv(g, g.civ, at, civEyes(s, t.id));
   }
+}
+
+// --- Its waves against us (chantier 39, part 3) -----------------------------------------------
+
+/** The civilisation that sends us its waves: the one of our twin face, while it is alien. */
+export function waveCivTarget(state: GameState): string | null {
+  if (state.colony.index !== 0 || state.siege.conqueredAt > 0) return null;
+  return state.targets.find((t) => t.distance === 0)?.id ?? null;
+}
+
+/** True when this state can announce its next wave (the truth is held, or no civilisation). */
+export function canAnnounceWave(state: GameState): boolean {
+  const id = waveCivTarget(state);
+  return id === null || !!state.aliens?.[id];
+}
+
+export interface CivWave {
+  /** × wave power: development days × barracks standing × age of the civilisation. */
+  factor: number;
+  /** Parcel the wave comes from (null without a civilisation). */
+  origin: number | null;
+}
+
+/**
+ * Power of the civilisation's waves at a time. Without a civilisation (a sister colony, a
+ * twin held by a friend, a conquered face) the old rule: days of play and provocation.
+ */
+export function civWave(state: GameState, at: TimeMs, waveId: string): CivWave {
+  const id = waveCivTarget(state);
+  const g = id ? state.aliens?.[id] : undefined;
+  if (!g) {
+    const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / (DAY_H * HOUR)));
+    const victories = Object.values(state.victories).reduce((a, b) => a + b, 0);
+    const provocation = Math.min(THREATS.maxProvocation, THREATS.perVictory * victories);
+    return { factor: (1 + THREATS.perDay * days) * (1 + provocation), origin: null };
+  }
+  const civ = civOf(g);
+  const view = civAt(g, at, civ);
+  const beacons = state.siege.bridgeheads.map((b) => b.sector);
+  const standing = standingBarracks(civ, at, beacons);
+  const wanted = keysWanted(view.age).barracks;
+  const barracks =
+    CIV.barracksFloor + (1 - CIV.barracksFloor) * Math.min(1, standing.length / wanted);
+  const time = 1 + THREATS.perDay * Math.min(THREATS.maxDays, view.hours / DAY_H);
+  const roll = civHash(g.seed, `wave/${waveId}`);
+  let origin: number;
+  if (standing.length > 0) origin = standing[Math.floor(roll * standing.length)]!.sector;
+  else {
+    // No barracks left: the strongest parcel we do not hold sends what it can.
+    const free = view.sectors.filter((s) => !beacons.includes(s.sector));
+    origin = (free.length > 0 ? free : view.sectors).reduce((a, b) =>
+      b.power > a.power ? b : a,
+    ).sector;
+  }
+  return { factor: time * barracks * (CIV.waveAge[view.age] ?? 1), origin };
 }
