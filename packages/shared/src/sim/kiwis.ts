@@ -39,7 +39,7 @@ import type { BuildingId, TimeMs } from '../types/ids';
 import type { GameEvent } from './advance';
 import { faceMapOf, harvestedTileType } from './territory';
 import { hungerWork } from './needs';
-import { bedsOf, moraleWork, presence } from './rest';
+import { bedsOf, colonyMood, kiwiMoraleWork, presence } from './rest';
 import { withRng, type Building, type GameState, type Villager } from './state';
 import { ageOf } from './research';
 
@@ -296,11 +296,17 @@ export function crewWork(
 ): number {
   if (state.threats.shelterUntil > state.now) return 0;
   const beds = bedsOf(state);
+  // Chantier 43: each kiwi works at its own morale.
+  const mood = colonyMood(state);
   const sum = workers.reduce(
-    (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)),
+    (total, v) =>
+      total +
+      workerPower(v, resource) *
+        presence(state, v, beds.get(v.id)) *
+        kiwiMoraleWork(state, v, beds, mood),
     0,
   );
-  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds);
+  return sum * colonyBonus(state) * hungerWork(state);
 }
 
 /** The mayor at home, if any. */

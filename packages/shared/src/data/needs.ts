@@ -1,5 +1,6 @@
 import { ms } from './curves';
 import type { Season } from './cycles';
+import type { TraitId } from './kiwis';
 import type { Resources } from './resources';
 
 /**
@@ -59,25 +60,45 @@ export const REST = {
   cycleMs: ms.min(45),
 } as const;
 
+/** Chantier 43: what a kiwi remembers for a while (its morale moves until `until`). */
+export const MEMORY_KINDS = ['mourning', 'grief'] as const;
+export type MemoryKind = (typeof MEMORY_KINDS)[number];
+
 /**
- * Colony morale: bonus or malus on all work (±20 %), from things the player controls: meals,
- * beds, the mayor (Charisma, Organisation, speech), mourning and the season. Every factor only
- * changes at an event (stage change, season, layout, mayor, speech, mourning).
+ * Chantier 43: one morale gauge per kiwi, 0–100 (50 is neutral). It is the sum of the age's base
+ * (a later age expects more), the colony's common needs (meals, season, mayor, bards, speech),
+ * the kiwi's own gaps (its bed, its trait, its class) and its dated memories (mourning). Every
+ * part only changes at an event (stage change, season, layout, age, mayor, memory end).
  */
 export const MORALE = {
-  /** The mayor's Charisma and Organisation count here too (chantier 03 → 04). */
-  max: 0.2,
+  max: 100,
+  neutral: 50,
+  /** Work at 0 morale and at 100 (×1 at 50, linear in between). */
+  work: { low: 0.7, high: 1.15 },
+  /** Below this, a kiwi sulks (it still works). */
+  sulk: 20,
+  /** Base of a kiwi by age (Eden, Stone, Iron, Industry): a fed and housed colony sits a bit
+   * above neutral in the Eden, at neutral in the Stone age, a bit below later on. */
+  base: [60, 50, 45, 40],
   /** Fed colony vs hungry colony. */
-  fed: 0.03,
-  hungry: -0.05,
-  /** Beds close to the work: +comfort when every kiwi sleeps within `near` steps of its work,
-   * −comfort when none does (linear in between). */
-  comfort: 0.03,
+  fed: 10,
+  hungry: -20,
+  /** A bed within `near` steps of the kiwi's work; sleeping outside. */
   near: 4,
-  /** The mayor's speech lifts spirits. */
-  speech: 0.03,
-  /** After a death, the colony mourns for a day. */
-  mourning: -0.06,
-  mourningMs: ms.h(24),
-  season: { spring: 0.02, summer: 0, autumn: 0, winter: -0.02 } satisfies Record<Season, number>,
+  bedNear: 5,
+  noBed: -10,
+  /** The mayor's lasting effect and the bards' (their shares of `SKILLS`, in points). */
+  points: 100,
+  /** The mayor's speech lifts spirits (while it lasts). */
+  speech: 3,
+  season: { spring: 5, summer: 0, autumn: 0, winter: -5 } satisfies Record<Season, number>,
+  /** A kiwi's own temper. */
+  trait: { dreamer: 5, lucky: 5, glutton: -5 } satisfies Partial<Record<TraitId, number>>,
+  /** A kiwi of the bard line sings for itself too. */
+  bard: 5,
+  /** Memories: the colony mourns a lost kiwi; its hut mates or crew mates grieve harder. */
+  memories: {
+    mourning: { value: -15, ms: ms.h(24) },
+    grief: { value: -25, ms: ms.h(24) },
+  } satisfies Record<MemoryKind, { value: number; ms: number }>,
 } as const;

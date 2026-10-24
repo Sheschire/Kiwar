@@ -1,13 +1,15 @@
 import { levelDef } from '../data/buildings';
 import { CYCLES } from '../data/cycles';
 import { KIWI } from '../data/kiwis';
-import { MORALE, REST } from '../data/needs';
+import { MORALE, REST, type MemoryKind } from '../data/needs';
 import { hexKey, type Hex } from '../hex/hex';
 import type { FaceMap } from '../worldgen/generateFace';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
 import { calendarAt, seasonOf } from './calendar';
 import { hungerStage } from './needs';
 import { bardMorale, mayorMorale, modifiers } from './kiwis';
+import { ageOf } from './research';
+import { inLine } from '../data/classes';
 import type { Building, GameState, Villager } from './state';
 import { terraformKey, distanceIn, faceMapOf, pathsKey, walkDistances } from './territory';
 
@@ -135,52 +137,172 @@ export function presence(state: GameState, v: Villager, bed = bedsOf(state).get(
   return Math.max(REST.minPresence, 1 - restNeed(state, v, bed) * walk);
 }
 
-export interface Morale {
-  /** Total work bonus (−max..+max). */
-  total: number;
+/** Chantier 43: what the whole colony shares in the morale of its kiwis (points). */
+export interface ColonyMood {
+  /** The age's base. */
+  base: number;
   food: number;
-  comfort: number;
+  season: number;
   /** The mayor's Charisma and Organisation. */
   mayor: number;
   /** Chantier 37: the bards at home. */
   bards: number;
   speech: number;
-  mourning: number;
-  season: number;
+  /** Sum of the parts above. */
+  sum: number;
 }
 
-/** Colony morale and what makes it. */
-export function moraleOf(state: GameState, beds = bedsOf(state)): Morale {
+/** The colony's common morale points (constant between two events). */
+export function colonyMood(state: GameState): ColonyMood {
+  const base = MORALE.base[Math.min(MORALE.base.length - 1, ageOf(state))]!;
   const food = hungerStage(state) === 'fed' ? MORALE.fed : MORALE.hungry;
-  const comfort = comfortOf(state, beds);
-  const speech = state.speechUntil > state.now ? MORALE.speech : 0;
-  const mourning = state.mourningUntil > state.now ? MORALE.mourning : 0;
   const season = MORALE.season[seasonOf(state)];
-  const mayor = mayorMorale(state);
-  const bards = bardMorale(state);
-  const sum = food + comfort + mayor + bards + speech + mourning + season;
-  const total = Math.max(-MORALE.max, Math.min(MORALE.max, sum));
-  return { total, food, comfort, mayor, bards, speech, mourning, season };
+  const mayor = mayorMorale(state) * MORALE.points;
+  const bards = bardMorale(state) * MORALE.points;
+  const speech = state.speechUntil > state.now ? MORALE.speech : 0;
+  return {
+    base,
+    food,
+    season,
+    mayor,
+    bards,
+    speech,
+    sum: base + food + season + mayor + bards + speech,
+  };
 }
 
-const comfortCache = new WeakMap<Map<VillagerId, Bed>, number>();
+/** Chantier 43: one kiwi's morale (0–100) and what makes it. */
+export interface KiwiMorale {
+  total: number;
+  /** The colony's common part. */
+  colony: number;
+  /** Its bed: near its work, or none. */
+  bed: number;
+  /** Its trait and its class. */
+  temper: number;
+  /** Its memories (mourning…). */
+  memories: number;
+}
 
-/** Beds near the work (memoized per bed plan, which already depends on the jobs). */
-function comfortOf(state: GameState, beds: Map<VillagerId, Bed>): number {
-  const cached = comfortCache.get(beds);
-  if (cached !== undefined) return cached;
-  let workers = 0;
-  let near = 0;
+/** Points of a kiwi's bed: near its work (+), outside (−). */
+function bedPoints(bed: Bed | undefined): number {
+  if (!bed) return 0;
+  // A kiwi without a bed sleeps outside: never "near its work" (chantier 12 fix).
+  if (bed.buildingId === null) return MORALE.noBed;
+  return bed.distance <= MORALE.near ? MORALE.bedNear : 0;
+}
+
+/** Points of the memories a kiwi still has at `now`. */
+export function memoryPoints(v: Villager, now: TimeMs): number {
+  let sum = 0;
+  for (const m of v.memories ?? []) if (m.until > now) sum += m.value;
+  return sum;
+}
+
+export function kiwiMorale(
+  state: GameState,
+  v: Villager,
+  beds: ReadonlyMap<VillagerId, Bed> = bedsOf(state),
+  colony: ColonyMood = colonyMood(state),
+): KiwiMorale {
+  const bed = bedPoints(beds.get(v.id));
+  const trait = v.trait ? ((MORALE.trait as Partial<Record<string, number>>)[v.trait] ?? 0) : 0;
+  const temper = trait + (inLine(v.classId, 'bard') ? MORALE.bard : 0);
+  const memories = memoryPoints(v, state.now);
+  const total = Math.max(0, Math.min(MORALE.max, colony.sum + bed + temper + memories));
+  return { total, colony: colony.sum, bed, temper, memories };
+}
+
+/** Work multiplier of a morale (×`work.low` at 0, ×1 at neutral, ×`work.high` at the top). */
+export function moraleFactor(points: number): number {
+  const n = MORALE.neutral;
+  if (points <= n) return MORALE.work.low + (1 - MORALE.work.low) * (points / n);
+  return 1 + (MORALE.work.high - 1) * ((points - n) / (MORALE.max - n));
+}
+
+/** Work multiplier of one kiwi's morale (pass the colony mood when looping over kiwis). */
+export function kiwiMoraleWork(
+  state: GameState,
+  v: Villager,
+  beds: ReadonlyMap<VillagerId, Bed> = bedsOf(state),
+  colony: ColonyMood = colonyMood(state),
+): number {
+  return moraleFactor(kiwiMorale(state, v, beds, colony).total);
+}
+
+/** Colony morale: the average of its kiwis at home and what makes it (village screen). */
+export interface Morale extends ColonyMood {
+  /** Average morale of the kiwis at home (points, 0–100). */
+  average: number;
+  /** Average work bonus (−0.3..+0.15). */
+  work: number;
+  /** Kiwis sulking (below `MORALE.sulk`). */
+  low: number;
+  /** Average points of the beds, the tempers and the memories. */
+  comfort: number;
+  temper: number;
+  memories: number;
+}
+
+export function moraleOf(state: GameState, beds = bedsOf(state)): Morale {
+  const colony = colonyMood(state);
+  let n = 0;
+  let total = 0;
+  let work = 0;
+  let low = 0;
+  let comfort = 0;
+  let temper = 0;
+  let memories = 0;
   for (const v of state.villagers) {
-    if (v.job.kind !== 'work') continue;
-    workers++;
-    // A kiwi without a bed sleeps outside: never "near its work" (chantier 12 fix).
-    const bed = beds.get(v.id);
-    if (bed && bed.buildingId !== null && bed.distance <= MORALE.near) near++;
+    if (v.job.kind === 'expedition' || v.job.kind === 'outpost') continue;
+    const m = kiwiMorale(state, v, beds, colony);
+    n++;
+    total += m.total;
+    work += moraleFactor(m.total) - 1;
+    if (m.total < MORALE.sulk) low++;
+    comfort += m.bed;
+    temper += m.temper;
+    memories += m.memories;
   }
-  const comfort = workers > 0 ? MORALE.comfort * ((2 * near) / workers - 1) : 0;
-  comfortCache.set(beds, comfort);
-  return comfort;
+  const avg = (x: number) => (n > 0 ? x / n : 0);
+  return {
+    ...colony,
+    average: n > 0 ? total / n : Math.max(0, Math.min(MORALE.max, colony.sum)),
+    work: avg(work),
+    low,
+    comfort: avg(comfort),
+    temper: avg(temper),
+    memories: avg(memories),
+  };
+}
+
+/** Chantier 43: a kiwi remembers something (one memory per kind: the stronger, the later). */
+export function addMemory(v: Villager, kind: MemoryKind, value: number, until: TimeMs): void {
+  const list = v.memories ?? [];
+  const old = list.find((m) => m.kind === kind);
+  if (old) {
+    if (Math.abs(value) > Math.abs(old.value)) old.value = value;
+    old.until = Math.max(old.until, until);
+  } else list.push({ kind, value, until });
+  v.memories = list;
+}
+
+/** When the next memory of a kiwi fades (an `advance` event). */
+export function nextMemoryEnd(state: GameState): TimeMs {
+  let next = Infinity;
+  for (const v of state.villagers)
+    for (const m of v.memories ?? []) if (m.until > state.now && m.until < next) next = m.until;
+  return next;
+}
+
+/** Forgets the memories that faded by `at`. */
+export function fadeMemories(state: GameState, at: TimeMs): void {
+  for (const v of state.villagers) {
+    if (!v.memories) continue;
+    const kept = v.memories.filter((m) => m.until > at);
+    if (kept.length > 0) v.memories = kept;
+    else delete v.memories;
+  }
 }
 
 export interface MissingBeds {
@@ -207,10 +329,6 @@ export function missingBeds(state: GameState, beds = bedsOf(state)): MissingBeds
     } else total += p;
   }
   return { count, presenceLost: total > 0 ? lost / total : 0 };
-}
-
-export function moraleWork(state: GameState, beds = bedsOf(state)): number {
-  return 1 + moraleOf(state, beds).total;
 }
 
 // ---------------------------------------------------------------------------------------------

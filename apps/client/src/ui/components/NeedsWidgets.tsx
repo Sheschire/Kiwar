@@ -54,33 +54,52 @@ export function RestSection({ v }: { v: Villager }) {
 }
 
 const PARTS = [
+  'base',
   'food',
   'comfort',
   'mayor',
   'bards',
   'speech',
-  'mourning',
+  'temper',
+  'memories',
   'season',
 ] as const satisfies readonly (keyof Morale)[];
 
-/** Colony morale with what makes it (village screen). */
+/** Morale points with their sign (chantier 43: rounded to a point). */
+const points = (lang: 'fr' | 'en', v: number) => {
+  const r = Math.round(v);
+  return `${r > 0 ? '+' : r < 0 ? '−' : '±'}${formatNumber(lang, Math.abs(r))}`;
+};
+
+/** Colony morale (the average of its kiwis) with what makes it (village screen). */
 export function MoraleCard() {
   const t = useT();
   const lang = useUi((s) => s.lang);
   const game = useUi((s) => s.game)!;
   const m = moraleOf(game);
   return (
-    <div class={`morale-card ${m.total < 0 ? 'is-low' : ''}`}>
-      <strong>{t('needs.morale.value', { value: signed(lang, m.total) })}</strong>
+    <div class={`morale-card ${m.work < 0 ? 'is-low' : ''}`}>
+      <strong>
+        {t('needs.morale.value', {
+          value: Math.round(m.average),
+          work: signed(lang, m.work),
+        })}
+      </strong>
       <ul class="morale-parts">
-        {PARTS.filter((k) => Math.abs(m[k]) > 1e-6).map((k) => (
-          <li key={k} class={m[k] < 0 ? 'warn' : 'bonus'}>
-            {t(`needs.morale.parts.${k}`)} {signed(lang, m[k])}
+        {PARTS.filter((k) => Math.abs(m[k]) >= 0.5).map((k) => (
+          <li key={k} class={k === 'base' ? '' : m[k] < 0 ? 'warn' : 'bonus'}>
+            {t(`needs.morale.parts.${k}`)} {k === 'base' ? Math.round(m[k]) : points(lang, m[k])}
           </li>
         ))}
       </ul>
+      {m.low > 0 && <p class="small warn">{t('needs.morale.low', { count: m.low })}</p>}
       <MissingBedsLine />
-      <p class="small muted">{t('needs.morale.hint', { max: Math.round(MORALE.max * 100) })}</p>
+      <p class="small muted">
+        {t('needs.morale.hint', {
+          low: Math.round((MORALE.work.low - 1) * 100),
+          high: Math.round((MORALE.work.high - 1) * 100),
+        })}
+      </p>
     </div>
   );
 }
@@ -133,8 +152,8 @@ export function MoraleLine() {
   const game = useUi((s) => s.game)!;
   const m = moraleOf(game);
   return (
-    <p class={`tip-line ${m.total < 0 ? 'warn' : 'bonus'}`}>
-      {t('needs.morale.value', { value: signed(lang, m.total) })}
+    <p class={`tip-line ${m.work < 0 ? 'warn' : 'bonus'}`}>
+      {t('needs.morale.value', { value: Math.round(m.average), work: signed(lang, m.work) })}
     </p>
   );
 }

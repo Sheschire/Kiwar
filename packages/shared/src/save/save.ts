@@ -24,6 +24,7 @@ import { IRON, IRON_SCALE } from '../data/iron';
 import { FORGE, ITEM_IDS } from '../data/gear';
 import { BEACONS } from '../data/beacons';
 import { INTEL } from '../data/expeditions';
+import { MEMORY_KINDS, MORALE } from '../data/needs';
 import { ALIEN_BUILDINGS, CIV_KEYS } from '../data/aliens';
 import { sectorOf } from '../sim/aliens';
 import { LANDING_GOALS, LANDING_PRIORITIES } from '../data/landing';
@@ -265,6 +266,16 @@ const villager = z.object({
     })
     .optional(),
   veteran: z.number().int().min(0).optional(),
+  memories: z
+    .array(
+      z.object({
+        kind: z.enum(MEMORY_KINDS),
+        value: z.number().min(-MORALE.max).max(MORALE.max),
+        until: z.number(),
+      }),
+    )
+    .max(MEMORY_KINDS.length)
+    .optional(),
 });
 
 export const gameStateSchema = z.object({
@@ -314,7 +325,6 @@ export const gameStateSchema = z.object({
     .max(MEMORIAL_MAX),
   speechUntil: z.number().min(0),
   hunger: z.number().int().min(0),
-  mourningUntil: z.number().min(0),
   queue: z.array(
     z.object({
       id,
@@ -901,6 +911,18 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
       }),
     );
     return { ...raw, siege: { conqueredAt: Number(siege.conqueredAt ?? 0) }, intel };
+  },
+  // v35 → v36 (chantier 43): one morale gauge per kiwi; the colony's mourning becomes a memory.
+  35: (raw) => {
+    const { mourningUntil, ...rest } = raw;
+    const until = Number(mourningUntil ?? 0);
+    if (!(until > Number(raw.now ?? 0)) || !Array.isArray(raw.villagers)) return rest;
+    const memory = { kind: 'mourning', value: MORALE.memories.mourning.value, until };
+    const villagers = (raw.villagers as Record<string, unknown>[]).map((v) => ({
+      ...v,
+      memories: [memory],
+    }));
+    return { ...rest, villagers };
   },
 };
 

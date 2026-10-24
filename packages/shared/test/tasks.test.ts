@@ -381,7 +381,14 @@ describe('the meteorite post (chantier 15)', () => {
       q: 99,
       r: 99,
     });
-    expect(meteorRate(drilled, drilled.sky.meteors[0]!)).toBeCloseTo(base * METEORS.drill[2]!, 9);
+    // Chantier 43: the age also changes the miners' morale; compare at the same age.
+    const aged = cloneState(drilled);
+    aged.research.done = [];
+    const ageBase = meteorRate(aged, aged.sky.meteors[0]!);
+    expect(meteorRate(drilled, drilled.sky.meteors[0]!)).toBeCloseTo(
+      ageBase * METEORS.drill[2]!,
+      9,
+    );
   });
 
   it('gives the same result in one big step or many small ones', () => {

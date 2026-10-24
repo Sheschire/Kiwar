@@ -55,6 +55,7 @@ import type { ObstacleKind } from '../data/obstacles';
 import { accrueResearch, nextResearchEvent, researchPower, researchTick } from './research';
 import { autoPlace, awaitedResources, belowReturn, redirectFull, returnHome } from './posts';
 import { JOBS } from '../data/jobs';
+import { fadeMemories, nextMemoryEnd } from './rest';
 import {
   addVillager,
   cloneState,
@@ -102,7 +103,6 @@ export type GameEvent =
     }
   | { type: 'trained'; at: TimeMs; villagerId: VillagerId; name: string; classId: ClassId }
   | { type: 'speechOver'; at: TimeMs }
-  | { type: 'mourningOver'; at: TimeMs }
   | {
       type: 'masteryUp';
       at: TimeMs;
@@ -297,7 +297,8 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const flows = computeFlows(s);
     const trainingEnd = nextTrainingEnd(s);
     const speechEnd = s.speechUntil > s.now ? s.speechUntil : Infinity;
-    const mourningEnd = s.mourningUntil > s.now ? s.mourningUntil : Infinity;
+    // Chantier 43: a kiwi's memory fades (its morale moves).
+    const memoryEnd = nextMemoryEnd(s);
     // Nightfall and dawn change work rates (seasons change at dawn).
     const calendarChange = nextCalendarChange(s.calendarStart, s.now);
     const threatAt = nextThreatEvent(s);
@@ -329,7 +330,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
       injuryEnd,
       calendarChange,
       flows.hungerAt,
-      mourningEnd,
+      memoryEnd,
       constructionEnd,
       eggEnd,
       expedition?.at ?? Infinity,
@@ -363,7 +364,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
       map = faceMapOf(s);
     }
     if (speechEnd === nextEvent) events.push({ type: 'speechOver', at: speechEnd });
-    if (mourningEnd === nextEvent) events.push({ type: 'mourningOver', at: mourningEnd });
+    if (memoryEnd === nextEvent) fadeMemories(s, memoryEnd);
     if (calendarChange === nextEvent) calendarTick(s, calendarChange, events);
     if (flows.hungerAt === nextEvent) starve(s, nextEvent, events);
     if (injuryEnd === nextEvent) healInjuries(s, injuryEnd, events);

@@ -146,7 +146,7 @@ describe('founding the second colony', () => {
     expect(f.resources.pulp).toBeGreaterThan(0);
     expect(home.villagers.some((v) => crew.includes(v.id))).toBe(false);
     expect(home.memorial).toEqual([]);
-    expect(home.mourningUntil).toBe(0);
+    expect(home.villagers.some((v) => v.memories)).toBe(false);
     const ship = home.expeditions.find((x) => x.id === e.id)!;
     expect(ship.result?.founded).toBe(true);
     const back = advance(home, ship.returnAt).state;

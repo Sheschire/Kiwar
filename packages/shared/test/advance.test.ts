@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   consumption,
-  moraleWork,
+  kiwiMoraleWork,
   presence,
   advance,
   BUILDINGS,
@@ -155,8 +155,8 @@ describe('advance', () => {
     const withWorker = productionRates(s).pulp;
     const pulpery = s.buildings.find((b) => b.type === 'pulpery')!;
     const worker = workersOf(s, pulpery.id)[0]!;
-    // Its share of the day at work (rest, walk to bed) and the colony morale.
-    const share = presence(s, worker) * moraleWork(s);
+    // Its share of the day at work (rest, walk to bed) and its morale.
+    const share = presence(s, worker) * kiwiMoraleWork(s, worker);
     s = run(s, { type: 'assignWorkers', buildingId: pulpery.id, count: 0 }, s.now, map);
     const without = productionRates(s).pulp;
     const efficiency = logisticsEfficiency(depotDistance(s, map, pulpery));

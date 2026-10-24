@@ -16,7 +16,7 @@ import {
   nextCalendarChange,
   PATHS,
   population,
-  moraleWork,
+  kiwiMoraleWork,
   SEASON_MS,
   seasonOf,
   tileWalkCost,
@@ -120,7 +120,10 @@ describe('night and seasons at work', () => {
     expect(spring.cycle).toBe(1);
     expect(autumn.cycle).toBe(1.2);
     // Same staff, same land: only the season (and the season's morale) differs.
-    const morale = moraleWork(at(s, 2)) / moraleWork(at(s, 0));
+    const worker = s.villagers.find(
+      (v) => v.job.kind === 'work' && v.job.buildingId === pulpery.id,
+    )!;
+    const morale = kiwiMoraleWork(at(s, 2), worker) / kiwiMoraleWork(at(s, 0), worker);
     expect(autumn.harvest).toBeCloseTo(spring.harvest * 1.2 * morale, 6);
     expect(winter.regen).toBe(0);
     expect(spring.regen).toBeCloseTo(autumn.regen * 1.4, 6);

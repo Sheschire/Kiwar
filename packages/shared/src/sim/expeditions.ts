@@ -28,6 +28,7 @@ import {
 } from './state';
 import { KIWI, MEMORIAL_MAX } from '../data/kiwis';
 import { MORALE } from '../data/needs';
+import { addMemory, bedsOf } from './rest';
 import type { GameEvent } from './advance';
 import { grantClassXp, grantXp, hasSkill, kiwiExposure, kiwiStrength, modifiers } from './kiwis';
 import { CAMP, inLine, SKILLS } from '../data/classes';
@@ -721,6 +722,8 @@ export function removeVillagers(
   /** Chantier 40: their gear stays on the alien face (a landing lost or abandoned). */
   gearLost = false,
 ): void {
+  // Chantier 43: who shared a hut or a ship with them grieves (read before they leave).
+  const close = closeMates(state, ids);
   for (const v of state.villagers) {
     if (!ids.includes(v.id)) continue;
     state.memorial.push({
@@ -740,8 +743,34 @@ export function removeVillagers(
   if (!gearLost) for (const v of state.villagers) if (ids.includes(v.id)) returnGear(state, v);
   state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
   forgetGuards(state, ids);
-  // The colony mourns its lost kiwis (morale).
-  if (ids.length > 0) state.mourningUntil = Math.max(state.mourningUntil, at + MORALE.mourningMs);
+  // The colony mourns its lost kiwis (morale): a memory for each survivor.
+  if (ids.length === 0) return;
+  for (const v of state.villagers) {
+    const kind = close.has(v.id) ? 'grief' : 'mourning';
+    const memory = MORALE.memories[kind];
+    addMemory(v, kind, memory.value, at + memory.ms);
+  }
+}
+
+/** Kiwis who slept in the same hut as, or travel with, one of the lost kiwis. */
+function closeMates(state: GameState, ids: VillagerId[]): Set<VillagerId> {
+  const beds = bedsOf(state);
+  const huts = new Set<string>();
+  const ships = new Set<string>();
+  for (const v of state.villagers) {
+    if (!ids.includes(v.id)) continue;
+    const hut = beds.get(v.id)?.buildingId;
+    if (hut) huts.add(hut);
+    if (v.job.kind === 'expedition') ships.add(v.job.expeditionId);
+  }
+  const out = new Set<VillagerId>();
+  for (const v of state.villagers) {
+    if (ids.includes(v.id)) continue;
+    const hut = beds.get(v.id)?.buildingId;
+    if ((hut && huts.has(hut)) || (v.job.kind === 'expedition' && ships.has(v.job.expeditionId)))
+      out.add(v.id);
+  }
+  return out;
 }
 
 function nameOf(e: Expedition, id: VillagerId): string {

@@ -1,3 +1,4 @@
+import type { MemoryKind } from '../data/needs';
 import type { BuildingType } from '../data/buildings';
 import { NAME_SYLLABLES, START } from '../data/start';
 import { calendarStartFor } from '../data/cycles';
@@ -39,7 +40,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 35;
+export const SCHEMA_VERSION = 36;
 
 export type Job =
   | { kind: 'idle' }
@@ -138,6 +139,15 @@ export interface Villager {
   gear?: Gear;
   /** Chantier 40: landings won (a veteran from the first one). */
   veteran?: number;
+  /** Chantier 43: what it remembers for a while (morale points until a date). */
+  memories?: Memory[];
+}
+
+/** Chantier 43: a dated memory of a kiwi (one per kind; `value` in morale points). */
+export interface Memory {
+  kind: MemoryKind;
+  value: number;
+  until: TimeMs;
 }
 
 /** Chantier 38: a kiwi's two slots; `kept`: chosen by the player (the automation leaves it). */
@@ -838,8 +848,6 @@ export interface GameState {
   speechUntil: TimeMs;
   /** Colony hunger gauge in raw units (HUNGER_SCALE per ms of full privation). */
   hunger: number;
-  /** The colony mourns a lost kiwi until then (morale malus; 0: no mourning). */
-  mourningUntil: TimeMs;
   queue: QueueItem[];
   egg: Egg | null;
   /** Index of the current tutorial objective in OBJECTIVES. */
@@ -960,7 +968,6 @@ export function newGame(opts: NewGameOptions): GameState {
     memorial: [],
     speechUntil: 0,
     hunger: 0,
-    mourningUntil: 0,
     queue: [],
     egg: null,
     objectiveIndex: 0,
@@ -1307,6 +1314,7 @@ export function cloneVillager(v: Villager): Villager {
     mastery: { ...v.mastery },
     history: { ...v.history },
     ...(v.gear ? { gear: { ...v.gear } } : {}),
+    ...(v.memories ? { memories: v.memories.map((m) => ({ ...m })) } : {}),
   };
 }
 

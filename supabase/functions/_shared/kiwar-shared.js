@@ -2083,22 +2083,38 @@ var REST = {
   /** Cosmetic work/rest cycle length (fatigue gauge, kiwis going to bed in 3D). */
   cycleMs: ms.min(45)
 };
+var MEMORY_KINDS = ["mourning", "grief"];
 var MORALE = {
-  /** The mayor's Charisma and Organisation count here too (chantier 03 → 04). */
-  max: 0.2,
+  max: 100,
+  neutral: 50,
+  /** Work at 0 morale and at 100 (×1 at 50, linear in between). */
+  work: { low: 0.7, high: 1.15 },
+  /** Below this, a kiwi sulks (it still works). */
+  sulk: 20,
+  /** Base of a kiwi by age (Eden, Stone, Iron, Industry): a fed and housed colony sits a bit
+   * above neutral in the Eden, at neutral in the Stone age, a bit below later on. */
+  base: [60, 50, 45, 40],
   /** Fed colony vs hungry colony. */
-  fed: 0.03,
-  hungry: -0.05,
-  /** Beds close to the work: +comfort when every kiwi sleeps within `near` steps of its work,
-   * −comfort when none does (linear in between). */
-  comfort: 0.03,
+  fed: 10,
+  hungry: -20,
+  /** A bed within `near` steps of the kiwi's work; sleeping outside. */
   near: 4,
-  /** The mayor's speech lifts spirits. */
-  speech: 0.03,
-  /** After a death, the colony mourns for a day. */
-  mourning: -0.06,
-  mourningMs: ms.h(24),
-  season: { spring: 0.02, summer: 0, autumn: 0, winter: -0.02 }
+  bedNear: 5,
+  noBed: -10,
+  /** The mayor's lasting effect and the bards' (their shares of `SKILLS`, in points). */
+  points: 100,
+  /** The mayor's speech lifts spirits (while it lasts). */
+  speech: 3,
+  season: { spring: 5, summer: 0, autumn: 0, winter: -5 },
+  /** A kiwi's own temper. */
+  trait: { dreamer: 5, lucky: 5, glutton: -5 },
+  /** A kiwi of the bard line sings for itself too. */
+  bard: 5,
+  /** Memories: the colony mourns a lost kiwi; its hut mates or crew mates grieve harder. */
+  memories: {
+    mourning: { value: -15, ms: ms.h(24) },
+    grief: { value: -25, ms: ms.h(24) }
+  }
 };
 
 // packages/shared/src/data/threats.ts
@@ -4653,33 +4669,102 @@ function presence(state, v, bed = bedsOf(state).get(v.id)) {
   const walk = 1 + REST.commute * (bed?.distance ?? 0);
   return Math.max(REST.minPresence, 1 - restNeed(state, v, bed) * walk);
 }
-function moraleOf(state, beds = bedsOf(state)) {
+function colonyMood(state) {
+  const base = MORALE.base[Math.min(MORALE.base.length - 1, ageOf(state))];
   const food = hungerStage(state) === "fed" ? MORALE.fed : MORALE.hungry;
-  const comfort = comfortOf(state, beds);
-  const speech = state.speechUntil > state.now ? MORALE.speech : 0;
-  const mourning = state.mourningUntil > state.now ? MORALE.mourning : 0;
   const season = MORALE.season[seasonOf(state)];
-  const mayor = mayorMorale(state);
-  const bards = bardMorale(state);
-  const sum = food + comfort + mayor + bards + speech + mourning + season;
-  const total = Math.max(-MORALE.max, Math.min(MORALE.max, sum));
-  return { total, food, comfort, mayor, bards, speech, mourning, season };
+  const mayor = mayorMorale(state) * MORALE.points;
+  const bards = bardMorale(state) * MORALE.points;
+  const speech = state.speechUntil > state.now ? MORALE.speech : 0;
+  return {
+    base,
+    food,
+    season,
+    mayor,
+    bards,
+    speech,
+    sum: base + food + season + mayor + bards + speech
+  };
 }
-var comfortCache = /* @__PURE__ */ new WeakMap();
-function comfortOf(state, beds) {
-  const cached = comfortCache.get(beds);
-  if (cached !== void 0) return cached;
-  let workers = 0;
-  let near = 0;
+function bedPoints(bed) {
+  if (!bed) return 0;
+  if (bed.buildingId === null) return MORALE.noBed;
+  return bed.distance <= MORALE.near ? MORALE.bedNear : 0;
+}
+function memoryPoints(v, now) {
+  let sum = 0;
+  for (const m of v.memories ?? []) if (m.until > now) sum += m.value;
+  return sum;
+}
+function kiwiMorale(state, v, beds = bedsOf(state), colony2 = colonyMood(state)) {
+  const bed = bedPoints(beds.get(v.id));
+  const trait = v.trait ? MORALE.trait[v.trait] ?? 0 : 0;
+  const temper = trait + (inLine(v.classId, "bard") ? MORALE.bard : 0);
+  const memories = memoryPoints(v, state.now);
+  const total = Math.max(0, Math.min(MORALE.max, colony2.sum + bed + temper + memories));
+  return { total, colony: colony2.sum, bed, temper, memories };
+}
+function moraleFactor(points) {
+  const n = MORALE.neutral;
+  if (points <= n) return MORALE.work.low + (1 - MORALE.work.low) * (points / n);
+  return 1 + (MORALE.work.high - 1) * ((points - n) / (MORALE.max - n));
+}
+function kiwiMoraleWork(state, v, beds = bedsOf(state), colony2 = colonyMood(state)) {
+  return moraleFactor(kiwiMorale(state, v, beds, colony2).total);
+}
+function moraleOf(state, beds = bedsOf(state)) {
+  const colony2 = colonyMood(state);
+  let n = 0;
+  let total = 0;
+  let work = 0;
+  let low = 0;
+  let comfort = 0;
+  let temper = 0;
+  let memories = 0;
   for (const v of state.villagers) {
-    if (v.job.kind !== "work") continue;
-    workers++;
-    const bed = beds.get(v.id);
-    if (bed && bed.buildingId !== null && bed.distance <= MORALE.near) near++;
+    if (v.job.kind === "expedition" || v.job.kind === "outpost") continue;
+    const m = kiwiMorale(state, v, beds, colony2);
+    n++;
+    total += m.total;
+    work += moraleFactor(m.total) - 1;
+    if (m.total < MORALE.sulk) low++;
+    comfort += m.bed;
+    temper += m.temper;
+    memories += m.memories;
   }
-  const comfort = workers > 0 ? MORALE.comfort * (2 * near / workers - 1) : 0;
-  comfortCache.set(beds, comfort);
-  return comfort;
+  const avg = (x) => n > 0 ? x / n : 0;
+  return {
+    ...colony2,
+    average: n > 0 ? total / n : Math.max(0, Math.min(MORALE.max, colony2.sum)),
+    work: avg(work),
+    low,
+    comfort: avg(comfort),
+    temper: avg(temper),
+    memories: avg(memories)
+  };
+}
+function addMemory(v, kind, value, until) {
+  const list = v.memories ?? [];
+  const old = list.find((m) => m.kind === kind);
+  if (old) {
+    if (Math.abs(value) > Math.abs(old.value)) old.value = value;
+    old.until = Math.max(old.until, until);
+  } else list.push({ kind, value, until });
+  v.memories = list;
+}
+function nextMemoryEnd(state) {
+  let next = Infinity;
+  for (const v of state.villagers)
+    for (const m of v.memories ?? []) if (m.until > state.now && m.until < next) next = m.until;
+  return next;
+}
+function fadeMemories(state, at) {
+  for (const v of state.villagers) {
+    if (!v.memories) continue;
+    const kept = v.memories.filter((m) => m.until > at);
+    if (kept.length > 0) v.memories = kept;
+    else delete v.memories;
+  }
 }
 function missingBeds(state, beds = bedsOf(state)) {
   let count = 0;
@@ -4697,9 +4782,6 @@ function missingBeds(state, beds = bedsOf(state)) {
     } else total += p;
   }
   return { count, presenceLost: total > 0 ? lost / total : 0 };
-}
-function moraleWork(state, beds = bedsOf(state)) {
-  return 1 + moraleOf(state, beds).total;
 }
 function phaseOf(id3) {
   let h = 2166136261;
@@ -4744,13 +4826,15 @@ function forgeRate(state) {
   if (!b || state.forge.orders.length === 0) return 0;
   if (state.threats.shelterUntil > state.now) return 0;
   const beds = bedsOf(state);
+  const mood = colonyMood(state);
   let work = 0;
-  for (const v of smithsOf(state)) work += forgePower(v) * presence(state, v, beds.get(v.id));
+  for (const v of smithsOf(state))
+    work += forgePower(v) * presence(state, v, beds.get(v.id)) * kiwiMoraleWork(state, v, beds, mood);
   if (work <= 0) return 0;
   const speed = levelDef(b.type, b.level)?.forging ?? 1;
   const damaged = b.damaged ? THREATS.damagedWork : 1;
   const night = isNight(state) ? nightWork(state) : 1;
-  const f = work * speed * damaged * night * hungerWork(state) * moraleWork(state, beds);
+  const f = work * speed * damaged * night * hungerWork(state);
   return f > 0 ? Math.max(1, Math.round(FORGE.rate * f)) : 0;
 }
 function forgeQueueSize(state) {
@@ -6752,6 +6836,7 @@ function resolveReturn(state, e, events = []) {
   if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
 }
 function removeVillagers(state, ids, cause, at, gearLost = false) {
+  const close = closeMates(state, ids);
   for (const v of state.villagers) {
     if (!ids.includes(v.id)) continue;
     state.memorial.push({
@@ -6772,7 +6857,31 @@ function removeVillagers(state, ids, cause, at, gearLost = false) {
   }
   state.villagers = state.villagers.filter((v) => !ids.includes(v.id));
   forgetGuards(state, ids);
-  if (ids.length > 0) state.mourningUntil = Math.max(state.mourningUntil, at + MORALE.mourningMs);
+  if (ids.length === 0) return;
+  for (const v of state.villagers) {
+    const kind = close.has(v.id) ? "grief" : "mourning";
+    const memory = MORALE.memories[kind];
+    addMemory(v, kind, memory.value, at + memory.ms);
+  }
+}
+function closeMates(state, ids) {
+  const beds = bedsOf(state);
+  const huts = /* @__PURE__ */ new Set();
+  const ships = /* @__PURE__ */ new Set();
+  for (const v of state.villagers) {
+    if (!ids.includes(v.id)) continue;
+    const hut = beds.get(v.id)?.buildingId;
+    if (hut) huts.add(hut);
+    if (v.job.kind === "expedition") ships.add(v.job.expeditionId);
+  }
+  const out = /* @__PURE__ */ new Set();
+  for (const v of state.villagers) {
+    if (ids.includes(v.id)) continue;
+    const hut = beds.get(v.id)?.buildingId;
+    if (hut && huts.has(hut) || v.job.kind === "expedition" && ships.has(v.job.expeditionId))
+      out.add(v.id);
+  }
+  return out;
 }
 function nameOf(e, id3) {
   return e.roster.find((r) => r.id === id3)?.name ?? id3;
@@ -8643,7 +8752,7 @@ function advanceInPlace(s, now, events) {
     const flows = computeFlows(s);
     const trainingEnd = nextTrainingEnd(s);
     const speechEnd = s.speechUntil > s.now ? s.speechUntil : Infinity;
-    const mourningEnd = s.mourningUntil > s.now ? s.mourningUntil : Infinity;
+    const memoryEnd = nextMemoryEnd(s);
     const calendarChange = nextCalendarChange(s.calendarStart, s.now);
     const threatAt = nextThreatEvent(s);
     const skyAt = nextSkyEvent(s);
@@ -8672,7 +8781,7 @@ function advanceInPlace(s, now, events) {
       injuryEnd,
       calendarChange,
       flows.hungerAt,
-      mourningEnd,
+      memoryEnd,
       constructionEnd,
       eggEnd,
       expedition?.at ?? Infinity,
@@ -8705,7 +8814,7 @@ function advanceInPlace(s, now, events) {
       map = faceMapOf(s);
     }
     if (speechEnd === nextEvent) events.push({ type: "speechOver", at: speechEnd });
-    if (mourningEnd === nextEvent) events.push({ type: "mourningOver", at: mourningEnd });
+    if (memoryEnd === nextEvent) fadeMemories(s, memoryEnd);
     if (calendarChange === nextEvent) calendarTick(s, calendarChange, events);
     if (flows.hungerAt === nextEvent) starve(s, nextEvent, events);
     if (injuryEnd === nextEvent) healInjuries(s, injuryEnd, events);
@@ -9838,18 +9947,19 @@ function researchPerHour(state) {
   const libs = libraries(state);
   if (libs.length === 0) return 0;
   const beds = bedsOf(state);
+  const mood = colonyMood(state);
   let total = 0;
   for (const b of libs) {
     const base = levelDef(b.type, b.level)?.research ?? 0;
     const damaged = b.damaged ? THREATS.damagedWork : 1;
     for (const v of state.villagers) {
       if (v.job.kind !== "work" || v.job.buildingId !== b.id) continue;
-      total += base * researchPower(v) * presence(state, v, beds.get(v.id)) * damaged;
+      total += base * researchPower(v) * presence(state, v, beds.get(v.id)) * kiwiMoraleWork(state, v, beds, mood) * damaged;
     }
   }
   if (total <= 0) return 0;
   const night = isNight(state) ? nightWork(state) : 1;
-  return total * night * hungerWork(state) * moraleWork(state, beds);
+  return total * night * hungerWork(state);
 }
 function researchRate(state) {
   const perHour = researchPerHour(state);
@@ -10531,11 +10641,12 @@ function workforce(state, b, workers) {
 function crewWork(state, workers, resource) {
   if (state.threats.shelterUntil > state.now) return 0;
   const beds = bedsOf(state);
+  const mood = colonyMood(state);
   const sum = workers.reduce(
-    (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)),
+    (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)) * kiwiMoraleWork(state, v, beds, mood),
     0
   );
-  return sum * colonyBonus(state) * hungerWork(state) * moraleWork(state, beds);
+  return sum * colonyBonus(state) * hungerWork(state);
 }
 function mayorOf(state) {
   return state.villagers.find(
@@ -11663,7 +11774,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 35;
+var SCHEMA_VERSION = 36;
 var MISSION_KINDS = [
   "land",
   "raid",
@@ -11715,7 +11826,6 @@ function newGame(opts) {
     memorial: [],
     speechUntil: 0,
     hunger: 0,
-    mourningUntil: 0,
     queue: [],
     egg: null,
     objectiveIndex: 0,
@@ -12022,7 +12132,8 @@ function cloneVillager(v) {
     skillReadyAt: { ...v.skillReadyAt },
     mastery: { ...v.mastery },
     history: { ...v.history },
-    ...v.gear ? { gear: { ...v.gear } } : {}
+    ...v.gear ? { gear: { ...v.gear } } : {},
+    ...v.memories ? { memories: v.memories.map((m) => ({ ...m })) } : {}
   };
 }
 function cloneParcelView(p) {
@@ -17636,7 +17747,14 @@ var villager = external_exports.object({
     armor: external_exports.enum(ITEM_IDS).optional(),
     kept: external_exports.literal(true).optional()
   }).optional(),
-  veteran: external_exports.number().int().min(0).optional()
+  veteran: external_exports.number().int().min(0).optional(),
+  memories: external_exports.array(
+    external_exports.object({
+      kind: external_exports.enum(MEMORY_KINDS),
+      value: external_exports.number().min(-MORALE.max).max(MORALE.max),
+      until: external_exports.number()
+    })
+  ).max(MEMORY_KINDS.length).optional()
 });
 var gameStateSchema = external_exports.object({
   schemaVersion: external_exports.number().int(),
@@ -17683,7 +17801,6 @@ var gameStateSchema = external_exports.object({
   ).max(MEMORIAL_MAX),
   speechUntil: external_exports.number().min(0),
   hunger: external_exports.number().int().min(0),
-  mourningUntil: external_exports.number().min(0),
   queue: external_exports.array(
     external_exports.object({
       id,
@@ -18184,6 +18301,18 @@ var MIGRATIONS = {
       })
     );
     return { ...raw, siege: { conqueredAt: Number(siege.conqueredAt ?? 0) }, intel };
+  },
+  // v35 → v36 (chantier 43): one morale gauge per kiwi; the colony's mourning becomes a memory.
+  35: (raw) => {
+    const { mourningUntil, ...rest } = raw;
+    const until = Number(mourningUntil ?? 0);
+    if (!(until > Number(raw.now ?? 0)) || !Array.isArray(raw.villagers)) return rest;
+    const memory = { kind: "mourning", value: MORALE.memories.mourning.value, until };
+    const villagers = raw.villagers.map((v) => ({
+      ...v,
+      memories: [memory]
+    }));
+    return { ...rest, villagers };
   }
 };
 var OLD_MISSIONS = ["raid", "recon", "assault", "reinforce", "final", "retreat"];
@@ -19018,6 +19147,10 @@ function plausibleKiwi(v, now) {
   if (practice2 > MAX_PRACTICE_PER_MS * age) return false;
   if (v.classId && v.level < CLASSES[v.classId].minLevel) return false;
   if (v.kikiwiwi && v.classId) return false;
+  for (const m of v.memories ?? []) {
+    const def = MORALE.memories[m.kind];
+    if (m.value > Math.max(0, 2 * def.value) || m.until > now + 2 * def.ms) return false;
+  }
   return v.history.expeditions === 0 && v.history.victories === 0;
 }
 function reply(ctx, state, events = []) {
@@ -19552,6 +19685,7 @@ export {
   MAX_PLAYERS,
   MAX_UNIVERSES_PER_PLAYER,
   MEMORIAL_MAX,
+  MEMORY_KINDS,
   METEORS,
   MISSION_KINDS,
   MORALE,
@@ -19631,6 +19765,7 @@ export {
   accrueStardust,
   activeItem,
   addIron,
+  addMemory,
   addMissingKeys,
   addVillager,
   advance,
@@ -19745,6 +19880,7 @@ export {
   cloneVillager,
   collectReserve,
   colonyBonus,
+  colonyMood,
   colonyNeedsSync,
   colonyOfFriend,
   colonyPower,
@@ -19819,6 +19955,7 @@ export {
   extensionFor,
   faceMapOf,
   faceViewOf,
+  fadeMemories,
   familyOf,
   fightLossAt,
   fillCraters,
@@ -19937,6 +20074,8 @@ export {
   kindPower,
   kiwiCount,
   kiwiExposure,
+  kiwiMorale,
+  kiwiMoraleWork,
   kiwiPosts,
   kiwiRhythm,
   kiwiSeed,
@@ -19978,6 +20117,7 @@ export {
   maxLevelOf,
   mayorMorale,
   mayorOf,
+  memoryPoints,
   mergeUnits,
   meteorAt,
   meteorIronOf,
@@ -19990,8 +20130,8 @@ export {
   minersOf,
   missingBeds,
   modifiers,
+  moraleFactor,
   moraleOf,
-  moraleWork,
   ms,
   nearRay,
   nearestDepotOf,
@@ -20019,6 +20159,7 @@ export {
   nextId,
   nextInfusionEnd,
   nextKiwiEvent,
+  nextMemoryEnd,
   nextResearchEvent,
   nextSkyEvent,
   nextStep,

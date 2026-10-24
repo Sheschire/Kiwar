@@ -13,7 +13,7 @@ import {
   migrateState,
   MORALE,
   moraleOf,
-  moraleWork,
+  kiwiMoraleWork,
   NEEDS,
   netRates,
   type GameState,
@@ -91,7 +91,10 @@ describe('hunger', () => {
     const hungry = { ...s, hunger: NEEDS.stages.hungry * HUNGER_SCALE };
     expect(hungerStage(hungry)).toBe('hungry');
     // Hunger also weighs on morale.
-    const morale = moraleWork(hungry) / moraleWork(s);
+    const worker = s.villagers.find(
+      (v) => v.job.kind === 'work' && v.job.buildingId === pulpery.id,
+    )!;
+    const morale = kiwiMoraleWork(hungry, worker) / kiwiMoraleWork(s, worker);
     expect(moraleOf(hungry).food).toBe(MORALE.hungry);
     expect(moraleOf(s).food).toBe(MORALE.fed);
     expect(buildingHarvest(hungry, pulpery)!.demand).toBeCloseTo(

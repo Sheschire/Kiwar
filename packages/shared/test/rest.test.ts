@@ -11,6 +11,10 @@ import {
   missingBeds,
   MORALE,
   moraleOf,
+  colonyMood,
+  kiwiMorale,
+  moraleFactor,
+  removeVillagers,
   presence,
   REST,
   SEASON_MS,
@@ -95,7 +99,8 @@ describe('kiwis without a bed (chantier 12)', () => {
   it('never count as sleeping near their work, and their cost is shown', () => {
     const { s } = farPulpery();
     const outside = new Map([...bedsOf(s)].map(([id]) => [id, { buildingId: null, distance: 0 }]));
-    expect(moraleOf(s, outside).comfort).toBeCloseTo(-MORALE.comfort, 9);
+    expect(moraleOf(s, outside).comfort).toBe(MORALE.noBed);
+    for (const v of s.villagers) expect(kiwiMorale(s, v, outside).bed).toBe(MORALE.noBed);
     const cost = missingBeds(s, outside);
     expect(cost.count).toBe(
       s.villagers.filter((v) => v.job.kind === 'work' || v.job.kind === 'idle').length,
@@ -105,38 +110,116 @@ describe('kiwis without a bed (chantier 12)', () => {
   });
 });
 
-describe('morale', () => {
-  it('adds up food, beds, speech, mourning and season, within ±10 %', () => {
+describe('morale per kiwi (chantier 43)', () => {
+  it('adds up the colony, the bed, the temper and the memories, within 0–100', () => {
     const { s } = farPulpery();
-    const m = moraleOf(s);
-    expect(m.food).toBe(MORALE.fed);
-    expect(m.season).toBe(MORALE.season.spring);
-    expect(m.total).toBeCloseTo(m.food + m.comfort + m.speech + m.mourning + m.season, 9);
-    const sad = moraleOf({ ...s, mourningUntil: s.now + HOUR_MS, hunger: 1e12 });
-    expect(sad.mourning).toBe(MORALE.mourning);
-    expect(sad.total).toBeGreaterThanOrEqual(-MORALE.max);
-  });
-
-  it('the colony mourns a lost kiwi for a day', () => {
-    const { state } = setup();
-    const s = { ...state, mourningUntil: T0 + MORALE.mourningMs };
-    const { events, state: later } = advance(s, T0 + MORALE.mourningMs + HOUR_MS);
-    expect(events.some((e) => e.type === 'mourningOver' && e.at === T0 + MORALE.mourningMs)).toBe(
-      true,
+    const mood = colonyMood(s);
+    expect(mood.base).toBe(MORALE.base[0]);
+    expect(mood.food).toBe(MORALE.fed);
+    expect(mood.season).toBe(MORALE.season.spring);
+    expect(mood.sum).toBeCloseTo(
+      mood.base + mood.food + mood.season + mood.mayor + mood.bards + mood.speech,
+      9,
     );
-    expect(moraleOf(later).mourning).toBe(0);
+    for (const v of s.villagers) {
+      const m = kiwiMorale(s, v);
+      expect(m.total).toBeCloseTo(m.colony + m.bed + m.temper + m.memories, 9);
+    }
+    const v = s.villagers[0]!;
+    const sad = {
+      ...s,
+      hunger: 1e12,
+      villagers: s.villagers.map((x) =>
+        x.id === v.id
+          ? { ...x, memories: [{ kind: 'grief' as const, value: -90, until: s.now + HOUR_MS }] }
+          : x,
+      ),
+    };
+    expect(kiwiMorale(sad, sad.villagers[0]!).total).toBe(0);
+    expect(moraleOf(sad).low).toBeGreaterThanOrEqual(1);
   });
 
-  it('migrates v7 saves: nobody mourns', () => {
+  it('turns morale into work: ×0.7 at 0, ×1 at neutral, ×1.15 at the top', () => {
+    expect(moraleFactor(0)).toBeCloseTo(MORALE.work.low, 9);
+    expect(moraleFactor(MORALE.neutral)).toBe(1);
+    expect(moraleFactor(MORALE.max)).toBeCloseTo(MORALE.work.high, 9);
+    expect(moraleFactor(25)).toBeCloseTo((MORALE.work.low + 1) / 2, 9);
+  });
+
+  it('expects more in later ages', () => {
+    const { s } = farPulpery();
+    const v = s.villagers[0]!;
+    const aged = (level: number) => ({
+      ...s,
+      buildings: [
+        ...s.buildings,
+        { ...s.buildings[0]!, id: 'bm' as never, type: 'monument' as const, level },
+      ],
+    });
+    const eden = kiwiMorale(s, v).total;
+    expect(kiwiMorale(aged(1), v).total).toBeCloseTo(eden - MORALE.base[0] + MORALE.base[1], 9);
+    expect(kiwiMorale(aged(3), v).total).toBeCloseTo(eden - MORALE.base[0] + MORALE.base[3], 9);
+  });
+
+  it('a lost kiwi leaves a memory: grief for its hut mates, mourning for the others', () => {
+    const { s } = farPulpery();
+    const beds = bedsOf(s);
+    const dead = s.villagers[0]!;
+    const hut = beds.get(dead.id)!.buildingId;
+    const t = structuredClone(s);
+    removeVillagers(t, [dead.id], 'predator', t.now);
+    expect(t.villagers.some((v) => v.id === dead.id)).toBe(false);
+    for (const v of t.villagers) {
+      const kind = hut && beds.get(v.id)?.buildingId === hut ? 'grief' : 'mourning';
+      expect(v.memories).toEqual([
+        { kind, value: MORALE.memories[kind].value, until: t.now + MORALE.memories[kind].ms },
+      ]);
+    }
+    // A second loss later renews the memory (the stronger value, the later end).
+    removeVillagers(t, [t.villagers[0]!.id], 'predator', t.now + HOUR_MS);
+    expect(t.villagers[0]!.memories!.length).toBe(1);
+    expect(t.villagers[0]!.memories![0]!.until).toBe(
+      t.now + HOUR_MS + MORALE.memories[t.villagers[0]!.memories![0]!.kind].ms,
+    );
+  });
+
+  it('memories fade at an event: one big step equals small steps', () => {
+    const { s } = farPulpery();
+    const t = structuredClone(s);
+    removeVillagers(t, [t.villagers[0]!.id], 'predator', t.now);
+    const end = t.now + MORALE.memories.mourning.ms + HOUR_MS;
+    const big = advance(t, end).state;
+    let small = t;
+    for (let at = t.now + 7 * 60_000; at < end; at += 7 * 60_000) small = advance(small, at).state;
+    small = advance(small, end).state;
+    expect(big.villagers.every((v) => !v.memories)).toBe(true);
+    expect(small.villagers).toEqual(big.villagers);
+    expect(small.resources.pulp).toBeCloseTo(big.resources.pulp, 6);
+    expect(moraleOf(big).memories).toBe(0);
+  });
+
+  it('migrates v35 saves: the colony mourning becomes a memory of each kiwi', () => {
     const { state } = setup();
-    const v7 = JSON.parse(JSON.stringify({ ...state, schemaVersion: 7 })) as Record<
+    const v35 = JSON.parse(JSON.stringify({ ...state, schemaVersion: 35 })) as Record<
       string,
       unknown
     >;
-    delete v7.mourningUntil;
-    const m = migrateState(v7);
+    v35.mourningUntil = state.now + HOUR_MS;
+    const m = migrateState(v35);
     expect(m.ok).toBe(true);
-    if (m.ok) expect(m.state.mourningUntil).toBe(0);
+    if (!m.ok) return;
+    expect('mourningUntil' in m.state).toBe(false);
+    for (const v of m.state.villagers)
+      expect(v.memories).toEqual([
+        { kind: 'mourning', value: MORALE.memories.mourning.value, until: state.now + HOUR_MS },
+      ]);
+    const old = JSON.parse(JSON.stringify({ ...state, schemaVersion: 35 })) as Record<
+      string,
+      unknown
+    >;
+    old.mourningUntil = 0;
+    const n = migrateState(old);
+    expect(n.ok && n.state.villagers.every((v) => !v.memories)).toBe(true);
   });
 });
 

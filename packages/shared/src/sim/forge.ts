@@ -22,7 +22,7 @@ import { addIron, meteorIronOf } from './iron';
 import { kiwiStrength } from './kiwis';
 import { hungerWork } from './needs';
 import { nightWork, techEffects } from './research';
-import { bedsOf, moraleWork, presence } from './rest';
+import { bedsOf, colonyMood, kiwiMoraleWork, presence } from './rest';
 import { canAfford } from './selectors';
 import type { Building, GameState, Villager } from './state';
 
@@ -63,13 +63,16 @@ export function forgeRate(state: GameState): number {
   if (!b || state.forge.orders.length === 0) return 0;
   if (state.threats.shelterUntil > state.now) return 0;
   const beds = bedsOf(state);
+  const mood = colonyMood(state);
   let work = 0;
-  for (const v of smithsOf(state)) work += forgePower(v) * presence(state, v, beds.get(v.id));
+  for (const v of smithsOf(state))
+    work +=
+      forgePower(v) * presence(state, v, beds.get(v.id)) * kiwiMoraleWork(state, v, beds, mood);
   if (work <= 0) return 0;
   const speed = levelDef(b.type, b.level)?.forging ?? 1;
   const damaged = b.damaged ? THREATS.damagedWork : 1;
   const night = isNight(state) ? nightWork(state) : 1;
-  const f = work * speed * damaged * night * hungerWork(state) * moraleWork(state, beds);
+  const f = work * speed * damaged * night * hungerWork(state);
   return f > 0 ? Math.max(1, Math.round(FORGE.rate * f)) : 0;
 }
 

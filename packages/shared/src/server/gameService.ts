@@ -1,3 +1,4 @@
+import { MORALE } from '../data/needs';
 import { COMETS, STARDUST_SCALE } from '../data/comets';
 import { IRON, IRON_SCALE } from '../data/iron';
 import { ITEMS, type ItemId } from '../data/gear';
@@ -777,6 +778,11 @@ function plausibleKiwi(v: Villager, now: number): boolean {
   if (v.classId && v.level < CLASSES[v.classId].minLevel) return false;
   // Chantier 37: a Kikiwiwi has no class.
   if (v.kikiwiwi && v.classId) return false;
+  // Chantier 43: no memory better or longer than the best its kind can give (Festival doubles).
+  for (const m of v.memories ?? []) {
+    const def = MORALE.memories[m.kind];
+    if (m.value > Math.max(0, 2 * def.value) || m.until > now + 2 * def.ms) return false;
+  }
   return v.history.expeditions === 0 && v.history.victories === 0;
 }
 

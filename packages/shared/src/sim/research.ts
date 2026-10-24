@@ -16,7 +16,7 @@ import type { GameEvent } from './advance';
 import { isNight } from './calendar';
 import { modifiers, rankOf } from './kiwis';
 import { hungerWork } from './needs';
-import { bedsOf, moraleWork, presence } from './rest';
+import { bedsOf, colonyMood, kiwiMoraleWork, presence } from './rest';
 import type { Building, GameState, Villager } from './state';
 
 /** Age reached by the colony (index in AGE_IDS, 0 = Eden): the level of its monument. */
@@ -141,18 +141,24 @@ export function researchPerHour(state: GameState): number {
   const libs = libraries(state);
   if (libs.length === 0) return 0;
   const beds = bedsOf(state);
+  const mood = colonyMood(state);
   let total = 0;
   for (const b of libs) {
     const base = levelDef(b.type, b.level)?.research ?? 0;
     const damaged = b.damaged ? THREATS.damagedWork : 1;
     for (const v of state.villagers) {
       if (v.job.kind !== 'work' || v.job.buildingId !== b.id) continue;
-      total += base * researchPower(v) * presence(state, v, beds.get(v.id)) * damaged;
+      total +=
+        base *
+        researchPower(v) *
+        presence(state, v, beds.get(v.id)) *
+        kiwiMoraleWork(state, v, beds, mood) *
+        damaged;
     }
   }
   if (total <= 0) return 0;
   const night = isNight(state) ? nightWork(state) : 1;
-  return total * night * hungerWork(state) * moraleWork(state, beds);
+  return total * night * hungerWork(state);
 }
 
 /** Raw research units per ms (an integer, so small steps add up exactly like a big one). */

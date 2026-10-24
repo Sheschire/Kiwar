@@ -17,6 +17,7 @@ import {
   workerPower,
   colonyBonus,
   mayorMorale,
+  MORALE,
   moraleOf,
   crewWeight,
   HOUR_MS,
@@ -151,7 +152,7 @@ describe('school and classes', () => {
     // Chantier 04: Charisma and Organisation lift morale; the speech is the harvest boost.
     const lift = SKILLS.mayorPerCharisma * mayor.stats.charisma + SKILLS.organisationBonus;
     expect(mayorMorale(base)).toBeCloseTo(lift);
-    expect(moraleOf(base).mayor).toBeCloseTo(lift);
+    expect(moraleOf(base).mayor).toBeCloseTo(lift * MORALE.points);
     expect(colonyBonus(base)).toBe(1);
     const before = productionRates(empty(base)).pulp;
     const speaking = run(
@@ -300,7 +301,7 @@ describe('school and classes', () => {
     });
     expect(bardMorale(bards(0))).toBe(0);
     expect(bardMorale(bards(1))).toBeCloseTo(SKILLS.bardMorale);
-    expect(moraleOf(bards(2)).bards).toBeCloseTo(2 * SKILLS.bardMorale);
+    expect(moraleOf(bards(2)).bards).toBeCloseTo(2 * SKILLS.bardMorale * MORALE.points);
     expect(bardMorale(bards(s.villagers.length))).toBeLessThanOrEqual(SKILLS.bardMax + 1e-9);
   });
 
