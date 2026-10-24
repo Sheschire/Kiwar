@@ -34,6 +34,7 @@ export const BUILDING_TYPES = [
   'skittles',
   'skipPond',
   'slide',
+  'cabaret',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
@@ -107,6 +108,7 @@ export const FOOTPRINTS: Partial<Record<BuildingType, FootprintSize>> = {
   trainingCamp: 3,
   forge: 3,
   townHall: 3,
+  cabaret: 3,
 };
 
 export function footprintOf(type: BuildingType): FootprintSize {
@@ -706,6 +708,22 @@ const BASE: Record<BuildingType, BuildingDef> = {
         durationMs: ms.min(12),
         requiresNestLevel: 4,
         requiresAge: 1,
+      },
+    ],
+  },
+  // Chantier 44: the Robin's Cabaret (Iron age), one per colony, outside the building cap. It
+  // opens at nightfall for the kiwis sleeping around it, for some juice (`CABARET`).
+  cabaret: {
+    id: 'cabaret',
+    allowedTiles: ['flesh', 'ray', 'heart'],
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 7000, fiber: 8000, seeds: 2000, juice: 2500 },
+        durationMs: ms.h(2),
+        requiresNestLevel: 7,
+        requiresAge: 2,
       },
     ],
   },

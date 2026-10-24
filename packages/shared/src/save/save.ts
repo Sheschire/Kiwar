@@ -325,6 +325,7 @@ export const gameStateSchema = z.object({
     .max(MEMORIAL_MAX),
   speechUntil: z.number().min(0),
   speech: z.object({ until: z.number().min(0), readyAt: z.number().min(0) }),
+  village: z.object({ cabaretOpen: z.boolean(), fireworksNight: z.number().min(0) }),
   hunger: z.number().int().min(0),
   queue: z.array(
     z.object({
@@ -927,6 +928,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   },
   // v36 → v37 (chantier 43): the Speech moves to the Town Hall (an old one ends normally).
   36: (raw) => ({ ...raw, speech: { until: 0, readyAt: 0 } }),
+  // v37 → v38 (chantier 44): the cabaret and the fireworks.
+  37: (raw) => ({ ...raw, village: { cabaretOpen: true, fireworksNight: 0 } }),
 };
 
 const OLD_MISSIONS = ['raid', 'recon', 'assault', 'reinforce', 'final', 'retreat'];

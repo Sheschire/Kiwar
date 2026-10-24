@@ -62,7 +62,14 @@ export const REST = {
 } as const;
 
 /** Chantier 43: what a kiwi remembers for a while (its morale moves until `until`). */
-export const MEMORY_KINDS = ['mourning', 'grief', 'speech', 'vigil'] as const;
+export const MEMORY_KINDS = [
+  'mourning',
+  'grief',
+  'speech',
+  'vigil',
+  'cabaret',
+  'fireworks',
+] as const;
 export type MemoryKind = (typeof MEMORY_KINDS)[number];
 
 /**
@@ -115,6 +122,9 @@ export const MORALE = {
     speech: { value: 12, ms: ms.h(12), best: 2 * (12 + 15) },
     // Supper at the campfire: until the next nightfall (a game day is 2 h).
     vigil: { value: 8, ms: ms.h(2), best: 8 },
+    // Chantier 44: an evening at the cabaret (until the next nightfall), a fireworks show.
+    cabaret: { value: 12, ms: ms.h(2), best: 12 },
+    fireworks: { value: 15, ms: ms.h(12), best: 15 },
   } satisfies Record<MemoryKind, { value: number; ms: number; best: number }>,
 } as const;
 
@@ -184,6 +194,17 @@ export function isDecor(type: BuildingType): boolean {
 export function isVillageLife(type: BuildingType): boolean {
   return BEAUTY[type] !== undefined || LEISURE[type] !== undefined;
 }
+
+/**
+ * Chantier 44: the Robin's Cabaret. At nightfall, when it is open and the stock holds `juice`,
+ * it takes that juice and the free kiwis sleeping within `radius` of it spend the evening there
+ * (a `cabaret` memory until the next nightfall). Without the juice it stays closed.
+ */
+export const CABARET = {
+  juice: 60,
+  radius: 6,
+  value: MORALE.memories.cabaret.value,
+} as const;
 
 /**
  * Chantier 43: the campfire. At nightfall the free kiwis sleeping within its reach sup there

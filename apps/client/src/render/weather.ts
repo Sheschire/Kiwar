@@ -85,6 +85,7 @@ const ALWAYS_LIT: Partial<Record<BuildingType, number>> = {
   campfire: 0.6,
   lanterns: 0.45,
   fountain: 0.4,
+  cabaret: 1.5,
 };
 
 export class WeatherView {
@@ -92,6 +93,8 @@ export class WeatherView {
   private readonly layers = new Map<WeatherKind, { points: Points; material: ShaderMaterial }>();
   private readonly glows: Sprite[] = [];
   private readonly glowMaterial: SpriteMaterial;
+  /** Chantier 44: the cabaret's suave red lights. */
+  private readonly redGlowMaterial: SpriteMaterial;
   private glowSig = '';
   private density = 1;
 
@@ -194,6 +197,8 @@ export class WeatherView {
       blending: AdditiveBlending,
       opacity: 0,
     });
+    this.redGlowMaterial = this.glowMaterial.clone();
+    this.redGlowMaterial.color = new Color('#ff3b4e');
   }
 
   /** Low quality: fewer particles. */
@@ -221,7 +226,7 @@ export class WeatherView {
     for (const b of glowing) {
       const tile = getTile(this.map, b);
       const p = worldPosition(b);
-      const s = new Sprite(this.glowMaterial);
+      const s = new Sprite(b.type === 'cabaret' ? this.redGlowMaterial : this.glowMaterial);
       const big = b.type === 'nest' ? 1.6 : b.type === 'hut' ? 1 : (ALWAYS_LIT[b.type] ?? 0.85);
       s.position.set(p.x, (tile?.height ?? 0) + 0.7 * big, p.z);
       s.scale.setScalar(2.2 * big);
@@ -251,6 +256,7 @@ export class WeatherView {
       layer.material.uniforms.uAmount!.value = amount;
     }
     this.glowMaterial.opacity = night * 0.85;
+    this.redGlowMaterial.opacity = night * 0.95;
     for (const g of this.glows) g.visible = night > 0.02;
   }
 
@@ -261,6 +267,7 @@ export class WeatherView {
     }
     this.glowMaterial.map?.dispose();
     this.glowMaterial.dispose();
+    this.redGlowMaterial.dispose();
   }
 }
 

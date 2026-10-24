@@ -1,4 +1,5 @@
 import { giveSpeech, speechLock } from './speech';
+import { cabaretOf } from './village';
 import { landingLock } from './landing';
 import type { LandingOrders } from '../data/landing';
 import { IRON_SCALE } from '../data/iron';
@@ -199,6 +200,8 @@ export type Command =
   | { type: 'shelter' }
   /** Chantier 43: the mayor gives a speech at the Town Hall (everybody gathers there). */
   | { type: 'giveSpeech' }
+  /** Chantier 44: open or close the cabaret (it opens at nightfall when open and paid). */
+  | { type: 'setCabaret'; open: boolean }
   /** Mends a building damaged by predators (queued like a construction). */
   | { type: 'repair'; buildingId: BuildingId }
   /** Posts exactly these kiwis on the rampart (the others go back to work). */
@@ -362,6 +365,8 @@ export const COMMAND_ERRORS = [
   'forgeExists',
   'townHallExists',
   'statueExists',
+  'cabaretExists',
+  'noCabaret',
   'noTownHall',
   'noMayor',
   'speechCooling',
@@ -1103,6 +1108,11 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const lock = speechLock(s);
       if (lock) return fail(lock);
       giveSpeech(s, now);
+      return;
+    }
+    case 'setCabaret': {
+      if (!cabaretOf(s)) return fail('noCabaret');
+      s.village = { ...s.village, cabaretOpen: cmd.open };
       return;
     }
     case 'shelter': {

@@ -540,3 +540,168 @@ export function slide(): Parts {
   p.push([cyl(10), C.straw, m(0, 0.008, 0.42, 0.14, 0.015, 0.1)]);
   return p;
 }
+
+/** Chantier 44: the cabaret's reds, and the robins' feathers. */
+const CABARET_RED = '#b3262f';
+const CABARET_DARK = '#6e1820';
+const ROBIN_BROWN = '#8a5a3a';
+const ROBIN_BREAST = '#e2552d';
+
+/** A robin dancing the cancan at (x, z), facing +z: it sways and kicks (two rigs). */
+function robin(p: Parts, x: number, y: number, z: number, i: number): void {
+  const body = `robin${i}`;
+  const leg = `kick${i}`;
+  rig(p, body, [x, y, z], {
+    kind: 'swing',
+    axis: 'z',
+    amount: 0.22,
+    speed: 3.2 + i * 0.4,
+    ambient: true,
+  });
+  p.push([sphere(7, 5), ROBIN_BROWN, m(x, y + 0.09, z, 0.045, 0.05, 0.04), body]);
+  p.push([sphere(6, 4), ROBIN_BREAST, m(x, y + 0.085, z + 0.022, 0.034, 0.036, 0.022), body]);
+  p.push([sphere(6, 4), ROBIN_BROWN, m(x, y + 0.15, z + 0.005, 0.028, 0.028, 0.028), body]);
+  p.push([
+    cone(4),
+    C.flagGold,
+    m(x, y + 0.15, z + 0.035, 0.008, 0.025, 0.008, Math.PI / 2, 0, 0),
+    body,
+  ]);
+  // The frilly skirt, white and red.
+  p.push([cone(8), C.white, m(x, y + 0.045, z, 0.06, 0.05, 0.06), body]);
+  p.push([cone(8), CABARET_RED, m(x, y + 0.055, z, 0.05, 0.035, 0.05), body]);
+  // One leg stands, the other kicks high.
+  p.push([cyl(4), C.flagGold, m(x - 0.012, y + 0.02, z, 0.006, 0.04, 0.006)]);
+  rig(p, leg, [x + 0.012, y + 0.04, z], {
+    kind: 'swing',
+    axis: 'x',
+    amount: 0.9,
+    speed: 4.4 + i * 0.3,
+    ambient: true,
+  });
+  p.push([cyl(4), C.flagGold, m(x + 0.012, y + 0.02, z + 0.004, 0.006, 0.045, 0.006), leg]);
+}
+
+/**
+ * Chantier 44: the Robin's Cabaret, after the Moulin-Rouge — a red hall under a dark red roof,
+ * the windmill tower at its corner with sails that keep turning, a sign with gold bulbs over
+ * the door, and the stage in front where three robins dance the cancan. Its lights glow red at
+ * night (`weather.ts`). The two other tiles hold the terrace and the poster column
+ * (`cabaretTerrace` in `spread.ts`).
+ */
+export function cabaret(look: Look): Parts {
+  const { age } = look;
+  const p: Parts = [];
+  const trim = byAge(age, [C.cream, C.cream, A.plaster, A.brass]);
+  p.push([box(), C.stoneDark, m(0, 0.03, 0, 0.82, 0.06, 0.58)]);
+  // The hall.
+  p.push([box(), CABARET_RED, m(-0.05, 0.24, -0.06, 0.62, 0.36, 0.38)]);
+  for (const y of [0.075, 0.415]) p.push([box(), trim, m(-0.05, y, -0.06, 0.64, 0.025, 0.4)]);
+  gable(p, age, -0.05, 0.43, -0.06, 0.16, 0.66, 0.21, CABARET_DARK);
+  door(p, age, -0.05, 0.14, 0.135, 0.13, 0.2);
+  // Arched windows each side of the door.
+  for (const x of [-0.28, 0.18]) {
+    p.push([box(), C.flagGold, m(x, 0.25, 0.135, 0.07, 0.12, 0.012)]);
+    p.push([cyl(8), C.flagGold, m(x, 0.31, 0.135, 0.035, 0.012, 0.035, Math.PI / 2, 0, 0)]);
+  }
+  // The sign and its bulbs.
+  p.push([box(), '#2a0f12', m(-0.05, 0.36, 0.14, 0.34, 0.07, 0.015)]);
+  for (let i = 0; i < 7; i++)
+    p.push([sphere(4, 3), C.flagGold, m(-0.2 + i * 0.05, 0.36, 0.152, 0.012, 0.012, 0.012)]);
+  // The windmill tower and its sails.
+  const tx = 0.34;
+  const tz = 0.06;
+  p.push([cyl(10), CABARET_RED, m(tx, 0.38, tz, 0.1, 0.7, 0.1)]);
+  p.push([cyl(10), trim, m(tx, 0.72, tz, 0.105, 0.02, 0.105)]);
+  p.push([cone(10), CABARET_DARK, m(tx, 0.8, tz, 0.12, 0.16, 0.12)]);
+  p.push([box(), C.flagGold, m(tx, 0.42, tz + 0.1, 0.05, 0.07, 0.01)]);
+  const hub: [number, number, number] = [tx, 0.64, tz + 0.12];
+  rig(p, 'sails', hub, { kind: 'spin', axis: 'z', amount: 1, speed: 0.7, ambient: true });
+  p.push([
+    cyl(6),
+    C.woodDark,
+    m(hub[0], hub[1], hub[2], 0.025, 0.04, 0.025, Math.PI / 2, 0, 0),
+    'sails',
+  ]);
+  for (let k = 0; k < 4; k++) {
+    const a = (k * Math.PI) / 2 + Math.PI / 4;
+    const cx = hub[0] + Math.sin(a) * 0.15;
+    const cy = hub[1] + Math.cos(a) * 0.15;
+    p.push([box(), C.woodDark, m(cx, cy, hub[2] + 0.01, 0.014, 0.3, 0.01, 0, 0, -a), 'sails']);
+    p.push([
+      box(),
+      C.cream,
+      m(
+        cx + Math.cos(a) * 0.025,
+        cy - Math.sin(a) * 0.025,
+        hub[2] + 0.012,
+        0.045,
+        0.24,
+        0.006,
+        0,
+        0,
+        -a,
+      ),
+      'sails',
+    ]);
+  }
+  // The stage in front, its footlights and the three dancers.
+  p.push([box(), C.woodDark, m(-0.06, 0.07, 0.25, 0.44, 0.04, 0.16)]);
+  p.push([box(), CABARET_DARK, m(-0.06, 0.05, 0.33, 0.44, 0.04, 0.005)]);
+  for (let i = 0; i < 6; i++)
+    p.push([sphere(4, 3), C.fire, m(-0.25 + i * 0.076, 0.095, 0.325, 0.01, 0.01, 0.01)]);
+  for (let i = 0; i < 3; i++) robin(p, -0.19 + i * 0.13, 0.09, 0.25, i);
+  return p;
+}
+
+/**
+ * Chantier 44: the cabaret's other tiles — the terrace with round tables and a red parasol on
+ * the left, the poster column under red lanterns on the right.
+ */
+export function cabaretTerrace(
+  p: Parts,
+  look: Look,
+  left: readonly [number, number],
+  right: readonly [number, number],
+): void {
+  const metal = byAge(look.age, [C.woodDark, C.woodDark, C.ironDark, A.steel]);
+  const [lx, lz] = left;
+  for (const [dx, dz] of [
+    [-0.18, 0.1],
+    [0.16, 0.14],
+    [0, -0.18],
+  ] as const) {
+    const x = lx + dx;
+    const z = lz + dz;
+    p.push([cyl(4), metal, m(x, 0.07, z, 0.012, 0.14, 0.012)]);
+    p.push([cyl(10), C.cream, m(x, 0.145, z, 0.08, 0.012, 0.08)]);
+    for (const a of [0.4, 2.5])
+      p.push([
+        cyl(6),
+        CABARET_RED,
+        m(x + Math.cos(a) * 0.12, 0.05, z + Math.sin(a) * 0.12, 0.03, 0.1, 0.03),
+      ]);
+  }
+  p.push([cyl(4), metal, m(lx, 0.2, lz, 0.012, 0.4, 0.012)]);
+  p.push([cone(8), CABARET_RED, m(lx, 0.42, lz, 0.24, 0.09, 0.24)]);
+  p.push([cone(8), C.cream, m(lx, 0.405, lz, 0.25, 0.05, 0.25)]);
+  const [rx, rz] = right;
+  p.push([cyl(10), C.cream, m(rx, 0.22, rz, 0.08, 0.44, 0.08)]);
+  p.push([cyl(10), CABARET_RED, m(rx, 0.26, rz, 0.083, 0.14, 0.083)]);
+  p.push([cone(10), CABARET_DARK, m(rx, 0.48, rz, 0.1, 0.08, 0.1)]);
+  for (const dx of [-0.3, 0.3])
+    p.push([cyl(4), metal, m(rx + dx, 0.18, rz + 0.2, 0.012, 0.36, 0.012)]);
+  for (let i = 0; i < 5; i++)
+    p.push([
+      sphere(5, 4),
+      CABARET_RED,
+      m(
+        rx - 0.24 + i * 0.12,
+        0.33 - Math.sin((i / 4) * Math.PI) * 0.05,
+        rz + 0.2,
+        0.025,
+        0.03,
+        0.025,
+      ),
+    ]);
+}

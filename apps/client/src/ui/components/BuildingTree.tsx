@@ -49,6 +49,7 @@ const FAMILIES: readonly { id: FamilyId; types: readonly BuildingType[] }[] = [
     types: [
       'townHall',
       'campfire',
+      'cabaret',
       'swing',
       'skittles',
       'skipPond',

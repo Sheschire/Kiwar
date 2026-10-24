@@ -1,4 +1,7 @@
 import {
+  atCabaretTonight,
+  CABARET,
+  cabaretGuests,
   hexDistance,
   LEISURE,
   MORALE,
@@ -115,6 +118,41 @@ export function CampfireInfo({ game, b }: { game: GameState; b: Building }) {
               max: MORALE.leisureMax,
             })}
       </p>
+    </div>
+  );
+}
+
+/**
+ * Chantier 44: the cabaret's sheet — tonight's guests (the kiwis sleeping within its reach),
+ * the juice of an evening, open or closed, and whether it is open tonight.
+ */
+export function CabaretInfo({ game, b }: { game: GameState; b: Building }) {
+  const t = useT();
+  const guests = cabaretGuests(game, b).length;
+  const tonight = game.villagers.filter((v) => atCabaretTonight(game, v)).length;
+  const open = game.village.cabaretOpen;
+  return (
+    <div class="section cabaret-section">
+      <p class="small">
+        <strong>{t('cabaret.guests', { count: guests, radius: CABARET.radius })}</strong>
+      </p>
+      <p class="small">{t('cabaret.cost', { juice: CABARET.juice })}</p>
+      <label class="crew-row">
+        <input
+          type="checkbox"
+          checked={open}
+          onChange={() => actions.dispatch({ type: 'setCabaret', open: !open })}
+        />
+        <span>{t('cabaret.open')}</span>
+      </label>
+      {tonight > 0 ? (
+        <p class="small bonus">{t('cabaret.tonight', { count: tonight })}</p>
+      ) : !open ? (
+        <p class="small muted">{t('cabaret.closed')}</p>
+      ) : game.resources.juice < CABARET.juice ? (
+        <p class="small warn">{t('cabaret.noJuice')}</p>
+      ) : null}
+      <p class="small muted">{t('cabaret.hint', { value: CABARET.value })}</p>
     </div>
   );
 }

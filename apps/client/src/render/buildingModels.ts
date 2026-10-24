@@ -1,4 +1,5 @@
 import {
+  cabaret,
   campfire,
   flowerBed,
   fountain,
@@ -85,6 +86,7 @@ const BUILDERS: Record<BuildingType, (look: Look) => Parts> = {
   skittles: () => skittles(),
   skipPond: () => skipPond(),
   slide: () => slide(),
+  cabaret,
 };
 
 /**
@@ -114,9 +116,11 @@ export function lookOf(type: BuildingType, level: number, colonyAge = 0, docked 
           ? level >= 3
             ? 2
             : 1
-          : type === 'camp'
-            ? 0
-            : ageOfLevel(level);
+          : type === 'cabaret'
+            ? 2
+            : type === 'camp'
+              ? 0
+              : ageOfLevel(level);
   const tier =
     type === 'monument' ||
     type === 'lab' ||

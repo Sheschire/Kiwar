@@ -1,6 +1,6 @@
 import type { GameRenderer } from '../render/GameRenderer';
 import { uiStore } from '../ui/store';
-import { calendarAt } from '@kiwar/shared';
+import { atCabaretTonight, calendarAt, type GameState } from '@kiwar/shared';
 import { kiwiVoicePitch } from './sounds';
 import { onlineConfig } from '../game/onlineConfig';
 import { audio } from './engine';
@@ -49,6 +49,7 @@ export function installGameAudio(renderer: GameRenderer): void {
     audio.context.season = c?.season ?? 'spring';
     const birds = c?.night ? 0.3 : 1;
     audio.setLoop('ambience.night', c?.night ? nightChorus(c.nightAt, c.dawnAt, simNow) : 0);
+    audio.setLoop('cabaret.music', game && c ? cabaretEvening(game, c, simNow) * (1 - zoom) : 0);
     audio.setLoop('ambience.nature', (0.25 + 0.75 * (1 - zoom)) * birds);
     audio.setLoop('ambience.wind', 0.1 + 0.9 * zoom);
     const now = performance.now();
@@ -58,6 +59,17 @@ export function installGameAudio(renderer: GameRenderer): void {
       if (kiwi) audio.play('kiwi.chirp', { pos: kiwi.pos, pitchOffset: kiwiVoicePitch(kiwi.id) });
     }
   }, 250);
+}
+
+/** Chantier 44: 1 while the cabaret has guests in the first half of the night, else 0. */
+export function cabaretEvening(
+  game: GameState,
+  c: { night: boolean; nightAt: number; dawnAt: number },
+  now: number,
+): number {
+  if (!c.night || now > c.nightAt + (c.dawnAt - c.nightAt) / 2) return 0;
+  if (!game.buildings.some((b) => b.type === 'cabaret')) return 0;
+  return game.villagers.some((v) => atCabaretTonight(game, v)) ? 1 : 0;
 }
 
 /**

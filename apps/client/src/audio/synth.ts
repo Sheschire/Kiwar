@@ -51,6 +51,67 @@ const A5 = note(12);
 const C6 = note(15);
 const E6 = note(19);
 
+/** Chantier 44: the cabaret's galop — an 8 s loop of a bouncing tune over an oom-pah bass. */
+const CABARET_LOOP_S = 8;
+const GALOP = [
+  3, 3, 5, 3, 10, 8, 7, 5, 3, 3, 5, 3, 12, 10, 8, 7, 5, 5, 7, 5, 12, 10, 8, 7, 3, 7, 10, 15, 12, 10,
+  7, 3,
+];
+/** Root and fifth of each two bars (C, F, G, C), semitones from A4. */
+const GALOP_BASS: [number, number][] = [
+  [-21, -14],
+  [-16, -9],
+  [-14, -7],
+  [-21, -14],
+];
+
+function galop(): Tone[] {
+  const step = CABARET_LOOP_S / GALOP.length;
+  const tones: Tone[] = GALOP.map((n, i) => ({
+    wave: 'square',
+    freq: note(n),
+    start: i * step,
+    attack: 0.01,
+    hold: step * 0.45,
+    decay: step * 0.4,
+    gain: 0.16,
+    vibrato: [6, 0.15],
+    lowpass: 2400,
+  }));
+  for (let beat = 0; beat < CABARET_LOOP_S / (2 * step); beat++) {
+    const [root, fifth] = GALOP_BASS[Math.floor(beat / 4) % 4]!;
+    tones.push({
+      wave: 'triangle',
+      freq: note(beat % 2 ? fifth : root),
+      start: beat * 2 * step,
+      attack: 0.005,
+      decay: step * 1.2,
+      gain: 0.3,
+    });
+    // The off-beat chord ("pah").
+    tones.push({
+      wave: 'pluck',
+      freq: note((beat % 2 ? fifth : root) + 16),
+      start: beat * 2 * step + step,
+      attack: 0.004,
+      decay: step * 0.7,
+      gain: 0.12,
+    });
+  }
+  // The audience, far away.
+  tones.push({
+    wave: 'noise',
+    freq: 0,
+    attack: 0.5,
+    hold: CABARET_LOOP_S - 1,
+    decay: 0.5,
+    gain: 0.05,
+    lowpass: 700,
+    tremolo: [3, 0.4],
+  });
+  return tones;
+}
+
 /**
  * Night crickets: short trills of a high tone, two voices at different pitches. Chantier 20:
  * rare (3 to 8 s of silence between two trills of a voice); they were tiring.
@@ -767,6 +828,8 @@ export const SYNTH_PRESETS = {
     loop: true,
     peak: 0.4,
   },
+  // Chantier 44: music and laughter from the cabaret on its evenings.
+  cabaret: { tones: galop(), length: CABARET_LOOP_S, loop: true, peak: 0.45 },
   night: {
     tones: [
       {

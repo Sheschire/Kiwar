@@ -369,7 +369,7 @@ export function fadeMemories(state: GameState, at: TimeMs): void {
 }
 
 /** Chantier 43: who may sup at the campfire (at home and free: not guarding, away, changing). */
-function canSup(v: Villager): boolean {
+export function canSup(v: Villager): boolean {
   const k = v.job.kind;
   return (
     k !== 'expedition' && k !== 'outpost' && k !== 'guard' && k !== 'transform' && k !== 'titan'

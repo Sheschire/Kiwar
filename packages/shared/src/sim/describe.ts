@@ -1,4 +1,11 @@
-import { BEAUTY, isVillageLife, LEISURE, speechCooldownMs, speechEffectMs } from '../data/needs';
+import {
+  BEAUTY,
+  CABARET,
+  isVillageLife,
+  LEISURE,
+  speechCooldownMs,
+  speechEffectMs,
+} from '../data/needs';
 import { meteorIronOf } from './iron';
 import { TASKS } from '../data/jobs';
 import { stardustOf } from './comets';
@@ -65,6 +72,7 @@ export const LEVEL_STATS = [
   'speechCooldown',
   'leisureRange',
   'beauty',
+  'eveningMorale',
 ] as const;
 export type LevelStatId = (typeof LEVEL_STATS)[number];
 
@@ -125,6 +133,11 @@ export function describeLevel(type: BuildingType, level: number, state?: GameSta
   // Chantier 43: how long a speech is remembered, and the rest between two (hours).
   push('leisureRange', LEISURE[type]?.radius);
   push('beauty', BEAUTY[type]);
+  // Chantier 44: the cabaret's reach and the morale of an evening there.
+  if (type === 'cabaret') {
+    push('leisureRange', CABARET.radius);
+    push('eveningMorale', CABARET.value);
+  }
   if (type === 'townHall') {
     push('speechMemory', speechEffectMs(level) / 3_600_000);
     push('speechCooldown', speechCooldownMs(level) / 3_600_000);
@@ -249,6 +262,8 @@ export function buildLock(state: GameState, type: BuildingType): CommandError | 
     if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return 'buildingLimit';
   } else if (type === 'townHall') {
     if (copiesOf(state, 'townHall') > 0) return 'townHallExists';
+  } else if (type === 'cabaret') {
+    if (copiesOf(state, 'cabaret') > 0) return 'cabaretExists';
   } else if (type === 'mayorStatue') {
     if (copiesOf(state, 'mayorStatue') > 0) return 'statueExists';
   } else if (isVillageLife(type)) {

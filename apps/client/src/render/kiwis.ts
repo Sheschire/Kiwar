@@ -37,6 +37,7 @@ import {
   type SectorId,
   occupancy,
   footprintTiles,
+  atCabaretTonight,
   calendarAt,
   hexDistance,
   LEISURE,
@@ -602,6 +603,7 @@ export class KiwisView {
   /** Decides what an agent does next, according to its villager's job. */
   private think(agent: Agent, villager: Villager): void {
     if (this.thinkSpeech(agent, villager)) return;
+    if (this.thinkCabaret(agent, villager)) return;
     if (this.thinkVigil(agent, villager)) return;
     if (this.thinkPlay(agent, villager)) return;
     if (this.thinkRest(agent, villager)) return;
@@ -866,6 +868,36 @@ export class KiwisView {
       const clips = PLAY_CLIPS[game.type] ?? PLAY_CLIPS.swing!;
       this.settle(agent, 'idle', agent.rng.pick(clips), agent.rng.range(3, 7));
       agent.face = angle + Math.PI;
+    }
+    return true;
+  }
+
+  /**
+   * Chantier 44: in the first half of the night, the cabaret's guests walk to its door and spend
+   * the evening inside (then go to bed).
+   */
+  private thinkCabaret(agent: Agent, villager: Villager): boolean {
+    const state = this.state;
+    if (!state || !atCabaretTonight(state, villager)) return false;
+    if (villager.job.kind === 'injured' || villager.job.kind === 'guard') return false;
+    const c = calendarAt(state.calendarStart, state.now);
+    if (!c.night || state.now > c.nightAt + (c.dawnAt - c.nightAt) / 2) return false;
+    const hall = state.buildings.find((b) => b.type === 'cabaret');
+    if (!hall) return false;
+    const sig = `cabaret:${hall.id}`;
+    if (agent.plan !== sig) {
+      agent.plan = sig;
+      agent.carrying = null;
+      agent.leg = 'none';
+      agent.inside = false;
+      this.leavePartner(agent);
+      this.walkTo(agent, hall, 0.2);
+      return true;
+    }
+    if (agent.activity === 'walk' && agent.path.length === 0) {
+      agent.activity = 'sleep';
+      agent.timer = 1e9;
+      agent.inside = true;
     }
     return true;
   }

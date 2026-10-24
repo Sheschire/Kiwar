@@ -373,6 +373,20 @@ export const SOUND_EVENTS = {
       conditions: { timeOfDay: 'night' },
     },
   },
+  // Chantier 44: the cabaret's galop, on the evenings it is open (louder close up).
+  'cabaret.music': {
+    bus: 'ambience',
+    group: 'ambience',
+    synth: 'cabaret',
+    default: {
+      sources: ['synth:cabaret'],
+      loop: true,
+      fadeInMs: 2500,
+      fadeOutMs: 2500,
+      volume: 0.4,
+      conditions: { timeOfDay: 'night' },
+    },
+  },
   'music.main': {
     bus: 'music',
     group: 'music',

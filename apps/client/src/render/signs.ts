@@ -38,6 +38,7 @@ const SIGNED: readonly BuildingType[] = [
   'trainingCamp',
   'forge',
   'townHall',
+  'cabaret',
 ];
 const GRID = 5;
 const CELL = 128;

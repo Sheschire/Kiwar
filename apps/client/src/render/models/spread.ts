@@ -4,7 +4,7 @@ import { C, box, cone, cyl, emitter, m, MODEL_SCALE, rig, sphere, type Parts } f
 import { A, banner, byAge, door, gable, lamp, pipe, under, wall, type Look } from './ageKit';
 import { trainingGrounds } from './training';
 import { forgeYard } from './forge';
-import { townHallGarden } from './village';
+import { cabaretTerrace, townHallGarden } from './village';
 
 /**
  * Chantier 35: big buildings drawn at the scale of their footprint. The recipe of the building
@@ -279,8 +279,16 @@ function townHall(p: Parts, look: Look): void {
   walk(p, look.age);
 }
 
+/** Chantier 44: the terrace behind on the left, the poster column on the right. */
+function cabaret(p: Parts, look: Look): void {
+  const out = (i: number) => [TRIANGLE[i]![0] * 1.05, TRIANGLE[i]![1] * 1.05] as const;
+  cabaretTerrace(p, look, out(1), out(2));
+  walk(p, look.age);
+}
+
 const DRESS: Partial<Record<BuildingType, (p: Parts, look: Look) => void>> = {
   townHall,
+  cabaret,
   trainingCamp,
   forge,
   library,

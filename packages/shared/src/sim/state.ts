@@ -40,7 +40,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 37;
+export const SCHEMA_VERSION = 38;
 
 export type Job =
   | { kind: 'idle' }
@@ -848,6 +848,11 @@ export interface GameState {
   speechUntil: TimeMs;
   /** Chantier 43: the Speech at the Town Hall (gathering end, next one possible). */
   speech: { until: TimeMs; readyAt: TimeMs };
+  /**
+   * Chantier 44: the evenings of the village — the cabaret opened by the player (it still needs
+   * its juice), the last night a fireworks show was fired (its nightfall).
+   */
+  village: { cabaretOpen: boolean; fireworksNight: TimeMs };
   /** Colony hunger gauge in raw units (HUNGER_SCALE per ms of full privation). */
   hunger: number;
   queue: QueueItem[];
@@ -970,6 +975,7 @@ export function newGame(opts: NewGameOptions): GameState {
     memorial: [],
     speechUntil: 0,
     speech: { until: 0, readyAt: 0 },
+    village: { cabaretOpen: true, fireworksNight: 0 },
     hunger: 0,
     queue: [],
     egg: null,
@@ -1173,6 +1179,7 @@ export function cloneState(state: GameState): GameState {
     villagers: state.villagers.map(cloneVillager),
     memorial: state.memorial.map((m) => ({ ...m })),
     speech: { ...state.speech },
+    village: { ...state.village },
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
     egg: state.egg ? { ...state.egg } : null,
     objectives: { ...state.objectives, claimed: [...state.objectives.claimed] },

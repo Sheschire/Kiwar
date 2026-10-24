@@ -25,6 +25,7 @@ import {
   type QueueItem,
   type ResourceId,
   footprintOf,
+  atCabaretTonight,
 } from '@kiwar/shared';
 import type { Particles } from './particles';
 import {
@@ -597,5 +598,8 @@ function litBuildings(state: GameState): Set<string> {
     if (v.job.kind === 'work') ids.add(v.job.buildingId);
     else if (v.job.kind === 'train') ids.add(v.job.schoolId);
   }
+  // Chantier 44: the cabaret on its evenings.
+  const cabaret = state.buildings.find((b) => b.type === 'cabaret');
+  if (cabaret && state.villagers.some((v) => atCabaretTonight(state, v))) ids.add(cabaret.id);
   return ids;
 }

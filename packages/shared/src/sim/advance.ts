@@ -56,6 +56,7 @@ import { accrueResearch, nextResearchEvent, researchPower, researchTick } from '
 import { autoPlace, awaitedResources, belowReturn, redirectFull, returnHome } from './posts';
 import { JOBS } from '../data/jobs';
 import { fadeMemories, holdVigils, nextMemoryEnd } from './rest';
+import { openCabaret } from './village';
 import { nextSpeechEnd } from './speech';
 import {
   addVillager,
@@ -106,6 +107,9 @@ export type GameEvent =
   | { type: 'speechOver'; at: TimeMs }
   /** Chantier 43: kiwis supping around the campfires at nightfall. */
   | { type: 'vigil'; at: TimeMs; count: number }
+  /** Chantier 44: the cabaret opened at nightfall for its guests, or stayed shut (no juice). */
+  | { type: 'cabaret'; at: TimeMs; guests: number }
+  | { type: 'cabaretShut'; at: TimeMs }
   | {
       type: 'masteryUp';
       at: TimeMs;
@@ -438,6 +442,10 @@ function calendarTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
   if (c.night && c.nightAt === at) {
     const count = holdVigils(s, at);
     if (count > 0) events.push({ type: 'vigil', at, count });
+    // Chantier 44: the cabaret opens (or stays shut for want of juice).
+    const night = openCabaret(s, at);
+    if (night.open) events.push({ type: 'cabaret', at, guests: night.guests });
+    else if (night.reason === 'juice') events.push({ type: 'cabaretShut', at });
   }
   if (!c.night && c.day === 0 && c.sinceDawn === 0) {
     const map = faceMapOf(s);

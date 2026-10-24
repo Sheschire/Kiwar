@@ -48,6 +48,7 @@ export * from './sim/kiwis';
 export * from './sim/calendar';
 export * from './sim/needs';
 export * from './sim/rest';
+export * from './sim/village';
 export * from './sim/threats';
 export * from './sim/sky';
 export * from './sim/iron';

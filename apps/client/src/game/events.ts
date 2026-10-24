@@ -119,6 +119,12 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
       case 'starved':
         pushToast('error', 'events.starved', { name: e.name });
         break;
+      case 'cabaret':
+        pushToast('success', 'cabaret.opened', { count: e.guests });
+        break;
+      case 'cabaretShut':
+        pushToast('info', 'cabaret.shut');
+        break;
       case 'seasonChanged':
         pushToast('info', 'cycles.changed', { season: `@cycles.seasons.${e.season}` });
         break;

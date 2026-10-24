@@ -669,6 +669,38 @@ const GLYPHS = {
       <path d="M12 9v14M15 9v14" stroke="#5a3e26" stroke-width="1.2" />
     </>
   ),
+  // Chantier 44: the Robin's Cabaret (a red hall and its windmill sails).
+  cabaret: (
+    <>
+      <rect
+        x="4"
+        y="15"
+        width="17"
+        height="12"
+        fill="#b3262f"
+        stroke="#6e1820"
+        stroke-width="1.4"
+      />
+      <path d="M3 15l9.5-6 9.5 6z" fill="#6e1820" stroke="#3f0d12" stroke-width="1.2" />
+      <rect x="10" y="20" width="5" height="7" fill="#ffd95a" stroke="#6e1820" stroke-width="1" />
+      <rect
+        x="21"
+        y="13"
+        width="7"
+        height="14"
+        fill="#b3262f"
+        stroke="#6e1820"
+        stroke-width="1.4"
+      />
+      <path
+        d="M24.5 11l-6-6M24.5 11l6-6M24.5 11l-6 6M24.5 11l6 6"
+        stroke="#f1dfb6"
+        stroke-width="2.2"
+        stroke-linecap="round"
+      />
+      <circle cx="24.5" cy="11" r="1.4" fill="#5a3e26" />
+    </>
+  ),
 } satisfies Record<string, ComponentChildren>;
 
 export type IconName = keyof typeof GLYPHS;

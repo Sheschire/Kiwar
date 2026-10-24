@@ -857,7 +857,8 @@ var BUILDING_TYPES = [
   "swing",
   "skittles",
   "skipPond",
-  "slide"
+  "slide",
+  "cabaret"
 ];
 var FOOTPRINTS = {
   warehouse: 3,
@@ -868,7 +869,8 @@ var FOOTPRINTS = {
   monument: 7,
   trainingCamp: 3,
   forge: 3,
-  townHall: 3
+  townHall: 3,
+  cabaret: 3
 };
 function footprintOf(type) {
   return FOOTPRINTS[type] ?? 1;
@@ -1461,6 +1463,22 @@ var BASE = {
         durationMs: ms.min(12),
         requiresNestLevel: 4,
         requiresAge: 1
+      }
+    ]
+  },
+  // Chantier 44: the Robin's Cabaret (Iron age), one per colony, outside the building cap. It
+  // opens at nightfall for the kiwis sleeping around it, for some juice (`CABARET`).
+  cabaret: {
+    id: "cabaret",
+    allowedTiles: ["flesh", "ray", "heart"],
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 7e3, fiber: 8e3, seeds: 2e3, juice: 2500 },
+        durationMs: ms.h(2),
+        requiresNestLevel: 7,
+        requiresAge: 2
       }
     ]
   },
@@ -2248,7 +2266,14 @@ var REST = {
   /** Cosmetic work/rest cycle length (fatigue gauge, kiwis going to bed in 3D). */
   cycleMs: ms.min(45)
 };
-var MEMORY_KINDS = ["mourning", "grief", "speech", "vigil"];
+var MEMORY_KINDS = [
+  "mourning",
+  "grief",
+  "speech",
+  "vigil",
+  "cabaret",
+  "fireworks"
+];
 var MORALE = {
   max: 100,
   neutral: 50,
@@ -2292,7 +2317,10 @@ var MORALE = {
     grief: { value: -25, ms: ms.h(24), best: -25 },
     speech: { value: 12, ms: ms.h(12), best: 2 * (12 + 15) },
     // Supper at the campfire: until the next nightfall (a game day is 2 h).
-    vigil: { value: 8, ms: ms.h(2), best: 8 }
+    vigil: { value: 8, ms: ms.h(2), best: 8 },
+    // Chantier 44: an evening at the cabaret (until the next nightfall), a fireworks show.
+    cabaret: { value: 12, ms: ms.h(2), best: 12 },
+    fireworks: { value: 15, ms: ms.h(12), best: 15 }
   }
 };
 var SPEECH = {
@@ -2337,6 +2365,11 @@ function isDecor(type) {
 function isVillageLife(type) {
   return BEAUTY[type] !== void 0 || LEISURE[type] !== void 0;
 }
+var CABARET = {
+  juice: 60,
+  radius: 6,
+  value: MORALE.memories.cabaret.value
+};
 var CAMPFIRE = {
   meals: 0.9
 };
@@ -5314,7 +5347,7 @@ function pathLimit(state) {
   return PATHS.base + PATHS.perNestLevel * Math.min(level, 3) + PATHS.perAgeLevel * Math.max(0, level - 3);
 }
 function buildingCount(state) {
-  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && t !== "townHall" && !isVillageLife(t) && !isTurret(t);
+  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && t !== "townHall" && !isVillageLife(t) && t !== "cabaret" && !isTurret(t);
   return state.buildings.filter((b) => counted(b.type)).length + state.queue.filter((i) => i.kind === "build" && counted(i.buildingType)).length;
 }
 function turretCount(state) {
@@ -9342,6 +9375,39 @@ function autoPlace(state, v) {
   return best?.b;
 }
 
+// packages/shared/src/sim/village.ts
+function cabaretOf(state) {
+  return state.buildings.find((b) => b.type === "cabaret");
+}
+function cabaretGuests(state, cabaret) {
+  const beds = bedsOf(state);
+  const homes2 = new Map(state.buildings.map((b) => [b.id, b]));
+  const out = [];
+  for (const v of state.villagers) {
+    const hutId = beds.get(v.id)?.buildingId;
+    const hut = hutId ? homes2.get(hutId) : void 0;
+    if (!hut || !canSup(v) || hexDistance(hut, cabaret) > CABARET.radius) continue;
+    out.push(v.id);
+  }
+  return out;
+}
+function openCabaret(state, at) {
+  const cabaret = cabaretOf(state);
+  if (!cabaret) return { open: false, reason: "none" };
+  if (!state.village.cabaretOpen) return { open: false, reason: "closed" };
+  if (state.resources.juice < CABARET.juice) return { open: false, reason: "juice" };
+  state.resources.juice -= CABARET.juice;
+  const c = calendarAt(state.calendarStart, at);
+  const until = calendarAt(state.calendarStart, c.dawnAt).nightAt;
+  const guests = new Set(cabaretGuests(state, cabaret));
+  for (const v of state.villagers)
+    if (guests.has(v.id)) addMemory(v, "cabaret", CABARET.value, until);
+  return { open: true, guests: guests.size };
+}
+function atCabaretTonight(state, v) {
+  return v.memories?.some((m) => m.kind === "cabaret" && m.until > state.now) ?? false;
+}
+
 // packages/shared/src/sim/advance.ts
 function advance(state, now) {
   const s = cloneState(state);
@@ -9493,6 +9559,9 @@ function calendarTick(s, at, events) {
   if (c.night && c.nightAt === at) {
     const count = holdVigils(s, at);
     if (count > 0) events.push({ type: "vigil", at, count });
+    const night = openCabaret(s, at);
+    if (night.open) events.push({ type: "cabaret", at, guests: night.guests });
+    else if (night.reason === "juice") events.push({ type: "cabaretShut", at });
   }
   if (!c.night && c.day === 0 && c.sinceDawn === 0) {
     const map = faceMapOf(s);
@@ -12110,7 +12179,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 37;
+var SCHEMA_VERSION = 38;
 var MISSION_KINDS = [
   "land",
   "raid",
@@ -12162,6 +12231,7 @@ function newGame(opts) {
     memorial: [],
     speechUntil: 0,
     speech: { until: 0, readyAt: 0 },
+    village: { cabaretOpen: true, fireworksNight: 0 },
     hunger: 0,
     queue: [],
     egg: null,
@@ -12338,6 +12408,7 @@ function cloneState(state) {
     villagers: state.villagers.map(cloneVillager),
     memorial: state.memorial.map((m) => ({ ...m })),
     speech: { ...state.speech },
+    village: { ...state.village },
     queue: state.queue.map((q) => ({ ...q, paid: { ...q.paid } })),
     egg: state.egg ? { ...state.egg } : null,
     objectives: { ...state.objectives, claimed: [...state.objectives.claimed] },
@@ -12676,7 +12747,8 @@ var LEVEL_STATS = [
   "speechMemory",
   "speechCooldown",
   "leisureRange",
-  "beauty"
+  "beauty",
+  "eveningMorale"
 ];
 function describeLevel(type, level, state) {
   const def = levelDef(type, level);
@@ -12715,6 +12787,10 @@ function describeLevel(type, level, state) {
     push("buildSlots", TASKS.buildSlots[Math.min(level, TASKS.buildSlots.length - 1)]);
   push("leisureRange", LEISURE[type]?.radius);
   push("beauty", BEAUTY[type]);
+  if (type === "cabaret") {
+    push("leisureRange", CABARET.radius);
+    push("eveningMorale", CABARET.value);
+  }
   if (type === "townHall") {
     push("speechMemory", speechEffectMs(level) / 36e5);
     push("speechCooldown", speechCooldownMs(level) / 36e5);
@@ -12809,6 +12885,8 @@ function buildLock(state, type) {
     if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return "buildingLimit";
   } else if (type === "townHall") {
     if (copiesOf(state, "townHall") > 0) return "townHallExists";
+  } else if (type === "cabaret") {
+    if (copiesOf(state, "cabaret") > 0) return "cabaretExists";
   } else if (type === "mayorStatue") {
     if (copiesOf(state, "mayorStatue") > 0) return "statueExists";
   } else if (isVillageLife(type)) {
@@ -13026,6 +13104,8 @@ var COMMAND_ERRORS = [
   "forgeExists",
   "townHallExists",
   "statueExists",
+  "cabaretExists",
+  "noCabaret",
   "noTownHall",
   "noMayor",
   "speechCooling",
@@ -13661,6 +13741,11 @@ function execute(s, cmd, ctx, events) {
       const lock = speechLock(s);
       if (lock) return fail(lock);
       giveSpeech(s, now);
+      return;
+    }
+    case "setCabaret": {
+      if (!cabaretOf(s)) return fail("noCabaret");
+      s.village = { ...s.village, cabaretOpen: cmd.open };
       return;
     }
     case "shelter": {
@@ -18163,6 +18248,7 @@ var gameStateSchema = external_exports.object({
   ).max(MEMORIAL_MAX),
   speechUntil: external_exports.number().min(0),
   speech: external_exports.object({ until: external_exports.number().min(0), readyAt: external_exports.number().min(0) }),
+  village: external_exports.object({ cabaretOpen: external_exports.boolean(), fireworksNight: external_exports.number().min(0) }),
   hunger: external_exports.number().int().min(0),
   queue: external_exports.array(
     external_exports.object({
@@ -18678,7 +18764,9 @@ var MIGRATIONS = {
     return { ...rest, villagers };
   },
   // v36 → v37 (chantier 43): the Speech moves to the Town Hall (an old one ends normally).
-  36: (raw) => ({ ...raw, speech: { until: 0, readyAt: 0 } })
+  36: (raw) => ({ ...raw, speech: { until: 0, readyAt: 0 } }),
+  // v37 → v38 (chantier 44): the cabaret and the fireworks.
+  37: (raw) => ({ ...raw, village: { cabaretOpen: true, fireworksNight: 0 } })
 };
 var OLD_MISSIONS = ["raid", "recon", "assault", "reinforce", "final", "retreat"];
 function migrateToLandings(raw) {
@@ -18955,6 +19043,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   }),
   external_exports.object({ type: external_exports.literal("useSkill"), villagerId: id2, skill: external_exports.enum(SKILL_IDS) }),
   external_exports.object({ type: external_exports.literal("giveSpeech") }),
+  external_exports.object({ type: external_exports.literal("setCabaret"), open: external_exports.boolean() }),
   external_exports.object({ type: external_exports.literal("shelter") }),
   external_exports.object({ type: external_exports.literal("repair"), buildingId: id2 }),
   external_exports.object({ type: external_exports.literal("setGarrison"), villagerIds: external_exports.array(id2).max(200) }),
@@ -19988,6 +20077,7 @@ export {
   BUILDABLE_TYPES,
   BUILDINGS,
   BUILDING_TYPES,
+  CABARET,
   CALENDAR,
   CAMP,
   CAMPFIRE,
@@ -20157,6 +20247,7 @@ export {
   applyTerraform,
   armoryCount,
   assignFace,
+  atCabaretTonight,
   attacksFrom,
   autoAssign,
   autoGarrisonAt,
@@ -20198,6 +20289,8 @@ export {
   buildingHarvest,
   buildingRates,
   buildingResource,
+  cabaretGuests,
+  cabaretOf,
   calendarAt,
   calendarOf,
   calendarStartFor,
@@ -20211,6 +20304,7 @@ export {
   canReshape,
   canResolveArrival,
   canStarve,
+  canSup,
   cancelOrder,
   capacity,
   capped,
@@ -20552,6 +20646,7 @@ export {
   obstacleAt,
   obstacleId,
   occupancy,
+  openCabaret,
   orderItem,
   orderRepairs,
   orderWork,
