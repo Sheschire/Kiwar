@@ -271,6 +271,16 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   `renderer.kiwis.update(0.1, t, state.now)` ×400; for the evening, `calendarStart = now −
 1.72 h` and `vigil` memories on the kiwis.
 
+- **Chantier 44 (leisure and decor)**: models in `render/models/village.ts` (decorations,
+  games, `cabaret` + `cabaretTerrace` dressed in `spread.ts`, `fireworks`); `lookOf` gives the
+  cabaret the Iron look; lanterns, the fountain and the statue follow `look.colonyAge`; the
+  sign atlas has 18 types (`cabaret`). `render/fireworks.ts` is the fireworks show (see
+  `kiwar-cycles`). Plans: the "Village life" family (`BuildingTree` `FAMILIES`), which also
+  fixed the training camp and the Forge missing from the tree. Screenshot a show: dispatch
+  `fireFireworks` at night, wait for the camera to settle first (`showHeight` projects with
+  the camera), stop the loop, `renderer.fireworks.seek(t)` then
+  `renderer.renderer.render(renderer.scene, renderer.camera)`.
+
 - **Chantier 41 (the live battle on the twin)**: `LandingInvite` (desktop under the top bar,
   phones docked first in `.thumb-stack`), `VisitBanner` while watching (`watchingLanding`),
   `BattleBar` in the visiting HUD too (landing title, framing buttons `.battle-frames`), the

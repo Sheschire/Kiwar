@@ -46,15 +46,17 @@ dans l'historique.
 | 42  | La reine des furets                                  | fait    |
 |     | **Acte III — Le village vivant**                     |         |
 | 43  | Moral par kiwi, Mairie et feu de camp                | fait    |
-| 44  | Loisirs et décor                                     | à faire |
+| 44  | Loisirs et décor                                     | fait    |
 | 45  | Rives fertiles et canaux de jus                      | à faire |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
-**L'acte III a commencé** avec le chantier **43** (moral par kiwi, Mairie, feu de camp :
-`sim/rest.ts`, `sim/speech.ts`, skill `kiwar-cycles`). **Prochaine conversation** : le
-chantier **44** (loisirs et décor) : ses jeux entrent dans `LEISURE` (data/needs.ts) et sa
-beauté devient une part de `kiwiMorale`. À tester avec le porteur : l'exigence du moral par
-âge, le poids des deuils avec l'usure des débarquements (40), la valeur d'un discours.
+**L'acte III** avance : chantier **43** (moral par kiwi, Mairie, feu de camp : `sim/rest.ts`,
+`sim/speech.ts`) puis **44** (décors et beauté commune, jeux, cabaret du Rouge-Gorge, canon à
+feu d'artifice : `sim/village.ts`, skill `kiwar-cycles`). **Prochaine conversation** : le
+chantier **45** (rives fertiles et canaux de jus). À tester avec le porteur : l'exigence du
+moral par âge, le poids des deuils avec l'usure des débarquements (40), la valeur d'un
+discours, la beauté commune (le placement ne compte pas), le prix d'un soir au cabaret (60 de
+jus, peu au Fer) et la fréquence des feux d'artifice.
 Toujours ouverts : l'usure des kiwis sur les débarquements (40), la conquête qui va de J7 à
 « jamais » (42), le ressenti de l'horloge alien (39), du combat équipé (38), des rangs et du
 camp (37), la réparation automatique qui trahit l'issue d'une vague regardée (36) et le temps
@@ -128,7 +130,10 @@ from, opts)` (`ShowSource` : une vague ou un débarquement ; notre camp, avance,
   part de `colonyMood` (commune) ou de `kiwiMorale` (propre), ou un souvenir daté
   (`addMemory`, `MEMORY_KINDS` avec `value`, `ms`, `best`) ; un nouveau loisir entre dans
   `LEISURE` ; un nouveau rassemblement qui arrête le travail passe par `gathered(state)`. Un
-  bâtiment hors quota a sa branche dans `buildLock` (skill `kiwar-cycles`).
+  bâtiment hors quota a sa branche dans `buildLock` (skill `kiwar-cycles`). Chantier 44 :
+  décors et jeux passent par `isVillageLife` (hors quota, un niveau, sans panneau) ; une
+  nouvelle soirée du village passe par `sim/village.ts` (à la tombée de la nuit, dans
+  `calendarTick`) et `state.village`.
 - **Planètes** : elles ont une place fixe (`render/space.ts`) ; `renderer.setTwinApproach(t)`
   rapproche la jumelle (skill `kiwar-world`).
 

@@ -58,6 +58,10 @@ rule as the renderer's wave).
 Chantier 43: `speech.crowd` (synth `crowd`: a murmuring crowd, the Town Hall's bell, happy
 chirps), played on the `giveSpeech` command.
 
+Chantier 44: `cabaret.music` (synth `cabaret`: an 8 s galop loop over an oom-pah bass,
+level `cabaretEvening` × closeness in `gameAudio.ts`) and `fireworks.burst` (synth `burst`,
+spatial, fired by `renderer.onFireworksBurst` at each burst of a show).
+
 Chantier 13: `comet.seen` (synth `cometSeen`, a comet is announced) and `comet.pass` (synth
 `comet`, a cascade when the stardust falls).
 

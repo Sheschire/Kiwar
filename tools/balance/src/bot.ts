@@ -68,7 +68,7 @@ import {
 } from './bot/economy';
 import { rpgDecision } from './bot/rpg';
 import { forgeBuildDecision, forgeOrder } from './bot/forge';
-import { villageDecision } from './bot/village';
+import { fireworksDecision, villageDecision } from './bot/village';
 import { cometOrders } from './bot/sky';
 import { titanOrders, labDecision } from './bot/titans';
 import { siegeOrder } from './bot/siege';
@@ -222,6 +222,11 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
   }
   // Chantier 43: the mayor speaks at the Town Hall at night (the gathering costs little then).
   if (play.village && isNight(state) && !speechLock(state)) cmds.push({ type: 'giveSpeech' });
+  // Chantier 44: the fireworks, at night.
+  if (play.village) {
+    const show = fireworksDecision(state);
+    if (show) cmds.push(show);
+  }
 
   // Chantier 13: blessings. Since chantier 15 the automation sends the pickers of the
   // stardust, the researchers, the miners of the craters, the garrison and the repairs.

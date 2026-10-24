@@ -10,6 +10,17 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 44** — **loisirs et décor**. Des **décorations** hors quota (lampions devenus
+> lampadaires puis réverbères, massifs de fleurs, arches de liane, fontaine à jus, statue du
+> maire) donnent de la **beauté** à tout le village (jusqu'à +8 de moral). Des **jeux**
+> (balançoire en liane, quilles de pépins, mare aux ricochets, toboggan d'écorce) sont des
+> loisirs qui s'additionnent par type près des huttes, et les kiwis au repos y jouent. Au Fer,
+> le **Cabaret du Rouge-Gorge**, façon Moulin-Rouge, ouvre à la tombée de la nuit pour 60 de
+> jus : ses lumières rouges brillent, les rouges-gorges dansent le cancan et ses invités
+> gardent +12 jusqu'au lendemain soir. Le **canon à feu d'artifice** se tire la nuit, une fois
+> par nuit : bouquets, kiwi-fruit ou kiwi-oiseau dessinés dans le ciel, qui remontent le moral
+> de tout le village pendant des heures.
+
 > **Chantier 43** — le **moral par kiwi**, début de l'acte III. Chaque kiwi a sa jauge
 > (0–100) : repas, lit proche du travail, loisir près de sa hutte, caractère, deuils (plus
 > lourds pour ses colocataires et son équipage) ; elle règle son travail (de −30 % à +15 %) et

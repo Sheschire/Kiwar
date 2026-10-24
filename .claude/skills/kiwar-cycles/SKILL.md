@@ -79,6 +79,32 @@ sources)` is the memoized season-aware Dijkstra (`depotDistances` uses it), `dis
   `speechMemory`, `speechCooldown`). A new building outside the cap needs its branch in
   `buildLock` (the generic branch checks the cap) and `buildingCount`.
 
+## Chantier 44: decorations, games, the cabaret, the fireworks
+
+- **Village life** (`isVillageLife` in `data/needs.ts`: a type in `BEAUTY` or `LEISURE`): one
+  tile, one level, outside the building cap (`buildingCount`, the `buildLock` branch), no
+  sign and no age dressing (`partsOf`), no level badge (`maxLevelOf` 1). Decorations
+  (`DECOR_TILES` flesh/ray/heart/skin, ×1.4 a copy): `lanterns`, `flowerBed`, `vineArch`
+  (Eden), `fountain`, `mayorStatue` (Stone, unique: `statueExists`). **Beauty** is common:
+  `beautyOf` (+1 each, statue +3, capped `MORALE.beauty` 8) is a part of `colonyMood`.
+- **Games** (`swing` Eden; `skittles`, `skipPond`, `slide` Stone; ×1.6 a copy) are leisures of
+  radius 3. `colonyMood.leisureHomes` is a **map** home → points: first kind +8
+  (`MORALE.leisure`), each other kind +3 (`leisureMore`), at most +14 (`leisureMax`); two
+  copies of one game count once.
+- **The cabaret** (`cabaret`, Iron, Nest 7, 3 tiles, unique, outside the cap) and **the
+  fireworks cannon** (`fireworks`, Iron, Nest 7, unique, outside the cap, skin allowed) live in
+  `sim/village.ts`. `state.village = { cabaretOpen, fireworksNight, lastShow? }` (save v38).
+  At nightfall (`calendarTick`, after `holdVigils`) `openCabaret` takes `CABARET.juice` (60)
+  if open and in stock and gives the free kiwis sleeping within `CABARET.radius` (6) a
+  `cabaret` memory (+12) until the next nightfall (events `cabaret` / `cabaretShut`);
+  command `setCabaret { open }`. `fireFireworks { pattern }` (`FIREWORKS`: bouquet / kiwiFruit
+  / kiwiBird, seeds + juice, 0/3/8 stardust, +6/+10/+15 for 6/8/12 h): night only
+  (`notNight`), once a night (`fireworksDone`, `fireworksNight` = that night's `nightAt`),
+  every kiwi at home gets a `fireworks` memory; `fireworksLock` for the UI.
+- Bot (`tools/balance/src/bot/village.ts`): one game of each kind where it reaches the most
+  beds, decorations until the beauty cap (two of each), the cabaret, the cannon, and
+  `fireworksDecision` at night (stock ×3, stardust above `dustReserve`).
+
 ## Client
 
 - `render/dayCycle.ts` (chantier 23: two strings of keys along the sun's elevation, `MORNING`
@@ -96,10 +122,20 @@ sources)` is the memoized season-aware Dijkstra (`depotDistances` uses it), `dis
   them inside (`agent.inside`); the A* takes the season.
 - Chantier 43 client: `NeedsWidgets.tsx` `MoraleGauge`, `KiwiMoraleSection` (kiwi sheet),
   mini gauge and "sulks" in `KiwiNeedsLine`, `MoraleCard` (average and parts);
-  `TownHallInfo.tsx` (`TownHallInfo`, `CampfireInfo`); memo `kiwiMorales` (ui/derived);
+  `TownHallInfo.tsx` (`TownHallInfo`, `CampfireInfo` — also the games' sheet —, chantier 44
+  `CabaretInfo`, `FireworksInfo`); memo `kiwiMorales` (ui/derived);
   3D: `KiwisView.thinkSpeech` (rows before the hall's door, `crowdSpot`), `thinkVigil` +
   `assignCampers` (first half of the night, a circle round the fire); campfire halo in
-  `weather.sync`; models in `render/models/village.ts`; sound `speech.crowd`.
+  `weather.sync`; models in `render/models/village.ts`; sound `speech.crowd`. Chantier 44:
+  `thinkPlay` + `assignPlayers` (half of the kiwis with a game near their bed play there when
+  they rest by day or have no post; `PLAY_CLIPS`), `thinkCabaret` (guests walk in at dusk,
+  first half of the night); `ALWAYS_LIT` halos in `weather.ts` (campfire, lanterns,
+  fountains, the cabaret in red), `litBuildings` lights the cabaret on its evenings;
+  `render/fireworks.ts` (`FireworksView`: one additive `Points`, rockets, sparks, camera-facing
+  shapes; `showHeight` keeps the show on screen; `seek(t)` for screenshots), started by
+  `GameRenderer.syncFireworks` when `village.lastShow` is < 20 s old, a sign of life in
+  `drawFrame`; sounds `cabaret.music` (loop, `cabaretEvening` in `gameAudio.ts`) and
+  `fireworks.burst` (`renderer.onFireworksBurst`).
 - UI: `ClockChip.tsx` (dial, season, countdown, effects tooltip), `TopBar` (net rates, low-food
   pulse, meals in tooltips, morale line), `App.tsx` `HungerBadge`, `TilePanel` (cycle notes,
   beds used), `NeedsWidgets.tsx` (`RestSection` in the kiwi sheet, `MoraleCard` in the village),

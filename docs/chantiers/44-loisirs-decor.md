@@ -61,3 +61,32 @@ sa session (choix des jeux et des décorations avec le porteur).
 - Un village décoré se voit et se vit : lumières le soir, kiwis aux jeux, spectacle au cabaret.
 - Un feu d'artifice la nuit est spectaculaire, coûte cher, et remonte le moral de façon visible.
 - Les images/s de nuit restent dans le budget du chantier 23.
+
+## Réalisé (octobre 2026)
+
+Réponses du porteur en début de session : tous les jeux et décors proposés ; la beauté
+**commune** au village ; les jeux sont **de simples loisirs** ; les chiffres recommandés.
+
+- **Décors** (1 tuile, hors quota, ×1,4 par copie) : lampions (Éden, Nid 2 ; lampadaire de fer
+  au Fer, réverbère de laiton à l'Industrie, selon l'âge de la colonie), massif de fleurs (Nid
+  2), arche de liane (Nid 3), fontaine à jus et statue du maire (Pierre, Nid 4 ; la statue est
+  unique). Beauté commune dans `colonyMood` : +1 par décor, +3 la statue, plafond +8
+  (`BEAUTY`, `beautyOf`). Lampions et fontaines luisent chaque nuit.
+- **Jeux** (1 tuile, hors quota, ×1,6) : balançoire en liane (Éden, Nid 2), quilles de pépins,
+  mare aux ricochets, toboggan d'écorce (Pierre). Loisirs de rayon 3 : premier loisir +8,
+  chaque autre type +3, plafond +14 (le feu de camp compte). En 3D, environ la moitié des kiwis
+  dont le lit est à portée y jouent quand ils se reposent le jour ou n'ont pas de poste.
+- **Cabaret du Rouge-Gorge** (Fer, Nid 7, 3 tuiles, unique, hors quota) : à la tombée de la
+  nuit, s'il est ouvert et que le stock a 60 de jus, il les prend et les kiwis libres qui
+  dorment à 6 cases gagnent +12 jusqu'au lendemain soir ; sans jus il reste fermé. Halo rouge,
+  fenêtres allumées les soirs d'ouverture, rouges-gorges qui dansent, galop synthétique.
+- **Canon à feu d'artifice** (Fer, Nid 7, unique, hors quota, aussi sur la peau) : la nuit, une
+  fois par nuit pour tout le village. Bouquets 150 graines + 100 jus, +6 pendant 6 h ;
+  kiwi-fruit + 3 poussière, +10 pendant 8 h ; kiwi-oiseau + 8 poussière, +15 pendant 12 h.
+  Spectacle en particules qui s'ouvre aussi haut que l'écran le permet.
+- Famille « Vie du village » dans les plans (Mairie, feu de camp, cabaret, canon, jeux, décors) ;
+  le camp d'entraînement et la Forge y ont retrouvé leur famille.
+
+Reste à tester avec le porteur : le ressenti de la beauté commune (placement sans effet), la
+valeur d'un soir au cabaret face à son coût en jus (faible au Fer), et la fréquence des feux
+d'artifice (un par nuit, coût en poussière).
