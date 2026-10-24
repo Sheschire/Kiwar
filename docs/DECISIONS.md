@@ -2479,3 +2479,43 @@ Owner's answers at the start (October 2026), on top of the chantier document's d
 - ⚠️ To test with the owner: the feel of equipped fights and the piece prices; whether 30 / 60
   iron for the monuments and the turrets 3+ eating the same iron is a fair trade-off for a
   player (no reserve shown in the UI).
+
+## Chantier 39 — The alien civilisation
+
+Decisions of the chantier document (23 October 2026) applied as written. New point asked at
+the start: **online, a wave's announcement waits for the server** (the owner's choice, like the
+siege's counter-attacks): its power and its parcel come from the hidden civilisation; the
+client polls `load` when an announcement is due, then plays the strike itself. Solo: nothing
+changes.
+
+Choices made in the chantier (to revisit with chantier 40):
+
+- **Clock**: from the colony's start (`createdAt`), not the universe's: a late newcomer
+  would otherwise meet an Industrial civilisation on day one. Ages at 24 h / 96 h / 288 h of
+  development (Stone day 1, Iron day 4, Industry day 12), the document's example.
+- **One civilisation per alien face**; faces further away in a universe are 24 h older per kiwi
+  of distance. Only our twin sends waves. A sister colony, a twin held by a friend or a
+  conquered face keep the old wave rule (days of play × provocation).
+- **Parcels**: the edge holds the face's old defense (spread 0.75–1.25 around it), the centre
+  × 2–3; growth × age (1 / 1.25 / 1.6 / 2.2) × (1 + 0.12 per day of development, 14 days at
+  most); gear from the Stone age on the edge, one tier ahead in the centre; levels 1 + 2 per
+  age (+2 in the centre).
+- **Impacts**: a burn takes 24 h from the parcel (96 h at most) and 6 h from the civilisation
+  (72 h at most), and its key buildings stay down 36 h (never the royal burrow); a defeat gives
+  4 h + 2 h per kiwi lost (120 h at most); a fight takes 60 % (won) or up to 30 % (lost) of the
+  parcel's garrison, back in 12 h.
+- **The AI**: once a game day; key buildings (royal burrow, barracks 2→5, stores 1→2) one per
+  parcel, the centre first; those on or beside a beacon move to a less exposed free parcel;
+  parcels our scouts saw are taken last; the royal burrow never moves once the queen is known.
+  Until chantier 40, the bridgeheads are the beacons.
+- **Waves**: (1 + 0.12 × days of development) × barracks standing (0.6 when none) × the
+  civilisation's age (1 / 1.05 / 1.1 / 1.2) replace the days of play and the provocation; our
+  Nest, age and wealth factors stay. A wave comes from a barracks parcel (announced).
+- **Transition of the old missions**: a raid fights the outer ring and burns one outer parcel
+  (secret pick among those we do not hold) on a victory — victories no longer reinforce the
+  aliens; reconnaissance sees the civilisation's dens and roosts and its age; the siege's
+  holds are the outer garrisons × 1.5, the queen lives in the royal burrow and grows with it.
+- Client: a card "The enemy civilisation" (defense window, expedition planner): age seen,
+  likely age today and the next one, ahead / even / behind us, the parcel of the next wave;
+  the raid report names the parcel burnt (or fed).
+- No SQL: the hidden state lives in the `games` row.

@@ -620,3 +620,50 @@ export function seenStructures(
       r: b.r,
     }));
 }
+
+// --- What the client may know (chantier 39, part 5) -------------------------------------------
+
+export interface CivEstimate {
+  targetId: string;
+  /** Age seen by our last report (null: never seen). */
+  seenAge: number | null;
+  seenAt: TimeMs | null;
+  /** Age it has probably reached by now on the common schedule (delays we saw kept). */
+  likelyAge: number;
+  /** When it probably reaches its next age (null at the last one). */
+  nextAgeAt: TimeMs | null;
+  /** Parcel of the announced wave, if any. */
+  waveFrom: number | null;
+}
+
+/**
+ * The civilisation of our twin as far as we can tell: the age our scouts saw, aged on the
+ * public schedule, and where the announced wave comes from. Public data only (works online).
+ */
+export function civEstimate(state: GameState, now: TimeMs): CivEstimate | null {
+  const id = waveCivTarget(state);
+  if (id === null) return null;
+  const target = state.targets.find((t) => t.id === id)!;
+  const report = state.intel[id];
+  const seenAge = report?.civAge ?? null;
+  const seenAt = seenAge !== null ? report!.at : null;
+  // A civilisation seen younger than the schedule says was held back by that much at least.
+  let delay = 0;
+  if (seenAge !== null && seenAt !== null) {
+    const next = CIV.ageAtH[seenAge + 1];
+    const then = scheduleHours(state, target.distance, seenAt);
+    if (next !== undefined && then >= next) delay = then - next + 1 / 60;
+  }
+  const hours = Math.max(0, scheduleHours(state, target.distance, now) - delay);
+  const likelyAge = Math.max(seenAge ?? 0, civAgeOfHours(hours));
+  const nextH = CIV.ageAtH[likelyAge + 1];
+  const w = state.threats.next;
+  return {
+    targetId: id,
+    seenAge,
+    seenAt,
+    likelyAge,
+    nextAgeAt: nextH === undefined ? null : now + Math.max(0, nextH - hours) * HOUR,
+    waveFrom: w?.announced && w.origin !== undefined ? w.origin : null,
+  };
+}

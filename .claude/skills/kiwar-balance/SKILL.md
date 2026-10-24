@@ -218,3 +218,10 @@ before `applyCommand` in a decision (each dry run copies the colony). Reference 
 --hours 72 --impact 2`, 51 min): faces within 4.3 %, Stone ≈ 13.3 h, Iron ≈ 2.3–2.6 d; without
 classes Iron +16.6 %; rhythm "at the cap" 32–63 % in highlands, lagoons and tundra (to
 decide with the owner, see `DECISIONS.md` chantier 37).
+
+## Chantier 39: the alien civilisation
+
+`RunResult.final.civAge`, `civAtAges` (the civilisation's age when we reached Stone / Iron /
+Industry), `civWave` (its wave factor at the end); `wavesMarkdown` adds a civilisation table
+by profile (ages section). Raids now burn parcels (they slow the civilisation and its waves)
+instead of provoking. See `kiwar-civ`.

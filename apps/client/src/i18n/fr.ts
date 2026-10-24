@@ -835,6 +835,22 @@ export const fr: Dict = {
     cutsLand: 'Cela couperait le village en deux : les kiwis contournent les grands bâtiments.',
     cramped: 'À l’étroit : libérez les tuiles autour pour qu’il s’étende avant de grandir.',
   },
+  civ: {
+    title: 'La civilisation adverse',
+    unseen: 'Jamais observée. Elle vit à son propre rythme.',
+    seen: 'Dernière observation il y a {ago} : {age}.',
+    likely: 'Âge estimé aujourd’hui : {age}',
+    next: ' · {age} d’ici {duration} environ.',
+    ahead:
+      'Elle a de l’avance sur nous : ses vagues seront plus fortes que notre âge ne le laisse croire.',
+    even: 'Elle avance au même pas que nous.',
+    behind: 'Nous avons de l’avance sur elle.',
+    waveFrom: 'La prochaine vague part de la parcelle {sector}.',
+    burnt: 'La parcelle {sector} part en fumée : la civilisation prend du retard.',
+    fed: 'Notre défaite sur la parcelle {sector} nourrit la civilisation.',
+    waveWait: 'Une vague se prépare : on attend le rapport de ses parcelles…',
+    hint: 'Elle grandit seule, à dates fixes. Brûler ses parcelles (raids, assauts) la retarde ; chaque équipage perdu la nourrit. Prendre les parcelles de ses casernes affaiblit ses vagues.',
+  },
   siege: {
     show: {
       taken: 'Tête de pont prise !',

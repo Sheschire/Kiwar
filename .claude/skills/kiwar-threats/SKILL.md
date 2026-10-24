@@ -203,3 +203,12 @@ waves (own schedule, hash RNG).
 full power 96 h after the founding (`COLONY.rampStart`, `rampMs`), × (1 + 0.15 × ferret dens
 standing); `newSister` sets a 48 h shield. Dens fall to `raidDen` (guards, foreseen) or a
 Kikiwiwi. See `kiwar-colonies`.
+
+## Waves of the alien civilisation (chantier 39, `kiwar-civ`)
+
+`wavePower(state, at, waveId)` takes `civWave(state, at, waveId).factor` (development days ×
+standing barracks × civilisation age) in place of the days of play and the provocation (kept
+when there is no civilisation: a sister, a twin held by a friend, a conquered face). The
+announcement sets `PlannedWave.origin` (a barracks parcel) and **needs the truth**: without
+`state.aliens` the client does not announce (`canAnnounceWave`), `waveAwaited` /
+`hiddenDue` make the server's `load` do it. Long public-state tests must clear `threats.next`.

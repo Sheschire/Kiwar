@@ -99,3 +99,7 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   ships **and** due counter-attacks of the siege), the client polls while
   `awaitingServer(state, now)`; `import` calls `resetSiege` (a local siege cannot be checked).
   The siege truth is derived from the garrison seed: nothing new to strip. No SQL change.
+- **Chantier 39** (`kiwar-civ`): the alien civilisation lives inside `aliens` (stripped by
+  `publicState`); `hiddenDue` also lists a wave due to be announced (only the server knows the
+  civilisation's power and the wave's parcel), and `awaitingServer` includes `waveAwaited`.
+  Leak tests scan for `"civ":{`, `"keys":[`, `"royalSeen"`, `"fights":[`. No SQL change.

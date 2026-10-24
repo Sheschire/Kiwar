@@ -10,6 +10,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 39** — la **civilisation alien** de la face jumelle vit à **son propre rythme** :
+> elle passe ses âges à dates fixes depuis le début de la colonie (la Pierre au jour 1, le Fer
+> au jour 4, l'Industrie au jour 12), la même règle pour tout le monde. Ses **12 parcelles**
+> ont des bâtiments et une garnison équipée : faibles au bord, deux à trois fois plus fortes au
+> centre. Elle **cache** son terrier royal, ses casernes et ses réserves dans les parcelles
+> qu'on n'a pas vues, et les déplace quand une tête de pont s'approche. Chaque **raid gagné
+> brûle** une parcelle et la retarde ; chaque **équipage perdu la nourrit**. Ses **vagues**
+> suivent sa puissance et partent d'une parcelle à casernes, annoncée. L'encart « La
+> civilisation adverse » donne son âge estimé et la parcelle de la prochaine vague.
+
 > **Chantier 38** — les météorites apportent surtout du **fer météorique**, un stock à part dont
 > le plafond suit le Nid (les épaves fracassées en donnent aussi, et il en tombe au moins une
 > tous les 3 jours). À l'âge de pierre, la technologie « Forge » ouvre la **Forge** : on y

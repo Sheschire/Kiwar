@@ -765,6 +765,21 @@ export const en = {
     cutsLand: 'This would cut the village in two: kiwis walk around big buildings.',
     cramped: 'Cramped: free the tiles around it so it can spread before it grows.',
   },
+  civ: {
+    title: 'The enemy civilisation',
+    unseen: 'Never observed. It lives at its own pace.',
+    seen: 'Last seen {ago} ago: {age}.',
+    likely: 'Estimated age today: {age}',
+    next: ' · {age} in about {duration}.',
+    ahead: 'It is ahead of us: its waves will be stronger than our age suggests.',
+    even: 'It keeps pace with us.',
+    behind: 'We are ahead of it.',
+    waveFrom: 'The next wave comes from the parcel {sector}.',
+    burnt: 'The parcel {sector} goes up in smoke: the civilisation falls behind.',
+    fed: 'Our defeat on the parcel {sector} feeds the civilisation.',
+    waveWait: 'A wave is gathering: waiting for word from its parcels…',
+    hint: 'It grows on its own, on fixed dates. Burning its parcels (raids, assaults) holds it back; every crew lost feeds it. Taking the parcels of its barracks weakens its waves.',
+  },
   siege: {
     show: {
       taken: 'Bridgehead taken!',

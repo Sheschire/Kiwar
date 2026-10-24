@@ -4288,6 +4288,32 @@ function seenStructures(g, at, sectors) {
     r: b.r
   }));
 }
+function civEstimate(state, now) {
+  const id3 = waveCivTarget(state);
+  if (id3 === null) return null;
+  const target = state.targets.find((t) => t.id === id3);
+  const report = state.intel[id3];
+  const seenAge = report?.civAge ?? null;
+  const seenAt = seenAge !== null ? report.at : null;
+  let delay = 0;
+  if (seenAge !== null && seenAt !== null) {
+    const next = CIV.ageAtH[seenAge + 1];
+    const then = scheduleHours(state, target.distance, seenAt);
+    if (next !== void 0 && then >= next) delay = then - next + 1 / 60;
+  }
+  const hours = Math.max(0, scheduleHours(state, target.distance, now) - delay);
+  const likelyAge = Math.max(seenAge ?? 0, civAgeOfHours(hours));
+  const nextH = CIV.ageAtH[likelyAge + 1];
+  const w = state.threats.next;
+  return {
+    targetId: id3,
+    seenAge,
+    seenAt,
+    likelyAge,
+    nextAgeAt: nextH === void 0 ? null : now + Math.max(0, nextH - hours) * HOUR2,
+    waveFrom: w?.announced && w.origin !== void 0 ? w.origin : null
+  };
+}
 
 // packages/shared/src/battle/types.ts
 var EV = {
@@ -18656,6 +18682,7 @@ export {
   civAt,
   civBuildings,
   civDay,
+  civEstimate,
   civEyes,
   civHash,
   civHours,

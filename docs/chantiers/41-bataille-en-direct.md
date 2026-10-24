@@ -4,7 +4,7 @@ Acte II « La guerre des faces » du [carnet de route](../CARNET_DE_ROUTE.md). *
 le **40** (mission, journal, aperçus). Il peut tourner en parallèle du 43, avec prudence (le 43
 touche aussi `render/kiwis.ts`).
 
-**Skills à charger** : `kiwar-client`, `kiwar-world` (espace, voyage de caméra, jumelle),
+**Skills à charger** : `kiwar-client`, `kiwar-civ`, `kiwar-world` (espace, voyage de caméra, jumelle),
 `kiwar-battle`.
 
 ## Intention du porteur

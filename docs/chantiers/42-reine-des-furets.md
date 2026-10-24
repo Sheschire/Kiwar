@@ -4,7 +4,7 @@ Acte II « La guerre des faces » du [carnet de route](../CARNET_DE_ROUTE.md). \
 
 - bot.** Il clôt l'acte II : après le **41**. Fin d'acte : **rapport d'équilibrage complet\*\*.
 
-**Skills à charger** : `kiwar-colonies`, `kiwar-expeditions`, `kiwar-battle`, `kiwar-balance`.
+**Skills à charger** : `kiwar-colonies`, `kiwar-civ`, `kiwar-expeditions`, `kiwar-battle`, `kiwar-balance`.
 
 ## Intention du porteur
 

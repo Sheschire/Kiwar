@@ -160,3 +160,12 @@ Missions `assault`, `reinforce`, `final` (and the simulated `retreat`) are resol
 (`deepRecon`: holds and the queen's lair, `IntelReport.siege`). `recordIntel` keeps the siege
 intel. Missions to a conquered twin fail `conquered`. The forecast has `returnCrew`,
 `returnWeight` (checked against the hold) and `final`.
+
+## The alien civilisation (chantier 39, `kiwar-civ`)
+
+Each garrison carries a hidden civilisation (`g.civ`, `sim/civ.ts`). `alienDefense` is now the
+garrison of its outer ring (`outerPower(civAt(g, at))`): `g.growth` / `g.reinforce` are no longer
+read and victories no longer reinforce the face; a raid lands on an outer parcel
+(`raidSector`) and burns it on a victory (`result.sector`, `burnt`), feeds the civilisation on
+a defeat. Reconnaissance reports the civilisation's dens and roosts (`seenStructures`) and its
+age (`IntelReport.civAge`). `intelView` ages reports with `scheduleGrowth` (public schedule).

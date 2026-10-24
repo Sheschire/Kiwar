@@ -29,6 +29,7 @@ import { actions } from '../actions';
 import { setPanelOpen, uiStore, useT, useUi, type Translate } from '../store';
 import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
+import { CivCard } from './CivCard';
 import { useJobLabel } from './VillageModal';
 
 const one = (x: number) => Math.round(x * 10) / 10;
@@ -604,6 +605,7 @@ export function DefenseModal() {
               : t('defense.noWave')}
         </p>
       )}
+      <CivCard game={game} />
       <SectorTable game={game} />
       <PostureChoice game={game} />
       <GarrisonPicker game={game} />

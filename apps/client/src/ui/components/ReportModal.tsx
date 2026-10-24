@@ -85,6 +85,11 @@ export function ReportModal() {
               fed: Math.round(r.fed * 100),
             })}
           </p>
+          {r.sector !== undefined && (
+            <p class={`small ${r.burnt ? 'bonus' : 'warn'}`}>
+              {t(r.burnt ? 'civ.burnt' : 'civ.fed', { sector: sectorName(t, r.sector) })}
+            </p>
+          )}
         </>
       )}
       {r.lostInBattle.length === 0 &&

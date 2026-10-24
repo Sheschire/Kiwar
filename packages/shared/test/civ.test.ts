@@ -23,6 +23,7 @@ import {
   awaitingServer,
   civDay,
   civEyes,
+  civEstimate,
   civWave,
   hiddenDue,
   waveAwaited,
@@ -486,5 +487,35 @@ describe('the server keeps the civilisation (chantier 39)', () => {
     expect(big.aliens).toEqual(small.aliens);
     expect(big.threats).toEqual(small.threats);
     expect(big.threats.waves).toBeGreaterThan(5);
+  });
+});
+
+describe('what the client can tell (chantier 39)', () => {
+  it('estimates the age from our reports and the public schedule only', () => {
+    const { state } = setup('kiwisu', 'estimate');
+    const s = publicState(cloneState(state));
+    const id = s.targets[0]!.id;
+    const blind = civEstimate(s, T0 + 2 * DAY)!;
+    expect(blind).toMatchObject({ targetId: id, seenAge: null, likelyAge: 1, waveFrom: null });
+    expect(blind.nextAgeAt).toBe(T0 + CIV.ageAtH[2]! * H);
+    // Seen still in Eden on day 2 (burnt back): the delay is kept.
+    s.intel[id] = {
+      at: T0 + 30 * H,
+      source: 'recon',
+      defense: { min: 5, max: 6 },
+      ferrets: { min: 3, max: 3 },
+      bats: { min: 2, max: 2 },
+      victoriesAt: 0,
+      sectors: [6],
+      structures: [],
+      civAge: 0,
+    };
+    const then = civEstimate(s, T0 + 30 * H)!;
+    expect(then.seenAge).toBe(0);
+    expect(then.likelyAge).toBe(0);
+    // An hour later it may well have reached the Stone age.
+    expect(civEstimate(s, T0 + 31 * H)!.likelyAge).toBe(1);
+    // A sister colony has no civilisation.
+    expect(civEstimate({ ...s, colony: { ...s.colony, index: 1 } }, T0)).toBeNull();
   });
 });

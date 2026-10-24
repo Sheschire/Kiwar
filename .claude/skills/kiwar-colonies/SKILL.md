@@ -188,3 +188,12 @@ outbox)` (current tech or bank), the sister copies `done`/`current`. Each state 
   never picks research in a sister), `linkOrder` (`bot/colonies.ts`) sends home's surplus,
   `deliverToSister` + `syncColonies` each round. Milestones `siegeOpen`, `bridgehead`,
   `conquest`, `founded`, `sisterNest3`, `sisterWave` (informative).
+
+## The civilisation behind the siege (chantier 39, `kiwar-civ`)
+
+The holds are the outer parcels' garrisons × `SIEGE.hold.share` (1.5; `SIEGE.hold.base` and
+`siegeTruth().holds` are gone), the queen lives in the civilisation's royal burrow
+(`queenLair(g)`: it may move while unseen and beside a bridgehead, never once
+`intel.siege.queen` is known) and grows with its parcel (`siegeGrowth`). Bridgeheads are the
+civilisation's "beacons" until chantier 40: its key buildings flee them. Assaults, finals and
+counter-attacks record fights, burns and defeats.

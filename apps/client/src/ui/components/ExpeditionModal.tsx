@@ -40,6 +40,7 @@ import { Cost } from './Cost';
 import { IntelMap } from './IntelMap';
 import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
+import { CivCard } from './CivCard';
 import { DeliveryPlanner } from './DeliveryPlanner';
 import { useJobLabel } from './VillageModal';
 
@@ -492,6 +493,7 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
         )}
         {intel && !siege && <EnemyLine game={game} targetId={targetId} />}
       </section>
+      {target?.distance === 0 && mission !== 'found' && <CivCard game={game} />}
 
       <section class="field">
         <div class="title-row">

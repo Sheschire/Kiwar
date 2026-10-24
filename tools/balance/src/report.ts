@@ -452,5 +452,21 @@ export function wavesMarkdown(profiles: { label: string; runs: RunResult[] }[]):
     );
   }
   lines.push('');
+  // Chantier 39: the alien civilisation runs on its own clock; a slow colony meets it older.
+  lines.push(
+    '| Profile | Civ. age at our Stone | at our Iron | at our Industry | Civ. age at the end | Wave factor at the end |',
+    '|---|---|---|---|---|---|',
+  );
+  const mean = (xs: (number | null | undefined)[]) => {
+    const v = xs.filter((x): x is number => typeof x === 'number');
+    return v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(1) : '—';
+  };
+  for (const p of profiles) {
+    const at = (i: number) => mean(p.runs.map((r) => r.final.civAtAges?.[i]));
+    lines.push(
+      `| ${p.label} | ${at(0)} | ${at(1)} | ${at(2)} | ${mean(p.runs.map((r) => r.final.civAge))} | ${mean(p.runs.map((r) => r.final.civWave))} |`,
+    );
+  }
+  lines.push('');
   return lines;
 }

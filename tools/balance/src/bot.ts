@@ -1,4 +1,6 @@
 import {
+  civAt,
+  civWave,
   CLASSES,
   nextConstructionEnd,
   HOUR_MS,
@@ -148,6 +150,13 @@ export interface RunResult {
      * what was produced.
      */
     deadMaxMin?: number;
+    /**
+     * Chantier 39: age of the alien civilisation at the end, and when we reached the Stone,
+     * Iron and Industry ages (null: not reached); its wave factor at the end.
+     */
+    civAge?: number;
+    civAtAges?: (number | null)[];
+    civWave?: number;
     /** Chantier 31: when that stretch began (hours of play), for diagnostics. */
     deadAtH?: number;
     capShare?: number;
@@ -563,6 +572,7 @@ export function runBot(opts: RunOptions): RunResult {
     number
   >;
   let lost = 0;
+  const civAtAges: (number | null)[] = [null, null, null];
   while (now - start < opts.horizonMs) {
     const dustBefore = state.stardust;
     const stepped = advance(state, now);
@@ -573,6 +583,9 @@ export function runBot(opts: RunOptions): RunResult {
       if (e.type === 'ageReached') {
         const m = (['stone', 'iron', 'industry'] as const)[e.age - 1];
         if (m && times[m] === null) times[m] = e.at - start;
+        const twin = state.aliens?.[state.targets.find((t) => t.distance === 0)?.id ?? ''];
+        if (m && twin && civAtAges[e.age - 1] === null)
+          civAtAges[e.age - 1] = civAt(twin, e.at).age;
       }
       if (e.type !== 'storageFull' || capped[e.resource]) continue;
       const gross = productionRates(state, () => false)[e.resource];
@@ -744,9 +757,21 @@ export function runBot(opts: RunOptions): RunResult {
         (m) => m.cause === 'battle' || m.cause === 'starvation',
       ).length,
       deadMaxMin: Math.round(deadMax / 60_000),
+      ...civFinal(state),
+      civAtAges,
       deadAtH: Math.round(((deadAt - start) / HOUR_MS) * 10) / 10,
       capShare: Math.max(...RESOURCE_IDS.map((id) => cappedMs[id])) / elapsed,
       lostShare: produced > 0 ? lost / produced : 0,
     },
+  };
+}
+
+/** Chantier 39: the civilisation of the twin at the end of a run. */
+function civFinal(state: GameState): { civAge?: number; civWave?: number } {
+  const twin = state.aliens?.[state.targets.find((t) => t.distance === 0)?.id ?? ''];
+  if (!twin) return {};
+  return {
+    civAge: civAt(twin, state.now).age,
+    civWave: Math.round(civWave(state, state.now, '').factor * 100) / 100,
   };
 }

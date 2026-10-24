@@ -9,6 +9,26 @@ sessions. Le 40 les remplace.
 **Skills à charger** : `kiwar-expeditions`, `kiwar-colonies`, `kiwar-online`, `kiwar-design`
 (+ `kiwar-battle`, `kiwar-threats` pour les vagues, `kiwar-balance` à la fin).
 
+## État : fait (octobre 2026)
+
+Réalisé en cinq parties (commits « Chantier 39 (part 1…5) ») ; détails et chiffres dans
+`DECISIONS.md` (chantier 39), savoir-faire dans le nouveau skill `kiwar-civ`.
+
+- Réponse du porteur au début du chantier : **en ligne, l'annonce d'une vague attend le
+  serveur** (comme les contre-attaques du siège) ; la vague part d'une vraie parcelle à
+  casernes.
+- Fait : la civilisation (âges à dates fixes depuis le début de la colonie, 12 parcelles,
+  garnisons par type, niveau et équipement, bâtiments, impacts), l'IA qui cache ses bâtiments
+  clés (une fois par jour de jeu), les vagues tirées d'elle, les anciennes missions branchées
+  dessus (raid = bûcher, siège = garnisons des parcelles, la reine dans le terrier royal),
+  l'encart « La civilisation adverse », le bot (âge de la civilisation à nos âges).
+- Choix faits en route : horloge de la colonie (pas de l'univers) ; une civilisation par face,
+  les plus lointaines plus âgées ; les têtes de pont servent de balises jusqu'au 40 ; les
+  victoires ne renforcent plus les aliens (elles brûlent une parcelle).
+- Laissé au 40 : balises, débarquements contre les unités d'une parcelle, perte de
+  l'équipement des morts (au profit des aliens), vue détaillée des parcelles ; au 41 : le
+  village alien dessiné depuis `civBuildings`.
+
 ## Intention du porteur
 
 - « Même si on ne la voit pas au début, la civilisation alien se développe aussi de son côté. Plus

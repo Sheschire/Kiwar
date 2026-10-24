@@ -5,7 +5,7 @@ serveur + interface.** Après le **39** (civilisation alien). Remplace les recon
 raids et le siège par **une seule mission**. Le spectacle 3D complet arrive au **41**. Ici, un
 rapport 2D sert de replay en attendant.
 
-**Skills à charger** : `kiwar-expeditions`, `kiwar-online`, `kiwar-battle`, `kiwar-design` (+
+**Skills à charger** : `kiwar-civ`, `kiwar-expeditions`, `kiwar-online`, `kiwar-battle`, `kiwar-design` (+
 `kiwar-colonies` pour la migration du siège, `kiwar-balance` à la fin).
 
 ## Intention du porteur

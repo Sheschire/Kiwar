@@ -40,7 +40,7 @@ dans l'historique.
 | 36  | Moteur de bataille : les vagues jouées pour de vrai  | fait    |
 | 37  | Classes, rôles de combat, camp d'entraînement        | fait    |
 | 38  | Forge, équipement et fer météorique                  | fait    |
-| 39  | La civilisation alien                                | à faire |
+| 39  | La civilisation alien                                | fait    |
 | 40  | Le débarquement                                      | à faire |
 | 41  | La bataille en direct sur la jumelle (client)        | à faire |
 | 42  | La reine des furets                                  | à faire |
@@ -50,12 +50,14 @@ dans l'historique.
 | 45  | Rives fertiles et canaux de jus                      | à faire |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
-**Prochaine conversation** : le chantier **39** (la civilisation alien) : ses parcelles
-alignent des unités par rôle, niveau et **équipement** — les pièces du 38 (`ITEMS`,
-`gearEffect`, skill `kiwar-forge`) servent aussi aux aliens. Points laissés par le 38 : la
-perte de l'équipement d'un kiwi mort sur la jumelle viendra au 40 ; le ressenti du combat
-équipé et les prix des pièces sont « à tester » avec le porteur. Toujours ouverts : la
-Rôdeur·euse prend son sens au 40, le ressenti des rangs et du camp (37), la réparation
+**Prochaine conversation** : le chantier **40** (le débarquement) : une mission unique contre
+une parcelle de la civilisation du 39 (skill `kiwar-civ` : `civAt`, `sectorUnits`,
+`recordBurn` / `recordDefeat`, `civEyes` où les balises remplacent les têtes de pont), jouée
+avec le moteur de bataille du 36 et l'équipement du 38. Points laissés par le 39 : les balises
+et la vue détaillée des parcelles, la perte de l'équipement des morts au profit des aliens ;
+le ressenti de l'horloge alien (dates des âges, poids des bûchers et des défaites) est « à
+tester » avec le porteur. Toujours ouverts : le ressenti du combat équipé et les prix des
+pièces (38), la Rôdeur·euse au 40, le ressenti des rangs et du camp (37), la réparation
 automatique qui trahit l'issue d'une vague regardée en direct (36) et le temps mort du début
 de la Pierre (31).
 
@@ -104,6 +106,10 @@ de la Pierre (31).
   `LevelDef.iron`, `TechDef.iron`, `payIron` / `addIron` et se rembourse jusqu'au plafond ; un
   débit cumulé dans `accrue` se calcule dans `computeFlows` (début de l'intervalle). Une
   nouvelle classe prend une famille d'arme dans `CLASS_FAMILY` (skill `kiwar-forge`).
+- **Civilisation alien** (chantier 39) : tout ce qui dépend de la vraie civilisation vit dans
+  `state.aliens[*].civ` (caché) et ne se résout qu'où la vérité est tenue (serveur en ligne,
+  client en solo) ; une annonce de vague l'attend aussi. Un nouvel effet de nos actions sur
+  elle passe par `recordBurn` / `recordDefeat` / `recordFight` (skill `kiwar-civ`).
 - **Planètes** : elles ont une place fixe (`render/space.ts`) ; `renderer.setTwinApproach(t)`
   rapproche la jumelle (skill `kiwar-world`).
 
