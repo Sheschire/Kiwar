@@ -71,6 +71,13 @@ export class ShipsView {
     this.group.add(this.particles.mesh);
   }
 
+  private hidden: Flight | null = null;
+
+  /** Chantier 41: the bird of an expedition whose landing is on show (drawn by the show). */
+  hide(expeditionId: string | null): void {
+    this.hidden = expeditionId ? (this.flights.get(expeditionId) ?? null) : null;
+  }
+
   setParticles(on: boolean): void {
     this.particles.setEnabled(on);
   }
@@ -221,6 +228,7 @@ export class ShipsView {
       } else pos.lerpVectors(this.dest, climb, 1 - (left - TAKEOFF_MS) / (T - TAKEOFF_MS));
     }
     if (f.visitor && now < f.arriveAt && now < f.returnAt) visible = false;
+    if (f === this.hidden) visible = false;
     f.group.visible = visible;
     if (!visible) return;
     // Face the way it flies (towards the destination on the way out, home on the way back).

@@ -34,6 +34,7 @@ import { installPerfProbe, perfStore, recordTick } from './ui/perfProbe';
 import { viewStore } from './ui/viewStore';
 import { handleGameEvents } from './game/events';
 import { tellOutcome } from './game/battleOutcome';
+import { tellLanding } from './game/landingWatch';
 import { battleStore } from './ui/battleStore';
 import { ChatChannel, mutedUsers } from './game/chat';
 import { setChannel } from './ui/chatActions';
@@ -93,13 +94,22 @@ const renderer = new GameRenderer(
       renderer.highlightKiwi(null);
     },
     // Chantier 36: the battle show and its bar.
-    onBattleStart: (report, live, duration) =>
-      battleStore.setState({ reportId: report.id, live, time: 0, duration, speed: 1, unit: null }),
+    onBattleStart: (source, live, duration) =>
+      battleStore.setState({
+        reportId: source.id,
+        kind: source.kind,
+        live,
+        time: 0,
+        duration,
+        speed: 1,
+        unit: null,
+      }),
     onBattleTick: (time, duration) =>
       battleStore.setState({ time, duration, unit: renderer.battleUnit() }),
-    onBattleEnd: (report) => {
+    onBattleEnd: (source) => {
       battleStore.setState({ reportId: null, live: false, unit: null });
-      tellOutcome(report.id);
+      if (source.kind === 'landing') tellLanding(source.id);
+      else tellOutcome(source.id);
     },
     onBattleUnit: (unit) => battleStore.setState({ unit }),
   },

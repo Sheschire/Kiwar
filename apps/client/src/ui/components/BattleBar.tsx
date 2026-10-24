@@ -90,14 +90,14 @@ function UnitCard({ unit }: { unit: UnitInfo }) {
   const role =
     unit.body === 'turret'
       ? t('battle.unit.turret')
-      : unit.side === 1
+      : unit.enemy
         ? t('battle.unit.enemy')
         : unit.classId
           ? t(`classes.${unit.classId as 'warrior'}.name`)
           : t(unit.body === 'kikiwiwi' ? 'battle.unit.kikiwiwi' : 'battle.unit.kiwi');
   const ratio = unit.maxHp > 0 ? unit.hp / unit.maxHp : 0;
   return (
-    <div class={`unit-card parchment ${unit.side === 1 ? 'is-enemy' : ''}`}>
+    <div class={`unit-card parchment ${unit.enemy ? 'is-enemy' : ''}`}>
       <div class="unit-card-head">
         <div>
           <strong>{title}</strong>
@@ -124,10 +124,20 @@ function UnitCard({ unit }: { unit: UnitInfo }) {
       <span class="small">
         {t('battle.unit.weapon', { weapon: t(`battle.weapons.${unit.weapon}`) })}
       </span>
-      {unit.side === 0 && unit.classId && (
+      {!unit.enemy && unit.classId && (
         <span class="small muted">{t(`classes.${unit.classId as 'warrior'}.combat`)}</span>
       )}
-      {unit.side === 0 && unit.body !== 'turret' && <UnitGear ref_={unit.ref} />}
+      {!unit.enemy && unit.body !== 'turret' && <UnitGear ref_={unit.ref} />}
+      {unit.enemy && unit.gear && (
+        // Chantier 41: what the landing saw it wear.
+        <span class="small muted">
+          {unit.gear.length > 0
+            ? t('battle.unit.gear', {
+                items: unit.gear.map((id) => t(`gear.items.${id}`)).join(', '),
+              })
+            : t('battle.unit.noGear')}
+        </span>
+      )}
     </div>
   );
 }

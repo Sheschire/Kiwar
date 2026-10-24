@@ -441,10 +441,14 @@ export const actions = {
    * Chantier 41: flies to the twin and frames the parcel of a landing (its battle plays there).
    * False when it cannot be watched (a face not drawn, no journal).
    */
-  watchLanding(expeditionId: string): boolean {
+  watchLanding(expeditionId: string, live = true): boolean {
     const game = uiStore.getState().game;
     const e = game?.expeditions.find((x) => x.id === expeditionId);
     if (!game || !e || !watchable(game, e) || !renderer?.travelTo('twin', e.sector)) return false;
+    if (!renderer.playLanding(e.id, live)) {
+      renderer.travelTo(null);
+      return false;
+    }
     uiStore.setState({
       visit: 'twin',
       landingInvite: null,

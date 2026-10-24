@@ -1,5 +1,8 @@
 import { otherFace, RESOURCE_IDS, type Expedition } from '@kiwar/shared';
 import { uiStore, useT, useUi } from '../store';
+import { actions } from '../actions';
+import { ShipIcon } from '../icons';
+import { watchable } from '../../game/landingWatch';
 import { Cost } from './Cost';
 import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
@@ -92,7 +95,25 @@ export function ReportModal() {
           {looted ? <Cost cost={r.loot} /> : t('expedition.nothing')}
         </p>
       )}
-      {landing && r.log && <LandingReplay log={r.log} />}
+      {landing &&
+        r.log &&
+        (watchable(game, e) ? (
+          // Chantier 41: the battle replayed in 3D on the twin, from the ship coming down.
+          <p>
+            <button
+              class="btn btn-primary"
+              onClick={() => {
+                close();
+                actions.watchLanding(e.id, false);
+              }}
+            >
+              <ShipIcon size={16} /> {t('landing.watch.replay')}
+            </button>
+          </p>
+        ) : (
+          // A face not drawn in our sky (another kiwi of the universe): the 2D replay.
+          <LandingReplay log={r.log} />
+        ))}
     </Modal>
   );
 }

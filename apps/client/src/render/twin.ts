@@ -1,8 +1,7 @@
 import { footprintFrame } from './footprintFrame';
 import { ObstaclesView } from './obstacles';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type {
-  BufferGeometry} from 'three';
+import type { BufferGeometry } from 'three';
 import {
   Color,
   Matrix4,
@@ -139,10 +138,12 @@ export class TwinView {
   private structureMaterials: MeshStandardMaterial[] = [];
   /** Chantier 41: the glowing kiwis of our beacons (they bob and glow). */
   private readonly beaconKiwis: Group[] = [];
+  /** Beacons by parcel, and when each was planted on screen (a pop). */
+  private readonly beacons = new Map<number, { group: Group; pop: number }>();
   private beaconAura: MeshBasicMaterial | null = null;
 
   constructor(
-    private readonly map: FaceMap,
+    readonly map: FaceMap,
     opts: TwinOptions,
   ) {
     this.terrain = new TerrainView(map);
@@ -272,6 +273,13 @@ export class TwinView {
     }
     this.spin.rotation.y = this.angle;
     this.fogMaterial.uniforms.uTime!.value = time;
+    for (const b of this.beacons.values()) {
+      if (b.pop >= 1) continue;
+      // A beacon just planted springs up.
+      b.pop = Math.min(1, b.pop + dt / 0.6);
+      const k = b.pop;
+      b.group.scale.setScalar(0.65 * (1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2));
+    }
     for (let i = 0; i < this.beaconKiwis.length; i++) {
       const k = this.beaconKiwis[i]!;
       k.position.y = 2.75 + Math.sin(time * 1.6 + i) * 0.12;
@@ -342,6 +350,27 @@ export class TwinView {
     m.depthWrite = m.depthTest;
     this.far.renderOrder = m.depthTest ? 0 : 1;
     this.far.visible = opacity > 0;
+  }
+
+  /**
+   * Chantier 41: hides the beacon of a parcel (a landing on show plants it later), or plants
+   * it with a pop.
+   */
+  setBeaconHidden(sector: number, hidden: boolean): void {
+    const b = this.beacons.get(sector);
+    if (!b) return;
+    if (hidden) {
+      b.group.visible = false;
+      b.pop = 0;
+      b.group.scale.setScalar(0.001);
+    } else if (!b.group.visible) {
+      b.group.visible = true;
+    }
+  }
+
+  /** Chantier 41: something drawn on the face (a landing's show), in its local frame. */
+  attach(object: Object3D): void {
+    this.terrain.group.add(object);
   }
 
   /** Chantier 41: whether the tiles and details are drawn (near enough, or visited). */
@@ -455,6 +484,10 @@ export class TwinView {
     this.structureGeometries.push(pole, body, head, beak, halo, wall);
     this.structureMaterials.push(wood, glow, stone);
     this.beaconAura = aura;
+    // One holder for the level of detail: each beacon keeps its own visibility.
+    const holder = new Group();
+    this.terrain.group.add(holder);
+    this.near.push(holder);
     for (const h of heads) {
       const spot = landingTile(h.sector, blocked);
       const tile = getTile(map, spot) ?? sectorMiddle(map, h.sector);
@@ -484,8 +517,8 @@ export class TwinView {
         beacon.add(ring);
       }
       this.beaconKiwis.push(kiwi);
-      this.terrain.group.add(beacon);
-      this.near.push(beacon);
+      this.beacons.set(h.sector, { group: beacon, pop: 1 });
+      holder.add(beacon);
     }
   }
 

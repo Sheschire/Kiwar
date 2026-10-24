@@ -7,6 +7,8 @@ import { useStoreSlice } from './store';
 export interface BattleView {
   /** The wave whose battle is on screen (null: none). */
   reportId: string | null;
+  /** Chantier 41: a wave at home or a landing on the twin. */
+  kind: 'wave' | 'landing';
   /** Played as it happens (the outcome is told at the end of the show). */
   live: boolean;
   /** Show time and length, in seconds. */
@@ -19,6 +21,7 @@ export interface BattleView {
 
 export const battleStore = createStore<BattleView>(() => ({
   reportId: null,
+  kind: 'wave',
   live: false,
   time: 0,
   duration: 0,

@@ -22,8 +22,10 @@ import {
   EV,
   type FaceMap,
   type GameState,
+  type AlienUnit,
+  type BattleLog,
+  type Expedition,
   type Hex,
-  type WaveReport,
   type WeaponId,
 } from '@kiwar/shared';
 import { worldPosition } from '../terrain';
@@ -133,10 +135,40 @@ interface Actor {
   pos: Vector3;
 }
 
+/**
+ * What a show plays (chantier 41: a wave at home or a landing on the twin): its journal, and
+ * which report it comes from.
+ */
+export interface ShowSource {
+  id: string;
+  kind: 'wave' | 'landing';
+  log: BattleLog;
+}
+
+/** Chantier 41: how a show is played beyond the journal itself. */
+export interface ShowOptions {
+  /** Our side in the journal (0 at home, 1 for a landing crew). */
+  ours?: 0 | 1;
+  /** Age of the enemies' look (our age for a wave, the parcel's for a landing). */
+  age?: number;
+  /** Seconds of show before the battle (the ship coming down). */
+  lead?: number;
+  /** Seconds of show after the journal's own tail (the beacon, the ship leaving). */
+  tail?: number;
+  /** Our side vanishes then (show time: the crew boards the ship). */
+  boardAt?: number;
+  /** The crew as it boarded (looks of the kiwis lost since). */
+  roster?: Expedition['roster'];
+  /** The aliens met, with their gear (the unit card). */
+  seen?: AlienUnit[];
+}
+
 export interface UnitInfo {
   index: number;
   ref: string;
   side: 0 | 1;
+  /** Chantier 41: a unit of the other side (not ours). */
+  enemy: boolean;
   body: string;
   kind: string;
   name: string;
@@ -146,6 +178,8 @@ export interface UnitInfo {
   hp: number;
   maxHp: number;
   fallen: boolean;
+  /** Chantier 41: an alien's gear, as the landing saw it (kiwis: read from the colony). */
+  gear?: ItemId[];
 }
 
 export class BattleShow {
@@ -161,10 +195,16 @@ export class BattleShow {
   private actors: Actor[] = [];
   private buildings: Vector3[] = [];
   private age = 0;
-  /** Show time in seconds. */
+  /** Show time in seconds (negative during the lead). */
   time = 0;
   speed = 1;
-  report: WaveReport | null = null;
+  source: ShowSource | null = null;
+  private opts: Required<Omit<ShowOptions, 'roster' | 'seen' | 'boardAt'>> & ShowOptions = {
+    ours: 0,
+    age: 0,
+    lead: 0,
+    tail: 0,
+  };
   selected: number | null = null;
   private eventIndex = 0;
   private impacts: {
@@ -180,12 +220,13 @@ export class BattleShow {
   private readonly w = new Vector3();
   private readonly s = new Vector3();
   private readonly color = new Color();
+  private readonly camQ = new Quaternion();
   /** Called for each turret shot (sounds). */
   onShot: ((x: number, z: number) => void) | null = null;
   /** A building (id) is damaged in the show: its smoke may appear. */
   onDamaged: ((buildingId: string) => void) | null = null;
   /** The show reached its end (or was skipped). */
-  onEnd: ((report: WaveReport) => void) | null = null;
+  onEnd: ((source: ShowSource) => void) | null = null;
 
   constructor(private readonly map: FaceMap) {
     this.group.add(this.kiwiRig.group, this.creatures.group, this.particles.mesh);
@@ -218,8 +259,29 @@ export class BattleShow {
     return this.timeline !== null || this.particles.active;
   }
 
+  /** Seconds the battle lasts in the journal (and its short tail). */
   get duration(): number {
     return this.timeline?.duration ?? 0;
+  }
+
+  /** The whole show, lead and tail included (the bar's clock). */
+  get length(): number {
+    return this.timeline ? this.opts.lead + this.timeline.duration + this.opts.tail : 0;
+  }
+
+  /** Show time from its start (the bar's clock). */
+  get clock(): number {
+    return this.time + this.opts.lead;
+  }
+
+  /** Seconds before the battle (negative show times). */
+  get lead(): number {
+    return this.opts.lead;
+  }
+
+  /** When the fight itself ends (journal seconds). */
+  get fightEnd(): number {
+    return this.timeline?.fight ?? 0;
   }
 
   setParticles(on: boolean): void {
@@ -234,7 +296,7 @@ export class BattleShow {
   /** Buildings (ids) damaged during the battle, and when. */
   damagedAt(): Map<string, number> {
     const out = new Map<string, number>();
-    const log = this.report?.log;
+    const log = this.source?.log;
     if (!log || !this.timeline) return out;
     for (const [b, t] of this.timeline.damagedAt) out.set(log.buildings[b]![0], t);
     return out;
@@ -244,18 +306,25 @@ export class BattleShow {
     return getTile(this.map, h)?.height ?? 0;
   }
 
-  /** Starts the show of a wave report (with its journal) at `from` seconds. */
-  play(state: GameState, report: WaveReport, from = 0): boolean {
-    const log = report.log;
-    if (!log) return false;
-    this.report = report;
+  /** Starts the show of a journal at `from` seconds of battle (negative: in the lead). */
+  play(state: GameState, source: ShowSource, from = 0, opts: ShowOptions = {}): boolean {
+    const log = source.log;
+    this.source = source;
+    this.opts = {
+      ...opts,
+      ours: opts.ours ?? 0,
+      age: opts.age ?? ageOf(state),
+      lead: opts.lead ?? 0,
+      tail: opts.tail ?? 0,
+    };
     this.timeline = buildTimeline(log);
-    this.age = ageOf(state);
+    this.age = this.opts.age;
     this.buildings = log.buildings.map((b) => {
       const p = worldPosition({ q: b[2], r: b[3] });
       return new Vector3(p.x, this.ground({ q: b[2], r: b[3] }) + 0.4, p.z);
     });
     const villagers = new Map(state.villagers.map((v) => [v.id as string, v]));
+    const roster = new Map((opts.roster ?? []).map((m) => [m.id as string, m]));
     this.actors = this.timeline.tracks.map((track) => {
       const u = track.unit;
       const body = u[2];
@@ -267,7 +336,8 @@ export class BattleShow {
         const brightness = rng.range(0.82, 1.15);
         const jitter = rng.range(0.96, 1.04);
         const v = villagers.get(u[0]);
-        tint = v?.shiny ? shinyTint(v.shiny) : new Color(1, 1, 1).multiplyScalar(brightness);
+        const shiny = v?.shiny ?? roster.get(u[0])?.shiny ?? null;
+        tint = shiny ? shinyTint(shiny) : new Color(1, 1, 1).multiplyScalar(brightness);
         scale = (v ? sizeOf(v, jitter) : jitter) * (body === 'kikiwiwi' ? 1.6 : 1);
       } else if (body === 'ferret' || body === 'bat') {
         scale = CREATURE_SIZE * (u[3] === 'brute' ? 1.3 : u[3] === 'scout' ? 0.85 : 1);
@@ -298,7 +368,7 @@ export class BattleShow {
   /** Jumps to `t` seconds (no impact effects for what is skipped). */
   seek(t: number): void {
     if (!this.timeline) return;
-    this.time = Math.max(0, Math.min(t, this.timeline.duration));
+    this.time = Math.max(-this.opts.lead, Math.min(t, this.timeline.duration + this.opts.tail));
     const events = this.timeline.events;
     let i = 0;
     while (i < events.length && events[i]!.t <= this.time) i++;
@@ -314,15 +384,15 @@ export class BattleShow {
 
   stop(): void {
     this.timeline = null;
-    this.report = null;
+    this.source = null;
     this.actors = [];
     this.clearDrawn();
   }
 
   private finish(): void {
-    const report = this.report;
+    const source = this.source;
     this.stop();
-    if (report) this.onEnd?.(report);
+    if (source) this.onEnd?.(source);
   }
 
   private clearDrawn(): void {
@@ -343,10 +413,17 @@ export class BattleShow {
     if (!a) return null;
     const u = a.track.unit;
     const hp = hpAt(a.track, this.time);
+    const enemy = u[1] !== this.opts.ours;
+    // An alien's gear: the kind and level the landing met (`seen`).
+    const met = enemy
+      ? this.opts.seen?.find((s) => s.kind === u[3] && s.level === u[5])
+      : undefined;
     return {
       index,
       ref: u[0],
       side: u[1],
+      enemy,
+      ...(met ? { gear: [met.weapon, met.armor].filter((x): x is ItemId => !!x) } : {}),
       body: u[2],
       kind: u[3],
       name: u[4],
@@ -369,8 +446,10 @@ export class BattleShow {
   ): number | null {
     let best: number | null = null;
     let bestD = reach * reach;
+    // Positions are local to the show's group (chantier 41: the twin turns and is scaled).
+    this.group.updateWorldMatrix(true, false);
     for (const d of this.drawnPos) {
-      this.v.copy(d.pos).project(camera);
+      this.v.copy(d.pos).applyMatrix4(this.group.matrixWorld).project(camera);
       if (this.v.z > 1) continue;
       const dx = rect.left + ((this.v.x + 1) / 2) * rect.width - clientX;
       const dy = rect.top + ((1 - this.v.y) / 2) * rect.height - clientY;
@@ -412,16 +491,25 @@ export class BattleShow {
       return;
     }
     const before = this.time;
-    this.time = Math.min(tl.duration, this.time + dt * this.speed);
+    const end = tl.duration + this.opts.tail;
+    this.time = Math.min(end, this.time + dt * this.speed);
     const t = this.time;
-    this.fireEvents(before, t);
-    if (t >= tl.duration - 1e-9) {
+    if (t >= 0) this.fireEvents(Math.max(0, before), t);
+    if (t >= end - 1e-9) {
       this.finish();
+      return;
+    }
+    // The lead (the ship coming down): nobody on the field yet.
+    if (t < 0) {
+      this.clearDrawn();
       return;
     }
     this.shown = true;
     this.drawnPos.length = 0;
-    const camQ = camera.quaternion;
+    // Bars face the camera in the group's frame (chantier 41: the twin is turned).
+    this.group.getWorldQuaternion(this.camQ).invert().multiply(camera.quaternion);
+    const camQ = this.camQ;
+    const board = this.opts.boardAt;
     let nb = 0;
     let nc = 0;
     let bars = 0;
@@ -429,6 +517,8 @@ export class BattleShow {
     for (const a of this.actors) {
       const tr = a.track;
       if (a.kind !== 'turret' && !shownAt(tr, t, LINGER)) continue;
+      // The crew boarded the ship.
+      if (board !== undefined && t >= board && tr.side === this.opts.ours) continue;
       const pos = this.positionOf(a, t, a.pos);
       const place = placeAt(tr, t);
       const strike = strikeAt(tr, t, SWING);
@@ -533,7 +623,7 @@ export class BattleShow {
           .add(this.v);
         this.m.compose(this.w, camQ, this.s.set(width * (hp / tr.maxHp), 0.045, 1));
         this.barFill.setMatrixAt(i, this.m);
-        this.color.set(tr.side === 0 ? '#7ccf5a' : '#e8673c');
+        this.color.set(tr.side === this.opts.ours ? '#7ccf5a' : '#e8673c');
         this.barFill.setColorAt(i, this.color);
       }
       // Projectiles in flight.
@@ -626,7 +716,8 @@ export class BattleShow {
               ? 'fireball'
               : building
                 ? 'sparks'
-                : this.actors[s.target]?.track.side === 0
+                : this.actors[s.target]?.track.unit[2] === 'kiwi' ||
+                    this.actors[s.target]?.track.unit[2] === 'kikiwiwi'
                   ? 'feathers'
                   : 'hit';
           if (ranged) this.impacts.push({ t: e.t + FLIGHT, at, effect });
@@ -647,7 +738,7 @@ export class BattleShow {
         case EV.damaged: {
           const p = this.buildings[a!];
           if (p) this.particles.effect('puff', p, 1.5);
-          const id = this.report?.log?.buildings[a!]?.[0];
+          const id = this.source?.log.buildings[a!]?.[0];
           if (id) this.onDamaged?.(id);
           break;
         }

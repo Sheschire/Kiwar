@@ -43,7 +43,6 @@ import {
   footprintOf,
   footprintTiles,
   type Building,
-  type WaveReport,
 } from '@kiwar/shared';
 import { BuildingsView } from './buildings';
 import { KiwisView } from './kiwis';
@@ -65,7 +64,8 @@ import { MeteorsView } from './meteors';
 import { CometsView, type CometArrow } from './comets';
 import { ObstaclesView } from './obstacles';
 import { ShipsView } from './ship';
-import { BattleShow, type UnitInfo } from './battle/BattleShow';
+import { BattleShow, type ShowSource, type UnitInfo } from './battle/BattleShow';
+import { LandingShow } from './battle/landingShow';
 import { GateMarkers } from './battle/gates';
 import { PostFx } from './postfx';
 import { PropsView } from './props';
@@ -131,11 +131,11 @@ export interface RendererCallbacks {
   /** Chantier 32: where the arrow towards an off-screen comet goes (null: none). */
   onCometArrow?(arrow: CometArrow | null): void;
   /** Chantier 36: a battle show starts (`live`: as it happens). */
-  onBattleStart?(report: WaveReport, live: boolean, duration: number): void;
+  onBattleStart?(source: ShowSource, live: boolean, duration: number): void;
   /** The show's clock, four times a second. */
   onBattleTick?(time: number, duration: number): void;
   /** The show ended or was skipped. */
-  onBattleEnd?(report: WaveReport): void;
+  onBattleEnd?(source: ShowSource): void;
   /** A unit of the battle was tapped (null: deselected). */
   onBattleUnit?(unit: UnitInfo | null): void;
 }
@@ -291,13 +291,23 @@ export class GameRenderer {
       onTap: (x, y, touch) => {
         if (this.painter.enabled || this.intro) return;
         const planet = this.planetAt(x, y);
+        // Chantier 41: a landing on show — a fighter under the finger opens its card.
+        if (this.visiting === 'twin' && this.landing?.battle.source) {
+          const rect = this.canvas.getBoundingClientRect();
+          const reach = window.matchMedia?.('(pointer: coarse)').matches ? 34 : 22;
+          const unit = this.landing.battle.pick(x, y, this.camera, rect, reach);
+          if (unit !== null || this.landing.battle.selected !== null) {
+            this.battleSelect(unit);
+            return;
+          }
+        }
         if (this.visiting !== null) {
           // Visiting is read-only: only another planet can be tapped.
           if (planet !== null && planet !== this.visiting) this.callbacks.onPlanetTap?.(planet);
           return;
         }
         // Chantier 36: during a battle, a unit under the finger opens its card.
-        if (this.battle?.report) {
+        if (this.battle?.source) {
           const rect = this.canvas.getBoundingClientRect();
           const reach = window.matchMedia?.('(pointer: coarse)').matches ? 30 : 22;
           const unit = this.battle.pick(x, y, this.camera, rect, reach);
@@ -418,6 +428,7 @@ export class GameRenderer {
     this.weather?.setDensity(q.particles ? 1 : 0.35);
     this.ships?.setParticles(q.particles);
     this.battle?.setParticles(q.particles);
+    this.landing?.setParticles(q.particles);
     this.resize();
     this.renderer.shadowMap.needsUpdate = true;
     this.fpsMeter.reset();
@@ -494,10 +505,10 @@ export class GameRenderer {
     this.battle = new BattleShow(map);
     this.battle.onShot = (x, z) => this.onTurretShot?.(x, z);
     this.battle.onDamaged = (id) => this.buildings?.unmask(id);
-    this.battle.onEnd = (report) => {
+    this.battle.onEnd = (source) => {
       this.kiwis?.setHidden(null);
       this.buildings?.maskDamaged(null);
-      this.callbacks.onBattleEnd?.(report);
+      this.callbacks.onBattleEnd?.(source);
     };
     this.battle.setParticles(QUALITY[this.preset].particles);
     this.scene.add(this.battle.group);
@@ -537,6 +548,11 @@ export class GameRenderer {
       this.twin.takeOver(old);
       old.dispose();
     }
+    // Chantier 41: a landing on show stays on the rebuilt face (its beacon still to plant).
+    if (this.landing?.playing && this.landing.map === map) {
+      this.twin.attach(this.landing.group);
+      if (!this.landingPlanted) this.twin.setBeaconHidden(this.landing.sector, true);
+    } else if (this.landing?.playing) this.landing.skip();
     this.scene.add(this.twin.group);
   }
 
@@ -658,6 +674,7 @@ export class GameRenderer {
   }
 
   private endWatch(): void {
+    if (this.landing?.playing) this.landing.skip();
     if (this.watchedParcel === null) return;
     this.twin?.setFog(this.watchedParcel, null);
     this.watchedParcel = null;
@@ -1235,44 +1252,104 @@ export class GameRenderer {
    */
   playBattle(reportId: string, from = 0, live = false): boolean {
     const report = this.lastState?.threats.reports.find((r) => r.id === reportId);
-    if (!report || !this.battle || !this.lastState) return false;
-    if (!this.battle.play(this.lastState, report, from)) return false;
+    if (!report?.log || !this.battle || !this.lastState) return false;
+    if (this.landing?.playing) return false;
+    const source: ShowSource = { id: report.id, kind: 'wave', log: report.log };
+    if (!this.battle.play(this.lastState, source, from)) return false;
     this.kiwis?.setHidden(this.battle.kiwiIds());
     this.buildings?.maskDamaged(
       [...this.battle.damagedAt()].filter(([, t]) => t > from).map(([id]) => id),
     );
     this.battleClock = 0;
-    this.callbacks.onBattleStart?.(report, live, this.battle.duration);
-    this.callbacks.onBattleTick?.(this.battle.time, this.battle.duration);
+    this.callbacks.onBattleStart?.(source, live, this.battle.length);
+    this.callbacks.onBattleTick?.(this.battle.clock, this.battle.length);
     this.wake();
     return true;
   }
 
+  private landing: LandingShow | null = null;
+  /** The landing on show planted its beacon already. */
+  private landingPlanted = false;
+
+  /**
+   * Chantier 41: plays a landing's journal on the twin (the camera is there: `travelTo('twin',
+   * parcel)`), from the ship coming down. False without a journal or a twin drawn.
+   */
+  playLanding(expeditionId: string, live = false): boolean {
+    const state = this.lastState;
+    const e = state?.expeditions.find((x) => x.id === expeditionId);
+    const twin = this.twin;
+    if (!state || !e?.result?.log || e.sector === undefined || !twin) return false;
+    if (this.battle?.source) this.battle.skip();
+    if (!this.landing || this.landing.map !== twin.map) {
+      this.landing?.dispose();
+      const show = new LandingShow(twin.map);
+      show.setParticles(QUALITY[this.preset].particles);
+      show.onTouchdown = () => this.openWatchedParcel();
+      show.onPlant = () => {
+        this.landingPlanted = true;
+        this.twin?.setBeaconHidden(show.sector, false);
+      };
+      show.battle.onEnd = (source) => {
+        this.landingPlanted = true;
+        this.twin?.setBeaconHidden(show.sector, false);
+        show.stop();
+        this.callbacks.onBattleEnd?.(source);
+      };
+      this.landing = show;
+    }
+    const show = this.landing;
+    twin.attach(show.group);
+    if (!show.play(state, e, live)) return false;
+    // A beacon this landing planted waits for its moment.
+    this.landingPlanted = !e.result.beacon;
+    if (e.result.beacon) twin.setBeaconHidden(e.sector, true);
+    twin.setFog(e.sector, 'closed');
+    this.battleClock = 0;
+    const b = show.battle;
+    this.callbacks.onBattleStart?.(b.source!, live, b.length);
+    this.callbacks.onBattleTick?.(b.clock, b.length);
+    this.wake();
+    return true;
+  }
+
+  /** The show on screen: a landing on the twin, else a wave at home. */
+  private get show(): BattleShow | null {
+    if (this.landing?.battle.source) return this.landing.battle;
+    return this.battle?.source ? this.battle : null;
+  }
+
+  /** Jumps to `t` seconds of the show's clock (0: its start, the lead included). */
   battleSeek(t: number): void {
-    this.battle?.seek(t);
-    if (this.battle?.report) this.callbacks.onBattleTick?.(this.battle.time, this.battle.duration);
+    const b = this.show;
+    if (!b) return;
+    b.seek(t - b.lead);
+    this.callbacks.onBattleTick?.(b.clock, b.length);
     this.wake();
   }
 
   battleSpeed(speed: number): void {
-    if (this.battle) this.battle.speed = speed;
+    const b = this.show;
+    if (b) b.speed = speed;
   }
 
   /** Ends the battle on screen now. */
   battleSkip(): void {
-    this.battle?.skip();
+    if (this.landing?.playing && this.landing.battle.source) this.landing.skip();
+    else this.battle?.skip();
   }
 
   /** Selects a unit of the battle (its card), or none. */
   battleSelect(index: number | null): void {
-    if (!this.battle) return;
-    this.battle.selected = index;
-    this.callbacks.onBattleUnit?.(index === null ? null : this.battle.info(index));
+    const b = this.show;
+    if (!b) return;
+    b.selected = index;
+    this.callbacks.onBattleUnit?.(index === null ? null : b.info(index));
   }
 
   /** The selected unit as it is now (the card refreshes it). */
   battleUnit(): UnitInfo | null {
-    const b = this.battle;
+    const b = this.show;
     return b && b.selected !== null ? b.info(b.selected) : null;
   }
 
@@ -1491,6 +1568,7 @@ export class GameRenderer {
       this.placingGhost ||
       this.waves?.active ||
       this.battle?.playing ||
+      this.landing?.playing ||
       this.pendingShow ||
       this.siegeFx.playing ||
       this.twin?.fading ||
@@ -1621,13 +1699,6 @@ export class GameRenderer {
     this.allies.update(dt, this.elapsed, this.camera.position);
     this.twin?.update(dt, this.elapsed, this.camera.position, this.visiting === 'twin');
     this.followTwin();
-    // The camera is there and the twin has come close: the clouds part over the parcel.
-    if (
-      this.watchedParcel !== null &&
-      !this.rig.flying &&
-      this.twinApproach === this.twinApproachTarget
-    )
-      this.openWatchedParcel();
     if (this.siegeFx.playing) {
       this.siegeFx.update(dt, this.twin);
       // The fight is over: the twin goes back to its place and the camera to the player's zoom.
@@ -1672,19 +1743,19 @@ export class GameRenderer {
       if (report) {
         // No journal (an older wave): the outcome is told at once.
         if (!this.playBattle(report.id, this.pendingShow.from, true))
-          this.callbacks.onBattleEnd?.(report);
+          this.callbacks.onBattleEnd?.({ id: report.id, kind: 'wave', log: report.log! });
         this.pendingShow = null;
       }
     }
-    if (this.battle) {
-      this.battle.update(dt, this.camera);
-      const b = this.battle;
-      if (b.report) {
-        this.battleClock += dt;
-        if (this.battleClock >= 0.25) {
-          this.battleClock = 0;
-          this.callbacks.onBattleTick?.(b.time, b.duration);
-        }
+    this.battle?.update(dt, this.camera);
+    if (this.landing?.playing) this.landing.update(dt, this.camera);
+    this.ships?.hide(this.landing?.battle.source ? this.landing.expeditionId : null);
+    const b = this.show;
+    if (b) {
+      this.battleClock += dt;
+      if (this.battleClock >= 0.25) {
+        this.battleClock = 0;
+        this.callbacks.onBattleTick?.(b.clock, b.length);
       }
     }
     this.kiwis?.update(dt, this.elapsed, this.callbacks.now());
@@ -1764,6 +1835,7 @@ export class GameRenderer {
     this.terrain?.dispose();
     this.water?.dispose();
     this.twin?.dispose();
+    this.landing?.dispose();
     this.allies.dispose();
     this.intro?.dispose();
     this.props?.dispose();
