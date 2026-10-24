@@ -2520,3 +2520,11 @@ Choices made in the chantier (to revisit with chantier 40):
   likely age today and the next one, ahead / even / behind us, the parcel of the next wave;
   the raid report names the parcel burnt (or fed).
 - No SQL: the hidden state lives in the `games` row.
+- Measured (`--seeds 2 --hours 72`, after the edge's muster): Stone ≈ 12.2–13.4 h, Iron ≈
+  2.5–2.8 days (one delta run past 72 h), Kiwisu / Kiwino within 3 %; 4.5–5 waves per run,
+  none lost (one of twelve in the first run, seed crown), no predator death; 1–1.5 raids per
+  run, all won, 1 500–2 200 loot a day (0.7 raids and ~1 000 at the end of chantier 31).
+  Before the muster: 8–18 raids per run and 13 000–29 000 loot a day. Population 10 and Nest 3
+  beyond ±10 % between biomes on 2 seeds, as in chantier 38 (before any alien).
+- ⚠️ To test with the owner: the dates of the alien ages (day 1 / 4 / 12), the weight of a
+  burn and of a defeat, and whether the card "The enemy civilisation" makes the race legible.
