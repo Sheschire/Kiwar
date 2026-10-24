@@ -110,12 +110,13 @@ export function publicState(state: GameState): GameState {
 
 /**
  * Real defense of a garrison at a time (null when hidden from us). Chantier 39: the garrison of
- * the civilisation's outer ring (the old raids fight the edge until chantier 40).
+ * the civilisation's outer ring (the old raids fight the edge until chantier 40), on alert
+ * after each of our victories (the edge musters: raids cannot be farmed).
  */
 export function alienDefense(state: GameState, targetId: string, at: TimeMs): number | null {
   const g = state.aliens?.[targetId];
   if (!g) return null;
-  return outerPower(civAt(g, at));
+  return round1(outerPower(civAt(g, at)) + g.reinforce * (state.victories[targetId] ?? 0));
 }
 
 /** Ferrets and bats behind a defense value. */
@@ -194,12 +195,14 @@ export function intelView(state: GameState, targetId: string, now: TimeMs): Inte
   if (!report || !target) return null;
   const age = Math.max(0, now - report.at);
   const days = age / CALENDAR.dayMs;
-  // Chantier 39: the civilisation grows on a common schedule (our victories no longer
-  // reinforce it: they burn it down).
+  // Chantier 39: the civilisation grows on a common schedule; its edge musters after each of
+  // our victories.
+  const wins = Math.max(0, (state.victories[targetId] ?? 0) - report.victoriesAt);
+  const reinforced = alienDefOf(target.distance).reinforce * wins;
   const grow = scheduleGrowth(state, target.distance, report.at, now);
   const defense = {
-    min: round1(report.defense.min),
-    max: round1(report.defense.max * grow),
+    min: round1(report.defense.min + reinforced),
+    max: round1(report.defense.max * grow + reinforced),
   };
   const scale = report.defense.max > 0 ? defense.max / report.defense.max : 1;
   const widen = (r: IntelRange): IntelRange => ({ min: r.min, max: Math.round(r.max * scale) });

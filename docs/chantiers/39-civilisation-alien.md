@@ -24,7 +24,8 @@ Réalisé en cinq parties (commits « Chantier 39 (part 1…5) ») ; détails et
   l'encart « La civilisation adverse », le bot (âge de la civilisation à nos âges).
 - Choix faits en route : horloge de la colonie (pas de l'univers) ; une civilisation par face,
   les plus lointaines plus âgées ; les têtes de pont servent de balises jusqu'au 40 ; les
-  victoires ne renforcent plus les aliens (elles brûlent une parcelle).
+  victoires brûlent une parcelle, et la lisière se met en alerte après chacune (sinon les
+  raids se farmaient).
 - Laissé au 40 : balises, débarquements contre les unités d'une parcelle, perte de
   l'équipement des morts (au profit des aliens), vue détaillée des parcelles ; au 41 : le
   village alien dessiné depuis `civBuildings`.

@@ -88,7 +88,7 @@ describe('hidden alien garrisons (chantier 07)', () => {
     expect(setup('kiwisu', 'g2').state.aliens![id]).not.toEqual(g);
   });
 
-  it('grows with the civilisation, up to a cap; victories no longer reinforce it', () => {
+  it('grows with the civilisation, up to a cap, and musters after victories', () => {
     const { state } = setup('kiwisu', 'grow');
     const id = state.targets[0]!.id;
     const g = state.aliens![id]!;
@@ -98,9 +98,12 @@ describe('hidden alien garrisons (chantier 07)', () => {
     const top = CIV.ageMultiple[3]! * (1 + CIV.perDay * CIV.maxDays);
     const late = alienDefense(state, id, state.createdAt + 1000 * 24 * HOUR_MS)!;
     expect(late).toBeCloseTo(g.defense * top, 0);
-    // Chantier 39: victories burn the civilisation instead of reinforcing it.
+    // The edge musters after each victory (raids cannot be farmed).
     const won = { ...state, victories: { [id]: 2 } };
-    expect(alienDefense(won, id, state.createdAt)).toBe(alienDefense(state, id, state.createdAt));
+    expect(alienDefense(won, id, state.createdAt)).toBeCloseTo(
+      alienDefense(state, id, state.createdAt)! + 2 * g.reinforce,
+      1,
+    );
     const e = alienEnemies(g, 10);
     expect(e.ferrets + e.bats).toBe(10);
   });
@@ -134,9 +137,9 @@ describe('hidden alien garrisons (chantier 07)', () => {
     expect(old.defense.min).toBe(5);
     expect(old.defense.max).toBeGreaterThan(7);
     expect(old.ferrets.max).toBeGreaterThanOrEqual(4);
-    // Chantier 39: a victory since no longer reinforces them.
+    // We know we won since: the edge mustered.
     const won = { ...s, victories: { [targetId]: 1 } };
-    expect(intelView(won, targetId, s.now)!.defense.min).toBe(5);
+    expect(intelView(won, targetId, s.now)!.defense.min).toBe(5 + alienDefOf(0).reinforce);
   });
 
   it('accumulates sectors and structures over reports', () => {

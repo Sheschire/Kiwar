@@ -10712,7 +10712,7 @@ function publicState(state) {
 function alienDefense(state, targetId, at) {
   const g = state.aliens?.[targetId];
   if (!g) return null;
-  return outerPower(civAt(g, at));
+  return round13(outerPower(civAt(g, at)) + g.reinforce * (state.victories[targetId] ?? 0));
 }
 function alienEnemies(g, defense) {
   const total = Math.max(0, Math.round(defense / ALIENS.defensePerEnemy));
@@ -10750,10 +10750,12 @@ function intelView(state, targetId, now) {
   if (!report || !target) return null;
   const age = Math.max(0, now - report.at);
   const days = age / CALENDAR.dayMs;
+  const wins = Math.max(0, (state.victories[targetId] ?? 0) - report.victoriesAt);
+  const reinforced = alienDefOf(target.distance).reinforce * wins;
   const grow = scheduleGrowth(state, target.distance, report.at, now);
   const defense = {
-    min: round13(report.defense.min),
-    max: round13(report.defense.max * grow)
+    min: round13(report.defense.min + reinforced),
+    max: round13(report.defense.max * grow + reinforced)
   };
   const scale = report.defense.max > 0 ? defense.max / report.defense.max : 1;
   const widen = (r) => ({ min: r.min, max: Math.round(r.max * scale) });

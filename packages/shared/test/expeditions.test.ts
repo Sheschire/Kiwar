@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ALIEN_TWIN_FACE,
   FUEL,
   STARDUST_SCALE,
   advance,
@@ -111,7 +112,7 @@ describe('expeditions', () => {
     expect(validateCommand(launched, plan(padId, targetId, 4, 30, 15), ctx)).toBe('launchpadBusy');
   });
 
-  it('a well-fed crew wins, brings loot home and burns a parcel', () => {
+  it('a well-fed crew wins, brings loot home, burns a parcel and the edge musters', () => {
     const { s, t, map, padId, targetId } = readyColony();
     const before = population(s);
     const launched = run(s, plan(padId, targetId, 10, 120, 60), t, map);
@@ -138,7 +139,7 @@ describe('expeditions', () => {
         crew: 10,
         provisions: { pulp: 120, juice: 60 },
       })!.defense,
-    ).toMatchObject({ min: e.result!.defense });
+    ).toMatchObject({ min: e.result!.defense + ALIEN_TWIN_FACE.reinforce });
     // Chantier 39: the parcel it landed on burnt.
     expect(e.result!.burnt).toBe(true);
     expect(back.aliens![targetId]!.civ!.log.at(-1)).toMatchObject({

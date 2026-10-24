@@ -76,9 +76,11 @@ burrow (inner only) never moves once seen. One key per parcel.
 
 ## The old missions (until chantier 40)
 
-- Raid: defense = outer garrison; lands on `raidSector` (an outer parcel we do not hold);
-  victory → `recordFight` + `recordBurn` (`result.sector`, `burnt`), defeat → fight × closeness
-  - `recordDefeat`. Victories no longer reinforce (no provocation with a civilisation).
+- Raid: defense = outer garrison + `g.reinforce` × victories (the edge musters: without it the
+  bot farmed 8–18 raids a run, 15× the loot); lands on `raidSector` (an outer parcel we do not
+  hold); victory → `recordFight` + `recordBurn` (`result.sector`, `burnt`), defeat → fight ×
+  closeness + `recordDefeat`. The waves lost the provocation term (the civilisation replaces
+  it).
 - Recon: `seenStructures` of the parcels seen, `IntelReport.civAge`; a scout lost feeds them.
 - Siege: `holdStrength` = parcel garrison × `SIEGE.hold.share` 1.5; the queen lives in the
   royal burrow (`queenLair` / `royalSector`; `siegeTruth` keeps the queen's base power and her

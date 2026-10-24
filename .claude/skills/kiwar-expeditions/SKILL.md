@@ -164,8 +164,8 @@ intel. Missions to a conquered twin fail `conquered`. The forecast has `returnCr
 ## The alien civilisation (chantier 39, `kiwar-civ`)
 
 Each garrison carries a hidden civilisation (`g.civ`, `sim/civ.ts`). `alienDefense` is now the
-garrison of its outer ring (`outerPower(civAt(g, at))`): `g.growth` / `g.reinforce` are no longer
-read and victories no longer reinforce the face; a raid lands on an outer parcel
+garrison of its outer ring (`outerPower(civAt(g, at))`) + `g.reinforce` × victories (the edge
+musters: without it the bot farmed 8–18 raids a run); `g.growth` is no longer read; a raid lands on an outer parcel
 (`raidSector`) and burns it on a victory (`result.sector`, `burnt`), feeds the civilisation on
 a defeat. Reconnaissance reports the civilisation's dens and roosts (`seenStructures`) and its
 age (`IntelReport.civAge`). `intelView` ages reports with `scheduleGrowth` (public schedule).

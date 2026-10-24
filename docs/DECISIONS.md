@@ -2512,8 +2512,9 @@ Choices made in the chantier (to revisit with chantier 40):
   civilisation's age (1 / 1.05 / 1.1 / 1.2) replace the days of play and the provocation; our
   Nest, age and wealth factors stay. A wave comes from a barracks parcel (announced).
 - **Transition of the old missions**: a raid fights the outer ring and burns one outer parcel
-  (secret pick among those we do not hold) on a victory — victories no longer reinforce the
-  aliens; reconnaissance sees the civilisation's dens and roosts and its age; the siege's
+  (secret pick among those we do not hold) on a victory, and the edge still musters after each
+  victory (+ the face's reinforcement: without it the bot farmed 8–18 raids per 72 h run and
+  15× the loot, against 0.7 raids at the end of chantier 31); reconnaissance sees the civilisation's dens and roosts and its age; the siege's
   holds are the outer garrisons × 1.5, the queen lives in the royal burrow and grows with it.
 - Client: a card "The enemy civilisation" (defense window, expedition planner): age seen,
   likely age today and the next one, ahead / even / behind us, the parcel of the next wave;
