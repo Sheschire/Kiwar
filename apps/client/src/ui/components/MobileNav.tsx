@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect } from 'preact/hooks';
-import { canCollect, reserveHolders } from '@kiwar/shared';
+import { canCollect, reserveHolders, techEffects } from '@kiwar/shared';
 import { claimableObjective } from '../derived';
 import { formatDuration } from '../../i18n/i18n';
 import { actions } from '../actions';
@@ -219,6 +219,7 @@ function NavMenu() {
     const r = s.slowGame?.threats.reports.at(-1);
     return r?.log ? r.id : null;
   });
+  const canals = useUi((s) => !!s.slowGame && techEffects(s.slowGame).canals);
   // Chantier 30: bring every warehouse reserve back from the menu (phones).
   const collectable = useUi((s) =>
     s.slowGame ? reserveHolders(s.slowGame).some((b) => canCollect(s.slowGame!, b)) : false,
@@ -304,6 +305,11 @@ function NavMenu() {
           <Entry label={t('paths.button')} onClick={go(() => actions.setPathMode(true))}>
             <PathIcon size={28} />
           </Entry>
+          {canals && (
+            <Entry label={t('canals.button')} onClick={go(() => actions.setDigMode(true))}>
+              <Icon name="canal" size={28} />
+            </Entry>
+          )}
           <Entry
             label={t('nav.logistics')}
             on={showLogistics}

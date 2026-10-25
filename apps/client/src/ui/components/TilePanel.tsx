@@ -101,6 +101,7 @@ import { ForgeInfo } from './ForgeInfo';
 import { CabaretInfo, CampfireInfo, FireworksInfo, TownHallInfo } from './TownHallInfo';
 import { siegeVisible } from './SiegeModal';
 import { TitanWorks } from './TitanWorks';
+import { CanalSection } from './CanalTools';
 import { DustSection } from './DustSection';
 import { MeteorSection } from './MeteorSection';
 import { AgeInfo, ResearchSummary } from './ResearchModal';
@@ -770,9 +771,11 @@ export function TilePanel() {
       ? getBuilding(game, held.buildingId)
       : undefined);
   const site = held?.kind === 'build' ? held : undefined;
+  // Chantier 45: a canal being dug or filled in holds the tile.
+  const digging = held?.kind === 'canal' || held?.kind === 'fill' ? held : undefined;
   const obstacle = obstacleAt(game, tile.q, tile.r);
   // Chantier 15: nothing is built on a meteorite crater (a post of its own).
-  const free = !building && !site && !obstacle && !meteorAt(game, tile.q, tile.r);
+  const free = !building && !site && !digging && !obstacle && !meteorAt(game, tile.q, tile.r);
   const options = BUILDABLE_TYPES.filter(
     (type) =>
       BUILDINGS[type].allowedTiles.includes(tile.type) &&
@@ -785,7 +788,11 @@ export function TilePanel() {
     <aside class="sheet parchment pe" aria-label={t(`tiles.${tile.type}.name`)}>
       <header class="sheet-header">
         <div>
-          <h2>{t(`tiles.${tile.type}.name`)}</h2>
+          <h2>
+            {game.terraform[hexKey(tile)] === 'canal'
+              ? t('canals.name')
+              : t(`tiles.${tile.type}.name`)}
+          </h2>
           {resource && (
             <span class="small muted tile-meta">
               {t('tile.goodFor')} <ResourceIcon id={resource} size={14} />{' '}
@@ -818,6 +825,24 @@ export function TilePanel() {
           </p>
         )}
         {!building && !site && <DepositLine game={game} map={map} tile={tile} t={t} />}
+        {!building && !site && !digging && (
+          <CanalSection
+            game={game}
+            map={map}
+            tile={tile}
+            free={free && !game.paths.includes(hexKey(tile))}
+            t={t}
+          />
+        )}
+        {digging && (
+          <div class="section">
+            <div class="title-row">
+              <h3>{t(digging.kind === 'canal' ? 'canals.queueDig' : 'canals.queueFill')}</h3>
+              <span class="badge">{t('tile.underConstruction')}</span>
+            </div>
+            <Progress item={digging} now={now} />
+          </div>
+        )}
         <MeteorSection game={game} tile={tile} now={now} t={t} />
         {building && <BuildingSection game={game} map={map} b={building} now={now} t={t} />}
         {site && (

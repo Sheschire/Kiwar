@@ -414,6 +414,19 @@ const GLYPHS = {
       <path d="M26 15h4" stroke="#ffd95a" stroke-width="2.4" stroke-linecap="round" />
     </>
   ),
+  canal: (
+    <>
+      <path
+        d="M2 24c5-3 9 3 14 0s9-3 14 0v5H2z"
+        fill="#c9dc2e"
+        stroke="#6f9a10"
+        stroke-width="1.6"
+        stroke-linejoin="round"
+      />
+      <path d="M21 3l-6 12" stroke="#8b6a45" stroke-width="2.4" stroke-linecap="round" />
+      <path d="M11 14.5l6.5 3-2.5 5-5.5-1.8z" {...STONE} />
+    </>
+  ),
   terraform: (
     <>
       <path d="M2 27l9-15 5 7 4-5 10 13z" {...LEAF} />

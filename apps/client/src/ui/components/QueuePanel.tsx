@@ -13,6 +13,7 @@ import { formatDuration } from '../../i18n/i18n';
 import { actions } from '../actions';
 import { CloseIcon, HammerIcon } from '../icons';
 import { BuildingThumb } from './BuildingThumb';
+import { Icon } from '../iconSet';
 import { setPanelOpen, useT, useUi } from '../store';
 
 function QueueRow({
@@ -33,14 +34,19 @@ function QueueRow({
   const game = useUi((s) => s.game);
   const obstacle = item.kind === 'clear' && game ? obstacleAt(game, item.q, item.r) : undefined;
   const name = t(`buildings.${item.buildingType}.name`);
+  const canal = item.kind === 'canal' || item.kind === 'fill';
   const label =
-    item.kind === 'clear'
-      ? t('queue.clear', { name: t(`obstacles.${obstacle?.kind ?? 'stump'}.name`) })
-      : item.kind === 'build'
-        ? t('queue.build', { name })
-        : item.kind === 'repair'
-          ? t('queue.repair', { name })
-          : t('queue.upgrade', { name, level: item.targetLevel });
+    item.kind === 'canal'
+      ? t('canals.queueDig')
+      : item.kind === 'fill'
+        ? t('canals.queueFill')
+        : item.kind === 'clear'
+          ? t('queue.clear', { name: t(`obstacles.${obstacle?.kind ?? 'stump'}.name`) })
+          : item.kind === 'build'
+            ? t('queue.build', { name })
+            : item.kind === 'repair'
+              ? t('queue.repair', { name })
+              : t('queue.upgrade', { name, level: item.targetLevel });
   const progress =
     item.startedAt !== null ? Math.min(1, (now - item.startedAt) / item.durationMs) : 0;
   const focus = () => {
@@ -54,7 +60,8 @@ function QueueRow({
     <li class={`queue-row ${item.startedAt !== null ? 'active' : ''}`}>
       <button class="queue-main" onClick={focus}>
         <span class="queue-label">
-          {item.kind !== 'clear' && (
+          {canal && <Icon name="canal" size={26} />}
+          {item.kind !== 'clear' && !canal && (
             <BuildingThumb
               type={item.buildingType}
               level={Math.max(1, item.targetLevel)}

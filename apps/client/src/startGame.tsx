@@ -1,6 +1,7 @@
 // Game entry (loaded by main.tsx unless the admin space is requested).
 import { render } from 'preact';
 import {
+  canalError,
   generateFace,
   buildableTiles,
   depotDistance,
@@ -16,7 +17,7 @@ import {
   type GameState,
   type TwinSnapshot,
 } from '@kiwar/shared';
-import { placementError, placementPlan } from './game/placement';
+import { digFloods, diggableTiles, placementError, placementPlan } from './game/placement';
 import { App } from './ui/App';
 import { Guard } from './ui/components/Guard';
 import { GameRenderer } from './render/GameRenderer';
@@ -65,7 +66,8 @@ const renderer = new GameRenderer(
     afterFrame: () => afterFrame(),
     // Chantier 16: placing with a finger takes two steps (tap moves the ghost, then confirm).
     onTileTap: (tile, touch) => {
-      if (!uiStore.getState().placing || !tile) {
+      if (uiStore.getState().digMode && tile) actions.digAt(tile);
+      else if (!uiStore.getState().placing || !tile) {
         actions.selectTile(tile);
         if (tile && !uiStore.getState().pathMode) actions.collectAt(tile);
       } else if (touch) actions.pinPlacement(tile);
@@ -335,7 +337,29 @@ uiStore.subscribe((s, prev) => {
   if (s.modal !== 'none' && prev.modal === 'none') {
     if (s.placing) actions.stopPlacing();
     if (s.pathMode) actions.setPathMode(false);
+    if (s.digMode) actions.setDigMode(false);
   }
+});
+
+// Chantier 45: the dig mode lights the tiles a canal can take; the pointed one shows the flesh
+// it would make floodable.
+let digKey = '';
+uiStore.subscribe((s, prev) => {
+  if (!s.digMode && !prev.digMode) return;
+  const game = s.slowGame ?? s.game;
+  const tiles = s.digMode && game && s.map ? diggableTiles(game, s.map) : [];
+  const pointed =
+    s.digMode && game && s.digTile && canalError(game, s.map!, s.digTile.q, s.digTile.r) === null
+      ? s.digTile
+      : null;
+  const key = `${tiles.map((t) => hexKey(t)).join(';')}|${pointed ? hexKey(pointed) : ''}`;
+  if (key === digKey) return;
+  digKey = key;
+  renderer.setPlacement(tiles);
+  renderer.setPlannedCatchment(
+    pointed ? [pointed] : [],
+    pointed ? digFloods(game!, s.map!, pointed) : [],
+  );
 });
 
 // Chantier 11: level badges everywhere, or only at medium zoom.

@@ -414,8 +414,8 @@ export class BuildingsView {
             cramped: true as const,
           });
     this.placeAt(g, item.buildingType, on, tile?.variant ?? 0.5);
-    // Clearing a stump: only the stake, the stump itself is the site.
-    if (!started || item.kind === 'clear') {
+    // Clearing a stump or digging a canal (chantier 45): only the stake.
+    if (!started || item.kind === 'clear' || item.kind === 'canal' || item.kind === 'fill') {
       const stake = new Mesh(stakeGeometry(), this.material);
       stake.position.set(0.25, 0, 0.25);
       stake.castShadow = true;

@@ -1,5 +1,6 @@
 import { battleStore } from './battleStore';
 import {
+  canalError,
   footprintOf,
   buildingAt,
   canCollect,
@@ -199,6 +200,7 @@ export const actions = {
   /** Chantier 16: the mouse points at another tile while placing (the ghost follows). */
   pointPlacement(tile: Tile | null): void {
     const s = uiStore.getState();
+    if (s.digMode) uiStore.setState({ digTile: tile });
     if (s.placing && !s.placingPinned) uiStore.setState({ placingTile: tile });
   },
   /** Chantier 16, on a phone: a tap moves the ghost there; "Build here" confirms. */
@@ -224,7 +226,37 @@ export const actions = {
     const done = { placing: null, placingTile: null, placingPinned: false };
     uiStore.setState(ok ? { ...done, selectedTile: tile } : done);
   },
+  /** Chantier 45: the dig mode (taps dig a canal; ends placing and path painting). */
+  setDigMode(on: boolean): void {
+    if (on && uiStore.getState().pathMode) actions.setPathMode(false);
+    renderer?.setDigMode(on);
+    uiStore.setState(
+      on
+        ? {
+            digMode: true,
+            digTile: null,
+            selectedTile: null,
+            placing: null,
+            placingTile: null,
+            placingPinned: false,
+          }
+        : { digMode: false, digTile: null },
+    );
+  },
+  /** A tap in dig mode: digs the tile if it can, otherwise says why. */
+  digAt(tile: Tile): void {
+    const { game, map } = uiStore.getState();
+    if (!game || !map) return;
+    uiStore.setState({ digTile: tile });
+    const error = canalError(game, map, tile.q, tile.r);
+    if (error) {
+      if (error !== 'notFlesh') pushToast('error', `errors.${error}`);
+      return;
+    }
+    actions.dispatch({ type: 'digCanal', q: tile.q, r: tile.r });
+  },
   setPathMode(on: boolean): void {
+    if (on && uiStore.getState().digMode) actions.setDigMode(false);
     renderer?.setPaintMode(on);
     uiStore.setState(
       on

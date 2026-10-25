@@ -17,6 +17,7 @@ import { GpuTip } from './components/GpuTip';
 import { TilePanel } from './components/TilePanel';
 import { OfflineModal } from './components/OfflineModal';
 import { PathButton, PathToolbar } from './components/PathTools';
+import { CanalButton, CanalToolbar } from './components/CanalTools';
 import { SettingsModal } from './components/SettingsModal';
 import { Toasts } from './components/Toasts';
 import { TopBar } from './components/TopBar';
@@ -131,7 +132,7 @@ export function App() {
   const ready = useUi((s) => s.game !== null);
   const hasSheet = useUi((s) => s.selectedTile !== null);
   const battle = useBattle((s) => s.reportId !== null);
-  const pathMode = useUi((s) => s.pathMode);
+  const pathMode = useUi((s) => s.pathMode || s.digMode);
   const placing = useUi((s) => s.placing !== null);
   const intro = useUi((s) => s.intro !== null);
   const visiting = useUi((s) => s.visit !== null);
@@ -154,6 +155,7 @@ export function App() {
         else if (ui.planetsOpen) actions.togglePlanets(false);
         else if (ui.visit !== null) actions.travelTo(null);
         else if (uiStore.getState().pathMode) actions.setPathMode(false);
+        else if (uiStore.getState().digMode) actions.setDigMode(false);
         else if (uiStore.getState().placing) actions.stopPlacing();
         else uiStore.setState({ selectedTile: null });
       }
@@ -216,6 +218,7 @@ export function App() {
         <>
           <EggButton />
           <PathButton />
+          <CanalButton />
           <Compass />
           <LevelsButton />
           <LogisticsButton />
@@ -223,6 +226,7 @@ export function App() {
         </>
       )}
       <PathToolbar />
+      <CanalToolbar />
       <PlacingBanner />
       <BattleBar />
       <Guard>

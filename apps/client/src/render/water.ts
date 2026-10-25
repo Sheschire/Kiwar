@@ -8,7 +8,7 @@ import {
   Matrix4,
   ShaderMaterial,
 } from 'three';
-import { getTile, HEX_DIRECTIONS, type FaceMap, type Tile } from '@kiwar/shared';
+import { getTile, HEX_DIRECTIONS, hexKey, type FaceMap, type Tile } from '@kiwar/shared';
 import { GLSL_NOISE } from './shaderChunks';
 import { worldPosition } from './terrain';
 
@@ -54,12 +54,15 @@ export class WaterView {
       vertexShader: /* glsl */ `
         attribute vec3 aShoreA;
         attribute vec3 aShoreB;
+        attribute vec2 aFlow;
         varying vec3 vWorld;
         varying vec2 vLocal;
         varying vec3 vShoreA;
         varying vec3 vShoreB;
+        varying vec2 vFlow;
         void main() {
           vLocal = position.xz;
+          vFlow = aFlow;
           vShoreA = aShoreA;
           vShoreB = aShoreB;
           vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0);
@@ -74,6 +77,7 @@ export class WaterView {
         varying vec2 vLocal;
         varying vec3 vShoreA;
         varying vec3 vShoreB;
+        varying vec2 vFlow;
         ${GLSL_NOISE}
 
         float edgeDist(int i) {
@@ -123,6 +127,14 @@ export class WaterView {
           float sparkle = smoothstep(0.86, 0.95, sparkleNoise) * (0.5 + 0.5 * sin(t * 3.0 + p.x * 7.0));
           col += vec3(1.0, 0.98, 0.88) * (spec * 1.2 + sparkle * (0.9 + spec * 4.0));
 
+          // Chantier 45: a canal's current flows away from its source (streaks along the flow).
+          if (dot(vFlow, vFlow) > 0.01) {
+            float along = dot(p, vFlow);
+            float across = dot(p, vec2(-vFlow.y, vFlow.x));
+            float streak = kNoise(vec2(along * 2.2 - t * 0.9, across * 7.0));
+            col += vec3(1.0, 1.0, 0.72) * smoothstep(0.62, 0.9, streak) * 0.22 * (1.0 - uIce);
+          }
+
           // Animated foam lines along the shore.
           float wave = sin(shore * 26.0 - t * 2.4 + h * 4.0) * 0.5 + 0.5;
           float foamBand = smoothstep(0.12, 0.0, shore);
@@ -144,7 +156,14 @@ export class WaterView {
       `,
     });
 
-    this.mesh = waterMesh(map, pools, (t) => t.type === 'juice', WATER_LEVEL, this.material);
+    this.mesh = waterMesh(
+      map,
+      pools,
+      (t) => t.type === 'juice',
+      WATER_LEVEL,
+      this.material,
+      canalFlow(map),
+    );
     // Flood water laps over the tile tops; it meets the pools without foam.
     this.flood = waterMesh(
       map,
@@ -180,6 +199,35 @@ export class WaterView {
   }
 }
 
+/**
+ * Chantier 45: the direction each canal's juice flows (world XZ, unit), from the rivers and
+ * springs it was dug from along the chain of canals.
+ */
+export function canalFlow(map: FaceMap): Map<string, { x: number; z: number }> {
+  const out = new Map<string, { x: number; z: number }>();
+  const canals = map.tiles.filter((t) => t.canal);
+  if (canals.length === 0) return out;
+  const seen = new Set<string>();
+  let frontier = map.tiles.filter((t) => t.type === 'juice' && !t.canal);
+  for (const t of frontier) seen.add(hexKey(t));
+  while (frontier.length > 0) {
+    const next: Tile[] = [];
+    for (const from of frontier)
+      for (const d of HEX_DIRECTIONS) {
+        const n = getTile(map, { q: from.q + d.q, r: from.r + d.r });
+        if (!n?.canal || seen.has(hexKey(n))) continue;
+        seen.add(hexKey(n));
+        const a = worldPosition(from);
+        const b = worldPosition(n);
+        const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+        out.set(hexKey(n), { x: (b.x - a.x) / len, z: (b.z - a.z) / len });
+        next.push(n);
+      }
+    frontier = next;
+  }
+  return out;
+}
+
 /** One instanced flat hex per tile, with the shore edges (neighbours that are not water). */
 function waterMesh(
   map: FaceMap,
@@ -187,8 +235,15 @@ function waterMesh(
   isWater: (t: Tile) => boolean,
   level: number,
   material: ShaderMaterial,
+  flow?: ReadonlyMap<string, { x: number; z: number }>,
 ): InstancedMesh {
   const geometry = createFlatHexGeometry(1.0);
+  const flows = new Float32Array(Math.max(1, tiles.length) * 2);
+  tiles.forEach((tile, i) => {
+    const f = flow?.get(hexKey(tile));
+    if (f) flows.set([f.x, f.z], i * 2);
+  });
+  geometry.setAttribute('aFlow', new InstancedBufferAttribute(flows, 2));
   // For each of the 6 edges: 1 if the neighbour in that direction is land.
   const shoreA = new Float32Array(Math.max(1, tiles.length) * 3);
   const shoreB = new Float32Array(Math.max(1, tiles.length) * 3);

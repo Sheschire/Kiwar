@@ -123,6 +123,9 @@ export interface UiState {
   pathMode: boolean;
   /** Chantier 12: logistics changes of the last painted stroke. */
   pathGains: LogisticsChange[] | null;
+  /** Chantier 45: digging canals (taps dig), and the tile pointed or last tapped. */
+  digMode: boolean;
+  digTile: Tile | null;
   /** Chantier 11: the plans screen tab, and the building being placed from the tree. */
   plansTab: 'buildings' | 'research';
   placing: BuildingType | null;
@@ -275,6 +278,8 @@ export const uiStore = createStore<UiState>(() => ({
   chatUnread: 0,
   pathMode: false,
   pathGains: null,
+  digMode: false,
+  digTile: null,
   plansTab: 'buildings',
   placing: null,
   placingTile: null,

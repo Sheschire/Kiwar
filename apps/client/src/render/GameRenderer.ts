@@ -70,6 +70,7 @@ import { LandingShow } from './battle/landingShow';
 import { GateMarkers } from './battle/gates';
 import { PostFx } from './postfx';
 import { PropsView } from './props';
+import { ButterfliesView } from './butterflies';
 import {
   detectQuality,
   gpuRendererName,
@@ -182,6 +183,8 @@ export class GameRenderer {
   private lastFrameAt = 0;
   private terrain: TerrainView | null = null;
   private water: WaterView | null = null;
+  /** Chantier 45: butterflies over the fertile banks. */
+  private butterflies: ButterfliesView | null = null;
   private twin: TwinView | null = null;
   private readonly allies = new AlliesView();
   /** Ally planet the camera visits (null: at home). */
@@ -456,6 +459,7 @@ export class GameRenderer {
     for (const view of [
       this.terrain,
       this.water,
+      this.butterflies,
       this.buildings,
       this.kiwis,
       this.paths,
@@ -517,6 +521,8 @@ export class GameRenderer {
     this.scene.add(this.battle.group);
     this.water = new WaterView(map, this.lighting.sun.position);
     this.scene.add(this.water.mesh);
+    this.butterflies = new ButterfliesView(map);
+    this.scene.add(this.butterflies.mesh);
     this.rebuildProps();
     const e = this.terrain.extent();
     this.weather = new WeatherView(map, Math.max(e.x, e.z));
@@ -929,6 +935,7 @@ export class GameRenderer {
   /** Chantier 16: the translucent building that follows the pointer while placing. */
   private readonly ghost = new PlacementGhost();
   private placingGhost = false;
+  private digging = false;
 
   /** Chantier 16: the building being placed (null: placement over) and the colony's age. */
   setGhostModel(type: BuildingType | null, age: number): void {
@@ -1071,6 +1078,12 @@ export class GameRenderer {
   }
 
   /** Path mode: one-finger / left drags paint paths instead of moving the camera. */
+  /** Chantier 45: in dig mode the pointed tile is reported like a placement (mouse hover). */
+  setDigMode(on: boolean): void {
+    this.digging = on;
+    if (!on) this.callbacks.onPlacementHover?.(null);
+  }
+
   setPaintMode(on: boolean): void {
     this.painter.enabled = on;
     if (!on) this.painter.cancel();
@@ -1635,14 +1648,17 @@ export class GameRenderer {
       }
       const key = tile ? `t${tile.q},${tile.r}` : '';
       if (
-        (this.placementLabels.length > 0 || this.placingTurret || this.placingGhost) &&
+        (this.placementLabels.length > 0 ||
+          this.placingTurret ||
+          this.placingGhost ||
+          this.digging) &&
         key !== this.placementHover
       ) {
         this.placementHover = key;
         this.placementHoverTile = tile;
         this.refreshLogistics();
         this.refreshCatchment();
-        if (this.placingGhost) this.callbacks.onPlacementHover?.(tile);
+        if (this.placingGhost || this.digging) this.callbacks.onPlacementHover?.(tile);
       }
     }
     const first = !this.firstDrawn && this.lastState !== null;
@@ -1724,6 +1740,7 @@ export class GameRenderer {
     this.crops?.update(dt);
     this.environment.update(this.elapsed, this.camera.position);
     this.water?.update(this.elapsed);
+    this.butterflies?.update(this.elapsed, 1 - seasonUniforms.uNight.value);
     if (this.twinApproach !== this.twinApproachTarget) {
       const gap = this.twinApproachTarget - this.twinApproach;
       this.twinApproach =
@@ -1864,6 +1881,7 @@ export class GameRenderer {
     this.rig.dispose();
     this.terrain?.dispose();
     this.water?.dispose();
+    this.butterflies?.dispose();
     this.twin?.dispose();
     this.landing?.dispose();
     this.allies.dispose();

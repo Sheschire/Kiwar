@@ -1,4 +1,7 @@
 import {
+  canalError,
+  canalFloods,
+  faceMapOf,
   buildableTiles,
   buildLock,
   catchmentPlan,
@@ -95,4 +98,28 @@ export function placementPlan(
   }
   cache = { game, key, plan };
   return plan;
+}
+
+const digCache = new WeakMap<GameState, Tile[]>();
+
+/** Chantier 45: the tiles a canal may take now (cached per state). */
+export function diggableTiles(game: GameState, map: FaceMap): Tile[] {
+  let tiles = digCache.get(game);
+  if (!tiles) {
+    tiles = map.tiles.filter((t) => t.type === 'flesh' && canalError(game, map, t.q, t.r) === null);
+    digCache.set(game, tiles);
+  }
+  return tiles;
+}
+
+/** Chantier 45: the flesh a canal on `tile` would make floodable (flooding biomes only). */
+export function digFloods(game: GameState, map: FaceMap, tile: Tile): Tile[] {
+  const base = faceMapOf({ seed: game.seed, face: game.face, params: game.params });
+  const queued = game.queue.filter((i) => i.kind === 'canal').map((i) => hexKey(i));
+  const now = canalFloods(base, game.terraform, queued);
+  const after = canalFloods(base, game.terraform, [...queued, hexKey(tile)]);
+  return [...after]
+    .filter((k) => !now.has(k))
+    .map((k) => getTile(map, parseHexKey(k)))
+    .filter((t): t is Tile => !!t);
 }

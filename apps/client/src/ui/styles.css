@@ -4184,6 +4184,26 @@ h3 .building-thumb {
   display: none;
 }
 
+/* Chantier 45: the dig mode, left of the path button. */
+.canal-fab {
+  right: calc(var(--gap) + var(--safe-right) + 80px);
+  bottom: calc(var(--gap) + var(--safe-bottom) + 84px);
+}
+
+.path-mode .canal-fab {
+  display: none;
+}
+
+.canal-section .inline-icon,
+.canal-cost .icon {
+  display: inline-block;
+  vertical-align: -3px;
+}
+
+.canal-cost {
+  white-space: nowrap;
+}
+
 .levels-fab {
   right: calc(var(--gap) + var(--safe-right) + 11px);
   bottom: calc(var(--gap) + var(--safe-bottom) + 206px);

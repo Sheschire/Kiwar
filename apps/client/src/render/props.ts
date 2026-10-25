@@ -14,7 +14,17 @@ import {
 } from 'three';
 import { withSeasonLook } from './seasonLook';
 import { withWind } from './wind';
-import { createRng, hexKey, type FaceMap, type HexKey, type Rng, type Tile } from '@kiwar/shared';
+import {
+  createRng,
+  getTile,
+  hexKey,
+  hexNeighbors,
+  isBank,
+  type FaceMap,
+  type HexKey,
+  type Rng,
+  type Tile,
+} from '@kiwar/shared';
 import { DOME_TOP, domeRadius, worldPosition } from './terrain';
 
 interface PropInstance {
@@ -67,6 +77,8 @@ class PropBatch {
 }
 
 const up = new Vector3(0, 1, 0);
+/** Chantier 45: the colours of the flowers on fertile banks. */
+const BANK_FLOWERS = ['#f5a3c7', '#fff3d6', '#ffd95a', '#c9a6f0', '#ff8a7a'];
 const tmpQ = new Quaternion();
 const tmpE = new Euler();
 
@@ -135,7 +147,11 @@ export class PropsView {
       mat({ roughness: 1 }),
       false,
     );
-    this.batches.push(tuftStem, tuftPuff, seed, pulp, blade, pebble, fur, domeFur);
+    // Chantier 45: flowers on the fertile banks.
+    const flower = new PropBatch(new IcosahedronGeometry(0.07, 0), mat({ roughness: 0.6 }), false);
+    this.batches.push(tuftStem, tuftPuff, seed, pulp, blade, pebble, fur, domeFur, flower);
+    withSeasonLook(flower.material, { tint: 0.5, snow: 1 });
+    withWind(flower.material, 0.5);
     // Down puffs and grass turn with the seasons; everything gets snow in winter.
     withSeasonLook(tuftPuff.material, { tint: 0.8, snow: 1 });
     withSeasonLook(blade.material, { tint: 1, snow: 0.6 });
@@ -253,6 +269,10 @@ export class PropsView {
         default:
           break;
       }
+      // Chantier 45: lush banks along the juice (their own random draws: the rest of the face
+      // keeps its props when a canal is dug), and stone banks along a canal.
+      if (isBank(map, tile)) this.bank(map, tile, key, density, blade, flower);
+      if (tile.canal) this.canalBanks(map, tile, key, pebble);
     }
 
     // Fur on the dome below the disc: strands pointing along the surface normal.
@@ -279,6 +299,72 @@ export class PropsView {
     }
 
     for (const b of this.batches) if (b.items.length > 0) this.group.add(b.build());
+  }
+
+  /** Tall grass and flowers swaying on a fertile bank, thicker on the side of the juice. */
+  private bank(
+    map: FaceMap,
+    tile: Tile,
+    key: HexKey,
+    density: number,
+    blade: PropBatch,
+    flower: PropBatch,
+  ) {
+    const rng = createRng(`${map.seed}/bank/${key}`);
+    const grass = Math.round(5 * density + rng.next());
+    for (let i = 0; i < grass; i++) {
+      const pos = scatter(rng, tile, 0.72);
+      tmpE.set(rng.range(-0.25, 0.25), rng.next() * 6, rng.range(-0.25, 0.25));
+      blade.add(
+        key,
+        compose(pos, tmpE.clone(), new Vector3(1.3, rng.range(0.42, 0.7), 1.3)),
+        tint('#5fa82a', rng, 0.1),
+      );
+    }
+    const flowers = Math.round(4 * density + rng.next());
+    for (let i = 0; i < flowers; i++) {
+      const pos = scatter(rng, tile, 0.7);
+      const h = rng.range(0.16, 0.32);
+      blade.add(
+        key,
+        compose(pos, new Euler(0, rng.next() * 6, 0), new Vector3(0.6, h, 0.6)),
+        tint('#6aa83a', rng, 0.06),
+      );
+      pos.y += h;
+      const s = rng.range(0.8, 1.3);
+      flower.add(
+        key,
+        compose(pos, new Euler(rng.next(), rng.next(), 0), new Vector3(s, s * 0.7, s)),
+        tint(BANK_FLOWERS[Math.floor(rng.next() * BANK_FLOWERS.length)]!, rng, 0.06),
+      );
+    }
+  }
+
+  /** Flat stones lining a canal's edges that touch the land. */
+  private canalBanks(map: FaceMap, tile: Tile, key: HexKey, pebble: PropBatch) {
+    const rng = createRng(`${map.seed}/canal/${key}`);
+    const p = worldPosition(tile);
+    for (const n of hexNeighbors(tile)) {
+      const nt = getTile(map, n);
+      if (!nt || nt.type === 'juice') continue;
+      const q = worldPosition(n);
+      const dx = (q.x - p.x) / 2;
+      const dz = (q.z - p.z) / 2;
+      for (let i = 0; i < 3; i++) {
+        const along = rng.range(-0.45, 0.45);
+        const pos = new Vector3(
+          p.x + dx * 0.9 - dz * along,
+          tile.height + 0.19,
+          p.z + dz * 0.9 + dx * along,
+        );
+        const s = rng.range(0.14, 0.22);
+        pebble.add(
+          key,
+          compose(pos, new Euler(rng.next() * 0.4, rng.next() * 6, 0), new Vector3(s, s * 0.45, s)),
+          tint('#b9ad93', rng, 0.06),
+        );
+      }
+    }
   }
 
   /** Clears decorative props from a tile (e.g. when a building is placed on it). */

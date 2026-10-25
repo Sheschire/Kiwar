@@ -1,4 +1,6 @@
 import {
+  BANKS,
+  isBank,
   climateOf,
   DEPOSITS,
   HARVESTS,
@@ -310,6 +312,9 @@ function PlanSummary({
   const tileName = t(`tiles.${ground}.name`).toLowerCase();
   const resource = DEPOSITS[ground]!.resource;
   const climate = climateOf(game.face, game.params.biome);
+  const map = useUi((s) => s.map);
+  // Chantier 45: fertile banks in reach grow back faster.
+  const banks = map ? plan.free.filter((tile) => isBank(map, tile)).length : 0;
   const owners = [...new Set(plan.taken.map((x) => x.owner))].flatMap((id) => {
     const owner = game.buildings.find((b) => b.id === id);
     return owner ? [t(`buildings.${owner.type}.name`)] : [];
@@ -327,6 +332,11 @@ function PlanSummary({
         </span>
       ) : (
         <span class="small warn">{t('plans.plannedNone', { tile: tileName })}</span>
+      )}
+      {banks > 0 && (
+        <span class="small bonus">
+          ❀ {t('plans.plannedBanks', { count: banks, pct: Math.round((BANKS.regen - 1) * 100) })}
+        </span>
       )}
       {plan.taken.length > 0 && (
         <span class="small warn">
