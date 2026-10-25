@@ -166,3 +166,16 @@ null`; the HUD shrinks to `VisitBanner` (twin: "Siege" when `siegeVisible`, "Pre
   over juice); beacons (`showBeacons`) are glowing kiwis on poles at `landingTile`, in one
   holder for the level of detail, `setBeaconHidden(sector, hidden)` (a pop when shown).
   `startGame.showTwin` keys the twin on the village too.
+
+## Fertile banks and canals (chantier 45)
+
+- Flesh and groves next to juice regrow +30 % (`BANKS`, `isBank(map, tile)`,
+  `mapTileDeposit`; `tileDeposit(tile, biome, bank)` alone does not know the neighbours).
+  The intro gauges count them.
+- Canals (`Tile.canal`, see `kiwar-titans`) extend the floods (`canalFloods`) in the lagoons.
+- Rendering: `WaterView` takes an `aFlow` per pool tile (`canalFlow(map)`: a BFS from the
+  rivers along the canals) and draws a current on canals; `PropsView` adds tall grass and
+  flowers on banks and flat stones along canals with **per-tile random draws**
+  (`createRng(seed/bank/key)`) so that a reshaped face keeps its other props;
+  `render/butterflies.ts` (`ButterfliesView`, one instanced mesh, by day out of winter, never
+  a sign of life).

@@ -28,7 +28,7 @@ d'acceptation et les **skills à charger**. La direction d'ensemble est dans le
 |     | **Acte III — Le village vivant** (fiches courtes, détaillées en début de session)          |           |                       |
 | 43  | [Moral par kiwi, Mairie et feu de camp](43-moral-mairie-feu-de-camp.md) — **fait**         | 35        | non                   |
 | 44  | [Loisirs et décor](44-loisirs-decor.md) — **fait**                                         | 43        | non                   |
-| 45  | [Rives fertiles et canaux de jus](45-rives-canaux.md)                                      | 35        | non                   |
+| 45  | [Rives fertiles et canaux de jus](45-rives-canaux.md) — **fait**                           | 35        | non                   |
 
 L'acte IV (Tréfonds, kiwaïs, Verger cosmique) n'a pas encore de chantier : voir le carnet. Les
 anciens chantiers 25 à 29, jamais commencés, sont devenus 37, 35, 43, 38 et 45.

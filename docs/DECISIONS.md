@@ -2807,3 +2807,44 @@ Small decisions taken during the session:
   fountains are one sprite each (as the huts).
 - ⚠️ To play with the owner: the cabaret's price (60 juice is little in the Iron age), how
   often a fireworks show is worth its stardust, the beauty felt without placement.
+
+## Chantier 45 — Fertile banks and juice canals
+
+Decided before the session (chantier document): canals tile by tile from the Eden, they also
+extend the fertile banks, a canal's deposit ~40 % of a river's, cost pulp and fibre, no
+bridge (a canal never cuts the land), cap 3 / 6 / 10 / 15 tiles by age.
+
+Owner's answer at the start of the session (interactive question):
+
+- **Flood season**: in a flooding biome the flesh around a canal becomes floodable like a
+  river's; a canal that would make a tile with a building floodable is **refused**
+  (`wouldFlood`), and the dig mode shows the tiles that would flood.
+
+Small decisions taken during the session:
+
+- **Fertile banks**: a flesh or grove tile next to juice (river, Kikiwiwi spring, canal) grows
+  back **+30 %** (`BANKS.regen`), in the deposit itself (`mapTileDeposit`, cached per map):
+  rivers' banks are fertile for everyone, from the start. Seed rings are not banks.
+- **Canals**: technology `canals` (Eden, economy, 40 points, Library 1, **after Foraging**:
+  new `TechDef.after`, status `after`, error `techAfter`). `digCanal` / `fillCanal` are queue
+  items (`canal` / `fill`) done by a builder: **80 pulp + 40 fibre, 1 h** (× the build speed of
+  the techs), refunded on cancel; the tile is held meanwhile (`siteTiles`). Filling costs the
+  same and gives the flesh back with a full deposit.
+- **Where**: a free flesh tile (no building, site, path, obstacle, crater, stardust, titan
+  work) next to juice **or to a canal already queued** (a chain can be ordered at once); never
+  the Nest; `cutsLand` (with the big buildings' walls) must stay false, in the flood season
+  too; a building standing in the juice (a well) keeps a shore. A dig whose tile no longer
+  allows it when it ends is refunded (event `canal` with `failed`).
+- **Quota apart** from the Kikiwiwis' titan works (`canalCap`, `canalsLeft`); the server checks
+  canals on flesh, within the cap and after their technology (`plausibleTerraform`).
+- A canal is `state.terraform[key] = 'canal'`: juice in `faceMapOf` with `canal: true`, a
+  deposit × `CANALS.deposit` 0.4 (stock and regrowth). A juice well or a camp may stand on it.
+- No save version: the save schema only widens two enums (`terraform`, queue kinds).
+- Client: dig mode (`CanalButton` left of the paths button, phone menu entry, `CanalToolbar`),
+  the tile sheet (bank line, Dig / Fill in), the placement summary counts the banks in reach;
+  canals flow away from their source (water `aFlow`), stone banks along them, tall grass,
+  flowers and butterflies on the banks (own random draws per tile: the rest of the face keeps
+  its props when a canal is dug).
+- Bot: Canals after the Stone passage (before it, it delayed Stone by ~1.5 h on a seed); one
+  canal at a time towards the depots while the nearest juice is more than 2.5 steps away,
+  else where harvested tiles become banks (or a chain towards them within the quota).

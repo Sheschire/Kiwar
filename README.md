@@ -10,6 +10,15 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 45** — **rives fertiles et canaux de jus**, fin de l'acte III. La chair et les
+> bosquets au bord du jus **repoussent 30 % plus vite** et s'habillent d'herbes hautes, de
+> fleurs et de papillons. Dès l'Éden, la technologie **Canaux** (après Cueillette) ouvre le
+> mode **Creuser** : les bâtisseur·euses creusent, tuile par tuile, un canal depuis une
+> rivière (80 pulpe + 40 fibre, 1 h) ; il coule depuis sa source, porte un petit gisement de
+> jus où poser un puits près du Nid, et fait de nouvelles rives fertiles. Jamais un canal ne
+> coupe la terre ni ne noie un bâtiment à la crue ; on peut le combler. 3 / 6 / 10 / 15 tuiles
+> selon l'âge.
+
 > **Chantier 44** — **loisirs et décor**. Des **décorations** hors quota (lampions devenus
 > lampadaires puis réverbères, massifs de fleurs, arches de liane, fontaine à jus, statue du
 > maire) donnent de la **beauté** à tout le village (jusqu'à +8 de moral). Des **jeux**

@@ -110,3 +110,9 @@ the Nest it needs (test in `iron.test.ts`).
   5 800 points for the complete bot with the chantier 15 automation (Stone 36 h, Iron 4.0 d, Industry 7.9 d); the long ages
   runs are now a section of `pnpm balance --ages 10` (both profiles). Tune passages (`TECHS` costs),
   monument costs/durations and `AGE_GROWTH`.
+
+## Chantier 45
+
+`TechDef.after`: a technology needing another one first (`techStatus` → `'after'`, command
+error `techAfter`, the research card shows "After …"). `canals` (Eden, after `foraging`) is
+the first; its effect `canals` is an unlock in `describeTech`.

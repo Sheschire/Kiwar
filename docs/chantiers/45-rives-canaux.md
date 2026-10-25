@@ -70,3 +70,31 @@ Chemins sous `packages/shared/src/`.
 - Les bords des rivières de jus sont luxuriants et repoussent plus vite, et ça se voit.
 - Dès l'Éden, on peut amener le jus de trois tuiles vers le Nid, sans jamais couper la terre.
 - Le gain se voit dans la logistique et la repousse ; rapport à ±10 % entre les faces.
+
+## Réalisé (octobre 2026)
+
+Réponse du porteur en début de session : dans un biome inondable, un canal qui rendrait
+inondable une tuile bâtie est **refusé** ; la pose montre les tuiles qui deviendraient
+inondables.
+
+- **Rives fertiles** : une tuile de chair ou de bosquet voisine du jus (rivière, source d'un
+  Kikiwiwi, canal) repousse **+30 %**. On le lit dans la fiche de la tuile (« Rive fertile ») et
+  pendant la pose d'un producteur (« dont N rives fertiles »). En 3D : herbes hautes, fleurs et
+  papillons de jour (pas l'hiver).
+- **Technologie Canaux** (Éden, économie, 40 points, **après Cueillette**) : le mode
+  **Creuser** (bouton à gauche des chemins, entrée « Canaux » du menu téléphone) éclaire les
+  tuiles creusables ; un toucher creuse. Une tuile de chair libre, voisine du jus **ou d'un
+  canal déjà commandé** (on peut commander une chaîne d'un coup) ; jamais une tuile qui couperait
+  la terre (même à la crue), isolerait un puits ou noierait un bâtiment au printemps.
+- Le creusement passe par la file et les bâtisseur·euses : **80 pulpe + 40 fibre, 1 h** par
+  tuile, remboursé à l'annulation ; **combler** coûte pareil (fiche de la tuile) et rend la
+  chair avec un gisement plein.
+- Un canal est du jus : petit gisement (**40 %** d'une rivière), on peut y poser un puits ou un
+  camp, il crée ses propres rives fertiles. Le courant coule depuis la source, des pierres plates
+  bordent ses berges. Plafond **3 / 6 / 10 / 15** tuiles par âge, à part du quota des Kikiwiwis.
+- Le bot cherche Canaux après le passage à la Pierre et creuse vers les dépôts quand le jus est
+  loin, sinon là où des tuiles récoltées deviennent des rives (mécanique `canals` de
+  `--impact`).
+
+Reste : un pont (refusé pour l'instant), le spectacle du creusement (une simple pioche), et le
+ressenti à jouer avec le porteur (le +30 % des rives, le prix d'un canal, le plafond de l'Éden).

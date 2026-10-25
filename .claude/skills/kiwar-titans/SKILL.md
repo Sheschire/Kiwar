@@ -125,3 +125,21 @@ stronger. See `kiwar-colonies`.
 A Kikiwiwi posted on a bridgehead of the twin (job `outpost`, sent by a reinforcement)
 fortifies it: `fortifyBridgehead { sector }` (12 h, 400 juice, no terraform quota). The final
 assault needs one fortified bridgehead. See `kiwar-colonies`.
+
+## Juice canals (chantier 45)
+
+- Builders, not Kikiwiwis: `data/canals.ts` `CANALS` (cap 3/6/10/15 by age, 80 pulp + 40
+  fibre, 1 h, deposit × 0.4), `sim/canals.ts` (`canalError`, `fillError`, `canalCap`,
+  `canalCount`, `canalsLeft`, `canalDuration`, `finishCanal`). Commands `digCanal` /
+  `fillCanal` push queue items `canal` / `fill` (`buildingType: 'camp'`, unused) that hold
+  their tile (`siteTiles`), completed in `completeConstruction` (the `advance` loop re-reads the
+  map after constructions).
+- A canal is `state.terraform[key] = 'canal'` (`TerraformTile` = `TerraformKind | 'canal'`):
+  `applyTerraform` makes it juice with `Tile.canal`, and `canalFloods` makes the flesh around
+  floodable in a flooding biome (never a terrace). `terraformLeft` (Kikiwiwis) ignores canals;
+  `plausibleTerraform` (exported) checks both quotas.
+- Never cut the land: `canalError` runs `cutsLand` on the queued canals + this tile (and, in a
+  flooding biome, + the new floods with the old ones blocked), keeps a shore for buildings in
+  the juice, refuses `wouldFlood` when a new floodable tile holds a building or a site.
+- Fertile banks: `BANKS` (`data/territory.ts`), `isBank`, `mapTileDeposit` (deposits read on
+  their map: a canal or a spring makes banks by itself).

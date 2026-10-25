@@ -123,3 +123,9 @@ and pickers.
 
 The bot (`tools/balance`) relies on the automation: no more research staffing, garrison
 posting, stardust pickers or repairs of its own (it still shelters, places turrets, builds).
+
+## Chantier 45
+
+Queue items `canal` / `fill` (juice canals, `sim/canals.ts`) are constructions like the others
+for the dispatcher (`startItem`, builders, `buildSlots`); they hold their tile and draw a
+stake only. `has(type)` in the bot matches `buildingType 'camp'` for them (as for stumps).

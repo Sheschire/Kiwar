@@ -47,7 +47,7 @@ dans l'historique.
 |     | **Acte III — Le village vivant**                     |         |
 | 43  | Moral par kiwi, Mairie et feu de camp                | fait    |
 | 44  | Loisirs et décor                                     | fait    |
-| 45  | Rives fertiles et canaux de jus                      | à faire |
+| 45  | Rives fertiles et canaux de jus                      | fait    |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
 **L'acte III** avance : chantier **43** (moral par kiwi, Mairie, feu de camp : `sim/rest.ts`,
