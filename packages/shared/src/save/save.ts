@@ -501,6 +501,7 @@ export const gameStateSchema = z.object({
             fought: z.boolean(),
             power: z.number(),
             dead: z.array(z.string()).max(BEACONS.maxGuards),
+            hurt: z.array(z.string()).max(BEACONS.maxGuards).optional(),
             back: z.number().int().min(0),
             log: battleLog.optional(),
           }),
@@ -1103,7 +1104,8 @@ function obstaclesForOldGame(raw: Record<string, unknown>): Obstacle[] {
 }
 
 export type MigrateResult =
-  { ok: true; state: GameState } | { ok: false; reason: 'corrupt' | 'tooNew' };
+  | { ok: true; state: GameState }
+  | { ok: false; reason: 'corrupt' | 'tooNew' };
 
 /** Upgrades a stored state to the current schema and validates it. */
 export function migrateState(input: unknown): MigrateResult {
@@ -1132,7 +1134,8 @@ export function serializeSave(state: GameState, savedAt: number): string {
 }
 
 export type LoadResult =
-  { ok: true; save: SaveFile } | { ok: false; reason: 'empty' | 'corrupt' | 'tooNew' };
+  | { ok: true; save: SaveFile }
+  | { ok: false; reason: 'empty' | 'corrupt' | 'tooNew' };
 
 export function deserializeSave(text: string | null | undefined): LoadResult {
   if (!text) return { ok: false, reason: 'empty' };

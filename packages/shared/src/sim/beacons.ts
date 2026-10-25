@@ -240,6 +240,7 @@ function strike(
   let held = false;
   let fought = false;
   let dead: VillagerId[] = [];
+  let hurt: VillagerId[] = [];
   let fled: VillagerId[] = [];
   let log = undefined as Parameters<typeof beaconHeld>[0] | undefined;
   const civ = liveCiv(g);
@@ -256,7 +257,10 @@ function strike(
     log = simulateBattle(setup, `${g.seed}/beacon/${targetId}/${a.id}`);
     held = beaconHeld(log);
     const ids = new Set(guards.map((v) => v.id as string));
-    dead = log.result.fallen.filter((ref) => ids.has(ref)) as VillagerId[];
+    const fallen = log.result.fallen.filter((ref) => ids.has(ref)) as VillagerId[];
+    // Chantier 46: a beacon held keeps its fallen alive; they fly home wounded.
+    if (held) hurt = fallen;
+    else dead = fallen;
     fled = log.result.fled.filter((ref) => ids.has(ref)) as VillagerId[];
     const attackers = log.result.attackers;
     // The attackers who fell are missing from their parcel for a while.
@@ -275,10 +279,11 @@ function strike(
   removeVillagers(s, dead, 'battle', at, !held);
   let back = 0;
   if (held) {
-    // Those who ran to the ship fly home; the others stay on guard.
-    b.guards = (b.guards ?? []).filter((id) => !dead.includes(id) && !fled.includes(id));
-    if (fled.length > 0) sendHome(s, targetId, fled, at, sector);
-    back = fled.length;
+    // Those who ran to the ship and the wounded fly home; the others stay on guard.
+    const home = [...fled, ...hurt.filter((id) => !fled.includes(id))];
+    b.guards = (b.guards ?? []).filter((id) => !home.includes(id));
+    if (home.length > 0) sendHome(s, targetId, home, at, sector, hurt);
+    back = home.length;
   } else {
     // The beacon falls: the fog comes back over the parcel, the survivors fly home.
     const survivors = (b.guards ?? []).filter((id) => !dead.includes(id));
@@ -300,11 +305,21 @@ function strike(
       fought,
       power: army.power,
       dead: dead.map((id) => names.get(id) ?? id),
+      ...(hurt.length > 0 ? { hurt: hurt.map((id) => names.get(id) ?? id) } : {}),
       back,
       ...(log ? { log } : {}),
     },
   ].slice(-BEACONS.reports);
-  events.push({ type: 'beaconAttacked', at, targetId, sector, held, fought, dead: dead.length });
+  events.push({
+    type: 'beaconAttacked',
+    at,
+    targetId,
+    sector,
+    held,
+    fought,
+    dead: dead.length,
+    hurt: hurt.length,
+  });
 }
 
 /** Guards flying home after a fall or a retreat (the colony's rations: no famine on the way). */
@@ -314,6 +329,8 @@ function sendHome(
   ids: VillagerId[],
   at: TimeMs,
   sector: number,
+  /** Chantier 46: the wounded among them (healed at home). */
+  hurt: readonly VillagerId[] = [],
 ): void {
   const target = s.targets.find((t) => t.id === targetId);
   const travelMs = target?.travelMs ?? 0;
@@ -349,6 +366,7 @@ function sendHome(
       lostInBattle: [],
       lostOnReturn: [],
       loot: emptyResources(),
+      ...(hurt.length > 0 ? { injured: [...hurt] } : {}),
     },
   };
   s.expeditions.push(e);
@@ -413,7 +431,11 @@ export function startFortify(
 // --- Guards (mission `guard`) -----------------------------------------------------------------
 
 export type GuardLock =
-  'notASector' | 'noBeacon' | 'invalidCrew' | 'crewTooLarge' | 'invalidOrders';
+  | 'notASector'
+  | 'noBeacon'
+  | 'invalidCrew'
+  | 'crewTooLarge'
+  | 'invalidOrders';
 
 /** Why a ship cannot take this guard to (or bring these guards back from) a beacon. */
 export function guardLock(
@@ -477,8 +499,10 @@ export interface BeaconForecast {
   odds: Exclude<Odds, 'unknown'>;
   /** Practice battles, weakest attack first: the beacon held. */
   trials: boolean[];
-  /** Guards expected to fall in the middle practice battle. */
+  /** Guards expected to die in the middle practice battle (the beacon falls). */
   expectedDead: number;
+  /** Chantier 46: guards expected to fly home wounded in the middle practice battle (held). */
+  expectedHurt: number;
   /** Nobody and nothing defends it: it falls without a fight. */
   bare: boolean;
 }
@@ -519,7 +543,14 @@ export function beaconForecast(
   const [lo, hi] = BEACONS.attack.share;
   const power = { min: round1(base.min * lo * esc), max: round1(base.max * hi * esc) };
   if (crew.length === 0 && fort === 0)
-    return { power, odds: 'unlikely', trials: [false, false, false], expectedDead: 0, bare: true };
+    return {
+      power,
+      odds: 'unlikely',
+      trials: [false, false, false],
+      expectedDead: 0,
+      expectedHurt: 0,
+      bare: true,
+    };
   const age = view?.age ?? civAgeOfHours(scheduleHours(state, target.distance, now));
   const inner = origin < INTEL.sectors / 2;
   const levels = [power.min, (power.min + power.max) / 2, power.max];
@@ -552,7 +583,15 @@ export function beaconForecast(
   });
   const trials = runs.map((r) => r.held);
   const odds = trials[2] ? 'likely' : trials[1] || trials[0] ? 'uncertain' : 'unlikely';
-  return { power, odds, trials, expectedDead: runs[1]!.dead, bare: false };
+  const mid = runs[1]!;
+  return {
+    power,
+    odds,
+    trials,
+    expectedDead: mid.held ? 0 : mid.dead,
+    expectedHurt: mid.held ? mid.dead : 0,
+    bare: false,
+  };
 }
 
 function scaleTo(units: readonly AlienUnit[], from: number, to: number): AlienUnit[] {

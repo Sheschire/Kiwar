@@ -305,14 +305,17 @@ export function resolveLanding(
   const log: BattleLog = simulateBattle(setup, `${g.seed}/land/${e.id}`);
   const outcome = landingOutcome(log);
   const crewIds = new Set(members.map((v) => v.id as string));
-  const dead = (log.result.lost ?? []).filter((ref) => crewIds.has(ref)) as VillagerId[];
+  const fallen = (log.result.lost ?? []).filter((ref) => crewIds.has(ref)) as VillagerId[];
+  // Chantier 46: on a field we hold the fallen are carried back to the ship, wounded.
+  const dead = outcome === 'victory' ? [] : fallen;
+  const hurt = outcome === 'victory' ? fallen : [];
   const deadKiwis = crewMembers(state, dead);
   const gearPieces = deadKiwis.reduce(
     (n, v) => n + (v.gear?.weapon ? 1 : 0) + (v.gear?.armor ? 1 : 0),
     0,
   );
-  // The field held keeps the gear of the fallen; a retreat or a defeat leaves it to the aliens.
-  removeVillagers(state, dead, 'battle', at, outcome !== 'victory');
+  // A retreat or a defeat leaves the dead and their gear to the aliens.
+  removeVillagers(state, dead, 'battle', at, true);
   e.crew = e.crew.filter((id) => !dead.includes(id));
 
   const civ = liveCiv(g);
@@ -389,6 +392,7 @@ export function resolveLanding(
     loot,
     sector,
     log,
+    ...(hurt.length > 0 ? { injured: hurt } : {}),
     ...(burnt ? { burnt: true } : {}),
     ...(queenOut ? { queenOut: true } : {}),
     ...(outcome === 'victory' ? { beacon: true } : {}),
@@ -414,8 +418,10 @@ export interface LandingForecast {
   power: IntelRange | null;
   age: number | null;
   odds: Odds;
-  /** Kiwis expected to fall in the middle practice battle. */
+  /** Kiwis expected to die in the middle practice battle (a retreat or a defeat). */
   expectedDead: number;
+  /** Chantier 46: kiwis expected to come back wounded in the middle practice battle (a victory). */
+  expectedHurt: number;
   /** Outcomes of the practice battles, weakest garrison first. */
   trials: LandingOutcome[];
   /** Chantier 42, the final battle: share of the queen's strength left after the middle trial. */
@@ -475,6 +481,7 @@ export function landingForecast(
     age: null,
     odds: 'unknown',
     expectedDead: 0,
+    expectedHurt: 0,
     trials: [],
   };
   if (!view && inner) return none;
@@ -505,7 +512,16 @@ export function landingForecast(
     armies = at.map((p) => sectorUnits({ sector, inner, age, power: p }, 0.5));
   }
   if (crew.length === 0)
-    return { knowledge, view, power, age, odds: 'unknown', expectedDead: 0, trials: [] };
+    return {
+      knowledge,
+      view,
+      power,
+      age,
+      odds: 'unknown',
+      expectedDead: 0,
+      expectedHurt: 0,
+      trials: [],
+    };
   const runs = armies.map((units, i) =>
     practice(
       state,
@@ -526,7 +542,17 @@ export function landingForecast(
     power,
     age,
     odds,
-    expectedDead: runs[1]!.dead,
+    ...tollOf(runs[1]!),
     trials: runs.map((r) => r.outcome),
   };
+}
+
+/** Chantier 46: who falls on a field we hold comes back wounded; anywhere else they die. */
+export function tollOf(run: { outcome: LandingOutcome; dead: number }): {
+  expectedDead: number;
+  expectedHurt: number;
+} {
+  return run.outcome === 'victory'
+    ? { expectedDead: 0, expectedHurt: run.dead }
+    : { expectedDead: run.dead, expectedHurt: 0 };
 }

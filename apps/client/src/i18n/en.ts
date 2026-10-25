@@ -938,8 +938,10 @@ export const en = {
     garrisonGuess: 'Garrison estimated at {power}.',
     trials: 'Practice battles: {won} won out of 3.',
     dead: 'About {count} kiwi(s) would fall, dead for good.',
+    hurt: 'About {count} kiwi(s) would fall and come back wounded (the field would be ours).',
     noAir: 'Nobody in the crew can hit the bats: they will win by wearing you down.',
-    permadeath: 'Every kiwi who falls dies for good. A defeat also loses the ship and its gear.',
+    permadeath:
+      'On a field won, whoever falls comes back wounded. In a retreat or a defeat, whoever falls dies for good; a defeat also loses the ship and its gear.',
     launch: 'Land',
     report: {
       victory: 'Landing won: {sector}',
@@ -1037,6 +1039,7 @@ export const en = {
     },
     trials: '{held}/3 practice battles held · attackers ≈ {power}',
     dead: '· about {count} guard(s) fallen',
+    hurt: '· about {count} guard(s) wounded, flown home',
     guards: 'Guard: {count} kiwi(s) ({names})',
     noGuard: 'No guard on the spot.',
     orders: 'Orders of the guard: {posture}, retreat at {pct} % losses.',
@@ -1055,6 +1058,7 @@ export const en = {
       fell: 'fell to the attack from {origin}, {ago} ago.',
       bare: 'fell without a fight (attack from {origin}), {ago} ago.',
       dead: 'Fallen: {names}.',
+      hurt: 'Back wounded: {names}.',
       back: '{count} kiwi(s) back at the colony.',
       watch: 'Watch the battle again',
       hide: 'Hide the battle',

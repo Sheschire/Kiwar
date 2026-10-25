@@ -23,6 +23,7 @@ import {
   mergeUnits,
   parcelTruth,
   recordBestiary,
+  tollOf,
   validOrders,
   viewOfTruth,
 } from './landing';
@@ -129,12 +130,15 @@ export function resolveFinal(
   const log = simulateBattle(setup, `${g.seed}/final/${e.id}`);
   const outcome = landingOutcome(log);
   const crewIds = new Set(members.map((v) => v.id as string));
-  const dead = (log.result.lost ?? []).filter((ref) => crewIds.has(ref)) as VillagerId[];
+  const fallen = (log.result.lost ?? []).filter((ref) => crewIds.has(ref)) as VillagerId[];
+  // Chantier 46: her fall leaves the field to us, the fallen come back wounded.
+  const dead = outcome === 'victory' ? [] : fallen;
+  const hurt = outcome === 'victory' ? fallen : [];
   const gearPieces = crewMembers(state, dead).reduce(
     (n, v) => n + (v.gear?.weapon ? 1 : 0) + (v.gear?.armor ? 1 : 0),
     0,
   );
-  removeVillagers(state, dead, 'battle', at, outcome !== 'victory');
+  removeVillagers(state, dead, 'battle', at, true);
   e.crew = e.crew.filter((id) => !dead.includes(id));
   const civ = liveCiv(g);
   const seen = mergeUnits([q.escort]);
@@ -214,6 +218,7 @@ export function resolveFinal(
     sector: q.sector,
     log,
     seen,
+    ...(hurt.length > 0 ? { injured: hurt } : {}),
     ...(outcome === 'victory' ? { queenFallen: true } : {}),
     ...(outcome === 'defeat' ? { shipLost: true } : {}),
   };
@@ -291,6 +296,7 @@ export function finalForecast(
     age: null,
     odds: 'unknown',
     expectedDead: 0,
+    expectedHurt: 0,
     trials: [],
   };
   if (!mid) return none;
@@ -326,7 +332,7 @@ export function finalForecast(
     power,
     age: mid.age,
     odds,
-    expectedDead: runs[1]!.dead,
+    ...tollOf(runs[1]!),
     trials: runs.map((r) => r.outcome),
     // What would be left of her (her wounds, ×, what she has now).
     queenLeft: Math.round(runs[1]!.left * (1 - mid.wounds) * 100) / 100,

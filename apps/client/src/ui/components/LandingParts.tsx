@@ -426,6 +426,9 @@ export function LandingForecastLines(props: {
       {f.trials.length > 0 && f.expectedDead > 0 && (
         <p class="small warn">{t('landing.dead', { count: f.expectedDead })}</p>
       )}
+      {f.trials.length > 0 && f.expectedHurt > 0 && (
+        <p class="small">{t('landing.hurt', { count: f.expectedHurt })}</p>
+      )}
       {props.crew.length > 0 && !crewHitsAir(props.crew, props.game) && (
         <p class="small warn">{t('landing.noAir')}</p>
       )}

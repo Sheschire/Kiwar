@@ -578,6 +578,8 @@ export interface BeaconReport {
   power: number;
   /** Guards fallen (names), and those who flew home after the fall. */
   dead: string[];
+  /** Chantier 46: guards who fell on the beacon held, flown home wounded (names). */
+  hurt?: string[];
   back: number;
   log?: BattleLog;
 }

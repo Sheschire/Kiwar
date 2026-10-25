@@ -108,6 +108,9 @@ export function BeaconDefense(props: {
             {forecast.expectedDead > 0 && (
               <span class="warn"> {t('beacons.dead', { count: forecast.expectedDead })}</span>
             )}
+            {forecast.expectedHurt > 0 && (
+              <span class="muted"> {t('beacons.hurt', { count: forecast.expectedHurt })}</span>
+            )}
           </p>
         ))}
       <p class="small">
@@ -213,6 +216,9 @@ function ReportLine({ r }: { r: BeaconReport }) {
       </p>
       {r.dead.length > 0 && (
         <p class="small warn">{t('beacons.report.dead', { names: r.dead.join(', ') })}</p>
+      )}
+      {(r.hurt ?? []).length > 0 && (
+        <p class="small">{t('beacons.report.hurt', { names: r.hurt!.join(', ') })}</p>
       )}
       {r.back > 0 && <p class="small muted">{t('beacons.report.back', { count: r.back })}</p>}
       {r.log && (

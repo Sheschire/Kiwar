@@ -143,7 +143,7 @@ describe('attacks on our beacons (chantier 42)', () => {
     expect(advance(st, st.now).state.faceViews[targetId]!.attack).toBeTruthy();
   });
 
-  it('fights with the guard: the fallen die, a held beacon keeps the survivors', () => {
+  it('fights with the guard: a fallen beacon loses its dead, a held one keeps the survivors', () => {
     const { s, targetId } = beaconColony();
     const ids = ['vg0', 'vg1', 'vg2', 'vg3', 'vg4', 'vg5', 'vg6', 'vg7', 'vg8', 'vg9'];
     let st = veterans(s, ids);
@@ -168,6 +168,40 @@ describe('attacks on our beacons (chantier 42)', () => {
     // Those who flew home are on their way.
     const home = after.expeditions.filter((e) => e.mission === 'retreat');
     expect(home.reduce((n, e) => n + e.crew.length, 0)).toBe(report.back);
+  });
+
+  it('keeps its fallen alive when it holds: they fly home wounded (chantier 46)', () => {
+    const { s, targetId } = beaconColony();
+    const ids = ['vg0', 'vg1', 'vg2', 'vg3', 'vg4', 'vg5'];
+    // Three veterans and three ordinary kiwis: the beacon holds, an ordinary one falls.
+    let st = veterans(s, ids.slice(0, 3));
+    const planned = advance(st, st.now).state;
+    const told = advance(planned, planned.faceViews[targetId]!.attack!.announceAt).state;
+    const sector = told.faceViews[targetId]!.attack!.sector!;
+    st = post(told, targetId, sector, ids);
+    const after = advance(st, told.faceViews[targetId]!.attack!.at).state;
+    const report = after.faceViews[targetId]!.reports![0]!;
+    expect(report.held).toBe(true);
+    expect(report.dead).toEqual([]);
+    expect(report.hurt?.length).toBeGreaterThan(0);
+    expect(after.memorial.some((m) => m.cause === 'battle')).toBe(false);
+    // The wounded leave the guard and fly home, where they heal.
+    const b = after.faceViews[targetId]!.beacons.find((x) => x.sector === sector)!;
+    const ship = after.expeditions.find((e) => e.mission === 'retreat')!;
+    expect(ship.result!.injured).toHaveLength(report.hurt!.length);
+    for (const id of ship.result!.injured!) expect(b.guards).not.toContain(id);
+    const home = advance(after, ship.returnAt + 1).state;
+    for (const id of ship.result!.injured!)
+      expect(home.villagers.find((v) => v.id === id)!.job.kind).toBe('injured');
+    // The forecast says the same: wounded, nobody dead.
+    const f = beaconForecast(
+      st,
+      targetId,
+      sector,
+      told.faceViews[targetId]!.attack!.origin!,
+      st.now,
+    );
+    if (f?.trials[1]) expect(f.expectedDead).toBe(0);
   });
 
   it('fortifies from home: paid, ready after its time, then counted', () => {

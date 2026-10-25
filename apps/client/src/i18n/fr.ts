@@ -1009,10 +1009,11 @@ export const fr: Dict = {
     garrisonGuess: 'Garnison estimée à {power}.',
     trials: 'Batailles d’essai : {won} gagnée(s) sur 3.',
     dead: 'Environ {count} kiwi(s) tomberaient, mort·es pour toujours.',
+    hurt: 'Environ {count} kiwi(s) tomberaient et reviendraient blessé·es (le terrain serait à nous).',
     noAir:
       'Personne dans l’équipage ne peut toucher les chauves-souris : elles gagneront à l’usure.',
     permadeath:
-      'Tout kiwi qui tombe meurt pour toujours. Une défaite coûte aussi le vaisseau et l’équipement.',
+      'Sur un terrain gagné, qui tombe revient blessé·e. Dans une retraite ou une défaite, qui tombe meurt pour toujours ; une défaite coûte aussi le vaisseau et l’équipement.',
     launch: 'Débarquer',
     report: {
       victory: 'Débarquement gagné : {sector}',
@@ -1111,6 +1112,7 @@ export const fr: Dict = {
     },
     trials: '{held}/3 batailles d’essai tenues · attaquants ≈ {power}',
     dead: '· environ {count} garde(s) tombé(s)',
+    hurt: '· environ {count} garde(s) blessé·e(s), de retour à la colonie',
     guards: 'Garde : {count} kiwi(s) ({names})',
     noGuard: 'Aucune garde sur place.',
     orders: 'Ordres de la garde : {posture}, retraite à {pct} % de pertes.',
@@ -1129,6 +1131,7 @@ export const fr: Dict = {
       fell: 'est tombée face à l’attaque venue de {origin}, il y a {ago}.',
       bare: 'est tombée sans combat (attaque venue de {origin}), il y a {ago}.',
       dead: 'Tombé·es : {names}.',
+      hurt: 'Revenu·es blessé·es : {names}.',
       back: '{count} kiwi(s) rentré(s) à la colonie.',
       watch: 'Revoir la bataille',
       hide: 'Masquer la bataille',

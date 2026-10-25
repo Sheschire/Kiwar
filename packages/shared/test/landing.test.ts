@@ -223,6 +223,60 @@ describe('the landing (chantier 40)', () => {
     expect(after.shipLost).toBeUndefined();
   });
 
+  it('brings the fallen of a victory home wounded, and only a retreat kills (chantier 46)', () => {
+    // Four ordinary kiwis win the edge, one of them falls: wounded, not dead.
+    const won = landingColony(10);
+    const four = won.s.villagers.slice(-4).map((v) => v.id);
+    const s = {
+      ...won.s,
+      villagers: won.s.villagers.map((v): Villager =>
+        four.includes(v.id)
+          ? { ...v, level: 1, classId: four.indexOf(v.id) % 2 === 0 ? 'warrior' : 'mage' }
+          : v,
+      ),
+    };
+    const launched = run(s, land(won.padId, won.targetId, four, 8), won.t, won.map);
+    const { state, e } = arrive(launched, won.t);
+    expect(e.result!.outcome).toBe('victory');
+    const fell = (e.result!.log!.result.lost ?? []).filter((ref) => four.includes(ref));
+    expect(fell.length).toBeGreaterThan(0);
+    expect(e.result!.injured).toEqual(fell);
+    expect(e.result!.lostInBattle).toEqual([]);
+    expect(e.crew).toHaveLength(4);
+    expect(state.memorial.filter((m) => m.cause === 'battle')).toHaveLength(0);
+    // Nobody mourns a kiwi who lives.
+    expect(state.villagers.some((v) => v.memories?.some((m) => m.kind === 'grief'))).toBe(false);
+    // Home: the fallen heal at rest.
+    const home = advance(state, e.returnAt + 1).state;
+    for (const id of fell) {
+      const v = home.villagers.find((x) => x.id === id)!;
+      expect(v.job.kind).toBe('injured');
+    }
+
+    // Two kiwis retreat: who falls there dies.
+    const lost = landingColony(10);
+    const two = lost.s.villagers.slice(-2).map((v) => v.id);
+    const pair = {
+      ...lost.s,
+      villagers: lost.s.villagers.map((v): Villager =>
+        two.includes(v.id) ? { ...v, level: 1, classId: 'warrior' } : v,
+      ),
+    };
+    const back = arrive(run(pair, land(lost.padId, lost.targetId, two, 8), lost.t, lost.map), 0);
+    expect(back.e.result!.outcome).toBe('retreat');
+    expect(back.e.result!.lostInBattle.length).toBeGreaterThan(0);
+    expect(back.e.result!.injured).toBeUndefined();
+    expect(back.state.memorial.some((m) => m.cause === 'battle')).toBe(true);
+  });
+
+  it('forecasts the fallen of a victory as wounded, not dead (chantier 46)', () => {
+    const base = landingColony(10);
+    const four = base.s.villagers.slice(-4).map((v) => v.id);
+    const f = forecastExpedition(base.s, land(base.padId, base.targetId, four, 8))!.landing!;
+    if (f.trials[1] === 'victory') expect(f.expectedDead).toBe(0);
+    else expect(f.expectedHurt).toBe(0);
+  });
+
   it('retreats past the threshold: the survivors bring back a dated glimpse', () => {
     let found = false;
     for (let i = 0; i < 6 && !found; i++) {

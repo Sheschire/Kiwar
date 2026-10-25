@@ -6985,12 +6985,14 @@ function resolveFinal(state, e, members, fed) {
   const log2 = simulateBattle(setup, `${g.seed}/final/${e.id}`);
   const outcome = landingOutcome(log2);
   const crewIds = new Set(members.map((v) => v.id));
-  const dead = (log2.result.lost ?? []).filter((ref) => crewIds.has(ref));
+  const fallen = (log2.result.lost ?? []).filter((ref) => crewIds.has(ref));
+  const dead = outcome === "victory" ? [] : fallen;
+  const hurt = outcome === "victory" ? fallen : [];
   const gearPieces = crewMembers(state, dead).reduce(
     (n, v) => n + (v.gear?.weapon ? 1 : 0) + (v.gear?.armor ? 1 : 0),
     0
   );
-  removeVillagers(state, dead, "battle", at, outcome !== "victory");
+  removeVillagers(state, dead, "battle", at, true);
   e.crew = e.crew.filter((id3) => !dead.includes(id3));
   const civ = liveCiv(g);
   const seen = mergeUnits([q.escort]);
@@ -7064,6 +7066,7 @@ function resolveFinal(state, e, members, fed) {
     sector: q.sector,
     log: log2,
     seen,
+    ...hurt.length > 0 ? { injured: hurt } : {},
     ...outcome === "victory" ? { queenFallen: true } : {},
     ...outcome === "defeat" ? { shipLost: true } : {}
   };
@@ -7117,6 +7120,7 @@ function finalForecast(state, targetId, crew, orders, fed, now) {
     age: null,
     odds: "unknown",
     expectedDead: 0,
+    expectedHurt: 0,
     trials: []
   };
   if (!mid) return none;
@@ -7152,7 +7156,7 @@ function finalForecast(state, targetId, crew, orders, fed, now) {
     power,
     age: mid.age,
     odds,
-    expectedDead: runs[1].dead,
+    ...tollOf(runs[1]),
     trials: runs.map((r) => r.outcome),
     // What would be left of her (her wounds, ×, what she has now).
     queenLeft: Math.round(runs[1].left * (1 - mid.wounds) * 100) / 100
@@ -7781,13 +7785,15 @@ function resolveLanding(state, e, members, fed) {
   const log2 = simulateBattle(setup, `${g.seed}/land/${e.id}`);
   const outcome = landingOutcome(log2);
   const crewIds = new Set(members.map((v) => v.id));
-  const dead = (log2.result.lost ?? []).filter((ref) => crewIds.has(ref));
+  const fallen = (log2.result.lost ?? []).filter((ref) => crewIds.has(ref));
+  const dead = outcome === "victory" ? [] : fallen;
+  const hurt = outcome === "victory" ? fallen : [];
   const deadKiwis = crewMembers(state, dead);
   const gearPieces = deadKiwis.reduce(
     (n, v) => n + (v.gear?.weapon ? 1 : 0) + (v.gear?.armor ? 1 : 0),
     0
   );
-  removeVillagers(state, dead, "battle", at, outcome !== "victory");
+  removeVillagers(state, dead, "battle", at, true);
   e.crew = e.crew.filter((id3) => !dead.includes(id3));
   const civ = liveCiv(g);
   const defenders = setup.units.filter((u) => u.side === 0).length;
@@ -7856,6 +7862,7 @@ function resolveLanding(state, e, members, fed) {
     loot,
     sector,
     log: log2,
+    ...hurt.length > 0 ? { injured: hurt } : {},
     ...burnt ? { burnt: true } : {},
     ...queenOut ? { queenOut: true } : {},
     ...outcome === "victory" ? { beacon: true } : {},
@@ -7895,6 +7902,7 @@ function landingForecast(state, targetId, sector, crew, orders, fed, now) {
     age: null,
     odds: "unknown",
     expectedDead: 0,
+    expectedHurt: 0,
     trials: []
   };
   if (!view && inner) return none;
@@ -7925,7 +7933,16 @@ function landingForecast(state, targetId, sector, crew, orders, fed, now) {
     armies = at.map((p) => sectorUnits({ sector, inner, age, power: p }, 0.5));
   }
   if (crew.length === 0)
-    return { knowledge, view, power, age, odds: "unknown", expectedDead: 0, trials: [] };
+    return {
+      knowledge,
+      view,
+      power,
+      age,
+      odds: "unknown",
+      expectedDead: 0,
+      expectedHurt: 0,
+      trials: []
+    };
   const runs = armies.map(
     (units, i) => practice(
       state,
@@ -7946,9 +7963,12 @@ function landingForecast(state, targetId, sector, crew, orders, fed, now) {
     power,
     age,
     odds,
-    expectedDead: runs[1].dead,
+    ...tollOf(runs[1]),
     trials: runs.map((r) => r.outcome)
   };
+}
+function tollOf(run) {
+  return run.outcome === "victory" ? { expectedDead: 0, expectedHurt: run.dead } : { expectedDead: run.dead, expectedHurt: 0 };
 }
 
 // packages/shared/src/sim/civ.ts
@@ -11999,6 +12019,7 @@ function strike2(s, targetId, g, face, a, at, events) {
   let held = false;
   let fought = false;
   let dead = [];
+  let hurt = [];
   let fled = [];
   let log2 = void 0;
   const civ = liveCiv(g);
@@ -12015,7 +12036,9 @@ function strike2(s, targetId, g, face, a, at, events) {
     log2 = simulateBattle(setup, `${g.seed}/beacon/${targetId}/${a.id}`);
     held = beaconHeld(log2);
     const ids = new Set(guards.map((v) => v.id));
-    dead = log2.result.fallen.filter((ref) => ids.has(ref));
+    const fallen = log2.result.fallen.filter((ref) => ids.has(ref));
+    if (held) hurt = fallen;
+    else dead = fallen;
     fled = log2.result.fled.filter((ref) => ids.has(ref));
     const attackers = log2.result.attackers;
     recordFight(
@@ -12033,9 +12056,10 @@ function strike2(s, targetId, g, face, a, at, events) {
   removeVillagers(s, dead, "battle", at, !held);
   let back = 0;
   if (held) {
-    b.guards = (b.guards ?? []).filter((id3) => !dead.includes(id3) && !fled.includes(id3));
-    if (fled.length > 0) sendHome(s, targetId, fled, at, sector);
-    back = fled.length;
+    const home = [...fled, ...hurt.filter((id3) => !fled.includes(id3))];
+    b.guards = (b.guards ?? []).filter((id3) => !home.includes(id3));
+    if (home.length > 0) sendHome(s, targetId, home, at, sector, hurt);
+    back = home.length;
   } else {
     const survivors = (b.guards ?? []).filter((id3) => !dead.includes(id3));
     face.beacons = face.beacons.filter((x) => x !== b);
@@ -12056,13 +12080,23 @@ function strike2(s, targetId, g, face, a, at, events) {
       fought,
       power: army.power,
       dead: dead.map((id3) => names.get(id3) ?? id3),
+      ...hurt.length > 0 ? { hurt: hurt.map((id3) => names.get(id3) ?? id3) } : {},
       back,
       ...log2 ? { log: log2 } : {}
     }
   ].slice(-BEACONS.reports);
-  events.push({ type: "beaconAttacked", at, targetId, sector, held, fought, dead: dead.length });
+  events.push({
+    type: "beaconAttacked",
+    at,
+    targetId,
+    sector,
+    held,
+    fought,
+    dead: dead.length,
+    hurt: hurt.length
+  });
 }
-function sendHome(s, targetId, ids, at, sector) {
+function sendHome(s, targetId, ids, at, sector, hurt = []) {
   const target = s.targets.find((t) => t.id === targetId);
   const travelMs = target?.travelMs ?? 0;
   const members = crewMembers(s, ids);
@@ -12096,7 +12130,8 @@ function sendHome(s, targetId, ids, at, sector) {
       fed: 1,
       lostInBattle: [],
       lostOnReturn: [],
-      loot: emptyResources()
+      loot: emptyResources(),
+      ...hurt.length > 0 ? { injured: [...hurt] } : {}
     }
   };
   s.expeditions.push(e);
@@ -12195,7 +12230,14 @@ function beaconForecast(state, targetId, sector, origin, now, guards) {
   const [lo, hi] = BEACONS.attack.share;
   const power = { min: round15(base.min * lo * esc), max: round15(base.max * hi * esc) };
   if (crew.length === 0 && fort === 0)
-    return { power, odds: "unlikely", trials: [false, false, false], expectedDead: 0, bare: true };
+    return {
+      power,
+      odds: "unlikely",
+      trials: [false, false, false],
+      expectedDead: 0,
+      expectedHurt: 0,
+      bare: true
+    };
   const age = view?.age ?? civAgeOfHours(scheduleHours(state, target.distance, now));
   const inner = origin < INTEL.sectors / 2;
   const levels = [power.min, (power.min + power.max) / 2, power.max];
@@ -12226,7 +12268,15 @@ function beaconForecast(state, targetId, sector, origin, now, guards) {
   });
   const trials = runs.map((r) => r.held);
   const odds = trials[2] ? "likely" : trials[1] || trials[0] ? "uncertain" : "unlikely";
-  return { power, odds, trials, expectedDead: runs[1].dead, bare: false };
+  const mid = runs[1];
+  return {
+    power,
+    odds,
+    trials,
+    expectedDead: mid.held ? 0 : mid.dead,
+    expectedHurt: mid.held ? mid.dead : 0,
+    bare: false
+  };
 }
 function scaleTo(units, from, to) {
   const k = from > 0 ? to / from : 1;
@@ -18658,6 +18708,7 @@ var gameStateSchema = external_exports.object({
           fought: external_exports.boolean(),
           power: external_exports.number(),
           dead: external_exports.array(external_exports.string()).max(BEACONS.maxGuards),
+          hurt: external_exports.array(external_exports.string()).max(BEACONS.maxGuards).optional(),
           back: external_exports.number().int().min(0),
           log: battleLog.optional()
         })
@@ -21109,6 +21160,7 @@ export {
   titanAt,
   titanCost,
   titanPower,
+  tollOf,
   totalWorkers,
   townHallOf,
   trainLock,

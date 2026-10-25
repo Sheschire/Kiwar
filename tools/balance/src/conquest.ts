@@ -68,6 +68,7 @@ console.log(
     `finals ${f.finals ?? 0}`,
     `attacks ${f.beaconAttacks ?? 0} (held ${f.beaconsHeld ?? 0}, guards lost ${f.guardDeaths ?? 0})`,
     `expedition deaths ${f.expeditionDeaths ?? 0}`,
+    `wounded ${f.battleWounded ?? 0}`,
     `${Math.round((Date.now() - t0) / 1000)} s`,
   ].join(' | '),
 );

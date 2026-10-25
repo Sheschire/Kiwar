@@ -255,6 +255,8 @@ export type GameEvent =
       held: boolean;
       fought: boolean;
       dead: number;
+      /** Chantier 46: guards who fell on the beacon held and fly home wounded. */
+      hurt?: number;
     }
   | { type: 'beaconFortified'; at: TimeMs; targetId: string; sector: number }
   /** Chantier 42: the twin's last beacon brought the queen out of the depths. */

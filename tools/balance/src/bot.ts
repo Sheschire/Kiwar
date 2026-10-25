@@ -143,6 +143,8 @@ export interface RunResult {
     retreats?: number;
     shipsLost?: number;
     expeditionDeaths?: number;
+    /** Chantier 46: kiwis fallen on a field we held (landing or final won, beacon held), wounded. */
+    battleWounded?: number;
     loot?: number;
     /** Chantier 42: final battles fought, attacks on our beacons, those held, guards lost. */
     finals?: number;
@@ -597,6 +599,7 @@ export function runBot(opts: RunOptions): RunResult {
   const trips = { landings: 0, landingsWon: 0, retreats: 0, shipsLost: 0, loot: 0, finals: 0 };
   // Chantier 42: attacks on the beacons (held, fallen, guards lost).
   const attacks = { total: 0, held: 0, dead: 0 };
+  let battleWounded = 0;
   const mourned = new Set<string>();
   const counted = new Set<string>();
   // Chantier 30: dead time, time at the cap, production lost to full reserves.
@@ -623,6 +626,7 @@ export function runBot(opts: RunOptions): RunResult {
         attacks.total++;
         if (e.held) attacks.held++;
         attacks.dead += e.dead;
+        battleWounded += e.hurt ?? 0;
       }
       // Chantier 30: an age is dated by its event (an occasional player sees it at the next
       // visit, but it happened while away).
@@ -648,6 +652,8 @@ export function runBot(opts: RunOptions): RunResult {
       if (e.status !== 'done' || counted.has(e.id) || !e.result) continue;
       counted.add(e.id);
       if (e.mission === 'final' && !e.result.aborted) trips.finals++;
+      if (e.mission === 'land' || e.mission === 'final')
+        battleWounded += e.result.injured?.length ?? 0;
       if (e.result.aborted || e.mission !== 'land') continue;
       trips.landings++;
       if (times.glimpse === null && e.result.outcome !== 'defeat')
@@ -799,6 +805,7 @@ export function runBot(opts: RunOptions): RunResult {
       guardDeaths: attacks.dead,
       sisterKiwis: sister?.villagers.length,
       expeditionDeaths: mourned.size,
+      battleWounded,
       deadMaxMin: Math.round(deadMax / 60_000),
       ...civFinal(state),
       civAtAges,
