@@ -23,6 +23,15 @@ export const DEPOSITS: Partial<Record<TileType, DepositDef>> = {
   juice: { resource: 'juice', stock: 800, regen: 300 },
 };
 
+/**
+ * Chantier 45: fertile banks. A flesh or grove tile next to juice (a river, a spring or a canal)
+ * grows back faster.
+ */
+export const BANKS = {
+  tiles: ['flesh', 'grove'] as readonly TileType[],
+  regen: 1.3,
+} as const;
+
 /** Tile type harvested by each producer (camps harvest the tile they stand on). */
 export const HARVESTS: Partial<Record<BuildingType, TileType>> = {
   pulpery: 'flesh',

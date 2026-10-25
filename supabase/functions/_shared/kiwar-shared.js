@@ -457,6 +457,10 @@ var DEPOSITS = {
   seedRing: { resource: "seeds", stock: 200, regen: 80 },
   juice: { resource: "juice", stock: 800, regen: 300 }
 };
+var BANKS = {
+  tiles: ["flesh", "grove"],
+  regen: 1.3
+};
 var HARVESTS = {
   pulpery: "flesh",
   fiberWorkshop: "grove",
@@ -4517,15 +4521,22 @@ function applyTerraform(base, terraform) {
   });
   return { ...base, tiles };
 }
-function tileDeposit(tile, biome = "classic") {
+function tileDeposit(tile, biome = "classic", bank = false) {
   const def = tile ? DEPOSITS[tile.type] : void 0;
   if (!tile || !def) return null;
   const { stock, regen } = BIOMES[biome].deposits;
   return {
     resource: def.resource,
     cap: def.stock * tile.richness * (stock[def.resource] ?? 1),
-    regen: def.regen * tile.richness * (regen[def.resource] ?? 1)
+    regen: def.regen * tile.richness * (regen[def.resource] ?? 1) * (bank ? BANKS.regen : 1)
   };
+}
+function isBank(map, tile) {
+  if (!tile || !BANKS.tiles.includes(tile.type)) return false;
+  return hexNeighbors(tile).some((n) => getTile(map, n)?.type === "juice");
+}
+function mapTileDeposit(map, tile) {
+  return tileDeposit(tile, map.params.biome, isBank(map, tile));
 }
 var depositCache = /* @__PURE__ */ new WeakMap();
 function depositAtKey(map, key) {
@@ -4537,7 +4548,7 @@ function depositAtKey(map, key) {
   let dep = deposits.get(key);
   if (dep === void 0) {
     const i = map.index.get(key);
-    dep = tileDeposit(i === void 0 ? void 0 : map.tiles[i], map.params.biome);
+    dep = mapTileDeposit(map, i === void 0 ? void 0 : map.tiles[i]);
     deposits.set(key, dep);
   }
   return dep;
@@ -4832,9 +4843,9 @@ function timeToDepletion(h) {
   return h.stock / (h.harvest - h.regen) * HOUR_MS;
 }
 function tileDepositState(state, map, h, at = state.now) {
-  const dep = tileDeposit(getTile(map, h), map.params.biome);
-  if (!dep) return null;
   const key = hexKey(h);
+  const dep = depositAtKey(map, key);
+  if (!dep) return null;
   for (const b of state.buildings) {
     if (b.pool?.tiles.includes(key))
       return { ...dep, stock: dep.cap * fillRatio(map, b), owner: b.id };
@@ -20138,6 +20149,7 @@ export {
   ALIEN_TWIN_FACE,
   ARMOR_KINDS,
   AUTO_TASKS,
+  BANKS,
   BATTLE,
   BEACONS,
   BEAUTY,
@@ -20590,6 +20602,7 @@ export {
   inviteCode,
   ironCap,
   ironUnits,
+  isBank,
   isConquered,
   isDecor,
   isDepot,
@@ -20657,6 +20670,7 @@ export {
   logisticsEfficiency,
   lootByAge,
   lossShare,
+  mapTileDeposit,
   masteryHours,
   masteryProgress,
   maxCrew,

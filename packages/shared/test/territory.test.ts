@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   seasonRegen,
+  BANKS,
+  isBank,
+  mapTileDeposit,
+  tileDepositState,
   consumption,
   advance,
   applyCommand,
@@ -295,5 +299,23 @@ describe('catchment plan (chantier 16)', () => {
     expect(plan.taken.some((x) => x.reason === 'built')).toBe(hexDistance(site, hutTile) <= 1);
     // Never both harvested by the new site and taken.
     for (const k of plan.tiles) expect(takenKeys.has(k)).toBe(false);
+  });
+});
+
+describe('fertile banks (chantier 45)', () => {
+  it('flesh and groves next to juice grow back faster', () => {
+    const { state, map } = setup();
+    const bank = map.tiles.find((t) => t.type === 'flesh' && isBank(map, t))!;
+    const dry = map.tiles.find((t) => t.type === 'flesh' && !isBank(map, t))!;
+    expect(bank && dry).toBeTruthy();
+    const regen = (t: Tile) => tileDepositState(state, map, t)!.regen / t.richness;
+    expect(regen(bank) / regen(dry)).toBeCloseTo(BANKS.regen, 6);
+    // Seed rings and juice itself are no banks.
+    for (const t of map.tiles)
+      if (t.type === 'seedRing' || t.type === 'juice') expect(isBank(map, t)).toBe(false);
+    expect(mapTileDeposit(map, bank)!.regen).toBeCloseTo(
+      DEPOSITS.flesh!.regen * bank.richness * BANKS.regen,
+      6,
+    );
   });
 });

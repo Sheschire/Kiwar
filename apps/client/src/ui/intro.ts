@@ -5,7 +5,7 @@ import {
   FACES,
   generateFace,
   RESOURCE_IDS,
-  tileDeposit,
+  mapTileDeposit,
   type BiomeId,
   type Face,
   type FaceMap,
@@ -74,7 +74,7 @@ function sustainable(map: FaceMap, face: Face): Resources {
   const out: Resources = { pulp: 0, fiber: 0, seeds: 0, juice: 0 };
   const climate = climateOf(face, map.params.biome);
   for (const tile of map.tiles) {
-    const dep = tileDeposit(tile, map.params.biome);
+    const dep = mapTileDeposit(map, tile);
     if (dep) out[dep.resource] += dep.regen * climate[dep.resource];
   }
   return out;

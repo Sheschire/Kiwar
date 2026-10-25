@@ -2,7 +2,15 @@ import { nightWork, techEffects } from './research';
 import { levelDef, type BuildingType } from '../data/buildings';
 import { BIOMES, climateOf, type BiomeId } from '../data/biomes';
 import type { ResourceId } from '../data/resources';
-import { CAMPS, CATCHMENT_RADIUS, DEPOSITS, HARVESTS, LOGISTICS, PATHS } from '../data/territory';
+import {
+  BANKS,
+  CAMPS,
+  CATCHMENT_RADIUS,
+  DEPOSITS,
+  HARVESTS,
+  LOGISTICS,
+  PATHS,
+} from '../data/territory';
 import { TILES, type TileType } from '../data/tiles';
 import { hexDisk, hexKey, hexNeighbors, parseHexKey, type Hex, type HexKey } from '../hex/hex';
 import { generateFace, getTile, type FaceMap, type Tile } from '../worldgen/generateFace';
@@ -116,9 +124,11 @@ export interface TileDeposit {
   regen: number;
 }
 
+/** Deposit of a tile alone; `bank`: it lies on a fertile bank (`isBank`, chantier 45). */
 export function tileDeposit(
   tile: Tile | undefined,
   biome: BiomeId = 'classic',
+  bank = false,
 ): TileDeposit | null {
   const def = tile ? DEPOSITS[tile.type] : undefined;
   if (!tile || !def) return null;
@@ -126,8 +136,19 @@ export function tileDeposit(
   return {
     resource: def.resource,
     cap: def.stock * tile.richness * (stock[def.resource] ?? 1),
-    regen: def.regen * tile.richness * (regen[def.resource] ?? 1),
+    regen: def.regen * tile.richness * (regen[def.resource] ?? 1) * (bank ? BANKS.regen : 1),
   };
+}
+
+/** Chantier 45: a flesh or grove tile next to juice (river, spring or canal) is a fertile bank. */
+export function isBank(map: FaceMap, tile: Tile | undefined): boolean {
+  if (!tile || !BANKS.tiles.includes(tile.type)) return false;
+  return hexNeighbors(tile).some((n) => getTile(map, n)?.type === 'juice');
+}
+
+/** Deposit of a tile on its map (fertile banks included). */
+export function mapTileDeposit(map: FaceMap, tile: Tile | undefined): TileDeposit | null {
+  return tileDeposit(tile, map.params.biome, isBank(map, tile));
 }
 
 const depositCache = new WeakMap<FaceMap, Map<string, TileDeposit | null>>();
@@ -142,7 +163,7 @@ function depositAtKey(map: FaceMap, key: string): TileDeposit | null {
   let dep = deposits.get(key);
   if (dep === undefined) {
     const i = map.index.get(key as HexKey);
-    dep = tileDeposit(i === undefined ? undefined : map.tiles[i], map.params.biome);
+    dep = mapTileDeposit(map, i === undefined ? undefined : map.tiles[i]);
     deposits.set(key, dep);
   }
   return dep;
@@ -601,9 +622,9 @@ export function tileDepositState(
   h: Hex,
   at: TimeMs = state.now,
 ): TileDepositState | null {
-  const dep = tileDeposit(getTile(map, h), map.params.biome);
-  if (!dep) return null;
   const key = hexKey(h);
+  const dep = depositAtKey(map, key);
+  if (!dep) return null;
   for (const b of state.buildings) {
     if (b.pool?.tiles.includes(key))
       return { ...dep, stock: dep.cap * fillRatio(map, b), owner: b.id };
