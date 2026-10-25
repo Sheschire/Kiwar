@@ -397,6 +397,20 @@ rien aux âges (±1 %) : ils servent la logistique et le confort, pas la course.
 - **Le ressenti** reste à valider par le porteur : exigence du moral, valeur d'un discours,
   beauté sans placement, prix du cabaret et des feux, rives à +30 %, prix et plafond des canaux.
 
+### Décisions du porteur (25 octobre 2026)
+
+Le porteur suit les recommandations du bilan sur tous les sujets, y compris les quatre
+questions encore ouvertes de l'acte II. Elles forment le
+[chantier 46](chantiers/46-reglages-fin-acte-iii.md) :
+
+- des blessés plutôt que des morts sur un terrain tenu ;
+- un moral plus exigeant (bases 46 / 30 / 22 / 16, beauté +5, loisirs +10, à calibrer) ;
+- au plus 10 % de vagues perdues pour le joueur occasionnel ;
+- un écart de face sur la jumelle à diagnostiquer et ramener dans ±15 % ;
+- la conquête entre le jour 14 et le jour 21 ;
+- la fortification au même prix ;
+- le ressenti inchangé jusqu'à ce que le porteur joue.
+
 ### Leçons pour l'acte IV
 
 - Les **sondes ciblées** (`runBot` avec `onStep`) ont trouvé en quelques minutes ce que le

@@ -27,38 +27,39 @@ dans l'historique.
 - **Carnet de route d'octobre 2026** écrit : charte de game design (skill `kiwar-design`) et
   chantiers 30 à 45 détaillés (acte III en fiches courtes). Les anciens 25 à 29 y sont repris.
 
-| #   | Chantier                                             | État  |
-| --- | ---------------------------------------------------- | ----- |
-|     | **Acte I — Le rythme**                               |       |
-| 30  | Paliers, âges et réserves                            | fait  |
-| 31  | Objectifs et menaces réveillées                      | fait  |
-| 32  | Correctifs et ciel (client)                          | fait  |
-| 33  | Bâtiments par âge et icônes 3D (client)              | fait  |
-| 34  | Kiwis et créatures vivants (client)                  | fait  |
-|     | **Acte II — La guerre des faces**                    |       |
-| 35  | Bâtiments sur plusieurs tuiles                       | fait  |
-| 36  | Moteur de bataille : les vagues jouées pour de vrai  | fait  |
-| 37  | Classes, rôles de combat, camp d'entraînement        | fait  |
-| 38  | Forge, équipement et fer météorique                  | fait  |
-| 39  | La civilisation alien                                | fait  |
-| 40  | Le débarquement                                      | fait  |
-| 41  | La bataille en direct sur la jumelle (client)        | fait  |
-| 42  | La reine des furets                                  | fait  |
-|     | **Acte III — Le village vivant**                     |       |
-| 43  | Moral par kiwi, Mairie et feu de camp                | fait  |
-| 44  | Loisirs et décor                                     | fait  |
-| 45  | Rives fertiles et canaux de jus                      | fait  |
-| —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées |
+| #   | Chantier                                             | État    |
+| --- | ---------------------------------------------------- | ------- |
+|     | **Acte I — Le rythme**                               |         |
+| 30  | Paliers, âges et réserves                            | fait    |
+| 31  | Objectifs et menaces réveillées                      | fait    |
+| 32  | Correctifs et ciel (client)                          | fait    |
+| 33  | Bâtiments par âge et icônes 3D (client)              | fait    |
+| 34  | Kiwis et créatures vivants (client)                  | fait    |
+|     | **Acte II — La guerre des faces**                    |         |
+| 35  | Bâtiments sur plusieurs tuiles                       | fait    |
+| 36  | Moteur de bataille : les vagues jouées pour de vrai  | fait    |
+| 37  | Classes, rôles de combat, camp d'entraînement        | fait    |
+| 38  | Forge, équipement et fer météorique                  | fait    |
+| 39  | La civilisation alien                                | fait    |
+| 40  | Le débarquement                                      | fait    |
+| 41  | La bataille en direct sur la jumelle (client)        | fait    |
+| 42  | La reine des furets                                  | fait    |
+|     | **Acte III — Le village vivant**                     |         |
+| 43  | Moral par kiwi, Mairie et feu de camp                | fait    |
+| 44  | Loisirs et décor                                     | fait    |
+| 45  | Rives fertiles et canaux de jus                      | fait    |
+| 46  | Réglages d'après l'acte III                          | à faire |
+| —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
 **L'acte III est terminé** (bilan et mesures : section 8 ter du
 [carnet](CARNET_DE_ROUTE.md), [`BALANCE_REPORT.md`](BALANCE_REPORT.md)) : chantiers **43**
 (moral par kiwi, Mairie, feu de camp : `sim/rest.ts`, `sim/speech.ts`), **44** (décors, jeux,
 cabaret, feux d'artifice : `sim/village.ts`) et **45** (rives fertiles et canaux de jus :
 `sim/canals.ts`, `BANKS`, skill `kiwar-titans`).
-**Prochaine conversation** : avant l'acte IV, trancher avec le porteur les points du bilan
-(décisions de l'acte II toujours ouvertes, moral presque toujours haut chez le bot, joueur
-occasionnel qui perd une vague sur cinq, Pierre qui glisse vers 14–15 h), puis écrire les
-chantiers de l'acte IV (Tréfonds, kiwaïs, Verger cosmique : section 9 du carnet).
+**Prochaine conversation** : le chantier **46** (réglages d'après l'acte III : blessés plutôt
+que morts sur un terrain tenu, moral plus exigeant, vagues de l'occasionnel, écart de face sur
+la jumelle, rythme de la conquête). Le porteur a suivi les recommandations du bilan : tout est
+décidé dans la fiche. Ensuite, écrire les chantiers de l'acte IV (section 9 du carnet).
 À tester avec le porteur : l'exigence du moral par âge, le poids des deuils, la valeur d'un
 discours, la beauté sans placement, le prix du cabaret et des feux, les rives à +30 %, le prix
 (80 pulpe + 40 fibre, 1 h) et le plafond (3 / 6 / 10 / 15) des canaux.

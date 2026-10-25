@@ -2808,6 +2808,29 @@ Small decisions taken during the session:
 - ⚠️ To play with the owner: the cabaret's price (60 juice is little in the Iron age), how
   often a fireworks show is worth its stardust, the beauty felt without placement.
 
+## After act III — the owner follows the review's recommendations (25 October 2026)
+
+Asked about the end-of-act review, the owner answered: "I follow your recommendations on all
+these subjects". Recorded as chantier 46 (`docs/chantiers/46-reglages-fin-acte-iii.md`):
+
+- Kiwis fallen on a **held field** (a landing won, a beacon attack held) come back **wounded**
+  instead of dying; a retreat or a defeat still kills (act II question 1).
+- **Harder morale**: the built village should give 60–75 at Stone and Iron, above 85 only with
+  recurring spending (speeches, suppers, cabaret, fireworks): bases 46/30/22/16, beauty cap +5,
+  leisure cap +10 as a starting point, calibrated with the village probe.
+- Occasional player: at most 10 % of waves lost, no death (diagnose first).
+- Twin face gap: diagnose (bot or civilisation), centre beacon within ±15 % between faces
+  (act II question 4).
+- Conquest: re-measure after the wounds, then aim at the queen out on days 7–14 and the
+  conquest on days 14–21 in 3 runs of 6 or more (`SIEGE.final` if early, `CIV.innerMultiple` /
+  `ageMultiple` if it stalls) (act II question 2).
+- Fortification price unchanged (act II question 3).
+- Stone at 13.5–15.5 h: no rule change; if the tuning pushes the median past 13.8 h, the
+  **bot** builds its decorations after the monument.
+- Feel parameters unchanged until the owner plays (banks +30 %, canals' price and cap,
+  cabaret, fireworks, beauty without placement, the speech).
+- Highlands slow on long runs: re-measure with more seeds before touching the biome.
+
 ## Chantier 45 — Fertile banks and juice canals
 
 Decided before the session (chantier document): canals tile by tile from the Eden, they also
