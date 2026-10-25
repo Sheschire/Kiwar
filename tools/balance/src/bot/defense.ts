@@ -1,4 +1,5 @@
 import {
+  ageOf,
   buildCost,
   canAfford,
   faceMapOf,
@@ -74,6 +75,25 @@ export function turretDecision(
   for (const type of ['seedTurret', 'skyTurret'] as const) {
     if (!turrets.some((b) => b.type === type) && turretCount(state) < turretLimit(state))
       return affordable(build(type));
+  }
+  // Chantier 46: an occasional player keeps its turrets in step with its Nest (half its level)
+  // before decorating: the village and the canals of act III ate the leftovers that used to
+  // upgrade them, and the waves of the civilisation outgrew a defense left at level 1.
+  if (!prepared) {
+    // Rounded up from the Stone age (rounded down before: the Eden saves for the monument).
+    const half = nest(state).level / 2;
+    const floor = ageOf(state) >= 1 ? Math.ceil(half) : Math.floor(half);
+    const behind = turrets
+      .filter((b) => b.level < floor && upgradeOk(state, b) && !pendingUpgrade(state, b.id))
+      .sort((a, b) => a.level - b.level)[0];
+    if (behind) return affordable({ type: 'upgrade', buildingId: behind.id });
+    // From the Stone age on, it also fills the places its Nest allows.
+    if (ageOf(state) >= 1 && turretCount(state) < turretLimit(state)) {
+      const count = (t: BuildingType) => turrets.filter((b) => b.type === t).length;
+      return affordable(
+        build(count('skyTurret') < count('seedTurret') ? 'skyTurret' : 'seedTurret'),
+      );
+    }
   }
   // Chantier 36: an announced pack whose gate no turret reaches gets one next to its gate.
   const ahead = prepared ? waveAhead(state) : null;
