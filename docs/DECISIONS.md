@@ -2848,3 +2848,27 @@ Small decisions taken during the session:
 - Bot: Canals after the Stone passage (before it, it delayed Stone by ~1.5 h on a seed); one
   canal at a time towards the depots while the nearest juice is more than 2.5 steps away,
   else where harvested tiles become banks (or a chain towards them within the quota).
+
+### Measures
+
+- Targeted probes during the session (`runBot`, 1 seed × 6 biomes × 24 h): the bot digs 1 to
+  6 canals once Canals is known (15–18 h); in the delta it brings the juice to the Nest in a
+  chain of five tiles.
+- **End-of-act report** (`pnpm balance --seeds 6 --hours 72 --ages 2 --impact 2 --probe 50`,
+  103 min on 4 cores, `docs/BALANCE_REPORT.md`): Nest 3 4.5–4.8 h, Library 4.7–5.1 h, Stone
+  13.5–15.5 h, Iron 2.8–2.9 d (2 to 5 runs of 6 within 72 h); Kiwisu / Kiwino within 3.7 % on
+  the economy, level 10 at 14.9 % (19.7 % at the end of act II). Beyond ±10 %: every economy
+  building at level 3 in the seed crown (+24 %), the first kiwi at level 10 (−18 to +26 %).
+  Long runs: attentive Stone 13.8 h, Iron 2.9 d, Industry 8.6–10.6 d (not in the highlands in
+  12 days, ⚠️ two seeds); occasional 18.5 h, 4.8 d, 12.3 d. Waves lost: attentive 1 %,
+  occasional 20 % (9 % at the end of act II) ⚠️. **At the cap 13–20 %** (28–41 % at the end
+  of act II). Dead time 88–96 min (unchanged). 1.3 to 8.2 canals per 72 h run; without them
+  the economy is the same (±1 %), the first kiwi at level 10 +4 %, the queen out +33 %.
+- **Conquest probe** (`pnpm --filter @kiwar/balance conquest`, seeds conquest-1..3 × both
+  faces × 21 days): queen out in 3 of 6 (days 2.2, 2.8, 6.4), **conquest in 2 of 6** (days
+  7.1 and 11.5); the others stall at 6, 8 and 9 beacons (11 with the queen out). Attacks 3–15
+  per run, 73–87 % held; kiwis dead in battle 7 to 71 (median ≈ 41).
+- **Village probe** (`runBot`, 1 seed × 6 biomes, morale every day): average morale 45–65 at
+  12 h, 68–98 once the Town Hall, 2–3 campfires and 12–15 decorations and games stand (by
+  24 h), 63–100 at 72 h; no kiwi under 20; beauty at its +8 cap from 24 h, leisure +10–12;
+  memories from −19 (mourning after landings) to +26 (speeches, suppers).

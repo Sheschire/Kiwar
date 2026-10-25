@@ -269,3 +269,22 @@ starved it). Probe: a scratch `runBot` with `onStep` printing `moraleOf(s)` part
   2.8 d, Industry 8.7 d (occasional 18.5 h / 4.0 d / 10.9 d), waves 0 % / 9 % lost; ⚠️ level 10
   and the twin differ by face (Kiwino lights its 12 parcels in < 3 days in 5 of 18 runs,
   Kiwisu never), dead time 96 min.
+
+## Chantier 45: canals (end of act III)
+
+- Mechanic `canals` (`bot/canals.ts`, `--impact` "without the canals of chantier 45"): Canals
+  after the Stone passage in `TECH_ORDER` (placed second it delayed Stone ~1.5 h), one canal at
+  a time (looked at once per game hour, `play.canalsAt`): towards the depots while the nearest
+  juice is > 2.5 steps away, else where pooled flesh/groves become banks (gain ≥ 2), else a
+  chain towards them within the quota. Milestone `canal` (informative), `final.canals`.
+- Fertile banks are always on (no "without banks"): compare with a report from before.
+- **Reference (end of act III)**: `pnpm balance --seeds 6 --hours 72 --ages 2 --impact 2
+--probe 50 --out ../../docs/BALANCE_REPORT.md` (nohup, **103 min** on 4 cores, 7 mechanics),
+  then the conquest probe (seeds conquest-1..3 × both faces × 21 days, six nohup processes,
+  25–50 min each in parallel). Nest 3 4.5–4.8 h, Stone 13.5–15.5 h, Iron 2.8–2.9 d, faces
+  ≤ 3.7 % (level 10 14.9 %); waves lost 1 % / 20 % (occasional ⚠️); at the cap 13–20 %; dead
+  time 88–96 min; conquest 2/6 (days 7.1, 11.5), 7–71 kiwis dead.
+- Village probe (scratch `runBot` printing `moraleOf(s).average`, `beautyOf`, memories and
+  leisure at 12/24/48/72 h): morale 45–65 before the Town Hall, 63–100 after; nobody under 20.
+- Waiting on background runs: `pgrep -f '<pattern>'` inside the waiting loop matches the loop's
+  own command line and never ends; save the PIDs (`echo $! >> pids`) and loop on `kill -0`.

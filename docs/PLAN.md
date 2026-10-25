@@ -27,40 +27,45 @@ dans l'historique.
 - **Carnet de route d'octobre 2026** écrit : charte de game design (skill `kiwar-design`) et
   chantiers 30 à 45 détaillés (acte III en fiches courtes). Les anciens 25 à 29 y sont repris.
 
-| #   | Chantier                                             | État    |
-| --- | ---------------------------------------------------- | ------- |
-|     | **Acte I — Le rythme**                               |         |
-| 30  | Paliers, âges et réserves                            | fait    |
-| 31  | Objectifs et menaces réveillées                      | fait    |
-| 32  | Correctifs et ciel (client)                          | fait    |
-| 33  | Bâtiments par âge et icônes 3D (client)              | fait    |
-| 34  | Kiwis et créatures vivants (client)                  | fait    |
-|     | **Acte II — La guerre des faces**                    |         |
-| 35  | Bâtiments sur plusieurs tuiles                       | fait    |
-| 36  | Moteur de bataille : les vagues jouées pour de vrai  | fait    |
-| 37  | Classes, rôles de combat, camp d'entraînement        | fait    |
-| 38  | Forge, équipement et fer météorique                  | fait    |
-| 39  | La civilisation alien                                | fait    |
-| 40  | Le débarquement                                      | fait    |
-| 41  | La bataille en direct sur la jumelle (client)        | fait    |
-| 42  | La reine des furets                                  | fait    |
-|     | **Acte III — Le village vivant**                     |         |
-| 43  | Moral par kiwi, Mairie et feu de camp                | fait    |
-| 44  | Loisirs et décor                                     | fait    |
-| 45  | Rives fertiles et canaux de jus                      | fait    |
-| —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
+| #   | Chantier                                             | État  |
+| --- | ---------------------------------------------------- | ----- |
+|     | **Acte I — Le rythme**                               |       |
+| 30  | Paliers, âges et réserves                            | fait  |
+| 31  | Objectifs et menaces réveillées                      | fait  |
+| 32  | Correctifs et ciel (client)                          | fait  |
+| 33  | Bâtiments par âge et icônes 3D (client)              | fait  |
+| 34  | Kiwis et créatures vivants (client)                  | fait  |
+|     | **Acte II — La guerre des faces**                    |       |
+| 35  | Bâtiments sur plusieurs tuiles                       | fait  |
+| 36  | Moteur de bataille : les vagues jouées pour de vrai  | fait  |
+| 37  | Classes, rôles de combat, camp d'entraînement        | fait  |
+| 38  | Forge, équipement et fer météorique                  | fait  |
+| 39  | La civilisation alien                                | fait  |
+| 40  | Le débarquement                                      | fait  |
+| 41  | La bataille en direct sur la jumelle (client)        | fait  |
+| 42  | La reine des furets                                  | fait  |
+|     | **Acte III — Le village vivant**                     |       |
+| 43  | Moral par kiwi, Mairie et feu de camp                | fait  |
+| 44  | Loisirs et décor                                     | fait  |
+| 45  | Rives fertiles et canaux de jus                      | fait  |
+| —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées |
 
-**L'acte III** avance : chantier **43** (moral par kiwi, Mairie, feu de camp : `sim/rest.ts`,
-`sim/speech.ts`) puis **44** (décors et beauté commune, jeux, cabaret du Rouge-Gorge, canon à
-feu d'artifice : `sim/village.ts`, skill `kiwar-cycles`). **Prochaine conversation** : le
-chantier **45** (rives fertiles et canaux de jus). À tester avec le porteur : l'exigence du
-moral par âge, le poids des deuils avec l'usure des débarquements (40), la valeur d'un
-discours, la beauté commune (le placement ne compte pas), le prix d'un soir au cabaret (60 de
-jus, peu au Fer) et la fréquence des feux d'artifice.
-Toujours ouverts : l'usure des kiwis sur les débarquements (40), la conquête qui va de J7 à
-« jamais » (42), le ressenti de l'horloge alien (39), du combat équipé (38), des rangs et du
-camp (37), la réparation automatique qui trahit l'issue d'une vague regardée (36) et le temps
-mort du début de la Pierre (31).
+**L'acte III est terminé** (bilan et mesures : section 8 ter du
+[carnet](CARNET_DE_ROUTE.md), [`BALANCE_REPORT.md`](BALANCE_REPORT.md)) : chantiers **43**
+(moral par kiwi, Mairie, feu de camp : `sim/rest.ts`, `sim/speech.ts`), **44** (décors, jeux,
+cabaret, feux d'artifice : `sim/village.ts`) et **45** (rives fertiles et canaux de jus :
+`sim/canals.ts`, `BANKS`, skill `kiwar-titans`).
+**Prochaine conversation** : avant l'acte IV, trancher avec le porteur les points du bilan
+(décisions de l'acte II toujours ouvertes, moral presque toujours haut chez le bot, joueur
+occasionnel qui perd une vague sur cinq, Pierre qui glisse vers 14–15 h), puis écrire les
+chantiers de l'acte IV (Tréfonds, kiwaïs, Verger cosmique : section 9 du carnet).
+À tester avec le porteur : l'exigence du moral par âge, le poids des deuils, la valeur d'un
+discours, la beauté sans placement, le prix du cabaret et des feux, les rives à +30 %, le prix
+(80 pulpe + 40 fibre, 1 h) et le plafond (3 / 6 / 10 / 15) des canaux.
+Toujours ouverts : l'usure des kiwis sur les débarquements (40), la conquête qui aboutit dans
+2 parties sur 6 (42), le ressenti de l'horloge alien (39), du combat équipé (38), des rangs et
+du camp (37), la réparation automatique qui trahit l'issue d'une vague regardée (36) et le
+temps mort du début de la Pierre (31).
 
 ## Règles transverses à retenir
 
@@ -134,6 +139,10 @@ from, opts)` (`ShowSource` : une vague ou un débarquement ; notre camp, avance,
   décors et jeux passent par `isVillageLife` (hors quota, un niveau, sans panneau) ; une
   nouvelle soirée du village passe par `sim/village.ts` (à la tombée de la nuit, dans
   `calendarTick`) et `state.village`.
+- **Carte remodelée** (chantiers 08 et 45) : une tuile change de nature par `state.terraform`
+  (travaux de titan ou canaux), jamais en place ; tout lit la carte par `faceMapOf(state)` ; un
+  gisement se lit sur sa carte (`mapTileDeposit` : les rives fertiles) ; un nouveau remodelage
+  vérifie `cutsLand` (aussi en saison de crue) et a son quota.
 - **Planètes** : elles ont une place fixe (`render/space.ts`) ; `renderer.setTwinApproach(t)`
   rapproche la jumelle (skill `kiwar-world`).
 

@@ -329,6 +329,83 @@ deltas, hauts plateaux et toundra.
 3. Le prix de la fortification (la moitié de deux tourelles du premier niveau de l'âge).
 4. L'écart Kiwisu / Kiwino sur la jumelle (à diagnostiquer d'abord : bot ou civilisation).
 
+## 8 ter. Bilan de l'acte III (25 octobre 2026)
+
+L'acte III « Le village vivant » est terminé : trois chantiers (43 à 45), du 24 au 25 octobre 2026. Mesures : [`BALANCE_REPORT.md`](BALANCE_REPORT.md) (rapport complet de fin d'acte) et la
+section du chantier 45 dans `DECISIONS.md` (sondes de conquête et du village).
+
+### Ce qui a été livré
+
+| #   | Chantier                    | Ce que le jeu y gagne                                                                              |
+| --- | --------------------------- | -------------------------------------------------------------------------------------------------- |
+| 43  | Moral par kiwi, Mairie, feu | une jauge par kiwi (besoins + souvenirs datés), exigence par âge, Mairie et discours, feux de camp |
+| 44  | Loisirs et décor            | beauté commune, jeux près des huttes, cabaret du Rouge-Gorge, canon à feu d'artifice               |
+| 45  | Rives et canaux de jus      | rives fertiles (+30 % de repousse), canaux creusés dès l'Éden, jus amené vers le Nid               |
+
+### Ce que ça change au jeu (au regard de la charte)
+
+- **Un village qu'on aime regarder** : kiwis qui soupent, jouent, s'assemblent au discours,
+  boudent ; décors et lumières le soir ; rives fleuries et canaux qui coulent.
+- **Des arbitrages de plus** (charte 1) : le moral se paie (décors, cabaret en jus, feux en
+  poussière), le canal prend une tuile de chair pour un gisement de jus plus proche, et la crue
+  interdit de creuser près d'un bâtiment.
+- **Le deuil adoucit l'usure** sans la masquer : les morts des débarquements pèsent sur le
+  moral des proches pendant des heures.
+- **Juste et exact** (charte 10) : souvenirs, soirées et canaux sont des événements du
+  simulateur ; un grand pas égale plusieurs petits.
+
+### Les mesures de fin d'acte
+
+Rapport complet (`pnpm balance --seeds 6 --hours 72 --ages 2 --impact 2 --probe 50`,
+103 min), sonde de conquête (6 parties × 21 jours) et sonde du village (6 biomes × 72 h) :
+
+| Mesure (joueur·euse attentif·ve)        | Cible               | Fin de l'acte I (31)  | Fin de l'acte II (42)           | Fin de l'acte III (45)               |
+| --------------------------------------- | ------------------- | --------------------- | ------------------------------- | ------------------------------------ |
+| Tutoriel                                | 1–1,5 h             | 1,3 h                 | 1,3 h                           | 1,3 h                                |
+| Nid 3 / Bibliothèque                    | —                   | 3,7 h / 3,9 h         | 4,5 h / 4,7 h                   | 4,6 h / 4,8 h                        |
+| Âge de la Pierre                        | ~12 h               | 12,9 h                | 13,6 h (longues : 13,9 h)       | 13,5–15,5 h (longues : 13,8 h) ⚠️    |
+| Âge du Fer                              | ~3 jours            | 2,8 j                 | 2,8 j                           | 2,8 j (longues : 2,9 j)              |
+| Âge industriel                          | ~10 jours           | 8,7 j                 | 8,7 j                           | 8,6–10,6 j (hauts plateaux : non) ⚠️ |
+| Occasionnel·le (Pierre / Fer / Ind.)    | ×1,5 / ×1,5 / ×1,25 | 14,6 h / 3,7 j / 10 j | 18,5 h / 4,0 j / 10,9 j         | 18,5 h / 4,8 j / 12,3 j              |
+| Kiwisu / Kiwino (économie)              | ±10 %               | 1,4 %                 | ≤ 5,2 % (niveau 10 : 19,7 % ⚠️) | ≤ 3,7 % (niveau 10 : 14,9 % ⚠️)      |
+| Vagues perdues (attentif / occasionnel) | —                   | 8 % / 59 %            | 0 % / 9 %, aucune mort          | 1 % / 20 % ⚠️, 0,25 mort             |
+| Temps mort des premières 24 h           | ≤ 45 min            | 70–90 min ⚠️          | 96 min ⚠️                       | 88–96 min ⚠️                         |
+| « Au plafond »                          | < 20 %              | 2–7 % (24 h)          | 28–41 % ⚠️                      | 13–20 %                              |
+| Reine sortie / conquête (21 jours)      | 2–3 semaines        | —                     | 3/6 (J2,3–J5,4) / 1/6 (J6,8) ⚠️ | 3/6 (J2,2–J6,4) / 2/6 (J7,1, J11,5)  |
+| Kiwis morts au combat en 21 jours       | —                   | —                     | 9 à 99 ⚠️                       | 7 à 71 (médiane ≈ 41) ⚠️             |
+| Moral moyen (12 h / 24 h / 72 h)        | —                   | —                     | —                               | 45–65 / 68–98 / 63–100               |
+| Canaux creusés en 72 h                  | —                   | —                     | —                               | 1,3 à 8,2                            |
+
+Ce qui tient : l'économie (biomes et faces dans ±10 % jusqu'à la Bibliothèque), le Fer, le
+moral (aucun kiwi qui boude chez le bot, le village construit dès 24 h), « au plafond »
+redescendu sous 20 % (la vie du village est une dépense de plus), et la conquête qui aboutit
+deux fois sur six, dans la fenêtre visée pour l'une d'elles. Les canaux ne changent presque
+rien aux âges (±1 %) : ils servent la logistique et le confort, pas la course.
+
+### Ce qui n'a pas marché, ou pas encore
+
+- ⚠️ **Le moral est presque toujours haut** chez le bot attentif (85–100 au Fer naissant) : la
+  vie du village, bâtie dès 24 h, efface l'exigence des âges. À jouer avec le porteur : bases
+  par âge plus dures, ou loisirs et beauté plus chers.
+- ⚠️ **La Pierre a glissé** de 13,6 h à 13,5–15,5 h selon le biome : la Mairie et les décors
+  sont de nouvelles dépenses avant le monument (« sans le village » : −4 %).
+- ⚠️ **Le joueur occasionnel perd une vague sur cinq** (9 % à l'acte II) : à diagnostiquer
+  (vagues plus fortes de la civilisation, ou moins de tourelles faute de ressources).
+- ⚠️ **L'usure des kiwis** reste haute (7 à 71 morts en 21 jours), et la conquête bloque à
+  6–9 balises dans la moitié des parties.
+- Toujours là depuis l'acte I : le **temps mort** du début de la Pierre (≈ 1 h 30).
+- **Le ressenti** reste à valider par le porteur : exigence du moral, valeur d'un discours,
+  beauté sans placement, prix du cabaret et des feux, rives à +30 %, prix et plafond des canaux.
+
+### Leçons pour l'acte IV
+
+- Les **sondes ciblées** (`runBot` avec `onStep`) ont trouvé en quelques minutes ce que le
+  rapport complet confirme en deux heures : les garder pour chaque chantier.
+- Un nouveau **puits de ressources** (décors, cabaret) fait baisser « au plafond » : c'est le
+  levier le plus sûr contre les stocks pleins.
+- Le moral gagne à **une dépense qui revient** (soirées, feux) plutôt qu'à des bâtiments posés
+  une fois.
+
 ## 9. Acte IV — Au-delà (intentions, pas encore de chantier)
 
 ### Les Tréfonds
