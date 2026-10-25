@@ -28,6 +28,7 @@ import {
 export const TECH_ORDER: TechId[] = [
   'foraging',
   'stoneAge',
+  'canals',
   'masonry',
   'forge',
   'ironAge',

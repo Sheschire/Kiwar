@@ -57,6 +57,7 @@ import { ageDecision, monumentDecision } from './bot/ages';
 import { campOrder } from './bot/camps';
 import { expeditionOrder, launchpadOrder } from './bot/expeditions';
 import { pathOrder } from './bot/paths';
+import { canalOrder } from './bot/canals';
 import { defenseOrders, keepsAmmo, turretDecision } from './bot/defense';
 import {
   PRODUCERS,
@@ -90,6 +91,8 @@ export const MILESTONES = [
   'industry',
   'lab',
   'kikiwiwi',
+  // Chantier 45: the first canal dug.
+  'canal',
   // Chantier 40: the first glimpse (a landing back home), the first beacon, one in the centre.
   'glimpse',
   'landingWon',
@@ -130,6 +133,8 @@ export interface RunResult {
     stardust?: number;
     /** Chantier 18: path tiles at the end, camps set up during the run. */
     paths?: number;
+    /** Chantier 45: canal tiles at the end. */
+    canals?: number;
     camps?: number;
     /** Chantier 40: landings, landings won, retreats, ships lost; kiwis lost on expeditions,
      *  loot brought back (all resources, raw units). */
@@ -306,6 +311,13 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
 
   const queueRoom = state.queue.length < (nestDef(state).queueSize ?? 1);
   if (!queueRoom) return cmds;
+
+  // Chantier 45: a canal towards the depots while the juice is far (looked at once per hour).
+  if (play.canals && state.now >= play.canalsAt) {
+    const canal = canalOrder(state, map);
+    if (canal) cmds.push(canal);
+    else play.canalsAt = state.now + HOUR_MS;
+  }
 
   const has = (type: BuildingType) =>
     state.buildings.some((b) => b.type === type) ||
@@ -486,6 +498,7 @@ function checkMilestones(
     'kikiwiwi',
     state.villagers.some((v) => v.kikiwiwi),
   );
+  set('canal', Object.values(state.terraform).includes('canal'));
   set(
     'allLevel3',
     // Economy buildings (the bot does not play expeditions yet).
@@ -496,11 +509,20 @@ function checkMilestones(
 }
 
 /** Mechanics the bot can be told to leave aside, to measure what each one brings. */
-export const MECHANICS = ['paths', 'camps', 'expeditions', 'classes', 'forge', 'village'] as const;
+export const MECHANICS = [
+  'paths',
+  'camps',
+  'expeditions',
+  'classes',
+  'forge',
+  'village',
+  'canals',
+] as const;
 export type Mechanic = (typeof MECHANICS)[number];
 export interface Play extends Record<Mechanic, boolean> {
-  /** Next look at the paths, the expeditions and the Forge's orders. */
+  /** Next look at the paths, the expeditions, the Forge's orders and the canals. */
   pathsAt: number;
+  canalsAt: number;
   expeditionsAt: number;
   forgeAt: number;
   /** Chantier 19: the bot besieges the twin and founds the second colony. */
@@ -547,6 +569,7 @@ export function runBot(opts: RunOptions): RunResult {
       boolean
     >),
     pathsAt: 0,
+    canalsAt: 0,
     expeditionsAt: 0,
     forgeAt: 0,
     siege: !opts.noSiege,
@@ -768,6 +791,7 @@ export function runBot(opts: RunOptions): RunResult {
       dustPicked: Math.round(dustPicked / STARDUST_SCALE),
       stardust: stardustOf(state),
       paths: state.paths.length,
+      canals: Object.values(state.terraform).filter((k) => k === 'canal').length,
       camps: campsSet,
       ...trips,
       beaconAttacks: attacks.total,

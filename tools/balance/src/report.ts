@@ -54,6 +54,7 @@ function statsOf(runs: RunResult[], milestone: Milestone): MilestoneStats {
  */
 /** Milestones shown for information only: they depend on choices more than on the land. */
 export const INFORMATIVE: ReadonlySet<Milestone> = new Set([
+  'canal',
   'glimpse',
   'landingWon',
   'centreWon',
@@ -117,6 +118,7 @@ export const LABELS: Record<Milestone, string> = {
   industry: 'Industrial age',
   lab: 'Laboratory against nature',
   kikiwiwi: 'First Kikiwiwi',
+  canal: 'First juice canal',
   glimpse: 'First landing back (a glimpse)',
   landingWon: 'First landing won (a beacon)',
   centreWon: 'First beacon in the centre',
@@ -226,16 +228,16 @@ function mechanicsTable(groups: Group[], horizonHours: number, lines: string[]):
   const avg = (runs: RunResult[], f: (r: RunResult) => number) =>
     runs.length ? runs.reduce((s, r) => s + f(r), 0) / runs.length : 0;
   const days = horizonHours / 24;
-  lines.push('## Paths, camps and expeditions (average per run)', '');
+  lines.push('## Paths, canals, camps and expeditions (average per run)', '');
   lines.push(
-    '| Biome | Path tiles | Camps set up | Landings | Won | Retreats | Ships lost | Loot per day | Kiwis lost on expeditions |',
+    '| Biome | Path tiles | Canals | Camps set up | Landings | Won | Retreats | Ships lost | Loot per day | Kiwis lost on expeditions |',
   );
-  lines.push('|---|---|---|---|---|---|---|---|---|');
+  lines.push('|---|---|---|---|---|---|---|---|---|---|');
   for (const g of groups) {
     const landings = avg(g.runs, (r) => r.final.landings ?? 0);
     const won = avg(g.runs, (r) => r.final.landingsWon ?? 0);
     lines.push(
-      `| ${g.label} | ${avg(g.runs, (r) => r.final.paths ?? 0).toFixed(0)} | ${avg(g.runs, (r) => r.final.camps ?? 0).toFixed(1)} | ${landings.toFixed(1)} | ${landings > 0 ? Math.round((won / landings) * 100) : 0} % | ${avg(g.runs, (r) => r.final.retreats ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.shipsLost ?? 0).toFixed(1)} | ${(avg(g.runs, (r) => r.final.loot ?? 0) / days).toFixed(0)} | ${avg(g.runs, (r) => r.final.expeditionDeaths ?? 0).toFixed(2)} |`,
+      `| ${g.label} | ${avg(g.runs, (r) => r.final.paths ?? 0).toFixed(0)} | ${avg(g.runs, (r) => r.final.canals ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.camps ?? 0).toFixed(1)} | ${landings.toFixed(1)} | ${landings > 0 ? Math.round((won / landings) * 100) : 0} % | ${avg(g.runs, (r) => r.final.retreats ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.shipsLost ?? 0).toFixed(1)} | ${(avg(g.runs, (r) => r.final.loot ?? 0) / days).toFixed(0)} | ${avg(g.runs, (r) => r.final.expeditionDeaths ?? 0).toFixed(2)} |`,
     );
   }
   lines.push('');
@@ -272,7 +274,7 @@ export function toMarkdown(
   lines.push('', ...extra);
   lines.push(
     '',
-    'Bot: follows the tutorial, keeps kiwis busy, hatches eggs, builds one of each building on the site with the most deposits in reach (weighted by logistics), then upgrades the bottleneck producer (or opens a new site when its deposits are exhausted), adds housing/storage when needed and upgrades the Nest as soon as possible. It keeps clear of floodable tiles. Chantier 18: it paves the walk from a producer to its depot when the extra harvest pays the fiber back within 6 h (checked once per game hour), which also retraces trampled paths; it sets up a camp on every meteorite crater (pulling a worker from the most plentiful resource) and, when kiwis are left idle, on the richest free deposit of the bottleneck resource. Chantier 06: one turret of each model after the Nest 2 (more, or upgraded, after a lost wave), guards posted 40 min before a strike to close the forecast gap, shelter when deaths or several injuries are still expected, repairs first. Chantier 08: a Library after the Nest 3 and the School, one researcher per five kiwis, the economy then each passage first, the monument as soon as its passage is known (it saves up for it). Chantier 40: a launchpad once the Library stands, two warriors and a scout; landings on the twin from the edge (weakest known parcel first), the centre once a beacon lights its edge, with the crew that wins all three practice battles with the fewest dead expected (one at most), a bat-hitter and a Kikiwiwi aboard, cautious, back to the ship at 30 % of the crew fallen, burning; the mayor, the builders and the best researcher stay home; a day off after a landing that cost two kiwis. Chantier 42: it fortifies a threatened beacon, guards it when the forecast still says it falls, brings the guard home once nothing threatens, and fights the queen with the biggest crew it can pay when a practice battle is won or nearly won.',
+    'Bot: follows the tutorial, keeps kiwis busy, hatches eggs, builds one of each building on the site with the most deposits in reach (weighted by logistics), then upgrades the bottleneck producer (or opens a new site when its deposits are exhausted), adds housing/storage when needed and upgrades the Nest as soon as possible. It keeps clear of floodable tiles. Chantier 18: it paves the walk from a producer to its depot when the extra harvest pays the fiber back within 6 h (checked once per game hour), which also retraces trampled paths; it sets up a camp on every meteorite crater (pulling a worker from the most plentiful resource) and, when kiwis are left idle, on the richest free deposit of the bottleneck resource. Chantier 06: one turret of each model after the Nest 2 (more, or upgraded, after a lost wave), guards posted 40 min before a strike to close the forecast gap, shelter when deaths or several injuries are still expected, repairs first. Chantier 08: a Library after the Nest 3 and the School, one researcher per five kiwis, the economy then each passage first, the monument as soon as its passage is known (it saves up for it). Chantier 40: a launchpad once the Library stands, two warriors and a scout; landings on the twin from the edge (weakest known parcel first), the centre once a beacon lights its edge, with the crew that wins all three practice battles with the fewest dead expected (one at most), a bat-hitter and a Kikiwiwi aboard, cautious, back to the ship at 30 % of the crew fallen, burning; the mayor, the builders and the best researcher stay home; a day off after a landing that cost two kiwis. Chantier 45: after the Stone passage it researches Canals and digs, one tile at a time, towards the depots while the juice is far, else where harvested tiles become fertile banks. Chantier 42: it fortifies a threatened beacon, guards it when the forecast still says it falls, brings the guard home once nothing threatens, and fights the queen with the biggest crew it can pay when a practice battle is won or nearly won.',
   );
   return lines.join('\n') + '\n';
 }
