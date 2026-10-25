@@ -72,7 +72,9 @@ describe('games (chantier 44)', () => {
     expect(leisureOf(withGames(['swing']))).toBe(MORALE.leisure);
     // The same game twice counts once.
     expect(leisureOf(withGames(['swing', 'swing']))).toBe(MORALE.leisure);
-    expect(leisureOf(withGames(['swing', 'campfire']))).toBe(MORALE.leisure + MORALE.leisureMore);
+    expect(leisureOf(withGames(['swing', 'campfire']))).toBe(
+      Math.min(MORALE.leisureMax, MORALE.leisure + MORALE.leisureMore),
+    );
     expect(leisureOf(withGames(['swing', 'skittles', 'skipPond', 'slide', 'campfire']))).toBe(
       MORALE.leisureMax,
     );

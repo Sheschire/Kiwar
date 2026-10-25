@@ -2315,9 +2315,10 @@ var MORALE = {
   /** Below this, a kiwi sulks (it still works). */
   sulk: 20,
   /** Base of a kiwi by age (Eden, Stone, Iron, Industry): a fed colony sleeping near its work
-   * (+10, +5) sits a bit above neutral in the Eden, at neutral in the Stone age, below later
-   * on; the mayor, the leisures and the speeches lift it. */
-  base: [46, 36, 31, 26],
+   * (+10, +5) sits a bit above neutral in the Eden, below later on; the mayor, the leisures and
+   * the decorations bring a built village to 60–75 (chantier 46), only the evenings and the
+   * speeches lift it above 85. */
+  base: [46, 35, 29, 23],
   /** Fed colony vs hungry colony. */
   fed: 10,
   hungry: -20,
@@ -2338,9 +2339,9 @@ var MORALE = {
   leisure: 8,
   /** Chantier 44: each other kind of leisure within reach adds this, up to `leisureMax`. */
   leisureMore: 3,
-  leisureMax: 14,
+  leisureMax: 10,
   /** Chantier 44: the village's beauty (`BEAUTY`, summed over the decorations), at most. */
-  beauty: 8,
+  beauty: 5,
   /**
    * Memories: the colony mourns a lost kiwi, its hut mates or crew mates grieve harder; a fine
    * speech (`SPEECH`). `ms`: the longest it lasts, `best`: the highest value it can have.
