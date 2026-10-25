@@ -24,6 +24,7 @@ import { CLASSES, SKILLS } from '../data/classes';
 import { levelForXp } from '../sim/kiwis';
 import { PASSAGE_TECHS, RESEARCH_SCALE, TECHS } from '../data/research';
 import { ageOf, libraries, techEffects } from '../sim/research';
+import { canalCap } from '../sim/canals';
 import { deserializeSave, migrateState } from '../save/save';
 import { advance, type GameEvent } from '../sim/advance';
 import { applyCommand } from '../sim/commands';
@@ -686,22 +687,31 @@ export function isPlausible(state: GameState, now: number): boolean {
   return state.villagers.every((v) => plausibleKiwi(v, state.now));
 }
 
-/** Reshaped tiles (chantier 08): within the cap of the age, on tiles of the right kind. */
-function plausibleTerraform(state: GameState): boolean {
-  const entries = Object.entries(state.terraform);
-  if (entries.length === 0) return true;
-  if (!techEffects(state).terraform) return false;
+/**
+ * Reshaped tiles (chantier 08): within the cap of the age, on tiles of the right kind. Canals
+ * (chantier 45) have their own technology and cap, on flesh.
+ */
+export function plausibleTerraform(state: GameState): boolean {
+  const all = Object.entries(state.terraform);
+  if (all.length === 0) return true;
+  const canals = all.filter(([, kind]) => kind === 'canal');
+  const entries = all.filter(([, kind]) => kind !== 'canal');
+  if (canals.length > 0 && !techEffects(state).canals) return false;
+  if (canals.length > canalCap(state)) return false;
+  if (entries.length > 0 && !techEffects(state).terraform) return false;
   if (entries.length > (TITAN.maxTerraform[ageOf(state)] ?? 0)) return false;
   const base = baseMapFor(state);
-  for (const [key, kind] of entries) {
+  for (const [key, kind] of all) {
     const tile = base.tiles[base.index.get(key as HexKey) ?? -1];
     if (!tile) return false;
     const ok =
-      kind === 'terrace'
-        ? !!tile.flood
-        : kind === 'flatten'
-          ? tile.type === 'grove' || tile.type === 'seedRing'
-          : tile.type === 'flesh' || tile.type === 'grove' || tile.type === 'seedRing';
+      kind === 'canal'
+        ? tile.type === 'flesh'
+        : kind === 'terrace'
+          ? !!tile.flood
+          : kind === 'flatten'
+            ? tile.type === 'grove' || tile.type === 'seedRing'
+            : tile.type === 'flesh' || tile.type === 'grove' || tile.type === 'seedRing';
     if (!ok) return false;
   }
   return true;

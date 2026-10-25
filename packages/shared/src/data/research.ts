@@ -19,6 +19,7 @@ export type TechBranch = (typeof TECH_BRANCHES)[number];
 export const TECH_IDS = [
   // Eden
   'foraging',
+  'canals',
   'palisade',
   'starCharts',
   'stoneAge',
@@ -96,6 +97,8 @@ export interface TechEffects {
   meteorDrill?: boolean;
   /** Chantier 38: opens the Forge and its wood and stone gear. */
   forge?: boolean;
+  /** Chantier 45: builders may dig juice canals. */
+  canals?: boolean;
 }
 
 export interface TechDef {
@@ -111,6 +114,8 @@ export interface TechDef {
   stardust?: number;
   /** Chantier 38: meteoric iron paid when it is chosen (refunded if abandoned). */
   iron?: number;
+  /** Chantier 45: a technology that must be researched first. */
+  after?: TechId;
   effects: TechEffects;
 }
 
@@ -122,6 +127,15 @@ export const TECHS: Record<TechId, TechDef> = {
     cost: 25,
     libraryLevel: 1,
     effects: { harvest: { pulp: 1.1, fiber: 1.1 } },
+  },
+  canals: {
+    id: 'canals',
+    age: 0,
+    branch: 'economy',
+    cost: 40,
+    libraryLevel: 1,
+    after: 'foraging',
+    effects: { canals: true },
   },
   palisade: {
     id: 'palisade',

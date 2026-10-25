@@ -14,7 +14,7 @@ import { BLESSINGS, COMETS } from '../data/comets';
 import { DEFAULT_FACE_PARAMS, HEART, type FaceParams } from '../worldgen/generateFace';
 import { hexKey } from '../hex/hex';
 import type { ObstacleKind } from '../data/obstacles';
-import type { TerraformKind, TitanWork } from '../data/titan';
+import type { TerraformTile, TitanWork } from '../data/titan';
 import { generateObstacles } from './obstacles';
 import { faceMapOf } from './territory';
 import { createRng, type Rng, type RngState } from '../rng/rng';
@@ -236,9 +236,10 @@ export interface QueueItem {
   id: QueueItemId;
   /**
    * `repair`: mends a damaged building (same level). `clear`: a builder clears the stump at
-   * q, r (chantier 08; `buildingType` is unused, `camp`).
+   * q, r (chantier 08; `buildingType` is unused, `camp`). `canal` / `fill`: builders dig a
+   * juice canal on q, r or fill it back in (chantier 45; `camp` too); the tile is held meanwhile.
    */
-  kind: 'build' | 'upgrade' | 'repair' | 'clear';
+  kind: 'build' | 'upgrade' | 'repair' | 'clear' | 'canal' | 'fill';
   buildingType: BuildingType;
   q: number;
   r: number;
@@ -896,8 +897,11 @@ export interface GameState {
   deposits: Record<string, FreeDeposit>;
   /** Rocks, stumps and wrecks blocking tiles. */
   obstacles: Obstacle[];
-  /** Tiles reshaped by the Kikiwiwis (hex key → what they became; see `faceMapOf`). */
-  terraform: Record<string, TerraformKind>;
+  /**
+   * Tiles reshaped by the Kikiwiwis, and canals dug by builders (chantier 45): hex key → what
+   * they became (see `faceMapOf`).
+   */
+  terraform: Record<string, TerraformTile>;
   threats: ThreatState;
   sky: SkyState;
   comets: CometState;

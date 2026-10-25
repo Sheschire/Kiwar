@@ -54,6 +54,7 @@ const TECH_ICONS: Record<TechStatId, IconName> = {
   cometInterval: 'comet',
   meteorStock: 'stardust',
   meteorDrill: 'harvest',
+  canals: 'juice',
 };
 
 /** Smaller is better for these (durations, costs, harm). */

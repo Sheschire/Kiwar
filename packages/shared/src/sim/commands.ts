@@ -119,6 +119,8 @@ import {
 } from './colonies';
 import { OBSTACLES, OBSTACLE_RULES } from '../data/obstacles';
 import { clearDuration, obstacleAt } from './obstacles';
+import { canalDuration, canalError, fillError } from './canals';
+import { CANALS } from '../data/canals';
 import { TITAN_WORK_IDS, type TitanWork } from '../data/titan';
 import { canReshape, terraformLeft, titanAt, titanCost } from './titan';
 
@@ -223,6 +225,9 @@ export type Command =
   | { type: 'raidDen'; q: number; r: number }
   /** Chantier 08: a builder clears the stump on this tile (queued like a construction). */
   | { type: 'clearObstacle'; q: number; r: number }
+  /** Chantier 45: builders dig a juice canal on this flesh tile, or fill a canal back in. */
+  | { type: 'digCanal'; q: number; r: number }
+  | { type: 'fillCanal'; q: number; r: number }
   /** Chantier 08: the technology the researchers work on (null: bank the points). */
   | { type: 'setResearch'; tech: TechId | null }
   /** Chantier 13: exactly these kiwis pick the stardust of a tile (others there go back). */
@@ -328,6 +333,13 @@ export const COMMAND_ERRORS = [
   'kikiwiwiWeak',
   'notReshapable',
   'terraformLimit',
+  'techAfter',
+  'notFlesh',
+  'notByJuice',
+  'canalCutsLand',
+  'wouldFlood',
+  'canalLimit',
+  'notACanal',
   'titanAtWork',
   'kikiwiwiNoWork',
   'unknownPatch',
@@ -670,6 +682,30 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         targetLevel: 0,
         richness: 1,
         durationMs: clearDuration(s),
+        startedAt: null,
+        paid: cost,
+        orderedAt: now,
+      });
+      return;
+    }
+    case 'digCanal':
+    case 'fillCanal': {
+      const dig = cmd.type === 'digCanal';
+      const error = dig ? canalError(s, ctx.map, cmd.q, cmd.r) : fillError(s, cmd.q, cmd.r);
+      if (error) fail(error);
+      queueHasRoom(s);
+      const cost = { ...CANALS.cost };
+      pay(s, cost);
+      s.queue.push({
+        id: nextId(s, 'q') as QueueItemId,
+        kind: dig ? 'canal' : 'fill',
+        buildingType: 'camp',
+        q: cmd.q,
+        r: cmd.r,
+        buildingId: null,
+        targetLevel: 0,
+        richness: 1,
+        durationMs: canalDuration(s),
         startedAt: null,
         paid: cost,
         orderedAt: now,
@@ -1347,6 +1383,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (status === 'done') fail('techDone');
       if (status === 'age') fail('techAgeLocked');
       if (status === 'library') fail('libraryTooLow');
+      if (status === 'after') fail('techAfter');
       if (before !== cmd.tech) {
         refundTechDust(s, before);
         payStardust(s, TECHS[cmd.tech].stardust ?? 0);

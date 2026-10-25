@@ -334,7 +334,7 @@ export const gameStateSchema = z.object({
   queue: z.array(
     z.object({
       id,
-      kind: z.enum(['build', 'upgrade', 'repair', 'clear']),
+      kind: z.enum(['build', 'upgrade', 'repair', 'clear', 'canal', 'fill']),
       buildingType: z.enum(BUILDING_TYPES),
       q: z.number().int(),
       r: z.number().int(),
@@ -631,7 +631,7 @@ export const gameStateSchema = z.object({
       }),
     )
     .max(64),
-  terraform: z.record(z.string().max(16), z.enum(TERRAFORM_KINDS)),
+  terraform: z.record(z.string().max(16), z.enum([...TERRAFORM_KINDS, 'canal'])),
   threats,
   sky: z.object({
     next: z

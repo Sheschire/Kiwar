@@ -57,6 +57,7 @@ export interface Effects {
   meteorStock: number;
   meteorDrill: boolean;
   forge: boolean;
+  canals: boolean;
 }
 
 const effectsCache = new Map<string, Effects>();
@@ -89,6 +90,7 @@ export function techEffects(state: GameState): Effects {
     meteorStock: 1,
     meteorDrill: false,
     forge: false,
+    canals: false,
   };
   for (const id of state.research.done) {
     const e: TechEffects = TECHS[id].effects;
@@ -114,6 +116,7 @@ export function techEffects(state: GameState): Effects {
     out.meteorStock *= e.meteorStock ?? 1;
     out.meteorDrill ||= e.meteorDrill ?? false;
     out.forge ||= e.forge ?? false;
+    out.canals ||= e.canals ?? false;
   }
   if (effectsCache.size > 64) effectsCache.clear();
   effectsCache.set(key, out);
@@ -190,7 +193,7 @@ export function researchPoints(state: GameState): number {
   return state.research.points / RESEARCH_SCALE;
 }
 
-export type TechStatus = 'done' | 'current' | 'available' | 'library' | 'age';
+export type TechStatus = 'done' | 'current' | 'available' | 'library' | 'age' | 'after';
 
 /** Why a technology can or cannot be researched now. */
 export function techStatus(state: GameState, id: TechId): TechStatus {
@@ -199,6 +202,7 @@ export function techStatus(state: GameState, id: TechId): TechStatus {
   const def = TECHS[id];
   if (def.age > ageOf(state)) return 'age';
   if (libraryLevel(state) < def.libraryLevel) return 'library';
+  if (def.after && !hasTech(state, def.after)) return 'after';
   return 'available';
 }
 

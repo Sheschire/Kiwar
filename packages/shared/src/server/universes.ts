@@ -1,5 +1,5 @@
 import type { ObstacleKind } from '../data/obstacles';
-import type { TerraformKind } from '../data/titan';
+import type { TerraformTile } from '../data/titan';
 import { alienDefOf } from '../data/expeditions';
 import type { Building, ExpeditionTarget, Friend, GameState } from '../sim/state';
 import type { Resources } from '../data/resources';
@@ -72,7 +72,7 @@ export interface TwinSnapshot {
   /** Rocks, stumps and wrecks (chantier 08; absent in older snapshots). */
   obstacles?: { kind: ObstacleKind; q: number; r: number }[];
   /** Tiles their Kikiwiwis reshaped (chantier 08; absent in older snapshots). */
-  terraform?: Record<string, TerraformKind>;
+  terraform?: Record<string, TerraformTile>;
   /** Server time of the snapshot. */
   at: number;
 }

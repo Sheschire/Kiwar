@@ -130,7 +130,9 @@ function TechCard({ game, id, t }: { game: GameState; id: TechId; t: Translate }
             ? t('research.status.library', { level: def.libraryLevel })
             : status === 'available'
               ? t('research.cost', { cost: def.cost })
-              : t(`research.status.${status}`)}
+              : status === 'after' && def.after
+                ? t('research.status.after', { tech: t(`techs.${def.after}.name`) })
+                : t(`research.status.${status as 'done' | 'current' | 'age'}`)}
           {def.stardust && status !== 'done' && status !== 'current' && (
             <span class={`dust-price ${stardustOf(game) < def.stardust ? 'missing' : ''}`}>
               {'\u00a0·\u00a0'}

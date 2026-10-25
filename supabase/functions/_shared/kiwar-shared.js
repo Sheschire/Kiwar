@@ -2094,6 +2094,18 @@ function shipIdForAge(age) {
 }
 var SHIP_REPAIR = { perDexterity: 0.01, max: 0.05 };
 
+// packages/shared/src/data/canals.ts
+var CANALS = {
+  /** Canal tiles by age (index = age). */
+  maxByAge: [3, 6, 10, 15],
+  /** Paid when ordered (digging or filling), refunded on cancel. */
+  cost: { pulp: 80, fiber: 40 },
+  /** Builder time for a tile (× the build speed of the techs, ÷ the builder's speed). */
+  durationMs: ms.h(1),
+  /** A canal's deposit (stock and regrowth) against a juice tile of the same richness. */
+  deposit: 0.4
+};
+
 // packages/shared/src/data/kiwis.ts
 var STAT_IDS = [
   "strength",
@@ -2621,6 +2633,7 @@ var TECH_BRANCHES = [
 var TECH_IDS = [
   // Eden
   "foraging",
+  "canals",
   "palisade",
   "starCharts",
   "stoneAge",
@@ -2660,6 +2673,15 @@ var TECHS = {
     cost: 25,
     libraryLevel: 1,
     effects: { harvest: { pulp: 1.1, fiber: 1.1 } }
+  },
+  canals: {
+    id: "canals",
+    age: 0,
+    branch: "economy",
+    cost: 40,
+    libraryLevel: 1,
+    after: "foraging",
+    effects: { canals: true }
   },
   palisade: {
     id: "palisade",
@@ -4198,6 +4220,7 @@ function siteTiles(item2) {
     return item2.rot === void 0 ? [{ q: item2.q, r: item2.r }] : footprintHexes(item2.buildingType, item2.q, item2.r, item2.rot);
   if (item2.kind === "upgrade" && item2.rot !== void 0)
     return footprintHexes(item2.buildingType, item2.q, item2.r, item2.rot);
+  if (item2.kind === "canal" || item2.kind === "fill") return [{ q: item2.q, r: item2.r }];
   return [];
 }
 var cache = /* @__PURE__ */ new WeakMap();
@@ -4217,9 +4240,13 @@ function layoutHash(state) {
   }
   h = mix(h, state.queue.length);
   for (const i of state.queue) {
-    if (i.kind !== "build" && i.rot === void 0) continue;
+    const canal = i.kind === "canal" || i.kind === "fill";
+    if (i.kind !== "build" && i.rot === void 0 && !canal) continue;
     h = mix(h, i.q * 977 + i.r);
-    h = mix(h, (i.rot ?? 0) + footprintOf(i.buildingType) * 16 + (i.kind === "build" ? 128 : 0));
+    h = mix(
+      h,
+      (i.rot ?? 0) + footprintOf(i.buildingType) * 16 + (i.kind === "build" ? 128 : 0) + (canal ? 256 : 0)
+    );
     h = mixId(h, i.id);
   }
   return h;
@@ -4340,7 +4367,8 @@ function techEffects(state) {
     cometInterval: 1,
     meteorStock: 1,
     meteorDrill: false,
-    forge: false
+    forge: false,
+    canals: false
   };
   for (const id3 of state.research.done) {
     const e = TECHS[id3].effects;
@@ -4366,6 +4394,7 @@ function techEffects(state) {
     out.meteorStock *= e.meteorStock ?? 1;
     out.meteorDrill ||= e.meteorDrill ?? false;
     out.forge ||= e.forge ?? false;
+    out.canals ||= e.canals ?? false;
   }
   if (effectsCache2.size > 64) effectsCache2.clear();
   effectsCache2.set(key, out);
@@ -4424,6 +4453,7 @@ function techStatus(state, id3) {
   const def = TECHS[id3];
   if (def.age > ageOf(state)) return "age";
   if (libraryLevel(state) < def.libraryLevel) return "library";
+  if (def.after && !hasTech(state, def.after)) return "after";
   return "available";
 }
 function techsOfAge(age) {
@@ -4506,12 +4536,21 @@ function faceMapOf(state) {
   return map;
 }
 function applyTerraform(base, terraform) {
+  const floods = canalFloods(base, terraform);
   const tiles = base.tiles.map((t) => {
-    const kind = terraform[hexKey(t)];
-    if (!kind) return t;
+    const key = hexKey(t);
+    const kind = terraform[key];
+    if (!kind) return floods.has(key) ? { ...t, flood: true } : t;
     const { flood, ...dry } = t;
     if (kind === "spring")
       return { ...dry, type: "juice", height: TILES.juice.baseHeight };
+    if (kind === "canal")
+      return {
+        ...dry,
+        type: "juice",
+        height: TILES.juice.baseHeight,
+        canal: true
+      };
     if (kind === "terrace") return { ...dry, height: t.height + TITAN.terraceRise };
     return {
       ...t,
@@ -4521,14 +4560,29 @@ function applyTerraform(base, terraform) {
   });
   return { ...base, tiles };
 }
+function canalFloods(base, terraform, extra = []) {
+  const out = /* @__PURE__ */ new Set();
+  if (BIOMES[base.params.biome].floods === null) return out;
+  const canals = Object.keys(terraform).filter((k) => terraform[k] === "canal");
+  for (const k of [...canals, ...extra])
+    for (const n of hexNeighbors(parseHexKey(k))) {
+      const nk = hexKey(n);
+      const t = getTile(base, n);
+      if (!t || t.type !== "flesh" || t.flood || t.rho >= 0.92 || terraform[nk]) continue;
+      if (extra.includes(nk)) continue;
+      out.add(nk);
+    }
+  return out;
+}
 function tileDeposit(tile, biome = "classic", bank = false) {
   const def = tile ? DEPOSITS[tile.type] : void 0;
   if (!tile || !def) return null;
   const { stock, regen } = BIOMES[biome].deposits;
+  const canal = tile.canal ? CANALS.deposit : 1;
   return {
     resource: def.resource,
-    cap: def.stock * tile.richness * (stock[def.resource] ?? 1),
-    regen: def.regen * tile.richness * (regen[def.resource] ?? 1) * (bank ? BANKS.regen : 1)
+    cap: def.stock * tile.richness * (stock[def.resource] ?? 1) * canal,
+    regen: def.regen * tile.richness * (regen[def.resource] ?? 1) * (bank ? BANKS.regen : 1) * canal
   };
 }
 function isBank(map, tile) {
@@ -9136,7 +9190,8 @@ function terraformLeft(state) {
   const pending = state.villagers.filter(
     (v) => v.job.kind === "titan" && v.job.work !== "smash"
   ).length;
-  return Math.max(0, cap - Object.keys(state.terraform).length - pending);
+  const reshaped = Object.values(state.terraform).filter((k) => k !== "canal").length;
+  return Math.max(0, cap - reshaped - pending);
 }
 function titanAt(state, q, r) {
   return state.villagers.find((v) => v.job.kind === "titan" && v.job.q === q && v.job.r === r);
@@ -9197,6 +9252,98 @@ function finishTitanWorks(s, at, events) {
     events.push({ type: "titanDone", at, villagerId: v.id, name: v.name, work: job2.work });
     autoAssign(s, v);
   }
+}
+
+// packages/shared/src/sim/canals.ts
+function canalCap(state) {
+  const caps = CANALS.maxByAge;
+  return caps[Math.min(ageOf(state), caps.length - 1)] ?? 0;
+}
+function canalCount(state) {
+  const dug = Object.values(state.terraform).filter((k) => k === "canal").length;
+  return dug + state.queue.filter((i) => i.kind === "canal").length;
+}
+function canalsLeft(state) {
+  return Math.max(0, canalCap(state) - canalCount(state));
+}
+function queuedCanals(state, except) {
+  return state.queue.filter((i) => i.kind === "canal" && i !== except).map((i) => hexKey(i));
+}
+function canalError(state, map, q, r, item2) {
+  if (!techEffects(state).canals) return "techMissing";
+  const tile = getTile(map, { q, r });
+  if (!tile || tile.type !== "flesh") return "notFlesh";
+  const key = hexKey({ q, r });
+  const queued = queuedCanals(state, item2);
+  const near = hexNeighbors(tile).some(
+    (n) => getTile(map, n)?.type === "juice" || queued.includes(hexKey(n))
+  );
+  if (!near) return "notByJuice";
+  const occ = occupancy(state).tiles;
+  const held = occ.get(key);
+  if (held && !(item2 && held.id === item2.id)) return "tileOccupied";
+  if (state.paths.includes(key) || dustAt(state, q, r) || titanAt(state, q, r))
+    return "tileOccupied";
+  if (state.queue.some((i) => i !== item2 && i.kind === "clear" && i.q === q && i.r === r))
+    return "tileOccupied";
+  if (obstacleAt(state, q, r) || meteorAt(state, q, r)) return "obstacle";
+  if (!item2 && canalsLeft(state) <= 0) return "canalLimit";
+  const base = faceMapOf({ seed: state.seed, face: state.face, params: state.params });
+  const floods = canalFloods(base, state.terraform, [...queued, key]);
+  for (const k of floods) {
+    const o = occ.get(k);
+    if (o && !state.queue.some((i) => i.id === o.id && i.kind === "canal")) return "wouldFlood";
+  }
+  const removed = [...queued, key];
+  const blocked = occupancy(state).blocked;
+  if (cutsLand(map, removed, blocked)) return "canalCutsLand";
+  if (floods.size > 0) {
+    const wet = new Set(blocked);
+    for (const t of map.tiles) if (t.flood) wet.add(hexKey(t));
+    if (cutsLand(map, [...removed, ...floods], wet)) return "canalCutsLand";
+  }
+  const gone = new Set(removed);
+  for (const [k, o] of occ) {
+    if (o.site || !o.anchor) continue;
+    const at = parseHexKey(k);
+    const t = getTile(map, at);
+    if (!t || TILES[t.type].walkable) continue;
+    if (!hexNeighbors(at).some((n) => hexKey(n) === key)) continue;
+    const shore = hexNeighbors(at).some((n) => {
+      const nk = hexKey(n);
+      const nt = getTile(map, n);
+      return !!nt && TILES[nt.type].walkable && !gone.has(nk) && !blocked.has(nk);
+    });
+    if (!shore) return "canalCutsLand";
+  }
+  return null;
+}
+function fillError(state, q, r, item2) {
+  const key = hexKey({ q, r });
+  if (state.terraform[key] !== "canal") return "notACanal";
+  const held = occupancy(state).tiles.get(key);
+  if (held && !(item2 && held.id === item2.id)) return "tileOccupied";
+  return null;
+}
+function canalDuration(state) {
+  return Math.round(CANALS.durationMs * techEffects(state).build);
+}
+function finishCanal(s, item2, at, events) {
+  const key = hexKey(item2);
+  const dig = item2.kind === "canal";
+  const error = dig ? canalError(s, faceMapOf(s), item2.q, item2.r, item2) : fillError(s, item2.q, item2.r, item2);
+  if (error) {
+    for (const id3 of RESOURCE_IDS) s.resources[id3] += item2.paid[id3] ?? 0;
+    events.push({ type: "canal", at, q: item2.q, r: item2.r, dug: dig, failed: true });
+    return;
+  }
+  const next = { ...s.terraform };
+  if (dig) next[key] = "canal";
+  else delete next[key];
+  s.terraform = next;
+  delete s.deposits[key];
+  syncPools(s, faceMapOf(s), at);
+  events.push({ type: "canal", at, q: item2.q, r: item2.r, dug: dig });
 }
 
 // packages/shared/src/sim/posts.ts
@@ -9537,6 +9684,7 @@ function advanceInPlace(s, now, events) {
         (i) => i.startedAt !== null && i.startedAt + i.durationMs === constructionEnd
       ))
         completeConstruction(s, item2, constructionEnd, events);
+      map = faceMapOf(s);
       syncPools(s, map, constructionEnd);
     }
     if (s.egg && s.egg.readyAt <= now && s.egg.readyAt === nextEvent) {
@@ -9821,6 +9969,11 @@ function completeConstruction(s, item2, at, events) {
   if (item2.kind === "clear") {
     const o = obstacleAt(s, item2.q, item2.r);
     if (o) removeObstacle(s, o, at, events, "kiwis");
+    releaseBuilder(s, item2.id, false);
+    return;
+  }
+  if (item2.kind === "canal" || item2.kind === "fill") {
+    finishCanal(s, item2, at, events);
     releaseBuilder(s, item2.id, false);
     return;
   }
@@ -12889,7 +13042,8 @@ var TECH_STATS = [
   "waveNotice",
   "cometInterval",
   "meteorStock",
-  "meteorDrill"
+  "meteorDrill",
+  "canals"
 ];
 var MULTIPLIERS = [
   "storage",
@@ -12906,7 +13060,7 @@ var MULTIPLIERS = [
   "meteorStock"
 ];
 var BONUSES = ["armor", "recon", "infusionRisk", "waveNotice"];
-var UNLOCKS = ["firearms", "laboratory", "terraform", "meteorDrill"];
+var UNLOCKS = ["firearms", "laboratory", "terraform", "meteorDrill", "canals"];
 function describeTech(id3, state) {
   const now = techEffects(state);
   const done = state.research.done.includes(id3) ? state.research.done : [...state.research.done, id3];
@@ -13127,6 +13281,13 @@ var COMMAND_ERRORS = [
   "kikiwiwiWeak",
   "notReshapable",
   "terraformLimit",
+  "techAfter",
+  "notFlesh",
+  "notByJuice",
+  "canalCutsLand",
+  "wouldFlood",
+  "canalLimit",
+  "notACanal",
   "titanAtWork",
   "kikiwiwiNoWork",
   "unknownPatch",
@@ -13409,6 +13570,30 @@ function execute(s, cmd, ctx, events) {
         targetLevel: 0,
         richness: 1,
         durationMs: clearDuration(s),
+        startedAt: null,
+        paid: cost,
+        orderedAt: now
+      });
+      return;
+    }
+    case "digCanal":
+    case "fillCanal": {
+      const dig = cmd.type === "digCanal";
+      const error = dig ? canalError(s, ctx.map, cmd.q, cmd.r) : fillError(s, cmd.q, cmd.r);
+      if (error) fail(error);
+      queueHasRoom(s);
+      const cost = { ...CANALS.cost };
+      pay(s, cost);
+      s.queue.push({
+        id: nextId(s, "q"),
+        kind: dig ? "canal" : "fill",
+        buildingType: "camp",
+        q: cmd.q,
+        r: cmd.r,
+        buildingId: null,
+        targetLevel: 0,
+        richness: 1,
+        durationMs: canalDuration(s),
         startedAt: null,
         paid: cost,
         orderedAt: now
@@ -14028,6 +14213,7 @@ function execute(s, cmd, ctx, events) {
       if (status === "done") fail("techDone");
       if (status === "age") fail("techAgeLocked");
       if (status === "library") fail("libraryTooLow");
+      if (status === "after") fail("techAfter");
       if (before !== cmd.tech) {
         refundTechDust(s, before);
         payStardust(s, TECHS[cmd.tech].stardust ?? 0);
@@ -18333,7 +18519,7 @@ var gameStateSchema = external_exports.object({
   queue: external_exports.array(
     external_exports.object({
       id,
-      kind: external_exports.enum(["build", "upgrade", "repair", "clear"]),
+      kind: external_exports.enum(["build", "upgrade", "repair", "clear", "canal", "fill"]),
       buildingType: external_exports.enum(BUILDING_TYPES),
       q: external_exports.number().int(),
       r: external_exports.number().int(),
@@ -18590,7 +18776,7 @@ var gameStateSchema = external_exports.object({
       iron: external_exports.number().int().min(0).optional()
     })
   ).max(64),
-  terraform: external_exports.record(external_exports.string().max(16), external_exports.enum(TERRAFORM_KINDS)),
+  terraform: external_exports.record(external_exports.string().max(16), external_exports.enum([...TERRAFORM_KINDS, "canal"])),
   threats,
   sky: external_exports.object({
     next: external_exports.object({
@@ -19162,6 +19348,8 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   }),
   external_exports.object({ type: external_exports.literal("setResearch"), tech: external_exports.enum(TECH_IDS).nullable() }),
   external_exports.object({ type: external_exports.literal("clearObstacle"), q: external_exports.number().int(), r: external_exports.number().int() }),
+  external_exports.object({ type: external_exports.literal("digCanal"), q: external_exports.number().int(), r: external_exports.number().int() }),
+  external_exports.object({ type: external_exports.literal("fillCanal"), q: external_exports.number().int(), r: external_exports.number().int() }),
   external_exports.object({ type: external_exports.literal("transform"), villagerId: id2, labId: id2 }),
   external_exports.object({
     type: external_exports.literal("titanWork"),
@@ -19617,15 +19805,19 @@ function isPlausible(state, now) {
   return state.villagers.every((v) => plausibleKiwi(v, state.now));
 }
 function plausibleTerraform(state) {
-  const entries = Object.entries(state.terraform);
-  if (entries.length === 0) return true;
-  if (!techEffects(state).terraform) return false;
+  const all = Object.entries(state.terraform);
+  if (all.length === 0) return true;
+  const canals = all.filter(([, kind]) => kind === "canal");
+  const entries = all.filter(([, kind]) => kind !== "canal");
+  if (canals.length > 0 && !techEffects(state).canals) return false;
+  if (canals.length > canalCap(state)) return false;
+  if (entries.length > 0 && !techEffects(state).terraform) return false;
   if (entries.length > (TITAN.maxTerraform[ageOf(state)] ?? 0)) return false;
   const base = baseMapFor(state);
-  for (const [key, kind] of entries) {
+  for (const [key, kind] of all) {
     const tile = base.tiles[base.index.get(key) ?? -1];
     if (!tile) return false;
-    const ok = kind === "terrace" ? !!tile.flood : kind === "flatten" ? tile.type === "grove" || tile.type === "seedRing" : tile.type === "flesh" || tile.type === "grove" || tile.type === "seedRing";
+    const ok = kind === "canal" ? tile.type === "flesh" : kind === "terrace" ? !!tile.flood : kind === "flatten" ? tile.type === "grove" || tile.type === "seedRing" : tile.type === "flesh" || tile.type === "grove" || tile.type === "seedRing";
     if (!ok) return false;
   }
   return true;
@@ -20164,6 +20356,7 @@ export {
   CAMP,
   CAMPFIRE,
   CAMPS,
+  CANALS,
   CATCHMENT_RADIUS,
   CIV,
   CIV_AGE_COUNT,
@@ -20389,6 +20582,12 @@ export {
   canResolveArrival,
   canStarve,
   canSup,
+  canalCap,
+  canalCount,
+  canalDuration,
+  canalError,
+  canalFloods,
+  canalsLeft,
   cancelOrder,
   capacity,
   capped,
@@ -20510,6 +20709,7 @@ export {
   familyOf,
   fightLossAt,
   fillCraters,
+  fillError,
   fillForge,
   fillGarrison,
   fillResearch,
@@ -20517,6 +20717,7 @@ export {
   finalForecast,
   finalInput,
   finalLock,
+  finishCanal,
   finishInfusions,
   finishTitanWorks,
   fireFireworks,
@@ -20766,6 +20967,7 @@ export {
   planMeteor,
   planWave,
   planetSeedOf,
+  plausibleTerraform,
   poolCapacity,
   population,
   postKind,

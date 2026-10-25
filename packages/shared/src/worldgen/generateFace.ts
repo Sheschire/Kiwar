@@ -39,6 +39,8 @@ export interface Tile {
   readonly rho: number;
   /** Floods in the biome's flood season (lagoons): no walking, building or harvest then. */
   readonly flood?: true;
+  /** Chantier 45: a juice canal dug by the builders (a smaller deposit than a river). */
+  readonly canal?: true;
 }
 
 export interface FaceMap {

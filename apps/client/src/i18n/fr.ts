@@ -865,6 +865,13 @@ export const fr: Dict = {
     notReshapable:
       'Cette tuile ne peut pas être remodelée ainsi (type de terrain, quelque chose dessus, ou cela couperait la terre en deux).',
     terraformLimit: 'Plus de tuile à remodeler à cet âge.',
+    techAfter: 'Il faut d’abord une autre technologie.',
+    notFlesh: 'On ne creuse un canal que dans la chair.',
+    notByJuice: 'Un canal part du jus : creusez à côté d’une rivière ou d’un autre canal.',
+    canalCutsLand: 'Ce canal couperait la terre ou isolerait un bâtiment.',
+    wouldFlood: 'Ce canal noierait un bâtiment à la crue du printemps.',
+    canalLimit: 'Plus de canal à creuser à cet âge.',
+    notACanal: 'Ce n’est pas un canal.',
     titanAtWork: 'Un Kikiwiwi travaille sur cette tuile.',
     kikiwiwiNoWork: 'Un Kikiwiwi ne prend jamais de poste.',
     unknownPatch: 'Cette poussière s’est dispersée.',
@@ -2157,6 +2164,7 @@ export const fr: Dict = {
       available: 'Disponible',
       library: 'Bibliothèque niveau {level}',
       age: 'Âge suivant',
+      after: 'Après {tech}',
     },
     researchers: 'Chercheur·euses',
     researcherHint:
@@ -2293,6 +2301,7 @@ export const fr: Dict = {
     cometInterval: 'Temps entre deux comètes',
     meteorStock: 'Météorites',
     meteorDrill: 'Foreuse à météorite',
+    canals: 'Canaux de jus',
     unlock: 'Ouvert',
     nothing: 'Ouvre l’âge suivant.',
   },
@@ -2306,6 +2315,10 @@ export const fr: Dict = {
   },
   techs: {
     foraging: { name: 'Cueillette', desc: 'Récolte de pulpe et de fibre +10 %.' },
+    canals: {
+      name: 'Canaux',
+      desc: 'Les bâtisseur·euses creusent des canaux de jus, tuile par tuile, depuis une rivière.',
+    },
     palisade: { name: 'Palissade', desc: 'Défense des tourelles +15 %.' },
     starCharts: { name: 'Cartes du ciel', desc: 'Voyages des expéditions −10 %.' },
     stoneAge: { name: 'Taille de la pierre', desc: 'Ouvre la voie à l’âge de pierre (monument).' },

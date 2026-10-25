@@ -19,7 +19,8 @@ import type { Building, GameState } from './state';
 import { coveredKeys, occupancy } from './footprint';
 import { seasonEffects, seasonHarvest, seasonRegen, type Season } from '../data/cycles';
 import { calendarAt, isNight, seasonOf } from './calendar';
-import { TITAN, type TerraformKind } from '../data/titan';
+import { TITAN, type TerraformTile } from '../data/titan';
+import { CANALS } from '../data/canals';
 
 const HOUR_MS = 3_600_000;
 const EPS = 1e-6;
@@ -31,14 +32,14 @@ const EPS = 1e-6;
 const mapCache = new Map<string, FaceMap>();
 
 type MapSource = Pick<GameState, 'seed' | 'face' | 'params'> & {
-  terraform?: Readonly<Record<string, TerraformKind>>;
+  terraform?: Readonly<Record<string, TerraformTile>>;
 };
 
 const terraformKeys = new WeakMap<object, { n: number; key: string }>();
 
 /** Stable signature of the reshaped tiles (empty when none: the generated map). */
 export function terraformKey(state: {
-  terraform?: Readonly<Record<string, TerraformKind>>;
+  terraform?: Readonly<Record<string, TerraformTile>>;
 }): string {
   const t = state.terraform;
   if (!t) return '';
@@ -92,18 +93,30 @@ export function faceMapOf(state: MapSource): FaceMap {
   return map;
 }
 
-/** The generated map with reshaped tiles: a spring is juice, a terrace no longer floods. */
+/**
+ * The generated map with reshaped tiles: a spring is juice, a terrace no longer floods. A canal
+ * (chantier 45) is juice too, and in a flooding biome the flesh around it floods like a river's.
+ */
 export function applyTerraform(
   base: FaceMap,
-  terraform: Readonly<Record<string, TerraformKind>>,
+  terraform: Readonly<Record<string, TerraformTile>>,
 ): FaceMap {
+  const floods = canalFloods(base, terraform);
   const tiles = base.tiles.map((t) => {
-    const kind = terraform[hexKey(t)];
-    if (!kind) return t;
+    const key = hexKey(t);
+    const kind = terraform[key];
+    if (!kind) return floods.has(key) ? { ...t, flood: true as const } : t;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { flood, ...dry } = t;
     if (kind === 'spring')
       return { ...dry, type: 'juice' as const, height: TILES.juice.baseHeight };
+    if (kind === 'canal')
+      return {
+        ...dry,
+        type: 'juice' as const,
+        height: TILES.juice.baseHeight,
+        canal: true as const,
+      };
     if (kind === 'terrace') return { ...dry, height: t.height + TITAN.terraceRise };
     return {
       ...t,
@@ -112,6 +125,29 @@ export function applyTerraform(
     };
   });
   return { ...base, tiles };
+}
+
+/**
+ * Flesh tiles a set of canals makes floodable (chantier 45): like the generator's rule (flesh
+ * next to juice, off the heart), in a biome that floods, unless a titan raised them.
+ */
+export function canalFloods(
+  base: FaceMap,
+  terraform: Readonly<Record<string, TerraformTile>>,
+  extra: readonly string[] = [],
+): Set<string> {
+  const out = new Set<string>();
+  if (BIOMES[base.params.biome].floods === null) return out;
+  const canals = Object.keys(terraform).filter((k) => terraform[k] === 'canal');
+  for (const k of [...canals, ...extra])
+    for (const n of hexNeighbors(parseHexKey(k))) {
+      const nk = hexKey(n);
+      const t = getTile(base, n);
+      if (!t || t.type !== 'flesh' || t.flood || t.rho >= 0.92 || terraform[nk]) continue;
+      if (extra.includes(nk)) continue;
+      out.add(nk);
+    }
+  return out;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -133,10 +169,12 @@ export function tileDeposit(
   const def = tile ? DEPOSITS[tile.type] : undefined;
   if (!tile || !def) return null;
   const { stock, regen } = BIOMES[biome].deposits;
+  const canal = tile.canal ? CANALS.deposit : 1;
   return {
     resource: def.resource,
-    cap: def.stock * tile.richness * (stock[def.resource] ?? 1),
-    regen: def.regen * tile.richness * (regen[def.resource] ?? 1) * (bank ? BANKS.regen : 1),
+    cap: def.stock * tile.richness * (stock[def.resource] ?? 1) * canal,
+    regen:
+      def.regen * tile.richness * (regen[def.resource] ?? 1) * (bank ? BANKS.regen : 1) * canal,
   };
 }
 

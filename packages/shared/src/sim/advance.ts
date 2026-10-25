@@ -48,6 +48,7 @@ import type { IncidentKind } from '../data/threats';
 import { nextThreatEvent, planWave, threatTick } from './threats';
 import { accrueIron, meteorIronRate, meteorRate, nextSkyEvent, planMeteor, skyTick } from './sky';
 import { obstacleAt, removeObstacle } from './obstacles';
+import { finishCanal } from './canals';
 import { finishInfusions, nextInfusionEnd } from './kikiwiwi';
 import { finishTitanWorks, nextTitanEnd } from './titan';
 import type { TerraformKind, TitanWork } from '../data/titan';
@@ -150,6 +151,8 @@ export type GameEvent =
       kind: TerraformKind;
       villagerId: VillagerId;
     }
+  /** Chantier 45: a canal was dug or filled in (`failed`: the tile no longer allowed it, refunded). */
+  | { type: 'canal'; at: TimeMs; q: number; r: number; dug: boolean; failed?: true }
   | { type: 'seasonChanged'; at: TimeMs; season: Season }
   /** A food stock ran dry: the colony eats what is harvested and goes hungry. */
   | { type: 'foodRanOut'; at: TimeMs; resource: 'pulp' | 'juice' }
@@ -360,6 +363,8 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
         (i) => i.startedAt !== null && i.startedAt + i.durationMs === constructionEnd,
       ))
         completeConstruction(s, item, constructionEnd, events);
+      // A canal reshapes the face (chantier 45).
+      map = faceMapOf(s);
       syncPools(s, map, constructionEnd);
     }
     if (s.egg && s.egg.readyAt <= now && s.egg.readyAt === nextEvent) {
@@ -694,6 +699,11 @@ function completeConstruction(
   if (item.kind === 'clear') {
     const o = obstacleAt(s, item.q, item.r);
     if (o) removeObstacle(s, o, at, events, 'kiwis');
+    releaseBuilder(s, item.id, false);
+    return;
+  }
+  if (item.kind === 'canal' || item.kind === 'fill') {
+    finishCanal(s, item, at, events);
     releaseBuilder(s, item.id, false);
     return;
   }

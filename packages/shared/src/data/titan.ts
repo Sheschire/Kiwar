@@ -11,6 +11,9 @@ import type { TileType } from './tiles';
 export const TITAN_WORK_IDS = ['smash', 'spring', 'terrace', 'flatten'] as const;
 export type TitanWork = (typeof TITAN_WORK_IDS)[number];
 export type TerraformKind = Exclude<TitanWork, 'smash'>;
+/** Chantier 45: a reshaped tile in `state.terraform` — a titan work or a canal dug by builders. */
+export type TerraformTile = TerraformKind | 'canal';
+
 export const TERRAFORM_KINDS = [
   'spring',
   'terrace',

@@ -20,7 +20,8 @@ export function terraformLeft(state: GameState): number {
   const pending = state.villagers.filter(
     (v) => v.job.kind === 'titan' && v.job.work !== 'smash',
   ).length;
-  return Math.max(0, cap - Object.keys(state.terraform).length - pending);
+  const reshaped = Object.values(state.terraform).filter((k) => k !== 'canal').length;
+  return Math.max(0, cap - reshaped - pending);
 }
 
 /** The Kikiwiwi (if any) at work on a tile. */

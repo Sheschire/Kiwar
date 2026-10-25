@@ -189,6 +189,7 @@ export const TECH_STATS = [
   'cometInterval',
   'meteorStock',
   'meteorDrill',
+  'canals',
 ] as const;
 export type TechStatId = (typeof TECH_STATS)[number];
 
@@ -216,7 +217,7 @@ const MULTIPLIERS = [
   'meteorStock',
 ] as const;
 const BONUSES = ['armor', 'recon', 'infusionRisk', 'waveNotice'] as const;
-const UNLOCKS = ['firearms', 'laboratory', 'terraform', 'meteorDrill'] as const;
+const UNLOCKS = ['firearms', 'laboratory', 'terraform', 'meteorDrill', 'canals'] as const;
 
 /** What researching `id` changes for this colony: its current effects, then with the tech. */
 export function describeTech(id: TechId, state: GameState): TechChange[] {

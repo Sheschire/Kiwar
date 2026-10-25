@@ -66,6 +66,8 @@ export function siteTiles(item: QueueItem): Hex[] {
       : footprintHexes(item.buildingType, item.q, item.r, item.rot);
   if (item.kind === 'upgrade' && item.rot !== undefined)
     return footprintHexes(item.buildingType, item.q, item.r, item.rot);
+  // Chantier 45: a canal being dug or filled holds its tile.
+  if (item.kind === 'canal' || item.kind === 'fill') return [{ q: item.q, r: item.r }];
   return [];
 }
 
@@ -106,9 +108,16 @@ function layoutHash(state: GameState): number {
   }
   h = mix(h, state.queue.length);
   for (const i of state.queue) {
-    if (i.kind !== 'build' && i.rot === undefined) continue;
+    const canal = i.kind === 'canal' || i.kind === 'fill';
+    if (i.kind !== 'build' && i.rot === undefined && !canal) continue;
     h = mix(h, i.q * 977 + i.r);
-    h = mix(h, (i.rot ?? 0) + footprintOf(i.buildingType) * 16 + (i.kind === 'build' ? 128 : 0));
+    h = mix(
+      h,
+      (i.rot ?? 0) +
+        footprintOf(i.buildingType) * 16 +
+        (i.kind === 'build' ? 128 : 0) +
+        (canal ? 256 : 0),
+    );
     h = mixId(h, i.id);
   }
   return h;

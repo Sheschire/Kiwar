@@ -797,6 +797,13 @@ export const en = {
     notReshapable:
       'This tile cannot be reshaped that way (land type, something on it, or it would cut the land in two).',
     terraformLimit: 'No more tiles to reshape at this age.',
+    techAfter: 'Another technology comes first.',
+    notFlesh: 'Canals are dug in the flesh only.',
+    notByJuice: 'A canal starts from the juice: dig next to a river or another canal.',
+    canalCutsLand: 'This canal would cut the land or cut off a building.',
+    wouldFlood: 'This canal would drown a building in the spring flood.',
+    canalLimit: 'No more canals to dig at this age.',
+    notACanal: 'This is not a canal.',
     titanAtWork: 'A Kikiwiwi is at work on this tile.',
     kikiwiwiNoWork: 'A Kikiwiwi never takes a workplace.',
     unknownPatch: 'This stardust has scattered.',
@@ -2072,6 +2079,7 @@ export const en = {
       available: 'Available',
       library: 'Library level {level}',
       age: 'Later age',
+      after: 'After {tech}',
     },
     researchers: 'Researchers',
     researcherHint:
@@ -2206,6 +2214,7 @@ export const en = {
     cometInterval: 'Time between comets',
     meteorStock: 'Meteorites',
     meteorDrill: 'Meteorite drill',
+    canals: 'Juice canals',
     unlock: 'Opened',
     nothing: 'Opens the next age.',
   },
@@ -2219,6 +2228,10 @@ export const en = {
   },
   techs: {
     foraging: { name: 'Foraging', desc: 'Pulp and fibre harvest +10 %.' },
+    canals: {
+      name: 'Canals',
+      desc: 'Builders dig juice canals, tile by tile, from a river.',
+    },
     palisade: { name: 'Palisade', desc: 'Turret defense +15 %.' },
     starCharts: { name: 'Star charts', desc: 'Expedition travel −10 %.' },
     stoneAge: { name: 'Stone cutting', desc: 'Opens the way to the Stone age (monument).' },
