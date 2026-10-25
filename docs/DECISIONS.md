@@ -2761,3 +2761,49 @@ Numbers (to test with the owner):
   3–4 campfires by 24–60 h, a speech a night when ready; the mourning of the landings weighs
   −6 to −27 points on average for hours. ⚠️ With the attrition of chantier 40 (5–14 kiwis dead
   per run) the colony mourns often: to play with the owner.
+
+## Chantier 44 — Leisure and decor
+
+Owner's answers at the start of the session (interactive questions):
+
+- **Content**: every game and decoration proposed — the vine swing, seed skittles, the skipping
+  pond, the bark slide; lanterns, flower beds, vine arches, the juice fountain, the mayor's
+  statue.
+- **Beauty is common to the village** (a part of `colonyMood`), not per bed: +1 per
+  decoration, +3 for the statue, capped at +8. ⚠️ Placement does not count: to feel with the
+  owner.
+- **Games are leisures only** (no rule of their own for sulking kiwis): +8 for the first kind
+  within reach of a bed, +3 for each other kind, +14 at most (the campfire counts; two copies
+  of one game count once). The 3D kiwis play there when they rest by day or have no post.
+- **Cabaret**: +12 for an evening (until the next nightfall) for the free kiwis sleeping within
+  6 tiles, 60 juice a night, shut without the juice (nothing else lost), a switch to close it.
+- **Fireworks**: three patterns — bouquets 150 seeds + 100 juice, +6 for 6 h; kiwi fruit + 3
+  stardust, +10 for 8 h; kiwi bird + 8 stardust, +15 for 12 h; at night only, one show a night
+  for the whole village.
+
+Small decisions taken during the session:
+
+- Unlocks: lanterns and flower beds at Nest 2, the vine arch at Nest 3, the swing at Nest 2
+  (Eden); fountain, statue and the three other games at Nest 4 with the Stone age; cabaret and
+  cannon at Nest 7 with the Iron age. Decorations ×1.4 a copy, games ×1.6 (like the
+  campfire), the statue, the cabaret and the cannon one per colony. Everything stands outside
+  the building cap. Decorations, games and the cannon may stand on the skin rampart.
+- Costs (first copy): lanterns 80/120/20, flower bed 120/60/60, vine arch 60/220/30, swing
+  100/220/30, fountain 600/400/300/300, statue 900/600/700/250, skittles 500/450/400, pond
+  650/300/300/200, slide 400/800/200, cabaret 7000/8000/2000/2500 (2 h), cannon
+  3000/4000/2500/1500 (1 h).
+- The cannon is unique (several would only be decor: one show a night for the village).
+- The "Village life" family in the plans also fixed a gap: the training camp, the Forge, the
+  Town Hall and the campfire were missing from the building tree.
+
+### Measures (`--seeds 2 --hours 72`, 6 biomes, before the chantier / after)
+
+- Identical up to the Library (the decorations come after the Town Hall in the bot). Stone age
+  −2 to +10 % (Highlands 17.5 h against 15.9 h); Iron reached in 9 runs of 12 against 10
+  before, the median within ±4 %: within the noise of two seeds, the decorations being a new
+  sink the bot pays with twice the price in stock.
+- The fireworks show: 627 particles for the kiwi bird, 0.05 ms per frame on the main thread,
+  one draw call, about 9 s, then the frame limiter idles again. The halos of lanterns and
+  fountains are one sprite each (as the huts).
+- ⚠️ To play with the owner: the cabaret's price (60 juice is little in the Iron age), how
+  often a fireworks show is worth its stardust, the beauty felt without placement.
