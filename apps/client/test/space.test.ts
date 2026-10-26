@@ -18,6 +18,7 @@ import {
   ALLY_SLOTS,
   FRONT_CLEARANCE,
   allyPlace,
+  allyTwinPlace,
   planetOrientation,
   twinPlace,
   TWIN_CLOSEST,
@@ -57,6 +58,22 @@ describe('map of space (chantier 24)', () => {
         expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThan(50);
       }
     expect(allyPlace(3, 2)).toEqual(allyPlace(3, 2));
+  });
+
+  it("floats each member's twin beside their planet, clear of every other planet", () => {
+    // Up to 7 other players (8 per universe), at any kiwi gap.
+    for (const gap of [1, 3, 7]) {
+      const planets = Array.from({ length: 7 }, (_, rank) => allyPlace(rank, gap));
+      const twins = Array.from({ length: 7 }, (_, rank) => allyTwinPlace(rank, gap));
+      twins.forEach((t, rank) => {
+        const own = planets[rank]!;
+        expect(angleTo(azimuth(t), azimuth(own))).toBeLessThan(1e-9);
+        expect(Math.hypot(t.x - own.x, t.z - own.z)).toBeGreaterThan(50);
+        for (const other of [...planets, ...twins, twinPlace()])
+          if (other !== t && other !== own)
+            expect(Math.hypot(t.x - other.x, t.z - other.z)).toBeGreaterThan(50);
+      });
+    }
   });
 
   it('turns every planet towards home', () => {

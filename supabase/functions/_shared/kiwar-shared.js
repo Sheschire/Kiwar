@@ -3718,6 +3718,28 @@ function tileAt(map, q, r) {
 
 // packages/shared/src/server/universes.ts
 var MAX_PLAYERS = 8;
+function allyTwinOf(s) {
+  const face = otherFace(s.face);
+  const target = s.targets.find((t) => t.distance === 0 && t.face === face);
+  const view = target ? s.faceViews[target.id] : void 0;
+  const conquered = s.siege.conqueredAt > 0;
+  return {
+    face,
+    params: twinParams(s.seed, s.face, s.params),
+    sectors: view ? [
+      .../* @__PURE__ */ new Set([
+        ...Object.keys(view.parcels).map(Number),
+        ...view.beacons.map((b) => b.sector)
+      ])
+    ] : [],
+    village: view ? Object.values(view.parcels).flatMap(
+      (p) => p.buildings.map((b) => ({ kind: b.kind, q: b.q, r: b.r, age: p.age }))
+    ) : [],
+    beacons: (view?.beacons ?? []).map((b) => ({ sector: b.sector, fortified: (b.fort ?? 0) > 0 })),
+    queen: !!view?.queen && !conquered,
+    conquered
+  };
+}
 function layoutBuilding(b) {
   return {
     type: b.type,
@@ -19703,6 +19725,7 @@ async function neighboursOf(repo, info, me, now) {
         obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
         terraform: s.terraform,
         power: colonyPower(s),
+        twin: allyTwinOf(s),
         at: now,
         ...await allySister(repo, info.id, m, s, now)
       };
@@ -20629,6 +20652,7 @@ export {
   alienFaceOnKiwi,
   alienUnit,
   allGuards,
+  allyTwinOf,
   applyCommand,
   applyTerraform,
   armoryCount,

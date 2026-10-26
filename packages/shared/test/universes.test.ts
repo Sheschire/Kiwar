@@ -604,3 +604,50 @@ describe('choosing a face and seeing a friend (chantier 05)', () => {
     expect(info.twin).toMatchObject({ owner: 'Bob', face: 'kiwino' });
   });
 });
+
+describe('allies’ alien twins (chantier 59)', () => {
+  it('shares what an ally sees of their twin, never more', async () => {
+    const { repo, as, tick } = world();
+    const u = ok(
+      await handleGameRequest(as('alice'), {
+        action: 'createUniverse',
+        name: 'Les Kiwis',
+        displayName: 'Alice',
+      }),
+    ).universe!;
+    ok(
+      await handleGameRequest(as('bob'), {
+        action: 'joinUniverse',
+        code: u.code,
+        displayName: 'Bob',
+      }),
+    );
+    const game = [...repo.games.values()].find(
+      (g) => g.userId === 'alice' && g.universeId === u.id,
+    )!;
+    const twinId = game.state.targets.find((t) => t.distance === 0)!.id;
+    game.state.faceViews[twinId] = {
+      beacons: [{ sector: 3, since: 0, fort: 1 }],
+      parcels: {
+        '4': {
+          at: 0,
+          source: 'edge',
+          age: 1,
+          power: { min: 0, max: 0 },
+          units: [],
+          buildings: [{ kind: 'burrow', sector: 4, q: 2, r: -1 }],
+        },
+      },
+    } as never;
+    tick(60_000);
+    const bob = ok(await handleGameRequest(as('bob'), { action: 'load', universe: u.id }));
+    const twin = bob.allies![0]!.twin!;
+    expect(twin.face).toBe('kiwino');
+    expect(twin.sectors.sort()).toEqual([3, 4]);
+    expect(twin.village).toEqual([{ kind: 'burrow', q: 2, r: -1, age: 1 }]);
+    expect(twin.beacons).toEqual([{ sector: 3, fortified: true }]);
+    expect(twin).toMatchObject({ queen: false, conquered: false });
+    // Public views only: no garrison, no civilisation.
+    expect(JSON.stringify(bob.allies)).not.toMatch(/"civ":\{|"units":\[/);
+  });
+});

@@ -64,6 +64,21 @@ export function allyPlace(rank: number, kiwiGap: number): SpacePoint {
   return along(FRONT_AZIMUTH + slot, distance, ALLY_HEIGHT - (rank % 2) * 6);
 }
 
+/** Chantier 59: how far beyond a member's planet their alien twin floats, and how much higher. */
+export const ALLY_TWIN_GAP = 75;
+export const ALLY_TWIN_RISE = 14;
+
+/**
+ * Chantier 59: where a member's alien twin floats — further out on the same azimuth as their
+ * planet (the two halves of their kiwi side by side, like ours), a little higher.
+ */
+export function allyTwinPlace(rank: number, kiwiGap: number): SpacePoint {
+  const p = allyPlace(rank, kiwiGap);
+  const d = Math.hypot(p.x, p.z);
+  const k = (d + ALLY_TWIN_GAP) / d;
+  return { x: p.x * k, y: p.y + ALLY_TWIN_RISE, z: p.z * k };
+}
+
 /**
  * Fixed orientation of a planet at `place`: turned to face home (yaw, around Y), then its far
  * rim lifted by `PLANET_TILT` (around its own X). Apply as `rotation.set(0, 0, 0)`,

@@ -75,6 +75,7 @@ import {
   MAX_PLAYERS,
   universeFriends,
   universeTargets,
+  allyTwinOf,
   colonyOfFriend,
   friendId,
   layoutBuilding,
@@ -392,6 +393,7 @@ async function neighboursOf(
         obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
         terraform: s.terraform,
         power: colonyPower(s),
+        twin: allyTwinOf(s),
         at: now,
         ...(await allySister(repo, info.id, m, s, now)),
       };

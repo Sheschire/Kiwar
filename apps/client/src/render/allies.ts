@@ -1,12 +1,14 @@
 import { Group, type Ray, type Vector3 } from 'three';
 import { applyTerraform, generateFace, type AllySnapshot } from '@kiwar/shared';
-import { allyPlace } from './space';
-import { TwinView } from './twin';
+import { allyPlace, allyTwinPlace } from './space';
+import { TwinView, type TwinOptions } from './twin';
 
 export interface AllyPlanet {
   kiwiIndex: number;
   owner: string;
   view: TwinView;
+  /** Chantier 59: the other half of their kiwi (alien as they see it, or their sister colony). */
+  twin: TwinView | null;
 }
 
 /**
@@ -25,7 +27,8 @@ export class AlliesView {
       .map(
         (a) =>
           `${a.owner}|${a.kiwiIndex}|${a.face}|${a.params.biome}|` +
-          a.buildings.map((b) => `${b.type}${b.level}@${b.q},${b.r}/${b.rot ?? ''}`).join(','),
+          a.buildings.map((b) => `${b.type}${b.level}@${b.q},${b.r}/${b.rot ?? ''}`).join(',') +
+          `|${twinKey(a)}`,
       )
       .join(';');
     if (key === this.key) return;
@@ -41,9 +44,19 @@ export class AlliesView {
       // Tiles their Kikiwiwis reshaped (chantier 08).
       const map = ally.terraform ? applyTerraform(base, ally.terraform) : base;
       const view = new TwinView(map, { fog: false, friend: ally });
-      view.place(allyPlace(rank, Math.abs(ally.kiwiIndex - myKiwi)));
+      const gap = Math.abs(ally.kiwiIndex - myKiwi);
+      view.place(allyPlace(rank, gap));
       this.group.add(view.group);
-      this.planets.push({ kiwiIndex: ally.kiwiIndex, owner: ally.owner, view });
+      // Chantier 59: their twin, unless a player lives there (older universes: two per kiwi).
+      const held =
+        ally.kiwiIndex === myKiwi ||
+        allies.some((o) => o.kiwiIndex === ally.kiwiIndex && o.face !== ally.face);
+      const twin = held ? null : allyTwinView(ally);
+      if (twin) {
+        twin.place(allyTwinPlace(rank, gap));
+        this.group.add(twin.group);
+      }
+      this.planets.push({ kiwiIndex: ally.kiwiIndex, owner: ally.owner, view, twin });
     });
   }
 
@@ -63,6 +76,7 @@ export class AlliesView {
     for (let i = 0; i < this.planets.length; i++) {
       const p = this.planets[i]!;
       p.view.update(dt, time, eye, p === this.visited, i * 1.7);
+      p.twin?.update(dt, time, eye, false, i * 1.7 + 0.9);
     }
   }
 
@@ -77,13 +91,20 @@ export class AlliesView {
   }
 
   setSky(...args: Parameters<TwinView['setSky']>): void {
-    for (const p of this.planets) p.view.setSky(...args);
+    for (const p of this.planets) {
+      p.view.setSky(...args);
+      p.twin?.setSky(...args);
+    }
   }
 
   private clear(): void {
     for (const p of this.planets) {
       this.group.remove(p.view.group);
       p.view.dispose();
+      if (p.twin) {
+        this.group.remove(p.twin.group);
+        p.twin.dispose();
+      }
     }
     this.planets = [];
   }
@@ -91,5 +112,44 @@ export class AlliesView {
   dispose(): void {
     this.clear();
     this.key = '';
+  }
+}
+
+/** What changes the drawing of an ally's twin. */
+function twinKey(a: AllySnapshot): string {
+  if (a.sister) return `sister@${a.sister.at}`;
+  const t = a.twin;
+  if (!t) return '';
+  return (
+    `${t.sectors.join('.')}/${t.village.map((h) => `${h.kind}${h.q},${h.r}@${h.age}`).join(';')}` +
+    `/${t.beacons.map((b) => `${b.sector}${b.fortified ? '+' : ''}`).join('.')}/${t.queen}/${t.conquered}`
+  );
+}
+
+/**
+ * Chantier 59: an ally's twin — their sister colony once founded (lit, like a friend's face),
+ * otherwise the alien face as they see it: clouds parted over their parcels, the alien houses
+ * they saw, their beacons, the queen once out. Scenery: a broken snapshot draws nothing.
+ */
+function allyTwinView(ally: AllySnapshot): TwinView | null {
+  try {
+    const s = ally.sister;
+    if (s) {
+      const base = generateFace(ally.seed, s.face, s.params);
+      const map = s.terraform ? applyTerraform(base, s.terraform) : base;
+      return new TwinView(map, { fog: false, friend: s });
+    }
+    const t = ally.twin;
+    if (!t) return null;
+    const opts: TwinOptions = {
+      fog: true,
+      intel: { sectors: t.sectors, village: t.village },
+      siege: { heads: t.beacons, conquered: t.conquered },
+      queen: t.queen,
+    };
+    return new TwinView(generateFace(ally.seed, t.face, t.params), opts);
+  } catch (e) {
+    console.error(e);
+    return null;
   }
 }

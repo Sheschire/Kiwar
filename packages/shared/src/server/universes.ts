@@ -4,8 +4,9 @@ import { alienDefOf } from '../data/expeditions';
 import type { Building, ExpeditionTarget, Friend, GameState } from '../sim/state';
 import type { Resources } from '../data/resources';
 import type { BuildingType } from '../data/buildings';
-import type { FaceParams } from '../worldgen/generateFace';
-import { FACES, type Face } from '../types/ids';
+import { twinParams, type FaceParams } from '../worldgen/generateFace';
+import { FACES, otherFace, type Face } from '../types/ids';
+import type { AlienBuildingKind } from '../data/aliens';
 
 /**
  * Shared universes (milestone 3). A universe holds several kiwis (pairs of faces). Each player
@@ -96,6 +97,51 @@ export interface AllySnapshot extends TwinSnapshot {
   power?: ColonyPower;
   /** Chantier 19: their colony on the other half of their kiwi, once founded. */
   sister?: SisterSnapshot;
+  /** Chantier 59: their alien twin as they see it (absent in older snapshots). */
+  twin?: AllyTwin;
+}
+
+/**
+ * Chantier 59: what an ally knows of their alien twin, shared with the universe — the parcels
+ * they have eyes on, the alien houses seen there (at the age of each parcel's view), their
+ * beacons and the queen once out. Public views only (`faceViews`), never the truth.
+ */
+export interface AllyTwin {
+  face: Face;
+  params: FaceParams;
+  sectors: number[];
+  village: { kind: AlienBuildingKind; q: number; r: number; age: number }[];
+  beacons: { sector: number; fortified: boolean }[];
+  queen: boolean;
+  conquered: boolean;
+}
+
+/** Chantier 59: the ally's alien twin from their public state. */
+export function allyTwinOf(s: GameState): AllyTwin {
+  const face = otherFace(s.face);
+  const target = s.targets.find((t) => t.distance === 0 && t.face === face);
+  const view = target ? s.faceViews[target.id] : undefined;
+  const conquered = s.siege.conqueredAt > 0;
+  return {
+    face,
+    params: twinParams(s.seed, s.face, s.params),
+    sectors: view
+      ? [
+          ...new Set([
+            ...Object.keys(view.parcels).map(Number),
+            ...view.beacons.map((b) => b.sector),
+          ]),
+        ]
+      : [],
+    village: view
+      ? Object.values(view.parcels).flatMap((p) =>
+          p.buildings.map((b) => ({ kind: b.kind, q: b.q, r: b.r, age: p.age })),
+        )
+      : [],
+    beacons: (view?.beacons ?? []).map((b) => ({ sector: b.sector, fortified: (b.fort ?? 0) > 0 })),
+    queen: !!view?.queen && !conquered,
+    conquered,
+  };
 }
 
 export interface LayoutBuilding {
