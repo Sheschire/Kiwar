@@ -2895,3 +2895,65 @@ Small decisions taken during the session:
   12 h, 68–98 once the Town Hall, 2–3 campfires and 12–15 decorations and games stand (by
   24 h), 63–100 at 72 h; no kiwi under 20; beauty at its +8 cap from 24 h, leisure +10–12;
   memories from −19 (mourning after landings) to +26 (speeches, suppers).
+
+## Chantier 46 — Settings after act III
+
+The owner follows the act III review (25 October 2026): every decision is in
+`docs/chantiers/46-reglages-fin-acte-iii.md`. Two new points were asked during the session
+(interactive questions, the recommended option taken both times): how to fix the occasional
+player's waves, and the twin's gap between faces.
+
+### Wounded rather than dead on a field we hold (part 1)
+
+- A kiwi who falls in a **landing won** or in the **final battle won** comes home wounded
+  (`ExpeditionResult.injured`, `EXPEDITIONS.victoryInjuryMs` 6 h, healed at rest), keeps its
+  gear, no memorial and no mourning. The final battle won counts as a field held (small
+  decision: the queen's fall leaves the field to us).
+- A **beacon held**: its fallen guards fly home wounded (`sendHome` with `hurt`, the report's
+  `hurt` names, the event's `hurt` count); they leave the guard (small decision: a wounded
+  kiwi cannot keep watch). A beacon that falls, a retreat or a defeat still kill.
+- Forecasts split `expectedDead` (retreat, defeat, fall) from `expectedHurt` (a field held):
+  planner and beacon card say "would come back wounded"; the permadeath line now says where
+  a fallen kiwi dies.
+- Bot: a landing crew is ranked by dead × 10 + wounded, with **one fallen at most expected**
+  (dead or wounded: a crew that only just wins retreats at bad luck, and a retreat kills);
+  `RunResult.final.battleWounded`, printed by the conquest probe.
+
+### A more demanding morale (part 2)
+
+- `MORALE.base` 46 / 35 / 29 / 23 (was 46 / 36 / 31 / 26), beauty at most +5 (was +8),
+  leisures at most +10 (was +14).
+- Calibrated with the village probe (scratch `runBot`, 6 biomes × 120 h, the attentive bot,
+  every 6 h: average morale, and the "built" morale without the memories of speeches, suppers,
+  the cabaret and fireworks). Before: built 69 in the Stone age, average 79, 42 % of the
+  samples above 85. The owner's starting point (46 / 30 / 22 / 16) gave built **58** (Stone)
+  and **54** (Iron), under the 60–75 target; 35 / 31 gave 64 / 67, the Iron trimmed by 2.
+  Above 85 only with the evenings and the speeches; no kiwi sulking outside mourning.
+
+### The occasional player's waves (part 3)
+
+- **Diagnosis** (casual profile, seed `ages-0` × 6 biomes × 16.8 days, the commit closing act
+  II against now, one line per wave): the same threat at the same hours (≈ 27/9 at the third
+  wave), the same civilisation factor, comparable loot. The defense differed: the occasional
+  bot reads no forecast and strengthens its turrets only after a defeat; in act II its
+  leftovers upgraded them (level 2 by ~36 h), in act III the Town Hall, campfires,
+  decorations, games and canals take those leftovers. Two level-1 turrets until the first
+  defeat, air defense 4–15 instead of 21–43, defeats in series from 33 to 100 h.
+- **Owner's choice**: a bot habit, no rule change. The occasional player keeps every turret
+  at half its Nest's level (rounded down in the Eden, up from the Stone age) and fills the
+  turret places its Nest allows from the Stone age, before decorating. Filling them from the
+  Eden delayed its Stone (30 h in half the runs): rejected.
+- Probe (2 seeds × 6 biomes × 16.8 days): waves lost 19 % → **9.2 %**, Stone unchanged.
+
+### The twin's gap between faces (part 4)
+
+- **Diagnosis**: the alien seed was `<seed>/<face>/aliens`, without the biome: the report's
+  three biomes of a face fought the same six twins. The six Kiwino twins were ferret-heavy
+  (ferret share 0.64 against 0.46), and a bat-heavy twin stalls the bot whatever the face
+  (attentive bot, 3 seeds × 6 biomes × 96 h: centre in 8/9 Kiwino runs, 5/9 Kiwisu; the
+  fastest centres are the twins with 75–78 % ferrets). Over 100 seeds per face (the
+  civilisation alone) the twins differ by 3–5 % in power and 0.56 / 0.59 in ferret share: no
+  rule favours a face.
+- **Owner's choice**: fix the measure only. `runBot` draws the twin per biome
+  (`alienSeed: <seed>/<face>/<biome>/aliens`): 18 distinct twins per face in a report. The
+  spread of the ferret share (35–80 %) stays as it is.

@@ -123,3 +123,10 @@ above are no longer reachable.
   announcement from its standing barracks, the strength from the origin parcel at the strike;
   `recordFight` for the attackers' losses, `recordDefeat` for a fallen beacon. `refreshQueen`
   runs in `civTick` after `refreshBeacons`.
+
+## Chantier 46: one twin per biome in the bot
+
+`localAlienSeed` is `<seed>/<face>/aliens` (no biome): the report's three biomes of a face used
+to fight the same twins. `runBot` passes `alienSeed: <seed>/<face>/<biome>/aliens` when a biome
+is forced. The ferret share of a face (`ALIENS.ferretShare` 0.35–0.8) weighs a lot on the bot
+(bat-heavy twins stall it): compare faces over many twins, never six.

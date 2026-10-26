@@ -32,7 +32,8 @@ worth protecting.
    Warehouse reserves fill while away and are collected by a tap; a full reserve stops
    production; nothing is ever lost entirely.
 4. **Punitive but recoverable.** Bad placement, bad management or neglect cost morale, loot,
-   damage and wounds; a kiwi dies only on a real defeat (and on expeditions). Every threat is
+   damage and wounds; a kiwi dies only on a real defeat (a landing retreat or defeat, a fallen
+   beacon; since chantier 46 the fallen of a field we hold come back wounded). Every threat is
    announced and has at least two answers. No dead end, ever.
 5. **Optimisation pays.** Stats, classes, gear and placement must change outcomes the player can
    see (battles on the map, adjacency, logistics).

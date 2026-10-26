@@ -51,7 +51,7 @@ sources)` is the memoized season-aware Dijkstra (`depotDistances` uses it), `dis
 ## Chantier 43: morale per kiwi, the Town Hall, the campfire
 
 - **Gauge 0–100 per kiwi** (neutral 50, `MORALE` in `data/needs.ts`): `colonyMood(state)`
-  (age base 60/50/45/40, fed +10 / hungry −20, season ±5, mayor and bards in points ×100,
+  (age base `MORALE.base`, 46 / 35 / 29 / 23 since chantier 46, fed +10 / hungry −20, season ±5, mayor and bards in points ×100,
   old speech +3, `leisureHomes`) + per kiwi (`kiwiMorale(state, v, beds, mood)`): bed near
   its work +5 / outside −10, leisure within reach of its bed +8 (`LEISURE`, hex distance from
   the home's anchor), temper (`MORALE.trait`, bard line +5), memories. Clamped 0–100.
@@ -86,10 +86,12 @@ sources)` is the memoized season-aware Dijkstra (`depotDistances` uses it), `dis
   sign and no age dressing (`partsOf`), no level badge (`maxLevelOf` 1). Decorations
   (`DECOR_TILES` flesh/ray/heart/skin, ×1.4 a copy): `lanterns`, `flowerBed`, `vineArch`
   (Eden), `fountain`, `mayorStatue` (Stone, unique: `statueExists`). **Beauty** is common:
-  `beautyOf` (+1 each, statue +3, capped `MORALE.beauty` 8) is a part of `colonyMood`.
+  `beautyOf` (+1 each, statue +3, capped `MORALE.beauty`, 5 since chantier 46) is a part of
+  `colonyMood`.
 - **Games** (`swing` Eden; `skittles`, `skipPond`, `slide` Stone; ×1.6 a copy) are leisures of
   radius 3. `colonyMood.leisureHomes` is a **map** home → points: first kind +8
-  (`MORALE.leisure`), each other kind +3 (`leisureMore`), at most +14 (`leisureMax`); two
+  (`MORALE.leisure`), each other kind +3 (`leisureMore`), at most +10 (`leisureMax`, chantier
+  46; was 14); two
   copies of one game count once.
 - **The cabaret** (`cabaret`, Iron, Nest 7, 3 tiles, unique, outside the cap) and **the
   fireworks cannon** (`fireworks`, Iron, Nest 7, unique, outside the cap, skin allowed) live in
@@ -153,3 +155,11 @@ controller.state.now - offset` then dispatch a `debugGrant` (offsets: 1 h noon, 
   meals subtracted in the bottleneck, huts where producers walk the most to a bed; options
   `fullHorizon`, `activeMs` + `sessionEveryMs` (occasional player). `RunResult.final.starved` /
   `maxHungerH`. Test: twice-a-day player crosses the first winter with no famine death.
+
+## Chantier 46: a more demanding morale
+
+Target (owner): a built village puts a kiwi at 60–75 in the Stone and Iron ages for the
+attentive bot; above 85 only with recurring spending (speeches, suppers, cabaret, fireworks).
+Measured by the village probe: "built" morale = a kiwi's parts minus its memories `speech`,
+`vigil`, `cabaret`, `fireworks`. Bases 46 / 35 / 29 / 23, beauty +5, leisures +10: built 64
+(Stone), ~65 (Iron).

@@ -3206,9 +3206,10 @@ var SIEGE = {
    * ground power (× her parcel's growth) by √(power / `ground`), like the predators of a wave.
    */
   final: {
-    hp: 450,
+    /** Chantier 46: 450 → 900 and 0.4 → 0.5, the conquest came on days 7–12 (target 14–21). */
+    hp: 900,
     /** × her blows (an area sweep: it hits everybody around her). */
-    damage: 0.4,
+    damage: 0.5,
     /**
      * Hours of development she has at least (the civilisation's full growth, 14 days at
      * Industry): a queen brought out early is as strong as a late one, so the final battle

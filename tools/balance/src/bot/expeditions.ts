@@ -142,7 +142,7 @@ export function expeditionOrder(state: GameState, map: FaceMap): Command | null 
   const most = Math.min(maxCrew(state, pad, 'land'), pool.length);
   // The crew that wins all three practice battles with the fewest fallen expected (since
   // chantier 46 a kiwi who falls in a victory comes back wounded; a dead one weighs ten
-  // wounded), the smaller one on a tie; one expected death at most.
+  // wounded), the smaller one on a tie; one expected fallen at most.
   let best: { cmd: Command; toll: number; n: number } | null = null;
   for (const sector of candidates(state, target.id)) {
     for (let n = Math.max(minCrew('land'), 3); n <= most; n++) {
@@ -160,7 +160,8 @@ export function expeditionOrder(state: GameState, map: FaceMap): Command | null 
       const f = forecastExpedition(state, { ...plan, provisions: provisionsFor(dry) })!;
       if (f.weight > f.cargo) break;
       const l = f.landing;
-      if (!l || l.odds !== 'likely' || l.expectedDead > MAX_DEAD) continue;
+      // A crew that only just wins retreats at bad luck, and a retreat kills: one fallen at most.
+      if (!l || l.odds !== 'likely' || l.expectedDead + l.expectedHurt > MAX_DEAD) continue;
       const toll = l.expectedDead * 10 + l.expectedHurt;
       if (best && (toll > best.toll || (toll === best.toll && n >= best.n))) continue;
       const cmd: Command = { type: 'launchExpedition', ...plan, provisions: provisionsFor(dry) };

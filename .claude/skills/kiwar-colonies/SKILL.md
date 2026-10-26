@@ -200,3 +200,14 @@ outbox)` (current tech or bank), the sister copies `done`/`current`. Each state 
   `deliverToSister` + `syncColonies` each round. Milestones `queenOut`, `conquest`, `founded`,
   `sisterNest3`, `sisterWave` (informative); `final.finals`, `beaconAttacks`, `beaconsHeld`,
   `guardDeaths`.
+
+## Chantier 46: wounded on a field we hold
+
+- A final battle won brings its fallen home wounded (`result.injured`), like a landing won.
+- A beacon held: its fallen guards fly home wounded (`sendHome(…, hurt)`, the retreat ship's
+  `result.injured`), `BeaconReport.hurt` (names), event `beaconAttacked.hurt`; a fallen beacon
+  still kills. `BeaconForecast.expectedHurt` (middle trial held) vs `expectedDead`.
+- Bot: `bot/beacons.ts` `provisionsFor` adds the return crew's rations (`returnSurplus`): a
+  guard ship sent with 0 crew to fetch a guard took no food and the relieved starved (half of
+  the "deaths" of the act III conquest probe). `SIEGE.final` hp 900, damage 0.5 (was 450 /
+  0.4): the conquest came on days 7–12.

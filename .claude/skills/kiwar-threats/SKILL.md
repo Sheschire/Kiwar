@@ -212,3 +212,10 @@ when there is no civilisation: a sister, a twin held by a friend, a conquered fa
 announcement sets `PlannedWave.origin` (a barracks parcel) and **needs the truth**: without
 `state.aliens` the client does not announce (`canAnnounceWave`), `waveAwaited` /
 `hiddenDue` make the server's `load` do it. Long public-state tests must clear `threats.next`.
+
+## Chantier 46: the occasional player's waves
+
+Waves lost by the occasional profile rose from 9 % (act II) to 20 % (act III) with the same
+threats: its turrets stayed at level 1 because the village and the canals took the leftovers
+that upgraded them. Bot habit (`turretDecision`, `!prepared`): each turret at half the Nest's
+level (floor in the Eden, ceil from Stone), turret places filled from the Stone age. 9.2 %.

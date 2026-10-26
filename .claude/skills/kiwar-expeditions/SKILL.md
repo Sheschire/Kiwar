@@ -193,8 +193,10 @@ age (`IntelReport.civAge`). `intelView` ages reports with `scheduleGrowth` (publ
   parcel's truth (`parcelTruth`: `sectorUnits`, every `civBuildings`, help from neighbours with
   a standing barracks), `landingSetup` + `simulateBattle(setup, '<garrison seed>/land/<id>')`,
   `landingOutcome` (victory = field cleared with a survivor; else retreat if someone reached
-  the ship; else defeat). **Every fallen kiwi dies** (memorial, mourning), victory included;
-  their gear goes back to the armory only on a victory (`removeVillagers(…, gearLost)`).
+  the ship; else defeat). Since chantier 46 the fallen of a **victory** come home wounded
+  (`result.injured`, 6 h, gear kept, no mourning); in a retreat or a defeat every fallen kiwi
+  dies and its gear stays there (`removeVillagers(…, gearLost = true)`). Forecasts:
+  `expectedDead` (not a victory) and `expectedHurt` (a victory), `tollOf`.
   - victory: `recordFight` (0.6), burn → `recordBurn`, a beacon (`faceViews[t].beacons`),
     `refreshBeacons`, bestiary, loot (stores × age × goal × ring × ranger, hold-limited),
     `victories[t]++`; survivors get XP × 2 and `veteran++` at the return;

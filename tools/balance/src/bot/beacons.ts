@@ -81,7 +81,13 @@ function pool(state: GameState, titan: boolean): Villager[] {
 }
 
 function provisionsFor(f: ExpeditionForecast): { pulp: number; juice: number } {
-  return { pulp: Math.ceil(f.needOneWay.pulp * 2.1), juice: Math.ceil(f.needOneWay.juice * 2.1) };
+  // Chantier 46: the guards brought home eat on the way back too (a crew of 0 sent to fetch
+  // a guard took no rations at all, and the relieved starved).
+  const back = (id: 'pulp' | 'juice') => Math.max(0, -f.returnSurplus[id]);
+  return {
+    pulp: Math.ceil(f.needOneWay.pulp * 2.1 + back('pulp') * 1.1),
+    juice: Math.ceil(f.needOneWay.juice * 2.1 + back('juice') * 1.1),
+  };
 }
 
 function launchable(state: GameState, map: FaceMap, plan: Omit<Launch, 'type' | 'provisions'>) {
