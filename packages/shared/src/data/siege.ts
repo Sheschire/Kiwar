@@ -20,8 +20,8 @@ export const SIEGE = {
    * ground power (× her parcel's growth) by √(power / `ground`), like the predators of a wave.
    */
   final: {
-    /** Chantier 46: 450 → 900 and 0.4 → 0.5, the conquest came on days 7–12 (target 14–21). */
-    hp: 900,
+    /** Chantier 46: 450 → 1300 and 0.4 → 0.5, the conquest came on days 7–13 (target 14–21). */
+    hp: 1300,
     /** × her blows (an area sweep: it hits everybody around her). */
     damage: 0.5,
     /**

@@ -38,8 +38,9 @@ export const CIV = {
   outerSpread: [0.75, 1.25] as const,
   /** An inner parcel holds this many times an outer one (drawn per parcel). */
   innerMultiple: [2, 3] as const,
-  /** Garrisons grow with the age of the parcel… */
-  ageMultiple: [1, 1.25, 1.6, 2.2] as readonly number[],
+  /** Garrisons grow with the age of the parcel (chantier 46: Industry 2.2 → 1.9, the conquest
+   * stalled at 8–9 beacons in a third of the probe runs)… */
+  ageMultiple: [1, 1.25, 1.6, 1.9] as readonly number[],
   /** …and with every day of development, up to `maxDays`. */
   perDay: 0.12,
   maxDays: 14,

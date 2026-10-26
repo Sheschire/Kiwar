@@ -3206,8 +3206,8 @@ var SIEGE = {
    * ground power (× her parcel's growth) by √(power / `ground`), like the predators of a wave.
    */
   final: {
-    /** Chantier 46: 450 → 900 and 0.4 → 0.5, the conquest came on days 7–12 (target 14–21). */
-    hp: 900,
+    /** Chantier 46: 450 → 1300 and 0.4 → 0.5, the conquest came on days 7–13 (target 14–21). */
+    hp: 1300,
     /** × her blows (an area sweep: it hits everybody around her). */
     damage: 0.5,
     /**
@@ -3260,8 +3260,9 @@ var CIV = {
   outerSpread: [0.75, 1.25],
   /** An inner parcel holds this many times an outer one (drawn per parcel). */
   innerMultiple: [2, 3],
-  /** Garrisons grow with the age of the parcel… */
-  ageMultiple: [1, 1.25, 1.6, 2.2],
+  /** Garrisons grow with the age of the parcel (chantier 46: Industry 2.2 → 1.9, the conquest
+   * stalled at 8–9 beacons in a third of the probe runs)… */
+  ageMultiple: [1, 1.25, 1.6, 1.9],
   /** …and with every day of development, up to `maxDays`. */
   perDay: 0.12,
   maxDays: 14,
