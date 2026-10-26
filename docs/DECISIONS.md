@@ -49,13 +49,13 @@ Larger choices were validated with the project owner (marked ✅).
 - **Static shadows**: the shadow map is rendered only when the scene changes (buildings), not every frame. Moving kiwis will use cheap blob shadows.
 - **Post-processing** (`postprocessing` + `n8ao`): N8AO (half resolution) → one merged EffectPass with bloom, tilt-shift, slight saturation/contrast, **Khronos Neutral tone mapping** (ACES greyed out the pastel palette) and vignette.
 - **Quality presets**:
-  | | Low | Medium | High |
+  |                  | Low               | Medium | High                    |
   | ---------------- | ----------------- | ------ | ----------------------- |
-  | Pixel ratio cap | 1.25 | 1.5 | 2 |
-  | Shadows (static) | 1024 | 2048 | 2048 |
-  | Post-processing | — (direct render) | bloom | AO + bloom + tilt-shift |
-  | MSAA | browser AA | 2× | 4× |
-  | Props density | 45 % | 75 % | 100 % |
+  | Pixel ratio cap  | 1.25              | 1.5    | 2                       |
+  | Shadows (static) | 1024              | 2048   | 2048                    |
+  | Post-processing  | — (direct render) | bloom  | AO + bloom + tilt-shift |
+  | MSAA             | browser AA        | 2×     | 4×                      |
+  | Props density    | 45 %              | 75 %   | 100 %                   |
 - **Auto preset**: GPU name (WEBGL_debug_renderer_info), device memory, cores, coarse pointer + small screen. Desktop discrete / Apple Silicon → High, phones → Medium, weak GPUs / software rendering → Low. In Auto, if the average fps stays under 40 for ~4 s the preset steps down. `?quality=low|medium|high` forces a preset (handy for testing).
 
 ### Simulation (step 4)
@@ -3117,3 +3117,12 @@ Act IV opens by closing the two points left open in chantier 46: the queen came 
   (16.8: a beacon fallen at the date), conquest on days 13.1, 13.1, 14.0, 15.3, 15.5, 17.0
   (**4 of 6 in the 14–21 window**, none stalled, every run at 12 beacons), **0–14 kiwis
   dead** (3–24 before), 9–26 wounded.
+- Occasional profile (conquest-1..3 Kiwisu × 21 days): conquest on day 20.9 in one run, the
+  other two light their centre on days 17.6 and 19.6 (no queen by day 21): within the
+  charter's × 1.5 for the occasional player.
+- Short report (`--seeds 2 --hours 72`): faces within 6.4 % on every line, Stone 13.4 h,
+  Iron 2.7 d (as in chantier 46); the biome lines beyond ±10 % (mayor, level 10, Nest 3,
+  Library) come before any landing, with two seeds per biome.
+- **Left open**: two runs in six beat the queen the day she comes out (day 13.1); a date on
+  day 14 would put every conquest in the window and match `floorH` (to decide with the
+  owner). To test: the worst-case forecast makes small crews cautious.

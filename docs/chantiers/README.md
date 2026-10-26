@@ -32,7 +32,7 @@ d'acceptation et les **skills à charger**. La direction d'ensemble est dans le
 |     | **Entre les actes III et IV**                                                              |           |                       |
 | 46  | [Réglages d'après l'acte III](46-reglages-fin-acte-iii.md) — **fait**                      | 45        | non                   |
 |     | **Acte IV — Au-delà** (décisions du 26 octobre 2026, carnet section 9)                     |           |                       |
-| 47  | [Le rythme de la conquête](47-rythme-conquete.md)                                          | 46        | non                   |
+| 47  | [Le rythme de la conquête](47-rythme-conquete.md) — **fait**                               | 46        | non                   |
 | 48  | [Tréfonds I : l'entrée et la chair verte](48-trefonds-chair-verte.md)                      | 47        | non                   |
 | 49  | [La tranche : les Tréfonds vus en coupe](49-la-tranche.md)                                 | 48        | avec 50 (client seul) |
 | 50  | [Tréfonds II : les loges, les raphides et l'actinidine](50-trefonds-loges.md)              | 48        | avec 49               |

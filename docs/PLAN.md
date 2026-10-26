@@ -51,7 +51,7 @@ dans l'historique.
 | 45  | Rives fertiles et canaux de jus                     | fait    |
 | 46  | Réglages d'après l'acte III                         | fait    |
 |     | **Acte IV — Au-delà**                               |         |
-| 47  | Le rythme de la conquête                            | à faire |
+| 47  | Le rythme de la conquête                            | fait    |
 | 48  | Tréfonds I : l'entrée et la chair verte             | à faire |
 | 49  | La tranche (client)                                 | à faire |
 | 50  | Tréfonds II : les loges                             | à faire |
@@ -76,9 +76,13 @@ centre moins fort à l'Industrie (×1,9) : conquête entre les jours 17 et 20 da
 6, 3 à 24 morts en 21 jours.
 **L'acte IV est écrit** (26 octobre 2026) : douze fiches, de 47 à 58, et les décisions du
 porteur dans la section 9 du [carnet](CARNET_DE_ROUTE.md) et dans `DECISIONS.md`.
-**Prochaine conversation** : le [chantier 47](chantiers/47-rythme-conquete.md) (la reine sort
-à une date publique, et le diagnostic de la partie bloquée à 8 balises).
-À tester avec le porteur : l'exigence du moral par âge, le poids des deuils, la valeur d'un
+**Chantier 47 fait** : la reine sort à une date publique (jour 13, avec les 12 balises à la
+date) ; le blocage à 8 balises venait de la prévision des débarquements, qui oubliait les
+renforts d'une caserne cachée — elle les compte maintenant au pire. Conquête aux jours 13–17,
+aucune partie bloquée, 0 à 14 morts.
+**Prochaine conversation** : le [chantier 48](chantiers/48-trefonds-chair-verte.md)
+(Tréfonds I : l'entrée et la chair verte).
+À tester avec le porteur : la prévision des débarquements au pire (renforts possibles), la reine au jour 13 (deux parties sur six la battent le jour même : une date au jour 14 ?), l'exigence du moral par âge, le poids des deuils, la valeur d'un
 discours, la beauté sans placement, le prix du cabaret et des feux, les rives à +30 %, le prix
 (80 pulpe + 40 fibre, 1 h) et le plafond (3 / 6 / 10 / 15) des canaux, la reine à 1300 points
 de vie.

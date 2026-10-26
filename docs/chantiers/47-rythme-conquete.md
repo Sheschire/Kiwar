@@ -103,3 +103,33 @@ Chemins sous `packages/shared/src/`.
   21 dans au moins 4 parties sur 6, aucune bloquée sous 10 balises.
 - La cause du blocage à 8 balises est nommée (bot ou règle) dans `DECISIONS.md`.
 - L'économie reste dans ±10 % entre faces et biomes.
+
+## Fait (26 octobre 2026)
+
+Parties 1 à 3 en code (cinq commits), mesures dans `DECISIONS.md`.
+
+1. **Reine datée** : `SIEGE.queenFromH`, sortie différée (événement de l'avance, résolu là où
+   la vérité est tenue, `hiddenDue` côté serveur). Point neuf tranché par le porteur : il faut
+   **les 12 balises à la date** ; une balise tombée retarde la reine jusqu'à ce qu'elle
+   brille de nouveau. Pas de champ de sauvegarde (la date vient de `createdAt`).
+2. **Écran Conquête** : « Elle creuse dans les Tréfonds… pas avant 13 jours (dans …) », puis
+   un compte à rebours quand les 12 balises brillent ; textes FR + EN, captures desktop et
+   téléphone.
+3. **Blocage à 8 balises : cause nommée, une règle** (pas le bot). La prévision d'un
+   débarquement oubliait les **renforts d'une caserne voisine cachée** (25 % de sa
+   garnison) : « probable, aucun mort » finissait en retraite meurtrière 26 fois sur 30 ; les
+   vétéran·es tombaient et l'armée ne suffisait plus au centre. Choix du porteur : les prévoir
+   **au pire** — la bataille d'essai la plus dure compte les renforts possibles de chaque
+   parcelle voisine sans notre balise, et le planificateur les nomme. Un correctif du bot
+   (une classe de combat pour tous) a été essayé puis retiré : inutile une fois la prévision
+   honnête.
+4. **Date calibrée** : avec des débarquements honnêtes, les 12 balises brillent avant le jour
+   7 partout et la reine tombait le jour de sa sortie ; `queenFromH` 168 → **312 h (jour 13)**. Sonde attentive (6 parties × 21 jours) : reine au jour 13 dans 5 parties sur 6 (16,8),
+   conquête aux jours 13,1–17,0 (**4 sur 6 entre 14 et 21**), aucune bloquée, **0 à 14
+   morts** (3 à 24 avant). Occasionnel (3 parties Kiwisu) : une conquête au jour 20,9, deux
+   sans reine à 21 jours (centre aux jours 17,6 et 19,6). Économie : faces à ≤ 6,4 %, Pierre
+   13,4 h, Fer 2,7 j.
+
+Reste ouvert : deux parties sur six battent la reine le jour même de sa sortie (jour 13,1) ;
+à voir avec le porteur s'il faut une date au jour 14 (elle coïnciderait avec `floorH`) ou
+laisser ainsi. La prévision au pire rend les petits équipages prudents : à faire tester.

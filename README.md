@@ -10,6 +10,13 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 47** — **le rythme de la conquête**. La reine des furets ne sort plus avant le
+> **jour 13** (une date publique, affichée sur l'écran Conquête avec un compte à rebours), et il
+> lui faut les 12 balises à cette date. La prévision d'un débarquement compte désormais **au
+> pire** les renforts qu'une caserne cachée pourrait envoyer depuis les parcelles voisines :
+> « probable » veut dire gagné même s'ils viennent. Plus de partie bloquée : la conquête vient
+> entre les jours 13 et 17 pour un·e joueur·euse attentif·ve.
+
 > **Chantier 46** — **réglages d'après l'acte III**. Un kiwi qui tombe sur un terrain que
 > l'on tient (débarquement ou bataille finale gagnés, balise qui tient bon) **revient
 > blessé·e** au lieu de mourir ; seules une retraite, une défaite ou une balise perdue tuent
