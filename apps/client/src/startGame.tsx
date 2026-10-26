@@ -329,6 +329,26 @@ uiStore.subscribe((s, prev) => {
   }
 });
 
+// Chantier 59: visiting an ally, their village comes alive (refreshed every minute there).
+const VILLAGE_REFRESH_MS = 60_000;
+let villageTimer = 0;
+let villageVisit = 0;
+async function refreshVillage(kiwiIndex: number, visit: number): Promise<void> {
+  const ally = uiStore.getState().allies.find((a) => a.kiwiIndex === kiwiIndex);
+  const state = ally ? await controller.allyVillage(kiwiIndex, ally.face) : null;
+  // The visit may have ended (or moved on) during the call.
+  if (visit !== villageVisit) return;
+  if (state) renderer.setAllyVillage(kiwiIndex, state);
+  villageTimer = window.setTimeout(() => void refreshVillage(kiwiIndex, visit), VILLAGE_REFRESH_MS);
+}
+uiStore.subscribe((s, prev) => {
+  if (s.visit === prev.visit) return;
+  window.clearTimeout(villageTimer);
+  villageVisit++;
+  renderer.setAllyVillage(null, null);
+  if (typeof s.visit === 'number') void refreshVillage(s.visit, villageVisit);
+});
+
 // A menu over the scene: the 3D slows down to leave the main thread to the interface.
 uiStore.subscribe((s, prev) => {
   if (s.modal !== prev.modal) renderer.setBackground(s.modal !== 'none');

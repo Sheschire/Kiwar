@@ -99,6 +99,16 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   ships **and** due counter-attacks of the siege), the client polls while
   `awaitingServer(state, now)`; `import` calls `resetSiege` (a local siege cannot be checked).
   The siege truth is derived from the garrison seed: nothing new to strip. No SQL change.
+- **Chantier 59**: `allyVillage { universe, kiwiIndex, face }` returns `village` = another
+  member's colony advanced to now **in memory only** (≤ `VILLAGE_ADVANCE_MAX_MS` 12 h of lag,
+  never saved) through `villageView` (resources zeroed, `intel` / `faceViews` emptied, no
+  `aliens`). `AllySnapshot.twin` carries their public view of their twin (`allyTwinOf`).
+- **Stored-state validation (hotfix, October 2026)**: a stored game that fails
+  `gameStateSchema` makes `findGame` throw → `internal` for that player only (and for every
+  member whose load lists them in `neighboursOf`). A new queue kind or field must be accepted
+  by the schema: round-trip a state using it through `migrateState` in its test (the canal
+  queue items with `targetLevel: 0` locked players out). The client shows the server's code
+  (`ServerFailure`, `failureCode`), never "No connection" for a refusal.
 - **Chantier 39** (`kiwar-civ`): the alien civilisation lives inside `aliens` (stripped by
   `publicState`); `hiddenDue` also lists a wave due to be announced (only the server knows the
   civilisation's power and the wave's parcel), and `awaitingServer` includes `waveAwaited`.

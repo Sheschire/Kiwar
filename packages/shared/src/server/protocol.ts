@@ -262,6 +262,13 @@ export const requestSchema = z.discriminatedUnion('action', [
     universe: z.string().min(1).max(64),
     face: z.enum(FACES),
   }),
+  /** Chantier 59: an ally's village as it lives now, to watch it while visiting. */
+  z.object({
+    action: z.literal('allyVillage'),
+    universe: z.string().min(1).max(64),
+    kiwiIndex: z.number().int().min(0).max(64),
+    face: z.enum(FACES),
+  }),
 ]);
 
 export type GameRequest = z.infer<typeof requestSchema>;
@@ -314,6 +321,8 @@ export type GameResponse =
       sister?: TwinSnapshot | null;
       /** `guestTransfer` without `keep`. */
       transfer?: GuestTransferPreview;
+      /** Chantier 59 (`allyVillage`): an ally's colony now, stocks and intel left out. */
+      village?: GameState;
     }
   | { ok: false; error: ServerError; state?: GameState; serverTime: number };
 

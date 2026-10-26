@@ -314,6 +314,28 @@ export function colonyPower(s: GameState): ColonyPower {
   };
 }
 
+/** Chantier 59: how far the server brings an ally's village forward for a visit. */
+export const VILLAGE_ADVANCE_MAX_MS = 12 * 3_600_000;
+
+/**
+ * Chantier 59: what a visitor gets of an ally's colony — everything the village shows (kiwis
+ * and their jobs, buildings, sites, paths, crops), never their stocks nor what they know of
+ * the aliens.
+ */
+export function villageView(s: GameState): GameState {
+  const pub = publicState(s);
+  return {
+    ...pub,
+    resources: zeroResources(),
+    intel: {},
+    faceViews: {},
+  };
+}
+
+function zeroResources(): Resources {
+  return Object.fromEntries(RESOURCE_IDS.map((r) => [r, 0])) as Resources;
+}
+
 function toSummary(row: UniverseRow, players: number): UniverseSummary {
   return { id: row.id, name: row.name, code: row.code, players, maxPlayers: row.maxPlayers };
 }
@@ -999,6 +1021,27 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
 
     case 'guestTransfer':
       return guestTransfer(ctx, repo, req.guestToken, req.keep);
+
+    case 'allyVillage': {
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope?.shared) return fail('forbidden');
+      const { info, me } = scope.shared;
+      const member = info.members.find(
+        (m) => m.kiwiIndex === req.kiwiIndex && m.face === req.face && m.userId !== me.userId,
+      );
+      const game = member ? await repo.findGame(member.userId, info.id) : null;
+      if (!member || !game) return fail('invalidRequest');
+      const now = ctx.now();
+      const state = withScopeTargets(ctx, game.state, {
+        universeId: info.id,
+        shared: { info, me: member },
+      }).state;
+      // Brought up to now in memory only (never saved: it is their colony). An ally away for
+      // long is shown as they left it, so a visit never costs a long simulation.
+      const lag = now - state.now;
+      const lived = lag > 0 && lag <= VILLAGE_ADVANCE_MAX_MS ? advance(state, now).state : state;
+      return { ok: true, events: [], serverTime: now, village: villageView(lived) };
+    }
 
     case 'newWorld': {
       const state = freshGame(ctx, req.seed ?? ctx.randomSeed(), req.face);

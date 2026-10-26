@@ -88,6 +88,7 @@ import { efficiencyGlow, LogisticsBadges, type PercentBadge } from './logisticsB
 import { WaterView } from './water';
 import { TwinView, type TwinOptions } from './twin';
 import { AlliesView } from './allies';
+import { VillageLife } from './village';
 import { twinPlace, type PlanetRef } from './space';
 import { IntroScene, type IntroHandlers, type IntroLayout } from './intro';
 import { DayCycle } from './dayCycle';
@@ -594,6 +595,28 @@ export class GameRenderer {
       const planet = this.allies.find(visiting);
       if (planet) this.allies.setVisited(planet);
       else this.travelTo(null);
+    }
+    // Chantier 59: a rebuilt planet keeps its village alive.
+    if (this.village) this.setAllyVillage(this.village.kiwiIndex, this.village.state);
+  }
+
+  /** Chantier 59: the ally's village shown alive (null: every planet back to still models). */
+  private village: { kiwiIndex: number; state: GameState } | null = null;
+
+  setAllyVillage(kiwiIndex: number | null, state: GameState | null): void {
+    this.village = kiwiIndex !== null && state ? { kiwiIndex, state } : null;
+    for (const p of this.allies.planets) {
+      if (!this.village || p.kiwiIndex !== kiwiIndex) {
+        p.view.setLife(null);
+        continue;
+      }
+      let life = p.view.living;
+      if (!life) {
+        const q = QUALITY[this.preset];
+        life = new VillageLife(p.view.map, q.buildingAnimations, q.particles);
+        p.view.setLife(life);
+      }
+      life.sync(this.village.state);
     }
   }
 

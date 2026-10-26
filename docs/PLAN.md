@@ -63,6 +63,7 @@ dans l'historique.
 | 56  | Les ligues                                          | à faire |
 | 57  | Le JcJ optionnel                                    | à faire |
 | 58  | Réglages et bilan de l'acte IV                      | à faire |
+| 59  | Les voisins vivants (hors carnet)                   | fait    |
 
 **L'acte III est terminé** (bilan et mesures : section 8 ter du
 [carnet](CARNET_DE_ROUTE.md)), et ses **réglages** aussi (chantier **46**, mesures dans

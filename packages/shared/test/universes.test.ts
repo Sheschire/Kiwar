@@ -651,3 +651,58 @@ describe('allies’ alien twins (chantier 59)', () => {
     expect(JSON.stringify(bob.allies)).not.toMatch(/"civ":\{|"units":\[/);
   });
 });
+
+describe('an ally’s living village (chantier 59)', () => {
+  it('shows their colony now, without stocks, intel or the truth', async () => {
+    const { as, tick } = world();
+    const u = ok(
+      await handleGameRequest(as('alice'), {
+        action: 'createUniverse',
+        name: 'Les Kiwis',
+        displayName: 'Alice',
+      }),
+    ).universe!;
+    const bob = ok(
+      await handleGameRequest(as('bob'), {
+        action: 'joinUniverse',
+        code: u.code,
+        displayName: 'Bob',
+      }),
+    );
+    const alice = u.members[0]!;
+    tick(3 * 3_600_000);
+    const res = await handleGameRequest(as('bob'), {
+      action: 'allyVillage',
+      universe: u.id,
+      kiwiIndex: alice.kiwiIndex,
+      face: alice.face,
+    });
+    expect(res.ok).toBe(true);
+    const village = (res as { village: GameState }).village;
+    expect(village.playerId).not.toBe(bob.state.playerId);
+    // Brought up to now (in memory), with their kiwis and buildings.
+    expect(village.now).toBe(res.serverTime);
+    expect(village.villagers.length).toBeGreaterThan(0);
+    expect(Object.values(village.resources).every((v) => v === 0)).toBe(true);
+    expect(village.intel).toEqual({});
+    expect(village.aliens).toBeUndefined();
+    // Never their own colony, never a stranger's.
+    const me = u.members.find((m) => m.userId === 'bob') ?? bob.universe!.members[1]!;
+    expect(
+      await handleGameRequest(as('bob'), {
+        action: 'allyVillage',
+        universe: u.id,
+        kiwiIndex: me.kiwiIndex,
+        face: me.face,
+      }),
+    ).toMatchObject({ ok: false, error: 'invalidRequest' });
+    expect(
+      await handleGameRequest(as('eve'), {
+        action: 'allyVillage',
+        universe: u.id,
+        kiwiIndex: alice.kiwiIndex,
+        face: alice.face,
+      }),
+    ).toMatchObject({ ok: false, error: 'forbidden' });
+  });
+});

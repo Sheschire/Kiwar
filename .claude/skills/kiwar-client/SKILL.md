@@ -97,7 +97,10 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
   `Glide`). Glide tau 0.6 s, starts within 120 ms of the last move. `updateGlide` clamps its
   target to `this.bounds` itself (always set the boundary through `setBounds`):
   camera-controls' `_encloseToBoundary` returns NaN when the target is above/below the box
-  and the offset has no height. Path mode disables one-finger/left drag for the painter.
+  and the offset has no height. Since October 2026 the rig builds a
+  `SafeCameraControls` (falls back to the frictionless clamp when that product is 0: a
+  target at 3.0000000000000036 then a level drag turned the camera to NaN, peach sky until a
+  reload) and `keepSane` restores the last finite view after every `update`. Path mode disables one-finger/left drag for the painter.
   Double tap / double click (`TapDetector.onDoubleTap`, the first tap still selects) flies to
   the tile. `render/front.ts` re-exports the shared `FRONT_AZIMUTH`, the colony's front
   (alien twin, compass, chantier 12 wave sectors); `Compass.tsx` reads the azimuth from `ui/viewStore.ts` (renderer
@@ -289,6 +292,12 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   `kiwar-battle` (show) and `kiwar-world` (twin, camera).
 
 ## Performance (chantier 10)
+
+- **Comfort while moving (October 2026)**: players felt shadows "sliding" with a dizzy glitch.
+  High has no tilt-shift any more (screen-fixed blur bands over a moving colony); N8AO is
+  short and soft (radius 0.9, intensity 1.5) at full resolution; static shadows refresh every
+  0.25° of sun (`dot < 0.99999`). Avoid screen-space effects that do not follow the scene.
+  The debug panel shows measures only (no grant, regenerate or face switch buttons).
 
 - **The UI store is the usual suspect.** The controller emits a new `game` and `now` 5 times
   a second; every mounted `useUi` selector runs on every `setState`. Never call costly shared

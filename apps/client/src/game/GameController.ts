@@ -900,6 +900,27 @@ export class GameController {
   }
 
   /**
+   * Chantier 59: an ally's village as it lives now (their colony without stocks), to show it
+   * alive while visiting their planet. Null offline or when they are gone.
+   */
+  async allyVillage(kiwiIndex: number, face: Face): Promise<GameState | null> {
+    if (!this.online || this.universe === 'solo') return null;
+    try {
+      const res = await this.online.call({
+        action: 'allyVillage',
+        universe: this.universe,
+        kiwiIndex,
+        face,
+      });
+      if (!res.ok || !res.village) return null;
+      const migrated = migrateState(res.village);
+      return migrated.ok ? migrated.state : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Chantier 05: a newcomer to a shared universe moves to the other face of their kiwi (only
    * while the colony is untouched, and if nobody lives there).
    */

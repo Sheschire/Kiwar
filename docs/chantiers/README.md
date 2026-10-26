@@ -44,6 +44,8 @@ d'acceptation et les **skills à charger**. La direction d'ensemble est dans le
 | 56  | [Les ligues](56-ligues.md)                                                                 | 51        | avec 55 (serveur)     |
 | 57  | [Le JcJ optionnel](57-jcj-optionnel.md)                                                    | 56        | non                   |
 | 58  | [Réglages et bilan de l'acte IV](58-reglages-fin-acte-iv.md)                               | 57        | non                   |
+|     | **Hors carnet**                                                                            |           |                       |
+| 59  | [Les voisins vivants](59-voisins-vivants.md) — **fait**                                    | —         | oui (multijoueur)     |
 
 Les fiches de l'acte IV sont détaillées, mais leurs chiffres sont des points de départ à
 calibrer en session. Les anciens chantiers 25 à 29, jamais commencés, sont devenus 37, 35, 43,

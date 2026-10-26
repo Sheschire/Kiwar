@@ -45,6 +45,7 @@ import { buildingGeometry } from './buildingModels';
 import { WaterView } from './water';
 import { PALETTE } from './palette';
 import { GLSL_NOISE } from './shaderChunks';
+import type { VillageLife } from './village';
 import { TerrainView, tileTopColor, worldPosition } from './terrain';
 import { planetOrientation, type SpacePoint } from './space';
 
@@ -131,6 +132,10 @@ export class TwinView {
   /** A friend's buildings, merged into one geometry (one draw call per planet). */
   private buildingGeometry: BufferGeometry | null = null;
   private label: Sprite | null = null;
+  /** The merged buildings (hidden while the village lives, chantier 59). */
+  private friendBuildings: Mesh | null = null;
+  /** Chantier 59: the ally's village alive while we visit (see `VillageLife`). */
+  private life: VillageLife | null = null;
   /** Far level of detail: the face painted on a disc, and what it replaces. */
   private readonly far: Mesh;
   private readonly near: Object3D[] = [];
@@ -283,6 +288,7 @@ export class TwinView {
     }
     this.spin.rotation.y = this.angle;
     this.fogMaterial.uniforms.uTime!.value = time;
+    this.life?.update(dt, time);
     if (this.queen && this.queen.rise < 1) {
       // Chantier 42: she climbs out of the depths, the ground trembling around her.
       const q = this.queen;
@@ -464,7 +470,10 @@ export class TwinView {
     if (parts.length > 0) {
       this.buildingGeometry = mergeGeometries(parts, false);
       for (const g of parts) g.dispose();
-      if (this.buildingGeometry) this.terrain.group.add(new Mesh(this.buildingGeometry, material));
+      if (this.buildingGeometry) {
+        this.friendBuildings = new Mesh(this.buildingGeometry, material);
+        this.terrain.group.add(this.friendBuildings);
+      }
     }
     if (friend.obstacles?.length) {
       this.obstacles = new ObstaclesView(map);
@@ -681,6 +690,25 @@ export class TwinView {
       : null;
   }
 
+  /**
+   * Chantier 59: shows the ally's village alive (its own buildings, kiwis and paths) instead
+   * of the still models, or back to them (null). The view is owned from then on.
+   */
+  setLife(life: VillageLife | null): void {
+    if (this.life === life) return;
+    if (this.life) {
+      this.terrain.group.remove(this.life.group);
+      this.life.dispose();
+    }
+    this.life = life;
+    if (life) this.terrain.group.add(life.group);
+    if (this.friendBuildings) this.friendBuildings.visible = !life;
+  }
+
+  get living(): VillageLife | null {
+    return this.life;
+  }
+
   setLabelVisible(visible: boolean): void {
     if (this.label) this.label.visible = visible;
   }
@@ -691,6 +719,7 @@ export class TwinView {
   }
 
   dispose(): void {
+    this.setLife(null);
     this.terrain.dispose();
     this.water?.dispose();
     this.obstacles?.dispose();

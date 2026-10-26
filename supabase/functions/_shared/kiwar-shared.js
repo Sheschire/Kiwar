@@ -19554,6 +19554,13 @@ var requestSchema = external_exports.discriminatedUnion("action", [
     action: external_exports.literal("pickFace"),
     universe: external_exports.string().min(1).max(64),
     face: external_exports.enum(FACES)
+  }),
+  /** Chantier 59: an ally's village as it lives now, to watch it while visiting. */
+  external_exports.object({
+    action: external_exports.literal("allyVillage"),
+    universe: external_exports.string().min(1).max(64),
+    kiwiIndex: external_exports.number().int().min(0).max(64),
+    face: external_exports.enum(FACES)
   })
 ]);
 var SERVER_ERRORS = [
@@ -19673,6 +19680,19 @@ function colonyPower(s) {
     defense: Math.round(d.ground + d.air),
     shieldUntil: s.threats.shieldUntil
   };
+}
+var VILLAGE_ADVANCE_MAX_MS = 12 * 36e5;
+function villageView(s) {
+  const pub = publicState(s);
+  return {
+    ...pub,
+    resources: zeroResources(),
+    intel: {},
+    faceViews: {}
+  };
+}
+function zeroResources() {
+  return Object.fromEntries(RESOURCE_IDS.map((r) => [r, 0]));
 }
 function toSummary(row, players) {
   return { id: row.id, name: row.name, code: row.code, players, maxPlayers: row.maxPlayers };
@@ -20175,6 +20195,24 @@ async function handle(ctx, body) {
     }
     case "guestTransfer":
       return guestTransfer(ctx, repo, req.guestToken, req.keep);
+    case "allyVillage": {
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope?.shared) return fail2("forbidden");
+      const { info, me } = scope.shared;
+      const member = info.members.find(
+        (m) => m.kiwiIndex === req.kiwiIndex && m.face === req.face && m.userId !== me.userId
+      );
+      const game = member ? await repo.findGame(member.userId, info.id) : null;
+      if (!member || !game) return fail2("invalidRequest");
+      const now = ctx.now();
+      const state = withScopeTargets(ctx, game.state, {
+        universeId: info.id,
+        shared: { info, me: member }
+      }).state;
+      const lag = now - state.now;
+      const lived = lag > 0 && lag <= VILLAGE_ADVANCE_MAX_MS ? advance(state, now).state : state;
+      return { ok: true, events: [], serverTime: now, village: villageView(lived) };
+    }
     case "newWorld": {
       const state = freshGame(ctx, req.seed ?? ctx.randomSeed(), req.face);
       const existing = await repo.findGame(ctx.userId, soloId(ctx));
@@ -20623,6 +20661,7 @@ export {
   TURRETS2 as TURRETS,
   TURRET_SHOT,
   TURRET_TYPES,
+  VILLAGE_ADVANCE_MAX_MS,
   WAVE_UNITS,
   WEAPONS,
   WEAPON_FAMILIES,
@@ -21274,6 +21313,7 @@ export {
   validateCommand,
   viewFreshness,
   viewOfTruth,
+  villageView,
   waitingForBuilder,
   walkCost,
   walkDistances,
