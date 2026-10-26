@@ -420,6 +420,11 @@ export function LandingForecastLines(props: {
         <p class="small">{t('landing.garrisonGuess', { power: fmtRange(lang, f.power) })}</p>
       )}
       {f.trials.length > 0 && <p class="small">{t('landing.trials', { won })}</p>}
+      {f.help && f.help.length > 0 && (
+        <p class="small muted">
+          {t('landing.help', { names: f.help.map((n) => sectorName(t, n)).join(', ') })}
+        </p>
+      )}
       {f.queenLeft !== undefined && f.trials.length > 0 && (
         <p class="small">{t('queen.left', { pct: Math.round(f.queenLeft * 100) })}</p>
       )}

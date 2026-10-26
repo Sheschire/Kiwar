@@ -7919,9 +7919,9 @@ function resolveLanding(state, e, members, fed) {
   } else e.status = "returning";
 }
 var trialCache2 = /* @__PURE__ */ new Map();
-function practice(state, crew, sector, units, buildings, orders, fed, seed) {
-  const setup = landingSetup(state, crew, { sector, units, help: [], buildings, orders, fed });
-  const key = JSON.stringify([setup.units, setup.buildings, setup.orders, seed]);
+function practice(state, crew, sector, units, help, buildings, orders, fed, seed) {
+  const setup = landingSetup(state, crew, { sector, units, help, buildings, orders, fed });
+  const key = JSON.stringify([setup.units, setup.buildings, setup.orders, help, seed]);
   const hit = trialCache2.get(key);
   if (hit) return hit;
   const log2 = simulateBattle(setup, seed);
@@ -7933,65 +7933,81 @@ function practice(state, crew, sector, units, buildings, orders, fed, seed) {
 function scaled2(units, k) {
   return units.map((u) => ({ ...u, count: Math.max(1, Math.round(u.count * k)) }));
 }
-function landingForecast(state, targetId, sector, crew, orders, fed, now) {
-  const target = state.targets.find((t) => t.id === targetId);
-  const distance = target?.distance ?? 0;
+function parcelEstimate(state, targetId, sector, now) {
+  const distance = state.targets.find((t) => t.id === targetId)?.distance ?? 0;
   const view = parcelView(state, targetId, sector);
   const inner = isInner(sector);
-  const none = {
-    knowledge: "formidable",
-    view: null,
-    power: null,
-    age: null,
-    odds: "unknown",
-    expectedDead: 0,
-    expectedHurt: 0,
-    trials: []
-  };
-  if (!view && inner) return none;
+  if (!view && inner) return null;
   const growth = view ? scheduleGrowth(state, distance, view.at, now) : 1;
-  let knowledge;
-  let power;
-  let age;
-  let armies;
-  const buildings = view?.buildings ?? [];
   if (view && view.units.length > 0) {
-    knowledge = "seen";
     const p = view.power.max * growth;
-    power = { min: round13(p * LANDING.trials[0]), max: round13(p * LANDING.trials[2]) };
-    age = view.age;
-    armies = LANDING.trials.map((k) => scaled2(view.units, growth * k));
-  } else {
-    const hours = scheduleHours(state, distance, now);
-    age = view ? view.age : civAgeOfHours(hours);
-    if (view) {
-      knowledge = "edge";
-      power = { min: round13(view.power.min * growth), max: round13(view.power.max * growth) };
-    } else {
-      knowledge = "guess";
-      const base = alienDefOf(distance).defense * growthOfHours(hours);
-      power = { min: round13(base * LANDING.guess[0]), max: round13(base * LANDING.guess[1]) };
-    }
-    const at = [power.min, (power.min + power.max) / 2, power.max];
-    armies = at.map((p) => sectorUnits({ sector, inner, age, power: p }, 0.5));
-  }
-  if (crew.length === 0)
     return {
-      knowledge,
+      knowledge: "seen",
       view,
-      power,
-      age,
+      power: { min: round13(p * LANDING.trials[0]), max: round13(p * LANDING.trials[2]) },
+      age: view.age,
+      armies: LANDING.trials.map((k) => scaled2(view.units, growth * k))
+    };
+  }
+  const hours = scheduleHours(state, distance, now);
+  const age = view ? view.age : civAgeOfHours(hours);
+  let power;
+  if (view) power = { min: round13(view.power.min * growth), max: round13(view.power.max * growth) };
+  else {
+    const base = alienDefOf(distance).defense * growthOfHours(hours);
+    power = { min: round13(base * LANDING.guess[0]), max: round13(base * LANDING.guess[1]) };
+  }
+  const at = [power.min, (power.min + power.max) / 2, power.max];
+  return {
+    knowledge: view ? "edge" : "guess",
+    view,
+    power,
+    age,
+    armies: at.map((p) => sectorUnits({ sector, inner, age, power: p }, 0.5))
+  };
+}
+function possibleHelp(state, targetId, sector, now) {
+  const lit = new Set(beaconsOf(state, targetId));
+  const distance = state.targets.find((t) => t.id === targetId)?.distance ?? 0;
+  const share2 = LANDING.reinforce.share;
+  return neighbourSectors(sector).filter((n) => !lit.has(n)).map((n) => {
+    const known = parcelEstimate(state, targetId, n, now);
+    if (known) return { from: n, units: scaled2(known.armies[2], share2) };
+    const hours = scheduleHours(state, distance, now);
+    const power = alienDefOf(distance).defense * growthOfHours(hours) * LANDING.guess[1] * CIV.innerMultiple[1] * share2;
+    return {
+      from: n,
+      units: sectorUnits({ sector: n, inner: true, age: civAgeOfHours(hours), power }, 0.5)
+    };
+  }).filter((h) => h.units.length > 0);
+}
+function landingForecast(state, targetId, sector, crew, orders, fed, now) {
+  const known = parcelEstimate(state, targetId, sector, now);
+  if (!known)
+    return {
+      knowledge: "formidable",
+      view: null,
+      power: null,
+      age: null,
       odds: "unknown",
       expectedDead: 0,
       expectedHurt: 0,
-      trials: []
+      trials: [],
+      help: []
     };
+  const { knowledge, view, power, age, armies } = known;
+  const help = possibleHelp(state, targetId, sector, now);
+  const base = { knowledge, view, power, age, help: help.map((h) => h.from) };
+  if (crew.length === 0)
+    return { ...base, odds: "unknown", expectedDead: 0, expectedHurt: 0, trials: [] };
+  const buildings = view?.buildings ?? [];
   const runs = armies.map(
     (units, i) => practice(
       state,
       crew,
       sector,
       units,
+      i === 2 ? help : [],
       buildings,
       orders,
       fed,
@@ -8000,15 +8016,7 @@ function landingForecast(state, targetId, sector, crew, orders, fed, now) {
   );
   const won = runs.map((r) => r.outcome === "victory");
   const odds = won[2] ? "likely" : won[1] || won[0] ? "uncertain" : "unlikely";
-  return {
-    knowledge,
-    view,
-    power,
-    age,
-    odds,
-    ...tollOf(runs[1]),
-    trials: runs.map((r) => r.outcome)
-  };
+  return { ...base, odds, ...tollOf(runs[1]), trials: runs.map((r) => r.outcome) };
 }
 function tollOf(run) {
   return run.outcome === "victory" ? { expectedDead: 0, expectedHurt: run.dead } : { expectedDead: run.dead, expectedHurt: 0 };

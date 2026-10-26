@@ -426,6 +426,11 @@ export interface LandingForecast {
   trials: LandingOutcome[];
   /** Chantier 42, the final battle: share of the queen's strength left after the middle trial. */
   queenLeft?: number;
+  /**
+   * Chantier 47: neighbouring parcels whose hidden barracks could send help (the hardest trial
+   * meets them all).
+   */
+  help?: number[];
 }
 
 const trialCache = new Map<string, { outcome: LandingOutcome; dead: number }>();
@@ -435,13 +440,14 @@ function practice(
   crew: readonly Villager[],
   sector: number,
   units: AlienUnit[],
+  help: LandingHelp[],
   buildings: AlienBuilding[],
   orders: LandingOrders,
   fed: number,
   seed: string,
 ): { outcome: LandingOutcome; dead: number } {
-  const setup = landingSetup(state, crew, { sector, units, help: [], buildings, orders, fed });
-  const key = JSON.stringify([setup.units, setup.buildings, setup.orders, seed]);
+  const setup = landingSetup(state, crew, { sector, units, help, buildings, orders, fed });
+  const key = JSON.stringify([setup.units, setup.buildings, setup.orders, help, seed]);
   const hit = trialCache.get(key);
   if (hit) return hit;
   const log = simulateBattle(setup, seed);
@@ -456,10 +462,88 @@ function scaled(units: readonly AlienUnit[], k: number): AlienUnit[] {
   return units.map((u) => ({ ...u, count: Math.max(1, Math.round(u.count * k)) }));
 }
 
+/** What we know of a parcel's garrison today (public): null for an unseen centre parcel. */
+function parcelEstimate(
+  state: GameState,
+  targetId: string,
+  sector: number,
+  now: TimeMs,
+): {
+  knowledge: Knowledge;
+  view: ParcelView | null;
+  power: IntelRange;
+  age: number;
+  /** The garrison at the three trials' luck, weakest first. */
+  armies: AlienUnit[][];
+} | null {
+  const distance = state.targets.find((t) => t.id === targetId)?.distance ?? 0;
+  const view = parcelView(state, targetId, sector);
+  const inner = isInner(sector);
+  if (!view && inner) return null;
+  const growth = view ? scheduleGrowth(state, distance, view.at, now) : 1;
+  if (view && view.units.length > 0) {
+    const p = view.power.max * growth;
+    return {
+      knowledge: 'seen',
+      view,
+      power: { min: round1(p * LANDING.trials[0]!), max: round1(p * LANDING.trials[2]!) },
+      age: view.age,
+      armies: LANDING.trials.map((k) => scaled(view.units, growth * k)),
+    };
+  }
+  const hours = scheduleHours(state, distance, now);
+  const age = view ? view.age : civAgeOfHours(hours);
+  let power: IntelRange;
+  if (view) power = { min: round1(view.power.min * growth), max: round1(view.power.max * growth) };
+  else {
+    const base = alienDefOf(distance).defense * growthOfHours(hours);
+    power = { min: round1(base * LANDING.guess[0]), max: round1(base * LANDING.guess[1]) };
+  }
+  const at = [power.min, (power.min + power.max) / 2, power.max];
+  return {
+    knowledge: view ? 'edge' : 'guess',
+    view,
+    power,
+    age,
+    armies: at.map((p) => sectorUnits({ sector, inner, age, power: p }, 0.5)),
+  };
+}
+
+/**
+ * Chantier 47: the reinforcements a landing may meet at worst. Any neighbouring parcel without
+ * our beacon may hide a barracks (they stay secret): its share of the strongest garrison we can
+ * expect there (an unseen centre parcel: the public guess × the centre's top multiple).
+ */
+function possibleHelp(state: GameState, targetId: string, sector: number, now: TimeMs) {
+  const lit = new Set(beaconsOf(state, targetId));
+  const distance = state.targets.find((t) => t.id === targetId)?.distance ?? 0;
+  const share = LANDING.reinforce.share;
+  return neighbourSectors(sector)
+    .filter((n) => !lit.has(n))
+    .map((n): LandingHelp => {
+      const known = parcelEstimate(state, targetId, n, now);
+      if (known) return { from: n, units: scaled(known.armies[2]!, share) };
+      const hours = scheduleHours(state, distance, now);
+      const power =
+        alienDefOf(distance).defense *
+        growthOfHours(hours) *
+        LANDING.guess[1] *
+        CIV.innerMultiple[1] *
+        share;
+      return {
+        from: n,
+        units: sectorUnits({ sector: n, inner: true, age: civAgeOfHours(hours), power }, 0.5),
+      };
+    })
+    .filter((h) => h.units.length > 0);
+}
+
 /**
  * The honest forecast: three practice battles against what we know of the parcel (what a
  * battle or a beacon showed, grown on the public schedule; the edge seen from a beacon; the
  * public numbers for an unseen edge parcel). An unseen centre parcel is "formidable", no number.
+ * Chantier 47: the hardest one also meets every reinforcement a hidden barracks next door
+ * could send ("likely" means won even then).
  */
 export function landingForecast(
   state: GameState,
@@ -470,64 +554,32 @@ export function landingForecast(
   fed: number,
   now: TimeMs,
 ): LandingForecast {
-  const target = state.targets.find((t) => t.id === targetId);
-  const distance = target?.distance ?? 0;
-  const view = parcelView(state, targetId, sector);
-  const inner = isInner(sector);
-  const none: LandingForecast = {
-    knowledge: 'formidable',
-    view: null,
-    power: null,
-    age: null,
-    odds: 'unknown',
-    expectedDead: 0,
-    expectedHurt: 0,
-    trials: [],
-  };
-  if (!view && inner) return none;
-  const growth = view ? scheduleGrowth(state, distance, view.at, now) : 1;
-  let knowledge: Knowledge;
-  let power: IntelRange;
-  let age: number;
-  let armies: AlienUnit[][];
-  const buildings = view?.buildings ?? [];
-  if (view && view.units.length > 0) {
-    knowledge = 'seen';
-    const p = view.power.max * growth;
-    power = { min: round1(p * LANDING.trials[0]!), max: round1(p * LANDING.trials[2]!) };
-    age = view.age;
-    armies = LANDING.trials.map((k) => scaled(view.units, growth * k));
-  } else {
-    const hours = scheduleHours(state, distance, now);
-    age = view ? view.age : civAgeOfHours(hours);
-    if (view) {
-      knowledge = 'edge';
-      power = { min: round1(view.power.min * growth), max: round1(view.power.max * growth) };
-    } else {
-      knowledge = 'guess';
-      const base = alienDefOf(distance).defense * growthOfHours(hours);
-      power = { min: round1(base * LANDING.guess[0]), max: round1(base * LANDING.guess[1]) };
-    }
-    const at = [power.min, (power.min + power.max) / 2, power.max];
-    armies = at.map((p) => sectorUnits({ sector, inner, age, power: p }, 0.5));
-  }
-  if (crew.length === 0)
+  const known = parcelEstimate(state, targetId, sector, now);
+  if (!known)
     return {
-      knowledge,
-      view,
-      power,
-      age,
+      knowledge: 'formidable',
+      view: null,
+      power: null,
+      age: null,
       odds: 'unknown',
       expectedDead: 0,
       expectedHurt: 0,
       trials: [],
+      help: [],
     };
+  const { knowledge, view, power, age, armies } = known;
+  const help = possibleHelp(state, targetId, sector, now);
+  const base = { knowledge, view, power, age, help: help.map((h) => h.from) };
+  if (crew.length === 0)
+    return { ...base, odds: 'unknown', expectedDead: 0, expectedHurt: 0, trials: [] };
+  const buildings = view?.buildings ?? [];
   const runs = armies.map((units, i) =>
     practice(
       state,
       crew,
       sector,
       units,
+      i === 2 ? help : [],
       buildings,
       orders,
       fed,
@@ -536,15 +588,7 @@ export function landingForecast(
   );
   const won = runs.map((r) => r.outcome === 'victory');
   const odds: Odds = won[2] ? 'likely' : won[1] || won[0] ? 'uncertain' : 'unlikely';
-  return {
-    knowledge,
-    view,
-    power,
-    age,
-    odds,
-    ...tollOf(runs[1]!),
-    trials: runs.map((r) => r.outcome),
-  };
+  return { ...base, odds, ...tollOf(runs[1]!), trials: runs.map((r) => r.outcome) };
 }
 
 /** Chantier 46: who falls on a field we hold comes back wounded; anywhere else they die. */

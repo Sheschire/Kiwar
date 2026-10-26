@@ -1011,6 +1011,7 @@ export const fr: Dict = {
     },
     garrisonGuess: 'Garnison estimée à {power}.',
     trials: 'Batailles d’essai : {won} gagnée(s) sur 3.',
+    help: 'La bataille d’essai la plus dure compte aussi les renforts qu’une caserne cachée pourrait envoyer depuis : {names}.',
     dead: 'Environ {count} kiwi(s) tomberaient, mort·es pour toujours.',
     hurt: 'Environ {count} kiwi(s) tomberaient et reviendraient blessé·es (le terrain serait à nous).',
     noAir:

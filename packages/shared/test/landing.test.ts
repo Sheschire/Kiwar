@@ -13,6 +13,7 @@ import {
   landingOutcome,
   landingSetup,
   parcelTruth,
+  neighbourSectors,
   publicState,
   repairCost,
   repairDuration,
@@ -355,6 +356,33 @@ describe('the landing (chantier 40)', () => {
     expect(edge.knowledge).toBe('guess');
     expect(edge.trials).toHaveLength(3);
     expect(edge.power!.max).toBeGreaterThan(edge.power!.min);
+  });
+
+  it('counts at worst the help a hidden barracks next door could send (chantier 47)', () => {
+    const base = landingColony();
+    const ids = base.s.villagers.slice(-4).map((v) => v.id);
+    const plan = {
+      launchpadId: base.padId,
+      targetId: base.targetId,
+      crew: ids as never,
+      provisions: { pulp: 200, juice: 100 },
+      mission: 'land' as const,
+      sector: 8,
+      orders: orders(),
+    };
+    const free = forecastExpedition(publicState(base.s), plan)!.landing!;
+    expect(free.help).toEqual(neighbourSectors(8));
+    // Public: the same with or without the hidden garrison.
+    expect(forecastExpedition(base.s, plan)!.landing).toEqual(free);
+    // Our beacons around the parcel: nobody can come from there.
+    const ringed = cloneState(base.s);
+    ringed.faceViews = {
+      [base.targetId]: {
+        beacons: neighbourSectors(8).map((sector) => ({ sector, since: base.t })),
+        parcels: {},
+      },
+    };
+    expect(forecastExpedition(publicState(ringed), plan)!.landing!.help).toEqual([]);
   });
 
   it('saves and loads beacons, glimpses, the bestiary and the journal', () => {

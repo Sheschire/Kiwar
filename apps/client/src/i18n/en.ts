@@ -940,6 +940,7 @@ export const en = {
     },
     garrisonGuess: 'Garrison estimated at {power}.',
     trials: 'Practice battles: {won} won out of 3.',
+    help: 'The hardest practice battle also meets the help a hidden barracks could send from: {names}.',
     dead: 'About {count} kiwi(s) would fall, dead for good.',
     hurt: 'About {count} kiwi(s) would fall and come back wounded (the field would be ours).',
     noAir: 'Nobody in the crew can hit the bats: they will win by wearing you down.',
