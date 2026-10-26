@@ -17,6 +17,32 @@ CameraControls.install({
   THREE: { Vector2, Vector3, Vector4, Quaternion, Matrix4, Spherical, Box3, Sphere, Raycaster },
 });
 
+/**
+ * camera-controls with a safe boundary. Its enclosing divides by `offset · clampDelta`: when
+ * the target rests a hair outside the box in height (3.0000000000000036 after a pan up in
+ * the space view) and the move is level (a sideways drag, WASD), that product is 0 and the
+ * camera turns to NaN — only the sky colour is left, until a reload. Such a move falls back to
+ * the frictionless clamp, which never divides.
+ */
+export class SafeCameraControls extends CameraControls {
+  private readonly before = new Vector3();
+
+  protected override _encloseToBoundary(
+    position: Vector3,
+    offset: Vector3,
+    friction: number,
+  ): Vector3 {
+    this.before.copy(position);
+    const out = super._encloseToBoundary(position, offset, friction);
+    if (friction === 0 || isFiniteVector(out)) return out;
+    return super._encloseToBoundary(position.copy(this.before), offset, 0);
+  }
+}
+
+function isFiniteVector(v: Vector3): boolean {
+  return Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
+}
+
 const A = CameraControls.ACTION;
 const ROTATE_STEP = Math.PI / 4;
 const KEY_SPEED = 0.9; // fraction of the camera distance per second
@@ -28,6 +54,7 @@ const GLIDE_MAX_SPEED = 5;
 const SPIN_MAX_SPEED = 5;
 const tmpTarget = new Vector3();
 const tmpEnd = new Vector3();
+const tmpPosition = new Vector3();
 const tmpSpherical = new Spherical();
 
 /** The player's tilt range near the colony (polar angle from straight down). */
@@ -123,7 +150,7 @@ export class CameraRig {
 
   constructor(camera: PerspectiveCamera, element: HTMLElement) {
     this.element = element;
-    const c = new CameraControls(camera, element);
+    const c = new SafeCameraControls(camera, element);
     this.controls = c;
     c.mouseButtons.left = A.TRUCK;
     c.mouseButtons.right = A.ROTATE;
@@ -451,7 +478,34 @@ export class CameraRig {
     }
     this.updateGlide(dt);
     if (!this.away) this.updateLift();
-    return this.controls.update(dt);
+    const moved = this.controls.update(dt);
+    this.keepSane();
+    return moved;
+  }
+
+  /** The last view that was a number (the safety net of `keepSane`). */
+  private sane: { position: Vector3; target: Vector3 } | null = null;
+
+  /**
+   * Safety net: should the camera ever turn to NaN or Infinity, it goes back to the last good
+   * view instead of leaving the player in front of an empty sky.
+   */
+  private keepSane(): void {
+    const c = this.controls;
+    const position = c.getPosition(tmpPosition, false);
+    const target = c.getTarget(tmpTarget, false);
+    if (isFiniteVector(position) && isFiniteVector(target)) {
+      if (!this.sane) this.sane = { position: new Vector3(), target: new Vector3() };
+      this.sane.position.copy(position);
+      this.sane.target.copy(target);
+      return;
+    }
+    this.stopGlide();
+    this.lastOffset = Number.NaN;
+    const good = this.sane ?? this.framing(this.frameDistance / 2);
+    const p = good.position;
+    const t = good.target;
+    void c.setLookAt(p.x, p.y, p.z, t.x, t.y, t.z, false);
   }
 
   /**

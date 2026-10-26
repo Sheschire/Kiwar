@@ -1,4 +1,7 @@
+import CameraControls from 'camera-controls';
+import { Box3, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
+import { SafeCameraControls } from '../src/camera/CameraRig';
 import { Glide, GLIDE_TAU } from '../src/camera/inertia';
 import { FRONT_AZIMUTH, frontScreenAngle } from '../src/render/front';
 import { TapDetector } from '../src/render/picking';
@@ -90,5 +93,34 @@ describe('TapDetector double tap', () => {
     tap(110);
     tap(400);
     expect(taps).toEqual(['tap', 'tap', 'double', 'tap']);
+  });
+});
+
+describe('SafeCameraControls', () => {
+  // The case caught in the browser: the target a hair above the bounds after a pan up in the
+  // space view, then a level move (a sideways drag, WASD).
+  const box = new Box3(new Vector3(-30, -1, -30), new Vector3(30, 3, 30));
+  const enclose = (fn: unknown, position: Vector3, offset: Vector3) =>
+    (fn as (p: Vector3, o: Vector3, f: number) => Vector3).call(
+      { before: new Vector3(), _boundary: box },
+      position,
+      offset,
+      0.15,
+    );
+
+  it('never turns the camera to NaN on a level move from just above the bounds', () => {
+    const start = () => new Vector3(-15.905570542009388, 3.0000000000000036, 7.915046760058303);
+    const level = new Vector3(4, 0, -2);
+    // camera-controls alone divides by zero there.
+    const raw = enclose(CameraControls.prototype['_encloseToBoundary' as never], start(), level);
+    expect(Number.isFinite(raw.x)).toBe(false);
+    const safe = enclose(
+      SafeCameraControls.prototype['_encloseToBoundary' as never],
+      start(),
+      level,
+    );
+    expect(safe.x).toBeCloseTo(-11.905570542009388, 9);
+    expect(safe.y).toBe(3);
+    expect(safe.z).toBeCloseTo(5.915046760058303, 9);
   });
 });
