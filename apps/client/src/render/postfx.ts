@@ -43,12 +43,13 @@ export class PostFx {
 
     if (quality.ao) {
       const ao = new N8AOPostPass(scene, camera, 1, 1);
-      ao.configuration.aoRadius = 1.6;
+      // Kept short and soft: a wide, dark screen-space AO slides around objects as the camera
+      // moves (it only knows what is on screen), and at half resolution its edges shimmer.
+      ao.configuration.aoRadius = 0.9;
       ao.configuration.distanceFalloff = 0.6;
-      ao.configuration.intensity = 2.4;
+      ao.configuration.intensity = 1.5;
       ao.configuration.color = new Color('#3a2238');
-      ao.configuration.halfRes = true;
-      ao.configuration.depthAwareUpsampling = true;
+      ao.configuration.halfRes = false;
       ao.setQualityMode('Medium');
       this.composer.addPass(ao);
     }

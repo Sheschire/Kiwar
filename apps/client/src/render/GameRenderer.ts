@@ -1833,8 +1833,9 @@ export class GameRenderer {
     this.water?.setIce(seasonUniforms.uSnow.value);
     this.weather?.update(this.elapsed, c, sky.night);
     this.comets?.setNight(sky.night);
-    // Shadows are static: refresh them when the sun has moved a little.
-    if (sky.lightDir.dot(this.lastLightDir) < 0.99985) {
+    // Shadows are static: refresh them when the sun has moved a little. A quarter of a degree
+    // (every 5 s of a 2 h day): with a low sun a whole degree made long shadows jump by a tile.
+    if (sky.lightDir.dot(this.lastLightDir) < 0.99999) {
       this.lastLightDir.copy(sky.lightDir);
       this.water?.setSunDirection(sky.lightDir);
       this.renderer.shadowMap.needsUpdate = true;

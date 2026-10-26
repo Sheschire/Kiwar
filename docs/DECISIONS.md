@@ -3056,3 +3056,15 @@ day ~21, Great Weevil day 25–28, first wormhole day 28–30.
   `targetLevel: 0`, but the save schema required ≥ 1: such a colony was "corrupt", the `game`
   function threw (`internal`) and the client showed "No connection". The schema now accepts 0
   (no data change, no schema version bump); a canal test round-trips a colony mid-dig.
+- Camera NaN after a pan far out (peach sky until a reload): `SafeCameraControls` falls back
+  to the frictionless clamp when camera-controls' boundary friction would divide by zero;
+  a non-finite camera goes back to the last good view.
+- A colony that fails to open says why (server code, "outdated": reload, "broken": a bug on
+  the device), never "No connection" for a server refusal.
+- Players felt a dizzy "shadows sliding" glitch while moving the camera: the High preset loses
+  the tilt-shift blur (screen-fixed bands over a moving colony), its screen-space AO is
+  shorter, softer and full resolution, and the static shadows refresh every 0.25° of sun
+  instead of 1° (long shadows of a low sun jumped by a tile).
+- The debug panel only shows the machine's measures (and the time speed in local games): the
+  "+500 of everything", "new random seed" and "switch face" buttons are gone (the last two
+  wiped the solo colony online).

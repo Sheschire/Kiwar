@@ -74,7 +74,9 @@ export const QUALITY: Record<QualityPreset, QualitySettings> = {
     liteShadows: false,
     ao: true,
     bloom: true,
-    tiltShift: true,
+    // Off: its blurred bands stay put on screen while the colony slides under them, which
+    // players felt as a dizzy glitch when moving the camera.
+    tiltShift: false,
     msaa: 2,
     propDensity: 1,
     buildingAnimations: true,
