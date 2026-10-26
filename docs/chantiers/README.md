@@ -11,20 +11,20 @@ d'acceptation et les **skills à charger**. La direction d'ensemble est dans le
 | #   | Chantier                                                                                   | Dépend de | En parallèle possible |
 | --- | ------------------------------------------------------------------------------------------ | --------- | --------------------- |
 |     | **Acte I — Le rythme**                                                                     |           |                       |
-| 30  | [Paliers, âges et réserves](30-paliers-ages-reserves.md)                                   | —         | avec 32, 34           |
+| 30  | [Paliers, âges et réserves](30-paliers-ages-reserves.md) — **fait**                        | —         | avec 32, 34           |
 | 31  | [Objectifs et menaces réveillées](31-objectifs-menaces.md) — **fait**                      | 30        | avec 32, 33, 34       |
 | 32  | [Correctifs et ciel](32-correctifs-ciel.md) — **fait**                                     | —         | oui (client seul)     |
 | 33  | [Bâtiments par âge, icônes 3D](33-batiments-par-age-icones.md) — **fait**                  | 30        | oui (client seul)     |
-| 34  | [Kiwis et créatures vivants](34-kiwis-creatures-vivants.md)                                | —         | oui (client seul)     |
+| 34  | [Kiwis et créatures vivants](34-kiwis-creatures-vivants.md) — **fait**                     | —         | oui (client seul)     |
 |     | **Acte II — La guerre des faces**                                                          |           |                       |
 | 35  | [Bâtiments sur plusieurs tuiles](35-batiments-multi-tuiles.md) — **fait**                  | 30, 33    | non                   |
 | 36  | [Moteur de bataille : les vagues jouées pour de vrai](36-moteur-de-bataille.md) — **fait** | 34, 35    | non                   |
 | 37  | [Classes, rôles de combat, camp d’entraînement](37-classes-roles-camp.md) — **fait**       | 36        | non                   |
 | 38  | [Forge, équipement et fer météorique](38-forge-equipement-fer.md) — **fait**               | 37        | non                   |
 | 39  | [La civilisation alien](39-civilisation-alien.md) — **fait**                               | 36        | non                   |
-| 40  | [Le débarquement](40-debarquement.md)                                                      | 39        | non                   |
-| 41  | [La bataille en direct sur la jumelle](41-bataille-en-direct.md)                           | 40        | avec 43 (prudence)    |
-| 42  | [La reine des furets](42-reine-des-furets.md)                                              | 41        | non                   |
+| 40  | [Le débarquement](40-debarquement.md) — **fait**                                           | 39        | non                   |
+| 41  | [La bataille en direct sur la jumelle](41-bataille-en-direct.md) — **fait**                | 40        | avec 43 (prudence)    |
+| 42  | [La reine des furets](42-reine-des-furets.md) — **fait**                                   | 41        | non                   |
 |     | **Acte III — Le village vivant** (fiches courtes, détaillées en début de session)          |           |                       |
 | 43  | [Moral par kiwi, Mairie et feu de camp](43-moral-mairie-feu-de-camp.md) — **fait**         | 35        | non                   |
 | 44  | [Loisirs et décor](44-loisirs-decor.md) — **fait**                                         | 43        | non                   |
