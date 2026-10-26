@@ -1151,6 +1151,12 @@ export const fr: Dict = {
     title: 'La reine des furets',
     hidden:
       'La reine se cache dans les tréfonds de la jumelle. Allumez une balise sur chacune des {total} parcelles pour la faire sortir : {count}/{total}.',
+    digging:
+      'Elle creuse dans les Tréfonds de la jumelle : elle ne sortira pas avant {days} jours après votre arrivée (dans {duration}).',
+    countdown:
+      'Les 12 balises brillent : elle sort dans {duration}, si elles brillent toutes encore. Préparez la bataille finale et défendez vos balises.',
+    dateGone: 'Son heure est venue : elle sort dès que la 12e balise brille.',
+    rising: 'La reine remonte des Tréfonds…',
     out: 'La reine est sortie au {name} il y a {ago} !',
     power: 'Force vue par vos balises : {ground} au sol, {air} dans les airs.',
     wounds: 'Encore blessée : {pct} % de ses forces perdues dans votre dernière bataille.',

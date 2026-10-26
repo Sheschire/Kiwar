@@ -10,6 +10,7 @@ import {
   guardsOf,
   INTEL,
   meteorIronOf,
+  queenFrom,
   queenOf,
   queenWounds,
   SIEGE,
@@ -261,18 +262,33 @@ export function QueenPanel(props: {
   const face = faceViewOf(game, target.id);
   const q = queenOf(game, target.id);
   if (game.siege.conqueredAt > 0) return null;
-  if (!q)
+  if (!q) {
+    // Chantier 47: she never comes out before her public date, and needs the 12 beacons then.
+    const from = queenFrom(game);
+    const all = face.beacons.length >= INTEL.sectors;
+    const days = Math.round(SIEGE.queenFromH / 24);
+    const left = formatDuration(lang, Math.max(0, from - now));
     return (
       <section class="field queen-panel is-hidden">
         <h3>{t('queen.title')}</h3>
-        <p class="small">
-          {t('queen.hidden', { count: face.beacons.length, total: INTEL.sectors })}
-        </p>
+        {!all && (
+          <p class="small">
+            {t('queen.hidden', { count: face.beacons.length, total: INTEL.sectors })}
+          </p>
+        )}
         <div class="queen-progress" aria-hidden="true">
           <span style={{ width: `${(face.beacons.length / INTEL.sectors) * 100}%` }} />
         </div>
+        {from > now && all && (
+          <p class="small warn queen-countdown">{t('queen.countdown', { duration: left })}</p>
+        )}
+        {from > now && !all && (
+          <p class="small muted">{t('queen.digging', { days, duration: left })}</p>
+        )}
+        {from <= now && <p class="small muted">{all ? t('queen.rising') : t('queen.dateGone')}</p>}
       </section>
     );
+  }
   const wounds = queenWounds(q, now);
   const flying = game.expeditions.some(
     (e) => e.mission === 'final' && e.status === 'outbound' && e.targetId === target.id,

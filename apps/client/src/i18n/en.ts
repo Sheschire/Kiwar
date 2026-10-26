@@ -1079,6 +1079,12 @@ export const en = {
     title: 'The ferret queen',
     hidden:
       'The queen hides in the depths of the twin. Light a beacon on each of the {total} parcels to bring her out: {count}/{total}.',
+    digging:
+      'She is digging in the Depths of the twin: she will not come out before {days} days after your arrival (in {duration}).',
+    countdown:
+      'The 12 beacons shine: she comes out in {duration}, if they all still shine then. Prepare the final battle and defend your beacons.',
+    dateGone: 'Her date has come: she comes out as soon as the 12th beacon shines.',
+    rising: 'The queen is rising from the Depths…',
     out: 'The queen came out at {name} {ago} ago!',
     power: 'Power seen by your beacons: {ground} on the ground, {air} in the air.',
     wounds: 'Still wounded: {pct} % of her strength lost in your last battle.',
