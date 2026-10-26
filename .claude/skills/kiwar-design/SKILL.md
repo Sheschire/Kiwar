@@ -60,7 +60,10 @@ worth protecting.
 | Industrial age                 | ~10 days                  | 7.8 days           | 9.2 days           | 8.7 days           |
 | Occasional player (8 h visits) | ~×1.5 the attentive times | ×1.5 / ×1.3        | ×1.7 / ×1.4 / ×1.1 | ×1.1 / ×1.3 / ×1.1 |
 
-Levels: 3 per age (Eden 1–3, Stone 4–6, Iron 7–9, Industry 10–12), the Nest follows.
+Levels: 3 per age (Eden 1–3, Stone 4–6, Iron 7–9, Industry 10–12), the Nest follows. Act IV
+(chantier 51) adds the **Age of the stars** (levels 13–15) at **~3 weeks**; act IV targets
+(first delve day 3–4, queen day 7–14, conquest day 14–21, Great Weevil day 25–28, first
+wormhole day 28–30) are in `docs/chantiers/58-reglages-fin-acte-iv.md`.
 
 **Working hypotheses** (not laws, check them with the bot and with people): in the first 24 h of
 active play no stretch longer than ~45 min without a useful decision; a resource sits at its

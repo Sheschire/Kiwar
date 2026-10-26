@@ -49,13 +49,13 @@ Larger choices were validated with the project owner (marked ✅).
 - **Static shadows**: the shadow map is rendered only when the scene changes (buildings), not every frame. Moving kiwis will use cheap blob shadows.
 - **Post-processing** (`postprocessing` + `n8ao`): N8AO (half resolution) → one merged EffectPass with bloom, tilt-shift, slight saturation/contrast, **Khronos Neutral tone mapping** (ACES greyed out the pastel palette) and vignette.
 - **Quality presets**:
-  |                  | Low               | Medium | High                    |
+  | | Low | Medium | High |
   | ---------------- | ----------------- | ------ | ----------------------- |
-  | Pixel ratio cap  | 1.25              | 1.5    | 2                       |
-  | Shadows (static) | 1024              | 2048   | 2048                    |
-  | Post-processing  | — (direct render) | bloom  | AO + bloom + tilt-shift |
-  | MSAA             | browser AA        | 2×     | 4×                      |
-  | Props density    | 45 %              | 75 %   | 100 %                   |
+  | Pixel ratio cap | 1.25 | 1.5 | 2 |
+  | Shadows (static) | 1024 | 2048 | 2048 |
+  | Post-processing | — (direct render) | bloom | AO + bloom + tilt-shift |
+  | MSAA | browser AA | 2× | 4× |
+  | Props density | 45 % | 75 % | 100 % |
 - **Auto preset**: GPU name (WEBGL_debug_renderer_info), device memory, cores, coarse pointer + small screen. Desktop discrete / Apple Silicon → High, phones → Medium, weak GPUs / software rendering → Low. In Auto, if the average fps stays under 40 for ~4 s the preset steps down. `?quality=low|medium|high` forces a preset (handy for testing).
 
 ### Simulation (step 4)
@@ -2998,3 +2998,54 @@ player's waves, and the twin's gap between faces.
   (unchanged). Kiwis lost on expeditions in 72 h: 3.3–7.7 per run (5.3–9.2).
 - Stone stays within the ±15 % of its 12 h target (13.8 h median of the long runs, ≤ 13.8 h):
   the bot keeps its decorations where they are (decision 7 of the chantier document).
+
+## Act IV "Beyond" — chantiers written (26 October 2026)
+
+The owner asked for the act IV chantiers to be written (not coded), from the roadmap's section
+9 and `VISION.md`. Twelve documents, `docs/chantiers/47-…` to `58-…`; the roadmap's section 9
+holds the French summary. Interactive questions, **the recommended option taken every time**:
+
+- **The early queen** (open since chantier 46): she comes out at a **public date** of the alien
+  clock (starting point day 7, to calibrate), even when the 12 beacons shine earlier; until then
+  she "digs in the depths" on the Conquest screen (chantier 47).
+- **The run stalled at 8 beacons**: **diagnose first** (replay the bot's saved states); fix the
+  bot if it is the bot, else a public lever shown in the forecast (chantier 47).
+- **A fifth age, the Age of the stars**: levels 13–15, monument, objectives, aimed at **~3
+  weeks** for the attentive player, conquest not required; every per-level table goes from 13
+  to 16 cells (chantier 51).
+- **The depths open in the Iron age, layer by layer**: the green flesh in Iron (48), the
+  locules in Industry (50), the core and the stem in the Age of the stars (52).
+- **Depths gameplay**: a network of rooms under fog, explored by **delves** prepared like a
+  landing (crew, rations, orders, honest forecast, the battle engine plus hazards); a room won
+  becomes a gallery with a mine post.
+- **Threat from below**: creatures may come up through the tunnel entrance as announced waves;
+  answers: close, fortify or guard the entrance.
+- **Kiwais**: a small map in orbit inside the colony's state (19 tiles, own resource,
+  breakdowns and comets, a shuttle), no third game state (chantier 53).
+- **The cosmic orchard**: destinations and trading posts reached by wormholes (inhabitants
+  friendly or not, own rules and resources), not full colonies (chantiers 54, 55).
+- **Ideas entering act IV**: **leagues** (seasons of ~4 weeks with no reset, public dated
+  feats, a kept title or cosmetic, chantier 56) and **optional PvP** (an asynchronous landing in
+  `pvp` universes; the defender never loses a kiwi, only capped reserves and wounded; shield,
+  beginner protection, announcement; chantier 57). Trade between allied faces stays an idea.
+
+Defaults chosen by Claude (changeable, status "default"):
+
+- the **Spelunker** (Spéléologue) is a seventh master class: Endurance + Dexterity (a pair no
+  master class uses), Iron age, training camp, mace family;
+- delves follow chantier 46's rule: a room won brings its fallen home wounded, a retreat or a
+  defeat kills;
+- hidden room contents come from a secret seed and resolve where the truth is held, like the
+  civilisation;
+- the orchard is drawn from the universe's seed, the same for every member, with each colony
+  keeping its own view and impacts;
+- three fruits (raspberry, apple, pineapple), with the Great Weevil guarding our stem;
+- a fifth ship generation, the star sailboat (voilier stellaire);
+- the queen "hiding in the twin's depths" stays a story; the depths of the second colony come
+  later (noted for chantier 58);
+- kiwais: 1 / 2 / 3 at orbital yard levels 13 / 14 / 15; a public absent-player protection
+  (3 days) in PvP.
+
+Order: 47 → 48 → (49 ∥ 50) → 51 → 52, 53 → 54 → (55 ∥ 56) → 57 → 58. Act IV pacing targets
+(hypotheses): first delve day 3–4, queen out day 7–14, conquest day 14–21, Age of the stars
+day ~21, Great Weevil day 25–28, first wormhole day 28–30.

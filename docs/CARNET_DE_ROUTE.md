@@ -86,7 +86,7 @@ entre **productivité, sécurité et expansion** (`VISION.md`).
 | Session (5–20 min) | finir 1 à 3 objectifs de l'âge, préparer la vague annoncée, lancer ou regarder un débarquement |
 | Jour               | passer un palier (Nid, niveau), gagner une parcelle, une fête, une comète                      |
 | Semaine            | passer un âge, débloquer une classe de maître, l'anneau intérieur                              |
-| Mois               | 12 parcelles balisées, la reine, la seconde colonie, puis l'acte IV                            |
+| Mois               | 12 parcelles balisées, la reine, la seconde colonie, l'Âge des étoiles, le Verger (acte IV)    |
 
 ### Par âge (joueuse ou joueur attentif ; occasionnel·le ≈ ×1,5)
 
@@ -163,9 +163,22 @@ temps : chacun régénère le bundle de la fonction serveur et ajoute une versio
 | 43  | [Moral par kiwi, Mairie, feu de camp](chantiers/43-moral-mairie-feu-de-camp.md) | sim, client, bot  | 35     | —             | cycles, rpg, tasks, design             |
 | 44  | [Loisirs et décor](chantiers/44-loisirs-decor.md)                               | sim, client       | 43     | —             | cycles, client                         |
 | 45  | [Rives fertiles et canaux](chantiers/45-rives-canaux.md)                        | sim, client, bot  | 35     | —             | titans, world                          |
-|     | **Acte IV — Au-delà** (section 9, pas encore de chantier)                       |                   |        |               |                                        |
+|     | **Acte IV — Au-delà** (section 9)                                               |                   |        |               |                                        |
+| 47  | [Le rythme de la conquête](chantiers/47-rythme-conquete.md)                     | sim, bot          | 46     | —             | colonies, civ, balance, design         |
+| 48  | [Tréfonds I : l'entrée et la chair verte](chantiers/48-trefonds-chair-verte.md) | sim, serveur, UI  | 47     | —             | design, sim, expeditions, battle, rpg  |
+| 49  | [La tranche](chantiers/49-la-tranche.md)                                        | client            | 48     | 50            | client, world, battle, depths          |
+| 50  | [Tréfonds II : les loges](chantiers/50-trefonds-loges.md)                       | sim, client, bot  | 48     | 49            | depths, design, forge, titans          |
+| 51  | [L'Âge des étoiles](chantiers/51-age-des-etoiles.md)                            | sim, client, bot  | 50     | —             | ages, design, sim, client, balance     |
+| 52  | [Tréfonds III : cœur, pédoncule](chantiers/52-trefonds-coeur-pedoncule.md)      | sim, client       | 51     | —             | depths, battle, design, client         |
+| 53  | [Les kiwaïs](chantiers/53-kiwais.md)                                            | sim, client, bot  | 51     | —             | design, sim, sky, expeditions, world   |
+| 54  | [Trous de ver, la framboise](chantiers/54-verger-framboise.md)                  | sim, serveur, UI  | 52, 53 | —             | expeditions, battle, world, online     |
+| 55  | [La pomme et l'ananas](chantiers/55-verger-pomme-ananas.md)                     | sim, client       | 54     | 56            | orchard, battle, design, client        |
+| 56  | [Les ligues](chantiers/56-ligues.md)                                            | serveur, client   | 51     | 55            | online, design, client                 |
+| 57  | [Le JcJ optionnel](chantiers/57-jcj-optionnel.md)                               | sim, serveur, UI  | 56     | —             | online, battle, expeditions, threats   |
+| 58  | [Réglages et bilan de l'acte IV](chantiers/58-reglages-fin-acte-iv.md)          | bot, docs         | 57     | —             | balance, design, depths, orbit         |
 
-Les skills sont nommés sans le préfixe `kiwar-` ; `battle` (`kiwar-battle`) est créé au chantier 36.
+Les skills sont nommés sans le préfixe `kiwar-` ; `battle` (`kiwar-battle`) est créé au chantier 36,
+`depths` au 48, `orbit` au 53, `orchard` au 54, `leagues` au 56 et `pvp` au 57.
 
 Les anciens chantiers 25 à 29 sont repris :
 
@@ -189,7 +202,9 @@ apporte du neuf**.
 | Pierre    | niveaux 4–6 ; camp d'entraînement, classes avancées et Barde (37) ; Forge, armes de bois et de pierre (38) ; fontaine, statue du maire, jeux (44)                                                      | anneau extérieur à portée (40)                                                 |
 | Fer       | niveaux 7–9 ; fer météorique et équipement de fer (38) ; classes de maître (37) ; labo et Kikiwiwis (existants) ; cabaret du Rouge-Gorge, canon à feu d'artifice (44)                                  | anneau intérieur ; la civilisation peut attaquer une balise (42)               |
 | Industrie | niveaux 10–12 ; machines, armes à feu (existantes) ; équipement d'acier (38)                                                                                                                           | la reine sort quand les 12 parcelles sont balisées (42) ; seconde colonie (19) |
-| Après     | acte IV : Tréfonds, kiwaïs, Verger cosmique                                                                                                                                                            | —                                                                              |
+| Fer (IV)  | entrée de tunnel, chair verte des Tréfonds, descentes, Spéléologue, remontées (48)                                                                                                                     | —                                                                              |
+| Ind. (IV) | les loges : cristal, graines géantes, actinidine (50)                                                                                                                                                  | la reine sort à une date publique, pas avant le jour 7 (47)                    |
+| Étoiles   | niveaux 13–15, voilier stellaire (51) ; cœur et pédoncule, Liane-Mère (52) ; kiwaïs (53) ; trous de ver et Verger (54, 55)                                                                             | —                                                                              |
 
 ## 8. La guerre des faces en un coup d'œil (actes II, chantiers 36 à 42)
 
@@ -418,7 +433,8 @@ morts sur un terrain tenu, moral bâti à 64 (Pierre) et ~65 (Fer), l'occasionne
 vagues perdues sans mort (une habitude d'entretien des tourelles chez le bot), l'écart de face
 sur la jumelle ramené à 3,7 % (il venait de l'échantillon), la conquête aux jours 17–20 dans 3
 parties sur 6 avec 3 à 24 morts en 21 jours. Restent ouverts : la reine qui sort aux jours 3–4
-dans la moitié des parties et une partie sur six qui bloque à 8 balises.
+dans la moitié des parties et une partie sur six qui bloque à 8 balises. Le porteur les a
+tranchés le 26 octobre 2026 : ils ouvrent l'acte IV ([chantier 47](chantiers/47-rythme-conquete.md)).
 
 ### Leçons pour l'acte IV
 
@@ -429,7 +445,77 @@ dans la moitié des parties et une partie sur six qui bloque à 8 balises.
 - Le moral gagne à **une dépense qui revient** (soirées, feux) plutôt qu'à des bâtiments posés
   une fois.
 
-## 9. Acte IV — Au-delà (intentions, pas encore de chantier)
+## 9. Acte IV — Au-delà (26 octobre 2026)
+
+L'acte IV prolonge la partie d'un mois. Il va **sous nos pieds** (les Tréfonds), **au-dessus**
+(un cinquième âge, des kiwaïs en orbite), puis **au loin** (le Verger cosmique), et il donne un
+horizon commun aux univers partagés (ligues, JcJ optionnel). Il commence par fermer les deux
+points restés ouverts au chantier 46.
+
+### Les décisions du porteur (26 octobre 2026)
+
+Le porteur a pris l'option recommandée sur chaque question :
+
+| Sujet                     | Décision                                                                                                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Reine qui sort tôt        | elle sort à une **date publique** de l'horloge alien (point de départ : jour 7), même si les 12 balises brillent plus tôt ; d'ici là, elle « creuse »        |
+| Partie bloquée à 8        | **diagnostic d'abord** : on corrige le bot si c'est lui ; si c'est une règle, un levier public, visible dans la prévision                                    |
+| Âge                       | un **cinquième âge, l'Âge des étoiles** (niveaux 13–15), visé à **~3 semaines**, sans exiger la conquête                                                     |
+| Ouverture des Tréfonds    | **au Fer, par couches** : la chair verte au Fer, les loges à l'Industrie, le cœur et le pédoncule à l'Âge des étoiles                                        |
+| Forme des Tréfonds        | un **réseau de salles sous brouillard**, exploré par des **descentes** (préparées comme un débarquement) ; une salle prise devient une galerie avec une mine |
+| Menace des Tréfonds       | des **remontées annoncées** par l'entrée de tunnel : fermer, fortifier ou garder                                                                             |
+| Kiwaïs                    | une **petite carte en orbite** dans l'état de la colonie (19 tuiles, ressource propre, pannes et comètes, navette), pas de troisième état de jeu             |
+| Verger cosmique           | des **destinations et des comptoirs** par trous de ver (habitant·es ami·es ou non, règles, ressources), pas de colonies complètes                            |
+| Idées entrées dans l'acte | les **ligues** (saisons d'environ 4 semaines, sans remise à zéro, hauts faits publics, cosmétique gardé) et le **JcJ optionnel**                             |
+| JcJ                       | un **débarquement asynchrone** dans les univers `pvp` ; la défense ne meurt jamais (réserves plafonnées, blessé·es), avec bouclier, protection et annonce    |
+
+Les échanges entre faces alliées restent une idée.
+
+Points de détail choisis par Claude (modifiables) :
+
+- le **Spéléologue** est une septième classe de maître (Endurance + Dextérité, au Fer, au camp,
+  famille masse) ;
+- sur une descente, la règle du 46 s'applique : une salle gagnée ramène des blessé·es, une
+  retraite ou une défaite tue ;
+- le **Verger** est le même pour tout un univers (tiré de sa graine), mais chaque colonie garde
+  ses impacts ;
+- trois fruits : la framboise, la pomme et l'ananas ;
+- un voilier stellaire, cinquième génération de vaisseau ;
+- les Tréfonds de la seconde colonie viennent plus tard (noté au 58).
+
+### Les chantiers
+
+| #   | Chantier                                | Ce que le jeu y gagne (charte)                                                                                                 |
+| --- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 47  | Le rythme de la conquête                | une horloge commune pour la reine (7) ; une conquête qui ne cale plus (4 : jamais d'impasse)                                   |
+| 48  | Tréfonds I : l'entrée et la chair verte | du neuf au Fer (2) ; une tension avec information (6) ; les stats et le Spéléologue qui paient (5) ; les remontées             |
+| 49  | La tranche (client)                     | le sous-sol vu en coupe, les mineur·euses et les descentes en direct : le jeu délégué (9)                                      |
+| 50  | Tréfonds II : les loges                 | du neuf à l'Industrie (2) ; deux stocks rares, chacun avec des puits qui reviennent ; creuser vers l'avenir ou vers la défense |
+| 51  | L'Âge des étoiles                       | une cinquième étape de la courbe (1), des objectifs (8), les niveaux 13–15 et un look neuf                                     |
+| 52  | Tréfonds III : le cœur et le pédoncule  | le but long sous nos pieds : le Grand Charançon, puis la Liane-Mère qui ouvre le Verger                                        |
+| 53  | Les kiwaïs                              | l'expansion contre la sécurité en orbite : quel type, qui envoyer, bouclier ou évacuation                                      |
+| 54  | Les trous de ver et la framboise        | le grand jeu de l'après-conquête : commercer ou combattre, la réputation, les comptoirs                                        |
+| 55  | La pomme et l'ananas                    | une règle par fruit (la maturation, la bromélaïne), et des routes entre comptoirs                                              |
+| 56  | Les ligues                              | des buts à long terme dans un univers (8), justes et publics (10), sans pression de connexion                                  |
+| 57  | Le JcJ optionnel                        | une tension réelle et annoncée (6), une punition réparable (4)                                                                 |
+| 58  | Les réglages et le bilan de l'acte IV   | des mesures sur 35 jours, le bilan, et les décisions pour la suite                                                             |
+
+Ordre et dépendances : 47 → 48 → (49 ∥ 50) → 51 → 52 et 53 (l'un après l'autre) → 54 → (55 ∥ 56) → 57 → 58. Les chantiers client seuls (49) et serveur seuls (56) sont ceux qui peuvent
+tourner en parallèle.
+
+### Le rythme visé (hypothèses à mesurer)
+
+| Étape (attentif·ve)   | Cible      |
+| --------------------- | ---------- |
+| première descente     | jour 3–4   |
+| reine sortie          | jour 7–14  |
+| conquête              | jour 14–21 |
+| Âge des étoiles       | jour ~21   |
+| Grand Charançon tombé | jour 25–28 |
+| premier trou de ver   | jour 28–30 |
+| saison de ligue       | ~28 jours  |
+
+L'occasionnel·le vise ×1,25 à ×1,5 ces temps, et ne perd pas plus d'une menace sur dix.
 
 ### Les Tréfonds
 
@@ -455,11 +541,14 @@ Inspiré du vrai fruit (sources vérifiées) :
   pédoncule mène à la **Liane-Mère**, d'où pendent tous les fruits-planètes : c'est le lien vers
   le Verger cosmique. Dans les tréfonds de la jumelle se terre la reine.
 
+Chantiers 48 (chair verte), 49 (la tranche), 50 (loges) et 52 (cœur et pédoncule).
+
 ### Les kiwaïs
 
 Le kiwaï (_Actinidia arguta_) est un mini-kiwi lisse qu'on mange entier : le modèle idéal des
 **petites planètes artificielles** qu'on lance en orbite aux derniers âges. Chacune est une base
-spatiale avec un peu de place, une ressource propre et un risque (pannes, comètes).
+spatiale avec un peu de place, une ressource propre et un risque (pannes, comètes). Chantier 53,
+à l'Âge des étoiles (51).
 
 ### Le Verger cosmique
 
@@ -467,11 +556,13 @@ Une fois sa moitié colonisée, on explore l'espace vite, avec des vaisseaux ava
 **trous de ver** qui suivent la Liane-Mère. On y trouve d'autres **planètes-fruits** : pomme,
 framboise, ananas… Chacune a ses habitant·es, ses ressources et ses règles (la framboise en
 grappes de petites sphères, l'ananas en écailles). C'est le grand jeu de l'après-conquête.
+Chantiers 54 et 55.
 
-### Toujours en idée
+### Ligues et JcJ
 
-Ligues (classement), JcJ optionnel dans les univers qui l'autorisent, échanges entre faces
-alliées (`VISION.md`).
+Les ligues (56) classent les hauts faits d'un univers par saisons, sans rien effacer. Le JcJ
+(57) n'existe que dans les univers qui l'autorisent. Les échanges entre faces alliées
+(`VISION.md`) restent une idée.
 
 ## 10. Contenu à produire
 
@@ -514,9 +605,9 @@ C'est le vrai coût des actes II et III. Les chantiers 33 et 34 construisent les
 | Retour                                              | Chantier              |
 | --------------------------------------------------- | --------------------- |
 | Exploration et conquête de la jumelle               | 36, 39, 40, 41, 42    |
-| Tunnels et tréfonds                                 | acte IV               |
-| Planètes artificielles en orbite                    | acte IV (kiwaïs)      |
-| Exploration spatiale, trous de ver, planètes-fruits | acte IV               |
+| Tunnels et tréfonds                                 | 48, 49, 50, 52        |
+| Planètes artificielles en orbite                    | 53 (kiwaïs)           |
+| Exploration spatiale, trous de ver, planètes-fruits | 54, 55                |
 | Design tourelles / chauves-souris                   | 33 / 34               |
 | Chargement long au rafraîchissement                 | 32                    |
 | Pause après la découpe de l'intro                   | 32                    |

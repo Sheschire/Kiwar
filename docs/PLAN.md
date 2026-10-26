@@ -26,30 +26,43 @@ dans l'historique.
 - **Chantiers 01 à 24 faits** (liste dans [`chantiers/README.md`](chantiers/README.md)).
 - **Carnet de route d'octobre 2026** écrit : charte de game design (skill `kiwar-design`) et
   chantiers 30 à 45 détaillés (acte III en fiches courtes). Les anciens 25 à 29 y sont repris.
+  L'acte IV (chantiers 47 à 58) est écrit le 26 octobre 2026.
 
-| #   | Chantier                                             | État    |
-| --- | ---------------------------------------------------- | ------- |
-|     | **Acte I — Le rythme**                               |         |
-| 30  | Paliers, âges et réserves                            | fait    |
-| 31  | Objectifs et menaces réveillées                      | fait    |
-| 32  | Correctifs et ciel (client)                          | fait    |
-| 33  | Bâtiments par âge et icônes 3D (client)              | fait    |
-| 34  | Kiwis et créatures vivants (client)                  | fait    |
-|     | **Acte II — La guerre des faces**                    |         |
-| 35  | Bâtiments sur plusieurs tuiles                       | fait    |
-| 36  | Moteur de bataille : les vagues jouées pour de vrai  | fait    |
-| 37  | Classes, rôles de combat, camp d'entraînement        | fait    |
-| 38  | Forge, équipement et fer météorique                  | fait    |
-| 39  | La civilisation alien                                | fait    |
-| 40  | Le débarquement                                      | fait    |
-| 41  | La bataille en direct sur la jumelle (client)        | fait    |
-| 42  | La reine des furets                                  | fait    |
-|     | **Acte III — Le village vivant**                     |         |
-| 43  | Moral par kiwi, Mairie et feu de camp                | fait    |
-| 44  | Loisirs et décor                                     | fait    |
-| 45  | Rives fertiles et canaux de jus                      | fait    |
-| 46  | Réglages d'après l'acte III                          | fait    |
-| —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
+| #   | Chantier                                            | État    |
+| --- | --------------------------------------------------- | ------- |
+|     | **Acte I — Le rythme**                              |         |
+| 30  | Paliers, âges et réserves                           | fait    |
+| 31  | Objectifs et menaces réveillées                     | fait    |
+| 32  | Correctifs et ciel (client)                         | fait    |
+| 33  | Bâtiments par âge et icônes 3D (client)             | fait    |
+| 34  | Kiwis et créatures vivants (client)                 | fait    |
+|     | **Acte II — La guerre des faces**                   |         |
+| 35  | Bâtiments sur plusieurs tuiles                      | fait    |
+| 36  | Moteur de bataille : les vagues jouées pour de vrai | fait    |
+| 37  | Classes, rôles de combat, camp d'entraînement       | fait    |
+| 38  | Forge, équipement et fer météorique                 | fait    |
+| 39  | La civilisation alien                               | fait    |
+| 40  | Le débarquement                                     | fait    |
+| 41  | La bataille en direct sur la jumelle (client)       | fait    |
+| 42  | La reine des furets                                 | fait    |
+|     | **Acte III — Le village vivant**                    |         |
+| 43  | Moral par kiwi, Mairie et feu de camp               | fait    |
+| 44  | Loisirs et décor                                    | fait    |
+| 45  | Rives fertiles et canaux de jus                     | fait    |
+| 46  | Réglages d'après l'acte III                         | fait    |
+|     | **Acte IV — Au-delà**                               |         |
+| 47  | Le rythme de la conquête                            | à faire |
+| 48  | Tréfonds I : l'entrée et la chair verte             | à faire |
+| 49  | La tranche (client)                                 | à faire |
+| 50  | Tréfonds II : les loges                             | à faire |
+| 51  | L'Âge des étoiles                                   | à faire |
+| 52  | Tréfonds III : le cœur et le pédoncule              | à faire |
+| 53  | Les kiwaïs                                          | à faire |
+| 54  | Trous de ver et le Verger I : la framboise          | à faire |
+| 55  | Le Verger II : la pomme et l'ananas                 | à faire |
+| 56  | Les ligues                                          | à faire |
+| 57  | Le JcJ optionnel                                    | à faire |
+| 58  | Réglages et bilan de l'acte IV                      | à faire |
 
 **L'acte III est terminé** (bilan et mesures : section 8 ter du
 [carnet](CARNET_DE_ROUTE.md)), et ses **réglages** aussi (chantier **46**, mesures dans
@@ -60,14 +73,15 @@ tourelles (habitude du bot : 9 % de vagues perdues) ; une jumelle tirée par bio
 (l'écart de face venait de l'échantillon) ; reine plus solide (`hp` 1300, coups 0,5) et
 centre moins fort à l'Industrie (×1,9) : conquête entre les jours 17 et 20 dans 3 parties sur
 6, 3 à 24 morts en 21 jours.
-**Prochaine conversation** : écrire les chantiers de l'acte IV (section 9 du carnet), en
-commençant par une fiche par idée (Tréfonds, kiwaïs, Verger cosmique, ligues).
+**L'acte IV est écrit** (26 octobre 2026) : douze fiches, de 47 à 58, et les décisions du
+porteur dans la section 9 du [carnet](CARNET_DE_ROUTE.md) et dans `DECISIONS.md`.
+**Prochaine conversation** : le [chantier 47](chantiers/47-rythme-conquete.md) (la reine sort
+à une date publique, et le diagnostic de la partie bloquée à 8 balises).
 À tester avec le porteur : l'exigence du moral par âge, le poids des deuils, la valeur d'un
 discours, la beauté sans placement, le prix du cabaret et des feux, les rives à +30 %, le prix
 (80 pulpe + 40 fibre, 1 h) et le plafond (3 / 6 / 10 / 15) des canaux, la reine à 1300 points
 de vie.
-Toujours ouverts : la reine qui sort tôt (jours 3–4 dans la moitié des parties, cible 7–14),
-une partie sur six dont la conquête bloque à 8 balises, le ressenti de l'horloge alien (39),
+Toujours ouverts : le ressenti de l'horloge alien (39),
 du combat équipé (38), des rangs et du camp (37), la réparation automatique qui trahit l'issue
 d'une vague regardée (36) et le temps mort du début de la Pierre (31).
 

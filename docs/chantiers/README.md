@@ -31,9 +31,23 @@ d'acceptation et les **skills à charger**. La direction d'ensemble est dans le
 | 45  | [Rives fertiles et canaux de jus](45-rives-canaux.md) — **fait**                           | 35        | non                   |
 |     | **Entre les actes III et IV**                                                              |           |                       |
 | 46  | [Réglages d'après l'acte III](46-reglages-fin-acte-iii.md) — **fait**                      | 45        | non                   |
+|     | **Acte IV — Au-delà** (décisions du 26 octobre 2026, carnet section 9)                     |           |                       |
+| 47  | [Le rythme de la conquête](47-rythme-conquete.md)                                          | 46        | non                   |
+| 48  | [Tréfonds I : l'entrée et la chair verte](48-trefonds-chair-verte.md)                      | 47        | non                   |
+| 49  | [La tranche : les Tréfonds vus en coupe](49-la-tranche.md)                                 | 48        | avec 50 (client seul) |
+| 50  | [Tréfonds II : les loges, les raphides et l'actinidine](50-trefonds-loges.md)              | 48        | avec 49               |
+| 51  | [L'Âge des étoiles](51-age-des-etoiles.md)                                                 | 50        | non                   |
+| 52  | [Tréfonds III : le cœur, le pédoncule et la Liane-Mère](52-trefonds-coeur-pedoncule.md)    | 51        | non                   |
+| 53  | [Les kiwaïs : petites planètes en orbite](53-kiwais.md)                                    | 51        | non                   |
+| 54  | [Les trous de ver et le Verger I : la framboise](54-verger-framboise.md)                   | 52, 53    | non                   |
+| 55  | [Le Verger II : la pomme et l'ananas](55-verger-pomme-ananas.md)                           | 54        | avec 56               |
+| 56  | [Les ligues](56-ligues.md)                                                                 | 51        | avec 55 (serveur)     |
+| 57  | [Le JcJ optionnel](57-jcj-optionnel.md)                                                    | 56        | non                   |
+| 58  | [Réglages et bilan de l'acte IV](58-reglages-fin-acte-iv.md)                               | 57        | non                   |
 
-L'acte IV (Tréfonds, kiwaïs, Verger cosmique) n'a pas encore de chantier : voir le carnet. Les
-anciens chantiers 25 à 29, jamais commencés, sont devenus 37, 35, 43, 38 et 45.
+Les fiches de l'acte IV sont détaillées, mais leurs chiffres sont des points de départ à
+calibrer en session. Les anciens chantiers 25 à 29, jamais commencés, sont devenus 37, 35, 43,
+38 et 45.
 
 « En parallèle possible » : deux conversations peuvent tourner en même temps sans se marcher
 dessus (fichiers différents). Jamais deux chantiers de simulation en même temps : chacun

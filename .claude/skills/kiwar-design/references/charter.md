@@ -18,7 +18,7 @@ The French summary and the schedule are in `docs/CARNET_DE_ROUTE.md`; the log is
 
 | #   | Topic              | Decision                                                                                                                                                             | Status                        |
 | --- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| 1   | Ages (attentive)   | Stone ~12 h, Iron ~3 days, Industry ~10 days                                                                                                                         | validated                     |
+| 1   | Ages (attentive)   | Stone ~12 h, Iron ~3 days, Industry ~10 days; Age of the stars (5th, levels 13–15) ~3 weeks (26 Oct.)                                                                | validated                     |
 | 2   | Levels             | 3 per age: Eden 1–3, Stone 4–6, Iron 7–9, Industry 10–12; the Nest follows                                                                                           | validated                     |
 | 3   | Reserves           | in warehouses; overflow model: when a stock is full, production goes on into warehouse reserves, collected by a tap; reserve cap ~8 h early                          | validated (overflow: default) |
 | 4   | Punishment         | repairable losses: morale, full reserves stop production, stronger waves loot and damage; a kiwi dies only on a real defeat; never blocked                           | validated                     |
@@ -29,13 +29,24 @@ The French summary and the schedule are in `docs/CARNET_DE_ROUTE.md`; the log is
 | 9   | Morale             | one gauge per kiwi (food, rest, leisure, beauty, safety, traits, mourning, wounds); low-morale kiwis seek leisure off work                                           | validated                     |
 | 10  | Rouge-Gorge        | a Moulin-Rouge-style cabaret (cancan show, soft red lights at night), not an escort house                                                                            | validated                     |
 | 11  | Order              | Rhythm (+ UX fixes, content workshop) → War of the faces → Living village → Beyond                                                                                   | validated                     |
-| 12  | Docs               | roadmap + this skill + detailed chantiers for acts I–II; short sheets for act III; act IV in the roadmap only                                                        | validated                     |
+| 12  | Docs               | roadmap + this skill + detailed chantiers for acts I–II; short sheets for act III; act IV detailed (chantiers 47–58, 26 Oct.)                                        | validated                     |
 | 13  | Neighbour vision   | a beacon also lights the edge of adjacent sectors (natural edge → centre progression)                                                                                | default                       |
 | 14  | Burn or loot       | a landing order: burn (slows the civilisation) or loot (more resources back)                                                                                         | default                       |
 | 15  | Retreat report     | survivors of a retreat bring back what they saw (stale snapshot), no beacon                                                                                          | default                       |
 | 16  | Breakdowns         | a breakdown delays the trip instead of aborting the mission                                                                                                          | default                       |
 | 17  | Decorations        | outside the building cap, growing cost per copy, beauty in a radius                                                                                                  | default                       |
 | 18  | Second colony      | kept: the conquered twin still becomes the second colony (chantier 19)                                                                                               | default                       |
+
+## Act IV decisions (26 October 2026)
+
+| #   | Topic            | Decision                                                                                                            | Status    |
+| --- | ---------------- | ------------------------------------------------------------------------------------------------------------------- | --------- |
+| 19  | Queen's exit     | at a public date of the alien clock (day 7 to start), even when the 12 beacons shine earlier                        | validated |
+| 20  | Depths           | open in Iron by layers (flesh, locules in Industry, core and stem in the 5th age); rooms + delves; announced climbs | validated |
+| 21  | Kiwais / orchard | kiwais = small maps in orbit in the colony's state; orchard = destinations and trading posts, not colonies          | validated |
+| 22  | Leagues          | per-universe seasons (~4 weeks) of public feats, no reset of any colony, cosmetic rewards only                      | validated |
+| 23  | PvP              | asynchronous landing in `pvp` universes only; the defender never loses a kiwi, capped loot, shield, announcement    | validated |
+| 24  | Spelunker        | a seventh master class, Endurance + Dexterity                                                                       | default   |
 
 ## To test with people (not with the bot)
 
