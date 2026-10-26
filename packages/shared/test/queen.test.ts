@@ -32,7 +32,7 @@ import { findTile, kiwi, rich, run, setup, siteFor, T0 } from './helpers';
 const DAY = 24 * HOUR_MS;
 
 /** A colony at day `day` with a big launchpad, a strong crew, and the twin under 12 beacons. */
-function queenColony(day = 10, crewSize = 12, level = 20, seed = 'queen') {
+function queenColony(day = 16, crewSize = 12, level = 20, seed = 'queen') {
   const { map, state } = setup('kiwisu', seed);
   let s: GameState = rich(state);
   let t = T0;
@@ -167,7 +167,7 @@ describe('the ferret queen (chantier 42)', () => {
   });
 
   it('comes out when a landing lights the last beacon (an event)', () => {
-    const { s, id, padId, crew, map } = queenColony(10, 16, 30);
+    const { s, id, padId, crew, map } = queenColony(16, 16, 30);
     const st = cloneState(s);
     const last = st.faceViews[id]!.beacons.pop()!.sector;
     const land: Command = {
@@ -189,7 +189,7 @@ describe('the ferret queen (chantier 42)', () => {
   });
 
   it('fights in phases: bats under 75 %, elites under 50 %, all flee when she falls', () => {
-    const { s, id, crew } = queenColony(10, 16, 25);
+    const { s, id, crew } = queenColony(16, 16, 25);
     const st = cloneState(s);
     emergeQueen(st, id, st.now);
     const members = st.villagers.filter((v) => crew.includes(v.id));
@@ -206,7 +206,7 @@ describe('the ferret queen (chantier 42)', () => {
   });
 
   it('is locked until she is out, then conquers the twin and opens the second colony', () => {
-    const { s, id, padId, crew, map } = queenColony(10, 16, 30);
+    const { s, id, padId, crew, map } = queenColony(16, 16, 30);
     const eleven = cloneState(s);
     eleven.faceViews[id]!.beacons.pop();
     expect(validateCommand(eleven, final(padId, id, crew), { now: s.now, map })).toBe(
@@ -265,7 +265,7 @@ describe('the ferret queen (chantier 42)', () => {
     };
     await handleGameRequest(ctx, { action: 'load' });
     const game = [...repo.games.values()][0]!;
-    const base = queenColony(10, 16, 30);
+    const base = queenColony(16, 16, 30);
     const s = cloneState({ ...base.s, aliens: game.state.aliens });
     const id = s.targets[0]!.id;
     s.faceViews = { [id]: base.s.faceViews[base.id]! };

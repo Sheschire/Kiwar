@@ -17,8 +17,10 @@ export const SIEGE = {
   /**
    * Chantier 47: hours from the colony's start before the queen may come out (a public date).
    * Twelve beacons lit earlier make her wait for it; she still needs the twelve at the date.
+   * Day 7 → 13 after the honest forecast: the 12 beacons shone by day 7 everywhere and she fell
+   * the day she came out (conquest days 7–9, target 14–21).
    */
-  queenFromH: 168,
+  queenFromH: 312,
   /**
    * Chantier 42: the final battle. Once our 12 beacons light the twin, the queen comes out of
    * the depths at its centre. She is one giant unit; her hit points and blows grow with her

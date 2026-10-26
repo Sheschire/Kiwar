@@ -4,9 +4,6 @@ import {
   buildingCount,
   canAfford,
   ageOf,
-  beaconsOf,
-  maxCrew,
-  twinTarget,
   CLASS_IDS,
   CLASS_RULES,
   CLASSES,
@@ -77,26 +74,7 @@ export function rpgDecision(
   }
   if (!fighters || !has('launchpad')) return null;
   // Two warriors (the toughest) for the raids, a scout (the most agile) for the reports.
-  const first = pick('warrior', 2) ?? pick('scout');
-  if (first) return first;
-  return armyDecision(state, pick);
-}
-
-/**
- * Chantier 47: from the Iron age, once a beacon shines on the twin, every kiwi a landing takes
- * gets a fighting class (half warriors, half mages who hit the bats); the Forge then arms them.
- * Without it half the army fought with its beak and the centre of a bat-heavy twin stalled the
- * conquest (8 beacons for days).
- */
-function armyDecision(
-  state: GameState,
-  pick: (classId: ClassId, max?: number) => Command | null,
-): Command | null {
-  const twin = twinTarget(state);
-  const pad = state.buildings.find((b) => b.type === 'launchpad');
-  if (ageOf(state) < 2 || !twin || !pad || beaconsOf(state, twin.id).length === 0) return null;
-  const crew = maxCrew(state, pad, 'land');
-  return pick('warrior', Math.ceil(crew / 2)) ?? pick('mage', 2 + Math.floor(crew / 2));
+  return pick('warrior', 2) ?? pick('scout') ?? null;
 }
 
 /** Chantier 37: the training camp — build it, keep one kiwi drilling, promote who qualifies. */
