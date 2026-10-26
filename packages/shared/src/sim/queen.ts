@@ -31,6 +31,7 @@ import type { LandingForecast } from './landing';
 import { ageOf } from './research';
 import { getBuilding } from './selectors';
 import { queenTruth, twinTarget } from './siege';
+import type { GameEvent } from './advance';
 import type { AlienGarrison, Expedition, GameState, QueenView, Villager } from './state';
 
 /**
@@ -41,6 +42,52 @@ import type { AlienGarrison, Expedition, GameState, QueenView, Villager } from '
  */
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
+const HOUR = 3_600_000;
+
+/** Chantier 47: the public date before which the queen never comes out. */
+export function queenFrom(state: Pick<GameState, 'createdAt'>): TimeMs {
+  return state.createdAt + SIEGE.queenFromH * HOUR;
+}
+
+/** The twin waiting for its queen under 12 beacons (public): its id, or null. */
+export function queenPending(state: GameState): string | null {
+  const id = twinTarget(state)?.id;
+  const face = id ? state.faceViews[id] : undefined;
+  if (!id || !face || face.queen || state.siege.conqueredAt > 0) return null;
+  return face.beacons.length >= INTEL.sectors ? id : null;
+}
+
+/** When the queen comes out of her own (truth needed: Infinity without). */
+export function nextQueenEvent(state: GameState): TimeMs {
+  const id = queenPending(state);
+  if (!id || !state.aliens?.[id]) return Infinity;
+  return Math.max(state.now, queenFrom(state));
+}
+
+/** Her date is due and only the server knows her: the time it is due at. */
+export function queenDue(state: GameState, now: TimeMs): TimeMs[] {
+  const id = queenPending(state);
+  const at = queenFrom(state);
+  return id && at <= now ? [Math.max(at, state.now)] : [];
+}
+
+/** Her date is due and this client cannot bring her out (the server must). */
+export function queenAwaited(state: GameState, now: TimeMs): boolean {
+  const id = queenPending(state);
+  return !!id && !state.aliens?.[id] && queenFrom(state) <= now;
+}
+
+/** The date has come while 12 beacons shine: she comes out. */
+export function queenTick(state: GameState, at: TimeMs, events: GameEvent[]): void {
+  const id = queenPending(state);
+  if (!id || !emergeQueen(state, id, at)) return;
+  events.push({
+    type: 'queenEmerged',
+    at,
+    targetId: id,
+    sector: state.faceViews[id]!.queen!.sector,
+  });
+}
 
 /** The queen of a face, once out (public). */
 export function queenOf(state: Pick<GameState, 'faceViews'>, targetId: string): QueenView | null {
@@ -71,14 +118,16 @@ function queenNow(g: AlienGarrison, at: TimeMs) {
 }
 
 /**
- * The 12 beacons shine on the twin: the queen comes out (truth needed). True when she just did.
- * Once out she stays out, whatever happens to the beacons.
+ * The 12 beacons shine on the twin: the queen comes out (truth needed), not before her public
+ * date (chantier 47). True when she just did. Once out she stays out, whatever happens to the
+ * beacons.
  */
 export function emergeQueen(state: GameState, targetId: string, at: TimeMs): boolean {
   const face = state.faceViews[targetId];
   const g = state.aliens?.[targetId];
   if (!face || !g || face.queen || twinTarget(state)?.id !== targetId) return false;
   if (state.siege.conqueredAt > 0 || face.beacons.length < INTEL.sectors) return false;
+  if (at < queenFrom(state)) return false;
   liveCiv(g).royalSeen = true;
   const q = queenNow(g, at);
   face.queen = { ...q, since: at, at };

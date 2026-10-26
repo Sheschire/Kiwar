@@ -15,6 +15,11 @@ export const SIEGE = {
   /** Old bridgeheads drawn before the queen in the seed's stream (kept for older games). */
   oldHolds: 6,
   /**
+   * Chantier 47: hours from the colony's start before the queen may come out (a public date).
+   * Twelve beacons lit earlier make her wait for it; she still needs the twelve at the date.
+   */
+  queenFromH: 168,
+  /**
    * Chantier 42: the final battle. Once our 12 beacons light the twin, the queen comes out of
    * the depths at its centre. She is one giant unit; her hit points and blows grow with her
    * ground power (× her parcel's growth) by √(power / `ground`), like the predators of a wave.

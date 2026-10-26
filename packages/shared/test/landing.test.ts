@@ -226,7 +226,7 @@ describe('the landing (chantier 40)', () => {
   it('brings the fallen of a victory home wounded, and only a retreat kills (chantier 46)', () => {
     // Four ordinary kiwis win the edge, one of them falls: wounded, not dead.
     const won = landingColony(10);
-    const four = won.s.villagers.slice(-4).map((v) => v.id);
+    const four = won.s.villagers.slice(-4).map((v): string => v.id);
     const s = {
       ...won.s,
       villagers: won.s.villagers.map((v): Villager =>

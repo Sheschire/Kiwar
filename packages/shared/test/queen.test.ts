@@ -8,10 +8,13 @@ import {
   forecastExpedition,
   foundLock,
   handleGameRequest,
+  hiddenDue,
+  awaitingServer,
   HOUR_MS,
   LANDING,
   landingOutcome,
   publicState,
+  queenFrom,
   queenSetup,
   queenWounds,
   SIEGE,
@@ -101,6 +104,68 @@ describe('the ferret queen (chantier 42)', () => {
     expect(emergeQueen(st, id, s.now)).toBe(false);
   });
 
+  it('waits for her public date even under 12 beacons (chantier 47)', () => {
+    const { s, id } = queenColony(3);
+    const date = queenFrom(s);
+    expect(date).toBe(s.createdAt + SIEGE.queenFromH * HOUR_MS);
+    expect(date).toBeGreaterThan(s.now);
+    expect(emergeQueen(cloneState(s), id, s.now)).toBe(false);
+    const early = advance(s, date - 1).state;
+    expect(early.faceViews[id]!.queen).toBeUndefined();
+    const { state, events } = advance(s, date + HOUR_MS);
+    expect(state.faceViews[id]!.queen!.since).toBe(date);
+    expect(events.filter((e) => e.type === 'queenEmerged')).toEqual([
+      { type: 'queenEmerged', at: date, targetId: id, sector: state.faceViews[id]!.queen!.sector },
+    ]);
+    // Exact offline: the same in two steps.
+    const twice = advance(advance(s, date - DAY).state, date + HOUR_MS).state;
+    expect(twice.faceViews[id]!.queen).toEqual(state.faceViews[id]!.queen);
+  });
+
+  it('needs the 12 beacons at her date: a fallen one delays her until it shines again', () => {
+    const { s, id } = queenColony(3);
+    const date = queenFrom(s);
+    const st = cloneState(s);
+    const lost = st.faceViews[id]!.beacons.pop()!;
+    const waiting = advance(st, date + DAY).state;
+    expect(waiting.faceViews[id]!.queen).toBeUndefined();
+    const relit = cloneState(waiting);
+    relit.faceViews[id]!.beacons.push({ ...lost, since: relit.now });
+    const { state, events } = advance(relit, relit.now + HOUR_MS);
+    expect(state.faceViews[id]!.queen!.since).toBe(relit.now);
+    expect(events.some((e) => e.type === 'queenEmerged')).toBe(true);
+  });
+
+  it('is brought out at her date by the server when the client cannot', async () => {
+    const repo = createMemoryRepository();
+    let now = T0;
+    const ctx: ServiceContext = {
+      repo,
+      userId: 'u1',
+      now: () => now,
+      randomSeed: () => 'secret-queen-date',
+      randomBytes: (n) => Uint8Array.from({ length: n }, (_, i) => i % 256),
+    };
+    await handleGameRequest(ctx, { action: 'load' });
+    const game = [...repo.games.values()][0]!;
+    const base = queenColony(3);
+    const s = cloneState({ ...base.s, aliens: game.state.aliens, createdAt: game.state.createdAt });
+    const id = s.targets[0]!.id;
+    s.faceViews = { [id]: base.s.faceViews[base.id]! };
+    for (const v of s.villagers) if (v.job.kind === 'outpost') v.job = { ...v.job, targetId: id };
+    const date = queenFrom(s);
+    const pub = publicState(cloneState(s));
+    expect(hiddenDue(pub, date - 1)).toEqual([]);
+    expect(awaitingServer(pub, date - 1)).toBe(false);
+    expect(hiddenDue(pub, date + 1000)).toEqual([date]);
+    expect(awaitingServer(pub, date + 1000)).toBe(true);
+    repo.games.set(game.id, { ...game, state: s });
+    now = date + 1000;
+    const r: GameResponse = await handleGameRequest(ctx, { action: 'load' });
+    expect(JSON.stringify(r)).not.toMatch(/"aliens":\{|"civ":\{|"keys":\[|"fights":\[/);
+    expect(r.state!.faceViews[id]!.queen!.since).toBe(date);
+  });
+
   it('comes out when a landing lights the last beacon (an event)', () => {
     const { s, id, padId, crew, map } = queenColony(10, 16, 30);
     const st = cloneState(s);
@@ -142,7 +207,11 @@ describe('the ferret queen (chantier 42)', () => {
 
   it('is locked until she is out, then conquers the twin and opens the second colony', () => {
     const { s, id, padId, crew, map } = queenColony(10, 16, 30);
-    expect(validateCommand(s, final(padId, id, crew), { now: s.now, map })).toBe('queenHidden');
+    const eleven = cloneState(s);
+    eleven.faceViews[id]!.beacons.pop();
+    expect(validateCommand(eleven, final(padId, id, crew), { now: s.now, map })).toBe(
+      'queenHidden',
+    );
     const st = cloneState(s);
     emergeQueen(st, id, st.now);
     const f = forecastExpedition(st, final(padId, id, crew) as never)!;

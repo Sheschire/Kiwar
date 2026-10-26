@@ -15,6 +15,7 @@ import {
 } from '../worldgen/generateFace';
 import type { TimeMs } from '../types/ids';
 import { beaconAwaited, beaconsDue } from './beacons';
+import { queenAwaited, queenDue } from './queen';
 import { canAnnounceWave, civAt, civDay, newCiv, outerPower, scheduleGrowth } from './civ';
 import type {
   AlienGarrison,
@@ -145,7 +146,10 @@ export function canResolveArrival(state: GameState, e: Expedition): boolean {
 /** Something happened that only the server can tell (a landing, a wave's announcement). */
 export function awaitingServer(state: GameState, now: TimeMs): boolean {
   return (
-    awaitingReport(state, now).length > 0 || waveAwaited(state, now) || beaconAwaited(state, now)
+    awaitingReport(state, now).length > 0 ||
+    waveAwaited(state, now) ||
+    beaconAwaited(state, now) ||
+    queenAwaited(state, now)
   );
 }
 
@@ -164,6 +168,8 @@ export function hiddenDue(state: GameState, now: TimeMs): TimeMs[] {
   if (w && !w.announced && w.announceAt <= now) out.push(w.announceAt);
   // Chantier 42: attacks on our beacons.
   out.push(...beaconsDue(state, now));
+  // Chantier 47: the queen's public date.
+  out.push(...queenDue(state, now));
   return out;
 }
 

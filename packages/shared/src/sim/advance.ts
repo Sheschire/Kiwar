@@ -26,6 +26,7 @@ import { deliveryTick, nextDeliveryEvent } from './deliveries';
 import { canResolveArrival } from './aliens';
 import { civTick, nextCivEvent } from './civ';
 import { beaconTick, nextBeaconEvent, planBeaconAttacks } from './beacons';
+import { nextQueenEvent, queenTick } from './queen';
 import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
 import { inLine, type ClassId } from '../data/classes';
 import { accrueKiwis, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
@@ -326,12 +327,15 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     // Chantier 39: the alien civilisation looks at the map once a game day (truth only).
     const civAt = nextCivEvent(s);
     const beaconAt = nextBeaconEvent(s);
+    // Chantier 47: the queen comes out at her public date (truth only).
+    const queenAt = nextQueenEvent(s);
     // Chantier 15: the automatic garrison posts its guards a little before a strike.
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
       garrisonAt,
       civAt,
       beaconAt,
+      queenAt,
       infusionEnd,
       titanEnd,
       researchAt,
@@ -391,6 +395,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
     if (civAt === nextEvent) civTick(s, civAt);
     if (beaconAt === nextEvent) beaconTick(s, beaconAt, events);
+    if (queenAt === nextEvent) queenTick(s, queenAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: 'hungerChanged', at: s.now, stage: st });

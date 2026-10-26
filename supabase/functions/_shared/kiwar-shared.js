@@ -3201,6 +3201,11 @@ var SIEGE = {
   /** Old bridgeheads drawn before the queen in the seed's stream (kept for older games). */
   oldHolds: 6,
   /**
+   * Chantier 47: hours from the colony's start before the queen may come out (a public date).
+   * Twelve beacons lit earlier make her wait for it; she still needs the twelve at the date.
+   */
+  queenFromH: 168,
+  /**
    * Chantier 42: the final battle. Once our 12 beacons light the twin, the queen comes out of
    * the depths at its centre. She is one giant unit; her hit points and blows grow with her
    * ground power (× her parcel's growth) by √(power / `ground`), like the predators of a wave.
@@ -6929,6 +6934,40 @@ function queenSetup(state, crew, input) {
 
 // packages/shared/src/sim/queen.ts
 var round12 = (v) => Math.round(v * 10) / 10;
+var HOUR2 = 36e5;
+function queenFrom(state) {
+  return state.createdAt + SIEGE.queenFromH * HOUR2;
+}
+function queenPending(state) {
+  const id3 = twinTarget(state)?.id;
+  const face = id3 ? state.faceViews[id3] : void 0;
+  if (!id3 || !face || face.queen || state.siege.conqueredAt > 0) return null;
+  return face.beacons.length >= INTEL.sectors ? id3 : null;
+}
+function nextQueenEvent(state) {
+  const id3 = queenPending(state);
+  if (!id3 || !state.aliens?.[id3]) return Infinity;
+  return Math.max(state.now, queenFrom(state));
+}
+function queenDue(state, now) {
+  const id3 = queenPending(state);
+  const at = queenFrom(state);
+  return id3 && at <= now ? [Math.max(at, state.now)] : [];
+}
+function queenAwaited(state, now) {
+  const id3 = queenPending(state);
+  return !!id3 && !state.aliens?.[id3] && queenFrom(state) <= now;
+}
+function queenTick(state, at, events) {
+  const id3 = queenPending(state);
+  if (!id3 || !emergeQueen(state, id3, at)) return;
+  events.push({
+    type: "queenEmerged",
+    at,
+    targetId: id3,
+    sector: state.faceViews[id3].queen.sector
+  });
+}
 function queenOf(state, targetId) {
   return state.faceViews[targetId]?.queen ?? null;
 }
@@ -6956,6 +6995,7 @@ function emergeQueen(state, targetId, at) {
   const g = state.aliens?.[targetId];
   if (!face || !g || face.queen || twinTarget(state)?.id !== targetId) return false;
   if (state.siege.conqueredAt > 0 || face.beacons.length < INTEL.sectors) return false;
+  if (at < queenFrom(state)) return false;
   liveCiv(g).royalSeen = true;
   const q = queenNow(g, at);
   face.queen = { ...q, since: at, at };
@@ -7975,7 +8015,7 @@ function tollOf(run) {
 }
 
 // packages/shared/src/sim/civ.ts
-var HOUR2 = 36e5;
+var HOUR3 = 36e5;
 var DAY_H = 24;
 var SECTORS2 = INTEL.sectors;
 var HALF = SECTORS2 / 2;
@@ -8074,7 +8114,7 @@ function civAgeOfHours(hours) {
   return age;
 }
 function civHours(g, civ, at) {
-  return Math.max(0, Math.max(0, at - g.since) / HOUR2 + civ.lead + civ.hours);
+  return Math.max(0, Math.max(0, at - g.since) / HOUR3 + civ.lead + civ.hours);
 }
 function sectorHours(g, civ, sector, at) {
   return Math.max(0, civHours(g, civ, at) + (civ.sectors[sector] ?? 0));
@@ -8299,7 +8339,7 @@ function civWave(state, at, waveId) {
   const id3 = waveCivTarget(state);
   const g = id3 ? state.aliens?.[id3] : void 0;
   if (!g) {
-    const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / (DAY_H * HOUR2)));
+    const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / (DAY_H * HOUR3)));
     const victories = Object.values(state.victories).reduce((a, b) => a + b, 0);
     const provocation = Math.min(THREATS.maxProvocation, THREATS.perVictory * victories);
     return { factor: (1 + THREATS.perDay * days) * (1 + provocation), origin: null };
@@ -8333,7 +8373,7 @@ function sectorGrowth(g, sector, at) {
   return growthOfHours(sectorHours(g, civOf(g), sector, at));
 }
 function scheduleHours(state, distance, at) {
-  return Math.max(0, (at - state.createdAt) / HOUR2) + distance * CIV.leadPerDistanceH;
+  return Math.max(0, (at - state.createdAt) / HOUR3) + distance * CIV.leadPerDistanceH;
 }
 function scheduleGrowth(state, distance, from, to) {
   const a = growthOfHours(scheduleHours(state, distance, from));
@@ -8385,7 +8425,7 @@ function civEstimate(state, now) {
     seenAge,
     seenAt,
     likelyAge,
-    nextAgeAt: nextH === void 0 ? null : now + Math.max(0, nextH - hours) * HOUR2,
+    nextAgeAt: nextH === void 0 ? null : now + Math.max(0, nextH - hours) * HOUR3,
     waveFrom: w?.announced && w.origin !== void 0 ? w.origin : null
   };
 }
@@ -9670,11 +9710,13 @@ function advanceInPlace(s, now, events) {
     const titanEnd = nextTitanEnd(s);
     const civAt2 = nextCivEvent(s);
     const beaconAt2 = nextBeaconEvent(s);
+    const queenAt = nextQueenEvent(s);
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
       garrisonAt,
       civAt2,
       beaconAt2,
+      queenAt,
       infusionEnd,
       titanEnd,
       researchAt,
@@ -9732,6 +9774,7 @@ function advanceInPlace(s, now, events) {
     if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
     if (civAt2 === nextEvent) civTick(s, civAt2);
     if (beaconAt2 === nextEvent) beaconTick(s, beaconAt2, events);
+    if (queenAt === nextEvent) queenTick(s, queenAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: "hungerChanged", at: s.now, stage: st });
@@ -11894,7 +11937,7 @@ function beaconHeld(log2) {
 var GUARD_ORDERS = { ...LANDING.defaultOrders };
 
 // packages/shared/src/sim/beacons.ts
-var HOUR3 = 36e5;
+var HOUR4 = 36e5;
 var round15 = (v) => Math.round(v * 10) / 10;
 function beaconAt(face, sector) {
   return face?.beacons.find((b) => b.sector === sector);
@@ -11913,7 +11956,7 @@ function attackable(state, t) {
 }
 function attacksFrom(state, distance) {
   const hours = Math.max(0, CIV.ageAtH[BEACONS.minCivAge] - distance * CIV.leadPerDistanceH);
-  return state.createdAt + hours * HOUR3;
+  return state.createdAt + hours * HOUR4;
 }
 function planBeaconAttacks(s) {
   for (const t of s.targets) {
@@ -12368,7 +12411,7 @@ function canResolveArrival(state, e) {
   e.mission === "guard" || !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
 }
 function awaitingServer(state, now) {
-  return awaitingReport(state, now).length > 0 || waveAwaited(state, now) || beaconAwaited(state, now);
+  return awaitingReport(state, now).length > 0 || waveAwaited(state, now) || beaconAwaited(state, now) || queenAwaited(state, now);
 }
 function waveAwaited(state, now) {
   const w = state.threats.next;
@@ -12379,6 +12422,7 @@ function hiddenDue(state, now) {
   const w = state.threats.next;
   if (w && !w.announced && w.announceAt <= now) out.push(w.announceAt);
   out.push(...beaconsDue(state, now));
+  out.push(...queenDue(state, now));
   return out;
 }
 function awaitingReport(state, now) {
@@ -20976,6 +21020,7 @@ export {
   nextInfusionEnd,
   nextKiwiEvent,
   nextMemoryEnd,
+  nextQueenEvent,
   nextResearchEvent,
   nextSkyEvent,
   nextSpeechEnd,
@@ -21030,8 +21075,13 @@ export {
   productionRates,
   protectedStock,
   publicState,
+  queenAwaited,
+  queenDue,
+  queenFrom,
   queenOf,
+  queenPending,
   queenSetup,
+  queenTick,
   queenTruth,
   queenWounds,
   queuedBuildAt,
