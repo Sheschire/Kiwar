@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'preact/hooks';
-import { otherFace } from '@kiwar/shared';
-import { randomSeed } from '../../game/urlParams';
 import { actions } from '../actions';
 import { CloseIcon } from '../icons';
 import { uiStore, useT, useUi, type Translate } from '../store';
@@ -54,23 +52,6 @@ export function DebugPanel() {
           </div>
         )}
       </div>
-      <button
-        class="btn"
-        onClick={() =>
-          actions.dispatch({
-            type: 'debugGrant',
-            resources: { pulp: 500, fiber: 500, seeds: 500, juice: 500 },
-          })
-        }
-      >
-        {t('debug.grant')}
-      </button>
-      <button class="btn" onClick={() => actions.newWorld(randomSeed(), face)}>
-        {t('debug.regenerate')}
-      </button>
-      <button class="btn" onClick={() => actions.newWorld(seed, otherFace(face))}>
-        {t('debug.switchFace', { face: t(`faces.${otherFace(face)}`) })}
-      </button>
       <p class="small muted">
         {t('debug.seed', { seed })} · {t(`faces.${face}`)}
       </p>
