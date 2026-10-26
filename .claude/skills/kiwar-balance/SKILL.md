@@ -316,3 +316,20 @@ starved it). Probe: a scratch `runBot` with `onStep` printing `moraleOf(s)` part
   death; conquest on days 17–20 in 3 of 6, 3–24 kiwis dead in battle.
 - Never edit `packages/shared` while a report runs: its workers start later and would load the
   new code (use a `git worktree` for experiments meanwhile).
+
+## Chantier 47: the pace of the conquest
+
+- **Replaying landings against the truth** (scratch scripts, not committed): save the bot's
+  state every game day (`onStep`, `JSON.stringify(state)`), then for a parcel and a crew
+  compare `forecastExpedition(...).landing` with the real outcome over ~30 hidden seeds: apply
+  the launch with `applyCommand` (it **returns a new state**, the old one is untouched: read
+  `result.state`, or you read an old expedition), set the new expedition's `id` to vary the
+  battle seed, `advance` past `arriveAt`. Toggle the hidden help by moving the civilisation's
+  `keys[].readyAt` far ahead. `parcelTruth` gives the real garrison and its `help`.
+- A stall is first a forecast question: retreats that kill veterans shrink the army until
+  nothing is "likely" any more. Count retreats per run in the probe's summary.
+- **Reference (end of chantier 47)**, conquest probe (conquest-1..3 × both faces × 21 days,
+  attentive; ~50–85 min each, six in parallel on 4 cores): queen day 13.0 in 5 of 6, conquest
+  days 13.1–17.0 (4 of 6 in 14–21), none stalled, 0–14 kiwis dead, 12–17 landings with 0–4
+  retreats. A background wait loop must stay under the 2 h tool limit: the six runs take up
+  to ~85 min.

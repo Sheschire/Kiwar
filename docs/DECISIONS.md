@@ -3068,3 +3068,52 @@ day ~21, Great Weevil day 25–28, first wormhole day 28–30.
 - The debug panel only shows the machine's measures (and the time speed in local games): the
   "+500 of everything", "new random seed" and "switch face" buttons are gone (the last two
   wiped the solo colony online).
+
+## Chantier 47 — The pace of the conquest
+
+Act IV opens by closing the two points left open in chantier 46: the queen came out too early
+(days 2.9–4.2) and one run in six stalled at 8 beacons.
+
+### The queen comes out at a public date (parts 1 and 2)
+
+- **Owner's choice** (chantier document): she never comes out before a public date of the
+  alien clock, `SIEGE.queenFromH` from the colony's start, even when the 12 beacons shine
+  earlier (charter 7: a common clock, no hidden tuning).
+- **New point, owner's choice** (26 October 2026): she still needs **the 12 beacons at the
+  date**; a beacon fallen meanwhile delays her until the 12th shines again (defending the
+  beacons during the wait matters).
+- Technically a deferred event: `nextQueenEvent` / `queenTick` in `advance` (truth only),
+  `queenDue` in `hiddenDue` and `queenAwaited` in `awaitingServer` (the server's `load`
+  brings her out). No save field: the date is `createdAt + queenFromH`.
+- The Conquest screen says she digs in the Depths and when she may come out, then counts down
+  once the 12 beacons shine.
+
+### The run stalled at 8 beacons: a lying forecast (part 3)
+
+- **Diagnosis** (states of `conquest-1` Kiwisu saved every day, landings replayed): from day
+  6 to 14 no crew the bot could field was "likely" on a centre parcel. Replays against the
+  truth over 30 hidden seeds found the cause: a neighbouring parcel's hidden **barracks sends
+  25 % of its garrison** (chantier 40), and **the forecast ignored it**. Sector 9 with 8 kiwis,
+  forecast "likely, no death": 26 retreats out of 30, 2.6 dead (29 victories out of 30
+  without the help). The bot (like a player) landed confidently and its veterans died in
+  retreats; the army shrank and the centre stayed out of reach.
+- A first fix of the bot (a fighting class for every kiwi a landing takes) helped the strong
+  runs only and did not unstall this one: dropped.
+- **New point, owner's choice** (26 October 2026, "count them at worst"): the hardest
+  practice battle (luck 1.15) also meets the help **every neighbouring parcel without our
+  beacon** could send (its strongest estimate × 25 %; an unseen centre parcel: the public
+  guess × the centre's top multiple). "Likely" now means won even if a barracks hides next
+  door; `LandingForecast.help` names those parcels in the planner. The barracks stay secret.
+- **Cause named: a rule** (the forecast), not the bot. With the honest forecast every run
+  lights its centre by day 1.3–4 and its 12 beacons before day 7, with 0–1 retreat.
+
+### The date (part 3)
+
+- With honest landings the queen came out on day 7 everywhere and fell the same day
+  (conquest days 7.0–8.6): `queenFromH` **168 → 312 h (day 13)**. Unchanged (decision 3):
+  her hp 1300 and blows × 0.5, `CIV.ageMultiple` 1.9 at Industry, `floorH` 336 h, the wounded
+  on a field we hold.
+- Probe (conquest-1..3 × both faces × 21 days, attentive): queen out on day 13.0 in 5 of 6
+  (16.8: a beacon fallen at the date), conquest on days 13.1, 13.1, 14.0, 15.3, 15.5, 17.0
+  (**4 of 6 in the 14–21 window**, none stalled, every run at 12 beacons), **0–14 kiwis
+  dead** (3–24 before), 9–26 wounded.

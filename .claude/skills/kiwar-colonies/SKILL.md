@@ -58,7 +58,12 @@ orders? }`. Events `beaconAttackAnnounced`, `beaconAttacked { held, fought, dead
 ## The queen (`sim/queen.ts`, `battle/queen.ts`, `SIEGE.final`)
 
 - **Out**: `emergeQueen` (truth side) when a landing lights the twin's 12th beacon
-  (`resolveLanding` → `result.queenOut`, event `queenEmerged`); `FaceView.queen` (`QueenView`:
+  (`resolveLanding` → `result.queenOut`, event `queenEmerged`), **never before her public
+  date** (chantier 47: `queenFrom(state)` = `createdAt + SIEGE.queenFromH`, 312 h = day 13).
+  Twelve beacons lit earlier wait for it: `queenPending` (public), `nextQueenEvent` /
+  `queenTick` in `advance` (truth only), `queenDue` in `hiddenDue`, `queenAwaited` in
+  `awaitingServer`. She needs the 12 beacons **at** the date (a fallen one delays her until it
+  shines again). `QueenPanel` shows the date, then a countdown; `FaceView.queen` (`QueenView`:
   sector = royal parcel, `since`, `at`, age, ground / air = `queenTruth` × her parcel's growth,
   escort = her parcel's garrison, `wounds`). Refreshed daily (`refreshQueen` in `civTick`); she
   stays out whatever happens to the beacons; `civ.royalSeen` set (the burrow stops moving).
@@ -211,3 +216,10 @@ outbox)` (current tech or bank), the sister copies `done`/`current`. Each state 
   guard ship sent with 0 crew to fetch a guard took no food and the relieved starved (half of
   the "deaths" of the act III conquest probe). `SIEGE.final` hp 900, damage 0.5 (was 450 /
   0.4): the conquest came on days 7–12.
+
+## Chantier 47: the pace of the conquest
+
+- The queen's public date (above). Tests of chantier 42 put the colony on day 16 (after it).
+- The stall at 8 beacons was the landing forecast ignoring hidden barracks' help (see
+  `kiwar-expeditions`), not the bot. With the honest forecast every probe run lights its 12
+  beacons before day 7; the date then sets the pace: queen day 13, conquest days 13–17.

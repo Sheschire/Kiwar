@@ -214,6 +214,12 @@ age (`IntelReport.civAge`). `intelView` ages reports with `scheduleGrowth` (publ
   (units of a view × `scheduleGrowth`), `edge`, `guess` (public base × growth × 0.75–1.25),
   `formidable` (an unseen centre parcel: no number, odds `unknown`). Three practice battles
   (cached, public seeds `target/trial/sector/i`): likely = won at the strongest guess.
+  Chantier 47: the strongest trial also meets `possibleHelp` — 25 % (`LANDING.reinforce`) of
+  the strongest estimate of **every neighbouring parcel without our beacon** (a hidden
+  barracks may stand there; an unseen centre parcel = public guess × `innerMultiple[1]`);
+  `LandingForecast.help` lists them (the planner names them). Without it, landings next to a
+  barracks forecast "likely, no death" ended in deadly retreats 26 times out of 30.
+  `parcelEstimate` is the shared estimate of one parcel (knowledge, power, three armies).
 - **Server**: `load` resolves landed ships (`hiddenDue`), `import` calls `resetLandings`
   (beacons and landings in flight dropped). Tests in `test/landing.test.ts` (outcomes, ship,
   breakdown, leak, server, save, migration v34, import).
