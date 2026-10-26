@@ -794,6 +794,9 @@ export const fr: Dict = {
     importRejected: 'Cette sauvegarde locale n’a pas pu être importée.',
     internal: 'Le serveur a eu un hoquet. Réessayez.',
     network: 'Pas de connexion. Vos actions partiront dès le retour du réseau.',
+    outdated: 'Une nouvelle version du jeu est sortie : rechargez la page.',
+    broken:
+      'Cette colonie n’a pas pu s’ouvrir (erreur du jeu sur cet appareil). Rechargez la page ; si ça continue, signalez-le.',
     notALaunchpad: 'Les expéditions partent d’une Aire d’envol.',
     launchpadBusy: 'Le vaisseau de cette aire est déjà parti.',
     launchpadDamaged: 'Le vaisseau est abîmé : réparez d’abord l’aire d’envol.',

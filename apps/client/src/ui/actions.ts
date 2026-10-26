@@ -23,7 +23,7 @@ import {
   type GameState,
   type Tile,
 } from '@kiwar/shared';
-import type { GameController } from '../game/GameController';
+import type { ClientError, GameController } from '../game/GameController';
 import { firstRotation, placementError } from '../game/placement';
 import { tellLanding, watchable } from '../game/landingWatch';
 import type { GameRenderer } from '../render/GameRenderer';
@@ -523,10 +523,10 @@ export const actions = {
     if (ok) uiStore.setState({ modal: 'none', selectedTile: null, visit: null });
     return ok;
   },
-  async switchUniverse(id: string): Promise<boolean> {
-    const ok = (await controller?.switchUniverse(id)) ?? false;
-    if (ok) uiStore.setState({ modal: 'none', selectedTile: null });
-    return ok;
+  async switchUniverse(id: string): Promise<ClientError | null> {
+    const error = controller ? await controller.switchUniverse(id) : 'forbidden';
+    if (!error) uiStore.setState({ modal: 'none', selectedTile: null });
+    return error;
   },
   newWorld(seed: string, face: Face): void {
     controller?.newWorld(seed, face);

@@ -726,6 +726,9 @@ export const en = {
     importRejected: 'This local save could not be imported.',
     internal: 'The server had a hiccup. Please try again.',
     network: 'No connection. Your actions will be sent when you are back online.',
+    outdated: 'A new version of the game is out: reload the page.',
+    broken:
+      'This colony could not open (a game error on this device). Reload the page; if it persists, tell us.',
     notALaunchpad: 'Expeditions leave from a Launchpad.',
     launchpadBusy: 'This launchpad’s ship is already away.',
     launchpadDamaged: 'The ship is damaged: repair the launchpad first.',

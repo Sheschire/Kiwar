@@ -46,7 +46,14 @@ import {
   shouldAutoSignIn,
   type AuthRedirectError,
 } from './authRedirect';
-import { NetworkError, onlineConfig, type OnlineConfig } from './onlineConfig';
+import {
+  failureCode,
+  NetworkError,
+  OutdatedClient,
+  onlineConfig,
+  ServerFailure,
+  type OnlineConfig,
+} from './onlineConfig';
 import { bootMark } from './bootTimes';
 
 const SAVE_KEY = 'kiwar.save.v1';
@@ -72,7 +79,15 @@ const REPORT_POLL_MS = 5_000;
 export type SyncStatus = 'local' | 'connecting' | 'online' | 'syncing' | 'offline';
 
 /** Everything that can go wrong for a player action (rules, server, network). */
-export type ClientError = CommandError | ServerError | 'network' | 'syncing';
+export type ClientError =
+  | CommandError
+  | ServerError
+  | 'network'
+  | 'syncing'
+  /** The server's colony is newer than this client (reload the page). */
+  | 'outdated'
+  /** A bug on this device while opening a colony. */
+  | 'broken';
 
 export interface OfflineSummary {
   awayMs: number;
@@ -653,7 +668,8 @@ export class GameController {
         .then(() => this.offerGuestTransfer())
         .catch((e: unknown) => console.error(e));
     } catch (e) {
-      if (!(e instanceof NetworkError)) console.error(e);
+      // A server refusal or a bug is told as such, never as a lost connection.
+      if (!(e instanceof NetworkError)) this.listener.onError(failureCode(e));
       // Show the last known colony (if any) and keep trying to reconnect.
       this.previewing = false;
       let shown = cacheShown;
@@ -733,7 +749,10 @@ export class GameController {
     if (res.state) {
       // Stored states may predate this client's schema (or come from a newer server).
       const migrated = migrateState(res.state);
-      if (!migrated.ok) throw new Error(`server state ${migrated.reason}`);
+      if (!migrated.ok) {
+        if (migrated.reason === 'tooNew') throw new OutdatedClient('server state too new');
+        throw new Error(`server state ${migrated.reason}`);
+      }
       res.state = migrated.state;
       this.serverState = res.state;
       safeStorage(
@@ -762,7 +781,7 @@ export class GameController {
       this.setUniverse('solo', null);
       return this.loadFromServer(world);
     }
-    if (!res.ok || !res.state) throw new NetworkError(res.ok ? 'no state' : res.error);
+    if (!res.ok || !res.state) throw new ServerFailure(res.ok ? 'internal' : res.error);
     this.pending = [];
     this.loadState(res.state);
     this.listener.onUniverse(res.universe ?? null);
@@ -791,7 +810,7 @@ export class GameController {
   async enterUniverse(
     how: { create: string; fromSolo?: boolean } | { code: string; fromSolo?: boolean },
     displayName: string,
-  ): Promise<ServerError | 'network' | null> {
+  ): Promise<ClientError | null> {
     if (!this.online) return 'forbidden';
     if (!(await this.drainPending())) return 'network';
     try {
@@ -808,13 +827,13 @@ export class GameController {
       this.listener.onTwin(res.twin ?? null);
       this.listener.onAllies(res.allies ?? []);
       return null;
-    } catch {
-      return 'network';
+    } catch (e) {
+      return failureCode(e);
     }
   }
 
   /** Chantier 14: the host opens or closes the current universe to solo colonies. */
-  async setAllowImports(allow: boolean): Promise<ServerError | 'network' | null> {
+  async setAllowImports(allow: boolean): Promise<ClientError | null> {
     if (!this.online || this.universe === 'solo') return 'forbidden';
     try {
       const res = await this.online.call({
@@ -825,23 +844,24 @@ export class GameController {
       if (!res.ok) return res.error;
       if (res.universe) this.listener.onUniverse(res.universe);
       return null;
-    } catch {
-      return 'network';
+    } catch (e) {
+      return failureCode(e);
     }
   }
 
   /** Switches to the solo colony or to another universe the player belongs to. */
-  async switchUniverse(id: string): Promise<boolean> {
-    if (!this.online || id === this.universe) return false;
-    if (!(await this.drainPending())) return false;
+  async switchUniverse(id: string): Promise<ClientError | null> {
+    if (!this.online) return 'forbidden';
+    if (id === this.universe) return null;
+    if (!(await this.drainPending())) return 'network';
     const previous = this.universe;
     this.setUniverse(id, null);
     try {
       await this.loadFromServer(null);
-      return true;
-    } catch {
+      return null;
+    } catch (e) {
       this.setUniverse(previous, null);
-      return false;
+      return failureCode(e);
     }
   }
 
@@ -897,8 +917,8 @@ export class GameController {
       this.listener.onTwin(res.twin ?? null);
       this.listener.onAllies(res.allies ?? []);
       return null;
-    } catch {
-      return 'network';
+    } catch (e) {
+      return failureCode(e);
     }
   }
 
