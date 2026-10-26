@@ -562,7 +562,16 @@ export interface RunOptions {
 
 export function runBot(opts: RunOptions): RunResult {
   const start = 1_700_000_000_000;
-  let state = newGame({ seed: opts.seed, face: opts.face, now: start, biome: opts.biome });
+  // Chantier 46: the twin's civilisation is drawn per biome too (the alien seed only knew the
+  // seed and the face: a report's three biomes of a face fought the same six twins, and the
+  // faces differed by the luck of those draws, not by a rule).
+  let state = newGame({
+    seed: opts.seed,
+    face: opts.face,
+    now: start,
+    biome: opts.biome,
+    ...(opts.biome ? { alienSeed: `${opts.seed}/${opts.face}/${opts.biome}/aliens` } : {}),
+  });
   // The map follows the tiles the Kikiwiwis reshape (chantier 08).
   let map = faceMapOf(state);
   const play: Play = {
