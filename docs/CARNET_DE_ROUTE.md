@@ -411,6 +411,15 @@ questions encore ouvertes de l'acte II. Elles forment le
 - la fortification au même prix ;
 - le ressenti inchangé jusqu'à ce que le porteur joue.
 
+### Après le chantier 46 (26 octobre 2026)
+
+Les réglages sont faits ([fiche](chantiers/46-reglages-fin-acte-iii.md)) : blessés plutôt que
+morts sur un terrain tenu, moral bâti à 64 (Pierre) et ~65 (Fer), l'occasionnel à 10 % de
+vagues perdues sans mort (une habitude d'entretien des tourelles chez le bot), l'écart de face
+sur la jumelle ramené à 3,7 % (il venait de l'échantillon), la conquête aux jours 17–20 dans 3
+parties sur 6 avec 3 à 24 morts en 21 jours. Restent ouverts : la reine qui sort aux jours 3–4
+dans la moitié des parties et une partie sur six qui bloque à 8 balises.
+
 ### Leçons pour l'acte IV
 
 - Les **sondes ciblées** (`runBot` avec `onStep`) ont trouvé en quelques minutes ce que le

@@ -48,25 +48,28 @@ dans l'historique.
 | 43  | Moral par kiwi, Mairie et feu de camp                | fait    |
 | 44  | Loisirs et décor                                     | fait    |
 | 45  | Rives fertiles et canaux de jus                      | fait    |
-| 46  | Réglages d'après l'acte III                          | à faire |
+| 46  | Réglages d'après l'acte III                          | fait    |
 | —   | Acte IV : Tréfonds, kiwaïs, Verger cosmique ; ligues | idées   |
 
 **L'acte III est terminé** (bilan et mesures : section 8 ter du
-[carnet](CARNET_DE_ROUTE.md), [`BALANCE_REPORT.md`](BALANCE_REPORT.md)) : chantiers **43**
-(moral par kiwi, Mairie, feu de camp : `sim/rest.ts`, `sim/speech.ts`), **44** (décors, jeux,
-cabaret, feux d'artifice : `sim/village.ts`) et **45** (rives fertiles et canaux de jus :
-`sim/canals.ts`, `BANKS`, skill `kiwar-titans`).
-**Prochaine conversation** : le chantier **46** (réglages d'après l'acte III : blessés plutôt
-que morts sur un terrain tenu, moral plus exigeant, vagues de l'occasionnel, écart de face sur
-la jumelle, rythme de la conquête). Le porteur a suivi les recommandations du bilan : tout est
-décidé dans la fiche. Ensuite, écrire les chantiers de l'acte IV (section 9 du carnet).
+[carnet](CARNET_DE_ROUTE.md)), et ses **réglages** aussi (chantier **46**, mesures dans
+`DECISIONS.md` et [`BALANCE_REPORT.md`](BALANCE_REPORT.md)) : les tombé·es d'un terrain tenu
+(débarquement ou bataille finale gagnés, balise tenue) reviennent blessé·es ; moral plus
+exigeant (bases 46 / 35 / 29 / 23, beauté +5, loisirs +10) ; l'occasionnel entretient ses
+tourelles (habitude du bot : 9 % de vagues perdues) ; une jumelle tirée par biome dans le bot
+(l'écart de face venait de l'échantillon) ; reine plus solide (`hp` 1300, coups 0,5) et
+centre moins fort à l'Industrie (×1,9) : conquête entre les jours 17 et 20 dans 3 parties sur
+6, 3 à 24 morts en 21 jours.
+**Prochaine conversation** : écrire les chantiers de l'acte IV (section 9 du carnet), en
+commençant par une fiche par idée (Tréfonds, kiwaïs, Verger cosmique, ligues).
 À tester avec le porteur : l'exigence du moral par âge, le poids des deuils, la valeur d'un
 discours, la beauté sans placement, le prix du cabaret et des feux, les rives à +30 %, le prix
-(80 pulpe + 40 fibre, 1 h) et le plafond (3 / 6 / 10 / 15) des canaux.
-Toujours ouverts : l'usure des kiwis sur les débarquements (40), la conquête qui aboutit dans
-2 parties sur 6 (42), le ressenti de l'horloge alien (39), du combat équipé (38), des rangs et
-du camp (37), la réparation automatique qui trahit l'issue d'une vague regardée (36) et le
-temps mort du début de la Pierre (31).
+(80 pulpe + 40 fibre, 1 h) et le plafond (3 / 6 / 10 / 15) des canaux, la reine à 1300 points
+de vie.
+Toujours ouverts : la reine qui sort tôt (jours 3–4 dans la moitié des parties, cible 7–14),
+une partie sur six dont la conquête bloque à 8 balises, le ressenti de l'horloge alien (39),
+du combat équipé (38), des rangs et du camp (37), la réparation automatique qui trahit l'issue
+d'une vague regardée (36) et le temps mort du début de la Pierre (31).
 
 ## Règles transverses à retenir
 

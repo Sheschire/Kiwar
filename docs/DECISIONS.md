@@ -2957,3 +2957,44 @@ player's waves, and the twin's gap between faces.
 - **Owner's choice**: fix the measure only. `runBot` draws the twin per biome
   (`alienSeed: <seed>/<face>/<biome>/aliens`): 18 distinct twins per face in a report. The
   spread of the ferret share (35–80 %) stays as it is.
+
+### The pace of the conquest (part 5)
+
+- First probe after part 1 (conquest-1..3 × both faces × 21 days): queen out on days 1.8–5,
+  conquest in 3 of 6 but early (days 6.8–13.5); still 38–63 "deaths" in the runs with many
+  retreats. Tracing the memorial found **half of them starved**: a guard ship sent with a crew
+  of 0 to bring a guard home carried 2.1 × the outbound rations (none), and the relieved
+  starved on the way (`starvation`, mission `guard`). The rule is right (the planner shows the
+  rations back); the bot was wrong: `bot/beacons.ts` now adds the return crew's rations. A
+  landing crew also expects **one fallen at most, dead or wounded** (with victories no longer
+  killing, the bot had taken crews that only just won, and they retreated at bad luck).
+- Levers of the chantier document: an early conquest → a sturdier queen; a stall → a centre
+  growing slower at Industry. Calibration on saved states (the bot's state saved every day
+  once the queen is out, with an invincible queen, then the final-battle decision and its real
+  resolution replayed for variants of `SIEGE.final`: seconds per variant instead of a 40-minute
+  run), then real 21-day probes: hp 900 → conquest days 9.5–17.9 (2 of 6 in the window), hp
+  1100 → still 2 of 6, the seed that stalls at 8–9 beacons unchanged.
+- **Kept**: `SIEGE.final.hp` 450 → **1300**, `damage` 0.4 → **0.5**, `CIV.ageMultiple` at
+  Industry 2.2 → **1.9** (it also weakens the queen, whose power follows her parcel's growth:
+  hence the higher hp).
+- Final probe: conquest on days **19.7, 17.9, 17.1** (3 of 6 in the 14–21 window), 12.6 and
+  9.1 (strong colonies wearing her down), one run stalls at 8 beacons; queen out on days 2.9,
+  2.9, 4.2, 11.5, 19.4 ⚠️ (target 7–14: the beacons light fast once the edge falls; no lever
+  in the chantier document for it, left open); kiwis dead in battle **3–24** (7–71 at the end
+  of act III), wounded 3–32.
+
+### Measures (end of chantier 46)
+
+- **Report** (`pnpm balance --seeds 6 --hours 72 --ages 2 --impact 2 --probe 50`, 125 min on
+  4 cores, `docs/BALANCE_REPORT.md`, with the conquest and village probes pasted): Nest 3
+  4.5–4.8 h, Library 4.7–5.1 h, Stone 13.5–15.0 h, Iron 2.7–2.8 d; Kiwisu / Kiwino within
+  **7.1 %** on every line: the first beacon in the centre at **3.7 %** (24.2 %), level 10 at
+  7.1 % (14.9 %). Beyond ±10 % between biomes: every economy building at level 3 in the seed
+  crown (+20.9 %, as before), the first kiwi at level 10 in the delta (+48 %, 6 seeds), the
+  mayor in the tundra (+10.6 %).
+- Long runs: attentive Stone 13.8 h, Iron 2.9 d, Industry **8.3 d** (the highlands now reach
+  it, in 9.8 d); occasional 18.5 h, 4.8 d, 12.1 d. **Waves lost: attentive 2 %, occasional
+  10 %, no kiwi killed** (20 % and 0.25 before). At the cap 14–22 %, dead time 79–96 min
+  (unchanged). Kiwis lost on expeditions in 72 h: 3.3–7.7 per run (5.3–9.2).
+- Stone stays within the ±15 % of its 12 h target (13.8 h median of the long runs, ≤ 13.8 h):
+  the bot keeps its decorations where they are (decision 7 of the chantier document).

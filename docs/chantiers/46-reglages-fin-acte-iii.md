@@ -93,3 +93,28 @@ Chemins sous `packages/shared/src/`.
 - La balise du centre tombe dans les ±15 % entre Kiwisu et Kiwino.
 - La conquête aboutit entre le jour 14 et le jour 21 dans au moins 3 parties sur 6.
 - L'économie reste dans ±10 % entre biomes et entre faces.
+
+## Fait (26 octobre 2026)
+
+Six commits (parties 1 à 5b), mesures dans `DECISIONS.md` et `BALANCE_REPORT.md`.
+
+1. **Blessés sur un terrain tenu** : débarquement gagné, bataille finale gagnée et balise
+   tenue ramènent leurs tombé·es blessé·es (6 h, équipement gardé, pas de deuil) ; les
+   prévisions séparent morts et blessés ; textes FR + EN.
+2. **Moral plus exigeant** : bases 46 / 35 / 29 / 23, beauté +5, loisirs +10. Le point de
+   départ de la fiche (46 / 30 / 22 / 16) plaçait le village bâti à 58 (Pierre) et 54 (Fer),
+   sous la cible : recalé à 64 / ~65 ; au-dessus de 85 seulement avec les soirées et discours.
+3. **Vagues de l'occasionnel** : cause mesurée — mêmes vagues qu'à l'acte II, mais des
+   tourelles restées au niveau 1 (le village et les canaux prennent le surplus qui les
+   montait). Choix du porteur : une habitude du bot (tourelles à la moitié du niveau du Nid,
+   places remplies dès la Pierre). 20 % → 10 % de vagues perdues, aucune mort.
+4. **Écart de face sur la jumelle** : cause mesurée — la garnison de la jumelle ne dépendait
+   pas du biome, chaque face n'avait que six jumelles dans le rapport, et celles de Kiwino
+   avaient peu de chauves-souris. Choix du porteur : corriger la mesure (une jumelle par
+   biome). Écart sur la première balise du centre : 24,2 % → 3,7 %.
+5. **Conquête** : gardes ramenés sans rations (la moitié des « morts ») et équipages trop
+   justes corrigés dans le bot ; reine `hp` 1300 et coups × 0,5, garnisons de l'Industrie
+   × 1,9. Conquête aux jours 17–20 dans 3 parties sur 6, 3 à 24 morts en 21 jours.
+
+Reste ouvert : la reine sort aux jours 3–4 dans la moitié des parties (cible 7–14, aucun levier
+prévu) et une partie sur six bloque à 8 balises.

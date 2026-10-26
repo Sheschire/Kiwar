@@ -30,7 +30,7 @@ d'acceptation et les **skills à charger**. La direction d'ensemble est dans le
 | 44  | [Loisirs et décor](44-loisirs-decor.md) — **fait**                                         | 43        | non                   |
 | 45  | [Rives fertiles et canaux de jus](45-rives-canaux.md) — **fait**                           | 35        | non                   |
 |     | **Entre les actes III et IV**                                                              |           |                       |
-| 46  | [Réglages d'après l'acte III](46-reglages-fin-acte-iii.md)                                 | 45        | non                   |
+| 46  | [Réglages d'après l'acte III](46-reglages-fin-acte-iii.md) — **fait**                      | 45        | non                   |
 
 L'acte IV (Tréfonds, kiwaïs, Verger cosmique) n'a pas encore de chantier : voir le carnet. Les
 anciens chantiers 25 à 29, jamais commencés, sont devenus 37, 35, 43, 38 et 45.

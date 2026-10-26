@@ -10,6 +10,14 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 46** — **réglages d'après l'acte III**. Un kiwi qui tombe sur un terrain que
+> l'on tient (débarquement ou bataille finale gagnés, balise qui tient bon) **revient
+> blessé·e** au lieu de mourir ; seules une retraite, une défaite ou une balise perdue tuent
+> encore. Le **moral est plus exigeant** : un village bâti place ses kiwis vers 60–75 à la
+> Pierre et au Fer, et seuls les discours, les soupers, le cabaret et les feux d'artifice le
+> font passer au-dessus de 85. La **reine des furets est plus solide** et le centre de la
+> jumelle grandit moins vite à l'âge industriel : la conquête vient vers la troisième semaine.
+
 > **Chantier 45** — **rives fertiles et canaux de jus**, fin de l'acte III. La chair et les
 > bosquets au bord du jus **repoussent 30 % plus vite** et s'habillent d'herbes hautes, de
 > fleurs et de papillons. Dès l'Éden, la technologie **Canaux** (après Cueillette) ouvre le

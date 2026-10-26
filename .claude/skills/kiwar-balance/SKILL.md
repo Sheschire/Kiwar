@@ -288,3 +288,31 @@ starved it). Probe: a scratch `runBot` with `onStep` printing `moraleOf(s)` part
   leisure at 12/24/48/72 h): morale 45–65 before the Town Hall, 63–100 after; nobody under 20.
 - Waiting on background runs: `pgrep -f '<pattern>'` inside the waiting loop matches the loop's
   own command line and never ends; save the PIDs (`echo $! >> pids`) and loop on `kill -0`.
+
+## Chantier 46: settings after act III
+
+- **Probes used** (scratch scripts, not committed; write them again from this description):
+  the **village probe** (`runBot` with `onStep` every 6 h: `kiwiMorale` per kiwi, "built" =
+  its parts minus the memories `speech`, `vigil`, `cabaret`, `fireworks`; 6 biomes × 120 h);
+  the **wave probe** (casual profile, one line per new `threats.reports` entry: age, Nest,
+  turret count and levels, threat / defense ground and air, damage, loot / lootable; run the
+  same seed on the old commit in a `git worktree` to compare wave by wave); the **centre
+  probe** (twin's `ferretShare`, `centreWon`, each landing's outcome and crew); a
+  **civilisation-only probe** (`newGame` + `civAt` over 100 seeds per face, no bot: seconds);
+  the **memorial trace** (each new memorial entry with its cause and the expedition ending
+  then: found guards starving on guard ships).
+- **Queen calibration on saved states**: run the bot with `SIEGE.final.hp = 1e9` (mutated at
+  run time) and save `JSON.stringify(state)` every day once the queen is out; then for each
+  variant of `SIEGE.final`, replay `finalOrder` on each day's state, apply it, `advance` past
+  the arrival and read the real outcome. It ignores the wear-down of earlier battles (a day
+  or two late): confirm with the real 21-day probe.
+- `runBot` draws the twin per biome (`alienSeed`), so a report has 18 distinct twins per face.
+  The occasional bot keeps its turrets up (`turretDecision`, `!prepared`).
+- **Reference (end of chantier 46)**: `pnpm balance --seeds 6 --hours 72 --ages 2 --impact 2
+--probe 50 --out ../../docs/BALANCE_REPORT.md` (125 min on 4 cores; stop every probe first,
+  a report sharing the cores with six conquest runs is ~2× slower) and the conquest probe
+  (seeds conquest-1..3 × both faces × 21 days, 40–60 min each, six in parallel). Faces within
+  7.1 % (centre 3.7 %), Stone 13.8 h, Iron 2.9 d, Industry 8.3 d; waves lost 2 % / 10 %, no
+  death; conquest on days 17–20 in 3 of 6, 3–24 kiwis dead in battle.
+- Never edit `packages/shared` while a report runs: its workers start later and would load the
+  new code (use a `git worktree` for experiments meanwhile).
