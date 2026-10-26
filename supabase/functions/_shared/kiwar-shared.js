@@ -18621,7 +18621,8 @@ var gameStateSchema = external_exports.object({
       q: external_exports.number().int(),
       r: external_exports.number().int(),
       buildingId: id.nullable(),
-      targetLevel: external_exports.number().int().min(1).max(MAX_LEVEL),
+      // 0 for works that build nothing (clearing, digging or filling a canal).
+      targetLevel: external_exports.number().int().min(0).max(MAX_LEVEL),
       richness: external_exports.number(),
       durationMs: external_exports.number(),
       startedAt: external_exports.number().nullable(),

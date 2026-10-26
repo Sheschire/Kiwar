@@ -15,6 +15,7 @@ import {
   isBank,
   plausibleTerraform,
   mapTileDeposit,
+  migrateState,
   newGame,
   occupancy,
   techStatus,
@@ -73,6 +74,8 @@ describe('juice canals (chantier 45)', () => {
     const s = run(s0, { type: 'digCanal', q: tile!.q, r: tile!.r }, T0, map);
     expect(s.queue.at(-1)).toMatchObject({ kind: 'canal', q: tile!.q, r: tile!.r });
     expect(s.resources.pulp).toBe(s0.resources.pulp - CANALS.cost.pulp);
+    // A colony saved mid-dig loads again (the server refused it as corrupt).
+    expect(migrateState(JSON.parse(JSON.stringify(s)))).toMatchObject({ ok: true });
     // The tile is held: nothing is built or paved there meanwhile.
     expect(occupancy(s).tiles.has(hexKey(tile!))).toBe(true);
     expect(

@@ -3049,3 +3049,10 @@ Defaults chosen by Claude (changeable, status "default"):
 Order: 47 → 48 → (49 ∥ 50) → 51 → 52, 53 → 54 → (55 ∥ 56) → 57 → 58. Act IV pacing targets
 (hypotheses): first delve day 3–4, queen out day 7–14, conquest day 14–21, Age of the stars
 day ~21, Great Weevil day 25–28, first wormhole day 28–30.
+
+## Hotfix — colonies digging a canal could not load (October 2026)
+
+- Queue items that build nothing (clearing a stump, digging or filling a canal) carry
+  `targetLevel: 0`, but the save schema required ≥ 1: such a colony was "corrupt", the `game`
+  function threw (`internal`) and the client showed "No connection". The schema now accepts 0
+  (no data change, no schema version bump); a canal test round-trips a colony mid-dig.
