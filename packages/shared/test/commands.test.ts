@@ -36,6 +36,18 @@ describe('commands', () => {
     ).toBe('tileNotAllowed');
   });
 
+  it('builds on seed tiles, except the producers of other resources', () => {
+    const { map, state } = setup();
+    const seeds = findTile(map, 'seedRing');
+    const ctx = { now: T0, map };
+    const build = (buildingType: 'hut' | 'pulpery' | 'seedQuarry') =>
+      validateCommand(rich(state), { type: 'build', buildingType, q: seeds.q, r: seeds.r }, ctx);
+    // Owner, October 2026: a colony has more seed tiles than its quarries need.
+    expect(build('hut')).toBeNull();
+    expect(build('seedQuarry')).toBeNull();
+    expect(build('pulpery')).toBe('tileNotAllowed');
+  });
+
   it('pays the cost, rejects occupied tiles and refunds on cancel', () => {
     const { map, state } = setup();
     const flesh = findTile(map, 'flesh');

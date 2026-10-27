@@ -3126,3 +3126,13 @@ Act IV opens by closing the two points left open in chantier 46: the queen came 
 - **Left open**: two runs in six beat the queen the day she comes out (day 13.1); a date on
   day 14 would put every conquest in the window and match `floorH` (to decide with the
   owner). To test: the worst-case forecast makes small crews cautious.
+
+## Building on seed tiles (October 2026)
+
+- Owner: a colony has far more seed tiles (the ring of pips) than its seed quarries need.
+  Every building that is not tied to a resource (huts, warehouses, Library, School, Town
+  Hall, decor, launchpad…) may now stand on seed tiles too (`LAND` in `data/buildings.ts`);
+  the producers of other resources keep their own ground. A building there covers the tile
+  (no more seeds from it): the player's trade-off.
+- The bot treats seed tiles like flesh (ground that feeds a harvest: built on only when
+  nothing else fits), so the balance runs stay comparable.

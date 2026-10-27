@@ -880,7 +880,9 @@ var FOOTPRINTS = {
 function footprintOf(type) {
   return FOOTPRINTS[type] ?? 1;
 }
-var DECOR_TILES = ["flesh", "ray", "heart", "skin"];
+var LAND_NO_HEART = ["flesh", "ray", "seedRing"];
+var LAND = [...LAND_NO_HEART, "heart"];
+var DECOR_TILES = [...LAND, "skin"];
 var MAX_LEVEL = 12;
 var BASE = {
   nest: {
@@ -1040,7 +1042,7 @@ var BASE = {
   },
   hut: {
     id: "hut",
-    allowedTiles: ["flesh", "ray", "heart"],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 1.3,
     levels: [
@@ -1063,7 +1065,7 @@ var BASE = {
   // full (~8 h of a young colony's production); the player brings it back with a tap.
   warehouse: {
     id: "warehouse",
-    allowedTiles: ["flesh", "ray", "heart"],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 1.4,
     levels: [
@@ -1092,7 +1094,7 @@ var BASE = {
   },
   launchpad: {
     id: "launchpad",
-    allowedTiles: ["flesh", "ray"],
+    allowedTiles: LAND_NO_HEART,
     buildable: true,
     copyGrowth: 1.6,
     levels: [
@@ -1122,7 +1124,7 @@ var BASE = {
   // Chantier 03: the School teaches classes (builder, warrior, mayor; mage and scout at level 2).
   school: {
     id: "school",
-    allowedTiles: ["flesh", "ray", "heart"],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 2,
     levels: [
@@ -1152,7 +1154,7 @@ var BASE = {
   // Chantier 08: researchers (Spirit) produce research points; a laboratory in later ages.
   library: {
     id: "library",
-    allowedTiles: ["flesh", "ray", "heart"],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 2,
     levels: [
@@ -1183,7 +1185,7 @@ var BASE = {
   // its passage technology is researched. Outside the building cap, never demolished.
   monument: {
     id: "monument",
-    allowedTiles: ["flesh", "ray", "heart"],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 1,
     levels: [
@@ -1221,7 +1223,7 @@ var BASE = {
   // Outside the building cap; its level shortens the infusion and lowers the risk.
   lab: {
     id: "lab",
-    allowedTiles: ["flesh", "ray", "heart"],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 1,
     levels: [
@@ -1250,7 +1252,7 @@ var BASE = {
   // Its trainees are placed by the player only.
   trainingCamp: {
     id: "trainingCamp",
-    allowedTiles: ["flesh", "ray", "heart"],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 2,
     levels: [
@@ -1287,7 +1289,7 @@ var BASE = {
   // are placed by the automation (Strength and Dexterity) or by the player.
   forge: {
     id: "forge",
-    allowedTiles: ["flesh", "ray", "heart"],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 2,
     levels: [
@@ -1324,7 +1326,7 @@ var BASE = {
   // colony, outside the building cap; it does nothing without a mayor at home.
   townHall: {
     id: "townHall",
-    allowedTiles: ["flesh", "ray", "heart"],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 1,
     levels: [
@@ -1349,7 +1351,7 @@ var BASE = {
   // the kiwis sleeping near it and a supper together at nightfall (`CAMPFIRE`).
   campfire: {
     id: "campfire",
-    allowedTiles: ["flesh", "ray", "heart"],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 1.6,
     levels: [
@@ -1475,7 +1477,7 @@ var BASE = {
   // opens at nightfall for the kiwis sleeping around it, for some juice (`CABARET`).
   cabaret: {
     id: "cabaret",
-    allowedTiles: ["flesh", "ray", "heart"],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 1,
     levels: [

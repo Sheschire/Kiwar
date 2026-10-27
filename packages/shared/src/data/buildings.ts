@@ -117,7 +117,13 @@ export function footprintOf(type: BuildingType): FootprintSize {
 }
 
 /** Chantier 44: where a decoration or a game may stand (also on the skin rampart). */
-const DECOR_TILES: readonly TileType[] = ['flesh', 'ray', 'heart', 'skin'];
+/**
+ * Ground for every building that is not tied to a resource. Seed tiles count (owner, October
+ * 2026): a colony has more of them than its seed quarries need; a building there covers them.
+ */
+const LAND_NO_HEART: readonly TileType[] = ['flesh', 'ray', 'seedRing'];
+const LAND: readonly TileType[] = [...LAND_NO_HEART, 'heart'];
+const DECOR_TILES: readonly TileType[] = [...LAND, 'skin'];
 
 /** Highest level of any building (the last age, chantier 30). */
 export const MAX_LEVEL = 12;
@@ -281,7 +287,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
   },
   hut: {
     id: 'hut',
-    allowedTiles: ['flesh', 'ray', 'heart'],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 1.3,
     levels: [
@@ -304,7 +310,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
   // full (~8 h of a young colony's production); the player brings it back with a tap.
   warehouse: {
     id: 'warehouse',
-    allowedTiles: ['flesh', 'ray', 'heart'],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 1.4,
     levels: [
@@ -333,7 +339,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
   },
   launchpad: {
     id: 'launchpad',
-    allowedTiles: ['flesh', 'ray'],
+    allowedTiles: LAND_NO_HEART,
     buildable: true,
     copyGrowth: 1.6,
     levels: [
@@ -363,7 +369,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
   // Chantier 03: the School teaches classes (builder, warrior, mayor; mage and scout at level 2).
   school: {
     id: 'school',
-    allowedTiles: ['flesh', 'ray', 'heart'],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 2,
     levels: [
@@ -393,7 +399,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
   // Chantier 08: researchers (Spirit) produce research points; a laboratory in later ages.
   library: {
     id: 'library',
-    allowedTiles: ['flesh', 'ray', 'heart'],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 2,
     levels: [
@@ -424,7 +430,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
   // its passage technology is researched. Outside the building cap, never demolished.
   monument: {
     id: 'monument',
-    allowedTiles: ['flesh', 'ray', 'heart'],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 1,
     levels: [
@@ -462,7 +468,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
   // Outside the building cap; its level shortens the infusion and lowers the risk.
   lab: {
     id: 'lab',
-    allowedTiles: ['flesh', 'ray', 'heart'],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 1,
     levels: [
@@ -491,7 +497,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
   // Its trainees are placed by the player only.
   trainingCamp: {
     id: 'trainingCamp',
-    allowedTiles: ['flesh', 'ray', 'heart'],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 2,
     levels: [
@@ -528,7 +534,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
   // are placed by the automation (Strength and Dexterity) or by the player.
   forge: {
     id: 'forge',
-    allowedTiles: ['flesh', 'ray', 'heart'],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 2,
     levels: [
@@ -565,7 +571,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
   // colony, outside the building cap; it does nothing without a mayor at home.
   townHall: {
     id: 'townHall',
-    allowedTiles: ['flesh', 'ray', 'heart'],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 1,
     levels: [
@@ -590,7 +596,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
   // the kiwis sleeping near it and a supper together at nightfall (`CAMPFIRE`).
   campfire: {
     id: 'campfire',
-    allowedTiles: ['flesh', 'ray', 'heart'],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 1.6,
     levels: [
@@ -716,7 +722,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
   // opens at nightfall for the kiwis sleeping around it, for some juice (`CABARET`).
   cabaret: {
     id: 'cabaret',
-    allowedTiles: ['flesh', 'ray', 'heart'],
+    allowedTiles: LAND,
     buildable: true,
     copyGrowth: 1,
     levels: [

@@ -37,6 +37,7 @@ import {
   getTile,
   rotationsOf,
   siteError,
+  type TileType,
 } from '@kiwar/shared';
 
 export const PRODUCERS: Record<ResourceId, BuildingType> = {
@@ -114,9 +115,9 @@ export function bestTile(state: GameState, map: FaceMap, type: BuildingType): Si
       let walk = 0;
       for (let i = 0; i < producers.length; i++)
         walk += Math.min(hexDistance(producers[i]!, t), homeWalk[i]!);
-      score = (t.type === 'flesh' ? -1 : 0) - walk * 0.3;
+      score = (harvestable(t.type) ? -1 : 0) - walk * 0.3;
     } else {
-      const spare = t.type === 'flesh' ? -1 : 0;
+      const spare = harvestable(t.type) ? -1 : 0;
       const near =
         type === 'warehouse' && producers.length > 0
           ? -producers.reduce((sum, b) => sum + hexDistance(b, t), 0) / producers.length
@@ -232,4 +233,9 @@ export function bottlenecks(state: GameState): {
     if (state.resources[id] >= capacity(state)[id] * 0.95) rates[id] = Infinity;
   const order = [...RESOURCE_IDS].sort((a, b) => rates[a] / NEED[a] - rates[b] / NEED[b]);
   return { rates, order };
+}
+
+/** Ground that feeds a harvest: built on only when nothing else fits (seed tiles since 2026-10). */
+function harvestable(type: TileType): boolean {
+  return type === 'flesh' || type === 'seedRing';
 }
