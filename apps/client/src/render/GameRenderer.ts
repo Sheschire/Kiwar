@@ -612,12 +612,15 @@ export class GameRenderer {
       }
       let life = p.view.living;
       if (!life) {
-        const q = QUALITY[this.preset];
-        life = new VillageLife(p.view.map, q.buildingAnimations, q.particles);
+        life = new VillageLife(p.view.map, QUALITY[this.preset]);
         p.view.setLife(life);
       }
       life.sync(this.village.state);
     }
+    // The sun's shadows follow us to the living village, and back home.
+    const shown = this.village ? this.allies.find(this.village.kiwiIndex) : null;
+    this.lighting.focus(shown ? shown.view.group.position : null, shown?.view.radius ?? 0);
+    this.renderer.shadowMap.needsUpdate = true;
   }
 
   /** The view of a far planet, if drawn. */

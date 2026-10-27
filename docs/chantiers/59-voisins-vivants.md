@@ -34,9 +34,15 @@ Demande du porteur pendant les essais du multijoueur (26 octobre 2026), hors car
   (`render/village.ts` : `BuildingsView`, `KiwisView`, `PathsView` de la maison) dans le repère
   de la planète (`TwinView.setLife`, qui cache les modèles fusionnés) ; le temps de leur partie
   court depuis l'instantané entre deux rafraîchissements.
+- **Partie 3** (retour du porteur : « il faut voir la planète qu'eux-mêmes voient, avec tous
+  les assets ») — `VillageLife` habille aussi le sol : végétation (`PropsView`, dégagée sous
+  bâtiments, chantiers, chemins et cultures), cultures (`CropsView`), tuiles usées
+  (`setDepletion`), crues, glace et courant de l'eau, cratères (`MeteorsView`), obstacles
+  vivants, papillons, lanternes et fenêtres la nuit ; les ombres du soleil viennent sur la
+  planète visitée (`Lighting.focus`, le terrain y reçoit et projette les ombres) et reviennent
+  à la maison au retour.
 
 ## Reste à faire (idées)
 
 - La colonie sœur d'un·e allié·e vivante elle aussi (aujourd'hui : modèles immobiles).
-- Les cultures (`CropsView`) et les lumières de nuit des fenêtres sur la planète visitée.
 - Toucher un bâtiment de l'allié·e pour une petite fiche (option écartée pour l'instant).

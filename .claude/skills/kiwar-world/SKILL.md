@@ -135,9 +135,11 @@ focus?, onChoose })`, store `intro` / `introFade`, gauges (sustainable regrowth 
   colony instead once founded; none when a player lives on that face). Visiting an ally:
   `startGame` asks `controller.allyVillage(kiwiIndex, face)` on arrival and every minute,
   `renderer.setAllyVillage(k, state)` puts a `VillageLife` (`render/village.ts`: the home
-  `BuildingsView` + `KiwisView` + `PathsView`) in the planet's local frame
+  views: buildings, kiwis, paths, props, crops, craters, obstacles, butterflies, lamps; it
+  wears the planet's own terrain and water through `bind`) in the planet's local frame
   (`TwinView.setLife`, the merged still models hidden); `setAllies` keeps it on a rebuilt
-  planet. Check it locally: `renderer.setAllies([ally])`, `travelTo(1)`, then
+  planet; the sun's shadows move there (`Lighting.focus(center, radius)`, back home with
+  null). Check it locally: `renderer.setAllies([ally])`, `travelTo(1)`, then
   `setAllyVillage(1, aSavedState)` with the ally's seed/face equal to the state's.
 - **Travel** (chantier 24): a tap on a planet (when no tile is hit) opens its card
   (`PlanetCard`, store `planetCard`, `actions.showPlanetCard`); "Go there", the Planets list

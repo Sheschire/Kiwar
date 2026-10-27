@@ -701,8 +701,19 @@ export class TwinView {
       this.life.dispose();
     }
     this.life = life;
-    if (life) this.terrain.group.add(life.group);
+    if (life) {
+      this.terrain.group.add(life.group);
+      life.bind({ terrain: this.terrain, water: this.water });
+    }
+    // The village brings its own buildings and obstacles; the ground takes the sun's shadows.
     if (this.friendBuildings) this.friendBuildings.visible = !life;
+    // (Detached rather than hidden: the level of detail shows the near parts again.)
+    if (this.obstacles) {
+      if (life) this.terrain.group.remove(this.obstacles.group);
+      else this.terrain.group.add(this.obstacles.group);
+    }
+    this.terrain.tiles.castShadow = !!life;
+    this.terrain.tiles.receiveShadow = !!life;
   }
 
   get living(): VillageLife | null {
