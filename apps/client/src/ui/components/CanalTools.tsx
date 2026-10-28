@@ -2,7 +2,6 @@ import {
   BIOMES,
   BANKS,
   CANALS,
-  canalCap,
   canalCount,
   canalError,
   fillError,
@@ -67,7 +66,7 @@ export function CanalToolbar() {
         <strong>{t('canals.title')}</strong>
         <span class="small muted">{t('canals.hint')}</span>
         <span class="small">
-          {t('canals.count', { count: canalCount(game), max: canalCap(game) })} · <Cost t={t} />
+          {t('canals.count', { count: canalCount(game) })} · <Cost t={t} />
         </span>
         {tile && error && error !== 'notFlesh' && (
           <span class="small warn">{t(`errors.${error}`)}</span>

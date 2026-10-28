@@ -37,7 +37,7 @@ import { handleGameEvents } from './game/events';
 import { tellOutcome } from './game/battleOutcome';
 import { tellLanding } from './game/landingWatch';
 import { battleStore } from './ui/battleStore';
-import { ChatChannel, mutedUsers } from './game/chat';
+import { ChatChannel, lastReadId, markRead, mutedUsers } from './game/chat';
 import { setChannel } from './ui/chatActions';
 import { audio } from './audio/engine';
 import { installGameAudio } from './audio/gameAudio';
@@ -499,12 +499,19 @@ uiStore.subscribe((s, prev) => {
   const client = controller.online?.client;
   if (!s.universe || !client) return;
   const me = s.account?.userId;
-  chat = new ChatChannel(client, s.universe.id, (messages, fresh) => {
+  const universeId = s.universe.id;
+  chat = new ChatChannel(client, universeId, (messages, fresh) => {
     const muted = mutedUsers();
-    const unseen = fresh.filter((m) => m.user_id !== me && !muted.includes(m.user_id)).length;
+    // Messages already read before a reload never count again.
+    const read = lastReadId(universeId);
+    const unseen = fresh.filter(
+      (m) => m.id > read && m.user_id !== me && !muted.includes(m.user_id),
+    ).length;
+    const open = uiStore.getState().chatOpen;
+    if (open) markRead(universeId, messages.at(-1)?.id ?? 0);
     uiStore.setState((st) => ({
       chat: messages,
-      chatUnread: st.chatOpen ? 0 : st.chatUnread + unseen,
+      chatUnread: open ? 0 : st.chatUnread + unseen,
     }));
   });
   setChannel(chat);

@@ -5,7 +5,13 @@ import { footprintOf, isManualWorkplace, isProducer, type BuildingType } from '.
 import type { TechId } from '../data/research';
 import { RESOURCE_IDS, emptyResources, type ResourceId, type Resources } from '../data/resources';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
-import { autoGarrisonAt, dispatchTasks, nextConstructionEnd, releaseFullCraters } from './tasks';
+import {
+  autoGarrisonAt,
+  dispatchTasks,
+  nextConstructionEnd,
+  releaseFullCraters,
+  sendBack,
+} from './tasks';
 import {
   buildingHarvest,
   passiveRates,
@@ -867,9 +873,11 @@ function finishTrainings(s: GameState, at: TimeMs, events: GameEvent[]): void {
     if (!inLine(v.job.classId, v.classId ?? v.job.classId) || !v.classId) v.skillReadyAt = {};
     v.classId = v.job.classId;
     v.classXp = 0;
+    const home = v.job.returnTo ?? null;
     v.job = { kind: 'idle' };
     events.push({ type: 'trained', at, villagerId: v.id, name: v.name, classId: v.classId });
-    autoAssign(s, v);
+    // Back to its workplace if it still has room (and takes it: a camp needs a class).
+    sendBack(s, v, home);
   }
 }
 

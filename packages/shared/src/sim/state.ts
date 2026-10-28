@@ -56,6 +56,8 @@ export type Job =
       classId: ClassId;
       until: TimeMs;
       paid: Partial<Resources>;
+      /** The workplace to go back to after the course (absent or null: looks for work). */
+      returnTo?: BuildingId | null;
     }
   /** Posted on the rampart against predators (no harvest). */
   | { kind: 'guard' }

@@ -8,7 +8,7 @@ import type { GameEvent } from './advance';
 import { dustAt } from './comets';
 import { cutsLand, occupancy } from './footprint';
 import { obstacleAt } from './obstacles';
-import { ageOf, techEffects } from './research';
+import { techEffects } from './research';
 import { meteorAt } from './sky';
 import type { GameState, QueueItem } from './state';
 import { canalFloods, faceMapOf, syncPools } from './territory';
@@ -26,10 +26,9 @@ export type CanalError =
   | 'wouldFlood'
   | 'canalLimit';
 
-/** Canal tiles allowed at the colony's age. */
-export function canalCap(state: GameState): number {
-  const caps = CANALS.maxByAge;
-  return caps[Math.min(ageOf(state), caps.length - 1)] ?? 0;
+/** Canal tiles allowed (a bound against cheating, out of reach in play). */
+export function canalCap(_state: GameState): number {
+  return CANALS.max;
 }
 
 /** Canals dug, plus those waiting in the queue. */

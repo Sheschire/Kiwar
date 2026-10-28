@@ -114,15 +114,29 @@ function Progress({ item, now }: { item: QueueItem; now: number }) {
   const t = useT();
   const lang = useUi((s) => s.lang);
   const game = useUi((s) => s.game);
+  // Any construction can be called off, started or not (paid resources come back).
+  const cancel = (
+    <button
+      class="btn btn-small btn-ghost"
+      onClick={() => actions.dispatch({ type: 'cancel', queueItemId: item.id })}
+    >
+      {t('queue.cancel')}
+    </button>
+  );
   if (item.startedAt === null) {
     const waiting = game && waitingForBuilder(game).some((i) => i.id === item.id);
-    if (waiting)
-      return (
-        <p class="small queue-nobuilder">
-          {game.automation.build ? t('queue.noBuilder') : t('queue.manualBuilder')}
-        </p>
-      );
-    return <p class="muted small">{t('tile.queued')}</p>;
+    return (
+      <div class="progress-block">
+        {waiting ? (
+          <p class="small queue-nobuilder">
+            {game.automation.build ? t('queue.noBuilder') : t('queue.manualBuilder')}
+          </p>
+        ) : (
+          <p class="muted small">{t('tile.queued')}</p>
+        )}
+        {cancel}
+      </div>
+    );
   }
   const done = Math.min(1, (now - item.startedAt) / item.durationMs);
   return (
@@ -133,6 +147,7 @@ function Progress({ item, now }: { item: QueueItem; now: number }) {
       <span class="small muted">
         {formatDuration(lang, item.startedAt + item.durationMs - now)}
       </span>
+      {cancel}
     </div>
   );
 }

@@ -13,6 +13,8 @@ import {
   borrow,
   canBorrow,
   dispatchTasks,
+  leaveSite,
+  sendBack,
   sendBackAll,
   startItem,
   waitingForBuilder,
@@ -1036,8 +1038,9 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         ) {
           refund(s, v.job.paid);
           if (v.job.kind === 'transform') refundStardust(s, v.job.paidDust ?? 0);
+          const home = v.job.kind === 'train' ? (v.job.returnTo ?? null) : null;
           v.job = { kind: 'idle' };
-          autoAssign(s, v);
+          sendBack(s, v, home);
         }
       }
       return;
@@ -1071,7 +1074,17 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (!def) return fail('classLocked');
       const lock = trainLock(s, v, cmd.classId, school);
       if (lock) fail(lock);
-      if (v.job.kind !== 'idle' && v.job.kind !== 'work') fail('kiwiBusy');
+      // Any kiwi at home can go, whatever it does (harvest, garrison, crater, stardust, a
+      // site); it goes back to its workplace after the course.
+      if (
+        v.job.kind !== 'idle' &&
+        v.job.kind !== 'work' &&
+        v.job.kind !== 'guard' &&
+        v.job.kind !== 'meteor' &&
+        v.job.kind !== 'stardust' &&
+        v.job.kind !== 'build'
+      )
+        fail('kiwiBusy');
       if (
         def.unique &&
         s.villagers.some(
@@ -1090,12 +1103,16 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (trainees >= (lvl.trainingSlots ?? 0)) fail('schoolFull');
       const cost = trainingCost(v, cmd.classId, school);
       pay(s, cost);
+      leaveSite(s, v, now);
+      const home = borrow(v);
+      delete v.homeJob;
       v.job = {
         kind: 'train',
         schoolId: school.id,
         classId: cmd.classId,
         until: now + trainingDuration(school, cmd.classId),
         paid: cost,
+        returnTo: home,
       };
       return;
     }

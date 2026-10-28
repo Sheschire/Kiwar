@@ -24,6 +24,10 @@ but can switch any automatism off to optimise by hand".
 ## State (save v21)
 
 - `GameState.automation: Record<AutoTask, boolean>` (all true; `defaultAutomation()`).
+- School / training camp courses (October 2026): `train` takes any kiwi at home (idle, work,
+  guard, crater, stardust, a site): `leaveSite` puts a builder's site back in the queue with its
+  time left (at speed 1, the next builder divides it again), `borrow` gives the job's
+  `returnTo`, and `finishTrainings` (or a demolished School) calls `sendBack`.
 - `Villager.lent?: BuildingId | null`: borrowed for a task without its own memory (research at
   the Library, the garrison) — the workplace to go back to (null: none). `forgetLent` drops it
   as soon as the kiwi does anything else; `assignKiwi` and `setGarrison` (newly posted) drop it

@@ -100,6 +100,45 @@ describe('school and classes', () => {
     expect(builderSpeed(done)).toBeGreaterThan(builderSpeed({ ...done, classId: null }));
   });
 
+  it('takes a kiwi from its post or its site, and sends it back after the course', () => {
+    const { map, s, schoolId } = schoolColony();
+    // At work: back to the same workplace.
+    const worker = s.villagers.findIndex((v) => v.job.kind === 'work');
+    const post = (s.villagers[worker]!.job as { buildingId: string }).buildingId;
+    let t = run(s, train(s, worker, schoolId, 'builder'), s.now, map);
+    t = advance(t, s.now + CLASSES.builder.trainingMs).state;
+    expect(t.villagers[worker]!.job).toEqual({ kind: 'work', buildingId: post });
+    // On the garrison: allowed too.
+    const guard = {
+      ...s,
+      villagers: s.villagers.map((v, i) =>
+        i === 2 ? { ...v, job: { kind: 'guard' as const } } : v,
+      ),
+    };
+    expect(errorOf(guard, train(guard, 2, schoolId, 'builder'), map)).toBeNull();
+    // Building: the site waits for another builder and keeps its progress.
+    let b = run(s, { type: 'upgrade', buildingId: s.buildings[0]!.id }, s.now, map);
+    b = advance(b, s.now + 1000).state;
+    const i = b.villagers.findIndex((v) => v.job.kind === 'build');
+    expect(i).toBeGreaterThanOrEqual(0);
+    if (i >= 0) {
+      const item = b.queue[0]!;
+      const left = item.startedAt! + item.durationMs - b.now;
+      const sent = run(b, train(b, i, schoolId, 'builder'), b.now, map);
+      expect(sent.villagers[i]!.job.kind).toBe('train');
+      // Another builder takes the site over at once, from where it was.
+      const next = sent.queue.find((q) => q.id === item.id)!;
+      const builder = sent.villagers.find(
+        (v) => v.job.kind === 'build' && v.job.queueItemId === item.id,
+      );
+      expect(builder?.id).not.toBe(b.villagers[i]!.id);
+      if (builder && next.startedAt !== null) {
+        const base = left * itemSpeed(b.villagers[i]!, item);
+        expect(next.durationMs).toBe(Math.max(1000, Math.round(base / itemSpeed(builder, next))));
+      }
+    }
+  });
+
   it('refuses what the School or the kiwi cannot do', () => {
     const { map, s, schoolId } = schoolColony();
     expect(errorOf(s, train(s, 1, schoolId, 'mage'), map)).toBe('classLocked');

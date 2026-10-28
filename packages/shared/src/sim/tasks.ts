@@ -174,6 +174,20 @@ export function startItem(
   events.push({ type: 'constructionStarted', at, queueItemId: item.id, builderId: builder.id });
 }
 
+/**
+ * A builder taken off its site (sent to the School, placed elsewhere): the site waits for
+ * another builder and keeps the work done (its time left, back at a speed of 1).
+ */
+export function leaveSite(state: GameState, v: Villager, at: TimeMs): void {
+  if (v.job.kind !== 'build') return;
+  const id = v.job.queueItemId;
+  const item = state.queue.find((i) => i.id === id);
+  if (!item || item.startedAt === null) return;
+  const left = Math.max(0, item.startedAt + item.durationMs - at);
+  item.durationMs = Math.max(1000, Math.round(left * itemSpeed(v, item)));
+  item.startedAt = null;
+}
+
 /** Starts the first waiting constructions while there are places and builders. */
 export function startConstructions(state: GameState, at: TimeMs, events: GameEvent[]): void {
   if (!state.automation.build) return;

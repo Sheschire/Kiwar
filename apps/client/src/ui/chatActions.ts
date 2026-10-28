@@ -1,4 +1,4 @@
-import { setMuted, type ChatChannel } from '../game/chat';
+import { markRead, setMuted, type ChatChannel } from '../game/chat';
 import { pushToast, uiStore } from './store';
 
 let channel: ChatChannel | null = null;
@@ -23,6 +23,12 @@ export const chatActions = {
     uiStore.setState((s) => ({ chat: [...s.chat] }));
   },
   open(open: boolean): void {
+    if (open) {
+      // Remembered across reloads: the badge only counts what came after.
+      const s = uiStore.getState();
+      const last = s.chat.at(-1)?.id;
+      if (s.universe && last !== undefined) markRead(s.universe.id, last);
+    }
     uiStore.setState(open ? { chatOpen: true, chatUnread: 0 } : { chatOpen: false });
   },
 };

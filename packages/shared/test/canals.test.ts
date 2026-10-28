@@ -110,9 +110,7 @@ describe('juice canals (chantier 45)', () => {
     );
     expect(plausibleTerraform({ ...known, terraform: { [key]: 'canal' } } as GameState)).toBe(true);
     const many = Object.fromEntries(
-      diggable(s0, map)
-        .slice(0, CANALS.maxByAge[0]! + 1)
-        .map((x) => [hexKey(x), 'canal']),
+      Array.from({ length: CANALS.max + 1 }, (_, i) => [hexKey({ q: i, r: 0 }), 'canal']),
     );
     expect(plausibleTerraform({ ...known, terraform: many } as GameState)).toBe(false);
     // Cancelling gives the resources back.
@@ -125,7 +123,7 @@ describe('juice canals (chantier 45)', () => {
     expect(getTile(faceMapOf(back), tile!)!.type).toBe('flesh');
   });
 
-  it('a chain grows from a queued canal, up to the cap of the age', () => {
+  it('a chain grows from a queued canal, with no limit by age', () => {
     const { state, map } = setup();
     let s = withCanals(state);
     const [first] = diggable(s, map);
@@ -142,20 +140,19 @@ describe('juice canals (chantier 45)', () => {
     if (next) {
       s = run(s, { type: 'digCanal', q: next.q, r: next.r }, T0, map);
     }
+    // Well past the old caps (3 to 15 by age): still diggable, a few minutes a tile.
     let now = T0;
-    while (canalsLeft(s) > 0) {
-      now += 6 * HOUR_MS;
+    for (let i = 0; i < 20; i++) {
+      now += HOUR_MS / 6;
       s = advance(s, now).state;
       const m = faceMapOf(s);
-      const t = diggable(s, m)[0]!;
+      const t = diggable(s, m)[0];
+      if (!t) break;
       s = run(s, { type: 'digCanal', q: t.q, r: t.r }, now, m);
     }
-    s = advance(s, now + 6 * HOUR_MS).state;
-    expect(Object.values(s.terraform).filter((k) => k === 'canal')).toHaveLength(
-      CANALS.maxByAge[0]!,
-    );
-    const m = faceMapOf(s);
-    expect(m.tiles.some((t) => canalError(s, m, t.q, t.r) === 'canalLimit')).toBe(true);
+    s = advance(s, now + HOUR_MS).state;
+    expect(Object.values(s.terraform).filter((k) => k === 'canal').length).toBeGreaterThan(15);
+    expect(canalsLeft(s)).toBeGreaterThan(0);
     const far = map.tiles.find(
       (t) =>
         t.type === 'flesh' && t.rho < 0.6 && canalError(withCanals(state), map, t.q, t.r) !== null,

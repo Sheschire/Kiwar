@@ -3136,3 +3136,15 @@ Act IV opens by closing the two points left open in chantier 46: the queen came 
   (no more seeds from it): the player's trade-off.
 - The bot treats seed tiles like flesh (ground that feeds a harvest: built on only when
   nothing else fits), so the balance runs stay comparable.
+
+## Urgent fixes (October 2026)
+
+- A kiwi busy at home (harvest, garrison, crater, stardust, a construction site) can be sent to
+  the School or the training camp; it goes back to its workplace after the course
+  (`Job.train.returnTo`). A builder taken off leaves its site in the queue with the work done
+  (`leaveSite`): another builder picks it up.
+- Any construction can be cancelled from the tile panel too (started or not, full refund).
+- Canals: no more cap by age (owner: "quasi illimité", only a server bound of 999 tiles), 30 s
+  and 30 pulp + 15 fibre a tile (instead of 1 h and 80 + 40): digging must feel quick.
+- Team chat: the last message read is kept per universe in `localStorage`
+  (`kiwar.chatRead`): the badge no longer counts the whole history after each reload.

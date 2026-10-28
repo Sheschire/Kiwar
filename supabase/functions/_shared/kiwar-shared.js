@@ -2098,12 +2098,15 @@ var SHIP_REPAIR = { perDexterity: 0.01, max: 0.05 };
 
 // packages/shared/src/data/canals.ts
 var CANALS = {
-  /** Canal tiles by age (index = age). */
-  maxByAge: [3, 6, 10, 15],
+  /**
+   * Canal tiles at most: no limit in play (owner's request, October 2026), only a bound the
+   * server checks against cheating.
+   */
+  max: 999,
   /** Paid when ordered (digging or filling), refunded on cancel. */
-  cost: { pulp: 80, fiber: 40 },
+  cost: { pulp: 30, fiber: 15 },
   /** Builder time for a tile (× the build speed of the techs, ÷ the builder's speed). */
-  durationMs: ms.h(1),
+  durationMs: ms.s(30),
   /** A canal's deposit (stock and regrowth) against a juice tile of the same richness. */
   deposit: 0.4
 };
@@ -9352,9 +9355,8 @@ function finishTitanWorks(s, at, events) {
 }
 
 // packages/shared/src/sim/canals.ts
-function canalCap(state) {
-  const caps = CANALS.maxByAge;
-  return caps[Math.min(ageOf(state), caps.length - 1)] ?? 0;
+function canalCap(_state) {
+  return CANALS.max;
 }
 function canalCount(state) {
   const dug = Object.values(state.terraform).filter((k) => k === "canal").length;
@@ -10183,9 +10185,10 @@ function finishTrainings(s, at, events) {
     if (!inLine(v.job.classId, v.classId ?? v.job.classId) || !v.classId) v.skillReadyAt = {};
     v.classId = v.job.classId;
     v.classXp = 0;
+    const home = v.job.returnTo ?? null;
     v.job = { kind: "idle" };
     events.push({ type: "trained", at, villagerId: v.id, name: v.name, classId: v.classId });
-    autoAssign(s, v);
+    sendBack(s, v, home);
   }
 }
 function nextExpeditionEvent(s) {
@@ -10291,6 +10294,15 @@ function startItem(state, item2, builder, at, events) {
   item2.startedAt = at;
   item2.durationMs = Math.max(1e3, Math.round(item2.durationMs / itemSpeed(builder, item2)));
   events.push({ type: "constructionStarted", at, queueItemId: item2.id, builderId: builder.id });
+}
+function leaveSite(state, v, at) {
+  if (v.job.kind !== "build") return;
+  const id3 = v.job.queueItemId;
+  const item2 = state.queue.find((i) => i.id === id3);
+  if (!item2 || item2.startedAt === null) return;
+  const left = Math.max(0, item2.startedAt + item2.durationMs - at);
+  item2.durationMs = Math.max(1e3, Math.round(left * itemSpeed(v, item2)));
+  item2.startedAt = null;
 }
 function startConstructions(state, at, events) {
   if (!state.automation.build) return;
@@ -14022,8 +14034,9 @@ function execute(s, cmd, ctx, events) {
         if (v.job.kind === "train" && v.job.schoolId === b.id || v.job.kind === "transform" && v.job.labId === b.id) {
           refund(s, v.job.paid);
           if (v.job.kind === "transform") refundStardust(s, v.job.paidDust ?? 0);
+          const home = v.job.kind === "train" ? v.job.returnTo ?? null : null;
           v.job = { kind: "idle" };
-          autoAssign(s, v);
+          sendBack(s, v, home);
         }
       }
       return;
@@ -14056,7 +14069,8 @@ function execute(s, cmd, ctx, events) {
       if (!def) return fail("classLocked");
       const lock = trainLock(s, v, cmd.classId, school);
       if (lock) fail(lock);
-      if (v.job.kind !== "idle" && v.job.kind !== "work") fail("kiwiBusy");
+      if (v.job.kind !== "idle" && v.job.kind !== "work" && v.job.kind !== "guard" && v.job.kind !== "meteor" && v.job.kind !== "stardust" && v.job.kind !== "build")
+        fail("kiwiBusy");
       if (def.unique && s.villagers.some(
         (x) => x.id !== v.id && (x.classId === cmd.classId || x.job.kind === "train" && x.job.classId === cmd.classId)
       )) {
@@ -14069,12 +14083,16 @@ function execute(s, cmd, ctx, events) {
       if (trainees >= (lvl.trainingSlots ?? 0)) fail("schoolFull");
       const cost = trainingCost(v, cmd.classId, school);
       pay(s, cost);
+      leaveSite(s, v, now);
+      const home = borrow(v);
+      delete v.homeJob;
       v.job = {
         kind: "train",
         schoolId: school.id,
         classId: cmd.classId,
         until: now + trainingDuration(school, cmd.classId),
-        paid: cost
+        paid: cost,
+        returnTo: home
       };
       return;
     }
@@ -18432,7 +18450,8 @@ var job = external_exports.discriminatedUnion("kind", [
     schoolId: id,
     classId: external_exports.enum(CLASS_IDS),
     until: external_exports.number(),
-    paid: partialResources
+    paid: partialResources,
+    returnTo: id.nullable().optional()
   }),
   external_exports.object({ kind: external_exports.literal("guard") }),
   external_exports.object({ kind: external_exports.literal("injured"), until: external_exports.number() }),
@@ -21031,6 +21050,7 @@ export {
   launchpadOf,
   layoutBuilding,
   layoutSnapshot,
+  leaveSite,
   leaveWreck,
   lethalWave,
   levelDef,

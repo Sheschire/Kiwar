@@ -85,6 +85,7 @@ const job = z.discriminatedUnion('kind', [
     classId: z.enum(CLASS_IDS),
     until: z.number(),
     paid: partialResources,
+    returnTo: id.nullable().optional(),
   }),
   z.object({ kind: z.literal('guard') }),
   z.object({ kind: z.literal('injured'), until: z.number() }),

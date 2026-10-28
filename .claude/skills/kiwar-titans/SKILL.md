@@ -128,8 +128,8 @@ assault needs one fortified bridgehead. See `kiwar-colonies`.
 
 ## Juice canals (chantier 45)
 
-- Builders, not Kikiwiwis: `data/canals.ts` `CANALS` (cap 3/6/10/15 by age, 80 pulp + 40
-  fibre, 1 h, deposit × 0.4), `sim/canals.ts` (`canalError`, `fillError`, `canalCap`,
+- Builders, not Kikiwiwis: `data/canals.ts` `CANALS` (no cap in play since October 2026,
+  only `max` 999 against cheating; 30 pulp + 15 fibre, 30 s, deposit × 0.4), `sim/canals.ts` (`canalError`, `fillError`, `canalCap`,
   `canalCount`, `canalsLeft`, `canalDuration`, `finishCanal`). Commands `digCanal` /
   `fillCanal` push queue items `canal` / `fill` (`buildingType: 'camp'`, unused) that hold
   their tile (`siteTiles`), completed in `completeConstruction` (the `advance` loop re-reads the
