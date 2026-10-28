@@ -43,6 +43,9 @@ export const HARVESTS: Partial<Record<BuildingType, TileType>> = {
 /** Catchment radius (in hexes) of a producer, by level. Camps only use their own tile. */
 export const CATCHMENT_RADIUS = [1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3] as const;
 
+/** Groves are sparse: the fiber workshop reaches one hex further from this level on. */
+export const FIBER_REACH = { fromLevel: 5, bonus: 1 } as const;
+
 /**
  * Logistics: kiwis carry the harvest to the nearest depot (Nest or Warehouse). A trip takes
  * `cycleS` seconds of work plus `stepS` seconds per unit of walking cost, there and back.

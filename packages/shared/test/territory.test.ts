@@ -20,6 +20,7 @@ import {
   hexDistance,
   getTile,
   catchmentPlan,
+  catchmentRadius,
   catchmentPreview,
   computeClaims,
   type Building,
@@ -317,5 +318,16 @@ describe('fertile banks (chantier 45)', () => {
       DEPOSITS.flesh!.regen * bank.richness * BANKS.regen,
       6,
     );
+  });
+});
+
+describe('fiber workshop reach', () => {
+  it('reaches one hex further from level 5', () => {
+    const b = (type: Building['type'], level: number) =>
+      ({ id: 'b' as BuildingId, type, q: 0, r: 0, level, richness: 1, builtAt: T0 }) as Building;
+    expect(catchmentRadius(b('fiberWorkshop', 4))).toBe(2);
+    expect(catchmentRadius(b('fiberWorkshop', 5))).toBe(3);
+    expect(catchmentRadius(b('pulpery', 5))).toBe(2);
+    expect(catchmentRadius(b('fiberWorkshop', 10))).toBe(4);
   });
 });

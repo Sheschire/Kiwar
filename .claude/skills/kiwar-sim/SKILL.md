@@ -33,7 +33,7 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
   `state.objectives` (claimed ids, gift eggs), `stats.collects` / `stats.wavesHeld` (save v26).
   A new objective condition needs a case in `objectiveProgress` and FR + EN texts.
 - `data/` — tunable tables: `kiwis.ts` and `classes.ts` (chantier 03), `buildings.ts` (levels, costs, production, `maxLevelOf`),
-  `territory.ts` (DEPOSITS, HARVESTS, CATCHMENT_RADIUS, LOGISTICS, PATHS, CAMPS),
+  `territory.ts` (DEPOSITS, HARVESTS, CATCHMENT_RADIUS + FIBER_REACH (fiber workshop +1 hex from level 5, in `catchmentRadius`), LOGISTICS, PATHS, CAMPS),
   `expeditions.ts`, `hatching.ts`, `objectives.ts` (tutorial), `faceProfiles.ts` (face biases,
   climate multipliers), `biomes.ts` (chantier 05, see `kiwar-world`), `start.ts`, `tiles.ts`.
 - `worldgen/generateFace.ts` — hex disc (axial, pointy-top, radius 12), tile types heart / ray /

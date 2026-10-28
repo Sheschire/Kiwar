@@ -6,6 +6,7 @@ import {
   BANKS,
   CAMPS,
   CATCHMENT_RADIUS,
+  FIBER_REACH,
   DEPOSITS,
   HARVESTS,
   LOGISTICS,
@@ -243,7 +244,11 @@ export function harvestedTileType(map: FaceMap, b: Building): TileType | null {
 }
 
 export function catchmentRadius(b: Building): number {
-  return b.type === 'camp' ? 0 : (CATCHMENT_RADIUS[b.level - 1] ?? 1);
+  if (b.type === 'camp') return 0;
+  const base = CATCHMENT_RADIUS[b.level - 1] ?? 1;
+  return b.type === 'fiberWorkshop' && b.level >= FIBER_REACH.fromLevel
+    ? base + FIBER_REACH.bonus
+    : base;
 }
 
 /**

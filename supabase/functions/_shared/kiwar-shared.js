@@ -468,6 +468,7 @@ var HARVESTS = {
   juiceWell: "juice"
 };
 var CATCHMENT_RADIUS = [1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3];
+var FIBER_REACH = { fromLevel: 5, bonus: 1 };
 var LOGISTICS = {
   cycleS: 30,
   stepS: 4,
@@ -4669,7 +4670,9 @@ function harvestedTileType(map, b) {
   return HARVESTS[b.type] ?? null;
 }
 function catchmentRadius(b) {
-  return b.type === "camp" ? 0 : CATCHMENT_RADIUS[b.level - 1] ?? 1;
+  if (b.type === "camp") return 0;
+  const base = CATCHMENT_RADIUS[b.level - 1] ?? 1;
+  return b.type === "fiberWorkshop" && b.level >= FIBER_REACH.fromLevel ? base + FIBER_REACH.bonus : base;
 }
 function computeClaims(state, map) {
   const season = seasonOf(state);
@@ -20571,6 +20574,7 @@ export {
   EXPEDITIONS,
   FACES,
   FACE_PROFILES,
+  FIBER_REACH,
   FIREWORKS,
   FIREWORKS_PATTERNS,
   FOOTPRINTS,
