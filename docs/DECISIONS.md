@@ -3150,3 +3150,4 @@ Act IV opens by closing the two points left open in chantier 46: the queen came 
   (`kiwar.chatRead`): the badge no longer counts the whole history after each reload.
 - Fiber workshop: its catchment reaches one hex further from level 5 (`FIBER_REACH`), 3 hexes
   instead of 2 (4 from level 10): groves are sparse and a level-5 workshop drained its tiles.
+- Iron age: the monument's level 2 asks 20 meteoric iron instead of 30 (`IRON.own.monument`).

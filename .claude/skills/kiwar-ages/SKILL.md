@@ -88,7 +88,7 @@ half of chantier 08: see the `kiwar-titans` skill. Their techs (`juiceInfusion`,
 
 Tech `forge` (Stone, effect `forge`, opens the Forge and the stone gear); `smelting` / `armor`
 open the iron gear, `firearms` / `machines` the steel. `LevelDef.iron` on levels 7+, the
-monument (30 Iron, 60 Industry), the Iron levels of the camp and the Forge (`withIron`);
+monument (20 Iron, 60 Industry), the Iron levels of the camp and the Forge (`withIron`);
 `TechDef.iron` (armor, machines, firearms). Never a level costing more iron than the cap of
 the Nest it needs (test in `iron.test.ts`).
 

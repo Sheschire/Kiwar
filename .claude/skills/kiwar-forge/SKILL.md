@@ -15,7 +15,7 @@ the Forge and hands pieces out (switchable); craters give mostly iron; never a b
 - `data/iron.ts`: `IRON` — `cap` by Nest level (13 entries), `crater` (12 × `METEORS.ageFactor`
   × `starIron`), `perHour` (0.2 per average kiwi), `resourceShare` (0.2 of the old crater
   stock), `wreck` (3 × age factor), `guaranteeMs` (72 h), `levels` (iron of building levels
-  7+), `turret` (turrets 3+), `own` (monument 30 / 60, camp and Forge level 3; the launchpad's levels 7+ pay the ship
+  7+), `turret` (turrets 3+), `own` (monument 20 / 60, camp and Forge level 3; the launchpad's levels 7+ pay the ship
   generations — no cost per flight: tried, it ate the iron income). `IRON_SCALE` raw units per unit, `ironUnits(raw)`.
 - `data/gear.ts`: `WEAPON_FAMILIES` (blade, mace, bow, staff), `ARMOR_KINDS` (light, heavy),
   `GEAR_TIERS` (stone, iron, steel), `ITEM_IDS` (`kind-tier`, 18), `CLASS_FAMILY` (every class

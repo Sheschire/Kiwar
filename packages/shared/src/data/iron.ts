@@ -30,7 +30,7 @@ export const IRON = {
   /** Iron of the levels with their own number (the monument's ages, the Iron levels of the
    * camp and the Forge; index = level). */
   own: {
-    monument: [0, 0, 30, 60],
+    monument: [0, 0, 20, 60],
     trainingCamp: [0, 0, 0, 6],
     forge: [0, 0, 0, 8],
     lab: [0, 0, 0, 0],
