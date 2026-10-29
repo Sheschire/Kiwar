@@ -672,6 +672,14 @@ button.chip:focus-visible {
   border-color: var(--leaf);
 }
 
+/* A new version is installed: the only toast one can tap (the others let taps through). */
+.update-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+
 .toast-error {
   border-color: var(--berry);
   color: #8a2f2a;

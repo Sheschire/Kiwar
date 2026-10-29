@@ -1494,6 +1494,10 @@ export const fr: Dict = {
     raidWounded: '≈ {count} garde(s) blessé·e(s) ({duration} de repos).',
     raidNeed: 'Postez plus de gardes (ou des guerrier·ères) pour vaincre ce nid.',
   },
+  update: {
+    ready: 'Une nouvelle version de Kiwar est prête.',
+    apply: 'Mettre à jour',
+  },
   planets: {
     allyLook: 'Chez votre allié·e : à regarder seulement.',
     allyWorkers: 'Au travail : {names}',

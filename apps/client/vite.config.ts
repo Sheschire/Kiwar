@@ -6,7 +6,9 @@ export default defineConfig({
   plugins: [
     preact(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // A new version waits for the player's "Update" (`ui/update.ts`).
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'icon-192.png'],
       manifest: {
         name: 'Kiwar',

@@ -43,6 +43,7 @@ import { audio } from './audio/engine';
 import { installGameAudio } from './audio/gameAudio';
 import { kiwiSpeaks } from './audio/sounds';
 import { bootMark, bootSummary } from './game/bootTimes';
+import { watchUpdates } from './ui/update';
 
 bootMark('script');
 
@@ -310,6 +311,7 @@ controller = new GameController({
   },
 });
 bindActions(controller, renderer);
+watchUpdates();
 setThumbnailRenderer(renderer.renderer);
 bindIntro(renderer);
 // Shared universes: refresh friends (and the friend on the twin face) every few minutes.

@@ -3168,3 +3168,7 @@ Act IV opens by closing the two points left open in chantier 46: the queen came 
   (`AllyTilePanel`: level, workers, harvest, sites and upgrades with their time, the ground
   and its deposit; store `allyVillage`, `allyTile`), and their birds take off and come back
   (`ShipsView` in `VillageLife`).
+- New versions: the offline cache (PWA) kept the old game until a second reload, so fixes
+  looked missing. The service worker is now registered by `ui/update.ts` (`registerType:
+  'prompt'`, `injectRegister: false`): a new version shows "Update" in the toasts, checked at
+  start, every 20 minutes and when the tab comes back; the tap reloads (the game saves).

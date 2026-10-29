@@ -168,6 +168,8 @@ export interface UiState {
   sister: TwinSnapshot | null;
   /** Far planet the camera is visiting (chantier 24: the twin or a member's; null: home). */
   visit: PlanetRef | null;
+  /** A new version of the game is installed and waits for a reload (`ui/update.ts`). */
+  updateReady: boolean;
   /** Chantier 59: the visited ally's colony as last received (no stocks; null: none). */
   allyVillage: GameState | null;
   /** Chantier 59: the tile of the visited village whose sheet is open (null: none). */
@@ -306,6 +308,7 @@ export const uiStore = createStore<UiState>(() => ({
   sister: null,
   allyVillage: null,
   allyTile: null,
+  updateReady: false,
   visit: null,
   landingInvite: null,
   watchingLanding: null,

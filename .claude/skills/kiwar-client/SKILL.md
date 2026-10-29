@@ -411,6 +411,12 @@ compact`). Long sheets on touch: `FoldSection` (a `<details>` there, a plain sec
   so a resync keeps camera and selection; `CameraRig` saves the azimuth on `rest`
   (`kiwar.camera.azimuth`, not while visiting) and `frame()` uses it.
 
+- **New versions (PWA)**: `ui/update.ts` registers `sw.js` itself (`registerType: 'prompt'`,
+  `injectRegister: false`, no `workbox-window` dependency); a waiting worker sets
+  `updateReady` and the toasts show "Update" (`SKIP_WAITING`, reload on `controllerchange`).
+  Without it a deploy only shows after a second reload. Test with `vite preview` (dev has no
+  service worker).
+
 ## i18n
 
 - `i18n/en.ts` is the source (`Dict` type), `i18n/fr.ts` must match it (TypeScript enforces

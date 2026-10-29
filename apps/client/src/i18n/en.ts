@@ -1421,6 +1421,10 @@ export const en = {
     raidWounded: '≈ {count} guard(s) wounded ({duration} of rest).',
     raidNeed: 'Post more guards (or warriors) to beat this den.',
   },
+  update: {
+    ready: 'A new version of Kiwar is ready.',
+    apply: 'Update',
+  },
   planets: {
     allyLook: 'At your ally’s: to look at only.',
     allyWorkers: 'At work: {names}',
