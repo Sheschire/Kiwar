@@ -42,7 +42,7 @@ describe('meteoric iron (chantier 38)', () => {
     const m = s.sky.meteors[0]!;
     expect(m.ironMax).toBe(craterIron(s));
     expect(m.ironMax).toBe(IRON.crater * IRON_SCALE);
-    expect(m.stock).toBe(Math.round(meteorStock(s, m.landedAt) * IRON.resourceShare));
+    expect(m.max).toBe(Math.round(meteorStock(s, m.landedAt) * IRON.resourceShare));
     const e = events.find((x) => x.type === 'meteorLanded');
     expect(e && e.type === 'meteorLanded' && e.iron).toBe(IRON.crater);
   });

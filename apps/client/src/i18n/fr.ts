@@ -1708,6 +1708,9 @@ export const fr: Dict = {
     remove: 'Retirer',
     full: 'Le camp est plein : le kiwi choisi prendra la place du dernier arrivé.',
     noCandidate: 'Aucun kiwi avec une classe n’est disponible (formez-en à l’École).',
+    from: 'quitte : {job}',
+    busyAt: 'indisponible : {job}',
+    busy: 'Ce kiwi ne peut pas venir pour l’instant (cours, expédition, blessure…).',
   },
   lab: {
     title: 'Infusion',

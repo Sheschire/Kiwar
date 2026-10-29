@@ -3,6 +3,8 @@ import { useRef, useState } from 'preact/hooks';
 import {
   builderSpeed,
   buildingResource,
+  canReassign,
+  BUILDING_TYPES,
   getBuilding,
   KIWI_NAME_MAX,
   levelProgress,
@@ -55,7 +57,13 @@ function isStat(sort: Sort): sort is StatId {
 function sortedKiwis(game: GameState, sort: Sort): Villager[] {
   return [...game.villagers].sort((a, b) => {
     if (sort === 'name') return a.name.localeCompare(b.name);
-    if (sort === 'job') return jobRank(a) - jobRank(b) || b.level - a.level;
+    if (sort === 'job')
+      return (
+        jobRank(a) - jobRank(b) ||
+        workRank(game, a) - workRank(game, b) ||
+        jobKindOrder(a) - jobKindOrder(b) ||
+        b.level - a.level
+      );
     if (sort === 'born') return a.bornAt - b.bornAt;
     // Chantier 20: by a stat, the best first.
     if (isStat(sort)) return b.stats[sort] - a.stats[sort] || b.level - a.level;
@@ -79,6 +87,35 @@ function jobRank(v: Villager): number {
     idle: 6,
   }[v.job.kind];
 }
+
+/** Workers by the kind of building they work at, then by the building itself. */
+function workRank(game: GameState, v: Villager): number {
+  if (v.job.kind !== 'work') return 0;
+  const id = v.job.buildingId;
+  const i = game.buildings.findIndex((b) => b.id === id);
+  const b = game.buildings[i];
+  return b ? BUILDING_TYPES.indexOf(b.type) * 10_000 + i : 0;
+}
+
+/** Jobs sharing a rank (guard, stardust, meteor…) stay together. */
+function jobKindOrder(v: Villager): number {
+  return JOB_KINDS.indexOf(v.job.kind);
+}
+
+const JOB_KINDS: Villager['job']['kind'][] = [
+  'work',
+  'guard',
+  'stardust',
+  'meteor',
+  'build',
+  'titan',
+  'train',
+  'transform',
+  'expedition',
+  'outpost',
+  'injured',
+  'idle',
+];
 
 /** What a kiwi is doing, in words. */
 export function useJobLabel(): (game: GameState, v: Villager) => string {
@@ -334,7 +371,7 @@ function KiwiSheet({ v }: { v: Villager }) {
   const [renaming, setRenaming] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const jobLabel = useJobLabel();
-  const canAssign = !v.kikiwiwi && ['idle', 'work', 'guard'].includes(v.job.kind);
+  const canAssign = !v.kikiwiwi && canReassign(v);
   const p = levelProgress(v);
   const work = v.job.kind === 'work' ? getBuilding(game, v.job.buildingId) : undefined;
   const resource = work ? buildingResource(game, work) : null;

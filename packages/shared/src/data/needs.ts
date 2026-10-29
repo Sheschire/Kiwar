@@ -188,6 +188,11 @@ export function isDecor(type: BuildingType): boolean {
   return BEAUTY[type] !== undefined;
 }
 
+/** Decorations the kiwis walk under: a path stays (or can be drawn) on their tile. */
+export function standsOverPath(type: BuildingType): boolean {
+  return type === 'vineArch';
+}
+
 /**
  * Chantier 44: the village's life — decorations and leisures (the campfire, the games). They
  * stand outside the building cap, have one level, no sign and no age dressing.

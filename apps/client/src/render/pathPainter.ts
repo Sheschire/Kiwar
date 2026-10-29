@@ -16,7 +16,8 @@ export interface PaintHandlers {
 export class PathPainter {
   enabled = false;
   private stroke: { id: number; tiles: Tile[]; keys: Set<string>; erase: boolean } | null = null;
-  private pointers = 0;
+  /** Pointers down (by id): released anywhere on the page, so none stays stuck down. */
+  private readonly pointers = new Set<number>();
 
   constructor(
     private readonly element: HTMLElement,
@@ -25,14 +26,16 @@ export class PathPainter {
   ) {
     element.addEventListener('pointerdown', this.onDown);
     element.addEventListener('pointermove', this.onMove);
-    element.addEventListener('pointerup', this.onUp);
-    element.addEventListener('pointercancel', this.onCancel);
+    window.addEventListener('pointerup', this.onUp);
+    window.addEventListener('pointercancel', this.onCancel);
   }
 
   private onDown = (e: PointerEvent) => {
-    this.pointers++;
+    // A mouse has one pointer: a press always starts afresh (a release may have been missed).
+    if (e.pointerType === 'mouse') this.pointers.clear();
+    this.pointers.add(e.pointerId);
     if (!this.enabled) return;
-    if (this.pointers > 1) {
+    if (this.pointers.size > 1) {
       this.cancel();
       return;
     }
@@ -67,7 +70,7 @@ export class PathPainter {
   };
 
   private onUp = (e: PointerEvent) => {
-    this.pointers = Math.max(0, this.pointers - 1);
+    this.pointers.delete(e.pointerId);
     const s = this.stroke;
     if (!s || s.id !== e.pointerId) return;
     this.stroke = null;
@@ -75,8 +78,8 @@ export class PathPainter {
     this.handlers.onStroke(s.tiles, s.erase);
   };
 
-  private onCancel = () => {
-    this.pointers = Math.max(0, this.pointers - 1);
+  private onCancel = (e: PointerEvent) => {
+    this.pointers.delete(e.pointerId);
     this.cancel();
   };
 
@@ -89,7 +92,7 @@ export class PathPainter {
   dispose(): void {
     this.element.removeEventListener('pointerdown', this.onDown);
     this.element.removeEventListener('pointermove', this.onMove);
-    this.element.removeEventListener('pointerup', this.onUp);
-    this.element.removeEventListener('pointercancel', this.onCancel);
+    window.removeEventListener('pointerup', this.onUp);
+    window.removeEventListener('pointercancel', this.onCancel);
   }
 }

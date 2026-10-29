@@ -3172,3 +3172,24 @@ Act IV opens by closing the two points left open in chantier 46: the queen came 
   looked missing. The service worker is now registered by `ui/update.ts` (`registerType:
   'prompt'`, `injectRegister: false`): a new version shows "Update" in the toasts, checked at
   start, every 20 minutes and when the tab comes back; the tap reloads (the game saves).
+
+## Fixes from the owner's tests (October 2026, third batch)
+
+- Juice wells: the harvested tiles' rings (and the hover / selection outlines) float on the
+  juice (`WATER_LEVEL`), they were drawn under its surface; the rings are a little wider.
+- Village screen, sort "Job": workers are grouped by the kind of building, then by building
+  (`workRank`), and jobs sharing a rank stay together (it mixed every workplace before).
+- Moving a kiwi (`canReassign`): a builder can be taken off its site too (`leaveSite`: the
+  site keeps its work and waits for another builder), from the camp sheet and the kiwi sheet.
+  The camp sheet lists the busy ones greyed with what they do ("unavailable: …") and says what
+  the others leave. Kiwis drilling at the training camp are no longer borrowed by the
+  automation except for the garrison (`canBorrow`): sent from a crater or stardust, the
+  dispatcher took them straight back, so the tap seemed to do nothing.
+- The vine arch stands over a path (`standsOverPath`): placing it keeps the path, a path can
+  be drawn under it (`pathBlockedAt`), and its model lost its flat stones.
+- Path painting stopped for good after a press released outside the canvas (the pointer count
+  never went back down, every stroke was taken for a pinch): pointers are tracked by id,
+  released on `window`, and a mouse press always starts afresh. The client's stroke filter
+  now matches the server's (titans at work, arch tiles).
+- Meteorites: about two a day (owner's choice): every 9–15 h, the first 3 h after the start,
+  up to 5 craters at once so they live their 48 h. Iron per crater unchanged (≈2× iron a day).

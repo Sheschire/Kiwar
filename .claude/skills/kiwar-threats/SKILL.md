@@ -23,7 +23,8 @@ colony × play time (× expedition victories: the aliens strike back), beginners
   - `TURRETS.max` by Nest level (2/4/6), `GARRISON` (power, class affinities: warrior ground
     only, mage and scout reach the bats, others weak on the ground and nothing in the air;
     guards are 1.5× more exposed), `SHELTER` (45 min before → 15 min after), `INCIDENTS`
-    (first at 4 h, then every 5–11 h: thief, bat, storm), `METEORS`.
+    (first at 4 h, then every 5–11 h: thief, bat, storm), `METEORS` (about two a day: first
+    at 3 h, then every 9–15 h, up to 5 craters of 48 h).
 - Biomes multiply ferrets/bats (`BIOMES[b].threats`, chantier 05).
 - Chantier 08: `THREATS.ageFactor` and `METEORS.ageFactor` (by `ageOf`), Nest factors and
   `TURRETS.max` extended to Nest 6; technologies scale turrets (`turretDefense`), guards

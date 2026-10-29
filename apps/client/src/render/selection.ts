@@ -68,7 +68,11 @@ class HexMarker {
     this.mesh.visible = !!tile;
     if (!tile) return;
     const p = worldPosition(tile);
-    this.mesh.position.set(p.x, tile.height + 0.025, p.z);
+    this.mesh.position.set(
+      p.x,
+      tile.height + (tile.type === 'juice' ? WATER_LEVEL : 0) + 0.025,
+      p.z,
+    );
   }
   pulse(time: number, speed: number): void {
     this.material.opacity = this.baseOpacity * (0.75 + 0.25 * Math.sin(time * speed));
@@ -127,7 +131,7 @@ export class SelectionView {
   private readonly hover = new HexMarker('#fff6d8', 0.35, true, 0.76);
   private readonly selected = new HexMarker('#ffd24a', 1, false, 0.7);
   private readonly catchment = new InstancedMesh(
-    createHexRingGeometry(HEX_VISUAL_RADIUS * 0.8, HEX_VISUAL_RADIUS * 0.9),
+    createHexRingGeometry(HEX_VISUAL_RADIUS * 0.74, HEX_VISUAL_RADIUS * 0.92),
     new MeshBasicMaterial({
       color: '#ffffff',
       transparent: true,
@@ -243,7 +247,8 @@ export class SelectionView {
     let n = 0;
     for (const t of tiles.slice(0, MAX_CATCHMENT)) {
       const p = worldPosition(t);
-      m.makeTranslation(p.x, t.height + 0.02, p.z);
+      // Over a juice tile the ring floats on the juice (under it, it was hidden).
+      m.makeTranslation(p.x, t.height + (t.type === 'juice' ? WATER_LEVEL : 0) + 0.02, p.z);
       this.catchment.setColorAt(n, c.set(colors?.[n] ?? CATCHMENT_COLOR));
       this.catchment.setMatrixAt(n++, m);
     }

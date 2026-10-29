@@ -9,12 +9,13 @@ import {
   RESOURCE_IDS,
   type BuildingId,
   obstacleAt,
+  pathBlockedAt,
+  titanAt,
   hexKey,
   isLaunchpadBusy,
   pathLimit,
   pathLogisticsChanges,
   PATHS,
-  queuedBuildAt,
   TILES,
   type BuildingType,
   type Command,
@@ -63,9 +64,9 @@ function strokeTiles(game: GameState, tiles: Tile[], erase: boolean): Tile[] {
     (t) =>
       !existing.has(hexKey(t)) &&
       TILES[t.type].walkable &&
-      !buildingAt(game, t.q, t.r) &&
-      !queuedBuildAt(game, t.q, t.r) &&
-      !obstacleAt(game, t.q, t.r),
+      !pathBlockedAt(game, t.q, t.r) &&
+      !obstacleAt(game, t.q, t.r) &&
+      !titanAt(game, t.q, t.r),
   );
   return todo.slice(0, Math.max(0, pathLimit(game) - game.paths.length) || 1);
 }

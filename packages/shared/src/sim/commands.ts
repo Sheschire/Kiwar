@@ -1,6 +1,6 @@
 import { giveSpeech, speechLock } from './speech';
 import { cabaretOf, fireFireworks, fireworksLock } from './village';
-import { FIREWORKS, type FireworksPattern } from '../data/needs';
+import { FIREWORKS, standsOverPath, type FireworksPattern } from '../data/needs';
 import { landingLock } from './landing';
 import type { LandingOrders } from '../data/landing';
 import { IRON_SCALE } from '../data/iron';
@@ -13,6 +13,7 @@ import {
   borrow,
   canBorrow,
   dispatchTasks,
+  canReassign,
   leaveSite,
   sendBack,
   sendBackAll,
@@ -58,6 +59,7 @@ import {
   getBuilding,
   nearRay,
   nestDef,
+  pathBlockedAt,
   pathLimit,
   pendingUpgrade,
   population,
@@ -571,7 +573,9 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         ...(footprintOf(cmd.buildingType) > 1 ? { rot } : {}),
       });
       // The site replaces any path on its tiles (the covered ones are refunded, chantier 35).
-      clearPathsUnder(s, footprintHexes(cmd.buildingType, cmd.q, cmd.r, rot));
+      // An arch stands over its path: the kiwis walk under it.
+      if (!standsOverPath(cmd.buildingType))
+        clearPathsUnder(s, footprintHexes(cmd.buildingType, cmd.q, cmd.r, rot));
       return;
     }
     case 'upgrade': {
@@ -743,16 +747,11 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
     case 'assignKiwi': {
       const v = s.villagers.find((x) => x.id === cmd.villagerId);
       if (!v) return fail('unknownVillager');
-      // Chantier 15: a kiwi on a crater or on stardust can be moved too.
-      if (
-        v.job.kind !== 'idle' &&
-        v.job.kind !== 'work' &&
-        v.job.kind !== 'guard' &&
-        v.job.kind !== 'meteor' &&
-        v.job.kind !== 'stardust'
-      )
-        fail('kiwiBusy');
+      // Chantier 15: a kiwi on a crater or on stardust can be moved too, and a builder (its
+      // site waits for another one).
+      if (!canReassign(v)) fail('kiwiBusy');
       if (cmd.buildingId === null) {
+        leaveSite(s, v, now);
         v.job = { kind: 'idle' };
         return;
       }
@@ -772,6 +771,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         other = weakestWorker(s, b);
       }
       const previous = v.job;
+      leaveSite(s, v, now);
       v.job = { kind: 'work', buildingId: b.id };
       // Placed by the player: no former workplace to go back to.
       delete v.homeJob;
@@ -948,7 +948,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         const tile = getTile(ctx.map, h);
         if (!tile) return fail('unknownTile');
         if (!TILES[tile.type].walkable) fail('pathNotAllowed');
-        if (buildingAt(s, h.q, h.r) || queuedBuildAt(s, h.q, h.r)) fail('tileOccupied');
+        if (pathBlockedAt(s, h.q, h.r)) fail('tileOccupied');
         if (obstacleAt(s, h.q, h.r)) fail('obstacle');
         if (titanAt(s, h.q, h.r)) fail('titanAtWork');
         added.push(key);

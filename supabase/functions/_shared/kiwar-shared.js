@@ -2402,6 +2402,9 @@ var BEAUTY = {
 function isDecor(type) {
   return BEAUTY[type] !== void 0;
 }
+function standsOverPath(type) {
+  return type === "vineArch";
+}
 function isVillageLife(type) {
   return BEAUTY[type] !== void 0 || LEISURE[type] !== void 0;
 }
@@ -2592,9 +2595,9 @@ var INCIDENTS = {
   history: 8
 };
 var METEORS = {
-  /** The first one falls this long after the start; then about one a day. */
-  firstMs: ms.h(6),
-  intervalMs: [ms.h(18), ms.h(30)],
+  /** The first one falls this long after the start; then about two a day (owner, Oct 2026). */
+  firstMs: ms.h(3),
+  intervalMs: [ms.h(9), ms.h(15)],
   /** The shooting star is seen this long before the impact. */
   noticeMs: ms.h(1),
   /** The crater fades away this long after the impact. */
@@ -2620,8 +2623,8 @@ var METEORS = {
   rates: { pulp: 750, fiber: 600, seeds: 190, juice: 450 },
   /** Meteorite drill (technology `meteorDrill`): harvest multiplier by age (index = age). */
   drill: [1, 1.5, 2, 2.5],
-  /** Craters kept at once. */
-  max: 3
+  /** Craters kept at once (about two falls a day for 48 hours each). */
+  max: 5
 };
 
 // packages/shared/src/data/ages.ts
@@ -5311,6 +5314,12 @@ function buildingAt(state, q, r) {
 function queuedBuildAt(state, q, r) {
   const o = occupancy(state).tiles.get(`${q},${r}`);
   return o?.site ? state.queue.find((i) => i.id === o.id) : void 0;
+}
+function pathBlockedAt(state, q, r) {
+  const b = buildingAt(state, q, r);
+  if (b) return !standsOverPath(b.type);
+  const site = queuedBuildAt(state, q, r);
+  return site !== void 0 && !standsOverPath(site.buildingType);
 }
 function nest(state) {
   const n = state.buildings.find((b) => b.type === "nest");
@@ -10251,6 +10260,9 @@ function canBorrow(state, v, to) {
   if (v.kikiwiwi) return false;
   const level = taskLevel(state, v);
   if (level === null || RANK[level] <= RANK[to]) return false;
+  if (to !== "garrison" && v.job.kind === "work") {
+    if (getBuilding(state, v.job.buildingId)?.type === "trainingCamp") return false;
+  }
   return level === "idle" || !v.locked;
 }
 function borrow(v) {
@@ -10309,6 +10321,10 @@ function startItem(state, item2, builder, at, events) {
   item2.startedAt = at;
   item2.durationMs = Math.max(1e3, Math.round(item2.durationMs / itemSpeed(builder, item2)));
   events.push({ type: "constructionStarted", at, queueItemId: item2.id, builderId: builder.id });
+}
+function canReassign(v) {
+  const k = v.job.kind;
+  return k === "idle" || k === "work" || k === "guard" || k === "meteor" || k === "stardust" || k === "build";
 }
 function leaveSite(state, v, at) {
   if (v.job.kind !== "build") return;
@@ -13623,7 +13639,8 @@ function execute(s, cmd, ctx, events) {
         orderedAt: now,
         ...footprintOf(cmd.buildingType) > 1 ? { rot } : {}
       });
-      clearPathsUnder(s, footprintHexes(cmd.buildingType, cmd.q, cmd.r, rot));
+      if (!standsOverPath(cmd.buildingType))
+        clearPathsUnder(s, footprintHexes(cmd.buildingType, cmd.q, cmd.r, rot));
       return;
     }
     case "upgrade": {
@@ -13781,9 +13798,9 @@ function execute(s, cmd, ctx, events) {
     case "assignKiwi": {
       const v = s.villagers.find((x) => x.id === cmd.villagerId);
       if (!v) return fail("unknownVillager");
-      if (v.job.kind !== "idle" && v.job.kind !== "work" && v.job.kind !== "guard" && v.job.kind !== "meteor" && v.job.kind !== "stardust")
-        fail("kiwiBusy");
+      if (!canReassign(v)) fail("kiwiBusy");
       if (cmd.buildingId === null) {
+        leaveSite(s, v, now);
         v.job = { kind: "idle" };
         return;
       }
@@ -13802,6 +13819,7 @@ function execute(s, cmd, ctx, events) {
         other = weakestWorker(s, b);
       }
       const previous = v.job;
+      leaveSite(s, v, now);
       v.job = { kind: "work", buildingId: b.id };
       delete v.homeJob;
       delete v.lent;
@@ -13966,7 +13984,7 @@ function execute(s, cmd, ctx, events) {
         const tile = getTile(ctx.map, h);
         if (!tile) return fail("unknownTile");
         if (!TILES[tile.type].walkable) fail("pathNotAllowed");
-        if (buildingAt(s, h.q, h.r) || queuedBuildAt(s, h.q, h.r)) fail("tileOccupied");
+        if (pathBlockedAt(s, h.q, h.r)) fail("tileOccupied");
         if (obstacleAt(s, h.q, h.r)) fail("obstacle");
         if (titanAt(s, h.q, h.r)) fail("titanAtWork");
         added.push(key);
@@ -20788,6 +20806,7 @@ export {
   canHatch,
   canMine,
   canPickDust,
+  canReassign,
   canReshape,
   canResolveArrival,
   canStarve,
@@ -21162,6 +21181,7 @@ export {
   parseHexKey,
   passiveRates,
   patchRate,
+  pathBlockedAt,
   pathLimit,
   pathLogisticsChanges,
   pathSet,
@@ -21292,6 +21312,7 @@ export {
   staffing,
   stageOf,
   standingBarracks,
+  standsOverPath,
   stardustOf,
   stardustPerHour,
   startConstructions,

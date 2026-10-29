@@ -1634,6 +1634,9 @@ export const en = {
     remove: 'Remove',
     full: 'The camp is full: the chosen kiwi takes the place of the last one in.',
     noCandidate: 'No kiwi with a class is available (train some at the School).',
+    from: 'leaves: {job}',
+    busyAt: 'unavailable: {job}',
+    busy: 'This kiwi cannot come for now (course, expedition, injury…).',
   },
   lab: {
     title: 'Infusion',

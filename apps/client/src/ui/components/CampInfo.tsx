@@ -1,5 +1,6 @@
 import {
   CAMP,
+  canReassign,
   classRank,
   levelDef,
   workerSlots,
@@ -32,17 +33,15 @@ export function CampInfo({ game, b, now }: { game: GameState; b: Building; now: 
   const speed = CAMP.drill[Math.min(b.level, CAMP.drill.length) - 1] ?? 1;
   const [picking, setPicking] = useState(false);
   const jobLabel = useJobLabel();
-  // Kiwis with a class that can come and drill: free ones first, then the lowest ranks.
+  // Kiwis with a class: free ones first, then those taken from another post, then the lowest
+  // ranks; the busy ones (course, expedition, injured…) are listed greyed with what they do.
   const candidates = game.villagers
-    .filter(
-      (v) =>
-        !v.kikiwiwi &&
-        v.classId !== null &&
-        ['idle', 'work', 'guard', 'meteor', 'stardust'].includes(v.job.kind) &&
-        !drilling.includes(v),
-    )
+    .filter((v) => !v.kikiwiwi && v.classId !== null && !drilling.includes(v))
     .sort(
-      (x, y) => +(y.job.kind === 'idle') - +(x.job.kind === 'idle') || classRank(x) - classRank(y),
+      (x, y) =>
+        +canReassign(y) - +canReassign(x) ||
+        +(y.job.kind === 'idle') - +(x.job.kind === 'idle') ||
+        classRank(x) - classRank(y),
     );
   const assign = (id: string, buildingId: string | null) =>
     actions.dispatch({
@@ -90,13 +89,21 @@ export function CampInfo({ game, b, now }: { game: GameState; b: Building; now: 
               <li key={v.id}>
                 <button
                   class="worker-main"
+                  disabled={!canReassign(v)}
+                  title={canReassign(v) ? undefined : t('camp.busy')}
                   onClick={() => {
                     if (assign(v.id, b.id)) setPicking(false);
                   }}
                 >
                   <KiwiPortrait shiny={v.shiny} classId={v.classId} seed={v.id} size={30} />
                   <span class="small">{v.name}</span>
-                  <span class="small muted">{jobLabel(game, v)}</span>
+                  <span class="small muted">
+                    {canReassign(v)
+                      ? v.job.kind === 'idle'
+                        ? jobLabel(game, v)
+                        : t('camp.from', { job: jobLabel(game, v) })
+                      : t('camp.busyAt', { job: jobLabel(game, v) })}
+                  </span>
                   <span class="small muted">
                     {t('classInfo.rank', { rank: classRank(v), max: CAMP.maxRank })}
                   </span>

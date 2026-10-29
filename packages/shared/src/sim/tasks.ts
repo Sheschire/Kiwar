@@ -71,11 +71,16 @@ export function taskLevel(state: GameState, v: Villager): TaskLevel | null {
 /**
  * The automation may move this kiwi to a task of level `to`: it is doing something of lower
  * priority, is not a Kikiwiwi, and is not locked (a locked kiwi at home can still be taken).
+ * Kiwis drilling at the training camp only leave it for the garrison.
  */
 export function canBorrow(state: GameState, v: Villager, to: TaskLevel): boolean {
   if (v.kikiwiwi) return false;
   const level = taskLevel(state, v);
   if (level === null || RANK[level] <= RANK[to]) return false;
+  // Drilling at the training camp is the player's choice: only the garrison calls them away.
+  if (to !== 'garrison' && v.job.kind === 'work') {
+    if (getBuilding(state, v.job.buildingId)?.type === 'trainingCamp') return false;
+  }
   return level === 'idle' || !v.locked;
 }
 
@@ -172,6 +177,22 @@ export function startItem(
   item.startedAt = at;
   item.durationMs = Math.max(1000, Math.round(item.durationMs / itemSpeed(builder, item)));
   events.push({ type: 'constructionStarted', at, queueItemId: item.id, builderId: builder.id });
+}
+
+/**
+ * The player can place this kiwi elsewhere (a workplace, the camp, idle): free, at work, on
+ * guard, on a crater, on stardust or on a site (the site waits for another builder).
+ */
+export function canReassign(v: Villager): boolean {
+  const k = v.job.kind;
+  return (
+    k === 'idle' ||
+    k === 'work' ||
+    k === 'guard' ||
+    k === 'meteor' ||
+    k === 'stardust' ||
+    k === 'build'
+  );
 }
 
 /**

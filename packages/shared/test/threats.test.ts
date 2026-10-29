@@ -592,7 +592,7 @@ describe('gifts from the sky', () => {
     let s = advance(state, T0 + METEORS.firstMs + 1).state;
     const m = s.sky.meteors[0]!;
     expect(m).toBeDefined();
-    s = { ...s, resources: { pulp: 300, fiber: 300, seeds: 0, juice: 300 } };
+    s = { ...s, resources: { pulp: 300, fiber: 300, seeds: 0, juice: 3000 } };
     const camp = applyCommand(s, { type: 'gather', q: m.q, r: m.r }, { now: s.now, map });
     expect(!camp.ok && camp.error).toBe('onCrater');
     s = run(s, { type: 'debugGrant', resources: {} }, s.now, map);
@@ -606,7 +606,9 @@ describe('gifts from the sky', () => {
     expect(m1.stock).toBeLessThan(m.stock);
     expect(stepped.sky).toEqual(one.sky);
     expect(stepped.resources[m.resource]).toBeCloseTo(one.resources[m.resource], 4);
-    expect(one.resources[m.resource]).toBeGreaterThan(0);
+    // What was picked reached the stock (compared with the same hours without the crater).
+    const bare = advance({ ...s, sky: { ...s.sky, meteors: [] } }, end).state;
+    expect(one.resources[m.resource]).toBeGreaterThan(bare.resources[m.resource]);
   });
 
   it('migrates v10 saves', () => {

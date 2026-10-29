@@ -193,7 +193,7 @@ export function nextSkyEvent(state: GameState): TimeMs {
   return next;
 }
 
-/** Plans the next fall (the first one a few hours after the start, then about one a day). */
+/** Plans the next fall (the first one a few hours after the start, then about two a day). */
 export function planMeteor(s: GameState): void {
   const sky = s.sky;
   if (sky.next) return;

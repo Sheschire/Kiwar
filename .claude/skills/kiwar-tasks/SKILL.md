@@ -40,7 +40,9 @@ but can switch any automatism off to optimise by hand".
 
 - Task levels (`taskLevel`): garrison 0 > build 1 > research 2 (Library workers) > pick 3
   (craters, stardust) > harvest 4 > idle 5. `canBorrow(state, v, to)`: lower level only, never a
-  Kikiwiwi, never a locked kiwi unless idle. `borrow(v)` returns the home (lent, the job's
+  Kikiwiwi, never a locked kiwi unless idle, never a kiwi drilling at the training camp except for
+  the garrison. `canReassign(v)` (idle, work, guard, meteor, stardust, build) is what the player
+  can move with `assignKiwi` (a builder leaves its site through `leaveSite`). `borrow(v)` returns the home (lent, the job's
   `returnTo`, or the workplace). `sendBack` / `sendBackAll` (kiwis with a home first, so that a
   kiwi looking for work does not take the place of one coming home). `bestFor` = best power,
   idle first on ties.

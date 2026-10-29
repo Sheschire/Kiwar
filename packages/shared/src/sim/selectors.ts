@@ -15,7 +15,7 @@ import { THREATS, TURRETS } from '../data/threats';
 import { LANDING } from '../data/landing';
 import { TILES } from '../data/tiles';
 import { HATCHING } from '../data/hatching';
-import { isVillageLife } from '../data/needs';
+import { isVillageLife, standsOverPath } from '../data/needs';
 import {
   RESOURCE_IDS,
   emptyResources,
@@ -55,6 +55,14 @@ export function buildingAt(state: GameState, q: number, r: number): Building | u
 export function queuedBuildAt(state: GameState, q: number, r: number): QueueItem | undefined {
   const o = occupancy(state).tiles.get(`${q},${r}`);
   return o?.site ? state.queue.find((i) => i.id === o.id) : undefined;
+}
+
+/** A building or a site whose tile takes no path (an arch lets one pass under it). */
+export function pathBlockedAt(state: GameState, q: number, r: number): boolean {
+  const b = buildingAt(state, q, r);
+  if (b) return !standsOverPath(b.type);
+  const site = queuedBuildAt(state, q, r);
+  return site !== undefined && !standsOverPath(site.buildingType);
 }
 
 export function nest(state: GameState): Building {

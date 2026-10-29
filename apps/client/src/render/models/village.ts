@@ -285,11 +285,12 @@ export function flowerBed(): Parts {
   return p;
 }
 
-/** Chantier 44: an arch of woven vines in bloom over a short path of flat stones. */
+/**
+ * Chantier 44: an arch of woven vines in bloom. No floor of its own: it stands over the ground
+ * or over a path, which goes on under it.
+ */
 export function vineArch(): Parts {
   const p: Parts = [];
-  for (const z of [-0.24, -0.08, 0.08, 0.24])
-    p.push([cyl(6), C.stone, m(0, 0.012, z, 0.09, 0.02, 0.07)]);
   const R = 0.28;
   // Two vines twisted together along the half circle.
   for (const [dz, col] of [

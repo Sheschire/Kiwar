@@ -274,6 +274,12 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   `renderer.kiwis.update(0.1, t, state.now)` ×400; for the evening, `calendarStart = now −
 1.72 h` and `vigil` memories on the kiwis.
 
+- Overlays on a juice tile (catchment rings, hover / selection outlines, planned zones) sit
+  at `tile.height + WATER_LEVEL`: under it they are hidden by the juice surface.
+- `PathPainter` tracks pointers by id and listens to `pointerup` / `pointercancel` on
+  `window` (a release outside the canvas once left the count stuck and blocked painting).
+- The vine arch stands over a path (`standsOverPath`, `pathBlockedAt` in shared): no floor in
+  its model, the path drawn under it shows through; other decorations still clear the path.
 - **Chantier 44 (leisure and decor)**: models in `render/models/village.ts` (decorations,
   games, `cabaret` + `cabaretTerrace` dressed in `spread.ts`, `fireworks`); `lookOf` gives the
   cabaret the Iron look; lanterns, the fountain and the statue follow `look.colonyAge`; the
