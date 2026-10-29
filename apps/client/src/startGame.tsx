@@ -80,6 +80,7 @@ const renderer = new GameRenderer(
     onAzimuth: (azimuth) => viewStore.setState({ azimuth }),
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
     onPlanetTap: (planet) => actions.showPlanetCard(planet),
+    onAllyTileTap: (tile) => uiStore.setState({ allyTile: tile }),
     onSlowFrames: (fps) => {
       const tip = slowFramesTip(gpuRendererName(), fps, uiStore.getState().qualityChoice);
       if (tip && !gpuTipDismissed(tip)) uiStore.setState({ gpuTip: tip });
@@ -338,7 +339,10 @@ async function refreshVillage(kiwiIndex: number, visit: number): Promise<void> {
   const state = ally ? await controller.allyVillage(kiwiIndex, ally.face) : null;
   // The visit may have ended (or moved on) during the call.
   if (visit !== villageVisit) return;
-  if (state) renderer.setAllyVillage(kiwiIndex, state);
+  if (state) {
+    renderer.setAllyVillage(kiwiIndex, state);
+    uiStore.setState({ allyVillage: state });
+  }
   villageTimer = window.setTimeout(() => void refreshVillage(kiwiIndex, visit), VILLAGE_REFRESH_MS);
 }
 uiStore.subscribe((s, prev) => {
@@ -346,6 +350,7 @@ uiStore.subscribe((s, prev) => {
   window.clearTimeout(villageTimer);
   villageVisit++;
   renderer.setAllyVillage(null, null);
+  uiStore.setState({ allyVillage: null, allyTile: null });
   if (typeof s.visit === 'number') void refreshVillage(s.visit, villageVisit);
 });
 

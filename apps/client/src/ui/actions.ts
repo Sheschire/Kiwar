@@ -103,6 +103,19 @@ function joinIntro(c: GameController): void {
   });
 }
 
+/** Ctrl / Cmd held on a keyboard: placing a building keeps it in hand (decorations…). */
+let repeatHeld = false;
+if (typeof window !== 'undefined') {
+  const track = (e: KeyboardEvent) => {
+    repeatHeld = e.ctrlKey || e.metaKey;
+  };
+  window.addEventListener('keydown', track);
+  window.addEventListener('keyup', track);
+  window.addEventListener('blur', () => {
+    repeatHeld = false;
+  });
+}
+
 export const actions = {
   dispatch(cmd: Command): boolean {
     const ok = controller?.dispatch(cmd) ?? false;
@@ -223,6 +236,8 @@ export const actions = {
       r: tile.r,
       ...(footprintOf(placing) === 3 ? { rot } : {}),
     });
+    // Ctrl (or Cmd) held: the same building stays in hand to place it again.
+    if (ok && repeatHeld) return;
     const done = { placing: null, placingTile: null, placingPinned: false };
     uiStore.setState(ok ? { ...done, selectedTile: tile } : done);
   },

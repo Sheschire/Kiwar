@@ -109,15 +109,25 @@ export function canalError(
   return null;
 }
 
-/** Why a canal cannot be filled back in (null: it can). */
+/**
+ * Why a canal, or a juice tile of the generated map (river, lake), cannot be filled in (null:
+ * it can). A natural juice tile needs the Canals research and becomes flesh (`land`).
+ */
 export function fillError(
   state: GameState,
   q: number,
   r: number,
   item?: QueueItem,
-): 'notACanal' | 'tileOccupied' | null {
+): 'notACanal' | 'tileOccupied' | 'techMissing' | null {
   const key = hexKey({ q, r });
-  if (state.terraform[key] !== 'canal') return 'notACanal';
+  const kind = state.terraform[key];
+  if (kind !== 'canal') {
+    if (kind) return 'notACanal';
+    const base = faceMapOf({ seed: state.seed, face: state.face, params: state.params });
+    if (getTile(base, { q, r })?.type !== 'juice') return 'notACanal';
+    if (!techEffects(state).canals) return 'techMissing';
+  }
+  if (meteorAt(state, q, r) || obstacleAt(state, q, r)) return 'tileOccupied';
   const held = occupancy(state).tiles.get(key as HexKey);
   if (held && !(item && held.id === item.id)) return 'tileOccupied';
   return null;
@@ -145,8 +155,12 @@ export function finishCanal(s: GameState, item: QueueItem, at: TimeMs, events: G
   }
   // A new object: cached map keys follow the object (`terraformKey`).
   const next = { ...s.terraform };
-  if (dig) next[key] = 'canal';
-  else delete next[key];
+  // Digging a filled-in river tile gives the river back; filling one in makes land.
+  if (dig) {
+    if (next[key] === 'land') delete next[key];
+    else next[key] = 'canal';
+  } else if (next[key] === 'canal') delete next[key];
+  else next[key] = 'land';
   s.terraform = next;
   delete s.deposits[key];
   syncPools(s, faceMapOf(s), at);

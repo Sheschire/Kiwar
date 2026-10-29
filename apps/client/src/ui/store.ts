@@ -168,6 +168,10 @@ export interface UiState {
   sister: TwinSnapshot | null;
   /** Far planet the camera is visiting (chantier 24: the twin or a member's; null: home). */
   visit: PlanetRef | null;
+  /** Chantier 59: the visited ally's colony as last received (no stocks; null: none). */
+  allyVillage: GameState | null;
+  /** Chantier 59: the tile of the visited village whose sheet is open (null: none). */
+  allyTile: { q: number; r: number } | null;
   /** Chantier 41: a landing that just happened, offered to watch (expedition id). */
   landingInvite: string | null;
   /** Chantier 41: the landing watched on the twin (expedition id; null: none). */
@@ -300,6 +304,8 @@ export const uiStore = createStore<UiState>(() => ({
   twinOwner: null,
   colony: 0,
   sister: null,
+  allyVillage: null,
+  allyTile: null,
   visit: null,
   landingInvite: null,
   watchingLanding: null,

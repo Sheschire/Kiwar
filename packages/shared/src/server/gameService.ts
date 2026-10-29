@@ -719,8 +719,9 @@ export function plausibleTerraform(state: GameState): boolean {
   const all = Object.entries(state.terraform);
   if (all.length === 0) return true;
   const canals = all.filter(([, kind]) => kind === 'canal');
-  const entries = all.filter(([, kind]) => kind !== 'canal');
-  if (canals.length > 0 && !techEffects(state).canals) return false;
+  const lands = all.filter(([, kind]) => kind === 'land');
+  const entries = all.filter(([, kind]) => kind !== 'canal' && kind !== 'land');
+  if (canals.length + lands.length > 0 && !techEffects(state).canals) return false;
   if (canals.length > canalCap(state)) return false;
   if (entries.length > 0 && !techEffects(state).terraform) return false;
   if (entries.length > (TITAN.maxTerraform[ageOf(state)] ?? 0)) return false;
@@ -731,11 +732,13 @@ export function plausibleTerraform(state: GameState): boolean {
     const ok =
       kind === 'canal'
         ? tile.type === 'flesh'
-        : kind === 'terrace'
-          ? !!tile.flood
-          : kind === 'flatten'
-            ? tile.type === 'grove' || tile.type === 'seedRing'
-            : tile.type === 'flesh' || tile.type === 'grove' || tile.type === 'seedRing';
+        : kind === 'land'
+          ? tile.type === 'juice'
+          : kind === 'terrace'
+            ? !!tile.flood
+            : kind === 'flatten'
+              ? tile.type === 'grove' || tile.type === 'seedRing'
+              : tile.type === 'flesh' || tile.type === 'grove' || tile.type === 'seedRing';
     if (!ok) return false;
   }
   return true;

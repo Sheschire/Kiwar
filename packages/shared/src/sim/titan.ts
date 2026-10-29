@@ -20,7 +20,9 @@ export function terraformLeft(state: GameState): number {
   const pending = state.villagers.filter(
     (v) => v.job.kind === 'titan' && v.job.work !== 'smash',
   ).length;
-  const reshaped = Object.values(state.terraform).filter((k) => k !== 'canal').length;
+  const reshaped = Object.values(state.terraform).filter(
+    (k) => k !== 'canal' && k !== 'land',
+  ).length;
   return Math.max(0, cap - reshaped - pending);
 }
 

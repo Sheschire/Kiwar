@@ -11,8 +11,11 @@ import type { TileType } from './tiles';
 export const TITAN_WORK_IDS = ['smash', 'spring', 'terrace', 'flatten'] as const;
 export type TitanWork = (typeof TITAN_WORK_IDS)[number];
 export type TerraformKind = Exclude<TitanWork, 'smash'>;
-/** Chantier 45: a reshaped tile in `state.terraform` — a titan work or a canal dug by builders. */
-export type TerraformTile = TerraformKind | 'canal';
+/**
+ * Chantier 45: a reshaped tile in `state.terraform` — a titan work, a canal dug by builders, or
+ * `land`: a juice tile of the generated map filled in by builders (flesh from then on).
+ */
+export type TerraformTile = TerraformKind | 'canal' | 'land';
 
 export const TERRAFORM_KINDS = [
   'spring',

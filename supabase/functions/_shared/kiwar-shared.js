@@ -2364,7 +2364,7 @@ var MORALE = {
   }
 };
 var SPEECH = {
-  gatherMs: ms.min(20),
+  gatherMs: ms.min(3),
   /** Morale points, plus per Charisma point of the mayor above average (Festival doubles). */
   value: MORALE.memories.speech.value,
   perCharisma: 1,
@@ -9293,7 +9293,9 @@ function terraformLeft(state) {
   const pending = state.villagers.filter(
     (v) => v.job.kind === "titan" && v.job.work !== "smash"
   ).length;
-  const reshaped = Object.values(state.terraform).filter((k) => k !== "canal").length;
+  const reshaped = Object.values(state.terraform).filter(
+    (k) => k !== "canal" && k !== "land"
+  ).length;
   return Math.max(0, cap - reshaped - pending);
 }
 function titanAt(state, q, r) {
@@ -9422,7 +9424,14 @@ function canalError(state, map, q, r, item2) {
 }
 function fillError(state, q, r, item2) {
   const key = hexKey({ q, r });
-  if (state.terraform[key] !== "canal") return "notACanal";
+  const kind = state.terraform[key];
+  if (kind !== "canal") {
+    if (kind) return "notACanal";
+    const base = faceMapOf({ seed: state.seed, face: state.face, params: state.params });
+    if (getTile(base, { q, r })?.type !== "juice") return "notACanal";
+    if (!techEffects(state).canals) return "techMissing";
+  }
+  if (meteorAt(state, q, r) || obstacleAt(state, q, r)) return "tileOccupied";
   const held = occupancy(state).tiles.get(key);
   if (held && !(item2 && held.id === item2.id)) return "tileOccupied";
   return null;
@@ -9440,8 +9449,11 @@ function finishCanal(s, item2, at, events) {
     return;
   }
   const next = { ...s.terraform };
-  if (dig) next[key] = "canal";
-  else delete next[key];
+  if (dig) {
+    if (next[key] === "land") delete next[key];
+    else next[key] = "canal";
+  } else if (next[key] === "canal") delete next[key];
+  else next[key] = "land";
   s.terraform = next;
   delete s.deposits[key];
   syncPools(s, faceMapOf(s), at);
@@ -18931,7 +18943,7 @@ var gameStateSchema = external_exports.object({
       iron: external_exports.number().int().min(0).optional()
     })
   ).max(64),
-  terraform: external_exports.record(external_exports.string().max(16), external_exports.enum([...TERRAFORM_KINDS, "canal"])),
+  terraform: external_exports.record(external_exports.string().max(16), external_exports.enum([...TERRAFORM_KINDS, "canal", "land"])),
   threats,
   sky: external_exports.object({
     next: external_exports.object({
@@ -19984,8 +19996,9 @@ function plausibleTerraform(state) {
   const all = Object.entries(state.terraform);
   if (all.length === 0) return true;
   const canals = all.filter(([, kind]) => kind === "canal");
-  const entries = all.filter(([, kind]) => kind !== "canal");
-  if (canals.length > 0 && !techEffects(state).canals) return false;
+  const lands = all.filter(([, kind]) => kind === "land");
+  const entries = all.filter(([, kind]) => kind !== "canal" && kind !== "land");
+  if (canals.length + lands.length > 0 && !techEffects(state).canals) return false;
   if (canals.length > canalCap(state)) return false;
   if (entries.length > 0 && !techEffects(state).terraform) return false;
   if (entries.length > (TITAN.maxTerraform[ageOf(state)] ?? 0)) return false;
@@ -19993,7 +20006,7 @@ function plausibleTerraform(state) {
   for (const [key, kind] of all) {
     const tile = base.tiles[base.index.get(key) ?? -1];
     if (!tile) return false;
-    const ok = kind === "canal" ? tile.type === "flesh" : kind === "terrace" ? !!tile.flood : kind === "flatten" ? tile.type === "grove" || tile.type === "seedRing" : tile.type === "flesh" || tile.type === "grove" || tile.type === "seedRing";
+    const ok = kind === "canal" ? tile.type === "flesh" : kind === "land" ? tile.type === "juice" : kind === "terrace" ? !!tile.flood : kind === "flatten" ? tile.type === "grove" || tile.type === "seedRing" : tile.type === "flesh" || tile.type === "grove" || tile.type === "seedRing";
     if (!ok) return false;
   }
   return true;

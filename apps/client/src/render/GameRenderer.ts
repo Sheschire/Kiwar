@@ -12,6 +12,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
+import type { Object3D } from 'three';
 import {
   ageOf,
   BIOMES,
@@ -24,6 +25,7 @@ import {
   hexDisk,
   catchmentRadius,
   coveredRampart,
+  isDecor,
   isTurret,
   rampartSectorOf,
   type BuildingType,
@@ -128,6 +130,8 @@ export interface RendererCallbacks {
   /** An ally's planet was tapped (shared universes). */
   /** Chantier 24: a far planet was tapped (the twin or a member's). */
   onPlanetTap?(planet: PlanetRef): void;
+  /** Chantier 59: a tile of the visited ally's living village was tapped (null: off it). */
+  onAllyTileTap?(tile: { q: number; r: number } | null): void;
   /** Chantier 24: the pointer is over a far planet (null: over none), at screen x/y. */
   onPlanetHover?(planet: PlanetRef | null, x: number, y: number): void;
   /** Chantier 32: where the arrow towards an off-screen comet goes (null: none). */
@@ -306,8 +310,15 @@ export class GameRenderer {
           }
         }
         if (this.visiting !== null) {
-          // Visiting is read-only: only another planet can be tapped.
-          if (planet !== null && planet !== this.visiting) this.callbacks.onPlanetTap?.(planet);
+          // Visiting is read-only: another planet, or a tile of the ally's living village (its
+          // sheet, to look at).
+          if (planet !== null && planet !== this.visiting) {
+            this.callbacks.onPlanetTap?.(planet);
+            return;
+          }
+          const view = typeof this.visiting === 'number' ? this.allies.find(this.visiting) : null;
+          if (view?.view.living)
+            this.callbacks.onAllyTileTap?.(view.view.pickVillageTile(canvas, this.camera, x, y));
           return;
         }
         // Chantier 36: during a battle, a unit under the finger opens its card.
@@ -862,7 +873,11 @@ export class GameRenderer {
     this.paths?.sync(
       state.paths,
       ageOf(state),
-      new Set([...state.buildings.map(hexKey), ...state.queue.map(hexKey)]),
+      // Decorations have no door: the paths do not reach towards them.
+      new Set([
+        ...state.buildings.filter((b) => !isDecor(b.type)).map(hexKey),
+        ...state.queue.filter((i) => !isDecor(i.buildingType)).map(hexKey),
+      ]),
     );
     this.meteors?.sync(state);
     this.gates?.sync(state);
@@ -1460,7 +1475,9 @@ export class GameRenderer {
 
   private pickTile(x: number, y: number): Tile | null {
     if (!this.terrain || !this.map) return null;
-    const objects = this.buildings ? [this.buildings.group] : [];
+    const objects: Object3D[] = [];
+    if (this.buildings) objects.push(this.buildings.group);
+    if (this.meteors) objects.push(this.meteors.group);
     const hit = pick(this.canvas, this.camera, this.terrain.tiles, objects, x, y);
     if (!hit) return null;
     if (hit.kind === 'tile') return this.terrain.tileOfInstance(hit.instanceId) ?? null;
@@ -1776,6 +1793,9 @@ export class GameRenderer {
       this.twin?.place(twinPlace(this.twinApproach));
     }
     this.allies.update(dt, this.elapsed, this.camera.position);
+    // Chantier 59: the visited village shows its levels, as its owner sees them up close.
+    if (typeof this.visiting === 'number')
+      this.allies.find(this.visiting)?.view.living?.setBadges(!this.rig.flying);
     if (this.queenRisePending && this.twin && !this.landing?.playing) {
       this.queenRisePending = false;
       this.twin.riseQueen();

@@ -141,6 +141,9 @@ focus?, onChoose })`, store `intro` / `introFade`, gauges (sustainable regrowth 
   planet; the sun's shadows move there (`Lighting.focus(center, radius)`, back home with
   null). Check it locally: `renderer.setAllies([ally])`, `travelTo(1)`, then
   `setAllyVillage(1, aSavedState)` with the ally's seed/face equal to the state's.
+  Since October 2026 the visit also shows level badges (`VillageLife.setBadges`), their
+  birds (`ShipsView`), and a tap on their village (`TwinView.pickVillageTile` →
+  `onAllyTileTap`) opens `AllyTilePanel` (read only, store `allyTile` / `allyVillage`).
 - **Travel** (chantier 24): a tap on a planet (when no tile is hit) opens its card
   (`PlanetCard`, store `planetCard`, `actions.showPlanetCard`); "Go there", the Planets list
   (`PlanetsPanel`, store `planetsOpen`: round button on desktop, "Planets" in the phone

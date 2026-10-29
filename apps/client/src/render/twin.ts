@@ -1,7 +1,8 @@
 import { footprintFrame } from './footprintFrame';
 import { ObstaclesView } from './obstacles';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { BufferGeometry } from 'three';
+import type { BufferGeometry, Camera } from 'three';
+import { pick } from './picking';
 import {
   Color,
   Matrix4,
@@ -718,6 +719,26 @@ export class TwinView {
 
   get living(): VillageLife | null {
     return this.life;
+  }
+
+  /**
+   * Chantier 59: the tile of the living village under the pointer (a building or a crater
+   * wins over the ground behind it); null off the planet or without a living village.
+   */
+  pickVillageTile(
+    element: HTMLElement,
+    camera: Camera,
+    x: number,
+    y: number,
+  ): { q: number; r: number } | null {
+    if (!this.life) return null;
+    const hit = pick(element, camera, this.terrain.tiles, this.life.pickables, x, y);
+    if (!hit) return null;
+    if (hit.kind === 'tile') {
+      const tile = this.terrain.tileOfInstance(hit.instanceId);
+      return tile ? { q: tile.q, r: tile.r } : null;
+    }
+    return { q: hit.q, r: hit.r };
   }
 
   setLabelVisible(visible: boolean): void {

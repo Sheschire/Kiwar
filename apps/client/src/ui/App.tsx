@@ -15,6 +15,7 @@ import { SaveNudge } from './components/SaveNudge';
 import { AuthErrorBanner, GuestTransferModal } from './components/AccountNotices';
 import { GpuTip } from './components/GpuTip';
 import { TilePanel } from './components/TilePanel';
+import { AllyTilePanel } from './components/AllyTilePanel';
 import { OfflineModal } from './components/OfflineModal';
 import { PathButton, PathToolbar } from './components/PathTools';
 import { CanalButton, CanalToolbar } from './components/CanalTools';
@@ -185,6 +186,9 @@ export function App() {
       <div class="hud">
         <VisitBanner />
         <BattleBar />
+        <Guard>
+          <AllyTilePanel />
+        </Guard>
         <PlanetCard />
         <PlanetsPanel />
         <PlanetTag />

@@ -5,6 +5,7 @@ import {
   depletedTiles,
   harvestedTileType,
   hexKey,
+  isDecor,
   occupancy,
   seasonOf,
   type FaceMap,
@@ -18,6 +19,7 @@ import { MeteorsView } from './meteors';
 import { ObstaclesView } from './obstacles';
 import { PathsView } from './paths';
 import { PropsView } from './props';
+import { ShipsView } from './ship';
 import { seasonUniforms } from './seasonLook';
 import type { TerrainView } from './terrain';
 import type { WaterView } from './water';
@@ -46,6 +48,7 @@ export class VillageLife {
   private readonly meteors: MeteorsView;
   private readonly obstacles: ObstaclesView;
   private readonly butterflies: ButterfliesView;
+  private readonly ships: ShipsView;
   private ground: VillageGround | null = null;
   private readonly cleared = new Set<string>();
   private state: GameState | null = null;
@@ -65,7 +68,11 @@ export class VillageLife {
     this.meteors = new MeteorsView(map);
     this.obstacles = new ObstaclesView(map, () => {});
     this.butterflies = new ButterfliesView(map);
+    // Their birds take off from the launchpad and come back, as they see them at home.
+    this.ships = new ShipsView(map);
+    this.ships.setParticles(quality.particles);
     this.group.add(
+      this.ships.group,
       this.props.group,
       this.crops.group,
       this.paths.group,
@@ -91,9 +98,13 @@ export class VillageLife {
     this.paths.sync(
       state.paths,
       ageOf(state),
-      new Set([...state.buildings.map(hexKey), ...state.queue.map(hexKey)]),
+      new Set([
+        ...state.buildings.filter((b) => !isDecor(b.type)).map(hexKey),
+        ...state.queue.filter((i) => !isDecor(i.buildingType)).map(hexKey),
+      ]),
     );
     this.meteors.sync(state);
+    this.ships.sync(state);
     this.obstacles.sync(state);
     // Wild props give way to buildings, sites, paths, obstacles and crops, as at home.
     const occupied = new Set<string>(state.paths);
@@ -138,6 +149,7 @@ export class VillageLife {
     this.crops.update(dt);
     this.meteors.update(dt, now);
     this.obstacles.update(dt);
+    this.ships.update(dt, time, now, null);
     // Same sky as home (one calendar per universe): lamps on at dusk, as `updateCycles` does.
     const daylight = 1 - seasonUniforms.uNight.value;
     const dim = Math.min(1, Math.max(0, (0.85 - daylight) / 0.5));
@@ -149,7 +161,23 @@ export class VillageLife {
     this.ground?.water?.setIce(seasonUniforms.uSnow.value);
   }
 
+  /** Level badges above their buildings (the home rule: shown up close or with the L key). */
+  setBadges(visible: boolean): void {
+    this.buildings.badges.setVisible(visible);
+  }
+
+  /** What a tap can hit on the visited village (buildings and craters carry their tile). */
+  get pickables(): Group[] {
+    return [this.buildings.group, this.meteors.group];
+  }
+
+  /** The visited colony as last received (their game time). */
+  get snapshot(): GameState | null {
+    return this.state;
+  }
+
   dispose(): void {
+    this.ships.dispose();
     this.buildings.dispose();
     this.kiwis.dispose();
     this.paths.dispose();

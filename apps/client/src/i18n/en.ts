@@ -1422,6 +1422,9 @@ export const en = {
     raidNeed: 'Post more guards (or warriors) to beat this den.',
   },
   planets: {
+    allyLook: 'At your ally’s: to look at only.',
+    allyWorkers: 'At work: {names}',
+    allyNobody: 'Nobody works here.',
     title: 'Planets',
     twin: '{face} — unexplored',
     twinSeen: '{face} — {percent} % explored',
@@ -1467,6 +1470,7 @@ export const en = {
     isCanal: 'Juice canal: a small deposit ({pct} % of a river) and fertile banks.',
     dig: 'Dig a canal',
     fill: 'Fill the canal in',
+    fillRiver: 'Fill in (it becomes flesh)',
     queueDig: 'Canal',
     queueFill: 'Filling in',
   },
@@ -1621,6 +1625,11 @@ export const en = {
   camp: {
     hint: 'Kiwis with a class drill here (placed by you, never on their own): they gain class ranks ({speed} % speed) and eat half a ration more. Promotions and changes of class are chosen in a kiwi’s sheet.',
     courses: 'Courses: {count}/{slots}',
+    drilling: 'Drilling: {count}/{slots}',
+    add: 'Send a kiwi to drill',
+    remove: 'Remove',
+    full: 'The camp is full: the chosen kiwi takes the place of the last one in.',
+    noCandidate: 'No kiwi with a class is available (train some at the School).',
   },
   lab: {
     title: 'Infusion',
@@ -2166,7 +2175,7 @@ export const en = {
     queueFull: 'Construction queue full',
     noTile: 'No free tile can take this building right now.',
     placing: 'Place: {name}',
-    placingHint: 'Click a glowing tile.',
+    placingHint: 'Click a glowing tile (hold Ctrl to place several).',
     placingHintTouch: 'Tap a glowing tile, then “Build here”.',
     buildHere: 'Build here',
     plannedReach: 'Will harvest {count} {tile} tile(s): {cap} {resource} in stock.',

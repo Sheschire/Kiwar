@@ -3151,3 +3151,20 @@ Act IV opens by closing the two points left open in chantier 46: the queen came 
 - Fiber workshop: its catchment reaches one hex further from level 5 (`FIBER_REACH`), 3 hexes
   instead of 2 (4 from level 10): groves are sparse and a level-5 workshop drained its tiles.
 - Iron age: the monument's level 2 asks 20 meteoric iron instead of 30 (`IRON.own.monument`).
+
+## Fixes from the owner's tests (October 2026, second batch)
+
+- Meteorite craters are tappable: the renderer picks the crater's group (its shards stood above
+  the tile behind and the tap selected that one instead).
+- The Speech gathers the village for 3 minutes (`SPEECH.gatherMs`, 20 before).
+- Holding Ctrl (or Cmd) while placing keeps the building in hand to place it again.
+- Decorations have no door: the drawn paths no longer reach towards them (home and visit).
+- The Canals research also fills in a juice tile of the generated map (`fillCanal` on it):
+  terraform kind `land`, flesh from then on; digging it again gives the river back. Builders'
+  kinds (`canal`, `land`) are outside the titans' cap; the server checks `land` on juice only.
+- The training camp's sheet lists the kiwis with a class who can come (free ones first) and
+  can send one back: the camp has no resource, so "Assign to…" never listed it.
+- Visiting an ally: level badges over their buildings, a tap opens a read-only sheet
+  (`AllyTilePanel`: level, workers, harvest, sites and upgrades with their time, the ground
+  and its deposit; store `allyVillage`, `allyTile`), and their birds take off and come back
+  (`ShipsView` in `VillageLife`).

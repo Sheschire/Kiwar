@@ -134,7 +134,7 @@ export const MORALE = {
  * research or forging for `gatherMs`, walk included), then remembers it for hours.
  */
 export const SPEECH = {
-  gatherMs: ms.min(20),
+  gatherMs: ms.min(3),
   /** Morale points, plus per Charisma point of the mayor above average (Festival doubles). */
   value: MORALE.memories.speech.value,
   perCharisma: 1,

@@ -131,7 +131,7 @@ assault needs one fortified bridgehead. See `kiwar-colonies`.
 - Builders, not Kikiwiwis: `data/canals.ts` `CANALS` (no cap in play since October 2026,
   only `max` 999 against cheating; 30 pulp + 15 fibre, 30 s, deposit × 0.4), `sim/canals.ts` (`canalError`, `fillError`, `canalCap`,
   `canalCount`, `canalsLeft`, `canalDuration`, `finishCanal`). Commands `digCanal` /
-  `fillCanal` push queue items `canal` / `fill` (`buildingType: 'camp'`, unused) that hold
+  `fillCanal` (also on a natural juice tile: terraform `land`, flesh) push queue items `canal` / `fill` (`buildingType: 'camp'`, unused) that hold
   their tile (`siteTiles`), completed in `completeConstruction` (the `advance` loop re-reads the
   map after constructions).
 - A canal is `state.terraform[key] = 'canal'` (`TerraformTile` = `TerraformKind | 'canal'`):

@@ -110,8 +110,16 @@ export function CanalSection({
     known && free && tile.type === 'flesh' ? canalError(game, map, tile.q, tile.r) : null;
   const dig = known && free && tile.type === 'flesh' && error === null;
   const floods = dig ? digFloods(game, map, tile).length : 0;
-  const fill = canal ? fillError(game, tile.q, tile.r) : 'notACanal';
-  if (!bank && !canal && !dig && !(error && error !== 'notFlesh' && error !== 'notByJuice'))
+  // A river or lake tile of the generated map can be filled in too (it becomes flesh).
+  const river = known && !canal && tile.type === 'juice' && !game.terraform[hexKey(tile)];
+  const fill = canal || river ? fillError(game, tile.q, tile.r) : 'notACanal';
+  if (
+    !bank &&
+    !canal &&
+    !dig &&
+    !(river && fill === null) &&
+    !(error && error !== 'notFlesh' && error !== 'notByJuice')
+  )
     return null;
   return (
     <div class="section canal-section">
@@ -135,6 +143,14 @@ export function CanalSection({
             </button>
           )}
         </>
+      )}
+      {river && fill === null && (
+        <button
+          class="btn btn-small"
+          onClick={() => actions.dispatch({ type: 'fillCanal', q: tile.q, r: tile.r })}
+        >
+          {t('canals.fillRiver')} · <Cost t={t} />
+        </button>
       )}
       {dig && (
         <>

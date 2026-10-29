@@ -634,7 +634,7 @@ export const gameStateSchema = z.object({
       }),
     )
     .max(64),
-  terraform: z.record(z.string().max(16), z.enum([...TERRAFORM_KINDS, 'canal'])),
+  terraform: z.record(z.string().max(16), z.enum([...TERRAFORM_KINDS, 'canal', 'land'])),
   threats,
   sky: z.object({
     next: z

@@ -208,6 +208,8 @@ export class MeteorsView {
 
   private add(m: Meteor, landed: boolean): Crater {
     const group = new Group();
+    // Tappable: a tap on the crater (its shards stand above the tiles behind) selects its tile.
+    group.userData = { q: m.q, r: m.r };
     const p = worldPosition(m);
     const y = this.heightAt(m.q, m.r);
     group.position.set(p.x, y, p.z);

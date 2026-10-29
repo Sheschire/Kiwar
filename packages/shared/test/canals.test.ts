@@ -211,3 +211,26 @@ describe('juice canals (chantier 45)', () => {
     expect(ok.ok).toBe(true);
   });
 });
+
+describe('filling in a river tile', () => {
+  it('turns a free juice tile of the map into flesh, and digging it gives it back', () => {
+    const { state, map } = setup();
+    const s0 = withCanals(state);
+    const occ = occupancy(s0).tiles;
+    const river = map.tiles.find((t) => t.type === 'juice' && !occ.has(hexKey(t) as never))!;
+    expect(river).toBeDefined();
+    expect(
+      validateCommand(state, { type: 'fillCanal', q: river.q, r: river.r }, { now: T0, map }),
+    ).toBe('techMissing');
+    let s = run(s0, { type: 'fillCanal', q: river.q, r: river.r }, T0, map);
+    s = advance(s, T0 + HOUR_MS).state;
+    expect(s.terraform[hexKey(river)]).toBe('land');
+    const m = faceMapOf(s);
+    expect(getTile(m, river)!.type).toBe('flesh');
+    expect(plausibleTerraform(s)).toBe(true);
+    s = run(s, { type: 'digCanal', q: river.q, r: river.r }, s.now, m);
+    s = advance(s, s.now + HOUR_MS).state;
+    expect(s.terraform[hexKey(river)]).toBeUndefined();
+    expect(getTile(faceMapOf(s), river)!.type).toBe('juice');
+  });
+});

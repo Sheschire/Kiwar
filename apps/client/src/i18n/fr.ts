@@ -1495,6 +1495,9 @@ export const fr: Dict = {
     raidNeed: 'Postez plus de gardes (ou des guerrier·ères) pour vaincre ce nid.',
   },
   planets: {
+    allyLook: 'Chez votre allié·e : à regarder seulement.',
+    allyWorkers: 'Au travail : {names}',
+    allyNobody: 'Personne n’y travaille.',
     title: 'Planètes',
     twin: '{face} — inexplorée',
     twinSeen: '{face} — explorée à {percent} %',
@@ -1540,6 +1543,7 @@ export const fr: Dict = {
     isCanal: 'Canal de jus : un petit gisement ({pct} % d’une rivière) et des rives fertiles.',
     dig: 'Creuser un canal',
     fill: 'Combler le canal',
+    fillRiver: 'Reboucher (devient de la chair)',
     queueDig: 'Canal',
     queueFill: 'Comblement',
   },
@@ -1695,6 +1699,11 @@ export const fr: Dict = {
   camp: {
     hint: 'Les kiwis qui ont une classe s’entraînent ici (placés par vous, jamais d’eux-mêmes) : ils gagnent des rangs de classe (vitesse {speed} %) et mangent une demi-ration de plus. Promotions et changements de classe se choisissent dans la fiche d’un kiwi.',
     courses: 'Cours : {count}/{slots}',
+    drilling: 'À l’entraînement : {count}/{slots}',
+    add: 'Envoyer un kiwi s’entraîner',
+    remove: 'Retirer',
+    full: 'Le camp est plein : le kiwi choisi prendra la place du dernier arrivé.',
+    noCandidate: 'Aucun kiwi avec une classe n’est disponible (formez-en à l’École).',
   },
   lab: {
     title: 'Infusion',
@@ -2252,7 +2261,7 @@ export const fr: Dict = {
     queueFull: 'File de chantiers pleine',
     noTile: 'Aucune tuile libre ne peut accueillir ce bâtiment pour l’instant.',
     placing: 'Poser : {name}',
-    placingHint: 'Clique sur une tuile qui brille.',
+    placingHint: 'Clique sur une tuile qui brille (garde Ctrl enfoncé pour en poser plusieurs).',
     placingHintTouch: 'Touche une tuile qui brille, puis « Construire ici ».',
     buildHere: 'Construire ici',
     plannedReach: 'Récoltera {count} tuile(s) de {tile} : {cap} {resource} en réserve.',
