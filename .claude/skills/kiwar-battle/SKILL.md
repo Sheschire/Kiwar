@@ -212,3 +212,13 @@ live)` (travel + play), the report's "Watch the battle again"; far faces keep
   from then; never if it fell first; logged `enter`), `rage { below, damage, speed }`,
   `BattleSetup.leader` (its fall routs its side; `result.leaderLeft` = its share left).
 - The final's journal plays through `LandingShow` like a landing (`ShowSource.kind` 'landing').
+
+## Chantier 48 (delves and upwellings, skill `kiwar-depths`)
+
+- New kinds `larva`, `fruitFly`, `woodlouse` (bodies `grub`, `fly`, `louse`): use
+  `isFlyer(kind)` for "flies", never `body === 'bat'`.
+- `battle/delve.ts` `delveSetup`: a round room, the crew in from the passage; the room's hazard
+  lowers each kiwi's starting hit points (`hazardHits`, seeded): the journal includes it.
+- `waveSetup` with `wave.tunnel`: the pack comes out of the tunnel's mouth and flees back
+  there, guards gather around the entrance, a fortified door adds two turrets. The show draws
+  the Grouillants with the ferret / bat rigs tinted (`GROUILLANT_TINTS`, `CreatureDraw.bare`).

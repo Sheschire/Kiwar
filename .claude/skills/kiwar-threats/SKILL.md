@@ -220,3 +220,11 @@ Waves lost by the occasional profile rose from 9 % (act II) to 20 % (act III) wi
 threats: its turrets stayed at level 1 because the village and the canals took the leftovers
 that upgraded them. Bot habit (`turretDecision`, `!prepared`): each turret at half the Nest's
 level (floor in the Eden, ceil from Stone), turret places filled from the Stone age. 9.2 %.
+
+## Chantier 48: upwellings (skill `kiwar-depths`)
+
+The Grouillants come up through the tunnel entrance as waves on their own calendar
+(`sim/upwell.ts`, `withDepthRng`), never within 6 h of a surface wave. `strike` serves both
+(`wave.tunnel`, the door's `doorPass`); reports `from: 'tunnel'` share `threats.reports` but
+not `threats.waves` / the shield. **`comingWave(state)`** is the announced wave due first
+(surface or tunnel): `defenseOf`, `waveAhead`, `forecastWave`, the auto garrison read it.

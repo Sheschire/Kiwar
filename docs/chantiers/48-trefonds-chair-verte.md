@@ -1,5 +1,8 @@
 # Chantier 48 — Les Tréfonds I : l'entrée de tunnel et la chair verte
 
+> **Fait** (30 octobre 2026). Ce qui a été fait, ce qui reste et les mesures : section « Bilan »
+> en fin de fiche ; le savoir-faire est dans le skill `kiwar-depths`.
+
 Acte IV « Au-delà » du [carnet de route](../CARNET_DE_ROUTE.md) (section 9, « Les Tréfonds »).
 **Simulation + serveur + client (écran 2D) + bot.** Après le **47**. Il ouvre un domaine : il
 crée le skill **`kiwar-depths`**.
@@ -154,3 +157,36 @@ Chemins sous `packages/shared/src/`.
 - Une remontée est annoncée et a trois parades ; l'occasionnel·le en perd au plus une sur dix.
 - L'Industrie du bot attentif ne bouge pas de plus de 5 % ; l'économie reste dans ±10 % entre
   faces et biomes.
+
+## Bilan (30 octobre 2026)
+
+**Fait** (sept commits, un par partie) :
+
+1. Données et état : `data/depths.ts`, la technologie Spéléologie, l'entrée de tunnel (hors
+   quota, trois niveaux du Fer), le réseau public (`depthsMapOf`), le contenu caché
+   (`roomTruth`, `depthSeed`), les Grouillants (larve, mouche des fruits, cloporte), la
+   sauvegarde v39.
+2. Descentes : la mission `delve`, le cadre de bataille et les dangers (chutes, coupures), la
+   prévision honnête, la résolution là où la vérité est tenue.
+3. Galeries et mines : le poste `mine`, son débit exact hors ligne, l'automatisation.
+4. Spéléologue : la septième classe de maître, « Pas sûr » et « Lanterne ».
+5. Remontées : leur calendrier, l'annonce qui attend la vérité, la sortie par l'entrée, la
+   porte (fermer, fortifier, garder), `comingWave`.
+6. Client : l'écran Tréfonds (coupe 2D, salle, planificateur, mines, porte, descentes), les
+   rapports avec rejeu, le modèle 3D de l'entrée, les Grouillants dans les batailles, l'i18n.
+7. Bot (mécanique `depths`), sondes, réglages, skill `kiwar-depths`.
+
+**Réglages trouvés par les sondes** : le premier jet laissait prendre les 11 salles en deux
+jours (salles profondes durcies : puissance 9 / 20 / 36, niveaux 3 / 7 / 11, 1 h / 3 h / 5 h de
+descente) ; une galerie rapportait trente fois moins qu'un atelier (le rendement suit
+maintenant le producteur de sa ressource) ; la porte fortifiée au prix d'une balise vidait la
+fibre de la Bibliothèque 7 (moitié prix, et le bot ne fortifie qu'une cause perdue) ; les
+équipages prenaient les chercheur·euses (le bot les laisse) ; l'entrée sort du quota.
+
+**Reste** (pour plus tard) :
+
+- les Grouillants ont leurs propres modèles et la descente en direct : chantier 49 ;
+- des objectifs d'âge liés aux Tréfonds (« prendre une salle ») et des sons propres ;
+- les Tréfonds de la seconde colonie (noté au 58) ;
+- le ressenti des dangers, la difficulté des salles et la fréquence des remontées : à jouer
+  avec le porteur.

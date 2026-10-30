@@ -243,3 +243,10 @@ age (`IntelReport.civAge`). `intelView` ages reports with `scheduleGrowth` (publ
 - `forecastExpedition` gives `final` its practice battles in `landing` (`finalForecast`) and the
   guard's `returnCrew` (the relieved). XP × 2 and veterans for a final won too.
 - `resetLandings` (import) also idles the guards (`outpost`) and drops guard / retreat ships.
+
+## Chantier 48: delves (skill `kiwar-depths`)
+
+Mission `delve` (command `delve`, not `launchExpedition`): no ship (`launchpadId: 'none'`,
+`targetId: 'depths'`, `Expedition.room`), resolved by `resolveDelve` from `resolveArrival`
+before the target check; `canResolveArrival` needs `state.depthSeed` (hidden, stripped by
+`publicState`). Client places that list expeditions must not assume a target or a pad.

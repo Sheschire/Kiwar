@@ -1341,7 +1341,7 @@ var BASE = {
     ]
   },
   // Chantier 48: the tunnel entrance into the depths (Iron age, technology `spelunking`). One
-  // per colony, on the green flesh; its levels carry more kiwis on a delve and a stronger door
+  // per colony, outside the building cap, on the green flesh; its levels carry more kiwis on a delve and a stronger door
   // (`DEPTHS.crew`, `DEPTHS.door`).
   tunnel: {
     id: "tunnel",
@@ -1350,9 +1350,9 @@ var BASE = {
     copyGrowth: 1,
     levels: [
       {
-        cost: { pulp: 5e3, fiber: 6e3, seeds: 1200, juice: 1500 },
+        cost: { pulp: 3e3, fiber: 3500, seeds: 800, juice: 900 },
         durationMs: ms.h(2),
-        requiresNestLevel: 7,
+        requiresNestLevel: 6,
         requiresAge: 2
       },
       {
@@ -2926,7 +2926,7 @@ var TECHS = {
     id: "spelunking",
     age: 2,
     branch: "exploration",
-    cost: 700,
+    cost: 500,
     libraryLevel: 4,
     effects: { depths: true }
   }
@@ -3511,14 +3511,14 @@ var DEPTHS = {
     { bundle: 2, sap: 3, nest: 3, scree: 1.5, raphides: 1.5 }
   ],
   /** Grouillants of a room: power by depth (threat points, `ENEMIES.power`), × spread. */
-  power: [6, 10, 15],
+  power: [9, 20, 36],
   spread: [0.75, 1.25],
   /** A nest holds this many times more. */
-  nestPower: 1.6,
+  nestPower: 1.8,
   /** Share of each kind in a room's power. */
   mix: { larva: 0.55, fruitFly: 0.25, woodlouse: 0.2 },
   /** Level of the Grouillants by depth. */
-  level: [2, 4, 6],
+  level: [3, 7, 11],
   /**
    * Hazards: scree always falls, raphides always cut; any other room has this chance of one
    * (drawn between the two). Strength = share of a kiwi's hit points lost by one hit, × spread.
@@ -3536,7 +3536,7 @@ var DEPTHS = {
     floor: 0.2
   },
   /** Delves: one-way time by depth, and the XP of a room won (× `LANDING.victoryXp`). */
-  travelMs: [ms.h(1), ms.h(2), ms.h(3)],
+  travelMs: [ms.h(1), ms.h(3), ms.h(5)],
   /** Loot of a room won, by depth, then by kind (raw resource units). */
   loot: [300, 550, 900],
   lootKind: {
@@ -3558,7 +3558,18 @@ var DEPTHS = {
       raphides: "seeds"
     },
     slots: [2, 3, 3],
-    perMiner: [40, 55, 70],
+    /**
+     * Output of a miner: this share (by depth) of what a worker yields in the producer of the
+     * gallery's resource at the level `6 + tunnel level` (7–9) — less than a workshop, but no
+     * deposit to drain, no walk to a depot, day and night, in every season.
+     */
+    perMiner: [0.5, 0.7, 0.9],
+    producer: {
+      pulp: "pulpery",
+      fiber: "fiberWorkshop",
+      juice: "juiceWell",
+      seeds: "seedQuarry"
+    },
     /** The automation sends at most this share of the colony down the mines. */
     autoShare: 0.2,
     /** A damaged door (an upwelling broke it) halves the work below. */
@@ -3568,10 +3579,10 @@ var DEPTHS = {
   crew: [0, 4, 6, 8],
   door: [0, 8, 14, 20],
   /**
-   * Fortifying the door: strength added, and time (the cost is a beacon's: half of a seed and a
-   * sky turret of the first level of our age, which stand at the door in an upwelling's battle).
+   * Fortifying the door: strength added, time, and its cost as a share of a beacon's (half of a
+   * seed and a sky turret of the first level of our age, which stand at the door in a battle).
    */
-  fortify: { strength: 10, durationMs: ms.h(4) },
+  fortify: { strength: 10, durationMs: ms.h(4), costFactor: 0.5 },
   /** Upwellings: own calendar once the entrance stands. */
   upwell: {
     /** First one at least this long after the entrance is finished. */
@@ -5771,7 +5782,8 @@ function pathLimit(state) {
   return PATHS.base + PATHS.perNestLevel * Math.min(level, 3) + PATHS.perAgeLevel * Math.max(0, level - 3);
 }
 function buildingCount(state) {
-  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && t !== "townHall" && !isVillageLife(t) && t !== "cabaret" && t !== "fireworks" && !isTurret(t);
+  const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && // Chantier 48: the way down, like the laboratory, takes no place.
+  t !== "tunnel" && t !== "townHall" && !isVillageLife(t) && t !== "cabaret" && t !== "fireworks" && !isTurret(t);
   return state.buildings.filter((b) => counted(b.type)).length + state.queue.filter((i) => i.kind === "build" && counted(i.buildingType)).length;
 }
 function turretCount(state) {
@@ -5898,7 +5910,11 @@ function galleryRate(state, roomId) {
   if (work <= 0) return 0;
   const tunnel = state.buildings.find((b) => b.type === "tunnel");
   const damaged = tunnel?.damaged ? DEPTHS.gallery.damagedWork : 1;
-  return DEPTHS.gallery.perMiner[room.depth - 1] * work * damaged;
+  return DEPTHS.gallery.perMiner[room.depth - 1] * minerOutput(resource, tunnel?.level ?? 1) * work * damaged;
+}
+function minerOutput(resource, tunnelLevel) {
+  const def = levelDef(DEPTHS.gallery.producer[resource], 6 + Math.max(1, tunnelLevel));
+  return (def?.production?.[resource] ?? 0) / Math.max(1, def?.workerSlots ?? 1);
 }
 function galleryRates(state) {
   const out = [];
@@ -13342,6 +13358,13 @@ var tenth2 = (x) => Math.round(x * 10) / 10;
 function doorFortLevel(state) {
   return fortLevel(state);
 }
+function doorFortifyCost(state) {
+  const c = fortifyCost(state);
+  const k = DEPTHS.fortify.costFactor;
+  const resources2 = { ...c.resources };
+  for (const r of RESOURCE_IDS) resources2[r] = Math.round(resources2[r] * k);
+  return { resources: resources2, iron: Math.round(c.iron * k) };
+}
 function fortifyDoorLock(state) {
   if (!tunnelOf(state)) return "noTunnel";
   if (state.depths.door.fortifying) return "fortifying";
@@ -14393,7 +14416,6 @@ function buildLock(state, type) {
     if (state.colony.index !== 0) return "notBuildable";
     if (copiesOf(state, "tunnel") > 0) return "tunnelExists";
     if (!techEffects(state).depths) return "techMissing";
-    if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return "buildingLimit";
   } else if (type === "townHall") {
     if (copiesOf(state, "townHall") > 0) return "townHallExists";
   } else if (type === "cabaret") {
@@ -15084,7 +15106,7 @@ function execute(s, cmd, ctx, events) {
     case "fortifyTunnel": {
       const lock = fortifyDoorLock(s);
       if (lock) fail(lock);
-      const cost = fortifyCost(s);
+      const cost = doorFortifyCost(s);
       if (!canAfford(s.resources, cost.resources)) fail("notEnoughResources");
       payIron(s, cost.iron);
       pay(s, cost.resources);
@@ -22180,6 +22202,7 @@ export {
   dispatchTasks,
   distanceIn,
   doorFortLevel,
+  doorFortifyCost,
   doorPass,
   doorStrength,
   drawBiomes,
@@ -22412,6 +22435,7 @@ export {
   meteorStock,
   migrateState,
   minCrew,
+  minerOutput,
   minersIn,
   minersOf,
   minesOpen,

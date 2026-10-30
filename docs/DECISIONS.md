@@ -3193,3 +3193,81 @@ Act IV opens by closing the two points left open in chantier 46: the queen came 
   now matches the server's (titans at work, arch tiles).
 - Meteorites: about two a day (owner's choice): every 9–15 h, the first 3 h after the start,
   up to 5 craters at once so they live their 48 h. Iron per crater unchanged (≈2× iron a day).
+
+## Chantier 48 — The depths I: the tunnel entrance and the green flesh
+
+The first layer of the depths (act IV), from the chantier document's decisions and the owner's
+answers of 30 October 2026 (recommended options taken every time).
+
+### Owner's answers (new points)
+
+- **The network's shape is public** (drawn from the face's seed, shown in silhouette under the
+  fog); only what a room holds is secret (`depthSeed`, resolved where the truth is held).
+- The creatures of the depths are **the Grouillants**: larva (ground), fruit fly (air),
+  woodlouse (armoured brute).
+- **A closed door holds back** an upwelling up to its strength; a stronger one breaks it (the
+  door is damaged, repaired by the queue) and comes out weakened by that strength. Closing
+  costs the mines and the delves, and never protects for sure.
+- **Upwellings have their own calendar** (their own RNG stream), never within 6 h of a surface
+  wave; their strength follows the nests not taken next to our works.
+
+### Defaults chosen by Claude (status "default", changeable)
+
+- Technology `spelunking` (exploration, Iron, 500 points, Library 4); the `tunnel` building on
+  the green flesh, unique, outside the building cap, from Nest 6, three Iron levels (delve crew 4 / 6 / 8,
+  door 8 / 14 / 20).
+- The network: 10–14 rooms of the flesh, depth 1–3, the depth-1 rooms on the entrance; kinds
+  bundle (fibre), sap pocket (juice), nest (pulp, more Grouillants, feeds the upwellings),
+  scree (seeds, falls) and raphide pocket (seeds, cuts; the locules' raphides come at 50).
+- Delves (mission `delve`, no ship): one to five hours down by depth, rations there and back,
+  the landing's orders (no goal); hazards strike before the fight (falls: Endurance, cuts:
+  Dexterity; a hazard never leaves a kiwi under 20 % of its hit points); the honest forecast
+  shows the hazard per kiwi. Chantier 46's rule for the fallen. A room won: gallery, its
+  neighbours' kinds heard, loot and a little meteoric iron, XP × 2, veterans.
+- Galleries: miners (job `mine`) work day and night in every season, a closed door stops
+  them; a miner yields 50 / 70 / 90 % (by depth) of a worker of the matching producer at level
+  6 + the tunnel's level (no deposit to drain, no walk to a depot) — the first draft's 40–70 an
+  hour was thirty times less than a workshop and made the mines a loss; they are underground (no militia, no garrison, no evening). The automation sends at
+  most a fifth of the colony.
+- The spelunker: master of Endurance + Dexterity (from the champion or the herbalist), weapon
+  "pick" (reaches the fruit flies), mace family; "sure footing" halves the hazards for itself
+  and takes a quarter off for its crew; its "lantern" lights a room next to the one won.
+- Upwellings: first one a day after the entrance, then every 36–60 h, 6 h notice; strength
+  base × the Nest factor × (1 + 0.35 × nests near our works). Answers: close the door,
+  fortify it (half a beacon's fortification: +10 strength and two turrets at the door), guard
+  it (guards gather around the entrance); reserves are looted first as always.
+- The Grouillants are drawn with the ferret and bat rigs in their own colours until chantier
+  49 gives them their own.
+- Fields added to save v39 after part 1 went live (job `mine`, automation `mine`, the
+  upwelling's `tunnel`) are optional or defaulted: v39 saves of part 1 still load.
+
+### Measures (bot probes)
+
+Probes of 10 days (scratch `runBot`, attentive unless said; the same seed with `without:
+['depths']` as the reference):
+
+| Seed | Iron | Tunnel | First room | Rooms (of 11) | Retreats | Dead | Upwellings (lost) | Industry | Without the depths |
+|---|---|---|---|---|---|---|---|---|---|
+| d1 Kiwisu | 2.88 d | 3.12 d | 3.18 d | 11 | 2 | 3 | 3 (0) | 7.58 d | 8.49 d |
+| d2 Kiwino | 2.94 d | 3.54 d | 3.59 d | 11 | 0 | 0 | 4 (0) | 9.00 d | 8.95 d |
+| d4 Kiwino | 2.81 d | 3.07 d | 3.14 d | 11 | 2 | 2 | 3 (0) | 8.28 d | 7.04 d |
+| d5 Kiwisu | 4.12 d | 4.35 d | 4.55 d | 11 | 2 | 2 | 3 (0) | 9.68 d | 8.28 d |
+| d3 Kiwisu, occasional | 5.01 d | 5.92 d | 8.58 d | 1 | 0 | 0 | 2 (0) | — | — |
+
+- First delve on days 3.1–3.6 (4.5 when Iron comes late): the target (3–4) is met. The 11 rooms
+  of the flesh last from Iron to about day 9: the wait before the Industry is filled.
+- ⚠️ **Industry +6 % on average** (−11 % to +18 % per seed: the mines speed some runs up, the
+  delves' crews and wounds slow others down) against the ±5 % aimed at: to watch at the next
+  full report (chantier 50 or 58).
+- No upwelling lost (the garrison and the turrets hold them; the bot never had to close the
+  door). The occasional bot delves late (one room in 10 days): it delves only between two
+  upwellings, at a visit.
+- Tuned on the way (see the chantier document): deeper rooms harder and longer, the miners'
+  yield tied to the producers, the door's fortification at half a beacon's price, the tunnel
+  outside the building cap and from Nest 6.
+- Bot lesson (again): `tunnelDecision` returned a build that `buildLock` refused (Nest 6 at the
+  start of the Iron age): it froze every later decision and the Industry never came. Check
+  `buildLock` (and the iron) before returning a build.
+
+To test with the owner: the feel of the hazards, the difficulty of the deep rooms, how often
+the upwellings come, the price of the fortified door, the 2D cut.

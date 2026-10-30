@@ -333,3 +333,17 @@ starved it). Probe: a scratch `runBot` with `onStep` printing `moraleOf(s)` part
   days 13.1–17.0 (4 of 6 in 14–21), none stalled, 0–14 kiwis dead, 12–17 landings with 0–4
   retreats. A background wait loop must stay under the 2 h tool limit: the six runs take up
   to ~85 min.
+
+## Chantier 48: the depths
+
+- Mechanic `depths` (`bot/depths.ts`, `--impact` "without the depths of chantier 48"): see
+  `kiwar-depths`. Milestones `tunnel`, `delve` (informative); report table "The depths".
+- **Probe used** (scratch, not committed): `runBot({ fullHorizon, onStep })` printing every
+  12 h the age, tunnel level, galleries / rooms, miners, upwellings, the next one and the
+  research; and the same seed with `without: ['depths']` to compare the Industry. Five
+  processes of 10 days take ~20–40 min on 4 cores.
+- Reference (end of chantier 48, 4 attentive seeds + 1 occasional × 10 days): first delve day
+  3.1–3.6, 11 rooms by day ~9, 0–3 dead, 3–4 upwellings none lost; ⚠️ Industry +6 % on
+  average (−11 % to +18 %) against the same seeds without the depths.
+- A frozen bot again: a build decision must check `buildLock` (and its iron) first.
+

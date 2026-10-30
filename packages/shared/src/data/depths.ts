@@ -1,4 +1,5 @@
 import { ms } from './curves';
+import type { BuildingType } from './buildings';
 import type { ResourceId } from './resources';
 
 /**
@@ -41,14 +42,14 @@ export const DEPTHS = {
     { bundle: 2, sap: 3, nest: 3, scree: 1.5, raphides: 1.5 },
   ] as readonly Record<RoomKind, number>[],
   /** Grouillants of a room: power by depth (threat points, `ENEMIES.power`), × spread. */
-  power: [6, 10, 15] as readonly number[],
+  power: [9, 20, 36] as readonly number[],
   spread: [0.75, 1.25] as const,
   /** A nest holds this many times more. */
-  nestPower: 1.6,
+  nestPower: 1.8,
   /** Share of each kind in a room's power. */
   mix: { larva: 0.55, fruitFly: 0.25, woodlouse: 0.2 },
   /** Level of the Grouillants by depth. */
-  level: [2, 4, 6] as readonly number[],
+  level: [3, 7, 11] as readonly number[],
   /**
    * Hazards: scree always falls, raphides always cut; any other room has this chance of one
    * (drawn between the two). Strength = share of a kiwi's hit points lost by one hit, × spread.
@@ -66,7 +67,7 @@ export const DEPTHS = {
     floor: 0.2,
   },
   /** Delves: one-way time by depth, and the XP of a room won (× `LANDING.victoryXp`). */
-  travelMs: [ms.h(1), ms.h(2), ms.h(3)] as readonly number[],
+  travelMs: [ms.h(1), ms.h(3), ms.h(5)] as readonly number[],
   /** Loot of a room won, by depth, then by kind (raw resource units). */
   loot: [300, 550, 900] as readonly number[],
   lootKind: {
@@ -88,7 +89,18 @@ export const DEPTHS = {
       raphides: 'seeds',
     } as Record<RoomKind, ResourceId>,
     slots: [2, 3, 3] as readonly number[],
-    perMiner: [40, 55, 70] as readonly number[],
+    /**
+     * Output of a miner: this share (by depth) of what a worker yields in the producer of the
+     * gallery's resource at the level `6 + tunnel level` (7–9) — less than a workshop, but no
+     * deposit to drain, no walk to a depot, day and night, in every season.
+     */
+    perMiner: [0.5, 0.7, 0.9] as readonly number[],
+    producer: {
+      pulp: 'pulpery',
+      fiber: 'fiberWorkshop',
+      juice: 'juiceWell',
+      seeds: 'seedQuarry',
+    } as Record<ResourceId, BuildingType>,
     /** The automation sends at most this share of the colony down the mines. */
     autoShare: 0.2,
     /** A damaged door (an upwelling broke it) halves the work below. */
@@ -98,10 +110,10 @@ export const DEPTHS = {
   crew: [0, 4, 6, 8] as readonly number[],
   door: [0, 8, 14, 20] as readonly number[],
   /**
-   * Fortifying the door: strength added, and time (the cost is a beacon's: half of a seed and a
-   * sky turret of the first level of our age, which stand at the door in an upwelling's battle).
+   * Fortifying the door: strength added, time, and its cost as a share of a beacon's (half of a
+   * seed and a sky turret of the first level of our age, which stand at the door in a battle).
    */
-  fortify: { strength: 10, durationMs: ms.h(4) },
+  fortify: { strength: 10, durationMs: ms.h(4), costFactor: 0.5 },
   /** Upwellings: own calendar once the entrance stands. */
   upwell: {
     /** First one at least this long after the entrance is finished. */

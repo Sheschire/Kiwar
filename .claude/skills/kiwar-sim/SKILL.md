@@ -214,3 +214,7 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 - **No dead end**: `test/demolition.test.ts` plays random colonies, demolishes everything and
   checks seeds and juice come back. Keep it passing when changing costs, the Nest's passive
   income, tile rules or demolition refusals.
+
+- **Chantier 48 (`kiwar-depths`)**: save v39 (`depths`, hidden `depthSeed`, job `mine`,
+  automation `mine` read as true when missing). Fields added to a schema version already
+  deployed must be optional or defaulted (part 1 was live before parts 3–5).

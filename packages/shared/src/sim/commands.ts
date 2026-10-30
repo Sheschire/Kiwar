@@ -1,4 +1,4 @@
-import { doorFortLevel, fortifyDoorLock } from './upwell';
+import { doorFortifyCost, doorFortLevel, fortifyDoorLock } from './upwell';
 import { DEPTHS } from '../data/depths';
 import { canDig, gallerySlots, minersIn, minesOpen } from './mines';
 import { giveSpeech, speechLock } from './speech';
@@ -943,7 +943,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
     case 'fortifyTunnel': {
       const lock = fortifyDoorLock(s);
       if (lock) fail(lock);
-      const cost = fortifyCost(s);
+      const cost = doorFortifyCost(s);
       if (!canAfford(s.resources, cost.resources)) fail('notEnoughResources');
       payIron(s, cost.iron);
       pay(s, cost.resources);

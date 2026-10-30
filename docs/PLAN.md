@@ -52,7 +52,7 @@ dans l'historique.
 | 46  | Réglages d'après l'acte III                         | fait    |
 |     | **Acte IV — Au-delà**                               |         |
 | 47  | Le rythme de la conquête                            | fait    |
-| 48  | Tréfonds I : l'entrée et la chair verte             | à faire |
+| 48  | Tréfonds I : l'entrée et la chair verte             | fait    |
 | 49  | La tranche (client)                                 | à faire |
 | 50  | Tréfonds II : les loges                             | à faire |
 | 51  | L'Âge des étoiles                                   | à faire |
@@ -80,9 +80,15 @@ porteur dans la section 9 du [carnet](CARNET_DE_ROUTE.md) et dans `DECISIONS.md`
 date) ; le blocage à 8 balises venait de la prévision des débarquements, qui oubliait les
 renforts d'une caserne cachée — elle les compte maintenant au pire. Conquête aux jours 13–17,
 aucune partie bloquée, 0 à 14 morts.
-**Prochaine conversation** : le [chantier 48](chantiers/48-trefonds-chair-verte.md)
-(Tréfonds I : l'entrée et la chair verte).
-À tester avec le porteur : la prévision des débarquements au pire (renforts possibles), la reine au jour 13 (deux parties sur six la battent le jour même : une date au jour 14 ?), l'exigence du moral par âge, le poids des deuils, la valeur d'un
+**Chantier 48 fait** : les Tréfonds s'ouvrent au Fer (technologie Spéléologie, entrée de
+tunnel). Un réseau public de salles sous brouillard, au contenu caché (`depthSeed`, résolu là où
+la vérité est tenue) ; descentes avec dangers et prévision honnête, galeries et mineur·euses,
+Grouillants, Spéléologue, remontées par le tunnel (porte fermée, fortifiée ou gardée), écran
+Tréfonds 2D. Skill `kiwar-depths`.
+**Prochaine conversation** : le [chantier 49](chantiers/49-la-tranche.md) (la tranche, client
+seul) ou le [chantier 50](chantiers/50-trefonds-loges.md) (les loges) — ils peuvent tourner en
+parallèle.
+À tester avec le porteur : les Tréfonds (le ressenti des dangers, la difficulté des salles profondes, la fréquence des remontées, le prix de la porte fortifiée), la prévision des débarquements au pire (renforts possibles), la reine au jour 13 (deux parties sur six la battent le jour même : une date au jour 14 ?), l'exigence du moral par âge, le poids des deuils, la valeur d'un
 discours, la beauté sans placement, le prix du cabaret et des feux, les rives à +30 %, le prix
 (80 pulpe + 40 fibre, 1 h) et le plafond (3 / 6 / 10 / 15) des canaux, la reine à 1300 points
 de vie.
@@ -166,6 +172,10 @@ from, opts)` (`ShowSource` : une vague ou un débarquement ; notre camp, avance,
   (travaux de titan ou canaux), jamais en place ; tout lit la carte par `faceMapOf(state)` ; un
   gisement se lit sur sa carte (`mapTileDeposit` : les rives fertiles) ; un nouveau remodelage
   vérifie `cutsLand` (aussi en saison de crue) et a son quota.
+- **Tréfonds** (chantier 48) : le tracé des salles est public (`depthsMapOf`), leur contenu
+  caché (`depthSeed`, comme `aliens`) ; tout ce qui le lit ne se résout que là où la vérité est
+  tenue. Une remontée est une vague (`wave.tunnel`) : ce qui parle de « la prochaine vague » lit
+  `comingWave(state)`. Un nouvel ennemi qui vole passe par `isFlyer`. Skill `kiwar-depths`.
 - **Planètes** : elles ont une place fixe (`render/space.ts`) ; `renderer.setTwinApproach(t)`
   rapproche la jumelle (skill `kiwar-world`).
 

@@ -4,7 +4,8 @@ import { DEPTH_KINDS, ENEMIES } from '../data/units';
 import type { TimeMs } from '../types/ids';
 import type { GameEvent } from './advance';
 import { depthsMapOf, depthsKnown, roomTruth } from './depths';
-import { fortLevel } from './beacons';
+import { fortifyCost, fortLevel } from './beacons';
+import { RESOURCE_IDS, type Resources } from '../data/resources';
 import { nest } from './selectors';
 import { rampartSectorOf } from './threats';
 import { tunnelOf } from './delves';
@@ -157,6 +158,15 @@ export type DoorLock = 'noTunnel' | 'fortifying' | 'alreadyFortified';
 /** Level of the door's fortification ordered now (like a beacon's: the first of our age). */
 export function doorFortLevel(state: GameState): number {
   return fortLevel(state);
+}
+
+/** What fortifying the door costs now (a share of a beacon's fortification). */
+export function doorFortifyCost(state: GameState): { resources: Resources; iron: number } {
+  const c = fortifyCost(state);
+  const k = DEPTHS.fortify.costFactor;
+  const resources = { ...c.resources };
+  for (const r of RESOURCE_IDS) resources[r] = Math.round(resources[r] * k);
+  return { resources, iron: Math.round(c.iron * k) };
 }
 
 export function fortifyDoorLock(state: GameState): DoorLock | null {

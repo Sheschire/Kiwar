@@ -569,7 +569,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
     ],
   },
   // Chantier 48: the tunnel entrance into the depths (Iron age, technology `spelunking`). One
-  // per colony, on the green flesh; its levels carry more kiwis on a delve and a stronger door
+  // per colony, outside the building cap, on the green flesh; its levels carry more kiwis on a delve and a stronger door
   // (`DEPTHS.crew`, `DEPTHS.door`).
   tunnel: {
     id: 'tunnel',
@@ -578,9 +578,9 @@ const BASE: Record<BuildingType, BuildingDef> = {
     copyGrowth: 1,
     levels: [
       {
-        cost: { pulp: 5000, fiber: 6000, seeds: 1200, juice: 1500 },
+        cost: { pulp: 3000, fiber: 3500, seeds: 800, juice: 900 },
         durationMs: ms.h(2),
-        requiresNestLevel: 7,
+        requiresNestLevel: 6,
         requiresAge: 2,
       },
       {

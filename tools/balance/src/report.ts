@@ -55,6 +55,8 @@ function statsOf(runs: RunResult[], milestone: Milestone): MilestoneStats {
 /** Milestones shown for information only: they depend on choices more than on the land. */
 export const INFORMATIVE: ReadonlySet<Milestone> = new Set([
   'canal',
+  'tunnel',
+  'delve',
   'glimpse',
   'landingWon',
   'centreWon',
@@ -119,6 +121,8 @@ export const LABELS: Record<Milestone, string> = {
   lab: 'Laboratory against nature',
   kikiwiwi: 'First Kikiwiwi',
   canal: 'First juice canal',
+  tunnel: 'Tunnel entrance',
+  delve: 'First room of the depths',
   glimpse: 'First landing back (a glimpse)',
   landingWon: 'First landing won (a beacon)',
   centreWon: 'First beacon in the centre',
@@ -243,6 +247,24 @@ function mechanicsTable(groups: Group[], horizonHours: number, lines: string[]):
   lines.push('');
 }
 
+/** Chantier 48: the depths (average per run). */
+function depthsTable(groups: Group[], lines: string[]): void {
+  const avg = (runs: RunResult[], f: (r: RunResult) => number) =>
+    runs.length ? runs.reduce((s, r) => s + f(r), 0) / runs.length : 0;
+  lines.push('## The depths (average per run)', '');
+  lines.push(
+    '| Biome | Delves | Rooms taken | Retreats | Kiwis lost | Miners | Upwellings | Lost | Held at the door |',
+  );
+  lines.push('|---|---|---|---|---|---|---|---|---|');
+  for (const g of groups) {
+    const up = avg(g.runs, (r) => r.final.upwells ?? 0);
+    lines.push(
+      `| ${g.label} | ${avg(g.runs, (r) => r.final.delves ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.roomsTaken ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.delveRetreats ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.delveDeaths ?? 0).toFixed(2)} | ${avg(g.runs, (r) => r.final.miners ?? 0).toFixed(1)} | ${up.toFixed(1)} | ${up > 0 ? Math.round((avg(g.runs, (r) => r.final.upwellsLost ?? 0) / up) * 100) : 0} % | ${avg(g.runs, (r) => r.final.upwellsHeld ?? 0).toFixed(1)} |`,
+    );
+  }
+  lines.push('');
+}
+
 export function toMarkdown(
   biomes: { groups: Group[]; comparisons: Comparison[] },
   faces: { groups: Group[]; comparisons: Comparison[] },
@@ -264,6 +286,7 @@ export function toMarkdown(
   table(faces.groups, faces.comparisons, lines);
   threatTable(biomes.groups, lines);
   mechanicsTable(biomes.groups, meta.horizonHours, lines);
+  depthsTable(biomes.groups, lines);
   rhythmTable(biomes.groups, lines);
   const flagged = [...biomes.comparisons, ...faces.comparisons].filter((c) => c.flagged);
   lines.push(

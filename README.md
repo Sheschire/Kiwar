@@ -10,6 +10,17 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 48** — **les Tréfonds, première couche : la chair verte**. Dès l'âge du Fer, la
+> technologie **Spéléologie** ouvre l'**entrée de tunnel**. Sous la colonie, un réseau de
+> salles dans le noir : on y **descend** avec un équipage choisi, des rations et des ordres,
+> après une prévision honnête (batailles d'essai, chutes et coupures kiwi par kiwi). Une salle
+> gagnée devient une **galerie** où des mineur·euses travaillent jour et nuit, en toute saison
+> — mais en bas, iels ne défendent pas la colonie. Par l'entrée remontent parfois les
+> **Grouillants** (larves, mouches des fruits, cloportes) : la remontée est annoncée, et l'on
+> peut **fermer la porte**, la **fortifier** ou y **poster une garde**. Une septième classe de
+> maître, le·la **Spéléologue**, craint deux fois moins les dangers et éclaire la salle
+> suivante de sa lanterne. Écran **Tréfonds** (coupe 2D, porte, mines, descentes, rapports).
+
 > **Chantier 47** — **le rythme de la conquête**. La reine des furets ne sort plus avant le
 > **jour 13** (une date publique, affichée sur l'écran Conquête avec un compte à rebours), et il
 > lui faut les 12 balises à cette date. La prévision d'un débarquement compte désormais **au

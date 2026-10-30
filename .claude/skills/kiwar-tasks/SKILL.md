@@ -135,3 +135,10 @@ posting, stardust pickers or repairs of its own (it still shelters, places turre
 Queue items `canal` / `fill` (juice canals, `sim/canals.ts`) are constructions like the others
 for the dispatcher (`startItem`, builders, `buildSlots`); they hold their tile and draw a
 stake only. `has(type)` in the bot matches `buildingType 'camp'` for them (as for stumps).
+
+## Chantier 48: the mines (skill `kiwar-depths`)
+
+Job `mine` (task level `pick`, `borrow` / `returnTo` like a crater), automation `mine`
+(`fillMines` in `dispatchTasks`, a fifth of the colony at most, released when the door
+closes or the resource is at its cap), command `postMiners`. The auto garrison reads
+`comingWave` (an upwelling too).

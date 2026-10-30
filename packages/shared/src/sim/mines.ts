@@ -1,4 +1,5 @@
 import { DEPTHS } from '../data/depths';
+import { levelDef } from '../data/buildings';
 import type { ResourceId } from '../data/resources';
 import { depthsMapOf } from './depths';
 import { colonyBonus, workerPower } from './kiwis';
@@ -64,7 +65,18 @@ export function galleryRate(state: GameState, roomId: string): number {
   if (work <= 0) return 0;
   const tunnel = state.buildings.find((b) => b.type === 'tunnel');
   const damaged = tunnel?.damaged ? DEPTHS.gallery.damagedWork : 1;
-  return DEPTHS.gallery.perMiner[room.depth - 1]! * work * damaged;
+  return (
+    DEPTHS.gallery.perMiner[room.depth - 1]! *
+    minerOutput(resource, tunnel?.level ?? 1) *
+    work *
+    damaged
+  );
+}
+
+/** What one worker yields per hour in the producer of a resource at level `6 + tunnel level`. */
+export function minerOutput(resource: ResourceId, tunnelLevel: number): number {
+  const def = levelDef(DEPTHS.gallery.producer[resource], 6 + Math.max(1, tunnelLevel));
+  return (def?.production?.[resource] ?? 0) / Math.max(1, def?.workerSlots ?? 1);
 }
 
 /** Every gallery with miners at work, and what it yields per hour. */

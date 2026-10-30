@@ -32,6 +32,8 @@ export const TECH_ORDER: TechId[] = [
   'masonry',
   'forge',
   'ironAge',
+  // Chantier 48: the depths open the Iron age's long wait.
+  'spelunking',
   'smelting',
   'juiceInfusion',
   'industryAge',

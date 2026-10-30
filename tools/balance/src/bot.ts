@@ -1,3 +1,4 @@
+import { delveOrder, doorOrder, tunnelDecision } from './bot/depths';
 import {
   civAt,
   civWave,
@@ -93,6 +94,9 @@ export const MILESTONES = [
   'kikiwiwi',
   // Chantier 45: the first canal dug.
   'canal',
+  // Chantier 48: the tunnel entrance, the first room of the depths taken.
+  'tunnel',
+  'delve',
   // Chantier 40: the first glimpse (a landing back home), the first beacon, one in the centre.
   'glimpse',
   'landingWon',
@@ -136,6 +140,16 @@ export interface RunResult {
     /** Chantier 45: canal tiles at the end. */
     canals?: number;
     camps?: number;
+    /** Chantier 48: delves (rooms taken, retreats, kiwis dead), upwellings (lost, held at the door). */
+    delves?: number;
+    roomsTaken?: number;
+    delveRetreats?: number;
+    delveDeaths?: number;
+    upwells?: number;
+    upwellsLost?: number;
+    upwellsHeld?: number;
+    galleries?: number;
+    miners?: number;
     /** Chantier 40: landings, landings won, retreats, ships lost; kiwis lost on expeditions,
      *  loot brought back (all resources, raw units). */
     landings?: number;
@@ -263,6 +277,17 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
     else play.expeditionsAt = state.now + HOUR_MS / 2;
   }
 
+  // Chantier 48: the tunnel door against an upwelling, then a delve (looked at once an hour).
+  if (play.depths) {
+    const door = doorOrder(state, play.prepared);
+    if (door) cmds.push(door);
+    if (state.now >= play.depthsAt) {
+      const delve = delveOrder(state);
+      if (delve) cmds.push(delve);
+      else play.depthsAt = state.now + HOUR_MS;
+    }
+  }
+
   // Kikiwiwis (chantier 08): an infusion, the garrison, titan works.
   const titan = titanOrders(state, map);
   if (titan) cmds.push(titan);
@@ -386,6 +411,12 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
     if (forge) return [...cmds, forge];
   }
 
+  // 2c'''. Chantier 48: the tunnel entrance once spelunking is known.
+  if (play.depths) {
+    const tunnel = tunnelDecision(state, build, has);
+    if (tunnel) return [...cmds, tunnel];
+  }
+
   // 2c'. Chantier 18: a launchpad once the Library stands.
   if (play.expeditions) {
     const pad = launchpadOrder(state, build);
@@ -502,6 +533,11 @@ function checkMilestones(
   );
   set('canal', Object.values(state.terraform).includes('canal'));
   set(
+    'tunnel',
+    state.buildings.some((b) => b.type === 'tunnel'),
+  );
+  set('delve', Object.keys(state.depths.galleries).length > 0);
+  set(
     'allLevel3',
     // Economy buildings (the bot does not play expeditions yet).
     (['nest', ...BUILD_ORDER] as BuildingType[]).every((type) =>
@@ -519,6 +555,8 @@ export const MECHANICS = [
   'forge',
   'village',
   'canals',
+  // Chantier 48: the depths (tunnel, delves, galleries, the door).
+  'depths',
 ] as const;
 export type Mechanic = (typeof MECHANICS)[number];
 export interface Play extends Record<Mechanic, boolean> {
@@ -527,6 +565,8 @@ export interface Play extends Record<Mechanic, boolean> {
   canalsAt: number;
   expeditionsAt: number;
   forgeAt: number;
+  /** Chantier 48: next look for a delve. */
+  depthsAt: number;
   /** Chantier 19: the bot besieges the twin and founds the second colony. */
   siege: boolean;
   siegeAt: number;
@@ -583,6 +623,7 @@ export function runBot(opts: RunOptions): RunResult {
     canalsAt: 0,
     expeditionsAt: 0,
     forgeAt: 0,
+    depthsAt: 0,
     siege: !opts.noSiege,
     siegeAt: 0,
     prepared: !opts.sessionEveryMs,
@@ -606,6 +647,17 @@ export function runBot(opts: RunOptions): RunResult {
   let dustPicked = 0;
   let campsSet = 0;
   const trips = { landings: 0, landingsWon: 0, retreats: 0, shipsLost: 0, loot: 0, finals: 0 };
+  // Chantier 48: delves and upwellings.
+  const depths = {
+    delves: 0,
+    rooms: 0,
+    retreats: 0,
+    dead: 0,
+    upwells: 0,
+    upwellsLost: 0,
+    upwellsHeld: 0,
+  };
+  const reportsSeen = new Set<string>();
   // Chantier 42: attacks on the beacons (held, fallen, guards lost).
   const attacks = { total: 0, held: 0, dead: 0 };
   let battleWounded = 0;
@@ -663,6 +715,14 @@ export function runBot(opts: RunOptions): RunResult {
       if (e.mission === 'final' && !e.result.aborted) trips.finals++;
       if (e.mission === 'land' || e.mission === 'final')
         battleWounded += e.result.injured?.length ?? 0;
+      // Chantier 48: delves.
+      if (e.mission === 'delve') {
+        depths.delves++;
+        if (e.result.outcome === 'victory') depths.rooms++;
+        if (e.result.outcome === 'retreat') depths.retreats++;
+        depths.dead += e.result.lostInBattle.length;
+        continue;
+      }
       if (e.result.aborted || e.mission !== 'land') continue;
       trips.landings++;
       if (times.glimpse === null && e.result.outcome !== 'defeat')
@@ -677,9 +737,20 @@ export function runBot(opts: RunOptions): RunResult {
       }
       trips.loot += RESOURCE_IDS.reduce((sum, id) => sum + e.result!.loot[id], 0);
     }
-    // Count the waves lost since the last look (reports keep the last few).
+    // Count the waves lost since the last look (reports keep the last few). Chantier 48:
+    // upwellings report there too; they are counted apart.
+    const unseen = state.threats.reports.filter((r) => !reportsSeen.has(`${r.id}@${r.at}`));
+    for (const r of unseen) {
+      reportsSeen.add(`${r.id}@${r.at}`);
+      if (r.from !== 'tunnel') continue;
+      depths.upwells++;
+      if (!r.victory) depths.upwellsLost++;
+      if (r.door === 'held') depths.upwellsHeld++;
+    }
     if (state.threats.waves > wavesSeen) {
-      const fresh = state.threats.reports.slice(-(state.threats.waves - wavesSeen));
+      const fresh = unseen
+        .filter((r) => r.from !== 'tunnel')
+        .slice(-(state.threats.waves - wavesSeen));
       wavesLost += fresh.filter((r) => !r.victory).length;
       // Chantier 31: what each wave cost (loot, damage, wounds, deaths).
       for (const r of fresh) {
@@ -809,6 +880,15 @@ export function runBot(opts: RunOptions): RunResult {
       canals: Object.values(state.terraform).filter((k) => k === 'canal').length,
       camps: campsSet,
       ...trips,
+      delves: depths.delves,
+      roomsTaken: depths.rooms,
+      delveRetreats: depths.retreats,
+      delveDeaths: depths.dead,
+      upwells: depths.upwells,
+      upwellsLost: depths.upwellsLost,
+      upwellsHeld: depths.upwellsHeld,
+      galleries: Object.keys(state.depths.galleries).length,
+      miners: state.villagers.filter((v) => v.job.kind === 'mine').length,
       beaconAttacks: attacks.total,
       beaconsHeld: attacks.held,
       guardDeaths: attacks.dead,

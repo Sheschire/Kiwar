@@ -49,6 +49,9 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
     from it (announced by the server online), the public estimate.
   - `kiwar-sky` — comets and stardust: pickers, blessings, the star egg, the Stars research
     branch, ship fuel, stardust costs of the ages and the Kikiwiwis.
+  - `kiwar-depths` — the depths under our half: the tunnel entrance, the public network of
+    rooms and their hidden content, delves and hazards, galleries and miners, the spelunker,
+    upwellings and the tunnel door, the Depths screen.
 
 ## Owner's rules
 

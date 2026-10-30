@@ -190,3 +190,9 @@ builderPriority?}`. `assignWorkers` (−/+) still exists (bot, building sheet, j
    move in `CLASS_CLIP` (`render/kiwis.ts`) and `KiwiPortrait`.
 4. Tests in `test/kiwis.test.ts`, `test/classes.test.ts`, `test/expeditions.test.ts` (always
    one big step vs small steps), then `kiwar-balance` (milestones kiwi5, kiwi10, mayor).
+
+## Chantier 48: the spelunker (skill `kiwar-depths`)
+
+Seventh master (`spelunker`: Endurance + Dexterity, from champion or herbalist), weapon
+`pick`, mace family; `SKILLS.spelunkerSelf` / `spelunkerCrew` in `hazardFactor`, the lantern
+of a delve won. Job `mine` (miners below: no militia, no evening).

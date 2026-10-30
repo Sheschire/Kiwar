@@ -324,7 +324,7 @@ export const TECHS: Record<TechId, TechDef> = {
     id: 'spelunking',
     age: 2,
     branch: 'exploration',
-    cost: 700,
+    cost: 500,
     libraryLevel: 4,
     effects: { depths: true },
   },

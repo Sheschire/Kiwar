@@ -278,7 +278,6 @@ export function buildLock(state: GameState, type: BuildingType): CommandError | 
     if (state.colony.index !== 0) return 'notBuildable';
     if (copiesOf(state, 'tunnel') > 0) return 'tunnelExists';
     if (!techEffects(state).depths) return 'techMissing';
-    if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return 'buildingLimit';
   } else if (type === 'townHall') {
     if (copiesOf(state, 'townHall') > 0) return 'townHallExists';
   } else if (type === 'cabaret') {

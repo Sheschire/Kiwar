@@ -8,7 +8,7 @@ import {
   delveForecast,
   depthsMapOf,
   doorStrength,
-  fortifyCost,
+  doorFortifyCost,
   fortifyDoorLock,
   gallerySlots,
   galleryRate,
@@ -435,7 +435,7 @@ function DoorBox({ game }: { game: GameState }) {
   const now = useUi((s) => s.now);
   const door = game.depths.door;
   const tunnel = tunnelOf(game)!;
-  const cost = fortifyCost(game);
+  const cost = doorFortifyCost(game);
   const lock = fortifyDoorLock(game);
   const afford = canAfford(game.resources, cost.resources) && meteorIronOf(game) >= cost.iron;
   const up = game.depths.next;
