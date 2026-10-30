@@ -227,6 +227,8 @@ export class GameRenderer {
   private lastShowAt: number | null = null;
   /** Chantier 44: a fireworks burst opened (its sound). */
   onFireworksBurst: ((x: number, z: number) => void) | null = null;
+  /** Chantier 49: a miner's pick bit a wall in the cut (sounds). */
+  onCutStrike: (() => void) | null = null;
   private lastCometArrow: CometArrow | null = null;
   private obstacles: ObstaclesView | null = null;
   private ships: ShipsView | null = null;
@@ -475,6 +477,7 @@ export class GameRenderer {
     this.battle?.setParticles(q.particles);
     this.landing?.setParticles(q.particles);
     this.delve?.setParticles(q.particles);
+    this.cut?.life.setParticles(q.particles);
     this.cut?.setHoles(preset !== 'low');
     if (this.cut && this.lastState) this.cut.sync(this.lastState);
     this.resize();
@@ -1370,6 +1373,8 @@ export class GameRenderer {
       this.preset !== 'low',
     );
     this.cut = cut;
+    cut.life.setParticles(QUALITY[this.preset].particles);
+    cut.life.onStrike = () => this.onCutStrike?.();
     this.scene.add(cut.group);
     const azimuth = this.rig.controls.azimuthAngle;
     cut.open(azimuth);
@@ -2032,6 +2037,11 @@ export class GameRenderer {
     }
     this.battle?.update(dt, this.camera);
     if (this.landing?.playing) this.landing.update(dt, this.camera);
+    // The weather's clouds and the far planets stay above: not in front of the cut.
+    const surface = !this.rig.inCut;
+    if (this.weather) this.weather.group.visible = surface;
+    if (this.twin) this.twin.group.visible = surface;
+    this.allies.group.visible = surface;
     if (this.cut) {
       this.cut.update(dt, this.callbacks.now());
       if (this.delve?.playing) this.delve.update(dt, this.camera);

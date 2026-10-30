@@ -10,6 +10,13 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 49** — **la tranche**. En inclinant la caméra au-delà du bord (ou par « Voir en
+> coupe » sur l'écran Tréfonds), un **quartier de la planète s'ouvre comme une part de fruit** :
+> la chair verte et ses faisceaux, l'anneau des loges et ses graines, le cœur, les galeries
+> éclairées de lanternes, le brouillard sur l'inconnu. On y voit les **mineur·euses** piocher,
+> les wagonnets de sève rouler et les équipages descendre ; une **descente se regarde en
+> direct** dans sa salle (ou rejouée depuis son rapport), à l'identique de son journal.
+
 > **Chantier 48** — **les Tréfonds, première couche : la chair verte**. Dès l'âge du Fer, la
 > technologie **Spéléologie** ouvre l'**entrée de tunnel**. Sous la colonie, un réseau de
 > salles dans le noir : on y **descend** avec un équipage choisi, des rations et des ordres,

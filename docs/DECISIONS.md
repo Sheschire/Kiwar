@@ -3271,3 +3271,48 @@ Probes of 10 days (scratch `runBot`, attentive unless said; the same seed with `
 
 To test with the owner: the feel of the hazards, the difficulty of the deep rooms, how often
 the upwellings come, the price of the fortified door, the 2D cut.
+
+## Chantier 49 — The cut: the depths seen in section
+
+Client only. The mechanics are chantier 48's (and 50's locules); here they are shown.
+
+### Defaults chosen by Claude (status "default", changeable)
+
+- **A quarter opens like a slice of fruit**: the skin dome (and its fur) is clipped between two
+  vertical half-planes through its axis, 120° wide, facing the camera; the two faces show the
+  left and the right half of the section (`render/depths/`). Built when the cut opens, freed
+  once it has closed: nothing is drawn or kept otherwise.
+- **Two ways in**: "See in a cut" in the Depths screen, and the gesture — tilting the camera
+  90 px beyond the edge of its range (right drag, Alt/Ctrl + left drag, two fingers up).
+  Tilting back above the cut's range, "Back to the surface" or Escape close it. While it is
+  open, the HUD shrinks to a banner (Depths screen, back), the battle bar and the reports.
+- **The section is painted** (a canvas, repainted only when what we know changes, ~5 ms):
+  green flesh and light bundles, the locules ring (closed until the Industry age: a veil) and
+  the cream core in silhouette, the shaft at the seam, the passages known, the rooms known
+  (tinted by kind), the fog over the rest. Rooms keep their rows of the 2D cut; the
+  chantier 50 locules stand on two rings around the core, as seeds in their cells.
+- **Rooms in 3D** (medium, high): known rooms of the flesh are hollowed out (a cavity, a floor
+  jutting out a little); low quality paints them as discs and the kiwis stand on a ledge in
+  front. Lanterns along the lit passages and over each gallery's door. Locules stay painted.
+- **Life below**: the miners swing a pick (`dig` clip, `pick` prop), a cart of what they dig
+  rolls to the shaft and back, delves walk down in single file and back up; dust of the
+  picks, sap drops, raphide glints, actinidine steam (the closed locules' lakes too).
+- **Delves live**: `ShowSource` `delve` — the journal replayed in its room (never
+  recomputed), fighters drawn 1.8× their field; a delve that reached its room less than a
+  minute ago plays as soon as the cut is open; "Watch it in the cut" under every delve report.
+  The camera frames the room, turned towards its face, never up into the crust of tiles.
+- Sounds `depths.cut` (a wet tear of flesh, lower when closing) and `depths.pick` (a muffled
+  tock at each bite of a pick).
+- Upwellings out of the tunnel keep the surface wave show (chantier 48), as planned.
+- While the cut is open, the weather's clouds, the twin and the members' planets are hidden
+  (the camera looks level at the horizon: they came in front of the rooms).
+
+### Measures
+
+In the same page (headless software WebGL, medium, a cut with 7 known rooms and 3 miners):
++15 draw calls, +7.8 k triangles, 0.07 ms of JavaScript per frame, 4.8 ms per repaint of the
+section (only when the knowledge changes). Low draws no hollow and paints at half resolution.
+
+To test with the owner: the pleasure of watching (the miners, a live delve), the gesture
+(90 px past the edge), the frame rate of the cut on a real phone (`?debug`), the size of the
+fighters in a room.

@@ -330,6 +330,11 @@ export class DepthsCutView {
       this.life.update(dt, this.elapsed, now, this.state, this.depths);
   }
 
+  /** The rooms are hollowed out in 3D (medium and high), not painted discs. */
+  get hollowed(): boolean {
+    return this.holes;
+  }
+
   /** A room's place in the section. */
   pointOf(room: DepthRoom): CutPoint {
     return roomPoint(this.depths!, room);

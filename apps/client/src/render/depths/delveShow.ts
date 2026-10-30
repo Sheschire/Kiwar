@@ -2,6 +2,7 @@ import type { Camera } from 'three';
 import { Group, Vector3 } from 'three';
 import {
   ageOf,
+  isLocule,
   type DepthRoom,
   type Expedition,
   type FaceMap,
@@ -73,7 +74,10 @@ export class DelveShow {
   private place(room: DepthRoom): void {
     const cut = this.cut;
     const p = roomPoint(cut.network!, room);
-    cut.floorSpot(room, 0, 0, this.group.position);
+    // A locule is a small painted cell: its field stands on a floor in front of it.
+    if (isLocule(room))
+      cut.worldOf(p, this.group.position, cut.roomRadius * 0.9, cut.roomRadius * 0.4);
+    else cut.floorSpot(room, 0, 0, this.group.position);
     // The field's entry (q 0, r 4) in its own frame, and where it should point in the world.
     const entry = worldPosition({ q: 0, r: FIELD_HEXES });
     cut.worldOf({ s: p.s * 0.5, t: p.t }, this.t).sub(cut.worldOf(p, this.v));

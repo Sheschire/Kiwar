@@ -730,6 +730,41 @@ export const SYNTH_PRESETS = {
     peak: 0.3,
   },
   // Chantier 44: a fireworks burst — a soft boom, then a crackle of tiny sparks.
+  // Chantier 49: the quarter of the dome opens — a wet tear of flesh over a soft low creak.
+  cutOpen: {
+    tones: [
+      {
+        wave: 'noise',
+        freq: 0,
+        attack: 0.02,
+        hold: 0.15,
+        decay: 0.45,
+        gain: 0.5,
+        lowpass: 2600,
+        lowpassEnd: 600,
+      },
+      { wave: 'sine', freq: 95, freqEnd: 60, attack: 0.05, hold: 0.2, decay: 0.5, gain: 0.45 },
+      {
+        wave: 'triangle',
+        freq: 180,
+        freqEnd: 140,
+        start: 0.1,
+        attack: 0.08,
+        decay: 0.4,
+        gain: 0.15,
+        vibrato: [9, 0.4],
+      },
+    ],
+    peak: 0.4,
+  },
+  // Chantier 49: a pick bites the flesh of a gallery — a small muffled tock.
+  pick: {
+    tones: [
+      { wave: 'noise', freq: 0, attack: 0.001, decay: 0.03, gain: 0.5, lowpass: 2400 },
+      { wave: 'sine', freq: 420, freqEnd: 300, attack: 0.001, decay: 0.08, gain: 0.4 },
+    ],
+    peak: 0.3,
+  },
   burst: {
     tones: [
       { wave: 'sine', freq: 120, freqEnd: 45, attack: 0.004, decay: 0.5, gain: 0.6 },

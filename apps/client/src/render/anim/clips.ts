@@ -60,6 +60,9 @@ const pos = (x: number) => Math.max(0, x);
 /** 0 → 1 → 0 bump over a cycle of length 1 (u in [0, 1)). */
 const bump = (u: number) => 0.5 - 0.5 * Math.cos(u * TAU);
 const frac = (x: number) => x - Math.floor(x);
+
+/** Chantier 49: the pick's rhythm (swings per second) and when in a swing it bites. */
+export const DIG = { rate: 1.3, at: 0.65 } as const;
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const smooth = (x: number) => {
   const u = clamp01(x);
@@ -129,8 +132,8 @@ export const CLIPS: Record<ClipId, Clip> = {
     group: 'work',
     prop: 'pick',
     apply(t, p) {
-      const u = frac(t * 1.3);
-      const lift = u < 0.65 ? smooth(u / 0.65) : 1 - smooth((u - 0.65) / 0.35);
+      const u = frac(t * DIG.rate);
+      const lift = u < DIG.at ? smooth(u / DIG.at) : 1 - smooth((u - DIG.at) / (1 - DIG.at));
       p.wingRF = -0.3 + lift * 2.2;
       p.wingR = 0.3;
       p.propSwing = lift * 0.8;

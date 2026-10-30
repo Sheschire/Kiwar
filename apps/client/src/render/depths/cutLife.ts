@@ -19,11 +19,21 @@ import {
   type ResourceId,
   type Villager,
 } from '@kiwar/shared';
-import { ClipPlayer, type ClipId } from '../anim/clips';
+import { ClipPlayer, DIG, type ClipId } from '../anim/clips';
+import { Particles } from '../particles';
 import { KiwiRig } from '../anim/kiwiRig';
 import { colored, mat, merged } from '../anim/geometry';
 import { shinyTint, sizeOf } from '../kiwis';
-import { along, roomPoint, wayTo, type CutPoint } from './cutLayout';
+import {
+  CUT_ASPECT,
+  LOCULES,
+  along,
+  roomPoint,
+  roomRadius,
+  wayTo,
+  type CutPoint,
+} from './cutLayout';
+import { LAKES } from './cutPaint';
 import type { DepthsCutView } from './DepthsCutView';
 
 /**
@@ -69,6 +79,11 @@ export class CutLife {
   private readonly tint = new Color();
   private readonly load = new Color();
   private readonly cartColor = new Color();
+  /** Chantier 49 (part 4): dust of the picks, sap drops, raphide glints, actinidine steam. */
+  readonly particles = new Particles();
+  private emitTimer = 0;
+  /** A pick bit into a wall (sounds), at this world spot. */
+  onStrike: ((at: Vector3) => void) | null = null;
   /** A delve whose battle is on show: its crew is drawn by the show, not here. */
   hidden: string | null = null;
   /** Spots of the kiwis drawn this frame (taps, the camera). */
@@ -85,6 +100,11 @@ export class CutLife {
     this.carts.count = 0;
     this.carts.frustumCulled = false;
     this.group.add(this.carts);
+    this.group.add(this.particles.mesh);
+  }
+
+  setParticles(on: boolean): void {
+    this.particles.setEnabled(on);
   }
 
   /** Size of a kiwi down there (rooms are small at the planet's scale). */
@@ -123,7 +143,15 @@ export class CutLife {
         this.view.floorSpot(room, across, -0.35 + (i % 2) * 0.35, this.v);
         this.view.normalOf(roomPoint(map, room), this.n);
         const heading = Math.atan2(-this.n.x, -this.n.z) + (i % 2 ? 0.35 : -0.35);
-        this.drawKiwi(v, 'dig', this.v, heading, scale, dt, null);
+        const swing = this.drawKiwi(v, 'dig', this.v, heading, scale, dt, null);
+        if (swing) {
+          // The pick bites the wall in front of the miner.
+          this.w.set(Math.sin(heading), 0, Math.cos(heading)).multiplyScalar(scale * 0.35);
+          this.w.add(this.v);
+          this.w.y += scale * 0.25;
+          this.particles.effect('dig', this.w, scale * 1.2);
+          this.onStrike?.(this.w);
+        }
         seen.add(v.id);
       });
       // A cart of what they dig rolls up to the shaft and back while someone works there.
@@ -183,6 +211,12 @@ export class CutLife {
     this.carts.instanceMatrix.needsUpdate = true;
     if (this.carts.instanceColor) this.carts.instanceColor.needsUpdate = true;
     for (const id of this.walkers.keys()) if (!seen.has(id)) this.walkers.delete(id);
+    this.emitTimer -= dt;
+    if (this.emitTimer <= 0) {
+      this.emitTimer = 0.25;
+      this.ambient(map);
+    }
+    this.particles.update(dt);
   }
 
   /**
@@ -219,7 +253,7 @@ export class CutLife {
     scale: number,
     dt: number,
     loadOf: ResourceId | null,
-  ): void {
+  ): boolean {
     let w = this.walkers.get(v.id);
     if (!w) {
       w = { player: new ClipPlayer(hash(v.id) * 3), clip };
@@ -233,6 +267,7 @@ export class CutLife {
     const brightness = rng.range(0.82, 1.15);
     const jitter = rng.range(0.96, 1.04);
     this.tint.copy(v.shiny ? shinyTint(v.shiny) : this.tint.setScalar(brightness));
+    const before = w.player.time;
     this.rig.draw({
       x: at.x,
       y: at.y,
@@ -247,10 +282,51 @@ export class CutLife {
       armor: v.gear?.armor ?? null,
     });
     this.drawn.push({ id: v.id, pos: at.clone() });
+    // A dig swing crossed the moment its pick bites.
+    if (clip !== 'dig' || dt <= 0) return false;
+    const a = before * DIG.rate - DIG.at;
+    const b = w.player.time * DIG.rate - DIG.at;
+    return Math.floor(b) > Math.floor(a);
+  }
+
+  /** A few drops, glints and wisps of steam, a few times a second. */
+  private ambient(map: DepthsMap): void {
+    const k = this.view.knowledge;
+    if (!k) return;
+    const ay = this.view.shape.ay;
+    const hollow = this.view.hollowed;
+    for (const [id, kind] of k.kinds) {
+      const room = map.byId.get(id);
+      if (!room) continue;
+      const p = roomPoint(map, room);
+      const rr = roomRadius(room);
+      const inside = hollow && rr > 0.05 ? -rr * ay * 0.3 : rr * ay * 0.15;
+      const r = Math.random;
+      if (kind === 'sap' && r() < 0.35) {
+        this.p.s = p.s + ((r() - 0.5) * rr) / CUT_ASPECT;
+        this.p.t = p.t - rr * 0.75;
+        this.particles.effect('sap', this.view.worldOf(this.p, this.v, inside), 1.2);
+      } else if ((kind === 'raphides' || kind === 'forest') && r() < 0.5) {
+        this.p.s = p.s + ((r() - 0.5) * rr * 1.6) / CUT_ASPECT;
+        this.p.t = p.t + (r() - 0.5) * rr * 1.4;
+        this.particles.effect('glint', this.view.worldOf(this.p, this.v, inside), 1);
+      } else if (kind === 'lake' && r() < 0.4) {
+        this.particles.effect('steam', this.view.worldOf(p, this.v, rr * ay), 0.8);
+      }
+    }
+    // The lakes of the closed locules smoke in silhouette.
+    if (!k.loculesOpen && Math.random() < 0.5) {
+      const a = LAKES[Math.floor(Math.random() * LAKES.length)]!;
+      const ring = (LOCULES.inner + LOCULES.outer) / 2;
+      this.p.s = (-Math.cos(a) * ring) / CUT_ASPECT;
+      this.p.t = 1 - Math.sin(a) * ring;
+      this.particles.effect('steam', this.view.worldOf(this.p, this.v, 0.1), 1.2);
+    }
   }
 
   dispose(): void {
     this.rig.dispose();
+    this.particles.dispose();
     this.carts.geometry.dispose();
     (this.carts.material as MeshStandardMaterial).dispose();
   }

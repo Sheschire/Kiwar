@@ -222,3 +222,11 @@ live)` (travel + play), the report's "Watch the battle again"; far faces keep
 - `waveSetup` with `wave.tunnel`: the pack comes out of the tunnel's mouth and flees back
   there, guards gather around the entrance, a fortified door adds two turrets. The show draws
   the Grouillants with the ferret / bat rigs tinted (`GROUILLANT_TINTS`, `CreatureDraw.bare`).
+
+## Chantier 49 (delves played in the cut)
+
+`ShowSource.kind` adds `delve` (`battleStore.kind` too; the bar titles it `slice.live` /
+`slice.replay`); `ShowOptions.unitScale` draws the fighters bigger than their field.
+`render/depths/delveShow.ts` `DelveShow` plays the journal on a flat field (an empty
+`FaceMap`) placed on the room's floor of the cut; the `show` getter of `GameRenderer` routes
+seek / speed / skip / select to it first. Its end tells nothing (no held outcome).

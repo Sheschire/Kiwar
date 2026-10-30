@@ -331,6 +331,25 @@ export const SOUND_EVENTS = {
       spatial: true,
     },
   },
+  // Chantier 49: the depths in a cut — the quarter opening or closing, the miners' picks.
+  'depths.cut': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'cutOpen',
+    default: { sources: ['synth:cutOpen'], volume: 0.8, cooldownMs: 600 },
+  },
+  'depths.pick': {
+    bus: 'sfx',
+    group: 'colony',
+    synth: 'pick',
+    default: {
+      sources: ['synth:pick'],
+      volume: 0.35,
+      pitchVariation: 3,
+      maxVoices: 3,
+      cooldownMs: 150,
+    },
+  },
   'meteor.fall': {
     bus: 'sfx',
     group: 'colony',

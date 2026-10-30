@@ -530,11 +530,13 @@ export const actions = {
     if (uiStore.getState().visit !== null) actions.travelTo(null);
     if (!renderer?.openCut()) return false;
     uiStore.setState({ modal: 'none', selectedTile: null, planetCard: null, planetsOpen: false });
-    audio.play('ui.click');
+    audio.play('depths.cut');
     return true;
   },
   closeCut(): void {
-    renderer?.closeCut();
+    if (!renderer?.cutOpen) return;
+    renderer.closeCut();
+    audio.play('depths.cut', { pitchOffset: -3 });
   },
   /** Chantier 49: replays a delve in its room of the cut (from its report). */
   watchDelve(expeditionId: string): boolean {

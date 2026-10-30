@@ -11,6 +11,14 @@
 
 ## Des chantiers précédents
 
+- Chantier 49 : la coupe vérifiée en Chromium sans GPU seulement (images/s à confirmer sur un
+  vrai téléphone avec `?debug`). Les Grouillants portent encore les rigs du furet et de la
+  chauve-souris teintés (leurs propres corps : larve, mouche, cloporte, restent à dessiner).
+  Les loges et le cœur n'ont pas de salle creusée en 3D (peintes) ; une descente vers une
+  loge se rejoue sur un sol posé devant la cellule. La coupe ne montre pas la porte du tunnel
+  ni sa garde ; une remontée se voit à la surface seulement. Pas d'invitation à regarder une
+  descente quand la coupe est fermée (le rapport offre le rejeu).
+
 - Chantier 43 : les kiwis au moral bas ne partent pas « d'eux-mêmes » vers un loisir en
   journée ; le loisir est une portée autour de leur lit, et seule la veillée du feu de camp
   se voit (première moitié de la nuit). Pas de nuisances de voisinage ni de beauté (le 44).

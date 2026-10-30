@@ -5,7 +5,7 @@ description: Kiwar depths under our half (chantier 48, then 49, 50, 52) — the 
 
 # Kiwar depths (chantier 48)
 
-Load `kiwar-sim` (determinism, exact offline), `kiwar-battle` (the engine), `kiwar-threats`
+Chantier 49 drew the cut in 3D (section "The cut" below). Load `kiwar-sim` (determinism, exact offline), `kiwar-battle` (the engine), `kiwar-threats`
 (waves: upwellings are waves) and `kiwar-expeditions` (the anti-cheat rule) with it.
 
 ## The rule of the truth
@@ -119,7 +119,7 @@ fliers), mace family. `SKILLS.spelunkerSelf` (0.5) / `spelunkerCrew` (0.75) in
 ## Client
 
 - `DepthsModal.tsx` (`modal: 'depths'`, `depthsVisible`; top bar, phone menu, the tunnel's
-  sheet, the defense screen's link): `DepthsCut` (SVG half-disc, `roomAt`), `RoomPanel`,
+  sheet, the defense screen's link; "See in a cut" opens the 3D cut): `DepthsCut` (SVG half-disc, `roomAt`), `RoomPanel`,
   `RoomActions` (`MinersBox` or `DelvePlanner` with `CrewPicker`, `OrdersPicker delve`,
   `DelveForecastLines`), `DoorBox`, `DelveList`, `DelveReport` (in `ReportModal`,
   `LandingReplay delve`). Texts `depths.*`.
@@ -129,6 +129,36 @@ fliers), mace family. `SKILLS.spelunkerSelf` (0.5) / `spelunkerCrew` (0.75) in
 - Visual check: `?seed=demo`, push a monument level 2, a `tunnel`, `spelunking`, classed
   kiwis, galleries and views on `controller.state`, `debugGrant`, `modal: 'depths'`, click a
   `.cut-room`. A real delve: dispatch `delve`, `setTimeScale(20000)` ~6 s, open its report.
+
+## The cut (chantier 49, `render/depths/`)
+
+- `cutLayout.ts` (pure, tested in `apps/client/test/depthsCut.test.ts`): the section in units
+  `s` (−1…1 across) and `t` (0 surface … 1 bottom); `ROW_T` per depth, `ROOM_T` / `LOCULE_T`
+  (`roomRadius`), `roomPoints(map)` spreads each row and side (`GAP`) and sets the locules
+  (depth 4) on two rings around the core (`LOCULES`, `CUT_ASPECT` for what is round in the
+  world), `cutLinks`, `wayTo` (shaft → known rooms → the room), `along`. **A new layer
+  (chantier 52's core) needs its own placement in `roomPoints`** (the rows only hold the flesh).
+- `cutPaint.ts`: `cutKnowledge` (look per room: fog / heard / seen / gallery, kinds, passages
+  known and lit, `loculesOpen` = Industry), `cutSignature` (repaint only on change), `paintCut`
+  (canvas ×2 outside low, `KIND_TINTS` — a new room kind needs a tint, `LAKES`, the alpha
+  `mask` of the hollows).
+- `DepthsCutView.ts`: two faces (`quarterGeometry`), the dome clipped with `clipIntersection`
+  (`TerrainView.setDomeClip`, `PropsView.setDomeClip` for the fur), opening 0.9 s
+  (`OPEN_ANGLE` 1.05), hollows and floors (instanced, medium/high), lanterns, `worldOf`,
+  `floorSpot` (on the ledge in low), `normalOf`, `pickRoom`, `frame`.
+- `cutLife.ts`: miners (`minersIn`, clip `dig`, `DIG` rhythm → `onStrike`), carts, delves on
+  their way (`hidden` = the delve on show), particles (`dig`, `sap`, `glint`, `steam`).
+- `delveShow.ts`: `DelveShow` plays a `delve` journal in its room (flat `FaceMap`, the entry
+  turned to the shaft, `unitScale` 1.8, a locule's field in front of its cell).
+- `GameRenderer.openCut` / `closeCut` / `cutOpen` / `playDelve` (live: arrived < 60 s while
+  the cut is open; `delveFocus` frames the room once open); callbacks `onTiltPast`,
+  `onRoomTap`, `onCutChange`; `actions.openCut`, `closeCut`, `watchDelve`; store `cutOpen`,
+  `depthsRoom`; `CutBanner`, `WatchDelveButton`; texts `slice.*` (own namespace).
+- Check: `?depths[&t=2][&close][&holes=0][&polar=][&azimuth=][&zoom=]`; in game, push a
+  `tunnel` and views/galleries on `controller.state`, `actions.openCut()`, wait for
+  `renderer.cut.isOpen` and `!renderer.rig.flying` (headless frames are slow). A real delve:
+  dispatch `delve` (orders goal `loot` or `burn`), `setTimeScale(20000)` ~4 s, then
+  `actions.watchDelve(id)`.
 
 ## Bot (`tools/balance/src/bot/depths.ts`, mechanic `depths`)
 
@@ -143,6 +173,6 @@ upwelling reports (`reportsSeen`).
 
 ## Next chantiers
 
-49 (the cut in 3D, `ShowSource` `delve`, the Grouillants' own rigs), 50 (locules: crystal,
+49 done (the Grouillants' own rigs are still to draw: `DETTE.md`), 50 (locules: crystal,
 giant seeds, actinidine; layer 2 of `DEPTHS.layers`), 52 (core and stem). A new layer adds
 rooms to `generateDepths` **after** the flesh's draws (the flesh's network must not move).

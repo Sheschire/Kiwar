@@ -80,3 +80,28 @@ Chemins sous `apps/client/src/`.
   travaillent.
 - Une descente se regarde en direct ou en replay, à l'identique de son rapport.
 - Sur téléphone, la vue en coupe tient les images/s de la vue normale (mesure `?debug`).
+
+## Bilan (30 octobre 2026)
+
+**Fait** (quatre commits, un par partie), en parallèle du 50 :
+
+1. La coupe : un quartier de 120° du dôme (et de ses poils) découpé entre deux demi-plans,
+   ses deux faces peintes sur une toile (chair, faisceaux, anneau des loges voilé, cœur,
+   puits, passages connus, salles, brouillard) ; la caméra descend le long du dôme
+   (`CameraRig.enterCut`, `leaveCut`, `focusCut`) ; le geste « incliner au-delà du bord »
+   (`TiltPast`, 90 px) ; le bandeau de la coupe ; la planche `?depths`.
+2. Salles et galeries : salles connues creusées en 3D (moyenne et haute qualité ; disques
+   peints en basse), masque alpha séparé, lanternes, mineur·euses à la pioche (clip `dig`),
+   wagonnets, équipages en marche ; les loges du 50 placées sur deux anneaux autour du cœur.
+3. Descente en direct : `ShowSource` `delve` (`DelveShow`), rejouée dans sa salle depuis son
+   journal, en direct si la coupe est ouverte, sinon « Regarder dans la coupe » sous son
+   rapport ; barre de bataille et fiche d'unité.
+4. Finitions : poussière de pioche, gouttes de sève, éclats de raphides, vapeur d'actinidine ;
+   sons `depths.cut` et `depths.pick` ; mesures ; docs et skills.
+
+**Mesures** : +15 appels de dessin, +7,8 k triangles, 0,07 ms de JavaScript par image en
+moyenne qualité ; 4,8 ms par peinture de la coupe (seulement quand la connaissance change).
+
+**Reste** (dans [`DETTE.md`](../DETTE.md)) : les propres corps des Grouillants, les images/s
+sur un vrai téléphone, les loges et le cœur sans salle creusée, la porte du tunnel absente
+de la coupe, pas d'invitation à regarder une descente quand la coupe est fermée.

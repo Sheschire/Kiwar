@@ -72,6 +72,10 @@ third of the night, silent from its middle); `ambience.day` stays reserved (the 
 `ambience.nature` are the day ambience, quieter at night). `gameAudio.ts` fills
 `audio.context.timeOfDay` / `season` from the calendar every 250 ms (binding conditions).
 
+Chantier 49: `depths.cut` (synth `cutOpen`, a wet tear; played by `actions.openCut`, lower
+by `closeCut`) and `depths.pick` (synth `pick`, a muffled tock; `renderer.onCutStrike` at each
+bite of a miner's pick while the cut is open).
+
 ## Add a sound event
 
 1. Add the id to `SOUND_EVENTS` (bus, group, `synth` fallback, default binding).

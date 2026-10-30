@@ -53,7 +53,7 @@ dans l'historique.
 |     | **Acte IV — Au-delà**                               |         |
 | 47  | Le rythme de la conquête                            | fait    |
 | 48  | Tréfonds I : l'entrée et la chair verte             | fait    |
-| 49  | La tranche (client)                                 | à faire |
+| 49  | La tranche (client)                                 | fait    |
 | 50  | Tréfonds II : les loges                             | à faire |
 | 51  | L'Âge des étoiles                                   | à faire |
 | 52  | Tréfonds III : le cœur et le pédoncule              | à faire |
@@ -85,10 +85,14 @@ tunnel). Un réseau public de salles sous brouillard, au contenu caché (`depthS
 la vérité est tenue) ; descentes avec dangers et prévision honnête, galeries et mineur·euses,
 Grouillants, Spéléologue, remontées par le tunnel (porte fermée, fortifiée ou gardée), écran
 Tréfonds 2D. Skill `kiwar-depths`.
-**Prochaine conversation** : le [chantier 49](chantiers/49-la-tranche.md) (la tranche, client
-seul) ou le [chantier 50](chantiers/50-trefonds-loges.md) (les loges) — ils peuvent tourner en
-parallèle.
-À tester avec le porteur : les Tréfonds (le ressenti des dangers, la difficulté des salles profondes, la fréquence des remontées, le prix de la porte fortifiée), la prévision des débarquements au pire (renforts possibles), la reine au jour 13 (deux parties sur six la battent le jour même : une date au jour 14 ?), l'exigence du moral par âge, le poids des deuils, la valeur d'un
+**Chantier 49 fait** : la tranche. Un quartier du dôme s'ouvre comme une part de fruit (bouton
+« Voir en coupe » de l'écran Tréfonds, ou incliner la caméra au-delà du bord) : couches peintes,
+salles creusées, lanternes, mineur·euses, wagonnets, équipages en marche, effets et sons ; une
+descente se rejoue dans sa salle (`ShowSource` `delve`), en direct si la coupe est ouverte.
+Planche `?depths`. Skills `kiwar-depths`, `kiwar-client`, `kiwar-battle`.
+**Prochaine conversation** : le [chantier 50](chantiers/50-trefonds-loges.md) (les loges) s'il
+n'est pas fini, sinon le chantier 51.
+À tester avec le porteur : la coupe (le plaisir de regarder, le geste, les images/s sur téléphone, la taille des combattants d'une descente), les Tréfonds (le ressenti des dangers, la difficulté des salles profondes, la fréquence des remontées, le prix de la porte fortifiée), la prévision des débarquements au pire (renforts possibles), la reine au jour 13 (deux parties sur six la battent le jour même : une date au jour 14 ?), l'exigence du moral par âge, le poids des deuils, la valeur d'un
 discours, la beauté sans placement, le prix du cabaret et des feux, les rives à +30 %, le prix
 (80 pulpe + 40 fibre, 1 h) et le plafond (3 / 6 / 10 / 15) des canaux, la reine à 1300 points
 de vie.

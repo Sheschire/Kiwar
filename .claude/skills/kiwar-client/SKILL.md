@@ -297,6 +297,17 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   village's models in `render/models/alien.ts` (`?sheet&aliens`: kinds × ages). See
   `kiwar-battle` (show) and `kiwar-world` (twin, camera).
 
+- **Chantier 49 (the cut of the depths)**: `render/depths/` (see `kiwar-depths`): a quarter of
+  the dome clipped away (`renderer.localClippingEnabled` is on; `TerrainView.setDomeClip`),
+  painted faces, hollows, `CutLife`, `DelveShow`. Camera: `CameraRig.enterCut` / `leaveCut`
+  (sets `away`, azimuth limits ±`CUT_TURN`, polar `CUT_POLAR_RANGE`), `focusCut(target,
+  radius, { polar, ceiling, facing })` (queued while flying: `afterFlight`), `onTiltPast` from
+  `camera/tiltPast.ts`; the camera's near plane is 0.25 while the cut is open. The HUD in the
+  cut is `CutBanner` + `BattleBar` (+ the Depths and report modals): `App` checks `cutOpen`
+  like `visit`. Taps in the cut: a delve's fighter, else a room (`onRoomTap`). New clip `dig`
+  and prop `pick`, particle kinds `drop`, `glint`, `steam`, effects `dig`, `sap`, `glint`,
+  `steam`. Review sheet `?depths`.
+
 ## Performance (chantier 10)
 
 - **Comfort while moving (October 2026)**: players felt shadows "sliding" with a dizzy glitch.

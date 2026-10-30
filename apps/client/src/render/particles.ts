@@ -28,7 +28,11 @@ export type ParticleKind =
   | 'soot'
   | 'feather'
   | 'star'
-  | 'dust';
+  | 'dust'
+  // Chantier 49: the depths — sap drops, raphide glints, actinidine steam.
+  | 'drop'
+  | 'glint'
+  | 'steam';
 
 /** Shapes: a round blob, a flat feather, a little star. */
 type ParticleShape = 'blob' | 'feather' | 'star';
@@ -172,6 +176,41 @@ const KINDS: Record<ParticleKind, KindDef> = {
     drag: 2.5,
     soft: true,
   },
+  drop: {
+    color: '#f0b23a',
+    size: 0.035,
+    endSize: 0.03,
+    life: 0.9,
+    up: 0,
+    spread: 0.04,
+    gravity: -5,
+    glow: true,
+  },
+  glint: {
+    color: '#ffffff',
+    endColor: '#bfe9f5',
+    size: 0.05,
+    endSize: 0.005,
+    life: 0.6,
+    up: 0.05,
+    spread: 0.25,
+    gravity: 0,
+    shape: 'star',
+    glow: true,
+    spin: 3,
+  },
+  steam: {
+    color: '#c9df7a',
+    endColor: '#e9f2d0',
+    size: 0.05,
+    endSize: 0.22,
+    life: 2.2,
+    up: 0.35,
+    spread: 0.12,
+    gravity: 0.05,
+    drag: 0.8,
+    soft: true,
+  },
 };
 
 /**
@@ -212,6 +251,17 @@ export const EFFECTS = {
   ],
   /** Chantier 36: loot snatched from a store. */
   loot: [['gold', 6]],
+  /** Chantier 49: a pick bites into the flesh of a gallery. */
+  dig: [
+    ['dust', 3],
+    ['chip', 1],
+  ],
+  /** Chantier 49: a drop of sap falls from a room's ceiling. */
+  sap: [['drop', 1]],
+  /** Chantier 49: the crystal needles of raphides catch the light. */
+  glint: [['glint', 2]],
+  /** Chantier 49: an actinidine lake smokes. */
+  steam: [['steam', 1]],
 } as const satisfies Record<string, readonly (readonly [ParticleKind, number])[]>;
 export type EffectId = keyof typeof EFFECTS;
 

@@ -36,6 +36,8 @@ export function installGameAudio(renderer: GameRenderer): void {
   audio.spatializer = (pos) => renderer.spatialize(pos);
   renderer.onTurretShot = (x, z) => audio.play('turret.fire', { pos: { x, z } });
   renderer.onFireworksBurst = (x, z) => audio.play('fireworks.burst', { pos: { x, z } });
+  // Chantier 49: the miners' picks, while the cut of the depths is open.
+  renderer.onCutStrike = () => audio.play('depths.pick');
 
   // Ambience follows the camera: more nature close up, more wind from afar; kiwis chirp
   // around when zoomed in (the binding's zoom condition, probability and cooldown decide).
