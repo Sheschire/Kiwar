@@ -120,7 +120,7 @@ export function lookOf(type: BuildingType, level: number, colonyAge = 0, docked 
           ? level >= 3
             ? 2
             : 1
-          : type === 'cabaret'
+          : type === 'cabaret' || type === 'tunnel'
             ? 2
             : type === 'camp'
               ? 0
@@ -130,7 +130,8 @@ export function lookOf(type: BuildingType, level: number, colonyAge = 0, docked 
     type === 'lab' ||
     type === 'camp' ||
     type === 'trainingCamp' ||
-    type === 'forge'
+    type === 'forge' ||
+    type === 'tunnel'
       ? Math.min(3, level)
       : ((level - 1) % LEVELS_PER_AGE) + 1;
   return { age, tier, level, colonyAge, docked };
@@ -188,6 +189,7 @@ function partsOf(
  * of its parts; the round icon itself is drawn by `SignsView`.
  */
 const SIGN_SPOTS: Partial<Record<BuildingType, [number, number]>> = {
+  tunnel: [0.5, -0.3],
   nest: [0.78, 0.2],
   warehouse: [-0.62, 0.42],
   pulpery: [-0.3, 0.5],

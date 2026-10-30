@@ -39,6 +39,7 @@ const SIGNED: readonly BuildingType[] = [
   'forge',
   'townHall',
   'cabaret',
+  'tunnel',
 ];
 const GRID = 5;
 const CELL = 128;

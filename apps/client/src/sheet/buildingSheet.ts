@@ -70,6 +70,7 @@ const TYPES: readonly BuildingType[] = [
   'slide',
   'cabaret',
   'fireworks',
+  'tunnel',
   'camp',
 ];
 const PER_ROW_MAX = 4;

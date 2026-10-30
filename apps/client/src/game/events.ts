@@ -130,6 +130,12 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         break;
       case 'expeditionArrived':
         if (e.broken) pushToast('error', 'ship.brokeDown');
+        // Chantier 48: a delve reached its room.
+        else if (e.mission === 'delve')
+          pushToast(
+            e.outcome === 'victory' ? 'success' : 'error',
+            `depths.toast.${e.outcome ?? 'defeat'}`,
+          );
         else if (e.mission === 'found') {
           const game = uiStore.getState().game;
           const face = game ? `@faces.${otherFace(game.face)}` : '';
@@ -206,14 +212,19 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
       case 'beaconFortified':
         pushToast('success', 'beacons.toast.fortified', { name: sectorKey(e.sector) });
         break;
+      case 'doorFortified':
+        pushToast('success', 'depths.toast.fortified');
+        break;
       case 'waveAnnounced':
-        pushToast('error', 'threats.announced', {
+        pushToast('error', e.tunnel ? 'depths.toast.upwell' : 'threats.announced', {
           duration: formatDuration(uiStore.getState().lang, e.strikeAt - e.at),
         });
         break;
       case 'waveStruck':
+        // Chantier 48: the closed door held an upwelling back (no battle to watch).
+        if (e.held) pushToast('success', 'depths.toast.held');
         // Chantier 36: watched live, the outcome is told at the end of the battle show.
-        if (isLiveWave(e.at, uiStore.getState().now)) holdOutcome(e.waveId, e.victory);
+        else if (isLiveWave(e.at, uiStore.getState().now)) holdOutcome(e.waveId, e.victory);
         else {
           pushToast(e.victory ? 'success' : 'error', e.victory ? 'threats.won' : 'threats.lost');
           uiStore.setState({ unreadWave: e.waveId });

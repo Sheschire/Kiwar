@@ -477,6 +477,9 @@ export interface CreatureDraw {
   age: number;
   /** Fading out (0–1, 1 = solid): shrinks a little. */
   fade?: number;
+  /** Chantier 48: the Grouillants of the depths — a colour of their own and no gear. */
+  tint?: Color;
+  bare?: boolean;
 }
 
 const AGES = 4;
@@ -563,7 +566,7 @@ export class CreatureRig {
     const p = c.pose;
     const size = c.scale * (0.85 + 0.15 * (c.fade ?? 1));
     // A hit flashes white (instance colour pushed past 1 by the flash).
-    const tint = this.flash.copy(this.white).multiplyScalar(1 + p.flash * 2.5);
+    const tint = this.flash.copy(c.tint ?? this.white).multiplyScalar(1 + p.flash * 2.5);
     this.q.setFromAxisAngle(this.v.set(0, 1, 0), c.heading);
     this.root.compose(this.v.set(c.x, c.y, c.z), this.q, this.sc.set(size, size, size));
     this.e.set(p.pitch, p.yaw, p.roll, 'YXZ');
@@ -573,8 +576,10 @@ export class CreatureRig {
     const key = `${c.kind}${Math.max(0, Math.min(AGES - 1, c.age))}`;
     if (c.kind === 'ferret') this.drawFerret(p, tint);
     else this.drawBat(p, tint);
-    this.gearBody.get(key)?.push(this.bodyM);
-    this.gearHead.get(key)?.push(this.headM);
+    if (!c.bare) {
+      this.gearBody.get(key)?.push(this.bodyM);
+      this.gearHead.get(key)?.push(this.headM);
+    }
     // Shadow on the ground (ferrets; bats fly too high for one).
     if (c.kind === 'ferret') {
       this.q.setFromAxisAngle(this.v.set(0, 1, 0), c.heading);

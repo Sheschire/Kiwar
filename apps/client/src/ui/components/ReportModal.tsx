@@ -8,6 +8,7 @@ import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
 import { targetLabel } from './ExpeditionModal';
 import { LandingReplay, sectorName, UnitList } from './LandingParts';
+import { DelveReport } from './DepthsModal';
 
 export function ReportModal() {
   const t = useT();
@@ -22,10 +23,12 @@ export function ReportModal() {
   // Chantier 19: the settlers stayed on the twin face, alive.
   const founded = e.mission === 'found';
   const landing = e.mission === 'land' && !!r.outcome;
+  // Chantier 48: a delve into the depths.
+  const delve = e.mission === 'delve';
   const injured = (r.injured ?? []).map((id) => e.roster.find((m) => m.id === id)?.name ?? id);
   return (
     <Modal
-      title={`${t('expedition.report')} — ${target ? targetLabel(t, target) : ''}`}
+      title={`${t('expedition.report')} — ${delve ? t('depths.title') : target ? targetLabel(t, target) : ''}`}
       onClose={close}
       footer={
         <button class="btn btn-primary" onClick={close}>
@@ -43,6 +46,8 @@ export function ReportModal() {
           <h2 class="bonus">{t('colony.founded', { face: t(`faces.${otherFace(game.face)}`) })}</h2>
           <p class="small">{t('colony.noFight')}</p>
         </>
+      ) : delve ? (
+        <DelveReport e={e} game={game} />
       ) : landing ? (
         <LandingReport e={e} />
       ) : (
@@ -89,7 +94,7 @@ export function ReportModal() {
           })}
         </ul>
       </section>
-      {landing && r.outcome === 'victory' && (
+      {(landing || delve) && r.outcome === 'victory' && (
         <p>
           <strong>{t('expedition.loot')}</strong>
           {looted ? <Cost cost={r.loot} /> : t('expedition.nothing')}

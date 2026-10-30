@@ -416,6 +416,14 @@ function BuildingSection({
       {b.type === 'lab' && <LabInfo game={game} map={map} b={b} now={now} />}
       {b.type === 'trainingCamp' && <CampInfo game={game} b={b} now={now} />}
       {b.type === 'forge' && <ForgeInfo game={game} b={b} />}
+      {b.type === 'tunnel' && (
+        <section class="field">
+          <p class="small">{t('depths.sheet')}</p>
+          <button class="btn btn-primary" onClick={() => uiStore.setState({ modal: 'depths' })}>
+            {t('depths.button')}
+          </button>
+        </section>
+      )}
       {b.type === 'townHall' && <TownHallInfo game={game} b={b} now={now} />}
       {LEISURE[b.type] && <CampfireInfo game={game} b={b} />}
       {b.type === 'cabaret' && <CabaretInfo game={game} b={b} />}

@@ -326,6 +326,8 @@ export function OrdersPicker(props: {
   onChange(o: LandingOrders): void;
   /** Chantier 42: a beacon's guard (posture and retreat only). */
   guard?: boolean;
+  /** Chantier 48: a delve (no goal: a room is won or not). */
+  delve?: boolean;
 }) {
   const t = useT();
   const o = props.orders;
@@ -343,7 +345,7 @@ export function OrdersPicker(props: {
             aria-pressed={o.posture === p}
             onClick={() => set({ posture: p })}
           >
-            {t(`landing.posture.${p}`)}
+            {t(props.delve ? `depths.posture.${p}` : `landing.posture.${p}`)}
           </button>
         ))}
       </div>
@@ -363,7 +365,11 @@ export function OrdersPicker(props: {
         </select>
       </label>
       <label class="small order-row order-retreat">
-        <span>{t('landing.retreat', { pct: Math.round(o.retreatAt * 100) })}</span>
+        <span>
+          {t(props.delve ? 'depths.retreat' : 'landing.retreat', {
+            pct: Math.round(o.retreatAt * 100),
+          })}
+        </span>
         <input
           class="slider"
           type="range"
@@ -379,7 +385,7 @@ export function OrdersPicker(props: {
         />
       </label>
       <p class="small muted">{t('landing.retreatHint')}</p>
-      {!props.guard && (
+      {!props.guard && !props.delve && (
         <div class="segmented" role="group" aria-label={t('landing.goal.burn')}>
           {LANDING_GOALS.map((g) => (
             <button
@@ -393,7 +399,9 @@ export function OrdersPicker(props: {
           ))}
         </div>
       )}
-      {!props.guard && <p class="small muted">{t(`landing.goalHints.${o.goal}`)}</p>}
+      {!props.guard && !props.delve && (
+        <p class="small muted">{t(`landing.goalHints.${o.goal}`)}</p>
+      )}
     </section>
   );
 }
@@ -485,7 +493,16 @@ export function BestiaryList({ game }: { game: GameState }) {
  * buildings as grey squares; health shown by size.
  */
 /** Chantier 42: `ours` is our side in the journal (0 for the defence of a beacon). */
-export function LandingReplay({ log, ours = 1 }: { log: BattleLog; ours?: 0 | 1 }) {
+export function LandingReplay({
+  log,
+  ours = 1,
+  delve = false,
+}: {
+  log: BattleLog;
+  ours?: 0 | 1;
+  /** Chantier 48: a delve (Grouillants, the passage up). */
+  delve?: boolean;
+}) {
   const t = useT();
   const timeline = useMemo(() => buildTimeline(log), [log]);
   const [time, setTime] = useState(0);
@@ -591,8 +608,10 @@ export function LandingReplay({ log, ours = 1 }: { log: BattleLog; ours?: 0 | 1 
       />
       <p class="small muted replay-legend">
         <span class="replay-key ours">●</span> {t('landing.replay.ours')}{' '}
-        <span class="replay-key theirs">●</span> {t('landing.replay.theirs')}{' '}
-        <span class="replay-key ship">○</span> {t('landing.replay.ship')}
+        <span class="replay-key theirs">●</span>{' '}
+        {t(delve ? 'depths.replay.theirs' : 'landing.replay.theirs')}{' '}
+        <span class="replay-key ship">○</span>{' '}
+        {t(delve ? 'depths.replay.passage' : 'landing.replay.ship')}
       </p>
     </section>
   );

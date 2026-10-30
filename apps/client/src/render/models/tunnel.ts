@@ -15,11 +15,11 @@ export function tunnel(look: Look): Parts {
   // The mound and the dark mouth facing the door side (+z).
   p.push([sphere(10, 6), flesh, m(0, 0.02, -0.04, 0.42, 0.26, 0.4)]);
   p.push([sphere(10, 6), mix(flesh, '#c9d97a', 0.4), m(0, 0.05, -0.06, 0.3, 0.2, 0.28)]);
-  p.push([cyl(12), '#1d1a14', m(0, 0.13, 0.26, 0.15, 0.03, 0.15, Math.PI / 2)]);
-  p.push([box(), '#1d1a14', m(0, 0.06, 0.27, 0.3, 0.12, 0.03)]);
+  p.push([cyl(12), '#1d1a14', m(0, 0.13, 0.33, 0.14, 0.03, 0.14, Math.PI / 2)]);
+  p.push([box(), '#1d1a14', m(0, 0.065, 0.34, 0.28, 0.13, 0.03)]);
   // The timber (or iron) frame around the mouth.
-  for (const dx of [-0.17, 0.17]) p.push([box(), frame, m(dx, 0.13, 0.3, 0.04, 0.26, 0.04)]);
-  p.push([box(), frame, m(0, 0.27, 0.3, 0.42, 0.045, 0.05)]);
+  for (const dx of [-0.17, 0.17]) p.push([box(), frame, m(dx, 0.13, 0.36, 0.04, 0.26, 0.04)]);
+  p.push([box(), frame, m(0, 0.27, 0.36, 0.42, 0.045, 0.05)]);
   // Rails out of the mouth, and the cart.
   for (const dx of [-0.06, 0.06])
     p.push([box(), C.ironDark, m(dx, 0.012, 0.47, 0.012, 0.012, 0.36)]);
@@ -46,8 +46,8 @@ export function tunnel(look: Look): Parts {
   if (tier >= 3) {
     // An iron grille that can close the mouth.
     for (let i = -2; i <= 2; i++)
-      p.push([cyl(4), A.steel, m(i * 0.06, 0.13, 0.32, 0.01, 0.24, 0.01)]);
-    p.push([box(), A.steel, m(0, 0.2, 0.32, 0.3, 0.015, 0.015)]);
+      p.push([cyl(4), A.steel, m(i * 0.06, 0.13, 0.37, 0.01, 0.24, 0.01)]);
+    p.push([box(), A.steel, m(0, 0.2, 0.37, 0.3, 0.015, 0.015)]);
   }
   return p;
 }

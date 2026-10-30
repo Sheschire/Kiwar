@@ -111,6 +111,7 @@ export function ThreatBadge() {
         ) : f ? (
           <span>
             {t('defense.badge', { duration: formatDuration(lang, f.wave.at - now) })} ·{' '}
+            {f.wave.tunnel && <>{t('depths.byTunnel')} · </>}
             <strong>{t(`defense.odds.${f.odds}`)}</strong>
             {weak && (
               <span class="small">
@@ -542,6 +543,14 @@ export function DefenseModal() {
             {t('defense.strikesIn', { duration: formatDuration(lang, f.wave.at - now) })}{' '}
             <strong>{t(`defense.odds.${f.odds}`)}</strong>
           </p>
+          {f.wave.tunnel && (
+            <p class="small warn">
+              {t('depths.upwellDefense')}{' '}
+              <button class="btn btn-small" onClick={() => uiStore.setState({ modal: 'depths' })}>
+                {t('depths.door.title')}
+              </button>
+            </p>
+          )}
           <div class="side-cards">
             <SideCard
               side="ground"

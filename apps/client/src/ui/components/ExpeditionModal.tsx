@@ -120,7 +120,7 @@ function FreightPicker(props: {
   );
 }
 
-function CrewPicker(props: {
+export function CrewPicker(props: {
   game: GameState;
   crew: VillagerId[];
   max: number;

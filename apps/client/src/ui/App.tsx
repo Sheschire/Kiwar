@@ -1,3 +1,4 @@
+import { DepthsModal } from './components/DepthsModal';
 import { Compass } from './components/Compass';
 import { useEffect } from 'preact/hooks';
 import { DebugPanel } from './components/DebugPanel';
@@ -266,6 +267,7 @@ export function App() {
         {modal === 'defense' && <DefenseModal />}
         {modal === 'plans' && <PlansModal />}
         {modal === 'siege' && <SiegeModal />}
+        {modal === 'depths' && <DepthsModal />}
         {bestiaryOpen && <BestiaryModal />}
         <JoinModal />
         <ChatPanel />

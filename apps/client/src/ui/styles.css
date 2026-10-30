@@ -5923,6 +5923,21 @@ h3 .building-thumb {
   transform: rotate(45deg);
 }
 
+.unit-dot.grub {
+  background: #e6d59a;
+}
+
+.unit-dot.louse {
+  background: #7d8590;
+  border-radius: 3px;
+}
+
+.unit-dot.fly {
+  border-radius: 2px;
+  background: #9ab547;
+  transform: rotate(45deg);
+}
+
 .unit-dot.big {
   width: 18px;
   height: 18px;
@@ -6171,4 +6186,158 @@ h3 .building-thumb {
 }
 .fireworks-row p {
   margin: 0.1rem 0;
+}
+
+/* Chantier 48: the depths screen (a 2D cut of our half). */
+.modal.depths-modal {
+  width: min(760px, 100%);
+}
+
+.depths-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .depths-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.depths-cut {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.depths-cut .cut-flesh {
+  fill: #8fbf4a;
+  stroke: #4d6b24;
+  stroke-width: 2;
+}
+
+.depths-cut .cut-locules {
+  fill: none;
+  stroke: #f4f0dc;
+  stroke-width: 10;
+  opacity: 0.45;
+}
+
+.depths-cut .cut-core {
+  fill: #f2e9c9;
+  opacity: 0.6;
+}
+
+.depths-cut .cut-surface {
+  stroke: #6b4a2e;
+  stroke-width: 3;
+}
+
+.depths-cut .cut-link {
+  stroke: #3f5a1c;
+  stroke-width: 2;
+  stroke-dasharray: 3 3;
+  opacity: 0.6;
+}
+
+.depths-cut .cut-link.is-lit {
+  stroke: #f7d46b;
+  stroke-dasharray: none;
+  opacity: 0.9;
+}
+
+.depths-cut .cut-entrance {
+  fill: #1d1a14;
+  stroke: #f7d46b;
+  stroke-width: 2;
+}
+
+.depths-cut .cut-room {
+  cursor: pointer;
+}
+
+.depths-cut .cut-room-shape {
+  fill: #55613f;
+  stroke: #2e3820;
+  stroke-width: 2;
+}
+
+.depths-cut .is-fog .cut-room-shape {
+  fill: #6d7462;
+  opacity: 0.85;
+}
+
+.depths-cut .is-heard .cut-room-shape {
+  fill: #7d8a5d;
+}
+
+.depths-cut .is-seen .cut-room-shape {
+  fill: #a9c46b;
+}
+
+.depths-cut .is-gallery .cut-room-shape {
+  fill: #f2c94c;
+  stroke: #8a5a14;
+}
+
+.depths-cut .is-open .cut-room-shape {
+  stroke: #fff6c8;
+}
+
+.depths-cut .is-selected .cut-room-shape {
+  stroke: var(--berry);
+  stroke-width: 3.5;
+}
+
+.depths-cut .cut-unknown {
+  fill: #f4f0dc;
+  font-size: 12px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.depths-cut .cut-going {
+  fill: none;
+  stroke: #fff6c8;
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+
+.depths-cut .cut-miners {
+  fill: #fff6c8;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.depths-delves {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.depths-planner {
+  display: grid;
+  gap: var(--gap);
+  margin-top: var(--gap);
+}
+
+.depths-plan-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .depths-plan-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.depths-miners .icon {
+  display: inline-block;
+  vertical-align: -2px;
 }

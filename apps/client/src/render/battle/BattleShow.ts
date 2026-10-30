@@ -72,6 +72,9 @@ const SWING = 0.55;
 /** A fallen unit stays this long, fading at the end. */
 const LINGER = 1.8;
 
+/** Chantier 48: the colours of the Grouillants. */
+const GROUILLANT_TINTS = { grub: '#f3e7bd', fly: '#b9d36a', louse: '#8b93a0' } as const;
+
 /** Chantier 42: how much bigger the ferret queen is than a soldier. */
 export const QUEEN_SIZE = 2.6;
 
@@ -134,6 +137,8 @@ interface Actor {
   creature: 'ferret' | 'bat';
   scale: number;
   tint: Color;
+  /** Chantier 48: a Grouillant (own colour, no gear). */
+  grouillant: boolean;
   classId: Track['unit'][6];
   /** Chantier 38: the armour it wears (its weapon is the one it strikes with). */
   armor: ItemId | null;
@@ -349,6 +354,11 @@ export class BattleShow {
         scale = (v ? sizeOf(v, jitter) : jitter) * (body === 'kikiwiwi' ? 1.6 : 1);
       } else if (body === 'ferret' || body === 'bat') {
         scale = CREATURE_SIZE * (u[3] === 'brute' ? 1.3 : u[3] === 'scout' ? 0.85 : 1);
+      } else if (body === 'grub' || body === 'fly' || body === 'louse') {
+        // Chantier 48: the Grouillants wear the ferret's and the bat's rigs in their own colours
+        // (pale larvae, slate woodlice, green-gold fruit flies) until chantier 49 draws them.
+        scale = CREATURE_SIZE * (body === 'louse' ? 1.25 : body === 'fly' ? 0.6 : 0.8);
+        tint = new Color(GROUILLANT_TINTS[body]);
       } else if (body === 'queen') {
         // Chantier 42: the ferret queen, a giant.
         scale = CREATURE_SIZE * QUEEN_SIZE;
@@ -359,12 +369,13 @@ export class BattleShow {
         kind:
           body === 'turret'
             ? 'turret'
-            : body === 'ferret' || body === 'bat' || body === 'queen'
-              ? 'creature'
-              : 'kiwi',
-        creature: body === 'bat' ? 'bat' : 'ferret',
+            : body === 'kiwi' || body === 'kikiwiwi'
+              ? 'kiwi'
+              : 'creature',
+        creature: body === 'bat' || body === 'fly' ? 'bat' : 'ferret',
         scale,
         tint,
+        grouillant: body === 'grub' || body === 'fly' || body === 'louse',
         classId: u[6],
         armor: villagers.get(u[0])?.gear?.armor ?? null,
         player: body === 'kiwi' || body === 'kikiwiwi' ? new ClipPlayer(track.index * 0.37) : null,
@@ -628,6 +639,7 @@ export class BattleShow {
           pose: sampleCreature(a.creature, clip, at, a.pose),
           age: this.age,
           fade,
+          ...(a.grouillant ? { tint: a.tint, bare: true } : {}),
         });
       }
       if (a.kind !== 'turret' && !fallen) this.drawnPos.push({ index: tr.index, pos: pos.clone() });

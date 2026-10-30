@@ -30,7 +30,13 @@ export function ExpeditionsPanel() {
       <ul>
         {active.map((e) => {
           const target = game.targets.find((x) => x.id === e.targetId);
-          const name = target ? targetLabel(t, target) : e.targetId;
+          // Chantier 48: a delve goes down into our own depths.
+          const name =
+            e.mission === 'delve'
+              ? t('depths.title')
+              : target
+                ? targetLabel(t, target)
+                : e.targetId;
           // A breakdown shows only once the ship turns back (half-way).
           const hidden = !!e.broken && e.status === 'outbound';
           const arrive = hidden ? e.departedAt + 2 * (e.arriveAt - e.departedAt) : e.arriveAt;

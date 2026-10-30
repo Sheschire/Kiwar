@@ -26,6 +26,7 @@ import { setPanelOpen, uiStore, useT, useUi } from '../store';
 import { CompassNeedle } from './Compass';
 import { EggButton } from './EggButton';
 import { siegeVisible } from './SiegeModal';
+import { depthsVisible } from './DepthsModal';
 import { useOtherColony } from './ColonySwitch';
 
 const closeMenu = () => uiStore.setState({ menuOpen: false });
@@ -211,6 +212,8 @@ function NavMenu() {
   const guest = useUi((s) => s.account?.isAnonymous ?? false);
   const objectiveReady = useObjectiveReady();
   const siege = useUi((s) => (s.slowGame ? siegeVisible(s.slowGame) : false));
+  // Chantier 48: the depths.
+  const depths = useUi((s) => (s.slowGame ? depthsVisible(s.slowGame) : false));
   // Chantier 40: the enemies met in landings.
   const bestiary = useUi((s) => Object.keys(s.slowGame?.bestiary ?? {}).length > 0);
   const other = useOtherColony();
@@ -274,6 +277,14 @@ function NavMenu() {
               onClick={go(() => uiStore.setState({ modal: 'siege' }))}
             >
               <TargetIcon size={28} />
+            </Entry>
+          )}
+          {depths && (
+            <Entry
+              label={t('depths.button')}
+              onClick={go(() => uiStore.setState({ modal: 'depths' }))}
+            >
+              <Icon name="tunnel" size={28} />
             </Entry>
           )}
           {bestiary && (
