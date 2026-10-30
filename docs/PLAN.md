@@ -98,7 +98,7 @@ contourner les lacs ; les nids des loges renforcent les remontées. Sauvegarde v
 `kiwar-depths`, `kiwar-forge`. La tranche 3D ne montre pas encore les loges (`DETTE.md`).
 **Prochaine conversation** : le [chantier 51](chantiers/51-age-des-etoiles.md) (l'Âge des
 étoiles : le monument paiera aussi des graines géantes, les niveaux 13–15 du cristal).
-À tester avec le porteur : les loges (leur difficulté, le prix des lentilles et des munitions,
+À tester avec le porteur : les loges (leur difficulté — 5 à 8 morts en descente quand il y a des retraites —, le prix des lentilles et des munitions,
 le rythme des arbres-loges, contourner les lacs, la bande des loges sur téléphone), la coupe (le plaisir de regarder, le geste, les images/s sur téléphone, la taille des combattants d'une descente), les Tréfonds (le ressenti des dangers, la difficulté des salles profondes, la fréquence des remontées, le prix de la porte fortifiée), la prévision des débarquements au pire (renforts possibles), la reine au jour 13 (deux parties sur six la battent le jour même : une date au jour 14 ?), l'exigence du moral par âge, le poids des deuils, la valeur d'un
 discours, la beauté sans placement, le prix du cabaret et des feux, les rives à +30 %, le prix
 (80 pulpe + 40 fibre, 1 h) et le plafond (3 / 6 / 10 / 15) des canaux, la reine à 1300 points

@@ -141,7 +141,33 @@ Chemins sous `packages/shared/src/`.
 
 ### Mesures
 
-MEASURES_PLACEHOLDER
+Probes of 14 days (scratch `runBot`, attentive unless said):
+
+| Seed | Industry | First locule | Locules (day 14) | Rooms | Retreats | Dead | Upwellings (lost) | Crystal at cap | Seeds at cap | Trees | Locule eggs |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| p1 Kiwisu | 6.7 d | 8.6 d | 6 / 42 | 15 | 0 | 0 | 5 (0) | 3 % | 0 % | 4 | 4 |
+| p2 Kiwino ¹ | 8.2 d | 11.4 d | 4 / 38 | 17 | 3 | 5 | 5 (0) | 0 % | 0 % | 2 | 0 |
+| p3 Kiwisu | 8.4 d | 13.6 d | 1 / 30 | 15 | 3 | 5 | 5 (0) | 0 % | 0 % | 1 | 0 |
+| p4 Kiwino | 7.1 d | 10.2 d | 5 / 37 | 17 | 4 | 8 | 4 (0) | 0 % | 0 % | 4 | 2 |
+| p5 Kiwisu, occasional ² | 11.2 d | — | 0 | 5 | 0 | 0 | 5 (0) | — | — | 0 | 0 |
+| p6 Kiwino, occasional ² | 12.2 d | — | 0 | 4 | 0 | 0 | 4 (0) | — | — | 0 | 0 |
+
+¹ before the last two fixes (tree from Nest 7, tree decision first). ² before the locules'
+tuning (they never reach a locule).
+
+- First locule 2–5 days after the Industry; 1 to 6 locules by day 14 (of 30–42): the ring
+  lasts into the Age of the stars, as planned (chantier 52 opens under it).
+- Crystal at the cap 0–3 % (one run 34 % before the technologies moved to Library 7: crystal
+  with nothing to pay); giant seeds at the cap 0 % once the trees could be planted (28–47 %
+  before). Both under the 20 % aimed at.
+- No upwelling lost (attentive and occasional); the occasional bot loses 3 surface waves of
+  20 (older than this chantier).
+- ⚠️ Delves kill: 5–8 kiwis in the runs with retreats (the locules' nests at level 13). To
+  discuss with the owner: retreat sooner, or weaker nests.
+- ⚠️ The occasional player reaches the Industry on days 11–12 and no locule in 14 days.
+- Lessons: the automation's miners filled the flesh's galleries first (sorted ids) and never
+  reached a forest; a technology gated by a Library level the bot never builds is a dead sink;
+  a building priced above a stock's cap can never come (the trees' limit by age).
 
 ### Reste à faire
 

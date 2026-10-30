@@ -347,3 +347,17 @@ starved it). Probe: a scratch `runBot` with `onStep` printing `moraleOf(s)` part
   average (−11 % to +18 %) against the same seeds without the depths.
 - A frozen bot again: a build decision must check `buildLock` (and its iron) first.
 
+## Chantier 50: the locules
+
+- `bot/locules.ts` (see `kiwar-forge`); milestone `locule` (informative); `final.loculesTaken`,
+  `crystalCap`, `seedCap` (share of the time since the first locule with that stock full),
+  `trees`, `loculeEggs`; columns in "The depths".
+- Probe (scratch, not committed): `runBot({ fullHorizon, onStep })` printing every 24 h the
+  age, rooms, locules, crystal, giant seeds, trees, lenses, the ammunition and the locule
+  techs; ~75 min for four 14-day runs on 4 cores. To diagnose a decision, save the state from
+  `onStep` (`JSON.stringify`) at a given day, then replay `decide` on it and apply each
+  command printing its error (`buildLock` reasons show up at once).
+- Reference (end of chantier 50, 4 attentive seeds × 14 days): first locule 2–5 days after the
+  Industry, 1–6 locules by day 14, crystal at the cap ≤ 3 %, giant seeds 0 %, no upwelling
+  lost; ⚠️ 5–8 kiwis dead in delves when retreats happen.
+
