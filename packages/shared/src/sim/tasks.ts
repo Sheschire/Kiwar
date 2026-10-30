@@ -1,3 +1,5 @@
+import { DEPTHS } from '../data/depths';
+import { galleryResource, gallerySlots, galleryWorth, minersIn } from './mines';
 import { STARDUST } from '../data/comets';
 import { TASKS, type AutoTask } from '../data/jobs';
 import { GARRISON, METEORS, THREATS } from '../data/threats';
@@ -58,6 +60,7 @@ export function taskLevel(state: GameState, v: Villager): TaskLevel | null {
     }
     case 'stardust':
     case 'meteor':
+    case 'mine':
       return 'pick';
     case 'build':
       return 'build';
@@ -92,7 +95,12 @@ export function borrow(v: Villager): BuildingId | null {
   let home: BuildingId | null = null;
   if (v.lent !== undefined) home = v.lent;
   else if (v.job.kind === 'work') home = v.job.buildingId;
-  else if (v.job.kind === 'stardust' || v.job.kind === 'build' || v.job.kind === 'meteor')
+  else if (
+    v.job.kind === 'stardust' ||
+    v.job.kind === 'build' ||
+    v.job.kind === 'meteor' ||
+    v.job.kind === 'mine'
+  )
     home = v.job.returnTo;
   delete v.lent;
   return home;
@@ -190,6 +198,7 @@ export function canReassign(v: Villager): boolean {
     k === 'work' ||
     k === 'guard' ||
     k === 'meteor' ||
+    k === 'mine' ||
     k === 'stardust' ||
     k === 'build'
   );
@@ -381,6 +390,39 @@ export function releaseFullCraters(state: GameState): void {
   releaseCraters(state);
 }
 
+/**
+ * Chantier 48: the galleries of the depths take the kiwis with the most power for their
+ * resource, up to `DEPTHS.gallery.autoShare` of the colony; miners of a gallery no longer worth
+ * it (door closed, tunnel gone, its resource at the cap) come back up.
+ */
+export function fillMines(state: GameState): void {
+  const cap = capacity(state);
+  releaseMines(state, cap);
+  if (!state.automation.mine) return;
+  let budget =
+    Math.floor(state.villagers.length * DEPTHS.gallery.autoShare) -
+    state.villagers.filter((v) => v.job.kind === 'mine').length;
+  for (const roomId of Object.keys(state.depths.galleries).sort()) {
+    if (!galleryWorth(state, roomId, cap)) continue;
+    const resource = galleryResource(state, roomId)!;
+    let free = gallerySlots(state, roomId) - minersIn(state, roomId).length;
+    while (free-- > 0 && budget-- > 0) {
+      const v = bestFor(state, 'pick', (x) => workerPower(x, resource));
+      if (!v) return;
+      v.job = { kind: 'mine', roomId, returnTo: borrow(v) };
+    }
+  }
+}
+
+function releaseMines(state: GameState, cap = capacity(state)): void {
+  const done: [Villager, BuildingId | null][] = [];
+  for (const v of state.villagers) {
+    if (v.job.kind !== 'mine') continue;
+    if (!galleryWorth(state, v.job.roomId, cap)) done.push([v, v.job.returnTo]);
+  }
+  sendBackAll(state, done);
+}
+
 /** Chantier 15: stardust tiles take the kiwis with the most Dexterity (until the stock is full). */
 export function fillStardust(state: GameState): void {
   if (!state.automation.stardust || state.stardust >= STARDUST_CAP) return;
@@ -520,6 +562,7 @@ export function dispatchTasks(state: GameState, at: TimeMs, events: GameEvent[])
   fillResearch(state);
   fillForge(state);
   fillCraters(state);
+  fillMines(state);
   fillStardust(state);
   equipGear(state);
 }
@@ -558,5 +601,8 @@ export function taskNeeds(state: GameState): Record<AutoTask, number> {
     redirect: 0,
     forge: forgeOf(state) && state.forge.orders.length > 0 && smithsOf(state).length === 0 ? 1 : 0,
     equip: armoryCount(state),
+    mine: Object.keys(state.depths.galleries).filter(
+      (id) => galleryWorth(state, id) && minersIn(state, id).length === 0,
+    ).length,
   };
 }

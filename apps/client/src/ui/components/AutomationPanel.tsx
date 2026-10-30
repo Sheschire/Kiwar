@@ -14,6 +14,7 @@ const TASK_ICONS: Record<AutoTask, IconName> = {
   redirect: 'storage',
   forge: 'forge',
   equip: 'guard',
+  mine: 'tunnel',
 };
 
 /** How many tasks wait for the player (manual tasks with nobody on them). */

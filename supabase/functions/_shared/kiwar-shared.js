@@ -3234,7 +3234,9 @@ var AUTO_TASKS = [
   "redirect",
   // Chantier 38: smiths at the Forge, gear from the armory.
   "forge",
-  "equip"
+  "equip",
+  // Chantier 48: miners in the galleries of the depths.
+  "mine"
 ];
 var TASKS = {
   /** Constructions under way at once, by Nest level (index = level). */
@@ -3539,7 +3541,11 @@ var DEPTHS = {
       raphides: "seeds"
     },
     slots: [2, 3, 3],
-    perMiner: [40, 55, 70]
+    perMiner: [40, 55, 70],
+    /** The automation sends at most this share of the colony down the mines. */
+    autoShare: 0.2,
+    /** A damaged door (an upwelling broke it) halves the work below. */
+    damagedWork: 0.5
   },
   /** The tunnel entrance's levels (index = level): most kiwis on a delve, door strength. */
   crew: [0, 4, 6, 8],
@@ -4746,10 +4752,145 @@ function researchTick(state, at, events) {
   events.push({ type: "researchDone", at, tech: current });
 }
 
+// packages/shared/src/sim/depths.ts
+var mapCache = /* @__PURE__ */ new Map();
+function depthsMapOf(state) {
+  const key = `${state.seed}/${state.face}`;
+  let map = mapCache.get(key);
+  if (!map) {
+    map = generateDepths(key);
+    if (mapCache.size > 16) mapCache.clear();
+    mapCache.set(key, map);
+  }
+  return map;
+}
+function generateDepths(key) {
+  const rng = createRng(`${key}/depths/map`);
+  const rooms = [];
+  const byDepth = [];
+  for (let d = 1; d <= DEPTHS.rooms.length; d++) {
+    const [lo, hi] = DEPTHS.rooms[d - 1];
+    const n = rng.int(lo, hi);
+    const row = [];
+    for (let i = 0; i < n; i++) {
+      const slot = 2 / n;
+      const x = round22(-1 + slot * (i + 0.5) + rng.range(-0.3, 0.3) * slot);
+      row.push({
+        id: `r${rooms.length + row.length}`,
+        depth: d,
+        x,
+        links: [],
+        entrance: d === 1
+      });
+    }
+    rooms.push(...row);
+    byDepth.push(row);
+  }
+  const link = (a, b) => {
+    if (a === b || a.links.includes(b.id)) return;
+    a.links.push(b.id);
+    b.links.push(a.id);
+  };
+  for (let d = 0; d < byDepth.length; d++) {
+    const row = byDepth[d];
+    for (let i = 0; i + 1 < row.length; i++)
+      if (rng.chance(DEPTHS.sideLink)) link(row[i], row[i + 1]);
+    if (d === 0) continue;
+    const above = byDepth[d - 1];
+    for (const r of row) {
+      const near = [...above].sort((a, b) => Math.abs(a.x - r.x) - Math.abs(b.x - r.x));
+      link(r, near[0]);
+      if (near[1] && rng.chance(DEPTHS.secondLink)) link(r, near[1]);
+    }
+  }
+  return { rooms, byId: new Map(rooms.map((r) => [r.id, r])) };
+}
+var truthCache = /* @__PURE__ */ new Map();
+function roomTruth(seed, room) {
+  const key = `${seed}/room/${room.id}`;
+  let t = truthCache.get(key);
+  if (!t) {
+    t = drawRoom(createRng(key), room.depth);
+    if (truthCache.size > 256) truthCache.clear();
+    truthCache.set(key, t);
+  }
+  return t;
+}
+function drawRoom(rng, depth) {
+  const kind = weighted(rng, DEPTHS.kindWeights[depth - 1]);
+  const power = DEPTHS.power[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1]) * (kind === "nest" ? DEPTHS.nestPower : 1);
+  const units = grouillants(power, DEPTHS.level[depth - 1]);
+  let hazard = null;
+  const forced = kind === "scree" ? "fall" : kind === "raphides" ? "cuts" : null;
+  const other = rng.chance(DEPTHS.hazard.otherChance) ? rng.pick(HAZARD_KINDS) : null;
+  const hk = forced ?? (kind === "nest" ? null : other);
+  if (hk)
+    hazard = {
+      kind: hk,
+      strength: round22(
+        DEPTHS.hazard.strength[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1])
+      )
+    };
+  const amount = DEPTHS.loot[depth - 1] * rng.range(0.8, 1.2);
+  const loot = {};
+  for (const [r, share2] of Object.entries(DEPTHS.lootKind[kind]))
+    loot[r] = Math.round(amount * share2);
+  return { kind, units, hazard, loot, iron: DEPTHS.iron[depth - 1] };
+}
+function grouillants(power, level) {
+  return DEPTH_KINDS.map((kind) => ({
+    kind,
+    count: Math.max(
+      kind === "larva" ? 1 : 0,
+      Math.round(power * DEPTHS.mix[kind] / ENEMIES[kind].power)
+    ),
+    level
+  })).filter((u) => u.count > 0);
+}
+function weighted(rng, weights) {
+  const keys = ROOM_KINDS.filter((k) => k in weights);
+  const total = keys.reduce((a, k) => a + weights[k], 0);
+  let x = rng.range(0, total);
+  for (const k of keys) {
+    x -= weights[k];
+    if (x < 0) return k;
+  }
+  return keys[keys.length - 1];
+}
+function round22(x) {
+  return Math.round(x * 100) / 100;
+}
+function localDepthsSeed(state) {
+  return `${localAlienSeed(state)}/depths`;
+}
+function ensureDepths(state, seed) {
+  if (state.colony.index !== 0 || state.depthSeed !== void 0) return false;
+  state.depthSeed = `${seed}/depths`;
+  return true;
+}
+function depthsKnown(state) {
+  return state.depthSeed !== void 0;
+}
+function resetDepths(s) {
+  s.depths = { ...s.depths, views: {}, galleries: {}, next: null };
+  const delving = new Set(
+    s.expeditions.filter((e) => e.mission === "delve" && e.status !== "done").map((e) => e.id)
+  );
+  s.expeditions = s.expeditions.filter((e) => !delving.has(e.id));
+  for (const v of s.villagers)
+    if (v.job.kind === "mine" || v.job.kind === "expedition" && delving.has(v.job.expeditionId))
+      v.job = { kind: "idle" };
+}
+function reachableRooms(state) {
+  const map = depthsMapOf(state);
+  const taken = state.depths.galleries;
+  return map.rooms.filter((r) => !taken[r.id] && (r.entrance || r.links.some((id3) => taken[id3])));
+}
+
 // packages/shared/src/sim/territory.ts
 var HOUR_MS = 36e5;
 var EPS = 1e-6;
-var mapCache = /* @__PURE__ */ new Map();
+var mapCache2 = /* @__PURE__ */ new Map();
 var terraformKeys = /* @__PURE__ */ new WeakMap();
 function terraformKey(state) {
   const t = state.terraform;
@@ -4774,14 +4915,14 @@ function faceMapOf(state) {
   const base = `${state.seed}|${state.face}|${state.params.radius}|${state.params.biome}`;
   const tf = terraformKey(state);
   const key = tf ? `${base}|${tf}` : base;
-  let map = mapCache.get(key);
+  let map = mapCache2.get(key);
   if (!map) {
     map = tf ? applyTerraform(
       faceMapOf({ seed: state.seed, face: state.face, params: state.params }),
       state.terraform
     ) : generateFace(state.seed, state.face, state.params);
-    if (mapCache.size >= 12) mapCache.delete(mapCache.keys().next().value);
-    mapCache.set(key, map);
+    if (mapCache2.size >= 12) mapCache2.delete(mapCache2.keys().next().value);
+    mapCache2.set(key, map);
   }
   return map;
 }
@@ -5221,6 +5362,21 @@ function depletedTiles(state, map) {
   return out;
 }
 
+// packages/shared/src/sim/iron.ts
+function ironCap(state) {
+  const c = IRON.cap;
+  return (c[Math.min(nest(state).level, c.length - 1)] ?? 0) * IRON_SCALE;
+}
+function meteorIronOf(state) {
+  return ironUnits(state.meteorIron);
+}
+function addIron(s, units) {
+  const room = Math.max(0, ironCap(s) - s.meteorIron);
+  const got = Math.min(units * IRON_SCALE, room);
+  s.meteorIron += got;
+  return ironUnits(got);
+}
+
 // packages/shared/src/sim/obstacles.ts
 function obstacleId(kind, q, r) {
   return `${kind}:${q},${r}`;
@@ -5629,6 +5785,7 @@ function grossRates(state) {
     for (const id3 of RESOURCE_IDS) total[id3] += r[id3];
   }
   for (const m of state.sky.meteors) total[m.resource] += meteorRate(state, m);
+  for (const g of galleryRates(state)) total[g.resource] += g.rate;
   return total;
 }
 function netRates(state) {
@@ -5672,6 +5829,7 @@ function productionRates(state, full = storageFullCheck(state)) {
   }
   for (const m of state.sky.meteors)
     if (!full(m.resource)) total[m.resource] += meteorRate(state, m);
+  for (const g of galleryRates(state)) if (!full(g.resource)) total[g.resource] += g.rate;
   return total;
 }
 function canAfford(resources2, cost) {
@@ -5784,19 +5942,60 @@ function canHatch(state) {
   return state.egg === null && population(state) < housing(state);
 }
 
-// packages/shared/src/sim/iron.ts
-function ironCap(state) {
-  const c = IRON.cap;
-  return (c[Math.min(nest(state).level, c.length - 1)] ?? 0) * IRON_SCALE;
+// packages/shared/src/sim/mines.ts
+var EPS3 = 1e-6;
+function minersIn(state, roomId) {
+  return state.villagers.filter((v) => v.job.kind === "mine" && v.job.roomId === roomId);
 }
-function meteorIronOf(state) {
-  return ironUnits(state.meteorIron);
+function galleryResource(state, roomId) {
+  const g = state.depths.galleries[roomId];
+  return g ? DEPTHS.gallery.resource[g.kind] : null;
 }
-function addIron(s, units) {
-  const room = Math.max(0, ironCap(s) - s.meteorIron);
-  const got = Math.min(units * IRON_SCALE, room);
-  s.meteorIron += got;
-  return ironUnits(got);
+function gallerySlots(state, roomId) {
+  const room = depthsMapOf(state).byId.get(roomId);
+  if (!room || !state.depths.galleries[roomId]) return 0;
+  return DEPTHS.gallery.slots[room.depth - 1] ?? 0;
+}
+function minesOpen(state) {
+  return !state.depths.door.closed && state.buildings.some((b) => b.type === "tunnel");
+}
+function minersWork(state, miners, resource) {
+  if (miners.length === 0) return 0;
+  const beds = bedsOf(state);
+  const mood = colonyMood(state);
+  const sum = miners.reduce(
+    (total, v) => total + workerPower(v, resource) * presence(state, v, beds.get(v.id)) * kiwiMoraleWork(state, v, beds, mood),
+    0
+  );
+  return sum * colonyBonus(state) * hungerWork(state);
+}
+function galleryRate(state, roomId) {
+  const resource = galleryResource(state, roomId);
+  if (!resource || !minesOpen(state)) return 0;
+  const room = depthsMapOf(state).byId.get(roomId);
+  if (!room) return 0;
+  const work = minersWork(state, minersIn(state, roomId), resource);
+  if (work <= 0) return 0;
+  const tunnel = state.buildings.find((b) => b.type === "tunnel");
+  const damaged = tunnel?.damaged ? DEPTHS.gallery.damagedWork : 1;
+  return DEPTHS.gallery.perMiner[room.depth - 1] * work * damaged;
+}
+function galleryRates(state) {
+  const out = [];
+  for (const roomId of Object.keys(state.depths.galleries).sort()) {
+    const rate = galleryRate(state, roomId);
+    if (rate > 0) out.push({ roomId, resource: galleryResource(state, roomId), rate });
+  }
+  return out;
+}
+function galleryWorth(state, roomId, cap = capacity(state)) {
+  const r = galleryResource(state, roomId);
+  return !!r && minesOpen(state) && state.resources[r] < cap[r] - EPS3;
+}
+function canDig(v) {
+  if (v.kikiwiwi) return false;
+  const k = v.job.kind;
+  return k === "idle" || k === "work" || k === "stardust" || k === "meteor" || k === "mine";
 }
 
 // packages/shared/src/sim/forge.ts
@@ -6842,134 +7041,6 @@ function delveSetup(state, crew, input) {
     ],
     clearEnds: true
   };
-}
-
-// packages/shared/src/sim/depths.ts
-var mapCache2 = /* @__PURE__ */ new Map();
-function depthsMapOf(state) {
-  const key = `${state.seed}/${state.face}`;
-  let map = mapCache2.get(key);
-  if (!map) {
-    map = generateDepths(key);
-    if (mapCache2.size > 16) mapCache2.clear();
-    mapCache2.set(key, map);
-  }
-  return map;
-}
-function generateDepths(key) {
-  const rng = createRng(`${key}/depths/map`);
-  const rooms = [];
-  const byDepth = [];
-  for (let d = 1; d <= DEPTHS.rooms.length; d++) {
-    const [lo, hi] = DEPTHS.rooms[d - 1];
-    const n = rng.int(lo, hi);
-    const row = [];
-    for (let i = 0; i < n; i++) {
-      const slot = 2 / n;
-      const x = round22(-1 + slot * (i + 0.5) + rng.range(-0.3, 0.3) * slot);
-      row.push({
-        id: `r${rooms.length + row.length}`,
-        depth: d,
-        x,
-        links: [],
-        entrance: d === 1
-      });
-    }
-    rooms.push(...row);
-    byDepth.push(row);
-  }
-  const link = (a, b) => {
-    if (a === b || a.links.includes(b.id)) return;
-    a.links.push(b.id);
-    b.links.push(a.id);
-  };
-  for (let d = 0; d < byDepth.length; d++) {
-    const row = byDepth[d];
-    for (let i = 0; i + 1 < row.length; i++)
-      if (rng.chance(DEPTHS.sideLink)) link(row[i], row[i + 1]);
-    if (d === 0) continue;
-    const above = byDepth[d - 1];
-    for (const r of row) {
-      const near = [...above].sort((a, b) => Math.abs(a.x - r.x) - Math.abs(b.x - r.x));
-      link(r, near[0]);
-      if (near[1] && rng.chance(DEPTHS.secondLink)) link(r, near[1]);
-    }
-  }
-  return { rooms, byId: new Map(rooms.map((r) => [r.id, r])) };
-}
-var truthCache = /* @__PURE__ */ new Map();
-function roomTruth(seed, room) {
-  const key = `${seed}/room/${room.id}`;
-  let t = truthCache.get(key);
-  if (!t) {
-    t = drawRoom(createRng(key), room.depth);
-    if (truthCache.size > 256) truthCache.clear();
-    truthCache.set(key, t);
-  }
-  return t;
-}
-function drawRoom(rng, depth) {
-  const kind = weighted(rng, DEPTHS.kindWeights[depth - 1]);
-  const power = DEPTHS.power[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1]) * (kind === "nest" ? DEPTHS.nestPower : 1);
-  const units = grouillants(power, DEPTHS.level[depth - 1]);
-  let hazard = null;
-  const forced = kind === "scree" ? "fall" : kind === "raphides" ? "cuts" : null;
-  const other = rng.chance(DEPTHS.hazard.otherChance) ? rng.pick(HAZARD_KINDS) : null;
-  const hk = forced ?? (kind === "nest" ? null : other);
-  if (hk)
-    hazard = {
-      kind: hk,
-      strength: round22(
-        DEPTHS.hazard.strength[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1])
-      )
-    };
-  const amount = DEPTHS.loot[depth - 1] * rng.range(0.8, 1.2);
-  const loot = {};
-  for (const [r, share2] of Object.entries(DEPTHS.lootKind[kind]))
-    loot[r] = Math.round(amount * share2);
-  return { kind, units, hazard, loot, iron: DEPTHS.iron[depth - 1] };
-}
-function grouillants(power, level) {
-  return DEPTH_KINDS.map((kind) => ({
-    kind,
-    count: Math.max(
-      kind === "larva" ? 1 : 0,
-      Math.round(power * DEPTHS.mix[kind] / ENEMIES[kind].power)
-    ),
-    level
-  })).filter((u) => u.count > 0);
-}
-function weighted(rng, weights) {
-  const keys = ROOM_KINDS.filter((k) => k in weights);
-  const total = keys.reduce((a, k) => a + weights[k], 0);
-  let x = rng.range(0, total);
-  for (const k of keys) {
-    x -= weights[k];
-    if (x < 0) return k;
-  }
-  return keys[keys.length - 1];
-}
-function round22(x) {
-  return Math.round(x * 100) / 100;
-}
-function localDepthsSeed(state) {
-  return `${localAlienSeed(state)}/depths`;
-}
-function ensureDepths(state, seed) {
-  if (state.colony.index !== 0 || state.depthSeed !== void 0) return false;
-  state.depthSeed = `${seed}/depths`;
-  return true;
-}
-function depthsKnown(state) {
-  return state.depthSeed !== void 0;
-}
-function resetDepths(s) {
-  s.depths = { ...s.depths, views: {}, galleries: {}, next: null };
-}
-function reachableRooms(state) {
-  const map = depthsMapOf(state);
-  const taken = state.depths.galleries;
-  return map.rooms.filter((r) => !taken[r.id] && (r.entrance || r.links.some((id3) => taken[id3])));
 }
 
 // packages/shared/src/sim/delves.ts
@@ -10244,7 +10315,17 @@ function jobBoard(state) {
       miners: minersOf(state, m.id),
       slots: METEORS.slots,
       perHour: full(m.resource) ? 0 : meteorRate(state, m)
-    }))
+    })),
+    galleries: Object.keys(state.depths.galleries).sort().map((roomId) => {
+      const resource = galleryResource(state, roomId);
+      return {
+        roomId,
+        resource,
+        miners: minersIn(state, roomId),
+        slots: gallerySlots(state, roomId),
+        perHour: full(resource) ? 0 : galleryRate(state, roomId)
+      };
+    })
   };
 }
 function belowReturn(state, id3) {
@@ -10280,7 +10361,7 @@ function returnHome(state, at, events) {
   const returned = /* @__PURE__ */ new Map();
   for (const v of state.villagers) {
     if (!v.homeJob) continue;
-    if (v.job.kind === "build" || v.job.kind === "meteor" || v.job.kind === "stardust" || v.lent !== void 0)
+    if (v.job.kind === "build" || v.job.kind === "meteor" || v.job.kind === "mine" || v.job.kind === "stardust" || v.lent !== void 0)
       continue;
     const home = state.buildings.find((b) => b.id === v.homeJob);
     const id3 = home ? buildingResource(state, home) : null;
@@ -10587,6 +10668,10 @@ function computeFlows(s) {
     production[m.resource] += rate;
     harvested[m.resource] += rate;
     picked.push({ m, rate });
+  }
+  for (const g of galleryRates(s)) {
+    production[g.resource] += g.rate;
+    harvested[g.resource] += g.rate;
   }
   const iron = [];
   for (const m of s.sky.meteors) {
@@ -10905,6 +10990,7 @@ function taskLevel(state, v) {
     }
     case "stardust":
     case "meteor":
+    case "mine":
       return "pick";
     case "build":
       return "build";
@@ -10927,7 +11013,7 @@ function borrow(v) {
   let home = null;
   if (v.lent !== void 0) home = v.lent;
   else if (v.job.kind === "work") home = v.job.buildingId;
-  else if (v.job.kind === "stardust" || v.job.kind === "build" || v.job.kind === "meteor")
+  else if (v.job.kind === "stardust" || v.job.kind === "build" || v.job.kind === "meteor" || v.job.kind === "mine")
     home = v.job.returnTo;
   delete v.lent;
   return home;
@@ -10982,7 +11068,7 @@ function startItem(state, item2, builder, at, events) {
 }
 function canReassign(v) {
   const k = v.job.kind;
-  return k === "idle" || k === "work" || k === "guard" || k === "meteor" || k === "stardust" || k === "build";
+  return k === "idle" || k === "work" || k === "guard" || k === "meteor" || k === "mine" || k === "stardust" || k === "build";
 }
 function leaveSite(state, v, at) {
   if (v.job.kind !== "build") return;
@@ -11104,6 +11190,30 @@ function releaseCraters(state, cap = capacity(state)) {
 function releaseFullCraters(state) {
   releaseCraters(state);
 }
+function fillMines(state) {
+  const cap = capacity(state);
+  releaseMines(state, cap);
+  if (!state.automation.mine) return;
+  let budget = Math.floor(state.villagers.length * DEPTHS.gallery.autoShare) - state.villagers.filter((v) => v.job.kind === "mine").length;
+  for (const roomId of Object.keys(state.depths.galleries).sort()) {
+    if (!galleryWorth(state, roomId, cap)) continue;
+    const resource = galleryResource(state, roomId);
+    let free = gallerySlots(state, roomId) - minersIn(state, roomId).length;
+    while (free-- > 0 && budget-- > 0) {
+      const v = bestFor(state, "pick", (x) => workerPower(x, resource));
+      if (!v) return;
+      v.job = { kind: "mine", roomId, returnTo: borrow(v) };
+    }
+  }
+}
+function releaseMines(state, cap = capacity(state)) {
+  const done = [];
+  for (const v of state.villagers) {
+    if (v.job.kind !== "mine") continue;
+    if (!galleryWorth(state, v.job.roomId, cap)) done.push([v, v.job.returnTo]);
+  }
+  sendBackAll(state, done);
+}
 function fillStardust(state) {
   if (!state.automation.stardust || state.stardust >= STARDUST_CAP) return;
   for (const p of state.comets.patches) {
@@ -11214,6 +11324,7 @@ function dispatchTasks(state, at, events) {
   fillResearch(state);
   fillForge(state);
   fillCraters(state);
+  fillMines(state);
   fillStardust(state);
   equipGear(state);
 }
@@ -11232,7 +11343,10 @@ function taskNeeds(state) {
     garrison: soon && !state.villagers.some((v) => v.job.kind === "guard") ? 1 : 0,
     redirect: 0,
     forge: forgeOf(state) && state.forge.orders.length > 0 && smithsOf(state).length === 0 ? 1 : 0,
-    equip: armoryCount(state)
+    equip: armoryCount(state),
+    mine: Object.keys(state.depths.galleries).filter(
+      (id3) => galleryWorth(state, id3) && minersIn(state, id3).length === 0
+    ).length
   };
 }
 
@@ -11573,6 +11687,7 @@ function workSite(state, v) {
   if (job2.kind === "stardust")
     return state.comets.patches.find((p) => p.id === job2.patchId) ?? null;
   if (job2.kind === "meteor") return state.sky.meteors.find((m) => m.id === job2.meteorId) ?? null;
+  if (job2.kind === "mine") return state.buildings.find((b) => b.type === "tunnel") ?? null;
   if (job2.kind === "build") return state.queue.find((i) => i.id === job2.queueItemId) ?? null;
   if (job2.kind === "expedition" || job2.kind === "outpost") return null;
   return state.buildings.find((b) => b.type === "nest") ?? null;
@@ -11590,7 +11705,7 @@ function bedsOf(state, map = faceMapOf(state)) {
   key += "|";
   for (const v of state.villagers) {
     const j = v.job;
-    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : j.kind === "transform" ? `${v.id}x${j.labId};` : j.kind === "titan" ? `${v.id}T${j.q},${j.r};` : j.kind === "stardust" ? `${v.id}d${j.patchId};` : j.kind === "meteor" ? `${v.id}m${j.meteorId};` : "";
+    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : j.kind === "transform" ? `${v.id}x${j.labId};` : j.kind === "titan" ? `${v.id}T${j.q},${j.r};` : j.kind === "stardust" ? `${v.id}d${j.patchId};` : j.kind === "meteor" ? `${v.id}m${j.meteorId};` : j.kind === "mine" ? `${v.id}M${j.roomId};` : "";
   }
   key += `|${pathsKey(state.paths)}`;
   const cached = bedCache.get(key);
@@ -11782,7 +11897,8 @@ function fadeMemories(state, at) {
 }
 function canSup(v) {
   const k = v.job.kind;
-  return k !== "expedition" && k !== "outpost" && k !== "guard" && k !== "transform" && k !== "titan";
+  return k !== "expedition" && k !== "outpost" && k !== "guard" && k !== "transform" && k !== "titan" && // Chantier 48: miners stay below.
+  k !== "mine";
 }
 function holdVigils(state, at) {
   const fires = homesNear(
@@ -12137,6 +12253,10 @@ function ratesOf(state, v, masteries) {
     const m2 = state.sky.meteors.find((x) => x.id === job2.meteorId);
     perHour = KIWI.xpPerHour.work;
     mastery = m2 ? RESOURCE_MASTERY[m2.resource] : null;
+  } else if (job2.kind === "mine") {
+    const g = state.depths.galleries[job2.roomId];
+    perHour = KIWI.xpPerHour.work;
+    mastery = g ? RESOURCE_MASTERY[DEPTHS.gallery.resource[g.kind]] : null;
   } else if (job2.kind === "train" || job2.kind === "transform") {
     perHour = KIWI.xpPerHour.train;
   } else if (job2.kind === "guard" || job2.kind === "titan" || job2.kind === "stardust") {
@@ -14119,6 +14239,7 @@ var COMMAND_ERRORS = [
   "roomOutOfReach",
   "delveThere",
   "tunnelBusy",
+  "galleryFull",
   "launchpadDamaged",
   "unknownTarget",
   "crewTooSmall",
@@ -14839,7 +14960,7 @@ function execute(s, cmd, ctx, events) {
       if (!def) return fail("classLocked");
       const lock = trainLock(s, v, cmd.classId, school);
       if (lock) fail(lock);
-      if (v.job.kind !== "idle" && v.job.kind !== "work" && v.job.kind !== "guard" && v.job.kind !== "meteor" && v.job.kind !== "stardust" && v.job.kind !== "build")
+      if (v.job.kind !== "idle" && v.job.kind !== "work" && v.job.kind !== "guard" && v.job.kind !== "meteor" && v.job.kind !== "mine" && v.job.kind !== "stardust" && v.job.kind !== "build")
         fail("kiwiBusy");
       if (def.unique && s.villagers.some(
         (x) => x.id !== v.id && (x.classId === cmd.classId || x.job.kind === "train" && x.job.classId === cmd.classId)
@@ -15082,6 +15203,26 @@ function execute(s, cmd, ctx, events) {
       sendBackAll(
         s,
         minersOf(s, m.id).filter((v) => !ids.has(v.id)).map((v) => [v, v.job.kind === "meteor" ? v.job.returnTo : null])
+      );
+      return;
+    }
+    case "postMiners": {
+      if (!s.depths.galleries[cmd.roomId]) return fail("unknownRoom");
+      if (!minesOpen(s)) fail("doorClosed");
+      const ids = new Set(cmd.villagerIds);
+      if (ids.size !== cmd.villagerIds.length) fail("invalidCrew");
+      if (ids.size > gallerySlots(s, cmd.roomId)) fail("galleryFull");
+      for (const id3 of ids) {
+        const v = s.villagers.find((x) => x.id === id3);
+        if (!v) return fail("unknownVillager");
+        if (v.kikiwiwi) fail("kikiwiwiNoWork");
+        if (!canDig(v)) fail("kiwiBusy");
+        if (v.job.kind === "mine" && v.job.roomId === cmd.roomId) continue;
+        v.job = { kind: "mine", roomId: cmd.roomId, returnTo: borrow(v) };
+      }
+      sendBackAll(
+        s,
+        minersIn(s, cmd.roomId).filter((v) => !ids.has(v.id)).map((v) => [v, v.job.kind === "mine" ? v.job.returnTo : null])
       );
       return;
     }
@@ -19227,6 +19368,7 @@ var job = external_exports.discriminatedUnion("kind", [
   external_exports.object({ kind: external_exports.literal("injured"), until: external_exports.number() }),
   external_exports.object({ kind: external_exports.literal("stardust"), patchId: id, returnTo: id.nullable() }),
   external_exports.object({ kind: external_exports.literal("meteor"), meteorId: id, returnTo: id.nullable() }),
+  external_exports.object({ kind: external_exports.literal("mine"), roomId: external_exports.string().max(8), returnTo: id.nullable() }),
   external_exports.object({ kind: external_exports.literal("outpost"), sector: sectorId, targetId: id }),
   external_exports.object({
     kind: external_exports.literal("titan"),
@@ -19802,9 +19944,11 @@ var gameStateSchema = external_exports.object({
     done: external_exports.array(external_exports.enum(TECH_IDS)).max(TECH_IDS.length),
     outbox: external_exports.number().int().min(0)
   }),
-  automation: external_exports.object(
-    Object.fromEntries(AUTO_TASKS.map((t) => [t, external_exports.boolean()]))
-  ),
+  // Chantier 48: `mine` came after the first v39 saves, hence its default.
+  automation: external_exports.object({
+    ...Object.fromEntries(AUTO_TASKS.map((t) => [t, external_exports.boolean()])),
+    mine: external_exports.boolean().default(true)
+  }),
   siege: external_exports.object({
     conqueredAt: external_exports.number().min(0)
   }),
@@ -20310,6 +20454,11 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   }),
   external_exports.object({ type: external_exports.literal("setAutomation"), task: external_exports.enum(AUTO_TASKS), on: external_exports.boolean() }),
   external_exports.object({ type: external_exports.literal("assignBuilder"), queueItemId: id2, villagerId: id2 }),
+  external_exports.object({
+    type: external_exports.literal("postMiners"),
+    roomId: external_exports.string().min(1).max(8),
+    villagerIds: external_exports.array(id2).max(10)
+  }),
   external_exports.object({
     type: external_exports.literal("collectMeteor"),
     meteorId: id2,
@@ -21605,6 +21754,7 @@ export {
   canAnnounceWave,
   canBorrow,
   canCollect,
+  canDig,
   canHatch,
   canMine,
   canPickDust,
@@ -21755,6 +21905,7 @@ export {
   fillError,
   fillForge,
   fillGarrison,
+  fillMines,
   fillResearch,
   fillStardust,
   finalForecast,
@@ -21787,6 +21938,11 @@ export {
   foundLock,
   freeDepositStock,
   friendId,
+  galleryRate,
+  galleryRates,
+  galleryResource,
+  gallerySlots,
+  galleryWorth,
   gameStateSchema,
   garrisonOf,
   gateCoverage,
@@ -21944,7 +22100,9 @@ export {
   meteorStock,
   migrateState,
   minCrew,
+  minersIn,
   minersOf,
+  minesOpen,
   missingBeds,
   modifiers,
   moraleFactor,

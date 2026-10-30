@@ -185,6 +185,14 @@ export function depthsKnown(state: GameState): boolean {
  */
 export function resetDepths(s: GameState): void {
   s.depths = { ...s.depths, views: {}, galleries: {}, next: null };
+  // Delves in flight come back up at once, miners leave the galleries.
+  const delving = new Set(
+    s.expeditions.filter((e) => e.mission === 'delve' && e.status !== 'done').map((e) => e.id),
+  );
+  s.expeditions = s.expeditions.filter((e) => !delving.has(e.id));
+  for (const v of s.villagers)
+    if (v.job.kind === 'mine' || (v.job.kind === 'expedition' && delving.has(v.job.expeditionId)))
+      v.job = { kind: 'idle' };
 }
 
 /** Rooms a delve may reach: next to the entrance or to a gallery, and not taken yet. */

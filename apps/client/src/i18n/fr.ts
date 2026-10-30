@@ -890,6 +890,7 @@ export const fr: Dict = {
     onCrater: 'Un cratère de météorite est un poste à part entière : rien ne se construit dessus.',
     unknownCrater: 'Ce cratère a disparu ou il est vide.',
     craterFull: 'Un cratère prend au plus trois mineur·euses.',
+    galleryFull: 'Cette galerie n’a plus de place pour des mineur·euses.',
     alreadyStarted: 'Ce chantier a déjà son·sa bâtisseur·euse.',
     noBuildSlot:
       'Pas de place libre : attends la fin d’un chantier (le Nid fixe combien en même temps).',
@@ -2039,6 +2040,11 @@ export const fr: Dict = {
         auto: 'Les kiwis les plus adroits récoltent chaque cratère.',
         manual: 'Envoie toi-même les mineur·euses depuis la fiche du cratère.',
       },
+      mine: {
+        name: 'Galeries',
+        auto: 'Les meilleurs kiwis pour chaque galerie y descendent miner (un cinquième de la colonie au plus).',
+        manual: 'Envoie toi-même les mineur·euses depuis l’écran des Tréfonds.',
+      },
       stardust: {
         name: 'Poussière d’étoiles',
         auto: 'Les kiwis les plus adroits ramassent la poussière des comètes.',
@@ -2148,6 +2154,7 @@ export const fr: Dict = {
       titan: 'Travaux de titan',
       stardust: 'Ramasse la poussière',
       meteor: 'Sur une météorite',
+      mine: 'À la mine, en bas',
       outpost: 'Sur une tête de pont',
     },
   },

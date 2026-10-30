@@ -89,6 +89,10 @@ export const DEPTHS = {
     } as Record<RoomKind, ResourceId>,
     slots: [2, 3, 3] as readonly number[],
     perMiner: [40, 55, 70] as readonly number[],
+    /** The automation sends at most this share of the colony down the mines. */
+    autoShare: 0.2,
+    /** A damaged door (an upwelling broke it) halves the work below. */
+    damagedWork: 0.5,
   },
   /** The tunnel entrance's levels (index = level): most kiwis on a delve, door strength. */
   crew: [0, 4, 6, 8] as readonly number[],

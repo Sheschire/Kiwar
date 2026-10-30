@@ -178,6 +178,11 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('setAutomation'), task: z.enum(AUTO_TASKS), on: z.boolean() }),
   z.object({ type: z.literal('assignBuilder'), queueItemId: id, villagerId: id }),
   z.object({
+    type: z.literal('postMiners'),
+    roomId: z.string().min(1).max(8),
+    villagerIds: z.array(id).max(10),
+  }),
+  z.object({
     type: z.literal('collectMeteor'),
     meteorId: id,
     villagerIds: z.array(id).max(METEORS.slots),

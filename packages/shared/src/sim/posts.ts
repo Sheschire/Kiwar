@@ -1,3 +1,4 @@
+import { galleryRate, galleryResource, gallerySlots, minersIn } from './mines';
 import type { BuildingType } from '../data/buildings';
 import type { ResourceId } from '../data/resources';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
@@ -146,6 +147,14 @@ export interface JobBoard {
   pickers: Villager[];
   /** Chantier 15: meteorite craters (temporary posts), with their harvest per hour. */
   meteors: { meteor: Meteor; miners: Villager[]; slots: number; perHour: number }[];
+  /** Chantier 48: galleries of the depths, with their miners and output per hour. */
+  galleries: {
+    roomId: string;
+    resource: ResourceId;
+    miners: Villager[];
+    slots: number;
+    perHour: number;
+  }[];
 }
 
 const KIND_ORDER: PostKind[] = ['pulp', 'fiber', 'seeds', 'juice', 'research'];
@@ -218,6 +227,18 @@ export function jobBoard(state: GameState): JobBoard {
         slots: METEORS.slots,
         perHour: full(m.resource) ? 0 : meteorRate(state, m),
       })),
+    galleries: Object.keys(state.depths.galleries)
+      .sort()
+      .map((roomId) => {
+        const resource = galleryResource(state, roomId)!;
+        return {
+          roomId,
+          resource,
+          miners: minersIn(state, roomId),
+          slots: gallerySlots(state, roomId),
+          perHour: full(resource) ? 0 : galleryRate(state, roomId),
+        };
+      }),
   };
 }
 
@@ -281,6 +302,7 @@ export function returnHome(state: GameState, at: TimeMs, events: GameEvent[]): v
     if (
       v.job.kind === 'build' ||
       v.job.kind === 'meteor' ||
+      v.job.kind === 'mine' ||
       v.job.kind === 'stardust' ||
       v.lent !== undefined
     )

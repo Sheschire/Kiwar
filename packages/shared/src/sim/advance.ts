@@ -1,3 +1,4 @@
+import { galleryRates } from './mines';
 import { accrueForge, forgePower, forgeRate, forgeTick, nextForgeEvent } from './forge';
 import type { ItemId } from '../data/gear';
 import { accrueStardust, cometTick, nextCometEvent, planComet } from './comets';
@@ -526,6 +527,11 @@ function computeFlows(s: GameState): Flows {
     production[m.resource] += rate;
     harvested[m.resource] += rate;
     picked.push({ m, rate });
+  }
+  // Chantier 48: the galleries of the depths (no stock to drain, no day nor season below).
+  for (const g of galleryRates(s)) {
+    production[g.resource] += g.rate;
+    harvested[g.resource] += g.rate;
   }
   const iron: Flows['iron'] = [];
   for (const m of s.sky.meteors) {

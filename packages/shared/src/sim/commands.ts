@@ -1,3 +1,4 @@
+import { canDig, gallerySlots, minersIn, minesOpen } from './mines';
 import { giveSpeech, speechLock } from './speech';
 import { cabaretOf, fireFireworks, fireworksLock } from './village';
 import { FIREWORKS, standsOverPath, type FireworksPattern } from '../data/needs';
@@ -253,6 +254,8 @@ export type Command =
   | { type: 'assignBuilder'; queueItemId: QueueItemId; villagerId: VillagerId }
   /** Chantier 15: exactly these kiwis harvest a meteorite crater (others there go back). */
   | { type: 'collectMeteor'; meteorId: string; villagerIds: VillagerId[] }
+  /** Chantier 48: exactly these kiwis mine this gallery of the depths. */
+  | { type: 'postMiners'; roomId: string; villagerIds: VillagerId[] }
   /** Chantier 38: orders a piece at the Forge (paid at once), or cancels an order (refunded). */
   | { type: 'forgeItem'; item: ItemId }
   | { type: 'cancelForge'; orderId: string }
@@ -292,6 +295,7 @@ export const COMMAND_ERRORS = [
   'roomOutOfReach',
   'delveThere',
   'tunnelBusy',
+  'galleryFull',
   'launchpadDamaged',
   'unknownTarget',
   'crewTooSmall',
@@ -1110,6 +1114,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         v.job.kind !== 'work' &&
         v.job.kind !== 'guard' &&
         v.job.kind !== 'meteor' &&
+        v.job.kind !== 'mine' &&
         v.job.kind !== 'stardust' &&
         v.job.kind !== 'build'
       )
@@ -1376,6 +1381,28 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         minersOf(s, m.id)
           .filter((v) => !ids.has(v.id))
           .map((v) => [v, v.job.kind === 'meteor' ? v.job.returnTo : null]),
+      );
+      return;
+    }
+    case 'postMiners': {
+      if (!s.depths.galleries[cmd.roomId]) return fail('unknownRoom');
+      if (!minesOpen(s)) fail('doorClosed');
+      const ids = new Set(cmd.villagerIds);
+      if (ids.size !== cmd.villagerIds.length) fail('invalidCrew');
+      if (ids.size > gallerySlots(s, cmd.roomId)) fail('galleryFull');
+      for (const id of ids) {
+        const v = s.villagers.find((x) => x.id === id);
+        if (!v) return fail('unknownVillager');
+        if (v.kikiwiwi) fail('kikiwiwiNoWork');
+        if (!canDig(v)) fail('kiwiBusy');
+        if (v.job.kind === 'mine' && v.job.roomId === cmd.roomId) continue;
+        v.job = { kind: 'mine', roomId: cmd.roomId, returnTo: borrow(v) };
+      }
+      sendBackAll(
+        s,
+        minersIn(s, cmd.roomId)
+          .filter((v) => !ids.has(v.id))
+          .map((v) => [v, v.job.kind === 'mine' ? v.job.returnTo : null]),
       );
       return;
     }

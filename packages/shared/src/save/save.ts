@@ -92,6 +92,7 @@ const job = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('injured'), until: z.number() }),
   z.object({ kind: z.literal('stardust'), patchId: id, returnTo: id.nullable() }),
   z.object({ kind: z.literal('meteor'), meteorId: id, returnTo: id.nullable() }),
+  z.object({ kind: z.literal('mine'), roomId: z.string().max(8), returnTo: id.nullable() }),
   z.object({ kind: z.literal('outpost'), sector: sectorId, targetId: id }),
   z.object({
     kind: z.literal('titan'),
@@ -763,9 +764,14 @@ export const gameStateSchema = z.object({
     done: z.array(z.enum(TECH_IDS)).max(TECH_IDS.length),
     outbox: z.number().int().min(0),
   }),
-  automation: z.object(
-    Object.fromEntries(AUTO_TASKS.map((t) => [t, z.boolean()])) as Record<AutoTask, z.ZodBoolean>,
-  ),
+  // Chantier 48: `mine` came after the first v39 saves, hence its default.
+  automation: z.object({
+    ...(Object.fromEntries(AUTO_TASKS.map((t) => [t, z.boolean()])) as Record<
+      AutoTask,
+      z.ZodBoolean
+    >),
+    mine: z.boolean().default(true),
+  }),
   siege: z.object({
     conqueredAt: z.number().min(0),
   }),

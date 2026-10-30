@@ -70,7 +70,9 @@ const FOOT = 0.72;
 /** Chantier 43: kiwis who go and listen to a speech (at home, not hurt or in a vat). */
 function gathers(v: Villager): boolean {
   const k = v.job.kind;
-  return k !== 'expedition' && k !== 'outpost' && k !== 'injured' && k !== 'transform';
+  return (
+    k !== 'expedition' && k !== 'outpost' && k !== 'injured' && k !== 'transform' && k !== 'mine'
+  );
 }
 
 /**
@@ -1325,11 +1327,13 @@ export class KiwisView {
     this.drawn.length = 0;
     for (const agent of this.agents.values()) {
       const villager = villagers.get(agent.id);
-      // Kiwis away on an expedition or posted on the twin (chantier 19) are not on the map.
+      // Kiwis away on an expedition or posted on the twin (chantier 19) are not on the map;
+      // nor are the miners below (chantier 48; the cut of chantier 49 shows them).
       if (
         !villager ||
         villager.job.kind === 'expedition' ||
         villager.job.kind === 'outpost' ||
+        villager.job.kind === 'mine' ||
         this.hidden.has(agent.id)
       ) {
         this.titans.hide(agent.id);

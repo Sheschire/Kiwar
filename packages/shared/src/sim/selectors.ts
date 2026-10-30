@@ -1,3 +1,4 @@
+import { galleryRates } from './mines';
 import {
   BUILDINGS,
   DEMOLITION,
@@ -208,6 +209,8 @@ function grossRates(state: GameState): Resources {
   }
   // Chantier 15: meteorite craters are posts too.
   for (const m of state.sky.meteors) total[m.resource] += meteorRate(state, m);
+  // Chantier 48: the galleries of the depths.
+  for (const g of galleryRates(state)) total[g.resource] += g.rate;
   return total;
 }
 
@@ -267,6 +270,7 @@ export function productionRates(state: GameState, full = storageFullCheck(state)
   }
   for (const m of state.sky.meteors)
     if (!full(m.resource)) total[m.resource] += meteorRate(state, m);
+  for (const g of galleryRates(state)) if (!full(g.resource)) total[g.resource] += g.rate;
   return total;
 }
 

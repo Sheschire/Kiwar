@@ -822,6 +822,7 @@ export const en = {
     onCrater: 'A meteorite crater is a post of its own: nothing can be built on it.',
     unknownCrater: 'This crater is gone or empty.',
     craterFull: 'A crater takes at most three miners.',
+    galleryFull: 'This gallery has no room for more miners.',
     alreadyStarted: 'This site already has its builder.',
     noBuildSlot: 'No free place: wait for a site to end (the Nest sets how many at once).',
     conquered: 'The twin face is already yours: nothing left to conquer there.',
@@ -1958,6 +1959,11 @@ export const en = {
         auto: 'The most dexterous kiwis harvest every crater.',
         manual: 'Send the miners yourself from the crater’s sheet.',
       },
+      mine: {
+        name: 'Galleries',
+        auto: 'The best kiwis for each gallery go down to mine it (a fifth of the colony at most).',
+        manual: 'Send the miners yourself from the Depths screen.',
+      },
       stardust: {
         name: 'Stardust',
         auto: 'The most dexterous kiwis pick up the comet’s dust.',
@@ -2067,6 +2073,7 @@ export const en = {
       titan: 'Titan works',
       stardust: 'Picking stardust',
       meteor: 'At a meteorite',
+      mine: 'In the mines below',
       outpost: 'On a bridgehead',
     },
   },

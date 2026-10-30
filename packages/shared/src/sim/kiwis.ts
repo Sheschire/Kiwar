@@ -1,3 +1,4 @@
+import { DEPTHS } from '../data/depths';
 import { gathered } from './speech';
 import { KIKIWIWI } from '../data/kikiwiwi';
 import {
@@ -428,6 +429,11 @@ function ratesOf(
     const m = state.sky.meteors.find((x) => x.id === job.meteorId);
     perHour = KIWI.xpPerHour.work;
     mastery = m ? RESOURCE_MASTERY[m.resource] : null;
+  } else if (job.kind === 'mine') {
+    // Chantier 48: a gallery is worked like a workplace of its resource.
+    const g = state.depths.galleries[job.roomId];
+    perHour = KIWI.xpPerHour.work;
+    mastery = g ? RESOURCE_MASTERY[DEPTHS.gallery.resource[g.kind]] : null;
   } else if (job.kind === 'train' || job.kind === 'transform') {
     perHour = KIWI.xpPerHour.train;
   } else if (job.kind === 'guard' || job.kind === 'titan' || job.kind === 'stardust') {

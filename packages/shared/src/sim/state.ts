@@ -83,6 +83,8 @@ export type Job =
   | { kind: 'stardust'; patchId: string; returnTo: BuildingId | null }
   /** Chantier 15: harvesting a meteorite crater (a temporary post). */
   | { kind: 'meteor'; meteorId: string; returnTo: BuildingId | null }
+  /** Chantier 48: mining a gallery of the depths (underground: no militia, no evening). */
+  | { kind: 'mine'; roomId: string; returnTo: BuildingId | null }
   /**
    * Chantier 42: guarding our beacon on a parcel of an alien face (away, fed from the colony
    * stock; chantier 19's bridgeheads before).

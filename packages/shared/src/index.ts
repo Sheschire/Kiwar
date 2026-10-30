@@ -47,6 +47,7 @@ export * from './sim/aliens';
 export * from './sim/civ';
 export * from './sim/depths';
 export * from './sim/delves';
+export * from './sim/mines';
 export * from './sim/territory';
 export * from './sim/canals';
 export * from './sim/kiwis';
