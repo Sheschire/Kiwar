@@ -26,3 +26,13 @@ export function CutBanner() {
     </aside>
   );
 }
+
+/** Chantier 49: "Watch it in the cut" under a delve's report (its battle in its room). */
+export function WatchDelveButton({ id }: { id: string }) {
+  const t = useT();
+  return (
+    <button class="btn" onClick={() => actions.watchDelve(id)}>
+      {t('slice.watch')}
+    </button>
+  );
+}

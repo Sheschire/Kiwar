@@ -70,6 +70,7 @@ import { ObstaclesView } from './obstacles';
 import { ShipsView } from './ship';
 import { BattleShow, type ShowSource, type UnitInfo } from './battle/BattleShow';
 import { DepthsCutView } from './depths/DepthsCutView';
+import { DelveShow } from './depths/delveShow';
 import { LandingShow } from './battle/landingShow';
 import { GateMarkers } from './battle/gates';
 import { PostFx } from './postfx';
@@ -160,6 +161,8 @@ const tmpShift = new Vector3();
 const tmpSize = new Vector2();
 const tmpNdc = new Vector2();
 const cutRay = new Raycaster();
+/** Chantier 49: a delve that reached its room this recently plays live in an open cut. */
+const LIVE_DELVE_MS = 60_000;
 /**
  * Auto steps medium up to high only if a medium frame costs the GPU less than this (high costs
  * about twice as much: it must stay well within a 60 fps frame).
@@ -313,6 +316,16 @@ export class GameRenderer {
         if (this.painter.enabled || this.intro) return;
         // Chantier 49: the cut of the depths answers alone (its rooms).
         if (this.cut && this.rig.inCut) {
+          // A delve on show: a fighter under the finger opens its card.
+          if (this.delve?.battle.source) {
+            const rect = this.canvas.getBoundingClientRect();
+            const reach = window.matchMedia?.('(pointer: coarse)').matches ? 34 : 22;
+            const unit = this.delve.battle.pick(x, y, this.camera, rect, reach);
+            if (unit !== null || this.delve.battle.selected !== null) {
+              this.battleSelect(unit);
+              return;
+            }
+          }
           this.callbacks.onRoomTap?.(this.pickRoom(x, y));
           return;
         }
@@ -461,6 +474,7 @@ export class GameRenderer {
     this.ships?.setParticles(q.particles);
     this.battle?.setParticles(q.particles);
     this.landing?.setParticles(q.particles);
+    this.delve?.setParticles(q.particles);
     this.cut?.setHoles(preset !== 'low');
     if (this.cut && this.lastState) this.cut.sync(this.lastState);
     this.resize();
@@ -890,6 +904,7 @@ export class GameRenderer {
     this.lastState = state;
     this.buildings?.sync(state);
     this.cut?.sync(state);
+    if (this.cut) this.playArrivedDelve(state);
     if (this.pendingWaves.length > 0) this.startWaves(state);
     this.kiwis?.sync(state);
     this.paths?.sync(
@@ -1375,6 +1390,7 @@ export class GameRenderer {
   /** Chantier 49: the quarter closes and the camera goes back to the view the player left. */
   closeCut(): void {
     if (!this.cut || !this.rig.inCut) return;
+    this.endDelve();
     this.cut.close();
     this.rig.leaveCut();
     this.camera.near = 1;
@@ -1386,6 +1402,9 @@ export class GameRenderer {
   private disposeCut(): void {
     if (!this.cut) return;
     const wasOpen = this.rig.inCut;
+    this.endDelve();
+    this.delve?.dispose();
+    this.delve = null;
     this.scene.remove(this.cut.group);
     this.cut.dispose();
     this.cut = null;
@@ -1394,6 +1413,74 @@ export class GameRenderer {
       this.camera.updateProjectionMatrix();
       this.callbacks.onCutChange?.(false);
     }
+  }
+
+  /** Chantier 49: the delve on show in the cut (built with it). */
+  private delve: DelveShow | null = null;
+  /** The camera frames the delve's room as soon as the cut is open. */
+  private delveFocus = false;
+  /** Delves already played live (each arrival once). */
+  private readonly delvesShown = new Set<string>();
+
+  /**
+   * Chantier 49: plays a delve's journal in its room of the cut (opened first if needed), the
+   * camera framing the room. False without a journal or a colony to show it in.
+   */
+  playDelve(expeditionId: string, live = false): boolean {
+    const state = this.lastState;
+    const e = state?.expeditions.find((x) => x.id === expeditionId);
+    if (!state || e?.mission !== 'delve' || !e.result?.log) return false;
+    if (!this.cutOpen && !this.openCut()) return false;
+    const cut = this.cut!;
+    if (this.battle?.source) this.battle.skip();
+    this.endDelve();
+    if (!this.delve) {
+      const show = new DelveShow(cut);
+      show.setParticles(QUALITY[this.preset].particles);
+      show.battle.onEnd = (source) => {
+        show.stop();
+        cut.life.hidden = null;
+        this.callbacks.onBattleEnd?.(source);
+      };
+      cut.group.add(show.group);
+      this.delve = show;
+    }
+    if (!this.delve.play(state, e, live)) return false;
+    this.delvesShown.add(e.id);
+    cut.life.hidden = e.id;
+    // Framed once the quarter is open (the room moves with its face until then).
+    this.delveFocus = true;
+    this.battleClock = 0;
+    const b = this.delve.battle;
+    this.callbacks.onBattleStart?.(b.source!, live, b.length);
+    this.callbacks.onBattleTick?.(b.clock, b.length);
+    this.wake();
+    return true;
+  }
+
+  /** The delve on show ends now (its bar goes). */
+  private endDelve(): void {
+    const show = this.delve;
+    const source = show?.battle.source;
+    if (!show || !source) return;
+    show.stop();
+    if (this.cut) this.cut.life.hidden = null;
+    this.callbacks.onBattleEnd?.(source);
+  }
+
+  /** Chantier 49: a delve that just reached its room plays live while the cut is open. */
+  private playArrivedDelve(state: GameState): void {
+    if (!this.cutOpen || this.delve?.battle.source || this.rig.flying) return;
+    const now = this.callbacks.now();
+    const e = state.expeditions.find(
+      (x) =>
+        x.mission === 'delve' &&
+        !!x.result?.log &&
+        !this.delvesShown.has(x.id) &&
+        now - x.arriveAt < LIVE_DELVE_MS &&
+        now >= x.arriveAt,
+    );
+    if (e) this.playDelve(e.id, true);
   }
 
   /** Chantier 49: the room of the cut under a screen point. */
@@ -1503,6 +1590,7 @@ export class GameRenderer {
 
   /** The show on screen: a landing on the twin, else a wave at home. */
   private get show(): BattleShow | null {
+    if (this.delve?.battle.source) return this.delve.battle;
     if (this.landing?.battle.source) return this.landing.battle;
     return this.battle?.source ? this.battle : null;
   }
@@ -1523,7 +1611,8 @@ export class GameRenderer {
 
   /** Ends the battle on screen now. */
   battleSkip(): void {
-    if (this.landing?.playing && this.landing.battle.source) this.landing.skip();
+    if (this.delve?.battle.source) this.delve.skip();
+    else if (this.landing?.playing && this.landing.battle.source) this.landing.skip();
     else this.battle?.skip();
   }
 
@@ -1761,6 +1850,7 @@ export class GameRenderer {
       this.battle?.playing ||
       this.landing?.playing ||
       this.cut?.moving ||
+      this.delve?.playing ||
       this.pendingShow ||
       this.queenRisePending ||
       this.twin?.fading ||
@@ -1944,6 +2034,20 @@ export class GameRenderer {
     if (this.landing?.playing) this.landing.update(dt, this.camera);
     if (this.cut) {
       this.cut.update(dt, this.callbacks.now());
+      if (this.delve?.playing) this.delve.update(dt, this.camera);
+      if (this.delveFocus && this.delve && this.cut.isOpen && !this.rig.flying) {
+        this.delveFocus = false;
+        const room = this.delve.room;
+        this.rig.focusCut(
+          this.delve.center(tmpTarget),
+          this.cut.roomRadius * (this.camera.aspect < 0.8 ? 1.2 : 1.7),
+          {
+            polar: 1.08,
+            ceiling: this.cut.shape.top - 0.8,
+            facing: room ? this.cut.normalOf(this.cut.pointOf(room), tmpV) : undefined,
+          },
+        );
+      }
       if (this.cut.closed) this.disposeCut();
     }
     this.ships?.hide(this.landing?.battle.source ? this.landing.expeditionId : null);

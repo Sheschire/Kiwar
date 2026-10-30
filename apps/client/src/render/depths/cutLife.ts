@@ -69,6 +69,8 @@ export class CutLife {
   private readonly tint = new Color();
   private readonly load = new Color();
   private readonly cartColor = new Color();
+  /** A delve whose battle is on show: its crew is drawn by the show, not here. */
+  hidden: string | null = null;
   /** Spots of the kiwis drawn this frame (taps, the camera). */
   readonly drawn: { id: string; pos: Vector3 }[] = [];
 
@@ -157,7 +159,7 @@ export class CutLife {
 
     // The delves on their way: down to the room, or back up with what they won.
     for (const e of state.expeditions) {
-      if (e.mission !== 'delve' || !e.room || e.status === 'done') continue;
+      if (e.mission !== 'delve' || !e.room || e.status === 'done' || e.id === this.hidden) continue;
       const path = way(e.room);
       const outbound = e.status === 'outbound';
       const span = outbound ? e.arriveAt - e.departedAt : e.returnAt - e.arriveAt;

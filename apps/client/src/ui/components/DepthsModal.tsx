@@ -41,6 +41,7 @@ import { Cost } from './Cost';
 import { CrewPicker } from './ExpeditionModal';
 import { crewHitsAir, LandingReplay, OrdersPicker, UnitList } from './LandingParts';
 import { Modal } from './Modal';
+import { WatchDelveButton } from './CutBanner';
 import { Icon } from '../iconSet';
 
 /**
@@ -614,6 +615,7 @@ export function DelveReport({ e, game }: { e: Expedition; game: GameState }) {
         </section>
       )}
       {r.log && <LandingReplay log={r.log} delve />}
+      {r.log && <WatchDelveButton id={e.id} />}
     </>
   );
 }

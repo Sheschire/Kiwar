@@ -2705,5 +2705,8 @@ export const en = {
     open: 'See in a cut',
     back: 'Back to the surface',
     screen: 'Depths screen',
+    live: 'The delve, live',
+    replay: 'The delve, replayed',
+    watch: 'Watch it in the cut',
   },
 };

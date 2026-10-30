@@ -35,9 +35,13 @@ export function BattleBar() {
                 ? live
                   ? 'battle.landingLive'
                   : 'battle.landingReplay'
-                : live
-                  ? 'battle.live'
-                  : 'battle.replay',
+                : kind === 'delve'
+                  ? live
+                    ? 'slice.live'
+                    : 'slice.replay'
+                  : live
+                    ? 'battle.live'
+                    : 'battle.replay',
             )}
           </strong>
           <span class="small muted">

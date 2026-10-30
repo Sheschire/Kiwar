@@ -124,7 +124,13 @@ export class DepthsCutView {
       this.group.add(group);
       return { side, group, mesh };
     });
-    const hollowMat = new MeshStandardMaterial({ roughness: 1, side: BackSide });
+    // A warm glow of their own: the rooms read at night too (lanterns, the miners' lamps).
+    const hollowMat = new MeshStandardMaterial({
+      roughness: 1,
+      side: BackSide,
+      emissive: new Color('#3a2410'),
+      emissiveIntensity: 0.6,
+    });
     this.hollows = new InstancedMesh(
       new SphereGeometry(1, 20, 12, Math.PI, Math.PI),
       hollowMat,
@@ -133,7 +139,12 @@ export class DepthsCutView {
     this.hollows.instanceColor = new InstancedBufferAttribute(new Float32Array(MAX_HOLLOWS * 3), 3);
     this.floors = new InstancedMesh(
       new CircleGeometry(1, 24).rotateX(-Math.PI / 2),
-      new MeshStandardMaterial({ color: '#6b4c2c', roughness: 1 }),
+      new MeshStandardMaterial({
+        color: '#6b4c2c',
+        roughness: 1,
+        emissive: new Color('#4a2e14'),
+        emissiveIntensity: 0.6,
+      }),
       MAX_HOLLOWS,
     );
     this.lanterns = new InstancedMesh(
@@ -317,6 +328,16 @@ export class DepthsCutView {
     this.life.group.visible = shown;
     if (shown && this.state && this.depths)
       this.life.update(dt, this.elapsed, now, this.state, this.depths);
+  }
+
+  /** A room's place in the section. */
+  pointOf(room: DepthRoom): CutPoint {
+    return roomPoint(this.depths!, room);
+  }
+
+  /** The network on show (null before the first sync). */
+  get network(): DepthsMap | null {
+    return this.depths;
   }
 
   /** Seconds since the cut opened (animations). */

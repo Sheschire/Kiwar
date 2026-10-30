@@ -536,6 +536,13 @@ export const actions = {
   closeCut(): void {
     renderer?.closeCut();
   },
+  /** Chantier 49: replays a delve in its room of the cut (from its report). */
+  watchDelve(expeditionId: string): boolean {
+    if (!renderer) return false;
+    if (!renderer.cutOpen && !actions.openCut()) return false;
+    uiStore.setState({ modal: 'none' });
+    return renderer.playDelve(expeditionId, false);
+  },
   /** Chantier 24: the small card of a tapped planet ("Go there"), or none. */
   showPlanetCard(planet: PlanetRef | null): void {
     uiStore.setState({ planetCard: planet, planetsOpen: false });

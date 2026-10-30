@@ -154,7 +154,8 @@ interface Actor {
  */
 export interface ShowSource {
   id: string;
-  kind: 'wave' | 'landing';
+  /** Chantier 49: `delve`, a delve replayed in its room of the cut. */
+  kind: 'wave' | 'landing' | 'delve';
   log: BattleLog;
 }
 
@@ -174,6 +175,8 @@ export interface ShowOptions {
   roster?: Expedition['roster'];
   /** The aliens met, with their gear (the unit card). */
   seen?: AlienUnit[];
+  /** Chantier 49: fighters drawn this much bigger than their field (a delve's small room). */
+  unitScale?: number;
 }
 
 export interface UnitInfo {
@@ -212,7 +215,8 @@ export class BattleShow {
   time = 0;
   speed = 1;
   source: ShowSource | null = null;
-  private opts: Required<Omit<ShowOptions, 'roster' | 'seen' | 'boardAt'>> & ShowOptions = {
+  private opts: Required<Omit<ShowOptions, 'roster' | 'seen' | 'boardAt' | 'unitScale'>> &
+    ShowOptions = {
     ours: 0,
     age: 0,
     lead: 0,
@@ -338,52 +342,58 @@ export class BattleShow {
     });
     const villagers = new Map(state.villagers.map((v) => [v.id as string, v]));
     const roster = new Map((opts.roster ?? []).map((m) => [m.id as string, m]));
-    this.actors = this.timeline.tracks.map((track) => {
-      const u = track.unit;
-      const body = u[2];
-      let tint = new Color(1, 1, 1);
-      let scale = 1;
-      if (body === 'kiwi' || body === 'kikiwiwi') {
-        // The same look as in the village (brightness and size drawn from its id).
-        const rng = createRng(`kiwi/${u[0]}`);
-        const brightness = rng.range(0.82, 1.15);
-        const jitter = rng.range(0.96, 1.04);
-        const v = villagers.get(u[0]);
-        const shiny = v?.shiny ?? roster.get(u[0])?.shiny ?? null;
-        tint = shiny ? shinyTint(shiny) : new Color(1, 1, 1).multiplyScalar(brightness);
-        scale = (v ? sizeOf(v, jitter) : jitter) * (body === 'kikiwiwi' ? 1.6 : 1);
-      } else if (body === 'ferret' || body === 'bat') {
-        scale = CREATURE_SIZE * (u[3] === 'brute' ? 1.3 : u[3] === 'scout' ? 0.85 : 1);
-      } else if (body === 'grub' || body === 'fly' || body === 'louse') {
-        // Chantier 48: the Grouillants wear the ferret's and the bat's rigs in their own colours
-        // (pale larvae, slate woodlice, green-gold fruit flies) until chantier 49 draws them.
-        scale = CREATURE_SIZE * (body === 'louse' ? 1.25 : body === 'fly' ? 0.6 : 0.8);
-        tint = new Color(GROUILLANT_TINTS[body]);
-      } else if (body === 'queen') {
-        // Chantier 42: the ferret queen, a giant.
-        scale = CREATURE_SIZE * QUEEN_SIZE;
-      }
-      return {
-        track,
-        weapon: u[10],
-        kind:
-          body === 'turret'
-            ? 'turret'
-            : body === 'kiwi' || body === 'kikiwiwi'
-              ? 'kiwi'
-              : 'creature',
-        creature: body === 'bat' || body === 'fly' ? 'bat' : 'ferret',
-        scale,
-        tint,
-        grouillant: body === 'grub' || body === 'fly' || body === 'louse',
-        classId: u[6],
-        armor: villagers.get(u[0])?.gear?.armor ?? null,
-        player: body === 'kiwi' || body === 'kikiwiwi' ? new ClipPlayer(track.index * 0.37) : null,
-        pose: restCreaturePose(),
-        heading: 0,
-        pos: new Vector3(),
-      } satisfies Actor;
-    });
+    this.actors = this.timeline.tracks
+      .map((track) => {
+        const u = track.unit;
+        const body = u[2];
+        let tint = new Color(1, 1, 1);
+        let scale = 1;
+        if (body === 'kiwi' || body === 'kikiwiwi') {
+          // The same look as in the village (brightness and size drawn from its id).
+          const rng = createRng(`kiwi/${u[0]}`);
+          const brightness = rng.range(0.82, 1.15);
+          const jitter = rng.range(0.96, 1.04);
+          const v = villagers.get(u[0]);
+          const shiny = v?.shiny ?? roster.get(u[0])?.shiny ?? null;
+          tint = shiny ? shinyTint(shiny) : new Color(1, 1, 1).multiplyScalar(brightness);
+          scale = (v ? sizeOf(v, jitter) : jitter) * (body === 'kikiwiwi' ? 1.6 : 1);
+        } else if (body === 'ferret' || body === 'bat') {
+          scale = CREATURE_SIZE * (u[3] === 'brute' ? 1.3 : u[3] === 'scout' ? 0.85 : 1);
+        } else if (body === 'grub' || body === 'fly' || body === 'louse') {
+          // Chantier 48: the Grouillants wear the ferret's and the bat's rigs in their own colours
+          // (pale larvae, slate woodlice, green-gold fruit flies) until chantier 49 draws them.
+          scale = CREATURE_SIZE * (body === 'louse' ? 1.25 : body === 'fly' ? 0.6 : 0.8);
+          tint = new Color(GROUILLANT_TINTS[body]);
+        } else if (body === 'queen') {
+          // Chantier 42: the ferret queen, a giant.
+          scale = CREATURE_SIZE * QUEEN_SIZE;
+        }
+        return {
+          track,
+          weapon: u[10],
+          kind:
+            body === 'turret'
+              ? 'turret'
+              : body === 'kiwi' || body === 'kikiwiwi'
+                ? 'kiwi'
+                : 'creature',
+          creature: body === 'bat' || body === 'fly' ? 'bat' : 'ferret',
+          scale,
+          tint,
+          grouillant: body === 'grub' || body === 'fly' || body === 'louse',
+          classId: u[6],
+          armor: villagers.get(u[0])?.gear?.armor ?? null,
+          player:
+            body === 'kiwi' || body === 'kikiwiwi' ? new ClipPlayer(track.index * 0.37) : null,
+          pose: restCreaturePose(),
+          heading: 0,
+          pos: new Vector3(),
+        } satisfies Actor;
+      })
+      .map((a) => {
+        a.scale *= opts.unitScale ?? 1;
+        return a;
+      });
     this.selected = null;
     this.speed = 1;
     this.impacts = [];

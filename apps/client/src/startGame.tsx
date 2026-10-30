@@ -113,7 +113,7 @@ const renderer = new GameRenderer(
     onBattleEnd: (source) => {
       battleStore.setState({ reportId: null, live: false, unit: null });
       if (source.kind === 'landing') tellLanding(source.id);
-      else tellOutcome(source.id);
+      else if (source.kind === 'wave') tellOutcome(source.id);
     },
     onBattleUnit: (unit) => battleStore.setState({ unit }),
     // Chantier 49: the cut of the depths — the gesture, its rooms, its banner.

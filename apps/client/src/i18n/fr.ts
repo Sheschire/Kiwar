@@ -2811,5 +2811,8 @@ export const fr: Dict = {
     open: 'Voir en coupe',
     back: 'Retour à la surface',
     screen: 'Écran des Tréfonds',
+    live: 'La descente en direct',
+    replay: 'La descente rejouée',
+    watch: 'Regarder dans la coupe',
   },
 };

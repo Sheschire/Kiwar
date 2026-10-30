@@ -144,6 +144,8 @@ export class CameraRig {
   private home = { x: 30, z: 30 };
   /** Chantier 49: the cut of the depths is shown (the view the player left, to go back to). */
   private cut: { position: Vector3; target: Vector3 } | null = null;
+  /** Chantier 49: a framing asked for during a flight (applied once it lands). */
+  private afterFlight: (() => void) | null = null;
   /** Chantier 49: the tilt pushed beyond the edge of its range. */
   private readonly tilt = new TiltPast();
   private tiltY: number | null = null;
@@ -415,6 +417,9 @@ export class CameraRig {
     c.maxPolarAngle = MAX_POLAR;
     c.enabled = true;
     f.land();
+    const then = this.afterFlight;
+    this.afterFlight = null;
+    then?.();
   }
 
   /**
@@ -462,6 +467,7 @@ export class CameraRig {
     const view = this.cut;
     if (!view || this.flight) return;
     this.cut = null;
+    this.afterFlight = null;
     const c = this.controls;
     c.minAzimuthAngle = -Infinity;
     c.maxAzimuthAngle = Infinity;
@@ -485,14 +491,44 @@ export class CameraRig {
     return this.cut !== null;
   }
 
-  /** Chantier 49: frames a point of the cut closer (a room, a delve), within the cut's limits. */
-  focusCut(target: Vector3, radius: number, polar?: number): void {
-    if (!this.cut || this.flight) return;
+  /**
+   * Chantier 49: frames a point of the cut closer (a room, a delve), within the cut's limits:
+   * tilted `polar` but never higher than `ceiling` (the crust of tiles above the cut), turned
+   * towards `facing` (the face's normal) as far as the cut lets it.
+   */
+  focusCut(
+    target: Vector3,
+    radius: number,
+    opts: { polar?: number; ceiling?: number; facing?: Vector3 } = {},
+  ): void {
+    if (!this.cut) return;
+    // Still going down: framed once there.
+    if (this.flight) {
+      const t = target.clone();
+      this.afterFlight = () => this.focusCut(t, radius, opts);
+      return;
+    }
     this.stopGlide();
     const c = this.controls;
+    const distance = Math.max(c.minDistance, Math.min(c.maxDistance, this.fitDistance(radius)));
+    let polar = opts.polar ?? c.polarAngle;
+    if (opts.ceiling !== undefined) {
+      const room = opts.ceiling - target.y;
+      if (Math.cos(polar) * distance > room)
+        polar = Math.acos(Math.max(-1, Math.min(1, room / distance)));
+    }
     void c.moveTo(target.x, target.y, target.z, true);
-    void c.dollyTo(Math.max(c.minDistance, this.fitDistance(radius)), true);
-    if (polar !== undefined) void c.rotatePolarTo(polar, true);
+    void c.dollyTo(distance, true);
+    void c.rotatePolarTo(Math.min(c.maxPolarAngle, Math.max(c.minPolarAngle, polar)), true);
+    if (opts.facing) {
+      const want = Math.atan2(opts.facing.x, opts.facing.z);
+      const now = c.azimuthAngle;
+      const turn = Math.atan2(Math.sin(want - now), Math.cos(want - now));
+      void c.rotateAzimuthTo(
+        Math.min(c.maxAzimuthAngle, Math.max(c.minAzimuthAngle, now + turn * 0.85)),
+        true,
+      );
+    }
   }
 
   /**
