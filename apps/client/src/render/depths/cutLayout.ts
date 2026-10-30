@@ -15,6 +15,15 @@ import { isLocule, type DepthRoom, type DepthsMap } from '@kiwar/shared';
 export const ROW_T = [0.32, 0.51, 0.69] as const;
 /** Radius of a room, in `t` units (× the dome's depth in world units). */
 export const ROOM_T = 0.085;
+/** Chantier 50's locules are small cells around the core, like the seeds they hold. */
+export const LOCULE_T = 0.015;
+/**
+ * The dome's half-width over its depth, for what must be round in the world (the locules ring
+ * around the core): the faces differ from it by the face's ellipse only (≤ 12 %).
+ */
+export const CUT_ASPECT = 1 / 0.55;
+/** The locules stand on two staggered rings (radii in depth units around the bottom pole). */
+const LOCULE_RINGS = [0.225, 0.315] as const;
 /** Rooms keep this far from the seam of the two faces, in `s`. */
 const SEAM = 0.2;
 /** The locules ring and the core, around the bottom pole (0, 1), in section units. */
@@ -44,24 +53,6 @@ function rowEdge(t: number): number {
   return Math.sqrt(Math.max(0, 1 - t * t)) - ROOM_T * 1.6;
 }
 
-const fleshCache = new WeakMap<DepthsMap, DepthsMap>();
-
-/**
- * The rooms the cut shows: the green flesh. The locules (chantier 50) stay under the ring's
- * veil until the cut draws them on the ring.
- */
-export function fleshOf(map: DepthsMap): DepthsMap {
-  let out = fleshCache.get(map);
-  if (!out) {
-    const rooms = map.rooms
-      .filter((r) => !isLocule(r))
-      .map((r) => ({ ...r, links: r.links.filter((id) => !isLocule(map.byId.get(id)!)) }));
-    out = { rooms, byId: new Map(rooms.map((r) => [r.id, r])) };
-    fleshCache.set(map, out);
-  }
-  return out;
-}
-
 const pointsCache = new WeakMap<DepthsMap, Map<string, CutPoint>>();
 
 /**
@@ -73,7 +64,9 @@ export function roomPoints(map: DepthsMap): Map<string, CutPoint> {
   if (out) return out;
   out = new Map();
   const groups = new Map<string, DepthRoom[]>();
+  placeLocules(map.rooms.filter(isLocule), out);
   for (const r of map.rooms) {
+    if (isLocule(r)) continue;
     const key = `${r.depth}/${r.x < 0 ? -1 : 1}`;
     groups.set(key, [...(groups.get(key) ?? []), r]);
   }
@@ -100,6 +93,24 @@ export function roomPoints(map: DepthsMap): Map<string, CutPoint> {
   }
   pointsCache.set(map, out);
   return out;
+}
+
+/** Radius of a room in depth units (a locule is a small cell). */
+export function roomRadius(room: Pick<DepthRoom, 'depth'>): number {
+  return isLocule(room) ? LOCULE_T : ROOM_T;
+}
+
+/**
+ * Chantier 50: the locules around the core, in the order of their `x` (each opens onto the
+ * next), on two rings so that their cells never touch.
+ */
+function placeLocules(rooms: DepthRoom[], out: Map<string, CutPoint>): void {
+  const sorted = [...rooms].sort((a, b) => a.x - b.x);
+  sorted.forEach((r, i) => {
+    const a = Math.PI * (0.06 + (0.88 * (i + 0.5)) / sorted.length);
+    const ring = LOCULE_RINGS[i % 2]!;
+    out.set(r.id, { s: (-Math.cos(a) * ring) / CUT_ASPECT, t: 1 - Math.sin(a) * ring });
+  });
 }
 
 /** A room's place in the section. */

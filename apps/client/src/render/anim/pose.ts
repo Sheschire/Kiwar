@@ -18,6 +18,8 @@ export const PROP_IDS = [
   'basket',
   'dagger',
   'lute',
+  // Chantier 49: the miners' pick.
+  'pick',
 ] as const;
 export type PropId = (typeof PROP_IDS)[number];
 

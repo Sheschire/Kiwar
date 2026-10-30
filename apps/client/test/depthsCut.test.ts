@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { depthsMapOf } from '@kiwar/shared';
+import { depthsMapOf, isLocule } from '@kiwar/shared';
 import { TiltPast } from '../src/camera/tiltPast';
 import {
   CORE,
+  CUT_ASPECT,
+  LOCULE_T,
   LOCULES,
   ROOM_T,
   along,
-  fleshOf,
   cutLinks,
   roomPoint,
   wayTo,
@@ -16,12 +17,13 @@ const ASPECT = 1.8;
 
 describe('the cut of the depths (chantier 49)', () => {
   const maps = ['demo', 'a', 'b', 'c', 'd', 'e'].flatMap((seed) =>
-    (['kiwisu', 'kiwino'] as const).map((face) => fleshOf(depthsMapOf({ seed, face }))),
+    (['kiwisu', 'kiwino'] as const).map((face) => depthsMapOf({ seed, face })),
   );
 
   it('keeps every room inside the flesh, off the seam and clear of the locules', () => {
     for (const map of maps)
       for (const r of map.rooms) {
+        if (isLocule(r)) continue;
         const p = roomPoint(map, r);
         expect(p.s * p.s + p.t * p.t).toBeLessThan(1);
         expect(Math.abs(p.s)).toBeGreaterThanOrEqual(0.149);
@@ -37,11 +39,28 @@ describe('the cut of the depths (chantier 49)', () => {
     for (const map of maps)
       for (const a of map.rooms)
         for (const b of map.rooms) {
-          if (a === b || a.depth !== b.depth) continue;
+          if (a === b || a.depth !== b.depth || isLocule(a)) continue;
           const pa = roomPoint(map, a);
           const pb = roomPoint(map, b);
           expect(Math.abs(pa.s - pb.s) * ASPECT).toBeGreaterThan(ROOM_T * 1.5);
         }
+  });
+
+  it('sets the locules in their ring around the core, apart from each other', () => {
+    for (const map of maps) {
+      const locules = map.rooms.filter(isLocule);
+      expect(locules.length).toBeGreaterThanOrEqual(30);
+      const pts = locules.map((r) => roomPoint(map, r));
+      for (const p of pts) {
+        const d = Math.hypot(p.s * CUT_ASPECT, 1 - p.t);
+        expect(d - LOCULE_T).toBeGreaterThan(LOCULES.inner);
+        expect(d + LOCULE_T).toBeLessThan(LOCULES.outer);
+      }
+      for (const a of pts)
+        for (const b of pts)
+          if (a !== b)
+            expect(Math.hypot((a.s - b.s) * CUT_ASPECT, a.t - b.t)).toBeGreaterThan(LOCULE_T * 2);
+    }
   });
 
   it('draws a passage for every link and from the shaft to the first rooms', () => {

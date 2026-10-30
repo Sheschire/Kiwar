@@ -90,18 +90,63 @@ function start(): void {
       depths.views[r.id] = { at: 0, source: 'delve', kind, units: [], hazard: null };
     else if (look === 'heard') depths.views[r.id] = { at: 0, source: 'edge', kind };
   });
-  const state = { seed, face, depths } as unknown as GameState;
+  // Miners in each gallery, and a crew on its way down to the deepest room seen.
+  const villagers: unknown[] = [];
+  const kiwi = (id: string, job: unknown, classId: string | null = null) =>
+    villagers.push({
+      id,
+      stats: { strength: 5, endurance: 5 },
+      job,
+      classId,
+      shiny: id === 'k3' ? 'gold' : null,
+    });
+  let n = 0;
+  for (const id of Object.keys(depths.galleries))
+    for (let i = 0; i < 2 + (n % 2); i++) kiwi(`k${n++}`, { kind: 'mine', roomId: id });
+  const goal = [...network.rooms].reverse().find((r) => depths.views[r.id] && r.depth === 2);
+  const crew = ['d0', 'd1', 'd2', 'd3'];
+  crew.forEach((id, i) => kiwi(id, { kind: 'expedition' }, i === 0 ? 'spelunker' : null));
+  const now = 1_000_000;
+  const expeditions = goal
+    ? [
+        {
+          mission: 'delve',
+          room: goal.id,
+          status: 'outbound',
+          crew,
+          departedAt: now - 6_000,
+          arriveAt: now + 4_000,
+          returnAt: now + 14_000,
+        },
+      ]
+    : [];
+  const state = {
+    seed,
+    face,
+    depths,
+    villagers,
+    expeditions,
+    buildings: [],
+    calendarStart: 0,
+    now,
+  } as unknown as GameState;
 
   const cut = new DepthsCutView(map, (planes) => terrain.setDomeClip(planes), holes);
   scene.add(cut.group);
   cut.open(azimuth);
   cut.sync(state);
   // Fully open at once.
-  cut.update(10);
+  cut.update(10, now);
 
   const camera = new PerspectiveCamera(30, 1, 0.25, 2000);
   const target = new Vector3();
-  const radius = cut.frame(target);
+  let radius = cut.frame(target);
+  // `&close` frames the first gallery up close (the miners).
+  const first = Object.keys(depths.galleries)[0];
+  if (params.has('close') && first) {
+    cut.floorSpot(network.byId.get(first)!, 0, 0, target);
+    radius = cut.roomRadius * 2.2;
+  }
   const layout = () => {
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -121,6 +166,7 @@ function start(): void {
   };
   window.addEventListener('resize', layout);
   layout();
+  (window as unknown as { __sheet: unknown }).__sheet = { cut, camera, renderer, scene };
 
   const title = document.createElement('div');
   title.textContent = `The cut of the depths (${seed}/${face}${holes ? '' : ', low'})`;
@@ -128,11 +174,23 @@ function start(): void {
     'position:fixed;z-index:5;top:8px;left:12px;font:600 20px Georgia,serif;color:#4a3324';
   document.body.append(title);
 
+  // `&t=` freezes the show at that time (headless screenshots).
+  const frozen = params.get('t');
+  let frozenAt = 0;
   let last = performance.now();
-  const frame = (now: number) => {
-    const dt = Math.min(0.1, (now - last) / 1000);
-    last = now;
-    cut.update(dt);
+  const frame = (time: number) => {
+    let dt = Math.min(0.1, (time - last) / 1000);
+    last = time;
+    if (frozen !== null) {
+      dt = Math.max(0, Math.min(1 / 30, Number(frozen) - frozenAt));
+      if (dt === 0) {
+        renderer.render(scene, camera);
+        requestAnimationFrame(frame);
+        return;
+      }
+    }
+    frozenAt += dt;
+    cut.update(dt, now + frozenAt * 1000);
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   };

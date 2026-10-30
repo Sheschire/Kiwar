@@ -15,6 +15,7 @@ export const CLIP_IDS = [
   // Work.
   'peck',
   'hammer',
+  'dig',
   'read',
   'write',
   'sit',
@@ -121,6 +122,24 @@ export const CLIPS: Record<ClipId, Clip> = {
       p.bob = pos(u > 0.9 ? 0.02 - (u - 0.9) * 0.2 : 0);
       p.headPitch = 0.25;
       p.wingL = 0.3 + lift * 0.2;
+    },
+  },
+  // Chantier 49: a miner swings the pick into the wall of a gallery, leaning in.
+  dig: {
+    group: 'work',
+    prop: 'pick',
+    apply(t, p) {
+      const u = frac(t * 1.3);
+      const lift = u < 0.65 ? smooth(u / 0.65) : 1 - smooth((u - 0.65) / 0.35);
+      p.wingRF = -0.3 + lift * 2.2;
+      p.wingR = 0.3;
+      p.propSwing = lift * 0.8;
+      p.pitch = 0.05 + (1 - lift) * 0.35;
+      p.bob = pos(u > 0.88 ? 0.03 - (u - 0.88) * 0.25 : 0);
+      p.headPitch = 0.15;
+      p.wingL = 0.35 + lift * 0.15;
+      p.legL = -0.15;
+      p.legR = 0.15;
     },
   },
   read: {

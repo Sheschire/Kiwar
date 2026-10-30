@@ -184,6 +184,21 @@ export const PROPS: Record<PropId, PropDef> = {
       return merged(parts);
     },
   },
+  // Chantier 49: the miner's pick, a curved iron head across the handle.
+  pick: {
+    anchor: 'wing',
+    tip: new Vector3(0, 0, 0.24),
+    geometry: () =>
+      merged([
+        colored(new CylinderGeometry(1, 1, 1, 6), WOOD, mat(0, 0, 0.1, 0.012, 0.26, 0.012, along)),
+        colored(new ConeGeometry(1, 1, 4), DARK_IRON, mat(0, 0.07, 0.235, 0.02, 0.15, 0.02, 0.25)),
+        colored(
+          new ConeGeometry(1, 1, 4),
+          DARK_IRON,
+          mat(0, -0.07, 0.235, 0.02, 0.15, 0.02, Math.PI - 0.25),
+        ),
+      ]),
+  },
   // Chantier 37: the scout's dagger and the bard's lute.
   dagger: {
     anchor: 'wing',

@@ -1943,7 +1943,7 @@ export class GameRenderer {
     this.battle?.update(dt, this.camera);
     if (this.landing?.playing) this.landing.update(dt, this.camera);
     if (this.cut) {
-      this.cut.update(dt);
+      this.cut.update(dt, this.callbacks.now());
       if (this.cut.closed) this.disposeCut();
     }
     this.ships?.hide(this.landing?.battle.source ? this.landing.expeditionId : null);

@@ -1,18 +1,30 @@
 import {
+  AdditiveBlending,
+  BackSide,
   BufferGeometry,
   CanvasTexture,
+  CircleGeometry,
   Color,
   DoubleSide,
+  DynamicDrawUsage,
   Float32BufferAttribute,
   Group,
+  InstancedBufferAttribute,
+  InstancedMesh,
+  Matrix4,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   Plane,
+  SphereGeometry,
   SRGBColorSpace,
   Vector3,
   type Raycaster,
 } from 'three';
 import {
+  ageOf,
+  DEPTHS,
+  isLocule,
   depthsMapOf,
   type DepthRoom,
   type DepthsMap,
@@ -20,8 +32,9 @@ import {
   type GameState,
 } from '@kiwar/shared';
 import { domeShape, type DomeShape } from '../terrain';
-import { fleshOf, ROOM_T, roomPoint, type CutPoint } from './cutLayout';
-import { cutKnowledge, cutSignature, paintCut, type CutKnowledge } from './cutPaint';
+import { CUT_ASPECT, ROOM_T, roomPoint, roomRadius, type CutPoint } from './cutLayout';
+import { cutKnowledge, cutSignature, KIND_TINTS, paintCut, type CutKnowledge } from './cutPaint';
+import { CutLife } from './cutLife';
 
 /**
  * Chantier 49: the depths seen in a cut. A quarter of the skin dome opens like a slice of
@@ -35,6 +48,13 @@ const OPEN_ANGLE = 1.05;
 /** Seconds to open or close. */
 const OPEN_S = 0.9;
 const ARC = 40;
+/** Most hollows (flesh rooms) and lanterns drawn. */
+const MAX_HOLLOWS = 24;
+const MAX_LANTERNS = 96;
+/** Lanterns along a lit passage, one every this much of the section. */
+const LANTERN_STEP = 0.07;
+const HOLLOW = new Color('#3c2a19');
+const GALLERY = new Color('#7a5530');
 
 /** A face of the cut: the left half of the section (`-1`) or the right one (`1`). */
 interface Face {
@@ -50,6 +70,8 @@ export class DepthsCutView {
   private readonly material: MeshStandardMaterial;
   private readonly texture: CanvasTexture;
   private readonly canvas = document.createElement('canvas');
+  private readonly maskCanvas = document.createElement('canvas');
+  private readonly mask: CanvasTexture;
   private readonly clip = [new Plane(), new Plane()];
   private signature = '';
   private seed = '';
@@ -60,6 +82,18 @@ export class DepthsCutView {
   private opening = true;
   /** Azimuth the quarter opens towards (the camera's side). */
   azimuth = 0;
+  /** Chantier 49 (part 2): the rooms hollowed out in 3D, their floors, the lanterns. */
+  private readonly hollows: InstancedMesh;
+  private readonly floors: InstancedMesh;
+  private readonly lanterns: InstancedMesh;
+  private hollowRooms: DepthRoom[] = [];
+  private lanternSpots: CutPoint[] = [];
+  private elapsed = 0;
+  /** The kiwis down there: miners, carts, delves on their way. */
+  readonly life: CutLife;
+  private state: GameState | null = null;
+  private readonly m = new Matrix4();
+  private readonly v = new Vector3();
 
   constructor(
     readonly map: FaceMap,
@@ -70,12 +104,14 @@ export class DepthsCutView {
     this.texture = new CanvasTexture(this.canvas);
     this.texture.colorSpace = SRGBColorSpace;
     this.texture.anisotropy = 4;
+    this.mask = new CanvasTexture(this.maskCanvas);
     this.material = new MeshStandardMaterial({
       map: this.texture,
       emissive: new Color('#ffffff'),
       emissiveMap: this.texture,
       emissiveIntensity: 0.32,
       roughness: 0.92,
+      alphaMap: this.mask,
       alphaTest: 0.5,
       side: DoubleSide,
     });
@@ -88,6 +124,37 @@ export class DepthsCutView {
       this.group.add(group);
       return { side, group, mesh };
     });
+    const hollowMat = new MeshStandardMaterial({ roughness: 1, side: BackSide });
+    this.hollows = new InstancedMesh(
+      new SphereGeometry(1, 20, 12, Math.PI, Math.PI),
+      hollowMat,
+      MAX_HOLLOWS,
+    );
+    this.hollows.instanceColor = new InstancedBufferAttribute(new Float32Array(MAX_HOLLOWS * 3), 3);
+    this.floors = new InstancedMesh(
+      new CircleGeometry(1, 24).rotateX(-Math.PI / 2),
+      new MeshStandardMaterial({ color: '#6b4c2c', roughness: 1 }),
+      MAX_HOLLOWS,
+    );
+    this.lanterns = new InstancedMesh(
+      new SphereGeometry(1, 8, 6),
+      new MeshBasicMaterial({
+        color: '#ffc861',
+        transparent: true,
+        opacity: 0.9,
+        blending: AdditiveBlending,
+        depthWrite: false,
+      }),
+      MAX_LANTERNS,
+    );
+    for (const mesh of [this.hollows, this.floors, this.lanterns]) {
+      mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+      mesh.count = 0;
+      mesh.frustumCulled = false;
+      this.group.add(mesh);
+    }
+    this.life = new CutLife(this);
+    this.group.add(this.life.group);
   }
 
   /** Opens the quarter towards `azimuth` (the camera's side, as camera-controls counts it). */
@@ -120,19 +187,116 @@ export class DepthsCutView {
 
   /** Repaints the section when what we know of the depths changed (cheap otherwise). */
   sync(state: GameState): void {
-    this.depths = fleshOf(depthsMapOf(state));
+    this.state = state;
+    this.depths = depthsMapOf(state);
     this.seed = `${state.seed}/${state.face}`;
-    const k = cutKnowledge(this.depths, state.depths);
+    const k = cutKnowledge(this.depths, state.depths, ageOf(state) >= DEPTHS.locules.age);
     this.knowledge = k;
     const sig = cutSignature(k, this.holes);
     if (sig === this.signature) return;
     this.signature = sig;
     paintCut(this.canvas, this.depths, k, {
-      aspect: this.aspect(),
       seed: this.seed,
       holes: this.holes,
+      mask: this.maskCanvas,
+      resolution: this.holes ? 2 : 1,
     });
     this.texture.needsUpdate = true;
+    this.mask.needsUpdate = true;
+    this.listObjects(k);
+    this.placeObjects();
+  }
+
+  /** The rooms to hollow out (known flesh rooms) and the lanterns of the lit passages. */
+  private listObjects(k: CutKnowledge): void {
+    const map = this.depths!;
+    this.hollowRooms = this.holes
+      ? map.rooms.filter((r) => !isLocule(r) && k.looks.get(r.id) !== 'fog').slice(0, MAX_HOLLOWS)
+      : [];
+    const spots: CutPoint[] = [];
+    for (const l of k.lit) {
+      let since = LANTERN_STEP / 2;
+      for (let i = 1; i < l.points.length; i++) {
+        const a = l.points[i - 1]!;
+        const b = l.points[i]!;
+        const d = Math.hypot((a.s - b.s) * CUT_ASPECT, a.t - b.t);
+        since += d;
+        if (since < LANTERN_STEP) continue;
+        // Not inside a room (its own lantern hangs over its door).
+        const inside = map.rooms.some((r) => {
+          const q = roomPoint(map, r);
+          return Math.hypot((q.s - b.s) * CUT_ASPECT, q.t - b.t) < roomRadius(r) * 1.4;
+        });
+        if (inside) continue;
+        since = 0;
+        // Hung a little above the floor of the passage.
+        spots.push({ s: b.s, t: b.t - 0.012 });
+      }
+    }
+    // One over each gallery's door.
+    for (const r of map.rooms)
+      if (k.looks.get(r.id) === 'gallery') {
+        const p = roomPoint(map, r);
+        spots.push({ s: p.s, t: p.t - roomRadius(r) * 1.25 });
+      }
+    this.lanternSpots = spots.slice(0, MAX_LANTERNS);
+  }
+
+  /** Instance matrices of the hollows, floors and lanterns at the current opening. */
+  private placeObjects(): void {
+    const map = this.depths;
+    const k = this.knowledge;
+    if (!map || !k) return;
+    const c = new Color();
+    this.hollowRooms.forEach((r, i) => {
+      const p = roomPoint(map, r);
+      const rr = ROOM_T * this.shape.ay;
+      const f = this.faceOf(p);
+      // As wide as the painted hole (painted round at the mean aspect of the dome).
+      const rx = rr * (f.mesh.scale.x / this.shape.ay / CUT_ASPECT);
+      const x = p.s * f.mesh.scale.x;
+      const y = -p.t * this.shape.ay;
+      f.group.updateMatrixWorld();
+      this.m
+        .makeScale(rx, rr, rr * 0.9)
+        .setPosition(x, y, 0)
+        .premultiply(f.group.matrixWorld);
+      this.hollows.setMatrixAt(i, this.m);
+      const kind = k.kinds.get(r.id);
+      c.copy(k.looks.get(r.id) === 'gallery' ? GALLERY : HOLLOW);
+      if (kind) c.lerp(new Color(KIND_TINTS[kind]), 0.1);
+      this.hollows.setColorAt(i, c);
+      this.m
+        .makeScale(rx * 0.86, 1, rr * 0.75)
+        .setPosition(x, y - rr * 0.5, -rr * 0.25)
+        .premultiply(f.group.matrixWorld);
+      this.floors.setMatrixAt(i, this.m);
+    });
+    this.hollows.count = this.hollowRooms.length;
+    this.floors.count = this.hollowRooms.length;
+    this.hollows.instanceMatrix.needsUpdate = true;
+    this.floors.instanceMatrix.needsUpdate = true;
+    if (this.hollows.instanceColor) this.hollows.instanceColor.needsUpdate = true;
+    this.placeLanterns();
+  }
+
+  /** Lanterns flicker a little (and follow the faces while the quarter opens). */
+  private placeLanterns(): void {
+    const size = this.shape.ay * 0.0065;
+    this.lanternSpots.forEach((p, i) => {
+      const flicker =
+        1 + 0.18 * Math.sin(this.elapsed * 7.3 + i * 2.1) * Math.sin(this.elapsed * 3.1 + i);
+      this.worldOf(p, this.v, size * 1.5);
+      this.m.makeScale(size * flicker, size * flicker * 1.3, size * flicker).setPosition(this.v);
+      this.lanterns.setMatrixAt(i, this.m);
+    });
+    this.lanterns.count = this.openness > 0.6 ? this.lanternSpots.length : 0;
+    this.lanterns.instanceMatrix.needsUpdate = true;
+  }
+
+  /** The face a point of the section is on. */
+  private faceOf(p: CutPoint): Face {
+    return this.faces[p.s < 0 ? 0 : 1]!;
   }
 
   /** The face's half-width over the dome's depth (at the open angle, the right face). */
@@ -140,10 +304,29 @@ export class DepthsCutView {
     return this.halfWidth(this.azimuth + OPEN_ANGLE) / this.shape.ay;
   }
 
-  update(dt: number): void {
+  update(dt: number, now: number): void {
+    this.elapsed += dt;
     const before = this.openness;
     this.openness = Math.max(0, Math.min(1, this.openness + (this.opening ? dt : -dt) / OPEN_S));
-    if (this.openness !== before) this.place();
+    if (this.openness !== before) {
+      this.place();
+      this.placeObjects();
+    } else this.placeLanterns();
+    const shown = this.openness >= 1;
+    this.hollows.visible = this.floors.visible = this.openness > 0.5;
+    this.life.group.visible = shown;
+    if (shown && this.state && this.depths)
+      this.life.update(dt, this.elapsed, now, this.state, this.depths);
+  }
+
+  /** Seconds since the cut opened (animations). */
+  get time(): number {
+    return this.elapsed;
+  }
+
+  /** The cut is fully open (the kiwis show). */
+  get isOpen(): boolean {
+    return this.opening && this.openness >= 1;
   }
 
   /** Half-width of the dome along the horizontal direction at azimuth `a`. */
@@ -180,16 +363,32 @@ export class DepthsCutView {
   }
 
   /** World position of a point of the section (on its face), in `out`. */
-  worldOf(p: CutPoint, out: Vector3, forward = 0): Vector3 {
-    const f = this.faces[p.s < 0 ? 0 : 1]!;
-    out.set(p.s * f.mesh.scale.x, -p.t * this.shape.ay, forward);
+  worldOf(p: CutPoint, out: Vector3, forward = 0, down = 0): Vector3 {
+    const f = this.faceOf(p);
+    out.set(p.s * f.mesh.scale.x, -p.t * this.shape.ay - down, forward);
+    f.group.updateMatrixWorld();
+    return out.applyMatrix4(f.group.matrixWorld);
+  }
+
+  /**
+   * A spot on a room's floor, in world space: `across` (−1…1 of the floor's width) and `deep`
+   * (−1 at the back wall … 1 at the lip of the floor), in `out`.
+   */
+  floorSpot(room: DepthRoom, across: number, deep: number, out: Vector3): Vector3 {
+    const map = this.depths!;
+    const p = roomPoint(map, room);
+    const rr = roomRadius(room) * this.shape.ay;
+    const f = this.faceOf(p);
+    // Low quality paints the rooms: the kiwis stand on a ledge just in front of the disc.
+    const z = this.holes ? -rr * 0.25 + deep * rr * 0.55 : rr * (0.2 + deep * 0.08);
+    out.set(p.s * f.mesh.scale.x + across * rr * 0.7, -p.t * this.shape.ay - rr * 0.5, z);
     f.group.updateMatrixWorld();
     return out.applyMatrix4(f.group.matrixWorld);
   }
 
   /** The direction a face looks (into the open quarter), for a point of the section. */
   normalOf(p: CutPoint, out: Vector3): Vector3 {
-    const f = this.faces[p.s < 0 ? 0 : 1]!;
+    const f = this.faceOf(p);
     return out.set(0, 0, 1).applyAxisAngle(UP, f.group.rotation.y);
   }
 
@@ -215,11 +414,13 @@ export class DepthsCutView {
     const hit = hits[0];
     if (!hit) return null;
     let best: DepthRoom | null = null;
-    let bestD = this.roomRadius * 1.6;
+    let bestD = Infinity;
     const p = new Vector3();
     for (const r of this.depths.rooms) {
       const d = this.worldOf(roomPoint(this.depths, r), p).distanceTo(hit.point);
-      if (d < bestD) {
+      // Locules are small: a finger needs a wider reach.
+      const reach = Math.max(roomRadius(r) * 1.6, ROOM_T * 0.7) * this.shape.ay;
+      if (d < reach && d < bestD) {
         bestD = d;
         best = r;
       }
@@ -229,9 +430,16 @@ export class DepthsCutView {
 
   dispose(): void {
     this.setClip(null);
+    this.life.dispose();
+    for (const mesh of [this.hollows, this.floors, this.lanterns]) {
+      mesh.geometry.dispose();
+      (mesh.material as MeshStandardMaterial).dispose();
+    }
     for (const f of this.faces) f.mesh.geometry.dispose();
     this.material.dispose();
     this.texture.dispose();
+    this.mask.dispose();
+    this.maskCanvas.width = 0;
     this.canvas.width = 0;
     this.canvas.height = 0;
   }
