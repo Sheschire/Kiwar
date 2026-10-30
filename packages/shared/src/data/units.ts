@@ -35,6 +35,9 @@ export const WEAPON_IDS = [
   'dive',
   'spit',
   'royalSlam',
+  'gnaw',
+  'sting',
+  'shellRam',
   'seedShot',
   'skyShot',
 ] as const;
@@ -195,6 +198,11 @@ export const WEAPONS: Record<WeaponId, Weapon> = {
     hitsGround: true,
     hitsAir: false,
   },
+  // Chantier 48: the Grouillants of the depths (larvae gnaw, fruit flies sting from the air,
+  // woodlice ram with their shell).
+  gnaw: melee(1.6, 1.1),
+  sting: { ...melee(1.4, 1, true), hitsGround: true },
+  shellRam: melee(4, 2),
   // Turrets: the damage of a shot is set from the turret's defense (`TURRET_SHOT`).
   seedShot: {
     damage: 1,
@@ -216,11 +224,30 @@ export const WEAPONS: Record<WeaponId, Weapon> = {
   },
 };
 
-export const ENEMY_KINDS = ['soldier', 'scout', 'brute', 'diver', 'spitter'] as const;
+export const ENEMY_KINDS = [
+  'soldier',
+  'scout',
+  'brute',
+  'diver',
+  'spitter',
+  // Chantier 48: the Grouillants, creatures of the depths (never in surface waves).
+  'larva',
+  'fruitFly',
+  'woodlouse',
+] as const;
 export type EnemyKind = (typeof ENEMY_KINDS)[number];
 
+/** Chantier 48: the Grouillants (creatures of the depths). */
+export const DEPTH_KINDS = [
+  'larva',
+  'fruitFly',
+  'woodlouse',
+] as const satisfies readonly EnemyKind[];
+
+export type EnemyBody = 'ferret' | 'bat' | 'grub' | 'fly' | 'louse';
+
 export interface EnemyProfile {
-  body: 'ferret' | 'bat';
+  body: EnemyBody;
   hp: number;
   /** Share of each hit absorbed. */
   armor: number;
@@ -306,7 +333,52 @@ export const ENEMIES: Record<EnemyKind, EnemyProfile> = {
     fightsBack: false,
     huntsKiwis: true,
   },
+  larva: {
+    body: 'grub',
+    hp: 9,
+    armor: 0,
+    speed: 0.6,
+    dodge: 0,
+    size: 1,
+    weapon: 'gnaw',
+    power: 1,
+    carry: 1,
+    fightsBack: true,
+    huntsKiwis: false,
+  },
+  fruitFly: {
+    body: 'fly',
+    hp: 5,
+    armor: 0,
+    speed: 1.5,
+    dodge: 0.2,
+    size: 0,
+    weapon: 'sting',
+    power: 0.9,
+    carry: 0.6,
+    fightsBack: true,
+    huntsKiwis: true,
+  },
+  woodlouse: {
+    body: 'louse',
+    hp: 24,
+    armor: 0.35,
+    speed: 0.5,
+    dodge: 0,
+    size: 2,
+    weapon: 'shellRam',
+    power: 2.5,
+    carry: 0.5,
+    fightsBack: true,
+    huntsKiwis: false,
+  },
 };
+
+/** Chantier 48: bats and fruit flies fly (only weapons that reach the air hit them). */
+export function isFlyer(kind: EnemyKind): boolean {
+  const body = ENEMIES[kind].body;
+  return body === 'bat' || body === 'fly';
+}
 
 /** Weapon of a kiwi by class (firearms turn warriors into musketeers, chantier 08). */
 export const CLASS_WEAPONS: Record<ClassId | 'none', WeaponId> = {

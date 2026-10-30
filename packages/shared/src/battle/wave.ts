@@ -3,7 +3,7 @@ import { createRng } from '../rng/rng';
 import { levelDef } from '../data/buildings';
 import { RESOURCE_IDS } from '../data/resources';
 import { FRONT_AZIMUTH, SECTOR_IDS, SECTORS, THREATS, type SectorId } from '../data/threats';
-import { BATTLE, ENEMIES, WAVE_UNITS, type EnemyKind } from '../data/units';
+import { BATTLE, ENEMIES, WAVE_UNITS, isFlyer, type EnemyKind } from '../data/units';
 import type { Building, GameState, PlannedWave, Squad } from '../sim/state';
 import type { Sides } from '../sim/threats';
 import {
@@ -140,7 +140,7 @@ function squadScale(squads: Squad[], threat: Sides): Sides {
   const nominal = { ground: 0, air: 0 };
   for (const q of squads) {
     const p = ENEMIES[q.kind];
-    nominal[p.body === 'bat' ? 'air' : 'ground'] += q.count * p.power;
+    nominal[isFlyer(q.kind) ? 'air' : 'ground'] += q.count * p.power;
   }
   return {
     ground: nominal.ground > 0 ? threat.ground / nominal.ground : 1,
@@ -267,7 +267,7 @@ export function waveSetup(
     const inSector = squads.filter((q) => q.sector === sector);
     let j = 0;
     for (const q of inSector) {
-      const air = ENEMIES[q.kind].body === 'bat';
+      const air = isFlyer(q.kind);
       const k = (air ? scale.air : scale.ground) * opts.luck;
       for (let c = 0; c < q.count; c++, j++) {
         const at = tiles[pack[j % pack.length]!.i]!;
@@ -384,9 +384,7 @@ export function uncoveredGates(
   const out: { sector: SectorId; side: 'ground' | 'air' }[] = [];
   for (const sector of SECTOR_IDS)
     for (const side of ['ground', 'air'] as const) {
-      const comes = squads.some(
-        (q) => q.sector === sector && (ENEMIES[q.kind].body === 'bat') === (side === 'air'),
-      );
+      const comes = squads.some((q) => q.sector === sector && isFlyer(q.kind) === (side === 'air'));
       if (!comes) continue;
       const type = side === 'air' ? 'skyTurret' : 'seedTurret';
       const reached = state.buildings.some(

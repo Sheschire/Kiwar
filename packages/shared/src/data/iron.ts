@@ -33,6 +33,7 @@ export const IRON = {
     monument: [0, 0, 20, 60],
     trainingCamp: [0, 0, 0, 6],
     forge: [0, 0, 0, 8],
+    tunnel: [0, 3, 6, 10],
     lab: [0, 0, 0, 0],
     camp: [0, 0],
   } as Partial<Record<string, readonly number[]>>,

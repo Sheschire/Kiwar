@@ -27,6 +27,7 @@ import type { CivKeyKind } from '../data/aliens';
 import type { LandingOrders } from '../data/landing';
 import type { ShipId } from '../data/expeditions';
 import type { AlienBuilding, AlienUnit } from './civ';
+import type { HazardKind, RoomKind } from '../data/depths';
 import { newKiwi, rollKiwi } from './kiwis';
 import type {
   BuildingId,
@@ -40,7 +41,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 38;
+export const SCHEMA_VERSION = 39;
 
 export type Job =
   | { kind: 'idle' }
@@ -630,6 +631,46 @@ export interface BestiaryEntry {
   lastAt: TimeMs;
 }
 
+/** Chantier 48: a hazard of a room (a share of a kiwi's hit points lost by one hit). */
+export interface RoomHazard {
+  kind: HazardKind;
+  strength: number;
+}
+
+/**
+ * Chantier 48: what we know of a room of the depths (public: it is what we saw). `delve`: seen
+ * in a battle we won; `retreat`: what the survivors of a retreat saw; `lantern`: lit by a
+ * spelunker's lantern from the next room; `edge`: its kind, heard from a room next to it.
+ */
+export interface DepthView {
+  at: TimeMs;
+  source: 'delve' | 'retreat' | 'lantern' | 'edge';
+  kind?: RoomKind;
+  /** The Grouillants seen (absent: not seen). */
+  units?: AlienUnit[];
+  /** Its hazard as met (null: none; absent: not known). */
+  hazard?: RoomHazard | null;
+}
+
+/** Chantier 48: a room taken, where miners work. */
+export interface Gallery {
+  kind: RoomKind;
+  since: TimeMs;
+}
+
+/** Chantier 48: the depths (public; what rooms hold is drawn from the hidden `depthSeed`). */
+export interface DepthsState {
+  views: Record<string, DepthView>;
+  galleries: Record<string, Gallery>;
+  /** The tunnel entrance's door: closed by the player, its fortification level. */
+  door: { closed: boolean; fort: number; fortifying?: { until: TimeMs; level: number } };
+  /** Upwellings: own RNG stream, the next one, how many so far, the last strike. */
+  rng: RngState;
+  next: PlannedWave | null;
+  upwells: number;
+  lastUpwellAt: TimeMs;
+}
+
 /** Chantier 19: the siege of the twin face (public: the truth stays in `aliens`). */
 export interface SiegeState {
   /** The queen fell then: the face is ours (0: not yet). */
@@ -651,6 +692,8 @@ export interface PlannedWave {
   gates?: Partial<Record<SectorId, Hex>>;
   /** Chantier 39: the parcel of the twin face the wave comes from (set at the announcement). */
   origin?: number;
+  /** Chantier 48: an upwelling: the Grouillants come out of the tunnel entrance here. */
+  tunnel?: Hex;
 }
 
 /** Chantier 36: a group of predators of one kind entering by one sector. */
@@ -887,6 +930,13 @@ export interface GameState {
   faceViews: Record<string, FaceView>;
   /** Chantier 40: the enemies met in landings. */
   bestiary: Partial<Record<EnemyKind, BestiaryEntry>>;
+  /** Chantier 48: the depths under our half (public views, galleries, the door, upwellings). */
+  depths: DepthsState;
+  /**
+   * Chantier 48: secret seed of what the rooms of the depths hold. Hidden like `aliens`: the
+   * server never sends it; delves wait for the server when it is missing.
+   */
+  depthSeed?: string;
   /** In flight and recent expeditions (the last few finished ones are kept for reports). */
   expeditions: Expedition[];
   /** Allies the ship can deliver to (set by the server from the universe; empty solo). */
@@ -1006,6 +1056,7 @@ export function newGame(opts: NewGameOptions): GameState {
     intel: {},
     faceViews: {},
     bestiary: {},
+    depths: newDepths(opts.seed, opts.face),
     expeditions: [],
     friends: [],
     shipments: [],
@@ -1042,7 +1093,49 @@ export function newGame(opts: NewGameOptions): GameState {
   state.aliens = Object.fromEntries(
     state.targets.map((t) => [t.id, drawGarrison(t, `${alienSeed}/${t.id}`, opts.now)]),
   );
+  state.depthSeed = `${alienSeed}/depths`;
   return state;
+}
+
+/** Chantier 48: depths with nothing seen yet. */
+export function newDepths(seed: string, face: Face): DepthsState {
+  return {
+    views: {},
+    galleries: {},
+    door: { closed: false, fort: 0 },
+    rng: createRng(`${seed}/${face}/depths`).state(),
+    next: null,
+    upwells: 0,
+    lastUpwellAt: 0,
+  };
+}
+
+export function cloneDepths(d: DepthsState): DepthsState {
+  return {
+    ...d,
+    views: Object.fromEntries(
+      Object.entries(d.views).map(([k, v]) => [
+        k,
+        {
+          ...v,
+          ...(v.units ? { units: v.units.map((u) => ({ ...u })) } : {}),
+          ...(v.hazard ? { hazard: { ...v.hazard } } : {}),
+        },
+      ]),
+    ),
+    galleries: Object.fromEntries(Object.entries(d.galleries).map(([k, g]) => [k, { ...g }])),
+    door: { ...d.door, ...(d.door.fortifying ? { fortifying: { ...d.door.fortifying } } : {}) },
+    rng: [...d.rng] as RngState,
+    next: d.next ? cloneWave(d.next) : null,
+  };
+}
+
+/** Chantier 48: the depths' own RNG stream (upwellings), apart from the colony's and threats'. */
+export function withDepthRng<T>(state: GameState, fn: (rng: Rng) => T): T {
+  const rng = createRng(state.depths.rng);
+  const out = fn(rng);
+  state.depths.rng = rng.state();
+  return out;
 }
 
 /** Chantier 19: a home colony with no sister yet. */
@@ -1203,6 +1296,7 @@ export function cloneState(state: GameState): GameState {
     targets: state.targets.map((t) => ({ ...t })),
     victories: { ...state.victories },
     ...(state.aliens ? { aliens: cloneAliens(state.aliens) } : {}),
+    ...(state.depthSeed ? { depthSeed: state.depthSeed } : {}),
     intel: Object.fromEntries(Object.entries(state.intel).map(([k, i]) => [k, cloneIntel(i)])),
     paths: [...state.paths],
     deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
@@ -1264,6 +1358,7 @@ export function cloneState(state: GameState): GameState {
     bestiary: Object.fromEntries(
       Object.entries(state.bestiary).map(([k, b]) => [k, { ...b }]),
     ) as GameState['bestiary'],
+    depths: cloneDepths(state.depths),
     rng: [...state.rng] as RngState,
   };
 }
@@ -1303,17 +1398,20 @@ export function cloneIntel(i: IntelReport): IntelReport {
   };
 }
 
+export function cloneWave(w: PlannedWave): PlannedWave {
+  return {
+    ...w,
+    ...(w.squads ? { squads: w.squads.map((q) => ({ ...q })) } : {}),
+    ...(w.gates ? { gates: { ...w.gates } } : {}),
+    ...(w.tunnel ? { tunnel: { ...w.tunnel } } : {}),
+  };
+}
+
 export function cloneThreats(t: ThreatState): ThreatState {
   return {
     ...t,
     rng: [...t.rng] as RngState,
-    next: t.next
-      ? {
-          ...t.next,
-          ...(t.next.squads ? { squads: t.next.squads.map((q) => ({ ...q })) } : {}),
-          ...(t.next.gates ? { gates: { ...t.next.gates } } : {}),
-        }
-      : null,
+    next: t.next ? cloneWave(t.next) : null,
     pins: { ...t.pins },
     reports: t.reports.map((r) => ({
       ...r,

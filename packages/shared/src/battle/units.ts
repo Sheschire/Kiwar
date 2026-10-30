@@ -6,6 +6,7 @@ import {
   KIWI_UNIT,
   TURRET_SHOT,
   WEAPONS,
+  isFlyer,
   type EnemyKind,
   type WeaponId,
 } from '../data/units';
@@ -161,8 +162,8 @@ export function enemyUnit(
     armor: p.armor,
     speed: p.speed,
     dodge: p.dodge,
-    size: p.body === 'bat' ? 0 : p.size,
-    flying: p.body === 'bat',
+    size: isFlyer(kind) ? 0 : p.size,
+    flying: isFlyer(kind),
     fixed: false,
     weaponId: p.weapon,
     weapon: { ...weapon, damage: weapon.damage * s },

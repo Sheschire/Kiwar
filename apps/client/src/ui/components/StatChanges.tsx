@@ -30,6 +30,8 @@ const LEVEL_ICONS: Record<LevelStatId, IconName> = {
   beauty: 'flowerBed',
   eveningMorale: 'morale',
   showMorale: 'fireworks',
+  delveCrew: 'workers',
+  doorStrength: 'armor',
 };
 
 const TECH_ICONS: Record<TechStatId, IconName> = {
@@ -55,6 +57,7 @@ const TECH_ICONS: Record<TechStatId, IconName> = {
   meteorStock: 'stardust',
   meteorDrill: 'harvest',
   canals: 'juice',
+  depths: 'tunnel',
 };
 
 /** Smaller is better for these (durations, costs, harm). */

@@ -128,6 +128,24 @@ const GLYPHS = {
       <circle cx="16" cy="19" r="3" {...GOLD} />
     </>
   ),
+  tunnel: (
+    <>
+      <path
+        d="M3 26c1-9 6-15 13-15s12 6 13 15z"
+        fill="#7fae3e"
+        stroke="#4d6b24"
+        stroke-width="1.4"
+      />
+      <path d="M10 26v-5a6 6 0 0 1 12 0v5z" fill="#1d1a14" />
+      <path
+        d="M9 26v-6M23 26v-6M8 15h16"
+        stroke="#5a4030"
+        stroke-width="2"
+        stroke-linecap="round"
+      />
+      <circle cx="26" cy="13" r="2" fill="#f4b23c" />
+    </>
+  ),
   forge: (
     <>
       <path

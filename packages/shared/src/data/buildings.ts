@@ -36,6 +36,7 @@ export const BUILDING_TYPES = [
   'slide',
   'cabaret',
   'fireworks',
+  'tunnel',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
@@ -564,6 +565,35 @@ const BASE: Record<BuildingType, BuildingDef> = {
         workerSlots: 4,
         forgeQueue: 4,
         forging: 1.45,
+      },
+    ],
+  },
+  // Chantier 48: the tunnel entrance into the depths (Iron age, technology `spelunking`). One
+  // per colony, on the green flesh; its levels carry more kiwis on a delve and a stronger door
+  // (`DEPTHS.crew`, `DEPTHS.door`).
+  tunnel: {
+    id: 'tunnel',
+    allowedTiles: ['flesh'],
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 5000, fiber: 6000, seeds: 1200, juice: 1500 },
+        durationMs: ms.h(2),
+        requiresNestLevel: 7,
+        requiresAge: 2,
+      },
+      {
+        cost: { pulp: 10000, fiber: 12000, seeds: 2400, juice: 3000 },
+        durationMs: ms.h(4),
+        requiresNestLevel: 8,
+        requiresAge: 2,
+      },
+      {
+        cost: { pulp: 18000, fiber: 21000, seeds: 4200, juice: 5200 },
+        durationMs: ms.h(6),
+        requiresNestLevel: 9,
+        requiresAge: 2,
       },
     ],
   },

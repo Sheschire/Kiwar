@@ -47,6 +47,7 @@ import { seedTurret, skyTurret } from './models/defense';
 import { monument } from './models/monument';
 import { trainingCamp } from './models/training';
 import { forge } from './models/forge';
+import { tunnel } from './models/tunnel';
 import { A, annex, crown, lamp, type Look } from './models/ageKit';
 import { bigSignSpot, spread } from './models/spread';
 
@@ -89,6 +90,7 @@ const BUILDERS: Record<BuildingType, (look: Look) => Parts> = {
   slide: () => slide(),
   cabaret,
   fireworks,
+  tunnel,
 };
 
 /**

@@ -2,7 +2,7 @@ import { hexDisk, hexDistance, hexKey, hexRing, type Hex } from '../hex/hex';
 import { INTEL } from '../data/expeditions';
 import { type LandingOrders } from '../data/landing';
 import { SIEGE } from '../data/siege';
-import { BATTLE, ENEMIES, KIWI_UNIT, WEAPONS } from '../data/units';
+import { BATTLE, KIWI_UNIT, WEAPONS, isFlyer } from '../data/units';
 import { sectorUnits, type AlienUnit } from '../sim/civ';
 import type { GameState, Villager } from '../sim/state';
 import { alienUnit, capped, landingTile } from './landing';
@@ -146,7 +146,7 @@ export function queenSetup(
       power: input.ground * F.tunnels.share,
     },
     1,
-  ).filter((u) => ENEMIES[u.kind].body !== 'bat');
+  ).filter((u) => !isFlyer(u.kind));
   j = 0;
   for (const { unit, count, k } of capped(elite))
     for (let i = 0; i < count; i++, j++, n++)

@@ -81,6 +81,10 @@ export const ALIEN_GEAR: Record<
   brute: { weapon: 'mace', armor: 'heavy' },
   diver: { weapon: null, armor: 'light' },
   spitter: { weapon: 'staff', armor: null },
+  // Chantier 48: the Grouillants carry no gear.
+  larva: { weapon: null, armor: null },
+  fruitFly: { weapon: null, armor: null },
+  woodlouse: { weapon: null, armor: null },
 };
 
 /** Share of each kind in a parcel's garrison (ground and air). */

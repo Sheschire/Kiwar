@@ -53,7 +53,8 @@ import { faceMapOf, syncPools } from '../sim/territory';
 import { hexKey } from '../hex/hex';
 import { getTile, HEART, type FaceParams } from '../worldgen/generateFace';
 import { AUTO_TASKS, type AutoTask } from '../data/jobs';
-import type { Obstacle } from '../sim/state';
+import { newDepths, type Obstacle } from '../sim/state';
+import { HAZARD_KINDS, ROOM_KINDS } from '../data/depths';
 
 const resources = z.object({
   pulp: z.number(),
@@ -124,34 +125,35 @@ const battleLog = z.object({
   result: z.record(z.string(), z.unknown()),
 });
 
+const plannedWave = z.object({
+  id,
+  announceAt: z.number(),
+  at: z.number(),
+  announced: z.boolean(),
+  ground: z.number().min(0),
+  air: z.number().min(0),
+  squads: z
+    .array(
+      z.object({
+        kind: z.enum(ENEMY_KINDS),
+        sector: z.enum(SECTOR_IDS),
+        count: z
+          .number()
+          .int()
+          .min(0)
+          .max(BATTLE.maxGround + BATTLE.maxAir),
+      }),
+    )
+    .max(ENEMY_KINDS.length * SECTOR_IDS.length)
+    .optional(),
+  gates: z.object({ front: hexSchema, left: hexSchema, right: hexSchema }).partial().optional(),
+  origin: sectorId.optional(),
+  tunnel: hexSchema.optional(),
+});
+
 const threats = z.object({
   rng: z.tuple([z.number(), z.number(), z.number(), z.number()]),
-  next: z
-    .object({
-      id,
-      announceAt: z.number(),
-      at: z.number(),
-      announced: z.boolean(),
-      ground: z.number().min(0),
-      air: z.number().min(0),
-      squads: z
-        .array(
-          z.object({
-            kind: z.enum(ENEMY_KINDS),
-            sector: z.enum(SECTOR_IDS),
-            count: z
-              .number()
-              .int()
-              .min(0)
-              .max(BATTLE.maxGround + BATTLE.maxAir),
-          }),
-        )
-        .max(ENEMY_KINDS.length * SECTOR_IDS.length)
-        .optional(),
-      gates: z.object({ front: hexSchema, left: hexSchema, right: hexSchema }).partial().optional(),
-      origin: sectorId.optional(),
-    })
-    .nullable(),
+  next: plannedWave.nullable(),
   lastWaveAt: z.number().min(0),
   shieldUntil: z.number().min(0),
   shelterUntil: z.number().min(0),
@@ -512,6 +514,37 @@ export const gameStateSchema = z.object({
         .optional(),
     }),
   ),
+  depths: z.object({
+    views: z.record(
+      z.string().max(8),
+      z.object({
+        at: z.number(),
+        source: z.enum(['delve', 'retreat', 'lantern', 'edge']),
+        kind: z.enum(ROOM_KINDS).optional(),
+        units: z.array(alienUnit).max(16).optional(),
+        hazard: z
+          .object({ kind: z.enum(HAZARD_KINDS), strength: z.number().min(0).max(1) })
+          .nullable()
+          .optional(),
+      }),
+    ),
+    galleries: z.record(
+      z.string().max(8),
+      z.object({ kind: z.enum(ROOM_KINDS), since: z.number() }),
+    ),
+    door: z.object({
+      closed: z.boolean(),
+      fort: z.number().int().min(0).max(100),
+      fortifying: z
+        .object({ until: z.number(), level: z.number().int().min(0).max(100) })
+        .optional(),
+    }),
+    rng: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+    next: plannedWave.nullable(),
+    upwells: z.number().int().min(0),
+    lastUpwellAt: z.number().min(0),
+  }),
+  depthSeed: z.string().max(400).optional(),
   bestiary: z.record(
     z.enum(ENEMY_KINDS),
     z.object({
@@ -937,6 +970,12 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   36: (raw) => ({ ...raw, speech: { until: 0, readyAt: 0 } }),
   // v37 → v38 (chantier 44): the cabaret and the fireworks.
   37: (raw) => ({ ...raw, village: { cabaretOpen: true, fireworksNight: 0 } }),
+  // v38 → v39 (chantier 48): the depths, nothing seen yet (the hidden seed is drawn where the
+  // truth is held: `ensureDepths`).
+  38: (raw) => ({
+    ...raw,
+    depths: newDepths(String(raw.seed ?? ''), (raw.face ?? 'kiwisu') as Face),
+  }),
 };
 
 const OLD_MISSIONS = ['raid', 'recon', 'assault', 'reinforce', 'final', 'retreat'];

@@ -59,6 +59,7 @@ describe('ages', () => {
           'lab',
           'trainingCamp',
           'forge',
+          'tunnel',
           'campfire',
           'cabaret',
           'fireworks',

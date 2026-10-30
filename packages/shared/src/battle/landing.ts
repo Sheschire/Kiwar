@@ -3,7 +3,7 @@ import { CIV } from '../data/aliens';
 import { INTEL } from '../data/expeditions';
 import { ITEMS } from '../data/gear';
 import { LANDING, type LandingOrders } from '../data/landing';
-import { BATTLE, ENEMIES, KIWI_UNIT } from '../data/units';
+import { BATTLE, KIWI_UNIT, isFlyer } from '../data/units';
 import type { AlienBuilding, AlienUnit } from '../sim/civ';
 import { sectorOf } from '../sim/aliens';
 import type { GameState, Villager } from '../sim/state';
@@ -103,7 +103,7 @@ export function alienUnit(
 
 /** Unit counts within the caps: more power makes the aliens stronger, not more numerous. */
 export function capped(units: AlienUnit[]): { unit: AlienUnit; count: number; k: number }[] {
-  const flying = (u: AlienUnit) => ENEMIES[u.kind].body === 'bat';
+  const flying = (u: AlienUnit) => isFlyer(u.kind);
   const scale = (air: boolean) => {
     const total = units.filter((u) => flying(u) === air).reduce((s, u) => s + u.count, 0);
     const cap = air ? LANDING.maxAir : LANDING.maxGround;
@@ -221,7 +221,7 @@ export function landingSetup(
   const airPosts = posts(true);
   let n = 0;
   for (const { unit, count, k } of capped(input.units)) {
-    const air = ENEMIES[unit.kind].body === 'bat';
+    const air = isFlyer(unit.kind);
     const list = air ? airPosts : groundPosts;
     for (let i = 0; i < count; i++, n++)
       units.push(alienUnit(unit, k, `a${n}`, list[n % list.length]!, 0));

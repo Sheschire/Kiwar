@@ -64,6 +64,7 @@ import { deliveryOf } from '../sim/deliveries';
 import { ensureAliens, hiddenDue, publicState } from '../sim/aliens';
 import { resetSiege } from '../sim/siege';
 import { resetLandings } from '../sim/landing';
+import { ensureDepths, resetDepths } from '../sim/depths';
 import { generateFace, type FaceMap } from '../worldgen/generateFace';
 import type { Face, KiwiId, PlayerId, UniverseId } from '../types/ids';
 import { requestSchema, type ColonySummary, type GameResponse, type ServerError } from './protocol';
@@ -366,7 +367,9 @@ function withScopeTargets(
   if (isSister(state)) next.targets = [];
   if (state.aliens) next.aliens = cloneAliens(state.aliens);
   const changed = ensureAliens(next, ctx.randomSeed());
-  return { state: next, changed };
+  // Chantier 48: the hidden seed of the depths (migrated games).
+  const deep = ensureDepths(next, ctx.randomSeed());
+  return { state: next, changed: changed || deep };
 }
 
 function universeGame(ctx: ServiceContext, info: UniverseInfo, me: UniverseMember): GameState {
@@ -1076,6 +1079,10 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
       // Chantier 40: beacons and landings in flight cannot be checked either.
       resetLandings(imported);
       ensureAliens(imported, ctx.randomSeed());
+      // Chantier 48: nor what its depths hold.
+      delete imported.depthSeed;
+      resetDepths(imported);
+      ensureDepths(imported, ctx.randomSeed());
       const state = advance(imported, now).state;
       const saved = existing
         ? await repo.update(existing.id, state, existing.version)

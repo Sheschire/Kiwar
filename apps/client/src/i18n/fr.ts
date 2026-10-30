@@ -309,6 +309,10 @@ export const fr: Dict = {
       name: 'Mairie',
       desc: 'Le·la maire y siège et y prononce le Discours : toute la colonie s’y rassemble, puis garde le moral pendant des heures.',
     },
+    tunnel: {
+      name: 'Entrée de tunnel',
+      desc: 'Un puits creusé dans la chair verte : les descentes partent d’ici, les galeries s’ouvrent en dessous, et une porte retient ce qui remonte.',
+    },
     forge: {
       name: 'Forge',
       desc: 'Foyer, enclume et soufflet : les forgeron·nes y fabriquent armes et armures, de bois et de pierre, puis de fer météorique et d’acier.',
@@ -908,6 +912,7 @@ export const fr: Dict = {
     unknownItem: 'Pièce d’équipement inconnue.',
     noForge: 'Construis d’abord une Forge.',
     forgeExists: 'La colonie a déjà sa Forge.',
+    tunnelExists: 'La colonie a déjà son entrée de tunnel.',
     townHallExists: 'La colonie a déjà sa Mairie.',
     statueExists: 'La colonie a déjà sa statue du maire.',
     cabaretExists: 'La colonie a déjà son cabaret.',
@@ -1950,6 +1955,9 @@ export const fr: Dict = {
       brute: 'Furet brute',
       diver: 'Chauve-souris plongeuse',
       spitter: 'Chauve-souris cracheuse',
+      larva: 'Larve',
+      fruitFly: 'Mouche des fruits',
+      woodlouse: 'Cloporte',
       queen: 'La reine des furets',
     },
     weapons: {
@@ -1977,6 +1985,9 @@ export const fr: Dict = {
       bite: 'morsure',
       slam: 'coup de tête',
       royalSlam: 'balayage royal',
+      gnaw: 'mâchoires',
+      sting: 'piqûre',
+      shellRam: 'coup de carapace',
       dive: 'piqué',
       spit: 'crachat',
       seedShot: 'graines',
@@ -2315,6 +2326,8 @@ export const fr: Dict = {
     beauty: 'Beauté (tout le village)',
     eveningMorale: 'Moral d’une soirée sur place',
     showMorale: 'Moral du plus beau spectacle',
+    delveCrew: 'Kiwis par descente',
+    doorStrength: 'Solidité de la porte',
     perHour: '{value}/h',
     times: '×{value}',
     fullStaff: 'Avec toutes les places occupées, sur cette face.',
@@ -2344,6 +2357,7 @@ export const fr: Dict = {
     meteorStock: 'Météorites',
     meteorDrill: 'Foreuse à météorite',
     canals: 'Canaux de jus',
+    depths: 'Les Tréfonds',
     unlock: 'Ouvert',
     nothing: 'Ouvre l’âge suivant.',
   },
@@ -2395,6 +2409,10 @@ export const fr: Dict = {
     forge: {
       name: 'Forge',
       desc: 'Ouvre la Forge : armes et armures de bois et de pierre pour les kiwis.',
+    },
+    spelunking: {
+      name: 'Spéléologie',
+      desc: 'Ouvre l’entrée de tunnel : on descend dans la chair verte, sous la colonie.',
     },
     meteorDrill: {
       name: 'Foreuse à météorite',

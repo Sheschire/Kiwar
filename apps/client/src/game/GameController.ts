@@ -1,6 +1,7 @@
 import {
   awaitingServer,
   ensureAliens,
+  ensureDepths,
   localAlienSeed,
   publicState,
   advance,
@@ -399,7 +400,11 @@ export class GameController {
   private loadState(saved: GameState, preview = false): void {
     this.previewing = preview;
     // Local games hold their alien garrisons (online, only the server does: chantier 07).
-    if (!this.config) ensureAliens(saved, localAlienSeed(saved));
+    if (!this.config) {
+      ensureAliens(saved, localAlienSeed(saved));
+      // Chantier 48: and what their depths hold (the same seed as a new local game).
+      ensureDepths(saved, localAlienSeed(saved));
+    }
     this.map = faceMapOf(saved);
     const now = Math.max(this.now(), saved.now);
     // Online, the stored state dates from the last server write: the player may have watched

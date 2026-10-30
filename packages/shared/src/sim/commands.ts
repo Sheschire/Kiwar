@@ -382,6 +382,7 @@ export const COMMAND_ERRORS = [
   'unknownItem',
   'noForge',
   'forgeExists',
+  'tunnelExists',
   'townHallExists',
   'statueExists',
   'cabaretExists',

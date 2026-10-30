@@ -50,6 +50,8 @@ export const TECH_IDS = [
   'meteorDrill',
   // Chantier 38
   'forge',
+  // Chantier 48
+  'spelunking',
 ] as const;
 export type TechId = (typeof TECH_IDS)[number];
 
@@ -99,6 +101,8 @@ export interface TechEffects {
   forge?: boolean;
   /** Chantier 45: builders may dig juice canals. */
   canals?: boolean;
+  /** Chantier 48: opens the tunnel entrance and the depths. */
+  depths?: boolean;
 }
 
 export interface TechDef {
@@ -314,6 +318,15 @@ export const TECHS: Record<TechId, TechDef> = {
     cost: 250,
     libraryLevel: 2,
     effects: { forge: true },
+  },
+  // Chantier 48: the tunnel entrance and the depths (Iron age, cheap: first delve day 3–4).
+  spelunking: {
+    id: 'spelunking',
+    age: 2,
+    branch: 'exploration',
+    cost: 700,
+    libraryLevel: 4,
+    effects: { depths: true },
   },
 };
 

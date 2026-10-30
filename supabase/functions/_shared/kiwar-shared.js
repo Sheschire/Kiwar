@@ -439,6 +439,7 @@ var IRON = {
     monument: [0, 0, 20, 60],
     trainingCamp: [0, 0, 0, 6],
     forge: [0, 0, 0, 8],
+    tunnel: [0, 3, 6, 10],
     lab: [0, 0, 0, 0],
     camp: [0, 0]
   }
@@ -864,7 +865,8 @@ var BUILDING_TYPES = [
   "skipPond",
   "slide",
   "cabaret",
-  "fireworks"
+  "fireworks",
+  "tunnel"
 ];
 var FOOTPRINTS = {
   warehouse: 3,
@@ -1320,6 +1322,35 @@ var BASE = {
         workerSlots: 4,
         forgeQueue: 4,
         forging: 1.45
+      }
+    ]
+  },
+  // Chantier 48: the tunnel entrance into the depths (Iron age, technology `spelunking`). One
+  // per colony, on the green flesh; its levels carry more kiwis on a delve and a stronger door
+  // (`DEPTHS.crew`, `DEPTHS.door`).
+  tunnel: {
+    id: "tunnel",
+    allowedTiles: ["flesh"],
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 5e3, fiber: 6e3, seeds: 1200, juice: 1500 },
+        durationMs: ms.h(2),
+        requiresNestLevel: 7,
+        requiresAge: 2
+      },
+      {
+        cost: { pulp: 1e4, fiber: 12e3, seeds: 2400, juice: 3e3 },
+        durationMs: ms.h(4),
+        requiresNestLevel: 8,
+        requiresAge: 2
+      },
+      {
+        cost: { pulp: 18e3, fiber: 21e3, seeds: 4200, juice: 5200 },
+        durationMs: ms.h(6),
+        requiresNestLevel: 9,
+        requiresAge: 2
       }
     ]
   },
@@ -2673,7 +2704,9 @@ var TECH_IDS = [
   // Chantier 15
   "meteorDrill",
   // Chantier 38
-  "forge"
+  "forge",
+  // Chantier 48
+  "spelunking"
 ];
 var TECHS = {
   foraging: {
@@ -2871,6 +2904,15 @@ var TECHS = {
     cost: 250,
     libraryLevel: 2,
     effects: { forge: true }
+  },
+  // Chantier 48: the tunnel entrance and the depths (Iron age, cheap: first delve day 3–4).
+  spelunking: {
+    id: "spelunking",
+    age: 2,
+    branch: "exploration",
+    cost: 700,
+    libraryLevel: 4,
+    effects: { depths: true }
   }
 };
 var PASSAGE_TECHS = [
@@ -3310,7 +3352,11 @@ var ALIEN_GEAR = {
   scout: { weapon: "bow", armor: null },
   brute: { weapon: "mace", armor: "heavy" },
   diver: { weapon: null, armor: "light" },
-  spitter: { weapon: "staff", armor: null }
+  spitter: { weapon: "staff", armor: null },
+  // Chantier 48: the Grouillants carry no gear.
+  larva: { weapon: null, armor: null },
+  fruitFly: { weapon: null, armor: null },
+  woodlouse: { weapon: null, armor: null }
 };
 var ALIEN_MIX = {
   ground: { soldier: 0.6, scout: 0.15, brute: 0.25 },
@@ -3421,6 +3467,101 @@ var BEACONS = {
   maxGuards: 12,
   /** Reports kept per face. */
   reports: 5
+};
+
+// packages/shared/src/data/depths.ts
+var ROOM_KINDS = ["bundle", "sap", "nest", "scree", "raphides"];
+var HAZARD_KINDS = ["fall", "cuts"];
+var DEPTHS = {
+  /** Layers of the network (chantiers 50 and 52 add the locules, then the core). */
+  layers: ["flesh"],
+  /** Rooms of the flesh by depth (1, 2, 3): [min, max] each. */
+  rooms: [
+    [3, 4],
+    [4, 5],
+    [3, 5]
+  ],
+  /** Chance that two rooms side by side at the same depth are linked. */
+  sideLink: 0.4,
+  /** Chance that a room also links to its second nearest room above. */
+  secondLink: 0.35,
+  /** Draw weights of the room kinds, by depth (index 0 = depth 1). */
+  kindWeights: [
+    { bundle: 4, sap: 3, nest: 1, scree: 1.5, raphides: 0.5 },
+    { bundle: 3, sap: 3, nest: 2, scree: 1.5, raphides: 1 },
+    { bundle: 2, sap: 3, nest: 3, scree: 1.5, raphides: 1.5 }
+  ],
+  /** Grouillants of a room: power by depth (threat points, `ENEMIES.power`), × spread. */
+  power: [6, 10, 15],
+  spread: [0.75, 1.25],
+  /** A nest holds this many times more. */
+  nestPower: 1.6,
+  /** Share of each kind in a room's power. */
+  mix: { larva: 0.55, fruitFly: 0.25, woodlouse: 0.2 },
+  /** Level of the Grouillants by depth. */
+  level: [2, 4, 6],
+  /**
+   * Hazards: scree always falls, raphides always cut; any other room has this chance of one
+   * (drawn between the two). Strength = share of a kiwi's hit points lost by one hit, × spread.
+   */
+  hazard: {
+    otherChance: 0.3,
+    strength: [0.25, 0.32, 0.4],
+    /** Chance for each kiwi to be hit, before its stat. */
+    chance: 0.6,
+    /** Each point of the matching stat above 5 lowers the chance and the harm by this share. */
+    perStat: 0.05,
+    /** At most this much lowered by the stat. */
+    statCap: 0.6,
+    /** A hazard never takes a kiwi below this share of its hit points. */
+    floor: 0.2
+  },
+  /** Delves: one-way time by depth, and the XP of a room won (× `LANDING.victoryXp`). */
+  travelMs: [ms.h(1), ms.h(2), ms.h(3)],
+  /** Loot of a room won, by depth, then by kind (raw resource units). */
+  loot: [300, 550, 900],
+  lootKind: {
+    bundle: { fiber: 1, pulp: 0.3 },
+    sap: { juice: 1, pulp: 0.3 },
+    nest: { pulp: 1, fiber: 0.5, juice: 0.5 },
+    scree: { seeds: 0.6, pulp: 0.5 },
+    raphides: { seeds: 0.8, fiber: 0.3 }
+  },
+  /** Meteoric iron of a room won (whole units), by depth. */
+  iron: [1, 2, 3],
+  /** Galleries: what a taken room yields, places for miners by depth, rate per miner per hour. */
+  gallery: {
+    resource: {
+      bundle: "fiber",
+      sap: "juice",
+      nest: "pulp",
+      scree: "seeds",
+      raphides: "seeds"
+    },
+    slots: [2, 3, 3],
+    perMiner: [40, 55, 70]
+  },
+  /** The tunnel entrance's levels (index = level): most kiwis on a delve, door strength. */
+  crew: [0, 4, 6, 8],
+  door: [0, 8, 14, 20],
+  /** Fortifying the door: added strength per level, time, and cost (× a turret level's). */
+  fortify: { strength: 10, durationMs: ms.h(4), costFactor: 0.5 },
+  /** Upwellings: own calendar once the entrance stands. */
+  upwell: {
+    /** First one at least this long after the entrance is finished. */
+    firstMs: ms.h(24),
+    intervalMs: [ms.h(36), ms.h(60)],
+    noticeMs: ms.h(6),
+    /** Never this close to a surface wave's strike. */
+    gapMs: ms.h(6),
+    /** Power: base × the colony's age factor × (1 + perNest × untaken nests near our works). */
+    base: 6,
+    perNest: 0.35,
+    /** Spread of the announced numbers, and of the luck at the strike. */
+    spread: 0.15,
+    /** Share of fruit flies (air), the rest larvae and woodlice. */
+    airShare: 0.25
+  }
 };
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
@@ -3858,6 +3999,9 @@ var WEAPON_IDS = [
   "dive",
   "spit",
   "royalSlam",
+  "gnaw",
+  "sting",
+  "shellRam",
   "seedShot",
   "skyShot"
 ];
@@ -3994,6 +4138,11 @@ var WEAPONS = {
     hitsGround: true,
     hitsAir: false
   },
+  // Chantier 48: the Grouillants of the depths (larvae gnaw, fruit flies sting from the air,
+  // woodlice ram with their shell).
+  gnaw: melee(1.6, 1.1),
+  sting: { ...melee(1.4, 1, true), hitsGround: true },
+  shellRam: melee(4, 2),
   // Turrets: the damage of a shot is set from the turret's defense (`TURRET_SHOT`).
   seedShot: {
     damage: 1,
@@ -4014,7 +4163,22 @@ var WEAPONS = {
     hitsAir: true
   }
 };
-var ENEMY_KINDS = ["soldier", "scout", "brute", "diver", "spitter"];
+var ENEMY_KINDS = [
+  "soldier",
+  "scout",
+  "brute",
+  "diver",
+  "spitter",
+  // Chantier 48: the Grouillants, creatures of the depths (never in surface waves).
+  "larva",
+  "fruitFly",
+  "woodlouse"
+];
+var DEPTH_KINDS = [
+  "larva",
+  "fruitFly",
+  "woodlouse"
+];
 var ENEMIES = {
   soldier: {
     body: "ferret",
@@ -4080,8 +4244,51 @@ var ENEMIES = {
     carry: 0.4,
     fightsBack: false,
     huntsKiwis: true
+  },
+  larva: {
+    body: "grub",
+    hp: 9,
+    armor: 0,
+    speed: 0.6,
+    dodge: 0,
+    size: 1,
+    weapon: "gnaw",
+    power: 1,
+    carry: 1,
+    fightsBack: true,
+    huntsKiwis: false
+  },
+  fruitFly: {
+    body: "fly",
+    hp: 5,
+    armor: 0,
+    speed: 1.5,
+    dodge: 0.2,
+    size: 0,
+    weapon: "sting",
+    power: 0.9,
+    carry: 0.6,
+    fightsBack: true,
+    huntsKiwis: true
+  },
+  woodlouse: {
+    body: "louse",
+    hp: 24,
+    armor: 0.35,
+    speed: 0.5,
+    dodge: 0,
+    size: 2,
+    weapon: "shellRam",
+    power: 2.5,
+    carry: 0.5,
+    fightsBack: true,
+    huntsKiwis: false
   }
 };
+function isFlyer(kind) {
+  const body = ENEMIES[kind].body;
+  return body === "bat" || body === "fly";
+}
 var CLASS_WEAPONS = {
   none: "beak",
   builder: "mace",
@@ -4409,7 +4616,8 @@ function techEffects(state) {
     meteorStock: 1,
     meteorDrill: false,
     forge: false,
-    canals: false
+    canals: false,
+    depths: false
   };
   for (const id3 of state.research.done) {
     const e = TECHS[id3].effects;
@@ -4436,6 +4644,7 @@ function techEffects(state) {
     out.meteorDrill ||= e.meteorDrill ?? false;
     out.forge ||= e.forge ?? false;
     out.canals ||= e.canals ?? false;
+    out.depths ||= e.depths ?? false;
   }
   if (effectsCache2.size > 64) effectsCache2.clear();
   effectsCache2.set(key, out);
@@ -6746,6 +6955,7 @@ function newSister(home, f) {
     targets: []
   });
   delete s.aliens;
+  delete s.depthSeed;
   s.villagers = f.settlers.map((v) => ({ ...settle(v), id: nextId(s, "v") }));
   const cap = capacity(s);
   for (const id3 of RESOURCE_IDS) s.resources[id3] = Math.min(cap[id3], f.resources[id3]);
@@ -6940,7 +7150,7 @@ function queenSetup(state, crew, input) {
       power: input.ground * F.tunnels.share
     },
     1
-  ).filter((u) => ENEMIES[u.kind].body !== "bat");
+  ).filter((u) => !isFlyer(u.kind));
   j = 0;
   for (const { unit, count, k } of capped(elite))
     for (let i = 0; i < count; i++, j++, n++)
@@ -8568,7 +8778,7 @@ function squadScale(squads, threat) {
   const nominal = { ground: 0, air: 0 };
   for (const q of squads) {
     const p = ENEMIES[q.kind];
-    nominal[p.body === "bat" ? "air" : "ground"] += q.count * p.power;
+    nominal[isFlyer(q.kind) ? "air" : "ground"] += q.count * p.power;
   }
   return {
     ground: nominal.ground > 0 ? threat.ground / nominal.ground : 1,
@@ -8659,7 +8869,7 @@ function waveSetup(state, wave, threat, opts) {
     const inSector = squads.filter((q) => q.sector === sector);
     let j = 0;
     for (const q of inSector) {
-      const air = ENEMIES[q.kind].body === "bat";
+      const air = isFlyer(q.kind);
       const k = (air ? scale.air : scale.ground) * opts.luck;
       for (let c = 0; c < q.count; c++, j++) {
         const at = tiles[pack[j % pack.length].i];
@@ -8754,9 +8964,7 @@ function uncoveredGates(state, wave) {
   const out = [];
   for (const sector of SECTOR_IDS)
     for (const side of ["ground", "air"]) {
-      const comes = squads.some(
-        (q) => q.sector === sector && ENEMIES[q.kind].body === "bat" === (side === "air")
-      );
+      const comes = squads.some((q) => q.sector === sector && isFlyer(q.kind) === (side === "air"));
       if (!comes) continue;
       const type = side === "air" ? "skyTurret" : "seedTurret";
       const reached = state.buildings.some(
@@ -11699,8 +11907,8 @@ function enemyUnit(kind, k, ref, at, delay, sector, level) {
     armor: p.armor,
     speed: p.speed,
     dodge: p.dodge,
-    size: p.body === "bat" ? 0 : p.size,
-    flying: p.body === "bat",
+    size: isFlyer(kind) ? 0 : p.size,
+    flying: isFlyer(kind),
     fixed: false,
     weaponId: p.weapon,
     weapon: { ...weapon, damage: weapon.damage * s },
@@ -11805,7 +12013,7 @@ function alienUnit(u, k, ref, at, delay) {
   };
 }
 function capped(units) {
-  const flying = (u) => ENEMIES[u.kind].body === "bat";
+  const flying = (u) => isFlyer(u.kind);
   const scale = (air) => {
     const total = units.filter((u) => flying(u) === air).reduce((s, u) => s + u.count, 0);
     const cap = air ? LANDING.maxAir : LANDING.maxGround;
@@ -11885,7 +12093,7 @@ function landingSetup(state, crew, input) {
   const airPosts = posts(true);
   let n = 0;
   for (const { unit, count, k } of capped(input.units)) {
-    const air = ENEMIES[unit.kind].body === "bat";
+    const air = isFlyer(unit.kind);
     const list = air ? airPosts : groundPosts;
     for (let i = 0; i < count; i++, n++)
       units.push(alienUnit(unit, k, `a${n}`, list[n % list.length], 0));
@@ -12467,9 +12675,10 @@ function ensureAliens(state, seed) {
   return changed;
 }
 function publicState(state) {
-  if (!state.aliens) return state;
+  if (!state.aliens && state.depthSeed === void 0) return state;
   const copy = { ...state };
   delete copy.aliens;
+  delete copy.depthSeed;
   return copy;
 }
 function alienDefense(state, targetId, at) {
@@ -12562,7 +12771,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 38;
+var SCHEMA_VERSION = 39;
 var MISSION_KINDS = [
   "land",
   "raid",
@@ -12632,6 +12841,7 @@ function newGame(opts) {
     intel: {},
     faceViews: {},
     bestiary: {},
+    depths: newDepths(opts.seed, opts.face),
     expeditions: [],
     friends: [],
     shipments: [],
@@ -12668,7 +12878,44 @@ function newGame(opts) {
   state.aliens = Object.fromEntries(
     state.targets.map((t) => [t.id, drawGarrison(t, `${alienSeed}/${t.id}`, opts.now)])
   );
+  state.depthSeed = `${alienSeed}/depths`;
   return state;
+}
+function newDepths(seed, face) {
+  return {
+    views: {},
+    galleries: {},
+    door: { closed: false, fort: 0 },
+    rng: createRng(`${seed}/${face}/depths`).state(),
+    next: null,
+    upwells: 0,
+    lastUpwellAt: 0
+  };
+}
+function cloneDepths(d) {
+  return {
+    ...d,
+    views: Object.fromEntries(
+      Object.entries(d.views).map(([k, v]) => [
+        k,
+        {
+          ...v,
+          ...v.units ? { units: v.units.map((u) => ({ ...u })) } : {},
+          ...v.hazard ? { hazard: { ...v.hazard } } : {}
+        }
+      ])
+    ),
+    galleries: Object.fromEntries(Object.entries(d.galleries).map(([k, g]) => [k, { ...g }])),
+    door: { ...d.door, ...d.door.fortifying ? { fortifying: { ...d.door.fortifying } } : {} },
+    rng: [...d.rng],
+    next: d.next ? cloneWave(d.next) : null
+  };
+}
+function withDepthRng(state, fn) {
+  const rng = createRng(state.depths.rng);
+  const out = fn(rng);
+  state.depths.rng = rng.state();
+  return out;
 }
 function newColonyLink() {
   return { index: 0, founding: null, foundedAt: 0 };
@@ -12802,6 +13049,7 @@ function cloneState(state) {
     targets: state.targets.map((t) => ({ ...t })),
     victories: { ...state.victories },
     ...state.aliens ? { aliens: cloneAliens(state.aliens) } : {},
+    ...state.depthSeed ? { depthSeed: state.depthSeed } : {},
     intel: Object.fromEntries(Object.entries(state.intel).map(([k, i]) => [k, cloneIntel(i)])),
     paths: [...state.paths],
     deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
@@ -12861,6 +13109,7 @@ function cloneState(state) {
     bestiary: Object.fromEntries(
       Object.entries(state.bestiary).map(([k, b]) => [k, { ...b }])
     ),
+    depths: cloneDepths(state.depths),
     rng: [...state.rng]
   };
 }
@@ -12896,15 +13145,19 @@ function cloneIntel(i) {
     structures: i.structures.map((x) => ({ ...x }))
   };
 }
+function cloneWave(w) {
+  return {
+    ...w,
+    ...w.squads ? { squads: w.squads.map((q) => ({ ...q })) } : {},
+    ...w.gates ? { gates: { ...w.gates } } : {},
+    ...w.tunnel ? { tunnel: { ...w.tunnel } } : {}
+  };
+}
 function cloneThreats(t) {
   return {
     ...t,
     rng: [...t.rng],
-    next: t.next ? {
-      ...t.next,
-      ...t.next.squads ? { squads: t.next.squads.map((q) => ({ ...q })) } : {},
-      ...t.next.gates ? { gates: { ...t.next.gates } } : {}
-    } : null,
+    next: t.next ? cloneWave(t.next) : null,
     pins: { ...t.pins },
     reports: t.reports.map((r) => ({
       ...r,
@@ -13135,7 +13388,9 @@ var LEVEL_STATS = [
   "leisureRange",
   "beauty",
   "eveningMorale",
-  "showMorale"
+  "showMorale",
+  "delveCrew",
+  "doorStrength"
 ];
 function describeLevel(type, level, state) {
   const def = levelDef(type, level);
@@ -13179,6 +13434,10 @@ function describeLevel(type, level, state) {
     push("eveningMorale", CABARET.value);
   }
   if (type === "fireworks") push("showMorale", FIREWORKS.kiwiBird.value);
+  if (type === "tunnel") {
+    push("delveCrew", DEPTHS.crew[level]);
+    push("doorStrength", DEPTHS.door[level]);
+  }
   if (type === "townHall") {
     push("speechMemory", speechEffectMs(level) / 36e5);
     push("speechCooldown", speechCooldownMs(level) / 36e5);
@@ -13217,7 +13476,8 @@ var TECH_STATS = [
   "cometInterval",
   "meteorStock",
   "meteorDrill",
-  "canals"
+  "canals",
+  "depths"
 ];
 var MULTIPLIERS = [
   "storage",
@@ -13234,7 +13494,7 @@ var MULTIPLIERS = [
   "meteorStock"
 ];
 var BONUSES = ["armor", "recon", "infusionRisk", "waveNotice"];
-var UNLOCKS = ["firearms", "laboratory", "terraform", "meteorDrill", "canals"];
+var UNLOCKS = ["firearms", "laboratory", "terraform", "meteorDrill", "canals", "depths"];
 function describeTech(id3, state) {
   const now = techEffects(state);
   const done = state.research.done.includes(id3) ? state.research.done : [...state.research.done, id3];
@@ -13271,6 +13531,11 @@ function buildLock(state, type) {
   } else if (type === "forge") {
     if (copiesOf(state, "forge") > 0) return "forgeExists";
     if (!techEffects(state).forge) return "techMissing";
+    if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return "buildingLimit";
+  } else if (type === "tunnel") {
+    if (state.colony.index !== 0) return "notBuildable";
+    if (copiesOf(state, "tunnel") > 0) return "tunnelExists";
+    if (!techEffects(state).depths) return "techMissing";
     if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return "buildingLimit";
   } else if (type === "townHall") {
     if (copiesOf(state, "townHall") > 0) return "townHallExists";
@@ -13500,6 +13765,7 @@ var COMMAND_ERRORS = [
   "unknownItem",
   "noForge",
   "forgeExists",
+  "tunnelExists",
   "townHallExists",
   "statueExists",
   "cabaretExists",
@@ -14415,6 +14681,134 @@ function cleanKiwiName(raw) {
   const name = raw.replace(/\p{Cc}/gu, "").replace(/\s+/g, " ").trim();
   if (name.length === 0 || [...name].length > KIWI_NAME_MAX) return null;
   return name;
+}
+
+// packages/shared/src/sim/depths.ts
+var mapCache2 = /* @__PURE__ */ new Map();
+function depthsMapOf(state) {
+  const key = `${state.seed}/${state.face}`;
+  let map = mapCache2.get(key);
+  if (!map) {
+    map = generateDepths(key);
+    if (mapCache2.size > 16) mapCache2.clear();
+    mapCache2.set(key, map);
+  }
+  return map;
+}
+function generateDepths(key) {
+  const rng = createRng(`${key}/depths/map`);
+  const rooms = [];
+  const byDepth = [];
+  for (let d = 1; d <= DEPTHS.rooms.length; d++) {
+    const [lo, hi] = DEPTHS.rooms[d - 1];
+    const n = rng.int(lo, hi);
+    const row = [];
+    for (let i = 0; i < n; i++) {
+      const slot = 2 / n;
+      const x = round23(-1 + slot * (i + 0.5) + rng.range(-0.3, 0.3) * slot);
+      row.push({
+        id: `r${rooms.length + row.length}`,
+        depth: d,
+        x,
+        links: [],
+        entrance: d === 1
+      });
+    }
+    rooms.push(...row);
+    byDepth.push(row);
+  }
+  const link = (a, b) => {
+    if (a === b || a.links.includes(b.id)) return;
+    a.links.push(b.id);
+    b.links.push(a.id);
+  };
+  for (let d = 0; d < byDepth.length; d++) {
+    const row = byDepth[d];
+    for (let i = 0; i + 1 < row.length; i++)
+      if (rng.chance(DEPTHS.sideLink)) link(row[i], row[i + 1]);
+    if (d === 0) continue;
+    const above = byDepth[d - 1];
+    for (const r of row) {
+      const near = [...above].sort((a, b) => Math.abs(a.x - r.x) - Math.abs(b.x - r.x));
+      link(r, near[0]);
+      if (near[1] && rng.chance(DEPTHS.secondLink)) link(r, near[1]);
+    }
+  }
+  return { rooms, byId: new Map(rooms.map((r) => [r.id, r])) };
+}
+var truthCache = /* @__PURE__ */ new Map();
+function roomTruth(seed, room) {
+  const key = `${seed}/room/${room.id}`;
+  let t = truthCache.get(key);
+  if (!t) {
+    t = drawRoom(createRng(key), room.depth);
+    if (truthCache.size > 256) truthCache.clear();
+    truthCache.set(key, t);
+  }
+  return t;
+}
+function drawRoom(rng, depth) {
+  const kind = weighted(rng, DEPTHS.kindWeights[depth - 1]);
+  const power = DEPTHS.power[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1]) * (kind === "nest" ? DEPTHS.nestPower : 1);
+  const units = grouillants(power, DEPTHS.level[depth - 1]);
+  let hazard = null;
+  const forced = kind === "scree" ? "fall" : kind === "raphides" ? "cuts" : null;
+  const other = rng.chance(DEPTHS.hazard.otherChance) ? rng.pick(HAZARD_KINDS) : null;
+  const hk = forced ?? (kind === "nest" ? null : other);
+  if (hk)
+    hazard = {
+      kind: hk,
+      strength: round23(
+        DEPTHS.hazard.strength[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1])
+      )
+    };
+  const amount = DEPTHS.loot[depth - 1] * rng.range(0.8, 1.2);
+  const loot = {};
+  for (const [r, share2] of Object.entries(DEPTHS.lootKind[kind]))
+    loot[r] = Math.round(amount * share2);
+  return { kind, units, hazard, loot, iron: DEPTHS.iron[depth - 1] };
+}
+function grouillants(power, level) {
+  return DEPTH_KINDS.map((kind) => ({
+    kind,
+    count: Math.max(
+      kind === "larva" ? 1 : 0,
+      Math.round(power * DEPTHS.mix[kind] / ENEMIES[kind].power)
+    ),
+    level
+  })).filter((u) => u.count > 0);
+}
+function weighted(rng, weights) {
+  const keys = ROOM_KINDS.filter((k) => k in weights);
+  const total = keys.reduce((a, k) => a + weights[k], 0);
+  let x = rng.range(0, total);
+  for (const k of keys) {
+    x -= weights[k];
+    if (x < 0) return k;
+  }
+  return keys[keys.length - 1];
+}
+function round23(x) {
+  return Math.round(x * 100) / 100;
+}
+function localDepthsSeed(state) {
+  return `${localAlienSeed(state)}/depths`;
+}
+function ensureDepths(state, seed) {
+  if (state.colony.index !== 0 || state.depthSeed !== void 0) return false;
+  state.depthSeed = `${seed}/depths`;
+  return true;
+}
+function depthsKnown(state) {
+  return state.depthSeed !== void 0;
+}
+function resetDepths(s) {
+  s.depths = { ...s.depths, views: {}, galleries: {}, next: null };
+}
+function reachableRooms(state) {
+  const map = depthsMapOf(state);
+  const taken = state.depths.galleries;
+  return map.rooms.filter((r) => !taken[r.id] && (r.entrance || r.links.some((id3) => taken[id3])));
 }
 
 // node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
@@ -18519,25 +18913,27 @@ var battleLog = external_exports.object({
   events: external_exports.string().max(4e5),
   result: external_exports.record(external_exports.string(), external_exports.unknown())
 });
+var plannedWave = external_exports.object({
+  id,
+  announceAt: external_exports.number(),
+  at: external_exports.number(),
+  announced: external_exports.boolean(),
+  ground: external_exports.number().min(0),
+  air: external_exports.number().min(0),
+  squads: external_exports.array(
+    external_exports.object({
+      kind: external_exports.enum(ENEMY_KINDS),
+      sector: external_exports.enum(SECTOR_IDS),
+      count: external_exports.number().int().min(0).max(BATTLE.maxGround + BATTLE.maxAir)
+    })
+  ).max(ENEMY_KINDS.length * SECTOR_IDS.length).optional(),
+  gates: external_exports.object({ front: hexSchema, left: hexSchema, right: hexSchema }).partial().optional(),
+  origin: sectorId.optional(),
+  tunnel: hexSchema.optional()
+});
 var threats = external_exports.object({
   rng: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number(), external_exports.number()]),
-  next: external_exports.object({
-    id,
-    announceAt: external_exports.number(),
-    at: external_exports.number(),
-    announced: external_exports.boolean(),
-    ground: external_exports.number().min(0),
-    air: external_exports.number().min(0),
-    squads: external_exports.array(
-      external_exports.object({
-        kind: external_exports.enum(ENEMY_KINDS),
-        sector: external_exports.enum(SECTOR_IDS),
-        count: external_exports.number().int().min(0).max(BATTLE.maxGround + BATTLE.maxAir)
-      })
-    ).max(ENEMY_KINDS.length * SECTOR_IDS.length).optional(),
-    gates: external_exports.object({ front: hexSchema, left: hexSchema, right: hexSchema }).partial().optional(),
-    origin: sectorId.optional()
-  }).nullable(),
+  next: plannedWave.nullable(),
   lastWaveAt: external_exports.number().min(0),
   shieldUntil: external_exports.number().min(0),
   shelterUntil: external_exports.number().min(0),
@@ -18849,6 +19245,32 @@ var gameStateSchema = external_exports.object({
       ).max(BEACONS.reports).optional()
     })
   ),
+  depths: external_exports.object({
+    views: external_exports.record(
+      external_exports.string().max(8),
+      external_exports.object({
+        at: external_exports.number(),
+        source: external_exports.enum(["delve", "retreat", "lantern", "edge"]),
+        kind: external_exports.enum(ROOM_KINDS).optional(),
+        units: external_exports.array(alienUnit2).max(16).optional(),
+        hazard: external_exports.object({ kind: external_exports.enum(HAZARD_KINDS), strength: external_exports.number().min(0).max(1) }).nullable().optional()
+      })
+    ),
+    galleries: external_exports.record(
+      external_exports.string().max(8),
+      external_exports.object({ kind: external_exports.enum(ROOM_KINDS), since: external_exports.number() })
+    ),
+    door: external_exports.object({
+      closed: external_exports.boolean(),
+      fort: external_exports.number().int().min(0).max(100),
+      fortifying: external_exports.object({ until: external_exports.number(), level: external_exports.number().int().min(0).max(100) }).optional()
+    }),
+    rng: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number(), external_exports.number()]),
+    next: plannedWave.nullable(),
+    upwells: external_exports.number().int().min(0),
+    lastUpwellAt: external_exports.number().min(0)
+  }),
+  depthSeed: external_exports.string().max(400).optional(),
   bestiary: external_exports.record(
     external_exports.enum(ENEMY_KINDS),
     external_exports.object({
@@ -19217,7 +19639,13 @@ var MIGRATIONS = {
   // v36 → v37 (chantier 43): the Speech moves to the Town Hall (an old one ends normally).
   36: (raw) => ({ ...raw, speech: { until: 0, readyAt: 0 } }),
   // v37 → v38 (chantier 44): the cabaret and the fireworks.
-  37: (raw) => ({ ...raw, village: { cabaretOpen: true, fireworksNight: 0 } })
+  37: (raw) => ({ ...raw, village: { cabaretOpen: true, fireworksNight: 0 } }),
+  // v38 → v39 (chantier 48): the depths, nothing seen yet (the hidden seed is drawn where the
+  // truth is held: `ensureDepths`).
+  38: (raw) => ({
+    ...raw,
+    depths: newDepths(String(raw.seed ?? ""), raw.face ?? "kiwisu")
+  })
 };
 var OLD_MISSIONS = ["raid", "recon", "assault", "reinforce", "final", "retreat"];
 function migrateToLandings(raw) {
@@ -19638,14 +20066,14 @@ var RATE_LIMIT = { windowMs: 1e4, maxCommands: 40 };
 function mapFor(state) {
   return faceMapOf(state);
 }
-var mapCache2 = /* @__PURE__ */ new Map();
+var mapCache3 = /* @__PURE__ */ new Map();
 function baseMapFor(state) {
   const key = `${state.seed}/${state.face}/${state.params.radius}/${state.params.biome}`;
-  let map = mapCache2.get(key);
+  let map = mapCache3.get(key);
   if (!map) {
     map = generateFace(state.seed, state.face, state.params);
-    if (mapCache2.size > 64) mapCache2.clear();
-    mapCache2.set(key, map);
+    if (mapCache3.size > 64) mapCache3.clear();
+    mapCache3.set(key, map);
   }
   return map;
 }
@@ -19762,7 +20190,8 @@ function withScopeTargets(ctx, state, scope) {
   if (isSister(state)) next.targets = [];
   if (state.aliens) next.aliens = cloneAliens(state.aliens);
   const changed = ensureAliens(next, ctx.randomSeed());
-  return { state: next, changed };
+  const deep = ensureDepths(next, ctx.randomSeed());
+  return { state: next, changed: changed || deep };
 }
 function universeGame(ctx, info, me) {
   return newGame({
@@ -20295,6 +20724,9 @@ async function handle(ctx, body) {
       resetSiege(imported);
       resetLandings(imported);
       ensureAliens(imported, ctx.randomSeed());
+      delete imported.depthSeed;
+      resetDepths(imported);
+      ensureDepths(imported, ctx.randomSeed());
       const state = advance(imported, now).state;
       const saved = existing ? await repo.update(existing.id, state, existing.version) : await repo.create(ctx.userId, soloId(ctx), state);
       return saved ? reply(ctx, saved.state) : fail2("conflict");
@@ -20598,6 +21030,8 @@ export {
   DEFAULT_FACE_PARAMS,
   DEMOLITION,
   DEPOSITS,
+  DEPTHS,
+  DEPTH_KINDS,
   ENEMIES,
   ENEMY_KINDS,
   EV,
@@ -20619,6 +21053,7 @@ export {
   GUARD_ORDERS,
   HARVESTS,
   HATCHING,
+  HAZARD_KINDS,
   HEART,
   HEX_DIRECTIONS,
   HOUR_MS2 as HOUR_MS,
@@ -20675,6 +21110,7 @@ export {
   RESOURCE_IDS,
   RESOURCE_MASTERY,
   REST,
+  ROOM_KINDS,
   SCHEMA_VERSION,
   SCHOOL,
   SEASONS,
@@ -20850,6 +21286,7 @@ export {
   cloneAliens,
   cloneCiv,
   cloneColonyLink,
+  cloneDepths,
   cloneFaceView,
   cloneIntel,
   cloneParcelView,
@@ -20857,6 +21294,7 @@ export {
   cloneState,
   cloneThreats,
   cloneVillager,
+  cloneWave,
   collectReserve,
   colonyBonus,
   colonyMood,
@@ -20902,6 +21340,8 @@ export {
   depletedTiles,
   depotDistance,
   depotDistances,
+  depthsKnown,
+  depthsMapOf,
   describeLevel,
   describeTech,
   describeUpgrade,
@@ -20926,6 +21366,7 @@ export {
   encodeInts,
   enemyUnit,
   ensureAliens,
+  ensureDepths,
   equip,
   equipGear,
   escalation,
@@ -20981,6 +21422,7 @@ export {
   gathered,
   gearEffect,
   gearTierOf,
+  generateDepths,
   generateFace,
   generateObstacles,
   generateTraces,
@@ -20990,6 +21432,7 @@ export {
   giveSpeech,
   grantClassXp,
   grantXp,
+  grouillants,
   growthOfHours,
   guardLock,
   guardPower,
@@ -21038,6 +21481,7 @@ export {
   isDepot,
   isFace,
   isFlooded,
+  isFlyer,
   isInner,
   isInviteCode,
   isKikiwiwi,
@@ -21098,6 +21542,7 @@ export {
   liveCiv,
   liveFaceView,
   localAlienSeed,
+  localDepthsSeed,
   logisticsEfficiency,
   lootByAge,
   lossShare,
@@ -21134,6 +21579,7 @@ export {
   newCiv,
   newColonyLink,
   newComets,
+  newDepths,
   newGame,
   newKiwi,
   newSiege,
@@ -21224,6 +21670,7 @@ export {
   rampartSectors,
   rankOf,
   rations,
+  reachableRooms,
   rebaseFreeDeposits,
   receiveResearch,
   reconForecast,
@@ -21256,6 +21703,7 @@ export {
   reserveOf,
   reserveTarget,
   reserves,
+  resetDepths,
   resetLandings,
   resetSiege,
   resolveArrival,
@@ -21267,6 +21715,7 @@ export {
   returnHome,
   rollKiwi,
   rollShiny,
+  roomTruth,
   rotationsOf,
   royalSector,
   scaleCost,
@@ -21390,6 +21839,7 @@ export {
   weakestWorker,
   wealthFactor,
   wearLock,
+  withDepthRng,
   withRng,
   withThreatRng,
   workSite,

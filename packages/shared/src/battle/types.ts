@@ -1,6 +1,6 @@
 import type { Hex } from '../hex/hex';
 import type { ClassId } from '../data/classes';
-import type { Posture, Weapon, WeaponId } from '../data/units';
+import type { EnemyBody, Posture, Weapon, WeaponId } from '../data/units';
 import type { SectorId } from '../data/threats';
 
 /**
@@ -12,7 +12,7 @@ import type { SectorId } from '../data/threats';
 export type BattleSide = 0 | 1;
 
 /** Chantier 42: `queen`, the giant ferret queen of the twin face. */
-export type UnitBody = 'kiwi' | 'kikiwiwi' | 'ferret' | 'bat' | 'turret' | 'queen';
+export type UnitBody = 'kiwi' | 'kikiwiwi' | 'turret' | 'queen' | EnemyBody;
 
 /**
  * What a unit does in the battle (its AI). Chantier 40: `assault` is a kiwi of a landing crew

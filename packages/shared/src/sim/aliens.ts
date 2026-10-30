@@ -101,11 +101,12 @@ export function ensureAliens(state: GameState, seed: string): boolean {
   return changed;
 }
 
-/** The state as the client may see it: without the real garrisons. */
+/** The state as the client may see it: without the real garrisons nor the depths' seed. */
 export function publicState(state: GameState): GameState {
-  if (!state.aliens) return state;
+  if (!state.aliens && state.depthSeed === undefined) return state;
   const copy = { ...state };
   delete copy.aliens;
+  delete copy.depthSeed;
   return copy;
 }
 

@@ -58,6 +58,7 @@ export interface Effects {
   meteorDrill: boolean;
   forge: boolean;
   canals: boolean;
+  depths: boolean;
 }
 
 const effectsCache = new Map<string, Effects>();
@@ -91,6 +92,7 @@ export function techEffects(state: GameState): Effects {
     meteorDrill: false,
     forge: false,
     canals: false,
+    depths: false,
   };
   for (const id of state.research.done) {
     const e: TechEffects = TECHS[id].effects;
@@ -117,6 +119,7 @@ export function techEffects(state: GameState): Effects {
     out.meteorDrill ||= e.meteorDrill ?? false;
     out.forge ||= e.forge ?? false;
     out.canals ||= e.canals ?? false;
+    out.depths ||= e.depths ?? false;
   }
   if (effectsCache.size > 64) effectsCache.clear();
   effectsCache.set(key, out);

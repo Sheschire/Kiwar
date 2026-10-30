@@ -1,3 +1,4 @@
+import { DEPTHS } from '../data/depths';
 import {
   BEAUTY,
   CABARET,
@@ -75,6 +76,8 @@ export const LEVEL_STATS = [
   'beauty',
   'eveningMorale',
   'showMorale',
+  'delveCrew',
+  'doorStrength',
 ] as const;
 export type LevelStatId = (typeof LEVEL_STATS)[number];
 
@@ -141,6 +144,11 @@ export function describeLevel(type: BuildingType, level: number, state?: GameSta
     push('eveningMorale', CABARET.value);
   }
   if (type === 'fireworks') push('showMorale', FIREWORKS.kiwiBird.value);
+  // Chantier 48: kiwis on a delve, strength of the door against upwellings.
+  if (type === 'tunnel') {
+    push('delveCrew', DEPTHS.crew[level]);
+    push('doorStrength', DEPTHS.door[level]);
+  }
   if (type === 'townHall') {
     push('speechMemory', speechEffectMs(level) / 3_600_000);
     push('speechCooldown', speechCooldownMs(level) / 3_600_000);
@@ -190,6 +198,7 @@ export const TECH_STATS = [
   'meteorStock',
   'meteorDrill',
   'canals',
+  'depths',
 ] as const;
 export type TechStatId = (typeof TECH_STATS)[number];
 
@@ -217,7 +226,7 @@ const MULTIPLIERS = [
   'meteorStock',
 ] as const;
 const BONUSES = ['armor', 'recon', 'infusionRisk', 'waveNotice'] as const;
-const UNLOCKS = ['firearms', 'laboratory', 'terraform', 'meteorDrill', 'canals'] as const;
+const UNLOCKS = ['firearms', 'laboratory', 'terraform', 'meteorDrill', 'canals', 'depths'] as const;
 
 /** What researching `id` changes for this colony: its current effects, then with the tech. */
 export function describeTech(id: TechId, state: GameState): TechChange[] {
@@ -263,6 +272,12 @@ export function buildLock(state: GameState, type: BuildingType): CommandError | 
   } else if (type === 'forge') {
     if (copiesOf(state, 'forge') > 0) return 'forgeExists';
     if (!techEffects(state).forge) return 'techMissing';
+    if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return 'buildingLimit';
+  } else if (type === 'tunnel') {
+    // Chantier 48: one tunnel entrance, once spelunking is known; a sister's depths come later.
+    if (state.colony.index !== 0) return 'notBuildable';
+    if (copiesOf(state, 'tunnel') > 0) return 'tunnelExists';
+    if (!techEffects(state).depths) return 'techMissing';
     if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return 'buildingLimit';
   } else if (type === 'townHall') {
     if (copiesOf(state, 'townHall') > 0) return 'townHallExists';

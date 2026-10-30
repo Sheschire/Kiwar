@@ -291,6 +291,10 @@ export const en = {
       name: 'Town Hall',
       desc: 'The mayor sits here and gives the Speech: the whole colony gathers, then keeps its spirits up for hours.',
     },
+    tunnel: {
+      name: 'Tunnel entrance',
+      desc: 'A shaft dug into the green flesh: delves start here, galleries open below, and a door holds back what comes up.',
+    },
     forge: {
       name: 'Forge',
       desc: 'Hearth, anvil and bellows: smiths make weapons and armours here, of wood and stone, then of meteoric iron and steel.',
@@ -838,6 +842,7 @@ export const en = {
     unknownItem: 'Unknown piece of gear.',
     noForge: 'Build a Forge first.',
     forgeExists: 'The colony already has its Forge.',
+    tunnelExists: 'The colony already has its tunnel entrance.',
     townHallExists: 'The colony already has its Town Hall.',
     statueExists: 'The colony already has its mayor’s statue.',
     cabaretExists: 'The colony already has its cabaret.',
@@ -1869,6 +1874,9 @@ export const en = {
       brute: 'Ferret brute',
       diver: 'Diving bat',
       spitter: 'Spitting bat',
+      larva: 'Larva',
+      fruitFly: 'Fruit fly',
+      woodlouse: 'Woodlouse',
       queen: 'The ferret queen',
     },
     weapons: {
@@ -1896,6 +1904,9 @@ export const en = {
       bite: 'bite',
       slam: 'slam',
       royalSlam: 'royal sweep',
+      gnaw: 'gnaw',
+      sting: 'sting',
+      shellRam: 'shell ram',
       dive: 'dive',
       spit: 'spit',
       seedShot: 'seeds',
@@ -2229,6 +2240,8 @@ export const en = {
     beauty: 'Beauty (whole village)',
     eveningMorale: 'Morale of an evening there',
     showMorale: 'Morale of the finest show',
+    delveCrew: 'Kiwis on a delve',
+    doorStrength: 'Door strength',
     perHour: '{value}/h',
     times: '×{value}',
     fullStaff: 'With every worker, on this face.',
@@ -2258,6 +2271,7 @@ export const en = {
     meteorStock: 'Meteorites',
     meteorDrill: 'Meteorite drill',
     canals: 'Juice canals',
+    depths: 'The depths',
     unlock: 'Opened',
     nothing: 'Opens the next age.',
   },
@@ -2300,6 +2314,10 @@ export const en = {
     forge: {
       name: 'Forge',
       desc: 'Opens the Forge: wood and stone weapons and armours for the kiwis.',
+    },
+    spelunking: {
+      name: 'Spelunking',
+      desc: 'Opens the tunnel entrance: delve into the green flesh under the colony.',
     },
     meteorDrill: {
       name: 'Meteorite drill',
