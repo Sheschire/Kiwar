@@ -371,6 +371,13 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
     return site ? { type: 'build', buildingType: type, ...site } : null;
   };
 
+  // Chantier 50: a locule tree whenever the giant seeds pay for it (paid mostly in giant
+  // seeds: no other saving waits for them).
+  if (play.depths) {
+    const tree = treeDecision(state, build);
+    if (tree) return [...cmds, tree];
+  }
+
   // 0. Chantier 30: the monument as soon as its passage is known (it saves up for it).
   const monument = monumentDecision(state, map, build);
   if (monument === 'save') return cmds;
@@ -415,12 +422,6 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
   if (play.village) {
     const village = villageDecision(state, map, build, has);
     if (village) return [...cmds, village];
-  }
-
-  // Chantier 50: a locule tree whenever the giant seeds pay for it.
-  if (play.depths) {
-    const tree = treeDecision(state, build);
-    if (tree) return [...cmds, tree];
   }
 
   // 2c. Research and ages (chantier 08): Library, researchers, technologies, the monument.

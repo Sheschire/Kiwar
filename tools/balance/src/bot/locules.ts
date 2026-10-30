@@ -1,5 +1,7 @@
 import {
+  buildCost,
   buildLock,
+  canAfford,
   CRYSTAL,
   crystalOf,
   giantSeedCap,
@@ -39,6 +41,7 @@ export function treeDecision(
 ): Command | null {
   if (state.giantSeeds < treeSeedCost(state, 'loculeTree')) return null;
   if (buildLock(state, 'loculeTree')) return null;
+  if (!canAfford(state.resources, buildCost(state, 'loculeTree'))) return null;
   return build('loculeTree');
 }
 
