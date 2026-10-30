@@ -5,7 +5,10 @@ import {
   ageOf,
   applyCommand,
   BUILDINGS,
+  CRYSTAL,
   CRYSTAL_SCALE,
+  GIANT_SEEDS,
+  IRON,
   crystalOf,
   levelDef,
   MAX_AGE,
@@ -164,6 +167,11 @@ describe('the Age of the stars (chantier 51)', () => {
         expect(def.giantSeeds ?? 0).toBeLessThanOrEqual(8);
       }
     expect(BUILDINGS.monument.levels).toHaveLength(4);
+    // The monument of the stars fits the stocks of the Nest it asks, in the Industry age.
+    const mon = levelDef('monument', 4)!;
+    expect(mon.crystal!).toBeLessThanOrEqual(CRYSTAL.cap[mon.requiresNestLevel]!);
+    expect(mon.iron!).toBeLessThanOrEqual(IRON.cap[mon.requiresNestLevel]!);
+    expect(mon.giantSeeds!).toBeLessThanOrEqual(GIANT_SEEDS.cap[3]!);
   });
 
   it('migrates a v40 save', () => {

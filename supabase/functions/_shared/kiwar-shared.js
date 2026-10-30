@@ -482,7 +482,7 @@ var CRYSTAL = {
   /** Chantier 51: crystal paid by building levels 13+ (index = level), like the iron at 7+. */
   levels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 45, 60],
   /** Crystal of the levels with their own number (index = level). */
-  own: { monument: [0, 0, 0, 0, 120] }
+  own: { monument: [0, 0, 0, 0, 90] }
 };
 var CRYSTAL_SCALE = 1e3 * 36e5;
 function crystalUnits(raw) {
@@ -1424,7 +1424,8 @@ var BASE = {
       {
         cost: { pulp: 12e4, fiber: 12e4, seeds: 25e3, juice: 4e4 },
         durationMs: ms.h(24),
-        requiresNestLevel: 12,
+        // The Nest 10 (not 12): the Industry's last levels come after day 21 (bot).
+        requiresNestLevel: 10,
         stardust: 40
       }
     ]
@@ -3159,8 +3160,10 @@ var TECHS = {
     id: "starsAge",
     age: 3,
     branch: "passage",
-    cost: 3e4,
-    libraryLevel: 11,
+    // Measured: levels 11–12 come late (Nest 11 on days 21–27 for the bot): the passage asks the
+    // Library 10 and fills the research left idle after the Industry's techs (~day 14).
+    cost: 5e4,
+    libraryLevel: 10,
     crystal: 40,
     effects: {}
   },

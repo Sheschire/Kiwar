@@ -380,8 +380,10 @@ export const TECHS: Record<TechId, TechDef> = {
     id: 'starsAge',
     age: 3,
     branch: 'passage',
-    cost: 30000,
-    libraryLevel: 11,
+    // Measured: levels 11–12 come late (Nest 11 on days 21–27 for the bot): the passage asks the
+    // Library 10 and fills the research left idle after the Industry's techs (~day 14).
+    cost: 50000,
+    libraryLevel: 10,
     crystal: 40,
     effects: {},
   },

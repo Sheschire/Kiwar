@@ -463,7 +463,8 @@ const BASE: Record<BuildingType, BuildingDef> = {
       {
         cost: { pulp: 120000, fiber: 120000, seeds: 25000, juice: 40000 },
         durationMs: ms.h(24),
-        requiresNestLevel: 12,
+        // The Nest 10 (not 12): the Industry's last levels come after day 21 (bot).
+        requiresNestLevel: 10,
         stardust: 40,
       },
     ],

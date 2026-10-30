@@ -21,7 +21,7 @@ export const CRYSTAL = {
   /** Chantier 51: crystal paid by building levels 13+ (index = level), like the iron at 7+. */
   levels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 45, 60] as readonly number[],
   /** Crystal of the levels with their own number (index = level). */
-  own: { monument: [0, 0, 0, 0, 120] } as Partial<Record<string, readonly number[]>>,
+  own: { monument: [0, 0, 0, 0, 90] } as Partial<Record<string, readonly number[]>>,
 } as const;
 
 /** Raw crystal units per unit (a gallery's rate is `1000 × perHour × work` raw units per ms). */
