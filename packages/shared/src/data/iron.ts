@@ -8,8 +8,10 @@ import { ms } from './curves';
  * turrets of level 3+ and a few technologies.
  */
 export const IRON = {
-  /** Stock cap (units) by Nest level (index 0–12). */
-  cap: [20, 20, 30, 40, 60, 90, 120, 160, 220, 300, 400, 500, 600] as readonly number[],
+  /** Stock cap (units) by Nest level (index 0–15). */
+  cap: [
+    20, 20, 30, 40, 60, 90, 120, 160, 220, 300, 400, 500, 600, 700, 800, 900,
+  ] as readonly number[],
   /** Iron in a crater (units), × `METEORS.ageFactor` and the `starIron` technology. */
   crater: 12,
   /** An average kiwi digs this many units per hour (× the crater's usual multipliers). */
@@ -24,9 +26,9 @@ export const IRON = {
    * Iron paid by building levels 7+ (index = level; turrets and the monument have their own).
    * The launchpad's levels 7+ pay the iron hull, then the jet, of the ship generations.
    */
-  levels: [0, 0, 0, 0, 0, 0, 0, 4, 6, 9, 14, 20, 28] as readonly number[],
+  levels: [0, 0, 0, 0, 0, 0, 0, 4, 6, 9, 14, 20, 28, 34, 40, 48] as readonly number[],
   /** Iron paid by turret levels 3+ (index = level). */
-  turret: [0, 0, 0, 2, 2, 3, 3, 4, 5, 6, 8, 10, 12] as readonly number[],
+  turret: [0, 0, 0, 2, 2, 3, 3, 4, 5, 6, 8, 10, 12, 14, 16, 18] as readonly number[],
   /** Iron of the levels with their own number (the monument's ages, the Iron levels of the
    * camp and the Forge; index = level). */
   own: {

@@ -34,5 +34,5 @@ export type AutoTask = (typeof AUTO_TASKS)[number];
 
 export const TASKS = {
   /** Constructions under way at once, by Nest level (index = level). */
-  buildSlots: [0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3] as readonly number[],
+  buildSlots: [0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4] as readonly number[],
 } as const;

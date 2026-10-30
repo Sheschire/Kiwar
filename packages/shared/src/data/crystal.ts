@@ -7,8 +7,8 @@
  * Every number here is a hypothesis, checked with the balance bot.
  */
 export const CRYSTAL = {
-  /** Stock cap (units) by Nest level (index 0–12). */
-  cap: [40, 40, 40, 40, 40, 40, 40, 60, 80, 100, 150, 200, 260] as readonly number[],
+  /** Stock cap (units) by Nest level (index 0–15). */
+  cap: [40, 40, 40, 40, 40, 40, 40, 60, 80, 100, 150, 200, 260, 320, 380, 450] as readonly number[],
   /** An average miner cuts this many units per hour in a raphide forest. */
   perHour: 0.5,
   /** A lens fitted on a turret (technology `glass`): its crystal, and the range it adds. */

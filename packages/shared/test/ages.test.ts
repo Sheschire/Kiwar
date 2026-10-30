@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_LEVEL,
   advance,
   ageOf,
   applyCommand,
@@ -47,7 +48,7 @@ const errorOf = (s: GameState, cmd: Command, map: ReturnType<typeof setup>['map'
 };
 
 describe('ages', () => {
-  it('extends every building but camps and the monument to twelve levels, three per age', () => {
+  it('extends every building but camps and the monument to the last level, three per age', () => {
     for (const type of BUILDING_TYPES) {
       // Chantier 37: the training camp has its own three levels (Stone, Stone, Iron), like the lab
       // and the Forge (chantier 38); the campfire (chantier 43) and the decorations and games
@@ -67,8 +68,8 @@ describe('ages', () => {
       )
         continue;
       if (isVillageLife(type)) continue;
-      expect(maxLevelOf(type)).toBe(12);
-      for (let level = 4; level <= 12; level++) {
+      expect(maxLevelOf(type)).toBe(MAX_LEVEL);
+      for (let level = 4; level <= MAX_LEVEL; level++) {
         const def = levelDef(type, level)!;
         expect(def.requiresAge).toBe(Math.floor((level - 1) / 3));
         expect(def.requiresNestLevel).toBe(type === 'nest' ? level - 1 : level);

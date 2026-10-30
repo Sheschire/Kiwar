@@ -414,8 +414,25 @@ function climateOf(face, biome) {
 
 // packages/shared/src/data/iron.ts
 var IRON = {
-  /** Stock cap (units) by Nest level (index 0–12). */
-  cap: [20, 20, 30, 40, 60, 90, 120, 160, 220, 300, 400, 500, 600],
+  /** Stock cap (units) by Nest level (index 0–15). */
+  cap: [
+    20,
+    20,
+    30,
+    40,
+    60,
+    90,
+    120,
+    160,
+    220,
+    300,
+    400,
+    500,
+    600,
+    700,
+    800,
+    900
+  ],
   /** Iron in a crater (units), × `METEORS.ageFactor` and the `starIron` technology. */
   crater: 12,
   /** An average kiwi digs this many units per hour (× the crater's usual multipliers). */
@@ -430,9 +447,9 @@ var IRON = {
    * Iron paid by building levels 7+ (index = level; turrets and the monument have their own).
    * The launchpad's levels 7+ pay the iron hull, then the jet, of the ship generations.
    */
-  levels: [0, 0, 0, 0, 0, 0, 0, 4, 6, 9, 14, 20, 28],
+  levels: [0, 0, 0, 0, 0, 0, 0, 4, 6, 9, 14, 20, 28, 34, 40, 48],
   /** Iron paid by turret levels 3+ (index = level). */
-  turret: [0, 0, 0, 2, 2, 3, 3, 4, 5, 6, 8, 10, 12],
+  turret: [0, 0, 0, 2, 2, 3, 3, 4, 5, 6, 8, 10, 12, 14, 16, 18],
   /** Iron of the levels with their own number (the monument's ages, the Iron levels of the
    * camp and the Forge; index = level). */
   own: {
@@ -468,7 +485,7 @@ var HARVESTS = {
   seedQuarry: "seedRing",
   juiceWell: "juice"
 };
-var CATCHMENT_RADIUS = [1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3];
+var CATCHMENT_RADIUS = [1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3];
 var FIBER_REACH = { fromLevel: 5, bonus: 1 };
 var LOGISTICS = {
   cycleS: 30,
@@ -902,7 +919,7 @@ function footprintOf(type) {
 var LAND_NO_HEART = ["flesh", "ray", "seedRing"];
 var LAND = [...LAND_NO_HEART, "heart"];
 var DECOR_TILES = [...LAND, "skin"];
-var MAX_LEVEL = 12;
+var MAX_LEVEL = 15;
 var BASE = {
   nest: {
     id: "nest",
@@ -2509,7 +2526,24 @@ var THREATS = {
    */
   basePower: 6,
   // Chantier 31: lower at Nest 2–5, the waves now come in the first day (L1 turrets reach 3 tiles).
-  nestFactor: [0, 0.5, 0.7, 1, 1.5, 1.9, 2.3, 2.6, 2.9, 3.2, 3.5, 3.8, 4.1],
+  nestFactor: [
+    0,
+    0.5,
+    0.7,
+    1,
+    1.5,
+    1.9,
+    2.3,
+    2.6,
+    2.9,
+    3.2,
+    3.5,
+    3.8,
+    4.1,
+    4.4,
+    4.7,
+    5
+  ],
   /** Chantier 08: the predators grow with the age of the colony (index = age). */
   ageFactor: [1, 1.15, 1.3, 1.5],
   /** Power gained per day of play, up to `maxDays` (softened in chantier 31; chantier 39
@@ -2593,11 +2627,11 @@ var SECTORS = {
   /** Share of what breaks through a sector that turns to the least defended flank instead. */
   overflow: 0.5,
   /** Range of the turrets in tiles (index = level); sky turrets reach one tile further. */
-  range: [0, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+  range: [0, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
   skyRangeBonus: 1
 };
 var TURRETS2 = {
-  max: [0, 2, 4, 6, 7, 7, 8, 8, 8, 9, 9, 9, 9]
+  max: [0, 2, 4, 6, 7, 7, 8, 8, 8, 9, 9, 9, 9, 10, 10, 10]
 };
 var GARRISON = {
   /** Defense of a posted kiwi: its fighting strength × this × its class affinity. */
@@ -2670,7 +2704,24 @@ var METEORS = {
   lifeMs: ms.h(48),
   /** Stock: base × Nest level factor × (1 + perDay × days played, capped like the threats). */
   stock: 300,
-  nestFactor: [0, 1, 1.5, 2.2, 3, 3.25, 3.5, 3.8, 4.05, 4.3, 4.6, 4.85, 5.1],
+  nestFactor: [
+    0,
+    1,
+    1.5,
+    2.2,
+    3,
+    3.25,
+    3.5,
+    3.8,
+    4.05,
+    4.3,
+    4.6,
+    4.85,
+    5.1,
+    5.4,
+    5.7,
+    6
+  ],
   /** Chantier 08: richer gifts in later ages (index = age). */
   ageFactor: [1, 1.3, 1.7, 2.2],
   perDay: 0.15,
@@ -2992,7 +3043,23 @@ var RESEARCH = {
   /** Research bonus per point of Spirit above average (+6 %). */
   spirit: 0.06,
   /** Bank when no technology is chosen: points kept by Library level (index = level − 1). */
-  bank: [100, 200, 400, 800, 1e3, 1200, 1500, 1800, 2100, 2500, 2800, 3100]
+  bank: [
+    100,
+    200,
+    400,
+    800,
+    1e3,
+    1200,
+    1500,
+    1800,
+    2100,
+    2500,
+    2800,
+    3100,
+    3500,
+    3900,
+    4400
+  ]
 };
 var RESEARCH_SCALE = 100 * 36e5;
 
@@ -3321,7 +3388,7 @@ var AUTO_TASKS = [
 ];
 var TASKS = {
   /** Constructions under way at once, by Nest level (index = level). */
-  buildSlots: [0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3]
+  buildSlots: [0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4]
 };
 
 // packages/shared/src/data/siege.ts
@@ -3710,8 +3777,8 @@ var DEPTHS = {
 
 // packages/shared/src/data/crystal.ts
 var CRYSTAL = {
-  /** Stock cap (units) by Nest level (index 0–12). */
-  cap: [40, 40, 40, 40, 40, 40, 40, 60, 80, 100, 150, 200, 260],
+  /** Stock cap (units) by Nest level (index 0–15). */
+  cap: [40, 40, 40, 40, 40, 40, 40, 60, 80, 100, 150, 200, 260, 320, 380, 450],
   /** An average miner cuts this many units per hour in a raphide forest. */
   perHour: 0.5,
   /** A lens fitted on a turret (technology `glass`): its crystal, and the range it adds. */

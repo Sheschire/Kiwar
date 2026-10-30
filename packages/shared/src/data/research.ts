@@ -383,7 +383,9 @@ export const RESEARCH = {
   /** Research bonus per point of Spirit above average (+6 %). */
   spirit: 0.06,
   /** Bank when no technology is chosen: points kept by Library level (index = level − 1). */
-  bank: [100, 200, 400, 800, 1000, 1200, 1500, 1800, 2100, 2500, 2800, 3100] as readonly number[],
+  bank: [
+    100, 200, 400, 800, 1000, 1200, 1500, 1800, 2100, 2500, 2800, 3100, 3500, 3900, 4400,
+  ] as readonly number[],
 } as const;
 
 /** Raw research units per research point (integers keep offline progress exact). */

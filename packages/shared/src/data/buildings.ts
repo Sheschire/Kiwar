@@ -47,7 +47,7 @@ export interface BuildingLevelDef {
   durationMs: number;
   /** Required Nest level to start this level. */
   requiresNestLevel: number;
-  /** Required age (index in AGE_IDS) to start this level (levels 4–12: `ageOfLevel`). */
+  /** Required age (index in AGE_IDS) to start this level (levels 4–15: `ageOfLevel`). */
   requiresAge?: number;
   /** Chantier 13: stardust paid on top of the resources (the monument of the Iron and Industry ages). */
   stardust?: number;
@@ -127,10 +127,10 @@ const LAND_NO_HEART: readonly TileType[] = ['flesh', 'ray', 'seedRing'];
 const LAND: readonly TileType[] = [...LAND_NO_HEART, 'heart'];
 const DECOR_TILES: readonly TileType[] = [...LAND, 'skin'];
 
-/** Highest level of any building (the last age, chantier 30). */
-export const MAX_LEVEL = 12;
+/** Highest level of any building (three per age, chantier 30; the Age of the stars, chantier 51). */
+export const MAX_LEVEL = 15;
 
-/** Levels 1–3 (Eden); levels 4–12 are grown from them by `withAgeLevels`. */
+/** Levels 1–3 (Eden); levels 4–15 are grown from them by `withAgeLevels`. */
 const BASE: Record<BuildingType, BuildingDef> = {
   nest: {
     id: 'nest',
@@ -858,16 +858,16 @@ const BASE: Record<BuildingType, BuildingDef> = {
   },
 };
 
-/** Levels per age: Eden 1–3, Stone 4–6, Iron 7–9, Industry 10–12 (chantier 30). */
+/** Levels per age: Eden 1–3, Stone 4–6, Iron 7–9, Industry 10–12 (chantier 30), stars 13–15 (chantier 51). */
 export const LEVELS_PER_AGE = 3;
 
-/** Age a building level belongs to (0 Eden … 3 Industry). */
+/** Age a building level belongs to (0 Eden … 3 Industry, 4 the stars). */
 export function ageOfLevel(level: number): number {
   return Math.floor((Math.max(1, level) - 1) / LEVELS_PER_AGE);
 }
 
 /**
- * How levels 4–12 grow from the level before (chantier 30: three levels per age). Factors
+ * How levels 4–15 grow from the level before (chantier 30: three levels per age). Factors
  * apply at every level; the first level of an age adds the `age*` extras on top, so that the
  * age is felt (a bigger cost step, one more worker, more beds…).
  */
@@ -939,7 +939,7 @@ function scaled<T extends string>(
   return out;
 }
 
-/** Levels 4–12: each needs its age, and the Nest of the same level (the Nest itself: its
+/** Levels 4–15: each needs its age, and the Nest of the same level (the Nest itself: its
  * previous level). */
 function withAgeLevels(def: BuildingDef): BuildingDef {
   const g = AGE_GROWTH[def.id];
@@ -987,7 +987,7 @@ function withAgeLevels(def: BuildingDef): BuildingDef {
 
 /**
  * Pacing: level 1 takes seconds, level 2 a few minutes, level 3 a quarter of an hour or more;
- * levels 4–12 come with the ages, three per age (hours). Tune the economy here (check with `pnpm balance`).
+ * levels 4–15 come with the ages, three per age (hours). Tune the economy here (check with `pnpm balance`).
  */
 export const BUILDINGS: Record<BuildingType, BuildingDef> = Object.fromEntries(
   Object.entries(BASE).map(([id, def]) => [id, withIron(withAgeLevels(def))]),
