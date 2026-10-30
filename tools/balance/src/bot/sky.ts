@@ -1,5 +1,6 @@
 import {
   KIKIWIWI,
+  MAX_AGE,
   levelDef,
   type Command,
   type GameState,
@@ -17,7 +18,7 @@ export function nextMonumentDust(state: GameState): number {
 export function dustReserve(state: GameState): number {
   let need = 0;
   const monument = state.buildings.find((b) => b.type === 'monument');
-  for (let level = (monument?.level ?? 0) + 1; level <= 3; level++)
+  for (let level = (monument?.level ?? 0) + 1; level <= MAX_AGE; level++)
     need += levelDef('monument', level)?.stardust ?? 0;
   if (!state.villagers.some((v) => v.kikiwiwi)) need += KIKIWIWI.stardust;
   return need;

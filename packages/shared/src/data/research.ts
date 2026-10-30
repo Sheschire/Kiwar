@@ -375,16 +375,17 @@ export const TECHS: Record<TechId, TechDef> = {
     effects: { enzymes: 2 },
   },
   // Chantier 51: the passage to the Age of the stars, then its three technologies (paid in
-  // points and crystal; the levels 13–15 and the monument pay the giant seeds).
+  // points and crystal, the passage in points only; the levels 13–15 and the monument pay the
+  // giant seeds).
   starsAge: {
     id: 'starsAge',
     age: 3,
     branch: 'passage',
     // Measured: levels 11–12 come late (Nest 11 on days 21–27 for the bot): the passage asks the
     // Library 10 and fills the research left idle after the Industry's techs (~day 14).
+    // No crystal: waiting for it left the Library idle for a week (bot).
     cost: 50000,
     libraryLevel: 10,
-    crystal: 40,
     effects: {},
   },
   celestialGlass: {
