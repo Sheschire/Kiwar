@@ -12,7 +12,10 @@ import {
   fortifyDoorLock,
   gallerySlots,
   galleryRate,
-  galleryResource,
+  galleryWorkAs,
+  galleryCrystalRate,
+  HOUR_MS,
+  CRYSTAL_SCALE,
   meteorIronOf,
   minersIn,
   rations,
@@ -304,8 +307,12 @@ function MinersBox({ game, roomId }: { game: GameState; roomId: string }) {
   const lang = useUi((s) => s.lang);
   const miners = minersIn(game, roomId);
   const slots = gallerySlots(game, roomId);
-  const resource = galleryResource(game, roomId)!;
-  const rate = galleryRate(game, roomId);
+  // Chantier 50: a locule yields no shared resource (crystal in a forest, its enzyme in a lake).
+  const resource = galleryWorkAs(game, roomId)!;
+  const forest = game.depths.galleries[roomId]?.kind === 'forest';
+  const rate = forest
+    ? (galleryCrystalRate(game, roomId) * HOUR_MS) / CRYSTAL_SCALE
+    : galleryRate(game, roomId);
   const best = (): VillagerId[] =>
     game.villagers
       .filter((v) => canDig(v) && (v.job.kind !== 'mine' || v.job.roomId === roomId))
@@ -316,12 +323,15 @@ function MinersBox({ game, roomId }: { game: GameState; roomId: string }) {
   return (
     <div class="field depths-miners">
       <p class="small">
-        <ResourceIcon id={resource} size={14} />{' '}
+        {!forest && <ResourceIcon id={resource} size={14} />}{' '}
         {t('depths.miners', { count: miners.length, slots })}
         {rate > 0 && (
           <span class="muted">
             {' '}
-            · {t('depths.perHour', { value: formatNumber(lang, Math.round(rate)) })}
+            ·{' '}
+            {forest
+              ? t('crystal.perHour', { rate: formatNumber(lang, Math.round(rate * 10) / 10) })
+              : t('depths.perHour', { value: formatNumber(lang, Math.round(rate)) })}
           </span>
         )}
       </p>

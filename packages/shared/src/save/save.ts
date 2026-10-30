@@ -55,6 +55,7 @@ import { getTile, HEART, type FaceParams } from '../worldgen/generateFace';
 import { AUTO_TASKS, type AutoTask } from '../data/jobs';
 import { newDepths, type Obstacle } from '../sim/state';
 import { HAZARD_KINDS, ROOM_KINDS } from '../data/depths';
+import { CRYSTAL, CRYSTAL_SCALE, GIANT_SEEDS } from '../data/crystal';
 
 const resources = z.object({
   pulp: z.number(),
@@ -614,6 +615,7 @@ export const gameStateSchema = z.object({
           seen: z.array(alienUnit).max(16).optional(),
           shipLost: z.boolean().optional(),
           iron: z.number().int().min(0).optional(),
+          giantSeeds: z.number().int().min(0).max(10).optional(),
           hazard: z
             .object({
               kind: z.enum(HAZARD_KINDS),
@@ -747,6 +749,16 @@ export const gameStateSchema = z.object({
     .int()
     .min(0)
     .max(Math.max(...IRON.cap) * IRON_SCALE),
+  crystal: z
+    .number()
+    .int()
+    .min(0)
+    .max(Math.max(...CRYSTAL.cap) * CRYSTAL_SCALE),
+  giantSeeds: z
+    .number()
+    .int()
+    .min(0)
+    .max(Math.max(...GIANT_SEEDS.cap)),
   forge: z.object({
     orders: z
       .array(
@@ -996,6 +1008,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
     ...raw,
     depths: newDepths(String(raw.seed ?? ''), (raw.face ?? 'kiwisu') as Face),
   }),
+  // v39 → v40 (chantier 50): the locules' stocks, empty.
+  39: (raw) => ({ ...raw, crystal: 0, giantSeeds: 0 }),
 };
 
 const OLD_MISSIONS = ['raid', 'recon', 'assault', 'reinforce', 'final', 'retreat'];

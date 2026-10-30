@@ -3635,6 +3635,22 @@ var DEPTHS = {
   }
 };
 
+// packages/shared/src/data/crystal.ts
+var CRYSTAL = {
+  /** Stock cap (units) by Nest level (index 0–12). */
+  cap: [40, 40, 40, 40, 40, 40, 40, 60, 80, 100, 150, 200, 260],
+  /** An average miner cuts this many units per hour in a raphide forest. */
+  perHour: 0.5
+};
+var CRYSTAL_SCALE = 1e3 * 36e5;
+function crystalUnits(raw) {
+  return Math.floor(raw / CRYSTAL_SCALE + 1e-9);
+}
+var GIANT_SEEDS = {
+  /** Stock cap (whole seeds) by age (index = age; the Age of the stars comes at chantier 51). */
+  cap: [3, 3, 3, 5, 8]
+};
+
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
 var SQRT5 = /* @__PURE__ */ Math.sqrt(5);
@@ -5965,6 +5981,63 @@ function canHatch(state) {
   return state.egg === null && population(state) < housing(state);
 }
 
+// packages/shared/src/sim/crystal.ts
+function crystalCap(state) {
+  const c = CRYSTAL.cap;
+  return (c[Math.min(nest(state).level, c.length - 1)] ?? 0) * CRYSTAL_SCALE;
+}
+function crystalOf(state) {
+  return crystalUnits(state.crystal);
+}
+function addCrystal(s, units) {
+  const room = Math.max(0, crystalCap(s) - s.crystal);
+  const got = Math.min(units * CRYSTAL_SCALE, room);
+  s.crystal += got;
+  return crystalUnits(got);
+}
+function payCrystal(s, units) {
+  s.crystal = Math.max(0, s.crystal - units * CRYSTAL_SCALE);
+}
+function galleryCrystalRate(state, roomId) {
+  if (state.depths.galleries[roomId]?.kind !== "forest") return 0;
+  if (!minesOpen(state) || state.crystal >= crystalCap(state)) return 0;
+  const work = minersWork(state, minersIn(state, roomId), DEPTHS.gallery.workAs.forest);
+  if (work <= 0) return 0;
+  return Math.max(1, Math.round(1e3 * CRYSTAL.perHour * work * tunnelDamage(state)));
+}
+function crystalRate(state) {
+  let rate = 0;
+  for (const id3 of Object.keys(state.depths.galleries)) rate += galleryCrystalRate(state, id3);
+  return rate;
+}
+function crystalPerHour(state) {
+  return crystalRate(state) * 36e5 / CRYSTAL_SCALE;
+}
+function nextCrystalEvent(state) {
+  const rate = crystalRate(state);
+  if (rate <= 0) return Infinity;
+  return state.now + Math.max(1, Math.ceil((crystalCap(state) - state.crystal) / rate));
+}
+function accrueCrystal(s, rate, dtMs, at, events) {
+  if (rate <= 0) return;
+  const cap = crystalCap(s);
+  const before = s.crystal;
+  s.crystal = Math.min(cap, s.crystal + rate * dtMs);
+  if (before < cap && s.crystal >= cap) events.push({ type: "crystalFull", at });
+}
+function giantSeedCap(state) {
+  const c = GIANT_SEEDS.cap;
+  return c[Math.min(ageOf(state), c.length - 1)] ?? 0;
+}
+function addGiantSeeds(s, n) {
+  const got = Math.max(0, Math.min(n, giantSeedCap(s) - s.giantSeeds));
+  s.giantSeeds += got;
+  return got;
+}
+function payGiantSeeds(s, n) {
+  s.giantSeeds = Math.max(0, s.giantSeeds - n);
+}
+
 // packages/shared/src/sim/mines.ts
 var EPS3 = 1e-6;
 function minersIn(state, roomId) {
@@ -5981,6 +6054,14 @@ function gallerySlots(state, roomId) {
 }
 function minesOpen(state) {
   return !state.depths.door.closed && state.buildings.some((b) => b.type === "tunnel");
+}
+function galleryWorkAs(state, roomId) {
+  const g = state.depths.galleries[roomId];
+  return g ? DEPTHS.gallery.workAs[g.kind] : null;
+}
+function tunnelDamage(state) {
+  const tunnel = state.buildings.find((b) => b.type === "tunnel");
+  return tunnel?.damaged ? DEPTHS.gallery.damagedWork : 1;
 }
 function minersWork(state, miners, resource) {
   if (miners.length === 0) return 0;
@@ -6000,8 +6081,7 @@ function galleryRate(state, roomId) {
   const work = minersWork(state, minersIn(state, roomId), resource);
   if (work <= 0) return 0;
   const tunnel = state.buildings.find((b) => b.type === "tunnel");
-  const damaged = tunnel?.damaged ? DEPTHS.gallery.damagedWork : 1;
-  return DEPTHS.gallery.perMiner[room.depth - 1] * minerOutput(resource, tunnel?.level ?? 1) * work * damaged;
+  return DEPTHS.gallery.perMiner[room.depth - 1] * minerOutput(resource, tunnel?.level ?? 1) * work * tunnelDamage(state);
 }
 function minerOutput(resource, tunnelLevel) {
   const def = levelDef(DEPTHS.gallery.producer[resource], 6 + Math.max(1, tunnelLevel));
@@ -6016,8 +6096,10 @@ function galleryRates(state) {
   return out;
 }
 function galleryWorth(state, roomId, cap = capacity(state)) {
+  if (!minesOpen(state)) return false;
+  if (state.depths.galleries[roomId]?.kind === "forest") return state.crystal < crystalCap(state);
   const r = galleryResource(state, roomId);
-  return !!r && minesOpen(state) && state.resources[r] < cap[r] - EPS3;
+  return !!r && state.resources[r] < cap[r] - EPS3;
 }
 function canDig(v) {
   if (v.kikiwiwi) return false;
@@ -7179,6 +7261,7 @@ function resolveDelve(state, e, members, fed) {
   e.crew = e.crew.filter((id3) => !dead.includes(id3));
   const loot = emptyResources();
   let iron = 0;
+  let giantSeeds = 0;
   let lantern;
   if (outcome === "victory") {
     state.depths.galleries[room.id] = { kind: truth.kind, since: at };
@@ -7210,6 +7293,7 @@ function resolveDelve(state, e, members, fed) {
     }
     for (const r of RESOURCE_IDS) loot[r] = truth.loot[r] ?? 0;
     iron = truth.iron;
+    giantSeeds = truth.giantSeeds;
   } else if (outcome === "retreat") {
     see(state, room.id, {
       at,
@@ -7235,6 +7319,7 @@ function resolveDelve(state, e, members, fed) {
     ...outcome !== "defeat" ? { seen: truth.units.map((u) => ({ ...u })) } : {},
     ...truth.hazard && outcome !== "defeat" ? { hazard: { ...truth.hazard, hits } } : {},
     ...iron > 0 ? { iron } : {},
+    ...giantSeeds > 0 ? { giantSeeds } : {},
     ...outcome === "victory" ? { gallery: true } : {},
     ...lantern ? { lantern } : {}
   };
@@ -8422,6 +8507,7 @@ function resolveReturn(state, e, events = []) {
   };
   for (const id3 of RESOURCE_IDS) state.resources[id3] += unloaded[id3];
   if (result.iron) addIron(state, result.iron);
+  if (result.giantSeeds) addGiantSeeds(state, result.giantSeeds);
   const hurt = new Set(result.injured ?? []);
   for (const v of state.villagers) {
     if (v.job.kind !== "expedition" || v.job.expeditionId !== e.id) continue;
@@ -10494,7 +10580,7 @@ function jobBoard(state) {
         resource,
         miners: minersIn(state, roomId),
         slots: gallerySlots(state, roomId),
-        perHour: full(resource) ? 0 : galleryRate(state, roomId)
+        perHour: !resource || full(resource) ? 0 : galleryRate(state, roomId)
       };
     })
   };
@@ -10675,7 +10761,7 @@ function advanceInPlace(s, now, events) {
     const cometAt = nextCometEvent(s);
     const injuryEnd = nextInjuryEnd(s);
     const researchAt = nextResearchEvent(s);
-    const forgeAt = nextForgeEvent(s);
+    const forgeAt = Math.min(nextForgeEvent(s), nextCrystalEvent(s));
     const deliveryAt = nextDeliveryEvent(s);
     const infusionEnd = nextInfusionEnd(s);
     const titanEnd = nextTitanEnd(s);
@@ -10925,6 +11011,7 @@ function computeFlows(s) {
     meteors,
     iron,
     forge: forgeRate(s),
+    crystal: crystalRate(s),
     hunger,
     nextChange: next,
     hungerAt: nextHungerEvent(s, hunger)
@@ -10979,6 +11066,7 @@ function accrue(s, flows, dtMs, at, events) {
   accrueStardust(s, dtMs);
   accrueIron(s, flows.iron, dtMs, at, events);
   accrueForge(s, flows.forge, dtMs);
+  accrueCrystal(s, flows.crystal, dtMs, at, events);
   accrueKiwis(s, dtMs, at, events);
 }
 function pourReserve(s, id3, amount) {
@@ -11376,7 +11464,7 @@ function fillMines(state) {
   let budget = Math.floor(state.villagers.length * DEPTHS.gallery.autoShare) - state.villagers.filter((v) => v.job.kind === "mine").length;
   for (const roomId of Object.keys(state.depths.galleries).sort()) {
     if (!galleryWorth(state, roomId, cap)) continue;
-    const resource = galleryResource(state, roomId);
+    const resource = galleryWorkAs(state, roomId);
     let free = gallerySlots(state, roomId) - minersIn(state, roomId).length;
     while (free-- > 0 && budget-- > 0) {
       const v = bestFor(state, "pick", (x) => workerPower(x, resource));
@@ -13761,7 +13849,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 39;
+var SCHEMA_VERSION = 40;
 var MISSION_KINDS = [
   "land",
   "raid",
@@ -13847,6 +13935,8 @@ function newGame(opts) {
     comets: newComets(opts.now),
     stardust: 0,
     meteorIron: 0,
+    crystal: 0,
+    giantSeeds: 0,
     forge: { orders: [], armory: {} },
     research: { points: 0, current: null, done: [], outbox: 0 },
     automation: defaultAutomation(),
@@ -20261,6 +20351,7 @@ var gameStateSchema = external_exports.object({
         seen: external_exports.array(alienUnit2).max(16).optional(),
         shipLost: external_exports.boolean().optional(),
         iron: external_exports.number().int().min(0).optional(),
+        giantSeeds: external_exports.number().int().min(0).max(10).optional(),
         hazard: external_exports.object({
           kind: external_exports.enum(HAZARD_KINDS),
           strength: external_exports.number().min(0).max(1),
@@ -20367,6 +20458,8 @@ var gameStateSchema = external_exports.object({
   }),
   stardust: external_exports.number().int().min(0).max(STARDUST.cap * STARDUST_SCALE),
   meteorIron: external_exports.number().int().min(0).max(Math.max(...IRON.cap) * IRON_SCALE),
+  crystal: external_exports.number().int().min(0).max(Math.max(...CRYSTAL.cap) * CRYSTAL_SCALE),
+  giantSeeds: external_exports.number().int().min(0).max(Math.max(...GIANT_SEEDS.cap)),
   forge: external_exports.object({
     orders: external_exports.array(
       external_exports.object({
@@ -20582,7 +20675,9 @@ var MIGRATIONS = {
   38: (raw) => ({
     ...raw,
     depths: newDepths(String(raw.seed ?? ""), raw.face ?? "kiwisu")
-  })
+  }),
+  // v39 → v40 (chantier 50): the locules' stocks, empty.
+  39: (raw) => ({ ...raw, crystal: 0, giantSeeds: 0 })
 };
 var OLD_MISSIONS = ["raid", "recon", "assault", "reinforce", "final", "retreat"];
 function migrateToLandings(raw) {
@@ -21303,6 +21398,13 @@ function plausibleIron(state) {
   if (state.meteorIron > 0 && state.sky.falls === 0) return false;
   return state.sky.meteors.every((m) => m.iron <= m.ironMax && m.ironMax <= richest);
 }
+function plausibleLocules(state) {
+  if (state.crystal > crystalCap(state) || state.giantSeeds > giantSeedCap(state)) return false;
+  const locule = Object.values(state.depths.galleries).some(
+    (g) => g.kind === "forest" || g.kind === "lake"
+  );
+  return locule || state.crystal === 0 && state.giantSeeds === 0;
+}
 function plausibleGear(state) {
   const opened = (id3) => state.research.done.includes(ITEMS[id3].tech);
   if (state.forge.orders.length > forgeQueueSize(state)) return false;
@@ -21330,6 +21432,7 @@ function isPlausible(state, now) {
   }
   if (!plausibleStardust(state)) return false;
   if (!plausibleIron(state)) return false;
+  if (!plausibleLocules(state)) return false;
   if (!plausibleGear(state)) return false;
   if (state.buildings.filter((b) => b.type === "nest").length !== 1) return false;
   const n = nest(state);
@@ -21982,6 +22085,8 @@ export {
   COLONY,
   COMETS,
   COMMAND_ERRORS,
+  CRYSTAL,
+  CRYSTAL_SCALE,
   CYCLES,
   DEFAULT_FACE_PARAMS,
   DEMOLITION,
@@ -22007,6 +22112,7 @@ export {
   GEAR_KINDS,
   GEAR_SLOTS,
   GEAR_TIERS,
+  GIANT_SEEDS,
   GUARD_ORDERS,
   HARVESTS,
   HATCHING,
@@ -22119,12 +22225,15 @@ export {
   WEAPON_IDS,
   XP_SCALE,
   YEAR_MS,
+  accrueCrystal,
   accrueForge,
   accrueIron,
   accrueKiwis,
   accrueResearch,
   accrueStardust,
   activeItem,
+  addCrystal,
+  addGiantSeeds,
   addIron,
   addMemory,
   addMissingKeys,
@@ -22286,6 +22395,11 @@ export {
   crewOf,
   crewWeight,
   crewWork,
+  crystalCap,
+  crystalOf,
+  crystalPerHour,
+  crystalRate,
+  crystalUnits,
   currentObjective,
   cutsLand,
   cycleHarvest,
@@ -22389,10 +22503,12 @@ export {
   foundLock,
   freeDepositStock,
   friendId,
+  galleryCrystalRate,
   galleryRate,
   galleryRates,
   galleryResource,
   gallerySlots,
+  galleryWorkAs,
   galleryWorth,
   gameStateSchema,
   garrisonOf,
@@ -22409,6 +22525,7 @@ export {
   geometric,
   getBuilding,
   getTile,
+  giantSeedCap,
   giveSpeech,
   grantClassXp,
   grantXp,
@@ -22556,6 +22673,7 @@ export {
   minerOutput,
   minersIn,
   minersOf,
+  minersWork,
   minesOpen,
   missingBeds,
   modifiers,
@@ -22584,6 +22702,7 @@ export {
   nextCivEvent,
   nextCometEvent,
   nextConstructionEnd,
+  nextCrystalEvent,
   nextDeliveryEvent,
   nextDoorEvent,
   nextForgeEvent,
@@ -22627,6 +22746,8 @@ export {
   pathLogisticsChanges,
   pathSet,
   pathsKey,
+  payCrystal,
+  payGiantSeeds,
   payStardust,
   pendingToSister,
   pendingUpgrade,
@@ -22803,6 +22924,7 @@ export {
   travelFactor,
   travelTime,
   tunnelBusy,
+  tunnelDamage,
   tunnelOf,
   turretCount,
   turretCoverage,

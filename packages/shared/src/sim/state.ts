@@ -41,7 +41,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 39;
+export const SCHEMA_VERSION = 40;
 
 export type Job =
   | { kind: 'idle' }
@@ -468,6 +468,8 @@ export interface ExpeditionResult {
   shipLost?: boolean;
   /** Chantier 48, a delve: whole units of meteoric iron brought up. */
   iron?: number;
+  /** Chantier 50, a delve into a locule: giant seeds brought up. */
+  giantSeeds?: number;
   /** Chantier 48: the room's hazard and the kiwis it hurt (share of hit points lost). */
   hazard?: { kind: HazardKind; strength: number; hits: { id: string; share: number }[] };
   /** Chantier 48: the room became a gallery; a spelunker's lantern lit this room next to it. */
@@ -981,6 +983,10 @@ export interface GameState {
   stardust: number;
   /** Chantier 38: meteoric iron in raw units (`IRON_SCALE` per unit), apart from the storage. */
   meteorIron: number;
+  /** Chantier 50: crystal in raw units (`CRYSTAL_SCALE` per unit), apart from the storage. */
+  crystal: number;
+  /** Chantier 50: giant seeds (whole units). */
+  giantSeeds: number;
   /** Chantier 38: the Forge's orders and the armory. */
   forge: ForgeState;
   research: ResearchState;
@@ -1088,6 +1094,8 @@ export function newGame(opts: NewGameOptions): GameState {
     comets: newComets(opts.now),
     stardust: 0,
     meteorIron: 0,
+    crystal: 0,
+    giantSeeds: 0,
     forge: { orders: [], armory: {} },
     research: { points: 0, current: null, done: [], outbox: 0 },
     automation: defaultAutomation(),

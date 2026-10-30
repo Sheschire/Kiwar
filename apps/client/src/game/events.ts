@@ -277,6 +277,9 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
       case 'ironFull':
         pushToast('info', 'iron.full');
         break;
+      case 'crystalFull':
+        pushToast('info', 'crystal.full');
+        break;
       case 'itemForged':
         pushToast('success', 'forge.forged', { item: `@gear.items.${e.item}` });
         break;

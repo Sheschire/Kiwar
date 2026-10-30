@@ -1837,6 +1837,16 @@ export const en = {
     full: 'The meteoric iron stock is full: the miners go back to work.',
     wreck: '+{iron} meteoric iron from the wreck.',
   },
+  crystal: {
+    name: 'Crystal',
+    tip: 'Cut in the raphide forests of the locules, kept apart from the storage (at most {cap}, more with the Nest). It pays for glass, crystal ammunition and crystal weapons.',
+    perHour: '+{rate}/h being cut',
+    full: 'The crystal stock is full: the miners of the forests come back up.',
+  },
+  giantSeeds: {
+    name: 'Giant seeds',
+    tip: 'Found in the locules (at most {cap}, more with the ages). Plant one for a locule tree, or hatch one for a gifted kiwi.',
+  },
   forge: {
     title: 'Forge',
     queue: 'Orders ({count}/{max})',

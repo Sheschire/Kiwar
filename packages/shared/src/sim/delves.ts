@@ -189,6 +189,7 @@ export function resolveDelve(
 
   const loot = emptyResources();
   let iron = 0;
+  let giantSeeds = 0;
   let lantern: string | undefined;
   if (outcome === 'victory') {
     state.depths.galleries[room.id] = { kind: truth.kind, since: at };
@@ -221,6 +222,7 @@ export function resolveDelve(
     }
     for (const r of RESOURCE_IDS) loot[r] = truth.loot[r] ?? 0;
     iron = truth.iron;
+    giantSeeds = truth.giantSeeds;
   } else if (outcome === 'retreat') {
     see(state, room.id, {
       at,
@@ -248,6 +250,7 @@ export function resolveDelve(
     ...(outcome !== 'defeat' ? { seen: truth.units.map((u) => ({ ...u })) } : {}),
     ...(truth.hazard && outcome !== 'defeat' ? { hazard: { ...truth.hazard, hits } } : {}),
     ...(iron > 0 ? { iron } : {}),
+    ...(giantSeeds > 0 ? { giantSeeds } : {}),
     ...(outcome === 'victory' ? { gallery: true } : {}),
     ...(lantern ? { lantern } : {}),
   };

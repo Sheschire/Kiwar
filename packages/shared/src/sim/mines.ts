@@ -5,6 +5,7 @@ import { depthsMapOf } from './depths';
 import { colonyBonus, workerPower } from './kiwis';
 import { hungerWork } from './needs';
 import { bedsOf, colonyMood, kiwiMoraleWork, presence } from './rest';
+import { crystalCap } from './crystal';
 import { capacity } from './selectors';
 import type { GameState, Villager } from './state';
 
@@ -39,8 +40,24 @@ export function minesOpen(state: GameState): boolean {
   return !state.depths.door.closed && state.buildings.some((b) => b.type === 'tunnel');
 }
 
+/** Chantier 50: the mastery the miners of a gallery use (its resource, or the crystal's). */
+export function galleryWorkAs(state: GameState, roomId: string): ResourceId | null {
+  const g = state.depths.galleries[roomId];
+  return g ? DEPTHS.gallery.workAs[g.kind] : null;
+}
+
+/** A damaged door (an upwelling broke it) slows the work below. */
+export function tunnelDamage(state: GameState): number {
+  const tunnel = state.buildings.find((b) => b.type === 'tunnel');
+  return tunnel?.damaged ? DEPTHS.gallery.damagedWork : 1;
+}
+
 /** Summed power of the miners (rest, morale, hunger; no gathering stops them below). */
-function minersWork(state: GameState, miners: readonly Villager[], resource: ResourceId): number {
+export function minersWork(
+  state: GameState,
+  miners: readonly Villager[],
+  resource: ResourceId,
+): number {
   if (miners.length === 0) return 0;
   const beds = bedsOf(state);
   const mood = colonyMood(state);
@@ -64,12 +81,11 @@ export function galleryRate(state: GameState, roomId: string): number {
   const work = minersWork(state, minersIn(state, roomId), resource);
   if (work <= 0) return 0;
   const tunnel = state.buildings.find((b) => b.type === 'tunnel');
-  const damaged = tunnel?.damaged ? DEPTHS.gallery.damagedWork : 1;
   return (
     DEPTHS.gallery.perMiner[room.depth - 1]! *
     minerOutput(resource, tunnel?.level ?? 1) *
     work *
-    damaged
+    tunnelDamage(state)
   );
 }
 
@@ -96,8 +112,11 @@ export function galleryRates(
  * storage cap (reaching the cap is an event: exact offline).
  */
 export function galleryWorth(state: GameState, roomId: string, cap = capacity(state)): boolean {
+  if (!minesOpen(state)) return false;
+  // Chantier 50: a raphide forest while the crystal stock has room.
+  if (state.depths.galleries[roomId]?.kind === 'forest') return state.crystal < crystalCap(state);
   const r = galleryResource(state, roomId);
-  return !!r && minesOpen(state) && state.resources[r] < cap[r] - EPS;
+  return !!r && state.resources[r] < cap[r] - EPS;
 }
 
 /** Who can be sent down a mine: kiwis at home, at work, picking or mining (not Kikiwiwis). */

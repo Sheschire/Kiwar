@@ -1,5 +1,6 @@
 import { nextDoorEvent, nextUpwellEvent, planUpwell, upwellTick } from './upwell';
 import { galleryRates } from './mines';
+import { accrueCrystal, crystalRate, nextCrystalEvent } from './crystal';
 import { accrueForge, forgePower, forgeRate, forgeTick, nextForgeEvent } from './forge';
 import type { ItemId } from '../data/gear';
 import { accrueStardust, cometTick, nextCometEvent, planComet } from './comets';
@@ -247,6 +248,8 @@ export type GameEvent =
   | { type: 'itemForged'; at: TimeMs; item: ItemId }
   /** Chantier 38: the meteoric iron stock is full (the craters' miners go back to work). */
   | { type: 'ironFull'; at: TimeMs }
+  /** Chantier 50: the crystal stock is full (the forests' miners come back up). */
+  | { type: 'crystalFull'; at: TimeMs }
   | { type: 'meteorFaded'; at: TimeMs; q: number; r: number; resource: ResourceId }
   /** Chantier 13: a comet is seen in the sky, then drops stardust on a few tiles. */
   | { type: 'cometAnnounced'; at: TimeMs; passAt: TimeMs }
@@ -342,7 +345,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const cometAt = nextCometEvent(s);
     const injuryEnd = nextInjuryEnd(s);
     const researchAt = nextResearchEvent(s);
-    const forgeAt = nextForgeEvent(s);
+    const forgeAt = Math.min(nextForgeEvent(s), nextCrystalEvent(s));
     const deliveryAt = nextDeliveryEvent(s);
     const infusionEnd = nextInfusionEnd(s);
     const titanEnd = nextTitanEnd(s);
@@ -517,6 +520,8 @@ interface Flows {
   iron: { m: Meteor; rate: number }[];
   /** Chantier 38: work on the Forge's first order (raw units per ms). */
   forge: number;
+  /** Chantier 50: crystal cut in the raphide forests (raw units per ms, an integer). */
+  crystal: number;
   /** Hunger gauge change in raw units per ms. */
   hunger: number;
   /** Next time a rate changes on its own (a deposit runs dry, a storage fills or empties). */
@@ -633,6 +638,7 @@ function computeFlows(s: GameState): Flows {
     meteors,
     iron,
     forge: forgeRate(s),
+    crystal: crystalRate(s),
     hunger,
     nextChange: next,
     hungerAt: nextHungerEvent(s, hunger),
@@ -693,6 +699,7 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
   accrueStardust(s, dtMs);
   accrueIron(s, flows.iron, dtMs, at, events);
   accrueForge(s, flows.forge, dtMs);
+  accrueCrystal(s, flows.crystal, dtMs, at, events);
   accrueKiwis(s, dtMs, at, events);
 }
 

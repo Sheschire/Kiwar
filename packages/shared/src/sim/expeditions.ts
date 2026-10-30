@@ -1,6 +1,7 @@
 import { returnGear } from './forge';
 import { resolveDelve } from './delves';
 import { addIron } from './iron';
+import { addGiantSeeds } from './crystal';
 import { FUEL } from '../data/comets';
 import { COLONY } from '../data/colonies';
 import { levelDef } from '../data/buildings';
@@ -701,6 +702,8 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
   for (const id of RESOURCE_IDS) state.resources[id] += unloaded[id];
   // Chantier 48: the meteoric iron a delve found in its room.
   if (result.iron) addIron(state, result.iron);
+  // Chantier 50: the giant seeds of a locule (up to the cap).
+  if (result.giantSeeds) addGiantSeeds(state, result.giantSeeds);
   const hurt = new Set(result.injured ?? []);
   for (const v of state.villagers) {
     if (v.job.kind !== 'expedition' || v.job.expeditionId !== e.id) continue;

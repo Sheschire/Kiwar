@@ -1,3 +1,4 @@
+import { crystalCap, giantSeedCap } from '../sim/crystal';
 import { MORALE, SPEECH } from '../data/needs';
 import { COMETS, STARDUST_SCALE } from '../data/comets';
 import { IRON, IRON_SCALE } from '../data/iron';
@@ -601,6 +602,15 @@ function plausibleIron(state: GameState): boolean {
   return state.sky.meteors.every((m) => m.iron <= m.ironMax && m.ironMax <= richest);
 }
 
+/** Chantier 50: the locules' stocks within their caps, and only once a locule was taken. */
+function plausibleLocules(state: GameState): boolean {
+  if (state.crystal > crystalCap(state) || state.giantSeeds > giantSeedCap(state)) return false;
+  const locule = Object.values(state.depths.galleries).some(
+    (g) => g.kind === 'forest' || g.kind === 'lake',
+  );
+  return locule || (state.crystal === 0 && state.giantSeeds === 0);
+}
+
 /** Chantier 38: pieces only of researched tiers, an order queue within the Forge's size. */
 function plausibleGear(state: GameState): boolean {
   const opened = (id: ItemId) => state.research.done.includes(ITEMS[id].tech);
@@ -634,6 +644,7 @@ export function isPlausible(state: GameState, now: number): boolean {
   }
   if (!plausibleStardust(state)) return false;
   if (!plausibleIron(state)) return false;
+  if (!plausibleLocules(state)) return false;
   if (!plausibleGear(state)) return false;
   if (state.buildings.filter((b) => b.type === 'nest').length !== 1) return false;
   const n = nest(state);

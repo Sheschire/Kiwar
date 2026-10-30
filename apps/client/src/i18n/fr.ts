@@ -1916,6 +1916,16 @@ export const fr: Dict = {
     full: 'La réserve de fer météorique est pleine : les mineur·euses retournent au travail.',
     wreck: '+{iron} fer météorique tiré de l’épave.',
   },
+  crystal: {
+    name: 'Cristal',
+    tip: 'Taillé dans les forêts de raphides des loges, gardé à part des stocks (au plus {cap}, plus avec le Nid). Il paie le verre, les munitions de cristal et les armes de cristal.',
+    perHour: '+{rate}/h en taille',
+    full: 'La réserve de cristal est pleine : les mineur·euses des forêts remontent.',
+  },
+  giantSeeds: {
+    name: 'Graines géantes',
+    tip: 'Trouvées dans les loges (au plus {cap}, plus avec les âges). Plantez-en une pour un arbre-loge, ou couvez-la pour un kiwi doué.',
+  },
   forge: {
     title: 'Forge',
     queue: 'Commandes ({count}/{max})',

@@ -1,5 +1,5 @@
 import { DEPTHS } from '../data/depths';
-import { galleryResource, gallerySlots, galleryWorth, minersIn } from './mines';
+import { galleryWorkAs, gallerySlots, galleryWorth, minersIn } from './mines';
 import { STARDUST } from '../data/comets';
 import { TASKS, type AutoTask } from '../data/jobs';
 import { GARRISON, METEORS, THREATS } from '../data/threats';
@@ -404,7 +404,7 @@ export function fillMines(state: GameState): void {
     state.villagers.filter((v) => v.job.kind === 'mine').length;
   for (const roomId of Object.keys(state.depths.galleries).sort()) {
     if (!galleryWorth(state, roomId, cap)) continue;
-    const resource = galleryResource(state, roomId)!;
+    const resource = galleryWorkAs(state, roomId)!;
     let free = gallerySlots(state, roomId) - minersIn(state, roomId).length;
     while (free-- > 0 && budget-- > 0) {
       const v = bestFor(state, 'pick', (x) => workerPower(x, resource));

@@ -150,7 +150,8 @@ export interface JobBoard {
   /** Chantier 48: galleries of the depths, with their miners and output per hour. */
   galleries: {
     roomId: string;
-    resource: ResourceId;
+    /** Chantier 50: null for a locule (crystal, or its enzyme). */
+    resource: ResourceId | null;
     miners: Villager[];
     slots: number;
     perHour: number;
@@ -230,13 +231,14 @@ export function jobBoard(state: GameState): JobBoard {
     galleries: Object.keys(state.depths.galleries)
       .sort()
       .map((roomId) => {
-        const resource = galleryResource(state, roomId)!;
+        // Chantier 50: a locule's gallery yields no shared resource (crystal, or its enzyme).
+        const resource = galleryResource(state, roomId);
         return {
           roomId,
           resource,
           miners: minersIn(state, roomId),
           slots: gallerySlots(state, roomId),
-          perHour: full(resource) ? 0 : galleryRate(state, roomId),
+          perHour: !resource || full(resource) ? 0 : galleryRate(state, roomId),
         };
       }),
   };
