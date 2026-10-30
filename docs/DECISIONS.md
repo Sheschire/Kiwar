@@ -3346,7 +3346,7 @@ of 30 October 2026.
   60 %), crystal weapons (10 crystal, 6 iron; damage as steel, armour pierced at 50 %; weapons
   only, the aliens stop at steel).
 - Giant seeds: cap 5 at Industry (8 at the Age of the stars); the n-th locule tree costs n
-  seeds (a decoration, beauty 2, Nest 10), grows 48 h, then a seed every 72 h; a ripe seed waits
+  seeds (a decoration, beauty 2, Nest 7, at most 4 in the Industry age), grows 48 h, then a seed every 72 h; a ripe seed waits
   on the tree while the stock is full.
 - Upwellings: + 0.6 per locule nest not taken near our galleries (0.35 for the flesh).
 - The automation sends the locules' miners first (crystal and the enzyme come from nowhere

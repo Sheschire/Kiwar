@@ -707,7 +707,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
       {
         cost: { pulp: 300, juice: 200 },
         durationMs: ms.min(10),
-        requiresNestLevel: 10,
+        requiresNestLevel: 7,
         requiresAge: 3,
       },
     ],
