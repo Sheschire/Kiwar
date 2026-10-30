@@ -21,6 +21,8 @@ import {
   rotationsOf,
   siteError,
   IRON_SCALE,
+  HOUR_MS,
+  type BuildingId,
 } from '../src';
 
 export const T0 = 1_700_000_000_000;
@@ -102,4 +104,51 @@ export function siteFor(
     for (const rot of rotationsOf(type))
       if (siteError(state, map, type, t, rot) === null) return { q: t.q, r: t.r, rot };
   throw new Error(`no site for ${type}`);
+}
+
+/** An Iron-age colony (Nest 7, monument 2) that knows spelunking, without a tunnel yet. */
+export function ironColony(seed = 'depths') {
+  const { map, state } = setup('kiwisu', seed);
+  const s: GameState = rich(state);
+  s.buildings[0]!.level = 7;
+  const mon = findTile(map, 'flesh', 6);
+  s.buildings.push({
+    id: 'bmon' as BuildingId,
+    type: 'monument',
+    q: mon.q,
+    r: mon.r,
+    level: 2,
+    richness: mon.richness,
+    builtAt: T0,
+  });
+  s.research.done = ['stoneAge', 'ironAge', 'spelunking'];
+  s.threats.shieldUntil = s.now + 1000 * HOUR_MS;
+  s.threats.next = null;
+  return { map, s };
+}
+
+/** Chantier 48: an Iron-age colony with its tunnel entrance and `n` seasoned kiwis at home. */
+export function delveColony(seed = 'delves', level = 3, kiwis = 8, kiwiLevel = 14) {
+  const { map, s } = ironColony(seed);
+  const at = findTile(map, 'flesh', 12);
+  s.buildings.push({
+    id: 'btun' as BuildingId,
+    type: 'tunnel',
+    q: at.q,
+    r: at.r,
+    level,
+    richness: 1,
+    builtAt: T0,
+  });
+  for (let i = 0; i < kiwis; i++) {
+    const v = kiwi(`dk${i}`);
+    v.level = kiwiLevel;
+    for (const k of Object.keys(v.stats) as (keyof typeof v.stats)[]) v.stats[k] = 9;
+    // Half of them reach the fruit flies (fireballs), half hold the front (swords).
+    v.classId = i % 2 ? 'warrior' : 'mage';
+    s.villagers.push(v);
+  }
+  s.automation.meteor = false;
+  s.automation.stardust = false;
+  return { map, s };
 }

@@ -6764,6 +6764,454 @@ function simulateBattle(setup, seed) {
   };
 }
 
+// packages/shared/src/battle/delve.ts
+var ROOM_RADIUS = 4;
+var ENTRY = { q: 0, r: ROOM_RADIUS };
+var FAR = { q: 0, r: -ROOM_RADIUS };
+var CENTRE = { q: 0, r: 0 };
+function hazardStat(kind) {
+  return kind === "fall" ? "endurance" : "dexterity";
+}
+function hazardShield(v, kind) {
+  const h = DEPTHS.hazard;
+  return Math.min(h.statCap, h.perStat * Math.max(0, v.stats[hazardStat(kind)] - 5));
+}
+function hazardFactor(_v, _crew) {
+  return 1;
+}
+function hazardOdds(v, crew, hazard) {
+  const keep = (1 - hazardShield(v, hazard.kind)) * hazardFactor(v, crew);
+  return { chance: DEPTHS.hazard.chance * keep, harm: hazard.strength * keep };
+}
+function hazardHits(crew, hazard, seed) {
+  if (!hazard) return [];
+  const rng = createRng(`${seed}/hazard`);
+  const out = [];
+  for (const v of crew) {
+    const { chance, harm } = hazardOdds(v, crew, hazard);
+    const roll = rng.next();
+    if (roll >= chance) continue;
+    const share2 = Math.min(1 - DEPTHS.hazard.floor, harm);
+    if (share2 > 0) out.push({ id: v.id, share: Math.round(share2 * 100) / 100 });
+  }
+  return out;
+}
+function delveSetup(state, crew, input) {
+  const disk = hexDisk(CENTRE, ROOM_RADIUS);
+  const tiles = disk.map((h) => ({ q: h.q, r: h.r, cost: 1 }));
+  const exits = tiles.map((t, i) => ({ t, i })).filter(({ t }) => hexDistance(t, ENTRY) <= 1).map(({ i }) => i);
+  const byEntry = [...disk].sort(
+    (a, b) => hexDistance(a, ENTRY) - hexDistance(b, ENTRY) || a.q - b.q || a.r - b.r
+  );
+  const hits = new Map(hazardHits(crew, input.hazard, input.seed).map((h) => [h.id, h.share]));
+  const hunger = 0.5 + 0.5 * Math.max(0, Math.min(1, input.fed));
+  const units = [];
+  crew.forEach((v, i) => {
+    const at = byEntry[Math.floor(i / 2) % byEntry.length] ?? ENTRY;
+    const u = kiwiUnit(v, state, "guard", at, null, 1);
+    units.push({
+      ...u,
+      role: "assault",
+      power: 1,
+      hp: u.hp * (1 - (hits.get(v.id) ?? 0)),
+      weapon: { ...u.weapon, damage: u.weapon.damage * hunger }
+    });
+  });
+  const far = [...disk].filter((h) => hexDistance(h, ENTRY) >= ROOM_RADIUS).sort((a, b) => hexDistance(a, FAR) - hexDistance(b, FAR) || a.q - b.q || a.r - b.r);
+  const middle = [...far].sort(
+    (a, b) => hexDistance(a, CENTRE) - hexDistance(b, CENTRE) || a.q - b.q || a.r - b.r
+  );
+  let n = 0;
+  for (const { unit, count, k } of capped(input.units)) {
+    const list = isFlyer(unit.kind) ? middle : far;
+    for (let i = 0; i < count; i++, n++)
+      units.push(alienUnit(unit, k, `g${n}`, list[n % list.length], 0));
+  }
+  return {
+    tiles,
+    exits,
+    buildings: [],
+    units,
+    orders: [
+      { posture: "bold", retreatBelow: 0 },
+      {
+        posture: input.orders.posture,
+        retreatBelow: 1 - input.orders.retreatAt + 1e-6,
+        priority: input.orders.priority
+      }
+    ],
+    clearEnds: true
+  };
+}
+
+// packages/shared/src/sim/depths.ts
+var mapCache2 = /* @__PURE__ */ new Map();
+function depthsMapOf(state) {
+  const key = `${state.seed}/${state.face}`;
+  let map = mapCache2.get(key);
+  if (!map) {
+    map = generateDepths(key);
+    if (mapCache2.size > 16) mapCache2.clear();
+    mapCache2.set(key, map);
+  }
+  return map;
+}
+function generateDepths(key) {
+  const rng = createRng(`${key}/depths/map`);
+  const rooms = [];
+  const byDepth = [];
+  for (let d = 1; d <= DEPTHS.rooms.length; d++) {
+    const [lo, hi] = DEPTHS.rooms[d - 1];
+    const n = rng.int(lo, hi);
+    const row = [];
+    for (let i = 0; i < n; i++) {
+      const slot = 2 / n;
+      const x = round22(-1 + slot * (i + 0.5) + rng.range(-0.3, 0.3) * slot);
+      row.push({
+        id: `r${rooms.length + row.length}`,
+        depth: d,
+        x,
+        links: [],
+        entrance: d === 1
+      });
+    }
+    rooms.push(...row);
+    byDepth.push(row);
+  }
+  const link = (a, b) => {
+    if (a === b || a.links.includes(b.id)) return;
+    a.links.push(b.id);
+    b.links.push(a.id);
+  };
+  for (let d = 0; d < byDepth.length; d++) {
+    const row = byDepth[d];
+    for (let i = 0; i + 1 < row.length; i++)
+      if (rng.chance(DEPTHS.sideLink)) link(row[i], row[i + 1]);
+    if (d === 0) continue;
+    const above = byDepth[d - 1];
+    for (const r of row) {
+      const near = [...above].sort((a, b) => Math.abs(a.x - r.x) - Math.abs(b.x - r.x));
+      link(r, near[0]);
+      if (near[1] && rng.chance(DEPTHS.secondLink)) link(r, near[1]);
+    }
+  }
+  return { rooms, byId: new Map(rooms.map((r) => [r.id, r])) };
+}
+var truthCache = /* @__PURE__ */ new Map();
+function roomTruth(seed, room) {
+  const key = `${seed}/room/${room.id}`;
+  let t = truthCache.get(key);
+  if (!t) {
+    t = drawRoom(createRng(key), room.depth);
+    if (truthCache.size > 256) truthCache.clear();
+    truthCache.set(key, t);
+  }
+  return t;
+}
+function drawRoom(rng, depth) {
+  const kind = weighted(rng, DEPTHS.kindWeights[depth - 1]);
+  const power = DEPTHS.power[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1]) * (kind === "nest" ? DEPTHS.nestPower : 1);
+  const units = grouillants(power, DEPTHS.level[depth - 1]);
+  let hazard = null;
+  const forced = kind === "scree" ? "fall" : kind === "raphides" ? "cuts" : null;
+  const other = rng.chance(DEPTHS.hazard.otherChance) ? rng.pick(HAZARD_KINDS) : null;
+  const hk = forced ?? (kind === "nest" ? null : other);
+  if (hk)
+    hazard = {
+      kind: hk,
+      strength: round22(
+        DEPTHS.hazard.strength[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1])
+      )
+    };
+  const amount = DEPTHS.loot[depth - 1] * rng.range(0.8, 1.2);
+  const loot = {};
+  for (const [r, share2] of Object.entries(DEPTHS.lootKind[kind]))
+    loot[r] = Math.round(amount * share2);
+  return { kind, units, hazard, loot, iron: DEPTHS.iron[depth - 1] };
+}
+function grouillants(power, level) {
+  return DEPTH_KINDS.map((kind) => ({
+    kind,
+    count: Math.max(
+      kind === "larva" ? 1 : 0,
+      Math.round(power * DEPTHS.mix[kind] / ENEMIES[kind].power)
+    ),
+    level
+  })).filter((u) => u.count > 0);
+}
+function weighted(rng, weights) {
+  const keys = ROOM_KINDS.filter((k) => k in weights);
+  const total = keys.reduce((a, k) => a + weights[k], 0);
+  let x = rng.range(0, total);
+  for (const k of keys) {
+    x -= weights[k];
+    if (x < 0) return k;
+  }
+  return keys[keys.length - 1];
+}
+function round22(x) {
+  return Math.round(x * 100) / 100;
+}
+function localDepthsSeed(state) {
+  return `${localAlienSeed(state)}/depths`;
+}
+function ensureDepths(state, seed) {
+  if (state.colony.index !== 0 || state.depthSeed !== void 0) return false;
+  state.depthSeed = `${seed}/depths`;
+  return true;
+}
+function depthsKnown(state) {
+  return state.depthSeed !== void 0;
+}
+function resetDepths(s) {
+  s.depths = { ...s.depths, views: {}, galleries: {}, next: null };
+}
+function reachableRooms(state) {
+  const map = depthsMapOf(state);
+  const taken = state.depths.galleries;
+  return map.rooms.filter((r) => !taken[r.id] && (r.entrance || r.links.some((id3) => taken[id3])));
+}
+
+// packages/shared/src/sim/delves.ts
+var DEPTHS_TARGET = "depths";
+var NO_PAD = "none";
+function tunnelOf(state) {
+  return state.buildings.find((b) => b.type === "tunnel");
+}
+function delveCrewMax(state) {
+  const t = tunnelOf(state);
+  return t ? DEPTHS.crew[Math.min(t.level, DEPTHS.crew.length - 1)] ?? 0 : 0;
+}
+function delveTime(room) {
+  return DEPTHS.travelMs[room.depth - 1];
+}
+function isDelve(e) {
+  return e.mission === "delve";
+}
+function tunnelBusy(state) {
+  return state.expeditions.some((e) => isDelve(e) && e.status !== "done");
+}
+function delveLock(state, roomId, crew, orders) {
+  const tunnel = tunnelOf(state);
+  if (!tunnel) return "noTunnel";
+  if (state.depths.door.closed) return "doorClosed";
+  const map = depthsMapOf(state);
+  const room = map.byId.get(roomId);
+  if (!room) return "unknownRoom";
+  const taken = state.depths.galleries;
+  if (taken[roomId]) return "roomTaken";
+  if (!room.entrance && !room.links.some((id3) => taken[id3])) return "roomOutOfReach";
+  if (state.expeditions.some((e) => isDelve(e) && e.status === "outbound" && e.room === roomId))
+    return "delveThere";
+  if (!validOrders(orders)) return "invalidOrders";
+  if (new Set(crew).size !== crew.length) return "invalidCrew";
+  const members = crewOf(state, crew);
+  if (!members || members.some((v) => v.kikiwiwi)) return "invalidCrew";
+  if (members.length < 1) return "crewTooSmall";
+  if (members.length > delveCrewMax(state)) return "crewTooLarge";
+  return null;
+}
+function launchDelve(state, roomId, crewIds, provisions, orders, now, id3) {
+  const room = depthsMapOf(state).byId.get(roomId);
+  const crew = crewOf(state, crewIds);
+  for (const v of crew) v.job = { kind: "expedition", expeditionId: id3 };
+  state.resources.pulp -= provisions.pulp;
+  state.resources.juice -= provisions.juice;
+  const travel = delveTime(room);
+  const e = {
+    id: id3,
+    mission: "delve",
+    targetId: DEPTHS_TARGET,
+    launchpadId: NO_PAD,
+    crew: crew.map((v) => v.id),
+    roster: crew.map((v) => ({
+      id: v.id,
+      name: v.name,
+      level: v.level,
+      shiny: v.shiny,
+      classId: v.classId
+    })),
+    provisions: { ...emptyResources(), pulp: provisions.pulp, juice: provisions.juice },
+    // No hold to fill: what the room gives is carried up.
+    cargo: 0,
+    departedAt: now,
+    arriveAt: now + travel,
+    returnAt: now + 2 * travel,
+    status: "outbound",
+    result: null,
+    orders: { ...orders },
+    room: roomId
+  };
+  state.expeditions.push(e);
+  return e;
+}
+var RANK = { edge: 0, lantern: 1, retreat: 2, delve: 3 };
+function see(state, roomId, view) {
+  const old = state.depths.views[roomId];
+  if (old && RANK[old.source] > RANK[view.source]) return;
+  state.depths.views[roomId] = view;
+}
+function resolveDelve(state, e, members, fed) {
+  const seed = state.depthSeed;
+  const room = e.room ? depthsMapOf(state).byId.get(e.room) : void 0;
+  if (seed === void 0 || !room || !e.orders) throw new Error("resolveDelve: hidden depths");
+  const at = e.arriveAt;
+  const truth = roomTruth(seed, room);
+  const battleSeed = `${seed}/delve/${e.id}`;
+  const hits = hazardHits(members, truth.hazard, battleSeed);
+  const setup = delveSetup(state, members, {
+    units: truth.units,
+    hazard: truth.hazard,
+    orders: e.orders,
+    fed,
+    seed: battleSeed
+  });
+  const log2 = simulateBattle(setup, battleSeed);
+  const outcome = landingOutcome(log2);
+  const crewIds = new Set(members.map((v) => v.id));
+  const fallen = (log2.result.lost ?? []).filter((ref) => crewIds.has(ref));
+  const dead = outcome === "victory" ? [] : fallen;
+  const hurt = outcome === "victory" ? fallen : [];
+  removeVillagers(state, dead, "battle", at, true);
+  e.crew = e.crew.filter((id3) => !dead.includes(id3));
+  const loot = emptyResources();
+  let iron = 0;
+  let lantern;
+  if (outcome === "victory") {
+    state.depths.galleries[room.id] = { kind: truth.kind, since: at };
+    see(state, room.id, {
+      at,
+      source: "delve",
+      kind: truth.kind,
+      units: truth.units.map((u) => ({ ...u })),
+      hazard: truth.hazard ? { ...truth.hazard } : null
+    });
+    for (const id3 of room.links) {
+      if (state.depths.galleries[id3]) continue;
+      const next = depthsMapOf(state).byId.get(id3);
+      see(state, id3, { at, source: "edge", kind: roomTruth(seed, next).kind });
+    }
+    lantern = lanternRoom(state, room, members);
+    if (lantern) {
+      const t = roomTruth(seed, depthsMapOf(state).byId.get(lantern));
+      see(state, lantern, {
+        at,
+        source: "lantern",
+        kind: t.kind,
+        units: t.units.map((u) => ({ ...u })),
+        hazard: t.hazard ? { ...t.hazard } : null
+      });
+    }
+    for (const r of RESOURCE_IDS) loot[r] = truth.loot[r] ?? 0;
+    iron = truth.iron;
+  } else if (outcome === "retreat") {
+    see(state, room.id, {
+      at,
+      source: "retreat",
+      kind: truth.kind,
+      units: truth.units.map((u) => ({ ...u })),
+      hazard: truth.hazard ? { ...truth.hazard } : null
+    });
+  }
+  if (outcome !== "defeat") recordBestiary(state, truth.units, at);
+  e.result = {
+    victory: outcome === "victory",
+    strength: members.length,
+    defense: setup.units.filter((u) => u.side === 0).length,
+    fed: Math.round(fed * 100) / 100,
+    lostInBattle: dead.map((id3) => members.find((v) => v.id === id3)?.name ?? id3),
+    lostOnReturn: [],
+    loot,
+    outcome,
+    log: log2,
+    injured: hurt,
+    ...outcome !== "defeat" ? { seen: truth.units.map((u) => ({ ...u })) } : {},
+    ...truth.hazard && outcome !== "defeat" ? { hazard: { ...truth.hazard, hits } } : {},
+    ...iron > 0 ? { iron } : {},
+    ...outcome === "victory" ? { gallery: true } : {},
+    ...lantern ? { lantern } : {}
+  };
+  if (e.crew.length === 0) {
+    e.status = "done";
+    const done = state.expeditions.filter((x) => x.status === "done");
+    if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
+  } else e.status = "returning";
+}
+function lanternRoom(_state, _room, _crew) {
+  return void 0;
+}
+var trialCache = /* @__PURE__ */ new Map();
+function practice(state, crew, units, hazard, orders, fed, seed) {
+  const setup = delveSetup(state, crew, { units, hazard, orders, fed, seed });
+  const key = JSON.stringify([setup.units, setup.orders, seed]);
+  const hit = trialCache.get(key);
+  if (hit) return hit;
+  const log2 = simulateBattle(setup, seed);
+  const out = { outcome: landingOutcome(log2), dead: log2.result.lost?.length ?? 0 };
+  if (trialCache.size > 32) trialCache.delete(trialCache.keys().next().value);
+  trialCache.set(key, out);
+  return out;
+}
+function assumedHazard(room, kind) {
+  const strength = DEPTHS.hazard.strength[room.depth - 1];
+  if (kind === "scree") return { kind: "fall", strength };
+  if (kind === "raphides") return { kind: "cuts", strength };
+  return null;
+}
+function delveForecast(state, roomId, crew, orders, fed = 1) {
+  const room = depthsMapOf(state).byId.get(roomId);
+  if (!room) return null;
+  const view = state.depths.views[roomId] ?? null;
+  const kind = view?.kind ?? null;
+  const knowledge = view?.units ? "seen" : kind ? "kind" : "unknown";
+  const base = DEPTHS.power[room.depth - 1];
+  const level = DEPTHS.level[room.depth - 1];
+  const nest2 = kind === "nest" ? DEPTHS.nestPower : 1;
+  const armies = view?.units ? [view.units, view.units, view.units] : [
+    grouillants(base * DEPTHS.spread[0] * nest2, level),
+    grouillants(base * nest2, level),
+    grouillants(base * DEPTHS.spread[1] * (kind ? nest2 : DEPTHS.nestPower), level)
+  ];
+  const known = view && view.hazard !== void 0 ? view.hazard : void 0;
+  const assumed = known === void 0 ? assumedHazard(room, kind) : known;
+  const possibleHazard = known === void 0 && !assumed && kind !== "nest";
+  const worst = assumed ?? (possibleHazard ? { kind: "fall", strength: DEPTHS.hazard.strength[room.depth - 1] } : null);
+  const hazards = [assumed, assumed, worst];
+  const shown = assumed ?? worst;
+  const harm = shown ? crew.map((v) => {
+    const o = hazardOdds(v, crew, shown);
+    return {
+      id: v.id,
+      chance: round23(o.chance),
+      share: round23(Math.min(1 - DEPTHS.hazard.floor, o.harm))
+    };
+  }) : [];
+  const out = {
+    knowledge,
+    view,
+    kind,
+    units: armies[1],
+    hazard: assumed,
+    possibleHazard,
+    harm,
+    travelMs: delveTime(room)
+  };
+  if (crew.length === 0)
+    return { ...out, odds: "unknown", expectedDead: 0, expectedHurt: 0, trials: [] };
+  const runs = armies.map(
+    (units, i) => practice(state, crew, units, hazards[i], orders, fed, `depths/trial/${roomId}/${i}`)
+  );
+  const won = runs.map((r) => r.outcome === "victory");
+  const odds = won[2] ? "likely" : won[1] || won[0] ? "uncertain" : "unlikely";
+  return { ...out, odds, ...tollOf(runs[1]), trials: runs.map((r) => r.outcome) };
+}
+function round23(x) {
+  return Math.round(x * 100) / 100;
+}
+function canResolveDelve(state) {
+  return depthsKnown(state);
+}
+
 // packages/shared/src/sim/deliveries.ts
 function cargoWeight(resources2) {
   return RESOURCE_IDS.reduce((sum, id3) => sum + (resources2[id3] ?? 0), 0) * EXPEDITIONS.resourceWeight;
@@ -7060,7 +7508,7 @@ function raidDen(state, q, r, now, events) {
 
 // packages/shared/src/battle/queen.ts
 var QUEEN_REF = "queen";
-var CENTRE = { q: 0, r: 0 };
+var CENTRE2 = { q: 0, r: 0 };
 function queenUnit(input) {
   const F = SIEGE.final;
   const k = Math.sqrt(Math.max(0.05, input.ground / SIEGE.queen.ground));
@@ -7088,7 +7536,7 @@ function queenUnit(input) {
     ammo: null,
     carry: 0,
     power: 0,
-    at: CENTRE,
+    at: CENTRE2,
     delay: 0,
     building: null,
     fightsBack: true,
@@ -7103,7 +7551,7 @@ function share(units, k) {
 function queenSetup(state, crew, input) {
   const F = SIEGE.final;
   const radius = INTEL.innerRadius + 1;
-  const field = hexDisk(CENTRE, radius);
+  const field = hexDisk(CENTRE2, radius);
   const tiles = [...field].sort((a, b) => a.q - b.q || a.r - b.r).map((h) => ({ q: h.q, r: h.r, cost: 1 }));
   const ship = landingTile(input.sector);
   const shipKey = hexKey(ship);
@@ -7124,12 +7572,12 @@ function queenSetup(state, crew, input) {
     });
   });
   units.push(queenUnit(input));
-  const guardTiles = [...hexRing(CENTRE, 1), ...hexRing(CENTRE, 2)];
+  const guardTiles = [...hexRing(CENTRE2, 1), ...hexRing(CENTRE2, 2)];
   let n = 0;
   for (const { unit, count, k } of capped(share(input.escort, F.escort)))
     for (let i = 0; i < count; i++, n++)
       units.push(alienUnit(unit, k, `e${n}`, guardTiles[n % guardTiles.length], 0));
-  const rim = hexRing(CENTRE, radius);
+  const rim = hexRing(CENTRE2, radius);
   const swarm = sectorUnits(
     { sector: input.sector, inner: true, age: input.age, power: input.air * F.swarm.share },
     0
@@ -7141,7 +7589,7 @@ function queenSetup(state, crew, input) {
         ...alienUnit(unit, k, `s${n}`, rim[j * 5 % rim.length], F.swarm.delayS + j * 0.25),
         wake: { ref: QUEEN_REF, below: F.swarm.below }
       });
-  const tunnels = hexRing(CENTRE, F.tunnels.tiles);
+  const tunnels = hexRing(CENTRE2, F.tunnels.tiles);
   const elite = sectorUnits(
     {
       sector: input.sector,
@@ -7384,7 +7832,7 @@ function revealAll(state, g, targetId, at) {
   }
   face.beacons.sort((a, b) => a.sector - b.sector);
 }
-var trialCache = /* @__PURE__ */ new Map();
+var trialCache2 = /* @__PURE__ */ new Map();
 function finalInput(state, targetId, orders, fed, now, luck = 1) {
   const q = queenOf(state, targetId);
   if (!q) return null;
@@ -7429,7 +7877,7 @@ function finalForecast(state, targetId, crew, orders, fed, now) {
     const setup = queenSetup(state, crew, input);
     const seed = `${targetId}/final-trial/${i}`;
     const key = JSON.stringify([setup.units, seed]);
-    let hit = trialCache.get(key);
+    let hit = trialCache2.get(key);
     if (!hit) {
       const log2 = simulateBattle(setup, seed);
       hit = {
@@ -7437,8 +7885,8 @@ function finalForecast(state, targetId, crew, orders, fed, now) {
         dead: log2.result.lost?.length ?? 0,
         left: log2.result.leaderLeft ?? 1
       };
-      if (trialCache.size > 16) trialCache.delete(trialCache.keys().next().value);
-      trialCache.set(key, hit);
+      if (trialCache2.size > 16) trialCache2.delete(trialCache2.keys().next().value);
+      trialCache2.set(key, hit);
     }
     return hit;
   });
@@ -7472,7 +7920,7 @@ function shipReliability(ship, crew, fuel = false) {
   const mend = Math.min(SHIP_REPAIR.max, SHIP_REPAIR.perDexterity * (dex - KIWI.stat.average));
   const dust = fuel ? FUEL.reliability : 0;
   const engineer = crew.some((v) => v.classId === "engineer") ? SKILLS.engineerMend : 0;
-  return round22(Math.min(1, ship.reliability + mend + dust + engineer));
+  return round24(Math.min(1, ship.reliability + mend + dust + engineer));
 }
 function travelFactor(state, plan) {
   return techEffects(state).travel * (plan.fuel ? FUEL.travel : 1);
@@ -7508,10 +7956,10 @@ function reconForecast(crew, ship) {
     sp.max
   );
   return {
-    quality: round22(quality),
-    spotChance: round22(spotChance),
+    quality: round24(quality),
+    spotChance: round24(spotChance),
     sectors: RECON.sectors.base + Math.round(RECON.sectors.perQuality * quality),
-    spread: round22(RECON.spread.worst - (RECON.spread.worst - RECON.spread.best) * quality)
+    spread: round24(RECON.spread.worst - (RECON.spread.worst - RECON.spread.best) * quality)
   };
 }
 function rations(state, crew, ms2) {
@@ -7772,6 +8220,7 @@ function resolveArrival(state, e) {
   const fed = coverage(e.provisions, need);
   e.provisions.pulp -= Math.min(e.provisions.pulp, need.pulp);
   e.provisions.juice -= Math.min(e.provisions.juice, need.juice);
+  if (e.mission === "delve") return resolveDelve(state, e, members, fed);
   if (e.broken) {
     e.status = "returning";
     e.result = {
@@ -7780,7 +8229,7 @@ function resolveArrival(state, e) {
       broken: true,
       strength: 0,
       defense: 0,
-      fed: round22(fed),
+      fed: round24(fed),
       lostInBattle: [],
       lostOnReturn: [],
       loot: emptyResources()
@@ -7794,7 +8243,7 @@ function resolveArrival(state, e) {
       aborted: true,
       strength: 0,
       defense: 0,
-      fed: round22(fed),
+      fed: round24(fed),
       lostInBattle: [],
       lostOnReturn: [],
       loot: emptyResources()
@@ -7811,7 +8260,7 @@ function resolveArrival(state, e) {
     aborted: true,
     strength: 0,
     defense: 0,
-    fed: round22(fed),
+    fed: round24(fed),
     lostInBattle: [],
     lostOnReturn: [],
     loot: emptyResources()
@@ -7831,12 +8280,12 @@ function resolveReturn(state, e, events = []) {
   removeVillagers(state, lost, "starvation", e.returnAt);
   e.crew = e.crew.filter((id3) => !lost.includes(id3));
   result.lostOnReturn = lost.map((id3) => nameOf(e, id3));
-  const xp = (KIWI.expeditionXp.base + (result.victory ? KIWI.expeditionXp.victory * (e.mission === "land" || e.mission === "final" ? LANDING.victoryXp : 1) : 0)) * (e.mission === "recon" ? RECON.xp : 1);
+  const xp = (KIWI.expeditionXp.base + (result.victory ? KIWI.expeditionXp.victory * (e.mission === "land" || e.mission === "final" || e.mission === "delve" ? LANDING.victoryXp : 1) : 0)) * (e.mission === "recon" ? RECON.xp : 1);
   for (const v of crewMembers(state, e.crew)) {
     if (!result.aborted) {
       v.history.expeditions++;
       if (result.victory) v.history.victories++;
-      if (result.victory && (e.mission === "land" || e.mission === "final"))
+      if (result.victory && (e.mission === "land" || e.mission === "final" || e.mission === "delve"))
         v.veteran = (v.veteran ?? 0) + 1;
     }
     grantXp(state, v, result.aborted ? xp / 2 : xp, e.returnAt, events);
@@ -7850,6 +8299,7 @@ function resolveReturn(state, e, events = []) {
     seeds: e.provisions.seeds + result.loot.seeds
   };
   for (const id3 of RESOURCE_IDS) state.resources[id3] += unloaded[id3];
+  if (result.iron) addIron(state, result.iron);
   const hurt = new Set(result.injured ?? []);
   for (const v of state.villagers) {
     if (v.job.kind !== "expedition" || v.job.expeditionId !== e.id) continue;
@@ -7918,7 +8368,7 @@ function closeMates(state, ids) {
 function nameOf(e, id3) {
   return e.roster.find((r) => r.id === id3)?.name ?? id3;
 }
-var round22 = (v) => Math.round(v * 100) / 100;
+var round24 = (v) => Math.round(v * 100) / 100;
 
 // packages/shared/src/sim/landing.ts
 var round13 = (v) => Math.round(v * 10) / 10;
@@ -8169,16 +8619,16 @@ function resolveLanding(state, e, members, fed) {
     if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
   } else e.status = "returning";
 }
-var trialCache2 = /* @__PURE__ */ new Map();
-function practice(state, crew, sector, units, help, buildings, orders, fed, seed) {
+var trialCache3 = /* @__PURE__ */ new Map();
+function practice2(state, crew, sector, units, help, buildings, orders, fed, seed) {
   const setup = landingSetup(state, crew, { sector, units, help, buildings, orders, fed });
   const key = JSON.stringify([setup.units, setup.buildings, setup.orders, help, seed]);
-  const hit = trialCache2.get(key);
+  const hit = trialCache3.get(key);
   if (hit) return hit;
   const log2 = simulateBattle(setup, seed);
   const out = { outcome: landingOutcome(log2), dead: log2.result.lost?.length ?? 0 };
-  if (trialCache2.size > 32) trialCache2.delete(trialCache2.keys().next().value);
-  trialCache2.set(key, out);
+  if (trialCache3.size > 32) trialCache3.delete(trialCache3.keys().next().value);
+  trialCache3.set(key, out);
   return out;
 }
 function scaled2(units, k) {
@@ -8253,7 +8703,7 @@ function landingForecast(state, targetId, sector, crew, orders, fed, now) {
     return { ...base, odds: "unknown", expectedDead: 0, expectedHurt: 0, trials: [] };
   const buildings = view?.buildings ?? [];
   const runs = armies.map(
-    (units, i) => practice(
+    (units, i) => practice2(
       state,
       crew,
       sector,
@@ -10437,7 +10887,7 @@ function constructionRemaining(s, now) {
 }
 
 // packages/shared/src/sim/tasks.ts
-var RANK = {
+var RANK2 = {
   garrison: 0,
   build: 1,
   research: 2,
@@ -10467,7 +10917,7 @@ function taskLevel(state, v) {
 function canBorrow(state, v, to) {
   if (v.kikiwiwi) return false;
   const level = taskLevel(state, v);
-  if (level === null || RANK[level] <= RANK[to]) return false;
+  if (level === null || RANK2[level] <= RANK2[to]) return false;
   if (to !== "garrison" && v.job.kind === "work") {
     if (getBuilding(state, v.job.buildingId)?.type === "trainingCamp") return false;
   }
@@ -11546,9 +11996,9 @@ function levelForXp(xp) {
   while (level < KIWI.maxLevel && xp >= xpForLevel(level + 1) * XP_SCALE) level++;
   return level;
 }
-function rankOf(practice2) {
+function rankOf(practice3) {
   let rank = 0;
-  while (rank < KIWI.maxRank && practice2 >= masteryHours(rank + 1) * PRACTICE_SCALE) rank++;
+  while (rank < KIWI.maxRank && practice3 >= masteryHours(rank + 1) * PRACTICE_SCALE) rank++;
   return rank;
 }
 function levelProgress(v) {
@@ -11696,8 +12146,8 @@ function ratesOf(state, v, masteries) {
   const m = modifiers(v);
   const spirit = 1 + KIWI.spiritXp * (v.stats.spirit - KIWI.stat.average);
   const xp = v.level >= KIWI.maxLevel ? 0 : Math.max(1, Math.round(perHour * 100 * spirit * m.xp));
-  const practice2 = mastery && rankOf(v.mastery[mastery]) < KIWI.maxRank ? Math.max(1, Math.round(100 * m.practice)) : 0;
-  return { xp, practice: practice2, mastery: practice2 > 0 ? mastery : null, drill };
+  const practice3 = mastery && rankOf(v.mastery[mastery]) < KIWI.maxRank ? Math.max(1, Math.round(100 * m.practice)) : 0;
+  return { xp, practice: practice3, mastery: practice3 > 0 ? mastery : null, drill };
 }
 function nextKiwiEvent(state) {
   let next = Infinity;
@@ -12543,7 +12993,7 @@ function landGuard(state, e, members, fed) {
   e.crew = back;
   e.result = base;
 }
-var trialCache3 = /* @__PURE__ */ new Map();
+var trialCache4 = /* @__PURE__ */ new Map();
 function beaconForecast(state, targetId, sector, origin, now, guards) {
   const face = state.faceViews[targetId];
   const b = beaconAt(face, sector);
@@ -12584,7 +13034,7 @@ function beaconForecast(state, targetId, sector, origin, now, guards) {
     });
     const seed = `${targetId}/beacon-trial/${sector}/${i}`;
     const key = JSON.stringify([setup.units, setup.buildings, seed]);
-    let hit = trialCache3.get(key);
+    let hit = trialCache4.get(key);
     if (!hit) {
       const log2 = simulateBattle(setup, seed);
       const ids = new Set(crew.map((v) => v.id));
@@ -12592,8 +13042,8 @@ function beaconForecast(state, targetId, sector, origin, now, guards) {
         held: beaconHeld(log2),
         dead: log2.result.fallen.filter((ref) => ids.has(ref)).length
       };
-      if (trialCache3.size > 32) trialCache3.delete(trialCache3.keys().next().value);
-      trialCache3.set(key, hit);
+      if (trialCache4.size > 32) trialCache4.delete(trialCache4.keys().next().value);
+      trialCache4.set(key, hit);
     }
     return hit;
   });
@@ -12692,6 +13142,7 @@ function alienEnemies(g, defense) {
   return { ferrets, bats: total - ferrets };
 }
 function canResolveArrival(state, e) {
+  if (e.mission === "delve") return state.depthSeed !== void 0;
   return !!e.broken || // Chantier 19: a settlers' ship meets no alien on a conquered face.
   e.mission === "found" || // Chantier 42: a guard ship meets nobody (the beacon is ours).
   e.mission === "guard" || !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
@@ -12781,7 +13232,9 @@ var MISSION_KINDS = [
   "final",
   "retreat",
   "found",
-  "guard"
+  "guard",
+  // Chantier 48: a delve into a room of the depths (no ship: from the tunnel entrance).
+  "delve"
 ];
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
@@ -13658,6 +14111,14 @@ var COMMAND_ERRORS = [
   "noObjective",
   "notALaunchpad",
   "launchpadBusy",
+  // Chantier 48: the depths.
+  "noTunnel",
+  "doorClosed",
+  "unknownRoom",
+  "roomTaken",
+  "roomOutOfReach",
+  "delveThere",
+  "tunnelBusy",
   "launchpadDamaged",
   "unknownTarget",
   "crewTooSmall",
@@ -14201,6 +14662,15 @@ function execute(s, cmd, ctx, events) {
       launch(s, cmd, now, nextId(s, "x"));
       return;
     }
+    case "delve": {
+      const lock = delveLock(s, cmd.roomId, cmd.crew, cmd.orders);
+      if (lock) fail(lock);
+      const { pulp, juice } = cmd.provisions;
+      if (![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) fail("invalidCount");
+      if (!canAfford(s.resources, { pulp, juice })) fail("notEnoughResources");
+      launchDelve(s, cmd.roomId, cmd.crew, { pulp, juice }, cmd.orders, now, nextId(s, "x"));
+      return;
+    }
     case "fortifyBeacon": {
       if (!s.targets.some((t) => t.id === cmd.targetId)) fail("unknownTarget");
       const lock = fortifyLock(s, cmd.targetId, cmd.sector);
@@ -14314,6 +14784,7 @@ function execute(s, cmd, ctx, events) {
       if (b.type === "nest" || b.type === "monument") fail("notDemolishable");
       if (pendingUpgrade(s, b.id)) fail("upgradeInProgress");
       if (b.type === "launchpad" && isLaunchpadBusy(s, b.id)) fail("launchpadBusy");
+      if (b.type === "tunnel" && tunnelBusy(s)) fail("tunnelBusy");
       const housingLeft = housing(s) - (levelDef(b.type, b.level)?.housing ?? 0);
       if (housingLeft < population(s)) fail("housingNeeded");
       refund(s, demolitionRefund(s, b));
@@ -14681,134 +15152,6 @@ function cleanKiwiName(raw) {
   const name = raw.replace(/\p{Cc}/gu, "").replace(/\s+/g, " ").trim();
   if (name.length === 0 || [...name].length > KIWI_NAME_MAX) return null;
   return name;
-}
-
-// packages/shared/src/sim/depths.ts
-var mapCache2 = /* @__PURE__ */ new Map();
-function depthsMapOf(state) {
-  const key = `${state.seed}/${state.face}`;
-  let map = mapCache2.get(key);
-  if (!map) {
-    map = generateDepths(key);
-    if (mapCache2.size > 16) mapCache2.clear();
-    mapCache2.set(key, map);
-  }
-  return map;
-}
-function generateDepths(key) {
-  const rng = createRng(`${key}/depths/map`);
-  const rooms = [];
-  const byDepth = [];
-  for (let d = 1; d <= DEPTHS.rooms.length; d++) {
-    const [lo, hi] = DEPTHS.rooms[d - 1];
-    const n = rng.int(lo, hi);
-    const row = [];
-    for (let i = 0; i < n; i++) {
-      const slot = 2 / n;
-      const x = round23(-1 + slot * (i + 0.5) + rng.range(-0.3, 0.3) * slot);
-      row.push({
-        id: `r${rooms.length + row.length}`,
-        depth: d,
-        x,
-        links: [],
-        entrance: d === 1
-      });
-    }
-    rooms.push(...row);
-    byDepth.push(row);
-  }
-  const link = (a, b) => {
-    if (a === b || a.links.includes(b.id)) return;
-    a.links.push(b.id);
-    b.links.push(a.id);
-  };
-  for (let d = 0; d < byDepth.length; d++) {
-    const row = byDepth[d];
-    for (let i = 0; i + 1 < row.length; i++)
-      if (rng.chance(DEPTHS.sideLink)) link(row[i], row[i + 1]);
-    if (d === 0) continue;
-    const above = byDepth[d - 1];
-    for (const r of row) {
-      const near = [...above].sort((a, b) => Math.abs(a.x - r.x) - Math.abs(b.x - r.x));
-      link(r, near[0]);
-      if (near[1] && rng.chance(DEPTHS.secondLink)) link(r, near[1]);
-    }
-  }
-  return { rooms, byId: new Map(rooms.map((r) => [r.id, r])) };
-}
-var truthCache = /* @__PURE__ */ new Map();
-function roomTruth(seed, room) {
-  const key = `${seed}/room/${room.id}`;
-  let t = truthCache.get(key);
-  if (!t) {
-    t = drawRoom(createRng(key), room.depth);
-    if (truthCache.size > 256) truthCache.clear();
-    truthCache.set(key, t);
-  }
-  return t;
-}
-function drawRoom(rng, depth) {
-  const kind = weighted(rng, DEPTHS.kindWeights[depth - 1]);
-  const power = DEPTHS.power[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1]) * (kind === "nest" ? DEPTHS.nestPower : 1);
-  const units = grouillants(power, DEPTHS.level[depth - 1]);
-  let hazard = null;
-  const forced = kind === "scree" ? "fall" : kind === "raphides" ? "cuts" : null;
-  const other = rng.chance(DEPTHS.hazard.otherChance) ? rng.pick(HAZARD_KINDS) : null;
-  const hk = forced ?? (kind === "nest" ? null : other);
-  if (hk)
-    hazard = {
-      kind: hk,
-      strength: round23(
-        DEPTHS.hazard.strength[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1])
-      )
-    };
-  const amount = DEPTHS.loot[depth - 1] * rng.range(0.8, 1.2);
-  const loot = {};
-  for (const [r, share2] of Object.entries(DEPTHS.lootKind[kind]))
-    loot[r] = Math.round(amount * share2);
-  return { kind, units, hazard, loot, iron: DEPTHS.iron[depth - 1] };
-}
-function grouillants(power, level) {
-  return DEPTH_KINDS.map((kind) => ({
-    kind,
-    count: Math.max(
-      kind === "larva" ? 1 : 0,
-      Math.round(power * DEPTHS.mix[kind] / ENEMIES[kind].power)
-    ),
-    level
-  })).filter((u) => u.count > 0);
-}
-function weighted(rng, weights) {
-  const keys = ROOM_KINDS.filter((k) => k in weights);
-  const total = keys.reduce((a, k) => a + weights[k], 0);
-  let x = rng.range(0, total);
-  for (const k of keys) {
-    x -= weights[k];
-    if (x < 0) return k;
-  }
-  return keys[keys.length - 1];
-}
-function round23(x) {
-  return Math.round(x * 100) / 100;
-}
-function localDepthsSeed(state) {
-  return `${localAlienSeed(state)}/depths`;
-}
-function ensureDepths(state, seed) {
-  if (state.colony.index !== 0 || state.depthSeed !== void 0) return false;
-  state.depthSeed = `${seed}/depths`;
-  return true;
-}
-function depthsKnown(state) {
-  return state.depthSeed !== void 0;
-}
-function resetDepths(s) {
-  s.depths = { ...s.depths, views: {}, galleries: {}, next: null };
-}
-function reachableRooms(state) {
-  const map = depthsMapOf(state);
-  const taken = state.depths.galleries;
-  return map.rooms.filter((r) => !taken[r.id] && (r.entrance || r.links.some((id3) => taken[id3])));
 }
 
 // node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
@@ -19310,6 +19653,7 @@ var gameStateSchema = external_exports.object({
       freight: resources.optional(),
       orders: landingOrders.optional(),
       delayed: external_exports.boolean().optional(),
+      room: external_exports.string().max(8).optional(),
       result: external_exports.object({
         victory: external_exports.boolean(),
         aborted: external_exports.boolean().optional(),
@@ -19332,7 +19676,15 @@ var gameStateSchema = external_exports.object({
         log: battleLog.optional(),
         beacon: external_exports.boolean().optional(),
         seen: external_exports.array(alienUnit2).max(16).optional(),
-        shipLost: external_exports.boolean().optional()
+        shipLost: external_exports.boolean().optional(),
+        iron: external_exports.number().int().min(0).optional(),
+        hazard: external_exports.object({
+          kind: external_exports.enum(HAZARD_KINDS),
+          strength: external_exports.number().min(0).max(1),
+          hits: external_exports.array(external_exports.object({ id, share: external_exports.number().min(0).max(1) })).max(200)
+        }).optional(),
+        gallery: external_exports.boolean().optional(),
+        lantern: external_exports.string().max(8).optional()
       }).nullable()
     })
   ),
@@ -19878,6 +20230,18 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     }).optional()
   }),
   external_exports.object({ type: external_exports.literal("raidDen"), q: external_exports.number().int(), r: external_exports.number().int() }),
+  external_exports.object({
+    type: external_exports.literal("delve"),
+    roomId: external_exports.string().min(1).max(8),
+    crew: external_exports.array(id2).max(50),
+    provisions: external_exports.object({ pulp: external_exports.number().min(0).max(1e7), juice: external_exports.number().min(0).max(1e7) }),
+    orders: external_exports.object({
+      posture: external_exports.enum(POSTURES),
+      priority: external_exports.enum(["nearest", "air", "casters", "weakest"]),
+      retreatAt: external_exports.number().min(0).max(1),
+      goal: external_exports.enum(["burn", "loot"])
+    })
+  }),
   external_exports.object({
     type: external_exports.literal("fortifyBeacon"),
     targetId: id2,
@@ -20509,8 +20873,8 @@ function plausibleKiwi(v, now) {
   if (sum + v.statPoints > KIWI.statTotal.max + v.level - 1) return false;
   if (v.statPoints > Math.floor(v.level / 2)) return false;
   if (levelForXp(v.xp) !== v.level || v.xp > MAX_XP_PER_MS * age) return false;
-  const practice2 = MASTERY_IDS.reduce((s, id3) => s + v.mastery[id3], 0);
-  if (practice2 > MAX_PRACTICE_PER_MS * age) return false;
+  const practice3 = MASTERY_IDS.reduce((s, id3) => s + v.mastery[id3], 0);
+  if (practice3 > MAX_PRACTICE_PER_MS * age) return false;
   if (v.classId && v.level < CLASSES[v.classId].minLevel) return false;
   if (v.kikiwiwi && v.classId) return false;
   for (const m of v.memories ?? []) {
@@ -21031,6 +21395,7 @@ export {
   DEMOLITION,
   DEPOSITS,
   DEPTHS,
+  DEPTHS_TARGET,
   DEPTH_KINDS,
   ENEMIES,
   ENEMY_KINDS,
@@ -21090,6 +21455,7 @@ export {
   MORALE,
   NAME_SYLLABLES,
   NEEDS,
+  NO_PAD,
   OBJECTIVES,
   OBJECTIVES_SHOWN,
   OBSTACLES,
@@ -21245,6 +21611,7 @@ export {
   canReassign,
   canReshape,
   canResolveArrival,
+  canResolveDelve,
   canStarve,
   canSup,
   canalCap,
@@ -21310,6 +21677,7 @@ export {
   consumption,
   copiesOf,
   countTiles,
+  coverage,
   coveredHarvest,
   coveredKeys,
   coveredRampart,
@@ -21333,6 +21701,11 @@ export {
   deliveryOf,
   deliveryTick,
   deliveryTime,
+  delveCrewMax,
+  delveForecast,
+  delveLock,
+  delveSetup,
+  delveTime,
   demolitionPreview,
   demolitionRefund,
   denRaidForecast,
@@ -21444,6 +21817,11 @@ export {
   hasSkill,
   hasTech,
   hashSeed,
+  hazardFactor,
+  hazardHits,
+  hazardOdds,
+  hazardShield,
+  hazardStat,
   hex,
   hexAdd,
   hexDisk,
@@ -21478,6 +21856,7 @@ export {
   isBank,
   isConquered,
   isDecor,
+  isDelve,
   isDepot,
   isFace,
   isFlooded,
@@ -21527,6 +21906,7 @@ export {
   landingTile,
   launch,
   launchCost,
+  launchDelve,
   launchpadOf,
   layoutBuilding,
   layoutSnapshot,
@@ -21707,6 +22087,7 @@ export {
   resetLandings,
   resetSiege,
   resolveArrival,
+  resolveDelve,
   resolveFinal,
   resolveLanding,
   resolveReturn,
@@ -21804,6 +22185,8 @@ export {
   trainingDuration,
   travelFactor,
   travelTime,
+  tunnelBusy,
+  tunnelOf,
   turretCount,
   turretCoverage,
   turretLimit,

@@ -464,6 +464,13 @@ export interface ExpeditionResult {
   seen?: AlienUnit[];
   /** Chantier 40: the ship was lost with its crew. */
   shipLost?: boolean;
+  /** Chantier 48, a delve: whole units of meteoric iron brought up. */
+  iron?: number;
+  /** Chantier 48: the room's hazard and the kiwis it hurt (share of hit points lost). */
+  hazard?: { kind: HazardKind; strength: number; hits: { id: string; share: number }[] };
+  /** Chantier 48: the room became a gallery; a spelunker's lantern lit this room next to it. */
+  gallery?: boolean;
+  lantern?: string;
 }
 
 /**
@@ -481,6 +488,8 @@ export const MISSION_KINDS = [
   'retreat',
   'found',
   'guard',
+  // Chantier 48: a delve into a room of the depths (no ship: from the tunnel entrance).
+  'delve',
 ] as const;
 export type MissionKind = (typeof MISSION_KINDS)[number];
 
@@ -518,6 +527,8 @@ export interface Expedition {
   freight?: Resources;
   /** Chantier 40: the orders of a landing (mission `land`, parcel in `sector`). */
   orders?: LandingOrders;
+  /** Chantier 48: the room of the depths a delve goes to. */
+  room?: string;
   /** Chantier 40: a breakdown delayed the landing (the ship lands with less hold). */
   delayed?: boolean;
 }

@@ -584,6 +584,7 @@ export const gameStateSchema = z.object({
       freight: resources.optional(),
       orders: landingOrders.optional(),
       delayed: z.boolean().optional(),
+      room: z.string().max(8).optional(),
       result: z
         .object({
           victory: z.boolean(),
@@ -608,6 +609,16 @@ export const gameStateSchema = z.object({
           beacon: z.boolean().optional(),
           seen: z.array(alienUnit).max(16).optional(),
           shipLost: z.boolean().optional(),
+          iron: z.number().int().min(0).optional(),
+          hazard: z
+            .object({
+              kind: z.enum(HAZARD_KINDS),
+              strength: z.number().min(0).max(1),
+              hits: z.array(z.object({ id, share: z.number().min(0).max(1) })).max(200),
+            })
+            .optional(),
+          gallery: z.boolean().optional(),
+          lantern: z.string().max(8).optional(),
         })
         .nullable(),
     }),

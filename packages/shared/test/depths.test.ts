@@ -8,6 +8,7 @@ import {
   ensureDepths,
   handleGameRequest,
   HOUR_MS,
+  LANDING,
   localDepthsSeed,
   migrateState,
   publicState,
@@ -20,28 +21,7 @@ import {
   type GameState,
   type ServiceContext,
 } from '../src';
-import { findTile, rich, setup, T0 } from './helpers';
-
-/** An Iron-age colony (Nest 7, monument 2) that knows spelunking, without a tunnel yet. */
-export function ironColony(seed = 'depths') {
-  const { map, state } = setup('kiwisu', seed);
-  const s: GameState = rich(state);
-  s.buildings[0]!.level = 7;
-  const mon = findTile(map, 'flesh', 6);
-  s.buildings.push({
-    id: 'bmon' as BuildingId,
-    type: 'monument',
-    q: mon.q,
-    r: mon.r,
-    level: 2,
-    richness: mon.richness,
-    builtAt: T0,
-  });
-  s.research.done = ['stoneAge', 'ironAge', 'spelunking'];
-  s.threats.shieldUntil = s.now + 1000 * HOUR_MS;
-  s.threats.next = null;
-  return { map, s };
-}
+import { delveColony, findTile, ironColony, setup, T0 } from './helpers';
 
 describe('the depths: the network and what rooms hold (chantier 48)', () => {
   it('draws the same public network for everyone who knows the face', () => {
@@ -192,5 +172,36 @@ describe('the server never sends the depths seed', () => {
     const imported = [...r2.games.values()][0]!.state;
     expect(imported.depthSeed).toMatch(/^secret-\d+\/depths$/);
     expect(imported.depths.galleries).toEqual({});
+  });
+
+  it('resolves a delve on load, without ever sending what the room held', async () => {
+    const { ctx, repo } = ctxFor();
+    let now = T0;
+    ctx.now = () => now;
+    await handleGameRequest(ctx, { action: 'load' });
+    const game = [...repo.games.values()][0]!;
+    const { s } = delveColony();
+    s.depthSeed = game.state.depthSeed;
+    repo.games.set(game.id, { ...game, state: s });
+    const room = depthsMapOf(s).rooms.find((r) => r.entrance)!;
+    const crew = s.villagers.filter((v) => v.id.startsWith('dk')).map((v) => v.id);
+    const sent = hidden(
+      await handleGameRequest(ctx, {
+        action: 'command',
+        command: {
+          type: 'delve',
+          roomId: room.id,
+          crew,
+          provisions: { pulp: 100, juice: 100 },
+          orders: LANDING.defaultOrders,
+        },
+      }),
+    );
+    expect(sent.ok).toBe(true);
+    now = T0 + 2 * HOUR_MS - 60_000;
+    const r = hidden(await handleGameRequest(ctx, { action: 'load' }));
+    const e = r.state!.expeditions.find((x) => x.mission === 'delve')!;
+    expect(e.result?.outcome).toBeDefined();
+    expect(r.ok && r.events.some((x) => x.type === 'expeditionArrived')).toBe(true);
   });
 });

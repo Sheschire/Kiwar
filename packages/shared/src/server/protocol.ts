@@ -89,6 +89,18 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('raidDen'), q: z.number().int(), r: z.number().int() }),
   z.object({
+    type: z.literal('delve'),
+    roomId: z.string().min(1).max(8),
+    crew: z.array(id).max(50),
+    provisions: z.object({ pulp: z.number().min(0).max(1e7), juice: z.number().min(0).max(1e7) }),
+    orders: z.object({
+      posture: z.enum(POSTURES),
+      priority: z.enum(['nearest', 'air', 'casters', 'weakest']),
+      retreatAt: z.number().min(0).max(1),
+      goal: z.enum(['burn', 'loot']),
+    }),
+  }),
+  z.object({
     type: z.literal('fortifyBeacon'),
     targetId: id,
     sector: int.min(0).max(INTEL.sectors - 1),

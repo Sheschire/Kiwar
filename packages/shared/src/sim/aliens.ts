@@ -133,6 +133,8 @@ export function alienEnemies(
 
 /** True when this client can resolve the arrival itself (truth held, face gone, or broken down). */
 export function canResolveArrival(state: GameState, e: Expedition): boolean {
+  // Chantier 48: a delve needs the depths' seed (the server online, the client solo).
+  if (e.mission === 'delve') return state.depthSeed !== undefined;
   return (
     !!e.broken ||
     // Chantier 19: a settlers' ship meets no alien on a conquered face.

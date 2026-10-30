@@ -1,4 +1,6 @@
 import { returnGear } from './forge';
+import { resolveDelve } from './delves';
+import { addIron } from './iron';
 import { FUEL } from '../data/comets';
 import { COLONY } from '../data/colonies';
 import { levelDef } from '../data/buildings';
@@ -289,7 +291,7 @@ export function crewMembers(state: GameState, ids: readonly VillagerId[]): Villa
 }
 
 /** Share of `need` covered by `have`, per resource, keeping the worst. */
-function coverage(
+export function coverage(
   have: { pulp: number; juice: number },
   need: { pulp: number; juice: number },
 ): number {
@@ -594,6 +596,8 @@ export function resolveArrival(state: GameState, e: Expedition): void {
   e.provisions.pulp -= Math.min(e.provisions.pulp, need.pulp);
   e.provisions.juice -= Math.min(e.provisions.juice, need.juice);
 
+  // Chantier 48: a delve meets the Grouillants of its room (no ship, no target face).
+  if (e.mission === 'delve') return resolveDelve(state, e, members, fed);
   if (e.broken) {
     // Broke down half-way: the crew limps home, the hold empty.
     e.status = 'returning';
@@ -665,7 +669,9 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
     (KIWI.expeditionXp.base +
       (result.victory
         ? KIWI.expeditionXp.victory *
-          (e.mission === 'land' || e.mission === 'final' ? LANDING.victoryXp : 1)
+          (e.mission === 'land' || e.mission === 'final' || e.mission === 'delve'
+            ? LANDING.victoryXp
+            : 1)
         : 0)) *
     (e.mission === 'recon' ? RECON.xp : 1);
   for (const v of crewMembers(state, e.crew)) {
@@ -673,7 +679,10 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
       v.history.expeditions++;
       if (result.victory) v.history.victories++;
       // Chantier 40: the survivors of a landing won are veterans.
-      if (result.victory && (e.mission === 'land' || e.mission === 'final'))
+      if (
+        result.victory &&
+        (e.mission === 'land' || e.mission === 'final' || e.mission === 'delve')
+      )
         v.veteran = (v.veteran ?? 0) + 1;
     }
     grantXp(state, v, result.aborted ? xp / 2 : xp, e.returnAt, events);
@@ -690,6 +699,8 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
     seeds: e.provisions.seeds + result.loot.seeds,
   };
   for (const id of RESOURCE_IDS) state.resources[id] += unloaded[id];
+  // Chantier 48: the meteoric iron a delve found in its room.
+  if (result.iron) addIron(state, result.iron);
   const hurt = new Set(result.injured ?? []);
   for (const v of state.villagers) {
     if (v.job.kind !== 'expedition' || v.job.expeditionId !== e.id) continue;

@@ -127,6 +127,7 @@ import { canalDuration, canalError, fillError } from './canals';
 import { CANALS } from '../data/canals';
 import { TITAN_WORK_IDS, type TitanWork } from '../data/titan';
 import { canReshape, terraformLeft, titanAt, titanCost } from './titan';
+import { delveLock, launchDelve, tunnelBusy } from './delves';
 
 export type Command =
   /** Chantier 35: `rot` (0–5) turns a 3-tile footprint (`footprintHexes`); default 0. */
@@ -225,6 +226,14 @@ export type Command =
   | { type: 'titanWork'; villagerId: VillagerId; q: number; r: number; work: TitanWork }
   /** Chantier 42: fortify our beacon on this parcel of a face (two turrets and a stout tower). */
   | { type: 'fortifyBeacon'; targetId: string; sector: number }
+  /** Chantier 48: a crew goes down from the tunnel entrance to a room of the depths. */
+  | {
+      type: 'delve';
+      roomId: string;
+      crew: VillagerId[];
+      provisions: { pulp: number; juice: number };
+      orders: LandingOrders;
+    }
   /** Chantier 19: the guards raid the ferret den on this tile (a colonised face). */
   | { type: 'raidDen'; q: number; r: number }
   /** Chantier 08: a builder clears the stump on this tile (queued like a construction). */
@@ -275,6 +284,14 @@ export const COMMAND_ERRORS = [
   'noObjective',
   'notALaunchpad',
   'launchpadBusy',
+  // Chantier 48: the depths.
+  'noTunnel',
+  'doorClosed',
+  'unknownRoom',
+  'roomTaken',
+  'roomOutOfReach',
+  'delveThere',
+  'tunnelBusy',
   'launchpadDamaged',
   'unknownTarget',
   'crewTooSmall',
@@ -899,6 +916,15 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       launch(s, cmd, now, nextId(s, 'x'));
       return;
     }
+    case 'delve': {
+      const lock = delveLock(s, cmd.roomId, cmd.crew, cmd.orders);
+      if (lock) fail(lock);
+      const { pulp, juice } = cmd.provisions;
+      if (![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) fail('invalidCount');
+      if (!canAfford(s.resources, { pulp, juice })) fail('notEnoughResources');
+      launchDelve(s, cmd.roomId, cmd.crew, { pulp, juice }, cmd.orders, now, nextId(s, 'x'));
+      return;
+    }
     case 'fortifyBeacon': {
       if (!s.targets.some((t) => t.id === cmd.targetId)) fail('unknownTarget');
       const lock = fortifyLock(s, cmd.targetId, cmd.sector);
@@ -1014,6 +1040,8 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (b.type === 'nest' || b.type === 'monument') fail('notDemolishable');
       if (pendingUpgrade(s, b.id)) fail('upgradeInProgress');
       if (b.type === 'launchpad' && isLaunchpadBusy(s, b.id)) fail('launchpadBusy');
+      // Chantier 48: not while kiwis are down there.
+      if (b.type === 'tunnel' && tunnelBusy(s)) fail('tunnelBusy');
       const housingLeft = housing(s) - (levelDef(b.type, b.level)?.housing ?? 0);
       if (housingLeft < population(s)) fail('housingNeeded');
       refund(s, demolitionRefund(s, b));
