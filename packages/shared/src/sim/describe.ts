@@ -1,4 +1,4 @@
-import { maxTrees, treeCount, treeSeedCost } from './crystal';
+import { crystalOf, maxTrees, treeCount, treeSeedCost } from './crystal';
 import { DEPTHS } from '../data/depths';
 import {
   BEAUTY,
@@ -432,5 +432,7 @@ export function upgradeLock(state: GameState, b: Building, map?: FaceMap): Comma
   if (!canAfford(state.resources, upgradeCost(b.type, b.level + 1))) return 'notEnoughResources';
   if (stardustOf(state) < (def.stardust ?? 0)) return 'notEnoughStardust';
   if (meteorIronOf(state) < (def.iron ?? 0)) return 'notEnoughIron';
+  if (crystalOf(state) < (def.crystal ?? 0)) return 'notEnoughCrystal';
+  if (state.giantSeeds < (def.giantSeeds ?? 0)) return 'notEnoughGiantSeeds';
   return null;
 }

@@ -9,6 +9,8 @@ export const SHIP_LOOKS: Record<ShipId, { hull: string; trim: string; wing: stri
   logs: { hull: C.twig, trim: C.straw, wing: '#e8d7b0' },
   iron: { hull: '#8f969c', trim: '#5d646b', wing: '#b7bdc2' },
   jet: { hull: '#eef2f0', trim: '#3aa6a0', wing: '#d5e4e2' },
+  // Chantier 51: celestial brass and crystal sails.
+  sail: { hull: '#f3ead8', trim: '#c9a227', wing: '#cfe8f2' },
 };
 
 /**

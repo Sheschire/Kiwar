@@ -47,7 +47,7 @@ export const SMASH: Record<ObstacleKind, { juice: number; durationMs: number }> 
 
 export const TITAN = {
   /** Tiles that may be reshaped by age (index = age). */
-  maxTerraform: [0, 0, 4, 8] as readonly number[],
+  maxTerraform: [0, 0, 4, 8, 12] as readonly number[],
   /** A terrace is raised this much above the water. */
   terraceRise: 0.22,
 } as const;

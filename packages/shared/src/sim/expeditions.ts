@@ -12,13 +12,13 @@ import {
   RECON,
   SHIP_REPAIR,
   SHIPS,
-  shipIdForAge,
+  SAIL,
   type ShipDef,
 } from '../data/expeditions';
 import { emptyResources, RESOURCE_IDS, type Resources } from '../data/resources';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
 import { getBuilding, HOUR_MS, idleVillagers, workersOf } from './selectors';
-import { ageOf, techEffects } from './research';
+import { ageOf, shipIdOf, techEffects } from './research';
 import {
   withRng,
   type Building,
@@ -130,7 +130,7 @@ export function launchpadOf(state: GameState, id: BuildingId): Building | undefi
  * the speed); technologies add armour and better reconnaissance.
  */
 export function shipOf(state: GameState): ShipDef {
-  const ship = SHIPS[shipIdForAge(ageOf(state))];
+  const ship = SHIPS[shipIdOf(state)];
   const tech = techEffects(state);
   return { ...ship, armor: ship.armor + tech.armor, recon: ship.recon + tech.recon };
 }
@@ -147,7 +147,9 @@ export function shipReliability(ship: ShipDef, crew: readonly Villager[], fuel =
 
 /** Technologies and stardust fuel (chantier 13) on the travel time. */
 export function travelFactor(state: GameState, plan: Pick<ExpeditionPlan, 'fuel'>): number {
-  return techEffects(state).travel * (plan.fuel ? FUEL.travel : 1);
+  // Chantier 51: the star sailboat goes further on the same fuel.
+  const fuel = plan.fuel ? FUEL.travel * (shipIdOf(state) === 'sail' ? SAIL.fuelTravel : 1) : 1;
+  return techEffects(state).travel * fuel;
 }
 
 export function shipCargo(launchpad: Building): number {
@@ -448,7 +450,7 @@ export function launchCost(
   if (mission === 'found') return out;
   const L = EXPEDITIONS.launchCost;
   const seats = crew.reduce((sum, v) => sum + (v.kikiwiwi ? L.kikiwiwi : 1), 0);
-  const k = seats * L.ship[shipIdForAge(ageOf(state))];
+  const k = seats * L.ship[shipIdOf(state)];
   out.fiber = Math.round(L.perKiwi.fiber * k);
   out.juice = Math.round(L.perKiwi.juice * k);
   return out;

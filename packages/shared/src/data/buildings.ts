@@ -1,5 +1,7 @@
 import { ms } from './curves';
 import { IRON } from './iron';
+import { CRYSTAL, GIANT_SEEDS } from './crystal';
+import { SAIL } from './expeditions';
 import type { ResourceCost, Resources } from './resources';
 import { CAMPS } from './territory';
 import { SCHOOL } from './classes';
@@ -53,6 +55,10 @@ export interface BuildingLevelDef {
   stardust?: number;
   /** Chantier 38: whole units of meteoric iron paid on top (levels 7+, monuments, turrets 3+). */
   iron?: number;
+  /** Chantier 51: whole units of crystal paid on top (levels 13+, the monument of the stars). */
+  crystal?: number;
+  /** Chantier 51: giant seeds paid on top (the Nest, the Library and the monument, 13+). */
+  giantSeeds?: number;
   /** Output per hour at full staffing, before tile richness and face multipliers. */
   production?: Partial<Resources>;
   /** Output per hour that needs no workers (the Nest). */
@@ -452,6 +458,13 @@ const BASE: Record<BuildingType, BuildingDef> = {
         durationMs: ms.h(12),
         requiresNestLevel: 9,
         stardust: 25,
+      },
+      // Chantier 51: the Age of the stars (crystal and giant seeds: `withStars`).
+      {
+        cost: { pulp: 120000, fiber: 120000, seeds: 25000, juice: 40000 },
+        durationMs: ms.h(24),
+        requiresNestLevel: 12,
+        stardust: 40,
       },
     ],
   },
@@ -990,7 +1003,7 @@ function withAgeLevels(def: BuildingDef): BuildingDef {
  * levels 4–15 come with the ages, three per age (hours). Tune the economy here (check with `pnpm balance`).
  */
 export const BUILDINGS: Record<BuildingType, BuildingDef> = Object.fromEntries(
-  Object.entries(BASE).map(([id, def]) => [id, withIron(withAgeLevels(def))]),
+  Object.entries(BASE).map(([id, def]) => [id, withStars(withIron(withAgeLevels(def)))]),
 ) as Record<BuildingType, BuildingDef>;
 
 /** Chantier 38: the meteoric iron of each level (`IRON.levels`, `IRON.turret`, `IRON.own`). */
@@ -1003,6 +1016,27 @@ function withIron(def: BuildingDef): BuildingDef {
     levels: def.levels.map((l, i) => {
       const iron = table[i + 1] ?? 0;
       return iron > 0 ? { ...l, iron } : l;
+    }),
+  };
+}
+
+/**
+ * Chantier 51: the crystal and giant seeds of the Age of the stars (`CRYSTAL.levels`,
+ * `GIANT_SEEDS.levels`), and the stardust of the launchpad level that rigs the sailboat.
+ */
+function withStars(def: BuildingDef): BuildingDef {
+  const crystal = CRYSTAL.own[def.id] ?? CRYSTAL.levels;
+  const seeds = GIANT_SEEDS.levels[def.id];
+  return {
+    ...def,
+    levels: def.levels.map((l, i) => {
+      const out: BuildingLevelDef = { ...l };
+      const c = crystal[i + 1] ?? 0;
+      const g = seeds?.[i + 1] ?? 0;
+      if (c > 0) out.crystal = c;
+      if (g > 0) out.giantSeeds = g;
+      if (def.id === 'launchpad' && i + 1 === SAIL.padLevel) out.stardust = SAIL.stardust;
+      return c > 0 || g > 0 || out.stardust !== l.stardust ? out : l;
     }),
   };
 }

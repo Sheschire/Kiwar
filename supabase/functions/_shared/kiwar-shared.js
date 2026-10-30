@@ -453,7 +453,7 @@ var IRON = {
   /** Iron of the levels with their own number (the monument's ages, the Iron levels of the
    * camp and the Forge; index = level). */
   own: {
-    monument: [0, 0, 20, 60],
+    monument: [0, 0, 20, 60, 150],
     trainingCamp: [0, 0, 0, 6],
     forge: [0, 0, 0, 8],
     tunnel: [0, 3, 6, 10],
@@ -465,6 +465,184 @@ var IRON_SCALE = 1e3 * 36e5;
 function ironUnits(raw) {
   return Math.floor(raw / IRON_SCALE + 1e-9);
 }
+
+// packages/shared/src/data/crystal.ts
+var CRYSTAL = {
+  /** Stock cap (units) by Nest level (index 0–15). */
+  cap: [40, 40, 40, 40, 40, 40, 40, 60, 80, 100, 150, 200, 260, 320, 380, 450],
+  /** An average miner cuts this many units per hour in a raphide forest. */
+  perHour: 0.5,
+  /** A lens fitted on a turret (technology `glass`): its crystal, and the range it adds. */
+  lens: { crystal: 12, range: 1 },
+  /**
+   * Crystal ammunition (technology `crystalCut`): each seed turret of a battle costs this much
+   * crystal at the strike, and its shots pierce this share of the armour.
+   */
+  ammo: { perTurret: 2, pierce: 0.6 },
+  /** Chantier 51: crystal paid by building levels 13+ (index = level), like the iron at 7+. */
+  levels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 45, 60],
+  /** Crystal of the levels with their own number (index = level). */
+  own: { monument: [0, 0, 0, 0, 120] }
+};
+var CRYSTAL_SCALE = 1e3 * 36e5;
+function crystalUnits(raw) {
+  return Math.floor(raw / CRYSTAL_SCALE + 1e-9);
+}
+var GIANT_SEEDS = {
+  /** Stock cap (whole seeds) by age (index = age). */
+  cap: [3, 3, 3, 5, 8],
+  /** A locule egg: a giant seed hatched with the egg; the kiwi gets this much in every stat. */
+  egg: { seeds: 1, stat: 1 },
+  /**
+   * A locule tree: the n-th one costs `n × perTree` giant seeds; it grows for `growMs`, then
+   * gives a seed every `everyMs` (a ripe seed waits on the tree while the stock is full).
+   */
+  tree: { perTree: 1, growMs: 48 * 36e5, everyMs: 72 * 36e5 },
+  /**
+   * Locule trees allowed by age (index = age): the n-th one costs n seeds, so the last one must
+   * stay within the cap (a sixth tree at 6 seeds with a cap of 5 would never come).
+   */
+  maxTrees: [0, 0, 0, 4, 6],
+  /**
+   * Chantier 51: giant seeds paid by the levels of the Age of the stars (index = level), only
+   * for the Nest, the Library and the monument (the other levels 13–15 pay crystal).
+   */
+  levels: {
+    nest: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3],
+    library: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3],
+    monument: [0, 0, 0, 0, 4]
+  }
+};
+
+// packages/shared/src/data/expeditions.ts
+var EXPEDITIONS = {
+  /** Cargo units taken by one kiwi. */
+  kiwiWeight: 10,
+  /** Cargo units taken by one unit of any resource (provisions or loot). */
+  resourceWeight: 0.1,
+  /** What one crew member eats and drinks per hour of travel. */
+  hourlyRations: { pulp: 4, juice: 2 },
+  minCrew: 2,
+  /** At least this many kiwis must stay home. */
+  keepHome: 1,
+  /** Fighting strength of a basic kiwi (specialised units will come later). */
+  strengthPerKiwi: 1,
+  /** Strength multiplier of a completely starving crew (fed crews fight at 1). */
+  starvingStrength: 0.5,
+  /** ± random swing on the crew strength, drawn from the seeded game RNG. */
+  luck: 0.1,
+  /**
+   * Share of the crew hit in a victory (scaled by defense/strength) / lost in a defeat.
+   * Chantier 18: in a victory the kiwis hit come back wounded for `victoryInjuryMs`, they do
+   * not die (raids were never worth a kiwi).
+   */
+  victoryLosses: { factor: 0.25, max: 0.6 },
+  victoryInjuryMs: ms.h(6),
+  defeatLosses: { min: 0.5, max: 0.9 },
+  /** Share of survivors lost per missing share of rations on the way back. */
+  starvationLossRate: 0.5,
+  /** Chantier 18: loot multiplier by age (index = age): later ages raid richer stores. */
+  lootByAge: [1, 1.5, 2, 3, 4],
+  /**
+   * Chantier 31: launching costs fibre and juice per kiwi aboard (on top of the rations),
+   * × the ship of the age; a Kikiwiwi counts `kikiwiwi` times. The settlers' ship
+   * (`found`) pays nothing more. Chantier 40 will replace it.
+   */
+  launchCost: {
+    perKiwi: { fiber: 40, juice: 25 },
+    ship: { wood: 1, logs: 2, iron: 5, jet: 12, sail: 16 },
+    kikiwiwi: 3
+  }
+};
+var ALIEN_TWIN_FACE = {
+  defense: 6,
+  reinforce: 3,
+  // Chantier 18: ×8 so that a well-prepared raid pays for the crew's absence.
+  loot: { pulp: 1920, fiber: 960, seeds: 960, juice: 1440 },
+  travelMs: ms.min(90)
+};
+function alienFaceOnKiwi(distance) {
+  return {
+    defense: 10 + 4 * distance,
+    reinforce: 3 + distance,
+    loot: {
+      pulp: 2400,
+      fiber: 1280,
+      seeds: 1200 + 480 * distance,
+      juice: 1760 + 640 * distance
+    },
+    travelMs: ms.min(90 + 60 * distance)
+  };
+}
+function alienDefOf(distance) {
+  return distance === 0 ? ALIEN_TWIN_FACE : alienFaceOnKiwi(distance);
+}
+var ALIENS = {
+  /** Spread of the real base defense around the public number (×). */
+  defenseSpread: [0.75, 1.2],
+  /** Spread of the real loot around the public number (×). */
+  lootSpread: [0.8, 1.2],
+  /** Defense gained per game day, as a share of the base defense (drawn in this range). */
+  growthPerDay: [0.015, 0.04],
+  /** The garrison stops growing at this multiple of its base defense (victories aside). */
+  maxGrowth: 2,
+  /** Defense brought by one ferret or one bat. */
+  defensePerEnemy: 1,
+  /** Share of ferrets in the garrison (the rest are bats), drawn in this range. */
+  ferretShare: [0.35, 0.8],
+  /** Number of dens and roosts on the face: base + per kiwi of distance. */
+  structures: { base: 6, perDistance: 2 },
+  /** Structures stand at this distance from the heart, in hex steps. */
+  structureRing: [2, 11]
+};
+var INTEL = {
+  /** The face is cut into 6 slices × 2 rings: inner ring up to this hex distance. */
+  innerRadius: 6,
+  sectors: 12,
+  /** Report age labels, in game days: fresh below `fresh`, stale below `stale`, then old. */
+  fresh: 1,
+  stale: 3
+};
+var RECON = {
+  minCrew: 1,
+  maxCrew: 2,
+  /** A light ship flies faster (× travel time). */
+  travel: 0.75,
+  /** Quality of the report (0–1), from the scouts' Agility and Spirit, level and skill. */
+  quality: { base: 0.25, perStat: 0.05, perLevel: 0.015, scouting: 0.15 },
+  /** Sectors revealed: base + quality × perQuality. */
+  sectors: { base: 2, perQuality: 4 },
+  /** Half-width of the reported ranges (share of the real value), worst to best quality. */
+  spread: { worst: 0.4, best: 0.08 },
+  /** Chance to be spotted: more kiwis are easier to see, agile ones harder. */
+  spot: { base: 0.2, perExtraKiwi: 0.15, perAgility: 0.03, scouting: 0.05, min: 0.05, max: 0.6 },
+  /** Spotted: a skirmish against this share of the garrison; the report is this much worse. */
+  skirmishShare: 0.12,
+  spottedQuality: 0.5,
+  /** Spotted scouts who hold the skirmish come back with one of them hurt for this long. */
+  injuryMs: ms.h(3),
+  /** Share of the expedition experience. */
+  xp: 0.5
+};
+var SHIP_IDS = ["wood", "logs", "iron", "jet", "sail"];
+var SHIPS = {
+  /** Wood and canvas, pedal-powered wings. */
+  wood: { id: "wood", reliability: 0.7, armor: 0, recon: 0 },
+  /** Logs and ropes. */
+  logs: { id: "logs", reliability: 0.85, armor: 0, recon: 0.05 },
+  /** Riveted metal, steam wings. */
+  iron: { id: "iron", reliability: 0.95, armor: 0.15, recon: 0.1 },
+  /** Streamlined, with thrusters (Industry age, chantier 08). */
+  jet: { id: "jet", reliability: 0.99, armor: 0.25, recon: 0.15 },
+  /** Chantier 51: crystal sails and a stardust keel (Age of the stars, launchpad 13). */
+  sail: { id: "sail", reliability: 0.995, armor: 0.3, recon: 0.2 }
+};
+var SAIL = { padLevel: 13, stardust: 30, fuelTravel: 0.85 };
+function shipIdForAge(age, sail = false) {
+  if (sail && age >= 4) return "sail";
+  return SHIP_IDS[Math.max(0, Math.min(3, age))];
+}
+var SHIP_REPAIR = { perDexterity: 0.01, max: 0.05 };
 
 // packages/shared/src/data/territory.ts
 var DEPOSITS = {
@@ -1241,6 +1419,13 @@ var BASE = {
         durationMs: ms.h(12),
         requiresNestLevel: 9,
         stardust: 25
+      },
+      // Chantier 51: the Age of the stars (crystal and giant seeds: `withStars`).
+      {
+        cost: { pulp: 12e4, fiber: 12e4, seeds: 25e3, juice: 4e4 },
+        durationMs: ms.h(24),
+        requiresNestLevel: 12,
+        stardust: 40
       }
     ]
   },
@@ -1726,7 +1911,7 @@ function withAgeLevels(def) {
   return { ...def, levels };
 }
 var BUILDINGS = Object.fromEntries(
-  Object.entries(BASE).map(([id3, def]) => [id3, withIron(withAgeLevels(def))])
+  Object.entries(BASE).map(([id3, def]) => [id3, withStars(withIron(withAgeLevels(def)))])
 );
 function withIron(def) {
   const table = IRON.own[def.id] ?? (def.id === "seedTurret" || def.id === "skyTurret" ? IRON.turret : IRON.levels);
@@ -1735,6 +1920,22 @@ function withIron(def) {
     levels: def.levels.map((l, i) => {
       const iron = table[i + 1] ?? 0;
       return iron > 0 ? { ...l, iron } : l;
+    })
+  };
+}
+function withStars(def) {
+  const crystal = CRYSTAL.own[def.id] ?? CRYSTAL.levels;
+  const seeds = GIANT_SEEDS.levels[def.id];
+  return {
+    ...def,
+    levels: def.levels.map((l, i) => {
+      const out = { ...l };
+      const c = crystal[i + 1] ?? 0;
+      const g = seeds?.[i + 1] ?? 0;
+      if (c > 0) out.crystal = c;
+      if (g > 0) out.giantSeeds = g;
+      if (def.id === "launchpad" && i + 1 === SAIL.padLevel) out.stardust = SAIL.stardust;
+      return c > 0 || g > 0 || out.stardust !== l.stardust ? out : l;
     })
   };
 }
@@ -2022,6 +2223,47 @@ var AGE_OBJECTIVES = [
     age: 3,
     condition: { kind: "building", building: PRODUCERS, count: 1, minLevel: 12 },
     reward: { pulp: 4e4, fiber: 4e4, seeds: 8e3, juice: 15e3 }
+  },
+  // Chantier 51, the Age of the stars: the levels 13–15, the sailboat, the trees of the locules
+  // (the core and the kiwais bring theirs in chantiers 52 and 53).
+  {
+    id: "starsNest13",
+    age: 4,
+    condition: { kind: "building", building: "nest", count: 1, minLevel: 13 },
+    reward: { pulp: 3e4, fiber: 3e4 },
+    stardust: 15
+  },
+  {
+    id: "starsTechs",
+    age: 4,
+    condition: { kind: "techs", age: 4, count: 2 },
+    reward: { seeds: 12e3, juice: 15e3 }
+  },
+  {
+    id: "starsSail",
+    age: 4,
+    condition: { kind: "building", building: "launchpad", count: 1, minLevel: 13 },
+    reward: { fiber: 3e4, juice: 2e4 }
+  },
+  {
+    id: "starsTrees",
+    age: 4,
+    condition: { kind: "building", building: "loculeTree", count: 5, minLevel: 1 },
+    reward: { seeds: 15e3 },
+    egg: true
+  },
+  {
+    id: "starsKiwi25",
+    age: 4,
+    condition: { kind: "kiwiLevel", level: 25 },
+    reward: { juice: 25e3 },
+    stardust: 20
+  },
+  {
+    id: "starsProducer15",
+    age: 4,
+    condition: { kind: "building", building: PRODUCERS, count: 1, minLevel: 15 },
+    reward: { pulp: 8e4, fiber: 8e4, seeds: 16e3, juice: 3e4 }
   }
 ];
 
@@ -2050,132 +2292,6 @@ var NAME_SYLLABLES = [
   "no",
   "sa"
 ];
-
-// packages/shared/src/data/expeditions.ts
-var EXPEDITIONS = {
-  /** Cargo units taken by one kiwi. */
-  kiwiWeight: 10,
-  /** Cargo units taken by one unit of any resource (provisions or loot). */
-  resourceWeight: 0.1,
-  /** What one crew member eats and drinks per hour of travel. */
-  hourlyRations: { pulp: 4, juice: 2 },
-  minCrew: 2,
-  /** At least this many kiwis must stay home. */
-  keepHome: 1,
-  /** Fighting strength of a basic kiwi (specialised units will come later). */
-  strengthPerKiwi: 1,
-  /** Strength multiplier of a completely starving crew (fed crews fight at 1). */
-  starvingStrength: 0.5,
-  /** ± random swing on the crew strength, drawn from the seeded game RNG. */
-  luck: 0.1,
-  /**
-   * Share of the crew hit in a victory (scaled by defense/strength) / lost in a defeat.
-   * Chantier 18: in a victory the kiwis hit come back wounded for `victoryInjuryMs`, they do
-   * not die (raids were never worth a kiwi).
-   */
-  victoryLosses: { factor: 0.25, max: 0.6 },
-  victoryInjuryMs: ms.h(6),
-  defeatLosses: { min: 0.5, max: 0.9 },
-  /** Share of survivors lost per missing share of rations on the way back. */
-  starvationLossRate: 0.5,
-  /** Chantier 18: loot multiplier by age (index = age): later ages raid richer stores. */
-  lootByAge: [1, 1.5, 2, 3],
-  /**
-   * Chantier 31: launching costs fibre and juice per kiwi aboard (on top of the rations),
-   * × the ship of the age; a Kikiwiwi counts `kikiwiwi` times. The settlers' ship
-   * (`found`) pays nothing more. Chantier 40 will replace it.
-   */
-  launchCost: {
-    perKiwi: { fiber: 40, juice: 25 },
-    ship: { wood: 1, logs: 2, iron: 5, jet: 12 },
-    kikiwiwi: 3
-  }
-};
-var ALIEN_TWIN_FACE = {
-  defense: 6,
-  reinforce: 3,
-  // Chantier 18: ×8 so that a well-prepared raid pays for the crew's absence.
-  loot: { pulp: 1920, fiber: 960, seeds: 960, juice: 1440 },
-  travelMs: ms.min(90)
-};
-function alienFaceOnKiwi(distance) {
-  return {
-    defense: 10 + 4 * distance,
-    reinforce: 3 + distance,
-    loot: {
-      pulp: 2400,
-      fiber: 1280,
-      seeds: 1200 + 480 * distance,
-      juice: 1760 + 640 * distance
-    },
-    travelMs: ms.min(90 + 60 * distance)
-  };
-}
-function alienDefOf(distance) {
-  return distance === 0 ? ALIEN_TWIN_FACE : alienFaceOnKiwi(distance);
-}
-var ALIENS = {
-  /** Spread of the real base defense around the public number (×). */
-  defenseSpread: [0.75, 1.2],
-  /** Spread of the real loot around the public number (×). */
-  lootSpread: [0.8, 1.2],
-  /** Defense gained per game day, as a share of the base defense (drawn in this range). */
-  growthPerDay: [0.015, 0.04],
-  /** The garrison stops growing at this multiple of its base defense (victories aside). */
-  maxGrowth: 2,
-  /** Defense brought by one ferret or one bat. */
-  defensePerEnemy: 1,
-  /** Share of ferrets in the garrison (the rest are bats), drawn in this range. */
-  ferretShare: [0.35, 0.8],
-  /** Number of dens and roosts on the face: base + per kiwi of distance. */
-  structures: { base: 6, perDistance: 2 },
-  /** Structures stand at this distance from the heart, in hex steps. */
-  structureRing: [2, 11]
-};
-var INTEL = {
-  /** The face is cut into 6 slices × 2 rings: inner ring up to this hex distance. */
-  innerRadius: 6,
-  sectors: 12,
-  /** Report age labels, in game days: fresh below `fresh`, stale below `stale`, then old. */
-  fresh: 1,
-  stale: 3
-};
-var RECON = {
-  minCrew: 1,
-  maxCrew: 2,
-  /** A light ship flies faster (× travel time). */
-  travel: 0.75,
-  /** Quality of the report (0–1), from the scouts' Agility and Spirit, level and skill. */
-  quality: { base: 0.25, perStat: 0.05, perLevel: 0.015, scouting: 0.15 },
-  /** Sectors revealed: base + quality × perQuality. */
-  sectors: { base: 2, perQuality: 4 },
-  /** Half-width of the reported ranges (share of the real value), worst to best quality. */
-  spread: { worst: 0.4, best: 0.08 },
-  /** Chance to be spotted: more kiwis are easier to see, agile ones harder. */
-  spot: { base: 0.2, perExtraKiwi: 0.15, perAgility: 0.03, scouting: 0.05, min: 0.05, max: 0.6 },
-  /** Spotted: a skirmish against this share of the garrison; the report is this much worse. */
-  skirmishShare: 0.12,
-  spottedQuality: 0.5,
-  /** Spotted scouts who hold the skirmish come back with one of them hurt for this long. */
-  injuryMs: ms.h(3),
-  /** Share of the expedition experience. */
-  xp: 0.5
-};
-var SHIP_IDS = ["wood", "logs", "iron", "jet"];
-var SHIPS = {
-  /** Wood and canvas, pedal-powered wings. */
-  wood: { id: "wood", reliability: 0.7, armor: 0, recon: 0 },
-  /** Logs and ropes. */
-  logs: { id: "logs", reliability: 0.85, armor: 0, recon: 0.05 },
-  /** Riveted metal, steam wings. */
-  iron: { id: "iron", reliability: 0.95, armor: 0.15, recon: 0.1 },
-  /** Streamlined, with thrusters (Industry age, chantier 08). */
-  jet: { id: "jet", reliability: 0.99, armor: 0.25, recon: 0.15 }
-};
-function shipIdForAge(age) {
-  return SHIP_IDS[Math.max(0, Math.min(SHIP_IDS.length - 1, age))];
-}
-var SHIP_REPAIR = { perDexterity: 0.01, max: 0.05 };
 
 // packages/shared/src/data/canals.ts
 var CANALS = {
@@ -2400,11 +2516,11 @@ var MORALE = {
   work: { low: 0.7, high: 1.15 },
   /** Below this, a kiwi sulks (it still works). */
   sulk: 20,
-  /** Base of a kiwi by age (Eden, Stone, Iron, Industry): a fed colony sleeping near its work
+  /** Base of a kiwi by age (Eden, Stone, Iron, Industry, the stars): a fed colony sleeping near its work
    * (+10, +5) sits a bit above neutral in the Eden, below later on; the mayor, the leisures and
    * the decorations bring a built village to 60–75 (chantier 46), only the evenings and the
    * speeches lift it above 85. */
-  base: [46, 35, 29, 23],
+  base: [46, 35, 29, 23, 20],
   /** Fed colony vs hungry colony. */
   fed: 10,
   hungry: -20,
@@ -2545,7 +2661,7 @@ var THREATS = {
     5
   ],
   /** Chantier 08: the predators grow with the age of the colony (index = age). */
-  ageFactor: [1, 1.15, 1.3, 1.5],
+  ageFactor: [1, 1.15, 1.3, 1.5, 1.7],
   /** Power gained per day of play, up to `maxDays` (softened in chantier 31; chantier 39
    * replaces it by the alien civilisation). */
   perDay: 0.12,
@@ -2723,7 +2839,7 @@ var METEORS = {
     6
   ],
   /** Chantier 08: richer gifts in later ages (index = age). */
-  ageFactor: [1, 1.3, 1.7, 2.2],
+  ageFactor: [1, 1.3, 1.7, 2.2, 2.8],
   perDay: 0.15,
   /** What falls (weights). */
   resources: { seeds: 2, juice: 1, fiber: 1 },
@@ -2739,13 +2855,13 @@ var METEORS = {
   /** Harvest per hour of one average kiwi at a crater (a level-1 workplace's rate). */
   rates: { pulp: 750, fiber: 600, seeds: 190, juice: 450 },
   /** Meteorite drill (technology `meteorDrill`): harvest multiplier by age (index = age). */
-  drill: [1, 1.5, 2, 2.5],
+  drill: [1, 1.5, 2, 2.5, 3],
   /** Craters kept at once (about two falls a day for 48 hours each). */
   max: 5
 };
 
 // packages/shared/src/data/ages.ts
-var AGE_IDS = ["eden", "stone", "iron", "industry"];
+var AGE_IDS = ["eden", "stone", "iron", "industry", "stars"];
 var MAX_AGE = AGE_IDS.length - 1;
 
 // packages/shared/src/data/research.ts
@@ -2796,7 +2912,12 @@ var TECH_IDS = [
   // Chantier 50
   "glass",
   "crystalCut",
-  "enzymes"
+  "enzymes",
+  // Chantier 51: the Age of the stars.
+  "starsAge",
+  "celestialGlass",
+  "crystalGrafts",
+  "starSails"
 ];
 var TECHS = {
   foraging: {
@@ -3031,13 +3152,54 @@ var TECHS = {
     cost: 2e3,
     libraryLevel: 7,
     effects: { enzymes: 2 }
+  },
+  // Chantier 51: the passage to the Age of the stars, then its three technologies (paid in
+  // points and crystal; the levels 13–15 and the monument pay the giant seeds).
+  starsAge: {
+    id: "starsAge",
+    age: 3,
+    branch: "passage",
+    cost: 3e4,
+    libraryLevel: 11,
+    crystal: 40,
+    effects: {}
+  },
+  celestialGlass: {
+    id: "celestialGlass",
+    age: 4,
+    branch: "economy",
+    cost: 6e3,
+    libraryLevel: 13,
+    crystal: 50,
+    after: "glass",
+    effects: { research: 1.15, storage: 1.15 }
+  },
+  crystalGrafts: {
+    id: "crystalGrafts",
+    age: 4,
+    branch: "economy",
+    cost: 7e3,
+    libraryLevel: 13,
+    crystal: 60,
+    effects: { harvest: { pulp: 1.15, fiber: 1.15, seeds: 1.15, juice: 1.15 } }
+  },
+  starSails: {
+    id: "starSails",
+    age: 4,
+    branch: "exploration",
+    cost: 6e3,
+    libraryLevel: 13,
+    crystal: 40,
+    stardust: 20,
+    effects: { travel: 0.85, recon: 0.1, armor: 0.05 }
   }
 };
 var PASSAGE_TECHS = [
   null,
   "stoneAge",
   "ironAge",
-  "industryAge"
+  "industryAge",
+  "starsAge"
 ];
 var RESEARCH = {
   /** Research bonus per point of Spirit above average (+6 %). */
@@ -3129,7 +3291,7 @@ var KIKIWIWI = {
     stats: ["strength", "endurance"]
   },
   /** Kikiwiwis allowed by age (index = age): from the Iron age, one per age reached. */
-  capByAge: [0, 0, 1, 2],
+  capByAge: [0, 0, 1, 2, 3],
   /**
    * What the juice does to a kiwi (multiplied onto its trait and class): four times as strong,
    * hard to hurt, but heavy in the ship's hold and a big eater on expeditions.
@@ -3168,7 +3330,7 @@ var SMASH = {
 };
 var TITAN = {
   /** Tiles that may be reshaped by age (index = age). */
-  maxTerraform: [0, 0, 4, 8],
+  maxTerraform: [0, 0, 4, 8, 12],
   /** A terrace is raised this much above the water. */
   terraceRise: 0.22
 };
@@ -3193,7 +3355,7 @@ var COMETS = {
   landTypes: ["flesh", "grove", "seedRing"],
   /** Stardust per comet (whole points), × the age factor (index = age). */
   stock: 20,
-  ageFactor: [1, 1.3, 1.7, 2.2]
+  ageFactor: [1, 1.3, 1.7, 2.2, 2.8]
 };
 var STARDUST = {
   /** Stock cap (points). */
@@ -3564,8 +3726,8 @@ var LANDING = {
    */
   rebuild: {
     cost: { fiber: 400, juice: 250 },
-    ship: { wood: 1, logs: 2, iron: 5, jet: 12 },
-    hours: { wood: 4, logs: 6, iron: 10, jet: 16 }
+    ship: { wood: 1, logs: 2, iron: 5, jet: 12, sail: 16 },
+    hours: { wood: 4, logs: 6, iron: 10, jet: 16, sail: 20 }
   },
   /** Units of a parcel at most in a battle (more power makes them stronger, not more numerous). */
   maxGround: 24,
@@ -3773,41 +3935,6 @@ var DEPTHS = {
     /** Share of fruit flies (air), the rest larvae and woodlice. */
     airShare: 0.25
   }
-};
-
-// packages/shared/src/data/crystal.ts
-var CRYSTAL = {
-  /** Stock cap (units) by Nest level (index 0–15). */
-  cap: [40, 40, 40, 40, 40, 40, 40, 60, 80, 100, 150, 200, 260, 320, 380, 450],
-  /** An average miner cuts this many units per hour in a raphide forest. */
-  perHour: 0.5,
-  /** A lens fitted on a turret (technology `glass`): its crystal, and the range it adds. */
-  lens: { crystal: 12, range: 1 },
-  /**
-   * Crystal ammunition (technology `crystalCut`): each seed turret of a battle costs this much
-   * crystal at the strike, and its shots pierce this share of the armour.
-   */
-  ammo: { perTurret: 2, pierce: 0.6 }
-};
-var CRYSTAL_SCALE = 1e3 * 36e5;
-function crystalUnits(raw) {
-  return Math.floor(raw / CRYSTAL_SCALE + 1e-9);
-}
-var GIANT_SEEDS = {
-  /** Stock cap (whole seeds) by age (index = age; the Age of the stars comes at chantier 51). */
-  cap: [3, 3, 3, 5, 8],
-  /** A locule egg: a giant seed hatched with the egg; the kiwi gets this much in every stat. */
-  egg: { seeds: 1, stat: 1 },
-  /**
-   * A locule tree: the n-th one costs `n × perTree` giant seeds; it grows for `growMs`, then
-   * gives a seed every `everyMs` (a ripe seed waits on the tree while the stock is full).
-   */
-  tree: { perTree: 1, growMs: 48 * 36e5, everyMs: 72 * 36e5 },
-  /**
-   * Locule trees allowed by age (index = age): the n-th one costs n seeds, so the last one must
-   * stay within the cap (a sixth tree at 6 seeds with a cap of 5 would never come).
-   */
-  maxTrees: [0, 0, 0, 4, 6]
 };
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
@@ -4781,6 +4908,10 @@ function isNight(state) {
 // packages/shared/src/sim/research.ts
 function ageOf(state) {
   return state.buildings.find((b) => b.type === "monument")?.level ?? 0;
+}
+function shipIdOf(state) {
+  const sail = state.buildings.some((b) => b.type === "launchpad" && b.level >= SAIL.padLevel);
+  return shipIdForAge(ageOf(state), sail);
 }
 function nightWork(state) {
   return Math.min(1, CYCLES.nightWork * techEffects(state).nightWork);
@@ -8238,7 +8369,7 @@ function resolveFinal(state, e, members, fed) {
       const pad = getBuilding(state, e.launchpadId);
       if (pad) {
         pad.damaged = true;
-        pad.shipLost = shipIdForAge(ageOf(state));
+        pad.shipLost = shipIdOf(state);
       }
     }
   }
@@ -8357,7 +8488,7 @@ function launchpadOf(state, id3) {
   return b?.type === "launchpad" ? b : void 0;
 }
 function shipOf(state) {
-  const ship = SHIPS[shipIdForAge(ageOf(state))];
+  const ship = SHIPS[shipIdOf(state)];
   const tech = techEffects(state);
   return { ...ship, armor: ship.armor + tech.armor, recon: ship.recon + tech.recon };
 }
@@ -8369,7 +8500,8 @@ function shipReliability(ship, crew, fuel = false) {
   return round24(Math.min(1, ship.reliability + mend + dust + engineer));
 }
 function travelFactor(state, plan) {
-  return techEffects(state).travel * (plan.fuel ? FUEL.travel : 1);
+  const fuel = plan.fuel ? FUEL.travel * (shipIdOf(state) === "sail" ? SAIL.fuelTravel : 1) : 1;
+  return techEffects(state).travel * fuel;
 }
 function shipCargo(launchpad) {
   return levelDef("launchpad", launchpad.level)?.cargo ?? 0;
@@ -8566,7 +8698,7 @@ function launchCost(state, crew, mission = "raid") {
   if (mission === "found") return out;
   const L = EXPEDITIONS.launchCost;
   const seats = crew.reduce((sum, v) => sum + (v.kikiwiwi ? L.kikiwiwi : 1), 0);
-  const k = seats * L.ship[shipIdForAge(ageOf(state))];
+  const k = seats * L.ship[shipIdOf(state)];
   out.fiber = Math.round(L.perKiwi.fiber * k);
   out.juice = Math.round(L.perKiwi.juice * k);
   return out;
@@ -9041,7 +9173,7 @@ function resolveLanding(state, e, members, fed) {
     const pad = getBuilding(state, e.launchpadId);
     if (pad) {
       pad.damaged = true;
-      pad.shipLost = shipIdForAge(ageOf(state));
+      pad.shipLost = shipIdOf(state);
     }
   }
   e.result = {
@@ -14131,7 +14263,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 40;
+var SCHEMA_VERSION = 41;
 var MISSION_KINDS = [
   "land",
   "raid",
@@ -14996,6 +15128,8 @@ function upgradeLock(state, b, map) {
   if (!canAfford(state.resources, upgradeCost(b.type, b.level + 1))) return "notEnoughResources";
   if (stardustOf(state) < (def.stardust ?? 0)) return "notEnoughStardust";
   if (meteorIronOf(state) < (def.iron ?? 0)) return "notEnoughIron";
+  if (crystalOf(state) < (def.crystal ?? 0)) return "notEnoughCrystal";
+  if (state.giantSeeds < (def.giantSeeds ?? 0)) return "notEnoughGiantSeeds";
   return null;
 }
 
@@ -15306,8 +15440,12 @@ function execute(s, cmd, ctx, events) {
       const durationMs = constructionDuration(s, b.type, target, false, nearRay(ctx.map, b.q, b.r));
       const dust = levelDef(b.type, target)?.stardust ?? 0;
       const iron = levelDef(b.type, target)?.iron ?? 0;
+      const crystal = levelDef(b.type, target)?.crystal ?? 0;
+      const seeds = levelDef(b.type, target)?.giantSeeds ?? 0;
       payStardust(s, dust);
       payIron(s, iron);
+      payCrystal(s, crystal);
+      payGiantSeeds(s, seeds);
       pay(s, cost);
       s.queue.push({
         id: nextId(s, "q"),
@@ -15323,6 +15461,8 @@ function execute(s, cmd, ctx, events) {
         paid: cost,
         ...dust > 0 ? { paidDust: dust } : {},
         ...iron > 0 ? { paidIron: iron } : {},
+        ...crystal > 0 ? { paidCrystal: crystal } : {},
+        ...seeds > 0 ? { paidSeeds: seeds } : {},
         orderedAt: now,
         ...spread !== null ? { rot: spread } : {}
       });
@@ -15336,6 +15476,7 @@ function execute(s, cmd, ctx, events) {
       refund(s, item2.paid);
       refundStardust(s, item2.paidDust ?? 0);
       addIron(s, item2.paidIron ?? 0);
+      addCrystal(s, item2.paidCrystal ?? 0);
       s.giantSeeds += item2.paidSeeds ?? 0;
       for (const v of s.villagers) {
         if (v.job.kind === "build" && v.job.queueItemId === item2.id) {
@@ -20456,6 +20597,7 @@ var gameStateSchema = external_exports.object({
       paidDust: external_exports.number().int().min(0).optional(),
       paidIron: external_exports.number().int().min(0).optional(),
       paidSeeds: external_exports.number().int().min(0).max(99).optional(),
+      paidCrystal: external_exports.number().int().min(0).optional(),
       orderedAt: external_exports.number(),
       rot: external_exports.number().int().min(0).max(5).optional()
     })
@@ -21014,7 +21156,9 @@ var MIGRATIONS = {
     depths: newDepths(String(raw.seed ?? ""), raw.face ?? "kiwisu")
   }),
   // v39 → v40 (chantier 50): the locules' stocks, empty.
-  39: (raw) => ({ ...raw, crystal: 0, giantSeeds: 0 })
+  39: (raw) => ({ ...raw, crystal: 0, giantSeeds: 0 }),
+  // Chantier 51: the Age of the stars only adds an optional field (`QueueItem.paidCrystal`).
+  40: (raw) => raw
 };
 var OLD_MISSIONS = ["raid", "recon", "assault", "reinforce", "final", "retreat"];
 function migrateToLandings(raw) {
@@ -21851,7 +21995,8 @@ function plausibleTerraform(state) {
   if (canals.length + lands.length > 0 && !techEffects(state).canals) return false;
   if (canals.length > canalCap(state)) return false;
   if (entries.length > 0 && !techEffects(state).terraform) return false;
-  if (entries.length > (TITAN.maxTerraform[ageOf(state)] ?? 0)) return false;
+  const caps = TITAN.maxTerraform;
+  if (entries.length > (caps[Math.min(ageOf(state), caps.length - 1)] ?? 0)) return false;
   const base = baseMapFor(state);
   for (const [key, kind] of all) {
     const tile = base.tiles[base.index.get(key) ?? -1];
@@ -22520,6 +22665,7 @@ export {
   RESOURCE_MASTERY,
   REST,
   ROOM_KINDS,
+  SAIL,
   SCHEMA_VERSION,
   SCHOOL,
   SEASONS,
@@ -23209,6 +23355,7 @@ export {
   shieldArrival,
   shipCargo,
   shipIdForAge,
+  shipIdOf,
   shipOf,
   shipReliability,
   simulateBattle,

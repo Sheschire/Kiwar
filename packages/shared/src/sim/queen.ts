@@ -1,4 +1,4 @@
-import { EXPEDITIONS, INTEL, shipIdForAge } from '../data/expeditions';
+import { EXPEDITIONS, INTEL } from '../data/expeditions';
 import { LANDING, type LandingOrders } from '../data/landing';
 import { emptyResources, RESOURCE_IDS } from '../data/resources';
 import { SIEGE } from '../data/siege';
@@ -28,7 +28,7 @@ import {
   viewOfTruth,
 } from './landing';
 import type { LandingForecast } from './landing';
-import { ageOf } from './research';
+import { shipIdOf } from './research';
 import { getBuilding } from './selectors';
 import { queenTruth, twinTarget } from './siege';
 import type { GameEvent } from './advance';
@@ -251,7 +251,7 @@ export function resolveFinal(
       const pad = getBuilding(state, e.launchpadId);
       if (pad) {
         pad.damaged = true;
-        pad.shipLost = shipIdForAge(ageOf(state));
+        pad.shipLost = shipIdOf(state);
       }
     }
   }

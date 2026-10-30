@@ -18,6 +18,10 @@ export const CRYSTAL = {
    * crystal at the strike, and its shots pierce this share of the armour.
    */
   ammo: { perTurret: 2, pierce: 0.6 },
+  /** Chantier 51: crystal paid by building levels 13+ (index = level), like the iron at 7+. */
+  levels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 45, 60] as readonly number[],
+  /** Crystal of the levels with their own number (index = level). */
+  own: { monument: [0, 0, 0, 0, 120] } as Partial<Record<string, readonly number[]>>,
 } as const;
 
 /** Raw crystal units per unit (a gallery's rate is `1000 × perHour × work` raw units per ms). */
@@ -29,7 +33,7 @@ export function crystalUnits(raw: number): number {
 }
 
 export const GIANT_SEEDS = {
-  /** Stock cap (whole seeds) by age (index = age; the Age of the stars comes at chantier 51). */
+  /** Stock cap (whole seeds) by age (index = age). */
   cap: [3, 3, 3, 5, 8] as readonly number[],
   /** A locule egg: a giant seed hatched with the egg; the kiwi gets this much in every stat. */
   egg: { seeds: 1, stat: 1 },
@@ -43,4 +47,13 @@ export const GIANT_SEEDS = {
    * stay within the cap (a sixth tree at 6 seeds with a cap of 5 would never come).
    */
   maxTrees: [0, 0, 0, 4, 6] as readonly number[],
+  /**
+   * Chantier 51: giant seeds paid by the levels of the Age of the stars (index = level), only
+   * for the Nest, the Library and the monument (the other levels 13–15 pay crystal).
+   */
+  levels: {
+    nest: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3],
+    library: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3],
+    monument: [0, 0, 0, 0, 4],
+  } as Partial<Record<string, readonly number[]>>,
 } as const;

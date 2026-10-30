@@ -306,4 +306,45 @@ export const AGE_OBJECTIVES: readonly AgeObjectiveDef[] = [
     condition: { kind: 'building', building: PRODUCERS, count: 1, minLevel: 12 },
     reward: { pulp: 40000, fiber: 40000, seeds: 8000, juice: 15000 },
   },
+  // Chantier 51, the Age of the stars: the levels 13–15, the sailboat, the trees of the locules
+  // (the core and the kiwais bring theirs in chantiers 52 and 53).
+  {
+    id: 'starsNest13',
+    age: 4,
+    condition: { kind: 'building', building: 'nest', count: 1, minLevel: 13 },
+    reward: { pulp: 30000, fiber: 30000 },
+    stardust: 15,
+  },
+  {
+    id: 'starsTechs',
+    age: 4,
+    condition: { kind: 'techs', age: 4, count: 2 },
+    reward: { seeds: 12000, juice: 15000 },
+  },
+  {
+    id: 'starsSail',
+    age: 4,
+    condition: { kind: 'building', building: 'launchpad', count: 1, minLevel: 13 },
+    reward: { fiber: 30000, juice: 20000 },
+  },
+  {
+    id: 'starsTrees',
+    age: 4,
+    condition: { kind: 'building', building: 'loculeTree', count: 5, minLevel: 1 },
+    reward: { seeds: 15000 },
+    egg: true,
+  },
+  {
+    id: 'starsKiwi25',
+    age: 4,
+    condition: { kind: 'kiwiLevel', level: 25 },
+    reward: { juice: 25000 },
+    stardust: 20,
+  },
+  {
+    id: 'starsProducer15',
+    age: 4,
+    condition: { kind: 'building', building: PRODUCERS, count: 1, minLevel: 15 },
+    reward: { pulp: 80000, fiber: 80000, seeds: 16000, juice: 30000 },
+  },
 ];

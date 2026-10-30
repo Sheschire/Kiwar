@@ -11,6 +11,7 @@ import {
   type TechEffects,
   type TechId,
 } from '../data/research';
+import { SAIL, shipIdForAge, type ShipId } from '../data/expeditions';
 import { THREATS } from '../data/threats';
 import type { TimeMs } from '../types/ids';
 import type { GameEvent } from './advance';
@@ -23,6 +24,15 @@ import type { Building, GameState, Villager } from './state';
 /** Age reached by the colony (index in AGE_IDS, 0 = Eden): the level of its monument. */
 export function ageOf(state: GameState): number {
   return state.buildings.find((b) => b.type === 'monument')?.level ?? 0;
+}
+
+/**
+ * Chantier 51: the colony's ship generation — the one of its age, and the star sailboat once
+ * the Age of the stars is reached and a launchpad has been rigged (level `SAIL.padLevel`).
+ */
+export function shipIdOf(state: GameState): ShipId {
+  const sail = state.buildings.some((b) => b.type === 'launchpad' && b.level >= SAIL.padLevel);
+  return shipIdForAge(ageOf(state), sail);
 }
 
 /** Chantier 13: work rate at night (clear nights make it better, never more than by day). */

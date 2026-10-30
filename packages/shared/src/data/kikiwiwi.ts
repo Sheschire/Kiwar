@@ -35,7 +35,7 @@ export const KIKIWIWI = {
     stats: ['strength', 'endurance'] as const,
   },
   /** Kikiwiwis allowed by age (index = age): from the Iron age, one per age reached. */
-  capByAge: [0, 0, 1, 2] as readonly number[],
+  capByAge: [0, 0, 1, 2, 3] as readonly number[],
   /**
    * What the juice does to a kiwi (multiplied onto its trait and class): four times as strong,
    * hard to hurt, but heavy in the ship's hold and a big eater on expeditions.

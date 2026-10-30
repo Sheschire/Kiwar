@@ -24,7 +24,7 @@ export const COMETS = {
   landTypes: ['flesh', 'grove', 'seedRing'] as const,
   /** Stardust per comet (whole points), × the age factor (index = age). */
   stock: 20,
-  ageFactor: [1, 1.3, 1.7, 2.2] as readonly number[],
+  ageFactor: [1, 1.3, 1.7, 2.2, 2.8] as readonly number[],
 } as const;
 
 /** Stardust: a separate stock in raw integer units (exact offline, like the experience). */

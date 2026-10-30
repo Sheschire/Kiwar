@@ -56,6 +56,11 @@ export const TECH_IDS = [
   'glass',
   'crystalCut',
   'enzymes',
+  // Chantier 51: the Age of the stars.
+  'starsAge',
+  'celestialGlass',
+  'crystalGrafts',
+  'starSails',
 ] as const;
 export type TechId = (typeof TECH_IDS)[number];
 
@@ -369,6 +374,46 @@ export const TECHS: Record<TechId, TechDef> = {
     libraryLevel: 7,
     effects: { enzymes: 2 },
   },
+  // Chantier 51: the passage to the Age of the stars, then its three technologies (paid in
+  // points and crystal; the levels 13–15 and the monument pay the giant seeds).
+  starsAge: {
+    id: 'starsAge',
+    age: 3,
+    branch: 'passage',
+    cost: 30000,
+    libraryLevel: 11,
+    crystal: 40,
+    effects: {},
+  },
+  celestialGlass: {
+    id: 'celestialGlass',
+    age: 4,
+    branch: 'economy',
+    cost: 6000,
+    libraryLevel: 13,
+    crystal: 50,
+    after: 'glass',
+    effects: { research: 1.15, storage: 1.15 },
+  },
+  crystalGrafts: {
+    id: 'crystalGrafts',
+    age: 4,
+    branch: 'economy',
+    cost: 7000,
+    libraryLevel: 13,
+    crystal: 60,
+    effects: { harvest: { pulp: 1.15, fiber: 1.15, seeds: 1.15, juice: 1.15 } },
+  },
+  starSails: {
+    id: 'starSails',
+    age: 4,
+    branch: 'exploration',
+    cost: 6000,
+    libraryLevel: 13,
+    crystal: 40,
+    stardust: 20,
+    effects: { travel: 0.85, recon: 0.1, armor: 0.05 },
+  },
 };
 
 /** The passage technology of each age (index = the age it leads to). */
@@ -377,6 +422,7 @@ export const PASSAGE_TECHS: readonly (TechId | null)[] = [
   'stoneAge',
   'ironAge',
   'industryAge',
+  'starsAge',
 ];
 
 export const RESEARCH = {

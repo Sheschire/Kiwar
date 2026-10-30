@@ -79,7 +79,7 @@ describe('ages', () => {
           expect(def.cost[id as keyof typeof def.cost]).toBeGreaterThan(v);
       }
     }
-    expect(maxLevelOf('monument')).toBe(3);
+    expect(maxLevelOf('monument')).toBe(4);
     expect(maxLevelOf('lab')).toBe(3);
     expect(maxLevelOf('trainingCamp')).toBe(3);
   });

@@ -85,11 +85,11 @@ export const MORALE = {
   work: { low: 0.7, high: 1.15 },
   /** Below this, a kiwi sulks (it still works). */
   sulk: 20,
-  /** Base of a kiwi by age (Eden, Stone, Iron, Industry): a fed colony sleeping near its work
+  /** Base of a kiwi by age (Eden, Stone, Iron, Industry, the stars): a fed colony sleeping near its work
    * (+10, +5) sits a bit above neutral in the Eden, below later on; the mayor, the leisures and
    * the decorations bring a built village to 60–75 (chantier 46), only the evenings and the
    * speeches lift it above 85. */
-  base: [46, 35, 29, 23],
+  base: [46, 35, 29, 23, 20],
   /** Fed colony vs hungry colony. */
   fed: 10,
   hungry: -20,

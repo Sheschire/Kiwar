@@ -647,8 +647,13 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const durationMs = constructionDuration(s, b.type, target, false, nearRay(ctx.map, b.q, b.r));
       const dust = levelDef(b.type, target)?.stardust ?? 0;
       const iron = levelDef(b.type, target)?.iron ?? 0;
+      // Chantier 51: crystal and giant seeds of the Age of the stars (checked by `upgradeLock`).
+      const crystal = levelDef(b.type, target)?.crystal ?? 0;
+      const seeds = levelDef(b.type, target)?.giantSeeds ?? 0;
       payStardust(s, dust);
       payIron(s, iron);
+      payCrystal(s, crystal);
+      payGiantSeeds(s, seeds);
       pay(s, cost);
       s.queue.push({
         id: nextId(s, 'q') as QueueItemId,
@@ -664,6 +669,8 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         paid: cost,
         ...(dust > 0 ? { paidDust: dust } : {}),
         ...(iron > 0 ? { paidIron: iron } : {}),
+        ...(crystal > 0 ? { paidCrystal: crystal } : {}),
+        ...(seeds > 0 ? { paidSeeds: seeds } : {}),
         orderedAt: now,
         ...(spread !== null ? { rot: spread } : {}),
       });
@@ -677,6 +684,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       refund(s, item!.paid);
       refundStardust(s, item!.paidDust ?? 0);
       addIron(s, item!.paidIron ?? 0);
+      addCrystal(s, item!.paidCrystal ?? 0);
       s.giantSeeds += item!.paidSeeds ?? 0;
       for (const v of s.villagers) {
         if (v.job.kind === 'build' && v.job.queueItemId === item!.id) {

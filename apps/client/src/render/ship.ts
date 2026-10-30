@@ -19,6 +19,7 @@ const FLAP: Record<ShipId, { speed: number; amount: number }> = {
   logs: { speed: 8, amount: 0.7 },
   iron: { speed: 11, amount: 0.55 },
   jet: { speed: 4, amount: 0.08 },
+  sail: { speed: 2.5, amount: 0.12 },
 };
 /** An ally's bird bringing a gift: seen on its final approach, then resting at the Nest. */
 const VISIT_APPROACH_MS = 90_000;

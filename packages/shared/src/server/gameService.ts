@@ -738,7 +738,8 @@ export function plausibleTerraform(state: GameState): boolean {
   if (canals.length + lands.length > 0 && !techEffects(state).canals) return false;
   if (canals.length > canalCap(state)) return false;
   if (entries.length > 0 && !techEffects(state).terraform) return false;
-  if (entries.length > (TITAN.maxTerraform[ageOf(state)] ?? 0)) return false;
+  const caps = TITAN.maxTerraform;
+  if (entries.length > (caps[Math.min(ageOf(state), caps.length - 1)] ?? 0)) return false;
   const base = baseMapFor(state);
   for (const [key, kind] of all) {
     const tile = base.tiles[base.index.get(key as HexKey) ?? -1];

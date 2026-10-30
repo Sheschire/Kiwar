@@ -41,7 +41,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 40;
+export const SCHEMA_VERSION = 41;
 
 export type Job =
   | { kind: 'idle' }
@@ -269,6 +269,8 @@ export interface QueueItem {
   paidIron?: number;
   /** Chantier 50: giant seeds paid when ordered (a locule tree; refunded on cancel). */
   paidSeeds?: number;
+  /** Chantier 51: whole units of crystal paid when ordered (levels 13+; refunded on cancel). */
+  paidCrystal?: number;
   orderedAt: TimeMs;
   /**
    * Chantier 35: orientation of a big building's footprint — for a `build`, the site; for the

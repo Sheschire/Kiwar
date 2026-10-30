@@ -32,7 +32,7 @@ export const THREATS = {
     0, 0.5, 0.7, 1, 1.5, 1.9, 2.3, 2.6, 2.9, 3.2, 3.5, 3.8, 4.1, 4.4, 4.7, 5,
   ] as readonly number[],
   /** Chantier 08: the predators grow with the age of the colony (index = age). */
-  ageFactor: [1, 1.15, 1.3, 1.5] as readonly number[],
+  ageFactor: [1, 1.15, 1.3, 1.5, 1.7] as readonly number[],
   /** Power gained per day of play, up to `maxDays` (softened in chantier 31; chantier 39
    * replaces it by the alien civilisation). */
   perDay: 0.12,
@@ -227,7 +227,7 @@ export const METEORS = {
     0, 1, 1.5, 2.2, 3, 3.25, 3.5, 3.8, 4.05, 4.3, 4.6, 4.85, 5.1, 5.4, 5.7, 6,
   ] as readonly number[],
   /** Chantier 08: richer gifts in later ages (index = age). */
-  ageFactor: [1, 1.3, 1.7, 2.2] as readonly number[],
+  ageFactor: [1, 1.3, 1.7, 2.2, 2.8] as readonly number[],
   perDay: 0.15,
   /** What falls (weights). */
   resources: { seeds: 2, juice: 1, fiber: 1 } as const,
@@ -243,7 +243,7 @@ export const METEORS = {
   /** Harvest per hour of one average kiwi at a crater (a level-1 workplace's rate). */
   rates: { pulp: 750, fiber: 600, seeds: 190, juice: 450 } satisfies Resources,
   /** Meteorite drill (technology `meteorDrill`): harvest multiplier by age (index = age). */
-  drill: [1, 1.5, 2, 2.5] as readonly number[],
+  drill: [1, 1.5, 2, 2.5, 3] as readonly number[],
   /** Craters kept at once (about two falls a day for 48 hours each). */
   max: 5,
 } as const;

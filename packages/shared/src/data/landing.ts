@@ -45,8 +45,8 @@ export const LANDING = {
    */
   rebuild: {
     cost: { fiber: 400, juice: 250 } as ResourceCost,
-    ship: { wood: 1, logs: 2, iron: 5, jet: 12 } as Record<ShipId, number>,
-    hours: { wood: 4, logs: 6, iron: 10, jet: 16 } as Record<ShipId, number>,
+    ship: { wood: 1, logs: 2, iron: 5, jet: 12, sail: 16 } as Record<ShipId, number>,
+    hours: { wood: 4, logs: 6, iron: 10, jet: 16, sail: 20 } as Record<ShipId, number>,
   },
   /** Units of a parcel at most in a battle (more power makes them stronger, not more numerous). */
   maxGround: 24,

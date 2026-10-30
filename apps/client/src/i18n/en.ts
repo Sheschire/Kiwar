@@ -577,7 +577,16 @@ export const en = {
       title: 'A beacon in the centre',
       hint: 'The centre is formidable: land there with your best kiwis.',
     },
-    industryProducer12: { title: 'A producer at level 12', hint: 'The very last level.' },
+    industryProducer12: { title: 'A producer at level 12', hint: 'The last level of the age.' },
+    starsNest13: { title: 'The Nest at level 13', hint: 'Crystal and giant seeds raise it now.' },
+    starsTechs: { title: 'Two star techniques', hint: 'Research two technologies of the age.' },
+    starsSail: {
+      title: 'Rig the star sailboat',
+      hint: 'The launchpad at level 13: stardust for the keel.',
+    },
+    starsTrees: { title: 'Five locule trees', hint: 'Plant giant seeds: they give more back.' },
+    starsKiwi25: { title: 'A kiwi at level 25', hint: 'A legend of the colony.' },
+    starsProducer15: { title: 'A producer at level 15', hint: 'The very last level.' },
     buildPulpery: { title: 'Build a Pulpery', hint: 'Tap a green flesh tile and build a Pulpery.' },
     buildFiber: {
       title: 'Build a Fibre workshop',
@@ -1373,6 +1382,7 @@ export const en = {
       logs: 'Log-and-rope bird',
       iron: 'Riveted iron bird',
       jet: 'Streamlined jet bird',
+      sail: 'Star sailboat',
     },
     line: '{name} · reliability {pct} %',
     armor: 'armour −{pct} % losses',
@@ -2319,6 +2329,7 @@ export const en = {
     stone: 'Stone age',
     iron: 'Iron age',
     industry: 'Industrial age',
+    stars: 'Age of the stars',
     current: 'Age: {age}',
     next: 'Next: {age}',
     steps: 'Research “{tech}” at the Library, then raise the monument.',
@@ -2326,7 +2337,7 @@ export const en = {
     opens:
       'Opens building levels {from} to {to}, the {ship} ship and stronger gifts — and predators.',
     last: 'The colony has reached the last age for now.',
-    ships: { wood: 'wooden', logs: 'log', iron: 'iron', jet: 'jet' },
+    ships: { wood: 'wooden', logs: 'log', iron: 'iron', jet: 'jet', sail: 'star sailboat' },
   },
   plans: {
     showLevels: 'Show building levels',
@@ -2504,9 +2515,22 @@ export const en = {
       name: 'Enzymes',
       desc: 'While an actinidine lake is worked, the wounded heal twice as fast.',
     },
+    starsAge: {
+      name: 'Star charts of the deep sky',
+      desc: 'Opens the way to the Age of the stars (monument).',
+    },
+    celestialGlass: {
+      name: 'Celestial glass',
+      desc: 'The Library researches 15 % faster and every store holds 15 % more.',
+    },
+    crystalGrafts: { name: 'Crystal grafts', desc: 'Every harvest +15 %.' },
+    starSails: {
+      name: 'Star sails',
+      desc: 'Expedition travel −15 %, better reconnaissance, sturdier ships.',
+    },
     meteorDrill: {
       name: 'Meteorite drill',
-      desc: 'A drill on every crater being worked: ×1.5 in the Stone age, ×2 in the Iron age, ×2.5 in the Industry age.',
+      desc: 'A drill on every crater being worked: ×1.5 in the Stone age, ×2 in the Iron age, ×2.5 in the Industry age, ×3 in the Age of the stars.',
     },
     titanWorks: {
       name: 'Titan works',

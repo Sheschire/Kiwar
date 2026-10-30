@@ -431,11 +431,7 @@ export function startFortify(
 // --- Guards (mission `guard`) -----------------------------------------------------------------
 
 export type GuardLock =
-  | 'notASector'
-  | 'noBeacon'
-  | 'invalidCrew'
-  | 'crewTooLarge'
-  | 'invalidOrders';
+  'notASector' | 'noBeacon' | 'invalidCrew' | 'crewTooLarge' | 'invalidOrders';
 
 /** Why a ship cannot take this guard to (or bring these guards back from) a beacon. */
 export function guardLock(

@@ -155,7 +155,7 @@ describe('age progress and next step (chantier 31)', () => {
     const q = ageProgress(done)!;
     expect(q.steps[0]!.done && q.steps[1]!.done).toBe(true);
     expect(q.progress).toBeCloseTo(0.7);
-    expect(ageProgress(withMonument(state, 3))).toBeNull();
+    expect(ageProgress(withMonument(state, 4))).toBeNull();
   });
 
   it('suggests the monument once its passage is known', () => {

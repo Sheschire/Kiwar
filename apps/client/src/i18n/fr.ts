@@ -633,7 +633,28 @@ export const fr: Dict = {
       title: 'Une balise au centre',
       hint: 'Le centre est redoutable : débarquez-y avec vos meilleurs kiwis.',
     },
-    industryProducer12: { title: 'Un producteur au niveau 12', hint: 'Le tout dernier niveau.' },
+    industryProducer12: {
+      title: 'Un producteur au niveau 12',
+      hint: 'Le dernier niveau de l’âge.',
+    },
+    starsNest13: {
+      title: 'Le Nid au niveau 13',
+      hint: 'Le cristal et les graines géantes l’élèvent désormais.',
+    },
+    starsTechs: {
+      title: 'Deux techniques des étoiles',
+      hint: 'Rechercher deux technologies de l’âge.',
+    },
+    starsSail: {
+      title: 'Gréer le voilier stellaire',
+      hint: 'L’aire d’envol au niveau 13 : de la poussière d’étoile pour la quille.',
+    },
+    starsTrees: {
+      title: 'Cinq arbres-loges',
+      hint: 'Planter des graines géantes : elles en rendent davantage.',
+    },
+    starsKiwi25: { title: 'Un kiwi au niveau 25', hint: 'Une légende de la colonie.' },
+    starsProducer15: { title: 'Un producteur au niveau 15', hint: 'Le tout dernier niveau.' },
     buildPulpery: {
       title: 'Construire une Cueillerie',
       hint: 'Touchez une tuile de chair verte et construisez une Cueillerie.',
@@ -1448,6 +1469,7 @@ export const fr: Dict = {
       logs: 'Oiseau de rondins et de cordes',
       iron: 'Oiseau de fer riveté',
       jet: 'Oiseau à propulseurs',
+      sail: 'Voilier stellaire',
     },
     line: '{name} · fiabilité {pct} %',
     armor: 'blindage −{pct} % de pertes',
@@ -2408,6 +2430,7 @@ export const fr: Dict = {
     stone: 'Âge de pierre',
     iron: 'Âge du fer',
     industry: 'Âge industriel',
+    stars: 'Âge des étoiles',
     current: 'Âge : {age}',
     next: 'Ensuite : {age}',
     steps: 'Recherchez « {tech} » à la Bibliothèque, puis élevez le monument.',
@@ -2415,7 +2438,13 @@ export const fr: Dict = {
     opens:
       'Ouvre les niveaux {from} à {to} des bâtiments, le vaisseau {ship} et des cadeaux plus riches — et des prédateurs plus forts.',
     last: 'La colonie a atteint le dernier âge pour l’instant.',
-    ships: { wood: 'en bois', logs: 'en rondins', iron: 'en fer', jet: 'à réaction' },
+    ships: {
+      wood: 'en bois',
+      logs: 'en rondins',
+      iron: 'en fer',
+      jet: 'à réaction',
+      sail: 'voilier stellaire',
+    },
   },
   plans: {
     showLevels: 'Afficher les niveaux des bâtiments',
@@ -2604,9 +2633,22 @@ export const fr: Dict = {
       name: 'Enzymes',
       desc: 'Tant qu’un lac d’actinidine est exploité, les blessé·es guérissent deux fois plus vite.',
     },
+    starsAge: {
+      name: 'Cartes du ciel profond',
+      desc: 'Ouvre la voie à l’Âge des étoiles (monument).',
+    },
+    celestialGlass: {
+      name: 'Verre céleste',
+      desc: 'La Bibliothèque cherche 15 % plus vite et chaque réserve contient 15 % de plus.',
+    },
+    crystalGrafts: { name: 'Greffes de cristal', desc: 'Toutes les récoltes +15 %.' },
+    starSails: {
+      name: 'Voiles stellaires',
+      desc: 'Trajets −15 %, meilleurs rapports de reconnaissance, vaisseaux plus solides.',
+    },
     meteorDrill: {
       name: 'Foreuse à météorite',
-      desc: 'Une foreuse sur chaque cratère exploité : ×1,5 à l’âge de pierre, ×2 à l’âge du fer, ×2,5 à l’âge industriel.',
+      desc: 'Une foreuse sur chaque cratère exploité : ×1,5 à l’âge de pierre, ×2 à l’âge du fer, ×2,5 à l’âge industriel, ×3 à l’Âge des étoiles.',
     },
     titanWorks: {
       name: 'Travaux de titan',

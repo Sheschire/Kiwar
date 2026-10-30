@@ -1,5 +1,5 @@
 import { CIV } from '../data/aliens';
-import { alienDefOf, EXPEDITIONS, INTEL, shipIdForAge } from '../data/expeditions';
+import { alienDefOf, EXPEDITIONS, INTEL } from '../data/expeditions';
 import { LANDING, LANDING_GOALS, LANDING_PRIORITIES, type LandingOrders } from '../data/landing';
 import { emptyResources, RESOURCE_IDS } from '../data/resources';
 import { POSTURES } from '../data/units';
@@ -32,7 +32,7 @@ import {
   type AlienBuilding,
   type AlienUnit,
 } from './civ';
-import { ageOf } from './research';
+import { shipIdOf } from './research';
 import type {
   AlienGarrison,
   Expedition,
@@ -378,7 +378,7 @@ export function resolveLanding(
     const pad = getBuilding(state, e.launchpadId);
     if (pad) {
       pad.damaged = true;
-      pad.shipLost = shipIdForAge(ageOf(state));
+      pad.shipLost = shipIdOf(state);
     }
   }
   e.result = {

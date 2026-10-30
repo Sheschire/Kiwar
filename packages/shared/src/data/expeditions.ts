@@ -32,7 +32,7 @@ export const EXPEDITIONS = {
   /** Share of survivors lost per missing share of rations on the way back. */
   starvationLossRate: 0.5,
   /** Chantier 18: loot multiplier by age (index = age): later ages raid richer stores. */
-  lootByAge: [1, 1.5, 2, 3] as readonly number[],
+  lootByAge: [1, 1.5, 2, 3, 4] as readonly number[],
   /**
    * Chantier 31: launching costs fibre and juice per kiwi aboard (on top of the rations),
    * × the ship of the age; a Kikiwiwi counts `kikiwiwi` times. The settlers' ship
@@ -40,7 +40,7 @@ export const EXPEDITIONS = {
    */
   launchCost: {
     perKiwi: { fiber: 40, juice: 25 },
-    ship: { wood: 1, logs: 2, iron: 5, jet: 12 },
+    ship: { wood: 1, logs: 2, iron: 5, jet: 12, sail: 16 },
     kikiwiwi: 3,
   },
 } as const;
@@ -143,9 +143,10 @@ export const RECON = {
 
 /**
  * Generations of the mechanical kiwi ship (chantier 07), one per age (chantier 08): wood in
- * Eden, logs in the Stone age, iron, then the jet of the Industrial age.
+ * Eden, logs in the Stone age, iron, then the jet of the Industrial age. Chantier 51: the star
+ * sailboat of the Age of the stars, rigged by the launchpad's level 13 (`SAIL`).
  */
-export const SHIP_IDS = ['wood', 'logs', 'iron', 'jet'] as const;
+export const SHIP_IDS = ['wood', 'logs', 'iron', 'jet', 'sail'] as const;
 export type ShipId = (typeof SHIP_IDS)[number];
 
 export interface ShipDef {
@@ -167,11 +168,23 @@ export const SHIPS: Record<ShipId, ShipDef> = {
   iron: { id: 'iron', reliability: 0.95, armor: 0.15, recon: 0.1 },
   /** Streamlined, with thrusters (Industry age, chantier 08). */
   jet: { id: 'jet', reliability: 0.99, armor: 0.25, recon: 0.15 },
+  /** Chantier 51: crystal sails and a stardust keel (Age of the stars, launchpad 13). */
+  sail: { id: 'sail', reliability: 0.995, armor: 0.3, recon: 0.2 },
 };
 
-/** Provisional: the ship generation follows the launchpad level until ages exist. */
-export function shipIdForAge(age: number): ShipId {
-  return SHIP_IDS[Math.max(0, Math.min(SHIP_IDS.length - 1, age))]!;
+/**
+ * Chantier 51: the star sailboat. Its stardust is paid once, by the launchpad level that rigs
+ * it; flights never need fuel, but fuel takes it further (`fuelTravel` on top of `FUEL.travel`).
+ */
+export const SAIL = { padLevel: 13, stardust: 30, fuelTravel: 0.85 } as const;
+
+/**
+ * The ship generation of an age, the sailboat aside (it also needs the launchpad 13:
+ * `shipIdOf` in `sim/research.ts`). The Age of the stars keeps the jet until then.
+ */
+export function shipIdForAge(age: number, sail = false): ShipId {
+  if (sail && age >= 4) return 'sail';
+  return SHIP_IDS[Math.max(0, Math.min(3, age))]!;
 }
 
 /** The crew's best Dexterity mends the ship on the way: up to this much reliability. */

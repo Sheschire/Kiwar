@@ -359,6 +359,7 @@ export const gameStateSchema = z.object({
       paidDust: z.number().int().min(0).optional(),
       paidIron: z.number().int().min(0).optional(),
       paidSeeds: z.number().int().min(0).max(99).optional(),
+      paidCrystal: z.number().int().min(0).optional(),
       orderedAt: z.number(),
       rot: z.number().int().min(0).max(5).optional(),
     }),
@@ -1022,6 +1023,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   }),
   // v39 → v40 (chantier 50): the locules' stocks, empty.
   39: (raw) => ({ ...raw, crystal: 0, giantSeeds: 0 }),
+  // Chantier 51: the Age of the stars only adds an optional field (`QueueItem.paidCrystal`).
+  40: (raw) => raw,
 };
 
 const OLD_MISSIONS = ['raid', 'recon', 'assault', 'reinforce', 'final', 'retreat'];
