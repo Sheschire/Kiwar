@@ -214,3 +214,9 @@
   porteur avec `?debug`. Restent : frémissement d'une touffe quand un kiwi récolte et
   particules de cueillette ; reflets mouvants du jus ; fumée des cheminées (les émetteurs
   existants suffisent pour l'instant) ; soleil vraiment rasant (essayé : sol trop sombre).
+- Chantier 50 : la tranche 3D (49) ne montre que la chair (`fleshOf` dans
+  `render/depths/cutLayout.ts`) : l'anneau des loges, leurs salles, leurs forêts de cristal et
+  leurs lacs restent à y dessiner (l'écran 2D les montre, avec la bande des loges). Pas de son
+  propre aux munitions de cristal ni à la graine d'un arbre-loge ; les armes de cristal ont la
+  couleur de leur palier, pas de modèle propre. Les graines géantes n'ont que deux puits
+  (arbres, œufs) jusqu'au monument des étoiles (51) et aux kiwaïs (53).

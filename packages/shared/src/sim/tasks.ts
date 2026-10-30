@@ -402,7 +402,15 @@ export function fillMines(state: GameState): void {
   let budget =
     Math.floor(state.villagers.length * DEPTHS.gallery.autoShare) -
     state.villagers.filter((v) => v.job.kind === 'mine').length;
-  for (const roomId of Object.keys(state.depths.galleries).sort()) {
+  // Chantier 50: the locules first (crystal, the lake's enzyme: nothing else gives them).
+  const locule = (id: string) => {
+    const k = state.depths.galleries[id]!.kind;
+    return k === 'forest' || k === 'lake' ? 0 : 1;
+  };
+  const rooms = Object.keys(state.depths.galleries).sort(
+    (a, b) => locule(a) - locule(b) || a.localeCompare(b),
+  );
+  for (const roomId of rooms) {
     if (!galleryWorth(state, roomId, cap)) continue;
     const resource = galleryWorkAs(state, roomId)!;
     let free = gallerySlots(state, roomId) - minersIn(state, roomId).length;

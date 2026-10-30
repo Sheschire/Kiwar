@@ -1,5 +1,8 @@
 # Chantier 50 — Les Tréfonds II : les loges, les raphides et l'actinidine
 
+> **Fait** (30 octobre 2026). Ce qui a été fait, ce qui reste et les mesures : section « Bilan »
+> en fin de fiche ; le savoir-faire est dans les skills `kiwar-depths` et `kiwar-forge`.
+
 Acte IV « Au-delà » du [carnet de route](../CARNET_DE_ROUTE.md) (section 9). **Simulation +
 serveur + client + bot.** Après le **48** ; il peut tourner **en parallèle du 49** (client seul).
 
@@ -103,3 +106,51 @@ Chemins sous `packages/shared/src/`.
   bot attentif.
 - Les remontées des loges restent perdues au plus une fois sur dix chez l'occasionnel·le.
 - L'économie reste dans ±10 % entre faces et biomes.
+
+## Bilan (30 octobre 2026)
+
+### Réponses du porteur (points nouveaux)
+
+- **L'actinidine n'est pas un stock** : c'est un effet tant qu'un lac est exploité (une
+  personne qui y mine, la porte ouverte) — infusions deux fois moins risquées, et avec
+  **Enzymes** des blessures deux fois plus courtes.
+- **Second puits des graines géantes** avant le monument des étoiles (51) et les kiwaïs (53) :
+  l'**œuf des loges** (une graine couvée avec l'œuf, un kiwi à +1 dans chaque stat).
+
+### Fait (sept parties)
+
+1. La couche des loges : 30–42 loges en arc sous la chair (profondeur 4, tirées après la chair
+   sur leur propre flux : la chair ne bouge pas), forêts de raphides (coupures) ou lacs
+   d'actinidine (acide, Endurance), nids dans ~40 %, 1–3 graines géantes ; ouvertes à
+   l'Industrie (`layerLocked`) ; prévision honnête (le pire des deux dangers quand on ne sait
+   pas).
+2. Deux stocks à part : le **cristal** (unités brutes entières, plafond par Nid, taillé dans
+   les forêts) et les **graines géantes** (entières, plafond par âge) ; sauvegarde v40.
+3. Les puits : technologies **Verre** (lentilles +1 de portée, Bibliothèque +10 %) et **Taille
+   du cristal** (palier cristal des armes : dégâts de l'acier, armure percée à moitié ;
+   munitions de cristal des tourelles à graines, payées à chaque frappe) ; **arbre-loge**
+   (n-ième arbre pour n graines, pousse 2 jours puis une graine tous les 3 jours) et **œuf des
+   loges**.
+4. L'actinidine : l'effet du lac, la technologie **Enzymes**, l'ordre **contourner les lacs**
+   (×1,5 de trajet vers une loge, pas d'acide).
+5. Les remontées : chaque nid de loge non pris près de nos galeries ajoute 0,6 à leur force
+   (0,35 pour la chair) ; prendre la loge l'éteint.
+6. Le client : puce des loges (cristal et graines), coûts, bande des loges sous la coupe 2D,
+   lentilles, munitions, arbre-loge (modèle 3D), œuf des loges, textes FR + EN.
+7. Le bot (loges, lentilles, munitions, arbres, œufs) et la sonde.
+
+### Mesures
+
+MEASURES_PLACEHOLDER
+
+### Reste à faire
+
+- Les loges dans la **tranche 3D** du chantier 49 : la coupe 3D ne montre que la chair
+  (`fleshOf`) ; il faut placer l'anneau des loges et leurs salles (noté dans `DETTE.md`).
+- Le monument des étoiles (51) et le noyau des kiwaïs (53) paieront aussi des graines
+  géantes ; les niveaux 13–15 (51) du cristal.
+- L'occasionnel·le n'atteint pas les loges en 14 jours (Industrie aux jours 11–12).
+
+À tester avec le porteur : la difficulté des loges, le prix des lentilles et des munitions,
+le rythme des arbres-loges, l'intérêt de contourner les lacs, la lisibilité de la bande des
+loges sur téléphone.

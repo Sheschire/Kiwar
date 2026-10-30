@@ -39,6 +39,10 @@ export const TECH_ORDER: TechId[] = [
   'juiceInfusion',
   'industryAge',
   'machines',
+  // Chantier 50: what the locules give (the crystal-paid ones wait for their crystal).
+  'glass',
+  'crystalCut',
+  'enzymes',
   'greenBlood',
   'palisade',
   'slingshots',
@@ -49,10 +53,6 @@ export const TECH_ORDER: TechId[] = [
   'compass',
   'steamEngines',
   'titanWorks',
-  // Chantier 50: what the locules give (crystal-paid: they wait for it).
-  'enzymes',
-  'glass',
-  'crystalCut',
 ];
 
 /**
@@ -79,7 +79,13 @@ export function ageDecision(
   const ok = (cmd: Command) => applyCommand(state, cmd, { now: state.now, map }).ok;
   // The next wanted technology, in order; while it waits for a Library level, the points go to
   // the bank (chantier 18: starting a lesser technology meanwhile delayed the passages).
-  const wanted = TECH_ORDER.find((id) => !hasTech(state, id) && techStatus(state, id) !== 'age');
+  // Chantier 50: a technology waiting for its crystal does not hold the others back.
+  const wanted = TECH_ORDER.find(
+    (id) =>
+      !hasTech(state, id) &&
+      techStatus(state, id) !== 'age' &&
+      (TECHS[id].crystal ?? 0) <= crystalOf(state),
+  );
   // Chantier 19: a sister colony's research is chosen at home.
   if (!state.research.current && !isSister(state)) {
     const bankFull = state.research.points >= researchBank(state);

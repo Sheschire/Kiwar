@@ -10,6 +10,18 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 50** — **les Tréfonds, deuxième couche : les loges**. À l'âge de l'Industrie,
+> sous la chair verte, s'ouvre un anneau de **30 à 42 loges** : des forêts de **raphides**
+> (cristal, coupures) et des lacs d'**actinidine** (acide), souvent gardés par les nids les plus
+> forts, chacune avec ses **graines géantes**. Le **cristal** (un stock à part) paie le
+> **Verre** (lentilles pour les tourelles, Bibliothèque plus rapide), les **munitions de
+> cristal** qui percent l'armure et un palier d'**armes de cristal** à la Forge. Les **graines
+> géantes** se plantent en **arbres-loges** (beauté, une graine tous les trois jours) ou se
+> couvent en **œufs des loges** (un kiwi doué). Un lac exploité rend les infusions du
+> laboratoire deux fois moins risquées et, avec **Enzymes**, les blessé·es guérissent deux fois
+> plus vite ; un équipage peut **contourner les lacs** (plus long, pas d'acide). Une loge prise
+> éteint son nid : les remontées faiblissent.
+
 > **Chantier 49** — **la tranche**. En inclinant la caméra au-delà du bord (ou par « Voir en
 > coupe » sur l'écran Tréfonds), un **quartier de la planète s'ouvre comme une part de fruit** :
 > la chair verte et ses faisceaux, l'anneau des loges et ses graines, le cœur, les galeries

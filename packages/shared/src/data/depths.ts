@@ -45,14 +45,14 @@ export const DEPTHS = {
     { forest: 3, lake: 2 },
   ] as readonly Partial<Record<RoomKind, number>>[],
   /** Grouillants of a room: power by depth (threat points, `ENEMIES.power`), × spread. */
-  power: [9, 20, 36, 60] as readonly number[],
+  power: [9, 20, 36, 50] as readonly number[],
   spread: [0.75, 1.25] as const,
   /** A nest holds this many times more. */
   nestPower: 1.8,
   /** Share of each kind in a room's power. */
   mix: { larva: 0.55, fruitFly: 0.25, woodlouse: 0.2 },
   /** Level of the Grouillants by depth. */
-  level: [3, 7, 11, 15] as readonly number[],
+  level: [3, 7, 11, 13] as readonly number[],
   /**
    * Hazards: scree always falls, raphides always cut; any other room has this chance of one
    * (drawn between the two). Strength = share of a kiwi's hit points lost by one hit, × spread.

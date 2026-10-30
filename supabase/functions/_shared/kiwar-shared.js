@@ -3576,14 +3576,14 @@ var DEPTHS = {
     { forest: 3, lake: 2 }
   ],
   /** Grouillants of a room: power by depth (threat points, `ENEMIES.power`), × spread. */
-  power: [9, 20, 36, 60],
+  power: [9, 20, 36, 50],
   spread: [0.75, 1.25],
   /** A nest holds this many times more. */
   nestPower: 1.8,
   /** Share of each kind in a room's power. */
   mix: { larva: 0.55, fruitFly: 0.25, woodlouse: 0.2 },
   /** Level of the Grouillants by depth. */
-  level: [3, 7, 11, 15],
+  level: [3, 7, 11, 13],
   /**
    * Hazards: scree always falls, raphides always cut; any other room has this chance of one
    * (drawn between the two). Strength = share of a kiwi's hit points lost by one hit, × spread.
@@ -11636,7 +11636,14 @@ function fillMines(state) {
   releaseMines(state, cap);
   if (!state.automation.mine) return;
   let budget = Math.floor(state.villagers.length * DEPTHS.gallery.autoShare) - state.villagers.filter((v) => v.job.kind === "mine").length;
-  for (const roomId of Object.keys(state.depths.galleries).sort()) {
+  const locule = (id3) => {
+    const k = state.depths.galleries[id3].kind;
+    return k === "forest" || k === "lake" ? 0 : 1;
+  };
+  const rooms = Object.keys(state.depths.galleries).sort(
+    (a, b) => locule(a) - locule(b) || a.localeCompare(b)
+  );
+  for (const roomId of rooms) {
     if (!galleryWorth(state, roomId, cap)) continue;
     const resource = galleryWorkAs(state, roomId);
     let free = gallerySlots(state, roomId) - minersIn(state, roomId).length;
