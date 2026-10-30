@@ -1,3 +1,5 @@
+import { doorPass } from './upwell';
+import { DEPTHS } from '../data/depths';
 import { gearEffect } from './forge';
 import { canAnnounceWave, civWave } from './civ';
 import { KIKIWIWI } from '../data/kikiwiwi';
@@ -35,6 +37,7 @@ import { waveGates, waveSetup, waveSquads } from '../battle/wave';
 import { ageOf, techEffects } from './research';
 import {
   withThreatRng,
+  withDepthRng,
   type GameState,
   type PlannedWave,
   type Villager,
@@ -308,10 +311,21 @@ export interface Defense extends Sides {
  * Defense of the colony right now, per side. With a threat, only the turrets facing it fire
  * (and need seeds); without, every turret counts (incidents).
  */
+/**
+ * The announced wave that strikes first: a surface wave or (chantier 48) an upwelling (they
+ * never come within hours of each other).
+ */
+export function comingWave(state: GameState): PlannedWave | null {
+  const a = state.threats.next?.announced ? state.threats.next : null;
+  const b = state.depths.next?.announced ? state.depths.next : null;
+  if (a && b) return b.at < a.at ? b : a;
+  return a ?? b;
+}
+
 export function defenseOf(state: GameState, threat?: Sides): Defense {
   const map = faceMapOf(state);
   // Chantier 36: against an announced wave, a turret defends the sectors whose gate it reaches.
-  const next = state.threats.next;
+  const next = comingWave(state);
   const gates = threat && next?.announced && next.gates ? next.gates : null;
   const turrets = { ground: 0, air: 0 };
   const sectors = perSector(() => ({ ground: 0, air: 0 }));
@@ -549,7 +563,7 @@ export interface WaveForecast extends WaveAhead {
 
 /** The announced wave without its practice battles (the shelter, the ammo, the threat). */
 export function waveAhead(state: GameState): WaveAhead | null {
-  const wave = state.threats.next;
+  const wave = comingWave(state);
   if (!wave || !wave.announced) return null;
   const threat = { ground: wave.ground, air: wave.air };
   const sheltered = state.threats.shelterUntil >= wave.at;
@@ -561,6 +575,21 @@ export function waveAhead(state: GameState): WaveAhead | null {
     sheltered,
     canShelter: !sheltered && state.now >= shelterFrom && state.now < wave.at,
     shelterFrom,
+  };
+}
+
+/** Chantier 48: an upwelling held back by the closed door (nothing came out). */
+function heldOutcome(defense: Defense): WaveOutcome {
+  return {
+    victory: true,
+    sectors: sectorClash({ ground: 0, air: 0 }, defense.sectors).sectors,
+    severity: 0,
+    damaged: 0,
+    loot: emptyResources(),
+    lootReserve: emptyResources(),
+    injured: 0,
+    deaths: 0,
+    pathsLost: 0,
   };
 }
 
@@ -578,21 +607,28 @@ export function forecastWave(state: GameState): WaveForecast | null {
   const { wave, threat, defense, sheltered } = ahead;
   const L = THREATS.luck;
   const lucks = [1 + L, 1, 1 - L];
+  // Chantier 48: a closed door holds an upwelling back up to its strength.
   const setupAt = (luck: number) =>
-    waveSetup(state, wave, threat, { luck, sheltered, roughLoot: true });
+    waveSetup(state, wave, threat, {
+      luck: luck * doorPass(state, wave, luck),
+      sheltered,
+      roughLoot: true,
+    });
   const average = setupAt(1);
   const { tiles: _tiles, ...rest } = average;
   const key = `${wave.id}|${state.seed}|${state.face}|${terraformKey(state)}|${pathsKey(state.paths)}|${seasonOf(state)}|${JSON.stringify(rest)}`;
   let trials = forecastCache.get(key);
   if (!trials) {
     trials = lucks.map((luck, i) =>
-      battleOutcome(
-        state,
-        threat,
-        defense,
-        sheltered,
-        simulateBattle(luck === 1 ? average : setupAt(luck), `${wave.id}/trial/${i}`),
-      ),
+      doorPass(state, wave, luck) <= 0
+        ? heldOutcome(defense)
+        : battleOutcome(
+            state,
+            threat,
+            defense,
+            sheltered,
+            simulateBattle(luck === 1 ? average : setupAt(luck), `${wave.id}/trial/${i}`),
+          ),
     );
     forecastCache.set(key, trials);
     if (forecastCache.size > 16) forecastCache.delete(forecastCache.keys().next().value!);
@@ -640,7 +676,10 @@ export function planWave(s: GameState): void {
       t.lastWaveAt > 0 ? t.lastWaveAt + gap : 0,
       t.shieldUntil,
     );
-    const at = Math.max(earliest, s.now + notice);
+    let at = Math.max(earliest, s.now + notice);
+    // Chantier 48: never within hours of an upwelling.
+    const up = s.depths.next;
+    if (up && Math.abs(at - up.at) < DEPTHS.upwell.gapMs) at = up.at + DEPTHS.upwell.gapMs;
     t.next = {
       id: `w${t.waves + 1}`,
       announceAt: at - notice,
@@ -685,11 +724,25 @@ function announce(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
   });
 }
 
-function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
+/**
+ * A wave strikes. Chantier 48: an upwelling too (`wave.tunnel`), with the draws of the depths'
+ * own stream; a closed door holds it back up to its strength, or breaks and lets the rest out.
+ */
+export function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
   const t = s.threats;
   const at = wave.at;
-  const luck = withThreatRng(s, (rng) => 1 + rng.range(-THREATS.luck, THREATS.luck));
-  const seed = withThreatRng(s, (rng) => `${wave.id}/${Math.floor(rng.next() * 2 ** 32)}`);
+  const tunnel = !!wave.tunnel;
+  const draw = tunnel ? withDepthRng : withThreatRng;
+  const rolled = draw(s, (rng) => 1 + rng.range(-THREATS.luck, THREATS.luck));
+  const seed = draw(s, (rng) => `${wave.id}/${Math.floor(rng.next() * 2 ** 32)}`);
+  const pass = doorPass(s, wave, rolled);
+  const luck = rolled * pass;
+  const door = tunnel && s.depths.door.closed ? (pass > 0 ? 'broken' : 'held') : undefined;
+  if (door === 'held') return upwellHeld(s, wave, rolled, events);
+  if (door === 'broken') {
+    const entrance = s.buildings.find((b) => b.type === 'tunnel');
+    if (entrance) entrance.damaged = true;
+  }
   const threat = { ground: wave.ground * luck, air: wave.air * luck };
   const announced = { ground: wave.ground, air: wave.air };
   const defense = defenseOf(s, announced);
@@ -716,6 +769,8 @@ function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
     dead: [],
     pathsLost: 0,
     log,
+    ...(tunnel ? { from: 'tunnel' as const } : {}),
+    ...(door ? { door } : {}),
   };
   // Loot where the predators took it: a warehouse's reserve first, then the stock.
   const buildings = [...s.buildings];
@@ -766,7 +821,7 @@ function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
     .filter((v): v is Villager => !!v);
   const dead = fallen.slice(0, out.deaths);
   for (const v of fallen.slice(out.deaths)) {
-    const until = withThreatRng(s, (rng) =>
+    const until = draw(s, (rng) =>
       Math.round(at + rng.range(THREATS.injuryMs[0], THREATS.injuryMs[1])),
     );
     v.job = { kind: 'injured', until };
@@ -783,14 +838,59 @@ function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): void {
   // Pins stay with the kiwis still on guard.
   const guards = new Set(garrisonOf(s).map((v) => v.id as string));
   t.pins = Object.fromEntries(Object.entries(t.pins).filter(([id]) => guards.has(id)));
-  if (!out.victory) t.shieldUntil = at + THREATS.shieldMs;
-  else s.stats.wavesHeld++;
-  t.lastWaveAt = at;
-  t.waves++;
-  t.next = null;
+  if (out.victory) s.stats.wavesHeld++;
+  if (tunnel) {
+    // An upwelling never shields the surface; it has its own calendar.
+    s.depths.lastUpwellAt = at;
+    s.depths.upwells++;
+    s.depths.next = null;
+  } else {
+    if (!out.victory) t.shieldUntil = at + THREATS.shieldMs;
+    t.lastWaveAt = at;
+    t.waves++;
+    t.next = null;
+  }
+  pushReport(s, report);
+  events.push({
+    type: 'waveStruck',
+    at,
+    waveId: wave.id,
+    victory: out.victory,
+    ...(tunnel ? { tunnel: true } : {}),
+  });
+}
+
+function pushReport(s: GameState, report: WaveReport): void {
+  const t = s.threats;
   t.reports.push(report);
   if (t.reports.length > THREATS.history) t.reports.splice(0, t.reports.length - THREATS.history);
-  events.push({ type: 'waveStruck', at, waveId: wave.id, victory: out.victory });
+}
+
+/** Chantier 48: the closed door held the upwelling back (no battle). */
+function upwellHeld(s: GameState, wave: PlannedWave, luck: number, events: GameEvent[]): void {
+  const at = wave.at;
+  pushReport(s, {
+    id: wave.id,
+    at,
+    victory: true,
+    sheltered: false,
+    threat: { ground: wave.ground * luck, air: wave.air * luck },
+    defense: { ground: 0, air: 0 },
+    severity: 0,
+    ammoUsed: 0,
+    damaged: [],
+    loot: emptyResources(),
+    injured: [],
+    dead: [],
+    pathsLost: 0,
+    from: 'tunnel',
+    door: 'held',
+  });
+  s.stats.wavesHeld++;
+  s.depths.lastUpwellAt = at;
+  s.depths.upwells++;
+  s.depths.next = null;
+  events.push({ type: 'waveStruck', at, waveId: wave.id, victory: true, tunnel: true, held: true });
 }
 
 function incident(s: GameState, at: TimeMs, events: GameEvent[]): void {

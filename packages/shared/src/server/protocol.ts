@@ -88,6 +88,8 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
       .optional(),
   }),
   z.object({ type: z.literal('raidDen'), q: z.number().int(), r: z.number().int() }),
+  z.object({ type: z.literal('setTunnelDoor'), closed: z.boolean() }),
+  z.object({ type: z.literal('fortifyTunnel') }),
   z.object({
     type: z.literal('delve'),
     roomId: z.string().min(1).max(8),

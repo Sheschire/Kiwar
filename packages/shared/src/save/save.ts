@@ -177,6 +177,8 @@ const threats = z.object({
         dead: named,
         pathsLost: z.number().int().min(0),
         log: battleLog.optional(),
+        from: z.literal('tunnel').optional(),
+        door: z.enum(['held', 'broken']).optional(),
       }),
     )
     .max(THREATS.history),

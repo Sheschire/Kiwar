@@ -1,3 +1,5 @@
+import { doorFortLevel, fortifyDoorLock } from './upwell';
+import { DEPTHS } from '../data/depths';
 import { canDig, gallerySlots, minersIn, minesOpen } from './mines';
 import { giveSpeech, speechLock } from './speech';
 import { cabaretOf, fireFireworks, fireworksLock } from './village';
@@ -227,6 +229,10 @@ export type Command =
   | { type: 'titanWork'; villagerId: VillagerId; q: number; r: number; work: TitanWork }
   /** Chantier 42: fortify our beacon on this parcel of a face (two turrets and a stout tower). */
   | { type: 'fortifyBeacon'; targetId: string; sector: number }
+  /** Chantier 48: close (or open) the tunnel door: no delve nor mine while it is closed. */
+  | { type: 'setTunnelDoor'; closed: boolean }
+  /** Chantier 48: fortify the tunnel door (stronger, two turrets at the door). */
+  | { type: 'fortifyTunnel' }
   /** Chantier 48: a crew goes down from the tunnel entrance to a room of the depths. */
   | {
       type: 'delve';
@@ -927,6 +933,24 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) fail('invalidCount');
       if (!canAfford(s.resources, { pulp, juice })) fail('notEnoughResources');
       launchDelve(s, cmd.roomId, cmd.crew, { pulp, juice }, cmd.orders, now, nextId(s, 'x'));
+      return;
+    }
+    case 'setTunnelDoor': {
+      if (!s.buildings.some((b) => b.type === 'tunnel')) fail('noTunnel');
+      s.depths.door.closed = cmd.closed;
+      return;
+    }
+    case 'fortifyTunnel': {
+      const lock = fortifyDoorLock(s);
+      if (lock) fail(lock);
+      const cost = fortifyCost(s);
+      if (!canAfford(s.resources, cost.resources)) fail('notEnoughResources');
+      payIron(s, cost.iron);
+      pay(s, cost.resources);
+      s.depths.door.fortifying = {
+        until: now + DEPTHS.fortify.durationMs,
+        level: doorFortLevel(s),
+      };
       return;
     }
     case 'fortifyBeacon': {

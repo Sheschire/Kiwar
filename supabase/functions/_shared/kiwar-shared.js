@@ -3567,8 +3567,11 @@ var DEPTHS = {
   /** The tunnel entrance's levels (index = level): most kiwis on a delve, door strength. */
   crew: [0, 4, 6, 8],
   door: [0, 8, 14, 20],
-  /** Fortifying the door: added strength per level, time, and cost (× a turret level's). */
-  fortify: { strength: 10, durationMs: ms.h(4), costFactor: 0.5 },
+  /**
+   * Fortifying the door: strength added, and time (the cost is a beacon's: half of a seed and a
+   * sky turret of the first level of our age, which stand at the door in an upwelling's battle).
+   */
+  fortify: { strength: 10, durationMs: ms.h(4) },
   /** Upwellings: own calendar once the entrance stands. */
   upwell: {
     /** First one at least this long after the entrance is finished. */
@@ -3887,111 +3890,6 @@ function countTiles(map) {
 }
 function tileAt(map, q, r) {
   return getTile(map, hex(q, r));
-}
-
-// packages/shared/src/server/universes.ts
-var MAX_PLAYERS = 8;
-function allyTwinOf(s) {
-  const face = otherFace(s.face);
-  const target = s.targets.find((t) => t.distance === 0 && t.face === face);
-  const view = target ? s.faceViews[target.id] : void 0;
-  const conquered = s.siege.conqueredAt > 0;
-  return {
-    face,
-    params: twinParams(s.seed, s.face, s.params),
-    sectors: view ? [
-      .../* @__PURE__ */ new Set([
-        ...Object.keys(view.parcels).map(Number),
-        ...view.beacons.map((b) => b.sector)
-      ])
-    ] : [],
-    village: view ? Object.values(view.parcels).flatMap(
-      (p) => p.buildings.map((b) => ({ kind: b.kind, q: b.q, r: b.r, age: p.age }))
-    ) : [],
-    beacons: (view?.beacons ?? []).map((b) => ({ sector: b.sector, fortified: (b.fort ?? 0) > 0 })),
-    queen: !!view?.queen && !conquered,
-    conquered
-  };
-}
-function layoutBuilding(b) {
-  return {
-    type: b.type,
-    level: b.level,
-    q: b.q,
-    r: b.r,
-    ...b.rot !== void 0 ? { rot: b.rot } : {},
-    ...b.cramped ? { cramped: true } : {}
-  };
-}
-function layoutSnapshot(s, owner, at) {
-  return {
-    owner,
-    face: s.face,
-    params: s.params,
-    buildings: s.buildings.map(layoutBuilding),
-    paths: s.paths,
-    obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
-    terraform: s.terraform,
-    at
-  };
-}
-function kiwiCount(members) {
-  const used = members.reduce((n, m) => Math.max(n, m.kiwiIndex + 1), 0);
-  return members.length >= used * FACES.length ? used + 1 : used;
-}
-function assignFace(members) {
-  const used = new Set(members.map((m) => m.kiwiIndex));
-  let k = 0;
-  while (used.has(k)) k++;
-  return { kiwiIndex: k, face: FACES[0] };
-}
-function kiwiSeed(universeSeed, kiwiIndex) {
-  return `${universeSeed}-k${kiwiIndex}`;
-}
-function planetSeedOf(universe2, kiwiIndex) {
-  const brought = universe2.members.find((m) => m.kiwiIndex === kiwiIndex && m.planetSeed);
-  return brought?.planetSeed ?? kiwiSeed(universe2.seed, kiwiIndex);
-}
-function universeTargets(members, me) {
-  const taken = new Set(members.map((m) => `${m.kiwiIndex}:${m.face}`));
-  const targets = [];
-  for (let k = 0; k < kiwiCount(members); k++) {
-    for (const face of FACES) {
-      if (taken.has(`${k}:${face}`)) continue;
-      const distance = Math.abs(k - me.kiwiIndex);
-      targets.push({
-        id: `aliens:${k}:${face}`,
-        owner: "aliens",
-        kiwiIndex: k,
-        face,
-        distance,
-        travelMs: alienDefOf(distance).travelMs
-      });
-    }
-  }
-  return targets.sort((a, b) => a.distance - b.distance);
-}
-function universeFriends(members, me) {
-  return members.filter((m) => m.userId !== me.userId).map((m) => {
-    const distance = Math.abs(m.kiwiIndex - me.kiwiIndex);
-    return {
-      id: friendId(m.userId),
-      owner: m.displayName,
-      kiwiIndex: m.kiwiIndex,
-      distance,
-      travelMs: alienDefOf(distance).travelMs
-    };
-  }).sort((a, b) => a.distance - b.distance || a.kiwiIndex - b.kiwiIndex);
-}
-var friendId = (userId, colony2 = 0) => colony2 === 1 ? `ally:${userId}:1` : `ally:${userId}`;
-var userOfFriend = (id3) => id3.replace(/^ally:/, "").replace(/:1$/, "");
-var colonyOfFriend = (id3) => /^ally:.+:1$/.test(id3) ? 1 : 0;
-var CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-function inviteCode(bytes) {
-  return Array.from(bytes.slice(0, 8), (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
-}
-function isInviteCode(code) {
-  return /^[A-HJ-NP-Z2-9]{8}$/.test(code);
 }
 
 // packages/shared/src/data/units.ts
@@ -4429,6 +4327,141 @@ var WAVE_UNITS = {
 };
 var TURRET_SHOT = 0.8;
 
+// packages/shared/src/sim/depths.ts
+var mapCache = /* @__PURE__ */ new Map();
+function depthsMapOf(state) {
+  const key = `${state.seed}/${state.face}`;
+  let map = mapCache.get(key);
+  if (!map) {
+    map = generateDepths(key);
+    if (mapCache.size > 16) mapCache.clear();
+    mapCache.set(key, map);
+  }
+  return map;
+}
+function generateDepths(key) {
+  const rng = createRng(`${key}/depths/map`);
+  const rooms = [];
+  const byDepth = [];
+  for (let d = 1; d <= DEPTHS.rooms.length; d++) {
+    const [lo, hi] = DEPTHS.rooms[d - 1];
+    const n = rng.int(lo, hi);
+    const row = [];
+    for (let i = 0; i < n; i++) {
+      const slot = 2 / n;
+      const x = round22(-1 + slot * (i + 0.5) + rng.range(-0.3, 0.3) * slot);
+      row.push({
+        id: `r${rooms.length + row.length}`,
+        depth: d,
+        x,
+        links: [],
+        entrance: d === 1
+      });
+    }
+    rooms.push(...row);
+    byDepth.push(row);
+  }
+  const link = (a, b) => {
+    if (a === b || a.links.includes(b.id)) return;
+    a.links.push(b.id);
+    b.links.push(a.id);
+  };
+  for (let d = 0; d < byDepth.length; d++) {
+    const row = byDepth[d];
+    for (let i = 0; i + 1 < row.length; i++)
+      if (rng.chance(DEPTHS.sideLink)) link(row[i], row[i + 1]);
+    if (d === 0) continue;
+    const above = byDepth[d - 1];
+    for (const r of row) {
+      const near = [...above].sort((a, b) => Math.abs(a.x - r.x) - Math.abs(b.x - r.x));
+      link(r, near[0]);
+      if (near[1] && rng.chance(DEPTHS.secondLink)) link(r, near[1]);
+    }
+  }
+  return { rooms, byId: new Map(rooms.map((r) => [r.id, r])) };
+}
+var truthCache = /* @__PURE__ */ new Map();
+function roomTruth(seed, room) {
+  const key = `${seed}/room/${room.id}`;
+  let t = truthCache.get(key);
+  if (!t) {
+    t = drawRoom(createRng(key), room.depth);
+    if (truthCache.size > 256) truthCache.clear();
+    truthCache.set(key, t);
+  }
+  return t;
+}
+function drawRoom(rng, depth) {
+  const kind = weighted(rng, DEPTHS.kindWeights[depth - 1]);
+  const power = DEPTHS.power[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1]) * (kind === "nest" ? DEPTHS.nestPower : 1);
+  const units = grouillants(power, DEPTHS.level[depth - 1]);
+  let hazard = null;
+  const forced = kind === "scree" ? "fall" : kind === "raphides" ? "cuts" : null;
+  const other = rng.chance(DEPTHS.hazard.otherChance) ? rng.pick(HAZARD_KINDS) : null;
+  const hk = forced ?? (kind === "nest" ? null : other);
+  if (hk)
+    hazard = {
+      kind: hk,
+      strength: round22(
+        DEPTHS.hazard.strength[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1])
+      )
+    };
+  const amount = DEPTHS.loot[depth - 1] * rng.range(0.8, 1.2);
+  const loot = {};
+  for (const [r, share2] of Object.entries(DEPTHS.lootKind[kind]))
+    loot[r] = Math.round(amount * share2);
+  return { kind, units, hazard, loot, iron: DEPTHS.iron[depth - 1] };
+}
+function grouillants(power, level) {
+  return DEPTH_KINDS.map((kind) => ({
+    kind,
+    count: Math.max(
+      kind === "larva" ? 1 : 0,
+      Math.round(power * DEPTHS.mix[kind] / ENEMIES[kind].power)
+    ),
+    level
+  })).filter((u) => u.count > 0);
+}
+function weighted(rng, weights) {
+  const keys = ROOM_KINDS.filter((k) => k in weights);
+  const total = keys.reduce((a, k) => a + weights[k], 0);
+  let x = rng.range(0, total);
+  for (const k of keys) {
+    x -= weights[k];
+    if (x < 0) return k;
+  }
+  return keys[keys.length - 1];
+}
+function round22(x) {
+  return Math.round(x * 100) / 100;
+}
+function localDepthsSeed(state) {
+  return `${localAlienSeed(state)}/depths`;
+}
+function ensureDepths(state, seed) {
+  if (state.colony.index !== 0 || state.depthSeed !== void 0) return false;
+  state.depthSeed = `${seed}/depths`;
+  return true;
+}
+function depthsKnown(state) {
+  return state.depthSeed !== void 0;
+}
+function resetDepths(s) {
+  s.depths = { ...s.depths, views: {}, galleries: {}, next: null };
+  const delving = new Set(
+    s.expeditions.filter((e) => e.mission === "delve" && e.status !== "done").map((e) => e.id)
+  );
+  s.expeditions = s.expeditions.filter((e) => !delving.has(e.id));
+  for (const v of s.villagers)
+    if (v.job.kind === "mine" || v.job.kind === "expedition" && delving.has(v.job.expeditionId))
+      v.job = { kind: "idle" };
+}
+function reachableRooms(state) {
+  const map = depthsMapOf(state);
+  const taken = state.depths.galleries;
+  return map.rooms.filter((r) => !taken[r.id] && (r.entrance || r.links.some((id3) => taken[id3])));
+}
+
 // packages/shared/src/sim/calendar.ts
 var mod = (a, n) => (a % n + n) % n;
 function calendarAt(start, t) {
@@ -4772,141 +4805,6 @@ function researchTick(state, at, events) {
   r.done.push(current);
   r.current = null;
   events.push({ type: "researchDone", at, tech: current });
-}
-
-// packages/shared/src/sim/depths.ts
-var mapCache = /* @__PURE__ */ new Map();
-function depthsMapOf(state) {
-  const key = `${state.seed}/${state.face}`;
-  let map = mapCache.get(key);
-  if (!map) {
-    map = generateDepths(key);
-    if (mapCache.size > 16) mapCache.clear();
-    mapCache.set(key, map);
-  }
-  return map;
-}
-function generateDepths(key) {
-  const rng = createRng(`${key}/depths/map`);
-  const rooms = [];
-  const byDepth = [];
-  for (let d = 1; d <= DEPTHS.rooms.length; d++) {
-    const [lo, hi] = DEPTHS.rooms[d - 1];
-    const n = rng.int(lo, hi);
-    const row = [];
-    for (let i = 0; i < n; i++) {
-      const slot = 2 / n;
-      const x = round22(-1 + slot * (i + 0.5) + rng.range(-0.3, 0.3) * slot);
-      row.push({
-        id: `r${rooms.length + row.length}`,
-        depth: d,
-        x,
-        links: [],
-        entrance: d === 1
-      });
-    }
-    rooms.push(...row);
-    byDepth.push(row);
-  }
-  const link = (a, b) => {
-    if (a === b || a.links.includes(b.id)) return;
-    a.links.push(b.id);
-    b.links.push(a.id);
-  };
-  for (let d = 0; d < byDepth.length; d++) {
-    const row = byDepth[d];
-    for (let i = 0; i + 1 < row.length; i++)
-      if (rng.chance(DEPTHS.sideLink)) link(row[i], row[i + 1]);
-    if (d === 0) continue;
-    const above = byDepth[d - 1];
-    for (const r of row) {
-      const near = [...above].sort((a, b) => Math.abs(a.x - r.x) - Math.abs(b.x - r.x));
-      link(r, near[0]);
-      if (near[1] && rng.chance(DEPTHS.secondLink)) link(r, near[1]);
-    }
-  }
-  return { rooms, byId: new Map(rooms.map((r) => [r.id, r])) };
-}
-var truthCache = /* @__PURE__ */ new Map();
-function roomTruth(seed, room) {
-  const key = `${seed}/room/${room.id}`;
-  let t = truthCache.get(key);
-  if (!t) {
-    t = drawRoom(createRng(key), room.depth);
-    if (truthCache.size > 256) truthCache.clear();
-    truthCache.set(key, t);
-  }
-  return t;
-}
-function drawRoom(rng, depth) {
-  const kind = weighted(rng, DEPTHS.kindWeights[depth - 1]);
-  const power = DEPTHS.power[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1]) * (kind === "nest" ? DEPTHS.nestPower : 1);
-  const units = grouillants(power, DEPTHS.level[depth - 1]);
-  let hazard = null;
-  const forced = kind === "scree" ? "fall" : kind === "raphides" ? "cuts" : null;
-  const other = rng.chance(DEPTHS.hazard.otherChance) ? rng.pick(HAZARD_KINDS) : null;
-  const hk = forced ?? (kind === "nest" ? null : other);
-  if (hk)
-    hazard = {
-      kind: hk,
-      strength: round22(
-        DEPTHS.hazard.strength[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1])
-      )
-    };
-  const amount = DEPTHS.loot[depth - 1] * rng.range(0.8, 1.2);
-  const loot = {};
-  for (const [r, share2] of Object.entries(DEPTHS.lootKind[kind]))
-    loot[r] = Math.round(amount * share2);
-  return { kind, units, hazard, loot, iron: DEPTHS.iron[depth - 1] };
-}
-function grouillants(power, level) {
-  return DEPTH_KINDS.map((kind) => ({
-    kind,
-    count: Math.max(
-      kind === "larva" ? 1 : 0,
-      Math.round(power * DEPTHS.mix[kind] / ENEMIES[kind].power)
-    ),
-    level
-  })).filter((u) => u.count > 0);
-}
-function weighted(rng, weights) {
-  const keys = ROOM_KINDS.filter((k) => k in weights);
-  const total = keys.reduce((a, k) => a + weights[k], 0);
-  let x = rng.range(0, total);
-  for (const k of keys) {
-    x -= weights[k];
-    if (x < 0) return k;
-  }
-  return keys[keys.length - 1];
-}
-function round22(x) {
-  return Math.round(x * 100) / 100;
-}
-function localDepthsSeed(state) {
-  return `${localAlienSeed(state)}/depths`;
-}
-function ensureDepths(state, seed) {
-  if (state.colony.index !== 0 || state.depthSeed !== void 0) return false;
-  state.depthSeed = `${seed}/depths`;
-  return true;
-}
-function depthsKnown(state) {
-  return state.depthSeed !== void 0;
-}
-function resetDepths(s) {
-  s.depths = { ...s.depths, views: {}, galleries: {}, next: null };
-  const delving = new Set(
-    s.expeditions.filter((e) => e.mission === "delve" && e.status !== "done").map((e) => e.id)
-  );
-  s.expeditions = s.expeditions.filter((e) => !delving.has(e.id));
-  for (const v of s.villagers)
-    if (v.job.kind === "mine" || v.job.kind === "expedition" && delving.has(v.job.expeditionId))
-      v.job = { kind: "idle" };
-}
-function reachableRooms(state) {
-  const map = depthsMapOf(state);
-  const taken = state.depths.galleries;
-  return map.rooms.filter((r) => !taken[r.id] && (r.entrance || r.links.some((id3) => taken[id3])));
 }
 
 // packages/shared/src/sim/territory.ts
@@ -9346,6 +9244,19 @@ var angleOf = (h) => {
 };
 var angleGap = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 var RAMPART_COST = 3;
+function tunnelMouth(entrance, tiles, tileIndex, walkable) {
+  for (let r = 1; r <= 3; r++) {
+    const out = [];
+    for (const h of hexDisk(entrance, r)) {
+      if (hexDistance(h, entrance) !== r) continue;
+      const k = hexKey(h);
+      const i = tileIndex.get(k);
+      if (i !== void 0 && walkable(k, i)) out.push(i);
+    }
+    if (out.length > 0) return out.sort((a, b) => a - b);
+  }
+  return [tiles.findIndex((t) => t.q === entrance.q && t.r === entrance.r)].filter((i) => i >= 0);
+}
 function waveSetup(state, wave, threat, opts) {
   const map = faceMapOf(state);
   const season = seasonOf(state);
@@ -9407,11 +9318,12 @@ function waveSetup(state, wave, threat, opts) {
   let carrySum = 0;
   for (const q of squads) carrySum += q.count * ENEMIES[q.kind].carry;
   const carryUnit = carrySum > 0 ? BATTLE.carry * lootTotal / carrySum : 0;
+  const mouth = wave.tunnel ? tunnelMouth(wave.tunnel, tiles, tileIndex, walkable) : null;
   for (const sector of SECTOR_IDS) {
     const all = SECTOR_IDS.flatMap((s) => exits[s]);
     const gate = gates[sector];
     const byGate = (exits[sector].length > 0 ? exits[sector] : all).map((e) => ({ e, d: hexDistance(tiles[e.i], gate) })).sort((x, y) => x.d - y.d || x.e.i - y.e.i);
-    const pack = byGate.filter((x) => x.d <= byGate[0].d + BATTLE.packWidth).map((x) => x.e);
+    const pack = mouth ? mouth.map((i) => ({ i, a: 0 })) : byGate.filter((x) => x.d <= byGate[0].d + BATTLE.packWidth).map((x) => x.e);
     const inSector = squads.filter((q) => q.sector === sector);
     let j = 0;
     for (const q of inSector) {
@@ -9435,7 +9347,7 @@ function waveSetup(state, wave, threat, opts) {
     const hold = Math.max(0, j - 1) * BATTLE.enterGap + BATTLE.gather;
     for (const u of units) if (u.side === 1 && u.sector === sector) u.hold = hold;
   }
-  const exitList = SECTOR_IDS.flatMap((s) => exits[s].map((e) => e.i));
+  const exitList = mouth ?? SECTOR_IDS.flatMap((s) => exits[s].map((e) => e.i));
   const defense = defenseOf(state, threat);
   state.buildings.forEach((b, i) => {
     const t = turretUnit(b, state, defense.ammo.share, i);
@@ -9445,6 +9357,29 @@ function waveSetup(state, wave, threat, opts) {
       return;
     units.push(t);
   });
+  const door = state.depths.door.fort;
+  const tunnelIndex = state.buildings.findIndex((b) => b.type === "tunnel");
+  if (wave.tunnel && door > 0 && tunnelIndex >= 0) {
+    const spots = hexNeighbors(wave.tunnel).filter((h) => {
+      const i = tileIndex.get(hexKey(h));
+      return i !== void 0 && walkable(hexKey(h), i);
+    });
+    ["seedTurret", "skyTurret"].forEach((type, i) => {
+      const at = spots[i * 2] ?? spots[i];
+      if (!at) return;
+      const b = {
+        id: `door:${i}`,
+        type,
+        q: at.q,
+        r: at.r,
+        level: door,
+        richness: 1,
+        builtAt: 0
+      };
+      const u = turretUnit(b, state, 1, tunnelIndex);
+      if (u) units.push(u);
+    });
+  }
   const taken = /* @__PURE__ */ new Map();
   const room = (i, size) => (taken.get(i) ?? 0) + size <= BATTLE.tileCap;
   const take = (i, size) => taken.set(i, (taken.get(i) ?? 0) + size);
@@ -9466,10 +9401,15 @@ function waveSetup(state, wave, threat, opts) {
     if (t.rho < 0.6 || t.rho > 0.85 || !walkable(k, i)) return;
     posts[rampartSectorOf(t)].push(i);
   });
-  for (const s of SECTOR_IDS)
-    posts[s].sort(
-      (a, b) => hexDistance(tiles[a], gates[s]) - hexDistance(tiles[b], gates[s]) || angleGap(angleOf(tiles[a]), SECTOR_MIDDLE[s]) - angleGap(angleOf(tiles[b]), SECTOR_MIDDLE[s]) || a - b
-    );
+  if (wave.tunnel) {
+    const entrance = wave.tunnel;
+    const around = map.tiles.map((t, i) => ({ t, i })).filter(({ t, i }) => hexDistance(t, entrance) <= 4 && walkable(hexKey(t), i)).sort((a, b) => hexDistance(a.t, entrance) - hexDistance(b.t, entrance) || a.i - b.i).map(({ i }) => i);
+    for (const s of SECTOR_IDS) posts[s] = around;
+  } else
+    for (const s of SECTOR_IDS)
+      posts[s].sort(
+        (a, b) => hexDistance(tiles[a], gates[s]) - hexDistance(tiles[b], gates[s]) || angleGap(angleOf(tiles[a]), SECTOR_MIDDLE[s]) - angleGap(angleOf(tiles[b]), SECTOR_MIDDLE[s]) || a - b
+      );
   for (const v of garrisonOf(state)) {
     const sector = state.threats.pins[v.id] ?? sectorOf2.get(v.id) ?? "front";
     const size = v.kikiwiwi ? 2 : 1;
@@ -9666,9 +9606,15 @@ function guardPower(v, state) {
   const air = v.classId === "warrior" && tech?.firearms ? Math.max(a.air, GARRISON.firearmsAir) : a.air;
   return { ground: p * a.ground, air: p * air };
 }
+function comingWave(state) {
+  const a = state.threats.next?.announced ? state.threats.next : null;
+  const b = state.depths.next?.announced ? state.depths.next : null;
+  if (a && b) return b.at < a.at ? b : a;
+  return a ?? b;
+}
 function defenseOf(state, threat) {
   const map = faceMapOf(state);
-  const next = state.threats.next;
+  const next = comingWave(state);
   const gates = threat && next?.announced && next.gates ? next.gates : null;
   const turrets = { ground: 0, air: 0 };
   const sectors = perSector(() => ({ ground: 0, air: 0 }));
@@ -9817,7 +9763,7 @@ function waveBattle(state, wave, luck, seed, rough = false) {
   );
 }
 function waveAhead(state) {
-  const wave = state.threats.next;
+  const wave = comingWave(state);
   if (!wave || !wave.announced) return null;
   const threat = { ground: wave.ground, air: wave.air };
   const sheltered = state.threats.shelterUntil >= wave.at;
@@ -9831,6 +9777,19 @@ function waveAhead(state) {
     shelterFrom
   };
 }
+function heldOutcome(defense) {
+  return {
+    victory: true,
+    sectors: sectorClash({ ground: 0, air: 0 }, defense.sectors).sectors,
+    severity: 0,
+    damaged: 0,
+    loot: emptyResources(),
+    lootReserve: emptyResources(),
+    injured: 0,
+    deaths: 0,
+    pathsLost: 0
+  };
+}
 var forecastCache = /* @__PURE__ */ new Map();
 function forecastWave(state) {
   const ahead = waveAhead(state);
@@ -9838,14 +9797,18 @@ function forecastWave(state) {
   const { wave, threat, defense, sheltered } = ahead;
   const L = THREATS.luck;
   const lucks = [1 + L, 1, 1 - L];
-  const setupAt = (luck) => waveSetup(state, wave, threat, { luck, sheltered, roughLoot: true });
+  const setupAt = (luck) => waveSetup(state, wave, threat, {
+    luck: luck * doorPass(state, wave, luck),
+    sheltered,
+    roughLoot: true
+  });
   const average = setupAt(1);
   const { tiles: _tiles, ...rest } = average;
   const key = `${wave.id}|${state.seed}|${state.face}|${terraformKey(state)}|${pathsKey(state.paths)}|${seasonOf(state)}|${JSON.stringify(rest)}`;
   let trials = forecastCache.get(key);
   if (!trials) {
     trials = lucks.map(
-      (luck, i) => battleOutcome(
+      (luck, i) => doorPass(state, wave, luck) <= 0 ? heldOutcome(defense) : battleOutcome(
         state,
         threat,
         defense,
@@ -9881,7 +9844,9 @@ function planWave(s) {
       t.lastWaveAt > 0 ? t.lastWaveAt + gap : 0,
       t.shieldUntil
     );
-    const at = Math.max(earliest, s.now + notice);
+    let at = Math.max(earliest, s.now + notice);
+    const up = s.depths.next;
+    if (up && Math.abs(at - up.at) < DEPTHS.upwell.gapMs) at = up.at + DEPTHS.upwell.gapMs;
     t.next = {
       id: `w${t.waves + 1}`,
       announceAt: at - notice,
@@ -9924,8 +9889,18 @@ function announce(s, wave, events) {
 function strike(s, wave, events) {
   const t = s.threats;
   const at = wave.at;
-  const luck = withThreatRng(s, (rng) => 1 + rng.range(-THREATS.luck, THREATS.luck));
-  const seed = withThreatRng(s, (rng) => `${wave.id}/${Math.floor(rng.next() * 2 ** 32)}`);
+  const tunnel = !!wave.tunnel;
+  const draw = tunnel ? withDepthRng : withThreatRng;
+  const rolled = draw(s, (rng) => 1 + rng.range(-THREATS.luck, THREATS.luck));
+  const seed = draw(s, (rng) => `${wave.id}/${Math.floor(rng.next() * 2 ** 32)}`);
+  const pass = doorPass(s, wave, rolled);
+  const luck = rolled * pass;
+  const door = tunnel && s.depths.door.closed ? pass > 0 ? "broken" : "held" : void 0;
+  if (door === "held") return upwellHeld(s, wave, rolled, events);
+  if (door === "broken") {
+    const entrance = s.buildings.find((b) => b.type === "tunnel");
+    if (entrance) entrance.damaged = true;
+  }
   const threat = { ground: wave.ground * luck, air: wave.air * luck };
   const announced = { ground: wave.ground, air: wave.air };
   const defense = defenseOf(s, announced);
@@ -9949,7 +9924,9 @@ function strike(s, wave, events) {
     injured: [],
     dead: [],
     pathsLost: 0,
-    log: log2
+    log: log2,
+    ...tunnel ? { from: "tunnel" } : {},
+    ...door ? { door } : {}
   };
   const buildings = [...s.buildings];
   for (const l of log2.result.loot) {
@@ -9992,7 +9969,7 @@ function strike(s, wave, events) {
   const fallen = log2.result.fallen.map((id3) => s.villagers.find((v) => v.id === id3)).filter((v) => !!v);
   const dead = fallen.slice(0, out.deaths);
   for (const v of fallen.slice(out.deaths)) {
-    const until = withThreatRng(
+    const until = draw(
       s,
       (rng) => Math.round(at + rng.range(THREATS.injuryMs[0], THREATS.injuryMs[1]))
     );
@@ -10009,14 +9986,55 @@ function strike(s, wave, events) {
     );
   const guards = new Set(garrisonOf(s).map((v) => v.id));
   t.pins = Object.fromEntries(Object.entries(t.pins).filter(([id3]) => guards.has(id3)));
-  if (!out.victory) t.shieldUntil = at + THREATS.shieldMs;
-  else s.stats.wavesHeld++;
-  t.lastWaveAt = at;
-  t.waves++;
-  t.next = null;
+  if (out.victory) s.stats.wavesHeld++;
+  if (tunnel) {
+    s.depths.lastUpwellAt = at;
+    s.depths.upwells++;
+    s.depths.next = null;
+  } else {
+    if (!out.victory) t.shieldUntil = at + THREATS.shieldMs;
+    t.lastWaveAt = at;
+    t.waves++;
+    t.next = null;
+  }
+  pushReport(s, report);
+  events.push({
+    type: "waveStruck",
+    at,
+    waveId: wave.id,
+    victory: out.victory,
+    ...tunnel ? { tunnel: true } : {}
+  });
+}
+function pushReport(s, report) {
+  const t = s.threats;
   t.reports.push(report);
   if (t.reports.length > THREATS.history) t.reports.splice(0, t.reports.length - THREATS.history);
-  events.push({ type: "waveStruck", at, waveId: wave.id, victory: out.victory });
+}
+function upwellHeld(s, wave, luck, events) {
+  const at = wave.at;
+  pushReport(s, {
+    id: wave.id,
+    at,
+    victory: true,
+    sheltered: false,
+    threat: { ground: wave.ground * luck, air: wave.air * luck },
+    defense: { ground: 0, air: 0 },
+    severity: 0,
+    ammoUsed: 0,
+    damaged: [],
+    loot: emptyResources(),
+    injured: [],
+    dead: [],
+    pathsLost: 0,
+    from: "tunnel",
+    door: "held"
+  });
+  s.stats.wavesHeld++;
+  s.depths.lastUpwellAt = at;
+  s.depths.upwells++;
+  s.depths.next = null;
+  events.push({ type: "waveStruck", at, waveId: wave.id, victory: true, tunnel: true, held: true });
 }
 function incident(s, at, events) {
   const t = s.threats;
@@ -10515,6 +10533,7 @@ function advanceInPlace(s, now, events) {
     planMeteor(s);
     planComet(s);
     planBeaconAttacks(s);
+    planUpwell(s);
     const constructionEnd = nextConstructionEnd(s);
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
@@ -10534,10 +10553,12 @@ function advanceInPlace(s, now, events) {
     const titanEnd = nextTitanEnd(s);
     const civAt2 = nextCivEvent(s);
     const beaconAt2 = nextBeaconEvent(s);
+    const upwellAt = Math.min(nextUpwellEvent(s), nextDoorEvent(s));
     const queenAt = nextQueenEvent(s);
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
       garrisonAt,
+      upwellAt,
       civAt2,
       beaconAt2,
       queenAt,
@@ -10598,6 +10619,11 @@ function advanceInPlace(s, now, events) {
     if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
     if (civAt2 === nextEvent) civTick(s, civAt2);
     if (beaconAt2 === nextEvent) beaconTick(s, beaconAt2, events);
+    if (upwellAt === nextEvent) {
+      upwellTick(s, upwellAt, events);
+      const w = s.depths.next;
+      if (w?.announced && w.at === upwellAt) strike(s, w, events);
+    }
     if (queenAt === nextEvent) queenTick(s, queenAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
@@ -11279,13 +11305,13 @@ function orderRepairs(state, at) {
   }
 }
 function autoGarrisonAt(state) {
-  const wave = state.threats.next;
+  const wave = comingWave(state);
   if (!state.automation.garrison || !wave?.announced) return Infinity;
   const at = wave.at - GARRISON.autoLeadMs;
   return at > state.now ? at : Infinity;
 }
 function fillGarrison(state) {
-  const wave = state.threats.next;
+  const wave = comingWave(state);
   const window = !!wave?.announced && state.now >= wave.at - GARRISON.autoLeadMs && state.now < wave.at && state.threats.shelterUntil <= state.now;
   if (!window) {
     sendBackAll(
@@ -11355,7 +11381,7 @@ function dispatchTasks(state, at, events) {
 }
 function taskNeeds(state) {
   const libraries2 = state.buildings.filter((b) => b.type === "library");
-  const wave = state.threats.next;
+  const wave = comingWave(state);
   const soon = !!wave?.announced && state.now >= wave.at - GARRISON.autoLeadMs && state.now < wave.at && state.threats.shelterUntil <= state.now;
   return {
     build: waitingForBuilder(state).length,
@@ -13209,6 +13235,238 @@ function scaleTo(units, from, to) {
   return units.map((u) => ({ ...u, count: Math.max(1, Math.round(u.count * k)) }));
 }
 
+// packages/shared/src/sim/upwell.ts
+function doorStrength(state) {
+  const t = tunnelOf(state);
+  if (!t || t.damaged) return 0;
+  const base = DEPTHS.door[Math.min(t.level, DEPTHS.door.length - 1)] ?? 0;
+  return base + (state.depths.door.fort > 0 ? DEPTHS.fortify.strength : 0);
+}
+function doorPass(state, wave, luck) {
+  if (!wave.tunnel || !state.depths.door.closed) return 1;
+  const power = (wave.ground + wave.air) * luck;
+  if (power <= 0) return 0;
+  return Math.max(0, power - doorStrength(state)) / power;
+}
+function nestsNear(state) {
+  const seed = state.depthSeed;
+  if (seed === void 0) return 0;
+  const map = depthsMapOf(state);
+  const taken = state.depths.galleries;
+  return map.rooms.filter(
+    (r) => !taken[r.id] && (r.entrance || r.links.some((id3) => taken[id3])) && roomTruth(seed, r).kind === "nest"
+  ).length;
+}
+function upwellPower(state) {
+  const u = DEPTHS.upwell;
+  const factor = THREATS.nestFactor[nest(state).level] ?? THREATS.nestFactor.at(-1);
+  return u.base * factor * (1 + u.perNest * nestsNear(state));
+}
+function upwellSquads(state, ground, air) {
+  const sector = rampartSectorOf(tunnelOf(state));
+  const crawl = DEPTHS.mix.larva + DEPTHS.mix.woodlouse;
+  const out = [];
+  for (const kind of DEPTH_KINDS) {
+    const power = kind === "fruitFly" ? air : ground * DEPTHS.mix[kind] / crawl;
+    const count = Math.round(power / ENEMIES[kind].power);
+    if (count > 0) out.push({ kind, sector, count });
+  }
+  if (out.length === 0) out.push({ kind: "larva", sector, count: 1 });
+  return out;
+}
+function planUpwell(s) {
+  const d = s.depths;
+  const tunnel = tunnelOf(s);
+  if (d.next || !tunnel || s.colony.index !== 0) return;
+  const u = DEPTHS.upwell;
+  withDepthRng(s, (rng) => {
+    const gap = Math.round(rng.range(u.intervalMs[0], u.intervalMs[1]));
+    let at = Math.max(
+      tunnel.builtAt + u.firstMs,
+      d.lastUpwellAt > 0 ? d.lastUpwellAt + gap : 0,
+      s.now + u.noticeMs
+    );
+    const wave = s.threats.next;
+    if (wave && Math.abs(at - wave.at) < u.gapMs) at = wave.at + u.gapMs;
+    d.next = {
+      id: `u${d.upwells + 1}`,
+      announceAt: at - u.noticeMs,
+      at,
+      announced: false,
+      ground: 0,
+      air: 0
+    };
+  });
+}
+function nextUpwellEvent(s) {
+  const w = s.depths.next;
+  if (!w) return Infinity;
+  if (w.announced) return w.at;
+  return depthsKnown(s) ? w.announceAt : Infinity;
+}
+function upwellAwaited(s, now) {
+  const w = s.depths.next;
+  return !!w && !w.announced && w.announceAt <= now && !depthsKnown(s);
+}
+function upwellDue(s, now) {
+  const w = s.depths.next;
+  return w && !w.announced && w.announceAt <= now ? [w.announceAt] : [];
+}
+function announceUpwell(s, wave, events) {
+  const tunnel = tunnelOf(s);
+  if (!tunnel) {
+    s.depths.next = null;
+    return;
+  }
+  const u = DEPTHS.upwell;
+  const power = upwellPower(s);
+  withDepthRng(s, (rng) => {
+    wave.ground = tenth2(power * (1 - u.airShare) * (1 + rng.range(-u.spread, u.spread)));
+    wave.air = tenth2(power * u.airShare * (1 + rng.range(-u.spread, u.spread)));
+  });
+  wave.tunnel = { q: tunnel.q, r: tunnel.r };
+  wave.squads = upwellSquads(s, wave.ground, wave.air);
+  wave.gates = { [rampartSectorOf(tunnel)]: { q: tunnel.q, r: tunnel.r } };
+  wave.announced = true;
+  events.push({
+    type: "waveAnnounced",
+    at: wave.announceAt,
+    waveId: wave.id,
+    strikeAt: wave.at,
+    ground: wave.ground,
+    air: wave.air,
+    tunnel: true
+  });
+}
+var tenth2 = (x) => Math.round(x * 10) / 10;
+function doorFortLevel(state) {
+  return fortLevel(state);
+}
+function fortifyDoorLock(state) {
+  if (!tunnelOf(state)) return "noTunnel";
+  if (state.depths.door.fortifying) return "fortifying";
+  if (state.depths.door.fort >= doorFortLevel(state)) return "alreadyFortified";
+  return null;
+}
+function nextDoorEvent(s) {
+  return s.depths.door.fortifying?.until ?? Infinity;
+}
+function upwellTick(s, at, events) {
+  const door = s.depths.door;
+  if (door.fortifying && door.fortifying.until === at) {
+    door.fort = door.fortifying.level;
+    delete door.fortifying;
+    events.push({ type: "doorFortified", at, level: door.fort });
+  }
+  const w = s.depths.next;
+  if (w && !w.announced && w.announceAt === at && depthsKnown(s)) announceUpwell(s, w, events);
+}
+
+// packages/shared/src/server/universes.ts
+var MAX_PLAYERS = 8;
+function allyTwinOf(s) {
+  const face = otherFace(s.face);
+  const target = s.targets.find((t) => t.distance === 0 && t.face === face);
+  const view = target ? s.faceViews[target.id] : void 0;
+  const conquered = s.siege.conqueredAt > 0;
+  return {
+    face,
+    params: twinParams(s.seed, s.face, s.params),
+    sectors: view ? [
+      .../* @__PURE__ */ new Set([
+        ...Object.keys(view.parcels).map(Number),
+        ...view.beacons.map((b) => b.sector)
+      ])
+    ] : [],
+    village: view ? Object.values(view.parcels).flatMap(
+      (p) => p.buildings.map((b) => ({ kind: b.kind, q: b.q, r: b.r, age: p.age }))
+    ) : [],
+    beacons: (view?.beacons ?? []).map((b) => ({ sector: b.sector, fortified: (b.fort ?? 0) > 0 })),
+    queen: !!view?.queen && !conquered,
+    conquered
+  };
+}
+function layoutBuilding(b) {
+  return {
+    type: b.type,
+    level: b.level,
+    q: b.q,
+    r: b.r,
+    ...b.rot !== void 0 ? { rot: b.rot } : {},
+    ...b.cramped ? { cramped: true } : {}
+  };
+}
+function layoutSnapshot(s, owner, at) {
+  return {
+    owner,
+    face: s.face,
+    params: s.params,
+    buildings: s.buildings.map(layoutBuilding),
+    paths: s.paths,
+    obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
+    terraform: s.terraform,
+    at
+  };
+}
+function kiwiCount(members) {
+  const used = members.reduce((n, m) => Math.max(n, m.kiwiIndex + 1), 0);
+  return members.length >= used * FACES.length ? used + 1 : used;
+}
+function assignFace(members) {
+  const used = new Set(members.map((m) => m.kiwiIndex));
+  let k = 0;
+  while (used.has(k)) k++;
+  return { kiwiIndex: k, face: FACES[0] };
+}
+function kiwiSeed(universeSeed, kiwiIndex) {
+  return `${universeSeed}-k${kiwiIndex}`;
+}
+function planetSeedOf(universe2, kiwiIndex) {
+  const brought = universe2.members.find((m) => m.kiwiIndex === kiwiIndex && m.planetSeed);
+  return brought?.planetSeed ?? kiwiSeed(universe2.seed, kiwiIndex);
+}
+function universeTargets(members, me) {
+  const taken = new Set(members.map((m) => `${m.kiwiIndex}:${m.face}`));
+  const targets = [];
+  for (let k = 0; k < kiwiCount(members); k++) {
+    for (const face of FACES) {
+      if (taken.has(`${k}:${face}`)) continue;
+      const distance = Math.abs(k - me.kiwiIndex);
+      targets.push({
+        id: `aliens:${k}:${face}`,
+        owner: "aliens",
+        kiwiIndex: k,
+        face,
+        distance,
+        travelMs: alienDefOf(distance).travelMs
+      });
+    }
+  }
+  return targets.sort((a, b) => a.distance - b.distance);
+}
+function universeFriends(members, me) {
+  return members.filter((m) => m.userId !== me.userId).map((m) => {
+    const distance = Math.abs(m.kiwiIndex - me.kiwiIndex);
+    return {
+      id: friendId(m.userId),
+      owner: m.displayName,
+      kiwiIndex: m.kiwiIndex,
+      distance,
+      travelMs: alienDefOf(distance).travelMs
+    };
+  }).sort((a, b) => a.distance - b.distance || a.kiwiIndex - b.kiwiIndex);
+}
+var friendId = (userId, colony2 = 0) => colony2 === 1 ? `ally:${userId}:1` : `ally:${userId}`;
+var userOfFriend = (id3) => id3.replace(/^ally:/, "").replace(/:1$/, "");
+var colonyOfFriend = (id3) => /^ally:.+:1$/.test(id3) ? 1 : 0;
+var CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+function inviteCode(bytes) {
+  return Array.from(bytes.slice(0, 8), (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
+}
+function isInviteCode(code) {
+  return /^[A-HJ-NP-Z2-9]{8}$/.test(code);
+}
+
 // packages/shared/src/sim/aliens.ts
 var round16 = (v) => Math.round(v * 10) / 10;
 var round3 = (v) => Math.round(v * 1e3) / 1e3;
@@ -13293,7 +13551,7 @@ function canResolveArrival(state, e) {
   e.mission === "guard" || !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
 }
 function awaitingServer(state, now) {
-  return awaitingReport(state, now).length > 0 || waveAwaited(state, now) || beaconAwaited(state, now) || queenAwaited(state, now);
+  return awaitingReport(state, now).length > 0 || waveAwaited(state, now) || beaconAwaited(state, now) || queenAwaited(state, now) || upwellAwaited(state, now);
 }
 function waveAwaited(state, now) {
   const w = state.threats.next;
@@ -13305,6 +13563,7 @@ function hiddenDue(state, now) {
   if (w && !w.announced && w.announceAt <= now) out.push(w.announceAt);
   out.push(...beaconsDue(state, now));
   out.push(...queenDue(state, now));
+  out.push(...upwellDue(state, now));
   return out;
 }
 function awaitingReport(state, now) {
@@ -14815,6 +15074,24 @@ function execute(s, cmd, ctx, events) {
       if (![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) fail("invalidCount");
       if (!canAfford(s.resources, { pulp, juice })) fail("notEnoughResources");
       launchDelve(s, cmd.roomId, cmd.crew, { pulp, juice }, cmd.orders, now, nextId(s, "x"));
+      return;
+    }
+    case "setTunnelDoor": {
+      if (!s.buildings.some((b) => b.type === "tunnel")) fail("noTunnel");
+      s.depths.door.closed = cmd.closed;
+      return;
+    }
+    case "fortifyTunnel": {
+      const lock = fortifyDoorLock(s);
+      if (lock) fail(lock);
+      const cost = fortifyCost(s);
+      if (!canAfford(s.resources, cost.resources)) fail("notEnoughResources");
+      payIron(s, cost.iron);
+      pay(s, cost.resources);
+      s.depths.door.fortifying = {
+        until: now + DEPTHS.fortify.durationMs,
+        level: doorFortLevel(s)
+      };
       return;
     }
     case "fortifyBeacon": {
@@ -19464,7 +19741,9 @@ var threats = external_exports.object({
       injured: named,
       dead: named,
       pathsLost: external_exports.number().int().min(0),
-      log: battleLog.optional()
+      log: battleLog.optional(),
+      from: external_exports.literal("tunnel").optional(),
+      door: external_exports.enum(["held", "broken"]).optional()
     })
   ).max(THREATS.history),
   posture: external_exports.enum(POSTURES),
@@ -20399,6 +20678,8 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     }).optional()
   }),
   external_exports.object({ type: external_exports.literal("raidDen"), q: external_exports.number().int(), r: external_exports.number().int() }),
+  external_exports.object({ type: external_exports.literal("setTunnelDoor"), closed: external_exports.boolean() }),
+  external_exports.object({ type: external_exports.literal("fortifyTunnel") }),
   external_exports.object({
     type: external_exports.literal("delve"),
     roomId: external_exports.string().min(1).max(8),
@@ -21724,6 +22005,7 @@ export {
   alienUnit,
   allGuards,
   allyTwinOf,
+  announceUpwell,
   applyCommand,
   applyTerraform,
   armoryCount,
@@ -21845,6 +22127,7 @@ export {
   colonyPower,
   cometStock,
   cometTick,
+  comingWave,
   commandSchema,
   computeClaims,
   constructionDuration,
@@ -21896,6 +22179,9 @@ export {
   deserializeSave,
   dispatchTasks,
   distanceIn,
+  doorFortLevel,
+  doorPass,
+  doorStrength,
   drawBiomes,
   drawGarrison,
   drawLosses,
@@ -21959,6 +22245,7 @@ export {
   forgetGuards,
   fortLevel,
   fortifyCost,
+  fortifyDoorLock,
   fortifyLock,
   foundLock,
   freeDepositStock,
@@ -22138,6 +22425,7 @@ export {
   neighbourSectors,
   nest,
   nestDef,
+  nestsNear,
   netRates,
   newCiv,
   newColonyLink,
@@ -22155,6 +22443,7 @@ export {
   nextCometEvent,
   nextConstructionEnd,
   nextDeliveryEvent,
+  nextDoorEvent,
   nextForgeEvent,
   nextHungerEvent,
   nextId,
@@ -22168,6 +22457,7 @@ export {
   nextStep,
   nextThreatEvent,
   nextTitanEnd,
+  nextUpwellEvent,
   nightWork,
   normalRot,
   notebookCount,
@@ -22206,6 +22496,7 @@ export {
   planCiv,
   planComet,
   planMeteor,
+  planUpwell,
   planWave,
   planetSeedOf,
   plausibleTerraform,
@@ -22335,6 +22626,7 @@ export {
   storageFullCheck,
   storeItem,
   strengthOf,
+  strike,
   suppedTonight,
   syncColonies,
   syncPools,
@@ -22383,6 +22675,11 @@ export {
   universeTargets,
   upgradeCost,
   upgradeLock,
+  upwellAwaited,
+  upwellDue,
+  upwellPower,
+  upwellSquads,
+  upwellTick,
   userOfFriend,
   validOrders,
   validateCommand,

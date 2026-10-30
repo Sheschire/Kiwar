@@ -97,8 +97,11 @@ export const DEPTHS = {
   /** The tunnel entrance's levels (index = level): most kiwis on a delve, door strength. */
   crew: [0, 4, 6, 8] as readonly number[],
   door: [0, 8, 14, 20] as readonly number[],
-  /** Fortifying the door: added strength per level, time, and cost (× a turret level's). */
-  fortify: { strength: 10, durationMs: ms.h(4), costFactor: 0.5 },
+  /**
+   * Fortifying the door: strength added, and time (the cost is a beacon's: half of a seed and a
+   * sky turret of the first level of our age, which stand at the door in an upwelling's battle).
+   */
+  fortify: { strength: 10, durationMs: ms.h(4) },
   /** Upwellings: own calendar once the entrance stands. */
   upwell: {
     /** First one at least this long after the entrance is finished. */

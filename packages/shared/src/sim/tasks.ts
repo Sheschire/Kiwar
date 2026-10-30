@@ -4,7 +4,7 @@ import { STARDUST } from '../data/comets';
 import { TASKS, type AutoTask } from '../data/jobs';
 import { GARRISON, METEORS, THREATS } from '../data/threats';
 import { RESOURCE_IDS } from '../data/resources';
-import { defenseOf, guardPower, sectorClash } from './threats';
+import { comingWave, defenseOf, guardPower, sectorClash } from './threats';
 import { dustPickers, pickRate, STARDUST_CAP } from './comets';
 import { craterWorth, minersOf } from './sky';
 import type { BuildingId, QueueItemId, TimeMs } from '../types/ids';
@@ -471,7 +471,7 @@ export function orderRepairs(state: GameState, at: TimeMs): void {
 
 /** When the automatic garrison posts its guards before the announced wave (Infinity: none). */
 export function autoGarrisonAt(state: GameState): TimeMs {
-  const wave = state.threats.next;
+  const wave = comingWave(state);
   if (!state.automation.garrison || !wave?.announced) return Infinity;
   const at = wave.at - GARRISON.autoLeadMs;
   return at > state.now ? at : Infinity;
@@ -484,7 +484,7 @@ export function autoGarrisonAt(state: GameState): TimeMs {
  * a shelter (everybody hides).
  */
 export function fillGarrison(state: GameState): void {
-  const wave = state.threats.next;
+  const wave = comingWave(state);
   const window =
     !!wave?.announced &&
     state.now >= wave.at - GARRISON.autoLeadMs &&
@@ -574,7 +574,7 @@ export function dispatchTasks(state: GameState, at: TimeMs, events: GameEvent[])
  */
 export function taskNeeds(state: GameState): Record<AutoTask, number> {
   const libraries = state.buildings.filter((b) => b.type === 'library');
-  const wave = state.threats.next;
+  const wave = comingWave(state);
   const soon =
     !!wave?.announced &&
     state.now >= wave.at - GARRISON.autoLeadMs &&

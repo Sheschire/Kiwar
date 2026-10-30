@@ -1,3 +1,4 @@
+import { upwellAwaited, upwellDue } from './upwell';
 import { CALENDAR } from '../data/cycles';
 import { ALIENS, alienDefOf, INTEL } from '../data/expeditions';
 import { RESOURCE_IDS, emptyResources } from '../data/resources';
@@ -152,7 +153,8 @@ export function awaitingServer(state: GameState, now: TimeMs): boolean {
     awaitingReport(state, now).length > 0 ||
     waveAwaited(state, now) ||
     beaconAwaited(state, now) ||
-    queenAwaited(state, now)
+    queenAwaited(state, now) ||
+    upwellAwaited(state, now)
   );
 }
 
@@ -173,6 +175,8 @@ export function hiddenDue(state: GameState, now: TimeMs): TimeMs[] {
   out.push(...beaconsDue(state, now));
   // Chantier 47: the queen's public date.
   out.push(...queenDue(state, now));
+  // Chantier 48: an upwelling's announcement (its power reads the depths).
+  out.push(...upwellDue(state, now));
   return out;
 }
 

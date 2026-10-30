@@ -735,6 +735,9 @@ export interface WaveReport {
   pathsLost: number;
   /** Chantier 36: the journal of the battle (absent for older waves); never changed. */
   log?: BattleLog;
+  /** Chantier 48: an upwelling out of the tunnel; `door`: what the closed door did. */
+  from?: 'tunnel';
+  door?: 'held' | 'broken';
 }
 
 export interface IncidentReport {

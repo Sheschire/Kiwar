@@ -1,3 +1,4 @@
+import { nextDoorEvent, nextUpwellEvent, planUpwell, upwellTick } from './upwell';
 import { galleryRates } from './mines';
 import { accrueForge, forgePower, forgeRate, forgeTick, nextForgeEvent } from './forge';
 import type { ItemId } from '../data/gear';
@@ -53,7 +54,7 @@ import {
 } from './needs';
 import { removeVillagers } from './expeditions';
 import type { IncidentKind } from '../data/threats';
-import { nextThreatEvent, planWave, threatTick } from './threats';
+import { nextThreatEvent, planWave, strike, threatTick } from './threats';
 import { accrueIron, meteorIronRate, meteorRate, nextSkyEvent, planMeteor, skyTick } from './sky';
 import { obstacleAt, removeObstacle } from './obstacles';
 import { finishCanal } from './canals';
@@ -200,8 +201,20 @@ export type GameEvent =
       strikeAt: TimeMs;
       ground: number;
       air: number;
+      /** Chantier 48: an upwelling, out of the tunnel entrance. */
+      tunnel?: boolean;
     }
-  | { type: 'waveStruck'; at: TimeMs; waveId: string; victory: boolean }
+  | {
+      type: 'waveStruck';
+      at: TimeMs;
+      waveId: string;
+      victory: boolean;
+      /** Chantier 48: an upwelling; `held`: the closed door held it back (no battle). */
+      tunnel?: boolean;
+      held?: boolean;
+    }
+  /** Chantier 48: the tunnel door is fortified. */
+  | { type: 'doorFortified'; at: TimeMs; level: number }
   | {
       type: 'incident';
       at: TimeMs;
@@ -311,6 +324,8 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     planComet(s);
     // Chantier 42: the next attack on our beacons (its time is public).
     planBeaconAttacks(s);
+    // Chantier 48: the next upwelling (its own calendar, once the tunnel entrance stands).
+    planUpwell(s);
     const constructionEnd = nextConstructionEnd(s);
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
@@ -334,12 +349,14 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     // Chantier 39: the alien civilisation looks at the map once a game day (truth only).
     const civAt = nextCivEvent(s);
     const beaconAt = nextBeaconEvent(s);
+    const upwellAt = Math.min(nextUpwellEvent(s), nextDoorEvent(s));
     // Chantier 47: the queen comes out at her public date (truth only).
     const queenAt = nextQueenEvent(s);
     // Chantier 15: the automatic garrison posts its guards a little before a strike.
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
       garrisonAt,
+      upwellAt,
       civAt,
       beaconAt,
       queenAt,
@@ -402,6 +419,11 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     if (deliveryAt === nextEvent) deliveryTick(s, deliveryAt, events);
     if (civAt === nextEvent) civTick(s, civAt);
     if (beaconAt === nextEvent) beaconTick(s, beaconAt, events);
+    if (upwellAt === nextEvent) {
+      upwellTick(s, upwellAt, events);
+      const w = s.depths.next;
+      if (w?.announced && w.at === upwellAt) strike(s, w, events);
+    }
     if (queenAt === nextEvent) queenTick(s, queenAt, events);
     const st = hungerStage(s);
     if (st !== stage) {

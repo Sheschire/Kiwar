@@ -1,4 +1,5 @@
-import { hexDisk, hexDistance, hexKey, hexToPixel, type Hex } from '../hex/hex';
+import { hexDisk, hexDistance, hexKey, hexNeighbors, hexToPixel, type Hex } from '../hex/hex';
+import type { BuildingId } from '../types/ids';
 import { createRng } from '../rng/rng';
 import { levelDef } from '../data/buildings';
 import { RESOURCE_IDS } from '../data/resources';
@@ -178,6 +179,26 @@ export interface WaveBattleOptions {
   roughLoot?: boolean;
 }
 
+/** Chantier 48: the free tiles around the tunnel entrance (the next ring when it is walled in). */
+function tunnelMouth(
+  entrance: Hex,
+  tiles: readonly BattleTile[],
+  tileIndex: ReadonlyMap<string, number>,
+  walkable: (k: string, i: number) => boolean,
+): number[] {
+  for (let r = 1; r <= 3; r++) {
+    const out: number[] = [];
+    for (const h of hexDisk(entrance, r)) {
+      if (hexDistance(h, entrance) !== r) continue;
+      const k = hexKey(h);
+      const i = tileIndex.get(k);
+      if (i !== undefined && walkable(k, i)) out.push(i);
+    }
+    if (out.length > 0) return out.sort((a, b) => a - b);
+  }
+  return [tiles.findIndex((t) => t.q === entrance.q && t.r === entrance.r)].filter((i) => i >= 0);
+}
+
 /** Battle setup of a wave against the colony as it is now. */
 export function waveSetup(
   state: GameState,
@@ -256,6 +277,8 @@ export function waveSetup(
   let carrySum = 0;
   for (const q of squads) carrySum += q.count * ENEMIES[q.kind].carry;
   const carryUnit = carrySum > 0 ? (BATTLE.carry * lootTotal) / carrySum : 0;
+  // Chantier 48: an upwelling comes out of the tunnel entrance (and flees back into it).
+  const mouth = wave.tunnel ? tunnelMouth(wave.tunnel, tiles, tileIndex, walkable) : null;
   for (const sector of SECTOR_IDS) {
     // The pack comes in around its gate (the free rampart tiles closest to it).
     const all = SECTOR_IDS.flatMap((s) => exits[s]);
@@ -263,7 +286,9 @@ export function waveSetup(
     const byGate = (exits[sector].length > 0 ? exits[sector] : all)
       .map((e) => ({ e, d: hexDistance(tiles[e.i]!, gate) }))
       .sort((x, y) => x.d - y.d || x.e.i - y.e.i);
-    const pack = byGate.filter((x) => x.d <= byGate[0]!.d + BATTLE.packWidth).map((x) => x.e);
+    const pack = mouth
+      ? mouth.map((i) => ({ i, a: 0 }))
+      : byGate.filter((x) => x.d <= byGate[0]!.d + BATTLE.packWidth).map((x) => x.e);
     const inSector = squads.filter((q) => q.sector === sector);
     let j = 0;
     for (const q of inSector) {
@@ -288,7 +313,7 @@ export function waveSetup(
     const hold = Math.max(0, j - 1) * BATTLE.enterGap + BATTLE.gather;
     for (const u of units) if (u.side === 1 && u.sector === sector) u.hold = hold;
   }
-  const exitList = SECTOR_IDS.flatMap((s) => exits[s].map((e) => e.i));
+  const exitList = mouth ?? SECTOR_IDS.flatMap((s) => exits[s].map((e) => e.i));
 
   // --- Turrets ------------------------------------------------------------------------------
   const defense = defenseOf(state, threat);
@@ -300,6 +325,31 @@ export function waveSetup(
       return;
     units.push(t);
   });
+
+  // Chantier 48: a fortified tunnel door has a seed and a sky turret of its own.
+  const door = state.depths.door.fort;
+  const tunnelIndex = state.buildings.findIndex((b) => b.type === 'tunnel');
+  if (wave.tunnel && door > 0 && tunnelIndex >= 0) {
+    const spots = hexNeighbors(wave.tunnel).filter((h) => {
+      const i = tileIndex.get(hexKey(h));
+      return i !== undefined && walkable(hexKey(h), i);
+    });
+    (['seedTurret', 'skyTurret'] as const).forEach((type, i) => {
+      const at = spots[i * 2] ?? spots[i];
+      if (!at) return;
+      const b: Building = {
+        id: `door:${i}` as BuildingId,
+        type,
+        q: at.q,
+        r: at.r,
+        level: door,
+        richness: 1,
+        builtAt: 0,
+      };
+      const u = turretUnit(b, state, 1, tunnelIndex);
+      if (u) units.push(u);
+    });
+  }
 
   // --- Kiwis --------------------------------------------------------------------------------
   const taken = new Map<number, number>();
@@ -325,14 +375,24 @@ export function waveSetup(
     if (t.rho < 0.6 || t.rho > 0.85 || !walkable(k, i)) return;
     posts[rampartSectorOf(t)].push(i);
   });
-  for (const s of SECTOR_IDS)
-    posts[s].sort(
-      (a, b) =>
-        hexDistance(tiles[a]!, gates[s]) - hexDistance(tiles[b]!, gates[s]) ||
-        angleGap(angleOf(tiles[a]!), SECTOR_MIDDLE[s]) -
-          angleGap(angleOf(tiles[b]!), SECTOR_MIDDLE[s]) ||
-        a - b,
-    );
+  // Chantier 48: against an upwelling, every guard stands around the tunnel entrance.
+  if (wave.tunnel) {
+    const entrance = wave.tunnel;
+    const around = map.tiles
+      .map((t, i) => ({ t, i }))
+      .filter(({ t, i }) => hexDistance(t, entrance) <= 4 && walkable(hexKey(t), i))
+      .sort((a, b) => hexDistance(a.t, entrance) - hexDistance(b.t, entrance) || a.i - b.i)
+      .map(({ i }) => i);
+    for (const s of SECTOR_IDS) posts[s] = around;
+  } else
+    for (const s of SECTOR_IDS)
+      posts[s].sort(
+        (a, b) =>
+          hexDistance(tiles[a]!, gates[s]) - hexDistance(tiles[b]!, gates[s]) ||
+          angleGap(angleOf(tiles[a]!), SECTOR_MIDDLE[s]) -
+            angleGap(angleOf(tiles[b]!), SECTOR_MIDDLE[s]) ||
+          a - b,
+      );
   for (const v of garrisonOf(state)) {
     const sector = state.threats.pins[v.id] ?? sectorOf.get(v.id) ?? 'front';
     const size = v.kikiwiwi ? 2 : 1;
