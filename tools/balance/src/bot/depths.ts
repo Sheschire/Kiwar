@@ -17,6 +17,7 @@ import {
   levelDef,
   meteorIronOf,
   rations,
+  layerOpen,
   reachableRooms,
   THREATS,
   tunnelOf,
@@ -82,12 +83,14 @@ export function delveOrder(state: GameState): Command | null {
   if (max < 2) return null;
   const orders = { ...LANDING.defaultOrders, retreatAt: 0.3 };
   // Shallow rooms first; a room seen weak before a room unknown.
-  const rooms = reachableRooms(state).sort(
-    (a, b) =>
-      a.depth - b.depth ||
-      Number(!!state.depths.views[b.id]?.units) - Number(!!state.depths.views[a.id]?.units) ||
-      a.id.localeCompare(b.id),
-  );
+  const rooms = reachableRooms(state)
+    .filter((r) => layerOpen(state, r))
+    .sort(
+      (a, b) =>
+        a.depth - b.depth ||
+        Number(!!state.depths.views[b.id]?.units) - Number(!!state.depths.views[a.id]?.units) ||
+        a.id.localeCompare(b.id),
+    );
   for (const room of rooms) {
     for (let size = Math.max(2, max - 2); size <= max; size++) {
       const crew = delveCrew(state, size);

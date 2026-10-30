@@ -524,6 +524,7 @@ export const gameStateSchema = z.object({
         at: z.number(),
         source: z.enum(['delve', 'retreat', 'lantern', 'edge']),
         kind: z.enum(ROOM_KINDS).optional(),
+        nest: z.boolean().optional(),
         units: z.array(alienUnit).max(16).optional(),
         hazard: z
           .object({ kind: z.enum(HAZARD_KINDS), strength: z.number().min(0).max(1) })

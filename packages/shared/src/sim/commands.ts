@@ -302,6 +302,8 @@ export const COMMAND_ERRORS = [
   'delveThere',
   'tunnelBusy',
   'galleryFull',
+  // Chantier 50: the locules.
+  'layerLocked',
   'launchpadDamaged',
   'unknownTarget',
   'crewTooSmall',

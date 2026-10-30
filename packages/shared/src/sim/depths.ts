@@ -11,7 +11,15 @@ import { localAlienSeed, type GameState, type RoomHazard } from './state';
  * which only the server (online) or the client (solo) holds.
  */
 
-export type RoomDepth = 1 | 2 | 3;
+/** 1–3: the green flesh (chantier 48); 4: the locules (chantier 50). */
+export type RoomDepth = 1 | 2 | 3 | 4;
+
+/** The depth of the locules. */
+export const LOCULE_DEPTH = 4;
+
+export function isLocule(room: Pick<DepthRoom, 'depth'>): boolean {
+  return room.depth === LOCULE_DEPTH;
+}
 
 export interface DepthRoom {
   id: string;
@@ -83,17 +91,61 @@ export function generateDepths(key: string): DepthsMap {
       if (near[1] && rng.chance(DEPTHS.secondLink)) link(r, near[1]);
     }
   }
+  generateLocules(key, rooms, byDepth[byDepth.length - 1]!, link);
   return { rooms, byId: new Map(rooms.map((r) => [r.id, r])) };
+}
+
+/**
+ * Chantier 50: the locules, an arc of rooms below the flesh, each opening onto the next one
+ * (the bundles that run between them). Each deepest room of the flesh opens onto the nearest
+ * locule (and sometimes the second nearest); a few locules open onto the room above them too.
+ * Drawn from a stream of their own, after the flesh: the flesh's network stays as it was.
+ */
+function generateLocules(
+  key: string,
+  rooms: DepthRoom[],
+  above: readonly DepthRoom[],
+  link: (a: DepthRoom, b: DepthRoom) => void,
+): void {
+  const rng = createRng(`${key}/depths/locules`);
+  const L = DEPTHS.locules;
+  const n = rng.int(L.count[0], L.count[1]);
+  const row: DepthRoom[] = [];
+  for (let i = 0; i < n; i++) {
+    const slot = 2 / n;
+    const x = round2(-1 + slot * (i + 0.5) + rng.range(-0.2, 0.2) * slot);
+    row.push({
+      id: `r${rooms.length + row.length}`,
+      depth: LOCULE_DEPTH,
+      x,
+      links: [],
+      entrance: false,
+    });
+  }
+  rooms.push(...row);
+  for (let i = 0; i + 1 < row.length; i++) link(row[i]!, row[i + 1]!);
+  const nearest = <T extends DepthRoom>(list: readonly T[], x: number) =>
+    [...list].sort((a, b) => Math.abs(a.x - x) - Math.abs(b.x - x));
+  for (const r of above) {
+    const near = nearest(row, r.x);
+    link(r, near[0]!);
+    if (rng.chance(L.secondLink)) link(r, near[1]!);
+  }
+  for (const loc of row) if (rng.chance(L.upLink)) link(loc, nearest(above, loc.x)[0]!);
 }
 
 /** What a room really holds (hidden: only from the secret seed). */
 export interface RoomTruth {
   kind: RoomKind;
+  /** Chantier 50: a nest of Grouillants (a `nest` room, or a locule with one). */
+  nest: boolean;
   units: AlienUnit[];
   hazard: RoomHazard | null;
   /** Resources found there when won, and whole units of meteoric iron. */
   loot: Partial<Record<ResourceId, number>>;
   iron: number;
+  /** Chantier 50: giant seeds found there (locules only). */
+  giantSeeds: number;
 }
 
 const truthCache = new Map<string, RoomTruth>();
@@ -111,6 +163,7 @@ export function roomTruth(seed: string, room: DepthRoom): RoomTruth {
 }
 
 function drawRoom(rng: Rng, depth: RoomDepth): RoomTruth {
+  if (depth === LOCULE_DEPTH) return drawLocule(rng);
   const kind = weighted(rng, DEPTHS.kindWeights[depth - 1]!);
   const power =
     DEPTHS.power[depth - 1]! *
@@ -132,7 +185,37 @@ function drawRoom(rng: Rng, depth: RoomDepth): RoomTruth {
   const loot: Partial<Record<ResourceId, number>> = {};
   for (const [r, share] of Object.entries(DEPTHS.lootKind[kind]) as [ResourceId, number][])
     loot[r] = Math.round(amount * share);
-  return { kind, units, hazard, loot, iron: DEPTHS.iron[depth - 1]! };
+  return {
+    kind,
+    nest: kind === 'nest',
+    units,
+    hazard,
+    loot,
+    iron: DEPTHS.iron[depth - 1]!,
+    giantSeeds: 0,
+  };
+}
+
+/** A locule: a raphide forest (cuts) or an actinidine lake (acid), often a nest, giant seeds. */
+function drawLocule(rng: Rng): RoomTruth {
+  const i = LOCULE_DEPTH - 1;
+  const kind = weighted(rng, DEPTHS.kindWeights[i]!);
+  const nest = rng.chance(DEPTHS.locules.nestChance);
+  const power =
+    DEPTHS.power[i]! *
+    rng.range(DEPTHS.spread[0], DEPTHS.spread[1]) *
+    (nest ? DEPTHS.nestPower : 1);
+  const units = grouillants(power, DEPTHS.level[i]!);
+  const hazard: RoomHazard = {
+    kind: kind === 'lake' ? 'acid' : 'cuts',
+    strength: round2(DEPTHS.hazard.strength[i]! * rng.range(DEPTHS.spread[0], DEPTHS.spread[1])),
+  };
+  const amount = DEPTHS.loot[i]! * rng.range(0.8, 1.2);
+  const loot: Partial<Record<ResourceId, number>> = {};
+  for (const [r, share] of Object.entries(DEPTHS.lootKind[kind]) as [ResourceId, number][])
+    loot[r] = Math.round(amount * share);
+  const giantSeeds = rng.int(DEPTHS.locules.giantSeeds[0], DEPTHS.locules.giantSeeds[1]);
+  return { kind, nest, units, hazard, loot, iron: DEPTHS.iron[i]!, giantSeeds };
 }
 
 /** Grouillants worth this much power (a larva at least). */
@@ -147,12 +230,12 @@ export function grouillants(power: number, level: number): AlienUnit[] {
   })).filter((u) => u.count > 0);
 }
 
-function weighted<K extends string>(rng: Rng, weights: Record<K, number>): K {
+function weighted<K extends string>(rng: Rng, weights: Partial<Record<K, number>>): K {
   const keys = (ROOM_KINDS as readonly string[]).filter((k) => k in weights) as K[];
-  const total = keys.reduce((a, k) => a + weights[k], 0);
+  const total = keys.reduce((a, k) => a + weights[k]!, 0);
   let x = rng.range(0, total);
   for (const k of keys) {
-    x -= weights[k];
+    x -= weights[k]!;
     if (x < 0) return k;
   }
   return keys[keys.length - 1]!;

@@ -16,6 +16,7 @@ import {
   meteorIronOf,
   minersIn,
   rations,
+  isLocule,
   reachableRooms,
   techEffects,
   tunnelOf,
@@ -98,9 +99,17 @@ export function DepthsModal() {
 const W = 300;
 const TOP = 16;
 const R = 140;
-const ROW = 40;
+const ROW = 28;
+/** Chantier 50: the locules' band around the core (its middle radius). */
+const LOCULE_BAND = 38;
 
 function roomAt(room: DepthRoom): { x: number; y: number } {
+  if (isLocule(room)) {
+    // Chantier 50: the locules ring the core, on two staggered arcs.
+    const ring = LOCULE_BAND + (Number(room.id.slice(1)) % 2 ? -6 : 6);
+    const a = (Math.PI * (1 - room.x)) / 2;
+    return { x: W / 2 + Math.cos(a) * ring, y: TOP + R - 4 - Math.sin(a) * ring };
+  }
   const y = room.depth * ROW;
   const half = Math.sqrt(R * R - y * y) * 0.82;
   return { x: W / 2 + room.x * half, y: TOP + y };
@@ -112,6 +121,8 @@ const KIND_COLORS: Record<string, string> = {
   nest: '#b5543c',
   scree: '#8b6f4e',
   raphides: '#e9f1f4',
+  forest: '#d6f0f7',
+  lake: '#b7d64a',
 };
 
 function DepthsCut(props: {
@@ -141,7 +152,7 @@ function DepthsCut(props: {
       <path d={`M ${W / 2 - R} ${TOP} A ${R} ${R} 0 0 0 ${W / 2 + R} ${TOP} Z`} class="cut-flesh" />
       {/* The locules and the core, closed until later ages (chantiers 50 and 52). */}
       <path
-        d={`M ${W / 2 - 52} ${TOP + R - 4} A 52 52 0 0 1 ${W / 2 + 52} ${TOP + R - 4}`}
+        d={`M ${W / 2 - LOCULE_BAND} ${TOP + R - 4} A ${LOCULE_BAND} ${LOCULE_BAND} 0 0 1 ${W / 2 + LOCULE_BAND} ${TOP + R - 4}`}
         class="cut-locules"
       />
       <path
@@ -198,10 +209,16 @@ function DepthsCut(props: {
             role="button"
             aria-label={roomName(t, game, r)}
           >
-            <circle cx={p.x} cy={p.y} r={12} class="cut-room-shape" />
+            <circle cx={p.x} cy={p.y} r={isLocule(r) ? 5 : 12} class="cut-room-shape" />
             {kind ? (
-              <circle cx={p.x} cy={p.y} r={5} fill={KIND_COLORS[kind]} class="cut-kind" />
-            ) : (
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r={isLocule(r) ? 3 : 5}
+                fill={KIND_COLORS[kind]}
+                class="cut-kind"
+              />
+            ) : isLocule(r) ? null : (
               <text x={p.x} y={p.y + 4} class="cut-unknown">
                 ?
               </text>

@@ -7,7 +7,15 @@ import { simulateBattle } from '../battle/simulate';
 import type { BattleLog } from '../battle/types';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
 import type { AlienUnit } from './civ';
-import { depthsMapOf, depthsKnown, grouillants, roomTruth, type DepthRoom } from './depths';
+import {
+  depthsMapOf,
+  depthsKnown,
+  grouillants,
+  isLocule,
+  roomTruth,
+  type DepthRoom,
+} from './depths';
+import { ageOf } from './research';
 import { crewOf, removeVillagers, type Odds } from './expeditions';
 import { recordBestiary, tollOf, validOrders } from './landing';
 import type { Building, DepthView, Expedition, GameState, RoomHazard, Villager } from './state';
@@ -54,6 +62,7 @@ export type DelveLock =
   | 'unknownRoom'
   | 'roomTaken'
   | 'roomOutOfReach'
+  | 'layerLocked'
   | 'delveThere'
   | 'invalidOrders'
   | 'invalidCrew'
@@ -76,6 +85,7 @@ export function delveLock(
   const taken = state.depths.galleries;
   if (taken[roomId]) return 'roomTaken';
   if (!room.entrance && !room.links.some((id) => taken[id])) return 'roomOutOfReach';
+  if (!layerOpen(state, room)) return 'layerLocked';
   if (state.expeditions.some((e) => isDelve(e) && e.status === 'outbound' && e.room === roomId))
     return 'delveThere';
   if (!validOrders(orders)) return 'invalidOrders';
@@ -86,6 +96,11 @@ export function delveLock(
   if (members.length < 1) return 'crewTooSmall';
   if (members.length > delveCrewMax(state)) return 'crewTooLarge';
   return null;
+}
+
+/** Chantier 50: the locules open in the Industry age (the flesh is open with the tunnel). */
+export function layerOpen(state: GameState, room: DepthRoom): boolean {
+  return !isLocule(room) || ageOf(state) >= DEPTHS.locules.age;
 }
 
 /** The crew goes down (validation is done by the command). */
@@ -181,6 +196,7 @@ export function resolveDelve(
       at,
       source: 'delve',
       kind: truth.kind,
+      ...nestOf(room, truth.nest),
       units: truth.units.map((u) => ({ ...u })),
       hazard: truth.hazard ? { ...truth.hazard } : null,
     });
@@ -188,7 +204,8 @@ export function resolveDelve(
     for (const id of room.links) {
       if (state.depths.galleries[id]) continue;
       const next = depthsMapOf(state).byId.get(id)!;
-      see(state, id, { at, source: 'edge', kind: roomTruth(seed, next).kind });
+      const heard = roomTruth(seed, next);
+      see(state, id, { at, source: 'edge', kind: heard.kind, ...nestOf(next, heard.nest) });
     }
     lantern = lanternRoom(state, room, members);
     if (lantern) {
@@ -197,6 +214,7 @@ export function resolveDelve(
         at,
         source: 'lantern',
         kind: t.kind,
+        ...nestOf(depthsMapOf(state).byId.get(lantern)!, t.nest),
         units: t.units.map((u) => ({ ...u })),
         hazard: t.hazard ? { ...t.hazard } : null,
       });
@@ -208,6 +226,7 @@ export function resolveDelve(
       at,
       source: 'retreat',
       kind: truth.kind,
+      ...nestOf(room, truth.nest),
       units: truth.units.map((u) => ({ ...u })),
       hazard: truth.hazard ? { ...truth.hazard } : null,
     });
@@ -237,6 +256,11 @@ export function resolveDelve(
     const done = state.expeditions.filter((x) => x.status === 'done');
     if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
   } else e.status = 'returning';
+}
+
+/** A locule's view says whether it holds a nest (a flesh room's kind already says it). */
+function nestOf(room: DepthRoom, nest: boolean): { nest?: boolean } {
+  return isLocule(room) ? { nest } : {};
 }
 
 /**
@@ -302,7 +326,8 @@ function practice(
 function assumedHazard(room: DepthRoom, kind: RoomKind | null): RoomHazard | null {
   const strength = DEPTHS.hazard.strength[room.depth - 1]!;
   if (kind === 'scree') return { kind: 'fall', strength };
-  if (kind === 'raphides') return { kind: 'cuts', strength };
+  if (kind === 'raphides' || kind === 'forest') return { kind: 'cuts', strength };
+  if (kind === 'lake') return { kind: 'acid', strength };
   return null;
 }
 
@@ -327,20 +352,24 @@ export function delveForecast(
   const knowledge: DelveKnowledge = view?.units ? 'seen' : kind ? 'kind' : 'unknown';
   const base = DEPTHS.power[room.depth - 1]!;
   const level = DEPTHS.level[room.depth - 1]!;
-  const nest = kind === 'nest' ? DEPTHS.nestPower : 1;
+  // A locule heard without its nest known may hold one (the hardest trial).
+  const nestKnown = !isLocule(room) || view?.nest !== undefined;
+  const nest = kind === 'nest' || view?.nest ? DEPTHS.nestPower : 1;
   const armies: AlienUnit[][] = view?.units
     ? [view.units, view.units, view.units]
     : [
         grouillants(base * DEPTHS.spread[0] * nest, level),
         grouillants(base * nest, level),
-        grouillants(base * DEPTHS.spread[1] * (kind ? nest : DEPTHS.nestPower), level),
+        grouillants(base * DEPTHS.spread[1] * (kind && nestKnown ? nest : DEPTHS.nestPower), level),
       ];
   const known = view && view.hazard !== undefined ? view.hazard : undefined;
   const assumed = known === undefined ? assumedHazard(room, kind) : known;
+  // Every locule has a hazard: an unknown one meets cuts or acid, the worse for this crew.
   const possibleHazard = known === undefined && !assumed && kind !== 'nest';
-  const worst: RoomHazard | null =
-    assumed ??
-    (possibleHazard ? { kind: 'fall', strength: DEPTHS.hazard.strength[room.depth - 1]! } : null);
+  const unknownWorst: RoomHazard = isLocule(room)
+    ? worstLoculeHazard(crew, DEPTHS.hazard.strength[room.depth - 1]!)
+    : { kind: 'fall', strength: DEPTHS.hazard.strength[room.depth - 1]! };
+  const worst: RoomHazard | null = assumed ?? (possibleHazard ? unknownWorst : null);
   const hazards = [assumed, assumed, worst];
   const shown = assumed ?? worst;
   const harm = shown
@@ -371,6 +400,16 @@ export function delveForecast(
   const won = runs.map((r) => r.outcome === 'victory');
   const odds: Odds = won[2] ? 'likely' : won[1] || won[0] ? 'uncertain' : 'unlikely';
   return { ...out, odds, ...tollOf(runs[1]!), trials: runs.map((r) => r.outcome) };
+}
+
+/** Cuts or acid, whichever hurts this crew more (the stat of most of them decides). */
+function worstLoculeHazard(crew: readonly Villager[], strength: number): RoomHazard {
+  const toll = (kind: 'cuts' | 'acid') =>
+    crew.reduce((a, v) => {
+      const o = hazardOdds(v, crew, { kind, strength });
+      return a + o.chance * o.harm;
+    }, 0);
+  return { kind: toll('acid') > toll('cuts') ? 'acid' : 'cuts', strength };
 }
 
 function round2(x: number): number {

@@ -433,7 +433,7 @@ function ratesOf(
     // Chantier 48: a gallery is worked like a workplace of its resource.
     const g = state.depths.galleries[job.roomId];
     perHour = KIWI.xpPerHour.work;
-    mastery = g ? RESOURCE_MASTERY[DEPTHS.gallery.resource[g.kind]] : null;
+    mastery = g ? RESOURCE_MASTERY[DEPTHS.gallery.workAs[g.kind]] : null;
   } else if (job.kind === 'train' || job.kind === 'transform') {
     perHour = KIWI.xpPerHour.train;
   } else if (job.kind === 'guard' || job.kind === 'titan' || job.kind === 'stardust') {

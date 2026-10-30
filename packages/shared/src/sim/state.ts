@@ -659,6 +659,8 @@ export interface DepthView {
   at: TimeMs;
   source: 'delve' | 'retreat' | 'lantern' | 'edge';
   kind?: RoomKind;
+  /** Chantier 50: a locule with a nest (heard with its kind). */
+  nest?: boolean;
   /** The Grouillants seen (absent: not seen). */
   units?: AlienUnit[];
   /** Its hazard as met (null: none; absent: not known). */

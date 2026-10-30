@@ -24,7 +24,7 @@ export function minersIn(state: GameState, roomId: string): Villager[] {
 
 export function galleryResource(state: GameState, roomId: string): ResourceId | null {
   const g = state.depths.galleries[roomId];
-  return g ? DEPTHS.gallery.resource[g.kind] : null;
+  return g ? (DEPTHS.gallery.resource[g.kind] ?? null) : null;
 }
 
 /** Places for miners in a gallery (by its depth). */

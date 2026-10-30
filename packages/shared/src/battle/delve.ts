@@ -41,7 +41,7 @@ const CENTRE: Hex = { q: 0, r: 0 };
 
 /** The stat that lessens a hazard. */
 export function hazardStat(kind: HazardKind): 'endurance' | 'dexterity' {
-  return kind === 'fall' ? 'endurance' : 'dexterity';
+  return kind === 'cuts' ? 'dexterity' : 'endurance';
 }
 
 /**

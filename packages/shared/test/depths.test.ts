@@ -33,8 +33,9 @@ describe('the depths: the network and what rooms hold (chantier 48)', () => {
       JSON.stringify(map.rooms),
     );
     const total = DEPTHS.rooms.reduce((acc, [lo, hi]) => [acc[0]! + lo, acc[1]! + hi], [0, 0]);
-    expect(map.rooms.length).toBeGreaterThanOrEqual(total[0]!);
-    expect(map.rooms.length).toBeLessThanOrEqual(total[1]!);
+    const flesh = map.rooms.filter((r) => r.depth <= 3);
+    expect(flesh.length).toBeGreaterThanOrEqual(total[0]!);
+    expect(flesh.length).toBeLessThanOrEqual(total[1]!);
     // Every room can be reached from the entrance; links go both ways.
     const seen = new Set(map.rooms.filter((r) => r.entrance).map((r) => r.id));
     const todo = [...seen];
