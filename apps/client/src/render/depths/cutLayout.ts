@@ -1,4 +1,4 @@
-import type { DepthRoom, DepthsMap } from '@kiwar/shared';
+import { isLocule, type DepthRoom, type DepthsMap } from '@kiwar/shared';
 
 /**
  * Chantier 49: where the depths stand in the cut of the dome. Pure (no three.js): the same
@@ -42,6 +42,24 @@ function basePoint(room: Pick<DepthRoom, 'x' | 'depth'>): CutPoint {
 /** The farthest a room's middle goes across at depth `t` (room for the hollow). */
 function rowEdge(t: number): number {
   return Math.sqrt(Math.max(0, 1 - t * t)) - ROOM_T * 1.6;
+}
+
+const fleshCache = new WeakMap<DepthsMap, DepthsMap>();
+
+/**
+ * The rooms the cut shows: the green flesh. The locules (chantier 50) stay under the ring's
+ * veil until the cut draws them on the ring.
+ */
+export function fleshOf(map: DepthsMap): DepthsMap {
+  let out = fleshCache.get(map);
+  if (!out) {
+    const rooms = map.rooms
+      .filter((r) => !isLocule(r))
+      .map((r) => ({ ...r, links: r.links.filter((id) => !isLocule(map.byId.get(id)!)) }));
+    out = { rooms, byId: new Map(rooms.map((r) => [r.id, r])) };
+    fleshCache.set(map, out);
+  }
+  return out;
 }
 
 const pointsCache = new WeakMap<DepthsMap, Map<string, CutPoint>>();

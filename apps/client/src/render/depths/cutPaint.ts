@@ -71,6 +71,9 @@ export const KIND_TINTS: Record<RoomKind, string> = {
   nest: '#b5543c',
   scree: '#8b6f4e',
   raphides: '#e9f4f6',
+  // Chantier 50: the locules.
+  forest: '#d6f0f7',
+  lake: '#b7d64a',
 };
 
 /** Paints the section on `canvas` (sized here); `aspect` = the face's half-width / depth. */

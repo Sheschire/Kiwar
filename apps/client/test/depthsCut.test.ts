@@ -6,6 +6,7 @@ import {
   LOCULES,
   ROOM_T,
   along,
+  fleshOf,
   cutLinks,
   roomPoint,
   wayTo,
@@ -15,7 +16,7 @@ const ASPECT = 1.8;
 
 describe('the cut of the depths (chantier 49)', () => {
   const maps = ['demo', 'a', 'b', 'c', 'd', 'e'].flatMap((seed) =>
-    (['kiwisu', 'kiwino'] as const).map((face) => depthsMapOf({ seed, face })),
+    (['kiwisu', 'kiwino'] as const).map((face) => fleshOf(depthsMapOf({ seed, face }))),
   );
 
   it('keeps every room inside the flesh, off the seam and clear of the locules', () => {

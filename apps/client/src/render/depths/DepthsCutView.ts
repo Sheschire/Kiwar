@@ -20,7 +20,7 @@ import {
   type GameState,
 } from '@kiwar/shared';
 import { domeShape, type DomeShape } from '../terrain';
-import { ROOM_T, roomPoint, type CutPoint } from './cutLayout';
+import { fleshOf, ROOM_T, roomPoint, type CutPoint } from './cutLayout';
 import { cutKnowledge, cutSignature, paintCut, type CutKnowledge } from './cutPaint';
 
 /**
@@ -120,7 +120,7 @@ export class DepthsCutView {
 
   /** Repaints the section when what we know of the depths changed (cheap otherwise). */
   sync(state: GameState): void {
-    this.depths = depthsMapOf(state);
+    this.depths = fleshOf(depthsMapOf(state));
     this.seed = `${state.seed}/${state.face}`;
     const k = cutKnowledge(this.depths, state.depths);
     this.knowledge = k;
