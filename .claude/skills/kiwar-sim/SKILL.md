@@ -218,3 +218,9 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
 - **Chantier 48 (`kiwar-depths`)**: save v39 (`depths`, hidden `depthSeed`, job `mine`,
   automation `mine` read as true when missing). Fields added to a schema version already
   deployed must be optional or defaulted (part 1 was live before parts 3–5).
+
+- **Chantier 50 (`kiwar-depths`, `kiwar-forge`)**: save v40 (`crystal`, `giantSeeds`). Two
+  more stocks apart (crystal like the iron: raw integer units, its rate in `computeFlows`;
+  giant seeds whole). Something that waits for room in a stock and resumes when a command
+  frees it (a locule tree's ripe seed) runs at the **loop top** (`treeTick`): the time room
+  appears is a command or an event, so small steps equal one big step.

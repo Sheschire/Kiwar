@@ -1,4 +1,5 @@
 import {
+  buildLock,
   applyCommand,
   buildCost,
   buildingCount,
@@ -86,7 +87,8 @@ function campDecision(
 ): Command | null {
   if (ageOf(state) < 1 || !has('library')) return null;
   if (!has('trainingCamp')) {
-    if (buildingCount(state) >= (nestDef(state).maxBuildings ?? 0)) return null;
+    // A build `buildLock` refuses (the Nest level) would freeze every later decision.
+    if (buildLock(state, 'trainingCamp')) return null;
     if (!canAfford(state.resources, buildCost(state, 'trainingCamp'))) return null;
     return build('trainingCamp');
   }

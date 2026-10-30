@@ -66,7 +66,7 @@ loot and iron by depth and kind, `gallery` (resource by kind, slots and `perMine
   `delve` view, `edge` views of its neighbours, the lantern, loot and `result.iron` (added at
   the return), XP × `LANDING.victoryXp`, veterans; chantier 46's rule (fallen wounded on a
   win, dead with their gear otherwise). `ExpeditionResult` adds `iron`, `hazard { kind,
-  strength, hits }`, `gallery`, `lantern`.
+strength, hits }`, `gallery`, `lantern`.
 - `delveForecast(state, roomId, crew, orders)` (public): units seen, else the depth's
   estimate × 0.75 / 1 / 1.25 (the hardest one a nest when the kind is unknown); the hazard
   seen, assumed from the kind (scree, raphides), or a fall in the hardest trial when unknown
@@ -171,8 +171,35 @@ forecast is not likely, open after). Milestones `tunnel`, `delve` (informative);
 `upwellsHeld`, `galleries`, `miners`; report table "The depths". Wave counting skips
 upwelling reports (`reportsSeen`).
 
+## The locules (chantier 50)
+
+- **Layer 2, depth 4** (`LOCULE_DEPTH`, `isLocule(room)`): `generateLocules` draws 30–42
+  rooms on an arc after the flesh, from its own stream `…/depths/locules` (the flesh's hash is
+  tested in `test/locules.test.ts`); each opens onto the next; each depth-3 room onto the
+  nearest locule (and sometimes the second), a few locules onto the room above. All depth
+  tables (`power`, `level`, `travelMs`, `loot`, `iron`, `hazard.strength`, `gallery.slots`,
+  `perMiner`) have 4 entries.
+- Truth (`drawLocule`): kind `forest` (raphide forest, hazard `cuts`) or `lake` (actinidine
+  lake, hazard `acid`: Endurance, `hazardStat`), `nest` (`RoomTruth.nest`, `DepthView.nest`
+  for locules: heard with the kind), `giantSeeds` 1–3 (`ExpeditionResult.giantSeeds`, added at
+  the return). A flesh room's `nest` is `kind === 'nest'`.
+- `layerOpen(state, room)` / `delveLock` `layerLocked`: locules from the Industry age
+  (`DEPTHS.locules.age`). `reachableRooms` still lists them: filter with `layerOpen`.
+- Forecast: an unknown locule meets the worse of cuts and acid for that crew
+  (`worstLoculeHazard`) and maybe a nest (hardest trial). Order `skirt` (command `delve { skirt }`, `Expedition.skirt`, `delveTime(room, skirt)`, `delveForecast(…, fed, skirt)`):
+  × `skirtTravel` to a locule, no acid.
+- Galleries: `DEPTHS.gallery.resource` is partial (a locule yields no shared resource);
+  miners use `workAs` (forest: seeds, lake: juice) for mastery and power (`galleryWorkAs`).
+  A forest cuts crystal (`sim/crystal.ts`, see `kiwar-forge`); a lake gives its enzyme while
+  one miner works it (`actinidineActive`: infusion risk × 0.5, `woundFactor` with Enzymes);
+  the automation sends one miner to a lake once the lab or Enzymes is known (`lakeMiners`).
+- Upwellings: `nestsNear` returns `{ flesh, locules }`; power adds `perLoculeNest` (0.6).
+- Client: the 2D cut draws the locules on two staggered arcs around the core and
+  `LoculeStrip` unrolls them (tap targets); the 3D cut of chantier 49 gets the flesh only
+  (`fleshOf(map)` in `render/depths/cutLayout.ts`) until it draws the ring.
+
 ## Next chantiers
 
-49 done (the Grouillants' own rigs are still to draw: `DETTE.md`), 50 (locules: crystal,
-giant seeds, actinidine; layer 2 of `DEPTHS.layers`), 52 (core and stem). A new layer adds
-rooms to `generateDepths` **after** the flesh's draws (the flesh's network must not move).
+49 done (the Grouillants' own rigs are still to draw: `DETTE.md`), 50 done (the locules),
+52 (core and stem). A new layer adds rooms to `generateDepths` **after** the locules' draws,
+on its own stream (neither the flesh nor the locules must move).

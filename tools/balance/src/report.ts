@@ -57,6 +57,7 @@ export const INFORMATIVE: ReadonlySet<Milestone> = new Set([
   'canal',
   'tunnel',
   'delve',
+  'locule',
   'glimpse',
   'landingWon',
   'centreWon',
@@ -123,6 +124,7 @@ export const LABELS: Record<Milestone, string> = {
   canal: 'First juice canal',
   tunnel: 'Tunnel entrance',
   delve: 'First room of the depths',
+  locule: 'First locule taken',
   glimpse: 'First landing back (a glimpse)',
   landingWon: 'First landing won (a beacon)',
   centreWon: 'First beacon in the centre',
@@ -253,13 +255,13 @@ function depthsTable(groups: Group[], lines: string[]): void {
     runs.length ? runs.reduce((s, r) => s + f(r), 0) / runs.length : 0;
   lines.push('## The depths (average per run)', '');
   lines.push(
-    '| Biome | Delves | Rooms taken | Retreats | Kiwis lost | Miners | Upwellings | Lost | Held at the door |',
+    '| Biome | Delves | Rooms taken | Retreats | Kiwis lost | Miners | Upwellings | Lost | Held at the door | Locules | Crystal at cap | Seeds at cap | Trees |',
   );
-  lines.push('|---|---|---|---|---|---|---|---|---|');
+  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const g of groups) {
     const up = avg(g.runs, (r) => r.final.upwells ?? 0);
     lines.push(
-      `| ${g.label} | ${avg(g.runs, (r) => r.final.delves ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.roomsTaken ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.delveRetreats ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.delveDeaths ?? 0).toFixed(2)} | ${avg(g.runs, (r) => r.final.miners ?? 0).toFixed(1)} | ${up.toFixed(1)} | ${up > 0 ? Math.round((avg(g.runs, (r) => r.final.upwellsLost ?? 0) / up) * 100) : 0} % | ${avg(g.runs, (r) => r.final.upwellsHeld ?? 0).toFixed(1)} |`,
+      `| ${g.label} | ${avg(g.runs, (r) => r.final.delves ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.roomsTaken ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.delveRetreats ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.delveDeaths ?? 0).toFixed(2)} | ${avg(g.runs, (r) => r.final.miners ?? 0).toFixed(1)} | ${up.toFixed(1)} | ${up > 0 ? Math.round((avg(g.runs, (r) => r.final.upwellsLost ?? 0) / up) * 100) : 0} % | ${avg(g.runs, (r) => r.final.upwellsHeld ?? 0).toFixed(1)} | ${avg(g.runs, (r) => r.final.loculesTaken ?? 0).toFixed(1)} | ${Math.round(avg(g.runs, (r) => r.final.crystalCap ?? 0) * 100)} % | ${Math.round(avg(g.runs, (r) => r.final.seedCap ?? 0) * 100)} % | ${avg(g.runs, (r) => r.final.trees ?? 0).toFixed(1)} |`,
     );
   }
   lines.push('');

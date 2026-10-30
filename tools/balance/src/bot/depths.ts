@@ -18,6 +18,7 @@ import {
   meteorIronOf,
   rations,
   layerOpen,
+  isLocule,
   reachableRooms,
   THREATS,
   tunnelOf,
@@ -95,12 +96,25 @@ export function delveOrder(state: GameState): Command | null {
     for (let size = Math.max(2, max - 2); size <= max; size++) {
       const crew = delveCrew(state, size);
       if (crew.length < size) break;
-      const f = delveForecast(state, room.id, crew, orders);
-      if (!f || f.odds !== 'likely' || f.expectedDead > 0) continue;
-      const need = rations(state, crew, 2 * f.travelMs);
-      const provisions = { pulp: Math.ceil(need.pulp * 1.1), juice: Math.ceil(need.juice * 1.1) };
-      if (!canAfford(state.resources, provisions)) return null;
-      return { type: 'delve', roomId: room.id, crew: crew.map((v) => v.id), provisions, orders };
+      // Chantier 50: to a locule, skirt the lakes when only that makes it likely.
+      for (const skirt of isLocule(room) ? [false, true] : [false]) {
+        const f = delveForecast(state, room.id, crew, orders, 1, skirt);
+        if (!f || f.odds !== 'likely' || f.expectedDead > 0) continue;
+        const need = rations(state, crew, 2 * f.travelMs);
+        const provisions = {
+          pulp: Math.ceil(need.pulp * 1.1),
+          juice: Math.ceil(need.juice * 1.1),
+        };
+        if (!canAfford(state.resources, provisions)) return null;
+        return {
+          type: 'delve',
+          roomId: room.id,
+          crew: crew.map((v) => v.id),
+          provisions,
+          orders,
+          ...(skirt ? { skirt: true } : {}),
+        };
+      }
     }
   }
   return null;

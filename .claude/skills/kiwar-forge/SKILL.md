@@ -104,3 +104,30 @@ command that always fails freezes the bot).
 
 A kiwi dead on a landing loses its gear (call something else than `returnGear`, which gives it
 back); the aliens gain it (impact of chantier 39). Gear is part of the crew's strength there.
+
+## Chantier 50: crystal and giant seeds (the locules)
+
+- `data/crystal.ts`: `CRYSTAL` (cap by Nest level, `perHour` per miner in a raphide forest,
+  `lens`, `ammo`), `CRYSTAL_SCALE`, `GIANT_SEEDS` (cap by age, `egg`, `tree`). `sim/crystal.ts`:
+  `crystalCap`, `crystalOf`, `addCrystal` / `payCrystal`, `galleryCrystalRate` (integer, in
+  `computeFlows` → `flows.crystal`, `accrueCrystal`, `nextCrystalEvent`, event `crystalFull`),
+  `giantSeedCap`, `addGiantSeeds` / `payGiantSeeds`, `lensLock`, `seedTurrets`,
+  `crystalAmmoCost` / `crystalAmmoOn`, `treeSeedCost`, `nextTreeEvent`, `treeTick`.
+  State `crystal` (raw), `giantSeeds` (whole), save v40; `plausibleLocules`.
+- Crystal pays: technologies (`TechDef.crystal`: `glass` → lenses + research × 1.1,
+  `crystalCut` → crystal ammunition and the crystal tier; refunded on abandon), Forge pieces
+  (`ItemDef.crystal`, `ForgeOrder.crystal`), lenses (`fitLens`, `Building.lens`: +1 range in
+  `turretRange(type, level, lens)` and every coverage), the ammunition (`setCrystalAmmo`,
+  `threats.crystalAmmo`: seed turrets get `weapon.pierce`, paid at the strike,
+  `WaveReport.crystalUsed`).
+- **Tier `crystal`** (`GEAR_TIERS[3]`): weapons only (`blade/mace/bow/staff-crystal`, damage
+  as steel, `pierce` 0.5); `${armourKind}-crystal` does not exist (code building item ids
+  from a tier must check `ITEMS[id]`); the aliens stop at steel (`gearTierOf`). Pierce:
+  `Weapon.pierce` lowers the target's armour in `simulate.ts`; `GearEffect.pierce`.
+- Giant seeds pay: the locule tree (`loculeTree`, decoration of the Industry age, n-th tree
+  n seeds, `QueueItem.paidSeeds`; `Building.seedAt`: grows 48 h, then a seed every 72 h; a
+  ripe seed waits while the stock is full and falls at the loop top, `treeTick`, event
+  `treeSeed`) and the locule egg (`hatchEgg { locule }`, `Egg.locule`, +1 every stat).
+- Bot: `bot/locules.ts` (`loculeOrders`: ammunition on, then lenses keeping two strikes;
+  `treeDecision`; `hatchLocule` when the seeds are at the cap); `TECH_ORDER` ends with
+  `enzymes`, `glass`, `crystalCut` (they wait for their crystal).

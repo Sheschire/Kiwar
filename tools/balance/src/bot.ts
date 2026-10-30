@@ -1,4 +1,5 @@
 import { delveOrder, doorOrder, tunnelDecision } from './bot/depths';
+import { hatchLocule, loculeOrders, treeDecision } from './bot/locules';
 import {
   civAt,
   civWave,
@@ -53,6 +54,8 @@ import {
   syncColonies,
   takeFounding,
   twinTarget,
+  crystalCap,
+  giantSeedCap,
 } from '@kiwar/shared';
 import { ageDecision, monumentDecision } from './bot/ages';
 import { campOrder } from './bot/camps';
@@ -97,6 +100,8 @@ export const MILESTONES = [
   // Chantier 48: the tunnel entrance, the first room of the depths taken.
   'tunnel',
   'delve',
+  // Chantier 50: the first locule taken.
+  'locule',
   // Chantier 40: the first glimpse (a landing back home), the first beacon, one in the centre.
   'glimpse',
   'landingWon',
@@ -148,6 +153,15 @@ export interface RunResult {
     upwells?: number;
     upwellsLost?: number;
     upwellsHeld?: number;
+    /**
+     * Chantier 50: locules taken, share of the time since the first one with the crystal (and
+     * the giant seeds) at the cap, locule trees and eggs.
+     */
+    loculesTaken?: number;
+    crystalCap?: number;
+    seedCap?: number;
+    trees?: number;
+    loculeEggs?: number;
     galleries?: number;
     miners?: number;
     /** Chantier 40: landings, landings won, retreats, ships lost; kiwis lost on expeditions,
@@ -286,6 +300,9 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
       if (delve) cmds.push(delve);
       else play.depthsAt = state.now + HOUR_MS;
     }
+    // Chantier 50: crystal ammunition and lenses.
+    const locule = loculeOrders(state);
+    if (locule) cmds.push(locule);
   }
 
   // Kikiwiwis (chantier 08): an infusion, the garrison, titan works.
@@ -319,7 +336,7 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
 
   // Hatch only kiwis the colony can feed (chantier 04).
   if (canHatch(state) && canAfford(state.resources, eggCost(state)) && canFeedOneMore(state))
-    cmds.push({ type: 'hatchEgg' });
+    cmds.push({ type: 'hatchEgg', ...(play.depths && hatchLocule(state) ? { locule: true } : {}) });
 
   // Chantier 18: paths pave the walk to the depot when they pay back quickly (no queue).
   // Looked at once per game hour, like a player checking the map now and then.
@@ -398,6 +415,12 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
   if (play.village) {
     const village = villageDecision(state, map, build, has);
     if (village) return [...cmds, village];
+  }
+
+  // Chantier 50: a locule tree whenever the giant seeds pay for it.
+  if (play.depths) {
+    const tree = treeDecision(state, build);
+    if (tree) return [...cmds, tree];
   }
 
   // 2c. Research and ages (chantier 08): Library, researchers, technologies, the monument.
@@ -537,6 +560,7 @@ function checkMilestones(
     state.buildings.some((b) => b.type === 'tunnel'),
   );
   set('delve', Object.keys(state.depths.galleries).length > 0);
+  set('locule', loculeTaken(state));
   set(
     'allLevel3',
     // Economy buildings (the bot does not play expeditions yet).
@@ -678,7 +702,20 @@ export function runBot(opts: RunOptions): RunResult {
   >;
   let lost = 0;
   const civAtAges: (number | null)[] = [null, null, null];
+  // Chantier 50: time with a locule taken, with the crystal / the giant seeds at the cap.
+  const loculeMs = { open: 0, crystal: 0, seeds: 0 };
+  let loculeEggs = 0;
+  const eggsSeen = new Set<number>();
   while (now - start < opts.horizonMs) {
+    if (loculeTaken(state)) {
+      loculeMs.open += step;
+      if (state.crystal >= crystalCap(state)) loculeMs.crystal += step;
+      if (state.giantSeeds >= giantSeedCap(state)) loculeMs.seeds += step;
+    }
+    if (state.egg?.locule && !eggsSeen.has(state.egg.startedAt)) {
+      eggsSeen.add(state.egg.startedAt);
+      loculeEggs++;
+    }
     const dustBefore = state.stardust;
     const stepped = advance(state, now);
     state = stepped.state;
@@ -888,6 +925,13 @@ export function runBot(opts: RunOptions): RunResult {
       upwellsLost: depths.upwellsLost,
       upwellsHeld: depths.upwellsHeld,
       galleries: Object.keys(state.depths.galleries).length,
+      loculesTaken: Object.values(state.depths.galleries).filter(
+        (g) => g.kind === 'forest' || g.kind === 'lake',
+      ).length,
+      crystalCap: loculeMs.open > 0 ? loculeMs.crystal / loculeMs.open : 0,
+      seedCap: loculeMs.open > 0 ? loculeMs.seeds / loculeMs.open : 0,
+      trees: state.buildings.filter((b) => b.type === 'loculeTree').length,
+      loculeEggs,
       miners: state.villagers.filter((v) => v.job.kind === 'mine').length,
       beaconAttacks: attacks.total,
       beaconsHeld: attacks.held,
@@ -913,4 +957,11 @@ function civFinal(state: GameState): { civAge?: number; civWave?: number } {
     civAge: civAt(twin, state.now).age,
     civWave: Math.round(civWave(state, state.now, '').factor * 100) / 100,
   };
+}
+
+/** Chantier 50: a locule is taken. */
+function loculeTaken(state: GameState): boolean {
+  return Object.values(state.depths.galleries).some(
+    (g) => g.kind === 'forest' || g.kind === 'lake',
+  );
 }

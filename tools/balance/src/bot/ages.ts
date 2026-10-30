@@ -49,6 +49,10 @@ export const TECH_ORDER: TechId[] = [
   'compass',
   'steamEngines',
   'titanWorks',
+  // Chantier 50: what the locules give (crystal-paid: they wait for it).
+  'enzymes',
+  'glass',
+  'crystalCut',
 ];
 
 /**
