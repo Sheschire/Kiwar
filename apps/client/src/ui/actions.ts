@@ -17,6 +17,7 @@ import {
   pathLogisticsChanges,
   PATHS,
   TILES,
+  tunnelOf,
   type BuildingType,
   type Command,
   otherFace,
@@ -518,6 +519,22 @@ export const actions = {
     const id = uiStore.getState().landingInvite;
     uiStore.setState({ landingInvite: null });
     tellLanding(id);
+  },
+  /**
+   * Chantier 49: the depths in a cut — a quarter of the dome opens and the camera goes down
+   * along it. Only with the tunnel standing.
+   */
+  openCut(): boolean {
+    const game = uiStore.getState().game;
+    if (!game || !tunnelOf(game) || game.colony.index !== 0) return false;
+    if (uiStore.getState().visit !== null) actions.travelTo(null);
+    if (!renderer?.openCut()) return false;
+    uiStore.setState({ modal: 'none', selectedTile: null, planetCard: null, planetsOpen: false });
+    audio.play('ui.click');
+    return true;
+  },
+  closeCut(): void {
+    renderer?.closeCut();
   },
   /** Chantier 24: the small card of a tapped planet ("Go there"), or none. */
   showPlanetCard(planet: PlanetRef | null): void {

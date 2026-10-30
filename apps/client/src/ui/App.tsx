@@ -33,6 +33,7 @@ import { SiegeModal } from './components/SiegeModal';
 import { BestiaryModal } from './components/BestiaryModal';
 import { LevelsButton, LogisticsButton, PlacingBanner } from './components/BuildingTree';
 import { BootScreen, Guard } from './components/Guard';
+import { CutBanner } from './components/CutBanner';
 import { VisitBanner } from './components/VisitBanner';
 import { BattleBar } from './components/BattleBar';
 import { LandingInvite } from './components/LandingInvite';
@@ -138,6 +139,7 @@ export function App() {
   const placing = useUi((s) => s.placing !== null);
   const intro = useUi((s) => s.intro !== null);
   const visiting = useUi((s) => s.visit !== null);
+  const cut = useUi((s) => s.cutOpen);
   const thumb = useThumbLayout();
 
   useEffect(() => {
@@ -156,6 +158,7 @@ export function App() {
         if (ui.planetCard !== null) actions.showPlanetCard(null);
         else if (ui.planetsOpen) actions.togglePlanets(false);
         else if (ui.visit !== null) actions.travelTo(null);
+        else if (ui.cutOpen && ui.modal === 'none') actions.closeCut();
         else if (uiStore.getState().pathMode) actions.setPathMode(false);
         else if (uiStore.getState().digMode) actions.setDigMode(false);
         else if (uiStore.getState().placing) actions.stopPlacing();
@@ -179,6 +182,19 @@ export function App() {
       <div class="hud">
         <IntroOverlay />
         <Toasts />
+      </div>
+    );
+  // Chantier 49: the depths in a cut — their banner, the battle bar, the Depths screen.
+  if (cut)
+    return (
+      <div class={`hud ${thumb ? 'thumb' : ''}`}>
+        <CutBanner />
+        <BattleBar />
+        <Toasts />
+        <Guard>
+          {modal === 'depths' && <DepthsModal />}
+          {modal === 'report' && <ReportModal />}
+        </Guard>
       </div>
     );
   // Visiting an ally's planet: look only, with the way back home.

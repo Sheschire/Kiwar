@@ -6341,3 +6341,14 @@ h3 .building-thumb {
   display: inline-block;
   vertical-align: -2px;
 }
+
+/* Chantier 49: the depths in a cut. */
+.depths-head {
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.depths-head p {
+  flex: 1;
+  margin: 0;
+}

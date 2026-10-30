@@ -54,7 +54,9 @@ export function depthsVisible(game: GameState): boolean {
 export function DepthsModal() {
   const t = useT();
   const game = useUi((s) => s.game);
-  const [selected, setSelected] = useState<string | null>(null);
+  // Chantier 49: a room tapped in the cut opens the screen on it.
+  const [selected, setSelected] = useState<string | null>(() => uiStore.getState().depthsRoom);
+  const inCut = useUi((s) => s.cutOpen);
   if (!game) return null;
   const close = () => uiStore.setState({ modal: 'none' });
   const tunnel = tunnelOf(game);
@@ -74,7 +76,14 @@ export function DepthsModal() {
         </section>
       ) : (
         <>
-          <p class="small muted">{t('depths.intro')}</p>
+          <div class="row depths-head">
+            <p class="small muted">{t('depths.intro')}</p>
+            {!inCut && (
+              <button class="btn" onClick={() => actions.openCut()}>
+                {t('slice.open')}
+              </button>
+            )}
+          </div>
           <div class="depths-layout">
             <DepthsCut game={game} selected={selected} onSelect={setSelected} />
             <div class="depths-side">

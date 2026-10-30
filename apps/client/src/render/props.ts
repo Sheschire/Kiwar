@@ -1,4 +1,4 @@
-import type { BufferGeometry } from 'three';
+import type { BufferGeometry, Plane } from 'three';
 import {
   Color,
   ConeGeometry,
@@ -111,6 +111,8 @@ function tint(base: string, rng: Rng, amount: number): Color {
  */
 export class PropsView {
   readonly group = new Group();
+  /** Chantier 49: the fur of the skin dome (clipped with it while the cut is open). */
+  private readonly domeFur: MeshStandardMaterial;
   private readonly batches: PropBatch[] = [];
 
   constructor(map: FaceMap, density: number) {
@@ -150,6 +152,7 @@ export class PropsView {
     // Chantier 45: flowers on the fertile banks.
     const flower = new PropBatch(new IcosahedronGeometry(0.07, 0), mat({ roughness: 0.6 }), false);
     this.batches.push(tuftStem, tuftPuff, seed, pulp, blade, pebble, fur, domeFur, flower);
+    this.domeFur = domeFur.material;
     withSeasonLook(flower.material, { tint: 0.5, snow: 1 });
     withWind(flower.material, 0.5);
     // Down puffs and grass turn with the seasons; everything gets snow in winter.
@@ -371,6 +374,14 @@ export class PropsView {
   setTileCleared(tile: { q: number; r: number }, cleared: boolean): void {
     const key = hexKey(tile);
     for (const b of this.batches) b.setTileVisible(key, !cleared);
+  }
+
+  /** Chantier 49: the fur follows the dome's clipping (the quarter of the cut). */
+  setDomeClip(planes: Plane[] | null): void {
+    const had = (this.domeFur.clippingPlanes?.length ?? 0) > 0;
+    this.domeFur.clippingPlanes = planes;
+    this.domeFur.clipIntersection = true;
+    if (had !== !!planes) this.domeFur.needsUpdate = true;
   }
 
   dispose(): void {

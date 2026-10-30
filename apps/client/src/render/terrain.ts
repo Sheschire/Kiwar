@@ -12,6 +12,7 @@ import {
   MeshStandardMaterial,
   SphereGeometry,
   Vector3,
+  type Plane,
 } from 'three';
 import {
   hexKey,
@@ -293,6 +294,21 @@ export class TerrainView {
     if (this.tiles.instanceColor) this.tiles.instanceColor.needsUpdate = true;
   }
 
+  /**
+   * Chantier 49: clips the skin dome (the quarter of the cut opens): `planes` with
+   * `clipIntersection` remove the wedge between them; null closes the fruit again.
+   */
+  setDomeClip(planes: Plane[] | null): void {
+    this.dome.traverse((o) => {
+      if (!(o instanceof Mesh)) return;
+      const m = o.material as MeshStandardMaterial;
+      const had = (m.clippingPlanes?.length ?? 0) > 0;
+      m.clippingPlanes = planes;
+      m.clipIntersection = true;
+      if (had !== !!planes) m.needsUpdate = true;
+    });
+  }
+
   /** Index in `map.tiles` of the tile under a ray hit (instance id). */
   tileOfInstance(instanceId: number): Tile | undefined {
     return this.map.tiles[instanceId];
@@ -353,6 +369,27 @@ export function domeRadius(map: FaceMap): number {
   return r;
 }
 
+/** Chantier 49: the skin dome's semi-axes (across x, down, across z) and its top. */
+export interface DomeShape {
+  ax: number;
+  ay: number;
+  az: number;
+  top: number;
+}
+
+export function domeShape(map: FaceMap): DomeShape {
+  const radius = domeRadius(map);
+  return {
+    ax: radius * map.ellipse,
+    ay: radius * DOME_DEPTH,
+    az: radius / Math.sqrt(map.ellipse),
+    top: DOME_TOP,
+  };
+}
+
+/** Depth of the dome, in radii. */
+const DOME_DEPTH = 0.55;
+
 /** The other half of the kiwi: a furry brown dome hanging under the tiles. */
 /** The cut under the tiles: only seen through the gaps between them, like a shadow. */
 const SKIN_CUT = new Color('#3d2817');
@@ -384,7 +421,7 @@ function createKiwiDome(map: FaceMap): Mesh {
   };
   material.customProgramCacheKey = () => 'kiwar-dome';
   const dome = new Mesh(geometry, material);
-  dome.scale.set(radius * map.ellipse, radius * 0.55, radius / Math.sqrt(map.ellipse));
+  dome.scale.set(radius * map.ellipse, radius * DOME_DEPTH, radius / Math.sqrt(map.ellipse));
   dome.position.y = DOME_TOP;
   dome.receiveShadow = true;
   // The cut closes the bowl: through the gaps between tiles one never sees inside the skin.

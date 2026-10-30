@@ -2770,4 +2770,12 @@ export const fr: Dict = {
     chorus: { name: 'Chœur', desc: 'Son chant porte à 3 cases et donne +30 %.' },
     anthem: { name: 'Hymne', desc: 'Combat 30 % plus fort.' },
   },
+  // Chantier 49 : les Tréfonds en coupe (espace à part : le chantier 50 modifie `depths`).
+  slice: {
+    title: 'Les Tréfonds en coupe',
+    hint: 'Inclinez vers le haut pour remonter. Touchez une salle pour sa fiche.',
+    open: 'Voir en coupe',
+    back: 'Retour à la surface',
+    screen: 'Écran des Tréfonds',
+  },
 };

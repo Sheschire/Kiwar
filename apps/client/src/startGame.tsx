@@ -116,6 +116,15 @@ const renderer = new GameRenderer(
       else tellOutcome(source.id);
     },
     onBattleUnit: (unit) => battleStore.setState({ unit }),
+    // Chantier 49: the cut of the depths — the gesture, its rooms, its banner.
+    onTiltPast: (way) => {
+      if (way === 'down') actions.openCut();
+      else actions.closeCut();
+    },
+    onRoomTap: (roomId) => {
+      if (roomId) uiStore.setState({ modal: 'depths', depthsRoom: roomId });
+    },
+    onCutChange: (open) => uiStore.setState({ cutOpen: open }),
   },
   qualityChoice,
 );

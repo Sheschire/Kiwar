@@ -2664,4 +2664,12 @@ export const en = {
     chorus: { name: 'Chorus', desc: 'Its song reaches 3 tiles and gives +30 %.' },
     anthem: { name: 'Anthem', desc: 'Fights 30 % harder.' },
   },
+  // Chantier 49: the depths seen in a cut (own namespace: chantier 50 edits `depths`).
+  slice: {
+    title: 'The depths in a cut',
+    hint: 'Tilt back up to return. Tap a room for its sheet.',
+    open: 'See in a cut',
+    back: 'Back to the surface',
+    screen: 'Depths screen',
+  },
 };

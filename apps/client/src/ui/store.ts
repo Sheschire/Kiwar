@@ -178,6 +178,10 @@ export interface UiState {
   allyTile: { q: number; r: number } | null;
   /** Chantier 41: a landing that just happened, offered to watch (expedition id). */
   landingInvite: string | null;
+  /** Chantier 49: the cut of the depths is on screen (the HUD shrinks to its banner). */
+  cutOpen: boolean;
+  /** Chantier 49: the room the Depths screen opens on (a tap in the cut; null: none). */
+  depthsRoom: string | null;
   /** Chantier 41: the landing watched on the twin (expedition id; null: none). */
   watchingLanding: string | null;
   /** Chantier 24: the card of a tapped planet ("Go there"). */
@@ -313,6 +317,8 @@ export const uiStore = createStore<UiState>(() => ({
   updateReady: false,
   visit: null,
   landingInvite: null,
+  cutOpen: false,
+  depthsRoom: null,
   watchingLanding: null,
   planetCard: null,
   planetsOpen: false,

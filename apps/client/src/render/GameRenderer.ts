@@ -8,6 +8,7 @@ import {
   PerspectiveCamera,
   Scene,
   SRGBColorSpace,
+  Raycaster,
   Vector2,
   Vector3,
   WebGLRenderer,
@@ -68,6 +69,7 @@ import { FireworksView } from './fireworks';
 import { ObstaclesView } from './obstacles';
 import { ShipsView } from './ship';
 import { BattleShow, type ShowSource, type UnitInfo } from './battle/BattleShow';
+import { DepthsCutView } from './depths/DepthsCutView';
 import { LandingShow } from './battle/landingShow';
 import { GateMarkers } from './battle/gates';
 import { PostFx } from './postfx';
@@ -144,12 +146,20 @@ export interface RendererCallbacks {
   onBattleEnd?(source: ShowSource): void;
   /** A unit of the battle was tapped (null: deselected). */
   onBattleUnit?(unit: UnitInfo | null): void;
+  /** Chantier 49: the player tilted beyond the edge (`down`: under the rim, `up`: back). */
+  onTiltPast?(way: 'down' | 'up'): void;
+  /** Chantier 49: a room of the cut was tapped (null: off the rooms). */
+  onRoomTap?(roomId: string | null): void;
+  /** Chantier 49: the cut of the depths opened or closed (the camera is back home). */
+  onCutChange?(open: boolean): void;
 }
 
 const tmpV = new Vector3();
 const tmpTarget = new Vector3();
 const tmpShift = new Vector3();
 const tmpSize = new Vector2();
+const tmpNdc = new Vector2();
+const cutRay = new Raycaster();
 /**
  * Auto steps medium up to high only if a medium frame costs the GPU less than this (high costs
  * about twice as much: it must stay well within a 60 fps frame).
@@ -272,11 +282,14 @@ export class GameRenderer {
     this.renderer.shadowMap.type = PCFSoftShadowMap;
     // Shadows only change when buildings change: render them on demand.
     this.renderer.shadowMap.autoUpdate = false;
+    // Chantier 49: the skin dome is clipped while the cut of the depths is open.
+    this.renderer.localClippingEnabled = true;
     this.gpuTimer = new GpuTimer(this.renderer.getContext());
 
     // Near plane at 1: the camera never comes closer than 11 (better depth precision).
     this.camera = new PerspectiveCamera(30, 1, 1, 2000);
     this.rig = new CameraRig(this.camera, canvas);
+    this.rig.onTiltPast = (way) => this.callbacks.onTiltPast?.(way);
     this.environment = new Environment(this.scene);
     this.scene.fog = new Fog(PALETTE.skyHorizon, 90, 260);
     this.scene.add(
@@ -298,6 +311,11 @@ export class GameRenderer {
     this.tap = new TapDetector(canvas, {
       onTap: (x, y, touch) => {
         if (this.painter.enabled || this.intro) return;
+        // Chantier 49: the cut of the depths answers alone (its rooms).
+        if (this.cut && this.rig.inCut) {
+          this.callbacks.onRoomTap?.(this.pickRoom(x, y));
+          return;
+        }
         const planet = this.planetAt(x, y);
         // Chantier 41: a landing on show — a fighter under the finger opens its card.
         if (this.visiting === 'twin' && this.landing?.battle.source) {
@@ -443,6 +461,8 @@ export class GameRenderer {
     this.ships?.setParticles(q.particles);
     this.battle?.setParticles(q.particles);
     this.landing?.setParticles(q.particles);
+    this.cut?.setHoles(preset !== 'low');
+    if (this.cut && this.lastState) this.cut.sync(this.lastState);
     this.resize();
     this.renderer.shadowMap.needsUpdate = true;
     this.fpsMeter.reset();
@@ -465,6 +485,7 @@ export class GameRenderer {
   }
 
   setFace(map: FaceMap, keepView = false): void {
+    this.disposeCut();
     this.map = map;
     this.visiting = null;
     this.homeView = null;
@@ -868,6 +889,7 @@ export class GameRenderer {
     if (state === this.lastState) return;
     this.lastState = state;
     this.buildings?.sync(state);
+    this.cut?.sync(state);
     if (this.pendingWaves.length > 0) this.startWaves(state);
     this.kiwis?.sync(state);
     this.paths?.sync(
@@ -1306,6 +1328,83 @@ export class GameRenderer {
     this.following = false;
   }
 
+  /** Chantier 49: the cut of the depths, built while it is shown (freed once closed). */
+  private cut: DepthsCutView | null = null;
+
+  /** Chantier 49: the cut is open (or opening): the camera is down along the dome. */
+  get cutOpen(): boolean {
+    return this.cut !== null && this.rig.inCut;
+  }
+
+  /**
+   * Chantier 49: opens a quarter of the dome towards the camera and takes the camera down to
+   * look at the depths. False when it cannot (no colony, a visit or a flight under way).
+   */
+  openCut(): boolean {
+    const state = this.lastState;
+    const terrain = this.terrain;
+    if (!this.map || !terrain || !state || this.visiting !== null || this.rig.flying) return false;
+    if (this.cutOpen) return true;
+    this.disposeCut();
+    const cut = new DepthsCutView(
+      this.map,
+      (planes) => {
+        terrain.setDomeClip(planes);
+        this.props?.setDomeClip(planes);
+      },
+      this.preset !== 'low',
+    );
+    this.cut = cut;
+    this.scene.add(cut.group);
+    const azimuth = this.rig.controls.azimuthAngle;
+    cut.open(azimuth);
+    cut.sync(state);
+    const target = new Vector3();
+    // An upright phone crops the sides of a framing: the wide cut needs a little more room.
+    const radius = cut.frame(target) * (this.camera.aspect < 0.8 ? 1.2 : 1);
+    this.rig.enterCut(target, radius, azimuth);
+    // Close looks at the rooms: a nearer near plane while the cut is shown.
+    this.camera.near = 0.25;
+    this.camera.updateProjectionMatrix();
+    this.selection.setHover(null);
+    this.callbacks.onCutChange?.(true);
+    this.wake();
+    return true;
+  }
+
+  /** Chantier 49: the quarter closes and the camera goes back to the view the player left. */
+  closeCut(): void {
+    if (!this.cut || !this.rig.inCut) return;
+    this.cut.close();
+    this.rig.leaveCut();
+    this.camera.near = 1;
+    this.camera.updateProjectionMatrix();
+    this.callbacks.onCutChange?.(false);
+    this.wake();
+  }
+
+  private disposeCut(): void {
+    if (!this.cut) return;
+    const wasOpen = this.rig.inCut;
+    this.scene.remove(this.cut.group);
+    this.cut.dispose();
+    this.cut = null;
+    if (wasOpen) {
+      this.camera.near = 1;
+      this.camera.updateProjectionMatrix();
+      this.callbacks.onCutChange?.(false);
+    }
+  }
+
+  /** Chantier 49: the room of the cut under a screen point. */
+  private pickRoom(x: number, y: number): string | null {
+    if (!this.cut) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    tmpNdc.set(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
+    cutRay.setFromCamera(tmpNdc, this.camera);
+    return this.cut.pickRoom(cutRay)?.id ?? null;
+  }
+
   /** The kiwi drawn closest to a screen point (generous radius: kiwis are small). */
   /**
    * Chantier 36: plays the battle of a wave report from `from` seconds (`live`: it is
@@ -1661,6 +1760,7 @@ export class GameRenderer {
       this.fireworks?.playing ||
       this.battle?.playing ||
       this.landing?.playing ||
+      this.cut?.moving ||
       this.pendingShow ||
       this.queenRisePending ||
       this.twin?.fading ||
@@ -1675,7 +1775,7 @@ export class GameRenderer {
     const point = this.hoverPoint;
     this.hoverPoint = null;
     // Visiting is read-only: only the planets answer the pointer there.
-    const away = this.visiting !== null;
+    const away = this.visiting !== null || this.rig.inCut;
     const hoverTile = point && !away ? this.pickTile(point.x, point.y) : null;
     if (point)
       this.hoverPlanet(hoverTile ? null : this.planetAt(point.x, point.y), point.x, point.y);
@@ -1842,6 +1942,10 @@ export class GameRenderer {
     }
     this.battle?.update(dt, this.camera);
     if (this.landing?.playing) this.landing.update(dt, this.camera);
+    if (this.cut) {
+      this.cut.update(dt);
+      if (this.cut.closed) this.disposeCut();
+    }
     this.ships?.hide(this.landing?.battle.source ? this.landing.expeditionId : null);
     const b = this.show;
     if (b) {

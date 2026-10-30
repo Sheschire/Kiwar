@@ -12,6 +12,7 @@ import {
   type PerspectiveCamera,
 } from 'three';
 import { Glide } from './inertia';
+import { TiltPast } from './tiltPast';
 
 CameraControls.install({
   THREE: { Vector2, Vector3, Vector4, Quaternion, Matrix4, Spherical, Box3, Sphere, Raycaster },
@@ -67,6 +68,11 @@ export const SPACE_POLAR = 1.42;
 const DEFAULT_POLAR = 0.78;
 /** Chantier 32: the highest tilt allowed, at the farthest zoom (just below the horizon). */
 export const TOP_POLAR = 1.5;
+/** Chantier 49: the cut of the depths is seen almost level, from a little above to below. */
+export const CUT_POLAR = 1.5;
+export const CUT_POLAR_RANGE = [0.85, 1.78] as const;
+/** Chantier 49: how far the camera may turn either way around the open quarter. */
+const CUT_TURN = 0.7;
 
 /**
  * Chantier 24, "space view": the lowest the camera may look at zoom `k` (distance / framing
@@ -134,6 +140,18 @@ export class CameraRig {
    * without moving (after a frame or a return home).
    */
   private lastOffset = Number.NaN;
+  /** Chantier 49: the half extents of the colony (the home bounds). */
+  private home = { x: 30, z: 30 };
+  /** Chantier 49: the cut of the depths is shown (the view the player left, to go back to). */
+  private cut: { position: Vector3; target: Vector3 } | null = null;
+  /** Chantier 49: the tilt pushed beyond the edge of its range. */
+  private readonly tilt = new TiltPast();
+  private tiltY: number | null = null;
+  /**
+   * Chantier 49: the player tilted beyond the edge — under the rim (`down`: open the cut) or,
+   * in the cut, back above it (`up`: close it).
+   */
+  onTiltPast: ((way: 'down' | 'up') => void) | null = null;
   /** Chantier 24: a flight between planets (`flyTo`), stepped in `update`. */
   private flight: {
     t: number;
@@ -204,6 +222,17 @@ export class CameraRig {
       this.controls.maxPolarAngle = MAX_POLAR;
     }
     const r = Math.max(extentX, extentZ);
+    this.home = { x: extentX, z: extentZ };
+    if (this.cut) {
+      // A new face while the cut was shown: back to the home limits.
+      this.cut = null;
+      this.away = false;
+      this.controls.minDistance = 11;
+      this.controls.minPolarAngle = MIN_POLAR;
+      this.controls.maxPolarAngle = MAX_POLAR;
+    }
+    this.controls.minAzimuthAngle = -Infinity;
+    this.controls.maxAzimuthAngle = Infinity;
     this.setBounds(new Box3(new Vector3(-extentX, -1, -extentZ), new Vector3(extentX, 3, extentZ)));
     const distance = this.fitDistance(r);
     this.frameDistance = distance;
@@ -330,7 +359,7 @@ export class CameraRig {
    * target sliding from one planet to the other. The player's gestures and every limit are
    * off until `land` sets those of the arrival.
    */
-  private flyTo(position: Vector3, target: Vector3, land: () => void): void {
+  private flyTo(position: Vector3, target: Vector3, land: () => void, rise = 0.25): void {
     this.stopGlide();
     const c = this.controls;
     // Lift every limit: the flight starts far outside the arrival's bounds and zoom range.
@@ -343,7 +372,7 @@ export class CameraRig {
     const from = c.getPosition(new Vector3());
     const fromTarget = c.getTarget(new Vector3());
     const via = from.clone().add(position).multiplyScalar(0.5);
-    via.y += from.distanceTo(position) * 0.25;
+    via.y += from.distanceTo(position) * rise;
     const length = from.distanceTo(via) + via.distanceTo(position);
     this.flight = {
       t: 0,
@@ -386,6 +415,84 @@ export class CameraRig {
     c.maxPolarAngle = MAX_POLAR;
     c.enabled = true;
     f.land();
+  }
+
+  /**
+   * Chantier 49: the camera goes down along the dome to look at the cut of the depths
+   * (`target` its middle, `radius` what must fit, `azimuth` the side it opens towards): a short
+   * flight, then a tilt range around the level view, a little turn either way, and close zooms.
+   */
+  enterCut(target: Vector3, radius: number, azimuth: number): void {
+    if (this.flight) return;
+    const c = this.controls;
+    if (!this.cut && !this.away)
+      this.cut = { position: c.getPosition(new Vector3()), target: c.getTarget(new Vector3()) };
+    this.away = true;
+    this.stopGlide();
+    const distance = this.fitDistance(radius) * 1.05;
+    const polar = CUT_POLAR;
+    const position = new Vector3(
+      target.x + Math.sin(azimuth) * Math.sin(polar) * distance,
+      target.y + Math.cos(polar) * distance,
+      target.z + Math.cos(azimuth) * Math.sin(polar) * distance,
+    );
+    this.flyTo(
+      position,
+      target.clone(),
+      () => {
+        c.minDistance = 1.2;
+        c.maxDistance = distance * 1.5;
+        c.minPolarAngle = CUT_POLAR_RANGE[0];
+        c.maxPolarAngle = CUT_POLAR_RANGE[1];
+        c.minAzimuthAngle = azimuth - CUT_TURN;
+        c.maxAzimuthAngle = azimuth + CUT_TURN;
+        this.setBounds(
+          new Box3(
+            new Vector3(target.x - radius, target.y - radius * 0.6, target.z - radius),
+            new Vector3(target.x + radius, target.y + radius * 0.6, target.z + radius),
+          ),
+        );
+      },
+      0.04,
+    );
+  }
+
+  /** Chantier 49: back from the cut, to the view the player left. */
+  leaveCut(): void {
+    const view = this.cut;
+    if (!view || this.flight) return;
+    this.cut = null;
+    const c = this.controls;
+    c.minAzimuthAngle = -Infinity;
+    c.maxAzimuthAngle = Infinity;
+    this.flyTo(
+      view.position,
+      view.target,
+      () => {
+        this.away = false;
+        this.lastOffset = Number.NaN;
+        c.minDistance = 11;
+        c.maxDistance = this.frameDistance * MAX_ZOOM;
+        const { x, z } = this.home;
+        this.setBounds(new Box3(new Vector3(-x, -1, -z), new Vector3(x, 3, z)));
+      },
+      0.1,
+    );
+  }
+
+  /** Chantier 49: the cut of the depths is on screen (or the camera is going there). */
+  get inCut(): boolean {
+    return this.cut !== null;
+  }
+
+  /** Chantier 49: frames a point of the cut closer (a room, a delve), within the cut's limits. */
+  focusCut(target: Vector3, radius: number, polar?: number): void {
+    if (!this.cut || this.flight) return;
+    this.stopGlide();
+    const c = this.controls;
+    void c.moveTo(target.x, target.y, target.z, true);
+    void c.dollyTo(Math.max(c.minDistance, this.fitDistance(radius)), true);
+    if (polar !== undefined) void c.rotatePolarTo(polar, true);
   }
 
   /**
@@ -620,7 +727,36 @@ export class CameraRig {
     this.glide.sample(performance.now(), tmpTarget.x, tmpTarget.z);
   }
 
+  /**
+   * Chantier 49: a drag that tilts (right button, Alt/Ctrl + left, two fingers) and keeps
+   * pushing once the camera rests at the end of its range.
+   */
+  private watchTilt(y: number): void {
+    const c = this.controls;
+    const rotating =
+      (c.currentAction &
+        (A.ROTATE | A.TOUCH_ROTATE | A.TOUCH_DOLLY_ROTATE | A.TOUCH_ZOOM_ROTATE)) !==
+      0;
+    if (!rotating || this.flight || !this.onTiltPast || (this.away && !this.cut)) {
+      this.tiltY = null;
+      this.tilt.reset();
+      return;
+    }
+    const dy = this.tiltY === null ? 0 : y - this.tiltY;
+    this.tiltY = y;
+    // camera-controls: dragging up raises the polar angle (towards the horizon).
+    const phi = c.getSpherical(tmpSpherical, true).phi;
+    const fired = this.cut
+      ? this.tilt.feed(dy, phi <= c.minPolarAngle + 0.02)
+      : this.tilt.feed(-dy, phi >= c.maxPolarAngle - 0.02);
+    if (fired) this.onTiltPast(this.cut ? 'up' : 'down');
+  }
+
   private onPointerMove = (e: PointerEvent) => {
+    if (e.pointerType === 'mouse') {
+      if (e.buttons !== 0) this.watchTilt(e.clientY);
+      return;
+    }
     if (e.pointerType !== 'touch' || !this.touches.has(e.pointerId)) return;
     this.samplePan();
     this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -637,9 +773,16 @@ export class CameraRig {
       }
     }
     this.twistAngle = angle;
+    if (this.touches.size === 2) {
+      let y = 0;
+      for (const p of this.touches.values()) y += p.y / 2;
+      this.watchTilt(y);
+    }
   };
 
   private onPointerUp = (e: PointerEvent) => {
+    this.tilt.reset();
+    this.tiltY = null;
     if (!this.touches.has(e.pointerId)) return;
     this.samplePan();
     const twisting = this.touches.size === 2;
