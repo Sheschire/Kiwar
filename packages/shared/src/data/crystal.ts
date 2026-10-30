@@ -38,4 +38,9 @@ export const GIANT_SEEDS = {
    * gives a seed every `everyMs` (a ripe seed waits on the tree while the stock is full).
    */
   tree: { perTree: 1, growMs: 48 * 3_600_000, everyMs: 72 * 3_600_000 },
+  /**
+   * Locule trees allowed by age (index = age): the n-th one costs n seeds, so the last one must
+   * stay within the cap (a sixth tree at 6 seeds with a cap of 5 would never come).
+   */
+  maxTrees: [0, 0, 0, 4, 6] as readonly number[],
 } as const;

@@ -130,6 +130,20 @@ export function crystalAmmoOn(state: GameState): boolean {
 
 // --- Locule trees ------------------------------------------------------------------------------
 
+/** Locule trees the colony may have (by age). */
+export function maxTrees(state: GameState): number {
+  const m = GIANT_SEEDS.maxTrees;
+  return m[Math.min(ageOf(state), m.length - 1)] ?? 0;
+}
+
+/** Locule trees standing or being planted. */
+export function treeCount(state: GameState): number {
+  return (
+    state.buildings.filter((b) => b.type === 'loculeTree').length +
+    state.queue.filter((i) => i.kind === 'build' && i.buildingType === 'loculeTree').length
+  );
+}
+
 /** Giant seeds the next building of this type costs (the n-th locule tree: n × `perTree`). */
 export function treeSeedCost(state: GameState, type: BuildingType): number {
   if (type !== 'loculeTree') return 0;

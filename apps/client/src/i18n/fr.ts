@@ -916,6 +916,7 @@ export const fr: Dict = {
     notEnoughIron: 'Pas assez de fer météorique.',
     notEnoughCrystal: 'Pas assez de cristal.',
     notEnoughGiantSeeds: 'Pas assez de graines géantes.',
+    treeLimit: 'Plus d’arbre-loge possible à cet âge.',
     lensFitted: 'Cette tourelle a déjà sa lentille.',
     notATurret: 'Seule une tourelle prend une lentille.',
     unknownItem: 'Pièce d’équipement inconnue.',

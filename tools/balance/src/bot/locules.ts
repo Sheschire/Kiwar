@@ -4,6 +4,8 @@ import {
   crystalOf,
   giantSeedCap,
   lensLock,
+  maxTrees,
+  treeCount,
   seedTurrets,
   techEffects,
   treeSeedCost,
@@ -40,7 +42,8 @@ export function treeDecision(
   return build('loculeTree');
 }
 
-/** The next egg is a locule egg when the giant seeds would be wasted (stock full). */
+/** The next egg is a locule egg once the trees are all planted, or the stock is full. */
 export function hatchLocule(state: GameState): boolean {
-  return state.giantSeeds > 0 && state.giantSeeds >= giantSeedCap(state);
+  if (state.giantSeeds <= 0) return false;
+  return treeCount(state) >= maxTrees(state) || state.giantSeeds >= giantSeedCap(state);
 }

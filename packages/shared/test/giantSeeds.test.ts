@@ -73,6 +73,13 @@ describe('giant seeds: locule eggs and locule trees (chantier 50)', () => {
     const early = cloneState(s);
     early.buildings.find((b) => b.type === 'monument')!.level = 2;
     expect(buildLock(early, 'loculeTree')).toBe('ageTooLow');
+    // At most `maxTrees` by age (the last one's price stays within the cap).
+    const many = cloneState(s);
+    many.giantSeeds = giantSeedCap(many);
+    for (let i = 0; i < GIANT_SEEDS.maxTrees[3]!; i++)
+      many.buildings.push({ ...withTree(cloneState(s), map), id: `bt${i}` as BuildingId });
+    expect(buildLock(many, 'loculeTree')).toBe('treeLimit');
+    expect(GIANT_SEEDS.maxTrees[3]!).toBeLessThanOrEqual(giantSeedCap(many));
     // Built: it grows before its first seed.
     const done = advance(one, one.now + HOUR_MS).state;
     const tree = done.buildings.find((b) => b.type === 'loculeTree')!;

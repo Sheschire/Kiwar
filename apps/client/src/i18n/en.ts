@@ -846,6 +846,7 @@ export const en = {
     notEnoughIron: 'Not enough meteoric iron.',
     notEnoughCrystal: 'Not enough crystal.',
     notEnoughGiantSeeds: 'Not enough giant seeds.',
+    treeLimit: 'No more locule trees in this age.',
     lensFitted: 'This turret already has its lens.',
     notATurret: 'Only a turret takes a lens.',
     unknownItem: 'Unknown piece of gear.',

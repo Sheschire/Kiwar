@@ -322,6 +322,7 @@ export const COMMAND_ERRORS = [
   'notEnoughCrystal',
   'lensFitted',
   'notEnoughGiantSeeds',
+  'treeLimit',
   'notATurret',
   'launchpadDamaged',
   'unknownTarget',

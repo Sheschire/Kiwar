@@ -2959,7 +2959,7 @@ var TECHS = {
     age: 3,
     branch: "economy",
     cost: 2200,
-    libraryLevel: 10,
+    libraryLevel: 7,
     crystal: 15,
     effects: { lenses: true, research: 1.1 }
   },
@@ -2968,7 +2968,7 @@ var TECHS = {
     age: 3,
     branch: "defense",
     cost: 2600,
-    libraryLevel: 10,
+    libraryLevel: 7,
     crystal: 20,
     after: "glass",
     effects: { crystalAmmo: true }
@@ -2978,7 +2978,7 @@ var TECHS = {
     age: 3,
     branch: "unnatural",
     cost: 2e3,
-    libraryLevel: 10,
+    libraryLevel: 7,
     effects: { enzymes: 2 }
   }
 };
@@ -3735,7 +3735,12 @@ var GIANT_SEEDS = {
    * A locule tree: the n-th one costs `n × perTree` giant seeds; it grows for `growMs`, then
    * gives a seed every `everyMs` (a ripe seed waits on the tree while the stock is full).
    */
-  tree: { perTree: 1, growMs: 48 * 36e5, everyMs: 72 * 36e5 }
+  tree: { perTree: 1, growMs: 48 * 36e5, everyMs: 72 * 36e5 },
+  /**
+   * Locule trees allowed by age (index = age): the n-th one costs n seeds, so the last one must
+   * stay within the cap (a sixth tree at 6 seeds with a cap of 5 would never come).
+   */
+  maxTrees: [0, 0, 0, 4, 6]
 };
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
@@ -6150,6 +6155,13 @@ function crystalAmmoCost(state) {
 }
 function crystalAmmoOn(state) {
   return crystalAmmoCost(state) > 0;
+}
+function maxTrees(state) {
+  const m = GIANT_SEEDS.maxTrees;
+  return m[Math.min(ageOf(state), m.length - 1)] ?? 0;
+}
+function treeCount(state) {
+  return state.buildings.filter((b) => b.type === "loculeTree").length + state.queue.filter((i) => i.kind === "build" && i.buildingType === "loculeTree").length;
 }
 function treeSeedCost(state, type) {
   if (type !== "loculeTree") return 0;
@@ -14828,6 +14840,7 @@ function buildLock(state, type) {
   } else if (type === "fireworks") {
     if (copiesOf(state, "fireworks") > 0) return "fireworksExists";
   } else if (type === "loculeTree") {
+    if (treeCount(state) >= maxTrees(state)) return "treeLimit";
     if (state.giantSeeds < treeSeedCost(state, type)) return "notEnoughGiantSeeds";
   } else if (type === "mayorStatue") {
     if (copiesOf(state, "mayorStatue") > 0) return "statueExists";
@@ -14958,6 +14971,7 @@ var COMMAND_ERRORS = [
   "notEnoughCrystal",
   "lensFitted",
   "notEnoughGiantSeeds",
+  "treeLimit",
   "notATurret",
   "launchpadDamaged",
   "unknownTarget",
@@ -22925,6 +22939,7 @@ export {
   maxCrew,
   maxLevelNow,
   maxLevelOf,
+  maxTrees,
   mayorMorale,
   mayorOf,
   memoryPoints,
@@ -23192,6 +23207,7 @@ export {
   trainingDuration,
   travelFactor,
   travelTime,
+  treeCount,
   treeSeedCost,
   treeTick,
   tunnelBusy,

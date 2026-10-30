@@ -1,4 +1,4 @@
-import { treeSeedCost } from './crystal';
+import { maxTrees, treeCount, treeSeedCost } from './crystal';
 import { DEPTHS } from '../data/depths';
 import {
   BEAUTY,
@@ -286,6 +286,7 @@ export function buildLock(state: GameState, type: BuildingType): CommandError | 
   } else if (type === 'fireworks') {
     if (copiesOf(state, 'fireworks') > 0) return 'fireworksExists';
   } else if (type === 'loculeTree') {
+    if (treeCount(state) >= maxTrees(state)) return 'treeLimit';
     if (state.giantSeeds < treeSeedCost(state, type)) return 'notEnoughGiantSeeds';
   } else if (type === 'mayorStatue') {
     if (copiesOf(state, 'mayorStatue') > 0) return 'statueExists';
