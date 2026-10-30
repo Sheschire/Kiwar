@@ -1,3 +1,4 @@
+import { treeSeedCost } from './crystal';
 import { DEPTHS } from '../data/depths';
 import {
   BEAUTY,
@@ -284,6 +285,8 @@ export function buildLock(state: GameState, type: BuildingType): CommandError | 
     if (copiesOf(state, 'cabaret') > 0) return 'cabaretExists';
   } else if (type === 'fireworks') {
     if (copiesOf(state, 'fireworks') > 0) return 'fireworksExists';
+  } else if (type === 'loculeTree') {
+    if (state.giantSeeds < treeSeedCost(state, type)) return 'notEnoughGiantSeeds';
   } else if (type === 'mayorStatue') {
     if (copiesOf(state, 'mayorStatue') > 0) return 'statueExists';
   } else if (isVillageLife(type)) {

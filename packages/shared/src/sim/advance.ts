@@ -1,6 +1,8 @@
 import { nextDoorEvent, nextUpwellEvent, planUpwell, upwellTick } from './upwell';
 import { galleryRates } from './mines';
-import { accrueCrystal, crystalRate, nextCrystalEvent } from './crystal';
+import { accrueCrystal, crystalRate, nextCrystalEvent, nextTreeEvent, treeTick } from './crystal';
+import { GIANT_SEEDS } from '../data/crystal';
+import { KIWI, STAT_IDS } from '../data/kiwis';
 import { accrueForge, forgePower, forgeRate, forgeTick, nextForgeEvent } from './forge';
 import type { ItemId } from '../data/gear';
 import { accrueStardust, cometTick, nextCometEvent, planComet } from './comets';
@@ -250,6 +252,8 @@ export type GameEvent =
   | { type: 'ironFull'; at: TimeMs }
   /** Chantier 50: the crystal stock is full (the forests' miners come back up). */
   | { type: 'crystalFull'; at: TimeMs }
+  /** Chantier 50: a locule tree gave a giant seed. */
+  | { type: 'treeSeed'; at: TimeMs; buildingId: BuildingId }
   | { type: 'meteorFaded'; at: TimeMs; q: number; r: number; resource: ResourceId }
   /** Chantier 13: a comet is seen in the sky, then drops stardust on a few tiles. */
   | { type: 'cometAnnounced'; at: TimeMs; passAt: TimeMs }
@@ -329,6 +333,8 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     planBeaconAttacks(s);
     // Chantier 48: the next upwelling (its own calendar, once the tunnel entrance stands).
     planUpwell(s);
+    // Chantier 50: ripe seeds of the locule trees fall while the stock has room.
+    treeTick(s, events);
     const constructionEnd = nextConstructionEnd(s);
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
@@ -345,7 +351,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const cometAt = nextCometEvent(s);
     const injuryEnd = nextInjuryEnd(s);
     const researchAt = nextResearchEvent(s);
-    const forgeAt = Math.min(nextForgeEvent(s), nextCrystalEvent(s));
+    const forgeAt = Math.min(nextForgeEvent(s), nextCrystalEvent(s), nextTreeEvent(s));
     const deliveryAt = nextDeliveryEvent(s);
     const infusionEnd = nextInfusionEnd(s);
     const titanEnd = nextTitanEnd(s);
@@ -766,6 +772,7 @@ function completeConstruction(
       richness: item.richness,
       builtAt: at,
       ...(item.rot !== undefined ? { rot: item.rot } : {}),
+      ...(item.buildingType === 'loculeTree' ? { seedAt: at + GIANT_SEEDS.tree.growMs } : {}),
       // A big site from an older save without room comes out cramped (chantier 35).
       ...(item.rot === undefined && footprintOf(item.buildingType) > 1
         ? { cramped: true as const }
@@ -830,8 +837,13 @@ function releaseBuilder(s: GameState, itemId: QueueItemId, built: boolean): void
 
 function hatch(s: GameState, at: TimeMs, events: GameEvent[]): void {
   const star = !!s.egg?.star;
+  const locule = !!s.egg?.locule;
   s.egg = null;
   const v = addVillager(s, at, star);
+  // Chantier 50: a locule egg's kiwi is gifted.
+  if (locule)
+    for (const k of STAT_IDS)
+      v.stats[k] = Math.min(KIWI.stat.cap, v.stats[k] + GIANT_SEEDS.egg.stat);
   s.stats.eggsHatched++;
   events.push({ type: 'hatched', at, villagerId: v.id, name: v.name, shiny: v.shiny });
   autoAssign(s, v);

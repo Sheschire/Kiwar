@@ -214,6 +214,8 @@ export interface Building {
   damaged?: boolean;
   /** Chantier 50, turrets: a crystal lens is fitted (more range). */
   lens?: boolean;
+  /** Chantier 50, a locule tree: when its next giant seed is ripe. */
+  seedAt?: TimeMs;
   /**
    * Chantier 40, launchpads only: the ship was lost on a landing (the generation it was); the
    * launchpad is damaged and its repair rebuilds the ship.
@@ -265,6 +267,8 @@ export interface QueueItem {
   paidDust?: number;
   /** Chantier 38: whole units of meteoric iron paid when ordered (refunded on cancel). */
   paidIron?: number;
+  /** Chantier 50: giant seeds paid when ordered (a locule tree; refunded on cancel). */
+  paidSeeds?: number;
   orderedAt: TimeMs;
   /**
    * Chantier 35: orientation of a big building's footprint — for a `build`, the site; for the
@@ -319,6 +323,8 @@ export interface Egg {
   readyAt: TimeMs;
   /** Chantier 13: a star egg (paid with stardust), with a high chance of a golden shiny. */
   star?: boolean;
+  /** Chantier 50: a locule egg (a giant seed): a gifted kiwi, +1 in every stat. */
+  locule?: boolean;
 }
 
 /**

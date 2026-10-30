@@ -181,6 +181,8 @@ export const BEAUTY: Partial<Record<BuildingType, number>> = {
   vineArch: 1,
   fountain: 1,
   mayorStatue: 3,
+  // Chantier 50.
+  loculeTree: 2,
 };
 
 /** Chantier 44: a decoration (it gives beauty). */

@@ -287,6 +287,10 @@ export const en = {
       name: 'Mayor’s statue',
       desc: 'The mayor in stone, its name on the plinth. One per colony: the finest decoration (beauty ×3).',
     },
+    loculeTree: {
+      name: 'Locule tree',
+      desc: 'A giant seed planted at the surface (one more giant seed for each tree). It grows for two days, then gives a giant seed every three days. A decoration (beauty ×2).',
+    },
     townHall: {
       name: 'Town Hall',
       desc: 'The mayor sits here and gives the Speech: the whole colony gathers, then keeps its spirits up for hours.',
@@ -841,6 +845,7 @@ export const en = {
     tooStrong: 'The guards are not strong enough for this den.',
     notEnoughIron: 'Not enough meteoric iron.',
     notEnoughCrystal: 'Not enough crystal.',
+    notEnoughGiantSeeds: 'Not enough giant seeds.',
     lensFitted: 'This turret already has its lens.',
     notATurret: 'Only a turret takes a lens.',
     unknownItem: 'Unknown piece of gear.',

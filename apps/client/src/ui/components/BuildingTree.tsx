@@ -62,6 +62,7 @@ const FAMILIES: readonly { id: FamilyId; types: readonly BuildingType[] }[] = [
       'vineArch',
       'fountain',
       'mayorStatue',
+      'loculeTree',
     ],
   },
 ];

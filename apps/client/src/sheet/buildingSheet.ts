@@ -64,6 +64,7 @@ const TYPES: readonly BuildingType[] = [
   'vineArch',
   'fountain',
   'mayorStatue',
+  'loculeTree',
   'swing',
   'skittles',
   'skipPond',

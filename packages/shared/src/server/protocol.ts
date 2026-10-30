@@ -55,7 +55,11 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     locked: z.boolean().optional(),
     builderPriority: z.boolean().optional(),
   }),
-  z.object({ type: z.literal('hatchEgg'), star: z.boolean().optional() }),
+  z.object({
+    type: z.literal('hatchEgg'),
+    star: z.boolean().optional(),
+    locule: z.boolean().optional(),
+  }),
   z.object({ type: z.literal('claimObjective'), id: z.string().max(64).optional() }),
   z.object({
     type: z.literal('launchExpedition'),

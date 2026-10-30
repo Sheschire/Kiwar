@@ -37,6 +37,7 @@ export const BUILDING_TYPES = [
   'cabaret',
   'fireworks',
   'tunnel',
+  'loculeTree',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
@@ -692,6 +693,22 @@ const BASE: Record<BuildingType, BuildingDef> = {
         durationMs: ms.min(25),
         requiresNestLevel: 4,
         requiresAge: 1,
+      },
+    ],
+  },
+  // Chantier 50: a giant seed planted at the surface (paid in giant seeds: 1, 2, 3… by copy).
+  // It grows for two days, then gives a giant seed every three days; beauty for the village.
+  loculeTree: {
+    id: 'loculeTree',
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 300, juice: 200 },
+        durationMs: ms.min(10),
+        requiresNestLevel: 10,
+        requiresAge: 3,
       },
     ],
   },

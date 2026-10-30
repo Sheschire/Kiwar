@@ -1,5 +1,12 @@
-import { CRYSTAL } from '../data/crystal';
-import { addCrystal, crystalOf, lensLock, payCrystal } from './crystal';
+import { CRYSTAL, GIANT_SEEDS } from '../data/crystal';
+import {
+  addCrystal,
+  crystalOf,
+  lensLock,
+  payCrystal,
+  payGiantSeeds,
+  treeSeedCost,
+} from './crystal';
 import { doorFortifyCost, doorFortLevel, fortifyDoorLock } from './upwell';
 import { DEPTHS } from '../data/depths';
 import { canDig, gallerySlots, minersIn, minesOpen } from './mines';
@@ -153,7 +160,7 @@ export type Command =
   /** Chantier 09: the lock (never moved automatically) and the builder priority of a kiwi. */
   | { type: 'setKiwiFlags'; villagerId: VillagerId; locked?: boolean; builderPriority?: boolean }
   /** Chantier 13: `star` pays stardust on top for a likely golden shiny. */
-  | { type: 'hatchEgg'; star?: boolean }
+  | { type: 'hatchEgg'; star?: boolean; locule?: boolean }
   /** Without `id`: the tutorial step; with it, an age objective shown in the notebook. */
   | { type: 'claimObjective'; id?: string }
   | {
@@ -312,6 +319,7 @@ export const COMMAND_ERRORS = [
   'layerLocked',
   'notEnoughCrystal',
   'lensFitted',
+  'notEnoughGiantSeeds',
   'notATurret',
   'launchpadDamaged',
   'unknownTarget',
@@ -598,6 +606,9 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         nearRay(ctx.map, cmd.q, cmd.r),
       );
       pay(s, cost);
+      // Chantier 50: a locule tree is a giant seed planted (checked by `buildLock`).
+      const seeds = treeSeedCost(s, cmd.buildingType);
+      payGiantSeeds(s, seeds);
       s.queue.push({
         id: nextId(s, 'q') as QueueItemId,
         kind: 'build',
@@ -610,6 +621,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         durationMs,
         startedAt: null,
         paid: cost,
+        ...(seeds > 0 ? { paidSeeds: seeds } : {}),
         orderedAt: now,
         ...(footprintOf(cmd.buildingType) > 1 ? { rot } : {}),
       });
@@ -662,6 +674,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       refund(s, item!.paid);
       refundStardust(s, item!.paidDust ?? 0);
       addIron(s, item!.paidIron ?? 0);
+      s.giantSeeds += item!.paidSeeds ?? 0;
       for (const v of s.villagers) {
         if (v.job.kind === 'build' && v.job.queueItemId === item!.id) {
           const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : undefined;
@@ -842,6 +855,11 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (s.egg) fail('eggInProgress');
       if (!canHatch(s) || population(s) >= housing(s)) fail('housingFull');
       if (cmd.star) payStardust(s, BLESSINGS.starEgg);
+      // Chantier 50: a locule egg is a giant seed hatched with it.
+      if (cmd.locule) {
+        if (s.giantSeeds < GIANT_SEEDS.egg.seeds) fail('notEnoughGiantSeeds');
+        payGiantSeeds(s, GIANT_SEEDS.egg.seeds);
+      }
       // Chantier 31: an egg offered by an objective costs nothing.
       if (s.objectives.giftEggs > 0) s.objectives.giftEggs--;
       else pay(s, eggCost(s));
@@ -849,6 +867,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         startedAt: now,
         readyAt: now + eggDuration(s),
         ...(cmd.star ? { star: true } : {}),
+        ...(cmd.locule ? { locule: true } : {}),
       };
       return;
     }

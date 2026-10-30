@@ -312,6 +312,7 @@ export const gameStateSchema = z.object({
       pool: z.object({ stock: z.number().min(0), tiles: z.array(z.string()).max(64) }).optional(),
       damaged: z.boolean().optional(),
       lens: z.literal(true).optional(),
+      seedAt: z.number().optional(),
       shipLost: z.enum(SHIP_IDS).optional(),
       reserve: resources.optional(),
       rot: z.number().int().min(0).max(5).optional(),
@@ -357,12 +358,18 @@ export const gameStateSchema = z.object({
       paid: partialResources,
       paidDust: z.number().int().min(0).optional(),
       paidIron: z.number().int().min(0).optional(),
+      paidSeeds: z.number().int().min(0).max(99).optional(),
       orderedAt: z.number(),
       rot: z.number().int().min(0).max(5).optional(),
     }),
   ),
   egg: z
-    .object({ startedAt: z.number(), readyAt: z.number(), star: z.boolean().optional() })
+    .object({
+      startedAt: z.number(),
+      readyAt: z.number(),
+      star: z.boolean().optional(),
+      locule: z.boolean().optional(),
+    })
     .nullable(),
   objectiveIndex: z.number().int().min(0),
   objectives: z.object({

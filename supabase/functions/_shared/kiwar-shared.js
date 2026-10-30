@@ -881,7 +881,8 @@ var BUILDING_TYPES = [
   "slide",
   "cabaret",
   "fireworks",
-  "tunnel"
+  "tunnel",
+  "loculeTree"
 ];
 var FOOTPRINTS = {
   warehouse: 3,
@@ -1464,6 +1465,22 @@ var BASE = {
         durationMs: ms.min(25),
         requiresNestLevel: 4,
         requiresAge: 1
+      }
+    ]
+  },
+  // Chantier 50: a giant seed planted at the surface (paid in giant seeds: 1, 2, 3… by copy).
+  // It grows for two days, then gives a giant seed every three days; beauty for the village.
+  loculeTree: {
+    id: "loculeTree",
+    allowedTiles: DECOR_TILES,
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 300, juice: 200 },
+        durationMs: ms.min(10),
+        requiresNestLevel: 10,
+        requiresAge: 3
       }
     ]
   },
@@ -2443,7 +2460,9 @@ var BEAUTY = {
   flowerBed: 1,
   vineArch: 1,
   fountain: 1,
-  mayorStatue: 3
+  mayorStatue: 3,
+  // Chantier 50.
+  loculeTree: 2
 };
 function isDecor(type) {
   return BEAUTY[type] !== void 0;
@@ -3700,7 +3719,14 @@ function crystalUnits(raw) {
 }
 var GIANT_SEEDS = {
   /** Stock cap (whole seeds) by age (index = age; the Age of the stars comes at chantier 51). */
-  cap: [3, 3, 3, 5, 8]
+  cap: [3, 3, 3, 5, 8],
+  /** A locule egg: a giant seed hatched with the egg; the kiwi gets this much in every stat. */
+  egg: { seeds: 1, stat: 1 },
+  /**
+   * A locule tree: the n-th one costs `n × perTree` giant seeds; it grows for `growMs`, then
+   * gives a seed every `everyMs` (a ripe seed waits on the tree while the stock is full).
+   */
+  tree: { perTree: 1, growMs: 48 * 36e5, everyMs: 72 * 36e5 }
 };
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
@@ -6115,6 +6141,28 @@ function crystalAmmoCost(state) {
 }
 function crystalAmmoOn(state) {
   return crystalAmmoCost(state) > 0;
+}
+function treeSeedCost(state, type) {
+  if (type !== "loculeTree") return 0;
+  const copies = state.buildings.filter((b) => b.type === type).length + state.queue.filter((i) => i.kind === "build" && i.buildingType === type).length;
+  return (copies + 1) * GIANT_SEEDS.tree.perTree;
+}
+function nextTreeEvent(state) {
+  if (state.giantSeeds >= giantSeedCap(state)) return Infinity;
+  let next = Infinity;
+  for (const b of state.buildings)
+    if (b.type === "loculeTree" && b.seedAt !== void 0)
+      next = Math.min(next, Math.max(state.now, b.seedAt));
+  return next;
+}
+function treeTick(s, events) {
+  for (const b of s.buildings) {
+    if (b.type !== "loculeTree" || b.seedAt === void 0 || b.seedAt > s.now) continue;
+    if (addGiantSeeds(s, 1) === 0) return;
+    const at = b.seedAt;
+    b.seedAt = s.now + GIANT_SEEDS.tree.everyMs;
+    events.push({ type: "treeSeed", at: Math.max(at, s.now), buildingId: b.id });
+  }
 }
 
 // packages/shared/src/sim/mines.ts
@@ -10836,6 +10884,7 @@ function advanceInPlace(s, now, events) {
     planComet(s);
     planBeaconAttacks(s);
     planUpwell(s);
+    treeTick(s, events);
     const constructionEnd = nextConstructionEnd(s);
     const eggEnd = s.egg ? s.egg.readyAt : Infinity;
     const expedition = nextExpeditionEvent(s);
@@ -10849,7 +10898,7 @@ function advanceInPlace(s, now, events) {
     const cometAt = nextCometEvent(s);
     const injuryEnd = nextInjuryEnd(s);
     const researchAt = nextResearchEvent(s);
-    const forgeAt = Math.min(nextForgeEvent(s), nextCrystalEvent(s));
+    const forgeAt = Math.min(nextForgeEvent(s), nextCrystalEvent(s), nextTreeEvent(s));
     const deliveryAt = nextDeliveryEvent(s);
     const infusionEnd = nextInfusionEnd(s);
     const titanEnd = nextTitanEnd(s);
@@ -11212,6 +11261,7 @@ function completeConstruction(s, item2, at, events) {
       richness: item2.richness,
       builtAt: at,
       ...item2.rot !== void 0 ? { rot: item2.rot } : {},
+      ...item2.buildingType === "loculeTree" ? { seedAt: at + GIANT_SEEDS.tree.growMs } : {},
       // A big site from an older save without room comes out cramped (chantier 35).
       ...item2.rot === void 0 && footprintOf(item2.buildingType) > 1 ? { cramped: true } : {}
     });
@@ -11259,8 +11309,12 @@ function releaseBuilder(s, itemId, built) {
 }
 function hatch(s, at, events) {
   const star = !!s.egg?.star;
+  const locule = !!s.egg?.locule;
   s.egg = null;
   const v = addVillager(s, at, star);
+  if (locule)
+    for (const k of STAT_IDS)
+      v.stats[k] = Math.min(KIWI.stat.cap, v.stats[k] + GIANT_SEEDS.egg.stat);
   s.stats.eggsHatched++;
   events.push({ type: "hatched", at, villagerId: v.id, name: v.name, shiny: v.shiny });
   autoAssign(s, v);
@@ -14720,6 +14774,8 @@ function buildLock(state, type) {
     if (copiesOf(state, "cabaret") > 0) return "cabaretExists";
   } else if (type === "fireworks") {
     if (copiesOf(state, "fireworks") > 0) return "fireworksExists";
+  } else if (type === "loculeTree") {
+    if (state.giantSeeds < treeSeedCost(state, type)) return "notEnoughGiantSeeds";
   } else if (type === "mayorStatue") {
     if (copiesOf(state, "mayorStatue") > 0) return "statueExists";
   } else if (isVillageLife(type)) {
@@ -14848,6 +14904,7 @@ var COMMAND_ERRORS = [
   "layerLocked",
   "notEnoughCrystal",
   "lensFitted",
+  "notEnoughGiantSeeds",
   "notATurret",
   "launchpadDamaged",
   "unknownTarget",
@@ -15082,6 +15139,8 @@ function execute(s, cmd, ctx, events) {
         nearRay(ctx.map, cmd.q, cmd.r)
       );
       pay(s, cost);
+      const seeds = treeSeedCost(s, cmd.buildingType);
+      payGiantSeeds(s, seeds);
       s.queue.push({
         id: nextId(s, "q"),
         kind: "build",
@@ -15094,6 +15153,7 @@ function execute(s, cmd, ctx, events) {
         durationMs,
         startedAt: null,
         paid: cost,
+        ...seeds > 0 ? { paidSeeds: seeds } : {},
         orderedAt: now,
         ...footprintOf(cmd.buildingType) > 1 ? { rot } : {}
       });
@@ -15142,6 +15202,7 @@ function execute(s, cmd, ctx, events) {
       refund(s, item2.paid);
       refundStardust(s, item2.paidDust ?? 0);
       addIron(s, item2.paidIron ?? 0);
+      s.giantSeeds += item2.paidSeeds ?? 0;
       for (const v of s.villagers) {
         if (v.job.kind === "build" && v.job.queueItemId === item2.id) {
           const back = v.job.returnTo ? getBuilding(s, v.job.returnTo) : void 0;
@@ -15305,12 +15366,17 @@ function execute(s, cmd, ctx, events) {
       if (s.egg) fail("eggInProgress");
       if (!canHatch(s) || population(s) >= housing(s)) fail("housingFull");
       if (cmd.star) payStardust(s, BLESSINGS.starEgg);
+      if (cmd.locule) {
+        if (s.giantSeeds < GIANT_SEEDS.egg.seeds) fail("notEnoughGiantSeeds");
+        payGiantSeeds(s, GIANT_SEEDS.egg.seeds);
+      }
       if (s.objectives.giftEggs > 0) s.objectives.giftEggs--;
       else pay(s, eggCost(s));
       s.egg = {
         startedAt: now,
         readyAt: now + eggDuration(s),
-        ...cmd.star ? { star: true } : {}
+        ...cmd.star ? { star: true } : {},
+        ...cmd.locule ? { locule: true } : {}
       };
       return;
     }
@@ -20202,6 +20268,7 @@ var gameStateSchema = external_exports.object({
       pool: external_exports.object({ stock: external_exports.number().min(0), tiles: external_exports.array(external_exports.string()).max(64) }).optional(),
       damaged: external_exports.boolean().optional(),
       lens: external_exports.literal(true).optional(),
+      seedAt: external_exports.number().optional(),
       shipLost: external_exports.enum(SHIP_IDS).optional(),
       reserve: resources.optional(),
       rot: external_exports.number().int().min(0).max(5).optional(),
@@ -20245,11 +20312,17 @@ var gameStateSchema = external_exports.object({
       paid: partialResources,
       paidDust: external_exports.number().int().min(0).optional(),
       paidIron: external_exports.number().int().min(0).optional(),
+      paidSeeds: external_exports.number().int().min(0).max(99).optional(),
       orderedAt: external_exports.number(),
       rot: external_exports.number().int().min(0).max(5).optional()
     })
   ),
-  egg: external_exports.object({ startedAt: external_exports.number(), readyAt: external_exports.number(), star: external_exports.boolean().optional() }).nullable(),
+  egg: external_exports.object({
+    startedAt: external_exports.number(),
+    readyAt: external_exports.number(),
+    star: external_exports.boolean().optional(),
+    locule: external_exports.boolean().optional()
+  }).nullable(),
   objectiveIndex: external_exports.number().int().min(0),
   objectives: external_exports.object({
     claimed: external_exports.array(external_exports.string()),
@@ -21004,7 +21077,11 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     locked: external_exports.boolean().optional(),
     builderPriority: external_exports.boolean().optional()
   }),
-  external_exports.object({ type: external_exports.literal("hatchEgg"), star: external_exports.boolean().optional() }),
+  external_exports.object({
+    type: external_exports.literal("hatchEgg"),
+    star: external_exports.boolean().optional(),
+    locule: external_exports.boolean().optional()
+  }),
   external_exports.object({ type: external_exports.literal("claimObjective"), id: external_exports.string().max(64).optional() }),
   external_exports.object({
     type: external_exports.literal("launchExpedition"),
@@ -22843,6 +22920,7 @@ export {
   nextStep,
   nextThreatEvent,
   nextTitanEnd,
+  nextTreeEvent,
   nextUpwellEvent,
   nightWork,
   normalRot,
@@ -23049,6 +23127,8 @@ export {
   trainingDuration,
   travelFactor,
   travelTime,
+  treeSeedCost,
+  treeTick,
   tunnelBusy,
   tunnelDamage,
   tunnelOf,

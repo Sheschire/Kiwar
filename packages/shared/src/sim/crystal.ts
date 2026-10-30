@@ -1,6 +1,7 @@
 import { isTurret } from '../data/buildings';
 import { DEPTHS } from '../data/depths';
 import { CRYSTAL, CRYSTAL_SCALE, GIANT_SEEDS, crystalUnits } from '../data/crystal';
+import type { BuildingType } from '../data/buildings';
 import type { TimeMs } from '../types/ids';
 import type { GameEvent } from './advance';
 import { minersWork, minesOpen, minersIn, tunnelDamage } from './mines';
@@ -125,4 +126,43 @@ export function crystalAmmoCost(state: GameState): number {
 /** The seed turrets pierce armour in a battle now (the toggle on, the crystal there). */
 export function crystalAmmoOn(state: GameState): boolean {
   return crystalAmmoCost(state) > 0;
+}
+
+// --- Locule trees ------------------------------------------------------------------------------
+
+/** Giant seeds the next building of this type costs (the n-th locule tree: n × `perTree`). */
+export function treeSeedCost(state: GameState, type: BuildingType): number {
+  if (type !== 'loculeTree') return 0;
+  const copies =
+    state.buildings.filter((b) => b.type === type).length +
+    state.queue.filter((i) => i.kind === 'build' && i.buildingType === type).length;
+  return (copies + 1) * GIANT_SEEDS.tree.perTree;
+}
+
+/**
+ * The next time a locule tree gives a seed (the stock has room; a ripe seed waiting on a tree
+ * is given as soon as there is room, i.e. now).
+ */
+export function nextTreeEvent(state: GameState): TimeMs {
+  if (state.giantSeeds >= giantSeedCap(state)) return Infinity;
+  let next = Infinity;
+  for (const b of state.buildings)
+    if (b.type === 'loculeTree' && b.seedAt !== undefined)
+      next = Math.min(next, Math.max(state.now, b.seedAt));
+  return next;
+}
+
+/**
+ * Ripe seeds fall into the stock while it has room (oldest tree first); the tree's next one
+ * comes `everyMs` after (from now, when it waited for room). Run at the loop top: the time
+ * room appears is an event or a command, so small steps give what one big step gives.
+ */
+export function treeTick(s: GameState, events: GameEvent[]): void {
+  for (const b of s.buildings) {
+    if (b.type !== 'loculeTree' || b.seedAt === undefined || b.seedAt > s.now) continue;
+    if (addGiantSeeds(s, 1) === 0) return;
+    const at = b.seedAt;
+    b.seedAt = s.now + GIANT_SEEDS.tree.everyMs;
+    events.push({ type: 'treeSeed', at: Math.max(at, s.now), buildingId: b.id });
+  }
 }

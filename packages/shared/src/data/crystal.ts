@@ -31,4 +31,11 @@ export function crystalUnits(raw: number): number {
 export const GIANT_SEEDS = {
   /** Stock cap (whole seeds) by age (index = age; the Age of the stars comes at chantier 51). */
   cap: [3, 3, 3, 5, 8] as readonly number[],
+  /** A locule egg: a giant seed hatched with the egg; the kiwi gets this much in every stat. */
+  egg: { seeds: 1, stat: 1 },
+  /**
+   * A locule tree: the n-th one costs `n × perTree` giant seeds; it grows for `growMs`, then
+   * gives a seed every `everyMs` (a ripe seed waits on the tree while the stock is full).
+   */
+  tree: { perTree: 1, growMs: 48 * 3_600_000, everyMs: 72 * 3_600_000 },
 } as const;

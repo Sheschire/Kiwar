@@ -305,6 +305,10 @@ export const fr: Dict = {
       name: 'Statue du maire',
       desc: 'Le ou la maire en pierre, son nom sur le socle. Une par colonie : la plus belle décoration (beauté ×3).',
     },
+    loculeTree: {
+      name: 'Arbre-loge',
+      desc: 'Une graine géante plantée en surface (une graine géante de plus par arbre). Il pousse deux jours, puis donne une graine géante tous les trois jours. Une décoration (beauté ×2).',
+    },
     townHall: {
       name: 'Mairie',
       desc: 'Le·la maire y siège et y prononce le Discours : toute la colonie s’y rassemble, puis garde le moral pendant des heures.',
@@ -911,6 +915,7 @@ export const fr: Dict = {
     tooStrong: 'Les gardes ne sont pas assez fort·es pour ce nid.',
     notEnoughIron: 'Pas assez de fer météorique.',
     notEnoughCrystal: 'Pas assez de cristal.',
+    notEnoughGiantSeeds: 'Pas assez de graines géantes.',
     lensFitted: 'Cette tourelle a déjà sa lentille.',
     notATurret: 'Seule une tourelle prend une lentille.',
     unknownItem: 'Pièce d’équipement inconnue.',

@@ -635,6 +635,21 @@ const GLYPHS = {
       <path d="M15 5l2-3 2 3 2-3 1 4" fill="#ffd95a" stroke="#a87a1f" stroke-width="1" />
     </>
   ),
+  // Chantier 50.
+  loculeTree: (
+    <>
+      <path d="M15 29V17h2v12z" fill="#7a5233" stroke="#4a3220" stroke-width="1" />
+      <ellipse cx="16" cy="12" rx="11" ry="8" fill="#8fbf4a" stroke="#4d6b24" stroke-width="1.4" />
+      <ellipse cx="16" cy="12" rx="6" ry="4.2" fill="#e8efc0" />
+      <ellipse cx="16" cy="12" rx="2.6" ry="1.8" fill="#f6f1d6" />
+      <circle cx="11.5" cy="12" r="0.9" fill="#1f1612" />
+      <circle cx="20.5" cy="12" r="0.9" fill="#1f1612" />
+      <circle cx="13.5" cy="8.8" r="0.9" fill="#1f1612" />
+      <circle cx="18.5" cy="8.8" r="0.9" fill="#1f1612" />
+      <circle cx="13.5" cy="15.2" r="0.9" fill="#1f1612" />
+      <circle cx="18.5" cy="15.2" r="0.9" fill="#1f1612" />
+    </>
+  ),
   // Chantier 44: games.
   swing: (
     <>

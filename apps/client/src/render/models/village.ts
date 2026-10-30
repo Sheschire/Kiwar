@@ -738,3 +738,29 @@ export function fireworks(look: Look): Parts {
   }
   return p;
 }
+
+/**
+ * Chantier 50: a locule tree — a giant seed planted at the surface. A fuzzy trunk and a round
+ * crown cut like a kiwi slice: green flesh, the pale ring of the locules and its black seeds
+ * around a cream heart, facing the sky.
+ */
+export function loculeTree(): Parts {
+  const p: Parts = [];
+  p.push([cyl(6), C.woodDark, m(0, 0.16, 0, 0.045, 0.32, 0.045)]);
+  p.push([cyl(5), C.wood, m(0.06, 0.28, 0, 0.018, 0.14, 0.018, 0, 0, -0.7)]);
+  p.push([sphere(10, 7), C.leafDark, m(0, 0.44, 0, 0.27, 0.16, 0.27)]);
+  rig(p, 'crown', [0, 0.44, 0], { kind: 'breathe', amount: 0.03, speed: 1.1, ambient: true });
+  p.push([cyl(18), '#8fbf4a', m(0, 0.56, 0, 0.25, 0.035, 0.25), 'crown']);
+  p.push([cyl(16), '#e8efc0', m(0, 0.58, 0, 0.13, 0.01, 0.13), 'crown']);
+  p.push([cyl(12), '#f6f1d6', m(0, 0.59, 0, 0.06, 0.01, 0.06), 'crown']);
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    p.push([
+      sphere(4, 3),
+      C.seed,
+      m(Math.cos(a) * 0.1, 0.595, Math.sin(a) * 0.1, 0.014, 0.008, 0.026, 0, -a, 0),
+      'crown',
+    ]);
+  }
+  return p;
+}
