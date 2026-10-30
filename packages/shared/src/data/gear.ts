@@ -71,6 +71,7 @@ export const CLASS_FAMILY: Record<ClassId | 'none', WeaponFamily | null> = {
   druid: 'staff',
   ranger: 'bow',
   titan: 'mace',
+  spelunker: 'mace',
   oracle: 'staff',
 };
 

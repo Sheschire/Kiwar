@@ -239,9 +239,17 @@ export function resolveDelve(
   } else e.status = 'returning';
 }
 
-/** Chantier 48 part 4: a spelunker's lantern lights a room next to the one won (none yet). */
-function lanternRoom(_state: GameState, _room: DepthRoom, _crew: Villager[]): string | undefined {
-  return undefined;
+/**
+ * A spelunker of the crew lights a room next to the one won with its lantern: the first one
+ * whose Grouillants we have not seen (not a gallery), deepest first.
+ */
+function lanternRoom(state: GameState, room: DepthRoom, crew: Villager[]): string | undefined {
+  if (!crew.some((v) => v.classId === 'spelunker')) return undefined;
+  const map = depthsMapOf(state);
+  return room.links
+    .map((id) => map.byId.get(id)!)
+    .filter((r) => !state.depths.galleries[r.id] && !state.depths.views[r.id]?.units)
+    .sort((a, b) => b.depth - a.depth || a.id.localeCompare(b.id))[0]?.id;
 }
 
 // --- The forecast (public data only) -----------------------------------------------------------

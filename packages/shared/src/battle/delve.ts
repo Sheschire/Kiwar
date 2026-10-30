@@ -1,3 +1,4 @@
+import { SKILLS } from '../data/classes';
 import { hexDisk, hexDistance, type Hex } from '../hex/hex';
 import { DEPTHS, type HazardKind } from '../data/depths';
 import type { LandingOrders } from '../data/landing';
@@ -52,9 +53,13 @@ export function hazardShield(v: Villager, kind: HazardKind): number {
   return Math.min(h.statCap, h.perStat * Math.max(0, v.stats[hazardStat(kind)] - 5));
 }
 
-/** Multiplier of a hazard on this kiwi from the crew (spelunkers; 1 without). */
-export function hazardFactor(_v: Villager, _crew: readonly Villager[]): number {
-  return 1;
+/**
+ * Multiplier of a hazard on this kiwi from the crew: a spelunker's sure footing for itself,
+ * a quarter less for the others of a crew with one (1 without).
+ */
+export function hazardFactor(v: Villager, crew: readonly Villager[]): number {
+  if (v.classId === 'spelunker') return SKILLS.spelunkerSelf;
+  return crew.some((x) => x.classId === 'spelunker') ? SKILLS.spelunkerCrew : 1;
 }
 
 /** Chance to be hit and share of hit points lost for one kiwi (before the floor). */

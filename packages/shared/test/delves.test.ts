@@ -3,6 +3,9 @@ import {
   advance,
   applyCommand,
   awaitingReport,
+  CLASSES,
+  CLASS_FAMILY,
+  SKILLS,
   cloneState,
   delveForecast,
   delveLock,
@@ -184,5 +187,53 @@ describe('delves (chantier 48)', () => {
     expect(hazardHits(crew, { kind: 'fall', strength: 0.3 }, 'x')).toEqual(
       hazardHits(crew, { kind: 'fall', strength: 0.3 }, 'x'),
     );
+  });
+});
+
+describe('the spelunker (chantier 48)', () => {
+  it('is a master of Endurance and Dexterity, at the camp, in the Iron age', () => {
+    expect(CLASSES.spelunker.tier).toBe(3);
+    expect([CLASSES.spelunker.stat, CLASSES.spelunker.stat2]).toEqual(['endurance', 'dexterity']);
+    expect(CLASSES.spelunker.parents).toEqual(['champion', 'herbalist']);
+    expect(CLASS_FAMILY.spelunker).toBe('mace');
+  });
+
+  it('visibly changes the forecast of a dangerous room', () => {
+    const { s } = delveColony();
+    const room = firstRoom(s);
+    s.depths.views[room.id] = {
+      at: s.now,
+      source: 'retreat',
+      kind: 'scree',
+      units: [{ kind: 'larva', count: 3, level: 2 }],
+      hazard: { kind: 'fall', strength: 0.4 },
+    };
+    const crew = s.villagers.filter((v) => v.id.startsWith('dk')).slice(0, 4);
+    const plain = delveForecast(s, room.id, crew, orders)!;
+    const with1 = cloneState(s);
+    const lead = with1.villagers.find((v) => v.id === crew[0]!.id)!;
+    lead.classId = 'spelunker';
+    const crew1 = with1.villagers.filter((v) => v.id.startsWith('dk')).slice(0, 4);
+    const sure = delveForecast(with1, room.id, crew1, orders)!;
+    expect(sure.harm[0]!.chance).toBeCloseTo(plain.harm[0]!.chance * SKILLS.spelunkerSelf, 2);
+    expect(sure.harm[1]!.chance).toBeCloseTo(plain.harm[1]!.chance * SKILLS.spelunkerCrew, 2);
+    expect(sure.harm[0]!.share).toBeLessThan(plain.harm[0]!.share);
+  });
+
+  it('lights a room next to the one won with its lantern', () => {
+    const { map, s: s0 } = delveColony();
+    const room = depthsMapOf(s0).rooms.find(
+      (r) => r.entrance && r.links.some((id) => depthsMapOf(s0).byId.get(id)!.depth === 2),
+    )!;
+    s0.villagers.find((v) => v.id === 'dk0')!.classId = 'spelunker';
+    let s = run(s0, delve(s0, room.id, crewIds(s0, 8)), s0.now, map);
+    const e = s.expeditions.find((x) => x.mission === 'delve')!;
+    s = advance(s, e.arriveAt + 1).state;
+    const r = s.expeditions.find((x) => x.id === e.id)!.result!;
+    expect(r.outcome).toBe('victory');
+    expect(r.lantern).toBeDefined();
+    expect(room.links).toContain(r.lantern);
+    expect(s.depths.views[r.lantern!]!.source).toBe('lantern');
+    expect(s.depths.views[r.lantern!]!.units).toBeDefined();
   });
 });

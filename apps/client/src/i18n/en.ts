@@ -1907,6 +1907,7 @@ export const en = {
       thornstorm: 'thorn storm',
       longbow: 'longbow',
       maul: 'maul',
+      pick: 'pick',
       starfall: 'starfall',
       claw: 'claws',
       bite: 'bite',
@@ -2484,6 +2485,11 @@ export const en = {
       name: 'Titan',
       desc: 'Fights over twice as hard, builds and repairs 60 % faster.',
       combat: 'Maul: crushing blows that hit a whole tile, twice the hit points.',
+    },
+    spelunker: {
+      name: 'Spelunker',
+      desc: 'At home in the depths: hazards hit it half as often and half as hard, and a quarter less for its crew; a room won lights the next one with its lantern. Harvests 30 % more.',
+      combat: 'Pick: heavy blows that also reach the fruit flies, more hit points.',
     },
     oracle: {
       name: 'Oracle',

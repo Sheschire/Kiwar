@@ -95,6 +95,7 @@ const KIWI_CLIPS: Record<WeaponId, ClipId> = {
   thornstorm: 'spell',
   longbow: 'sling',
   maul: 'mace',
+  pick: 'mace',
   starfall: 'spell',
   claw: 'peck',
   gnaw: 'peck',

@@ -29,6 +29,7 @@ export const WEAPON_IDS = [
   'longbow',
   'maul',
   'starfall',
+  'pick',
   'claw',
   'bite',
   'slam',
@@ -135,6 +136,8 @@ export const WEAPONS: Record<WeaponId, Weapon> = {
     hunts: true,
   },
   maul: { ...melee(6, 2), style: 'area' },
+  // Chantier 48: the spelunker's pick swings up at the fruit flies too.
+  pick: melee(4.4, 1.4, true),
   starfall: {
     damage: 3.4,
     range: 4,
@@ -401,6 +404,7 @@ export const CLASS_WEAPONS: Record<ClassId | 'none', WeaponId> = {
   druid: 'thornstorm',
   ranger: 'longbow',
   titan: 'maul',
+  spelunker: 'pick',
   oracle: 'starfall',
 };
 
@@ -434,6 +438,7 @@ export const KIWI_UNIT = {
     architect: 1.2,
     paladin: 1.8,
     titan: 2,
+    spelunker: 1.6,
     engineer: 1.2,
   } as Partial<Record<ClassId, number>>,
   classDodge: { scout: 0.12, navigator: 0.18, ranger: 0.18 } as Partial<Record<ClassId, number>>,

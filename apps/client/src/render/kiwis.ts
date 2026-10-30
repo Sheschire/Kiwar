@@ -137,6 +137,7 @@ const CLASS_CLIP: Record<ClassId, ClipId> = {
   druid: 'spell',
   ranger: 'sling',
   titan: 'mace',
+  spelunker: 'mace',
   oracle: 'spell',
 };
 /** Guards' sectors (shared `defenseOf`), once per state. */

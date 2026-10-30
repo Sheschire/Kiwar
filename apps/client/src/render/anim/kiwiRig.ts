@@ -92,6 +92,7 @@ const CAPES: Partial<Record<ClassId, string>> = {
   druid: '#3f6b2a',
   ranger: '#4a6b3a',
   titan: '#7a5233',
+  spelunker: '#5f7d2e',
   oracle: '#2b2f6b',
 };
 

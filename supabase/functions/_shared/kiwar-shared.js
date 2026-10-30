@@ -521,7 +521,9 @@ var CLASS_IDS = [
   "druid",
   "ranger",
   "titan",
-  "oracle"
+  "oracle",
+  // Chantier 48: the seventh master, of the depths.
+  "spelunker"
 ];
 var SKILL_IDS = [
   "scaffold",
@@ -758,6 +760,13 @@ var SKILLS = {
   rangerLoot: 1.25,
   /** Oracle at home: waves are announced this much earlier. */
   oracleNotice: ms.h(1),
+  /**
+   * Chantier 48, spelunker: "Sure footing" — the hazards of the depths hit it this much (chance
+   * and harm), and the rest of its crew this much (once per crew); "Lantern" — a room won also
+   * lights one room next to it (its Grouillants and hazard seen).
+   */
+  spelunkerSelf: 0.5,
+  spelunkerCrew: 0.75,
   /** Changing class costs this many times the price. */
   retrainCost: 2
 };
@@ -808,6 +817,12 @@ var CLASSES = {
     fight: 2.2,
     build: 1.6,
     repair: 1.6
+  }),
+  // Chantier 48: the depths — hazards halved, the crew sheltered, a lantern (`SKILLS.spelunker*`).
+  spelunker: master("spelunker", ["champion", "herbalist"], ["endurance", "dexterity"], "harvest", {
+    fight: 1.8,
+    harvest: 1.3,
+    exposure: 0.8
   }),
   // Researches and sees the waves coming earlier (`SKILLS.oracleNotice`).
   oracle: master("oracle", ["archmage", "minstrel"], ["spirit", "charisma"], "research", {
@@ -2590,6 +2605,7 @@ var GARRISON = {
     druid: { ground: 0.9, air: 1.1 },
     ranger: { ground: 1, air: 1.2 },
     titan: { ground: 1.5, air: 0.2 },
+    spelunker: { ground: 1.4, air: 0.6 },
     oracle: { ground: 0.9, air: 1 }
   },
   /** Chantier 08: with firearms, warriors shoot the bats too. */
@@ -3142,6 +3158,7 @@ var CLASS_FAMILY = {
   druid: "staff",
   ranger: "bow",
   titan: "mace",
+  spelunker: "mace",
   oracle: "staff"
 };
 function tierIndex(tier) {
@@ -3999,6 +4016,7 @@ var WEAPON_IDS = [
   "longbow",
   "maul",
   "starfall",
+  "pick",
   "claw",
   "bite",
   "slam",
@@ -4081,6 +4099,8 @@ var WEAPONS = {
     hunts: true
   },
   maul: { ...melee(6, 2), style: "area" },
+  // Chantier 48: the spelunker's pick swings up at the fruit flies too.
+  pick: melee(4.4, 1.4, true),
   starfall: {
     damage: 3.4,
     range: 4,
@@ -4315,6 +4335,7 @@ var CLASS_WEAPONS = {
   druid: "thornstorm",
   ranger: "longbow",
   titan: "maul",
+  spelunker: "pick",
   oracle: "starfall"
 };
 var KIWI_UNIT = {
@@ -4346,6 +4367,7 @@ var KIWI_UNIT = {
     architect: 1.2,
     paladin: 1.8,
     titan: 2,
+    spelunker: 1.6,
     engineer: 1.2
   },
   classDodge: { scout: 0.12, navigator: 0.18, ranger: 0.18 },
@@ -6975,8 +6997,9 @@ function hazardShield(v, kind) {
   const h = DEPTHS.hazard;
   return Math.min(h.statCap, h.perStat * Math.max(0, v.stats[hazardStat(kind)] - 5));
 }
-function hazardFactor(_v, _crew) {
-  return 1;
+function hazardFactor(v, crew) {
+  if (v.classId === "spelunker") return SKILLS.spelunkerSelf;
+  return crew.some((x) => x.classId === "spelunker") ? SKILLS.spelunkerCrew : 1;
 }
 function hazardOdds(v, crew, hazard) {
   const keep = (1 - hazardShield(v, hazard.kind)) * hazardFactor(v, crew);
@@ -7208,8 +7231,10 @@ function resolveDelve(state, e, members, fed) {
     if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
   } else e.status = "returning";
 }
-function lanternRoom(_state, _room, _crew) {
-  return void 0;
+function lanternRoom(state, room, crew) {
+  if (!crew.some((v) => v.classId === "spelunker")) return void 0;
+  const map = depthsMapOf(state);
+  return room.links.map((id3) => map.byId.get(id3)).filter((r) => !state.depths.galleries[r.id] && !state.depths.views[r.id]?.units).sort((a, b) => b.depth - a.depth || a.id.localeCompare(b.id))[0]?.id;
 }
 var trialCache = /* @__PURE__ */ new Map();
 function practice(state, crew, units, hazard, orders, fed, seed) {

@@ -30,6 +30,8 @@ export const CLASS_IDS = [
   'ranger',
   'titan',
   'oracle',
+  // Chantier 48: the seventh master, of the depths.
+  'spelunker',
 ] as const;
 export type ClassId = (typeof CLASS_IDS)[number];
 
@@ -340,6 +342,13 @@ export const SKILLS = {
   rangerLoot: 1.25,
   /** Oracle at home: waves are announced this much earlier. */
   oracleNotice: ms.h(1),
+  /**
+   * Chantier 48, spelunker: "Sure footing" — the hazards of the depths hit it this much (chance
+   * and harm), and the rest of its crew this much (once per crew); "Lantern" — a room won also
+   * lights one room next to it (its Grouillants and hazard seen).
+   */
+  spelunkerSelf: 0.5,
+  spelunkerCrew: 0.75,
   /** Changing class costs this many times the price. */
   retrainCost: 2,
 } as const;
@@ -393,6 +402,12 @@ export const CLASSES: Record<ClassId, ClassDef> = {
     fight: 2.2,
     build: 1.6,
     repair: 1.6,
+  }),
+  // Chantier 48: the depths — hazards halved, the crew sheltered, a lantern (`SKILLS.spelunker*`).
+  spelunker: master('spelunker', ['champion', 'herbalist'], ['endurance', 'dexterity'], 'harvest', {
+    fight: 1.8,
+    harvest: 1.3,
+    exposure: 0.8,
   }),
   // Researches and sees the waves coming earlier (`SKILLS.oracleNotice`).
   oracle: master('oracle', ['archmage', 'minstrel'], ['spirit', 'charisma'], 'research', {

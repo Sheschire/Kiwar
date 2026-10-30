@@ -1988,6 +1988,7 @@ export const fr: Dict = {
       thornstorm: 'tempête d’épines',
       longbow: 'arc long',
       maul: 'masse d’armes',
+      pick: 'pic',
       starfall: 'pluie d’étoiles',
       claw: 'griffes',
       bite: 'morsure',
@@ -2580,6 +2581,12 @@ export const fr: Dict = {
       desc: 'Combat plus de deux fois plus fort, construit et répare 60 % plus vite.',
       combat:
         'Masse d’armes : coups écrasants sur toute une case, deux fois plus de points de vie.',
+    },
+    spelunker: {
+      name: 'Spéléologue',
+      desc: 'Chez soi dans les Tréfonds : les dangers l’atteignent deux fois moins souvent et deux fois moins fort, un quart de moins pour son équipe ; une salle gagnée éclaire la suivante à sa lanterne. Récolte 30 % de plus.',
+      combat:
+        'Pic : de gros coups qui atteignent aussi les mouches des fruits, plus de points de vie.',
     },
     oracle: {
       name: 'Oracle',
