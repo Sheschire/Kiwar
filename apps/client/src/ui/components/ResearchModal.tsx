@@ -21,6 +21,7 @@ import {
   type TechId,
   stardustOf,
   meteorIronOf,
+  crystalOf,
 } from '@kiwar/shared';
 import { researchPerHour } from '../derived';
 import { formatDuration, formatNumber } from '../../i18n/i18n';
@@ -145,6 +146,15 @@ function TechCard({ game, id, t }: { game: GameState; id: TechId; t: Translate }
               {'\u00a0·\u00a0'}
               <Icon name="iron" size={14} />
               {def.iron}
+            </span>
+          )}
+          {def.crystal && status !== 'done' && status !== 'current' && (
+            <span
+              class={`dust-price cost-crystal ${crystalOf(game) < def.crystal ? 'missing' : ''}`}
+            >
+              {'\u00a0·\u00a0'}
+              <Icon name="crystal" size={14} />
+              {def.crystal}
             </span>
           )}
         </span>

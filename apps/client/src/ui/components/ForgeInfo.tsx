@@ -6,6 +6,7 @@ import {
   GEAR_TIERS,
   ITEMS,
   meteorIronOf,
+  crystalOf,
   orderWork,
   smithsOf,
   workerSlots,
@@ -118,6 +119,8 @@ export function ForgeInfo({ game, b }: { game: GameState; b: Building }) {
                         have={game.resources}
                         iron={def.iron}
                         haveIron={meteorIronOf(game)}
+                        crystal={def.crystal}
+                        haveCrystal={crystalOf(game)}
                         durationMs={def.workH * 3_600_000}
                       />
                       <button

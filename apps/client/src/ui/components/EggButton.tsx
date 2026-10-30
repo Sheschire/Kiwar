@@ -1,5 +1,6 @@
 import {
   BLESSINGS,
+  GIANT_SEEDS,
   canHatch,
   eggCost,
   eggDuration,
@@ -12,6 +13,7 @@ import { actions } from '../actions';
 import { EggIcon, StardustIcon } from '../icons';
 import { useT, useUi } from '../store';
 import { Cost } from './Cost';
+import { Icon } from '../iconSet';
 
 /**
  * Floating egg button: hatch a new kiwi (cost + incubation), capped by housing. Chantier 21:
@@ -53,8 +55,25 @@ export function EggButton({ inBar = false }: { inBar?: boolean }) {
   const starError = full
     ? 'housingFull'
     : validateCommand(game, { type: 'hatchEgg', star: true }, { now, map });
+  // Chantier 50: the locule egg, once the colony holds giant seeds.
+  const showLocule = game.giantSeeds > 0;
+  const loculeError = full
+    ? 'housingFull'
+    : validateCommand(game, { type: 'hatchEgg', locule: true }, { now, map });
   return (
     <div class={inBar ? 'thumb-egg' : 'egg-wrap pe'}>
+      {showLocule && (
+        <button
+          class={`egg-star egg-locule parchment-btn ${loculeError ? '' : 'ready'}`}
+          disabled={loculeError !== null}
+          aria-label={t('locules.egg')}
+          title={t('locules.eggTitle', { stat: GIANT_SEEDS.egg.stat })}
+          onClick={() => actions.dispatch({ type: 'hatchEgg', locule: true })}
+        >
+          <Icon name="giantSeed" size={18} />
+          <span>{GIANT_SEEDS.egg.seeds}</span>
+        </button>
+      )}
       {showStar && (
         <button
           class={`egg-star parchment-btn ${starError ? '' : 'ready'}`}

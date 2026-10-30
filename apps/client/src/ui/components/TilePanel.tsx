@@ -5,6 +5,13 @@ import {
   BUILDABLE_TYPES,
   BUILDINGS,
   buildCost,
+  treeSeedCost,
+  CRYSTAL,
+  crystalOf,
+  GIANT_SEEDS,
+  giantSeedCap,
+  lensLock,
+  techEffects,
   buildingAt,
   buildingCount,
   buildingRates,
@@ -231,21 +238,72 @@ function TurretReach({
   level,
   h,
   t,
+  lens = false,
 }: {
   type: BuildingType;
   level: number;
   h: Hex;
   t: Translate;
+  lens?: boolean;
 }) {
   const map = useUi((s) => s.map);
   if (!map) return null;
-  const cover = turretCoverage(map, type, level, h);
+  const cover = turretCoverage(map, type, level, h, lens);
   const sectors = SECTOR_IDS.filter((s) => cover[s] > 0.005)
     .map((s) => `${t(`defense.sectors.${s}`)} ${Math.round(cover[s] * 100)} %`)
     .join(', ');
   return (
     <p class={`small ${cover.front > 0.005 ? 'muted' : 'warn'}`}>
-      {t('building.turretRange', { range: turretRange(type, level), sectors })}
+      {t('building.turretRange', { range: turretRange(type, level, lens), sectors })}
+    </p>
+  );
+}
+
+/** Chantier 50: a crystal lens on a turret (technology Glass). */
+function LensBox({ game, b, t }: { game: GameState; b: Building; t: Translate }) {
+  if (!techEffects(game).lenses) return null;
+  if (b.lens)
+    return <p class="small bonus">{t('locules.lensOn', { range: CRYSTAL.lens.range })}</p>;
+  const lock = lensLock(game, b);
+  return (
+    <div class="build-option-foot">
+      <Cost cost={{}} crystal={CRYSTAL.lens.crystal} haveCrystal={crystalOf(game)} />
+      <button
+        class="btn"
+        disabled={lock !== null}
+        title={lock ? t(`errors.${lock}`) : undefined}
+        onClick={() => actions.dispatch({ type: 'fitLens', buildingId: b.id })}
+      >
+        <Icon name="crystal" size={16} /> {t('locules.fitLens', { range: CRYSTAL.lens.range })}
+      </button>
+    </div>
+  );
+}
+
+/** Chantier 50: a locule tree, growing or giving its giant seeds. */
+function TreeInfo({
+  game,
+  b,
+  now,
+  t,
+}: {
+  game: GameState;
+  b: Building;
+  now: number;
+  t: Translate;
+}) {
+  const lang = useUi((s) => s.lang);
+  if (b.seedAt === undefined) return null;
+  const growing = b.seedAt - b.builtAt <= GIANT_SEEDS.tree.growMs && b.seedAt > now;
+  const full = game.giantSeeds >= giantSeedCap(game);
+  return (
+    <p class="small">
+      <Icon name="giantSeed" size={14} />{' '}
+      {b.seedAt <= now && full
+        ? t('locules.treeRipe')
+        : t(growing ? 'locules.treeGrowing' : 'locules.treeNext', {
+            time: formatDuration(lang, Math.max(0, b.seedAt - now)),
+          })}
     </p>
   );
 }
@@ -462,9 +520,11 @@ function BuildingSection({
             {t('building.ammo', { count: def.ammo ?? 0 })} ·{' '}
             {t('building.turrets', { count: turretCount(game), max: turretLimit(game) })}
           </p>
-          <TurretReach type={b.type} level={b.level} h={b} t={t} />
+          <TurretReach type={b.type} level={b.level} h={b} t={t} lens={!!b.lens} />
+          <LensBox game={game} b={b} t={t} />
         </>
       )}
+      {b.type === 'loculeTree' && <TreeInfo game={game} b={b} now={now} t={t} />}
       {def.storage !== undefined && (
         <div class="stat-row">
           <StatLabel icon="storage" label={t('building.storage')} />
@@ -673,6 +733,8 @@ function BuildOption({
         <Cost
           cost={buildCost(game, type)}
           have={game.resources}
+          giantSeeds={treeSeedCost(game, type)}
+          haveSeeds={game.giantSeeds}
           durationMs={constructionDuration(game, type, 1, true, nearRay(map, tile.q, tile.r))}
         />
         <button

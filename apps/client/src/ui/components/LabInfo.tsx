@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import {
   infusionDuration,
   infusionRisk,
+  actinidineActive,
   kikiwiwiCap,
   kikiwiwiCount,
   KIKIWIWI,
@@ -71,6 +72,7 @@ export function LabInfo(props: { game: GameState; map: FaceMap; b: Building; now
     <div class="section lab-section">
       <h3>{t('lab.title')}</h3>
       {capLine}
+      {actinidineActive(game) && <p class="small bonus">{t('locules.lakeActive', { heal: '' })}</p>}
       {candidates.length === 0 ? (
         <p class="small muted">{t('lab.none', { level: KIKIWIWI.minLevel })}</p>
       ) : (

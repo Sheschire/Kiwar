@@ -1930,6 +1930,29 @@ export const fr: Dict = {
     perHour: '+{rate}/h en taille',
     full: 'La réserve de cristal est pleine : les mineur·euses des forêts remontent.',
   },
+  locules: {
+    lensOn: 'Lentille de cristal posée : +{range} tuile de portée.',
+    fitLens: 'Poser une lentille (+{range} de portée)',
+    treeGrowing: 'Il pousse : sa première graine géante dans {time}.',
+    treeNext: 'Prochaine graine géante dans {time}.',
+    treeRipe: 'Une graine géante mûre attend : dépensez-en une pour faire de la place.',
+    strip: 'Les {count} loges, dans l’ordre de l’anneau :',
+    treeSeed: 'Un arbre-loge a donné une graine géante.',
+    ammoTitle: 'Munitions de cristal',
+    ammoToggle:
+      'Les tourelles à graines tirent du cristal : armure percée à {pierce} %, {cost} cristal à chaque frappe.',
+    ammoShort:
+      'Pas assez de cristal pour la prochaine frappe ({cost}) : les tourelles tirent des graines.',
+    egg: 'Œuf des loges',
+    eggTitle: 'Couver une graine géante avec l’œuf : un kiwi doué, +{stat} dans chaque stat.',
+    skirt: 'Contourner les lacs d’actinidine (moitié plus long, pas d’acide)',
+    lakeActive:
+      'Un lac d’actinidine est exploité : les infusions sont deux fois moins risquées{heal}.',
+    lakeHeal: ', les blessé·es guérissent deux fois plus vite',
+    lakeIdle:
+      'Un lac d’actinidine est pris : une personne qui y mine divise par deux le risque des infusions.',
+    seeds: '+{count} graine(s) géante(s)',
+  },
   giantSeeds: {
     name: 'Graines géantes',
     tip: 'Trouvées dans les loges (au plus {cap}, plus avec les âges). Plantez-en une pour un arbre-loge, ou couvez-la pour un kiwi doué.',

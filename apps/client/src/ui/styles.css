@@ -5676,6 +5676,43 @@ h3 .building-thumb {
   color: #4c5a68;
 }
 
+/* Chantier 50: crystal and giant seeds. */
+.crystal-ammo h3 .icon {
+  display: inline-block;
+  vertical-align: -3px;
+}
+
+.toggle-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 6px 0;
+}
+.chip-locules .chip-amount,
+.cost-crystal {
+  color: #2f6f84;
+}
+
+.chip-giant {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.chip-giant .icon {
+  display: inline-block;
+}
+
+.chip-locules.is-picking .icon:first-child {
+  animation: iron-glint 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip-locules.is-picking .icon:first-child {
+    animation: none;
+  }
+}
+
 .forge-section h3 {
   margin: 10px 0 4px;
 }
@@ -6202,8 +6239,12 @@ h3 .building-thumb {
 
 @media (max-width: 760px) {
   .depths-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
+}
+
+.depths-cut-col {
+  min-width: 0;
 }
 
 .depths-cut {
@@ -6256,6 +6297,89 @@ h3 .building-thumb {
 
 .depths-cut .cut-room {
   cursor: pointer;
+}
+
+/* Chantier 50: the locules unrolled into a strip. */
+.locule-strip {
+  margin-top: 6px;
+}
+
+.locule-row {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 4px 2px 6px;
+  scrollbar-width: thin;
+}
+
+.locule {
+  position: relative;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #2e3820;
+  background: #6d7462;
+  color: #f4f0dc;
+  font-weight: 700;
+  font-size: 13px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.locule.is-heard {
+  background: #7d8a5d;
+}
+
+.locule.is-seen {
+  background: #a9c46b;
+}
+
+.locule.is-gallery {
+  background: #f2c94c;
+  border-color: #8a5a14;
+}
+
+.locule.is-open {
+  border-color: #fff6c8;
+  box-shadow: 0 0 0 1px #2e3820;
+}
+
+.locule.is-selected {
+  border-color: var(--berry);
+  border-width: 3px;
+}
+
+.locule-kind {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid #2e3820;
+}
+
+.locule-nest {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #b5543c;
+  border: 1px solid #5b2618;
+}
+
+.locule-miners {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  font-size: 10px;
+  background: var(--paper);
+  color: #3b2a1a;
+  border-radius: 6px;
+  padding: 0 3px;
+  border: 1px solid var(--edge);
 }
 
 .depths-cut .cut-room-shape {

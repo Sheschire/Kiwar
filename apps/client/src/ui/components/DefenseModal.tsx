@@ -1,4 +1,8 @@
 import {
+  CRYSTAL,
+  crystalAmmoCost,
+  seedTurrets,
+  techEffects,
   canCollect,
   reserveHolders,
   turretCount,
@@ -29,6 +33,7 @@ import { actions } from '../actions';
 import { setPanelOpen, uiStore, useT, useUi, type Translate } from '../store';
 import { KiwiPortrait } from './KiwiPortrait';
 import { Modal } from './Modal';
+import { Icon } from '../iconSet';
 import { CivCard } from './CivCard';
 import { useJobLabel } from './VillageModal';
 
@@ -396,6 +401,36 @@ function PostureChoice({ game }: { game: GameState }) {
   );
 }
 
+/** Chantier 50: crystal ammunition for the seed turrets (technology Crystal cutting). */
+function CrystalAmmo({ game }: { game: GameState }) {
+  const t = useT();
+  if (!techEffects(game).crystalAmmo) return null;
+  const on = !!game.threats.crystalAmmo;
+  const cost = CRYSTAL.ammo.perTurret * seedTurrets(game);
+  const short = on && crystalAmmoCost(game) === 0 && cost > 0;
+  return (
+    <section class="field crystal-ammo">
+      <h3>
+        <Icon name="crystal" size={18} /> {t('locules.ammoTitle')}
+      </h3>
+      <label class="small toggle-line">
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={(e) =>
+            actions.dispatch({ type: 'setCrystalAmmo', on: (e.target as HTMLInputElement).checked })
+          }
+        />{' '}
+        {t('locules.ammoToggle', {
+          cost,
+          pierce: Math.round(CRYSTAL.ammo.pierce * 100),
+        })}
+      </label>
+      {short && <p class="small warn">{t('locules.ammoShort', { cost })}</p>}
+    </section>
+  );
+}
+
 function ReportItem({ r, now, t }: { r: WaveReport; now: number; t: Translate }) {
   const lang = useUi((s) => s.lang);
   const n = (x: number) => formatNumber(lang, one(x));
@@ -617,6 +652,7 @@ export function DefenseModal() {
       <CivCard game={game} />
       <SectorTable game={game} />
       <PostureChoice game={game} />
+      <CrystalAmmo game={game} />
       <GarrisonPicker game={game} />
       <section class="field">
         <h3>{t('defense.reports')}</h3>

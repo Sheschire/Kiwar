@@ -10,6 +10,11 @@ import {
   IRON_SCALE,
   meteorIronOf,
   stardustPerHour,
+  crystalCap,
+  crystalOf,
+  crystalPerHour,
+  CRYSTAL_SCALE,
+  giantSeedCap,
   type ResourceId,
 } from '@kiwar/shared';
 import {
@@ -51,7 +56,7 @@ import { ClockChip, ClockTip } from './ClockChip';
 import { MoraleLine } from './NeedsWidgets';
 import { Icon } from '../iconSet';
 
-type TipId = ResourceId | 'population' | 'clock' | 'stardust' | 'iron';
+type TipId = ResourceId | 'population' | 'clock' | 'stardust' | 'iron' | 'locules';
 
 export interface ChipHandlers {
   open: boolean;
@@ -178,6 +183,40 @@ function IronChip({ h }: { h: ChipHandlers }) {
   );
 }
 
+/** Chantier 50: the locules' stocks, crystal over giant seeds (one chip for both). */
+function LoculesChip({ h }: { h: ChipHandlers }) {
+  const t = useT();
+  const crystal = useUi((s) => (s.game ? crystalOf(s.game) : 0));
+  const cap = useUi((s) => (s.game ? crystalCap(s.game) / CRYSTAL_SCALE : 0));
+  const seeds = useUi((s) => s.game?.giantSeeds ?? 0);
+  const seedCap = useUi((s) => (s.game ? giantSeedCap(s.game) : 0));
+  const cutting = useUi((s) => (s.game ? crystalPerHour(s.game) > 0 : false));
+  return (
+    <button
+      type="button"
+      data-tip="locules"
+      class={`chip chip-locules ${cutting ? 'is-picking' : ''} ${h.open ? 'is-open' : ''}`}
+      aria-label={`${t('crystal.name')} ${crystal} / ${cap}, ${t('giantSeeds.name')} ${seeds} / ${seedCap}`}
+      aria-expanded={h.open}
+      onPointerEnter={h.onEnter}
+      onPointerLeave={h.onLeave}
+      onClick={h.onToggle}
+    >
+      <Icon name="crystal" size={24} />
+      <div class="chip-body">
+        <div class="chip-line">
+          <span class="chip-amount">{crystal}</span>
+          <span class="chip-cap">/{cap}</span>
+        </div>
+        <div class="chip-rate chip-giant">
+          <Icon name="giantSeed" size={12} />
+          {seeds}/{seedCap}
+        </div>
+      </div>
+    </button>
+  );
+}
+
 /** Concise explanation of a resource (or of the population) with live numbers. */
 function TipContent({ id }: { id: TipId }) {
   const t = useT();
@@ -215,6 +254,28 @@ function TipContent({ id }: { id: TipId }) {
             {t('iron.perHour', { rate: formatNumber(lang, Math.round(rate * 10) / 10) })}
           </p>
         )}
+      </>
+    );
+  }
+  if (id === 'locules') {
+    const rate = crystalPerHour(game);
+    const cap = crystalCap(game) / CRYSTAL_SCALE;
+    return (
+      <>
+        <strong class="tip-title">
+          <Icon name="crystal" size={18} /> {t('crystal.name')} {crystalOf(game)}/{cap}
+        </strong>
+        <p>{t('crystal.tip', { cap })}</p>
+        {rate > 0 && (
+          <p class="tip-line bonus">
+            {t('crystal.perHour', { rate: formatNumber(lang, Math.round(rate * 10) / 10) })}
+          </p>
+        )}
+        <strong class="tip-title">
+          <Icon name="giantSeed" size={18} /> {t('giantSeeds.name')} {game.giantSeeds}/
+          {giantSeedCap(game)}
+        </strong>
+        <p>{t('giantSeeds.tip', { cap: giantSeedCap(game) })}</p>
       </>
     );
   }
@@ -384,6 +445,16 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
       (s.game.stardust > 0 || s.game.comets.passes > 0 || s.game.comets.patches.length > 0),
   );
   const showIron = useUi((s) => !!s.game && (s.game.meteorIron > 0 || s.game.sky.falls > 0));
+  // Chantier 50: once the locules gave something (or a locule is taken).
+  const showLocules = useUi(
+    (s) =>
+      !!s.game &&
+      (s.game.crystal > 0 ||
+        s.game.giantSeeds > 0 ||
+        Object.values(s.game.depths.galleries).some(
+          (g) => g.kind === 'forest' || g.kind === 'lake',
+        )),
+  );
   return (
     <header class="topbar pe">
       <div class="resources parchment" ref={barRef}>
@@ -430,6 +501,7 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
         </span>
         {showDust && <StardustChip h={handlers('stardust')} />}
         {showIron && <IronChip h={handlers('iron')} />}
+        {showLocules && <LoculesChip h={handlers('locules')} />}
         <ClockChip h={handlers('clock')} />
         {tip && (
           <div class="tip parchment" role="tooltip" ref={tipRef} style={{ left: `${tipLeft}px` }}>

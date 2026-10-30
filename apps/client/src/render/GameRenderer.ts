@@ -869,7 +869,7 @@ export class GameRenderer {
       const origin = b && getTile(map, b);
       if (!b || !origin) continue;
       if (isTurret(b.type)) {
-        const covered = coveredRampart(map, b.type, b.level, b);
+        const covered = coveredRampart(map, b.type, b.level, b, !!b.lens);
         this.waves.start(
           origin,
           covered.map((x) => x.tile),
@@ -1185,7 +1185,7 @@ export class GameRenderer {
     if (this.map && (hovered || (b && isTurret(b.type)))) {
       const covered = hovered
         ? coveredRampart(this.map, this.placingTurret!, 1, hovered)
-        : coveredRampart(this.map, b!.type, b!.level, b!);
+        : coveredRampart(this.map, b!.type, b!.level, b!, !!b!.lens);
       this.selection.setCatchment(
         covered.map((x) => x.tile),
         covered.map((x) => SECTOR_COLORS[x.sector]),

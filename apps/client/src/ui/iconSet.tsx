@@ -383,6 +383,55 @@ const GLYPHS = {
       <path d="M13 13l6 6M19 13l-6 6" stroke="#b5475b" stroke-width="2" stroke-linecap="round" />
     </>
   ),
+  // Chantier 50: crystal (a raphide cluster) and a giant seed.
+  crystal: (
+    <>
+      <path
+        d="M9 27l2-14 3-6 2 8-2 12z"
+        fill="#c8f2ff"
+        stroke="#3f7f95"
+        stroke-width="1.3"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M15 27l2-17 4-6 2 9-3 14z"
+        fill="#e4fbff"
+        stroke="#3f7f95"
+        stroke-width="1.3"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M21 27l2-10 3-3 1 6-2 7z"
+        fill="#b2e6f5"
+        stroke="#3f7f95"
+        stroke-width="1.3"
+        stroke-linejoin="round"
+      />
+      <path d="M6 28h22" stroke="#3f7f95" stroke-width="1.6" stroke-linecap="round" />
+    </>
+  ),
+  giantSeed: (
+    <>
+      <ellipse
+        cx="16"
+        cy="16"
+        rx="7"
+        ry="11"
+        fill="#2a1d16"
+        stroke="#120c09"
+        stroke-width="1.4"
+        transform="rotate(18 16 16)"
+      />
+      <ellipse
+        cx="13.5"
+        cy="11.5"
+        rx="2"
+        ry="3.6"
+        fill="#5b4535"
+        transform="rotate(18 13.5 11.5)"
+      />
+    </>
+  ),
   iron: (
     <>
       <path

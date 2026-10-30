@@ -8,6 +8,7 @@ import {
   AGE_IDS,
   ageOf,
   buildCost,
+  treeSeedCost,
   buildLock,
   BUILDINGS,
   canAfford,
@@ -174,6 +175,8 @@ function TreeCard({ game, type, t }: { game: GameState; type: BuildingType; t: T
           <Cost
             cost={buildCost(game, type)}
             have={game.resources}
+            giantSeeds={treeSeedCost(game, type)}
+            haveSeeds={game.giantSeeds}
             durationMs={constructionDuration(game, type, 1, true, false)}
           />
           <button

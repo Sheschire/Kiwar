@@ -13,6 +13,10 @@ export function Cost({
   haveDust,
   iron,
   haveIron,
+  crystal,
+  haveCrystal,
+  giantSeeds,
+  haveSeeds,
 }: {
   cost: ResourceCost;
   have?: Resources;
@@ -23,13 +27,20 @@ export function Cost({
   /** Chantier 38: whole units of meteoric iron on top. */
   iron?: number;
   haveIron?: number;
+  /** Chantier 50: whole units of crystal, and giant seeds, on top. */
+  crystal?: number;
+  haveCrystal?: number;
+  giantSeeds?: number;
+  haveSeeds?: number;
 }) {
   const t = useT();
   const lang = useUi((s) => s.lang);
   const ids = RESOURCE_IDS.filter((id) => (cost[id] ?? 0) > 0);
   return (
     <span class="cost">
-      {ids.length === 0 && !stardust && !iron && <span class="cost-item">{t('common.free')}</span>}
+      {ids.length === 0 && !stardust && !iron && !crystal && !giantSeeds && (
+        <span class="cost-item">{t('common.free')}</span>
+      )}
       {ids.map((id) => {
         const missing = have ? have[id] + 1e-9 < (cost[id] ?? 0) : false;
         return (
@@ -59,6 +70,24 @@ export function Cost({
         >
           <Icon name="iron" size={16} />
           {iron}
+        </span>
+      )}
+      {!!crystal && (
+        <span
+          class={`cost-item cost-crystal ${haveCrystal !== undefined && haveCrystal < crystal ? 'missing' : ''}`}
+          title={t('crystal.name')}
+        >
+          <Icon name="crystal" size={16} />
+          {crystal}
+        </span>
+      )}
+      {!!giantSeeds && (
+        <span
+          class={`cost-item cost-giant ${haveSeeds !== undefined && haveSeeds < giantSeeds ? 'missing' : ''}`}
+          title={t('giantSeeds.name')}
+        >
+          <Icon name="giantSeed" size={16} />
+          {giantSeeds}
         </span>
       )}
       {durationMs !== undefined && (

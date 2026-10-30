@@ -20,6 +20,9 @@ import {
   minersIn,
   rations,
   isLocule,
+  ageOf,
+  delveTime,
+  actinidineActive,
   reachableRooms,
   techEffects,
   tunnelOf,
@@ -89,7 +92,10 @@ export function DepthsModal() {
             )}
           </div>
           <div class="depths-layout">
-            <DepthsCut game={game} selected={selected} onSelect={setSelected} />
+            <div class="depths-cut-col">
+              <DepthsCut game={game} selected={selected} onSelect={setSelected} />
+              <LoculeStrip game={game} selected={selected} onSelect={setSelected} />
+            </div>
             <div class="depths-side">
               {room ? (
                 <RoomPanel game={game} room={room} />
@@ -100,6 +106,7 @@ export function DepthsModal() {
           </div>
           {room && <RoomActions game={game} room={room} />}
           <DoorBox game={game} />
+          <LakeLine game={game} />
           <DelveList game={game} />
         </>
       )}
@@ -249,6 +256,55 @@ function DepthsCut(props: {
   );
 }
 
+/**
+ * Chantier 50: the locules unrolled into a strip (the ring is too small to tap in the cut):
+ * one button per locule, in the order of the ring, with its kind, nest and miners.
+ */
+function LoculeStrip(props: {
+  game: GameState;
+  selected: string | null;
+  onSelect(id: string): void;
+}) {
+  const t = useT();
+  const { game } = props;
+  const map = depthsMapOf(game);
+  const locules = map.rooms.filter(isLocule);
+  const known = locules.some((r) => game.depths.views[r.id] || game.depths.galleries[r.id]);
+  const open = ageOf(game) >= DEPTHS.locules.age;
+  if (!open && !known) return null;
+  const reach = new Set(reachableRooms(game).map((r) => r.id));
+  return (
+    <section class="locule-strip">
+      <p class="small muted">
+        {t(open ? 'locules.strip' : 'errors.layerLocked', { count: locules.length })}
+      </p>
+      <div class="locule-row" role="list">
+        {locules.map((r) => {
+          const v = game.depths.views[r.id];
+          const g = game.depths.galleries[r.id];
+          const kind = g?.kind ?? v?.kind;
+          const look = g ? 'gallery' : v?.units ? 'seen' : v ? 'heard' : 'fog';
+          const miners = g ? minersIn(game, r.id).length : 0;
+          return (
+            <button
+              key={r.id}
+              role="listitem"
+              class={`locule is-${look} ${reach.has(r.id) ? 'is-open' : ''} ${props.selected === r.id ? 'is-selected' : ''}`}
+              aria-label={roomName(t, game, r)}
+              title={roomName(t, game, r)}
+              onClick={() => props.onSelect(r.id)}
+            >
+              {kind ? <span class="locule-kind" style={{ background: KIND_COLORS[kind] }} /> : '?'}
+              {v?.nest && <span class="locule-nest" />}
+              {miners > 0 && <span class="locule-miners">{miners}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export function roomName(t: Translate, game: GameState, r: DepthRoom): string {
   const kind = game.depths.galleries[r.id]?.kind ?? game.depths.views[r.id]?.kind;
   return t('depths.roomName', {
@@ -371,15 +427,26 @@ function DelvePlanner({ game, room }: { game: GameState; room: DepthRoom }) {
   const map = useUi((s) => s.map);
   const [crew, setCrew] = useState<VillagerId[]>([]);
   const [orders, setOrders] = useState<LandingOrders>({ ...LANDING.defaultOrders });
+  // Chantier 50: a crew bound for a locule may skirt the actinidine lakes.
+  const [skirt, setSkirt] = useState(false);
+  const locule = isLocule(room);
+  const skirting = locule && skirt;
   const members = crew
     .map((id) => game.villagers.find((v) => v.id === id))
     .filter((v): v is Villager => !!v);
-  const travel = DEPTHS.travelMs[room.depth - 1]!;
+  const travel = delveTime(room, skirting);
   const need = rations(game, members, 2 * travel);
   const up5 = (x: number) => Math.ceil((x * 1.1) / 5) * 5;
   const provisions = { pulp: up5(need.pulp), juice: up5(need.juice) };
-  const f = delveForecast(game, room.id, members, orders);
-  const cmd = { type: 'delve' as const, roomId: room.id, crew, provisions, orders };
+  const f = delveForecast(game, room.id, members, orders, 1, skirting);
+  const cmd = {
+    type: 'delve' as const,
+    roomId: room.id,
+    crew,
+    provisions,
+    orders,
+    ...(skirting ? { skirt: true } : {}),
+  };
   const error = map ? validateCommand(game, cmd, { now, map }) : null;
   const max = delveCrewMax(game);
   return (
@@ -392,6 +459,16 @@ function DelvePlanner({ game, room }: { game: GameState; room: DepthRoom }) {
         <div>
           {f && <DelveForecastLines forecast={f} crew={members} game={game} />}
           <OrdersPicker orders={orders} onChange={setOrders} delve />
+          {locule && (
+            <label class="small toggle-line">
+              <input
+                type="checkbox"
+                checked={skirt}
+                onChange={(e) => setSkirt((e.target as HTMLInputElement).checked)}
+              />{' '}
+              {t('locules.skirt')}
+            </label>
+          )}
         </div>
       </div>
       <p class="small">
@@ -465,6 +542,16 @@ function DelveForecastLines(props: {
 }
 
 // --- The door -----------------------------------------------------------------------------------
+
+/** Chantier 50: what a taken actinidine lake does for the colony. */
+function LakeLine({ game }: { game: GameState }) {
+  const t = useT();
+  const lakes = Object.values(game.depths.galleries).some((g) => g.kind === 'lake');
+  if (!lakes) return null;
+  if (!actinidineActive(game)) return <p class="small muted">{t('locules.lakeIdle')}</p>;
+  const heal = techEffects(game).enzymes > 1 ? t('locules.lakeHeal') : '';
+  return <p class="small bonus">{t('locules.lakeActive', { heal })}</p>;
+}
 
 function DoorBox({ game }: { game: GameState }) {
   const t = useT();
@@ -607,6 +694,11 @@ export function DelveReport({ e, game }: { e: Expedition; game: GameState }) {
       {won && <p class="small bonus">{t('depths.report.gallery')}</p>}
       {r.lantern && <p class="small">{t('depths.report.lantern')}</p>}
       {r.iron ? <p class="small">{t('depths.report.iron', { count: r.iron })}</p> : null}
+      {r.giantSeeds ? (
+        <p class="small">
+          <Icon name="giantSeed" size={14} /> {t('locules.seeds', { count: r.giantSeeds })}
+        </p>
+      ) : null}
       {r.outcome === 'retreat' && <p class="small">{t('landing.report.glimpse')}</p>}
       {r.seen && r.seen.length > 0 && (
         <section class="field">
