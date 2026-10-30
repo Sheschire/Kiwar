@@ -1,5 +1,6 @@
 import {
   meteorIronOf,
+  crystalOf,
   TECHS,
   applyCommand,
   buildCost,
@@ -78,9 +79,11 @@ export function ageDecision(
   // Chantier 19: a sister colony's research is chosen at home.
   if (!state.research.current && !isSister(state)) {
     const bankFull = state.research.points >= researchBank(state);
-    // Chantier 38: a technology paid in meteoric iron waits for it.
+    // Chantier 38: a technology paid in meteoric iron (chantier 50: or crystal) waits for it.
     const open = (id: TechId) =>
-      techStatus(state, id) === 'available' && (TECHS[id].iron ?? 0) <= meteorIronOf(state);
+      techStatus(state, id) === 'available' &&
+      (TECHS[id].iron ?? 0) <= meteorIronOf(state) &&
+      (TECHS[id].crystal ?? 0) <= crystalOf(state);
     const next =
       wanted && open(wanted) ? wanted : bankFull ? TECH_ORDER.find((id) => open(id)) : undefined;
     if (next) return { type: 'setResearch', tech: next };

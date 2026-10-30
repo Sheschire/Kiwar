@@ -17,6 +17,8 @@ import { hasSkill, modifiers } from '../sim/kiwis';
 import { techEffects } from '../sim/research';
 import { titanPower } from '../sim/kikiwiwi';
 import { gearEffect } from '../sim/forge';
+import { crystalAmmoOn } from '../sim/crystal';
+import { CRYSTAL } from '../data/crystal';
 import { levelDef } from '../data/buildings';
 import { turretRange } from '../sim/threats';
 import type { BattleSide, BattleUnitSetup, UnitRole } from './types';
@@ -119,7 +121,13 @@ export function kiwiUnit(
     flying: false,
     fixed: false,
     weaponId,
-    weapon: { ...base, damage, accuracy: aim },
+    weapon: {
+      ...base,
+      damage,
+      accuracy: aim,
+      // Chantier 50: a crystal weapon goes through armour (the militia pecks).
+      ...(role !== 'militia' && gear.pierce ? { pierce: gear.pierce } : {}),
+    },
     ammo: null,
     carry: 0,
     power: 0,
@@ -215,7 +223,9 @@ export function turretUnit(
     weapon: {
       ...w,
       damage: defense * TURRET_SHOT * techEffects(state).turretDefense,
-      range: turretRange(b.type, b.level),
+      range: turretRange(b.type, b.level, !!b.lens),
+      // Chantier 50: crystal ammunition pierces armour.
+      ...(!air && crystalAmmoOn(state) ? { pierce: CRYSTAL.ammo.pierce } : {}),
     },
     ammo: Math.floor((def.ammo ?? 0) * ammoShare + 1e-9),
     carry: 0,

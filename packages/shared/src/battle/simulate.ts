@@ -453,7 +453,8 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     }
     const e = target.unit;
     const hit = roll < w.accuracy * (1 - e.s.dodge);
-    const dmg = hit ? w.damage * swing * (1 - e.s.armor) : 0;
+    const pierce = 1 - (w.pierce ?? 0);
+    const dmg = hit ? w.damage * swing * (1 - e.s.armor * pierce) : 0;
     log(EV.attack, u.i, e.i * 2, tenths(dmg));
     if (hit) hurt(e, dmg);
     if (w.style === 'area' && hit) {
@@ -461,7 +462,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
       for (const o of units) {
         if (o === e || o.side === u.side || o.state !== State.Active || !canHit(w, o)) continue;
         if (hexDistance(tiles[o.tile]!, at) > 1) continue;
-        const d = w.damage * BATTLE.splash * swing * (1 - o.s.armor);
+        const d = w.damage * BATTLE.splash * swing * (1 - o.s.armor * pierce);
         log(EV.splash, u.i, o.i, tenths(d));
         hurt(o, d);
       }

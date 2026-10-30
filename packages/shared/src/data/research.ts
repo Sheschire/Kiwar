@@ -52,6 +52,10 @@ export const TECH_IDS = [
   'forge',
   // Chantier 48
   'spelunking',
+  // Chantier 50
+  'glass',
+  'crystalCut',
+  'enzymes',
 ] as const;
 export type TechId = (typeof TECH_IDS)[number];
 
@@ -103,6 +107,13 @@ export interface TechEffects {
   canals?: boolean;
   /** Chantier 48: opens the tunnel entrance and the depths. */
   depths?: boolean;
+  /** Chantier 50: lenses on the turrets; Library research × this. */
+  lenses?: boolean;
+  research?: number;
+  /** Chantier 50: crystal ammunition for the seed turrets (and the crystal weapons). */
+  crystalAmmo?: boolean;
+  /** Chantier 50: wounds heal this much faster while an actinidine lake is worked. */
+  enzymes?: number;
 }
 
 export interface TechDef {
@@ -118,6 +129,8 @@ export interface TechDef {
   stardust?: number;
   /** Chantier 38: meteoric iron paid when it is chosen (refunded if abandoned). */
   iron?: number;
+  /** Chantier 50: crystal paid when it is chosen (refunded if abandoned). */
+  crystal?: number;
   /** Chantier 45: a technology that must be researched first. */
   after?: TechId;
   effects: TechEffects;
@@ -327,6 +340,34 @@ export const TECHS: Record<TechId, TechDef> = {
     cost: 500,
     libraryLevel: 4,
     effects: { depths: true },
+  },
+  // Chantier 50: what the locules give (crystal and their enzyme).
+  glass: {
+    id: 'glass',
+    age: 3,
+    branch: 'economy',
+    cost: 2200,
+    libraryLevel: 10,
+    crystal: 15,
+    effects: { lenses: true, research: 1.1 },
+  },
+  crystalCut: {
+    id: 'crystalCut',
+    age: 3,
+    branch: 'defense',
+    cost: 2600,
+    libraryLevel: 10,
+    crystal: 20,
+    after: 'glass',
+    effects: { crystalAmmo: true },
+  },
+  enzymes: {
+    id: 'enzymes',
+    age: 3,
+    branch: 'unnatural',
+    cost: 2000,
+    libraryLevel: 10,
+    effects: { enzymes: 2 },
   },
 };
 

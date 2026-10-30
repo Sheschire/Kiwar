@@ -18,7 +18,8 @@ export type ArmorKind = (typeof ARMOR_KINDS)[number];
 export type GearKind = WeaponFamily | ArmorKind;
 export const GEAR_KINDS: readonly GearKind[] = [...WEAPON_FAMILIES, ...ARMOR_KINDS];
 
-export const GEAR_TIERS = ['stone', 'iron', 'steel'] as const;
+/** Chantier 50: crystal, weapons only (raphides cut in the locules). */
+export const GEAR_TIERS = ['stone', 'iron', 'steel', 'crystal'] as const;
 export type GearTier = (typeof GEAR_TIERS)[number];
 
 export const GEAR_SLOTS = ['weapon', 'armor'] as const;
@@ -37,6 +38,10 @@ export const ITEM_IDS = [
   'staff-stone',
   'staff-iron',
   'staff-steel',
+  'blade-crystal',
+  'mace-crystal',
+  'bow-crystal',
+  'staff-crystal',
   'light-stone',
   'light-iron',
   'light-steel',
@@ -84,29 +89,39 @@ export interface ItemDef {
   cost: ResourceCost;
   /** Whole units of meteoric iron paid when ordered. */
   iron: number;
+  /** Chantier 50: whole units of crystal paid when ordered. */
+  crystal?: number;
   /** Hours of work of one average smith at a level-1 Forge. */
   workH: number;
   /** The technology that opens it. */
   tech: TechId;
-  /** Weapons: damage multiplier. */
+  /** Weapons: damage multiplier, and (crystal) the share of armour its hits go through. */
   damage?: number;
+  pierce?: number;
   /** Armours: hit points multiplier, armour added, speed multiplier. */
   hp?: number;
   armor?: number;
   speed?: number;
 }
 
-/** Index of a tier (0 stone, 1 iron, 2 steel). */
+/** Index of a tier (0 stone, 1 iron, 2 steel, 3 crystal). */
 export function tierIndex(tier: GearTier): number {
   return GEAR_TIERS.indexOf(tier);
 }
 
 const WEAPON = {
-  damage: [1.25, 1.5, 1.8],
-  cost: [{ pulp: 300, fiber: 400, seeds: 150 }, { fiber: 800, seeds: 300 }, { seeds: 1500 }],
-  iron: [0, 6, 12],
-  workH: [1, 2, 3],
-  tech: ['forge', 'smelting', 'firearms'],
+  damage: [1.25, 1.5, 1.8, 1.8],
+  cost: [
+    { pulp: 300, fiber: 400, seeds: 150 },
+    { fiber: 800, seeds: 300 },
+    { seeds: 1500 },
+    { seeds: 1200, fiber: 600 },
+  ],
+  iron: [0, 6, 12, 6],
+  crystal: [0, 0, 0, 10],
+  pierce: [0, 0, 0, 0.5],
+  workH: [1, 2, 3, 3],
+  tech: ['forge', 'smelting', 'firearms', 'crystalCut'],
 } as const;
 
 const ARMOR = {
@@ -143,9 +158,11 @@ function item(kind: GearKind, tier: GearTier): ItemDef {
     tier,
     cost: WEAPON.cost[t]!,
     iron: WEAPON.iron[t]!,
+    ...(WEAPON.crystal[t] ? { crystal: WEAPON.crystal[t] } : {}),
     workH: WEAPON.workH[t]!,
     tech: WEAPON.tech[t]!,
     damage: WEAPON.damage[t]!,
+    ...(WEAPON.pierce[t] ? { pierce: WEAPON.pierce[t] } : {}),
   };
 }
 

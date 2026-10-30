@@ -172,6 +172,7 @@ const threats = z.object({
         defense: sides,
         severity: z.number().min(0).max(1),
         ammoUsed: z.number().min(0),
+        crystalUsed: z.number().int().min(0).optional(),
         damaged: z.array(z.object({ id, type: z.enum(BUILDING_TYPES) })),
         loot: resources,
         injured: named,
@@ -185,6 +186,7 @@ const threats = z.object({
     .max(THREATS.history),
   posture: z.enum(POSTURES),
   pins: z.record(z.string(), z.enum(SECTOR_IDS)),
+  crystalAmmo: z.boolean().optional(),
   incidents: z
     .array(
       z.object({
@@ -309,6 +311,7 @@ export const gameStateSchema = z.object({
       builtAt: z.number(),
       pool: z.object({ stock: z.number().min(0), tiles: z.array(z.string()).max(64) }).optional(),
       damaged: z.boolean().optional(),
+      lens: z.literal(true).optional(),
       shipLost: z.enum(SHIP_IDS).optional(),
       reserve: resources.optional(),
       rot: z.number().int().min(0).max(5).optional(),
@@ -768,6 +771,7 @@ export const gameStateSchema = z.object({
           progress: z.number().int().min(0),
           paid: partialResources,
           iron: z.number().int().min(0),
+          crystal: z.number().int().min(0).optional(),
         }),
       )
       .max(16),

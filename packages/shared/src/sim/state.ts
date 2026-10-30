@@ -170,6 +170,8 @@ export interface ForgeOrder {
   /** What was paid (refunded on cancel). */
   paid: Partial<Resources>;
   iron: number;
+  /** Chantier 50: crystal paid. */
+  crystal?: number;
 }
 
 /** Chantier 38: the Forge's queue (the first order is worked) and the pieces in store. */
@@ -210,6 +212,8 @@ export interface Building {
   pool?: Pool;
   /** Hit by predators: works at `THREATS.damagedWork` until repaired. */
   damaged?: boolean;
+  /** Chantier 50, turrets: a crystal lens is fitted (more range). */
+  lens?: boolean;
   /**
    * Chantier 40, launchpads only: the ship was lost on a landing (the generation it was); the
    * launchpad is damaged and its repair rebuilds the ship.
@@ -732,6 +736,8 @@ export interface WaveReport {
   severity: number;
   /** Seeds fired by the turrets. */
   ammoUsed: number;
+  /** Chantier 50: crystal the seed turrets' ammunition cost. */
+  crystalUsed?: number;
   damaged: { id: BuildingId; type: BuildingType }[];
   loot: Resources;
   injured: { id: VillagerId; name: string }[];
@@ -772,6 +778,8 @@ export interface ThreatState {
   posture: Posture;
   /** Chantier 36: guards the player pinned to a sector (the others go where they are needed). */
   pins: Partial<Record<VillagerId, SectorId>>;
+  /** Chantier 50: the seed turrets fire crystal ammunition (paid at each strike). */
+  crystalAmmo?: boolean;
 }
 
 /** A meteorite: a short-lived deposit on a land tile (chantier 06). */

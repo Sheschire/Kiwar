@@ -2722,7 +2722,11 @@ var TECH_IDS = [
   // Chantier 38
   "forge",
   // Chantier 48
-  "spelunking"
+  "spelunking",
+  // Chantier 50
+  "glass",
+  "crystalCut",
+  "enzymes"
 ];
 var TECHS = {
   foraging: {
@@ -2929,6 +2933,34 @@ var TECHS = {
     cost: 500,
     libraryLevel: 4,
     effects: { depths: true }
+  },
+  // Chantier 50: what the locules give (crystal and their enzyme).
+  glass: {
+    id: "glass",
+    age: 3,
+    branch: "economy",
+    cost: 2200,
+    libraryLevel: 10,
+    crystal: 15,
+    effects: { lenses: true, research: 1.1 }
+  },
+  crystalCut: {
+    id: "crystalCut",
+    age: 3,
+    branch: "defense",
+    cost: 2600,
+    libraryLevel: 10,
+    crystal: 20,
+    after: "glass",
+    effects: { crystalAmmo: true }
+  },
+  enzymes: {
+    id: "enzymes",
+    age: 3,
+    branch: "unnatural",
+    cost: 2e3,
+    libraryLevel: 10,
+    effects: { enzymes: 2 }
   }
 };
 var PASSAGE_TECHS = [
@@ -3116,7 +3148,7 @@ function dustPoints(raw) {
 var WEAPON_FAMILIES = ["blade", "mace", "bow", "staff"];
 var ARMOR_KINDS = ["light", "heavy"];
 var GEAR_KINDS = [...WEAPON_FAMILIES, ...ARMOR_KINDS];
-var GEAR_TIERS = ["stone", "iron", "steel"];
+var GEAR_TIERS = ["stone", "iron", "steel", "crystal"];
 var GEAR_SLOTS = ["weapon", "armor"];
 var ITEM_IDS = [
   "blade-stone",
@@ -3131,6 +3163,10 @@ var ITEM_IDS = [
   "staff-stone",
   "staff-iron",
   "staff-steel",
+  "blade-crystal",
+  "mace-crystal",
+  "bow-crystal",
+  "staff-crystal",
   "light-stone",
   "light-iron",
   "light-steel",
@@ -3165,11 +3201,18 @@ function tierIndex(tier) {
   return GEAR_TIERS.indexOf(tier);
 }
 var WEAPON = {
-  damage: [1.25, 1.5, 1.8],
-  cost: [{ pulp: 300, fiber: 400, seeds: 150 }, { fiber: 800, seeds: 300 }, { seeds: 1500 }],
-  iron: [0, 6, 12],
-  workH: [1, 2, 3],
-  tech: ["forge", "smelting", "firearms"]
+  damage: [1.25, 1.5, 1.8, 1.8],
+  cost: [
+    { pulp: 300, fiber: 400, seeds: 150 },
+    { fiber: 800, seeds: 300 },
+    { seeds: 1500 },
+    { seeds: 1200, fiber: 600 }
+  ],
+  iron: [0, 6, 12, 6],
+  crystal: [0, 0, 0, 10],
+  pierce: [0, 0, 0, 0.5],
+  workH: [1, 2, 3, 3],
+  tech: ["forge", "smelting", "firearms", "crystalCut"]
 };
 var ARMOR = {
   light: { hp: [1.15, 1.3, 1.45], armor: [0, 0, 0], speed: 1, iron: [0, 5, 10] },
@@ -3204,9 +3247,11 @@ function item(kind, tier) {
     tier,
     cost: WEAPON.cost[t],
     iron: WEAPON.iron[t],
+    ...WEAPON.crystal[t] ? { crystal: WEAPON.crystal[t] } : {},
     workH: WEAPON.workH[t],
     tech: WEAPON.tech[t],
-    damage: WEAPON.damage[t]
+    damage: WEAPON.damage[t],
+    ...WEAPON.pierce[t] ? { pierce: WEAPON.pierce[t] } : {}
   };
 }
 var ITEMS = Object.fromEntries(
@@ -3640,7 +3685,14 @@ var CRYSTAL = {
   /** Stock cap (units) by Nest level (index 0–12). */
   cap: [40, 40, 40, 40, 40, 40, 40, 60, 80, 100, 150, 200, 260],
   /** An average miner cuts this many units per hour in a raphide forest. */
-  perHour: 0.5
+  perHour: 0.5,
+  /** A lens fitted on a turret (technology `glass`): its crystal, and the range it adds. */
+  lens: { crystal: 12, range: 1 },
+  /**
+   * Crystal ammunition (technology `crystalCut`): each seed turret of a battle costs this much
+   * crystal at the strike, and its shots pierce this share of the armour.
+   */
+  ammo: { perTurret: 2, pierce: 0.6 }
 };
 var CRYSTAL_SCALE = 1e3 * 36e5;
 function crystalUnits(raw) {
@@ -4796,7 +4848,11 @@ function techEffects(state) {
     meteorDrill: false,
     forge: false,
     canals: false,
-    depths: false
+    depths: false,
+    lenses: false,
+    research: 1,
+    crystalAmmo: false,
+    enzymes: 1
   };
   for (const id3 of state.research.done) {
     const e = TECHS[id3].effects;
@@ -4824,6 +4880,10 @@ function techEffects(state) {
     out.forge ||= e.forge ?? false;
     out.canals ||= e.canals ?? false;
     out.depths ||= e.depths ?? false;
+    out.lenses ||= e.lenses ?? false;
+    out.research *= e.research ?? 1;
+    out.crystalAmmo ||= e.crystalAmmo ?? false;
+    out.enzymes *= e.enzymes ?? 1;
   }
   if (effectsCache2.size > 64) effectsCache2.clear();
   effectsCache2.set(key, out);
@@ -4857,7 +4917,7 @@ function researchPerHour(state) {
   }
   if (total <= 0) return 0;
   const night = isNight(state) ? nightWork(state) : 1;
-  return total * night * hungerWork(state);
+  return total * night * hungerWork(state) * techEffects(state).research;
 }
 function researchRate(state) {
   const perHour = researchPerHour(state);
@@ -6037,6 +6097,25 @@ function addGiantSeeds(s, n) {
 function payGiantSeeds(s, n) {
   s.giantSeeds = Math.max(0, s.giantSeeds - n);
 }
+function lensLock(state, b) {
+  if (!b) return "unknownBuilding";
+  if (!isTurret(b.type)) return "notATurret";
+  if (!techEffects(state).lenses) return "techMissing";
+  if (b.lens) return "lensFitted";
+  if (crystalOf(state) < CRYSTAL.lens.crystal) return "notEnoughCrystal";
+  return null;
+}
+function seedTurrets(state) {
+  return state.buildings.filter((b) => b.type === "seedTurret").length;
+}
+function crystalAmmoCost(state) {
+  if (!state.threats.crystalAmmo || !techEffects(state).crystalAmmo) return 0;
+  const cost = CRYSTAL.ammo.perTurret * seedTurrets(state);
+  return cost > 0 && crystalOf(state) >= cost ? cost : 0;
+}
+function crystalAmmoOn(state) {
+  return crystalAmmoCost(state) > 0;
+}
 
 // packages/shared/src/sim/mines.ts
 var EPS3 = 1e-6;
@@ -6148,6 +6227,7 @@ function forgeLock(state, id3) {
   if (!state.research.done.includes(def.tech)) return "techMissing";
   if (state.forge.orders.length >= forgeQueueSize(state)) return "forgeQueueFull";
   if (meteorIronOf(state) < def.iron) return "notEnoughIron";
+  if (crystalOf(state) < (def.crystal ?? 0)) return "notEnoughCrystal";
   if (!canAfford(state.resources, def.cost)) return "notEnoughResources";
   return null;
 }
@@ -6155,12 +6235,14 @@ function orderItem(state, id3, orderId) {
   const def = ITEMS[id3];
   for (const r of RESOURCE_IDS) state.resources[r] -= def.cost[r] ?? 0;
   state.meteorIron -= def.iron * IRON_SCALE;
+  if (def.crystal) payCrystal(state, def.crystal);
   state.forge.orders.push({
     id: orderId,
     item: id3,
     progress: 0,
     paid: { ...def.cost },
-    iron: def.iron
+    iron: def.iron,
+    ...def.crystal ? { crystal: def.crystal } : {}
   });
 }
 function cancelOrder(state, index) {
@@ -6168,6 +6250,7 @@ function cancelOrder(state, index) {
   if (!order) return;
   for (const r of RESOURCE_IDS) state.resources[r] += order.paid[r] ?? 0;
   addIron(state, order.iron);
+  if (order.crystal) addCrystal(state, order.crystal);
 }
 function nextForgeEvent(state) {
   const order = state.forge.orders[0];
@@ -6271,13 +6354,14 @@ function equipGear(state) {
     }
   }
 }
-var NO_GEAR = { damage: 1, hp: 1, armor: 0, speed: 1 };
+var NO_GEAR = { damage: 1, pierce: 0, hp: 1, armor: 0, speed: 1 };
 function gearEffect(v) {
   if (!v.gear) return NO_GEAR;
   const w = v.gear.weapon ? ITEMS[v.gear.weapon] : null;
   const a = v.gear.armor ? ITEMS[v.gear.armor] : null;
   return {
     damage: w?.damage ?? 1,
+    pierce: w?.pierce ?? 0,
     hp: a?.hp ?? 1,
     armor: a?.armor ?? 0,
     speed: a?.speed ?? 1
@@ -6748,7 +6832,8 @@ function simulateBattle(setup, seed) {
     }
     const e = target.unit;
     const hit = roll < w.accuracy * (1 - e.s.dodge);
-    const dmg = hit ? w.damage * swing * (1 - e.s.armor) : 0;
+    const pierce = 1 - (w.pierce ?? 0);
+    const dmg = hit ? w.damage * swing * (1 - e.s.armor * pierce) : 0;
     log2(EV.attack, u.i, e.i * 2, tenths(dmg));
     if (hit) hurt(e, dmg);
     if (w.style === "area" && hit) {
@@ -6756,7 +6841,7 @@ function simulateBattle(setup, seed) {
       for (const o of units) {
         if (o === e || o.side === u.side || o.state !== State.Active || !canHit(w, o)) continue;
         if (hexDistance(tiles[o.tile], at) > 1) continue;
-        const d = w.damage * BATTLE.splash * swing * (1 - o.s.armor);
+        const d = w.damage * BATTLE.splash * swing * (1 - o.s.armor * pierce);
         log2(EV.splash, u.i, o.i, tenths(d));
         hurt(o, d);
       }
@@ -9070,7 +9155,7 @@ function outerPower(view) {
   return round14(outer.reduce((a, s) => a + s.power, 0) / outer.length);
 }
 function gearTierOf(age, inner) {
-  return Math.min(GEAR_TIERS.length - 1, inner ? age : age - 1);
+  return Math.min(GEAR_TIERS.indexOf("steel"), inner ? age : age - 1);
 }
 function sectorUnits(sector, ferretShare) {
   const level = CIV.level.base + CIV.level.perAge * sector.age + (sector.inner ? CIV.level.inner : 0);
@@ -9668,7 +9753,7 @@ function uncoveredGates(state, wave) {
       if (!comes) continue;
       const type = side === "air" ? "skyTurret" : "seedTurret";
       const reached = state.buildings.some(
-        (b) => b.type === type && hexDistance(b, gates[sector]) <= turretRange(b.type, b.level)
+        (b) => b.type === type && hexDistance(b, gates[sector]) <= turretRange(b.type, b.level, !!b.lens)
       );
       if (!reached) out.push({ sector, side });
     }
@@ -9735,12 +9820,12 @@ function rampartSectors(map) {
   }
   return r;
 }
-function turretRange(type, level) {
+function turretRange(type, level, lens = false) {
   const base = SECTORS.range[Math.min(level, SECTORS.range.length - 1)] ?? 0;
-  return base + (type === "skyTurret" ? SECTORS.skyRangeBonus : 0);
+  return base + (type === "skyTurret" ? SECTORS.skyRangeBonus : 0) + (lens ? CRYSTAL.lens.range : 0);
 }
-function coveredRampart(map, type, level, h) {
-  const range2 = turretRange(type, level);
+function coveredRampart(map, type, level, h, lens = false) {
+  const range2 = turretRange(type, level, lens);
   const r = rampartSectors(map);
   const out = [];
   r.tiles.forEach((tile, i) => {
@@ -9749,14 +9834,14 @@ function coveredRampart(map, type, level, h) {
   return out;
 }
 var coverageCache = /* @__PURE__ */ new WeakMap();
-function turretCoverage(map, type, level, h) {
+function turretCoverage(map, type, level, h, lens = false) {
   let cache2 = coverageCache.get(map);
   if (!cache2) coverageCache.set(map, cache2 = /* @__PURE__ */ new Map());
-  const key = `${type}|${level}|${h.q},${h.r}`;
+  const key = `${type}|${level}|${h.q},${h.r}|${lens ? 1 : 0}`;
   let c = cache2.get(key);
   if (!c) {
     const counts = perSector(() => 0);
-    const covered = coveredRampart(map, type, level, h);
+    const covered = coveredRampart(map, type, level, h, lens);
     for (const x of covered) counts[x.sector]++;
     if (covered.length === 0) counts[rampartSectorOf(h)] = 1;
     const total = counts.front + counts.left + counts.right;
@@ -9765,8 +9850,8 @@ function turretCoverage(map, type, level, h) {
   }
   return c;
 }
-function gateCoverage(gates, type, level, h) {
-  const range2 = turretRange(type, level);
+function gateCoverage(gates, type, level, h, lens = false) {
+  const range2 = turretRange(type, level, lens);
   const reach = perSector((s) => {
     const g = gates[s];
     return g && hexDistance(g, h) <= range2 ? 1 : 0;
@@ -9843,7 +9928,7 @@ function defenseOf(state, threat) {
     turrets.ground += g * k;
     turrets.air += a * k;
     need += def.ammo ?? 0;
-    const cover = gates ? gateCoverage(gates, b.type, b.level, b) : turretCoverage(map, b.type, b.level, b);
+    const cover = gates ? gateCoverage(gates, b.type, b.level, b, !!b.lens) : turretCoverage(map, b.type, b.level, b, !!b.lens);
     for (const s of SECTOR_IDS) {
       sectors[s].ground += g * k * cover[s];
       sectors[s].air += a * k * cover[s];
@@ -10119,7 +10204,9 @@ function strike(s, wave, events) {
   const announced = { ground: wave.ground, air: wave.air };
   const defense = defenseOf(s, announced);
   const sheltered = t.shelterUntil >= at;
+  const crystalUsed = crystalAmmoCost(s);
   const log2 = waveBattle(s, wave, luck, seed);
+  if (crystalUsed > 0) payCrystal(s, crystalUsed);
   const out = battleOutcome(s, threat, defense, sheltered, log2);
   const shots = Object.values(log2.result.shots).reduce((a, b) => a + b, 0);
   const ammoUsed = Math.min(s.resources.seeds, shots);
@@ -10133,6 +10220,7 @@ function strike(s, wave, events) {
     defense: { ground: defense.ground, air: defense.air },
     severity: out.severity,
     ammoUsed,
+    ...crystalUsed > 0 ? { crystalUsed } : {},
     damaged: [],
     loot: out.loot,
     injured: [],
@@ -12714,7 +12802,13 @@ function kiwiUnit(v, state, role, at, sector, side = 0) {
     flying: false,
     fixed: false,
     weaponId,
-    weapon: { ...base, damage, accuracy: aim },
+    weapon: {
+      ...base,
+      damage,
+      accuracy: aim,
+      // Chantier 50: a crystal weapon goes through armour (the militia pecks).
+      ...role !== "militia" && gear.pierce ? { pierce: gear.pierce } : {}
+    },
     ammo: null,
     carry: 0,
     power: 0,
@@ -12787,7 +12881,9 @@ function turretUnit(b, state, ammoShare, buildingIndex) {
     weapon: {
       ...w,
       damage: defense * TURRET_SHOT * techEffects(state).turretDefense,
-      range: turretRange(b.type, b.level)
+      range: turretRange(b.type, b.level, !!b.lens),
+      // Chantier 50: crystal ammunition pierces armour.
+      ...!air && crystalAmmoOn(state) ? { pierce: CRYSTAL.ammo.pierce } : {}
     },
     ammo: Math.floor((def.ammo ?? 0) * ammoShare + 1e-9),
     carry: 0,
@@ -14750,6 +14846,9 @@ var COMMAND_ERRORS = [
   "galleryFull",
   // Chantier 50: the locules.
   "layerLocked",
+  "notEnoughCrystal",
+  "lensFitted",
+  "notATurret",
   "launchpadDamaged",
   "unknownTarget",
   "crewTooSmall",
@@ -14892,6 +14991,7 @@ var fail = (code) => {
 function refundTechDust(s, tech) {
   refundStardust(s, tech ? TECHS[tech].stardust ?? 0 : 0);
   addIron(s, tech ? TECHS[tech].iron ?? 0 : 0);
+  addCrystal(s, tech ? TECHS[tech].crystal ?? 0 : 0);
 }
 function payIron(s, units) {
   if (units <= 0) return;
@@ -15300,6 +15400,19 @@ function execute(s, cmd, ctx, events) {
       if (![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) fail("invalidCount");
       if (!canAfford(s.resources, { pulp, juice })) fail("notEnoughResources");
       launchDelve(s, cmd.roomId, cmd.crew, { pulp, juice }, cmd.orders, now, nextId(s, "x"));
+      return;
+    }
+    case "fitLens": {
+      const b = s.buildings.find((x) => x.id === cmd.buildingId);
+      const lock = lensLock(s, b);
+      if (lock) fail(lock);
+      payCrystal(s, CRYSTAL.lens.crystal);
+      b.lens = true;
+      return;
+    }
+    case "setCrystalAmmo": {
+      if (!techEffects(s).crystalAmmo) fail("techMissing");
+      s.threats.crystalAmmo = cmd.on;
       return;
     }
     case "setTunnelDoor": {
@@ -15806,6 +15919,9 @@ function execute(s, cmd, ctx, events) {
         refundTechDust(s, before);
         payStardust(s, TECHS[cmd.tech].stardust ?? 0);
         payIron(s, TECHS[cmd.tech].iron ?? 0);
+        const crystal = TECHS[cmd.tech].crystal ?? 0;
+        if (crystalOf(s) < crystal) fail("notEnoughCrystal");
+        payCrystal(s, crystal);
       }
       s.research.current = cmd.tech;
       researchTick(s, now, events);
@@ -19962,6 +20078,7 @@ var threats = external_exports.object({
       defense: sides,
       severity: external_exports.number().min(0).max(1),
       ammoUsed: external_exports.number().min(0),
+      crystalUsed: external_exports.number().int().min(0).optional(),
       damaged: external_exports.array(external_exports.object({ id, type: external_exports.enum(BUILDING_TYPES) })),
       loot: resources,
       injured: named,
@@ -19974,6 +20091,7 @@ var threats = external_exports.object({
   ).max(THREATS.history),
   posture: external_exports.enum(POSTURES),
   pins: external_exports.record(external_exports.string(), external_exports.enum(SECTOR_IDS)),
+  crystalAmmo: external_exports.boolean().optional(),
   incidents: external_exports.array(
     external_exports.object({
       at: external_exports.number(),
@@ -20083,6 +20201,7 @@ var gameStateSchema = external_exports.object({
       builtAt: external_exports.number(),
       pool: external_exports.object({ stock: external_exports.number().min(0), tiles: external_exports.array(external_exports.string()).max(64) }).optional(),
       damaged: external_exports.boolean().optional(),
+      lens: external_exports.literal(true).optional(),
       shipLost: external_exports.enum(SHIP_IDS).optional(),
       reserve: resources.optional(),
       rot: external_exports.number().int().min(0).max(5).optional(),
@@ -20467,7 +20586,8 @@ var gameStateSchema = external_exports.object({
         item: external_exports.enum(ITEM_IDS),
         progress: external_exports.number().int().min(0),
         paid: partialResources,
-        iron: external_exports.number().int().min(0)
+        iron: external_exports.number().int().min(0),
+        crystal: external_exports.number().int().min(0).optional()
       })
     ).max(16),
     armory: external_exports.record(external_exports.enum(ITEM_IDS), external_exports.number().int().min(0).max(FORGE.armoryMax))
@@ -20911,6 +21031,8 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   }),
   external_exports.object({ type: external_exports.literal("raidDen"), q: external_exports.number().int(), r: external_exports.number().int() }),
   external_exports.object({ type: external_exports.literal("setTunnelDoor"), closed: external_exports.boolean() }),
+  external_exports.object({ type: external_exports.literal("fitLens"), buildingId: id2 }),
+  external_exports.object({ type: external_exports.literal("setCrystalAmmo"), on: external_exports.boolean() }),
   external_exports.object({ type: external_exports.literal("fortifyTunnel") }),
   external_exports.object({
     type: external_exports.literal("delve"),
@@ -22395,6 +22517,8 @@ export {
   crewOf,
   crewWeight,
   crewWork,
+  crystalAmmoCost,
+  crystalAmmoOn,
   crystalCap,
   crystalOf,
   crystalPerHour,
@@ -22638,6 +22762,7 @@ export {
   layoutSnapshot,
   leaveSite,
   leaveWreck,
+  lensLock,
   lethalWave,
   levelDef,
   levelForXp,
@@ -22849,6 +22974,7 @@ export {
   sectorOf,
   sectorThreat,
   sectorUnits,
+  seedTurrets,
   seenStructures,
   sendBack,
   sendBackAll,

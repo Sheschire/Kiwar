@@ -59,6 +59,10 @@ export interface Effects {
   forge: boolean;
   canals: boolean;
   depths: boolean;
+  lenses: boolean;
+  research: number;
+  crystalAmmo: boolean;
+  enzymes: number;
 }
 
 const effectsCache = new Map<string, Effects>();
@@ -93,6 +97,10 @@ export function techEffects(state: GameState): Effects {
     forge: false,
     canals: false,
     depths: false,
+    lenses: false,
+    research: 1,
+    crystalAmmo: false,
+    enzymes: 1,
   };
   for (const id of state.research.done) {
     const e: TechEffects = TECHS[id].effects;
@@ -120,6 +128,10 @@ export function techEffects(state: GameState): Effects {
     out.forge ||= e.forge ?? false;
     out.canals ||= e.canals ?? false;
     out.depths ||= e.depths ?? false;
+    out.lenses ||= e.lenses ?? false;
+    out.research *= e.research ?? 1;
+    out.crystalAmmo ||= e.crystalAmmo ?? false;
+    out.enzymes *= e.enzymes ?? 1;
   }
   if (effectsCache.size > 64) effectsCache.clear();
   effectsCache.set(key, out);
@@ -165,7 +177,7 @@ export function researchPerHour(state: GameState): number {
   }
   if (total <= 0) return 0;
   const night = isNight(state) ? nightWork(state) : 1;
-  return total * night * hungerWork(state);
+  return total * night * hungerWork(state) * techEffects(state).research;
 }
 
 /** Raw research units per ms (an integer, so small steps add up exactly like a big one). */

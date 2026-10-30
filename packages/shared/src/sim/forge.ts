@@ -1,3 +1,4 @@
+import { addCrystal, crystalOf, payCrystal } from './crystal';
 import { gathered } from './speech';
 import { levelDef } from '../data/buildings';
 import {
@@ -91,6 +92,7 @@ export function forgeLock(state: GameState, id: ItemId): CommandError | null {
   if (!state.research.done.includes(def.tech)) return 'techMissing';
   if (state.forge.orders.length >= forgeQueueSize(state)) return 'forgeQueueFull';
   if (meteorIronOf(state) < def.iron) return 'notEnoughIron';
+  if (crystalOf(state) < (def.crystal ?? 0)) return 'notEnoughCrystal';
   if (!canAfford(state.resources, def.cost)) return 'notEnoughResources';
   return null;
 }
@@ -100,12 +102,14 @@ export function orderItem(state: GameState, id: ItemId, orderId: string): void {
   const def = ITEMS[id];
   for (const r of RESOURCE_IDS) state.resources[r] -= def.cost[r] ?? 0;
   state.meteorIron -= def.iron * IRON_SCALE;
+  if (def.crystal) payCrystal(state, def.crystal);
   state.forge.orders.push({
     id: orderId,
     item: id,
     progress: 0,
     paid: { ...def.cost },
     iron: def.iron,
+    ...(def.crystal ? { crystal: def.crystal } : {}),
   });
 }
 
@@ -115,6 +119,7 @@ export function cancelOrder(state: GameState, index: number): void {
   if (!order) return;
   for (const r of RESOURCE_IDS) state.resources[r] += order.paid[r] ?? 0;
   addIron(state, order.iron);
+  if (order.crystal) addCrystal(state, order.crystal);
 }
 
 /** Next time the first order is done. */
@@ -261,12 +266,14 @@ export function equipGear(state: GameState): void {
 /** What a kiwi's gear does in a fight. */
 export interface GearEffect {
   damage: number;
+  /** Chantier 50: share of armour a crystal weapon goes through. */
+  pierce: number;
   hp: number;
   armor: number;
   speed: number;
 }
 
-const NO_GEAR: GearEffect = { damage: 1, hp: 1, armor: 0, speed: 1 };
+const NO_GEAR: GearEffect = { damage: 1, pierce: 0, hp: 1, armor: 0, speed: 1 };
 
 export function gearEffect(v: Villager): GearEffect {
   if (!v.gear) return NO_GEAR;
@@ -274,6 +281,7 @@ export function gearEffect(v: Villager): GearEffect {
   const a = v.gear.armor ? ITEMS[v.gear.armor] : null;
   return {
     damage: w?.damage ?? 1,
+    pierce: w?.pierce ?? 0,
     hp: a?.hp ?? 1,
     armor: a?.armor ?? 0,
     speed: a?.speed ?? 1,

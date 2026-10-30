@@ -1,11 +1,13 @@
+import { isTurret } from '../data/buildings';
 import { DEPTHS } from '../data/depths';
 import { CRYSTAL, CRYSTAL_SCALE, GIANT_SEEDS, crystalUnits } from '../data/crystal';
 import type { TimeMs } from '../types/ids';
 import type { GameEvent } from './advance';
 import { minersWork, minesOpen, minersIn, tunnelDamage } from './mines';
-import { ageOf } from './research';
+import { ageOf, techEffects } from './research';
 import { nest } from './selectors';
-import type { GameState } from './state';
+import type { Building, GameState } from './state';
+import type { CommandError } from './commands';
 
 /** Chantier 50: crystal cap of the colony in raw units (grows with the Nest). */
 export function crystalCap(state: GameState): number {
@@ -94,4 +96,33 @@ export function addGiantSeeds(s: GameState, n: number): number {
 /** Pays giant seeds (the caller checked there are enough). */
 export function payGiantSeeds(s: GameState, n: number): void {
   s.giantSeeds = Math.max(0, s.giantSeeds - n);
+}
+
+// --- What crystal pays for --------------------------------------------------------------------
+
+/** Why a lens cannot be fitted on this building now, or null. */
+export function lensLock(state: GameState, b: Building | undefined): CommandError | null {
+  if (!b) return 'unknownBuilding';
+  if (!isTurret(b.type)) return 'notATurret';
+  if (!techEffects(state).lenses) return 'techMissing';
+  if (b.lens) return 'lensFitted';
+  if (crystalOf(state) < CRYSTAL.lens.crystal) return 'notEnoughCrystal';
+  return null;
+}
+
+/** Seed turrets that would fire crystal ammunition in a battle now. */
+export function seedTurrets(state: GameState): number {
+  return state.buildings.filter((b) => b.type === 'seedTurret').length;
+}
+
+/** Crystal a strike costs with the crystal ammunition on (0 when it is off or unaffordable). */
+export function crystalAmmoCost(state: GameState): number {
+  if (!state.threats.crystalAmmo || !techEffects(state).crystalAmmo) return 0;
+  const cost = CRYSTAL.ammo.perTurret * seedTurrets(state);
+  return cost > 0 && crystalOf(state) >= cost ? cost : 0;
+}
+
+/** The seed turrets pierce armour in a battle now (the toggle on, the crystal there). */
+export function crystalAmmoOn(state: GameState): boolean {
+  return crystalAmmoCost(state) > 0;
 }

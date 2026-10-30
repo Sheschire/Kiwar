@@ -448,7 +448,9 @@ export function uncoveredGates(
       if (!comes) continue;
       const type = side === 'air' ? 'skyTurret' : 'seedTurret';
       const reached = state.buildings.some(
-        (b) => b.type === type && hexDistance(b, gates[sector]) <= turretRange(b.type, b.level),
+        (b) =>
+          b.type === type &&
+          hexDistance(b, gates[sector]) <= turretRange(b.type, b.level, !!b.lens),
       );
       if (!reached) out.push({ sector, side });
     }

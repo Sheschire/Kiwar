@@ -1,3 +1,5 @@
+import { CRYSTAL } from '../data/crystal';
+import { addCrystal, crystalOf, lensLock, payCrystal } from './crystal';
 import { doorFortifyCost, doorFortLevel, fortifyDoorLock } from './upwell';
 import { DEPTHS } from '../data/depths';
 import { canDig, gallerySlots, minersIn, minesOpen } from './mines';
@@ -229,6 +231,10 @@ export type Command =
   | { type: 'titanWork'; villagerId: VillagerId; q: number; r: number; work: TitanWork }
   /** Chantier 42: fortify our beacon on this parcel of a face (two turrets and a stout tower). */
   | { type: 'fortifyBeacon'; targetId: string; sector: number }
+  /** Chantier 50: fit a crystal lens on a turret (more range). */
+  | { type: 'fitLens'; buildingId: BuildingId }
+  /** Chantier 50: the seed turrets fire crystal ammunition (paid at each strike) or seeds. */
+  | { type: 'setCrystalAmmo'; on: boolean }
   /** Chantier 48: close (or open) the tunnel door: no delve nor mine while it is closed. */
   | { type: 'setTunnelDoor'; closed: boolean }
   /** Chantier 48: fortify the tunnel door (stronger, two turrets at the door). */
@@ -304,6 +310,9 @@ export const COMMAND_ERRORS = [
   'galleryFull',
   // Chantier 50: the locules.
   'layerLocked',
+  'notEnoughCrystal',
+  'lensFitted',
+  'notATurret',
   'launchpadDamaged',
   'unknownTarget',
   'crewTooSmall',
@@ -465,6 +474,8 @@ const fail = (code: CommandError): never => {
 function refundTechDust(s: GameState, tech: TechId | null): void {
   refundStardust(s, tech ? (TECHS[tech].stardust ?? 0) : 0);
   addIron(s, tech ? (TECHS[tech].iron ?? 0) : 0);
+  // Chantier 50: and its crystal.
+  addCrystal(s, tech ? (TECHS[tech].crystal ?? 0) : 0);
 }
 
 /** Chantier 38: spends whole units of meteoric iron (`notEnoughIron` otherwise). */
@@ -935,6 +946,19 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) fail('invalidCount');
       if (!canAfford(s.resources, { pulp, juice })) fail('notEnoughResources');
       launchDelve(s, cmd.roomId, cmd.crew, { pulp, juice }, cmd.orders, now, nextId(s, 'x'));
+      return;
+    }
+    case 'fitLens': {
+      const b = s.buildings.find((x) => x.id === cmd.buildingId);
+      const lock = lensLock(s, b);
+      if (lock) fail(lock);
+      payCrystal(s, CRYSTAL.lens.crystal);
+      b!.lens = true;
+      return;
+    }
+    case 'setCrystalAmmo': {
+      if (!techEffects(s).crystalAmmo) fail('techMissing');
+      s.threats.crystalAmmo = cmd.on;
       return;
     }
     case 'setTunnelDoor': {
@@ -1487,6 +1511,9 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
         refundTechDust(s, before);
         payStardust(s, TECHS[cmd.tech].stardust ?? 0);
         payIron(s, TECHS[cmd.tech].iron ?? 0);
+        const crystal = TECHS[cmd.tech].crystal ?? 0;
+        if (crystalOf(s) < crystal) fail('notEnoughCrystal');
+        payCrystal(s, crystal);
       }
       s.research.current = cmd.tech;
       // Banked points may already pay for it.

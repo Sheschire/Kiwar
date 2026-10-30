@@ -840,6 +840,9 @@ export const en = {
     notGuard: 'This kiwi is not on guard.',
     tooStrong: 'The guards are not strong enough for this den.',
     notEnoughIron: 'Not enough meteoric iron.',
+    notEnoughCrystal: 'Not enough crystal.',
+    lensFitted: 'This turret already has its lens.',
+    notATurret: 'Only a turret takes a lens.',
     unknownItem: 'Unknown piece of gear.',
     noForge: 'Build a Forge first.',
     forgeExists: 'The colony already has its Forge.',
@@ -1874,7 +1877,7 @@ export const en = {
       light: 'Light armours',
       heavy: 'Heavy armours · slower',
     },
-    tiers: { stone: 'Wood and stone', iron: 'Iron', steel: 'Steel' },
+    tiers: { stone: 'Wood and stone', iron: 'Iron', steel: 'Steel', crystal: 'Crystal' },
     damage: 'Damage ×{value}',
     hp: 'Health ×{value}',
     armor: 'Armour +{value} %',
@@ -1904,6 +1907,10 @@ export const en = {
       'staff-stone': 'Carved staff',
       'staff-iron': 'Iron-shod staff',
       'staff-steel': 'Steel sceptre',
+      'blade-crystal': 'Raphide blade',
+      'mace-crystal': 'Crystal-studded maul',
+      'bow-crystal': 'Crystal-tipped bow',
+      'staff-crystal': 'Prism staff',
       'light-stone': 'Quilted vest',
       'light-iron': 'Mail shirt',
       'light-steel': 'Steel scales',
@@ -2458,6 +2465,18 @@ export const en = {
     spelunking: {
       name: 'Spelunking',
       desc: 'Opens the tunnel entrance: delve into the green flesh under the colony.',
+    },
+    glass: {
+      name: 'Glass',
+      desc: 'Crystal melted into glass: lenses for the turrets (one more tile of range) and the Library researches 10 % faster.',
+    },
+    crystalCut: {
+      name: 'Crystal cutting',
+      desc: 'Crystal weapons at the Forge, and crystal ammunition for the seed turrets: both go through armour.',
+    },
+    enzymes: {
+      name: 'Enzymes',
+      desc: 'While an actinidine lake is worked, the wounded heal twice as fast.',
     },
     meteorDrill: {
       name: 'Meteorite drill',

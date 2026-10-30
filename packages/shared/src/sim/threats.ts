@@ -1,3 +1,5 @@
+import { CRYSTAL } from '../data/crystal';
+import { crystalAmmoCost, payCrystal } from './crystal';
 import { doorPass } from './upwell';
 import { DEPTHS } from '../data/depths';
 import { gearEffect } from './forge';
@@ -145,9 +147,12 @@ export function rampartSectors(map: FaceMap): { tiles: Tile[]; sectors: SectorId
 }
 
 /** Range of a turret in tiles. */
-export function turretRange(type: BuildingType, level: number): number {
+export function turretRange(type: BuildingType, level: number, lens = false): number {
   const base = SECTORS.range[Math.min(level, SECTORS.range.length - 1)] ?? 0;
-  return base + (type === 'skyTurret' ? SECTORS.skyRangeBonus : 0);
+  // Chantier 50: a crystal lens reaches further.
+  return (
+    base + (type === 'skyTurret' ? SECTORS.skyRangeBonus : 0) + (lens ? CRYSTAL.lens.range : 0)
+  );
 }
 
 /** Rampart tiles a turret placed at `h` would defend. */
@@ -156,8 +161,9 @@ export function coveredRampart(
   type: BuildingType,
   level: number,
   h: Hex,
+  lens = false,
 ): { tile: Tile; sector: SectorId }[] {
-  const range = turretRange(type, level);
+  const range = turretRange(type, level, lens);
   const r = rampartSectors(map);
   const out: { tile: Tile; sector: SectorId }[] = [];
   r.tiles.forEach((tile, i) => {
@@ -177,14 +183,15 @@ export function turretCoverage(
   type: BuildingType,
   level: number,
   h: Hex,
+  lens = false,
 ): PerSector<number> {
   let cache = coverageCache.get(map);
   if (!cache) coverageCache.set(map, (cache = new Map()));
-  const key = `${type}|${level}|${h.q},${h.r}`;
+  const key = `${type}|${level}|${h.q},${h.r}|${lens ? 1 : 0}`;
   let c = cache.get(key);
   if (!c) {
     const counts = perSector(() => 0);
-    const covered = coveredRampart(map, type, level, h);
+    const covered = coveredRampart(map, type, level, h, lens);
     for (const x of covered) counts[x.sector]++;
     if (covered.length === 0) counts[rampartSectorOf(h)] = 1;
     const total = counts.front + counts.left + counts.right;
@@ -203,8 +210,9 @@ export function gateCoverage(
   type: BuildingType,
   level: number,
   h: Hex,
+  lens = false,
 ): PerSector<number> {
-  const range = turretRange(type, level);
+  const range = turretRange(type, level, lens);
   const reach = perSector((s) => {
     const g = gates[s];
     return g && hexDistance(g, h) <= range ? 1 : 0;
@@ -341,8 +349,8 @@ export function defenseOf(state: GameState, threat?: Sides): Defense {
     turrets.air += a * k;
     need += def.ammo ?? 0;
     const cover = gates
-      ? gateCoverage(gates, b.type, b.level, b)
-      : turretCoverage(map, b.type, b.level, b);
+      ? gateCoverage(gates, b.type, b.level, b, !!b.lens)
+      : turretCoverage(map, b.type, b.level, b, !!b.lens);
     for (const s of SECTOR_IDS) {
       sectors[s].ground += g * k * cover[s];
       sectors[s].air += a * k * cover[s];
@@ -748,7 +756,10 @@ export function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): vo
   const defense = defenseOf(s, announced);
   const sheltered = t.shelterUntil >= at;
   // Chantier 36: the wave is a battle; its journal says what happened.
+  // Chantier 50: the crystal ammunition is paid at the strike (when on and affordable).
+  const crystalUsed = crystalAmmoCost(s);
   const log = waveBattle(s, wave, luck, seed);
+  if (crystalUsed > 0) payCrystal(s, crystalUsed);
   const out = battleOutcome(s, threat, defense, sheltered, log);
   // The turrets fired these seeds (the loot is taken from what is left).
   const shots = Object.values(log.result.shots).reduce((a, b) => a + b, 0);
@@ -763,6 +774,7 @@ export function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): vo
     defense: { ground: defense.ground, air: defense.air },
     severity: out.severity,
     ammoUsed,
+    ...(crystalUsed > 0 ? { crystalUsed } : {}),
     damaged: [],
     loot: out.loot,
     injured: [],

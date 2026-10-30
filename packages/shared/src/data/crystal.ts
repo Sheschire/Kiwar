@@ -11,6 +11,13 @@ export const CRYSTAL = {
   cap: [40, 40, 40, 40, 40, 40, 40, 60, 80, 100, 150, 200, 260] as readonly number[],
   /** An average miner cuts this many units per hour in a raphide forest. */
   perHour: 0.5,
+  /** A lens fitted on a turret (technology `glass`): its crystal, and the range it adds. */
+  lens: { crystal: 12, range: 1 },
+  /**
+   * Crystal ammunition (technology `crystalCut`): each seed turret of a battle costs this much
+   * crystal at the strike, and its shots pierce this share of the armour.
+   */
+  ammo: { perTurret: 2, pierce: 0.6 },
 } as const;
 
 /** Raw crystal units per unit (a gallery's rate is `1000 × perHour × work` raw units per ms). */

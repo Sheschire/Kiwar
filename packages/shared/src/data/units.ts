@@ -58,6 +58,8 @@ export interface Weapon {
   accuracy: number;
   hitsGround: boolean;
   hitsAir: boolean;
+  /** Chantier 50: share of the target's armour its hits go through (crystal). */
+  pierce?: number;
   /**
    * Chantier 37: goes for the raiders that never fight back or hunt kiwis first (thieves and
    * spitters).

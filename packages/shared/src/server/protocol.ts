@@ -89,6 +89,8 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('raidDen'), q: z.number().int(), r: z.number().int() }),
   z.object({ type: z.literal('setTunnelDoor'), closed: z.boolean() }),
+  z.object({ type: z.literal('fitLens'), buildingId: id }),
+  z.object({ type: z.literal('setCrystalAmmo'), on: z.boolean() }),
   z.object({ type: z.literal('fortifyTunnel') }),
   z.object({
     type: z.literal('delve'),

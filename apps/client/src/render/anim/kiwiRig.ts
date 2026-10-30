@@ -322,16 +322,19 @@ const TIER_METAL: Record<GearTier, string> = {
   stone: '#9a8f80',
   iron: '#8e99a3',
   steel: '#d3dbe2',
+  crystal: '#c8f2ff',
 };
 const LIGHT_CLOTH: Record<GearTier, string> = {
   stone: '#cdb98e',
   iron: '#9aa4ad',
   steel: '#d8e0e6',
+  crystal: '#d9f6ff',
 };
 const HEAVY_PLATE: Record<GearTier, string> = {
   stone: '#b8925c',
   iron: '#7f8b95',
   steel: '#c4ccd3',
+  crystal: '#bfe9f5',
 };
 const HANDLE = '#6b4a2e';
 

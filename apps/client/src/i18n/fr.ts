@@ -910,6 +910,9 @@ export const fr: Dict = {
     notGuard: 'Ce kiwi n’est pas de garde.',
     tooStrong: 'Les gardes ne sont pas assez fort·es pour ce nid.',
     notEnoughIron: 'Pas assez de fer météorique.',
+    notEnoughCrystal: 'Pas assez de cristal.',
+    lensFitted: 'Cette tourelle a déjà sa lentille.',
+    notATurret: 'Seule une tourelle prend une lentille.',
     unknownItem: 'Pièce d’équipement inconnue.',
     noForge: 'Construis d’abord une Forge.',
     forgeExists: 'La colonie a déjà sa Forge.',
@@ -1953,7 +1956,7 @@ export const fr: Dict = {
       light: 'Armures légères',
       heavy: 'Armures lourdes · plus lentes',
     },
-    tiers: { stone: 'Bois et pierre', iron: 'Fer', steel: 'Acier' },
+    tiers: { stone: 'Bois et pierre', iron: 'Fer', steel: 'Acier', crystal: 'Cristal' },
     damage: 'Dégâts ×{value}',
     hp: 'Santé ×{value}',
     armor: 'Armure +{value} %',
@@ -1983,6 +1986,10 @@ export const fr: Dict = {
       'staff-stone': 'Bâton sculpté',
       'staff-iron': 'Bâton ferré',
       'staff-steel': 'Sceptre d’acier',
+      'blade-crystal': 'Lame de raphide',
+      'mace-crystal': 'Masse cloutée de cristal',
+      'bow-crystal': 'Arc à pointes de cristal',
+      'staff-crystal': 'Bâton-prisme',
       'light-stone': 'Veste matelassée',
       'light-iron': 'Cotte de mailles',
       'light-steel': 'Écailles d’acier',
@@ -2555,6 +2562,18 @@ export const fr: Dict = {
     spelunking: {
       name: 'Spéléologie',
       desc: 'Ouvre l’entrée de tunnel : on descend dans la chair verte, sous la colonie.',
+    },
+    glass: {
+      name: 'Verre',
+      desc: 'Le cristal fondu en verre : des lentilles pour les tourelles (une tuile de portée en plus) et une Bibliothèque qui cherche 10 % plus vite.',
+    },
+    crystalCut: {
+      name: 'Taille du cristal',
+      desc: 'Des armes de cristal à la Forge, et des munitions de cristal pour les tourelles à graines : les deux percent l’armure.',
+    },
+    enzymes: {
+      name: 'Enzymes',
+      desc: 'Tant qu’un lac d’actinidine est exploité, les blessé·es guérissent deux fois plus vite.',
     },
     meteorDrill: {
       name: 'Foreuse à météorite',

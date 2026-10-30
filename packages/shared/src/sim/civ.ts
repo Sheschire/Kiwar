@@ -250,7 +250,8 @@ export interface AlienUnit {
 
 /** Gear tier of a parcel's aliens (index in `GEAR_TIERS`, -1: none). */
 export function gearTierOf(age: number, inner: boolean): number {
-  return Math.min(GEAR_TIERS.length - 1, inner ? age : age - 1);
+  // Chantier 50: crystal is ours (cut in our locules): the aliens stop at steel.
+  return Math.min(GEAR_TIERS.indexOf('steel'), inner ? age : age - 1);
 }
 
 /** The aliens of a parcel by kind, level and gear (for the battles of chantier 40). */
