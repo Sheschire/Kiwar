@@ -10,6 +10,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 51** — **l'Âge des étoiles**, cinquième âge. Après l'Industrie, la technologie
+> **Cartes du ciel profond** puis le quatrième palier du **monument** (un observatoire sous une
+> coupole de cristal, un orrery des deux moitiés du kiwi) ouvrent les **niveaux 13 à 15** :
+> ils se paient aussi en **cristal**, et le Nid, la Bibliothèque et le monument en **graines
+> géantes**. Trois technologies de l'âge (Verre céleste, Greffes de cristal, Voiles
+> stellaires), six objectifs, et le **voilier stellaire**, cinquième génération de vaisseau,
+> gréé par le niveau 13 de l'aire d'envol (de la poussière d'étoile, une fois). Le village
+> prend le look des étoiles : pierre pâle, laiton céleste, toits de verre de nuit, flèches de
+> cristal.
+
 > **Chantier 50** — **les Tréfonds, deuxième couche : les loges**. À l'âge de l'Industrie,
 > sous la chair verte, s'ouvre un anneau de **30 à 42 loges** : des forêts de **raphides**
 > (cristal, coupures) et des lacs d'**actinidine** (acide), souvent gardés par les nids les plus

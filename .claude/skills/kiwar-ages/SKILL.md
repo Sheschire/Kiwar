@@ -12,7 +12,7 @@ half of chantier 08: see the `kiwar-titans` skill. Their techs (`juiceInfusion`,
 
 ## Data
 
-- `data/ages.ts` — `AGE_IDS` (eden, stone, iron, industry), `MAX_AGE`.
+- `data/ages.ts` — `AGE_IDS` (eden, stone, iron, industry, stars), `MAX_AGE` (4 since chantier 51).
 - `data/research.ts` — `TECH_IDS`, `TECHS` (age, branch economy/defense/exploration/passage,
   cost in points, Library level, `effects`), `PASSAGE_TECHS[age]` (the tech that opens it),
   `RESEARCH` (Spirit bonus, bank per Library level), `RESEARCH_SCALE` (raw units per point).
@@ -116,3 +116,32 @@ the Nest it needs (test in `iron.test.ts`).
 `TechDef.after`: a technology needing another one first (`techStatus` → `'after'`, command
 error `techAfter`, the research card shows "After …"). `canals` (Eden, after `foraging`) is
 the first; its effect `canals` is an unlock in `describeTech`.
+
+## Chantier 51: the Age of the stars
+
+- Fifth age `stars` (index 4): passage `starsAge` (age 3, Library 11, points + 40 crystal),
+  then the monument's **fourth level** (hand-written in `BUILDINGS.monument`: Nest 12, 24 h,
+  stardust 40; its iron in `IRON.own.monument`, its crystal in `CRYSTAL.own.monument`, its giant
+  seeds in `GIANT_SEEDS.levels.monument`). Levels 13–15 are grown by `withAgeLevels`
+  (`MAX_LEVEL` 15) and get their extras from `withStars` (`data/buildings.ts`): crystal on every
+  level 13+ (`CRYSTAL.levels`), giant seeds on the Nest, the Library and the monument
+  (`GIANT_SEEDS.levels`), the launchpad 13's stardust (`SAIL`).
+- `BuildingLevelDef.crystal` / `.giantSeeds`: checked in `upgradeLock` (`notEnoughCrystal`,
+  `notEnoughGiantSeeds`), paid by `upgrade`, refunded on cancel (`QueueItem.paidCrystal`,
+  `paidSeeds`; save v41). A level's crystal must fit the crystal cap of the Nest it needs, its
+  seeds the giant-seed cap of its age (`test/starsAge.test.ts`).
+- Technologies of the age (age 4, Library 13, crystal): `celestialGlass` (after Glass: research
+  and storage × 1.15), `crystalGrafts` (every harvest × 1.15), `starSails` (travel, recon,
+  armour; + stardust). New tech stat `research` in `describeTech`.
+- **Ships**: `SHIP_IDS` + `sail`. `shipIdForAge(age, sail)` keeps the jet at age 4 unless a
+  launchpad reached `SAIL.padLevel` (13); **read the colony's ship with `shipIdOf(state)`**
+  (`sim/research.ts`), never `shipIdForAge(ageOf(state))`. Fuel takes the sailboat further
+  (`SAIL.fuelTravel` in `travelFactor`); flights never need fuel.
+- Tables by age have five cells (`THREATS.ageFactor`, `METEORS.ageFactor` / `drill`,
+  `COMETS.ageFactor`, `lootByAge`, `MORALE.base`, `KIKIWIWI.capByAge`, `TITAN.maxTerraform`,
+  `GIANT_SEEDS.cap` / `maxTrees`); a sixth age must extend them all (most read `?? 1` and would
+  silently stay neutral). The alien civilisation keeps its four ages.
+- Objectives of the age: `stars*` in `AGE_OBJECTIVES` (Nest 13, two techs, the sailboat, five
+  locule trees, a kiwi at level 25, a producer at 15). Chantiers 52/53 add theirs.
+- Client: the kit "stars" (`render/models/ageKit.ts`, see `kiwar-client`), the observatory and
+  orrery of `models/monument.ts` (level 4), the sailboat in `models/travel.ts` (`bird`).

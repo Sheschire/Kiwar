@@ -93,6 +93,8 @@ export const MILESTONES = [
   'stone',
   'iron',
   'industry',
+  // Chantier 51: the Age of the stars.
+  'stars',
   'lab',
   'kikiwiwi',
   // Chantier 45: the first canal dug.
@@ -547,6 +549,7 @@ function checkMilestones(
   set('stone', ageOf(state) >= 1);
   set('iron', ageOf(state) >= 2);
   set('industry', ageOf(state) >= 3);
+  set('stars', ageOf(state) >= 4);
   set(
     'lab',
     state.buildings.some((b) => b.type === 'lab'),
@@ -702,7 +705,7 @@ export function runBot(opts: RunOptions): RunResult {
     number
   >;
   let lost = 0;
-  const civAtAges: (number | null)[] = [null, null, null];
+  const civAtAges: (number | null)[] = [null, null, null, null];
   // Chantier 50: time with a locule taken, with the crystal / the giant seeds at the cap.
   const loculeMs = { open: 0, crystal: 0, seeds: 0 };
   let loculeEggs = 0;
@@ -730,7 +733,7 @@ export function runBot(opts: RunOptions): RunResult {
       // Chantier 30: an age is dated by its event (an occasional player sees it at the next
       // visit, but it happened while away).
       if (e.type === 'ageReached') {
-        const m = (['stone', 'iron', 'industry'] as const)[e.age - 1];
+        const m = (['stone', 'iron', 'industry', 'stars'] as const)[e.age - 1];
         if (m && times[m] === null) times[m] = e.at - start;
         const twin = state.aliens?.[state.targets.find((t) => t.distance === 0)?.id ?? ''];
         if (m && twin && civAtAges[e.age - 1] === null)

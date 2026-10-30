@@ -513,3 +513,15 @@ sector } })`; a real landing in solo: dispatch the launch and `setTimeScale(2000
   browser: tsx imports `render/buildingModels.ts` in Node (hash the position and colour arrays
   to prove a refactor changes nothing); `test/buildingModels.test.ts` checks every model, the
   look of a level, new materials at each age and more pieces with the tiers.
+
+- **Chantier 51 (the Age of the stars)**: `byAge(age, [..4 or 5 values])` (four values: the stars
+  keep the Industry's). Every kit piece of `ageKit.ts` has an `age >= 4` branch: star stone
+  (`A.starstone`), celestial brass (`A.celestial`), night glass (`A.night`), crystal
+  (`A.crystal`), star light; chimneys become crystal spires (`glint` particles, no smoke), the
+  annex a telescope, the crown an armillary sphere (rig `armillary`). `AGE_TINTS`,
+  `AGE_MATERIALS`, `ageColor` (`STARRY`), `PLINTHS`, `AGE_RINGS`, path `STYLES` have a fifth
+  entry. The many `age >= 3` details of the family recipes stay (the stars inherit them).
+  Monument level 4: observatory + orrery. The sailboat: `bird(p, 'sail')`; ships in flight, on
+  the pad (pad level ≥ 13) and in the landing show follow `shipIdOf`. Check with
+  `?sheet&age=4&levels=12,13,15&zoom=2.4`; in game, push buildings at 13–15 and a monument 4
+  (research `starsAge` known first, or `buildableTiles` refuses the monument).

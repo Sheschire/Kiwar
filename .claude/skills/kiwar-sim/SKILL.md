@@ -224,3 +224,10 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
   giant seeds whole). Something that waits for room in a stock and resumes when a command
   frees it (a locule tree's ripe seed) runs at the **loop top** (`treeTick`): the time room
   appears is a command or an event, so small steps equal one big step.
+
+- **Chantier 51 (`kiwar-ages`)**: `MAX_LEVEL` 15, `MAX_AGE` 4. **Every table by Nest or
+  building level has 16 cells** (15 for the ones indexed by level − 1: `CATCHMENT_RADIUS`,
+  `RESEARCH.bank`); `test/levelTables.test.ts` lists them — add any new one there. Tables by age
+  have five cells. Levels 13+ pay crystal and (Nest, Library, monument) giant seeds through
+  `LevelDef.crystal` / `giantSeeds` (`withStars`); save v41 (`QueueItem.paidCrystal`). The
+  colony's ship is `shipIdOf(state)`.

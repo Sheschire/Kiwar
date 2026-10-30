@@ -43,6 +43,11 @@ export const TECH_ORDER: TechId[] = [
   'glass',
   'crystalCut',
   'enzymes',
+  // Chantier 51: the Age of the stars, then its harvest and its glass.
+  'starsAge',
+  'crystalGrafts',
+  'celestialGlass',
+  'starSails',
   'greenBlood',
   'palisade',
   'slingshots',

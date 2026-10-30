@@ -67,6 +67,8 @@ export const INFORMATIVE: ReadonlySet<Milestone> = new Set([
   'founded',
   'sisterNest3',
   'sisterWave',
+  // Chantier 51: the Age of the stars comes after the report's horizon (see the ages section).
+  'stars',
 ]);
 
 export function compare(groups: Group[], thresholdPercent: number): Comparison[] {
@@ -119,6 +121,7 @@ export const LABELS: Record<Milestone, string> = {
   stone: 'Stone age',
   iron: 'Iron age',
   industry: 'Industrial age',
+  stars: 'Age of the stars',
   lab: 'Laboratory against nature',
   kikiwiwi: 'First Kikiwiwi',
   canal: 'First juice canal',
@@ -373,7 +376,7 @@ export function impactMarkdown(
 }
 
 /** Chantier 30: age targets of the attentive player (the occasional one: × `CASUAL_PACE`). */
-export const AGE_TARGETS_H = { stone: 12, iron: 72, industry: 240 } as const;
+export const AGE_TARGETS_H = { stone: 12, iron: 72, industry: 240, stars: 504 } as const;
 /**
  * Occasional player: about 2/3 of the attentive pace (owner), the late game more lenient: the
  * research that paces it runs offline (owner: accepted, Industry × 1.25).
@@ -382,12 +385,14 @@ export const CASUAL_PACE: Record<keyof typeof AGE_TARGETS_H, number> = {
   stone: 1.5,
   iron: 1.5,
   industry: 1.25,
+  stars: 1.25,
 };
 /** The attentive player's pace (× 1 everywhere). */
 export const ACTIVE_PACE: Record<keyof typeof AGE_TARGETS_H, number> = {
   stone: 1,
   iron: 1,
   industry: 1,
+  stars: 1,
 };
 /** Tolerance on the age targets. */
 export const AGE_TOLERANCE = 15;
@@ -407,7 +412,16 @@ export function agesMarkdown(
   threshold: number,
 ): string[] {
   const lines: string[] = [];
-  const steps = ['nest3', 'library', 'stone', 'iron', 'lab', 'kikiwiwi', 'industry'] as const;
+  const steps = [
+    'nest3',
+    'library',
+    'stone',
+    'iron',
+    'lab',
+    'kikiwiwi',
+    'industry',
+    'stars',
+  ] as const;
   for (const p of profiles) {
     const seeds = p.runs.filter((r) => r.biome === p.runs[0]?.biome).length;
     lines.push(`### ${p.label} — ${seeds} seeds per biome × ${Math.round(p.hours / 24)} days`, '');
@@ -450,7 +464,7 @@ export function agesMarkdown(
     lines.push(`| **All biomes vs target** | ${targetCells.join(' | ')} |`, '');
   }
   lines.push(
-    `Targets: Stone ≈ ${AGE_TARGETS_H.stone} h, Iron ≈ ${AGE_TARGETS_H.iron} h, Industry ≈ ${AGE_TARGETS_H.industry} h for the attentive player, × ${CASUAL_PACE.stone} / ${CASUAL_PACE.iron} / ${CASUAL_PACE.industry} for the occasional one (the late game runs on research, which goes on offline) (±${AGE_TOLERANCE} %); biomes within ±${threshold} % of each other. \`[n/N]\`: runs that reached it.`,
+    `Targets: Stone ≈ ${AGE_TARGETS_H.stone} h, Iron ≈ ${AGE_TARGETS_H.iron} h, Industry ≈ ${AGE_TARGETS_H.industry} h, the stars ≈ ${AGE_TARGETS_H.stars} h for the attentive player, × ${CASUAL_PACE.stone} / ${CASUAL_PACE.iron} / ${CASUAL_PACE.industry} / ${CASUAL_PACE.stars} for the occasional one (the late game runs on research, which goes on offline) (±${AGE_TOLERANCE} %); biomes within ±${threshold} % of each other. \`[n/N]\`: runs that reached it.`,
     '',
   );
   return lines;
