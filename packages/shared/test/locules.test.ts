@@ -10,6 +10,8 @@ import {
   isLocule,
   LANDING,
   roomTruth,
+  nestsNear,
+  upwellPower,
   type GameState,
   type VillagerId,
 } from '../src';
@@ -112,5 +114,26 @@ describe('the locules (chantier 50)', () => {
     expect(f.possibleHazard).toBe(true);
     expect(f.harm.length).toBe(4);
     expect(f.travelMs).toBe(DEPTHS.travelMs[3]);
+  });
+
+  it('feeds the upwellings with the locules’ nests near our works, until taken', () => {
+    const { s } = delveColony();
+    const map = depthsMapOf(s);
+    for (const r of map.rooms)
+      if (!isLocule(r)) s.depths.galleries[r.id] = { kind: 'bundle', since: s.now };
+    expect(nestsNear(s).flesh).toBe(0);
+    const near = map.rooms.filter(
+      (r) =>
+        isLocule(r) &&
+        r.links.some((id) => s.depths.galleries[id]) &&
+        roomTruth(s.depthSeed!, r).nest,
+    );
+    expect(nestsNear(s).locules).toBe(near.length);
+    const before = upwellPower(s);
+    expect(near.length).toBeGreaterThan(0);
+    const nest = near[0]!;
+    const taken = cloneState(s);
+    taken.depths.galleries[nest.id] = { kind: roomTruth(s.depthSeed!, nest).kind, since: s.now };
+    expect(upwellPower(taken)).toBeLessThan(before);
   });
 });

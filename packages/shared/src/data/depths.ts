@@ -168,6 +168,8 @@ export const DEPTHS = {
     /** Power: base × the colony's age factor × (1 + perNest × untaken nests near our works). */
     base: 6,
     perNest: 0.35,
+    /** Chantier 50: the locules hold the strongest nests. */
+    perLoculeNest: 0.6,
     /** Spread of the announced numbers, and of the luck at the strike. */
     spread: 0.15,
     /** Share of fruit flies (air), the rest larvae and woodlice. */

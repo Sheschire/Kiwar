@@ -3699,6 +3699,8 @@ var DEPTHS = {
     /** Power: base × the colony's age factor × (1 + perNest × untaken nests near our works). */
     base: 6,
     perNest: 0.35,
+    /** Chantier 50: the locules hold the strongest nests. */
+    perLoculeNest: 0.6,
     /** Spread of the announced numbers, and of the luck at the strike. */
     spread: 0.15,
     /** Share of fruit flies (air), the rest larvae and woodlice. */
@@ -13653,18 +13655,24 @@ function doorPass(state, wave, luck) {
   return Math.max(0, power - doorStrength(state)) / power;
 }
 function nestsNear(state) {
+  const out = { flesh: 0, locules: 0 };
   const seed = state.depthSeed;
-  if (seed === void 0) return 0;
+  if (seed === void 0) return out;
   const map = depthsMapOf(state);
   const taken = state.depths.galleries;
-  return map.rooms.filter(
-    (r) => !taken[r.id] && (r.entrance || r.links.some((id3) => taken[id3])) && roomTruth(seed, r).kind === "nest"
-  ).length;
+  for (const r of map.rooms) {
+    if (taken[r.id] || !(r.entrance || r.links.some((id3) => taken[id3]))) continue;
+    if (!roomTruth(seed, r).nest) continue;
+    if (isLocule(r)) out.locules++;
+    else out.flesh++;
+  }
+  return out;
 }
 function upwellPower(state) {
   const u = DEPTHS.upwell;
   const factor = THREATS.nestFactor[nest(state).level] ?? THREATS.nestFactor.at(-1);
-  return u.base * factor * (1 + u.perNest * nestsNear(state));
+  const n = nestsNear(state);
+  return u.base * factor * (1 + u.perNest * n.flesh + u.perLoculeNest * n.locules);
 }
 function upwellSquads(state, ground, air) {
   const sector = rampartSectorOf(tunnelOf(state));
