@@ -406,12 +406,22 @@ export function fillMines(state: GameState): void {
     if (!galleryWorth(state, roomId, cap)) continue;
     const resource = galleryWorkAs(state, roomId)!;
     let free = gallerySlots(state, roomId) - minersIn(state, roomId).length;
+    // Chantier 50: one miner in a lake is enough for its enzyme.
+    if (state.depths.galleries[roomId]!.kind === 'lake')
+      free = Math.min(free, lakeMiners(state) > 0 ? 0 : 1);
     while (free-- > 0 && budget-- > 0) {
       const v = bestFor(state, 'pick', (x) => workerPower(x, resource));
       if (!v) return;
       v.job = { kind: 'mine', roomId, returnTo: borrow(v) };
     }
   }
+}
+
+/** Miners in the actinidine lakes. */
+function lakeMiners(state: GameState): number {
+  return state.villagers.filter(
+    (v) => v.job.kind === 'mine' && state.depths.galleries[v.job.roomId]?.kind === 'lake',
+  ).length;
 }
 
 function releaseMines(state: GameState, cap = capacity(state)): void {

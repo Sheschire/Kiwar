@@ -42,9 +42,10 @@ export function delveCrewMax(state: GameState): number {
   return t ? (DEPTHS.crew[Math.min(t.level, DEPTHS.crew.length - 1)] ?? 0) : 0;
 }
 
-/** One-way time down to a room. */
-export function delveTime(room: DepthRoom): number {
-  return DEPTHS.travelMs[room.depth - 1]!;
+/** One-way time down to a room (chantier 50: longer to a locule when skirting the lakes). */
+export function delveTime(room: DepthRoom, skirt = false): number {
+  const t = DEPTHS.travelMs[room.depth - 1]!;
+  return skirt && isLocule(room) ? Math.round(t * DEPTHS.locules.skirtTravel) : t;
 }
 
 export function isDelve(e: Expedition): boolean {
@@ -112,13 +113,14 @@ export function launchDelve(
   orders: LandingOrders,
   now: TimeMs,
   id: string,
+  skirt = false,
 ): Expedition {
   const room = depthsMapOf(state).byId.get(roomId)!;
   const crew = crewOf(state, crewIds)!;
   for (const v of crew) v.job = { kind: 'expedition', expeditionId: id };
   state.resources.pulp -= provisions.pulp;
   state.resources.juice -= provisions.juice;
-  const travel = delveTime(room);
+  const travel = delveTime(room, skirt);
   const e: Expedition = {
     id,
     mission: 'delve',
@@ -142,6 +144,7 @@ export function launchDelve(
     result: null,
     orders: { ...orders },
     room: roomId,
+    ...(skirt && isLocule(room) ? { skirt: true } : {}),
   };
   state.expeditions.push(e);
   return e;
@@ -169,10 +172,12 @@ export function resolveDelve(
   const at = e.arriveAt;
   const truth = roomTruth(seed, room);
   const battleSeed = `${seed}/delve/${e.id}`;
-  const hits = hazardHits(members, truth.hazard, battleSeed);
+  // Chantier 50: a crew skirting the lakes meets no acid.
+  const hazard = e.skirt && truth.hazard?.kind === 'acid' ? null : truth.hazard;
+  const hits = hazardHits(members, hazard, battleSeed);
   const setup = delveSetup(state, members, {
     units: truth.units,
-    hazard: truth.hazard,
+    hazard,
     orders: e.orders,
     fed,
     seed: battleSeed,
@@ -248,7 +253,7 @@ export function resolveDelve(
     log,
     injured: hurt,
     ...(outcome !== 'defeat' ? { seen: truth.units.map((u) => ({ ...u })) } : {}),
-    ...(truth.hazard && outcome !== 'defeat' ? { hazard: { ...truth.hazard, hits } } : {}),
+    ...(hazard && outcome !== 'defeat' ? { hazard: { ...hazard, hits } } : {}),
     ...(iron > 0 ? { iron } : {}),
     ...(giantSeeds > 0 ? { giantSeeds } : {}),
     ...(outcome === 'victory' ? { gallery: true } : {}),
@@ -347,6 +352,7 @@ export function delveForecast(
   crew: readonly Villager[],
   orders: LandingOrders,
   fed = 1,
+  skirt = false,
 ): DelveForecast | null {
   const room = depthsMapOf(state).byId.get(roomId);
   if (!room) return null;
@@ -366,11 +372,16 @@ export function delveForecast(
         grouillants(base * DEPTHS.spread[1] * (kind && nestKnown ? nest : DEPTHS.nestPower), level),
       ];
   const known = view && view.hazard !== undefined ? view.hazard : undefined;
-  const assumed = known === undefined ? assumedHazard(room, kind) : known;
+  // Chantier 50: skirting the lakes, no acid (seen, heard or feared).
+  const avoid = (h: RoomHazard | null) => (skirt && h?.kind === 'acid' ? null : h);
+  const assumed = avoid(known === undefined ? assumedHazard(room, kind) : known);
   // Every locule has a hazard: an unknown one meets cuts or acid, the worse for this crew.
-  const possibleHazard = known === undefined && !assumed && kind !== 'nest';
+  const possibleHazard =
+    known === undefined && !assumed && kind !== 'nest' && !(skirt && kind === 'lake');
   const unknownWorst: RoomHazard = isLocule(room)
-    ? worstLoculeHazard(crew, DEPTHS.hazard.strength[room.depth - 1]!)
+    ? skirt
+      ? { kind: 'cuts', strength: DEPTHS.hazard.strength[room.depth - 1]! }
+      : worstLoculeHazard(crew, DEPTHS.hazard.strength[room.depth - 1]!)
     : { kind: 'fall', strength: DEPTHS.hazard.strength[room.depth - 1]! };
   const worst: RoomHazard | null = assumed ?? (possibleHazard ? unknownWorst : null);
   const hazards = [assumed, assumed, worst];
@@ -393,7 +404,7 @@ export function delveForecast(
     hazard: assumed,
     possibleHazard,
     harm,
-    travelMs: delveTime(room),
+    travelMs: delveTime(room, skirt),
   };
   if (crew.length === 0)
     return { ...out, odds: 'unknown', expectedDead: 0, expectedHurt: 0, trials: [] };

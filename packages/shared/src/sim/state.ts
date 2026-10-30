@@ -543,6 +543,8 @@ export interface Expedition {
   orders?: LandingOrders;
   /** Chantier 48: the room of the depths a delve goes to. */
   room?: string;
+  /** Chantier 50: the crew skirts the actinidine lakes (longer, no acid). */
+  skirt?: boolean;
   /** Chantier 40: a breakdown delayed the landing (the ship lands with less hold). */
   delayed?: boolean;
 }

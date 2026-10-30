@@ -1,5 +1,6 @@
 import { CRYSTAL } from '../data/crystal';
 import { crystalAmmoCost, payCrystal } from './crystal';
+import { woundFactor } from './mines';
 import { doorPass } from './upwell';
 import { DEPTHS } from '../data/depths';
 import { gearEffect } from './forge';
@@ -834,7 +835,8 @@ export function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): vo
   const dead = fallen.slice(0, out.deaths);
   for (const v of fallen.slice(out.deaths)) {
     const until = draw(s, (rng) =>
-      Math.round(at + rng.range(THREATS.injuryMs[0], THREATS.injuryMs[1])),
+      // Chantier 50: Enzymes with a lake worked: half as long.
+      Math.round(at + rng.range(THREATS.injuryMs[0], THREATS.injuryMs[1]) * woundFactor(s)),
     );
     v.job = { kind: 'injured', until };
     report.injured.push({ id: v.id, name: v.name });

@@ -1,3 +1,5 @@
+import { DEPTHS } from '../data/depths';
+import { actinidineActive } from './mines';
 import { STARDUST_SCALE } from '../data/comets';
 import { STARDUST_CAP } from './comets';
 import { KIKIWIWI } from '../data/kikiwiwi';
@@ -59,7 +61,9 @@ export function infusionRisk(state: GameState, v: Villager, lab: Building): numb
     r.level * (v.level - 1) -
     (r.lab[lab.level - 1] ?? 0) -
     techEffects(state).infusionRisk;
-  return Math.round(Math.min(r.max, Math.max(r.min, risk)) * 1000) / 1000;
+  // Chantier 50: a worked actinidine lake halves it.
+  const lake = actinidineActive(state) ? DEPTHS.actinidine.infusionRisk : 1;
+  return Math.round(Math.min(r.max, Math.max(r.min, risk)) * lake * 1000) / 1000;
 }
 
 export function infusionDuration(lab: Building): number {

@@ -600,6 +600,7 @@ export const gameStateSchema = z.object({
       orders: landingOrders.optional(),
       delayed: z.boolean().optional(),
       room: z.string().max(8).optional(),
+      skirt: z.boolean().optional(),
       result: z
         .object({
           victory: z.boolean(),

@@ -3671,8 +3671,15 @@ var DEPTHS = {
     /** Giant seeds found in a locule won: [min, max]. */
     giantSeeds: [1, 3],
     /** Age that opens them (Industry). */
-    age: 3
+    age: 3,
+    /** A crew told to skirt the lakes takes this much longer to a locule (and meets no acid). */
+    skirtTravel: 1.5
   },
+  /**
+   * Chantier 50: an actinidine lake worked by at least one miner (the door open) halves the
+   * laboratory's infusion risk, and with the technology Enzymes the wounded heal faster.
+   */
+  actinidine: { infusionRisk: 0.5 },
   /** The tunnel entrance's levels (index = level): most kiwis on a delve, door strength. */
   crew: [0, 4, 6, 8],
   door: [0, 8, 14, 20],
@@ -4697,144 +4704,6 @@ function isNight(state) {
   return calendarAt(state.calendarStart, state.now).night;
 }
 
-// packages/shared/src/sim/footprint.ts
-function rotationsOf(type) {
-  return footprintOf(type) === 3 ? [0, 1, 2, 3, 4, 5] : [0];
-}
-function normalRot(rot) {
-  return ((rot ?? 0) % 6 + 6) % 6;
-}
-function footprintHexes(type, q, r, rot = 0) {
-  const anchor = { q, r };
-  const size = footprintOf(type);
-  if (size === 7) return hexDisk(anchor, 1);
-  if (size === 3) {
-    const d = normalRot(rot);
-    return [anchor, hexNeighbor(anchor, d), hexNeighbor(anchor, d + 1)];
-  }
-  return [anchor];
-}
-function wallsOf(tiles) {
-  return tiles.length >= 7 ? [...tiles] : tiles.slice(1);
-}
-function footprintTiles(b) {
-  return b.cramped ? [{ q: b.q, r: b.r }] : footprintHexes(b.type, b.q, b.r, b.rot);
-}
-function siteTiles(item2) {
-  if (item2.kind === "build")
-    return item2.rot === void 0 ? [{ q: item2.q, r: item2.r }] : footprintHexes(item2.buildingType, item2.q, item2.r, item2.rot);
-  if (item2.kind === "upgrade" && item2.rot !== void 0)
-    return footprintHexes(item2.buildingType, item2.q, item2.r, item2.rot);
-  if (item2.kind === "canal" || item2.kind === "fill") return [{ q: item2.q, r: item2.r }];
-  return [];
-}
-var cache = /* @__PURE__ */ new WeakMap();
-function mix(h, v) {
-  return Math.imul(h ^ (v | 0), 16777619) >>> 0;
-}
-function mixId(h, id3) {
-  for (let i = 0; i < id3.length; i++) h = mix(h, id3.charCodeAt(i));
-  return h;
-}
-function layoutHash(state) {
-  let h = mix(2166136261, state.buildings.length);
-  for (const b of state.buildings) {
-    h = mix(h, b.q * 977 + b.r);
-    h = mix(h, (b.rot ?? 0) + (b.cramped ? 8 : 0) + footprintOf(b.type) * 16);
-    h = mixId(h, b.id);
-  }
-  h = mix(h, state.queue.length);
-  for (const i of state.queue) {
-    const canal = i.kind === "canal" || i.kind === "fill";
-    if (i.kind !== "build" && i.rot === void 0 && !canal) continue;
-    h = mix(h, i.q * 977 + i.r);
-    h = mix(
-      h,
-      (i.rot ?? 0) + footprintOf(i.buildingType) * 16 + (i.kind === "build" ? 128 : 0) + (canal ? 256 : 0)
-    );
-    h = mixId(h, i.id);
-  }
-  return h;
-}
-function occupancy(state) {
-  const hash = layoutHash(state);
-  const hit = cache.get(state.buildings);
-  if (hit && hit.hash === hash) return hit.occupancy;
-  const tiles = /* @__PURE__ */ new Map();
-  const blocked = /* @__PURE__ */ new Set();
-  for (const b of state.buildings) {
-    const covered = footprintTiles(b);
-    covered.forEach((h, i) => tiles.set(hexKey(h), { id: b.id, site: false, anchor: i === 0 }));
-    for (const h of wallsOf(covered)) blocked.add(hexKey(h));
-  }
-  for (const item2 of state.queue) {
-    siteTiles(item2).forEach((h, i) => {
-      const key = hexKey(h);
-      if (!tiles.has(key)) tiles.set(key, { id: item2.id, site: true, anchor: i === 0 });
-    });
-  }
-  const occ = { tiles, blocked, blockedKey: [...blocked].sort().join(";") };
-  cache.set(state.buildings, { hash, occupancy: occ });
-  return occ;
-}
-function coveredKeys(state) {
-  const out = /* @__PURE__ */ new Set();
-  for (const [k, o] of occupancy(state).tiles) if (!o.site) out.add(k);
-  return out;
-}
-function takenKeys(state) {
-  return new Set(occupancy(state).tiles.keys());
-}
-function footprintCentre(tiles) {
-  let q = 0;
-  let r = 0;
-  for (const h of tiles) {
-    q += h.q;
-    r += h.r;
-  }
-  return { q: q / tiles.length, r: r / tiles.length };
-}
-function cutsLand(map, removed, blocked = /* @__PURE__ */ new Set()) {
-  const gone = new Set(removed);
-  const open = (k) => {
-    if (gone.has(k) || blocked.has(k)) return false;
-    const t = getTile(map, parseHexKey(k));
-    return !!t && TILES[t.type].walkable;
-  };
-  const border = /* @__PURE__ */ new Set();
-  for (const k of gone)
-    for (const n of hexNeighbors(parseHexKey(k))) {
-      const nk = hexKey(n);
-      if (open(nk)) border.add(nk);
-    }
-  if (border.size <= 1) return false;
-  const [start] = border;
-  const seen = /* @__PURE__ */ new Set([start]);
-  const stack = [start];
-  let found = 1;
-  while (stack.length > 0) {
-    const h = parseHexKey(stack.pop());
-    for (const n of hexNeighbors(h)) {
-      const k = hexKey(n);
-      if (seen.has(k) || !open(k)) continue;
-      seen.add(k);
-      if (border.has(k) && ++found === border.size) return false;
-      stack.push(k);
-    }
-  }
-  return true;
-}
-function clearPathsUnder(s, tiles) {
-  const keys = tiles.map((h) => hexKey(h));
-  const paved = new Set(s.paths);
-  if (!keys.some((k) => paved.has(k))) return;
-  const refunded = keys.slice(1).filter((k) => paved.has(k)).length;
-  const gone = new Set(keys);
-  s.paths = s.paths.filter((k) => !gone.has(k));
-  const cost = PATHS.cost;
-  for (const id3 of RESOURCE_IDS) s.resources[id3] += (cost[id3] ?? 0) * refunded;
-}
-
 // packages/shared/src/sim/research.ts
 function ageOf(state) {
   return state.buildings.find((b) => b.type === "monument")?.level ?? 0;
@@ -5009,6 +4878,144 @@ function researchTick(state, at, events) {
   r.done.push(current);
   r.current = null;
   events.push({ type: "researchDone", at, tech: current });
+}
+
+// packages/shared/src/sim/footprint.ts
+function rotationsOf(type) {
+  return footprintOf(type) === 3 ? [0, 1, 2, 3, 4, 5] : [0];
+}
+function normalRot(rot) {
+  return ((rot ?? 0) % 6 + 6) % 6;
+}
+function footprintHexes(type, q, r, rot = 0) {
+  const anchor = { q, r };
+  const size = footprintOf(type);
+  if (size === 7) return hexDisk(anchor, 1);
+  if (size === 3) {
+    const d = normalRot(rot);
+    return [anchor, hexNeighbor(anchor, d), hexNeighbor(anchor, d + 1)];
+  }
+  return [anchor];
+}
+function wallsOf(tiles) {
+  return tiles.length >= 7 ? [...tiles] : tiles.slice(1);
+}
+function footprintTiles(b) {
+  return b.cramped ? [{ q: b.q, r: b.r }] : footprintHexes(b.type, b.q, b.r, b.rot);
+}
+function siteTiles(item2) {
+  if (item2.kind === "build")
+    return item2.rot === void 0 ? [{ q: item2.q, r: item2.r }] : footprintHexes(item2.buildingType, item2.q, item2.r, item2.rot);
+  if (item2.kind === "upgrade" && item2.rot !== void 0)
+    return footprintHexes(item2.buildingType, item2.q, item2.r, item2.rot);
+  if (item2.kind === "canal" || item2.kind === "fill") return [{ q: item2.q, r: item2.r }];
+  return [];
+}
+var cache = /* @__PURE__ */ new WeakMap();
+function mix(h, v) {
+  return Math.imul(h ^ (v | 0), 16777619) >>> 0;
+}
+function mixId(h, id3) {
+  for (let i = 0; i < id3.length; i++) h = mix(h, id3.charCodeAt(i));
+  return h;
+}
+function layoutHash(state) {
+  let h = mix(2166136261, state.buildings.length);
+  for (const b of state.buildings) {
+    h = mix(h, b.q * 977 + b.r);
+    h = mix(h, (b.rot ?? 0) + (b.cramped ? 8 : 0) + footprintOf(b.type) * 16);
+    h = mixId(h, b.id);
+  }
+  h = mix(h, state.queue.length);
+  for (const i of state.queue) {
+    const canal = i.kind === "canal" || i.kind === "fill";
+    if (i.kind !== "build" && i.rot === void 0 && !canal) continue;
+    h = mix(h, i.q * 977 + i.r);
+    h = mix(
+      h,
+      (i.rot ?? 0) + footprintOf(i.buildingType) * 16 + (i.kind === "build" ? 128 : 0) + (canal ? 256 : 0)
+    );
+    h = mixId(h, i.id);
+  }
+  return h;
+}
+function occupancy(state) {
+  const hash = layoutHash(state);
+  const hit = cache.get(state.buildings);
+  if (hit && hit.hash === hash) return hit.occupancy;
+  const tiles = /* @__PURE__ */ new Map();
+  const blocked = /* @__PURE__ */ new Set();
+  for (const b of state.buildings) {
+    const covered = footprintTiles(b);
+    covered.forEach((h, i) => tiles.set(hexKey(h), { id: b.id, site: false, anchor: i === 0 }));
+    for (const h of wallsOf(covered)) blocked.add(hexKey(h));
+  }
+  for (const item2 of state.queue) {
+    siteTiles(item2).forEach((h, i) => {
+      const key = hexKey(h);
+      if (!tiles.has(key)) tiles.set(key, { id: item2.id, site: true, anchor: i === 0 });
+    });
+  }
+  const occ = { tiles, blocked, blockedKey: [...blocked].sort().join(";") };
+  cache.set(state.buildings, { hash, occupancy: occ });
+  return occ;
+}
+function coveredKeys(state) {
+  const out = /* @__PURE__ */ new Set();
+  for (const [k, o] of occupancy(state).tiles) if (!o.site) out.add(k);
+  return out;
+}
+function takenKeys(state) {
+  return new Set(occupancy(state).tiles.keys());
+}
+function footprintCentre(tiles) {
+  let q = 0;
+  let r = 0;
+  for (const h of tiles) {
+    q += h.q;
+    r += h.r;
+  }
+  return { q: q / tiles.length, r: r / tiles.length };
+}
+function cutsLand(map, removed, blocked = /* @__PURE__ */ new Set()) {
+  const gone = new Set(removed);
+  const open = (k) => {
+    if (gone.has(k) || blocked.has(k)) return false;
+    const t = getTile(map, parseHexKey(k));
+    return !!t && TILES[t.type].walkable;
+  };
+  const border = /* @__PURE__ */ new Set();
+  for (const k of gone)
+    for (const n of hexNeighbors(parseHexKey(k))) {
+      const nk = hexKey(n);
+      if (open(nk)) border.add(nk);
+    }
+  if (border.size <= 1) return false;
+  const [start] = border;
+  const seen = /* @__PURE__ */ new Set([start]);
+  const stack = [start];
+  let found = 1;
+  while (stack.length > 0) {
+    const h = parseHexKey(stack.pop());
+    for (const n of hexNeighbors(h)) {
+      const k = hexKey(n);
+      if (seen.has(k) || !open(k)) continue;
+      seen.add(k);
+      if (border.has(k) && ++found === border.size) return false;
+      stack.push(k);
+    }
+  }
+  return true;
+}
+function clearPathsUnder(s, tiles) {
+  const keys = tiles.map((h) => hexKey(h));
+  const paved = new Set(s.paths);
+  if (!keys.some((k) => paved.has(k))) return;
+  const refunded = keys.slice(1).filter((k) => paved.has(k)).length;
+  const gone = new Set(keys);
+  s.paths = s.paths.filter((k) => !gone.has(k));
+  const cost = PATHS.cost;
+  for (const id3 of RESOURCE_IDS) s.resources[id3] += (cost[id3] ?? 0) * refunded;
 }
 
 // packages/shared/src/sim/territory.ts
@@ -6224,9 +6231,23 @@ function galleryRates(state) {
 }
 function galleryWorth(state, roomId, cap = capacity(state)) {
   if (!minesOpen(state)) return false;
-  if (state.depths.galleries[roomId]?.kind === "forest") return state.crystal < crystalCap(state);
+  const kind = state.depths.galleries[roomId]?.kind;
+  if (kind === "forest") return state.crystal < crystalCap(state);
+  if (kind === "lake") {
+    const e = techEffects(state);
+    return e.laboratory || e.enzymes > 1;
+  }
   const r = galleryResource(state, roomId);
   return !!r && state.resources[r] < cap[r] - EPS3;
+}
+function actinidineActive(state) {
+  if (!minesOpen(state)) return false;
+  return state.villagers.some(
+    (v) => v.job.kind === "mine" && state.depths.galleries[v.job.roomId]?.kind === "lake"
+  );
+}
+function woundFactor(state) {
+  return actinidineActive(state) ? 1 / techEffects(state).enzymes : 1;
 }
 function canDig(v) {
   if (v.kikiwiwi) return false;
@@ -7296,8 +7317,9 @@ function delveCrewMax(state) {
   const t = tunnelOf(state);
   return t ? DEPTHS.crew[Math.min(t.level, DEPTHS.crew.length - 1)] ?? 0 : 0;
 }
-function delveTime(room) {
-  return DEPTHS.travelMs[room.depth - 1];
+function delveTime(room, skirt = false) {
+  const t = DEPTHS.travelMs[room.depth - 1];
+  return skirt && isLocule(room) ? Math.round(t * DEPTHS.locules.skirtTravel) : t;
 }
 function isDelve(e) {
   return e.mission === "delve";
@@ -7329,13 +7351,13 @@ function delveLock(state, roomId, crew, orders) {
 function layerOpen(state, room) {
   return !isLocule(room) || ageOf(state) >= DEPTHS.locules.age;
 }
-function launchDelve(state, roomId, crewIds, provisions, orders, now, id3) {
+function launchDelve(state, roomId, crewIds, provisions, orders, now, id3, skirt = false) {
   const room = depthsMapOf(state).byId.get(roomId);
   const crew = crewOf(state, crewIds);
   for (const v of crew) v.job = { kind: "expedition", expeditionId: id3 };
   state.resources.pulp -= provisions.pulp;
   state.resources.juice -= provisions.juice;
-  const travel = delveTime(room);
+  const travel = delveTime(room, skirt);
   const e = {
     id: id3,
     mission: "delve",
@@ -7358,7 +7380,8 @@ function launchDelve(state, roomId, crewIds, provisions, orders, now, id3) {
     status: "outbound",
     result: null,
     orders: { ...orders },
-    room: roomId
+    room: roomId,
+    ...skirt && isLocule(room) ? { skirt: true } : {}
   };
   state.expeditions.push(e);
   return e;
@@ -7376,10 +7399,11 @@ function resolveDelve(state, e, members, fed) {
   const at = e.arriveAt;
   const truth = roomTruth(seed, room);
   const battleSeed = `${seed}/delve/${e.id}`;
-  const hits = hazardHits(members, truth.hazard, battleSeed);
+  const hazard = e.skirt && truth.hazard?.kind === "acid" ? null : truth.hazard;
+  const hits = hazardHits(members, hazard, battleSeed);
   const setup = delveSetup(state, members, {
     units: truth.units,
-    hazard: truth.hazard,
+    hazard,
     orders: e.orders,
     fed,
     seed: battleSeed
@@ -7450,7 +7474,7 @@ function resolveDelve(state, e, members, fed) {
     log: log2,
     injured: hurt,
     ...outcome !== "defeat" ? { seen: truth.units.map((u) => ({ ...u })) } : {},
-    ...truth.hazard && outcome !== "defeat" ? { hazard: { ...truth.hazard, hits } } : {},
+    ...hazard && outcome !== "defeat" ? { hazard: { ...hazard, hits } } : {},
     ...iron > 0 ? { iron } : {},
     ...giantSeeds > 0 ? { giantSeeds } : {},
     ...outcome === "victory" ? { gallery: true } : {},
@@ -7489,7 +7513,7 @@ function assumedHazard(room, kind) {
   if (kind === "lake") return { kind: "acid", strength };
   return null;
 }
-function delveForecast(state, roomId, crew, orders, fed = 1) {
+function delveForecast(state, roomId, crew, orders, fed = 1, skirt = false) {
   const room = depthsMapOf(state).byId.get(roomId);
   if (!room) return null;
   const view = state.depths.views[roomId] ?? null;
@@ -7505,9 +7529,10 @@ function delveForecast(state, roomId, crew, orders, fed = 1) {
     grouillants(base * DEPTHS.spread[1] * (kind && nestKnown ? nest2 : DEPTHS.nestPower), level)
   ];
   const known = view && view.hazard !== void 0 ? view.hazard : void 0;
-  const assumed = known === void 0 ? assumedHazard(room, kind) : known;
-  const possibleHazard = known === void 0 && !assumed && kind !== "nest";
-  const unknownWorst = isLocule(room) ? worstLoculeHazard(crew, DEPTHS.hazard.strength[room.depth - 1]) : { kind: "fall", strength: DEPTHS.hazard.strength[room.depth - 1] };
+  const avoid = (h) => skirt && h?.kind === "acid" ? null : h;
+  const assumed = avoid(known === void 0 ? assumedHazard(room, kind) : known);
+  const possibleHazard = known === void 0 && !assumed && kind !== "nest" && !(skirt && kind === "lake");
+  const unknownWorst = isLocule(room) ? skirt ? { kind: "cuts", strength: DEPTHS.hazard.strength[room.depth - 1] } : worstLoculeHazard(crew, DEPTHS.hazard.strength[room.depth - 1]) : { kind: "fall", strength: DEPTHS.hazard.strength[room.depth - 1] };
   const worst = assumed ?? (possibleHazard ? unknownWorst : null);
   const hazards = [assumed, assumed, worst];
   const shown = assumed ?? worst;
@@ -7527,7 +7552,7 @@ function delveForecast(state, roomId, crew, orders, fed = 1) {
     hazard: assumed,
     possibleHazard,
     harm,
-    travelMs: delveTime(room)
+    travelMs: delveTime(room, skirt)
   };
   if (crew.length === 0)
     return { ...out, odds: "unknown", expectedDead: 0, expectedHurt: 0, trials: [] };
@@ -8646,7 +8671,9 @@ function resolveReturn(state, e, events = []) {
     if (v.job.kind !== "expedition" || v.job.expeditionId !== e.id) continue;
     v.job = hurt.has(v.id) ? {
       kind: "injured",
-      until: e.returnAt + (e.mission === "recon" ? RECON.injuryMs : EXPEDITIONS.victoryInjuryMs)
+      until: e.returnAt + Math.round(
+        (e.mission === "recon" ? RECON.injuryMs : EXPEDITIONS.victoryInjuryMs) * woundFactor(state)
+      )
     } : { kind: "idle" };
   }
   e.provisions = emptyResources();
@@ -10321,7 +10348,10 @@ function strike(s, wave, events) {
   for (const v of fallen.slice(out.deaths)) {
     const until = draw(
       s,
-      (rng) => Math.round(at + rng.range(THREATS.injuryMs[0], THREATS.injuryMs[1]))
+      (rng) => (
+        // Chantier 50: Enzymes with a lake worked: half as long.
+        Math.round(at + rng.range(THREATS.injuryMs[0], THREATS.injuryMs[1]) * woundFactor(s))
+      )
     );
     v.job = { kind: "injured", until };
     report.injured.push({ id: v.id, name: v.name });
@@ -11608,12 +11638,19 @@ function fillMines(state) {
     if (!galleryWorth(state, roomId, cap)) continue;
     const resource = galleryWorkAs(state, roomId);
     let free = gallerySlots(state, roomId) - minersIn(state, roomId).length;
+    if (state.depths.galleries[roomId].kind === "lake")
+      free = Math.min(free, lakeMiners(state) > 0 ? 0 : 1);
     while (free-- > 0 && budget-- > 0) {
       const v = bestFor(state, "pick", (x) => workerPower(x, resource));
       if (!v) return;
       v.job = { kind: "mine", roomId, returnTo: borrow(v) };
     }
   }
+}
+function lakeMiners(state) {
+  return state.villagers.filter(
+    (v) => v.job.kind === "mine" && state.depths.galleries[v.job.roomId]?.kind === "lake"
+  ).length;
 }
 function releaseMines(state, cap = capacity(state)) {
   const done = [];
@@ -11951,7 +11988,8 @@ function kikiwiwiCount(state) {
 function infusionRisk(state, v, lab) {
   const r = KIKIWIWI.risk;
   const risk = r.base - r.endurance * (v.stats.endurance - KIWI.stat.average) - r.strength * (v.stats.strength - KIWI.stat.average) - r.level * (v.level - 1) - (r.lab[lab.level - 1] ?? 0) - techEffects(state).infusionRisk;
-  return Math.round(Math.min(r.max, Math.max(r.min, risk)) * 1e3) / 1e3;
+  const lake = actinidineActive(state) ? DEPTHS.actinidine.infusionRisk : 1;
+  return Math.round(Math.min(r.max, Math.max(r.min, risk)) * lake * 1e3) / 1e3;
 }
 function infusionDuration(lab) {
   const d = KIKIWIWI.durationMs;
@@ -15465,7 +15503,16 @@ function execute(s, cmd, ctx, events) {
       const { pulp, juice } = cmd.provisions;
       if (![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) fail("invalidCount");
       if (!canAfford(s.resources, { pulp, juice })) fail("notEnoughResources");
-      launchDelve(s, cmd.roomId, cmd.crew, { pulp, juice }, cmd.orders, now, nextId(s, "x"));
+      launchDelve(
+        s,
+        cmd.roomId,
+        cmd.crew,
+        { pulp, juice },
+        cmd.orders,
+        now,
+        nextId(s, "x"),
+        !!cmd.skirt
+      );
       return;
     }
     case "fitLens": {
@@ -20519,6 +20566,7 @@ var gameStateSchema = external_exports.object({
       orders: landingOrders.optional(),
       delayed: external_exports.boolean().optional(),
       room: external_exports.string().max(8).optional(),
+      skirt: external_exports.boolean().optional(),
       result: external_exports.object({
         victory: external_exports.boolean(),
         aborted: external_exports.boolean().optional(),
@@ -21121,7 +21169,8 @@ var commandSchema = external_exports.discriminatedUnion("type", [
       priority: external_exports.enum(["nearest", "air", "casters", "weakest"]),
       retreatAt: external_exports.number().min(0).max(1),
       goal: external_exports.enum(["burn", "loot"])
-    })
+    }),
+    skirt: external_exports.boolean().optional()
   }),
   external_exports.object({
     type: external_exports.literal("fortifyBeacon"),
@@ -22430,6 +22479,7 @@ export {
   accrueKiwis,
   accrueResearch,
   accrueStardust,
+  actinidineActive,
   activeItem,
   addCrystal,
   addGiantSeeds,
@@ -23180,5 +23230,6 @@ export {
   workerSlots,
   workersOf,
   workforce,
+  woundFactor,
   xpForLevel
 };

@@ -141,7 +141,14 @@ export const DEPTHS = {
     giantSeeds: [1, 3] as const,
     /** Age that opens them (Industry). */
     age: 3,
+    /** A crew told to skirt the lakes takes this much longer to a locule (and meets no acid). */
+    skirtTravel: 1.5,
   },
+  /**
+   * Chantier 50: an actinidine lake worked by at least one miner (the door open) halves the
+   * laboratory's infusion risk, and with the technology Enzymes the wounded heal faster.
+   */
+  actinidine: { infusionRisk: 0.5 },
   /** The tunnel entrance's levels (index = level): most kiwis on a delve, door strength. */
   crew: [0, 4, 6, 8] as readonly number[],
   door: [0, 8, 14, 20] as readonly number[],

@@ -253,6 +253,8 @@ export type Command =
       crew: VillagerId[];
       provisions: { pulp: number; juice: number };
       orders: LandingOrders;
+      /** Chantier 50: skirt the actinidine lakes (longer to a locule, no acid). */
+      skirt?: boolean;
     }
   /** Chantier 19: the guards raid the ferret den on this tile (a colonised face). */
   | { type: 'raidDen'; q: number; r: number }
@@ -964,7 +966,16 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const { pulp, juice } = cmd.provisions;
       if (![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) fail('invalidCount');
       if (!canAfford(s.resources, { pulp, juice })) fail('notEnoughResources');
-      launchDelve(s, cmd.roomId, cmd.crew, { pulp, juice }, cmd.orders, now, nextId(s, 'x'));
+      launchDelve(
+        s,
+        cmd.roomId,
+        cmd.crew,
+        { pulp, juice },
+        cmd.orders,
+        now,
+        nextId(s, 'x'),
+        !!cmd.skirt,
+      );
       return;
     }
     case 'fitLens': {

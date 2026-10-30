@@ -107,6 +107,7 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
       retreatAt: z.number().min(0).max(1),
       goal: z.enum(['burn', 'loot']),
     }),
+    skirt: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('fortifyBeacon'),

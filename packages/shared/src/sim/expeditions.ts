@@ -2,6 +2,7 @@ import { returnGear } from './forge';
 import { resolveDelve } from './delves';
 import { addIron } from './iron';
 import { addGiantSeeds } from './crystal';
+import { woundFactor } from './mines';
 import { FUEL } from '../data/comets';
 import { COLONY } from '../data/colonies';
 import { levelDef } from '../data/buildings';
@@ -711,7 +712,11 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
       ? {
           kind: 'injured',
           until:
-            e.returnAt + (e.mission === 'recon' ? RECON.injuryMs : EXPEDITIONS.victoryInjuryMs),
+            e.returnAt +
+            Math.round(
+              (e.mission === 'recon' ? RECON.injuryMs : EXPEDITIONS.victoryInjuryMs) *
+                woundFactor(state),
+            ),
         }
       : { kind: 'idle' };
   }

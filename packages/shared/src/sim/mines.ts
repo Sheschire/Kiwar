@@ -6,6 +6,7 @@ import { colonyBonus, workerPower } from './kiwis';
 import { hungerWork } from './needs';
 import { bedsOf, colonyMood, kiwiMoraleWork, presence } from './rest';
 import { crystalCap } from './crystal';
+import { techEffects } from './research';
 import { capacity } from './selectors';
 import type { GameState, Villager } from './state';
 
@@ -113,10 +114,32 @@ export function galleryRates(
  */
 export function galleryWorth(state: GameState, roomId: string, cap = capacity(state)): boolean {
   if (!minesOpen(state)) return false;
-  // Chantier 50: a raphide forest while the crystal stock has room.
-  if (state.depths.galleries[roomId]?.kind === 'forest') return state.crystal < crystalCap(state);
+  // Chantier 50: a raphide forest while the crystal stock has room; an actinidine lake while
+  // its enzyme serves (the laboratory, or Enzymes).
+  const kind = state.depths.galleries[roomId]?.kind;
+  if (kind === 'forest') return state.crystal < crystalCap(state);
+  if (kind === 'lake') {
+    const e = techEffects(state);
+    return e.laboratory || e.enzymes > 1;
+  }
   const r = galleryResource(state, roomId);
   return !!r && state.resources[r] < cap[r] - EPS;
+}
+
+/**
+ * Chantier 50: an actinidine lake is worked (a miner there, the door open): the laboratory's
+ * infusions are safer, and with Enzymes the wounded heal faster. Changes only at events.
+ */
+export function actinidineActive(state: GameState): boolean {
+  if (!minesOpen(state)) return false;
+  return state.villagers.some(
+    (v) => v.job.kind === 'mine' && state.depths.galleries[v.job.roomId]?.kind === 'lake',
+  );
+}
+
+/** How much longer a wound lasts now (Enzymes with a lake worked: half as long). */
+export function woundFactor(state: GameState): number {
+  return actinidineActive(state) ? 1 / techEffects(state).enzymes : 1;
 }
 
 /** Who can be sent down a mine: kiwis at home, at work, picking or mining (not Kikiwiwis). */
