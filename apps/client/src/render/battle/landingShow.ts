@@ -5,8 +5,7 @@ import {
   hexKey,
   landingTile,
   parcelView,
-  shipIdForAge,
-  ageOf,
+  shipIdOf,
   type Expedition,
   type FaceMap,
   type GameState,
@@ -104,7 +103,7 @@ export class LandingShow {
       const w = worldPosition({ q: b[2], r: b[3] });
       return new Vector3(w.x, (getTile(this.map, { q: b[2], r: b[3] })?.height ?? 0) + 0.45, w.z);
     });
-    this.setShip(shipIdForAge(ageOf(state)));
+    this.setShip(shipIdOf(state));
     const fight = log.result.duration;
     const view = parcelView(state, e.targetId, e.sector);
     const ok = this.battle.play(state, { id: e.id, kind: 'landing', log }, -LANDING_LEAD, {

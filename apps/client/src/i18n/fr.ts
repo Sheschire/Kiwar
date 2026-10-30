@@ -2542,6 +2542,7 @@ export const fr: Dict = {
     none: 'Pas de chiffres : ce niveau ouvre la suite.',
   },
   techStats: {
+    research: 'Recherche',
     harvest: 'Récolte',
     storage: 'Stockage',
     turretDefense: 'Défense des tourelles',

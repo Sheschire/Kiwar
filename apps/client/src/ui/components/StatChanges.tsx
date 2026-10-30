@@ -58,6 +58,7 @@ const TECH_ICONS: Record<TechStatId, IconName> = {
   meteorDrill: 'harvest',
   canals: 'juice',
   depths: 'tunnel',
+  research: 'library',
 };
 
 /** Smaller is better for these (durations, costs, harm). */

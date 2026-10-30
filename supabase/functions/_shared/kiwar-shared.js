@@ -14973,7 +14973,9 @@ var TECH_STATS = [
   "meteorStock",
   "meteorDrill",
   "canals",
-  "depths"
+  "depths",
+  // Chantier 51: the Library's research (Glass, Celestial glass).
+  "research"
 ];
 var MULTIPLIERS = [
   "storage",
@@ -14987,7 +14989,8 @@ var MULTIPLIERS = [
   "kikiwiwiUpkeep",
   "nightWork",
   "cometInterval",
-  "meteorStock"
+  "meteorStock",
+  "research"
 ];
 var BONUSES = ["armor", "recon", "infusionRisk", "waveNotice"];
 var UNLOCKS = ["firearms", "laboratory", "terraform", "meteorDrill", "canals", "depths"];

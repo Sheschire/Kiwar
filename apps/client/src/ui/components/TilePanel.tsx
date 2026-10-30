@@ -606,6 +606,10 @@ function UpgradeAction({
         haveDust={stardustOf(game)}
         iron={levelDef(b.type, target)?.iron}
         haveIron={meteorIronOf(game)}
+        crystal={nextDef?.crystal}
+        haveCrystal={crystalOf(game)}
+        giantSeeds={nextDef?.giantSeeds}
+        haveSeeds={game.giantSeeds}
         durationMs={constructionDuration(game, b.type, target, false, nearRay(map, b.q, b.r))}
       />
       <button

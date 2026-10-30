@@ -1,4 +1,4 @@
-import { Color, Matrix4, Quaternion, Vector3 } from 'three';
+import { Color, Matrix4, Quaternion, TorusGeometry, Vector3 } from 'three';
 import {
   box,
   C,
@@ -26,15 +26,17 @@ import {
  * | Stone    | dry stones, a darker footing  | thatch, a family ridge    |
  * | Iron     | plaster, beams, iron bands    | tiles in rows             |
  * | Industry | brick, mortar, glass windows  | sheet metal, ribs, glass  |
+ * | Stars    | pale star stone, crystal panes| night glass, celestial    |
+ * |          | and celestial brass bands     | brass ribs, crystal ridge |
  */
 
 /** What a model is built for. */
 export interface Look {
-  /** Age of the building's level (0 Eden … 3 Industry): materials and silhouette. */
+  /** Age of the building's level (0 Eden … 4 the stars): materials and silhouette. */
   age: number;
   /** Tier within the age, 1–3: 2 adds an annex, 3 a crown. */
   tier: number;
-  /** Full level (1–12). */
+  /** Full level (1–15). */
   level: number;
   /** Age of the colony (the ship generation of the launch pad). */
   colonyAge: number;
@@ -65,10 +67,17 @@ export const A = {
   brass: '#d6aa45',
   glass: '#a8dce9',
   steel: '#69747c',
+  // Chantier 51, the Age of the stars: star stone, celestial brass, night glass and crystal.
+  starstone: '#ece7f2',
+  starstoneDark: '#b8b1cc',
+  celestial: '#e0bf5c',
+  night: '#34407a',
+  crystal: '#c4ecf7',
+  starlight: '#fff4c6',
 } as const;
 
 /** The colour of each age (level badges, banners). */
-export const AGE_TINTS = ['#7a5233', '#c99a1e', '#6f8394', '#b8673a'] as const;
+export const AGE_TINTS = ['#7a5233', '#c99a1e', '#6f8394', '#b8673a', '#5b6fc4'] as const;
 
 const mixes = new Map<string, string>();
 /** `a` moved `t` of the way to `b` (cached hex). */
@@ -189,6 +198,17 @@ export function wall(
         ]);
       for (const cx of [-1, 1])
         p.push([box(), C.ironDark, m((cx * w) / 2, h / 2 - 0.04, d / 2 + 0.02, 0.05, 0.05, 0.01)]);
+    } else if (age >= 4) {
+      p.push([box(), A.starstone, m(0, 0, 0, w, h, d)]);
+      p.push([box(), A.starstoneDark, m(0, -h / 2 + 0.03, 0, w + 0.03, 0.06, d + 0.03)]);
+      p.push([box(), A.celestial, m(0, h / 2 - 0.012, 0, w + 0.025, 0.025, d + 0.025)]);
+      p.push([box(), A.celestial, m(0, h * 0.12, 0, w + 0.01, 0.012, d + 0.01)]);
+      if (w > 0.3)
+        for (const k of [-0.3, 0.3]) {
+          p.push([box(), A.celestial, m(w * k, h * 0.3, d / 2 + 0.004, 0.09, 0.15, 0.008)]);
+          p.push([box(), A.crystal, m(w * k, h * 0.3, d / 2 + 0.009, 0.07, 0.13, 0.008)]);
+          p.push([ico(), A.starlight, m(w * k, h * 0.3 + 0.1, d / 2 + 0.01, 0.018, 0.018, 0.01)]);
+        }
     } else {
       p.push([box(), A.brick, m(0, 0, 0, w, h, d)]);
       for (const k of [0.3, 0.55, 0.8])
@@ -242,6 +262,12 @@ export function round(
       const a = (i / 5) * Math.PI * 2 + 0.3;
       p.push([box(), A.beam, m(x + Math.sin(a) * r, y, z + Math.cos(a) * r, 0.03, h, 0.03, 0, a)]);
     }
+  } else if (age >= 4) {
+    p.push([cyl(seg), A.starstone, m(x, y, z, r, h, r)]);
+    p.push([cyl(seg), A.starstoneDark, m(x, at(0.05), z, r + 0.015, h * 0.1, r + 0.015)]);
+    p.push([cyl(seg), A.crystal, m(x, at(0.62), z, r + 0.006, h * 0.12, r + 0.006)]);
+    for (const k of [0.55, 0.69, 0.97])
+      p.push([cyl(seg), A.celestial, m(x, at(k), z, r + 0.012, 0.018, r + 0.012)]);
   } else {
     p.push([cyl(seg), A.brick, m(x, y, z, r, h, r)]);
     for (const k of [0.3, 0.55, 0.8])
@@ -311,6 +337,22 @@ export function gable(
         C.ironDark,
         m(x + side * len * 0.54, ridge[0] + 0.07, ridge[1], 0.02, 0.12, 0.02),
       ]);
+  } else if (age >= 4) {
+    p.push([
+      roofPrism(),
+      mix(A.night, family, 0.3),
+      m(x, y, z, A0, len * 1.04, D0, 0, 0, Math.PI / 2),
+    ]);
+    for (let i = 0; i < 4; i++) {
+      const rx = x + (i / 3 - 0.5) * len * 0.9;
+      const [ry, rz] = along(0.5, 0.008);
+      p.push([box(), A.celestial, m(rx, ry, rz, 0.014, 0.012, slope * 0.98, phi)]);
+    }
+    for (const t of [0.3, 0.7]) {
+      const [sy, sz] = along(t, 0.012);
+      p.push([ico(), A.starlight, m(x + len * (t - 0.5) * 0.6, sy, sz, 0.02, 0.02, 0.02)]);
+    }
+    p.push([box(), A.crystal, m(x, ridge[0] + 0.015, ridge[1], len * 1.06, 0.045, 0.05)]);
   } else {
     p.push([roofPrism(), family, m(x, y, z, A0, len * 1.04, D0, 0, 0, Math.PI / 2)]);
     for (let i = 0; i < 5; i++) {
@@ -366,6 +408,21 @@ export function cap(
         m(x, base + h * f, z, r * (1 - f) + 0.012, 0.022, r * (1 - f) + 0.012),
       ]);
     p.push([cone(5), C.ironDark, m(x, top + 0.07, z, 0.022, 0.16, 0.022)]);
+  } else if (age >= 4) {
+    p.push([cone(seg), mix(A.night, family, 0.3), m(x, y, z, r * 1.04, h, rz * 1.04, 0, ry)]);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + ry;
+      beam(
+        p,
+        A.celestial,
+        [x + Math.sin(a) * r * 1.05, base, z + Math.cos(a) * r * 1.05],
+        [x, top, z],
+        0.012,
+      );
+    }
+    p.push([cyl(seg), A.celestial, m(x, base + 0.015, z, r * 1.06, 0.03, r * 1.06)]);
+    p.push([ico(), A.crystal, m(x, top + 0.05, z, 0.045, 0.08, 0.045)]);
+    p.push([ico(), A.starlight, m(x, top + 0.13, z, 0.025, 0.025, 0.025)]);
   } else {
     p.push([cone(seg), family, m(x, y, z, r * 1.04, h, rz * 1.04, 0, ry)]);
     for (let i = 0; i < 6; i++) {
@@ -410,6 +467,19 @@ export function door(
       p.push([box(), A.beam, m(0, h / 2 + 0.015, 0.004, w + 0.06, 0.03, t + 0.01)]);
       for (const k of [-0.25, 0.25])
         p.push([box(), C.ironDark, m(-w * 0.2, h * k, t / 2 + 0.003, w * 0.5, 0.015, 0.006)]);
+    } else if (age >= 4) {
+      for (const side of [-1, 1])
+        p.push([
+          box(),
+          A.celestial,
+          m((side * (w + 0.03)) / 2, 0.01, 0.004, 0.025, h + 0.02, t + 0.01),
+        ]);
+      p.push([
+        cyl(10),
+        A.celestial,
+        m(0, h / 2, 0.004, w / 2 + 0.03, t + 0.012, w / 2 + 0.03, Math.PI / 2),
+      ]);
+      p.push([cyl(10), A.crystal, m(0, h / 2, 0.008, w / 2, t + 0.012, w / 2, Math.PI / 2)]);
     } else {
       p.push([box(), A.steel, m(0, h / 2 + 0.02, 0.004, w + 0.06, 0.035, t + 0.012)]);
       p.push([sphere(5, 4), A.brass, m(w * 0.3, 0, t / 2 + 0.008, 0.015, 0.015, 0.015)]);
@@ -421,6 +491,14 @@ export function door(
 /** A chimney standing on the ground at (x, z), `h` high, with smoke from the later ages. */
 export function chimney(p: Parts, age: number, x: number, z: number, h: number): void {
   if (age <= 0) return;
+  if (age >= 4) {
+    // The Age of the stars burns nothing: a crystal spire catches the starlight.
+    p.push([cyl(6), A.starstoneDark, m(x, h * 0.3, z, 0.06, h * 0.6, 0.06)]);
+    p.push([cyl(6), A.celestial, m(x, h * 0.6, z, 0.075, 0.025, 0.075)]);
+    p.push([cone(5), A.crystal, m(x, h * 0.8, z, 0.06, h * 0.4, 0.06)]);
+    emitter(p, { kind: 'glint', at: [x, h + 0.04, z], rate: 0.6, ambient: true });
+    return;
+  }
   if (age === 1) {
     p.push([box(), A.drystone, m(x, h / 2, z, 0.12, h, 0.12)]);
     p.push([box(), A.drystoneDark, m(x, h * 0.2, z, 0.14, h * 0.4, 0.14)]);
@@ -449,19 +527,29 @@ export function pipe(
 
 /** A small glass lamp on a post (Iron and Industry). */
 export function lamp(p: Parts, age: number, x: number, z: number, name: string): void {
-  p.push([cyl(5), age >= 3 ? A.steel : C.ironDark, m(x, 0.2, z, 0.018, 0.4, 0.018)]);
-  p.push([box(), age >= 3 ? A.brass : C.iron, m(x, 0.42, z, 0.07, 0.07, 0.07)]);
+  const stars = age >= 4;
+  p.push([
+    cyl(5),
+    stars ? A.celestial : age >= 3 ? A.steel : C.ironDark,
+    m(x, 0.2, z, 0.018, 0.4, 0.018),
+  ]);
+  if (stars) p.push([ico(), A.crystal, m(x, 0.42, z, 0.06, 0.07, 0.06)]);
+  else p.push([box(), age >= 3 ? A.brass : C.iron, m(x, 0.42, z, 0.07, 0.07, 0.07)]);
   rig(p, name, [x, 0.42, z], { kind: 'flicker', amount: 0.15, speed: 3, ambient: true });
   p.push([sphere(5, 4), C.fire, m(x, 0.42, z, 0.035, 0.035, 0.035), name]);
 }
 
-/** One value per age (Eden, Stone, Iron, Industry). */
-export function byAge<T>(age: number, values: readonly [T, T, T, T]): T {
-  return values[Math.max(0, Math.min(3, age))]!;
+/**
+ * One value per age (Eden, Stone, Iron, Industry, the stars); with four values the Age of the
+ * stars keeps the Industry's (its kit pieces already change the look).
+ */
+export function byAge<T>(age: number, values: readonly [T, T, T, T] | readonly [T, T, T, T, T]): T {
+  return values[Math.max(0, Math.min(values.length - 1, age))]!;
 }
 
-/** Posts, frames and handles: wood, wood, dark beams, steel. */
-export const frameColor = (age: number) => byAge(age, [C.woodDark, C.woodDark, A.beam, A.steel]);
+/** Posts, frames and handles: wood, wood, dark beams, steel, celestial brass. */
+export const frameColor = (age: number) =>
+  byAge(age, [C.woodDark, C.woodDark, A.beam, A.steel, A.celestial]);
 
 /**
  * The flag of a building (tier 2 blue, tier 3 gold); from the Stone age a bigger banner with a
@@ -474,7 +562,7 @@ export function banner(p: Parts, look: Look, x: number, y: number, z: number): v
     return;
   }
   if (tier < 2) return;
-  const pole = byAge(age, [C.woodDark, C.woodDark, C.ironDark, A.brass]);
+  const pole = byAge(age, [C.woodDark, C.woodDark, C.ironDark, A.brass, A.celestial]);
   p.push([cyl(5), pole, m(x, y + 0.36, z, 0.022, 0.72, 0.022)]);
   if (age === 1) p.push([ico(), A.drystoneDark, m(x, y + 0.02, z, 0.06, 0.04, 0.06)]);
   else p.push([sphere(5, 4), pole, m(x, y + 0.74, z, 0.03, 0.03, 0.03)]);
@@ -514,6 +602,14 @@ export function annex(p: Parts, age: number, x: number, z: number, ry = 0): void
       p.push([cyl(8), C.wood, m(0.22, 0.09, 0.02, 0.07, 0.18, 0.07)]);
       for (const y of [0.04, 0.14])
         p.push([cyl(8), C.ironDark, m(0.22, y, 0.02, 0.074, 0.018, 0.074)]);
+    } else if (age >= 4) {
+      // A star telescope on its tripod, beside a crystal lens on a stand.
+      for (const a of [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3])
+        beam(p, A.celestial, [Math.sin(a) * 0.12, 0, Math.cos(a) * 0.12], [0, 0.26, 0], 0.014);
+      beam(p, A.celestial, [-0.06, 0.2, 0.08], [0.1, 0.42, -0.12], 0.04, true);
+      p.push([cyl(8), A.crystal, m(0.1, 0.42, -0.12, 0.045, 0.012, 0.045, 0.85)]);
+      p.push([cyl(8), A.starstoneDark, m(0.22, 0.08, 0.1, 0.04, 0.16, 0.04)]);
+      p.push([ico(), A.crystal, m(0.22, 0.2, 0.1, 0.05, 0.06, 0.05)]);
     } else {
       p.push([cyl(10), C.copper, m(0, 0.3, 0, 0.11, 0.24, 0.11)]);
       p.push([sphere(8, 5), C.copper, m(0, 0.42, 0, 0.11, 0.05, 0.11)]);
@@ -562,6 +658,27 @@ export function crown(p: Parts, age: number, x: number, z: number): void {
     p.push([sphere(6, 5), C.ironDark, m(x, 1.16, z - 0.12, 0.05, 0.05, 0.06), 'vane']);
     for (const r of [0, Math.PI / 2])
       p.push([box(), C.iron, m(x, 1.0, z, 0.24, 0.012, 0.012, 0, r)]);
+  } else if (age >= 4) {
+    // A crystal spire with an armillary sphere turning around a star.
+    p.push([cyl(6), A.starstoneDark, m(x, 0.06, z, 0.09, 0.12, 0.09)]);
+    p.push([cyl(6), A.celestial, m(x, 0.6, z, 0.022, 1.1, 0.022)]);
+    p.push([cone(5), A.crystal, m(x, 1.3, z, 0.05, 0.22, 0.05)]);
+    p.push([ico(), A.starlight, m(x, 1.18, z, 0.045, 0.045, 0.045)]);
+    emitter(p, { kind: 'glint', at: [x, 1.2, z], rate: 0.8, ambient: true });
+    rig(p, 'armillary', [x, 1.18, z], {
+      kind: 'spin',
+      axis: 'y',
+      amount: 1,
+      speed: 0.8,
+      ambient: true,
+    });
+    for (const tilt of [0, Math.PI / 2])
+      p.push([
+        new TorusGeometry(1, 0.06, 4, 18),
+        A.celestial,
+        m(x, 1.18, z, 0.13, 0.13, 0.13, tilt, 0, tilt ? 0 : Math.PI / 2),
+        'armillary',
+      ]);
   } else {
     p.push([cyl(6), A.steel, m(x, 0.65, z, 0.025, 1.3, 0.025)]);
     for (const k of [0.3, 0.7]) p.push([cyl(6), A.brass, m(x, k, z, 0.04, 0.03, 0.04)]);

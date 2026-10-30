@@ -113,7 +113,7 @@ const CROWN_SPOTS: Partial<Record<BuildingType, [number, number]>> = {};
 export function lookOf(type: BuildingType, level: number, colonyAge = 0, docked = true): Look {
   const age =
     type === 'monument'
-      ? Math.min(3, level)
+      ? Math.min(4, level)
       : type === 'lab'
         ? level >= 3
           ? 3
@@ -261,8 +261,17 @@ const AGE_MATERIALS: readonly Partial<Record<string, string>>[] = [
     [C.cream]: '#ebdcc4',
     [C.guardStone]: '#a3a6a6',
   },
+  // Chantier 51: the Age of the stars bleaches the woods and stones towards the star stone.
+  {
+    [C.wood]: '#a08672',
+    [C.lightWood]: '#d2bea0',
+    [C.storeWood]: '#6d5a64',
+    [C.cream]: '#f1ecf6',
+    [C.guardStone]: '#c4c6d6',
+  },
 ];
 const METAL = new Color('#8a949b');
+const STARRY = new Color('#a9b4e4');
 const ageColors = new Map<string, string>();
 
 function ageColor(hex: string, age: number): string {
@@ -274,7 +283,14 @@ function ageColor(hex: string, age: number): string {
     if (swap) out = swap;
     else if (FAMILY_COLORS.has(hex)) {
       const c = new Color(hex);
-      out = '#' + (age >= 3 ? c.lerp(METAL, 0.25) : c.multiplyScalar(0.88)).getHexString();
+      out =
+        '#' +
+        (age >= 4
+          ? c.lerp(STARRY, 0.22)
+          : age >= 3
+            ? c.lerp(METAL, 0.25)
+            : c.multiplyScalar(0.88)
+        ).getHexString();
     } else out = hex;
     ageColors.set(key, out);
   }
@@ -283,7 +299,8 @@ function ageColor(hex: string, age: number): string {
 
 /**
  * The village changes with the age (chantier 08): a stone plinth (Stone age), an iron lantern
- * and glazed roofs (Iron age), a smoking brick chimney and metal roofs (Industrial age).
+ * and glazed roofs (Iron age), a smoking brick chimney and metal roofs (Industrial age), a
+ * star-stone plinth and crystal lanterns (the stars, chantier 51).
  */
 function dress(p: Parts, type: BuildingType, age: number): void {
   if (age <= 0) return;
@@ -301,7 +318,7 @@ function dress(p: Parts, type: BuildingType, age: number): void {
 }
 
 /** The ground under a building, by age (dry stones, paving, a steel-edged slab). */
-const PLINTHS = ['', A.drystoneDark, C.stoneDark, '#8f918d'];
+const PLINTHS = ['', A.drystoneDark, C.stoneDark, '#8f918d', '#cfc9de'];
 
 /** Recipes that place their own chimney (or need none). */
 const OWN_CHIMNEY: ReadonlySet<BuildingType> = new Set(BUILDING_TYPES.filter((t) => t !== 'lab'));

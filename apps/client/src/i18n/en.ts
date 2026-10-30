@@ -2433,6 +2433,7 @@ export const en = {
     none: 'No numbers: this level opens what comes next.',
   },
   techStats: {
+    research: 'Research',
     harvest: 'Harvest',
     storage: 'Storage',
     turretDefense: 'Turret defense',

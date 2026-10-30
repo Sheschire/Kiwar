@@ -8,7 +8,7 @@ import { ageOfLevel, maxLevelOf, upgradeLock, type GameState } from '@kiwar/shar
 
 const TAU = Math.PI * 2;
 /** Ring colour of a level badge, by the age of the level. */
-const AGE_RINGS = ['#7a5233', '#c99a1e', '#6f8394', '#b8673a'];
+const AGE_RINGS = ['#7a5233', '#c99a1e', '#6f8394', '#b8673a', '#5b6fc4'];
 
 /** Share of the screen height. */
 const BADGE_SIZE = 0.03;

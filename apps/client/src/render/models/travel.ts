@@ -1,5 +1,5 @@
 import { TorusGeometry } from 'three';
-import { shipIdForAge, type ShipId } from '@kiwar/shared';
+import { SAIL, shipIdForAge, type ShipId } from '@kiwar/shared';
 import { C, box, cyl, cone, sphere, m, rig, emitter, type Parts } from './kit';
 import { A, banner, beam, byAge, pipe, round, type Look } from './ageKit';
 
@@ -60,7 +60,7 @@ export function bird(p: Parts, gen: ShipId, docked: boolean): void {
     }
     p.push([cyl(8), look.trim, m(0, y + 0.3, -0.1, 0.045, 0.16, 0.045), body]);
     emitter(p, { kind: 'smoke', at: [0, y + 0.4, -0.1], rate: 0.6, ambient: true });
-  } else {
+  } else if (gen === 'jet') {
     for (const side of [-1, 1])
       p.push([
         cone(8),
@@ -68,6 +68,14 @@ export function bird(p: Parts, gen: ShipId, docked: boolean): void {
         m(side * 0.12, y - 0.04, -0.44, 0.07, 0.14, 0.07, -Math.PI / 2),
         body,
       ]);
+  } else {
+    // Chantier 51, the star sailboat: a brass mast, a crystal sail and a keel of stardust.
+    p.push([cyl(6), look.trim, m(0, y + 0.42, -0.04, 0.02, 0.55, 0.02), body]);
+    p.push([box(), look.wing, m(0, y + 0.44, 0.06, 0.012, 0.42, 0.22, 0.12), body]);
+    p.push([box(), look.trim, m(0, y + 0.66, 0.06, 0.02, 0.02, 0.26), body]);
+    p.push([sphere(6, 4), '#fff4c6', m(0, y + 0.72, -0.04, 0.035, 0.035, 0.035), body]);
+    p.push([box(), look.trim, m(0, y - 0.27, 0, 0.03, 0.06, 0.5), body]);
+    emitter(p, { kind: 'glint', at: [0, y - 0.3, -0.2], rate: 0.8, ambient: true });
   }
   // Wings: canvas (or plates) on a frame, hinged at the shoulders.
   for (const side of [-1, 1]) {
@@ -143,7 +151,7 @@ export function launchpad(look: Look): Parts {
       beam(p, post, [-0.5 * s, a, 0.12], [-0.5 * s, b, -0.1], 0.025);
     }
   p.push([cone(6), C.copper, m(-0.5 * s, 1.1, 0.01, 0.07, 0.12, 0.17)]);
-  if (look.docked) bird(p, shipIdForAge(look.colonyAge), true);
+  if (look.docked) bird(p, shipIdForAge(look.colonyAge, look.level >= SAIL.padLevel), true);
   if (level >= 2) {
     // Chantier 11: a striped windsock for the pilots.
     p.push([cyl(5), post, m(0.52, 0.45, -0.38, 0.02, 0.9, 0.02)]);

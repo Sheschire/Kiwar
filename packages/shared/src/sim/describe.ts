@@ -200,6 +200,8 @@ export const TECH_STATS = [
   'meteorDrill',
   'canals',
   'depths',
+  // Chantier 51: the Library's research (Glass, Celestial glass).
+  'research',
 ] as const;
 export type TechStatId = (typeof TECH_STATS)[number];
 
@@ -225,6 +227,7 @@ const MULTIPLIERS = [
   'nightWork',
   'cometInterval',
   'meteorStock',
+  'research',
 ] as const;
 const BONUSES = ['armor', 'recon', 'infusionRisk', 'waveNotice'] as const;
 const UNLOCKS = ['firearms', 'laboratory', 'terraform', 'meteorDrill', 'canals', 'depths'] as const;

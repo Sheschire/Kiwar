@@ -1,12 +1,5 @@
 import { Group, Mesh, MeshStandardMaterial, Vector3 } from 'three';
-import {
-  ageOf,
-  getTile,
-  shipIdForAge,
-  type FaceMap,
-  type GameState,
-  type ShipId,
-} from '@kiwar/shared';
+import { getTile, shipIdOf, type FaceMap, type GameState, type ShipId } from '@kiwar/shared';
 import { shipModel } from './buildingModels';
 import { Particles } from './particles';
 import { worldPosition } from './terrain';
@@ -92,7 +85,7 @@ export class ShipsView {
       live.add(e.id);
       const target = state.targets.find((t) => t.id === e.targetId);
       let f = this.flights.get(e.id);
-      const gen = shipIdForAge(ageOf(state));
+      const gen = shipIdOf(state);
       if (!f || f.gen !== gen) {
         if (f) this.remove(e.id);
         f = this.create(gen);
@@ -113,7 +106,7 @@ export class ShipsView {
       if (!pad) continue;
       const id = `ship:${x.id}`;
       live.add(id);
-      const f = this.flightFor(id, shipIdForAge(ageOf(state)));
+      const f = this.flightFor(id, shipIdOf(state));
       this.setPad(f, pad);
       f.departedAt = x.departedAt;
       f.arriveAt = x.arriveAt;

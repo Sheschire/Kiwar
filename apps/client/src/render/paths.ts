@@ -82,6 +82,15 @@ const STYLES: readonly PathStyle[] = [
     curb: '#aaa59f',
     lanterns: true,
   },
+  // Chantier 51: star-stone slabs edged with celestial brass.
+  {
+    bed: '#bdb6cc',
+    rim: '#9a93ad',
+    width: 0.27,
+    detail: '#f6f2fb',
+    curb: '#d8b95a',
+    lanterns: true,
+  },
 ];
 
 type Part = [BufferGeometry, Color, Matrix4];
