@@ -384,7 +384,7 @@ export const TECHS: Record<TechId, TechDef> = {
     // Measured: levels 11–12 come late (Nest 11 on days 21–27 for the bot): the passage asks the
     // Library 10 and fills the research left idle after the Industry's techs (~day 14).
     // No crystal: waiting for it left the Library idle for a week (bot).
-    cost: 50000,
+    cost: 30000,
     libraryLevel: 10,
     effects: {},
   },

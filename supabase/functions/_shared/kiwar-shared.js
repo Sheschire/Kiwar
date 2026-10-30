@@ -3164,7 +3164,7 @@ var TECHS = {
     // Measured: levels 11–12 come late (Nest 11 on days 21–27 for the bot): the passage asks the
     // Library 10 and fills the research left idle after the Industry's techs (~day 14).
     // No crystal: waiting for it left the Library idle for a week (bot).
-    cost: 5e4,
+    cost: 3e4,
     libraryLevel: 10,
     effects: {}
   },

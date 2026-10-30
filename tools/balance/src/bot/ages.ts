@@ -106,8 +106,13 @@ export function ageDecision(
   // A Library level the next wanted technology needs, or (chantier 18) one that follows the Nest
   // while research is going on: more researchers, sooner passages.
   const behind = !!state.research.current && library.level < nest(state).level;
+  // Chantier 51: any technology of the order waiting for the Library (the wanted one may wait
+  // for another technology or for its iron: the Library stayed at 9 for twelve days).
+  const waiting = TECH_ORDER.some(
+    (id) => !hasTech(state, id) && techStatus(state, id) === 'library',
+  );
   if (
-    ((wanted && techStatus(state, wanted) === 'library') || behind) &&
+    ((wanted && techStatus(state, wanted) === 'library') || waiting || behind) &&
     !pendingUpgrade(state, library.id) &&
     ok({ type: 'upgrade', buildingId: library.id })
   )
