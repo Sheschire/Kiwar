@@ -55,7 +55,7 @@ dans l'historique.
 | 48  | Tréfonds I : l'entrée et la chair verte             | fait    |
 | 49  | La tranche (client)                                 | fait    |
 | 50  | Tréfonds II : les loges                             | fait    |
-| 51  | L'Âge des étoiles                                   | à faire |
+| 51  | L'Âge des étoiles                                   | fait    |
 | 52  | Tréfonds III : le cœur et le pédoncule              | à faire |
 | 53  | Les kiwaïs                                          | à faire |
 | 54  | Trous de ver et le Verger I : la framboise          | à faire |
@@ -96,9 +96,17 @@ et lentilles, munitions de cristal, armes de cristal) et les **graines géantes*
 œufs des loges) ; l'actinidine est un effet tant qu'un lac est exploité (labo, Enzymes) ;
 contourner les lacs ; les nids des loges renforcent les remontées. Sauvegarde v40. Skills
 `kiwar-depths`, `kiwar-forge`. La tranche 3D ne montre pas encore les loges (`DETTE.md`).
-**Prochaine conversation** : le [chantier 51](chantiers/51-age-des-etoiles.md) (l'Âge des
-étoiles : le monument paiera aussi des graines géantes, les niveaux 13–15 du cristal).
-À tester avec le porteur : les loges (leur difficulté — 5 à 8 morts en descente quand il y a des retraites —, le prix des lentilles et des munitions,
+**Chantier 51 fait** : l'Âge des étoiles, cinquième âge. Passage « Cartes du ciel profond »
+(Bibliothèque 9, points seuls), monument palier 4 (Nid 10 ; poussière, fer, 90 cristaux,
+4 graines géantes), niveaux 13–15 (cristal ; graines pour le Nid, la Bibliothèque et le
+monument), trois technologies de l'âge, six objectifs, le voilier stellaire (aire d'envol 13),
+le look des étoiles. Bot attentif : l'âge vers les jours 17–21. Sauvegarde v41. Skills
+`kiwar-ages`, `kiwar-sim`, `kiwar-client`, `kiwar-balance`.
+**Prochaine conversation** : le [chantier 52](chantiers/52-trefonds-coeur-pedoncule.md) (le cœur
+et le pédoncule, qui s'ouvrent à l'Âge des étoiles) ou le 53 (les kiwaïs).
+À tester avec le porteur : l'Âge des étoiles (le jour ~18–21 est-il le bon moment, le look des
+étoiles, le prix des niveaux 13–15 en cristal, le voilier), l'occasionnel·le sans cristal (il
+n'atteint jamais les loges dans le bot : son monument des étoiles attend), les loges (leur difficulté — 5 à 8 morts en descente quand il y a des retraites —, le prix des lentilles et des munitions,
 le rythme des arbres-loges, contourner les lacs, la bande des loges sur téléphone), la coupe (le plaisir de regarder, le geste, les images/s sur téléphone, la taille des combattants d'une descente), les Tréfonds (le ressenti des dangers, la difficulté des salles profondes, la fréquence des remontées, le prix de la porte fortifiée), la prévision des débarquements au pire (renforts possibles), la reine au jour 13 (deux parties sur six la battent le jour même : une date au jour 14 ?), l'exigence du moral par âge, le poids des deuils, la valeur d'un
 discours, la beauté sans placement, le prix du cabaret et des feux, les rives à +30 %, le prix
 (80 pulpe + 40 fibre, 1 h) et le plafond (3 / 6 / 10 / 15) des canaux, la reine à 1300 points
@@ -126,8 +134,9 @@ d'une vague regardée (36) et le temps mort du début de la Pierre (31).
   de `render/models/ageKit.ts` (murs, toits, portes, cheminées… dans les matériaux de l'âge) ;
   il se vérifie sur la planche `?sheet&age=N` (ou `&levels=3,4`) et reçoit sa vignette 3D
   (`BuildingThumb`) sans rien ajouter (skill `kiwar-client`).
-- **Niveaux et réserves** (chantier 30) : niveaux 1–12, trois par âge ; toute table indexée par
-  le niveau du Nid ou d'un bâtiment a 13 cases (skill `kiwar-sim`). Les réserves d'entrepôt ne se
+- **Niveaux et réserves** (chantier 30) : niveaux 1–15 depuis le chantier 51, trois par âge ;
+  toute table indexée par le niveau du Nid ou d'un bâtiment a 16 cases (test `levelTables`,
+  skill `kiwar-sim`), toute table par âge 5 cases. Les réserves d'entrepôt ne se
   rapatrient **que** par le joueur (`collect`, `collectAll`), jamais par l'automatisation.
 - **Objectifs** (chantier 31) : un nouveau système ou âge prend ses objectifs dans
   `AGE_OBJECTIVES` (une condition = un cas de `objectiveProgress`) ; la prochaine étape

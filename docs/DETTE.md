@@ -220,3 +220,11 @@
   propre aux munitions de cristal ni à la graine d'un arbre-loge ; les armes de cristal ont la
   couleur de leur palier, pas de modèle propre. Les graines géantes n'ont que deux puits
   (arbres, œufs) jusqu'au monument des étoiles (51) et aux kiwaïs (53).
+- Chantier 51 : l'occasionnel·le du bot ne prend jamais de loge, donc n'a ni cristal ni graines
+  géantes : il finit le passage des étoiles vers le jour 23 mais son monument attend (à revoir
+  avec le bot des Tréfonds, chantier 58). Les portes de l'âge sont basses (Bibliothèque 9,
+  Nid 10) parce que les derniers niveaux de l'Industrie viennent tard chez le bot (Bibliothèque
+  10 aux jours 13–25, Nid 11 aux jours 18–27) : l'économie des niveaux 10–12 est à regarder au
+  chantier 58. Les détails `age >= 3` des recettes (tuyaux de cuivre, laiton) restent à l'Âge
+  des étoiles ; le voilier n'a pas de vol propre (mêmes ailes que le jet) ; pas de son propre
+  pour l'âge. Les objectifs du cœur et des kiwaïs viendront aux chantiers 52 et 53.

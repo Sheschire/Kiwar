@@ -119,9 +119,9 @@ the first; its effect `canals` is an unlock in `describeTech`.
 
 ## Chantier 51: the Age of the stars
 
-- Fifth age `stars` (index 4): passage `starsAge` (age 3, Library 11, points + 40 crystal),
-  then the monument's **fourth level** (hand-written in `BUILDINGS.monument`: Nest 12, 24 h,
-  stardust 40; its iron in `IRON.own.monument`, its crystal in `CRYSTAL.own.monument`, its giant
+- Fifth age `stars` (index 4): passage `starsAge` (age 3, **Library 9**, 40 000 points, no
+  crystal), then the monument's **fourth level** (hand-written in `BUILDINGS.monument`: **Nest
+  10**, 24 h, stardust 40; its iron in `IRON.own.monument`, its crystal in `CRYSTAL.own.monument`, its giant
   seeds in `GIANT_SEEDS.levels.monument`). Levels 13–15 are grown by `withAgeLevels`
   (`MAX_LEVEL` 15) and get their extras from `withStars` (`data/buildings.ts`): crystal on every
   level 13+ (`CRYSTAL.levels`), giant seeds on the Nest, the Library and the monument
@@ -141,6 +141,11 @@ the first; its effect `canals` is an unlock in `describeTech`.
   `COMETS.ageFactor`, `lootByAge`, `MORALE.base`, `KIKIWIWI.capByAge`, `TITAN.maxTerraform`,
   `GIANT_SEEDS.cap` / `maxTrees`); a sixth age must extend them all (most read `?? 1` and would
   silently stay neutral). The alien civilisation keeps its four ages.
+- Why the gates are low (measured, chantier 51): the bot's Industry levels come late (Library
+  10 on days 13–25, Nest 11 on days 18–27) and research went idle after the Industry's techs
+  (~day 14). With the Library 9 and the Nest 10 the passage paces the age, then the monument's
+  90 crystal (the crystal cap of the Nest 10 is 100). A level's crystal must fit the cap of the
+  Nest it asks (`starsAge.test.ts`).
 - Objectives of the age: `stars*` in `AGE_OBJECTIVES` (Nest 13, two techs, the sailboat, five
   locule trees, a kiwi at level 25, a producer at 15). Chantiers 52/53 add theirs.
 - Client: the kit "stars" (`render/models/ageKit.ts`, see `kiwar-client`), the observatory and

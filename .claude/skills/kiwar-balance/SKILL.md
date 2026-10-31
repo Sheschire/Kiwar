@@ -361,3 +361,22 @@ starved it). Probe: a scratch `runBot` with `onStep` printing `moraleOf(s)` part
   Industry, 1–6 locules by day 14, crystal at the cap ≤ 3 %, giant seeds 0 %, no upwelling
   lost; ⚠️ 5–8 kiwis dead in delves when retreats happen.
 
+## Chantier 51: the Age of the stars
+
+- Milestone `stars` (informative in the 72 h report; the ages section targets 504 h, occasional
+  × 1.25); `civAtAges` has four cells. `TECH_ORDER` gains `starsAge`, then `crystalGrafts`,
+  `celestialGlass`, `starSails`. Levels 13+ wait for their crystal and giant seeds after the
+  monument's (`monumentCrystal`, `monumentSeeds` in `bot/economy.ts`); lenses, locule trees and
+  locule eggs keep them too.
+- **Bot bugs found** (check them first when a late age stalls): the stardust reserve stopped at
+  the monument's third level (`bot/sky.ts`, now `MAX_AGE`); the Library grew only for the
+  wanted technology, which could wait for another one (now for any technology of the order
+  waiting for it). Saving up for the Library 10 does **not** work: seeds and juice melt in
+  meals, ammunition and eggs while saving, and saving stops the producers' upgrades.
+- **Probe used** (scratch, not committed): `runBot({ fullHorizon, onStep })` printing every 24 h
+  from day 7: age, Nest, Library, launchpad, current research and its points, techs known,
+  crystal, giant seeds, queue, kiwis; four biomes × 28 days in parallel take ~60 min on 4 cores.
+  To diagnose a stalled upgrade, replay to the day and print `applyCommand(...).error` with the
+  stocks every 6 h (one run to day 17 ≈ 25 min).
+- Reference: see `docs/DECISIONS.md` chantier 51 (attentive stars on days ~17–21).
+
