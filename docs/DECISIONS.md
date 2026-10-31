@@ -3383,3 +3383,45 @@ tuning (they never reach a locule).
 - Lessons: the automation's miners filled the flesh's galleries first (sorted ids) and never
   reached a forest; a technology gated by a Library level the bot never builds is a dead sink;
   a building priced above a stock's cap can never come (the trees' limit by age).
+
+## Chantier 51 — The Age of the stars
+
+The fifth age, from the chantier document's decisions and the owner's answers of 30 October
+2026.
+
+### Owner's answers (new points, the recommended option each time)
+
+- **What the age brings by itself**: three technologies of the age, paid in points and
+  crystal, with effects the engine already knows (the core, the kiwais and the orchard come in
+  chantiers 52–54).
+- **No new class** at the Age of the stars.
+- **Costs of levels 13–15**: crystal on every level 13+ (like the iron at 7+); giant seeds only
+  for the Nest, the Library and the monument.
+- **The star sailboat's stardust** is paid once, by the launchpad level that rigs it (13);
+  flights never need fuel, and fuel takes the sailboat further.
+
+### Defaults chosen by Claude (status "default", changeable)
+
+- `MAX_LEVEL` 15, `MAX_AGE` 4; every table by level has 16 cells (test `levelTables`), levels
+  1–12 unchanged (hash of their definitions). New cells: build slots 4, turrets 10, threat
+  Nest factor 4.4–5, meteorite Nest factor 5.4–6, iron cap 700–900, crystal cap 320–450,
+  catchment radius 3, research bank 3 500–4 400, iron of levels 34 / 40 / 48.
+- Tables by age (fifth cell): predators × 1.7, meteorites and comets × 2.8, drill × 3, loot × 4,
+  morale base 20 (a bit more demanding), 3 Kikiwiwis, 12 reshaped tiles.
+- Passage **`starsAge`** ("Star charts of the deep sky"): Library 10, **30 000 points, no
+  crystal** (see the measures). Monument level 4: **Nest 10**, 24 h, 120 000 pulp and fibre,
+  25 000 seeds, 40 000 juice, 40 stardust, 150 iron, **90 crystal** (the crystal cap of the
+  Nest 10 is 100), 4 giant seeds (cap 5 in the Industry).
+- Crystal of levels 13 / 14 / 15: 30 / 45 / 60; giant seeds of the Nest and the Library: 1 / 2
+  / 3 (the cap is 8 at the stars).
+- Technologies of the age (Library 13): Celestial glass (after Glass; research and storage
+  × 1.15; 50 crystal), Crystal grafts (every harvest × 1.15; 60 crystal), Star sails (travel
+  × 0.85, recon + 0.1, armour + 0.05; 40 crystal, 20 stardust).
+- The star sailboat: reliability 0.995, armour 0.3, recon 0.2, launch cost × 16, rebuilt in
+  20 h; the launchpad 13 costs 30 stardust once; fuel × 0.85 more travel. A colony at the
+  stars keeps the jet until it rigs a launchpad.
+- Six objectives: Nest 13, two techniques of the age, the sailboat, five locule trees, a kiwi at
+  level 25, a producer at level 15.
+- The look of the stars: pale star stone, celestial brass, night glass, crystal; crystal
+  spires instead of chimneys; a telescope (tier 2) and an armillary sphere (tier 3); the
+  monument's observatory and orrery; star-stone paths; badge ring `#5b6fc4`.
