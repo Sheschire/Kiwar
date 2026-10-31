@@ -301,7 +301,7 @@ siteError`) and `placementPlan` (shared `catchmentPlan`, cached per state and ti
   the dome clipped away (`renderer.localClippingEnabled` is on; `TerrainView.setDomeClip`),
   painted faces, hollows, `CutLife`, `DelveShow`. Camera: `CameraRig.enterCut` / `leaveCut`
   (sets `away`, azimuth limits ±`CUT_TURN`, polar `CUT_POLAR_RANGE`), `focusCut(target,
-  radius, { polar, ceiling, facing })` (queued while flying: `afterFlight`), `onTiltPast` from
+radius, { polar, ceiling, facing })` (queued while flying: `afterFlight`), `onTiltPast` from
   `camera/tiltPast.ts`; the camera's near plane is 0.25 while the cut is open. The HUD in the
   cut is `CutBanner` + `BattleBar` (+ the Depths and report modals): `App` checks `cutOpen`
   like `visit`. Taps in the cut: a delve's fighter, else a room (`onRoomTap`). New clip `dig`

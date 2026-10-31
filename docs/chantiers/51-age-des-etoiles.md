@@ -1,5 +1,9 @@
 # Chantier 51 — L'Âge des étoiles (cinquième âge)
 
+> **Fait** (31 octobre 2026). Ce qui a été fait, ce qui reste et les mesures : section « Bilan »
+> en fin de fiche ; le savoir-faire est dans les skills `kiwar-ages`, `kiwar-sim`,
+> `kiwar-client` et `kiwar-balance`.
+
 Acte IV « Au-delà » du [carnet de route](../CARNET_DE_ROUTE.md) (section 9). **Simulation +
 serveur + client + bot.** Après le **50** (le monument se paie en graines géantes et en cristal).
 
@@ -97,3 +101,42 @@ Chemins sous `packages/shared/src/`.
 - L'Âge des étoiles arrive vers le jour 21 chez le bot attentif, sans exiger la conquête.
 - Chaque table par niveau a 16 cases (test) ; l'économie reste dans ±10 % entre faces et biomes.
 - L'âge apporte des bâtiments, des systèmes et un look neufs, pas seulement des chiffres.
+
+## Bilan (31 octobre 2026)
+
+**Réponses du porteur** (nouvelles questions, option recommandée à chaque fois) : trois
+technologies de l'âge, aucune classe neuve, du cristal sur tous les niveaux 13–15 et des graines
+géantes seulement pour le Nid, la Bibliothèque et le monument, la poussière du voilier payée
+une fois à la construction.
+
+**Fait** (sept commits « Chantier 51 (part …) ») :
+
+1. Les 16 cases : `MAX_LEVEL` 15, toutes les tables par niveau étendues, test `levelTables`,
+   niveaux 1–12 identiques (empreinte de leurs définitions).
+2. L'âge : `stars`, le passage « Cartes du ciel profond » (Bibliothèque 9, 40 000 points), le
+   monument palier 4 (Nid 10, 24 h ; 40 poussières, 150 fers, 90 cristaux, 4 graines géantes),
+   le cristal des niveaux 13–15 (30 / 45 / 60) et les graines du Nid et de la Bibliothèque
+   (1 / 2 / 3), trois technologies (Verre céleste, Greffes de cristal, Voiles stellaires), le
+   voilier stellaire (aire d'envol 13, 30 poussières une fois), six objectifs, les tables par
+   âge à cinq cases, sauvegarde v41.
+3. Le client : le kit des étoiles (pierre pâle, laiton céleste, verre de nuit, cristal, flèches
+   de cristal, télescope et sphère armillaire), l'observatoire et l'orrery du monument, le
+   voilier, les coûts en cristal et en graines sur la fiche, la stat « Recherche » des
+   technologies ; captures desktop, téléphone portrait et paysage, planche `?sheet&age=4`.
+4. Le bot et les sondes : jalon `stars`, technologies de l'âge, réserves de cristal, de graines
+   et de poussière pour le monument ; deux bugs du bot corrigés (réserve de poussière limitée au
+   palier 3, Bibliothèque agrandie seulement pour la technologie voulue).
+
+**Mesures** (bot attentif, quatre biomes, détails dans `DECISIONS.md`) : l'Âge des étoiles aux
+jours 18,5 / 19,2 / 21,1 / 21,2 (médiane ≈ 20), l'Industrie aux jours 8–10.
+
+**Reste** (voir `DETTE.md`) :
+
+- ⚠️ l'occasionnel·le du bot n'a jamais de cristal (il ne prend aucune loge) : son monument des
+  étoiles attend ;
+- les portes de l'âge sont basses (Bibliothèque 9, Nid 10) parce que les derniers niveaux de
+  l'Industrie viennent tard chez le bot : à revoir au chantier 58 ;
+- les objectifs du cœur et des kiwaïs (chantiers 52, 53), un son pour l'âge, un vol propre au
+  voilier ;
+- critère « temps du bot à ±2 % » : les définitions des niveaux 1–12 sont identiques, mais le
+  bot a changé (Bibliothèque) et son Industrie bouge jusqu'à 6 %.

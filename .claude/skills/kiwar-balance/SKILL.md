@@ -378,5 +378,5 @@ starved it). Probe: a scratch `runBot` with `onStep` printing `moraleOf(s)` part
   crystal, giant seeds, queue, kiwis; four biomes × 28 days in parallel take ~60 min on 4 cores.
   To diagnose a stalled upgrade, replay to the day and print `applyCommand(...).error` with the
   stocks every 6 h (one run to day 17 ≈ 25 min).
-- Reference: see `docs/DECISIONS.md` chantier 51 (attentive stars on days ~17–21).
-
+- Reference (end of chantier 51, 4 attentive runs × 26 days): stars on days 18.5–21.2 (median
+  ≈ 20.1), Industry on days 8–10; ⚠️ the occasional bot never gets crystal.

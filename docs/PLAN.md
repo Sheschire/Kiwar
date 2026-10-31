@@ -97,14 +97,14 @@ et lentilles, munitions de cristal, armes de cristal) et les **graines géantes*
 contourner les lacs ; les nids des loges renforcent les remontées. Sauvegarde v40. Skills
 `kiwar-depths`, `kiwar-forge`. La tranche 3D ne montre pas encore les loges (`DETTE.md`).
 **Chantier 51 fait** : l'Âge des étoiles, cinquième âge. Passage « Cartes du ciel profond »
-(Bibliothèque 9, points seuls), monument palier 4 (Nid 10 ; poussière, fer, 90 cristaux,
+(Bibliothèque 9, 40 000 points), monument palier 4 (Nid 10 ; poussière, fer, 90 cristaux,
 4 graines géantes), niveaux 13–15 (cristal ; graines pour le Nid, la Bibliothèque et le
 monument), trois technologies de l'âge, six objectifs, le voilier stellaire (aire d'envol 13),
-le look des étoiles. Bot attentif : l'âge vers les jours 17–21. Sauvegarde v41. Skills
+le look des étoiles. Bot attentif : l'âge aux jours 18,5–21,2. Sauvegarde v41. Skills
 `kiwar-ages`, `kiwar-sim`, `kiwar-client`, `kiwar-balance`.
 **Prochaine conversation** : le [chantier 52](chantiers/52-trefonds-coeur-pedoncule.md) (le cœur
 et le pédoncule, qui s'ouvrent à l'Âge des étoiles) ou le 53 (les kiwaïs).
-À tester avec le porteur : l'Âge des étoiles (le jour ~18–21 est-il le bon moment, le look des
+À tester avec le porteur : l'Âge des étoiles (le jour ~20 est-il le bon moment, le look des
 étoiles, le prix des niveaux 13–15 en cristal, le voilier), l'occasionnel·le sans cristal (il
 n'atteint jamais les loges dans le bot : son monument des étoiles attend), les loges (leur difficulté — 5 à 8 morts en descente quand il y a des retraites —, le prix des lentilles et des munitions,
 le rythme des arbres-loges, contourner les lacs, la bande des loges sur téléphone), la coupe (le plaisir de regarder, le geste, les images/s sur téléphone, la taille des combattants d'une descente), les Tréfonds (le ressenti des dangers, la difficulté des salles profondes, la fréquence des remontées, le prix de la porte fortifiée), la prévision des débarquements au pire (renforts possibles), la reine au jour 13 (deux parties sur six la battent le jour même : une date au jour 14 ?), l'exigence du moral par âge, le poids des deuils, la valeur d'un

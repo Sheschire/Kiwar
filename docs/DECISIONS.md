@@ -3408,7 +3408,7 @@ The fifth age, from the chantier document's decisions and the owner's answers of
   catchment radius 3, research bank 3 500–4 400, iron of levels 34 / 40 / 48.
 - Tables by age (fifth cell): predators × 1.7, meteorites and comets × 2.8, drill × 3, loot × 4,
   morale base 20 (a bit more demanding), 3 Kikiwiwis, 12 reshaped tiles.
-- Passage **`starsAge`** ("Star charts of the deep sky"): Library 10, **30 000 points, no
+- Passage **`starsAge`** ("Star charts of the deep sky"): **Library 9, 40 000 points, no
   crystal** (see the measures). Monument level 4: **Nest 10**, 24 h, 120 000 pulp and fibre,
   25 000 seeds, 40 000 juice, 40 stardust, 150 iron, **90 crystal** (the crystal cap of the
   Nest 10 is 100), 4 giant seeds (cap 5 in the Industry).
@@ -3425,3 +3425,33 @@ The fifth age, from the chantier document's decisions and the owner's answers of
 - The look of the stars: pale star stone, celestial brass, night glass, crystal; crystal
   spires instead of chimneys; a telescope (tier 2) and an armillary sphere (tier 3); the
   monument's observatory and orrery; star-stone paths; badge ring `#5b6fc4`.
+
+### Measures (bot probes, 26–28 days, attentive)
+
+Scratch `runBot` probes, one line a day (age, Nest, Library, research, crystal, giant seeds).
+Seven rounds; what each one taught:
+
+| Round | Passage | Monument | Stars reached (day) | What blocked |
+|---|---|---|---|---|
+| 1 | Library 11, 30 000 + 40 crystal | Nest 12 | none in 28 | research idle from day ~14 (every technology known); Nest 11 only on days 21–27 |
+| 2 | Library 10, 50 000 + 40 crystal | Nest 10, 90 crystal | none in 28 | the passage waited for its crystal (days 19–23); the monument never came (next) |
+| 3 | Library 10, 50 000, no crystal | same | 23.5 (1 of 4) | bot: stardust reserve stopped at the third monument; the Library grew only for the wanted technology |
+| 4 | Library 10, 30 000 | same | 26.8 (1 of 3) | the Library 10 (≈ 120 000 pulp, 134 000 fibre) never fitted between the bot's spendings |
+| 5 | same, the bot saves for the Library | same | 19.9, 27.0 (2 of 4) | saving melts seeds and juice (meals, ammunition, eggs) and stops the producers |
+| 6 | **Library 9**, 30 000 | same | 16.7, 18.1, 18.7, 20.3 | a little early |
+| 7 | **Library 9, 40 000** | same | **18.5, 19.2, 21.1, 21.2** (median ≈ 20.1) | — |
+
+- Industry on days 8.2–9.7 in the same runs; the passage then paces the age, the monument's
+  crystal (90) comes on days 15–19.
+- Levels 1–12: their definitions are unchanged (hash); the bot's Industry moved by up to 6 % (the
+  Library now grows for any technology waiting for it).
+- 5–14 kiwis dead in battle per 26-day run (landings and delves, older than this chantier).
+- ⚠️ **The occasional bot** finished the passage on day 23 (Library 10 round) but never had any
+  crystal (it never takes a locule, debt of chantier 50): its monument of the stars waits. To see
+  with the owner and the depths bot (chantier 58).
+- ⚠️ The gates are low (Library 9, Nest 10) because the bot's last Industry levels come late
+  (Library 10 on days 13–25, Nest 11 on days 18–27): the economy of levels 10–12 is a question
+  for chantier 58.
+- To test with the owner: the moment (~day 20), the look of the stars, the price of levels 13–15
+  in crystal, the sailboat.
+
