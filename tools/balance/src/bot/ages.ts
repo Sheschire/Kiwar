@@ -117,29 +117,6 @@ export function ageDecision(
     ok({ type: 'upgrade', buildingId: library.id })
   )
     return { type: 'upgrade', buildingId: library.id };
-  // Chantier 51: a passage waiting for the Library saves up for it (the Library 10 costs more
-  // than the bot ever kept: the stars' passage waited a week with the Nest ready).
-  const passage = PASSAGE_TECHS[ageOf(state) + 1];
-  if (
-    passage &&
-    !hasTech(state, passage) &&
-    techStatus(state, passage) === 'library' &&
-    !pendingUpgrade(state, library.id)
-  ) {
-    const r = applyCommand(
-      state,
-      { type: 'upgrade', buildingId: library.id },
-      { now: state.now, map },
-    );
-    const cost = upgradeCost('library', library.level + 1);
-    const cap = capacity(state);
-    if (
-      !r.ok &&
-      r.error === 'notEnoughResources' &&
-      RESOURCE_IDS.every((id) => (cost[id] ?? 0) <= cap[id])
-    )
-      return 'save';
-  }
   return null;
 }
 
