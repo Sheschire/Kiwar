@@ -3358,7 +3358,7 @@ var COMETS = {
   /** Land types it can fall on. */
   landTypes: ["flesh", "grove", "seedRing"],
   /** Stardust per comet (whole points), × the age factor (index = age). */
-  stock: 20,
+  stock: 25,
   ageFactor: [1, 1.3, 1.7, 2.2, 2.8]
 };
 var STARDUST = {
@@ -3371,6 +3371,7 @@ var STARDUST = {
   /** …and this much faster per point of Dexterity above the average. */
   perDexterity: 0.05
 };
+var STARDUST_GIFT = 20;
 var BLESSINGS = {
   /** Heals a wounded kiwi at once. */
   heal: 3,
@@ -14267,7 +14268,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 41;
+var SCHEMA_VERSION = 42;
 var MISSION_KINDS = [
   "land",
   "raid",
@@ -21165,7 +21166,15 @@ var MIGRATIONS = {
   // v39 → v40 (chantier 50): the locules' stocks, empty.
   39: (raw) => ({ ...raw, crystal: 0, giantSeeds: 0 }),
   // Chantier 51: the Age of the stars only adds an optional field (`QueueItem.paidCrystal`).
-  40: (raw) => raw
+  40: (raw) => raw,
+  // v41 → v42 (November 2026): a gift of stardust to every colony, within the cap.
+  41: (raw) => ({
+    ...raw,
+    stardust: Math.min(
+      STARDUST.cap * STARDUST_SCALE,
+      Math.max(0, Number(raw.stardust) || 0) + STARDUST_GIFT * STARDUST_SCALE
+    )
+  })
 };
 var OLD_MISSIONS = ["raid", "recon", "assault", "reinforce", "final", "retreat"];
 function migrateToLandings(raw) {
@@ -21901,7 +21910,7 @@ function plausibleStardust(state) {
   const maxPasses = played < COMETS.firstMs ? 0 : 1 + Math.floor((played - COMETS.firstMs) / COMETS.intervalMs[0]);
   if (c.passes > maxPasses) return false;
   const richest = Math.max(...COMETS.ageFactor) * COMETS.stock * STARDUST_SCALE;
-  if (state.stardust > c.passes * richest) return false;
+  if (state.stardust > c.passes * richest + STARDUST_GIFT * STARDUST_SCALE) return false;
   if (c.next && c.next.at < state.createdAt + COMETS.firstMs) return false;
   return c.patches.every((p) => p.stock <= p.max && p.max <= richest);
 }
@@ -22764,6 +22773,7 @@ export {
   SPEECH,
   STARDUST,
   STARDUST_CAP,
+  STARDUST_GIFT,
   STARDUST_SCALE,
   START,
   STAT_IDS,

@@ -23,7 +23,7 @@ export const COMETS = {
   /** Land types it can fall on. */
   landTypes: ['flesh', 'grove', 'seedRing'] as const,
   /** Stardust per comet (whole points), × the age factor (index = age). */
-  stock: 20,
+  stock: 25,
   ageFactor: [1, 1.3, 1.7, 2.2, 2.8] as readonly number[],
 } as const;
 
@@ -38,6 +38,9 @@ export const STARDUST = {
   /** …and this much faster per point of Dexterity above the average. */
   perDexterity: 0.05,
 } as const;
+
+/** A gift of stardust (points) to every colony existing in November 2026 (save v42). */
+export const STARDUST_GIFT = 20;
 
 /** Chantier 13: what stardust buys for a kiwi (costs in points). */
 export const BLESSINGS = {

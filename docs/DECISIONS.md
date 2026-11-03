@@ -3477,3 +3477,13 @@ Owner's request: the host can kick a player from a shared universe; raise the 8-
   `ALLY_SLOTS` (already supported).
 - **Deploy before migration**: without `universe_bans` the repository treats nobody as banned
   and kicks without a ban (`42P01` / `PGRST205`).
+
+## Hotfix (November 2026) — More stardust, and a gift
+
+Owner's request: a little more stardust per comet, and +20 stardust for everyone.
+
+- `COMETS.stock` 20 → **25** points per comet (× the age factor): +25 %.
+- **Gift**: save migration v41 → v42 adds `STARDUST_GIFT` (20 points) to every existing
+  colony, solo, universes and sister colonies, server and local, once; clipped at the cap (50).
+  Colonies created afterwards do not get it. `plausibleStardust` (local save import) allows the
+  gift on top of the comets.

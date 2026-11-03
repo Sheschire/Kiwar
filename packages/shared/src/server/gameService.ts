@@ -1,6 +1,6 @@
 import { crystalCap, giantSeedCap } from '../sim/crystal';
 import { MORALE, SPEECH } from '../data/needs';
-import { COMETS, STARDUST_SCALE } from '../data/comets';
+import { COMETS, STARDUST_GIFT, STARDUST_SCALE } from '../data/comets';
 import { IRON, IRON_SCALE } from '../data/iron';
 import { ITEMS, type ItemId } from '../data/gear';
 import { forgeQueueSize } from '../sim/forge';
@@ -608,7 +608,8 @@ function plausibleStardust(state: GameState): boolean {
     played < COMETS.firstMs ? 0 : 1 + Math.floor((played - COMETS.firstMs) / COMETS.intervalMs[0]);
   if (c.passes > maxPasses) return false;
   const richest = Math.max(...COMETS.ageFactor) * COMETS.stock * STARDUST_SCALE;
-  if (state.stardust > c.passes * richest) return false;
+  // Colonies older than save v42 got a gift of stardust.
+  if (state.stardust > c.passes * richest + STARDUST_GIFT * STARDUST_SCALE) return false;
   if (c.next && c.next.at < state.createdAt + COMETS.firstMs) return false;
   return c.patches.every((p) => p.stock <= p.max && p.max <= richest);
 }

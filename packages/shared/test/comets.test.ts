@@ -10,6 +10,7 @@ import {
   SCHEMA_VERSION,
   STARDUST,
   STARDUST_CAP,
+  STARDUST_GIFT,
   STARDUST_SCALE,
   stardustOf,
   type GameState,
@@ -176,9 +177,34 @@ describe('comets', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.state.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(r.state.stardust).toBe(0);
+    // Nothing picked yet, but the November 2026 gift (v42).
+    expect(r.state.stardust).toBe(STARDUST_GIFT * STARDUST_SCALE);
     expect(r.state.comets.next!.at).toBe(state.now + COMETS.firstMs);
     expect(isPlausible(state, state.now)).toBe(true);
-    expect(isPlausible({ ...state, stardust: 5 * STARDUST_SCALE }, state.now)).toBe(false);
+    expect(isPlausible({ ...state, stardust: STARDUST_GIFT * STARDUST_SCALE }, state.now)).toBe(
+      true,
+    );
+    expect(
+      isPlausible({ ...state, stardust: (STARDUST_GIFT + 1) * STARDUST_SCALE }, state.now),
+    ).toBe(false);
+  });
+
+  it('gives every colony older than v42 a gift of stardust, within the cap', () => {
+    const { state } = setup();
+    const gift = (dust: number) => {
+      const raw = structuredClone({ ...state, stardust: dust }) as unknown as Record<
+        string,
+        unknown
+      >;
+      raw.schemaVersion = 41;
+      const r = migrateState(raw);
+      if (!r.ok) throw new Error(r.reason);
+      return r.state.stardust;
+    };
+    expect(gift(7 * STARDUST_SCALE)).toBe((7 + STARDUST_GIFT) * STARDUST_SCALE);
+    expect(gift(45 * STARDUST_SCALE)).toBe(STARDUST_CAP);
+    // Once only: a current save is left as it is.
+    const r = migrateState(structuredClone(state));
+    expect(r.ok && r.state.stardust).toBe(state.stardust);
   });
 });

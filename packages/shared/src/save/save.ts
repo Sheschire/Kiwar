@@ -19,7 +19,7 @@ import {
 import { INCIDENT_KINDS, INCIDENTS, METEORS, SECTOR_IDS, THREATS } from '../data/threats';
 import { BATTLE, ENEMY_KINDS, POSTURES } from '../data/units';
 import { RESOURCE_IDS } from '../data/resources';
-import { BLESSINGS, COMETS, STARDUST, STARDUST_SCALE } from '../data/comets';
+import { BLESSINGS, COMETS, STARDUST, STARDUST_GIFT, STARDUST_SCALE } from '../data/comets';
 import { IRON, IRON_SCALE } from '../data/iron';
 import { FORGE, ITEM_IDS } from '../data/gear';
 import { BEACONS } from '../data/beacons';
@@ -1025,6 +1025,14 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   39: (raw) => ({ ...raw, crystal: 0, giantSeeds: 0 }),
   // Chantier 51: the Age of the stars only adds an optional field (`QueueItem.paidCrystal`).
   40: (raw) => raw,
+  // v41 → v42 (November 2026): a gift of stardust to every colony, within the cap.
+  41: (raw) => ({
+    ...raw,
+    stardust: Math.min(
+      STARDUST.cap * STARDUST_SCALE,
+      Math.max(0, Number(raw.stardust) || 0) + STARDUST_GIFT * STARDUST_SCALE,
+    ),
+  }),
 };
 
 const OLD_MISSIONS = ['raid', 'recon', 'assault', 'reinforce', 'final', 'retreat'];
