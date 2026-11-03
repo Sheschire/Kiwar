@@ -3487,3 +3487,10 @@ Owner's request: a little more stardust per comet, and +20 stardust for everyone
   colony, solo, universes and sister colonies, server and local, once; clipped at the cap (50).
   Colonies created afterwards do not get it. `plausibleStardust` (local save import) allows the
   gift on top of the comets.
+- **Meteorites** (same request, "a little more"): `METEORS.intervalMs` 9–15 h → **7.5–12.5 h**
+  (about 2.4 falls a day instead of 2, +20 %, iron included), `METEORS.max` 5 → 6 craters at
+  once so the extra falls are not lost.
+- **Bug found on the way**: `bedsOf` cached beds on ids only (`m1`, `b2`…), and the cache is
+  shared by every colony of the same seed: another colony's layout could be reused (one step ≠
+  many steps in `waveBattle.test.ts`). The key now holds the positions of the homes and work
+  sites.

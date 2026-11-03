@@ -53,23 +53,31 @@ const bedCache = new Map<string, Map<VillagerId, Bed>>();
  * to its work; kiwis left without a bed sleep outside. Memoized on the layout and the jobs.
  */
 export function bedsOf(state: GameState, map: FaceMap = faceMapOf(state)): Map<VillagerId, Bed> {
-  // Cheap key (called for every producer at every event): homes, jobs, paths and season.
-  // Building and queue item positions never change, so ids stand for the work sites.
+  // Cheap key (called for every producer at every event): homes, jobs and their work sites,
+  // paths and season. Positions are part of the key: ids are only unique within one colony,
+  // and the cache is shared by every colony with the same seed (the server, the tests).
   let key = `${state.seed}|${state.face}|${terraformKey(state)}|${seasonOf(state)}|`;
+  const at = new Map<string, string>();
   for (const b of state.buildings) {
+    at.set(b.id, `${b.q},${b.r}`);
     const beds = levelDef(b.type, b.level)?.housing ?? 0;
-    if (beds > 0) key += `${b.id}:${beds};`;
+    if (beds > 0) key += `${b.id}@${b.q},${b.r}:${beds};`;
   }
+  for (const i of state.queue) at.set(i.id, `${i.q},${i.r}`);
+  const tunnel = state.buildings.find((b) => b.type === 'tunnel');
+  const tunnelAt = tunnel ? `${tunnel.q},${tunnel.r}` : '';
+  for (const m of state.sky.meteors) at.set(m.id, `${m.q},${m.r}`);
+  for (const p of state.comets.patches) at.set(p.id, `${p.q},${p.r}`);
   key += '|';
   for (const v of state.villagers) {
     const j = v.job;
     key +=
       j.kind === 'work'
-        ? `${v.id}w${j.buildingId};`
+        ? `${v.id}w${at.get(j.buildingId)};`
         : j.kind === 'build'
-          ? `${v.id}b${j.queueItemId};`
+          ? `${v.id}b${at.get(j.queueItemId)};`
           : j.kind === 'train'
-            ? `${v.id}t${j.schoolId};`
+            ? `${v.id}t${at.get(j.schoolId)};`
             : j.kind === 'idle'
               ? `${v.id}i;`
               : j.kind === 'guard'
@@ -77,15 +85,15 @@ export function bedsOf(state: GameState, map: FaceMap = faceMapOf(state)): Map<V
                 : j.kind === 'injured'
                   ? `${v.id}h;`
                   : j.kind === 'transform'
-                    ? `${v.id}x${j.labId};`
+                    ? `${v.id}x${at.get(j.labId)};`
                     : j.kind === 'titan'
                       ? `${v.id}T${j.q},${j.r};`
                       : j.kind === 'stardust'
-                        ? `${v.id}d${j.patchId};`
+                        ? `${v.id}d${at.get(j.patchId)};`
                         : j.kind === 'meteor'
-                          ? `${v.id}m${j.meteorId};`
+                          ? `${v.id}m${at.get(j.meteorId)};`
                           : j.kind === 'mine'
-                            ? `${v.id}M${j.roomId};`
+                            ? `${v.id}M${tunnelAt};`
                             : '';
   }
   key += `|${pathsKey(state.paths)}`;

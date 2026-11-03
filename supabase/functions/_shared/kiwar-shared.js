@@ -2812,9 +2812,12 @@ var INCIDENTS = {
   history: 8
 };
 var METEORS = {
-  /** The first one falls this long after the start; then about two a day (owner, Oct 2026). */
+  /**
+   * The first one falls this long after the start; then about two and a half a day (owner:
+   * about two in Oct 2026, a little more in Nov 2026: 9–15 h before).
+   */
   firstMs: ms.h(3),
-  intervalMs: [ms.h(9), ms.h(15)],
+  intervalMs: [ms.h(7.5), ms.h(12.5)],
   /** The shooting star is seen this long before the impact. */
   noticeMs: ms.h(1),
   /** The crater fades away this long after the impact. */
@@ -2857,8 +2860,8 @@ var METEORS = {
   rates: { pulp: 750, fiber: 600, seeds: 190, juice: 450 },
   /** Meteorite drill (technology `meteorDrill`): harvest multiplier by age (index = age). */
   drill: [1, 1.5, 2, 2.5, 3],
-  /** Craters kept at once (about two falls a day for 48 hours each). */
-  max: 5
+  /** Craters kept at once (about two and a half falls a day for 48 hours each). */
+  max: 6
 };
 
 // packages/shared/src/data/ages.ts
@@ -12370,14 +12373,21 @@ function homes(state) {
 var bedCache = /* @__PURE__ */ new Map();
 function bedsOf(state, map = faceMapOf(state)) {
   let key = `${state.seed}|${state.face}|${terraformKey(state)}|${seasonOf(state)}|`;
+  const at = /* @__PURE__ */ new Map();
   for (const b of state.buildings) {
+    at.set(b.id, `${b.q},${b.r}`);
     const beds = levelDef(b.type, b.level)?.housing ?? 0;
-    if (beds > 0) key += `${b.id}:${beds};`;
+    if (beds > 0) key += `${b.id}@${b.q},${b.r}:${beds};`;
   }
+  for (const i of state.queue) at.set(i.id, `${i.q},${i.r}`);
+  const tunnel = state.buildings.find((b) => b.type === "tunnel");
+  const tunnelAt = tunnel ? `${tunnel.q},${tunnel.r}` : "";
+  for (const m of state.sky.meteors) at.set(m.id, `${m.q},${m.r}`);
+  for (const p of state.comets.patches) at.set(p.id, `${p.q},${p.r}`);
   key += "|";
   for (const v of state.villagers) {
     const j = v.job;
-    key += j.kind === "work" ? `${v.id}w${j.buildingId};` : j.kind === "build" ? `${v.id}b${j.queueItemId};` : j.kind === "train" ? `${v.id}t${j.schoolId};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : j.kind === "transform" ? `${v.id}x${j.labId};` : j.kind === "titan" ? `${v.id}T${j.q},${j.r};` : j.kind === "stardust" ? `${v.id}d${j.patchId};` : j.kind === "meteor" ? `${v.id}m${j.meteorId};` : j.kind === "mine" ? `${v.id}M${j.roomId};` : "";
+    key += j.kind === "work" ? `${v.id}w${at.get(j.buildingId)};` : j.kind === "build" ? `${v.id}b${at.get(j.queueItemId)};` : j.kind === "train" ? `${v.id}t${at.get(j.schoolId)};` : j.kind === "idle" ? `${v.id}i;` : j.kind === "guard" ? `${v.id}g;` : j.kind === "injured" ? `${v.id}h;` : j.kind === "transform" ? `${v.id}x${at.get(j.labId)};` : j.kind === "titan" ? `${v.id}T${j.q},${j.r};` : j.kind === "stardust" ? `${v.id}d${at.get(j.patchId)};` : j.kind === "meteor" ? `${v.id}m${at.get(j.meteorId)};` : j.kind === "mine" ? `${v.id}M${tunnelAt};` : "";
   }
   key += `|${pathsKey(state.paths)}`;
   const cached = bedCache.get(key);

@@ -214,9 +214,12 @@ export const INCIDENTS = {
  * reaches it, harvests it on top of its usual work.
  */
 export const METEORS = {
-  /** The first one falls this long after the start; then about two a day (owner, Oct 2026). */
+  /**
+   * The first one falls this long after the start; then about two and a half a day (owner:
+   * about two in Oct 2026, a little more in Nov 2026: 9–15 h before).
+   */
   firstMs: ms.h(3),
-  intervalMs: [ms.h(9), ms.h(15)],
+  intervalMs: [ms.h(7.5), ms.h(12.5)],
   /** The shooting star is seen this long before the impact. */
   noticeMs: ms.h(1),
   /** The crater fades away this long after the impact. */
@@ -244,6 +247,6 @@ export const METEORS = {
   rates: { pulp: 750, fiber: 600, seeds: 190, juice: 450 } satisfies Resources,
   /** Meteorite drill (technology `meteorDrill`): harvest multiplier by age (index = age). */
   drill: [1, 1.5, 2, 2.5, 3] as readonly number[],
-  /** Craters kept at once (about two falls a day for 48 hours each). */
-  max: 5,
+  /** Craters kept at once (about two and a half falls a day for 48 hours each). */
+  max: 6,
 } as const;
