@@ -82,6 +82,7 @@ Migrations, dans l'ordre :
 | `20261025000000_member_planet_seed.sql` | graine du kiwi d'une colonie solo emportée dans un univers |
 | `20261026000000_universe_imports.sql`   | réglage « colonies importées » de l'hôte, membre importé   |
 | `20261027000000_linked_colonies.sql`    | seconde colonie : deux parties liées par joueur et univers |
+| `20261103000000_universe_kick.sql`      | l'hôte retire un joueur (bannis), univers à 16 joueurs     |
 
 ## 4. Fonction serveur `game`
 

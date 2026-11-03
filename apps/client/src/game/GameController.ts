@@ -782,7 +782,8 @@ export class GameController {
       return this.loadFromServer(world);
     }
     if (!res.ok && res.error === 'forbidden' && this.universe !== 'solo') {
-      // No longer a member (or unknown universe): back to the solo colony.
+      // No longer a member (removed by the host, or unknown universe): back to the solo colony.
+      this.listener.onError('kicked');
       this.setUniverse('solo', null);
       return this.loadFromServer(world);
     }
@@ -854,6 +855,39 @@ export class GameController {
     }
   }
 
+  /** The host removes a player from the current universe, or lets a removed one back. */
+  async moderateMember(
+    action: 'kickMember' | 'unbanMember',
+    userId: string,
+  ): Promise<ClientError | null> {
+    if (!this.online || this.universe === 'solo') return 'forbidden';
+    try {
+      const res = await this.online.call({ action, universe: this.universe, userId });
+      if (!res.ok) return res.error;
+      if (res.universe) {
+        const me = res.universe.members.find((m) => m.userId === this.userId);
+        if (me && this.state) {
+          const linked = hasSister(this.state) || isSister(this.state);
+          this.state = {
+            ...this.state,
+            targets: isSister(this.state) ? [] : universeTargets(res.universe.members, me),
+            friends: [
+              ...universeFriends(res.universe.members, me),
+              ...(linked ? [sisterFriend(this.state)] : []),
+            ],
+          };
+          this.emitState(this.now());
+        }
+        this.listener.onUniverse(res.universe);
+        this.listener.onTwin(res.twin ?? null);
+        this.listener.onAllies(res.allies ?? []);
+      }
+      return null;
+    } catch (e) {
+      return failureCode(e);
+    }
+  }
+
   /** Switches to the solo colony or to another universe the player belongs to. */
   async switchUniverse(id: string): Promise<ClientError | null> {
     if (!this.online) return 'forbidden';
@@ -877,7 +911,14 @@ export class GameController {
   async refreshUniverse(): Promise<void> {
     if (!this.online || this.universe === 'solo') return;
     try {
-      const res = await this.online.call({ action: 'universeInfo', universe: this.universe });
+      const universe = this.universe;
+      const res = await this.online.call({ action: 'universeInfo', universe });
+      if (!res.ok && res.error === 'forbidden' && this.universe === universe) {
+        // The host removed us: back to the solo colony.
+        this.listener.onError('kicked');
+        await this.switchUniverse('solo');
+        return;
+      }
       if (!res.ok || !res.universe) return;
       const me = res.universe.members.find((m) => m.userId === this.userId);
       if (me && this.state) {

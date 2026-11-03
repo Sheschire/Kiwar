@@ -36,8 +36,8 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   `/__mock/delay?ms=` changes the latency.
 - Universes (playtest fixes): **one kiwi per player** — `assignFace` gives the first kiwi nobody
   lives on (Kiwisu), the twin half stays alien; `kiwiCount(members)` = one per player (+1 when
-  every face is taken: older universes keep their pairs). Invite code 8 chars, ≤ 8 players,
-  ≤ 5 universes per player; expedition targets are every alien face (own twin at distance 0).
+  every face is taken: older universes keep their pairs). Invite code 8 chars, ≤ 16 players
+  (`MAX_PLAYERS`, stored per universe in `max_players`), ≤ 5 universes per player; expedition targets are every alien face (own twin at distance 0).
 - `createUniverse { fromSolo: true }` moves the online solo colony into the new universe as
   kiwi 0 (`moveSoloInto`; refused while pristine): same state re-keyed, `created_at` set so the
   calendar is unchanged, member `planet_seed` = the colony seed (`planetSeedOf(info, k)` gives
@@ -109,6 +109,12 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   by the schema: round-trip a state using it through `migrateState` in its test (the canal
   queue items with `targetLevel: 0` locked players out). The client shows the server's code
   (`ServerFailure`, `failureCode`), never "No connection" for a refusal.
+- **Kick (hotfix, November 2026)**: `kickMember { universe, userId }` (host only, not
+  themselves) → `repo.kickMember` deletes the membership and both colonies there, and bans
+  (`universe_bans`, migration `20261103000000_universe_kick.sql`); `joinUniverse` answers
+  `banned`; `unbanMember` lifts it; the host's `universeInfo` carries `banned`. The kicked
+  client gets `forbidden` on load / refresh → toast `errors.kicked`, back to solo. Missing
+  table (`42P01`/`PGRST205`): no ban, kick still works.
 - **Chantier 39** (`kiwar-civ`): the alien civilisation lives inside `aliens` (stripped by
   `publicState`); `hiddenDue` also lists a wave due to be announced (only the server knows the
   civilisation's power and the wave's parcel), and `awaitingServer` includes `waveAwaited`.

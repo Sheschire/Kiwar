@@ -3455,3 +3455,25 @@ Seven rounds; what each one taught:
 - To test with the owner: the moment (~day 20), the look of the stars, the price of levels 13–15
   in crystal, the sailboat.
 
+
+## Hotfix (November 2026) — Removing a player, universes of 16
+
+Owner's request: the host can kick a player from a shared universe; raise the 8-player cap.
+
+- **Who**: the host only (`universes.created_by`), never on themselves. Action
+  `kickMember { universe, userId }`.
+- **What a kick does**: the membership row and the player's colonies in that universe (home and
+  sister) are deleted; their kiwi becomes alien again (or disappears if it was the last one),
+  and the other players' targets / friends / allies follow on their next load. Nothing in the
+  other players' games is rewritten (deliveries already landed stay).
+- **Ban** (default chosen by Claude): a removed player cannot join back with the invite code
+  (`banned`) until the host lifts it (`unbanMember`, "Let them back"); table
+  `universe_bans`, service role only. Only the host gets the list (`UniverseInfo.banned`).
+  Coming back = a brand new colony on the first free kiwi.
+- **Kicked side**: the next `load` / periodic `universeInfo` answers `forbidden`: the client
+  shows `errors.kicked` and goes back to the solo colony.
+- **Cap**: `MAX_PLAYERS` 16 (the column check already allowed 2–16); the migration raises the
+  stored `max_players` of existing universes from 8 to 16. Space: the 15 allies take two laps of
+  `ALLY_SLOTS` (already supported).
+- **Deploy before migration**: without `universe_bans` the repository treats nobody as banned
+  and kicks without a ban (`42P01` / `PGRST205`).

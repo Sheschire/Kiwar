@@ -43,6 +43,15 @@ type Query = PromiseLike<{ data: any; error: any; count?: number | null }>;
 /** Unknown column: the chantier 14 migration has not been run yet. */
 const isMissingColumn = (error: { code?: string } | null) =>
   error?.code === '42703' || error?.code === 'PGRST204';
+/** Unknown table: the `universe_bans` migration has not been run yet. */
+const isMissingTable = (error: { code?: string } | null) =>
+  error?.code === '42P01' || error?.code === 'PGRST205';
+
+interface BanRowDb {
+  user_id: string;
+  display_name: string;
+  banned_at: string;
+}
 
 export function createSupabaseRepository(db: SupabaseClient) {
   // Until the owner runs `20261026000000_universe_imports.sql`, fall back to the older columns
@@ -269,6 +278,66 @@ export function createSupabaseRepository(db: SupabaseClient) {
       if (isMissingColumn(error)) return false;
       if (error) fail('setAllowImports', error);
       return true;
+    },
+    async kickMember(
+      universeId: string,
+      member: { userId: string; displayName: string },
+      at: number,
+    ) {
+      // Banned first: they cannot slip back in between the two deletions.
+      const ban = await db.from('universe_bans').upsert({
+        universe_id: universeId,
+        user_id: member.userId,
+        display_name: member.displayName,
+        banned_at: new Date(at).toISOString(),
+      });
+      if (ban.error && !isMissingTable(ban.error)) fail('kickMember (ban)', ban.error);
+      const left = await db
+        .from('universe_members')
+        .delete()
+        .eq('universe_id', universeId)
+        .eq('user_id', member.userId);
+      if (left.error) fail('kickMember (member)', left.error);
+      // Their colonies there (home and sister); their command log goes with them (cascade).
+      const games = await db
+        .from('games')
+        .delete()
+        .eq('universe_id', universeId)
+        .eq('user_id', member.userId);
+      if (games.error) fail('kickMember (games)', games.error);
+    },
+    async isBanned(universeId: string, userId: string) {
+      const { data, error } = await db
+        .from('universe_bans')
+        .select('user_id')
+        .eq('universe_id', universeId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (isMissingTable(error)) return false;
+      if (error) fail('isBanned', error);
+      return !!data;
+    },
+    async listBans(universeId: string) {
+      const { data, error } = await db
+        .from('universe_bans')
+        .select('user_id, display_name, banned_at')
+        .eq('universe_id', universeId)
+        .order('banned_at');
+      if (isMissingTable(error)) return [];
+      if (error) fail('listBans', error);
+      return ((data ?? []) as BanRowDb[]).map((r) => ({
+        userId: r.user_id,
+        displayName: r.display_name,
+        at: Date.parse(r.banned_at),
+      }));
+    },
+    async unban(universeId: string, userId: string) {
+      const { error } = await db
+        .from('universe_bans')
+        .delete()
+        .eq('universe_id', universeId)
+        .eq('user_id', userId);
+      if (error && !isMissingTable(error)) fail('unban', error);
     },
     async listUserUniverses(userId: string) {
       const { data, error } = await tolerant(() =>

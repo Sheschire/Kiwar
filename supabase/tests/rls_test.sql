@@ -237,4 +237,30 @@ begin
 end $$;
 reset role;
 
+-- Kicks: bans are written by the game function only; players cannot read or lift them.
+set role service_role;
+insert into public.universe_bans (universe_id, user_id, display_name)
+  select id, '22222222-2222-2222-2222-222222222222', 'Bob' from public.universes limit 1;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare n int; cap int;
+begin
+  select max_players into cap from public.universes limit 1;
+  if cap <> 16 then raise exception 'universes should hold 16 players, got %', cap; end if;
+  select count(*) into n from public.universe_bans;
+  if n <> 0 then raise exception 'player can read bans'; end if;
+  delete from public.universe_bans;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'player could lift a ban'; end if;
+  begin
+    insert into public.universe_bans (universe_id, user_id)
+      select id, '11111111-1111-1111-1111-111111111111' from public.universes limit 1;
+    raise exception 'player could write a ban';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+
 select 'Universe and chat RLS tests passed' as result;

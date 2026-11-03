@@ -256,6 +256,18 @@ export const requestSchema = z.discriminatedUnion('action', [
     allowImports: z.boolean(),
   }),
   z.object({ action: z.literal('universeInfo'), universe: z.string().min(1).max(64) }),
+  /** The host removes a player from the universe (their colonies there are deleted, banned). */
+  z.object({
+    action: z.literal('kickMember'),
+    universe: z.string().min(1).max(64),
+    userId: z.string().min(1).max(64),
+  }),
+  /** The host lets a removed player come back (with the invite code). */
+  z.object({
+    action: z.literal('unbanMember'),
+    universe: z.string().min(1).max(64),
+    userId: z.string().min(1).max(64),
+  }),
   z.object({
     action: z.literal('load'),
     universe,
@@ -327,6 +339,8 @@ export const SERVER_ERRORS = [
   'importsClosed',
   'alreadyMember',
   'shipAway',
+  'banned',
+  'kicked',
 ] as const;
 export type ServerError = (typeof SERVER_ERRORS)[number] | (typeof COMMAND_ERRORS)[number];
 

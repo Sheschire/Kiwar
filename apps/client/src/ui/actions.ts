@@ -555,6 +555,12 @@ export const actions = {
   async setAllowImports(allow: boolean) {
     return controller ? await controller.setAllowImports(allow) : 'forbidden';
   },
+  async kickMember(userId: string) {
+    return controller ? await controller.moderateMember('kickMember', userId) : 'forbidden';
+  },
+  async unbanMember(userId: string) {
+    return controller ? await controller.moderateMember('unbanMember', userId) : 'forbidden';
+  },
   refreshUniverse(): void {
     void controller?.refreshUniverse();
   },

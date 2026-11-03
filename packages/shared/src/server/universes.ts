@@ -15,7 +15,8 @@ import type { AlienBuildingKind } from '../data/aliens';
  * hold two players on one kiwi: they keep it.)
  */
 
-export const MAX_PLAYERS = 8;
+/** Players per universe (the database allows 2–16). */
+export const MAX_PLAYERS = 16;
 
 export interface UniverseSummary {
   id: string;
@@ -46,6 +47,15 @@ export interface UniverseInfo extends UniverseSummary {
   allowImports?: boolean;
   /** The player who created the universe (may change its settings). */
   hostId?: string;
+  /** Players the host removed (they cannot join back); only sent to the host. */
+  banned?: BannedMember[];
+}
+
+/** A player the host removed from a universe. */
+export interface BannedMember {
+  userId: string;
+  displayName: string;
+  at: number;
 }
 
 /** Chantier 14: how strong a colony looks to the rest of the universe. */

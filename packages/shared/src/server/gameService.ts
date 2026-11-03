@@ -86,6 +86,7 @@ import {
   type UniverseInfo,
   type UniverseMember,
   type AllySnapshot,
+  type BannedMember,
   type ColonyPower,
   type SisterSnapshot,
   type TwinSnapshot,
@@ -147,6 +148,14 @@ export interface GameRepository {
   moveMember(universeId: string, userId: string, face: Face): Promise<boolean>;
   /** Chantier 14: the host opens or closes the universe to solo colonies. */
   setAllowImports(universeId: string, allow: boolean): Promise<boolean>;
+  /**
+   * The host removes a member: their membership and their colonies in that universe are
+   * deleted, and they are banned (they cannot join back until the host lifts it).
+   */
+  kickMember(universeId: string, member: UniverseMember, at: number): Promise<void>;
+  isBanned(universeId: string, userId: string): Promise<boolean>;
+  listBans(universeId: string): Promise<BannedMember[]>;
+  unban(universeId: string, userId: string): Promise<void>;
 }
 
 export interface ServiceContext {
@@ -336,6 +345,16 @@ export function villageView(s: GameState): GameState {
 
 function zeroResources(): Resources {
   return Object.fromEntries(RESOURCE_IDS.map((r) => [r, 0])) as Resources;
+}
+
+/** The host also sees the players they removed. */
+async function withBans(
+  repo: GameRepository,
+  info: UniverseInfo,
+  userId: string,
+): Promise<UniverseInfo> {
+  if (info.hostId !== userId) return info;
+  return { ...info, banned: await repo.listBans(info.id) };
 }
 
 function toSummary(row: UniverseRow, players: number): UniverseSummary {
@@ -904,6 +923,7 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
       if (row.allowImports === false) return fail('importsClosed');
       const members = await repo.listMembers(row.id);
       if (members.some((m) => m.userId === ctx.userId)) return fail('alreadyMember');
+      if (await repo.isBanned(row.id, ctx.userId)) return fail('banned');
       if (members.length >= row.maxPlayers) return fail('universeFull');
       const solo = await repo.findGame(ctx.userId, soloId(ctx));
       if (!solo || isPristine(solo.state)) return fail('invalidRequest');
@@ -934,8 +954,34 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
       return {
         ok: true,
         events: [],
-        universe: info,
+        universe: await withBans(repo, info, ctx.userId),
         ...(await neighboursOf(repo, info, me, ctx.now())),
+        serverTime: ctx.now(),
+      };
+    }
+
+    case 'kickMember':
+    case 'unbanMember': {
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope?.shared) return fail('forbidden');
+      const { info } = scope.shared;
+      // Only the host, and never on themselves.
+      if (info.hostId !== ctx.userId || req.userId === ctx.userId) return fail('forbidden');
+      let next = info;
+      if (req.action === 'kickMember') {
+        const member = info.members.find((m) => m.userId === req.userId);
+        if (!member) return fail('invalidRequest');
+        await repo.kickMember(info.id, member, ctx.now());
+        const members = info.members.filter((m) => m.userId !== req.userId);
+        next = { ...info, members, players: members.length, kiwiCount: kiwiCount(members) };
+      } else {
+        await repo.unban(info.id, req.userId);
+      }
+      return {
+        ok: true,
+        events: [],
+        universe: await withBans(repo, next, ctx.userId),
+        ...(await neighboursOf(repo, next, scope.shared.me, ctx.now())),
         serverTime: ctx.now(),
       };
     }
@@ -1176,6 +1222,8 @@ async function joinAndPlay(
     const members = await repo.listMembers(row.id);
     let me = members.find((m) => m.userId === ctx.userId);
     if (!me) {
+      if (await repo.isBanned(row.id, ctx.userId))
+        return { ok: false, error: 'banned', serverTime: ctx.now() };
       if (members.length >= row.maxPlayers)
         return { ok: false, error: 'universeFull', serverTime: ctx.now() };
       me = { userId: ctx.userId, displayName: displayName.trim(), ...assignFace(members) };
@@ -1309,6 +1357,7 @@ export function createMemoryRepository(): GameRepository & {
   const games = new Map<string, StoredGame>();
   const universes = new Map<string, UniverseRow>();
   const members = new Map<string, UniverseMember[]>();
+  const bans = new Map<string, BannedMember[]>();
   const log: { userId: string; at: number }[] = [];
   let next = 1;
   const clone = <T>(g: T): T => JSON.parse(JSON.stringify(g)) as T;
@@ -1395,6 +1444,31 @@ export function createMemoryRepository(): GameRepository & {
       if (!u) return false;
       u.allowImports = allow;
       return true;
+    },
+    async kickMember(universeId, member, at) {
+      members.set(
+        universeId,
+        (members.get(universeId) ?? []).filter((m) => m.userId !== member.userId),
+      );
+      for (const [id, g] of games)
+        if (g.userId === member.userId && g.universeId === universeId) games.delete(id);
+      const list = (bans.get(universeId) ?? []).filter((b) => b.userId !== member.userId);
+      bans.set(universeId, [
+        ...list,
+        { userId: member.userId, displayName: member.displayName, at },
+      ]);
+    },
+    async isBanned(universeId, userId) {
+      return (bans.get(universeId) ?? []).some((b) => b.userId === userId);
+    },
+    async listBans(universeId) {
+      return clone(bans.get(universeId) ?? []);
+    },
+    async unban(universeId, userId) {
+      bans.set(
+        universeId,
+        (bans.get(universeId) ?? []).filter((b) => b.userId !== userId),
+      );
     },
     async moveMember(universeId, userId, face) {
       const list = members.get(universeId) ?? [];

@@ -80,6 +80,21 @@ function InvitePanel() {
     setSaving(false);
     if (err) pushToast('error', `errors.${err}` as never);
   };
+  const kick = async (userId: string, name: string) => {
+    if (!window.confirm(t('universe.kickConfirm', { name }))) return;
+    setSaving(true);
+    const err = await actions.kickMember(userId);
+    setSaving(false);
+    if (err) pushToast('error', `errors.${err}` as never);
+    else pushToast('success', 'universe.kickDone', { name });
+  };
+  const unban = async (userId: string, name: string) => {
+    setSaving(true);
+    const err = await actions.unbanMember(userId);
+    setSaving(false);
+    if (err) pushToast('error', `errors.${err}` as never);
+    else pushToast('success', 'universe.unbanDone', { name });
+  };
   const link = inviteLink(universe.code);
   const taken = new Set(universe.members.map((m) => `${m.kiwiIndex}:${m.face}`));
   const alienFaces: string[] = [];
@@ -167,6 +182,15 @@ function InvitePanel() {
                   {t('allies.visit')}
                 </button>
               )}
+              {isHost && !mine && (
+                <button
+                  class="btn btn-small btn-warn"
+                  disabled={saving}
+                  onClick={() => void kick(m.userId, m.displayName)}
+                >
+                  {t('universe.kick')}
+                </button>
+              )}
               {power && <span class="member-power small">{powerLine(t, power)}</span>}
             </li>
           );
@@ -178,6 +202,25 @@ function InvitePanel() {
           </li>
         ))}
       </ul>
+      {isHost && !!universe.banned?.length && (
+        <>
+          <h3>{t('universe.banned')}</h3>
+          <ul class="members">
+            {universe.banned.map((b) => (
+              <li key={b.userId}>
+                <strong>{b.displayName}</strong>
+                <button
+                  class="btn btn-small"
+                  disabled={saving}
+                  onClick={() => void unban(b.userId, b.displayName)}
+                >
+                  {t('universe.unban')}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   );
 }

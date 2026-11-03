@@ -14004,7 +14004,7 @@ function upwellTick(s, at, events) {
 }
 
 // packages/shared/src/server/universes.ts
-var MAX_PLAYERS = 8;
+var MAX_PLAYERS = 16;
 function allyTwinOf(s) {
   const face = otherFace(s.face);
   const target = s.targets.find((t) => t.distance === 0 && t.face === face);
@@ -21553,6 +21553,18 @@ var requestSchema = external_exports.discriminatedUnion("action", [
     allowImports: external_exports.boolean()
   }),
   external_exports.object({ action: external_exports.literal("universeInfo"), universe: external_exports.string().min(1).max(64) }),
+  /** The host removes a player from the universe (their colonies there are deleted, banned). */
+  external_exports.object({
+    action: external_exports.literal("kickMember"),
+    universe: external_exports.string().min(1).max(64),
+    userId: external_exports.string().min(1).max(64)
+  }),
+  /** The host lets a removed player come back (with the invite code). */
+  external_exports.object({
+    action: external_exports.literal("unbanMember"),
+    universe: external_exports.string().min(1).max(64),
+    userId: external_exports.string().min(1).max(64)
+  }),
   external_exports.object({
     action: external_exports.literal("load"),
     universe,
@@ -21604,7 +21616,9 @@ var SERVER_ERRORS = [
   "faceTaken",
   "importsClosed",
   "alreadyMember",
-  "shipAway"
+  "shipAway",
+  "banned",
+  "kicked"
 ];
 
 // packages/shared/src/server/gameService.ts
@@ -21721,6 +21735,10 @@ function villageView(s) {
 }
 function zeroResources() {
   return Object.fromEntries(RESOURCE_IDS.map((r) => [r, 0]));
+}
+async function withBans(repo, info, userId) {
+  if (info.hostId !== userId) return info;
+  return { ...info, banned: await repo.listBans(info.id) };
 }
 function toSummary(row, players) {
   return { id: row.id, name: row.name, code: row.code, players, maxPlayers: row.maxPlayers };
@@ -22119,6 +22137,7 @@ async function handle(ctx, body) {
       if (row.allowImports === false) return fail2("importsClosed");
       const members = await repo.listMembers(row.id);
       if (members.some((m) => m.userId === ctx.userId)) return fail2("alreadyMember");
+      if (await repo.isBanned(row.id, ctx.userId)) return fail2("banned");
       if (members.length >= row.maxPlayers) return fail2("universeFull");
       const solo = await repo.findGame(ctx.userId, soloId(ctx));
       if (!solo || isPristine(solo.state)) return fail2("invalidRequest");
@@ -22146,8 +22165,32 @@ async function handle(ctx, body) {
       return {
         ok: true,
         events: [],
-        universe: info,
+        universe: await withBans(repo, info, ctx.userId),
         ...await neighboursOf(repo, info, me, ctx.now()),
+        serverTime: ctx.now()
+      };
+    }
+    case "kickMember":
+    case "unbanMember": {
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope?.shared) return fail2("forbidden");
+      const { info } = scope.shared;
+      if (info.hostId !== ctx.userId || req.userId === ctx.userId) return fail2("forbidden");
+      let next = info;
+      if (req.action === "kickMember") {
+        const member = info.members.find((m) => m.userId === req.userId);
+        if (!member) return fail2("invalidRequest");
+        await repo.kickMember(info.id, member, ctx.now());
+        const members = info.members.filter((m) => m.userId !== req.userId);
+        next = { ...info, members, players: members.length, kiwiCount: kiwiCount(members) };
+      } else {
+        await repo.unban(info.id, req.userId);
+      }
+      return {
+        ok: true,
+        events: [],
+        universe: await withBans(repo, next, ctx.userId),
+        ...await neighboursOf(repo, next, scope.shared.me, ctx.now()),
         serverTime: ctx.now()
       };
     }
@@ -22345,6 +22388,8 @@ async function joinAndPlay(ctx, repo, row, displayName2) {
     const members = await repo.listMembers(row.id);
     let me = members.find((m) => m.userId === ctx.userId);
     if (!me) {
+      if (await repo.isBanned(row.id, ctx.userId))
+        return { ok: false, error: "banned", serverTime: ctx.now() };
       if (members.length >= row.maxPlayers)
         return { ok: false, error: "universeFull", serverTime: ctx.now() };
       me = { userId: ctx.userId, displayName: displayName2.trim(), ...assignFace(members) };
@@ -22448,6 +22493,7 @@ function createMemoryRepository() {
   const games = /* @__PURE__ */ new Map();
   const universes = /* @__PURE__ */ new Map();
   const members = /* @__PURE__ */ new Map();
+  const bans = /* @__PURE__ */ new Map();
   const log2 = [];
   let next = 1;
   const clone = (g) => JSON.parse(JSON.stringify(g));
@@ -22530,6 +22576,31 @@ function createMemoryRepository() {
       if (!u) return false;
       u.allowImports = allow;
       return true;
+    },
+    async kickMember(universeId, member, at) {
+      members.set(
+        universeId,
+        (members.get(universeId) ?? []).filter((m) => m.userId !== member.userId)
+      );
+      for (const [id3, g] of games)
+        if (g.userId === member.userId && g.universeId === universeId) games.delete(id3);
+      const list = (bans.get(universeId) ?? []).filter((b) => b.userId !== member.userId);
+      bans.set(universeId, [
+        ...list,
+        { userId: member.userId, displayName: member.displayName, at }
+      ]);
+    },
+    async isBanned(universeId, userId) {
+      return (bans.get(universeId) ?? []).some((b) => b.userId === userId);
+    },
+    async listBans(universeId) {
+      return clone(bans.get(universeId) ?? []);
+    },
+    async unban(universeId, userId) {
+      bans.set(
+        universeId,
+        (bans.get(universeId) ?? []).filter((b) => b.userId !== userId)
+      );
     },
     async moveMember(universeId, userId, face) {
       const list = members.get(universeId) ?? [];

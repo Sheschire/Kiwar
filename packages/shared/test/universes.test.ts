@@ -6,6 +6,7 @@ import {
   createMemoryRepository,
   handleGameRequest,
   kiwiCount,
+  MAX_PLAYERS,
   planetSeedOf,
   universeTargets,
   type GameResponse,
@@ -183,7 +184,8 @@ describe('shared universes (server)', () => {
     ).toMatchObject({
       error: 'universeNotFound',
     });
-    for (let i = 1; i < 8; i++)
+    expect(MAX_PLAYERS).toBe(16);
+    for (let i = 1; i < MAX_PLAYERS; i++)
       ok(
         await handleGameRequest(as(`p${i}`), {
           action: 'joinUniverse',
@@ -192,14 +194,90 @@ describe('shared universes (server)', () => {
         }),
       );
     expect(
-      await handleGameRequest(as('p9'), {
+      await handleGameRequest(as('late'), {
         action: 'joinUniverse',
         code: u.code,
-        displayName: 'P9',
+        displayName: 'Late',
       }),
     ).toMatchObject({
       error: 'universeFull',
     });
+  });
+
+  it('lets the host remove a player, who cannot come back until let back', async () => {
+    const { as, repo } = world();
+    const u = ok(
+      await handleGameRequest(as('alice'), {
+        action: 'createUniverse',
+        name: 'U',
+        displayName: 'Alice',
+      }),
+    ).universe!;
+    for (const who of ['bob', 'carol'])
+      ok(
+        await handleGameRequest(as(who), {
+          action: 'joinUniverse',
+          code: u.code,
+          displayName: who,
+        }),
+      );
+    // Only the host, never on themselves, only a member.
+    const kick = (by: string, userId: string) =>
+      handleGameRequest(as(by), { action: 'kickMember', universe: u.id, userId });
+    expect(await kick('bob', 'carol')).toMatchObject({ error: 'forbidden' });
+    expect(await kick('alice', 'alice')).toMatchObject({ error: 'forbidden' });
+    expect(await kick('alice', 'nobody')).toMatchObject({ error: 'invalidRequest' });
+    const done = ok(await kick('alice', 'bob'));
+    expect(done.universe!.members.map((m) => m.userId)).toEqual(['alice', 'carol']);
+    expect(done.universe!.players).toBe(2);
+    expect(done.universe!.banned).toMatchObject([{ userId: 'bob', displayName: 'bob' }]);
+    expect(done.allies!.map((a) => a.owner)).toEqual(['carol']);
+    // Bob's colony there is gone, and the universe is closed to him.
+    expect([...repo.games.values()].some((g) => g.userId === 'bob' && g.universeId === u.id)).toBe(
+      false,
+    );
+    for (const action of ['load', 'universeInfo'] as const)
+      expect(await handleGameRequest(as('bob'), { action, universe: u.id })).toMatchObject({
+        error: 'forbidden',
+      });
+    expect(
+      await handleGameRequest(as('bob'), {
+        action: 'joinUniverse',
+        code: u.code,
+        displayName: 'Bob',
+      }),
+    ).toMatchObject({ error: 'banned' });
+    // Other players see the ban list only through the host; Carol's friends no longer list Bob.
+    const carol = ok(
+      await handleGameRequest(as('carol'), { action: 'universeInfo', universe: u.id }),
+    );
+    expect(carol.universe!.banned).toBeUndefined();
+    const carolGame = ok(await handleGameRequest(as('carol'), { action: 'load', universe: u.id }));
+    expect(carolGame.state.friends.map((f) => f.owner)).toEqual(['Alice']);
+    // Let back: Bob joins again with a brand new colony.
+    expect(
+      await handleGameRequest(as('carol'), {
+        action: 'unbanMember',
+        universe: u.id,
+        userId: 'bob',
+      }),
+    ).toMatchObject({ error: 'forbidden' });
+    const lifted = ok(
+      await handleGameRequest(as('alice'), {
+        action: 'unbanMember',
+        universe: u.id,
+        userId: 'bob',
+      }),
+    );
+    expect(lifted.universe!.banned).toEqual([]);
+    const back = ok(
+      await handleGameRequest(as('bob'), {
+        action: 'joinUniverse',
+        code: u.code,
+        displayName: 'Bob',
+      }),
+    );
+    expect(back.universe!.members.find((m) => m.userId === 'bob')!.kiwiIndex).toBe(1);
   });
 
   it('plays commands inside a universe', async () => {

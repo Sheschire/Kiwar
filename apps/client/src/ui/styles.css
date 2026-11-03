@@ -1597,6 +1597,11 @@ button.chip:focus-visible {
   gap: 4px 8px;
 }
 
+.members .btn-warn {
+  color: var(--danger, #c8452f);
+  border-color: rgba(200, 69, 47, 0.45);
+}
+
 .members li.aliens strong {
   color: #6a4d8c;
 }
