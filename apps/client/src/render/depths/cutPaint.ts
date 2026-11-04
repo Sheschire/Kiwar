@@ -1,10 +1,4 @@
-import {
-  createRng,
-  isLocule,
-  type DepthsMap,
-  type DepthsState,
-  type RoomKind,
-} from '@kiwar/shared';
+import { createRng, isFlesh, type DepthsMap, type DepthsState, type RoomKind } from '@kiwar/shared';
 import {
   CORE,
   CUT_ASPECT,
@@ -42,12 +36,15 @@ export interface CutKnowledge {
   lit: CutLink[];
   /** Chantier 50: the locules are open (the Industry age): no veil over their ring. */
   loculesOpen: boolean;
+  /** Chantier 52: the core is open (the Age of the stars). */
+  coreOpen: boolean;
 }
 
 export function cutKnowledge(
   map: DepthsMap,
   depths: DepthsState,
   loculesOpen: boolean,
+  coreOpen = false,
 ): CutKnowledge {
   const looks = new Map<string, RoomLook>();
   const kinds = new Map<string, RoomKind>();
@@ -71,12 +68,12 @@ export function cutKnowledge(
   for (const l of known)
     if (!lit.includes(l) && (looks.get(l.b) === 'gallery' || (l.a && looks.get(l.a) === 'gallery')))
       lit.push(l);
-  return { looks, kinds, known, lit, loculesOpen };
+  return { looks, kinds, known, lit, loculesOpen, coreOpen };
 }
 
 /** Signature of what the cut shows (repaint only when it changes). */
 export function cutSignature(k: CutKnowledge, holes: boolean): string {
-  return `${holes ? 1 : 0}${k.loculesOpen ? 1 : 0}|${[...k.looks].map(([id, l]) => `${id}${l[0]}${k.kinds.get(id) ?? ''}`).join(',')}`;
+  return `${holes ? 1 : 0}${k.loculesOpen ? 1 : 0}${k.coreOpen ? 1 : 0}|${[...k.looks].map(([id, l]) => `${id}${l[0]}${k.kinds.get(id) ?? ''}`).join(',')}`;
 }
 
 export const KIND_TINTS: Record<RoomKind, string> = {
@@ -87,6 +84,8 @@ export const KIND_TINTS: Record<RoomKind, string> = {
   raphides: '#e9f4f6',
   forest: '#cfeaf2',
   lake: '#c3d64a',
+  cavern: '#f6f1e2',
+  stem: '#8fd46a',
 };
 
 /** Paints the section on `canvas` (sized here); `aspect` = the face's half-width / depth. */
@@ -183,9 +182,10 @@ export function paintCut(
   g.beginPath();
   g.ellipse(X(0), Y(1), RX(CORE), RY(CORE), 0, Math.PI, Math.PI * 2);
   g.fill();
-  // Chantier 50: each locule, a black seed in its cell (a hollow once known).
+  // Chantier 50: each locule, a black seed in its cell (a hollow once known); chantier 52: the
+  // caverns and the stem, bigger cells of the core, painted the same way.
   for (const r of map.rooms) {
-    if (!isLocule(r)) continue;
+    if (isFlesh(r)) continue;
     const p = roomPoint(map, r);
     const look = k.looks.get(r.id) ?? 'fog';
     const kind = k.kinds.get(r.id);
@@ -203,12 +203,14 @@ export function paintCut(
     g.fill();
   }
   // Closed layers: a dark veil, their shapes only (the locules until the Industry age, the
-  // core until chantier 52).
-  g.fillStyle = 'rgba(28, 40, 24, 0.55)';
-  g.beginPath();
-  if (k.loculesOpen) g.ellipse(X(0), Y(1), RX(CORE), RY(CORE), 0, Math.PI, Math.PI * 2);
-  else g.ellipse(X(0), Y(1), RX(LOCULES.outer), RY(LOCULES.outer), 0, Math.PI, Math.PI * 2);
-  g.fill();
+  // core until the Age of the stars).
+  if (!k.coreOpen) {
+    g.fillStyle = 'rgba(28, 40, 24, 0.55)';
+    g.beginPath();
+    if (k.loculesOpen) g.ellipse(X(0), Y(1), RX(CORE), RY(CORE), 0, Math.PI, Math.PI * 2);
+    else g.ellipse(X(0), Y(1), RX(LOCULES.outer), RY(LOCULES.outer), 0, Math.PI, Math.PI * 2);
+    g.fill();
+  }
 
   // The shaft of the tunnel, from the surface down to its foot.
   const shaftW = RX(0.05);
@@ -232,7 +234,7 @@ export function paintCut(
 
   // The rooms: hollows of the rooms known, faint shapes under the fog for the others.
   for (const r of map.rooms) {
-    if (isLocule(r)) continue;
+    if (!isFlesh(r)) continue;
     const look = k.looks.get(r.id) ?? 'fog';
     const p = roomPoint(map, r);
     const kind = k.kinds.get(r.id);
@@ -312,7 +314,7 @@ export function paintCut(
     for (const r of map.rooms)
       if (k.looks.get(r.id) !== 'fog') clear(roomPoint(map, r), roomRadius(r) * 2.6);
     // The closed layers keep their own veil, not the fog.
-    clear({ s: 0, t: 1 }, (k.loculesOpen ? CORE : LOCULES.outer) * 1.05);
+    if (!k.coreOpen) clear({ s: 0, t: 1 }, (k.loculesOpen ? CORE : LOCULES.outer) * 1.05);
     g.drawImage(fog, 0, 0, PAINT_W, PAINT_H);
   }
 
@@ -338,7 +340,7 @@ export function paintCut(
   m.fillStyle = '#000';
   m.scale(0.5, 0.5);
   for (const r of map.rooms) {
-    if (k.looks.get(r.id) === 'fog' || isLocule(r)) continue;
+    if (k.looks.get(r.id) === 'fog' || !isFlesh(r)) continue;
     const p = roomPoint(map, r);
     m.beginPath();
     m.ellipse(X(p.s), Y(p.t), RX(ROOM_T), RY(ROOM_T), 0, 0, Math.PI * 2);

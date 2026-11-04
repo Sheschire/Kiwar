@@ -938,6 +938,8 @@ export const en = {
       raphides: 'Raphide pocket',
       forest: 'Raphide forest',
       lake: 'Actinidine lake',
+      cavern: 'White cavern',
+      stem: 'The stem',
     },
     kindHints: {
       bundle: 'A natural gallery of fibres: a mine of fibre.',
@@ -947,6 +949,9 @@ export const en = {
       raphides: 'Crystal needles: they cut the crew. A mine of seeds.',
       forest: 'A locule bristling with crystal: cuts for the crew. A mine of crystal.',
       lake: 'A locule flooded with actinidine: the acid eats at the crew. Worked, its enzyme serves the laboratory and the wounded.',
+      cavern:
+        'A huge cell of the core with thin walls, full of pure sap: its gallery yields twice as much juice. Too heavy a crew brings its ceiling down.',
+      stem: 'The fruit’s attachment, the deepest room. The Great Weevil guards it; beyond lies the Mother Vine.',
     },
     hazards: {
       fall: 'Falls: up to {pct} % of a kiwi’s hit points (Endurance helps)',
@@ -1873,6 +1878,15 @@ export const en = {
     tip: 'Cut in the raphide forests of the locules, kept apart from the storage (at most {cap}, more with the Nest). It pays for glass, crystal ammunition and crystal weapons.',
     perHour: '+{rate}/h being cut',
     full: 'The crystal stock is full: the miners of the forests come back up.',
+  },
+  core: {
+    strip: '{count} white caverns around the centre, and the stem below them. Tap one.',
+    weight: 'Crew weight {weight} / ceiling {ceiling}',
+    caveIn:
+      'Too heavy: the cavern caves in (−{pct} % hit points for everybody, less with Endurance)',
+    caveInReport: 'The cavern caved in under {weight} (ceiling {ceiling}): −{pct} % hit points',
+    ceiling: 'Ceiling: {ceiling} of crew weight (a kiwi weighs about 10, armour more)',
+    closed: 'The core opens at the Age of the stars.',
   },
   locules: {
     lensOn: 'Crystal lens fitted: +{range} tile of range.',

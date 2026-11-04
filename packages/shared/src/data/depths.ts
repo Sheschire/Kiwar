@@ -10,13 +10,26 @@ import type { ResourceId } from './resources';
  * Every number here is a hypothesis, checked with the balance bot.
  */
 
-export const ROOM_KINDS = ['bundle', 'sap', 'nest', 'scree', 'raphides', 'forest', 'lake'] as const;
+export const ROOM_KINDS = [
+  'bundle',
+  'sap',
+  'nest',
+  'scree',
+  'raphides',
+  'forest',
+  'lake',
+  'cavern',
+  'stem',
+] as const;
 /**
  * `bundle`: a vascular bundle (a natural gallery, fibre); `sap`: a sap pocket (juice); `nest`:
  * a nest of Grouillants (more of them; feeds the upwellings until taken); `scree`: fallen flesh
  * (hazard: falls); `raphides`: a pocket of crystal needles (hazard: cuts).
  * Chantier 50, the locules: `forest`: a forest of raphides (crystal; hazard: cuts); `lake`: a
  * lake of actinidine (its enzyme, while mined; hazard: acid). A locule may also hold a nest.
+ * Chantier 52, the core: `cavern`: a white cavern, a huge cell with thin walls (pure sap; a
+ * cave-in when the crew is heavier than its ceiling); `stem`: the stem, the deepest room, where
+ * the Great Weevil guards the way to the Mother Vine.
  */
 export type RoomKind = (typeof ROOM_KINDS)[number];
 
@@ -25,8 +38,8 @@ export const HAZARD_KINDS = ['fall', 'cuts', 'acid'] as const;
 export type HazardKind = (typeof HAZARD_KINDS)[number];
 
 export const DEPTHS = {
-  /** Layers of the network (chantier 50 adds the locules at depth 4, 52 the core). */
-  layers: ['flesh', 'locules'] as const,
+  /** Layers of the network (chantier 50 adds the locules at depth 4, 52 the core and stem). */
+  layers: ['flesh', 'locules', 'core'] as const,
   /** Rooms of the flesh by depth (1, 2, 3): [min, max] each. */
   rooms: [
     [3, 4],
@@ -43,23 +56,25 @@ export const DEPTHS = {
     { bundle: 3, sap: 3, nest: 2, scree: 1.5, raphides: 1 },
     { bundle: 2, sap: 3, nest: 3, scree: 1.5, raphides: 1.5 },
     { forest: 3, lake: 2 },
+    { cavern: 1 },
+    { stem: 1 },
   ] as readonly Partial<Record<RoomKind, number>>[],
   /** Grouillants of a room: power by depth (threat points, `ENEMIES.power`), × spread. */
-  power: [9, 20, 36, 50] as readonly number[],
+  power: [9, 20, 36, 50, 70, 0] as readonly number[],
   spread: [0.75, 1.25] as const,
   /** A nest holds this many times more. */
   nestPower: 1.8,
   /** Share of each kind in a room's power. */
   mix: { larva: 0.55, fruitFly: 0.25, woodlouse: 0.2 },
   /** Level of the Grouillants by depth. */
-  level: [3, 7, 11, 13] as readonly number[],
+  level: [3, 7, 11, 13, 16, 20] as readonly number[],
   /**
    * Hazards: scree always falls, raphides always cut; any other room has this chance of one
    * (drawn between the two). Strength = share of a kiwi's hit points lost by one hit, × spread.
    */
   hazard: {
     otherChance: 0.3,
-    strength: [0.25, 0.32, 0.4, 0.45] as readonly number[],
+    strength: [0.25, 0.32, 0.4, 0.45, 0.5, 0.5] as readonly number[],
     /** Chance for each kiwi to be hit, before its stat. */
     chance: 0.6,
     /** Each point of the matching stat above 5 lowers the chance and the harm by this share. */
@@ -70,9 +85,9 @@ export const DEPTHS = {
     floor: 0.2,
   },
   /** Delves: one-way time by depth, and the XP of a room won (× `LANDING.victoryXp`). */
-  travelMs: [ms.h(1), ms.h(3), ms.h(5), ms.h(7)] as readonly number[],
+  travelMs: [ms.h(1), ms.h(3), ms.h(5), ms.h(7), ms.h(9), ms.h(10)] as readonly number[],
   /** Loot of a room won, by depth, then by kind (raw resource units). */
-  loot: [300, 550, 900, 1300] as readonly number[],
+  loot: [300, 550, 900, 1300, 2000, 0] as readonly number[],
   lootKind: {
     bundle: { fiber: 1, pulp: 0.3 },
     sap: { juice: 1, pulp: 0.3 },
@@ -81,9 +96,11 @@ export const DEPTHS = {
     raphides: { seeds: 0.8, fiber: 0.3 },
     forest: { seeds: 0.6, fiber: 0.4 },
     lake: { juice: 0.6, pulp: 0.4 },
+    cavern: { juice: 1, pulp: 0.4 },
+    stem: {},
   } as Record<RoomKind, Partial<Record<ResourceId, number>>>,
   /** Meteoric iron of a room won (whole units), by depth. */
-  iron: [1, 2, 3, 4] as readonly number[],
+  iron: [1, 2, 3, 4, 5, 0] as readonly number[],
   /** Galleries: what a taken room yields, places for miners by depth, rate per miner per hour. */
   gallery: {
     resource: {
@@ -92,6 +109,7 @@ export const DEPTHS = {
       nest: 'pulp',
       scree: 'seeds',
       raphides: 'seeds',
+      cavern: 'juice',
     } as Partial<Record<RoomKind, ResourceId>>,
     /**
      * Chantier 50: the mastery a miner uses in each gallery (a locule's crystal is cut like
@@ -105,14 +123,18 @@ export const DEPTHS = {
       raphides: 'seeds',
       forest: 'seeds',
       lake: 'juice',
+      cavern: 'juice',
+      // The stem's pilgrims (chantier 52) work nothing: their mastery is never read.
+      stem: 'juice',
     } as Record<RoomKind, ResourceId>,
-    slots: [2, 3, 3, 3] as readonly number[],
+    slots: [2, 3, 3, 3, 3, 0] as readonly number[],
     /**
      * Output of a miner: this share (by depth) of what a worker yields in the producer of the
      * gallery's resource at the level `6 + tunnel level` (7–9) — less than a workshop, but no
-     * deposit to drain, no walk to a depot, day and night, in every season.
+     * deposit to drain, no walk to a depot, day and night, in every season. Chantier 52: a
+     * white cavern's pure sap doubles a mine's output.
      */
-    perMiner: [0.5, 0.7, 0.9, 1] as readonly number[],
+    perMiner: [0.5, 0.7, 0.9, 1, 2, 0] as readonly number[],
     producer: {
       pulp: 'pulpery',
       fiber: 'fiberWorkshop',
@@ -145,6 +167,35 @@ export const DEPTHS = {
     skirtTravel: 1.5,
   },
   /**
+   * Chantier 52: the core, white caverns around the centre below the locules (public like the
+   * rest, drawn after the locules on a stream of their own), and the stem below them. Open from
+   * the Age of the stars.
+   */
+  core: {
+    count: [6, 10] as const,
+    /** Chance that two caverns side by side are linked (the first and last always are). */
+    sideLink: 0.6,
+    /** Chance that a cavern also opens onto its second nearest locule. */
+    secondLink: 0.4,
+    /** Chance that a cavern holds a nest of Grouillants. */
+    nestChance: 0.35,
+    /** Giant seeds found in a cavern won: [min, max]. */
+    giantSeeds: [0, 2] as const,
+    /** Age that opens them (the stars). */
+    age: 4,
+    /**
+     * The thin walls: each cavern's ceiling (public), in crew weight (`crewWeight`: 10 a kiwi,
+     * × its traits, + its armour's `armorWeight`). Heavier than that, the cavern caves in.
+     */
+    ceiling: [45, 75] as const,
+    armorWeight: { light: 2, heavy: 6 } as Record<'light' | 'heavy', number>,
+    /**
+     * A cave-in hits every kiwi of the crew (lessened by Endurance and the spelunkers): its
+     * strength is `base` + `perExcess` × the share of weight above the ceiling, at most `max`.
+     */
+    caveIn: { base: 0.2, perExcess: 0.8, max: 0.6 },
+  },
+  /**
    * Chantier 50: an actinidine lake worked by at least one miner (the door open) halves the
    * laboratory's infusion risk, and with the technology Enzymes the wounded heal faster.
    */
@@ -170,6 +221,8 @@ export const DEPTHS = {
     perNest: 0.35,
     /** Chantier 50: the locules hold the strongest nests. */
     perLoculeNest: 0.6,
+    /** Chantier 52: the core's nests, the strongest of all (silenced by the Mother Vine). */
+    perCoreNest: 0.8,
     /** Spread of the announced numbers, and of the luck at the strike. */
     spread: 0.15,
     /** Share of fruit flies (air), the rest larvae and woodlice. */

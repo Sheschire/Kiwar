@@ -24,7 +24,7 @@ import {
 import {
   ageOf,
   DEPTHS,
-  isLocule,
+  isFlesh,
   depthsMapOf,
   type DepthRoom,
   type DepthsMap,
@@ -201,7 +201,12 @@ export class DepthsCutView {
     this.state = state;
     this.depths = depthsMapOf(state);
     this.seed = `${state.seed}/${state.face}`;
-    const k = cutKnowledge(this.depths, state.depths, ageOf(state) >= DEPTHS.locules.age);
+    const k = cutKnowledge(
+      this.depths,
+      state.depths,
+      ageOf(state) >= DEPTHS.locules.age,
+      ageOf(state) >= DEPTHS.core.age,
+    );
     this.knowledge = k;
     const sig = cutSignature(k, this.holes);
     if (sig === this.signature) return;
@@ -222,7 +227,7 @@ export class DepthsCutView {
   private listObjects(k: CutKnowledge): void {
     const map = this.depths!;
     this.hollowRooms = this.holes
-      ? map.rooms.filter((r) => !isLocule(r) && k.looks.get(r.id) !== 'fog').slice(0, MAX_HOLLOWS)
+      ? map.rooms.filter((r) => isFlesh(r) && k.looks.get(r.id) !== 'fog').slice(0, MAX_HOLLOWS)
       : [];
     const spots: CutPoint[] = [];
     for (const l of k.lit) {

@@ -484,6 +484,13 @@ export interface ExpeditionResult {
   giantSeeds?: number;
   /** Chantier 48: the room's hazard and the kiwis it hurt (share of hit points lost). */
   hazard?: { kind: HazardKind; strength: number; hits: { id: string; share: number }[] };
+  /** Chantier 52: a white cavern caved in under a crew heavier than its ceiling. */
+  caveIn?: {
+    strength: number;
+    weight: number;
+    ceiling: number;
+    hits: { id: string; share: number }[];
+  };
   /** Chantier 48: the room became a gallery; a spelunker's lantern lit this room next to it. */
   gallery?: boolean;
   lantern?: string;

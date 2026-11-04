@@ -12,6 +12,7 @@ import {
   dispatchTasks,
   giantSeedCap,
   HOUR_MS,
+  isFlesh,
   isLocule,
   isPlausible,
   LANDING,
@@ -85,7 +86,7 @@ describe('crystal and giant seeds (chantier 50)', () => {
   it('brings a locule’s giant seeds up with the crew', () => {
     const { map, s: s0 } = withForest();
     for (const r of depthsMapOf(s0).rooms)
-      if (!isLocule(r)) s0.depths.galleries[r.id] = { kind: 'bundle', since: s0.now };
+      if (isFlesh(r)) s0.depths.galleries[r.id] = { kind: 'bundle', since: s0.now };
     // A locule next to the flesh, without a nest (a classed crew takes it).
     const room = depthsMapOf(s0).rooms.find(
       (r) =>

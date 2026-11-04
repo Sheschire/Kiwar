@@ -6276,6 +6276,11 @@ h3 .building-thumb {
   opacity: 0.6;
 }
 
+.depths-cut .cut-core.is-open {
+  fill: #fbf7ea;
+  opacity: 0.95;
+}
+
 .depths-cut .cut-surface {
   stroke: #6b4a2e;
   stroke-width: 3;

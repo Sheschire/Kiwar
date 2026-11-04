@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { depthsMapOf, isLocule } from '@kiwar/shared';
+import { depthsMapOf, isCavern, isFlesh, isLocule, isStem } from '@kiwar/shared';
 import { TiltPast } from '../src/camera/tiltPast';
 import {
+  CAVERN_T,
   CORE,
   CUT_ASPECT,
   LOCULE_T,
@@ -23,7 +24,7 @@ describe('the cut of the depths (chantier 49)', () => {
   it('keeps every room inside the flesh, off the seam and clear of the locules', () => {
     for (const map of maps)
       for (const r of map.rooms) {
-        if (isLocule(r)) continue;
+        if (!isFlesh(r)) continue;
         const p = roomPoint(map, r);
         expect(p.s * p.s + p.t * p.t).toBeLessThan(1);
         expect(Math.abs(p.s)).toBeGreaterThanOrEqual(0.149);
@@ -39,7 +40,7 @@ describe('the cut of the depths (chantier 49)', () => {
     for (const map of maps)
       for (const a of map.rooms)
         for (const b of map.rooms) {
-          if (a === b || a.depth !== b.depth || isLocule(a)) continue;
+          if (a === b || a.depth !== b.depth || !isFlesh(a)) continue;
           const pa = roomPoint(map, a);
           const pb = roomPoint(map, b);
           expect(Math.abs(pa.s - pb.s) * ASPECT).toBeGreaterThan(ROOM_T * 1.5);
@@ -60,6 +61,25 @@ describe('the cut of the depths (chantier 49)', () => {
         for (const b of pts)
           if (a !== b)
             expect(Math.hypot((a.s - b.s) * CUT_ASPECT, a.t - b.t)).toBeGreaterThan(LOCULE_T * 2);
+    }
+  });
+
+  it('sets the caverns inside the core, apart, and the stem at its bottom (chantier 52)', () => {
+    for (const map of maps) {
+      const caverns = map.rooms.filter(isCavern);
+      const pts = caverns.map((r) => roomPoint(map, r));
+      for (const p of pts) {
+        const d = Math.hypot(p.s * CUT_ASPECT, 1 - p.t);
+        expect(d + CAVERN_T).toBeLessThan(CORE);
+        expect(p.t).toBeLessThan(1);
+      }
+      for (const a of pts)
+        for (const b of pts)
+          if (a !== b)
+            expect(Math.hypot((a.s - b.s) * CUT_ASPECT, a.t - b.t)).toBeGreaterThan(CAVERN_T * 1.5);
+      const stem = roomPoint(map, map.rooms.find(isStem)!);
+      expect(stem.s).toBe(0);
+      expect(stem.t).toBeGreaterThan(0.95);
     }
   });
 

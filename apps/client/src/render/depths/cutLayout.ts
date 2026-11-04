@@ -1,4 +1,4 @@
-import { isLocule, type DepthRoom, type DepthsMap } from '@kiwar/shared';
+import { isCore, isLocule, isStem, type DepthRoom, type DepthsMap } from '@kiwar/shared';
 
 /**
  * Chantier 49: where the depths stand in the cut of the dome. Pure (no three.js): the same
@@ -17,6 +17,13 @@ export const ROW_T = [0.32, 0.51, 0.69] as const;
 export const ROOM_T = 0.085;
 /** Chantier 50's locules are small cells around the core, like the seeds they hold. */
 export const LOCULE_T = 0.015;
+/** Chantier 52: the white caverns, big cells of the core, and the stem at its bottom. */
+export const CAVERN_T = 0.022;
+export const STEM_T = 0.026;
+/** The caverns stand on two staggered arcs inside the core (radii in depth units). */
+const CAVERN_RINGS = [0.078, 0.125] as const;
+/** The stem's place, just above the bottom pole. */
+export const STEM_POINT = { s: 0, t: 0.98 } as const;
 /**
  * The dome's half-width over its depth, for what must be round in the world (the locules ring
  * around the core): the faces differ from it by the face's ellipse only (≤ 12 %).
@@ -65,8 +72,9 @@ export function roomPoints(map: DepthsMap): Map<string, CutPoint> {
   out = new Map();
   const groups = new Map<string, DepthRoom[]>();
   placeLocules(map.rooms.filter(isLocule), out);
+  placeCore(map.rooms.filter(isCore), out);
   for (const r of map.rooms) {
-    if (isLocule(r)) continue;
+    if (isLocule(r) || isCore(r)) continue;
     const key = `${r.depth}/${r.x < 0 ? -1 : 1}`;
     groups.set(key, [...(groups.get(key) ?? []), r]);
   }
@@ -95,9 +103,22 @@ export function roomPoints(map: DepthsMap): Map<string, CutPoint> {
   return out;
 }
 
-/** Radius of a room in depth units (a locule is a small cell). */
+/** Radius of a room in depth units (a locule is a small cell, a cavern a bigger one). */
 export function roomRadius(room: Pick<DepthRoom, 'depth'>): number {
-  return isLocule(room) ? LOCULE_T : ROOM_T;
+  if (isLocule(room)) return LOCULE_T;
+  if (isStem(room)) return STEM_T;
+  return isCore(room) ? CAVERN_T : ROOM_T;
+}
+
+/** Chantier 52: the caverns on an arc inside the core, in the order of their `x`; the stem below. */
+function placeCore(rooms: DepthRoom[], out: Map<string, CutPoint>): void {
+  const caverns = rooms.filter((r) => !isStem(r)).sort((a, b) => a.x - b.x);
+  caverns.forEach((r, i) => {
+    const a = Math.PI * (0.1 + (0.8 * (i + 0.5)) / caverns.length);
+    const ring = CAVERN_RINGS[i % 2]!;
+    out.set(r.id, { s: (-Math.cos(a) * ring) / CUT_ASPECT, t: 1 - Math.sin(a) * ring });
+  });
+  for (const r of rooms) if (isStem(r)) out.set(r.id, { ...STEM_POINT });
 }
 
 /**

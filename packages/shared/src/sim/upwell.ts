@@ -3,7 +3,7 @@ import { THREATS } from '../data/threats';
 import { DEPTH_KINDS, ENEMIES } from '../data/units';
 import type { TimeMs } from '../types/ids';
 import type { GameEvent } from './advance';
-import { depthsMapOf, depthsKnown, roomTruth, isLocule } from './depths';
+import { depthsMapOf, depthsKnown, roomTruth, isCore, isLocule } from './depths';
 import { fortifyCost, fortLevel } from './beacons';
 import { RESOURCE_IDS, type Resources } from '../data/resources';
 import { nest } from './selectors';
@@ -41,10 +41,10 @@ export function doorPass(state: GameState, wave: PlannedWave, luck: number): num
 
 /**
  * Nests not taken next to the entrance or to a gallery (hidden: needs the depths' seed), in the
- * flesh and (chantier 50) in the locules.
+ * flesh, (chantier 50) in the locules and (chantier 52) in the core's caverns.
  */
-export function nestsNear(state: GameState): { flesh: number; locules: number } {
-  const out = { flesh: 0, locules: 0 };
+export function nestsNear(state: GameState): { flesh: number; locules: number; core: number } {
+  const out = { flesh: 0, locules: 0, core: 0 };
   const seed = state.depthSeed;
   if (seed === undefined) return out;
   const map = depthsMapOf(state);
@@ -52,7 +52,8 @@ export function nestsNear(state: GameState): { flesh: number; locules: number } 
   for (const r of map.rooms) {
     if (taken[r.id] || !(r.entrance || r.links.some((id) => taken[id]))) continue;
     if (!roomTruth(seed, r).nest) continue;
-    if (isLocule(r)) out.locules++;
+    if (isCore(r)) out.core++;
+    else if (isLocule(r)) out.locules++;
     else out.flesh++;
   }
   return out;
@@ -63,7 +64,11 @@ export function upwellPower(state: GameState): number {
   const u = DEPTHS.upwell;
   const factor = THREATS.nestFactor[nest(state).level] ?? THREATS.nestFactor.at(-1)!;
   const n = nestsNear(state);
-  return u.base * factor * (1 + u.perNest * n.flesh + u.perLoculeNest * n.locules);
+  return (
+    u.base *
+    factor *
+    (1 + u.perNest * n.flesh + u.perLoculeNest * n.locules + u.perCoreNest * n.core)
+  );
 }
 
 /** The Grouillants of an upwelling: larvae and woodlice on the ground, fruit flies above. */

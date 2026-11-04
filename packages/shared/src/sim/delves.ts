@@ -1,7 +1,10 @@
 import { DEPTHS, type RoomKind } from '../data/depths';
 import type { LandingOrders } from '../data/landing';
 import { RESOURCE_IDS, emptyResources } from '../data/resources';
-import { delveSetup, hazardHits, hazardOdds, type HazardHit } from '../battle/delve';
+import { caveInHits, delveSetup, hazardHits, hazardOdds, type HazardHit } from '../battle/delve';
+import { EXPEDITIONS } from '../data/expeditions';
+import { ITEMS } from '../data/gear';
+import { modifiers } from './kiwis';
 import { landingOutcome, type LandingOutcome } from '../battle/landing';
 import { simulateBattle } from '../battle/simulate';
 import type { BattleLog } from '../battle/types';
@@ -11,7 +14,11 @@ import {
   depthsMapOf,
   depthsKnown,
   grouillants,
+  isCavern,
+  isCore,
+  isFlesh,
   isLocule,
+  isStem,
   roomTruth,
   type DepthRoom,
 } from './depths';
@@ -99,9 +106,38 @@ export function delveLock(
   return null;
 }
 
-/** Chantier 50: the locules open in the Industry age (the flesh is open with the tunnel). */
+/**
+ * Chantier 50: the locules open in the Industry age (the flesh is open with the tunnel);
+ * chantier 52: the core's caverns at the Age of the stars. The stem waits for its guard.
+ */
 export function layerOpen(state: GameState, room: DepthRoom): boolean {
-  return !isLocule(room) || ageOf(state) >= DEPTHS.locules.age;
+  if (isFlesh(room)) return true;
+  if (isLocule(room)) return ageOf(state) >= DEPTHS.locules.age;
+  if (isStem(room)) return false;
+  return ageOf(state) >= DEPTHS.core.age;
+}
+
+/**
+ * Chantier 52: a crew's weight in the caverns — each kiwi's (`crewWeight`: 10 × its traits)
+ * plus its armour's.
+ */
+export function delveWeight(crew: readonly Villager[]): number {
+  const C = DEPTHS.core;
+  return Math.round(
+    crew.reduce((sum, v) => {
+      const a = v.gear?.armor ? ITEMS[v.gear.armor] : null;
+      const armour = a && (a.kind === 'light' || a.kind === 'heavy') ? C.armorWeight[a.kind] : 0;
+      return sum + EXPEDITIONS.kiwiWeight * modifiers(v).weight + armour;
+    }, 0),
+  );
+}
+
+/** Chantier 52: the cave-in a crew this heavy brings down in a cavern (public), or null. */
+export function caveInOf(room: DepthRoom, weight: number): RoomHazard | null {
+  if (!isCavern(room) || room.ceiling === undefined || weight <= room.ceiling) return null;
+  const C = DEPTHS.core.caveIn;
+  const excess = (weight - room.ceiling) / room.ceiling;
+  return { kind: 'fall', strength: round2(Math.min(C.max, C.base + C.perExcess * excess)) };
 }
 
 /** The crew goes down (validation is done by the command). */
@@ -175,9 +211,13 @@ export function resolveDelve(
   // Chantier 50: a crew skirting the lakes meets no acid.
   const hazard = e.skirt && truth.hazard?.kind === 'acid' ? null : truth.hazard;
   const hits = hazardHits(members, hazard, battleSeed);
+  const weight = delveWeight(members);
+  const caveIn = caveInOf(room, weight);
+  const caveHits = caveInHits(members, caveIn);
   const setup = delveSetup(state, members, {
     units: truth.units,
     hazard,
+    caveIn,
     orders: e.orders,
     fed,
     seed: battleSeed,
@@ -254,6 +294,16 @@ export function resolveDelve(
     injured: hurt,
     ...(outcome !== 'defeat' ? { seen: truth.units.map((u) => ({ ...u })) } : {}),
     ...(hazard && outcome !== 'defeat' ? { hazard: { ...hazard, hits } } : {}),
+    ...(caveIn
+      ? {
+          caveIn: {
+            strength: caveIn.strength,
+            weight,
+            ceiling: room.ceiling ?? 0,
+            hits: caveHits,
+          },
+        }
+      : {}),
     ...(iron > 0 ? { iron } : {}),
     ...(giantSeeds > 0 ? { giantSeeds } : {}),
     ...(outcome === 'victory' ? { gallery: true } : {}),
@@ -266,9 +316,12 @@ export function resolveDelve(
   } else e.status = 'returning';
 }
 
-/** A locule's view says whether it holds a nest (a flesh room's kind already says it). */
+/**
+ * A locule's or a cavern's view says whether it holds a nest (a flesh room's kind already says
+ * it).
+ */
 function nestOf(room: DepthRoom, nest: boolean): { nest?: boolean } {
-  return isLocule(room) ? { nest } : {};
+  return isFlesh(room) ? {} : { nest };
 }
 
 /**
@@ -300,6 +353,10 @@ export interface DelveForecast {
   possibleHazard: boolean;
   /** Per kiwi: chance to be hit and share of hit points it would lose (known or assumed hazard). */
   harm: { id: VillagerId; chance: number; share: number }[];
+  /** Chantier 52: the crew's weight, the cavern's ceiling, and the cave-in it would bring. */
+  weight: number;
+  ceiling: number | null;
+  caveIn: RoomHazard | null;
   odds: Odds;
   expectedDead: number;
   expectedHurt: number;
@@ -315,11 +372,12 @@ function practice(
   crew: readonly Villager[],
   units: AlienUnit[],
   hazard: RoomHazard | null,
+  caveIn: RoomHazard | null,
   orders: LandingOrders,
   fed: number,
   seed: string,
 ): { outcome: LandingOutcome; dead: number } {
-  const setup = delveSetup(state, crew, { units, hazard, orders, fed, seed });
+  const setup = delveSetup(state, crew, { units, hazard, caveIn, orders, fed, seed });
   const key = JSON.stringify([setup.units, setup.orders, seed]);
   const hit = trialCache.get(key);
   if (hit) return hit;
@@ -361,8 +419,8 @@ export function delveForecast(
   const knowledge: DelveKnowledge = view?.units ? 'seen' : kind ? 'kind' : 'unknown';
   const base = DEPTHS.power[room.depth - 1]!;
   const level = DEPTHS.level[room.depth - 1]!;
-  // A locule heard without its nest known may hold one (the hardest trial).
-  const nestKnown = !isLocule(room) || view?.nest !== undefined;
+  // A locule or a cavern heard without its nest known may hold one (the hardest trial).
+  const nestKnown = isFlesh(room) || view?.nest !== undefined;
   const nest = kind === 'nest' || view?.nest ? DEPTHS.nestPower : 1;
   const armies: AlienUnit[][] = view?.units
     ? [view.units, view.units, view.units]
@@ -376,8 +434,13 @@ export function delveForecast(
   const avoid = (h: RoomHazard | null) => (skirt && h?.kind === 'acid' ? null : h);
   const assumed = avoid(known === undefined ? assumedHazard(room, kind) : known);
   // Every locule has a hazard: an unknown one meets cuts or acid, the worse for this crew.
+  // Chantier 52: a cavern's only danger is its ceiling (public).
   const possibleHazard =
-    known === undefined && !assumed && kind !== 'nest' && !(skirt && kind === 'lake');
+    known === undefined &&
+    !assumed &&
+    kind !== 'nest' &&
+    !isCore(room) &&
+    !(skirt && kind === 'lake');
   const unknownWorst: RoomHazard = isLocule(room)
     ? skirt
       ? { kind: 'cuts', strength: DEPTHS.hazard.strength[room.depth - 1]! }
@@ -396,6 +459,8 @@ export function delveForecast(
         };
       })
     : [];
+  const weight = delveWeight(crew);
+  const caveIn = caveInOf(room, weight);
   const out = {
     knowledge,
     view,
@@ -404,12 +469,15 @@ export function delveForecast(
     hazard: assumed,
     possibleHazard,
     harm,
+    weight,
+    ceiling: room.ceiling ?? null,
+    caveIn,
     travelMs: delveTime(room, skirt),
   };
   if (crew.length === 0)
     return { ...out, odds: 'unknown', expectedDead: 0, expectedHurt: 0, trials: [] };
   const runs = armies.map((units, i) =>
-    practice(state, crew, units, hazards[i]!, orders, fed, `depths/trial/${roomId}/${i}`),
+    practice(state, crew, units, hazards[i]!, caveIn, orders, fed, `depths/trial/${roomId}/${i}`),
   );
   const won = runs.map((r) => r.outcome === 'victory');
   const odds: Odds = won[2] ? 'likely' : won[1] || won[0] ? 'uncertain' : 'unlikely';

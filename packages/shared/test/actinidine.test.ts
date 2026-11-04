@@ -9,6 +9,7 @@ import {
   depthsMapOf,
   dispatchTasks,
   infusionRisk,
+  isFlesh,
   isLocule,
   LANDING,
   roomTruth,
@@ -87,7 +88,7 @@ describe('actinidine (chantier 50)', () => {
     const { map, s: s0 } = withLake();
     delete s0.depths.galleries[depthsMapOf(s0).rooms.find(isLocule)!.id];
     for (const r of depthsMapOf(s0).rooms)
-      if (!isLocule(r)) s0.depths.galleries[r.id] = { kind: 'bundle', since: s0.now };
+      if (isFlesh(r)) s0.depths.galleries[r.id] = { kind: 'bundle', since: s0.now };
     const seed = s0.depthSeed!;
     const lake = depthsMapOf(s0).rooms.find(
       (r) =>

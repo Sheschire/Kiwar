@@ -7,6 +7,7 @@ import {
   delveLock,
   depthsMapOf,
   generateDepths,
+  isFlesh,
   isLocule,
   LANDING,
   roomTruth,
@@ -42,7 +43,7 @@ describe('the locules (chantier 50)', () => {
       'demo/kiwisu': 'bb1eb3a44dce',
     };
     for (const [key, hash] of Object.entries(before)) {
-      const rooms = generateDepths(key).rooms.filter((r) => !isLocule(r));
+      const rooms = generateDepths(key).rooms.filter(isFlesh);
       const ids = new Set(rooms.map((r) => r.id));
       const flesh = rooms.map((r) => ({ ...r, links: r.links.filter((id) => ids.has(id)) }));
       expect(createHash('sha1').update(JSON.stringify(flesh)).digest('hex').slice(0, 12)).toBe(
@@ -89,7 +90,7 @@ describe('the locules (chantier 50)', () => {
     expect(nests).toBeGreaterThan(0);
     expect(nests).toBeLessThan(truths.length);
     // The flesh holds no giant seeds.
-    for (const r of map.rooms.filter((x) => !isLocule(x)))
+    for (const r of map.rooms.filter(isFlesh))
       expect(roomTruth('secret-l/depths', r).giantSeeds).toBe(0);
   });
 
@@ -98,7 +99,7 @@ describe('the locules (chantier 50)', () => {
     const map = depthsMapOf(s);
     // Take the whole flesh: the locules next to it are within reach.
     for (const r of map.rooms)
-      if (!isLocule(r)) s.depths.galleries[r.id] = { kind: 'bundle', since: s.now };
+      if (isFlesh(r)) s.depths.galleries[r.id] = { kind: 'bundle', since: s.now };
     const loc = map.rooms.find((r) => isLocule(r) && r.links.some((id) => s.depths.galleries[id]))!;
     expect(delveLock(s, loc.id, crewIds(s, 4), orders)).toBe('layerLocked');
     expect(delveLock(industry(s), loc.id, crewIds(s, 4), orders)).toBeNull();
@@ -120,7 +121,7 @@ describe('the locules (chantier 50)', () => {
     const { s } = delveColony();
     const map = depthsMapOf(s);
     for (const r of map.rooms)
-      if (!isLocule(r)) s.depths.galleries[r.id] = { kind: 'bundle', since: s.now };
+      if (isFlesh(r)) s.depths.galleries[r.id] = { kind: 'bundle', since: s.now };
     expect(nestsNear(s).flesh).toBe(0);
     const near = map.rooms.filter(
       (r) =>

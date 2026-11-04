@@ -11,14 +11,40 @@ import { localAlienSeed, type GameState, type RoomHazard } from './state';
  * which only the server (online) or the client (solo) holds.
  */
 
-/** 1–3: the green flesh (chantier 48); 4: the locules (chantier 50). */
-export type RoomDepth = 1 | 2 | 3 | 4;
+/**
+ * 1–3: the green flesh (chantier 48); 4: the locules (chantier 50); 5: the white caverns of the
+ * core, 6: the stem (chantier 52).
+ */
+export type RoomDepth = 1 | 2 | 3 | 4 | 5 | 6;
 
 /** The depth of the locules. */
 export const LOCULE_DEPTH = 4;
+/** Chantier 52: the depth of the core's white caverns, and of the stem below them. */
+export const CORE_DEPTH = 5;
+export const STEM_DEPTH = 6;
 
 export function isLocule(room: Pick<DepthRoom, 'depth'>): boolean {
   return room.depth === LOCULE_DEPTH;
+}
+
+/** Chantier 52: a white cavern of the core. */
+export function isCavern(room: Pick<DepthRoom, 'depth'>): boolean {
+  return room.depth === CORE_DEPTH;
+}
+
+/** Chantier 52: the stem, the Great Weevil's room. */
+export function isStem(room: Pick<DepthRoom, 'depth'>): boolean {
+  return room.depth === STEM_DEPTH;
+}
+
+/** A room of the green flesh (depths 1–3). */
+export function isFlesh(room: Pick<DepthRoom, 'depth'>): boolean {
+  return room.depth < LOCULE_DEPTH;
+}
+
+/** Chantier 52: a room of the core layer (a cavern or the stem). */
+export function isCore(room: Pick<DepthRoom, 'depth'>): boolean {
+  return room.depth >= CORE_DEPTH;
 }
 
 export interface DepthRoom {
@@ -30,6 +56,8 @@ export interface DepthRoom {
   links: string[];
   /** Opens onto the tunnel entrance. */
   entrance: boolean;
+  /** Chantier 52: a white cavern's ceiling (public), in crew weight (`delveWeight`). */
+  ceiling?: number;
 }
 
 export interface DepthsMap {
@@ -91,7 +119,8 @@ export function generateDepths(key: string): DepthsMap {
       if (near[1] && rng.chance(DEPTHS.secondLink)) link(r, near[1]);
     }
   }
-  generateLocules(key, rooms, byDepth[byDepth.length - 1]!, link);
+  const locules = generateLocules(key, rooms, byDepth[byDepth.length - 1]!, link);
+  generateCore(key, rooms, locules, link);
   return { rooms, byId: new Map(rooms.map((r) => [r.id, r])) };
 }
 
@@ -106,7 +135,7 @@ function generateLocules(
   rooms: DepthRoom[],
   above: readonly DepthRoom[],
   link: (a: DepthRoom, b: DepthRoom) => void,
-): void {
+): DepthRoom[] {
   const rng = createRng(`${key}/depths/locules`);
   const L = DEPTHS.locules;
   const n = rng.int(L.count[0], L.count[1]);
@@ -132,6 +161,57 @@ function generateLocules(
     if (rng.chance(L.secondLink)) link(r, near[1]!);
   }
   for (const loc of row) if (rng.chance(L.upLink)) link(loc, nearest(above, loc.x)[0]!);
+  return row;
+}
+
+/**
+ * Chantier 52: the core, a row of white caverns below the locules, each opening onto the
+ * nearest locule (sometimes the second nearest too) and often onto the next cavern; then the
+ * stem, one room at the very bottom, opening onto the cavern nearest the middle (and sometimes
+ * the second). Drawn from a stream of their own, after the locules: nothing above moves.
+ */
+function generateCore(
+  key: string,
+  rooms: DepthRoom[],
+  locules: readonly DepthRoom[],
+  link: (a: DepthRoom, b: DepthRoom) => void,
+): void {
+  const rng = createRng(`${key}/depths/core`);
+  const C = DEPTHS.core;
+  const n = rng.int(C.count[0], C.count[1]);
+  const row: DepthRoom[] = [];
+  for (let i = 0; i < n; i++) {
+    const slot = 2 / n;
+    const x = round2(-1 + slot * (i + 0.5) + rng.range(-0.25, 0.25) * slot);
+    row.push({
+      id: `r${rooms.length + row.length}`,
+      depth: CORE_DEPTH,
+      x,
+      links: [],
+      entrance: false,
+      ceiling: rng.int(C.ceiling[0], C.ceiling[1]),
+    });
+  }
+  rooms.push(...row);
+  const nearest = <T extends DepthRoom>(list: readonly T[], x: number) =>
+    [...list].sort((a, b) => Math.abs(a.x - x) - Math.abs(b.x - x));
+  for (let i = 0; i + 1 < row.length; i++) if (rng.chance(C.sideLink)) link(row[i]!, row[i + 1]!);
+  for (const c of row) {
+    const near = nearest(locules, c.x);
+    link(c, near[0]!);
+    if (rng.chance(C.secondLink)) link(c, near[1]!);
+  }
+  const stem: DepthRoom = {
+    id: `r${rooms.length}`,
+    depth: STEM_DEPTH,
+    x: round2(rng.range(-0.15, 0.15)),
+    links: [],
+    entrance: false,
+  };
+  rooms.push(stem);
+  const middle = nearest(row, stem.x);
+  link(stem, middle[0]!);
+  if (rng.chance(0.5)) link(stem, middle[1]!);
 }
 
 /** What a room really holds (hidden: only from the secret seed). */
@@ -164,6 +244,10 @@ export function roomTruth(seed: string, room: DepthRoom): RoomTruth {
 
 function drawRoom(rng: Rng, depth: RoomDepth): RoomTruth {
   if (depth === LOCULE_DEPTH) return drawLocule(rng);
+  if (depth === CORE_DEPTH) return drawCavern(rng);
+  if (depth === STEM_DEPTH)
+    // The Great Weevil's room: its guard is public (chantier 52, `battle/stem.ts`).
+    return { kind: 'stem', nest: false, units: [], hazard: null, loot: {}, iron: 0, giantSeeds: 0 };
   const kind = weighted(rng, DEPTHS.kindWeights[depth - 1]!);
   const power =
     DEPTHS.power[depth - 1]! *
@@ -216,6 +300,26 @@ function drawLocule(rng: Rng): RoomTruth {
     loot[r] = Math.round(amount * share);
   const giantSeeds = rng.int(DEPTHS.locules.giantSeeds[0], DEPTHS.locules.giantSeeds[1]);
   return { kind, nest, units, hazard, loot, iron: DEPTHS.iron[i]!, giantSeeds };
+}
+
+/**
+ * Chantier 52: a white cavern — no hazard of its own (its thin walls only cave in under a heavy
+ * crew), often a nest, rich in sap, a few giant seeds.
+ */
+function drawCavern(rng: Rng): RoomTruth {
+  const i = CORE_DEPTH - 1;
+  const nest = rng.chance(DEPTHS.core.nestChance);
+  const power =
+    DEPTHS.power[i]! *
+    rng.range(DEPTHS.spread[0], DEPTHS.spread[1]) *
+    (nest ? DEPTHS.nestPower : 1);
+  const units = grouillants(power, DEPTHS.level[i]!);
+  const amount = DEPTHS.loot[i]! * rng.range(0.8, 1.2);
+  const loot: Partial<Record<ResourceId, number>> = {};
+  for (const [r, share] of Object.entries(DEPTHS.lootKind.cavern) as [ResourceId, number][])
+    loot[r] = Math.round(amount * share);
+  const giantSeeds = rng.int(DEPTHS.core.giantSeeds[0], DEPTHS.core.giantSeeds[1]);
+  return { kind: 'cavern', nest, units, hazard: null, loot, iron: DEPTHS.iron[i]!, giantSeeds };
 }
 
 /** Grouillants worth this much power (a larva at least). */

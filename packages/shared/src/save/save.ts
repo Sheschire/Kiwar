@@ -635,6 +635,14 @@ export const gameStateSchema = z.object({
               hits: z.array(z.object({ id, share: z.number().min(0).max(1) })).max(200),
             })
             .optional(),
+          caveIn: z
+            .object({
+              strength: z.number().min(0).max(1),
+              weight: z.number().min(0).max(10000),
+              ceiling: z.number().min(0).max(10000),
+              hits: z.array(z.object({ id, share: z.number().min(0).max(1) })).max(200),
+            })
+            .optional(),
           gallery: z.boolean().optional(),
           lantern: z.string().max(8).optional(),
         })

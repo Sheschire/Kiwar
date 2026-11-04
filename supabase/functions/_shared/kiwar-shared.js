@@ -3790,11 +3790,21 @@ var BEACONS = {
 };
 
 // packages/shared/src/data/depths.ts
-var ROOM_KINDS = ["bundle", "sap", "nest", "scree", "raphides", "forest", "lake"];
+var ROOM_KINDS = [
+  "bundle",
+  "sap",
+  "nest",
+  "scree",
+  "raphides",
+  "forest",
+  "lake",
+  "cavern",
+  "stem"
+];
 var HAZARD_KINDS = ["fall", "cuts", "acid"];
 var DEPTHS = {
-  /** Layers of the network (chantier 50 adds the locules at depth 4, 52 the core). */
-  layers: ["flesh", "locules"],
+  /** Layers of the network (chantier 50 adds the locules at depth 4, 52 the core and stem). */
+  layers: ["flesh", "locules", "core"],
   /** Rooms of the flesh by depth (1, 2, 3): [min, max] each. */
   rooms: [
     [3, 4],
@@ -3810,24 +3820,26 @@ var DEPTHS = {
     { bundle: 4, sap: 3, nest: 1, scree: 1.5, raphides: 0.5 },
     { bundle: 3, sap: 3, nest: 2, scree: 1.5, raphides: 1 },
     { bundle: 2, sap: 3, nest: 3, scree: 1.5, raphides: 1.5 },
-    { forest: 3, lake: 2 }
+    { forest: 3, lake: 2 },
+    { cavern: 1 },
+    { stem: 1 }
   ],
   /** Grouillants of a room: power by depth (threat points, `ENEMIES.power`), × spread. */
-  power: [9, 20, 36, 50],
+  power: [9, 20, 36, 50, 70, 0],
   spread: [0.75, 1.25],
   /** A nest holds this many times more. */
   nestPower: 1.8,
   /** Share of each kind in a room's power. */
   mix: { larva: 0.55, fruitFly: 0.25, woodlouse: 0.2 },
   /** Level of the Grouillants by depth. */
-  level: [3, 7, 11, 13],
+  level: [3, 7, 11, 13, 16, 20],
   /**
    * Hazards: scree always falls, raphides always cut; any other room has this chance of one
    * (drawn between the two). Strength = share of a kiwi's hit points lost by one hit, × spread.
    */
   hazard: {
     otherChance: 0.3,
-    strength: [0.25, 0.32, 0.4, 0.45],
+    strength: [0.25, 0.32, 0.4, 0.45, 0.5, 0.5],
     /** Chance for each kiwi to be hit, before its stat. */
     chance: 0.6,
     /** Each point of the matching stat above 5 lowers the chance and the harm by this share. */
@@ -3838,9 +3850,9 @@ var DEPTHS = {
     floor: 0.2
   },
   /** Delves: one-way time by depth, and the XP of a room won (× `LANDING.victoryXp`). */
-  travelMs: [ms.h(1), ms.h(3), ms.h(5), ms.h(7)],
+  travelMs: [ms.h(1), ms.h(3), ms.h(5), ms.h(7), ms.h(9), ms.h(10)],
   /** Loot of a room won, by depth, then by kind (raw resource units). */
-  loot: [300, 550, 900, 1300],
+  loot: [300, 550, 900, 1300, 2e3, 0],
   lootKind: {
     bundle: { fiber: 1, pulp: 0.3 },
     sap: { juice: 1, pulp: 0.3 },
@@ -3848,10 +3860,12 @@ var DEPTHS = {
     scree: { seeds: 0.6, pulp: 0.5 },
     raphides: { seeds: 0.8, fiber: 0.3 },
     forest: { seeds: 0.6, fiber: 0.4 },
-    lake: { juice: 0.6, pulp: 0.4 }
+    lake: { juice: 0.6, pulp: 0.4 },
+    cavern: { juice: 1, pulp: 0.4 },
+    stem: {}
   },
   /** Meteoric iron of a room won (whole units), by depth. */
-  iron: [1, 2, 3, 4],
+  iron: [1, 2, 3, 4, 5, 0],
   /** Galleries: what a taken room yields, places for miners by depth, rate per miner per hour. */
   gallery: {
     resource: {
@@ -3859,7 +3873,8 @@ var DEPTHS = {
       sap: "juice",
       nest: "pulp",
       scree: "seeds",
-      raphides: "seeds"
+      raphides: "seeds",
+      cavern: "juice"
     },
     /**
      * Chantier 50: the mastery a miner uses in each gallery (a locule's crystal is cut like
@@ -3872,15 +3887,19 @@ var DEPTHS = {
       scree: "seeds",
       raphides: "seeds",
       forest: "seeds",
-      lake: "juice"
+      lake: "juice",
+      cavern: "juice",
+      // The stem's pilgrims (chantier 52) work nothing: their mastery is never read.
+      stem: "juice"
     },
-    slots: [2, 3, 3, 3],
+    slots: [2, 3, 3, 3, 3, 0],
     /**
      * Output of a miner: this share (by depth) of what a worker yields in the producer of the
      * gallery's resource at the level `6 + tunnel level` (7–9) — less than a workshop, but no
-     * deposit to drain, no walk to a depot, day and night, in every season.
+     * deposit to drain, no walk to a depot, day and night, in every season. Chantier 52: a
+     * white cavern's pure sap doubles a mine's output.
      */
-    perMiner: [0.5, 0.7, 0.9, 1],
+    perMiner: [0.5, 0.7, 0.9, 1, 2, 0],
     producer: {
       pulp: "pulpery",
       fiber: "fiberWorkshop",
@@ -3913,6 +3932,35 @@ var DEPTHS = {
     skirtTravel: 1.5
   },
   /**
+   * Chantier 52: the core, white caverns around the centre below the locules (public like the
+   * rest, drawn after the locules on a stream of their own), and the stem below them. Open from
+   * the Age of the stars.
+   */
+  core: {
+    count: [6, 10],
+    /** Chance that two caverns side by side are linked (the first and last always are). */
+    sideLink: 0.6,
+    /** Chance that a cavern also opens onto its second nearest locule. */
+    secondLink: 0.4,
+    /** Chance that a cavern holds a nest of Grouillants. */
+    nestChance: 0.35,
+    /** Giant seeds found in a cavern won: [min, max]. */
+    giantSeeds: [0, 2],
+    /** Age that opens them (the stars). */
+    age: 4,
+    /**
+     * The thin walls: each cavern's ceiling (public), in crew weight (`crewWeight`: 10 a kiwi,
+     * × its traits, + its armour's `armorWeight`). Heavier than that, the cavern caves in.
+     */
+    ceiling: [45, 75],
+    armorWeight: { light: 2, heavy: 6 },
+    /**
+     * A cave-in hits every kiwi of the crew (lessened by Endurance and the spelunkers): its
+     * strength is `base` + `perExcess` × the share of weight above the ceiling, at most `max`.
+     */
+    caveIn: { base: 0.2, perExcess: 0.8, max: 0.6 }
+  },
+  /**
    * Chantier 50: an actinidine lake worked by at least one miner (the door open) halves the
    * laboratory's infusion risk, and with the technology Enzymes the wounded heal faster.
    */
@@ -3938,6 +3986,8 @@ var DEPTHS = {
     perNest: 0.35,
     /** Chantier 50: the locules hold the strongest nests. */
     perLoculeNest: 0.6,
+    /** Chantier 52: the core's nests, the strongest of all (silenced by the Mother Vine). */
+    perCoreNest: 0.8,
     /** Spread of the announced numbers, and of the luck at the strike. */
     spread: 0.15,
     /** Share of fruit flies (air), the rest larvae and woodlice. */
@@ -4684,8 +4734,22 @@ var TURRET_SHOT = 0.8;
 
 // packages/shared/src/sim/depths.ts
 var LOCULE_DEPTH = 4;
+var CORE_DEPTH = 5;
+var STEM_DEPTH = 6;
 function isLocule(room) {
   return room.depth === LOCULE_DEPTH;
+}
+function isCavern(room) {
+  return room.depth === CORE_DEPTH;
+}
+function isStem(room) {
+  return room.depth === STEM_DEPTH;
+}
+function isFlesh(room) {
+  return room.depth < LOCULE_DEPTH;
+}
+function isCore(room) {
+  return room.depth >= CORE_DEPTH;
 }
 var mapCache = /* @__PURE__ */ new Map();
 function depthsMapOf(state) {
@@ -4737,7 +4801,8 @@ function generateDepths(key) {
       if (near[1] && rng.chance(DEPTHS.secondLink)) link(r, near[1]);
     }
   }
-  generateLocules(key, rooms, byDepth[byDepth.length - 1], link);
+  const locules = generateLocules(key, rooms, byDepth[byDepth.length - 1], link);
+  generateCore(key, rooms, locules, link);
   return { rooms, byId: new Map(rooms.map((r) => [r.id, r])) };
 }
 function generateLocules(key, rooms, above, link) {
@@ -4765,6 +4830,44 @@ function generateLocules(key, rooms, above, link) {
     if (rng.chance(L.secondLink)) link(r, near[1]);
   }
   for (const loc of row) if (rng.chance(L.upLink)) link(loc, nearest(above, loc.x)[0]);
+  return row;
+}
+function generateCore(key, rooms, locules, link) {
+  const rng = createRng(`${key}/depths/core`);
+  const C = DEPTHS.core;
+  const n = rng.int(C.count[0], C.count[1]);
+  const row = [];
+  for (let i = 0; i < n; i++) {
+    const slot = 2 / n;
+    const x = round22(-1 + slot * (i + 0.5) + rng.range(-0.25, 0.25) * slot);
+    row.push({
+      id: `r${rooms.length + row.length}`,
+      depth: CORE_DEPTH,
+      x,
+      links: [],
+      entrance: false,
+      ceiling: rng.int(C.ceiling[0], C.ceiling[1])
+    });
+  }
+  rooms.push(...row);
+  const nearest = (list, x) => [...list].sort((a, b) => Math.abs(a.x - x) - Math.abs(b.x - x));
+  for (let i = 0; i + 1 < row.length; i++) if (rng.chance(C.sideLink)) link(row[i], row[i + 1]);
+  for (const c of row) {
+    const near = nearest(locules, c.x);
+    link(c, near[0]);
+    if (rng.chance(C.secondLink)) link(c, near[1]);
+  }
+  const stem = {
+    id: `r${rooms.length}`,
+    depth: STEM_DEPTH,
+    x: round22(rng.range(-0.15, 0.15)),
+    links: [],
+    entrance: false
+  };
+  rooms.push(stem);
+  const middle = nearest(row, stem.x);
+  link(stem, middle[0]);
+  if (rng.chance(0.5)) link(stem, middle[1]);
 }
 var truthCache = /* @__PURE__ */ new Map();
 function roomTruth(seed, room) {
@@ -4779,6 +4882,9 @@ function roomTruth(seed, room) {
 }
 function drawRoom(rng, depth) {
   if (depth === LOCULE_DEPTH) return drawLocule(rng);
+  if (depth === CORE_DEPTH) return drawCavern(rng);
+  if (depth === STEM_DEPTH)
+    return { kind: "stem", nest: false, units: [], hazard: null, loot: {}, iron: 0, giantSeeds: 0 };
   const kind = weighted(rng, DEPTHS.kindWeights[depth - 1]);
   const power = DEPTHS.power[depth - 1] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1]) * (kind === "nest" ? DEPTHS.nestPower : 1);
   const units = grouillants(power, DEPTHS.level[depth - 1]);
@@ -4823,6 +4929,18 @@ function drawLocule(rng) {
     loot[r] = Math.round(amount * share2);
   const giantSeeds = rng.int(DEPTHS.locules.giantSeeds[0], DEPTHS.locules.giantSeeds[1]);
   return { kind, nest: nest2, units, hazard, loot, iron: DEPTHS.iron[i], giantSeeds };
+}
+function drawCavern(rng) {
+  const i = CORE_DEPTH - 1;
+  const nest2 = rng.chance(DEPTHS.core.nestChance);
+  const power = DEPTHS.power[i] * rng.range(DEPTHS.spread[0], DEPTHS.spread[1]) * (nest2 ? DEPTHS.nestPower : 1);
+  const units = grouillants(power, DEPTHS.level[i]);
+  const amount = DEPTHS.loot[i] * rng.range(0.8, 1.2);
+  const loot = {};
+  for (const [r, share2] of Object.entries(DEPTHS.lootKind.cavern))
+    loot[r] = Math.round(amount * share2);
+  const giantSeeds = rng.int(DEPTHS.core.giantSeeds[0], DEPTHS.core.giantSeeds[1]);
+  return { kind: "cavern", nest: nest2, units, hazard: null, loot, iron: DEPTHS.iron[i], giantSeeds };
 }
 function grouillants(power, level) {
   return DEPTH_KINDS.map((kind) => ({
@@ -7479,6 +7597,23 @@ function hazardHits(crew, hazard, seed) {
   }
   return out;
 }
+function caveInHits(crew, caveIn) {
+  if (!caveIn) return [];
+  const out = [];
+  for (const v of crew) {
+    const share2 = Math.min(1 - DEPTHS.hazard.floor, hazardOdds(v, crew, caveIn).harm);
+    if (share2 > 0) out.push({ id: v.id, share: Math.round(share2 * 100) / 100 });
+  }
+  return out;
+}
+function startingHarm(crew, input) {
+  const out = new Map(hazardHits(crew, input.hazard, input.seed).map((h) => [h.id, h.share]));
+  for (const h of caveInHits(crew, input.caveIn ?? null)) {
+    const kept = (1 - (out.get(h.id) ?? 0)) * (1 - h.share);
+    out.set(h.id, Math.min(1 - DEPTHS.hazard.floor, Math.round((1 - kept) * 100) / 100));
+  }
+  return out;
+}
 function delveSetup(state, crew, input) {
   const disk = hexDisk(CENTRE, ROOM_RADIUS);
   const tiles = disk.map((h) => ({ q: h.q, r: h.r, cost: 1 }));
@@ -7486,7 +7621,7 @@ function delveSetup(state, crew, input) {
   const byEntry = [...disk].sort(
     (a, b) => hexDistance(a, ENTRY) - hexDistance(b, ENTRY) || a.q - b.q || a.r - b.r
   );
-  const hits = new Map(hazardHits(crew, input.hazard, input.seed).map((h) => [h.id, h.share]));
+  const hits = startingHarm(crew, input);
   const hunger = 0.5 + 0.5 * Math.max(0, Math.min(1, input.fed));
   const units = [];
   crew.forEach((v, i) => {
@@ -7569,7 +7704,26 @@ function delveLock(state, roomId, crew, orders) {
   return null;
 }
 function layerOpen(state, room) {
-  return !isLocule(room) || ageOf(state) >= DEPTHS.locules.age;
+  if (isFlesh(room)) return true;
+  if (isLocule(room)) return ageOf(state) >= DEPTHS.locules.age;
+  if (isStem(room)) return false;
+  return ageOf(state) >= DEPTHS.core.age;
+}
+function delveWeight(crew) {
+  const C = DEPTHS.core;
+  return Math.round(
+    crew.reduce((sum, v) => {
+      const a = v.gear?.armor ? ITEMS[v.gear.armor] : null;
+      const armour = a && (a.kind === "light" || a.kind === "heavy") ? C.armorWeight[a.kind] : 0;
+      return sum + EXPEDITIONS.kiwiWeight * modifiers(v).weight + armour;
+    }, 0)
+  );
+}
+function caveInOf(room, weight) {
+  if (!isCavern(room) || room.ceiling === void 0 || weight <= room.ceiling) return null;
+  const C = DEPTHS.core.caveIn;
+  const excess = (weight - room.ceiling) / room.ceiling;
+  return { kind: "fall", strength: round23(Math.min(C.max, C.base + C.perExcess * excess)) };
 }
 function launchDelve(state, roomId, crewIds, provisions, orders, now, id3, skirt = false) {
   const room = depthsMapOf(state).byId.get(roomId);
@@ -7621,9 +7775,13 @@ function resolveDelve(state, e, members, fed) {
   const battleSeed = `${seed}/delve/${e.id}`;
   const hazard = e.skirt && truth.hazard?.kind === "acid" ? null : truth.hazard;
   const hits = hazardHits(members, hazard, battleSeed);
+  const weight = delveWeight(members);
+  const caveIn = caveInOf(room, weight);
+  const caveHits = caveInHits(members, caveIn);
   const setup = delveSetup(state, members, {
     units: truth.units,
     hazard,
+    caveIn,
     orders: e.orders,
     fed,
     seed: battleSeed
@@ -7695,6 +7853,14 @@ function resolveDelve(state, e, members, fed) {
     injured: hurt,
     ...outcome !== "defeat" ? { seen: truth.units.map((u) => ({ ...u })) } : {},
     ...hazard && outcome !== "defeat" ? { hazard: { ...hazard, hits } } : {},
+    ...caveIn ? {
+      caveIn: {
+        strength: caveIn.strength,
+        weight,
+        ceiling: room.ceiling ?? 0,
+        hits: caveHits
+      }
+    } : {},
     ...iron > 0 ? { iron } : {},
     ...giantSeeds > 0 ? { giantSeeds } : {},
     ...outcome === "victory" ? { gallery: true } : {},
@@ -7707,7 +7873,7 @@ function resolveDelve(state, e, members, fed) {
   } else e.status = "returning";
 }
 function nestOf(room, nest2) {
-  return isLocule(room) ? { nest: nest2 } : {};
+  return isFlesh(room) ? {} : { nest: nest2 };
 }
 function lanternRoom(state, room, crew) {
   if (!crew.some((v) => v.classId === "spelunker")) return void 0;
@@ -7715,8 +7881,8 @@ function lanternRoom(state, room, crew) {
   return room.links.map((id3) => map.byId.get(id3)).filter((r) => !state.depths.galleries[r.id] && !state.depths.views[r.id]?.units).sort((a, b) => b.depth - a.depth || a.id.localeCompare(b.id))[0]?.id;
 }
 var trialCache = /* @__PURE__ */ new Map();
-function practice(state, crew, units, hazard, orders, fed, seed) {
-  const setup = delveSetup(state, crew, { units, hazard, orders, fed, seed });
+function practice(state, crew, units, hazard, caveIn, orders, fed, seed) {
+  const setup = delveSetup(state, crew, { units, hazard, caveIn, orders, fed, seed });
   const key = JSON.stringify([setup.units, setup.orders, seed]);
   const hit = trialCache.get(key);
   if (hit) return hit;
@@ -7741,7 +7907,7 @@ function delveForecast(state, roomId, crew, orders, fed = 1, skirt = false) {
   const knowledge = view?.units ? "seen" : kind ? "kind" : "unknown";
   const base = DEPTHS.power[room.depth - 1];
   const level = DEPTHS.level[room.depth - 1];
-  const nestKnown = !isLocule(room) || view?.nest !== void 0;
+  const nestKnown = isFlesh(room) || view?.nest !== void 0;
   const nest2 = kind === "nest" || view?.nest ? DEPTHS.nestPower : 1;
   const armies = view?.units ? [view.units, view.units, view.units] : [
     grouillants(base * DEPTHS.spread[0] * nest2, level),
@@ -7751,7 +7917,7 @@ function delveForecast(state, roomId, crew, orders, fed = 1, skirt = false) {
   const known = view && view.hazard !== void 0 ? view.hazard : void 0;
   const avoid = (h) => skirt && h?.kind === "acid" ? null : h;
   const assumed = avoid(known === void 0 ? assumedHazard(room, kind) : known);
-  const possibleHazard = known === void 0 && !assumed && kind !== "nest" && !(skirt && kind === "lake");
+  const possibleHazard = known === void 0 && !assumed && kind !== "nest" && !isCore(room) && !(skirt && kind === "lake");
   const unknownWorst = isLocule(room) ? skirt ? { kind: "cuts", strength: DEPTHS.hazard.strength[room.depth - 1] } : worstLoculeHazard(crew, DEPTHS.hazard.strength[room.depth - 1]) : { kind: "fall", strength: DEPTHS.hazard.strength[room.depth - 1] };
   const worst = assumed ?? (possibleHazard ? unknownWorst : null);
   const hazards = [assumed, assumed, worst];
@@ -7764,6 +7930,8 @@ function delveForecast(state, roomId, crew, orders, fed = 1, skirt = false) {
       share: round23(Math.min(1 - DEPTHS.hazard.floor, o.harm))
     };
   }) : [];
+  const weight = delveWeight(crew);
+  const caveIn = caveInOf(room, weight);
   const out = {
     knowledge,
     view,
@@ -7772,12 +7940,15 @@ function delveForecast(state, roomId, crew, orders, fed = 1, skirt = false) {
     hazard: assumed,
     possibleHazard,
     harm,
+    weight,
+    ceiling: room.ceiling ?? null,
+    caveIn,
     travelMs: delveTime(room, skirt)
   };
   if (crew.length === 0)
     return { ...out, odds: "unknown", expectedDead: 0, expectedHurt: 0, trials: [] };
   const runs = armies.map(
-    (units, i) => practice(state, crew, units, hazards[i], orders, fed, `depths/trial/${roomId}/${i}`)
+    (units, i) => practice(state, crew, units, hazards[i], caveIn, orders, fed, `depths/trial/${roomId}/${i}`)
   );
   const won = runs.map((r) => r.outcome === "victory");
   const odds = won[2] ? "likely" : won[1] || won[0] ? "uncertain" : "unlikely";
@@ -13890,7 +14061,7 @@ function doorPass(state, wave, luck) {
   return Math.max(0, power - doorStrength(state)) / power;
 }
 function nestsNear(state) {
-  const out = { flesh: 0, locules: 0 };
+  const out = { flesh: 0, locules: 0, core: 0 };
   const seed = state.depthSeed;
   if (seed === void 0) return out;
   const map = depthsMapOf(state);
@@ -13898,7 +14069,8 @@ function nestsNear(state) {
   for (const r of map.rooms) {
     if (taken[r.id] || !(r.entrance || r.links.some((id3) => taken[id3]))) continue;
     if (!roomTruth(seed, r).nest) continue;
-    if (isLocule(r)) out.locules++;
+    if (isCore(r)) out.core++;
+    else if (isLocule(r)) out.locules++;
     else out.flesh++;
   }
   return out;
@@ -13907,7 +14079,7 @@ function upwellPower(state) {
   const u = DEPTHS.upwell;
   const factor = THREATS.nestFactor[nest(state).level] ?? THREATS.nestFactor.at(-1);
   const n = nestsNear(state);
-  return u.base * factor * (1 + u.perNest * n.flesh + u.perLoculeNest * n.locules);
+  return u.base * factor * (1 + u.perNest * n.flesh + u.perLoculeNest * n.locules + u.perCoreNest * n.core);
 }
 function upwellSquads(state, ground, air) {
   const sector = rampartSectorOf(tunnelOf(state));
@@ -20855,6 +21027,12 @@ var gameStateSchema = external_exports.object({
           strength: external_exports.number().min(0).max(1),
           hits: external_exports.array(external_exports.object({ id, share: external_exports.number().min(0).max(1) })).max(200)
         }).optional(),
+        caveIn: external_exports.object({
+          strength: external_exports.number().min(0).max(1),
+          weight: external_exports.number().min(0).max(1e4),
+          ceiling: external_exports.number().min(0).max(1e4),
+          hits: external_exports.array(external_exports.object({ id, share: external_exports.number().min(0).max(1) })).max(200)
+        }).optional(),
         gallery: external_exports.boolean().optional(),
         lantern: external_exports.string().max(8).optional()
       }).nullable()
@@ -23135,6 +23313,7 @@ export {
   COLONY,
   COMETS,
   COMMAND_ERRORS,
+  CORE_DEPTH,
   CRYSTAL,
   CRYSTAL_SCALE,
   CYCLES,
@@ -23259,6 +23438,7 @@ export {
   STARDUST_SCALE,
   START,
   STAT_IDS,
+  STEM_DEPTH,
   TASKS,
   TECHS,
   TECH_BRANCHES,
@@ -23393,6 +23573,8 @@ export {
   catchmentPlan,
   catchmentPreview,
   catchmentRadius,
+  caveInHits,
+  caveInOf,
   civAgeOfHours,
   civAt,
   civBuildings,
@@ -23480,6 +23662,7 @@ export {
   delveLock,
   delveSetup,
   delveTime,
+  delveWeight,
   demolitionPreview,
   demolitionRefund,
   denRaidForecast,
@@ -23647,13 +23830,16 @@ export {
   ironCap,
   ironUnits,
   isBank,
+  isCavern,
   isConquered,
+  isCore,
   isCosmetic,
   isDecor,
   isDelve,
   isDepot,
   isFace,
   isFeatKey,
+  isFlesh,
   isFlooded,
   isFlyer,
   isInner,
@@ -23670,6 +23856,7 @@ export {
   isProducer,
   isRampart,
   isSister,
+  isStem,
   isTurret,
   isVillageLife,
   itemOpen,
@@ -23972,6 +24159,7 @@ export {
   startFortify,
   startItem,
   startedItems,
+  startingHarm,
   storageFullCheck,
   storeItem,
   strengthOf,

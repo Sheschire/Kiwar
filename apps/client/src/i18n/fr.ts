@@ -1021,6 +1021,8 @@ export const fr: Dict = {
       raphides: 'Poche de raphides',
       forest: 'Forêt de raphides',
       lake: 'Lac d’actinidine',
+      cavern: 'Caverne blanche',
+      stem: 'Le pédoncule',
     },
     kindHints: {
       bundle: 'Une galerie naturelle de fibres : une mine de fibre.',
@@ -1030,6 +1032,9 @@ export const fr: Dict = {
       raphides: 'Des aiguilles de cristal : elles coupent l’équipage. Une mine de graines.',
       forest: 'Une loge hérissée de cristal : des coupures pour l’équipage. Une mine de cristal.',
       lake: 'Une loge noyée d’actinidine : l’acide ronge l’équipage. Exploitée, son enzyme sert le laboratoire et les blessé·es.',
+      cavern:
+        'Une immense cellule du cœur à paroi fine, pleine de sève pure : sa galerie donne deux fois plus de jus. Un équipage trop lourd fait tomber son plafond.',
+      stem: 'L’attache du fruit, la salle la plus profonde. Le Grand Charançon la garde ; au-delà, la Liane-Mère.',
     },
     hazards: {
       fall: 'Chutes : jusqu’à {pct} % des points de vie d’un kiwi (l’Endurance aide)',
@@ -1964,6 +1969,17 @@ export const fr: Dict = {
     tip: 'Taillé dans les forêts de raphides des loges, gardé à part des stocks (au plus {cap}, plus avec le Nid). Il paie le verre, les munitions de cristal et les armes de cristal.',
     perHour: '+{rate}/h en taille',
     full: 'La réserve de cristal est pleine : les mineur·euses des forêts remontent.',
+  },
+  core: {
+    strip: '{count} cavernes blanches autour du centre, et le pédoncule dessous. Touchez-en une.',
+    weight: 'Poids de l’équipage {weight} / plafond {ceiling}',
+    caveIn:
+      'Trop lourd : la caverne s’éboule (−{pct} % de points de vie pour tout le monde, moins avec l’Endurance)',
+    caveInReport:
+      'La caverne s’est éboulée sous {weight} (plafond {ceiling}) : −{pct} % de points de vie',
+    ceiling:
+      'Plafond : {ceiling} de poids d’équipage (un kiwi pèse environ 10, une armure davantage)',
+    closed: 'Le cœur s’ouvre à l’Âge des étoiles.',
   },
   locules: {
     lensOn: 'Lentille de cristal posée : +{range} tuile de portée.',

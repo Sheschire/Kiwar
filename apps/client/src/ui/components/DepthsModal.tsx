@@ -19,7 +19,10 @@ import {
   meteorIronOf,
   minersIn,
   rations,
+  isCore,
+  isFlesh,
   isLocule,
+  isStem,
   ageOf,
   delveTime,
   actinidineActive,
@@ -95,6 +98,7 @@ export function DepthsModal() {
             <div class="depths-cut-col">
               <DepthsCut game={game} selected={selected} onSelect={setSelected} />
               <LoculeStrip game={game} selected={selected} onSelect={setSelected} />
+              <LoculeStrip game={game} selected={selected} onSelect={setSelected} core />
             </div>
             <div class="depths-side">
               {room ? (
@@ -123,7 +127,18 @@ const ROW = 28;
 /** Chantier 50: the locules' band around the core (its middle radius). */
 const LOCULE_BAND = 38;
 
+/** Chantier 52: the core's disc (its radius) and the caverns' arc inside it. */
+const CORE_R = 24;
+/** Two staggered arcs (the caverns are drawn left to right: their ids alternate). */
+const CAVERN_RINGS = [10, 18] as const;
+
 function roomAt(room: DepthRoom): { x: number; y: number } {
+  if (isStem(room)) return { x: W / 2, y: TOP + R - 8 };
+  if (isCore(room)) {
+    const ring = CAVERN_RINGS[Number(room.id.slice(1)) % 2]!;
+    const a = (Math.PI * (1 - room.x * 0.9)) / 2;
+    return { x: W / 2 + Math.cos(a) * ring, y: TOP + R - 4 - Math.sin(a) * ring };
+  }
   if (isLocule(room)) {
     // Chantier 50: the locules ring the core, on two staggered arcs.
     const ring = LOCULE_BAND + (Number(room.id.slice(1)) % 2 ? -6 : 6);
@@ -143,7 +158,14 @@ const KIND_COLORS: Record<string, string> = {
   raphides: '#e9f1f4',
   forest: '#d6f0f7',
   lake: '#b7d64a',
+  cavern: '#f6f1e2',
+  stem: '#8fd46a',
 };
+
+/** Radius of a room's shape in the 2D cut (a locule and a cavern are small cells). */
+function shapeR(r: DepthRoom): number {
+  return isLocule(r) ? 5 : isCore(r) ? 3.5 : 12;
+}
 
 function DepthsCut(props: {
   game: GameState;
@@ -176,8 +198,8 @@ function DepthsCut(props: {
         class="cut-locules"
       />
       <path
-        d={`M ${W / 2 - 22} ${TOP + R - 4} A 22 22 0 0 1 ${W / 2 + 22} ${TOP + R - 4}`}
-        class="cut-core"
+        d={`M ${W / 2 - CORE_R} ${TOP + R - 4} A ${CORE_R} ${CORE_R} 0 0 1 ${W / 2 + CORE_R} ${TOP + R - 4}`}
+        class={`cut-core ${ageOf(game) >= DEPTHS.core.age ? 'is-open' : ''}`}
       />
       <line x1={W / 2 - R} y1={TOP} x2={W / 2 + R} y2={TOP} class="cut-surface" />
       {map.rooms.map((r) =>
@@ -229,16 +251,16 @@ function DepthsCut(props: {
             role="button"
             aria-label={roomName(t, game, r)}
           >
-            <circle cx={p.x} cy={p.y} r={isLocule(r) ? 5 : 12} class="cut-room-shape" />
+            <circle cx={p.x} cy={p.y} r={shapeR(r)} class="cut-room-shape" />
             {kind ? (
               <circle
                 cx={p.x}
                 cy={p.y}
-                r={isLocule(r) ? 3 : 5}
+                r={isFlesh(r) ? 5 : isCore(r) ? 2.2 : 3}
                 fill={KIND_COLORS[kind]}
                 class="cut-kind"
               />
-            ) : isLocule(r) ? null : (
+            ) : !isFlesh(r) ? null : (
               <text x={p.x} y={p.y + 4} class="cut-unknown">
                 ?
               </text>
@@ -264,20 +286,25 @@ function LoculeStrip(props: {
   game: GameState;
   selected: string | null;
   onSelect(id: string): void;
+  /** Chantier 52: the core's caverns and the stem instead of the locules. */
+  core?: boolean;
 }) {
   const t = useT();
   const { game } = props;
   const map = depthsMapOf(game);
-  const locules = map.rooms.filter(isLocule);
+  const locules = map.rooms.filter(props.core ? isCore : isLocule);
   const known = locules.some((r) => game.depths.views[r.id] || game.depths.galleries[r.id]);
-  const open = ageOf(game) >= DEPTHS.locules.age;
+  const open = ageOf(game) >= (props.core ? DEPTHS.core.age : DEPTHS.locules.age);
   if (!open && !known) return null;
   const reach = new Set(reachableRooms(game).map((r) => r.id));
+  const line = props.core
+    ? open
+      ? t('core.strip', { count: locules.length - 1 })
+      : t('core.closed')
+    : t(open ? 'locules.strip' : 'errors.layerLocked', { count: locules.length });
   return (
-    <section class="locule-strip">
-      <p class="small muted">
-        {t(open ? 'locules.strip' : 'errors.layerLocked', { count: locules.length })}
-      </p>
+    <section class={`locule-strip ${props.core ? 'is-core' : ''}`}>
+      <p class="small muted">{line}</p>
       <div class="locule-row" role="list">
         {locules.map((r) => {
           const v = game.depths.views[r.id];
@@ -346,6 +373,9 @@ function RoomPanel({ game, room }: { game: GameState; room: DepthRoom }) {
             ? t(`depths.hazards.${v.hazard.kind}`, { pct: Math.round(v.hazard.strength * 100) })
             : t('depths.noHazard')}
         </p>
+      )}
+      {room.ceiling !== undefined && (
+        <p class="small">{t('core.ceiling', { ceiling: room.ceiling })}</p>
       )}
       {!g && !reachable && <p class="small muted">{t('depths.outOfReach')}</p>}
     </section>
@@ -526,6 +556,12 @@ function DelveForecastLines(props: {
         </p>
       )}
       {hazard === null && <p class="small muted">{t('depths.maybeHazard')}</p>}
+      {f.ceiling !== null && props.crew.length > 0 && (
+        <p class={`small ${f.caveIn ? 'warn' : 'muted'}`}>
+          {t('core.weight', { weight: f.weight, ceiling: f.ceiling })}
+          {f.caveIn && ` · ${t('core.caveIn', { pct: Math.round(f.caveIn.strength * 100) })}`}
+        </p>
+      )}
       {spelunker && <p class="small bonus">{t('depths.spelunker')}</p>}
       {f.trials.length > 0 && f.expectedDead > 0 && (
         <p class="small warn">{t('landing.dead', { count: f.expectedDead })}</p>

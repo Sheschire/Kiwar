@@ -21,6 +21,8 @@ import type { BattleSetup, BattleTile, BattleUnitSetup } from './types';
 export interface DelveInput {
   units: AlienUnit[];
   hazard: RoomHazard | null;
+  /** Chantier 52: a white cavern caving in under a heavy crew (a fall that hits everybody). */
+  caveIn?: RoomHazard | null;
   orders: LandingOrders;
   /** Share of the outbound rations the crew had (hunger weakens the blows). */
   fed: number;
@@ -91,6 +93,33 @@ export function hazardHits(
   return out;
 }
 
+/**
+ * Chantier 52: a cave-in hits every kiwi (no roll): its harm, lessened by Endurance and the
+ * spelunkers like a fall, never below the floor of hit points.
+ */
+export function caveInHits(crew: readonly Villager[], caveIn: RoomHazard | null): HazardHit[] {
+  if (!caveIn) return [];
+  const out: HazardHit[] = [];
+  for (const v of crew) {
+    const share = Math.min(1 - DEPTHS.hazard.floor, hazardOdds(v, crew, caveIn).harm);
+    if (share > 0) out.push({ id: v.id, share: Math.round(share * 100) / 100 });
+  }
+  return out;
+}
+
+/** Shares of hit points lost before the fight: the room's hazard, then a cave-in. */
+export function startingHarm(
+  crew: readonly Villager[],
+  input: Pick<DelveInput, 'hazard' | 'caveIn' | 'seed'>,
+): Map<string, number> {
+  const out = new Map(hazardHits(crew, input.hazard, input.seed).map((h) => [h.id, h.share]));
+  for (const h of caveInHits(crew, input.caveIn ?? null)) {
+    const kept = (1 - (out.get(h.id) ?? 0)) * (1 - h.share);
+    out.set(h.id, Math.min(1 - DEPTHS.hazard.floor, Math.round((1 - kept) * 100) / 100));
+  }
+  return out;
+}
+
 export function delveSetup(
   state: GameState,
   crew: readonly Villager[],
@@ -105,7 +134,7 @@ export function delveSetup(
   const byEntry = [...disk].sort(
     (a, b) => hexDistance(a, ENTRY) - hexDistance(b, ENTRY) || a.q - b.q || a.r - b.r,
   );
-  const hits = new Map(hazardHits(crew, input.hazard, input.seed).map((h) => [h.id, h.share]));
+  const hits = startingHarm(crew, input);
   const hunger = 0.5 + 0.5 * Math.max(0, Math.min(1, input.fed));
   const units: BattleUnitSetup[] = [];
   crew.forEach((v, i) => {
