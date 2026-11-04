@@ -109,6 +109,7 @@ const KIWI_CLIPS: Record<WeaponId, ClipId> = {
   dive: 'peck',
   spit: 'peck',
   royalSlam: 'mace',
+  weevilRam: 'mace',
   seedShot: 'peck',
   skyShot: 'peck',
 };
@@ -367,6 +368,10 @@ export class BattleShow {
         } else if (body === 'queen') {
           // Chantier 42: the ferret queen, a giant.
           scale = CREATURE_SIZE * QUEEN_SIZE;
+        } else if (body === 'weevil') {
+          // Chantier 52: the Great Weevil, a giant (its own rig comes with part 4).
+          scale = CREATURE_SIZE * QUEEN_SIZE;
+          tint = new Color('#5d6b3a');
         }
         return {
           track,

@@ -105,7 +105,7 @@ describe('the core (chantier 52)', () => {
     expect(roomTruth('secret-c/depths', stem).kind).toBe('stem');
   });
 
-  it('opens the caverns at the Age of the stars; the stem stays guarded', () => {
+  it('opens the caverns at the Age of the stars; then the stem', () => {
     const { s } = delveColony();
     takeAbove(s);
     const map = depthsMapOf(s);
@@ -116,7 +116,7 @@ describe('the core (chantier 52)', () => {
     for (const r of map.rooms)
       if (isCavern(r)) open.depths.galleries[r.id] = { kind: 'cavern', since: s.now };
     const stem = map.rooms.find(isStem)!;
-    expect(delveLock(open, stem.id, crewIds(s, 4), orders)).toBe('layerLocked');
+    expect(delveLock(open, stem.id, crewIds(s, 4), orders)).toBeNull();
   });
 
   it('weighs the crew with its armour and caves in above the ceiling', () => {

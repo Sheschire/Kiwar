@@ -55,6 +55,11 @@ interface Unit {
   wokeAt: number;
   /** Chantier 42: raging (blows and speed × its `rage`). */
   raging: boolean;
+  /** Chantier 52: in the air now (its setup's `flying`, or its `flight` phase), its armour. */
+  flying: boolean;
+  armor: number;
+  /** Chantier 52: when its `flight` next takes off or lands (Infinity: not begun). */
+  flightAt: number;
 }
 
 interface Building {
@@ -114,7 +119,7 @@ class Heap {
   }
 }
 
-const canHit = (w: Weapon, target: Unit) => (target.s.flying ? w.hitsAir : w.hitsGround);
+const canHit = (w: Weapon, target: Unit) => (target.flying ? w.hitsAir : w.hitsGround);
 
 export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
   const rng: Rng = createRng(`battle/${seed}`);
@@ -219,6 +224,9 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
       stuckSince: -1,
       wokeAt: -1,
       raging: false,
+      flying: s.flying,
+      armor: s.armor,
+      flightAt: Infinity,
       leash:
         s.role === 'militia'
           ? KIWI_UNIT.militiaLeash
@@ -230,6 +238,8 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
   const attackers = units.filter((u) => u.side === 1);
   // Chantier 37: the bards singing on the field.
   const singers = units.filter((u) => u.s.aura);
+  // Chantier 52: the units that take to the air in phases (the Great Weevil).
+  const flyers = units.filter((u) => u.s.flight && !u.s.flying);
   /** Damage multiplier of a unit's blows: the best aura of a bard of its side close enough. */
   const auraOf = (u: Unit): number => {
     let best = 0;
@@ -275,7 +285,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
 
   // --- Actions --------------------------------------------------------------------------------
   const place = (u: Unit, to: number) => {
-    if (!u.s.flying) {
+    if (!u.flying) {
       occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
       occupied[to] = (occupied[to] ?? 0) + u.s.size;
     }
@@ -283,14 +293,14 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
   };
   /** A tile a unit may step on (squeezing past the others after a long wait). */
   const free = (u: Unit, j: number, t: number) => {
-    if (u.s.flying) return true;
+    if (u.flying) return true;
     if (!Number.isFinite(cost[j]!)) return false;
     const squeeze = u.stuckSince >= 0 && t - u.stuckSince >= BATTLE.unstick - 1e-9;
     return (occupied[j] ?? 0) + u.s.size <= BATTLE.tileCap + (squeeze ? 2 : 0) + 1e-9;
   };
 
   const moveTo = (u: Unit, j: number, t: number) => {
-    const c = u.s.flying ? 1 : Math.max(0.3, cost[j]!);
+    const c = u.flying ? 1 : Math.max(0.3, cost[j]!);
     const speed = u.s.speed * (u.raging ? u.s.rage!.speed : 1);
     const dur = c / Math.max(0.1, speed);
     place(u, j);
@@ -358,7 +368,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
 
   const fall = (u: Unit) => {
     u.state = State.Fallen;
-    if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
+    if (!u.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
     log(EV.fall, u.i);
     if (u.s.ref === setup.leader && u.side === 0) leaderFell = true;
     if (u.side === 0) result.fallen.push(u.s.ref);
@@ -378,7 +388,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
 
   const leave = (u: Unit) => {
     u.state = State.Gone;
-    if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
+    if (!u.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
     log(EV.gone, u.i);
     if (u.side === 1) {
       result.attackers.escaped++;
@@ -421,7 +431,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
         u.reached = true;
         result.reached += u.s.power;
       }
-      if (!u.s.flying && u.side === 1 && struck.size < BATTLE.struckTiles) struck.add(u.tile);
+      if (!u.flying && u.side === 1 && struck.size < BATTLE.struckTiles) struck.add(u.tile);
       // Raiders grab what they can carry, and break what they hit.
       if (u.carrying && lootLeft(b) > 1e-6 && u.carried < u.s.carry - 1e-9) {
         const want = Math.min(u.s.carry - u.carried, u.s.carry * BATTLE.grab);
@@ -454,7 +464,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     const e = target.unit;
     const hit = roll < w.accuracy * (1 - e.s.dodge);
     const pierce = 1 - (w.pierce ?? 0);
-    const dmg = hit ? w.damage * swing * (1 - e.s.armor * pierce) : 0;
+    const dmg = hit ? w.damage * swing * (1 - e.armor * pierce) : 0;
     log(EV.attack, u.i, e.i * 2, tenths(dmg));
     if (hit) hurt(e, dmg);
     if (w.style === 'area' && hit) {
@@ -462,7 +472,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
       for (const o of units) {
         if (o === e || o.side === u.side || o.state !== State.Active || !canHit(w, o)) continue;
         if (hexDistance(tiles[o.tile]!, at) > 1) continue;
-        const d = w.damage * BATTLE.splash * swing * (1 - o.s.armor * pierce);
+        const d = w.damage * BATTLE.splash * swing * (1 - o.armor * pierce);
         log(EV.splash, u.i, o.i, tenths(d));
         hurt(o, d);
       }
@@ -519,7 +529,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
       const canLoot = room && lootLeft(b) > 1e-6;
       const canBreak = b.hp > 0 && !b.damaged;
       if (!canLoot && !canBreak) continue;
-      const d = u.s.flying ? buildingDistance(b, here) : fieldOf(b)[u.tile]!;
+      const d = u.flying ? buildingDistance(b, here) : fieldOf(b)[u.tile]!;
       if (!Number.isFinite(d)) continue;
       const want = (canLoot ? 3 + b.b.priority : 0) + (canBreak ? b.b.priority : 0);
       const score = want / (1 + d / 4);
@@ -548,7 +558,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
       } else if (hexDistance(home, at) > u.leash + w.range) continue;
       // Shooters take down the bats first; daggers go for the thieves and the spitters.
       const prey = hunter && (!e.s.fightsBack || e.s.huntsKiwis);
-      const score = d - (shoots && e.s.flying ? 3 : 0) - (prey ? 3 : 0);
+      const score = d - (shoots && e.flying ? 3 : 0) - (prey ? 3 : 0);
       if (score < bestScore - 1e-9) {
         best = e;
         bestScore = score;
@@ -572,7 +582,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
       const d = hexDistance(here, at);
       const score =
         priority === 'air'
-          ? d - (e.s.flying ? 6 : 0)
+          ? d - (e.flying ? 6 : 0)
           : priority === 'casters'
             ? d - (e.s.weapon.style !== 'melee' ? 6 : 0)
             : priority === 'weakest'
@@ -587,7 +597,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
   };
 
   const goHome = (u: Unit, t: number) => {
-    if (u.s.flying || exits.has(u.tile)) {
+    if (u.flying || exits.has(u.tile)) {
       if (exits.has(u.tile)) return leave(u);
       let goal = -1;
       let d = Infinity;
@@ -624,7 +634,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
         if (t >= u.readyAt - 1e-9) strike(u, target, t);
         return;
       }
-      if (target.building && !s.flying) {
+      if (target.building && !u.flying) {
         if (!stepDown(u, fieldOf(target.building), t)) u.retargetAt = t;
       } else {
         const goal = target.building ? target.building.b.tiles[0]! : tiles[target.unit!.tile]!;
@@ -708,8 +718,32 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
         if (u.wokeAt + u.s.delay > t + 1e-9) continue;
       } else if (u.s.delay > t + 1e-9) continue;
       u.state = State.Active;
-      if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) + u.s.size;
+      if (!u.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) + u.s.size;
       if (u.s.delay > 0 || u.side === 1 || u.s.wake) log(EV.enter, u.i);
+    }
+    // Chantier 52: a unit with a `flight` takes off under its threshold, then lands and takes
+    // off again on its own rhythm (only blows that reach the air touch it up there).
+    for (const u of flyers) {
+      if (u.state !== State.Active) continue;
+      const f = u.s.flight!;
+      if (u.flightAt === Infinity) {
+        if (u.hp > u.s.hp * f.below) continue;
+        u.flightAt = t;
+      }
+      if (t < u.flightAt - 1e-9) continue;
+      if (u.flying) {
+        u.flying = false;
+        u.armor = u.s.armor;
+        occupied[u.tile] = (occupied[u.tile] ?? 0) + u.s.size;
+        u.flightAt = t + f.groundS;
+        log(EV.land, u.i);
+      } else {
+        u.flying = true;
+        u.armor = f.armor;
+        occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
+        u.flightAt = t + f.airS;
+        log(EV.rise, u.i);
+      }
     }
     for (const u of units) {
       if (u.state !== State.Active || t < u.busyUntil - 1e-9) continue;

@@ -1879,6 +1879,18 @@ export const en = {
     perHour: '+{rate}/h being cut',
     full: 'The crystal stock is full: the miners of the forests come back up.',
   },
+  stem: {
+    known:
+      'The Great Weevil guards the stem: everybody knows it, a giant beetle with a few Grouillants.',
+    phases:
+      'Its shell first; under two thirds it flies in bursts (only blows that reach the air touch it); under a third, larvae swarm out of the walls; at the end, its last stand.',
+    wounded: 'Still wounded from our last battle: −{pct} % hit points (it heals over three days)',
+    left: 'it would keep about {pct} % of its hit points',
+    noAir:
+      'Nobody reaches the air: when it flies, nobody can touch it (mages, scouts, gatherers, bards or firearms).',
+    attempts: '{count} battle(s) against it so far',
+    fallen: 'The Great Weevil has fallen.',
+  },
   core: {
     strip: '{count} white caverns around the centre, and the stem below them. Tap one.',
     weight: 'Crew weight {weight} / ceiling {ceiling}',
@@ -2107,6 +2119,7 @@ export const en = {
       bite: 'bite',
       slam: 'slam',
       royalSlam: 'royal sweep',
+      weevilRam: 'rostrum ram',
       gnaw: 'gnaw',
       sting: 'sting',
       shellRam: 'shell ram',

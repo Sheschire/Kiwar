@@ -196,6 +196,35 @@ export const DEPTHS = {
     caveIn: { base: 0.2, perExcess: 0.8, max: 0.6 },
   },
   /**
+   * Chantier 52: the stem and its Great Weevil, a giant beetle (a pest of the fruit) in three
+   * phases: its shell on the ground (heavy armour), then in the air in bursts (only blows that
+   * reach the air touch it), then a swarm of larvae and its last stand. Its guard is public: the
+   * battle is long, readable, prepared. Every number is a hypothesis, measured with the bot.
+   */
+  stem: {
+    /** Hit points before the level (× √ of the level factor, like a kiwi's). */
+    hp: 900,
+    level: 20,
+    /** × the ram's damage. */
+    damage: 1,
+    armor: 0.45,
+    speed: 0.5,
+    size: 3,
+    /** Under 66 % it takes to the air for 16 s, lands for 12 s, and so on. */
+    flight: { below: 0.66, airS: 16, groundS: 12, armor: 0.15 },
+    /** Under 33 % a swarm of larvae comes out of the walls. */
+    swarm: { below: 0.33, larvae: 24, delayS: 2 },
+    /** Under 20 % the last stand. */
+    rage: { below: 0.2, damage: 1.5, speed: 1.3 },
+    /** Grouillants by its side at the start (power, level). */
+    escort: { power: 40, level: 18 },
+    /** The battle lasts at most this long. */
+    maxS: 480,
+    /** Its wounds of a lost battle heal over this long, and never pass this share. */
+    healMs: ms.h(72),
+    maxWounds: 0.5,
+  },
+  /**
    * Chantier 50: an actinidine lake worked by at least one miner (the door open) halves the
    * laboratory's infusion risk, and with the technology Enzymes the wounded heal faster.
    */

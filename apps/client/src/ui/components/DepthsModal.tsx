@@ -6,6 +6,7 @@ import {
   canDig,
   delveCrewMax,
   delveForecast,
+  stemForecast,
   depthsMapOf,
   doorStrength,
   doorFortifyCost,
@@ -32,6 +33,8 @@ import {
   validateCommand,
   workerPower,
   type DelveForecast,
+  type RoomKind,
+  type StemForecast,
   type DepthRoom,
   type Expedition,
   type GameState,
@@ -241,7 +244,7 @@ function DepthsCut(props: {
         const p = roomAt(r);
         const v = views[r.id];
         const g = galleries[r.id];
-        const kind = g?.kind ?? v?.kind;
+        const kind = knownKind(game, r);
         const state = g ? 'gallery' : v?.units ? 'seen' : v ? 'heard' : 'fog';
         return (
           <g
@@ -309,7 +312,7 @@ function LoculeStrip(props: {
         {locules.map((r) => {
           const v = game.depths.views[r.id];
           const g = game.depths.galleries[r.id];
-          const kind = g?.kind ?? v?.kind;
+          const kind = knownKind(game, r);
           const look = g ? 'gallery' : v?.units ? 'seen' : v ? 'heard' : 'fog';
           const miners = g ? minersIn(game, r.id).length : 0;
           return (
@@ -333,11 +336,20 @@ function LoculeStrip(props: {
 }
 
 export function roomName(t: Translate, game: GameState, r: DepthRoom): string {
-  const kind = game.depths.galleries[r.id]?.kind ?? game.depths.views[r.id]?.kind;
+  const kind = knownKind(game, r);
   return t('depths.roomName', {
     kind: kind ? t(`depths.kinds.${kind}`) : t('depths.unknownRoom'),
     depth: r.depth,
   });
+}
+
+/** What we know a room holds (the stem is public: everybody knows who guards it). */
+function knownKind(game: GameState, r: DepthRoom): RoomKind | undefined {
+  return (
+    game.depths.galleries[r.id]?.kind ??
+    game.depths.views[r.id]?.kind ??
+    (isStem(r) ? 'stem' : undefined)
+  );
 }
 
 // --- One room -----------------------------------------------------------------------------------
@@ -363,8 +375,8 @@ function RoomPanel({ game, room }: { game: GameState; room: DepthRoom }) {
       ) : (
         <p class="small muted">{t('depths.fog')}</p>
       )}
-      {(g?.kind ?? v?.kind) && (
-        <p class="small">{t(`depths.kindHints.${(g?.kind ?? v?.kind)!}`)}</p>
+      {knownKind(game, room) && (
+        <p class="small">{t(`depths.kindHints.${knownKind(game, room)!}`)}</p>
       )}
       {v?.units && v.units.length > 0 && !g && <UnitList units={v.units} />}
       {v?.hazard !== undefined && !g && (
@@ -372,6 +384,13 @@ function RoomPanel({ game, room }: { game: GameState; room: DepthRoom }) {
           {v.hazard
             ? t(`depths.hazards.${v.hazard.kind}`, { pct: Math.round(v.hazard.strength * 100) })
             : t('depths.noHazard')}
+        </p>
+      )}
+      {isStem(room) && (game.depths.weevil?.attempts ?? 0) > 0 && (
+        <p class="small">
+          {game.depths.weevil?.fellAt !== undefined
+            ? t('stem.fallen')
+            : t('stem.attempts', { count: game.depths.weevil!.attempts })}
         </p>
       )}
       {room.ceiling !== undefined && (
@@ -469,6 +488,7 @@ function DelvePlanner({ game, room }: { game: GameState; room: DepthRoom }) {
   const up5 = (x: number) => Math.ceil((x * 1.1) / 5) * 5;
   const provisions = { pulp: up5(need.pulp), juice: up5(need.juice) };
   const f = delveForecast(game, room.id, members, orders, 1, skirting);
+  const stem = isStem(room) ? stemForecast(game, members, orders) : null;
   const cmd = {
     type: 'delve' as const,
     roomId: room.id,
@@ -488,6 +508,7 @@ function DelvePlanner({ game, room }: { game: GameState; room: DepthRoom }) {
         </div>
         <div>
           {f && <DelveForecastLines forecast={f} crew={members} game={game} />}
+          {stem && <StemForecastLines forecast={stem} crew={members} />}
           <OrdersPicker orders={orders} onChange={setOrders} delve />
           {locule && (
             <label class="small toggle-line">
@@ -515,6 +536,37 @@ function DelvePlanner({ game, room }: { game: GameState; room: DepthRoom }) {
       </button>
       {error && crew.length > 0 && <p class="small warn">{t(`errors.${error}`)}</p>}
     </div>
+  );
+}
+
+/** Chantier 52: the battle of the stem, forecast against the Great Weevil (public). */
+function StemForecastLines(props: { forecast: StemForecast; crew: readonly Villager[] }) {
+  const t = useT();
+  const f = props.forecast;
+  const won = f.trials.filter((x) => x === 'victory').length;
+  return (
+    <section class="field depths-forecast">
+      <p class="small">{t('stem.known')}</p>
+      <p class="small muted">{t('stem.phases')}</p>
+      {f.wounds > 0 && (
+        <p class="small bonus">{t('stem.wounded', { pct: Math.round(f.wounds * 100) })}</p>
+      )}
+      {f.trials.length > 0 && (
+        <p class="small">
+          <span class={`odds odds-${f.odds}`}>{t(`expedition.odds.${f.odds}`)}</span>{' '}
+          {t('landing.trials', { won })}
+          {f.odds !== 'likely' && ` · ${t('stem.left', { pct: Math.round(f.left * 100) })}`}
+        </p>
+      )}
+      {f.trials.length > 0 && f.expectedDead > 0 && (
+        <p class="small warn">{t('landing.dead', { count: f.expectedDead })}</p>
+      )}
+      {f.trials.length > 0 && f.expectedHurt > 0 && (
+        <p class="small">{t('landing.hurt', { count: f.expectedHurt })}</p>
+      )}
+      {props.crew.length > 0 && !f.reachesAir && <p class="small warn">{t('stem.noAir')}</p>}
+      <p class="small muted">{t('depths.permadeath')}</p>
+    </section>
   );
 }
 

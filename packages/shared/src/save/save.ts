@@ -559,6 +559,13 @@ export const gameStateSchema = z.object({
     next: plannedWave.nullable(),
     upwells: z.number().int().min(0),
     lastUpwellAt: z.number().min(0),
+    weevil: z
+      .object({
+        attempts: z.number().int().min(0).max(10000),
+        wounds: z.object({ share: z.number().min(0).max(1), at: z.number() }).optional(),
+        fellAt: z.number().optional(),
+      })
+      .optional(),
   }),
   depthSeed: z.string().max(400).optional(),
   bestiary: z.record(
@@ -635,6 +642,7 @@ export const gameStateSchema = z.object({
               hits: z.array(z.object({ id, share: z.number().min(0).max(1) })).max(200),
             })
             .optional(),
+          weevil: z.object({ left: z.number().min(0).max(1) }).optional(),
           caveIn: z
             .object({
               strength: z.number().min(0).max(1),

@@ -12,7 +12,7 @@ import type { SectorId } from '../data/threats';
 export type BattleSide = 0 | 1;
 
 /** Chantier 42: `queen`, the giant ferret queen of the twin face. */
-export type UnitBody = 'kiwi' | 'kikiwiwi' | 'turret' | 'queen' | EnemyBody;
+export type UnitBody = 'kiwi' | 'kikiwiwi' | 'turret' | 'queen' | 'weevil' | EnemyBody;
 
 /**
  * What a unit does in the battle (its AI). Chantier 40: `assault` is a kiwi of a landing crew
@@ -94,6 +94,12 @@ export interface BattleUnitSetup {
   wake?: { ref: string; below: number };
   /** Chantier 42: under this share of its hit points it rages (blows and speed ×). */
   rage?: { below: number; damage: number; speed: number };
+  /**
+   * Chantier 52: under this share of its hit points it takes to the air for `airS` seconds
+   * (armour `armor` up there: only blows that reach the air touch it), lands for `groundS`,
+   * and so on to the end.
+   */
+  flight?: { below: number; airS: number; groundS: number; armor: number };
 }
 
 export interface SideOrders {
@@ -210,10 +216,14 @@ export const EV = {
   flee: 8,
   /** unit: comes in. */
   enter: 9,
+  /** Chantier 52, unit: takes to the air (its `flight`). */
+  rise: 10,
+  /** Chantier 52, unit: lands again. */
+  land: 11,
 } as const;
 
 /** Number of arguments of each event code. */
-export const EV_ARGS = [1, 3, 3, 3, 1, 3, 1, 1, 1, 1] as const;
+export const EV_ARGS = [1, 3, 3, 3, 1, 3, 1, 1, 1, 1, 1, 1] as const;
 
 /** Tile key of the journal: q and r packed in one small number. */
 export const TILE_OFFSET = 32;

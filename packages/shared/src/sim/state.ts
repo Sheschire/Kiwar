@@ -484,6 +484,8 @@ export interface ExpeditionResult {
   giantSeeds?: number;
   /** Chantier 48: the room's hazard and the kiwis it hurt (share of hit points lost). */
   hazard?: { kind: HazardKind; strength: number; hits: { id: string; share: number }[] };
+  /** Chantier 52, the stem: share of the Great Weevil's hit points left after the battle. */
+  weevil?: { left: number };
   /** Chantier 52: a white cavern caved in under a crew heavier than its ceiling. */
   caveIn?: {
     strength: number;
@@ -707,6 +709,17 @@ export interface DepthsState {
   next: PlannedWave | null;
   upwells: number;
   lastUpwellAt: TimeMs;
+  /** Chantier 52: the Great Weevil of the stem (public): our tries, its wounds, its fall. */
+  weevil?: WeevilState;
+}
+
+/** Chantier 52: what we know of the Great Weevil (its guard is public). */
+export interface WeevilState {
+  attempts: number;
+  /** Share of its hit points missing after our last battle, and when (it heals). */
+  wounds?: { share: number; at: TimeMs };
+  /** It fell then: the stem is ours. */
+  fellAt?: TimeMs;
 }
 
 /** Chantier 19: the siege of the twin face (public: the truth stays in `aliens`). */
@@ -1178,6 +1191,14 @@ export function cloneDepths(d: DepthsState): DepthsState {
     door: { ...d.door, ...(d.door.fortifying ? { fortifying: { ...d.door.fortifying } } : {}) },
     rng: [...d.rng] as RngState,
     next: d.next ? cloneWave(d.next) : null,
+    ...(d.weevil
+      ? {
+          weevil: {
+            ...d.weevil,
+            ...(d.weevil.wounds ? { wounds: { ...d.weevil.wounds } } : {}),
+          },
+        }
+      : {}),
   };
 }
 

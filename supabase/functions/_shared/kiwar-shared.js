@@ -3961,6 +3961,35 @@ var DEPTHS = {
     caveIn: { base: 0.2, perExcess: 0.8, max: 0.6 }
   },
   /**
+   * Chantier 52: the stem and its Great Weevil, a giant beetle (a pest of the fruit) in three
+   * phases: its shell on the ground (heavy armour), then in the air in bursts (only blows that
+   * reach the air touch it), then a swarm of larvae and its last stand. Its guard is public: the
+   * battle is long, readable, prepared. Every number is a hypothesis, measured with the bot.
+   */
+  stem: {
+    /** Hit points before the level (× √ of the level factor, like a kiwi's). */
+    hp: 900,
+    level: 20,
+    /** × the ram's damage. */
+    damage: 1,
+    armor: 0.45,
+    speed: 0.5,
+    size: 3,
+    /** Under 66 % it takes to the air for 16 s, lands for 12 s, and so on. */
+    flight: { below: 0.66, airS: 16, groundS: 12, armor: 0.15 },
+    /** Under 33 % a swarm of larvae comes out of the walls. */
+    swarm: { below: 0.33, larvae: 24, delayS: 2 },
+    /** Under 20 % the last stand. */
+    rage: { below: 0.2, damage: 1.5, speed: 1.3 },
+    /** Grouillants by its side at the start (power, level). */
+    escort: { power: 40, level: 18 },
+    /** The battle lasts at most this long. */
+    maxS: 480,
+    /** Its wounds of a lost battle heal over this long, and never pass this share. */
+    healMs: ms.h(72),
+    maxWounds: 0.5
+  },
+  /**
    * Chantier 50: an actinidine lake worked by at least one miner (the door open) halves the
    * laboratory's infusion risk, and with the technology Enzymes the wounded heal faster.
    */
@@ -4330,7 +4359,9 @@ var WEAPON_IDS = [
   "sting",
   "shellRam",
   "seedShot",
-  "skyShot"
+  "skyShot",
+  // Chantier 52: the Great Weevil's ram (an area blow).
+  "weevilRam"
 ];
 var melee = (damage, reload, hitsAir = false) => ({
   damage,
@@ -4458,6 +4489,8 @@ var WEAPONS = {
   dive: melee(2, 1.4),
   // Chantier 42: the ferret queen's blow sweeps everybody around her.
   royalSlam: { ...melee(4, 2.4), style: "area" },
+  // Chantier 52: the Great Weevil rams everybody around it, on the ground and from the air.
+  weevilRam: { ...melee(4.5, 2.6), style: "area" },
   spit: {
     damage: 1.6,
     range: 2,
@@ -6833,9 +6866,13 @@ var EV = {
   /** unit: runs away. */
   flee: 8,
   /** unit: comes in. */
-  enter: 9
+  enter: 9,
+  /** Chantier 52, unit: takes to the air (its `flight`). */
+  rise: 10,
+  /** Chantier 52, unit: lands again. */
+  land: 11
 };
-var EV_ARGS = [1, 3, 3, 3, 1, 3, 1, 1, 1, 1];
+var EV_ARGS = [1, 3, 3, 3, 1, 3, 1, 1, 1, 1, 1, 1];
 var TILE_OFFSET = 32;
 var tileCode = (h) => (h.q + TILE_OFFSET) * 64 + (h.r + TILE_OFFSET);
 var tileOfCode = (c) => ({
@@ -6941,7 +6978,7 @@ var Heap = class {
     return top;
   }
 };
-var canHit = (w, target) => target.s.flying ? w.hitsAir : w.hitsGround;
+var canHit = (w, target) => target.flying ? w.hitsAir : w.hitsGround;
 function simulateBattle(setup, seed) {
   const rng = createRng(`battle/${seed}`);
   const dt = BATTLE.dt;
@@ -7036,11 +7073,15 @@ function simulateBattle(setup, seed) {
       stuckSince: -1,
       wokeAt: -1,
       raging: false,
+      flying: s.flying,
+      armor: s.armor,
+      flightAt: Infinity,
       leash: s.role === "militia" ? KIWI_UNIT.militiaLeash : s.role === "guard" || s.role === "assault" ? BATTLE.leash[setup.orders[s.side].posture] : 0
     };
   });
   const attackers = units.filter((u) => u.side === 1);
   const singers = units.filter((u) => u.s.aura);
+  const flyers = units.filter((u) => u.s.flight && !u.s.flying);
   const auraOf = (u) => {
     let best = 0;
     for (const b of singers) {
@@ -7080,20 +7121,20 @@ function simulateBattle(setup, seed) {
   const taken = /* @__PURE__ */ new Map();
   const struck = /* @__PURE__ */ new Set();
   const place = (u, to) => {
-    if (!u.s.flying) {
+    if (!u.flying) {
       occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
       occupied[to] = (occupied[to] ?? 0) + u.s.size;
     }
     u.tile = to;
   };
   const free = (u, j, t) => {
-    if (u.s.flying) return true;
+    if (u.flying) return true;
     if (!Number.isFinite(cost[j])) return false;
     const squeeze = u.stuckSince >= 0 && t - u.stuckSince >= BATTLE.unstick - 1e-9;
     return (occupied[j] ?? 0) + u.s.size <= BATTLE.tileCap + (squeeze ? 2 : 0) + 1e-9;
   };
   const moveTo = (u, j, t) => {
-    const c = u.s.flying ? 1 : Math.max(0.3, cost[j]);
+    const c = u.flying ? 1 : Math.max(0.3, cost[j]);
     const speed = u.s.speed * (u.raging ? u.s.rage.speed : 1);
     const dur = c / Math.max(0.1, speed);
     place(u, j);
@@ -7152,7 +7193,7 @@ function simulateBattle(setup, seed) {
   const lootLeft = (b) => b.loot[0] + b.loot[1] + b.loot[2] + b.loot[3];
   const fall = (u) => {
     u.state = State.Fallen;
-    if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
+    if (!u.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
     log2(EV.fall, u.i);
     if (u.s.ref === setup.leader && u.side === 0) leaderFell = true;
     if (u.side === 0) result.fallen.push(u.s.ref);
@@ -7170,7 +7211,7 @@ function simulateBattle(setup, seed) {
   };
   const leave = (u) => {
     u.state = State.Gone;
-    if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
+    if (!u.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
     log2(EV.gone, u.i);
     if (u.side === 1) {
       result.attackers.escaped++;
@@ -7208,7 +7249,7 @@ function simulateBattle(setup, seed) {
         u.reached = true;
         result.reached += u.s.power;
       }
-      if (!u.s.flying && u.side === 1 && struck.size < BATTLE.struckTiles) struck.add(u.tile);
+      if (!u.flying && u.side === 1 && struck.size < BATTLE.struckTiles) struck.add(u.tile);
       if (u.carrying && lootLeft(b) > 1e-6 && u.carried < u.s.carry - 1e-9) {
         const want = Math.min(u.s.carry - u.carried, u.s.carry * BATTLE.grab);
         const share2 = Math.min(1, want / lootLeft(b));
@@ -7240,7 +7281,7 @@ function simulateBattle(setup, seed) {
     const e = target.unit;
     const hit = roll < w.accuracy * (1 - e.s.dodge);
     const pierce = 1 - (w.pierce ?? 0);
-    const dmg = hit ? w.damage * swing * (1 - e.s.armor * pierce) : 0;
+    const dmg = hit ? w.damage * swing * (1 - e.armor * pierce) : 0;
     log2(EV.attack, u.i, e.i * 2, tenths(dmg));
     if (hit) hurt(e, dmg);
     if (w.style === "area" && hit) {
@@ -7248,7 +7289,7 @@ function simulateBattle(setup, seed) {
       for (const o of units) {
         if (o === e || o.side === u.side || o.state !== State.Active || !canHit(w, o)) continue;
         if (hexDistance(tiles[o.tile], at) > 1) continue;
-        const d = w.damage * BATTLE.splash * swing * (1 - o.s.armor * pierce);
+        const d = w.damage * BATTLE.splash * swing * (1 - o.armor * pierce);
         log2(EV.splash, u.i, o.i, tenths(d));
         hurt(o, d);
       }
@@ -7300,7 +7341,7 @@ function simulateBattle(setup, seed) {
       const canLoot = room && lootLeft(b) > 1e-6;
       const canBreak = b.hp > 0 && !b.damaged;
       if (!canLoot && !canBreak) continue;
-      const d = u.s.flying ? buildingDistance(b, here) : fieldOf(b)[u.tile];
+      const d = u.flying ? buildingDistance(b, here) : fieldOf(b)[u.tile];
       if (!Number.isFinite(d)) continue;
       const want = (canLoot ? 3 + b.b.priority : 0) + (canBreak ? b.b.priority : 0);
       const score = want / (1 + d / 4);
@@ -7327,7 +7368,7 @@ function simulateBattle(setup, seed) {
         if (d > w.range) continue;
       } else if (hexDistance(home, at) > u.leash + w.range) continue;
       const prey = hunter && (!e.s.fightsBack || e.s.huntsKiwis);
-      const score = d - (shoots && e.s.flying ? 3 : 0) - (prey ? 3 : 0);
+      const score = d - (shoots && e.flying ? 3 : 0) - (prey ? 3 : 0);
       if (score < bestScore - 1e-9) {
         best = e;
         bestScore = score;
@@ -7347,7 +7388,7 @@ function simulateBattle(setup, seed) {
       const at = tiles[e.tile];
       if (hexDistance(home, at) > u.leash + w.range) continue;
       const d = hexDistance(here, at);
-      const score = priority === "air" ? d - (e.s.flying ? 6 : 0) : priority === "casters" ? d - (e.s.weapon.style !== "melee" ? 6 : 0) : priority === "weakest" ? d / 2 + e.hp / 4 : d;
+      const score = priority === "air" ? d - (e.flying ? 6 : 0) : priority === "casters" ? d - (e.s.weapon.style !== "melee" ? 6 : 0) : priority === "weakest" ? d / 2 + e.hp / 4 : d;
       if (score < bestScore - 1e-9) {
         best = e;
         bestScore = score;
@@ -7356,7 +7397,7 @@ function simulateBattle(setup, seed) {
     return best ? { unit: best } : null;
   };
   const goHome = (u, t) => {
-    if (u.s.flying || exits.has(u.tile)) {
+    if (u.flying || exits.has(u.tile)) {
       if (exits.has(u.tile)) return leave(u);
       let goal = -1;
       let d = Infinity;
@@ -7391,7 +7432,7 @@ function simulateBattle(setup, seed) {
         if (t >= u.readyAt - 1e-9) strike3(u, target2, t);
         return;
       }
-      if (target2.building && !s.flying) {
+      if (target2.building && !u.flying) {
         if (!stepDown(u, fieldOf(target2.building), t)) u.retargetAt = t;
       } else {
         const goal = target2.building ? target2.building.b.tiles[0] : tiles[target2.unit.tile];
@@ -7470,8 +7511,30 @@ function simulateBattle(setup, seed) {
         if (u.wokeAt + u.s.delay > t + 1e-9) continue;
       } else if (u.s.delay > t + 1e-9) continue;
       u.state = State.Active;
-      if (!u.s.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) + u.s.size;
+      if (!u.flying) occupied[u.tile] = (occupied[u.tile] ?? 0) + u.s.size;
       if (u.s.delay > 0 || u.side === 1 || u.s.wake) log2(EV.enter, u.i);
+    }
+    for (const u of flyers) {
+      if (u.state !== State.Active) continue;
+      const f = u.s.flight;
+      if (u.flightAt === Infinity) {
+        if (u.hp > u.s.hp * f.below) continue;
+        u.flightAt = t;
+      }
+      if (t < u.flightAt - 1e-9) continue;
+      if (u.flying) {
+        u.flying = false;
+        u.armor = u.s.armor;
+        occupied[u.tile] = (occupied[u.tile] ?? 0) + u.s.size;
+        u.flightAt = t + f.groundS;
+        log2(EV.land, u.i);
+      } else {
+        u.flying = true;
+        u.armor = f.armor;
+        occupied[u.tile] = (occupied[u.tile] ?? 0) - u.s.size;
+        u.flightAt = t + f.airS;
+        log2(EV.rise, u.i);
+      }
     }
     for (const u of units) {
       if (u.state !== State.Active || t < u.busyUntil - 1e-9) continue;
@@ -7662,6 +7725,215 @@ function delveSetup(state, crew, input) {
   };
 }
 
+// packages/shared/src/battle/stem.ts
+var WEEVIL_REF = "weevil";
+var ROOM_RADIUS2 = 5;
+var ENTRY2 = { q: 0, r: ROOM_RADIUS2 };
+var CENTRE2 = { q: 0, r: -1 };
+function stemEscort() {
+  const E = DEPTHS.stem.escort;
+  return grouillants(E.power, E.level);
+}
+function weevilUnit(wounds) {
+  const W = DEPTHS.stem;
+  const lv = 1 + KIWI_UNIT.perLevel * (W.level - 1);
+  const w = WEAPONS.weevilRam;
+  return {
+    ref: WEEVIL_REF,
+    side: 0,
+    body: "weevil",
+    role: "guard",
+    kind: "weevil",
+    name: "",
+    level: W.level,
+    classId: null,
+    hp: Math.max(1, W.hp * Math.sqrt(lv) * (1 - Math.min(0.9, wounds))),
+    armor: W.armor,
+    speed: W.speed,
+    dodge: 0,
+    size: W.size,
+    flying: false,
+    fixed: false,
+    weaponId: "weevilRam",
+    weapon: { ...w, damage: w.damage * Math.sqrt(lv) * W.damage },
+    ammo: null,
+    carry: 0,
+    power: 0,
+    at: CENTRE2,
+    delay: 0,
+    building: null,
+    fightsBack: true,
+    huntsKiwis: false,
+    sector: null,
+    rage: { ...W.rage },
+    flight: { ...W.flight }
+  };
+}
+function stemSetup(state, crew, input) {
+  const W = DEPTHS.stem;
+  const disk = hexDisk({ q: 0, r: 0 }, ROOM_RADIUS2);
+  const tiles = disk.map((h) => ({ q: h.q, r: h.r, cost: 1 }));
+  const exits = tiles.map((t, i) => ({ t, i })).filter(({ t }) => hexDistance(t, ENTRY2) <= 1).map(({ i }) => i);
+  const byEntry = [...disk].sort(
+    (a, b) => hexDistance(a, ENTRY2) - hexDistance(b, ENTRY2) || a.q - b.q || a.r - b.r
+  );
+  const hunger = 0.5 + 0.5 * Math.max(0, Math.min(1, input.fed));
+  const units = [];
+  crew.forEach((v, i) => {
+    const at = byEntry[Math.floor(i / 2) % byEntry.length] ?? ENTRY2;
+    const u = kiwiUnit(v, state, "guard", at, null, 1);
+    units.push({
+      ...u,
+      role: "assault",
+      power: 1,
+      weapon: { ...u.weapon, damage: u.weapon.damage * hunger }
+    });
+  });
+  units.push(weevilUnit(input.wounds));
+  const around = [...hexRing(CENTRE2, 1), ...hexRing(CENTRE2, 2)];
+  let n = 0;
+  for (const { unit, count, k } of capped(stemEscort()))
+    for (let i = 0; i < count; i++, n++)
+      units.push(alienUnit(unit, k, `e${n}`, around[n * 3 % around.length], 0));
+  const rim = hexRing({ q: 0, r: 0 }, ROOM_RADIUS2).filter((h) => hexDistance(h, ENTRY2) > 2).sort((a, b) => a.q - b.q || a.r - b.r);
+  const swarm = [{ kind: "larva", count: W.swarm.larvae, level: W.escort.level }];
+  let j = 0;
+  for (const { unit, count, k } of capped(swarm))
+    for (let i = 0; i < count; i++, j++, n++)
+      units.push({
+        ...alienUnit(unit, k, `s${n}`, rim[j * 5 % rim.length], W.swarm.delayS + j * 0.2),
+        wake: { ref: WEEVIL_REF, below: W.swarm.below }
+      });
+  return {
+    tiles,
+    exits,
+    buildings: [],
+    units,
+    orders: [
+      { posture: "bold", retreatBelow: 0 },
+      {
+        posture: input.orders.posture,
+        retreatBelow: 1 - input.orders.retreatAt + 1e-6,
+        priority: input.orders.priority
+      }
+    ],
+    clearEnds: true,
+    leader: WEEVIL_REF,
+    maxS: W.maxS
+  };
+}
+function reachesFlight(units) {
+  return units.some((u) => u.side === 1 && u.weapon.hitsAir);
+}
+
+// packages/shared/src/sim/stem.ts
+var round23 = (v) => Math.round(v * 100) / 100;
+function weevilOf(state) {
+  return state.depths.weevil ?? { attempts: 0 };
+}
+function weevilFallen(state) {
+  return state.depths.weevil?.fellAt !== void 0;
+}
+function weevilWounds(state, now) {
+  const w = state.depths.weevil?.wounds;
+  if (!w) return 0;
+  return Math.max(0, w.share * (1 - (now - w.at) / DEPTHS.stem.healMs));
+}
+function resolveStem(state, e, room, members, fed, seed) {
+  const at = e.arriveAt;
+  const wounds = weevilWounds(state, at);
+  const setup = stemSetup(state, members, { wounds, orders: e.orders, fed });
+  const log2 = simulateBattle(setup, `${seed}/stem/${e.id}`);
+  const outcome = landingOutcome(log2);
+  const crewIds = new Set(members.map((v) => v.id));
+  const fallen = (log2.result.lost ?? []).filter((ref) => crewIds.has(ref));
+  const dead = outcome === "victory" ? [] : fallen;
+  const hurt = outcome === "victory" ? fallen : [];
+  removeVillagers(state, dead, "battle", at, true);
+  e.crew = e.crew.filter((id3) => !dead.includes(id3));
+  const w = { ...weevilOf(state), attempts: weevilOf(state).attempts + 1 };
+  if (outcome === "victory") {
+    delete w.wounds;
+    w.fellAt = at;
+    state.depths.galleries[room.id] = { kind: "stem", since: at };
+    state.depths.views[room.id] = { at, source: "delve", kind: "stem", units: [], hazard: null };
+  } else {
+    const left = (1 - wounds) * (log2.result.leaderLeft ?? 1);
+    const share2 = Math.min(DEPTHS.stem.maxWounds, round23(1 - left));
+    if (share2 > 0) w.wounds = { share: share2, at };
+    else delete w.wounds;
+    if (!state.depths.views[room.id])
+      state.depths.views[room.id] = { at, source: "retreat", kind: "stem", hazard: null };
+  }
+  state.depths.weevil = w;
+  if (outcome !== "defeat") recordBestiary(state, stemEscort(), at);
+  e.result = {
+    victory: outcome === "victory",
+    strength: members.length,
+    defense: setup.units.filter((u) => u.side === 0).length,
+    fed: round23(fed),
+    lostInBattle: dead.map((id3) => members.find((v) => v.id === id3)?.name ?? id3),
+    lostOnReturn: [],
+    loot: emptyResources(),
+    outcome,
+    log: log2,
+    injured: hurt,
+    weevil: {
+      left: round23((1 - wounds) * (log2.result.leaderLeft ?? (outcome === "victory" ? 0 : 1)))
+    },
+    ...outcome === "victory" ? { gallery: true } : {}
+  };
+}
+var trialCache = /* @__PURE__ */ new Map();
+function stemForecast(state, crew, orders, fed = 1) {
+  const wounds = weevilWounds(state, state.now);
+  const base = stemSetup(state, crew, { wounds, orders, fed });
+  const reachesAir = base.units.some((u) => u.side === 1 && u.weapon.hitsAir);
+  if (crew.length === 0)
+    return {
+      wounds,
+      odds: "unknown",
+      expectedDead: 0,
+      expectedHurt: 0,
+      trials: [],
+      left: 1,
+      reachesAir
+    };
+  const runs = [1.15, 1, 0.85].map((luck, i) => {
+    const setup = {
+      ...base,
+      units: base.units.map(
+        (u) => u.side === 1 ? { ...u, weapon: { ...u.weapon, damage: u.weapon.damage * luck } } : u
+      )
+    };
+    const seed = `depths/stem/trial/${i}`;
+    const key = JSON.stringify([setup.units, setup.orders, seed]);
+    let hit = trialCache.get(key);
+    if (!hit) {
+      const log2 = simulateBattle(setup, seed);
+      const outcome = landingOutcome(log2);
+      hit = {
+        outcome,
+        dead: log2.result.lost?.length ?? 0,
+        left: outcome === "victory" ? 0 : log2.result.leaderLeft ?? 1
+      };
+      if (trialCache.size > 16) trialCache.delete(trialCache.keys().next().value);
+      trialCache.set(key, hit);
+    }
+    return hit;
+  });
+  const won = runs.map((r) => r.outcome === "victory");
+  const odds = won[2] ? "likely" : won[1] || won[0] ? "uncertain" : "unlikely";
+  return {
+    wounds,
+    odds,
+    ...tollOf(runs[1]),
+    trials: runs.map((r) => r.outcome),
+    left: round23((1 - wounds) * runs[1].left),
+    reachesAir
+  };
+}
+
 // packages/shared/src/sim/delves.ts
 var DEPTHS_TARGET = "depths";
 var NO_PAD = "none";
@@ -7706,7 +7978,6 @@ function delveLock(state, roomId, crew, orders) {
 function layerOpen(state, room) {
   if (isFlesh(room)) return true;
   if (isLocule(room)) return ageOf(state) >= DEPTHS.locules.age;
-  if (isStem(room)) return false;
   return ageOf(state) >= DEPTHS.core.age;
 }
 function delveWeight(crew) {
@@ -7723,7 +7994,7 @@ function caveInOf(room, weight) {
   if (!isCavern(room) || room.ceiling === void 0 || weight <= room.ceiling) return null;
   const C = DEPTHS.core.caveIn;
   const excess = (weight - room.ceiling) / room.ceiling;
-  return { kind: "fall", strength: round23(Math.min(C.max, C.base + C.perExcess * excess)) };
+  return { kind: "fall", strength: round24(Math.min(C.max, C.base + C.perExcess * excess)) };
 }
 function launchDelve(state, roomId, crewIds, provisions, orders, now, id3, skirt = false) {
   const room = depthsMapOf(state).byId.get(roomId);
@@ -7770,6 +8041,10 @@ function resolveDelve(state, e, members, fed) {
   const seed = state.depthSeed;
   const room = e.room ? depthsMapOf(state).byId.get(e.room) : void 0;
   if (seed === void 0 || !room || !e.orders) throw new Error("resolveDelve: hidden depths");
+  if (isStem(room)) {
+    resolveStem(state, e, room, members, fed, seed);
+    return settle(state, e);
+  }
   const at = e.arriveAt;
   const truth = roomTruth(seed, room);
   const battleSeed = `${seed}/delve/${e.id}`;
@@ -7866,6 +8141,9 @@ function resolveDelve(state, e, members, fed) {
     ...outcome === "victory" ? { gallery: true } : {},
     ...lantern ? { lantern } : {}
   };
+  settle(state, e);
+}
+function settle(state, e) {
   if (e.crew.length === 0) {
     e.status = "done";
     const done = state.expeditions.filter((x) => x.status === "done");
@@ -7880,16 +8158,16 @@ function lanternRoom(state, room, crew) {
   const map = depthsMapOf(state);
   return room.links.map((id3) => map.byId.get(id3)).filter((r) => !state.depths.galleries[r.id] && !state.depths.views[r.id]?.units).sort((a, b) => b.depth - a.depth || a.id.localeCompare(b.id))[0]?.id;
 }
-var trialCache = /* @__PURE__ */ new Map();
+var trialCache2 = /* @__PURE__ */ new Map();
 function practice(state, crew, units, hazard, caveIn, orders, fed, seed) {
   const setup = delveSetup(state, crew, { units, hazard, caveIn, orders, fed, seed });
   const key = JSON.stringify([setup.units, setup.orders, seed]);
-  const hit = trialCache.get(key);
+  const hit = trialCache2.get(key);
   if (hit) return hit;
   const log2 = simulateBattle(setup, seed);
   const out = { outcome: landingOutcome(log2), dead: log2.result.lost?.length ?? 0 };
-  if (trialCache.size > 32) trialCache.delete(trialCache.keys().next().value);
-  trialCache.set(key, out);
+  if (trialCache2.size > 32) trialCache2.delete(trialCache2.keys().next().value);
+  trialCache2.set(key, out);
   return out;
 }
 function assumedHazard(room, kind) {
@@ -7901,7 +8179,7 @@ function assumedHazard(room, kind) {
 }
 function delveForecast(state, roomId, crew, orders, fed = 1, skirt = false) {
   const room = depthsMapOf(state).byId.get(roomId);
-  if (!room) return null;
+  if (!room || isStem(room)) return null;
   const view = state.depths.views[roomId] ?? null;
   const kind = view?.kind ?? null;
   const knowledge = view?.units ? "seen" : kind ? "kind" : "unknown";
@@ -7926,8 +8204,8 @@ function delveForecast(state, roomId, crew, orders, fed = 1, skirt = false) {
     const o = hazardOdds(v, crew, shown);
     return {
       id: v.id,
-      chance: round23(o.chance),
-      share: round23(Math.min(1 - DEPTHS.hazard.floor, o.harm))
+      chance: round24(o.chance),
+      share: round24(Math.min(1 - DEPTHS.hazard.floor, o.harm))
     };
   }) : [];
   const weight = delveWeight(crew);
@@ -7961,7 +8239,7 @@ function worstLoculeHazard(crew, strength) {
   }, 0);
   return { kind: toll("acid") > toll("cuts") ? "acid" : "cuts", strength };
 }
-function round23(x) {
+function round24(x) {
   return Math.round(x * 100) / 100;
 }
 function canResolveDelve(state) {
@@ -7981,7 +8259,7 @@ function deliveryTime(state, friend, launchpad) {
 function sendShipment(state, launchpadId, friend, launchpad, resources2, now, id3, villagers = []) {
   const travelMs = deliveryTime(state, friend, launchpad);
   for (const r of RESOURCE_IDS) state.resources[r] -= resources2[r];
-  const movers = state.villagers.filter((v) => villagers.includes(v.id)).map(settle);
+  const movers = state.villagers.filter((v) => villagers.includes(v.id)).map(settle2);
   emigrate(state, villagers);
   const shipment = {
     id: id3,
@@ -8039,7 +8317,7 @@ function deliveryTick(s, at, events) {
     events.push({ type: "cargoReceived", at, deliveryId: d.id, from: d.from, received, lost });
     if (d.villagers?.length) {
       for (const v of d.villagers)
-        s.villagers.push({ ...settle(v), id: nextId(s, "v") });
+        s.villagers.push({ ...settle2(v), id: nextId(s, "v") });
       events.push({
         type: "settlersArrived",
         at,
@@ -8087,7 +8365,7 @@ function foundLock(state) {
     return "alreadyFounded";
   return null;
 }
-function settle(v) {
+function settle2(v) {
   const out = cloneVillager(v);
   out.job = { kind: "idle" };
   delete out.locked;
@@ -8103,7 +8381,7 @@ function emigrate(state, ids) {
 function landSettlers(s, e, members, fed) {
   const resources2 = emptyResources();
   for (const id3 of RESOURCE_IDS) resources2[id3] = (e.freight?.[id3] ?? 0) + e.provisions[id3];
-  s.colony.founding = { at: e.arriveAt, settlers: members.map(settle), resources: resources2 };
+  s.colony.founding = { at: e.arriveAt, settlers: members.map(settle2), resources: resources2 };
   emigrate(
     s,
     members.map((v) => v.id)
@@ -8160,7 +8438,7 @@ function newSister(home, f) {
   });
   delete s.aliens;
   delete s.depthSeed;
-  s.villagers = f.settlers.map((v) => ({ ...settle(v), id: nextId(s, "v") }));
+  s.villagers = f.settlers.map((v) => ({ ...settle2(v), id: nextId(s, "v") }));
   const cap = capacity(s);
   for (const id3 of RESOURCE_IDS) s.resources[id3] = Math.min(cap[id3], f.resources[id3]);
   raiseHuts(s, f.at);
@@ -8264,7 +8542,7 @@ function raidDen(state, q, r, now, events) {
 
 // packages/shared/src/battle/queen.ts
 var QUEEN_REF = "queen";
-var CENTRE2 = { q: 0, r: 0 };
+var CENTRE3 = { q: 0, r: 0 };
 function queenUnit(input) {
   const F = SIEGE.final;
   const k = Math.sqrt(Math.max(0.05, input.ground / SIEGE.queen.ground));
@@ -8292,7 +8570,7 @@ function queenUnit(input) {
     ammo: null,
     carry: 0,
     power: 0,
-    at: CENTRE2,
+    at: CENTRE3,
     delay: 0,
     building: null,
     fightsBack: true,
@@ -8307,7 +8585,7 @@ function share(units, k) {
 function queenSetup(state, crew, input) {
   const F = SIEGE.final;
   const radius = INTEL.innerRadius + 1;
-  const field = hexDisk(CENTRE2, radius);
+  const field = hexDisk(CENTRE3, radius);
   const tiles = [...field].sort((a, b) => a.q - b.q || a.r - b.r).map((h) => ({ q: h.q, r: h.r, cost: 1 }));
   const ship = landingTile(input.sector);
   const shipKey = hexKey(ship);
@@ -8328,12 +8606,12 @@ function queenSetup(state, crew, input) {
     });
   });
   units.push(queenUnit(input));
-  const guardTiles = [...hexRing(CENTRE2, 1), ...hexRing(CENTRE2, 2)];
+  const guardTiles = [...hexRing(CENTRE3, 1), ...hexRing(CENTRE3, 2)];
   let n = 0;
   for (const { unit, count, k } of capped(share(input.escort, F.escort)))
     for (let i = 0; i < count; i++, n++)
       units.push(alienUnit(unit, k, `e${n}`, guardTiles[n % guardTiles.length], 0));
-  const rim = hexRing(CENTRE2, radius);
+  const rim = hexRing(CENTRE3, radius);
   const swarm = sectorUnits(
     { sector: input.sector, inner: true, age: input.age, power: input.air * F.swarm.share },
     0
@@ -8345,7 +8623,7 @@ function queenSetup(state, crew, input) {
         ...alienUnit(unit, k, `s${n}`, rim[j * 5 % rim.length], F.swarm.delayS + j * 0.25),
         wake: { ref: QUEEN_REF, below: F.swarm.below }
       });
-  const tunnels = hexRing(CENTRE2, F.tunnels.tiles);
+  const tunnels = hexRing(CENTRE3, F.tunnels.tiles);
   const elite = sectorUnits(
     {
       sector: input.sector,
@@ -8588,7 +8866,7 @@ function revealAll(state, g, targetId, at) {
   }
   face.beacons.sort((a, b) => a.sector - b.sector);
 }
-var trialCache2 = /* @__PURE__ */ new Map();
+var trialCache3 = /* @__PURE__ */ new Map();
 function finalInput(state, targetId, orders, fed, now, luck = 1) {
   const q = queenOf(state, targetId);
   if (!q) return null;
@@ -8633,7 +8911,7 @@ function finalForecast(state, targetId, crew, orders, fed, now) {
     const setup = queenSetup(state, crew, input);
     const seed = `${targetId}/final-trial/${i}`;
     const key = JSON.stringify([setup.units, seed]);
-    let hit = trialCache2.get(key);
+    let hit = trialCache3.get(key);
     if (!hit) {
       const log2 = simulateBattle(setup, seed);
       hit = {
@@ -8641,8 +8919,8 @@ function finalForecast(state, targetId, crew, orders, fed, now) {
         dead: log2.result.lost?.length ?? 0,
         left: log2.result.leaderLeft ?? 1
       };
-      if (trialCache2.size > 16) trialCache2.delete(trialCache2.keys().next().value);
-      trialCache2.set(key, hit);
+      if (trialCache3.size > 16) trialCache3.delete(trialCache3.keys().next().value);
+      trialCache3.set(key, hit);
     }
     return hit;
   });
@@ -8676,7 +8954,7 @@ function shipReliability(ship, crew, fuel = false) {
   const mend = Math.min(SHIP_REPAIR.max, SHIP_REPAIR.perDexterity * (dex - KIWI.stat.average));
   const dust = fuel ? FUEL.reliability : 0;
   const engineer = crew.some((v) => v.classId === "engineer") ? SKILLS.engineerMend : 0;
-  return round24(Math.min(1, ship.reliability + mend + dust + engineer));
+  return round25(Math.min(1, ship.reliability + mend + dust + engineer));
 }
 function travelFactor(state, plan) {
   const fuel = plan.fuel ? FUEL.travel * (shipIdOf(state) === "sail" ? SAIL.fuelTravel : 1) : 1;
@@ -8713,10 +8991,10 @@ function reconForecast(crew, ship) {
     sp.max
   );
   return {
-    quality: round24(quality),
-    spotChance: round24(spotChance),
+    quality: round25(quality),
+    spotChance: round25(spotChance),
     sectors: RECON.sectors.base + Math.round(RECON.sectors.perQuality * quality),
-    spread: round24(RECON.spread.worst - (RECON.spread.worst - RECON.spread.best) * quality)
+    spread: round25(RECON.spread.worst - (RECON.spread.worst - RECON.spread.best) * quality)
   };
 }
 function rations(state, crew, ms2) {
@@ -8986,7 +9264,7 @@ function resolveArrival(state, e) {
       broken: true,
       strength: 0,
       defense: 0,
-      fed: round24(fed),
+      fed: round25(fed),
       lostInBattle: [],
       lostOnReturn: [],
       loot: emptyResources()
@@ -9000,7 +9278,7 @@ function resolveArrival(state, e) {
       aborted: true,
       strength: 0,
       defense: 0,
-      fed: round24(fed),
+      fed: round25(fed),
       lostInBattle: [],
       lostOnReturn: [],
       loot: emptyResources()
@@ -9017,7 +9295,7 @@ function resolveArrival(state, e) {
     aborted: true,
     strength: 0,
     defense: 0,
-    fed: round24(fed),
+    fed: round25(fed),
     lostInBattle: [],
     lostOnReturn: [],
     loot: emptyResources()
@@ -9128,7 +9406,7 @@ function closeMates(state, ids) {
 function nameOf(e, id3) {
   return e.roster.find((r) => r.id === id3)?.name ?? id3;
 }
-var round24 = (v) => Math.round(v * 100) / 100;
+var round25 = (v) => Math.round(v * 100) / 100;
 
 // packages/shared/src/sim/landing.ts
 var round13 = (v) => Math.round(v * 10) / 10;
@@ -9379,16 +9657,16 @@ function resolveLanding(state, e, members, fed) {
     if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
   } else e.status = "returning";
 }
-var trialCache3 = /* @__PURE__ */ new Map();
+var trialCache4 = /* @__PURE__ */ new Map();
 function practice2(state, crew, sector, units, help, buildings, orders, fed, seed) {
   const setup = landingSetup(state, crew, { sector, units, help, buildings, orders, fed });
   const key = JSON.stringify([setup.units, setup.buildings, setup.orders, help, seed]);
-  const hit = trialCache3.get(key);
+  const hit = trialCache4.get(key);
   if (hit) return hit;
   const log2 = simulateBattle(setup, seed);
   const out = { outcome: landingOutcome(log2), dead: log2.result.lost?.length ?? 0 };
-  if (trialCache3.size > 32) trialCache3.delete(trialCache3.keys().next().value);
-  trialCache3.set(key, out);
+  if (trialCache4.size > 32) trialCache4.delete(trialCache4.keys().next().value);
+  trialCache4.set(key, out);
   return out;
 }
 function scaled2(units, k) {
@@ -13976,7 +14254,7 @@ function landGuard(state, e, members, fed) {
   e.crew = back;
   e.result = base;
 }
-var trialCache4 = /* @__PURE__ */ new Map();
+var trialCache5 = /* @__PURE__ */ new Map();
 function beaconForecast(state, targetId, sector, origin, now, guards) {
   const face = state.faceViews[targetId];
   const b = beaconAt(face, sector);
@@ -14017,7 +14295,7 @@ function beaconForecast(state, targetId, sector, origin, now, guards) {
     });
     const seed = `${targetId}/beacon-trial/${sector}/${i}`;
     const key = JSON.stringify([setup.units, setup.buildings, seed]);
-    let hit = trialCache4.get(key);
+    let hit = trialCache5.get(key);
     if (!hit) {
       const log2 = simulateBattle(setup, seed);
       const ids = new Set(crew.map((v) => v.id));
@@ -14025,8 +14303,8 @@ function beaconForecast(state, targetId, sector, origin, now, guards) {
         held: beaconHeld(log2),
         dead: log2.result.fallen.filter((ref) => ids.has(ref)).length
       };
-      if (trialCache4.size > 32) trialCache4.delete(trialCache4.keys().next().value);
-      trialCache4.set(key, hit);
+      if (trialCache5.size > 32) trialCache5.delete(trialCache5.keys().next().value);
+      trialCache5.set(key, hit);
     }
     return hit;
   });
@@ -14593,7 +14871,13 @@ function cloneDepths(d) {
     galleries: Object.fromEntries(Object.entries(d.galleries).map(([k, g]) => [k, { ...g }])),
     door: { ...d.door, ...d.door.fortifying ? { fortifying: { ...d.door.fortifying } } : {} },
     rng: [...d.rng],
-    next: d.next ? cloneWave(d.next) : null
+    next: d.next ? cloneWave(d.next) : null,
+    ...d.weevil ? {
+      weevil: {
+        ...d.weevil,
+        ...d.weevil.wounds ? { wounds: { ...d.weevil.wounds } } : {}
+      }
+    } : {}
   };
 }
 function withDepthRng(state, fn) {
@@ -20953,7 +21237,12 @@ var gameStateSchema = external_exports.object({
     rng: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number(), external_exports.number()]),
     next: plannedWave.nullable(),
     upwells: external_exports.number().int().min(0),
-    lastUpwellAt: external_exports.number().min(0)
+    lastUpwellAt: external_exports.number().min(0),
+    weevil: external_exports.object({
+      attempts: external_exports.number().int().min(0).max(1e4),
+      wounds: external_exports.object({ share: external_exports.number().min(0).max(1), at: external_exports.number() }).optional(),
+      fellAt: external_exports.number().optional()
+    }).optional()
   }),
   depthSeed: external_exports.string().max(400).optional(),
   bestiary: external_exports.record(
@@ -21027,6 +21316,7 @@ var gameStateSchema = external_exports.object({
           strength: external_exports.number().min(0).max(1),
           hits: external_exports.array(external_exports.object({ id, share: external_exports.number().min(0).max(1) })).max(200)
         }).optional(),
+        weevil: external_exports.object({ left: external_exports.number().min(0).max(1) }).optional(),
         caveIn: external_exports.object({
           strength: external_exports.number().min(0).max(1),
           weight: external_exports.number().min(0).max(1e4),
@@ -23464,6 +23754,7 @@ export {
   WEAPONS,
   WEAPON_FAMILIES,
   WEAPON_IDS,
+  WEEVIL_REF,
   XP_SCALE,
   YEAR_MS,
   accrueCrystal,
@@ -24058,6 +24349,7 @@ export {
   rankSeason,
   rations,
   reachableRooms,
+  reachesFlight,
   rebaseFreeDeposits,
   receiveResearch,
   reconForecast,
@@ -24099,6 +24391,7 @@ export {
   resolveFinal,
   resolveLanding,
   resolveReturn,
+  resolveStem,
   restNeed,
   returnGear,
   returnHome,
@@ -24127,7 +24420,7 @@ export {
   sendBackAll,
   sendShipment,
   serializeSave,
-  settle,
+  settle2 as settle,
   shieldArrival,
   shipCargo,
   shipIdForAge,
@@ -24161,6 +24454,9 @@ export {
   startItem,
   startedItems,
   startingHarm,
+  stemEscort,
+  stemForecast,
+  stemSetup,
   storageFullCheck,
   storeItem,
   strengthOf,
@@ -24244,6 +24540,10 @@ export {
   weakestWorker,
   wealthFactor,
   wearLock,
+  weevilFallen,
+  weevilOf,
+  weevilUnit,
+  weevilWounds,
   withDepthRng,
   withRng,
   withThreatRng,

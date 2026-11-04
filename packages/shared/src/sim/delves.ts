@@ -5,6 +5,7 @@ import { caveInHits, delveSetup, hazardHits, hazardOdds, type HazardHit } from '
 import { EXPEDITIONS } from '../data/expeditions';
 import { ITEMS } from '../data/gear';
 import { modifiers } from './kiwis';
+import { resolveStem } from './stem';
 import { landingOutcome, type LandingOutcome } from '../battle/landing';
 import { simulateBattle } from '../battle/simulate';
 import type { BattleLog } from '../battle/types';
@@ -108,12 +109,11 @@ export function delveLock(
 
 /**
  * Chantier 50: the locules open in the Industry age (the flesh is open with the tunnel);
- * chantier 52: the core's caverns at the Age of the stars. The stem waits for its guard.
+ * chantier 52: the core's caverns and the stem at the Age of the stars.
  */
 export function layerOpen(state: GameState, room: DepthRoom): boolean {
   if (isFlesh(room)) return true;
   if (isLocule(room)) return ageOf(state) >= DEPTHS.locules.age;
-  if (isStem(room)) return false;
   return ageOf(state) >= DEPTHS.core.age;
 }
 
@@ -205,6 +205,10 @@ export function resolveDelve(
   const seed = state.depthSeed;
   const room = e.room ? depthsMapOf(state).byId.get(e.room) : undefined;
   if (seed === undefined || !room || !e.orders) throw new Error('resolveDelve: hidden depths');
+  if (isStem(room)) {
+    resolveStem(state, e, room, members, fed, seed);
+    return settle(state, e);
+  }
   const at = e.arriveAt;
   const truth = roomTruth(seed, room);
   const battleSeed = `${seed}/delve/${e.id}`;
@@ -309,6 +313,11 @@ export function resolveDelve(
     ...(outcome === 'victory' ? { gallery: true } : {}),
     ...(lantern ? { lantern } : {}),
   };
+  settle(state, e);
+}
+
+/** After the battle: home with the survivors, or done when nobody is left. */
+function settle(state: GameState, e: Expedition): void {
   if (e.crew.length === 0) {
     e.status = 'done';
     const done = state.expeditions.filter((x) => x.status === 'done');
@@ -413,7 +422,8 @@ export function delveForecast(
   skirt = false,
 ): DelveForecast | null {
   const room = depthsMapOf(state).byId.get(roomId);
-  if (!room) return null;
+  // Chantier 52: the stem has its own forecast (`stemForecast`).
+  if (!room || isStem(room)) return null;
   const view = state.depths.views[roomId] ?? null;
   const kind = view?.kind ?? null;
   const knowledge: DelveKnowledge = view?.units ? 'seen' : kind ? 'kind' : 'unknown';

@@ -41,6 +41,8 @@ export const WEAPON_IDS = [
   'shellRam',
   'seedShot',
   'skyShot',
+  // Chantier 52: the Great Weevil's ram (an area blow).
+  'weevilRam',
 ] as const;
 export type WeaponId = (typeof WEAPON_IDS)[number];
 
@@ -194,6 +196,8 @@ export const WEAPONS: Record<WeaponId, Weapon> = {
   dive: melee(2, 1.4),
   // Chantier 42: the ferret queen's blow sweeps everybody around her.
   royalSlam: { ...melee(4, 2.4), style: 'area' },
+  // Chantier 52: the Great Weevil rams everybody around it, on the ground and from the air.
+  weevilRam: { ...melee(4.5, 2.6), style: 'area' },
   spit: {
     damage: 1.6,
     range: 2,

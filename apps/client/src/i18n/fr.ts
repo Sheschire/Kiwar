@@ -1970,6 +1970,19 @@ export const fr: Dict = {
     perHour: '+{rate}/h en taille',
     full: 'La réserve de cristal est pleine : les mineur·euses des forêts remontent.',
   },
+  stem: {
+    known:
+      'Le Grand Charançon garde le pédoncule : tout le monde le connaît, un scarabée géant et quelques Grouillants.',
+    phases:
+      'D’abord sa carapace ; sous les deux tiers, il s’envole par à-coups (seuls les coups qui portent en l’air le touchent) ; sous un tiers, des larves sortent des parois ; à la fin, son dernier carré.',
+    wounded:
+      'Encore blessé de notre dernière bataille : −{pct} % de points de vie (il guérit en trois jours)',
+    left: 'il garderait environ {pct} % de ses points de vie',
+    noAir:
+      'Personne ne porte en l’air : quand il vole, personne ne le touche (mages, éclaireur·euses, cueilleur·euses, bardes ou armes à feu).',
+    attempts: '{count} bataille(s) contre lui jusqu’ici',
+    fallen: 'Le Grand Charançon est tombé.',
+  },
   core: {
     strip: '{count} cavernes blanches autour du centre, et le pédoncule dessous. Touchez-en une.',
     weight: 'Poids de l’équipage {weight} / plafond {ceiling}',
@@ -2207,6 +2220,7 @@ export const fr: Dict = {
       bite: 'morsure',
       slam: 'coup de tête',
       royalSlam: 'balayage royal',
+      weevilRam: 'coup de rostre',
       gnaw: 'mâchoires',
       sting: 'piqûre',
       shellRam: 'coup de carapace',
