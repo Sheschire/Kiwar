@@ -56,7 +56,7 @@ dans l'historique.
 | 49  | La tranche (client)                                 | fait    |
 | 50  | Tréfonds II : les loges                             | fait    |
 | 51  | L'Âge des étoiles                                   | fait    |
-| 52  | Tréfonds III : le cœur et le pédoncule              | à faire |
+| 52  | Tréfonds III : le cœur et le pédoncule              | fait    |
 | 53  | Les kiwaïs                                          | à faire |
 | 54  | Trous de ver et le Verger I : la framboise          | à faire |
 | 55  | Le Verger II : la pomme et l'ananas                 | à faire |
@@ -109,8 +109,15 @@ niveau d'un kiwi, population, constructions). Les faits d'avant les ligues vont 
 seulement. Le podium garde un titre daté et choisit un cosmétique (bannière du Nid, capes,
 fanions, couronne du monument), dessiné chez soi et chez les voisin·es. Écran Ligue, lignes de
 chat, migration `20261105000000_leagues.sql`. Skill `kiwar-leagues`.
-**Prochaine conversation** : le [chantier 52](chantiers/52-trefonds-coeur-pedoncule.md) (le cœur
-et le pédoncule, qui s'ouvrent à l'Âge des étoiles) ou le 53 (les kiwaïs).
+**Chantier 52 fait** : sous les loges, à l'Âge des étoiles, 6 à 10 **cavernes blanches** (plafond
+de poids public, éboulement au-delà, sève à deux fois le débit d'une mine) puis le
+**pédoncule** et le **Grand Charançon** (carapace, envol par à-coups où seuls les coups qui
+portent en l'air le touchent, nuée de larves ; blessures qui guérissent en 72 h). Sa chute
+révèle la **Liane-Mère** (trésor, souvenir, pèlerinage, nids du cœur muets) et fixe la règle du
+54 : sans elle, les trous de ver coûteront ×2,5 (`techCost`). Bot : Charançon aux jours 27 et
+30 quand il atteint le pédoncule (deux parties sur six). Skills `kiwar-depths`, `kiwar-battle`,
+`kiwar-client`.
+**Prochaine conversation** : le [chantier 53](chantiers/53-kiwais.md) (les kiwaïs).
 À tester avec le porteur : les ligues (compétition saine ou pression, points, durée d'une
 saison, cosmétiques), l'Âge des étoiles (le jour ~20 est-il le bon moment, le look des
 étoiles, le prix des niveaux 13–15 en cristal, le voilier), l'occasionnel·le sans cristal (il

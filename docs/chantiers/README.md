@@ -8,44 +8,44 @@ d'acceptation et les **skills à charger**. La direction d'ensemble est dans le
 
 ## À venir (carnet de route d'octobre 2026)
 
-| #   | Chantier                                                                                   | Dépend de | En parallèle possible |
-| --- | ------------------------------------------------------------------------------------------ | --------- | --------------------- |
-|     | **Acte I — Le rythme**                                                                     |           |                       |
-| 30  | [Paliers, âges et réserves](30-paliers-ages-reserves.md) — **fait**                        | —         | avec 32, 34           |
-| 31  | [Objectifs et menaces réveillées](31-objectifs-menaces.md) — **fait**                      | 30        | avec 32, 33, 34       |
-| 32  | [Correctifs et ciel](32-correctifs-ciel.md) — **fait**                                     | —         | oui (client seul)     |
-| 33  | [Bâtiments par âge, icônes 3D](33-batiments-par-age-icones.md) — **fait**                  | 30        | oui (client seul)     |
-| 34  | [Kiwis et créatures vivants](34-kiwis-creatures-vivants.md) — **fait**                     | —         | oui (client seul)     |
-|     | **Acte II — La guerre des faces**                                                          |           |                       |
-| 35  | [Bâtiments sur plusieurs tuiles](35-batiments-multi-tuiles.md) — **fait**                  | 30, 33    | non                   |
-| 36  | [Moteur de bataille : les vagues jouées pour de vrai](36-moteur-de-bataille.md) — **fait** | 34, 35    | non                   |
-| 37  | [Classes, rôles de combat, camp d’entraînement](37-classes-roles-camp.md) — **fait**       | 36        | non                   |
-| 38  | [Forge, équipement et fer météorique](38-forge-equipement-fer.md) — **fait**               | 37        | non                   |
-| 39  | [La civilisation alien](39-civilisation-alien.md) — **fait**                               | 36        | non                   |
-| 40  | [Le débarquement](40-debarquement.md) — **fait**                                           | 39        | non                   |
-| 41  | [La bataille en direct sur la jumelle](41-bataille-en-direct.md) — **fait**                | 40        | avec 43 (prudence)    |
-| 42  | [La reine des furets](42-reine-des-furets.md) — **fait**                                   | 41        | non                   |
-|     | **Acte III — Le village vivant** (fiches courtes, détaillées en début de session)          |           |                       |
-| 43  | [Moral par kiwi, Mairie et feu de camp](43-moral-mairie-feu-de-camp.md) — **fait**         | 35        | non                   |
-| 44  | [Loisirs et décor](44-loisirs-decor.md) — **fait**                                         | 43        | non                   |
-| 45  | [Rives fertiles et canaux de jus](45-rives-canaux.md) — **fait**                           | 35        | non                   |
-|     | **Entre les actes III et IV**                                                              |           |                       |
-| 46  | [Réglages d'après l'acte III](46-reglages-fin-acte-iii.md) — **fait**                      | 45        | non                   |
-|     | **Acte IV — Au-delà** (décisions du 26 octobre 2026, carnet section 9)                     |           |                       |
-| 47  | [Le rythme de la conquête](47-rythme-conquete.md) — **fait**                               | 46        | non                   |
-| 48  | [Tréfonds I : l'entrée et la chair verte](48-trefonds-chair-verte.md) — **fait**           | 47        | non                   |
-| 49  | [La tranche : les Tréfonds vus en coupe](49-la-tranche.md)                                 | 48        | avec 50 (client seul) |
-| 50  | [Tréfonds II : les loges, les raphides et l'actinidine](50-trefonds-loges.md)              | 48        | avec 49               |
-| 51  | [L'Âge des étoiles](51-age-des-etoiles.md) — **fait**                                       | 50        | non                   |
-| 52  | [Tréfonds III : le cœur, le pédoncule et la Liane-Mère](52-trefonds-coeur-pedoncule.md)    | 51        | non                   |
-| 53  | [Les kiwaïs : petites planètes en orbite](53-kiwais.md)                                    | 51        | non                   |
-| 54  | [Les trous de ver et le Verger I : la framboise](54-verger-framboise.md)                   | 52, 53    | non                   |
-| 55  | [Le Verger II : la pomme et l'ananas](55-verger-pomme-ananas.md)                           | 54        | avec 56               |
-| 56  | [Les ligues](56-ligues.md) — **fait**                                                      | 51        | avec 55 (serveur)     |
-| 57  | [Le JcJ optionnel](57-jcj-optionnel.md)                                                    | 56        | non                   |
-| 58  | [Réglages et bilan de l'acte IV](58-reglages-fin-acte-iv.md)                               | 57        | non                   |
-|     | **Hors carnet**                                                                            |           |                       |
-| 59  | [Les voisins vivants](59-voisins-vivants.md) — **fait**                                    | —         | oui (multijoueur)     |
+| #   | Chantier                                                                                           | Dépend de | En parallèle possible |
+| --- | -------------------------------------------------------------------------------------------------- | --------- | --------------------- |
+|     | **Acte I — Le rythme**                                                                             |           |                       |
+| 30  | [Paliers, âges et réserves](30-paliers-ages-reserves.md) — **fait**                                | —         | avec 32, 34           |
+| 31  | [Objectifs et menaces réveillées](31-objectifs-menaces.md) — **fait**                              | 30        | avec 32, 33, 34       |
+| 32  | [Correctifs et ciel](32-correctifs-ciel.md) — **fait**                                             | —         | oui (client seul)     |
+| 33  | [Bâtiments par âge, icônes 3D](33-batiments-par-age-icones.md) — **fait**                          | 30        | oui (client seul)     |
+| 34  | [Kiwis et créatures vivants](34-kiwis-creatures-vivants.md) — **fait**                             | —         | oui (client seul)     |
+|     | **Acte II — La guerre des faces**                                                                  |           |                       |
+| 35  | [Bâtiments sur plusieurs tuiles](35-batiments-multi-tuiles.md) — **fait**                          | 30, 33    | non                   |
+| 36  | [Moteur de bataille : les vagues jouées pour de vrai](36-moteur-de-bataille.md) — **fait**         | 34, 35    | non                   |
+| 37  | [Classes, rôles de combat, camp d’entraînement](37-classes-roles-camp.md) — **fait**               | 36        | non                   |
+| 38  | [Forge, équipement et fer météorique](38-forge-equipement-fer.md) — **fait**                       | 37        | non                   |
+| 39  | [La civilisation alien](39-civilisation-alien.md) — **fait**                                       | 36        | non                   |
+| 40  | [Le débarquement](40-debarquement.md) — **fait**                                                   | 39        | non                   |
+| 41  | [La bataille en direct sur la jumelle](41-bataille-en-direct.md) — **fait**                        | 40        | avec 43 (prudence)    |
+| 42  | [La reine des furets](42-reine-des-furets.md) — **fait**                                           | 41        | non                   |
+|     | **Acte III — Le village vivant** (fiches courtes, détaillées en début de session)                  |           |                       |
+| 43  | [Moral par kiwi, Mairie et feu de camp](43-moral-mairie-feu-de-camp.md) — **fait**                 | 35        | non                   |
+| 44  | [Loisirs et décor](44-loisirs-decor.md) — **fait**                                                 | 43        | non                   |
+| 45  | [Rives fertiles et canaux de jus](45-rives-canaux.md) — **fait**                                   | 35        | non                   |
+|     | **Entre les actes III et IV**                                                                      |           |                       |
+| 46  | [Réglages d'après l'acte III](46-reglages-fin-acte-iii.md) — **fait**                              | 45        | non                   |
+|     | **Acte IV — Au-delà** (décisions du 26 octobre 2026, carnet section 9)                             |           |                       |
+| 47  | [Le rythme de la conquête](47-rythme-conquete.md) — **fait**                                       | 46        | non                   |
+| 48  | [Tréfonds I : l'entrée et la chair verte](48-trefonds-chair-verte.md) — **fait**                   | 47        | non                   |
+| 49  | [La tranche : les Tréfonds vus en coupe](49-la-tranche.md)                                         | 48        | avec 50 (client seul) |
+| 50  | [Tréfonds II : les loges, les raphides et l'actinidine](50-trefonds-loges.md)                      | 48        | avec 49               |
+| 51  | [L'Âge des étoiles](51-age-des-etoiles.md) — **fait**                                              | 50        | non                   |
+| 52  | [Tréfonds III : le cœur, le pédoncule et la Liane-Mère](52-trefonds-coeur-pedoncule.md) — **fait** | 51        | non                   |
+| 53  | [Les kiwaïs : petites planètes en orbite](53-kiwais.md)                                            | 51        | non                   |
+| 54  | [Les trous de ver et le Verger I : la framboise](54-verger-framboise.md)                           | 52, 53    | non                   |
+| 55  | [Le Verger II : la pomme et l'ananas](55-verger-pomme-ananas.md)                                   | 54        | avec 56               |
+| 56  | [Les ligues](56-ligues.md) — **fait**                                                              | 51        | avec 55 (serveur)     |
+| 57  | [Le JcJ optionnel](57-jcj-optionnel.md)                                                            | 56        | non                   |
+| 58  | [Réglages et bilan de l'acte IV](58-reglages-fin-acte-iv.md)                                       | 57        | non                   |
+|     | **Hors carnet**                                                                                    |           |                       |
+| 59  | [Les voisins vivants](59-voisins-vivants.md) — **fait**                                            | —         | oui (multijoueur)     |
 
 Les fiches de l'acte IV sont détaillées, mais leurs chiffres sont des points de départ à
 calibrer en session. Les anciens chantiers 25 à 29, jamais commencés, sont devenus 37, 35, 43,

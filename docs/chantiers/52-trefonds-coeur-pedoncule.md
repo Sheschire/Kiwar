@@ -78,3 +78,44 @@ C'est le but long de l'acte IV sous nos pieds, et le lien vers l'espace.
 - La chute du Charançon révèle la Liane-Mère et ouvre les trous de ver ; sans elle, la
   recherche reste possible.
 - La bataille du Charançon est lisible sur téléphone (8 min au plus, comme la reine).
+
+## Bilan (4 novembre 2026)
+
+**Réponses du porteur** (nouvelles questions, option recommandée à chaque fois) : sans la
+Liane-Mère, la recherche des trous de ver coûte ×2,5 en points ; la technologie elle-même vient
+au 54 (ici seulement la règle de prix) ; le poids d'une caverne = le poids réel de l'équipage
+plus ses armures, plafond public, éboulement au-delà (pas de refus) ; le cœur et les loges
+restent peints dans la tranche 3D.
+
+**Fait** (commits « Chantier 52 (part …) ») :
+
+1. **La couche du cœur** : 6 à 10 cavernes blanches (profondeur 5) et le pédoncule
+   (profondeur 6), tirés après les loges sur leur propre flux (chair et loges inchangées,
+   empreinte testée) ; plafond public par caverne, éboulement sur tout l'équipage au-delà
+   (prévu et joué), galeries de sève à deux fois le débit d'une mine, nids qui nourrissent les
+   remontées. Coupe 2D et bande, poids et plafond dans le planificateur.
+2. **Le pédoncule et le Grand Charançon** : le moteur sait faire décoller une unité par phases
+   (`flight`, événements `rise` / `land`) ; le Charançon (carapace, envol, nuée de larves,
+   dernier carré), sa garde publique, sa prévision honnête, ses blessures qui guérissent en
+   72 h, nos tentatives.
+3. **La Liane-Mère** : trésor (graines géantes, cristal), souvenir pour toute la colonie, nids du
+   cœur muets, galerie de pèlerinage (+4 de moral avec un·e pèlerin·e), règle de prix ×2,5
+   (`techCost`) pour le 54, deux objectifs des étoiles, deux hauts faits de ligue.
+4. **Client** : le corps du Charançon (planche `?kiwis`), son envol dans le spectacle, sa
+   bataille jouée dans la coupe, la Liane-Mère qui sort de la planète dans l'espace et dans les
+   coupes, galeries fines entre petites cellules ; captures bureau et téléphone.
+5. **Bot et sondes** : le cœur d'abord à l'Âge des étoiles, le tunnel au niveau 3, jamais
+   au-dessus du plafond, le Charançon quand le combat est serré ; trois séries de sondes.
+
+**Mesures** (détails dans `DECISIONS.md`) : là où le bot atteint le pédoncule, le Charançon
+tombe aux jours **27,0 et 30,1**, chaque fois à la deuxième bataille (la première le blesse à
+50 %) ; 4 à 11 morts au combat sur la partie.
+
+**Reste** (voir `DETTE.md`) :
+
+- ⚠️ le rythme des cavernes chez le bot (0 à 4 en onze jours d'étoiles ; une partie n'en prend
+  aucune, trois n'atteignent pas le pédoncule en 32 jours) : à revoir au chantier 58 ;
+- les cavernes et les loges restent peintes dans la tranche 3D (pas de salle creusée) ; le
+  champ de bataille d'une petite cellule est posé devant elle ;
+- pas de son propre pour le Charançon ni pour la Liane-Mère (celui de la reine sert) ;
+- la technologie des trous de ver elle-même (54) ; les Tréfonds de la seconde colonie (58).

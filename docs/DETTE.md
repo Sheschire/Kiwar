@@ -11,6 +11,12 @@
 
 ## Des chantiers précédents
 
+- Chantier 52 : ⚠️ le bot prend les cavernes lentement (0 à 4 en onze jours d'étoiles, une
+  partie aucune) et n'atteint le pédoncule que dans deux parties sur six en 32 jours (le
+  Charançon tombe alors aux jours 27 et 30) : puissance des cavernes, prudence du bot, équipage
+  du tunnel, à revoir au chantier 58. Les cavernes restent peintes dans la tranche 3D ; pas de
+  son propre pour le Charançon ni la Liane-Mère ; les Tréfonds de la seconde colonie (58).
+
 - Chantier 49 : la coupe vérifiée en Chromium sans GPU seulement (images/s à confirmer sur un
   vrai téléphone avec `?debug`). Les Grouillants portent encore les rigs du furet et de la
   chauve-souris teintés (leurs propres corps : larve, mouche, cloporte, restent à dessiner).

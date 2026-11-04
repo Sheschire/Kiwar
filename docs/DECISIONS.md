@@ -3513,6 +3513,62 @@ Owner's request: a little more stardust per comet, and +20 stardust for everyone
   `land`). A cleared grove dug later becomes a canal, never the grove back.
   `plausibleTerraform` accepts both.
 
+## Chantier 52 — The depths III: the core, the stem and the Mother Vine
+
+The third layer of the depths, from the chantier document's decisions and the owner's answers
+of 4 November 2026.
+
+### Owner's answers (new points, the recommended option each time)
+
+- **Without the Mother Vine** the wormhole research costs **× 2.5 points** (it drops at once if
+  the Vine is found during the research).
+- **The wormhole technology itself comes with chantier 54**: this chantier sets the fact
+  ("the Mother Vine found") and the price rule only (`TechDef.cheaperWith`, `techCost`).
+- **A cavern's weight** is the crew's real weight (`crewWeight`, its traits) plus its armour;
+  the ceiling is public, and a heavier crew is not refused: the cavern caves in on everybody.
+- **The 3D cut shows the core and the locules painted** (no 3D hollows: still a debt).
+
+### Defaults chosen by Claude (status "default", changeable)
+
+- Layer 3 drawn after the locules on its own stream (flesh and locules unchanged, hashed in a
+  test): 6–10 white caverns (depth 5) and one stem (depth 6), the stem opening onto the two
+  caverns nearest the middle (a third sometimes). Open at the Age of the stars.
+- Caverns: power 70 at level 16, nest chance 35 %, loot 2 000 (juice and pulp), 5 iron, 0–2
+  giant seeds, no hazard of their own, ceiling 45–75 (a kiwi weighs 10, light armour +2, heavy
+  +6), cave-in 0.2 + 0.8 × the share above the ceiling (at most 0.6), on everybody. Galleries:
+  juice at twice a mine's share (`perMiner` 2), 3 places. Their nests feed the upwellings
+  (+0.8 each) until the Weevil falls.
+- **The Great Weevil** (public guard): 3 400 hit points × √ its level factor (level 20), armour
+  0.45, blows × 1.6 (an area ram); under 66 % it flies 16 s and lands 12 s in turn (armour 0.15
+  up there, only blows that reach the air touch it); under 33 % 24 larvae come out of the walls;
+  under 20 % its last stand (× 1.5 blows, × 1.3 speed); an escort of Grouillants (power 40,
+  level 18); 480 s at most. A lost battle leaves its wounds (at most 50 %, healing over 72 h).
+- **The Mother Vine**: 6 giant seeds and 80 crystal (up to the caps), a memory for every kiwi
+  (+15 morale, 72 h), the core's nests silent; the stem's gallery holds 2 pilgrims (no harvest),
+  one of them with the door open gives the colony +4 morale (the automation keeps one).
+- Objectives of the stars: two caverns, the Great Weevil. League feats: a cavern (rare), the
+  Weevil (legendary).
+- The Weevil has its own rig (an olive shell, a rostrum, wing cases that open); the Mother Vine
+  is a glowing liana out of the bottom of our half, seen from space and painted in the cuts.
+
+### Measures (bot probes, attentive)
+
+| Round | Weevil | Bot | What we learned |
+|---|---|---|---|
+| 1 (6 × 28 days) | 900 hp | locules first, tunnel level 1 | no cavern ever: 30–42 locules came first; crews of 4 |
+| saved states, days 21 and 25 | 900–4 000 hp | — | 900 hp fell to 4 kiwis on day 21 (steel and crystal gear); 3 400 × 1.6 needs a first battle |
+| 2 (6 × 28 days) | 3 400 × 1.6 | core first, tunnel 3 at the stars | 1–4 caverns, but the stem opened onto one cavern: never reached |
+| 3 (6 × 32 days) | same | the stem onto two caverns, nearest the stem first | **the Weevil fell on days 27.0 and 30.1** (2 of 6), each time on the second battle |
+
+- Kiwis dead in battle over the run (delves and landings): 4–11.
+- ⚠️ The pace of the caverns: the bot (attentive, "likely" with nobody expected dead, under
+  the ceiling) takes 0 to 4 caverns in 11 days of stars; one game took none, three never
+  reached a cavern next to the stem. To see with the owner and in chantier 58 (power of the
+  caverns, the bot's caution, the tunnel's crew).
+- To test with the owner: the cave-in (is the ceiling readable, does it make a real choice
+  between armour and head count), the Weevil's battle (its length, its flight, the second
+  battle), the vine's look, the pilgrimage.
+
 ## Chantier 56 — The leagues
 
 Owner's answers (4 November 2026), on top of the chantier document:

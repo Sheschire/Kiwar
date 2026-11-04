@@ -10,6 +10,16 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 52** — **les Tréfonds, troisième couche : le cœur et le pédoncule**. À l'Âge des
+> étoiles, sous les loges, s'ouvrent les **cavernes blanches** du cœur : riches en sève pure
+> (une galerie y donne deux fois plus de jus), mais à paroi fine — au-delà de son **plafond de
+> poids**, affiché, la caverne s'éboule sur tout l'équipage (moins de kiwis, ou moins
+> d'armure). Au fond, le **pédoncule** est gardé par le **Grand Charançon** : sa carapace,
+> puis son envol par à-coups (seuls les coups qui portent en l'air le touchent), puis une nuée
+> de larves. Une bataille perdue le laisse blessé quelques jours. Sa chute révèle la
+> **Liane-Mère**, le chemin du Verger cosmique : un trésor, un souvenir pour toute la colonie,
+> une galerie de pèlerinage, et la recherche des trous de ver deviendra moins chère.
+
 > **Chantier 56** — **les ligues**. Dans un univers partagé, chaque saison d'environ quatre
 > semaines classe les **hauts faits** des colonies : un âge atteint, une balise au centre de la
 > jumelle, la reine tombée, une galerie dans les loges, un Kikiwiwi, et des paliers (vagues
