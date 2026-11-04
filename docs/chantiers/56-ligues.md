@@ -1,5 +1,7 @@
 # Chantier 56 — Les ligues
 
+> **Fait** (4 novembre 2026). Bilan en fin de document.
+
 Acte IV « Au-delà » du [carnet de route](../CARNET_DE_ROUTE.md) (section 9, « Toujours en
 idée »). **Serveur (SQL, fonction `game`) + client.** Après le **51**. Il peut tourner **en
 parallèle du 55**, car il ne touche pas la simulation, sauf pour lire des faits publics. Il crée
@@ -88,3 +90,29 @@ ouvertes deux questions : ce qui est remis à zéro, et ce qui fait gagner.
   pas écrire).
 - Une fin de saison remet le classement à zéro sans toucher aucune partie.
 - Aucune récompense ne change la force d'une colonie.
+
+## Bilan (4 novembre 2026)
+
+Fait, en quatre commits :
+
+1. **Données** : `data/feats.ts` (16 faits uniques, 5 familles à paliers, points par rareté),
+   `league/feats.ts` (`featsOf` ne lit que l'état public), `league/seasons.ts`.
+2. **SQL et serveur** : migration `20261105000000_leagues.sql` (`league_seasons`,
+   `league_feats`, `league_players`, `league_titles`, vue `league_ranking`), RLS testée ; faits
+   écrits au `load` et à chaque `command` ; saisons ouvertes et closes par le serveur ;
+   actions `league`, `leagueReward`, `leagueWear` ; un échec des ligues ne bloque jamais le jeu.
+3. **Client** : écran Ligue (Saison, Hauts faits, Palmarès ; en solo, ses hauts faits),
+   bouton et entrée du menu téléphone, lignes de chat.
+4. **Cosmétiques** : bannière du Nid, capes, fanions des chemins, couronne du monument, chez
+   soi et dans le village d'un·e allié·e visité.
+
+Réponses du porteur : les faits d'avant les ligues vont au palmarès seulement ; paliers
+croissants ; quatre cosmétiques. Détails dans `DECISIONS.md`, skill `kiwar-leagues`.
+
+Reste :
+
+- ajouter les faits des chantiers 52 (le cœur, le Grand Charançon), 53 (premier kiwaï), 54–55
+  (chaque fruit visité, un comptoir) une fois faits ;
+- à tester avec le porteur : la compétition saine ou la pression, les points, la durée d'une
+  saison, le rendu des cosmétiques.
+

@@ -120,3 +120,8 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   `publicState`); `hiddenDue` also lists a wave due to be announced (only the server knows the
   civilisation's power and the wave's parcel), and `awaitingServer` includes `waveAwaited`.
   Leak tests scan for `"civ":{`, `"keys":[`, `"royalSeen"`, `"fights":[`. No SQL change.
+- **Chantier 56** (`kiwar-leagues`): `GameRepository extends LeagueRepository`; `load` and
+  `command` write feats through `leagueOf` (wrapped in `quietly`: never blocks a game);
+  actions `league`, `leagueReward`, `leagueWear`; `AllySnapshot.league` and `leagueLook` come
+  from `neighboursOf`. Migration `20261105000000_leagues.sql` (four tables + a view, members
+  read, the function writes). A missing league table reads empty.

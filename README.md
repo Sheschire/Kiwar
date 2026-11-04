@@ -10,6 +10,15 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 56** — **les ligues**. Dans un univers partagé, chaque saison d'environ quatre
+> semaines classe les **hauts faits** des colonies : un âge atteint, une balise au centre de la
+> jumelle, la reine tombée, une galerie dans les loges, un Kikiwiwi, et des paliers (vagues
+> tenues, débarquements gagnés, un kiwi au niveau 30…). Seul le classement repart à zéro :
+> aucune colonie n'est touchée. Le podium garde un **titre daté** et choisit un
+> **cosmétique** — bannière du Nid, capes des kiwis, fanions des chemins ou couronne du
+> monument — qui ne change rien à la force. Les hauts faits tombent aussi dans le chat. En solo,
+> l'écran montre ses propres hauts faits.
+
 > **Chantier 51** — **l'Âge des étoiles**, cinquième âge. Après l'Industrie, la technologie
 > **Cartes du ciel profond** puis le quatrième palier du **monument** (un observatoire sous une
 > coupole de cristal, un orrery des deux moitiés du kiwi) ouvrent les **niveaux 13 à 15** :

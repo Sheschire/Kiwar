@@ -63,7 +63,9 @@ nouvelles migrations, dans l'ordre (jamais `setup.sql` une seconde fois).
 Ces tables sont créées : `games` (états de jeu ; depuis le chantier 19, jusqu'à deux par
 joueur·euse et univers : la colonie d'origine `colony = 0` et la colonie sœur `colony = 1`), `command_log` (journal anti-triche), `admins`,
 `universes`, `universe_members`, `chat_messages`, `chat_reports`, `audio_assets` et
-`audio_bindings`, ainsi que le bucket Storage **`audio`** (lecture publique, 2 Mo par fichier).
+`audio_bindings`, les tables des ligues (`league_seasons`, `league_feats`, `league_players`,
+`league_titles` et la vue `league_ranking`, lisibles par les membres de l'univers, écrites par
+la fonction seule), ainsi que le bucket Storage **`audio`** (lecture publique, 2 Mo par fichier).
 Les joueurs peuvent seulement **lire** leur partie. Toute écriture passe par la fonction serveur.
 Les parties (`games`) ne sont lisibles que par la fonction `game` : elles contiennent les
 garnisons extraterrestres réelles, que les joueurs ne connaissent que par leurs reconnaissances.
@@ -83,6 +85,7 @@ Migrations, dans l'ordre :
 | `20261026000000_universe_imports.sql`   | réglage « colonies importées » de l'hôte, membre importé   |
 | `20261027000000_linked_colonies.sql`    | seconde colonie : deux parties liées par joueur et univers |
 | `20261103000000_universe_kick.sql`      | l'hôte retire un joueur (bannis), univers à 16 joueurs     |
+| `20261105000000_leagues.sql`            | ligues : saisons, hauts faits, titres, cosmétiques portés  |
 
 ## 4. Fonction serveur `game`
 

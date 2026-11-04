@@ -3512,3 +3512,37 @@ Owner's request: a little more stardust per comet, and +20 stardust for everyone
   grove can be cleared into flesh for good (`fillCanal` on a natural grove → terraform
   `land`). A cleared grove dug later becomes a canal, never the grove back.
   `plausibleTerraform` accepts both.
+
+## Chantier 56 — The leagues
+
+Owner's answers (4 November 2026), on top of the chantier document:
+
+- **Feats passed before entering the league** (an existing colony on the first request after
+  the deployment, a solo colony brought into a universe) go to the **record only**: season 0,
+  0 point, labelled "before the leagues". Season 1 starts level for everyone.
+- **Tiered feats** keep a goal for advanced colonies season after season (waves held
+  5/15/40/100/200, landings won 1/5/15/40, a kiwi at level 10/20/30, population 10/20/40/60,
+  constructions 25/100/250/500), all read from the state: a step passed, never time connected.
+- **Cosmetics** the podium picks from: Nest banner, kiwi capes, path pennants, monument crown.
+
+Defaults chosen by Claude (status "default", changeable):
+
+- **Points by designed rarity**, fixed in `data/feats.ts` (common 10, notable 25, rare 50,
+  legendary 100), not by how many players of the universe have the feat: the same rules for
+  everybody and nothing that moves when someone joins (charter 10).
+- A feat counts **once per player** (home and sister colonies together), in the season the
+  server sees it; it is dated by the server time of that request (an offline step counts when
+  the colony next talks to the server). The seasons of a universe follow on without gaps; the
+  first opens at its first league request after the deployment. Podium ties go to the first to
+  reach the total.
+- The podium's titles keep the display name of the time. The best rank decides a cosmetic's
+  colour (gold, silver, bronze); a player may hide what they picked.
+- Feats in the chat: only those of a season (season ≥ 1), never counted as unread.
+- The leagues never block the game: any failure (or the migration not yet run) is ignored by
+  the server (`quietly`, missing tables read empty).
+- Not in yet: the core and the Great Weevil (52, being written in parallel), the kiwaïs (53),
+  the orchard (54–55) — to add when they are done.
+
+To test with the owner: does the ranking feel like healthy competition or pressure, the
+points by rarity, the 28-day season, the look of the cosmetics.
+

@@ -60,7 +60,7 @@ dans l'historique.
 | 53  | Les kiwaïs                                          | à faire |
 | 54  | Trous de ver et le Verger I : la framboise          | à faire |
 | 55  | Le Verger II : la pomme et l'ananas                 | à faire |
-| 56  | Les ligues                                          | à faire |
+| 56  | Les ligues                                          | fait    |
 | 57  | Le JcJ optionnel                                    | à faire |
 | 58  | Réglages et bilan de l'acte IV                      | à faire |
 | 59  | Les voisins vivants (hors carnet)                   | fait    |
@@ -102,9 +102,17 @@ contourner les lacs ; les nids des loges renforcent les remontées. Sauvegarde v
 monument), trois technologies de l'âge, six objectifs, le voilier stellaire (aire d'envol 13),
 le look des étoiles. Bot attentif : l'âge aux jours 18,5–21,2. Sauvegarde v41. Skills
 `kiwar-ages`, `kiwar-sim`, `kiwar-client`, `kiwar-balance`.
+**Chantier 56 fait** : les ligues. Dans un univers partagé, un classement par saisons de
+28 jours sur des hauts faits publics et datés, lus par le serveur dans l'état tenu (âges,
+balises, conquête, Tréfonds, Kikiwiwi, forge, et des paliers : vagues tenues, débarquements,
+niveau d'un kiwi, population, constructions). Les faits d'avant les ligues vont au palmarès
+seulement. Le podium garde un titre daté et choisit un cosmétique (bannière du Nid, capes,
+fanions, couronne du monument), dessiné chez soi et chez les voisin·es. Écran Ligue, lignes de
+chat, migration `20261105000000_leagues.sql`. Skill `kiwar-leagues`.
 **Prochaine conversation** : le [chantier 52](chantiers/52-trefonds-coeur-pedoncule.md) (le cœur
 et le pédoncule, qui s'ouvrent à l'Âge des étoiles) ou le 53 (les kiwaïs).
-À tester avec le porteur : l'Âge des étoiles (le jour ~20 est-il le bon moment, le look des
+À tester avec le porteur : les ligues (compétition saine ou pression, points, durée d'une
+saison, cosmétiques), l'Âge des étoiles (le jour ~20 est-il le bon moment, le look des
 étoiles, le prix des niveaux 13–15 en cristal, le voilier), l'occasionnel·le sans cristal (il
 n'atteint jamais les loges dans le bot : son monument des étoiles attend), les loges (leur difficulté — 5 à 8 morts en descente quand il y a des retraites —, le prix des lentilles et des munitions,
 le rythme des arbres-loges, contourner les lacs, la bande des loges sur téléphone), la coupe (le plaisir de regarder, le geste, les images/s sur téléphone, la taille des combattants d'une descente), les Tréfonds (le ressenti des dangers, la difficulté des salles profondes, la fréquence des remontées, le prix de la porte fortifiée), la prévision des débarquements au pire (renforts possibles), la reine au jour 13 (deux parties sur six la battent le jour même : une date au jour 14 ?), l'exigence du moral par âge, le poids des deuils, la valeur d'un
