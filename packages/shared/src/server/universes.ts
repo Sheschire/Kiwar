@@ -1,3 +1,4 @@
+import type { LeagueLook } from './leagues';
 import type { ObstacleKind } from '../data/obstacles';
 import type { TerraformTile } from '../data/titan';
 import { alienDefOf } from '../data/expeditions';
@@ -109,6 +110,8 @@ export interface AllySnapshot extends TwinSnapshot {
   sister?: SisterSnapshot;
   /** Chantier 59: their alien twin as they see it (absent in older snapshots). */
   twin?: AllyTwin;
+  /** Chantier 56: the league cosmetics their colony wears. */
+  league?: LeagueLook;
 }
 
 /**

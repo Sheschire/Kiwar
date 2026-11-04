@@ -21367,6 +21367,44 @@ function deserializeSave(text) {
   };
 }
 
+// packages/shared/src/league/seasons.ts
+var LEAGUE = {
+  /** About four weeks. */
+  seasonMs: 28 * 24 * 36e5,
+  /** Places that win a title and a cosmetic. */
+  podium: 3
+};
+var LEAGUE_COSMETICS = ["banner", "capes", "pennants", "crown"];
+function seasonsToOpen(last, now) {
+  if (!last) return [{ n: 1, startsAt: now, endsAt: now + LEAGUE.seasonMs, closedAt: null }];
+  const out = [];
+  let prev = last;
+  while (prev.endsAt <= now) {
+    prev = {
+      n: prev.n + 1,
+      startsAt: prev.endsAt,
+      endsAt: prev.endsAt + LEAGUE.seasonMs,
+      closedAt: null
+    };
+    out.push(prev);
+  }
+  return out;
+}
+function rankSeason(feats) {
+  const by = /* @__PURE__ */ new Map();
+  for (const f of feats) {
+    const row = by.get(f.userId) ?? { userId: f.userId, points: 0, feats: 0, lastAt: 0 };
+    row.points += f.points;
+    row.feats += 1;
+    row.lastAt = Math.max(row.lastAt, f.at);
+    by.set(f.userId, row);
+  }
+  return [...by.values()].filter((r) => r.points > 0).sort((a, b) => b.points - a.points || a.lastAt - b.lastAt || (a.userId < b.userId ? -1 : 1));
+}
+function podiumOf(ranking) {
+  return ranking.slice(0, LEAGUE.podium);
+}
+
 // packages/shared/src/server/protocol.ts
 var id2 = external_exports.string().min(1).max(64);
 var int = external_exports.number().int();
@@ -21616,6 +21654,21 @@ var requestSchema = external_exports.discriminatedUnion("action", [
     universe: external_exports.string().min(1).max(64),
     face: external_exports.enum(FACES)
   }),
+  /** Chantier 56: the league of a shared universe (season, feats, record, titles). */
+  external_exports.object({ action: external_exports.literal("league"), universe: external_exports.string().min(1).max(64) }),
+  /** Chantier 56: a podium place picks its cosmetic (once). */
+  external_exports.object({
+    action: external_exports.literal("leagueReward"),
+    universe: external_exports.string().min(1).max(64),
+    season: external_exports.number().int().min(1).max(1e5),
+    cosmetic: external_exports.enum(LEAGUE_COSMETICS)
+  }),
+  /** Chantier 56: which of the picked cosmetics the colony shows. */
+  external_exports.object({
+    action: external_exports.literal("leagueWear"),
+    universe: external_exports.string().min(1).max(64),
+    worn: external_exports.array(external_exports.enum(LEAGUE_COSMETICS)).max(LEAGUE_COSMETICS.length)
+  }),
   /** Chantier 59: an ally's village as it lives now, to watch it while visiting. */
   external_exports.object({
     action: external_exports.literal("allyVillage"),
@@ -21641,6 +21694,354 @@ var SERVER_ERRORS = [
   "banned",
   "kicked"
 ];
+
+// packages/shared/src/data/feats.ts
+var FEAT_RARITIES = ["common", "notable", "rare", "legendary"];
+var FEAT_POINTS = {
+  common: 10,
+  notable: 25,
+  rare: 50,
+  legendary: 100
+};
+var FEAT_GROUPS = ["ages", "conquest", "depths", "village", "forge"];
+var FEAT_IDS = [
+  "stoneAge",
+  "ironAge",
+  "industryAge",
+  "starsAge",
+  "firstBeacon",
+  "centreBeacon",
+  "conquest",
+  "sisterColony",
+  "tunnel",
+  "firstGallery",
+  "locules",
+  "kikiwiwi",
+  "starEgg",
+  "masterClass",
+  "steelGear",
+  "crystalGear",
+  // Tiered families.
+  "wavesHeld",
+  "landingsWon",
+  "kiwiLevel",
+  "population",
+  "constructions"
+];
+var FEATS = {
+  stoneAge: { id: "stoneAge", group: "ages", rarity: "common" },
+  ironAge: { id: "ironAge", group: "ages", rarity: "notable" },
+  industryAge: { id: "industryAge", group: "ages", rarity: "rare" },
+  starsAge: { id: "starsAge", group: "ages", rarity: "legendary" },
+  firstBeacon: { id: "firstBeacon", group: "conquest", rarity: "notable" },
+  centreBeacon: { id: "centreBeacon", group: "conquest", rarity: "rare" },
+  conquest: { id: "conquest", group: "conquest", rarity: "legendary" },
+  sisterColony: { id: "sisterColony", group: "conquest", rarity: "rare" },
+  tunnel: { id: "tunnel", group: "depths", rarity: "notable" },
+  firstGallery: { id: "firstGallery", group: "depths", rarity: "notable" },
+  locules: { id: "locules", group: "depths", rarity: "rare" },
+  kikiwiwi: { id: "kikiwiwi", group: "village", rarity: "rare" },
+  starEgg: { id: "starEgg", group: "village", rarity: "rare" },
+  masterClass: { id: "masterClass", group: "village", rarity: "notable" },
+  steelGear: { id: "steelGear", group: "forge", rarity: "notable" },
+  crystalGear: { id: "crystalGear", group: "forge", rarity: "rare" },
+  wavesHeld: {
+    id: "wavesHeld",
+    group: "conquest",
+    tiers: [5, 15, 40, 100, 200],
+    rarity: ["common", "notable", "notable", "rare", "legendary"]
+  },
+  landingsWon: {
+    id: "landingsWon",
+    group: "conquest",
+    tiers: [1, 5, 15, 40],
+    rarity: ["common", "notable", "rare", "legendary"]
+  },
+  kiwiLevel: {
+    id: "kiwiLevel",
+    group: "village",
+    tiers: [10, 20, 30],
+    rarity: ["common", "notable", "rare"]
+  },
+  population: {
+    id: "population",
+    group: "village",
+    tiers: [10, 20, 40, 60],
+    rarity: ["common", "notable", "rare", "legendary"]
+  },
+  constructions: {
+    id: "constructions",
+    group: "village",
+    tiers: [25, 100, 250, 500],
+    rarity: ["common", "notable", "rare", "legendary"]
+  }
+};
+var AGE_FEATS = [
+  ["stoneAge", 1],
+  ["ironAge", 2],
+  ["industryAge", 3],
+  ["starsAge", 4]
+];
+var FEAT_KEYS = FEAT_IDS.flatMap((id3) => {
+  const def = FEATS[id3];
+  return def.tiers ? def.tiers.map((t) => `${id3}:${t}`) : [id3];
+});
+function parseFeatKey(key) {
+  const [id3, raw] = key.split(":");
+  const def = FEATS[id3];
+  if (!def) return null;
+  if (!def.tiers) return raw === void 0 ? { id: def.id, tier: null } : null;
+  const tier = Number(raw);
+  return def.tiers.includes(tier) ? { id: def.id, tier } : null;
+}
+function isFeatKey(key) {
+  return parseFeatKey(key) !== null;
+}
+function featRarity(key) {
+  const parsed = parseFeatKey(key);
+  if (!parsed) return "common";
+  const def = FEATS[parsed.id];
+  if (typeof def.rarity === "string") return def.rarity;
+  const i = def.tiers?.indexOf(parsed.tier ?? -1) ?? -1;
+  return def.rarity[Math.max(0, i)] ?? "common";
+}
+function featPoints(key) {
+  return FEAT_POINTS[featRarity(key)];
+}
+
+// packages/shared/src/league/feats.ts
+function featMeasures(state) {
+  const out = {};
+  out.wavesHeld = state.stats.wavesHeld;
+  out.landingsWon = Object.values(state.victories).reduce((sum, n) => sum + n, 0);
+  out.kiwiLevel = state.villagers.reduce((best, v) => Math.max(best, v.level), 0);
+  out.population = state.villagers.length;
+  out.constructions = state.stats.constructionsCompleted;
+  return out;
+}
+function ownedItems(state) {
+  const items = Object.entries(state.forge.armory).filter(([, n]) => (n ?? 0) > 0).map(([id3]) => id3);
+  for (const v of state.villagers) {
+    if (v.gear?.weapon) items.push(v.gear.weapon);
+    if (v.gear?.armor) items.push(v.gear.armor);
+  }
+  return items;
+}
+function singleFeats(state) {
+  const out = /* @__PURE__ */ new Set();
+  const age = ageOf(state);
+  for (const [id3, a] of AGE_FEATS) if (age >= a) out.add(id3);
+  const beacons = Object.values(state.faceViews).flatMap((v) => v.beacons);
+  if (beacons.length > 0) out.add("firstBeacon");
+  if (beacons.some((b) => isInner(b.sector))) out.add("centreBeacon");
+  if (state.siege.conqueredAt > 0) out.add("conquest");
+  if (state.colony.index === 1 || state.colony.foundedAt > 0) out.add("sisterColony");
+  if (state.buildings.some((b) => b.type === "tunnel")) out.add("tunnel");
+  const galleries = Object.keys(state.depths.galleries);
+  if (galleries.length > 0) {
+    out.add("firstGallery");
+    const map = depthsMapOf(state);
+    if (galleries.some((id3) => map.byId.get(id3)?.depth === LOCULE_DEPTH)) out.add("locules");
+  }
+  if (state.villagers.some((v) => v.kikiwiwi)) out.add("kikiwiwi");
+  if (state.villagers.some((v) => v.shiny === "star")) out.add("starEgg");
+  if (state.villagers.some((v) => v.classId && CLASSES[v.classId].tier === 3)) {
+    out.add("masterClass");
+  }
+  const tiers = new Set(ownedItems(state).map((id3) => ITEMS[id3]?.tier));
+  if (tiers.has("steel") || tiers.has("crystal")) out.add("steelGear");
+  if (tiers.has("crystal")) out.add("crystalGear");
+  return out;
+}
+function featsOf(state) {
+  const singles = singleFeats(state);
+  const measures = featMeasures(state);
+  return FEAT_KEYS.filter((key) => {
+    const [id3, raw] = key.split(":");
+    if (raw === void 0) return singles.has(id3);
+    return (measures[id3] ?? 0) >= Number(raw);
+  });
+}
+function newFeats(before, after) {
+  const had = new Set(before);
+  return after.filter((k) => !had.has(k));
+}
+function nextTiers(state) {
+  const measures = featMeasures(state);
+  const out = [];
+  for (const def of Object.values(FEATS)) {
+    if (!def.tiers) continue;
+    const value = measures[def.id] ?? 0;
+    const target = def.tiers.find((t) => t > value);
+    if (target !== void 0) out.push({ key: `${def.id}:${target}`, value, target });
+  }
+  return out;
+}
+
+// packages/shared/src/server/leagues.ts
+async function ensureSeasons(repo, universeId, members, now) {
+  let seasons = await repo.leagueSeasons(universeId);
+  const last = seasons.reduce((a, s) => !a || s.n > a.n ? s : a, null);
+  const added = seasonsToOpen(last, now);
+  if (added.length > 0) {
+    await repo.addSeasons(universeId, added);
+    seasons = [...seasons, ...added];
+  }
+  const ended = seasons.filter((s) => s.endsAt <= now && s.closedAt === null);
+  if (ended.length > 0) {
+    const feats = await repo.leagueFeats(universeId);
+    const names = new Map(members.map((m) => [m.userId, m.displayName]));
+    for (const s of ended.sort((a, b) => a.n - b.n)) {
+      const podium = podiumOf(rankSeason(feats.filter((f) => f.season === s.n)));
+      const titles = podium.map((p, i) => ({
+        season: s.n,
+        userId: p.userId,
+        rank: i + 1,
+        points: p.points,
+        displayName: names.get(p.userId) ?? "",
+        cosmetic: null,
+        awardedAt: s.endsAt
+      }));
+      await repo.closeSeason(universeId, s.n, now, titles);
+      s.closedAt = now;
+    }
+  }
+  return seasons.find((s) => s.startsAt <= now && now < s.endsAt) ?? seasons[seasons.length - 1] ?? seasonsToOpen(null, now)[0];
+}
+async function recordLeague(repo, universeId, members, userId, colony2, before, after, now, enter = false) {
+  const had = before ? featsOf(before) : [];
+  const reached = featsOf(after);
+  let fresh = newFeats(had, reached);
+  if (fresh.length === 0 && !enter) return [];
+  const opened = await repo.openLeaguePlayer(universeId, userId, now);
+  let pastKeys = [];
+  if (opened) {
+    pastKeys = enter ? reached : had;
+    if (enter) fresh = [];
+  } else if (enter) {
+    const known = new Set(
+      (await repo.leagueFeats(universeId)).filter((f) => f.userId === userId).map((f) => f.feat)
+    );
+    fresh = reached.filter((k) => !known.has(k));
+  }
+  if (fresh.length === 0 && pastKeys.length === 0) return [];
+  const past = pastKeys.map((feat) => ({
+    userId,
+    colony: colony2,
+    feat,
+    season: 0,
+    points: 0,
+    at: now
+  }));
+  const season = fresh.length > 0 ? await ensureSeasons(repo, universeId, members, now) : null;
+  const scored = fresh.map((feat) => ({
+    userId,
+    colony: colony2,
+    feat,
+    season: season?.n ?? 0,
+    points: featPoints(feat),
+    at: now
+  }));
+  await repo.recordFeats(universeId, [...past, ...scored]);
+  return scored;
+}
+function looksOf(titles, players) {
+  const out = /* @__PURE__ */ new Map();
+  const worn = new Map(players.map((p) => [p.userId, new Set(p.worn)]));
+  for (const t of titles) {
+    if (!t.cosmetic || !worn.get(t.userId)?.has(t.cosmetic)) continue;
+    const look = out.get(t.userId) ?? {};
+    const prev = look[t.cosmetic];
+    if (!prev || t.rank < prev.rank || t.rank === prev.rank && t.season > prev.season) {
+      look[t.cosmetic] = { rank: t.rank, season: t.season };
+    }
+    out.set(t.userId, look);
+  }
+  return out;
+}
+async function leagueView(repo, universeId, members, now) {
+  const season = await ensureSeasons(repo, universeId, members, now);
+  const ids = new Set(members.map((m) => m.userId));
+  const [feats, titles, players] = await Promise.all([
+    repo.leagueFeats(universeId),
+    repo.leagueTitles(universeId),
+    repo.leaguePlayers(universeId)
+  ]);
+  return {
+    season,
+    feats: feats.filter((f) => ids.has(f.userId) && isFeatKey(f.feat)),
+    titles,
+    players: players.filter((p) => ids.has(p.userId))
+  };
+}
+function isCosmetic(x) {
+  return LEAGUE_COSMETICS.includes(x);
+}
+async function quietly(work, fallback) {
+  try {
+    return await work();
+  } catch {
+    return fallback;
+  }
+}
+function createMemoryLeagues() {
+  const seasons = /* @__PURE__ */ new Map();
+  const feats = /* @__PURE__ */ new Map();
+  const players = /* @__PURE__ */ new Map();
+  const titles = /* @__PURE__ */ new Map();
+  const list = (m, k) => {
+    let v = m.get(k);
+    if (!v) m.set(k, v = []);
+    return v;
+  };
+  return {
+    async leagueSeasons(u) {
+      return list(seasons, u).map((s) => ({ ...s }));
+    },
+    async addSeasons(u, add) {
+      const all = list(seasons, u);
+      for (const s of add) if (!all.some((x) => x.n === s.n)) all.push({ ...s });
+    },
+    async closeSeason(u, n, at, podium) {
+      const all = list(titles, u);
+      for (const t of podium) {
+        if (!all.some((x) => x.season === t.season && (x.userId === t.userId || x.rank === t.rank)))
+          all.push({ ...t });
+      }
+      const s = list(seasons, u).find((x) => x.n === n);
+      if (s && s.closedAt === null) s.closedAt = at;
+    },
+    async leagueFeats(u) {
+      return list(feats, u).map((f) => ({ ...f }));
+    },
+    async recordFeats(u, add) {
+      const all = list(feats, u);
+      for (const f of add) {
+        if (!all.some((x) => x.userId === f.userId && x.feat === f.feat)) all.push({ ...f });
+      }
+    },
+    async leaguePlayers(u) {
+      return list(players, u).map((p) => ({ ...p, worn: [...p.worn] }));
+    },
+    async openLeaguePlayer(u, userId, at) {
+      const all = list(players, u);
+      if (all.some((p) => p.userId === userId)) return false;
+      all.push({ userId, openedAt: at, worn: [] });
+      return true;
+    },
+    async leagueTitles(u) {
+      return list(titles, u).map((t) => ({ ...t }));
+    },
+    async setTitleCosmetic(u, season, userId, cosmetic) {
+      const t = list(titles, u).find((x) => x.season === season && x.userId === userId);
+      if (t) t.cosmetic = cosmetic;
+    },
+    async setWorn(u, userId, worn) {
+      const p = list(players, u).find((x) => x.userId === userId);
+      if (p) p.worn = [...worn];
+    }
+  };
+}
 
 // packages/shared/src/server/gameService.ts
 var RATE_LIMIT = { windowMs: 1e4, maxCommands: 40 };
@@ -21794,6 +22195,13 @@ function universeGame(ctx, info, me) {
 }
 async function neighboursOf(repo, info, me, now) {
   const others = info.members.filter((m) => m.userId !== me.userId);
+  const looks = await quietly(async () => {
+    const [titles, players] = await Promise.all([
+      repo.leagueTitles(info.id),
+      repo.leaguePlayers(info.id)
+    ]);
+    return looksOf(titles, players);
+  }, /* @__PURE__ */ new Map());
   const snapshots = await Promise.all(
     others.map(async (m) => {
       const game = await repo.findGame(m.userId, info.id);
@@ -21814,6 +22222,7 @@ async function neighboursOf(repo, info, me, now) {
         terraform: s.terraform,
         power: colonyPower(s),
         twin: allyTwinOf(s),
+        ...looks.has(m.userId) ? { league: looks.get(m.userId) } : {},
         at: now,
         ...await allySister(repo, info.id, m, s, now)
       };
@@ -21821,7 +22230,8 @@ async function neighboursOf(repo, info, me, now) {
   );
   const all = snapshots.filter((x) => x !== null);
   const twin = all.find((a) => a.kiwiIndex === me.kiwiIndex && a.face !== me.face) ?? null;
-  return { twin, allies: all.filter((a) => a !== twin) };
+  const leagueLook = looks.get(me.userId);
+  return { twin, allies: all.filter((a) => a !== twin), ...leagueLook ? { leagueLook } : {} };
 }
 function roomOf(s) {
   const cap = capacity(s);
@@ -22116,6 +22526,24 @@ function plausibleKiwi(v, now) {
 function reply(ctx, state, events = []) {
   return { ok: true, state, events, serverTime: ctx.now() };
 }
+async function leagueOf(ctx, repo, scope, colony2, before, after, enter = false) {
+  if (!scope.shared) return;
+  const { info } = scope.shared;
+  await quietly(
+    () => recordLeague(
+      repo,
+      info.id,
+      info.members,
+      ctx.userId,
+      colony2,
+      before,
+      after,
+      ctx.now(),
+      enter
+    ),
+    []
+  );
+}
 async function handleGameRequest(ctx, body) {
   const res = await handle(ctx, body);
   return res.state ? { ...res, state: publicState(res.state) } : res;
@@ -22258,6 +22686,7 @@ async function handle(ctx, body) {
       if (req.colony === 1) {
         const pair = await linkColonies(ctx, repo, scope);
         if (!pair.sister) return fail2("invalidRequest");
+        await leagueOf(ctx, repo, scope, 1, pair.sister.state, pair.sister.state, true);
         return {
           ...reply(ctx, withScopeTargets(ctx, pair.sister.state, scope).state),
           universe: scope.shared?.info,
@@ -22285,6 +22714,7 @@ async function handle(ctx, body) {
         }
         const pair = hasSister(state2) ? await linkColonies(ctx, repo, scope) : null;
         if (pair?.home) state2 = withScopeTargets(ctx, pair.home.state, scope).state;
+        await leagueOf(ctx, repo, scope, 0, existing.state, state2, true);
         return {
           ...reply(ctx, state2, events),
           universe: scope.shared?.info,
@@ -22294,10 +22724,39 @@ async function handle(ctx, body) {
       }
       const state = scope.shared ? universeGame(ctx, scope.shared.info, scope.shared.me) : freshGame(ctx, req.create?.seed ?? ctx.randomSeed(), req.create?.face ?? "kiwisu");
       const created = await repo.create(ctx.userId, scope.universeId, state);
+      await leagueOf(ctx, repo, scope, 0, null, created.state, true);
       return { ...reply(ctx, created.state), universe: scope.shared?.info, ...near };
     }
     case "guestTransfer":
       return guestTransfer(ctx, repo, req.guestToken, req.keep);
+    case "league":
+    case "leagueReward":
+    case "leagueWear": {
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope?.shared) return fail2("forbidden");
+      const { info } = scope.shared;
+      const now = ctx.now();
+      if (req.action === "leagueReward") {
+        if (!isCosmetic(req.cosmetic)) return fail2("invalidRequest");
+        const titles = await repo.leagueTitles(info.id);
+        const title = titles.find((t) => t.season === req.season && t.userId === ctx.userId);
+        if (!title || title.cosmetic) return fail2("forbidden");
+        await repo.setTitleCosmetic(info.id, req.season, ctx.userId, req.cosmetic);
+        await repo.openLeaguePlayer(info.id, ctx.userId, now);
+        const me = (await repo.leaguePlayers(info.id)).find((p) => p.userId === ctx.userId);
+        const worn = [.../* @__PURE__ */ new Set([...me?.worn ?? [], req.cosmetic])];
+        await repo.setWorn(info.id, ctx.userId, worn);
+      }
+      if (req.action === "leagueWear") {
+        const picked = new Set(
+          (await repo.leagueTitles(info.id)).filter((t) => t.userId === ctx.userId && t.cosmetic).map((t) => t.cosmetic)
+        );
+        if (!req.worn.every((c) => picked.has(c))) return fail2("forbidden");
+        await repo.setWorn(info.id, ctx.userId, [...new Set(req.worn)]);
+      }
+      const league = await leagueView(repo, info.id, info.members, now);
+      return { ok: true, events: [], serverTime: now, league };
+    }
     case "allyVillage": {
       const scope = await resolveScope(ctx, repo, req.universe);
       if (!scope?.shared) return fail2("forbidden");
@@ -22378,6 +22837,7 @@ async function handle(ctx, body) {
         if (!result.ok) return fail2(result.error, current);
         const saved = await repo.update(game.id, result.state, game.version);
         if (saved) {
+          await leagueOf(ctx, repo, scope, target, game.state, saved.state);
           if (req.command.type === "sendCargo" && scope.shared) {
             const sent = saved.state.shipments.find(
               (x) => !current.shipments.some((y) => y.id === x.id)
@@ -22519,6 +22979,7 @@ function createMemoryRepository() {
   let next = 1;
   const clone = (g) => JSON.parse(JSON.stringify(g));
   return {
+    ...createMemoryLeagues(),
     games,
     log: log2,
     async findGame(userId, universeId, colony2 = 0) {
@@ -22636,6 +23097,7 @@ function createMemoryRepository() {
   };
 }
 export {
+  AGE_FEATS,
   AGE_IDS,
   AGE_OBJECTIVES,
   ALIENS,
@@ -22689,6 +23151,12 @@ export {
   EXPEDITIONS,
   FACES,
   FACE_PROFILES,
+  FEATS,
+  FEAT_GROUPS,
+  FEAT_IDS,
+  FEAT_KEYS,
+  FEAT_POINTS,
+  FEAT_RARITIES,
   FIBER_REACH,
   FIREWORKS,
   FIREWORKS_PATTERNS,
@@ -22725,6 +23193,8 @@ export {
   LANDING,
   LANDING_GOALS,
   LANDING_PRIORITIES,
+  LEAGUE,
+  LEAGUE_COSMETICS,
   LEISURE,
   LEVELS_PER_AGE,
   LEVEL_STATS,
@@ -22980,6 +23450,7 @@ export {
   crampedBlockers,
   craterIron,
   craterWorth,
+  createMemoryLeagues,
   createMemoryRepository,
   createRng,
   crewMembers,
@@ -23047,6 +23518,7 @@ export {
   enemyUnit,
   ensureAliens,
   ensureDepths,
+  ensureSeasons,
   equip,
   equipGear,
   escalation,
@@ -23057,6 +23529,10 @@ export {
   faceViewOf,
   fadeMemories,
   familyOf,
+  featMeasures,
+  featPoints,
+  featRarity,
+  featsOf,
   fightLossAt,
   fillCraters,
   fillError,
@@ -23172,10 +23648,12 @@ export {
   ironUnits,
   isBank,
   isConquered,
+  isCosmetic,
   isDecor,
   isDelve,
   isDepot,
   isFace,
+  isFeatKey,
   isFlooded,
   isFlyer,
   isInner,
@@ -23229,6 +23707,7 @@ export {
   layerOpen,
   layoutBuilding,
   layoutSnapshot,
+  leagueView,
   leaveSite,
   leaveWreck,
   lensLock,
@@ -23244,6 +23723,7 @@ export {
   localAlienSeed,
   localDepthsSeed,
   logisticsEfficiency,
+  looksOf,
   lootByAge,
   lossShare,
   mapTileDeposit,
@@ -23286,6 +23766,7 @@ export {
   newColonyLink,
   newComets,
   newDepths,
+  newFeats,
   newGame,
   newKiwi,
   newSiege,
@@ -23312,6 +23793,7 @@ export {
   nextSpeechEnd,
   nextStep,
   nextThreatEvent,
+  nextTiers,
   nextTitanEnd,
   nextTreeEvent,
   nextUpwellEvent,
@@ -23334,6 +23816,7 @@ export {
   parcelTiles,
   parcelTruth,
   parcelView,
+  parseFeatKey,
   parseHexKey,
   passiveRates,
   patchRate,
@@ -23359,6 +23842,7 @@ export {
   planWave,
   planetSeedOf,
   plausibleTerraform,
+  podiumOf,
   poolCapacity,
   population,
   postKind,
@@ -23377,11 +23861,13 @@ export {
   queenTruth,
   queenWounds,
   queuedBuildAt,
+  quietly,
   raidDen,
   raidSector,
   rampartSectorOf,
   rampartSectors,
   rankOf,
+  rankSeason,
   rations,
   reachableRooms,
   rebaseFreeDeposits,
@@ -23392,6 +23878,7 @@ export {
   recordDefeat,
   recordFight,
   recordIntel,
+  recordLeague,
   redirectFull,
   refreshBeacons,
   refreshQueen,
@@ -23439,6 +23926,7 @@ export {
   seasonHarvest,
   seasonOf,
   seasonRegen,
+  seasonsToOpen,
   sectorClash,
   sectorGrowth,
   sectorHours,

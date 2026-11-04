@@ -93,6 +93,16 @@ import {
   type UniverseSummary,
 } from './universes';
 import { footprintTiles } from '../sim/footprint';
+import {
+  createMemoryLeagues,
+  isCosmetic,
+  leagueView,
+  looksOf,
+  quietly,
+  recordLeague,
+  type LeagueLook,
+  type LeagueRepository,
+} from './leagues';
 
 export interface StoredGame {
   id: string;
@@ -120,7 +130,7 @@ export interface UniverseRow {
 }
 
 /** Persistence port, implemented with Postgres in the edge function and in memory in tests. */
-export interface GameRepository {
+export interface GameRepository extends LeagueRepository {
   /** Chantier 19: `colony` 1 is the sister colony (default 0, the home colony). */
   findGame(userId: string, universeId: string, colony?: 0 | 1): Promise<StoredGame | null>;
   create(userId: string, universeId: string, state: GameState, colony?: 0 | 1): Promise<StoredGame>;
@@ -417,8 +427,16 @@ async function neighboursOf(
   info: UniverseInfo,
   me: UniverseMember,
   now: number,
-): Promise<{ twin: TwinSnapshot | null; allies: AllySnapshot[] }> {
+): Promise<{ twin: TwinSnapshot | null; allies: AllySnapshot[]; leagueLook?: LeagueLook }> {
   const others = info.members.filter((m) => m.userId !== me.userId);
+  // Chantier 56: the cosmetics each colony wears (none when the leagues are unavailable).
+  const looks = await quietly(async () => {
+    const [titles, players] = await Promise.all([
+      repo.leagueTitles(info.id),
+      repo.leaguePlayers(info.id),
+    ]);
+    return looksOf(titles, players);
+  }, new Map<string, LeagueLook>());
   const snapshots = await Promise.all(
     others.map(async (m): Promise<AllySnapshot | null> => {
       const game = await repo.findGame(m.userId, info.id);
@@ -439,6 +457,7 @@ async function neighboursOf(
         terraform: s.terraform,
         power: colonyPower(s),
         twin: allyTwinOf(s),
+        ...(looks.has(m.userId) ? { league: looks.get(m.userId) } : {}),
         at: now,
         ...(await allySister(repo, info.id, m, s, now)),
       };
@@ -446,7 +465,8 @@ async function neighboursOf(
   );
   const all = snapshots.filter((x): x is AllySnapshot => x !== null);
   const twin = all.find((a) => a.kiwiIndex === me.kiwiIndex && a.face !== me.face) ?? null;
-  return { twin, allies: all.filter((a) => a !== twin) };
+  const leagueLook = looks.get(me.userId);
+  return { twin, allies: all.filter((a) => a !== twin), ...(leagueLook ? { leagueLook } : {}) };
 }
 
 /** Free storage per resource, minus the gifts already on their way. */
@@ -869,6 +889,38 @@ function reply(ctx: ServiceContext, state: GameState, events: GameEvent[] = []):
 }
 
 /**
+ * Chantier 56: writes the feats a colony of a shared universe passed between two states. A
+ * failure of the leagues never blocks the game.
+ */
+async function leagueOf(
+  ctx: ServiceContext,
+  repo: GameRepository,
+  scope: Scope,
+  colony: 0 | 1,
+  before: GameState | null,
+  after: GameState,
+  enter = false,
+): Promise<void> {
+  if (!scope.shared) return;
+  const { info } = scope.shared;
+  await quietly(
+    () =>
+      recordLeague(
+        repo,
+        info.id,
+        info.members,
+        ctx.userId,
+        colony,
+        before,
+        after,
+        ctx.now(),
+        enter,
+      ),
+    [],
+  );
+}
+
+/**
  * Server-authoritative game service. The server owns the clock, the randomness and the state;
  * the client sends commands that are validated with the very same rules as offline play.
  */
@@ -1036,6 +1088,7 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
         // Chantier 19: the sister colony (no hidden garrison there: nothing to resolve).
         const pair = await linkColonies(ctx, repo, scope);
         if (!pair.sister) return fail('invalidRequest');
+        await leagueOf(ctx, repo, scope, 1, pair.sister.state, pair.sister.state, true);
         return {
           ...reply(ctx, withScopeTargets(ctx, pair.sister.state, scope).state),
           universe: scope.shared?.info,
@@ -1071,6 +1124,8 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
         // Chantier 19: a landed founding, ships between the faces, the shared research.
         const pair = hasSister(state) ? await linkColonies(ctx, repo, scope) : null;
         if (pair?.home) state = withScopeTargets(ctx, pair.home.state, scope).state;
+        // Chantier 56: feats passed by what the server just resolved (or entering the league).
+        await leagueOf(ctx, repo, scope, 0, existing.state, state, true);
         return {
           ...reply(ctx, state, events),
           universe: scope.shared?.info,
@@ -1082,11 +1137,44 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
         ? universeGame(ctx, scope.shared.info, scope.shared.me)
         : freshGame(ctx, req.create?.seed ?? ctx.randomSeed(), req.create?.face ?? 'kiwisu');
       const created = await repo.create(ctx.userId, scope.universeId, state);
+      await leagueOf(ctx, repo, scope, 0, null, created.state, true);
       return { ...reply(ctx, created.state), universe: scope.shared?.info, ...near };
     }
 
     case 'guestTransfer':
       return guestTransfer(ctx, repo, req.guestToken, req.keep);
+
+    case 'league':
+    case 'leagueReward':
+    case 'leagueWear': {
+      const scope = await resolveScope(ctx, repo, req.universe);
+      if (!scope?.shared) return fail('forbidden');
+      const { info } = scope.shared;
+      const now = ctx.now();
+      if (req.action === 'leagueReward') {
+        if (!isCosmetic(req.cosmetic)) return fail('invalidRequest');
+        const titles = await repo.leagueTitles(info.id);
+        const title = titles.find((t) => t.season === req.season && t.userId === ctx.userId);
+        // Only a podium place picks, once.
+        if (!title || title.cosmetic) return fail('forbidden');
+        await repo.setTitleCosmetic(info.id, req.season, ctx.userId, req.cosmetic);
+        await repo.openLeaguePlayer(info.id, ctx.userId, now);
+        const me = (await repo.leaguePlayers(info.id)).find((p) => p.userId === ctx.userId);
+        const worn = [...new Set([...(me?.worn ?? []), req.cosmetic])];
+        await repo.setWorn(info.id, ctx.userId, worn);
+      }
+      if (req.action === 'leagueWear') {
+        const picked = new Set(
+          (await repo.leagueTitles(info.id))
+            .filter((t) => t.userId === ctx.userId && t.cosmetic)
+            .map((t) => t.cosmetic),
+        );
+        if (!req.worn.every((c) => picked.has(c))) return fail('forbidden');
+        await repo.setWorn(info.id, ctx.userId, [...new Set(req.worn)]);
+      }
+      const league = await leagueView(repo, info.id, info.members, now);
+      return { ok: true, events: [], serverTime: now, league };
+    }
 
     case 'allyVillage': {
       const scope = await resolveScope(ctx, repo, req.universe);
@@ -1181,6 +1269,7 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
         if (!result.ok) return fail(result.error, current);
         const saved = await repo.update(game.id, result.state, game.version);
         if (saved) {
+          await leagueOf(ctx, repo, scope, target, game.state, saved.state);
           if (req.command.type === 'sendCargo' && scope.shared) {
             const sent = saved.state.shipments.find(
               (x) => !current.shipments.some((y) => y.id === x.id),
@@ -1364,6 +1453,7 @@ export function createMemoryRepository(): GameRepository & {
   let next = 1;
   const clone = <T>(g: T): T => JSON.parse(JSON.stringify(g)) as T;
   return {
+    ...createMemoryLeagues(),
     games,
     log,
     async findGame(userId, universeId, colony = 0) {

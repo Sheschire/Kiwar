@@ -5,6 +5,8 @@ import { METEORS, SECTOR_IDS } from '../data/threats';
 import { POSTURES } from '../data/units';
 import { AUTO_TASKS } from '../data/jobs';
 import { z } from 'zod';
+import { LEAGUE_COSMETICS } from '../league/seasons';
+import type { LeagueLook, LeagueView } from './leagues';
 import { GEAR_SLOTS, ITEM_IDS } from '../data/gear';
 import { BUILDING_TYPES } from '../data/buildings';
 import { FIREWORKS_PATTERNS } from '../data/needs';
@@ -300,6 +302,21 @@ export const requestSchema = z.discriminatedUnion('action', [
     universe: z.string().min(1).max(64),
     face: z.enum(FACES),
   }),
+  /** Chantier 56: the league of a shared universe (season, feats, record, titles). */
+  z.object({ action: z.literal('league'), universe: z.string().min(1).max(64) }),
+  /** Chantier 56: a podium place picks its cosmetic (once). */
+  z.object({
+    action: z.literal('leagueReward'),
+    universe: z.string().min(1).max(64),
+    season: z.number().int().min(1).max(100_000),
+    cosmetic: z.enum(LEAGUE_COSMETICS),
+  }),
+  /** Chantier 56: which of the picked cosmetics the colony shows. */
+  z.object({
+    action: z.literal('leagueWear'),
+    universe: z.string().min(1).max(64),
+    worn: z.array(z.enum(LEAGUE_COSMETICS)).max(LEAGUE_COSMETICS.length),
+  }),
   /** Chantier 59: an ally's village as it lives now, to watch it while visiting. */
   z.object({
     action: z.literal('allyVillage'),
@@ -363,6 +380,10 @@ export type GameResponse =
       transfer?: GuestTransferPreview;
       /** Chantier 59 (`allyVillage`): an ally's colony now, stocks and intel left out. */
       village?: GameState;
+      /** Chantier 56 (`league`, `leagueReward`, `leagueWear`): the league of the universe. */
+      league?: LeagueView;
+      /** Chantier 56: the cosmetics the player's colony wears (shared universes). */
+      leagueLook?: LeagueLook;
     }
   | { ok: false; error: ServerError; state?: GameState; serverTime: number };
 

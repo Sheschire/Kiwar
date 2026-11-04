@@ -263,4 +263,77 @@ begin
 end $$;
 reset role;
 
+-- Chantier 56: leagues are written by the game function only; members read them, others not.
+set role service_role;
+insert into public.league_seasons (universe_id, n, starts_at, ends_at)
+  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 1, now(), now() + interval '28 days');
+insert into public.league_feats (universe_id, user_id, feat, season, points) values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'stoneAge', 1, 10),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'ironAge', 1, 25),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'tunnel', 0, 0);
+insert into public.league_players (universe_id, user_id)
+  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111');
+insert into public.league_titles (universe_id, season, user_id, rank, points)
+  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 1, '11111111-1111-1111-1111-111111111111', 1, 35);
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare n int; total int;
+begin
+  select count(*) into n from public.league_feats;
+  if n <> 3 then raise exception 'member should read the feats, got %', n; end if;
+  select points into total from public.league_ranking where season = 1;
+  if total <> 35 then raise exception 'ranking should sum the season, got %', total; end if;
+  select count(*) into n from public.league_ranking;
+  if n <> 1 then raise exception 'season 0 should not be ranked'; end if;
+  select count(*) into n from public.league_seasons;
+  if n <> 1 then raise exception 'member should read the seasons'; end if;
+  select count(*) into n from public.league_titles;
+  if n <> 1 then raise exception 'member should read the titles'; end if;
+  select count(*) into n from public.league_players;
+  if n <> 1 then raise exception 'member should read the league players'; end if;
+  update public.league_feats set points = 1000;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'player could change a feat'; end if;
+  update public.league_titles set cosmetic = 'crown';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'player could pick a cosmetic directly'; end if;
+  update public.league_players set worn = '{crown}';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'player could change what they wear directly'; end if;
+  delete from public.league_feats;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'player could delete a feat'; end if;
+  delete from public.league_seasons;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'player could end a season'; end if;
+  begin
+    insert into public.league_feats (universe_id, user_id, feat, season, points)
+      values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'starsAge', 1, 100);
+    raise exception 'player could write a feat';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.league_titles (universe_id, season, user_id, rank)
+      values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 2, '11111111-1111-1111-1111-111111111111', 1);
+    raise exception 'player could award a title';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$
+declare n int;
+begin
+  select count(*) into n from public.league_feats;
+  if n <> 0 then raise exception 'non-member can read feats'; end if;
+  select count(*) into n from public.league_ranking;
+  if n <> 0 then raise exception 'non-member can read the ranking'; end if;
+  select count(*) into n from public.league_titles;
+  if n <> 0 then raise exception 'non-member can read titles'; end if;
+end $$;
+reset role;
+
 select 'Universe and chat RLS tests passed' as result;

@@ -53,6 +53,51 @@ interface BanRowDb {
   banned_at: string;
 }
 
+type Cosmetic = 'banner' | 'capes' | 'pennants' | 'crown';
+
+interface SeasonRowDb {
+  n: number;
+  starts_at: string;
+  ends_at: string;
+  closed_at: string | null;
+}
+
+interface FeatRowDb {
+  user_id: string;
+  colony: number;
+  feat: string;
+  season: number;
+  points: number;
+  at: string;
+}
+
+interface PlayerRowDb {
+  user_id: string;
+  opened_at: string;
+  worn: string[] | null;
+}
+
+interface TitleRowDb {
+  season: number;
+  user_id: string;
+  rank: number;
+  points: number;
+  display_name: string;
+  cosmetic: Cosmetic | null;
+  awarded_at: string;
+}
+
+interface TitleIn {
+  season: number;
+  userId: string;
+  rank: number;
+  points: number;
+  displayName: string;
+  awardedAt: number;
+}
+
+const iso = (ms: number) => new Date(ms).toISOString();
+
 export function createSupabaseRepository(db: SupabaseClient) {
   // Until the owner runs `20261026000000_universe_imports.sql`, fall back to the older columns
   // (imports stay allowed, nobody is flagged as imported).
@@ -338,6 +383,168 @@ export function createSupabaseRepository(db: SupabaseClient) {
         .eq('universe_id', universeId)
         .eq('user_id', userId);
       if (error && !isMissingTable(error)) fail('unban', error);
+    },
+    // Chantier 56: the leagues. Until the owner runs `20261105000000_leagues.sql`, a missing
+    // table reads as empty and writes are skipped (the game never waits on the leagues).
+    async leagueSeasons(universeId: string) {
+      const { data, error } = await db
+        .from('league_seasons')
+        .select('n, starts_at, ends_at, closed_at')
+        .eq('universe_id', universeId)
+        .order('n');
+      if (isMissingTable(error)) return [];
+      if (error) fail('leagueSeasons', error);
+      return ((data ?? []) as SeasonRowDb[]).map((r) => ({
+        n: r.n,
+        startsAt: Date.parse(r.starts_at),
+        endsAt: Date.parse(r.ends_at),
+        closedAt: r.closed_at ? Date.parse(r.closed_at) : null,
+      }));
+    },
+    async addSeasons(
+      universeId: string,
+      seasons: { n: number; startsAt: number; endsAt: number }[],
+    ) {
+      const { error } = await db.from('league_seasons').upsert(
+        seasons.map((s) => ({
+          universe_id: universeId,
+          n: s.n,
+          starts_at: iso(s.startsAt),
+          ends_at: iso(s.endsAt),
+        })),
+        { onConflict: 'universe_id,n', ignoreDuplicates: true },
+      );
+      if (error && !isMissingTable(error)) fail('addSeasons', error);
+    },
+    async closeSeason(universeId: string, n: number, at: number, titles: TitleIn[]) {
+      if (titles.length > 0) {
+        const { error } = await db.from('league_titles').upsert(
+          titles.map((t) => ({
+            universe_id: universeId,
+            season: t.season,
+            user_id: t.userId,
+            rank: t.rank,
+            points: t.points,
+            display_name: t.displayName,
+            awarded_at: iso(t.awardedAt),
+          })),
+          { onConflict: 'universe_id,season,user_id', ignoreDuplicates: true },
+        );
+        // A unique rank already taken (two requests at once): the first podium stands.
+        if (error && !isMissingTable(error) && error.code !== '23505') fail('closeSeason', error);
+      }
+      const { error } = await db
+        .from('league_seasons')
+        .update({ closed_at: iso(at) })
+        .eq('universe_id', universeId)
+        .eq('n', n)
+        .is('closed_at', null);
+      if (error && !isMissingTable(error)) fail('closeSeason', error);
+    },
+    async leagueFeats(universeId: string) {
+      const { data, error } = await db
+        .from('league_feats')
+        .select('user_id, colony, feat, season, points, at')
+        .eq('universe_id', universeId)
+        .order('at');
+      if (isMissingTable(error)) return [];
+      if (error) fail('leagueFeats', error);
+      return ((data ?? []) as FeatRowDb[]).map((r) => ({
+        userId: r.user_id,
+        colony: (r.colony === 1 ? 1 : 0) as 0 | 1,
+        feat: r.feat,
+        season: r.season,
+        points: r.points,
+        at: Date.parse(r.at),
+      }));
+    },
+    async recordFeats(
+      universeId: string,
+      feats: {
+        userId: string;
+        colony: 0 | 1;
+        feat: string;
+        season: number;
+        points: number;
+        at: number;
+      }[],
+    ) {
+      if (feats.length === 0) return;
+      const { error } = await db.from('league_feats').upsert(
+        feats.map((f) => ({
+          universe_id: universeId,
+          user_id: f.userId,
+          colony: f.colony,
+          feat: f.feat,
+          season: f.season,
+          points: f.points,
+          at: iso(f.at),
+        })),
+        { onConflict: 'universe_id,user_id,feat', ignoreDuplicates: true },
+      );
+      if (error && !isMissingTable(error)) fail('recordFeats', error);
+    },
+    async leaguePlayers(universeId: string) {
+      const { data, error } = await db
+        .from('league_players')
+        .select('user_id, opened_at, worn')
+        .eq('universe_id', universeId);
+      if (isMissingTable(error)) return [];
+      if (error) fail('leaguePlayers', error);
+      return ((data ?? []) as PlayerRowDb[]).map((r) => ({
+        userId: r.user_id,
+        openedAt: Date.parse(r.opened_at),
+        worn: (r.worn ?? []) as Cosmetic[],
+      }));
+    },
+    async openLeaguePlayer(universeId: string, userId: string, at: number) {
+      const { data, error } = await db
+        .from('league_players')
+        .upsert(
+          { universe_id: universeId, user_id: userId, opened_at: iso(at) },
+          { onConflict: 'universe_id,user_id', ignoreDuplicates: true },
+        )
+        .select('user_id');
+      // Without the table nobody enters: feats are not written either.
+      if (isMissingTable(error)) return false;
+      if (error) fail('openLeaguePlayer', error);
+      return ((data ?? []) as unknown[]).length > 0;
+    },
+    async leagueTitles(universeId: string) {
+      const { data, error } = await db
+        .from('league_titles')
+        .select('season, user_id, rank, points, display_name, cosmetic, awarded_at')
+        .eq('universe_id', universeId)
+        .order('season');
+      if (isMissingTable(error)) return [];
+      if (error) fail('leagueTitles', error);
+      return ((data ?? []) as TitleRowDb[]).map((r) => ({
+        season: r.season,
+        userId: r.user_id,
+        rank: r.rank,
+        points: r.points,
+        displayName: r.display_name,
+        cosmetic: r.cosmetic,
+        awardedAt: Date.parse(r.awarded_at),
+      }));
+    },
+    async setTitleCosmetic(universeId: string, season: number, userId: string, cosmetic: Cosmetic) {
+      const { error } = await db
+        .from('league_titles')
+        .update({ cosmetic })
+        .eq('universe_id', universeId)
+        .eq('season', season)
+        .eq('user_id', userId)
+        .is('cosmetic', null);
+      if (error) fail('setTitleCosmetic', error);
+    },
+    async setWorn(universeId: string, userId: string, worn: Cosmetic[]) {
+      const { error } = await db
+        .from('league_players')
+        .update({ worn })
+        .eq('universe_id', universeId)
+        .eq('user_id', userId);
+      if (error) fail('setWorn', error);
     },
     async listUserUniverses(userId: string) {
       const { data, error } = await tolerant(() =>
