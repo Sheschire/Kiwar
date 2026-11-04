@@ -446,6 +446,7 @@ export const fr: Dict = {
     },
   },
   hud: {
+    more: 'Plus',
     population: 'Kiwis',
     populationTip: 'Population / logement',
     capacity: 'Capacité {value}',

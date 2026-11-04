@@ -525,3 +525,11 @@ sector } })`; a real landing in solo: dispatch the launch and `setTimeScale(2000
   the pad (pad level ≥ 13) and in the landing show follow `shipIdOf`. Check with
   `?sheet&age=4&levels=12,13,15&zoom=2.4`; in game, push buildings at 13–15 and a monument 4
   (research `starsAge` known first, or `buildableTiles` refuses the monument).
+
+- **Desktop top bar (November 2026)**: only the game screens stay as round buttons (sync,
+  Village, Defense, colony switch, Siege, Depths, Plans, Chat with its unread count); League,
+  Universes, Objectives, Sound and Settings live in the "⋯" menu (`MoreMenu` in
+  `TopBar.tsx`). **A new screen goes in that menu** unless the owner wants it one tap away.
+  The resource bar is padded by the measured width of the buttons (`--buttons-w`, set by a
+  `ResizeObserver` in `TopBar`): never a hand-made padding.
+

@@ -3546,3 +3546,11 @@ Defaults chosen by Claude (status "default", changeable):
 To test with the owner: does the ranking feel like healthy competition or pressure, the
 points by rarity, the 28-day season, the look of the cosmetics.
 
+## Hotfix (November 2026) — A lighter top bar
+
+The owner found too many round buttons on the desktop top bar (up to 13, over the resources).
+Owner's choice: a **"⋯" menu** holds League, Universes, Objectives, Sound and Settings; the game
+screens (Village, Defense, Siege, Depths, Plans) and the Chat (unread count) stay visible. The
+resource bar now centres in the room left of the buttons at every desktop width (their width
+is measured), instead of a fixed 356 px between 761 and 1500 px.
+

@@ -3509,9 +3509,10 @@ button.chip:focus-visible {
 
 /* Chantier 06: one more round button (Defense). On mid-size screens the resource bar centres
    in the room left of the buttons instead of sliding under them. */
-@media (min-width: 761px) and (max-width: 1500px) and (min-height: 521px) {
+@media (min-width: 761px) and (min-height: 521px) {
+  /* Measured by TopBar (the buttons change with the game): the bar never slides under them. */
   .topbar {
-    padding-right: 356px;
+    padding-right: calc(var(--buttons-w, 356px) + 12px);
   }
 }
 
@@ -6594,4 +6595,45 @@ h3 .building-thumb {
   border-radius: 12px;
   background: rgba(255, 236, 170, 0.45);
   font-style: italic;
+}
+
+/* The "⋯" menu of the desktop top bar: League, Universes, Objectives, Sound, Settings. */
+.more-wrap {
+  position: relative;
+}
+
+.more-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 6px;
+  border-radius: 14px;
+}
+
+.more-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.more-item:hover,
+.more-item:focus-visible {
+  background: rgba(201, 223, 140, 0.45);
+}
+
+.more-item.is-on {
+  font-weight: 700;
 }

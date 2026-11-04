@@ -37,6 +37,7 @@ import {
   GearIcon,
   GlobeIcon,
   KiwiIcon,
+  MenuIcon,
   ResourceIcon,
   ScrollIcon,
   ShieldIcon,
@@ -368,11 +369,9 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
   const t = useT();
   const pop = useUi((s) => (s.game ? population(s.game) : 0));
   const house = useUi((s) => (s.game ? housing(s.game) : 0));
-  const objectivesOpen = useUi((s) => s.objectivesOpen);
   const inUniverse = useUi((s) => s.universe !== null);
   const chatOpen = useUi((s) => s.chatOpen);
   const chatUnread = useUi((s) => s.chatUnread);
-  const muted = useUi((s) => s.audio.muted);
   const villageOpen = useUi((s) => s.modal === 'village');
   const modal = useUi((s) => s.modal);
   const siege = useUi((s) => (s.slowGame ? siegeVisible(s.slowGame) : false));
@@ -456,8 +455,21 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
           (g) => g.kind === 'forest' || g.kind === 'lake',
         )),
   );
+  // The resource bar centres in the room left of the round buttons, whatever their number.
+  const headerRef = useRef<HTMLElement>(null);
+  const buttonsRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = buttonsRef.current;
+    const header = headerRef.current;
+    if (!el || !header || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() =>
+      header.style.setProperty('--buttons-w', `${el.offsetWidth}px`),
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [buttons]);
   return (
-    <header class="topbar pe">
+    <header class="topbar pe" ref={headerRef}>
       <div class="resources parchment" ref={barRef}>
         {RESOURCE_IDS.map((id) => (
           <ResourceChip key={id} id={id} h={handlers(id)} />
@@ -511,7 +523,7 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
         )}
       </div>
       {buttons && (
-        <div class="topbar-buttons">
+        <div class="topbar-buttons" ref={buttonsRef}>
           <SyncBadge />
           <button
             class={`btn btn-icon parchment-btn village-btn ${villageOpen ? 'btn-active' : ''}`}
@@ -557,28 +569,12 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
             </button>
           )}
           <button
-            class={`btn btn-icon parchment-btn ${modal === 'league' ? 'btn-active' : ''}`}
-            aria-label={t('league.button')}
-            title={t('league.button')}
-            onClick={() => uiStore.setState({ modal: modal === 'league' ? 'none' : 'league' })}
-          >
-            <TrophyIcon />
-          </button>
-          <button
             class={`btn btn-icon parchment-btn ${modal === 'plans' ? 'btn-active' : ''}`}
             aria-label={t('plans.button')}
             title={t('plans.button')}
             onClick={() => uiStore.setState({ modal: modal === 'plans' ? 'none' : 'plans' })}
           >
             <BookIcon />
-          </button>
-          <button
-            class="btn btn-icon parchment-btn"
-            aria-label={t('universe.button')}
-            title={t('universe.button')}
-            onClick={() => uiStore.setState({ modal: 'universe' })}
-          >
-            <GlobeIcon />
           </button>
           {inUniverse && (
             <button
@@ -591,35 +587,101 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
               {chatUnread > 0 && <span class="count">{chatUnread > 9 ? '9+' : chatUnread}</span>}
             </button>
           )}
-          <button
-            class={`btn btn-icon parchment-btn ${objectivesOpen ? 'btn-active' : ''}`}
-            aria-label={t('hud.objectives')}
-            aria-pressed={objectivesOpen}
-            title={t('hud.objectives')}
-            onClick={() => setPanelOpen('objectives', !objectivesOpen)}
-          >
-            <ScrollIcon />
-          </button>
-          <button
-            class={`btn btn-icon parchment-btn sound-btn ${muted ? 'is-muted' : ''}`}
-            aria-label={muted ? t('audio.unmute') : t('audio.mute')}
-            aria-pressed={muted}
-            title={muted ? t('audio.unmute') : t('audio.mute')}
-            data-silent
-            onClick={() => actions.setAudio({ muted: !muted })}
-          >
-            <SpeakerIcon muted={muted} />
-          </button>
-          <button
-            class="btn btn-icon parchment-btn"
-            aria-label={t('hud.settings')}
-            title={t('hud.settings')}
-            onClick={() => uiStore.setState({ modal: 'settings' })}
-          >
-            <GearIcon />
-          </button>
+          <MoreMenu />
         </div>
       )}
     </header>
+  );
+}
+
+/**
+ * The less frequent screens and toggles of the desktop top bar, folded into a "⋯" menu (the
+ * phone has its own named menu, `MobileNav`): League, Universes, Objectives, Sound, Settings.
+ */
+function MoreMenu() {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const modal = useUi((s) => s.modal);
+  const objectivesOpen = useUi((s) => s.objectivesOpen);
+  const muted = useUi((s) => s.audio.muted);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('pointerdown', close, true);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', close, true);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  const go = (fn: () => void) => () => {
+    fn();
+    setOpen(false);
+  };
+  const active = modal === 'league' || modal === 'universe' || modal === 'settings';
+  return (
+    <div class="more-wrap" ref={wrapRef}>
+      <button
+        class={`btn btn-icon parchment-btn ${open || active ? 'btn-active' : ''}`}
+        aria-label={t('hud.more')}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        title={t('hud.more')}
+        onClick={() => setOpen(!open)}
+      >
+        <MenuIcon />
+      </button>
+      {open && (
+        <div class="more-menu parchment" role="menu">
+          <button
+            role="menuitem"
+            class="more-item"
+            onClick={go(() => uiStore.setState({ modal: 'league' }))}
+          >
+            <TrophyIcon size={22} />
+            {t('league.button')}
+          </button>
+          <button
+            role="menuitem"
+            class="more-item"
+            onClick={go(() => uiStore.setState({ modal: 'universe' }))}
+          >
+            <GlobeIcon size={22} />
+            {t('universe.button')}
+          </button>
+          <button
+            role="menuitemcheckbox"
+            aria-checked={objectivesOpen}
+            class={`more-item ${objectivesOpen ? 'is-on' : ''}`}
+            onClick={go(() => setPanelOpen('objectives', !objectivesOpen))}
+          >
+            <ScrollIcon size={22} />
+            {t('hud.objectives')}
+          </button>
+          <button
+            role="menuitemcheckbox"
+            aria-checked={!muted}
+            class="more-item"
+            data-silent
+            onClick={() => actions.setAudio({ muted: !muted })}
+          >
+            <SpeakerIcon muted={muted} size={22} />
+            {muted ? t('audio.unmute') : t('audio.mute')}
+          </button>
+          <button
+            role="menuitem"
+            class="more-item"
+            onClick={go(() => uiStore.setState({ modal: 'settings' }))}
+          >
+            <GearIcon size={22} />
+            {t('hud.settings')}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

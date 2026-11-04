@@ -427,6 +427,7 @@ export const en = {
     },
   },
   hud: {
+    more: 'More',
     population: 'Kiwis',
     populationTip: 'Population / housing',
     capacity: 'Capacity {value}',
