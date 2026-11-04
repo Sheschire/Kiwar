@@ -22251,6 +22251,9 @@ var FEAT_IDS = [
   "tunnel",
   "firstGallery",
   "locules",
+  // Chantier 52: the core and the Great Weevil.
+  "caverns",
+  "weevil",
   "kikiwiwi",
   "starEgg",
   "masterClass",
@@ -22275,6 +22278,8 @@ var FEATS = {
   tunnel: { id: "tunnel", group: "depths", rarity: "notable" },
   firstGallery: { id: "firstGallery", group: "depths", rarity: "notable" },
   locules: { id: "locules", group: "depths", rarity: "rare" },
+  caverns: { id: "caverns", group: "depths", rarity: "rare" },
+  weevil: { id: "weevil", group: "depths", rarity: "legendary" },
   kikiwiwi: { id: "kikiwiwi", group: "village", rarity: "rare" },
   starEgg: { id: "starEgg", group: "village", rarity: "rare" },
   masterClass: { id: "masterClass", group: "village", rarity: "notable" },
@@ -22377,7 +22382,9 @@ function singleFeats(state) {
     out.add("firstGallery");
     const map = depthsMapOf(state);
     if (galleries.some((id3) => map.byId.get(id3)?.depth === LOCULE_DEPTH)) out.add("locules");
+    if (galleries.some((id3) => map.byId.get(id3)?.depth === CORE_DEPTH)) out.add("caverns");
   }
+  if (state.depths.weevil?.fellAt !== void 0) out.add("weevil");
   if (state.villagers.some((v) => v.kikiwiwi)) out.add("kikiwiwi");
   if (state.villagers.some((v) => v.shiny === "star")) out.add("starEgg");
   if (state.villagers.some((v) => v.classId && CLASSES[v.classId].tier === 3)) {

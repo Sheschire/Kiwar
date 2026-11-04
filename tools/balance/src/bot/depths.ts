@@ -6,6 +6,7 @@ import {
   canAfford,
   delveCrewMax,
   delveForecast,
+  delveTime,
   doorStrength,
   doorFortifyCost,
   fortifyDoorLock,
@@ -19,6 +20,8 @@ import {
   rations,
   layerOpen,
   isLocule,
+  isStem,
+  stemForecast,
   reachableRooms,
   THREATS,
   tunnelOf,
@@ -93,13 +96,24 @@ export function delveOrder(state: GameState): Command | null {
         a.id.localeCompare(b.id),
     );
   for (const room of rooms) {
+    // Chantier 52: the Great Weevil, with the whole crew, once the forecast calls it likely.
+    if (isStem(room)) {
+      const crew = delveCrew(state, max);
+      const f = stemForecast(state, crew, orders);
+      if (f.odds !== 'likely' || !f.reachesAir) continue;
+      const need = rations(state, crew, 2 * delveTime(room));
+      const provisions = { pulp: Math.ceil(need.pulp * 1.1), juice: Math.ceil(need.juice * 1.1) };
+      if (!canAfford(state.resources, provisions)) return null;
+      return { type: 'delve', roomId: room.id, crew: crew.map((v) => v.id), provisions, orders };
+    }
     for (let size = Math.max(2, max - 2); size <= max; size++) {
       const crew = delveCrew(state, size);
       if (crew.length < size) break;
       // Chantier 50: to a locule, skirt the lakes when only that makes it likely.
       for (const skirt of isLocule(room) ? [false, true] : [false]) {
         const f = delveForecast(state, room.id, crew, orders, 1, skirt);
-        if (!f || f.odds !== 'likely' || f.expectedDead > 0) continue;
+        // Chantier 52: never heavier than a cavern's ceiling.
+        if (!f || f.odds !== 'likely' || f.expectedDead > 0 || f.caveIn) continue;
         const need = rations(state, crew, 2 * f.travelMs);
         const provisions = {
           pulp: Math.ceil(need.pulp * 1.1),

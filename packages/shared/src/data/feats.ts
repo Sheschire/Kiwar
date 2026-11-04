@@ -35,6 +35,9 @@ export const FEAT_IDS = [
   'tunnel',
   'firstGallery',
   'locules',
+  // Chantier 52: the core and the Great Weevil.
+  'caverns',
+  'weevil',
   'kikiwiwi',
   'starEgg',
   'masterClass',
@@ -70,6 +73,8 @@ export const FEATS: Record<FeatId, FeatDef> = {
   tunnel: { id: 'tunnel', group: 'depths', rarity: 'notable' },
   firstGallery: { id: 'firstGallery', group: 'depths', rarity: 'notable' },
   locules: { id: 'locules', group: 'depths', rarity: 'rare' },
+  caverns: { id: 'caverns', group: 'depths', rarity: 'rare' },
+  weevil: { id: 'weevil', group: 'depths', rarity: 'legendary' },
   kikiwiwi: { id: 'kikiwiwi', group: 'village', rarity: 'rare' },
   starEgg: { id: 'starEgg', group: 'village', rarity: 'rare' },
   masterClass: { id: 'masterClass', group: 'village', rarity: 'notable' },

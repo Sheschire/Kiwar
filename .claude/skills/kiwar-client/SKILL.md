@@ -533,3 +533,8 @@ sector } })`; a real landing in solo: dispatch the launch and `setTimeScale(2000
   The resource bar is padded by the measured width of the buttons (`--buttons-w`, set by a
   `ResizeObserver` in `TopBar`): never a hand-made padding.
 
+- **Chantier 52 (core, stem, Mother Vine)**: creature kind `weevil` in `render/anim/creatures.ts`
+  (mirrored parts use the double-sided `membrane` material), `airAt` flights in the battle
+  timeline, `render/motherVine.ts` (`MotherVine`, synced in `setGameState`, updated in the frame
+  loop; a new view of `setFace` must be in its dispose list), the core in both cuts (see
+  `kiwar-depths`), texts `core.*` and `stem.*`.

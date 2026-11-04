@@ -2998,6 +2998,8 @@ export const fr: Dict = {
       tunnel: 'Le tunnel des Tréfonds',
       firstGallery: 'Une première galerie',
       locules: 'Une galerie dans les loges',
+      caverns: 'Une caverne blanche du cœur',
+      weevil: 'Le Grand Charançon tombé',
       kikiwiwi: 'Un premier Kikiwiwi',
       starEgg: 'Un kiwi né d’un œuf d’étoile',
       masterClass: 'Une classe de maître',

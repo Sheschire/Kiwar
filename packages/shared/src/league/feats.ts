@@ -7,7 +7,7 @@ import { AGE_FEATS, FEATS, FEAT_KEYS, type FeatId, type FeatKey } from '../data/
 import { CLASSES } from '../data/classes';
 import { ITEMS, type ItemId } from '../data/gear';
 import { isInner } from '../sim/civ';
-import { LOCULE_DEPTH, depthsMapOf } from '../sim/depths';
+import { CORE_DEPTH, LOCULE_DEPTH, depthsMapOf } from '../sim/depths';
 import { ageOf } from '../sim/research';
 import type { GameState } from '../sim/state';
 
@@ -48,7 +48,9 @@ function singleFeats(state: GameState): Set<FeatId> {
     out.add('firstGallery');
     const map = depthsMapOf(state);
     if (galleries.some((id) => map.byId.get(id)?.depth === LOCULE_DEPTH)) out.add('locules');
+    if (galleries.some((id) => map.byId.get(id)?.depth === CORE_DEPTH)) out.add('caverns');
   }
+  if (state.depths.weevil?.fellAt !== undefined) out.add('weevil');
   if (state.villagers.some((v) => v.kikiwiwi)) out.add('kikiwiwi');
   if (state.villagers.some((v) => v.shiny === 'star')) out.add('starEgg');
   if (state.villagers.some((v) => v.classId && CLASSES[v.classId].tier === 3)) {

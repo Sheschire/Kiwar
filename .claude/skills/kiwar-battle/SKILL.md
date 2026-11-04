@@ -230,3 +230,17 @@ live)` (travel + play), the report's "Watch the battle again"; far faces keep
 `render/depths/delveShow.ts` `DelveShow` plays the journal on a flat field (an empty
 `FaceMap`) placed on the room's floor of the cut; the `show` getter of `GameRenderer` routes
 seek / speed / skip / select to it first. Its end tells nothing (no held outcome).
+
+## Chantier 52 (the Great Weevil's flight)
+
+- `BattleUnitSetup.flight { below, airS, groundS, armor }`: under `below` of its hit points the
+  unit takes to the air for `airS`, lands for `groundS`, and so on (armour `armor` up there;
+  only `hitsAir` weapons reach it). Units carry run-time `flying`, `armor`, `flightAt` (read
+  `u.flying`, never `u.s.flying`, inside `simulate.ts`). Journal events `EV.rise` (10) and
+  `EV.land` (11), one argument each.
+- `battle/stem.ts`: the Weevil (body `weevil`, weapon `weevilRam`, `leader`, `rage`,
+  `flight`), its escort, larvae that `wake` under 33 %. `sim/stem.ts` resolves and forecasts.
+- Client: `Track.flights` and `airAt(track, t)` (eased over `LIFT_S`) in `timeline.ts`;
+  `BattleShow` lifts the Weevil by `WEEVIL_FLIGHT`, plays its clips (crawl, ram, fly, hurt,
+  fall) and keeps its shadow on the ground (`CreatureDraw.ground`). Its rig is in
+  `render/anim/creatures.ts` (kind `weevil`, on the `?kiwis` sheet).

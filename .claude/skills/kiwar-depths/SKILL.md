@@ -3,7 +3,7 @@ name: kiwar-depths
 description: Kiwar depths under our half (chantier 48, then 49, 50, 52) — the tunnel entrance (technology `spelunking`, Iron), the public network of rooms (`depthsMapOf`) and what they hold from the hidden `depthSeed` (`roomTruth`), delves (mission `delve`, `battle/delve.ts`, hazards, forecast, resolution where the truth is held), galleries and miners (job `mine`, `galleryRate`, automation `mine`), the Grouillants (larva, fruit fly, woodlouse), the spelunker class, upwellings out of the tunnel (`sim/upwell.ts`, the door, `comingWave`), the Depths screen. Use when touching anything below the surface, the tunnel, delves, galleries, upwellings or the spelunker.
 ---
 
-# Kiwar depths (chantier 48)
+# Kiwar depths (chantiers 48, 50, 52)
 
 Chantier 49 drew the cut in 3D (section "The cut" below). Load `kiwar-sim` (determinism, exact offline), `kiwar-battle` (the engine), `kiwar-threats`
 (waves: upwellings are waves) and `kiwar-expeditions` (the anti-cheat rule) with it.
@@ -198,8 +198,49 @@ upwelling reports (`reportsSeen`).
   `LoculeStrip` unrolls them (tap targets); the 3D cut of chantier 49 gets the flesh only
   (`fleshOf(map)` in `render/depths/cutLayout.ts`) until it draws the ring.
 
+## The core and the stem (chantier 52)
+
+- **Layer 3**: `CORE_DEPTH` 5 (white caverns, `isCavern`) and `STEM_DEPTH` 6 (the stem, one
+  room, `isStem`); `isFlesh` (1–3), `isCore` (5–6). `generateCore` draws 6–10 caverns after
+  the locules on `…/depths/core` (the flesh + locules hash is tested in `test/core.test.ts`),
+  each linked to its nearest locule, often to the next cavern; the stem is the **last room**,
+  linked to the cavern(s) nearest the middle. Every depth table has **6 cells** (index 5 = stem).
+  **Client code that meant "flesh" with `!isLocule` must use `isFlesh`.**
+- Caverns: kind `cavern`, no hazard of their own, `DEPTHS.core.nestChance`, sap loot, 0–2
+  giant seeds; galleries yield juice at `perMiner` 2 (twice a mine). Public `DepthRoom.ceiling`
+  (crew weight): `delveWeight(crew)` = `crewWeight` + `armorWeight` (light 2, heavy 6);
+  `caveInOf(room, weight)` → a `fall` hitting **everybody** (`caveInHits`, no roll, lessened by
+  Endurance and spelunkers), combined with the room's hazard in `startingHarm`; forecast
+  (`weight`, `ceiling`, `caveIn`) and `result.caveIn`. Upwellings add `perCoreNest` 0.8 per
+  core nest near our works (silent once the Weevil fell).
+- `layerOpen`: caverns and stem at the Age of the stars (`DEPTHS.core.age` 4).
+- **The stem** (`battle/stem.ts`, `sim/stem.ts`): the Great Weevil's guard is **public**
+  (`DEPTHS.stem`, `weevilUnit`, `stemEscort`, `stemSetup`); `resolveDelve` hands a stem delve
+  to `resolveStem` (chantier 46's rule, `depths.weevil { attempts, wounds, fellAt }`, wounds
+  heal over 72 h, at most 50 %). `delveForecast` returns **null** for the stem: use
+  `stemForecast` (three trials at luck 1.15 / 1 / 0.85 on our blows, `reachesAir`).
+- **The Mother Vine** = the Weevil's fall (`motherVineAt`, `weevilFallen`): event
+  `motherVineFound`, `result.motherVine`, treasure (`result.giantSeeds`, `result.crystal`
+  added at the return), memory `motherVine` (+15, 72 h) for every kiwi; the stem's gallery
+  holds 2 **pilgrims** (job `mine`, no harvest, `galleryWorth` true, the automation keeps one):
+  `pilgrimsAtStem` > 0 with the door open → `ColonyMood.pilgrimage` (+4).
+- `techCost(state, id)`: a `TechDef.cheaperWith: 'motherVine'` costs × `RESEARCH.withoutVine`
+  (2.5) until found — for chantier 54's wormholes; **read costs through `techCost`**, never
+  `TECHS[id].cost` (except the score in `gameService`).
+- Objectives `starsCaverns` (2 caverns), `starsWeevil`.
+- Client: the 2D cut places the core inside its disc (two staggered rings, ids alternate) and
+  the stem at the bottom; the strip (`LoculeStrip core`) is the tap target; `StemForecastLines`;
+  the stem is named publicly (`knownKind`); `MinersBox` shows pilgrims. 3D: `placeCore` in
+  `cutLayout.ts` (`CAVERN_T`, `STEM_POINT`), caverns painted like locules, thin passages
+  between small cells (`smallLink`, no lanterns), the vine painted (`CutKnowledge.vine`),
+  `delveShow` puts the stem's battle at `STEM_SHOW_T`. `render/motherVine.ts` draws the vine
+  out of the dome's bottom pole into space. Check with the scripts of chantier 52's document.
+- Bot: caverns never above the ceiling, the stem with the whole crew once `stemForecast` is
+  likely and someone reaches the air; milestones `cavern`, `weevil`; finals `cavernsTaken`,
+  `weevilAttempts`.
+
 ## Next chantiers
 
-49 done (the Grouillants' own rigs are still to draw: `DETTE.md`), 50 done (the locules),
-52 (core and stem). A new layer adds rooms to `generateDepths` **after** the locules' draws,
-on its own stream (neither the flesh nor the locules must move).
+49 done (the Grouillants' own rigs are still to draw: `DETTE.md`), 50 done (the locules), 52
+done (core, stem, Mother Vine). A new layer adds rooms to `generateDepths` **after** the
+core's draws, on its own stream (nothing above must move; the stem is the last room today).

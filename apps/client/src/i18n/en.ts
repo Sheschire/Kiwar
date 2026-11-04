@@ -2868,6 +2868,8 @@ export const en = {
       tunnel: 'The tunnel into the depths',
       firstGallery: 'A first gallery',
       locules: 'A gallery in the locules',
+      caverns: 'A white cavern of the core',
+      weevil: 'The Great Weevil fallen',
       kikiwiwi: 'A first Kikiwiwi',
       starEgg: 'A kiwi hatched from a star egg',
       masterClass: 'A master class',

@@ -104,6 +104,9 @@ export const MILESTONES = [
   'delve',
   // Chantier 50: the first locule taken.
   'locule',
+  // Chantier 52: the first white cavern taken, the Great Weevil fallen.
+  'cavern',
+  'weevil',
   // Chantier 40: the first glimpse (a landing back home), the first beacon, one in the centre.
   'glimpse',
   'landingWon',
@@ -160,6 +163,9 @@ export interface RunResult {
      * the giant seeds) at the cap, locule trees and eggs.
      */
     loculesTaken?: number;
+    /** Chantier 52: caverns taken, battles against the Great Weevil. */
+    cavernsTaken?: number;
+    weevilAttempts?: number;
     crystalCap?: number;
     seedCap?: number;
     trees?: number;
@@ -566,6 +572,11 @@ function checkMilestones(
   set('delve', Object.keys(state.depths.galleries).length > 0);
   set('locule', loculeTaken(state));
   set(
+    'cavern',
+    Object.values(state.depths.galleries).some((g) => g.kind === 'cavern'),
+  );
+  set('weevil', state.depths.weevil?.fellAt !== undefined);
+  set(
     'allLevel3',
     // Economy buildings (the bot does not play expeditions yet).
     (['nest', ...BUILD_ORDER] as BuildingType[]).every((type) =>
@@ -932,6 +943,8 @@ export function runBot(opts: RunOptions): RunResult {
       loculesTaken: Object.values(state.depths.galleries).filter(
         (g) => g.kind === 'forest' || g.kind === 'lake',
       ).length,
+      cavernsTaken: Object.values(state.depths.galleries).filter((g) => g.kind === 'cavern').length,
+      weevilAttempts: state.depths.weevil?.attempts ?? 0,
       crystalCap: loculeMs.open > 0 ? loculeMs.crystal / loculeMs.open : 0,
       seedCap: loculeMs.open > 0 ? loculeMs.seeds / loculeMs.open : 0,
       trees: state.buildings.filter((b) => b.type === 'loculeTree').length,
