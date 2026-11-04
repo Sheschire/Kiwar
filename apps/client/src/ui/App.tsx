@@ -1,3 +1,4 @@
+import { LeagueModal } from './components/LeagueModal';
 import { DepthsModal } from './components/DepthsModal';
 import { Compass } from './components/Compass';
 import { useEffect } from 'preact/hooks';
@@ -284,6 +285,7 @@ export function App() {
         {modal === 'plans' && <PlansModal />}
         {modal === 'siege' && <SiegeModal />}
         {modal === 'depths' && <DepthsModal />}
+        {modal === 'league' && <LeagueModal />}
         {bestiaryOpen && <BestiaryModal />}
         <JoinModal />
         <ChatPanel />

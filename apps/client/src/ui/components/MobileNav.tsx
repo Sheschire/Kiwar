@@ -18,6 +18,7 @@ import {
   PlanetsIcon,
   ScrollIcon,
   ShieldIcon,
+  TrophyIcon,
   SpeakerIcon,
   TargetIcon,
 } from '../icons';
@@ -287,6 +288,12 @@ function NavMenu() {
               <Icon name="tunnel" size={28} />
             </Entry>
           )}
+          <Entry
+            label={t('league.button')}
+            onClick={go(() => uiStore.setState({ modal: 'league' }))}
+          >
+            <TrophyIcon size={28} />
+          </Entry>
           {bestiary && (
             <Entry
               label={t('landing.bestiary.open')}

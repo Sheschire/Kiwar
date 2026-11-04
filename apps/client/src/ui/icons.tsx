@@ -636,3 +636,36 @@ export function MenuIcon({ size = 22, class: cls }: IconProps) {
     />,
   );
 }
+
+/** Chantier 56: the league (a cup with a banner). */
+export function TrophyIcon({ size = 22, class: cls }: IconProps) {
+  return svg(
+    size,
+    cls,
+    <>
+      <path
+        d="M10 6h12v6c0 4-2.7 7-6 7s-6-3-6-7z"
+        fill="#e0b54a"
+        stroke="#5a3e26"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M10 8H6.5c0 4 1.8 6 4.3 6.5M22 8h3.5c0 4-1.8 6-4.3 6.5"
+        fill="none"
+        stroke="#5a3e26"
+        stroke-width="1.6"
+        stroke-linecap="round"
+      />
+      <path d="M16 19v4" stroke="#5a3e26" stroke-width="2" />
+      <path
+        d="M11 27h10l-1.2-4h-7.6z"
+        fill="#a7774a"
+        stroke="#5a3e26"
+        stroke-width="1.6"
+        stroke-linejoin="round"
+      />
+      <path d="M13.5 9.5l2.5 4 2.5-4" fill="none" stroke="#fff4c8" stroke-width="1.2" />
+    </>,
+  );
+}

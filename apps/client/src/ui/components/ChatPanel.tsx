@@ -1,14 +1,24 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { mutedUsers } from '../../game/chat';
+import { mutedUsers, type ChatMessage, type FeatLine } from '../../game/chat';
+import { featName } from './LeagueModal';
 import { chatActions } from '../chatActions';
-import { CloseIcon } from '../icons';
+import { CloseIcon, TrophyIcon } from '../icons';
 import { useT, useUi } from '../store';
+
+const timeOf = (m: ChatMessage | FeatLine): string => ('at' in m ? m.at : m.created_at);
 
 /** Team chat of the current shared universe. */
 export function ChatPanel() {
   const t = useT();
   const open = useUi((s) => s.chatOpen);
-  const messages = useUi((s) => s.chat);
+  const chat = useUi((s) => s.chat);
+  const feats = useUi((s) => s.chatFeats);
+  const universe = useUi((s) => s.universe);
+  // Chantier 56: the feats of the league fall between the messages, by time.
+  const messages: (ChatMessage | (FeatLine & { kind: 'feat' }))[] = [
+    ...chat,
+    ...feats.map((f) => ({ ...f, kind: 'feat' as const })),
+  ].sort((a, b) => Date.parse(timeOf(a)) - Date.parse(timeOf(b)));
   const me = useUi((s) => s.account?.userId);
   const [text, setText] = useState('');
   const [menu, setMenu] = useState<number | null>(null);
@@ -40,6 +50,17 @@ export function ChatPanel() {
       <ul class="chat-list" ref={listRef}>
         {messages.length === 0 && <li class="muted small">{t('chat.empty')}</li>}
         {messages.map((m) => {
+          if ('kind' in m) {
+            const name = universe?.members.find((x) => x.userId === m.user_id)?.displayName ?? '?';
+            return (
+              <li key={`feat-${m.id}`} class="chat-feat small">
+                <TrophyIcon size={16} /> {t('league.chat', { name, feat: featName(t, m.feat) })}
+                {m.points > 0 && (
+                  <span class="muted"> · {t('league.points', { points: m.points })}</span>
+                )}
+              </li>
+            );
+          }
           const hidden = muted.includes(m.user_id);
           const mine = m.user_id === me;
           return (

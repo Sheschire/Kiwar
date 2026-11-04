@@ -23,6 +23,9 @@ import {
   type Resources,
   type ServerError,
   type AllySnapshot,
+  type LeagueCosmetic,
+  type LeagueLook,
+  type LeagueView,
   type GuestTransferPreview,
   type TwinSnapshot,
   type UniverseInfo,
@@ -129,6 +132,8 @@ export interface ControllerListener {
   onTwin(twin: TwinSnapshot | null): void;
   /** The other players of the universe, on kiwis far away (shared universes). */
   onAllies(allies: AllySnapshot[]): void;
+  /** Chantier 56: the league cosmetics our colony wears (null: none, or solo). */
+  onLeagueLook(look: LeagueLook | null): void;
   /** Chantier 19: the colony on screen and the layout of the other one (null: no sister). */
   onColony(colony: 0 | 1, sister: TwinSnapshot | null): void;
   /** An auth error came back on the redirect URL (shown once). */
@@ -793,6 +798,7 @@ export class GameController {
     this.listener.onUniverse(res.universe ?? null);
     this.listener.onTwin(res.twin ?? null);
     this.listener.onAllies(res.allies ?? []);
+    this.listener.onLeagueLook(res.leagueLook ?? null);
     this.emitColony(true, res.sister ?? null);
     this.listener.onSync('online');
   }
@@ -832,6 +838,7 @@ export class GameController {
       this.loadState(res.state);
       this.listener.onTwin(res.twin ?? null);
       this.listener.onAllies(res.allies ?? []);
+      this.listener.onLeagueLook(res.leagueLook ?? null);
       return null;
     } catch (e) {
       return failureCode(e);
@@ -881,6 +888,7 @@ export class GameController {
         this.listener.onUniverse(res.universe);
         this.listener.onTwin(res.twin ?? null);
         this.listener.onAllies(res.allies ?? []);
+        this.listener.onLeagueLook(res.leagueLook ?? null);
       }
       return null;
     } catch (e) {
@@ -940,6 +948,7 @@ export class GameController {
       // hour and a half before it lands): pick them up with the same light refresh.
       if (!this.flushing && this.pending.length === 0) void this.fetchReports();
       this.listener.onAllies(res.allies ?? []);
+      this.listener.onLeagueLook(res.leagueLook ?? null);
     } catch {
       // Offline: keep what we have.
     }
@@ -967,6 +976,34 @@ export class GameController {
   }
 
   /**
+   * Chantier 56: the league of the universe played (null offline, in solo or on a refusal).
+   * `reward` picks a podium's cosmetic, `worn` changes what the colony shows.
+   */
+  async league(
+    change: { reward?: { season: number; cosmetic: LeagueCosmetic }; worn?: LeagueCosmetic[] } = {},
+  ): Promise<LeagueView | null> {
+    if (!this.online || this.universe === 'solo') return null;
+    try {
+      const universe = this.universe;
+      const res = await this.online.call(
+        change.reward
+          ? { action: 'leagueReward', universe, ...change.reward }
+          : change.worn
+            ? { action: 'leagueWear', universe, worn: change.worn }
+            : { action: 'league', universe },
+      );
+      if (!res.ok || !res.league) {
+        if (!res.ok) this.listener.onError(res.error);
+        return null;
+      }
+      if (change.reward || change.worn) void this.refreshUniverse();
+      return res.league;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Chantier 05: a newcomer to a shared universe moves to the other face of their kiwi (only
    * while the colony is untouched, and if nobody lives there).
    */
@@ -983,6 +1020,7 @@ export class GameController {
       if (res.universe) this.listener.onUniverse(res.universe);
       this.listener.onTwin(res.twin ?? null);
       this.listener.onAllies(res.allies ?? []);
+      this.listener.onLeagueLook(res.leagueLook ?? null);
       return null;
     } catch (e) {
       return failureCode(e);

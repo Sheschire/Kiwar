@@ -306,6 +306,7 @@ controller = new GameController({
     }
     uiStore.setState({ universe });
   },
+  onLeagueLook: (leagueLook) => uiStore.setState({ leagueLook }),
   onAllies: (allies) => {
     uiStore.setState({ allies });
     showAllies();
@@ -511,25 +512,30 @@ uiStore.subscribe((s, prev) => {
   if (s.universe?.id === prev.universe?.id) return;
   chat?.stop();
   chat = null;
-  uiStore.setState({ chat: [], chatUnread: 0, chatOpen: false });
+  uiStore.setState({ chat: [], chatFeats: [], chatUnread: 0, chatOpen: false });
   const client = controller.online?.client;
   if (!s.universe || !client) return;
   const me = s.account?.userId;
   const universeId = s.universe.id;
-  chat = new ChatChannel(client, universeId, (messages, fresh) => {
-    const muted = mutedUsers();
-    // Messages already read before a reload never count again.
-    const read = lastReadId(universeId);
-    const unseen = fresh.filter(
-      (m) => m.id > read && m.user_id !== me && !muted.includes(m.user_id),
-    ).length;
-    const open = uiStore.getState().chatOpen;
-    if (open) markRead(universeId, messages.at(-1)?.id ?? 0);
-    uiStore.setState((st) => ({
-      chat: messages,
-      chatUnread: open ? 0 : st.chatUnread + unseen,
-    }));
-  });
+  chat = new ChatChannel(
+    client,
+    universeId,
+    (messages, fresh) => {
+      const muted = mutedUsers();
+      // Messages already read before a reload never count again.
+      const read = lastReadId(universeId);
+      const unseen = fresh.filter(
+        (m) => m.id > read && m.user_id !== me && !muted.includes(m.user_id),
+      ).length;
+      const open = uiStore.getState().chatOpen;
+      if (open) markRead(universeId, messages.at(-1)?.id ?? 0);
+      uiStore.setState((st) => ({
+        chat: messages,
+        chatUnread: open ? 0 : st.chatUnread + unseen,
+      }));
+    },
+    (chatFeats) => uiStore.setState({ chatFeats }),
+  );
   setChannel(chat);
   void chat.start();
 });

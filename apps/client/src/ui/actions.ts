@@ -23,6 +23,8 @@ import {
   otherFace,
   type Face,
   type GameState,
+  type LeagueCosmetic,
+  type LeagueView,
   type Tile,
 } from '@kiwar/shared';
 import type { ClientError, GameController } from '../game/GameController';
@@ -568,6 +570,12 @@ export const actions = {
   },
   async unbanMember(userId: string) {
     return controller ? await controller.moderateMember('unbanMember', userId) : 'forbidden';
+  },
+  /** Chantier 56: the league of the universe (or a podium's pick, or what the colony shows). */
+  async league(
+    change: { reward?: { season: number; cosmetic: LeagueCosmetic }; worn?: LeagueCosmetic[] } = {},
+  ): Promise<LeagueView | null> {
+    return controller ? await controller.league(change) : null;
   },
   refreshUniverse(): void {
     void controller?.refreshUniverse();

@@ -13,9 +13,10 @@ import {
 import type { OfflineSummary, SyncStatus } from '../game/GameController';
 import type { Account } from '../game/onlineBackend';
 import type { AuthRedirectError } from '../game/authRedirect';
-import type { ChatMessage } from '../game/chat';
+import type { ChatMessage, FeatLine } from '../game/chat';
 import type {
   AllySnapshot,
+  LeagueLook,
   GuestTransferPreview,
   LogisticsChange,
   TwinSnapshot,
@@ -49,7 +50,9 @@ export type Modal =
   | 'plans'
   | 'siege'
   /** Chantier 48: the depths. */
-  | 'depths';
+  | 'depths'
+  /** Chantier 56: the league (feats in solo). */
+  | 'league';
 
 /** A planner opened on a mission: the settlers' ship, or a landing on a given parcel (chantier 40). */
 export interface SiegePlan {
@@ -120,6 +123,8 @@ export interface UiState {
   pendingJoin: string | null;
   chatOpen: boolean;
   chat: ChatMessage[];
+  /** Chantier 56: the league's feats shown as lines in the chat. */
+  chatFeats: FeatLine[];
   chatUnread: number;
   /** Path painting mode. */
   pathMode: boolean;
@@ -162,6 +167,8 @@ export interface UiState {
   bootError: string | null;
   /** The other players' colonies (shared universes). */
   allies: AllySnapshot[];
+  /** Chantier 56: the league cosmetics our colony wears (null: none). */
+  leagueLook: LeagueLook | null;
   /** A friend living on our twin face (older shared universes), by name; null: aliens. */
   twinOwner: string | null;
   /** Chantier 19: the colony on screen (0 home, 1 the sister on the twin face). */
@@ -287,6 +294,7 @@ export const uiStore = createStore<UiState>(() => ({
   pendingJoin: null,
   chatOpen: false,
   chat: [],
+  chatFeats: [],
   chatUnread: 0,
   pathMode: false,
   pathGains: null,
@@ -309,6 +317,7 @@ export const uiStore = createStore<UiState>(() => ({
   unreadWave: null,
   bootError: null,
   allies: [],
+  leagueLook: null,
   twinOwner: null,
   colony: 0,
   sister: null,

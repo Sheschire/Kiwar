@@ -6486,3 +6486,112 @@ h3 .building-thumb {
   flex: 1;
   margin: 0;
 }
+
+/* Chantier 56: the League screen and the feats in the chat. */
+.modal.league-modal {
+  width: min(560px, 100%);
+}
+
+.league-modal .segmented {
+  margin-bottom: var(--gap);
+}
+
+.league-season-head {
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.league-feats,
+.league-ranking,
+.league-titles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.league-feat,
+.league-ranking li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.45);
+  border-left: 4px solid rgba(122, 90, 64, 0.35);
+}
+
+.league-feat-name,
+.league-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.league-feat.rarity-notable {
+  border-left-color: #6f9a4a;
+}
+
+.league-feat.rarity-rare {
+  border-left-color: #4a7ab0;
+}
+
+.league-feat.rarity-legendary {
+  border-left-color: #d1a234;
+  background: rgba(255, 236, 170, 0.5);
+}
+
+.league-points {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.league-progress {
+  flex: 0 0 72px;
+}
+
+.league-ranking li.is-me {
+  background: rgba(201, 223, 140, 0.45);
+}
+
+.league-rank {
+  width: 1.8em;
+  text-align: center;
+}
+
+.league-reward {
+  background: rgba(255, 236, 170, 0.35);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.league-cosmetics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.league-worn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 6px;
+}
+
+.league-member summary {
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.chat-feat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(255, 236, 170, 0.45);
+  font-style: italic;
+}

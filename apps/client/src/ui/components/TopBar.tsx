@@ -40,6 +40,7 @@ import {
   ResourceIcon,
   ScrollIcon,
   ShieldIcon,
+  TrophyIcon,
   BookIcon,
   SpeakerIcon,
   StardustIcon,
@@ -555,6 +556,14 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
               <Icon name="tunnel" size={24} />
             </button>
           )}
+          <button
+            class={`btn btn-icon parchment-btn ${modal === 'league' ? 'btn-active' : ''}`}
+            aria-label={t('league.button')}
+            title={t('league.button')}
+            onClick={() => uiStore.setState({ modal: modal === 'league' ? 'none' : 'league' })}
+          >
+            <TrophyIcon />
+          </button>
           <button
             class={`btn btn-icon parchment-btn ${modal === 'plans' ? 'btn-active' : ''}`}
             aria-label={t('plans.button')}

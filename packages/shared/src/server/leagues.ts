@@ -51,6 +51,8 @@ export type LeagueLook = Partial<Record<LeagueCosmetic, { rank: number; season: 
 
 /** The `league` response: everything the League screen shows. */
 export interface LeagueView {
+  /** Server time of the answer (the time left in the season is counted from it). */
+  now: number;
   season: LeagueSeason;
   feats: LeagueFeat[];
   titles: LeagueTitle[];
@@ -213,6 +215,7 @@ export async function leagueView(
     repo.leaguePlayers(universeId),
   ]);
   return {
+    now,
     season,
     feats: feats.filter((f) => ids.has(f.userId) && isFeatKey(f.feat)),
     titles,

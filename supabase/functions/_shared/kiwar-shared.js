@@ -22146,6 +22146,7 @@ async function leagueView(repo, universeId, members, now) {
     repo.leaguePlayers(universeId)
   ]);
   return {
+    now,
     season,
     feats: feats.filter((f) => ids.has(f.userId) && isFeatKey(f.feat)),
     titles,
