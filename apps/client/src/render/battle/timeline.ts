@@ -46,6 +46,8 @@ export interface Track {
   end: number | null;
   endKind: 'fall' | 'gone' | null;
   flee: number | null;
+  /** Chantier 52: times it took to the air and landed again (in turn, from the ground). */
+  flights: number[];
 }
 
 export interface Timeline {
@@ -77,6 +79,7 @@ export function buildTimeline(log: BattleLog): Timeline {
     end: null,
     endKind: null,
     flee: null,
+    flights: [],
   }));
   const at = (track: Track): Hex =>
     track.steps.at(-1)?.to ?? { q: track.unit[8], r: track.unit[9] };
@@ -118,6 +121,10 @@ export function buildTimeline(log: BattleLog): Timeline {
       case EV.damaged:
         if (!damagedAt.has(a!)) damagedAt.set(a!, e.t);
         break;
+      case EV.rise:
+      case EV.land:
+        track?.flights.push(e.t);
+        break;
       default:
         break;
     }
@@ -155,6 +162,25 @@ export function placeAt(
 }
 
 /** Hit points of a unit at `t`. */
+/** Seconds a take-off or a landing takes on screen. */
+export const LIFT_S = 0.8;
+
+/**
+ * Chantier 52: how far in the air a unit with a `flight` is at `t` (0 on the ground, 1 up),
+ * eased over `LIFT_S` around each take-off and landing.
+ */
+export function airAt(track: Track, t: number): number {
+  const f = track.flights;
+  let up = 0;
+  for (let i = 0; i < f.length; i++) {
+    const at = f[i]!;
+    if (at > t) break;
+    const k = Math.min(1, (t - at) / LIFT_S);
+    up = i % 2 === 0 ? k : 1 - k;
+  }
+  return up * up * (3 - 2 * up);
+}
+
 export function hpAt(track: Track, t: number): number {
   let hp = track.maxHp;
   for (const h of track.hurts) {

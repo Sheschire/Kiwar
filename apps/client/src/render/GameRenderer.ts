@@ -67,6 +67,7 @@ import { PathsView } from './paths';
 import { MeteorsView } from './meteors';
 import { CometsView, type CometArrow } from './comets';
 import { FireworksView } from './fireworks';
+import { MotherVine } from './motherVine';
 import { ObstaclesView } from './obstacles';
 import { ShipsView } from './ship';
 import { BattleShow, type ShowSource, type UnitInfo } from './battle/BattleShow';
@@ -229,6 +230,8 @@ export class GameRenderer {
   private comets: CometsView | null = null;
   /** Chantier 44: the fireworks show, and the last one started. */
   private fireworks: FireworksView | null = null;
+  /** Chantier 52: the Mother Vine out of the planet, once found. */
+  private vine: MotherVine | null = null;
   private lastShowAt: number | null = null;
   /** Chantier 44: a fireworks burst opened (its sound). */
   onFireworksBurst: ((x: number, z: number) => void) | null = null;
@@ -524,6 +527,7 @@ export class GameRenderer {
       this.gates,
       this.comets,
       this.fireworks,
+      this.vine,
       this.obstacles,
       this.battle,
       this.ships,
@@ -562,6 +566,8 @@ export class GameRenderer {
     this.fireworks = new FireworksView();
     this.fireworks.onBurst = (x, z) => this.onFireworksBurst?.(x, z);
     this.scene.add(this.fireworks.group);
+    this.vine = new MotherVine(map);
+    this.scene.add(this.vine.group);
     this.obstacles = new ObstaclesView(map, () => (this.renderer.shadowMap.needsUpdate = true));
     this.scene.add(this.obstacles.group);
     this.ships = new ShipsView(map);
@@ -950,6 +956,7 @@ export class GameRenderer {
     this.gates?.sync(state);
     this.comets?.sync(state);
     this.syncFireworks(state);
+    this.vine?.sync(state);
     this.obstacles?.sync(state);
     this.ships?.sync(state);
     this.weather?.sync(state, this.buildings?.lit ?? null);
@@ -2031,6 +2038,7 @@ export class GameRenderer {
     this.buildings?.update(dt, this.callbacks.now());
     this.waves?.update(dt);
     this.fireworks?.update(dt);
+    this.vine?.update(dt);
     this.logistics.group.visible = this.visiting === null;
     this.buildings?.badges.setVisible(
       this.visiting === null &&

@@ -3,6 +3,7 @@ import { Group, Vector3 } from 'three';
 import {
   ageOf,
   isFlesh,
+  isStem,
   type DepthRoom,
   type Expedition,
   type FaceMap,
@@ -20,6 +21,8 @@ const DELVE_TAIL = 1.5;
 /** Radius of a delve's field in hexes (`battle/delve.ts`: a round room of radius 4). */
 const FIELD_HEXES = 4;
 const UNIT_SCALE = 1.8;
+/** Chantier 52: where the battle of the stem stands in the section (above the bottom pole). */
+const STEM_SHOW_T = 0.84;
 
 /**
  * The field of a delve has no tiles of the face: every hex is at height 0 (a flat room).
@@ -73,7 +76,9 @@ export class DelveShow {
   /** Puts the field on the room's floor, its way in turned towards the shaft. */
   private place(room: DepthRoom): void {
     const cut = this.cut;
-    const p = roomPoint(cut.network!, room);
+    const at = roomPoint(cut.network!, room);
+    // Chantier 52: the stem sits at the very bottom: its battle stands a little above it.
+    const p = isStem(room) ? { s: at.s, t: STEM_SHOW_T } : at;
     // A locule or a cavern is a small painted cell: its field stands on a floor in front of it.
     if (!isFlesh(room))
       cut.worldOf(p, this.group.position, cut.roomRadius * 0.9, cut.roomRadius * 0.4);

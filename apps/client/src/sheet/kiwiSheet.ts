@@ -176,17 +176,17 @@ function creatureCells(rig: CreatureRig, only: string[] | null): SheetCell[] {
         rig.draw({
           kind,
           x,
-          y: kind === 'bat' ? 0.55 : 0,
+          y: kind === 'bat' ? 0.55 : kind === 'weevil' && clip === 'fly' ? 0.4 : 0,
           z,
           heading: 0.6,
-          scale: 1.3,
+          scale: kind === 'weevil' ? 1.6 : 1.3,
           pose: sampleCreature(kind, clip, t, pose),
           age,
         });
       },
     });
   };
-  for (const kind of ['ferret', 'bat'] as const)
+  for (const kind of ['ferret', 'bat', 'weevil'] as const)
     for (const clip of CREATURE_CLIPS[kind]) add(kind, clip, 0, `${kind} ${clip}`);
   for (const kind of ['ferret', 'bat'] as const)
     for (let age = 1; age <= 3; age++)

@@ -28,15 +28,18 @@ import { Part } from './part';
  * armour come with chantier 38). Purely cosmetic.
  */
 
-export type CreatureKind = 'ferret' | 'bat';
+export type CreatureKind = 'ferret' | 'bat' | 'weevil';
 
 export const CREATURE_CLIPS = {
   ferret: ['run', 'bite', 'hit', 'hurt', 'fall'],
   bat: ['flap', 'dive', 'spit', 'hurt', 'fall'],
+  // Chantier 52: the Great Weevil of the stem.
+  weevil: ['crawl', 'ram', 'fly', 'hurt', 'fall'],
 } as const;
 export type FerretClip = (typeof CREATURE_CLIPS.ferret)[number];
 export type BatClip = (typeof CREATURE_CLIPS.bat)[number];
-export type CreatureClip = FerretClip | BatClip;
+export type WeevilClip = (typeof CREATURE_CLIPS.weevil)[number];
+export type CreatureClip = FerretClip | BatClip | WeevilClip;
 
 /** One-shot clips hold their last pose after this long. */
 const ONCE: Partial<Record<CreatureClip, number>> = { fall: 0.8, hurt: 0.45 };
@@ -105,8 +108,68 @@ export function sampleCreature(
   const once = ONCE[clip];
   const u = once ? Math.min(t, once) : t;
   if (kind === 'ferret') ferretClip(clip as FerretClip, u, p);
+  else if (kind === 'weevil') weevilClip(clip as WeevilClip, u, p);
   else batClip(clip as BatClip, u, p);
   return p;
+}
+
+/**
+ * Chantier 52: the Great Weevil. `legFront` / `legBack` swing its two tripods of legs, `wing`
+ * opens its wing cases (0–1), `sweep` beats the wings beneath, `jaw` dips its rostrum.
+ */
+function weevilClip(clip: WeevilClip, t: number, p: CreaturePose): void {
+  switch (clip) {
+    case 'crawl': {
+      // A heavy, steady crawl: the tripods in turn, the rostrum swaying.
+      const ph = t * 6;
+      p.legFront = s(ph) * 0.6;
+      p.legBack = -s(ph) * 0.6;
+      p.bob = Math.abs(s(ph)) * 0.012;
+      p.roll = s(ph) * 0.04;
+      p.headYaw = s(t * 1.3) * 0.15;
+      break;
+    }
+    case 'ram': {
+      // Rears back, then drives its rostrum down into the ground.
+      const u = frac(t / 2.6);
+      const back = u < 0.45 ? smooth(u / 0.45) : 0;
+      const hit = u >= 0.45 && u < 0.6 ? 1 - smooth((u - 0.45) / 0.15) : 0;
+      p.pitch = -back * 0.35 + hit * 0.25;
+      p.jaw = hit;
+      p.headPitch = -back * 0.3 + hit * 0.5;
+      p.squash = 1 + hit * 0.06;
+      p.legFront = -back * 0.4;
+      break;
+    }
+    case 'fly': {
+      // Wing cases wide open, the wings a blur, the legs hanging.
+      p.wing = 1;
+      p.sweep = s(t * 40);
+      p.bob = s(t * 3) * 0.02;
+      p.pitch = -0.15;
+      p.legFront = 0.5;
+      p.legBack = 0.5;
+      break;
+    }
+    case 'hurt': {
+      const k = 1 - smooth(t / 0.45);
+      p.flash = k;
+      p.squash = 1 - k * 0.08;
+      p.roll = s(t * 30) * k * 0.12;
+      p.headPitch = -k * 0.3;
+      break;
+    }
+    case 'fall': {
+      // Rolls over on its back, legs in the air.
+      const k = smooth(t / 0.7);
+      p.roll = k * Math.PI * 0.95;
+      p.bob = s(clamp01(t / 0.7) * Math.PI) * 0.08 + k * 0.12;
+      p.legFront = k * 0.8 + s(t * 20) * k * 0.2;
+      p.legBack = -k * 0.8;
+      p.wing = k * 0.3;
+      break;
+    }
+  }
 }
 
 function ferretClip(clip: FerretClip, t: number, p: CreaturePose): void {
@@ -424,8 +487,118 @@ function batWing(): BufferGeometry {
   return merged([membrane, ...bones]);
 }
 
+// Chantier 52: the Great Weevil (facing +Z, feet on y = 0), a shell of olive and bronze.
+const SHELL = '#55622f';
+const SHELL_DARK = '#2f3a1b';
+const BRONZE = '#a48a3c';
+const W_HEAD = new Vector3(0, 0.15, 0.24);
+const W_CASE = { x: 0.012, y: 0.235, z: 0.13 };
+const W_LEGS = [0.14, 0.04, -0.07] as const;
+
+function weevilBody(): BufferGeometry {
+  return merged([
+    // The thorax and the belly under the wing cases.
+    colored(new SphereGeometry(1, 12, 8), SHELL_DARK, mat(0, 0.15, 0.16, 0.1, 0.09, 0.1)),
+    colored(new SphereGeometry(1, 12, 8), SHELL_DARK, mat(0, 0.12, -0.05, 0.14, 0.08, 0.2)),
+    // Bronze dots on the thorax.
+    colored(new SphereGeometry(1, 6, 4), BRONZE, mat(0.05, 0.22, 0.17, 0.02, 0.012, 0.02)),
+    colored(new SphereGeometry(1, 6, 4), BRONZE, mat(-0.05, 0.22, 0.17, 0.02, 0.012, 0.02)),
+  ]);
+}
+
+/** One wing case (the right one; the left mirrored), hinged at its front top edge. */
+function weevilCase(): BufferGeometry {
+  return merged([
+    colored(
+      new SphereGeometry(1, 10, 7, 0, Math.PI, 0, Math.PI),
+      SHELL,
+      mat(0, -0.06, -0.17, 0.16, 0.13, 0.25, 0, Math.PI / 2, 0),
+    ),
+  ]);
+}
+
+/** Head, the long rostrum curving down, and two elbowed antennae. */
+function weevilHead(): BufferGeometry {
+  const parts = [
+    colored(new SphereGeometry(1, 10, 8), SHELL, mat(0, 0, 0.02, 0.06, 0.055, 0.06)),
+    colored(
+      new CylinderGeometry(0.018, 0.028, 0.2, 8),
+      SHELL_DARK,
+      mat(0, -0.03, 0.13, 1, 1, 1, Math.PI / 2 + 0.45),
+    ),
+    colored(new SphereGeometry(1, 6, 4), SHELL_DARK, mat(0, -0.075, 0.215, 0.022, 0.02, 0.022)),
+  ];
+  for (const side of [-1, 1]) {
+    parts.push(
+      colored(
+        new SphereGeometry(1, 6, 5),
+        '#ffcf5a',
+        mat(side * 0.04, 0.02, 0.05, 0.014, 0.014, 0.012),
+      ),
+      colored(
+        new CylinderGeometry(0.005, 0.005, 0.08, 4),
+        BRONZE,
+        mat(side * 0.03, 0.0, 0.12, 1, 1, 1, 0.3, 0, -side * 1.1),
+      ),
+      colored(
+        new CylinderGeometry(0.005, 0.004, 0.08, 4),
+        BRONZE,
+        mat(side * 0.065, 0.045, 0.14, 1, 1, 1, -0.3, 0, -side * 0.2),
+      ),
+      colored(
+        new SphereGeometry(1, 5, 4),
+        BRONZE,
+        mat(side * 0.07, 0.085, 0.13, 0.012, 0.016, 0.012),
+      ),
+    );
+  }
+  return merged(parts);
+}
+
+function weevilLeg(): BufferGeometry {
+  return merged([
+    colored(
+      new CylinderGeometry(0.012, 0.01, 0.12, 5),
+      SHELL_DARK,
+      mat(0.05, -0.02, 0, 1, 1, 1, 0, 0, Math.PI / 2 - 0.5),
+    ),
+    colored(
+      new CylinderGeometry(0.01, 0.006, 0.12, 5),
+      SHELL_DARK,
+      mat(0.11, -0.08, 0, 1, 1, 1, 0, 0, 0.25),
+    ),
+  ]);
+}
+
+/** A wing beneath the cases: a pale membrane along +X. */
+function weevilWing(): BufferGeometry {
+  const outline: [number, number][] = [
+    [0, 0.03],
+    [0.16, 0.05],
+    [0.3, 0.0],
+    [0.26, -0.08],
+    [0.1, -0.09],
+    [0, -0.04],
+  ];
+  const pos: number[] = [];
+  for (let i = 0; i < outline.length - 1; i++) {
+    const a = outline[i]!;
+    const b = outline[i + 1]!;
+    pos.push(0.02, 0, 0, a[0], 0, a[1], b[0], 0, b[1]);
+    pos.push(0.02, 0, 0, b[0], 0, b[1], a[0], 0, a[1]);
+  }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  const c = new Color('#d9cfa4');
+  const col = new Float32Array(pos.length);
+  for (let i = 0; i < pos.length / 3; i++) col.set([c.r, c.g, c.b], i * 3);
+  g.setAttribute('color', new Float32BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
 /** Gear by age: [neck/body piece, head piece], authored in the body / head frames. */
-function gear(kind: CreatureKind, age: number): [BufferGeometry | null, BufferGeometry | null] {
+function gear(kind: 'ferret' | 'bat', age: number): [BufferGeometry | null, BufferGeometry | null] {
   const ferret = kind === 'ferret';
   const neck = ferret ? F_NECK : B_NECK;
   const scarf = colored(
@@ -480,6 +653,8 @@ export interface CreatureDraw {
   /** Chantier 48: the Grouillants of the depths — a colour of their own and no gear. */
   tint?: Color;
   bare?: boolean;
+  /** Chantier 52: the ground under a flying Weevil (its shadow stays there). */
+  ground?: number;
 }
 
 const AGES = 4;
@@ -490,6 +665,7 @@ export class CreatureRig {
   private readonly materials: Material[] = [];
   private readonly f: Record<'body' | 'head' | 'jaw' | 'tail' | 'leg', Part>;
   private readonly b: Record<'body' | 'head' | 'wing', Part>;
+  private readonly w: Record<'body' | 'head' | 'case' | 'leg' | 'wing', Part>;
   private readonly gearBody = new Map<string, Part>();
   private readonly gearHead = new Map<string, Part>();
   private readonly gobs: Part;
@@ -551,6 +727,15 @@ export class CreatureRig {
       head: add(batHead(), skin),
       wing: add(batWing(), membrane, max * 2),
     };
+    // Chantier 52: one Weevil on a field (a few on the review sheet).
+    const nw = Math.min(max, 8);
+    this.w = {
+      body: add(weevilBody(), skin, nw),
+      head: add(weevilHead(), skin, nw),
+      case: add(weevilCase(), membrane, nw * 2),
+      leg: add(weevilLeg(), membrane, nw * 6),
+      wing: add(weevilWing(), membrane, nw * 2),
+    };
     for (const kind of ['ferret', 'bat'] as const)
       for (let age = 1; age < AGES; age++) {
         const [body, head] = gear(kind, age);
@@ -575,20 +760,60 @@ export class CreatureRig {
     this.bodyM.multiplyMatrices(this.root, this.local);
     const key = `${c.kind}${Math.max(0, Math.min(AGES - 1, c.age))}`;
     if (c.kind === 'ferret') this.drawFerret(p, tint);
+    else if (c.kind === 'weevil') this.drawWeevil(p, tint);
     else this.drawBat(p, tint);
-    if (!c.bare) {
+    if (!c.bare && c.kind !== 'weevil') {
       this.gearBody.get(key)?.push(this.bodyM);
       this.gearHead.get(key)?.push(this.headM);
     }
-    // Shadow on the ground (ferrets; bats fly too high for one).
-    if (c.kind === 'ferret') {
+    // Shadow on the ground (ferrets and the Weevil; bats fly too high for one).
+    if (c.kind !== 'bat') {
+      const wide = c.kind === 'weevil' ? 0.2 : 0.14;
       this.q.setFromAxisAngle(this.v.set(0, 1, 0), c.heading);
       this.out.compose(
-        this.v.set(c.x, c.y + 0.01, c.z),
+        this.v.set(c.x, (c.ground ?? c.y) + 0.01, c.z),
         this.q,
-        this.sc.set(size * 0.14, 1, size * 0.34),
+        this.sc.set(size * wide, 1, size * 0.34),
       );
       this.shadows.push(this.out);
+    }
+  }
+
+  /** Chantier 52: the Great Weevil — body, head and rostrum, six legs, cases and wings. */
+  private drawWeevil(p: CreaturePose, tint: Color): void {
+    this.w.body.push(this.bodyM, tint);
+    this.e.set(p.headPitch + p.jaw * 0.4, p.headYaw, 0, 'YXZ');
+    this.q.setFromEuler(this.e);
+    this.local.compose(W_HEAD, this.q, this.one);
+    this.headM.multiplyMatrices(this.bodyM, this.local);
+    this.w.head.push(this.headM, tint);
+    for (const side of [1, -1]) {
+      // The wing cases lift and spread about their front hinge.
+      this.e.set(-p.wing * 0.5, side * p.wing * 0.35, side * p.wing * 0.9, 'YXZ');
+      this.q.setFromEuler(this.e);
+      this.local.compose(
+        this.v.set(side * W_CASE.x, W_CASE.y, W_CASE.z),
+        this.q,
+        this.sc.set(side, 1, 1),
+      );
+      this.out.multiplyMatrices(this.bodyM, this.local);
+      this.w.case.push(this.out, tint);
+      if (p.wing > 0.3) {
+        this.e.set(0, side * 0.3, side * p.sweep * 0.6, 'YXZ');
+        this.q.setFromEuler(this.e);
+        this.local.compose(this.v.set(side * 0.03, 0.22, 0.05), this.q, this.sc.set(side, 1, 1));
+        this.out.multiplyMatrices(this.bodyM, this.local);
+        this.w.wing.push(this.out);
+      }
+      W_LEGS.forEach((z, i) => {
+        // Two tripods: front and back legs of one side with the middle leg of the other.
+        const swing = (i % 2 === (side === 1 ? 0 : 1) ? p.legFront : p.legBack) * 0.6;
+        this.e.set(swing, 0, 0, 'YXZ');
+        this.q.setFromEuler(this.e);
+        this.local.compose(this.v.set(side * 0.08, 0.11, z), this.q, this.sc.set(side, 1, 1));
+        this.out.multiplyMatrices(this.bodyM, this.local);
+        this.w.leg.push(this.out, tint);
+      });
     }
   }
 

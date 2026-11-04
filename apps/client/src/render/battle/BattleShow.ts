@@ -41,6 +41,7 @@ import {
 } from '../anim/creatures';
 import { shinyTint, sizeOf } from '../kiwis';
 import {
+  airAt,
   buildTimeline,
   hpAt,
   placeAt,
@@ -77,6 +78,9 @@ const GROUILLANT_TINTS = { grub: '#f3e7bd', fly: '#b9d36a', louse: '#8b93a0' } a
 
 /** Chantier 42: how much bigger the ferret queen is than a soldier. */
 export const QUEEN_SIZE = 2.6;
+/** Chantier 52: the Great Weevil, and how high it flies (world units). */
+export const WEEVIL_SIZE = 2.8;
+const WEEVIL_FLIGHT = 1.8;
 
 const KIWI_CLIPS: Record<WeaponId, ClipId> = {
   beak: 'peck',
@@ -135,7 +139,7 @@ interface Actor {
   track: Track;
   weapon: WeaponId;
   kind: 'kiwi' | 'creature' | 'turret';
-  creature: 'ferret' | 'bat';
+  creature: 'ferret' | 'bat' | 'weevil';
   scale: number;
   tint: Color;
   /** Chantier 48: a Grouillant (own colour, no gear). */
@@ -369,9 +373,8 @@ export class BattleShow {
           // Chantier 42: the ferret queen, a giant.
           scale = CREATURE_SIZE * QUEEN_SIZE;
         } else if (body === 'weevil') {
-          // Chantier 52: the Great Weevil, a giant (its own rig comes with part 4).
-          scale = CREATURE_SIZE * QUEEN_SIZE;
-          tint = new Color('#5d6b3a');
+          // Chantier 52: the Great Weevil, a giant beetle of its own.
+          scale = CREATURE_SIZE * WEEVIL_SIZE;
         }
         return {
           track,
@@ -382,7 +385,8 @@ export class BattleShow {
               : body === 'kiwi' || body === 'kikiwiwi'
                 ? 'kiwi'
                 : 'creature',
-          creature: body === 'bat' || body === 'fly' ? 'bat' : 'ferret',
+          creature:
+            body === 'bat' || body === 'fly' ? 'bat' : body === 'weevil' ? 'weevil' : 'ferret',
           scale,
           tint,
           grouillant: body === 'grub' || body === 'fly' || body === 'louse',
@@ -535,6 +539,7 @@ export class BattleShow {
     if (!target) return out.set(0, 0, 0);
     this.positionOf(target, t, out);
     out.y += target.creature === 'bat' && target.kind === 'creature' ? 1.6 : 0.25;
+    if (target.creature === 'weevil') out.y += airAt(target.track, t) * WEEVIL_FLIGHT + 0.3;
     return out;
   }
 
@@ -617,6 +622,9 @@ export class BattleShow {
         }
       } else if (a.kind === 'creature') {
         const bat = a.creature === 'bat';
+        const weevil = a.creature === 'weevil';
+        const air = weevil ? airAt(tr, t) : 0;
+        const ground = pos.y;
         let clip: CreatureClip;
         let at = t + tr.index * 0.31;
         if (fallen) {
@@ -627,16 +635,21 @@ export class BattleShow {
           let last = t;
           for (const h of tr.hurts) if (h.t <= t) last = h.t;
           at = t - last;
+        } else if (weevil && air > 0.05) {
+          clip = 'fly';
         } else if (strike) {
-          clip = bat
-            ? a.weapon === 'spit'
-              ? 'spit'
-              : 'dive'
-            : tr.unit[3] === 'brute'
-              ? 'hit'
-              : 'bite';
+          clip = weevil
+            ? 'ram'
+            : bat
+              ? a.weapon === 'spit'
+                ? 'spit'
+                : 'dive'
+              : tr.unit[3] === 'brute'
+                ? 'hit'
+                : 'bite';
           at = t - strike.t;
-        } else clip = bat ? 'flap' : 'run';
+        } else clip = weevil ? 'crawl' : bat ? 'flap' : 'run';
+        if (weevil) pos.y += air * WEEVIL_FLIGHT;
         if (bat) {
           // Bats glide high, dive at what they hit, drop when they fall.
           const dive = strike && a.weapon === 'dive' ? 1 - (t - strike.t) / SWING : 0;
@@ -655,6 +668,7 @@ export class BattleShow {
           age: this.age,
           fade,
           ...(a.grouillant ? { tint: a.tint, bare: true } : {}),
+          ...(weevil ? { ground } : {}),
         });
       }
       if (a.kind !== 'turret' && !fallen) this.drawnPos.push({ index: tr.index, pos: pos.clone() });
@@ -720,7 +734,7 @@ export class BattleShow {
     this.ring.visible = !!sel;
     if (sel) {
       const a = this.actors[sel.index]!;
-      const bat = a.kind === 'creature' && a.creature === 'bat';
+      const bat = a.kind === 'creature' && (a.creature === 'bat' || a.creature === 'weevil');
       this.ring.position.set(
         sel.pos.x,
         bat ? this.ground(placeAt(a.track, t).to) + 0.03 : sel.pos.y + 0.03,

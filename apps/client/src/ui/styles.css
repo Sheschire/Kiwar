@@ -6277,6 +6277,14 @@ h3 .building-thumb {
   opacity: 0.6;
 }
 
+.depths-cut .cut-vine {
+  fill: none;
+  stroke: #9fe060;
+  stroke-width: 3;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px #c6ff7a);
+}
+
 .depths-cut .cut-core.is-open {
   fill: #fbf7ea;
   opacity: 0.95;

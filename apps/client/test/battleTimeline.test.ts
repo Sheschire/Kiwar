@@ -9,7 +9,14 @@ import {
   type BattleSetup,
   type BattleUnitSetup,
 } from '@kiwar/shared';
-import { buildTimeline, hpAt, placeAt, shownAt } from '../src/render/battle/timeline';
+import {
+  airAt,
+  buildTimeline,
+  hpAt,
+  LIFT_S,
+  placeAt,
+  shownAt,
+} from '../src/render/battle/timeline';
 
 function battle() {
   const tiles = hexDisk({ q: 0, r: 0 }, 7).map((h) => ({ ...h, cost: 1 }));
@@ -134,5 +141,16 @@ describe('landing timeline (chantier 41)', () => {
     expect(standing).toBe(log.result.defendersLeft ?? standing);
     // Twice the same journal, twice the same show.
     expect(buildTimeline(log)).toEqual(tl);
+  });
+});
+
+describe('the flights of the Great Weevil (chantier 52)', () => {
+  it('follows its take-offs and landings in the journal', () => {
+    const track = { flights: [10, 26, 38] } as Parameters<typeof airAt>[0];
+    expect(airAt(track, 5)).toBe(0);
+    expect(airAt(track, 10 + LIFT_S / 2)).toBeCloseTo(0.5, 5);
+    expect(airAt(track, 20)).toBe(1);
+    expect(airAt(track, 26 + LIFT_S)).toBe(0);
+    expect(airAt(track, 40)).toBe(1);
   });
 });

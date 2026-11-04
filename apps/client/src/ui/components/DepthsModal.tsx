@@ -24,6 +24,7 @@ import {
   isFlesh,
   isLocule,
   isStem,
+  motherVineAt,
   ageOf,
   delveTime,
   actinidineActive,
@@ -206,6 +207,12 @@ function DepthsCut(props: {
         class={`cut-core ${ageOf(game) >= DEPTHS.core.age ? 'is-open' : ''}`}
       />
       <line x1={W / 2 - R} y1={TOP} x2={W / 2 + R} y2={TOP} class="cut-surface" />
+      {motherVineAt(game) !== null && (
+        <path
+          d={`M ${W / 2} ${TOP + R - 8} Q ${W / 2 + 4} ${TOP + R} ${W / 2 + 2} ${TOP + R + 8}`}
+          class="cut-vine"
+        />
+      )}
       {map.rooms.map((r) =>
         r.links
           .filter((id) => id > r.id)

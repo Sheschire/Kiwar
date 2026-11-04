@@ -6,6 +6,7 @@ import {
   ROOM_T,
   roomRadius,
   SHAFT_T,
+  STEM_POINT,
   cutLinks,
   roomPoint,
   type CutLink,
@@ -38,6 +39,8 @@ export interface CutKnowledge {
   loculesOpen: boolean;
   /** Chantier 52: the core is open (the Age of the stars). */
   coreOpen: boolean;
+  /** Chantier 52: the Mother Vine is found (it glows out of the stem). */
+  vine: boolean;
 }
 
 export function cutKnowledge(
@@ -45,6 +48,7 @@ export function cutKnowledge(
   depths: DepthsState,
   loculesOpen: boolean,
   coreOpen = false,
+  vine = false,
 ): CutKnowledge {
   const looks = new Map<string, RoomLook>();
   const kinds = new Map<string, RoomKind>();
@@ -68,12 +72,20 @@ export function cutKnowledge(
   for (const l of known)
     if (!lit.includes(l) && (looks.get(l.b) === 'gallery' || (l.a && looks.get(l.a) === 'gallery')))
       lit.push(l);
-  return { looks, kinds, known, lit, loculesOpen, coreOpen };
+  return { looks, kinds, known, lit, loculesOpen, coreOpen, vine };
+}
+
+/** Chantier 52: a passage between two small cells (no flesh room at either end). */
+export function smallLink(map: DepthsMap, l: CutLink): boolean {
+  if (l.a === null) return false;
+  const a = map.byId.get(l.a);
+  const b = map.byId.get(l.b);
+  return !!a && !!b && !isFlesh(a) && !isFlesh(b);
 }
 
 /** Signature of what the cut shows (repaint only when it changes). */
 export function cutSignature(k: CutKnowledge, holes: boolean): string {
-  return `${holes ? 1 : 0}${k.loculesOpen ? 1 : 0}${k.coreOpen ? 1 : 0}|${[...k.looks].map(([id, l]) => `${id}${l[0]}${k.kinds.get(id) ?? ''}`).join(',')}`;
+  return `${holes ? 1 : 0}${k.loculesOpen ? 1 : 0}${k.coreOpen ? 1 : 0}${k.vine ? 1 : 0}|${[...k.looks].map(([id, l]) => `${id}${l[0]}${k.kinds.get(id) ?? ''}`).join(',')}`;
 }
 
 export const KIND_TINTS: Record<RoomKind, string> = {
@@ -212,6 +224,21 @@ export function paintCut(
     g.fill();
   }
 
+  // Chantier 52: the Mother Vine, glowing out of the stem through the bottom of the fruit.
+  if (k.vine) {
+    for (const [w, style] of [
+      [RX(0.05), 'rgba(198, 255, 122, 0.35)'],
+      [RX(0.02), '#9fe060'],
+    ] as const) {
+      g.strokeStyle = style;
+      g.lineWidth = w;
+      g.beginPath();
+      g.moveTo(X(STEM_POINT.s), Y(STEM_POINT.t));
+      g.quadraticCurveTo(X(0.03), Y(0.995), X(0.01), Y(1.02));
+      g.stroke();
+    }
+  }
+
   // The shaft of the tunnel, from the surface down to its foot.
   const shaftW = RX(0.05);
   g.fillStyle = '#3b2a1a';
@@ -228,9 +255,11 @@ export function paintCut(
     points.forEach((p, i) => (i === 0 ? g.moveTo(X(p.s), Y(p.t)) : g.lineTo(X(p.s), Y(p.t))));
     g.stroke();
   };
-  for (const l of k.known) draw(l.points, RY(0.042), 'rgba(196, 226, 120, 0.7)');
-  for (const l of k.known) draw(l.points, RY(0.03), '#3b2a1a');
-  for (const l of k.lit) draw(l.points, RY(0.012), 'rgba(255, 196, 92, 0.35)');
+  // Chantier 52: between the small cells (locules, caverns, the stem) the passages are thin.
+  const w = (l: CutLink) => (smallLink(map, l) ? 0.3 : 1);
+  for (const l of k.known) draw(l.points, RY(0.042) * w(l), 'rgba(196, 226, 120, 0.7)');
+  for (const l of k.known) draw(l.points, RY(0.03) * w(l), '#3b2a1a');
+  for (const l of k.lit) draw(l.points, RY(0.012) * w(l), 'rgba(255, 196, 92, 0.35)');
 
   // The rooms: hollows of the rooms known, faint shapes under the fog for the others.
   for (const r of map.rooms) {
@@ -310,7 +339,7 @@ export function paintCut(
       f.restore();
     };
     for (let t = 0; t <= SHAFT_T + 0.02; t += 0.03) clear({ s: 0, t }, 0.14);
-    for (const l of k.known) for (const p of l.points) clear(p, 0.09);
+    for (const l of k.known) for (const p of l.points) clear(p, smallLink(map, l) ? 0.03 : 0.09);
     for (const r of map.rooms)
       if (k.looks.get(r.id) !== 'fog') clear(roomPoint(map, r), roomRadius(r) * 2.6);
     // The closed layers keep their own veil, not the fog.

@@ -25,6 +25,7 @@ import {
   ageOf,
   DEPTHS,
   isFlesh,
+  motherVineAt,
   depthsMapOf,
   type DepthRoom,
   type DepthsMap,
@@ -33,7 +34,14 @@ import {
 } from '@kiwar/shared';
 import { domeShape, type DomeShape } from '../terrain';
 import { CUT_ASPECT, ROOM_T, roomPoint, roomRadius, type CutPoint } from './cutLayout';
-import { cutKnowledge, cutSignature, KIND_TINTS, paintCut, type CutKnowledge } from './cutPaint';
+import {
+  cutKnowledge,
+  cutSignature,
+  KIND_TINTS,
+  paintCut,
+  smallLink,
+  type CutKnowledge,
+} from './cutPaint';
 import { CutLife } from './cutLife';
 
 /**
@@ -206,6 +214,7 @@ export class DepthsCutView {
       state.depths,
       ageOf(state) >= DEPTHS.locules.age,
       ageOf(state) >= DEPTHS.core.age,
+      motherVineAt(state) !== null,
     );
     this.knowledge = k;
     const sig = cutSignature(k, this.holes);
@@ -231,6 +240,8 @@ export class DepthsCutView {
       : [];
     const spots: CutPoint[] = [];
     for (const l of k.lit) {
+      // Chantier 52: no lanterns in the thin passages between the small cells.
+      if (smallLink(map, l)) continue;
       let since = LANTERN_STEP / 2;
       for (let i = 1; i < l.points.length; i++) {
         const a = l.points[i - 1]!;
