@@ -106,18 +106,20 @@ export function CanalSection({
   const bank = isBank(map, tile);
   const canal = game.terraform[hexKey(tile)] === 'canal';
   const known = techEffects(game).canals;
-  const error =
-    known && free && tile.type === 'flesh' ? canalError(game, map, tile.q, tile.r) : null;
-  const dig = known && free && tile.type === 'flesh' && error === null;
+  const land = tile.type === 'flesh' || tile.type === 'grove';
+  const error = known && free && land ? canalError(game, map, tile.q, tile.r) : null;
+  const dig = known && free && land && error === null;
   const floods = dig ? digFloods(game, map, tile).length : 0;
   // A river or lake tile of the generated map can be filled in too (it becomes flesh).
   const river = known && !canal && tile.type === 'juice' && !game.terraform[hexKey(tile)];
-  const fill = canal || river ? fillError(game, tile.q, tile.r) : 'notACanal';
+  // A down grove can be cleared for good: it becomes flesh.
+  const down = known && free && tile.type === 'grove' && !game.terraform[hexKey(tile)];
+  const fill = canal || river || down ? fillError(game, tile.q, tile.r) : 'notACanal';
   if (
     !bank &&
     !canal &&
     !dig &&
-    !(river && fill === null) &&
+    !((river || down) && fill === null) &&
     !(error && error !== 'notFlesh' && error !== 'notByJuice')
   )
     return null;
@@ -150,6 +152,14 @@ export function CanalSection({
           onClick={() => actions.dispatch({ type: 'fillCanal', q: tile.q, r: tile.r })}
         >
           {t('canals.fillRiver')} · <Cost t={t} />
+        </button>
+      )}
+      {down && fill === null && (
+        <button
+          class="btn btn-small"
+          onClick={() => actions.dispatch({ type: 'fillCanal', q: tile.q, r: tile.r })}
+        >
+          {t('canals.clearDown')} · <Cost t={t} />
         </button>
       )}
       {dig && (

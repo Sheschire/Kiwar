@@ -10758,7 +10758,7 @@ function queuedCanals(state, except) {
 function canalError(state, map, q, r, item2) {
   if (!techEffects(state).canals) return "techMissing";
   const tile = getTile(map, { q, r });
-  if (!tile || tile.type !== "flesh") return "notFlesh";
+  if (!tile || tile.type !== "flesh" && tile.type !== "grove") return "notFlesh";
   const key = hexKey({ q, r });
   const queued = queuedCanals(state, item2);
   const near = hexNeighbors(tile).some(
@@ -10810,7 +10810,8 @@ function fillError(state, q, r, item2) {
   if (kind !== "canal") {
     if (kind) return "notACanal";
     const base = faceMapOf({ seed: state.seed, face: state.face, params: state.params });
-    if (getTile(base, { q, r })?.type !== "juice") return "notACanal";
+    const type = getTile(base, { q, r })?.type;
+    if (type !== "juice" && type !== "grove") return "notACanal";
     if (!techEffects(state).canals) return "techMissing";
   }
   if (meteorAt(state, q, r) || obstacleAt(state, q, r)) return "tileOccupied";
@@ -10832,7 +10833,8 @@ function finishCanal(s, item2, at, events) {
   }
   const next = { ...s.terraform };
   if (dig) {
-    if (next[key] === "land") delete next[key];
+    const base = faceMapOf({ seed: s.seed, face: s.face, params: s.params });
+    if (next[key] === "land" && getTile(base, item2)?.type === "juice") delete next[key];
     else next[key] = "canal";
   } else if (next[key] === "canal") delete next[key];
   else next[key] = "land";
@@ -22045,7 +22047,7 @@ function plausibleTerraform(state) {
   for (const [key, kind] of all) {
     const tile = base.tiles[base.index.get(key) ?? -1];
     if (!tile) return false;
-    const ok = kind === "canal" ? tile.type === "flesh" : kind === "land" ? tile.type === "juice" : kind === "terrace" ? !!tile.flood : kind === "flatten" ? tile.type === "grove" || tile.type === "seedRing" : tile.type === "flesh" || tile.type === "grove" || tile.type === "seedRing";
+    const ok = kind === "canal" ? tile.type === "flesh" || tile.type === "grove" : kind === "land" ? tile.type === "juice" || tile.type === "grove" : kind === "terrace" ? !!tile.flood : kind === "flatten" ? tile.type === "grove" || tile.type === "seedRing" : tile.type === "flesh" || tile.type === "grove" || tile.type === "seedRing";
     if (!ok) return false;
   }
   return true;

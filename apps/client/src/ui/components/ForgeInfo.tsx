@@ -98,7 +98,9 @@ export function ForgeInfo({ game, b }: { game: GameState; b: Building }) {
             <h4 class="small">{t(`forge.families.${kind}`)}</h4>
             {GEAR_TIERS.map((tier) => {
               const id = `${kind}-${tier}` as ItemId;
-              const def = ITEMS[id];
+              const def = ITEMS[id] as ItemDef | undefined;
+              // Chantier 50: the crystal tier is weapons only (no `light-crystal`).
+              if (!def) return null;
               const lock = forgeLock(game, id);
               const techMissing = lock === 'techMissing';
               return (

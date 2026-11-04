@@ -657,11 +657,14 @@ function Planner({ game, padId }: { game: GameState; padId: BuildingId }) {
         {t(
           founding
             ? 'siege.launch.found'
-            : guarding
-              ? 'beacons.launch'
-              : finale
-                ? 'queen.launch'
-                : 'landing.launch',
+            : guarding && crew.length === 0 && bringBack.length > 0
+              ? 'beacons.launchHome'
+              : guarding
+                ? 'beacons.launch'
+                : finale
+                  ? 'queen.launch'
+                  : 'landing.launch',
+          { count: bringBack.length },
         )}{' '}
         · {formatDuration(lang, f.travelMs * 2)}
       </button>

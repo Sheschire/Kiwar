@@ -128,6 +128,9 @@ assault needs one fortified bridgehead. See `kiwar-colonies`.
 
 ## Juice canals (chantier 45)
 
+- November 2026: canals also go on down groves (`grove`), and `fillCanal` on a natural
+  grove clears it into flesh (`land`); digging a `land` tile gives the river back only when the
+  generated tile was juice.
 - Builders, not Kikiwiwis: `data/canals.ts` `CANALS` (no cap in play since October 2026,
   only `max` 999 against cheating; 30 pulp + 15 fibre, 30 s, deposit × 0.4), `sim/canals.ts` (`canalError`, `fillError`, `canalCap`,
   `canalCount`, `canalsLeft`, `canalDuration`, `finishCanal`). Commands `digCanal` /

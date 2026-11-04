@@ -3494,3 +3494,21 @@ Owner's request: a little more stardust per comet, and +20 stardust for everyone
   shared by every colony of the same seed: another colony's layout could be reused (one step ≠
   many steps in `waveBattle.test.ts`). The key now holds the positions of the homes and work
   sites.
+
+## Hotfix (November 2026) — Fixes after playtest
+
+- **Deployments were failing**: the latest Supabase CLI asks for a confirmation a CI run cannot
+  give; `deploy-functions.yml` now passes `--yes`. Until then the server ran the code from
+  before the kick, the gift and the meteorites: the client showed the +20 stardust (its own
+  save migration) but the server refused to spend it.
+- **Forge sheet crashed** since chantier 50: it listed every family × tier, and the crystal
+  tier has weapons only (`light-crystal` does not exist) → `ITEMS[id]` undefined. Missing
+  pieces are skipped.
+- **Relieving a guard**: the logic worked; right after posting a guard the ship is still
+  flying home, and the button only said "no free launchpad". It now says when the ship is
+  back (`siege.shipBack`), and a flight with nobody aboard is labelled "Bring N kiwi(s) home".
+- **Down groves** (owner's request, Canals technology, same price as a canal): a canal may be
+  dug on a down grove by the juice (`canalError` accepts flesh and grove), and a free down
+  grove can be cleared into flesh for good (`fillCanal` on a natural grove → terraform
+  `land`). A cleared grove dug later becomes a canal, never the grove back.
+  `plausibleTerraform` accepts both.

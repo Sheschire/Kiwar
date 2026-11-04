@@ -59,7 +59,8 @@ export function canalError(
 ): CanalError | null {
   if (!techEffects(state).canals) return 'techMissing';
   const tile = getTile(map, { q, r });
-  if (!tile || tile.type !== 'flesh') return 'notFlesh';
+  // Flesh or a down grove (November 2026: a canal may cut through the down).
+  if (!tile || (tile.type !== 'flesh' && tile.type !== 'grove')) return 'notFlesh';
   const key = hexKey({ q, r });
   const queued = queuedCanals(state, item);
   const near = hexNeighbors(tile).some(
@@ -124,7 +125,9 @@ export function fillError(
   if (kind !== 'canal') {
     if (kind) return 'notACanal';
     const base = faceMapOf({ seed: state.seed, face: state.face, params: state.params });
-    if (getTile(base, { q, r })?.type !== 'juice') return 'notACanal';
+    // A river or lake tile is filled in; a down grove is cleared for good (both become flesh).
+    const type = getTile(base, { q, r })?.type;
+    if (type !== 'juice' && type !== 'grove') return 'notACanal';
     if (!techEffects(state).canals) return 'techMissing';
   }
   if (meteorAt(state, q, r) || obstacleAt(state, q, r)) return 'tileOccupied';
@@ -155,9 +158,11 @@ export function finishCanal(s: GameState, item: QueueItem, at: TimeMs, events: G
   }
   // A new object: cached map keys follow the object (`terraformKey`).
   const next = { ...s.terraform };
-  // Digging a filled-in river tile gives the river back; filling one in makes land.
+  // Digging a filled-in river tile gives the river back; filling one in makes land. A cleared
+  // down grove dug again becomes a canal (never the grove back).
   if (dig) {
-    if (next[key] === 'land') delete next[key];
+    const base = faceMapOf({ seed: s.seed, face: s.face, params: s.params });
+    if (next[key] === 'land' && getTile(base, item)?.type === 'juice') delete next[key];
     else next[key] = 'canal';
   } else if (next[key] === 'canal') delete next[key];
   else next[key] = 'land';

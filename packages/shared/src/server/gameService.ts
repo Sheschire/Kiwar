@@ -747,7 +747,8 @@ export function isPlausible(state: GameState, now: number): boolean {
 
 /**
  * Reshaped tiles (chantier 08): within the cap of the age, on tiles of the right kind. Canals
- * (chantier 45) have their own technology and cap, on flesh.
+ * (chantier 45) have their own technology and cap, on flesh or down; filled-in land was a river
+ * or a down grove.
  */
 export function plausibleTerraform(state: GameState): boolean {
   const all = Object.entries(state.terraform);
@@ -766,9 +767,9 @@ export function plausibleTerraform(state: GameState): boolean {
     if (!tile) return false;
     const ok =
       kind === 'canal'
-        ? tile.type === 'flesh'
+        ? tile.type === 'flesh' || tile.type === 'grove'
         : kind === 'land'
-          ? tile.type === 'juice'
+          ? tile.type === 'juice' || tile.type === 'grove'
           : kind === 'terrace'
             ? !!tile.flood
             : kind === 'flatten'

@@ -30,7 +30,7 @@ import { firstRotation, placementError } from '../game/placement';
 import { tellLanding, watchable } from '../game/landingWatch';
 import type { GameRenderer } from '../render/GameRenderer';
 import { saveQualityChoice, type QualityChoice } from '../render/quality';
-import { formatNumber } from '../i18n/i18n';
+import { formatDuration, formatNumber } from '../i18n/i18n';
 import { saveFpsCap, type FpsCap } from '../render/frameLimiter';
 import type { PlanetRef } from '../render/space';
 import { pushToast, saveShowLevels, uiStore, type SiegePlan } from './store';
@@ -447,7 +447,15 @@ export const actions = {
       (b) => b.type === 'launchpad' && !b.damaged && !isLaunchpadBusy(game, b.id),
     );
     if (!pad) {
-      pushToast('error', 'siege.noShip');
+      // The ship is on its way (e.g. back from posting the guard): say when it lands.
+      const back = game?.expeditions
+        .filter((e) => e.status !== 'done')
+        .reduce((min, e) => Math.min(min, e.returnAt), Infinity);
+      if (game && back !== undefined && Number.isFinite(back) && back > game.now)
+        pushToast('error', 'siege.shipBack', {
+          duration: formatDuration(uiStore.getState().lang, back - game.now),
+        });
+      else pushToast('error', 'siege.noShip');
       return false;
     }
     uiStore.setState({

@@ -122,7 +122,7 @@ back); the aliens gain it (impact of chantier 39). Gear is part of the crew's st
   `WaveReport.crystalUsed`).
 - **Tier `crystal`** (`GEAR_TIERS[3]`): weapons only (`blade/mace/bow/staff-crystal`, damage
   as steel, `pierce` 0.5); `${armourKind}-crystal` does not exist (code building item ids
-  from a tier must check `ITEMS[id]`); the aliens stop at steel (`gearTierOf`). Pierce:
+  from a tier must check `ITEMS[id]`: the Forge sheet crashed on it until November 2026); the aliens stop at steel (`gearTierOf`). Pierce:
   `Weapon.pierce` lowers the target's armour in `simulate.ts`; `GearEffect.pierce`.
 - Giant seeds pay: the locule tree (`loculeTree`, decoration of the Industry age, n-th tree
   n seeds, `QueueItem.paidSeeds`; `Building.seedAt`: grows 48 h, then a seed every 72 h; a

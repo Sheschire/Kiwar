@@ -86,7 +86,8 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   policies), so the owner never has to click through the dashboard.
 - **Deployment**: `.github/workflows/deploy-functions.yml` deploys the `game` function on every
   push to main touching `supabase/functions/**` (secrets `SUPABASE_ACCESS_TOKEN`,
-  `SUPABASE_PROJECT_REF`; skipped when missing). The owner has no local clone: never ask them to
+  `SUPABASE_PROJECT_REF`; skipped when missing; `--yes` is required by newer CLIs: without it
+  every deploy failed in November 2026 — always check the run after pushing shared changes). The owner has no local clone: never ask them to
   run CLI commands; SQL goes through the SQL Editor, functions through this workflow.
 - **Chantier 19, second half**: `games.colony` (0 home, 1 sister; migration
   `20261027000000_linked_colonies.sql`, unique per user, universe and colony). `findGame` /

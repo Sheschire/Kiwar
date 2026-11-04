@@ -38,4 +38,5 @@ jobs:
           version: latest
       - name: Deploy the game function
         if: steps.secrets.outputs.ready == 'true'
-        run: supabase functions deploy game --project-ref "$SUPABASE_PROJECT_REF" --use-api
+        # `--yes`: newer CLIs ask for a confirmation a CI run cannot give (November 2026).
+        run: supabase functions deploy game --project-ref "$SUPABASE_PROJECT_REF" --use-api --yes

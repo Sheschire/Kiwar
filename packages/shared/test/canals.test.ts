@@ -233,4 +233,40 @@ describe('filling in a river tile', () => {
     expect(s.terraform[hexKey(river)]).toBeUndefined();
     expect(getTile(faceMapOf(s), river)!.type).toBe('juice');
   });
+
+  it('digs a canal through the down, or clears a down grove into flesh for good', () => {
+    const { state, map } = setup();
+    const s0 = withCanals(state);
+    const occ = occupancy(s0).tiles;
+    const free = (t: Tile) => !occ.has(hexKey(t) as never) && !s0.paths.includes(hexKey(t));
+    // A down grove by the juice takes a canal.
+    const shore = map.tiles.find(
+      (t) =>
+        t.type === 'grove' &&
+        free(t) &&
+        canalError(s0, map, t.q, t.r) === null &&
+        hexNeighbors(t).some((n) => getTile(map, n)?.type === 'juice'),
+    )!;
+    expect(shore).toBeDefined();
+    let s = run(s0, { type: 'digCanal', q: shore.q, r: shore.r }, T0, map);
+    s = advance(s, T0 + HOUR_MS).state;
+    expect(getTile(faceMapOf(s), shore)).toMatchObject({ type: 'juice', canal: true });
+    expect(plausibleTerraform(s)).toBe(true);
+    // Any free down grove is cleared into flesh.
+    const grove = map.tiles.find((t) => t.type === 'grove' && free(t) && t !== shore)!;
+    s = run(s, { type: 'fillCanal', q: grove.q, r: grove.r }, s.now, faceMapOf(s));
+    s = advance(s, s.now + HOUR_MS).state;
+    expect(s.terraform[hexKey(grove)]).toBe('land');
+    expect(getTile(faceMapOf(s), grove)!.type).toBe('flesh');
+    expect(plausibleTerraform(s)).toBe(true);
+    // Not twice; dug later, it becomes a canal, never the grove back.
+    expect(
+      validateCommand(s, { type: 'fillCanal', q: grove.q, r: grove.r }, { now: s.now, map }),
+    ).toBe('notACanal');
+    if (canalError(s, faceMapOf(s), grove.q, grove.r) === null) {
+      s = run(s, { type: 'digCanal', q: grove.q, r: grove.r }, s.now, faceMapOf(s));
+      s = advance(s, s.now + HOUR_MS).state;
+      expect(s.terraform[hexKey(grove)]).toBe('canal');
+    }
+  });
 });

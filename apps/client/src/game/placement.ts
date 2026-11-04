@@ -106,7 +106,9 @@ const digCache = new WeakMap<GameState, Tile[]>();
 export function diggableTiles(game: GameState, map: FaceMap): Tile[] {
   let tiles = digCache.get(game);
   if (!tiles) {
-    tiles = map.tiles.filter((t) => t.type === 'flesh' && canalError(game, map, t.q, t.r) === null);
+    tiles = map.tiles.filter(
+      (t) => (t.type === 'flesh' || t.type === 'grove') && canalError(game, map, t.q, t.r) === null,
+    );
     digCache.set(game, tiles);
   }
   return tiles;
