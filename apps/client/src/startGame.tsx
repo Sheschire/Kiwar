@@ -306,7 +306,10 @@ controller = new GameController({
     }
     uiStore.setState({ universe });
   },
-  onLeagueLook: (leagueLook) => uiStore.setState({ leagueLook }),
+  onLeagueLook: (leagueLook) => {
+    uiStore.setState({ leagueLook });
+    renderer.setLeagueLook(leagueLook);
+  },
   onAllies: (allies) => {
     uiStore.setState({ allies });
     showAllies();
@@ -352,7 +355,7 @@ async function refreshVillage(kiwiIndex: number, visit: number): Promise<void> {
   // The visit may have ended (or moved on) during the call.
   if (visit !== villageVisit) return;
   if (state) {
-    renderer.setAllyVillage(kiwiIndex, state);
+    renderer.setAllyVillage(kiwiIndex, state, ally?.league ?? null);
     uiStore.setState({ allyVillage: state });
   }
   villageTimer = window.setTimeout(() => void refreshVillage(kiwiIndex, visit), VILLAGE_REFRESH_MS);

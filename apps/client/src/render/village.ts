@@ -10,11 +10,13 @@ import {
   seasonOf,
   type FaceMap,
   type GameState,
+  type LeagueLook,
 } from '@kiwar/shared';
 import { BuildingsView } from './buildings';
 import { ButterfliesView } from './butterflies';
 import { CropsView, type CropZone } from './crops';
 import { KiwisView } from './kiwis';
+import { LeagueDecor, rankColor } from './leagueDecor';
 import { MeteorsView } from './meteors';
 import { ObstaclesView } from './obstacles';
 import { PathsView } from './paths';
@@ -43,6 +45,7 @@ export class VillageLife {
   private readonly buildings: BuildingsView;
   private readonly kiwis: KiwisView;
   private readonly paths: PathsView;
+  private readonly league: LeagueDecor;
   private readonly props: PropsView;
   private readonly crops: CropsView;
   private readonly meteors: MeteorsView;
@@ -63,6 +66,7 @@ export class VillageLife {
     this.buildings.setAnimated(quality.buildingAnimations, quality.particles);
     this.kiwis = new KiwisView(map);
     this.paths = new PathsView(map);
+    this.league = new LeagueDecor(map);
     this.props = new PropsView(map, quality.propDensity);
     this.crops = new CropsView(map, quality.propDensity);
     this.meteors = new MeteorsView(map);
@@ -76,6 +80,7 @@ export class VillageLife {
       this.props.group,
       this.crops.group,
       this.paths.group,
+      this.league.group,
       this.meteors.group,
       this.obstacles.group,
       this.buildings.group,
@@ -90,7 +95,7 @@ export class VillageLife {
     if (ground && this.state) this.dressGround(this.state);
   }
 
-  sync(state: GameState): void {
+  sync(state: GameState, look: LeagueLook | null = null): void {
     this.state = state;
     this.receivedAt = performance.now();
     this.buildings.sync(state);
@@ -103,6 +108,9 @@ export class VillageLife {
         ...state.queue.filter((i) => !isDecor(i.buildingType)).map(hexKey),
       ]),
     );
+    // Chantier 56: their league cosmetics.
+    this.league.sync(state, look, (id) => this.buildings.standOf(id));
+    this.kiwis.setCape(look?.capes ? rankColor(look.capes.rank) : null);
     this.meteors.sync(state);
     this.ships.sync(state);
     this.obstacles.sync(state);
@@ -181,6 +189,7 @@ export class VillageLife {
     this.buildings.dispose();
     this.kiwis.dispose();
     this.paths.dispose();
+    this.league.dispose();
     this.props.dispose();
     this.crops.dispose();
     this.meteors.dispose();

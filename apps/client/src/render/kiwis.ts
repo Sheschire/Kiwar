@@ -359,6 +359,12 @@ export class KiwisView {
   /** Chantier 36: kiwis drawn by the battle show meanwhile (not here). */
   private hidden: ReadonlySet<string> = new Set();
 
+  /** Chantier 56: every kiwi of the colony wears a league cape of this colour (null: none). */
+  private cape: Color | null = null;
+  setCape(color: Color | null): void {
+    this.cape = color;
+  }
+
   setHidden(ids: Iterable<string> | null): void {
     this.hidden = new Set(ids ?? []);
   }
@@ -1430,6 +1436,7 @@ export class KiwisView {
         load: agent.carrying ? RESOURCE_COLORS[agent.carrying] : null,
         weapon: this.villagers.get(agent.id)?.gear?.weapon ?? null,
         armor: this.villagers.get(agent.id)?.gear?.armor ?? null,
+        cape: this.cape,
       });
     }
     this.rig.end();

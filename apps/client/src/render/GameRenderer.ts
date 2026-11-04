@@ -39,6 +39,7 @@ import {
   type FaceMap,
   type GameEvent,
   type GameState,
+  type LeagueLook,
   type ResourceId,
   type Tile,
   occupancy,
@@ -87,6 +88,7 @@ import {
   type QualityPreset,
 } from './quality';
 import { SelectionView } from './selection';
+import { LeagueDecor, rankColor } from './leagueDecor';
 import { TerrainView, worldPosition } from './terrain';
 import { SECTOR_COLORS } from './sectors';
 import { efficiencyGlow, LogisticsBadges, type PercentBadge } from './logisticsBadges';
@@ -217,6 +219,9 @@ export class GameRenderer {
   /** True while the renderer itself moves the camera (not a player gesture). */
   private following = false;
   private paths: PathsView | null = null;
+  /** Chantier 56: the league cosmetics our colony wears. */
+  private league: LeagueDecor | null = null;
+  private leagueLook: LeagueLook | null = null;
   private meteors: MeteorsView | null = null;
   /** Chantier 16: the land waking up around a finished building. */
   private waves: TileWaves | null = null;
@@ -513,6 +518,7 @@ export class GameRenderer {
       this.buildings,
       this.kiwis,
       this.paths,
+      this.league,
       this.weather,
       this.meteors,
       this.gates,
@@ -545,6 +551,8 @@ export class GameRenderer {
     this.scene.add(this.terrain.group);
     this.paths = new PathsView(map);
     this.scene.add(this.paths.group);
+    this.league = new LeagueDecor(map);
+    this.scene.add(this.league.group);
     this.meteors = new MeteorsView(map);
     this.scene.add(this.meteors.group);
     this.gates = new GateMarkers(map);
@@ -646,14 +654,19 @@ export class GameRenderer {
       else this.travelTo(null);
     }
     // Chantier 59: a rebuilt planet keeps its village alive.
-    if (this.village) this.setAllyVillage(this.village.kiwiIndex, this.village.state);
+    if (this.village)
+      this.setAllyVillage(this.village.kiwiIndex, this.village.state, this.village.look);
   }
 
   /** Chantier 59: the ally's village shown alive (null: every planet back to still models). */
-  private village: { kiwiIndex: number; state: GameState } | null = null;
+  private village: { kiwiIndex: number; state: GameState; look: LeagueLook | null } | null = null;
 
-  setAllyVillage(kiwiIndex: number | null, state: GameState | null): void {
-    this.village = kiwiIndex !== null && state ? { kiwiIndex, state } : null;
+  setAllyVillage(
+    kiwiIndex: number | null,
+    state: GameState | null,
+    look: LeagueLook | null = null,
+  ): void {
+    this.village = kiwiIndex !== null && state ? { kiwiIndex, state, look } : null;
     for (const p of this.allies.planets) {
       if (!this.village || p.kiwiIndex !== kiwiIndex) {
         p.view.setLife(null);
@@ -664,7 +677,7 @@ export class GameRenderer {
         life = new VillageLife(p.view.map, QUALITY[this.preset]);
         p.view.setLife(life);
       }
-      life.sync(this.village.state);
+      life.sync(this.village.state, look);
     }
     // The sun's shadows follow us to the living village, and back home.
     const shown = this.village ? this.allies.find(this.village.kiwiIndex) : null;
@@ -902,6 +915,19 @@ export class GameRenderer {
     this.idle.wake(performance.now());
   }
 
+  /** Chantier 56: what our colony wears from the leagues (banner, capes, pennants, crown). */
+  setLeagueLook(look: LeagueLook | null): void {
+    this.leagueLook = look;
+    if (this.lastState) this.syncLeague(this.lastState);
+  }
+
+  private syncLeague(state: GameState): void {
+    const look = this.leagueLook;
+    const changed = this.league?.sync(state, look, (id) => this.buildings?.standOf(id) ?? null);
+    this.kiwis?.setCape(look?.capes ? rankColor(look.capes.rank) : null);
+    if (changed) this.renderer.shadowMap.needsUpdate = true;
+  }
+
   setGameState(state: GameState): void {
     if (state === this.lastState) return;
     this.lastState = state;
@@ -919,6 +945,7 @@ export class GameRenderer {
         ...state.queue.filter((i) => !isDecor(i.buildingType)).map(hexKey),
       ]),
     );
+    this.syncLeague(state);
     this.meteors?.sync(state);
     this.gates?.sync(state);
     this.comets?.sync(state);

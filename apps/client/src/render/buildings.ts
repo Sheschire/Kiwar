@@ -273,6 +273,18 @@ export class BuildingsView {
     );
   }
 
+  /** Chantier 56: where a building stands (its ground) and how tall it is. */
+  standOf(id: string): { x: number; y: number; z: number; height: number } | null {
+    const g = this.meshes.get(id);
+    if (!g) return null;
+    return {
+      x: g.position.x,
+      y: g.position.y,
+      z: g.position.z,
+      height: g.userData.height as number,
+    };
+  }
+
   /** Where a badge floats above a building (level, logistics). */
   anchorOf(id: string): { x: number; y: number; z: number } | null {
     const g = this.meshes.get(id);

@@ -13,6 +13,7 @@ import {
 } from 'three';
 import type { ClassId, ItemId } from '@kiwar/shared';
 import { CLIP_IDS, CLIPS, ClipPlayer, type ClipId } from '../render/anim/clips';
+import { rankColor } from '../render/leagueDecor';
 import { KiwiRig } from '../render/anim/kiwiRig';
 import {
   CREATURE_CLIPS,
@@ -129,6 +130,35 @@ function gearCells(rig: KiwiRig, only: string[] | null): SheetCell[] {
   );
 }
 
+/** Chantier 56: league capes, one per podium place (gold, silver, bronze), walking and idle. */
+function capeCells(rig: KiwiRig, only: string[] | null): SheetCell[] {
+  return [1, 2, 3]
+    .filter((rank) => !only || only.includes(`cape ${rank}`))
+    .map((rank) => {
+      const player = new ClipPlayer();
+      player.play(rank === 2 ? 'walk' : 'idle', rank * 0.3);
+      const cape = rankColor(rank);
+      return {
+        label: `cape ${rank}`,
+        group: 'league',
+        update(dt, _t, x, z) {
+          rig.draw({
+            x,
+            y: 0,
+            z,
+            heading: rank === 3 ? 2.6 : -0.7,
+            scale: 1.3,
+            pose: player.pose(dt),
+            tint: TINT,
+            classId: rank === 1 ? 'mayor' : null,
+            load: null,
+            cape,
+          });
+        },
+      };
+    });
+}
+
 /** Ferrets and bats: every clip at the age of Eden, then each age's look. */
 function creatureCells(rig: CreatureRig, only: string[] | null): SheetCell[] {
   const cells: SheetCell[] = [];
@@ -225,6 +255,7 @@ function start(): void {
   const cells: SheetCell[] = [
     ...kiwiCells(rig, only),
     ...gearCells(rig, only),
+    ...capeCells(rig, only),
     ...creatureCells(creatures, only),
     ...effectCells(particles, only),
   ];

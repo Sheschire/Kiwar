@@ -6,6 +6,7 @@ import {
   CircleGeometry,
   ConeGeometry,
   CylinderGeometry,
+  DoubleSide,
   Euler,
   Group,
   IcosahedronGeometry,
@@ -53,6 +54,22 @@ function bodyGeometry(): BufferGeometry {
     colored(new SphereGeometry(1, 12, 9), '#8a6440', mat(0, 0.2, 0, 0.19, 0.16, 0.23)),
     // A small tuft of a tail.
     colored(new ConeGeometry(1, 1, 5), '#7a5636', mat(0, 0.24, -0.22, 0.04, 0.08, 0.03, -2.1)),
+  ]);
+}
+
+/**
+ * Chantier 56: a league cape over the back (white: tinted per instance by the rank's colour),
+ * with a clasp at the neck.
+ */
+function capeGeometry(): BufferGeometry {
+  return merged([
+    // An open half cone hanging from the neck down the back, flaring at the hem.
+    colored(
+      new CylinderGeometry(0.15, 0.28, 0.32, 14, 1, true, Math.PI / 2 + 0.15, Math.PI - 0.3),
+      '#ffffff',
+      mat(0, 0.2, -0.05, 1, 1, 1.05, -0.25),
+    ),
+    colored(new SphereGeometry(1, 6, 5), '#f2d27a', mat(0, 0.33, 0.1, 0.028, 0.028, 0.028)),
   ]);
 }
 
@@ -429,6 +446,8 @@ export interface KiwiDraw {
   /** Chantier 38: the pieces it wears. */
   weapon?: ItemId | null;
   armor?: ItemId | null;
+  /** Chantier 56: a league cape in this colour. */
+  cape?: Color | null;
 }
 
 export class KiwiRig {
@@ -440,6 +459,7 @@ export class KiwiRig {
   private readonly shadows: Part;
   private readonly loads: Part;
   private readonly glows: Part;
+  private readonly capes: Part;
   private readonly outfitHead = new Map<ClassId, Part>();
   private readonly outfitBody = new Map<ClassId, Part>();
   private readonly props = new Map<PropId, Part>();
@@ -499,6 +519,14 @@ export class KiwiRig {
     this.shadows.mesh.renderOrder = 1;
     this.loads = add(new Part(new IcosahedronGeometry(0.075, 0), load, max, true));
     this.glows = add(new Part(new SphereGeometry(1, 10, 8), glow, max));
+    const capeCloth = new MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.7,
+      flatShading: true,
+      side: DoubleSide,
+    });
+    this.materials.push(capeCloth);
+    this.capes = add(new Part(capeGeometry(), capeCloth, max, true));
     for (const cls of CLASS_IDS) {
       const h = outfitGeometry(cls, true);
       const b = outfitGeometry(cls, false);
@@ -526,6 +554,7 @@ export class KiwiRig {
     this.body.push(this.bodyM, k.tint);
     if (k.classId) this.outfitBody.get(k.classId)?.push(this.bodyM);
     if (k.armor) this.gear.get(k.armor)?.push(this.bodyM);
+    if (k.cape) this.capes.push(this.bodyM, k.cape);
     if (k.weapon && !k.load) this.gear.get(k.weapon)?.push(this.bodyM);
 
     // Head.
