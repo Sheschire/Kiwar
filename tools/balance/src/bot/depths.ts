@@ -115,7 +115,9 @@ export function delveOrder(state: GameState): Command | null {
     if (isStem(room)) {
       const crew = delveCrew(state, max);
       const f = stemForecast(state, crew, orders);
-      if (f.odds !== 'likely' || !f.reachesAir) continue;
+      // A close fight is worth a first battle: its wounds make the second one likely.
+      const close = f.odds === 'uncertain' && f.left <= 0.2;
+      if ((f.odds !== 'likely' && !close) || !f.reachesAir) continue;
       const need = rations(state, crew, 2 * delveTime(room));
       const provisions = { pulp: Math.ceil(need.pulp * 1.1), juice: Math.ceil(need.juice * 1.1) };
       if (!canAfford(state.resources, provisions)) return null;

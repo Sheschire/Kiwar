@@ -60,7 +60,7 @@ describe('the stem and the Great Weevil (chantier 52)', () => {
   });
 
   it('fights in phases: the shell, the flight, the swarm of larvae', () => {
-    const { s } = atTheStem(30);
+    const { s } = atTheStem(70);
     const setup = stemSetup(s, crewOf(s, 8), { wounds: 0, orders: fight, fed: 1 });
     const log = simulateBattle(setup, 'phases');
     const events = decodeEvents(log.events, 0.5);
@@ -88,7 +88,7 @@ describe('the stem and the Great Weevil (chantier 52)', () => {
   });
 
   it('is deterministic and stays within the budgets', () => {
-    const { s } = atTheStem(30);
+    const { s } = atTheStem(70);
     const setup = stemSetup(s, crewOf(s, 8), { wounds: 0, orders: fight, fed: 1 });
     const t0 = performance.now();
     const a = simulateBattle(setup, 'same');
@@ -130,7 +130,9 @@ describe('the stem and the Great Weevil (chantier 52)', () => {
   });
 
   it('falls to a strong crew: the stem is ours', () => {
-    const { map, s: s0, stem } = atTheStem(40, 8);
+    const { map, s: s0, stem } = atTheStem(90, 8);
+    // Badly wounded by an earlier battle: this crew finishes it.
+    s0.depths.weevil = { attempts: 1, wounds: { share: 0.9, at: s0.now } };
     const f = stemForecast(s0, crewOf(s0, 8), fight);
     expect(f.reachesAir).toBe(true);
     const cmd: Command = {

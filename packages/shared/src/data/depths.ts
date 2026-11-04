@@ -202,11 +202,15 @@ export const DEPTHS = {
    * battle is long, readable, prepared. Every number is a hypothesis, measured with the bot.
    */
   stem: {
-    /** Hit points before the level (× √ of the level factor, like a kiwi's). */
-    hp: 900,
+    /**
+     * Hit points before the level (× √ of the level factor, like a kiwi's). Measured on bot
+     * colonies at days 21 and 25 (eight kiwis in steel and crystal gear): 900 fell to four kiwis
+     * on day 21; 3400 and blows × 1.6 call for a first battle to wound it, then a second.
+     */
+    hp: 3400,
     level: 20,
     /** × the ram's damage. */
-    damage: 1,
+    damage: 1.6,
     armor: 0.45,
     speed: 0.5,
     size: 3,

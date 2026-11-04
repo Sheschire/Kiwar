@@ -36,13 +36,15 @@ function crewIds(s: GameState, n: number): VillagerId[] {
 
 /** The Weevil beaten by a strong crew; the state when the crew is back up. */
 function beaten() {
-  const { map, s: s0 } = delveColony('vine', 3, 8, 40);
+  const { map, s: s0 } = delveColony('vine', 3, 8, 90);
   s0.buildings.find((b) => b.type === 'monument')!.level = 4;
   const net = depthsMapOf(s0);
   for (const r of net.rooms)
     if (!isStem(r))
       s0.depths.galleries[r.id] = { kind: isCore(r) ? 'cavern' : 'bundle', since: s0.now };
   const stem = net.rooms.find(isStem)!;
+  // Badly wounded by an earlier battle: this crew finishes it.
+  s0.depths.weevil = { attempts: 1, wounds: { share: 0.9, at: s0.now } };
   const cmd: Command = {
     type: 'delve',
     roomId: stem.id,
