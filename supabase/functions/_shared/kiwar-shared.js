@@ -4929,7 +4929,8 @@ function generateCore(key, rooms, locules, link) {
   rooms.push(stem);
   const middle = nearest(row, stem.x);
   link(stem, middle[0]);
-  if (rng.chance(0.5)) link(stem, middle[1]);
+  link(stem, middle[1]);
+  if (rng.chance(0.5)) link(stem, middle[2]);
 }
 var truthCache = /* @__PURE__ */ new Map();
 function roomTruth(seed, room) {

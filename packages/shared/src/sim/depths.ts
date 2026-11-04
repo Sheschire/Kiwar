@@ -167,8 +167,8 @@ function generateLocules(
 /**
  * Chantier 52: the core, a row of white caverns below the locules, each opening onto the
  * nearest locule (sometimes the second nearest too) and often onto the next cavern; then the
- * stem, one room at the very bottom, opening onto the cavern nearest the middle (and sometimes
- * the second). Drawn from a stream of their own, after the locules: nothing above moves.
+ * stem, one room at the very bottom, opening onto the two caverns nearest the middle (and
+ * sometimes a third). Drawn from a stream of their own, after the locules: nothing above moves.
  */
 function generateCore(
   key: string,
@@ -209,9 +209,12 @@ function generateCore(
     entrance: false,
   };
   rooms.push(stem);
+  // The two caverns nearest the middle always open onto it, a third one sometimes (its last
+  // draw: the caverns above never move).
   const middle = nearest(row, stem.x);
   link(stem, middle[0]!);
-  if (rng.chance(0.5)) link(stem, middle[1]!);
+  link(stem, middle[1]!);
+  if (rng.chance(0.5)) link(stem, middle[2]!);
 }
 
 /** What a room really holds (hidden: only from the secret seed). */

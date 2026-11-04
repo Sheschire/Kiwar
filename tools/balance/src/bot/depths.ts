@@ -22,6 +22,7 @@ import {
   isLocule,
   isStem,
   isCore,
+  depthsMapOf,
   upgradeLock,
   stemForecast,
   reachableRooms,
@@ -101,11 +102,15 @@ export function delveOrder(state: GameState): Command | null {
   // Shallow rooms first; a room seen weak before a room unknown. Chantier 52: once the core is
   // open, its caverns and the stem first (the goal of the age).
   const core = (r: DepthRoom) => (isCore(r) ? 0 : 1);
+  // Among the caverns, those nearest the stem first (it opens onto the middle ones).
+  const stemX = depthsMapOf(state).rooms.find(isStem)!.x;
+  const toStem = (r: DepthRoom) => (isCore(r) ? (isStem(r) ? -1 : Math.abs(r.x - stemX)) : 0);
   const rooms = reachableRooms(state)
     .filter((r) => layerOpen(state, r))
     .sort(
       (a, b) =>
         core(a) - core(b) ||
+        toStem(a) - toStem(b) ||
         a.depth - b.depth ||
         Number(!!state.depths.views[b.id]?.units) - Number(!!state.depths.views[a.id]?.units) ||
         a.id.localeCompare(b.id),
