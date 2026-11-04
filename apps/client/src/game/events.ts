@@ -209,6 +209,9 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
           renderer.playQueenRise();
         }
         break;
+      case 'motherVineFound':
+        pushToast('success', 'stem.toast');
+        break;
       case 'beaconFortified':
         pushToast('success', 'beacons.toast.fortified', { name: sectorKey(e.sector) });
         break;

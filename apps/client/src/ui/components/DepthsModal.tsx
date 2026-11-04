@@ -32,6 +32,7 @@ import {
   tunnelOf,
   validateCommand,
   workerPower,
+  MORALE,
   type DelveForecast,
   type RoomKind,
   type StemForecast,
@@ -416,6 +417,8 @@ function MinersBox({ game, roomId }: { game: GameState; roomId: string }) {
   // Chantier 50: a locule yields no shared resource (crystal in a forest, its enzyme in a lake).
   const resource = galleryWorkAs(game, roomId)!;
   const forest = game.depths.galleries[roomId]?.kind === 'forest';
+  // Chantier 52: the stem's gallery is a pilgrimage (the colony's morale, no harvest).
+  const stem = game.depths.galleries[roomId]?.kind === 'stem';
   const rate = forest
     ? (galleryCrystalRate(game, roomId) * HOUR_MS) / CRYSTAL_SCALE
     : galleryRate(game, roomId);
@@ -429,8 +432,8 @@ function MinersBox({ game, roomId }: { game: GameState; roomId: string }) {
   return (
     <div class="field depths-miners">
       <p class="small">
-        {!forest && <ResourceIcon id={resource} size={14} />}{' '}
-        {t('depths.miners', { count: miners.length, slots })}
+        {!forest && !stem && <ResourceIcon id={resource} size={14} />}{' '}
+        {t(stem ? 'stem.pilgrims' : 'depths.miners', { count: miners.length, slots })}
         {rate > 0 && (
           <span class="muted">
             {' '}
@@ -442,6 +445,7 @@ function MinersBox({ game, roomId }: { game: GameState; roomId: string }) {
         )}
       </p>
       {miners.length > 0 && <p class="small muted">{miners.map((v) => v.name).join(', ')}</p>}
+      {stem && <p class="small muted">{t('stem.pilgrimHint', { points: MORALE.pilgrimage })}</p>}
       {game.depths.door.closed ? (
         <p class="small warn">{t('depths.doorClosedMines')}</p>
       ) : (
@@ -779,7 +783,24 @@ export function DelveReport({ e, game }: { e: Expedition; game: GameState }) {
             : t('depths.report.noHits')}
         </p>
       )}
-      {won && <p class="small bonus">{t('depths.report.gallery')}</p>}
+      {r.caveIn && (
+        <p class="small warn">
+          {t('core.caveInReport', {
+            weight: r.caveIn.weight,
+            ceiling: r.caveIn.ceiling,
+            pct: Math.round(r.caveIn.strength * 100),
+          })}
+        </p>
+      )}
+      {r.motherVine ? (
+        <p class="small bonus">{t('stem.toast')}</p>
+      ) : (
+        won && <p class="small bonus">{t('depths.report.gallery')}</p>
+      )}
+      {r.weevil && !won && (
+        <p class="small">{t('stem.reportLeft', { pct: Math.round(r.weevil.left * 100) })}</p>
+      )}
+      {r.crystal ? <p class="small">{t('stem.crystal', { count: r.crystal })}</p> : null}
       {r.lantern && <p class="small">{t('depths.report.lantern')}</p>}
       {r.iron ? <p class="small">{t('depths.report.iron', { count: r.iron })}</p> : null}
       {r.giantSeeds ? (

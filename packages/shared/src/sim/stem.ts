@@ -5,7 +5,9 @@ import { landingOutcome, type LandingOutcome } from '../battle/landing';
 import { simulateBattle } from '../battle/simulate';
 import { stemEscort, stemSetup } from '../battle/stem';
 import type { TimeMs, VillagerId } from '../types/ids';
+import { MORALE } from '../data/needs';
 import { removeVillagers, type Odds } from './expeditions';
+import { addMemory } from './rest';
 import { recordBestiary, tollOf } from './landing';
 import type { DepthRoom } from './depths';
 import type { Expedition, GameState, Villager, WeevilState } from './state';
@@ -22,9 +24,14 @@ export function weevilOf(state: Pick<GameState, 'depths'>): WeevilState {
   return state.depths.weevil ?? { attempts: 0 };
 }
 
-/** The Weevil has fallen (the stem is ours). */
+/** The Weevil has fallen (the stem is ours): the Mother Vine is found. */
 export function weevilFallen(state: Pick<GameState, 'depths'>): boolean {
   return state.depths.weevil?.fellAt !== undefined;
+}
+
+/** Chantier 52: when the Mother Vine was found (the Weevil's fall), or null. */
+export function motherVineAt(state: Pick<GameState, 'depths'>): TimeMs | null {
+  return state.depths.weevil?.fellAt ?? null;
 }
 
 /** Share of its hit points still missing at a time. */
@@ -62,6 +69,9 @@ export function resolveStem(
     w.fellAt = at;
     state.depths.galleries[room.id] = { kind: 'stem', since: at };
     state.depths.views[room.id] = { at, source: 'delve', kind: 'stem', units: [], hazard: null };
+    // The Mother Vine: the whole colony remembers it.
+    const m = MORALE.memories.motherVine;
+    for (const v of state.villagers) addMemory(v, 'motherVine', m.value, at + m.ms);
   } else {
     // It keeps its wounds for a while (never more than `maxWounds`).
     const left = (1 - wounds) * (log.result.leaderLeft ?? 1);
@@ -88,7 +98,14 @@ export function resolveStem(
     weevil: {
       left: round2((1 - wounds) * (log.result.leaderLeft ?? (outcome === 'victory' ? 0 : 1))),
     },
-    ...(outcome === 'victory' ? { gallery: true } : {}),
+    ...(outcome === 'victory'
+      ? {
+          gallery: true,
+          motherVine: true,
+          giantSeeds: DEPTHS.stem.treasure.giantSeeds,
+          crystal: DEPTHS.stem.treasure.crystal,
+        }
+      : {}),
   };
 }
 

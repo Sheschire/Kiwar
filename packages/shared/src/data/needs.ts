@@ -69,6 +69,7 @@ export const MEMORY_KINDS = [
   'vigil',
   'cabaret',
   'fireworks',
+  'motherVine',
 ] as const;
 export type MemoryKind = (typeof MEMORY_KINDS)[number];
 
@@ -113,6 +114,8 @@ export const MORALE = {
   leisureMax: 10,
   /** Chantier 44: the village's beauty (`BEAUTY`, summed over the decorations), at most. */
   beauty: 5,
+  /** Chantier 52: pilgrims at the stem's gallery (at least one, the door open). */
+  pilgrimage: 4,
   /**
    * Memories: the colony mourns a lost kiwi, its hut mates or crew mates grieve harder; a fine
    * speech (`SPEECH`). `ms`: the longest it lasts, `best`: the highest value it can have.
@@ -126,6 +129,8 @@ export const MORALE = {
     // Chantier 44: an evening at the cabaret (until the next nightfall), a fireworks show.
     cabaret: { value: 12, ms: ms.h(2), best: 12 },
     fireworks: { value: 15, ms: ms.h(12), best: 15 },
+    // Chantier 52: the Mother Vine found (the whole colony, three days).
+    motherVine: { value: 15, ms: ms.h(72), best: 15 },
   } satisfies Record<MemoryKind, { value: number; ms: number; best: number }>,
 } as const;
 

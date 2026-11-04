@@ -15,6 +15,7 @@ import {
   researchEta,
   researchPoints,
   TECHS,
+  techCost,
   techStatus,
   techsOfAge,
   type GameState,
@@ -82,10 +83,12 @@ export function ResearchSummary({ game, t }: { game: GameState; t: Translate }) 
           </p>
           <div class="progress-block">
             <div class="progress">
-              <span style={{ width: `${Math.min(100, (points / TECHS[current].cost) * 100)}%` }} />
+              <span
+                style={{ width: `${Math.min(100, (points / techCost(game, current)) * 100)}%` }}
+              />
             </div>
             <span class="small muted">
-              {fmt(points)}/{TECHS[current].cost}
+              {fmt(points)}/{techCost(game, current)}
               {' · '}
               {eta !== null
                 ? t('research.eta', { duration: formatDuration(lang, eta) })
@@ -130,7 +133,7 @@ function TechCard({ game, id, t }: { game: GameState; id: TechId; t: Translate }
           {status === 'library'
             ? t('research.status.library', { level: def.libraryLevel })
             : status === 'available'
-              ? t('research.cost', { cost: def.cost })
+              ? t('research.cost', { cost: techCost(game, id) })
               : status === 'after' && def.after
                 ? t('research.status.after', { tech: t(`techs.${def.after}.name`) })
                 : t(`research.status.${status as 'done' | 'current' | 'age'}`)}

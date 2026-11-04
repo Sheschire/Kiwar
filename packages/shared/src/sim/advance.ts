@@ -289,6 +289,8 @@ export type GameEvent =
   | { type: 'beaconFortified'; at: TimeMs; targetId: string; sector: number }
   /** Chantier 42: the twin's last beacon brought the queen out of the depths. */
   | { type: 'queenEmerged'; at: TimeMs; targetId: string; sector: number }
+  /** Chantier 52: the Great Weevil fell, the Mother Vine shows beyond the stem. */
+  | { type: 'motherVineFound'; at: TimeMs; expeditionId: string }
   | {
       type: 'repaired';
       at: TimeMs;
@@ -453,6 +455,8 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
           ...(e.result!.broken ? { broken: true } : {}),
           ...(e.result!.outcome ? { outcome: e.result!.outcome } : {}),
         });
+        if (e.result!.motherVine)
+          events.push({ type: 'motherVineFound', at: e.arriveAt, expeditionId: e.id });
         const queen = s.faceViews[e.targetId]?.queen;
         if (e.result!.queenOut && queen)
           events.push({

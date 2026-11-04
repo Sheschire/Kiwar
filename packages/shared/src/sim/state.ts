@@ -486,6 +486,9 @@ export interface ExpeditionResult {
   hazard?: { kind: HazardKind; strength: number; hits: { id: string; share: number }[] };
   /** Chantier 52, the stem: share of the Great Weevil's hit points left after the battle. */
   weevil?: { left: number };
+  /** Chantier 52: the Weevil fell, the Mother Vine is found; crystal brought up (whole units). */
+  motherVine?: boolean;
+  crystal?: number;
   /** Chantier 52: a white cavern caved in under a crew heavier than its ceiling. */
   caveIn?: {
     strength: number;

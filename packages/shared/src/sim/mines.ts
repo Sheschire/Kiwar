@@ -118,6 +118,8 @@ export function galleryWorth(state: GameState, roomId: string, cap = capacity(st
   // its enzyme serves (the laboratory, or Enzymes).
   const kind = state.depths.galleries[roomId]?.kind;
   if (kind === 'forest') return state.crystal < crystalCap(state);
+  // Chantier 52: the stem's pilgrims lift the whole colony.
+  if (kind === 'stem') return true;
   if (kind === 'lake') {
     const e = techEffects(state);
     return e.laboratory || e.enzymes > 1;

@@ -62,6 +62,7 @@ const PARTS = [
   'bards',
   'speech',
   'beauty',
+  'pilgrimage',
   'leisure',
   'temper',
   'memories',

@@ -2226,7 +2226,8 @@ var AGE_OBJECTIVES = [
     reward: { pulp: 4e4, fiber: 4e4, seeds: 8e3, juice: 15e3 }
   },
   // Chantier 51, the Age of the stars: the levels 13–15, the sailboat, the trees of the locules
-  // (the core and the kiwais bring theirs in chantiers 52 and 53).
+  // (the core and the kiwais bring theirs in chantiers 52 and 53). Chantier 52: two caverns of
+  // the core, then the Great Weevil.
   {
     id: "starsNest13",
     age: 4,
@@ -2239,6 +2240,12 @@ var AGE_OBJECTIVES = [
     age: 4,
     condition: { kind: "techs", age: 4, count: 2 },
     reward: { seeds: 12e3, juice: 15e3 }
+  },
+  {
+    id: "starsCaverns",
+    age: 4,
+    condition: { kind: "caverns", count: 2 },
+    reward: { juice: 3e4, pulp: 2e4 }
   },
   {
     id: "starsSail",
@@ -2259,6 +2266,13 @@ var AGE_OBJECTIVES = [
     condition: { kind: "kiwiLevel", level: 25 },
     reward: { juice: 25e3 },
     stardust: 20
+  },
+  {
+    id: "starsWeevil",
+    age: 4,
+    condition: { kind: "weevil" },
+    reward: { pulp: 6e4, fiber: 6e4, juice: 3e4 },
+    stardust: 30
   },
   {
     id: "starsProducer15",
@@ -2508,7 +2522,8 @@ var MEMORY_KINDS = [
   "speech",
   "vigil",
   "cabaret",
-  "fireworks"
+  "fireworks",
+  "motherVine"
 ];
 var MORALE = {
   max: 100,
@@ -2545,6 +2560,8 @@ var MORALE = {
   leisureMax: 10,
   /** Chantier 44: the village's beauty (`BEAUTY`, summed over the decorations), at most. */
   beauty: 5,
+  /** Chantier 52: pilgrims at the stem's gallery (at least one, the door open). */
+  pilgrimage: 4,
   /**
    * Memories: the colony mourns a lost kiwi, its hut mates or crew mates grieve harder; a fine
    * speech (`SPEECH`). `ms`: the longest it lasts, `best`: the highest value it can have.
@@ -2557,7 +2574,9 @@ var MORALE = {
     vigil: { value: 8, ms: ms.h(2), best: 8 },
     // Chantier 44: an evening at the cabaret (until the next nightfall), a fireworks show.
     cabaret: { value: 12, ms: ms.h(2), best: 12 },
-    fireworks: { value: 15, ms: ms.h(12), best: 15 }
+    fireworks: { value: 15, ms: ms.h(12), best: 15 },
+    // Chantier 52: the Mother Vine found (the whole colony, three days).
+    motherVine: { value: 15, ms: ms.h(72), best: 15 }
   }
 };
 var SPEECH = {
@@ -3209,6 +3228,8 @@ var PASSAGE_TECHS = [
   "starsAge"
 ];
 var RESEARCH = {
+  /** Chantier 52: a technology `cheaperWith` the Mother Vine costs this much more without it. */
+  withoutVine: 2.5,
   /** Research bonus per point of Spirit above average (+6 %). */
   spirit: 0.06,
   /** Bank when no technology is chosen: points kept by Library level (index = level − 1). */
@@ -3892,7 +3913,7 @@ var DEPTHS = {
       // The stem's pilgrims (chantier 52) work nothing: their mastery is never read.
       stem: "juice"
     },
-    slots: [2, 3, 3, 3, 3, 0],
+    slots: [2, 3, 3, 3, 3, 2],
     /**
      * Output of a miner: this share (by depth) of what a worker yields in the producer of the
      * gallery's resource at the level `6 + tunnel level` (7–9) — less than a workshop, but no
@@ -3987,7 +4008,11 @@ var DEPTHS = {
     maxS: 480,
     /** Its wounds of a lost battle heal over this long, and never pass this share. */
     healMs: ms.h(72),
-    maxWounds: 0.5
+    maxWounds: 0.5,
+    /** Chantier 52: the Mother Vine's treasure (up to the caps). */
+    treasure: { giantSeeds: 6, crystal: 80 },
+    /** Places for pilgrims at the stem's gallery (they work nothing; the colony's morale). */
+    pilgrims: 2
   },
   /**
    * Chantier 50: an actinidine lake worked by at least one miner (the door open) halves the
@@ -5192,6 +5217,12 @@ function researchBank(state) {
   const level = libraryLevel(state);
   return level > 0 ? (RESEARCH.bank[level - 1] ?? 0) * RESEARCH_SCALE : 0;
 }
+function techCost(state, id3) {
+  const def = TECHS[id3];
+  if (def.cheaperWith === "motherVine" && state.depths.weevil?.fellAt === void 0)
+    return Math.round(def.cost * RESEARCH.withoutVine);
+  return def.cost;
+}
 function researchPoints(state) {
   return state.research.points / RESEARCH_SCALE;
 }
@@ -5210,7 +5241,7 @@ function techsOfAge(age) {
 function nextResearchEvent(state) {
   const current = state.research.current;
   if (!current || state.colony.index === 1) return Infinity;
-  const need = TECHS[current].cost * RESEARCH_SCALE - state.research.points;
+  const need = techCost(state, current) * RESEARCH_SCALE - state.research.points;
   if (need <= 0) return state.now;
   const rate = researchRate(state);
   if (rate <= 0) return Infinity;
@@ -5236,7 +5267,7 @@ function researchTick(state, at, events) {
   const r = state.research;
   const current = r.current;
   if (!current || state.colony.index === 1) return;
-  const cost = TECHS[current].cost * RESEARCH_SCALE;
+  const cost = techCost(state, current) * RESEARCH_SCALE;
   if (r.points < cost) return;
   r.points -= cost;
   r.done.push(current);
@@ -6604,6 +6635,7 @@ function galleryWorth(state, roomId, cap = capacity(state)) {
   if (!minesOpen(state)) return false;
   const kind = state.depths.galleries[roomId]?.kind;
   if (kind === "forest") return state.crystal < crystalCap(state);
+  if (kind === "stem") return true;
   if (kind === "lake") {
     const e = techEffects(state);
     return e.laboratory || e.enzymes > 1;
@@ -7834,6 +7866,9 @@ function weevilOf(state) {
 function weevilFallen(state) {
   return state.depths.weevil?.fellAt !== void 0;
 }
+function motherVineAt(state) {
+  return state.depths.weevil?.fellAt ?? null;
+}
 function weevilWounds(state, now) {
   const w = state.depths.weevil?.wounds;
   if (!w) return 0;
@@ -7857,6 +7892,8 @@ function resolveStem(state, e, room, members, fed, seed) {
     w.fellAt = at;
     state.depths.galleries[room.id] = { kind: "stem", since: at };
     state.depths.views[room.id] = { at, source: "delve", kind: "stem", units: [], hazard: null };
+    const m = MORALE.memories.motherVine;
+    for (const v of state.villagers) addMemory(v, "motherVine", m.value, at + m.ms);
   } else {
     const left = (1 - wounds) * (log2.result.leaderLeft ?? 1);
     const share2 = Math.min(DEPTHS.stem.maxWounds, round23(1 - left));
@@ -7881,7 +7918,12 @@ function resolveStem(state, e, room, members, fed, seed) {
     weevil: {
       left: round23((1 - wounds) * (log2.result.leaderLeft ?? (outcome === "victory" ? 0 : 1)))
     },
-    ...outcome === "victory" ? { gallery: true } : {}
+    ...outcome === "victory" ? {
+      gallery: true,
+      motherVine: true,
+      giantSeeds: DEPTHS.stem.treasure.giantSeeds,
+      crystal: DEPTHS.stem.treasure.crystal
+    } : {}
   };
 }
 var trialCache = /* @__PURE__ */ new Map();
@@ -9336,6 +9378,7 @@ function resolveReturn(state, e, events = []) {
   for (const id3 of RESOURCE_IDS) state.resources[id3] += unloaded[id3];
   if (result.iron) addIron(state, result.iron);
   if (result.giantSeeds) addGiantSeeds(state, result.giantSeeds);
+  if (result.crystal) addCrystal(state, result.crystal);
   const hurt = new Set(result.injured ?? []);
   for (const v of state.villagers) {
     if (v.job.kind !== "expedition" || v.job.expeditionId !== e.id) continue;
@@ -11697,6 +11740,8 @@ function advanceInPlace(s, now, events) {
           ...e.result.broken ? { broken: true } : {},
           ...e.result.outcome ? { outcome: e.result.outcome } : {}
         });
+        if (e.result.motherVine)
+          events.push({ type: "motherVineFound", at: e.arriveAt, expeditionId: e.id });
         const queen = s.faceViews[e.targetId]?.queen;
         if (e.result.queenOut && queen)
           events.push({
@@ -12319,6 +12364,8 @@ function fillMines(state) {
     let free = gallerySlots(state, roomId) - minersIn(state, roomId).length;
     if (state.depths.galleries[roomId].kind === "lake")
       free = Math.min(free, lakeMiners(state) > 0 ? 0 : 1);
+    if (state.depths.galleries[roomId].kind === "stem")
+      free = Math.min(free, pilgrimsAtStem(state) > 0 ? 0 : 1);
     while (free-- > 0 && budget-- > 0) {
       const v = bestFor(state, "pick", (x) => workerPower(x, resource));
       if (!v) return;
@@ -12922,6 +12969,14 @@ function beautyOf(state) {
   for (const b of state.buildings) sum += BEAUTY[b.type] ?? 0;
   return Math.min(MORALE.beauty, sum);
 }
+function pilgrimsAtStem(state) {
+  if (state.depths.door.closed) return 0;
+  const g = state.depths.galleries;
+  let n = 0;
+  for (const v of state.villagers)
+    if (v.job.kind === "mine" && g[v.job.roomId]?.kind === "stem") n++;
+  return n;
+}
 function colonyMood(state) {
   const base = MORALE.base[Math.min(MORALE.base.length - 1, ageOf(state))];
   const food = hungerStage(state) === "fed" ? MORALE.fed : MORALE.hungry;
@@ -12931,6 +12986,7 @@ function colonyMood(state) {
   const speech = state.speechUntil > state.now ? MORALE.speech : 0;
   const leisureHomes = leisurePoints(state);
   const beauty = beautyOf(state);
+  const pilgrimage = pilgrimsAtStem(state) > 0 ? MORALE.pilgrimage : 0;
   return {
     base,
     food,
@@ -12939,7 +12995,8 @@ function colonyMood(state) {
     bards,
     speech,
     beauty,
-    sum: base + food + season + mayor + bards + speech + beauty,
+    pilgrimage,
+    sum: base + food + season + mayor + bards + speech + beauty + pilgrimage,
     leisureHomes
   };
 }
@@ -14347,8 +14404,9 @@ function nestsNear(state) {
   for (const r of map.rooms) {
     if (taken[r.id] || !(r.entrance || r.links.some((id3) => taken[id3]))) continue;
     if (!roomTruth(seed, r).nest) continue;
-    if (isCore(r)) out.core++;
-    else if (isLocule(r)) out.locules++;
+    if (isCore(r)) {
+      if (state.depths.weevil?.fellAt === void 0) out.core++;
+    } else if (isLocule(r)) out.locules++;
     else out.flesh++;
   }
   return out;
@@ -15238,6 +15296,13 @@ function objectiveProgress(state, def) {
         ),
         c.count
       );
+    case "caverns":
+      return of(
+        Object.values(state.depths.galleries).filter((g) => g.kind === "cavern").length,
+        c.count
+      );
+    case "weevil":
+      return of(state.depths.weevil?.fellAt !== void 0 ? 1 : 0, 1);
   }
 }
 function isObjectiveComplete(state, def) {
@@ -15275,7 +15340,7 @@ function ageProgress(state) {
   const researched = hasTech(state, tech);
   const lib = libraryLevel(state);
   const libDone = researched || lib >= def.libraryLevel;
-  const points = state.research.current === tech ? state.research.points / RESEARCH_SCALE / def.cost : 0;
+  const points = state.research.current === tech ? state.research.points / RESEARCH_SCALE / techCost(state, tech) : 0;
   const monument = state.buildings.find((b) => b.type === "monument");
   const monumentDone = (monument?.level ?? 0) >= age;
   const site = state.queue.find(
@@ -21317,6 +21382,8 @@ var gameStateSchema = external_exports.object({
           hits: external_exports.array(external_exports.object({ id, share: external_exports.number().min(0).max(1) })).max(200)
         }).optional(),
         weevil: external_exports.object({ left: external_exports.number().min(0).max(1) }).optional(),
+        motherVine: external_exports.boolean().optional(),
+        crystal: external_exports.number().int().min(0).max(1e3).optional(),
         caveIn: external_exports.object({
           strength: external_exports.number().min(0).max(1),
           weight: external_exports.number().min(0).max(1e4),
@@ -24233,6 +24300,7 @@ export {
   modifiers,
   moraleFactor,
   moraleOf,
+  motherVineAt,
   ms,
   nearRay,
   nearestDepotOf,
@@ -24312,6 +24380,7 @@ export {
   pickBuilder,
   pickRate,
   pickStarving,
+  pilgrimsAtStem,
   pixelToHex,
   planBeaconAttacks,
   planCiv,
@@ -24469,6 +24538,7 @@ export {
   targetFaceParams,
   taskLevel,
   taskNeeds,
+  techCost,
   techEffects,
   techStatus,
   techsOfAge,

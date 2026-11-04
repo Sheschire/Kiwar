@@ -127,7 +127,7 @@ export const DEPTHS = {
       // The stem's pilgrims (chantier 52) work nothing: their mastery is never read.
       stem: 'juice',
     } as Record<RoomKind, ResourceId>,
-    slots: [2, 3, 3, 3, 3, 0] as readonly number[],
+    slots: [2, 3, 3, 3, 3, 2] as readonly number[],
     /**
      * Output of a miner: this share (by depth) of what a worker yields in the producer of the
      * gallery's resource at the level `6 + tunnel level` (7–9) — less than a workshop, but no
@@ -223,6 +223,10 @@ export const DEPTHS = {
     /** Its wounds of a lost battle heal over this long, and never pass this share. */
     healMs: ms.h(72),
     maxWounds: 0.5,
+    /** Chantier 52: the Mother Vine's treasure (up to the caps). */
+    treasure: { giantSeeds: 6, crystal: 80 },
+    /** Places for pilgrims at the stem's gallery (they work nothing; the colony's morale). */
+    pilgrims: 2,
   },
   /**
    * Chantier 50: an actinidine lake worked by at least one miner (the door open) halves the

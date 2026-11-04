@@ -52,8 +52,10 @@ export function nestsNear(state: GameState): { flesh: number; locules: number; c
   for (const r of map.rooms) {
     if (taken[r.id] || !(r.entrance || r.links.some((id) => taken[id]))) continue;
     if (!roomTruth(seed, r).nest) continue;
-    if (isCore(r)) out.core++;
-    else if (isLocule(r)) out.locules++;
+    // Chantier 52: the Mother Vine found, the core's nests fall silent.
+    if (isCore(r)) {
+      if (state.depths.weevil?.fellAt === undefined) out.core++;
+    } else if (isLocule(r)) out.locules++;
     else out.flesh++;
   }
   return out;

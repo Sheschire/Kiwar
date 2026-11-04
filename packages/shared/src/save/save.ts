@@ -643,6 +643,8 @@ export const gameStateSchema = z.object({
             })
             .optional(),
           weevil: z.object({ left: z.number().min(0).max(1) }).optional(),
+          motherVine: z.boolean().optional(),
+          crystal: z.number().int().min(0).max(1000).optional(),
           caveIn: z
             .object({
               strength: z.number().min(0).max(1),

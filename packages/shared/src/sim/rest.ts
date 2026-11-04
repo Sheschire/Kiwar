@@ -162,6 +162,8 @@ export interface ColonyMood {
   speech: number;
   /** Chantier 44: the decorations (`beautyOf`). */
   beauty: number;
+  /** Chantier 52: pilgrims at the stem's gallery. */
+  pilgrimage: number;
   /** Sum of the parts above. */
   sum: number;
   /**
@@ -215,6 +217,16 @@ export function beautyOf(state: GameState): number {
   return Math.min(MORALE.beauty, sum);
 }
 
+/** Chantier 52: kiwis on pilgrimage at the stem's gallery (none while the door is closed). */
+export function pilgrimsAtStem(state: GameState): number {
+  if (state.depths.door.closed) return 0;
+  const g = state.depths.galleries;
+  let n = 0;
+  for (const v of state.villagers)
+    if (v.job.kind === 'mine' && g[v.job.roomId]?.kind === 'stem') n++;
+  return n;
+}
+
 /** The colony's common morale points (constant between two events). */
 export function colonyMood(state: GameState): ColonyMood {
   const base = MORALE.base[Math.min(MORALE.base.length - 1, ageOf(state))]!;
@@ -225,6 +237,7 @@ export function colonyMood(state: GameState): ColonyMood {
   const speech = state.speechUntil > state.now ? MORALE.speech : 0;
   const leisureHomes = leisurePoints(state);
   const beauty = beautyOf(state);
+  const pilgrimage = pilgrimsAtStem(state) > 0 ? MORALE.pilgrimage : 0;
   return {
     base,
     food,
@@ -233,7 +246,8 @@ export function colonyMood(state: GameState): ColonyMood {
     bards,
     speech,
     beauty,
-    sum: base + food + season + mayor + bards + speech + beauty,
+    pilgrimage,
+    sum: base + food + season + mayor + bards + speech + beauty + pilgrimage,
     leisureHomes,
   };
 }

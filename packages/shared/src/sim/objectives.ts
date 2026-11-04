@@ -11,7 +11,7 @@ import { PASSAGE_TECHS, RESEARCH_SCALE, TECHS } from '../data/research';
 import { RESOURCE_IDS, type ResourceId } from '../data/resources';
 import type { BuildingId } from '../types/ids';
 import { forecastWave } from './threats';
-import { ageOf, hasTech, libraryLevel, techsOfAge, techStatus } from './research';
+import { ageOf, hasTech, libraryLevel, techCost, techsOfAge, techStatus } from './research';
 import {
   canAfford,
   canCollect,
@@ -95,6 +95,13 @@ export function objectiveProgress(
         ),
         c.count,
       );
+    case 'caverns':
+      return of(
+        Object.values(state.depths.galleries).filter((g) => g.kind === 'cavern').length,
+        c.count,
+      );
+    case 'weevil':
+      return of(state.depths.weevil?.fellAt !== undefined ? 1 : 0, 1);
   }
 }
 
@@ -170,7 +177,9 @@ export function ageProgress(state: GameState): AgeProgress | null {
   const lib = libraryLevel(state);
   const libDone = researched || lib >= def.libraryLevel;
   const points =
-    state.research.current === tech ? state.research.points / RESEARCH_SCALE / def.cost : 0;
+    state.research.current === tech
+      ? state.research.points / RESEARCH_SCALE / techCost(state, tech)
+      : 0;
   const monument = state.buildings.find((b) => b.type === 'monument');
   const monumentDone = (monument?.level ?? 0) >= age;
   const site = state.queue.find(

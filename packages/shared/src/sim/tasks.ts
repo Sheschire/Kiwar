@@ -1,5 +1,6 @@
 import { DEPTHS } from '../data/depths';
 import { galleryWorkAs, gallerySlots, galleryWorth, minersIn } from './mines';
+import { pilgrimsAtStem } from './rest';
 import { STARDUST } from '../data/comets';
 import { TASKS, type AutoTask } from '../data/jobs';
 import { GARRISON, METEORS, THREATS } from '../data/threats';
@@ -417,6 +418,9 @@ export function fillMines(state: GameState): void {
     // Chantier 50: one miner in a lake is enough for its enzyme.
     if (state.depths.galleries[roomId]!.kind === 'lake')
       free = Math.min(free, lakeMiners(state) > 0 ? 0 : 1);
+    // Chantier 52: one pilgrim at the stem is enough for the colony's morale.
+    if (state.depths.galleries[roomId]!.kind === 'stem')
+      free = Math.min(free, pilgrimsAtStem(state) > 0 ? 0 : 1);
     while (free-- > 0 && budget-- > 0) {
       const v = bestFor(state, 'pick', (x) => workerPower(x, resource));
       if (!v) return;

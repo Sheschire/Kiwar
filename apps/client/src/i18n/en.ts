@@ -584,6 +584,14 @@ export const en = {
       title: 'Rig the star sailboat',
       hint: 'The launchpad at level 13: stardust for the keel.',
     },
+    starsCaverns: {
+      title: 'Two white caverns',
+      hint: 'In the core, below the locules: a light crew, under the ceiling.',
+    },
+    starsWeevil: {
+      title: 'The Great Weevil',
+      hint: 'At the stem, below the caverns: a crew that reaches the air, and maybe two tries.',
+    },
     starsTrees: { title: 'Five locule trees', hint: 'Plant giant seeds: they give more back.' },
     starsKiwi25: { title: 'A kiwi at level 25', hint: 'A legend of the colony.' },
     starsProducer15: { title: 'A producer at level 15', hint: 'The very last level.' },
@@ -686,6 +694,7 @@ export const en = {
         memories: 'Memories, mourning (average)',
         season: 'Season',
         beauty: 'Decorations',
+        pilgrimage: 'Pilgrims at the stem',
       },
       low: '{count} kiwi(s) with very low morale: they sulk.',
       gauge: 'Morale {value}/100',
@@ -705,6 +714,7 @@ export const en = {
         vigil: 'Evening at the campfire',
         cabaret: 'Evening at the cabaret',
         fireworks: 'Fireworks',
+        motherVine: 'The Mother Vine found',
       },
       kiwiHint:
         'A leisure near its hut, a bed near its work, meals and speeches lift it; mourning brings it down.',
@@ -1880,6 +1890,14 @@ export const en = {
     full: 'The crystal stock is full: the miners of the forests come back up.',
   },
   stem: {
+    reportLeft:
+      'The Great Weevil keeps {pct} % of its hit points: its wounds heal over three days.',
+    crystal: '{count} crystal brought up',
+    pilgrims: 'Pilgrims {count}/{slots}',
+    pilgrimHint:
+      'The stem’s gallery is a pilgrimage: with one pilgrim there (the door open), the whole colony gains +{points} morale.',
+    toast:
+      'The Great Weevil has fallen: beyond the stem shines the Mother Vine, the way to the cosmic Orchard.',
     known:
       'The Great Weevil guards the stem: everybody knows it, a giant beetle with a few Grouillants.',
     phases:

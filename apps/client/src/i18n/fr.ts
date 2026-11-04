@@ -649,6 +649,14 @@ export const fr: Dict = {
       title: 'Gréer le voilier stellaire',
       hint: 'L’aire d’envol au niveau 13 : de la poussière d’étoile pour la quille.',
     },
+    starsCaverns: {
+      title: 'Deux cavernes blanches',
+      hint: 'Dans le cœur, sous les loges : un équipage léger, sous le plafond.',
+    },
+    starsWeevil: {
+      title: 'Le Grand Charançon',
+      hint: 'Au pédoncule, sous les cavernes : un équipage qui porte en l’air, et peut-être deux essais.',
+    },
     starsTrees: {
       title: 'Cinq arbres-loges',
       hint: 'Planter des graines géantes : elles en rendent davantage.',
@@ -766,6 +774,7 @@ export const fr: Dict = {
         memories: 'Souvenirs, deuils (moyenne)',
         season: 'Saison',
         beauty: 'Décorations',
+        pilgrimage: 'Pèlerin·es au pédoncule',
       },
       low: '{count} kiwi(s) au moral très bas : ils boudent.',
       gauge: 'Moral {value}/100',
@@ -785,6 +794,7 @@ export const fr: Dict = {
         cabaret: 'Soirée au cabaret',
         fireworks: 'Feu d’artifice',
         vigil: 'Veillée au feu de camp',
+        motherVine: 'La Liane-Mère trouvée',
       },
       kiwiHint:
         'Un loisir près de sa hutte, un lit proche du travail, des repas et les discours le font monter ; un deuil le fait baisser.',
@@ -1971,6 +1981,14 @@ export const fr: Dict = {
     full: 'La réserve de cristal est pleine : les mineur·euses des forêts remontent.',
   },
   stem: {
+    reportLeft:
+      'Le Grand Charançon garde {pct} % de ses points de vie : ses blessures guérissent en trois jours.',
+    crystal: '{count} cristal remonté',
+    pilgrims: 'Pèlerin·es {count}/{slots}',
+    pilgrimHint:
+      'La galerie du pédoncule est un lieu de pèlerinage : avec un·e pèlerin·e (porte ouverte), toute la colonie gagne +{points} de moral.',
+    toast:
+      'Le Grand Charançon est tombé : au-delà du pédoncule brille la Liane-Mère, le chemin du Verger cosmique.',
     known:
       'Le Grand Charançon garde le pédoncule : tout le monde le connaît, un scarabée géant et quelques Grouillants.',
     phases:

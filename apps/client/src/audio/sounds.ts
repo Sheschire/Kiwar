@@ -104,6 +104,10 @@ export function playGameEventSounds(events: GameEvent[]): void {
       case 'queenEmerged':
         audio.play('siege.queen');
         break;
+      case 'motherVineFound':
+        // Chantier 52: the Weevil's fall rings out like the queen's (its own sound may come).
+        window.setTimeout(() => audio.play('siege.queen'), 2600);
+        break;
       case 'beaconAttackAnnounced':
         audio.play('siege.warning');
         break;

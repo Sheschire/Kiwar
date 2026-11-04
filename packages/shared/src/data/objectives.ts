@@ -28,7 +28,11 @@ export type ObjectiveCondition =
   /** Parcels of alien faces seen (a landing's glimpse, a beacon, an old report). */
   | { kind: 'intel'; count: number }
   /** Chantier 40: beacons planted (`inner`: in a centre parcel). */
-  | { kind: 'beacons'; count: number; inner?: boolean };
+  | { kind: 'beacons'; count: number; inner?: boolean }
+  /** Chantier 52: white caverns of the core taken (galleries). */
+  | { kind: 'caverns'; count: number }
+  /** Chantier 52: the Great Weevil fallen (the Mother Vine found). */
+  | { kind: 'weevil' };
 
 export interface ObjectiveDef {
   /** Translation key suffix: `objectives.<id>`. */
@@ -307,7 +311,8 @@ export const AGE_OBJECTIVES: readonly AgeObjectiveDef[] = [
     reward: { pulp: 40000, fiber: 40000, seeds: 8000, juice: 15000 },
   },
   // Chantier 51, the Age of the stars: the levels 13–15, the sailboat, the trees of the locules
-  // (the core and the kiwais bring theirs in chantiers 52 and 53).
+  // (the core and the kiwais bring theirs in chantiers 52 and 53). Chantier 52: two caverns of
+  // the core, then the Great Weevil.
   {
     id: 'starsNest13',
     age: 4,
@@ -320,6 +325,12 @@ export const AGE_OBJECTIVES: readonly AgeObjectiveDef[] = [
     age: 4,
     condition: { kind: 'techs', age: 4, count: 2 },
     reward: { seeds: 12000, juice: 15000 },
+  },
+  {
+    id: 'starsCaverns',
+    age: 4,
+    condition: { kind: 'caverns', count: 2 },
+    reward: { juice: 30000, pulp: 20000 },
   },
   {
     id: 'starsSail',
@@ -340,6 +351,13 @@ export const AGE_OBJECTIVES: readonly AgeObjectiveDef[] = [
     condition: { kind: 'kiwiLevel', level: 25 },
     reward: { juice: 25000 },
     stardust: 20,
+  },
+  {
+    id: 'starsWeevil',
+    age: 4,
+    condition: { kind: 'weevil' },
+    reward: { pulp: 60000, fiber: 60000, juice: 30000 },
+    stardust: 30,
   },
   {
     id: 'starsProducer15',

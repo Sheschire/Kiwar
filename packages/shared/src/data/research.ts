@@ -138,6 +138,11 @@ export interface TechDef {
   crystal?: number;
   /** Chantier 45: a technology that must be researched first. */
   after?: TechId;
+  /**
+   * Chantier 52: cheaper once this is found (the Mother Vine opens the wormholes of chantier
+   * 54): without it, the points are × `RESEARCH.withoutVine`.
+   */
+  cheaperWith?: 'motherVine';
   effects: TechEffects;
 }
 
@@ -429,6 +434,8 @@ export const PASSAGE_TECHS: readonly (TechId | null)[] = [
 ];
 
 export const RESEARCH = {
+  /** Chantier 52: a technology `cheaperWith` the Mother Vine costs this much more without it. */
+  withoutVine: 2.5,
   /** Research bonus per point of Spirit above average (+6 %). */
   spirit: 0.06,
   /** Bank when no technology is chosen: points kept by Library level (index = level − 1). */

@@ -213,6 +213,18 @@ export function researchBank(state: GameState): number {
   return level > 0 ? (RESEARCH.bank[level - 1] ?? 0) * RESEARCH_SCALE : 0;
 }
 
+/**
+ * Points a technology costs this colony: chantier 52's `cheaperWith` costs × `withoutVine` until
+ * the Mother Vine is found (a sister colony shares the home colony's research: its own depths
+ * never count).
+ */
+export function techCost(state: Pick<GameState, 'depths'>, id: TechId): number {
+  const def = TECHS[id];
+  if (def.cheaperWith === 'motherVine' && state.depths.weevil?.fellAt === undefined)
+    return Math.round(def.cost * RESEARCH.withoutVine);
+  return def.cost;
+}
+
 /** Research points as a number of points (for the UI). */
 export function researchPoints(state: GameState): number {
   return state.research.points / RESEARCH_SCALE;
@@ -241,7 +253,7 @@ export function nextResearchEvent(state: GameState): TimeMs {
   const current = state.research.current;
   // A sister colony never completes a technology itself (chantier 19: shared research).
   if (!current || state.colony.index === 1) return Infinity;
-  const need = TECHS[current].cost * RESEARCH_SCALE - state.research.points;
+  const need = techCost(state, current) * RESEARCH_SCALE - state.research.points;
   if (need <= 0) return state.now;
   const rate = researchRate(state);
   if (rate <= 0) return Infinity;
@@ -273,7 +285,7 @@ export function researchTick(state: GameState, at: TimeMs, events: GameEvent[]):
   const r = state.research;
   const current = r.current;
   if (!current || state.colony.index === 1) return;
-  const cost = TECHS[current].cost * RESEARCH_SCALE;
+  const cost = techCost(state, current) * RESEARCH_SCALE;
   if (r.points < cost) return;
   r.points -= cost;
   r.done.push(current);
