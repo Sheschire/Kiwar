@@ -21,6 +21,8 @@ import {
   layerOpen,
   isLocule,
   isStem,
+  isCore,
+  upgradeLock,
   stemForecast,
   reachableRooms,
   THREATS,
@@ -28,6 +30,7 @@ import {
   WEAPONS,
   type BuildingType,
   type Command,
+  type DepthRoom,
   type GameState,
   type Villager,
 } from '@kiwar/shared';
@@ -46,7 +49,16 @@ export function tunnelDecision(
   has: (type: BuildingType) => boolean,
 ): Command | null {
   if (state.colony.index !== 0 || ageOf(state) < 2 || !hasTech(state, 'spelunking')) return null;
-  if (has('tunnel')) return null;
+  if (has('tunnel')) {
+    // Chantier 52: at the stars, the tunnel's last levels for a crew of eight (the Weevil).
+    const t = tunnelOf(state);
+    if (!t || ageOf(state) < 4 || t.level >= 3 || upgradeLock(state, t) !== null) return null;
+    if (state.queue.some((q) => q.buildingId === t.id)) return null;
+    const cost = levelDef('tunnel', t.level + 1);
+    if (!cost || !canAfford(state.resources, cost.cost)) return null;
+    if (meteorIronOf(state) < (cost.iron ?? 0)) return null;
+    return { type: 'upgrade', buildingId: t.id };
+  }
   // Every lock first (the Nest's level, its iron): a command that always fails would freeze
   // every later decision.
   if (buildLock(state, 'tunnel') !== null) return null;
@@ -86,11 +98,14 @@ export function delveOrder(state: GameState): Command | null {
   const max = Math.min(delveCrewMax(state), availableCrew(state).length - 3);
   if (max < 2) return null;
   const orders = { ...LANDING.defaultOrders, retreatAt: 0.3 };
-  // Shallow rooms first; a room seen weak before a room unknown.
+  // Shallow rooms first; a room seen weak before a room unknown. Chantier 52: once the core is
+  // open, its caverns and the stem first (the goal of the age).
+  const core = (r: DepthRoom) => (isCore(r) ? 0 : 1);
   const rooms = reachableRooms(state)
     .filter((r) => layerOpen(state, r))
     .sort(
       (a, b) =>
+        core(a) - core(b) ||
         a.depth - b.depth ||
         Number(!!state.depths.views[b.id]?.units) - Number(!!state.depths.views[a.id]?.units) ||
         a.id.localeCompare(b.id),
