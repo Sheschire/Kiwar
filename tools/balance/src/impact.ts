@@ -34,6 +34,7 @@ const NAMES: Record<Mechanic, string> = {
   canals: 'without the canals of chantier 45',
   depths: 'without the depths of chantier 48',
   orbit: 'without the kiwais of chantier 53',
+  orchard: 'without the orchard of chantier 54',
 };
 const variants: { label: string; without: Mechanic[] }[] = [
   { label: 'full bot', without: [] },

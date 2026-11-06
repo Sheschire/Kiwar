@@ -597,6 +597,10 @@ export const en = {
       title: 'The Great Weevil',
       hint: 'At the stem, below the caverns: a crew that reaches the air, and maybe two tries.',
     },
+    starsWormhole: {
+      title: 'Through the wormhole',
+      hint: 'Research the Wormholes, raise a launchpad to level 14, then visit the raspberry.',
+    },
     starsKiwai: {
       title: 'A kiwai with three modules',
       hint: 'Launch a kiwai from the orbital yard, then set three modules on it.',
@@ -2933,7 +2937,7 @@ export const en = {
     rebuild: 'Raise the trading post again (half price)',
     stay: 'Who stays at the post',
     bringBack: 'Who comes home from the post',
-    refuses: 'This clan is hostile: it will not trade.',
+    refuses: 'This clan is hostile: it will not trade (a gift is still welcome).',
     forecastTrade: 'About {nectar} nectar, standing +{standing}',
     forecastGift: 'A gift: standing +{standing}',
     collect: '{count} nectar to bring home from the post',
@@ -3126,6 +3130,8 @@ export const en = {
       caverns: 'A white cavern of the core',
       weevil: 'The Great Weevil fallen',
       firstKiwai: 'A first kiwai in orbit',
+      raspberry: 'Through the wormhole: the raspberry visited',
+      tradingPost: 'A trading post on the raspberry',
       kikiwiwi: 'A first Kikiwiwi',
       starEgg: 'A kiwi hatched from a star egg',
       masterClass: 'A master class',

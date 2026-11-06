@@ -662,6 +662,10 @@ export const fr: Dict = {
       title: 'Le Grand Charançon',
       hint: 'Au pédoncule, sous les cavernes : un équipage qui porte en l’air, et peut-être deux essais.',
     },
+    starsWormhole: {
+      title: 'Passer le trou de ver',
+      hint: 'Cherchez les Trous de ver, montez l’aire d’envol au niveau 14, puis visitez la framboise.',
+    },
     starsKiwai: {
       title: 'Un kiwaï à trois modules',
       hint: 'Lancez un kiwaï depuis le chantier orbital, puis posez-y trois modules.',
@@ -3063,7 +3067,7 @@ export const fr: Dict = {
     rebuild: 'Relever le comptoir (moitié prix)',
     stay: 'Qui reste au comptoir',
     bringBack: 'Qui rentre du comptoir',
-    refuses: 'Ce clan est hostile : il ne commercera pas.',
+    refuses: 'Ce clan est hostile : il ne commercera pas (un don reste possible).',
     forecastTrade: 'Environ {nectar} nectar, réputation +{standing}',
     forecastGift: 'Un don : réputation +{standing}',
     collect: '{count} nectar à ramener du comptoir',
@@ -3269,6 +3273,8 @@ export const fr: Dict = {
       caverns: 'Une caverne blanche du cœur',
       weevil: 'Le Grand Charançon tombé',
       firstKiwai: 'Un premier kiwaï en orbite',
+      raspberry: 'Le trou de ver passé : la framboise visitée',
+      tradingPost: 'Un comptoir sur la framboise',
       kikiwiwi: 'Un premier Kikiwiwi',
       starEgg: 'Un kiwi né d’un œuf d’étoile',
       masterClass: 'Une classe de maître',

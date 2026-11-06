@@ -10,7 +10,8 @@
     "ages": "tsx src/ages.ts",
     "impact": "tsx src/impact.ts",
     "conquest": "tsx src/conquest.ts",
-    "orbit": "tsx src/orbit.ts"
+    "orbit": "tsx src/orbit.ts",
+    "orchard": "tsx src/orchard.ts"
   },
   "dependencies": {
     "@kiwar/shared": "workspace:*"

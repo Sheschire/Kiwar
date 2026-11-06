@@ -111,6 +111,8 @@ export function objectiveProgress(
         ).length,
         c.count,
       );
+    case 'orchard':
+      return of(state.orchard.visits, c.visits);
   }
 }
 

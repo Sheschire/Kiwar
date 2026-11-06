@@ -22,7 +22,14 @@ import {
   type VoyagePlan,
 } from '../src';
 import { kiwi, siteFor, starsColony, T0, findTile } from './helpers';
-import { postAttackForecast, POST_ATTACK, STANDING as STAND } from '../src';
+import {
+  AGE_OBJECTIVES,
+  featsOf,
+  objectiveProgress,
+  postAttackForecast,
+  POST_ATTACK,
+  STANDING as STAND,
+} from '../src';
 
 const HOUR_MS = 3_600_000;
 
@@ -306,5 +313,18 @@ describe('attacks on the trading post (chantier 54)', () => {
     expect(post.reports[0]!.taken).toBe(30);
     expect(post.store).toBe(0);
     expect(STAND.hostile).toBeLessThan(0);
+  });
+});
+
+describe('the orchard in the objectives and the leagues (chantier 54)', () => {
+  it('counts the first voyage and the trading post', () => {
+    const { s } = postColony();
+    const obj = AGE_OBJECTIVES.find((o) => o.id === 'starsWormhole')!;
+    expect(objectiveProgress(s, obj).current).toBe(0);
+    s.orchard.visits = 1;
+    expect(objectiveProgress(s, obj).current).toBe(1);
+    const feats = featsOf(s);
+    expect(feats).toContain('raspberry');
+    expect(feats).toContain('tradingPost');
   });
 });

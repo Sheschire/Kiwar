@@ -151,9 +151,14 @@ export function voyageLock(state: GameState, plan: VoyagePlan): CommandError | n
   } else {
     if (plan.orders) return 'invalidMission';
     if (!goodsValid(plan.goods)) return 'invalidGoods';
-    // A hostile clan does not trade (a taken drupelet may still take our post).
+    // A hostile clan does not trade (a gift is still welcome; a taken drupelet may still take
+    // our post).
     for (const d of ds)
-      if (attitudeOf(state, d!.clan, now) === 'hostile' && !(plan.settle && d === ds[0]))
+      if (
+        attitudeOf(state, d!.clan, now) === 'hostile' &&
+        !plan.gift &&
+        !(plan.settle && d === ds[0])
+      )
         return 'clanHostile';
     if (plan.settle) {
       if (post && !post.ruined) return 'postThere';
@@ -466,7 +471,7 @@ export function resolveVoyage(
     const d = map.byId.get(id)!;
     const clan = map.clanById.get(d.clan)!;
     const truth = drupeletNow(state, seed, d, at);
-    if (attitudeOf(state, clan.id, at) === 'hostile') {
+    if (attitudeOf(state, clan.id, at) === 'hostile' && !v.gift) {
       stops.push({ drupelet: id, clan: clan.id, sold: {}, nectar: 0, refused: true });
       continue;
     }

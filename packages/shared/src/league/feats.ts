@@ -52,6 +52,9 @@ function singleFeats(state: GameState): Set<FeatId> {
   }
   if (state.depths.weevil?.fellAt !== undefined) out.add('weevil');
   if (state.orbit.kiwais.some((k) => k.readyAt <= state.now)) out.add('firstKiwai');
+  // Chantier 54: the orchard (both public: visits counted, the post standing once).
+  if (state.orchard.visits > 0) out.add('raspberry');
+  if (state.orchard.post && state.orchard.post.readyAt <= state.now) out.add('tradingPost');
   if (state.villagers.some((v) => v.kikiwiwi)) out.add('kikiwiwi');
   if (state.villagers.some((v) => v.shiny === 'star')) out.add('starEgg');
   if (state.villagers.some((v) => v.classId && CLASSES[v.classId].tier === 3)) {

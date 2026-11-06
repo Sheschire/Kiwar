@@ -40,6 +40,9 @@ export const FEAT_IDS = [
   'weevil',
   // Chantier 53: the first kiwai in orbit.
   'firstKiwai',
+  // Chantier 54: the raspberry reached, our first trading post.
+  'raspberry',
+  'tradingPost',
   'kikiwiwi',
   'starEgg',
   'masterClass',
@@ -78,6 +81,8 @@ export const FEATS: Record<FeatId, FeatDef> = {
   caverns: { id: 'caverns', group: 'depths', rarity: 'rare' },
   weevil: { id: 'weevil', group: 'depths', rarity: 'legendary' },
   firstKiwai: { id: 'firstKiwai', group: 'ages', rarity: 'rare' },
+  raspberry: { id: 'raspberry', group: 'ages', rarity: 'rare' },
+  tradingPost: { id: 'tradingPost', group: 'ages', rarity: 'legendary' },
   kikiwiwi: { id: 'kikiwiwi', group: 'village', rarity: 'rare' },
   starEgg: { id: 'starEgg', group: 'village', rarity: 'rare' },
   masterClass: { id: 'masterClass', group: 'village', rarity: 'notable' },

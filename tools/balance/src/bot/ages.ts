@@ -48,6 +48,8 @@ export const TECH_ORDER: TechId[] = [
   'crystalGrafts',
   'celestialGlass',
   'starSails',
+  // Chantier 54: the wormholes (cheaper once the Mother Vine is found).
+  'wormholes',
   'greenBlood',
   'palisade',
   'slingshots',

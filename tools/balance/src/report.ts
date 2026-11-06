@@ -136,6 +136,8 @@ export const LABELS: Record<Milestone, string> = {
   weevil: 'Great Weevil fallen',
   yard: 'Orbital yard',
   kiwai: 'First kiwai in orbit',
+  wormhole: 'First voyage through the wormhole',
+  post: 'Trading post standing',
   glimpse: 'First landing back (a glimpse)',
   landingWon: 'First landing won (a beacon)',
   centreWon: 'First beacon in the centre',

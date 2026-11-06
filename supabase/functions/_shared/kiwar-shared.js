@@ -2318,6 +2318,14 @@ var AGE_OBJECTIVES = [
     reward: { pulp: 6e4, fiber: 6e4, seeds: 12e3, juice: 25e3 },
     stardust: 20
   },
+  // Chantier 54: the first voyage through the wormhole.
+  {
+    id: "starsWormhole",
+    age: 4,
+    condition: { kind: "orchard", visits: 1 },
+    reward: { pulp: 6e4, fiber: 6e4, seeds: 12e3, juice: 25e3 },
+    stardust: 20
+  },
   {
     id: "starsProducer15",
     age: 4,
@@ -10443,7 +10451,7 @@ function voyageLock(state, plan) {
     if (plan.orders) return "invalidMission";
     if (!goodsValid(plan.goods)) return "invalidGoods";
     for (const d of ds)
-      if (attitudeOf(state, d.clan, now) === "hostile" && !(plan.settle && d === ds[0]))
+      if (attitudeOf(state, d.clan, now) === "hostile" && !plan.gift && !(plan.settle && d === ds[0]))
         return "clanHostile";
     if (plan.settle) {
       if (post && !post.ruined) return "postThere";
@@ -10655,7 +10663,7 @@ function resolveVoyage(state, e, members, fed) {
     const d = map.byId.get(id3);
     const clan = map.clanById.get(d.clan);
     const truth = drupeletNow(state, seed, d, at);
-    if (attitudeOf(state, clan.id, at) === "hostile") {
+    if (attitudeOf(state, clan.id, at) === "hostile" && !v.gift) {
       stops.push({ drupelet: id3, clan: clan.id, sold: {}, nectar: 0, refused: true });
       continue;
     }
@@ -17408,6 +17416,8 @@ function objectiveProgress(state, def) {
         ).length,
         c.count
       );
+    case "orchard":
+      return of(state.orchard.visits, c.visits);
   }
 }
 function isObjectiveComplete(state, def) {
@@ -24689,6 +24699,9 @@ var FEAT_IDS = [
   "weevil",
   // Chantier 53: the first kiwai in orbit.
   "firstKiwai",
+  // Chantier 54: the raspberry reached, our first trading post.
+  "raspberry",
+  "tradingPost",
   "kikiwiwi",
   "starEgg",
   "masterClass",
@@ -24716,6 +24729,8 @@ var FEATS = {
   caverns: { id: "caverns", group: "depths", rarity: "rare" },
   weevil: { id: "weevil", group: "depths", rarity: "legendary" },
   firstKiwai: { id: "firstKiwai", group: "ages", rarity: "rare" },
+  raspberry: { id: "raspberry", group: "ages", rarity: "rare" },
+  tradingPost: { id: "tradingPost", group: "ages", rarity: "legendary" },
   kikiwiwi: { id: "kikiwiwi", group: "village", rarity: "rare" },
   starEgg: { id: "starEgg", group: "village", rarity: "rare" },
   masterClass: { id: "masterClass", group: "village", rarity: "notable" },
@@ -24822,6 +24837,8 @@ function singleFeats(state) {
   }
   if (state.depths.weevil?.fellAt !== void 0) out.add("weevil");
   if (state.orbit.kiwais.some((k) => k.readyAt <= state.now)) out.add("firstKiwai");
+  if (state.orchard.visits > 0) out.add("raspberry");
+  if (state.orchard.post && state.orchard.post.readyAt <= state.now) out.add("tradingPost");
   if (state.villagers.some((v) => v.kikiwiwi)) out.add("kikiwiwi");
   if (state.villagers.some((v) => v.shiny === "star")) out.add("starEgg");
   if (state.villagers.some((v) => v.classId && CLASSES[v.classId].tier === 3)) {

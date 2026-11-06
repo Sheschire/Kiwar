@@ -34,7 +34,9 @@ export type ObjectiveCondition =
   /** Chantier 52: the Great Weevil fallen (the Mother Vine found). */
   | { kind: 'weevil' }
   /** Chantier 53: kiwais in orbit with at least `modules` modules set. */
-  | { kind: 'kiwais'; count: number; modules: number };
+  | { kind: 'kiwais'; count: number; modules: number }
+  /** Chantier 54: voyages that reached the raspberry. */
+  | { kind: 'orchard'; visits: number };
 
 export interface ObjectiveDef {
   /** Translation key suffix: `objectives.<id>`. */
@@ -365,6 +367,14 @@ export const AGE_OBJECTIVES: readonly AgeObjectiveDef[] = [
     id: 'starsKiwai',
     age: 4,
     condition: { kind: 'kiwais', count: 1, modules: 3 },
+    reward: { pulp: 60000, fiber: 60000, seeds: 12000, juice: 25000 },
+    stardust: 20,
+  },
+  // Chantier 54: the first voyage through the wormhole.
+  {
+    id: 'starsWormhole',
+    age: 4,
+    condition: { kind: 'orchard', visits: 1 },
     reward: { pulp: 60000, fiber: 60000, seeds: 12000, juice: 25000 },
     stardust: 20,
   },

@@ -1,5 +1,6 @@
 import { delveOrder, doorOrder, tunnelDecision } from './bot/depths';
 import { orbitOrders, yardDecision } from './bot/orbit';
+import { orchardOrders, wormholePadDecision } from './bot/orchard';
 import { hatchLocule, loculeOrders, treeDecision } from './bot/locules';
 import {
   civAt,
@@ -57,6 +58,7 @@ import {
   twinTarget,
   crystalCap,
   giantSeedCap,
+  NECTAR_SCALE,
 } from '@kiwar/shared';
 import { ageDecision, monumentDecision } from './bot/ages';
 import { campOrder } from './bot/camps';
@@ -111,6 +113,9 @@ export const MILESTONES = [
   // Chantier 53: the orbital yard, the first kiwai in orbit.
   'yard',
   'kiwai',
+  // Chantier 54: the first voyage through the wormhole, the trading post standing.
+  'wormhole',
+  'post',
   // Chantier 40: the first glimpse (a landing back home), the first beacon, one in the centre.
   'glimpse',
   'landingWon',
@@ -174,6 +179,11 @@ export interface RunResult {
     kiwais?: number;
     orbitModules?: number;
     orbitCrew?: number;
+    /** Chantier 54: voyages to the raspberry, nectar, the post, its attacks lost. */
+    visits?: number;
+    nectar?: number;
+    postKiwis?: number;
+    postsLost?: number;
     crystalCap?: number;
     seedCap?: number;
     trees?: number;
@@ -324,6 +334,14 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
   // Chantier 53: the kiwais — shields and services first, a launch, modules, the shuttle.
   if (play.orbit) cmds.push(...orbitOrders(state, play.prepared));
 
+  // Chantier 54: the orchard — a gift or the kiwis home against an attack, trades, the post
+  // (looked at once an hour; an announced attack is looked at every round).
+  if (play.orchard && (state.now >= play.orchardAt || state.orchard.post?.attack?.announced)) {
+    const orders = orchardOrders(state, play.prepared);
+    cmds.push(...orders);
+    if (orders.length === 0) play.orchardAt = state.now + HOUR_MS;
+  }
+
   // Kikiwiwis (chantier 08): an infusion, the garrison, titan works.
   const titan = titanOrders(state, map);
   if (titan) cmds.push(titan);
@@ -448,6 +466,12 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
   if (play.orbit) {
     const yard = yardDecision(state, build, has);
     if (yard) return [...cmds, yard];
+  }
+
+  // 2c'''''. Chantier 54: a launchpad of the wormhole's level once the technology is known.
+  if (play.orchard) {
+    const pad = wormholePadDecision(state);
+    if (pad) return [...cmds, pad];
   }
 
   // 2c. Research and ages (chantier 08): Library, researchers, technologies, the monument.
@@ -602,6 +626,8 @@ function checkMilestones(
     'kiwai',
     state.orbit.kiwais.some((k) => k.readyAt <= state.now),
   );
+  set('wormhole', state.orchard.visits > 0);
+  set('post', !!state.orchard.post && state.orchard.post.readyAt <= state.now);
   set(
     'allLevel3',
     // Economy buildings (the bot does not play expeditions yet).
@@ -624,6 +650,8 @@ export const MECHANICS = [
   'depths',
   // Chantier 53: the orbital yard and the kiwais.
   'orbit',
+  // Chantier 54: the wormhole, the raspberry and the trading post.
+  'orchard',
 ] as const;
 export type Mechanic = (typeof MECHANICS)[number];
 export interface Play extends Record<Mechanic, boolean> {
@@ -634,6 +662,8 @@ export interface Play extends Record<Mechanic, boolean> {
   forgeAt: number;
   /** Chantier 48: next look for a delve. */
   depthsAt: number;
+  /** Chantier 54: next look at the orchard. */
+  orchardAt: number;
   /** Chantier 19: the bot besieges the twin and founds the second colony. */
   siege: boolean;
   siegeAt: number;
@@ -691,6 +721,7 @@ export function runBot(opts: RunOptions): RunResult {
     expeditionsAt: 0,
     forgeAt: 0,
     depthsAt: 0,
+    orchardAt: 0,
     siege: !opts.noSiege,
     siegeAt: 0,
     prepared: !opts.sessionEveryMs,
@@ -976,6 +1007,10 @@ export function runBot(opts: RunOptions): RunResult {
       kiwais: state.orbit.kiwais.length,
       orbitModules: state.orbit.kiwais.reduce((n, k) => n + k.modules.length, 0),
       orbitCrew: state.villagers.filter((v) => v.job.kind === 'orbit').length,
+      visits: state.orchard.visits,
+      nectar: Math.floor(state.nectar / NECTAR_SCALE),
+      postKiwis: state.villagers.filter((v) => v.job.kind === 'post').length,
+      postsLost: state.orchard.post?.reports.filter((r) => !r.held).length ?? 0,
       crystalCap: loculeMs.open > 0 ? loculeMs.crystal / loculeMs.open : 0,
       seedCap: loculeMs.open > 0 ? loculeMs.seeds / loculeMs.open : 0,
       trees: state.buildings.filter((b) => b.type === 'loculeTree').length,

@@ -467,8 +467,11 @@ function VoyagePlanner({ game, map, d }: { game: GameState; map: Raspberry; d: D
                 </fieldset>
               )}
               {f?.stops.map((s) => (
-                <p key={s.drupelet} class={`small ${s.attitude === 'hostile' ? 'warn' : ''}`}>
-                  {s.attitude === 'hostile'
+                <p
+                  key={s.drupelet}
+                  class={`small ${s.attitude === 'hostile' && !gift ? 'warn' : ''}`}
+                >
+                  {s.attitude === 'hostile' && !gift
                     ? t('orchard.refuses')
                     : gift
                       ? t('orchard.forecastGift', { standing: s.standing })
