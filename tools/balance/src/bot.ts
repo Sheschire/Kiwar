@@ -1,5 +1,5 @@
 import { delveOrder, doorOrder, tunnelDecision } from './bot/depths';
-import { orbitOrders, yardDecision } from './bot/orbit';
+import { keepsLaunch, orbitOrders, yardDecision } from './bot/orbit';
 import { orchardOrders, wormholePadDecision } from './bot/orchard';
 import { hatchLocule, loculeOrders, treeDecision } from './bot/locules';
 import {
@@ -254,7 +254,9 @@ function try_(state: GameState, map: FaceMap, now: number, cmd: Command): GameSt
  */
 /** One decision round (exported for diagnostics: what the bot wants to do right now). */
 export function decide(state: GameState, map: FaceMap, play: Play): Command[] {
-  const cmds = decideAll(state, map, play);
+  let cmds = decideAll(state, map, play);
+  // Chantier 53: the iron and crystal of the next launch are kept.
+  if (play.orbit) cmds = cmds.filter((c) => keepsLaunch(state, c));
   return play.prepared ? cmds.filter((c) => keepsAmmo(state, c)) : cmds;
 }
 

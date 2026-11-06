@@ -1,5 +1,9 @@
 import {
   ageOf,
+  CRYSTAL,
+  ITEMS,
+  kiwaiCap,
+  kiwaiLaunchCost,
   buildCost,
   buildLock,
   canAfford,
@@ -143,6 +147,38 @@ function shuttleOrder(state: GameState, kiwai: Kiwai): Command | null {
   if (up.length === 0 && !tank) return null;
   const cmd: Command = { type: 'sendShuttle', kiwaiId: kiwai.id, up, down: [] };
   return shuttleLock(state, cmd) === null ? cmd : null;
+}
+
+/**
+ * While the yard can launch another kiwai, the bot keeps the launch's iron and crystal: a
+ * build, an upgrade, a piece of gear or a lens that would dip below them waits (the Forge and
+ * the levels of the stars ate them before every launch in the first probes).
+ */
+export function keepsLaunch(state: GameState, cmd: Command): boolean {
+  if (!yardOf(state) || state.orbit.kiwais.length >= kiwaiCap(state)) return true;
+  let iron = 0;
+  let crystal = 0;
+  if (cmd.type === 'build' || cmd.type === 'upgrade') {
+    if (cmd.type === 'build' && cmd.buildingType === 'orbitalYard') return true;
+    const b = cmd.type === 'upgrade' ? state.buildings.find((x) => x.id === cmd.buildingId) : null;
+    const def =
+      cmd.type === 'build'
+        ? levelDef(cmd.buildingType, 1)
+        : b
+          ? levelDef(b.type, b.level + 1)
+          : null;
+    iron = def?.iron ?? 0;
+    crystal = def?.crystal ?? 0;
+  } else if (cmd.type === 'forgeItem') {
+    iron = ITEMS[cmd.item].iron ?? 0;
+    crystal = ITEMS[cmd.item].crystal ?? 0;
+  } else if (cmd.type === 'fitLens') crystal = CRYSTAL.lens.crystal;
+  else return true;
+  if (iron === 0 && crystal === 0) return true;
+  const need = kiwaiLaunchCost(state);
+  return (
+    meteorIronOf(state) - iron >= need.iron && crystalUnits(state.crystal) - crystal >= need.crystal
+  );
 }
 
 /** Everything the bot does in orbit this round (the first that applies wins, as usual). */
