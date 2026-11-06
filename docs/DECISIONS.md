@@ -3651,13 +3651,13 @@ Age of the stars, every threat announced with two answers, nothing lost entirely
 
 ### Measures (bot probes, attentive, 28 days)
 
-| Round | Change | Yard | First kiwai | What we learned |
-|---|---|---|---|---|
-| 1 | Nest 13, 320 000 pulp | never | never | the bot reaches the stars (days 18–20) with a Nest 10 |
-| 2 | Nest 10, costs ÷ 2.5 | 1 of 3 (day 24.6) | never | short of fibre (0–4 000) and rich in seeds |
-| 3 | the yard before the stars' savings | 1 of 3 | never | same |
-| 4 | yard and modules in seeds and pulp | days 22.9–25.7 | never | the Forge and the levels eat the launch's iron and crystal |
-| 5 | the bot keeps the launch's iron and crystal | days 22.9–25.7 | **days 23.8, 26.9, 27.5** | 1–3 modules by day 28, 0–2 kiwis up there |
+| Round | Change                                      | Yard              | First kiwai               | What we learned                                            |
+| ----- | ------------------------------------------- | ----------------- | ------------------------- | ---------------------------------------------------------- |
+| 1     | Nest 13, 320 000 pulp                       | never             | never                     | the bot reaches the stars (days 18–20) with a Nest 10      |
+| 2     | Nest 10, costs ÷ 2.5                        | 1 of 3 (day 24.6) | never                     | short of fibre (0–4 000) and rich in seeds                 |
+| 3     | the yard before the stars' savings          | 1 of 3            | never                     | same                                                       |
+| 4     | yard and modules in seeds and pulp          | days 22.9–25.7    | never                     | the Forge and the levels eat the launch's iron and crystal |
+| 5     | the bot keeps the launch's iron and crystal | days 22.9–25.7    | **days 23.8, 26.9, 27.5** | 1–3 modules by day 28, 0–2 kiwis up there                  |
 
 - No module waited for a repair, no swarm hit a crewed kiwai in these runs (the bot raises
   shields); the stardust sat at its cap 1–5 % of the stars' time.
@@ -3712,6 +3712,22 @@ From the chantier document's decisions and the owner's answers of 6 November 202
   drupelet (whatever the clans think), the fallen die there, the others come home.
 - Not in yet (see `DETTE.md`): the nectar gear tier and the prestige decoration, sounds,
   the clans' huts in 3D, a live invitation for attacks on the post; the bot never pillages.
+
+### Measures (bot probes, attentive, 36 days)
+
+| Round      | Rules                                                          | What we learned                                                                                  |
+| ---------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| 1 (3 runs) | technology Library 14 after the star sails, launchpad 14       | never opened: the bot ends day 30 at Nest 11, Library 10, launchpad 6                            |
+| 2          | Library 9, launchpad 10, researched after the passage          | wormholes days 29.8 / 32.4, but the Great Weevil no longer fell (its crystal)                    |
+| 3          | 30 crystal + 20 stardust, the bot waits for the Mother Vine    | Weevil 27.3 / 29.5, wormholes 28.8 / 33.4, launchpad stuck at 9                                  |
+| 4–6        | launchpad 9; deliveries to the sister wait; goods fit the hold | first voyage days **29.2** and 33.6 (21 and 6 visits); no post: the bot hopped from clan to clan |
+| 7          | the bot trades with one partner clan before its post           | **post day 33.4** (two kiwis there, no attack lost) where the voyage came on day 29.2            |
+
+- Third run (Weevil never fell within 36 days): no wormhole by day 34 (the bot waits for the
+  Vine until day 32, then 50 000 points).
+- ⚠️ **Nectar at its cap 64–92 % of the time** once trading: its only sinks are the post and its
+  modules. The other sinks (a gear tier, a prestige decoration) come with chantier 55; until
+  then, to watch (charter: a stock at its cap less than ~20 % of the time).
 
 To test with the owner: the pleasure of trading versus pillaging (is the standing readable,
 is the drift too fast or too slow), the gift that calls off an attack, the post's worth

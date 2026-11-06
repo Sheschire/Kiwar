@@ -117,4 +117,9 @@ known; `wormholes` comes right after `starsAge` in `TECH_ORDER` but waits for th
 announced): the post's modules (stall, palisade, hut), a defence (gift to calm the clan, or
 everybody home) when the forecast is not "likely", the post with the first friendly clan, a
 trade with the best-paying clan otherwise. Never a pillage. Milestones `wormhole`, `post`;
-probe `pnpm --filter @kiwar/balance orchard [--seed] [--face] [--days 34] [--casual]`.
+probe `pnpm --filter @kiwar/balance orchard [--seed] [--face] [--days 34] [--casual]` (prints
+the end state and `why`: the reasons no ship left — `noPad`, `padBusy`, `noPlan`, a lock).
+Before its post the bot trades with one partner clan (the best standing); deliveries to the
+sister wait while a voyage is due (`orchardWantsPad`); goods are cut to the hold (`fitHold`).
+Measured (end of chantier 54): first voyage day 29.2 / 33.6, post day 33.4; the nectar sits at
+its cap 64–92 % of the time (its sinks come with chantier 55). A probe of 36 days takes ~30 min.
