@@ -1585,15 +1585,15 @@ var BASE = {
     copyGrowth: 1,
     levels: [
       {
-        cost: { pulp: 12e4, fiber: 15e4, seeds: 6e3, juice: 25e3 },
+        cost: { pulp: 12e4, fiber: 3e4, seeds: 6e4, juice: 25e3 },
         durationMs: ms.h(8),
         requiresNestLevel: 10,
         requiresAge: 4,
-        iron: 20,
-        crystal: 30
+        iron: 15,
+        crystal: 20
       },
       {
-        cost: { pulp: 22e4, fiber: 27e4, seeds: 11e3, juice: 45e3 },
+        cost: { pulp: 22e4, fiber: 55e3, seeds: 11e4, juice: 45e3 },
         durationMs: ms.h(11),
         requiresNestLevel: 12,
         requiresAge: 4,
@@ -1601,7 +1601,7 @@ var BASE = {
         crystal: 45
       },
       {
-        cost: { pulp: 38e4, fiber: 46e4, seeds: 19e3, juice: 75e3 },
+        cost: { pulp: 38e4, fiber: 95e3, seeds: 19e4, juice: 75e3 },
         durationMs: ms.h(15),
         requiresNestLevel: 14,
         requiresAge: 4,
@@ -4131,7 +4131,7 @@ var ORBIT = {
   moduleSlots: [0, 3, 4, 5],
   /** The launch of the n-th kiwai (index = kiwais already launched, capped at the last). */
   launch: [
-    { giantSeeds: 2, crystal: 60, iron: 30, stardust: 10, durationMs: ms.h(12) },
+    { giantSeeds: 2, crystal: 40, iron: 20, stardust: 10, durationMs: ms.h(12) },
     { giantSeeds: 3, crystal: 90, iron: 45, stardust: 15, durationMs: ms.h(18) },
     { giantSeeds: 4, crystal: 120, iron: 60, stardust: 20, durationMs: ms.h(24) }
   ],
@@ -4172,7 +4172,7 @@ var ORBIT = {
 };
 var MODULES = {
   habitat: {
-    cost: { pulp: 32e3, fiber: 4e4, seeds: 2e3, juice: 8e3 },
+    cost: { pulp: 32e3, fiber: 8e3, seeds: 3e4, juice: 8e3 },
     crystal: 10,
     iron: 6,
     durationMs: ms.h(2),
@@ -4180,14 +4180,14 @@ var MODULES = {
     wears: false
   },
   panel: {
-    cost: { pulp: 28e3, fiber: 36e3, seeds: 3e3, juice: 6e3 },
+    cost: { pulp: 28e3, fiber: 7e3, seeds: 3e4, juice: 6e3 },
     crystal: 15,
     iron: 4,
     durationMs: ms.h(2),
     wears: true
   },
   sensor: {
-    cost: { pulp: 4e4, fiber: 48e3, seeds: 2e3, juice: 8e3 },
+    cost: { pulp: 4e4, fiber: 1e4, seeds: 38e3, juice: 8e3 },
     crystal: 20,
     iron: 8,
     durationMs: ms.h(3),
@@ -4196,7 +4196,7 @@ var MODULES = {
     wears: true
   },
   dome: {
-    cost: { pulp: 44e3, fiber: 36e3, seeds: 2e3, juice: 14e3 },
+    cost: { pulp: 44e3, fiber: 7e3, seeds: 3e4, juice: 14e3 },
     crystal: 12,
     iron: 6,
     durationMs: ms.h(3),
@@ -4205,7 +4205,7 @@ var MODULES = {
     wears: true
   },
   berth: {
-    cost: { pulp: 4e4, fiber: 52e3, seeds: 2e3, juice: 8e3 },
+    cost: { pulp: 4e4, fiber: 1e4, seeds: 4e4, juice: 8e3 },
     crystal: 15,
     iron: 10,
     durationMs: ms.h(3),

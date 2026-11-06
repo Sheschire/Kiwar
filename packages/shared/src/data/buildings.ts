@@ -624,15 +624,15 @@ const BASE: Record<BuildingType, BuildingDef> = {
     copyGrowth: 1,
     levels: [
       {
-        cost: { pulp: 120000, fiber: 150000, seeds: 6000, juice: 25000 },
+        cost: { pulp: 120000, fiber: 30000, seeds: 60000, juice: 25000 },
         durationMs: ms.h(8),
         requiresNestLevel: 10,
         requiresAge: 4,
-        iron: 20,
-        crystal: 30,
+        iron: 15,
+        crystal: 20,
       },
       {
-        cost: { pulp: 220000, fiber: 270000, seeds: 11000, juice: 45000 },
+        cost: { pulp: 220000, fiber: 55000, seeds: 110000, juice: 45000 },
         durationMs: ms.h(11),
         requiresNestLevel: 12,
         requiresAge: 4,
@@ -640,7 +640,7 @@ const BASE: Record<BuildingType, BuildingDef> = {
         crystal: 45,
       },
       {
-        cost: { pulp: 380000, fiber: 460000, seeds: 19000, juice: 75000 },
+        cost: { pulp: 380000, fiber: 95000, seeds: 190000, juice: 75000 },
         durationMs: ms.h(15),
         requiresNestLevel: 14,
         requiresAge: 4,
