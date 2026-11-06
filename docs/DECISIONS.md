@@ -3608,6 +3608,64 @@ screens (Village, Defense, Siege, Depths, Plans) and the Chat (unread count) sta
 resource bar now centres in the room left of the buttons at every desktop width (their width
 is measured), instead of a fixed 356 px between 761 and 1500 px.
 
+## Chantier 53 — The kiwais: small planets in orbit
+
+From the chantier document's decisions (a small map in orbit inside the colony's state, at the
+Age of the stars, every threat announced with two answers, nothing lost entirely).
+
+### Owner's answer (new point)
+
+- **Modules apart from the face** (6 November 2026, the recommended option): a kiwai keeps its
+  own modules on its own small map (`sim/sites.ts`), never in `state.buildings`. The surface
+  cannot change (none of the ~120 loops over the buildings is touched); chantier 54's trading
+  post reuses the same small maps.
+
+### Defaults chosen by Claude (status "default", changeable)
+
+- **The orbital yard**: 3 tiles, one per colony, outside the building cap, levels 1–3 (the
+  age's 13/14/15) for 1/2/3 kiwais and 3/4/5 module places. **Nest 10 / 12 / 14**, not 13/14/15:
+  the bot reaches the stars with a Nest 10 (measured). It cannot be demolished while kiwais are
+  in orbit.
+- **The launch**: a core of giant seeds (2/3/4), crystal (40/90/120), iron (20/45/60) and
+  stardust (10/15/20), 12/18/24 h; a launching kiwai rises from the yard in the sky.
+- **Four kinds, fixed at the launch**: star harvest (0.1 stardust per hour of an average kiwi
+  into its own tank of 20; the shuttle brings it down), greenhouse (half a level-13 worker of
+  the juice well and of the fibre workshop each, day and night, every season), observatory
+  (a Library-13 researcher's points, and comets and upwellings announced 4 h earlier), dock
+  (ship trips × 0.85 per staffed berth, floor 0.7; the wormholes start here).
+- **Modules**: habitat (2 kiwis, never breaks), solar panel (+25 % to each work module next to
+  it, two at most), the work module of the kind (sensor, dome, berth: 2 places). Assembled at
+  the yard in 2–3 h, no builder; paid mostly in pulp and seeds (the bot reaches the stars short
+  of fibre), plus crystal and iron; a quarter back when taken down.
+- **The shuttle**: one trip at a time, 30 min (docks at half), 4 seats each way; the kiwis
+  coming down go back to their old work. Kiwis up there eat from the colony, sleep in their
+  habitat, are not in the beds, the militia, the evenings or the speech. The player chooses
+  who goes: no automation sends kiwis up.
+- **Breakdowns**: public (a stream per kiwai), every 20–40 h, announced 6 h before; answers:
+  a service (2 iron) puts it off, or the best Dexterity up there repairs it (3 h at 5), or the
+  shuttle brings someone. A broken module only stops.
+- **Comet swarms**: each comet passage sweeps the orbit; answers: a shield (4 stardust, once the
+  comet is announced), an evacuation by the shuttle, or repairs after (two modules broken, the
+  kiwis up there come down wounded for 6 h by the pods). Never destroyed, never dead.
+- Objective of the stars "a kiwai with three modules"; league feat "a first kiwai" (rare).
+
+### Measures (bot probes, attentive, 28 days)
+
+| Round | Change | Yard | First kiwai | What we learned |
+|---|---|---|---|---|
+| 1 | Nest 13, 320 000 pulp | never | never | the bot reaches the stars (days 18–20) with a Nest 10 |
+| 2 | Nest 10, costs ÷ 2.5 | 1 of 3 (day 24.6) | never | short of fibre (0–4 000) and rich in seeds |
+| 3 | the yard before the stars' savings | 1 of 3 | never | same |
+| 4 | yard and modules in seeds and pulp | days 22.9–25.7 | never | the Forge and the levels eat the launch's iron and crystal |
+| 5 | the bot keeps the launch's iron and crystal | days 22.9–25.7 | **days 23.8, 26.9, 27.5** | 1–3 modules by day 28, 0–2 kiwis up there |
+
+- No module waited for a repair, no swarm hit a crewed kiwai in these runs (the bot raises
+  shields); the stardust sat at its cap 1–5 % of the stars' time.
+- ⚠️ The modules come slowly (stocks of the bot at the stars): to see in chantier 58 with the
+  first three modules as a target. To test with the owner: the shuttle's choice of kiwis, the
+  four kinds (is the dock worth a kiwai?), the breakdowns' rhythm, the shield's price, the look
+  of the kiwais in the sky (seen from below unless the camera rises).
+
 ## Chantier 54 — The wormholes and the cosmic orchard I: the raspberry
 
 From the chantier document's decisions and the owner's answers of 6 November 2026.

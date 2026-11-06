@@ -98,3 +98,27 @@ base spatiale avec un peu de place, une ressource propre et un risque (pannes, c
 - La surface n'est pas changée par le multi-carte (tests et temps du bot identiques).
 - Les deux colonies savent lancer des kiwaïs (règle des deux colonies, skill
   `kiwar-colonies`).
+
+## Fait (novembre 2026)
+
+Décision du porteur en session : **les modules à part** (une petite carte par kiwaï,
+`sim/sites.ts`, hors de `state.buildings` ; le comptoir du 54 la réutilise).
+
+1. **Petites cartes** : disque de 19 cases (aire, rochers, terrain), `state.orbit`, métier
+   `orbit`, sauvegarde v43 ; test « la surface ne change pas ».
+2. **Chantier orbital et lancement** : Nid 10 / 12 / 14 (le bot arrive aux étoiles avec un Nid
+   10), 1 / 2 / 3 kiwaïs, quatre types, objectif et haut fait.
+3. **Modules, navette et kiwis en orbite** : habitat, panneau, capteur, dôme, poste
+   d'amarrage ; navette de 30 min ; production exacte hors ligne.
+4. **Risques** : pannes publiques annoncées (entretien, réparation par la meilleure Dextérité
+   là-haut), essaims des comètes (bouclier, évacuation, réparations ensuite).
+5. **Client** : kiwaïs tranchés vert-bronze dans le ciel, navette, bouclier ; écran Orbite
+   (carte 2D pour poser, équipage, risques) ; bouton, menu téléphone, toasts.
+6. **Bot et docs** : le bot construit, lance, équipe et pare ; sonde `pnpm --filter
+   @kiwar/balance orbit` ; skill `kiwar-orbit`.
+
+**Mesures** (détails dans `DECISIONS.md`) : premier kiwaï aux jours **23,8 ; 26,9 ; 27,5**
+(cible 22–24), après cinq séries de sondes.
+
+**Reste** (voir `DETTE.md`) : des modules lents chez le bot, pas de son, pas de visite 3D d'un
+kiwaï.

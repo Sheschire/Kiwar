@@ -64,7 +64,8 @@ Levels: 3 per age (Eden 1–3, Stone 4–6, Iron 7–9, Industry 10–12), the N
 (chantier 51) adds the **Age of the stars** (levels 13–15) at **~3 weeks** (bot, end of
 chantier 51: days 18.5–21.2 attentive; ⚠️ the occasional bot never gets crystal, no locule); act IV targets
 (first delve day 3–4, queen day 7–14, conquest day 14–21, Great Weevil day 25–28 — bot end of chantier 52: days 27.0 and 30.1 where it reaches the stem,
-2 of 6 runs; ⚠️ the caverns' pace —, first
+2 of 6 runs; ⚠️ the caverns' pace —, first kiwai day 22–24 — bot end of chantier 53: days
+23.8 / 26.9 / 27.5 —, first
 wormhole day 28–30) are in `docs/chantiers/58-reglages-fin-acte-iv.md`.
 
 **Working hypotheses** (not laws, check them with the bot and with people): in the first 24 h of

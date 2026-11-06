@@ -30,13 +30,13 @@ resolves it as well as the server.
   0.7: `travelFactor` and `deliveryTime`; the wormholes of chantier 54 start here).
 - `MODULE_TYPES`: `habitat` (2 kiwis, never wears), `panel` (+25 % to each work module next to
   it, two at most), work modules `sensor` (harvest, observatory), `dome` (greenhouse), `berth`
-  (dock) with 2 places each. `WORK_MODULE[type]`, `moduleFits`. Costs in resources + crystal +
-  iron, assembled at the yard in 2–3 h (no builder, no queue).
+  (dock) with 2 places each. `WORK_MODULE[type]`, `moduleFits`. Costs mostly in pulp and seeds (the
+  bot reaches the stars short of fibre and rich in seeds) + crystal + iron, assembled at the yard in 2–3 h (no builder, no queue).
 - Yard (`orbitalYard`, a building of 3 tiles, levels 1–3 = the age's 13/14/15, Nest 10/12/14 (the bot reaches the stars at Nest 10),
   outside the building cap, one per colony, `yardExists`, cannot be demolished while kiwais
   are in orbit: `yardInUse`): `ORBIT.kiwais` 1/2/3, `moduleSlots` 3/4/5. Level stats
   `kiwais`, `moduleSlots`.
-- `launch` (by kiwais already launched): giant seeds 2/3/4, crystal 60/90/120, iron 30/45/60,
+- `launch` (by kiwais already launched): giant seeds 2/3/4, crystal 40/90/120, iron 20/45/60,
   stardust 10/15/20, 12/18/24 h. `shuttle` 30 min, 4 seats each way. `dust` 0.1 point per hour
   of an average kiwi, tank 20. `greenhouse` share 0.5 of a level-13 worker of the juice well and
   of the fibre workshop (each); `observatory` share 1 of a researcher at the Library 13.
@@ -135,7 +135,10 @@ raises shields with ≥ 10 dust and services an announced wear; a launch when `l
 null — greenhouse, harvest, observatory —; modules in order habitat, work, panel beside it,
 work, habitat; the shuttle with the best kiwis for the kind up to the room and the places,
 never the Library's, Forge's or drill's kiwis; an empty trip when a harvest tank is 60 %
-full). Milestones `yard`, `kiwai`; `final.kiwais / orbitModules / orbitCrew`. Probe:
+full). `keepsLaunch` (a filter in `decide`, like `keepsAmmo`): while the yard can launch
+another kiwai, no build, upgrade, Forge piece or lens dips below the launch's iron and
+crystal (without it the Forge ate them before every launch). The yard comes before the
+stars' research savings (`ageDecision` returns 'save' for a long time at the stars). Milestones `yard`, `kiwai`; `final.kiwais / orbitModules / orbitCrew`. Probe:
 `pnpm --filter @kiwar/balance orbit [--seed] [--face] [--days 28] [--casual]` (one line: the
 days of the stars, the yard and the first kiwai, hours a broken module waited, share of the
 stars' time with the stardust at its cap).
@@ -145,3 +148,8 @@ stars' time with the stardust at its cap).
 The trading post of the raspberry reuses `smallMap` (`sim/tradingPost.ts` `postMapOf`, its
 own `modules`, never in `state.buildings`). The docks' `dockTravel` shortens voyages through
 the wormhole too (`travelFactor`). See `kiwar-orchard`.
+
+**Measures** (end of chantier 53, 3 seeds × 28 days, attentive): the stars on days 18.1–20.1,
+the yard on days 22.9–25.7, the first kiwai on days 23.8 / 26.9 / 27.5, 1–3 modules by day 28.
+Five rounds were needed (see `docs/DECISIONS.md`): a probe of 28 days takes ~22 min per seed
+on one core, so run three in parallel (`nohup … &`) and wait on their logs.

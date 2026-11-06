@@ -38,7 +38,7 @@ d'acceptation et les **skills à charger**. La direction d'ensemble est dans le
 | 50  | [Tréfonds II : les loges, les raphides et l'actinidine](50-trefonds-loges.md)                      | 48        | avec 49               |
 | 51  | [L'Âge des étoiles](51-age-des-etoiles.md) — **fait**                                              | 50        | non                   |
 | 52  | [Tréfonds III : le cœur, le pédoncule et la Liane-Mère](52-trefonds-coeur-pedoncule.md) — **fait** | 51        | non                   |
-| 53  | [Les kiwaïs : petites planètes en orbite](53-kiwais.md)                                            | 51        | non                   |
+| 53  | [Les kiwaïs : petites planètes en orbite](53-kiwais.md) — **fait**                                 | 51        | non                   |
 | 54  | [Les trous de ver et le Verger I : la framboise](54-verger-framboise.md) — **fait**                | 52, 53    | non                   |
 | 55  | [Le Verger II : la pomme et l'ananas](55-verger-pomme-ananas.md)                                   | 54        | avec 56               |
 | 56  | [Les ligues](56-ligues.md) — **fait**                                                              | 51        | avec 55 (serveur)     |

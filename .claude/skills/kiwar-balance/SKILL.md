@@ -380,3 +380,12 @@ starved it). Probe: a scratch `runBot` with `onStep` printing `moraleOf(s)` part
   stocks every 6 h (one run to day 17 ≈ 25 min).
 - Reference (end of chantier 51, 4 attentive runs × 26 days): stars on days 18.5–21.2 (median
   ≈ 20.1), Industry on days 8–10; ⚠️ the occasional bot never gets crystal.
+
+## Chantier 53 (orbit)
+
+`pnpm --filter @kiwar/balance orbit [--seed orbit-2] [--face kiwino] [--days 28]` prints one
+line per run (stars, yard, first kiwai, modules, repairs waiting, stardust at its cap). Bot in
+`src/bot/orbit.ts` (mechanic `orbit`, milestones `yard` and `kiwai`); see `kiwar-orbit`.
+Lesson: at the stars the attentive bot has a **Nest 10**, little fibre, plenty of seeds, and
+spends its iron and crystal at once — anything new at the stars must be priced for that (or
+the bot must save for it, like `keepsLaunch`).

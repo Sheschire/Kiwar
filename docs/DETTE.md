@@ -11,6 +11,12 @@
 
 ## Des chantiers précédents
 
+- Chantier 53 : ⚠️ les modules des kiwaïs viennent lentement chez le bot (1 à 3 au jour 28, 0 à
+  2 kiwis là-haut) et le chantier orbital arrive 4 à 6 jours après les étoiles : à revoir au
+  chantier 58. Vus depuis la colonie, les kiwaïs montrent souvent leur dessous (la tranche se voit
+  quand la caméra monte). Pas de son propre (lancement, navette, essaim) ; pas de visite 3D d'un
+  kiwaï (la pose se fait sur la carte 2D de l'écran Orbite).
+
 - Chantier 52 : ⚠️ le bot prend les cavernes lentement (0 à 4 en onze jours d'étoiles, une
   partie aucune) et n'atteint le pédoncule que dans deux parties sur six en 32 jours (le
   Charançon tombe alors aux jours 27 et 30) : puissance des cavernes, prudence du bot, équipage

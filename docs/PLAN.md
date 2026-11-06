@@ -57,7 +57,7 @@ dans l'historique.
 | 50  | Tréfonds II : les loges                             | fait    |
 | 51  | L'Âge des étoiles                                   | fait    |
 | 52  | Tréfonds III : le cœur et le pédoncule              | fait    |
-| 53  | Les kiwaïs                                          | à faire |
+| 53  | Les kiwaïs                                          | fait    |
 | 54  | Trous de ver et le Verger I : la framboise          | fait    |
 | 55  | Le Verger II : la pomme et l'ananas                 | à faire |
 | 56  | Les ligues                                          | fait    |
@@ -126,10 +126,19 @@ don, le pillage (hostile, gagné ou perdu), le nectar rouge, le comptoir (petite
 étals, palissades ; kiwis là-bas) et ses attaques annoncées (un don les annule). Écran Verger,
 framboise dans le ciel, batailles jouées en 3D sur la drupéole. Sauvegarde v44. Skill
 `kiwar-orchard`.
-**Prochaine conversation** : le [chantier 53](chantiers/53-kiwais.md) se termine dans sa propre
-conversation ; ensuite le [chantier 55](chantiers/55-verger-pomme-ananas.md) (la pomme et
+**Chantier 53 fait** : les kiwaïs. À l'Âge des étoiles, le **chantier orbital** (Nid 10, un
+par colonie) lance 1 à 3 kiwaïs, petites planètes en orbite qui gardent leur propre petite
+carte (`sim/sites.ts`, hors de `state.buildings` : la surface ne change pas). Quatre types
+(moisson d'étoiles, serre, observatoire, quai), des modules (habitat, panneau, capteur, dôme,
+poste d'amarrage), une navette qui monte et redescend les kiwis (nourris par la colonie), des
+pannes publiques annoncées (entretien, réparation sur place) et les essaims des comètes
+(bouclier, évacuation). Écran Orbite, kiwaïs dans le ciel. Sauvegarde v43. Bot : premier
+kiwaï aux jours 23,8–27,5. Skill `kiwar-orbit`.
+**Prochaine conversation** : le [chantier 55](chantiers/55-verger-pomme-ananas.md) (la pomme et
 l'ananas).
-À tester avec le porteur : le Verger (commercer ou piller, la lisibilité de la réputation et
+À tester avec le porteur : les kiwaïs (le choix des kiwis de la navette, l'intérêt de chaque
+type — le quai vaut-il un kiwaï ?, le rythme des pannes, le prix du bouclier, leur allure dans
+le ciel), le Verger (commercer ou piller, la lisibilité de la réputation et
 sa dérive, le don qui annule une attaque, ce que rapporte un comptoir, la caméra sur une
 drupéole, la place de la framboise dans le ciel), les ligues (compétition saine ou pression, points, durée d'une
 saison, cosmétiques), l'Âge des étoiles (le jour ~20 est-il le bon moment, le look des
@@ -229,6 +238,9 @@ from, opts)` (`ShowSource` : une vague ou un débarquement ; notre camp, avance,
   sur le comptoir) ne se résout que là où la vérité est tenue. Un comptoir est une petite carte
   (`smallMap`), jamais dans `state.buildings` ; le job `post` se traite comme `outpost`. Skill
   `kiwar-orchard`.
+- **Petites cartes** (chantier 53) : un kiwaï (ou un comptoir du 54) garde ses propres choses
+  sur sa petite carte (`sim/sites.ts`), jamais dans `state.buildings` ; un métier absent mais
+  nourri (`orbit`, comme `outpost`) se traite partout où `outpost` l'est. Skill `kiwar-orbit`.
 - **Planètes** : elles ont une place fixe (`render/space.ts`) ; `renderer.setTwinApproach(t)`
   rapproche la jumelle (skill `kiwar-world`).
 

@@ -22,6 +22,13 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 > rapatriement y répondent. Les pillages et les attaques se regardent en direct sur la
 > drupéole.
 
+> **Chantier 53** — **les kiwaïs**. À l'Âge des étoiles, le **chantier orbital** lance de
+> petites planètes en orbite, lisses et vert-bronze. Chacune a un type — moisson d'étoiles
+> (de la poussière), serre (jus et fibre sans saison), observatoire (recherche, alertes plus
+> tôt) ou quai (voyages plus courts) —, quelques modules posés sur sa petite carte, et les
+> kiwis que la navette y monte. Les pannes s'annoncent (un entretien les repousse, un·e
+> mécanicien·ne là-haut répare) et les comètes envoient des essaims (bouclier ou évacuation).
+
 > **Chantier 52** — **les Tréfonds, troisième couche : le cœur et le pédoncule**. À l'Âge des
 > étoiles, sous les loges, s'ouvrent les **cavernes blanches** du cœur : riches en sève pure
 > (une galerie y donne deux fois plus de jus), mais à paroi fine — au-delà de son **plafond de
