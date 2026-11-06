@@ -11,6 +11,7 @@ import type { TechId } from '../data/research';
 import type { KiwaiType, ModuleType } from '../data/orbit';
 import type { PostModuleType } from '../data/orchard';
 import { accruePost, nextPostEvent, postNectarRate, postStoreCap, postTick } from './tradingPost';
+import { nextPostAttackEvent, planPostAttack, postAttackTick } from './postAttacks';
 import { RESOURCE_IDS, emptyResources, type ResourceId, type Resources } from '../data/resources';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
 import {
@@ -308,6 +309,18 @@ export type GameEvent =
   /** Chantier 54: our trading post stands on its drupelet, a module of it is assembled. */
   | { type: 'postReady'; at: TimeMs; drupelet: string }
   | { type: 'postModuleReady'; at: TimeMs; moduleType: PostModuleType }
+  /** Chantier 54: an attack on our post announced, called off by a gift, struck. */
+  | { type: 'postAttackAnnounced'; at: TimeMs; clan: string; strikeAt: TimeMs }
+  | { type: 'postAttackCalmed'; at: TimeMs; clan: string }
+  | {
+      type: 'postAttacked';
+      at: TimeMs;
+      clan: string;
+      held: boolean;
+      dead: number;
+      hurt: number;
+      taken: number;
+    }
   | { type: 'moduleReady'; at: TimeMs; kiwaiId: string; moduleType: ModuleType }
   /** Chantier 53: the shuttle docked at a kiwai (`up` kiwis arrived), then came back. */
   | { type: 'shuttleDocked'; at: TimeMs; kiwaiId: string; up: number }
@@ -399,8 +412,9 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const queenAt = nextQueenEvent(s);
     // Chantier 53: launches, the shuttle, breakdowns and repairs in orbit.
     const orbitAt = nextOrbitEvent(s);
-    // Chantier 54: our trading post on the raspberry.
-    const postAt = nextPostEvent(s);
+    // Chantier 54: our trading post on the raspberry, and its attacks.
+    planPostAttack(s);
+    const postAt = Math.min(nextPostEvent(s), nextPostAttackEvent(s));
     // Chantier 15: the automatic garrison posts its guards a little before a strike.
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
@@ -477,7 +491,10 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     }
     if (queenAt === nextEvent) queenTick(s, queenAt, events);
     if (orbitAt === nextEvent) orbitTick(s, orbitAt, events);
-    if (postAt === nextEvent) postTick(s, postAt, events);
+    if (postAt === nextEvent) {
+      postTick(s, postAt, events);
+      postAttackTick(s, postAt, events);
+    }
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: 'hungerChanged', at: s.now, stage: st });

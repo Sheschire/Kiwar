@@ -83,6 +83,7 @@ export * from './sim/orbit';
 export * from './sim/orchard';
 export * from './sim/voyages';
 export * from './sim/tradingPost';
+export * from './sim/postAttacks';
 export * from './battle/fruit';
 export * from './save/save';
 export * from './server/protocol';

@@ -22,6 +22,7 @@ import {
   type VoyagePlan,
 } from '../src';
 import { kiwi, siteFor, starsColony, T0, findTile } from './helpers';
+import { postAttackForecast, POST_ATTACK, STANDING as STAND } from '../src';
 
 const HOUR_MS = 3_600_000;
 
@@ -232,5 +233,78 @@ describe('voyages to the raspberry (chantier 54)', () => {
     );
     expect(apart.ok ? null : apart.error).toBe('stopsApart');
     expect(ORCHARD.crew.max).toBe(8);
+  });
+});
+
+/** A colony with its trading post standing on a drupelet, `guards` kiwis there. */
+function postColony(guards = 2) {
+  const { map, s, crew } = orchardColony('post-attacks');
+  const rasp = raspberryOfState(s);
+  const d = rasp.drupelets[10]!;
+  s.orchard.post = {
+    drupelet: d.id,
+    since: T0 - 10 * HOUR_MS,
+    readyAt: T0 - 8 * HOUR_MS,
+    modules: [],
+    store: 30 * NECTAR_SCALE,
+    attacks: 0,
+    attack: null,
+    reports: [],
+  };
+  for (const id of crew.slice(0, guards))
+    s.villagers.find((v) => v.id === id)!.job = { kind: 'post', returnTo: null };
+  return { map, s, crew, d, rasp };
+}
+
+describe('attacks on the trading post (chantier 54)', () => {
+  it('plans attacks on a public clock, and none comes without a hostile clan next door', () => {
+    const { s } = postColony();
+    const a = advance(s, T0 + 1).state;
+    const planned = a.orchard.post!.attack!;
+    expect(planned.at - planned.announceAt).toBe(POST_ATTACK.noticeMs);
+    expect(planned.at - T0).toBeGreaterThanOrEqual(POST_ATTACK.intervalMs[0]);
+    // The same for anyone who looks (no hidden draw).
+    const b = advance(publicState(s), T0 + 1).state;
+    expect(b.orchard.post!.attack).toEqual(planned);
+    const after = advance(a, planned.announceAt + 1).state;
+    expect(after.orchard.post!.attacks).toBe(1);
+    expect(after.orchard.post!.attack?.announced ?? false).toBe(false);
+  });
+
+  it('announces the most hostile clan next door, and a gift calls it off', () => {
+    const { s, d } = postColony();
+    s.orchard.standing[d.clan] = { value: -90, at: T0 };
+    const a = advance(s, T0 + 1).state;
+    const planned = a.orchard.post!.attack!;
+    const r = advance(a, planned.announceAt);
+    const att = r.state.orchard.post!.attack!;
+    expect(att.announced).toBe(true);
+    expect(att.clan).toBe(d.clan);
+    expect(r.events.some((e) => e.type === 'postAttackAnnounced')).toBe(true);
+    expect(postAttackForecast(r.state)?.clan).toBe(d.clan);
+    // A gift (standing back above hostile) before the strike: nothing comes.
+    const calm = cloneState(r.state);
+    calm.orchard.standing[d.clan] = { value: 0, at: calm.now };
+    const c = advance(calm, att.at);
+    expect(c.events.some((e) => e.type === 'postAttackCalmed')).toBe(true);
+    expect(c.state.orchard.post!.ruined).toBeUndefined();
+  });
+
+  it('strikes where the truth is held: a post left empty falls to a ruin, never lost', () => {
+    const { s, d } = postColony(0);
+    s.orchard.standing[d.clan] = { value: -100, at: T0 };
+    const a = advance(s, T0 + 1).state;
+    const at = a.orchard.post!.attack!.at;
+    // Online, the client waits for the server.
+    const waiting = advance(publicState(a), at + HOUR_MS).state;
+    expect(waiting.orchard.post!.attack?.at).toBe(at);
+    const r = advance(a, at);
+    const hit = r.events.find((e) => e.type === 'postAttacked');
+    expect(hit).toMatchObject({ held: false, dead: 0 });
+    const post = r.state.orchard.post!;
+    expect(post.ruined).toBe(true);
+    expect(post.reports[0]!.taken).toBe(30);
+    expect(post.store).toBe(0);
+    expect(STAND.hostile).toBeLessThan(0);
   });
 });

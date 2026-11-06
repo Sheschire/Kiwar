@@ -158,7 +158,12 @@ export function voyageLock(state: GameState, plan: VoyagePlan): CommandError | n
     if (plan.settle) {
       if (post && !post.ruined) return 'postThere';
       const d = ds[0]!;
-      if (attitudeOf(state, d.clan, now) !== 'friendly' && state.orchard.taken[d.id] === undefined)
+      const ruin = post?.ruined && post.drupelet === d.id;
+      if (
+        !ruin &&
+        attitudeOf(state, d.clan, now) !== 'friendly' &&
+        state.orchard.taken[d.id] === undefined
+      )
         return 'notFriendly';
       const cost = postCost(state);
       if (nectarOf(state) < cost.nectar) return 'notEnoughNectar';
@@ -500,10 +505,11 @@ export function resolveVoyage(
   const refund = { nectar: 0, crystal: 0, iron: 0 };
   if (v.settle) {
     const first = map.byId.get(v.stops[0]!)!;
+    const post = state.orchard.post;
     const can =
+      (post?.ruined && post.drupelet === first.id) ||
       attitudeOf(state, first.clan, at) === 'friendly' ||
       state.orchard.taken[first.id] !== undefined;
-    const post = state.orchard.post;
     if (can && (!post || post.ruined)) {
       foundPost(state, first.id, at);
       founded = true;

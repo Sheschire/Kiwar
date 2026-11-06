@@ -17,6 +17,7 @@ import {
 import type { TimeMs } from '../types/ids';
 import { beaconAwaited, beaconsDue } from './beacons';
 import { queenAwaited, queenDue } from './queen';
+import { postAttackAwaited, postAttacksDue } from './postAttacks';
 import { canAnnounceWave, civAt, civDay, newCiv, outerPower, scheduleGrowth } from './civ';
 import type {
   AlienGarrison,
@@ -159,7 +160,8 @@ export function awaitingServer(state: GameState, now: TimeMs): boolean {
     waveAwaited(state, now) ||
     beaconAwaited(state, now) ||
     queenAwaited(state, now) ||
-    upwellAwaited(state, now)
+    upwellAwaited(state, now) ||
+    postAttackAwaited(state, now)
   );
 }
 
@@ -182,6 +184,8 @@ export function hiddenDue(state: GameState, now: TimeMs): TimeMs[] {
   out.push(...queenDue(state, now));
   // Chantier 48: an upwelling's announcement (its power reads the depths).
   out.push(...upwellDue(state, now));
+  // Chantier 54: an attack on our trading post (it reads the drupelets' garrisons).
+  out.push(...postAttacksDue(state, now));
   return out;
 }
 

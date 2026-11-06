@@ -9852,6 +9852,76 @@ function fruitSetup(state, crew, input) {
   }
   return setup;
 }
+var POST_STORE = 0;
+var TURRETS3 = ["seedTurret", "skyTurret"];
+function postSetup(state, guards, input) {
+  const disk = hexDisk({ q: 0, r: 0 }, RADIUS);
+  const tiles = disk.map((h) => ({ q: h.q, r: h.r, cost: 1 }));
+  const centre = { q: 0, r: 0 };
+  const store = {
+    ref: "post:store",
+    type: "warehouse",
+    side: 0,
+    tiles: [centre],
+    hp: 60 + 30 * input.fort,
+    loot: [0, 0, 0, 0],
+    priority: 3
+  };
+  const units = [];
+  const ring = disk.filter((h) => hexDistance(h, centre) === 1);
+  if (input.fort > 0)
+    TURRETS3.forEach((type, i) => {
+      const at = ring[i * 3];
+      const b = {
+        id: `post:fort:${i}`,
+        type,
+        q: at.q,
+        r: at.r,
+        level: Math.min(15, 9 + 2 * input.fort),
+        richness: 1,
+        builtAt: 0
+      };
+      const u = turretUnit(b, state, 1, POST_STORE);
+      if (u) units.push(u);
+    });
+  const around = disk.filter((h) => hexDistance(h, centre) >= 1 && hexDistance(h, centre) <= 2).sort((a, b) => hexDistance(a, centre) - hexDistance(b, centre) || a.q - b.q || a.r - b.r);
+  guards.forEach((v, i) => {
+    units.push(kiwiUnit(v, state, "guard", around[Math.floor(i / 2) % around.length], null, 0));
+  });
+  const rim = disk.filter((h) => hexDistance(h, centre) === RADIUS && h.r >= 0).sort((a, b) => a.q - b.q || a.r - b.r);
+  let n = 0;
+  for (const { unit, count, k } of capped(input.attackers))
+    for (let i = 0; i < count; i++, n++) {
+      const base = alienUnit(unit, k, `a${n}`, rim[n % rim.length], n * BATTLE.enterGap);
+      units.push({
+        ...base,
+        side: 1,
+        role: "raider",
+        power: ENEMIES[unit.kind].power * k,
+        carry: 1,
+        hold: 0
+      });
+    }
+  const last = Math.max(0, n - 1) * BATTLE.enterGap;
+  for (const u of units) if (u.side === 1) u.hold = last + BATTLE.gather;
+  const exits = tiles.map((t, i) => ({ t, i })).filter(({ t }) => rim.some((e) => e.q === t.q && e.r === t.r)).map(({ i }) => i);
+  return {
+    tiles,
+    exits,
+    buildings: [store],
+    units,
+    orders: [
+      {
+        posture: input.orders.posture,
+        retreatBelow: guards.length > 0 ? 1 - input.orders.retreatAt + 1e-6 : 0
+      },
+      { posture: "bold", retreatBelow: BATTLE.retreatBelow }
+    ]
+  };
+}
+function postHeld(log2) {
+  return !log2.result.damaged.includes(POST_STORE);
+}
 
 // packages/shared/src/sim/orchard.ts
 var CLAN_NAMES = 16;
@@ -10378,7 +10448,8 @@ function voyageLock(state, plan) {
     if (plan.settle) {
       if (post && !post.ruined) return "postThere";
       const d = ds[0];
-      if (attitudeOf(state, d.clan, now) !== "friendly" && state.orchard.taken[d.id] === void 0)
+      const ruin = post?.ruined && post.drupelet === d.id;
+      if (!ruin && attitudeOf(state, d.clan, now) !== "friendly" && state.orchard.taken[d.id] === void 0)
         return "notFriendly";
       const cost = postCost(state);
       if (nectarOf(state) < cost.nectar) return "notEnoughNectar";
@@ -10621,8 +10692,8 @@ function resolveVoyage(state, e, members, fed) {
   const refund2 = { nectar: 0, crystal: 0, iron: 0 };
   if (v.settle) {
     const first = map.byId.get(v.stops[0]);
-    const can = attitudeOf(state, first.clan, at) === "friendly" || state.orchard.taken[first.id] !== void 0;
     const post2 = state.orchard.post;
+    const can = post2?.ruined && post2.drupelet === first.id || attitudeOf(state, first.clan, at) === "friendly" || state.orchard.taken[first.id] !== void 0;
     if (can && (!post2 || post2.ruined)) {
       foundPost(state, first.id, at);
       founded = true;
@@ -11039,7 +11110,7 @@ function raidDen(state, q, r, now, events) {
 
 // packages/shared/src/battle/beacon.ts
 var TOWER = 0;
-var TURRETS3 = ["seedTurret", "skyTurret"];
+var TURRETS4 = ["seedTurret", "skyTurret"];
 function beaconSetup(state, guards, input) {
   const { sector, origin } = input;
   const { own, field, tiles, buildings: walls, blocked } = parcelField(sector, input.buildings, 1);
@@ -11060,7 +11131,7 @@ function beaconSetup(state, guards, input) {
   const units = [];
   if (input.fort > 0) {
     const spots = hexNeighbors(spot).filter(free);
-    TURRETS3.forEach((type, i) => {
+    TURRETS4.forEach((type, i) => {
       const at = spots[i];
       if (!at) return;
       const b = {
@@ -14131,6 +14202,187 @@ function nextSpeechEnd(state) {
   return state.speech.until > state.now ? state.speech.until : Infinity;
 }
 
+// packages/shared/src/sim/postAttacks.ts
+function planPostAttack(s) {
+  const post = s.orchard.post;
+  if (!post || post.ruined || post.attack) return;
+  const rng = createRng(`${s.orchard.seed}/post/${post.drupelet}/attack/${post.attacks}`);
+  const gap = Math.round(rng.range(POST_ATTACK.intervalMs[0], POST_ATTACK.intervalMs[1]));
+  const at = Math.max(s.now, post.readyAt) + gap;
+  post.attack = {
+    id: `pa${post.attacks}`,
+    clan: null,
+    announceAt: at - POST_ATTACK.noticeMs,
+    at,
+    announced: false
+  };
+}
+function aroundPost(s, post) {
+  const map = raspberryOfState(s);
+  const d = map.byId.get(post.drupelet);
+  return [d, ...d.links.map((id3) => map.byId.get(id3))];
+}
+function hostileNeighbour(s, post, at) {
+  const clans = [...new Set(aroundPost(s, post).map((d) => d.clan))].filter(
+    (c) => attitudeOf(s, c, at) === "hostile"
+  );
+  clans.sort((a, b) => standingOf(s, a, at) - standingOf(s, b, at) || a.localeCompare(b));
+  return clans[0] ?? null;
+}
+function attackersFrom(s, post, clan) {
+  return aroundPost(s, post).filter((d) => d.clan === clan);
+}
+function nextPostAttackEvent(s) {
+  const a = s.orchard.post?.attack;
+  if (!a) return Infinity;
+  if (!a.announced) return a.announceAt > s.now ? a.announceAt : s.now < a.at ? s.now : Infinity;
+  return s.orchardSeed !== void 0 && a.at > s.now ? a.at : Infinity;
+}
+function postAttackAwaited(s, now) {
+  const a = s.orchard.post?.attack;
+  return !!a && a.announced && a.at <= now && s.orchardSeed === void 0;
+}
+function postAttacksDue(s, now) {
+  const a = s.orchard.post?.attack;
+  return a && a.announced && a.at <= now ? [a.at] : [];
+}
+function postAttackTick(s, at, events) {
+  const post = s.orchard.post;
+  const a = post?.attack;
+  if (!post || !a) return;
+  if (!a.announced && a.announceAt <= at) {
+    const clan = hostileNeighbour(s, post, a.announceAt);
+    if (!clan) {
+      post.attacks++;
+      post.attack = null;
+      return;
+    }
+    a.clan = clan;
+    a.announced = true;
+    events.push({ type: "postAttackAnnounced", at, clan, strikeAt: a.at });
+    return;
+  }
+  if (a.announced && a.at === at) {
+    post.attacks++;
+    post.attack = null;
+    if (attitudeOf(s, a.clan, at) !== "hostile") {
+      events.push({ type: "postAttackCalmed", at, clan: a.clan });
+      return;
+    }
+    strikePost(s, post, a, events);
+  }
+}
+function attackArmy2(s, post, clan, at) {
+  const seed = s.orchardSeed;
+  const all = attackersFrom(s, post, clan).flatMap((d) => drupeletNow(s, seed, d, at).units);
+  return mergeUnits2(shareOf(all, POST_ATTACK.share));
+}
+function mergeUnits2(units) {
+  const out = /* @__PURE__ */ new Map();
+  for (const u of units) {
+    const key = `${u.kind}/${u.level}`;
+    const old = out.get(key);
+    if (old) old.count += u.count;
+    else out.set(key, { ...u });
+  }
+  return [...out.values()];
+}
+function strikePost(s, post, a, events) {
+  const at = a.at;
+  const clan = a.clan;
+  const army = attackArmy2(s, post, clan, at);
+  const guards = postKiwis(s);
+  const setup = postSetup(s, guards, {
+    attackers: army,
+    orders: POST_ORDERS,
+    fort: postFort(post, at)
+  });
+  const log2 = simulateBattle(setup, `${s.orchardSeed}/post/${a.id}`);
+  const held = postHeld(log2);
+  const ids = new Set(guards.map((v) => v.id));
+  const fallen = log2.result.fallen.filter((r) => ids.has(r));
+  const dead = held ? [] : fallen;
+  const hurt = held ? fallen : [];
+  const names = dead.map((id3) => guards.find((v) => v.id === id3)?.name ?? id3);
+  removeVillagers(s, dead, "battle", at, true);
+  for (const v of s.villagers)
+    if (hurt.includes(v.id))
+      v.job = {
+        kind: "injured",
+        until: at + Math.round(POST_ATTACK.woundMs * woundFactor(s))
+      };
+  let taken = 0;
+  if (!held) {
+    taken = Math.floor(postStore(post) * POST_ATTACK.loot);
+    post.store = Math.max(0, post.store - taken * NECTAR_SCALE);
+    post.ruined = true;
+    for (const v of s.villagers) if (v.job.kind === "post") v.job = { kind: "idle" };
+  }
+  recordBestiary(s, army, at);
+  const report = {
+    id: a.id,
+    at,
+    clan,
+    held,
+    power: Math.round(army.reduce((x, u) => x + u.count, 0)),
+    dead: names,
+    hurt,
+    taken,
+    log: log2
+  };
+  post.reports = [...post.reports, report].slice(-5);
+  events.push({
+    type: "postAttacked",
+    at,
+    clan,
+    held,
+    dead: names.length,
+    hurt: hurt.length,
+    taken
+  });
+}
+var POST_ORDERS = { ...LANDING.defaultOrders };
+var trialCache7 = /* @__PURE__ */ new Map();
+function postAttackForecast(s) {
+  const post = s.orchard.post;
+  const a = post?.attack;
+  if (!post || !a?.announced || !a.clan) return null;
+  const from = attackersFrom(s, post, a.clan);
+  const spread = RASPBERRY.powerSpread;
+  const armyAt = (k) => mergeUnits2(
+    shareOf(
+      from.flatMap((d) => {
+        const seen = s.orchard.views[d.id];
+        if (seen) return seen.units.map((u) => ({ ...u, count: Math.round(u.count * k) }));
+        return beetles(
+          RASPBERRY.rings.power[d.ring] * k * regrowth(s, d.id, a.at),
+          RASPBERRY.rings.level[d.ring]
+        );
+      }),
+      POST_ATTACK.share
+    )
+  );
+  const armies = [armyAt(1 - spread), armyAt(1), armyAt((1 + spread) * RASPBERRY.nestPower)];
+  const guards = postKiwis(s);
+  const trials = armies.map((units, i) => {
+    const seed = `orchard/post/trial/${a.id}/${i}`;
+    const setup = postSetup(s, guards, {
+      attackers: units,
+      orders: POST_ORDERS,
+      fort: postFort(post, a.at)
+    });
+    const key = JSON.stringify([setup.units, seed]);
+    const hit = trialCache7.get(key);
+    if (hit !== void 0) return hit;
+    const held = postHeld(simulateBattle(setup, seed));
+    if (trialCache7.size > 32) trialCache7.delete(trialCache7.keys().next().value);
+    trialCache7.set(key, held);
+    return held;
+  });
+  const odds = trials[2] ? "likely" : trials[0] || trials[1] ? "uncertain" : "unlikely";
+  return { clan: a.clan, units: armies[1], odds, trials };
+}
+
 // packages/shared/src/sim/titan.ts
 function terraformLeft(state) {
   const caps = TITAN.maxTerraform;
@@ -14624,7 +14876,8 @@ function advanceInPlace(s, now, events) {
     const upwellAt = Math.min(nextUpwellEvent(s), nextDoorEvent(s));
     const queenAt = nextQueenEvent(s);
     const orbitAt = nextOrbitEvent(s);
-    const postAt = nextPostEvent(s);
+    planPostAttack(s);
+    const postAt = Math.min(nextPostEvent(s), nextPostAttackEvent(s));
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
       orbitAt,
@@ -14698,7 +14951,10 @@ function advanceInPlace(s, now, events) {
     }
     if (queenAt === nextEvent) queenTick(s, queenAt, events);
     if (orbitAt === nextEvent) orbitTick(s, orbitAt, events);
-    if (postAt === nextEvent) postTick(s, postAt, events);
+    if (postAt === nextEvent) {
+      postTick(s, postAt, events);
+      postAttackTick(s, postAt, events);
+    }
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: "hungerChanged", at: s.now, stage: st });
@@ -16501,7 +16757,7 @@ function canResolveArrival(state, e) {
   e.mission === "guard" || !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
 }
 function awaitingServer(state, now) {
-  return awaitingReport(state, now).length > 0 || waveAwaited(state, now) || beaconAwaited(state, now) || queenAwaited(state, now) || upwellAwaited(state, now);
+  return awaitingReport(state, now).length > 0 || waveAwaited(state, now) || beaconAwaited(state, now) || queenAwaited(state, now) || upwellAwaited(state, now) || postAttackAwaited(state, now);
 }
 function waveAwaited(state, now) {
   const w = state.threats.next;
@@ -16514,6 +16770,7 @@ function hiddenDue(state, now) {
   out.push(...beaconsDue(state, now));
   out.push(...queenDue(state, now));
   out.push(...upwellDue(state, now));
+  out.push(...postAttacksDue(state, now));
   return out;
 }
 function awaitingReport(state, now) {
@@ -25986,6 +26243,8 @@ export {
   POSTURES,
   POST_ATTACK,
   POST_MODULE_TYPES,
+  POST_ORDERS,
+  POST_STORE,
   PRACTICE_SCALE,
   PRODUCERS,
   QUEEN_REF,
@@ -26432,6 +26691,7 @@ export {
   hiddenDue,
   holdVigils,
   homeKiwis,
+  hostileNeighbour,
   housed,
   housing,
   hungerCap,
@@ -26618,6 +26878,7 @@ export {
   nextKiwiEvent,
   nextMemoryEnd,
   nextOrbitEvent,
+  nextPostAttackEvent,
   nextPostEvent,
   nextQueenEvent,
   nextResearchEvent,
@@ -26683,6 +26944,7 @@ export {
   planCiv,
   planComet,
   planMeteor,
+  planPostAttack,
   planUpwell,
   planWave,
   planWear,
@@ -26692,14 +26954,20 @@ export {
   podiumOf,
   poolCapacity,
   population,
+  postAttackAwaited,
+  postAttackForecast,
+  postAttackTick,
+  postAttacksDue,
   postCost,
   postFort,
+  postHeld,
   postHousing,
   postKind,
   postKiwis,
   postMapOf,
   postModuleLock,
   postNectarRate,
+  postSetup,
   postStore,
   postStoreCap,
   postTick,
