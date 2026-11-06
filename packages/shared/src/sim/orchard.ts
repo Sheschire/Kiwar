@@ -43,7 +43,7 @@ export interface Clan {
   /** Index of its name (`orchard.clans.<n>` in the client) and of its colour. */
   name: number;
   drupelets: string[];
-  /** What it asks for in trade, and the nectar it pays for 100 units (before our own sales). */
+  /** What it asks for in trade, and the nectar it pays for 1000 units (before our own sales). */
   wants: ResourceId;
   rate: number;
 }
@@ -321,7 +321,7 @@ export function soldTo(state: Pick<GameState, 'orchard'>, clan: string, at: Time
   return Math.max(0, s.value * (1 - Math.max(0, at - s.at) / TRADE.fadeMs));
 }
 
-/** Nectar this clan pays us for 100 units of what it asks for, now. */
+/** Nectar this clan pays us for 1000 units of what it asks for, now. */
 export function tradeRate(state: Pick<GameState, 'orchard'>, clan: string, at: TimeMs): number {
   const c = raspberryOfState(state).clanById.get(clan);
   if (!c) return 0;
@@ -332,7 +332,7 @@ export function tradeRate(state: Pick<GameState, 'orchard'>, clan: string, at: T
 export function sellTo(s: GameState, clan: string, amount: number, at: TimeMs): number {
   const rate = tradeRate(s, clan, at);
   s.orchard.sold[clan] = { value: soldTo(s, clan, at) + amount, at };
-  return Math.floor((amount * rate) / 100);
+  return Math.floor((amount * rate) / 1000);
 }
 
 // --- Nectar (a stock of its own) ---------------------------------------------------------------
@@ -407,19 +407,16 @@ export function orchardKnown(state: GameState): boolean {
  */
 export function rebaseOrchard(s: GameState, seed: string): boolean {
   if (s.orchard.seed === seed) return false;
-  resetOrchard(s);
-  s.orchard = newOrchard(seed);
+  forgetOrchard(s, seed);
   return true;
 }
 
 /**
- * Forgets what we knew of the drupelets (an imported save: its hidden seed is drawn again).
- * Voyages in flight are dropped (their crew is home at once), the post's kiwis come home; the
- * standing, the post and its store are kept (nothing hidden in them).
+ * Forgets the orchard (an imported save cannot be checked, a new layout): voyages in flight are
+ * dropped (their crew is home at once), the post's kiwis come home, nothing is known any more.
+ * The nectar stock stays (bounded by its cap).
  */
-export function resetOrchard(s: GameState): void {
-  s.orchard = { ...s.orchard, views: {}, taken: {} };
-  if (s.orchard.post) s.orchard.post = { ...s.orchard.post, attack: null };
+export function forgetOrchard(s: GameState, seed = s.orchard.seed): void {
   const flying = new Set(
     s.expeditions
       .filter((e) => (e.mission === 'visit' || e.mission === 'pillage') && e.status !== 'done')
@@ -427,7 +424,9 @@ export function resetOrchard(s: GameState): void {
   );
   s.expeditions = s.expeditions.filter((e) => !flying.has(e.id));
   for (const v of s.villagers)
-    if (v.job.kind === 'expedition' && flying.has(v.job.expeditionId)) v.job = { kind: 'idle' };
+    if (v.job.kind === 'post' || (v.job.kind === 'expedition' && flying.has(v.job.expeditionId)))
+      v.job = { kind: 'idle' };
+  s.orchard = newOrchard(seed);
 }
 
 function shuffled<T>(list: T[], rng: { int(min: number, max: number): number }): T[] {

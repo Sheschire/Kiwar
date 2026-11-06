@@ -676,6 +676,7 @@ export function planWave(s: GameState): void {
         v.classId === 'oracle' &&
         v.job.kind !== 'expedition' &&
         v.job.kind !== 'outpost' &&
+        v.job.kind !== 'post' &&
         v.job.kind !== 'orbit',
     )
       ? SKILLS.oracleNotice

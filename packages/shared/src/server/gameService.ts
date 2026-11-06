@@ -68,7 +68,7 @@ import { ensureAliens, hiddenDue, publicState } from '../sim/aliens';
 import { resetSiege } from '../sim/siege';
 import { resetLandings } from '../sim/landing';
 import { ensureDepths, resetDepths } from '../sim/depths';
-import { ensureOrchard, rebaseOrchard, resetOrchard, universeOrchardSeed } from '../sim/orchard';
+import { ensureOrchard, forgetOrchard, rebaseOrchard, universeOrchardSeed } from '../sim/orchard';
 import { generateFace, type FaceMap } from '../worldgen/generateFace';
 import type { Face, KiwiId, PlayerId, UniverseId } from '../types/ids';
 import { requestSchema, type ColonySummary, type GameResponse, type ServerError } from './protocol';
@@ -1265,7 +1265,7 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
       ensureDepths(imported, ctx.randomSeed());
       // Chantier 54: nor what its drupelets hold.
       delete imported.orchardSeed;
-      resetOrchard(imported);
+      forgetOrchard(imported);
       ensureOrchard(imported, `${ctx.randomSeed()}/orchard`);
       const state = advance(imported, now).state;
       const saved = existing

@@ -139,6 +139,8 @@ export function alienEnemies(
 export function canResolveArrival(state: GameState, e: Expedition): boolean {
   // Chantier 48: a delve needs the depths' seed (the server online, the client solo).
   if (e.mission === 'delve') return state.depthSeed !== undefined;
+  // Chantier 54: a voyage to the raspberry needs the orchard's seed.
+  if (e.mission === 'visit' || e.mission === 'pillage') return state.orchardSeed !== undefined;
   return (
     !!e.broken ||
     // Chantier 19: a settlers' ship meets no alien on a conquered face.

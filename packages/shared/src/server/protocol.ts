@@ -1,3 +1,4 @@
+import { ORCHARD, POST, POST_MODULE_TYPES } from '../data/orchard';
 import { INTEL } from '../data/expeditions';
 import { STARDUST } from '../data/comets';
 import { TITAN_WORK_IDS } from '../data/titan';
@@ -108,6 +109,42 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     r: z.number().int().min(-ORBIT.radius).max(ORBIT.radius),
   }),
   z.object({ type: z.literal('removeModule'), kiwaiId: id, moduleId: id }),
+  z.object({
+    type: z.literal('voyage'),
+    launchpadId: id,
+    mission: z.enum(['visit', 'pillage']),
+    stops: z.array(z.string().min(1).max(8)).min(1).max(ORCHARD.maxStops),
+    crew: z.array(id).max(ORCHARD.crew.max),
+    provisions: z.object({ pulp: z.number().min(0).max(1e7), juice: z.number().min(0).max(1e7) }),
+    goods: z
+      .object({
+        pulp: z.number().min(0).max(1e8).optional(),
+        fiber: z.number().min(0).max(1e8).optional(),
+        seeds: z.number().min(0).max(1e8).optional(),
+        juice: z.number().min(0).max(1e8).optional(),
+      })
+      .optional(),
+    gift: z.boolean().optional(),
+    settle: z.boolean().optional(),
+    stay: z.array(id).max(ORCHARD.crew.max).optional(),
+    bringBack: z.array(id).max(16).optional(),
+    orders: z
+      .object({
+        posture: z.enum(POSTURES),
+        priority: z.enum(['nearest', 'air', 'casters', 'weakest']),
+        retreatAt: z.number().min(0).max(1),
+        goal: z.enum(['burn', 'loot']),
+      })
+      .optional(),
+    fuel: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal('buildPostModule'),
+    moduleType: z.enum(POST_MODULE_TYPES),
+    q: z.number().int().min(-POST.radius).max(POST.radius),
+    r: z.number().int().min(-POST.radius).max(POST.radius),
+  }),
+  z.object({ type: z.literal('removePostModule'), moduleId: id }),
   z.object({ type: z.literal('serviceKiwai'), kiwaiId: id }),
   z.object({ type: z.literal('raiseShield'), kiwaiId: id }),
   z.object({

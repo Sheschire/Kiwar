@@ -1,0 +1,236 @@
+import { describe, expect, it } from 'vitest';
+import {
+  advance,
+  applyCommand,
+  attitudeOf,
+  cloneState,
+  drupeletTruth,
+  LANDING,
+  NECTAR_SCALE,
+  nectarOf,
+  ORCHARD,
+  POST,
+  postKiwis,
+  publicState,
+  raspberryOfState,
+  standingOf,
+  STANDING,
+  voyageForecast,
+  type BuildingId,
+  type GameState,
+  type VillagerId,
+  type VoyagePlan,
+} from '../src';
+import { kiwi, siteFor, starsColony, T0, findTile } from './helpers';
+
+const HOUR_MS = 3_600_000;
+
+/** A colony at the stars with the wormholes and a launchpad of level 14, eight seasoned kiwis. */
+function orchardColony(seed = 'orchard') {
+  const { map, s } = starsColony(seed);
+  s.buildings[0]!.level = 14;
+  s.research.done = [...s.research.done, 'starSails', 'wormholes'];
+  const at = siteFor(s, map, 'launchpad', findTile(map, 'flesh', 10));
+  s.buildings.push({
+    id: 'bpad' as BuildingId,
+    type: 'launchpad',
+    q: at.q,
+    r: at.r,
+    rot: at.rot,
+    level: 14,
+    richness: 1,
+    builtAt: T0,
+  });
+  const crew: VillagerId[] = [];
+  for (let i = 0; i < 8; i++) {
+    const v = kiwi(`ok${i}`);
+    v.level = 25;
+    for (const k of Object.keys(v.stats) as (keyof typeof v.stats)[]) v.stats[k] = 12;
+    v.classId = i % 2 ? 'champion' : 'archmage';
+    s.villagers.push(v);
+    crew.push(v.id);
+  }
+  s.automation.meteor = false;
+  s.automation.stardust = false;
+  return { map, s, crew };
+}
+
+const provisions = { pulp: 400, juice: 400 };
+
+function plan(s: GameState, crew: VillagerId[], over: Partial<VoyagePlan> = {}): VoyagePlan {
+  const map = raspberryOfState(s);
+  return {
+    launchpadId: 'bpad' as BuildingId,
+    mission: 'visit',
+    stops: [map.drupelets[0]!.id],
+    crew: crew.slice(0, 2),
+    provisions,
+    ...over,
+  };
+}
+
+describe('voyages to the raspberry (chantier 54)', () => {
+  it('needs the wormholes and a launchpad of level 14', () => {
+    const { map, s, crew } = orchardColony();
+    const closed = cloneState(s);
+    closed.research.done = closed.research.done.filter((t) => t !== 'wormholes');
+    const r1 = applyCommand(closed, { type: 'voyage', ...plan(closed, crew) }, { now: T0, map });
+    expect(r1.ok ? null : r1.error).toBe('wormholeClosed');
+    const low = cloneState(s);
+    low.buildings.find((b) => b.id === 'bpad')!.level = 13;
+    const r2 = applyCommand(low, { type: 'voyage', ...plan(low, crew) }, { now: T0, map });
+    expect(r2.ok ? null : r2.error).toBe('launchpadTooLow');
+    // A sister colony never reaches the orchard.
+    const sister = cloneState(s);
+    sister.colony = { ...sister.colony, index: 1 };
+    const r3 = applyCommand(sister, { type: 'voyage', ...plan(sister, crew) }, { now: T0, map });
+    expect(r3.ok ? null : r3.error).toBe('wormholeClosed');
+  });
+
+  it('trades with a clan at its public rate, and the clan likes us better', () => {
+    const { map, s, crew } = orchardColony();
+    const rasp = raspberryOfState(s);
+    const d = rasp.drupelets[0]!;
+    const clan = rasp.clanById.get(d.clan)!;
+    const goods = { [clan.wants]: 10000 };
+    const p = plan(s, crew, { goods });
+    const f = voyageForecast(s, p)!;
+    expect(f.stops[0]).toMatchObject({ clan: clan.id, amount: 10000 });
+    const r = applyCommand(s, { type: 'voyage', ...p }, { now: T0, map });
+    if (!r.ok) throw new Error(r.error);
+    const e = r.state.expeditions.find((x) => x.mission === 'visit')!;
+    expect(e.returnAt - e.arriveAt).toBe(f.travelMs);
+    const there = advance(r.state, e.arriveAt).state;
+    const done = there.expeditions.find((x) => x.id === e.id)!;
+    expect(done.status).toBe('returning');
+    expect(done.result!.stops![0]!.nectar).toBe(f.stops[0]!.nectar);
+    expect(standingOf(there, clan.id, e.arriveAt)).toBe(STANDING.trade);
+    // The beetles were met: a dated view of the drupelet.
+    expect(there.orchard.views[d.id]?.source).toBe('visit');
+    expect(there.orchard.views[d.id]?.units).toEqual(drupeletTruth(s.orchardSeed!, d).units);
+    const home = advance(there, e.returnAt).state;
+    expect(nectarOf(home)).toBe(f.stops[0]!.nectar);
+  });
+
+  it('waits for the server online (the orchard is hidden), and never leaks its truth', () => {
+    const { map, s, crew } = orchardColony();
+    const r = applyCommand(s, { type: 'voyage', ...plan(s, crew) }, { now: T0, map });
+    if (!r.ok) throw new Error(r.error);
+    const seen = publicState(r.state);
+    expect(seen.orchardSeed).toBeUndefined();
+    const e = seen.expeditions.find((x) => x.mission === 'visit')!;
+    const later = advance(seen, e.arriveAt + HOUR_MS).state;
+    expect(later.expeditions.find((x) => x.id === e.id)!.status).toBe('outbound');
+    expect(JSON.stringify(later)).not.toContain('/drupelet/');
+  });
+
+  it('pillages a drupelet: nectar if won, the clan and its neighbours hostile whatever', () => {
+    const { map, s, crew } = orchardColony();
+    const rasp = raspberryOfState(s);
+    // A weak drupelet at the tip.
+    const d = rasp.drupelets[0]!;
+    const p = plan(s, crew, {
+      mission: 'pillage',
+      crew,
+      orders: { ...LANDING.defaultOrders, retreatAt: 0.3 },
+    });
+    const f = voyageForecast(s, p)!;
+    expect(f.pillage?.knowledge).toBe('unknown');
+    const r = applyCommand(s, { type: 'voyage', ...p }, { now: T0, map });
+    if (!r.ok) throw new Error(r.error);
+    const e = r.state.expeditions.find((x) => x.mission === 'pillage')!;
+    const there = advance(r.state, e.arriveAt).state;
+    const res = there.expeditions.find((x) => x.id === e.id)!.result!;
+    expect(res.log).toBeDefined();
+    expect(attitudeOf(there, d.clan, e.arriveAt)).toBe('hostile');
+    if (res.outcome === 'victory') {
+      expect(res.nectar).toBe(drupeletTruth(s.orchardSeed!, d).nectar);
+      expect(there.orchard.taken[d.id]).toBe(e.arriveAt);
+      // A hostile clan does not trade any more.
+      const back = advance(there, e.returnAt + 1).state;
+      const again = applyCommand(
+        back,
+        {
+          type: 'voyage',
+          ...plan(back, crew, {
+            stops: [d.links.find((l) => rasp.byId.get(l)!.clan === d.clan) ?? d.id],
+          }),
+        },
+        { now: back.now, map },
+      );
+      expect(again.ok ? null : again.error).toBe('clanHostile');
+    }
+  });
+
+  it('founds a trading post with a friendly clan, leaves kiwis there who gather nectar', () => {
+    const { map, s, crew } = orchardColony();
+    const rasp = raspberryOfState(s);
+    const d = rasp.drupelets[3]!;
+    // Not friendly yet: refused.
+    s.nectar = 100 * NECTAR_SCALE;
+    const p = plan(s, crew, {
+      stops: [d.id],
+      settle: true,
+      crew: crew.slice(0, 3),
+      stay: crew.slice(0, 2),
+    });
+    const r0 = applyCommand(s, { type: 'voyage', ...p }, { now: T0, map });
+    expect(r0.ok ? null : r0.error).toBe('notFriendly');
+    s.orchard.standing[d.clan] = { value: 50, at: T0 };
+    const r = applyCommand(s, { type: 'voyage', ...p }, { now: T0, map });
+    if (!r.ok) throw new Error(r.error);
+    expect(nectarOf(r.state)).toBe(100 - POST.cost.nectar);
+    const e = r.state.expeditions.find((x) => x.mission === 'visit')!;
+    const there = advance(r.state, e.arriveAt).state;
+    expect(there.expeditions.find((x) => x.id === e.id)!.result!.postFounded).toBe(true);
+    expect(there.orchard.post?.drupelet).toBe(d.id);
+    expect(
+      postKiwis(there)
+        .map((v) => v.id)
+        .sort(),
+    ).toEqual(crew.slice(0, 2).sort());
+    // A stall: the two kiwis gather into the store, exactly, whatever the steps.
+    const ready = advance(there, there.orchard.post!.readyAt).state;
+    const b = applyCommand(
+      ready,
+      { type: 'buildPostModule', moduleType: 'stall', q: 1, r: 0 },
+      { now: ready.now, map },
+    );
+    if (!b.ok) throw new Error(b.error);
+    const t1 = b.state.orchard.post!.modules[0]!.readyAt + 10 * HOUR_MS;
+    const one = advance(b.state, t1).state;
+    let steps = b.state;
+    for (let t = b.state.now; t < t1; t += 37 * 60_000)
+      steps = advance(steps, Math.min(t1, t)).state;
+    steps = advance(steps, t1).state;
+    expect(one.orchard.post!.store).toBe(steps.orchard.post!.store);
+    expect(Math.floor(one.orchard.post!.store / NECTAR_SCALE)).toBe(
+      Math.floor(POST.perHour * 2 * 10),
+    );
+    // They stay away from the village (fed by the colony).
+    expect(one.villagers.filter((v) => v.job.kind === 'post')).toHaveLength(2);
+  });
+
+  it('keeps a voyage within the hold and the crew size', () => {
+    const { map, s, crew } = orchardColony();
+    const heavy = applyCommand(
+      s,
+      { type: 'voyage', ...plan(s, crew, { goods: { pulp: 1e6 } }) },
+      { now: T0, map },
+    );
+    expect(heavy.ok ? null : heavy.error).toBe('overloaded');
+    const far = raspberryOfState(s).drupelets.find(
+      (x) => !raspberryOfState(s).drupelets[0]!.links.includes(x.id) && x.index > 5,
+    )!;
+    const apart = applyCommand(
+      s,
+      {
+        type: 'voyage',
+        ...plan(s, crew, { stops: [raspberryOfState(s).drupelets[0]!.id, far.id] }),
+      },
+      { now: T0, map },
+    );
+    expect(apart.ok ? null : apart.error).toBe('stopsApart');
+    expect(ORCHARD.crew.max).toBe(8);
+  });
+});

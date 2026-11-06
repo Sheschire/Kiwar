@@ -9,6 +9,8 @@ import { accrueStardust, cometTick, nextCometEvent, planComet } from './comets';
 import { footprintOf, isManualWorkplace, isProducer, type BuildingType } from '../data/buildings';
 import type { TechId } from '../data/research';
 import type { KiwaiType, ModuleType } from '../data/orbit';
+import type { PostModuleType } from '../data/orchard';
+import { accruePost, nextPostEvent, postNectarRate, postStoreCap, postTick } from './tradingPost';
 import { RESOURCE_IDS, emptyResources, type ResourceId, type Resources } from '../data/resources';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
 import {
@@ -303,6 +305,9 @@ export type GameEvent =
   | { type: 'motherVineFound'; at: TimeMs; expeditionId: string }
   /** Chantier 53: a kiwai reached its orbit. */
   | { type: 'kiwaiReady'; at: TimeMs; kiwaiId: string; kiwaiType: KiwaiType }
+  /** Chantier 54: our trading post stands on its drupelet, a module of it is assembled. */
+  | { type: 'postReady'; at: TimeMs; drupelet: string }
+  | { type: 'postModuleReady'; at: TimeMs; moduleType: PostModuleType }
   | { type: 'moduleReady'; at: TimeMs; kiwaiId: string; moduleType: ModuleType }
   /** Chantier 53: the shuttle docked at a kiwai (`up` kiwis arrived), then came back. */
   | { type: 'shuttleDocked'; at: TimeMs; kiwaiId: string; up: number }
@@ -394,10 +399,13 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const queenAt = nextQueenEvent(s);
     // Chantier 53: launches, the shuttle, breakdowns and repairs in orbit.
     const orbitAt = nextOrbitEvent(s);
+    // Chantier 54: our trading post on the raspberry.
+    const postAt = nextPostEvent(s);
     // Chantier 15: the automatic garrison posts its guards a little before a strike.
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
       orbitAt,
+      postAt,
       garrisonAt,
       upwellAt,
       civAt,
@@ -469,6 +477,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     }
     if (queenAt === nextEvent) queenTick(s, queenAt, events);
     if (orbitAt === nextEvent) orbitTick(s, orbitAt, events);
+    if (postAt === nextEvent) postTick(s, postAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: 'hungerChanged', at: s.now, stage: st });
@@ -569,6 +578,8 @@ interface Flows {
   hunger: number;
   /** Chantier 53: stardust caught by the star harvests (raw units per ms, integers). */
   orbitDust: { kiwai: Kiwai; rate: number }[];
+  /** Chantier 54: nectar gathered into the trading post's store (raw units per ms). */
+  postNectar: number;
   /** Next time a rate changes on its own (a deposit runs dry, a storage fills or empties). */
   nextChange: TimeMs;
   /** Next hunger stage change or death. */
@@ -692,9 +703,17 @@ function computeFlows(s: GameState): Flows {
     orbitDust.push({ kiwai, rate });
     next = Math.min(next, s.now + Math.max(1, Math.ceil((dustTank() - kiwai.dust) / rate)));
   }
+  // Chantier 54: the trading post's store fills (an event when it is full).
+  const postNectar = postNectarRate(s);
+  if (postNectar > 0)
+    next = Math.min(
+      next,
+      s.now + Math.max(1, Math.ceil((postStoreCap() - s.orchard.post!.store) / postNectar)),
+    );
   const hunger = hungerRate(s, deficit);
   return {
     orbitDust,
+    postNectar,
     rates,
     pools,
     meteors,
@@ -760,6 +779,7 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
   accrueResearch(s, dtMs);
   accrueStardust(s, dtMs);
   accrueOrbit(s, flows.orbitDust, dtMs);
+  accruePost(s, flows.postNectar, dtMs);
   accrueIron(s, flows.iron, dtMs, at, events);
   accrueForge(s, flows.forge, dtMs);
   accrueCrystal(s, flows.crystal, dtMs, at, events);

@@ -37,7 +37,13 @@ export function workSite(state: GameState, v: Villager): Hex | null {
   if (job.kind === 'mine') return state.buildings.find((b) => b.type === 'tunnel') ?? null;
   if (job.kind === 'build') return state.queue.find((i) => i.id === job.queueItemId) ?? null;
   // Chantier 53: kiwis in orbit sleep in their habitat.
-  if (job.kind === 'expedition' || job.kind === 'outpost' || job.kind === 'orbit') return null;
+  if (
+    job.kind === 'expedition' ||
+    job.kind === 'outpost' ||
+    job.kind === 'post' ||
+    job.kind === 'orbit'
+  )
+    return null;
   return state.buildings.find((b) => b.type === 'nest') ?? null;
 }
 
@@ -103,7 +109,11 @@ export function bedsOf(state: GameState, map: FaceMap = faceMapOf(state)): Map<V
 
   const houses = homes(state);
   const kiwis = state.villagers.filter(
-    (v) => v.job.kind !== 'expedition' && v.job.kind !== 'outpost' && v.job.kind !== 'orbit',
+    (v) =>
+      v.job.kind !== 'expedition' &&
+      v.job.kind !== 'outpost' &&
+      v.job.kind !== 'post' &&
+      v.job.kind !== 'orbit',
   );
   const workers = [
     ...kiwis.filter((v) => v.job.kind !== 'idle'),
@@ -342,7 +352,13 @@ export function moraleOf(state: GameState, beds = bedsOf(state)): Morale {
   let temper = 0;
   let memories = 0;
   for (const v of state.villagers) {
-    if (v.job.kind === 'expedition' || v.job.kind === 'outpost' || v.job.kind === 'orbit') continue;
+    if (
+      v.job.kind === 'expedition' ||
+      v.job.kind === 'outpost' ||
+      v.job.kind === 'post' ||
+      v.job.kind === 'orbit'
+    )
+      continue;
     const m = kiwiMorale(state, v, beds, colony);
     n++;
     total += m.total;
@@ -401,6 +417,7 @@ export function canSup(v: Villager): boolean {
   return (
     k !== 'expedition' &&
     k !== 'outpost' &&
+    k !== 'post' &&
     k !== 'orbit' &&
     k !== 'guard' &&
     k !== 'transform' &&

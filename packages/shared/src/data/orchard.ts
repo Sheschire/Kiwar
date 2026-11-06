@@ -16,8 +16,11 @@ export const ORCHARD_TARGET = 'orchard:raspberry';
 export const ORCHARD = {
   /** The launchpad level a ship needs to go through the wormhole (with the technology). */
   padLevel: 14,
-  /** One way through the wormhole, before the ship, fuel, technologies and the dock. */
-  travelMs: 3 * 3_600_000,
+  /**
+   * One way through the wormhole, before the launchpad's speed (× 0.47 at level 14), fuel,
+   * technologies and the dock: about 2.5 h with the star sails.
+   */
+  travelMs: 6 * 3_600_000,
   /** A hop from one drupelet to the next (low gravity: short). */
   hopMs: 10 * 60_000,
   /** Drupelets one visit can call at (the crew carries two at a time). */
@@ -78,10 +81,10 @@ export const STANDING = {
 } as const;
 
 export const TRADE = {
-  /** Nectar a clan pays for 100 units of what it asks for (a public draw per clan). */
+  /** Nectar a clan pays for 1000 units of what it asks for (a public draw per clan). */
   rate: [4, 7] as const,
   /** Our own sales lower our rate: × 1 / (1 + sold / `soften`), sold fading over `fadeMs`. */
-  soften: 2000,
+  soften: 20000,
   fadeMs: 72 * 3_600_000,
   /** A gift: the share of the cargo given for nothing (it buys standing, not nectar). */
   giftShare: 1,
@@ -128,7 +131,7 @@ export const POST = {
     hut: { nectar: 10, iron: 5, durationMs: 3_600_000, housing: 2 },
     stall: { nectar: 15, iron: 5, durationMs: 3_600_000, workSlots: 2 },
     palisade: { nectar: 20, iron: 10, durationMs: 2 * 3_600_000, fort: 1 },
-  } satisfies Record<PostModuleType, PostModuleDef>,
+  } as Record<PostModuleType, PostModuleDef>,
   /** Nectar an average kiwi gathers in a stall per hour; the store's cap (units). */
   perHour: 0.6,
   storeCap: 60,

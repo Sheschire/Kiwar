@@ -86,7 +86,13 @@ export function fireFireworks(state: GameState, pattern: FireworksPattern, at: T
   const c = calendarAt(state.calendarStart, at);
   state.village = { ...state.village, fireworksNight: c.nightAt, lastShow: { at, pattern } };
   for (const v of state.villagers) {
-    if (v.job.kind === 'expedition' || v.job.kind === 'outpost' || v.job.kind === 'orbit') continue;
+    if (
+      v.job.kind === 'expedition' ||
+      v.job.kind === 'outpost' ||
+      v.job.kind === 'post' ||
+      v.job.kind === 'orbit'
+    )
+      continue;
     addMemory(v, 'fireworks', def.value, at + def.ms);
   }
 }

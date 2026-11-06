@@ -53,7 +53,12 @@ export function giveSpeech(state: GameState, now: TimeMs): void {
   const value = speechValue(mayor);
   const end = until + speechEffectMs(hall.level);
   for (const v of state.villagers)
-    if (v.job.kind !== 'expedition' && v.job.kind !== 'outpost' && v.job.kind !== 'orbit')
+    if (
+      v.job.kind !== 'expedition' &&
+      v.job.kind !== 'outpost' &&
+      v.job.kind !== 'post' &&
+      v.job.kind !== 'orbit'
+    )
       addMemory(v, 'speech', value, end);
   state.speech = { until, readyAt: now + speechCooldownMs(hall.level) };
 }

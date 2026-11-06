@@ -318,6 +318,7 @@ export function mayorOf(state: GameState): Villager | undefined {
       v.classId === 'mayor' &&
       v.job.kind !== 'expedition' &&
       v.job.kind !== 'outpost' &&
+      v.job.kind !== 'post' &&
       v.job.kind !== 'orbit',
   );
 }
@@ -370,6 +371,7 @@ export function bardMorale(state: GameState): number {
       !inLine(v.classId, 'bard') ||
       v.job.kind === 'expedition' ||
       v.job.kind === 'outpost' ||
+      v.job.kind === 'post' ||
       v.job.kind === 'orbit'
     )
       continue;

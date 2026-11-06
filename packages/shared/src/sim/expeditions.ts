@@ -1,6 +1,8 @@
 import { dockTravel } from './orbit';
 import { returnGear } from './forge';
 import { resolveDelve } from './delves';
+import { resolveVoyage } from './voyages';
+import { addNectar } from './orchard';
 import { addIron } from './iron';
 import { addCrystal, addGiantSeeds } from './crystal';
 import { woundFactor } from './mines';
@@ -604,6 +606,9 @@ export function resolveArrival(state: GameState, e: Expedition): void {
 
   // Chantier 48: a delve meets the Grouillants of its room (no ship, no target face).
   if (e.mission === 'delve') return resolveDelve(state, e, members, fed);
+  // Chantier 54: a voyage to the raspberry (no target face either).
+  if (e.mission === 'visit' || e.mission === 'pillage')
+    return resolveVoyage(state, e, members, fed);
   if (e.broken) {
     // Broke down half-way: the crew limps home, the hold empty.
     e.status = 'returning';
@@ -675,7 +680,10 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
     (KIWI.expeditionXp.base +
       (result.victory
         ? KIWI.expeditionXp.victory *
-          (e.mission === 'land' || e.mission === 'final' || e.mission === 'delve'
+          (e.mission === 'land' ||
+          e.mission === 'final' ||
+          e.mission === 'delve' ||
+          e.mission === 'pillage'
             ? LANDING.victoryXp
             : 1)
         : 0)) *
@@ -687,7 +695,10 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
       // Chantier 40: the survivors of a landing won are veterans.
       if (
         result.victory &&
-        (e.mission === 'land' || e.mission === 'final' || e.mission === 'delve')
+        (e.mission === 'land' ||
+          e.mission === 'final' ||
+          e.mission === 'delve' ||
+          e.mission === 'pillage')
       )
         v.veteran = (v.veteran ?? 0) + 1;
     }
@@ -711,6 +722,8 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
   if (result.giantSeeds) addGiantSeeds(state, result.giantSeeds);
   // Chantier 52: the Mother Vine's treasure.
   if (result.crystal) addCrystal(state, result.crystal);
+  // Chantier 54: the red nectar of the raspberry (up to the cap).
+  if (result.nectar) addNectar(state, result.nectar);
   const hurt = new Set(result.injured ?? []);
   for (const v of state.villagers) {
     if (v.job.kind !== 'expedition' || v.job.expeditionId !== e.id) continue;

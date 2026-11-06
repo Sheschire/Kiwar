@@ -253,8 +253,8 @@ describe('standing, trade and nectar (chantier 54)', () => {
     const s = cloneState(state);
     const clan = raspberryOfState(s).clans[0]!;
     expect(tradeRate(s, clan.id, T0)).toBe(clan.rate);
-    const paid = sellTo(s, clan.id, 1000, T0);
-    expect(paid).toBe(Math.floor((1000 * clan.rate) / 100));
+    const paid = sellTo(s, clan.id, 10000, T0);
+    expect(paid).toBe(Math.floor((10000 * clan.rate) / 1000));
     const lower = tradeRate(s, clan.id, T0);
     expect(lower).toBeLessThan(clan.rate);
     expect(tradeRate(s, clan.id, T0 + TRADE.fadeMs / 2)).toBeGreaterThan(lower);

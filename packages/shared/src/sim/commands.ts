@@ -156,6 +156,10 @@ import { CANALS } from '../data/canals';
 import { TITAN_WORK_IDS, type TitanWork } from '../data/titan';
 import { canReshape, terraformLeft, titanAt, titanCost } from './titan';
 import { delveLock, launchDelve, tunnelBusy } from './delves';
+import { cleanGoods, launchVoyage, voyageForecast, voyageLock, type VoyagePlan } from './voyages';
+import { POST, type PostModuleType } from '../data/orchard';
+import { addNectar, payNectar } from './orchard';
+import { addPostModule, postCost, postModuleLock, removePostModuleLock } from './tradingPost';
 
 export type Command =
   /** Chantier 35: `rot` (0–5) turns a 3-tile footprint (`footprintHexes`); default 0. */
@@ -308,6 +312,11 @@ export type Command =
   /** Chantier 53: puts off a kiwai's next breakdown (iron), or raises its shield (stardust). */
   | { type: 'serviceKiwai'; kiwaiId: string }
   | { type: 'raiseShield'; kiwaiId: string }
+  /** Chantier 54: a voyage through the wormhole to the raspberry (trade or pillage). */
+  | ({ type: 'voyage' } & VoyagePlan)
+  /** Chantier 54: sets a module on our trading post's map, or takes one down. */
+  | { type: 'buildPostModule'; moduleType: PostModuleType; q: number; r: number }
+  | { type: 'removePostModule'; moduleId: string }
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
 export const COMMAND_ERRORS = [
@@ -498,6 +507,22 @@ export const COMMAND_ERRORS = [
   'nothingToService',
   'noSwarm',
   'shieldRaised',
+  // Chantier 54: the wormhole, the raspberry and the trading post.
+  'wormholeClosed',
+  'launchpadTooLow',
+  'unknownDrupelet',
+  'tooManyStops',
+  'stopsApart',
+  'clanHostile',
+  'notFriendly',
+  'ownPost',
+  'postThere',
+  'noPost',
+  'postNotReady',
+  'notAtPost',
+  'postFull',
+  'notEnoughNectar',
+  'invalidGoods',
 ] as const;
 export type BlessingKind = 'heal' | 'respec' | 'stat';
 
@@ -1063,6 +1088,48 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       setModule(s, kiwai!, cmd.moduleType, cmd, now);
       return;
     }
+    case 'voyage': {
+      const lock = voyageLock(s, cmd);
+      if (lock) fail(lock);
+      const f = voyageForecast(s, cmd)!;
+      if (f.weight > f.cargo + 1e-9 || f.returnWeight > f.cargo + 1e-9) fail('overloaded');
+      const goods = cleanGoods(cmd.mission === 'visit' ? cmd.goods : undefined);
+      const need = {
+        pulp: cmd.provisions.pulp + goods.pulp,
+        fiber: f.launchCost.fiber + goods.fiber,
+        seeds: goods.seeds,
+        juice: cmd.provisions.juice + f.launchCost.juice + goods.juice,
+      };
+      if (!canAfford(s.resources, need)) fail('notEnoughResources');
+      if (cmd.fuel) payStardust(s, FUEL.stardust);
+      pay(s, f.launchCost);
+      if (cmd.settle) {
+        const cost = postCost(s);
+        payNectar(s, cost.nectar);
+        payCrystal(s, cost.crystal);
+        payIron(s, cost.iron);
+      }
+      launchVoyage(s, cmd, now, nextId(s, 'x'));
+      return;
+    }
+    case 'buildPostModule': {
+      const lock = postModuleLock(s, cmd.moduleType, cmd);
+      if (lock) fail(lock);
+      const def = POST.modules[cmd.moduleType];
+      payNectar(s, def.nectar);
+      payIron(s, def.iron);
+      addPostModule(s, cmd.moduleType, cmd, nextId(s, 'pm'));
+      return;
+    }
+    case 'removePostModule': {
+      const lock = removePostModuleLock(s, cmd.moduleId);
+      if (lock) fail(lock);
+      const post = s.orchard.post!;
+      const m = post.modules.find((x) => x.id === cmd.moduleId)!;
+      post.modules = post.modules.filter((x) => x !== m);
+      addNectar(s, Math.floor(POST.modules[m.type].nectar * POST.refund));
+      return;
+    }
     case 'removeModule': {
       const kiwai = kiwaiById(s, cmd.kiwaiId);
       const lock = removeModuleLock(s, kiwai, cmd.moduleId);
@@ -1378,6 +1445,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (
         v.job.kind === 'expedition' ||
         v.job.kind === 'outpost' ||
+        v.job.kind === 'post' ||
         v.job.kind === 'orbit' ||
         v.job.kind === 'train' ||
         v.job.kind === 'transform'
@@ -1542,7 +1610,12 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const v = s.villagers.find((x) => x.id === cmd.villagerId);
       if (!v) return fail('unknownVillager');
       if (!GEAR_SLOTS.includes(cmd.slot)) fail('wrongSlot');
-      if (v.job.kind === 'expedition' || v.job.kind === 'outpost' || v.job.kind === 'orbit')
+      if (
+        v.job.kind === 'expedition' ||
+        v.job.kind === 'outpost' ||
+        v.job.kind === 'post' ||
+        v.job.kind === 'orbit'
+      )
         fail('kiwiBusy');
       if (cmd.item === null) {
         unequip(s, v, cmd.slot);
