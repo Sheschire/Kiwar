@@ -107,7 +107,7 @@ Chemins sous `packages/shared/src/`.
 ## Bilan (6 novembre 2026)
 
 **Réponses du porteur** (nouvelles questions) : le trou de ver s'ouvre avec la technologie et
-une **aire d'envol niveau 14** (pas de nouveau bâtiment) ; les batailles de la framboise se
+une **aire d'envol** d'un niveau donné (niveau 10 après mesure : pas de nouveau bâtiment) ; les batailles de la framboise se
 jouent **en direct en 3D** sur leur drupéole ; le Verger est réservé à la **colonie
 d'origine**.
 

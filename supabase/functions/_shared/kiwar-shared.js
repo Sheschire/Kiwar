@@ -3274,16 +3274,18 @@ var TECHS = {
     effects: { travel: 0.85, recon: 0.1, armor: 0.05 }
   },
   // Chantier 54: the wormholes along the Mother Vine (× `RESEARCH.withoutVine` without her);
-  // a ship goes through from a launchpad of level `ORCHARD.padLevel`.
+  // a ship goes through from a launchpad of level `ORCHARD.padLevel` (10).
   wormholes: {
     id: "wormholes",
     age: 4,
     branch: "exploration",
+    // Measured: the bot's Library stays at 10 and its Nest at 11 until day 30: the wormholes
+    // ask what the passage to the stars asked (Library 9), so the first voyage can come by
+    // days 28–30, sooner once the Mother Vine is found.
     cost: 2e4,
-    libraryLevel: 14,
+    libraryLevel: 9,
     crystal: 60,
     stardust: 30,
-    after: "starSails",
     cheaperWith: "motherVine",
     effects: {}
   }
@@ -4238,10 +4240,10 @@ var FRUIT_IDS = ["raspberry"];
 var ORCHARD_TARGET = "orchard:raspberry";
 var ORCHARD = {
   /** The launchpad level a ship needs to go through the wormhole (with the technology). */
-  padLevel: 14,
+  padLevel: 10,
   /**
-   * One way through the wormhole, before the launchpad's speed (× 0.47 at level 14), fuel,
-   * technologies and the dock: about 2.5 h with the star sails.
+   * One way through the wormhole, before the launchpad's speed (× 0.55 at level 10), fuel,
+   * technologies and the dock: about 3 h at level 10.
    */
   travelMs: 6 * 36e5,
   /** A hop from one drupelet to the next (low gravity: short). */
@@ -4310,7 +4312,7 @@ var TRADE = {
 };
 var NECTAR = {
   /** Stock cap (units) by Nest level (index 0–15). */
-  cap: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 200, 300, 400]
+  cap: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 150, 200, 250, 320, 400]
 };
 var NECTAR_SCALE = 1e3 * 36e5;
 function nectarUnits(raw) {

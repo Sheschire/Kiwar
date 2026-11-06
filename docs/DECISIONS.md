@@ -3672,8 +3672,8 @@ From the chantier document's decisions and the owner's answers of 6 November 202
 
 ### Owner's answers (new points)
 
-- **The wormhole needs no new building**: the technology `wormholes` and a launchpad of
-  level 14 (the docks of chantier 53 still shorten the trip).
+- **The wormhole needs no new building**: the technology `wormholes` and a launchpad of a
+  given level (10 after the measures below; the docks of chantier 53 still shorten the trip).
 - **Battles on the raspberry are played live in 3D** on their drupelet (not a 2D replay).
 - **Home colony only**: a sister colony has neither orchard nor trading post (like the depths).
 
@@ -3691,9 +3691,11 @@ From the chantier document's decisions and the owner's answers of 6 November 202
 
 ### Defaults chosen by Claude (status "default", changeable)
 
-- Technology: Library 14, **20 000 points** (× 2.5 = 50 000 without the Mother Vine), 60
-  crystal, 30 stardust, after the star sails. Travel 6 h before the launchpad's speed (≈ 2.5 h
-  at level 14 with the star sails), a hop of 10 min between two stops, × 0.75 with a post.
+- Technology: Library 9 (as the passage to the stars), **20 000 points** (× 2.5 = 50 000
+  without the Mother Vine), 60 crystal, 30 stardust; a launchpad of **level 10**. First tried:
+  Library 14, after the star sails, launchpad 14 — the bot ended day 30 at Nest 11, Library 10,
+  launchpad 6 and never opened the wormhole in 34 days (3 runs). Travel 6 h before the
+  launchpad's speed (≈ 3 h at level 10), a hop of 10 min between two stops, × 0.75 with a post.
 - The raspberry: 60–90 drupelets, 8–12 clans in one piece, three rings (power 40 / 60 / 85,
   levels 16 / 18 / 20, nectar 20 / 35 / 55), a nest one time in four (× 1.5), beetles
   (`beetle`, `beetleGuard`, flying `byturus`); a pillaged garrison grows back over 72 h.
@@ -3703,7 +3705,7 @@ From the chantier document's decisions and the owner's answers of 6 November 202
   accepted even by a hostile clan (it is how an attack is called off).
 - Trade: each clan asks for one resource and pays 4–7 nectar per 1 000 units (public); our own
   sales lower our rate for three days. A pillage targets **one** drupelet (not two in a row).
-- Red nectar: cap 200 / 300 / 400 at Nest 13 / 14 / 15. The trading post: 40 nectar + 40
+- Red nectar: cap 100 / 150 / 200 / 250 / 320 / 400 at Nest 10–15 (the stars' door is Nest 10). The trading post: 40 nectar + 40
   crystal + 20 iron, 2 h; huts (2 kiwis), stalls (0.6 nectar/h per kiwi, store 60), palisades
   (a seed and a sky turret). Attacks: 36–60 h apart, 8 h notice, half the hostile clan's
   garrisons next to the post; a post fallen is a ruin raised again at half price on its own

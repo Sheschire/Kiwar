@@ -15,10 +15,10 @@ export const ORCHARD_TARGET = 'orchard:raspberry';
 
 export const ORCHARD = {
   /** The launchpad level a ship needs to go through the wormhole (with the technology). */
-  padLevel: 14,
+  padLevel: 10,
   /**
-   * One way through the wormhole, before the launchpad's speed (× 0.47 at level 14), fuel,
-   * technologies and the dock: about 2.5 h with the star sails.
+   * One way through the wormhole, before the launchpad's speed (× 0.55 at level 10), fuel,
+   * technologies and the dock: about 3 h at level 10.
    */
   travelMs: 6 * 3_600_000,
   /** A hop from one drupelet to the next (low gravity: short). */
@@ -93,7 +93,7 @@ export const TRADE = {
 /** Chantier 54: red nectar, a stock of its own (raw integer units, like the crystal). */
 export const NECTAR = {
   /** Stock cap (units) by Nest level (index 0–15). */
-  cap: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 200, 300, 400] as readonly number[],
+  cap: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 150, 200, 250, 320, 400] as readonly number[],
 } as const;
 
 /** Raw nectar units per unit (a stall's rate is `1000 × perHour × work` raw units per ms). */

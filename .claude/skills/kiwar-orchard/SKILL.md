@@ -1,6 +1,6 @@
 ---
 name: kiwar-orchard
-description: Kiwar cosmic orchard (chantier 54) — the wormholes (technology, launchpad 14), one orchard per universe (public layout from the universe's seed, hidden truth from `universe_secrets`), the raspberry (drupelets, clans, rings), standing that drifts back to 0, public trade rates, red nectar, voyages (`voyage`: visit / gift / found the trading post / pillage), the trading post on its small map (huts, stalls, palisades, job `post`), attacks on the post, the Orchard screen, the raspberry in the sky and battles played on a drupelet, the bot in the orchard. Use when touching the orchard, a fruit planet (chantier 55's apple and pineapple), nectar, voyages, the trading post or their UI.
+description: Kiwar cosmic orchard (chantier 54) — the wormholes (technology, launchpad 10), one orchard per universe (public layout from the universe's seed, hidden truth from `universe_secrets`), the raspberry (drupelets, clans, rings), standing that drifts back to 0, public trade rates, red nectar, voyages (`voyage`: visit / gift / found the trading post / pillage), the trading post on its small map (huts, stalls, palisades, job `post`), attacks on the post, the Orchard screen, the raspberry in the sky and battles played on a drupelet, the bot in the orchard. Use when touching the orchard, a fruit planet (chantier 55's apple and pineapple), nectar, voyages, the trading post or their UI.
 ---
 
 # Kiwar orchard (chantier 54)
@@ -32,17 +32,18 @@ anti-cheat rule), `kiwar-battle` (the engine, shows), `kiwar-orbit` (small maps)
 ## Data (`data/orchard.ts`)
 
 `FRUIT_IDS` (raspberry), `ORCHARD_TARGET` (`'orchard:raspberry'`, never in `state.targets`),
-`ORCHARD` (launchpad 14, travel 6 h before the launchpad's speed → ≈ 2.5 h, hop 10 min, two
+`ORCHARD` (launchpad 10, travel 6 h before the launchpad's speed → ≈ 3 h, hop 10 min, two
 stops, relay × 0.75 with a post, crew 1–8), `RASPBERRY` (60–90 drupelets, 8–12 clans, rings
 power 40/60/85, level 16/18/20, nectar 20/35/55, nest 25 % × 1.5, mix beetle / beetleGuard /
 byturus, regrowth 72 h, help 25 % after 25 s), `STANDING` (−100…100, friendly ≥ 30, hostile
 ≤ −30, trade +3, gift +8 per 5 000 units up to × 3, pillage −60 / neighbours −20, drift 2/day),
 `TRADE` (rate 4–7 nectar per 1 000 units, our sales soften it over 72 h), `NECTAR` (cap by Nest
-200/300/400 at 13/14/15, `NECTAR_SCALE` raw units), `POST` (40 nectar + 40 crystal + 20 iron,
+100 at Nest 10 up to 400 at 15, `NECTAR_SCALE` raw units), `POST` (40 nectar + 40 crystal + 20 iron,
 2 h, radius 2, five modules, hut / stall / palisade, 0.6 nectar/h per kiwi, store 60, a ruin
 at half price), `POST_ATTACK` (36–60 h apart, 8 h notice, half the clan's garrisons next to
-the post). Technology `wormholes` (`data/research.ts`: Library 14, 20 000 points × 2.5 without
-the Mother Vine, 60 crystal, 30 stardust, after `starSails`). Every number is a hypothesis.
+the post). Technology `wormholes` (`data/research.ts`: Library 9, 20 000 points × 2.5 without
+the Mother Vine, 60 crystal, 30 stardust; Library 14 and launchpad 14 were never reached by
+the bot before day 34). Every number is a hypothesis.
 
 ## Simulation
 
@@ -101,7 +102,7 @@ the Mother Vine, 60 crystal, 30 stardust, after `starSails`). Every number is a 
   back at the end; `actions.watchFruit(id)` takes a pillage's expedition id or a post report's
   id. A fresh pillage is offered live through `LandingInvite` (outcome held, `tellOutcome`
   knows `pillage`). Beetles wear the crawler / flier rigs tinted (`BEETLE_TINTS`).
-- Screenshots: push the state on `controller.state` (techs, Nest 14, a launchpad of level 14,
+- Screenshots: push the state on `controller.state` (techs, Nest 14, a launchpad of level 10,
   `orchard.standing`, `views`, `post` with modules and an announced attack), a `debugGrant`
   dispatch, then `uiStore.setState({ modal: 'orchard', orchardDrupelet })`; for a show,
   dispatch a `voyage` pillage, `controller.setTimeScale(5000)` until it is back, then
@@ -110,8 +111,8 @@ the Mother Vine, 60 crystal, 30 stardust, after `starSails`). Every number is a 
 
 ## Bot (`tools/balance/src/bot/orchard.ts`, mechanic `orchard`)
 
-`wormholePadDecision` (the launchpad to 14 once the technology is known; `wormholes` follows
-`starSails` in `TECH_ORDER`), `orchardOrders` (once an hour, every round while an attack is
+`wormholePadDecision` (the launchpad to 10 once the technology is known; `wormholes` comes
+right after `starsAge` in `TECH_ORDER`), `orchardOrders` (once an hour, every round while an attack is
 announced): the post's modules (stall, palisade, hut), a defence (gift to calm the clan, or
 everybody home) when the forecast is not "likely", the post with the first friendly clan, a
 trade with the best-paying clan otherwise. Never a pillage. Milestones `wormhole`, `post`;

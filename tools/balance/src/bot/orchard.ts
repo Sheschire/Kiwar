@@ -33,7 +33,7 @@ import {
 } from '@kiwar/shared';
 
 /**
- * Chantier 54: the bot in the orchard — a launchpad raised to level 14 once the wormholes are
+ * Chantier 54: the bot in the orchard — a launchpad raised to level 10 once the wormholes are
  * known, then peaceful voyages: a trade with the clan that pays best (it makes friends), a
  * trading post with the first friendly clan (two kiwis stay there), its stall, a hut and a
  * palisade, the store brought home on the way. Against an announced attack an attentive bot

@@ -664,7 +664,7 @@ export const fr: Dict = {
     },
     starsWormhole: {
       title: 'Passer le trou de ver',
-      hint: 'Cherchez les Trous de ver, montez l’aire d’envol au niveau 14, puis visitez la framboise.',
+      hint: 'Cherchez les Trous de ver, montez l’aire d’envol au niveau 10, puis visitez la framboise.',
     },
     starsKiwai: {
       title: 'Un kiwaï à trois modules',
@@ -988,7 +988,7 @@ export const fr: Dict = {
     noSwarm: 'Aucun essaim de comète n’est annoncé.',
     shieldRaised: 'Le bouclier est déjà levé.',
     wormholeClosed: 'Le trou de ver n’est pas ouvert (technologie Trous de ver).',
-    launchpadTooLow: 'Il faut une aire d’envol niveau 14 pour passer le trou de ver.',
+    launchpadTooLow: 'Il faut une aire d’envol niveau 10 pour passer le trou de ver.',
     unknownDrupelet: 'Cette drupéole n’existe pas.',
     tooManyStops: 'Deux drupéoles au plus par visite, une seule pour un pillage.',
     stopsApart: 'Les deux drupéoles doivent se toucher.',
@@ -2762,7 +2762,7 @@ export const fr: Dict = {
     },
     wormholes: {
       name: 'Trous de ver',
-      desc: 'Le voilier passe le long de la Liane-Mère jusqu’au Verger cosmique, depuis une aire d’envol niveau 14. Bien plus long à chercher tant que la Liane-Mère n’est pas trouvée.',
+      desc: 'Le voilier passe le long de la Liane-Mère jusqu’au Verger cosmique, depuis une aire d’envol niveau 10. Bien plus long à chercher tant que la Liane-Mère n’est pas trouvée.',
     },
     meteorDrill: {
       name: 'Foreuse à météorite',

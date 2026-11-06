@@ -45,11 +45,11 @@ export const TECH_ORDER: TechId[] = [
   'enzymes',
   // Chantier 51: the Age of the stars, then its harvest and its glass.
   'starsAge',
+  // Chantier 54: the wormholes right after the passage (the Mother Vine makes them cheaper).
+  'wormholes',
   'crystalGrafts',
   'celestialGlass',
   'starSails',
-  // Chantier 54: the wormholes (cheaper once the Mother Vine is found).
-  'wormholes',
   'greenBlood',
   'palisade',
   'slingshots',

@@ -118,7 +118,7 @@ révèle la **Liane-Mère** (trésor, souvenir, pèlerinage, nids du cœur muets
 30 quand il atteint le pédoncule (deux parties sur six). Skills `kiwar-depths`, `kiwar-battle`,
 `kiwar-client`.
 **Chantier 54 fait** : les trous de ver et la framboise. La technologie Trous de ver (×2,5
-sans la Liane-Mère) et une aire d'envol niveau 14 ouvrent le Verger, **le même pour tout un
+sans la Liane-Mère, Bibliothèque 9) et une aire d'envol niveau 10 ouvrent le Verger, **le même pour tout un
 univers** (tracé tiré de la graine de l'univers, contenu caché dans `universe_secrets`,
 migration `20261107000000_orchard.sql`), à la colonie d'origine seule. La framboise : des clans
 de coléoptères, une réputation publique qui revient vers 0, le commerce à un cours public, le

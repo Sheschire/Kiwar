@@ -425,16 +425,18 @@ export const TECHS: Record<TechId, TechDef> = {
     effects: { travel: 0.85, recon: 0.1, armor: 0.05 },
   },
   // Chantier 54: the wormholes along the Mother Vine (× `RESEARCH.withoutVine` without her);
-  // a ship goes through from a launchpad of level `ORCHARD.padLevel`.
+  // a ship goes through from a launchpad of level `ORCHARD.padLevel` (10).
   wormholes: {
     id: 'wormholes',
     age: 4,
     branch: 'exploration',
+    // Measured: the bot's Library stays at 10 and its Nest at 11 until day 30: the wormholes
+    // ask what the passage to the stars asked (Library 9), so the first voyage can come by
+    // days 28–30, sooner once the Mother Vine is found.
     cost: 20000,
-    libraryLevel: 14,
+    libraryLevel: 9,
     crystal: 60,
     stardust: 30,
-    after: 'starSails',
     cheaperWith: 'motherVine',
     effects: {},
   },
