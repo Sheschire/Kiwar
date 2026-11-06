@@ -305,6 +305,7 @@ export function returnHome(state: GameState, at: TimeMs, events: GameEvent[]): v
       v.job.kind === 'build' ||
       v.job.kind === 'meteor' ||
       v.job.kind === 'mine' ||
+      v.job.kind === 'orbit' ||
       v.job.kind === 'stardust' ||
       v.lent !== undefined
     )

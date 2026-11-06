@@ -672,7 +672,11 @@ export function planWave(s: GameState): void {
     const gap = Math.round(rng.range(THREATS.intervalMs[0], THREATS.intervalMs[1]));
     // Chantier 37: an oracle at home sees the wave coming earlier.
     const oracle = s.villagers.some(
-      (v) => v.classId === 'oracle' && v.job.kind !== 'expedition' && v.job.kind !== 'outpost',
+      (v) =>
+        v.classId === 'oracle' &&
+        v.job.kind !== 'expedition' &&
+        v.job.kind !== 'outpost' &&
+        v.job.kind !== 'orbit',
     )
       ? SKILLS.oracleNotice
       : 0;

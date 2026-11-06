@@ -132,7 +132,8 @@ export function KiwiMoraleSection({ v }: { v: Villager }) {
   const t = useT();
   const lang = useUi((s) => s.lang);
   const game = useUi((s) => s.game)!;
-  if (v.job.kind === 'expedition' || v.job.kind === 'outpost') return null;
+  if (v.job.kind === 'expedition' || v.job.kind === 'outpost' || v.job.kind === 'orbit')
+    return null;
   const m = kiwiMorales(game).get(v.id);
   if (!m) return null;
   const work = moraleFactor(m.total) - 1;

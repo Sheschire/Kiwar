@@ -1,3 +1,4 @@
+import { dockTravel } from './orbit';
 import { EXPEDITIONS } from '../data/expeditions';
 import { emptyResources, RESOURCE_IDS, type Resources } from '../data/resources';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
@@ -37,7 +38,7 @@ export function cargoLimit(launchpad: Building): number {
 
 /** One-way flight time to an ally from this launchpad. */
 export function deliveryTime(state: GameState, friend: Friend, launchpad: Building): number {
-  return travelTime(friend, launchpad, [], 'raid', techEffects(state).travel);
+  return travelTime(friend, launchpad, [], 'raid', techEffects(state).travel * dockTravel(state));
 }
 
 /** Loads the ship and sends it (validation is done by the command). */

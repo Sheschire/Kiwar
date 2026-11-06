@@ -71,7 +71,12 @@ const FOOT = 0.72;
 function gathers(v: Villager): boolean {
   const k = v.job.kind;
   return (
-    k !== 'expedition' && k !== 'outpost' && k !== 'injured' && k !== 'transform' && k !== 'mine'
+    k !== 'expedition' &&
+    k !== 'outpost' &&
+    k !== 'injured' &&
+    k !== 'transform' &&
+    k !== 'mine' &&
+    k !== 'orbit'
   );
 }
 
@@ -1341,6 +1346,8 @@ export class KiwisView {
         villager.job.kind === 'expedition' ||
         villager.job.kind === 'outpost' ||
         villager.job.kind === 'mine' ||
+        // Chantier 53: nor the kiwis up in orbit.
+        villager.job.kind === 'orbit' ||
         this.hidden.has(agent.id)
       ) {
         this.titans.hide(agent.id);

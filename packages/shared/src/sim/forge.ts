@@ -245,7 +245,8 @@ export function equipGear(state: GameState): void {
     if (v.gear?.armor && v.kikiwiwi) unequip(state, v, 'armor');
   }
   if (!state.automation.equip || Object.keys(state.forge.armory).length === 0) return;
-  const away = (v: Villager) => v.job.kind === 'expedition' || v.job.kind === 'outpost';
+  const away = (v: Villager) =>
+    v.job.kind === 'expedition' || v.job.kind === 'outpost' || v.job.kind === 'orbit';
   const order = state.villagers
     .map((v, i) => ({ v, i }))
     .filter(({ v }) => !v.kikiwiwi && !v.gear?.kept && !away(v))

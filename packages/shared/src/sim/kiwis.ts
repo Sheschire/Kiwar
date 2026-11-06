@@ -314,7 +314,11 @@ export function crewWork(
 /** The mayor at home, if any. */
 export function mayorOf(state: GameState): Villager | undefined {
   return state.villagers.find(
-    (v) => v.classId === 'mayor' && v.job.kind !== 'expedition' && v.job.kind !== 'outpost',
+    (v) =>
+      v.classId === 'mayor' &&
+      v.job.kind !== 'expedition' &&
+      v.job.kind !== 'outpost' &&
+      v.job.kind !== 'orbit',
   );
 }
 
@@ -362,7 +366,12 @@ export function repairSpeed(v: Villager): number {
 export function bardMorale(state: GameState): number {
   let sum = 0;
   for (const v of state.villagers) {
-    if (!inLine(v.classId, 'bard') || v.job.kind === 'expedition' || v.job.kind === 'outpost')
+    if (
+      !inLine(v.classId, 'bard') ||
+      v.job.kind === 'expedition' ||
+      v.job.kind === 'outpost' ||
+      v.job.kind === 'orbit'
+    )
       continue;
     const ballad = hasSkill(v, 'ballad') ? SKILLS.balladBonus : 1;
     const minstrel = inLine(v.classId, 'minstrel') ? SKILLS.minstrelMorale : 1;
@@ -434,6 +443,17 @@ function ratesOf(
     const g = state.depths.galleries[job.roomId];
     perHour = KIWI.xpPerHour.work;
     mastery = g ? RESOURCE_MASTERY[DEPTHS.gallery.workAs[g.kind]] : null;
+  } else if (job.kind === 'orbit') {
+    // Chantier 53: up on a kiwai, at work once out of the shuttle (a greenhouse is worked like
+    // a juice well, an observatory like the Library).
+    const k = state.orbit.kiwais.find((x) => x.id === job.kiwaiId);
+    perHour = job.aboard ? 0 : KIWI.xpPerHour.work;
+    mastery =
+      k?.type === 'greenhouse'
+        ? RESOURCE_MASTERY.juice
+        : k?.type === 'observatory'
+          ? 'research'
+          : null;
   } else if (job.kind === 'train' || job.kind === 'transform') {
     perHour = KIWI.xpPerHour.train;
   } else if (job.kind === 'guard' || job.kind === 'titan' || job.kind === 'stardust') {

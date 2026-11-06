@@ -22,7 +22,7 @@ export function GearSection({ game, v }: { game: GameState; v: Villager }) {
   const hasForge = game.buildings.some((b) => b.type === 'forge');
   const armory = Object.keys(game.forge.armory) as ItemId[];
   if (v.kikiwiwi || (!hasForge && !v.gear && armory.length === 0)) return null;
-  const away = v.job.kind === 'expedition' || v.job.kind === 'outpost';
+  const away = v.job.kind === 'expedition' || v.job.kind === 'outpost' || v.job.kind === 'orbit';
   const choices = (slot: GearSlot) =>
     armory.filter((id) => ITEMS[id].slot === slot && !wearLock(v, id) && id !== v.gear?.[slot]);
   return (

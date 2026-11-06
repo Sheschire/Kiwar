@@ -14,7 +14,7 @@ import type { COMMAND_ERRORS } from '../sim/commands';
 import { KIWI_NAME_MAX, STAT_IDS } from '../data/kiwis';
 import { CLASS_IDS, SKILL_IDS } from '../data/classes';
 import { TECH_IDS } from '../data/research';
-import { KIWAI_TYPES } from '../data/orbit';
+import { KIWAI_TYPES, MODULE_TYPES, ORBIT } from '../data/orbit';
 import { type Command } from '../sim/commands';
 import type { GameEvent } from '../sim/advance';
 import type { GameState } from '../sim/state';
@@ -100,6 +100,20 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('setCrystalAmmo'), on: z.boolean() }),
   z.object({ type: z.literal('fortifyTunnel') }),
   z.object({ type: z.literal('launchKiwai'), kiwaiType: z.enum(KIWAI_TYPES) }),
+  z.object({
+    type: z.literal('buildModule'),
+    kiwaiId: id,
+    moduleType: z.enum(MODULE_TYPES),
+    q: z.number().int().min(-ORBIT.radius).max(ORBIT.radius),
+    r: z.number().int().min(-ORBIT.radius).max(ORBIT.radius),
+  }),
+  z.object({ type: z.literal('removeModule'), kiwaiId: id, moduleId: id }),
+  z.object({
+    type: z.literal('sendShuttle'),
+    kiwaiId: id,
+    up: z.array(id).max(ORBIT.shuttle.seats),
+    down: z.array(id).max(ORBIT.shuttle.seats),
+  }),
   z.object({
     type: z.literal('delve'),
     roomId: z.string().min(1).max(8),

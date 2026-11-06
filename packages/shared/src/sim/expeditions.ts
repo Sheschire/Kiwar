@@ -1,3 +1,4 @@
+import { dockTravel } from './orbit';
 import { returnGear } from './forge';
 import { resolveDelve } from './delves';
 import { addIron } from './iron';
@@ -149,7 +150,8 @@ export function shipReliability(ship: ShipDef, crew: readonly Villager[], fuel =
 export function travelFactor(state: GameState, plan: Pick<ExpeditionPlan, 'fuel'>): number {
   // Chantier 51: the star sailboat goes further on the same fuel.
   const fuel = plan.fuel ? FUEL.travel * (shipIdOf(state) === 'sail' ? SAIL.fuelTravel : 1) : 1;
-  return techEffects(state).travel * fuel;
+  // Chantier 53: the docks in orbit shorten every trip.
+  return techEffects(state).travel * fuel * dockTravel(state);
 }
 
 export function shipCargo(launchpad: Building): number {

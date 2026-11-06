@@ -1,3 +1,4 @@
+import { observatoryNotice } from './orbit';
 import { DEPTHS } from '../data/depths';
 import { THREATS } from '../data/threats';
 import { DEPTH_KINDS, ENEMIES } from '../data/units';
@@ -105,7 +106,8 @@ export function planUpwell(s: GameState): void {
     if (wave && Math.abs(at - wave.at) < u.gapMs) at = wave.at + u.gapMs;
     d.next = {
       id: `u${d.upwells + 1}`,
-      announceAt: at - u.noticeMs,
+      // Chantier 53: an observatory in orbit hears it earlier.
+      announceAt: Math.max(s.now, at - u.noticeMs - observatoryNotice(s)),
       at,
       announced: false,
       ground: 0,

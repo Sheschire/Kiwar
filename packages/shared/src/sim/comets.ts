@@ -1,3 +1,4 @@
+import { observatoryNotice } from './orbit';
 import { gathered } from './speech';
 import { takenKeys } from './footprint';
 import { createRng, type Rng } from '../rng/rng';
@@ -75,7 +76,9 @@ export function planComet(s: GameState): void {
     );
     const notice = Math.round(rng.range(COMETS.noticeMs[0], COMETS.noticeMs[1]));
     const at = Math.max(c.lastAt + gap, s.now + notice);
-    c.next = { id: `c${c.passes + 1}`, announceAt: at - notice, at, announced: false };
+    // Chantier 53: an observatory in orbit sees it earlier.
+    const announceAt = Math.max(s.now, at - notice - observatoryNotice(s));
+    c.next = { id: `c${c.passes + 1}`, announceAt, at, announced: false };
   }
 }
 

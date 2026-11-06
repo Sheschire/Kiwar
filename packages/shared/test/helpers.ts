@@ -25,6 +25,7 @@ import {
   STARDUST_SCALE,
   HOUR_MS,
   type BuildingId,
+  addVillager,
 } from '../src';
 
 export const T0 = 1_700_000_000_000;
@@ -183,6 +184,8 @@ export function starsColony(seed = 'orbit') {
   s.giantSeeds = 8;
   s.stardust = 50 * STARDUST_SCALE;
   s.meteorIron = 300 * IRON_SCALE;
+  // Eight kiwis: enough to fill a shuttle and keep the colony going.
+  for (let i = 0; i < 5; i++) addVillager(s, T0);
   return { map, s };
 }
 

@@ -1,3 +1,4 @@
+import { observatoryResearch } from './orbit';
 import { gathered } from './speech';
 import { levelDef } from '../data/buildings';
 import { CYCLES } from '../data/cycles';
@@ -166,6 +167,12 @@ export function researchPower(v: Villager): number {
 
 /** Research points per hour of the whole colony (constant between two events). */
 export function researchPerHour(state: GameState): number {
+  // Chantier 53: the observatories in orbit work on, day and night, gathering or not.
+  const orbit = observatoryResearch(state) * techEffects(state).research;
+  return libraryResearch(state) + orbit;
+}
+
+function libraryResearch(state: GameState): number {
   if (gathered(state)) return 0;
   const libs = libraries(state);
   if (libs.length === 0) return 0;

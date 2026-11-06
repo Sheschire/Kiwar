@@ -8,7 +8,7 @@ import type { ItemId } from '../data/gear';
 import { accrueStardust, cometTick, nextCometEvent, planComet } from './comets';
 import { footprintOf, isManualWorkplace, isProducer, type BuildingType } from '../data/buildings';
 import type { TechId } from '../data/research';
-import type { KiwaiType } from '../data/orbit';
+import type { KiwaiType, ModuleType } from '../data/orbit';
 import { RESOURCE_IDS, emptyResources, type ResourceId, type Resources } from '../data/resources';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
 import {
@@ -39,7 +39,14 @@ import { canResolveArrival } from './aliens';
 import { civTick, nextCivEvent } from './civ';
 import { beaconTick, nextBeaconEvent, planBeaconAttacks } from './beacons';
 import { nextQueenEvent, queenTick } from './queen';
-import { nextOrbitEvent, orbitTick } from './orbit';
+import {
+  accrueOrbit,
+  dustTank,
+  greenhouseRates,
+  kiwaiDustRate,
+  nextOrbitEvent,
+  orbitTick,
+} from './orbit';
 import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
 import { inLine, type ClassId } from '../data/classes';
 import { accrueKiwis, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
@@ -81,6 +88,7 @@ import {
   type Expedition,
   type MissionKind,
   type GameState,
+  type Kiwai,
   type Meteor,
   type QueueItem,
   type Villager,
@@ -295,6 +303,10 @@ export type GameEvent =
   | { type: 'motherVineFound'; at: TimeMs; expeditionId: string }
   /** Chantier 53: a kiwai reached its orbit. */
   | { type: 'kiwaiReady'; at: TimeMs; kiwaiId: string; kiwaiType: KiwaiType }
+  | { type: 'moduleReady'; at: TimeMs; kiwaiId: string; moduleType: ModuleType }
+  /** Chantier 53: the shuttle docked at a kiwai (`up` kiwis arrived), then came back. */
+  | { type: 'shuttleDocked'; at: TimeMs; kiwaiId: string; up: number }
+  | { type: 'shuttleBack'; at: TimeMs; kiwaiId: string; down: number; stardust: number }
   | {
       type: 'repaired';
       at: TimeMs;
@@ -542,6 +554,8 @@ interface Flows {
   crystal: number;
   /** Hunger gauge change in raw units per ms. */
   hunger: number;
+  /** Chantier 53: stardust caught by the star harvests (raw units per ms, integers). */
+  orbitDust: { kiwai: Kiwai; rate: number }[];
   /** Next time a rate changes on its own (a deposit runs dry, a storage fills or empties). */
   nextChange: TimeMs;
   /** Next hunger stage change or death. */
@@ -577,6 +591,14 @@ function computeFlows(s: GameState): Flows {
   for (const g of galleryRates(s)) {
     production[g.resource] += g.rate;
     harvested[g.resource] += g.rate;
+  }
+  // Chantier 53: the greenhouses in orbit (no season, no night up there).
+  const green = greenhouseRates(s);
+  for (const id of RESOURCE_IDS) {
+    const rate = green[id] ?? 0;
+    if (rate <= 0) continue;
+    production[id] += rate;
+    harvested[id] += rate;
   }
   const iron: Flows['iron'] = [];
   for (const m of s.sky.meteors) {
@@ -649,8 +671,17 @@ function computeFlows(s: GameState): Flows {
       next = Math.min(next, s.now + Math.max(1, Math.ceil(ms)));
     }
   }
+  // Chantier 53: the star harvests fill their tanks (an event when one is full).
+  const orbitDust: Flows['orbitDust'] = [];
+  for (const kiwai of s.orbit.kiwais) {
+    const rate = kiwaiDustRate(s, kiwai);
+    if (rate <= 0) continue;
+    orbitDust.push({ kiwai, rate });
+    next = Math.min(next, s.now + Math.max(1, Math.ceil((dustTank() - kiwai.dust) / rate)));
+  }
   const hunger = hungerRate(s, deficit);
   return {
+    orbitDust,
     rates,
     pools,
     meteors,
@@ -715,6 +746,7 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
   // Research first: its rate depends on the kiwis as they were during the interval.
   accrueResearch(s, dtMs);
   accrueStardust(s, dtMs);
+  accrueOrbit(s, flows.orbitDust, dtMs);
   accrueIron(s, flows.iron, dtMs, at, events);
   accrueForge(s, flows.forge, dtMs);
   accrueCrystal(s, flows.crystal, dtMs, at, events);

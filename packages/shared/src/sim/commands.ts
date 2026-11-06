@@ -34,7 +34,7 @@ import {
 } from './tasks';
 import { AUTO_TASKS, type AutoTask } from '../data/jobs';
 import { canMine, meteorAt, minersOf } from './sky';
-import { BUILDINGS, footprintOf, levelDef, type BuildingType } from '../data/buildings';
+import { BUILDINGS, DEMOLITION, footprintOf, levelDef, type BuildingType } from '../data/buildings';
 import { CAMPS, PATHS } from '../data/territory';
 import { TILES } from '../data/tiles';
 import { hexKey } from '../hex/hex';
@@ -98,8 +98,18 @@ import { fortifyCost, fortifyLock, guardLock, startFortify } from './beacons';
 import { finalLock } from './queen';
 import { returnHome, weakestWorker } from './posts';
 import { TECHS, type TechId } from '../data/research';
-import { KIWAI_TYPES, type KiwaiType } from '../data/orbit';
-import { kiwaiLaunchCost, launchLock, startKiwai } from './orbit';
+import { KIWAI_TYPES, MODULES, type KiwaiType, type ModuleType } from '../data/orbit';
+import {
+  flyShuttle,
+  kiwaiById,
+  kiwaiLaunchCost,
+  launchLock,
+  moduleLock,
+  removeModuleLock,
+  setModule,
+  shuttleLock,
+  startKiwai,
+} from './orbit';
 import { researchTick, techEffects, techStatus } from './research';
 import { KIKIWIWI } from '../data/kikiwiwi';
 import { EXPEDITIONS } from '../data/expeditions';
@@ -286,6 +296,11 @@ export type Command =
   | { type: 'equip'; villagerId: VillagerId; slot: GearSlot; item: ItemId | null }
   /** Chantier 53: launches a kiwai of that type from the orbital yard. */
   | { type: 'launchKiwai'; kiwaiType: KiwaiType }
+  /** Chantier 53: sets a module on a tile of a kiwai, or takes one down (25 % back). */
+  | { type: 'buildModule'; kiwaiId: string; moduleType: ModuleType; q: number; r: number }
+  | { type: 'removeModule'; kiwaiId: string; moduleId: string }
+  /** Chantier 53: the shuttle takes kiwis up to a kiwai and brings others down (and its dust). */
+  | { type: 'sendShuttle'; kiwaiId: string; up: VillagerId[]; down: VillagerId[] }
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
 export const COMMAND_ERRORS = [
@@ -462,6 +477,17 @@ export const COMMAND_ERRORS = [
   'noOrbitalYard',
   'kiwaiLimit',
   'unknownKiwaiType',
+  'unknownKiwai',
+  'unknownModule',
+  'kiwaiNotReady',
+  'moduleNotFit',
+  'moduleLimit',
+  'habitatInUse',
+  'shuttleBusy',
+  'shuttleFull',
+  'notInOrbit',
+  'noHabitat',
+  'yardInUse',
 ] as const;
 export type BlessingKind = 'heal' | 'respec' | 'stat';
 
@@ -1016,6 +1042,37 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       startKiwai(s, cmd.kiwaiType, now);
       return;
     }
+    case 'buildModule': {
+      const kiwai = kiwaiById(s, cmd.kiwaiId);
+      const lock = moduleLock(s, kiwai, cmd.moduleType, cmd);
+      if (lock) fail(lock);
+      const def = MODULES[cmd.moduleType];
+      pay(s, def.cost);
+      payCrystal(s, def.crystal);
+      payIron(s, def.iron);
+      setModule(s, kiwai!, cmd.moduleType, cmd, now);
+      return;
+    }
+    case 'removeModule': {
+      const kiwai = kiwaiById(s, cmd.kiwaiId);
+      const lock = removeModuleLock(s, kiwai, cmd.moduleId);
+      if (lock) fail(lock);
+      const m = kiwai!.modules.find((x) => x.id === cmd.moduleId)!;
+      kiwai!.modules = kiwai!.modules.filter((x) => x.id !== m.id);
+      const cap = capacity(s);
+      for (const id of RESOURCE_IDS)
+        s.resources[id] = Math.min(
+          Math.max(cap[id], s.resources[id]),
+          s.resources[id] + (MODULES[m.type].cost[id] ?? 0) * DEMOLITION.refund,
+        );
+      return;
+    }
+    case 'sendShuttle': {
+      const lock = shuttleLock(s, cmd);
+      if (lock) fail(lock);
+      flyShuttle(s, cmd, now);
+      return;
+    }
     case 'setCrystalAmmo': {
       if (!techEffects(s).crystalAmmo) fail('techMissing');
       s.threats.crystalAmmo = cmd.on;
@@ -1156,6 +1213,8 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (b.type === 'launchpad' && isLaunchpadBusy(s, b.id)) fail('launchpadBusy');
       // Chantier 48: not while kiwis are down there.
       if (b.type === 'tunnel' && tunnelBusy(s)) fail('tunnelBusy');
+      // Chantier 53: the kiwais in orbit need their yard.
+      if (b.type === 'orbitalYard' && s.orbit.kiwais.length > 0) fail('yardInUse');
       const housingLeft = housing(s) - (levelDef(b.type, b.level)?.housing ?? 0);
       if (housingLeft < population(s)) fail('housingNeeded');
       refund(s, demolitionRefund(s, b));
@@ -1293,6 +1352,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (
         v.job.kind === 'expedition' ||
         v.job.kind === 'outpost' ||
+        v.job.kind === 'orbit' ||
         v.job.kind === 'train' ||
         v.job.kind === 'transform'
       )
@@ -1456,7 +1516,8 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const v = s.villagers.find((x) => x.id === cmd.villagerId);
       if (!v) return fail('unknownVillager');
       if (!GEAR_SLOTS.includes(cmd.slot)) fail('wrongSlot');
-      if (v.job.kind === 'expedition' || v.job.kind === 'outpost') fail('kiwiBusy');
+      if (v.job.kind === 'expedition' || v.job.kind === 'outpost' || v.job.kind === 'orbit')
+        fail('kiwiBusy');
       if (cmd.item === null) {
         unequip(s, v, cmd.slot);
         // Taken off by hand: the automation leaves this kiwi alone.
