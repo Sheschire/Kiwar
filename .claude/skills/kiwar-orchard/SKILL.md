@@ -42,7 +42,7 @@ byturus, regrowth 72 h, help 25 % after 25 s), `STANDING` (−100…100, friendl
 2 h, radius 2, five modules, hut / stall / palisade, 0.6 nectar/h per kiwi, store 60, a ruin
 at half price), `POST_ATTACK` (36–60 h apart, 8 h notice, half the clan's garrisons next to
 the post). Technology `wormholes` (`data/research.ts`: Library 9, 20 000 points × 2.5 without
-the Mother Vine, 60 crystal, 30 stardust; Library 14 and launchpad 14 were never reached by
+the Mother Vine, 30 crystal, 20 stardust; Library 14 and launchpad 14 were never reached by
 the bot before day 34). Every number is a hypothesis.
 
 ## Simulation
@@ -111,8 +111,9 @@ the bot before day 34). Every number is a hypothesis.
 
 ## Bot (`tools/balance/src/bot/orchard.ts`, mechanic `orchard`)
 
-`wormholePadDecision` (the launchpad to 10 once the technology is known; `wormholes` comes
-right after `starsAge` in `TECH_ORDER`), `orchardOrders` (once an hour, every round while an attack is
+`wormholePadDecision` (the launchpad to 10 once the Mother Vine is found or the technology
+known; `wormholes` comes right after `starsAge` in `TECH_ORDER` but waits for the Vine — or day
+32 — `waitsForVine` in `bot/ages.ts`), `orchardOrders` (once an hour, every round while an attack is
 announced): the post's modules (stall, palisade, hut), a defence (gift to calm the clan, or
 everybody home) when the forecast is not "likely", the post with the first friendly clan, a
 trade with the best-paying clan otherwise. Never a pillage. Milestones `wormhole`, `post`;

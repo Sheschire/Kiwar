@@ -3284,8 +3284,8 @@ var TECHS = {
     // days 28–30, sooner once the Mother Vine is found.
     cost: 2e4,
     libraryLevel: 9,
-    crystal: 60,
-    stardust: 30,
+    crystal: 30,
+    stardust: 20,
     cheaperWith: "motherVine",
     effects: {}
   }

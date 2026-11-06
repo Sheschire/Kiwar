@@ -63,6 +63,18 @@ export const TECH_ORDER: TechId[] = [
 ];
 
 /**
+ * Chantier 54: the wormholes wait for the Mother Vine (× 2.5 points without her, and the crystal
+ * they cost was the Great Weevil's ammunition), or day 32 at the latest.
+ */
+function waitsForVine(state: GameState, id: TechId): boolean {
+  return (
+    TECHS[id].cheaperWith === 'motherVine' &&
+    state.depths.weevil?.fellAt === undefined &&
+    state.now - state.createdAt < 32 * 86_400_000
+  );
+}
+
+/**
  * A Library after the School and the Nest 3, the next technology of TECH_ORDER, Library upgrades when a
  * technology needs them, and the monument as soon as its passage is known ('save': keep the
  * resources for it).
@@ -90,6 +102,7 @@ export function ageDecision(
   const wanted = TECH_ORDER.find(
     (id) =>
       !hasTech(state, id) &&
+      !waitsForVine(state, id) &&
       techStatus(state, id) !== 'age' &&
       (TECHS[id].crystal ?? 0) <= crystalOf(state),
   );
@@ -99,6 +112,7 @@ export function ageDecision(
     // Chantier 38: a technology paid in meteoric iron (chantier 50: or crystal) waits for it.
     const open = (id: TechId) =>
       techStatus(state, id) === 'available' &&
+      !waitsForVine(state, id) &&
       (TECHS[id].iron ?? 0) <= meteorIronOf(state) &&
       (TECHS[id].crystal ?? 0) <= crystalOf(state);
     const next =

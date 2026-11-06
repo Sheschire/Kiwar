@@ -48,7 +48,9 @@ const KEEP = 50_000;
 
 /** The launchpad raised to the wormhole's level once the technology is known. */
 export function wormholePadDecision(state: GameState): Command | null {
-  if (!hasTech(state, 'wormholes') || state.colony.index !== 0) return null;
+  // Once the Mother Vine is found (the wormholes come next), or once they are known.
+  const soon = state.depths.weevil?.fellAt !== undefined || hasTech(state, 'wormholes');
+  if (!soon || state.colony.index !== 0) return null;
   const pads = state.buildings.filter((b) => b.type === 'launchpad');
   if (pads.some((b) => b.level >= ORCHARD.padLevel)) return null;
   const pad = [...pads].sort((a, b) => b.level - a.level)[0];

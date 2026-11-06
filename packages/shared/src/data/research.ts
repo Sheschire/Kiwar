@@ -435,8 +435,8 @@ export const TECHS: Record<TechId, TechDef> = {
     // days 28–30, sooner once the Mother Vine is found.
     cost: 20000,
     libraryLevel: 9,
-    crystal: 60,
-    stardust: 30,
+    crystal: 30,
+    stardust: 20,
     cheaperWith: 'motherVine',
     effects: {},
   },

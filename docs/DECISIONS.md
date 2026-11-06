@@ -3692,7 +3692,7 @@ From the chantier document's decisions and the owner's answers of 6 November 202
 ### Defaults chosen by Claude (status "default", changeable)
 
 - Technology: Library 9 (as the passage to the stars), **20 000 points** (× 2.5 = 50 000
-  without the Mother Vine), 60 crystal, 30 stardust; a launchpad of **level 10**. First tried:
+  without the Mother Vine), 30 crystal, 20 stardust; a launchpad of **level 10**. First tried:
   Library 14, after the star sails, launchpad 14 — the bot ended day 30 at Nest 11, Library 10,
   launchpad 6 and never opened the wormhole in 34 days (3 runs). Travel 6 h before the
   launchpad's speed (≈ 3 h at level 10), a hop of 10 min between two stops, × 0.75 with a post.
