@@ -2976,7 +2976,7 @@ export const fr: Dict = {
   orbit: {
     button: 'Orbite',
     title: 'Orbite',
-    noYard: 'Construisez le chantier orbital (Âge des étoiles, Nid 13) pour lancer des kiwaïs.',
+    noYard: 'Construisez le chantier orbital (Âge des étoiles, Nid 10) pour lancer des kiwaïs.',
     intro:
       'Les kiwaïs sont de petites planètes en orbite : chacun a un type, quelques modules et les kiwis que la navette y monte. Ils mangent sur les réserves de la colonie.',
     full: '{count} kiwaï(s) en orbite : le chantier en tient {cap} à son niveau.',

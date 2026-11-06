@@ -2846,7 +2846,7 @@ export const en = {
   orbit: {
     button: 'Orbit',
     title: 'Orbit',
-    noYard: 'Build the orbital yard (Age of the stars, Nest 13) to launch kiwais.',
+    noYard: 'Build the orbital yard (Age of the stars, Nest 10) to launch kiwais.',
     intro:
       'Kiwais are small planets in orbit: each has a kind, a few modules and the kiwis the shuttle takes up. They eat from the colony.',
     full: '{count} kiwai(s) in orbit: the yard holds {cap} at its level.',

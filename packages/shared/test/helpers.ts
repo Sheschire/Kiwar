@@ -203,6 +203,6 @@ export function yardColony(level = 1, seed = 'orbit') {
     richness: 1,
     builtAt: T0,
   });
-  if (level >= 2) s.buildings[0]!.level = 12 + level;
+  if (level >= 3) s.buildings[0]!.level = 14;
   return { map, s };
 }

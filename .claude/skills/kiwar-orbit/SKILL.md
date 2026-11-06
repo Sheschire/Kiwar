@@ -32,7 +32,7 @@ resolves it as well as the server.
   it, two at most), work modules `sensor` (harvest, observatory), `dome` (greenhouse), `berth`
   (dock) with 2 places each. `WORK_MODULE[type]`, `moduleFits`. Costs in resources + crystal +
   iron, assembled at the yard in 2–3 h (no builder, no queue).
-- Yard (`orbitalYard`, a building of 3 tiles, levels 1–3 = the age's 13/14/15, Nest 13/14/15,
+- Yard (`orbitalYard`, a building of 3 tiles, levels 1–3 = the age's 13/14/15, Nest 10/12/14 (the bot reaches the stars at Nest 10),
   outside the building cap, one per colony, `yardExists`, cannot be demolished while kiwais
   are in orbit: `yardInUse`): `ORBIT.kiwais` 1/2/3, `moduleSlots` 3/4/5. Level stats
   `kiwais`, `moduleSlots`.

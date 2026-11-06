@@ -42,9 +42,9 @@ describe('chantier 53, the orbital yard', () => {
     const built = advance(t, t.now + 20 * 3_600_000).state;
     expect(built.buildings.some((b) => b.type === 'orbitalYard')).toBe(true);
     expect(buildLock(built, 'orbitalYard')).toBe('yardExists');
-    // Not before the Nest 13.
+    // Not before the Nest 10.
     const low = structuredClone(s) as GameState;
-    low.buildings[0]!.level = 12;
+    low.buildings[0]!.level = 9;
     expect(buildLock(low, 'orbitalYard')).toBe('nestLevelTooLow');
   });
 
