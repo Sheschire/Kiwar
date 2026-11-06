@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addNectar,
+  addStanding,
+  attitudeOf,
+  clanNeighbours,
+  drupeletNow,
+  nectarOf,
+  NECTAR,
+  payNectar,
+  pillageStanding,
+  sellTo,
+  standingOf,
+  STANDING,
+  tradeRate,
+  TRADE,
   advance,
   cloneState,
   createMemoryRepository,
@@ -205,5 +219,67 @@ describe('the orchard online (chantier 54)', () => {
     const g = [...repo.games.values()].find((x) => x.userId === 'dan')!;
     expect(g.state.orchardSeed).toBeDefined();
     expect(g.state.orchardSeed).not.toBe(local.orchardSeed);
+  });
+});
+
+describe('standing, trade and nectar (chantier 54)', () => {
+  const DAY = 86_400_000;
+
+  it('turns a pillaged clan and its neighbours against us, then lets it fade', () => {
+    const { state } = setup();
+    const s = cloneState(state);
+    const map = raspberryOfState(s);
+    const clan = map.clans[0]!.id;
+    const near = clanNeighbours(map, clan);
+    expect(near.length).toBeGreaterThan(0);
+    const far = map.clans.find((c) => c.id !== clan && !near.includes(c.id));
+    pillageStanding(s, clan, T0);
+    expect(standingOf(s, clan, T0)).toBe(STANDING.pillage);
+    expect(attitudeOf(s, clan, T0)).toBe('hostile');
+    for (const c of near) expect(standingOf(s, c, T0)).toBe(STANDING.pillageNeighbours);
+    if (far) expect(standingOf(s, far.id, T0)).toBe(0);
+    // Two points a day back toward 0: hostile no more after 15 days.
+    expect(standingOf(s, clan, T0 + 10 * DAY)).toBe(STANDING.pillage + 20);
+    expect(attitudeOf(s, clan, T0 + 16 * DAY)).toBe('neutral');
+    expect(standingOf(s, clan, T0 + 100 * DAY)).toBe(0);
+    // Trading makes friends (bounded).
+    for (let i = 0; i < 60; i++) addStanding(s, near[0]!, STANDING.gift, T0 + DAY);
+    expect(standingOf(s, near[0]!, T0 + DAY)).toBe(STANDING.max);
+    expect(attitudeOf(s, near[0]!, T0 + DAY)).toBe('friendly');
+  });
+
+  it('pays a public rate that our own sales lower for a while', () => {
+    const { state } = setup();
+    const s = cloneState(state);
+    const clan = raspberryOfState(s).clans[0]!;
+    expect(tradeRate(s, clan.id, T0)).toBe(clan.rate);
+    const paid = sellTo(s, clan.id, 1000, T0);
+    expect(paid).toBe(Math.floor((1000 * clan.rate) / 100));
+    const lower = tradeRate(s, clan.id, T0);
+    expect(lower).toBeLessThan(clan.rate);
+    expect(tradeRate(s, clan.id, T0 + TRADE.fadeMs / 2)).toBeGreaterThan(lower);
+    expect(tradeRate(s, clan.id, T0 + TRADE.fadeMs)).toBe(clan.rate);
+  });
+
+  it('keeps nectar apart, capped by the Nest', () => {
+    const { state } = setup();
+    const s = cloneState(state);
+    expect(addNectar(s, 10)).toBe(0);
+    s.buildings[0]!.level = 13;
+    expect(addNectar(s, 500)).toBe(NECTAR.cap[13]);
+    expect(nectarOf(s)).toBe(NECTAR.cap[13]);
+    payNectar(s, 50);
+    expect(nectarOf(s)).toBe(NECTAR.cap[13]! - 50);
+  });
+
+  it('grows a pillaged garrison back on a public clock', () => {
+    const { state } = setup();
+    const s = cloneState(state);
+    const d = raspberryOfState(s).drupelets[5]!;
+    const full = drupeletTruth('secret', d);
+    s.orchard.taken[d.id] = T0;
+    const now = drupeletNow(s, 'secret', d, T0 + RASPBERRY.regrowMs / 2);
+    expect(now.nectar).toBe(Math.round(full.nectar / 2));
+    expect(drupeletNow(s, 'secret', d, T0 + RASPBERRY.regrowMs)).toEqual(full);
   });
 });
