@@ -5,6 +5,7 @@
 //   pnpm --filter @kiwar/balance orchard [--seed s] [--face kiwisu] [--days 34] [--casual]
 import { hasTech, nectarCap, stardustOf, type Face, type GameState } from '@kiwar/shared';
 import { runBot } from './bot';
+import { orchardWhy } from './bot/orchard';
 
 const arg = (name: string, fallback: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -69,3 +70,4 @@ if (end) {
     ].join(' · '),
   );
 }
+console.log(`why: ${JSON.stringify(orchardWhy)}`);

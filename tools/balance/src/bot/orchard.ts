@@ -202,6 +202,10 @@ function voyage(state: GameState, pad: Building): VoyagePlan | null {
   return plan(state, pad, crew, { stops: [at], goods: { [best.wants]: GOODS } });
 }
 
+/** Why the last look at the orchard sent no ship (the probe prints it). */
+export const orchardWhy: Record<string, number> = {};
+const why = (k: string) => (orchardWhy[k] = (orchardWhy[k] ?? 0) + 1);
+
 /** Everything the bot does in the orchard this round (looked at once an hour of game time). */
 export function orchardOrders(state: GameState, prepared: boolean): Command[] {
   if (!orchardOpen(state)) return [];
@@ -209,9 +213,19 @@ export function orchardOrders(state: GameState, prepared: boolean): Command[] {
   const module = postModule(state);
   if (module) out.push(module);
   const pad = freePad(state);
-  if (!pad) return out;
+  if (!pad) {
+    why(
+      state.buildings.some((b) => b.type === 'launchpad' && b.level >= ORCHARD.padLevel)
+        ? 'padBusy'
+        : 'noPad',
+    );
+    return out;
+  }
   const v = (prepared ? defend(state, pad) : null) ?? voyage(state, pad);
-  if (v && voyageLock(state, v) === null) out.push({ type: 'voyage', ...v });
+  if (!v) why(voyagesOut(state).length > 0 ? 'underWay' : 'noPlan');
+  const lock = v ? voyageLock(state, v) : null;
+  if (lock) why(lock);
+  if (v && lock === null) out.push({ type: 'voyage', ...v });
   return out;
 }
 
