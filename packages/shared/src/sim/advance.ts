@@ -307,6 +307,19 @@ export type GameEvent =
   /** Chantier 53: the shuttle docked at a kiwai (`up` kiwis arrived), then came back. */
   | { type: 'shuttleDocked'; at: TimeMs; kiwaiId: string; up: number }
   | { type: 'shuttleBack'; at: TimeMs; kiwaiId: string; down: number; stardust: number }
+  /** Chantier 53: a module will break down at `breakAt`; it broke; it was repaired. */
+  | { type: 'wearAnnounced'; at: TimeMs; kiwaiId: string; moduleType: ModuleType; breakAt: TimeMs }
+  | { type: 'moduleBroken'; at: TimeMs; kiwaiId: string; moduleType: ModuleType }
+  | { type: 'moduleRepaired'; at: TimeMs; kiwaiId: string; moduleType: ModuleType }
+  /** Chantier 53: a comet's swarm swept a kiwai (held by its shield, or modules broken). */
+  | {
+      type: 'swarmHit';
+      at: TimeMs;
+      kiwaiId: string;
+      shielded: boolean;
+      broken: number;
+      hurt: number;
+    }
   | {
       type: 'repaired';
       at: TimeMs;

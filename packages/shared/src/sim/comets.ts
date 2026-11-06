@@ -1,4 +1,4 @@
-import { observatoryNotice } from './orbit';
+import { observatoryNotice, swarmStrike } from './orbit';
 import { gathered } from './speech';
 import { takenKeys } from './footprint';
 import { createRng, type Rng } from '../rng/rng';
@@ -181,6 +181,8 @@ export function cometTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
       });
       dropped.push({ q: t.q, r: t.r, stock: points });
     });
+    // Chantier 53: its swarm sweeps the orbit.
+    swarmStrike(s, next.id, c.passes, at, events);
     c.passes++;
     c.lastAt = at;
     c.next = null;

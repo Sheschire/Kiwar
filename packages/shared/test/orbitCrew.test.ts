@@ -8,7 +8,6 @@ import {
   dockTravel,
   exposedKiwis,
   greenhouseRates,
-  kiwaiMapOf,
   moduleSlots,
   MODULES,
   observatoryNotice,
@@ -21,11 +20,11 @@ import {
   workModules,
   type Command,
   type GameState,
-  type KiwaiType,
   type ModuleType,
   type VillagerId,
 } from '../src';
 import { run, yardColony } from './helpers';
+import { ground, kiwaiReady, sendUp } from './orbitHelpers';
 
 const HOUR = 3_600_000;
 type Map = Parameters<typeof run>[3];
@@ -34,52 +33,6 @@ const errorOf = (s: GameState, cmd: Command, map: Map) => {
   const r = applyCommand(s, cmd, { now: s.now, map });
   return r.ok ? null : r.error;
 };
-
-/** Ground tiles of a kiwai's map, ring first, sorted for stable tests. */
-function ground(s: GameState, kiwaiId: string) {
-  return kiwaiMapOf(s, { id: kiwaiId })
-    .tiles.filter((t) => t.kind === 'ground')
-    .sort((a, b) => a.q - b.q || a.r - b.r);
-}
-
-/** A kiwai of that type in orbit, with a habitat, its work module and a panel next to it. */
-function kiwaiReady(type: KiwaiType, extra: ModuleType[] = []) {
-  const { map, s: s0 } = yardColony(3);
-  let s = run(s0, { type: 'launchKiwai', kiwaiType: type }, s0.now, map);
-  const k = s.orbit.kiwais[0]!;
-  s = advance(s, k.readyAt).state;
-  const tiles = ground(s, k.id);
-  // The work module at (1, 0) or the first ground tile, a panel and a habitat around it.
-  const work = {
-    habitat: 'habitat',
-    harvest: 'sensor',
-    greenhouse: 'dome',
-    observatory: 'sensor',
-    dock: 'berth',
-  } as const;
-  const wanted: ModuleType[] = ['habitat', work[type], 'panel', ...extra];
-  for (let i = 0; i < wanted.length; i++) {
-    const at = tiles[i]!;
-    s = run(
-      s,
-      { type: 'buildModule', kiwaiId: k.id, moduleType: wanted[i]!, q: at.q, r: at.r },
-      s.now,
-      map,
-    );
-  }
-  s = advance(s, s.now + 4 * HOUR).state;
-  return { map, s, kiwaiId: k.id };
-}
-
-/** Sends the best `n` kiwis at home up, and waits for the shuttle to come back. */
-function sendUp(s: GameState, map: Map, kiwaiId: string, n: number) {
-  const up = s.villagers
-    .filter((v) => !v.kikiwiwi && (v.job.kind === 'work' || v.job.kind === 'idle'))
-    .slice(0, n)
-    .map((v) => v.id);
-  const t = run(s, { type: 'sendShuttle', kiwaiId, up, down: [] }, s.now, map);
-  return { t, up };
-}
 
 describe('chantier 53, modules', () => {
   it('sets modules on free ground of a kiwai in orbit, paid and assembled', () => {

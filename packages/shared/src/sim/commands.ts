@@ -98,7 +98,7 @@ import { fortifyCost, fortifyLock, guardLock, startFortify } from './beacons';
 import { finalLock } from './queen';
 import { returnHome, weakestWorker } from './posts';
 import { TECHS, type TechId } from '../data/research';
-import { KIWAI_TYPES, MODULES, type KiwaiType, type ModuleType } from '../data/orbit';
+import { KIWAI_TYPES, MODULES, ORBIT, type KiwaiType, type ModuleType } from '../data/orbit';
 import {
   flyShuttle,
   kiwaiById,
@@ -109,6 +109,10 @@ import {
   setModule,
   shuttleLock,
   startKiwai,
+  comingSwarm,
+  serviceKiwai,
+  serviceLock,
+  shieldLock,
 } from './orbit';
 import { researchTick, techEffects, techStatus } from './research';
 import { KIKIWIWI } from '../data/kikiwiwi';
@@ -301,6 +305,9 @@ export type Command =
   | { type: 'removeModule'; kiwaiId: string; moduleId: string }
   /** Chantier 53: the shuttle takes kiwis up to a kiwai and brings others down (and its dust). */
   | { type: 'sendShuttle'; kiwaiId: string; up: VillagerId[]; down: VillagerId[] }
+  /** Chantier 53: puts off a kiwai's next breakdown (iron), or raises its shield (stardust). */
+  | { type: 'serviceKiwai'; kiwaiId: string }
+  | { type: 'raiseShield'; kiwaiId: string }
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
 export const COMMAND_ERRORS = [
@@ -488,6 +495,9 @@ export const COMMAND_ERRORS = [
   'notInOrbit',
   'noHabitat',
   'yardInUse',
+  'nothingToService',
+  'noSwarm',
+  'shieldRaised',
 ] as const;
 export type BlessingKind = 'heal' | 'respec' | 'stat';
 
@@ -1065,6 +1075,22 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
           Math.max(cap[id], s.resources[id]),
           s.resources[id] + (MODULES[m.type].cost[id] ?? 0) * DEMOLITION.refund,
         );
+      return;
+    }
+    case 'serviceKiwai': {
+      const kiwai = kiwaiById(s, cmd.kiwaiId);
+      const lock = serviceLock(s, kiwai);
+      if (lock) fail(lock);
+      payIron(s, ORBIT.wear.serviceIron);
+      serviceKiwai(s, kiwai!, now);
+      return;
+    }
+    case 'raiseShield': {
+      const kiwai = kiwaiById(s, cmd.kiwaiId);
+      const lock = shieldLock(s, kiwai);
+      if (lock) fail(lock);
+      payStardust(s, ORBIT.swarm.shieldDust);
+      kiwai!.shield = comingSwarm(s)!.id;
       return;
     }
     case 'sendShuttle': {

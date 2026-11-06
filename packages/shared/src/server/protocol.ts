@@ -108,6 +108,8 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     r: z.number().int().min(-ORBIT.radius).max(ORBIT.radius),
   }),
   z.object({ type: z.literal('removeModule'), kiwaiId: id, moduleId: id }),
+  z.object({ type: z.literal('serviceKiwai'), kiwaiId: id }),
+  z.object({ type: z.literal('raiseShield'), kiwaiId: id }),
   z.object({
     type: z.literal('sendShuttle'),
     kiwaiId: id,

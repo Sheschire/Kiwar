@@ -14535,6 +14535,7 @@ function cometTick(s, at, events) {
       });
       dropped.push({ q: t.q, r: t.r, stock: points });
     });
+    swarmStrike(s, next.id, c.passes, at, events);
     c.passes++;
     c.lastAt = at;
     c.next = null;
@@ -14687,7 +14688,14 @@ function nextOrbitEvent(s) {
   };
   for (const k of s.orbit.kiwais) {
     later(k.readyAt);
-    for (const m of k.modules) later(m.readyAt);
+    for (const m of k.modules) {
+      later(m.readyAt);
+      if (m.repairAt !== void 0) later(m.repairAt);
+    }
+    if (k.wear.at > 0) {
+      later(k.wear.at - ORBIT.wear.noticeMs);
+      later(k.wear.at);
+    }
   }
   const sh = s.orbit.shuttle;
   if (sh) later(sh.docked ? sh.backAt : sh.upAt);
@@ -14696,9 +14704,28 @@ function nextOrbitEvent(s) {
 function orbitTick(s, at, events) {
   for (const k of s.orbit.kiwais) {
     if (k.readyAt === at) events.push({ type: "kiwaiReady", at, kiwaiId: k.id, kiwaiType: k.type });
-    for (const m of k.modules)
+    for (const m of k.modules) {
       if (m.readyAt === at)
         events.push({ type: "moduleReady", at, kiwaiId: k.id, moduleType: m.type });
+      if (m.repairAt === at) {
+        delete m.broken;
+        delete m.repairAt;
+        events.push({ type: "moduleRepaired", at, kiwaiId: k.id, moduleType: m.type });
+      }
+    }
+    if (k.wear.at > 0 && k.wear.at - ORBIT.wear.noticeMs === at) {
+      const m = k.modules.find((x) => x.id === k.wear.moduleId);
+      if (m)
+        events.push({
+          type: "wearAnnounced",
+          at,
+          kiwaiId: k.id,
+          moduleType: m.type,
+          breakAt: k.wear.at
+        });
+    }
+    if (k.wear.at === at) breakDown(s, k, at, events);
+    else if (k.wear.at === 0 && k.readyAt <= at) planWear(s, k, at);
   }
   const sh = s.orbit.shuttle;
   if (sh && !sh.docked && sh.upAt === at) dockShuttle(s, at, events);
@@ -14909,6 +14936,8 @@ function flyShuttle(s, plan, now) {
     const v = s.villagers.find((x) => x.id === id3);
     if (v.job.kind === "orbit") v.job = { ...v.job, aboard: "down" };
   }
+  const kiwai = kiwaiById(s, plan.kiwaiId);
+  if (kiwai && orbitCrew(s, kiwai.id).length === 0) stopRepairs(kiwai);
   s.orbit.shuttle = {
     kiwaiId: plan.kiwaiId,
     leftAt: now,
@@ -14928,6 +14957,7 @@ function dockShuttle(s, at, events) {
       v.job = job2;
     }
   const kiwai = kiwaiById(s, sh.kiwaiId);
+  if (kiwai && sh.up.length > 0) startRepairs(s, kiwai, at);
   if (kiwai && kiwai.dust > 0) {
     sh.cargo += kiwai.dust;
     kiwai.dust = 0;
@@ -14961,6 +14991,112 @@ function landShuttle(s, at, events) {
 }
 function accrueOrbit(s, rates, dtMs) {
   for (const { kiwai, rate } of rates) kiwai.dust = Math.min(dustTank(), kiwai.dust + rate * dtMs);
+}
+function wearRng(s, kiwai) {
+  return createRng(`${s.seed}/${s.face}/kiwai/${kiwai.id}/wear/${kiwai.wear.n}`);
+}
+function wearing(kiwai, now) {
+  return kiwai.modules.filter((m) => MODULES[m.type].wears && moduleWorks(m, now));
+}
+function planWear(s, kiwai, now) {
+  const candidates = wearing(kiwai, now);
+  if (candidates.length === 0) {
+    kiwai.wear = { ...kiwai.wear, at: 0, moduleId: null };
+    return;
+  }
+  const rng = wearRng(s, kiwai);
+  const gap = Math.round(rng.range(ORBIT.wear.gapMs[0], ORBIT.wear.gapMs[1]));
+  const m = candidates[rng.int(0, candidates.length - 1)];
+  kiwai.wear = { n: kiwai.wear.n, at: now + Math.max(gap, ORBIT.wear.noticeMs), moduleId: m.id };
+}
+function wearAnnounced(kiwai, now) {
+  return kiwai.wear.at > 0 && kiwai.wear.at - ORBIT.wear.noticeMs <= now;
+}
+function repairTime(state, kiwaiId) {
+  const crew = orbitCrew(state, kiwaiId);
+  if (crew.length === 0) return null;
+  const dex = Math.max(...crew.map((v) => v.stats.dexterity));
+  return Math.round(ORBIT.wear.repairMs * (KIWI.stat.average / Math.max(1, dex)));
+}
+function startRepairs(s, kiwai, now) {
+  const time = repairTime(s, kiwai.id);
+  if (time === null) return;
+  let at = now;
+  for (const m of kiwai.modules) if (m.repairAt !== void 0) at = Math.max(at, m.repairAt);
+  for (const m of kiwai.modules) {
+    if (m.broken === void 0 || m.repairAt !== void 0) continue;
+    at += time;
+    m.repairAt = at;
+  }
+}
+function stopRepairs(kiwai) {
+  for (const m of kiwai.modules) delete m.repairAt;
+}
+function serviceLock(state, kiwai) {
+  if (!kiwai) return "unknownKiwai";
+  if (kiwai.wear.at <= 0) return "nothingToService";
+  if (meteorIronOf(state) < ORBIT.wear.serviceIron) return "notEnoughIron";
+  return null;
+}
+function serviceKiwai(s, kiwai, now) {
+  kiwai.wear = { n: kiwai.wear.n + 1, at: 0, moduleId: null };
+  planWear(s, kiwai, now);
+}
+function comingSwarm(state) {
+  const c = state.comets.next;
+  return c && c.announced && c.at > state.now ? { id: c.id, at: c.at } : null;
+}
+function shieldLock(state, kiwai) {
+  if (!kiwai) return "unknownKiwai";
+  if (kiwai.readyAt > state.now) return "kiwaiNotReady";
+  const swarm = comingSwarm(state);
+  if (!swarm) return "noSwarm";
+  if (kiwai.shield === swarm.id) return "shieldRaised";
+  if (dustPoints(state.stardust) < ORBIT.swarm.shieldDust) return "notEnoughStardust";
+  return null;
+}
+function swarmStrike(s, cometId, passes, at, events) {
+  for (const k of s.orbit.kiwais) {
+    if (k.readyAt > at) continue;
+    if (k.shield === cometId) {
+      delete k.shield;
+      events.push({ type: "swarmHit", at, kiwaiId: k.id, shielded: true, broken: 0, hurt: 0 });
+      continue;
+    }
+    delete k.shield;
+    const rng = createRng(`${s.seed}/${s.face}/comet/${passes}/swarm/${k.id}`);
+    const pool = wearing(k, at);
+    let broken = 0;
+    for (let i = 0; i < ORBIT.swarm.hits && pool.length > 0; i++) {
+      const m = pool.splice(rng.int(0, pool.length - 1), 1)[0];
+      m.broken = at;
+      broken++;
+    }
+    const crew = orbitCrew(s, k.id);
+    for (const v of crew) v.job = { kind: "injured", until: at + ORBIT.swarm.injuryMs };
+    if (crew.length > 0) stopRepairs(k);
+    if (broken > 0 && k.wear.moduleId && !wearing(k, at).some((m) => m.id === k.wear.moduleId))
+      planWear(s, k, at);
+    events.push({
+      type: "swarmHit",
+      at,
+      kiwaiId: k.id,
+      shielded: false,
+      broken,
+      hurt: crew.length
+    });
+  }
+}
+function breakDown(s, kiwai, at, events) {
+  const planned = kiwai.modules.find((m) => m.id === kiwai.wear.moduleId);
+  const target = planned && moduleWorks(planned, at) ? planned : wearing(kiwai, at)[0];
+  kiwai.wear = { n: kiwai.wear.n + 1, at: 0, moduleId: null };
+  if (target) {
+    target.broken = at;
+    events.push({ type: "moduleBroken", at, kiwaiId: kiwai.id, moduleType: target.type });
+    startRepairs(s, kiwai, at);
+  }
+  planWear(s, kiwai, at);
 }
 
 // packages/shared/src/sim/upwell.ts
@@ -16469,7 +16605,10 @@ var COMMAND_ERRORS = [
   "shuttleFull",
   "notInOrbit",
   "noHabitat",
-  "yardInUse"
+  "yardInUse",
+  "nothingToService",
+  "noSwarm",
+  "shieldRaised"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -16962,6 +17101,22 @@ function execute(s, cmd, ctx, events) {
           Math.max(cap[id3], s.resources[id3]),
           s.resources[id3] + (MODULES[m.type].cost[id3] ?? 0) * DEMOLITION.refund
         );
+      return;
+    }
+    case "serviceKiwai": {
+      const kiwai = kiwaiById(s, cmd.kiwaiId);
+      const lock = serviceLock(s, kiwai);
+      if (lock) fail(lock);
+      payIron(s, ORBIT.wear.serviceIron);
+      serviceKiwai(s, kiwai, now);
+      return;
+    }
+    case "raiseShield": {
+      const kiwai = kiwaiById(s, cmd.kiwaiId);
+      const lock = shieldLock(s, kiwai);
+      if (lock) fail(lock);
+      payStardust(s, ORBIT.swarm.shieldDust);
+      kiwai.shield = comingSwarm(s).id;
       return;
     }
     case "sendShuttle": {
@@ -22728,6 +22883,8 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     r: external_exports.number().int().min(-ORBIT.radius).max(ORBIT.radius)
   }),
   external_exports.object({ type: external_exports.literal("removeModule"), kiwaiId: id2, moduleId: id2 }),
+  external_exports.object({ type: external_exports.literal("serviceKiwai"), kiwaiId: id2 }),
+  external_exports.object({ type: external_exports.literal("raiseShield"), kiwaiId: id2 }),
   external_exports.object({
     type: external_exports.literal("sendShuttle"),
     kiwaiId: id2,
@@ -24731,6 +24888,7 @@ export {
   colonyPower,
   cometStock,
   cometTick,
+  comingSwarm,
   comingWave,
   commandSchema,
   computeClaims,
@@ -25173,6 +25331,7 @@ export {
   planMeteor,
   planUpwell,
   planWave,
+  planWear,
   planetSeedOf,
   plausibleOrbit,
   plausibleTerraform,
@@ -25226,6 +25385,7 @@ export {
   repairCost,
   repairDuration,
   repairSpeed,
+  repairTime,
   requestSchema,
   researchBank,
   researchEta,
@@ -25276,9 +25436,12 @@ export {
   sendBackAll,
   sendShipment,
   serializeSave,
+  serviceKiwai,
+  serviceLock,
   setModule,
   settle2 as settle,
   shieldArrival,
+  shieldLock,
   shipCargo,
   shipIdForAge,
   shipIdOf,
@@ -25315,6 +25478,7 @@ export {
   startFortify,
   startItem,
   startKiwai,
+  startRepairs,
   startedItems,
   startingHarm,
   stemEscort,
@@ -25325,6 +25489,7 @@ export {
   strengthOf,
   strike2 as strike,
   suppedTonight,
+  swarmStrike,
   syncColonies,
   syncPools,
   takeFounding,
@@ -25404,6 +25569,7 @@ export {
   waveSquads,
   weakestWorker,
   wealthFactor,
+  wearAnnounced,
   wearLock,
   weevilFallen,
   weevilOf,

@@ -23,6 +23,7 @@ import { workerPower } from './kiwis';
 import { hungerWork } from './needs';
 import { researchPower } from './research';
 import { colonyMood, kiwiMoraleWork, presence, type Bed } from './rest';
+import { createRng, type Rng } from '../rng/rng';
 import { siteSpotError, smallMap, thingAt, type SiteError, type SmallMap } from './sites';
 import { borrow, sendBackAll } from './tasks';
 import type { Building, GameState, Kiwai, OrbitModule, Villager } from './state';
@@ -128,7 +129,14 @@ export function nextOrbitEvent(s: GameState): TimeMs {
   };
   for (const k of s.orbit.kiwais) {
     later(k.readyAt);
-    for (const m of k.modules) later(m.readyAt);
+    for (const m of k.modules) {
+      later(m.readyAt);
+      if (m.repairAt !== undefined) later(m.repairAt);
+    }
+    if (k.wear.at > 0) {
+      later(k.wear.at - ORBIT.wear.noticeMs);
+      later(k.wear.at);
+    }
   }
   const sh = s.orbit.shuttle;
   if (sh) later(sh.docked ? sh.backAt : sh.upAt);
@@ -139,9 +147,29 @@ export function nextOrbitEvent(s: GameState): TimeMs {
 export function orbitTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
   for (const k of s.orbit.kiwais) {
     if (k.readyAt === at) events.push({ type: 'kiwaiReady', at, kiwaiId: k.id, kiwaiType: k.type });
-    for (const m of k.modules)
+    for (const m of k.modules) {
       if (m.readyAt === at)
         events.push({ type: 'moduleReady', at, kiwaiId: k.id, moduleType: m.type });
+      if (m.repairAt === at) {
+        delete m.broken;
+        delete m.repairAt;
+        events.push({ type: 'moduleRepaired', at, kiwaiId: k.id, moduleType: m.type });
+      }
+    }
+    if (k.wear.at > 0 && k.wear.at - ORBIT.wear.noticeMs === at) {
+      const m = k.modules.find((x) => x.id === k.wear.moduleId);
+      if (m)
+        events.push({
+          type: 'wearAnnounced',
+          at,
+          kiwaiId: k.id,
+          moduleType: m.type,
+          breakAt: k.wear.at,
+        });
+    }
+    if (k.wear.at === at) breakDown(s, k, at, events);
+    // A module that wears started working (assembled, repaired): its wear is planned.
+    else if (k.wear.at === 0 && k.readyAt <= at) planWear(s, k, at);
   }
   const sh = s.orbit.shuttle;
   if (sh && !sh.docked && sh.upAt === at) dockShuttle(s, at, events);
@@ -459,6 +487,8 @@ export function flyShuttle(s: GameState, plan: ShuttlePlan, now: TimeMs): void {
     const v = s.villagers.find((x) => x.id === id)!;
     if (v.job.kind === 'orbit') v.job = { ...v.job, aboard: 'down' };
   }
+  const kiwai = kiwaiById(s, plan.kiwaiId);
+  if (kiwai && orbitCrew(s, kiwai.id).length === 0) stopRepairs(kiwai);
   s.orbit.shuttle = {
     kiwaiId: plan.kiwaiId,
     leftAt: now,
@@ -480,6 +510,7 @@ function dockShuttle(s: GameState, at: TimeMs, events: GameEvent[]): void {
       v.job = job;
     }
   const kiwai = kiwaiById(s, sh.kiwaiId);
+  if (kiwai && sh.up.length > 0) startRepairs(s, kiwai, at);
   if (kiwai && kiwai.dust > 0) {
     sh.cargo += kiwai.dust;
     kiwai.dust = 0;
@@ -522,4 +553,153 @@ export function accrueOrbit(
   dtMs: number,
 ): void {
   for (const { kiwai, rate } of rates) kiwai.dust = Math.min(dustTank(), kiwai.dust + rate * dtMs);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Risks: breakdowns (announced, put off by a service, repaired up there) and comet swarms
+// (announced with the comet; a shield, an evacuation, or repairs after)
+
+function wearRng(s: GameState, kiwai: Kiwai): Rng {
+  return createRng(`${s.seed}/${s.face}/kiwai/${kiwai.id}/wear/${kiwai.wear.n}`);
+}
+
+/** Modules that may break down now: assembled, working, of a kind that wears. */
+function wearing(kiwai: Kiwai, now: TimeMs): OrbitModule[] {
+  return kiwai.modules.filter((m) => MODULES[m.type].wears && moduleWorks(m, now));
+}
+
+/**
+ * Plans the kiwai's next breakdown from `now` (its own public stream: the same for everyone
+ * who looks): when, and which module. Nothing to plan without a module that wears.
+ */
+export function planWear(s: GameState, kiwai: Kiwai, now: TimeMs): void {
+  const candidates = wearing(kiwai, now);
+  if (candidates.length === 0) {
+    kiwai.wear = { ...kiwai.wear, at: 0, moduleId: null };
+    return;
+  }
+  const rng = wearRng(s, kiwai);
+  const gap = Math.round(rng.range(ORBIT.wear.gapMs[0], ORBIT.wear.gapMs[1]));
+  const m = candidates[rng.int(0, candidates.length - 1)]!;
+  kiwai.wear = { n: kiwai.wear.n, at: now + Math.max(gap, ORBIT.wear.noticeMs), moduleId: m.id };
+}
+
+/** The breakdown of that kiwai is announced (its time minus the notice has passed). */
+export function wearAnnounced(kiwai: Kiwai, now: TimeMs): boolean {
+  return kiwai.wear.at > 0 && kiwai.wear.at - ORBIT.wear.noticeMs <= now;
+}
+
+/** How long the best mechanic up there takes to repair one module (Dexterity 5: `repairMs`). */
+export function repairTime(state: GameState, kiwaiId: string): number | null {
+  const crew = orbitCrew(state, kiwaiId);
+  if (crew.length === 0) return null;
+  const dex = Math.max(...crew.map((v) => v.stats.dexterity));
+  return Math.round(ORBIT.wear.repairMs * (KIWI.stat.average / Math.max(1, dex)));
+}
+
+/** The crew up there starts on the broken modules, one after another. */
+export function startRepairs(s: GameState, kiwai: Kiwai, now: TimeMs): void {
+  const time = repairTime(s, kiwai.id);
+  if (time === null) return;
+  let at = now;
+  for (const m of kiwai.modules) if (m.repairAt !== undefined) at = Math.max(at, m.repairAt);
+  for (const m of kiwai.modules) {
+    if (m.broken === undefined || m.repairAt !== undefined) continue;
+    at += time;
+    m.repairAt = at;
+  }
+}
+
+/** Nobody left up there: the repairs wait. */
+function stopRepairs(kiwai: Kiwai): void {
+  for (const m of kiwai.modules) delete m.repairAt;
+}
+
+/** Why the kiwai's next breakdown cannot be put off now (null: it can). */
+export function serviceLock(state: GameState, kiwai: Kiwai | undefined): CommandError | null {
+  if (!kiwai) return 'unknownKiwai';
+  if (kiwai.wear.at <= 0) return 'nothingToService';
+  if (meteorIronOf(state) < ORBIT.wear.serviceIron) return 'notEnoughIron';
+  return null;
+}
+
+/** A service (the caller paid): the next breakdown is drawn again from now. */
+export function serviceKiwai(s: GameState, kiwai: Kiwai, now: TimeMs): void {
+  kiwai.wear = { n: kiwai.wear.n + 1, at: 0, moduleId: null };
+  planWear(s, kiwai, now);
+}
+
+/** The comet whose swarm is coming, once announced (null: none). */
+export function comingSwarm(state: GameState): { id: string; at: TimeMs } | null {
+  const c = state.comets.next;
+  return c && c.announced && c.at > state.now ? { id: c.id, at: c.at } : null;
+}
+
+/** Why the kiwai's shield cannot be raised now (null: it can). */
+export function shieldLock(state: GameState, kiwai: Kiwai | undefined): CommandError | null {
+  if (!kiwai) return 'unknownKiwai';
+  if (kiwai.readyAt > state.now) return 'kiwaiNotReady';
+  const swarm = comingSwarm(state);
+  if (!swarm) return 'noSwarm';
+  if (kiwai.shield === swarm.id) return 'shieldRaised';
+  if (dustPoints(state.stardust) < ORBIT.swarm.shieldDust) return 'notEnoughStardust';
+  return null;
+}
+
+/**
+ * A comet passes: its swarm sweeps every kiwai in orbit. A shield raised against it holds;
+ * otherwise up to `hits` working modules break (drawn from the comet's public stream) and the
+ * kiwis up there come down wounded in the pods. Nothing is lost: modules are repaired.
+ */
+export function swarmStrike(
+  s: GameState,
+  cometId: string,
+  passes: number,
+  at: TimeMs,
+  events: GameEvent[],
+): void {
+  for (const k of s.orbit.kiwais) {
+    if (k.readyAt > at) continue;
+    if (k.shield === cometId) {
+      delete k.shield;
+      events.push({ type: 'swarmHit', at, kiwaiId: k.id, shielded: true, broken: 0, hurt: 0 });
+      continue;
+    }
+    delete k.shield;
+    const rng = createRng(`${s.seed}/${s.face}/comet/${passes}/swarm/${k.id}`);
+    const pool = wearing(k, at);
+    let broken = 0;
+    for (let i = 0; i < ORBIT.swarm.hits && pool.length > 0; i++) {
+      const m = pool.splice(rng.int(0, pool.length - 1), 1)[0]!;
+      m.broken = at;
+      broken++;
+    }
+    const crew = orbitCrew(s, k.id);
+    for (const v of crew) v.job = { kind: 'injured', until: at + ORBIT.swarm.injuryMs };
+    if (crew.length > 0) stopRepairs(k);
+    // The module planned to wear may be broken now: the next breakdown is drawn again.
+    if (broken > 0 && k.wear.moduleId && !wearing(k, at).some((m) => m.id === k.wear.moduleId))
+      planWear(s, k, at);
+    events.push({
+      type: 'swarmHit',
+      at,
+      kiwaiId: k.id,
+      shielded: false,
+      broken,
+      hurt: crew.length,
+    });
+  }
+}
+
+/** A planned breakdown happens: the module stops (repaired by the crew up there, if any). */
+function breakDown(s: GameState, kiwai: Kiwai, at: TimeMs, events: GameEvent[]): void {
+  const planned = kiwai.modules.find((m) => m.id === kiwai.wear.moduleId);
+  const target = planned && moduleWorks(planned, at) ? planned : wearing(kiwai, at)[0];
+  kiwai.wear = { n: kiwai.wear.n + 1, at: 0, moduleId: null };
+  if (target) {
+    target.broken = at;
+    events.push({ type: 'moduleBroken', at, kiwaiId: kiwai.id, moduleType: target.type });
+    startRepairs(s, kiwai, at);
+  }
+  planWear(s, kiwai, at);
 }
