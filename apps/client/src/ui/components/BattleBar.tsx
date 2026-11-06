@@ -39,9 +39,13 @@ export function BattleBar() {
                   ? live
                     ? 'slice.live'
                     : 'slice.replay'
-                  : live
-                    ? 'battle.live'
-                    : 'battle.replay',
+                  : kind === 'fruit'
+                    ? live
+                      ? 'orchard.live'
+                      : 'orchard.replay'
+                    : live
+                      ? 'battle.live'
+                      : 'battle.replay',
             )}
           </strong>
           <span class="small muted">

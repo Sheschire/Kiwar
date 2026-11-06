@@ -114,7 +114,7 @@ const renderer = new GameRenderer(
       battleStore.setState({ time, duration, unit: renderer.battleUnit() }),
     onBattleEnd: (source) => {
       battleStore.setState({ reportId: null, live: false, unit: null });
-      if (source.kind === 'landing') tellLanding(source.id);
+      if (source.kind === 'landing' || source.kind === 'fruit') tellLanding(source.id);
       else if (source.kind === 'wave') tellOutcome(source.id);
     },
     onBattleUnit: (unit) => battleStore.setState({ unit }),

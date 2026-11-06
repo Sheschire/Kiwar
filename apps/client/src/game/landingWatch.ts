@@ -16,11 +16,13 @@ const held = new Map<string, { outcome: Outcome; mission: MissionKind }>();
 /** The toast of a landing's outcome (chantier 42: the queen's battle has its own). */
 export function tellOutcome(mission: MissionKind, outcome: Outcome): void {
   const key: TKey =
-    mission === 'final'
-      ? outcome === 'victory'
-        ? 'queen.toast.fell'
-        : 'queen.toast.held'
-      : `landing.toast.${outcome}`;
+    mission === 'pillage'
+      ? `orchard.toast.${outcome}`
+      : mission === 'final'
+        ? outcome === 'victory'
+          ? 'queen.toast.fell'
+          : 'queen.toast.held'
+        : `landing.toast.${outcome}`;
   pushToast(outcome === 'victory' ? 'success' : 'error', key);
   // The twin is ours: the conquest screen offers the settlers' ship.
   if (mission === 'final' && outcome === 'victory') uiStore.setState({ modal: 'siege' });

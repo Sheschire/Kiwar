@@ -142,12 +142,19 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
           const r = exp?.result;
           if (r?.stops?.some((x) => x.refused)) pushToast('error', 'orchard.toast.refused');
           else pushToast('success', 'orchard.toast.visit', { nectar: r?.nectar ?? 0 });
-        } else if (e.mission === 'pillage')
-          pushToast(
-            e.outcome === 'victory' ? 'success' : 'error',
-            `orchard.toast.${e.outcome ?? 'defeat'}`,
-          );
-        else if (e.mission === 'found') {
+        } else if (e.mission === 'pillage') {
+          // Offered live like a landing (the outcome waits for the show or "Later").
+          const s = uiStore.getState();
+          const fresh = Math.abs(s.now - e.at) < LIVE_LANDING_MS;
+          if (fresh && s.visit === null && !s.landingInvite && e.outcome) {
+            holdLanding(e.expeditionId, e.outcome, 'pillage');
+            uiStore.setState({ landingInvite: e.expeditionId });
+          } else
+            pushToast(
+              e.outcome === 'victory' ? 'success' : 'error',
+              `orchard.toast.${e.outcome ?? 'defeat'}`,
+            );
+        } else if (e.mission === 'found') {
           const game = uiStore.getState().game;
           const face = game ? `@faces.${otherFace(game.face)}` : '';
           pushToast('success', 'colony.founded', { face });

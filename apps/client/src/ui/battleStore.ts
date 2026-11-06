@@ -8,7 +8,7 @@ export interface BattleView {
   /** The wave whose battle is on screen (null: none). */
   reportId: string | null;
   /** Chantier 41: a wave at home or a landing on the twin; chantier 49: a delve in the cut. */
-  kind: 'wave' | 'landing' | 'delve';
+  kind: 'wave' | 'landing' | 'delve' | 'fruit';
   /** Played as it happens (the outcome is told at the end of the show). */
   live: boolean;
   /** Show time and length, in seconds. */

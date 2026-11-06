@@ -75,6 +75,12 @@ const LINGER = 1.8;
 
 /** Chantier 48: the colours of the Grouillants. */
 const GROUILLANT_TINTS = { grub: '#f3e7bd', fly: '#b9d36a', louse: '#8b93a0' } as const;
+/** Chantier 54: the raspberry's beetles (crawler and flier rigs, in their own colours). */
+const BEETLE_TINTS: Record<string, string> = {
+  beetle: '#7a3b2a',
+  beetleGuard: '#4a2a3a',
+  byturus: '#c9a46a',
+};
 
 /** Chantier 42: how much bigger the ferret queen is than a soldier. */
 export const QUEEN_SIZE = 2.6;
@@ -159,8 +165,8 @@ interface Actor {
  */
 export interface ShowSource {
   id: string;
-  /** Chantier 49: `delve`, a delve replayed in its room of the cut. */
-  kind: 'wave' | 'landing' | 'delve';
+  /** Chantier 49: `delve`, a delve replayed in its room of the cut; chantier 54: `fruit`. */
+  kind: 'wave' | 'landing' | 'delve' | 'fruit';
   log: BattleLog;
 }
 
@@ -368,7 +374,7 @@ export class BattleShow {
           // Chantier 48: the Grouillants wear the ferret's and the bat's rigs in their own colours
           // (pale larvae, slate woodlice, green-gold fruit flies) until chantier 49 draws them.
           scale = CREATURE_SIZE * (body === 'louse' ? 1.25 : body === 'fly' ? 0.6 : 0.8);
-          tint = new Color(GROUILLANT_TINTS[body]);
+          tint = new Color(BEETLE_TINTS[u[3]] ?? GROUILLANT_TINTS[body]);
         } else if (body === 'queen') {
           // Chantier 42: the ferret queen, a giant.
           scale = CREATURE_SIZE * QUEEN_SIZE;

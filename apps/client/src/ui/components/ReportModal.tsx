@@ -25,10 +25,12 @@ export function ReportModal() {
   const landing = e.mission === 'land' && !!r.outcome;
   // Chantier 48: a delve into the depths.
   const delve = e.mission === 'delve';
+  // Chantier 54: a voyage to the raspberry.
+  const voyage = e.mission === 'visit' || e.mission === 'pillage';
   const injured = (r.injured ?? []).map((id) => e.roster.find((m) => m.id === id)?.name ?? id);
   return (
     <Modal
-      title={`${t('expedition.report')} — ${delve ? t('depths.title') : target ? targetLabel(t, target) : ''}`}
+      title={`${t('expedition.report')} — ${delve ? t('depths.title') : voyage ? t('orchard.title') : target ? targetLabel(t, target) : ''}`}
       onClose={close}
       footer={
         <button class="btn btn-primary" onClick={close}>
@@ -48,6 +50,20 @@ export function ReportModal() {
         </>
       ) : delve ? (
         <DelveReport e={e} game={game} />
+      ) : voyage ? (
+        <>
+          <h2 class={r.victory ? 'bonus' : 'warn'}>
+            {e.mission === 'visit'
+              ? t('orchard.toast.visit', { nectar: r.nectar ?? 0 })
+              : t(`orchard.toast.${r.outcome ?? 'defeat'}`)}
+          </h2>
+          {r.postFounded && <p class="small bonus">{t('orchard.toast.postReady')}</p>}
+          {r.log && (
+            <button class="btn" onClick={() => actions.watchFruit(e.id)}>
+              {t('orchard.watch')}
+            </button>
+          )}
+        </>
       ) : landing ? (
         <LandingReport e={e} />
       ) : (

@@ -370,6 +370,33 @@ export const actions = {
     renderer?.focusNest();
   },
   /** Chantier 32: turns the camera towards the comet in the sky. */
+  /**
+   * Chantier 54: plays a battle of the raspberry on its drupelet — a pillage (expedition id) or
+   * an attack on our post (its report id). False when it cannot be shown.
+   */
+  watchFruit(id: string, live = false): boolean {
+    const game = uiStore.getState().game;
+    if (!game || !renderer) return false;
+    if (uiStore.getState().visit !== null) actions.travelTo(null);
+    const e = game.expeditions.find((x) => x.id === id);
+    const report = game.orchard.post?.reports.find((r) => r.id === id);
+    const source =
+      e?.mission === 'pillage' && e.result?.log && e.voyage
+        ? {
+            id,
+            drupelet: e.voyage.stops[0]!,
+            log: e.result.log,
+            ours: 1 as const,
+            roster: e.roster,
+          }
+        : report?.log && game.orchard.post
+          ? { id, drupelet: game.orchard.post.drupelet, log: report.log, ours: 0 as const }
+          : null;
+    if (!source || !renderer.playFruit(source, live)) return false;
+    uiStore.setState({ modal: 'none', landingInvite: null, selectedTile: null, planetCard: null });
+    audio.play('ui.click');
+    return true;
+  },
   /** Chantier 54: turns the camera to the raspberry (the Orchard screen closes). */
   lookAtOrchard(): void {
     uiStore.setState({ modal: 'none' });

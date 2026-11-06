@@ -17,19 +17,26 @@ export function LandingInvite({ docked = false }: { docked?: boolean }) {
   const sector = useUi(
     (s) => s.game?.expeditions.find((e) => e.id === s.landingInvite)?.sector ?? null,
   );
+  // Chantier 54: a pillage on the raspberry is offered the same way.
+  const fruit = useUi(
+    (s) => s.game?.expeditions.find((e) => e.id === s.landingInvite)?.mission === 'pillage',
+  );
   useEffect(() => {
     if (!id) return;
     const timer = setTimeout(() => actions.declineLanding(), INVITE_MS);
     return () => clearTimeout(timer);
   }, [id]);
-  if (!id || sector === null) return null;
+  if (!id || (sector === null && !fruit)) return null;
   return (
     <aside class={`landing-invite parchment pe ${docked ? 'is-docked' : ''}`} role="alert">
       <div class="landing-invite-text">
         <strong>
-          <ShipIcon size={18} /> {t('landing.watch.title', { sector: sectorName(t, sector) })}
+          <ShipIcon size={18} />{' '}
+          {fruit
+            ? t('orchard.watchTitle')
+            : t('landing.watch.title', { sector: sectorName(t, sector ?? 0) })}
         </strong>
-        <span class="small muted">{t('landing.watch.hint')}</span>
+        <span class="small muted">{t(fruit ? 'orchard.watchHint' : 'landing.watch.hint')}</span>
       </div>
       <div class="row landing-invite-actions">
         <button class="btn" onClick={() => actions.declineLanding()}>
@@ -38,7 +45,8 @@ export function LandingInvite({ docked = false }: { docked?: boolean }) {
         <button
           class="btn btn-primary"
           onClick={() => {
-            if (!actions.watchLanding(id)) actions.declineLanding();
+            const ok = fruit ? actions.watchFruit(id, true) : actions.watchLanding(id);
+            if (!ok) actions.declineLanding();
           }}
         >
           {t('landing.watch.go')}

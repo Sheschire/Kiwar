@@ -94,6 +94,7 @@ export class OrchardView {
   private hut: Group | null = null;
   private key = '';
   private seed = '';
+  private lastMap: Raspberry | null = null;
   private turning = false;
   private readonly color = new Color();
 
@@ -157,6 +158,7 @@ export class OrchardView {
 
   private build(map: Raspberry): void {
     this.seed = map.seed;
+    this.lastMap = map;
     if (this.drupes) {
       this.fruit.remove(this.drupes);
       this.drupes.dispose();
@@ -230,6 +232,43 @@ export class OrchardView {
     if (!this.group.visible || !this.turning) return false;
     this.swirl.rotateZ(dt * 0.9);
     return true;
+  }
+
+  /**
+   * Chantier 54: puts a battle field (a show's group) on the top of a drupelet, standing on its
+   * outward normal, scaled to fit. False when that drupelet is not drawn.
+   */
+  attachField(field: Group, drupeletId: string, scale: number): boolean {
+    const map = this.seed ? this.lastMap : null;
+    const d = map?.byId.get(drupeletId);
+    if (!d) return false;
+    const dir = new Vector3(d.x, d.y, d.z).normalize();
+    // The fruit turns to show that drupelet to the camera (towards home, a little up).
+    const p = this.group.position;
+    const face = new Vector3(-p.x, 0, -p.z).normalize().setY(0.55).normalize();
+    this.fruit.quaternion.setFromUnitVectors(dir, face);
+    field.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), dir);
+    field.position.copy(dir).multiplyScalar(FRUIT + DRUPE * 1.6);
+    field.scale.setScalar(scale);
+    this.fruit.add(field);
+    this.fruit.updateMatrixWorld(true);
+    return true;
+  }
+
+  /** The field leaves the fruit, which turns back. */
+  detachField(field: Group): void {
+    this.fruit.remove(field);
+    this.fruit.quaternion.identity();
+  }
+
+  /** Radius of a drupelet (the size of a battle field on it). */
+  get drupeRadius(): number {
+    return DRUPE;
+  }
+
+  /** Radius of the fruit. */
+  get radius(): number {
+    return FRUIT;
   }
 
   /** The fruit under a ray (a tap in the space view). */

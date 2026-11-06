@@ -2997,6 +2997,11 @@ export const fr: Dict = {
   },
   // Chantier 56 : les ligues.
   orchard: {
+    live: 'Pillage en direct sur la framboise',
+    replay: 'Bataille de la framboise (rejouée)',
+    watch: 'Regarder la bataille',
+    watchTitle: 'Notre vaisseau se pose sur la framboise',
+    watchHint: 'Allez-y voir la bataille en direct, ou plus tard depuis l’écran Verger.',
     holds: {
       likely: 'le comptoir tiendra sans doute',
       uncertain: 'le comptoir pourrait tomber',

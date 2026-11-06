@@ -702,7 +702,12 @@ function PostPanel({ game, post }: { game: GameState; post: TradingPost }) {
                 dead: r.dead.length,
                 hurt: r.hurt.length,
                 taken: r.taken,
-              })}
+              })}{' '}
+              {r.log && (
+                <button class="btn btn-small" onClick={() => actions.watchFruit(r.id)}>
+                  {t('orchard.watch')}
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -722,7 +727,11 @@ function VoyageList({ game }: { game: GameState }) {
   const t = useT();
   const lang = useUi((s) => s.lang);
   const list = voyagesOut(game);
-  if (list.length === 0) return null;
+  // Pillages back home keep their journal: they can be watched again.
+  const fought = game.expeditions.filter(
+    (e) => e.mission === 'pillage' && e.status === 'done' && !!e.result?.log,
+  );
+  if (list.length === 0 && fought.length === 0) return null;
   return (
     <section class="field">
       <h3>{t('orchard.underWay')}</h3>
@@ -737,6 +746,15 @@ function VoyageList({ game }: { game: GameState }) {
               : t('orchard.back', {
                   time: formatDuration(lang, Math.max(0, e.returnAt - game.now)),
                 })}
+          </li>
+        ))}
+        {fought.map((e) => (
+          <li key={e.id}>
+            {t('orchard.mode.pillage')} · {e.voyage?.stops[0]} ·{' '}
+            {t(`orchard.toast.${e.result!.outcome ?? 'defeat'}`)}{' '}
+            <button class="btn btn-small" onClick={() => actions.watchFruit(e.id)}>
+              {t('orchard.watch')}
+            </button>
           </li>
         ))}
       </ul>

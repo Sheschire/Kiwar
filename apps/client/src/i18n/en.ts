@@ -2867,6 +2867,11 @@ export const en = {
   },
   // Chantier 56: the leagues.
   orchard: {
+    live: 'Pillage live on the raspberry',
+    replay: 'Battle on the raspberry (replay)',
+    watch: 'Watch the battle',
+    watchTitle: 'Our ship sets down on the raspberry',
+    watchHint: 'Go and watch the battle live, or later from the Orchard screen.',
     holds: {
       likely: 'the post should hold',
       uncertain: 'the post may fall',

@@ -1,5 +1,6 @@
 import { OrbitView } from './orbitView';
 import { OrchardView } from './orchardView';
+import { FruitShow, type FruitSource } from './orchard/fruitShow';
 import {
   Fog,
   NeutralToneMapping,
@@ -512,6 +513,7 @@ export class GameRenderer {
     this.battle?.setParticles(q.particles);
     this.landing?.setParticles(q.particles);
     this.delve?.setParticles(q.particles);
+    this.fruit?.setParticles(q.particles);
     this.cut?.life.setParticles(q.particles);
     this.cut?.setHoles(preset !== 'low');
     if (this.cut && this.lastState) this.cut.sync(this.lastState);
@@ -594,6 +596,11 @@ export class GameRenderer {
     this.scene.add(this.comets.group);
     this.orbit = new OrbitView(map);
     this.scene.add(this.orbit.group);
+    // Chantier 54: a show on the old raspberry goes with it.
+    this.endFruit();
+    this.fruit?.dispose();
+    this.fruit = null;
+    this.fruitHome = null;
     this.orchard = new OrchardView();
     this.scene.add(this.orchard.group);
     this.fireworks = new FireworksView();
@@ -1504,6 +1511,72 @@ export class GameRenderer {
     }
   }
 
+  /** Chantier 54: a battle on the raspberry on show (a pillage, an attack on our post). */
+  private fruit: FruitShow | null = null;
+  /** Where the camera was before flying to the raspberry for a show. */
+  private fruitHome: { position: Vector3; target: Vector3 } | null = null;
+
+  /**
+   * Chantier 54: flies the camera to the raspberry and plays a battle on its drupelet (a
+   * pillage's journal, or an attack on our trading post). False when it cannot be shown.
+   */
+  playFruit(source: FruitSource, live = false): boolean {
+    const state = this.lastState;
+    const orchard = this.orchard;
+    if (!state || !orchard || this.visiting !== null || this.rig.inCut) return false;
+    if (this.battle?.source) this.battle.skip();
+    this.endFruit();
+    if (!this.fruit) {
+      const show = new FruitShow();
+      show.setParticles(QUALITY[this.preset].particles);
+      show.battle.onEnd = (src) => {
+        show.stop();
+        this.callbacks.onBattleEnd?.(src);
+        this.leaveFruit();
+      };
+      this.fruit = show;
+    }
+    if (!orchard.attachField(this.fruit.group, source.drupelet, FruitShow.fit(orchard.drupeRadius)))
+      return false;
+    if (!this.fruit.play(state, source, live)) return false;
+    if (!this.fruitHome) {
+      const c = this.rig.controls;
+      this.fruitHome = {
+        position: c.getPosition(new Vector3()),
+        target: c.getTarget(new Vector3()),
+      };
+    }
+    const target = this.fruit.center(new Vector3());
+    this.rig.visit(orchard.center, orchard.radius, {
+      target,
+      distance: this.rig.fitDistance(orchard.drupeRadius * 4),
+    });
+    this.battleClock = 0;
+    const b = this.fruit.battle;
+    this.callbacks.onBattleStart?.(b.source!, live, b.length);
+    this.callbacks.onBattleTick?.(b.clock, b.length);
+    this.wake();
+    return true;
+  }
+
+  /** The fruit show on screen ends now (its bar goes). */
+  private endFruit(): void {
+    const show = this.fruit;
+    const source = show?.battle.source;
+    if (!show || !source) return;
+    show.stop();
+    this.callbacks.onBattleEnd?.(source);
+  }
+
+  /** Back home from the raspberry. */
+  private leaveFruit(): void {
+    if (this.fruit) this.orchard?.detachField(this.fruit.group);
+    if (!this.fruitHome) return;
+    const e = this.terrain?.extent() ?? { x: 20, z: 20 };
+    this.rig.returnHome(e.x, e.z, this.fruitHome);
+    this.fruitHome = null;
+  }
+
   /** Chantier 49: the delve on show in the cut (built with it). */
   private delve: DelveShow | null = null;
   /** The camera frames the delve's room as soon as the cut is open. */
@@ -1679,6 +1752,7 @@ export class GameRenderer {
 
   /** The show on screen: a landing on the twin, else a wave at home. */
   private get show(): BattleShow | null {
+    if (this.fruit?.battle.source) return this.fruit.battle;
     if (this.delve?.battle.source) return this.delve.battle;
     if (this.landing?.battle.source) return this.landing.battle;
     return this.battle?.source ? this.battle : null;
@@ -1700,7 +1774,8 @@ export class GameRenderer {
 
   /** Ends the battle on screen now. */
   battleSkip(): void {
-    if (this.delve?.battle.source) this.delve.skip();
+    if (this.fruit?.battle.source) this.fruit.skip();
+    else if (this.delve?.battle.source) this.delve.skip();
     else if (this.landing?.playing && this.landing.battle.source) this.landing.skip();
     else this.battle?.skip();
   }
@@ -1940,6 +2015,7 @@ export class GameRenderer {
       this.landing?.playing ||
       this.cut?.moving ||
       this.delve?.playing ||
+      this.fruit?.playing ||
       this.pendingShow ||
       // Chantier 53: a kiwai climbing to its orbit, the shuttle flying.
       this.orbitMoving ||
@@ -2128,6 +2204,7 @@ export class GameRenderer {
     }
     this.battle?.update(dt, this.camera);
     if (this.landing?.playing) this.landing.update(dt, this.camera);
+    if (this.fruit?.playing) this.fruit.update(dt, this.camera);
     // The weather's clouds and the far planets stay above: not in front of the cut.
     const surface = !this.rig.inCut;
     if (this.weather) this.weather.group.visible = surface;
