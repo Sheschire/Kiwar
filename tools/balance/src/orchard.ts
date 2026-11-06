@@ -3,7 +3,7 @@
 // voyages, nectar, kiwis at the post, attacks lost, and the share of the time since the first
 // voyage spent with the nectar at its cap.
 //   pnpm --filter @kiwar/balance orchard [--seed s] [--face kiwisu] [--days 34] [--casual]
-import { hasTech, nectarCap, type Face } from '@kiwar/shared';
+import { hasTech, nectarCap, stardustOf, type Face, type GameState } from '@kiwar/shared';
 import { runBot } from './bot';
 
 const arg = (name: string, fallback: string) => {
@@ -19,6 +19,7 @@ const HOUR = 3_600_000;
 const t0 = Date.now();
 
 let last = 0;
+let end: GameState | null = null;
 let wormholesAt: number | null = null;
 let openMs = 0;
 let cappedMs = 0;
@@ -31,6 +32,7 @@ const result = runBot({
   onStep(state) {
     const dt = last > 0 ? state.now - last : 0;
     last = state.now;
+    end = state;
     if (wormholesAt === null && hasTech(state, 'wormholes'))
       wormholesAt = state.now - state.createdAt;
     if (state.orchard.visits === 0) return;
@@ -53,3 +55,17 @@ console.log(
     `${Math.round((Date.now() - t0) / 1000)} s`,
   ].join(' · '),
 );
+
+if (end) {
+  const st = end as GameState;
+  const lvl = (t: string) =>
+    Math.max(0, ...st.buildings.filter((b) => b.type === t).map((b) => b.level));
+  console.log(
+    [
+      `end: nest ${lvl('nest')} library ${lvl('library')} launchpad ${lvl('launchpad')}`,
+      `research ${st.research.current ?? '—'} (${Math.round(st.research.points)} pts)`,
+      `done ${st.research.done.slice(-5).join(',')}`,
+      `crystal ${Math.floor(st.crystal / 3.6e9)} stardust ${stardustOf(st)}`,
+    ].join(' · '),
+  );
+}
