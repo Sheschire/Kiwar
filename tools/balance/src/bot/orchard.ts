@@ -203,13 +203,20 @@ function voyage(state: GameState, pad: Building): VoyagePlan | null {
         });
     }
   }
-  // A trade: the best rate among the clans not hostile; the post's own clan when it has nectar
-  // waiting (the ship brings the store home).
-  const clans = map.clans
+  // A trade: before the post, with one partner clan (the best standing, then the best rate)
+  // until it is a friend; then the best rate (the post's own clan when nectar waits there).
+  const open = map.clans
     .filter((c) => attitudeOf(state, c.id, state.now) !== 'hostile')
-    .filter((c) => state.resources[c.wants] > GOODS + KEEP)
-    .sort((a, b) => tradeRate(state, b.id, state.now) - tradeRate(state, a.id, state.now));
-  const best = clans[0];
+    .filter((c) => state.resources[c.wants] > GOODS + KEEP);
+  const byRate = (a: (typeof open)[number], b: (typeof open)[number]) =>
+    tradeRate(state, b.id, state.now) - tradeRate(state, a.id, state.now);
+  const best =
+    !post || post.ruined
+      ? [...open].sort(
+          (a, b) =>
+            standingOf(state, b.id, state.now) - standingOf(state, a.id, state.now) || byRate(a, b),
+        )[0]
+      : [...open].sort(byRate)[0];
   if (!best) return null;
   const at =
     post && !post.ruined && map.byId.get(post.drupelet)!.clan === best.id
