@@ -419,6 +419,53 @@ const GLYPHS = {
       <path d="M6 28h22" stroke="#3f7f95" stroke-width="1.6" stroke-linecap="round" />
     </>
   ),
+  // Chantier 54: red nectar, and the raspberry (a cluster of drupelets on a vine).
+  nectar: (
+    <>
+      <path
+        d="M16 5c-4 6-8 10-8 15a8 8 0 0016 0c0-5-4-9-8-15z"
+        fill="#e0405a"
+        stroke="#7d1f30"
+        stroke-width="1.4"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M12.5 19a4 4 0 003 4"
+        stroke="#ffd0d8"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        fill="none"
+      />
+    </>
+  ),
+  raspberry: (
+    <>
+      <path
+        d="M16 3c0 3-2 5-5 5M16 3c0 3 2 5 5 5"
+        stroke="#4f7419"
+        stroke-width="1.6"
+        fill="none"
+        stroke-linecap="round"
+      />
+      {[
+        [12, 12],
+        [16, 11],
+        [20, 12],
+        [10, 16],
+        [14, 16],
+        [18, 16],
+        [22, 16],
+        [12, 20],
+        [16, 20],
+        [20, 20],
+        [14, 24],
+        [18, 24],
+        [16, 27.5],
+      ].map(([x, y]) => (
+        <circle cx={x} cy={y} r="2.6" fill="#e0405a" stroke="#7d1f30" stroke-width="1" />
+      ))}
+    </>
+  ),
   giantSeed: (
     <>
       <ellipse

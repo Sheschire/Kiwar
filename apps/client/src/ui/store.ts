@@ -54,7 +54,9 @@ export type Modal =
   /** Chantier 56: the league (feats in solo). */
   | 'league'
   /** Chantier 53: the kiwais in orbit. */
-  | 'orbit';
+  | 'orbit'
+  /** Chantier 54: the orchard (the raspberry and our trading post). */
+  | 'orchard';
 
 /** A planner opened on a mission: the settlers' ship, or a landing on a given parcel (chantier 40). */
 export interface SiegePlan {
@@ -193,6 +195,8 @@ export interface UiState {
   depthsRoom: string | null;
   /** Chantier 53: the kiwai the Orbit screen opens on. */
   orbitKiwai: string | null;
+  /** Chantier 54: the drupelet the Orchard screen opens on. */
+  orchardDrupelet: string | null;
   /** Chantier 41: the landing watched on the twin (expedition id; null: none). */
   watchingLanding: string | null;
   /** Chantier 24: the card of a tapped planet ("Go there"). */
@@ -333,6 +337,7 @@ export const uiStore = createStore<UiState>(() => ({
   cutOpen: false,
   depthsRoom: null,
   orbitKiwai: null,
+  orchardDrupelet: null,
   watchingLanding: null,
   planetCard: null,
   planetsOpen: false,

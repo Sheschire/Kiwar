@@ -29,6 +29,7 @@ import { EggButton } from './EggButton';
 import { siegeVisible } from './SiegeModal';
 import { depthsVisible } from './DepthsModal';
 import { orbitVisible } from './OrbitModal';
+import { orchardVisible } from './OrchardModal';
 import { useOtherColony } from './ColonySwitch';
 
 const closeMenu = () => uiStore.setState({ menuOpen: false });
@@ -218,6 +219,8 @@ function NavMenu() {
   const depths = useUi((s) => (s.slowGame ? depthsVisible(s.slowGame) : false));
   // Chantier 53: the orbit.
   const orbit = useUi((s) => (s.slowGame ? orbitVisible(s.slowGame) : false));
+  // Chantier 54: the orchard.
+  const orchard = useUi((s) => (s.slowGame ? orchardVisible(s.slowGame) : false));
   // Chantier 40: the enemies met in landings.
   const bestiary = useUi((s) => Object.keys(s.slowGame?.bestiary ?? {}).length > 0);
   const other = useOtherColony();
@@ -297,6 +300,14 @@ function NavMenu() {
               onClick={go(() => uiStore.setState({ modal: 'orbit' }))}
             >
               <Icon name="orbitalYard" size={28} />
+            </Entry>
+          )}
+          {orchard && (
+            <Entry
+              label={t('orchard.button')}
+              onClick={go(() => uiStore.setState({ modal: 'orchard' }))}
+            >
+              <Icon name="raspberry" size={28} />
             </Entry>
           )}
           <Entry

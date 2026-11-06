@@ -54,12 +54,14 @@ import { SyncBadge } from './SyncBadge';
 import { attackAnnounced, siegeVisible } from './SiegeModal';
 import { depthsVisible } from './DepthsModal';
 import { orbitAlarm, orbitVisible } from './OrbitModal';
+import { orchardAlarm, orchardVisible } from './OrchardModal';
+import { NECTAR_SCALE, nectarCap, nectarOf } from '@kiwar/shared';
 import { ColonySwitch } from './ColonySwitch';
 import { ClockChip, ClockTip } from './ClockChip';
 import { MoraleLine } from './NeedsWidgets';
 import { Icon } from '../iconSet';
 
-type TipId = ResourceId | 'population' | 'clock' | 'stardust' | 'iron' | 'locules';
+type TipId = ResourceId | 'population' | 'clock' | 'stardust' | 'iron' | 'locules' | 'nectar';
 
 export interface ChipHandlers {
   open: boolean;
@@ -186,6 +188,33 @@ function IronChip({ h }: { h: ChipHandlers }) {
   );
 }
 
+/** Chantier 54: red nectar, a separate stock (shown once the orchard is open). */
+function NectarChip({ h }: { h: ChipHandlers }) {
+  const t = useT();
+  const amount = useUi((s) => (s.game ? nectarOf(s.game) : 0));
+  const cap = useUi((s) => (s.game ? nectarCap(s.game) / NECTAR_SCALE : 0));
+  return (
+    <button
+      type="button"
+      data-tip="nectar"
+      class={`chip chip-nectar ${h.open ? 'is-open' : ''}`}
+      aria-label={`${t('nectar.name')} ${amount} / ${cap}`}
+      aria-expanded={h.open}
+      onPointerEnter={h.onEnter}
+      onPointerLeave={h.onLeave}
+      onClick={h.onToggle}
+    >
+      <Icon name="nectar" size={24} />
+      <div class="chip-body">
+        <div class="chip-line">
+          <span class="chip-amount">{amount}</span>
+          <span class="chip-cap">/{cap}</span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 /** Chantier 50: the locules' stocks, crystal over giant seeds (one chip for both). */
 function LoculesChip({ h }: { h: ChipHandlers }) {
   const t = useT();
@@ -257,6 +286,17 @@ function TipContent({ id }: { id: TipId }) {
             {t('iron.perHour', { rate: formatNumber(lang, Math.round(rate * 10) / 10) })}
           </p>
         )}
+      </>
+    );
+  }
+  if (id === 'nectar') {
+    const cap = nectarCap(game) / NECTAR_SCALE;
+    return (
+      <>
+        <strong class="tip-title">
+          <Icon name="nectar" size={18} /> {t('nectar.name')} {nectarOf(game)}/{cap}
+        </strong>
+        <p>{t('nectar.tip')}</p>
       </>
     );
   }
@@ -384,6 +424,9 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
   // Chantier 53: the orbit, and something up there asking for the player.
   const orbit = useUi((s) => (s.slowGame ? orbitVisible(s.slowGame) : false));
   const orbitWarn = useUi((s) => (s.slowGame ? orbitAlarm(s.slowGame) : false));
+  // Chantier 54: the orchard, and an attack announced on our trading post.
+  const orchard = useUi((s) => (s.slowGame ? orchardVisible(s.slowGame) : false));
+  const orchardWarn = useUi((s) => (s.slowGame ? orchardAlarm(s.slowGame) : false));
   const points = useUi((s) => s.game?.villagers.reduce((n, v) => n + v.statPoints, 0) ?? 0);
   const unassigned = useUi((s) => (s.game ? staffing(s.game).unassigned : 0));
   const freeSlots = useUi((s) => (s.game ? staffing(s.game).freeSlots : 0));
@@ -459,6 +502,8 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
           (g) => g.kind === 'forest' || g.kind === 'lake',
         )),
   );
+  // Chantier 54: once the orchard is open, or nectar came home.
+  const showNectar = useUi((s) => !!s.game && (s.game.nectar > 0 || orchardVisible(s.game)));
   // The resource bar centres in the room left of the round buttons, whatever their number.
   const headerRef = useRef<HTMLElement>(null);
   const buttonsRef = useRef<HTMLDivElement>(null);
@@ -518,6 +563,7 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
         </span>
         {showDust && <StardustChip h={handlers('stardust')} />}
         {showIron && <IronChip h={handlers('iron')} />}
+        {showNectar && <NectarChip h={handlers('nectar')} />}
         {showLocules && <LoculesChip h={handlers('locules')} />}
         <ClockChip h={handlers('clock')} />
         {tip && (
@@ -580,6 +626,16 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
               onClick={() => uiStore.setState({ modal: modal === 'orbit' ? 'none' : 'orbit' })}
             >
               <Icon name="orbitalYard" size={24} />
+            </button>
+          )}
+          {orchard && (
+            <button
+              class={`btn btn-icon parchment-btn ${modal === 'orchard' ? 'btn-active' : ''} ${orchardWarn ? 'has-alarm' : ''}`}
+              aria-label={t('orchard.button')}
+              title={t('orchard.button')}
+              onClick={() => uiStore.setState({ modal: modal === 'orchard' ? 'none' : 'orchard' })}
+            >
+              <Icon name="raspberry" size={24} />
             </button>
           )}
           <button

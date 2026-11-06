@@ -1,4 +1,5 @@
 import { OrbitView } from './orbitView';
+import { OrchardView } from './orchardView';
 import {
   Fog,
   NeutralToneMapping,
@@ -139,6 +140,8 @@ export interface RendererCallbacks {
   onPlanetTap?(planet: PlanetRef): void;
   /** Chantier 53: a kiwai in orbit was tapped. */
   onKiwaiTap?(kiwaiId: string): void;
+  /** Chantier 54: the raspberry was tapped. */
+  onOrchardTap?(): void;
   /** Chantier 59: a tile of the visited ally's living village was tapped (null: off it). */
   onAllyTileTap?(tile: { q: number; r: number } | null): void;
   /** Chantier 24: the pointer is over a far planet (null: over none), at screen x/y. */
@@ -234,6 +237,9 @@ export class GameRenderer {
   /** Chantier 53: the kiwais in orbit and the shuttle. */
   private orbit: OrbitView | null = null;
   private orbitMoving = false;
+  /** Chantier 54: the raspberry in the sky and the wormhole's swirl. */
+  private orchard: OrchardView | null = null;
+  private orchardMoving = false;
   /** Chantier 44: the fireworks show, and the last one started. */
   private fireworks: FireworksView | null = null;
   /** Chantier 52: the Mother Vine out of the planet, once found. */
@@ -384,6 +390,13 @@ export class GameRenderer {
           const kiwai = this.orbit?.pick(screenRay(this.canvas, this.camera, x, y).ray);
           if (kiwai) {
             this.callbacks.onKiwaiTap(kiwai.kiwaiId);
+            return;
+          }
+        }
+        // Chantier 54: the raspberry far in the sky.
+        if (!tile && this.callbacks.onOrchardTap) {
+          if (this.orchard?.pick(screenRay(this.canvas, this.camera, x, y).ray)) {
+            this.callbacks.onOrchardTap();
             return;
           }
         }
@@ -541,6 +554,7 @@ export class GameRenderer {
       this.gates,
       this.comets,
       this.orbit,
+      this.orchard,
       this.fireworks,
       this.vine,
       this.obstacles,
@@ -580,6 +594,8 @@ export class GameRenderer {
     this.scene.add(this.comets.group);
     this.orbit = new OrbitView(map);
     this.scene.add(this.orbit.group);
+    this.orchard = new OrchardView();
+    this.scene.add(this.orchard.group);
     this.fireworks = new FireworksView();
     this.fireworks.onBurst = (x, z) => this.onFireworksBurst?.(x, z);
     this.scene.add(this.fireworks.group);
@@ -973,6 +989,8 @@ export class GameRenderer {
     this.gates?.sync(state);
     this.comets?.sync(state);
     this.orbit?.sync(state);
+    this.orchard?.sync(state);
+    if (this.ships) this.ships.orchardAt = this.orchard?.mouth ?? null;
     this.syncFireworks(state);
     this.vine?.sync(state);
     this.obstacles?.sync(state);
@@ -1313,6 +1331,13 @@ export class GameRenderer {
   /** Chantier 53: turns the camera towards a kiwai in orbit (the space view rises). */
   lookAtKiwai(kiwaiId: string): void {
     const at = this.orbit?.positionOf(kiwaiId);
+    if (!at || this.visiting !== null) return;
+    this.rig.lookToward(at.x, at.z);
+  }
+
+  /** Chantier 54: turns the camera towards the raspberry (the space view rises). */
+  lookAtOrchard(): void {
+    const at = this.orchard?.center;
     if (!at || this.visiting !== null) return;
     this.rig.lookToward(at.x, at.z);
   }
@@ -1918,6 +1943,8 @@ export class GameRenderer {
       this.pendingShow ||
       // Chantier 53: a kiwai climbing to its orbit, the shuttle flying.
       this.orbitMoving ||
+      // Chantier 54: the wormhole's swirl while a voyage is under way.
+      this.orchardMoving ||
       this.queenRisePending ||
       this.twin?.fading ||
       this.twinApproach !== this.twinApproachTarget
@@ -2077,6 +2104,7 @@ export class GameRenderer {
     this.gates?.update(this.elapsed);
     this.comets?.update(dt, this.callbacks.now(), this.camera);
     this.orbitMoving = this.orbit?.update(dt, this.elapsed, this.callbacks.now()) ?? false;
+    this.orchardMoving = this.orchard?.update(dt) ?? false;
     this.reportCometArrow();
     this.obstacles?.update(dt);
     this.ships?.update(

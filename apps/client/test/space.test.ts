@@ -25,6 +25,7 @@ import {
   TWIN_DISTANCE,
   kiwaiPlace,
   KIWAI_DISTANCE,
+  orchardPlace,
 } from '../src/render/space';
 
 const azimuth = (p: { x: number; z: number }) => Math.atan2(p.x, p.z);
@@ -162,5 +163,19 @@ describe('chantier 53, the kiwais in orbit', () => {
         const b = places[j]!;
         expect(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)).toBeGreaterThan(15);
       }
+  });
+});
+
+describe('chantier 54, the raspberry', () => {
+  it('hangs high above the cloud sea, beyond the members and away from the twin', () => {
+    const p = orchardPlace();
+    expect(p.y).toBeGreaterThan(20);
+    expect(Math.hypot(p.x, p.z)).toBeGreaterThan(ALLY_RING + 40);
+    const twin = twinPlace();
+    expect(Math.hypot(p.x - twin.x, p.z - twin.z)).toBeGreaterThan(TWIN_DISTANCE);
+    for (let rank = 0; rank < 9; rank++) {
+      const a = allyPlace(rank, 1);
+      expect(Math.hypot(p.x - a.x, p.y - a.y, p.z - a.z)).toBeGreaterThan(60);
+    }
   });
 });

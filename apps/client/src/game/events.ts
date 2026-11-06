@@ -136,6 +136,17 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
             e.outcome === 'victory' ? 'success' : 'error',
             `depths.toast.${e.outcome ?? 'defeat'}`,
           );
+        // Chantier 54: a voyage reached the raspberry.
+        else if (e.mission === 'visit') {
+          const exp = uiStore.getState().game?.expeditions.find((x) => x.id === e.expeditionId);
+          const r = exp?.result;
+          if (r?.stops?.some((x) => x.refused)) pushToast('error', 'orchard.toast.refused');
+          else pushToast('success', 'orchard.toast.visit', { nectar: r?.nectar ?? 0 });
+        } else if (e.mission === 'pillage')
+          pushToast(
+            e.outcome === 'victory' ? 'success' : 'error',
+            `orchard.toast.${e.outcome ?? 'defeat'}`,
+          );
         else if (e.mission === 'found') {
           const game = uiStore.getState().game;
           const face = game ? `@faces.${otherFace(game.face)}` : '';
@@ -306,6 +317,24 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         break;
       }
       // Chantier 53: the orbit.
+      // Chantier 54: the orchard.
+      case 'postReady':
+        pushToast('success', 'orchard.toast.postReady');
+        break;
+      case 'postAttackAnnounced':
+        pushToast('error', 'orchard.toast.attackAnnounced', {
+          time: formatDuration(uiStore.getState().lang, e.strikeAt - e.at),
+        });
+        break;
+      case 'postAttackCalmed':
+        pushToast('success', 'orchard.toast.attackCalmed');
+        break;
+      case 'postAttacked':
+        pushToast(
+          e.held ? 'success' : 'error',
+          e.held ? 'orchard.toast.held' : 'orchard.toast.fell',
+        );
+        break;
       case 'kiwaiReady':
         pushToast('success', 'orbit.toast.ready', { type: `@orbit.types.${e.kiwaiType}.name` });
         break;

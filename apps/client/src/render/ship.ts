@@ -32,6 +32,8 @@ interface Flight {
   broken: boolean;
   /** Our twin half (true) or another kiwi far away. */
   twin: boolean;
+  /** Chantier 54: a voyage through the wormhole to the raspberry. */
+  orchard?: boolean;
   /** A delivery: the ally's planet it flies to (ours) or comes from (a visitor). */
   ally: { kiwiIndex: number | null; owner: string } | null;
   /** An ally's bird landing at our Nest, then flying away. */
@@ -50,6 +52,8 @@ export type AllyLocator = (ally: { kiwiIndex: number | null; owner: string }) =>
  */
 export class ShipsView {
   readonly group = new Group();
+  /** Chantier 54: the wormhole's mouth by the raspberry (null while it is not drawn). */
+  orchardAt: Vector3 | null = null;
   private readonly flights = new Map<string, Flight>();
   private readonly material = new MeshStandardMaterial({
     vertexColors: true,
@@ -99,7 +103,9 @@ export class ShipsView {
       f.returnAt = e.returnAt;
       f.status = e.status;
       f.broken = !!e.broken;
-      f.twin = (target?.distance ?? 0) === 0;
+      // Chantier 54: a voyage flies into the wormhole's mouth, by the raspberry.
+      f.orchard = e.mission === 'visit' || e.mission === 'pillage';
+      f.twin = !f.orchard && (target?.distance ?? 0) === 0;
     }
     for (const x of state.shipments) {
       const pad = state.buildings.find((b) => b.id === x.launchpadId);
@@ -187,6 +193,7 @@ export class ShipsView {
     // Far point: the twin half for our own kiwi, an ally's planet, high in the sky otherwise.
     const ally = f.ally ? allyAt(f.ally) : null;
     if (ally) this.dest.copy(ally).setY(ally.y + 4);
+    else if (f.orchard && this.orchardAt) this.dest.copy(this.orchardAt);
     else if (f.twin && twin) this.dest.copy(twin);
     else this.dest.set(f.pad.x * 0.3 + 30, 120, f.pad.z * 0.3 - 90);
     if (f.visitor && now >= f.returnAt) {

@@ -103,6 +103,23 @@ export function kiwaiPlace(place: number): SpacePoint {
   return along(FRONT_AZIMUTH + Math.PI + slot, KIWAI_DISTANCE, KIWAI_HEIGHT + (place % 2) * 3);
 }
 
+/**
+ * Chantier 54: the raspberry hangs high in the sky beyond the members' ring, a quarter turn
+ * from the front (between the ally slots), from a branch of the Mother Vine. The wormhole's
+ * mouth opens `WORMHOLE_GAP` from it, on the side towards home.
+ */
+export const ORCHARD_DISTANCE = 280;
+export const ORCHARD_HEIGHT = 34;
+export const WORMHOLE_GAP = 22;
+
+export function orchardPlace(): SpacePoint {
+  return along(
+    FRONT_AZIMUTH + Math.PI / 2 + (15 * Math.PI) / 180,
+    ORCHARD_DISTANCE,
+    ORCHARD_HEIGHT,
+  );
+}
+
 /** A far planet the camera can go to: our twin, or a member's planet by kiwi index. */
 export type PlanetRef = 'twin' | number;
 

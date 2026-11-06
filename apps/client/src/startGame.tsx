@@ -82,6 +82,7 @@ const renderer = new GameRenderer(
     onQualityChange: (preset) => uiStore.setState({ qualityPreset: preset }),
     onPlanetTap: (planet) => actions.showPlanetCard(planet),
     onKiwaiTap: (kiwaiId) => uiStore.setState({ modal: 'orbit', orbitKiwai: kiwaiId }),
+    onOrchardTap: () => uiStore.setState({ modal: 'orchard' }),
     onAllyTileTap: (tile) => uiStore.setState({ allyTile: tile }),
     onSlowFrames: (fps) => {
       const tip = slowFramesTip(gpuRendererName(), fps, uiStore.getState().qualityChoice);
