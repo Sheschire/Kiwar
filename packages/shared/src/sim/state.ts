@@ -28,6 +28,7 @@ import type { LandingOrders } from '../data/landing';
 import type { ShipId } from '../data/expeditions';
 import type { AlienBuilding, AlienUnit } from './civ';
 import type { HazardKind, RoomKind } from '../data/depths';
+import type { KiwaiType, ModuleType } from '../data/orbit';
 import { newKiwi, rollKiwi } from './kiwis';
 import type {
   BuildingId,
@@ -41,7 +42,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 42;
+export const SCHEMA_VERSION = 43;
 
 export type Job =
   | { kind: 'idle' }
@@ -89,7 +90,12 @@ export type Job =
    * Chantier 42: guarding our beacon on a parcel of an alien face (away, fed from the colony
    * stock; chantier 19's bridgeheads before).
    */
-  | { kind: 'outpost'; sector: number; targetId: string };
+  | { kind: 'outpost'; sector: number; targetId: string }
+  /**
+   * Chantier 53: up on a kiwai (fed from the colony stock, no militia nor evening). `aboard`:
+   * in the shuttle, going up (not at work yet) or coming down (home at the shuttle's return).
+   */
+  | { kind: 'orbit'; kiwaiId: string; returnTo: BuildingId | null; aboard?: 'up' | 'down' };
 
 export interface KiwiHistory {
   expeditions: number;
@@ -725,6 +731,61 @@ export interface WeevilState {
   fellAt?: TimeMs;
 }
 
+/** Chantier 53: a module set on a kiwai (one tile of its small map). */
+export interface OrbitModule {
+  id: string;
+  type: ModuleType;
+  q: number;
+  r: number;
+  /** Assembled until then (it works from then on). */
+  readyAt: TimeMs;
+  /** Broken down (or hit by a swarm) then: it stops until repaired. */
+  broken?: TimeMs;
+  /** A kiwi up there is repairing it: done then. */
+  repairAt?: TimeMs;
+}
+
+/** Chantier 53: a small planet in orbit (public: nothing is hidden up there). */
+export interface Kiwai {
+  id: string;
+  type: KiwaiType;
+  /** Its place in orbit (0, 1, 2). */
+  place: number;
+  launchedAt: TimeMs;
+  /** In orbit from then on (launched until then). */
+  readyAt: TimeMs;
+  modules: OrbitModule[];
+  /** Star harvest: stardust in its tank, raw units (`STARDUST_SCALE` per point). */
+  dust: number;
+  /** The next breakdown (public, its own stream): when, which module, how many so far. */
+  wear: { n: number; at: TimeMs; moduleId: string | null };
+  /** The comet whose swarm the shield is raised against. */
+  shield?: string;
+}
+
+/** Chantier 53: the shuttle of the orbital yard, one trip at a time. */
+export interface Shuttle {
+  kiwaiId: string;
+  leftAt: TimeMs;
+  /** Docks at the kiwai then (kiwis up arrive, kiwis down board, the tank is emptied). */
+  upAt: TimeMs;
+  backAt: TimeMs;
+  up: VillagerId[];
+  down: VillagerId[];
+  /** Stardust brought down (raw units), credited at the return. */
+  cargo: number;
+  /** Set once the shuttle docked (its `upAt` passed). */
+  docked?: boolean;
+}
+
+/** Chantier 53: the kiwais and the shuttle. */
+export interface OrbitState {
+  kiwais: Kiwai[];
+  shuttle: Shuttle | null;
+  /** Kiwais launched so far (the price of the next one). */
+  launched: number;
+}
+
 /** Chantier 19: the siege of the twin face (public: the truth stays in `aliens`). */
 export interface SiegeState {
   /** The queen fell then: the face is ours (0: not yet). */
@@ -1035,6 +1096,8 @@ export interface GameState {
   automation: Record<AutoTask, boolean>;
   /** Chantier 19: the siege of the twin face. */
   siege: SiegeState;
+  /** Chantier 53: the kiwais in orbit and the shuttle. */
+  orbit: OrbitState;
   /** Chantier 19: which colony of the player this is, and its link to the other one. */
   colony: ColonyLink;
   nextId: number;
@@ -1122,6 +1185,7 @@ export function newGame(opts: NewGameOptions): GameState {
     faceViews: {},
     bestiary: {},
     depths: newDepths(opts.seed, opts.face),
+    orbit: { kiwais: [], shuttle: null, launched: 0 },
     expeditions: [],
     friends: [],
     shipments: [],
@@ -1346,6 +1410,19 @@ function drawName(rng: Rng, taken: Set<string>, state: GameState): string {
 }
 
 /** Deep copy of a state (plain data only). */
+/** Chantier 53: a deep copy of the orbit. */
+export function cloneOrbit(o: OrbitState): OrbitState {
+  return {
+    kiwais: o.kiwais.map((k) => ({
+      ...k,
+      modules: k.modules.map((m) => ({ ...m })),
+      wear: { ...k.wear },
+    })),
+    shuttle: o.shuttle ? { ...o.shuttle, up: [...o.shuttle.up], down: [...o.shuttle.down] } : null,
+    launched: o.launched,
+  };
+}
+
 export function cloneState(state: GameState): GameState {
   return {
     ...state,
@@ -1434,6 +1511,7 @@ export function cloneState(state: GameState): GameState {
       Object.entries(state.bestiary).map(([k, b]) => [k, { ...b }]),
     ) as GameState['bestiary'],
     depths: cloneDepths(state.depths),
+    orbit: cloneOrbit(state.orbit),
     rng: [...state.rng] as RngState,
   };
 }

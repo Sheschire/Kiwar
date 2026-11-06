@@ -55,6 +55,7 @@ import { getTile, HEART, type FaceParams } from '../worldgen/generateFace';
 import { AUTO_TASKS, type AutoTask } from '../data/jobs';
 import { newDepths, type Obstacle } from '../sim/state';
 import { HAZARD_KINDS, ROOM_KINDS } from '../data/depths';
+import { KIWAI_TYPES, MODULE_TYPES, ORBIT } from '../data/orbit';
 import { CRYSTAL, CRYSTAL_SCALE, GIANT_SEEDS } from '../data/crystal';
 
 const resources = z.object({
@@ -95,6 +96,12 @@ const job = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('meteor'), meteorId: id, returnTo: id.nullable() }),
   z.object({ kind: z.literal('mine'), roomId: z.string().max(8), returnTo: id.nullable() }),
   z.object({ kind: z.literal('outpost'), sector: sectorId, targetId: id }),
+  z.object({
+    kind: z.literal('orbit'),
+    kiwaiId: id,
+    returnTo: id.nullable(),
+    aboard: z.enum(['up', 'down']).optional(),
+  }),
   z.object({
     kind: z.literal('titan'),
     work: z.enum(TITAN_WORK_IDS),
@@ -568,6 +575,52 @@ export const gameStateSchema = z.object({
       .optional(),
   }),
   depthSeed: z.string().max(400).optional(),
+  orbit: z.object({
+    kiwais: z
+      .array(
+        z.object({
+          id,
+          type: z.enum(KIWAI_TYPES),
+          place: z.number().int().min(0).max(8),
+          launchedAt: z.number(),
+          readyAt: z.number(),
+          modules: z
+            .array(
+              z.object({
+                id,
+                type: z.enum(MODULE_TYPES),
+                q: z.number().int().min(-ORBIT.radius).max(ORBIT.radius),
+                r: z.number().int().min(-ORBIT.radius).max(ORBIT.radius),
+                readyAt: z.number(),
+                broken: z.number().optional(),
+                repairAt: z.number().optional(),
+              }),
+            )
+            .max(19),
+          dust: z.number().int().min(0),
+          wear: z.object({
+            n: z.number().int().min(0),
+            at: z.number(),
+            moduleId: id.nullable(),
+          }),
+          shield: z.string().max(40).optional(),
+        }),
+      )
+      .max(8),
+    shuttle: z
+      .object({
+        kiwaiId: id,
+        leftAt: z.number(),
+        upAt: z.number(),
+        backAt: z.number(),
+        up: z.array(id).max(16),
+        down: z.array(id).max(16),
+        cargo: z.number().int().min(0),
+        docked: z.boolean().optional(),
+      })
+      .nullable(),
+    launched: z.number().int().min(0).max(100),
+  }),
   bestiary: z.record(
     z.enum(ENEMY_KINDS),
     z.object({
@@ -1051,6 +1104,8 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
       Math.max(0, Number(raw.stardust) || 0) + STARDUST_GIFT * STARDUST_SCALE,
     ),
   }),
+  // v42 → v43 (chantier 53): the orbit, empty.
+  42: (raw) => ({ ...raw, orbit: { kiwais: [], shuttle: null, launched: 0 } }),
 };
 
 const OLD_MISSIONS = ['raid', 'recon', 'assault', 'reinforce', 'final', 'retreat'];

@@ -4053,6 +4053,108 @@ var DEPTHS = {
   }
 };
 
+// packages/shared/src/data/orbit.ts
+var KIWAI_TYPES = ["harvest", "greenhouse", "observatory", "dock"];
+var MODULE_TYPES = ["habitat", "panel", "sensor", "dome", "berth"];
+var ORBIT = {
+  /** Radius of a kiwai's disc (19 tiles); the shuttle's pad is its centre. */
+  radius: 2,
+  /** Rocks drawn on the ring (no module there). */
+  rocks: [2, 3],
+  /** Kiwais in orbit by level of the orbital yard (index = level: the age's 13, 14, 15). */
+  kiwais: [0, 1, 2, 3],
+  /** Module places on a kiwai, by level of the yard. */
+  moduleSlots: [0, 3, 4, 5],
+  /** The launch of the n-th kiwai (index = kiwais already launched, capped at the last). */
+  launch: [
+    { giantSeeds: 2, crystal: 60, iron: 30, stardust: 10, durationMs: ms.h(12) },
+    { giantSeeds: 3, crystal: 90, iron: 45, stardust: 15, durationMs: ms.h(18) },
+    { giantSeeds: 4, crystal: 120, iron: 60, stardust: 20, durationMs: ms.h(24) }
+  ],
+  /** The shuttle: up in half the trip, back at the end; how many kiwis it carries each way. */
+  shuttle: { tripMs: ms.min(30), seats: 4 },
+  /** A panel lifts each work module next to it (up to two panels). */
+  panel: { bonus: 0.25, max: 2 },
+  /** Star harvest: stardust points per hour of an average kiwi; the kiwai's own tank (points). */
+  dust: { perHour: 0.1, tank: 20 },
+  /** Greenhouse: what one kiwi yields per hour, without season nor night. */
+  greenhouse: { juice: 22, fiber: 22 },
+  /** Observatory: research points per hour of an average kiwi; earlier notices while it watches. */
+  observatory: { research: 30, noticeMs: ms.h(4) },
+  /** Dock: travel times of the ships while a berth is staffed (× per staffed berth, floor). */
+  dock: { travel: 0.85, floor: 0.7 },
+  /**
+   * Breakdowns: a kiwai's next one comes after `gapMs` (its own stream, public), announced
+   * `noticeMs` before; a service (iron) puts it off. A kiwi up there repairs a broken module in
+   * `repairMs` (scaled by the best Dexterity aboard: 5 is the average).
+   */
+  wear: {
+    gapMs: [ms.h(20), ms.h(40)],
+    noticeMs: ms.h(6),
+    serviceIron: 2,
+    repairMs: ms.h(3)
+  },
+  /**
+   * Comet swarms: each comet passage sweeps the orbit. A raised shield (stardust) stops it;
+   * otherwise up to `hits` modules break and the kiwis aboard come down wounded by the pods.
+   */
+  swarm: { shieldDust: 4, hits: 2, injuryMs: ms.h(6) }
+};
+var MODULES = {
+  habitat: {
+    cost: { pulp: 12e3, fiber: 14e3, seeds: 3e3, juice: 4e3 },
+    crystal: 10,
+    iron: 6,
+    durationMs: ms.h(2),
+    housing: 2,
+    wears: false
+  },
+  panel: {
+    cost: { pulp: 8e3, fiber: 1e4, seeds: 4e3, juice: 2e3 },
+    crystal: 15,
+    iron: 4,
+    durationMs: ms.h(2),
+    wears: true
+  },
+  sensor: {
+    cost: { pulp: 1e4, fiber: 12e3, seeds: 3e3, juice: 3e3 },
+    crystal: 20,
+    iron: 8,
+    durationMs: ms.h(3),
+    workSlots: 2,
+    types: ["harvest", "observatory"],
+    wears: true
+  },
+  dome: {
+    cost: { pulp: 14e3, fiber: 8e3, seeds: 3e3, juice: 6e3 },
+    crystal: 12,
+    iron: 6,
+    durationMs: ms.h(3),
+    workSlots: 2,
+    types: ["greenhouse"],
+    wears: true
+  },
+  berth: {
+    cost: { pulp: 1e4, fiber: 14e3, seeds: 3e3, juice: 3e3 },
+    crystal: 15,
+    iron: 10,
+    durationMs: ms.h(3),
+    workSlots: 2,
+    types: ["dock"],
+    wears: true
+  }
+};
+var WORK_MODULE = {
+  harvest: "sensor",
+  greenhouse: "dome",
+  observatory: "sensor",
+  dock: "berth"
+};
+function moduleFits(type, kiwai) {
+  const only = MODULES[type].types;
+  return !only || only.includes(kiwai);
+}
+
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
 var SQRT5 = /* @__PURE__ */ Math.sqrt(5);
@@ -10628,10 +10730,10 @@ function coveredRampart(map, type, level, h, lens = false) {
 }
 var coverageCache = /* @__PURE__ */ new WeakMap();
 function turretCoverage(map, type, level, h, lens = false) {
-  let cache2 = coverageCache.get(map);
-  if (!cache2) coverageCache.set(map, cache2 = /* @__PURE__ */ new Map());
+  let cache3 = coverageCache.get(map);
+  if (!cache3) coverageCache.set(map, cache3 = /* @__PURE__ */ new Map());
   const key = `${type}|${level}|${h.q},${h.r}|${lens ? 1 : 0}`;
-  let c = cache2.get(key);
+  let c = cache3.get(key);
   if (!c) {
     const counts = perSector(() => 0);
     const covered = coveredRampart(map, type, level, h, lens);
@@ -10639,7 +10741,7 @@ function turretCoverage(map, type, level, h, lens = false) {
     if (covered.length === 0) counts[rampartSectorOf(h)] = 1;
     const total = counts.front + counts.left + counts.right;
     c = perSector((s) => counts[s] / total);
-    cache2.set(key, c);
+    cache3.set(key, c);
   }
   return c;
 }
@@ -14793,7 +14895,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 42;
+var SCHEMA_VERSION = 43;
 var MISSION_KINDS = [
   "land",
   "raid",
@@ -14866,6 +14968,7 @@ function newGame(opts) {
     faceViews: {},
     bestiary: {},
     depths: newDepths(opts.seed, opts.face),
+    orbit: { kiwais: [], shuttle: null, launched: 0 },
     expeditions: [],
     friends: [],
     shipments: [],
@@ -15056,6 +15159,17 @@ function drawName(rng, taken, state) {
   }
   return `Kiwi ${state.villagers.length + 1}`;
 }
+function cloneOrbit(o) {
+  return {
+    kiwais: o.kiwais.map((k) => ({
+      ...k,
+      modules: k.modules.map((m) => ({ ...m })),
+      wear: { ...k.wear }
+    })),
+    shuttle: o.shuttle ? { ...o.shuttle, up: [...o.shuttle.up], down: [...o.shuttle.down] } : null,
+    launched: o.launched
+  };
+}
 function cloneState(state) {
   return {
     ...state,
@@ -15142,6 +15256,7 @@ function cloneState(state) {
       Object.entries(state.bestiary).map(([k, b]) => [k, { ...b }])
     ),
     depths: cloneDepths(state.depths),
+    orbit: cloneOrbit(state.orbit),
     rng: [...state.rng]
   };
 }
@@ -16833,6 +16948,72 @@ function cleanKiwiName(raw) {
   const name = raw.replace(/\p{Cc}/gu, "").replace(/\s+/g, " ").trim();
   if (name.length === 0 || [...name].length > KIWI_NAME_MAX) return null;
   return name;
+}
+
+// packages/shared/src/sim/sites.ts
+var cache2 = /* @__PURE__ */ new Map();
+function smallMap(key, radius, rocks) {
+  const id3 = `${key}|${radius}|${rocks[0]}-${rocks[1]}`;
+  const hit = cache2.get(id3);
+  if (hit) return hit;
+  const rng = createRng(`${key}/site`);
+  const disk = hexDisk({ q: 0, r: 0 }, radius);
+  const ring = disk.slice(disk.length - 6 * radius);
+  const rocky = /* @__PURE__ */ new Set();
+  const want = rng.int(rocks[0], rocks[1]);
+  for (let tries = 0; rocky.size < want && tries < 40; tries++) {
+    const i = rng.int(0, ring.length - 1);
+    const prev = hexKey(ring[(i + ring.length - 1) % ring.length]);
+    const next = hexKey(ring[(i + 1) % ring.length]);
+    if (!rocky.has(prev) && !rocky.has(next)) rocky.add(hexKey(ring[i]));
+  }
+  const tiles = disk.map((h, i) => ({
+    q: h.q,
+    r: h.r,
+    kind: i === 0 ? "pad" : rocky.has(hexKey(h)) ? "rock" : "ground",
+    variant: rng.next()
+  }));
+  const map = {
+    key,
+    radius,
+    tiles,
+    index: new Map(tiles.map((t, i) => [hexKey(t), i]))
+  };
+  if (cache2.size >= 24) cache2.delete(cache2.keys().next().value);
+  cache2.set(id3, map);
+  return map;
+}
+function siteTile(map, h) {
+  const i = map.index.get(hexKey(h));
+  return i === void 0 ? void 0 : map.tiles[i];
+}
+function thingAt(things, h) {
+  return things.find((t) => t.q === h.q && t.r === h.r);
+}
+function siteSpotError(map, things, h) {
+  const tile = siteTile(map, h);
+  if (!tile) return "offSite";
+  if (tile.kind === "rock") return "rock";
+  if (tile.kind === "pad") return "pad";
+  if (thingAt(things, h)) return "tileOccupied";
+  return null;
+}
+function freeSpots(map, things) {
+  return map.tiles.filter((t) => siteSpotError(map, things, t) === null).map((t) => ({ ...t }));
+}
+
+// packages/shared/src/sim/orbit.ts
+function kiwaiMapOf(state, kiwai) {
+  return smallMap(`${state.seed}/${state.face}/kiwai/${kiwai.id}`, ORBIT.radius, ORBIT.rocks);
+}
+function kiwaiById(state, id3) {
+  return state.orbit.kiwais.find((k) => k.id === id3);
+}
+function moduleAt(kiwai, h) {
+  return thingAt(kiwai.modules, h);
+}
+function moduleSpotError(state, kiwai, h) {
+  return siteSpotError(kiwaiMapOf(state, kiwai), kiwai.modules, h);
 }
 
 // node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
@@ -20911,6 +21092,12 @@ var job = external_exports.discriminatedUnion("kind", [
   external_exports.object({ kind: external_exports.literal("mine"), roomId: external_exports.string().max(8), returnTo: id.nullable() }),
   external_exports.object({ kind: external_exports.literal("outpost"), sector: sectorId, targetId: id }),
   external_exports.object({
+    kind: external_exports.literal("orbit"),
+    kiwaiId: id,
+    returnTo: id.nullable(),
+    aboard: external_exports.enum(["up", "down"]).optional()
+  }),
+  external_exports.object({
     kind: external_exports.literal("titan"),
     work: external_exports.enum(TITAN_WORK_IDS),
     q: external_exports.number().int(),
@@ -21315,6 +21502,46 @@ var gameStateSchema = external_exports.object({
     }).optional()
   }),
   depthSeed: external_exports.string().max(400).optional(),
+  orbit: external_exports.object({
+    kiwais: external_exports.array(
+      external_exports.object({
+        id,
+        type: external_exports.enum(KIWAI_TYPES),
+        place: external_exports.number().int().min(0).max(8),
+        launchedAt: external_exports.number(),
+        readyAt: external_exports.number(),
+        modules: external_exports.array(
+          external_exports.object({
+            id,
+            type: external_exports.enum(MODULE_TYPES),
+            q: external_exports.number().int().min(-ORBIT.radius).max(ORBIT.radius),
+            r: external_exports.number().int().min(-ORBIT.radius).max(ORBIT.radius),
+            readyAt: external_exports.number(),
+            broken: external_exports.number().optional(),
+            repairAt: external_exports.number().optional()
+          })
+        ).max(19),
+        dust: external_exports.number().int().min(0),
+        wear: external_exports.object({
+          n: external_exports.number().int().min(0),
+          at: external_exports.number(),
+          moduleId: id.nullable()
+        }),
+        shield: external_exports.string().max(40).optional()
+      })
+    ).max(8),
+    shuttle: external_exports.object({
+      kiwaiId: id,
+      leftAt: external_exports.number(),
+      upAt: external_exports.number(),
+      backAt: external_exports.number(),
+      up: external_exports.array(id).max(16),
+      down: external_exports.array(id).max(16),
+      cargo: external_exports.number().int().min(0),
+      docked: external_exports.boolean().optional()
+    }).nullable(),
+    launched: external_exports.number().int().min(0).max(100)
+  }),
   bestiary: external_exports.record(
     external_exports.enum(ENEMY_KINDS),
     external_exports.object({
@@ -21726,7 +21953,9 @@ var MIGRATIONS = {
       STARDUST.cap * STARDUST_SCALE,
       Math.max(0, Number(raw.stardust) || 0) + STARDUST_GIFT * STARDUST_SCALE
     )
-  })
+  }),
+  // v42 → v43 (chantier 53): the orbit, empty.
+  42: (raw) => ({ ...raw, orbit: { kiwais: [], shuttle: null, launched: 0 } })
 };
 var OLD_MISSIONS = ["raid", "recon", "assault", "reinforce", "final", "retreat"];
 function migrateToLandings(raw) {
@@ -23735,6 +23964,7 @@ export {
   ITEM_IDS,
   JOBS,
   KIKIWIWI,
+  KIWAI_TYPES,
   KIWI,
   KIWI_COLORS,
   KIWI_NAME_MAX,
@@ -23758,6 +23988,8 @@ export {
   MEMORY_KINDS,
   METEORS,
   MISSION_KINDS,
+  MODULES,
+  MODULE_TYPES,
   MORALE,
   NAME_SYLLABLES,
   NEEDS,
@@ -23767,6 +23999,7 @@ export {
   OBSTACLES,
   OBSTACLE_KINDS,
   OBSTACLE_RULES,
+  ORBIT,
   PASSAGE_TECHS,
   PATHS,
   POSTURES,
@@ -23834,6 +24067,7 @@ export {
   WEAPON_FAMILIES,
   WEAPON_IDS,
   WEEVIL_REF,
+  WORK_MODULE,
   XP_SCALE,
   YEAR_MS,
   accrueCrystal,
@@ -23974,6 +24208,7 @@ export {
   cloneDepths,
   cloneFaceView,
   cloneIntel,
+  cloneOrbit,
   cloneParcelView,
   cloneSiege,
   cloneState,
@@ -24125,6 +24360,7 @@ export {
   fortifyLock,
   foundLock,
   freeDepositStock,
+  freeSpots,
   friendId,
   galleryCrystalRate,
   galleryRate,
@@ -24239,6 +24475,8 @@ export {
   kikiwiwiUpkeep,
   kikiwiwiWeak,
   kindPower,
+  kiwaiById,
+  kiwaiMapOf,
   kiwiCount,
   kiwiExposure,
   kiwiMorale,
@@ -24310,6 +24548,9 @@ export {
   minesOpen,
   missingBeds,
   modifiers,
+  moduleAt,
+  moduleFits,
+  moduleSpotError,
   moraleFactor,
   moraleOf,
   motherVineAt,
@@ -24512,10 +24753,13 @@ export {
   sisterFriend,
   sisterThreat,
   siteError,
+  siteSpotError,
+  siteTile,
   siteTiles,
   skyTick,
   sliceGap,
   sliceOf,
+  smallMap,
   smithsOf,
   soloTargets,
   speechCooldownMs,
@@ -24556,6 +24800,7 @@ export {
   techsOfAge,
   terraformKey,
   terraformLeft,
+  thingAt,
   threatTick,
   tierIndex,
   tileAt,
