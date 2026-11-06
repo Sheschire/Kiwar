@@ -317,7 +317,7 @@ function VoyagePlanner({ game, map, d }: { game: GameState; map: Raspberry; d: D
   const [crew, setCrew] = useState<VillagerId[]>([]);
   const [second, setSecond] = useState<string | null>(null);
   const clan = map.clanById.get(d.clan)!;
-  const [amount, setAmount] = useState(10000);
+  const [amount, setAmount] = useState(5000);
   const [gift, setGift] = useState(false);
   const [settle, setSettle] = useState(false);
   const [stay, setStay] = useState<VillagerId[]>([]);

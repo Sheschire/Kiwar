@@ -20,7 +20,10 @@ import {
   STANDING,
   tradeRate,
   upgradeLock,
+  voyageForecast,
   voyageLock,
+  EXPEDITIONS,
+  type Resources,
   voyagesOut,
   voyageTime,
   workingPost,
@@ -217,6 +220,20 @@ function voyage(state: GameState, pad: Building): VoyagePlan | null {
   return plan(state, pad, crew, { stops: [at], goods: { [best.wants]: GOODS } });
 }
 
+/** Goods cut down to what the hold carries (the crew and provisions come first). */
+function fitHold(state: GameState, v: VoyagePlan): VoyagePlan {
+  const f = voyageForecast(state, { ...v, goods: {} });
+  if (!f || !v.goods) return v;
+  const room = Math.max(0, Math.floor(((f.cargo - f.weight) / EXPEDITIONS.resourceWeight) * 0.95));
+  const goods: Partial<Resources> = {};
+  let left = room;
+  for (const [k, n] of Object.entries(v.goods) as [keyof Resources, number][]) {
+    goods[k] = Math.min(n, left);
+    left -= goods[k]!;
+  }
+  return { ...v, goods };
+}
+
 /** Why the last look at the orchard sent no ship (the probe prints it). */
 export const orchardWhy: Record<string, number> = {};
 const why = (k: string) => (orchardWhy[k] = (orchardWhy[k] ?? 0) + 1);
@@ -236,7 +253,8 @@ export function orchardOrders(state: GameState, prepared: boolean): Command[] {
     );
     return out;
   }
-  const v = (prepared ? defend(state, pad) : null) ?? voyage(state, pad);
+  const raw = (prepared ? defend(state, pad) : null) ?? voyage(state, pad);
+  const v = raw ? fitHold(state, raw) : null;
   if (!v) why(voyagesOut(state).length > 0 ? 'underWay' : 'noPlan');
   const lock = v ? voyageLock(state, v) : null;
   if (lock) why(lock);
