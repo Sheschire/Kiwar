@@ -58,7 +58,7 @@ dans l'historique.
 | 51  | L'Âge des étoiles                                   | fait    |
 | 52  | Tréfonds III : le cœur et le pédoncule              | fait    |
 | 53  | Les kiwaïs                                          | à faire |
-| 54  | Trous de ver et le Verger I : la framboise          | à faire |
+| 54  | Trous de ver et le Verger I : la framboise          | fait    |
 | 55  | Le Verger II : la pomme et l'ananas                 | à faire |
 | 56  | Les ligues                                          | fait    |
 | 57  | Le JcJ optionnel                                    | à faire |
@@ -117,8 +117,21 @@ révèle la **Liane-Mère** (trésor, souvenir, pèlerinage, nids du cœur muets
 54 : sans elle, les trous de ver coûteront ×2,5 (`techCost`). Bot : Charançon aux jours 27 et
 30 quand il atteint le pédoncule (deux parties sur six). Skills `kiwar-depths`, `kiwar-battle`,
 `kiwar-client`.
-**Prochaine conversation** : le [chantier 53](chantiers/53-kiwais.md) (les kiwaïs).
-À tester avec le porteur : les ligues (compétition saine ou pression, points, durée d'une
+**Chantier 54 fait** : les trous de ver et la framboise. La technologie Trous de ver (×2,5
+sans la Liane-Mère) et une aire d'envol niveau 14 ouvrent le Verger, **le même pour tout un
+univers** (tracé tiré de la graine de l'univers, contenu caché dans `universe_secrets`,
+migration `20261107000000_orchard.sql`), à la colonie d'origine seule. La framboise : des clans
+de coléoptères, une réputation publique qui revient vers 0, le commerce à un cours public, le
+don, le pillage (hostile, gagné ou perdu), le nectar rouge, le comptoir (petite carte : huttes,
+étals, palissades ; kiwis là-bas) et ses attaques annoncées (un don les annule). Écran Verger,
+framboise dans le ciel, batailles jouées en 3D sur la drupéole. Sauvegarde v44. Skill
+`kiwar-orchard`.
+**Prochaine conversation** : le [chantier 53](chantiers/53-kiwais.md) se termine dans sa propre
+conversation ; ensuite le [chantier 55](chantiers/55-verger-pomme-ananas.md) (la pomme et
+l'ananas).
+À tester avec le porteur : le Verger (commercer ou piller, la lisibilité de la réputation et
+sa dérive, le don qui annule une attaque, ce que rapporte un comptoir, la caméra sur une
+drupéole, la place de la framboise dans le ciel), les ligues (compétition saine ou pression, points, durée d'une
 saison, cosmétiques), l'Âge des étoiles (le jour ~20 est-il le bon moment, le look des
 étoiles, le prix des niveaux 13–15 en cristal, le voilier), l'occasionnel·le sans cristal (il
 n'atteint jamais les loges dans le bot : son monument des étoiles attend), les loges (leur difficulté — 5 à 8 morts en descente quand il y a des retraites —, le prix des lentilles et des munitions,
@@ -211,6 +224,11 @@ from, opts)` (`ShowSource` : une vague ou un débarquement ; notre camp, avance,
   caché (`depthSeed`, comme `aliens`) ; tout ce qui le lit ne se résout que là où la vérité est
   tenue. Une remontée est une vague (`wave.tunnel`) : ce qui parle de « la prochaine vague » lit
   `comingWave(state)`. Un nouvel ennemi qui vole passe par `isFlyer`. Skill `kiwar-depths`.
+- **Verger** (chantier 54) : le tracé d'un fruit est public et partagé par l'univers, son contenu
+  caché (`orchardSeed`, comme `depthSeed`) ; tout ce qui le lit (arrivée d'un voyage, frappe
+  sur le comptoir) ne se résout que là où la vérité est tenue. Un comptoir est une petite carte
+  (`smallMap`), jamais dans `state.buildings` ; le job `post` se traite comme `outpost`. Skill
+  `kiwar-orchard`.
 - **Planètes** : elles ont une place fixe (`render/space.ts`) ; `renderer.setTwinApproach(t)`
   rapproche la jumelle (skill `kiwar-world`).
 
@@ -222,6 +240,9 @@ from, opts)` (`ShowSource` : une vague ou un débarquement ; notre camp, avance,
   2. `20261025000000_member_planet_seed.sql`
   3. `20261026000000_universe_imports.sql`
   4. `20261027000000_linked_colonies.sql`
+  5. `20261103000000_universe_kick.sql`
+  6. `20261105000000_leagues.sql`
+  7. `20261107000000_orchard.sql` (chantier 54 : la graine cachée du Verger)
 - **Projet Supabase** : coller `supabase/setup.sql`, déployer la fonction `game` et renseigner les
   variables Vercel (`docs/SUPABASE_SETUP.md`).
 - **Vérifier sur un vrai téléphone et sur le MacBook** (`?debug`) : à faire après les chantiers

@@ -244,3 +244,12 @@ seek / speed / skip / select to it first. Its end tells nothing (no held outcome
   `BattleShow` lifts the Weevil by `WEEVIL_FLIGHT`, plays its clips (crawl, ram, fly, hurt,
   fall) and keeps its shadow on the ground (`CreatureDraw.ground`). Its rig is in
   `render/anim/creatures.ts` (kind `weevil`, on the `?kiwis` sheet).
+
+## Chantier 54 (battles on the raspberry, skill `kiwar-orchard`)
+
+`battle/fruit.ts`: `fruitSetup` (the delve's round field, help from the clan's drupelets next
+to it entering after 25 s), `postSetup` / `postHeld` (an attack on our trading post: the
+store `POST_STORE`, the palisade's seed and sky turrets, our kiwis around it), `shareOf`.
+Beetle kinds `beetle`, `beetleGuard` (crawler bodies), `byturus` (flier): `BEETLE_KINDS`.
+Shows: `ShowSource.kind` `'fruit'`, `render/orchard/fruitShow.ts` on a drupelet
+(`GameRenderer.playFruit`), routed first by the active `show`.

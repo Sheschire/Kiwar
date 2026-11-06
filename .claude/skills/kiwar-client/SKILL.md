@@ -543,3 +543,8 @@ sector } })`; a real landing in solo: dispatch the launch and `setTimeScale(2000
   timeline, `render/motherVine.ts` (`MotherVine`, synced in `setGameState`, updated in the frame
   loop; a new view of `setFace` must be in its dispose list), the core in both cuts (see
   `kiwar-depths`), texts `core.*` and `stem.*`.
+
+- **Chantier 54 (the orchard, `kiwar-orchard`)**: `OrchardModal` (top bar button with alarm,
+  phone menu entry, nectar chip), `render/orchardView.ts` (the raspberry in the sky,
+  `fog: false`), `render/orchard/fruitShow.ts` (battles on a drupelet, `playFruit`,
+  `actions.watchFruit`), `LandingInvite` also offers a fresh pillage.

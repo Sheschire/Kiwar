@@ -55,6 +55,10 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
   - `kiwar-orbit` — the kiwais in orbit: small maps apart from the face (`sim/sites.ts`), the
     orbital yard, modules, the shuttle and kiwis up there, breakdowns and comet swarms, the
     Orbit screen and the kiwais in the sky.
+  - `kiwar-orchard` — the cosmic orchard: wormholes, one orchard per universe (hidden seed in
+    `universe_secrets`), the raspberry's clans and standing, trade and red nectar, voyages
+    (visit, gift, pillage), the trading post and its attacks, the Orchard screen, the raspberry
+    in the sky and battles on a drupelet.
   - `kiwar-leagues` — the leagues of a shared universe: public dated feats read from the held
     state, seasons and podium written by the server only, the League screen, feats in the
     chat, the cosmetics (banner, capes, pennants, crown).

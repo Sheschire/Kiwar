@@ -238,3 +238,11 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
   have five cells. Levels 13+ pay crystal and (Nest, Library, monument) giant seeds through
   `LevelDef.crystal` / `giantSeeds` (`withStars`); save v41 (`QueueItem.paidCrystal`). The
   colony's ship is `shipIdOf(state)`.
+
+## Chantier 54 (the orchard, skill `kiwar-orchard`)
+
+Save v44: `state.orchard` (public), `state.nectar` (raw units, `NECTAR_SCALE`), hidden
+`state.orchardSeed` (stripped by `publicState`, like `depthSeed`); missions `visit` and
+`pillage` (`Expedition.voyage`, command `voyage`), job `post` (treat it like `outpost`
+wherever "away" kiwis are listed), `Flows.postNectar` (the trading post's store), events of
+the post and its attacks in `advanceInPlace`.

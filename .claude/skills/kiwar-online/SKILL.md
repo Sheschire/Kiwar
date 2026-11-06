@@ -125,3 +125,10 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   actions `league`, `leagueReward`, `leagueWear`; `AllySnapshot.league` and `leagueLook` come
   from `neighboursOf`. Migration `20261105000000_leagues.sql` (four tables + a view, members
   read, the function writes). A missing league table reads empty.
+- **Chantier 54** (`kiwar-orchard`): `universe_secrets` (migration
+  `20261107000000_orchard.sql`, RLS on, no policy) holds each universe's hidden orchard seed;
+  `GameRepository.orchardSeedOf(universeId, fresh)` (memory and Supabase, a missing table →
+  null), read in `resolveScope` (`scope.shared.secret`) and forced into every member's state
+  by `withScopeTargets` (`ensureOrchard(…, true)`); the public layout seed comes from the
+  universe's seed (`rebaseOrchard`). `publicState` strips `orchardSeed`; voyages and attacks
+  on the trading post resolve on `load` (`hiddenDue`). Imports `forgetOrchard`.

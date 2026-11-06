@@ -194,3 +194,11 @@ null`; the HUD shrinks to `VisitBanner` (twin: "Siege" when `siegeVisible`, "Pre
   (`createRng(seed/bank/key)`) so that a reshaped face keeps its other props;
   `render/butterflies.ts` (`ButterfliesView`, one instanced mesh, by day out of winter, never
   a sign of life).
+
+## Chantier 54 (the raspberry in the map of space, skill `kiwar-orchard`)
+
+`orchardPlace()` (`render/space.ts`): 280 from home, height 34 (above the cloud sea at −26), a
+quarter turn plus 15° from the front, clear of the twin and the ally slots (test in
+`test/space.test.ts`). Far objects need `fog: false` materials (the scene's fog hides them).
+The wormhole's swirl hangs under it; `lookAtOrchard` turns the camera there. Not a
+`PlanetRef` (no visit): a show flies there with `rig.visit` and comes back on its own.

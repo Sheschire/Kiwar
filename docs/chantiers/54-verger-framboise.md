@@ -103,3 +103,32 @@ Chemins sous `packages/shared/src/`.
 - Deux membres d'un univers voient le même Verger, mais chacun·e a ses propres impacts.
 - Un comptoir se pose, produit, et se défend sur annonce.
 - Rien de caché n'arrive au client en ligne.
+
+## Bilan (6 novembre 2026)
+
+**Réponses du porteur** (nouvelles questions) : le trou de ver s'ouvre avec la technologie et
+une **aire d'envol niveau 14** (pas de nouveau bâtiment) ; les batailles de la framboise se
+jouent **en direct en 3D** sur leur drupéole ; le Verger est réservé à la **colonie
+d'origine**.
+
+**Fait** (commits « Chantier 54 (part …) ») :
+
+1. **Le Verger** : la technologie Trous de ver (×2,5 sans la Liane-Mère), la framboise tirée de
+   la graine de l'univers (le même tracé pour tous ses membres), son contenu caché dans
+   `universe_secrets` (migration `20261107000000_orchard.sql`), sauvegarde v44.
+2. **La framboise** : clans, anneaux, réputation qui revient vers 0, cours public, nectar rouge
+   (tests).
+3. **Voyages** : visite et commerce, don, pillage (bataille sur la drupéole avec l'aide du
+   clan), prévision honnête, le comptoir sur sa petite carte et les kiwis qui y restent.
+4. **Attaques du comptoir** : heure publique, annonce par le clan hostile voisin, un don qui
+   l'annule, frappe là où la vérité est tenue, ruine relevable.
+5. **Client** : écran Verger, framboise dans le ciel au bout de sa liane, tourbillon du trou de
+   ver, puce nectar, menu téléphone.
+6. **Bataille en direct** sur la drupéole (`FruitShow`), invitation pour un pillage, rejeux.
+7. **Bot, hauts faits, objectif, docs** : le bot commerce, pose le comptoir et se défend (il ne
+   pille pas) ; hauts faits `raspberry` et `tradingPost`, objectif `starsWormhole` ; skill
+   `kiwar-orchard`.
+
+**Écarts à la proposition** : commande `voyage` dédiée (missions `visit` et `pillage`), un
+pillage ne vise qu'une drupéole, un don est accepté même d'un clan hostile, pas encore de palier
+de gear ni de décor au nectar (au 55). Le reste de la dette est dans `DETTE.md`.

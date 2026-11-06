@@ -139,3 +139,9 @@ full). Milestones `yard`, `kiwai`; `final.kiwais / orbitModules / orbitCrew`. Pr
 `pnpm --filter @kiwar/balance orbit [--seed] [--face] [--days 28] [--casual]` (one line: the
 days of the stars, the yard and the first kiwai, hours a broken module waited, share of the
 stars' time with the stardust at its cap).
+
+## Chantier 54
+
+The trading post of the raspberry reuses `smallMap` (`sim/tradingPost.ts` `postMapOf`, its
+own `modules`, never in `state.buildings`). The docks' `dockTravel` shortens voyages through
+the wormhole too (`travelFactor`). See `kiwar-orchard`.

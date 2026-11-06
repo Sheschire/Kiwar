@@ -10,6 +10,18 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 54** — **les trous de ver et le Verger : la framboise**. À l'Âge des étoiles, la
+> recherche **Trous de ver** (bien plus longue tant que la Liane-Mère n'est pas trouvée) et une
+> aire d'envol niveau 14 ouvrent le **Verger cosmique** : la **framboise** pend haut dans le
+> ciel au bout de sa liane, une grappe de drupéoles où vivent des **clans de coléoptères**. Le
+> même Verger pour tout l'univers, mais la **réputation** est la vôtre : commercer ou donner
+> rend un clan ami, **piller** le rend hostile (lui et ses voisins), et cela se voit. Le
+> **nectar rouge** paie un **comptoir** posé chez un clan ami : une petite base avec ses
+> huttes, ses étals et sa palissade, où des kiwis récoltent pendant votre absence. Un clan
+> hostile voisin peut l'attaquer : c'est annoncé, et un don, des gardes, la palissade ou un
+> rapatriement y répondent. Les pillages et les attaques se regardent en direct sur la
+> drupéole.
+
 > **Chantier 52** — **les Tréfonds, troisième couche : le cœur et le pédoncule**. À l'Âge des
 > étoiles, sous les loges, s'ouvrent les **cavernes blanches** du cœur : riches en sève pure
 > (une galerie y donne deux fois plus de jus), mais à paroi fine — au-delà de son **plafond de

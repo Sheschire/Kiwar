@@ -3170,7 +3170,7 @@ Act IV opens by closing the two points left open in chantier 46: the queen came 
   (`ShipsView` in `VillageLife`).
 - New versions: the offline cache (PWA) kept the old game until a second reload, so fixes
   looked missing. The service worker is now registered by `ui/update.ts` (`registerType:
-  'prompt'`, `injectRegister: false`): a new version shows "Update" in the toasts, checked at
+'prompt'`, `injectRegister: false`): a new version shows "Update" in the toasts, checked at
   start, every 20 minutes and when the tab comes back; the tap reloads (the game saves).
 
 ## Fixes from the owner's tests (October 2026, third batch)
@@ -3246,13 +3246,13 @@ answers of 30 October 2026 (recommended options taken every time).
 Probes of 10 days (scratch `runBot`, attentive unless said; the same seed with `without:
 ['depths']` as the reference):
 
-| Seed | Iron | Tunnel | First room | Rooms (of 11) | Retreats | Dead | Upwellings (lost) | Industry | Without the depths |
-|---|---|---|---|---|---|---|---|---|---|
-| d1 Kiwisu | 2.88 d | 3.12 d | 3.18 d | 11 | 2 | 3 | 3 (0) | 7.58 d | 8.49 d |
-| d2 Kiwino | 2.94 d | 3.54 d | 3.59 d | 11 | 0 | 0 | 4 (0) | 9.00 d | 8.95 d |
-| d4 Kiwino | 2.81 d | 3.07 d | 3.14 d | 11 | 2 | 2 | 3 (0) | 8.28 d | 7.04 d |
-| d5 Kiwisu | 4.12 d | 4.35 d | 4.55 d | 11 | 2 | 2 | 3 (0) | 9.68 d | 8.28 d |
-| d3 Kiwisu, occasional | 5.01 d | 5.92 d | 8.58 d | 1 | 0 | 0 | 2 (0) | — | — |
+| Seed                  | Iron   | Tunnel | First room | Rooms (of 11) | Retreats | Dead | Upwellings (lost) | Industry | Without the depths |
+| --------------------- | ------ | ------ | ---------- | ------------- | -------- | ---- | ----------------- | -------- | ------------------ |
+| d1 Kiwisu             | 2.88 d | 3.12 d | 3.18 d     | 11            | 2        | 3    | 3 (0)             | 7.58 d   | 8.49 d             |
+| d2 Kiwino             | 2.94 d | 3.54 d | 3.59 d     | 11            | 0        | 0    | 4 (0)             | 9.00 d   | 8.95 d             |
+| d4 Kiwino             | 2.81 d | 3.07 d | 3.14 d     | 11            | 2        | 2    | 3 (0)             | 8.28 d   | 7.04 d             |
+| d5 Kiwisu             | 4.12 d | 4.35 d | 4.55 d     | 11            | 2        | 2    | 3 (0)             | 9.68 d   | 8.28 d             |
+| d3 Kiwisu, occasional | 5.01 d | 5.92 d | 8.58 d     | 1             | 0        | 0    | 2 (0)             | —        | —                  |
 
 - First delve on days 3.1–3.6 (4.5 when Iron comes late): the target (3–4) is met. The 11 rooms
   of the flesh last from Iron to about day 9: the wait before the Industry is filled.
@@ -3358,14 +3358,14 @@ of 30 October 2026.
 
 Probes of 14 days (scratch `runBot`, attentive unless said):
 
-| Seed | Industry | First locule | Locules (day 14) | Rooms | Retreats | Dead | Upwellings (lost) | Crystal at cap | Seeds at cap | Trees | Locule eggs |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| p1 Kiwisu | 6.7 d | 8.6 d | 6 / 42 | 15 | 0 | 0 | 5 (0) | 3 % | 0 % | 4 | 4 |
-| p2 Kiwino ¹ | 8.2 d | 11.4 d | 4 / 38 | 17 | 3 | 5 | 5 (0) | 0 % | 0 % | 2 | 0 |
-| p3 Kiwisu | 8.4 d | 13.6 d | 1 / 30 | 15 | 3 | 5 | 5 (0) | 0 % | 0 % | 1 | 0 |
-| p4 Kiwino | 7.1 d | 10.2 d | 5 / 37 | 17 | 4 | 8 | 4 (0) | 0 % | 0 % | 4 | 2 |
-| p5 Kiwisu, occasional ² | 11.2 d | — | 0 | 5 | 0 | 0 | 5 (0) | — | — | 0 | 0 |
-| p6 Kiwino, occasional ² | 12.2 d | — | 0 | 4 | 0 | 0 | 4 (0) | — | — | 0 | 0 |
+| Seed                    | Industry | First locule | Locules (day 14) | Rooms | Retreats | Dead | Upwellings (lost) | Crystal at cap | Seeds at cap | Trees | Locule eggs |
+| ----------------------- | -------- | ------------ | ---------------- | ----- | -------- | ---- | ----------------- | -------------- | ------------ | ----- | ----------- |
+| p1 Kiwisu               | 6.7 d    | 8.6 d        | 6 / 42           | 15    | 0        | 0    | 5 (0)             | 3 %            | 0 %          | 4     | 4           |
+| p2 Kiwino ¹             | 8.2 d    | 11.4 d       | 4 / 38           | 17    | 3        | 5    | 5 (0)             | 0 %            | 0 %          | 2     | 0           |
+| p3 Kiwisu               | 8.4 d    | 13.6 d       | 1 / 30           | 15    | 3        | 5    | 5 (0)             | 0 %            | 0 %          | 1     | 0           |
+| p4 Kiwino               | 7.1 d    | 10.2 d       | 5 / 37           | 17    | 4        | 8    | 4 (0)             | 0 %            | 0 %          | 4     | 2           |
+| p5 Kiwisu, occasional ² | 11.2 d   | —            | 0                | 5     | 0        | 0    | 5 (0)             | —              | —            | 0     | 0           |
+| p6 Kiwino, occasional ² | 12.2 d   | —            | 0                | 4     | 0        | 0    | 4 (0)             | —              | —            | 0     | 0           |
 
 ¹ before the last two fixes (tree from Nest 7, tree decision first). ² before the locules'
 tuning (they never reach a locule).
@@ -3386,8 +3386,7 @@ tuning (they never reach a locule).
 
 ## Chantier 51 — The Age of the stars
 
-The fifth age, from the chantier document's decisions and the owner's answers of 30 October
-2026.
+The fifth age, from the chantier document's decisions and the owner's answers of 30 October 2026.
 
 ### Owner's answers (new points, the recommended option each time)
 
@@ -3431,15 +3430,15 @@ The fifth age, from the chantier document's decisions and the owner's answers of
 Scratch `runBot` probes, one line a day (age, Nest, Library, research, crystal, giant seeds).
 Seven rounds; what each one taught:
 
-| Round | Passage | Monument | Stars reached (day) | What blocked |
-|---|---|---|---|---|
-| 1 | Library 11, 30 000 + 40 crystal | Nest 12 | none in 28 | research idle from day ~14 (every technology known); Nest 11 only on days 21–27 |
-| 2 | Library 10, 50 000 + 40 crystal | Nest 10, 90 crystal | none in 28 | the passage waited for its crystal (days 19–23); the monument never came (next) |
-| 3 | Library 10, 50 000, no crystal | same | 23.5 (1 of 4) | bot: stardust reserve stopped at the third monument; the Library grew only for the wanted technology |
-| 4 | Library 10, 30 000 | same | 26.8 (1 of 3) | the Library 10 (≈ 120 000 pulp, 134 000 fibre) never fitted between the bot's spendings |
-| 5 | same, the bot saves for the Library | same | 19.9, 27.0 (2 of 4) | saving melts seeds and juice (meals, ammunition, eggs) and stops the producers |
-| 6 | **Library 9**, 30 000 | same | 16.7, 18.1, 18.7, 20.3 | a little early |
-| 7 | **Library 9, 40 000** | same | **18.5, 19.2, 21.1, 21.2** (median ≈ 20.1) | — |
+| Round | Passage                             | Monument            | Stars reached (day)                        | What blocked                                                                                         |
+| ----- | ----------------------------------- | ------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| 1     | Library 11, 30 000 + 40 crystal     | Nest 12             | none in 28                                 | research idle from day ~14 (every technology known); Nest 11 only on days 21–27                      |
+| 2     | Library 10, 50 000 + 40 crystal     | Nest 10, 90 crystal | none in 28                                 | the passage waited for its crystal (days 19–23); the monument never came (next)                      |
+| 3     | Library 10, 50 000, no crystal      | same                | 23.5 (1 of 4)                              | bot: stardust reserve stopped at the third monument; the Library grew only for the wanted technology |
+| 4     | Library 10, 30 000                  | same                | 26.8 (1 of 3)                              | the Library 10 (≈ 120 000 pulp, 134 000 fibre) never fitted between the bot's spendings              |
+| 5     | same, the bot saves for the Library | same                | 19.9, 27.0 (2 of 4)                        | saving melts seeds and juice (meals, ammunition, eggs) and stops the producers                       |
+| 6     | **Library 9**, 30 000               | same                | 16.7, 18.1, 18.7, 20.3                     | a little early                                                                                       |
+| 7     | **Library 9, 40 000**               | same                | **18.5, 19.2, 21.1, 21.2** (median ≈ 20.1) | —                                                                                                    |
 
 - Industry on days 8.2–9.7 in the same runs; the passage then paces the age, the monument's
   crystal (90) comes on days 15–19.
@@ -3454,7 +3453,6 @@ Seven rounds; what each one taught:
   for chantier 58.
 - To test with the owner: the moment (~day 20), the look of the stars, the price of levels 13–15
   in crystal, the sailboat.
-
 
 ## Hotfix (November 2026) — Removing a player, universes of 16
 
@@ -3553,12 +3551,12 @@ of 4 November 2026.
 
 ### Measures (bot probes, attentive)
 
-| Round | Weevil | Bot | What we learned |
-|---|---|---|---|
-| 1 (6 × 28 days) | 900 hp | locules first, tunnel level 1 | no cavern ever: 30–42 locules came first; crews of 4 |
-| saved states, days 21 and 25 | 900–4 000 hp | — | 900 hp fell to 4 kiwis on day 21 (steel and crystal gear); 3 400 × 1.6 needs a first battle |
-| 2 (6 × 28 days) | 3 400 × 1.6 | core first, tunnel 3 at the stars | 1–4 caverns, but the stem opened onto one cavern: never reached |
-| 3 (6 × 32 days) | same | the stem onto two caverns, nearest the stem first | **the Weevil fell on days 27.0 and 30.1** (2 of 6), each time on the second battle |
+| Round                        | Weevil       | Bot                                               | What we learned                                                                             |
+| ---------------------------- | ------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 1 (6 × 28 days)              | 900 hp       | locules first, tunnel level 1                     | no cavern ever: 30–42 locules came first; crews of 4                                        |
+| saved states, days 21 and 25 | 900–4 000 hp | —                                                 | 900 hp fell to 4 kiwis on day 21 (steel and crystal gear); 3 400 × 1.6 needs a first battle |
+| 2 (6 × 28 days)              | 3 400 × 1.6  | core first, tunnel 3 at the stars                 | 1–4 caverns, but the stem opened onto one cavern: never reached                             |
+| 3 (6 × 32 days)              | same         | the stem onto two caverns, nearest the stem first | **the Weevil fell on days 27.0 and 30.1** (2 of 6), each time on the second battle          |
 
 - Kiwis dead in battle over the run (delves and landings): 4–11.
 - ⚠️ The pace of the caverns: the bot (attentive, "likely" with nobody expected dead, under
@@ -3610,3 +3608,52 @@ screens (Village, Defense, Siege, Depths, Plans) and the Chat (unread count) sta
 resource bar now centres in the room left of the buttons at every desktop width (their width
 is measured), instead of a fixed 356 px between 761 and 1500 px.
 
+## Chantier 54 — The wormholes and the cosmic orchard I: the raspberry
+
+From the chantier document's decisions and the owner's answers of 6 November 2026.
+
+### Owner's answers (new points)
+
+- **The wormhole needs no new building**: the technology `wormholes` and a launchpad of
+  level 14 (the docks of chantier 53 still shorten the trip).
+- **Battles on the raspberry are played live in 3D** on their drupelet (not a 2D replay).
+- **Home colony only**: a sister colony has neither orchard nor trading post (like the depths).
+
+### Technical choices
+
+- **The hidden seed is the universe's secret**, in a new table `universe_secrets` (RLS on, no
+  policy, written and read by the function only): the universe's own seed is readable by its
+  members, so nothing hidden can come from it. The public layout does come from it, so every
+  member meets the same raspberry; standing, views, pillages and the post stay each colony's
+  own (no state shared between players). Without the migration, each game keeps a seed of
+  its own (the game never waits on it).
+- An imported save **forgets the orchard** (`forgetOrchard`): nothing of it can be checked.
+- Voyages are their own command (`voyage`, missions `visit` and `pillage`), like the delves;
+  a voyage resolves only where the truth is held.
+
+### Defaults chosen by Claude (status "default", changeable)
+
+- Technology: Library 14, **20 000 points** (× 2.5 = 50 000 without the Mother Vine), 60
+  crystal, 30 stardust, after the star sails. Travel 6 h before the launchpad's speed (≈ 2.5 h
+  at level 14 with the star sails), a hop of 10 min between two stops, × 0.75 with a post.
+- The raspberry: 60–90 drupelets, 8–12 clans in one piece, three rings (power 40 / 60 / 85,
+  levels 16 / 18 / 20, nectar 20 / 35 / 55), a nest one time in four (× 1.5), beetles
+  (`beetle`, `beetleGuard`, flying `byturus`); a pillaged garrison grows back over 72 h.
+- Standing −100…100, friendly from 30, hostile from −30; a trade +3, a gift +8 per 5 000 units
+  (up to × 3), a pillage −60 and −20 to the clans next to it, **won or lost**; it drifts back
+  toward 0 by 2 points a day (a hostile clan is neutral again after about two weeks). A gift is
+  accepted even by a hostile clan (it is how an attack is called off).
+- Trade: each clan asks for one resource and pays 4–7 nectar per 1 000 units (public); our own
+  sales lower our rate for three days. A pillage targets **one** drupelet (not two in a row).
+- Red nectar: cap 200 / 300 / 400 at Nest 13 / 14 / 15. The trading post: 40 nectar + 40
+  crystal + 20 iron, 2 h; huts (2 kiwis), stalls (0.6 nectar/h per kiwi, store 60), palisades
+  (a seed and a sky turret). Attacks: 36–60 h apart, 8 h notice, half the hostile clan's
+  garrisons next to the post; a post fallen is a ruin raised again at half price on its own
+  drupelet (whatever the clans think), the fallen die there, the others come home.
+- Not in yet (see `DETTE.md`): the nectar gear tier and the prestige decoration, sounds,
+  the clans' huts in 3D, a live invitation for attacks on the post; the bot never pillages.
+
+To test with the owner: the pleasure of trading versus pillaging (is the standing readable,
+is the drift too fast or too slow), the gift that calls off an attack, the post's worth
+(nectar per day for two kiwis away), the camera on a drupelet during a battle, the wormhole's
+place in the sky.

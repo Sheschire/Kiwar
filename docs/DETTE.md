@@ -234,3 +234,13 @@
   chantier 58. Les détails `age >= 3` des recettes (tuyaux de cuivre, laiton) restent à l'Âge
   des étoiles ; le voilier n'a pas de vol propre (mêmes ailes que le jet) ; pas de son propre
   pour l'âge. Les objectifs du cœur et des kiwaïs viendront aux chantiers 52 et 53.
+- Chantier 54 : pas de sons propres au Verger (trou de ver, commerce, attaque du comptoir) ;
+  pas de palier de gear « nectar » ni de décor de prestige au nectar (le nectar ne paie que le
+  comptoir et ses modules : ses autres puits viendront au 55, avec la pomme et l'ananas) ; la
+  framboise du ciel n'est pas une planète visitable (`PlanetRef`), seule une bataille y emmène
+  la caméra ; les coléoptères portent les corps des Grouillants teintés (pas de modèle
+  propre) ; les huttes des clans et les modules du comptoir ne sont pas dessinés sur la
+  framboise 3D (seule notre hutte l'est) ; le spectacle sur une drupéole n'a été mesuré qu'en
+  rendu logiciel (images/s sur téléphone à vérifier) ; pas d'invitation en direct pour une
+  attaque du comptoir (rejouable depuis l'écran Verger) ; le bot ne pille jamais. Un pillage ne
+  vise qu'une drupéole (pas d'enchaînement de deux batailles).

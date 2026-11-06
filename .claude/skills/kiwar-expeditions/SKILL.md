@@ -250,3 +250,11 @@ Mission `delve` (command `delve`, not `launchExpedition`): no ship (`launchpadId
 `targetId: 'depths'`, `Expedition.room`), resolved by `resolveDelve` from `resolveArrival`
 before the target check; `canResolveArrival` needs `state.depthSeed` (hidden, stripped by
 `publicState`). Client places that list expeditions must not assume a target or a pad.
+
+## Chantier 54: voyages to the raspberry (skill `kiwar-orchard`)
+
+Missions `visit` and `pillage` (command `voyage`, not `launchExpedition`): a ship from a
+launchpad of level 14 through the wormhole, target `ORCHARD_TARGET` (never in
+`state.targets`), resolved by `resolveVoyage` from `resolveArrival` before the target check;
+`canResolveArrival` needs `state.orchardSeed`. Client places that list expeditions must not
+assume a target (`ShipsView` flies them to the wormhole's mouth).
