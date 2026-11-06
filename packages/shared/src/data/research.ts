@@ -61,6 +61,8 @@ export const TECH_IDS = [
   'celestialGlass',
   'crystalGrafts',
   'starSails',
+  // Chantier 54: the wormholes (cheaper once the Mother Vine is found).
+  'wormholes',
 ] as const;
 export type TechId = (typeof TECH_IDS)[number];
 
@@ -421,6 +423,20 @@ export const TECHS: Record<TechId, TechDef> = {
     crystal: 40,
     stardust: 20,
     effects: { travel: 0.85, recon: 0.1, armor: 0.05 },
+  },
+  // Chantier 54: the wormholes along the Mother Vine (× `RESEARCH.withoutVine` without her);
+  // a ship goes through from a launchpad of level `ORCHARD.padLevel`.
+  wormholes: {
+    id: 'wormholes',
+    age: 4,
+    branch: 'exploration',
+    cost: 20000,
+    libraryLevel: 14,
+    crystal: 60,
+    stardust: 30,
+    after: 'starSails',
+    cheaperWith: 'motherVine',
+    effects: {},
   },
 };
 

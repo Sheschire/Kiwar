@@ -129,9 +129,14 @@ describe('the Mother Vine (chantier 52)', () => {
     } finally {
       if (kept === undefined) delete def.cheaperWith;
     }
-    // No technology of this chantier uses it yet.
-    for (const t of Object.values(TECHS)) expect(t.cheaperWith).toBeUndefined();
+    // Chantier 54: the wormholes are the only technology that uses it.
+    for (const t of Object.values(TECHS))
+      expect(t.cheaperWith).toBe(t.id === 'wormholes' ? 'motherVine' : undefined);
     expect(techCost(before, 'starSails')).toBe(TECHS.starSails.cost);
+    expect(techCost(before, 'wormholes')).toBe(
+      Math.round(TECHS.wormholes.cost * RESEARCH.withoutVine),
+    );
+    expect(techCost(arrived.state, 'wormholes')).toBe(TECHS.wormholes.cost);
   });
 
   it('counts the caverns and the Weevil in the objectives of the stars', () => {

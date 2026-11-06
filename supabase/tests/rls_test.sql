@@ -263,6 +263,30 @@ begin
 end $$;
 reset role;
 
+-- Chantier 54: the orchard's secret seed is the game function's only.
+set role service_role;
+insert into public.universe_secrets (universe_id, orchard_seed)
+  select id, 'secret-seed' from public.universes limit 1;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare n int;
+begin
+  select count(*) into n from public.universe_secrets;
+  if n <> 0 then raise exception 'player can read the orchard secret'; end if;
+  update public.universe_secrets set orchard_seed = 'mine';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'player could change the orchard secret'; end if;
+  begin
+    insert into public.universe_secrets (universe_id, orchard_seed)
+      values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'mine');
+    raise exception 'player could write an orchard secret';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+
 -- Chantier 56: leagues are written by the game function only; members read them, others not.
 set role service_role;
 insert into public.league_seasons (universe_id, n, starts_at, ends_at)

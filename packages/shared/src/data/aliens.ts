@@ -85,6 +85,10 @@ export const ALIEN_GEAR: Record<
   larva: { weapon: null, armor: null },
   fruitFly: { weapon: null, armor: null },
   woodlouse: { weapon: null, armor: null },
+  // Chantier 54: the beetles' shells are their armour.
+  beetle: { weapon: null, armor: null },
+  beetleGuard: { weapon: null, armor: null },
+  byturus: { weapon: null, armor: null },
 };
 
 /** Share of each kind in a parcel's garrison (ground and air). */

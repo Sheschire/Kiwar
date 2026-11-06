@@ -29,6 +29,7 @@ import type { ShipId } from '../data/expeditions';
 import type { AlienBuilding, AlienUnit } from './civ';
 import type { HazardKind, RoomKind } from '../data/depths';
 import type { KiwaiType, ModuleType } from '../data/orbit';
+import type { PostModuleType } from '../data/orchard';
 import { newKiwi, rollKiwi } from './kiwis';
 import type {
   BuildingId,
@@ -42,7 +43,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 43;
+export const SCHEMA_VERSION = 44;
 
 export type Job =
   | { kind: 'idle' }
@@ -95,7 +96,12 @@ export type Job =
    * Chantier 53: up on a kiwai (fed from the colony stock, no militia nor evening). `aboard`:
    * in the shuttle, going up (not at work yet) or coming down (home at the shuttle's return).
    */
-  | { kind: 'orbit'; kiwaiId: string; returnTo: BuildingId | null; aboard?: 'up' | 'down' };
+  | { kind: 'orbit'; kiwaiId: string; returnTo: BuildingId | null; aboard?: 'up' | 'down' }
+  /**
+   * Chantier 54: staying at our trading post on the raspberry (fed from the colony stock, no
+   * militia nor evening), until a ship brings them home to `returnTo`.
+   */
+  | { kind: 'post'; returnTo: BuildingId | null };
 
 export interface KiwiHistory {
   expeditions: number;
@@ -505,6 +511,10 @@ export interface ExpeditionResult {
   /** Chantier 48: the room became a gallery; a spelunker's lantern lit this room next to it. */
   gallery?: boolean;
   lantern?: string;
+  /** Chantier 54: nectar brought home (units), what each stop of a visit did, a post founded. */
+  nectar?: number;
+  stops?: VoyageStop[];
+  postFounded?: boolean;
 }
 
 /**
@@ -524,6 +534,9 @@ export const MISSION_KINDS = [
   'guard',
   // Chantier 48: a delve into a room of the depths (no ship: from the tunnel entrance).
   'delve',
+  // Chantier 54: a voyage through the wormhole to the raspberry (trade, or a pillage).
+  'visit',
+  'pillage',
 ] as const;
 export type MissionKind = (typeof MISSION_KINDS)[number];
 
@@ -567,6 +580,36 @@ export interface Expedition {
   skirt?: boolean;
   /** Chantier 40: a breakdown delayed the landing (the ship lands with less hold). */
   delayed?: boolean;
+  /** Chantier 54: a voyage to the orchard (missions `visit` and `pillage`). */
+  voyage?: Voyage;
+}
+
+/** Chantier 54: what a voyage to the raspberry is for. */
+export interface Voyage {
+  /** The drupelets it calls at, in order (1 or 2 next to each other; a pillage: 1). */
+  stops: string[];
+  /** Resources carried for trade (or given), out of `provisions`. */
+  goods: Resources;
+  /** A gift: the goods are given for standing, not sold for nectar. */
+  gift?: boolean;
+  /** Founds our trading post on the first stop (its cost paid at launch). */
+  settle?: boolean;
+  /** Kiwis of the crew who stay at the post. */
+  stay?: VillagerId[];
+  /** Kiwis of the post who come home with this ship. */
+  bringBack?: VillagerId[];
+}
+
+/** Chantier 54: what a visit did at one drupelet. */
+export interface VoyageStop {
+  drupelet: string;
+  clan: string;
+  /** Goods sold or given, and the nectar paid for them. */
+  sold: Partial<Resources>;
+  nectar: number;
+  gift?: boolean;
+  /** The clan was hostile on arrival: nothing done, the ship moved on. */
+  refused?: boolean;
 }
 
 /** Chantier 40: what we saw of a parcel of an alien face (public: it is what we saw). */
@@ -784,6 +827,90 @@ export interface OrbitState {
   shuttle: Shuttle | null;
   /** Kiwais launched so far (the price of the next one). */
   launched: number;
+}
+
+/** Chantier 54: what we saw on a drupelet of the raspberry (public: it is what we saw). */
+export interface DrupeletView {
+  at: TimeMs;
+  /** `visit`: met in a visit; `pillage`: fought (won); `retreat`: what the survivors saw. */
+  source: 'visit' | 'pillage' | 'retreat';
+  units: AlienUnit[];
+  /** Nectar stored there then (units), and whether a nest stands there. */
+  nectar: number;
+  nest: boolean;
+}
+
+/** Chantier 54: a clan's standing with this colony at a time (it drifts toward 0 after). */
+export interface ClanStanding {
+  value: number;
+  at: TimeMs;
+}
+
+/** Chantier 54: a module of our trading post, on its own small map. */
+export interface PostModule {
+  id: string;
+  type: PostModuleType;
+  q: number;
+  r: number;
+  readyAt: TimeMs;
+  /** Broken in an attack lost (it stops until repaired). */
+  broken?: boolean;
+}
+
+/** Chantier 54: the next attack on our trading post (its time is public, its army hidden). */
+export interface PostAttack {
+  id: string;
+  /** The hostile clan it comes from (chosen at the announcement; null before). */
+  clan: string | null;
+  announceAt: TimeMs;
+  at: TimeMs;
+  announced: boolean;
+}
+
+/** Chantier 54: the last attacks on the post (newest last, a few kept). */
+export interface PostReport {
+  id: string;
+  at: TimeMs;
+  clan: string;
+  held: boolean;
+  /** Attackers, guards dead and wounded, nectar taken. */
+  power: number;
+  dead: string[];
+  hurt: VillagerId[];
+  taken: number;
+  log?: BattleLog;
+}
+
+/** Chantier 54: our trading post on a drupelet (a small map apart from the face). */
+export interface TradingPost {
+  drupelet: string;
+  /** Founded then; standing and working from `readyAt`. */
+  since: TimeMs;
+  readyAt: TimeMs;
+  modules: PostModule[];
+  /** Nectar waiting in its store, raw units (`NECTAR_SCALE` per unit). */
+  store: number;
+  /** Fallen in an attack: it stands as a ruin until rebuilt (nothing is ever lost entirely). */
+  ruined?: boolean;
+  /** Attacks planned so far (the next one's stream), the next, the last reports. */
+  attacks: number;
+  attack: PostAttack | null;
+  reports: PostReport[];
+}
+
+/** Chantier 54: the orchard as this colony knows it (public; the truth is in `orchardSeed`). */
+export interface OrchardState {
+  /** Public seed of the orchard's layout (the universe's, or the game's solo). */
+  seed: string;
+  standing: Record<string, ClanStanding>;
+  /** Our own sales to each clan (they lower our rate, fading over `TRADE.fadeMs`). */
+  sold: Record<string, ClanStanding>;
+  views: Record<string, DrupeletView>;
+  /** Drupelets we pillaged, and when (their garrison grows back). */
+  taken: Record<string, TimeMs>;
+  post: TradingPost | null;
+  /** Visits that reached the raspberry so far. */
+  visits: number;
 }
 
 /** Chantier 19: the siege of the twin face (public: the truth stays in `aliens`). */
@@ -1098,6 +1225,15 @@ export interface GameState {
   siege: SiegeState;
   /** Chantier 53: the kiwais in orbit and the shuttle. */
   orbit: OrbitState;
+  /** Chantier 54: the orchard (public views, standing, our trading post). */
+  orchard: OrchardState;
+  /**
+   * Chantier 54: secret seed of what the drupelets hold (shared by a universe). Hidden like
+   * `aliens`: the server never sends it; voyages wait for the server when it is missing.
+   */
+  orchardSeed?: string;
+  /** Chantier 54: red nectar in raw units (`NECTAR_SCALE` per unit), apart from the storage. */
+  nectar: number;
   /** Chantier 19: which colony of the player this is, and its link to the other one. */
   colony: ColonyLink;
   nextId: number;
@@ -1186,6 +1322,8 @@ export function newGame(opts: NewGameOptions): GameState {
     bestiary: {},
     depths: newDepths(opts.seed, opts.face),
     orbit: { kiwais: [], shuttle: null, launched: 0 },
+    orchard: newOrchard(`${opts.seed}/orchard`),
+    nectar: 0,
     expeditions: [],
     friends: [],
     shipments: [],
@@ -1225,7 +1363,36 @@ export function newGame(opts: NewGameOptions): GameState {
     state.targets.map((t) => [t.id, drawGarrison(t, `${alienSeed}/${t.id}`, opts.now)]),
   );
   state.depthSeed = `${alienSeed}/depths`;
+  state.orchardSeed = `${alienSeed}/orchard`;
   return state;
+}
+
+/** Chantier 54: an orchard nobody has visited yet. */
+export function newOrchard(seed: string): OrchardState {
+  return { seed, standing: {}, sold: {}, views: {}, taken: {}, post: null, visits: 0 };
+}
+
+/** Chantier 54: a deep copy of the orchard. */
+export function cloneOrchard(o: OrchardState): OrchardState {
+  const post = o.post;
+  return {
+    seed: o.seed,
+    standing: Object.fromEntries(Object.entries(o.standing).map(([k, v]) => [k, { ...v }])),
+    sold: Object.fromEntries(Object.entries(o.sold).map(([k, v]) => [k, { ...v }])),
+    views: Object.fromEntries(
+      Object.entries(o.views).map(([k, v]) => [k, { ...v, units: v.units.map((u) => ({ ...u })) }]),
+    ),
+    taken: { ...o.taken },
+    post: post
+      ? {
+          ...post,
+          modules: post.modules.map((m) => ({ ...m })),
+          attack: post.attack ? { ...post.attack } : null,
+          reports: post.reports.map((r) => ({ ...r, dead: [...r.dead], hurt: [...r.hurt] })),
+        }
+      : null,
+    visits: o.visits,
+  };
 }
 
 /** Chantier 48: depths with nothing seen yet. */
@@ -1449,6 +1616,7 @@ export function cloneState(state: GameState): GameState {
     victories: { ...state.victories },
     ...(state.aliens ? { aliens: cloneAliens(state.aliens) } : {}),
     ...(state.depthSeed ? { depthSeed: state.depthSeed } : {}),
+    ...(state.orchardSeed ? { orchardSeed: state.orchardSeed } : {}),
     intel: Object.fromEntries(Object.entries(state.intel).map(([k, i]) => [k, cloneIntel(i)])),
     paths: [...state.paths],
     deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
@@ -1498,11 +1666,25 @@ export function cloneState(state: GameState): GameState {
             ...(e.result.sectors ? { sectors: [...e.result.sectors] } : {}),
             ...(e.result.injured ? { injured: [...e.result.injured] } : {}),
             ...(e.result.seen ? { seen: e.result.seen.map((u) => ({ ...u })) } : {}),
+            ...(e.result.stops
+              ? { stops: e.result.stops.map((x) => ({ ...x, sold: { ...x.sold } })) }
+              : {}),
           }
         : null,
       ...(e.bringBack ? { bringBack: [...e.bringBack] } : {}),
       ...(e.freight ? { freight: { ...e.freight } } : {}),
       ...(e.orders ? { orders: { ...e.orders } } : {}),
+      ...(e.voyage
+        ? {
+            voyage: {
+              ...e.voyage,
+              stops: [...e.voyage.stops],
+              goods: { ...e.voyage.goods },
+              ...(e.voyage.stay ? { stay: [...e.voyage.stay] } : {}),
+              ...(e.voyage.bringBack ? { bringBack: [...e.voyage.bringBack] } : {}),
+            },
+          }
+        : {}),
     })),
     faceViews: Object.fromEntries(
       Object.entries(state.faceViews).map(([k, f]) => [k, cloneFaceView(f)]),
@@ -1512,6 +1694,7 @@ export function cloneState(state: GameState): GameState {
     ) as GameState['bestiary'],
     depths: cloneDepths(state.depths),
     orbit: cloneOrbit(state.orbit),
+    orchard: cloneOrchard(state.orchard),
     rng: [...state.rng] as RngState,
   };
 }

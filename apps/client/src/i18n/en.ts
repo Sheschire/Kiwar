@@ -2136,6 +2136,9 @@ export const en = {
       larva: 'Larva',
       fruitFly: 'Fruit fly',
       woodlouse: 'Woodlouse',
+      beetle: 'Beetle',
+      beetleGuard: 'Guard beetle',
+      byturus: 'Flying byturus',
       queen: 'The ferret queen',
     },
     weapons: {
@@ -2328,6 +2331,7 @@ export const en = {
       meteor: 'At a meteorite',
       mine: 'In the mines below',
       orbit: 'Up on a kiwai',
+      post: 'At the trading post, on the raspberry',
       outpost: 'On a bridgehead',
     },
   },
@@ -2615,6 +2619,10 @@ export const en = {
     starSails: {
       name: 'Star sails',
       desc: 'Expedition travel −15 %, better reconnaissance, sturdier ships.',
+    },
+    wormholes: {
+      name: 'Wormholes',
+      desc: 'The sailer flies along the Mother Vine to the cosmic orchard, from a launchpad of level 14. Much longer to research until the Mother Vine is found.',
     },
     meteorDrill: {
       name: 'Meteorite drill',

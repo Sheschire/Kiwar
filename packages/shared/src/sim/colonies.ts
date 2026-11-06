@@ -166,6 +166,7 @@ export function newSister(home: GameState, f: Founding): GameState {
   });
   delete s.aliens;
   delete s.depthSeed;
+  delete s.orchardSeed;
   s.villagers = f.settlers.map((v) => ({ ...settle(v), id: nextId(s, 'v') as VillagerId }));
   const cap = capacity(s);
   for (const id of RESOURCE_IDS) s.resources[id] = Math.min(cap[id], f.resources[id]);

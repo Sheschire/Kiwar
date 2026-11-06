@@ -2984,7 +2984,9 @@ var TECH_IDS = [
   "starsAge",
   "celestialGlass",
   "crystalGrafts",
-  "starSails"
+  "starSails",
+  // Chantier 54: the wormholes (cheaper once the Mother Vine is found).
+  "wormholes"
 ];
 var TECHS = {
   foraging: {
@@ -3262,6 +3264,20 @@ var TECHS = {
     crystal: 40,
     stardust: 20,
     effects: { travel: 0.85, recon: 0.1, armor: 0.05 }
+  },
+  // Chantier 54: the wormholes along the Mother Vine (× `RESEARCH.withoutVine` without her);
+  // a ship goes through from a launchpad of level `ORCHARD.padLevel`.
+  wormholes: {
+    id: "wormholes",
+    age: 4,
+    branch: "exploration",
+    cost: 2e4,
+    libraryLevel: 14,
+    crystal: 60,
+    stardust: 30,
+    after: "starSails",
+    cheaperWith: "motherVine",
+    effects: {}
   }
 };
 var PASSAGE_TECHS = [
@@ -3741,7 +3757,11 @@ var ALIEN_GEAR = {
   // Chantier 48: the Grouillants carry no gear.
   larva: { weapon: null, armor: null },
   fruitFly: { weapon: null, armor: null },
-  woodlouse: { weapon: null, armor: null }
+  woodlouse: { weapon: null, armor: null },
+  // Chantier 54: the beetles' shells are their armour.
+  beetle: { weapon: null, armor: null },
+  beetleGuard: { weapon: null, armor: null },
+  byturus: { weapon: null, armor: null }
 };
 var ALIEN_MIX = {
   ground: { soldier: 0.6, scout: 0.15, brute: 0.25 },
@@ -4204,6 +4224,120 @@ function moduleFits(type, kiwai) {
   const only = MODULES[type].types;
   return !only || only.includes(kiwai);
 }
+
+// packages/shared/src/data/orchard.ts
+var FRUIT_IDS = ["raspberry"];
+var ORCHARD_TARGET = "orchard:raspberry";
+var ORCHARD = {
+  /** The launchpad level a ship needs to go through the wormhole (with the technology). */
+  padLevel: 14,
+  /** One way through the wormhole, before the ship, fuel, technologies and the dock. */
+  travelMs: 3 * 36e5,
+  /** A hop from one drupelet to the next (low gravity: short). */
+  hopMs: 10 * 6e4,
+  /** Drupelets one visit can call at (the crew carries two at a time). */
+  maxStops: 2,
+  /** Trips to the raspberry with a trading post standing there (it is a relay). */
+  relay: 0.75,
+  /** Kiwis aboard (a Kikiwiwi never goes through the wormhole). */
+  crew: { min: 1, max: 8 }
+};
+var RASPBERRY = {
+  /** Drupelets in the cluster, clans sharing them, drupelets a clan holds (about). */
+  drupelets: [60, 90],
+  clans: [8, 12],
+  /** A drupelet's neighbours: those closer than this many times the mean spacing. */
+  neighbourSpan: 1.45,
+  /** Share of the sphere at the top left bare where the vine holds the fruit. */
+  stemCap: 0.12,
+  /** What a clan asks for in trade (a public draw per clan). */
+  wants: ["pulp", "fiber", "juice", "seeds"],
+  /**
+   * The rings of the cluster, from the tip (0, the far end from the vine: young clans) to the
+   * shoulders by the stem (2: the oldest, strongest clans). By ring: garrison power, level,
+   * nectar stored on a drupelet (± `nectarSpread`).
+   */
+  rings: {
+    power: [40, 60, 85],
+    level: [16, 18, 20],
+    nectar: [20, 35, 55]
+  },
+  /** The garrison drawn around its ring's power (× 1 ± spread), and a nest's weight. */
+  powerSpread: 0.2,
+  nectarSpread: 0.3,
+  nestChance: 0.25,
+  nestPower: 1.5,
+  /** Shares of a garrison's power by kind (beetles, armoured guards, flying adults). */
+  mix: { beetle: 0.6, beetleGuard: 0.25, byturus: 0.15 },
+  /** A pillaged drupelet's garrison grows back to full over this time (public). */
+  regrowMs: 72 * 36e5,
+  /** Help from each neighbouring drupelet of the same clan in a battle (share, delay). */
+  help: { share: 0.25, delayS: 25 }
+};
+var STANDING = {
+  min: -100,
+  max: 100,
+  /** At or above: a friendly clan (a post may stand there); at or below: hostile. */
+  friendly: 30,
+  hostile: -30,
+  /** A trade, a gift (per call), a pillage (the clan, then each clan next to it). */
+  trade: 3,
+  gift: 8,
+  pillage: -60,
+  pillageNeighbours: -20,
+  /** Points a day it drifts back toward 0 (a punishment is recoverable, a friendship fades). */
+  driftPerDay: 2
+};
+var TRADE = {
+  /** Nectar a clan pays for 100 units of what it asks for (a public draw per clan). */
+  rate: [4, 7],
+  /** Our own sales lower our rate: × 1 / (1 + sold / `soften`), sold fading over `fadeMs`. */
+  soften: 2e3,
+  fadeMs: 72 * 36e5,
+  /** A gift: the share of the cargo given for nothing (it buys standing, not nectar). */
+  giftShare: 1
+};
+var NECTAR = {
+  /** Stock cap (units) by Nest level (index 0–15). */
+  cap: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 200, 300, 400]
+};
+var NECTAR_SCALE = 1e3 * 36e5;
+function nectarUnits(raw) {
+  return Math.floor(raw / NECTAR_SCALE + 1e-9);
+}
+var POST_MODULE_TYPES = ["hut", "stall", "palisade"];
+var POST = {
+  /** What founding it costs (paid at launch), and the time to set it up on arrival. */
+  cost: { nectar: 40, crystal: 40, iron: 20 },
+  buildMs: 2 * 36e5,
+  /** Its small map (`smallMap`): a disc of radius 2, a rock or two on the ring. */
+  radius: 2,
+  rocks: [1, 2],
+  maxModules: 5,
+  modules: {
+    hut: { nectar: 10, iron: 5, durationMs: 36e5, housing: 2 },
+    stall: { nectar: 15, iron: 5, durationMs: 36e5, workSlots: 2 },
+    palisade: { nectar: 20, iron: 10, durationMs: 2 * 36e5, fort: 1 }
+  },
+  /** Nectar an average kiwi gathers in a stall per hour; the store's cap (units). */
+  perHour: 0.6,
+  storeCap: 60,
+  /** A ruined post rises again at this share of its founding cost. */
+  rebuild: 0.5,
+  /** A module taken down gives this share back. */
+  refund: 0.25
+};
+var POST_ATTACK = {
+  /** Time between two attacks (drawn from a public stream), and the notice. */
+  intervalMs: [36 * 36e5, 60 * 36e5],
+  noticeMs: 8 * 36e5,
+  /** The attackers: this share of the clan's drupelets' garrisons next to the post. */
+  share: 0.5,
+  /** A defeat: share of the store taken. */
+  loot: 1,
+  /** Wounds of the guards who fall in an attack held. */
+  woundMs: 6 * 36e5
+};
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
@@ -5059,7 +5193,11 @@ var ENEMY_KINDS = [
   // Chantier 48: the Grouillants, creatures of the depths (never in surface waves).
   "larva",
   "fruitFly",
-  "woodlouse"
+  "woodlouse",
+  // Chantier 54: the raspberry's beetles (bodies of the depths' crawlers and fliers, tinted).
+  "beetle",
+  "beetleGuard",
+  "byturus"
 ];
 var DEPTH_KINDS = [
   "larva",
@@ -5170,8 +5308,52 @@ var ENEMIES = {
     carry: 0.5,
     fightsBack: true,
     huntsKiwis: false
+  },
+  beetle: {
+    body: "louse",
+    hp: 12,
+    armor: 0.15,
+    speed: 0.7,
+    dodge: 0.05,
+    size: 1,
+    weapon: "gnaw",
+    power: 1.2,
+    carry: 1,
+    fightsBack: true,
+    huntsKiwis: false
+  },
+  beetleGuard: {
+    body: "louse",
+    hp: 30,
+    armor: 0.4,
+    speed: 0.5,
+    dodge: 0,
+    size: 2,
+    weapon: "shellRam",
+    power: 3,
+    carry: 0.5,
+    fightsBack: true,
+    huntsKiwis: false
+  },
+  byturus: {
+    body: "fly",
+    hp: 8,
+    armor: 0.1,
+    speed: 1.3,
+    dodge: 0.15,
+    size: 0,
+    weapon: "sting",
+    power: 1.2,
+    carry: 0.6,
+    fightsBack: true,
+    huntsKiwis: true
   }
 };
+var BEETLE_KINDS = [
+  "beetle",
+  "beetleGuard",
+  "byturus"
+];
 function isFlyer(kind) {
   const body = ENEMIES[kind].body;
   return body === "bat" || body === "fly";
@@ -7256,8 +7438,8 @@ function catchmentPlan(state, map, type, h, level = 1) {
   const own = new Set(tiles);
   const claimedBy = /* @__PURE__ */ new Map();
   for (const [id3, keys] of claims) if (id3 !== probe.id) for (const k of keys) claimedBy.set(k, id3);
-  const standing = /* @__PURE__ */ new Map();
-  for (const [k, o] of occupancy(state).tiles) if (!o.site) standing.set(k, o.id);
+  const standing2 = /* @__PURE__ */ new Map();
+  for (const [k, o] of occupancy(state).tiles) if (!o.site) standing2.set(k, o.id);
   const season = seasonOf(state);
   const taken = [];
   for (const x of hexDisk(h, catchmentRadius(probe))) {
@@ -7266,7 +7448,7 @@ function catchmentPlan(state, map, type, h, level = 1) {
     const tile = getTile(map, x);
     if (tile?.type !== tileType || isFlooded(tile, map.params.biome, season)) continue;
     const claimer = claimedBy.get(key);
-    const builder = standing.get(key);
+    const builder = standing2.get(key);
     if (claimer) taken.push({ key, owner: claimer, reason: "claimed" });
     else if (builder) taken.push({ key, owner: builder, reason: "built" });
   }
@@ -9831,6 +10013,7 @@ function newSister(home, f) {
   });
   delete s.aliens;
   delete s.depthSeed;
+  delete s.orchardSeed;
   s.villagers = f.settlers.map((v) => ({ ...settle2(v), id: nextId(s, "v") }));
   const cap = capacity(s);
   for (const id3 of RESOURCE_IDS) s.resources[id3] = Math.min(cap[id3], f.resources[id3]);
@@ -11964,13 +12147,13 @@ function civWave(state, at, waveId) {
   const civ = civOf(g);
   const view = civAt(g, at, civ);
   const beacons = (state.faceViews[id3]?.beacons ?? []).map((b) => b.sector);
-  const standing = standingBarracks(civ, at, beacons);
+  const standing2 = standingBarracks(civ, at, beacons);
   const wanted = keysWanted(view.age).barracks;
-  const barracks = CIV.barracksFloor + (1 - CIV.barracksFloor) * Math.min(1, standing.length / wanted);
+  const barracks = CIV.barracksFloor + (1 - CIV.barracksFloor) * Math.min(1, standing2.length / wanted);
   const time = 1 + THREATS.perDay * Math.min(THREATS.maxDays, view.hours / DAY_H);
   const roll = civHash(g.seed, `wave/${waveId}`);
   let origin;
-  if (standing.length > 0) origin = standing[Math.floor(roll * standing.length)].sector;
+  if (standing2.length > 0) origin = standing2[Math.floor(roll * standing2.length)].sector;
   else {
     const free = view.sectors.filter((s) => !beacons.includes(s.sector));
     origin = (free.length > 0 ? free : view.sectors).reduce(
@@ -15408,10 +15591,12 @@ function ensureAliens(state, seed) {
   return changed;
 }
 function publicState(state) {
-  if (!state.aliens && state.depthSeed === void 0) return state;
+  if (!state.aliens && state.depthSeed === void 0 && state.orchardSeed === void 0)
+    return state;
   const copy = { ...state };
   delete copy.aliens;
   delete copy.depthSeed;
+  delete copy.orchardSeed;
   return copy;
 }
 function alienDefense(state, targetId, at) {
@@ -15506,7 +15691,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 43;
+var SCHEMA_VERSION = 44;
 var MISSION_KINDS = [
   "land",
   "raid",
@@ -15518,7 +15703,10 @@ var MISSION_KINDS = [
   "found",
   "guard",
   // Chantier 48: a delve into a room of the depths (no ship: from the tunnel entrance).
-  "delve"
+  "delve",
+  // Chantier 54: a voyage through the wormhole to the raspberry (trade, or a pillage).
+  "visit",
+  "pillage"
 ];
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
@@ -15580,6 +15768,8 @@ function newGame(opts) {
     bestiary: {},
     depths: newDepths(opts.seed, opts.face),
     orbit: { kiwais: [], shuttle: null, launched: 0 },
+    orchard: newOrchard(`${opts.seed}/orchard`),
+    nectar: 0,
     expeditions: [],
     friends: [],
     shipments: [],
@@ -15619,7 +15809,30 @@ function newGame(opts) {
     state.targets.map((t) => [t.id, drawGarrison(t, `${alienSeed}/${t.id}`, opts.now)])
   );
   state.depthSeed = `${alienSeed}/depths`;
+  state.orchardSeed = `${alienSeed}/orchard`;
   return state;
+}
+function newOrchard(seed) {
+  return { seed, standing: {}, sold: {}, views: {}, taken: {}, post: null, visits: 0 };
+}
+function cloneOrchard(o) {
+  const post = o.post;
+  return {
+    seed: o.seed,
+    standing: Object.fromEntries(Object.entries(o.standing).map(([k, v]) => [k, { ...v }])),
+    sold: Object.fromEntries(Object.entries(o.sold).map(([k, v]) => [k, { ...v }])),
+    views: Object.fromEntries(
+      Object.entries(o.views).map(([k, v]) => [k, { ...v, units: v.units.map((u) => ({ ...u })) }])
+    ),
+    taken: { ...o.taken },
+    post: post ? {
+      ...post,
+      modules: post.modules.map((m) => ({ ...m })),
+      attack: post.attack ? { ...post.attack } : null,
+      reports: post.reports.map((r) => ({ ...r, dead: [...r.dead], hurt: [...r.hurt] }))
+    } : null,
+    visits: o.visits
+  };
 }
 function newDepths(seed, face) {
   return {
@@ -15807,6 +16020,7 @@ function cloneState(state) {
     victories: { ...state.victories },
     ...state.aliens ? { aliens: cloneAliens(state.aliens) } : {},
     ...state.depthSeed ? { depthSeed: state.depthSeed } : {},
+    ...state.orchardSeed ? { orchardSeed: state.orchardSeed } : {},
     intel: Object.fromEntries(Object.entries(state.intel).map(([k, i]) => [k, cloneIntel(i)])),
     paths: [...state.paths],
     deposits: Object.fromEntries(Object.entries(state.deposits).map(([k, d]) => [k, { ...d }])),
@@ -15854,11 +16068,21 @@ function cloneState(state) {
         loot: { ...e.result.loot },
         ...e.result.sectors ? { sectors: [...e.result.sectors] } : {},
         ...e.result.injured ? { injured: [...e.result.injured] } : {},
-        ...e.result.seen ? { seen: e.result.seen.map((u) => ({ ...u })) } : {}
+        ...e.result.seen ? { seen: e.result.seen.map((u) => ({ ...u })) } : {},
+        ...e.result.stops ? { stops: e.result.stops.map((x) => ({ ...x, sold: { ...x.sold } })) } : {}
       } : null,
       ...e.bringBack ? { bringBack: [...e.bringBack] } : {},
       ...e.freight ? { freight: { ...e.freight } } : {},
-      ...e.orders ? { orders: { ...e.orders } } : {}
+      ...e.orders ? { orders: { ...e.orders } } : {},
+      ...e.voyage ? {
+        voyage: {
+          ...e.voyage,
+          stops: [...e.voyage.stops],
+          goods: { ...e.voyage.goods },
+          ...e.voyage.stay ? { stay: [...e.voyage.stay] } : {},
+          ...e.voyage.bringBack ? { bringBack: [...e.voyage.bringBack] } : {}
+        }
+      } : {}
     })),
     faceViews: Object.fromEntries(
       Object.entries(state.faceViews).map(([k, f]) => [k, cloneFaceView(f)])
@@ -15868,6 +16092,7 @@ function cloneState(state) {
     ),
     depths: cloneDepths(state.depths),
     orbit: cloneOrbit(state.orbit),
+    orchard: cloneOrchard(state.orchard),
     rng: [...state.rng]
   };
 }
@@ -17654,6 +17879,292 @@ function cleanKiwiName(raw) {
   const name = raw.replace(/\p{Cc}/gu, "").replace(/\s+/g, " ").trim();
   if (name.length === 0 || [...name].length > KIWI_NAME_MAX) return null;
   return name;
+}
+
+// packages/shared/src/sim/orchard.ts
+var CLAN_NAMES = 16;
+var mapCache3 = /* @__PURE__ */ new Map();
+function raspberryOf(seed) {
+  const hit = mapCache3.get(seed);
+  if (hit) return hit;
+  const rng = createRng(`${seed}/raspberry`);
+  const R = RASPBERRY;
+  const n = rng.int(R.drupelets[0], R.drupelets[1]);
+  const top = 1 - 2 * R.stemCap;
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const turn = rng.range(0, 2 * Math.PI);
+  const points = Array.from({ length: n }, (_, i) => {
+    const y = -1 + (i + 0.5) / n * (top + 1) + rng.range(-0.15, 0.15) / n;
+    const rr = Math.sqrt(Math.max(0, 1 - y * y));
+    const a = turn + i * golden + rng.range(-0.08, 0.08);
+    return { x: rr * Math.cos(a), y, z: rr * Math.sin(a) };
+  });
+  const spacing = Math.sqrt(4 * Math.PI * (1 - R.stemCap) / n);
+  const reach = spacing * R.neighbourSpan;
+  const links = points.map(() => []);
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++) {
+      const p = points[i];
+      const q = points[j];
+      if (Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z) <= reach) {
+        links[i].push(j);
+        links[j].push(i);
+      }
+    }
+  for (let i = 0; i < n; i++) {
+    if (links[i].length > 0) continue;
+    let best = -1;
+    let bestD = Infinity;
+    for (let j = 0; j < n; j++) {
+      if (j === i) continue;
+      const p = points[i];
+      const q = points[j];
+      const d = Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z);
+      if (d < bestD) [best, bestD] = [j, d];
+    }
+    links[i].push(best);
+    links[best].push(i);
+  }
+  const k = rng.int(R.clans[0], R.clans[1]);
+  const owner = new Array(n).fill(-1);
+  const seeds = [rng.int(0, n - 1)];
+  while (seeds.length < k) {
+    let far = 0;
+    let farD = -1;
+    for (let i = 0; i < n; i++) {
+      if (seeds.includes(i)) continue;
+      const d = Math.min(
+        ...seeds.map(
+          (s) => Math.hypot(
+            points[i].x - points[s].x,
+            points[i].y - points[s].y,
+            points[i].z - points[s].z
+          )
+        )
+      );
+      if (d > farD) [far, farD] = [i, d];
+    }
+    seeds.push(far);
+  }
+  const fronts = seeds.map((s, c) => {
+    owner[s] = c;
+    return [s];
+  });
+  for (let grown = k; grown < n; ) {
+    let moved = false;
+    for (let c = 0; c < k; c++) {
+      const front = fronts[c];
+      let took = false;
+      for (const i of front) {
+        const free = links[i].filter((j) => owner[j] === -1).sort((a, b) => a - b);
+        if (free.length === 0) continue;
+        owner[free[0]] = c;
+        front.push(free[0]);
+        grown++;
+        took = moved = true;
+        break;
+      }
+      if (!took) continue;
+    }
+    if (!moved) {
+      for (let i = 0; i < n; i++)
+        if (owner[i] === -1) {
+          owner[i] = owner[links[i][0]] === -1 ? 0 : owner[links[i][0]];
+          grown++;
+        }
+    }
+  }
+  const names = shuffled(
+    Array.from({ length: CLAN_NAMES }, (_, i) => i),
+    rng
+  );
+  const clans = seeds.map((_, c) => ({
+    id: `c${c}`,
+    name: names[c],
+    drupelets: [],
+    wants: rng.pick(R.wants),
+    rate: Math.round(rng.range(TRADE.rate[0], TRADE.rate[1]) * 10) / 10
+  }));
+  const drupelets = points.map((p, i) => ({
+    id: `d${i}`,
+    index: i,
+    x: round32(p.x),
+    y: round32(p.y),
+    z: round32(p.z),
+    ring: Math.min(2, Math.floor(3 * i / n)),
+    clan: `c${owner[i]}`,
+    links: links[i].map((j) => `d${j}`).sort()
+  }));
+  for (const d of drupelets) clans[Number(d.clan.slice(1))].drupelets.push(d.id);
+  const out = {
+    seed,
+    drupelets,
+    clans,
+    byId: new Map(drupelets.map((d) => [d.id, d])),
+    clanById: new Map(clans.map((c) => [c.id, c]))
+  };
+  if (mapCache3.size > 16) mapCache3.clear();
+  mapCache3.set(seed, out);
+  return out;
+}
+function raspberryOfState(state) {
+  return raspberryOf(state.orchard.seed);
+}
+function clanNeighbours(map, clanId) {
+  const out = /* @__PURE__ */ new Set();
+  for (const id3 of map.clanById.get(clanId)?.drupelets ?? [])
+    for (const l of map.byId.get(id3).links) {
+      const c = map.byId.get(l).clan;
+      if (c !== clanId) out.add(c);
+    }
+  return [...out].sort();
+}
+var truthCache2 = /* @__PURE__ */ new Map();
+function drupeletTruth(seed, d) {
+  const key = `${seed}/drupelet/${d.id}`;
+  let t = truthCache2.get(key);
+  if (!t) {
+    const rng = createRng(key);
+    const R = RASPBERRY;
+    const nestHere = rng.chance(R.nestChance);
+    const power = R.rings.power[d.ring] * rng.range(1 - R.powerSpread, 1 + R.powerSpread) * (nestHere ? R.nestPower : 1);
+    const nectar = Math.round(
+      R.rings.nectar[d.ring] * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread)
+    );
+    t = { units: beetles(power, R.rings.level[d.ring]), nectar, nest: nestHere };
+    if (truthCache2.size > 512) truthCache2.clear();
+    truthCache2.set(key, t);
+  }
+  return t;
+}
+function beetles(power, level) {
+  const kinds = Object.keys(RASPBERRY.mix);
+  return kinds.map((kind) => ({
+    kind,
+    count: Math.max(
+      kind === "beetle" ? 1 : 0,
+      Math.round(power * RASPBERRY.mix[kind] / ENEMIES[kind].power)
+    ),
+    level
+  })).filter((u) => u.count > 0);
+}
+function regrowth(state, id3, at) {
+  const t = state.orchard.taken[id3];
+  if (t === void 0) return 1;
+  return Math.max(0.1, Math.min(1, (at - t) / RASPBERRY.regrowMs));
+}
+function drupeletNow(state, seed, d, at) {
+  const t = drupeletTruth(seed, d);
+  const f = regrowth(state, d.id, at);
+  if (f >= 1) return t;
+  return {
+    units: t.units.map((u) => ({ ...u, count: Math.max(u.kind === "beetle" ? 1 : 0, Math.round(u.count * f)) })).filter((u) => u.count > 0),
+    nectar: Math.round(t.nectar * f),
+    nest: t.nest
+  };
+}
+function standingOf(state, clan, at) {
+  const s = state.orchard.standing[clan];
+  if (!s) return 0;
+  const drift = STANDING.driftPerDay * Math.max(0, at - s.at) / 864e5;
+  const v = s.value > 0 ? Math.max(0, s.value - drift) : Math.min(0, s.value + drift);
+  return Math.round(v * 10) / 10;
+}
+function attitudeOf(state, clan, at) {
+  const v = standingOf(state, clan, at);
+  return v >= STANDING.friendly ? "friendly" : v <= STANDING.hostile ? "hostile" : "neutral";
+}
+function addStanding(s, clan, delta, at) {
+  const v = Math.max(STANDING.min, Math.min(STANDING.max, standingOf(s, clan, at) + delta));
+  s.orchard.standing[clan] = { value: v, at };
+}
+function pillageStanding(s, clan, at) {
+  const map = raspberryOfState(s);
+  addStanding(s, clan, STANDING.pillage, at);
+  for (const c of clanNeighbours(map, clan)) addStanding(s, c, STANDING.pillageNeighbours, at);
+}
+function soldTo(state, clan, at) {
+  const s = state.orchard.sold[clan];
+  if (!s) return 0;
+  return Math.max(0, s.value * (1 - Math.max(0, at - s.at) / TRADE.fadeMs));
+}
+function tradeRate(state, clan, at) {
+  const c = raspberryOfState(state).clanById.get(clan);
+  if (!c) return 0;
+  return Math.round(c.rate / (1 + soldTo(state, clan, at) / TRADE.soften) * 100) / 100;
+}
+function sellTo(s, clan, amount, at) {
+  const rate = tradeRate(s, clan, at);
+  s.orchard.sold[clan] = { value: soldTo(s, clan, at) + amount, at };
+  return Math.floor(amount * rate / 100);
+}
+function nectarCap(state) {
+  const c = NECTAR.cap;
+  return (c[Math.min(nest(state).level, c.length - 1)] ?? 0) * NECTAR_SCALE;
+}
+function nectarOf(state) {
+  return nectarUnits(state.nectar);
+}
+function addNectar(s, units) {
+  const room = Math.max(0, nectarCap(s) - s.nectar);
+  const got = Math.min(units * NECTAR_SCALE, room);
+  s.nectar += got;
+  return nectarUnits(got);
+}
+function payNectar(s, units) {
+  s.nectar = Math.max(0, s.nectar - units * NECTAR_SCALE);
+}
+function orchardOpen(state) {
+  return state.colony.index === 0 && hasTech(state, "wormholes");
+}
+function wormholePads(state) {
+  return state.buildings.filter((b) => b.type === "launchpad" && b.level >= ORCHARD.padLevel);
+}
+function localOrchardSeed(state) {
+  return `${localAlienSeed(state)}/orchard`;
+}
+function universeOrchardSeed(universeSeed) {
+  return `${universeSeed}/orchard`;
+}
+function ensureOrchard(state, secret, force = false) {
+  if (state.colony.index !== 0) {
+    const had = state.orchardSeed !== void 0;
+    delete state.orchardSeed;
+    return had;
+  }
+  if (state.orchardSeed !== void 0 && (!force || state.orchardSeed === secret)) return false;
+  state.orchardSeed = secret;
+  return true;
+}
+function orchardKnown(state) {
+  return state.orchardSeed !== void 0;
+}
+function rebaseOrchard(s, seed) {
+  if (s.orchard.seed === seed) return false;
+  resetOrchard(s);
+  s.orchard = newOrchard(seed);
+  return true;
+}
+function resetOrchard(s) {
+  s.orchard = { ...s.orchard, views: {}, taken: {} };
+  if (s.orchard.post) s.orchard.post = { ...s.orchard.post, attack: null };
+  const flying = new Set(
+    s.expeditions.filter((e) => (e.mission === "visit" || e.mission === "pillage") && e.status !== "done").map((e) => e.id)
+  );
+  s.expeditions = s.expeditions.filter((e) => !flying.has(e.id));
+  for (const v of s.villagers)
+    if (v.job.kind === "expedition" && flying.has(v.job.expeditionId)) v.job = { kind: "idle" };
+}
+function shuffled(list, rng) {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = rng.int(0, i);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+function round32(x) {
+  return Math.round(x * 1e3) / 1e3;
 }
 
 // node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
@@ -21706,6 +22217,7 @@ var resources = external_exports.object({
 });
 var partialResources = resources.partial();
 var id = external_exports.string().min(1);
+var standing = external_exports.object({ value: external_exports.number().min(-1e6).max(1e6), at: external_exports.number() });
 var sectorId = external_exports.number().int().min(0).max(INTEL.sectors - 1);
 var stats = external_exports.object(
   Object.fromEntries(
@@ -21737,6 +22249,7 @@ var job = external_exports.discriminatedUnion("kind", [
     returnTo: id.nullable(),
     aboard: external_exports.enum(["up", "down"]).optional()
   }),
+  external_exports.object({ kind: external_exports.literal("post"), returnTo: id.nullable() }),
   external_exports.object({
     kind: external_exports.literal("titan"),
     work: external_exports.enum(TITAN_WORK_IDS),
@@ -22182,6 +22695,63 @@ var gameStateSchema = external_exports.object({
     }).nullable(),
     launched: external_exports.number().int().min(0).max(100)
   }),
+  orchard: external_exports.object({
+    seed: external_exports.string().max(400),
+    standing: external_exports.record(external_exports.string().max(8), standing),
+    sold: external_exports.record(external_exports.string().max(8), standing),
+    views: external_exports.record(
+      external_exports.string().max(8),
+      external_exports.object({
+        at: external_exports.number(),
+        source: external_exports.enum(["visit", "pillage", "retreat"]),
+        units: external_exports.array(alienUnit2).max(16),
+        nectar: external_exports.number().int().min(0).max(1e4),
+        nest: external_exports.boolean()
+      })
+    ),
+    taken: external_exports.record(external_exports.string().max(8), external_exports.number()),
+    post: external_exports.object({
+      drupelet: external_exports.string().max(8),
+      since: external_exports.number(),
+      readyAt: external_exports.number(),
+      modules: external_exports.array(
+        external_exports.object({
+          id,
+          type: external_exports.enum(POST_MODULE_TYPES),
+          q: external_exports.number().int().min(-POST.radius).max(POST.radius),
+          r: external_exports.number().int().min(-POST.radius).max(POST.radius),
+          readyAt: external_exports.number(),
+          broken: external_exports.boolean().optional()
+        })
+      ).max(POST.maxModules),
+      store: external_exports.number().int().min(0).max(POST.storeCap * NECTAR_SCALE),
+      ruined: external_exports.boolean().optional(),
+      attacks: external_exports.number().int().min(0),
+      attack: external_exports.object({
+        id,
+        clan: external_exports.string().max(8).nullable(),
+        announceAt: external_exports.number(),
+        at: external_exports.number(),
+        announced: external_exports.boolean()
+      }).nullable(),
+      reports: external_exports.array(
+        external_exports.object({
+          id,
+          at: external_exports.number(),
+          clan: external_exports.string().max(8),
+          held: external_exports.boolean(),
+          power: external_exports.number().min(0),
+          dead: external_exports.array(external_exports.string()).max(16),
+          hurt: external_exports.array(id).max(16),
+          taken: external_exports.number().int().min(0),
+          log: battleLog.optional()
+        })
+      ).max(5)
+    }).nullable(),
+    visits: external_exports.number().int().min(0)
+  }),
+  orchardSeed: external_exports.string().max(400).optional(),
+  nectar: external_exports.number().int().min(0).max(Math.max(...NECTAR.cap) * NECTAR_SCALE),
   bestiary: external_exports.record(
     external_exports.enum(ENEMY_KINDS),
     external_exports.object({
@@ -22223,6 +22793,14 @@ var gameStateSchema = external_exports.object({
       delayed: external_exports.boolean().optional(),
       room: external_exports.string().max(8).optional(),
       skirt: external_exports.boolean().optional(),
+      voyage: external_exports.object({
+        stops: external_exports.array(external_exports.string().max(8)).min(1).max(2),
+        goods: resources,
+        gift: external_exports.boolean().optional(),
+        settle: external_exports.boolean().optional(),
+        stay: external_exports.array(id).max(16).optional(),
+        bringBack: external_exports.array(id).max(16).optional()
+      }).optional(),
       result: external_exports.object({
         victory: external_exports.boolean(),
         aborted: external_exports.boolean().optional(),
@@ -22263,7 +22841,19 @@ var gameStateSchema = external_exports.object({
           hits: external_exports.array(external_exports.object({ id, share: external_exports.number().min(0).max(1) })).max(200)
         }).optional(),
         gallery: external_exports.boolean().optional(),
-        lantern: external_exports.string().max(8).optional()
+        lantern: external_exports.string().max(8).optional(),
+        nectar: external_exports.number().int().min(0).max(1e4).optional(),
+        stops: external_exports.array(
+          external_exports.object({
+            drupelet: external_exports.string().max(8),
+            clan: external_exports.string().max(8),
+            sold: resources.partial(),
+            nectar: external_exports.number().int().min(0).max(1e4),
+            gift: external_exports.boolean().optional(),
+            refused: external_exports.boolean().optional()
+          })
+        ).max(2).optional(),
+        postFounded: external_exports.boolean().optional()
       }).nullable()
     })
   ),
@@ -22595,7 +23185,13 @@ var MIGRATIONS = {
     )
   }),
   // v42 → v43 (chantier 53): the orbit, empty.
-  42: (raw) => ({ ...raw, orbit: { kiwais: [], shuttle: null, launched: 0 } })
+  42: (raw) => ({ ...raw, orbit: { kiwais: [], shuttle: null, launched: 0 } }),
+  // v43 → v44 (chantier 54): the orchard, unvisited (the server draws the hidden seed).
+  43: (raw) => ({
+    ...raw,
+    orchard: newOrchard(`${String(raw.seed)}/orchard`),
+    nectar: 0
+  })
 };
 var OLD_MISSIONS = ["raid", "recon", "assault", "reinforce", "final", "retreat"];
 function migrateToLandings(raw) {
@@ -23486,14 +24082,14 @@ var RATE_LIMIT = { windowMs: 1e4, maxCommands: 40 };
 function mapFor(state) {
   return faceMapOf(state);
 }
-var mapCache3 = /* @__PURE__ */ new Map();
+var mapCache4 = /* @__PURE__ */ new Map();
 function baseMapFor(state) {
   const key = `${state.seed}/${state.face}/${state.params.radius}/${state.params.biome}`;
-  let map = mapCache3.get(key);
+  let map = mapCache4.get(key);
   if (!map) {
     map = generateFace(state.seed, state.face, state.params);
-    if (mapCache3.size > 64) mapCache3.clear();
-    mapCache3.set(key, map);
+    if (mapCache4.size > 64) mapCache4.clear();
+    mapCache4.set(key, map);
   }
   return map;
 }
@@ -23560,7 +24156,11 @@ async function resolveScope(ctx, repo, universe2) {
   const members = await repo.listMembers(row.id);
   const me = members.find((m) => m.userId === ctx.userId);
   if (!me) return null;
-  return { universeId: row.id, shared: { info: toInfo(row, members), me } };
+  const secret = await universeSecret(ctx, repo, row.id);
+  return { universeId: row.id, shared: { info: toInfo(row, members), me, secret } };
+}
+async function universeSecret(ctx, repo, universeId) {
+  return quietly(() => repo.orchardSeedOf(universeId, ctx.randomSeed()), null);
 }
 function toInfo(row, members) {
   return {
@@ -23615,7 +24215,18 @@ function withScopeTargets(ctx, state, scope) {
   if (state.aliens) next.aliens = cloneAliens(state.aliens);
   const changed = ensureAliens(next, ctx.randomSeed());
   const deep = ensureDepths(next, ctx.randomSeed());
-  return { state: next, changed: changed || deep };
+  let orchard = false;
+  if (scope.shared) {
+    const layout = universeOrchardSeed(scope.shared.info.seed);
+    if (next.orchard.seed !== layout) {
+      next.villagers = next.villagers.map(cloneVillager);
+      orchard = rebaseOrchard(next, layout);
+    }
+  }
+  const secret = scope.shared?.secret;
+  orchard = (secret ? ensureOrchard(next, secret, true) : false) || orchard;
+  orchard = ensureOrchard(next, `${ctx.randomSeed()}/orchard`) || orchard;
+  return { state: next, changed: changed || deep || orchard };
 }
 function universeGame(ctx, info, me) {
   return newGame({
@@ -24244,6 +24855,9 @@ async function handle(ctx, body) {
       delete imported.depthSeed;
       resetDepths(imported);
       ensureDepths(imported, ctx.randomSeed());
+      delete imported.orchardSeed;
+      resetOrchard(imported);
+      ensureOrchard(imported, `${ctx.randomSeed()}/orchard`);
       const state = advance(imported, now).state;
       const saved = existing ? await repo.update(existing.id, state, existing.version) : await repo.create(ctx.userId, soloId(ctx), state);
       return saved ? reply(ctx, saved.state) : fail2("conflict");
@@ -24414,6 +25028,7 @@ function createMemoryRepository() {
   const universes = /* @__PURE__ */ new Map();
   const members = /* @__PURE__ */ new Map();
   const bans = /* @__PURE__ */ new Map();
+  const secrets = /* @__PURE__ */ new Map();
   const log2 = [];
   let next = 1;
   const clone = (g) => JSON.parse(JSON.stringify(g));
@@ -24523,6 +25138,12 @@ function createMemoryRepository() {
         (bans.get(universeId) ?? []).filter((b) => b.userId !== userId)
       );
     },
+    async orchardSeedOf(universeId, fresh) {
+      const known = secrets.get(universeId);
+      if (known) return known;
+      secrets.set(universeId, fresh);
+      return fresh;
+    },
     async moveMember(universeId, userId, face) {
       const list = members.get(universeId) ?? [];
       const me = list.find((m) => m.userId === userId);
@@ -24550,6 +25171,7 @@ export {
   BATTLE,
   BEACONS,
   BEAUTY,
+  BEETLE_KINDS,
   BIOMES,
   BIOME_IDS,
   BLESSINGS,
@@ -24566,6 +25188,7 @@ export {
   CIV,
   CIV_AGE_COUNT,
   CIV_KEYS,
+  CLAN_NAMES,
   CLASSES,
   CLASS_FAMILY,
   CLASS_IDS,
@@ -24603,6 +25226,7 @@ export {
   FOOTPRINTS,
   FORGE,
   FRONT_AZIMUTH,
+  FRUIT_IDS,
   FUEL,
   GARRISON,
   GEAR_KINDS,
@@ -24654,6 +25278,8 @@ export {
   MODULE_TYPES,
   MORALE,
   NAME_SYLLABLES,
+  NECTAR,
+  NECTAR_SCALE,
   NEEDS,
   NO_PAD,
   OBJECTIVES,
@@ -24663,12 +25289,18 @@ export {
   OBSTACLE_RULES,
   ORBIT,
   ORBIT_BED,
+  ORCHARD,
+  ORCHARD_TARGET,
   PASSAGE_TECHS,
   PATHS,
+  POST,
   POSTURES,
+  POST_ATTACK,
+  POST_MODULE_TYPES,
   PRACTICE_SCALE,
   PRODUCERS,
   QUEEN_REF,
+  RASPBERRY,
   RATE_LIMIT,
   RAY_BUILD_SPEEDUP,
   RECON,
@@ -24698,6 +25330,7 @@ export {
   SKILL_IDS,
   SMASH,
   SPEECH,
+  STANDING,
   STARDUST,
   STARDUST_CAP,
   STARDUST_GIFT,
@@ -24719,6 +25352,7 @@ export {
   TITAN,
   TITAN_WORK_IDS,
   TOWER,
+  TRADE,
   TRAITS,
   TRAIT_IDS,
   TURRETS2 as TURRETS,
@@ -24747,6 +25381,8 @@ export {
   addIron,
   addMemory,
   addMissingKeys,
+  addNectar,
+  addStanding,
   addVillager,
   advance,
   advanceInPlace,
@@ -24769,6 +25405,7 @@ export {
   assignFace,
   atCabaretTonight,
   attacksFrom,
+  attitudeOf,
   autoAssign,
   autoGarrisonAt,
   autoPlace,
@@ -24790,6 +25427,7 @@ export {
   beaconsOf,
   beautyOf,
   bedsOf,
+  beetles,
   belowReturn,
   bestDustCrew,
   bestIdleFor,
@@ -24858,6 +25496,7 @@ export {
   civTick,
   civWave,
   claimableObjective,
+  clanNeighbours,
   classGrowth,
   classRank,
   classRankProgress,
@@ -24874,6 +25513,7 @@ export {
   cloneFaceView,
   cloneIntel,
   cloneOrbit,
+  cloneOrchard,
   cloneParcelView,
   cloneSiege,
   cloneState,
@@ -24961,6 +25601,8 @@ export {
   drillFactor,
   drillRate,
   drillingKiwis,
+  drupeletNow,
+  drupeletTruth,
   dustAt,
   dustPickers,
   dustPoints,
@@ -24975,6 +25617,7 @@ export {
   enemyUnit,
   ensureAliens,
   ensureDepths,
+  ensureOrchard,
   ensureSeasons,
   equip,
   equipGear,
@@ -25197,6 +25840,7 @@ export {
   liveFaceView,
   localAlienSeed,
   localDepthsSeed,
+  localOrchardSeed,
   logisticsEfficiency,
   looksOf,
   lootByAge,
@@ -25239,6 +25883,9 @@ export {
   ms,
   nearRay,
   nearestDepotOf,
+  nectarCap,
+  nectarOf,
+  nectarUnits,
   neighbourSectors,
   nest,
   nestDef,
@@ -25251,6 +25898,7 @@ export {
   newFeats,
   newGame,
   newKiwi,
+  newOrchard,
   newSiege,
   newSister,
   newSky,
@@ -25295,6 +25943,8 @@ export {
   orbitCrew,
   orbitPower,
   orbitTick,
+  orchardKnown,
+  orchardOpen,
   orderItem,
   orderRepairs,
   orderWork,
@@ -25317,6 +25967,7 @@ export {
   pathsKey,
   payCrystal,
   payGiantSeeds,
+  payNectar,
   payStardust,
   pendingToSister,
   pendingUpgrade,
@@ -25324,6 +25975,7 @@ export {
   pickRate,
   pickStarving,
   pilgrimsAtStem,
+  pillageStanding,
   pixelToHex,
   planBeaconAttacks,
   planCiv,
@@ -25361,10 +26013,13 @@ export {
   rampartSectors,
   rankOf,
   rankSeason,
+  raspberryOf,
+  raspberryOfState,
   rations,
   reachableRooms,
   reachesFlight,
   rebaseFreeDeposits,
+  rebaseOrchard,
   receiveResearch,
   reconForecast,
   recordBestiary,
@@ -25377,6 +26032,7 @@ export {
   refreshBeacons,
   refreshQueen,
   regenBonus,
+  regrowth,
   releaseFullCraters,
   releasePool,
   removeModuleLock,
@@ -25401,6 +26057,7 @@ export {
   reserves,
   resetDepths,
   resetLandings,
+  resetOrchard,
   resetSiege,
   resolveArrival,
   resolveDelve,
@@ -25432,6 +26089,7 @@ export {
   sectorUnits,
   seedTurrets,
   seenStructures,
+  sellTo,
   sendBack,
   sendBackAll,
   sendShipment,
@@ -25460,6 +26118,7 @@ export {
   sliceOf,
   smallMap,
   smithsOf,
+  soldTo,
   soloTargets,
   speechCooldownMs,
   speechEffectMs,
@@ -25471,6 +26130,7 @@ export {
   staffing,
   stageOf,
   standingBarracks,
+  standingOf,
   standsOverPath,
   stardustOf,
   stardustPerHour,
@@ -25519,6 +26179,7 @@ export {
   tollOf,
   totalWorkers,
   townHallOf,
+  tradeRate,
   trainLock,
   trainingCost,
   trainingDuration,
@@ -25540,6 +26201,7 @@ export {
   uncoveredGates,
   unequip,
   universeFriends,
+  universeOrchardSeed,
   universeTargets,
   upgradeCost,
   upgradeLock,
@@ -25584,6 +26246,7 @@ export {
   workerSlots,
   workersOf,
   workforce,
+  wormholePads,
   woundFactor,
   xpForLevel,
   yardOf

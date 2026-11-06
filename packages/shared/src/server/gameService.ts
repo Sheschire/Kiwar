@@ -44,6 +44,7 @@ import {
 import {
   cloneAliens,
   cloneState,
+  cloneVillager,
   newColonyLink,
   newGame,
   type Friend,
@@ -67,6 +68,7 @@ import { ensureAliens, hiddenDue, publicState } from '../sim/aliens';
 import { resetSiege } from '../sim/siege';
 import { resetLandings } from '../sim/landing';
 import { ensureDepths, resetDepths } from '../sim/depths';
+import { ensureOrchard, rebaseOrchard, resetOrchard, universeOrchardSeed } from '../sim/orchard';
 import { generateFace, type FaceMap } from '../worldgen/generateFace';
 import type { Face, KiwiId, PlayerId, UniverseId } from '../types/ids';
 import { requestSchema, type ColonySummary, type GameResponse, type ServerError } from './protocol';
@@ -167,6 +169,11 @@ export interface GameRepository extends LeagueRepository {
   isBanned(universeId: string, userId: string): Promise<boolean>;
   listBans(universeId: string): Promise<BannedMember[]>;
   unban(universeId: string, userId: string): Promise<void>;
+  /**
+   * Chantier 54: the hidden seed of a universe's orchard (drawn once: `fresh` is stored when the
+   * universe has none yet). Null when it cannot be stored (the migration is not run yet).
+   */
+  orchardSeedOf(universeId: string, fresh: string): Promise<string | null>;
 }
 
 export interface ServiceContext {
@@ -295,7 +302,8 @@ async function guestTransfer(
 /** Where a request plays: the player's solo universe or a shared one they belong to. */
 interface Scope {
   universeId: string;
-  shared: { info: UniverseInfo; me: UniverseMember } | null;
+  /** Chantier 54: `secret` is the universe's hidden orchard seed (absent: not fetched). */
+  shared: { info: UniverseInfo; me: UniverseMember; secret?: string | null } | null;
 }
 
 async function resolveScope(
@@ -309,7 +317,17 @@ async function resolveScope(
   const members = await repo.listMembers(row.id);
   const me = members.find((m) => m.userId === ctx.userId);
   if (!me) return null;
-  return { universeId: row.id, shared: { info: toInfo(row, members), me } };
+  const secret = await universeSecret(ctx, repo, row.id);
+  return { universeId: row.id, shared: { info: toInfo(row, members), me, secret } };
+}
+
+/** Chantier 54: the universe's hidden orchard seed (null if it cannot be read or stored). */
+async function universeSecret(
+  ctx: ServiceContext,
+  repo: GameRepository,
+  universeId: string,
+): Promise<string | null> {
+  return quietly(() => repo.orchardSeedOf(universeId, ctx.randomSeed()), null);
 }
 
 function toInfo(row: UniverseRow, members: UniverseMember[]): UniverseInfo {
@@ -400,7 +418,19 @@ function withScopeTargets(
   const changed = ensureAliens(next, ctx.randomSeed());
   // Chantier 48: the hidden seed of the depths (migrated games).
   const deep = ensureDepths(next, ctx.randomSeed());
-  return { state: next, changed: changed || deep };
+  // Chantier 54: the orchard of a universe is the universe's (its layout and its secret).
+  let orchard = false;
+  if (scope.shared) {
+    const layout = universeOrchardSeed(scope.shared.info.seed);
+    if (next.orchard.seed !== layout) {
+      next.villagers = next.villagers.map(cloneVillager);
+      orchard = rebaseOrchard(next, layout);
+    }
+  }
+  const secret = scope.shared?.secret;
+  orchard = (secret ? ensureOrchard(next, secret, true) : false) || orchard;
+  orchard = ensureOrchard(next, `${ctx.randomSeed()}/orchard`) || orchard;
+  return { state: next, changed: changed || deep || orchard };
 }
 
 function universeGame(ctx: ServiceContext, info: UniverseInfo, me: UniverseMember): GameState {
@@ -1233,6 +1263,10 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
       delete imported.depthSeed;
       resetDepths(imported);
       ensureDepths(imported, ctx.randomSeed());
+      // Chantier 54: nor what its drupelets hold.
+      delete imported.orchardSeed;
+      resetOrchard(imported);
+      ensureOrchard(imported, `${ctx.randomSeed()}/orchard`);
       const state = advance(imported, now).state;
       const saved = existing
         ? await repo.update(existing.id, state, existing.version)
@@ -1451,6 +1485,7 @@ export function createMemoryRepository(): GameRepository & {
   const universes = new Map<string, UniverseRow>();
   const members = new Map<string, UniverseMember[]>();
   const bans = new Map<string, BannedMember[]>();
+  const secrets = new Map<string, string>();
   const log: { userId: string; at: number }[] = [];
   let next = 1;
   const clone = <T>(g: T): T => JSON.parse(JSON.stringify(g)) as T;
@@ -1563,6 +1598,12 @@ export function createMemoryRepository(): GameRepository & {
         universeId,
         (bans.get(universeId) ?? []).filter((b) => b.userId !== userId),
       );
+    },
+    async orchardSeedOf(universeId, fresh) {
+      const known = secrets.get(universeId);
+      if (known) return known;
+      secrets.set(universeId, fresh);
+      return fresh;
     },
     async moveMember(universeId, userId, face) {
       const list = members.get(universeId) ?? [];

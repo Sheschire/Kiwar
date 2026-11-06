@@ -384,6 +384,34 @@ export function createSupabaseRepository(db: SupabaseClient) {
         .eq('user_id', userId);
       if (error && !isMissingTable(error)) fail('unban', error);
     },
+    // Chantier 54: the hidden seed of the universe's orchard (`universe_secrets`, read by the
+    // function only). Until the owner runs `20261107000000_orchard.sql`: null (each colony then
+    // keeps a seed of its own).
+    async orchardSeedOf(universeId: string, fresh: string) {
+      const read = await db
+        .from('universe_secrets')
+        .select('orchard_seed')
+        .eq('universe_id', universeId)
+        .maybeSingle();
+      if (isMissingTable(read.error)) return null;
+      if (read.error) fail('orchardSeedOf', read.error);
+      if (read.data) return (read.data as { orchard_seed: string }).orchard_seed;
+      const put = await db
+        .from('universe_secrets')
+        .upsert(
+          { universe_id: universeId, orchard_seed: fresh },
+          { onConflict: 'universe_id', ignoreDuplicates: true },
+        );
+      if (put.error) fail('orchardSeedOf (insert)', put.error);
+      // Two members at once: the first one stored wins.
+      const again = await db
+        .from('universe_secrets')
+        .select('orchard_seed')
+        .eq('universe_id', universeId)
+        .single();
+      if (again.error) fail('orchardSeedOf (read)', again.error);
+      return (again.data as { orchard_seed: string }).orchard_seed;
+    },
     // Chantier 56: the leagues. Until the owner runs `20261105000000_leagues.sql`, a missing
     // table reads as empty and writes are skipped (the game never waits on the leagues).
     async leagueSeasons(universeId: string) {

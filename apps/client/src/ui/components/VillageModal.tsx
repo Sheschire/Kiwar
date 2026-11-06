@@ -85,6 +85,7 @@ function jobRank(v: Villager): number {
     expedition: 4,
     outpost: 4,
     orbit: 4,
+    post: 4,
     injured: 5,
     idle: 6,
   }[v.job.kind];

@@ -2,6 +2,8 @@ import {
   awaitingServer,
   ensureAliens,
   ensureDepths,
+  ensureOrchard,
+  localOrchardSeed,
   localAlienSeed,
   publicState,
   advance,
@@ -409,6 +411,8 @@ export class GameController {
       ensureAliens(saved, localAlienSeed(saved));
       // Chantier 48: and what their depths hold (the same seed as a new local game).
       ensureDepths(saved, localAlienSeed(saved));
+      // Chantier 54: and what the orchard's drupelets hold.
+      ensureOrchard(saved, localOrchardSeed(saved));
     }
     this.map = faceMapOf(saved);
     const now = Math.max(this.now(), saved.now);

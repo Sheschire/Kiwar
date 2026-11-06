@@ -53,10 +53,11 @@ import { faceMapOf, syncPools } from '../sim/territory';
 import { hexKey } from '../hex/hex';
 import { getTile, HEART, type FaceParams } from '../worldgen/generateFace';
 import { AUTO_TASKS, type AutoTask } from '../data/jobs';
-import { newDepths, type Obstacle } from '../sim/state';
+import { newDepths, newOrchard, type Obstacle } from '../sim/state';
 import { HAZARD_KINDS, ROOM_KINDS } from '../data/depths';
 import { KIWAI_TYPES, MODULE_TYPES, ORBIT } from '../data/orbit';
 import { CRYSTAL, CRYSTAL_SCALE, GIANT_SEEDS } from '../data/crystal';
+import { NECTAR, NECTAR_SCALE, POST, POST_MODULE_TYPES } from '../data/orchard';
 
 const resources = z.object({
   pulp: z.number(),
@@ -66,6 +67,7 @@ const resources = z.object({
 });
 const partialResources = resources.partial();
 const id = z.string().min(1);
+const standing = z.object({ value: z.number().min(-1e6).max(1e6), at: z.number() });
 const sectorId = z
   .number()
   .int()
@@ -102,6 +104,7 @@ const job = z.discriminatedUnion('kind', [
     returnTo: id.nullable(),
     aboard: z.enum(['up', 'down']).optional(),
   }),
+  z.object({ kind: z.literal('post'), returnTo: id.nullable() }),
   z.object({
     kind: z.literal('titan'),
     work: z.enum(TITAN_WORK_IDS),
@@ -621,6 +624,79 @@ export const gameStateSchema = z.object({
       .nullable(),
     launched: z.number().int().min(0).max(100),
   }),
+  orchard: z.object({
+    seed: z.string().max(400),
+    standing: z.record(z.string().max(8), standing),
+    sold: z.record(z.string().max(8), standing),
+    views: z.record(
+      z.string().max(8),
+      z.object({
+        at: z.number(),
+        source: z.enum(['visit', 'pillage', 'retreat']),
+        units: z.array(alienUnit).max(16),
+        nectar: z.number().int().min(0).max(10000),
+        nest: z.boolean(),
+      }),
+    ),
+    taken: z.record(z.string().max(8), z.number()),
+    post: z
+      .object({
+        drupelet: z.string().max(8),
+        since: z.number(),
+        readyAt: z.number(),
+        modules: z
+          .array(
+            z.object({
+              id,
+              type: z.enum(POST_MODULE_TYPES),
+              q: z.number().int().min(-POST.radius).max(POST.radius),
+              r: z.number().int().min(-POST.radius).max(POST.radius),
+              readyAt: z.number(),
+              broken: z.boolean().optional(),
+            }),
+          )
+          .max(POST.maxModules),
+        store: z
+          .number()
+          .int()
+          .min(0)
+          .max(POST.storeCap * NECTAR_SCALE),
+        ruined: z.boolean().optional(),
+        attacks: z.number().int().min(0),
+        attack: z
+          .object({
+            id,
+            clan: z.string().max(8).nullable(),
+            announceAt: z.number(),
+            at: z.number(),
+            announced: z.boolean(),
+          })
+          .nullable(),
+        reports: z
+          .array(
+            z.object({
+              id,
+              at: z.number(),
+              clan: z.string().max(8),
+              held: z.boolean(),
+              power: z.number().min(0),
+              dead: z.array(z.string()).max(16),
+              hurt: z.array(id).max(16),
+              taken: z.number().int().min(0),
+              log: battleLog.optional(),
+            }),
+          )
+          .max(5),
+      })
+      .nullable(),
+    visits: z.number().int().min(0),
+  }),
+  orchardSeed: z.string().max(400).optional(),
+  nectar: z
+    .number()
+    .int()
+    .min(0)
+    .max(Math.max(...NECTAR.cap) * NECTAR_SCALE),
   bestiary: z.record(
     z.enum(ENEMY_KINDS),
     z.object({
@@ -662,6 +738,16 @@ export const gameStateSchema = z.object({
       delayed: z.boolean().optional(),
       room: z.string().max(8).optional(),
       skirt: z.boolean().optional(),
+      voyage: z
+        .object({
+          stops: z.array(z.string().max(8)).min(1).max(2),
+          goods: resources,
+          gift: z.boolean().optional(),
+          settle: z.boolean().optional(),
+          stay: z.array(id).max(16).optional(),
+          bringBack: z.array(id).max(16).optional(),
+        })
+        .optional(),
       result: z
         .object({
           victory: z.boolean(),
@@ -708,6 +794,21 @@ export const gameStateSchema = z.object({
             .optional(),
           gallery: z.boolean().optional(),
           lantern: z.string().max(8).optional(),
+          nectar: z.number().int().min(0).max(10000).optional(),
+          stops: z
+            .array(
+              z.object({
+                drupelet: z.string().max(8),
+                clan: z.string().max(8),
+                sold: resources.partial(),
+                nectar: z.number().int().min(0).max(10000),
+                gift: z.boolean().optional(),
+                refused: z.boolean().optional(),
+              }),
+            )
+            .max(2)
+            .optional(),
+          postFounded: z.boolean().optional(),
         })
         .nullable(),
     }),
@@ -1106,6 +1207,12 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
   }),
   // v42 → v43 (chantier 53): the orbit, empty.
   42: (raw) => ({ ...raw, orbit: { kiwais: [], shuttle: null, launched: 0 } }),
+  // v43 → v44 (chantier 54): the orchard, unvisited (the server draws the hidden seed).
+  43: (raw) => ({
+    ...raw,
+    orchard: newOrchard(`${String(raw.seed)}/orchard`),
+    nectar: 0,
+  }),
 };
 
 const OLD_MISSIONS = ['raid', 'recon', 'assault', 'reinforce', 'final', 'retreat'];

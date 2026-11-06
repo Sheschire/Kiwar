@@ -2237,6 +2237,9 @@ export const fr: Dict = {
       larva: 'Larve',
       fruitFly: 'Mouche des fruits',
       woodlouse: 'Cloporte',
+      beetle: 'Coléoptère',
+      beetleGuard: 'Coléoptère gardien',
+      byturus: 'Byturus volant',
       queen: 'La reine des furets',
     },
     weapons: {
@@ -2429,6 +2432,7 @@ export const fr: Dict = {
       meteor: 'Sur une météorite',
       mine: 'À la mine, en bas',
       orbit: 'En orbite, sur un kiwaï',
+      post: 'Au comptoir, sur la framboise',
       outpost: 'Sur une tête de pont',
     },
   },
@@ -2736,6 +2740,10 @@ export const fr: Dict = {
     starSails: {
       name: 'Voiles stellaires',
       desc: 'Trajets −15 %, meilleurs rapports de reconnaissance, vaisseaux plus solides.',
+    },
+    wormholes: {
+      name: 'Trous de ver',
+      desc: 'Le voilier passe le long de la Liane-Mère jusqu’au Verger cosmique, depuis une aire d’envol niveau 14. Bien plus long à chercher tant que la Liane-Mère n’est pas trouvée.',
     },
     meteorDrill: {
       name: 'Foreuse à météorite',

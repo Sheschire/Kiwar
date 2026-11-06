@@ -243,6 +243,10 @@ export const ENEMY_KINDS = [
   'larva',
   'fruitFly',
   'woodlouse',
+  // Chantier 54: the raspberry's beetles (bodies of the depths' crawlers and fliers, tinted).
+  'beetle',
+  'beetleGuard',
+  'byturus',
 ] as const;
 export type EnemyKind = (typeof ENEMY_KINDS)[number];
 
@@ -381,7 +385,53 @@ export const ENEMIES: Record<EnemyKind, EnemyProfile> = {
     fightsBack: true,
     huntsKiwis: false,
   },
+  beetle: {
+    body: 'louse',
+    hp: 12,
+    armor: 0.15,
+    speed: 0.7,
+    dodge: 0.05,
+    size: 1,
+    weapon: 'gnaw',
+    power: 1.2,
+    carry: 1,
+    fightsBack: true,
+    huntsKiwis: false,
+  },
+  beetleGuard: {
+    body: 'louse',
+    hp: 30,
+    armor: 0.4,
+    speed: 0.5,
+    dodge: 0,
+    size: 2,
+    weapon: 'shellRam',
+    power: 3,
+    carry: 0.5,
+    fightsBack: true,
+    huntsKiwis: false,
+  },
+  byturus: {
+    body: 'fly',
+    hp: 8,
+    armor: 0.1,
+    speed: 1.3,
+    dodge: 0.15,
+    size: 0,
+    weapon: 'sting',
+    power: 1.2,
+    carry: 0.6,
+    fightsBack: true,
+    huntsKiwis: true,
+  },
 };
+
+/** Chantier 54: the beetles of the raspberry. */
+export const BEETLE_KINDS = [
+  'beetle',
+  'beetleGuard',
+  'byturus',
+] as const satisfies readonly EnemyKind[];
 
 /** Chantier 48: bats and fruit flies fly (only weapons that reach the air hit them). */
 export function isFlyer(kind: EnemyKind): boolean {
