@@ -8,6 +8,7 @@ import {
   type GameState,
   type Resources,
 } from '@kiwar/shared';
+import { orchardWantsPad } from './orchard';
 
 /** The sister gets help when a stock is below this share of its storage… */
 const SISTER_LOW = 0.3;
@@ -20,6 +21,8 @@ const HOME_HIGH = 0.6;
  */
 export function linkOrder(home: GameState, sister: GameState): Command | null {
   if (!home.friends.some((f) => f.id === SISTER_FRIEND)) return null;
+  // Chantier 54: a voyage to the orchard comes first.
+  if (orchardWantsPad(home)) return null;
   const pad = home.buildings.find(
     (b) => b.type === 'launchpad' && !b.damaged && !isLaunchpadBusy(home, b.id),
   );

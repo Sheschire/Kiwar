@@ -63,6 +63,21 @@ export function wormholePadDecision(state: GameState): Command | null {
   return { type: 'upgrade', buildingId: pad.id };
 }
 
+/**
+ * The orchard wants the ship (the wormhole is open, a launchpad high enough, no voyage out and
+ * none back within the last 12 h): deliveries to the sister colony wait for it.
+ */
+export function orchardWantsPad(state: GameState): boolean {
+  if (!orchardOpen(state)) return false;
+  if (!state.buildings.some((b) => b.type === 'launchpad' && b.level >= ORCHARD.padLevel))
+    return false;
+  if (voyagesOut(state).length > 0) return false;
+  const last = state.expeditions
+    .filter((e) => e.mission === 'visit' || e.mission === 'pillage')
+    .reduce((t, e) => Math.max(t, e.returnAt), 0);
+  return state.now - last >= 12 * HOUR_MS;
+}
+
 function freePad(state: GameState): Building | undefined {
   return state.buildings.find(
     (b) =>
