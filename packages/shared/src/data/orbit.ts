@@ -89,7 +89,7 @@ export const ORBIT = {
 
 export const MODULES: Record<ModuleType, ModuleDef> = {
   habitat: {
-    cost: { pulp: 32000, fiber: 40000, seeds: 4000, juice: 8000 },
+    cost: { pulp: 32000, fiber: 40000, seeds: 2000, juice: 8000 },
     crystal: 10,
     iron: 6,
     durationMs: ms.h(2),
@@ -97,14 +97,14 @@ export const MODULES: Record<ModuleType, ModuleDef> = {
     wears: false,
   },
   panel: {
-    cost: { pulp: 28000, fiber: 36000, seeds: 8000, juice: 6000 },
+    cost: { pulp: 28000, fiber: 36000, seeds: 3000, juice: 6000 },
     crystal: 15,
     iron: 4,
     durationMs: ms.h(2),
     wears: true,
   },
   sensor: {
-    cost: { pulp: 40000, fiber: 48000, seeds: 5000, juice: 8000 },
+    cost: { pulp: 40000, fiber: 48000, seeds: 2000, juice: 8000 },
     crystal: 20,
     iron: 8,
     durationMs: ms.h(3),
@@ -113,7 +113,7 @@ export const MODULES: Record<ModuleType, ModuleDef> = {
     wears: true,
   },
   dome: {
-    cost: { pulp: 44000, fiber: 36000, seeds: 5000, juice: 14000 },
+    cost: { pulp: 44000, fiber: 36000, seeds: 2000, juice: 14000 },
     crystal: 12,
     iron: 6,
     durationMs: ms.h(3),
@@ -122,7 +122,7 @@ export const MODULES: Record<ModuleType, ModuleDef> = {
     wears: true,
   },
   berth: {
-    cost: { pulp: 40000, fiber: 52000, seeds: 5000, juice: 8000 },
+    cost: { pulp: 40000, fiber: 52000, seeds: 2000, juice: 8000 },
     crystal: 15,
     iron: 10,
     durationMs: ms.h(3),

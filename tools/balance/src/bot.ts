@@ -443,6 +443,13 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
     if (village) return [...cmds, village];
   }
 
+  // 2c''''. Chantier 53: the orbital yard at the stars, then its levels (before the savings
+  // for the stars' research: the age is reached, the orbit is its novelty).
+  if (play.orbit) {
+    const yard = yardDecision(state, build, has);
+    if (yard) return [...cmds, yard];
+  }
+
   // 2c. Research and ages (chantier 08): Library, researchers, technologies, the monument.
   const ages = ageDecision(state, map, build, has);
   if (ages === 'save') return cmds;
@@ -458,12 +465,6 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
   if (play.depths) {
     const tunnel = tunnelDecision(state, build, has);
     if (tunnel) return [...cmds, tunnel];
-  }
-
-  // 2c''''. Chantier 53: the orbital yard at the stars, then its levels.
-  if (play.orbit) {
-    const yard = yardDecision(state, build, has);
-    if (yard) return [...cmds, yard];
   }
 
   // 2c'. Chantier 18: a launchpad once the Library stands.
