@@ -84,6 +84,7 @@ function jobRank(v: Villager): number {
     mine: 1,
     expedition: 4,
     outpost: 4,
+    orbit: 4,
     injured: 5,
     idle: 6,
   }[v.job.kind];
@@ -115,6 +116,7 @@ const JOB_KINDS: Villager['job']['kind'][] = [
   'transform',
   'expedition',
   'outpost',
+  'orbit',
   'injured',
   'idle',
 ];

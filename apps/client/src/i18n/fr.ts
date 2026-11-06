@@ -2402,6 +2402,7 @@ export const fr: Dict = {
       stardust: 'Ramasse la poussière',
       meteor: 'Sur une météorite',
       mine: 'À la mine, en bas',
+      orbit: 'En orbite, sur un kiwaï',
       outpost: 'Sur une tête de pont',
     },
   },

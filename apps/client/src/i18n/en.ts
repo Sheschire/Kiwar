@@ -2301,6 +2301,7 @@ export const en = {
       stardust: 'Picking stardust',
       meteor: 'At a meteorite',
       mine: 'In the mines below',
+      orbit: 'Up on a kiwai',
       outpost: 'On a bridgehead',
     },
   },
