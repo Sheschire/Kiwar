@@ -1,5 +1,5 @@
-import type { Camera } from 'three';
-import { Group, Vector3 } from 'three';
+import type { Camera, Vector3 } from 'three';
+import { Group } from 'three';
 import {
   ageOf,
   type BattleLog,
