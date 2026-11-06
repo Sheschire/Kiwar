@@ -52,6 +52,9 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
   - `kiwar-depths` — the depths under our half: the tunnel entrance, the public network of
     rooms and their hidden content, delves and hazards, galleries and miners, the spelunker,
     upwellings and the tunnel door, the Depths screen.
+  - `kiwar-orbit` — the kiwais in orbit: small maps apart from the face (`sim/sites.ts`), the
+    orbital yard, modules, the shuttle and kiwis up there, breakdowns and comet swarms, the
+    Orbit screen and the kiwais in the sky.
   - `kiwar-leagues` — the leagues of a shared universe: public dated feats read from the held
     state, seasons and podium written by the server only, the League screen, feats in the
     chat, the cosmetics (banner, capes, pennants, crown).

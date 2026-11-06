@@ -102,6 +102,18 @@ announced: true }` (the comet fades in over 15 min of game time after `announceA
 - To retune: `COMETS.stock`/`intervalMs`/`firstMs`, the monument and Kikiwiwi dust costs. Check
   `pnpm balance:ages` (Iron and Industry must stay reachable within a few comets).
 
+## Chantier 53 (`kiwar-orbit`)
+
+- Every comet passage is also a **swarm** over the kiwais in orbit: `swarmStrike` runs in
+  `cometTick` before `passes++` (its own stream `…/comet/<passes>/swarm/<kiwaiId>`); answers:
+  `raiseShield` (4 stardust once the comet is announced), an evacuation by the shuttle, or
+  repairs after. An observatory in orbit announces comets `ORBIT.observatory.noticeMs` earlier
+  (`planComet`: `announceAt = max(now, at − notice − observatoryNotice)`).
+- A star harvest kiwai catches stardust into **its own tank** (`Kiwai.dust`, raw units, cap
+  20 points); the shuttle brings it down into `state.stardust` up to the cap, the rest back
+  into the tank. `plausibleStardust` needs nothing more: by the stars many comets passed, and
+  its bound (passes × the richest comet) is far above the cap of 50.
+
 ## Chantier 15
 
 Stardust tiles are filled on their own (`fillStardust` in `sim/tasks.ts`, `kiwar-tasks`): the

@@ -225,6 +225,13 @@ description: Architecture of the Kiwar shared simulation (packages/shared) and t
   frees it (a locule tree's ripe seed) runs at the **loop top** (`treeTick`): the time room
   appears is a command or an event, so small steps equal one big step.
 
+- **Chantier 53 (`kiwar-orbit`)**: save v43 (`state.orbit`, job `orbit`). A small map apart
+  from the face (`sim/sites.ts`) keeps its own things (a kiwai's `modules`): **never put them
+  in `state.buildings`**, and never read the face's `occupancy` for them. A job that is away
+  but fed (`orbit`, like `outpost`) must be handled wherever `outpost` is (beds, mayor, bards,
+  speech, evenings, gear, skills). Public draws planned at events use stateless streams
+  (`createRng(seed/…/n)`), never the colony RNG.
+
 - **Chantier 51 (`kiwar-ages`)**: `MAX_LEVEL` 15, `MAX_AGE` 4. **Every table by Nest or
   building level has 16 cells** (15 for the ones indexed by level − 1: `CATCHMENT_RADIUS`,
   `RESEARCH.bank`); `test/levelTables.test.ts` lists them — add any new one there. Tables by age

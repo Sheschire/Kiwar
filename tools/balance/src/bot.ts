@@ -1,4 +1,5 @@
 import { delveOrder, doorOrder, tunnelDecision } from './bot/depths';
+import { orbitOrders, yardDecision } from './bot/orbit';
 import { hatchLocule, loculeOrders, treeDecision } from './bot/locules';
 import {
   civAt,
@@ -107,6 +108,9 @@ export const MILESTONES = [
   // Chantier 52: the first white cavern taken, the Great Weevil fallen.
   'cavern',
   'weevil',
+  // Chantier 53: the orbital yard, the first kiwai in orbit.
+  'yard',
+  'kiwai',
   // Chantier 40: the first glimpse (a landing back home), the first beacon, one in the centre.
   'glimpse',
   'landingWon',
@@ -166,6 +170,10 @@ export interface RunResult {
     /** Chantier 52: caverns taken, battles against the Great Weevil. */
     cavernsTaken?: number;
     weevilAttempts?: number;
+    /** Chantier 53: kiwais launched, their modules, the kiwis up there. */
+    kiwais?: number;
+    orbitModules?: number;
+    orbitCrew?: number;
     crystalCap?: number;
     seedCap?: number;
     trees?: number;
@@ -313,6 +321,9 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
     if (locule) cmds.push(locule);
   }
 
+  // Chantier 53: the kiwais — shields and services first, a launch, modules, the shuttle.
+  if (play.orbit) cmds.push(...orbitOrders(state, play.prepared));
+
   // Kikiwiwis (chantier 08): an infusion, the garrison, titan works.
   const titan = titanOrders(state, map);
   if (titan) cmds.push(titan);
@@ -449,6 +460,12 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
     if (tunnel) return [...cmds, tunnel];
   }
 
+  // 2c''''. Chantier 53: the orbital yard at the stars, then its levels.
+  if (play.orbit) {
+    const yard = yardDecision(state, build, has);
+    if (yard) return [...cmds, yard];
+  }
+
   // 2c'. Chantier 18: a launchpad once the Library stands.
   if (play.expeditions) {
     const pad = launchpadOrder(state, build);
@@ -577,6 +594,14 @@ function checkMilestones(
   );
   set('weevil', state.depths.weevil?.fellAt !== undefined);
   set(
+    'yard',
+    state.buildings.some((b) => b.type === 'orbitalYard'),
+  );
+  set(
+    'kiwai',
+    state.orbit.kiwais.some((k) => k.readyAt <= state.now),
+  );
+  set(
     'allLevel3',
     // Economy buildings (the bot does not play expeditions yet).
     (['nest', ...BUILD_ORDER] as BuildingType[]).every((type) =>
@@ -596,6 +621,8 @@ export const MECHANICS = [
   'canals',
   // Chantier 48: the depths (tunnel, delves, galleries, the door).
   'depths',
+  // Chantier 53: the orbital yard and the kiwais.
+  'orbit',
 ] as const;
 export type Mechanic = (typeof MECHANICS)[number];
 export interface Play extends Record<Mechanic, boolean> {
@@ -945,6 +972,9 @@ export function runBot(opts: RunOptions): RunResult {
       ).length,
       cavernsTaken: Object.values(state.depths.galleries).filter((g) => g.kind === 'cavern').length,
       weevilAttempts: state.depths.weevil?.attempts ?? 0,
+      kiwais: state.orbit.kiwais.length,
+      orbitModules: state.orbit.kiwais.reduce((n, k) => n + k.modules.length, 0),
+      orbitCrew: state.villagers.filter((v) => v.job.kind === 'orbit').length,
       crystalCap: loculeMs.open > 0 ? loculeMs.crystal / loculeMs.open : 0,
       seedCap: loculeMs.open > 0 ? loculeMs.seeds / loculeMs.open : 0,
       trees: state.buildings.filter((b) => b.type === 'loculeTree').length,

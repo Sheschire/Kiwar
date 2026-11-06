@@ -533,6 +533,11 @@ sector } })`; a real landing in solo: dispatch the launch and `setTimeScale(2000
   The resource bar is padded by the measured width of the buttons (`--buttons-w`, set by a
   `ResizeObserver` in `TopBar`): never a hand-made padding.
 
+- **Chantier 53 (orbit, skill `kiwar-orbit`)**: `render/orbitView.ts` (`OrbitView`, kiwais at
+  `kiwaiPlace` in the map of space, the shuttle; a sign of life while moving; `pick` →
+  `onKiwaiTap`), `render/models/orbit.ts` (the yard), `OrbitModal.tsx` (round button with an
+  alarm, phone menu entry, the yard's sheet), toasts `orbit.toast.*`.
+
 - **Chantier 52 (core, stem, Mother Vine)**: creature kind `weevil` in `render/anim/creatures.ts`
   (mirrored parts use the double-sided `membrane` material), `airAt` flights in the battle
   timeline, `render/motherVine.ts` (`MotherVine`, synced in `setGameState`, updated in the frame
