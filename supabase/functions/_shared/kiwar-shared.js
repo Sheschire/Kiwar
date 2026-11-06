@@ -1077,7 +1077,8 @@ var BUILDING_TYPES = [
   "cabaret",
   "fireworks",
   "tunnel",
-  "loculeTree"
+  "loculeTree",
+  "orbitalYard"
 ];
 var FOOTPRINTS = {
   warehouse: 3,
@@ -1089,7 +1090,8 @@ var FOOTPRINTS = {
   trainingCamp: 3,
   forge: 3,
   townHall: 3,
-  cabaret: 3
+  cabaret: 3,
+  orbitalYard: 3
 };
 function footprintOf(type) {
   return FOOTPRINTS[type] ?? 1;
@@ -1570,6 +1572,41 @@ var BASE = {
         durationMs: ms.h(6),
         requiresNestLevel: 9,
         requiresAge: 2
+      }
+    ]
+  },
+  // Chantier 53: the orbital yard (Age of the stars), one per colony, outside the building cap.
+  // It launches the kiwais (`ORBIT.kiwais`: 1 / 2 / 3 at its levels 1 / 2 / 3, the age's 13 /
+  // 14 / 15), assembles their modules and flies the shuttle.
+  orbitalYard: {
+    id: "orbitalYard",
+    allowedTiles: LAND_NO_HEART,
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 32e4, fiber: 4e5, seeds: 4e4, juice: 7e4 },
+        durationMs: ms.h(8),
+        requiresNestLevel: 13,
+        requiresAge: 4,
+        iron: 34,
+        crystal: 30
+      },
+      {
+        cost: { pulp: 54e4, fiber: 68e4, seeds: 68e3, juice: 12e4 },
+        durationMs: ms.h(11),
+        requiresNestLevel: 14,
+        requiresAge: 4,
+        iron: 40,
+        crystal: 45
+      },
+      {
+        cost: { pulp: 92e4, fiber: 115e4, seeds: 115e3, juice: 2e5 },
+        durationMs: ms.h(15),
+        requiresNestLevel: 15,
+        requiresAge: 4,
+        iron: 48,
+        crystal: 60
       }
     ]
   },
@@ -2273,6 +2310,13 @@ var AGE_OBJECTIVES = [
     condition: { kind: "weevil" },
     reward: { pulp: 6e4, fiber: 6e4, juice: 3e4 },
     stardust: 30
+  },
+  {
+    id: "starsKiwai",
+    age: 4,
+    condition: { kind: "kiwais", count: 1, modules: 3 },
+    reward: { pulp: 6e4, fiber: 6e4, seeds: 12e3, juice: 25e3 },
+    stardust: 20
   },
   {
     id: "starsProducer15",
@@ -4077,10 +4121,16 @@ var ORBIT = {
   panel: { bonus: 0.25, max: 2 },
   /** Star harvest: stardust points per hour of an average kiwi; the kiwai's own tank (points). */
   dust: { perHour: 0.1, tank: 20 },
-  /** Greenhouse: what one kiwi yields per hour, without season nor night. */
-  greenhouse: { juice: 22, fiber: 22 },
-  /** Observatory: research points per hour of an average kiwi; earlier notices while it watches. */
-  observatory: { research: 30, noticeMs: ms.h(4) },
+  /**
+   * Greenhouse: an average kiwi yields this share of what one worker of the juice well and of
+   * the fibre workshop at `level` yield, of each — day and night, in every season.
+   */
+  greenhouse: { level: 13, share: 0.5 },
+  /**
+   * Observatory: an average kiwi gives this share of a researcher's points at the Library of
+   * `level`; while a sensor watches, comets and upwellings are announced `noticeMs` earlier.
+   */
+  observatory: { level: 13, share: 1, noticeMs: ms.h(4) },
   /** Dock: travel times of the ships while a berth is staffed (× per staffed berth, floor). */
   dock: { travel: 0.85, floor: 0.7 },
   /**
@@ -4102,7 +4152,7 @@ var ORBIT = {
 };
 var MODULES = {
   habitat: {
-    cost: { pulp: 12e3, fiber: 14e3, seeds: 3e3, juice: 4e3 },
+    cost: { pulp: 8e4, fiber: 1e5, seeds: 1e4, juice: 2e4 },
     crystal: 10,
     iron: 6,
     durationMs: ms.h(2),
@@ -4110,14 +4160,14 @@ var MODULES = {
     wears: false
   },
   panel: {
-    cost: { pulp: 8e3, fiber: 1e4, seeds: 4e3, juice: 2e3 },
+    cost: { pulp: 7e4, fiber: 9e4, seeds: 2e4, juice: 15e3 },
     crystal: 15,
     iron: 4,
     durationMs: ms.h(2),
     wears: true
   },
   sensor: {
-    cost: { pulp: 1e4, fiber: 12e3, seeds: 3e3, juice: 3e3 },
+    cost: { pulp: 1e5, fiber: 12e4, seeds: 12e3, juice: 2e4 },
     crystal: 20,
     iron: 8,
     durationMs: ms.h(3),
@@ -4126,7 +4176,7 @@ var MODULES = {
     wears: true
   },
   dome: {
-    cost: { pulp: 14e3, fiber: 8e3, seeds: 3e3, juice: 6e3 },
+    cost: { pulp: 11e4, fiber: 9e4, seeds: 12e3, juice: 35e3 },
     crystal: 12,
     iron: 6,
     durationMs: ms.h(3),
@@ -4135,7 +4185,7 @@ var MODULES = {
     wears: true
   },
   berth: {
-    cost: { pulp: 1e4, fiber: 14e3, seeds: 3e3, juice: 3e3 },
+    cost: { pulp: 1e5, fiber: 13e4, seeds: 12e3, juice: 2e4 },
     crystal: 15,
     iron: 10,
     durationMs: ms.h(3),
@@ -6485,7 +6535,8 @@ function pathLimit(state) {
 }
 function buildingCount(state) {
   const counted = (t) => t !== "nest" && t !== "camp" && t !== "monument" && t !== "lab" && // Chantier 48: the way down, like the laboratory, takes no place.
-  t !== "tunnel" && t !== "townHall" && !isVillageLife(t) && t !== "cabaret" && t !== "fireworks" && !isTurret(t);
+  t !== "tunnel" && // Chantier 53: the orbital yard neither.
+  t !== "orbitalYard" && t !== "townHall" && !isVillageLife(t) && t !== "cabaret" && t !== "fireworks" && !isTurret(t);
   return state.buildings.filter((b) => counted(b.type)).length + state.queue.filter((i) => i.kind === "build" && counted(i.buildingType)).length;
 }
 function turretCount(state) {
@@ -11267,6 +11318,143 @@ function incident(s, at, events) {
   events.push({ type: "incident", ...report });
 }
 
+// packages/shared/src/sim/sites.ts
+var cache2 = /* @__PURE__ */ new Map();
+function smallMap(key, radius, rocks) {
+  const id3 = `${key}|${radius}|${rocks[0]}-${rocks[1]}`;
+  const hit = cache2.get(id3);
+  if (hit) return hit;
+  const rng = createRng(`${key}/site`);
+  const disk = hexDisk({ q: 0, r: 0 }, radius);
+  const ring = disk.slice(disk.length - 6 * radius);
+  const rocky = /* @__PURE__ */ new Set();
+  const want = rng.int(rocks[0], rocks[1]);
+  for (let tries = 0; rocky.size < want && tries < 40; tries++) {
+    const i = rng.int(0, ring.length - 1);
+    const prev = hexKey(ring[(i + ring.length - 1) % ring.length]);
+    const next = hexKey(ring[(i + 1) % ring.length]);
+    if (!rocky.has(prev) && !rocky.has(next)) rocky.add(hexKey(ring[i]));
+  }
+  const tiles = disk.map((h, i) => ({
+    q: h.q,
+    r: h.r,
+    kind: i === 0 ? "pad" : rocky.has(hexKey(h)) ? "rock" : "ground",
+    variant: rng.next()
+  }));
+  const map = {
+    key,
+    radius,
+    tiles,
+    index: new Map(tiles.map((t, i) => [hexKey(t), i]))
+  };
+  if (cache2.size >= 24) cache2.delete(cache2.keys().next().value);
+  cache2.set(id3, map);
+  return map;
+}
+function siteTile(map, h) {
+  const i = map.index.get(hexKey(h));
+  return i === void 0 ? void 0 : map.tiles[i];
+}
+function thingAt(things, h) {
+  return things.find((t) => t.q === h.q && t.r === h.r);
+}
+function siteSpotError(map, things, h) {
+  const tile = siteTile(map, h);
+  if (!tile) return "offSite";
+  if (tile.kind === "rock") return "rock";
+  if (tile.kind === "pad") return "pad";
+  if (thingAt(things, h)) return "tileOccupied";
+  return null;
+}
+function freeSpots(map, things) {
+  return map.tiles.filter((t) => siteSpotError(map, things, t) === null).map((t) => ({ ...t }));
+}
+
+// packages/shared/src/sim/orbit.ts
+function kiwaiMapOf(state, kiwai) {
+  return smallMap(`${state.seed}/${state.face}/kiwai/${kiwai.id}`, ORBIT.radius, ORBIT.rocks);
+}
+function kiwaiById(state, id3) {
+  return state.orbit.kiwais.find((k) => k.id === id3);
+}
+function moduleAt(kiwai, h) {
+  return thingAt(kiwai.modules, h);
+}
+function moduleSpotError(state, kiwai, h) {
+  return siteSpotError(kiwaiMapOf(state, kiwai), kiwai.modules, h);
+}
+function yardOf(state) {
+  return state.buildings.find((b) => b.type === "orbitalYard");
+}
+function kiwaiCap(state) {
+  const yard = yardOf(state);
+  return yard ? ORBIT.kiwais[Math.min(yard.level, ORBIT.kiwais.length - 1)] ?? 0 : 0;
+}
+function moduleSlots(state) {
+  const yard = yardOf(state);
+  return yard ? ORBIT.moduleSlots[Math.min(yard.level, ORBIT.moduleSlots.length - 1)] ?? 0 : 0;
+}
+function kiwaiLaunchCost(state) {
+  return ORBIT.launch[Math.min(state.orbit.launched, ORBIT.launch.length - 1)];
+}
+function inOrbit(kiwai, now) {
+  return kiwai.readyAt <= now;
+}
+function launchLock(state) {
+  if (!yardOf(state)) return "noOrbitalYard";
+  if (state.orbit.kiwais.length >= kiwaiCap(state)) return "kiwaiLimit";
+  const cost = kiwaiLaunchCost(state);
+  if (state.giantSeeds < cost.giantSeeds) return "notEnoughGiantSeeds";
+  if (crystalUnits(state.crystal) < cost.crystal) return "notEnoughCrystal";
+  if (meteorIronOf(state) < cost.iron) return "notEnoughIron";
+  if (dustPoints(state.stardust) < cost.stardust) return "notEnoughStardust";
+  return null;
+}
+function startKiwai(s, type, now) {
+  const cost = kiwaiLaunchCost(s);
+  const taken = new Set(s.orbit.kiwais.map((k) => k.place));
+  let place = 0;
+  while (taken.has(place)) place++;
+  const kiwai = {
+    id: `kiwai-${s.nextId++}`,
+    type,
+    place,
+    launchedAt: now,
+    readyAt: now + cost.durationMs,
+    modules: [],
+    dust: 0,
+    wear: { n: 0, at: 0, moduleId: null }
+  };
+  s.orbit.kiwais.push(kiwai);
+  s.orbit.launched++;
+  return kiwai;
+}
+function nextOrbitEvent(s) {
+  let at = Infinity;
+  for (const k of s.orbit.kiwais) if (k.readyAt > s.now) at = Math.min(at, k.readyAt);
+  return at;
+}
+function orbitTick(s, at, events) {
+  for (const k of s.orbit.kiwais)
+    if (k.readyAt === at) events.push({ type: "kiwaiReady", at, kiwaiId: k.id, kiwaiType: k.type });
+}
+function plausibleOrbit(state) {
+  const o = state.orbit;
+  if (o.kiwais.length !== o.launched || o.kiwais.length > kiwaiCap(state)) return false;
+  if (new Set(o.kiwais.map((k) => k.place)).size !== o.kiwais.length) return false;
+  for (const k of o.kiwais) {
+    if (k.modules.length > moduleSlots(state)) return false;
+    if (k.dust > ORBIT.dust.tank * STARDUST_SCALE) return false;
+    const map = kiwaiMapOf(state, k);
+    for (let i = 0; i < k.modules.length; i++) {
+      const m = k.modules[i];
+      if (!moduleFits(m.type, k.type)) return false;
+      if (siteSpotError(map, k.modules.slice(0, i), m) !== null) return false;
+    }
+  }
+  return true;
+}
+
 // packages/shared/src/sim/titan.ts
 function terraformLeft(state) {
   const caps = TITAN.maxTerraform;
@@ -11758,8 +11946,10 @@ function advanceInPlace(s, now, events) {
     const beaconAt2 = nextBeaconEvent(s);
     const upwellAt = Math.min(nextUpwellEvent(s), nextDoorEvent(s));
     const queenAt = nextQueenEvent(s);
+    const orbitAt = nextOrbitEvent(s);
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
+      orbitAt,
       garrisonAt,
       upwellAt,
       civAt2,
@@ -11828,6 +12018,7 @@ function advanceInPlace(s, now, events) {
       if (w?.announced && w.at === upwellAt) strike(s, w, events);
     }
     if (queenAt === nextEvent) queenTick(s, queenAt, events);
+    if (orbitAt === nextEvent) orbitTick(s, orbitAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: "hungerChanged", at: s.now, stage: st });
@@ -15423,6 +15614,13 @@ function objectiveProgress(state, def) {
       );
     case "weevil":
       return of(state.depths.weevil?.fellAt !== void 0 ? 1 : 0, 1);
+    case "kiwais":
+      return of(
+        state.orbit.kiwais.filter(
+          (k) => k.readyAt <= state.now && k.modules.filter((m) => m.readyAt <= state.now).length >= c.modules
+        ).length,
+        c.count
+      );
   }
 }
 function isObjectiveComplete(state, def) {
@@ -15544,6 +15742,8 @@ var LEVEL_STATS = [
   "eveningMorale",
   "showMorale",
   "delveCrew",
+  "kiwais",
+  "moduleSlots",
   "doorStrength"
 ];
 function describeLevel(type, level, state) {
@@ -15591,6 +15791,10 @@ function describeLevel(type, level, state) {
   if (type === "tunnel") {
     push("delveCrew", DEPTHS.crew[level]);
     push("doorStrength", DEPTHS.door[level]);
+  }
+  if (type === "orbitalYard") {
+    push("kiwais", ORBIT.kiwais[level]);
+    push("moduleSlots", ORBIT.moduleSlots[level]);
   }
   if (type === "townHall") {
     push("speechMemory", speechEffectMs(level) / 36e5);
@@ -15693,6 +15897,8 @@ function buildLock(state, type) {
     if (state.colony.index !== 0) return "notBuildable";
     if (copiesOf(state, "tunnel") > 0) return "tunnelExists";
     if (!techEffects(state).depths) return "techMissing";
+  } else if (type === "orbitalYard") {
+    if (copiesOf(state, "orbitalYard") > 0) return "yardExists";
   } else if (type === "townHall") {
     if (copiesOf(state, "townHall") > 0) return "townHallExists";
   } else if (type === "cabaret") {
@@ -15963,7 +16169,12 @@ var COMMAND_ERRORS = [
   // Chantier 40: the landing.
   "beaconHere",
   "invalidOrders",
-  "landingThere"
+  "landingThere",
+  // Chantier 53: the orbital yard and the kiwais.
+  "yardExists",
+  "noOrbitalYard",
+  "kiwaiLimit",
+  "unknownKiwaiType"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -16419,6 +16630,18 @@ function execute(s, cmd, ctx, events) {
       if (lock) fail(lock);
       payCrystal(s, CRYSTAL.lens.crystal);
       b.lens = true;
+      return;
+    }
+    case "launchKiwai": {
+      if (!KIWAI_TYPES.includes(cmd.kiwaiType)) fail("unknownKiwaiType");
+      const lock = launchLock(s);
+      if (lock) fail(lock);
+      const cost = kiwaiLaunchCost(s);
+      payGiantSeeds(s, cost.giantSeeds);
+      payCrystal(s, cost.crystal);
+      payIron(s, cost.iron);
+      payStardust(s, cost.stardust);
+      startKiwai(s, cmd.kiwaiType, now);
       return;
     }
     case "setCrystalAmmo": {
@@ -16948,72 +17171,6 @@ function cleanKiwiName(raw) {
   const name = raw.replace(/\p{Cc}/gu, "").replace(/\s+/g, " ").trim();
   if (name.length === 0 || [...name].length > KIWI_NAME_MAX) return null;
   return name;
-}
-
-// packages/shared/src/sim/sites.ts
-var cache2 = /* @__PURE__ */ new Map();
-function smallMap(key, radius, rocks) {
-  const id3 = `${key}|${radius}|${rocks[0]}-${rocks[1]}`;
-  const hit = cache2.get(id3);
-  if (hit) return hit;
-  const rng = createRng(`${key}/site`);
-  const disk = hexDisk({ q: 0, r: 0 }, radius);
-  const ring = disk.slice(disk.length - 6 * radius);
-  const rocky = /* @__PURE__ */ new Set();
-  const want = rng.int(rocks[0], rocks[1]);
-  for (let tries = 0; rocky.size < want && tries < 40; tries++) {
-    const i = rng.int(0, ring.length - 1);
-    const prev = hexKey(ring[(i + ring.length - 1) % ring.length]);
-    const next = hexKey(ring[(i + 1) % ring.length]);
-    if (!rocky.has(prev) && !rocky.has(next)) rocky.add(hexKey(ring[i]));
-  }
-  const tiles = disk.map((h, i) => ({
-    q: h.q,
-    r: h.r,
-    kind: i === 0 ? "pad" : rocky.has(hexKey(h)) ? "rock" : "ground",
-    variant: rng.next()
-  }));
-  const map = {
-    key,
-    radius,
-    tiles,
-    index: new Map(tiles.map((t, i) => [hexKey(t), i]))
-  };
-  if (cache2.size >= 24) cache2.delete(cache2.keys().next().value);
-  cache2.set(id3, map);
-  return map;
-}
-function siteTile(map, h) {
-  const i = map.index.get(hexKey(h));
-  return i === void 0 ? void 0 : map.tiles[i];
-}
-function thingAt(things, h) {
-  return things.find((t) => t.q === h.q && t.r === h.r);
-}
-function siteSpotError(map, things, h) {
-  const tile = siteTile(map, h);
-  if (!tile) return "offSite";
-  if (tile.kind === "rock") return "rock";
-  if (tile.kind === "pad") return "pad";
-  if (thingAt(things, h)) return "tileOccupied";
-  return null;
-}
-function freeSpots(map, things) {
-  return map.tiles.filter((t) => siteSpotError(map, things, t) === null).map((t) => ({ ...t }));
-}
-
-// packages/shared/src/sim/orbit.ts
-function kiwaiMapOf(state, kiwai) {
-  return smallMap(`${state.seed}/${state.face}/kiwai/${kiwai.id}`, ORBIT.radius, ORBIT.rocks);
-}
-function kiwaiById(state, id3) {
-  return state.orbit.kiwais.find((k) => k.id === id3);
-}
-function moduleAt(kiwai, h) {
-  return thingAt(kiwai.modules, h);
-}
-function moduleSpotError(state, kiwai, h) {
-  return siteSpotError(kiwaiMapOf(state, kiwai), kiwai.modules, h);
 }
 
 // node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
@@ -22234,6 +22391,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("fitLens"), buildingId: id2 }),
   external_exports.object({ type: external_exports.literal("setCrystalAmmo"), on: external_exports.boolean() }),
   external_exports.object({ type: external_exports.literal("fortifyTunnel") }),
+  external_exports.object({ type: external_exports.literal("launchKiwai"), kiwaiType: external_exports.enum(KIWAI_TYPES) }),
   external_exports.object({
     type: external_exports.literal("delve"),
     roomId: external_exports.string().min(1).max(8),
@@ -22488,6 +22646,8 @@ var FEAT_IDS = [
   // Chantier 52: the core and the Great Weevil.
   "caverns",
   "weevil",
+  // Chantier 53: the first kiwai in orbit.
+  "firstKiwai",
   "kikiwiwi",
   "starEgg",
   "masterClass",
@@ -22514,6 +22674,7 @@ var FEATS = {
   locules: { id: "locules", group: "depths", rarity: "rare" },
   caverns: { id: "caverns", group: "depths", rarity: "rare" },
   weevil: { id: "weevil", group: "depths", rarity: "legendary" },
+  firstKiwai: { id: "firstKiwai", group: "ages", rarity: "rare" },
   kikiwiwi: { id: "kikiwiwi", group: "village", rarity: "rare" },
   starEgg: { id: "starEgg", group: "village", rarity: "rare" },
   masterClass: { id: "masterClass", group: "village", rarity: "notable" },
@@ -22619,6 +22780,7 @@ function singleFeats(state) {
     if (galleries.some((id3) => map.byId.get(id3)?.depth === CORE_DEPTH)) out.add("caverns");
   }
   if (state.depths.weevil?.fellAt !== void 0) out.add("weevil");
+  if (state.orbit.kiwais.some((k) => k.readyAt <= state.now)) out.add("firstKiwai");
   if (state.villagers.some((v) => v.kikiwiwi)) out.add("kikiwiwi");
   if (state.villagers.some((v) => v.shiny === "star")) out.add("starEgg");
   if (state.villagers.some((v) => v.classId && CLASSES[v.classId].tier === 3)) {
@@ -23155,6 +23317,7 @@ function isPlausible(state, now) {
   if (!plausibleIron(state)) return false;
   if (!plausibleLocules(state)) return false;
   if (!plausibleGear(state)) return false;
+  if (!plausibleOrbit(state)) return false;
   if (state.buildings.filter((b) => b.type === "nest").length !== 1) return false;
   const n = nest(state);
   if (n.q !== 0 || n.r !== 0) return false;
@@ -24430,6 +24593,7 @@ export {
   idleByPower,
   idleVillagers,
   inLine,
+  inOrbit,
   infusionDuration,
   infusionRisk,
   intelView,
@@ -24476,6 +24640,8 @@ export {
   kikiwiwiWeak,
   kindPower,
   kiwaiById,
+  kiwaiCap,
+  kiwaiLaunchCost,
   kiwaiMapOf,
   kiwiCount,
   kiwiExposure,
@@ -24499,6 +24665,7 @@ export {
   launch,
   launchCost,
   launchDelve,
+  launchLock,
   launchpadOf,
   layerOpen,
   layoutBuilding,
@@ -24550,6 +24717,7 @@ export {
   modifiers,
   moduleAt,
   moduleFits,
+  moduleSlots,
   moduleSpotError,
   moraleFactor,
   moraleOf,
@@ -24587,6 +24755,7 @@ export {
   nextInfusionEnd,
   nextKiwiEvent,
   nextMemoryEnd,
+  nextOrbitEvent,
   nextQueenEvent,
   nextResearchEvent,
   nextSkyEvent,
@@ -24606,6 +24775,7 @@ export {
   obstacleId,
   occupancy,
   openCabaret,
+  orbitTick,
   orderItem,
   orderRepairs,
   orderWork,
@@ -24642,6 +24812,7 @@ export {
   planUpwell,
   planWave,
   planetSeedOf,
+  plausibleOrbit,
   plausibleTerraform,
   podiumOf,
   poolCapacity,
@@ -24777,6 +24948,7 @@ export {
   startConstructions,
   startFortify,
   startItem,
+  startKiwai,
   startedItems,
   startingHarm,
   stemEscort,
@@ -24880,5 +25052,6 @@ export {
   workersOf,
   workforce,
   woundFactor,
-  xpForLevel
+  xpForLevel,
+  yardOf
 };

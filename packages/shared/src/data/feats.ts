@@ -38,6 +38,8 @@ export const FEAT_IDS = [
   // Chantier 52: the core and the Great Weevil.
   'caverns',
   'weevil',
+  // Chantier 53: the first kiwai in orbit.
+  'firstKiwai',
   'kikiwiwi',
   'starEgg',
   'masterClass',
@@ -75,6 +77,7 @@ export const FEATS: Record<FeatId, FeatDef> = {
   locules: { id: 'locules', group: 'depths', rarity: 'rare' },
   caverns: { id: 'caverns', group: 'depths', rarity: 'rare' },
   weevil: { id: 'weevil', group: 'depths', rarity: 'legendary' },
+  firstKiwai: { id: 'firstKiwai', group: 'ages', rarity: 'rare' },
   kikiwiwi: { id: 'kikiwiwi', group: 'village', rarity: 'rare' },
   starEgg: { id: 'starEgg', group: 'village', rarity: 'rare' },
   masterClass: { id: 'masterClass', group: 'village', rarity: 'notable' },

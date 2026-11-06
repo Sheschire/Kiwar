@@ -49,6 +49,7 @@ import { monument } from './models/monument';
 import { trainingCamp } from './models/training';
 import { forge } from './models/forge';
 import { tunnel } from './models/tunnel';
+import { orbitalYard } from './models/orbit';
 import { A, annex, crown, lamp, type Look } from './models/ageKit';
 import { bigSignSpot, spread } from './models/spread';
 
@@ -93,6 +94,7 @@ const BUILDERS: Record<BuildingType, (look: Look) => Parts> = {
   cabaret,
   fireworks,
   tunnel,
+  orbitalYard,
 };
 
 /**
@@ -124,16 +126,19 @@ export function lookOf(type: BuildingType, level: number, colonyAge = 0, docked 
             : 1
           : type === 'cabaret' || type === 'tunnel'
             ? 2
-            : type === 'camp'
-              ? 0
-              : ageOfLevel(level);
+            : type === 'orbitalYard'
+              ? 4
+              : type === 'camp'
+                ? 0
+                : ageOfLevel(level);
   const tier =
     type === 'monument' ||
     type === 'lab' ||
     type === 'camp' ||
     type === 'trainingCamp' ||
     type === 'forge' ||
-    type === 'tunnel'
+    type === 'tunnel' ||
+    type === 'orbitalYard'
       ? Math.min(3, level)
       : ((level - 1) % LEVELS_PER_AGE) + 1;
   return { age, tier, level, colonyAge, docked };

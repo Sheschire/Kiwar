@@ -98,6 +98,8 @@ import { fortifyCost, fortifyLock, guardLock, startFortify } from './beacons';
 import { finalLock } from './queen';
 import { returnHome, weakestWorker } from './posts';
 import { TECHS, type TechId } from '../data/research';
+import { KIWAI_TYPES, type KiwaiType } from '../data/orbit';
+import { kiwaiLaunchCost, launchLock, startKiwai } from './orbit';
 import { researchTick, techEffects, techStatus } from './research';
 import { KIKIWIWI } from '../data/kikiwiwi';
 import { EXPEDITIONS } from '../data/expeditions';
@@ -282,6 +284,8 @@ export type Command =
   | { type: 'cancelForge'; orderId: string }
   /** Chantier 38: puts a piece of the armory on a kiwi, or takes it off (`item: null`). */
   | { type: 'equip'; villagerId: VillagerId; slot: GearSlot; item: ItemId | null }
+  /** Chantier 53: launches a kiwai of that type from the orbital yard. */
+  | { type: 'launchKiwai'; kiwaiType: KiwaiType }
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
 export const COMMAND_ERRORS = [
@@ -453,6 +457,11 @@ export const COMMAND_ERRORS = [
   'beaconHere',
   'invalidOrders',
   'landingThere',
+  // Chantier 53: the orbital yard and the kiwais.
+  'yardExists',
+  'noOrbitalYard',
+  'kiwaiLimit',
+  'unknownKiwaiType',
 ] as const;
 export type BlessingKind = 'heal' | 'respec' | 'stat';
 
@@ -993,6 +1002,18 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (lock) fail(lock);
       payCrystal(s, CRYSTAL.lens.crystal);
       b!.lens = true;
+      return;
+    }
+    case 'launchKiwai': {
+      if (!KIWAI_TYPES.includes(cmd.kiwaiType)) fail('unknownKiwaiType');
+      const lock = launchLock(s);
+      if (lock) fail(lock);
+      const cost = kiwaiLaunchCost(s);
+      payGiantSeeds(s, cost.giantSeeds);
+      payCrystal(s, cost.crystal);
+      payIron(s, cost.iron);
+      payStardust(s, cost.stardust);
+      startKiwai(s, cmd.kiwaiType, now);
       return;
     }
     case 'setCrystalAmmo': {

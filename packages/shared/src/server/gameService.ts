@@ -1,3 +1,4 @@
+import { plausibleOrbit } from '../sim/orbit';
 import { crystalCap, giantSeedCap } from '../sim/crystal';
 import { MORALE, SPEECH } from '../data/needs';
 import { COMETS, STARDUST_GIFT, STARDUST_SCALE } from '../data/comets';
@@ -686,6 +687,7 @@ export function isPlausible(state: GameState, now: number): boolean {
   if (!plausibleIron(state)) return false;
   if (!plausibleLocules(state)) return false;
   if (!plausibleGear(state)) return false;
+  if (!plausibleOrbit(state)) return false;
   if (state.buildings.filter((b) => b.type === 'nest').length !== 1) return false;
   const n = nest(state);
   if (n.q !== 0 || n.r !== 0) return false;

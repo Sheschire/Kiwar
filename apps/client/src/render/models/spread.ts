@@ -286,7 +286,24 @@ function cabaret(p: Parts, look: Look): void {
   walk(p, look.age);
 }
 
+/**
+ * Chantier 53: the orbital yard — modules waiting on the back left tile (habitat, dome, a
+ * folded panel), a dish antenna on the back right.
+ */
+function orbitalYard(p: Parts, look: Look): void {
+  const [lx, lz] = TRIANGLE[1]!;
+  p.push([cyl(10), A.starstone, m(lx - 0.1, 0.12, lz, 0.12, 0.2, 0.12)]);
+  p.push([sphere(10, 6), A.crystal, m(lx + 0.15, 0.08, lz + 0.05, 0.12, 0.1, 0.12)]);
+  p.push([box(), A.night, m(lx, 0.04, lz - 0.2, 0.3, 0.04, 0.16)]);
+  const [rx, rz] = TRIANGLE[2]!;
+  p.push([cyl(6), A.celestial, m(rx, 0.2, rz, 0.025, 0.4, 0.025)]);
+  p.push([sphere(12, 6), A.starstone, m(rx, 0.42, rz, 0.18, 0.05, 0.18, 0.7, 0, 0)]);
+  p.push([cyl(5), A.starlight, m(rx, 0.48, rz + 0.06, 0.012, 0.12, 0.012, 0.7, 0, 0)]);
+  walk(p, look.age);
+}
+
 const DRESS: Partial<Record<BuildingType, (p: Parts, look: Look) => void>> = {
+  orbitalYard,
   townHall,
   cabaret,
   trainingCamp,

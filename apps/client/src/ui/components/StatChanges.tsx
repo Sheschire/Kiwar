@@ -31,6 +31,8 @@ const LEVEL_ICONS: Record<LevelStatId, IconName> = {
   eveningMorale: 'morale',
   showMorale: 'fireworks',
   delveCrew: 'workers',
+  kiwais: 'orbitalYard',
+  moduleSlots: 'limit',
   doorStrength: 'armor',
 };
 

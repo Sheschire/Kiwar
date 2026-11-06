@@ -14,6 +14,7 @@ import type { COMMAND_ERRORS } from '../sim/commands';
 import { KIWI_NAME_MAX, STAT_IDS } from '../data/kiwis';
 import { CLASS_IDS, SKILL_IDS } from '../data/classes';
 import { TECH_IDS } from '../data/research';
+import { KIWAI_TYPES } from '../data/orbit';
 import { type Command } from '../sim/commands';
 import type { GameEvent } from '../sim/advance';
 import type { GameState } from '../sim/state';
@@ -98,6 +99,7 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('fitLens'), buildingId: id }),
   z.object({ type: z.literal('setCrystalAmmo'), on: z.boolean() }),
   z.object({ type: z.literal('fortifyTunnel') }),
+  z.object({ type: z.literal('launchKiwai'), kiwaiType: z.enum(KIWAI_TYPES) }),
   z.object({
     type: z.literal('delve'),
     roomId: z.string().min(1).max(8),

@@ -21,6 +21,8 @@ import {
   rotationsOf,
   siteError,
   IRON_SCALE,
+  CRYSTAL_SCALE,
+  STARDUST_SCALE,
   HOUR_MS,
   type BuildingId,
 } from '../src';
@@ -150,5 +152,54 @@ export function delveColony(seed = 'delves', level = 3, kiwis = 8, kiwiLevel = 1
   }
   s.automation.meteor = false;
   s.automation.stardust = false;
+  return { map, s };
+}
+
+/**
+ * Chantier 53: a colony of the Age of the stars (Nest 13, monument 4), stocked for the orbit
+ * (crystal, giant seeds, stardust, iron), waves and comets kept away.
+ */
+export function starsColony(seed = 'orbit') {
+  const { map, state } = setup('kiwisu', seed);
+  const s: GameState = {
+    ...rich(state),
+    resources: { pulp: 5e6, fiber: 5e6, seeds: 1e6, juice: 1e6 },
+  };
+  s.buildings[0]!.level = 13;
+  const mon = siteFor(s, map, 'monument', findTile(map, 'flesh', 8));
+  s.buildings.push({
+    id: 'bmon' as BuildingId,
+    type: 'monument',
+    q: mon.q,
+    r: mon.r,
+    level: 4,
+    richness: 1,
+    builtAt: T0,
+  });
+  s.research.done = ['stoneAge', 'ironAge', 'industryAge', 'starsAge'];
+  s.threats.shieldUntil = s.now + 1000 * HOUR_MS;
+  s.threats.next = null;
+  s.crystal = 300 * CRYSTAL_SCALE;
+  s.giantSeeds = 8;
+  s.stardust = 50 * STARDUST_SCALE;
+  s.meteorIron = 300 * IRON_SCALE;
+  return { map, s };
+}
+
+/** Chantier 53: `starsColony` with its orbital yard standing at `level`. */
+export function yardColony(level = 1, seed = 'orbit') {
+  const { map, s } = starsColony(seed);
+  const at = siteFor(s, map, 'orbitalYard', findTile(map, 'flesh', 4));
+  s.buildings.push({
+    id: 'byard' as BuildingId,
+    type: 'orbitalYard',
+    q: at.q,
+    r: at.r,
+    rot: at.rot,
+    level,
+    richness: 1,
+    builtAt: T0,
+  });
+  if (level >= 2) s.buildings[0]!.level = 12 + level;
   return { map, s };
 }

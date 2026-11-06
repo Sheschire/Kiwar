@@ -57,10 +57,16 @@ export const ORBIT = {
   panel: { bonus: 0.25, max: 2 },
   /** Star harvest: stardust points per hour of an average kiwi; the kiwai's own tank (points). */
   dust: { perHour: 0.1, tank: 20 },
-  /** Greenhouse: what one kiwi yields per hour, without season nor night. */
-  greenhouse: { juice: 22, fiber: 22 },
-  /** Observatory: research points per hour of an average kiwi; earlier notices while it watches. */
-  observatory: { research: 30, noticeMs: ms.h(4) },
+  /**
+   * Greenhouse: an average kiwi yields this share of what one worker of the juice well and of
+   * the fibre workshop at `level` yield, of each — day and night, in every season.
+   */
+  greenhouse: { level: 13, share: 0.5 },
+  /**
+   * Observatory: an average kiwi gives this share of a researcher's points at the Library of
+   * `level`; while a sensor watches, comets and upwellings are announced `noticeMs` earlier.
+   */
+  observatory: { level: 13, share: 1, noticeMs: ms.h(4) },
   /** Dock: travel times of the ships while a berth is staffed (× per staffed berth, floor). */
   dock: { travel: 0.85, floor: 0.7 },
   /**
@@ -83,7 +89,7 @@ export const ORBIT = {
 
 export const MODULES: Record<ModuleType, ModuleDef> = {
   habitat: {
-    cost: { pulp: 12000, fiber: 14000, seeds: 3000, juice: 4000 },
+    cost: { pulp: 80000, fiber: 100000, seeds: 10000, juice: 20000 },
     crystal: 10,
     iron: 6,
     durationMs: ms.h(2),
@@ -91,14 +97,14 @@ export const MODULES: Record<ModuleType, ModuleDef> = {
     wears: false,
   },
   panel: {
-    cost: { pulp: 8000, fiber: 10000, seeds: 4000, juice: 2000 },
+    cost: { pulp: 70000, fiber: 90000, seeds: 20000, juice: 15000 },
     crystal: 15,
     iron: 4,
     durationMs: ms.h(2),
     wears: true,
   },
   sensor: {
-    cost: { pulp: 10000, fiber: 12000, seeds: 3000, juice: 3000 },
+    cost: { pulp: 100000, fiber: 120000, seeds: 12000, juice: 20000 },
     crystal: 20,
     iron: 8,
     durationMs: ms.h(3),
@@ -107,7 +113,7 @@ export const MODULES: Record<ModuleType, ModuleDef> = {
     wears: true,
   },
   dome: {
-    cost: { pulp: 14000, fiber: 8000, seeds: 3000, juice: 6000 },
+    cost: { pulp: 110000, fiber: 90000, seeds: 12000, juice: 35000 },
     crystal: 12,
     iron: 6,
     durationMs: ms.h(3),
@@ -116,7 +122,7 @@ export const MODULES: Record<ModuleType, ModuleDef> = {
     wears: true,
   },
   berth: {
-    cost: { pulp: 10000, fiber: 14000, seeds: 3000, juice: 3000 },
+    cost: { pulp: 100000, fiber: 130000, seeds: 12000, juice: 20000 },
     crystal: 15,
     iron: 10,
     durationMs: ms.h(3),

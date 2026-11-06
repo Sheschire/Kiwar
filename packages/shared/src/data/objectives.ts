@@ -32,7 +32,9 @@ export type ObjectiveCondition =
   /** Chantier 52: white caverns of the core taken (galleries). */
   | { kind: 'caverns'; count: number }
   /** Chantier 52: the Great Weevil fallen (the Mother Vine found). */
-  | { kind: 'weevil' };
+  | { kind: 'weevil' }
+  /** Chantier 53: kiwais in orbit with at least `modules` modules set. */
+  | { kind: 'kiwais'; count: number; modules: number };
 
 export interface ObjectiveDef {
   /** Translation key suffix: `objectives.<id>`. */
@@ -358,6 +360,13 @@ export const AGE_OBJECTIVES: readonly AgeObjectiveDef[] = [
     condition: { kind: 'weevil' },
     reward: { pulp: 60000, fiber: 60000, juice: 30000 },
     stardust: 30,
+  },
+  {
+    id: 'starsKiwai',
+    age: 4,
+    condition: { kind: 'kiwais', count: 1, modules: 3 },
+    reward: { pulp: 60000, fiber: 60000, seeds: 12000, juice: 25000 },
+    stardust: 20,
   },
   {
     id: 'starsProducer15',

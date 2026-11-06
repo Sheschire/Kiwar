@@ -1,3 +1,4 @@
+import { ORBIT } from '../data/orbit';
 import { crystalOf, maxTrees, treeCount, treeSeedCost } from './crystal';
 import { DEPTHS } from '../data/depths';
 import {
@@ -78,6 +79,8 @@ export const LEVEL_STATS = [
   'eveningMorale',
   'showMorale',
   'delveCrew',
+  'kiwais',
+  'moduleSlots',
   'doorStrength',
 ] as const;
 export type LevelStatId = (typeof LEVEL_STATS)[number];
@@ -149,6 +152,11 @@ export function describeLevel(type: BuildingType, level: number, state?: GameSta
   if (type === 'tunnel') {
     push('delveCrew', DEPTHS.crew[level]);
     push('doorStrength', DEPTHS.door[level]);
+  }
+  // Chantier 53: kiwais in orbit and module places on each.
+  if (type === 'orbitalYard') {
+    push('kiwais', ORBIT.kiwais[level]);
+    push('moduleSlots', ORBIT.moduleSlots[level]);
   }
   if (type === 'townHall') {
     push('speechMemory', speechEffectMs(level) / 3_600_000);
@@ -282,6 +290,8 @@ export function buildLock(state: GameState, type: BuildingType): CommandError | 
     if (state.colony.index !== 0) return 'notBuildable';
     if (copiesOf(state, 'tunnel') > 0) return 'tunnelExists';
     if (!techEffects(state).depths) return 'techMissing';
+  } else if (type === 'orbitalYard') {
+    if (copiesOf(state, 'orbitalYard') > 0) return 'yardExists';
   } else if (type === 'townHall') {
     if (copiesOf(state, 'townHall') > 0) return 'townHallExists';
   } else if (type === 'cabaret') {

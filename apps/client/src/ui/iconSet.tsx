@@ -146,6 +146,15 @@ const GLYPHS = {
       <circle cx="26" cy="13" r="2" fill="#f4b23c" />
     </>
   ),
+  orbitalYard: (
+    <>
+      <ellipse cx="16" cy="27" rx="12" ry="3" fill="#b8b1cc" />
+      <path d="M8 27V9M24 27V9M7 9h18" stroke="#c9a23e" stroke-width="2.4" stroke-linecap="round" />
+      <circle cx="16" cy="17" r="5.5" fill="#8a9a4a" stroke="#5a6630" stroke-width="1.2" />
+      <circle cx="14" cy="15" r="1.6" fill="#e6e1a8" />
+      <path d="M26 5l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" fill="#fff4c6" />
+    </>
+  ),
   forge: (
     <>
       <path

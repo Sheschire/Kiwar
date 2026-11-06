@@ -102,6 +102,15 @@ export function objectiveProgress(
       );
     case 'weevil':
       return of(state.depths.weevil?.fellAt !== undefined ? 1 : 0, 1);
+    case 'kiwais':
+      return of(
+        state.orbit.kiwais.filter(
+          (k) =>
+            k.readyAt <= state.now &&
+            k.modules.filter((m) => m.readyAt <= state.now).length >= c.modules,
+        ).length,
+        c.count,
+      );
   }
 }
 

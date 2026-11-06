@@ -314,6 +314,8 @@ export function buildingCount(state: GameState): number {
     t !== 'lab' &&
     // Chantier 48: the way down, like the laboratory, takes no place.
     t !== 'tunnel' &&
+    // Chantier 53: the orbital yard neither.
+    t !== 'orbitalYard' &&
     t !== 'townHall' &&
     !isVillageLife(t) &&
     t !== 'cabaret' &&

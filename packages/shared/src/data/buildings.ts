@@ -40,6 +40,7 @@ export const BUILDING_TYPES = [
   'fireworks',
   'tunnel',
   'loculeTree',
+  'orbitalYard',
 ] as const;
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
@@ -118,6 +119,7 @@ export const FOOTPRINTS: Partial<Record<BuildingType, FootprintSize>> = {
   forge: 3,
   townHall: 3,
   cabaret: 3,
+  orbitalYard: 3,
 };
 
 export function footprintOf(type: BuildingType): FootprintSize {
@@ -609,6 +611,41 @@ const BASE: Record<BuildingType, BuildingDef> = {
         durationMs: ms.h(6),
         requiresNestLevel: 9,
         requiresAge: 2,
+      },
+    ],
+  },
+  // Chantier 53: the orbital yard (Age of the stars), one per colony, outside the building cap.
+  // It launches the kiwais (`ORBIT.kiwais`: 1 / 2 / 3 at its levels 1 / 2 / 3, the age's 13 /
+  // 14 / 15), assembles their modules and flies the shuttle.
+  orbitalYard: {
+    id: 'orbitalYard',
+    allowedTiles: LAND_NO_HEART,
+    buildable: true,
+    copyGrowth: 1,
+    levels: [
+      {
+        cost: { pulp: 320000, fiber: 400000, seeds: 40000, juice: 70000 },
+        durationMs: ms.h(8),
+        requiresNestLevel: 13,
+        requiresAge: 4,
+        iron: 34,
+        crystal: 30,
+      },
+      {
+        cost: { pulp: 540000, fiber: 680000, seeds: 68000, juice: 120000 },
+        durationMs: ms.h(11),
+        requiresNestLevel: 14,
+        requiresAge: 4,
+        iron: 40,
+        crystal: 45,
+      },
+      {
+        cost: { pulp: 920000, fiber: 1150000, seeds: 115000, juice: 200000 },
+        durationMs: ms.h(15),
+        requiresNestLevel: 15,
+        requiresAge: 4,
+        iron: 48,
+        crystal: 60,
       },
     ],
   },

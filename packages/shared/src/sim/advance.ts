@@ -8,6 +8,7 @@ import type { ItemId } from '../data/gear';
 import { accrueStardust, cometTick, nextCometEvent, planComet } from './comets';
 import { footprintOf, isManualWorkplace, isProducer, type BuildingType } from '../data/buildings';
 import type { TechId } from '../data/research';
+import type { KiwaiType } from '../data/orbit';
 import { RESOURCE_IDS, emptyResources, type ResourceId, type Resources } from '../data/resources';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
 import {
@@ -38,6 +39,7 @@ import { canResolveArrival } from './aliens';
 import { civTick, nextCivEvent } from './civ';
 import { beaconTick, nextBeaconEvent, planBeaconAttacks } from './beacons';
 import { nextQueenEvent, queenTick } from './queen';
+import { nextOrbitEvent, orbitTick } from './orbit';
 import type { MasteryId, ShinyColor, StatId } from '../data/kiwis';
 import { inLine, type ClassId } from '../data/classes';
 import { accrueKiwis, buildingResource, nextKiwiEvent, workerPower } from './kiwis';
@@ -291,6 +293,8 @@ export type GameEvent =
   | { type: 'queenEmerged'; at: TimeMs; targetId: string; sector: number }
   /** Chantier 52: the Great Weevil fell, the Mother Vine shows beyond the stem. */
   | { type: 'motherVineFound'; at: TimeMs; expeditionId: string }
+  /** Chantier 53: a kiwai reached its orbit. */
+  | { type: 'kiwaiReady'; at: TimeMs; kiwaiId: string; kiwaiType: KiwaiType }
   | {
       type: 'repaired';
       at: TimeMs;
@@ -363,9 +367,12 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const upwellAt = Math.min(nextUpwellEvent(s), nextDoorEvent(s));
     // Chantier 47: the queen comes out at her public date (truth only).
     const queenAt = nextQueenEvent(s);
+    // Chantier 53: launches, the shuttle, breakdowns and repairs in orbit.
+    const orbitAt = nextOrbitEvent(s);
     // Chantier 15: the automatic garrison posts its guards a little before a strike.
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
+      orbitAt,
       garrisonAt,
       upwellAt,
       civAt,
@@ -436,6 +443,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
       if (w?.announced && w.at === upwellAt) strike(s, w, events);
     }
     if (queenAt === nextEvent) queenTick(s, queenAt, events);
+    if (orbitAt === nextEvent) orbitTick(s, orbitAt, events);
     const st = hungerStage(s);
     if (st !== stage) {
       events.push({ type: 'hungerChanged', at: s.now, stage: st });
