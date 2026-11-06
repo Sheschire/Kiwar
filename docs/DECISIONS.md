@@ -3673,7 +3673,7 @@ From the chantier document's decisions and the owner's answers of 6 November 202
 ### Owner's answers (new points)
 
 - **The wormhole needs no new building**: the technology `wormholes` and a launchpad of a
-  given level (10 after the measures below; the docks of chantier 53 still shorten the trip).
+  given level (9 after the measures below; the docks of chantier 53 still shorten the trip).
 - **Battles on the raspberry are played live in 3D** on their drupelet (not a 2D replay).
 - **Home colony only**: a sister colony has neither orchard nor trading post (like the depths).
 
@@ -3692,10 +3692,10 @@ From the chantier document's decisions and the owner's answers of 6 November 202
 ### Defaults chosen by Claude (status "default", changeable)
 
 - Technology: Library 9 (as the passage to the stars), **20 000 points** (× 2.5 = 50 000
-  without the Mother Vine), 30 crystal, 20 stardust; a launchpad of **level 10**. First tried:
+  without the Mother Vine), 30 crystal, 20 stardust; a launchpad of **level 9** (the bot stays there: 10 never came before day 33). First tried:
   Library 14, after the star sails, launchpad 14 — the bot ended day 30 at Nest 11, Library 10,
   launchpad 6 and never opened the wormhole in 34 days (3 runs). Travel 6 h before the
-  launchpad's speed (≈ 3 h at level 10), a hop of 10 min between two stops, × 0.75 with a post.
+  launchpad's speed (≈ 3.4 h at level 9), a hop of 10 min between two stops, × 0.75 with a post.
 - The raspberry: 60–90 drupelets, 8–12 clans in one piece, three rings (power 40 / 60 / 85,
   levels 16 / 18 / 20, nectar 20 / 35 / 55), a nest one time in four (× 1.5), beetles
   (`beetle`, `beetleGuard`, flying `byturus`); a pillaged garrison grows back over 72 h.

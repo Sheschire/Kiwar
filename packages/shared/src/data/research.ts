@@ -425,7 +425,7 @@ export const TECHS: Record<TechId, TechDef> = {
     effects: { travel: 0.85, recon: 0.1, armor: 0.05 },
   },
   // Chantier 54: the wormholes along the Mother Vine (× `RESEARCH.withoutVine` without her);
-  // a ship goes through from a launchpad of level `ORCHARD.padLevel` (10).
+  // a ship goes through from a launchpad of level `ORCHARD.padLevel` (9).
   wormholes: {
     id: 'wormholes',
     age: 4,

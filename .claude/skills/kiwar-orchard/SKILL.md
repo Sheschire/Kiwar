@@ -1,6 +1,6 @@
 ---
 name: kiwar-orchard
-description: Kiwar cosmic orchard (chantier 54) — the wormholes (technology, launchpad 10), one orchard per universe (public layout from the universe's seed, hidden truth from `universe_secrets`), the raspberry (drupelets, clans, rings), standing that drifts back to 0, public trade rates, red nectar, voyages (`voyage`: visit / gift / found the trading post / pillage), the trading post on its small map (huts, stalls, palisades, job `post`), attacks on the post, the Orchard screen, the raspberry in the sky and battles played on a drupelet, the bot in the orchard. Use when touching the orchard, a fruit planet (chantier 55's apple and pineapple), nectar, voyages, the trading post or their UI.
+description: Kiwar cosmic orchard (chantier 54) — the wormholes (technology, launchpad 9), one orchard per universe (public layout from the universe's seed, hidden truth from `universe_secrets`), the raspberry (drupelets, clans, rings), standing that drifts back to 0, public trade rates, red nectar, voyages (`voyage`: visit / gift / found the trading post / pillage), the trading post on its small map (huts, stalls, palisades, job `post`), attacks on the post, the Orchard screen, the raspberry in the sky and battles played on a drupelet, the bot in the orchard. Use when touching the orchard, a fruit planet (chantier 55's apple and pineapple), nectar, voyages, the trading post or their UI.
 ---
 
 # Kiwar orchard (chantier 54)
@@ -32,7 +32,7 @@ anti-cheat rule), `kiwar-battle` (the engine, shows), `kiwar-orbit` (small maps)
 ## Data (`data/orchard.ts`)
 
 `FRUIT_IDS` (raspberry), `ORCHARD_TARGET` (`'orchard:raspberry'`, never in `state.targets`),
-`ORCHARD` (launchpad 10, travel 6 h before the launchpad's speed → ≈ 3 h, hop 10 min, two
+`ORCHARD` (launchpad 9, travel 6 h before the launchpad's speed → ≈ 3.4 h, hop 10 min, two
 stops, relay × 0.75 with a post, crew 1–8), `RASPBERRY` (60–90 drupelets, 8–12 clans, rings
 power 40/60/85, level 16/18/20, nectar 20/35/55, nest 25 % × 1.5, mix beetle / beetleGuard /
 byturus, regrowth 72 h, help 25 % after 25 s), `STANDING` (−100…100, friendly ≥ 30, hostile
@@ -102,7 +102,7 @@ the bot before day 34). Every number is a hypothesis.
   back at the end; `actions.watchFruit(id)` takes a pillage's expedition id or a post report's
   id. A fresh pillage is offered live through `LandingInvite` (outcome held, `tellOutcome`
   knows `pillage`). Beetles wear the crawler / flier rigs tinted (`BEETLE_TINTS`).
-- Screenshots: push the state on `controller.state` (techs, Nest 14, a launchpad of level 10,
+- Screenshots: push the state on `controller.state` (techs, Nest 14, a launchpad of level 9,
   `orchard.standing`, `views`, `post` with modules and an announced attack), a `debugGrant`
   dispatch, then `uiStore.setState({ modal: 'orchard', orchardDrupelet })`; for a show,
   dispatch a `voyage` pillage, `controller.setTimeScale(5000)` until it is back, then
@@ -111,7 +111,7 @@ the bot before day 34). Every number is a hypothesis.
 
 ## Bot (`tools/balance/src/bot/orchard.ts`, mechanic `orchard`)
 
-`wormholePadDecision` (the launchpad to 10 once the Mother Vine is found or the technology
+`wormholePadDecision` (the launchpad to 9 once the Mother Vine is found or the technology
 known; `wormholes` comes right after `starsAge` in `TECH_ORDER` but waits for the Vine — or day
 32 — `waitsForVine` in `bot/ages.ts`), `orchardOrders` (once an hour, every round while an attack is
 announced): the post's modules (stall, palisade, hut), a defence (gift to calm the clan, or

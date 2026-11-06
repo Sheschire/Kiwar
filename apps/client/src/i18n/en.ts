@@ -599,7 +599,7 @@ export const en = {
     },
     starsWormhole: {
       title: 'Through the wormhole',
-      hint: 'Research the Wormholes, raise a launchpad to level 10, then visit the raspberry.',
+      hint: 'Research the Wormholes, raise a launchpad to level 9, then visit the raspberry.',
     },
     starsKiwai: {
       title: 'A kiwai with three modules',
@@ -906,7 +906,7 @@ export const en = {
     noSwarm: 'No comet swarm is announced.',
     shieldRaised: 'The shield is already up.',
     wormholeClosed: 'The wormhole is not open (technology Wormholes).',
-    launchpadTooLow: 'A launchpad of level 10 is needed to go through the wormhole.',
+    launchpadTooLow: 'A launchpad of level 9 is needed to go through the wormhole.',
     unknownDrupelet: 'There is no such drupelet.',
     tooManyStops: 'Two drupelets at most per visit, only one for a pillage.',
     stopsApart: 'The two drupelets must touch.',
@@ -2641,7 +2641,7 @@ export const en = {
     },
     wormholes: {
       name: 'Wormholes',
-      desc: 'The sailer flies along the Mother Vine to the cosmic orchard, from a launchpad of level 10. Much longer to research until the Mother Vine is found.',
+      desc: 'The sailer flies along the Mother Vine to the cosmic orchard, from a launchpad of level 9. Much longer to research until the Mother Vine is found.',
     },
     meteorDrill: {
       name: 'Meteorite drill',

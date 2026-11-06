@@ -33,7 +33,7 @@ import {
 
 const HOUR_MS = 3_600_000;
 
-/** A colony at the stars with the wormholes and a launchpad of level 10, eight seasoned kiwis. */
+/** A colony at the stars with the wormholes and a launchpad of level 9, eight seasoned kiwis. */
 function orchardColony(seed = 'orchard') {
   const { map, s } = starsColony(seed);
   s.buildings[0]!.level = 14;
@@ -78,14 +78,14 @@ function plan(s: GameState, crew: VillagerId[], over: Partial<VoyagePlan> = {}):
 }
 
 describe('voyages to the raspberry (chantier 54)', () => {
-  it('needs the wormholes and a launchpad of level 10', () => {
+  it('needs the wormholes and a launchpad of level 9', () => {
     const { map, s, crew } = orchardColony();
     const closed = cloneState(s);
     closed.research.done = closed.research.done.filter((t) => t !== 'wormholes');
     const r1 = applyCommand(closed, { type: 'voyage', ...plan(closed, crew) }, { now: T0, map });
     expect(r1.ok ? null : r1.error).toBe('wormholeClosed');
     const low = cloneState(s);
-    low.buildings.find((b) => b.id === 'bpad')!.level = 9;
+    low.buildings.find((b) => b.id === 'bpad')!.level = 8;
     const r2 = applyCommand(low, { type: 'voyage', ...plan(low, crew) }, { now: T0, map });
     expect(r2.ok ? null : r2.error).toBe('launchpadTooLow');
     // A sister colony never reaches the orchard.

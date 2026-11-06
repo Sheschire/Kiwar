@@ -15,10 +15,10 @@ export const ORCHARD_TARGET = 'orchard:raspberry';
 
 export const ORCHARD = {
   /** The launchpad level a ship needs to go through the wormhole (with the technology). */
-  padLevel: 10,
+  padLevel: 9,
   /**
-   * One way through the wormhole, before the launchpad's speed (× 0.55 at level 10), fuel,
-   * technologies and the dock: about 3 h at level 10.
+   * One way through the wormhole, before the launchpad's speed (× 0.56 at level 9), fuel,
+   * technologies and the dock: about 3.4 h at level 9.
    */
   travelMs: 6 * 3_600_000,
   /** A hop from one drupelet to the next (low gravity: short). */

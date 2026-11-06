@@ -254,7 +254,7 @@ before the target check; `canResolveArrival` needs `state.depthSeed` (hidden, st
 ## Chantier 54: voyages to the raspberry (skill `kiwar-orchard`)
 
 Missions `visit` and `pillage` (command `voyage`, not `launchExpedition`): a ship from a
-launchpad of level 10 through the wormhole, target `ORCHARD_TARGET` (never in
+launchpad of level 9 through the wormhole, target `ORCHARD_TARGET` (never in
 `state.targets`), resolved by `resolveVoyage` from `resolveArrival` before the target check;
 `canResolveArrival` needs `state.orchardSeed`. Client places that list expeditions must not
 assume a target (`ShipsView` flies them to the wormhole's mouth).

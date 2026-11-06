@@ -12,7 +12,7 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 
 > **Chantier 54** — **les trous de ver et le Verger : la framboise**. À l'Âge des étoiles, la
 > recherche **Trous de ver** (bien plus longue tant que la Liane-Mère n'est pas trouvée) et une
-> aire d'envol niveau 10 ouvrent le **Verger cosmique** : la **framboise** pend haut dans le
+> aire d'envol niveau 9 ouvrent le **Verger cosmique** : la **framboise** pend haut dans le
 > ciel au bout de sa liane, une grappe de drupéoles où vivent des **clans de coléoptères**. Le
 > même Verger pour tout l'univers, mais la **réputation** est la vôtre : commercer ou donner
 > rend un clan ami, **piller** le rend hostile (lui et ses voisins), et cela se voit. Le

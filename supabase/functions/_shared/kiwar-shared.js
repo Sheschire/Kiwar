@@ -3274,7 +3274,7 @@ var TECHS = {
     effects: { travel: 0.85, recon: 0.1, armor: 0.05 }
   },
   // Chantier 54: the wormholes along the Mother Vine (× `RESEARCH.withoutVine` without her);
-  // a ship goes through from a launchpad of level `ORCHARD.padLevel` (10).
+  // a ship goes through from a launchpad of level `ORCHARD.padLevel` (9).
   wormholes: {
     id: "wormholes",
     age: 4,
@@ -4240,10 +4240,10 @@ var FRUIT_IDS = ["raspberry"];
 var ORCHARD_TARGET = "orchard:raspberry";
 var ORCHARD = {
   /** The launchpad level a ship needs to go through the wormhole (with the technology). */
-  padLevel: 10,
+  padLevel: 9,
   /**
-   * One way through the wormhole, before the launchpad's speed (× 0.55 at level 10), fuel,
-   * technologies and the dock: about 3 h at level 10.
+   * One way through the wormhole, before the launchpad's speed (× 0.56 at level 9), fuel,
+   * technologies and the dock: about 3.4 h at level 9.
    */
   travelMs: 6 * 36e5,
   /** A hop from one drupelet to the next (low gravity: short). */
