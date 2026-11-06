@@ -88,6 +88,21 @@ export function planetOrientation(place: SpacePoint): { yaw: number; tilt: numbe
   return { yaw: Math.atan2(-place.x, -place.z), tilt: PLANET_TILT };
 }
 
+/**
+ * Chantier 53: the kiwais hang behind us (away from the front, where the twin is), close and
+ * high enough to show over the rim once the camera rises a little; place 0 straight behind,
+ * then to each side.
+ */
+export const KIWAI_DISTANCE = 42;
+export const KIWAI_HEIGHT = 13;
+export const KIWAI_SLOTS = [0, 34, -34, 68, -68].map((d) => (d * Math.PI) / 180);
+
+/** Where the kiwai of orbit place `place` floats. */
+export function kiwaiPlace(place: number): SpacePoint {
+  const slot = KIWAI_SLOTS[place % KIWAI_SLOTS.length]!;
+  return along(FRONT_AZIMUTH + Math.PI + slot, KIWAI_DISTANCE, KIWAI_HEIGHT + (place % 2) * 3);
+}
+
 /** A far planet the camera can go to: our twin, or a member's planet by kiwi index. */
 export type PlanetRef = 'twin' | number;
 

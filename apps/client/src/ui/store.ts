@@ -52,7 +52,9 @@ export type Modal =
   /** Chantier 48: the depths. */
   | 'depths'
   /** Chantier 56: the league (feats in solo). */
-  | 'league';
+  | 'league'
+  /** Chantier 53: the kiwais in orbit. */
+  | 'orbit';
 
 /** A planner opened on a mission: the settlers' ship, or a landing on a given parcel (chantier 40). */
 export interface SiegePlan {
@@ -189,6 +191,8 @@ export interface UiState {
   cutOpen: boolean;
   /** Chantier 49: the room the Depths screen opens on (a tap in the cut; null: none). */
   depthsRoom: string | null;
+  /** Chantier 53: the kiwai the Orbit screen opens on. */
+  orbitKiwai: string | null;
   /** Chantier 41: the landing watched on the twin (expedition id; null: none). */
   watchingLanding: string | null;
   /** Chantier 24: the card of a tapped planet ("Go there"). */
@@ -328,6 +332,7 @@ export const uiStore = createStore<UiState>(() => ({
   landingInvite: null,
   cutOpen: false,
   depthsRoom: null,
+  orbitKiwai: null,
   watchingLanding: null,
   planetCard: null,
   planetsOpen: false,

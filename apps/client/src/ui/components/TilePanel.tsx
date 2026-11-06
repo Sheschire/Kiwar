@@ -482,6 +482,14 @@ function BuildingSection({
           </button>
         </section>
       )}
+      {b.type === 'orbitalYard' && (
+        <section class="field">
+          <p class="small">{t('orbit.intro')}</p>
+          <button class="btn btn-primary" onClick={() => uiStore.setState({ modal: 'orbit' })}>
+            {t('orbit.button')}
+          </button>
+        </section>
+      )}
       {b.type === 'townHall' && <TownHallInfo game={game} b={b} now={now} />}
       {LEISURE[b.type] && <CampfireInfo game={game} b={b} />}
       {b.type === 'cabaret' && <CabaretInfo game={game} b={b} />}

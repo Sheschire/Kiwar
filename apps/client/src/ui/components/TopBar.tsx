@@ -53,6 +53,7 @@ import { setPanelOpen, uiStore, useT, useUi } from '../store';
 import { SyncBadge } from './SyncBadge';
 import { attackAnnounced, siegeVisible } from './SiegeModal';
 import { depthsVisible } from './DepthsModal';
+import { orbitAlarm, orbitVisible } from './OrbitModal';
 import { ColonySwitch } from './ColonySwitch';
 import { ClockChip, ClockTip } from './ClockChip';
 import { MoraleLine } from './NeedsWidgets';
@@ -380,6 +381,9 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
   // Chantier 48: the depths, and an upwelling announced.
   const depths = useUi((s) => (s.slowGame ? depthsVisible(s.slowGame) : false));
   const upwell = useUi((s) => !!s.slowGame?.depths.next?.announced);
+  // Chantier 53: the orbit, and something up there asking for the player.
+  const orbit = useUi((s) => (s.slowGame ? orbitVisible(s.slowGame) : false));
+  const orbitWarn = useUi((s) => (s.slowGame ? orbitAlarm(s.slowGame) : false));
   const points = useUi((s) => s.game?.villagers.reduce((n, v) => n + v.statPoints, 0) ?? 0);
   const unassigned = useUi((s) => (s.game ? staffing(s.game).unassigned : 0));
   const freeSlots = useUi((s) => (s.game ? staffing(s.game).freeSlots : 0));
@@ -566,6 +570,16 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
               onClick={() => uiStore.setState({ modal: modal === 'depths' ? 'none' : 'depths' })}
             >
               <Icon name="tunnel" size={24} />
+            </button>
+          )}
+          {orbit && (
+            <button
+              class={`btn btn-icon parchment-btn ${modal === 'orbit' ? 'btn-active' : ''} ${orbitWarn ? 'has-alarm' : ''}`}
+              aria-label={t('orbit.button')}
+              title={t('orbit.button')}
+              onClick={() => uiStore.setState({ modal: modal === 'orbit' ? 'none' : 'orbit' })}
+            >
+              <Icon name="orbitalYard" size={24} />
             </button>
           )}
           <button

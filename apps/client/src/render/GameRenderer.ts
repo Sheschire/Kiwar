@@ -1,3 +1,4 @@
+import { OrbitView } from './orbitView';
 import {
   Fog,
   NeutralToneMapping,
@@ -136,6 +137,8 @@ export interface RendererCallbacks {
   /** An ally's planet was tapped (shared universes). */
   /** Chantier 24: a far planet was tapped (the twin or a member's). */
   onPlanetTap?(planet: PlanetRef): void;
+  /** Chantier 53: a kiwai in orbit was tapped. */
+  onKiwaiTap?(kiwaiId: string): void;
   /** Chantier 59: a tile of the visited ally's living village was tapped (null: off it). */
   onAllyTileTap?(tile: { q: number; r: number } | null): void;
   /** Chantier 24: the pointer is over a far planet (null: over none), at screen x/y. */
@@ -228,6 +231,9 @@ export class GameRenderer {
   private waves: TileWaves | null = null;
   private pendingWaves: string[] = [];
   private comets: CometsView | null = null;
+  /** Chantier 53: the kiwais in orbit and the shuttle. */
+  private orbit: OrbitView | null = null;
+  private orbitMoving = false;
   /** Chantier 44: the fireworks show, and the last one started. */
   private fireworks: FireworksView | null = null;
   /** Chantier 52: the Mother Vine out of the planet, once found. */
@@ -373,6 +379,14 @@ export class GameRenderer {
           }
         }
         const tile = this.pickTile(x, y);
+        // Chantier 53: a kiwai in the sky (never over a tile of our face).
+        if (!tile && this.callbacks.onKiwaiTap) {
+          const kiwai = this.orbit?.pick(screenRay(this.canvas, this.camera, x, y).ray);
+          if (kiwai) {
+            this.callbacks.onKiwaiTap(kiwai.kiwaiId);
+            return;
+          }
+        }
         if (planet !== null && !tile) {
           this.callbacks.onPlanetTap?.(planet);
           return;
@@ -526,6 +540,7 @@ export class GameRenderer {
       this.meteors,
       this.gates,
       this.comets,
+      this.orbit,
       this.fireworks,
       this.vine,
       this.obstacles,
@@ -563,6 +578,8 @@ export class GameRenderer {
     this.scene.add(this.gates.group);
     this.comets = new CometsView(map);
     this.scene.add(this.comets.group);
+    this.orbit = new OrbitView(map);
+    this.scene.add(this.orbit.group);
     this.fireworks = new FireworksView();
     this.fireworks.onBurst = (x, z) => this.onFireworksBurst?.(x, z);
     this.scene.add(this.fireworks.group);
@@ -955,6 +972,7 @@ export class GameRenderer {
     this.meteors?.sync(state);
     this.gates?.sync(state);
     this.comets?.sync(state);
+    this.orbit?.sync(state);
     this.syncFireworks(state);
     this.vine?.sync(state);
     this.obstacles?.sync(state);
@@ -1292,6 +1310,13 @@ export class GameRenderer {
    * Chantier 32: turns the camera towards the comet and zooms out (the space view rises to
    * the horizon), so the player sees it in its place among the planets.
    */
+  /** Chantier 53: turns the camera towards a kiwai in orbit (the space view rises). */
+  lookAtKiwai(kiwaiId: string): void {
+    const at = this.orbit?.positionOf(kiwaiId);
+    if (!at || this.visiting !== null) return;
+    this.rig.lookToward(at.x, at.z);
+  }
+
   lookAtComet(): void {
     const head = this.comets?.headPosition();
     if (!head || this.visiting !== null) return;
@@ -1891,6 +1916,8 @@ export class GameRenderer {
       this.cut?.moving ||
       this.delve?.playing ||
       this.pendingShow ||
+      // Chantier 53: a kiwai climbing to its orbit, the shuttle flying.
+      this.orbitMoving ||
       this.queenRisePending ||
       this.twin?.fading ||
       this.twinApproach !== this.twinApproachTarget
@@ -2049,6 +2076,7 @@ export class GameRenderer {
     this.meteors?.update(dt, this.callbacks.now());
     this.gates?.update(this.elapsed);
     this.comets?.update(dt, this.callbacks.now(), this.camera);
+    this.orbitMoving = this.orbit?.update(dt, this.elapsed, this.callbacks.now()) ?? false;
     this.reportCometArrow();
     this.obstacles?.update(dt);
     this.ships?.update(

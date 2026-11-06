@@ -6645,3 +6645,172 @@ h3 .building-thumb {
 .more-item.is-on {
   font-weight: 700;
 }
+
+/* Chantier 53: the Orbit screen (launch, a kiwai's small map, its crew and the shuttle). */
+.modal.orbit-modal {
+  width: min(760px, 100%);
+}
+
+.orbit-tabs {
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.orbit-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .orbit-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.orbit-map {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.orbit-map .orbit-skin {
+  fill: #8a9a4a;
+  stroke: #5a6630;
+  stroke-width: 3;
+}
+
+.orbit-tile polygon {
+  fill: #e9e3c9;
+  stroke: #6f6a4f;
+  stroke-width: 1.2;
+}
+
+.orbit-tile.is-pad polygon {
+  fill: #f6edc0;
+}
+
+.orbit-tile.is-rock polygon {
+  fill: #6c6658;
+}
+
+.orbit-tile.is-ground {
+  cursor: pointer;
+}
+
+.orbit-tile.is-ground:hover polygon,
+.orbit-tile.is-ground:focus-visible polygon {
+  fill: #fff7d6;
+}
+
+.orbit-tile.is-picked polygon {
+  stroke: var(--berry);
+  stroke-width: 3;
+}
+
+.orbit-tile.is-working polygon {
+  fill: #c4ecf7;
+}
+
+.orbit-tile.is-assembling polygon {
+  fill: #dcd6c0;
+  stroke-dasharray: 3 2;
+}
+
+.orbit-tile.is-broken polygon,
+.orbit-tile.is-repairing polygon {
+  fill: #f1b9a6;
+}
+
+.orbit-glyph {
+  font-size: 16px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  fill: #34407a;
+  pointer-events: none;
+}
+
+.orbit-types {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.4rem;
+  margin: 0.4rem 0;
+}
+
+.orbit-type {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border: 2px solid var(--edge);
+  border-radius: 10px;
+  background: var(--paper);
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.orbit-type.is-picked {
+  border-color: var(--leaf);
+  background: #eef6d8;
+}
+
+.orbit-output {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  font-weight: 600;
+  margin: 0.2rem 0;
+}
+
+.orbit-build-row,
+.orbit-module {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.4rem 0;
+  border-top: 1px dashed var(--edge);
+}
+
+.orbit-build-row button {
+  align-self: flex-start;
+}
+
+.orbit-risk {
+  margin: 0.4rem 0;
+  padding: 0.4rem 0.6rem;
+  border-left: 3px solid var(--berry);
+  background: #fbefe6;
+  border-radius: 6px;
+}
+
+.orbit-risk .row {
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.orbit-kiwis {
+  list-style: none;
+  margin: 0.3rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.orbit-kiwis label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 32px;
+  cursor: pointer;
+}
+
+.orbit-candidates {
+  max-height: 14rem;
+  overflow-y: auto;
+}

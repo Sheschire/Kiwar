@@ -370,6 +370,11 @@ export const actions = {
     renderer?.focusNest();
   },
   /** Chantier 32: turns the camera towards the comet in the sky. */
+  /** Chantier 53: turns the camera to a kiwai in orbit (the Orbit screen closes). */
+  lookAtKiwai(kiwaiId: string): void {
+    uiStore.setState({ modal: 'none' });
+    renderer?.lookAtKiwai(kiwaiId);
+  },
   lookAtComet(): void {
     renderer?.lookAtComet();
   },

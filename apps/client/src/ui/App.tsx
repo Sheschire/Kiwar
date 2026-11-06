@@ -1,3 +1,4 @@
+import { OrbitModal } from './components/OrbitModal';
 import { LeagueModal } from './components/LeagueModal';
 import { DepthsModal } from './components/DepthsModal';
 import { Compass } from './components/Compass';
@@ -286,6 +287,7 @@ export function App() {
         {modal === 'siege' && <SiegeModal />}
         {modal === 'depths' && <DepthsModal />}
         {modal === 'league' && <LeagueModal />}
+        {modal === 'orbit' && <OrbitModal />}
         {bestiaryOpen && <BestiaryModal />}
         <JoinModal />
         <ChatPanel />

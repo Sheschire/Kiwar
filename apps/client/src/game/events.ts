@@ -305,6 +305,30 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
         if (e.iron) pushToast('success', 'iron.wreck', { iron: e.iron });
         break;
       }
+      // Chantier 53: the orbit.
+      case 'kiwaiReady':
+        pushToast('success', 'orbit.toast.ready', { type: `@orbit.types.${e.kiwaiType}.name` });
+        break;
+      case 'moduleReady':
+        pushToast('info', 'orbit.toast.module');
+        break;
+      case 'wearAnnounced':
+        pushToast('info', 'orbit.toast.wear');
+        break;
+      case 'moduleBroken':
+        pushToast('error', 'orbit.toast.broken');
+        break;
+      case 'moduleRepaired':
+        pushToast('success', 'orbit.toast.repaired');
+        break;
+      case 'swarmHit':
+        if (e.shielded) pushToast('success', 'orbit.toast.swarmHeld');
+        else if (e.broken > 0 || e.hurt > 0)
+          pushToast('error', 'orbit.toast.swarmHit', { broken: e.broken, hurt: e.hurt });
+        break;
+      case 'shuttleBack':
+        if (e.down > 0 || e.stardust > 0) pushToast('info', 'orbit.toast.back');
+        break;
       case 'wreckLeft':
         pushToast('info', 'obstacles.wreckLeft');
         break;

@@ -23,6 +23,8 @@ import {
   twinPlace,
   TWIN_CLOSEST,
   TWIN_DISTANCE,
+  kiwaiPlace,
+  KIWAI_DISTANCE,
 } from '../src/render/space';
 
 const azimuth = (p: { x: number; z: number }) => Math.atan2(p.x, p.z);
@@ -142,5 +144,23 @@ describe('comets in space (chantier 32)', () => {
     const behind = edgeArrow({ x: 0.2, y: 0.1 }, true, 1280, 800, inset)!;
     expect(behind).not.toBeNull();
     expect(behind.x).toBeLessThan(640);
+  });
+});
+
+describe('chantier 53, the kiwais in orbit', () => {
+  it('hang behind us, apart from each other and far from the twin', () => {
+    const twin = twinPlace();
+    const places = [0, 1, 2].map(kiwaiPlace);
+    for (const p of places) {
+      const d = Math.hypot(p.x, p.z);
+      expect(d).toBeCloseTo(KIWAI_DISTANCE, 6);
+      expect(Math.hypot(p.x - twin.x, p.z - twin.z)).toBeGreaterThan(TWIN_DISTANCE);
+    }
+    for (let i = 0; i < places.length; i++)
+      for (let j = i + 1; j < places.length; j++) {
+        const a = places[i]!;
+        const b = places[j]!;
+        expect(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)).toBeGreaterThan(15);
+      }
   });
 });
