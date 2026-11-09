@@ -17,8 +17,17 @@ import {
   type Parcel,
 } from './orchard';
 import type { GameState, PostAttack, PostReport, TradingPost } from './state';
-import { fruitOfPost, postFort, postKiwis, postOf, postStore, postsOf } from './tradingPost';
+import {
+  fruitOfPost,
+  postFit,
+  postFort,
+  postKiwis,
+  postOf,
+  postStore,
+  postsOf,
+} from './tradingPost';
 import { woundFactor } from './mines';
+import { wornOut } from './pineapple';
 
 /**
  * Chantier 54: attacks on our trading post. Their time is public (the post's own stream, the same
@@ -152,7 +161,8 @@ function strikePost(s: GameState, post: TradingPost, a: PostAttack, events: Game
   const clan = a.clan!;
   const army = attackArmy(s, post, clan, at);
   const fruit = fruitOfPost(post);
-  const guards = postKiwis(s, fruit);
+  // Kiwis worn out by the bromelain do not fight.
+  const guards = postFit(s, fruit, at);
   const setup = postSetup(s, guards, {
     attackers: army,
     orders: POST_ORDERS,
@@ -178,8 +188,11 @@ function strikePost(s: GameState, post: TradingPost, a: PostAttack, events: Game
     taken = Math.floor(postStore(post) * POST_ATTACK.loot);
     post.store = Math.max(0, post.store - taken * NECTAR_SCALE);
     post.ruined = true;
-    // The survivors come home in the pods.
-    for (const v of guards) if (v.job.kind === 'post') v.job = { kind: 'idle' };
+    // The survivors come home in the pods (the worn out ones wounded).
+    for (const v of postKiwis(s, fruit))
+      v.job = wornOut(v, at)
+        ? { kind: 'injured', until: at + Math.round(POST_ATTACK.woundMs * woundFactor(s)) }
+        : { kind: 'idle' };
   }
   recordBestiary(s, army, at);
   const report: PostReport = {
@@ -244,7 +257,7 @@ export function postAttackForecast(
       ),
     );
   const armies = [armyAt(1 - spread), armyAt(1), armyAt((1 + spread) * R.nestPower)];
-  const guards = postKiwis(s, fruit);
+  const guards = postFit(s, fruit, a.at);
   const trials = armies.map((units, i) => {
     const seed = `orchard/post/trial/${a.id}/${i}`;
     const setup = postSetup(s, guards, {

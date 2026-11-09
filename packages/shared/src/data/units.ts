@@ -251,6 +251,10 @@ export const ENEMY_KINDS = [
   'worm',
   'wormGuard',
   'codlingMoth',
+  // Chantier 55: the pineapple's weaver ants, in castes (workers, soldiers, winged).
+  'weaverAnt',
+  'antSoldier',
+  'antWinged',
 ] as const;
 export type EnemyKind = (typeof ENEMY_KINDS)[number];
 
@@ -467,6 +471,45 @@ export const ENEMIES: Record<EnemyKind, EnemyProfile> = {
     fightsBack: true,
     huntsKiwis: true,
   },
+  weaverAnt: {
+    body: 'louse',
+    hp: 10,
+    armor: 0.1,
+    speed: 0.9,
+    dodge: 0.1,
+    size: 1,
+    weapon: 'gnaw',
+    power: 1.1,
+    carry: 1,
+    fightsBack: true,
+    huntsKiwis: false,
+  },
+  antSoldier: {
+    body: 'louse',
+    hp: 26,
+    armor: 0.35,
+    speed: 0.6,
+    dodge: 0,
+    size: 2,
+    weapon: 'shellRam',
+    power: 2.8,
+    carry: 0.5,
+    fightsBack: true,
+    huntsKiwis: false,
+  },
+  antWinged: {
+    body: 'fly',
+    hp: 7,
+    armor: 0.05,
+    speed: 1.4,
+    dodge: 0.15,
+    size: 0,
+    weapon: 'sting',
+    power: 1.1,
+    carry: 0.6,
+    fightsBack: true,
+    huntsKiwis: true,
+  },
 };
 
 /** Chantier 54: the beetles of the raspberry. */
@@ -474,6 +517,13 @@ export const BEETLE_KINDS = [
   'beetle',
   'beetleGuard',
   'byturus',
+] as const satisfies readonly EnemyKind[];
+
+/** Chantier 55: the weaver ants of the pineapple. */
+export const ANT_KINDS = [
+  'weaverAnt',
+  'antSoldier',
+  'antWinged',
 ] as const satisfies readonly EnemyKind[];
 
 /** Chantier 55: the worms of the apple. */

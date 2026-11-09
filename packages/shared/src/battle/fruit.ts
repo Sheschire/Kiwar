@@ -28,6 +28,8 @@ export interface FruitInput {
   seed: string;
   /** Chantier 55: the fruit (its help's share and delay; default the raspberry). */
   fruit?: FruitId;
+  /** Chantier 55: shares of hit points each kiwi lost before the fight (the bromelain). */
+  harm?: Readonly<Record<string, number>>;
 }
 
 const RADIUS = 4;
@@ -51,6 +53,12 @@ export function fruitSetup(
     fed: input.fed,
     seed: input.seed,
   });
+  // The pineapple's bromelain wore the crew down before the fight (public, no roll).
+  if (input.harm)
+    for (const u of setup.units) {
+      const share = u.side === 1 ? input.harm[u.ref] : undefined;
+      if (share) u.hp *= 1 - share;
+    }
   const help = FRUIT_DEFS[input.fruit ?? 'raspberry'].help;
   const helpers = input.help.flatMap((army) => shareOf(army, help.share));
   if (helpers.length === 0) return setup;

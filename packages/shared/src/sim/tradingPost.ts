@@ -13,6 +13,7 @@ import type { GameEvent } from './advance';
 import type { CommandError } from './commands';
 import { meteorIronOf } from './iron';
 import { nectarOf } from './orchard';
+import { wornOut } from './pineapple';
 import { siteSpotError, smallMap, type SmallMap } from './sites';
 import type { GameState, PostModule, TradingPost, Villager } from './state';
 
@@ -90,12 +91,17 @@ export function postHousing(post: TradingPost, at: TimeMs): number {
   );
 }
 
+/** Kiwis at a post still able to work and fight (the bromelain wears the pineapple's out). */
+export function postFit(state: GameState, fruit: FruitId, at: TimeMs = state.now): Villager[] {
+  return postKiwis(state, fruit).filter((v) => !wornOut(v, at));
+}
+
 /** Kiwis at work in the stalls (two places each). */
 export function stallWorkers(state: GameState, post: TradingPost, at: TimeMs): number {
   const places = post.modules
     .filter((m) => m.type === 'stall' && ready(m, at))
     .reduce((a, m) => a + (POST.modules[m.type].workSlots ?? 0), 0);
-  return Math.min(places, postKiwis(state, fruitOfPost(post)).length);
+  return Math.min(places, postFit(state, fruitOfPost(post), at).length);
 }
 
 /** Levels of the palisades standing (the post's defence). */
@@ -160,6 +166,8 @@ export function nextPostEvent(s: GameState): TimeMs {
     later(post.readyAt);
     for (const m of post.modules) later(m.readyAt);
   }
+  // Chantier 55: a kiwi at the pineapple worn out stops working.
+  for (const v of s.villagers) if (v.job.kind === 'post' && v.job.wornAt) later(v.job.wornAt);
   return at;
 }
 
@@ -170,6 +178,9 @@ export function postTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
       if (m.readyAt === at)
         events.push({ type: 'postModuleReady', at, moduleType: m.type, drupelet: post.drupelet });
   }
+  for (const v of s.villagers)
+    if (v.job.kind === 'post' && v.job.wornAt === at)
+      events.push({ type: 'postKiwiWorn', at, villagerId: v.id });
 }
 
 /** Founds the post on a parcel (a ship has arrived with its cost paid at launch). */

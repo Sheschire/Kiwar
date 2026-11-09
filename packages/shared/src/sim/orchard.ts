@@ -1,5 +1,6 @@
 import {
   APPLE,
+  PINEAPPLE,
   FRUIT_DEFS,
   FRUIT_IDS,
   GOOD_CAPS,
@@ -14,6 +15,7 @@ import {
   type OrchardGood,
 } from '../data/orchard';
 import { appleEffects, appleOf } from './apple';
+import { pineappleOf } from './pineapple';
 import type { ResourceId } from '../data/resources';
 import { ENEMIES, type EnemyKind } from '../data/units';
 import { createRng } from '../rng/rng';
@@ -48,6 +50,8 @@ export interface Parcel {
   ring: 0 | 1 | 2;
   clan: string;
   links: string[];
+  /** Chantier 55: the pineapple's crown (the royal parcel). */
+  crown?: boolean;
 }
 
 /** The raspberry's parcels. */
@@ -150,6 +154,8 @@ export function fruitMapOf(seed: string, fruit: FruitId): FruitMap {
       return raspberryOf(seed);
     case 'apple':
       return appleOf(seed);
+    case 'pineapple':
+      return pineappleOf(seed);
   }
 }
 
@@ -201,6 +207,8 @@ export interface DrupeletTruth {
   nest: boolean;
   /** Chantier 55: cider stored in an apple's gallery (found only overripe; 0 elsewhere). */
   cider: number;
+  /** Chantier 55: golden fibre a pineapple's scale holds (the crown: three times more). */
+  goldFiber: number;
 }
 
 export type FruitTruth = DrupeletTruth;
@@ -220,7 +228,8 @@ export function fruitTruth(seed: string, d: Parcel): FruitTruth {
     const power =
       R.rings.power[d.ring]! *
       rng.range(1 - R.powerSpread, 1 + R.powerSpread) *
-      (nestHere ? R.nestPower : 1);
+      (nestHere ? R.nestPower : 1) *
+      (d.crown ? PINEAPPLE.crownPower : 1);
     const nectar = Math.round(
       R.rings.nectar[d.ring]! * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread),
     );
@@ -228,11 +237,20 @@ export function fruitTruth(seed: string, d: Parcel): FruitTruth {
       fruit === 'apple'
         ? Math.round(APPLE.cider[d.ring]! * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread))
         : 0;
+    const goldFiber =
+      fruit === 'pineapple'
+        ? Math.round(
+            PINEAPPLE.goldFiber[d.ring]! *
+              rng.range(1 - R.nectarSpread, 1 + R.nectarSpread) *
+              (d.crown ? PINEAPPLE.crownFiber : 1),
+          )
+        : 0;
     t = {
       units: fruitGarrison(fruit, power, R.rings.level[d.ring]!),
       nectar,
       nest: nestHere,
       cider,
+      goldFiber,
     };
     if (truthCache.size > 512) truthCache.clear();
     truthCache.set(key, t);
@@ -271,7 +289,11 @@ export function guessGarrison(
   const fruit = fruitOfId(d.id) ?? 'raspberry';
   const R = FRUIT_DEFS[fruit];
   const power =
-    R.rings.power[d.ring]! * k * regrowth(state, d.id, at) * stagePower(state, fruit, at);
+    R.rings.power[d.ring]! *
+    k *
+    regrowth(state, d.id, at) *
+    stagePower(state, fruit, at) *
+    (d.crown ? PINEAPPLE.crownPower : 1);
   return fruitGarrison(fruit, power, R.rings.level[d.ring]!);
 }
 
@@ -320,6 +342,7 @@ export function parcelNow(state: GameState, seed: string, d: Parcel, at: TimeMs)
     nectar: Math.round(t.nectar * f * st.rich),
     nest: t.nest,
     cider: Math.round(t.cider * f * st.cider),
+    goldFiber: Math.round(t.goldFiber * f),
   };
 }
 
@@ -432,8 +455,10 @@ export function payNectar(s: GameState, units: number): void {
  * we took, or next to our post (the rule of the depths). The raspberry's drupelets always are.
  */
 export function parcelInReach(state: GameState, d: Parcel): boolean {
-  if (fruitOfId(d.id) !== 'apple' || d.ring === 0) return true;
-  const post = state.orchard.posts.apple;
+  const fruit = fruitOfId(d.id);
+  // The pineapple's scales are all open; its crown only from a scale next to it.
+  if (fruit === 'pineapple' ? !d.crown : fruit !== 'apple' || d.ring === 0) return true;
+  const post = fruit ? state.orchard.posts[fruit] : undefined;
   const near = (id: string) =>
     state.orchard.taken[id] !== undefined || (!!post && !post.ruined && post.drupelet === id);
   return near(d.id) || d.links.some(near);

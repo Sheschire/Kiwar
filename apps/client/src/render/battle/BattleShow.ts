@@ -84,6 +84,10 @@ const BEETLE_TINTS: Record<string, string> = {
   worm: '#e8d6a0',
   wormGuard: '#b58a52',
   codlingMoth: '#8f8a6a',
+  // The pineapple's weaver ants.
+  weaverAnt: '#c8742c',
+  antSoldier: '#7a3a14',
+  antWinged: '#e0b25a',
 };
 
 /** Chantier 42: how much bigger the ferret queen is than a soldier. */

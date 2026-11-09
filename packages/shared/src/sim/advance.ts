@@ -309,6 +309,8 @@ export type GameEvent =
   /** Chantier 54: our trading post stands on its drupelet, a module of it is assembled. */
   | { type: 'postReady'; at: TimeMs; drupelet: string }
   | { type: 'postModuleReady'; at: TimeMs; moduleType: PostModuleType; drupelet?: string }
+  /** Chantier 55: a kiwi at the pineapple's post worn out by the bromelain. */
+  | { type: 'postKiwiWorn'; at: TimeMs; villagerId: VillagerId }
   /** Chantier 54: an attack on our post announced, called off by a gift, struck. */
   | { type: 'postAttackAnnounced'; at: TimeMs; clan: string; strikeAt: TimeMs }
   | { type: 'postAttackCalmed'; at: TimeMs; clan: string }

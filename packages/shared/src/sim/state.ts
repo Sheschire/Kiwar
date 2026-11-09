@@ -101,7 +101,13 @@ export type Job =
    * Chantier 54: staying at our trading post on the raspberry (fed from the colony stock, no
    * militia nor evening), until a ship brings them home to `returnTo`.
    */
-  | { kind: 'post'; returnTo: BuildingId | null; fruit?: FruitId };
+  | {
+      kind: 'post';
+      returnTo: BuildingId | null;
+      fruit?: FruitId;
+      /** Chantier 55: on the pineapple, the bromelain wears this kiwi out then. */
+      wornAt?: TimeMs;
+    };
 
 export interface KiwiHistory {
   expeditions: number;
@@ -841,8 +847,9 @@ export interface DrupeletView {
   /** Nectar stored there then (units), and whether a nest stands there. */
   nectar: number;
   nest: boolean;
-  /** Chantier 55: cider an overripe apple's gallery held then. */
+  /** Chantier 55: cider an overripe apple's gallery held then; a pineapple's golden fibre. */
   cider?: number;
+  goldFiber?: number;
 }
 
 /** Chantier 54: a clan's standing with this colony at a time (it drifts toward 0 after). */

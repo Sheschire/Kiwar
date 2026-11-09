@@ -6,6 +6,7 @@ import { EXPEDITIONS } from '../data/expeditions';
 import { LANDING, type LandingOrders } from '../data/landing';
 import {
   APPLE,
+  PINEAPPLE,
   FRUIT_DEFS,
   NECTAR_SCALE,
   ORCHARD,
@@ -56,6 +57,7 @@ import {
   type Parcel,
 } from './orchard';
 import { appleStage, type AppleRipeness } from './apple';
+import { bromelainHarm, postWornAt, wornOut } from './pineapple';
 import {
   foundPost,
   postCost,
@@ -261,6 +263,9 @@ export interface PillageForecast {
   nectar: number;
   /** Chantier 55: cider an overripe apple's gallery holds (0 elsewhere). */
   cider: number;
+  /** Chantier 55: golden fibre a pineapple's scale holds, and the bromelain's harm per kiwi. */
+  goldFiber: number;
+  harm: Record<string, number>;
   odds: Odds;
   expectedDead: number;
   expectedHurt: number;
@@ -418,6 +423,11 @@ export function pillageForecast(
       ? view.nectar
       : Math.round(R.rings.nectar[d.ring]! * grown);
   const cider = st ? Math.round(APPLE.cider[d.ring]! * grown * st.cider) : 0;
+  const goldFiber =
+    fruit === 'pineapple'
+      ? Math.round(PINEAPPLE.goldFiber[d.ring]! * grown * (d.crown ? PINEAPPLE.crownFiber : 1))
+      : 0;
+  const harm = landingHarm(state, fruit, crew);
   const base = {
     knowledge: (view ? 'seen' : 'unknown') as 'seen' | 'unknown',
     view,
@@ -425,12 +435,22 @@ export function pillageForecast(
     help: helpers.map((h, i) => ({ drupelet: h.id, units: helpOf(1)[i]! })),
     nectar,
     cider,
+    goldFiber,
+    harm,
   };
   if (crew.length === 0)
     return { ...base, odds: 'unknown', expectedDead: 0, expectedHurt: 0, trials: [] };
   const runs = armies.map((units, i) => {
     const seed = `orchard/trial/${drupeletId}/${i}`;
-    const setup = fruitSetup(state, crew, { units, help: helpOf(i), orders, fed, seed, fruit });
+    const setup = fruitSetup(state, crew, {
+      units,
+      help: helpOf(i),
+      orders,
+      fed,
+      seed,
+      fruit,
+      harm,
+    });
     const key = JSON.stringify([setup.units, setup.orders, seed]);
     const hit = trialCache.get(key);
     if (hit) return hit;
@@ -565,6 +585,7 @@ export function resolveVoyage(
   // The trading post: founded on the first stop, then kiwis left there or brought home.
   let founded = false;
   const refund = { nectar: 0, crystal: 0, iron: 0 };
+  const worn: VillagerId[] = [];
   if (v.settle) {
     const first = map.byId.get(v.stops[0]!)!;
     const post = postOf(state, fruit);
@@ -587,12 +608,20 @@ export function resolveVoyage(
       const stay = new Set(v.stay);
       for (const m of members)
         if (stay.has(m.id))
-          m.job = { kind: 'post', returnTo: null, ...(fruit !== 'raspberry' ? { fruit } : {}) };
+          m.job = {
+            kind: 'post',
+            returnTo: null,
+            ...(fruit !== 'raspberry' ? { fruit } : {}),
+            // The pineapple's bromelain wears the kiwis left there out.
+            ...(fruit === 'pineapple' ? { wornAt: postWornAt(state, m, at) } : {}),
+          };
       e.crew = e.crew.filter((id) => !stay.has(id));
     }
     if (v.bringBack?.length) {
       for (const k of state.villagers)
         if (v.bringBack.includes(k.id) && k.job.kind === 'post') {
+          // Worn out by the bromelain: home wounded.
+          if (wornOut(k, at)) worn.push(k.id);
           k.job = { kind: 'expedition', expeditionId: e.id };
           e.crew.push(k.id);
           e.roster.push({
@@ -625,6 +654,7 @@ export function resolveVoyage(
     ...(refund.crystal > 0 ? { crystal: refund.crystal } : {}),
     ...(refund.iron > 0 ? { iron: refund.iron } : {}),
     ...(founded ? { postFounded: true } : {}),
+    ...(worn.length > 0 ? { injured: worn } : {}),
   };
   settleVoyage(state, e);
 }
@@ -652,6 +682,7 @@ function resolvePillage(
     fed,
     seed: battleSeed,
     fruit: map.fruit,
+    harm: landingHarm(state, map.fruit, members),
   });
   const log: BattleLog = simulateBattle(setup, battleSeed);
   const outcome = landingOutcome(log);
@@ -666,6 +697,7 @@ function resolvePillage(
   pillageStanding(state, d.clan, at);
   let nectar = 0;
   let cider = 0;
+  let goldFiber = 0;
   const view = {
     at,
     units: truth.units.map((u) => ({ ...u })),
@@ -676,6 +708,7 @@ function resolvePillage(
   if (outcome === 'victory') {
     nectar = truth.nectar;
     cider = truth.cider;
+    goldFiber = truth.goldFiber;
     state.orchard.taken[d.id] = at;
     const { cider: _c, ...rest } = view;
     state.orchard.views[d.id] = { ...rest, source: 'pillage', nectar: 0 };
@@ -696,6 +729,7 @@ function resolvePillage(
     ...(outcome !== 'defeat' ? { seen: truth.units.map((u) => ({ ...u })) } : {}),
     ...(nectar > 0 ? { nectar } : {}),
     ...(cider > 0 ? { cider } : {}),
+    ...(goldFiber > 0 ? { goldFiber } : {}),
   };
   if (e.crew.length === 0) {
     // Nobody to sail the ship home: it is lost, the launchpad builds a new one (a repair).
@@ -703,6 +737,15 @@ function resolvePillage(
     if (pad) pad.damaged = true;
   }
   settleVoyage(state, e);
+}
+
+/** Chantier 55: what the pineapple's bromelain costs a crew before it fights (public). */
+export function landingHarm(
+  state: GameState,
+  fruit: FruitId,
+  crew: readonly Villager[],
+): Record<string, number> {
+  return fruit === 'pineapple' ? bromelainHarm(state, crew, PINEAPPLE.bromelain.landingHours) : {};
 }
 
 /** The fruit a voyage went to. */

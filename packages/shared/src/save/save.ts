@@ -108,6 +108,7 @@ const job = z.discriminatedUnion('kind', [
     kind: z.literal('post'),
     returnTo: id.nullable(),
     fruit: z.enum(FRUIT_IDS).optional(),
+    wornAt: z.number().optional(),
   }),
   z.object({
     kind: z.literal('titan'),
@@ -690,6 +691,7 @@ export const gameStateSchema = z.object({
         nectar: z.number().int().min(0).max(10000),
         nest: z.boolean(),
         cider: z.number().int().min(0).max(10000).optional(),
+        goldFiber: z.number().int().min(0).max(10000).optional(),
       }),
     ),
     taken: z.record(z.string().max(8), z.number()),

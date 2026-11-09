@@ -82,6 +82,7 @@ export * from './sim/sites';
 export * from './sim/orbit';
 export * from './sim/orchard';
 export * from './sim/apple';
+export * from './sim/pineapple';
 export * from './sim/voyages';
 export * from './sim/tradingPost';
 export * from './sim/postAttacks';

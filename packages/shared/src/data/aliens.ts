@@ -93,6 +93,10 @@ export const ALIEN_GEAR: Record<
   worm: { weapon: null, armor: null },
   wormGuard: { weapon: null, armor: null },
   codlingMoth: { weapon: null, armor: null },
+  // Chantier 55: the pineapple's ants.
+  weaverAnt: { weapon: null, armor: null },
+  antSoldier: { weapon: null, armor: null },
+  antWinged: { weapon: null, armor: null },
 };
 
 /** Share of each kind in a parcel's garrison (ground and air). */

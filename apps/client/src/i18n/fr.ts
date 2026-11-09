@@ -2264,6 +2264,9 @@ export const fr: Dict = {
       worm: 'Ver',
       wormGuard: 'Ver gardien',
       codlingMoth: 'Carpocapse',
+      weaverAnt: 'Fourmi tisserande',
+      antSoldier: 'Fourmi soldate',
+      antWinged: 'Fourmi ailée',
       queen: 'La reine des furets',
     },
     weapons: {

@@ -2163,6 +2163,9 @@ export const en = {
       worm: 'Worm',
       wormGuard: 'Guard worm',
       codlingMoth: 'Codling moth',
+      weaverAnt: 'Weaver ant',
+      antSoldier: 'Soldier ant',
+      antWinged: 'Winged ant',
       queen: 'The ferret queen',
     },
     weapons: {

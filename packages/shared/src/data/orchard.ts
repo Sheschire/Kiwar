@@ -7,7 +7,7 @@ import type { ResourceId } from './resources';
  * and the pineapple). Every number is a hypothesis, checked with the balance bot.
  */
 
-export const FRUIT_IDS = ['raspberry', 'apple'] as const;
+export const FRUIT_IDS = ['raspberry', 'apple', 'pineapple'] as const;
 export type FruitId = (typeof FRUIT_IDS)[number];
 
 /** The target id of a voyage to a fruit of the orchard (no face: the fruit's parcels). */
@@ -25,10 +25,11 @@ export const ORCHARD_TARGET = orchardTarget('raspberry');
 export const FRUIT_PREFIX: Record<FruitId, { parcel: string; clan: string }> = {
   raspberry: { parcel: 'd', clan: 'c' },
   apple: { parcel: 'g', clan: 'w' },
+  pineapple: { parcel: 's', clan: 'n' },
 };
 
 /** Names each fruit's clans draw from (`orchard.clanNames.<fruit>.n<i>` in the client). */
-export const CLAN_NAME_COUNT: Record<FruitId, number> = { raspberry: 16, apple: 8 };
+export const CLAN_NAME_COUNT: Record<FruitId, number> = { raspberry: 16, apple: 8, pineapple: 10 };
 
 /** The fruit of a parcel or clan id (null: no fruit's). */
 export function fruitOfId(id: string): FruitId | null {
@@ -176,10 +177,63 @@ export const APPLE = {
   } as Record<AppleStage, { power: number; rich: number; cider: number }>,
 } as const;
 
+/**
+ * Chantier 55: the pineapple. A multiple fruit: 100-200 scales (each a fruitlet) in spirals, a
+ * grid that is almost a face, guarded by castes of weaver ants; the crown at the top is the
+ * royal parcel. Its rule is bromelain: the enzyme digests proteins, so every hour on the fruit
+ * wears a crew down (hit points), unless the actinidine of a lake worked at home or golden fibre
+ * gear shields it. Its resource: golden fibre, from the crown's leaves.
+ */
+export const PINEAPPLE = {
+  scales: [100, 200] as const,
+  /** Each scale's nearest ones it touches (the spirals make an almost hexagonal grid). */
+  touches: 5,
+  /** The crown links to that many scales of the top row. */
+  crownLinks: 6,
+  clans: [6, 9] as const,
+  wants: ['pulp', 'fiber', 'juice', 'seeds'] as readonly ResourceId[],
+  /** By height (the base 0, the middle 1, the shoulders under the crown 2). */
+  rings: {
+    power: [40, 60, 85] as readonly number[],
+    level: [17, 19, 21] as readonly number[],
+    nectar: [12, 20, 30] as readonly number[],
+  },
+  /** Golden fibre a scale holds by ring (the crown: × `crownFiber`). */
+  goldFiber: [4, 7, 11] as readonly number[],
+  crownPower: 2.5,
+  crownFiber: 3,
+  powerSpread: 0.2,
+  nectarSpread: 0.3,
+  nestChance: 0.2,
+  nestPower: 1.5,
+  mix: { weaverAnt: 0.55, antSoldier: 0.3, antWinged: 0.15 },
+  regrowMs: 72 * 3_600_000,
+  help: { share: 0.3, delayS: 20 },
+  /** Further than the other fruits (8 h before the launchpad's speed). */
+  travelMs: 8 * 3_600_000,
+  /**
+   * Bromelain: a share of a kiwi's hit points lost per hour on the fruit, the hours a landing
+   * spends before the fight, the hit points always kept; Endurance above 5 shields (per point, up
+   * to `enduranceCap`), the actinidine of a lake worked at home halves it; kiwis at the post are
+   * worn out after `postHours` (longer when shielded) and stop working until relieved.
+   */
+  bromelain: {
+    perHour: 0.06,
+    landingHours: 3,
+    floor: 0.25,
+    perEndurance: 0.03,
+    enduranceCap: 0.4,
+    actinidine: 0.5,
+    /** (A worn-out kiwi brought home is wounded like a crew back from a victory.) */
+    postHours: 36,
+  },
+} as const;
+
 /** Chantier 55: every fruit's shared rules. */
 export const FRUIT_DEFS: Record<FruitId, FruitDef> = {
   raspberry: RASPBERRY,
   apple: APPLE,
+  pineapple: PINEAPPLE,
 };
 
 /** Chantier 54: the standing of each clan with this colony (public, shown to the player). */

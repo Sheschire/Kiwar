@@ -3775,7 +3775,11 @@ var ALIEN_GEAR = {
   // Chantier 55: the apple's worms.
   worm: { weapon: null, armor: null },
   wormGuard: { weapon: null, armor: null },
-  codlingMoth: { weapon: null, armor: null }
+  codlingMoth: { weapon: null, armor: null },
+  // Chantier 55: the pineapple's ants.
+  weaverAnt: { weapon: null, armor: null },
+  antSoldier: { weapon: null, armor: null },
+  antWinged: { weapon: null, armor: null }
 };
 var ALIEN_MIX = {
   ground: { soldier: 0.6, scout: 0.15, brute: 0.25 },
@@ -4240,16 +4244,17 @@ function moduleFits(type, kiwai) {
 }
 
 // packages/shared/src/data/orchard.ts
-var FRUIT_IDS = ["raspberry", "apple"];
+var FRUIT_IDS = ["raspberry", "apple", "pineapple"];
 function orchardTarget(fruit) {
   return `orchard:${fruit}`;
 }
 var ORCHARD_TARGET = orchardTarget("raspberry");
 var FRUIT_PREFIX = {
   raspberry: { parcel: "d", clan: "c" },
-  apple: { parcel: "g", clan: "w" }
+  apple: { parcel: "g", clan: "w" },
+  pineapple: { parcel: "s", clan: "n" }
 };
-var CLAN_NAME_COUNT = { raspberry: 16, apple: 8 };
+var CLAN_NAME_COUNT = { raspberry: 16, apple: 8, pineapple: 10 };
 function fruitOfId(id3) {
   const c = id3[0];
   for (const f of FRUIT_IDS)
@@ -4351,9 +4356,54 @@ var APPLE = {
     overripe: { power: 1.5, rich: 0.5, cider: 1 }
   }
 };
+var PINEAPPLE = {
+  scales: [100, 200],
+  /** Each scale's nearest ones it touches (the spirals make an almost hexagonal grid). */
+  touches: 5,
+  /** The crown links to that many scales of the top row. */
+  crownLinks: 6,
+  clans: [6, 9],
+  wants: ["pulp", "fiber", "juice", "seeds"],
+  /** By height (the base 0, the middle 1, the shoulders under the crown 2). */
+  rings: {
+    power: [40, 60, 85],
+    level: [17, 19, 21],
+    nectar: [12, 20, 30]
+  },
+  /** Golden fibre a scale holds by ring (the crown: × `crownFiber`). */
+  goldFiber: [4, 7, 11],
+  crownPower: 2.5,
+  crownFiber: 3,
+  powerSpread: 0.2,
+  nectarSpread: 0.3,
+  nestChance: 0.2,
+  nestPower: 1.5,
+  mix: { weaverAnt: 0.55, antSoldier: 0.3, antWinged: 0.15 },
+  regrowMs: 72 * 36e5,
+  help: { share: 0.3, delayS: 20 },
+  /** Further than the other fruits (8 h before the launchpad's speed). */
+  travelMs: 8 * 36e5,
+  /**
+   * Bromelain: a share of a kiwi's hit points lost per hour on the fruit, the hours a landing
+   * spends before the fight, the hit points always kept; Endurance above 5 shields (per point, up
+   * to `enduranceCap`), the actinidine of a lake worked at home halves it; kiwis at the post are
+   * worn out after `postHours` (longer when shielded) and stop working until relieved.
+   */
+  bromelain: {
+    perHour: 0.06,
+    landingHours: 3,
+    floor: 0.25,
+    perEndurance: 0.03,
+    enduranceCap: 0.4,
+    actinidine: 0.5,
+    /** (A worn-out kiwi brought home is wounded like a crew back from a victory.) */
+    postHours: 36
+  }
+};
 var FRUIT_DEFS = {
   raspberry: RASPBERRY,
-  apple: APPLE
+  apple: APPLE,
+  pineapple: PINEAPPLE
 };
 var STANDING = {
   min: -100,
@@ -5295,7 +5345,11 @@ var ENEMY_KINDS = [
   // Chantier 55: the apple's worms (the codling moth's larvae; its moths fly).
   "worm",
   "wormGuard",
-  "codlingMoth"
+  "codlingMoth",
+  // Chantier 55: the pineapple's weaver ants, in castes (workers, soldiers, winged).
+  "weaverAnt",
+  "antSoldier",
+  "antWinged"
 ];
 var DEPTH_KINDS = [
   "larva",
@@ -5484,12 +5538,56 @@ var ENEMIES = {
     carry: 0.6,
     fightsBack: true,
     huntsKiwis: true
+  },
+  weaverAnt: {
+    body: "louse",
+    hp: 10,
+    armor: 0.1,
+    speed: 0.9,
+    dodge: 0.1,
+    size: 1,
+    weapon: "gnaw",
+    power: 1.1,
+    carry: 1,
+    fightsBack: true,
+    huntsKiwis: false
+  },
+  antSoldier: {
+    body: "louse",
+    hp: 26,
+    armor: 0.35,
+    speed: 0.6,
+    dodge: 0,
+    size: 2,
+    weapon: "shellRam",
+    power: 2.8,
+    carry: 0.5,
+    fightsBack: true,
+    huntsKiwis: false
+  },
+  antWinged: {
+    body: "fly",
+    hp: 7,
+    armor: 0.05,
+    speed: 1.4,
+    dodge: 0.15,
+    size: 0,
+    weapon: "sting",
+    power: 1.1,
+    carry: 0.6,
+    fightsBack: true,
+    huntsKiwis: true
   }
 };
 var BEETLE_KINDS = [
   "beetle",
   "beetleGuard",
   "byturus"
+];
+var ANT_KINDS = [
+  "weaverAnt",
+  "antSoldier",
+  "antWinged"
 ];
 var WORM_KINDS = [
   "worm",
@@ -9976,6 +10074,11 @@ function fruitSetup(state, crew, input) {
     fed: input.fed,
     seed: input.seed
   });
+  if (input.harm)
+    for (const u of setup.units) {
+      const share2 = u.side === 1 ? input.harm[u.ref] : void 0;
+      if (share2) u.hp *= 1 - share2;
+    }
   const help = FRUIT_DEFS[input.fruit ?? "raspberry"].help;
   const helpers = input.help.flatMap((army) => shareOf(army, help.share));
   if (helpers.length === 0) return setup;
@@ -10248,6 +10351,91 @@ function appleEffects(seed, at) {
   return APPLE.stages[appleStage(seed, at).stage];
 }
 
+// packages/shared/src/sim/pineapple.ts
+var cache3 = /* @__PURE__ */ new Map();
+function pineappleOf(seed) {
+  const hit = cache3.get(seed);
+  if (hit) return hit;
+  const rng = createRng(`${seed}/pineapple`);
+  const P = PINEAPPLE;
+  const n = rng.int(P.scales[0], P.scales[1]);
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const turn = rng.range(0, 2 * Math.PI);
+  const points = Array.from({ length: n }, (_, i) => {
+    const y = -0.95 + 1.85 * (i + 0.5) / n;
+    const r = 0.72 * Math.sqrt(Math.max(0.05, 1 - (y / 1.08) ** 4));
+    const a = turn + i * golden;
+    return { x: r * Math.cos(a), y, z: r * Math.sin(a) };
+  });
+  points.push({ x: 0, y: 1.12, z: 0 });
+  const crown = n;
+  const links = points.map(() => []);
+  const nearest = (i, pool, k2) => pool.filter((j) => j !== i).sort((a, b) => dist3(points[i], points[a]) - dist3(points[i], points[b]) || a - b).slice(0, k2);
+  const scales = Array.from({ length: n }, (_, i) => i);
+  for (const i of scales) for (const j of nearest(i, scales, P.touches)) link(links, i, j);
+  for (const j of nearest(crown, scales, P.crownLinks)) link(links, crown, j);
+  const k = rng.int(P.clans[0], P.clans[1]);
+  const { owner, seeds } = growClans(points, links, k, rng);
+  const names = shuffled(
+    Array.from({ length: CLAN_NAME_COUNT.pineapple }, (_, i) => i),
+    rng
+  );
+  const clans = seeds.map((_, c) => ({
+    id: `n${c}`,
+    name: names[c % names.length],
+    parcels: [],
+    wants: rng.pick(P.wants),
+    rate: Math.round(rng.range(TRADE.rate[0], TRADE.rate[1]) * 10) / 10
+  }));
+  const parcels = points.map((p, i) => ({
+    id: `s${i}`,
+    index: i,
+    x: round3(p.x),
+    y: round3(p.y),
+    z: round3(p.z),
+    ring: i === crown ? 2 : Math.min(2, Math.floor(3 * i / n)),
+    clan: `n${owner[i]}`,
+    links: links[i].map((j) => `s${j}`).sort(),
+    ...i === crown ? { crown: true } : {}
+  }));
+  for (const s of parcels) clans[Number(s.clan.slice(1))].parcels.push(s.id);
+  const out = {
+    fruit: "pineapple",
+    seed,
+    parcels,
+    clans,
+    byId: new Map(parcels.map((s) => [s.id, s])),
+    clanById: new Map(clans.map((c) => [c.id, c]))
+  };
+  if (cache3.size > 16) cache3.clear();
+  cache3.set(seed, out);
+  return out;
+}
+function crownOf(map) {
+  return map.parcels[map.parcels.length - 1];
+}
+function bromelainShield(state, v) {
+  const B = PINEAPPLE.bromelain;
+  const end = Math.min(B.enduranceCap, Math.max(0, v.stats.endurance - 5) * B.perEndurance);
+  return (1 - end) * (actinidineActive(state) ? B.actinidine : 1);
+}
+function bromelainHarm(state, crew, hours) {
+  const B = PINEAPPLE.bromelain;
+  const out = {};
+  for (const v of crew) {
+    const share2 = Math.min(1 - B.floor, B.perHour * hours * bromelainShield(state, v));
+    if (share2 > 0) out[v.id] = Math.round(share2 * 100) / 100;
+  }
+  return out;
+}
+function postWornAt(state, v, at) {
+  const shield = Math.max(0.1, bromelainShield(state, v));
+  return at + Math.round(PINEAPPLE.bromelain.postHours * 36e5 / shield / 6e4) * 6e4;
+}
+function wornOut(v, at) {
+  return v.job.kind === "post" && v.job.wornAt !== void 0 && v.job.wornAt <= at;
+}
+
 // packages/shared/src/sim/orchard.ts
 var CLAN_NAMES = 16;
 var mapCache3 = /* @__PURE__ */ new Map();
@@ -10314,6 +10502,8 @@ function fruitMapOf(seed, fruit) {
       return raspberryOf(seed);
     case "apple":
       return appleOf(seed);
+    case "pineapple":
+      return pineappleOf(seed);
   }
 }
 function fruitOfState(state, fruit) {
@@ -10351,16 +10541,20 @@ function fruitTruth(seed, d) {
     const rng = createRng(key);
     const R = FRUIT_DEFS[fruit];
     const nestHere = rng.chance(R.nestChance);
-    const power = R.rings.power[d.ring] * rng.range(1 - R.powerSpread, 1 + R.powerSpread) * (nestHere ? R.nestPower : 1);
+    const power = R.rings.power[d.ring] * rng.range(1 - R.powerSpread, 1 + R.powerSpread) * (nestHere ? R.nestPower : 1) * (d.crown ? PINEAPPLE.crownPower : 1);
     const nectar = Math.round(
       R.rings.nectar[d.ring] * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread)
     );
     const cider = fruit === "apple" ? Math.round(APPLE.cider[d.ring] * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread)) : 0;
+    const goldFiber = fruit === "pineapple" ? Math.round(
+      PINEAPPLE.goldFiber[d.ring] * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread) * (d.crown ? PINEAPPLE.crownFiber : 1)
+    ) : 0;
     t = {
       units: fruitGarrison(fruit, power, R.rings.level[d.ring]),
       nectar,
       nest: nestHere,
-      cider
+      cider,
+      goldFiber
     };
     if (truthCache2.size > 512) truthCache2.clear();
     truthCache2.set(key, t);
@@ -10383,7 +10577,7 @@ function beetles(power, level) {
 function guessGarrison(state, d, k, at) {
   const fruit = fruitOfId(d.id) ?? "raspberry";
   const R = FRUIT_DEFS[fruit];
-  const power = R.rings.power[d.ring] * k * regrowth(state, d.id, at) * stagePower(state, fruit, at);
+  const power = R.rings.power[d.ring] * k * regrowth(state, d.id, at) * stagePower(state, fruit, at) * (d.crown ? PINEAPPLE.crownPower : 1);
   return fruitGarrison(fruit, power, R.rings.level[d.ring]);
 }
 function stagePower(state, fruit, at) {
@@ -10413,7 +10607,8 @@ function parcelNow(state, seed, d, at) {
     units: scaleUnits(t.units, f * st.power),
     nectar: Math.round(t.nectar * f * st.rich),
     nest: t.nest,
-    cider: Math.round(t.cider * f * st.cider)
+    cider: Math.round(t.cider * f * st.cider),
+    goldFiber: Math.round(t.goldFiber * f)
   };
 }
 var drupeletNow = parcelNow;
@@ -10482,8 +10677,9 @@ function payNectar(s, units) {
   payGood(s, "nectar", units);
 }
 function parcelInReach(state, d) {
-  if (fruitOfId(d.id) !== "apple" || d.ring === 0) return true;
-  const post = state.orchard.posts.apple;
+  const fruit = fruitOfId(d.id);
+  if (fruit === "pineapple" ? !d.crown : fruit !== "apple" || d.ring === 0) return true;
+  const post = fruit ? state.orchard.posts[fruit] : void 0;
   const near = (id3) => state.orchard.taken[id3] !== void 0 || !!post && !post.ruined && post.drupelet === id3;
   return near(d.id) || d.links.some(near);
 }
@@ -10529,10 +10725,10 @@ function forgetOrchard(s, seed = s.orchard.seed) {
 }
 
 // packages/shared/src/sim/sites.ts
-var cache3 = /* @__PURE__ */ new Map();
+var cache4 = /* @__PURE__ */ new Map();
 function smallMap(key, radius, rocks) {
   const id3 = `${key}|${radius}|${rocks[0]}-${rocks[1]}`;
-  const hit = cache3.get(id3);
+  const hit = cache4.get(id3);
   if (hit) return hit;
   const rng = createRng(`${key}/site`);
   const disk = hexDisk({ q: 0, r: 0 }, radius);
@@ -10557,8 +10753,8 @@ function smallMap(key, radius, rocks) {
     tiles,
     index: new Map(tiles.map((t, i) => [hexKey(t), i]))
   };
-  if (cache3.size >= 24) cache3.delete(cache3.keys().next().value);
-  cache3.set(id3, map);
+  if (cache4.size >= 24) cache4.delete(cache4.keys().next().value);
+  cache4.set(id3, map);
   return map;
 }
 function siteTile(map, h) {
@@ -10617,9 +10813,12 @@ function ready(m, at) {
 function postHousing(post, at) {
   return 2 + post.modules.filter((m) => m.type === "hut" && ready(m, at)).reduce((a, m) => a + (POST.modules[m.type].housing ?? 0), 0);
 }
+function postFit(state, fruit, at = state.now) {
+  return postKiwis(state, fruit).filter((v) => !wornOut(v, at));
+}
 function stallWorkers(state, post, at) {
   const places = post.modules.filter((m) => m.type === "stall" && ready(m, at)).reduce((a, m) => a + (POST.modules[m.type].workSlots ?? 0), 0);
-  return Math.min(places, postKiwis(state, fruitOfPost(post)).length);
+  return Math.min(places, postFit(state, fruitOfPost(post), at).length);
 }
 function postFort(post, at) {
   return post.modules.filter((m) => m.type === "palisade" && ready(m, at)).reduce((a, m) => a + (POST.modules[m.type].fort ?? 0), 0);
@@ -10664,6 +10863,7 @@ function nextPostEvent(s) {
     later(post.readyAt);
     for (const m of post.modules) later(m.readyAt);
   }
+  for (const v of s.villagers) if (v.job.kind === "post" && v.job.wornAt) later(v.job.wornAt);
   return at;
 }
 function postTick(s, at, events) {
@@ -10673,6 +10873,9 @@ function postTick(s, at, events) {
       if (m.readyAt === at)
         events.push({ type: "postModuleReady", at, moduleType: m.type, drupelet: post.drupelet });
   }
+  for (const v of s.villagers)
+    if (v.job.kind === "post" && v.job.wornAt === at)
+      events.push({ type: "postKiwiWorn", at, villagerId: v.id });
 }
 function foundPost(s, drupelet, at) {
   const fruit = fruitOfId(drupelet) ?? "raspberry";
@@ -10942,19 +11145,31 @@ function pillageForecast(state, drupeletId, crew, orders, fed = 1, at = state.no
   const st = fruit === "apple" ? APPLE.stages[appleStage(state.orchard.seed, at).stage] : null;
   const nectar = st ? Math.round(R.rings.nectar[d.ring] * grown * st.rich) : view ? view.nectar : Math.round(R.rings.nectar[d.ring] * grown);
   const cider = st ? Math.round(APPLE.cider[d.ring] * grown * st.cider) : 0;
+  const goldFiber = fruit === "pineapple" ? Math.round(PINEAPPLE.goldFiber[d.ring] * grown * (d.crown ? PINEAPPLE.crownFiber : 1)) : 0;
+  const harm = landingHarm(state, fruit, crew);
   const base = {
     knowledge: view ? "seen" : "unknown",
     view,
     units: armies[1],
     help: helpers.map((h, i) => ({ drupelet: h.id, units: helpOf(1)[i] })),
     nectar,
-    cider
+    cider,
+    goldFiber,
+    harm
   };
   if (crew.length === 0)
     return { ...base, odds: "unknown", expectedDead: 0, expectedHurt: 0, trials: [] };
   const runs = armies.map((units, i) => {
     const seed = `orchard/trial/${drupeletId}/${i}`;
-    const setup = fruitSetup(state, crew, { units, help: helpOf(i), orders, fed, seed, fruit });
+    const setup = fruitSetup(state, crew, {
+      units,
+      help: helpOf(i),
+      orders,
+      fed,
+      seed,
+      fruit,
+      harm
+    });
     const key = JSON.stringify([setup.units, setup.orders, seed]);
     const hit = trialCache3.get(key);
     if (hit) return hit;
@@ -11070,6 +11285,7 @@ function resolveVoyage(state, e, members, fed) {
   if (units.length) recordBestiary(state, units, at);
   let founded = false;
   const refund2 = { nectar: 0, crystal: 0, iron: 0 };
+  const worn = [];
   if (v.settle) {
     const first = map.byId.get(v.stops[0]);
     const post2 = postOf(state, fruit);
@@ -11088,12 +11304,19 @@ function resolveVoyage(state, e, members, fed) {
       const stay = new Set(v.stay);
       for (const m of members)
         if (stay.has(m.id))
-          m.job = { kind: "post", returnTo: null, ...fruit !== "raspberry" ? { fruit } : {} };
+          m.job = {
+            kind: "post",
+            returnTo: null,
+            ...fruit !== "raspberry" ? { fruit } : {},
+            // The pineapple's bromelain wears the kiwis left there out.
+            ...fruit === "pineapple" ? { wornAt: postWornAt(state, m, at) } : {}
+          };
       e.crew = e.crew.filter((id3) => !stay.has(id3));
     }
     if (v.bringBack?.length) {
       for (const k of state.villagers)
         if (v.bringBack.includes(k.id) && k.job.kind === "post") {
+          if (wornOut(k, at)) worn.push(k.id);
           k.job = { kind: "expedition", expeditionId: e.id };
           e.crew.push(k.id);
           e.roster.push({
@@ -11123,7 +11346,8 @@ function resolveVoyage(state, e, members, fed) {
     ...nectar + refund2.nectar > 0 ? { nectar: nectar + refund2.nectar } : {},
     ...refund2.crystal > 0 ? { crystal: refund2.crystal } : {},
     ...refund2.iron > 0 ? { iron: refund2.iron } : {},
-    ...founded ? { postFounded: true } : {}
+    ...founded ? { postFounded: true } : {},
+    ...worn.length > 0 ? { injured: worn } : {}
   };
   settleVoyage(state, e);
 }
@@ -11140,7 +11364,8 @@ function resolvePillage(state, e, members, fed, seed) {
     orders: e.orders ?? LANDING.defaultOrders,
     fed,
     seed: battleSeed,
-    fruit: map.fruit
+    fruit: map.fruit,
+    harm: landingHarm(state, map.fruit, members)
   });
   const log2 = simulateBattle(setup, battleSeed);
   const outcome = landingOutcome(log2);
@@ -11153,6 +11378,7 @@ function resolvePillage(state, e, members, fed, seed) {
   pillageStanding(state, d.clan, at);
   let nectar = 0;
   let cider = 0;
+  let goldFiber = 0;
   const view = {
     at,
     units: truth.units.map((u) => ({ ...u })),
@@ -11163,6 +11389,7 @@ function resolvePillage(state, e, members, fed, seed) {
   if (outcome === "victory") {
     nectar = truth.nectar;
     cider = truth.cider;
+    goldFiber = truth.goldFiber;
     state.orchard.taken[d.id] = at;
     const { cider: _c, ...rest } = view;
     state.orchard.views[d.id] = { ...rest, source: "pillage", nectar: 0 };
@@ -11182,13 +11409,17 @@ function resolvePillage(state, e, members, fed, seed) {
     injured: hurt,
     ...outcome !== "defeat" ? { seen: truth.units.map((u) => ({ ...u })) } : {},
     ...nectar > 0 ? { nectar } : {},
-    ...cider > 0 ? { cider } : {}
+    ...cider > 0 ? { cider } : {},
+    ...goldFiber > 0 ? { goldFiber } : {}
   };
   if (e.crew.length === 0) {
     const pad = launchpadOf(state, e.launchpadId);
     if (pad) pad.damaged = true;
   }
   settleVoyage(state, e);
+}
+function landingHarm(state, fruit, crew) {
+  return fruit === "pineapple" ? bromelainHarm(state, crew, PINEAPPLE.bromelain.landingHours) : {};
 }
 function mapOfVoyage(state, e) {
   return fruitOfState(state, fruitOfId(e.voyage?.stops[0] ?? "") ?? "raspberry");
@@ -14026,10 +14257,10 @@ function coveredRampart(map, type, level, h, lens = false) {
 }
 var coverageCache = /* @__PURE__ */ new WeakMap();
 function turretCoverage(map, type, level, h, lens = false) {
-  let cache4 = coverageCache.get(map);
-  if (!cache4) coverageCache.set(map, cache4 = /* @__PURE__ */ new Map());
+  let cache5 = coverageCache.get(map);
+  if (!cache5) coverageCache.set(map, cache5 = /* @__PURE__ */ new Map());
   const key = `${type}|${level}|${h.q},${h.r}|${lens ? 1 : 0}`;
-  let c = cache4.get(key);
+  let c = cache5.get(key);
   if (!c) {
     const counts = perSector(() => 0);
     const covered = coveredRampart(map, type, level, h, lens);
@@ -14037,7 +14268,7 @@ function turretCoverage(map, type, level, h, lens = false) {
     if (covered.length === 0) counts[rampartSectorOf(h)] = 1;
     const total = counts.front + counts.left + counts.right;
     c = perSector((s) => counts[s] / total);
-    cache4.set(key, c);
+    cache5.set(key, c);
   }
   return c;
 }
@@ -14701,7 +14932,7 @@ function strikePost(s, post, a, events) {
   const clan = a.clan;
   const army = attackArmy2(s, post, clan, at);
   const fruit = fruitOfPost(post);
-  const guards = postKiwis(s, fruit);
+  const guards = postFit(s, fruit, at);
   const setup = postSetup(s, guards, {
     attackers: army,
     orders: POST_ORDERS,
@@ -14726,7 +14957,8 @@ function strikePost(s, post, a, events) {
     taken = Math.floor(postStore(post) * POST_ATTACK.loot);
     post.store = Math.max(0, post.store - taken * NECTAR_SCALE);
     post.ruined = true;
-    for (const v of guards) if (v.job.kind === "post") v.job = { kind: "idle" };
+    for (const v of postKiwis(s, fruit))
+      v.job = wornOut(v, at) ? { kind: "injured", until: at + Math.round(POST_ATTACK.woundMs * woundFactor(s)) } : { kind: "idle" };
   }
   recordBestiary(s, army, at);
   const report = {
@@ -14771,7 +15003,7 @@ function postAttackForecast(s, fruit = "raspberry") {
     )
   );
   const armies = [armyAt(1 - spread), armyAt(1), armyAt((1 + spread) * R.nestPower)];
-  const guards = postKiwis(s, fruit);
+  const guards = postFit(s, fruit, a.at);
   const trials = armies.map((units, i) => {
     const seed = `orchard/post/trial/${a.id}/${i}`;
     const setup = postSetup(s, guards, {
@@ -23596,7 +23828,8 @@ var job = external_exports.discriminatedUnion("kind", [
   external_exports.object({
     kind: external_exports.literal("post"),
     returnTo: id.nullable(),
-    fruit: external_exports.enum(FRUIT_IDS).optional()
+    fruit: external_exports.enum(FRUIT_IDS).optional(),
+    wornAt: external_exports.number().optional()
   }),
   external_exports.object({
     kind: external_exports.literal("titan"),
@@ -24093,7 +24326,8 @@ var gameStateSchema = external_exports.object({
         units: external_exports.array(alienUnit2).max(16),
         nectar: external_exports.number().int().min(0).max(1e4),
         nest: external_exports.boolean(),
-        cider: external_exports.number().int().min(0).max(1e4).optional()
+        cider: external_exports.number().int().min(0).max(1e4).optional(),
+        goldFiber: external_exports.number().int().min(0).max(1e4).optional()
       })
     ),
     taken: external_exports.record(external_exports.string().max(8), external_exports.number()),
@@ -26587,6 +26821,7 @@ export {
   ALIEN_GEAR,
   ALIEN_MIX,
   ALIEN_TWIN_FACE,
+  ANT_KINDS,
   APPLE,
   APPLE_STAGES,
   ARMOR_KINDS,
@@ -26724,6 +26959,7 @@ export {
   ORCHARD_TARGET,
   PASSAGE_TECHS,
   PATHS,
+  PINEAPPLE,
   POST,
   POSTURES,
   POST_ATTACK,
@@ -26880,6 +27116,8 @@ export {
   biomeProfile,
   biomesOf,
   borrow,
+  bromelainHarm,
+  bromelainShield,
   buildCost,
   buildLock,
   buildSlots,
@@ -26997,6 +27235,7 @@ export {
   crewOf,
   crewWeight,
   crewWork,
+  crownOf,
   crystalAmmoCost,
   crystalAmmoOn,
   crystalCap,
@@ -27276,6 +27515,7 @@ export {
   landSettlers,
   landTileNear,
   landingForecast,
+  landingHarm,
   landingLock,
   landingOutcome,
   landingSetup,
@@ -27448,6 +27688,7 @@ export {
   pilgrimsAtStem,
   pillageForecast,
   pillageStanding,
+  pineappleOf,
   pixelToHex,
   planBeaconAttacks,
   planCiv,
@@ -27468,6 +27709,7 @@ export {
   postAttackTick,
   postAttacksDue,
   postCost,
+  postFit,
   postFort,
   postFruitOf,
   postHeld,
@@ -27485,6 +27727,7 @@ export {
   postStore,
   postStoreCap,
   postTick,
+  postWornAt,
   postsOf,
   potentialLoot,
   presence,
@@ -27753,6 +27996,7 @@ export {
   workforce,
   workingPost,
   wormholePads,
+  wornOut,
   woundFactor,
   xpForLevel,
   yardOf
