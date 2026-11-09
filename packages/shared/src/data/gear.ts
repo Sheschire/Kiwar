@@ -19,7 +19,7 @@ export type GearKind = WeaponFamily | ArmorKind;
 export const GEAR_KINDS: readonly GearKind[] = [...WEAPON_FAMILIES, ...ARMOR_KINDS];
 
 /** Chantier 50: crystal, weapons only (raphides cut in the locules). */
-export const GEAR_TIERS = ['stone', 'iron', 'steel', 'crystal'] as const;
+export const GEAR_TIERS = ['stone', 'iron', 'steel', 'crystal', 'nectar', 'gold'] as const;
 export type GearTier = (typeof GEAR_TIERS)[number];
 
 export const GEAR_SLOTS = ['weapon', 'armor'] as const;
@@ -48,6 +48,13 @@ export const ITEM_IDS = [
   'heavy-stone',
   'heavy-iron',
   'heavy-steel',
+  // Chantier 55: the orchard's tiers — nectar weapons, golden fibre armours (against bromelain).
+  'blade-nectar',
+  'mace-nectar',
+  'bow-nectar',
+  'staff-nectar',
+  'light-gold',
+  'heavy-gold',
 ] as const;
 export type ItemId = (typeof ITEM_IDS)[number];
 
@@ -91,6 +98,11 @@ export interface ItemDef {
   iron: number;
   /** Chantier 50: whole units of crystal paid when ordered. */
   crystal?: number;
+  /** Chantier 55: whole units of nectar and golden fibre paid when ordered. */
+  nectar?: number;
+  goldFiber?: number;
+  /** Chantier 55: a golden fibre armour lets this share of the bromelain through. */
+  bromelain?: number;
   /** Hours of work of one average smith at a level-1 Forge. */
   workH: number;
   /** The technology that opens it. */
@@ -132,7 +144,61 @@ const ARMOR = {
   tech: ['forge', 'armor', 'machines'],
 } as const;
 
+/** Chantier 55: the orchard's pieces (nectar weapons, golden fibre armours). */
+const ORCHARD_GEAR = {
+  weapon: {
+    cost: { seeds: 900, juice: 600 },
+    iron: 4,
+    nectar: 15,
+    damage: 1.9,
+    pierce: 0.25,
+    workH: 3,
+  },
+  light: { cost: { fiber: 1200, juice: 400 }, iron: 4, nectar: 4, goldFiber: 6, hp: 1.5 },
+  heavy: { cost: { fiber: 1400, juice: 500 }, iron: 8, nectar: 4, goldFiber: 10, hp: 1.85 },
+  armor: { heavy: 0.15, speed: 0.9, bromelain: 0.5, workH: 3 },
+  tech: 'wormholes',
+} as const;
+
+function orchardItem(kind: GearKind, tier: GearTier): ItemDef {
+  const id = `${kind}-${tier}` as ItemId;
+  const G = ORCHARD_GEAR;
+  if (kind === 'light' || kind === 'heavy') {
+    const a = G[kind];
+    return {
+      id,
+      kind,
+      slot: 'armor',
+      tier,
+      cost: a.cost,
+      iron: a.iron,
+      nectar: a.nectar,
+      goldFiber: a.goldFiber,
+      workH: G.armor.workH,
+      tech: G.tech,
+      hp: a.hp,
+      armor: kind === 'heavy' ? G.armor.heavy : 0,
+      speed: kind === 'heavy' ? G.armor.speed : 1,
+      bromelain: G.armor.bromelain,
+    };
+  }
+  return {
+    id,
+    kind,
+    slot: 'weapon',
+    tier,
+    cost: G.weapon.cost,
+    iron: G.weapon.iron,
+    nectar: G.weapon.nectar,
+    workH: G.weapon.workH,
+    tech: G.tech,
+    damage: G.weapon.damage,
+    pierce: G.weapon.pierce,
+  };
+}
+
 function item(kind: GearKind, tier: GearTier): ItemDef {
+  if (tier === 'nectar' || tier === 'gold') return orchardItem(kind, tier);
   const t = tierIndex(tier);
   const id = `${kind}-${tier}` as ItemId;
   if (kind === 'light' || kind === 'heavy') {

@@ -1,3 +1,4 @@
+import { GILD } from '../data/orchard';
 import { levelDef } from '../data/buildings';
 import { CYCLES } from '../data/cycles';
 import { KIWI } from '../data/kiwis';
@@ -224,8 +225,13 @@ function leisurePoints(state: GameState): Map<BuildingId, number> {
 /** Chantier 44: the village's beauty, summed over its decorations and capped. */
 export function beautyOf(state: GameState): number {
   let sum = 0;
-  for (const b of state.buildings) sum += BEAUTY[b.type] ?? 0;
-  return Math.min(MORALE.beauty, sum);
+  let gilded = 0;
+  for (const b of state.buildings) {
+    sum += BEAUTY[b.type] ?? 0;
+    if (b.gilded) gilded += GILD.beauty;
+  }
+  // Chantier 55: gilded decorations add their own share, past the decorations' cap.
+  return Math.min(MORALE.beauty, sum) + Math.min(GILD.cap, gilded);
 }
 
 /** Chantier 52: kiwis on pilgrimage at the stem's gallery (none while the door is closed). */

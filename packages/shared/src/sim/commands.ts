@@ -11,7 +11,14 @@ import { doorFortifyCost, doorFortLevel, fortifyDoorLock } from './upwell';
 import { DEPTHS } from '../data/depths';
 import { canDig, gallerySlots, minersIn, minesOpen } from './mines';
 import { giveSpeech, speechLock } from './speech';
-import { cabaretOf, fireFireworks, fireworksLock } from './village';
+import {
+  cabaretOf,
+  ciderEveningLock,
+  fireFireworks,
+  fireworksLock,
+  gildLock,
+  serveCider,
+} from './village';
 import { FIREWORKS, standsOverPath, type FireworksPattern } from '../data/needs';
 import { landingLock } from './landing';
 import type { LandingOrders } from '../data/landing';
@@ -157,8 +164,16 @@ import { TITAN_WORK_IDS, type TitanWork } from '../data/titan';
 import { canReshape, terraformLeft, titanAt, titanCost } from './titan';
 import { delveLock, launchDelve, tunnelBusy } from './delves';
 import { cleanGoods, launchVoyage, voyageForecast, voyageLock, type VoyagePlan } from './voyages';
-import { POST, fruitOfId, type FruitId, type PostModuleType } from '../data/orchard';
-import { addNectar, payNectar } from './orchard';
+import {
+  CIDER_EVENING,
+  CIDER_FUEL,
+  GILD,
+  POST,
+  fruitOfId,
+  type FruitId,
+  type PostModuleType,
+} from '../data/orchard';
+import { addNectar, payGood, payNectar } from './orchard';
 import { closeRoute, closeRouteLock, openRoute, openRouteLock } from './routes';
 import {
   addPostModule,
@@ -325,6 +340,8 @@ export type Command =
   | { type: 'buildPostModule'; fruit?: FruitId; moduleType: PostModuleType; q: number; r: number }
   | { type: 'removePostModule'; moduleId: string }
   | { type: 'openRoute'; a: FruitId; b: FruitId }
+  | { type: 'serveCider' }
+  | { type: 'gildDecor'; buildingId: BuildingId }
   | { type: 'closeRoute'; routeId: string }
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
@@ -527,6 +544,9 @@ export const COMMAND_ERRORS = [
   'unknownRoute',
   'notEnoughCider',
   'notEnoughGoldFiber',
+  'ciderDone',
+  'notDecor',
+  'alreadyGilded',
   'clanHostile',
   'notFriendly',
   'ownPost',
@@ -1116,6 +1136,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       };
       if (!canAfford(s.resources, need)) fail('notEnoughResources');
       if (cmd.fuel) payStardust(s, FUEL.stardust);
+      if (cmd.fuelCider) payGood(s, 'cider', CIDER_FUEL.cider);
       pay(s, f.launchCost);
       if (cmd.settle) {
         const cost = postCost(s, fruitOfId(cmd.stops[0] ?? '') ?? 'raspberry');
@@ -1143,6 +1164,22 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const m = post.modules.find((x) => x.id === cmd.moduleId)!;
       post.modules = post.modules.filter((x) => x !== m);
       addNectar(s, Math.floor(POST.modules[m.type].nectar * POST.refund));
+      return;
+    }
+    case 'serveCider': {
+      const lock = ciderEveningLock(s);
+      if (lock) fail(lock);
+      payGood(s, 'cider', CIDER_EVENING.cider);
+      serveCider(s, now);
+      return;
+    }
+    case 'gildDecor': {
+      const b = getBuilding(s, cmd.buildingId);
+      const lock = gildLock(s, b);
+      if (lock) fail(lock);
+      payGood(s, 'nectar', GILD.nectar);
+      payGood(s, 'goldFiber', GILD.goldFiber);
+      b!.gilded = true;
       return;
     }
     case 'openRoute': {

@@ -374,3 +374,13 @@ export const ROUTE = {
   dayMs: 24 * 3_600_000,
   upkeep: 6,
 } as const;
+
+/**
+ * Chantier 55: the orchard's sinks besides the posts and the routes. A cider evening (at night,
+ * once a night: every kiwi at home remembers it), cider as the sailboat's fuel through the
+ * wormhole (instead of stardust), and the gilding of a decoration (nectar and golden fibre: it
+ * adds to the village's beauty, past the decorations' own cap).
+ */
+export const CIDER_EVENING = { cider: 8, value: 12, ms: 12 * 3_600_000 } as const;
+export const CIDER_FUEL = { cider: 6 } as const;
+export const GILD = { nectar: 30, goldFiber: 12, beauty: 2, cap: 6 } as const;

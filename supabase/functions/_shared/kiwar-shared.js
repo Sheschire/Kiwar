@@ -2575,7 +2575,9 @@ var MEMORY_KINDS = [
   "vigil",
   "cabaret",
   "fireworks",
-  "motherVine"
+  "motherVine",
+  // Chantier 55: a cider evening.
+  "cider"
 ];
 var MORALE = {
   max: 100,
@@ -2628,7 +2630,9 @@ var MORALE = {
     cabaret: { value: 12, ms: ms.h(2), best: 12 },
     fireworks: { value: 15, ms: ms.h(12), best: 15 },
     // Chantier 52: the Mother Vine found (the whole colony, three days).
-    motherVine: { value: 15, ms: ms.h(72), best: 15 }
+    motherVine: { value: 15, ms: ms.h(72), best: 15 },
+    // Chantier 55: a cider evening (the overripe apple's cider, half a game week).
+    cider: { value: 12, ms: ms.h(12), best: 12 }
   }
 };
 var SPEECH = {
@@ -3495,7 +3499,7 @@ function dustPoints(raw) {
 var WEAPON_FAMILIES = ["blade", "mace", "bow", "staff"];
 var ARMOR_KINDS = ["light", "heavy"];
 var GEAR_KINDS = [...WEAPON_FAMILIES, ...ARMOR_KINDS];
-var GEAR_TIERS = ["stone", "iron", "steel", "crystal"];
+var GEAR_TIERS = ["stone", "iron", "steel", "crystal", "nectar", "gold"];
 var GEAR_SLOTS = ["weapon", "armor"];
 var ITEM_IDS = [
   "blade-stone",
@@ -3519,7 +3523,14 @@ var ITEM_IDS = [
   "light-steel",
   "heavy-stone",
   "heavy-iron",
-  "heavy-steel"
+  "heavy-steel",
+  // Chantier 55: the orchard's tiers — nectar weapons, golden fibre armours (against bromelain).
+  "blade-nectar",
+  "mace-nectar",
+  "bow-nectar",
+  "staff-nectar",
+  "light-gold",
+  "heavy-gold"
 ];
 var CLASS_FAMILY = {
   none: null,
@@ -3568,7 +3579,58 @@ var ARMOR = {
   workH: [1, 2, 3],
   tech: ["forge", "armor", "machines"]
 };
+var ORCHARD_GEAR = {
+  weapon: {
+    cost: { seeds: 900, juice: 600 },
+    iron: 4,
+    nectar: 15,
+    damage: 1.9,
+    pierce: 0.25,
+    workH: 3
+  },
+  light: { cost: { fiber: 1200, juice: 400 }, iron: 4, nectar: 4, goldFiber: 6, hp: 1.5 },
+  heavy: { cost: { fiber: 1400, juice: 500 }, iron: 8, nectar: 4, goldFiber: 10, hp: 1.85 },
+  armor: { heavy: 0.15, speed: 0.9, bromelain: 0.5, workH: 3 },
+  tech: "wormholes"
+};
+function orchardItem(kind, tier) {
+  const id3 = `${kind}-${tier}`;
+  const G = ORCHARD_GEAR;
+  if (kind === "light" || kind === "heavy") {
+    const a = G[kind];
+    return {
+      id: id3,
+      kind,
+      slot: "armor",
+      tier,
+      cost: a.cost,
+      iron: a.iron,
+      nectar: a.nectar,
+      goldFiber: a.goldFiber,
+      workH: G.armor.workH,
+      tech: G.tech,
+      hp: a.hp,
+      armor: kind === "heavy" ? G.armor.heavy : 0,
+      speed: kind === "heavy" ? G.armor.speed : 1,
+      bromelain: G.armor.bromelain
+    };
+  }
+  return {
+    id: id3,
+    kind,
+    slot: "weapon",
+    tier,
+    cost: G.weapon.cost,
+    iron: G.weapon.iron,
+    nectar: G.weapon.nectar,
+    workH: G.weapon.workH,
+    tech: G.tech,
+    damage: G.weapon.damage,
+    pierce: G.weapon.pierce
+  };
+}
 function item(kind, tier) {
+  if (tier === "nectar" || tier === "gold") return orchardItem(kind, tier);
   const t = tierIndex(tier);
   const id3 = `${kind}-${tier}`;
   if (kind === "light" || kind === "heavy") {
@@ -4499,6 +4561,9 @@ var ROUTE = {
   dayMs: 24 * 36e5,
   upkeep: 6
 };
+var CIDER_EVENING = { cider: 8, value: 12, ms: 12 * 36e5 };
+var CIDER_FUEL = { cider: 6 };
+var GILD = { nectar: 30, goldFiber: 12, beauty: 2, cap: 6 };
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
@@ -4960,8 +5025,12 @@ function leisurePoints(state) {
 }
 function beautyOf(state) {
   let sum = 0;
-  for (const b of state.buildings) sum += BEAUTY[b.type] ?? 0;
-  return Math.min(MORALE.beauty, sum);
+  let gilded = 0;
+  for (const b of state.buildings) {
+    sum += BEAUTY[b.type] ?? 0;
+    if (b.gilded) gilded += GILD.beauty;
+  }
+  return Math.min(MORALE.beauty, sum) + Math.min(GILD.cap, gilded);
 }
 function pilgrimsAtStem(state) {
   if (state.depths.door.closed) return 0;
@@ -8124,6 +8193,567 @@ function trainingDuration(place, classId) {
   return Math.round(CLASSES[classId].trainingMs * speed);
 }
 
+// packages/shared/src/sim/fruitLayout.ts
+function dist3(p, q) {
+  return Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z);
+}
+function linkWithin(points, reach) {
+  const n = points.length;
+  const links = points.map(() => []);
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++)
+      if (dist3(points[i], points[j]) <= reach) {
+        links[i].push(j);
+        links[j].push(i);
+      }
+  return links;
+}
+function linkLonely(points, links) {
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    if (links[i].length > 0) continue;
+    let best = -1;
+    let bestD = Infinity;
+    for (let j = 0; j < n; j++) {
+      if (j === i) continue;
+      const d = dist3(points[i], points[j]);
+      if (d < bestD) [best, bestD] = [j, d];
+    }
+    links[i].push(best);
+    links[best].push(i);
+  }
+}
+function link(links, i, j) {
+  if (i === j || links[i].includes(j)) return;
+  links[i].push(j);
+  links[j].push(i);
+}
+function growClans(points, links, k, rng) {
+  const n = points.length;
+  const owner = new Array(n).fill(-1);
+  const seeds = [rng.int(0, n - 1)];
+  while (seeds.length < k) {
+    let far = 0;
+    let farD = -1;
+    for (let i = 0; i < n; i++) {
+      if (seeds.includes(i)) continue;
+      const d = Math.min(...seeds.map((s) => dist3(points[i], points[s])));
+      if (d > farD) [far, farD] = [i, d];
+    }
+    seeds.push(far);
+  }
+  const fronts = seeds.map((s, c) => {
+    owner[s] = c;
+    return [s];
+  });
+  for (let grown = k; grown < n; ) {
+    let moved = false;
+    for (let c = 0; c < k; c++) {
+      const front = fronts[c];
+      for (const i of front) {
+        const free = links[i].filter((j) => owner[j] === -1).sort((a, b) => a - b);
+        if (free.length === 0) continue;
+        owner[free[0]] = c;
+        front.push(free[0]);
+        grown++;
+        moved = true;
+        break;
+      }
+    }
+    if (!moved) {
+      for (let i = 0; i < n; i++)
+        if (owner[i] === -1) {
+          owner[i] = owner[links[i][0]] === -1 ? 0 : owner[links[i][0]];
+          grown++;
+        }
+    }
+  }
+  return { owner, seeds };
+}
+function shuffled(list, rng) {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = rng.int(0, i);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+function round3(x) {
+  return Math.round(x * 1e3) / 1e3;
+}
+
+// packages/shared/src/sim/apple.ts
+var cache2 = /* @__PURE__ */ new Map();
+function appleOf(seed) {
+  const hit = cache2.get(seed);
+  if (hit) return hit;
+  const rng = createRng(`${seed}/apple`);
+  const A = APPLE;
+  const n = rng.int(A.galleries[0], A.galleries[1]);
+  const inCore = Math.max(2, Math.round(n * A.layers[2]));
+  const inFlesh = Math.max(2, Math.round(n * A.layers[1]));
+  const counts = [n - inCore - inFlesh, inFlesh, inCore];
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const top = 1 - 2 * A.stemCap;
+  const points = [];
+  counts.forEach((count, layer) => {
+    const turn = rng.range(0, 2 * Math.PI);
+    for (let i = 0; i < count; i++) {
+      const y = -1 + (i + 0.5) / count * (top + 1) + rng.range(-0.2, 0.2) / count;
+      const rr = Math.sqrt(Math.max(0, 1 - y * y));
+      const a = turn + i * golden + rng.range(-0.1, 0.1);
+      const r = A.radius[layer] * rng.range(0.92, 1.05);
+      points.push({ x: rr * Math.cos(a) * r, y: y * r, z: rr * Math.sin(a) * r, layer });
+    }
+  });
+  const links = points.map(() => []);
+  const nearest = (i, pool, k2) => pool.filter((j) => j !== i).sort((a, b) => dist3(points[i], points[a]) - dist3(points[i], points[b]) || a - b).slice(0, k2);
+  const byLayer = [0, 1, 2].map((l) => points.flatMap((p, i) => p.layer === l ? [i] : []));
+  for (let i = 0; i < points.length; i++) {
+    const layer = points[i].layer;
+    for (const j of nearest(i, byLayer[layer], A.sideLinks)) link(links, i, j);
+    if (layer > 0) for (const j of nearest(i, byLayer[layer - 1], A.upLinks)) link(links, i, j);
+  }
+  const k = rng.int(A.clans[0], A.clans[1]);
+  const { owner, seeds } = growClans(points, links, k, rng);
+  const names = shuffled(
+    Array.from({ length: CLAN_NAME_COUNT.apple }, (_, i) => i),
+    rng
+  );
+  const clans = seeds.map((_, c) => ({
+    id: `w${c}`,
+    name: names[c % names.length],
+    parcels: [],
+    wants: rng.pick(A.wants),
+    rate: Math.round(rng.range(TRADE.rate[0], TRADE.rate[1]) * 10) / 10
+  }));
+  const parcels = points.map((p, i) => ({
+    id: `g${i}`,
+    index: i,
+    x: round3(p.x),
+    y: round3(p.y),
+    z: round3(p.z),
+    ring: p.layer,
+    clan: `w${owner[i]}`,
+    links: links[i].map((j) => `g${j}`).sort()
+  }));
+  for (const g of parcels) clans[Number(g.clan.slice(1))].parcels.push(g.id);
+  const out = {
+    fruit: "apple",
+    seed,
+    parcels,
+    clans,
+    byId: new Map(parcels.map((g) => [g.id, g])),
+    clanById: new Map(clans.map((c) => [c.id, c]))
+  };
+  if (cache2.size > 16) cache2.clear();
+  cache2.set(seed, out);
+  return out;
+}
+var CYCLE_MS = APPLE_STAGES.reduce((a, st) => a + APPLE.stageMs[st], 0);
+var offsets = /* @__PURE__ */ new Map();
+function offsetOf(seed) {
+  let o = offsets.get(seed);
+  if (o === void 0) {
+    o = Math.floor(createRng(`${seed}/apple/ripeness`).range(0, CYCLE_MS) / 6e4) * 6e4;
+    if (offsets.size > 16) offsets.clear();
+    offsets.set(seed, o);
+  }
+  return o;
+}
+function appleStage(seed, at) {
+  const t = ((at + offsetOf(seed)) % CYCLE_MS + CYCLE_MS) % CYCLE_MS;
+  let start = at - t;
+  for (const stage of APPLE_STAGES) {
+    const end = start + APPLE.stageMs[stage];
+    if (at < end) return { stage, since: start, until: end };
+    start = end;
+  }
+  return { stage: "green", since: start, until: start + APPLE.stageMs.green };
+}
+function appleCalendar(seed, at, count) {
+  const out = [appleStage(seed, at)];
+  while (out.length < count) out.push(appleStage(seed, out[out.length - 1].until));
+  return out;
+}
+function appleEffects(seed, at) {
+  return APPLE.stages[appleStage(seed, at).stage];
+}
+
+// packages/shared/src/sim/pineapple.ts
+var cache3 = /* @__PURE__ */ new Map();
+function pineappleOf(seed) {
+  const hit = cache3.get(seed);
+  if (hit) return hit;
+  const rng = createRng(`${seed}/pineapple`);
+  const P = PINEAPPLE;
+  const n = rng.int(P.scales[0], P.scales[1]);
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const turn = rng.range(0, 2 * Math.PI);
+  const points = Array.from({ length: n }, (_, i) => {
+    const y = -0.95 + 1.85 * (i + 0.5) / n;
+    const r = 0.72 * Math.sqrt(Math.max(0.05, 1 - (y / 1.08) ** 4));
+    const a = turn + i * golden;
+    return { x: r * Math.cos(a), y, z: r * Math.sin(a) };
+  });
+  points.push({ x: 0, y: 1.12, z: 0 });
+  const crown = n;
+  const links = points.map(() => []);
+  const nearest = (i, pool, k2) => pool.filter((j) => j !== i).sort((a, b) => dist3(points[i], points[a]) - dist3(points[i], points[b]) || a - b).slice(0, k2);
+  const scales = Array.from({ length: n }, (_, i) => i);
+  for (const i of scales) for (const j of nearest(i, scales, P.touches)) link(links, i, j);
+  for (const j of nearest(crown, scales, P.crownLinks)) link(links, crown, j);
+  const k = rng.int(P.clans[0], P.clans[1]);
+  const { owner, seeds } = growClans(points, links, k, rng);
+  const names = shuffled(
+    Array.from({ length: CLAN_NAME_COUNT.pineapple }, (_, i) => i),
+    rng
+  );
+  const clans = seeds.map((_, c) => ({
+    id: `n${c}`,
+    name: names[c % names.length],
+    parcels: [],
+    wants: rng.pick(P.wants),
+    rate: Math.round(rng.range(TRADE.rate[0], TRADE.rate[1]) * 10) / 10
+  }));
+  const parcels = points.map((p, i) => ({
+    id: `s${i}`,
+    index: i,
+    x: round3(p.x),
+    y: round3(p.y),
+    z: round3(p.z),
+    ring: i === crown ? 2 : Math.min(2, Math.floor(3 * i / n)),
+    clan: `n${owner[i]}`,
+    links: links[i].map((j) => `s${j}`).sort(),
+    ...i === crown ? { crown: true } : {}
+  }));
+  for (const s of parcels) clans[Number(s.clan.slice(1))].parcels.push(s.id);
+  const out = {
+    fruit: "pineapple",
+    seed,
+    parcels,
+    clans,
+    byId: new Map(parcels.map((s) => [s.id, s])),
+    clanById: new Map(clans.map((c) => [c.id, c]))
+  };
+  if (cache3.size > 16) cache3.clear();
+  cache3.set(seed, out);
+  return out;
+}
+function crownOf(map) {
+  return map.parcels[map.parcels.length - 1];
+}
+function bromelainShield(state, v) {
+  const B = PINEAPPLE.bromelain;
+  const end = Math.min(B.enduranceCap, Math.max(0, v.stats.endurance - 5) * B.perEndurance);
+  const armor = v.gear?.armor ? ITEMS[v.gear.armor].bromelain ?? 1 : 1;
+  return (1 - end) * (actinidineActive(state) ? B.actinidine : 1) * armor;
+}
+function bromelainHarm(state, crew, hours) {
+  const B = PINEAPPLE.bromelain;
+  const out = {};
+  for (const v of crew) {
+    const share2 = Math.min(1 - B.floor, B.perHour * hours * bromelainShield(state, v));
+    if (share2 > 0) out[v.id] = Math.round(share2 * 100) / 100;
+  }
+  return out;
+}
+function postWornAt(state, v, at) {
+  const shield = Math.max(0.1, bromelainShield(state, v));
+  return at + Math.round(PINEAPPLE.bromelain.postHours * 36e5 / shield / 6e4) * 6e4;
+}
+function wornOut(v, at) {
+  return v.job.kind === "post" && v.job.wornAt !== void 0 && v.job.wornAt <= at;
+}
+
+// packages/shared/src/sim/orchard.ts
+var CLAN_NAMES = 16;
+var mapCache3 = /* @__PURE__ */ new Map();
+function raspberryOf(seed) {
+  const hit = mapCache3.get(seed);
+  if (hit) return hit;
+  const rng = createRng(`${seed}/raspberry`);
+  const R = RASPBERRY;
+  const n = rng.int(R.drupelets[0], R.drupelets[1]);
+  const top = 1 - 2 * R.stemCap;
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const turn = rng.range(0, 2 * Math.PI);
+  const points = Array.from({ length: n }, (_, i) => {
+    const y = -1 + (i + 0.5) / n * (top + 1) + rng.range(-0.15, 0.15) / n;
+    const rr = Math.sqrt(Math.max(0, 1 - y * y));
+    const a = turn + i * golden + rng.range(-0.08, 0.08);
+    return { x: rr * Math.cos(a), y, z: rr * Math.sin(a) };
+  });
+  const spacing = Math.sqrt(4 * Math.PI * (1 - R.stemCap) / n);
+  const links = linkWithin(points, spacing * R.neighbourSpan);
+  linkLonely(points, links);
+  const k = rng.int(R.clans[0], R.clans[1]);
+  const { owner, seeds } = growClans(points, links, k, rng);
+  const names = shuffled(
+    Array.from({ length: CLAN_NAMES }, (_, i) => i),
+    rng
+  );
+  const clans = seeds.map((_, c) => ({
+    id: `c${c}`,
+    name: names[c],
+    parcels: [],
+    wants: rng.pick(R.wants),
+    rate: Math.round(rng.range(TRADE.rate[0], TRADE.rate[1]) * 10) / 10
+  }));
+  const drupelets = points.map((p, i) => ({
+    id: `d${i}`,
+    index: i,
+    x: round3(p.x),
+    y: round3(p.y),
+    z: round3(p.z),
+    ring: Math.min(2, Math.floor(3 * i / n)),
+    clan: `c${owner[i]}`,
+    links: links[i].map((j) => `d${j}`).sort()
+  }));
+  for (const d of drupelets) clans[Number(d.clan.slice(1))].parcels.push(d.id);
+  const out = {
+    fruit: "raspberry",
+    seed,
+    parcels: drupelets,
+    clans,
+    byId: new Map(drupelets.map((d) => [d.id, d])),
+    clanById: new Map(clans.map((c) => [c.id, c]))
+  };
+  if (mapCache3.size > 16) mapCache3.clear();
+  mapCache3.set(seed, out);
+  return out;
+}
+function raspberryOfState(state) {
+  return raspberryOf(state.orchard.seed);
+}
+function fruitMapOf(seed, fruit) {
+  switch (fruit) {
+    case "raspberry":
+      return raspberryOf(seed);
+    case "apple":
+      return appleOf(seed);
+    case "pineapple":
+      return pineappleOf(seed);
+  }
+}
+function fruitOfState(state, fruit) {
+  return fruitMapOf(state.orchard.seed, fruit);
+}
+function parcelOf(state, id3) {
+  const fruit = fruitOfId(id3);
+  if (!fruit) return null;
+  const map = fruitOfState(state, fruit);
+  const parcel = map.byId.get(id3);
+  return parcel ? { map, parcel } : null;
+}
+function clanOf(state, id3) {
+  const fruit = fruitOfId(id3);
+  return fruit ? fruitOfState(state, fruit).clanById.get(id3) ?? null : null;
+}
+function allFruits(state) {
+  return FRUIT_IDS.map((f) => fruitOfState(state, f));
+}
+function clanNeighbours(map, clanId) {
+  const out = /* @__PURE__ */ new Set();
+  for (const id3 of map.clanById.get(clanId)?.parcels ?? [])
+    for (const l of map.byId.get(id3).links) {
+      const c = map.byId.get(l).clan;
+      if (c !== clanId) out.add(c);
+    }
+  return [...out].sort();
+}
+var truthCache2 = /* @__PURE__ */ new Map();
+function fruitTruth(seed, d) {
+  const fruit = fruitOfId(d.id) ?? "raspberry";
+  const key = fruit === "raspberry" ? `${seed}/drupelet/${d.id}` : `${seed}/${fruit}/${d.id}`;
+  let t = truthCache2.get(key);
+  if (!t) {
+    const rng = createRng(key);
+    const R = FRUIT_DEFS[fruit];
+    const nestHere = rng.chance(R.nestChance);
+    const power = R.rings.power[d.ring] * rng.range(1 - R.powerSpread, 1 + R.powerSpread) * (nestHere ? R.nestPower : 1) * (d.crown ? PINEAPPLE.crownPower : 1);
+    const nectar = Math.round(
+      R.rings.nectar[d.ring] * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread)
+    );
+    const cider = fruit === "apple" ? Math.round(APPLE.cider[d.ring] * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread)) : 0;
+    const goldFiber = fruit === "pineapple" ? Math.round(
+      PINEAPPLE.goldFiber[d.ring] * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread) * (d.crown ? PINEAPPLE.crownFiber : 1)
+    ) : 0;
+    t = {
+      units: fruitGarrison(fruit, power, R.rings.level[d.ring]),
+      nectar,
+      nest: nestHere,
+      cider,
+      goldFiber
+    };
+    if (truthCache2.size > 512) truthCache2.clear();
+    truthCache2.set(key, t);
+  }
+  return t;
+}
+var drupeletTruth = fruitTruth;
+function fruitGarrison(fruit, power, level) {
+  const mix2 = FRUIT_DEFS[fruit].mix;
+  const kinds = Object.keys(mix2);
+  return kinds.map((kind, i) => ({
+    kind,
+    count: Math.max(i === 0 ? 1 : 0, Math.round(power * mix2[kind] / ENEMIES[kind].power)),
+    level
+  })).filter((u) => u.count > 0);
+}
+function beetles(power, level) {
+  return fruitGarrison("raspberry", power, level);
+}
+function guessGarrison(state, d, k, at) {
+  const fruit = fruitOfId(d.id) ?? "raspberry";
+  const R = FRUIT_DEFS[fruit];
+  const power = R.rings.power[d.ring] * k * regrowth(state, d.id, at) * stagePower(state, fruit, at) * (d.crown ? PINEAPPLE.crownPower : 1);
+  return fruitGarrison(fruit, power, R.rings.level[d.ring]);
+}
+function stagePower(state, fruit, at) {
+  return fruit === "apple" ? appleEffects(state.orchard.seed, at).power : 1;
+}
+function rescaleSeen(state, fruit, units, seenAt, at) {
+  const k = stagePower(state, fruit, at) / stagePower(state, fruit, seenAt);
+  if (k === 1) return units.map((u) => ({ ...u }));
+  return scaleUnits(units, k);
+}
+function scaleUnits(units, f) {
+  return units.map((u, i) => ({ ...u, count: Math.max(i === 0 ? 1 : 0, Math.round(u.count * f)) })).filter((u) => u.count > 0);
+}
+function regrowth(state, id3, at) {
+  const t = state.orchard.taken[id3];
+  if (t === void 0) return 1;
+  const R = FRUIT_DEFS[fruitOfId(id3) ?? "raspberry"];
+  return Math.max(0.1, Math.min(1, (at - t) / R.regrowMs));
+}
+function parcelNow(state, seed, d, at) {
+  const t = fruitTruth(seed, d);
+  const f = regrowth(state, d.id, at);
+  const apple = fruitOfId(d.id) === "apple";
+  if (f >= 1 && !apple) return t;
+  const st = apple ? appleEffects(state.orchard.seed, at) : { power: 1, rich: 1, cider: 0 };
+  return {
+    units: scaleUnits(t.units, f * st.power),
+    nectar: Math.round(t.nectar * f * st.rich),
+    nest: t.nest,
+    cider: Math.round(t.cider * f * st.cider),
+    goldFiber: Math.round(t.goldFiber * f)
+  };
+}
+var drupeletNow = parcelNow;
+function standingOf(state, clan, at) {
+  const s = state.orchard.standing[clan];
+  if (!s) return 0;
+  const drift = STANDING.driftPerDay * Math.max(0, at - s.at) / 864e5;
+  const v = s.value > 0 ? Math.max(0, s.value - drift) : Math.min(0, s.value + drift);
+  return Math.round(v * 10) / 10;
+}
+function attitudeOf(state, clan, at) {
+  const v = standingOf(state, clan, at);
+  return v >= STANDING.friendly ? "friendly" : v <= STANDING.hostile ? "hostile" : "neutral";
+}
+function addStanding(s, clan, delta, at) {
+  const v = Math.max(STANDING.min, Math.min(STANDING.max, standingOf(s, clan, at) + delta));
+  s.orchard.standing[clan] = { value: v, at };
+}
+function pillageStanding(s, clan, at) {
+  const map = fruitOfState(s, fruitOfId(clan) ?? "raspberry");
+  addStanding(s, clan, STANDING.pillage, at);
+  for (const c of clanNeighbours(map, clan)) addStanding(s, c, STANDING.pillageNeighbours, at);
+}
+function soldTo(state, clan, at) {
+  const s = state.orchard.sold[clan];
+  if (!s) return 0;
+  return Math.max(0, s.value * (1 - Math.max(0, at - s.at) / TRADE.fadeMs));
+}
+function tradeRate(state, clan, at) {
+  const c = clanOf(state, clan);
+  if (!c) return 0;
+  const rich = fruitOfId(clan) === "apple" ? appleEffects(state.orchard.seed, at).rich : 1;
+  return Math.round(c.rate * rich / (1 + soldTo(state, clan, at) / TRADE.soften) * 100) / 100;
+}
+function sellTo(s, clan, amount, at) {
+  const rate = tradeRate(s, clan, at);
+  s.orchard.sold[clan] = { value: soldTo(s, clan, at) + amount, at };
+  return Math.floor(amount * rate / 1e3);
+}
+function goodCap(state, good) {
+  const c = GOOD_CAPS[good];
+  return (c[Math.min(nest(state).level, c.length - 1)] ?? 0) * NECTAR_SCALE;
+}
+function goodOf(state, good) {
+  return nectarUnits(state[good]);
+}
+function addGood(s, good, units) {
+  const room = Math.max(0, goodCap(s, good) - s[good]);
+  const got = Math.min(Math.max(0, units) * NECTAR_SCALE, room);
+  s[good] += got;
+  return nectarUnits(got);
+}
+function payGood(s, good, units) {
+  s[good] = Math.max(0, s[good] - units * NECTAR_SCALE);
+}
+function nectarCap(state) {
+  return goodCap(state, "nectar");
+}
+function nectarOf(state) {
+  return nectarUnits(state.nectar);
+}
+function addNectar(s, units) {
+  return addGood(s, "nectar", units);
+}
+function payNectar(s, units) {
+  payGood(s, "nectar", units);
+}
+function parcelInReach(state, d) {
+  const fruit = fruitOfId(d.id);
+  if (fruit === "pineapple" ? !d.crown : fruit !== "apple" || d.ring === 0) return true;
+  const post = fruit ? state.orchard.posts[fruit] : void 0;
+  const near = (id3) => state.orchard.taken[id3] !== void 0 || !!post && !post.ruined && post.drupelet === id3;
+  return near(d.id) || d.links.some(near);
+}
+function orchardOpen(state) {
+  return state.colony.index === 0 && hasTech(state, "wormholes");
+}
+function wormholePads(state) {
+  return state.buildings.filter((b) => b.type === "launchpad" && b.level >= ORCHARD.padLevel);
+}
+function localOrchardSeed(state) {
+  return `${localAlienSeed(state)}/orchard`;
+}
+function universeOrchardSeed(universeSeed) {
+  return `${universeSeed}/orchard`;
+}
+function ensureOrchard(state, secret, force = false) {
+  if (state.colony.index !== 0) {
+    const had = state.orchardSeed !== void 0;
+    delete state.orchardSeed;
+    return had;
+  }
+  if (state.orchardSeed !== void 0 && (!force || state.orchardSeed === secret)) return false;
+  state.orchardSeed = secret;
+  return true;
+}
+function orchardKnown(state) {
+  return state.orchardSeed !== void 0;
+}
+function rebaseOrchard(s, seed) {
+  if (s.orchard.seed === seed) return false;
+  forgetOrchard(s, seed);
+  return true;
+}
+function forgetOrchard(s, seed = s.orchard.seed) {
+  const flying = new Set(
+    s.expeditions.filter((e) => (e.mission === "visit" || e.mission === "pillage") && e.status !== "done").map((e) => e.id)
+  );
+  s.expeditions = s.expeditions.filter((e) => !flying.has(e.id));
+  for (const v of s.villagers)
+    if (v.job.kind === "post" || v.job.kind === "expedition" && flying.has(v.job.expeditionId))
+      v.job = { kind: "idle" };
+  s.orchard = newOrchard(seed);
+}
+
 // packages/shared/src/sim/forge.ts
 function forgeOf(state) {
   return state.buildings.find((b) => b.type === "forge");
@@ -8166,6 +8796,8 @@ function forgeLock(state, id3) {
   if (state.forge.orders.length >= forgeQueueSize(state)) return "forgeQueueFull";
   if (meteorIronOf(state) < def.iron) return "notEnoughIron";
   if (crystalOf(state) < (def.crystal ?? 0)) return "notEnoughCrystal";
+  if (goodOf(state, "nectar") < (def.nectar ?? 0)) return "notEnoughNectar";
+  if (goodOf(state, "goldFiber") < (def.goldFiber ?? 0)) return "notEnoughGoldFiber";
   if (!canAfford(state.resources, def.cost)) return "notEnoughResources";
   return null;
 }
@@ -8174,13 +8806,17 @@ function orderItem(state, id3, orderId) {
   for (const r of RESOURCE_IDS) state.resources[r] -= def.cost[r] ?? 0;
   state.meteorIron -= def.iron * IRON_SCALE;
   if (def.crystal) payCrystal(state, def.crystal);
+  if (def.nectar) payGood(state, "nectar", def.nectar);
+  if (def.goldFiber) payGood(state, "goldFiber", def.goldFiber);
   state.forge.orders.push({
     id: orderId,
     item: id3,
     progress: 0,
     paid: { ...def.cost },
     iron: def.iron,
-    ...def.crystal ? { crystal: def.crystal } : {}
+    ...def.crystal ? { crystal: def.crystal } : {},
+    ...def.nectar ? { nectar: def.nectar } : {},
+    ...def.goldFiber ? { goldFiber: def.goldFiber } : {}
   });
 }
 function cancelOrder(state, index) {
@@ -8189,6 +8825,8 @@ function cancelOrder(state, index) {
   for (const r of RESOURCE_IDS) state.resources[r] += order.paid[r] ?? 0;
   addIron(state, order.iron);
   if (order.crystal) addCrystal(state, order.crystal);
+  if (order.nectar) addGood(state, "nectar", order.nectar);
+  if (order.goldFiber) addGood(state, "goldFiber", order.goldFiber);
 }
 function nextForgeEvent(state) {
   const order = state.forge.orders[0];
@@ -10183,566 +10821,6 @@ function postHeld(log2) {
   return !log2.result.damaged.includes(POST_STORE);
 }
 
-// packages/shared/src/sim/fruitLayout.ts
-function dist3(p, q) {
-  return Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z);
-}
-function linkWithin(points, reach) {
-  const n = points.length;
-  const links = points.map(() => []);
-  for (let i = 0; i < n; i++)
-    for (let j = i + 1; j < n; j++)
-      if (dist3(points[i], points[j]) <= reach) {
-        links[i].push(j);
-        links[j].push(i);
-      }
-  return links;
-}
-function linkLonely(points, links) {
-  const n = points.length;
-  for (let i = 0; i < n; i++) {
-    if (links[i].length > 0) continue;
-    let best = -1;
-    let bestD = Infinity;
-    for (let j = 0; j < n; j++) {
-      if (j === i) continue;
-      const d = dist3(points[i], points[j]);
-      if (d < bestD) [best, bestD] = [j, d];
-    }
-    links[i].push(best);
-    links[best].push(i);
-  }
-}
-function link(links, i, j) {
-  if (i === j || links[i].includes(j)) return;
-  links[i].push(j);
-  links[j].push(i);
-}
-function growClans(points, links, k, rng) {
-  const n = points.length;
-  const owner = new Array(n).fill(-1);
-  const seeds = [rng.int(0, n - 1)];
-  while (seeds.length < k) {
-    let far = 0;
-    let farD = -1;
-    for (let i = 0; i < n; i++) {
-      if (seeds.includes(i)) continue;
-      const d = Math.min(...seeds.map((s) => dist3(points[i], points[s])));
-      if (d > farD) [far, farD] = [i, d];
-    }
-    seeds.push(far);
-  }
-  const fronts = seeds.map((s, c) => {
-    owner[s] = c;
-    return [s];
-  });
-  for (let grown = k; grown < n; ) {
-    let moved = false;
-    for (let c = 0; c < k; c++) {
-      const front = fronts[c];
-      for (const i of front) {
-        const free = links[i].filter((j) => owner[j] === -1).sort((a, b) => a - b);
-        if (free.length === 0) continue;
-        owner[free[0]] = c;
-        front.push(free[0]);
-        grown++;
-        moved = true;
-        break;
-      }
-    }
-    if (!moved) {
-      for (let i = 0; i < n; i++)
-        if (owner[i] === -1) {
-          owner[i] = owner[links[i][0]] === -1 ? 0 : owner[links[i][0]];
-          grown++;
-        }
-    }
-  }
-  return { owner, seeds };
-}
-function shuffled(list, rng) {
-  const out = [...list];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = rng.int(0, i);
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
-function round3(x) {
-  return Math.round(x * 1e3) / 1e3;
-}
-
-// packages/shared/src/sim/apple.ts
-var cache2 = /* @__PURE__ */ new Map();
-function appleOf(seed) {
-  const hit = cache2.get(seed);
-  if (hit) return hit;
-  const rng = createRng(`${seed}/apple`);
-  const A = APPLE;
-  const n = rng.int(A.galleries[0], A.galleries[1]);
-  const inCore = Math.max(2, Math.round(n * A.layers[2]));
-  const inFlesh = Math.max(2, Math.round(n * A.layers[1]));
-  const counts = [n - inCore - inFlesh, inFlesh, inCore];
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  const top = 1 - 2 * A.stemCap;
-  const points = [];
-  counts.forEach((count, layer) => {
-    const turn = rng.range(0, 2 * Math.PI);
-    for (let i = 0; i < count; i++) {
-      const y = -1 + (i + 0.5) / count * (top + 1) + rng.range(-0.2, 0.2) / count;
-      const rr = Math.sqrt(Math.max(0, 1 - y * y));
-      const a = turn + i * golden + rng.range(-0.1, 0.1);
-      const r = A.radius[layer] * rng.range(0.92, 1.05);
-      points.push({ x: rr * Math.cos(a) * r, y: y * r, z: rr * Math.sin(a) * r, layer });
-    }
-  });
-  const links = points.map(() => []);
-  const nearest = (i, pool, k2) => pool.filter((j) => j !== i).sort((a, b) => dist3(points[i], points[a]) - dist3(points[i], points[b]) || a - b).slice(0, k2);
-  const byLayer = [0, 1, 2].map((l) => points.flatMap((p, i) => p.layer === l ? [i] : []));
-  for (let i = 0; i < points.length; i++) {
-    const layer = points[i].layer;
-    for (const j of nearest(i, byLayer[layer], A.sideLinks)) link(links, i, j);
-    if (layer > 0) for (const j of nearest(i, byLayer[layer - 1], A.upLinks)) link(links, i, j);
-  }
-  const k = rng.int(A.clans[0], A.clans[1]);
-  const { owner, seeds } = growClans(points, links, k, rng);
-  const names = shuffled(
-    Array.from({ length: CLAN_NAME_COUNT.apple }, (_, i) => i),
-    rng
-  );
-  const clans = seeds.map((_, c) => ({
-    id: `w${c}`,
-    name: names[c % names.length],
-    parcels: [],
-    wants: rng.pick(A.wants),
-    rate: Math.round(rng.range(TRADE.rate[0], TRADE.rate[1]) * 10) / 10
-  }));
-  const parcels = points.map((p, i) => ({
-    id: `g${i}`,
-    index: i,
-    x: round3(p.x),
-    y: round3(p.y),
-    z: round3(p.z),
-    ring: p.layer,
-    clan: `w${owner[i]}`,
-    links: links[i].map((j) => `g${j}`).sort()
-  }));
-  for (const g of parcels) clans[Number(g.clan.slice(1))].parcels.push(g.id);
-  const out = {
-    fruit: "apple",
-    seed,
-    parcels,
-    clans,
-    byId: new Map(parcels.map((g) => [g.id, g])),
-    clanById: new Map(clans.map((c) => [c.id, c]))
-  };
-  if (cache2.size > 16) cache2.clear();
-  cache2.set(seed, out);
-  return out;
-}
-var CYCLE_MS = APPLE_STAGES.reduce((a, st) => a + APPLE.stageMs[st], 0);
-var offsets = /* @__PURE__ */ new Map();
-function offsetOf(seed) {
-  let o = offsets.get(seed);
-  if (o === void 0) {
-    o = Math.floor(createRng(`${seed}/apple/ripeness`).range(0, CYCLE_MS) / 6e4) * 6e4;
-    if (offsets.size > 16) offsets.clear();
-    offsets.set(seed, o);
-  }
-  return o;
-}
-function appleStage(seed, at) {
-  const t = ((at + offsetOf(seed)) % CYCLE_MS + CYCLE_MS) % CYCLE_MS;
-  let start = at - t;
-  for (const stage of APPLE_STAGES) {
-    const end = start + APPLE.stageMs[stage];
-    if (at < end) return { stage, since: start, until: end };
-    start = end;
-  }
-  return { stage: "green", since: start, until: start + APPLE.stageMs.green };
-}
-function appleCalendar(seed, at, count) {
-  const out = [appleStage(seed, at)];
-  while (out.length < count) out.push(appleStage(seed, out[out.length - 1].until));
-  return out;
-}
-function appleEffects(seed, at) {
-  return APPLE.stages[appleStage(seed, at).stage];
-}
-
-// packages/shared/src/sim/pineapple.ts
-var cache3 = /* @__PURE__ */ new Map();
-function pineappleOf(seed) {
-  const hit = cache3.get(seed);
-  if (hit) return hit;
-  const rng = createRng(`${seed}/pineapple`);
-  const P = PINEAPPLE;
-  const n = rng.int(P.scales[0], P.scales[1]);
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  const turn = rng.range(0, 2 * Math.PI);
-  const points = Array.from({ length: n }, (_, i) => {
-    const y = -0.95 + 1.85 * (i + 0.5) / n;
-    const r = 0.72 * Math.sqrt(Math.max(0.05, 1 - (y / 1.08) ** 4));
-    const a = turn + i * golden;
-    return { x: r * Math.cos(a), y, z: r * Math.sin(a) };
-  });
-  points.push({ x: 0, y: 1.12, z: 0 });
-  const crown = n;
-  const links = points.map(() => []);
-  const nearest = (i, pool, k2) => pool.filter((j) => j !== i).sort((a, b) => dist3(points[i], points[a]) - dist3(points[i], points[b]) || a - b).slice(0, k2);
-  const scales = Array.from({ length: n }, (_, i) => i);
-  for (const i of scales) for (const j of nearest(i, scales, P.touches)) link(links, i, j);
-  for (const j of nearest(crown, scales, P.crownLinks)) link(links, crown, j);
-  const k = rng.int(P.clans[0], P.clans[1]);
-  const { owner, seeds } = growClans(points, links, k, rng);
-  const names = shuffled(
-    Array.from({ length: CLAN_NAME_COUNT.pineapple }, (_, i) => i),
-    rng
-  );
-  const clans = seeds.map((_, c) => ({
-    id: `n${c}`,
-    name: names[c % names.length],
-    parcels: [],
-    wants: rng.pick(P.wants),
-    rate: Math.round(rng.range(TRADE.rate[0], TRADE.rate[1]) * 10) / 10
-  }));
-  const parcels = points.map((p, i) => ({
-    id: `s${i}`,
-    index: i,
-    x: round3(p.x),
-    y: round3(p.y),
-    z: round3(p.z),
-    ring: i === crown ? 2 : Math.min(2, Math.floor(3 * i / n)),
-    clan: `n${owner[i]}`,
-    links: links[i].map((j) => `s${j}`).sort(),
-    ...i === crown ? { crown: true } : {}
-  }));
-  for (const s of parcels) clans[Number(s.clan.slice(1))].parcels.push(s.id);
-  const out = {
-    fruit: "pineapple",
-    seed,
-    parcels,
-    clans,
-    byId: new Map(parcels.map((s) => [s.id, s])),
-    clanById: new Map(clans.map((c) => [c.id, c]))
-  };
-  if (cache3.size > 16) cache3.clear();
-  cache3.set(seed, out);
-  return out;
-}
-function crownOf(map) {
-  return map.parcels[map.parcels.length - 1];
-}
-function bromelainShield(state, v) {
-  const B = PINEAPPLE.bromelain;
-  const end = Math.min(B.enduranceCap, Math.max(0, v.stats.endurance - 5) * B.perEndurance);
-  return (1 - end) * (actinidineActive(state) ? B.actinidine : 1);
-}
-function bromelainHarm(state, crew, hours) {
-  const B = PINEAPPLE.bromelain;
-  const out = {};
-  for (const v of crew) {
-    const share2 = Math.min(1 - B.floor, B.perHour * hours * bromelainShield(state, v));
-    if (share2 > 0) out[v.id] = Math.round(share2 * 100) / 100;
-  }
-  return out;
-}
-function postWornAt(state, v, at) {
-  const shield = Math.max(0.1, bromelainShield(state, v));
-  return at + Math.round(PINEAPPLE.bromelain.postHours * 36e5 / shield / 6e4) * 6e4;
-}
-function wornOut(v, at) {
-  return v.job.kind === "post" && v.job.wornAt !== void 0 && v.job.wornAt <= at;
-}
-
-// packages/shared/src/sim/orchard.ts
-var CLAN_NAMES = 16;
-var mapCache3 = /* @__PURE__ */ new Map();
-function raspberryOf(seed) {
-  const hit = mapCache3.get(seed);
-  if (hit) return hit;
-  const rng = createRng(`${seed}/raspberry`);
-  const R = RASPBERRY;
-  const n = rng.int(R.drupelets[0], R.drupelets[1]);
-  const top = 1 - 2 * R.stemCap;
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  const turn = rng.range(0, 2 * Math.PI);
-  const points = Array.from({ length: n }, (_, i) => {
-    const y = -1 + (i + 0.5) / n * (top + 1) + rng.range(-0.15, 0.15) / n;
-    const rr = Math.sqrt(Math.max(0, 1 - y * y));
-    const a = turn + i * golden + rng.range(-0.08, 0.08);
-    return { x: rr * Math.cos(a), y, z: rr * Math.sin(a) };
-  });
-  const spacing = Math.sqrt(4 * Math.PI * (1 - R.stemCap) / n);
-  const links = linkWithin(points, spacing * R.neighbourSpan);
-  linkLonely(points, links);
-  const k = rng.int(R.clans[0], R.clans[1]);
-  const { owner, seeds } = growClans(points, links, k, rng);
-  const names = shuffled(
-    Array.from({ length: CLAN_NAMES }, (_, i) => i),
-    rng
-  );
-  const clans = seeds.map((_, c) => ({
-    id: `c${c}`,
-    name: names[c],
-    parcels: [],
-    wants: rng.pick(R.wants),
-    rate: Math.round(rng.range(TRADE.rate[0], TRADE.rate[1]) * 10) / 10
-  }));
-  const drupelets = points.map((p, i) => ({
-    id: `d${i}`,
-    index: i,
-    x: round3(p.x),
-    y: round3(p.y),
-    z: round3(p.z),
-    ring: Math.min(2, Math.floor(3 * i / n)),
-    clan: `c${owner[i]}`,
-    links: links[i].map((j) => `d${j}`).sort()
-  }));
-  for (const d of drupelets) clans[Number(d.clan.slice(1))].parcels.push(d.id);
-  const out = {
-    fruit: "raspberry",
-    seed,
-    parcels: drupelets,
-    clans,
-    byId: new Map(drupelets.map((d) => [d.id, d])),
-    clanById: new Map(clans.map((c) => [c.id, c]))
-  };
-  if (mapCache3.size > 16) mapCache3.clear();
-  mapCache3.set(seed, out);
-  return out;
-}
-function raspberryOfState(state) {
-  return raspberryOf(state.orchard.seed);
-}
-function fruitMapOf(seed, fruit) {
-  switch (fruit) {
-    case "raspberry":
-      return raspberryOf(seed);
-    case "apple":
-      return appleOf(seed);
-    case "pineapple":
-      return pineappleOf(seed);
-  }
-}
-function fruitOfState(state, fruit) {
-  return fruitMapOf(state.orchard.seed, fruit);
-}
-function parcelOf(state, id3) {
-  const fruit = fruitOfId(id3);
-  if (!fruit) return null;
-  const map = fruitOfState(state, fruit);
-  const parcel = map.byId.get(id3);
-  return parcel ? { map, parcel } : null;
-}
-function clanOf(state, id3) {
-  const fruit = fruitOfId(id3);
-  return fruit ? fruitOfState(state, fruit).clanById.get(id3) ?? null : null;
-}
-function allFruits(state) {
-  return FRUIT_IDS.map((f) => fruitOfState(state, f));
-}
-function clanNeighbours(map, clanId) {
-  const out = /* @__PURE__ */ new Set();
-  for (const id3 of map.clanById.get(clanId)?.parcels ?? [])
-    for (const l of map.byId.get(id3).links) {
-      const c = map.byId.get(l).clan;
-      if (c !== clanId) out.add(c);
-    }
-  return [...out].sort();
-}
-var truthCache2 = /* @__PURE__ */ new Map();
-function fruitTruth(seed, d) {
-  const fruit = fruitOfId(d.id) ?? "raspberry";
-  const key = fruit === "raspberry" ? `${seed}/drupelet/${d.id}` : `${seed}/${fruit}/${d.id}`;
-  let t = truthCache2.get(key);
-  if (!t) {
-    const rng = createRng(key);
-    const R = FRUIT_DEFS[fruit];
-    const nestHere = rng.chance(R.nestChance);
-    const power = R.rings.power[d.ring] * rng.range(1 - R.powerSpread, 1 + R.powerSpread) * (nestHere ? R.nestPower : 1) * (d.crown ? PINEAPPLE.crownPower : 1);
-    const nectar = Math.round(
-      R.rings.nectar[d.ring] * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread)
-    );
-    const cider = fruit === "apple" ? Math.round(APPLE.cider[d.ring] * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread)) : 0;
-    const goldFiber = fruit === "pineapple" ? Math.round(
-      PINEAPPLE.goldFiber[d.ring] * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread) * (d.crown ? PINEAPPLE.crownFiber : 1)
-    ) : 0;
-    t = {
-      units: fruitGarrison(fruit, power, R.rings.level[d.ring]),
-      nectar,
-      nest: nestHere,
-      cider,
-      goldFiber
-    };
-    if (truthCache2.size > 512) truthCache2.clear();
-    truthCache2.set(key, t);
-  }
-  return t;
-}
-var drupeletTruth = fruitTruth;
-function fruitGarrison(fruit, power, level) {
-  const mix2 = FRUIT_DEFS[fruit].mix;
-  const kinds = Object.keys(mix2);
-  return kinds.map((kind, i) => ({
-    kind,
-    count: Math.max(i === 0 ? 1 : 0, Math.round(power * mix2[kind] / ENEMIES[kind].power)),
-    level
-  })).filter((u) => u.count > 0);
-}
-function beetles(power, level) {
-  return fruitGarrison("raspberry", power, level);
-}
-function guessGarrison(state, d, k, at) {
-  const fruit = fruitOfId(d.id) ?? "raspberry";
-  const R = FRUIT_DEFS[fruit];
-  const power = R.rings.power[d.ring] * k * regrowth(state, d.id, at) * stagePower(state, fruit, at) * (d.crown ? PINEAPPLE.crownPower : 1);
-  return fruitGarrison(fruit, power, R.rings.level[d.ring]);
-}
-function stagePower(state, fruit, at) {
-  return fruit === "apple" ? appleEffects(state.orchard.seed, at).power : 1;
-}
-function rescaleSeen(state, fruit, units, seenAt, at) {
-  const k = stagePower(state, fruit, at) / stagePower(state, fruit, seenAt);
-  if (k === 1) return units.map((u) => ({ ...u }));
-  return scaleUnits(units, k);
-}
-function scaleUnits(units, f) {
-  return units.map((u, i) => ({ ...u, count: Math.max(i === 0 ? 1 : 0, Math.round(u.count * f)) })).filter((u) => u.count > 0);
-}
-function regrowth(state, id3, at) {
-  const t = state.orchard.taken[id3];
-  if (t === void 0) return 1;
-  const R = FRUIT_DEFS[fruitOfId(id3) ?? "raspberry"];
-  return Math.max(0.1, Math.min(1, (at - t) / R.regrowMs));
-}
-function parcelNow(state, seed, d, at) {
-  const t = fruitTruth(seed, d);
-  const f = regrowth(state, d.id, at);
-  const apple = fruitOfId(d.id) === "apple";
-  if (f >= 1 && !apple) return t;
-  const st = apple ? appleEffects(state.orchard.seed, at) : { power: 1, rich: 1, cider: 0 };
-  return {
-    units: scaleUnits(t.units, f * st.power),
-    nectar: Math.round(t.nectar * f * st.rich),
-    nest: t.nest,
-    cider: Math.round(t.cider * f * st.cider),
-    goldFiber: Math.round(t.goldFiber * f)
-  };
-}
-var drupeletNow = parcelNow;
-function standingOf(state, clan, at) {
-  const s = state.orchard.standing[clan];
-  if (!s) return 0;
-  const drift = STANDING.driftPerDay * Math.max(0, at - s.at) / 864e5;
-  const v = s.value > 0 ? Math.max(0, s.value - drift) : Math.min(0, s.value + drift);
-  return Math.round(v * 10) / 10;
-}
-function attitudeOf(state, clan, at) {
-  const v = standingOf(state, clan, at);
-  return v >= STANDING.friendly ? "friendly" : v <= STANDING.hostile ? "hostile" : "neutral";
-}
-function addStanding(s, clan, delta, at) {
-  const v = Math.max(STANDING.min, Math.min(STANDING.max, standingOf(s, clan, at) + delta));
-  s.orchard.standing[clan] = { value: v, at };
-}
-function pillageStanding(s, clan, at) {
-  const map = fruitOfState(s, fruitOfId(clan) ?? "raspberry");
-  addStanding(s, clan, STANDING.pillage, at);
-  for (const c of clanNeighbours(map, clan)) addStanding(s, c, STANDING.pillageNeighbours, at);
-}
-function soldTo(state, clan, at) {
-  const s = state.orchard.sold[clan];
-  if (!s) return 0;
-  return Math.max(0, s.value * (1 - Math.max(0, at - s.at) / TRADE.fadeMs));
-}
-function tradeRate(state, clan, at) {
-  const c = clanOf(state, clan);
-  if (!c) return 0;
-  const rich = fruitOfId(clan) === "apple" ? appleEffects(state.orchard.seed, at).rich : 1;
-  return Math.round(c.rate * rich / (1 + soldTo(state, clan, at) / TRADE.soften) * 100) / 100;
-}
-function sellTo(s, clan, amount, at) {
-  const rate = tradeRate(s, clan, at);
-  s.orchard.sold[clan] = { value: soldTo(s, clan, at) + amount, at };
-  return Math.floor(amount * rate / 1e3);
-}
-function goodCap(state, good) {
-  const c = GOOD_CAPS[good];
-  return (c[Math.min(nest(state).level, c.length - 1)] ?? 0) * NECTAR_SCALE;
-}
-function goodOf(state, good) {
-  return nectarUnits(state[good]);
-}
-function addGood(s, good, units) {
-  const room = Math.max(0, goodCap(s, good) - s[good]);
-  const got = Math.min(Math.max(0, units) * NECTAR_SCALE, room);
-  s[good] += got;
-  return nectarUnits(got);
-}
-function payGood(s, good, units) {
-  s[good] = Math.max(0, s[good] - units * NECTAR_SCALE);
-}
-function nectarCap(state) {
-  return goodCap(state, "nectar");
-}
-function nectarOf(state) {
-  return nectarUnits(state.nectar);
-}
-function addNectar(s, units) {
-  return addGood(s, "nectar", units);
-}
-function payNectar(s, units) {
-  payGood(s, "nectar", units);
-}
-function parcelInReach(state, d) {
-  const fruit = fruitOfId(d.id);
-  if (fruit === "pineapple" ? !d.crown : fruit !== "apple" || d.ring === 0) return true;
-  const post = fruit ? state.orchard.posts[fruit] : void 0;
-  const near = (id3) => state.orchard.taken[id3] !== void 0 || !!post && !post.ruined && post.drupelet === id3;
-  return near(d.id) || d.links.some(near);
-}
-function orchardOpen(state) {
-  return state.colony.index === 0 && hasTech(state, "wormholes");
-}
-function wormholePads(state) {
-  return state.buildings.filter((b) => b.type === "launchpad" && b.level >= ORCHARD.padLevel);
-}
-function localOrchardSeed(state) {
-  return `${localAlienSeed(state)}/orchard`;
-}
-function universeOrchardSeed(universeSeed) {
-  return `${universeSeed}/orchard`;
-}
-function ensureOrchard(state, secret, force = false) {
-  if (state.colony.index !== 0) {
-    const had = state.orchardSeed !== void 0;
-    delete state.orchardSeed;
-    return had;
-  }
-  if (state.orchardSeed !== void 0 && (!force || state.orchardSeed === secret)) return false;
-  state.orchardSeed = secret;
-  return true;
-}
-function orchardKnown(state) {
-  return state.orchardSeed !== void 0;
-}
-function rebaseOrchard(s, seed) {
-  if (s.orchard.seed === seed) return false;
-  forgetOrchard(s, seed);
-  return true;
-}
-function forgetOrchard(s, seed = s.orchard.seed) {
-  const flying = new Set(
-    s.expeditions.filter((e) => (e.mission === "visit" || e.mission === "pillage") && e.status !== "done").map((e) => e.id)
-  );
-  s.expeditions = s.expeditions.filter((e) => !flying.has(e.id));
-  for (const v of s.villagers)
-    if (v.job.kind === "post" || v.job.kind === "expedition" && flying.has(v.job.expeditionId))
-      v.job = { kind: "idle" };
-  s.orchard = newOrchard(seed);
-}
-
 // packages/shared/src/sim/sites.ts
 var cache4 = /* @__PURE__ */ new Map();
 function smallMap(key, radius, rocks) {
@@ -11015,6 +11093,9 @@ function freePostSpots(state, post) {
 }
 
 // packages/shared/src/sim/voyages.ts
+function fuelOn(plan) {
+  return !!plan.fuel || !!plan.fuelCider;
+}
 function isVoyage(e) {
   return e.mission === "visit" || e.mission === "pillage";
 }
@@ -11115,6 +11196,8 @@ function voyageLock(state, plan) {
     return "crewTooSmall";
   const { pulp, juice } = plan.provisions;
   if (![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) return "invalidCount";
+  if (plan.fuel && plan.fuelCider) return "invalidMission";
+  if (plan.fuelCider && goodOf(state, "cider") < CIDER_FUEL.cider) return "notEnoughCider";
   return null;
 }
 function voyageForecast(state, plan) {
@@ -11123,7 +11206,7 @@ function voyageForecast(state, plan) {
   const fruit = voyageFruit(plan) ?? "raspberry";
   const map = fruitOfState(state, fruit);
   const crew = sailors(state, plan.crew) ?? [];
-  const travelMs = voyageTime(state, pad, crew, !!plan.fuel, fruit);
+  const travelMs = voyageTime(state, pad, crew, fuelOn(plan), fruit);
   const need = rations(state, crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const goods = cleanGoods(plan.goods);
@@ -11166,7 +11249,7 @@ function voyageForecast(state, plan) {
     cargo: shipCargo(pad),
     returnWeight: crewWeight(backCrew),
     launchCost: launchCost(state, crew, "land"),
-    reliability: shipReliability(shipOf(state), crew, !!plan.fuel),
+    reliability: shipReliability(shipOf(state), crew, fuelOn(plan)),
     stops,
     settleCost: plan.settle ? postCost(state, fruit) : null,
     store: calls && post ? postStore(post) : 0,
@@ -11260,10 +11343,10 @@ function launchVoyage(state, plan, now, id3) {
   const goods = plan.mission === "visit" ? cleanGoods(plan.goods) : emptyResources();
   for (const r of RESOURCE_IDS) state.resources[r] -= goods[r];
   const fruit = voyageFruit(plan) ?? "raspberry";
-  const travelMs = voyageTime(state, pad, crew, !!plan.fuel, fruit);
+  const travelMs = voyageTime(state, pad, crew, fuelOn(plan), fruit);
   const failed = withRng(
     state,
-    (rng) => !rng.chance(shipReliability(shipOf(state), crew, !!plan.fuel))
+    (rng) => !rng.chance(shipReliability(shipOf(state), crew, fuelOn(plan)))
   );
   const outMs = failed ? Math.round(travelMs * LANDING.breakdown.delay / 1e3) * 1e3 : travelMs;
   const hops = (plan.stops.length - 1) * ORCHARD.hopMs;
@@ -15612,6 +15695,30 @@ function fireFireworks(state, pattern, at) {
     addMemory(v, "fireworks", def.value, at + def.ms);
   }
 }
+function ciderEveningLock(state) {
+  const c = calendarAt(state.calendarStart, state.now);
+  if (!c.night) return "notNight";
+  if (state.village.ciderNight === c.nightAt) return "ciderDone";
+  if (goodOf(state, "cider") < CIDER_EVENING.cider) return "notEnoughCider";
+  return null;
+}
+function serveCider(state, at) {
+  const c = calendarAt(state.calendarStart, at);
+  state.village = { ...state.village, ciderNight: c.nightAt };
+  for (const v of state.villagers) {
+    if (v.job.kind === "expedition" || v.job.kind === "outpost" || v.job.kind === "post" || v.job.kind === "orbit")
+      continue;
+    addMemory(v, "cider", CIDER_EVENING.value, at + CIDER_EVENING.ms);
+  }
+}
+function gildLock(state, b) {
+  if (!b) return "unknownBuilding";
+  if (!isDecor(b.type)) return "notDecor";
+  if (b.gilded) return "alreadyGilded";
+  if (goodOf(state, "nectar") < GILD.nectar) return "notEnoughNectar";
+  if (goodOf(state, "goldFiber") < GILD.goldFiber) return "notEnoughGoldFiber";
+  return null;
+}
 
 // packages/shared/src/sim/advance.ts
 function advance(state, now) {
@@ -18783,6 +18890,9 @@ var COMMAND_ERRORS = [
   "unknownRoute",
   "notEnoughCider",
   "notEnoughGoldFiber",
+  "ciderDone",
+  "notDecor",
+  "alreadyGilded",
   "clanHostile",
   "notFriendly",
   "ownPost",
@@ -19287,6 +19397,7 @@ function execute(s, cmd, ctx, events) {
       };
       if (!canAfford(s.resources, need)) fail("notEnoughResources");
       if (cmd.fuel) payStardust(s, FUEL.stardust);
+      if (cmd.fuelCider) payGood(s, "cider", CIDER_FUEL.cider);
       pay2(s, f.launchCost);
       if (cmd.settle) {
         const cost = postCost(s, fruitOfId(cmd.stops[0] ?? "") ?? "raspberry");
@@ -19314,6 +19425,22 @@ function execute(s, cmd, ctx, events) {
       const m = post.modules.find((x) => x.id === cmd.moduleId);
       post.modules = post.modules.filter((x) => x !== m);
       addNectar(s, Math.floor(POST.modules[m.type].nectar * POST.refund));
+      return;
+    }
+    case "serveCider": {
+      const lock = ciderEveningLock(s);
+      if (lock) fail(lock);
+      payGood(s, "cider", CIDER_EVENING.cider);
+      serveCider(s, now);
+      return;
+    }
+    case "gildDecor": {
+      const b = getBuilding(s, cmd.buildingId);
+      const lock = gildLock(s, b);
+      if (lock) fail(lock);
+      payGood(s, "nectar", GILD.nectar);
+      payGood(s, "goldFiber", GILD.goldFiber);
+      b.gilded = true;
       return;
     }
     case "openRoute": {
@@ -24217,7 +24344,8 @@ var gameStateSchema = external_exports.object({
       shipLost: external_exports.enum(SHIP_IDS).optional(),
       reserve: resources.optional(),
       rot: external_exports.number().int().min(0).max(5).optional(),
-      cramped: external_exports.literal(true).optional()
+      cramped: external_exports.literal(true).optional(),
+      gilded: external_exports.literal(true).optional()
     })
   ),
   villagers: external_exports.array(villager),
@@ -24238,7 +24366,8 @@ var gameStateSchema = external_exports.object({
   village: external_exports.object({
     cabaretOpen: external_exports.boolean(),
     fireworksNight: external_exports.number().min(0),
-    lastShow: external_exports.object({ at: external_exports.number().min(0), pattern: external_exports.enum(FIREWORKS_PATTERNS) }).optional()
+    lastShow: external_exports.object({ at: external_exports.number().min(0), pattern: external_exports.enum(FIREWORKS_PATTERNS) }).optional(),
+    ciderNight: external_exports.number().min(0).optional()
   }),
   hunger: external_exports.number().int().min(0),
   queue: external_exports.array(
@@ -24718,7 +24847,9 @@ var gameStateSchema = external_exports.object({
         progress: external_exports.number().int().min(0),
         paid: partialResources,
         iron: external_exports.number().int().min(0),
-        crystal: external_exports.number().int().min(0).optional()
+        crystal: external_exports.number().int().min(0).optional(),
+        nectar: external_exports.number().int().min(0).optional(),
+        goldFiber: external_exports.number().int().min(0).optional()
       })
     ).max(16),
     armory: external_exports.record(external_exports.enum(ITEM_IDS), external_exports.number().int().min(0).max(FORGE.armoryMax))
@@ -25273,7 +25404,8 @@ var commandSchema = external_exports.discriminatedUnion("type", [
       retreatAt: external_exports.number().min(0).max(1),
       goal: external_exports.enum(["burn", "loot"])
     }).optional(),
-    fuel: external_exports.boolean().optional()
+    fuel: external_exports.boolean().optional(),
+    fuelCider: external_exports.boolean().optional()
   }),
   external_exports.object({
     type: external_exports.literal("buildPostModule"),
@@ -25285,6 +25417,8 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("removePostModule"), moduleId: id2 }),
   external_exports.object({ type: external_exports.literal("openRoute"), a: external_exports.enum(FRUIT_IDS), b: external_exports.enum(FRUIT_IDS) }),
   external_exports.object({ type: external_exports.literal("closeRoute"), routeId: id2 }),
+  external_exports.object({ type: external_exports.literal("serveCider") }),
+  external_exports.object({ type: external_exports.literal("gildDecor"), buildingId: id2 }),
   external_exports.object({ type: external_exports.literal("serviceKiwai"), kiwaiId: id2 }),
   external_exports.object({ type: external_exports.literal("raiseShield"), kiwaiId: id2 }),
   external_exports.object({
@@ -27003,6 +27137,8 @@ export {
   CANALS,
   CATCHMENT_RADIUS,
   CIDER,
+  CIDER_EVENING,
+  CIDER_FUEL,
   CIV,
   CIV_AGE_COUNT,
   CIV_KEYS,
@@ -27055,6 +27191,7 @@ export {
   GEAR_SLOTS,
   GEAR_TIERS,
   GIANT_SEEDS,
+  GILD,
   GOLD_FIBER,
   GOOD_CAPS,
   GUARD_ORDERS,
@@ -27327,6 +27464,7 @@ export {
   catchmentRadius,
   caveInHits,
   caveInOf,
+  ciderEveningLock,
   civAgeOfHours,
   civAt,
   civBuildings,
@@ -27535,6 +27673,7 @@ export {
   fruitOfTarget,
   fruitSetup,
   fruitTruth,
+  fuelOn,
   galleryCrystalRate,
   galleryRate,
   galleryRates,
@@ -27559,6 +27698,7 @@ export {
   getTile,
   giantSeedCap,
   giftStanding,
+  gildLock,
   giveSpeech,
   goodCap,
   goodOf,
@@ -28010,6 +28150,7 @@ export {
   sendBackAll,
   sendShipment,
   serializeSave,
+  serveCider,
   serviceKiwai,
   serviceLock,
   setModule,

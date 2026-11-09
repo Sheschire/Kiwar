@@ -397,6 +397,7 @@ export const gameStateSchema = z.object({
       reserve: resources.optional(),
       rot: z.number().int().min(0).max(5).optional(),
       cramped: z.literal(true).optional(),
+      gilded: z.literal(true).optional(),
     }),
   ),
   villagers: z.array(villager),
@@ -420,6 +421,7 @@ export const gameStateSchema = z.object({
     cabaretOpen: z.boolean(),
     fireworksNight: z.number().min(0),
     lastShow: z.object({ at: z.number().min(0), pattern: z.enum(FIREWORKS_PATTERNS) }).optional(),
+    ciderNight: z.number().min(0).optional(),
   }),
   hunger: z.number().int().min(0),
   queue: z.array(
@@ -1001,6 +1003,8 @@ export const gameStateSchema = z.object({
           paid: partialResources,
           iron: z.number().int().min(0),
           crystal: z.number().int().min(0).optional(),
+          nectar: z.number().int().min(0).optional(),
+          goldFiber: z.number().int().min(0).optional(),
         }),
       )
       .max(16),

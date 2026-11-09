@@ -190,6 +190,9 @@ export interface ForgeOrder {
   iron: number;
   /** Chantier 50: crystal paid. */
   crystal?: number;
+  /** Chantier 55: nectar and golden fibre paid. */
+  nectar?: number;
+  goldFiber?: number;
 }
 
 /** Chantier 38: the Forge's queue (the first order is worked) and the pieces in store. */
@@ -248,6 +251,8 @@ export interface Building {
    * only its anchor until its next upgrade, which needs the room (`extensionFor`).
    */
   cramped?: true;
+  /** Chantier 55: a decoration gilded with nectar and golden fibre (more beauty). */
+  gilded?: true;
 }
 
 export interface Pool {
@@ -1185,6 +1190,8 @@ export interface GameState {
     fireworksNight: TimeMs;
     /** The last fireworks show (the client plays it when it is recent). */
     lastShow?: { at: TimeMs; pattern: FireworksPattern };
+    /** Chantier 55: the last night a cider evening was served (its nightfall). */
+    ciderNight?: TimeMs;
   };
   /** Colony hunger gauge in raw units (HUNGER_SCALE per ms of full privation). */
   hunger: number;

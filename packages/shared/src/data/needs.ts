@@ -70,6 +70,8 @@ export const MEMORY_KINDS = [
   'cabaret',
   'fireworks',
   'motherVine',
+  // Chantier 55: a cider evening.
+  'cider',
 ] as const;
 export type MemoryKind = (typeof MEMORY_KINDS)[number];
 
@@ -131,6 +133,8 @@ export const MORALE = {
     fireworks: { value: 15, ms: ms.h(12), best: 15 },
     // Chantier 52: the Mother Vine found (the whole colony, three days).
     motherVine: { value: 15, ms: ms.h(72), best: 15 },
+    // Chantier 55: a cider evening (the overripe apple's cider, half a game week).
+    cider: { value: 12, ms: ms.h(12), best: 12 },
   } satisfies Record<MemoryKind, { value: number; ms: number; best: number }>,
 } as const;
 

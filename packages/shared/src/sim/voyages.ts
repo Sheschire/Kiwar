@@ -6,6 +6,7 @@ import { EXPEDITIONS } from '../data/expeditions';
 import { LANDING, type LandingOrders } from '../data/landing';
 import {
   APPLE,
+  CIDER_FUEL,
   PINEAPPLE,
   ROUTE,
   FRUIT_DEFS,
@@ -43,6 +44,7 @@ import {
   addStanding,
   attitudeOf,
   fruitOfState,
+  goodOf,
   guessGarrison,
   nectarOf,
   orchardOpen,
@@ -104,6 +106,13 @@ export interface VoyagePlan {
   bringBack?: VillagerId[];
   orders?: LandingOrders;
   fuel?: boolean;
+  /** Chantier 55: the fuel paid in cider instead of stardust (the same effect). */
+  fuelCider?: boolean;
+}
+
+/** The ship burns fuel (stardust or cider): faster and more reliable. */
+export function fuelOn(plan: Pick<VoyagePlan, 'fuel' | 'fuelCider'>): boolean {
+  return !!plan.fuel || !!plan.fuelCider;
 }
 
 export function isVoyage(e: Pick<Expedition, 'mission'>): boolean {
@@ -246,6 +255,8 @@ export function voyageLock(state: GameState, plan: VoyagePlan): CommandError | n
     return 'crewTooSmall';
   const { pulp, juice } = plan.provisions;
   if (![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) return 'invalidCount';
+  if (plan.fuel && plan.fuelCider) return 'invalidMission';
+  if (plan.fuelCider && goodOf(state, 'cider') < CIDER_FUEL.cider) return 'notEnoughCider';
   return null;
 }
 
@@ -308,7 +319,7 @@ export function voyageForecast(state: GameState, plan: VoyagePlan): VoyageForeca
   const fruit = voyageFruit(plan) ?? 'raspberry';
   const map = fruitOfState(state, fruit);
   const crew = sailors(state, plan.crew) ?? [];
-  const travelMs = voyageTime(state, pad, crew, !!plan.fuel, fruit);
+  const travelMs = voyageTime(state, pad, crew, fuelOn(plan), fruit);
   const need = rations(state, crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const goods = cleanGoods(plan.goods);
@@ -354,7 +365,7 @@ export function voyageForecast(state: GameState, plan: VoyagePlan): VoyageForeca
     cargo: shipCargo(pad),
     returnWeight: crewWeight(backCrew),
     launchCost: launchCost(state, crew, 'land'),
-    reliability: shipReliability(shipOf(state), crew, !!plan.fuel),
+    reliability: shipReliability(shipOf(state), crew, fuelOn(plan)),
     stops,
     settleCost: plan.settle ? postCost(state, fruit) : null,
     store: calls && post ? postStore(post) : 0,
@@ -490,11 +501,11 @@ export function launchVoyage(
   const goods = plan.mission === 'visit' ? cleanGoods(plan.goods) : emptyResources();
   for (const r of RESOURCE_IDS) state.resources[r] -= goods[r];
   const fruit = voyageFruit(plan) ?? 'raspberry';
-  const travelMs = voyageTime(state, pad, crew, !!plan.fuel, fruit);
+  const travelMs = voyageTime(state, pad, crew, fuelOn(plan), fruit);
   // A breakdown only delays the ship (like a landing): late, with the same hold.
   const failed = withRng(
     state,
-    (rng) => !rng.chance(shipReliability(shipOf(state), crew, !!plan.fuel)),
+    (rng) => !rng.chance(shipReliability(shipOf(state), crew, fuelOn(plan))),
   );
   const outMs = failed ? Math.round((travelMs * LANDING.breakdown.delay) / 1000) * 1000 : travelMs;
   const hops = (plan.stops.length - 1) * ORCHARD.hopMs;

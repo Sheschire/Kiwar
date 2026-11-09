@@ -1,4 +1,5 @@
 import { addCrystal, crystalOf, payCrystal } from './crystal';
+import { addGood, goodOf, payGood } from './orchard';
 import { gathered } from './speech';
 import { levelDef } from '../data/buildings';
 import {
@@ -93,6 +94,8 @@ export function forgeLock(state: GameState, id: ItemId): CommandError | null {
   if (state.forge.orders.length >= forgeQueueSize(state)) return 'forgeQueueFull';
   if (meteorIronOf(state) < def.iron) return 'notEnoughIron';
   if (crystalOf(state) < (def.crystal ?? 0)) return 'notEnoughCrystal';
+  if (goodOf(state, 'nectar') < (def.nectar ?? 0)) return 'notEnoughNectar';
+  if (goodOf(state, 'goldFiber') < (def.goldFiber ?? 0)) return 'notEnoughGoldFiber';
   if (!canAfford(state.resources, def.cost)) return 'notEnoughResources';
   return null;
 }
@@ -103,6 +106,8 @@ export function orderItem(state: GameState, id: ItemId, orderId: string): void {
   for (const r of RESOURCE_IDS) state.resources[r] -= def.cost[r] ?? 0;
   state.meteorIron -= def.iron * IRON_SCALE;
   if (def.crystal) payCrystal(state, def.crystal);
+  if (def.nectar) payGood(state, 'nectar', def.nectar);
+  if (def.goldFiber) payGood(state, 'goldFiber', def.goldFiber);
   state.forge.orders.push({
     id: orderId,
     item: id,
@@ -110,6 +115,8 @@ export function orderItem(state: GameState, id: ItemId, orderId: string): void {
     paid: { ...def.cost },
     iron: def.iron,
     ...(def.crystal ? { crystal: def.crystal } : {}),
+    ...(def.nectar ? { nectar: def.nectar } : {}),
+    ...(def.goldFiber ? { goldFiber: def.goldFiber } : {}),
   });
 }
 
@@ -120,6 +127,8 @@ export function cancelOrder(state: GameState, index: number): void {
   for (const r of RESOURCE_IDS) state.resources[r] += order.paid[r] ?? 0;
   addIron(state, order.iron);
   if (order.crystal) addCrystal(state, order.crystal);
+  if (order.nectar) addGood(state, 'nectar', order.nectar);
+  if (order.goldFiber) addGood(state, 'goldFiber', order.goldFiber);
 }
 
 /** Next time the first order is done. */

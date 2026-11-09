@@ -137,6 +137,7 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
       })
       .optional(),
     fuel: z.boolean().optional(),
+    fuelCider: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('buildPostModule'),
@@ -148,6 +149,8 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('removePostModule'), moduleId: id }),
   z.object({ type: z.literal('openRoute'), a: z.enum(FRUIT_IDS), b: z.enum(FRUIT_IDS) }),
   z.object({ type: z.literal('closeRoute'), routeId: id }),
+  z.object({ type: z.literal('serveCider') }),
+  z.object({ type: z.literal('gildDecor'), buildingId: id }),
   z.object({ type: z.literal('serviceKiwai'), kiwaiId: id }),
   z.object({ type: z.literal('raiseShield'), kiwaiId: id }),
   z.object({

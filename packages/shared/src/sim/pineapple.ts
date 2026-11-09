@@ -1,3 +1,4 @@
+import { ITEMS } from '../data/gear';
 import { CLAN_NAME_COUNT, PINEAPPLE, TRADE } from '../data/orchard';
 import { createRng } from '../rng/rng';
 import type { TimeMs } from '../types/ids';
@@ -95,7 +96,9 @@ export function crownOf(map: FruitMap): Parcel {
 export function bromelainShield(state: GameState, v: Villager): number {
   const B = PINEAPPLE.bromelain;
   const end = Math.min(B.enduranceCap, Math.max(0, v.stats.endurance - 5) * B.perEndurance);
-  return (1 - end) * (actinidineActive(state) ? B.actinidine : 1);
+  // A golden fibre armour keeps the enzyme out.
+  const armor = v.gear?.armor ? (ITEMS[v.gear.armor].bromelain ?? 1) : 1;
+  return (1 - end) * (actinidineActive(state) ? B.actinidine : 1) * armor;
 }
 
 /** Shares of hit points each kiwi loses after `hours` on the pineapple (never below the floor). */

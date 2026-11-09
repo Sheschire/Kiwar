@@ -1,4 +1,6 @@
-import { CABARET, FIREWORKS, type FireworksPattern } from '../data/needs';
+import { CABARET, FIREWORKS, isDecor, type FireworksPattern } from '../data/needs';
+import { CIDER_EVENING, GILD } from '../data/orchard';
+import { goodOf } from './orchard';
 import type { CommandError } from './commands';
 import { stardustOf } from './comets';
 import { canAfford } from './selectors';
@@ -95,4 +97,41 @@ export function fireFireworks(state: GameState, pattern: FireworksPattern, at: T
       continue;
     addMemory(v, 'fireworks', def.value, at + def.ms);
   }
+}
+
+/** Chantier 55: why a cider evening cannot be served now (by day, already tonight, no cider). */
+export function ciderEveningLock(state: GameState): CommandError | null {
+  const c = calendarAt(state.calendarStart, state.now);
+  if (!c.night) return 'notNight';
+  if (state.village.ciderNight === c.nightAt) return 'ciderDone';
+  if (goodOf(state, 'cider') < CIDER_EVENING.cider) return 'notEnoughCider';
+  return null;
+}
+
+/**
+ * Chantier 55: a cider evening (already paid): every kiwi at home remembers it; once a night.
+ */
+export function serveCider(state: GameState, at: TimeMs): void {
+  const c = calendarAt(state.calendarStart, at);
+  state.village = { ...state.village, ciderNight: c.nightAt };
+  for (const v of state.villagers) {
+    if (
+      v.job.kind === 'expedition' ||
+      v.job.kind === 'outpost' ||
+      v.job.kind === 'post' ||
+      v.job.kind === 'orbit'
+    )
+      continue;
+    addMemory(v, 'cider', CIDER_EVENING.value, at + CIDER_EVENING.ms);
+  }
+}
+
+/** Chantier 55: why a decoration cannot be gilded (not a decoration, gilded, the price). */
+export function gildLock(state: GameState, b: Building | undefined): CommandError | null {
+  if (!b) return 'unknownBuilding';
+  if (!isDecor(b.type)) return 'notDecor';
+  if (b.gilded) return 'alreadyGilded';
+  if (goodOf(state, 'nectar') < GILD.nectar) return 'notEnoughNectar';
+  if (goodOf(state, 'goldFiber') < GILD.goldFiber) return 'notEnoughGoldFiber';
+  return null;
 }
