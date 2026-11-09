@@ -4,7 +4,15 @@ import { simulateBattle } from '../battle/simulate';
 import type { BattleLog } from '../battle/types';
 import { EXPEDITIONS } from '../data/expeditions';
 import { LANDING, type LandingOrders } from '../data/landing';
-import { NECTAR_SCALE, ORCHARD, ORCHARD_TARGET, RASPBERRY, STANDING } from '../data/orchard';
+import {
+  FRUIT_DEFS,
+  NECTAR_SCALE,
+  ORCHARD,
+  STANDING,
+  fruitOfId,
+  orchardTarget,
+  type FruitId,
+} from '../data/orchard';
 import { RESOURCE_IDS, emptyResources, type Resources } from '../data/resources';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
 import type { AlienUnit } from './civ';
@@ -31,19 +39,28 @@ import { recordBestiary, tollOf, validOrders } from './landing';
 import {
   addStanding,
   attitudeOf,
-  beetles,
-  drupeletNow,
+  fruitOfState,
+  guessGarrison,
   nectarOf,
   orchardOpen,
+  parcelNow,
   pillageStanding,
-  raspberryOfState,
   regrowth,
   sellTo,
   tradeRate,
   type Attitude,
-  type Drupelet,
+  type FruitMap,
+  type Parcel,
 } from './orchard';
-import { foundPost, postCost, postHousing, postKiwis, postStore, workingPost } from './tradingPost';
+import {
+  foundPost,
+  postCost,
+  postHousing,
+  postKiwis,
+  postOf,
+  postStore,
+  workingPost,
+} from './tradingPost';
 import {
   withRng,
   type DrupeletView,
@@ -88,21 +105,27 @@ export function voyagesOut(state: GameState): Expedition[] {
   return state.expeditions.filter((e) => isVoyage(e) && e.status !== 'done');
 }
 
-/** One way through the wormhole (the post on the raspberry is a relay). */
+/** The fruit a voyage goes to (its first stop's id names it). */
+export function voyageFruit(plan: Pick<VoyagePlan, 'stops'>): FruitId | null {
+  return plan.stops[0] ? fruitOfId(plan.stops[0]) : null;
+}
+
+/** One way through the wormhole to a fruit (our post on that fruit is a relay). */
 export function voyageTime(
   state: GameState,
   pad: Parameters<typeof travelTime>[1],
   crew: readonly Villager[],
   fuel = false,
+  fruit: FruitId = 'raspberry',
 ): number {
   const base = travelTime(
-    { travelMs: ORCHARD.travelMs },
+    { travelMs: FRUIT_DEFS[fruit].travelMs },
     pad,
     crew,
     'land',
     travelFactor(state, { fuel }),
   );
-  const relay = workingPost(state) ? ORCHARD.relay : 1;
+  const relay = workingPost(state, fruit) ? ORCHARD.relay : 1;
   return Math.round((base * relay) / 1000) * 1000;
 }
 
@@ -134,14 +157,16 @@ export function voyageLock(state: GameState, plan: VoyagePlan): CommandError | n
   if (isLaunchpadBusy(state, pad.id)) return 'launchpadBusy';
   if (pad.damaged) return 'launchpadDamaged';
   if (plan.mission !== 'visit' && plan.mission !== 'pillage') return 'invalidMission';
-  const map = raspberryOfState(state);
+  const fruit = voyageFruit(plan);
+  if (!fruit) return 'unknownDrupelet';
+  const map = fruitOfState(state, fruit);
   const stops = plan.stops;
   if (stops.length < 1) return 'unknownDrupelet';
   if (stops.length > (plan.mission === 'pillage' ? 1 : ORCHARD.maxStops)) return 'tooManyStops';
   const ds = stops.map((id) => map.byId.get(id));
   if (ds.some((d) => !d) || new Set(stops).size !== stops.length) return 'unknownDrupelet';
   if (ds.length === 2 && !ds[0]!.links.includes(ds[1]!.id)) return 'stopsApart';
-  const post = state.orchard.post;
+  const post = postOf(state, fruit);
   const now = state.now;
   if (plan.mission === 'pillage') {
     if (post && !post.ruined && post.drupelet === stops[0]) return 'ownPost';
@@ -170,7 +195,7 @@ export function voyageLock(state: GameState, plan: VoyagePlan): CommandError | n
         state.orchard.taken[d.id] === undefined
       )
         return 'notFriendly';
-      const cost = postCost(state);
+      const cost = postCost(state, fruit);
       if (nectarOf(state) < cost.nectar) return 'notEnoughNectar';
       if (crystalOf(state) < cost.crystal) return 'notEnoughCrystal';
       if (meteorIronOf(state) < cost.iron) return 'notEnoughIron';
@@ -179,7 +204,7 @@ export function voyageLock(state: GameState, plan: VoyagePlan): CommandError | n
     if ((plan.stay?.length || plan.bringBack?.length) && (!at || !stops.includes(at)))
       return 'notAtPost';
     if (plan.bringBack?.length) {
-      const here = new Set(postKiwis(state).map((v) => v.id));
+      const here = new Set(postKiwis(state, fruit).map((v) => v.id));
       if (new Set(plan.bringBack).size !== plan.bringBack.length) return 'invalidCrew';
       if (plan.bringBack.some((id) => !here.has(id))) return 'notAtPost';
     }
@@ -189,7 +214,9 @@ export function voyageLock(state: GameState, plan: VoyagePlan): CommandError | n
       const room = plan.settle
         ? 2
         : post
-          ? postHousing(post, Infinity) - postKiwis(state).length + (plan.bringBack?.length ?? 0)
+          ? postHousing(post, Infinity) -
+            postKiwis(state, fruit).length +
+            (plan.bringBack?.length ?? 0)
           : 0;
       if (plan.stay.length > room) return 'postFull';
     }
@@ -254,9 +281,10 @@ export interface VoyageForecast {
 export function voyageForecast(state: GameState, plan: VoyagePlan): VoyageForecast | null {
   const pad = launchpadOf(state, plan.launchpadId);
   if (!pad) return null;
-  const map = raspberryOfState(state);
+  const fruit = voyageFruit(plan) ?? 'raspberry';
+  const map = fruitOfState(state, fruit);
   const crew = sailors(state, plan.crew) ?? [];
-  const travelMs = voyageTime(state, pad, crew, !!plan.fuel);
+  const travelMs = voyageTime(state, pad, crew, !!plan.fuel, fruit);
   const need = rations(state, crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const goods = cleanGoods(plan.goods);
@@ -290,7 +318,7 @@ export function voyageForecast(state: GameState, plan: VoyagePlan): VoyageForeca
     ...crew.filter((v) => !plan.stay?.includes(v.id)),
     ...(crewOf(state, plan.bringBack ?? []) ?? []),
   ];
-  const post = state.orchard.post;
+  const post = postOf(state, fruit);
   const calls = post && !post.ruined && plan.stops.includes(post.drupelet);
   return {
     travelMs,
@@ -303,7 +331,7 @@ export function voyageForecast(state: GameState, plan: VoyagePlan): VoyageForeca
     launchCost: launchCost(state, crew, 'land'),
     reliability: shipReliability(shipOf(state), crew, !!plan.fuel),
     stops,
-    settleCost: plan.settle ? postCost(state) : null,
+    settleCost: plan.settle ? postCost(state, fruit) : null,
     store: calls && post ? postStore(post) : 0,
     pillage:
       plan.mission === 'pillage' && plan.stops[0]
@@ -317,10 +345,9 @@ export function giftStanding(amount: number): number {
   return Math.round(STANDING.gift * Math.min(3, amount / 5000) * 10) / 10;
 }
 
-/** The public estimate of a drupelet's beetles (its ring, regrowth after our pillage). */
-function guessUnits(state: GameState, d: Drupelet, k: number): AlienUnit[] {
-  const f = regrowth(state, d.id, state.now);
-  return beetles(RASPBERRY.rings.power[d.ring]! * k * f, RASPBERRY.rings.level[d.ring]!);
+/** The public estimate of a parcel's garrison (its ring, regrowth after our pillage). */
+function guessUnits(state: GameState, d: Parcel, k: number): AlienUnit[] {
+  return guessGarrison(state, d, k, state.now);
 }
 
 const trialCache = new Map<string, { outcome: LandingOutcome; dead: number }>();
@@ -338,17 +365,20 @@ export function pillageForecast(
   orders: LandingOrders,
   fed = 1,
 ): PillageForecast | null {
-  const map = raspberryOfState(state);
+  const fruit = fruitOfId(drupeletId);
+  if (!fruit) return null;
+  const map = fruitOfState(state, fruit);
   const d = map.byId.get(drupeletId);
   if (!d) return null;
+  const R = FRUIT_DEFS[fruit];
   const view = state.orchard.views[drupeletId] ?? null;
-  const spread = RASPBERRY.powerSpread;
+  const spread = R.powerSpread;
   const armies: AlienUnit[][] = view
     ? [view.units, view.units, view.units]
     : [
         guessUnits(state, d, 1 - spread),
         guessUnits(state, d, 1),
-        guessUnits(state, d, (1 + spread) * RASPBERRY.nestPower),
+        guessUnits(state, d, (1 + spread) * R.nestPower),
       ];
   const helpers = d.links.map((id) => map.byId.get(id)!).filter((x) => x.clan === d.clan);
   const helpOf = (i: number) =>
@@ -356,15 +386,11 @@ export function pillageForecast(
       const seen = state.orchard.views[h.id];
       return seen
         ? seen.units
-        : guessUnits(
-            state,
-            h,
-            i === 2 ? (1 + spread) * RASPBERRY.nestPower : i === 0 ? 1 - spread : 1,
-          );
+        : guessUnits(state, h, i === 2 ? (1 + spread) * R.nestPower : i === 0 ? 1 - spread : 1);
     });
   const nectar = view
     ? view.nectar
-    : Math.round(RASPBERRY.rings.nectar[d.ring]! * regrowth(state, d.id, state.now));
+    : Math.round(R.rings.nectar[d.ring]! * regrowth(state, d.id, state.now));
   const base = {
     knowledge: (view ? 'seen' : 'unknown') as 'seen' | 'unknown',
     view,
@@ -376,7 +402,7 @@ export function pillageForecast(
     return { ...base, odds: 'unknown', expectedDead: 0, expectedHurt: 0, trials: [] };
   const runs = armies.map((units, i) => {
     const seed = `orchard/trial/${drupeletId}/${i}`;
-    const setup = fruitSetup(state, crew, { units, help: helpOf(i), orders, fed, seed });
+    const setup = fruitSetup(state, crew, { units, help: helpOf(i), orders, fed, seed, fruit });
     const key = JSON.stringify([setup.units, setup.orders, seed]);
     const hit = trialCache.get(key);
     if (hit) return hit;
@@ -405,7 +431,8 @@ export function launchVoyage(
   state.resources.juice -= plan.provisions.juice;
   const goods = plan.mission === 'visit' ? cleanGoods(plan.goods) : emptyResources();
   for (const r of RESOURCE_IDS) state.resources[r] -= goods[r];
-  const travelMs = voyageTime(state, pad, crew, !!plan.fuel);
+  const fruit = voyageFruit(plan) ?? 'raspberry';
+  const travelMs = voyageTime(state, pad, crew, !!plan.fuel, fruit);
   // A breakdown only delays the ship (like a landing): late, with the same hold.
   const failed = withRng(
     state,
@@ -416,7 +443,7 @@ export function launchVoyage(
   const e: Expedition = {
     id,
     mission: plan.mission,
-    targetId: ORCHARD_TARGET,
+    targetId: orchardTarget(fruit),
     launchpadId: pad.id,
     crew: crew.map((v) => v.id),
     roster: crew.map((v) => ({
@@ -461,7 +488,8 @@ export function resolveVoyage(
   if (seed === undefined || !e.voyage) throw new Error('resolveVoyage: hidden orchard');
   if (e.mission === 'pillage') return resolvePillage(state, e, members, fed, seed);
   const at = e.arriveAt;
-  const map = raspberryOfState(state);
+  const map = mapOfVoyage(state, e);
+  const fruit = map.fruit;
   const v = e.voyage;
   const goods = { ...v.goods };
   const stops: VoyageStop[] = [];
@@ -470,7 +498,7 @@ export function resolveVoyage(
   for (const id of v.stops) {
     const d = map.byId.get(id)!;
     const clan = map.clanById.get(d.clan)!;
-    const truth = drupeletNow(state, seed, d, at);
+    const truth = parcelNow(state, seed, d, at);
     if (attitudeOf(state, clan.id, at) === 'hostile' && !v.gift) {
       stops.push({ drupelet: id, clan: clan.id, sold: {}, nectar: 0, refused: true });
       continue;
@@ -503,14 +531,14 @@ export function resolveVoyage(
       ...(v.gift && amount > 0 ? { gift: true } : {}),
     });
   }
-  state.orchard.visits++;
+  countVisit(state, fruit);
   if (units.length) recordBestiary(state, units, at);
   // The trading post: founded on the first stop, then kiwis left there or brought home.
   let founded = false;
   const refund = { nectar: 0, crystal: 0, iron: 0 };
   if (v.settle) {
     const first = map.byId.get(v.stops[0]!)!;
-    const post = state.orchard.post;
+    const post = postOf(state, fruit);
     const can =
       (post?.ruined && post.drupelet === first.id) ||
       attitudeOf(state, first.clan, at) === 'friendly' ||
@@ -520,15 +548,17 @@ export function resolveVoyage(
       founded = true;
     } else {
       // Nobody would have us there any more: what was paid comes home.
-      const cost = postCost(state);
+      const cost = postCost(state, fruit);
       Object.assign(refund, cost);
     }
   }
-  const post = state.orchard.post;
+  const post = postOf(state, fruit);
   if (post && !post.ruined && v.stops.includes(post.drupelet)) {
     if (v.stay?.length) {
       const stay = new Set(v.stay);
-      for (const m of members) if (stay.has(m.id)) m.job = { kind: 'post', returnTo: null };
+      for (const m of members)
+        if (stay.has(m.id))
+          m.job = { kind: 'post', returnTo: null, ...(fruit !== 'raspberry' ? { fruit } : {}) };
       e.crew = e.crew.filter((id) => !stay.has(id));
     }
     if (v.bringBack?.length) {
@@ -578,13 +608,13 @@ function resolvePillage(
   seed: string,
 ): void {
   const at = e.arriveAt;
-  const map = raspberryOfState(state);
+  const map = mapOfVoyage(state, e);
   const d = map.byId.get(e.voyage!.stops[0]!)!;
-  const truth = drupeletNow(state, seed, d, at);
+  const truth = parcelNow(state, seed, d, at);
   const help = d.links
     .map((id) => map.byId.get(id)!)
     .filter((x) => x.clan === d.clan)
-    .map((x) => drupeletNow(state, seed, x, at).units);
+    .map((x) => parcelNow(state, seed, x, at).units);
   const battleSeed = `${seed}/pillage/${e.id}`;
   const setup = fruitSetup(state, members, {
     units: truth.units,
@@ -592,6 +622,7 @@ function resolvePillage(
     orders: e.orders ?? LANDING.defaultOrders,
     fed,
     seed: battleSeed,
+    fruit: map.fruit,
   });
   const log: BattleLog = simulateBattle(setup, battleSeed);
   const outcome = landingOutcome(log);
@@ -617,7 +648,7 @@ function resolvePillage(
     state.orchard.views[d.id] = { ...view, source: 'pillage', nectar: 0 };
   } else if (outcome === 'retreat') state.orchard.views[d.id] = { ...view, source: 'retreat' };
   if (outcome !== 'defeat') recordBestiary(state, truth.units, at);
-  state.orchard.visits++;
+  countVisit(state, map.fruit);
   e.result = {
     victory: outcome === 'victory',
     strength: members.length,
@@ -638,6 +669,18 @@ function resolvePillage(
     if (pad) pad.damaged = true;
   }
   settleVoyage(state, e);
+}
+
+/** The fruit a voyage went to. */
+function mapOfVoyage(state: GameState, e: Expedition): FruitMap {
+  return fruitOfState(state, fruitOfId(e.voyage?.stops[0] ?? '') ?? 'raspberry');
+}
+
+/** A ship reached a fruit (a public count, and the fruits reached). */
+function countVisit(state: GameState, fruit: FruitId): void {
+  state.orchard.visits++;
+  if (!state.orchard.visited.includes(fruit))
+    state.orchard.visited = [...state.orchard.visited, fruit];
 }
 
 /** After the arrival: home with whoever is aboard, or done when nobody is. */

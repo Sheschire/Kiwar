@@ -1,11 +1,15 @@
 import {
+  FRUIT_DEFS,
+  FRUIT_IDS,
   NECTAR,
   NECTAR_SCALE,
   ORCHARD,
   RASPBERRY,
   STANDING,
   TRADE,
+  fruitOfId,
   nectarUnits,
+  type FruitId,
 } from '../data/orchard';
 import type { ResourceId } from '../data/resources';
 import { ENEMIES, type EnemyKind } from '../data/units';
@@ -24,9 +28,13 @@ import { localAlienSeed, newOrchard, type Building, type GameState } from './sta
  * the client (solo) holds; anything that reads it resolves only there.
  */
 
-export interface Drupelet {
+/**
+ * Chantier 55: a parcel of a fruit — a drupelet of the raspberry, a gallery of the apple, a scale
+ * of the pineapple. Every fruit's map has the same shape: parcels with links, held by clans.
+ */
+export interface Parcel {
   id: string;
-  /** Index in the cluster (0 at the tip, the far end from the vine). */
+  /** Index in the fruit (0 at the tip, the far end from the vine). */
   index: number;
   /** Position on the unit sphere of the fruit (y up, toward the vine). */
   x: number;
@@ -38,23 +46,29 @@ export interface Drupelet {
   links: string[];
 }
 
+/** The raspberry's parcels. */
+export type Drupelet = Parcel;
+
 export interface Clan {
   id: string;
   /** Index of its name (`orchard.clans.<n>` in the client) and of its colour. */
   name: number;
-  drupelets: string[];
+  parcels: string[];
   /** What it asks for in trade, and the nectar it pays for 1000 units (before our own sales). */
   wants: ResourceId;
   rate: number;
 }
 
-export interface Raspberry {
+export interface FruitMap {
+  fruit: FruitId;
   seed: string;
-  drupelets: Drupelet[];
+  parcels: Parcel[];
   clans: Clan[];
-  byId: ReadonlyMap<string, Drupelet>;
+  byId: ReadonlyMap<string, Parcel>;
   clanById: ReadonlyMap<string, Clan>;
 }
+
+export type Raspberry = FruitMap;
 
 /** Number of clan names the client knows (`orchard.clanNames`). */
 export const CLAN_NAMES = 16;
@@ -164,7 +178,7 @@ export function raspberryOf(seed: string): Raspberry {
   const clans: Clan[] = seeds.map((_, c) => ({
     id: `c${c}`,
     name: names[c]!,
-    drupelets: [],
+    parcels: [],
     wants: rng.pick(R.wants),
     rate: Math.round(rng.range(TRADE.rate[0], TRADE.rate[1]) * 10) / 10,
   }));
@@ -178,10 +192,11 @@ export function raspberryOf(seed: string): Raspberry {
     clan: `c${owner[i]}`,
     links: links[i]!.map((j) => `d${j}`).sort(),
   }));
-  for (const d of drupelets) clans[Number(d.clan.slice(1))]!.drupelets.push(d.id);
+  for (const d of drupelets) clans[Number(d.clan.slice(1))]!.parcels.push(d.id);
   const out: Raspberry = {
+    fruit: 'raspberry',
     seed,
-    drupelets,
+    parcels: drupelets,
     clans,
     byId: new Map(drupelets.map((d) => [d.id, d])),
     clanById: new Map(clans.map((c) => [c.id, c])),
@@ -196,10 +211,46 @@ export function raspberryOfState(state: Pick<GameState, 'orchard'>): Raspberry {
   return raspberryOf(state.orchard.seed);
 }
 
-/** Clans next to a clan (one of their drupelets touches one of its own). */
-export function clanNeighbours(map: Raspberry, clanId: string): string[] {
+/** Chantier 55: a fruit of an orchard seed (public, memoized). */
+export function fruitMapOf(seed: string, fruit: FruitId): FruitMap {
+  switch (fruit) {
+    case 'raspberry':
+      return raspberryOf(seed);
+  }
+}
+
+/** A fruit of the orchard this colony knows. */
+export function fruitOfState(state: Pick<GameState, 'orchard'>, fruit: FruitId): FruitMap {
+  return fruitMapOf(state.orchard.seed, fruit);
+}
+
+/** The parcel of an id, on its fruit (null: none). */
+export function parcelOf(
+  state: Pick<GameState, 'orchard'>,
+  id: string,
+): { map: FruitMap; parcel: Parcel } | null {
+  const fruit = fruitOfId(id);
+  if (!fruit) return null;
+  const map = fruitOfState(state, fruit);
+  const parcel = map.byId.get(id);
+  return parcel ? { map, parcel } : null;
+}
+
+/** The clan of an id, on its fruit (null: none). */
+export function clanOf(state: Pick<GameState, 'orchard'>, id: string): Clan | null {
+  const fruit = fruitOfId(id);
+  return fruit ? (fruitOfState(state, fruit).clanById.get(id) ?? null) : null;
+}
+
+/** Every fruit's map this colony knows. */
+export function allFruits(state: Pick<GameState, 'orchard'>): FruitMap[] {
+  return FRUIT_IDS.map((f) => fruitOfState(state, f));
+}
+
+/** Clans next to a clan (one of their parcels touches one of its own). */
+export function clanNeighbours(map: FruitMap, clanId: string): string[] {
   const out = new Set<string>();
-  for (const id of map.clanById.get(clanId)?.drupelets ?? [])
+  for (const id of map.clanById.get(clanId)?.parcels ?? [])
     for (const l of map.byId.get(id)!.links) {
       const c = map.byId.get(l)!.clan;
       if (c !== clanId) out.add(c);
@@ -207,7 +258,7 @@ export function clanNeighbours(map: Raspberry, clanId: string): string[] {
   return [...out].sort();
 }
 
-// --- What a drupelet holds (hidden) ------------------------------------------------------------
+// --- What a parcel holds (hidden) -------------------------------------------------------------
 
 export interface DrupeletTruth {
   units: AlienUnit[];
@@ -216,15 +267,19 @@ export interface DrupeletTruth {
   nest: boolean;
 }
 
+export type FruitTruth = DrupeletTruth;
+
 const truthCache = new Map<string, DrupeletTruth>();
 
-/** What a drupelet holds at full strength (from the hidden seed). */
-export function drupeletTruth(seed: string, d: Drupelet): DrupeletTruth {
-  const key = `${seed}/drupelet/${d.id}`;
+/** What a parcel holds at full strength (from the hidden seed). */
+export function fruitTruth(seed: string, d: Parcel): FruitTruth {
+  const fruit = fruitOfId(d.id) ?? 'raspberry';
+  // The raspberry's stream keeps its chantier 54 name.
+  const key = fruit === 'raspberry' ? `${seed}/drupelet/${d.id}` : `${seed}/${fruit}/${d.id}`;
   let t = truthCache.get(key);
   if (!t) {
     const rng = createRng(key);
-    const R = RASPBERRY;
+    const R = FRUIT_DEFS[fruit];
     const nestHere = rng.chance(R.nestChance);
     const power =
       R.rings.power[d.ring]! *
@@ -233,53 +288,74 @@ export function drupeletTruth(seed: string, d: Drupelet): DrupeletTruth {
     const nectar = Math.round(
       R.rings.nectar[d.ring]! * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread),
     );
-    t = { units: beetles(power, R.rings.level[d.ring]!), nectar, nest: nestHere };
+    t = { units: fruitGarrison(fruit, power, R.rings.level[d.ring]!), nectar, nest: nestHere };
     if (truthCache.size > 512) truthCache.clear();
     truthCache.set(key, t);
   }
   return t;
 }
 
-/** The beetles of a garrison worth this much power (at least one beetle). */
-export function beetles(power: number, level: number): AlienUnit[] {
-  const kinds = Object.keys(RASPBERRY.mix) as (keyof typeof RASPBERRY.mix & EnemyKind)[];
+/** What a drupelet holds at full strength (from the hidden seed). */
+export const drupeletTruth = fruitTruth;
+
+/** The inhabitants of a fruit's garrison worth this much power (at least one of the first kind). */
+export function fruitGarrison(fruit: FruitId, power: number, level: number): AlienUnit[] {
+  const mix = FRUIT_DEFS[fruit].mix;
+  const kinds = Object.keys(mix) as EnemyKind[];
   return kinds
-    .map((kind) => ({
+    .map((kind, i) => ({
       kind,
-      count: Math.max(
-        kind === 'beetle' ? 1 : 0,
-        Math.round((power * RASPBERRY.mix[kind]) / ENEMIES[kind].power),
-      ),
+      count: Math.max(i === 0 ? 1 : 0, Math.round((power * mix[kind]!) / ENEMIES[kind].power)),
       level,
     }))
     .filter((u) => u.count > 0);
 }
 
-/** Share of its garrison a pillaged drupelet has grown back at a time (1: never pillaged). */
+/** The beetles of a garrison worth this much power (at least one beetle). */
+export function beetles(power: number, level: number): AlienUnit[] {
+  return fruitGarrison('raspberry', power, level);
+}
+
+/** The public estimate of a parcel's garrison (its ring × k, regrown since our pillage). */
+export function guessGarrison(
+  state: Pick<GameState, 'orchard'>,
+  d: Parcel,
+  k: number,
+  at: TimeMs,
+): AlienUnit[] {
+  const fruit = fruitOfId(d.id) ?? 'raspberry';
+  const R = FRUIT_DEFS[fruit];
+  return fruitGarrison(
+    fruit,
+    R.rings.power[d.ring]! * k * regrowth(state, d.id, at),
+    R.rings.level[d.ring]!,
+  );
+}
+
+/** Share of its garrison a pillaged parcel has grown back at a time (1: never pillaged). */
 export function regrowth(state: Pick<GameState, 'orchard'>, id: string, at: TimeMs): number {
   const t = state.orchard.taken[id];
   if (t === undefined) return 1;
-  return Math.max(0.1, Math.min(1, (at - t) / RASPBERRY.regrowMs));
+  const R = FRUIT_DEFS[fruitOfId(id) ?? 'raspberry'];
+  return Math.max(0.1, Math.min(1, (at - t) / R.regrowMs));
 }
 
-/** A drupelet's garrison and nectar at a time (truth × its regrowth after a pillage). */
-export function drupeletNow(
-  state: GameState,
-  seed: string,
-  d: Drupelet,
-  at: TimeMs,
-): DrupeletTruth {
-  const t = drupeletTruth(seed, d);
+/** A parcel's garrison and store at a time (truth × its regrowth after a pillage). */
+export function parcelNow(state: GameState, seed: string, d: Parcel, at: TimeMs): FruitTruth {
+  const t = fruitTruth(seed, d);
   const f = regrowth(state, d.id, at);
   if (f >= 1) return t;
   return {
     units: t.units
-      .map((u) => ({ ...u, count: Math.max(u.kind === 'beetle' ? 1 : 0, Math.round(u.count * f)) }))
+      .map((u, i) => ({ ...u, count: Math.max(i === 0 ? 1 : 0, Math.round(u.count * f)) }))
       .filter((u) => u.count > 0),
     nectar: Math.round(t.nectar * f),
     nest: t.nest,
   };
 }
+
+/** A drupelet's garrison and nectar at a time. */
+export const drupeletNow = parcelNow;
 
 // --- Standing (public) -------------------------------------------------------------------------
 
@@ -307,7 +383,7 @@ export function addStanding(s: GameState, clan: string, delta: number, at: TimeM
 
 /** A pillage: the clan turns against us, and the clans next to it too (visible to the player). */
 export function pillageStanding(s: GameState, clan: string, at: TimeMs): void {
-  const map = raspberryOfState(s);
+  const map = fruitOfState(s, fruitOfId(clan) ?? 'raspberry');
   addStanding(s, clan, STANDING.pillage, at);
   for (const c of clanNeighbours(map, clan)) addStanding(s, c, STANDING.pillageNeighbours, at);
 }
@@ -323,7 +399,7 @@ export function soldTo(state: Pick<GameState, 'orchard'>, clan: string, at: Time
 
 /** Nectar this clan pays us for 1000 units of what it asks for, now. */
 export function tradeRate(state: Pick<GameState, 'orchard'>, clan: string, at: TimeMs): number {
-  const c = raspberryOfState(state).clanById.get(clan);
+  const c = clanOf(state, clan);
   if (!c) return 0;
   return Math.round((c.rate / (1 + soldTo(state, clan, at) / TRADE.soften)) * 100) / 100;
 }

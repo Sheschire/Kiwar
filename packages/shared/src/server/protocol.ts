@@ -1,4 +1,4 @@
-import { ORCHARD, POST, POST_MODULE_TYPES } from '../data/orchard';
+import { FRUIT_IDS, ORCHARD, POST, POST_MODULE_TYPES } from '../data/orchard';
 import { INTEL } from '../data/expeditions';
 import { STARDUST } from '../data/comets';
 import { TITAN_WORK_IDS } from '../data/titan';
@@ -140,6 +140,7 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('buildPostModule'),
+    fruit: z.enum(FRUIT_IDS).optional(),
     moduleType: z.enum(POST_MODULE_TYPES),
     q: z.number().int().min(-POST.radius).max(POST.radius),
     r: z.number().int().min(-POST.radius).max(POST.radius),

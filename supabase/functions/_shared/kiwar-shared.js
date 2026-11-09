@@ -4237,7 +4237,23 @@ function moduleFits(type, kiwai) {
 
 // packages/shared/src/data/orchard.ts
 var FRUIT_IDS = ["raspberry"];
-var ORCHARD_TARGET = "orchard:raspberry";
+function orchardTarget(fruit) {
+  return `orchard:${fruit}`;
+}
+var ORCHARD_TARGET = orchardTarget("raspberry");
+var FRUIT_PREFIX = {
+  raspberry: { parcel: "d", clan: "c" }
+};
+function fruitOfId(id3) {
+  const c = id3[0];
+  for (const f of FRUIT_IDS)
+    if (FRUIT_PREFIX[f].parcel === c || FRUIT_PREFIX[f].clan === c) return f;
+  return null;
+}
+function fruitOfTarget(targetId) {
+  const f = targetId.startsWith("orchard:") ? targetId.slice(8) : "";
+  return FRUIT_IDS.includes(f) ? f : "raspberry";
+}
 var ORCHARD = {
   /** The launchpad level a ship needs to go through the wormhole (with the technology). */
   padLevel: 9,
@@ -4255,6 +4271,7 @@ var ORCHARD = {
   /** Kiwis aboard (a Kikiwiwi never goes through the wormhole). */
   crew: { min: 1, max: 8 }
 };
+var ORCHARD_GOODS = ["nectar"];
 var RASPBERRY = {
   /** Drupelets in the cluster, clans sharing them, drupelets a clan holds (about). */
   drupelets: [60, 90],
@@ -4285,7 +4302,11 @@ var RASPBERRY = {
   /** A pillaged drupelet's garrison grows back to full over this time (public). */
   regrowMs: 72 * 36e5,
   /** Help from each neighbouring drupelet of the same clan in a battle (share, delay). */
-  help: { share: 0.25, delayS: 25 }
+  help: { share: 0.25, delayS: 25 },
+  travelMs: ORCHARD.travelMs
+};
+var FRUIT_DEFS = {
+  raspberry: RASPBERRY
 };
 var STANDING = {
   min: -100,
@@ -9849,7 +9870,8 @@ function fruitSetup(state, crew, input) {
     fed: input.fed,
     seed: input.seed
   });
-  const helpers = input.help.flatMap((army) => shareOf(army, RASPBERRY.help.share));
+  const help = FRUIT_DEFS[input.fruit ?? "raspberry"].help;
+  const helpers = input.help.flatMap((army) => shareOf(army, help.share));
   if (helpers.length === 0) return setup;
   const rim = hexDisk({ q: 0, r: 0 }, RADIUS).filter((h) => hexDistance(h, { q: 0, r: 0 }) === RADIUS && h.r <= 0).sort((a, b) => a.q - b.q || a.r - b.r);
   const middle = { q: 0, r: 0 };
@@ -9857,7 +9879,7 @@ function fruitSetup(state, crew, input) {
   for (const { unit, count, k } of capped(helpers)) {
     for (let i = 0; i < count; i++, n++) {
       const at = isFlyer(unit.kind) ? middle : rim[n % rim.length];
-      setup.units.push(alienUnit(unit, k, `h${n}`, at, RASPBERRY.help.delayS));
+      setup.units.push(alienUnit(unit, k, `h${n}`, at, help.delayS));
     }
   }
   return setup;
@@ -10033,7 +10055,7 @@ function raspberryOf(seed) {
   const clans = seeds.map((_, c) => ({
     id: `c${c}`,
     name: names[c],
-    drupelets: [],
+    parcels: [],
     wants: rng.pick(R.wants),
     rate: Math.round(rng.range(TRADE.rate[0], TRADE.rate[1]) * 10) / 10
   }));
@@ -10047,10 +10069,11 @@ function raspberryOf(seed) {
     clan: `c${owner[i]}`,
     links: links[i].map((j) => `d${j}`).sort()
   }));
-  for (const d of drupelets) clans[Number(d.clan.slice(1))].drupelets.push(d.id);
+  for (const d of drupelets) clans[Number(d.clan.slice(1))].parcels.push(d.id);
   const out = {
+    fruit: "raspberry",
     seed,
-    drupelets,
+    parcels: drupelets,
     clans,
     byId: new Map(drupelets.map((d) => [d.id, d])),
     clanById: new Map(clans.map((c) => [c.id, c]))
@@ -10062,9 +10085,32 @@ function raspberryOf(seed) {
 function raspberryOfState(state) {
   return raspberryOf(state.orchard.seed);
 }
+function fruitMapOf(seed, fruit) {
+  switch (fruit) {
+    case "raspberry":
+      return raspberryOf(seed);
+  }
+}
+function fruitOfState(state, fruit) {
+  return fruitMapOf(state.orchard.seed, fruit);
+}
+function parcelOf(state, id3) {
+  const fruit = fruitOfId(id3);
+  if (!fruit) return null;
+  const map = fruitOfState(state, fruit);
+  const parcel = map.byId.get(id3);
+  return parcel ? { map, parcel } : null;
+}
+function clanOf(state, id3) {
+  const fruit = fruitOfId(id3);
+  return fruit ? fruitOfState(state, fruit).clanById.get(id3) ?? null : null;
+}
+function allFruits(state) {
+  return FRUIT_IDS.map((f) => fruitOfState(state, f));
+}
 function clanNeighbours(map, clanId) {
   const out = /* @__PURE__ */ new Set();
-  for (const id3 of map.clanById.get(clanId)?.drupelets ?? [])
+  for (const id3 of map.clanById.get(clanId)?.parcels ?? [])
     for (const l of map.byId.get(id3).links) {
       const c = map.byId.get(l).clan;
       if (c !== clanId) out.add(c);
@@ -10072,49 +10118,63 @@ function clanNeighbours(map, clanId) {
   return [...out].sort();
 }
 var truthCache2 = /* @__PURE__ */ new Map();
-function drupeletTruth(seed, d) {
-  const key = `${seed}/drupelet/${d.id}`;
+function fruitTruth(seed, d) {
+  const fruit = fruitOfId(d.id) ?? "raspberry";
+  const key = fruit === "raspberry" ? `${seed}/drupelet/${d.id}` : `${seed}/${fruit}/${d.id}`;
   let t = truthCache2.get(key);
   if (!t) {
     const rng = createRng(key);
-    const R = RASPBERRY;
+    const R = FRUIT_DEFS[fruit];
     const nestHere = rng.chance(R.nestChance);
     const power = R.rings.power[d.ring] * rng.range(1 - R.powerSpread, 1 + R.powerSpread) * (nestHere ? R.nestPower : 1);
     const nectar = Math.round(
       R.rings.nectar[d.ring] * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread)
     );
-    t = { units: beetles(power, R.rings.level[d.ring]), nectar, nest: nestHere };
+    t = { units: fruitGarrison(fruit, power, R.rings.level[d.ring]), nectar, nest: nestHere };
     if (truthCache2.size > 512) truthCache2.clear();
     truthCache2.set(key, t);
   }
   return t;
 }
-function beetles(power, level) {
-  const kinds = Object.keys(RASPBERRY.mix);
-  return kinds.map((kind) => ({
+var drupeletTruth = fruitTruth;
+function fruitGarrison(fruit, power, level) {
+  const mix2 = FRUIT_DEFS[fruit].mix;
+  const kinds = Object.keys(mix2);
+  return kinds.map((kind, i) => ({
     kind,
-    count: Math.max(
-      kind === "beetle" ? 1 : 0,
-      Math.round(power * RASPBERRY.mix[kind] / ENEMIES[kind].power)
-    ),
+    count: Math.max(i === 0 ? 1 : 0, Math.round(power * mix2[kind] / ENEMIES[kind].power)),
     level
   })).filter((u) => u.count > 0);
+}
+function beetles(power, level) {
+  return fruitGarrison("raspberry", power, level);
+}
+function guessGarrison(state, d, k, at) {
+  const fruit = fruitOfId(d.id) ?? "raspberry";
+  const R = FRUIT_DEFS[fruit];
+  return fruitGarrison(
+    fruit,
+    R.rings.power[d.ring] * k * regrowth(state, d.id, at),
+    R.rings.level[d.ring]
+  );
 }
 function regrowth(state, id3, at) {
   const t = state.orchard.taken[id3];
   if (t === void 0) return 1;
-  return Math.max(0.1, Math.min(1, (at - t) / RASPBERRY.regrowMs));
+  const R = FRUIT_DEFS[fruitOfId(id3) ?? "raspberry"];
+  return Math.max(0.1, Math.min(1, (at - t) / R.regrowMs));
 }
-function drupeletNow(state, seed, d, at) {
-  const t = drupeletTruth(seed, d);
+function parcelNow(state, seed, d, at) {
+  const t = fruitTruth(seed, d);
   const f = regrowth(state, d.id, at);
   if (f >= 1) return t;
   return {
-    units: t.units.map((u) => ({ ...u, count: Math.max(u.kind === "beetle" ? 1 : 0, Math.round(u.count * f)) })).filter((u) => u.count > 0),
+    units: t.units.map((u, i) => ({ ...u, count: Math.max(i === 0 ? 1 : 0, Math.round(u.count * f)) })).filter((u) => u.count > 0),
     nectar: Math.round(t.nectar * f),
     nest: t.nest
   };
 }
+var drupeletNow = parcelNow;
 function standingOf(state, clan, at) {
   const s = state.orchard.standing[clan];
   if (!s) return 0;
@@ -10131,7 +10191,7 @@ function addStanding(s, clan, delta, at) {
   s.orchard.standing[clan] = { value: v, at };
 }
 function pillageStanding(s, clan, at) {
-  const map = raspberryOfState(s);
+  const map = fruitOfState(s, fruitOfId(clan) ?? "raspberry");
   addStanding(s, clan, STANDING.pillage, at);
   for (const c of clanNeighbours(map, clan)) addStanding(s, c, STANDING.pillageNeighbours, at);
 }
@@ -10141,7 +10201,7 @@ function soldTo(state, clan, at) {
   return Math.max(0, s.value * (1 - Math.max(0, at - s.at) / TRADE.fadeMs));
 }
 function tradeRate(state, clan, at) {
-  const c = raspberryOfState(state).clanById.get(clan);
+  const c = clanOf(state, clan);
   if (!c) return 0;
   return Math.round(c.rate / (1 + soldTo(state, clan, at) / TRADE.soften) * 100) / 100;
 }
@@ -10271,14 +10331,34 @@ function freeSpots(map, things) {
 }
 
 // packages/shared/src/sim/tradingPost.ts
+function fruitOfPost(post) {
+  return fruitOfId(post.drupelet) ?? "raspberry";
+}
+function postOf(state, fruit) {
+  return state.orchard.posts[fruit] ?? null;
+}
+function postsOf(state) {
+  const out = [];
+  for (const fruit of FRUIT_IDS) {
+    const post = state.orchard.posts[fruit];
+    if (post) out.push({ fruit, post });
+  }
+  return out;
+}
 function postMapOf(state, post) {
   return smallMap(`${state.orchard.seed}/post/${post.drupelet}`, POST.radius, POST.rocks);
 }
-function workingPost(state, at = state.now) {
-  const p = state.orchard.post;
+function workingPost(state, fruit = "raspberry", at = state.now) {
+  const p = postOf(state, fruit);
   return p && !p.ruined && p.readyAt <= at ? p : null;
 }
-function postKiwis(state) {
+function postFruitOf(v) {
+  return v.job.kind === "post" ? v.job.fruit ?? "raspberry" : null;
+}
+function postKiwis(state, fruit = "raspberry") {
+  return state.villagers.filter((v) => postFruitOf(v) === fruit);
+}
+function allPostKiwis(state) {
   return state.villagers.filter((v) => v.job.kind === "post");
 }
 function ready(m, at) {
@@ -10289,7 +10369,7 @@ function postHousing(post, at) {
 }
 function stallWorkers(state, post, at) {
   const places = post.modules.filter((m) => m.type === "stall" && ready(m, at)).reduce((a, m) => a + (POST.modules[m.type].workSlots ?? 0), 0);
-  return Math.min(places, postKiwis(state).length);
+  return Math.min(places, postKiwis(state, fruitOfPost(post)).length);
 }
 function postFort(post, at) {
   return post.modules.filter((m) => m.type === "palisade" && ready(m, at)).reduce((a, m) => a + (POST.modules[m.type].fort ?? 0), 0);
@@ -10297,42 +10377,57 @@ function postFort(post, at) {
 function postStoreCap() {
   return POST.storeCap * NECTAR_SCALE;
 }
-function postNectarRate(state) {
-  const post = workingPost(state);
+function postRate(state, fruit) {
+  const post = workingPost(state, fruit);
   if (!post || post.store >= postStoreCap()) return 0;
   const n = stallWorkers(state, post, state.now);
   if (n <= 0) return 0;
   return Math.max(1, Math.round(POST.perHour * NECTAR_SCALE * n / 36e5));
 }
-function accruePost(s, rate, dtMs) {
-  const post = s.orchard.post;
-  if (!post || rate <= 0) return;
-  post.store = Math.min(postStoreCap(), post.store + rate * dtMs);
+function postRates(state) {
+  const out = [];
+  for (const fruit of FRUIT_IDS) {
+    const rate = postRate(state, fruit);
+    if (rate > 0) out.push({ fruit, rate });
+  }
+  return out;
+}
+function postNectarRate(state) {
+  return postRate(state, "raspberry");
+}
+function accruePost(s, rates, dtMs) {
+  for (const { fruit, rate } of rates) {
+    const post = s.orchard.posts[fruit];
+    if (!post || rate <= 0) continue;
+    post.store = Math.min(postStoreCap(), post.store + rate * dtMs);
+  }
 }
 function postStore(post) {
   return Math.floor(post.store / NECTAR_SCALE + 1e-9);
 }
 function nextPostEvent(s) {
-  const post = s.orchard.post;
-  if (!post) return Infinity;
   let at = Infinity;
   const later = (t) => {
     if (t > s.now && t < at) at = t;
   };
-  later(post.readyAt);
-  for (const m of post.modules) later(m.readyAt);
+  for (const { post } of postsOf(s)) {
+    later(post.readyAt);
+    for (const m of post.modules) later(m.readyAt);
+  }
   return at;
 }
 function postTick(s, at, events) {
-  const post = s.orchard.post;
-  if (!post) return;
-  if (post.readyAt === at) events.push({ type: "postReady", at, drupelet: post.drupelet });
-  for (const m of post.modules)
-    if (m.readyAt === at) events.push({ type: "postModuleReady", at, moduleType: m.type });
+  for (const { post } of postsOf(s)) {
+    if (post.readyAt === at) events.push({ type: "postReady", at, drupelet: post.drupelet });
+    for (const m of post.modules)
+      if (m.readyAt === at)
+        events.push({ type: "postModuleReady", at, moduleType: m.type, drupelet: post.drupelet });
+  }
 }
 function foundPost(s, drupelet, at) {
-  const old = s.orchard.post;
-  s.orchard.post = {
+  const fruit = fruitOfId(drupelet) ?? "raspberry";
+  const old = s.orchard.posts[fruit];
+  const post = {
     drupelet,
     since: at,
     readyAt: at + POST.buildMs,
@@ -10343,18 +10438,19 @@ function foundPost(s, drupelet, at) {
     attack: null,
     reports: old?.reports ?? []
   };
-  for (const m of s.orchard.post.modules) delete m.broken;
+  for (const m of post.modules) delete m.broken;
+  s.orchard.posts = { ...s.orchard.posts, [fruit]: post };
 }
-function postCost(state) {
-  const k = state.orchard.post?.ruined ? POST.rebuild : 1;
+function postCost(state, fruit = "raspberry") {
+  const k = postOf(state, fruit)?.ruined ? POST.rebuild : 1;
   return {
     nectar: Math.ceil(POST.cost.nectar * k),
     crystal: Math.ceil(POST.cost.crystal * k),
     iron: Math.ceil(POST.cost.iron * k)
   };
 }
-function postModuleLock(state, type, h) {
-  const post = state.orchard.post;
+function postModuleLock(state, fruit, type, h) {
+  const post = postOf(state, fruit);
   if (!post || post.ruined) return "noPost";
   if (post.readyAt > state.now) return "postNotReady";
   if (!POST_MODULE_TYPES.includes(type)) return "unknownModule";
@@ -10368,7 +10464,7 @@ function postModuleLock(state, type, h) {
   if (meteorIronOf(state) < def.iron) return "notEnoughIron";
   return null;
 }
-function addPostModule(s, type, h, id3) {
+function addPostModule(s, fruit, type, h, id3) {
   const m = {
     id: id3,
     type,
@@ -10376,17 +10472,20 @@ function addPostModule(s, type, h, id3) {
     r: h.r,
     readyAt: s.now + POST.modules[type].durationMs
   };
-  s.orchard.post.modules.push(m);
+  s.orchard.posts[fruit].modules.push(m);
   return m;
 }
+function postOfModule(state, id3) {
+  return postsOf(state).find(({ post }) => post.modules.some((m) => m.id === id3))?.post ?? null;
+}
 function removePostModuleLock(state, id3) {
-  const post = state.orchard.post;
-  if (!post || post.ruined) return "noPost";
+  const post = postOfModule(state, id3);
+  if (!post) return postsOf(state).some(({ post: p }) => !p.ruined) ? "unknownModule" : "noPost";
+  if (post.ruined) return "noPost";
   const m = post.modules.find((x) => x.id === id3);
-  if (!m) return "unknownModule";
   if (m.type === "hut") {
     const left = postHousing({ ...post, modules: post.modules.filter((x) => x !== m) }, state.now);
-    if (left < postKiwis(state).length) return "habitatInUse";
+    if (left < postKiwis(state, fruitOfPost(post)).length) return "habitatInUse";
   }
   return null;
 }
@@ -10402,15 +10501,18 @@ function isVoyage(e) {
 function voyagesOut(state) {
   return state.expeditions.filter((e) => isVoyage(e) && e.status !== "done");
 }
-function voyageTime(state, pad, crew, fuel = false) {
+function voyageFruit(plan) {
+  return plan.stops[0] ? fruitOfId(plan.stops[0]) : null;
+}
+function voyageTime(state, pad, crew, fuel = false, fruit = "raspberry") {
   const base = travelTime(
-    { travelMs: ORCHARD.travelMs },
+    { travelMs: FRUIT_DEFS[fruit].travelMs },
     pad,
     crew,
     "land",
     travelFactor(state, { fuel })
   );
-  const relay = workingPost(state) ? ORCHARD.relay : 1;
+  const relay = workingPost(state, fruit) ? ORCHARD.relay : 1;
   return Math.round(base * relay / 1e3) * 1e3;
 }
 function cleanGoods(g) {
@@ -10435,14 +10537,16 @@ function voyageLock(state, plan) {
   if (isLaunchpadBusy(state, pad.id)) return "launchpadBusy";
   if (pad.damaged) return "launchpadDamaged";
   if (plan.mission !== "visit" && plan.mission !== "pillage") return "invalidMission";
-  const map = raspberryOfState(state);
+  const fruit = voyageFruit(plan);
+  if (!fruit) return "unknownDrupelet";
+  const map = fruitOfState(state, fruit);
   const stops = plan.stops;
   if (stops.length < 1) return "unknownDrupelet";
   if (stops.length > (plan.mission === "pillage" ? 1 : ORCHARD.maxStops)) return "tooManyStops";
   const ds = stops.map((id3) => map.byId.get(id3));
   if (ds.some((d) => !d) || new Set(stops).size !== stops.length) return "unknownDrupelet";
   if (ds.length === 2 && !ds[0].links.includes(ds[1].id)) return "stopsApart";
-  const post = state.orchard.post;
+  const post = postOf(state, fruit);
   const now = state.now;
   if (plan.mission === "pillage") {
     if (post && !post.ruined && post.drupelet === stops[0]) return "ownPost";
@@ -10461,7 +10565,7 @@ function voyageLock(state, plan) {
       const ruin = post?.ruined && post.drupelet === d.id;
       if (!ruin && attitudeOf(state, d.clan, now) !== "friendly" && state.orchard.taken[d.id] === void 0)
         return "notFriendly";
-      const cost = postCost(state);
+      const cost = postCost(state, fruit);
       if (nectarOf(state) < cost.nectar) return "notEnoughNectar";
       if (crystalOf(state) < cost.crystal) return "notEnoughCrystal";
       if (meteorIronOf(state) < cost.iron) return "notEnoughIron";
@@ -10470,14 +10574,14 @@ function voyageLock(state, plan) {
     if ((plan.stay?.length || plan.bringBack?.length) && (!at || !stops.includes(at)))
       return "notAtPost";
     if (plan.bringBack?.length) {
-      const here = new Set(postKiwis(state).map((v) => v.id));
+      const here = new Set(postKiwis(state, fruit).map((v) => v.id));
       if (new Set(plan.bringBack).size !== plan.bringBack.length) return "invalidCrew";
       if (plan.bringBack.some((id3) => !here.has(id3))) return "notAtPost";
     }
     if (plan.stay?.length) {
       if (new Set(plan.stay).size !== plan.stay.length) return "invalidCrew";
       if (plan.stay.some((id3) => !plan.crew.includes(id3))) return "invalidCrew";
-      const room = plan.settle ? 2 : post ? postHousing(post, Infinity) - postKiwis(state).length + (plan.bringBack?.length ?? 0) : 0;
+      const room = plan.settle ? 2 : post ? postHousing(post, Infinity) - postKiwis(state, fruit).length + (plan.bringBack?.length ?? 0) : 0;
       if (plan.stay.length > room) return "postFull";
     }
   }
@@ -10495,9 +10599,10 @@ function voyageLock(state, plan) {
 function voyageForecast(state, plan) {
   const pad = launchpadOf(state, plan.launchpadId);
   if (!pad) return null;
-  const map = raspberryOfState(state);
+  const fruit = voyageFruit(plan) ?? "raspberry";
+  const map = fruitOfState(state, fruit);
   const crew = sailors(state, plan.crew) ?? [];
-  const travelMs = voyageTime(state, pad, crew, !!plan.fuel);
+  const travelMs = voyageTime(state, pad, crew, !!plan.fuel, fruit);
   const need = rations(state, crew, travelMs);
   const fed = coverage(plan.provisions, need);
   const goods = cleanGoods(plan.goods);
@@ -10529,7 +10634,7 @@ function voyageForecast(state, plan) {
     ...crew.filter((v) => !plan.stay?.includes(v.id)),
     ...crewOf(state, plan.bringBack ?? []) ?? []
   ];
-  const post = state.orchard.post;
+  const post = postOf(state, fruit);
   const calls = post && !post.ruined && plan.stops.includes(post.drupelet);
   return {
     travelMs,
@@ -10542,7 +10647,7 @@ function voyageForecast(state, plan) {
     launchCost: launchCost(state, crew, "land"),
     reliability: shipReliability(shipOf(state), crew, !!plan.fuel),
     stops,
-    settleCost: plan.settle ? postCost(state) : null,
+    settleCost: plan.settle ? postCost(state, fruit) : null,
     store: calls && post ? postStore(post) : 0,
     pillage: plan.mission === "pillage" && plan.stops[0] ? pillageForecast(state, plan.stops[0], crew, plan.orders ?? LANDING.defaultOrders, fed) : null
   };
@@ -10551,31 +10656,29 @@ function giftStanding(amount) {
   return Math.round(STANDING.gift * Math.min(3, amount / 5e3) * 10) / 10;
 }
 function guessUnits(state, d, k) {
-  const f = regrowth(state, d.id, state.now);
-  return beetles(RASPBERRY.rings.power[d.ring] * k * f, RASPBERRY.rings.level[d.ring]);
+  return guessGarrison(state, d, k, state.now);
 }
 var trialCache3 = /* @__PURE__ */ new Map();
 function pillageForecast(state, drupeletId, crew, orders, fed = 1) {
-  const map = raspberryOfState(state);
+  const fruit = fruitOfId(drupeletId);
+  if (!fruit) return null;
+  const map = fruitOfState(state, fruit);
   const d = map.byId.get(drupeletId);
   if (!d) return null;
+  const R = FRUIT_DEFS[fruit];
   const view = state.orchard.views[drupeletId] ?? null;
-  const spread = RASPBERRY.powerSpread;
+  const spread = R.powerSpread;
   const armies = view ? [view.units, view.units, view.units] : [
     guessUnits(state, d, 1 - spread),
     guessUnits(state, d, 1),
-    guessUnits(state, d, (1 + spread) * RASPBERRY.nestPower)
+    guessUnits(state, d, (1 + spread) * R.nestPower)
   ];
   const helpers = d.links.map((id3) => map.byId.get(id3)).filter((x) => x.clan === d.clan);
   const helpOf = (i) => helpers.map((h) => {
     const seen = state.orchard.views[h.id];
-    return seen ? seen.units : guessUnits(
-      state,
-      h,
-      i === 2 ? (1 + spread) * RASPBERRY.nestPower : i === 0 ? 1 - spread : 1
-    );
+    return seen ? seen.units : guessUnits(state, h, i === 2 ? (1 + spread) * R.nestPower : i === 0 ? 1 - spread : 1);
   });
-  const nectar = view ? view.nectar : Math.round(RASPBERRY.rings.nectar[d.ring] * regrowth(state, d.id, state.now));
+  const nectar = view ? view.nectar : Math.round(R.rings.nectar[d.ring] * regrowth(state, d.id, state.now));
   const base = {
     knowledge: view ? "seen" : "unknown",
     view,
@@ -10587,7 +10690,7 @@ function pillageForecast(state, drupeletId, crew, orders, fed = 1) {
     return { ...base, odds: "unknown", expectedDead: 0, expectedHurt: 0, trials: [] };
   const runs = armies.map((units, i) => {
     const seed = `orchard/trial/${drupeletId}/${i}`;
-    const setup = fruitSetup(state, crew, { units, help: helpOf(i), orders, fed, seed });
+    const setup = fruitSetup(state, crew, { units, help: helpOf(i), orders, fed, seed, fruit });
     const key = JSON.stringify([setup.units, setup.orders, seed]);
     const hit = trialCache3.get(key);
     if (hit) return hit;
@@ -10609,7 +10712,8 @@ function launchVoyage(state, plan, now, id3) {
   state.resources.juice -= plan.provisions.juice;
   const goods = plan.mission === "visit" ? cleanGoods(plan.goods) : emptyResources();
   for (const r of RESOURCE_IDS) state.resources[r] -= goods[r];
-  const travelMs = voyageTime(state, pad, crew, !!plan.fuel);
+  const fruit = voyageFruit(plan) ?? "raspberry";
+  const travelMs = voyageTime(state, pad, crew, !!plan.fuel, fruit);
   const failed = withRng(
     state,
     (rng) => !rng.chance(shipReliability(shipOf(state), crew, !!plan.fuel))
@@ -10619,7 +10723,7 @@ function launchVoyage(state, plan, now, id3) {
   const e = {
     id: id3,
     mission: plan.mission,
-    targetId: ORCHARD_TARGET,
+    targetId: orchardTarget(fruit),
     launchpadId: pad.id,
     crew: crew.map((v) => v.id),
     roster: crew.map((v) => ({
@@ -10655,7 +10759,8 @@ function resolveVoyage(state, e, members, fed) {
   if (seed === void 0 || !e.voyage) throw new Error("resolveVoyage: hidden orchard");
   if (e.mission === "pillage") return resolvePillage(state, e, members, fed, seed);
   const at = e.arriveAt;
-  const map = raspberryOfState(state);
+  const map = mapOfVoyage(state, e);
+  const fruit = map.fruit;
   const v = e.voyage;
   const goods = { ...v.goods };
   const stops = [];
@@ -10664,7 +10769,7 @@ function resolveVoyage(state, e, members, fed) {
   for (const id3 of v.stops) {
     const d = map.byId.get(id3);
     const clan = map.clanById.get(d.clan);
-    const truth = drupeletNow(state, seed, d, at);
+    const truth = parcelNow(state, seed, d, at);
     if (attitudeOf(state, clan.id, at) === "hostile" && !v.gift) {
       stops.push({ drupelet: id3, clan: clan.id, sold: {}, nectar: 0, refused: true });
       continue;
@@ -10696,27 +10801,29 @@ function resolveVoyage(state, e, members, fed) {
       ...v.gift && amount > 0 ? { gift: true } : {}
     });
   }
-  state.orchard.visits++;
+  countVisit(state, fruit);
   if (units.length) recordBestiary(state, units, at);
   let founded = false;
   const refund2 = { nectar: 0, crystal: 0, iron: 0 };
   if (v.settle) {
     const first = map.byId.get(v.stops[0]);
-    const post2 = state.orchard.post;
+    const post2 = postOf(state, fruit);
     const can = post2?.ruined && post2.drupelet === first.id || attitudeOf(state, first.clan, at) === "friendly" || state.orchard.taken[first.id] !== void 0;
     if (can && (!post2 || post2.ruined)) {
       foundPost(state, first.id, at);
       founded = true;
     } else {
-      const cost = postCost(state);
+      const cost = postCost(state, fruit);
       Object.assign(refund2, cost);
     }
   }
-  const post = state.orchard.post;
+  const post = postOf(state, fruit);
   if (post && !post.ruined && v.stops.includes(post.drupelet)) {
     if (v.stay?.length) {
       const stay = new Set(v.stay);
-      for (const m of members) if (stay.has(m.id)) m.job = { kind: "post", returnTo: null };
+      for (const m of members)
+        if (stay.has(m.id))
+          m.job = { kind: "post", returnTo: null, ...fruit !== "raspberry" ? { fruit } : {} };
       e.crew = e.crew.filter((id3) => !stay.has(id3));
     }
     if (v.bringBack?.length) {
@@ -10757,17 +10864,18 @@ function resolveVoyage(state, e, members, fed) {
 }
 function resolvePillage(state, e, members, fed, seed) {
   const at = e.arriveAt;
-  const map = raspberryOfState(state);
+  const map = mapOfVoyage(state, e);
   const d = map.byId.get(e.voyage.stops[0]);
-  const truth = drupeletNow(state, seed, d, at);
-  const help = d.links.map((id3) => map.byId.get(id3)).filter((x) => x.clan === d.clan).map((x) => drupeletNow(state, seed, x, at).units);
+  const truth = parcelNow(state, seed, d, at);
+  const help = d.links.map((id3) => map.byId.get(id3)).filter((x) => x.clan === d.clan).map((x) => parcelNow(state, seed, x, at).units);
   const battleSeed = `${seed}/pillage/${e.id}`;
   const setup = fruitSetup(state, members, {
     units: truth.units,
     help,
     orders: e.orders ?? LANDING.defaultOrders,
     fed,
-    seed: battleSeed
+    seed: battleSeed,
+    fruit: map.fruit
   });
   const log2 = simulateBattle(setup, battleSeed);
   const outcome = landingOutcome(log2);
@@ -10791,7 +10899,7 @@ function resolvePillage(state, e, members, fed, seed) {
     state.orchard.views[d.id] = { ...view, source: "pillage", nectar: 0 };
   } else if (outcome === "retreat") state.orchard.views[d.id] = { ...view, source: "retreat" };
   if (outcome !== "defeat") recordBestiary(state, truth.units, at);
-  state.orchard.visits++;
+  countVisit(state, map.fruit);
   e.result = {
     victory: outcome === "victory",
     strength: members.length,
@@ -10811,6 +10919,14 @@ function resolvePillage(state, e, members, fed, seed) {
     if (pad) pad.damaged = true;
   }
   settleVoyage(state, e);
+}
+function mapOfVoyage(state, e) {
+  return fruitOfState(state, fruitOfId(e.voyage?.stops[0] ?? "") ?? "raspberry");
+}
+function countVisit(state, fruit) {
+  state.orchard.visits++;
+  if (!state.orchard.visited.includes(fruit))
+    state.orchard.visited = [...state.orchard.visited, fruit];
 }
 function settleVoyage(state, e) {
   if (e.crew.length === 0) {
@@ -14214,21 +14330,23 @@ function nextSpeechEnd(state) {
 
 // packages/shared/src/sim/postAttacks.ts
 function planPostAttack(s) {
-  const post = s.orchard.post;
-  if (!post || post.ruined || post.attack) return;
-  const rng = createRng(`${s.orchard.seed}/post/${post.drupelet}/attack/${post.attacks}`);
-  const gap = Math.round(rng.range(POST_ATTACK.intervalMs[0], POST_ATTACK.intervalMs[1]));
-  const at = Math.max(s.now, post.readyAt) + gap;
-  post.attack = {
-    id: `pa${post.attacks}`,
-    clan: null,
-    announceAt: at - POST_ATTACK.noticeMs,
-    at,
-    announced: false
-  };
+  for (const { fruit, post } of postsOf(s)) {
+    if (post.ruined || post.attack) continue;
+    const rng = createRng(`${s.orchard.seed}/post/${post.drupelet}/attack/${post.attacks}`);
+    const gap = Math.round(rng.range(POST_ATTACK.intervalMs[0], POST_ATTACK.intervalMs[1]));
+    const at = Math.max(s.now, post.readyAt) + gap;
+    post.attack = {
+      // The raspberry's attacks keep their chantier 54 ids.
+      id: fruit === "raspberry" ? `pa${post.attacks}` : `${fruit}-pa${post.attacks}`,
+      clan: null,
+      announceAt: at - POST_ATTACK.noticeMs,
+      at,
+      announced: false
+    };
+  }
 }
 function aroundPost(s, post) {
-  const map = raspberryOfState(s);
+  const map = fruitOfState(s, fruitOfPost(post));
   const d = map.byId.get(post.drupelet);
   return [d, ...d.links.map((id3) => map.byId.get(id3))];
 }
@@ -14242,24 +14360,33 @@ function hostileNeighbour(s, post, at) {
 function attackersFrom(s, post, clan) {
   return aroundPost(s, post).filter((d) => d.clan === clan);
 }
-function nextPostAttackEvent(s) {
-  const a = s.orchard.post?.attack;
-  if (!a) return Infinity;
+function attackEventOf(s, a) {
   if (!a.announced) return a.announceAt > s.now ? a.announceAt : s.now < a.at ? s.now : Infinity;
   return s.orchardSeed !== void 0 && a.at > s.now ? a.at : Infinity;
 }
+function nextPostAttackEvent(s) {
+  let at = Infinity;
+  for (const { post } of postsOf(s))
+    if (post.attack) at = Math.min(at, attackEventOf(s, post.attack));
+  return at;
+}
 function postAttackAwaited(s, now) {
-  const a = s.orchard.post?.attack;
-  return !!a && a.announced && a.at <= now && s.orchardSeed === void 0;
+  return s.orchardSeed === void 0 && postsOf(s).some(({ post: { attack: a } }) => !!a && a.announced && a.at <= now);
 }
 function postAttacksDue(s, now) {
-  const a = s.orchard.post?.attack;
-  return a && a.announced && a.at <= now ? [a.at] : [];
+  const out = [];
+  for (const { post } of postsOf(s)) {
+    const a = post.attack;
+    if (a && a.announced && a.at <= now) out.push(a.at);
+  }
+  return out;
 }
 function postAttackTick(s, at, events) {
-  const post = s.orchard.post;
-  const a = post?.attack;
-  if (!post || !a) return;
+  for (const { post } of postsOf(s)) attackTick(s, post, at, events);
+}
+function attackTick(s, post, at, events) {
+  const a = post.attack;
+  if (!a) return;
   if (!a.announced && a.announceAt <= at) {
     const clan = hostileNeighbour(s, post, a.announceAt);
     if (!clan) {
@@ -14284,7 +14411,7 @@ function postAttackTick(s, at, events) {
 }
 function attackArmy2(s, post, clan, at) {
   const seed = s.orchardSeed;
-  const all = attackersFrom(s, post, clan).flatMap((d) => drupeletNow(s, seed, d, at).units);
+  const all = attackersFrom(s, post, clan).flatMap((d) => parcelNow(s, seed, d, at).units);
   return mergeUnits2(shareOf(all, POST_ATTACK.share));
 }
 function mergeUnits2(units) {
@@ -14301,7 +14428,8 @@ function strikePost(s, post, a, events) {
   const at = a.at;
   const clan = a.clan;
   const army = attackArmy2(s, post, clan, at);
-  const guards = postKiwis(s);
+  const fruit = fruitOfPost(post);
+  const guards = postKiwis(s, fruit);
   const setup = postSetup(s, guards, {
     attackers: army,
     orders: POST_ORDERS,
@@ -14326,7 +14454,7 @@ function strikePost(s, post, a, events) {
     taken = Math.floor(postStore(post) * POST_ATTACK.loot);
     post.store = Math.max(0, post.store - taken * NECTAR_SCALE);
     post.ruined = true;
-    for (const v of s.villagers) if (v.job.kind === "post") v.job = { kind: "idle" };
+    for (const v of guards) if (v.job.kind === "post") v.job = { kind: "idle" };
   }
   recordBestiary(s, army, at);
   const report = {
@@ -14353,27 +14481,25 @@ function strikePost(s, post, a, events) {
 }
 var POST_ORDERS = { ...LANDING.defaultOrders };
 var trialCache7 = /* @__PURE__ */ new Map();
-function postAttackForecast(s) {
-  const post = s.orchard.post;
+function postAttackForecast(s, fruit = "raspberry") {
+  const post = postOf(s, fruit);
   const a = post?.attack;
   if (!post || !a?.announced || !a.clan) return null;
   const from = attackersFrom(s, post, a.clan);
-  const spread = RASPBERRY.powerSpread;
+  const R = FRUIT_DEFS[fruit];
+  const spread = R.powerSpread;
   const armyAt = (k) => mergeUnits2(
     shareOf(
       from.flatMap((d) => {
         const seen = s.orchard.views[d.id];
         if (seen) return seen.units.map((u) => ({ ...u, count: Math.round(u.count * k) }));
-        return beetles(
-          RASPBERRY.rings.power[d.ring] * k * regrowth(s, d.id, a.at),
-          RASPBERRY.rings.level[d.ring]
-        );
+        return guessGarrison(s, d, k, a.at);
       }),
       POST_ATTACK.share
     )
   );
-  const armies = [armyAt(1 - spread), armyAt(1), armyAt((1 + spread) * RASPBERRY.nestPower)];
-  const guards = postKiwis(s);
+  const armies = [armyAt(1 - spread), armyAt(1), armyAt((1 + spread) * R.nestPower)];
+  const guards = postKiwis(s, fruit);
   const trials = armies.map((units, i) => {
     const seed = `orchard/post/trial/${a.id}/${i}`;
     const setup = postSetup(s, guards, {
@@ -15146,16 +15272,16 @@ function computeFlows(s) {
     orbitDust.push({ kiwai, rate });
     next = Math.min(next, s.now + Math.max(1, Math.ceil((dustTank() - kiwai.dust) / rate)));
   }
-  const postNectar = postNectarRate(s);
-  if (postNectar > 0)
+  const posts = postRates(s);
+  for (const { fruit, rate } of posts)
     next = Math.min(
       next,
-      s.now + Math.max(1, Math.ceil((postStoreCap() - s.orchard.post.store) / postNectar))
+      s.now + Math.max(1, Math.ceil((postStoreCap() - s.orchard.posts[fruit].store) / rate))
     );
   const hunger = hungerRate(s, deficit);
   return {
     orbitDust,
-    postNectar,
+    posts,
     rates,
     pools,
     meteors,
@@ -15215,7 +15341,7 @@ function accrue(s, flows, dtMs, at, events) {
   accrueResearch(s, dtMs);
   accrueStardust(s, dtMs);
   accrueOrbit(s, flows.orbitDust, dtMs);
-  accruePost(s, flows.postNectar, dtMs);
+  accruePost(s, flows.posts, dtMs);
   accrueIron(s, flows.iron, dtMs, at, events);
   accrueForge(s, flows.forge, dtMs);
   accrueCrystal(s, flows.crystal, dtMs, at, events);
@@ -16843,7 +16969,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 44;
+var SCHEMA_VERSION = 45;
 var MISSION_KINDS = [
   "land",
   "raid",
@@ -16922,6 +17048,8 @@ function newGame(opts) {
     orbit: { kiwais: [], shuttle: null, launched: 0 },
     orchard: newOrchard(`${opts.seed}/orchard`),
     nectar: 0,
+    cider: 0,
+    goldFiber: 0,
     expeditions: [],
     friends: [],
     shipments: [],
@@ -16965,10 +17093,19 @@ function newGame(opts) {
   return state;
 }
 function newOrchard(seed) {
-  return { seed, standing: {}, sold: {}, views: {}, taken: {}, post: null, visits: 0 };
+  return {
+    seed,
+    standing: {},
+    sold: {},
+    views: {},
+    taken: {},
+    posts: {},
+    routes: [],
+    visits: 0,
+    visited: []
+  };
 }
 function cloneOrchard(o) {
-  const post = o.post;
   return {
     seed: o.seed,
     standing: Object.fromEntries(Object.entries(o.standing).map(([k, v]) => [k, { ...v }])),
@@ -16977,13 +17114,20 @@ function cloneOrchard(o) {
       Object.entries(o.views).map(([k, v]) => [k, { ...v, units: v.units.map((u) => ({ ...u })) }])
     ),
     taken: { ...o.taken },
-    post: post ? {
-      ...post,
-      modules: post.modules.map((m) => ({ ...m })),
-      attack: post.attack ? { ...post.attack } : null,
-      reports: post.reports.map((r) => ({ ...r, dead: [...r.dead], hurt: [...r.hurt] }))
-    } : null,
-    visits: o.visits
+    posts: Object.fromEntries(
+      Object.entries(o.posts).map(([f, post]) => [f, clonePost(post)])
+    ),
+    routes: o.routes.map((r) => ({ ...r })),
+    visits: o.visits,
+    visited: [...o.visited]
+  };
+}
+function clonePost(post) {
+  return {
+    ...post,
+    modules: post.modules.map((m) => ({ ...m })),
+    attack: post.attack ? { ...post.attack } : null,
+    reports: post.reports.map((r) => ({ ...r, dead: [...r.dead], hurt: [...r.hurt] }))
   };
 }
 function newDepths(seed, face) {
@@ -18500,7 +18644,7 @@ function execute(s, cmd, ctx, events) {
       if (cmd.fuel) payStardust(s, FUEL.stardust);
       pay(s, f.launchCost);
       if (cmd.settle) {
-        const cost = postCost(s);
+        const cost = postCost(s, fruitOfId(cmd.stops[0] ?? "") ?? "raspberry");
         payNectar(s, cost.nectar);
         payCrystal(s, cost.crystal);
         payIron(s, cost.iron);
@@ -18509,18 +18653,19 @@ function execute(s, cmd, ctx, events) {
       return;
     }
     case "buildPostModule": {
-      const lock = postModuleLock(s, cmd.moduleType, cmd);
+      const fruit = cmd.fruit ?? "raspberry";
+      const lock = postModuleLock(s, fruit, cmd.moduleType, cmd);
       if (lock) fail(lock);
       const def = POST.modules[cmd.moduleType];
       payNectar(s, def.nectar);
       payIron(s, def.iron);
-      addPostModule(s, cmd.moduleType, cmd, nextId(s, "pm"));
+      addPostModule(s, fruit, cmd.moduleType, cmd, nextId(s, "pm"));
       return;
     }
     case "removePostModule": {
       const lock = removePostModuleLock(s, cmd.moduleId);
       if (lock) fail(lock);
-      const post = s.orchard.post;
+      const post = postOfModule(s, cmd.moduleId);
       const m = post.modules.find((x) => x.id === cmd.moduleId);
       post.modules = post.modules.filter((x) => x !== m);
       addNectar(s, Math.floor(POST.modules[m.type].nectar * POST.refund));
@@ -23175,7 +23320,11 @@ var job = external_exports.discriminatedUnion("kind", [
     returnTo: id.nullable(),
     aboard: external_exports.enum(["up", "down"]).optional()
   }),
-  external_exports.object({ kind: external_exports.literal("post"), returnTo: id.nullable() }),
+  external_exports.object({
+    kind: external_exports.literal("post"),
+    returnTo: id.nullable(),
+    fruit: external_exports.enum(FRUIT_IDS).optional()
+  }),
   external_exports.object({
     kind: external_exports.literal("titan"),
     work: external_exports.enum(TITAN_WORK_IDS),
@@ -23338,6 +23487,44 @@ var villager = external_exports.object({
       until: external_exports.number()
     })
   ).max(MEMORY_KINDS.length).optional()
+});
+var tradingPost = external_exports.object({
+  drupelet: external_exports.string().max(8),
+  since: external_exports.number(),
+  readyAt: external_exports.number(),
+  modules: external_exports.array(
+    external_exports.object({
+      id,
+      type: external_exports.enum(POST_MODULE_TYPES),
+      q: external_exports.number().int().min(-POST.radius).max(POST.radius),
+      r: external_exports.number().int().min(-POST.radius).max(POST.radius),
+      readyAt: external_exports.number(),
+      broken: external_exports.boolean().optional()
+    })
+  ).max(POST.maxModules),
+  store: external_exports.number().int().min(0).max(POST.storeCap * NECTAR_SCALE),
+  ruined: external_exports.boolean().optional(),
+  attacks: external_exports.number().int().min(0),
+  attack: external_exports.object({
+    id,
+    clan: external_exports.string().max(8).nullable(),
+    announceAt: external_exports.number(),
+    at: external_exports.number(),
+    announced: external_exports.boolean()
+  }).nullable(),
+  reports: external_exports.array(
+    external_exports.object({
+      id,
+      at: external_exports.number(),
+      clan: external_exports.string().max(8),
+      held: external_exports.boolean(),
+      power: external_exports.number().min(0),
+      dead: external_exports.array(external_exports.string()).max(16),
+      hurt: external_exports.array(id).max(16),
+      taken: external_exports.number().int().min(0),
+      log: battleLog.optional()
+    })
+  ).max(5)
 });
 var gameStateSchema = external_exports.object({
   schemaVersion: external_exports.number().int(),
@@ -23636,48 +23823,24 @@ var gameStateSchema = external_exports.object({
       })
     ),
     taken: external_exports.record(external_exports.string().max(8), external_exports.number()),
-    post: external_exports.object({
-      drupelet: external_exports.string().max(8),
-      since: external_exports.number(),
-      readyAt: external_exports.number(),
-      modules: external_exports.array(
-        external_exports.object({
-          id,
-          type: external_exports.enum(POST_MODULE_TYPES),
-          q: external_exports.number().int().min(-POST.radius).max(POST.radius),
-          r: external_exports.number().int().min(-POST.radius).max(POST.radius),
-          readyAt: external_exports.number(),
-          broken: external_exports.boolean().optional()
-        })
-      ).max(POST.maxModules),
-      store: external_exports.number().int().min(0).max(POST.storeCap * NECTAR_SCALE),
-      ruined: external_exports.boolean().optional(),
-      attacks: external_exports.number().int().min(0),
-      attack: external_exports.object({
+    posts: external_exports.record(external_exports.enum(FRUIT_IDS), tradingPost),
+    routes: external_exports.array(
+      external_exports.object({
         id,
-        clan: external_exports.string().max(8).nullable(),
-        announceAt: external_exports.number(),
-        at: external_exports.number(),
-        announced: external_exports.boolean()
-      }).nullable(),
-      reports: external_exports.array(
-        external_exports.object({
-          id,
-          at: external_exports.number(),
-          clan: external_exports.string().max(8),
-          held: external_exports.boolean(),
-          power: external_exports.number().min(0),
-          dead: external_exports.array(external_exports.string()).max(16),
-          hurt: external_exports.array(id).max(16),
-          taken: external_exports.number().int().min(0),
-          log: battleLog.optional()
-        })
-      ).max(5)
-    }).nullable(),
-    visits: external_exports.number().int().min(0)
+        a: external_exports.enum(FRUIT_IDS),
+        b: external_exports.enum(FRUIT_IDS),
+        openedAt: external_exports.number(),
+        paidUntil: external_exports.number(),
+        cut: external_exports.boolean().optional()
+      })
+    ).max(3),
+    visits: external_exports.number().int().min(0),
+    visited: external_exports.array(external_exports.enum(FRUIT_IDS)).max(FRUIT_IDS.length)
   }),
   orchardSeed: external_exports.string().max(400).optional(),
   nectar: external_exports.number().int().min(0).max(Math.max(...NECTAR.cap) * NECTAR_SCALE),
+  cider: external_exports.number().int().min(0).max(Math.max(...NECTAR.cap) * NECTAR_SCALE),
+  goldFiber: external_exports.number().int().min(0).max(Math.max(...NECTAR.cap) * NECTAR_SCALE),
   bestiary: external_exports.record(
     external_exports.enum(ENEMY_KINDS),
     external_exports.object({
@@ -24117,7 +24280,23 @@ var MIGRATIONS = {
     ...raw,
     orchard: newOrchard(`${String(raw.seed)}/orchard`),
     nectar: 0
-  })
+  }),
+  // v44 → v45 (chantier 55): a post per fruit (the raspberry's comes first), routes, cider and
+  // golden fibre.
+  44: (raw) => {
+    const { post, ...orchard } = raw.orchard ?? {};
+    return {
+      ...raw,
+      orchard: {
+        ...orchard,
+        posts: post ? { raspberry: post } : {},
+        routes: [],
+        visited: Number(orchard.visits) > 0 ? ["raspberry"] : []
+      },
+      cider: 0,
+      goldFiber: 0
+    };
+  }
 };
 var OLD_MISSIONS = ["raid", "recon", "assault", "reinforce", "final", "retreat"];
 function migrateToLandings(raw) {
@@ -24432,6 +24611,7 @@ var commandSchema = external_exports.discriminatedUnion("type", [
   }),
   external_exports.object({
     type: external_exports.literal("buildPostModule"),
+    fruit: external_exports.enum(FRUIT_IDS).optional(),
     moduleType: external_exports.enum(POST_MODULE_TYPES),
     q: external_exports.number().int().min(-POST.radius).max(POST.radius),
     r: external_exports.number().int().min(-POST.radius).max(POST.radius)
@@ -24839,8 +25019,9 @@ function singleFeats(state) {
   }
   if (state.depths.weevil?.fellAt !== void 0) out.add("weevil");
   if (state.orbit.kiwais.some((k) => k.readyAt <= state.now)) out.add("firstKiwai");
-  if (state.orchard.visits > 0) out.add("raspberry");
-  if (state.orchard.post && state.orchard.post.readyAt <= state.now) out.add("tradingPost");
+  if (state.orchard.visited.includes("raspberry")) out.add("raspberry");
+  if (Object.values(state.orchard.posts).some((p) => p.readyAt <= state.now))
+    out.add("tradingPost");
   if (state.villagers.some((v) => v.kikiwiwi)) out.add("kikiwiwi");
   if (state.villagers.some((v) => v.shiny === "star")) out.add("starEgg");
   if (state.villagers.some((v) => v.classId && CLASSES[v.classId].tier === 3)) {
@@ -26191,7 +26372,9 @@ export {
   FOOTPRINTS,
   FORGE,
   FRONT_AZIMUTH,
+  FRUIT_DEFS,
   FRUIT_IDS,
+  FRUIT_PREFIX,
   FUEL,
   GARRISON,
   GEAR_KINDS,
@@ -26255,6 +26438,7 @@ export {
   ORBIT,
   ORBIT_BED,
   ORCHARD,
+  ORCHARD_GOODS,
   ORCHARD_TARGET,
   PASSAGE_TECHS,
   PATHS,
@@ -26365,7 +26549,9 @@ export {
   alienEnemies,
   alienFaceOnKiwi,
   alienUnit,
+  allFruits,
   allGuards,
+  allPostKiwis,
   allyTwinOf,
   announceUpwell,
   applyCommand,
@@ -26467,6 +26653,7 @@ export {
   civWave,
   claimableObjective,
   clanNeighbours,
+  clanOf,
   classGrowth,
   classRank,
   classRankProgress,
@@ -26648,7 +26835,14 @@ export {
   freePostSpots,
   freeSpots,
   friendId,
+  fruitGarrison,
+  fruitMapOf,
+  fruitOfId,
+  fruitOfPost,
+  fruitOfState,
+  fruitOfTarget,
   fruitSetup,
+  fruitTruth,
   galleryCrystalRate,
   galleryRate,
   galleryRates,
@@ -26682,6 +26876,7 @@ export {
   guardLock,
   guardPower,
   guardsOf,
+  guessGarrison,
   handleGameRequest,
   harvestOf,
   harvestedTileType,
@@ -26926,6 +27121,7 @@ export {
   orbitTick,
   orchardKnown,
   orchardOpen,
+  orchardTarget,
   orderItem,
   orderRepairs,
   orderWork,
@@ -26934,6 +27130,8 @@ export {
   outerPower,
   panelBonus,
   parcelField,
+  parcelNow,
+  parcelOf,
   parcelTiles,
   parcelTruth,
   parcelView,
@@ -26979,6 +27177,7 @@ export {
   postAttacksDue,
   postCost,
   postFort,
+  postFruitOf,
   postHeld,
   postHousing,
   postKind,
@@ -26986,10 +27185,15 @@ export {
   postMapOf,
   postModuleLock,
   postNectarRate,
+  postOf,
+  postOfModule,
+  postRate,
+  postRates,
   postSetup,
   postStore,
   postStoreCap,
   postTick,
+  postsOf,
   potentialLoot,
   presence,
   productionRates,
@@ -27219,6 +27423,7 @@ export {
   viewOfTruth,
   villageView,
   voyageForecast,
+  voyageFruit,
   voyageLock,
   voyageTime,
   voyagesOut,

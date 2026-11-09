@@ -70,7 +70,7 @@ function plan(s: GameState, crew: VillagerId[], over: Partial<VoyagePlan> = {}):
   return {
     launchpadId: 'bpad' as BuildingId,
     mission: 'visit',
-    stops: [map.drupelets[0]!.id],
+    stops: [map.parcels[0]!.id],
     crew: crew.slice(0, 2),
     provisions,
     ...over,
@@ -98,7 +98,7 @@ describe('voyages to the raspberry (chantier 54)', () => {
   it('trades with a clan at its public rate, and the clan likes us better', () => {
     const { map, s, crew } = orchardColony();
     const rasp = raspberryOfState(s);
-    const d = rasp.drupelets[0]!;
+    const d = rasp.parcels[0]!;
     const clan = rasp.clanById.get(d.clan)!;
     const goods = { [clan.wants]: 10000 };
     const p = plan(s, crew, { goods });
@@ -136,7 +136,7 @@ describe('voyages to the raspberry (chantier 54)', () => {
     const { map, s, crew } = orchardColony();
     const rasp = raspberryOfState(s);
     // A weak drupelet at the tip.
-    const d = rasp.drupelets[0]!;
+    const d = rasp.parcels[0]!;
     const p = plan(s, crew, {
       mission: 'pillage',
       crew,
@@ -173,7 +173,7 @@ describe('voyages to the raspberry (chantier 54)', () => {
   it('founds a trading post with a friendly clan, leaves kiwis there who gather nectar', () => {
     const { map, s, crew } = orchardColony();
     const rasp = raspberryOfState(s);
-    const d = rasp.drupelets[3]!;
+    const d = rasp.parcels[3]!;
     // Not friendly yet: refused.
     s.nectar = 100 * NECTAR_SCALE;
     const p = plan(s, crew, {
@@ -191,28 +191,28 @@ describe('voyages to the raspberry (chantier 54)', () => {
     const e = r.state.expeditions.find((x) => x.mission === 'visit')!;
     const there = advance(r.state, e.arriveAt).state;
     expect(there.expeditions.find((x) => x.id === e.id)!.result!.postFounded).toBe(true);
-    expect(there.orchard.post?.drupelet).toBe(d.id);
+    expect(there.orchard.posts.raspberry?.drupelet).toBe(d.id);
     expect(
       postKiwis(there)
         .map((v) => v.id)
         .sort(),
     ).toEqual(crew.slice(0, 2).sort());
     // A stall: the two kiwis gather into the store, exactly, whatever the steps.
-    const ready = advance(there, there.orchard.post!.readyAt).state;
+    const ready = advance(there, there.orchard.posts.raspberry!.readyAt).state;
     const b = applyCommand(
       ready,
       { type: 'buildPostModule', moduleType: 'stall', q: 1, r: 0 },
       { now: ready.now, map },
     );
     if (!b.ok) throw new Error(b.error);
-    const t1 = b.state.orchard.post!.modules[0]!.readyAt + 10 * HOUR_MS;
+    const t1 = b.state.orchard.posts.raspberry!.modules[0]!.readyAt + 10 * HOUR_MS;
     const one = advance(b.state, t1).state;
     let steps = b.state;
     for (let t = b.state.now; t < t1; t += 37 * 60_000)
       steps = advance(steps, Math.min(t1, t)).state;
     steps = advance(steps, t1).state;
-    expect(one.orchard.post!.store).toBe(steps.orchard.post!.store);
-    expect(Math.floor(one.orchard.post!.store / NECTAR_SCALE)).toBe(
+    expect(one.orchard.posts.raspberry!.store).toBe(steps.orchard.posts.raspberry!.store);
+    expect(Math.floor(one.orchard.posts.raspberry!.store / NECTAR_SCALE)).toBe(
       Math.floor(POST.perHour * 2 * 10),
     );
     // They stay away from the village (fed by the colony).
@@ -227,14 +227,14 @@ describe('voyages to the raspberry (chantier 54)', () => {
       { now: T0, map },
     );
     expect(heavy.ok ? null : heavy.error).toBe('overloaded');
-    const far = raspberryOfState(s).drupelets.find(
-      (x) => !raspberryOfState(s).drupelets[0]!.links.includes(x.id) && x.index > 5,
+    const far = raspberryOfState(s).parcels.find(
+      (x) => !raspberryOfState(s).parcels[0]!.links.includes(x.id) && x.index > 5,
     )!;
     const apart = applyCommand(
       s,
       {
         type: 'voyage',
-        ...plan(s, crew, { stops: [raspberryOfState(s).drupelets[0]!.id, far.id] }),
+        ...plan(s, crew, { stops: [raspberryOfState(s).parcels[0]!.id, far.id] }),
       },
       { now: T0, map },
     );
@@ -247,8 +247,8 @@ describe('voyages to the raspberry (chantier 54)', () => {
 function postColony(guards = 2) {
   const { map, s, crew } = orchardColony('post-attacks');
   const rasp = raspberryOfState(s);
-  const d = rasp.drupelets[10]!;
-  s.orchard.post = {
+  const d = rasp.parcels[10]!;
+  s.orchard.posts.raspberry = {
     drupelet: d.id,
     since: T0 - 10 * HOUR_MS,
     readyAt: T0 - 8 * HOUR_MS,
@@ -267,24 +267,24 @@ describe('attacks on the trading post (chantier 54)', () => {
   it('plans attacks on a public clock, and none comes without a hostile clan next door', () => {
     const { s } = postColony();
     const a = advance(s, T0 + 1).state;
-    const planned = a.orchard.post!.attack!;
+    const planned = a.orchard.posts.raspberry!.attack!;
     expect(planned.at - planned.announceAt).toBe(POST_ATTACK.noticeMs);
     expect(planned.at - T0).toBeGreaterThanOrEqual(POST_ATTACK.intervalMs[0]);
     // The same for anyone who looks (no hidden draw).
     const b = advance(publicState(s), T0 + 1).state;
-    expect(b.orchard.post!.attack).toEqual(planned);
+    expect(b.orchard.posts.raspberry!.attack).toEqual(planned);
     const after = advance(a, planned.announceAt + 1).state;
-    expect(after.orchard.post!.attacks).toBe(1);
-    expect(after.orchard.post!.attack?.announced ?? false).toBe(false);
+    expect(after.orchard.posts.raspberry!.attacks).toBe(1);
+    expect(after.orchard.posts.raspberry!.attack?.announced ?? false).toBe(false);
   });
 
   it('announces the most hostile clan next door, and a gift calls it off', () => {
     const { s, d } = postColony();
     s.orchard.standing[d.clan] = { value: -90, at: T0 };
     const a = advance(s, T0 + 1).state;
-    const planned = a.orchard.post!.attack!;
+    const planned = a.orchard.posts.raspberry!.attack!;
     const r = advance(a, planned.announceAt);
-    const att = r.state.orchard.post!.attack!;
+    const att = r.state.orchard.posts.raspberry!.attack!;
     expect(att.announced).toBe(true);
     expect(att.clan).toBe(d.clan);
     expect(r.events.some((e) => e.type === 'postAttackAnnounced')).toBe(true);
@@ -294,21 +294,21 @@ describe('attacks on the trading post (chantier 54)', () => {
     calm.orchard.standing[d.clan] = { value: 0, at: calm.now };
     const c = advance(calm, att.at);
     expect(c.events.some((e) => e.type === 'postAttackCalmed')).toBe(true);
-    expect(c.state.orchard.post!.ruined).toBeUndefined();
+    expect(c.state.orchard.posts.raspberry!.ruined).toBeUndefined();
   });
 
   it('strikes where the truth is held: a post left empty falls to a ruin, never lost', () => {
     const { s, d } = postColony(0);
     s.orchard.standing[d.clan] = { value: -100, at: T0 };
     const a = advance(s, T0 + 1).state;
-    const at = a.orchard.post!.attack!.at;
+    const at = a.orchard.posts.raspberry!.attack!.at;
     // Online, the client waits for the server.
     const waiting = advance(publicState(a), at + HOUR_MS).state;
-    expect(waiting.orchard.post!.attack?.at).toBe(at);
+    expect(waiting.orchard.posts.raspberry!.attack?.at).toBe(at);
     const r = advance(a, at);
     const hit = r.events.find((e) => e.type === 'postAttacked');
     expect(hit).toMatchObject({ held: false, dead: 0 });
-    const post = r.state.orchard.post!;
+    const post = r.state.orchard.posts.raspberry!;
     expect(post.ruined).toBe(true);
     expect(post.reports[0]!.taken).toBe(30);
     expect(post.store).toBe(0);
@@ -322,6 +322,7 @@ describe('the orchard in the objectives and the leagues (chantier 54)', () => {
     const obj = AGE_OBJECTIVES.find((o) => o.id === 'starsWormhole')!;
     expect(objectiveProgress(s, obj).current).toBe(0);
     s.orchard.visits = 1;
+    s.orchard.visited = ['raspberry'];
     expect(objectiveProgress(s, obj).current).toBe(1);
     const feats = featsOf(s);
     expect(feats).toContain('raspberry');

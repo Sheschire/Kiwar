@@ -9,8 +9,8 @@ import { accrueStardust, cometTick, nextCometEvent, planComet } from './comets';
 import { footprintOf, isManualWorkplace, isProducer, type BuildingType } from '../data/buildings';
 import type { TechId } from '../data/research';
 import type { KiwaiType, ModuleType } from '../data/orbit';
-import type { PostModuleType } from '../data/orchard';
-import { accruePost, nextPostEvent, postNectarRate, postStoreCap, postTick } from './tradingPost';
+import type { FruitId, PostModuleType } from '../data/orchard';
+import { accruePost, nextPostEvent, postRates, postStoreCap, postTick } from './tradingPost';
 import { nextPostAttackEvent, planPostAttack, postAttackTick } from './postAttacks';
 import { RESOURCE_IDS, emptyResources, type ResourceId, type Resources } from '../data/resources';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
@@ -308,7 +308,7 @@ export type GameEvent =
   | { type: 'kiwaiReady'; at: TimeMs; kiwaiId: string; kiwaiType: KiwaiType }
   /** Chantier 54: our trading post stands on its drupelet, a module of it is assembled. */
   | { type: 'postReady'; at: TimeMs; drupelet: string }
-  | { type: 'postModuleReady'; at: TimeMs; moduleType: PostModuleType }
+  | { type: 'postModuleReady'; at: TimeMs; moduleType: PostModuleType; drupelet?: string }
   /** Chantier 54: an attack on our post announced, called off by a gift, struck. */
   | { type: 'postAttackAnnounced'; at: TimeMs; clan: string; strikeAt: TimeMs }
   | { type: 'postAttackCalmed'; at: TimeMs; clan: string }
@@ -596,7 +596,8 @@ interface Flows {
   /** Chantier 53: stardust caught by the star harvests (raw units per ms, integers). */
   orbitDust: { kiwai: Kiwai; rate: number }[];
   /** Chantier 54: nectar gathered into the trading post's store (raw units per ms). */
-  postNectar: number;
+  /** Chantier 54 (55: one per fruit): what the trading posts' stalls gather into their stores. */
+  posts: { fruit: FruitId; rate: number }[];
   /** Next time a rate changes on its own (a deposit runs dry, a storage fills or empties). */
   nextChange: TimeMs;
   /** Next hunger stage change or death. */
@@ -720,17 +721,17 @@ function computeFlows(s: GameState): Flows {
     orbitDust.push({ kiwai, rate });
     next = Math.min(next, s.now + Math.max(1, Math.ceil((dustTank() - kiwai.dust) / rate)));
   }
-  // Chantier 54: the trading post's store fills (an event when it is full).
-  const postNectar = postNectarRate(s);
-  if (postNectar > 0)
+  // Chantier 54: a trading post's store fills (an event when it is full).
+  const posts = postRates(s);
+  for (const { fruit, rate } of posts)
     next = Math.min(
       next,
-      s.now + Math.max(1, Math.ceil((postStoreCap() - s.orchard.post!.store) / postNectar)),
+      s.now + Math.max(1, Math.ceil((postStoreCap() - s.orchard.posts[fruit]!.store) / rate)),
     );
   const hunger = hungerRate(s, deficit);
   return {
     orbitDust,
-    postNectar,
+    posts,
     rates,
     pools,
     meteors,
@@ -796,7 +797,7 @@ function accrue(s: GameState, flows: Flows, dtMs: number, at: TimeMs, events: Ga
   accrueResearch(s, dtMs);
   accrueStardust(s, dtMs);
   accrueOrbit(s, flows.orbitDust, dtMs);
-  accruePost(s, flows.postNectar, dtMs);
+  accruePost(s, flows.posts, dtMs);
   accrueIron(s, flows.iron, dtMs, at, events);
   accrueForge(s, flows.forge, dtMs);
   accrueCrystal(s, flows.crystal, dtMs, at, events);

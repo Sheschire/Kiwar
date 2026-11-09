@@ -67,17 +67,15 @@ describe('the raspberry (chantier 54)', () => {
     const a = raspberryOf('u-1/orchard');
     const b = raspberryOf('u-1/orchard');
     expect(b).toBe(a);
-    expect(JSON.stringify(raspberryOf('u-2/orchard').drupelets)).not.toBe(
-      JSON.stringify(a.drupelets),
-    );
+    expect(JSON.stringify(raspberryOf('u-2/orchard').parcels)).not.toBe(JSON.stringify(a.parcels));
     for (const seed of ['a', 'b', 'c', 'd', 'e', 'f']) {
       const m = raspberryOf(`${seed}/orchard`);
-      expect(m.drupelets.length).toBeGreaterThanOrEqual(RASPBERRY.drupelets[0]);
-      expect(m.drupelets.length).toBeLessThanOrEqual(RASPBERRY.drupelets[1]);
+      expect(m.parcels.length).toBeGreaterThanOrEqual(RASPBERRY.drupelets[0]);
+      expect(m.parcels.length).toBeLessThanOrEqual(RASPBERRY.drupelets[1]);
       expect(m.clans.length).toBeGreaterThanOrEqual(RASPBERRY.clans[0]);
       expect(m.clans.length).toBeLessThanOrEqual(RASPBERRY.clans[1]);
       // Links go both ways; one piece; every clan holds drupelets in one piece too.
-      for (const d of m.drupelets)
+      for (const d of m.parcels)
         for (const l of d.links) expect(m.byId.get(l)!.links).toContain(d.id);
       const seen = new Set<string>(['d0']);
       const todo = ['d0'];
@@ -87,13 +85,13 @@ describe('the raspberry (chantier 54)', () => {
             seen.add(l);
             todo.push(l);
           }
-      expect(seen.size).toBe(m.drupelets.length);
-      expect(m.clans.reduce((a, c) => a + c.drupelets.length, 0)).toBe(m.drupelets.length);
+      expect(seen.size).toBe(m.parcels.length);
+      expect(m.clans.reduce((a, c) => a + c.parcels.length, 0)).toBe(m.parcels.length);
       for (const c of m.clans) {
-        expect(c.drupelets.length).toBeGreaterThan(0);
-        const mine = new Set(c.drupelets);
-        const got = new Set([c.drupelets[0]!]);
-        const stack = [c.drupelets[0]!];
+        expect(c.parcels.length).toBeGreaterThan(0);
+        const mine = new Set(c.parcels);
+        const got = new Set([c.parcels[0]!]);
+        const stack = [c.parcels[0]!];
         while (stack.length)
           for (const l of m.byId.get(stack.pop()!)!.links)
             if (mine.has(l) && !got.has(l)) {
@@ -103,16 +101,14 @@ describe('the raspberry (chantier 54)', () => {
         expect(got.size).toBe(mine.size);
       }
       // Nobody under the vine's cap.
-      expect(Math.max(...m.drupelets.map((d) => d.y))).toBeLessThan(
-        1 - 2 * RASPBERRY.stemCap + 0.01,
-      );
+      expect(Math.max(...m.parcels.map((d) => d.y))).toBeLessThan(1 - 2 * RASPBERRY.stemCap + 0.01);
     }
   });
 
   it('holds stronger, richer drupelets toward the stem (hidden seed)', () => {
     const m = raspberryOf('x/orchard');
     const power = (ring: number) => {
-      const ds = m.drupelets.filter((d) => d.ring === ring);
+      const ds = m.parcels.filter((d) => d.ring === ring);
       return (
         ds.reduce(
           (a, d) => a + drupeletTruth('secret', d).units.reduce((s, u) => s + u.count, 0),
@@ -121,9 +117,7 @@ describe('the raspberry (chantier 54)', () => {
       );
     };
     expect(power(2)).toBeGreaterThan(power(0));
-    expect(drupeletTruth('secret', m.drupelets[0]!)).toEqual(
-      drupeletTruth('secret', m.drupelets[0]!),
-    );
+    expect(drupeletTruth('secret', m.parcels[0]!)).toEqual(drupeletTruth('secret', m.parcels[0]!));
   });
 
   it('opens the wormholes with a technology cheaper once the Mother Vine is found', () => {
@@ -159,6 +153,36 @@ describe('the raspberry (chantier 54)', () => {
     if (m.ok) {
       expect(m.state.orchard.seed).toBe(`${s.seed}/orchard`);
       expect(m.state.nectar).toBe(0);
+    }
+  });
+
+  it('migrates a v44 game: its post becomes the raspberry post (chantier 55)', () => {
+    const { state } = setup();
+    const s = advance(state, T0 + 3_600_000).state;
+    const old = JSON.parse(JSON.stringify(s)) as Record<string, unknown>;
+    const post = {
+      drupelet: 'd3',
+      since: T0,
+      readyAt: T0 + 1000,
+      modules: [],
+      store: 0,
+      attacks: 0,
+      attack: null,
+      reports: [],
+    };
+    const { posts: _p, routes: _r, visited: _v, ...rest } = s.orchard;
+    old.orchard = { ...rest, post, visits: 2 };
+    delete old.cider;
+    delete old.goldFiber;
+    old.schemaVersion = 44;
+    const m = migrateState(old);
+    expect(m.ok).toBe(true);
+    if (m.ok) {
+      expect(m.state.orchard.posts.raspberry).toEqual(post);
+      expect(m.state.orchard.routes).toEqual([]);
+      expect(m.state.orchard.visited).toEqual(['raspberry']);
+      expect(m.state.cider).toBe(0);
+      expect(m.state.goldFiber).toBe(0);
     }
   });
 });
@@ -275,7 +299,7 @@ describe('standing, trade and nectar (chantier 54)', () => {
   it('grows a pillaged garrison back on a public clock', () => {
     const { state } = setup();
     const s = cloneState(state);
-    const d = raspberryOfState(s).drupelets[5]!;
+    const d = raspberryOfState(s).parcels[5]!;
     const full = drupeletTruth('secret', d);
     s.orchard.taken[d.id] = T0;
     const now = drupeletNow(s, 'secret', d, T0 + RASPBERRY.regrowMs / 2);

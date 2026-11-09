@@ -57,7 +57,7 @@ import { newDepths, newOrchard, type Obstacle } from '../sim/state';
 import { HAZARD_KINDS, ROOM_KINDS } from '../data/depths';
 import { KIWAI_TYPES, MODULE_TYPES, ORBIT } from '../data/orbit';
 import { CRYSTAL, CRYSTAL_SCALE, GIANT_SEEDS } from '../data/crystal';
-import { NECTAR, NECTAR_SCALE, POST, POST_MODULE_TYPES } from '../data/orchard';
+import { FRUIT_IDS, NECTAR, NECTAR_SCALE, POST, POST_MODULE_TYPES } from '../data/orchard';
 
 const resources = z.object({
   pulp: z.number(),
@@ -104,7 +104,11 @@ const job = z.discriminatedUnion('kind', [
     returnTo: id.nullable(),
     aboard: z.enum(['up', 'down']).optional(),
   }),
-  z.object({ kind: z.literal('post'), returnTo: id.nullable() }),
+  z.object({
+    kind: z.literal('post'),
+    returnTo: id.nullable(),
+    fruit: z.enum(FRUIT_IDS).optional(),
+  }),
   z.object({
     kind: z.literal('titan'),
     work: z.enum(TITAN_WORK_IDS),
@@ -295,6 +299,55 @@ const villager = z.object({
     )
     .max(MEMORY_KINDS.length)
     .optional(),
+});
+
+const tradingPost = z.object({
+  drupelet: z.string().max(8),
+  since: z.number(),
+  readyAt: z.number(),
+  modules: z
+    .array(
+      z.object({
+        id,
+        type: z.enum(POST_MODULE_TYPES),
+        q: z.number().int().min(-POST.radius).max(POST.radius),
+        r: z.number().int().min(-POST.radius).max(POST.radius),
+        readyAt: z.number(),
+        broken: z.boolean().optional(),
+      }),
+    )
+    .max(POST.maxModules),
+  store: z
+    .number()
+    .int()
+    .min(0)
+    .max(POST.storeCap * NECTAR_SCALE),
+  ruined: z.boolean().optional(),
+  attacks: z.number().int().min(0),
+  attack: z
+    .object({
+      id,
+      clan: z.string().max(8).nullable(),
+      announceAt: z.number(),
+      at: z.number(),
+      announced: z.boolean(),
+    })
+    .nullable(),
+  reports: z
+    .array(
+      z.object({
+        id,
+        at: z.number(),
+        clan: z.string().max(8),
+        held: z.boolean(),
+        power: z.number().min(0),
+        dead: z.array(z.string()).max(16),
+        hurt: z.array(id).max(16),
+        taken: z.number().int().min(0),
+        log: battleLog.optional(),
+      }),
+    )
+    .max(5),
 });
 
 export const gameStateSchema = z.object({
@@ -639,60 +692,34 @@ export const gameStateSchema = z.object({
       }),
     ),
     taken: z.record(z.string().max(8), z.number()),
-    post: z
-      .object({
-        drupelet: z.string().max(8),
-        since: z.number(),
-        readyAt: z.number(),
-        modules: z
-          .array(
-            z.object({
-              id,
-              type: z.enum(POST_MODULE_TYPES),
-              q: z.number().int().min(-POST.radius).max(POST.radius),
-              r: z.number().int().min(-POST.radius).max(POST.radius),
-              readyAt: z.number(),
-              broken: z.boolean().optional(),
-            }),
-          )
-          .max(POST.maxModules),
-        store: z
-          .number()
-          .int()
-          .min(0)
-          .max(POST.storeCap * NECTAR_SCALE),
-        ruined: z.boolean().optional(),
-        attacks: z.number().int().min(0),
-        attack: z
-          .object({
-            id,
-            clan: z.string().max(8).nullable(),
-            announceAt: z.number(),
-            at: z.number(),
-            announced: z.boolean(),
-          })
-          .nullable(),
-        reports: z
-          .array(
-            z.object({
-              id,
-              at: z.number(),
-              clan: z.string().max(8),
-              held: z.boolean(),
-              power: z.number().min(0),
-              dead: z.array(z.string()).max(16),
-              hurt: z.array(id).max(16),
-              taken: z.number().int().min(0),
-              log: battleLog.optional(),
-            }),
-          )
-          .max(5),
-      })
-      .nullable(),
+    posts: z.record(z.enum(FRUIT_IDS), tradingPost),
+    routes: z
+      .array(
+        z.object({
+          id,
+          a: z.enum(FRUIT_IDS),
+          b: z.enum(FRUIT_IDS),
+          openedAt: z.number(),
+          paidUntil: z.number(),
+          cut: z.boolean().optional(),
+        }),
+      )
+      .max(3),
     visits: z.number().int().min(0),
+    visited: z.array(z.enum(FRUIT_IDS)).max(FRUIT_IDS.length),
   }),
   orchardSeed: z.string().max(400).optional(),
   nectar: z
+    .number()
+    .int()
+    .min(0)
+    .max(Math.max(...NECTAR.cap) * NECTAR_SCALE),
+  cider: z
+    .number()
+    .int()
+    .min(0)
+    .max(Math.max(...NECTAR.cap) * NECTAR_SCALE),
+  goldFiber: z
     .number()
     .int()
     .min(0)
@@ -1213,6 +1240,22 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
     orchard: newOrchard(`${String(raw.seed)}/orchard`),
     nectar: 0,
   }),
+  // v44 → v45 (chantier 55): a post per fruit (the raspberry's comes first), routes, cider and
+  // golden fibre.
+  44: (raw) => {
+    const { post, ...orchard } = (raw.orchard ?? {}) as Record<string, unknown>;
+    return {
+      ...raw,
+      orchard: {
+        ...orchard,
+        posts: post ? { raspberry: post } : {},
+        routes: [],
+        visited: Number(orchard.visits) > 0 ? ['raspberry'] : [],
+      },
+      cider: 0,
+      goldFiber: 0,
+    };
+  },
 };
 
 const OLD_MISSIONS = ['raid', 'recon', 'assault', 'reinforce', 'final', 'retreat'];

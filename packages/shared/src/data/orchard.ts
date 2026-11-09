@@ -10,8 +10,59 @@ import type { ResourceId } from './resources';
 export const FRUIT_IDS = ['raspberry'] as const;
 export type FruitId = (typeof FRUIT_IDS)[number];
 
-/** The target id of every voyage to the orchard (no face: the raspberry's drupelets). */
-export const ORCHARD_TARGET = 'orchard:raspberry';
+/** The target id of a voyage to a fruit of the orchard (no face: the fruit's parcels). */
+export function orchardTarget(fruit: FruitId): string {
+  return `orchard:${fruit}`;
+}
+
+/** The raspberry's target (the first fruit; old voyages carry it). */
+export const ORCHARD_TARGET = orchardTarget('raspberry');
+
+/**
+ * Chantier 55: the first letter of a parcel's id and of a clan's id names its fruit (ids stay
+ * unique across the orchard, so standing, views and pillages keep one record each).
+ */
+export const FRUIT_PREFIX: Record<FruitId, { parcel: string; clan: string }> = {
+  raspberry: { parcel: 'd', clan: 'c' },
+};
+
+/** The fruit of a parcel or clan id (null: no fruit's). */
+export function fruitOfId(id: string): FruitId | null {
+  const c = id[0];
+  for (const f of FRUIT_IDS)
+    if (FRUIT_PREFIX[f].parcel === c || FRUIT_PREFIX[f].clan === c) return f;
+  return null;
+}
+
+/** The fruit of a voyage's target id (old voyages: the raspberry). */
+export function fruitOfTarget(targetId: string): FruitId {
+  const f = targetId.startsWith('orchard:') ? targetId.slice(8) : '';
+  return (FRUIT_IDS as readonly string[]).includes(f) ? (f as FruitId) : 'raspberry';
+}
+
+/**
+ * Chantier 55: what every fruit shares — its rings of clans (garrison power, level, the store of
+ * a parcel by ring), the spread of a draw, nests, the mix of its inhabitants, the regrowth after
+ * a pillage and the help of a clan's parcels next door.
+ */
+export interface FruitDef {
+  rings: {
+    power: readonly number[];
+    level: readonly number[];
+    /** What a parcel stores of the fruit's loot, by ring (units). */
+    nectar: readonly number[];
+  };
+  powerSpread: number;
+  nectarSpread: number;
+  nestChance: number;
+  nestPower: number;
+  /** Shares of a garrison's power by kind (the first kind: at least one of it). */
+  mix: Readonly<Record<string, number>>;
+  regrowMs: number;
+  help: { share: number; delayS: number };
+  /** One way through the wormhole, before the launchpad's speed. */
+  travelMs: number;
+}
 
 export const ORCHARD = {
   /** The launchpad level a ship needs to go through the wormhole (with the technology). */
@@ -30,6 +81,10 @@ export const ORCHARD = {
   /** Kiwis aboard (a Kikiwiwi never goes through the wormhole). */
   crew: { min: 1, max: 8 },
 } as const;
+
+/** The orchard's goods: red nectar (the currency of its trade), cider and golden fibre. */
+export const ORCHARD_GOODS = ['nectar'] as const;
+export type OrchardGood = (typeof ORCHARD_GOODS)[number];
 
 export const RASPBERRY = {
   /** Drupelets in the cluster, clans sharing them, drupelets a clan holds (about). */
@@ -62,7 +117,13 @@ export const RASPBERRY = {
   regrowMs: 72 * 3_600_000,
   /** Help from each neighbouring drupelet of the same clan in a battle (share, delay). */
   help: { share: 0.25, delayS: 25 },
+  travelMs: ORCHARD.travelMs,
 } as const;
+
+/** Chantier 55: every fruit's shared rules. */
+export const FRUIT_DEFS: Record<FruitId, FruitDef> = {
+  raspberry: RASPBERRY,
+};
 
 /** Chantier 54: the standing of each clan with this colony (public, shown to the player). */
 export const STANDING = {

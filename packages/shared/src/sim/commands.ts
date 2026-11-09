@@ -157,9 +157,15 @@ import { TITAN_WORK_IDS, type TitanWork } from '../data/titan';
 import { canReshape, terraformLeft, titanAt, titanCost } from './titan';
 import { delveLock, launchDelve, tunnelBusy } from './delves';
 import { cleanGoods, launchVoyage, voyageForecast, voyageLock, type VoyagePlan } from './voyages';
-import { POST, type PostModuleType } from '../data/orchard';
+import { POST, fruitOfId, type FruitId, type PostModuleType } from '../data/orchard';
 import { addNectar, payNectar } from './orchard';
-import { addPostModule, postCost, postModuleLock, removePostModuleLock } from './tradingPost';
+import {
+  addPostModule,
+  postCost,
+  postModuleLock,
+  postOfModule,
+  removePostModuleLock,
+} from './tradingPost';
 
 export type Command =
   /** Chantier 35: `rot` (0–5) turns a 3-tile footprint (`footprintHexes`); default 0. */
@@ -315,7 +321,7 @@ export type Command =
   /** Chantier 54: a voyage through the wormhole to the raspberry (trade or pillage). */
   | ({ type: 'voyage' } & VoyagePlan)
   /** Chantier 54: sets a module on our trading post's map, or takes one down. */
-  | { type: 'buildPostModule'; moduleType: PostModuleType; q: number; r: number }
+  | { type: 'buildPostModule'; fruit?: FruitId; moduleType: PostModuleType; q: number; r: number }
   | { type: 'removePostModule'; moduleId: string }
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
@@ -1104,7 +1110,7 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (cmd.fuel) payStardust(s, FUEL.stardust);
       pay(s, f.launchCost);
       if (cmd.settle) {
-        const cost = postCost(s);
+        const cost = postCost(s, fruitOfId(cmd.stops[0] ?? '') ?? 'raspberry');
         payNectar(s, cost.nectar);
         payCrystal(s, cost.crystal);
         payIron(s, cost.iron);
@@ -1113,18 +1119,19 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       return;
     }
     case 'buildPostModule': {
-      const lock = postModuleLock(s, cmd.moduleType, cmd);
+      const fruit = cmd.fruit ?? 'raspberry';
+      const lock = postModuleLock(s, fruit, cmd.moduleType, cmd);
       if (lock) fail(lock);
       const def = POST.modules[cmd.moduleType];
       payNectar(s, def.nectar);
       payIron(s, def.iron);
-      addPostModule(s, cmd.moduleType, cmd, nextId(s, 'pm'));
+      addPostModule(s, fruit, cmd.moduleType, cmd, nextId(s, 'pm'));
       return;
     }
     case 'removePostModule': {
       const lock = removePostModuleLock(s, cmd.moduleId);
       if (lock) fail(lock);
-      const post = s.orchard.post!;
+      const post = postOfModule(s, cmd.moduleId)!;
       const m = post.modules.find((x) => x.id === cmd.moduleId)!;
       post.modules = post.modules.filter((x) => x !== m);
       addNectar(s, Math.floor(POST.modules[m.type].nectar * POST.refund));

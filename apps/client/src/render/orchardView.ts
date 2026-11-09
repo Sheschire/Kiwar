@@ -145,8 +145,8 @@ export class OrchardView {
       map.seed,
       day,
       state.orchard.taken,
-      state.orchard.post?.drupelet ?? null,
-      state.orchard.post?.ruined ?? false,
+      state.orchard.posts.raspberry?.drupelet ?? null,
+      state.orchard.posts.raspberry?.ruined ?? false,
       Object.keys(state.orchard.standing).length,
     ]);
     if (key === this.key) return;
@@ -163,14 +163,14 @@ export class OrchardView {
       this.fruit.remove(this.drupes);
       this.drupes.dispose();
     }
-    const n = map.drupelets.length;
+    const n = map.parcels.length;
     const mesh = new InstancedMesh(geo.drupe, mat.drupe, n);
     mesh.instanceMatrix.setUsage(DynamicDrawUsage);
     const m = new Matrix4();
     const q = new Quaternion();
     const up = new Vector3(0, 1, 0);
     const s = new Vector3();
-    map.drupelets.forEach((d, i) => {
+    map.parcels.forEach((d, i) => {
       const dir = new Vector3(d.x, d.y, d.z).normalize();
       q.setFromUnitVectors(up, dir);
       const k = 0.92 + 0.08 * d.ring;
@@ -186,7 +186,7 @@ export class OrchardView {
   private paint(state: GameState, map: Raspberry): void {
     const mesh = this.drupes;
     if (!mesh) return;
-    map.drupelets.forEach((d, i) => {
+    map.parcels.forEach((d, i) => {
       const clan = map.clanById.get(d.clan)!;
       this.color.set(CLAN_COLORS[clan.name % CLAN_COLORS.length]!);
       // Raspberry red, with the clan's tint; darker when hostile, paler once pillaged.
@@ -201,7 +201,7 @@ export class OrchardView {
   }
 
   private placeHut(state: GameState, map: Raspberry): void {
-    const post = state.orchard.post;
+    const post = state.orchard.posts.raspberry;
     if (this.hut) {
       this.fruit.remove(this.hut);
       this.hut = null;

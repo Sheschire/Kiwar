@@ -338,7 +338,10 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
 
   // Chantier 54: the orchard — a gift or the kiwis home against an attack, trades, the post
   // (looked at once an hour; an announced attack is looked at every round).
-  if (play.orchard && (state.now >= play.orchardAt || state.orchard.post?.attack?.announced)) {
+  if (
+    play.orchard &&
+    (state.now >= play.orchardAt || state.orchard.posts.raspberry?.attack?.announced)
+  ) {
     const orders = orchardOrders(state, play.prepared);
     cmds.push(...orders);
     if (orders.length === 0) play.orchardAt = state.now + HOUR_MS;
@@ -629,7 +632,10 @@ function checkMilestones(
     state.orbit.kiwais.some((k) => k.readyAt <= state.now),
   );
   set('wormhole', state.orchard.visits > 0);
-  set('post', !!state.orchard.post && state.orchard.post.readyAt <= state.now);
+  set(
+    'post',
+    !!state.orchard.posts.raspberry && state.orchard.posts.raspberry.readyAt <= state.now,
+  );
   set(
     'allLevel3',
     // Economy buildings (the bot does not play expeditions yet).
@@ -1012,7 +1018,7 @@ export function runBot(opts: RunOptions): RunResult {
       visits: state.orchard.visits,
       nectar: Math.floor(state.nectar / NECTAR_SCALE),
       postKiwis: state.villagers.filter((v) => v.job.kind === 'post').length,
-      postsLost: state.orchard.post?.reports.filter((r) => !r.held).length ?? 0,
+      postsLost: state.orchard.posts.raspberry?.reports.filter((r) => !r.held).length ?? 0,
       crystalCap: loculeMs.open > 0 ? loculeMs.crystal / loculeMs.open : 0,
       seedCap: loculeMs.open > 0 ? loculeMs.seeds / loculeMs.open : 0,
       trees: state.buildings.filter((b) => b.type === 'loculeTree').length,

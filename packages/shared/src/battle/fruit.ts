@@ -1,5 +1,5 @@
 import type { LandingOrders } from '../data/landing';
-import { RASPBERRY } from '../data/orchard';
+import { FRUIT_DEFS, type FruitId } from '../data/orchard';
 import { BATTLE, ENEMIES, isFlyer } from '../data/units';
 import type { BuildingType } from '../data/buildings';
 import type { BuildingId } from '../types/ids';
@@ -15,7 +15,7 @@ import type { BattleBuilding, BattleLog, BattleSetup, BattleTile, BattleUnitSetu
  * Chantier 54: a pillage on a drupelet of the raspberry as a battle. The field is the round top
  * of the drupelet (the delve's room, no hazard): the crew lands on one side, the beetles wait on
  * the far side and charge. The clan's drupelets next to it send a share of their garrison, which
- * comes in after `RASPBERRY.help.delayS` from the rim. The same builder serves the truth and
+ * comes in after the fruit's `help.delayS` from the rim. The same builder serves the truth and
  * the forecast.
  */
 
@@ -26,6 +26,8 @@ export interface FruitInput {
   orders: LandingOrders;
   fed: number;
   seed: string;
+  /** Chantier 55: the fruit (its help's share and delay; default the raspberry). */
+  fruit?: FruitId;
 }
 
 const RADIUS = 4;
@@ -49,7 +51,8 @@ export function fruitSetup(
     fed: input.fed,
     seed: input.seed,
   });
-  const helpers = input.help.flatMap((army) => shareOf(army, RASPBERRY.help.share));
+  const help = FRUIT_DEFS[input.fruit ?? 'raspberry'].help;
+  const helpers = input.help.flatMap((army) => shareOf(army, help.share));
   if (helpers.length === 0) return setup;
   // The help climbs over the rim on the sides, away from where the crew landed.
   const rim = hexDisk({ q: 0, r: 0 }, RADIUS)
@@ -60,7 +63,7 @@ export function fruitSetup(
   for (const { unit, count, k } of capped(helpers)) {
     for (let i = 0; i < count; i++, n++) {
       const at = isFlyer(unit.kind) ? middle : rim[n % rim.length]!;
-      setup.units.push(alienUnit(unit, k, `h${n}`, at, RASPBERRY.help.delayS));
+      setup.units.push(alienUnit(unit, k, `h${n}`, at, help.delayS));
     }
   }
   return setup;

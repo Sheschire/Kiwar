@@ -60,7 +60,7 @@ export function orchardVisible(game: GameState): boolean {
 
 /** An attack announced on our trading post. */
 export function orchardAlarm(game: GameState): boolean {
-  return !!game.orchard.post?.attack?.announced;
+  return !!game.orchard.posts.raspberry?.attack?.announced;
 }
 
 export function OrchardModal() {
@@ -103,7 +103,9 @@ export function OrchardModal() {
       {drupelet && pads.length > 0 && (
         <VoyagePlanner key={drupelet.id} game={game} map={map} d={drupelet} />
       )}
-      {game.orchard.post && <PostPanel game={game} post={game.orchard.post} />}
+      {game.orchard.posts.raspberry && (
+        <PostPanel game={game} post={game.orchard.posts.raspberry} />
+      )}
       <VoyageList game={game} />
     </Modal>
   );
@@ -142,7 +144,7 @@ function RaspberryMap(props: {
   const t = useT();
   const { game, map } = props;
   const R = 150;
-  const post = game.orchard.post;
+  const post = game.orchard.posts.raspberry;
   const out = new Set(voyagesOut(game).flatMap((e) => e.voyage?.stops ?? []));
   return (
     <svg
@@ -152,7 +154,7 @@ function RaspberryMap(props: {
       aria-label={t('orchard.mapLabel')}
     >
       <circle r={R + 8} class="orchard-skin" />
-      {map.drupelets.map((d) =>
+      {map.parcels.map((d) =>
         d.links
           .filter((l) => l > d.id)
           .map((l) => {
@@ -171,7 +173,7 @@ function RaspberryMap(props: {
             );
           }),
       )}
-      {map.drupelets.map((d) => {
+      {map.parcels.map((d) => {
         const p = drupeletSpot(d, R);
         const attitude = attitudeOf(game, d.clan, game.now);
         const isPost = post?.drupelet === d.id;
@@ -261,7 +263,7 @@ function DrupeletPanel({ game, map, d }: { game: GameState; map: Raspberry; d: D
       </p>
       <p class="small muted">
         {t('orchard.ring', { ring: d.ring + 1 })} ·{' '}
-        {t('orchard.clanSize', { count: clan.drupelets.length })}
+        {t('orchard.clanSize', { count: clan.parcels.length })}
         {neighbours.length > 0 && ` · ${t('orchard.neighbours', { count: neighbours.length })}`}
       </p>
       {view ? (
@@ -290,7 +292,7 @@ function tradeRateShown(game: GameState, clan: string): number {
 function voyageRate(game: GameState, clan: string): number {
   // The same number as the forecast of a visit (what the clan pays us for 1 000 units now).
   const map = raspberryOfState(game);
-  const d = map.drupelets.find((x) => x.clan === clan);
+  const d = map.parcels.find((x) => x.clan === clan);
   if (!d) return 0;
   const f = voyageForecast(game, {
     launchpadId: (wormholePads(game)[0]?.id ?? 'none') as never,
@@ -311,7 +313,7 @@ function VoyagePlanner({ game, map, d }: { game: GameState; map: Raspberry; d: D
   const lang = useUi((s) => s.lang);
   const now = useUi((s) => s.now);
   const faceMap = useUi((s) => s.map);
-  const post = game.orchard.post;
+  const post = game.orchard.posts.raspberry;
   const atPost = post && !post.ruined && post.drupelet === d.id;
   const [mode, setMode] = useState<Mode>('visit');
   const [crew, setCrew] = useState<VillagerId[]>([]);
@@ -560,7 +562,7 @@ function VoyagePlanner({ game, map, d }: { game: GameState; map: Raspberry; d: D
 function PostLine({ game }: { game: GameState }) {
   const t = useT();
   const lang = useUi((s) => s.lang);
-  const a = game.orchard.post?.attack;
+  const a = game.orchard.posts.raspberry?.attack;
   if (!a?.announced) return null;
   const f = postAttackForecast(game);
   return (
@@ -660,7 +662,7 @@ function PostPanel({ game, post }: { game: GameState; post: TradingPost }) {
             </div>
           ) : tile ? (
             POST_MODULE_TYPES.map((type) => {
-              const lock = postModuleLock(game, type, tile);
+              const lock = postModuleLock(game, 'raspberry', type, tile);
               const def = POST.modules[type];
               return (
                 <div key={type} class="orbit-module">

@@ -379,7 +379,7 @@ export const actions = {
     if (!game || !renderer) return false;
     if (uiStore.getState().visit !== null) actions.travelTo(null);
     const e = game.expeditions.find((x) => x.id === id);
-    const report = game.orchard.post?.reports.find((r) => r.id === id);
+    const report = game.orchard.posts.raspberry?.reports.find((r) => r.id === id);
     const source =
       e?.mission === 'pillage' && e.result?.log && e.voyage
         ? {
@@ -389,8 +389,13 @@ export const actions = {
             ours: 1 as const,
             roster: e.roster,
           }
-        : report?.log && game.orchard.post
-          ? { id, drupelet: game.orchard.post.drupelet, log: report.log, ours: 0 as const }
+        : report?.log && game.orchard.posts.raspberry
+          ? {
+              id,
+              drupelet: game.orchard.posts.raspberry.drupelet,
+              log: report.log,
+              ours: 0 as const,
+            }
           : null;
     if (!source || !renderer.playFruit(source, live)) return false;
     uiStore.setState({ modal: 'none', landingInvite: null, selectedTile: null, planetCard: null });

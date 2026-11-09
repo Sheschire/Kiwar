@@ -130,7 +130,7 @@ function plan(
 
 /** A gift (or the kiwis home) against an announced attack the post would not hold. */
 function defend(state: GameState, pad: Building): VoyagePlan | null {
-  const post = state.orchard.post;
+  const post = state.orchard.posts.raspberry;
   const a = post?.attack;
   if (!post || !a?.announced || !a.clan) return null;
   if (voyagesOut(state).length > 0) return null;
@@ -140,7 +140,7 @@ function defend(state: GameState, pad: Building): VoyagePlan | null {
   const crew = sailors(state, 1);
   if (crew.length === 0) return null;
   // A gift big enough to bring the clan back above hostile, if the ship is back in time.
-  const target = map.drupelets.find((d) => d.clan === a.clan && d.links.includes(post.drupelet));
+  const target = map.parcels.find((d) => d.clan === a.clan && d.links.includes(post.drupelet));
   const clan = map.clanById.get(a.clan)!;
   const travel = voyageTime(state, pad, crew);
   if (target && state.now + travel < a.at) {
@@ -167,7 +167,7 @@ function postModule(state: GameState): Command | null {
   const type = want.find((t) => !post.modules.some((m) => m.type === t));
   if (!type) return null;
   const tile = postMapOf(state, post).tiles.find(
-    (x) => x.kind === 'ground' && postModuleLock(state, type, x) === null,
+    (x) => x.kind === 'ground' && postModuleLock(state, 'raspberry', type, x) === null,
   );
   return tile ? { type: 'buildPostModule', moduleType: type, q: tile.q, r: tile.r } : null;
 }
@@ -176,11 +176,11 @@ function postModule(state: GameState): Command | null {
 function voyage(state: GameState, pad: Building): VoyagePlan | null {
   if (voyagesOut(state).length > 0) return null;
   const map = raspberryOfState(state);
-  const post = state.orchard.post;
+  const post = state.orchard.posts.raspberry;
   // The post, once a clan is friendly (two kiwis stay there).
   if (!post || post.ruined) {
     const cost = postCost(state);
-    const friend = map.drupelets.find(
+    const friend = map.parcels.find(
       (d) =>
         attitudeOf(state, d.clan, state.now) === 'friendly' ||
         (post?.ruined && d.id === post.drupelet),
@@ -221,7 +221,7 @@ function voyage(state: GameState, pad: Building): VoyagePlan | null {
   const at =
     post && !post.ruined && map.byId.get(post.drupelet)!.clan === best.id
       ? post.drupelet
-      : best.drupelets[0]!;
+      : best.parcels[0]!;
   const crew = sailors(state, 1);
   if (crew.length === 0) return null;
   return plan(state, pad, crew, { stops: [at], goods: { [best.wants]: GOODS } });

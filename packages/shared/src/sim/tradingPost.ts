@@ -1,4 +1,12 @@
-import { NECTAR_SCALE, POST, POST_MODULE_TYPES, type PostModuleType } from '../data/orchard';
+import {
+  FRUIT_IDS,
+  NECTAR_SCALE,
+  POST,
+  POST_MODULE_TYPES,
+  fruitOfId,
+  type FruitId,
+  type PostModuleType,
+} from '../data/orchard';
 import { hexKey } from '../hex/hex';
 import type { TimeMs } from '../types/ids';
 import type { GameEvent } from './advance';
@@ -9,25 +17,62 @@ import { siteSpotError, smallMap, type SmallMap } from './sites';
 import type { GameState, PostModule, TradingPost, Villager } from './state';
 
 /**
- * Chantier 54: our trading post on the raspberry. A small map apart from the face (the
- * mechanics of the kiwais, `sim/sites.ts`): its own modules, never in `state.buildings`. Kiwis
- * left there (job `post`) gather nectar in the stalls into its store, which a ship calling at
- * the post brings home. Nothing hidden: it resolves on the client as well as on the server
- * (its attacks, chantier 54 part 4, read the hidden garrisons).
+ * Chantier 54: our trading posts in the orchard (chantier 55: one per fruit). A small map apart
+ * from the face (the mechanics of the kiwais, `sim/sites.ts`): its own modules, never in
+ * `state.buildings`. Kiwis left there (job `post`, its `fruit`) gather the fruit's good in the
+ * stalls into its store, which a ship calling at the post brings home. Nothing hidden: it
+ * resolves on the client as well as on the server (its attacks read the hidden garrisons).
  */
 
-/** The post's small map (its seed is public: the drupelet it stands on). */
+/** The fruit a post stands on (its parcel's id names it). */
+export function fruitOfPost(post: Pick<TradingPost, 'drupelet'>): FruitId {
+  return fruitOfId(post.drupelet) ?? 'raspberry';
+}
+
+/** The post on a fruit, standing or a ruin (null: none founded). */
+export function postOf(state: Pick<GameState, 'orchard'>, fruit: FruitId): TradingPost | null {
+  return state.orchard.posts[fruit] ?? null;
+}
+
+/** Every post founded, with its fruit (in the order of `FRUIT_IDS`). */
+export function postsOf(
+  state: Pick<GameState, 'orchard'>,
+): { fruit: FruitId; post: TradingPost }[] {
+  const out: { fruit: FruitId; post: TradingPost }[] = [];
+  for (const fruit of FRUIT_IDS) {
+    const post = state.orchard.posts[fruit];
+    if (post) out.push({ fruit, post });
+  }
+  return out;
+}
+
+/** The post's small map (its seed is public: the parcel it stands on). */
 export function postMapOf(state: Pick<GameState, 'orchard'>, post: TradingPost): SmallMap {
   return smallMap(`${state.orchard.seed}/post/${post.drupelet}`, POST.radius, POST.rocks);
 }
 
-/** The post, when it stands and works (founded, not a ruin). */
-export function workingPost(state: GameState, at: TimeMs = state.now): TradingPost | null {
-  const p = state.orchard.post;
+/** The post on a fruit, when it stands and works (founded, not a ruin). */
+export function workingPost(
+  state: GameState,
+  fruit: FruitId = 'raspberry',
+  at: TimeMs = state.now,
+): TradingPost | null {
+  const p = postOf(state, fruit);
   return p && !p.ruined && p.readyAt <= at ? p : null;
 }
 
-export function postKiwis(state: GameState): Villager[] {
+/** The fruit of a kiwi staying at a post (old saves: the raspberry). */
+export function postFruitOf(v: Villager): FruitId | null {
+  return v.job.kind === 'post' ? (v.job.fruit ?? 'raspberry') : null;
+}
+
+/** Kiwis staying at the post of a fruit. */
+export function postKiwis(state: GameState, fruit: FruitId = 'raspberry'): Villager[] {
+  return state.villagers.filter((v) => postFruitOf(v) === fruit);
+}
+
+/** Kiwis staying at any post. */
+export function allPostKiwis(state: GameState): Villager[] {
   return state.villagers.filter((v) => v.job.kind === 'post');
 }
 
@@ -50,7 +95,7 @@ export function stallWorkers(state: GameState, post: TradingPost, at: TimeMs): n
   const places = post.modules
     .filter((m) => m.type === 'stall' && ready(m, at))
     .reduce((a, m) => a + (POST.modules[m.type].workSlots ?? 0), 0);
-  return Math.min(places, postKiwis(state).length);
+  return Math.min(places, postKiwis(state, fruitOfPost(post)).length);
 }
 
 /** Levels of the palisades standing (the post's defence). */
@@ -64,51 +109,74 @@ export function postStoreCap(): number {
   return POST.storeCap * NECTAR_SCALE;
 }
 
-/** Raw nectar units per ms gathered into the store now (an integer; 0 when full). */
-export function postNectarRate(state: GameState): number {
-  const post = workingPost(state);
+/** Raw units per ms gathered into a post's store now (an integer; 0 when full). */
+export function postRate(state: GameState, fruit: FruitId): number {
+  const post = workingPost(state, fruit);
   if (!post || post.store >= postStoreCap()) return 0;
   const n = stallWorkers(state, post, state.now);
   if (n <= 0) return 0;
   return Math.max(1, Math.round((POST.perHour * NECTAR_SCALE * n) / 3_600_000));
 }
 
-export function accruePost(s: GameState, rate: number, dtMs: number): void {
-  const post = s.orchard.post;
-  if (!post || rate <= 0) return;
-  post.store = Math.min(postStoreCap(), post.store + rate * dtMs);
+/** The rates of every post's store (for `computeFlows`). */
+export function postRates(state: GameState): { fruit: FruitId; rate: number }[] {
+  const out: { fruit: FruitId; rate: number }[] = [];
+  for (const fruit of FRUIT_IDS) {
+    const rate = postRate(state, fruit);
+    if (rate > 0) out.push({ fruit, rate });
+  }
+  return out;
 }
 
-/** The store's whole units of nectar. */
+/** The raspberry post's nectar rate (chantier 54). */
+export function postNectarRate(state: GameState): number {
+  return postRate(state, 'raspberry');
+}
+
+export function accruePost(
+  s: GameState,
+  rates: readonly { fruit: FruitId; rate: number }[],
+  dtMs: number,
+): void {
+  for (const { fruit, rate } of rates) {
+    const post = s.orchard.posts[fruit];
+    if (!post || rate <= 0) continue;
+    post.store = Math.min(postStoreCap(), post.store + rate * dtMs);
+  }
+}
+
+/** The store's whole units. */
 export function postStore(post: TradingPost): number {
   return Math.floor(post.store / NECTAR_SCALE + 1e-9);
 }
 
-/** Next time something changes at the post by itself (founded, a module assembled). */
+/** Next time something changes at a post by itself (founded, a module assembled). */
 export function nextPostEvent(s: GameState): TimeMs {
-  const post = s.orchard.post;
-  if (!post) return Infinity;
   let at = Infinity;
   const later = (t: TimeMs) => {
     if (t > s.now && t < at) at = t;
   };
-  later(post.readyAt);
-  for (const m of post.modules) later(m.readyAt);
+  for (const { post } of postsOf(s)) {
+    later(post.readyAt);
+    for (const m of post.modules) later(m.readyAt);
+  }
   return at;
 }
 
 export function postTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
-  const post = s.orchard.post;
-  if (!post) return;
-  if (post.readyAt === at) events.push({ type: 'postReady', at, drupelet: post.drupelet });
-  for (const m of post.modules)
-    if (m.readyAt === at) events.push({ type: 'postModuleReady', at, moduleType: m.type });
+  for (const { post } of postsOf(s)) {
+    if (post.readyAt === at) events.push({ type: 'postReady', at, drupelet: post.drupelet });
+    for (const m of post.modules)
+      if (m.readyAt === at)
+        events.push({ type: 'postModuleReady', at, moduleType: m.type, drupelet: post.drupelet });
+  }
 }
 
-/** Founds the post on a drupelet (a ship has arrived with its cost paid at launch). */
+/** Founds the post on a parcel (a ship has arrived with its cost paid at launch). */
 export function foundPost(s: GameState, drupelet: string, at: TimeMs): void {
-  const old = s.orchard.post;
-  s.orchard.post = {
+  const fruit = fruitOfId(drupelet) ?? 'raspberry';
+  const old = s.orchard.posts[fruit];
+  const post: TradingPost = {
     drupelet,
     since: at,
     readyAt: at + POST.buildMs,
@@ -121,12 +189,16 @@ export function foundPost(s: GameState, drupelet: string, at: TimeMs): void {
     attack: null,
     reports: old?.reports ?? [],
   };
-  for (const m of s.orchard.post.modules) delete m.broken;
+  for (const m of post.modules) delete m.broken;
+  s.orchard.posts = { ...s.orchard.posts, [fruit]: post };
 }
 
-/** What founding (or raising a ruin) costs now. */
-export function postCost(state: GameState): { nectar: number; crystal: number; iron: number } {
-  const k = state.orchard.post?.ruined ? POST.rebuild : 1;
+/** What founding (or raising a ruin) costs now on a fruit. */
+export function postCost(
+  state: GameState,
+  fruit: FruitId = 'raspberry',
+): { nectar: number; crystal: number; iron: number } {
+  const k = postOf(state, fruit)?.ruined ? POST.rebuild : 1;
   return {
     nectar: Math.ceil(POST.cost.nectar * k),
     crystal: Math.ceil(POST.cost.crystal * k),
@@ -147,13 +219,14 @@ export type PostModuleLock = Extract<
   | 'notEnoughIron'
 >;
 
-/** Why this module cannot be set on the post's map there now. */
+/** Why this module cannot be set on a post's map there now. */
 export function postModuleLock(
   state: GameState,
+  fruit: FruitId,
   type: PostModuleType,
   h: { q: number; r: number },
 ): PostModuleLock | null {
-  const post = state.orchard.post;
+  const post = postOf(state, fruit);
   if (!post || post.ruined) return 'noPost';
   if (post.readyAt > state.now) return 'postNotReady';
   if (!POST_MODULE_TYPES.includes(type)) return 'unknownModule';
@@ -171,6 +244,7 @@ export function postModuleLock(
 /** Sets a module (paid by the command); assembled by the kiwis there, or sent ready-made. */
 export function addPostModule(
   s: GameState,
+  fruit: FruitId,
   type: PostModuleType,
   h: { q: number; r: number },
   id: string,
@@ -182,19 +256,24 @@ export function addPostModule(
     r: h.r,
     readyAt: s.now + POST.modules[type].durationMs,
   };
-  s.orchard.post!.modules.push(m);
+  s.orchard.posts[fruit]!.modules.push(m);
   return m;
+}
+
+/** The post holding a module (null: none). */
+export function postOfModule(state: Pick<GameState, 'orchard'>, id: string): TradingPost | null {
+  return postsOf(state).find(({ post }) => post.modules.some((m) => m.id === id))?.post ?? null;
 }
 
 /** Takes a module down (a quarter of its nectar back); never a hut someone sleeps in. */
 export function removePostModuleLock(state: GameState, id: string): CommandError | null {
-  const post = state.orchard.post;
-  if (!post || post.ruined) return 'noPost';
-  const m = post.modules.find((x) => x.id === id);
-  if (!m) return 'unknownModule';
+  const post = postOfModule(state, id);
+  if (!post) return postsOf(state).some(({ post: p }) => !p.ruined) ? 'unknownModule' : 'noPost';
+  if (post.ruined) return 'noPost';
+  const m = post.modules.find((x) => x.id === id)!;
   if (m.type === 'hut') {
     const left = postHousing({ ...post, modules: post.modules.filter((x) => x !== m) }, state.now);
-    if (left < postKiwis(state).length) return 'habitatInUse';
+    if (left < postKiwis(state, fruitOfPost(post)).length) return 'habitatInUse';
   }
   return null;
 }

@@ -29,7 +29,7 @@ import type { ShipId } from '../data/expeditions';
 import type { AlienBuilding, AlienUnit } from './civ';
 import type { HazardKind, RoomKind } from '../data/depths';
 import type { KiwaiType, ModuleType } from '../data/orbit';
-import type { PostModuleType } from '../data/orchard';
+import type { FruitId, PostModuleType } from '../data/orchard';
 import { newKiwi, rollKiwi } from './kiwis';
 import type {
   BuildingId,
@@ -43,7 +43,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 44;
+export const SCHEMA_VERSION = 45;
 
 export type Job =
   | { kind: 'idle' }
@@ -101,7 +101,7 @@ export type Job =
    * Chantier 54: staying at our trading post on the raspberry (fed from the colony stock, no
    * militia nor evening), until a ship brings them home to `returnTo`.
    */
-  | { kind: 'post'; returnTo: BuildingId | null };
+  | { kind: 'post'; returnTo: BuildingId | null; fruit?: FruitId };
 
 export interface KiwiHistory {
   expeditions: number;
@@ -883,6 +883,7 @@ export interface PostReport {
 
 /** Chantier 54: our trading post on a drupelet (a small map apart from the face). */
 export interface TradingPost {
+  /** The parcel it stands on (a drupelet, a gallery or a scale: its id names the fruit). */
   drupelet: string;
   /** Founded then; standing and working from `readyAt`. */
   since: TimeMs;
@@ -908,9 +909,25 @@ export interface OrchardState {
   views: Record<string, DrupeletView>;
   /** Drupelets we pillaged, and when (their garrison grows back). */
   taken: Record<string, TimeMs>;
-  post: TradingPost | null;
-  /** Visits that reached the raspberry so far. */
+  /** Chantier 55: our trading posts, one per fruit at most. */
+  posts: Partial<Record<FruitId, TradingPost>>;
+  /** Chantier 55: routes between two of our posts (a relay of goods, upkept every day). */
+  routes: OrchardRoute[];
+  /** Visits that reached the orchard so far, and the fruits they reached. */
   visits: number;
+  visited: FruitId[];
+}
+
+/** Chantier 55: a route between two trading posts (its upkeep is paid a day ahead). */
+export interface OrchardRoute {
+  id: string;
+  a: FruitId;
+  b: FruitId;
+  openedAt: TimeMs;
+  /** Upkeep paid up to then; the next payment falls due at that time. */
+  paidUntil: TimeMs;
+  /** Unpaid: the route is cut (it opens again when the player pays). */
+  cut?: boolean;
 }
 
 /** Chantier 19: the siege of the twin face (public: the truth stays in `aliens`). */
@@ -1234,6 +1251,9 @@ export interface GameState {
   orchardSeed?: string;
   /** Chantier 54: red nectar in raw units (`NECTAR_SCALE` per unit), apart from the storage. */
   nectar: number;
+  /** Chantier 55: cider (the overripe apple) and golden fibre (the pineapple), raw units too. */
+  cider: number;
+  goldFiber: number;
   /** Chantier 19: which colony of the player this is, and its link to the other one. */
   colony: ColonyLink;
   nextId: number;
@@ -1324,6 +1344,8 @@ export function newGame(opts: NewGameOptions): GameState {
     orbit: { kiwais: [], shuttle: null, launched: 0 },
     orchard: newOrchard(`${opts.seed}/orchard`),
     nectar: 0,
+    cider: 0,
+    goldFiber: 0,
     expeditions: [],
     friends: [],
     shipments: [],
@@ -1369,12 +1391,21 @@ export function newGame(opts: NewGameOptions): GameState {
 
 /** Chantier 54: an orchard nobody has visited yet. */
 export function newOrchard(seed: string): OrchardState {
-  return { seed, standing: {}, sold: {}, views: {}, taken: {}, post: null, visits: 0 };
+  return {
+    seed,
+    standing: {},
+    sold: {},
+    views: {},
+    taken: {},
+    posts: {},
+    routes: [],
+    visits: 0,
+    visited: [],
+  };
 }
 
 /** Chantier 54: a deep copy of the orchard. */
 export function cloneOrchard(o: OrchardState): OrchardState {
-  const post = o.post;
   return {
     seed: o.seed,
     standing: Object.fromEntries(Object.entries(o.standing).map(([k, v]) => [k, { ...v }])),
@@ -1383,15 +1414,21 @@ export function cloneOrchard(o: OrchardState): OrchardState {
       Object.entries(o.views).map(([k, v]) => [k, { ...v, units: v.units.map((u) => ({ ...u })) }]),
     ),
     taken: { ...o.taken },
-    post: post
-      ? {
-          ...post,
-          modules: post.modules.map((m) => ({ ...m })),
-          attack: post.attack ? { ...post.attack } : null,
-          reports: post.reports.map((r) => ({ ...r, dead: [...r.dead], hurt: [...r.hurt] })),
-        }
-      : null,
+    posts: Object.fromEntries(
+      Object.entries(o.posts).map(([f, post]) => [f, clonePost(post)]),
+    ) as OrchardState['posts'],
+    routes: o.routes.map((r) => ({ ...r })),
     visits: o.visits,
+    visited: [...o.visited],
+  };
+}
+
+function clonePost(post: TradingPost): TradingPost {
+  return {
+    ...post,
+    modules: post.modules.map((m) => ({ ...m })),
+    attack: post.attack ? { ...post.attack } : null,
+    reports: post.reports.map((r) => ({ ...r, dead: [...r.dead], hurt: [...r.hurt] })),
   };
 }
 

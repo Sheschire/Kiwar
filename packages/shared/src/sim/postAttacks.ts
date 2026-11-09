@@ -1,7 +1,7 @@
 import { postHeld, postSetup, shareOf } from '../battle/fruit';
 import { simulateBattle } from '../battle/simulate';
 import { LANDING, type LandingOrders } from '../data/landing';
-import { POST_ATTACK, RASPBERRY, NECTAR_SCALE } from '../data/orchard';
+import { FRUIT_DEFS, POST_ATTACK, NECTAR_SCALE, type FruitId } from '../data/orchard';
 import { createRng } from '../rng/rng';
 import type { TimeMs, VillagerId } from '../types/ids';
 import type { GameEvent } from './advance';
@@ -10,15 +10,14 @@ import { removeVillagers, type Odds } from './expeditions';
 import { recordBestiary } from './landing';
 import {
   attitudeOf,
-  beetles,
-  drupeletNow,
-  raspberryOfState,
-  regrowth,
+  fruitOfState,
+  guessGarrison,
+  parcelNow,
   standingOf,
-  type Drupelet,
+  type Parcel,
 } from './orchard';
 import type { GameState, PostAttack, PostReport, TradingPost } from './state';
-import { postFort, postKiwis, postStore } from './tradingPost';
+import { fruitOfPost, postFort, postKiwis, postOf, postStore, postsOf } from './tradingPost';
 import { woundFactor } from './mines';
 
 /**
@@ -30,25 +29,27 @@ import { woundFactor } from './mines';
  * left at the post, a gift, or bringing everybody home (the post falls to a ruin, never lost).
  */
 
-/** Plans the next attack once the post stands (nothing when one is planned or it is a ruin). */
+/** Plans the next attack on each post standing (nothing when one is planned or it is a ruin). */
 export function planPostAttack(s: GameState): void {
-  const post = s.orchard.post;
-  if (!post || post.ruined || post.attack) return;
-  const rng = createRng(`${s.orchard.seed}/post/${post.drupelet}/attack/${post.attacks}`);
-  const gap = Math.round(rng.range(POST_ATTACK.intervalMs[0], POST_ATTACK.intervalMs[1]));
-  const at = Math.max(s.now, post.readyAt) + gap;
-  post.attack = {
-    id: `pa${post.attacks}`,
-    clan: null,
-    announceAt: at - POST_ATTACK.noticeMs,
-    at,
-    announced: false,
-  };
+  for (const { fruit, post } of postsOf(s)) {
+    if (post.ruined || post.attack) continue;
+    const rng = createRng(`${s.orchard.seed}/post/${post.drupelet}/attack/${post.attacks}`);
+    const gap = Math.round(rng.range(POST_ATTACK.intervalMs[0], POST_ATTACK.intervalMs[1]));
+    const at = Math.max(s.now, post.readyAt) + gap;
+    post.attack = {
+      // The raspberry's attacks keep their chantier 54 ids.
+      id: fruit === 'raspberry' ? `pa${post.attacks}` : `${fruit}-pa${post.attacks}`,
+      clan: null,
+      announceAt: at - POST_ATTACK.noticeMs,
+      at,
+      announced: false,
+    };
+  }
 }
 
-/** The drupelets around the post (and its own). */
-function aroundPost(s: GameState, post: TradingPost): Drupelet[] {
-  const map = raspberryOfState(s);
+/** The parcels around the post (and its own). */
+function aroundPost(s: GameState, post: TradingPost): Parcel[] {
+  const map = fruitOfState(s, fruitOfPost(post));
   const d = map.byId.get(post.drupelet)!;
   return [d, ...d.links.map((id) => map.byId.get(id)!)];
 }
@@ -62,34 +63,48 @@ export function hostileNeighbour(s: GameState, post: TradingPost, at: TimeMs): s
   return clans[0] ?? null;
 }
 
-/** The clan's drupelets next to the post the attackers come from. */
-function attackersFrom(s: GameState, post: TradingPost, clan: string): Drupelet[] {
+/** The clan's parcels next to the post the attackers come from. */
+function attackersFrom(s: GameState, post: TradingPost, clan: string): Parcel[] {
   return aroundPost(s, post).filter((d) => d.clan === clan);
 }
 
-export function nextPostAttackEvent(s: GameState): TimeMs {
-  const a = s.orchard.post?.attack;
-  if (!a) return Infinity;
+function attackEventOf(s: GameState, a: PostAttack): TimeMs {
   if (!a.announced) return a.announceAt > s.now ? a.announceAt : s.now < a.at ? s.now : Infinity;
   // The strike reads the hidden garrisons.
   return s.orchardSeed !== undefined && a.at > s.now ? a.at : Infinity;
 }
 
+export function nextPostAttackEvent(s: GameState): TimeMs {
+  let at = Infinity;
+  for (const { post } of postsOf(s))
+    if (post.attack) at = Math.min(at, attackEventOf(s, post.attack));
+  return at;
+}
+
 /** An announced attack due that only the server can strike. */
 export function postAttackAwaited(s: GameState, now: TimeMs): boolean {
-  const a = s.orchard.post?.attack;
-  return !!a && a.announced && a.at <= now && s.orchardSeed === undefined;
+  return (
+    s.orchardSeed === undefined &&
+    postsOf(s).some(({ post: { attack: a } }) => !!a && a.announced && a.at <= now)
+  );
 }
 
 export function postAttacksDue(s: GameState, now: TimeMs): TimeMs[] {
-  const a = s.orchard.post?.attack;
-  return a && a.announced && a.at <= now ? [a.at] : [];
+  const out: TimeMs[] = [];
+  for (const { post } of postsOf(s)) {
+    const a = post.attack;
+    if (a && a.announced && a.at <= now) out.push(a.at);
+  }
+  return out;
 }
 
 export function postAttackTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
-  const post = s.orchard.post;
-  const a = post?.attack;
-  if (!post || !a) return;
+  for (const { post } of postsOf(s)) attackTick(s, post, at, events);
+}
+
+function attackTick(s: GameState, post: TradingPost, at: TimeMs, events: GameEvent[]): void {
+  const a = post.attack;
+  if (!a) return;
   if (!a.announced && a.announceAt <= at) {
     const clan = hostileNeighbour(s, post, a.announceAt);
     if (!clan) {
@@ -117,7 +132,7 @@ export function postAttackTick(s: GameState, at: TimeMs, events: GameEvent[]): v
 /** The beetles that come (truth). */
 function attackArmy(s: GameState, post: TradingPost, clan: string, at: TimeMs): AlienUnit[] {
   const seed = s.orchardSeed!;
-  const all = attackersFrom(s, post, clan).flatMap((d) => drupeletNow(s, seed, d, at).units);
+  const all = attackersFrom(s, post, clan).flatMap((d) => parcelNow(s, seed, d, at).units);
   return mergeUnits(shareOf(all, POST_ATTACK.share));
 }
 
@@ -136,7 +151,8 @@ function strikePost(s: GameState, post: TradingPost, a: PostAttack, events: Game
   const at = a.at;
   const clan = a.clan!;
   const army = attackArmy(s, post, clan, at);
-  const guards = postKiwis(s);
+  const fruit = fruitOfPost(post);
+  const guards = postKiwis(s, fruit);
   const setup = postSetup(s, guards, {
     attackers: army,
     orders: POST_ORDERS,
@@ -163,7 +179,7 @@ function strikePost(s: GameState, post: TradingPost, a: PostAttack, events: Game
     post.store = Math.max(0, post.store - taken * NECTAR_SCALE);
     post.ruined = true;
     // The survivors come home in the pods.
-    for (const v of s.villagers) if (v.job.kind === 'post') v.job = { kind: 'idle' };
+    for (const v of guards) if (v.job.kind === 'post') v.job = { kind: 'idle' };
   }
   recordBestiary(s, army, at);
   const report: PostReport = {
@@ -206,28 +222,29 @@ const trialCache = new Map<string, boolean>();
  * next to the post (a visit's view), or the estimate of their rings; three practice battles at
  * × 0.8, 1 and 1.2 (a nest in the hardest).
  */
-export function postAttackForecast(s: GameState): PostAttackForecast | null {
-  const post = s.orchard.post;
+export function postAttackForecast(
+  s: GameState,
+  fruit: FruitId = 'raspberry',
+): PostAttackForecast | null {
+  const post = postOf(s, fruit);
   const a = post?.attack;
   if (!post || !a?.announced || !a.clan) return null;
   const from = attackersFrom(s, post, a.clan);
-  const spread = RASPBERRY.powerSpread;
+  const R = FRUIT_DEFS[fruit];
+  const spread = R.powerSpread;
   const armyAt = (k: number) =>
     mergeUnits(
       shareOf(
         from.flatMap((d) => {
           const seen = s.orchard.views[d.id];
           if (seen) return seen.units.map((u) => ({ ...u, count: Math.round(u.count * k) }));
-          return beetles(
-            RASPBERRY.rings.power[d.ring]! * k * regrowth(s, d.id, a.at),
-            RASPBERRY.rings.level[d.ring]!,
-          );
+          return guessGarrison(s, d, k, a.at);
         }),
         POST_ATTACK.share,
       ),
     );
-  const armies = [armyAt(1 - spread), armyAt(1), armyAt((1 + spread) * RASPBERRY.nestPower)];
-  const guards = postKiwis(s);
+  const armies = [armyAt(1 - spread), armyAt(1), armyAt((1 + spread) * R.nestPower)];
+  const guards = postKiwis(s, fruit);
   const trials = armies.map((units, i) => {
     const seed = `orchard/post/trial/${a.id}/${i}`;
     const setup = postSetup(s, guards, {
