@@ -122,7 +122,7 @@ probe `pnpm --filter @kiwar/balance orchard [--seed] [--face] [--days 34] [--cas
 the end state and `why`: the reasons no ship left — `noPad`, `padBusy`, `noPlan`, a lock).
 Before its post the bot trades with one partner clan (the best standing); deliveries to the
 sister wait while a voyage is due (`orchardWantsPad`); goods are cut to the hold (`fitHold`).
-Measured (end of chantier 54): first voyage day 29.2 / 33.6, post day 33.4; the nectar sits at
+Measured (end of chantier 54): first voyage day 29.2 / 33.6, post day 33.4; the nectar sat at
 its cap 64–92 % of the time (its sinks came with chantier 55). A probe of 36 days takes ~30 min.
 
 ## Chantier 55 (the apple, the pineapple, routes and sinks)
@@ -203,3 +203,6 @@ goldFiber` refunded on cancel); `serveCider` (night, once a night, 8 cider, memo
   first visit to each fruit, posts, routes, the goods and each good's share of time at its cap.
 - **Feats**: `apple`, `pineapple` (rare), `crown` (legendary: the crown's parcel in `taken`),
   `orchardRoute` (rare: a route standing); the raspberry's feat reads `orchard.visited`.
+- **Measured** (end of chantier 55, 40 days): wormholes day 27.2, raspberry post 35.5, apple
+  and pineapple reached days 36.1 / 37.7, nectar at its cap 8 % of the time; a run without the
+  Weevil opens the wormholes on day 36.7. Cider and golden fibre need longer runs (chantier 58).

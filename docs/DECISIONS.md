@@ -3792,3 +3792,22 @@ From the chantier document's decisions and the owner's answers of 9 November 202
   instead of stardust), gilding (30 nectar + 12 golden fibre, +2 beauty past the decorations'
   cap, up to +6).
 - Feats `apple`, `pineapple` (rare), `crown` (legendary), `orchardRoute` (rare).
+
+### Measures (orchard probe, attentive bot, 40 days)
+
+| Run                | Wormholes | First voyage | Raspberry post | Apple, pineapple reached | Visits | Nectar at its cap |
+| ------------------ | --------- | ------------ | -------------- | ------------------------ | ------ | ----------------- |
+| orchard-2 (Kiwino) | day 27.2  | day 27.7     | day 35.5       | days 36.1 and 37.7       | 32     | **8 %**           |
+| orchard-1 (Kiwisu) | day 36.7  | day 37.1     | —              | —                        | 13     | 0 %               |
+
+- The nectar's sinks work: **8 %** of the time at its cap where chantier 54 measured 64–92 %
+  (charter: under ~20 %).
+- ⚠️ Cider and golden fibre: the bot reaches the apple and the pineapple only in the last days of
+  a 40-day run (no post there yet), so their cap times are not measured; to watch at chantier
+  58 with longer runs. The run where the Great Weevil never falls opens the wormholes on day
+  36.7 (as in chantier 54).
+- A 40-day probe takes ~40 min.
+
+To test with the owner: choosing the apple's window (two days a stage), the bromelain's feel
+(18 % before a fight, 36 h at the post), the crown, the routes' upkeep, the gilding and the
+cider evening.
