@@ -322,6 +322,8 @@ export const POST = {
   /** Nectar an average kiwi gathers in a stall per hour; the store's cap (units). */
   perHour: 0.6,
   storeCap: 60,
+  /** Chantier 55: the caps of a post's stores of cider and golden fibre (units). */
+  goodsCap: { cider: 40, goldFiber: 30 },
   /** A ruined post rises again at this share of its founding cost. */
   rebuild: 0.5,
   /** A module taken down gives this share back. */
@@ -339,4 +341,36 @@ export const POST_ATTACK = {
   loot: 1,
   /** Wounds of the guards who fall in an attack held. */
   woundMs: 6 * 3_600_000,
+} as const;
+
+/** Chantier 55: the good each fruit is known for (its post's, its routes' upkeep). */
+export const FRUIT_GOOD: Record<FruitId, OrchardGood> = {
+  raspberry: 'nectar',
+  apple: 'cider',
+  pineapple: 'goldFiber',
+};
+
+/**
+ * Chantier 55: what a kiwi gathers per hour in a stall of each fruit's post. The apple's stalls
+ * gather nectar (× the ripeness's richness) and press cider only while it is overripe; the
+ * pineapple's gather golden fibre (its kiwis wear out with the bromelain).
+ */
+export const POST_YIELD = {
+  raspberry: 0.6,
+  appleNectar: 0.6,
+  appleCider: 0.4,
+  pineapple: 0.25,
+} as const;
+
+/**
+ * Chantier 55: routes between two of our posts. Each route standing (both posts working, its
+ * upkeep paid) adds `bonus` to both posts' stalls and shortens trips to them (× `relay`). Its
+ * upkeep, `upkeep` units a day of each end's good, is paid a day ahead; unpaid, it is cut (it
+ * opens again by paying).
+ */
+export const ROUTE = {
+  bonus: 0.25,
+  relay: 0.85,
+  dayMs: 24 * 3_600_000,
+  upkeep: 6,
 } as const;

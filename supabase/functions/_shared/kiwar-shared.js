@@ -4464,6 +4464,8 @@ var POST = {
   /** Nectar an average kiwi gathers in a stall per hour; the store's cap (units). */
   perHour: 0.6,
   storeCap: 60,
+  /** Chantier 55: the caps of a post's stores of cider and golden fibre (units). */
+  goodsCap: { cider: 40, goldFiber: 30 },
   /** A ruined post rises again at this share of its founding cost. */
   rebuild: 0.5,
   /** A module taken down gives this share back. */
@@ -4479,6 +4481,23 @@ var POST_ATTACK = {
   loot: 1,
   /** Wounds of the guards who fall in an attack held. */
   woundMs: 6 * 36e5
+};
+var FRUIT_GOOD = {
+  raspberry: "nectar",
+  apple: "cider",
+  pineapple: "goldFiber"
+};
+var POST_YIELD = {
+  raspberry: 0.6,
+  appleNectar: 0.6,
+  appleCider: 0.4,
+  pineapple: 0.25
+};
+var ROUTE = {
+  bonus: 0.25,
+  relay: 0.85,
+  dayMs: 24 * 36e5,
+  upkeep: 6
 };
 
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
@@ -10823,36 +10842,83 @@ function stallWorkers(state, post, at) {
 function postFort(post, at) {
   return post.modules.filter((m) => m.type === "palisade" && ready(m, at)).reduce((a, m) => a + (POST.modules[m.type].fort ?? 0), 0);
 }
-function postStoreCap() {
-  return POST.storeCap * NECTAR_SCALE;
+function postStoreCap(good = "nectar") {
+  return (good === "nectar" ? POST.storeCap : POST.goodsCap[good]) * NECTAR_SCALE;
+}
+function postHolds(post, good) {
+  return good === "nectar" ? post.store : post.goods?.[good] ?? 0;
+}
+function setHeld(post, good, raw) {
+  if (good === "nectar") post.store = raw;
+  else post.goods = { ...post.goods, [good]: raw };
+}
+function postYield(state, fruit, at) {
+  switch (fruit) {
+    case "raspberry":
+      return { good: "nectar", perHour: POST_YIELD.raspberry };
+    case "apple": {
+      const stage = appleStage(state.orchard.seed, at).stage;
+      return stage === "overripe" ? { good: "cider", perHour: POST_YIELD.appleCider } : { good: "nectar", perHour: POST_YIELD.appleNectar * APPLE.stages[stage].rich };
+    }
+    case "pineapple":
+      return { good: "goldFiber", perHour: POST_YIELD.pineapple };
+  }
 }
 function postRate(state, fruit) {
+  const { good, perHour } = postYield(state, fruit, state.now);
   const post = workingPost(state, fruit);
-  if (!post || post.store >= postStoreCap()) return 0;
+  if (!post || postHolds(post, good) >= postStoreCap(good)) return { good, rate: 0 };
   const n = stallWorkers(state, post, state.now);
-  if (n <= 0) return 0;
-  return Math.max(1, Math.round(POST.perHour * NECTAR_SCALE * n / 36e5));
+  if (n <= 0) return { good, rate: 0 };
+  const k = routeBonus(state, fruit);
+  return { good, rate: Math.max(1, Math.round(perHour * NECTAR_SCALE * n * k / 36e5)) };
 }
 function postRates(state) {
   const out = [];
   for (const fruit of FRUIT_IDS) {
-    const rate = postRate(state, fruit);
-    if (rate > 0) out.push({ fruit, rate });
+    const { good, rate } = postRate(state, fruit);
+    if (rate > 0) out.push({ fruit, good, rate });
   }
   return out;
 }
 function postNectarRate(state) {
-  return postRate(state, "raspberry");
+  return postRate(state, "raspberry").rate;
+}
+function postFullAt(s, f) {
+  const post = s.orchard.posts[f.fruit];
+  return s.now + Math.max(1, Math.ceil((postStoreCap(f.good) - postHolds(post, f.good)) / f.rate));
 }
 function accruePost(s, rates, dtMs) {
-  for (const { fruit, rate } of rates) {
+  for (const { fruit, good, rate } of rates) {
     const post = s.orchard.posts[fruit];
     if (!post || rate <= 0) continue;
-    post.store = Math.min(postStoreCap(), post.store + rate * dtMs);
+    setHeld(post, good, Math.min(postStoreCap(good), postHolds(post, good) + rate * dtMs));
   }
 }
 function postStore(post) {
   return Math.floor(post.store / NECTAR_SCALE + 1e-9);
+}
+function postGoods(post) {
+  return {
+    nectar: postStore(post),
+    cider: Math.floor((post.goods?.cider ?? 0) / NECTAR_SCALE + 1e-9),
+    goldFiber: Math.floor((post.goods?.goldFiber ?? 0) / NECTAR_SCALE + 1e-9)
+  };
+}
+function emptyPost(post) {
+  const got = postGoods(post);
+  for (const good of ["nectar", "cider", "goldFiber"])
+    if (got[good] > 0)
+      setHeld(post, good, Math.max(0, postHolds(post, good) - got[good] * NECTAR_SCALE));
+  return got;
+}
+function activeRoutes(state, fruit) {
+  return state.orchard.routes.filter(
+    (r) => !r.cut && (fruit === void 0 || r.a === fruit || r.b === fruit) && workingPost(state, r.a) !== null && workingPost(state, r.b) !== null
+  );
+}
+function routeBonus(state, fruit) {
+  return 1 + ROUTE.bonus * activeRoutes(state, fruit).length;
 }
 function nextPostEvent(s) {
   let at = Infinity;
@@ -10864,6 +10930,7 @@ function nextPostEvent(s) {
     for (const m of post.modules) later(m.readyAt);
   }
   for (const v of s.villagers) if (v.job.kind === "post" && v.job.wornAt) later(v.job.wornAt);
+  if (workingPost(s, "apple")) later(appleStage(s.orchard.seed, s.now).until);
   return at;
 }
 function postTick(s, at, events) {
@@ -10965,7 +11032,7 @@ function voyageTime(state, pad, crew, fuel = false, fruit = "raspberry") {
     "land",
     travelFactor(state, { fuel })
   );
-  const relay = workingPost(state, fruit) ? ORCHARD.relay : 1;
+  const relay = (workingPost(state, fruit) ? ORCHARD.relay : 1) * (activeRoutes(state, fruit).length > 0 ? ROUTE.relay : 1);
   return Math.round(base * relay / 1e3) * 1e3;
 }
 function cleanGoods(g) {
@@ -11103,6 +11170,7 @@ function voyageForecast(state, plan) {
     stops,
     settleCost: plan.settle ? postCost(state, fruit) : null,
     store: calls && post ? postStore(post) : 0,
+    waiting: calls && post ? postGoods(post) : null,
     pillage: plan.mission === "pillage" && plan.stops[0] ? pillageForecast(
       state,
       plan.stops[0],
@@ -11286,6 +11354,8 @@ function resolveVoyage(state, e, members, fed) {
   let founded = false;
   const refund2 = { nectar: 0, crystal: 0, iron: 0 };
   const worn = [];
+  let cider = 0;
+  let goldFiber = 0;
   if (v.settle) {
     const first = map.byId.get(v.stops[0]);
     const post2 = postOf(state, fruit);
@@ -11328,9 +11398,10 @@ function resolveVoyage(state, e, members, fed) {
           });
         }
     }
-    const store = postStore(post);
-    nectar += store;
-    post.store = Math.max(0, post.store - store * NECTAR_SCALE);
+    const got = emptyPost(post);
+    nectar += got.nectar;
+    cider += got.cider;
+    goldFiber += got.goldFiber;
   }
   const loot = emptyResources();
   for (const r of RESOURCE_IDS) loot[r] = goods[r];
@@ -11346,6 +11417,8 @@ function resolveVoyage(state, e, members, fed) {
     ...nectar + refund2.nectar > 0 ? { nectar: nectar + refund2.nectar } : {},
     ...refund2.crystal > 0 ? { crystal: refund2.crystal } : {},
     ...refund2.iron > 0 ? { iron: refund2.iron } : {},
+    ...cider > 0 ? { cider } : {},
+    ...goldFiber > 0 ? { goldFiber } : {},
     ...founded ? { postFounded: true } : {},
     ...worn.length > 0 ? { injured: worn } : {}
   };
@@ -14956,6 +15029,7 @@ function strikePost(s, post, a, events) {
   if (!held) {
     taken = Math.floor(postStore(post) * POST_ATTACK.loot);
     post.store = Math.max(0, post.store - taken * NECTAR_SCALE);
+    delete post.goods;
     post.ruined = true;
     for (const v of postKiwis(s, fruit))
       v.job = wornOut(v, at) ? { kind: "injured", until: at + Math.round(POST_ATTACK.woundMs * woundFactor(s)) } : { kind: "idle" };
@@ -15021,6 +15095,70 @@ function postAttackForecast(s, fruit = "raspberry") {
   });
   const odds = trials[2] ? "likely" : trials[0] || trials[1] ? "uncertain" : "unlikely";
   return { clan: a.clan, units: armies[1], odds, trials };
+}
+
+// packages/shared/src/sim/routes.ts
+function routeUpkeep(a, b) {
+  const out = {};
+  for (const f of [a, b]) out[FRUIT_GOOD[f]] = (out[FRUIT_GOOD[f]] ?? 0) + ROUTE.upkeep;
+  return out;
+}
+function canPay(state, cost) {
+  for (const [good, n] of Object.entries(cost))
+    if (goodOf(state, good) < n) return good;
+  return null;
+}
+function pay(s, cost) {
+  for (const [good, n] of Object.entries(cost)) payGood(s, good, n);
+}
+var SHORT = {
+  nectar: "notEnoughNectar",
+  cider: "notEnoughCider",
+  goldFiber: "notEnoughGoldFiber"
+};
+function routeBetween(state, a, b) {
+  return state.orchard.routes.find((r) => r.a === a && r.b === b || r.a === b && r.b === a) ?? null;
+}
+function openRouteLock(state, a, b) {
+  if (!FRUIT_IDS.includes(a) || !FRUIT_IDS.includes(b) || a === b) return "unknownRoute";
+  if (!workingPost(state, a) || !workingPost(state, b)) return "noPost";
+  const old = routeBetween(state, a, b);
+  if (old && !old.cut) return "routeExists";
+  const short = canPay(state, routeUpkeep(a, b));
+  return short ? SHORT[short] : null;
+}
+function openRoute(s, a, b, id3) {
+  pay(s, routeUpkeep(a, b));
+  const old = routeBetween(s, a, b);
+  const route = old ? { ...old, paidUntil: s.now + ROUTE.dayMs } : { id: id3, a, b, openedAt: s.now, paidUntil: s.now + ROUTE.dayMs };
+  delete route.cut;
+  s.orchard.routes = [...s.orchard.routes.filter((r) => r !== old), route];
+  return route;
+}
+function closeRouteLock(state, id3) {
+  return state.orchard.routes.some((r) => r.id === id3) ? null : "unknownRoute";
+}
+function closeRoute(s, id3) {
+  s.orchard.routes = s.orchard.routes.filter((r) => r.id !== id3);
+}
+function nextRouteEvent(s) {
+  let at = Infinity;
+  for (const r of s.orchard.routes)
+    if (!r.cut && r.paidUntil > s.now) at = Math.min(at, r.paidUntil);
+  return at;
+}
+function routeTick(s, at, events) {
+  for (const r of s.orchard.routes) {
+    if (r.cut || r.paidUntil !== at) continue;
+    const cost = routeUpkeep(r.a, r.b);
+    if (workingPost(s, r.a, at) && workingPost(s, r.b, at) && !canPay(s, cost)) {
+      pay(s, cost);
+      r.paidUntil = at + ROUTE.dayMs;
+    } else {
+      r.cut = true;
+      events.push({ type: "routeCut", at, routeId: r.id, a: r.a, b: r.b });
+    }
+  }
 }
 
 // packages/shared/src/sim/titan.ts
@@ -15517,7 +15655,7 @@ function advanceInPlace(s, now, events) {
     const queenAt = nextQueenEvent(s);
     const orbitAt = nextOrbitEvent(s);
     planPostAttack(s);
-    const postAt = Math.min(nextPostEvent(s), nextPostAttackEvent(s));
+    const postAt = Math.min(nextPostEvent(s), nextPostAttackEvent(s), nextRouteEvent(s));
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
       orbitAt,
@@ -15594,6 +15732,7 @@ function advanceInPlace(s, now, events) {
     if (postAt === nextEvent) {
       postTick(s, postAt, events);
       postAttackTick(s, postAt, events);
+      routeTick(s, postAt, events);
     }
     const st = hungerStage(s);
     if (st !== stage) {
@@ -15777,11 +15916,7 @@ function computeFlows(s) {
     next = Math.min(next, s.now + Math.max(1, Math.ceil((dustTank() - kiwai.dust) / rate)));
   }
   const posts = postRates(s);
-  for (const { fruit, rate } of posts)
-    next = Math.min(
-      next,
-      s.now + Math.max(1, Math.ceil((postStoreCap() - s.orchard.posts[fruit].store) / rate))
-    );
+  for (const f of posts) next = Math.min(next, postFullAt(s, f));
   const hunger = hungerRate(s, deficit);
   return {
     orbitDust,
@@ -17629,6 +17764,7 @@ function cloneOrchard(o) {
 function clonePost(post) {
   return {
     ...post,
+    ...post.goods ? { goods: { ...post.goods } } : {},
     modules: post.modules.map((m) => ({ ...m })),
     attack: post.attack ? { ...post.attack } : null,
     reports: post.reports.map((r) => ({ ...r, dead: [...r.dead], hurt: [...r.hurt] }))
@@ -18643,6 +18779,10 @@ var COMMAND_ERRORS = [
   "tooManyStops",
   "stopsApart",
   "galleryOutOfReach",
+  "routeExists",
+  "unknownRoute",
+  "notEnoughCider",
+  "notEnoughGoldFiber",
   "clanHostile",
   "notFriendly",
   "ownPost",
@@ -18681,7 +18821,7 @@ function payStardust(s, points) {
   if (stardustOf(s) < points) fail("notEnoughStardust");
   s.stardust -= points * STARDUST_SCALE;
 }
-function pay(s, cost) {
+function pay2(s, cost) {
   if (!canAfford(s.resources, cost)) fail("notEnoughResources");
   for (const id3 of RESOURCE_IDS) s.resources[id3] -= cost[id3] ?? 0;
 }
@@ -18756,7 +18896,7 @@ function execute(s, cmd, ctx, events) {
         true,
         nearRay(ctx.map, cmd.q, cmd.r)
       );
-      pay(s, cost);
+      pay2(s, cost);
       const seeds = treeSeedCost(s, cmd.buildingType);
       payGiantSeeds(s, seeds);
       s.queue.push({
@@ -18796,7 +18936,7 @@ function execute(s, cmd, ctx, events) {
       payIron(s, iron);
       payCrystal(s, crystal);
       payGiantSeeds(s, seeds);
-      pay(s, cost);
+      pay2(s, cost);
       s.queue.push({
         id: nextId(s, "q"),
         kind: "upgrade",
@@ -18855,7 +18995,7 @@ function execute(s, cmd, ctx, events) {
         if (terraformLeft(s) <= 0) fail("terraformLimit");
       }
       const cost = titanCost(s, cmd.work, cmd.q, cmd.r);
-      pay(s, { juice: cost.juice });
+      pay2(s, { juice: cost.juice });
       if (cmd.work !== "smash") s.paths = s.paths.filter((k) => k !== hexKey(cmd));
       v.job = { kind: "titan", work: cmd.work, q: cmd.q, r: cmd.r, until: now + cost.durationMs };
       return;
@@ -18878,7 +19018,7 @@ function execute(s, cmd, ctx, events) {
         fail("alreadyClearing");
       queueHasRoom(s);
       const cost = { ...OBSTACLE_RULES.clearCost };
-      pay(s, cost);
+      pay2(s, cost);
       s.queue.push({
         id: nextId(s, "q"),
         kind: "clear",
@@ -18902,7 +19042,7 @@ function execute(s, cmd, ctx, events) {
       if (error) fail(error);
       queueHasRoom(s);
       const cost = { ...CANALS.cost };
-      pay(s, cost);
+      pay2(s, cost);
       s.queue.push({
         id: nextId(s, "q"),
         kind: dig ? "canal" : "fill",
@@ -18996,7 +19136,7 @@ function execute(s, cmd, ctx, events) {
         payGiantSeeds(s, GIANT_SEEDS.egg.seeds);
       }
       if (s.objectives.giftEggs > 0) s.objectives.giftEggs--;
-      else pay(s, eggCost(s));
+      else pay2(s, eggCost(s));
       s.egg = {
         startedAt: now,
         readyAt: now + eggDuration(s),
@@ -19080,7 +19220,7 @@ function execute(s, cmd, ctx, events) {
       };
       if (!canAfford(s.resources, need)) fail("notEnoughResources");
       if (cmd.fuel) payStardust(s, FUEL.stardust);
-      pay(s, fee);
+      pay2(s, fee);
       launch(s, cmd, now, nextId(s, "x"));
       return;
     }
@@ -19127,7 +19267,7 @@ function execute(s, cmd, ctx, events) {
       const lock = moduleLock(s, kiwai, cmd.moduleType, cmd);
       if (lock) fail(lock);
       const def = MODULES[cmd.moduleType];
-      pay(s, def.cost);
+      pay2(s, def.cost);
       payCrystal(s, def.crystal);
       payIron(s, def.iron);
       setModule(s, kiwai, cmd.moduleType, cmd, now);
@@ -19147,7 +19287,7 @@ function execute(s, cmd, ctx, events) {
       };
       if (!canAfford(s.resources, need)) fail("notEnoughResources");
       if (cmd.fuel) payStardust(s, FUEL.stardust);
-      pay(s, f.launchCost);
+      pay2(s, f.launchCost);
       if (cmd.settle) {
         const cost = postCost(s, fruitOfId(cmd.stops[0] ?? "") ?? "raspberry");
         payNectar(s, cost.nectar);
@@ -19174,6 +19314,18 @@ function execute(s, cmd, ctx, events) {
       const m = post.modules.find((x) => x.id === cmd.moduleId);
       post.modules = post.modules.filter((x) => x !== m);
       addNectar(s, Math.floor(POST.modules[m.type].nectar * POST.refund));
+      return;
+    }
+    case "openRoute": {
+      const lock = openRouteLock(s, cmd.a, cmd.b);
+      if (lock) fail(lock);
+      openRoute(s, cmd.a, cmd.b, nextId(s, "rt"));
+      return;
+    }
+    case "closeRoute": {
+      const lock = closeRouteLock(s, cmd.routeId);
+      if (lock) fail(lock);
+      closeRoute(s, cmd.routeId);
       return;
     }
     case "removeModule": {
@@ -19228,7 +19380,7 @@ function execute(s, cmd, ctx, events) {
       const cost = doorFortifyCost(s);
       if (!canAfford(s.resources, cost.resources)) fail("notEnoughResources");
       payIron(s, cost.iron);
-      pay(s, cost.resources);
+      pay2(s, cost.resources);
       s.depths.door.fortifying = {
         until: now + DEPTHS.fortify.durationMs,
         level: doorFortLevel(s)
@@ -19242,7 +19394,7 @@ function execute(s, cmd, ctx, events) {
       const cost = fortifyCost(s);
       if (!canAfford(s.resources, cost.resources)) fail("notEnoughResources");
       payIron(s, cost.iron);
-      pay(s, cost.resources);
+      pay2(s, cost.resources);
       startFortify(s, cmd.targetId, cmd.sector, now);
       return;
     }
@@ -19290,7 +19442,7 @@ function execute(s, cmd, ctx, events) {
         added.push(key);
       }
       if (s.paths.length + added.length > pathLimit(s)) fail("pathLimit");
-      pay(s, scaleRaw(PATHS.cost, added.length));
+      pay2(s, scaleRaw(PATHS.cost, added.length));
       s.paths = [...s.paths, ...added];
       return;
     }
@@ -19417,7 +19569,7 @@ function execute(s, cmd, ctx, events) {
       ).length;
       if (trainees >= (lvl.trainingSlots ?? 0)) fail("schoolFull");
       const cost = trainingCost(v, cmd.classId, school);
-      pay(s, cost);
+      pay2(s, cost);
       leaveSite(s, v, now);
       const home = borrow(v);
       delete v.homeJob;
@@ -19444,7 +19596,7 @@ function execute(s, cmd, ctx, events) {
       if (kikiwiwiCount(s) >= kikiwiwiCap(s)) fail("kikiwiwiLimit");
       const cost = { ...KIKIWIWI.cost };
       payStardust(s, KIKIWIWI.stardust);
-      pay(s, cost);
+      pay2(s, cost);
       v.job = {
         kind: "transform",
         labId: lab.id,
@@ -19483,7 +19635,7 @@ function execute(s, cmd, ctx, events) {
       const lock = fireworksLock(s, cmd.pattern);
       if (lock) return fail(lock);
       const def = FIREWORKS[cmd.pattern];
-      pay(s, def.cost);
+      pay2(s, def.cost);
       payStardust(s, def.stardust);
       fireFireworks(s, cmd.pattern, now);
       return;
@@ -19508,7 +19660,7 @@ function execute(s, cmd, ctx, events) {
       if (pendingUpgrade(s, b.id)) fail("alreadyRepairing");
       queueHasRoom(s);
       const cost = repairCost(b);
-      pay(s, cost);
+      pay2(s, cost);
       s.queue.push({
         id: nextId(s, "q"),
         kind: "repair",
@@ -24009,6 +24161,10 @@ var tradingPost = external_exports.object({
     })
   ).max(POST.maxModules),
   store: external_exports.number().int().min(0).max(POST.storeCap * NECTAR_SCALE),
+  goods: external_exports.object({
+    cider: external_exports.number().int().min(0).max(POST.goodsCap.cider * NECTAR_SCALE).optional(),
+    goldFiber: external_exports.number().int().min(0).max(POST.goodsCap.goldFiber * NECTAR_SCALE).optional()
+  }).optional(),
   ruined: external_exports.boolean().optional(),
   attacks: external_exports.number().int().min(0),
   attack: external_exports.object({
@@ -25127,6 +25283,8 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     r: external_exports.number().int().min(-POST.radius).max(POST.radius)
   }),
   external_exports.object({ type: external_exports.literal("removePostModule"), moduleId: id2 }),
+  external_exports.object({ type: external_exports.literal("openRoute"), a: external_exports.enum(FRUIT_IDS), b: external_exports.enum(FRUIT_IDS) }),
+  external_exports.object({ type: external_exports.literal("closeRoute"), routeId: id2 }),
   external_exports.object({ type: external_exports.literal("serviceKiwai"), kiwaiId: id2 }),
   external_exports.object({ type: external_exports.literal("raiseShield"), kiwaiId: id2 }),
   external_exports.object({
@@ -26888,6 +27046,7 @@ export {
   FORGE,
   FRONT_AZIMUTH,
   FRUIT_DEFS,
+  FRUIT_GOOD,
   FRUIT_IDS,
   FRUIT_PREFIX,
   FUEL,
@@ -26966,6 +27125,7 @@ export {
   POST_MODULE_TYPES,
   POST_ORDERS,
   POST_STORE,
+  POST_YIELD,
   PRACTICE_SCALE,
   PRODUCERS,
   QUEEN_REF,
@@ -26980,6 +27140,7 @@ export {
   RESOURCE_MASTERY,
   REST,
   ROOM_KINDS,
+  ROUTE,
   SAIL,
   SCHEMA_VERSION,
   SCHOOL,
@@ -27047,6 +27208,7 @@ export {
   accrueStardust,
   actinidineActive,
   activeItem,
+  activeRoutes,
   addCrystal,
   addGiantSeeds,
   addGood,
@@ -27204,6 +27366,8 @@ export {
   cloneThreats,
   cloneVillager,
   cloneWave,
+  closeRoute,
+  closeRouteLock,
   collectReserve,
   colonyBonus,
   colonyMood,
@@ -27297,6 +27461,7 @@ export {
   emergeQueen,
   emigrate,
   emptyMasteries,
+  emptyPost,
   emptyResources,
   encodeInts,
   enemyUnit,
@@ -27626,6 +27791,7 @@ export {
   nextPostEvent,
   nextQueenEvent,
   nextResearchEvent,
+  nextRouteEvent,
   nextSkyEvent,
   nextSpeechEnd,
   nextStep,
@@ -27646,6 +27812,8 @@ export {
   obstacleId,
   occupancy,
   openCabaret,
+  openRoute,
+  openRouteLock,
   orbitCrew,
   orbitPower,
   orbitTick,
@@ -27712,7 +27880,10 @@ export {
   postFit,
   postFort,
   postFruitOf,
+  postFullAt,
+  postGoods,
   postHeld,
+  postHolds,
   postHousing,
   postKind,
   postKiwis,
@@ -27728,6 +27899,7 @@ export {
   postStoreCap,
   postTick,
   postWornAt,
+  postYield,
   postsOf,
   potentialLoot,
   presence,
@@ -27812,6 +27984,10 @@ export {
   rollShiny,
   roomTruth,
   rotationsOf,
+  routeBetween,
+  routeBonus,
+  routeTick,
+  routeUpkeep,
   royalSector,
   scaleCost,
   scheduleGrowth,

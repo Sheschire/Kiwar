@@ -910,6 +910,10 @@ export const en = {
     unknownDrupelet: 'There is no such drupelet.',
     tooManyStops: 'Two drupelets at most per visit, only one for a pillage.',
     stopsApart: 'The two drupelets must touch.',
+    routeExists: 'A route already links these two posts.',
+    unknownRoute: 'There is no such route.',
+    notEnoughCider: 'Not enough cider.',
+    notEnoughGoldFiber: 'Not enough golden fibre.',
     galleryOutOfReach:
       'This gallery is out of reach: start from the skin, next to a gallery taken or to our post.',
     clanHostile: 'This clan is hostile: it no longer trades with us.',

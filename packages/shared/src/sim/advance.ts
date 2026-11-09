@@ -10,8 +10,16 @@ import { footprintOf, isManualWorkplace, isProducer, type BuildingType } from '.
 import type { TechId } from '../data/research';
 import type { KiwaiType, ModuleType } from '../data/orbit';
 import type { FruitId, PostModuleType } from '../data/orchard';
-import { accruePost, nextPostEvent, postRates, postStoreCap, postTick } from './tradingPost';
+import {
+  accruePost,
+  nextPostEvent,
+  postFullAt,
+  postRates,
+  postTick,
+  type PostFlow,
+} from './tradingPost';
 import { nextPostAttackEvent, planPostAttack, postAttackTick } from './postAttacks';
+import { nextRouteEvent, routeTick } from './routes';
 import { RESOURCE_IDS, emptyResources, type ResourceId, type Resources } from '../data/resources';
 import type { BuildingId, QueueItemId, TimeMs, VillagerId } from '../types/ids';
 import {
@@ -311,6 +319,8 @@ export type GameEvent =
   | { type: 'postModuleReady'; at: TimeMs; moduleType: PostModuleType; drupelet?: string }
   /** Chantier 55: a kiwi at the pineapple's post worn out by the bromelain. */
   | { type: 'postKiwiWorn'; at: TimeMs; villagerId: VillagerId }
+  /** Chantier 55: a route between two posts cut (unpaid upkeep, or a post down). */
+  | { type: 'routeCut'; at: TimeMs; routeId: string; a: FruitId; b: FruitId }
   /** Chantier 54: an attack on our post announced, called off by a gift, struck. */
   | { type: 'postAttackAnnounced'; at: TimeMs; clan: string; strikeAt: TimeMs }
   | { type: 'postAttackCalmed'; at: TimeMs; clan: string }
@@ -416,7 +426,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const orbitAt = nextOrbitEvent(s);
     // Chantier 54: our trading post on the raspberry, and its attacks.
     planPostAttack(s);
-    const postAt = Math.min(nextPostEvent(s), nextPostAttackEvent(s));
+    const postAt = Math.min(nextPostEvent(s), nextPostAttackEvent(s), nextRouteEvent(s));
     // Chantier 15: the automatic garrison posts its guards a little before a strike.
     const garrisonAt = autoGarrisonAt(s);
     const nextEvent = Math.min(
@@ -496,6 +506,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     if (postAt === nextEvent) {
       postTick(s, postAt, events);
       postAttackTick(s, postAt, events);
+      routeTick(s, postAt, events);
     }
     const st = hungerStage(s);
     if (st !== stage) {
@@ -599,7 +610,7 @@ interface Flows {
   orbitDust: { kiwai: Kiwai; rate: number }[];
   /** Chantier 54: nectar gathered into the trading post's store (raw units per ms). */
   /** Chantier 54 (55: one per fruit): what the trading posts' stalls gather into their stores. */
-  posts: { fruit: FruitId; rate: number }[];
+  posts: PostFlow[];
   /** Next time a rate changes on its own (a deposit runs dry, a storage fills or empties). */
   nextChange: TimeMs;
   /** Next hunger stage change or death. */
@@ -725,11 +736,7 @@ function computeFlows(s: GameState): Flows {
   }
   // Chantier 54: a trading post's store fills (an event when it is full).
   const posts = postRates(s);
-  for (const { fruit, rate } of posts)
-    next = Math.min(
-      next,
-      s.now + Math.max(1, Math.ceil((postStoreCap() - s.orchard.posts[fruit]!.store) / rate)),
-    );
+  for (const f of posts) next = Math.min(next, postFullAt(s, f));
   const hunger = hungerRate(s, deficit);
   return {
     orbitDust,

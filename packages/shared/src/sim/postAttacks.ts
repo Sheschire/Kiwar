@@ -187,6 +187,8 @@ function strikePost(s: GameState, post: TradingPost, a: PostAttack, events: Game
   if (!held) {
     taken = Math.floor(postStore(post) * POST_ATTACK.loot);
     post.store = Math.max(0, post.store - taken * NECTAR_SCALE);
+    // Chantier 55: the cider and golden fibre waiting there are taken too.
+    delete post.goods;
     post.ruined = true;
     // The survivors come home in the pods (the worn out ones wounded).
     for (const v of postKiwis(s, fruit))

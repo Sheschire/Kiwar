@@ -159,6 +159,7 @@ import { delveLock, launchDelve, tunnelBusy } from './delves';
 import { cleanGoods, launchVoyage, voyageForecast, voyageLock, type VoyagePlan } from './voyages';
 import { POST, fruitOfId, type FruitId, type PostModuleType } from '../data/orchard';
 import { addNectar, payNectar } from './orchard';
+import { closeRoute, closeRouteLock, openRoute, openRouteLock } from './routes';
 import {
   addPostModule,
   postCost,
@@ -323,6 +324,8 @@ export type Command =
   /** Chantier 54: sets a module on our trading post's map, or takes one down. */
   | { type: 'buildPostModule'; fruit?: FruitId; moduleType: PostModuleType; q: number; r: number }
   | { type: 'removePostModule'; moduleId: string }
+  | { type: 'openRoute'; a: FruitId; b: FruitId }
+  | { type: 'closeRoute'; routeId: string }
   | { type: 'debugGrant'; resources: Partial<Resources> };
 
 export const COMMAND_ERRORS = [
@@ -520,6 +523,10 @@ export const COMMAND_ERRORS = [
   'tooManyStops',
   'stopsApart',
   'galleryOutOfReach',
+  'routeExists',
+  'unknownRoute',
+  'notEnoughCider',
+  'notEnoughGoldFiber',
   'clanHostile',
   'notFriendly',
   'ownPost',
@@ -1136,6 +1143,18 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       const m = post.modules.find((x) => x.id === cmd.moduleId)!;
       post.modules = post.modules.filter((x) => x !== m);
       addNectar(s, Math.floor(POST.modules[m.type].nectar * POST.refund));
+      return;
+    }
+    case 'openRoute': {
+      const lock = openRouteLock(s, cmd.a, cmd.b);
+      if (lock) fail(lock);
+      openRoute(s, cmd.a, cmd.b, nextId(s, 'rt'));
+      return;
+    }
+    case 'closeRoute': {
+      const lock = closeRouteLock(s, cmd.routeId);
+      if (lock) fail(lock);
+      closeRoute(s, cmd.routeId);
       return;
     }
     case 'removeModule': {

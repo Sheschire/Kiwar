@@ -992,6 +992,10 @@ export const fr: Dict = {
     unknownDrupelet: 'Cette drupéole n’existe pas.',
     tooManyStops: 'Deux drupéoles au plus par visite, une seule pour un pillage.',
     stopsApart: 'Les deux drupéoles doivent se toucher.',
+    routeExists: 'Une route relie déjà ces deux comptoirs.',
+    unknownRoute: 'Cette route n’existe pas.',
+    notEnoughCider: 'Pas assez de cidre.',
+    notEnoughGoldFiber: 'Pas assez de fibre d’or.',
     galleryOutOfReach:
       'Cette galerie est hors d’atteinte : on part de la peau, ou d’une galerie prise, ou de notre comptoir.',
     clanHostile: 'Ce clan nous est hostile : il ne commerce plus avec nous.',

@@ -323,6 +323,22 @@ const tradingPost = z.object({
     .int()
     .min(0)
     .max(POST.storeCap * NECTAR_SCALE),
+  goods: z
+    .object({
+      cider: z
+        .number()
+        .int()
+        .min(0)
+        .max(POST.goodsCap.cider * NECTAR_SCALE)
+        .optional(),
+      goldFiber: z
+        .number()
+        .int()
+        .min(0)
+        .max(POST.goodsCap.goldFiber * NECTAR_SCALE)
+        .optional(),
+    })
+    .optional(),
   ruined: z.boolean().optional(),
   attacks: z.number().int().min(0),
   attack: z

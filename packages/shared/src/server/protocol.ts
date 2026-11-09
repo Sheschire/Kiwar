@@ -146,6 +146,8 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     r: z.number().int().min(-POST.radius).max(POST.radius),
   }),
   z.object({ type: z.literal('removePostModule'), moduleId: id }),
+  z.object({ type: z.literal('openRoute'), a: z.enum(FRUIT_IDS), b: z.enum(FRUIT_IDS) }),
+  z.object({ type: z.literal('closeRoute'), routeId: id }),
   z.object({ type: z.literal('serviceKiwai'), kiwaiId: id }),
   z.object({ type: z.literal('raiseShield'), kiwaiId: id }),
   z.object({

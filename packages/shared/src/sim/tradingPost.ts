@@ -1,12 +1,17 @@
 import {
+  APPLE,
   FRUIT_IDS,
   NECTAR_SCALE,
   POST,
   POST_MODULE_TYPES,
+  POST_YIELD,
+  ROUTE,
   fruitOfId,
   type FruitId,
+  type OrchardGood,
   type PostModuleType,
 } from '../data/orchard';
+import { appleStage } from './apple';
 import { hexKey } from '../hex/hex';
 import type { TimeMs } from '../types/ids';
 import type { GameEvent } from './advance';
@@ -111,49 +116,130 @@ export function postFort(post: TradingPost, at: TimeMs): number {
     .reduce((a, m) => a + (POST.modules[m.type].fort ?? 0), 0);
 }
 
-export function postStoreCap(): number {
-  return POST.storeCap * NECTAR_SCALE;
+/** A store's cap in raw units (nectar, or the post's cider and golden fibre). */
+export function postStoreCap(good: OrchardGood = 'nectar'): number {
+  return (good === 'nectar' ? POST.storeCap : POST.goodsCap[good]) * NECTAR_SCALE;
 }
 
-/** Raw units per ms gathered into a post's store now (an integer; 0 when full). */
-export function postRate(state: GameState, fruit: FruitId): number {
+/** What a post holds of a good, raw units. */
+export function postHolds(post: TradingPost, good: OrchardGood): number {
+  return good === 'nectar' ? post.store : (post.goods?.[good] ?? 0);
+}
+
+function setHeld(post: TradingPost, good: OrchardGood, raw: number): void {
+  if (good === 'nectar') post.store = raw;
+  else post.goods = { ...post.goods, [good]: raw };
+}
+
+/**
+ * Chantier 55: what a fruit's stalls gather now, per kiwi and hour: the raspberry's nectar, the
+ * apple's nectar (its ripeness's richness) or its cider while overripe, the pineapple's golden
+ * fibre.
+ */
+export function postYield(
+  state: Pick<GameState, 'orchard'>,
+  fruit: FruitId,
+  at: TimeMs,
+): { good: OrchardGood; perHour: number } {
+  switch (fruit) {
+    case 'raspberry':
+      return { good: 'nectar', perHour: POST_YIELD.raspberry };
+    case 'apple': {
+      const stage = appleStage(state.orchard.seed, at).stage;
+      return stage === 'overripe'
+        ? { good: 'cider', perHour: POST_YIELD.appleCider }
+        : { good: 'nectar', perHour: POST_YIELD.appleNectar * APPLE.stages[stage].rich };
+    }
+    case 'pineapple':
+      return { good: 'goldFiber', perHour: POST_YIELD.pineapple };
+  }
+}
+
+/** Raw units per ms gathered into a post's store now (an integer; 0 when full or idle). */
+export function postRate(state: GameState, fruit: FruitId): { good: OrchardGood; rate: number } {
+  const { good, perHour } = postYield(state, fruit, state.now);
   const post = workingPost(state, fruit);
-  if (!post || post.store >= postStoreCap()) return 0;
+  if (!post || postHolds(post, good) >= postStoreCap(good)) return { good, rate: 0 };
   const n = stallWorkers(state, post, state.now);
-  if (n <= 0) return 0;
-  return Math.max(1, Math.round((POST.perHour * NECTAR_SCALE * n) / 3_600_000));
+  if (n <= 0) return { good, rate: 0 };
+  const k = routeBonus(state, fruit);
+  return { good, rate: Math.max(1, Math.round((perHour * NECTAR_SCALE * n * k) / 3_600_000)) };
+}
+
+export interface PostFlow {
+  fruit: FruitId;
+  good: OrchardGood;
+  rate: number;
 }
 
 /** The rates of every post's store (for `computeFlows`). */
-export function postRates(state: GameState): { fruit: FruitId; rate: number }[] {
-  const out: { fruit: FruitId; rate: number }[] = [];
+export function postRates(state: GameState): PostFlow[] {
+  const out: PostFlow[] = [];
   for (const fruit of FRUIT_IDS) {
-    const rate = postRate(state, fruit);
-    if (rate > 0) out.push({ fruit, rate });
+    const { good, rate } = postRate(state, fruit);
+    if (rate > 0) out.push({ fruit, good, rate });
   }
   return out;
 }
 
 /** The raspberry post's nectar rate (chantier 54). */
 export function postNectarRate(state: GameState): number {
-  return postRate(state, 'raspberry');
+  return postRate(state, 'raspberry').rate;
 }
 
-export function accruePost(
-  s: GameState,
-  rates: readonly { fruit: FruitId; rate: number }[],
-  dtMs: number,
-): void {
-  for (const { fruit, rate } of rates) {
+/** When a post's store fills at its rate. */
+export function postFullAt(s: GameState, f: PostFlow): TimeMs {
+  const post = s.orchard.posts[f.fruit]!;
+  return s.now + Math.max(1, Math.ceil((postStoreCap(f.good) - postHolds(post, f.good)) / f.rate));
+}
+
+export function accruePost(s: GameState, rates: readonly PostFlow[], dtMs: number): void {
+  for (const { fruit, good, rate } of rates) {
     const post = s.orchard.posts[fruit];
     if (!post || rate <= 0) continue;
-    post.store = Math.min(postStoreCap(), post.store + rate * dtMs);
+    setHeld(post, good, Math.min(postStoreCap(good), postHolds(post, good) + rate * dtMs));
   }
 }
 
-/** The store's whole units. */
+/** The store's whole units of nectar. */
 export function postStore(post: TradingPost): number {
   return Math.floor(post.store / NECTAR_SCALE + 1e-9);
+}
+
+/** Whole units of every good waiting at a post. */
+export function postGoods(post: TradingPost): Record<OrchardGood, number> {
+  return {
+    nectar: postStore(post),
+    cider: Math.floor((post.goods?.cider ?? 0) / NECTAR_SCALE + 1e-9),
+    goldFiber: Math.floor((post.goods?.goldFiber ?? 0) / NECTAR_SCALE + 1e-9),
+  };
+}
+
+/** Takes the whole units of every good out of a post (the crumbs stay); returns them. */
+export function emptyPost(post: TradingPost): Record<OrchardGood, number> {
+  const got = postGoods(post);
+  for (const good of ['nectar', 'cider', 'goldFiber'] as const)
+    if (got[good] > 0)
+      setHeld(post, good, Math.max(0, postHolds(post, good) - got[good] * NECTAR_SCALE));
+  return got;
+}
+
+/**
+ * Chantier 55: routes standing touching a fruit's post (both ends working, not cut): each adds
+ * `ROUTE.bonus` to its stalls.
+ */
+export function activeRoutes(state: GameState, fruit?: FruitId): GameState['orchard']['routes'] {
+  return state.orchard.routes.filter(
+    (r) =>
+      !r.cut &&
+      (fruit === undefined || r.a === fruit || r.b === fruit) &&
+      workingPost(state, r.a) !== null &&
+      workingPost(state, r.b) !== null,
+  );
+}
+
+export function routeBonus(state: GameState, fruit: FruitId): number {
+  return 1 + ROUTE.bonus * activeRoutes(state, fruit).length;
 }
 
 /** Next time something changes at a post by itself (founded, a module assembled). */
@@ -168,6 +254,8 @@ export function nextPostEvent(s: GameState): TimeMs {
   }
   // Chantier 55: a kiwi at the pineapple worn out stops working.
   for (const v of s.villagers) if (v.job.kind === 'post' && v.job.wornAt) later(v.job.wornAt);
+  // The apple's stalls change what they gather with its ripeness.
+  if (workingPost(s, 'apple')) later(appleStage(s.orchard.seed, s.now).until);
   return at;
 }
 

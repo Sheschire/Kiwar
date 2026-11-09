@@ -903,6 +903,8 @@ export interface TradingPost {
   modules: PostModule[];
   /** Nectar waiting in its store, raw units (`NECTAR_SCALE` per unit). */
   store: number;
+  /** Chantier 55: cider and golden fibre waiting in its stores (raw units). */
+  goods?: { cider?: number; goldFiber?: number };
   /** Fallen in an attack: it stands as a ruin until rebuilt (nothing is ever lost entirely). */
   ruined?: boolean;
   /** Attacks planned so far (the next one's stream), the next, the last reports. */
@@ -1438,6 +1440,7 @@ export function cloneOrchard(o: OrchardState): OrchardState {
 function clonePost(post: TradingPost): TradingPost {
   return {
     ...post,
+    ...(post.goods ? { goods: { ...post.goods } } : {}),
     modules: post.modules.map((m) => ({ ...m })),
     attack: post.attack ? { ...post.attack } : null,
     reports: post.reports.map((r) => ({ ...r, dead: [...r.dead], hurt: [...r.hurt] })),

@@ -7,13 +7,14 @@ import { LANDING, type LandingOrders } from '../data/landing';
 import {
   APPLE,
   PINEAPPLE,
+  ROUTE,
   FRUIT_DEFS,
-  NECTAR_SCALE,
   ORCHARD,
   STANDING,
   fruitOfId,
   orchardTarget,
   type FruitId,
+  type OrchardGood,
 } from '../data/orchard';
 import { RESOURCE_IDS, emptyResources, type Resources } from '../data/resources';
 import type { BuildingId, TimeMs, VillagerId } from '../types/ids';
@@ -59,11 +60,14 @@ import {
 import { appleStage, type AppleRipeness } from './apple';
 import { bromelainHarm, postWornAt, wornOut } from './pineapple';
 import {
+  activeRoutes,
+  emptyPost,
   foundPost,
   postCost,
   postHousing,
   postKiwis,
   postOf,
+  postGoods,
   postStore,
   workingPost,
 } from './tradingPost';
@@ -131,7 +135,10 @@ export function voyageTime(
     'land',
     travelFactor(state, { fuel }),
   );
-  const relay = workingPost(state, fruit) ? ORCHARD.relay : 1;
+  // A post there is a relay; a route standing to it shortens the trip again.
+  const relay =
+    (workingPost(state, fruit) ? ORCHARD.relay : 1) *
+    (activeRoutes(state, fruit).length > 0 ? ROUTE.relay : 1);
   return Math.round((base * relay) / 1000) * 1000;
 }
 
@@ -287,6 +294,8 @@ export interface VoyageForecast {
   settleCost: { nectar: number; crystal: number; iron: number } | null;
   /** Nectar waiting in the post's store (brought home if the ship calls there). */
   store: number;
+  /** Chantier 55: every good waiting at the post the ship calls at (null: no call). */
+  waiting: Record<OrchardGood, number> | null;
   pillage: PillageForecast | null;
   /** Chantier 55: the apple's stage when the ship arrives (null elsewhere). */
   ripeness: AppleRipeness | null;
@@ -349,6 +358,7 @@ export function voyageForecast(state: GameState, plan: VoyagePlan): VoyageForeca
     stops,
     settleCost: plan.settle ? postCost(state, fruit) : null,
     store: calls && post ? postStore(post) : 0,
+    waiting: calls && post ? postGoods(post) : null,
     pillage:
       plan.mission === 'pillage' && plan.stops[0]
         ? pillageForecast(
@@ -586,6 +596,8 @@ export function resolveVoyage(
   let founded = false;
   const refund = { nectar: 0, crystal: 0, iron: 0 };
   const worn: VillagerId[] = [];
+  let cider = 0;
+  let goldFiber = 0;
   if (v.settle) {
     const first = map.byId.get(v.stops[0]!)!;
     const post = postOf(state, fruit);
@@ -633,10 +645,11 @@ export function resolveVoyage(
           });
         }
     }
-    // The store's whole units sail home (the crumbs stay).
-    const store = postStore(post);
-    nectar += store;
-    post.store = Math.max(0, post.store - store * NECTAR_SCALE);
+    // The stores' whole units sail home (the crumbs stay).
+    const got = emptyPost(post);
+    nectar += got.nectar;
+    cider += got.cider;
+    goldFiber += got.goldFiber;
   }
   // Unsold goods sail home with the ship.
   const loot = emptyResources();
@@ -653,6 +666,8 @@ export function resolveVoyage(
     ...(nectar + refund.nectar > 0 ? { nectar: nectar + refund.nectar } : {}),
     ...(refund.crystal > 0 ? { crystal: refund.crystal } : {}),
     ...(refund.iron > 0 ? { iron: refund.iron } : {}),
+    ...(cider > 0 ? { cider } : {}),
+    ...(goldFiber > 0 ? { goldFiber } : {}),
     ...(founded ? { postFounded: true } : {}),
     ...(worn.length > 0 ? { injured: worn } : {}),
   };
