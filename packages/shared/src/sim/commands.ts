@@ -519,6 +519,7 @@ export const COMMAND_ERRORS = [
   'unknownDrupelet',
   'tooManyStops',
   'stopsApart',
+  'galleryOutOfReach',
   'clanHostile',
   'notFriendly',
   'ownPost',

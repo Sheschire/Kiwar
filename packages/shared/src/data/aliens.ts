@@ -89,6 +89,10 @@ export const ALIEN_GEAR: Record<
   beetle: { weapon: null, armor: null },
   beetleGuard: { weapon: null, armor: null },
   byturus: { weapon: null, armor: null },
+  // Chantier 55: the apple's worms.
+  worm: { weapon: null, armor: null },
+  wormGuard: { weapon: null, armor: null },
+  codlingMoth: { weapon: null, armor: null },
 };
 
 /** Share of each kind in a parcel's garrison (ground and air). */

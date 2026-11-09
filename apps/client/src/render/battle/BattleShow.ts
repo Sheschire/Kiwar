@@ -80,6 +80,10 @@ const BEETLE_TINTS: Record<string, string> = {
   beetle: '#7a3b2a',
   beetleGuard: '#4a2a3a',
   byturus: '#c9a46a',
+  // Chantier 55: the apple's worms and moths.
+  worm: '#e8d6a0',
+  wormGuard: '#b58a52',
+  codlingMoth: '#8f8a6a',
 };
 
 /** Chantier 42: how much bigger the ferret queen is than a soldier. */

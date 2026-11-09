@@ -1,7 +1,8 @@
 import {
+  APPLE,
   FRUIT_DEFS,
   FRUIT_IDS,
-  NECTAR,
+  GOOD_CAPS,
   NECTAR_SCALE,
   ORCHARD,
   RASPBERRY,
@@ -10,10 +11,13 @@ import {
   fruitOfId,
   nectarUnits,
   type FruitId,
+  type OrchardGood,
 } from '../data/orchard';
+import { appleEffects, appleOf } from './apple';
 import type { ResourceId } from '../data/resources';
 import { ENEMIES, type EnemyKind } from '../data/units';
 import { createRng } from '../rng/rng';
+import { growClans, linkLonely, linkWithin, round3, shuffled } from './fruitLayout';
 import type { TimeMs } from '../types/ids';
 import type { AlienUnit } from './civ';
 import { hasTech } from './research';
@@ -93,84 +97,12 @@ export function raspberryOf(seed: string): Raspberry {
     return { x: rr * Math.cos(a), y, z: rr * Math.sin(a) };
   });
   const spacing = Math.sqrt((4 * Math.PI * (1 - R.stemCap)) / n);
-  const reach = spacing * R.neighbourSpan;
-  const links: number[][] = points.map(() => []);
-  for (let i = 0; i < n; i++)
-    for (let j = i + 1; j < n; j++) {
-      const p = points[i]!;
-      const q = points[j]!;
-      if (Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z) <= reach) {
-        links[i]!.push(j);
-        links[j]!.push(i);
-      }
-    }
+  const links = linkWithin(points, spacing * R.neighbourSpan);
   // Never a lonely drupelet: link it to its nearest one.
-  for (let i = 0; i < n; i++) {
-    if (links[i]!.length > 0) continue;
-    let best = -1;
-    let bestD = Infinity;
-    for (let j = 0; j < n; j++) {
-      if (j === i) continue;
-      const p = points[i]!;
-      const q = points[j]!;
-      const d = Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z);
-      if (d < bestD) [best, bestD] = [j, d];
-    }
-    links[i]!.push(best);
-    links[best]!.push(i);
-  }
+  linkLonely(points, links);
   // Clans: seeds spread by farthest-point sampling, then grown together over the links.
   const k = rng.int(R.clans[0], R.clans[1]);
-  const owner = new Array<number>(n).fill(-1);
-  const seeds: number[] = [rng.int(0, n - 1)];
-  while (seeds.length < k) {
-    let far = 0;
-    let farD = -1;
-    for (let i = 0; i < n; i++) {
-      if (seeds.includes(i)) continue;
-      const d = Math.min(
-        ...seeds.map((s) =>
-          Math.hypot(
-            points[i]!.x - points[s]!.x,
-            points[i]!.y - points[s]!.y,
-            points[i]!.z - points[s]!.z,
-          ),
-        ),
-      );
-      if (d > farD) [far, farD] = [i, d];
-    }
-    seeds.push(far);
-  }
-  const fronts = seeds.map((s, c) => {
-    owner[s] = c;
-    return [s];
-  });
-  for (let grown = k; grown < n;) {
-    let moved = false;
-    for (let c = 0; c < k; c++) {
-      const front = fronts[c]!;
-      // The next free neighbour of this clan's oldest drupelets first (compact clans).
-      let took = false;
-      for (const i of front) {
-        const free = links[i]!.filter((j) => owner[j] === -1).sort((a, b) => a - b);
-        if (free.length === 0) continue;
-        owner[free[0]!] = c;
-        front.push(free[0]!);
-        grown++;
-        took = moved = true;
-        break;
-      }
-      if (!took) continue;
-    }
-    if (!moved) {
-      // Islands left out (cannot happen with the links above, but stay safe): the nearest clan.
-      for (let i = 0; i < n; i++)
-        if (owner[i] === -1) {
-          owner[i] = owner[links[i]![0]!] === -1 ? 0 : owner[links[i]![0]!]!;
-          grown++;
-        }
-    }
-  }
+  const { owner, seeds } = growClans(points, links, k, rng);
   const names = shuffled(
     Array.from({ length: CLAN_NAMES }, (_, i) => i),
     rng,
@@ -216,6 +148,8 @@ export function fruitMapOf(seed: string, fruit: FruitId): FruitMap {
   switch (fruit) {
     case 'raspberry':
       return raspberryOf(seed);
+    case 'apple':
+      return appleOf(seed);
   }
 }
 
@@ -265,6 +199,8 @@ export interface DrupeletTruth {
   /** Nectar stored there (whole units). */
   nectar: number;
   nest: boolean;
+  /** Chantier 55: cider stored in an apple's gallery (found only overripe; 0 elsewhere). */
+  cider: number;
 }
 
 export type FruitTruth = DrupeletTruth;
@@ -288,7 +224,16 @@ export function fruitTruth(seed: string, d: Parcel): FruitTruth {
     const nectar = Math.round(
       R.rings.nectar[d.ring]! * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread),
     );
-    t = { units: fruitGarrison(fruit, power, R.rings.level[d.ring]!), nectar, nest: nestHere };
+    const cider =
+      fruit === 'apple'
+        ? Math.round(APPLE.cider[d.ring]! * rng.range(1 - R.nectarSpread, 1 + R.nectarSpread))
+        : 0;
+    t = {
+      units: fruitGarrison(fruit, power, R.rings.level[d.ring]!),
+      nectar,
+      nest: nestHere,
+      cider,
+    };
     if (truthCache.size > 512) truthCache.clear();
     truthCache.set(key, t);
   }
@@ -325,11 +270,33 @@ export function guessGarrison(
 ): AlienUnit[] {
   const fruit = fruitOfId(d.id) ?? 'raspberry';
   const R = FRUIT_DEFS[fruit];
-  return fruitGarrison(
-    fruit,
-    R.rings.power[d.ring]! * k * regrowth(state, d.id, at),
-    R.rings.level[d.ring]!,
-  );
+  const power =
+    R.rings.power[d.ring]! * k * regrowth(state, d.id, at) * stagePower(state, fruit, at);
+  return fruitGarrison(fruit, power, R.rings.level[d.ring]!);
+}
+
+/** Chantier 55: how strong a fruit's inhabitants are at a time (the apple's ripeness). */
+export function stagePower(state: Pick<GameState, 'orchard'>, fruit: FruitId, at: TimeMs): number {
+  return fruit === 'apple' ? appleEffects(state.orchard.seed, at).power : 1;
+}
+
+/** Scales a garrison seen at one time to another (the apple's worms change with ripeness). */
+export function rescaleSeen(
+  state: Pick<GameState, 'orchard'>,
+  fruit: FruitId,
+  units: readonly AlienUnit[],
+  seenAt: TimeMs,
+  at: TimeMs,
+): AlienUnit[] {
+  const k = stagePower(state, fruit, at) / stagePower(state, fruit, seenAt);
+  if (k === 1) return units.map((u) => ({ ...u }));
+  return scaleUnits(units, k);
+}
+
+function scaleUnits(units: readonly AlienUnit[], f: number): AlienUnit[] {
+  return units
+    .map((u, i) => ({ ...u, count: Math.max(i === 0 ? 1 : 0, Math.round(u.count * f)) }))
+    .filter((u) => u.count > 0);
 }
 
 /** Share of its garrison a pillaged parcel has grown back at a time (1: never pillaged). */
@@ -344,13 +311,15 @@ export function regrowth(state: Pick<GameState, 'orchard'>, id: string, at: Time
 export function parcelNow(state: GameState, seed: string, d: Parcel, at: TimeMs): FruitTruth {
   const t = fruitTruth(seed, d);
   const f = regrowth(state, d.id, at);
-  if (f >= 1) return t;
+  const apple = fruitOfId(d.id) === 'apple';
+  if (f >= 1 && !apple) return t;
+  // The apple's ripeness: the worms' strength, its riches, and cider only overripe.
+  const st = apple ? appleEffects(state.orchard.seed, at) : { power: 1, rich: 1, cider: 0 };
   return {
-    units: t.units
-      .map((u, i) => ({ ...u, count: Math.max(i === 0 ? 1 : 0, Math.round(u.count * f)) }))
-      .filter((u) => u.count > 0),
-    nectar: Math.round(t.nectar * f),
+    units: scaleUnits(t.units, f * st.power),
+    nectar: Math.round(t.nectar * f * st.rich),
     nest: t.nest,
+    cider: Math.round(t.cider * f * st.cider),
   };
 }
 
@@ -401,7 +370,9 @@ export function soldTo(state: Pick<GameState, 'orchard'>, clan: string, at: Time
 export function tradeRate(state: Pick<GameState, 'orchard'>, clan: string, at: TimeMs): number {
   const c = clanOf(state, clan);
   if (!c) return 0;
-  return Math.round((c.rate / (1 + soldTo(state, clan, at) / TRADE.soften)) * 100) / 100;
+  // Chantier 55: a ripe apple pays more, an overripe one less.
+  const rich = fruitOfId(clan) === 'apple' ? appleEffects(state.orchard.seed, at).rich : 1;
+  return Math.round(((c.rate * rich) / (1 + soldTo(state, clan, at) / TRADE.soften)) * 100) / 100;
 }
 
 /** Sells `amount` of what the clan asks for: the nectar paid (whole units, before the cap). */
@@ -413,10 +384,32 @@ export function sellTo(s: GameState, clan: string, amount: number, at: TimeMs): 
 
 // --- Nectar (a stock of its own) ---------------------------------------------------------------
 
+/** Chantier 55: a good's cap in raw units (grows with the Nest). */
+export function goodCap(state: GameState, good: OrchardGood): number {
+  const c = GOOD_CAPS[good];
+  return (c[Math.min(nest(state).level, c.length - 1)] ?? 0) * NECTAR_SCALE;
+}
+
+/** A good's whole units in stock. */
+export function goodOf(state: Pick<GameState, OrchardGood>, good: OrchardGood): number {
+  return nectarUnits(state[good]);
+}
+
+/** Credits whole units of a good up to its cap; returns the whole units that fitted. */
+export function addGood(s: GameState, good: OrchardGood, units: number): number {
+  const room = Math.max(0, goodCap(s, good) - s[good]);
+  const got = Math.min(Math.max(0, units) * NECTAR_SCALE, room);
+  s[good] += got;
+  return nectarUnits(got);
+}
+
+export function payGood(s: GameState, good: OrchardGood, units: number): void {
+  s[good] = Math.max(0, s[good] - units * NECTAR_SCALE);
+}
+
 /** Nectar cap of the colony in raw units (grows with the Nest). */
 export function nectarCap(state: GameState): number {
-  const c = NECTAR.cap;
-  return (c[Math.min(nest(state).level, c.length - 1)] ?? 0) * NECTAR_SCALE;
+  return goodCap(state, 'nectar');
 }
 
 export function nectarOf(state: Pick<GameState, 'nectar'>): number {
@@ -425,14 +418,25 @@ export function nectarOf(state: Pick<GameState, 'nectar'>): number {
 
 /** Credits whole units up to the cap; returns the whole units that fitted. */
 export function addNectar(s: GameState, units: number): number {
-  const room = Math.max(0, nectarCap(s) - s.nectar);
-  const got = Math.min(units * NECTAR_SCALE, room);
-  s.nectar += got;
-  return nectarUnits(got);
+  return addGood(s, 'nectar', units);
 }
 
 export function payNectar(s: GameState, units: number): void {
-  s.nectar = Math.max(0, s.nectar - units * NECTAR_SCALE);
+  payGood(s, 'nectar', units);
+}
+
+// --- The apple's galleries: within reach (public) ----------------------------------------------
+
+/**
+ * Chantier 55: an apple's gallery is within reach from the skin (ring 0), or next to a gallery
+ * we took, or next to our post (the rule of the depths). The raspberry's drupelets always are.
+ */
+export function parcelInReach(state: GameState, d: Parcel): boolean {
+  if (fruitOfId(d.id) !== 'apple' || d.ring === 0) return true;
+  const post = state.orchard.posts.apple;
+  const near = (id: string) =>
+    state.orchard.taken[id] !== undefined || (!!post && !post.ruined && post.drupelet === id);
+  return near(d.id) || d.links.some(near);
 }
 
 // --- Opening the orchard, and its seeds --------------------------------------------------------
@@ -503,17 +507,4 @@ export function forgetOrchard(s: GameState, seed = s.orchard.seed): void {
     if (v.job.kind === 'post' || (v.job.kind === 'expedition' && flying.has(v.job.expeditionId)))
       v.job = { kind: 'idle' };
   s.orchard = newOrchard(seed);
-}
-
-function shuffled<T>(list: T[], rng: { int(min: number, max: number): number }): T[] {
-  const out = [...list];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = rng.int(0, i);
-    [out[i], out[j]] = [out[j]!, out[i]!];
-  }
-  return out;
-}
-
-function round3(x: number): number {
-  return Math.round(x * 1000) / 1000;
 }

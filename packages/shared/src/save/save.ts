@@ -689,6 +689,7 @@ export const gameStateSchema = z.object({
         units: z.array(alienUnit).max(16),
         nectar: z.number().int().min(0).max(10000),
         nest: z.boolean(),
+        cider: z.number().int().min(0).max(10000).optional(),
       }),
     ),
     taken: z.record(z.string().max(8), z.number()),
@@ -822,6 +823,8 @@ export const gameStateSchema = z.object({
           gallery: z.boolean().optional(),
           lantern: z.string().max(8).optional(),
           nectar: z.number().int().min(0).max(10000).optional(),
+          cider: z.number().int().min(0).max(10000).optional(),
+          goldFiber: z.number().int().min(0).max(10000).optional(),
           stops: z
             .array(
               z.object({

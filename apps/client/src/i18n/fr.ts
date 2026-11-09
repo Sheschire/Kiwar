@@ -992,6 +992,8 @@ export const fr: Dict = {
     unknownDrupelet: 'Cette drupéole n’existe pas.',
     tooManyStops: 'Deux drupéoles au plus par visite, une seule pour un pillage.',
     stopsApart: 'Les deux drupéoles doivent se toucher.',
+    galleryOutOfReach:
+      'Cette galerie est hors d’atteinte : on part de la peau, ou d’une galerie prise, ou de notre comptoir.',
     clanHostile: 'Ce clan nous est hostile : il ne commerce plus avec nous.',
     notFriendly: 'Un comptoir ne se pose que chez un clan ami, ou sur une drupéole prise.',
     ownPost: 'Notre comptoir est là : on ne pille pas chez soi.',
@@ -2259,6 +2261,9 @@ export const fr: Dict = {
       beetle: 'Coléoptère',
       beetleGuard: 'Coléoptère gardien',
       byturus: 'Byturus volant',
+      worm: 'Ver',
+      wormGuard: 'Ver gardien',
+      codlingMoth: 'Carpocapse',
       queen: 'La reine des furets',
     },
     weapons: {

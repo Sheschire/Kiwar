@@ -206,3 +206,33 @@ export function yardColony(level = 1, seed = 'orbit') {
   if (level >= 3) s.buildings[0]!.level = 14;
   return { map, s };
 }
+
+/** A colony at the stars with the wormholes and a launchpad of level 9, eight seasoned kiwis. */
+export function orchardColony(seed = 'orchard') {
+  const { map, s } = starsColony(seed);
+  s.buildings[0]!.level = 14;
+  s.research.done = [...s.research.done, 'starSails', 'wormholes'];
+  const at = siteFor(s, map, 'launchpad', findTile(map, 'flesh', 10));
+  s.buildings.push({
+    id: 'bpad' as BuildingId,
+    type: 'launchpad',
+    q: at.q,
+    r: at.r,
+    rot: at.rot,
+    level: 14,
+    richness: 1,
+    builtAt: T0,
+  });
+  const crew: VillagerId[] = [];
+  for (let i = 0; i < 8; i++) {
+    const v = kiwi(`ok${i}`);
+    v.level = 25;
+    for (const k of Object.keys(v.stats) as (keyof typeof v.stats)[]) v.stats[k] = 12;
+    v.classId = i % 2 ? 'champion' : 'archmage';
+    s.villagers.push(v);
+    crew.push(v.id);
+  }
+  s.automation.meteor = false;
+  s.automation.stardust = false;
+  return { map, s, crew };
+}

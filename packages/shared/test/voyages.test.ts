@@ -21,7 +21,7 @@ import {
   type VillagerId,
   type VoyagePlan,
 } from '../src';
-import { kiwi, siteFor, starsColony, T0, findTile } from './helpers';
+import { orchardColony, T0 } from './helpers';
 import {
   AGE_OBJECTIVES,
   featsOf,
@@ -32,36 +32,6 @@ import {
 } from '../src';
 
 const HOUR_MS = 3_600_000;
-
-/** A colony at the stars with the wormholes and a launchpad of level 9, eight seasoned kiwis. */
-function orchardColony(seed = 'orchard') {
-  const { map, s } = starsColony(seed);
-  s.buildings[0]!.level = 14;
-  s.research.done = [...s.research.done, 'starSails', 'wormholes'];
-  const at = siteFor(s, map, 'launchpad', findTile(map, 'flesh', 10));
-  s.buildings.push({
-    id: 'bpad' as BuildingId,
-    type: 'launchpad',
-    q: at.q,
-    r: at.r,
-    rot: at.rot,
-    level: 14,
-    richness: 1,
-    builtAt: T0,
-  });
-  const crew: VillagerId[] = [];
-  for (let i = 0; i < 8; i++) {
-    const v = kiwi(`ok${i}`);
-    v.level = 25;
-    for (const k of Object.keys(v.stats) as (keyof typeof v.stats)[]) v.stats[k] = 12;
-    v.classId = i % 2 ? 'champion' : 'archmage';
-    s.villagers.push(v);
-    crew.push(v.id);
-  }
-  s.automation.meteor = false;
-  s.automation.stardust = false;
-  return { map, s, crew };
-}
 
 const provisions = { pulp: 400, juice: 400 };
 

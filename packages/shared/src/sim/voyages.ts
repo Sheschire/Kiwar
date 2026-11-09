@@ -5,6 +5,7 @@ import type { BattleLog } from '../battle/types';
 import { EXPEDITIONS } from '../data/expeditions';
 import { LANDING, type LandingOrders } from '../data/landing';
 import {
+  APPLE,
   FRUIT_DEFS,
   NECTAR_SCALE,
   ORCHARD,
@@ -43,7 +44,9 @@ import {
   guessGarrison,
   nectarOf,
   orchardOpen,
+  parcelInReach,
   parcelNow,
+  rescaleSeen,
   pillageStanding,
   regrowth,
   sellTo,
@@ -52,6 +55,7 @@ import {
   type FruitMap,
   type Parcel,
 } from './orchard';
+import { appleStage, type AppleRipeness } from './apple';
 import {
   foundPost,
   postCost,
@@ -166,6 +170,8 @@ export function voyageLock(state: GameState, plan: VoyagePlan): CommandError | n
   const ds = stops.map((id) => map.byId.get(id));
   if (ds.some((d) => !d) || new Set(stops).size !== stops.length) return 'unknownDrupelet';
   if (ds.length === 2 && !ds[0]!.links.includes(ds[1]!.id)) return 'stopsApart';
+  // Chantier 55: the apple's galleries open from the skin, or next to what we hold.
+  if (ds.some((d) => !parcelInReach(state, d!))) return 'galleryOutOfReach';
   const post = postOf(state, fruit);
   const now = state.now;
   if (plan.mission === 'pillage') {
@@ -253,6 +259,8 @@ export interface PillageForecast {
   /** The clan's drupelets next to it that may send help (seen or estimated). */
   help: { drupelet: string; units: AlienUnit[] }[];
   nectar: number;
+  /** Chantier 55: cider an overripe apple's gallery holds (0 elsewhere). */
+  cider: number;
   odds: Odds;
   expectedDead: number;
   expectedHurt: number;
@@ -275,6 +283,8 @@ export interface VoyageForecast {
   /** Nectar waiting in the post's store (brought home if the ship calls there). */
   store: number;
   pillage: PillageForecast | null;
+  /** Chantier 55: the apple's stage when the ship arrives (null elsewhere). */
+  ripeness: AppleRipeness | null;
 }
 
 /** Everything the voyage screen shows (public data only); the same maths drive the voyage. */
@@ -292,7 +302,8 @@ export function voyageForecast(state: GameState, plan: VoyagePlan): VoyageForeca
   const weight =
     crewWeight(crew) +
     (plan.provisions.pulp + plan.provisions.juice + goodsCount) * EXPEDITIONS.resourceWeight;
-  const now = state.now;
+  // Rates and strengths as they will be when the ship arrives (the apple ripens meanwhile).
+  const now = state.now + travelMs;
   const left = { ...goods };
   const stops: StopForecast[] = [];
   if (plan.mission === 'visit')
@@ -335,8 +346,16 @@ export function voyageForecast(state: GameState, plan: VoyagePlan): VoyageForeca
     store: calls && post ? postStore(post) : 0,
     pillage:
       plan.mission === 'pillage' && plan.stops[0]
-        ? pillageForecast(state, plan.stops[0], crew, plan.orders ?? LANDING.defaultOrders, fed)
+        ? pillageForecast(
+            state,
+            plan.stops[0],
+            crew,
+            plan.orders ?? LANDING.defaultOrders,
+            fed,
+            now,
+          )
         : null,
+    ripeness: fruit === 'apple' ? appleStage(state.orchard.seed, now) : null,
   };
 }
 
@@ -346,8 +365,8 @@ export function giftStanding(amount: number): number {
 }
 
 /** The public estimate of a parcel's garrison (its ring, regrowth after our pillage). */
-function guessUnits(state: GameState, d: Parcel, k: number): AlienUnit[] {
-  return guessGarrison(state, d, k, state.now);
+function guessUnits(state: GameState, d: Parcel, k: number, at: TimeMs): AlienUnit[] {
+  return guessGarrison(state, d, k, at);
 }
 
 const trialCache = new Map<string, { outcome: LandingOutcome; dead: number }>();
@@ -364,6 +383,7 @@ export function pillageForecast(
   crew: readonly Villager[],
   orders: LandingOrders,
   fed = 1,
+  at: TimeMs = state.now,
 ): PillageForecast | null {
   const fruit = fruitOfId(drupeletId);
   if (!fruit) return null;
@@ -373,30 +393,38 @@ export function pillageForecast(
   const R = FRUIT_DEFS[fruit];
   const view = state.orchard.views[drupeletId] ?? null;
   const spread = R.powerSpread;
+  // What we saw, as strong as it will be on arrival (the apple's worms change with ripeness).
+  const seenNow = (v: DrupeletView) => rescaleSeen(state, fruit, v.units, v.at, at);
   const armies: AlienUnit[][] = view
-    ? [view.units, view.units, view.units]
+    ? [seenNow(view), seenNow(view), seenNow(view)]
     : [
-        guessUnits(state, d, 1 - spread),
-        guessUnits(state, d, 1),
-        guessUnits(state, d, (1 + spread) * R.nestPower),
+        guessUnits(state, d, 1 - spread, at),
+        guessUnits(state, d, 1, at),
+        guessUnits(state, d, (1 + spread) * R.nestPower, at),
       ];
   const helpers = d.links.map((id) => map.byId.get(id)!).filter((x) => x.clan === d.clan);
   const helpOf = (i: number) =>
     helpers.map((h) => {
       const seen = state.orchard.views[h.id];
       return seen
-        ? seen.units
-        : guessUnits(state, h, i === 2 ? (1 + spread) * R.nestPower : i === 0 ? 1 - spread : 1);
+        ? seenNow(seen)
+        : guessUnits(state, h, i === 2 ? (1 + spread) * R.nestPower : i === 0 ? 1 - spread : 1, at);
     });
-  const nectar = view
-    ? view.nectar
-    : Math.round(R.rings.nectar[d.ring]! * regrowth(state, d.id, state.now));
+  const grown = regrowth(state, d.id, state.now);
+  const st = fruit === 'apple' ? APPLE.stages[appleStage(state.orchard.seed, at).stage] : null;
+  const nectar = st
+    ? Math.round(R.rings.nectar[d.ring]! * grown * st.rich)
+    : view
+      ? view.nectar
+      : Math.round(R.rings.nectar[d.ring]! * grown);
+  const cider = st ? Math.round(APPLE.cider[d.ring]! * grown * st.cider) : 0;
   const base = {
     knowledge: (view ? 'seen' : 'unknown') as 'seen' | 'unknown',
     view,
     units: armies[1]!,
     help: helpers.map((h, i) => ({ drupelet: h.id, units: helpOf(1)[i]! })),
     nectar,
+    cider,
   };
   if (crew.length === 0)
     return { ...base, odds: 'unknown', expectedDead: 0, expectedHurt: 0, trials: [] };
@@ -510,6 +538,7 @@ export function resolveVoyage(
       units: truth.units.map((u) => ({ ...u })),
       nectar: truth.nectar,
       nest: truth.nest,
+      ...(truth.cider > 0 ? { cider: truth.cider } : {}),
     };
     units.push(...truth.units);
     const amount = goods[clan.wants];
@@ -636,16 +665,20 @@ function resolvePillage(
   // Whatever happens, the clan (and the clans next to it) will remember it.
   pillageStanding(state, d.clan, at);
   let nectar = 0;
+  let cider = 0;
   const view = {
     at,
     units: truth.units.map((u) => ({ ...u })),
     nectar: truth.nectar,
     nest: truth.nest,
+    ...(truth.cider > 0 ? { cider: truth.cider } : {}),
   };
   if (outcome === 'victory') {
     nectar = truth.nectar;
+    cider = truth.cider;
     state.orchard.taken[d.id] = at;
-    state.orchard.views[d.id] = { ...view, source: 'pillage', nectar: 0 };
+    const { cider: _c, ...rest } = view;
+    state.orchard.views[d.id] = { ...rest, source: 'pillage', nectar: 0 };
   } else if (outcome === 'retreat') state.orchard.views[d.id] = { ...view, source: 'retreat' };
   if (outcome !== 'defeat') recordBestiary(state, truth.units, at);
   countVisit(state, map.fruit);
@@ -662,6 +695,7 @@ function resolvePillage(
     injured: hurt,
     ...(outcome !== 'defeat' ? { seen: truth.units.map((u) => ({ ...u })) } : {}),
     ...(nectar > 0 ? { nectar } : {}),
+    ...(cider > 0 ? { cider } : {}),
   };
   if (e.crew.length === 0) {
     // Nobody to sail the ship home: it is lost, the launchpad builds a new one (a repair).

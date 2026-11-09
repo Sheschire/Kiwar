@@ -910,6 +910,8 @@ export const en = {
     unknownDrupelet: 'There is no such drupelet.',
     tooManyStops: 'Two drupelets at most per visit, only one for a pillage.',
     stopsApart: 'The two drupelets must touch.',
+    galleryOutOfReach:
+      'This gallery is out of reach: start from the skin, next to a gallery taken or to our post.',
     clanHostile: 'This clan is hostile: it no longer trades with us.',
     notFriendly: 'A trading post only stands with a friendly clan, or on a drupelet taken.',
     ownPost: 'Our trading post is there: no pillage at home.',
@@ -2158,6 +2160,9 @@ export const en = {
       beetle: 'Beetle',
       beetleGuard: 'Guard beetle',
       byturus: 'Flying byturus',
+      worm: 'Worm',
+      wormGuard: 'Guard worm',
+      codlingMoth: 'Codling moth',
       queen: 'The ferret queen',
     },
     weapons: {

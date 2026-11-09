@@ -2,7 +2,7 @@ import { dockTravel } from './orbit';
 import { returnGear } from './forge';
 import { resolveDelve } from './delves';
 import { resolveVoyage } from './voyages';
-import { addNectar } from './orchard';
+import { addGood, addNectar } from './orchard';
 import { addIron } from './iron';
 import { addCrystal, addGiantSeeds } from './crystal';
 import { woundFactor } from './mines';
@@ -724,6 +724,9 @@ export function resolveReturn(state: GameState, e: Expedition, events: GameEvent
   if (result.crystal) addCrystal(state, result.crystal);
   // Chantier 54: the red nectar of the raspberry (up to the cap).
   if (result.nectar) addNectar(state, result.nectar);
+  // Chantier 55: cider (the overripe apple) and golden fibre (the pineapple).
+  if (result.cider) addGood(state, 'cider', result.cider);
+  if (result.goldFiber) addGood(state, 'goldFiber', result.goldFiber);
   const hurt = new Set(result.injured ?? []);
   for (const v of state.villagers) {
     if (v.job.kind !== 'expedition' || v.job.expeditionId !== e.id) continue;

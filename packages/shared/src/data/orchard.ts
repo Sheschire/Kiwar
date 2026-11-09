@@ -7,7 +7,7 @@ import type { ResourceId } from './resources';
  * and the pineapple). Every number is a hypothesis, checked with the balance bot.
  */
 
-export const FRUIT_IDS = ['raspberry'] as const;
+export const FRUIT_IDS = ['raspberry', 'apple'] as const;
 export type FruitId = (typeof FRUIT_IDS)[number];
 
 /** The target id of a voyage to a fruit of the orchard (no face: the fruit's parcels). */
@@ -24,7 +24,11 @@ export const ORCHARD_TARGET = orchardTarget('raspberry');
  */
 export const FRUIT_PREFIX: Record<FruitId, { parcel: string; clan: string }> = {
   raspberry: { parcel: 'd', clan: 'c' },
+  apple: { parcel: 'g', clan: 'w' },
 };
+
+/** Names each fruit's clans draw from (`orchard.clanNames.<fruit>.n<i>` in the client). */
+export const CLAN_NAME_COUNT: Record<FruitId, number> = { raspberry: 16, apple: 8 };
 
 /** The fruit of a parcel or clan id (null: no fruit's). */
 export function fruitOfId(id: string): FruitId | null {
@@ -83,7 +87,7 @@ export const ORCHARD = {
 } as const;
 
 /** The orchard's goods: red nectar (the currency of its trade), cider and golden fibre. */
-export const ORCHARD_GOODS = ['nectar'] as const;
+export const ORCHARD_GOODS = ['nectar', 'cider', 'goldFiber'] as const;
 export type OrchardGood = (typeof ORCHARD_GOODS)[number];
 
 export const RASPBERRY = {
@@ -120,9 +124,62 @@ export const RASPBERRY = {
   travelMs: ORCHARD.travelMs,
 } as const;
 
+/** Chantier 55: the apple's stages of ripeness (a public calendar, the same for everyone). */
+export const APPLE_STAGES = ['green', 'ripe', 'overripe'] as const;
+export type AppleStage = (typeof APPLE_STAGES)[number];
+
+/**
+ * Chantier 55: the apple. A big sphere with a skin, a flesh and a core, dug by a people of worms
+ * (after the codling moth) in galleries. Its rule is ripeness: green, ripe (rich and calm), then
+ * overripe (poor, the worms angry — but the flesh ferments: the only time cider is found).
+ */
+export const APPLE = {
+  /** Galleries, and the share of them in the skin, the flesh and the core. */
+  galleries: [20, 30] as const,
+  layers: [0.45, 0.35, 0.2] as readonly number[],
+  /** Depth of each layer (radius on the unit sphere). */
+  radius: [0.9, 0.62, 0.3] as readonly number[],
+  /** A gallery's links: its nearest ones in its layer, and toward the layer above. */
+  sideLinks: 2,
+  upLinks: 1,
+  stemCap: 0.1,
+  clans: [5, 7] as const,
+  wants: ['pulp', 'fiber', 'juice', 'seeds'] as readonly ResourceId[],
+  /** By layer (skin 0, flesh 1, core 2): garrison power, level, nectar and cider stored. */
+  rings: {
+    power: [45, 70, 100] as readonly number[],
+    level: [17, 19, 21] as readonly number[],
+    nectar: [15, 25, 40] as readonly number[],
+  },
+  cider: [8, 14, 24] as readonly number[],
+  powerSpread: 0.2,
+  nectarSpread: 0.3,
+  nestChance: 0.2,
+  nestPower: 1.5,
+  mix: { worm: 0.6, wormGuard: 0.25, codlingMoth: 0.15 },
+  regrowMs: 72 * 3_600_000,
+  help: { share: 0.3, delayS: 20 },
+  travelMs: ORCHARD.travelMs,
+  /** Each stage lasts this long; the cycle starts at a public offset drawn from the seed. */
+  stageMs: { green: 48 * 3_600_000, ripe: 48 * 3_600_000, overripe: 48 * 3_600_000 } as Record<
+    AppleStage,
+    number
+  >,
+  /**
+   * By stage: the worms' strength, the richness (trade rates and nectar stored), the cider
+   * found (only overripe).
+   */
+  stages: {
+    green: { power: 1, rich: 1, cider: 0 },
+    ripe: { power: 0.7, rich: 1.3, cider: 0 },
+    overripe: { power: 1.5, rich: 0.5, cider: 1 },
+  } as Record<AppleStage, { power: number; rich: number; cider: number }>,
+} as const;
+
 /** Chantier 55: every fruit's shared rules. */
 export const FRUIT_DEFS: Record<FruitId, FruitDef> = {
   raspberry: RASPBERRY,
+  apple: APPLE,
 };
 
 /** Chantier 54: the standing of each clan with this colony (public, shown to the player). */
@@ -156,6 +213,21 @@ export const NECTAR = {
   /** Stock cap (units) by Nest level (index 0–15). */
   cap: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 150, 200, 250, 320, 400] as readonly number[],
 } as const;
+
+/** Chantier 55: cider and golden fibre, stocks of their own (raw units, cap by Nest level). */
+export const CIDER = {
+  cap: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 60, 80, 100, 130, 160, 200] as readonly number[],
+} as const;
+export const GOLD_FIBER = {
+  cap: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 40, 60, 80, 100, 130, 160] as readonly number[],
+} as const;
+
+/** Each good's cap by Nest level. */
+export const GOOD_CAPS: Record<OrchardGood, readonly number[]> = {
+  nectar: NECTAR.cap,
+  cider: CIDER.cap,
+  goldFiber: GOLD_FIBER.cap,
+};
 
 /** Raw nectar units per unit (a stall's rate is `1000 × perHour × work` raw units per ms). */
 export const NECTAR_SCALE = 1000 * 3_600_000;

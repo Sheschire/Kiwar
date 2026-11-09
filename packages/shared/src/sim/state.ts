@@ -513,6 +513,9 @@ export interface ExpeditionResult {
   lantern?: string;
   /** Chantier 54: nectar brought home (units), what each stop of a visit did, a post founded. */
   nectar?: number;
+  /** Chantier 55: cider and golden fibre brought home (units). */
+  cider?: number;
+  goldFiber?: number;
   stops?: VoyageStop[];
   postFounded?: boolean;
 }
@@ -838,6 +841,8 @@ export interface DrupeletView {
   /** Nectar stored there then (units), and whether a nest stands there. */
   nectar: number;
   nest: boolean;
+  /** Chantier 55: cider an overripe apple's gallery held then. */
+  cider?: number;
 }
 
 /** Chantier 54: a clan's standing with this colony at a time (it drifts toward 0 after). */

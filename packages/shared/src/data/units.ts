@@ -247,6 +247,10 @@ export const ENEMY_KINDS = [
   'beetle',
   'beetleGuard',
   'byturus',
+  // Chantier 55: the apple's worms (the codling moth's larvae; its moths fly).
+  'worm',
+  'wormGuard',
+  'codlingMoth',
 ] as const;
 export type EnemyKind = (typeof ENEMY_KINDS)[number];
 
@@ -424,6 +428,45 @@ export const ENEMIES: Record<EnemyKind, EnemyProfile> = {
     fightsBack: true,
     huntsKiwis: true,
   },
+  worm: {
+    body: 'grub',
+    hp: 11,
+    armor: 0.05,
+    speed: 0.6,
+    dodge: 0,
+    size: 1,
+    weapon: 'gnaw',
+    power: 1.1,
+    carry: 1,
+    fightsBack: true,
+    huntsKiwis: false,
+  },
+  wormGuard: {
+    body: 'grub',
+    hp: 34,
+    armor: 0.3,
+    speed: 0.45,
+    dodge: 0,
+    size: 2,
+    weapon: 'shellRam',
+    power: 3.2,
+    carry: 0.5,
+    fightsBack: true,
+    huntsKiwis: false,
+  },
+  codlingMoth: {
+    body: 'fly',
+    hp: 7,
+    armor: 0,
+    speed: 1.4,
+    dodge: 0.2,
+    size: 0,
+    weapon: 'sting',
+    power: 1.1,
+    carry: 0.6,
+    fightsBack: true,
+    huntsKiwis: true,
+  },
 };
 
 /** Chantier 54: the beetles of the raspberry. */
@@ -431,6 +474,13 @@ export const BEETLE_KINDS = [
   'beetle',
   'beetleGuard',
   'byturus',
+] as const satisfies readonly EnemyKind[];
+
+/** Chantier 55: the worms of the apple. */
+export const WORM_KINDS = [
+  'worm',
+  'wormGuard',
+  'codlingMoth',
 ] as const satisfies readonly EnemyKind[];
 
 /** Chantier 48: bats and fruit flies fly (only weapons that reach the air hit them). */
