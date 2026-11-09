@@ -11,8 +11,18 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
+  TorusGeometry,
   Vector3,
 } from 'three';
+
+/** Chantier 55: a gilded decoration wears a golden ring at its foot. */
+const GILD_RING = new TorusGeometry(0.42, 0.045, 6, 28);
+const GILD_GOLD = new MeshStandardMaterial({
+  color: '#f2c94c',
+  metalness: 0.8,
+  roughness: 0.3,
+  emissive: '#5a3c06',
+});
 import {
   ageOf,
   getTile,
@@ -238,6 +248,25 @@ export class BuildingsView {
     }
     this.badges.sync(state, (id) => this.anchorOf(id));
     this.syncHeaps(state);
+    this.syncGilding(state);
+  }
+
+  /** Chantier 55: the golden ring of a gilded decoration. */
+  private syncGilding(state: GameState): void {
+    let changed = false;
+    for (const b of state.buildings) {
+      const g = this.meshes.get(b.id);
+      if (!g || !!b.gilded === !!g.getObjectByName('gild')) continue;
+      if (b.gilded) {
+        const ring = new Mesh(GILD_RING, GILD_GOLD);
+        ring.name = 'gild';
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = 0.04;
+        g.add(ring);
+      } else g.remove(g.getObjectByName('gild')!);
+      changed = true;
+    }
+    if (changed) this.onChanged();
   }
 
   /** Chantier 30: the reserve heaped by each warehouse (three sizes). */

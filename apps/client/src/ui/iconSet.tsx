@@ -466,6 +466,73 @@ const GLYPHS = {
       ))}
     </>
   ),
+  // Chantier 55: cider (a mug), golden fibre (a skein), the apple and the pineapple.
+  cider: (
+    <>
+      <path
+        d="M8 9h13v15a3 3 0 01-3 3h-7a3 3 0 01-3-3z"
+        fill="#e7a93a"
+        stroke="#7a4a14"
+        stroke-width="1.4"
+        stroke-linejoin="round"
+      />
+      <path d="M8 9h13v3H8z" fill="#fff4d6" stroke="#7a4a14" stroke-width="1.2" />
+      <path
+        d="M21 13h2.5a2.5 2.5 0 012.5 2.5v2a2.5 2.5 0 01-2.5 2.5H21"
+        fill="none"
+        stroke="#7a4a14"
+        stroke-width="1.6"
+      />
+    </>
+  ),
+  goldFiber: (
+    <>
+      <ellipse cx="16" cy="17" rx="9" ry="7" fill="#f0c64a" stroke="#8a6414" stroke-width="1.4" />
+      <path
+        d="M9 14c4 3 10 3 14 0M8 18c5 3 11 3 16 0M10 22c4 2 8 2 12 0"
+        fill="none"
+        stroke="#b88a1e"
+        stroke-width="1.2"
+        stroke-linecap="round"
+      />
+      <path d="M24 11l4-4" stroke="#8a6414" stroke-width="1.4" stroke-linecap="round" />
+    </>
+  ),
+  apple: (
+    <>
+      <path
+        d="M16 10c-3-2-9-2-10 4-1 7 4 14 8 14 1 0 1.5-1 2-1s1 1 2 1c4 0 9-7 8-14-1-6-7-6-10-4z"
+        fill="#d2392b"
+        stroke="#6e1a12"
+        stroke-width="1.4"
+        stroke-linejoin="round"
+      />
+      <path d="M16 10c0-3 1-5 2-6" stroke="#5a3a1a" stroke-width="1.6" stroke-linecap="round" />
+      <path d="M18 7c3-3 6-2 7-1-2 2-5 3-7 1z" fill="#6b9a2e" stroke="#3e5e17" stroke-width="1" />
+    </>
+  ),
+  pineapple: (
+    <>
+      <path
+        d="M16 11c-5 0-8 4-8 9s3 9 8 9 8-4 8-9-3-9-8-9z"
+        fill="#e3b23c"
+        stroke="#7a5512"
+        stroke-width="1.4"
+      />
+      <path
+        d="M10 15l12 10M10 23l10-10M13 28l9-8M12 12l10 9"
+        stroke="#9a6a18"
+        stroke-width="1"
+        fill="none"
+      />
+      <path
+        d="M16 11l-4-8M16 11l0-9M16 11l4-8M16 11l-7-4M16 11l7-4"
+        stroke="#4f7f25"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
+    </>
+  ),
   giantSeed: (
     <>
       <ellipse

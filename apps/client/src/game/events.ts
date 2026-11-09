@@ -336,6 +336,12 @@ export function handleGameEvents(events: GameEvent[], renderer: GameRenderer): v
       case 'postAttackCalmed':
         pushToast('success', 'orchard.toast.attackCalmed');
         break;
+      case 'postKiwiWorn':
+        pushToast('error', 'orchard.toast.postKiwiWorn');
+        break;
+      case 'routeCut':
+        pushToast('error', 'orchard.toast.routeCut');
+        break;
       case 'postAttacked':
         pushToast(
           e.held ? 'success' : 'error',

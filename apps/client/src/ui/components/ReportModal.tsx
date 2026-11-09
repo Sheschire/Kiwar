@@ -58,6 +58,11 @@ export function ReportModal() {
               : t(`orchard.toast.${r.outcome ?? 'defeat'}`)}
           </h2>
           {r.postFounded && <p class="small bonus">{t('orchard.toast.postReady')}</p>}
+          {(r.cider || r.goldFiber) && (
+            <p class="small bonus">
+              {t('orchard.toast.visitGoods', { cider: r.cider ?? 0, fiber: r.goldFiber ?? 0 })}
+            </p>
+          )}
           {r.log && (
             <button class="btn" onClick={() => actions.watchFruit(e.id)}>
               {t('orchard.watch')}

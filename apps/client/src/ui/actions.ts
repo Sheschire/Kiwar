@@ -379,7 +379,8 @@ export const actions = {
     if (!game || !renderer) return false;
     if (uiStore.getState().visit !== null) actions.travelTo(null);
     const e = game.expeditions.find((x) => x.id === id);
-    const report = game.orchard.posts.raspberry?.reports.find((r) => r.id === id);
+    const post = Object.values(game.orchard.posts).find((p) => p.reports.some((r) => r.id === id));
+    const report = post?.reports.find((r) => r.id === id);
     const source =
       e?.mission === 'pillage' && e.result?.log && e.voyage
         ? {
@@ -389,10 +390,10 @@ export const actions = {
             ours: 1 as const,
             roster: e.roster,
           }
-        : report?.log && game.orchard.posts.raspberry
+        : report?.log && post
           ? {
               id,
-              drupelet: game.orchard.posts.raspberry.drupelet,
+              drupelet: post.drupelet,
               log: report.log,
               ours: 0 as const,
             }

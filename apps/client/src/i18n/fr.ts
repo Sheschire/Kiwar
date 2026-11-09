@@ -1005,8 +1005,8 @@ export const fr: Dict = {
     clanHostile: 'Ce clan nous est hostile : il ne commerce plus avec nous.',
     notFriendly: 'Un comptoir ne se pose que chez un clan ami, ou sur une drupéole prise.',
     ownPost: 'Notre comptoir est là : on ne pille pas chez soi.',
-    postThere: 'Nous avons déjà un comptoir sur la framboise.',
-    noPost: 'Pas de comptoir sur la framboise.',
+    postThere: 'Nous avons déjà un comptoir sur ce fruit.',
+    noPost: 'Pas de comptoir sur ce fruit.',
     postNotReady: 'Le comptoir n’est pas encore monté.',
     notAtPost: 'Le vaisseau doit faire escale au comptoir.',
     postFull: 'Plus de place au comptoir : bâtissez une hutte.',
@@ -2134,6 +2134,7 @@ export const fr: Dict = {
     hp: 'Santé ×{value}',
     armor: 'Armure +{value} %',
     speed: 'Vitesse ×{value}',
+    bromelain: 'Bromélaïne −{value} %',
   },
   gear: {
     title: 'Équipement',
@@ -2480,7 +2481,7 @@ export const fr: Dict = {
       meteor: 'Sur une météorite',
       mine: 'À la mine, en bas',
       orbit: 'En orbite, sur un kiwaï',
-      post: 'Au comptoir, sur la framboise',
+      post: 'À un comptoir, dans le Verger',
       outpost: 'Sur une tête de pont',
     },
   },
@@ -3030,10 +3031,10 @@ export const fr: Dict = {
   },
   // Chantier 56 : les ligues.
   orchard: {
-    live: 'Pillage en direct sur la framboise',
-    replay: 'Bataille de la framboise (rejouée)',
+    live: 'Pillage en direct dans le Verger',
+    replay: 'Bataille dans le Verger (rejouée)',
     watch: 'Regarder la bataille',
-    watchTitle: 'Notre vaisseau se pose sur la framboise',
+    watchTitle: 'Notre vaisseau se pose dans le Verger',
     watchHint: 'Allez-y voir la bataille en direct, ou plus tard depuis l’écran Verger.',
     holds: {
       likely: 'le comptoir tiendra sans doute',
@@ -3043,9 +3044,9 @@ export const fr: Dict = {
     },
     look: 'La voir dans le ciel',
     button: 'Verger',
-    title: 'Le Verger : la framboise',
+    title: 'Le Verger cosmique',
     intro:
-      'Au bout du trou de ver, la framboise : une grappe de drupéoles où vivent des clans de coléoptères. Commercer ou aider un clan le rend ami, piller le rend hostile, lui et ses voisins. Le même Verger pour tout l’univers, mais la réputation est la vôtre.',
+      'Au bout du trou de ver, trois planètes-fruits : la framboise, la pomme et l’ananas, chacune avec son peuple, sa règle et sa ressource. Le même Verger pour tout l’univers, mais la réputation est la vôtre.',
     needPad: 'Il faut une aire d’envol niveau {level} pour passer le trou de ver.',
     pick: 'Touchez une drupéole pour voir son clan.',
     mapLabel:
@@ -3105,7 +3106,7 @@ export const fr: Dict = {
       seen: 'Garnison vue lors d’une visite (elle a pu se reformer depuis).',
       unknown: 'Personne n’y est allé : estimation d’après son anneau, un nid au pire.',
     },
-    help: '{count} drupéole(s) du clan à côté peuvent envoyer de l’aide.',
+    help: '{count} parcelle(s) de la colonie à côté peuvent envoyer de l’aide.',
     loot: '{count} nectar à prendre si c’est gagné',
     pillageCost:
       'Gagné ou perdu, le clan deviendra hostile (−60) et ses voisins aussi (−20). Cela se voit, et s’efface en quelques semaines.',
@@ -3123,7 +3124,10 @@ export const fr: Dict = {
     pickTile: 'Touchez une case du comptoir pour y poser un module.',
     modules: {
       hut: { name: 'Hutte', desc: 'Loge deux kiwis de plus.' },
-      stall: { name: 'Étal', desc: 'Deux kiwis y récoltent du nectar dans la réserve.' },
+      stall: {
+        name: 'Étal',
+        desc: 'Deux kiwis y récoltent la ressource du fruit dans la réserve.',
+      },
       palisade: {
         name: 'Palissade',
         desc: 'Une tourelle à graines et une tourelle du ciel défendent la réserve.',
@@ -3137,22 +3141,132 @@ export const fr: Dict = {
     arrives: 'arrive dans {time}',
     awaiting: 'arrivé : en attente de nouvelles…',
     back: 'retour dans {time}',
+    fruits: { raspberry: 'Framboise', apple: 'Pomme', pineapple: 'Ananas' },
+    fruitIntro: {
+      raspberry:
+        'Une grappe de drupéoles où vivent des clans de coléoptères. Commercer ou aider un clan le rend ami, un pillage le rend hostile, et ses voisins aussi.',
+      apple:
+        'Une grosse pomme creusée par des colonies de vers. Elle mûrit sur un calendrier public : mûre, elle paie bien et ses vers sont calmes ; blette, elle paie peu et ses vers sont agressifs, mais sa chair fermente : c’est le seul moment où l’on trouve du cidre. À vous de choisir votre fenêtre.',
+      pineapple:
+        'Des écailles en spirales gardées par des fourmis tisserandes, la couronne au sommet comme parcelle royale. Sa bromélaïne digère les protéines : chaque heure là-bas use l’équipage (l’Endurance, l’actinidine d’un lac exploité et les armures de fibre d’or protègent).',
+    },
+    mapLabels: {
+      raspberry:
+        'La framboise vue d’en haut : la pointe au milieu, les épaules près de la tige au bord',
+      apple: 'La pomme en coupe : la peau dehors, la chair, le trognon au milieu',
+      pineapple: 'L’ananas déroulé : ses écailles en spirales, la couronne en haut',
+    },
+    pickParcel: 'Touchez une parcelle pour voir sa colonie.',
+    layers: {
+      apple: { r0: 'Dans la peau', r1: 'Dans la chair', r2: 'Dans le trognon' },
+      pineapple: { r0: 'À la base', r1: 'Au milieu', r2: 'Près des épaules' },
+    },
+    crown: 'La couronne : la parcelle royale (la plus forte, la plus riche en fibre d’or)',
+    clanSizeAny: '{count} parcelle(s) dans la colonie',
+    outOfReach: 'Hors d’atteinte : on part de la peau, d’une galerie prise ou de notre comptoir.',
+    crownLocked: 'La couronne s’ouvre une fois une écaille voisine prise.',
+    storedCider: '{count} cidre en réserve',
+    storedFiber: '{count} fibre d’or',
+    appleClans: {
+      n0: 'les Reinettes',
+      n1: 'les Rustiques',
+      n2: 'les Trognons',
+      n3: 'les Creuseurs',
+      n4: 'les Rosées',
+      n5: 'les Boskoop',
+      n6: 'les Galas',
+      n7: 'les Vieux Pépins',
+    },
+    pineappleClans: {
+      n0: 'les Tisserandes',
+      n1: 'les Fils de soie',
+      n2: 'les Épines',
+      n3: 'les Feuilles d’or',
+      n4: 'les Spirales',
+      n5: 'les Écailles de soleil',
+      n6: 'les Gardes de la couronne',
+      n7: 'les Fourmis d’ambre',
+      n8: 'les Nœuds',
+      n9: 'les Hautes Touffes',
+    },
+    ripeness: {
+      title: 'Maturité',
+      now: 'Maintenant : {stage}, encore {time}',
+      next: '{stage} dans {time}',
+      arrival: 'À l’arrivée : {stage}',
+      stages: { green: 'verte', ripe: 'mûre', overripe: 'blette' },
+      effects: {
+        green: 'vers ordinaires, cours ordinaires, pas de cidre',
+        ripe: 'vers calmes (×0,7), commerce riche (×1,3), pas de cidre',
+        overripe: 'vers agressifs (×1,5), commerce pauvre (×0,5), du cidre dans les galeries',
+      },
+    },
+    bromelain: 'Bromélaïne : environ {pct} % de leur santé perdue avant le combat.',
+    bromelainPost:
+      'Les kiwis laissés ici s’usent à la bromélaïne après environ {time} (il faut alors les ramener).',
+    worn: 'usé·e',
+    wornLine: '{count} kiwi(s) usé·es par la bromélaïne : un vaisseau peut les ramener.',
+    lootCider: '{count} cidre à prendre en cas de victoire',
+    lootFiber: '{count} fibre d’or à prendre en cas de victoire',
+    collectGoods: 'À ramener du comptoir : {nectar} nectar, {cider} cidre, {fiber} fibre d’or',
+    storeGoods:
+      'Réserves : {nectar}/{nectarCap} nectar · {cider}/{ciderCap} cidre · {fiber}/{fiberCap} fibre d’or',
+    gathers: {
+      nectar: 'Ses étals récoltent du nectar en ce moment.',
+      cider: 'Ses étals pressent du cidre en ce moment.',
+      goldFiber: 'Ses étals récoltent de la fibre d’or.',
+    },
+    fuelCider: 'Carburant au cidre ({count}) : plus rapide',
+    stocks:
+      'Nectar {nectar}/{nectarCap} · Cidre {cider}/{ciderCap} · Fibre d’or {fiber}/{fiberCap}',
+    ciderEvening: 'Servir une soirée de cidre ({count} cidre)',
+    ciderHint:
+      'La nuit, une fois par nuit : chaque kiwi au village s’en souvient (+{value} de moral).',
+    routes: {
+      title: 'Routes entre nos comptoirs',
+      intro:
+        'Une route relaie le nectar, le cidre et la fibre d’or : +25 % aux étals des deux comptoirs et des trajets plus courts vers eux. Son entretien se paie chaque jour ; impayée, elle se coupe (on la rouvre en payant).',
+      needPosts: 'Il faut deux comptoirs debout pour une route.',
+      pair: '{a} ↔ {b}',
+      upkeep: 'Entretien par jour :',
+      open: 'Ouvrir la route',
+      close: 'Fermer',
+      paid: 'Ouverte · payée pour {time}',
+      cut: 'Coupée : son entretien n’a pas été payé',
+      none: 'Pas encore de route',
+    },
     toast: {
-      visit: 'Visite faite sur la framboise : {nectar} nectar.',
+      postKiwiWorn: 'Un kiwi du comptoir de l’ananas est usé par la bromélaïne.',
+      routeCut: 'Une route entre nos comptoirs est coupée : son entretien n’a pas été payé.',
+      visitGoods: 'Rapporté : {cider} cidre, {fiber} fibre d’or.',
+      visit: 'Visite faite dans le Verger : {nectar} nectar.',
       refused: 'Un clan hostile a refusé de commercer.',
-      victory: 'Pillage réussi sur la framboise.',
+      victory: 'Pillage réussi dans le Verger.',
       retreat: 'Pillage repoussé : l’équipage se replie.',
-      defeat: 'Pillage perdu sur la framboise.',
-      postReady: 'Notre comptoir est monté sur la framboise.',
+      defeat: 'Pillage perdu dans le Verger.',
+      postReady: 'Notre comptoir est monté dans le Verger.',
       attackAnnounced: 'Un clan hostile attaquera notre comptoir dans {time}.',
       attackCalmed: 'Le clan s’est calmé : pas d’attaque contre le comptoir.',
       held: 'Le comptoir a tenu.',
       fell: 'Le comptoir est tombé en ruine.',
     },
   },
+  cider: {
+    name: 'Cidre',
+    tip: 'Le cidre de la pomme blette : une soirée de cidre (moral), le carburant du voilier par le trou de ver, l’entretien des routes. Plafond selon le Nid.',
+  },
+  goldFiber: {
+    name: 'Fibre d’or',
+    tip: 'La fibre d’or de l’ananas : des armures contre la bromélaïne, des décors dorés, l’entretien des routes. Plafond selon le Nid.',
+  },
+  gild: {
+    action: 'Le dorer',
+    hint: 'Dorer ce décor avec le nectar et la fibre d’or du Verger : +{beauty} de beauté, au-delà du plafond des décors (les dorures ajoutent jusqu’à +{cap}).',
+    done: 'Doré : +{beauty} de beauté pour le village.',
+  },
   nectar: {
     name: 'Nectar rouge',
-    tip: 'Le nectar rouge de la framboise : il paie le comptoir et ses modules. Plafond selon le Nid.',
+    tip: 'Le nectar rouge, la monnaie du Verger : comptoirs et modules, armes de nectar, décors dorés, entretien des routes. Plafond selon le Nid.',
   },
   orbit: {
     button: 'Orbite',

@@ -33,6 +33,9 @@ export function ItemEffects({ def }: { def: ItemDef }) {
       {def.hp && <span>{t('forge.hp', { value: f(def.hp) })}</span>}
       {!!def.armor && <span>{t('forge.armor', { value: Math.round(def.armor * 100) })}</span>}
       {def.speed && def.speed !== 1 && <span>{t('forge.speed', { value: f(def.speed) })}</span>}
+      {def.bromelain !== undefined && (
+        <span>{t('forge.bromelain', { value: Math.round((1 - def.bromelain) * 100) })}</span>
+      )}
     </span>
   );
 }
@@ -125,6 +128,20 @@ export function ForgeInfo({ game, b }: { game: GameState; b: Building }) {
                         haveCrystal={crystalOf(game)}
                         durationMs={def.workH * 3_600_000}
                       />
+                      {(def.nectar || def.goldFiber) && (
+                        <span class="small forge-orchard">
+                          {def.nectar ? (
+                            <>
+                              <Icon name="nectar" size={14} /> {def.nectar}{' '}
+                            </>
+                          ) : null}
+                          {def.goldFiber ? (
+                            <>
+                              <Icon name="goldFiber" size={14} /> {def.goldFiber}
+                            </>
+                          ) : null}
+                        </span>
+                      )}
                       <button
                         class="btn btn-small btn-primary"
                         disabled={lock !== null}

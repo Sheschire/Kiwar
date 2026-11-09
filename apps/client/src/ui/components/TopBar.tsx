@@ -55,13 +55,29 @@ import { attackAnnounced, siegeVisible } from './SiegeModal';
 import { depthsVisible } from './DepthsModal';
 import { orbitAlarm, orbitVisible } from './OrbitModal';
 import { orchardAlarm, orchardVisible } from './OrchardModal';
-import { NECTAR_SCALE, nectarCap, nectarOf } from '@kiwar/shared';
+import {
+  NECTAR_SCALE,
+  goodCap,
+  goodOf,
+  nectarCap,
+  nectarOf,
+  type OrchardGood,
+} from '@kiwar/shared';
 import { ColonySwitch } from './ColonySwitch';
 import { ClockChip, ClockTip } from './ClockChip';
 import { MoraleLine } from './NeedsWidgets';
 import { Icon } from '../iconSet';
 
-type TipId = ResourceId | 'population' | 'clock' | 'stardust' | 'iron' | 'locules' | 'nectar';
+type TipId =
+  | ResourceId
+  | 'population'
+  | 'clock'
+  | 'stardust'
+  | 'iron'
+  | 'locules'
+  | 'nectar'
+  | 'cider'
+  | 'goldFiber';
 
 export interface ChipHandlers {
   open: boolean;
@@ -188,6 +204,33 @@ function IronChip({ h }: { h: ChipHandlers }) {
   );
 }
 
+/** Chantier 55: cider and golden fibre, stocks apart (shown once some came home). */
+function GoodChip({ h, good }: { h: ChipHandlers; good: Exclude<OrchardGood, 'nectar'> }) {
+  const t = useT();
+  const amount = useUi((s) => (s.game ? goodOf(s.game, good) : 0));
+  const cap = useUi((s) => (s.game ? goodCap(s.game, good) / NECTAR_SCALE : 0));
+  return (
+    <button
+      type="button"
+      data-tip={good}
+      class={`chip chip-nectar chip-${good} ${h.open ? 'is-open' : ''}`}
+      aria-label={`${t(`${good}.name`)} ${amount} / ${cap}`}
+      aria-expanded={h.open}
+      onPointerEnter={h.onEnter}
+      onPointerLeave={h.onLeave}
+      onClick={h.onToggle}
+    >
+      <Icon name={good} size={24} />
+      <div class="chip-body">
+        <div class="chip-line">
+          <span class="chip-amount">{amount}</span>
+          <span class="chip-cap">/{cap}</span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 /** Chantier 54: red nectar, a separate stock (shown once the orchard is open). */
 function NectarChip({ h }: { h: ChipHandlers }) {
   const t = useT();
@@ -286,6 +329,17 @@ function TipContent({ id }: { id: TipId }) {
             {t('iron.perHour', { rate: formatNumber(lang, Math.round(rate * 10) / 10) })}
           </p>
         )}
+      </>
+    );
+  }
+  if (id === 'cider' || id === 'goldFiber') {
+    const cap = goodCap(game, id) / NECTAR_SCALE;
+    return (
+      <>
+        <strong class="tip-title">
+          <Icon name={id} size={18} /> {t(`${id}.name`)} {goodOf(game, id)}/{cap}
+        </strong>
+        <p>{t(`${id}.tip`)}</p>
       </>
     );
   }
@@ -504,6 +558,9 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
   );
   // Chantier 54: once the orchard is open, or nectar came home.
   const showNectar = useUi((s) => !!s.game && (s.game.nectar > 0 || orchardVisible(s.game)));
+  // Chantier 55: once some cider or golden fibre came home.
+  const showCider = useUi((s) => !!s.game && s.game.cider > 0);
+  const showFiber = useUi((s) => !!s.game && s.game.goldFiber > 0);
   // The resource bar centres in the room left of the round buttons, whatever their number.
   const headerRef = useRef<HTMLElement>(null);
   const buttonsRef = useRef<HTMLDivElement>(null);
@@ -564,6 +621,8 @@ export function TopBar({ buttons = true }: { buttons?: boolean }) {
         {showDust && <StardustChip h={handlers('stardust')} />}
         {showIron && <IronChip h={handlers('iron')} />}
         {showNectar && <NectarChip h={handlers('nectar')} />}
+        {showCider && <GoodChip h={handlers('cider')} good="cider" />}
+        {showFiber && <GoodChip h={handlers('goldFiber')} good="goldFiber" />}
         {showLocules && <LoculesChip h={handlers('locules')} />}
         <ClockChip h={handlers('clock')} />
         {tip && (

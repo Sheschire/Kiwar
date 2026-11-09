@@ -50,6 +50,8 @@ import {
   footprintOf,
   footprintTiles,
   type Building,
+  fruitOfId,
+  type FruitId,
 } from '@kiwar/shared';
 import { BuildingsView } from './buildings';
 import { KiwisView } from './kiwis';
@@ -142,7 +144,7 @@ export interface RendererCallbacks {
   /** Chantier 53: a kiwai in orbit was tapped. */
   onKiwaiTap?(kiwaiId: string): void;
   /** Chantier 54: the raspberry was tapped. */
-  onOrchardTap?(): void;
+  onOrchardTap?(fruit: FruitId): void;
   /** Chantier 59: a tile of the visited ally's living village was tapped (null: off it). */
   onAllyTileTap?(tile: { q: number; r: number } | null): void;
   /** Chantier 24: the pointer is over a far planet (null: over none), at screen x/y. */
@@ -396,8 +398,9 @@ export class GameRenderer {
         }
         // Chantier 54: the raspberry far in the sky.
         if (!tile && this.callbacks.onOrchardTap) {
-          if (this.orchard?.pick(screenRay(this.canvas, this.camera, x, y).ray)) {
-            this.callbacks.onOrchardTap();
+          const fruit = this.orchard?.pick(screenRay(this.canvas, this.camera, x, y).ray);
+          if (fruit) {
+            this.callbacks.onOrchardTap(fruit);
             return;
           }
         }
@@ -1536,8 +1539,9 @@ export class GameRenderer {
       };
       this.fruit = show;
     }
-    if (!orchard.attachField(this.fruit.group, source.drupelet, FruitShow.fit(orchard.drupeRadius)))
-      return false;
+    const fruit = fruitOfId(source.drupelet) ?? 'raspberry';
+    const fit = FruitShow.fit(orchard.parcelRadius(fruit));
+    if (!orchard.attachField(this.fruit.group, source.drupelet, fit)) return false;
     if (!this.fruit.play(state, source, live)) return false;
     if (!this.fruitHome) {
       const c = this.rig.controls;
@@ -1547,9 +1551,9 @@ export class GameRenderer {
       };
     }
     const target = this.fruit.center(new Vector3());
-    this.rig.visit(orchard.center, orchard.radius, {
+    this.rig.visit(orchard.centerOf(fruit), orchard.radiusOf(fruit), {
       target,
-      distance: this.rig.fitDistance(orchard.drupeRadius * 4),
+      distance: this.rig.fitDistance(orchard.parcelRadius(fruit) * 4),
     });
     this.battleClock = 0;
     const b = this.fruit.battle;

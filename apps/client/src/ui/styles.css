@@ -6856,6 +6856,113 @@ h3 .building-thumb {
   fill: #8b2a42;
 }
 
+/* Chantier 55: the apple cut open, the pineapple unrolled. */
+.orchard-map.is-pineapple {
+  max-width: 460px;
+}
+
+.orchard-skin.is-apple,
+.orchard-map .orchard-skin.is-apple {
+  fill: #a8352a;
+}
+
+.orchard-skin.is-pineapple {
+  fill: #b98a2c;
+  stroke: #6e4f12;
+}
+
+.orchard-flesh {
+  fill: #f3e2b0;
+  stroke: #d8c08a;
+  stroke-width: 2;
+}
+
+.orchard-core {
+  fill: #e2c98a;
+  stroke: #9a7a3e;
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+
+.orchard-map .orchard-skin.is-pineapple {
+  fill: #b98a2c;
+  stroke: #6e4f12;
+}
+
+.orchard-map.is-apple .orchard-link {
+  stroke: rgba(90, 50, 20, 0.35);
+}
+
+.orchard-map.is-apple .orchard-link.is-clan {
+  stroke: rgba(90, 50, 20, 0.7);
+}
+
+.drupelet.is-far circle:first-child {
+  opacity: 0.45;
+}
+
+.orchard-tabs {
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.orchard-goods {
+  padding: 6px 10px;
+}
+
+.ripeness-strip {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.9em;
+}
+
+.ripeness-strip li.is-now {
+  font-weight: 700;
+}
+
+.ripeness-dot {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 50%;
+  vertical-align: -0.1em;
+  margin-right: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+.orchard-route-list {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+}
+
+.orchard-route-list li {
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--edge);
+}
+
+.orchard-route-list .btn {
+  margin-left: 4px;
+}
+
+.chip-cider .chip-amount {
+  color: #9a5a10;
+}
+
+.chip-goldFiber .chip-amount {
+  color: #8a6414;
+}
+
+.gild-line svg {
+  display: inline-block;
+  vertical-align: -0.2em;
+}
+
 .orchard-link {
   stroke: rgba(255, 220, 228, 0.18);
   stroke-width: 1;
@@ -6988,6 +7095,8 @@ h3 .building-thumb {
 
 .orchard-modal p svg,
 .orchard-modal label svg,
+.orchard-modal li svg,
+.orchard-modal button svg,
 .orchard-modal h3 svg {
   display: inline-block;
   vertical-align: -0.2em;

@@ -1,7 +1,7 @@
 import { THUMB_QUERY } from './layout';
 import { createStore } from 'zustand/vanilla';
 import { useEffect, useReducer, useRef } from 'preact/hooks';
-import type { BuildingType, Face, FaceMap, GameState, StatId, Tile } from '@kiwar/shared';
+import type { BuildingType, Face, FaceMap, FruitId, GameState, StatId, Tile } from '@kiwar/shared';
 import {
   detectLang,
   persistLang,
@@ -197,6 +197,8 @@ export interface UiState {
   orbitKiwai: string | null;
   /** Chantier 54: the drupelet the Orchard screen opens on. */
   orchardDrupelet: string | null;
+  /** Chantier 55: the fruit the Orchard screen shows. */
+  orchardFruit: FruitId;
   /** Chantier 41: the landing watched on the twin (expedition id; null: none). */
   watchingLanding: string | null;
   /** Chantier 24: the card of a tapped planet ("Go there"). */
@@ -338,6 +340,7 @@ export const uiStore = createStore<UiState>(() => ({
   depthsRoom: null,
   orbitKiwai: null,
   orchardDrupelet: null,
+  orchardFruit: 'raspberry',
   watchingLanding: null,
   planetCard: null,
   planetsOpen: false,

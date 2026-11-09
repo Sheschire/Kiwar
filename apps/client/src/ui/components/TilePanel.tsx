@@ -79,6 +79,7 @@ import {
   getBuilding,
   rotationsOf,
   LEISURE,
+  isDecor,
 } from '@kiwar/shared';
 import { bedsOf, harvestOf, idleVillagers } from '../derived';
 import { NestReserves, ReserveSection } from './ReserveInfo';
@@ -105,6 +106,8 @@ import { BuildingThumb } from './BuildingThumb';
 import { LabInfo } from './LabInfo';
 import { CampInfo } from './CampInfo';
 import { ForgeInfo } from './ForgeInfo';
+import { GildLine } from './GildLine';
+import { orchardVisible } from './OrchardModal';
 import { CabaretInfo, CampfireInfo, FireworksInfo, TownHallInfo } from './TownHallInfo';
 import { siegeVisible } from './SiegeModal';
 import { TitanWorks } from './TitanWorks';
@@ -494,6 +497,7 @@ function BuildingSection({
       {LEISURE[b.type] && <CampfireInfo game={game} b={b} />}
       {b.type === 'cabaret' && <CabaretInfo game={game} b={b} />}
       {b.type === 'fireworks' && <FireworksInfo game={game} />}
+      {isDecor(b.type) && (b.gilded || orchardVisible(game)) && <GildLine game={game} b={b} />}
       {b.type === 'monument' && <AgeInfo game={game} t={t} />}
       {b.type === 'library' && (
         <>
