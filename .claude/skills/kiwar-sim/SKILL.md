@@ -246,3 +246,12 @@ Save v44: `state.orchard` (public), `state.nectar` (raw units, `NECTAR_SCALE`), 
 `pillage` (`Expedition.voyage`, command `voyage`), job `post` (treat it like `outpost`
 wherever "away" kiwis are listed), `Flows.postNectar` (the trading post's store), events of
 the post and its attacks in `advanceInPlace`.
+
+## Chantier 55 (skill `kiwar-orchard`)
+
+Save v45: `orchard.posts` (one per fruit; the old `post` became `posts.raspberry`),
+`orchard.routes`, `orchard.visited`, `state.cider`, `state.goldFiber` (raw units like the
+nectar), `job post { fruit?, wornAt? }`, `Building.gilded`, `village.ciderNight`. Events
+`postKiwiWorn`, `routeCut`; the apple's stage end is an event while its post works (its stalls
+change good); route upkeep is paid at `paidUntil` inside the post branch of `advanceInPlace`.
+Any parcel or clan id names its fruit (`fruitOfId`).

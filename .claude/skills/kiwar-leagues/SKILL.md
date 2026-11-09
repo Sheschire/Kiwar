@@ -96,3 +96,9 @@ neither write, change nor delete).
 - A forced look in solo: `renderer.setLeagueLook({ banner: { rank: 1, season: 2 }, … })`.
 - To test with the owner: healthy competition or pressure (the feeling), the points by rarity,
   the 28-day season.
+
+## Chantier 55
+
+Feats `apple`, `pineapple` (rare), `crown` (legendary: the pineapple's crown in
+`orchard.taken`), `orchardRoute` (rare: a route standing); `raspberry` now reads
+`orchard.visited` (a visit to another fruit does not count). No SQL change (a feat is a text).

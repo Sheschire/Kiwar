@@ -250,3 +250,12 @@
   rendu logiciel (images/s sur téléphone à vérifier) ; pas d'invitation en direct pour une
   attaque du comptoir (rejouable depuis l'écran Verger) ; le bot ne pille jamais. Un pillage ne
   vise qu'une drupéole (pas d'enchaînement de deux batailles).
+- Chantier 55 : la pomme et l'ananas n'ont pas de modèle propre de leurs habitant·es (vers et
+  fourmis portent les corps des Grouillants teintés) ; pas de huttes des colonies dessinées sur
+  les fruits 3D (seuls nos comptoirs) ; les écailles de l'ananas et la couronne sont simples
+  (pas d'animation, pas de niveau de détail) ; le champ d'une bataille sur la pomme est posé à
+  plat sur sa peau (pas de coupe 3D, choix du porteur) ; pas de sons propres (cidre, bromélaïne,
+  routes) ; pas d'invitation en direct pour une attaque d'un comptoir ; le bot ne pille jamais
+  (ni la couronne) et ne porte pas les armures de fibre d'or exprès contre la bromélaïne ; le
+  carburant au cidre n'existe que pour les voyages du Verger (pas pour les débarquements ni la
+  sœur) ; la dorure ne vaut que pour les décors (pas le monument).

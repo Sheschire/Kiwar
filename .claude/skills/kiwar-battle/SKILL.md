@@ -253,3 +253,13 @@ store `POST_STORE`, the palisade's seed and sky turrets, our kiwis around it), `
 Beetle kinds `beetle`, `beetleGuard` (crawler bodies), `byturus` (flier): `BEETLE_KINDS`.
 Shows: `ShowSource.kind` `'fruit'`, `render/orchard/fruitShow.ts` on a drupelet
 (`GameRenderer.playFruit`), routed first by the active `show`.
+
+## Chantier 55 (the apple and the pineapple, skill `kiwar-orchard`)
+
+`fruitSetup` takes the fruit (`FruitInput.fruit`: its help's share and delay from `FRUIT_DEFS`)
+and `harm` (shares of hit points each kiwi lost before the fight — the pineapple's bromelain,
+public and without a roll, so the forecast and the journal start from the same wounds). New
+kinds: the apple's `worm`, `wormGuard` (grub bodies), `codlingMoth` (flier) and the pineapple's
+`weaverAnt`, `antSoldier` (crawlers), `antWinged` (flier): `WORM_KINDS`, `ANT_KINDS`, tinted in
+`BEETLE_TINTS`. A show on any parcel goes through `GameRenderer.playFruit` (the fruit read from
+the parcel's id).

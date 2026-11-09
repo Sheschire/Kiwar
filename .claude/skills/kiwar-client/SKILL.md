@@ -548,3 +548,9 @@ sector } })`; a real landing in solo: dispatch the launch and `setTimeScale(2000
   phone menu entry, nectar chip), `render/orchardView.ts` (the raspberry in the sky,
   `fog: false`), `render/orchard/fruitShow.ts` (battles on a drupelet, `playFruit`,
   `actions.watchFruit`), `LandingInvite` also offers a fresh pillage.
+
+- **Chantier 55 (the apple and the pineapple, `kiwar-orchard`)**: `OrchardModal` with a tab per
+  fruit (store `orchardFruit`), `GildLine` in a decoration's sheet, `GoodChip` (cider, golden
+  fibre) in the top bar, `render/orchardView.ts` with one `FruitBody` per fruit, icons `cider`,
+  `goldFiber`, `apple`, `pineapple`. Inside the Orchard screen icons need an inline rule (the
+  `.orchard-modal li svg` / `button svg` selectors).

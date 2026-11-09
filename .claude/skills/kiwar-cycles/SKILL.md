@@ -163,3 +163,10 @@ attentive bot; above 85 only with recurring spending (speeches, suppers, cabaret
 Measured by the village probe: "built" morale = a kiwi's parts minus its memories `speech`,
 `vigil`, `cabaret`, `fireworks`. Bases 46 / 35 / 29 / 23, beauty +5, leisures +10: built 64
 (Stone), ~65 (Iron).
+
+## Chantier 55
+
+A new dated memory `cider` (+12, 12 h): the cider evening (`serveCider`, `sim/village.ts`, at
+night, once a night, `village.ciderNight`), paid with the overripe apple's cider. Gilded
+decorations (`Building.gilded`) add `GILD.beauty` each to `beautyOf`, past the decorations'
+cap, up to `GILD.cap`.

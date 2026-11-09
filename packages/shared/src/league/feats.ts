@@ -1,3 +1,4 @@
+import { crownOf, pineappleOf } from '../sim/pineapple';
 /**
  * Chantier 56: which feats a colony has passed, read from its state. Only public facts are
  * read (never `aliens` nor what `depthSeed` hides), so the client can show the same list in
@@ -54,6 +55,12 @@ function singleFeats(state: GameState): Set<FeatId> {
   if (state.orbit.kiwais.some((k) => k.readyAt <= state.now)) out.add('firstKiwai');
   // Chantier 54: the orchard (both public: visits counted, the post standing once).
   if (state.orchard.visited.includes('raspberry')) out.add('raspberry');
+  // Chantier 55: the other fruits, the pineapple's crown taken, a route standing.
+  if (state.orchard.visited.includes('apple')) out.add('apple');
+  if (state.orchard.visited.includes('pineapple')) out.add('pineapple');
+  if (state.orchard.taken[crownOf(pineappleOf(state.orchard.seed)).id] !== undefined)
+    out.add('crown');
+  if (state.orchard.routes.some((r) => !r.cut)) out.add('orchardRoute');
   if (Object.values(state.orchard.posts).some((p) => p.readyAt <= state.now))
     out.add('tradingPost');
   if (state.villagers.some((v) => v.kikiwiwi)) out.add('kikiwiwi');

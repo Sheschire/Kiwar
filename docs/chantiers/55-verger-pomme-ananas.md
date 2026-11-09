@@ -74,3 +74,33 @@ sphères, l'ananas en écailles). » (carnet, section 9)
 - La pomme et l'ananas ont chacun une règle qu'on sent en jouant : le moment du départ, l'usure.
 - Chaque ressource du Verger a ses puits, et « au plafond » < 20 %.
 - Les trois fruits ont un comptoir possible et une route.
+
+## Bilan (9 novembre 2026)
+
+**Réponses du porteur** (nouvelles questions) : le **cidre** ne se récolte que sur la pomme
+**blette** ; les batailles de la pomme se jouent sur un **champ rond** (comme la framboise),
+ses galeries en schéma 2D ; la **bromélaïne** coûte des **points de vie** ; une **route** donne
+**+25 %** aux deux comptoirs et des trajets plus courts, contre un entretien quotidien.
+
+**Fait** (commits « Chantier 55 (part …) ») :
+
+1. **Un Verger à plusieurs fruits** : une forme commune (`FruitMap`), des ids qui nomment leur
+   fruit, un comptoir par fruit, sauvegarde v45 (la framboise inchangée).
+2. **La pomme** : galeries en trois couches, colonies de vers, maturité publique (verte, mûre,
+   blette, deux jours chacune), cidre seulement blette, galeries atteintes depuis la peau.
+3. **L'ananas** : écailles en spirales, fourmis en castes, couronne royale, bromélaïne (sans
+   tirage, dans la prévision comme dans le journal), kiwis du comptoir usés et relevés.
+4. **Comptoirs et routes** : chaque comptoir récolte la ressource de son fruit (cidre blette sur
+   la pomme), routes (+25 %, trajets × 0,85, entretien, coupure).
+5. **Puits** : armes de nectar, armures de fibre d'or, soirée de cidre, carburant au cidre,
+   décors dorés.
+6. **Client** : écran Verger à onglets (pomme en coupe avec sa frise de maturité, ananas
+   déroulé), comptoirs, routes, puces, fruits dans le ciel, batailles sur leur parcelle.
+7. **Bot, hauts faits, docs** : le bot va de fruit en fruit, attend la bonne fenêtre de la
+   pomme, relève l'ananas, ouvre une route, sert le cidre, dore un décor ; hauts faits `apple`,
+   `pineapple`, `crown`, `orchardRoute`.
+
+**Écarts à la proposition** : les descentes dans la pomme ne réutilisent pas le moteur des
+Tréfonds mais le pillage de la framboise (règle d'atteinte des Tréfonds, champ rond) ; le décor
+de prestige est une **dorure** d'un décor existant (pas de nouveau bâtiment) ; le cidre comme
+carburant ne vaut que pour les voyages du Verger. Le reste de la dette est dans `DETTE.md`.

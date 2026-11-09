@@ -59,7 +59,7 @@ dans l'historique.
 | 52  | Tréfonds III : le cœur et le pédoncule              | fait    |
 | 53  | Les kiwaïs                                          | fait    |
 | 54  | Trous de ver et le Verger I : la framboise          | fait    |
-| 55  | Le Verger II : la pomme et l'ananas                 | à faire |
+| 55  | Le Verger II : la pomme et l'ananas                 | fait    |
 | 56  | Les ligues                                          | fait    |
 | 57  | Le JcJ optionnel                                    | à faire |
 | 58  | Réglages et bilan de l'acte IV                      | à faire |
@@ -134,9 +134,23 @@ poste d'amarrage), une navette qui monte et redescend les kiwis (nourris par la 
 pannes publiques annoncées (entretien, réparation sur place) et les essaims des comètes
 (bouclier, évacuation). Écran Orbite, kiwaïs dans le ciel. Sauvegarde v43. Bot : premier
 kiwaï aux jours 23,8–27,5. Skill `kiwar-orbit`.
-**Prochaine conversation** : le [chantier 55](chantiers/55-verger-pomme-ananas.md) (la pomme et
-l'ananas).
-À tester avec le porteur : les kiwaïs (le choix des kiwis de la navette, l'intérêt de chaque
+**Chantier 55 fait** : la pomme et l'ananas pendent à côté de la framboise, au même trou de
+ver. La **pomme** (galeries en peau, chair et trognon, colonies de vers) mûrit sur un
+calendrier public : mûre elle paie bien et ses vers sont calmes, blette elle paie peu et ses
+vers sont agressifs, mais c'est le seul moment du **cidre** (choix du porteur). L'**ananas**
+(écailles en spirales, fourmis tisserandes, **couronne** royale) donne la **fibre d'or**, et sa
+**bromélaïne** retire des points de vie à chaque heure là-bas (bataille commencée blessée,
+kiwis du comptoir usés à relever ; l'Endurance, l'actinidine et les armures de fibre d'or
+protègent). Un comptoir par fruit, des **routes** entre comptoirs (+25 %, trajets plus courts,
+entretien quotidien, coupées si impayées), et des puits : armes de nectar, armures de fibre
+d'or, soirées de cidre, cidre en carburant, décors dorés. Écran Verger à onglets, fruits dans
+le ciel, batailles sur leur parcelle. Sauvegarde v45, pas de SQL. Skill `kiwar-orchard`.
+**Prochaine conversation** : le [chantier 57](chantiers/57-jcj-optionnel.md) (le JcJ
+optionnel).
+À tester avec le porteur : la pomme (le plaisir de choisir sa fenêtre, deux jours par stade,
+le cidre seulement blette), l'ananas (la bromélaïne se sent-elle, 36 h avant l'usure au
+comptoir, la couronne), les routes (leur entretien, +25 %), la dorure et la soirée de cidre,
+les kiwaïs (le choix des kiwis de la navette, l'intérêt de chaque
 type — le quai vaut-il un kiwaï ?, le rythme des pannes, le prix du bouclier, leur allure dans
 le ciel), le Verger (commercer ou piller, la lisibilité de la réputation et
 sa dérive, le don qui annule une attaque, ce que rapporte un comptoir, la caméra sur une
@@ -236,8 +250,10 @@ from, opts)` (`ShowSource` : une vague ou un débarquement ; notre camp, avance,
 - **Verger** (chantier 54) : le tracé d'un fruit est public et partagé par l'univers, son contenu
   caché (`orchardSeed`, comme `depthSeed`) ; tout ce qui le lit (arrivée d'un voyage, frappe
   sur le comptoir) ne se résout que là où la vérité est tenue. Un comptoir est une petite carte
-  (`smallMap`), jamais dans `state.buildings` ; le job `post` se traite comme `outpost`. Skill
-  `kiwar-orchard`.
+  (`smallMap`), jamais dans `state.buildings` ; le job `post` se traite comme `outpost`. Depuis
+  le chantier 55, trois fruits de même forme (`FruitMap`) : l'id d'une parcelle ou d'un clan
+  nomme son fruit (`fruitOfId`), un comptoir par fruit (`orchard.posts`), le job `post` porte son
+  fruit. Skill `kiwar-orchard`.
 - **Petites cartes** (chantier 53) : un kiwaï (ou un comptoir du 54) garde ses propres choses
   sur sa petite carte (`sim/sites.ts`), jamais dans `state.buildings` ; un métier absent mais
   nourri (`orbit`, comme `outpost`) se traite partout où `outpost` l'est. Skill `kiwar-orbit`.

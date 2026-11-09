@@ -1,6 +1,6 @@
 import { delveOrder, doorOrder, tunnelDecision } from './bot/depths';
 import { keepsLaunch, orbitOrders, yardDecision } from './bot/orbit';
-import { orchardOrders, wormholePadDecision } from './bot/orchard';
+import { orchardAttackAnnounced, orchardOrders, wormholePadDecision } from './bot/orchard';
 import { hatchLocule, loculeOrders, treeDecision } from './bot/locules';
 import {
   civAt,
@@ -182,6 +182,12 @@ export interface RunResult {
     /** Chantier 54: voyages to the raspberry, nectar, the post, its attacks lost. */
     visits?: number;
     nectar?: number;
+    /** Chantier 55: posts standing, routes open, cider and golden fibre, fruits reached. */
+    posts?: number;
+    routes?: number;
+    cider?: number;
+    goldFiber?: number;
+    fruitsVisited?: number;
     postKiwis?: number;
     postsLost?: number;
     crystalCap?: number;
@@ -338,10 +344,7 @@ function decideAll(state: GameState, map: FaceMap, play: Play): Command[] {
 
   // Chantier 54: the orchard — a gift or the kiwis home against an attack, trades, the post
   // (looked at once an hour; an announced attack is looked at every round).
-  if (
-    play.orchard &&
-    (state.now >= play.orchardAt || state.orchard.posts.raspberry?.attack?.announced)
-  ) {
+  if (play.orchard && (state.now >= play.orchardAt || orchardAttackAnnounced(state))) {
     const orders = orchardOrders(state, play.prepared);
     cmds.push(...orders);
     if (orders.length === 0) play.orchardAt = state.now + HOUR_MS;
@@ -1018,7 +1021,15 @@ export function runBot(opts: RunOptions): RunResult {
       visits: state.orchard.visits,
       nectar: Math.floor(state.nectar / NECTAR_SCALE),
       postKiwis: state.villagers.filter((v) => v.job.kind === 'post').length,
-      postsLost: state.orchard.posts.raspberry?.reports.filter((r) => !r.held).length ?? 0,
+      postsLost: Object.values(state.orchard.posts).reduce(
+        (n, p) => n + p.reports.filter((r) => !r.held).length,
+        0,
+      ),
+      posts: Object.values(state.orchard.posts).filter((p) => !p.ruined).length,
+      routes: state.orchard.routes.filter((r) => !r.cut).length,
+      cider: Math.floor(state.cider / NECTAR_SCALE),
+      goldFiber: Math.floor(state.goldFiber / NECTAR_SCALE),
+      fruitsVisited: state.orchard.visited.length,
       crystalCap: loculeMs.open > 0 ? loculeMs.crystal / loculeMs.open : 0,
       seedCap: loculeMs.open > 0 ? loculeMs.seeds / loculeMs.open : 0,
       trees: state.buildings.filter((b) => b.type === 'loculeTree').length,

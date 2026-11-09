@@ -1,9 +1,17 @@
 // Chantier 54: the orchard probe. The attentive bot plays a long run; one line at the end: the
 // days of the Age of the stars, the Great Weevil, the wormholes, the first voyage and the post,
 // voyages, nectar, kiwis at the post, attacks lost, and the share of the time since the first
-// voyage spent with the nectar at its cap.
+// voyage spent with each good of the orchard at its cap (chantier 55: the apple, the pineapple,
+// posts, routes, cider and golden fibre).
 //   pnpm --filter @kiwar/balance orchard [--seed s] [--face kiwisu] [--days 34] [--casual]
-import { hasTech, nectarCap, stardustOf, type Face, type GameState } from '@kiwar/shared';
+import {
+  goodCap,
+  hasTech,
+  stardustOf,
+  type Face,
+  type GameState,
+  type OrchardGood,
+} from '@kiwar/shared';
 import { runBot } from './bot';
 import { orchardWhy } from './bot/orchard';
 
@@ -23,7 +31,9 @@ let last = 0;
 let end: GameState | null = null;
 let wormholesAt: number | null = null;
 let openMs = 0;
-let cappedMs = 0;
+const cappedMs: Record<OrchardGood, number> = { nectar: 0, cider: 0, goldFiber: 0 };
+/** Chantier 55: the first visit to each fruit, and the time each good spent at its cap. */
+const firstVisit: Record<string, number> = {};
 const result = runBot({
   seed,
   face,
@@ -36,9 +46,11 @@ const result = runBot({
     end = state;
     if (wormholesAt === null && hasTech(state, 'wormholes'))
       wormholesAt = state.now - state.createdAt;
+    for (const f of state.orchard.visited) firstVisit[f] ??= state.now - state.createdAt;
     if (state.orchard.visits === 0) return;
     openMs += dt;
-    if (state.nectar >= nectarCap(state)) cappedMs += dt;
+    for (const g of ['nectar', 'cider', 'goldFiber'] as const)
+      if (state[g] > 0 && state[g] >= goodCap(state, g)) cappedMs[g] += dt;
   },
 });
 const day = (ms: number | null) => (ms === null ? '—' : (ms / DAY).toFixed(1));
@@ -51,8 +63,12 @@ console.log(
     `wormholes ${day(wormholesAt)}`,
     `voyage ${day(result.times.wormhole)}`,
     `post ${day(result.times.post)}`,
-    `visits ${s.visits ?? 0} nectar ${s.nectar ?? 0} at post ${s.postKiwis ?? 0} lost ${s.postsLost ?? 0}`,
-    `nectar at cap ${openMs > 0 ? Math.round((cappedMs / openMs) * 100) : 0} %`,
+    `apple ${day(firstVisit.apple ?? null)} pineapple ${day(firstVisit.pineapple ?? null)}`,
+    `visits ${s.visits ?? 0} posts ${s.posts ?? 0} routes ${s.routes ?? 0} at posts ${s.postKiwis ?? 0} lost ${s.postsLost ?? 0}`,
+    `nectar ${s.nectar ?? 0} cider ${s.cider ?? 0} fibre ${s.goldFiber ?? 0}`,
+    `at cap ${(['nectar', 'cider', 'goldFiber'] as const)
+      .map((g) => `${g} ${openMs > 0 ? Math.round((cappedMs[g] / openMs) * 100) : 0} %`)
+      .join(' ')}`,
     `${Math.round((Date.now() - t0) / 1000)} s`,
   ].join(' · '),
 );

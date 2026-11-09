@@ -3733,3 +3733,62 @@ To test with the owner: the pleasure of trading versus pillaging (is the standin
 is the drift too fast or too slow), the gift that calls off an attack, the post's worth
 (nectar per day for two kiwis away), the camera on a drupelet during a battle, the wormhole's
 place in the sky.
+
+## Chantier 55 — The cosmic orchard II: the apple and the pineapple
+
+From the chantier document's decisions and the owner's answers of 9 November 2026.
+
+### Owner's answers (new points)
+
+- **Cider only from the overripe apple** (its flesh ferments): ripe, the apple pays well and its
+  worms are calm; overripe, it pays little and its worms are angry, but that is the only time
+  cider is found. The window is a real trade-off.
+- **The apple's battles play on a round field** on its skin (the raspberry's `FruitShow`), its
+  galleries drawn in 2D on the Orchard screen; no 3D cut of the apple.
+- **Bromelain costs hit points**: every hour on the pineapple wears a crew down (a pillage starts
+  wounded; kiwis left at its post wear out and must be relieved); the actinidine of a lake
+  worked at home (chantier 50) or golden fibre armours shield it.
+- **A route** between two posts: +25 % to both posts' stalls and shorter trips to them, a daily
+  upkeep in nectar, cider and golden fibre; unpaid, the route is cut (nothing lost).
+
+### Technical choices
+
+- Every fruit has the same shape (`FruitMap`: parcels with links, held by clans) and **ids name
+  their fruit** (`d`/`c` raspberry, `g`/`w` apple, `s`/`n` pineapple): standing, views and
+  pillages keep one record each, and the raspberry's ids, streams and layout did not move
+  (hash checked when the clan growth moved to `fruitLayout.ts`).
+- One hidden seed for the three fruits (the universe's secret of chantier 54): **no SQL**.
+- Save v45: a post per fruit (`orchard.posts`, the old post became the raspberry's), routes,
+  visited fruits, cider and golden fibre stocks.
+- The apple's calendar is public and absolute (an offset drawn from the orchard's seed): every
+  member of a universe sees the same ripeness. Forecasts read the stage, rates and strengths at
+  the ship's **arrival**.
+- Bromelain has no roll: a share of hit points per hour, the same in the forecast and in the
+  journal (like a cave-in of chantier 52).
+- The prestige decoration is a **gilding** of an existing decoration (no new building type, no
+  model or sign): `gildDecor`, a golden ring at its foot.
+
+### Defaults chosen by Claude (status "default", changeable)
+
+- The three fruits open with the same wormhole (technology + launchpad 9); the apple is as far
+  as the raspberry (6 h before the launchpad's speed), the pineapple further (8 h).
+- The apple: 20–30 galleries (skin 45 %, flesh 35 %, core 20 %), 5–7 worm colonies, power 45 /
+  70 / 100, levels 17 / 19 / 21, nectar 15 / 25 / 40, cider 8 / 14 / 24 by layer; a gallery opens
+  from the skin, next to one taken or to our post. Ripeness: green, ripe, overripe, **two days
+  each**; ripe worms × 0.7 and trade × 1.3, overripe worms × 1.5, trade × 0.5, cider × 1.
+- The pineapple: 100–200 scales, each touching its 5 nearest, 6–9 ant colonies, power 40 / 60
+  / 85, golden fibre 4 / 7 / 11 by ring; the crown × 2.5 power, × 3 golden fibre, reached from a
+  scale next to it. Bromelain: 6 % of hit points an hour, 3 h before a pillage's fight (18 %),
+  25 % always kept; Endurance above 5 shields 3 % a point (up to 40 %), a worked actinidine lake
+  halves it, a golden fibre armour halves it again; a kiwi at its post wears out after 36 h /
+  shield, then neither works nor fights and comes home wounded.
+- Posts: the apple's stalls gather nectar × the ripeness's richness, or cider 0.4/h a kiwi while
+  overripe; the pineapple's golden fibre 0.25/h a kiwi; stores 60 nectar, 40 cider, 30 golden
+  fibre.
+- Routes: +25 %, trips × 0.85, upkeep 6 a day of each end's good, paid a day ahead.
+- Caps by Nest 10–15: cider 60 → 200, golden fibre 40 → 160.
+- Sinks: nectar weapons (×1.9, pierce 0.25, 15 nectar), golden fibre armours (6 / 10, half the
+  bromelain), a cider evening (8 cider, +12 morale for 12 h, once a night), cider fuel (6 cider
+  instead of stardust), gilding (30 nectar + 12 golden fibre, +2 beauty past the decorations'
+  cap, up to +6).
+- Feats `apple`, `pineapple` (rare), `crown` (legendary), `orchardRoute` (rare).

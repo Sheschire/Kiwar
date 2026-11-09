@@ -25686,6 +25686,11 @@ var FEAT_IDS = [
   // Chantier 54: the raspberry reached, our first trading post.
   "raspberry",
   "tradingPost",
+  // Chantier 55: the apple and the pineapple reached, the crown taken, a route open.
+  "apple",
+  "pineapple",
+  "crown",
+  "orchardRoute",
   "kikiwiwi",
   "starEgg",
   "masterClass",
@@ -25715,6 +25720,10 @@ var FEATS = {
   firstKiwai: { id: "firstKiwai", group: "ages", rarity: "rare" },
   raspberry: { id: "raspberry", group: "ages", rarity: "rare" },
   tradingPost: { id: "tradingPost", group: "ages", rarity: "legendary" },
+  apple: { id: "apple", group: "ages", rarity: "rare" },
+  pineapple: { id: "pineapple", group: "ages", rarity: "rare" },
+  crown: { id: "crown", group: "conquest", rarity: "legendary" },
+  orchardRoute: { id: "orchardRoute", group: "ages", rarity: "rare" },
   kikiwiwi: { id: "kikiwiwi", group: "village", rarity: "rare" },
   starEgg: { id: "starEgg", group: "village", rarity: "rare" },
   masterClass: { id: "masterClass", group: "village", rarity: "notable" },
@@ -25822,6 +25831,11 @@ function singleFeats(state) {
   if (state.depths.weevil?.fellAt !== void 0) out.add("weevil");
   if (state.orbit.kiwais.some((k) => k.readyAt <= state.now)) out.add("firstKiwai");
   if (state.orchard.visited.includes("raspberry")) out.add("raspberry");
+  if (state.orchard.visited.includes("apple")) out.add("apple");
+  if (state.orchard.visited.includes("pineapple")) out.add("pineapple");
+  if (state.orchard.taken[crownOf(pineappleOf(state.orchard.seed)).id] !== void 0)
+    out.add("crown");
+  if (state.orchard.routes.some((r) => !r.cut)) out.add("orchardRoute");
   if (Object.values(state.orchard.posts).some((p) => p.readyAt <= state.now))
     out.add("tradingPost");
   if (state.villagers.some((v) => v.kikiwiwi)) out.add("kikiwiwi");

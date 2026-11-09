@@ -131,3 +131,12 @@ back); the aliens gain it (impact of chantier 39). Gear is part of the crew's st
 - Bot: `bot/locules.ts` (`loculeOrders`: ammunition on, then lenses keeping two strikes;
   `treeDecision`; `hatchLocule` when the seeds are at the cap); `TECH_ORDER` ends with
   `enzymes`, `glass`, `crystalCut` (they wait for their crystal).
+
+## Chantier 55 (the orchard's tiers)
+
+Two more tiers in `GEAR_TIERS`: `nectar` (weapons only: ×1.9, pierce 0.25, 15 nectar + 4 iron)
+and `gold` (armours only: golden fibre 6 / 10, `ItemDef.bromelain` 0.5 — the share of the
+pineapple's bromelain let through), both opened by the technology Wormholes and built by
+`orchardItem`. `ItemDef.nectar / goldFiber`, `ForgeOrder.nectar / goldFiber` are paid and
+refunded like the crystal (`goodOf`, `payGood`, `addGood`); `tierIndex` puts them above crystal,
+so the automatic gear prefers them. The client colours them in `kiwiRig.ts` (`TIER_METAL`…).

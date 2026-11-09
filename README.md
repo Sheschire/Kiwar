@@ -10,6 +10,18 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 55** — **le Verger II : la pomme et l'ananas**. Deux nouvelles planètes-fruits
+> pendent à côté de la framboise, chacune avec sa règle. La **pomme**, creusée de galeries par
+> des colonies de **vers**, mûrit sur un calendrier public : **mûre**, elle paie bien et ses vers
+> sont calmes ; **blette**, elle paie peu et ses vers sont agressifs, mais c'est le seul moment
+> où l'on trouve du **cidre**. On choisit sa fenêtre. L'**ananas**, des écailles en spirales
+> gardées par des **fourmis tisserandes** sous sa **couronne** royale, est riche en **fibre
+> d'or**, mais sa **bromélaïne** use l'équipage à chaque heure passée là-bas (l'Endurance,
+> l'actinidine d'un lac et les armures de fibre d'or protègent). Un **comptoir par fruit**, des
+> **routes** entre comptoirs (+25 % de récolte, trajets plus courts, un entretien quotidien), et
+> des puits pour tout cela : armes de nectar, armures de fibre d'or, **soirées de cidre**, cidre
+> comme carburant du voilier, **décors dorés**.
+
 > **Chantier 54** — **les trous de ver et le Verger : la framboise**. À l'Âge des étoiles, la
 > recherche **Trous de ver** (bien plus longue tant que la Liane-Mère n'est pas trouvée) et une
 > aire d'envol niveau 9 ouvrent le **Verger cosmique** : la **framboise** pend haut dans le

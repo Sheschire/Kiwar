@@ -43,6 +43,11 @@ export const FEAT_IDS = [
   // Chantier 54: the raspberry reached, our first trading post.
   'raspberry',
   'tradingPost',
+  // Chantier 55: the apple and the pineapple reached, the crown taken, a route open.
+  'apple',
+  'pineapple',
+  'crown',
+  'orchardRoute',
   'kikiwiwi',
   'starEgg',
   'masterClass',
@@ -83,6 +88,10 @@ export const FEATS: Record<FeatId, FeatDef> = {
   firstKiwai: { id: 'firstKiwai', group: 'ages', rarity: 'rare' },
   raspberry: { id: 'raspberry', group: 'ages', rarity: 'rare' },
   tradingPost: { id: 'tradingPost', group: 'ages', rarity: 'legendary' },
+  apple: { id: 'apple', group: 'ages', rarity: 'rare' },
+  pineapple: { id: 'pineapple', group: 'ages', rarity: 'rare' },
+  crown: { id: 'crown', group: 'conquest', rarity: 'legendary' },
+  orchardRoute: { id: 'orchardRoute', group: 'ages', rarity: 'rare' },
   kikiwiwi: { id: 'kikiwiwi', group: 'village', rarity: 'rare' },
   starEgg: { id: 'starEgg', group: 'village', rarity: 'rare' },
   masterClass: { id: 'masterClass', group: 'village', rarity: 'notable' },
