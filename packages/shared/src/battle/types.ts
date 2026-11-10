@@ -128,6 +128,8 @@ export interface BattleSetup {
   clearEnds?: boolean;
   /** Chantier 42: the home side's leader (the queen): when it falls, the others run away. */
   leader?: string;
+  /** Chantier 57: list the attackers that fell (`result.lost`) without ending on a clear field. */
+  trackLost?: boolean;
 }
 
 /** What happened, read by the game (the wave) and by the reports. */

@@ -164,6 +164,7 @@ import { TITAN_WORK_IDS, type TitanWork } from '../data/titan';
 import { canReshape, terraformLeft, titanAt, titanCost } from './titan';
 import { delveLock, launchDelve, tunnelBusy } from './delves';
 import { cleanGoods, launchVoyage, voyageForecast, voyageLock, type VoyagePlan } from './voyages';
+import { launchPvp, pvpForecast, pvpLock, type PvpPlan } from './pvp';
 import {
   CIDER_EVENING,
   CIDER_FUEL,
@@ -336,6 +337,8 @@ export type Command =
   | { type: 'raiseShield'; kiwaiId: string }
   /** Chantier 54: a voyage through the wormhole to the raspberry (trade or pillage). */
   | ({ type: 'voyage' } & VoyagePlan)
+  /** Chantier 57: a landing on another player's colony (PvP universes). */
+  | ({ type: 'raidPlayer' } & PvpPlan)
   /** Chantier 54: sets a module on our trading post's map, or takes one down. */
   | { type: 'buildPostModule'; fruit?: FruitId; moduleType: PostModuleType; q: number; r: number }
   | { type: 'removePostModule'; moduleId: string }
@@ -557,6 +560,13 @@ export const COMMAND_ERRORS = [
   'postFull',
   'notEnoughNectar',
   'invalidGoods',
+  // Chantier 57: player against player.
+  'notPvp',
+  'unknownPvpTarget',
+  'pvpBeginner',
+  'pvpShielded',
+  'pvpAbsent',
+  'pvpCooldown',
 ] as const;
 export type BlessingKind = 'heal' | 'respec' | 'stat';
 
@@ -1071,6 +1081,22 @@ function execute(s: GameState, cmd: Command, ctx: CommandContext, events: GameEv
       if (cmd.fuel) payStardust(s, FUEL.stardust);
       pay(s, fee);
       launch(s, cmd, now, nextId(s, 'x'));
+      return;
+    }
+    case 'raidPlayer': {
+      // Chantier 57: the target's own protections are checked by the server (its state).
+      const lock = pvpLock(s, cmd, now);
+      if (lock) fail(lock);
+      const f = pvpForecast(s, cmd)!;
+      if (f.weight > f.cargo + 1e-9) fail('overloaded');
+      const need = {
+        pulp: cmd.provisions.pulp,
+        fiber: f.launchCost.fiber,
+        juice: cmd.provisions.juice + f.launchCost.juice,
+      };
+      if (!canAfford(s.resources, need)) fail('notEnoughResources');
+      pay(s, f.launchCost);
+      launchPvp(s, cmd, now, nextId(s, 'x'));
       return;
     }
     case 'delve': {

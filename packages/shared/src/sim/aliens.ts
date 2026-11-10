@@ -18,6 +18,7 @@ import type { TimeMs } from '../types/ids';
 import { beaconAwaited, beaconsDue } from './beacons';
 import { queenAwaited, queenDue } from './queen';
 import { postAttackAwaited, postAttacksDue } from './postAttacks';
+import { publicPvp, pvpAwaited, pvpDue } from './pvp';
 import { canAnnounceWave, civAt, civDay, newCiv, outerPower, scheduleGrowth } from './civ';
 import type {
   AlienGarrison,
@@ -105,13 +106,16 @@ export function ensureAliens(state: GameState, seed: string): boolean {
 
 /** The state as the client may see it: without the real garrisons nor the hidden seeds. */
 export function publicState(state: GameState): GameState {
-  if (!state.aliens && state.depthSeed === undefined && state.orchardSeed === undefined)
+  // Chantier 57: the crew of an attack announced to us (its units and the battle's seed).
+  const raids = state.pvp?.incoming.some((r) => r.units || r.seed) ?? false;
+  if (!state.aliens && state.depthSeed === undefined && state.orchardSeed === undefined && !raids)
     return state;
   const copy = { ...state };
   delete copy.aliens;
   delete copy.depthSeed;
   // Chantier 54: what the drupelets of the orchard hold.
   delete copy.orchardSeed;
+  if (raids) copy.pvp = publicPvp(state.pvp);
   return copy;
 }
 
@@ -138,6 +142,8 @@ export function alienEnemies(
 
 /** True when this client can resolve the arrival itself (truth held, face gone, or broken down). */
 export function canResolveArrival(state: GameState, e: Expedition): boolean {
+  // Chantier 57: only the server tells how an attack on a player ended (it holds both states).
+  if (e.mission === 'pvp') return false;
   // Chantier 48: a delve needs the depths' seed (the server online, the client solo).
   if (e.mission === 'delve') return state.depthSeed !== undefined;
   // Chantier 54: a voyage to the raspberry needs the orchard's seed.
@@ -161,7 +167,8 @@ export function awaitingServer(state: GameState, now: TimeMs): boolean {
     beaconAwaited(state, now) ||
     queenAwaited(state, now) ||
     upwellAwaited(state, now) ||
-    postAttackAwaited(state, now)
+    postAttackAwaited(state, now) ||
+    pvpAwaited(state, now)
   );
 }
 
@@ -186,6 +193,8 @@ export function hiddenDue(state: GameState, now: TimeMs): TimeMs[] {
   out.push(...upwellDue(state, now));
   // Chantier 54: an attack on our trading post (it reads the drupelets' garrisons).
   out.push(...postAttacksDue(state, now));
+  // Chantier 57: an attack of another player on us (its crew is hidden from us).
+  out.push(...pvpDue(state, now));
   return out;
 }
 

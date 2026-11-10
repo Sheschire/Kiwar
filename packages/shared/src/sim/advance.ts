@@ -78,6 +78,7 @@ import {
 import { removeVillagers } from './expeditions';
 import type { IncidentKind } from '../data/threats';
 import { nextThreatEvent, planWave, strike, threatTick } from './threats';
+import { nextPvpEvent, pvpTick } from './pvp';
 import { accrueIron, meteorIronRate, meteorRate, nextSkyEvent, planMeteor, skyTick } from './sky';
 import { obstacleAt, removeObstacle } from './obstacles';
 import { finishCanal } from './canals';
@@ -236,6 +237,8 @@ export type GameEvent =
       /** Chantier 48: an upwelling; `held`: the closed door held it back (no battle). */
       tunnel?: boolean;
       held?: boolean;
+      /** Chantier 57: another player's crew. */
+      pvp?: boolean;
     }
   /** Chantier 48: the tunnel door is fortified. */
   | { type: 'doorFortified'; at: TimeMs; level: number }
@@ -429,7 +432,10 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
     const postAt = Math.min(nextPostEvent(s), nextPostAttackEvent(s), nextRouteEvent(s));
     // Chantier 15: the automatic garrison posts its guards a little before a strike.
     const garrisonAt = autoGarrisonAt(s);
+    // Chantier 57: another player's crew lands (where its units are known: the server).
+    const pvpAt = nextPvpEvent(s);
     const nextEvent = Math.min(
+      pvpAt,
       orbitAt,
       postAt,
       garrisonAt,
@@ -502,6 +508,7 @@ export function advanceInPlace(s: GameState, now: TimeMs, events: GameEvent[]): 
       if (w?.announced && w.at === upwellAt) strike(s, w, events);
     }
     if (queenAt === nextEvent) queenTick(s, queenAt, events);
+    if (pvpAt === nextEvent) pvpTick(s, pvpAt, events);
     if (orbitAt === nextEvent) orbitTick(s, orbitAt, events);
     if (postAt === nextEvent) {
       postTick(s, postAt, events);

@@ -16,6 +16,8 @@ import {
   turretRange,
 } from '../sim/threats';
 import { faceMapOf, pathSet, walkCost } from '../sim/territory';
+import { PVP } from '../data/pvp';
+import { raidRaiders } from '../sim/pvp';
 import { footprintTiles } from '../sim/footprint';
 import { isRampart } from '../sim/selectors';
 import { seasonOf } from '../sim/calendar';
@@ -232,6 +234,7 @@ export function waveSetup(
   const tileIndex = new Map(tiles.map((t, i) => [hexKey(t), i]));
 
   // --- Buildings and what can be carried away ---------------------------------------------------
+  const raid = wave.pvp ? state.pvp.incoming.find((r) => r.id === wave.pvp) : undefined;
   const safe = protectedStock(state);
   const depots = state.buildings.filter((b) => b.type === 'nest' || b.type === 'warehouse');
   const depotStorage = depots.map((b) => levelDef(b.type, b.level)?.storage ?? 0);
@@ -253,7 +256,10 @@ export function waveSetup(
         d >= 0 && storageSum > 0
           ? (Math.max(0, state.resources[r] - safe[r]) * depotStorage[d]!) / storageSum
           : 0;
-      loot[k] = rough(THREATS.lootShare * (stock + (b.reserve?.[r] ?? 0)));
+      // Chantier 57: another player's crew takes a capped share (the reserves first).
+      loot[k] = raid
+        ? rough(PVP.loot.reserve * (b.reserve?.[r] ?? 0) + PVP.loot.stock * stock)
+        : rough(THREATS.lootShare * (stock + (b.reserve?.[r] ?? 0)));
     });
     const reserve = RESOURCE_IDS.some((r) => (b.reserve?.[r] ?? 0) > 0);
     const turret = !!levelDef(b.type, b.level)?.defense;
@@ -270,7 +276,7 @@ export function waveSetup(
   const lootTotal = buildings.reduce((sum, b) => sum + b.loot.reduce((a, x) => a + x, 0), 0);
 
   // --- Predators ----------------------------------------------------------------------------
-  const squads = wave.squads ?? waveSquads(state, threat);
+  const squads = raid ? [] : (wave.squads ?? waveSquads(state, threat));
   const gates = { ...waveGates(state, wave.id), ...wave.gates };
   const scale = squadScale(squads, threat);
   const units: BattleUnitSetup[] = [];
@@ -312,6 +318,28 @@ export function waveSetup(
     // The pack gathers at its gate until its last member is in, then charges.
     const hold = Math.max(0, j - 1) * BATTLE.enterGap + BATTLE.gather;
     for (const u of units) if (u.side === 1 && u.sector === sector) u.hold = hold;
+  }
+  // Chantier 57: another player's crew lands by its rampart and charges together.
+  if (raid) {
+    const crew = raidRaiders(raid, opts.luck);
+    const all = SECTOR_IDS.flatMap((s) => exits[s]);
+    const byGate = (exits[raid.sector].length > 0 ? exits[raid.sector] : all)
+      .map((e) => ({ e, d: hexDistance(tiles[e.i]!, raid.gate) }))
+      .sort((x, y) => x.d - y.d || x.e.i - y.e.i);
+    const pack = byGate.filter((x) => x.d <= byGate[0]!.d + BATTLE.packWidth).map((x) => x.e);
+    // The ship's hold caps what the crew carries away.
+    const carry = crew.length > 0 ? Math.min(raid.hold, BATTLE.carry * lootTotal) / crew.length : 0;
+    crew.forEach((u, j) => {
+      const at = tiles[pack[j % pack.length]!.i]!;
+      units.push({
+        ...u,
+        at: { q: at.q, r: at.r },
+        delay: j * BATTLE.enterGap,
+        sector: raid.sector,
+        carry,
+        hold: Math.max(0, crew.length - 1) * BATTLE.enterGap + BATTLE.gather,
+      });
+    });
   }
   const exitList = mouth ?? SECTOR_IDS.flatMap((s) => exits[s].map((e) => e.i));
 
@@ -426,8 +454,12 @@ export function waveSetup(
     units,
     orders: [
       { posture: state.threats.posture, retreatBelow: 0 },
-      { posture: 'bold', retreatBelow: BATTLE.retreatBelow },
+      // Chantier 57: the crew runs back to its ship once its share has fallen.
+      raid
+        ? { posture: 'bold', retreatBelow: Math.min(1, raid.retreatAt + 1e-6) }
+        : { posture: 'bold', retreatBelow: BATTLE.retreatBelow },
     ],
+    ...(raid ? { trackLost: true } : {}),
   };
 }
 
@@ -440,7 +472,11 @@ export function uncoveredGates(
   wave: PlannedWave,
 ): { sector: SectorId; side: 'ground' | 'air' }[] {
   const gates = { ...waveGates(state, wave.id), ...wave.gates };
-  const squads = wave.squads ?? waveSquads(state, { ground: wave.ground, air: wave.air });
+  // Chantier 57: another player's crew walks in by one side.
+  const raid = wave.pvp ? state.pvp.incoming.find((r) => r.id === wave.pvp) : undefined;
+  const squads: Squad[] = raid
+    ? [{ kind: 'soldier', sector: raid.sector, count: raid.crew }]
+    : (wave.squads ?? waveSquads(state, { ground: wave.ground, air: wave.air }));
   const out: { sector: SectorId; side: 'ground' | 'air' }[] = [];
   for (const sector of SECTOR_IDS)
     for (const side of ['ground', 'air'] as const) {

@@ -4565,6 +4565,39 @@ var CIDER_EVENING = { cider: 8, value: 12, ms: 12 * 36e5 };
 var CIDER_FUEL = { cider: 6 };
 var GILD = { nectar: 30, goldFiber: 12, beauty: 2, cap: 6 };
 
+// packages/shared/src/data/pvp.ts
+var MIN = 6e4;
+var HOUR2 = 60 * MIN;
+var PVP = {
+  /** The journey (and so the notice the target gets): 90 + 60 per kiwi of distance minutes. */
+  travel: { baseMs: 90 * MIN, perDistanceMs: 60 * MIN, minMs: 2 * HOUR2 },
+  /** A colony that suffered an attack (held or not) cannot be attacked again for this long. */
+  shieldMs: 24 * HOUR2,
+  /** Beginners are protected until the Stone age **and** 72 h after their colony started. */
+  beginner: { age: 1, ms: 72 * HOUR2 },
+  /** A colony nobody has played for this long cannot be attacked (absence is not punished). */
+  absentMs: 3 * 24 * HOUR2,
+  /** One attack a day from the same attacker on the same target. */
+  cooldownMs: 24 * HOUR2,
+  /**
+   * What the crew may carry away: this share of each warehouse's reserves first, then this
+   * share of the stock above the protected part (never iron, crystal, giant seeds or stardust:
+   * they are not in the storage). The ship's hold caps the whole.
+   */
+  loot: { reserve: 0.5, stock: 0.1 },
+  /** The announcement gives the crew's power as a range of ± this share around a shifted middle. */
+  powerSpread: 0.2,
+  /** Smallest crew. */
+  minCrew: 1,
+  /** The fallen of a victory come home wounded for this long (the landing's rule). */
+  victoryInjuryMs: 6 * HOUR2,
+  /** Battles kept by the defender (for the attacker's report and the replay). */
+  keepMs: 14 * 24 * HOUR2,
+  keep: 8,
+  /** The server refreshes a player's last activity at most this often (absence protection). */
+  activeStepMs: HOUR2
+};
+
 // node_modules/.pnpm/simplex-noise@4.0.3/node_modules/simplex-noise/dist/esm/simplex-noise.js
 var SQRT32 = /* @__PURE__ */ Math.sqrt(3);
 var SQRT5 = /* @__PURE__ */ Math.sqrt(5);
@@ -9250,6 +9283,7 @@ function simulateBattle(setup, seed) {
     fled: [],
     attackers: { total: attackers.length, fallen: 0, escaped: 0 },
     ...setup.clearEnds ? { lost: [], defendersLeft: 0 } : {},
+    ...setup.trackLost && !setup.clearEnds ? { lost: [] } : {},
     reached: 0,
     struck: [],
     shots: {}
@@ -11975,7 +12009,7 @@ function beaconHeld(log2) {
 var GUARD_ORDERS = { ...LANDING.defaultOrders };
 
 // packages/shared/src/sim/beacons.ts
-var HOUR2 = 36e5;
+var HOUR3 = 36e5;
 var round12 = (v) => Math.round(v * 10) / 10;
 function beaconAt(face, sector) {
   return face?.beacons.find((b) => b.sector === sector);
@@ -11994,7 +12028,7 @@ function attackable(state, t) {
 }
 function attacksFrom(state, distance) {
   const hours = Math.max(0, CIV.ageAtH[BEACONS.minCivAge] - distance * CIV.leadPerDistanceH);
-  return state.createdAt + hours * HOUR2;
+  return state.createdAt + hours * HOUR3;
 }
 function planBeaconAttacks(s) {
   for (const t of s.targets) {
@@ -12494,9 +12528,9 @@ function queenSetup(state, crew, input) {
 
 // packages/shared/src/sim/queen.ts
 var round13 = (v) => Math.round(v * 10) / 10;
-var HOUR3 = 36e5;
+var HOUR4 = 36e5;
 function queenFrom(state) {
-  return state.createdAt + SIEGE.queenFromH * HOUR3;
+  return state.createdAt + SIEGE.queenFromH * HOUR4;
 }
 function queenPending(state) {
   const id3 = twinTarget(state)?.id;
@@ -13595,7 +13629,7 @@ function tollOf(run) {
 }
 
 // packages/shared/src/sim/civ.ts
-var HOUR4 = 36e5;
+var HOUR5 = 36e5;
 var DAY_H = 24;
 var SECTORS2 = INTEL.sectors;
 var HALF = SECTORS2 / 2;
@@ -13694,7 +13728,7 @@ function civAgeOfHours(hours) {
   return age;
 }
 function civHours(g, civ, at) {
-  return Math.max(0, Math.max(0, at - g.since) / HOUR4 + civ.lead + civ.hours);
+  return Math.max(0, Math.max(0, at - g.since) / HOUR5 + civ.lead + civ.hours);
 }
 function sectorHours(g, civ, sector, at) {
   return Math.max(0, civHours(g, civ, at) + (civ.sectors[sector] ?? 0));
@@ -13919,7 +13953,7 @@ function civWave(state, at, waveId) {
   const id3 = waveCivTarget(state);
   const g = id3 ? state.aliens?.[id3] : void 0;
   if (!g) {
-    const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / (DAY_H * HOUR4)));
+    const days = Math.min(THREATS.maxDays, Math.max(0, (at - state.createdAt) / (DAY_H * HOUR5)));
     const victories = Object.values(state.victories).reduce((a, b) => a + b, 0);
     const provocation = Math.min(THREATS.maxProvocation, THREATS.perVictory * victories);
     return { factor: (1 + THREATS.perDay * days) * (1 + provocation), origin: null };
@@ -13953,7 +13987,7 @@ function sectorGrowth(g, sector, at) {
   return growthOfHours(sectorHours(g, civOf(g), sector, at));
 }
 function scheduleHours(state, distance, at) {
-  return Math.max(0, (at - state.createdAt) / HOUR4) + distance * CIV.leadPerDistanceH;
+  return Math.max(0, (at - state.createdAt) / HOUR5) + distance * CIV.leadPerDistanceH;
 }
 function scheduleGrowth(state, distance, from, to) {
   const a = growthOfHours(scheduleHours(state, distance, from));
@@ -14005,7 +14039,7 @@ function civEstimate(state, now) {
     seenAge,
     seenAt,
     likelyAge,
-    nextAgeAt: nextH === void 0 ? null : now + Math.max(0, nextH - hours) * HOUR4,
+    nextAgeAt: nextH === void 0 ? null : now + Math.max(0, nextH - hours) * HOUR5,
     waveFrom: w?.announced && w.origin !== void 0 ? w.origin : null
   };
 }
@@ -14157,6 +14191,7 @@ function waveSetup(state, wave, threat, opts) {
   for (const s of SECTOR_IDS) exits[s].sort((x, y) => x.a - y.a || x.i - y.i);
   const walkable = (k, i) => Number.isFinite(tiles[i].cost) && !covered.has(k);
   const tileIndex = new Map(tiles.map((t, i) => [hexKey(t), i]));
+  const raid = wave.pvp ? state.pvp.incoming.find((r) => r.id === wave.pvp) : void 0;
   const safe = protectedStock(state);
   const depots = state.buildings.filter((b) => b.type === "nest" || b.type === "warehouse");
   const depotStorage = depots.map((b) => levelDef(b.type, b.level)?.storage ?? 0);
@@ -14173,7 +14208,7 @@ function waveSetup(state, wave, threat, opts) {
     const loot = [0, 0, 0, 0];
     RESOURCE_IDS.forEach((r, k) => {
       const stock = d >= 0 && storageSum > 0 ? Math.max(0, state.resources[r] - safe[r]) * depotStorage[d] / storageSum : 0;
-      loot[k] = rough(THREATS.lootShare * (stock + (b.reserve?.[r] ?? 0)));
+      loot[k] = raid ? rough(PVP.loot.reserve * (b.reserve?.[r] ?? 0) + PVP.loot.stock * stock) : rough(THREATS.lootShare * (stock + (b.reserve?.[r] ?? 0)));
     });
     const reserve = RESOURCE_IDS.some((r) => (b.reserve?.[r] ?? 0) > 0);
     const turret = !!levelDef(b.type, b.level)?.defense;
@@ -14188,7 +14223,7 @@ function waveSetup(state, wave, threat, opts) {
     };
   });
   const lootTotal = buildings.reduce((sum, b) => sum + b.loot.reduce((a, x) => a + x, 0), 0);
-  const squads = wave.squads ?? waveSquads(state, threat);
+  const squads = raid ? [] : wave.squads ?? waveSquads(state, threat);
   const gates = { ...waveGates(state, wave.id), ...wave.gates };
   const scale = squadScale(squads, threat);
   const units = [];
@@ -14223,6 +14258,24 @@ function waveSetup(state, wave, threat, opts) {
     }
     const hold = Math.max(0, j - 1) * BATTLE.enterGap + BATTLE.gather;
     for (const u of units) if (u.side === 1 && u.sector === sector) u.hold = hold;
+  }
+  if (raid) {
+    const crew = raidRaiders(raid, opts.luck);
+    const all = SECTOR_IDS.flatMap((s) => exits[s]);
+    const byGate = (exits[raid.sector].length > 0 ? exits[raid.sector] : all).map((e) => ({ e, d: hexDistance(tiles[e.i], raid.gate) })).sort((x, y) => x.d - y.d || x.e.i - y.e.i);
+    const pack = byGate.filter((x) => x.d <= byGate[0].d + BATTLE.packWidth).map((x) => x.e);
+    const carry = crew.length > 0 ? Math.min(raid.hold, BATTLE.carry * lootTotal) / crew.length : 0;
+    crew.forEach((u, j) => {
+      const at = tiles[pack[j % pack.length].i];
+      units.push({
+        ...u,
+        at: { q: at.q, r: at.r },
+        delay: j * BATTLE.enterGap,
+        sector: raid.sector,
+        carry,
+        hold: Math.max(0, crew.length - 1) * BATTLE.enterGap + BATTLE.gather
+      });
+    });
   }
   const exitList = mouth ?? SECTOR_IDS.flatMap((s) => exits[s].map((e) => e.i));
   const defense = defenseOf(state, threat);
@@ -14317,13 +14370,16 @@ function waveSetup(state, wave, threat, opts) {
     units,
     orders: [
       { posture: state.threats.posture, retreatBelow: 0 },
-      { posture: "bold", retreatBelow: BATTLE.retreatBelow }
-    ]
+      // Chantier 57: the crew runs back to its ship once its share has fallen.
+      raid ? { posture: "bold", retreatBelow: Math.min(1, raid.retreatAt + 1e-6) } : { posture: "bold", retreatBelow: BATTLE.retreatBelow }
+    ],
+    ...raid ? { trackLost: true } : {}
   };
 }
 function uncoveredGates(state, wave) {
   const gates = { ...waveGates(state, wave.id), ...wave.gates };
-  const squads = wave.squads ?? waveSquads(state, { ground: wave.ground, air: wave.air });
+  const raid = wave.pvp ? state.pvp.incoming.find((r) => r.id === wave.pvp) : void 0;
+  const squads = raid ? [{ kind: "soldier", sector: raid.sector, count: raid.crew }] : wave.squads ?? waveSquads(state, { ground: wave.ground, air: wave.air });
   const out = [];
   for (const sector of SECTOR_IDS)
     for (const side of ["ground", "air"]) {
@@ -14336,6 +14392,353 @@ function uncoveredGates(state, wave) {
       if (!reached) out.push({ sector, side });
     }
   return out;
+}
+
+// packages/shared/src/sim/pvp.ts
+function pvpTravelMs(distance) {
+  const T = PVP.travel;
+  return Math.max(T.minMs, T.baseMs + T.perDistanceMs * Math.max(0, distance));
+}
+function lastActiveOf(state) {
+  return Math.max(state.pvp.lastActiveAt, state.now);
+}
+function pvpGuardOf(state, now) {
+  if (!state.pvp.attacked) {
+    const until = state.createdAt + PVP.beginner.ms;
+    if (ageOf(state) < PVP.beginner.age) return { guard: "beginner", until: Infinity };
+    if (now < until) return { guard: "beginner", until };
+  }
+  if (state.pvp.shieldUntil > now) return { guard: "shield", until: state.pvp.shieldUntil };
+  if (now - lastActiveOf(state) > PVP.absentMs) return { guard: "absent", until: Infinity };
+  return null;
+}
+var GUARD_ERRORS = {
+  beginner: "pvpBeginner",
+  shield: "pvpShielded",
+  absent: "pvpAbsent"
+};
+function validPvpOrders(o) {
+  const r = LANDING.retreat;
+  return !!o && POSTURES.includes(o.posture) && Number.isFinite(o.retreatAt) && o.retreatAt >= r.min - 1e-9 && o.retreatAt <= r.max + 1e-9;
+}
+function pvpLock(state, plan, now) {
+  if (!state.pvp.on || isSister(state)) return "notPvp";
+  if (!state.pvp.targets.some((t) => t.id === plan.targetId)) return "unknownPvpTarget";
+  const last = state.pvp.lastAttackOn[plan.targetId];
+  if (last !== void 0 && now < last + PVP.cooldownMs) return "pvpCooldown";
+  const pad = launchpadOf(state, plan.launchpadId);
+  if (!pad) return "notALaunchpad";
+  if (isLaunchpadBusy(state, pad.id)) return "launchpadBusy";
+  if (pad.damaged) return "launchpadDamaged";
+  if (!SECTOR_IDS.includes(plan.sector) || !validPvpOrders(plan.orders)) return "invalidOrders";
+  const { pulp, juice } = plan.provisions;
+  if (![pulp, juice].every((v) => Number.isFinite(v) && v >= 0)) return "invalidCount";
+  const crew = crewOf(state, plan.crew);
+  if (!crew) return "invalidCrew";
+  if (crew.length < PVP.minCrew) return "crewTooSmall";
+  if (crew.length > maxCrew(state, pad, "land")) return "crewTooLarge";
+  if (crew.filter((v) => v.kikiwiwi).length > KIKIWIWI.perShip) return "oneKikiwiwi";
+  return null;
+}
+function pvpForecast(state, plan) {
+  const pad = launchpadOf(state, plan.launchpadId);
+  const target = state.pvp.targets.find((t) => t.id === plan.targetId);
+  if (!pad || !target) return null;
+  const crew = crewOf(state, plan.crew) ?? [];
+  const travelMs = pvpTravelMs(target.distance);
+  const need = rations(state, crew, travelMs);
+  const fed = coverage(plan.provisions, need);
+  const w = EXPEDITIONS.resourceWeight;
+  const weight = crewWeight(crew) + (plan.provisions.pulp + plan.provisions.juice) * w;
+  const cargo = shipCargo(pad);
+  return {
+    travelMs,
+    needOneWay: need,
+    fed,
+    weight,
+    cargo,
+    hold: Math.max(0, Math.floor((cargo - weight) / w + 1e-9)),
+    launchCost: launchCost(state, crew, "land"),
+    power: crewPower(crewUnits(state, crew, plan.sector, fed)),
+    endsProtection: !state.pvp.attacked && pvpGuardOf(state, state.now)?.guard === "beginner"
+  };
+}
+function launchPvp(state, plan, now, id3) {
+  const pad = launchpadOf(state, plan.launchpadId);
+  const target = state.pvp.targets.find((t) => t.id === plan.targetId);
+  const crew = crewOf(state, plan.crew);
+  for (const v of crew) v.job = { kind: "expedition", expeditionId: id3 };
+  state.resources.pulp -= plan.provisions.pulp;
+  state.resources.juice -= plan.provisions.juice;
+  const travelMs = pvpTravelMs(target.distance);
+  const e = {
+    id: id3,
+    mission: "pvp",
+    targetId: target.id,
+    launchpadId: pad.id,
+    crew: crew.map((v) => v.id),
+    roster: crew.map((v) => ({
+      id: v.id,
+      name: v.name,
+      level: v.level,
+      shiny: v.shiny,
+      classId: v.classId
+    })),
+    provisions: { ...emptyResources(), pulp: plan.provisions.pulp, juice: plan.provisions.juice },
+    cargo: shipCargo(pad),
+    departedAt: now,
+    arriveAt: now + travelMs,
+    returnAt: now + 2 * travelMs,
+    status: "outbound",
+    result: null,
+    pvpSector: plan.sector,
+    orders: {
+      ...LANDING.defaultOrders,
+      posture: plan.orders.posture,
+      retreatAt: plan.orders.retreatAt
+    }
+  };
+  state.expeditions.push(e);
+  state.pvp.attacked = true;
+  state.pvp.lastAttackOn[target.id] = now;
+  return e;
+}
+function crewUnits(state, crew, sector, fed) {
+  const hunger = 0.5 + 0.5 * Math.max(0, Math.min(1, fed));
+  return crew.map((v) => {
+    const u = kiwiUnit(v, state, "guard", { q: 0, r: 0 }, sector, 1);
+    return {
+      ...u,
+      role: "raider",
+      power: 1,
+      aura: void 0,
+      weapon: { ...u.weapon, damage: u.weapon.damage * hunger }
+    };
+  });
+}
+function unitPower(u) {
+  const dps = u.weapon.damage / Math.max(0.1, u.weapon.reload);
+  return Math.sqrt(Math.max(0, dps) * Math.max(0, u.hp));
+}
+function crewPower(units) {
+  return Math.round(units.reduce((sum, u) => sum + unitPower(u), 0) * 10) / 10;
+}
+function pvpRaidOf(attacker, e, defender, opts) {
+  const members = crewMembers(attacker, e.crew);
+  const sector = e.pvpSector ?? "front";
+  const need = rations(attacker, members, e.arriveAt - e.departedAt);
+  const units = crewUnits(attacker, members, sector, coverage(e.provisions, need)).map((u) => ({
+    ...u,
+    // A unique ref per crew member (the attacker's ids could meet the target's).
+    ref: `${opts.id}:${u.ref}`
+  }));
+  const power = crewPower(units);
+  const s = PVP.powerSpread;
+  const middle = power * (1 + Math.max(-1, Math.min(1, opts.shift)) * s);
+  const w = EXPEDITIONS.resourceWeight;
+  const room = e.cargo - crewWeight(members) - (e.provisions.pulp + e.provisions.juice) * w;
+  return {
+    id: opts.id,
+    from: opts.from,
+    owner: opts.owner,
+    departedAt: e.departedAt,
+    at: e.arriveAt,
+    crew: members.length,
+    classes: members.map((v) => v.classId),
+    power: [round16(middle * (1 - s)), round16(middle * (1 + s))],
+    sector,
+    gate: waveGates(defender, opts.id)[sector],
+    retreatAt: e.orders?.retreatAt ?? LANDING.defaultOrders.retreatAt,
+    hold: Math.max(0, Math.floor(room / w + 1e-9)),
+    units,
+    seed: opts.seed
+  };
+}
+var round16 = (x) => Math.round(x * 10) / 10;
+function raidRaiders(raid, luck) {
+  if (raid.units) return raid.units.map((u) => ({ ...u }));
+  const avg = KIWI.stat.average;
+  const stats2 = Object.fromEntries(STAT_IDS.map((id3) => [id3, avg]));
+  const fake = raid.classes.map((classId, i) => ({
+    ...newKiwi({ stats: stats2, trait: null, shiny: null }),
+    id: `${raid.id}:${i}`,
+    name: "",
+    bornAt: 0,
+    job: { kind: "idle" },
+    classId
+  }));
+  const base = fake.map((v) => {
+    const u = kiwiUnit(v, emptyTechState, "guard", { q: 0, r: 0 }, raid.sector, 1);
+    return { ...u, role: "raider", power: 1, aura: void 0, name: "" };
+  });
+  const target = (raid.power[0] + raid.power[1]) / 2 * luck;
+  const have = crewPower(base);
+  const k = have > 0 ? target / have : 1;
+  return base.map((u) => ({
+    ...u,
+    hp: u.hp * k,
+    weapon: { ...u.weapon, damage: u.weapon.damage * k }
+  }));
+}
+var emptyTechState = {
+  research: { points: 0, current: null, done: [], outbox: 0 },
+  resources: emptyResources()
+};
+function raidWave(raid) {
+  return {
+    id: raid.id,
+    announceAt: raid.departedAt,
+    at: raid.at,
+    announced: true,
+    ground: Math.round((raid.power[0] + raid.power[1]) / 2 * 10) / 10,
+    air: 0,
+    gates: { [raid.sector]: { ...raid.gate } },
+    pvp: raid.id
+  };
+}
+function comingRaid(state) {
+  let best = null;
+  for (const r of state.pvp.incoming) if (!best || r.at < best.at) best = r;
+  return best;
+}
+function nextPvpEvent(state) {
+  let next = Infinity;
+  for (const r of state.pvp.incoming) if (r.units && r.at < next) next = r.at;
+  return next;
+}
+function pvpDue(state, now) {
+  return state.pvp.incoming.filter((r) => r.at <= now).map((r) => r.at);
+}
+function pvpAwaited(state, now) {
+  return state.pvp.incoming.some((r) => r.at <= now && !r.units);
+}
+function pvpTick(s, at, events) {
+  for (const raid of s.pvp.incoming.filter((r) => r.at === at && r.units)) {
+    if (s.pvp.shieldUntil > at) {
+      s.pvp.incoming = s.pvp.incoming.filter((r) => r.id !== raid.id);
+      recordDefense(s, {
+        id: raid.id,
+        from: raid.from,
+        owner: raid.owner,
+        at,
+        turnedBack: true,
+        held: true,
+        loot: emptyResources(),
+        lost: [],
+        escaped: raid.crew
+      });
+      continue;
+    }
+    strike2(s, raidWave(raid), events);
+  }
+}
+function recordDefense(s, d) {
+  const p = s.pvp;
+  p.defended = [...p.defended.filter((x) => x.id !== d.id && x.at > d.at - PVP.keepMs), d];
+  if (p.defended.length > PVP.keep) p.defended.splice(0, p.defended.length - PVP.keep);
+}
+function pvpDefenseEnd(raid, at, held, loot, log2) {
+  const prefix = `${raid.id}:`;
+  return {
+    id: raid.id,
+    from: raid.from,
+    owner: raid.owner,
+    at,
+    held,
+    loot,
+    lost: (log2.result.lost ?? []).map(
+      (ref) => ref.startsWith(prefix) ? ref.slice(prefix.length) : ref
+    ),
+    escaped: log2.result.attackers.escaped,
+    log: log2
+  };
+}
+function pvpOutcome(d) {
+  if (!d.held) return "victory";
+  return d.escaped > 0 ? "retreat" : "defeat";
+}
+function applyPvpResult(state, e, d) {
+  if (e.status !== "outbound" || e.result) return;
+  const members = crewMembers(state, e.crew);
+  const need = rations(state, members, e.arriveAt - e.departedAt);
+  const fed = coverage(e.provisions, need);
+  e.provisions.pulp -= Math.min(e.provisions.pulp, need.pulp);
+  e.provisions.juice -= Math.min(e.provisions.juice, need.juice);
+  if (!d || d.turnedBack) {
+    e.status = "returning";
+    e.result = {
+      victory: false,
+      aborted: true,
+      strength: members.length,
+      defense: 0,
+      fed: Math.round(fed * 100) / 100,
+      lostInBattle: [],
+      lostOnReturn: [],
+      loot: emptyResources()
+    };
+    return;
+  }
+  const outcome = pvpOutcome(d);
+  const crewIds = new Set(e.crew);
+  const fallen = d.lost.filter((ref) => crewIds.has(ref));
+  const dead = outcome === "victory" ? [] : fallen;
+  const hurt = outcome === "victory" ? fallen : [];
+  removeVillagers(state, dead, "battle", e.arriveAt, true);
+  e.crew = e.crew.filter((id3) => !dead.includes(id3));
+  const loot = emptyResources();
+  for (const r of RESOURCE_IDS) loot[r] = Math.max(0, Math.floor(d.loot[r]));
+  e.result = {
+    victory: outcome === "victory",
+    outcome,
+    strength: members.length,
+    defense: 0,
+    fed: Math.round(fed * 100) / 100,
+    lostInBattle: dead.map((id3) => e.roster.find((r) => r.id === id3)?.name ?? id3),
+    lostOnReturn: [],
+    loot,
+    ...d.log ? { log: d.log } : {},
+    ...hurt.length > 0 ? { injured: hurt } : {},
+    ...outcome === "defeat" ? { shipLost: true } : {}
+  };
+  if (outcome === "defeat") {
+    e.status = "done";
+    e.provisions = emptyResources();
+    const pad = state.buildings.find((b) => b.id === e.launchpadId);
+    if (pad) pad.damaged = true;
+    const done = state.expeditions.filter((x) => x.status === "done");
+    if (done.length > 5) state.expeditions = state.expeditions.filter((x) => x !== done[0]);
+  } else e.status = "returning";
+}
+function pvpWaiting(state, now) {
+  return state.expeditions.filter(
+    (e) => e.mission === "pvp" && e.status === "outbound" && !e.result && e.arriveAt <= now
+  );
+}
+function publicPvp(p) {
+  return {
+    ...p,
+    incoming: p.incoming.map(({ units: _u, seed: _s, ...r }) => r)
+  };
+}
+function forgetPvp(state) {
+  state.pvp = {
+    ...state.pvp,
+    incoming: [],
+    defended: [],
+    lastAttackOn: {},
+    targets: [],
+    on: false
+  };
+  for (const e of state.expeditions)
+    if (e.mission === "pvp" && e.status === "outbound" && !e.result) applyPvpResult(state, e, null);
+}
+function powerShift(seed) {
+  return createRng(`pvp/${seed}`).range(-1, 1);
+}
+function classCounts(classes) {
+  const m = /* @__PURE__ */ new Map();
+  for (const c of classes) m.set(c, (m.get(c) ?? 0) + 1);
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
 }
 
 // packages/shared/src/sim/threats.ts
@@ -14437,7 +14840,8 @@ function gateCoverage(gates, type, level, h, lens = false) {
   const n = reach.front + reach.left + reach.right;
   return n > 0 ? perSector((s) => reach[s] / n) : reach;
 }
-function sectorThreat(threat) {
+function sectorThreat(threat, focus) {
+  if (focus) return perSector((s) => s === focus ? { ...threat } : { ground: 0, air: 0 });
   return perSector((s) => ({
     ground: threat.ground * SECTORS.share.ground[s],
     air: threat.air * SECTORS.share.air[s]
@@ -14486,8 +14890,10 @@ function guardPower(v, state) {
 function comingWave(state) {
   const a = state.threats.next?.announced ? state.threats.next : null;
   const b = state.depths.next?.announced ? state.depths.next : null;
-  if (a && b) return b.at < a.at ? b : a;
-  return a ?? b;
+  let best = a && b ? b.at < a.at ? b : a : a ?? b;
+  const raid = comingRaid(state);
+  if (raid && (!best || raid.at < best.at)) best = raidWave(raid);
+  return best;
 }
 function defenseOf(state, threat) {
   const map = faceMapOf(state);
@@ -14525,7 +14931,8 @@ function defenseOf(state, threat) {
   for (const v of state.villagers)
     if (v.job.kind === "work" || v.job.kind === "idle")
       militia += THREATS.militia * kiwiStrength(v) * titanPower(state, v);
-  const want = sectorThreat(threat ?? { ground: 1, air: 1 });
+  const focus = threat && next?.pvp ? SECTOR_IDS.find((x) => next.gates?.[x]) ?? void 0 : void 0;
+  const want = sectorThreat(threat ?? { ground: 1, air: 1 }, focus);
   const gaps = perSector((s) => Math.max(0, want[s].ground - sectors[s].ground));
   const gapSum = gaps.front + gaps.left + gaps.right;
   const filled = Math.min(militia, gapSum);
@@ -14768,8 +15175,9 @@ function strike2(s, wave, events) {
   const at = wave.at;
   const tunnel = !!wave.tunnel;
   const draw = tunnel ? withDepthRng : withThreatRng;
-  const rolled = draw(s, (rng) => 1 + rng.range(-THREATS.luck, THREATS.luck));
-  const seed = draw(s, (rng) => `${wave.id}/${Math.floor(rng.next() * 2 ** 32)}`);
+  const raid = wave.pvp ? s.pvp.incoming.find((r) => r.id === wave.pvp) : void 0;
+  const rolled = raid ? 1 : draw(s, (rng) => 1 + rng.range(-THREATS.luck, THREATS.luck));
+  const seed = raid ? raid.seed ?? raid.id : draw(s, (rng) => `${wave.id}/${Math.floor(rng.next() * 2 ** 32)}`);
   const pass = doorPass(s, wave, rolled);
   const luck = rolled * pass;
   const door = tunnel && s.depths.door.closed ? pass > 0 ? "broken" : "held" : void 0;
@@ -14786,6 +15194,7 @@ function strike2(s, wave, events) {
   const log2 = waveBattle(s, wave, luck, seed);
   if (crystalUsed > 0) payCrystal(s, crystalUsed);
   const out = battleOutcome(s, threat, defense, sheltered, log2);
+  if (raid) out.deaths = 0;
   const shots = Object.values(log2.result.shots).reduce((a, b) => a + b, 0);
   const ammoUsed = Math.min(s.resources.seeds, shots);
   s.resources.seeds -= ammoUsed;
@@ -14806,6 +15215,7 @@ function strike2(s, wave, events) {
     pathsLost: 0,
     log: log2,
     ...tunnel ? { from: "tunnel" } : {},
+    ...raid ? { from: "pvp", by: raid.owner } : {},
     ...door ? { door } : {}
   };
   const buildings = [...s.buildings];
@@ -14869,6 +15279,15 @@ function strike2(s, wave, events) {
     );
   const guards = new Set(garrisonOf(s).map((v) => v.id));
   t.pins = Object.fromEntries(Object.entries(t.pins).filter(([id3]) => guards.has(id3)));
+  if (raid) {
+    if (out.victory) s.stats.pvpHeld++;
+    s.pvp.shieldUntil = Math.max(s.pvp.shieldUntil, at + PVP.shieldMs);
+    s.pvp.incoming = s.pvp.incoming.filter((r) => r.id !== raid.id);
+    recordDefense(s, pvpDefenseEnd(raid, at, out.victory, out.loot, log2));
+    pushReport(s, report);
+    events.push({ type: "waveStruck", at, waveId: wave.id, victory: out.victory, pvp: true });
+    return;
+  }
   if (out.victory) s.stats.wavesHeld++;
   if (tunnel) {
     s.depths.lastUpwellAt = at;
@@ -15764,7 +16183,9 @@ function advanceInPlace(s, now, events) {
     planPostAttack(s);
     const postAt = Math.min(nextPostEvent(s), nextPostAttackEvent(s), nextRouteEvent(s));
     const garrisonAt = autoGarrisonAt(s);
+    const pvpAt = nextPvpEvent(s);
     const nextEvent = Math.min(
+      pvpAt,
       orbitAt,
       postAt,
       garrisonAt,
@@ -15835,6 +16256,7 @@ function advanceInPlace(s, now, events) {
       if (w?.announced && w.at === upwellAt) strike2(s, w, events);
     }
     if (queenAt === nextEvent) queenTick(s, queenAt, events);
+    if (pvpAt === nextEvent) pvpTick(s, pvpAt, events);
     if (orbitAt === nextEvent) orbitTick(s, orbitAt, events);
     if (postAt === nextEvent) {
       postTick(s, postAt, events);
@@ -17553,7 +17975,7 @@ function isInviteCode(code) {
 }
 
 // packages/shared/src/sim/aliens.ts
-var round16 = (v) => Math.round(v * 10) / 10;
+var round17 = (v) => Math.round(v * 10) / 10;
 var round32 = (v) => Math.round(v * 1e3) / 1e3;
 var fromHeart = (q, r) => hexDistance({ q, r }, { q: 0, r: 0 });
 function sectorOf(q, r) {
@@ -17566,7 +17988,7 @@ function sectorOf(q, r) {
 function drawGarrison(target, seed, since) {
   const rng = createRng(seed);
   const def = alienDefOf(target.distance);
-  const defense = round16(def.defense * rng.range(...ALIENS.defenseSpread));
+  const defense = round17(def.defense * rng.range(...ALIENS.defenseSpread));
   const growth = round32(defense * rng.range(...ALIENS.growthPerDay));
   const loot = emptyResources();
   for (const id3 of RESOURCE_IDS)
@@ -17613,18 +18035,20 @@ function ensureAliens(state, seed) {
   return changed;
 }
 function publicState(state) {
-  if (!state.aliens && state.depthSeed === void 0 && state.orchardSeed === void 0)
+  const raids = state.pvp?.incoming.some((r) => r.units || r.seed) ?? false;
+  if (!state.aliens && state.depthSeed === void 0 && state.orchardSeed === void 0 && !raids)
     return state;
   const copy = { ...state };
   delete copy.aliens;
   delete copy.depthSeed;
   delete copy.orchardSeed;
+  if (raids) copy.pvp = publicPvp(state.pvp);
   return copy;
 }
 function alienDefense(state, targetId, at) {
   const g = state.aliens?.[targetId];
   if (!g) return null;
-  return round16(outerPower(civAt(g, at)) + g.reinforce * (state.victories[targetId] ?? 0));
+  return round17(outerPower(civAt(g, at)) + g.reinforce * (state.victories[targetId] ?? 0));
 }
 function alienEnemies(g, defense) {
   const total = Math.max(0, Math.round(defense / ALIENS.defensePerEnemy));
@@ -17632,6 +18056,7 @@ function alienEnemies(g, defense) {
   return { ferrets, bats: total - ferrets };
 }
 function canResolveArrival(state, e) {
+  if (e.mission === "pvp") return false;
   if (e.mission === "delve") return state.depthSeed !== void 0;
   if (e.mission === "visit" || e.mission === "pillage") return state.orchardSeed !== void 0;
   return !!e.broken || // Chantier 19: a settlers' ship meets no alien on a conquered face.
@@ -17639,7 +18064,7 @@ function canResolveArrival(state, e) {
   e.mission === "guard" || !!state.aliens?.[e.targetId] || !state.targets.some((t) => t.id === e.targetId);
 }
 function awaitingServer(state, now) {
-  return awaitingReport(state, now).length > 0 || waveAwaited(state, now) || beaconAwaited(state, now) || queenAwaited(state, now) || upwellAwaited(state, now) || postAttackAwaited(state, now);
+  return awaitingReport(state, now).length > 0 || waveAwaited(state, now) || beaconAwaited(state, now) || queenAwaited(state, now) || upwellAwaited(state, now) || postAttackAwaited(state, now) || pvpAwaited(state, now);
 }
 function waveAwaited(state, now) {
   const w = state.threats.next;
@@ -17653,6 +18078,7 @@ function hiddenDue(state, now) {
   out.push(...queenDue(state, now));
   out.push(...upwellDue(state, now));
   out.push(...postAttacksDue(state, now));
+  out.push(...pvpDue(state, now));
   return out;
 }
 function awaitingReport(state, now) {
@@ -17670,8 +18096,8 @@ function intelView(state, targetId, now) {
   const reinforced = alienDefOf(target.distance).reinforce * wins;
   const grow = scheduleGrowth(state, target.distance, report.at, now);
   const defense = {
-    min: round16(report.defense.min + reinforced),
-    max: round16(report.defense.max * grow + reinforced)
+    min: round17(report.defense.min + reinforced),
+    max: round17(report.defense.max * grow + reinforced)
   };
   const scale = report.defense.max > 0 ? defense.max / report.defense.max : 1;
   const widen = (r) => ({ min: r.min, max: Math.round(r.max * scale) });
@@ -17715,7 +18141,7 @@ function targetFaceParams(state, target, universe2) {
 }
 
 // packages/shared/src/sim/state.ts
-var SCHEMA_VERSION = 45;
+var SCHEMA_VERSION = 46;
 var MISSION_KINDS = [
   "land",
   "raid",
@@ -17730,7 +18156,9 @@ var MISSION_KINDS = [
   "delve",
   // Chantier 54: a voyage through the wormhole to the raspberry (trade, or a pillage).
   "visit",
-  "pillage"
+  "pillage",
+  // Chantier 57: a landing on another player's colony (PvP universes only).
+  "pvp"
 ];
 function soloTargets(face) {
   const other = face === "kiwisu" ? "kiwino" : "kiwisu";
@@ -17783,7 +18211,8 @@ function newGame(opts) {
       constructionsCompleted: 0,
       eggsHatched: 0,
       collects: 0,
-      wavesHeld: 0
+      wavesHeld: 0,
+      pvpHeld: 0
     },
     targets: opts.targets ?? soloTargets(opts.face),
     victories: {},
@@ -17816,6 +18245,7 @@ function newGame(opts) {
     automation: defaultAutomation(),
     siege: newSiege(),
     colony: newColonyLink(),
+    pvp: newPvp(),
     nextId: 1,
     rng: rng.state()
   };
@@ -17837,6 +18267,32 @@ function newGame(opts) {
   state.depthSeed = `${alienSeed}/depths`;
   state.orchardSeed = `${alienSeed}/orchard`;
   return state;
+}
+function newPvp() {
+  return {
+    on: false,
+    targets: [],
+    attacked: false,
+    shieldUntil: 0,
+    lastActiveAt: 0,
+    incoming: [],
+    defended: [],
+    lastAttackOn: {}
+  };
+}
+function clonePvp(p) {
+  return {
+    ...p,
+    targets: p.targets.map((t) => ({ ...t })),
+    incoming: p.incoming.map((r) => ({
+      ...r,
+      classes: [...r.classes],
+      power: [r.power[0], r.power[1]],
+      gate: { ...r.gate }
+    })),
+    defended: p.defended.map((d) => ({ ...d, loot: { ...d.loot }, lost: [...d.lost] })),
+    lastAttackOn: { ...p.lastAttackOn }
+  };
 }
 function newOrchard(seed) {
   return {
@@ -18136,6 +18592,7 @@ function cloneState(state) {
     depths: cloneDepths(state.depths),
     orbit: cloneOrbit(state.orbit),
     orchard: cloneOrchard(state.orchard),
+    pvp: clonePvp(state.pvp),
     rng: [...state.rng]
   };
 }
@@ -18902,7 +19359,14 @@ var COMMAND_ERRORS = [
   "notAtPost",
   "postFull",
   "notEnoughNectar",
-  "invalidGoods"
+  "invalidGoods",
+  // Chantier 57: player against player.
+  "notPvp",
+  "unknownPvpTarget",
+  "pvpBeginner",
+  "pvpShielded",
+  "pvpAbsent",
+  "pvpCooldown"
 ];
 var CommandFailure = class extends Error {
   constructor(code) {
@@ -19332,6 +19796,21 @@ function execute(s, cmd, ctx, events) {
       if (cmd.fuel) payStardust(s, FUEL.stardust);
       pay2(s, fee);
       launch(s, cmd, now, nextId(s, "x"));
+      return;
+    }
+    case "raidPlayer": {
+      const lock = pvpLock(s, cmd, now);
+      if (lock) fail(lock);
+      const f = pvpForecast(s, cmd);
+      if (f.weight > f.cargo + 1e-9) fail("overloaded");
+      const need = {
+        pulp: cmd.provisions.pulp,
+        fiber: f.launchCost.fiber,
+        juice: cmd.provisions.juice + f.launchCost.juice
+      };
+      if (!canAfford(s.resources, need)) fail("notEnoughResources");
+      pay2(s, f.launchCost);
+      launchPvp(s, cmd, now, nextId(s, "x"));
       return;
     }
     case "delve": {
@@ -24154,7 +24633,8 @@ var plannedWave = external_exports.object({
   ).max(ENEMY_KINDS.length * SECTOR_IDS.length).optional(),
   gates: external_exports.object({ front: hexSchema, left: hexSchema, right: hexSchema }).partial().optional(),
   origin: sectorId.optional(),
-  tunnel: hexSchema.optional()
+  tunnel: hexSchema.optional(),
+  pvp: id.optional()
 });
 var threats = external_exports.object({
   rng: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number(), external_exports.number()]),
@@ -24181,8 +24661,9 @@ var threats = external_exports.object({
       dead: named,
       pathsLost: external_exports.number().int().min(0),
       log: battleLog.optional(),
-      from: external_exports.literal("tunnel").optional(),
-      door: external_exports.enum(["held", "broken"]).optional()
+      from: external_exports.enum(["tunnel", "pvp"]).optional(),
+      door: external_exports.enum(["held", "broken"]).optional(),
+      by: external_exports.string().max(80).optional()
     })
   ).max(THREATS.history),
   posture: external_exports.enum(POSTURES),
@@ -24408,7 +24889,8 @@ var gameStateSchema = external_exports.object({
     constructionsCompleted: external_exports.number().int(),
     eggsHatched: external_exports.number().int(),
     collects: external_exports.number().int().min(0),
-    wavesHeld: external_exports.number().int().min(0)
+    wavesHeld: external_exports.number().int().min(0),
+    pvpHeld: external_exports.number().int().min(0)
   }),
   targets: external_exports.array(
     external_exports.object({
@@ -24671,6 +25153,7 @@ var gameStateSchema = external_exports.object({
       sector: sectorId.optional(),
       bringBack: external_exports.array(id).max(200).optional(),
       freight: resources.optional(),
+      pvpSector: external_exports.enum(SECTOR_IDS).optional(),
       orders: landingOrders.optional(),
       delayed: external_exports.boolean().optional(),
       room: external_exports.string().max(8).optional(),
@@ -24872,6 +25355,55 @@ var gameStateSchema = external_exports.object({
     index: external_exports.union([external_exports.literal(0), external_exports.literal(1)]),
     founding: external_exports.object({ at: external_exports.number(), settlers: external_exports.array(villager).max(200), resources }).nullable(),
     foundedAt: external_exports.number().min(0)
+  }),
+  pvp: external_exports.object({
+    on: external_exports.boolean(),
+    targets: external_exports.array(
+      external_exports.object({
+        id,
+        owner: external_exports.string().max(80),
+        kiwiIndex: external_exports.number().int().min(0),
+        distance: external_exports.number().min(0),
+        travelMs: external_exports.number().min(0)
+      })
+    ).max(64),
+    attacked: external_exports.boolean(),
+    shieldUntil: external_exports.number().min(0),
+    lastActiveAt: external_exports.number().min(0),
+    incoming: external_exports.array(
+      external_exports.object({
+        id,
+        from: id,
+        owner: external_exports.string().max(80),
+        departedAt: external_exports.number(),
+        at: external_exports.number(),
+        crew: external_exports.number().int().min(0).max(200),
+        classes: external_exports.array(external_exports.enum(CLASS_IDS).nullable()).max(200),
+        power: external_exports.tuple([external_exports.number().min(0), external_exports.number().min(0)]),
+        sector: external_exports.enum(SECTOR_IDS),
+        gate: hexSchema,
+        retreatAt: external_exports.number().min(0).max(1),
+        hold: external_exports.number().min(0),
+        // The crew's battle units (written by the server, never sent to the target).
+        units: external_exports.array(external_exports.record(external_exports.string(), external_exports.unknown())).max(200).optional(),
+        seed: external_exports.string().max(400).optional()
+      })
+    ).max(64),
+    defended: external_exports.array(
+      external_exports.object({
+        id,
+        from: id,
+        owner: external_exports.string().max(80),
+        at: external_exports.number(),
+        turnedBack: external_exports.boolean().optional(),
+        held: external_exports.boolean(),
+        loot: resources,
+        lost: external_exports.array(id).max(200),
+        escaped: external_exports.number().int().min(0),
+        log: battleLog.optional()
+      })
+    ).max(PVP.keep),
+    lastAttackOn: external_exports.record(external_exports.string(), external_exports.number())
   }),
   nextId: external_exports.number().int(),
   rng: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number(), external_exports.number()])
@@ -25093,7 +25625,13 @@ var MIGRATIONS = {
       cider: 0,
       goldFiber: 0
     };
-  }
+  },
+  // v45 → v46 (chantier 57): player against player, off until a PvP universe turns it on.
+  45: (raw) => ({
+    ...raw,
+    pvp: newPvp(),
+    stats: { ...raw.stats ?? {}, pvpHeld: 0 }
+  })
 };
 var OLD_MISSIONS = ["raid", "recon", "assault", "reinforce", "final", "retreat"];
 function migrateToLandings(raw) {
@@ -25381,6 +25919,16 @@ var commandSchema = external_exports.discriminatedUnion("type", [
     r: external_exports.number().int().min(-ORBIT.radius).max(ORBIT.radius)
   }),
   external_exports.object({ type: external_exports.literal("removeModule"), kiwaiId: id2, moduleId: id2 }),
+  // Chantier 57: a landing on another player's colony.
+  external_exports.object({
+    type: external_exports.literal("raidPlayer"),
+    launchpadId: id2,
+    targetId: id2,
+    crew: external_exports.array(id2).max(200),
+    provisions: external_exports.object({ pulp: external_exports.number().min(0).max(1e7), juice: external_exports.number().min(0).max(1e7) }),
+    sector: external_exports.enum(SECTOR_IDS),
+    orders: external_exports.object({ posture: external_exports.enum(POSTURES), retreatAt: external_exports.number().min(0).max(1) })
+  }),
   external_exports.object({
     type: external_exports.literal("voyage"),
     launchpadId: id2,
@@ -27208,6 +27756,7 @@ export {
   GILD,
   GOLD_FIBER,
   GOOD_CAPS,
+  GUARD_ERRORS,
   GUARD_ORDERS,
   HARVESTS,
   HATCHING,
@@ -27279,6 +27828,7 @@ export {
   POST_YIELD,
   PRACTICE_SCALE,
   PRODUCERS,
+  PVP,
   QUEEN_REF,
   RASPBERRY,
   RATE_LIMIT,
@@ -27392,6 +27942,7 @@ export {
   appleOf,
   appleStage,
   applyCommand,
+  applyPvpResult,
   applyTerraform,
   armoryCount,
   assignFace,
@@ -27494,6 +28045,7 @@ export {
   claimableObjective,
   clanNeighbours,
   clanOf,
+  classCounts,
   classGrowth,
   classRank,
   classRankProgress,
@@ -27513,6 +28065,7 @@ export {
   cloneOrbit,
   cloneOrchard,
   cloneParcelView,
+  clonePvp,
   cloneSiege,
   cloneState,
   cloneThreats,
@@ -27528,6 +28081,7 @@ export {
   colonyPower,
   cometStock,
   cometTick,
+  comingRaid,
   comingSwarm,
   comingWave,
   commandSchema,
@@ -27549,6 +28103,8 @@ export {
   createRng,
   crewMembers,
   crewOf,
+  crewPower,
+  crewUnits,
   crewWeight,
   crewWork,
   crownOf,
@@ -27669,6 +28225,7 @@ export {
   forgeTick,
   forgetGuards,
   forgetOrchard,
+  forgetPvp,
   fortLevel,
   fortifyCost,
   fortifyDoorLock,
@@ -27839,10 +28396,12 @@ export {
   landingOutcome,
   landingSetup,
   landingTile,
+  lastActiveOf,
   launch,
   launchCost,
   launchDelve,
   launchLock,
+  launchPvp,
   launchVoyage,
   launchpadOf,
   layerOpen,
@@ -27922,6 +28481,7 @@ export {
   newGame,
   newKiwi,
   newOrchard,
+  newPvp,
   newSiege,
   newSister,
   newSky,
@@ -27943,6 +28503,7 @@ export {
   nextOrbitEvent,
   nextPostAttackEvent,
   nextPostEvent,
+  nextPvpEvent,
   nextQueenEvent,
   nextResearchEvent,
   nextRouteEvent,
@@ -28056,10 +28617,23 @@ export {
   postYield,
   postsOf,
   potentialLoot,
+  powerShift,
   presence,
   productionRates,
   protectedStock,
+  publicPvp,
   publicState,
+  pvpAwaited,
+  pvpDefenseEnd,
+  pvpDue,
+  pvpForecast,
+  pvpGuardOf,
+  pvpLock,
+  pvpOutcome,
+  pvpRaidOf,
+  pvpTick,
+  pvpTravelMs,
+  pvpWaiting,
   queenAwaited,
   queenDue,
   queenFrom,
@@ -28072,7 +28646,9 @@ export {
   queuedBuildAt,
   quietly,
   raidDen,
+  raidRaiders,
   raidSector,
+  raidWave,
   rampartSectorOf,
   rampartSectors,
   rankOf,
@@ -28089,6 +28665,7 @@ export {
   recordBestiary,
   recordBurn,
   recordDefeat,
+  recordDefense,
   recordFight,
   recordIntel,
   recordLeague,
@@ -28274,6 +28851,7 @@ export {
   twinTarget,
   uncoveredGates,
   unequip,
+  unitPower,
   universeFriends,
   universeOrchardSeed,
   universeTargets,
@@ -28286,6 +28864,7 @@ export {
   upwellTick,
   userOfFriend,
   validOrders,
+  validPvpOrders,
   validateCommand,
   viewFreshness,
   viewOfTruth,

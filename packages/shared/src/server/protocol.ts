@@ -109,6 +109,16 @@ export const commandSchema: z.ZodType<Command> = z.discriminatedUnion('type', [
     r: z.number().int().min(-ORBIT.radius).max(ORBIT.radius),
   }),
   z.object({ type: z.literal('removeModule'), kiwaiId: id, moduleId: id }),
+  // Chantier 57: a landing on another player's colony.
+  z.object({
+    type: z.literal('raidPlayer'),
+    launchpadId: id,
+    targetId: id,
+    crew: z.array(id).max(200),
+    provisions: z.object({ pulp: z.number().min(0).max(1e7), juice: z.number().min(0).max(1e7) }),
+    sector: z.enum(SECTOR_IDS),
+    orders: z.object({ posture: z.enum(POSTURES), retreatAt: z.number().min(0).max(1) }),
+  }),
   z.object({
     type: z.literal('voyage'),
     launchpadId: id,

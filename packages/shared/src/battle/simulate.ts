@@ -276,6 +276,7 @@ export function simulateBattle(setup: BattleSetup, seed: string): BattleLog {
     fled: [],
     attackers: { total: attackers.length, fallen: 0, escaped: 0 },
     ...(setup.clearEnds ? { lost: [] as string[], defendersLeft: 0 } : {}),
+    ...(setup.trackLost && !setup.clearEnds ? { lost: [] as string[] } : {}),
     reached: 0,
     struck: [],
     shots: {},

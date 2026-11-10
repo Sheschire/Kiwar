@@ -17,6 +17,7 @@ import {
   type GameState,
 } from '../sim/state';
 import { INCIDENT_KINDS, INCIDENTS, METEORS, SECTOR_IDS, THREATS } from '../data/threats';
+import { PVP } from '../data/pvp';
 import { BATTLE, ENEMY_KINDS, POSTURES } from '../data/units';
 import { RESOURCE_IDS } from '../data/resources';
 import { BLESSINGS, COMETS, STARDUST, STARDUST_GIFT, STARDUST_SCALE } from '../data/comets';
@@ -53,7 +54,7 @@ import { faceMapOf, syncPools } from '../sim/territory';
 import { hexKey } from '../hex/hex';
 import { getTile, HEART, type FaceParams } from '../worldgen/generateFace';
 import { AUTO_TASKS, type AutoTask } from '../data/jobs';
-import { newDepths, newOrchard, type Obstacle } from '../sim/state';
+import { newDepths, newOrchard, newPvp, type Obstacle } from '../sim/state';
 import { HAZARD_KINDS, ROOM_KINDS } from '../data/depths';
 import { KIWAI_TYPES, MODULE_TYPES, ORBIT } from '../data/orbit';
 import { CRYSTAL, CRYSTAL_SCALE, GIANT_SEEDS } from '../data/crystal';
@@ -166,6 +167,7 @@ const plannedWave = z.object({
   gates: z.object({ front: hexSchema, left: hexSchema, right: hexSchema }).partial().optional(),
   origin: sectorId.optional(),
   tunnel: hexSchema.optional(),
+  pvp: id.optional(),
 });
 
 const threats = z.object({
@@ -194,8 +196,9 @@ const threats = z.object({
         dead: named,
         pathsLost: z.number().int().min(0),
         log: battleLog.optional(),
-        from: z.literal('tunnel').optional(),
+        from: z.enum(['tunnel', 'pvp']).optional(),
         door: z.enum(['held', 'broken']).optional(),
+        by: z.string().max(80).optional(),
       }),
     )
     .max(THREATS.history),
@@ -465,6 +468,7 @@ export const gameStateSchema = z.object({
     eggsHatched: z.number().int(),
     collects: z.number().int().min(0),
     wavesHeld: z.number().int().min(0),
+    pvpHeld: z.number().int().min(0),
   }),
   targets: z.array(
     z.object({
@@ -782,6 +786,7 @@ export const gameStateSchema = z.object({
       sector: sectorId.optional(),
       bringBack: z.array(id).max(200).optional(),
       freight: resources.optional(),
+      pvpSector: z.enum(SECTOR_IDS).optional(),
       orders: landingOrders.optional(),
       delayed: z.boolean().optional(),
       room: z.string().max(8).optional(),
@@ -1034,6 +1039,61 @@ export const gameStateSchema = z.object({
       .nullable(),
     foundedAt: z.number().min(0),
   }),
+  pvp: z.object({
+    on: z.boolean(),
+    targets: z
+      .array(
+        z.object({
+          id,
+          owner: z.string().max(80),
+          kiwiIndex: z.number().int().min(0),
+          distance: z.number().min(0),
+          travelMs: z.number().min(0),
+        }),
+      )
+      .max(64),
+    attacked: z.boolean(),
+    shieldUntil: z.number().min(0),
+    lastActiveAt: z.number().min(0),
+    incoming: z
+      .array(
+        z.object({
+          id,
+          from: id,
+          owner: z.string().max(80),
+          departedAt: z.number(),
+          at: z.number(),
+          crew: z.number().int().min(0).max(200),
+          classes: z.array(z.enum(CLASS_IDS).nullable()).max(200),
+          power: z.tuple([z.number().min(0), z.number().min(0)]),
+          sector: z.enum(SECTOR_IDS),
+          gate: hexSchema,
+          retreatAt: z.number().min(0).max(1),
+          hold: z.number().min(0),
+          // The crew's battle units (written by the server, never sent to the target).
+          units: z.array(z.record(z.string(), z.unknown())).max(200).optional(),
+          seed: z.string().max(400).optional(),
+        }),
+      )
+      .max(64),
+    defended: z
+      .array(
+        z.object({
+          id,
+          from: id,
+          owner: z.string().max(80),
+          at: z.number(),
+          turnedBack: z.boolean().optional(),
+          held: z.boolean(),
+          loot: resources,
+          lost: z.array(id).max(200),
+          escaped: z.number().int().min(0),
+          log: battleLog.optional(),
+        }),
+      )
+      .max(PVP.keep),
+    lastAttackOn: z.record(z.string(), z.number()),
+  }),
   nextId: z.number().int(),
   rng: z.tuple([z.number(), z.number(), z.number(), z.number()]),
 });
@@ -1281,6 +1341,12 @@ const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string
       goldFiber: 0,
     };
   },
+  // v45 → v46 (chantier 57): player against player, off until a PvP universe turns it on.
+  45: (raw) => ({
+    ...raw,
+    pvp: newPvp(),
+    stats: { ...((raw.stats ?? {}) as Record<string, unknown>), pvpHeld: 0 },
+  }),
 };
 
 const OLD_MISSIONS = ['raid', 'recon', 'assault', 'reinforce', 'final', 'retreat'];

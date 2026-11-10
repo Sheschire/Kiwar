@@ -9,7 +9,7 @@ import type { ResourceId, Resources } from '../data/resources';
 import { INCIDENTS, METEORS, type IncidentKind, type SectorId } from '../data/threats';
 import type { EnemyKind, Posture } from '../data/units';
 import type { Hex } from '../hex/hex';
-import type { BattleLog } from '../battle/types';
+import type { BattleLog, BattleUnitSetup } from '../battle/types';
 import { BLESSINGS, COMETS } from '../data/comets';
 import { DEFAULT_FACE_PARAMS, HEART, type FaceParams } from '../worldgen/generateFace';
 import { hexKey } from '../hex/hex';
@@ -43,7 +43,7 @@ import type {
   VillagerId,
 } from '../types/ids';
 
-export const SCHEMA_VERSION = 45;
+export const SCHEMA_VERSION = 46;
 
 export type Job =
   | { kind: 'idle' }
@@ -551,6 +551,8 @@ export const MISSION_KINDS = [
   // Chantier 54: a voyage through the wormhole to the raspberry (trade, or a pillage).
   'visit',
   'pillage',
+  // Chantier 57: a landing on another player's colony (PvP universes only).
+  'pvp',
 ] as const;
 export type MissionKind = (typeof MISSION_KINDS)[number];
 
@@ -596,6 +598,8 @@ export interface Expedition {
   delayed?: boolean;
   /** Chantier 54: a voyage to the orchard (missions `visit` and `pillage`). */
   voyage?: Voyage;
+  /** Chantier 57: the side of another player's colony the crew lands on (mission `pvp`). */
+  pvpSector?: SectorId;
 }
 
 /** Chantier 54: what a voyage to the raspberry is for. */
@@ -972,6 +976,8 @@ export interface PlannedWave {
   origin?: number;
   /** Chantier 48: an upwelling: the Grouillants come out of the tunnel entrance here. */
   tunnel?: Hex;
+  /** Chantier 57: another player's crew (the id of the raid in `pvp.incoming`). */
+  pvp?: string;
 }
 
 /** Chantier 36: a group of predators of one kind entering by one sector. */
@@ -1003,8 +1009,10 @@ export interface WaveReport {
   /** Chantier 36: the journal of the battle (absent for older waves); never changed. */
   log?: BattleLog;
   /** Chantier 48: an upwelling out of the tunnel; `door`: what the closed door did. */
-  from?: 'tunnel';
+  from?: 'tunnel' | 'pvp';
   door?: 'held' | 'broken';
+  /** Chantier 57: the player whose crew attacked (display name). */
+  by?: string;
 }
 
 export interface IncidentReport {
@@ -1147,6 +1155,8 @@ export interface GameStats {
   collects: number;
   /** Chantier 31: waves repelled (nothing lost). */
   wavesHeld: number;
+  /** Chantier 57: attacks of other players held. */
+  pvpHeld: number;
 }
 
 /** Chantier 31: the notebook of the age objectives. */
@@ -1277,6 +1287,8 @@ export interface GameState {
   goldFiber: number;
   /** Chantier 19: which colony of the player this is, and its link to the other one. */
   colony: ColonyLink;
+  /** Chantier 57: player against player (PvP universes only). */
+  pvp: PvpState;
   nextId: number;
   rng: RngState;
 }
@@ -1355,6 +1367,7 @@ export function newGame(opts: NewGameOptions): GameState {
       eggsHatched: 0,
       collects: 0,
       wavesHeld: 0,
+      pvpHeld: 0,
     },
     targets: opts.targets ?? soloTargets(opts.face),
     victories: {},
@@ -1387,6 +1400,7 @@ export function newGame(opts: NewGameOptions): GameState {
     automation: defaultAutomation(),
     siege: newSiege(),
     colony: newColonyLink(),
+    pvp: newPvp(),
     nextId: 1,
     rng: rng.state(),
   };
@@ -1408,6 +1422,104 @@ export function newGame(opts: NewGameOptions): GameState {
   state.depthSeed = `${alienSeed}/depths`;
   state.orchardSeed = `${alienSeed}/orchard`;
   return state;
+}
+
+/** Chantier 57: another member's home colony we may land on (set by the server). */
+export interface PvpTarget {
+  /** `ally:<user id>` (the home colony: a sister colony is never a target). */
+  id: string;
+  owner: string;
+  kiwiIndex: number;
+  distance: number;
+  /** One-way flight (and the notice the target gets). */
+  travelMs: number;
+}
+
+/**
+ * Chantier 57: an attack announced to us. Public: who, when, how many, which classes, a range of
+ * power and where they come in. Hidden (the server strips them): the crew's battle units and
+ * the battle's seed.
+ */
+export interface PvpRaid {
+  id: string;
+  /** The attacker's friend id (`ally:<user id>`) and display name. */
+  from: string;
+  owner: string;
+  departedAt: TimeMs;
+  at: TimeMs;
+  crew: number;
+  classes: (ClassId | null)[];
+  /** Range of the crew's power (the truth lies inside). */
+  power: [number, number];
+  sector: SectorId;
+  gate: Hex;
+  /** The survivors run back to the ship once this share of the crew has fallen. */
+  retreatAt: number;
+  /** Resources the ship can carry back at most. */
+  hold: number;
+  units?: BattleUnitSetup[];
+  seed?: string;
+}
+
+/** Chantier 57: an attack as it ended at the target (kept for the attacker's report). */
+export interface PvpDefense {
+  id: string;
+  from: string;
+  owner: string;
+  at: TimeMs;
+  /** No fight: the target was shielded meanwhile (the ship turned back). */
+  turnedBack?: boolean;
+  /** The defence held (nothing damaged, little taken). */
+  held: boolean;
+  loot: Resources;
+  /** Crew members (refs) who fell, and how many ran back to the ship. */
+  lost: string[];
+  escaped: number;
+  log?: BattleLog;
+}
+
+export interface PvpState {
+  /** The universe allows PvP (set by the server). */
+  on: boolean;
+  targets: PvpTarget[];
+  /** We launched an attack: our own beginners' protection is over. */
+  attacked: boolean;
+  /** No attack lands before then (after one suffered). */
+  shieldUntil: TimeMs;
+  /** Last time the player played (set by the server; long absences are protected). */
+  lastActiveAt: TimeMs;
+  incoming: PvpRaid[];
+  defended: PvpDefense[];
+  /** Target id → our last departure towards it. */
+  lastAttackOn: Record<string, TimeMs>;
+}
+
+export function newPvp(): PvpState {
+  return {
+    on: false,
+    targets: [],
+    attacked: false,
+    shieldUntil: 0,
+    lastActiveAt: 0,
+    incoming: [],
+    defended: [],
+    lastAttackOn: {},
+  };
+}
+
+export function clonePvp(p: PvpState): PvpState {
+  return {
+    ...p,
+    targets: p.targets.map((t) => ({ ...t })),
+    incoming: p.incoming.map((r) => ({
+      ...r,
+      classes: [...r.classes],
+      power: [r.power[0], r.power[1]],
+      gate: { ...r.gate },
+    })),
+    defended: p.defended.map((d) => ({ ...d, loot: { ...d.loot }, lost: [...d.lost] })),
+    lastAttackOn: { ...p.lastAttackOn },
+  };
 }
 
 /** Chantier 54: an orchard nobody has visited yet. */
@@ -1754,6 +1866,7 @@ export function cloneState(state: GameState): GameState {
     depths: cloneDepths(state.depths),
     orbit: cloneOrbit(state.orbit),
     orchard: cloneOrchard(state.orchard),
+    pvp: clonePvp(state.pvp),
     rng: [...state.rng] as RngState,
   };
 }

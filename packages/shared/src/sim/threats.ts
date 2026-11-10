@@ -26,6 +26,8 @@ import { hexDistance, hexKey, hexToPixel, type Hex } from '../hex/hex';
 import type { FaceMap, Tile } from '../worldgen/generateFace';
 import type { TimeMs, VillagerId } from '../types/ids';
 import type { GameEvent } from './advance';
+import { PVP } from '../data/pvp';
+import { comingRaid, pvpDefenseEnd, raidWave, recordDefense } from './pvp';
 import { calendarAt } from './calendar';
 import type { Odds } from './expeditions';
 import { removeVillagers } from './expeditions';
@@ -223,7 +225,9 @@ export function gateCoverage(
 }
 
 /** How a threat spreads over the sectors. */
-export function sectorThreat(threat: Sides): PerSector<Sides> {
+export function sectorThreat(threat: Sides, focus?: SectorId): PerSector<Sides> {
+  // Chantier 57: another player's crew lands on one side only.
+  if (focus) return perSector((s) => (s === focus ? { ...threat } : { ground: 0, air: 0 }));
   return perSector((s) => ({
     ground: threat.ground * SECTORS.share.ground[s],
     air: threat.air * SECTORS.share.air[s],
@@ -327,8 +331,11 @@ export interface Defense extends Sides {
 export function comingWave(state: GameState): PlannedWave | null {
   const a = state.threats.next?.announced ? state.threats.next : null;
   const b = state.depths.next?.announced ? state.depths.next : null;
-  if (a && b) return b.at < a.at ? b : a;
-  return a ?? b;
+  let best = a && b ? (b.at < a.at ? b : a) : (a ?? b);
+  // Chantier 57: another player's crew is announced like a wave.
+  const raid = comingRaid(state);
+  if (raid && (!best || raid.at < best.at)) best = raidWave(raid);
+  return best;
 }
 
 export function defenseOf(state: GameState, threat?: Sides): Defense {
@@ -373,7 +380,9 @@ export function defenseOf(state: GameState, threat?: Sides): Defense {
     if (v.job.kind === 'work' || v.job.kind === 'idle')
       militia += THREATS.militia * kiwiStrength(v) * titanPower(state, v);
   // The garrison and the militia face the announced wave (or an even threat).
-  const want = sectorThreat(threat ?? { ground: 1, air: 1 });
+  const focus =
+    threat && next?.pvp ? (SECTOR_IDS.find((x) => next.gates?.[x]) ?? undefined) : undefined;
+  const want = sectorThreat(threat ?? { ground: 1, air: 1 }, focus);
   const gaps = perSector((s) => Math.max(0, want[s].ground - sectors[s].ground));
   const gapSum = gaps.front + gaps.left + gaps.right;
   const filled = Math.min(militia, gapSum);
@@ -747,8 +756,12 @@ export function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): vo
   const at = wave.at;
   const tunnel = !!wave.tunnel;
   const draw = tunnel ? withDepthRng : withThreatRng;
-  const rolled = draw(s, (rng) => 1 + rng.range(-THREATS.luck, THREATS.luck));
-  const seed = draw(s, (rng) => `${wave.id}/${Math.floor(rng.next() * 2 ** 32)}`);
+  // Chantier 57: another player's crew: no luck (the crew is what it is), the server's seed.
+  const raid = wave.pvp ? s.pvp.incoming.find((r) => r.id === wave.pvp) : undefined;
+  const rolled = raid ? 1 : draw(s, (rng) => 1 + rng.range(-THREATS.luck, THREATS.luck));
+  const seed = raid
+    ? (raid.seed ?? raid.id)
+    : draw(s, (rng) => `${wave.id}/${Math.floor(rng.next() * 2 ** 32)}`);
   const pass = doorPass(s, wave, rolled);
   const luck = rolled * pass;
   const door = tunnel && s.depths.door.closed ? (pass > 0 ? 'broken' : 'held') : undefined;
@@ -767,6 +780,8 @@ export function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): vo
   const log = waveBattle(s, wave, luck, seed);
   if (crystalUsed > 0) payCrystal(s, crystalUsed);
   const out = battleOutcome(s, threat, defense, sheltered, log);
+  // Chantier 57: the defence never loses a kiwi to another player.
+  if (raid) out.deaths = 0;
   // The turrets fired these seeds (the loot is taken from what is left).
   const shots = Object.values(log.result.shots).reduce((a, b) => a + b, 0);
   const ammoUsed = Math.min(s.resources.seeds, shots);
@@ -788,6 +803,7 @@ export function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): vo
     pathsLost: 0,
     log,
     ...(tunnel ? { from: 'tunnel' as const } : {}),
+    ...(raid ? { from: 'pvp' as const, by: raid.owner } : {}),
     ...(door ? { door } : {}),
   };
   // Loot where the predators took it: a warehouse's reserve first, then the stock.
@@ -857,6 +873,16 @@ export function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): vo
   // Pins stay with the kiwis still on guard.
   const guards = new Set(garrisonOf(s).map((v) => v.id as string));
   t.pins = Object.fromEntries(Object.entries(t.pins).filter(([id]) => guards.has(id)));
+  if (raid) {
+    // Chantier 57: an attack shields the colony from the next ones; it is not a wave.
+    if (out.victory) s.stats.pvpHeld++;
+    s.pvp.shieldUntil = Math.max(s.pvp.shieldUntil, at + PVP.shieldMs);
+    s.pvp.incoming = s.pvp.incoming.filter((r) => r.id !== raid.id);
+    recordDefense(s, pvpDefenseEnd(raid, at, out.victory, out.loot, log));
+    pushReport(s, report);
+    events.push({ type: 'waveStruck', at, waveId: wave.id, victory: out.victory, pvp: true });
+    return;
+  }
   if (out.victory) s.stats.wavesHeld++;
   if (tunnel) {
     // An upwelling never shields the surface; it has its own calendar.
