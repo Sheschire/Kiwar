@@ -42,7 +42,7 @@ d'acceptation et les **skills à charger**. La direction d'ensemble est dans le
 | 54  | [Les trous de ver et le Verger I : la framboise](54-verger-framboise.md) — **fait**                | 52, 53    | non                   |
 | 55  | [Le Verger II : la pomme et l'ananas](55-verger-pomme-ananas.md)                                   | 54        | avec 56               |
 | 56  | [Les ligues](56-ligues.md) — **fait**                                                              | 51        | avec 55 (serveur)     |
-| 57  | [Le JcJ optionnel](57-jcj-optionnel.md)                                                            | 56        | non                   |
+| 57  | [Le JcJ optionnel](57-jcj-optionnel.md) — **fait**                                                 | 56        | non                   |
 | 58  | [Réglages et bilan de l'acte IV](58-reglages-fin-acte-iv.md)                                       | 57        | non                   |
 |     | **Hors carnet**                                                                                    |           |                       |
 | 59  | [Les voisins vivants](59-voisins-vivants.md) — **fait**                                            | —         | oui (multijoueur)     |

@@ -20,6 +20,8 @@ export function featMeasures(state: GameState): Partial<Record<FeatId, number>> 
   out.kiwiLevel = state.villagers.reduce((best, v) => Math.max(best, v.level), 0);
   out.population = state.villagers.length;
   out.constructions = state.stats.constructionsCompleted;
+  // Chantier 57: the defences held against other players.
+  out.pvpHeld = state.stats.pvpHeld;
   return out;
 }
 

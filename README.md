@@ -10,6 +10,17 @@ oiseaux kiwis développent leur civilisation sur une planète-kiwi coupée en de
 - Carnet de route (direction du jeu, actes et chantiers à venir) : [`docs/CARNET_DE_ROUTE.md`](docs/CARNET_DE_ROUTE.md)
 - Mémoire pour Claude : [`CLAUDE.md`](CLAUDE.md) et les skills de [`.claude/skills/`](.claude/skills)
 
+> **Chantier 57** — **le JcJ optionnel**. Un univers peut être créé avec les **attaques entre
+> joueur·euses** (choix fait une fois, à la création). On y débarque sur la colonie d'un·e
+> voisin·e comme sur la jumelle : on choisit le côté, l'équipage et le seuil de retraite, et la
+> cible est **prévenue dès le départ** (le vol est son préavis : qui vient, combien, quelles
+> classes, une fourchette de puissance). Le serveur joue l'attaque contre ses tourelles et sa
+> garnison. **La défense ne perd jamais de kiwi** : au plus la moitié de ses réserves et un
+> dixième du stock non protégé, des blessé·es et des dégâts réparables, puis un **bouclier** de
+> 24 h. Les débutant·es, les colonies absentes depuis 3 jours et une même colonie plus d'une
+> fois par jour sont protégées ; attaquer met fin à sa propre protection. Chaque bataille
+> s'écrit dans le chat, et les défenses tenues comptent dans les ligues.
+
 > **Chantier 55** — **le Verger II : la pomme et l'ananas**. Deux nouvelles planètes-fruits
 > pendent à côté de la framboise, chacune avec sa règle. La **pomme**, creusée de galeries par
 > des colonies de **vers**, mûrit sur un calendrier public : **mûre**, elle paie bien et ses vers

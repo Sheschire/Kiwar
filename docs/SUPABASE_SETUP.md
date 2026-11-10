@@ -88,6 +88,7 @@ Migrations, dans l'ordre :
 | `20261103000000_universe_kick.sql`      | l'hôte retire un joueur (bannis), univers à 16 joueurs     |
 | `20261105000000_leagues.sql`            | ligues : saisons, hauts faits, titres, cosmétiques portés  |
 | `20261107000000_orchard.sql`            | Verger : graine secrète de l'univers (`universe_secrets`)  |
+| `20261110000000_pvp.sql`                | JcJ : batailles entre joueur·euses pour le chat            |
 
 ## 4. Fonction serveur `game`
 

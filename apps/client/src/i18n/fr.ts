@@ -3444,6 +3444,7 @@ export const fr: Dict = {
       kiwiLevel: 'Un kiwi au niveau {n}',
       population: '{n} kiwis dans la colonie',
       constructions: '{n} constructions achevées',
+      pvpHeld: '{n} attaque(s) de joueur·euses tenue(s)',
     },
   },
   pvp: {

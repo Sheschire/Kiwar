@@ -59,6 +59,8 @@ export const FEAT_IDS = [
   'kiwiLevel',
   'population',
   'constructions',
+  // Chantier 57: attacks of other players held (the pillages count for nothing).
+  'pvpHeld',
 ] as const;
 export type FeatId = (typeof FEAT_IDS)[number];
 
@@ -125,6 +127,12 @@ export const FEATS: Record<FeatId, FeatDef> = {
     id: 'constructions',
     group: 'village',
     tiers: [25, 100, 250, 500],
+    rarity: ['common', 'notable', 'rare', 'legendary'],
+  },
+  pvpHeld: {
+    id: 'pvpHeld',
+    group: 'conquest',
+    tiers: [1, 5, 15, 40],
     rarity: ['common', 'notable', 'rare', 'legendary'],
   },
 };

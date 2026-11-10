@@ -228,3 +228,11 @@ The Grouillants come up through the tunnel entrance as waves on their own calend
 (`wave.tunnel`, the door's `doorPass`); reports `from: 'tunnel'` share `threats.reports` but
 not `threats.waves` / the shield. **`comingWave(state)`** is the announced wave due first
 (surface or tunnel): `defenseOf`, `waveAhead`, `forecastWave`, the auto garrison read it.
+
+## Chantier 57: attacks of other players (skill `kiwar-pvp`)
+
+`comingWave` also returns an announced PvP raid (`raidWave`, `PlannedWave.pvp`): the defence
+window, `forecastWave`, the automatic garrison and the shelter answer it. `strike` has a pvp
+branch (no luck draw, no death, `pvp.shieldUntil`, `stats.pvpHeld`, no change to the predator
+calendar). `sectorThreat(threat, focus)` puts a raid's whole threat on its side.
+

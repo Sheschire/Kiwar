@@ -263,3 +263,12 @@ kinds: the apple's `worm`, `wormGuard` (grub bodies), `codlingMoth` (flier) and 
 `weaverAnt`, `antSoldier` (crawlers), `antWinged` (flier): `WORM_KINDS`, `ANT_KINDS`, tinted in
 `BEETLE_TINTS`. A show on any parcel goes through `GameRenderer.playFruit` (the fruit read from
 the parcel's id).
+
+## Chantier 57 (PvP, skill `kiwar-pvp`)
+
+`waveSetup` with `wave.pvp`: the raiders are another player's kiwis (`raidRaiders`: the frozen
+units, or estimated ones for the target's forecast) around the gate of the chosen side, carry
+capped by the ship's hold, PvP loot shares, `orders[1].retreatBelow` = the crew's retreat.
+`BattleSetup.trackLost` fills `result.lost` without the cleared-field ending. A raid has no
+luck draw; its seed comes from the server.
+

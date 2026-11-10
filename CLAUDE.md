@@ -62,6 +62,9 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
   - `kiwar-leagues` — the leagues of a shared universe: public dated feats read from the held
     state, seasons and podium written by the server only, the League screen, feats in the
     chat, the cosmetics (banner, capes, pennants, crown).
+  - `kiwar-pvp` — optional PvP: `pvp` universes, targets and protections (beginner, shield,
+    absent, cooldown), the attack announced and played in the target's state as a wave, the
+    server's two writes, the attacker's fate, capped loot, battle lines in the chat.
 
 ## Owner's rules
 

@@ -26358,7 +26358,9 @@ var FEAT_IDS = [
   "landingsWon",
   "kiwiLevel",
   "population",
-  "constructions"
+  "constructions",
+  // Chantier 57: attacks of other players held (the pillages count for nothing).
+  "pvpHeld"
 ];
 var FEATS = {
   stoneAge: { id: "stoneAge", group: "ages", rarity: "common" },
@@ -26415,6 +26417,12 @@ var FEATS = {
     group: "village",
     tiers: [25, 100, 250, 500],
     rarity: ["common", "notable", "rare", "legendary"]
+  },
+  pvpHeld: {
+    id: "pvpHeld",
+    group: "conquest",
+    tiers: [1, 5, 15, 40],
+    rarity: ["common", "notable", "rare", "legendary"]
   }
 };
 var AGE_FEATS = [
@@ -26458,6 +26466,7 @@ function featMeasures(state) {
   out.kiwiLevel = state.villagers.reduce((best, v) => Math.max(best, v.level), 0);
   out.population = state.villagers.length;
   out.constructions = state.stats.constructionsCompleted;
+  out.pvpHeld = state.stats.pvpHeld;
   return out;
 }
 function ownedItems(state) {

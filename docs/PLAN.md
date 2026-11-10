@@ -61,7 +61,7 @@ dans l'historique.
 | 54  | Trous de ver et le Verger I : la framboise          | fait    |
 | 55  | Le Verger II : la pomme et l'ananas                 | fait    |
 | 56  | Les ligues                                          | fait    |
-| 57  | Le JcJ optionnel                                    | à faire |
+| 57  | Le JcJ optionnel                                    | fait    |
 | 58  | Réglages et bilan de l'acte IV                      | à faire |
 | 59  | Les voisins vivants (hors carnet)                   | fait    |
 
@@ -145,9 +145,20 @@ protègent). Un comptoir par fruit, des **routes** entre comptoirs (+25 %, traje
 entretien quotidien, coupées si impayées), et des puits : armes de nectar, armures de fibre
 d'or, soirées de cidre, cidre en carburant, décors dorés. Écran Verger à onglets, fruits dans
 le ciel, batailles sur leur parcelle. Sauvegarde v45, pas de SQL. Skill `kiwar-orchard`.
-**Prochaine conversation** : le [chantier 57](chantiers/57-jcj-optionnel.md) (le JcJ
-optionnel).
-À tester avec le porteur : la pomme (le plaisir de choisir sa fenêtre, deux jours par stade,
+**Chantier 57 fait** : le JcJ optionnel. Un univers créé avec la case JcJ permet de débarquer
+sur la colonie d'origine d'un·e membre : l'attaque est annoncée au départ (le vol est le
+préavis ; qui, combien, quelles classes, une fourchette), écrite dans l'état de la cible et
+jouée là comme une vague (tourelles, garnison, garnison automatique, abri) ; la défense ne perd
+jamais de kiwi (la moitié des réserves et un dixième du stock non protégé au plus, cale du
+vaisseau). Protections : débuts (Pierre et 72 h, levée en attaquant), bouclier 24 h, absence
+3 jours, une attaque par jour et par cible. L'attaque suit les règles du débarquement. Chat
+(table `pvp_battles`, migration `20261110000000_pvp.sql`), haut fait `pvpHeld`, sonde
+`pnpm balance:pvp`. Sauvegarde v46. Skill `kiwar-pvp`.
+**Prochaine conversation** : le [chantier 58](chantiers/58-reglages-fin-acte-iv.md) (réglages
+et bilan de l'acte IV).
+À tester avec le porteur : le JcJ entre ami·es (le préavis suffit-il, la perte est-elle
+supportable, le bouclier est-il juste, une attaque vaut-elle le risque pour l'attaquant·e,
+l'absence de pronostic dans le planificateur), la pomme (le plaisir de choisir sa fenêtre, deux jours par stade,
 le cidre seulement blette), l'ananas (la bromélaïne se sent-elle, 36 h avant l'usure au
 comptoir, la couronne), les routes (leur entretien, +25 %), la dorure et la soirée de cidre,
 les kiwaïs (le choix des kiwis de la navette, l'intérêt de chaque
@@ -274,6 +285,7 @@ from, opts)` (`ShowSource` : une vague ou un débarquement ; notre camp, avance,
   5. `20261103000000_universe_kick.sql`
   6. `20261105000000_leagues.sql`
   7. `20261107000000_orchard.sql` (chantier 54 : la graine cachée du Verger)
+  8. `20261110000000_pvp.sql` (chantier 57 : les batailles JcJ pour le chat)
 - **Projet Supabase** : coller `supabase/setup.sql`, déployer la fonction `game` et renseigner les
   variables Vercel (`docs/SUPABASE_SETUP.md`).
 - **Vérifier sur un vrai téléphone et sur le MacBook** (`?debug`) : à faire après les chantiers

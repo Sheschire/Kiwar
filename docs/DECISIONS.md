@@ -3831,3 +3831,63 @@ the game's language, kept up to date by every later update (any agent).
 - **Rule for every later update**: CLAUDE.md and the `kiwar-workflow` skill (pre-push step);
   `apps/client/test/patchNotes.test.ts` checks unique ids, newest first and both languages line
   for line.
+
+## Chantier 57 — Optional PvP
+
+From the chantier document's decisions (owner, 26 October 2026) and the owner's answers of
+10 November 2026.
+
+### Owner's answers (new points)
+
+- **Attacking ends one's own beginner's protection** (launching is allowed under protection).
+- **Only the home colony** of a member is a target, never their sister colony.
+- **A public line in the universe's chat** for every battle (held, looted, turned back).
+- **The announcement shows** the attacker, the hour, the head count, the classes and a power
+  range of ±20 % around a shifted middle; the exact stats stay at the server.
+
+### Technical choices (status "default")
+
+- **The attack is played in the target's state, like a wave.** At the departure the server
+  freezes the crew as battle units (side 1, raiders, from the attacker's techs and gear,
+  hunger applied) and writes them into `defender.pvp.incoming` (`announcePvp`, keyed by
+  `attacker/ship`). `publicState` strips the units and the battle's seed; the target's client
+  waits for the server (`hiddenDue`, `awaitingServer`). `comingWave` returns the raid as a wave
+  (`raidWave`, `PlannedWave.pvp`), so the defence window, the forecast, the automatic garrison
+  and the shelter answer it. No luck draw (the crew is what it is); the defence never loses a
+  kiwi (`deaths` forced to 0, forecast too); the report says `from: 'pvp'`, `by`.
+- **Two idempotent writes instead of one SQL transaction**: the target is played first (its own
+  `advance` to the raid's hour, saved with its version), its `pvp.defended` keeps the end for a
+  fortnight; then `settlePvp` writes the crew's fate into the attacker's ship
+  (`applyPvpResult`). A failure between them is caught up by the next load of either player;
+  nothing is counted twice. No SQL function needed.
+- **No breakdown** on a PvP flight (the announced hour must hold). The flight is
+  max(2 h, 90 + 60 min per kiwi of distance) each way.
+- **The attacker picks a side** (front, left, right): the crew lands by the rampart there
+  (gate `waveGates(target, raidId)`); the target's guards concentrate there (`sectorThreat`
+  focus).
+- **Loot**: 50 % of each warehouse's reserves, then 10 % of the stock above the protected part,
+  all capped by the hold left once crew and provisions are aboard; never iron, crystal, giant
+  seeds or stardust (they are not in the storage). Damage ≤ `THREATS.maxDamaged`, repairable.
+- **The attack follows the landing's rules**: a victory (the target did not hold) brings its
+  fallen home wounded; a retreat (the target held, someone ran back) or a defeat (nobody came
+  back) kills them and leaves their gear; a defeat damages the launchpad (the ship is lost).
+- **Protections** (`pvpGuardOf`): beginner until the Stone age and 72 h after the colony's start
+  (unless it attacked), a 24 h shield after any attack suffered (a raid meeting a shield turns
+  back), absent for 3 days (the server refreshes `pvp.lastActiveAt` hourly on load/command),
+  one attack a day from the same attacker on the same target. The server checks them on the
+  target's own state; the allies' snapshots carry the guard (`ColonyPower.pvpGuard`).
+- **Forecast on the attacker's side**: public only — the target's public defence number, its
+  turrets seen, our crew's power, the hold. No odds yet (no practice battle: we do not hold the
+  target's garrison); to revisit in chantier 58 if players need one.
+- **Leagues**: the tiered feat `pvpHeld` (1, 5, 15, 40 defences held); pillages count for
+  nothing.
+- **SQL**: `20261110000000_pvp.sql`, table `pvp_battles` (members read, the function writes,
+  realtime) for the chat lines; the `universes.pvp` column already existed.
+- Save v46 (`state.pvp`, `stats.pvpHeld`, `Expedition.pvpSector`).
+
+### To test with the owner (feelings)
+
+- Being attacked by a real person: is the notice long enough, is the loss bearable, does the
+  shield feel fair? Play it with friends before any tuning.
+- Is an attack worth it for the attacker (loot vs. the risk of dead kiwis and a lost ship)?
+- The lack of odds in the attacker's planner.

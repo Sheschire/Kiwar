@@ -17,6 +17,7 @@
     "format": "prettier --write .",
     "balance": "pnpm --filter @kiwar/balance balance",
     "balance:expeditions": "pnpm --filter @kiwar/balance expeditions",
+    "balance:pvp": "pnpm --filter @kiwar/balance pvp",
     "balance:ages": "pnpm --filter @kiwar/balance ages",
     "balance:siege": "pnpm --filter @kiwar/balance siege",
     "balance:impact": "pnpm --filter @kiwar/balance impact",

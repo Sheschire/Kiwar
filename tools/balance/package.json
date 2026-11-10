@@ -7,6 +7,7 @@
     "balance": "tsx src/cli.ts",
     "typecheck": "tsc -p tsconfig.json",
     "expeditions": "tsx src/expeditions.ts",
+    "pvp": "tsx src/pvp.ts",
     "ages": "tsx src/ages.ts",
     "impact": "tsx src/impact.ts",
     "conquest": "tsx src/conquest.ts",

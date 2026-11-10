@@ -3298,6 +3298,7 @@ export const en = {
       kiwiLevel: 'A kiwi at level {n}',
       population: '{n} kiwis in the colony',
       constructions: '{n} constructions finished',
+      pvpHeld: '{n} attack(s) of players held',
     },
   },
   pvp: {

@@ -96,3 +96,33 @@ l'autorisent, avec protections (débutants, bouclier après attaque, butin plafo
 - Une défense ne perd jamais de kiwi ni plus que le plafond ; toute attaque est annoncée.
 - L'état de la cible n'arrive jamais au client de l'attaquant·e (test anti-triche).
 - Bouclier, protection des débutant·es et protection des absent·es sont testés.
+
+## Bilan (10 novembre 2026) — fait
+
+Réponses du porteur : attaquer lève sa propre protection ; seule la colonie d'origine est une
+cible ; une ligne publique dans le chat ; l'annonce montre l'effectif, les classes et une
+fourchette de ±20 %. Détails techniques dans `DECISIONS.md` et le skill `kiwar-pvp`.
+
+Fait, partie par partie :
+
+1. **Règles** (`data/pvp.ts`, `sim/pvp.ts`, sauvegarde v46) : cibles, protections, commande
+   `raidPlayer`, mission `pvp`.
+2. **L'attaque jouée chez la cible** comme une vague (`raidWave`, `comingWave`, `strike`) :
+   l'équipage en raiders sur un côté choisi, butin plafonné, aucune mort en défense, bouclier.
+3. **Serveur à deux états** : annonce au départ (`announcePvp`), la cible jouée d'abord puis le
+   sort de l'équipage écrit chez l'attaquant·e (`settlePvp`), deux écritures idempotentes ;
+   table `pvp_battles` (migration `20261110000000_pvp.sql`).
+4. **Annonce et parades** côté cible : fenêtre de défense, badge, toasts, pronostic.
+5. **Client de l'attaquant·e** : case JcJ à la création d'un univers, « Débarquer » en visite,
+   planificateur, rapports et rejeu 2D, lignes de chat, Nouveautés.
+6. **Ligues, bot, docs** : haut fait `pvpHeld`, sonde `pnpm balance:pvp`, skill `kiwar-pvp`.
+
+Reste (chantier 58 ou plus tard) :
+
+- un **pronostic** chez l'attaquant·e (aujourd'hui : défense publique, tourelles vues, notre
+  puissance ; pas de cote) ;
+- le **rejeu 3D** d'une attaque chez l'attaquant·e (2D aujourd'hui) et un spectacle en direct
+  chez la cible (le serveur joue l'attaque : la cible voit le rapport) ;
+- le vol du vaisseau vers la planète du membre (il part vers un point lointain du ciel) ;
+- **à tester entre ami·es** avant tout réglage : le préavis, la perte, le bouclier, l'intérêt
+  d'attaquer.

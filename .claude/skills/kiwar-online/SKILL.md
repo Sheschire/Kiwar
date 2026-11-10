@@ -132,3 +132,11 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   by `withScopeTargets` (`ensureOrchard(…, true)`); the public layout seed comes from the
   universe's seed (`rebaseOrchard`). `publicState` strips `orchardSeed`; voyages and attacks
   on the trading post resolve on `load` (`hiddenDue`). Imports `forgetOrchard`.
+- **Chantier 57** (`kiwar-pvp`): `UniverseRow.pvp` (the column existed; the Supabase repository
+  reads and writes it), `createUniverse { pvp }`; `GameRepository extends PvpRepository`
+  (`recordPvpBattle`, table `pvp_battles`, migration `20261110000000_pvp.sql`, missing table
+  ignored). `command raidPlayer` reads the **target's** game for its protections, then
+  `announcePvp` writes the attack into it; `load` runs `settlePvp` before the hidden loop.
+  `publicState` strips `pvp.incoming[].units/seed`. Writing into another player's game: always
+  idempotent by an id, with version retries (like `deliver`).
+
