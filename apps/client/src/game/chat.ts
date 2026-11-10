@@ -18,6 +18,16 @@ export interface FeatLine {
   at: string;
 }
 
+/** Chantier 57: a battle between two players as it ended (written by the server only). */
+export interface BattleLine {
+  id: string;
+  attacker_name: string;
+  defender_name: string;
+  outcome: 'held' | 'looted' | 'turnedBack';
+  loot: number;
+  at: string;
+}
+
 const HISTORY = 60;
 /** Feats shown in the chat: the latest ones of the seasons (the record stays in the League). */
 const FEAT_HISTORY = 20;
@@ -77,12 +87,14 @@ export class ChatChannel {
   private poll: number | undefined;
   private messages: ChatMessage[] = [];
   private feats: FeatLine[] = [];
+  private battles: BattleLine[] = [];
 
   constructor(
     private readonly client: SupabaseClient,
     private readonly universeId: string,
     private readonly onChange: (messages: ChatMessage[], fresh: ChatMessage[]) => void,
     private readonly onFeats: (feats: FeatLine[]) => void = () => {},
+    private readonly onBattles: (battles: BattleLine[]) => void = () => {},
   ) {}
 
   async start(): Promise<void> {
@@ -112,6 +124,16 @@ export class ChatChannel {
           if (f.season >= 1) this.mergeFeats([f]);
         },
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'pvp_battles',
+          filter: `universe_id=eq.${this.universeId}`,
+        },
+        (payload) => this.mergeBattles([payload.new as BattleLine]),
+      )
       .subscribe();
     this.poll = window.setInterval(() => void this.refresh(), POLL_MS);
   }
@@ -133,6 +155,24 @@ export class ChatChannel {
       .order('at', { ascending: false })
       .limit(FEAT_HISTORY);
     if (!feats.error && feats.data) this.mergeFeats(feats.data as FeatLine[]);
+    // Chantier 57: the battles between players (a missing table reads as an error: nothing).
+    const battles = await this.client
+      .from('pvp_battles')
+      .select('id, attacker_name, defender_name, outcome, loot, at')
+      .eq('universe_id', this.universeId)
+      .order('at', { ascending: false })
+      .limit(FEAT_HISTORY);
+    if (!battles.error && battles.data) this.mergeBattles(battles.data as BattleLine[]);
+  }
+
+  private mergeBattles(incoming: BattleLine[]): void {
+    const known = new Set(this.battles.map((b) => b.id));
+    const fresh = incoming.filter((b) => !known.has(b.id));
+    if (fresh.length === 0) return;
+    this.battles = [...this.battles, ...fresh]
+      .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
+      .slice(-FEAT_HISTORY);
+    this.onBattles(this.battles);
   }
 
   private mergeFeats(incoming: FeatLine[]): void {

@@ -1,5 +1,6 @@
 import { OrbitModal } from './components/OrbitModal';
 import { OrchardModal } from './components/OrchardModal';
+import { PvpModal } from './components/PvpModal';
 import { LeagueModal } from './components/LeagueModal';
 import { PatchNotesModal } from './components/PatchNotesModal';
 import { DepthsModal } from './components/DepthsModal';
@@ -291,6 +292,7 @@ export function App() {
         {modal === 'league' && <LeagueModal />}
         {modal === 'orbit' && <OrbitModal />}
         {modal === 'orchard' && <OrchardModal />}
+        {modal === 'pvp' && <PvpModal />}
         {modal === 'patchNotes' && <PatchNotesModal />}
         {bestiaryOpen && <BestiaryModal />}
         <JoinModal />

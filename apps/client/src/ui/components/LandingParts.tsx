@@ -328,6 +328,8 @@ export function OrdersPicker(props: {
   guard?: boolean;
   /** Chantier 48: a delve (no goal: a room is won or not). */
   delve?: boolean;
+  /** Chantier 57: an attack on a player (posture and retreat only). */
+  pvp?: boolean;
 }) {
   const t = useT();
   const o = props.orders;
@@ -349,7 +351,11 @@ export function OrdersPicker(props: {
           </button>
         ))}
       </div>
-      <label class="small order-row" hidden={props.guard}>
+      <label
+        class="small order-row"
+        hidden={props.guard || props.pvp}
+        style={props.guard || props.pvp ? { display: 'none' } : undefined}
+      >
         <span>{t('landing.priority')}</span>
         <select
           value={o.priority}
@@ -385,7 +391,7 @@ export function OrdersPicker(props: {
         />
       </label>
       <p class="small muted">{t('landing.retreatHint')}</p>
-      {!props.guard && !props.delve && (
+      {!props.guard && !props.delve && !props.pvp && (
         <div class="segmented" role="group" aria-label={t('landing.goal.burn')}>
           {LANDING_GOALS.map((g) => (
             <button
@@ -399,7 +405,7 @@ export function OrdersPicker(props: {
           ))}
         </div>
       )}
-      {!props.guard && !props.delve && (
+      {!props.guard && !props.delve && !props.pvp && (
         <p class="small muted">{t(`landing.goalHints.${o.goal}`)}</p>
       )}
     </section>

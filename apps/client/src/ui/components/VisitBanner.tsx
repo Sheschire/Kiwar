@@ -5,6 +5,7 @@ import { siegeVisible } from './SiegeModal';
 import { planetLabel } from '../planets';
 import { sectorName } from './LandingParts';
 import { uiStore, useT, useUi } from '../store';
+import { pvpBlock } from './PvpModal';
 
 /**
  * Visiting a far planet (chantier 24: the twin under its fog, or a member's): whose it is,
@@ -18,6 +19,8 @@ export function VisitBanner() {
   const twinOwner = useUi((s) => s.twinOwner);
   const sister = useUi((s) => s.sister);
   const colony = useUi((s) => s.colony);
+  const lang = useUi((s) => s.lang);
+  const now = useUi((s) => s.slowNow);
   const watching = useUi((s) =>
     s.watchingLanding
       ? (s.game?.expeditions.find((e) => e.id === s.watchingLanding)?.sector ?? null)
@@ -87,6 +90,18 @@ export function VisitBanner() {
             <ShipIcon size={16} /> {t('delivery.give')}
           </button>
         )}
+        {ally?.friendId &&
+          pads.length > 0 &&
+          game.pvp.targets.some((x) => x.id === ally.friendId) && (
+            <button
+              class="btn"
+              disabled={!padFree}
+              title={pvpBlock(t, lang, game, ally, ally.friendId, now) ?? undefined}
+              onClick={() => actions.prepareRaid(ally.friendId!)}
+            >
+              <span class="pvp-tag">{t('pvp.tag')}</span> {t('pvp.planner.button')}
+            </button>
+          )}
         {next && (
           <button class="btn" onClick={() => actions.travelTo(next.kiwiIndex)}>
             {t('allies.next', { name: next.owner })}

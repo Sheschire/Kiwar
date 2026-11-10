@@ -526,7 +526,7 @@ uiStore.subscribe((s, prev) => {
   if (s.universe?.id === prev.universe?.id) return;
   chat?.stop();
   chat = null;
-  uiStore.setState({ chat: [], chatFeats: [], chatUnread: 0, chatOpen: false });
+  uiStore.setState({ chat: [], chatFeats: [], chatBattles: [], chatUnread: 0, chatOpen: false });
   const client = controller.online?.client;
   if (!s.universe || !client) return;
   const me = s.account?.userId;
@@ -549,6 +549,7 @@ uiStore.subscribe((s, prev) => {
       }));
     },
     (chatFeats) => uiStore.setState({ chatFeats }),
+    (chatBattles) => uiStore.setState({ chatBattles }),
   );
   setChannel(chat);
   void chat.start();

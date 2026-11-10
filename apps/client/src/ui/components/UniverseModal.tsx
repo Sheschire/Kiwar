@@ -117,7 +117,7 @@ function InvitePanel() {
   return (
     <section class="field">
       <h3>
-        {universe.name}{' '}
+        {universe.name} {universe.pvp && <span class="pvp-tag">{t('pvp.tag')}</span>}{' '}
         <span class="badge">
           {t('universe.players', { count: universe.players, max: universe.maxPlayers })}
         </span>
@@ -234,6 +234,8 @@ export function UniverseModal() {
   const solo = useSoloColony();
   const soloProgress = !!solo;
   const [bring, setBring] = useState(true);
+  // Chantier 57: chosen once, at the creation.
+  const [pvp, setPvp] = useState(false);
   const [displayName, setDisplayName] = useState(savedDisplayName());
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -289,6 +291,12 @@ export function UniverseModal() {
             <li key={u.id} class={current === u.id ? 'is-current' : ''}>
               <div>
                 <strong>{u.name}</strong>
+                {u.pvp && (
+                  <>
+                    {' '}
+                    <span class="pvp-tag">{t('pvp.tag')}</span>
+                  </>
+                )}
                 <p class="small muted">
                   {t('universe.players', { count: u.players, max: u.maxPlayers })}
                 </p>
@@ -347,7 +355,7 @@ export function UniverseModal() {
             onClick={() =>
               run(() =>
                 actions.enterUniverse(
-                  { create: name.trim(), fromSolo: soloProgress && bring },
+                  { create: name.trim(), fromSolo: soloProgress && bring, pvp },
                   displayName,
                 ),
               )
@@ -356,6 +364,15 @@ export function UniverseModal() {
             {t('universe.createAction')}
           </button>
         </div>
+        <label class="small toggle-line">
+          <input
+            type="checkbox"
+            checked={pvp}
+            onChange={(e) => setPvp((e.target as HTMLInputElement).checked)}
+          />{' '}
+          {t('pvp.universe.toggle')}
+        </label>
+        <p class="small muted">{t('pvp.universe.hint')}</p>
       </section>
       <section class="field">
         <h3>{t('universe.join')}</h3>

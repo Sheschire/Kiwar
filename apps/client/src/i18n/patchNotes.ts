@@ -20,6 +20,29 @@ export interface PatchNote {
 
 export const PATCH_NOTES: readonly PatchNote[] = [
   {
+    id: '2026-11-10-pvp',
+    date: '2026-11-10',
+    title: { fr: 'Le JcJ optionnel', en: 'Optional PvP' },
+    items: {
+      fr: [
+        'À la création d’un univers, une case permet d’autoriser les attaques entre joueur·euses (JcJ). Sans elle, rien ne change.',
+        'Dans un univers JcJ, en visitant la planète d’un·e voisin·e : « Débarquer sur cette colonie ». Choisis le côté, l’équipage et le seuil de retraite.',
+        'La cible est prévenue dès le départ : le vol est son préavis. Elle voit qui vient, combien de kiwis, leurs classes et une fourchette de puissance.',
+        'La défense ne perd jamais de kiwi : au plus la moitié des réserves et un dixième du stock non protégé, des blessé·es et des dégâts réparables. Un bouclier de 24 h suit.',
+        'Protections : débuts de partie (âge de Pierre et 72 h), bouclier après une attaque, colonies absentes depuis 3 jours, une attaque par jour sur une même colonie. Attaquer met fin à sa propre protection.',
+        'L’attaque suit les règles du débarquement, et chaque bataille s’affiche dans le chat de l’univers.',
+      ],
+      en: [
+        'When creating a universe, a box lets players attack each other (PvP). Without it, nothing changes.',
+        'In a PvP universe, while visiting a neighbour’s planet: “Land on this colony”. Pick the side, the crew and the retreat threshold.',
+        'The target is told at the departure: the flight is their notice. They see who comes, how many kiwis, their classes and a range of power.',
+        'The defence never loses a kiwi: at most half of the reserves and a tenth of the unprotected stock, some wounded and repairable damage. A 24 h shield follows.',
+        'Protections: beginners (Stone age and 72 h), a shield after an attack, colonies away for 3 days, one attack a day on the same colony. Attacking ends your own protection.',
+        'The attack follows the landing’s rules, and every battle shows up in the universe’s chat.',
+      ],
+    },
+  },
+  {
     id: '2026-11-10-patch-notes',
     date: '2026-11-10',
     title: { fr: 'Le journal des nouveautés', en: 'The “What’s new” log' },

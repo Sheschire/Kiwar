@@ -27,10 +27,17 @@ export function ReportModal() {
   const delve = e.mission === 'delve';
   // Chantier 54: a voyage to the raspberry.
   const voyage = e.mission === 'visit' || e.mission === 'pillage';
+  // Chantier 57: an attack on another player's colony.
+  const pvp = e.mission === 'pvp';
+  const pvpOwner = game.pvp.targets.find((x) => x.id === e.targetId)?.owner ?? '';
   const injured = (r.injured ?? []).map((id) => e.roster.find((m) => m.id === id)?.name ?? id);
   return (
     <Modal
-      title={`${t('expedition.report')} — ${delve ? t('depths.title') : voyage ? t('orchard.title') : target ? targetLabel(t, target) : ''}`}
+      title={
+        pvp
+          ? t('pvp.report.title', { owner: pvpOwner })
+          : `${t('expedition.report')} — ${delve ? t('depths.title') : voyage ? t('orchard.title') : target ? targetLabel(t, target) : ''}`
+      }
       onClose={close}
       footer={
         <button class="btn btn-primary" onClick={close}>
@@ -68,6 +75,13 @@ export function ReportModal() {
               {t('orchard.watch')}
             </button>
           )}
+        </>
+      ) : pvp ? (
+        <>
+          <h2 class={r.victory ? 'bonus' : 'warn'}>
+            {t(`pvp.report.${r.aborted ? 'aborted' : (r.outcome ?? 'defeat')}`)}
+          </h2>
+          {!r.aborted && <p class="small muted">{t('pvp.planner.rules')}</p>}
         </>
       ) : landing ? (
         <LandingReport e={e} />
@@ -115,12 +129,13 @@ export function ReportModal() {
           })}
         </ul>
       </section>
-      {(landing || delve) && r.outcome === 'victory' && (
+      {(landing || delve || pvp) && r.outcome === 'victory' && (
         <p>
           <strong>{t('expedition.loot')}</strong>
           {looted ? <Cost cost={r.loot} /> : t('expedition.nothing')}
         </p>
       )}
+      {pvp && r.log && <LandingReplay log={r.log} />}
       {landing &&
         r.log &&
         (watchable(game, e) ? (

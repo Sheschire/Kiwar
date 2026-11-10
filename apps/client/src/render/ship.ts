@@ -105,7 +105,8 @@ export class ShipsView {
       f.broken = !!e.broken;
       // Chantier 54: a voyage flies into the wormhole's mouth, by the raspberry.
       f.orchard = e.mission === 'visit' || e.mission === 'pillage';
-      f.twin = !f.orchard && (target?.distance ?? 0) === 0;
+      // Chantier 57: an attack flies to another kiwi (never the twin).
+      f.twin = !f.orchard && e.mission !== 'pvp' && (target?.distance ?? 0) === 0;
     }
     for (const x of state.shipments) {
       const pad = state.buildings.find((b) => b.id === x.launchpadId);

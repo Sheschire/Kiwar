@@ -34,9 +34,13 @@ export function ExpeditionsPanel() {
           const name =
             e.mission === 'delve'
               ? t('depths.title')
-              : target
-                ? targetLabel(t, target)
-                : e.targetId;
+              : e.mission === 'pvp'
+                ? t('pvp.report.title', {
+                    owner: game.pvp.targets.find((x) => x.id === e.targetId)?.owner ?? '',
+                  })
+                : target
+                  ? targetLabel(t, target)
+                  : e.targetId;
           // A breakdown shows only once the ship turns back (half-way).
           const hidden = !!e.broken && e.status === 'outbound';
           const arrive = hidden ? e.departedAt + 2 * (e.arriveAt - e.departedAt) : e.arriveAt;

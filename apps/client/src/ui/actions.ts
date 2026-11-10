@@ -463,7 +463,8 @@ export const actions = {
     return (await controller?.listUniverses()) ?? [];
   },
   async enterUniverse(
-    how: { create: string; fromSolo?: boolean } | { code: string; fromSolo?: boolean },
+    how:
+      { create: string; fromSolo?: boolean; pvp?: boolean } | { code: string; fromSolo?: boolean },
     displayName: string,
   ) {
     saveDisplayName(displayName);
@@ -484,6 +485,11 @@ export const actions = {
     actions.travelTo(null);
     uiStore.setState({ modal: 'expedition', expeditionPad: pad.id, deliverTo: friendId });
     return true;
+  },
+  /** Chantier 57: the planner of an attack on a member's colony (PvP universes). */
+  prepareRaid(targetId: string): void {
+    actions.travelTo(null);
+    uiStore.setState({ modal: 'pvp', pvpTarget: targetId });
   },
   /** Chantier 19: the planner of a free launchpad, set to a siege mission. */
   planSiege(plan: SiegePlan): boolean {

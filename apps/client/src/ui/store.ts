@@ -13,7 +13,7 @@ import {
 import type { OfflineSummary, SyncStatus } from '../game/GameController';
 import type { Account } from '../game/onlineBackend';
 import type { AuthRedirectError } from '../game/authRedirect';
-import type { ChatMessage, FeatLine } from '../game/chat';
+import type { BattleLine, ChatMessage, FeatLine } from '../game/chat';
 import type {
   AllySnapshot,
   LeagueLook,
@@ -58,7 +58,9 @@ export type Modal =
   /** Chantier 54: the orchard (the raspberry and our trading post). */
   | 'orchard'
   /** The patch notes ("What's new"). */
-  | 'patchNotes';
+  | 'patchNotes'
+  /** Chantier 57: the planner of an attack on another player. */
+  | 'pvp';
 
 /** A planner opened on a mission: the settlers' ship, or a landing on a given parcel (chantier 40). */
 export interface SiegePlan {
@@ -113,6 +115,8 @@ export interface UiState {
   expeditionPad: string | null;
   /** The expedition modal opens on a delivery to this ally (`Friend.id`). */
   deliverTo: string | null;
+  /** Chantier 57: the member's colony the PvP planner aims at (`ally:<user id>`). */
+  pvpTarget: string | null;
   /** Chantier 19: the siege mission the expedition planner is set to (null: free choice). */
   siegePlan: SiegePlan | null;
   /** Expedition whose report is shown. */
@@ -133,6 +137,8 @@ export interface UiState {
   chat: ChatMessage[];
   /** Chantier 56: the league's feats shown as lines in the chat. */
   chatFeats: FeatLine[];
+  /** Chantier 57: the battles between players shown as lines in the chat. */
+  chatBattles: BattleLine[];
   chatUnread: number;
   /** Path painting mode. */
   pathMode: boolean;
@@ -299,6 +305,7 @@ export const uiStore = createStore<UiState>(() => ({
   guestTransfer: null,
   expeditionPad: null,
   deliverTo: null,
+  pvpTarget: null,
   siegePlan: null,
   reportId: null,
   bestiaryOpen: false,
@@ -310,6 +317,7 @@ export const uiStore = createStore<UiState>(() => ({
   chatOpen: false,
   chat: [],
   chatFeats: [],
+  chatBattles: [],
   chatUnread: 0,
   pathMode: false,
   pathGains: null,

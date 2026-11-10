@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { mutedUsers, type ChatMessage, type FeatLine } from '../../game/chat';
+import { mutedUsers, type BattleLine, type ChatMessage, type FeatLine } from '../../game/chat';
 import { featName } from './LeagueModal';
 import { chatActions } from '../chatActions';
 import { CloseIcon, TrophyIcon } from '../icons';
 import { useT, useUi } from '../store';
 
-const timeOf = (m: ChatMessage | FeatLine): string => ('at' in m ? m.at : m.created_at);
+const timeOf = (m: ChatMessage | FeatLine | BattleLine): string =>
+  'at' in m ? m.at : m.created_at;
 
 /** Team chat of the current shared universe. */
 export function ChatPanel() {
@@ -13,11 +14,16 @@ export function ChatPanel() {
   const open = useUi((s) => s.chatOpen);
   const chat = useUi((s) => s.chat);
   const feats = useUi((s) => s.chatFeats);
+  const battles = useUi((s) => s.chatBattles);
   const universe = useUi((s) => s.universe);
   // Chantier 56: the feats of the league fall between the messages, by time.
-  const messages: (ChatMessage | (FeatLine & { kind: 'feat' }))[] = [
+  const messages: (
+    ChatMessage | (FeatLine & { kind: 'feat' }) | (BattleLine & { kind: 'battle' })
+  )[] = [
     ...chat,
     ...feats.map((f) => ({ ...f, kind: 'feat' as const })),
+    // Chantier 57: the battles between players too.
+    ...battles.map((b) => ({ ...b, kind: 'battle' as const })),
   ].sort((a, b) => Date.parse(timeOf(a)) - Date.parse(timeOf(b)));
   const me = useUi((s) => s.account?.userId);
   const [text, setText] = useState('');
@@ -50,6 +56,17 @@ export function ChatPanel() {
       <ul class="chat-list" ref={listRef}>
         {messages.length === 0 && <li class="muted small">{t('chat.empty')}</li>}
         {messages.map((m) => {
+          if ('kind' in m && m.kind === 'battle')
+            return (
+              <li key={`battle-${m.id}`} class="chat-feat small">
+                <span class="pvp-tag">{t('pvp.tag')}</span>{' '}
+                {t(`pvp.chat.${m.outcome}`, {
+                  attacker: m.attacker_name,
+                  defender: m.defender_name,
+                  loot: m.loot,
+                })}
+              </li>
+            );
           if ('kind' in m) {
             const name = universe?.members.find((x) => x.userId === m.user_id)?.displayName ?? '?';
             return (
