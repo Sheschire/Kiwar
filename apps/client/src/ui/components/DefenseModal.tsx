@@ -25,6 +25,9 @@ import {
   type Villager,
   type VillagerId,
   type WaveReport,
+  classCounts,
+  type PlannedWave,
+  type PvpRaid,
 } from '@kiwar/shared';
 import { useEffect } from 'preact/hooks';
 import { defenseNow, forecastWave } from '../derived';
@@ -117,6 +120,9 @@ export function ThreatBadge() {
           <span>
             {t('defense.badge', { duration: formatDuration(lang, f.wave.at - now) })} ·{' '}
             {f.wave.tunnel && <>{t('depths.byTunnel')} · </>}
+            {raidOf(game, f.wave) && (
+              <>{t('pvp.badge', { owner: raidOf(game, f.wave)!.owner })} · </>
+            )}
             <strong>{t(`defense.odds.${f.odds}`)}</strong>
             {weak && (
               <span class="small">
@@ -438,6 +444,9 @@ function ReportItem({ r, now, t }: { r: WaveReport; now: number; t: Translate })
     <li class={`wave-report ${r.victory ? 'won' : 'lost'}`}>
       <p>
         <strong>{t(r.victory ? 'defense.won' : 'defense.lost')}</strong>{' '}
+        {r.from === 'pvp' && r.by && (
+          <span class="pvp-tag">{t('pvp.reportBy', { owner: r.by })} </span>
+        )}
         <span class="small muted">
           {t('defense.reportLine', {
             ago: formatDuration(lang, now - r.at),
@@ -477,6 +486,39 @@ function ReportItem({ r, now, t }: { r: WaveReport; now: number; t: Translate })
         </button>
       )}
     </li>
+  );
+}
+
+/** Chantier 57: the attack of another player behind an announced wave (null: none). */
+function raidOf(game: GameState, wave: PlannedWave): PvpRaid | null {
+  return wave.pvp ? (game.pvp.incoming.find((r) => r.id === wave.pvp) ?? null) : null;
+}
+
+/** Chantier 57: who attacks, with what, by which side — and what the defence can lose. */
+function RaidLine({ game, wave }: { game: GameState; wave: PlannedWave }) {
+  const t = useT();
+  const lang = useUi((s) => s.lang);
+  const raid = raidOf(game, wave);
+  if (!raid) return null;
+  const classes = classCounts(raid.classes)
+    .map(([c, n]) => `${n} × ${c ? t(`classes.${c}.name`) : t('pvp.noClass')}`)
+    .join(', ');
+  return (
+    <div class="pvp-raid">
+      <p>
+        <span class="pvp-tag">{t('pvp.tag')}</span>{' '}
+        {t('pvp.head', { owner: raid.owner, crew: raid.crew, classes })}
+      </p>
+      <p class="small">
+        {t('pvp.power', {
+          lo: formatNumber(lang, Math.round(raid.power[0])),
+          hi: formatNumber(lang, Math.round(raid.power[1])),
+          sector: `@defense.sectors.${raid.sector}`,
+        })}
+      </p>
+      <p class="small muted">{t('pvp.safe')}</p>
+      <p class="small">{t('pvp.answers')}</p>
+    </div>
   );
 }
 
@@ -572,12 +614,21 @@ export function DefenseModal() {
   }
   return (
     <Modal title={t('defense.title')} onClose={close} class="modal-defense">
+      {game.pvp.shieldUntil > now && (
+        <p class="small">
+          <span class="pvp-tag">{t('pvp.tag')}</span>{' '}
+          {t('pvp.shield', { duration: formatDuration(lang, game.pvp.shieldUntil - now) })}
+        </p>
+      )}
       {f ? (
         <>
           <p class={`defense-head odds-${f.odds}`}>
-            {t('defense.strikesIn', { duration: formatDuration(lang, f.wave.at - now) })}{' '}
+            {t(f.wave.pvp ? 'pvp.strikesIn' : 'defense.strikesIn', {
+              duration: formatDuration(lang, f.wave.at - now),
+            })}{' '}
             <strong>{t(`defense.odds.${f.odds}`)}</strong>
           </p>
+          <RaidLine game={game} wave={f.wave} />
           {f.wave.tunnel && (
             <p class="small warn">
               {t('depths.upwellDefense')}{' '}
@@ -598,16 +649,18 @@ export function DefenseModal() {
                 t('defense.militia', { value: n(f.defense.militia) }),
               ]}
             />
-            <SideCard
-              side="air"
-              threat={f.threat.air}
-              defense={f.defense.air}
-              holds={f.expected.victory}
-              parts={[
-                t('defense.turrets', { value: n(f.defense.turrets.air) }),
-                t('defense.garrison', { value: n(f.defense.garrison.air) }),
-              ]}
-            />
+            {!f.wave.pvp && (
+              <SideCard
+                side="air"
+                threat={f.threat.air}
+                defense={f.defense.air}
+                holds={f.expected.victory}
+                parts={[
+                  t('defense.turrets', { value: n(f.defense.turrets.air) }),
+                  t('defense.garrison', { value: n(f.defense.garrison.air) }),
+                ]}
+              />
+            )}
           </div>
           {f.defense.ammo.need > 0 && (
             <p class={`small ${f.defense.ammo.share < 1 ? 'warn' : 'muted'}`}>

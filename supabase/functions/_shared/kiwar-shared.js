@@ -15103,6 +15103,7 @@ function forecastWave(state) {
     forecastCache.set(key, trials);
     if (forecastCache.size > 16) forecastCache.delete(forecastCache.keys().next().value);
   }
+  if (wave.pvp) trials = trials.map((x) => ({ ...x, deaths: 0 }));
   const odds = trials[0].victory ? "likely" : trials[1].victory || trials[2].victory ? "uncertain" : "unlikely";
   return { ...ahead, odds, expected: trials[1] };
 }

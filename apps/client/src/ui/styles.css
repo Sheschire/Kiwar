@@ -7164,3 +7164,25 @@ h3 .building-thumb {
 .patch-note ul li + li {
   margin-top: 3px;
 }
+
+/* Chantier 57: an attack of another player. */
+.pvp-tag {
+  display: inline-block;
+  padding: 0 0.4em;
+  border-radius: 0.6em;
+  background: var(--berry);
+  color: #fff;
+  font-size: 0.8em;
+  font-weight: 700;
+  vertical-align: 0.1em;
+}
+.pvp-raid {
+  margin: 0.4rem 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--berry);
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--berry) 8%, transparent);
+}
+.pvp-raid p {
+  margin: 0.2rem 0;
+}

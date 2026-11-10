@@ -651,6 +651,8 @@ export function forecastWave(state: GameState): WaveForecast | null {
     forecastCache.set(key, trials);
     if (forecastCache.size > 16) forecastCache.delete(forecastCache.keys().next().value!);
   }
+  // Chantier 57: another player's crew never kills a defender.
+  if (wave.pvp) trials = trials.map((x) => ({ ...x, deaths: 0 }));
   const odds: Exclude<Odds, 'unknown'> = trials[0]!.victory
     ? 'likely'
     : trials[1]!.victory || trials[2]!.victory

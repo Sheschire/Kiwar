@@ -45,6 +45,7 @@ import { installGameAudio } from './audio/gameAudio';
 import { kiwiSpeaks } from './audio/sounds';
 import { bootMark, bootSummary } from './game/bootTimes';
 import { watchUpdates } from './ui/update';
+import { watchRaids } from './game/pvpWatch';
 
 bootMark('script');
 
@@ -403,6 +404,11 @@ uiStore.subscribe((s, prev) => {
     pointed ? [pointed] : [],
     pointed ? digFloods(game!, s.map!, pointed) : [],
   );
+});
+
+// Chantier 57: an attack of another player announced to us.
+uiStore.subscribe((s, prev) => {
+  if (s.slowGame !== prev.slowGame) watchRaids(s.slowGame, s.slowNow);
 });
 
 // Chantier 11: level badges everywhere, or only at medium zoom.
