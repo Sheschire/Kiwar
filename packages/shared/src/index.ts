@@ -95,6 +95,7 @@ export * from './server/protocol';
 export * from './server/gameService';
 export * from './server/universes';
 export * from './server/leagues';
+export * from './server/pvp';
 export * from './data/units';
 export * from './battle/types';
 export * from './battle/codec';

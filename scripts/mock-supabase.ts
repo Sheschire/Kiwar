@@ -197,6 +197,30 @@ createServer(async (req, res) => {
       .slice(0, limit);
     return send(res, 200, feats);
   }
+  // Chantier 57: the battles between players for the chat lines (read only, members only).
+  if (url.pathname === '/rest/v1/pvp_battles' && req.method === 'GET') {
+    const user = userFromToken(req.headers.authorization);
+    if (!user) return send(res, 401, { message: 'unauthorized' });
+    const universe = (url.searchParams.get('universe_id') ?? '').replace(/^eq\./, '');
+    const members = await repo.listMembers(universe);
+    if (!members.some((m) => m.userId === user.id)) return send(res, 200, []);
+    const limit = Number(url.searchParams.get('limit') ?? 20);
+    const rows = repo.pvpBattles
+      .filter((b) => b.universeId === universe)
+      .map((b) => ({
+        id: b.id,
+        attacker_id: b.attackerId,
+        attacker_name: b.attackerName,
+        defender_id: b.defenderId,
+        defender_name: b.defenderName,
+        outcome: b.outcome,
+        loot: b.loot,
+        at: new Date(b.at).toISOString(),
+      }))
+      .reverse()
+      .slice(0, limit);
+    return send(res, 200, rows);
+  }
   // Sounds (chantier 02): public read, writes for signed-in users (every mock user is admin).
   if (url.pathname === '/rest/v1/rpc/is_admin') return send(res, 200, true);
   const audioTable =

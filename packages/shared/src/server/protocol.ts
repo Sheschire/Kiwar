@@ -314,6 +314,8 @@ export const requestSchema = z.discriminatedUnion('action', [
     displayName,
     /** Bring the solo colony along (it moves into the new universe). */
     fromSolo: z.boolean().optional(),
+    /** Chantier 57: players may attack each other's colonies (chosen once, here). */
+    pvp: z.boolean().optional(),
   }),
   z.object({
     action: z.literal('joinUniverse'),

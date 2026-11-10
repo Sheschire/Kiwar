@@ -19,6 +19,7 @@ interface UniverseRowDb {
   created_at: string;
   created_by?: string | null;
   allow_imports?: boolean;
+  pvp?: boolean;
 }
 
 interface MemberRowDb {
@@ -34,7 +35,8 @@ interface MemberRowDb {
 type State = any;
 
 const LEGACY_GAME_COLUMNS = 'id, user_id, universe_id, state, version';
-const LEGACY_UNIVERSE_COLUMNS = 'id, name, code, seed, max_players, created_at';
+// `pvp` exists since the first universes migration (chantier 57 reads it).
+const LEGACY_UNIVERSE_COLUMNS = 'id, name, code, seed, max_players, created_at, pvp';
 const LEGACY_MEMBER_COLUMNS = 'user_id, display_name, kiwi_index, face, planet_seed';
 
 // deno-lint-ignore no-explicit-any
@@ -139,6 +141,7 @@ export function createSupabaseRepository(db: SupabaseClient) {
     createdAt: Date.parse(r.created_at),
     ...(r.created_by ? { createdBy: r.created_by } : {}),
     ...(r.allow_imports === false ? { allowImports: false } : {}),
+    ...(r.pvp ? { pvp: true } : {}),
   });
   const toMember = (r: MemberRowDb) => ({
     userId: r.user_id,
@@ -234,6 +237,7 @@ export function createSupabaseRepository(db: SupabaseClient) {
       maxPlayers: number;
       createdAt?: number;
       createdBy: string;
+      pvp?: boolean;
     }) {
       const { data, error } = await tolerant(() =>
         db
@@ -244,6 +248,7 @@ export function createSupabaseRepository(db: SupabaseClient) {
             seed: row.seed,
             max_players: row.maxPlayers,
             created_by: row.createdBy,
+            pvp: !!row.pvp,
             ...(row.createdAt ? { created_at: new Date(row.createdAt).toISOString() } : {}),
           })
           .select(universeColumns())
@@ -511,6 +516,35 @@ export function createSupabaseRepository(db: SupabaseClient) {
         { onConflict: 'universe_id,user_id,feat', ignoreDuplicates: true },
       );
       if (error && !isMissingTable(error)) fail('recordFeats', error);
+    },
+    // Chantier 57: a battle between players, for the chat. Until the owner runs
+    // `20261110000000_pvp.sql`, the line is skipped (the game never waits on it).
+    async recordPvpBattle(row: {
+      id: string;
+      universeId: string;
+      attackerId: string;
+      attackerName: string;
+      defenderId: string;
+      defenderName: string;
+      outcome: 'held' | 'looted' | 'turnedBack';
+      loot: number;
+      at: number;
+    }) {
+      const { error } = await db.from('pvp_battles').upsert(
+        {
+          id: row.id,
+          universe_id: row.universeId,
+          attacker_id: row.attackerId,
+          attacker_name: row.attackerName,
+          defender_id: row.defenderId,
+          defender_name: row.defenderName,
+          outcome: row.outcome,
+          loot: row.loot,
+          at: iso(row.at),
+        },
+        { onConflict: 'id', ignoreDuplicates: true },
+      );
+      if (error && !isMissingTable(error)) fail('recordPvpBattle', error);
     },
     async leaguePlayers(universeId: string) {
       const { data, error } = await db

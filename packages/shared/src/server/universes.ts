@@ -1,3 +1,4 @@
+import type { PvpGuard } from '../data/pvp';
 import type { LeagueLook } from './leagues';
 import type { ObstacleKind } from '../data/obstacles';
 import type { TerraformTile } from '../data/titan';
@@ -25,6 +26,8 @@ export interface UniverseSummary {
   code: string;
   players: number;
   maxPlayers: number;
+  /** Chantier 57: players may attack each other's colonies. */
+  pvp?: boolean;
 }
 
 export interface UniverseMember {
@@ -68,6 +71,9 @@ export interface ColonyPower {
   defense: number;
   /** No predator wave before this time (arrival shield or after a defeat). */
   shieldUntil: number;
+  /** Chantier 57 (PvP universes): why it cannot be attacked now, and until when if known. */
+  pvpGuard?: PvpGuard;
+  pvpUntil?: number;
 }
 
 /**

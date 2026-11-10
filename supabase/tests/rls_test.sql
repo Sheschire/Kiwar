@@ -360,4 +360,42 @@ begin
 end $$;
 reset role;
 
+-- Chantier 57: PvP battles are written by the game function only; members read them.
+set role service_role;
+insert into public.pvp_battles (id, universe_id, attacker_id, defender_id, outcome, loot)
+  values ('11111111-1111-1111-1111-111111111111/x1', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'held', 0);
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare n int;
+begin
+  select count(*) into n from public.pvp_battles;
+  if n <> 1 then raise exception 'member should read the battles, got %', n; end if;
+  update public.pvp_battles set outcome = 'looted';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'player could change a battle'; end if;
+  delete from public.pvp_battles;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'player could delete a battle'; end if;
+  begin
+    insert into public.pvp_battles (id, universe_id, attacker_id, defender_id, outcome)
+      values ('fake', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'looted');
+    raise exception 'player could write a battle';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$
+declare n int;
+begin
+  select count(*) into n from public.pvp_battles;
+  if n <> 0 then raise exception 'non-member can read battles'; end if;
+end $$;
+reset role;
+
 select 'Universe and chat RLS tests passed' as result;

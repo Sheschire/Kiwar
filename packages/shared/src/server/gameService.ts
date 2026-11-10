@@ -67,6 +67,17 @@ import { deliveryOf } from '../sim/deliveries';
 import { ensureAliens, hiddenDue, publicState } from '../sim/aliens';
 import { resetSiege } from '../sim/siege';
 import { resetLandings } from '../sim/landing';
+import { forgetPvp, GUARD_ERRORS, pvpGuardOf } from '../sim/pvp';
+import {
+  announcePvp,
+  battlesPlayed,
+  pvpTargetsOf,
+  settlePvp,
+  staleActivity,
+  targetUserOf,
+  type PvpBattleRow,
+  type PvpRepository,
+} from './pvp';
 import { ensureDepths, resetDepths } from '../sim/depths';
 import { ensureOrchard, forgetOrchard, rebaseOrchard, universeOrchardSeed } from '../sim/orchard';
 import { generateFace, type FaceMap } from '../worldgen/generateFace';
@@ -130,10 +141,12 @@ export interface UniverseRow {
   allowImports?: boolean;
   /** Creator of the universe (the host). */
   createdBy?: string;
+  /** Chantier 57: players may attack each other's colonies (chosen at the creation). */
+  pvp?: boolean;
 }
 
 /** Persistence port, implemented with Postgres in the edge function and in memory in tests. */
-export interface GameRepository extends LeagueRepository {
+export interface GameRepository extends LeagueRepository, PvpRepository {
   /** Chantier 19: `colony` 1 is the sister colony (default 0, the home colony). */
   findGame(userId: string, universeId: string, colony?: 0 | 1): Promise<StoredGame | null>;
   create(userId: string, universeId: string, state: GameState, colony?: 0 | 1): Promise<StoredGame>;
@@ -343,14 +356,22 @@ function toInfo(row: UniverseRow, members: UniverseMember[]): UniverseInfo {
 }
 
 /** Chantier 14: what the other players see of a colony's strength. */
-export function colonyPower(s: GameState): ColonyPower {
+export function colonyPower(s: GameState, now = s.now, pvp = false): ColonyPower {
   const d = defenseOf(s);
+  const guard = pvp ? pvpGuardOf(s, now) : null;
   return {
     age: ageOf(s),
     nest: nest(s).level,
     kiwis: s.villagers.length,
     defense: Math.round(d.ground + d.air),
     shieldUntil: s.threats.shieldUntil,
+    // Chantier 57: why it cannot be attacked now (PvP universes).
+    ...(guard
+      ? {
+          pvpGuard: guard.guard,
+          ...(Number.isFinite(guard.until) ? { pvpUntil: guard.until } : {}),
+        }
+      : {}),
   };
 }
 
@@ -369,6 +390,8 @@ export function villageView(s: GameState): GameState {
     resources: zeroResources(),
     intel: {},
     faceViews: {},
+    // Chantier 57: their battles and who they attack stay theirs.
+    pvp: { ...pub.pvp, incoming: [], defended: [], lastAttackOn: {} },
   };
 }
 
@@ -387,7 +410,14 @@ async function withBans(
 }
 
 function toSummary(row: UniverseRow, players: number): UniverseSummary {
-  return { id: row.id, name: row.name, code: row.code, players, maxPlayers: row.maxPlayers };
+  return {
+    id: row.id,
+    name: row.name,
+    code: row.code,
+    players,
+    maxPlayers: row.maxPlayers,
+    ...(row.pvp ? { pvp: true } : {}),
+  };
 }
 
 /**
@@ -414,6 +444,14 @@ function withScopeTargets(
   // Chantier 19: our other colony is a delivery target; a sister colony has no alien target.
   if (hasSister(state) || isSister(state)) next.friends = [...next.friends, sisterFriend(state)];
   if (isSister(state)) next.targets = [];
+  // Chantier 57: in a PvP universe, the other members' home colonies (from home only).
+  const pvpOn = !!scope.shared?.info.pvp;
+  const pvpTargets =
+    pvpOn && scope.shared && !isSister(state)
+      ? pvpTargetsOf(scope.shared.info.members, scope.shared.me)
+      : [];
+  if (state.pvp.on !== pvpOn || JSON.stringify(state.pvp.targets) !== JSON.stringify(pvpTargets))
+    next.pvp = { ...state.pvp, on: pvpOn, targets: pvpTargets };
   if (state.aliens) next.aliens = cloneAliens(state.aliens);
   const changed = ensureAliens(next, ctx.randomSeed());
   // Chantier 48: the hidden seed of the depths (migrated games).
@@ -486,7 +524,7 @@ async function neighboursOf(
         paths: s.paths,
         obstacles: s.obstacles.map((o) => ({ kind: o.kind, q: o.q, r: o.r })),
         terraform: s.terraform,
-        power: colonyPower(s),
+        power: colonyPower(s, now, !!info.pvp),
         twin: allyTwinOf(s),
         ...(looks.has(m.userId) ? { league: looks.get(m.userId) } : {}),
         at: now,
@@ -956,6 +994,23 @@ async function leagueOf(
  * Server-authoritative game service. The server owns the clock, the randomness and the state;
  * the client sends commands that are validated with the very same rules as offline play.
  */
+/** Chantier 57: the chat lines of the attacks a defender's state just played. */
+async function notePvpBattles(
+  repo: GameRepository,
+  scope: Scope,
+  owner: string,
+  before: GameState,
+  after: GameState,
+): Promise<void> {
+  if (!scope.shared) return;
+  const member = scope.shared.info.members.find((m) => m.userId === owner);
+  const rows = battlesPlayed(before, after, scope.universeId, {
+    userId: owner,
+    displayName: member?.displayName ?? '',
+  });
+  for (const row of rows) await quietly(() => repo.recordPvpBattle(row), undefined);
+}
+
 export async function handleGameRequest(ctx: ServiceContext, body: unknown): Promise<GameResponse> {
   const res = await handle(ctx, body);
   // Anti-cheat (chantier 07): the real alien garrisons never leave the server.
@@ -996,6 +1051,8 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
           ? Math.min(ctx.now(), solo.state.calendarStart + CALENDAR.startOffsetMs)
           : ctx.now(),
         createdBy: ctx.userId,
+        // Chantier 57: chosen once, at the creation.
+        ...(req.pvp ? { pvp: true } : {}),
       });
       if (!solo) return joinAndPlay(ctx, repo, row, req.displayName);
       return moveSoloInto(ctx, repo, row, solo, req.displayName);
@@ -1135,6 +1192,25 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
         const scoped = withScopeTargets(ctx, existing.state, scope);
         let state = scoped.state;
         let events: GameEvent[] = [];
+        // Chantier 57: our attacks that landed get their news (their target is played first).
+        let pvpChanged = false;
+        if (scope.shared) {
+          const settled = await settlePvp(
+            repo,
+            scope.universeId,
+            ctx.userId,
+            state,
+            ctx.now(),
+            (uid, before, after) => notePvpBattles(repo, scope, uid, before, after),
+          );
+          state = settled.state;
+          events = settled.events;
+          pvpChanged = settled.changed;
+          if (staleActivity(state, ctx.now())) {
+            state = { ...state, pvp: { ...state.pvp, lastActiveAt: ctx.now() } };
+            pvpChanged = true;
+          }
+        }
         // Ships that landed and alien moves due meanwhile are resolved here: the client
         // cannot (hidden garrison).
         // Chantier 42: one resolved move may make the next one due (an attack announced, then
@@ -1148,10 +1224,12 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
           events = [...events, ...result.events];
           resolved = true;
         }
-        if (scoped.changed || resolved) {
+        if (scoped.changed || resolved || pvpChanged) {
           const saved = await repo.update(existing.id, state, existing.version);
           // Another request wrote in between: it resolved everything as well.
           if (!saved) state = (await repo.findGame(ctx.userId, scope.universeId))?.state ?? state;
+          // Chantier 57: attacks on us played here.
+          else await notePvpBattles(repo, scope, ctx.userId, existing.state, saved.state);
         }
         // Chantier 19: a landed founding, ships between the faces, the shared research.
         const pair = hasSister(state) ? await linkColonies(ctx, repo, scope) : null;
@@ -1267,6 +1345,8 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
       delete imported.orchardSeed;
       forgetOrchard(imported);
       ensureOrchard(imported, `${ctx.randomSeed()}/orchard`);
+      // Chantier 57: nor its battles with other players.
+      forgetPvp(imported);
       const state = advance(imported, now).state;
       const saved = existing
         ? await repo.update(existing.id, state, existing.version)
@@ -1287,6 +1367,17 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
       const cmd = req.command;
       const allySister =
         cmd.type === 'sendCargo' ? await allySisterFriend(repo, scope, cmd.friendId) : null;
+      // Chantier 57: the target's protections are read from its own state.
+      if (cmd.type === 'raidPlayer') {
+        if (!scope.shared?.info.pvp) return fail('notPvp');
+        const uid = targetUserOf(cmd.targetId);
+        const member = scope.shared.info.members.find((m) => m.userId === uid);
+        if (!uid || !member || uid === ctx.userId) return fail('unknownPvpTarget');
+        const game = await repo.findGame(uid, scope.universeId, 0);
+        if (!game) return fail('unknownPvpTarget');
+        const guard = pvpGuardOf(game.state, now);
+        if (guard) return fail(GUARD_ERRORS[guard.guard]);
+      }
       // Optimistic concurrency: retry once if another request wrote in between.
       for (let attempt = 0; attempt < 2; attempt++) {
         const game = await repo.findGame(ctx.userId, scope.universeId, target);
@@ -1303,9 +1394,30 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
           at: now,
         });
         if (!result.ok) return fail(result.error, current);
+        if (staleActivity(result.state, now))
+          result.state.pvp = { ...result.state.pvp, lastActiveAt: now };
         const saved = await repo.update(game.id, result.state, game.version);
         if (saved) {
           await leagueOf(ctx, repo, scope, target, game.state, saved.state);
+          // Chantier 57: attacks on us the command's advance played; ours announced.
+          if (target === 0) await notePvpBattles(repo, scope, ctx.userId, game.state, saved.state);
+          if (cmd.type === 'raidPlayer' && scope.shared) {
+            const e = saved.state.expeditions.find(
+              (x) => x.mission === 'pvp' && !current.expeditions.some((y) => y.id === x.id),
+            );
+            if (e)
+              await announcePvp(
+                repo,
+                scope.universeId,
+                {
+                  userId: ctx.userId,
+                  displayName: scope.shared.me.displayName,
+                  state: saved.state,
+                },
+                e,
+                ctx.randomSeed,
+              );
+          }
           if (req.command.type === 'sendCargo' && scope.shared) {
             const sent = saved.state.shipments.find(
               (x) => !current.shipments.some((y) => y.id === x.id),
@@ -1480,12 +1592,14 @@ function migrating(repo: GameRepository): GameRepository {
 export function createMemoryRepository(): GameRepository & {
   games: Map<string, StoredGame>;
   log: unknown[];
+  pvpBattles: PvpBattleRow[];
 } {
   const games = new Map<string, StoredGame>();
   const universes = new Map<string, UniverseRow>();
   const members = new Map<string, UniverseMember[]>();
   const bans = new Map<string, BannedMember[]>();
   const secrets = new Map<string, string>();
+  const pvpBattles: PvpBattleRow[] = [];
   const log: { userId: string; at: number }[] = [];
   let next = 1;
   const clone = <T>(g: T): T => JSON.parse(JSON.stringify(g)) as T;
@@ -1493,6 +1607,10 @@ export function createMemoryRepository(): GameRepository & {
     ...createMemoryLeagues(),
     games,
     log,
+    pvpBattles,
+    async recordPvpBattle(row) {
+      if (!pvpBattles.some((b) => b.id === row.id)) pvpBattles.push(clone(row));
+    },
     async findGame(userId, universeId, colony = 0) {
       for (const g of games.values())
         if (g.userId === userId && g.universeId === universeId && (g.colony ?? 0) === colony)
@@ -1537,6 +1655,7 @@ export function createMemoryRepository(): GameRepository & {
         createdAt: row.createdAt,
         allowImports: true,
         createdBy: row.createdBy,
+        ...(row.pvp ? { pvp: true } : {}),
       };
       universes.set(u.id, u);
       members.set(u.id, []);
