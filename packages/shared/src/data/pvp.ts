@@ -27,6 +27,8 @@ export const PVP = {
    * they are not in the storage). The ship's hold caps the whole.
    */
   loot: { reserve: 0.5, stock: 0.1 },
+  /** The defence held: nothing damaged and at most this share of what the crew could carry. */
+  heldLoot: 0.1,
   /** The announcement gives the crew's power as a range of ± this share around a shifted middle. */
   powerSpread: 0.2,
   /** Smallest crew. */

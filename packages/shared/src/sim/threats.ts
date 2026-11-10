@@ -27,7 +27,7 @@ import type { FaceMap, Tile } from '../worldgen/generateFace';
 import type { TimeMs, VillagerId } from '../types/ids';
 import type { GameEvent } from './advance';
 import { PVP } from '../data/pvp';
-import { comingRaid, pvpDefenseEnd, raidWave, recordDefense } from './pvp';
+import { comingRaid, pvpDefenseEnd, pvpHeld, raidWave, recordDefense } from './pvp';
 import { calendarAt } from './calendar';
 import type { Odds } from './expeditions';
 import { removeVillagers } from './expeditions';
@@ -637,17 +637,14 @@ export function forecastWave(state: GameState): WaveForecast | null {
   const key = `${wave.id}|${state.seed}|${state.face}|${terraformKey(state)}|${pathsKey(state.paths)}|${seasonOf(state)}|${JSON.stringify(rest)}`;
   let trials = forecastCache.get(key);
   if (!trials) {
-    trials = lucks.map((luck, i) =>
-      doorPass(state, wave, luck) <= 0
-        ? heldOutcome(defense)
-        : battleOutcome(
-            state,
-            threat,
-            defense,
-            sheltered,
-            simulateBattle(luck === 1 ? average : setupAt(luck), `${wave.id}/trial/${i}`),
-          ),
-    );
+    const raid = wave.pvp ? state.pvp.incoming.find((r) => r.id === wave.pvp) : undefined;
+    trials = lucks.map((luck, i) => {
+      if (doorPass(state, wave, luck) <= 0) return heldOutcome(defense);
+      const log = simulateBattle(luck === 1 ? average : setupAt(luck), `${wave.id}/trial/${i}`);
+      const out = battleOutcome(state, threat, defense, sheltered, log);
+      // Chantier 57: an attack of another player has its own rule.
+      return raid ? { ...out, victory: pvpHeld(raid, log) } : out;
+    });
     forecastCache.set(key, trials);
     if (forecastCache.size > 16) forecastCache.delete(forecastCache.keys().next().value!);
   }
@@ -783,7 +780,10 @@ export function strike(s: GameState, wave: PlannedWave, events: GameEvent[]): vo
   if (crystalUsed > 0) payCrystal(s, crystalUsed);
   const out = battleOutcome(s, threat, defense, sheltered, log);
   // Chantier 57: the defence never loses a kiwi to another player.
-  if (raid) out.deaths = 0;
+  if (raid) {
+    out.deaths = 0;
+    out.victory = pvpHeld(raid, log);
+  }
   // The turrets fired these seeds (the loot is taken from what is left).
   const shots = Object.values(log.result.shots).reduce((a, b) => a + b, 0);
   const ammoUsed = Math.min(s.resources.seeds, shots);

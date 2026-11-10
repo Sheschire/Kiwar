@@ -395,6 +395,17 @@ export function pvpTick(s: GameState, at: TimeMs, events: GameEvent[]): void {
   }
 }
 
+/**
+ * Whether the defence held an attack: nothing damaged, and the crew carried away at most
+ * `PVP.heldLoot` of what it could have taken (its hold, or what lay there if less). The wave's
+ * rule (a share of everything lootable) would call a full hold a defence held.
+ */
+export function pvpHeld(raid: PvpRaid, log: BattleLog): boolean {
+  const taken = log.result.loot.reduce((sum, l) => sum + l.amounts.reduce((a, b) => a + b, 0), 0);
+  const could = Math.min(raid.hold, log.result.lootable);
+  return log.result.damaged.length === 0 && taken <= PVP.heldLoot * could + 1e-9;
+}
+
 /** Keeps an attack's end for the attacker's report (a fortnight, a few at most). */
 export function recordDefense(s: GameState, d: PvpDefense): void {
   const p: PvpState = s.pvp;

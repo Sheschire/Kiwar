@@ -4585,6 +4585,8 @@ var PVP = {
    * they are not in the storage). The ship's hold caps the whole.
    */
   loot: { reserve: 0.5, stock: 0.1 },
+  /** The defence held: nothing damaged and at most this share of what the crew could carry. */
+  heldLoot: 0.1,
   /** The announcement gives the crew's power as a range of ± this share around a shifted middle. */
   powerSpread: 0.2,
   /** Smallest crew. */
@@ -14632,6 +14634,11 @@ function pvpTick(s, at, events) {
     strike2(s, raidWave(raid), events);
   }
 }
+function pvpHeld(raid, log2) {
+  const taken = log2.result.loot.reduce((sum, l) => sum + l.amounts.reduce((a, b) => a + b, 0), 0);
+  const could = Math.min(raid.hold, log2.result.lootable);
+  return log2.result.damaged.length === 0 && taken <= PVP.heldLoot * could + 1e-9;
+}
 function recordDefense(s, d) {
   const p = s.pvp;
   p.defended = [...p.defended.filter((x) => x.id !== d.id && x.at > d.at - PVP.keepMs), d];
@@ -15091,15 +15098,13 @@ function forecastWave(state) {
   const key = `${wave.id}|${state.seed}|${state.face}|${terraformKey(state)}|${pathsKey(state.paths)}|${seasonOf(state)}|${JSON.stringify(rest)}`;
   let trials = forecastCache.get(key);
   if (!trials) {
-    trials = lucks.map(
-      (luck, i) => doorPass(state, wave, luck) <= 0 ? heldOutcome(defense) : battleOutcome(
-        state,
-        threat,
-        defense,
-        sheltered,
-        simulateBattle(luck === 1 ? average : setupAt(luck), `${wave.id}/trial/${i}`)
-      )
-    );
+    const raid = wave.pvp ? state.pvp.incoming.find((r) => r.id === wave.pvp) : void 0;
+    trials = lucks.map((luck, i) => {
+      if (doorPass(state, wave, luck) <= 0) return heldOutcome(defense);
+      const log2 = simulateBattle(luck === 1 ? average : setupAt(luck), `${wave.id}/trial/${i}`);
+      const out = battleOutcome(state, threat, defense, sheltered, log2);
+      return raid ? { ...out, victory: pvpHeld(raid, log2) } : out;
+    });
     forecastCache.set(key, trials);
     if (forecastCache.size > 16) forecastCache.delete(forecastCache.keys().next().value);
   }
@@ -15195,7 +15200,10 @@ function strike2(s, wave, events) {
   const log2 = waveBattle(s, wave, luck, seed);
   if (crystalUsed > 0) payCrystal(s, crystalUsed);
   const out = battleOutcome(s, threat, defense, sheltered, log2);
-  if (raid) out.deaths = 0;
+  if (raid) {
+    out.deaths = 0;
+    out.victory = pvpHeld(raid, log2);
+  }
   const shots = Object.values(log2.result.shots).reduce((a, b) => a + b, 0);
   const ammoUsed = Math.min(s.resources.seeds, shots);
   s.resources.seeds -= ammoUsed;
@@ -28834,6 +28842,7 @@ export {
   pvpDue,
   pvpForecast,
   pvpGuardOf,
+  pvpHeld,
   pvpLock,
   pvpOutcome,
   pvpRaidOf,

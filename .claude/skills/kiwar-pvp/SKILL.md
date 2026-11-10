@@ -56,6 +56,8 @@ loose records (written by the server only).
   its side, carry capped by `hold`, PVP loot shares, `orders[1].retreatBelow = retreatAt`,
   `setup.trackLost` (fallen attackers in `result.lost`). `uncoveredGates` and `defenseOf`
   (`sectorThreat` focus) treat it as one ground pack on one side.
+- `pvpHeld(raid, log)`: the defence held = nothing damaged and loot ≤ `PVP.heldLoot` of
+  min(hold, lootable) — not the wave's 35 % rule; `strike` and `forecastWave` use it.
 - `nextPvpEvent` (only raids with units) → `pvpTick` (a shield raised meanwhile turns it back:
   `turnedBack`) → `strike` (pvp branch: shield, `pvpHeld`, `recordDefense(pvpDefenseEnd)`,
   no change to `threats.waves` / `lastWaveAt` / `next`; event `waveStruck { pvp: true }`).

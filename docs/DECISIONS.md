@@ -3868,6 +3868,10 @@ From the chantier document's decisions (owner, 26 October 2026) and the owner's 
 - **Loot**: 50 % of each warehouse's reserves, then 10 % of the stock above the protected part,
   all capped by the hold left once crew and provisions are aboard; never iron, crystal, giant
   seeds or stardust (they are not in the storage). Damage ≤ `THREATS.maxDamaged`, repairable.
+- **When the defence holds**: nothing damaged and the crew carried away at most 10 %
+  (`PVP.heldLoot`) of what it could have taken (its hold, or what lay there if less). The wave's
+  rule (35 % of everything lootable) called a crew leaving with a full hold "a defence held"
+  (seen in the first PvP probe).
 - **The attack follows the landing's rules**: a victory (the target did not hold) brings its
   fallen home wounded; a retreat (the target held, someone ran back) or a defeat (nobody came
   back) kills them and leaves their gear; a defeat damages the launchpad (the ship is lost).

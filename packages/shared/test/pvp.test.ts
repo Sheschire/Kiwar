@@ -229,6 +229,25 @@ describe('chantier 57: the attack played at the target', () => {
     expect(after.threats.waves).toBe(d.threats.waves);
   });
 
+  it('a crew that fills its hold and gets away is a pillage, not a defence held', () => {
+    const { d, raid } = launched(attacker('pvp-att', 6, 20), defender().s, [
+      'ax0',
+      'ax1',
+      'ax2',
+      'ax3',
+      'ax4',
+      'ax5',
+    ]);
+    const after = advance(d, raid.at + 1000).state;
+    const end = after.pvp.defended.at(-1)!;
+    const taken = Object.values(end.loot).reduce((a, b) => a + b, 0);
+    expect(taken).toBeGreaterThan(PVP.heldLoot * raid.hold);
+    expect(end.held).toBe(false);
+    expect(pvpOutcome(end)).toBe('victory');
+    expect(after.stats.pvpHeld).toBe(0);
+    expect(after.threats.reports.at(-1)!.victory).toBe(false);
+  });
+
   it('is the same battle every time (the journal holds)', () => {
     const { d, raid } = launched(attacker(), defender(1).s, ['ax0', 'ax1', 'ax2']);
     const a = advance(cloneState(d), raid.at + 1000).state.pvp.defended.at(-1)!;
