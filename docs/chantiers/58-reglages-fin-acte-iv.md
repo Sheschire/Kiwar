@@ -38,6 +38,9 @@ L'acte IV allonge la partie jusqu'à un mois : il faut mesurer sur la durée.
   - les Tréfonds de la seconde colonie (défaut du 52) ;
   - les échanges entre faces alliées (restés à l'état d'idée) ;
   - le ressenti à jouer (la tranche, les ligues, le JcJ).
+  - le JcJ (chantier 57) : bot contre bot, toutes les défenses tiennent et l'équipage de 6
+    perd 4 à 5 kiwis sans butin (`pnpm balance:pvp`) ; taille d'équipage, tir des tourelles
+    sur les kiwis, pronostic de l'attaquant·e.
 - **Décisions à prendre avec le porteur** pour un éventuel acte V.
 
 ## Découpage proposé

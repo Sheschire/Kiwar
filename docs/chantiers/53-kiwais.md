@@ -115,7 +115,7 @@ Décision du porteur en session : **les modules à part** (une petite carte par 
 5. **Client** : kiwaïs tranchés vert-bronze dans le ciel, navette, bouclier ; écran Orbite
    (carte 2D pour poser, équipage, risques) ; bouton, menu téléphone, toasts.
 6. **Bot et docs** : le bot construit, lance, équipe et pare ; sonde `pnpm --filter
-   @kiwar/balance orbit` ; skill `kiwar-orbit`.
+@kiwar/balance orbit` ; skill `kiwar-orbit`.
 
 **Mesures** (détails dans `DECISIONS.md`) : premier kiwaï aux jours **23,8 ; 26,9 ; 27,5**
 (cible 22–24), après cinq séries de sondes.

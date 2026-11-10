@@ -99,4 +99,6 @@ loose records (written by the server only).
 - Feat `pvpHeld` (tiers 1, 5, 15, 40, group conquest); pillages count for nothing.
 - `pnpm balance:pvp [--seeds 6] [--days 12]` (`tools/balance/src/pvp.ts`): two attentive bots
   played apart, snapshots at days 4–12, attacks under the real rules (the defender brings its
-  reserves back an hour before). Slow: ~6 min per pair and 6 days.
+  reserves back an hour before). Slow: ~6 min per pair and 6 days. End of chantier 57 (3 pairs,
+  days 4–10): every attack held, 4–5.3 of 6 attackers dead, no loot, no defender hurt (the
+  turrets stop a crew before it reaches a building).

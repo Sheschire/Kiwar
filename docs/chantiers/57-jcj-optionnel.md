@@ -117,8 +117,15 @@ Fait, partie par partie :
    planificateur, rapports et rejeu 2D, lignes de chat, Nouveautés.
 6. **Ligues, bot, docs** : haut fait `pvpHeld`, sonde `pnpm balance:pvp`, skill `kiwar-pvp`.
 
+Mesures (`pnpm balance:pvp --seeds 3 --days 10`, bot attentif contre bot attentif, 6 kiwis) :
+toutes les attaques sont tenues (jours 4 à 10), 4 à 5,3 attaquant·es mort·es sur 6, aucun
+butin, aucun·e défenseur·e blessé·e : l'équipage tombe sous les tourelles avant d'atteindre un
+bâtiment. Une colonie défendue est hors de portée ; attaquer ne paie que contre une défense
+négligée. À peser au chantier 58, après les parties entre ami·es.
+
 Reste (chantier 58 ou plus tard) :
 
+- l'**équilibre attaque / défense** (mesures ci-dessus) ;
 - un **pronostic** chez l'attaquant·e (aujourd'hui : défense publique, tourelles vues, notre
   puissance ; pas de cote) ;
 - le **rejeu 3D** d'une attaque chez l'attaquant·e (2D aujourd'hui) et un spectacle en direct

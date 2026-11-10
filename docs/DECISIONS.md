@@ -3889,6 +3889,16 @@ From the chantier document's decisions (owner, 26 October 2026) and the owner's 
   realtime) for the chat lines; the `universes.pvp` column already existed.
 - Save v46 (`state.pvp`, `stats.pvpHeld`, `Expedition.pvpSector`).
 
+### Measures (`pnpm balance:pvp --seeds 3 --days 10`)
+
+Attentive bot against attentive bot, 6 strongest kiwis, bold, retreat at 50 %, the defender
+bringing its reserves back an hour before: **every attack held** (days 4–10, 11 attacks; one
+not launched on day 4 for lack of fibre and juice), **4 to 5.3 attackers dead** out of 6,
+**no loot**, **no defender dead or hurt**: the crew falls to the turrets before reaching a
+building. A defended colony is out of reach of a crew of six at these ages; the attack pays
+only against a neglected defence. To weigh in chantier 58 (crew size, a lighter turret fire
+against kiwis, the forecast the attacker lacks) after the owner has played it with friends.
+
 ### To test with the owner (feelings)
 
 - Being attacked by a real person: is the notice long enough, is the loss bearable, does the

@@ -143,14 +143,14 @@ Chemins sous `packages/shared/src/`.
 
 Probes of 14 days (scratch `runBot`, attentive unless said):
 
-| Seed | Industry | First locule | Locules (day 14) | Rooms | Retreats | Dead | Upwellings (lost) | Crystal at cap | Seeds at cap | Trees | Locule eggs |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| p1 Kiwisu | 6.7 d | 8.6 d | 6 / 42 | 15 | 0 | 0 | 5 (0) | 3 % | 0 % | 4 | 4 |
-| p2 Kiwino ¹ | 8.2 d | 11.4 d | 4 / 38 | 17 | 3 | 5 | 5 (0) | 0 % | 0 % | 2 | 0 |
-| p3 Kiwisu | 8.4 d | 13.6 d | 1 / 30 | 15 | 3 | 5 | 5 (0) | 0 % | 0 % | 1 | 0 |
-| p4 Kiwino | 7.1 d | 10.2 d | 5 / 37 | 17 | 4 | 8 | 4 (0) | 0 % | 0 % | 4 | 2 |
-| p5 Kiwisu, occasional ² | 11.2 d | — | 0 | 5 | 0 | 0 | 5 (0) | — | — | 0 | 0 |
-| p6 Kiwino, occasional ² | 12.2 d | — | 0 | 4 | 0 | 0 | 4 (0) | — | — | 0 | 0 |
+| Seed                    | Industry | First locule | Locules (day 14) | Rooms | Retreats | Dead | Upwellings (lost) | Crystal at cap | Seeds at cap | Trees | Locule eggs |
+| ----------------------- | -------- | ------------ | ---------------- | ----- | -------- | ---- | ----------------- | -------------- | ------------ | ----- | ----------- |
+| p1 Kiwisu               | 6.7 d    | 8.6 d        | 6 / 42           | 15    | 0        | 0    | 5 (0)             | 3 %            | 0 %          | 4     | 4           |
+| p2 Kiwino ¹             | 8.2 d    | 11.4 d       | 4 / 38           | 17    | 3        | 5    | 5 (0)             | 0 %            | 0 %          | 2     | 0           |
+| p3 Kiwisu               | 8.4 d    | 13.6 d       | 1 / 30           | 15    | 3        | 5    | 5 (0)             | 0 %            | 0 %          | 1     | 0           |
+| p4 Kiwino               | 7.1 d    | 10.2 d       | 5 / 37           | 17    | 4        | 8    | 4 (0)             | 0 %            | 0 %          | 4     | 2           |
+| p5 Kiwisu, occasional ² | 11.2 d   | —            | 0                | 5     | 0        | 0    | 5 (0)             | —              | —            | 0     | 0           |
+| p6 Kiwino, occasional ² | 12.2 d   | —            | 0                | 4     | 0        | 0    | 4 (0)             | —              | —            | 0     | 0           |
 
 ¹ before the last two fixes (tree from Nest 7, tree decision first). ² before the locules'
 tuning (they never reach a locule).

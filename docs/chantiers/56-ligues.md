@@ -115,4 +115,3 @@ Reste :
   (chaque fruit visité, un comptoir) une fois faits ;
 - à tester avec le porteur : la compétition saine ou la pression, les points, la durée d'une
   saison, le rendu des cosmétiques.
-

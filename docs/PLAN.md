@@ -153,7 +153,8 @@ jamais de kiwi (la moitié des réserves et un dixième du stock non protégé a
 vaisseau). Protections : débuts (Pierre et 72 h, levée en attaquant), bouclier 24 h, absence
 3 jours, une attaque par jour et par cible. L'attaque suit les règles du débarquement. Chat
 (table `pvp_battles`, migration `20261110000000_pvp.sql`), haut fait `pvpHeld`, sonde
-`pnpm balance:pvp`. Sauvegarde v46. Skill `kiwar-pvp`.
+`pnpm balance:pvp` (bot contre bot : toutes les défenses tiennent, 4 à 5 attaquant·es mort·es
+sur 6, pas de butin — à peser au 58). Sauvegarde v46. Skill `kiwar-pvp`.
 **Prochaine conversation** : le [chantier 58](chantiers/58-reglages-fin-acte-iv.md) (réglages
 et bilan de l'acte IV).
 À tester avec le porteur : le JcJ entre ami·es (le préavis suffit-il, la perte est-elle
