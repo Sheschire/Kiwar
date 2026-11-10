@@ -1,6 +1,7 @@
 import { OrbitModal } from './components/OrbitModal';
 import { OrchardModal } from './components/OrchardModal';
 import { LeagueModal } from './components/LeagueModal';
+import { PatchNotesModal } from './components/PatchNotesModal';
 import { DepthsModal } from './components/DepthsModal';
 import { Compass } from './components/Compass';
 import { useEffect } from 'preact/hooks';
@@ -290,6 +291,7 @@ export function App() {
         {modal === 'league' && <LeagueModal />}
         {modal === 'orbit' && <OrbitModal />}
         {modal === 'orchard' && <OrchardModal />}
+        {modal === 'patchNotes' && <PatchNotesModal />}
         {bestiaryOpen && <BestiaryModal />}
         <JoinModal />
         <ChatPanel />

@@ -168,6 +168,9 @@ d'une vague regardée (36) et le temps mort du début de la Pierre (31).
 
 ## Règles transverses à retenir
 
+- **Nouveautés** : toute mise à jour visible par les joueur·ses ajoute une entrée en tête de
+  `apps/client/src/i18n/patchNotes.ts`, en français et en anglais (skill `kiwar-workflow`).
+  La fenêtre s'ouvre une fois au démarrage suivant, et reste dans le menu « ⋯ » / du bas.
 - **Deux colonies** : tout ce qui touche un état de jeu doit marcher dans les deux colonies
   (chantier 19, skill `kiwar-colonies`). Une sœur n'a ni cibles ni `aliens` et ne termine jamais
   une technologie.

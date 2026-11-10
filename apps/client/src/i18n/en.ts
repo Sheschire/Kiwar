@@ -3213,6 +3213,12 @@ export const en = {
       back: 'The shuttle is back.',
     },
   },
+  patchNotes: {
+    title: 'What’s new',
+    button: 'What’s new',
+    new: 'New',
+    ok: 'Got it!',
+  },
   league: {
     button: 'League',
     title: 'League',

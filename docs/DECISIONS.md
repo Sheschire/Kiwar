@@ -3811,3 +3811,23 @@ From the chantier document's decisions and the owner's answers of 9 November 202
 To test with the owner: choosing the apple's window (two days a stage), the bromelain's feel
 (18 % before a fight, 36 h at the post), the crown, the routes' upkeep, the gilding and the
 cider evening.
+
+## Feature (November 2026) — Patch notes ("Nouveautés" / "What's new")
+
+Owner's request: a patch notes window when something new ships, in French and English following
+the game's language, kept up to date by every later update (any agent).
+
+- **Data**: `apps/client/src/i18n/patchNotes.ts`, newest first, one entry per update players
+  can see or feel (`id` `YYYY-MM-DD-slug`, date, title and lines in FR + EN). Client only, no
+  SQL, no save change. Seeded with the updates of 30 October – 10 November 2026 (chantiers 48 to
+  55, the leagues, the stardust and universe hotfixes, the lighter top bar).
+- **When it opens** (defaults chosen by Claude): once at start when the newest `id` differs from
+  `localStorage` `kiwar.patchSeen`, as soon as nothing else is on screen (offline summary,
+  intro, invite, pending world). A first visit (intro not seen, no progress) marks everything
+  read silently. A player from before the log sees every entry once. The unread entries carry a
+  "New" badge; closing marks the newest as read.
+- **Always reachable**: an entry "Nouveautés" in the desktop "⋯" menu and in the Settings group
+  of the phone menu.
+- **Rule for every later update**: CLAUDE.md and the `kiwar-workflow` skill (pre-push step);
+  `apps/client/test/patchNotes.test.ts` checks unique ids, newest first and both languages line
+  for line.

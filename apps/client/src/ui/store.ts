@@ -56,7 +56,9 @@ export type Modal =
   /** Chantier 53: the kiwais in orbit. */
   | 'orbit'
   /** Chantier 54: the orchard (the raspberry and our trading post). */
-  | 'orchard';
+  | 'orchard'
+  /** The patch notes ("What's new"). */
+  | 'patchNotes';
 
 /** A planner opened on a mission: the settlers' ship, or a landing on a given parcel (chantier 40). */
 export interface SiegePlan {
@@ -125,6 +127,8 @@ export interface UiState {
   universe: UniverseInfo | null;
   /** Invite code from a `?join=` link, waiting for confirmation. */
   pendingJoin: string | null;
+  /** How many patch notes were new when the "What's new" window opened (highlighted). */
+  patchNotesFresh: number;
   chatOpen: boolean;
   chat: ChatMessage[];
   /** Chantier 56: the league's feats shown as lines in the chat. */
@@ -302,6 +306,7 @@ export const uiStore = createStore<UiState>(() => ({
   unreadReports: [],
   universe: null,
   pendingJoin: null,
+  patchNotesFresh: 0,
   chatOpen: false,
   chat: [],
   chatFeats: [],

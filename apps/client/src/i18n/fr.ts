@@ -3359,6 +3359,12 @@ export const fr: Dict = {
       back: 'La navette est rentrée.',
     },
   },
+  patchNotes: {
+    title: 'Nouveautés',
+    button: 'Nouveautés',
+    new: 'Nouveau',
+    ok: 'C’est noté !',
+  },
   league: {
     button: 'Ligue',
     title: 'Ligue',

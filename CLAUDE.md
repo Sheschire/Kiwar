@@ -76,6 +76,10 @@ grow a colony on a kiwi-fruit planet cut in two faces (Kiwisu / Kiwino).
 - **Database changes**: always a new file in `supabase/migrations/`, then `pnpm build:sql`, and
   **give the owner the complete SQL, ready to copy-paste** into the Supabase SQL Editor (in your
   final answer, with the execution order). Never edit an applied migration.
+- **Patch notes ("Nouveautés" / "What's new")**: every update a player can see or feel (new
+  mechanic, screen, balance change, fix) adds an entry at the top of
+  `apps/client/src/i18n/patchNotes.ts`, in French AND English, in the same commit — whichever
+  agent or chantier does the work. Players get the window once at their next start.
 - **Keep the skills, `docs/PLAN.md` and the chantier document up to date** at the end of each
   chantier (create a new skill when a chantier opens a new domain), and whenever you learn
   something about the codebase that the next conversation would need.

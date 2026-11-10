@@ -38,8 +38,14 @@ pnpm workspaces:
 2. `pnpm build:functions` if shared changed.
 3. `pnpm typecheck && pnpm lint && pnpm test` (+ `pnpm test:db` if SQL changed, `pnpm build` if
    client changed).
-4. For visible changes, take a desktop and a phone screenshot (see `kiwar-client`).
-5. Re-read the diff: no model names in commits/code, no debug leftovers.
+4. **Patch notes**: if players can see or feel the change (mechanic, screen, numbers, fix), add
+   an entry at the TOP of `apps/client/src/i18n/patchNotes.ts` (new id `YYYY-MM-DD-slug`,
+   FR + EN with the same number of lines, player wording, gender-neutral French). Several
+   commits of one chantier share one entry (extend it rather than stacking; once it was pushed,
+   also give it today's id and date so players see it again). The test
+   `apps/client/test/patchNotes.test.ts` checks ids, order and both languages.
+5. For visible changes, take a desktop and a phone screenshot (see `kiwar-client`).
+6. Re-read the diff: no model names in commits/code, no debug leftovers.
 
 ## Commits
 
@@ -75,6 +81,7 @@ them. A brand-new project only needs `supabase/setup.sql`.
 
 ## End of a chantier
 
-Update `docs/DECISIONS.md`, `README.md` (French status block), `docs/PLAN.md` (state), the
+Update the patch notes (`apps/client/src/i18n/patchNotes.ts`), `docs/DECISIONS.md`, `README.md`
+(French status block), `docs/PLAN.md` (state), the
 chantier document in `docs/chantiers/` (done / left), and **the skills** (create one for a new
 domain, e.g. `kiwar-audio`, `kiwar-rpg`) with anything the next conversation must know.

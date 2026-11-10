@@ -28,6 +28,7 @@ import { pushToast, uiStore } from './ui/store';
 import { gpuTipDismissed } from './ui/components/GpuTip';
 import { actions, bindActions } from './ui/actions';
 import { bindIntro, introSeen, startIntro } from './ui/intro';
+import { offerPatchNotes } from './ui/patchNotes';
 import { clearUrlParams, randomSeed, readUrlParams } from './game/urlParams';
 import { gpuRendererName, loadQualityChoice, slowFramesTip } from './render/quality';
 import { loadFpsCap } from './render/frameLimiter';
@@ -481,6 +482,8 @@ async function boot(): Promise<void> {
   const hadLocalColony = !controller.isOnline && controller.hasProgress();
   await controller.start(hadLocalColony ? null : linkWorld, randomSeed);
   const s = controller.state;
+  // Nothing stored and nothing played: a first visit, the patch notes are not news.
+  offerPatchNotes(!introSeen() && !controller.hasProgress());
   if (url.join) {
     // Invite link: ask for confirmation (and a name) before joining.
     if (controller.isOnline) uiStore.setState({ pendingJoin: url.join });

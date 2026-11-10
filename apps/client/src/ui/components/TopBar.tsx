@@ -751,7 +751,8 @@ function MoreMenu() {
     fn();
     setOpen(false);
   };
-  const active = modal === 'league' || modal === 'universe' || modal === 'settings';
+  const active =
+    modal === 'league' || modal === 'universe' || modal === 'settings' || modal === 'patchNotes';
   return (
     <div class="more-wrap" ref={wrapRef}>
       <button
@@ -808,6 +809,14 @@ function MoreMenu() {
           >
             <GearIcon size={22} />
             {t('hud.settings')}
+          </button>
+          <button
+            role="menuitem"
+            class="more-item"
+            onClick={go(() => uiStore.setState({ modal: 'patchNotes', patchNotesFresh: 0 }))}
+          >
+            <ScrollIcon size={22} />
+            {t('patchNotes.button')}
           </button>
         </div>
       )}

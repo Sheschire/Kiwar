@@ -407,6 +407,12 @@ function NavMenu() {
           >
             <GearIcon size={28} />
           </Entry>
+          <Entry
+            label={t('patchNotes.button')}
+            onClick={go(() => uiStore.setState({ modal: 'patchNotes', patchNotesFresh: 0 }))}
+          >
+            <ScrollIcon size={28} />
+          </Entry>
         </Group>
       </aside>
     </>

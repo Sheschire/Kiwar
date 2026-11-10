@@ -63,6 +63,10 @@ description: Kiwar client architecture (Three.js renderer, Preact UI, zustand st
 - Chantier 08, second half (`kiwar-titans`): `render/obstacles.ts`, `render/kikiwiwi.ts`
   (Kikiwiwis posed from `KiwisView`), the `lab` model, `LabInfo.tsx`, `TitanWorks.tsx`;
   `renderer.reshape(map)` redraws a reshaped face without moving the camera.
+- Patch notes ("What's new"): data `i18n/patchNotes.ts` (FR + EN per entry, newest first —
+  add one for every player-visible update), logic `ui/patchNotes.ts` (`offerPatchNotes` at boot,
+  `kiwar.patchSeen`), `PatchNotesModal.tsx` (`modal: 'patchNotes'`, `patchNotesFresh`), entries
+  in the "⋯" menu and the phone menu's Settings group.
 - Chantier 08 (`kiwar-ages`): models take the age (`buildingModel(type, level, shipAway, age)`;
   levels 4–6 grown from level 3, age dressing), `ResearchModal.tsx` (plans screen, `AgeInfo`),
   Library and monument sheets, paths by age.
