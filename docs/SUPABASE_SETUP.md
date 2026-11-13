@@ -89,6 +89,7 @@ Migrations, dans l'ordre :
 | `20261105000000_leagues.sql`            | ligues : saisons, hauts faits, titres, cosmétiques portés  |
 | `20261107000000_orchard.sql`            | Verger : graine secrète de l'univers (`universe_secrets`)  |
 | `20261110000000_pvp.sql`                | JcJ : batailles entre joueur·euses pour le chat            |
+| `20261113000000_idle_guests.sql`        | Ménage : purge des invité·es inactif·ves (`purge_idle_guests`) |
 
 ## 4. Fonction serveur `game`
 
@@ -147,8 +148,13 @@ Le chat en direct utilise **Realtime** : la migration ajoute `chat_messages` à 
   L'espace admin affiche l'uuid du compte connecté et la requête `insert` à lancer s'il n'est
   pas encore admin.
 - Les messages signalés se lisent dans _Table editor → chat_reports_.
-- Pour purger régulièrement le journal (plus de 30 jours), planifiez avec pg_cron :
+- Ménage automatique avec pg_cron (_Database → Extensions → pg_cron_, ou
+  `create extension if not exists pg_cron;`) :
   `select cron.schedule('purge-kiwar-log', '0 4 * * *', 'select public.purge_command_log()');`
+  (journal de plus de 30 jours) et
+  `select cron.schedule('purge-kiwar-guests', '30 4 * * *', 'select public.purge_idle_guests(false)');`
+  (invité·es anonymes inactif·ves depuis 7 jours, sans univers partagé, colonie à peine
+  touchée). `select public.purge_idle_guests();` compte sans rien supprimer.
 
 ## Développer en ligne sans Supabase
 

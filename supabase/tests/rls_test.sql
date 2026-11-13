@@ -398,4 +398,38 @@ begin
 end $$;
 reset role;
 
+-- Housekeeping: only idle guests are purged, and players cannot call it.
+insert into auth.users (id, is_anonymous, created_at, last_sign_in_at) values
+  ('a0000000-0000-0000-0000-000000000001', true, now() - interval '30 days', null),
+  ('a0000000-0000-0000-0000-000000000002', true, now() - interval '30 days', null),
+  ('a0000000-0000-0000-0000-000000000003', true, now() - interval '30 days', null),
+  ('a0000000-0000-0000-0000-000000000004', true, now() - interval '1 day', null),
+  ('a0000000-0000-0000-0000-000000000005', false, now() - interval '30 days', null);
+insert into public.games (user_id, universe_id, face, state, version) values
+  ('a0000000-0000-0000-0000-000000000001', 'solo-a1', 'kiwisu', '{}', 2),
+  ('a0000000-0000-0000-0000-000000000002', 'solo-a2', 'kiwisu', '{}', 40);
+do $$
+declare n int;
+begin
+  -- Guest 1 (idle colony) and guest 3 (no colony) go; 2 played, 4 is new, 5 has an account.
+  n := public.purge_idle_guests();
+  if n <> 2 then raise exception 'dry run should count 2 idle guests, got %', n; end if;
+  if not exists (select 1 from auth.users where id = 'a0000000-0000-0000-0000-000000000001')
+    then raise exception 'the dry run deleted a guest'; end if;
+  n := public.purge_idle_guests(false);
+  if n <> 2 then raise exception 'should purge 2 idle guests, got %', n; end if;
+  select count(*) into n from auth.users where id::text like 'a0000000-%';
+  if n <> 3 then raise exception 'expected 3 users left, got %', n; end if;
+  select count(*) into n from public.games where user_id = 'a0000000-0000-0000-0000-000000000001';
+  if n <> 0 then raise exception 'the idle guest''s colony should go with them'; end if;
+end $$;
+set role authenticated;
+do $$
+begin
+  perform public.purge_idle_guests();
+  raise exception 'a player could call purge_idle_guests';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+
 select 'Universe and chat RLS tests passed' as result;
