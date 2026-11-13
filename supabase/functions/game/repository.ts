@@ -169,6 +169,18 @@ export function createSupabaseRepository(db: SupabaseClient) {
       if (legacyGames && colony === 1) return null;
       return data ? toGame(data as GameRow) : null;
     },
+    async findGames(universeId: string, userIds: string[]) {
+      const { data, error } = await tolerantGames(() => {
+        const q = db
+          .from('games')
+          .select(gameColumns())
+          .eq('universe_id', universeId)
+          .in('user_id', userIds);
+        return legacyGames ? q : q.eq('colony', 0);
+      });
+      if (error) fail('findGames', error);
+      return ((data ?? []) as GameRow[]).map(toGame);
+    },
     async create(userId: string, universeId: string, state: State, colony: 0 | 1 = 0) {
       const insert = () =>
         db
@@ -200,10 +212,11 @@ export function createSupabaseRepository(db: SupabaseClient) {
         })
         .eq('id', gameId)
         .eq('version', expectedVersion)
-        .select(gameColumns())
+        // Egress: the state is already in memory, never read it back (it weighs up to 160 kB).
+        .select(gameColumns().replace('state, ', ''))
         .maybeSingle();
       if (error) fail('update', error);
-      return data ? toGame(data as GameRow) : null;
+      return data ? toGame({ ...(data as Omit<GameRow, 'state'>), state }) : null;
     },
     async countRecentCommands(uid: string, sinceMs: number) {
       const { count, error } = await db

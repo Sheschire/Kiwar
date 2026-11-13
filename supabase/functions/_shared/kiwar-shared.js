@@ -26149,6 +26149,11 @@ var requestSchema = external_exports.discriminatedUnion("action", [
     action: external_exports.literal("load"),
     universe,
     colony,
+    /**
+     * Only the colony (no neighbours): the client's polls for the server's news. Egress: the
+     * neighbours are every other member's whole game read from the database.
+     */
+    light: external_exports.boolean().optional(),
     /** World to create if the player has none yet (e.g. from a shared link). */
     create: external_exports.object({ seed: external_exports.string().min(1).max(64).optional(), face: external_exports.enum(FACES) }).optional()
   }),
@@ -26906,9 +26911,14 @@ async function neighboursOf(repo, info, me, now) {
     ]);
     return looksOf(titles, players);
   }, /* @__PURE__ */ new Map());
+  const games = await homeGamesOf(
+    repo,
+    info.id,
+    others.map((m) => m.userId)
+  );
   const snapshots = await Promise.all(
     others.map(async (m) => {
-      const game = await repo.findGame(m.userId, info.id);
+      const game = games.get(m.userId);
       if (!game) return null;
       const s = game.state;
       return {
@@ -26936,6 +26946,13 @@ async function neighboursOf(repo, info, me, now) {
   const twin = all.find((a) => a.kiwiIndex === me.kiwiIndex && a.face !== me.face) ?? null;
   const leagueLook = looks.get(me.userId);
   return { twin, allies: all.filter((a) => a !== twin), ...leagueLook ? { leagueLook } : {} };
+}
+async function homeGamesOf(repo, universeId, userIds) {
+  if (userIds.length === 0) return /* @__PURE__ */ new Map();
+  const games = repo.findGames ? await repo.findGames(universeId, userIds) : (await Promise.all(userIds.map((u) => repo.findGame(u, universeId)))).filter(
+    (g) => g !== null
+  );
+  return new Map(games.map((g) => [g.userId, g]));
 }
 function roomOf(s) {
   const cap = capacity(s);
@@ -27398,7 +27415,7 @@ async function handle(ctx, body) {
     case "load": {
       const scope = await resolveScope(ctx, repo, req.universe);
       if (!scope) return fail2("forbidden");
-      const near = scope.shared ? await neighboursOf(repo, scope.shared.info, scope.shared.me, ctx.now()) : {};
+      const near = scope.shared && !req.light ? await neighboursOf(repo, scope.shared.info, scope.shared.me, ctx.now()) : {};
       if (req.colony === 1) {
         const pair = await linkColonies(ctx, repo, scope);
         if (!pair.sister) return fail2("invalidRequest");
@@ -27736,7 +27753,18 @@ function migrating(repo) {
       if (!migrated.ok)
         throw new Error(`Stored game ${game.id} is unreadable (${migrated.reason})`);
       return { ...game, state: migrated.state };
-    }
+    },
+    ...repo.findGames ? {
+      async findGames(universeId, userIds) {
+        const games = await repo.findGames(universeId, userIds);
+        return games.map((game) => {
+          const migrated = migrateState(game.state);
+          if (!migrated.ok)
+            throw new Error(`Stored game ${game.id} is unreadable (${migrated.reason})`);
+          return { ...game, state: migrated.state };
+        });
+      }
+    } : {}
   };
 }
 function createMemoryRepository() {
@@ -27762,6 +27790,11 @@ function createMemoryRepository() {
         if (g.userId === userId && g.universeId === universeId && (g.colony ?? 0) === colony2)
           return clone(g);
       return null;
+    },
+    async findGames(universeId, userIds) {
+      return [...games.values()].filter(
+        (g) => g.universeId === universeId && (g.colony ?? 0) === 0 && userIds.includes(g.userId)
+      ).map(clone);
     },
     async create(userId, universeId, state, colony2 = 0) {
       for (const g2 of games.values())

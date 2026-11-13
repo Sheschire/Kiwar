@@ -347,6 +347,11 @@ export const requestSchema = z.discriminatedUnion('action', [
     action: z.literal('load'),
     universe,
     colony,
+    /**
+     * Only the colony (no neighbours): the client's polls for the server's news. Egress: the
+     * neighbours are every other member's whole game read from the database.
+     */
+    light: z.boolean().optional(),
     /** World to create if the player has none yet (e.g. from a shared link). */
     create: z
       .object({ seed: z.string().min(1).max(64).optional(), face: z.enum(FACES) })

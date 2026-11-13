@@ -79,8 +79,9 @@ const TICK_MS = 200;
 const OFFLINE_SUMMARY_MIN_MS = 60_000;
 /** Re-download the authoritative state when coming back after this long. */
 const RESYNC_AFTER_MS = 30_000;
-/** How often to ask the server about a landed ship. */
+/** How often to ask the server about a landed ship (doubled up to the max while nothing comes). */
 const REPORT_POLL_MS = 5_000;
+const REPORT_POLL_MAX_MS = 60_000;
 
 export type SyncStatus = 'local' | 'connecting' | 'online' | 'syncing' | 'offline';
 
@@ -197,6 +198,7 @@ export class GameController {
   private sisterKey = '';
   private tickTimer: number | undefined;
   private reportPolledAt = 0;
+  private reportDelay = REPORT_POLL_MS;
   private saveTimer: number | undefined;
 
   constructor(private readonly listener: ControllerListener) {
@@ -595,12 +597,15 @@ export class GameController {
     this.emitState(now);
     // A ship landed or a counter-attack struck: only the server knows (hidden garrisons).
     // Chantier 19: settlers landed, the server creates the sister colony.
-    if (
-      this.online &&
+    const awaiting =
+      !!this.online && (awaitingServer(this.state, now) || this.state.colony.founding !== null);
+    if (!awaiting) this.reportDelay = REPORT_POLL_MS;
+    else if (
       !this.flushing &&
       this.pending.length === 0 &&
-      Date.now() - this.reportPolledAt > REPORT_POLL_MS &&
-      (awaitingServer(this.state, now) || this.state.colony.founding !== null)
+      // Egress: a hidden tab does not poll (it reloads when it comes back).
+      document.visibilityState === 'visible' &&
+      Date.now() - this.reportPolledAt > this.reportDelay
     ) {
       this.reportPolledAt = Date.now();
       void this.fetchReports();
@@ -614,7 +619,13 @@ export class GameController {
         action: 'load',
         universe: this.universe,
         colony: this.colony,
+        light: true,
       });
+      // Nothing new: wait longer before asking again (a stuck wait must not poll every 5 s).
+      this.reportDelay =
+        res.ok && res.events.length > 0
+          ? REPORT_POLL_MS
+          : Math.min(REPORT_POLL_MAX_MS, this.reportDelay * 2);
       if (this.pending.length > 0) return;
       this.acceptServer(res);
       if (res.ok) this.emitColony(false, res.sister ?? null);
@@ -825,7 +836,8 @@ export class GameController {
   /** Creates or joins a universe and switches to it. Returns an error code on failure. */
   async enterUniverse(
     how:
-      { create: string; fromSolo?: boolean; pvp?: boolean } | { code: string; fromSolo?: boolean },
+      | { create: string; fromSolo?: boolean; pvp?: boolean }
+      | { code: string; fromSolo?: boolean },
     displayName: string,
   ): Promise<ClientError | null> {
     if (!this.online) return 'forbidden';

@@ -149,6 +149,11 @@ export interface UniverseRow {
 export interface GameRepository extends LeagueRepository, PvpRepository {
   /** Chantier 19: `colony` 1 is the sister colony (default 0, the home colony). */
   findGame(userId: string, universeId: string, colony?: 0 | 1): Promise<StoredGame | null>;
+  /**
+   * The home colonies of these players in a universe, in one read (egress: `neighboursOf` used
+   * to read them one by one on every load). Optional: falls back on `findGame`.
+   */
+  findGames?(universeId: string, userIds: string[]): Promise<StoredGame[]>;
   create(userId: string, universeId: string, state: GameState, colony?: 0 | 1): Promise<StoredGame>;
   /** Writes if the stored version still equals `expectedVersion`; returns null on conflict. */
   update(gameId: string, state: GameState, expectedVersion: number): Promise<StoredGame | null>;
@@ -506,9 +511,14 @@ async function neighboursOf(
     ]);
     return looksOf(titles, players);
   }, new Map<string, LeagueLook>());
+  const games = await homeGamesOf(
+    repo,
+    info.id,
+    others.map((m) => m.userId),
+  );
   const snapshots = await Promise.all(
     others.map(async (m): Promise<AllySnapshot | null> => {
-      const game = await repo.findGame(m.userId, info.id);
+      const game = games.get(m.userId);
       if (!game) return null;
       const s = game.state;
       return {
@@ -536,6 +546,21 @@ async function neighboursOf(
   const twin = all.find((a) => a.kiwiIndex === me.kiwiIndex && a.face !== me.face) ?? null;
   const leagueLook = looks.get(me.userId);
   return { twin, allies: all.filter((a) => a !== twin), ...(leagueLook ? { leagueLook } : {}) };
+}
+
+/** The home colonies of these players, by user id (one read when the repository can). */
+async function homeGamesOf(
+  repo: GameRepository,
+  universeId: string,
+  userIds: string[],
+): Promise<Map<string, StoredGame>> {
+  if (userIds.length === 0) return new Map();
+  const games = repo.findGames
+    ? await repo.findGames(universeId, userIds)
+    : (await Promise.all(userIds.map((u) => repo.findGame(u, universeId)))).filter(
+        (g): g is StoredGame => g !== null,
+      );
+  return new Map(games.map((g) => [g.userId, g]));
 }
 
 /** Free storage per resource, minus the gifts already on their way. */
@@ -1170,9 +1195,10 @@ async function handle(ctx: ServiceContext, body: unknown): Promise<GameResponse>
     case 'load': {
       const scope = await resolveScope(ctx, repo, req.universe);
       if (!scope) return fail('forbidden');
-      const near = scope.shared
-        ? await neighboursOf(repo, scope.shared.info, scope.shared.me, ctx.now())
-        : {};
+      const near =
+        scope.shared && !req.light
+          ? await neighboursOf(repo, scope.shared.info, scope.shared.me, ctx.now())
+          : {};
       if (req.colony === 1) {
         // Chantier 19: the sister colony (no hidden garrison there: nothing to resolve).
         const pair = await linkColonies(ctx, repo, scope);
@@ -1585,6 +1611,19 @@ function migrating(repo: GameRepository): GameRepository {
         throw new Error(`Stored game ${game.id} is unreadable (${migrated.reason})`);
       return { ...game, state: migrated.state };
     },
+    ...(repo.findGames
+      ? {
+          async findGames(universeId: string, userIds: string[]) {
+            const games = await repo.findGames!(universeId, userIds);
+            return games.map((game) => {
+              const migrated = migrateState(game.state);
+              if (!migrated.ok)
+                throw new Error(`Stored game ${game.id} is unreadable (${migrated.reason})`);
+              return { ...game, state: migrated.state };
+            });
+          },
+        }
+      : {}),
   };
 }
 
@@ -1616,6 +1655,13 @@ export function createMemoryRepository(): GameRepository & {
         if (g.userId === userId && g.universeId === universeId && (g.colony ?? 0) === colony)
           return clone(g);
       return null;
+    },
+    async findGames(universeId, userIds) {
+      return [...games.values()]
+        .filter(
+          (g) => g.universeId === universeId && (g.colony ?? 0) === 0 && userIds.includes(g.userId),
+        )
+        .map(clone);
     },
     async create(userId, universeId, state, colony = 0) {
       for (const g of games.values())

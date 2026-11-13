@@ -86,7 +86,7 @@ describe('universe helpers', () => {
 
 describe('shared universes (server)', () => {
   it('creates a universe, invites friends by code and gives each a face', async () => {
-    const { as, tick } = world();
+    const { as, tick, repo } = world();
     const created = ok(
       await handleGameRequest(as('alice'), {
         action: 'createUniverse',
@@ -122,6 +122,21 @@ describe('shared universes (server)', () => {
     expect(aliceLoad.twin).toBeNull();
     expect(aliceLoad.allies).toMatchObject([{ owner: 'Bob', kiwiIndex: 1, seed: bob.state.seed }]);
     expect(aliceLoad.allies![0]).not.toHaveProperty('resources');
+    // Egress: the client's polls ask for the colony only, never the neighbours' games.
+    const reads = { one: 0, many: 0 };
+    const { findGame, findGames } = repo;
+    repo.findGame = (...a) => (reads.one++, findGame(...a));
+    repo.findGames = (...a) => (reads.many++, findGames!(...a));
+    const light = ok(
+      await handleGameRequest(as('alice'), { action: 'load', universe: u.id, light: true }),
+    );
+    expect(light.allies).toBeUndefined();
+    expect(light.state).toEqual(aliceLoad.state);
+    expect(reads).toEqual({ one: 1, many: 0 });
+    // A full load reads the neighbours in one go.
+    ok(await handleGameRequest(as('alice'), { action: 'load', universe: u.id }));
+    expect(reads).toEqual({ one: 2, many: 1 });
+    Object.assign(repo, { findGame, findGames });
     expect(aliceLoad.state.targets.map((t) => t.id)).toEqual([
       'aliens:0:kiwino',
       'aliens:1:kiwino',

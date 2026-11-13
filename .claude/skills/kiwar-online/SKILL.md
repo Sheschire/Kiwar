@@ -139,4 +139,11 @@ description: Kiwar online mode — Supabase schema and RLS, the `game` edge func
   `announcePvp` writes the attack into it; `load` runs `settlePvp` before the hidden loop.
   `publicState` strips `pvp.incoming[].units/seed`. Writing into another player's game: always
   idempotent by an id, with version retries (like `deliver`).
-
+- **Egress (hotfix, November 2026)**: the free plan's egress is 5 GB a month and states weigh
+  up to 160 kB. `load { light: true }` skips `neighboursOf` (the client's `fetchReports`
+  polls use it; the poll doubles its wait up to 60 s while nothing comes and stops in a
+  hidden tab). Neighbours come from one `repo.findGames` read; `repo.update` never selects
+  `state` back. Any new server path that reads other members' games, or a client loop that
+  calls the function, must count its bytes: diagnose with the Usage page, Edge Functions →
+  game → Overview (invocations per hour) and Logs → API Gateway (bursts of
+  `GET /rest/v1/games`).

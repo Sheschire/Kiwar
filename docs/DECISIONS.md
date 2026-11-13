@@ -3905,3 +3905,20 @@ against kiwis, the forecast the attacker lacks) after the owner has played it wi
   shield feel fair? Play it with friends before any tuning.
 - Is an attack worth it for the attacker (loot vs. the risk of dead kiwis and a lost ship)?
 - The lack of odds in the attacker's planner.
+
+## Hotfix — Supabase egress (November 2026)
+
+The free plan's 5 GB of egress were spent six times over (≈ 3.5 GB a day from 6 November):
+the edge function was called ≈ 1 300 times an hour while players sent ≈ 5 commands an hour.
+Every `load` in a shared universe read **every other member's whole game** (`neighboursOf`,
+one request each, states of 50–160 kB once the colonies grew), and the client's poll for the
+server's news (`fetchReports`) sent a full `load` every 5 s, hidden tab included.
+
+- `load { light: true }`: the colony only, no neighbours. The client's polls use it.
+- The poll doubles its wait (5 s → 60 s) while the answers bring no event, and stops while
+  the tab is hidden (the tab resyncs when it comes back).
+- `GameRepository.findGames(universeId, userIds)` (optional, falls back on `findGame`): the
+  neighbours are read in one request.
+- `repo.update` no longer reads the written state back (`select` without `state`).
+- To measure later: if egress stays high, the next lever is a projection of the neighbours'
+  states (only what `layoutSnapshot`, `colonyPower`, `roomOf` and `allyTwinOf` read).
